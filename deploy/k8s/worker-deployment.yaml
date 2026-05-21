@@ -1,0 +1,63 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: logic-worker
+  namespace: recruitment
+  labels:
+    app: logic-worker
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: logic-worker
+  template:
+    metadata:
+      labels:
+        app: logic-worker
+    spec:
+      terminationGracePeriodSeconds: 30
+      containers:
+        - name: worker
+          image: recruitment/logic-grpc-service:latest
+          command:
+            - /usr/local/bin/logic-grpc-service
+            - --worker-only
+          envFrom:
+            - configMapRef:
+                name: logic-config
+            - secretRef:
+                name: recruitment-secrets
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+            limits:
+              cpu: 300m
+              memory: 256Mi
+          readinessProbe:
+            exec:
+              command:
+                - /bin/sh
+                - -c
+                - kill -0 1
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          livenessProbe:
+            exec:
+              command:
+                - /bin/sh
+                - -c
+                - kill -0 1
+            initialDelaySeconds: 15
+            periodSeconds: 20
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: worker-pdb
+  namespace: recruitment
+spec:
+  maxUnavailable: 1
+  selector:
+    matchLabels:
+      app: logic-worker

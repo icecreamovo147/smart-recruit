@@ -1,0 +1,141 @@
+services:
+  mysql:
+    image: mysql:8.0
+    container_name: recruitment-mysql
+    restart: unless-stopped
+    command: --default-authentication-plugin=mysql_native_password
+    environment:
+      MYSQL_ROOT_PASSWORD: root123
+      MYSQL_DATABASE: recruitment
+    expose:
+      - "3306"
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+      - ../db.sql:/docker-entrypoint-initdb.d/01_init.sql:ro
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    container_name: recruitment-redis
+    restart: unless-stopped
+    expose:
+      - "6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+
+  rabbitmq:
+    image: rabbitmq:4.2.3-management-alpine
+    container_name: recruitment-rabbitmq
+    restart: unless-stopped
+    environment:
+      RABBITMQ_DEFAULT_USER: guest
+      RABBITMQ_DEFAULT_PASS: guest
+    expose:
+      - "5672"
+      - "15672"
+    ports:
+      - "15672:15672"
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "check_port_connectivity"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  logic-grpc-service:
+    build:
+      context: ..
+      dockerfile: docker/logic-grpc-service.Dockerfile
+    container_name: recruitment-logic
+    restart: unless-stopped
+    # gRPC 端口仅容器内网通信，不暴露到宿主机。
+    # 如需本地调试 gRPC 直连，临时取消注释下行。
+    # ports:
+    #   - "50051:50051"
+    environment:
+      CONFIG_PATH: /app/config/config.example.yaml
+      MYSQL_DSN: root:root123@tcp(mysql:3306)/recruitment?charset=utf8mb4&parseTime=True&loc=Local
+      JWT_SECRET: ${JWT_SECRET:-dev-jwt-secret-at-least-32-chars-long!!}
+      ALLOW_INSECURE_DEV_CONFIG: "true"
+      ALLOW_PUBLIC_HR_REGISTER: "false"
+      INITIAL_ADMIN_USERNAME: ""
+      GRPC_INTERNAL_AUTH: "required"
+      GRPC_INTERNAL_TOKEN: dev-shared-token
+      REDIS_ADDR: redis:6379
+      RABBITMQ_URL: amqp://guest:guest@rabbitmq:5672/
+      AI_API_KEY: ${AI_API_KEY:-dev-placeholder}
+      AI_MODEL: ${AI_MODEL:-qwen-plus}
+      AI_TIMEOUT: "90s"
+      OSS_ENDPOINT: ${OSS_ENDPOINT:-localhost}
+      OSS_ACCESS_KEY_ID: ${OSS_ACCESS_KEY_ID:-dev-placeholder}
+      OSS_ACCESS_KEY_SECRET: ${OSS_ACCESS_KEY_SECRET:-dev-placeholder}
+      OSS_BUCKET_NAME: ${OSS_BUCKET_NAME:-recruitment-dev}
+      OSS_PUBLIC_BASE_URL: ${OSS_PUBLIC_BASE_URL:-http://localhost:9000}
+    depends_on:
+      mysql:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+
+  web-gin-service:
+    build:
+      context: ..
+      dockerfile: docker/web-gin-service.Dockerfile
+    container_name: recruitment-web
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    environment:
+      GRPC_ADDR: dns:///logic-grpc-service:50051
+      JWT_SECRET: ${JWT_SECRET:-dev-jwt-secret-at-least-32-chars-long!!}
+      ALLOW_INSECURE_DEV_CONFIG: "true"
+      ALLOW_PUBLIC_HR_REGISTER: "false"
+      HR_INVITE_CODE: ""
+      GRPC_INTERNAL_AUTH: "required"
+      GRPC_INTERNAL_TOKEN: dev-shared-token
+      REDIS_ADDR: redis:6379
+      HTTP_PORT: "8080"
+    depends_on:
+      logic-grpc-service:
+        condition: service_started
+
+  hr-frontend:
+    build:
+      context: ..
+      dockerfile: docker/hr-frontend.Dockerfile
+    container_name: recruitment-hr-frontend
+    restart: unless-stopped
+    ports:
+      - "5173:80"
+    depends_on:
+      - web-gin-service
+
+  user-frontend:
+    build:
+      context: ..
+      dockerfile: docker/user-frontend.Dockerfile
+    container_name: recruitment-user-frontend
+    restart: unless-stopped
+    ports:
+      - "5174:80"
+    depends_on:
+      - web-gin-service
+
+volumes:
+  mysql_data:
+  redis_data:
+  rabbitmq_data:

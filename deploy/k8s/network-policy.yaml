@@ -1,0 +1,36 @@
+# NetworkPolicy: 仅允许 web-gin-service 和 logic-worker 访问 logic-grpc-service。
+# 其他 Pod 或外部来源无法直接调用 gRPC 业务 RPC。
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: logic-grpc-ingress
+  namespace: recruitment
+spec:
+  podSelector:
+    matchLabels:
+      app: logic-grpc-service
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              app: web-gin-service
+        - podSelector:
+            matchLabels:
+              app: logic-worker
+      ports:
+        - protocol: TCP
+          port: 50051
+---
+# 默认拒绝所有未明确允许的入站流量到 recruitment 命名空间。
+# 如果已有其他 NetworkPolicy，请评估是否产生冲突后再启用此策略。
+# apiVersion: networking.k8s.io/v1
+# kind: NetworkPolicy
+# metadata:
+#   name: default-deny-ingress
+#   namespace: recruitment
+# spec:
+#   podSelector: {}
+#   policyTypes:
+#     - Ingress

@@ -1,0 +1,819 @@
+// recruitment.proto v1.0
+// 生成命令: protoc --go_out=. --go-grpc_out=. proto/recruitment.proto
+
+syntax = "proto3";
+
+package recruitment;
+
+option go_package = "recruitment/pb;pb";
+
+service AuthService {
+  rpc Register(RegisterRequest) returns (RegisterResponse);
+  rpc Login(LoginRequest) returns (LoginResponse);
+}
+
+service JobService {
+  rpc CreateJob(CreateJobRequest) returns (CreateJobResponse);
+  rpc UpdateJob(UpdateJobRequest) returns (CommonResponse);
+  rpc OfflineJob(OfflineJobRequest) returns (CommonResponse);
+  rpc OnlineJob(OfflineJobRequest) returns (CommonResponse);
+  rpc ListHRJobs(ListHRJobsRequest) returns (ListJobsResponse);
+  rpc ListPublicJobs(ListPublicJobsRequest) returns (ListJobsResponse);
+  rpc GetJobDetail(GetJobDetailRequest) returns (GetJobDetailResponse);
+  rpc ListJobOptions(ListJobOptionsRequest) returns (ListJobOptionsResponse);
+  rpc ListDepartmentLocations(ListDepartmentLocationsRequest) returns (ListDepartmentLocationsResponse);
+}
+
+service CandidateService {
+  rpc GetProfile(GetProfileRequest) returns (GetProfileResponse);
+  rpc UpdateProfile(UpdateProfileRequest) returns (GetProfileResponse);
+  rpc GetResume(GetResumeRequest) returns (GetResumeResponse);
+  rpc PresignResumeUpload(PresignResumeUploadRequest) returns (PresignResumeUploadResponse);
+  rpc ConfirmResumeUpload(ConfirmResumeUploadRequest) returns (ConfirmResumeUploadResponse);
+}
+
+service ApplicationService {
+  rpc ApplyJob(ApplyJobRequest) returns (CommonResponse);
+  rpc ListMyApplications(ListMyApplicationsRequest) returns (ListMyApplicationsResponse);
+  rpc ListJobApplications(ListJobApplicationsRequest) returns (ListJobApplicationsResponse);
+  rpc UpdateApplicationStatus(UpdateApplicationStatusRequest) returns (CommonResponse);
+}
+
+service NotificationService {
+  rpc ListNotifications(ListNotificationsRequest) returns (ListNotificationsResponse);
+  rpc UnreadNotificationCount(UnreadNotificationCountRequest) returns (UnreadNotificationCountResponse);
+  rpc NotificationSummary(NotificationSummaryRequest) returns (NotificationSummaryResponse);
+  rpc MarkNotificationRead(MarkNotificationReadRequest) returns (CommonResponse);
+  rpc MarkAllNotificationsRead(MarkAllNotificationsReadRequest) returns (CommonResponse);
+}
+
+service AIService {
+  rpc Chat(ChatRequest) returns (ChatResponse);
+  rpc ChatStream(ChatRequest) returns (stream ChatStreamResponse);
+  rpc History(ChatHistoryRequest) returns (ChatHistoryResponse);
+  rpc AnalyzeApplication(AnalyzeApplicationRequest) returns (AnalyzeApplicationResponse);
+  rpc ListChatSessions(ChatSessionListRequest) returns (ChatSessionListResponse);
+  rpc CreateChatSession(CreateChatSessionRequest) returns (CreateChatSessionResponse);
+  rpc SessionMessages(SessionMessagesRequest) returns (ChatHistoryResponse);
+  rpc CreateApplicationAnalysisSession(CreateApplicationAnalysisSessionRequest) returns (CreateApplicationAnalysisSessionResponse);
+  rpc UpdateSession(UpdateSessionRequest) returns (CommonResponse);
+  rpc DeleteSession(DeleteSessionRequest) returns (CommonResponse);
+
+  // Candidate AI
+  rpc CandidateChatStream(CandidateChatRequest) returns (stream ChatStreamResponse);
+  rpc CandidateListSessions(CandidateSessionListRequest) returns (ChatSessionListResponse);
+  rpc CandidateCreateSession(CandidateCreateSessionRequest) returns (CreateChatSessionResponse);
+  rpc CandidateSessionMessages(CandidateSessionMessagesRequest) returns (ChatHistoryResponse);
+  rpc CandidateUpdateSession(CandidateUpdateSessionRequest) returns (CommonResponse);
+  rpc CandidateDeleteSession(CandidateDeleteSessionRequest) returns (CommonResponse);
+}
+
+service AdminService {
+  rpc CreateInviteCode(CreateInviteCodeRequest) returns (CreateInviteCodeResponse);
+  rpc ListInviteCodes(ListInviteCodesRequest) returns (ListInviteCodesResponse);
+  rpc ExtendInviteCode(ExtendInviteCodeRequest) returns (CommonResponse);
+  rpc RevokeInviteCode(RevokeInviteCodeRequest) returns (CommonResponse);
+  rpc ReactivateInviteCode(ReactivateInviteCodeRequest) returns (CommonResponse);
+  rpc ValidateInviteCode(ValidateInviteCodeRequest) returns (ValidateInviteCodeResponse);
+
+  rpc ListDepartments(ListDepartmentsRequest) returns (ListDepartmentsResponse);
+  rpc CreateDepartment(CreateDepartmentRequest) returns (DepartmentResponse);
+  rpc UpdateDepartment(UpdateDepartmentRequest) returns (DepartmentResponse);
+  rpc UpdateDepartmentStatus(UpdateDepartmentStatusRequest) returns (CommonResponse);
+  rpc DeleteDepartment(DeleteDepartmentRequest) returns (CommonResponse);
+
+  rpc ListJobLocations(ListJobLocationsRequest) returns (ListJobLocationsResponse);
+  rpc CreateJobLocation(CreateJobLocationRequest) returns (JobLocationResponse);
+  rpc UpdateJobLocation(UpdateJobLocationRequest) returns (JobLocationResponse);
+  rpc UpdateJobLocationStatus(UpdateJobLocationStatusRequest) returns (CommonResponse);
+  rpc DeleteJobLocation(DeleteJobLocationRequest) returns (CommonResponse);
+
+  rpc GetDepartmentLocationConfig(GetDepartmentLocationConfigRequest) returns (DepartmentLocationConfigResponse);
+  rpc UpdateDepartmentLocationConfig(UpdateDepartmentLocationConfigRequest) returns (DepartmentLocationConfigResponse);
+  rpc ListDepartmentsLocationMap(ListDepartmentsLocationMapRequest) returns (ListDepartmentsLocationMapResponse);
+}
+
+message CommonResponse {
+  int32 code = 1;
+  string msg = 2;
+}
+
+message RegisterRequest {
+  string username = 1;
+  string password = 2;
+  int32 role = 3;
+  string email = 4;
+}
+
+message RegisterResponse {
+  int32 code = 1;
+  string msg = 2;
+  int64 user_id = 3;
+  string username = 4;
+  int32 role = 5;
+}
+
+message LoginRequest {
+  string username = 1;
+  string password = 2;
+}
+
+message LoginResponse {
+  int32 code = 1;
+  string msg = 2;
+  string token = 3;
+  int64 user_id = 4;
+  int32 role = 5;
+  string username = 6;
+}
+
+message CreateJobRequest {
+  int64 hr_id = 1;
+  string title = 2;
+  string department = 3;
+  string location = 4;
+  string salary_range = 5;
+  string description = 6;
+  string requirements = 7;
+  int64 department_id = 8;
+  int64 location_id = 9;
+}
+
+message CreateJobResponse {
+  int32 code = 1;
+  string msg = 2;
+  int64 job_id = 3;
+}
+
+message UpdateJobRequest {
+  int64 hr_id = 1;
+  int64 job_id = 2;
+  string title = 3;
+  string department = 4;
+  string location = 5;
+  string salary_range = 6;
+  string description = 7;
+  string requirements = 8;
+  int64 department_id = 9;
+  int64 location_id = 10;
+}
+
+message OfflineJobRequest {
+  int64 hr_id = 1;
+  int64 job_id = 2;
+}
+
+message ListHRJobsRequest {
+  int64 hr_id = 1;
+  int32 page = 2;
+  int32 page_size = 3;
+  string cursor = 4;
+}
+
+message ListPublicJobsRequest {
+  int32 page = 1;
+  int32 page_size = 2;
+  string keyword = 3;
+  string cursor = 4;
+}
+
+message GetJobDetailRequest {
+  int64 job_id = 1;
+}
+
+message Job {
+  int64 job_id = 1;
+  int64 hr_id = 2;
+  string title = 3;
+  string department = 4;
+  string location = 5;
+  string salary_range = 6;
+  string description = 7;
+  string requirements = 8;
+  int32 status = 9;
+  int64 application_count = 10;
+  string created_at = 11;
+  int64 department_id = 12;
+  int64 location_id = 13;
+}
+
+message ListJobsResponse {
+  int32 code = 1;
+  string msg = 2;
+  int64 total = 3;
+  repeated Job list = 4;
+  string next_cursor = 5;
+  bool has_more = 6;
+}
+
+message GetJobDetailResponse {
+  int32 code = 1;
+  string msg = 2;
+  Job job = 3;
+}
+
+message GetProfileRequest {
+  int64 user_id = 1;
+}
+
+message UpdateProfileRequest {
+  int64 user_id = 1;
+  string real_name = 2;
+  string phone = 3;
+  string education = 4;
+  string school = 5;
+  string work_experience = 6;
+  string skills = 7;
+}
+
+message CandidateProfile {
+  string real_name = 1;
+  string phone = 2;
+  string education = 3;
+  string school = 4;
+  string work_experience = 5;
+  repeated string skills = 6;
+  bool is_complete = 7;
+}
+
+message GetProfileResponse {
+  int32 code = 1;
+  string msg = 2;
+  CandidateProfile profile = 3;
+}
+
+message GetResumeRequest {
+  int64 user_id = 1;
+}
+
+message CandidateResume {
+  int64 resume_id = 1;
+  string file_name = 2;
+  string file_type = 3;
+  int64 file_size = 4;
+  string uploaded_at = 5;
+  string resume_url = 6;
+}
+
+message GetResumeResponse {
+  int32 code = 1;
+  string msg = 2;
+  CandidateResume resume = 3;
+}
+
+message PresignResumeUploadRequest {
+  int64 user_id = 1;
+  string file_name = 2;
+  string file_type = 3;
+}
+
+message PresignResumeUploadResponse {
+  int32 code = 1;
+  string msg = 2;
+  string upload_url = 3;
+  string oss_key = 4;
+  string expire_at = 5;
+  string upload_id = 6;
+}
+
+message ConfirmResumeUploadRequest {
+  int64 user_id = 1;
+  string oss_key = 2;
+  string file_name = 3;
+  string file_type = 4;
+  int64 file_size = 5;
+  string upload_id = 6;
+}
+
+message ConfirmResumeUploadResponse {
+  int32 code = 1;
+  string msg = 2;
+  int64 resume_id = 3;
+}
+
+message ApplyJobRequest {
+  int64 user_id = 1;
+  int64 job_id = 2;
+}
+
+message ListMyApplicationsRequest {
+  int64 user_id = 1;
+  int32 page = 2;
+  int32 page_size = 3;
+  string cursor = 4;
+}
+
+message MyApplication {
+  int64 application_id = 1;
+  int64 job_id = 2;
+  string job_title = 3;
+  int32 status = 4;
+  string applied_at = 5;
+  int32 round_no = 6;
+  int32 is_current = 7;
+}
+
+message ListMyApplicationsResponse {
+  int32 code = 1;
+  string msg = 2;
+  int64 total = 3;
+  repeated MyApplication list = 4;
+  string next_cursor = 5;
+  bool has_more = 6;
+}
+
+message ListJobApplicationsRequest {
+  int64 hr_id = 1;
+  int64 job_id = 2;
+  int32 page = 3;
+  int32 page_size = 4;
+}
+
+message JobApplication {
+  int64 application_id = 1;
+  int64 user_id = 2;
+  string real_name = 3;
+  string phone = 4;
+  string education = 5;
+  string school = 6;
+  repeated string skills = 7;
+  string applied_at = 8;
+  string resume_url = 9;
+  int32 status = 10;
+  int32 round_no = 11;
+  int32 is_current = 12;
+  string file_name = 13;
+  string file_type = 14;
+}
+
+message ListJobApplicationsResponse {
+  int32 code = 1;
+  string msg = 2;
+  int64 total = 3;
+  repeated JobApplication list = 4;
+}
+
+message UpdateApplicationStatusRequest {
+  int64 hr_id = 1;
+  int64 application_id = 2;
+  int32 status = 3;
+}
+
+message ChatRequest {
+  int64 hr_id = 1;
+  string message = 2;
+  int64 application_id = 3;
+  int64 session_id = 4;
+}
+
+message ChatResponse {
+  int32 code = 1;
+  string msg = 2;
+  string reply = 3;
+  string created_at = 4;
+  string action = 5;
+  int64 application_id = 6;
+  int32 action_status = 7;
+  string candidate_name = 8;
+  string job_title = 9;
+  int32 status = 10;
+  int64 session_id = 11;
+}
+
+message ChatStreamResponse {
+  int32 code = 1;
+  string msg = 2;
+  string delta = 3;
+  bool done = 4;
+  string action = 5;
+  int64 application_id = 6;
+  int32 action_status = 7;
+  string candidate_name = 8;
+  string job_title = 9;
+  int32 status = 10;
+  int64 session_id = 11;
+  string created_at = 12;
+  string candidate_options = 13;
+  repeated string suggested_questions = 14;
+}
+
+message ChatHistoryRequest {
+  int64 hr_id = 1;
+  int32 page = 2;
+  int32 page_size = 3;
+}
+
+message ChatMessage {
+  string role = 1;
+  string content = 2;
+  string created_at = 3;
+}
+
+message ChatHistoryResponse {
+  int32 code = 1;
+  string msg = 2;
+  repeated ChatMessage list = 3;
+}
+
+message AnalyzeApplicationRequest {
+  int64 hr_id = 1;
+  int64 application_id = 2;
+}
+
+message AnalyzeApplicationResponse {
+  int32 code = 1;
+  string msg = 2;
+  string reply = 3;
+  string candidate_name = 4;
+  string job_title = 5;
+  int32 status = 6;
+  int32 round_no = 7;
+}
+
+message ChatSessionListRequest {
+  int64 hr_id = 1;
+  int32 page = 2;
+  int32 page_size = 3;
+}
+
+message ChatSession {
+  int64 session_id = 1;
+  string title = 2;
+  int64 application_id = 3;
+  string created_at = 4;
+  string updated_at = 5;
+}
+
+message ChatSessionListResponse {
+  int32 code = 1;
+  string msg = 2;
+  int64 total = 3;
+  repeated ChatSession list = 4;
+}
+
+message CreateChatSessionRequest {
+  int64 hr_id = 1;
+  string title = 2;
+}
+
+message CreateChatSessionResponse {
+  int32 code = 1;
+  string msg = 2;
+  ChatSession session = 3;
+}
+
+message SessionMessagesRequest {
+  int64 hr_id = 1;
+  int64 session_id = 2;
+  int32 page = 3;
+  int32 page_size = 4;
+}
+
+message CreateApplicationAnalysisSessionRequest {
+  int64 hr_id = 1;
+  int64 application_id = 2;
+}
+
+message CreateApplicationAnalysisSessionResponse {
+  int32 code = 1;
+  string msg = 2;
+  ChatSession session = 3;
+  repeated ChatMessage messages = 4;
+}
+
+message UpdateSessionRequest {
+  int64 hr_id = 1;
+  int64 session_id = 2;
+  string title = 3;
+}
+
+message DeleteSessionRequest {
+  int64 hr_id = 1;
+  int64 session_id = 2;
+}
+
+// ---- Candidate AI messages ----
+
+message CandidateChatRequest {
+  int64 user_id = 1;
+  string message = 2;
+  int64 session_id = 3;
+}
+
+message CandidateSessionListRequest {
+  int64 user_id = 1;
+  int32 page = 2;
+  int32 page_size = 3;
+}
+
+message CandidateCreateSessionRequest {
+  int64 user_id = 1;
+  string title = 2;
+}
+
+message CandidateSessionMessagesRequest {
+  int64 user_id = 1;
+  int64 session_id = 2;
+  int32 page = 3;
+  int32 page_size = 4;
+}
+
+message CandidateUpdateSessionRequest {
+  int64 user_id = 1;
+  int64 session_id = 2;
+  string title = 3;
+}
+
+message CandidateDeleteSessionRequest {
+  int64 user_id = 1;
+  int64 session_id = 2;
+}
+
+message Notification {
+  int64 notification_id = 1;
+  string type = 2;
+  string title = 3;
+  string content = 4;
+  string link = 5;
+  string biz_type = 6;
+  int64 biz_id = 7;
+  bool is_read = 8;
+  string created_at = 9;
+  string read_at = 10;
+}
+
+message ListNotificationsRequest {
+  int64 user_id = 1;
+  int32 role = 2;
+  int32 page = 3;
+  int32 page_size = 4;
+  string cursor = 5;
+}
+
+message ListNotificationsResponse {
+  int32 code = 1;
+  string msg = 2;
+  int64 total = 3;
+  repeated Notification list = 4;
+  string next_cursor = 5;
+  bool has_more = 6;
+}
+
+message UnreadNotificationCountRequest {
+  int64 user_id = 1;
+  int32 role = 2;
+}
+
+message UnreadNotificationCountResponse {
+  int32 code = 1;
+  string msg = 2;
+  int64 unread = 3;
+}
+
+message NotificationSummaryRequest {
+  int64 user_id = 1;
+  int32 role = 2;
+}
+
+message NotificationSummaryResponse {
+  int32 code = 1;
+  string msg = 2;
+  int64 unread = 3;
+  int64 latest_notification_id = 4;
+  string latest_created_at = 5;
+}
+
+message MarkNotificationReadRequest {
+  int64 user_id = 1;
+  int32 role = 2;
+  int64 notification_id = 3;
+}
+
+message MarkAllNotificationsReadRequest {
+  int64 user_id = 1;
+  int32 role = 2;
+}
+
+// ---- Admin / Invite Codes ----
+
+message InviteCodeInfo {
+  int64 id = 1;
+  string code = 2;
+  int64 created_by = 3;
+  string expires_at = 4;
+  int32 is_active = 5;
+  string created_at = 6;
+}
+
+message CreateInviteCodeRequest {
+  int64 created_by = 1;
+  string expires_at = 2; // RFC 3339, empty = never expires
+}
+
+message CreateInviteCodeResponse {
+  int32 code = 1;
+  string msg = 2;
+  InviteCodeInfo invite_code = 3;
+}
+
+message ListInviteCodesRequest {
+  int64 created_by = 1;
+  int32 page = 2;
+  int32 page_size = 3;
+}
+
+message ListInviteCodesResponse {
+  int32 code = 1;
+  string msg = 2;
+  int64 total = 3;
+  repeated InviteCodeInfo list = 4;
+}
+
+message ExtendInviteCodeRequest {
+  int64 admin_id = 1;
+  int64 id = 2;
+  string new_expires_at = 3; // RFC 3339
+}
+
+message RevokeInviteCodeRequest {
+  int64 admin_id = 1;
+  int64 id = 2;
+}
+
+message ReactivateInviteCodeRequest {
+  int64 admin_id = 1;
+  int64 id = 2;
+}
+
+message ValidateInviteCodeRequest {
+  string invite_code = 1;
+}
+
+message ValidateInviteCodeResponse {
+  int32 code = 1;
+  string msg = 2;
+  bool valid = 3;
+}
+
+// ── Job Options ──────────────────────────────────────────────────────
+
+message ListJobOptionsRequest {}
+
+message ListJobOptionsResponse {
+  int32 code = 1;
+  string msg = 2;
+  repeated DepartmentNode department_tree = 3;
+  repeated LocationOption locations = 4;
+  repeated DepartmentLocationMap department_location_map = 5;
+}
+
+message DepartmentNode {
+  int64 id = 1;
+  int64 parent_id = 2;
+  string name = 3;
+  string full_name = 4;
+  int32 is_active = 5;
+  int32 sort_order = 6;
+  int32 depth = 7;
+  repeated DepartmentNode children = 8;
+}
+
+message LocationOption {
+  int64 id = 1;
+  string name = 2;
+  string code = 3;
+  int32 is_active = 4;
+  int32 sort_order = 5;
+}
+
+// ── Department CRUD ──────────────────────────────────────────────────
+
+message ListDepartmentsRequest {}
+
+message ListDepartmentsResponse {
+  int32 code = 1;
+  string msg = 2;
+  repeated DepartmentNode list = 3;
+}
+
+message CreateDepartmentRequest {
+  int64 admin_id = 1;
+  int64 parent_id = 2;
+  string name = 3;
+  int32 sort_order = 4;
+}
+
+message UpdateDepartmentRequest {
+  int64 admin_id = 1;
+  int64 id = 2;
+  int64 parent_id = 3;
+  string name = 4;
+  int32 sort_order = 5;
+}
+
+message UpdateDepartmentStatusRequest {
+  int64 admin_id = 1;
+  int64 id = 2;
+  int32 is_active = 3;
+}
+
+message DeleteDepartmentRequest {
+  int64 admin_id = 1;
+  int64 id = 2;
+}
+
+message DepartmentResponse {
+  int32 code = 1;
+  string msg = 2;
+  DepartmentNode department = 3;
+}
+
+// ── Job Location CRUD ────────────────────────────────────────────────
+
+message ListJobLocationsRequest {}
+
+message ListJobLocationsResponse {
+  int32 code = 1;
+  string msg = 2;
+  repeated LocationOption list = 3;
+}
+
+message CreateJobLocationRequest {
+  int64 admin_id = 1;
+  string name = 2;
+  string code = 3;
+  int32 sort_order = 4;
+}
+
+message UpdateJobLocationRequest {
+  int64 admin_id = 1;
+  int64 id = 2;
+  string name = 3;
+  string code = 4;
+  int32 sort_order = 5;
+}
+
+message UpdateJobLocationStatusRequest {
+  int64 admin_id = 1;
+  int64 id = 2;
+  int32 is_active = 3;
+}
+
+message DeleteJobLocationRequest {
+  int64 admin_id = 1;
+  int64 id = 2;
+}
+
+message JobLocationResponse {
+  int32 code = 1;
+  string msg = 2;
+  LocationOption location = 3;
+}
+
+// ── Department-Location association ─────────────────────────────────
+
+message DepartmentLocationMap {
+  int64 department_id = 1;
+  repeated int64 location_ids = 2;
+}
+
+message ListDepartmentsLocationMapRequest {}
+
+message ListDepartmentsLocationMapResponse {
+  int32 code = 1;
+  string msg = 2;
+  repeated DepartmentLocationMap items = 3;
+}
+
+message ListDepartmentLocationsRequest {
+  int64 department_id = 1;
+}
+
+message ListDepartmentLocationsResponse {
+  int32 code = 1;
+  string msg = 2;
+  int64 department_id = 3;
+  repeated LocationOption locations = 4;
+}
+
+message GetDepartmentLocationConfigRequest {
+  int64 department_id = 1;
+}
+
+message UpdateDepartmentLocationConfigRequest {
+  int64 admin_id = 1;
+  int64 department_id = 2;
+  int32 inherit_locations = 3;
+  repeated int64 location_ids = 4;
+}
+
+message DepartmentLocationConfigResponse {
+  int32 code = 1;
+  string msg = 2;
+  int64 department_id = 3;
+  int32 inherit_locations = 4;
+  repeated int64 direct_location_ids = 5;
+  repeated int64 effective_location_ids = 6;
+  repeated LocationOption locations = 7;
+  repeated int64 available_location_ids = 8;
+}

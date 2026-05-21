@@ -1,0 +1,17 @@
+logic-grpc-service/config/config.yaml
+
+node_modules/
+dist/
+.claude/
+.ai-guides/
+*.pdf
+.env.production
+.env.development
+.env.local
+
+*.exe
+*.test
+.DS_Store
+
+# Docker Compose 环境变量（含敏感密钥）
+docker/.env

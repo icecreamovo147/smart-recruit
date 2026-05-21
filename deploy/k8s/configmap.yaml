@@ -1,0 +1,44 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: logic-config
+  namespace: recruitment
+data:
+  GRPC_PORT: "50051"
+  GRPC_INTERNAL_AUTH: "required"
+  INITIAL_ADMIN_USERNAME: ""
+  REDIS_ADDR: "redis:6379"
+  REDIS_POOL_SIZE: "20"
+  REDIS_MIN_IDLE_CONNS: "5"
+  OSS_ENDPOINT: "cos.ap-shanghai.myqcloud.com"
+  OSS_BUCKET_NAME: "CHANGE_ME_BUCKET"
+  OSS_PUBLIC_BASE_URL: "https://CHANGE_ME_BUCKET.cos.ap-shanghai.myqcloud.com"
+  AI_MODEL: "qwen-plus"
+  AI_BASE_URL: "https://dashscope.aliyuncs.com/compatible-mode/v1"
+  AI_TIMEOUT: "45s"
+  AI_MAX_CONCURRENCY: "10"
+  RABBITMQ_EXCHANGE: "recruitment.events"
+  RABBITMQ_DLX_EXCHANGE: "recruitment.events.dlx"
+  RABBITMQ_RETRY_EXCHANGE: "recruitment.events.retry"
+  RABBITMQ_NOTIFICATION_QUEUE: "recruitment.notification.create"
+  RABBITMQ_RESUME_PARSE_QUEUE: "recruitment.resume.parse"
+  RABBITMQ_PREFETCH_COUNT: "10"
+  RABBITMQ_RECONNECT_INTERVAL: "3s"
+  AGENT_RECENT_MESSAGE_LIMIT: "20"
+  AGENT_SUMMARY_TRIGGER_MESSAGES: "30"
+  AGENT_MAX_MEMORY_CHARS: "1500"
+  AGENT_MAX_PROMPT_CHARS: "20000"
+  AGENT_MAX_MEMORIES: "10"
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: web-config
+  namespace: recruitment
+data:
+  HTTP_PORT: "8080"
+  GRPC_ADDR: "dns:///logic-grpc-service.recruitment.svc.cluster.local:50051"
+  REDIS_ADDR: "redis:6379"
+  REDIS_POOL_SIZE: "20"
+  REDIS_MIN_IDLE_CONNS: "5"
+  SHUTDOWN_TIMEOUT: "15s"

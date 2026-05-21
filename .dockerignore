@@ -1,0 +1,35 @@
+# 版本控制
+.git
+.gitignore
+.gitattributes
+
+# 开发工具配置
+.claude
+.ai-guides
+
+# 包管理器缓存
+.pnpm-store
+node_modules
+hr-frontend/node_modules
+user-frontend/node_modules
+web-gin-service/node_modules
+
+# 构建产物（容器内重新构建）
+hr-frontend/dist
+user-frontend/dist
+
+# 部署相关（K8s 编排，不参与镜像构建）
+deploy
+
+# 文档（不参与构建）
+*.md
+*.pdf
+intro.pdf
+
+# 敏感信息（通过 .env 挂载）
+docker/.env
+logic-grpc-service/config/config.yaml
+
+# 操作系统文件
+.DS_Store
+Thumbs.db

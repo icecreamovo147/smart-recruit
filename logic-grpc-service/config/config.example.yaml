@@ -1,0 +1,60 @@
+mysql:
+  dsn: "root:your_password@tcp(127.0.0.1:3306)/recruitment?charset=utf8mb4&parseTime=True&loc=Local"
+  max_open_conns: 50
+  max_idle_conns: 10
+  conn_max_lifetime: "1h"
+  conn_max_idle_time: "10m"
+
+oss:
+  endpoint: ""
+  access_key_id: ""
+  access_key_secret: ""
+  bucket_name: ""
+  public_base_url: "http://localhost:9000"
+
+ai:
+  api_key: ""
+  model: ""
+  base_url: "https://dashscope.aliyuncs.com/compatible-mode/v1"
+  timeout: "90s"
+  max_concurrency: 10
+  circuit_failure_threshold: 5
+  circuit_open_timeout: "30s"
+  circuit_half_open_max_requests: 2
+
+jwt:
+  # 生产环境必须通过 JWT_SECRET 环境变量设置强密钥（>=32 字符）。
+  # 开发环境可设置 ALLOW_INSECURE_DEV_CONFIG=true 以使用弱密钥。
+  secret: ""
+
+grpc:
+  port: 50051
+
+redis:
+  addr: "127.0.0.1:6379"
+  password: ""
+  db: 0
+  pool_size: 20
+  min_idle_conns: 5
+  dial_timeout: "2s"
+  read_timeout: "1s"
+  write_timeout: "1s"
+
+agent:
+  recent_message_limit: 20
+  summary_trigger_messages: 30
+  max_memory_chars: 1500
+  max_prompt_chars: 20000
+  max_memories: 10
+
+rabbitmq:
+  url: "amqp://guest:guest@127.0.0.1:5672/"
+  exchange: "recruitment.events"
+  dlx_exchange: "recruitment.events.dlx"
+  retry_exchange: "recruitment.events.retry"
+  notification_queue: "recruitment.notification.create"
+  resume_parse_queue: "recruitment.resume.parse"
+  prefetch_count: 10
+  max_retries: 5
+  retry_delay: "5s"
+  reconnect_interval: "3s"
