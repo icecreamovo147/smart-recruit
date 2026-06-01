@@ -65,12 +65,21 @@ const upload = async () => {
     uploadRef.value?.clearFiles()
     await loadResume()
   } catch (error: unknown) {
-    const err = error as { code?: string; message?: string }
-    if (err.code === 'ERR_NETWORK') {
+    const err = error as { code?: number; message?: string }
+    if (err.code === 42911 || err.code === 42912) {
+      // Rate limit errors already shown by the request interceptor.
+      // Prevent subsequent OSS PUT / confirm calls by not continuing.
+      uploadRef.value?.clearFiles()
+      return
+    }
+    if (typeof err.code === 'string' && err.code === 'ERR_NETWORK') {
       ElMessage.error('上传到 OSS 失败，请检查 COS 跨域 CORS 配置')
       return
     }
-    ElMessage.error(err.message || '简历上传失败')
+    // Avoid duplicate error toast — the request interceptor already shows it for BusinessErrors.
+    if (!err.code || typeof err.code === 'string') {
+      ElMessage.error(err.message || '简历上传失败')
+    }
   } finally {
     loading.value = false
   }
@@ -89,7 +98,7 @@ const showUpdateUploader = async () => {
 
 const downloadResume = () => {
   if (currentResume.value?.resume_url) {
-    window.open(currentResume.value.resume_url, '_blank')
+    window.open(currentResume.value.resume_url, '_blank', 'noopener')
   }
 }
 

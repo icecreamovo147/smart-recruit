@@ -22,10 +22,10 @@ type resumeParsePayload struct {
 
 type ResumeParseConsumer struct {
 	resumeRepo *repository.ResumeRepo
-	ossClient  *oss.Client
+	ossClient  oss.Storage
 }
 
-func NewResumeParseConsumer(resumeRepo *repository.ResumeRepo, ossClient *oss.Client) *ResumeParseConsumer {
+func NewResumeParseConsumer(resumeRepo *repository.ResumeRepo, ossClient oss.Storage) *ResumeParseConsumer {
 	return &ResumeParseConsumer{resumeRepo: resumeRepo, ossClient: ossClient}
 }
 

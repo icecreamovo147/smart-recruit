@@ -3,6 +3,8 @@ package ai
 import "github.com/cloudwego/eino/schema"
 
 // CandidateTools returns the tool definitions available to the candidate AI assistant.
+//
+// Deprecated: Use NewCandidateADKTools with ADK path instead.
 func CandidateTools() []*schema.ToolInfo {
 	return []*schema.ToolInfo{
 		{

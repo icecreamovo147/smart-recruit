@@ -39,19 +39,103 @@ ON DUPLICATE KEY UPDATE
   deleted_at = NULL,
   deleted_by = NULL;
 
--- ── 4. Fallback: give every department without any location config ALL active locations ──
+-- ── 4. Fallback: give departments without location config deterministic sample locations ──
 
+-- Root departments get a stable pseudo-random sample of 3 active locations.
+-- This keeps initial data useful without assigning every location everywhere.
 INSERT INTO department_locations (`department_id`, `location_id`, `is_active`)
-SELECT d.id, l.id, 1
-FROM departments d
-JOIN job_locations l ON l.is_active = 1 AND l.deleted_at IS NULL
-WHERE d.deleted_at IS NULL
-  AND NOT EXISTS (
-    SELECT 1
-    FROM department_locations dl
-    WHERE dl.department_id = d.id
-      AND dl.deleted_at IS NULL
+WITH active_locations AS (
+  SELECT
+    id,
+    ROW_NUMBER() OVER (ORDER BY sort_order, id) AS rn,
+    COUNT(*) OVER () AS total_count
+  FROM job_locations
+  WHERE is_active = 1
+    AND deleted_at IS NULL
+),
+root_targets AS (
+  SELECT d.id AS department_id, l.id AS location_id
+  FROM departments d
+  JOIN active_locations l ON (
+    l.rn = MOD(d.id - 1, l.total_count) + 1
+    OR l.rn = MOD(d.id + 2, l.total_count) + 1
+    OR l.rn = MOD(d.id + 5, l.total_count) + 1
   )
+  WHERE d.deleted_at IS NULL
+    AND d.parent_id = 0
+    AND NOT EXISTS (
+      SELECT 1
+      FROM department_locations dl
+      WHERE dl.department_id = d.id
+        AND dl.deleted_at IS NULL
+  )
+)
+SELECT department_id, location_id, 1
+FROM root_targets
+ON DUPLICATE KEY UPDATE
+  is_active = 1,
+  deleted_at = NULL,
+  deleted_by = NULL;
+
+-- Depth-2 departments inherit a subset of their parent department locations.
+INSERT INTO department_locations (`department_id`, `location_id`, `is_active`)
+WITH parent_locations AS (
+  SELECT
+    d.id AS department_id,
+    dl.location_id,
+    ROW_NUMBER() OVER (PARTITION BY d.id ORDER BY l.sort_order, l.id) AS rn
+  FROM departments d
+  JOIN department_locations dl ON dl.department_id = d.parent_id
+    AND dl.is_active = 1
+    AND dl.deleted_at IS NULL
+  JOIN job_locations l ON l.id = dl.location_id
+    AND l.is_active = 1
+    AND l.deleted_at IS NULL
+  WHERE d.deleted_at IS NULL
+    AND d.parent_id <> 0
+    AND d.depth = 2
+    AND NOT EXISTS (
+      SELECT 1
+      FROM department_locations existing
+      WHERE existing.department_id = d.id
+        AND existing.deleted_at IS NULL
+    )
+)
+SELECT department_id, location_id, 1
+FROM parent_locations
+WHERE rn <= 2
+ON DUPLICATE KEY UPDATE
+  is_active = 1,
+  deleted_at = NULL,
+  deleted_by = NULL;
+
+-- Deeper departments use the same rule after depth-2 has been populated.
+INSERT INTO department_locations (`department_id`, `location_id`, `is_active`)
+WITH parent_locations AS (
+  SELECT
+    d.id AS department_id,
+    dl.location_id,
+    ROW_NUMBER() OVER (PARTITION BY d.id ORDER BY l.sort_order, l.id) AS rn
+  FROM departments d
+  JOIN department_locations dl ON dl.department_id = d.parent_id
+    AND dl.is_active = 1
+    AND dl.deleted_at IS NULL
+  JOIN job_locations l ON l.id = dl.location_id
+    AND l.is_active = 1
+    AND l.deleted_at IS NULL
+  WHERE d.deleted_at IS NULL
+    AND d.parent_id <> 0
+    AND d.depth > 2
+    AND NOT EXISTS (
+      SELECT 1
+      FROM department_locations existing
+      WHERE existing.department_id = d.id
+        AND existing.deleted_at IS NULL
+    )
+)
+SELECT department_id, location_id, 1
+FROM parent_locations
+WHERE rn <= 2
 ON DUPLICATE KEY UPDATE
   is_active = 1,
   deleted_at = NULL,

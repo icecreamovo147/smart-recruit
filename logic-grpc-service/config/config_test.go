@@ -37,3 +37,18 @@ func TestApplyEnvOverrides(t *testing.T) {
 		t.Fatalf("unexpected rabbitmq retry delay: %s", cfg.RabbitMQ.RetryDelay.Duration)
 	}
 }
+
+func TestOSSProviderEnvOverride(t *testing.T) {
+	t.Setenv("OSS_PROVIDER", "aliyun_oss")
+	t.Setenv("OSS_ENDPOINT", "oss-cn-shanghai.aliyuncs.com")
+
+	var cfg Config
+	applyEnvOverrides(&cfg)
+
+	if cfg.OSS.Provider != "aliyun_oss" {
+		t.Fatalf("expected oss provider aliyun_oss, got %q", cfg.OSS.Provider)
+	}
+	if cfg.OSS.Endpoint != "oss-cn-shanghai.aliyuncs.com" {
+		t.Fatalf("expected oss endpoint oss-cn-shanghai.aliyuncs.com, got %q", cfg.OSS.Endpoint)
+	}
+}

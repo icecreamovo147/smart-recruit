@@ -1,6 +1,7 @@
 import { createRouter, createWebHistory } from 'vue-router'
 import type { RouteRecordRaw } from 'vue-router'
-import { getToken, getUser } from '@/utils/token'
+import { getUser } from '@/utils/token'
+import { useAuthStore } from '@/stores/auth'
 import { ROLE_HR, ROLE_HR_ADMIN } from '@/types/domain'
 import LoginView from '@/views/LoginView.vue'
 import RegisterView from '@/views/RegisterView.vue'
@@ -12,6 +13,7 @@ import ProfileView from '@/views/hr/ProfileView.vue'
 import InviteCodeManageView from '@/views/hr/InviteCodeManageView.vue'
 import DepartmentManageView from '@/views/hr/DepartmentManageView.vue'
 import LocationManageView from '@/views/hr/LocationManageView.vue'
+import UsageAuditView from '@/views/hr/UsageAuditView.vue'
 import ForbiddenView from '@/views/ForbiddenView.vue'
 
 const routes: RouteRecordRaw[] = [
@@ -28,6 +30,7 @@ const routes: RouteRecordRaw[] = [
   { path: '/hr/admin/job-taxonomy', redirect: '/hr/admin/departments' },
   { path: '/hr/admin/departments', component: DepartmentManageView, meta: { requiresAuth: true, requiresHR: true, requiresAdmin: true, title: '部门管理' } },
   { path: '/hr/admin/locations', component: LocationManageView, meta: { requiresAuth: true, requiresHR: true, requiresAdmin: true, title: '地点管理' } },
+  { path: '/hr/admin/usage-audit', component: UsageAuditView, meta: { requiresAuth: true, requiresHR: true, requiresAdmin: true, title: '第三方服务审计' } },
 ]
 
 const router = createRouter({
@@ -35,10 +38,15 @@ const router = createRouter({
   routes,
 })
 
-router.beforeEach((to, _from, next) => {
-  const token = getToken()
-  const user = getUser()
-  if (to.meta.requiresAuth && !token) {
+router.beforeEach(async (to, _from, next) => {
+  let user = getUser()
+  if (to.meta.requiresAuth && !user) {
+    // Try restoring session from httpOnly cookie before rejecting.
+    const auth = useAuthStore()
+    await auth.restoreSession()
+    user = getUser()
+  }
+  if (to.meta.requiresAuth && !user) {
     next('/login')
     return
   }

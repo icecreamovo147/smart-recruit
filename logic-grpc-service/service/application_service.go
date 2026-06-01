@@ -25,11 +25,11 @@ type ApplicationService struct {
 	jobs            *repository.JobRepo
 	notifications   *repository.NotificationRepo
 	outboxPublisher *OutboxPublisher
-	oss             *oss.Client
+	oss             oss.Storage
 	jobCache        *cache.JobCache
 }
 
-func NewApplicationService(applications *repository.ApplicationRepo, profiles *repository.ProfileRepo, resumes *repository.ResumeRepo, jobs *repository.JobRepo, notifications *repository.NotificationRepo, outboxPublisher *OutboxPublisher, ossClient *oss.Client, jobCache *cache.JobCache) *ApplicationService {
+func NewApplicationService(applications *repository.ApplicationRepo, profiles *repository.ProfileRepo, resumes *repository.ResumeRepo, jobs *repository.JobRepo, notifications *repository.NotificationRepo, outboxPublisher *OutboxPublisher, ossClient oss.Storage, jobCache *cache.JobCache) *ApplicationService {
 	return &ApplicationService{applications: applications, profiles: profiles, resumes: resumes, jobs: jobs, notifications: notifications, outboxPublisher: outboxPublisher, oss: ossClient, jobCache: jobCache}
 }
 

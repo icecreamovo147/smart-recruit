@@ -6,6 +6,9 @@ import (
 	"fmt"
 	"sync"
 	"time"
+
+	"go.uber.org/zap"
+	"logic-grpc-service/pkg/logger"
 )
 
 var ErrCircuitOpen = errors.New("ai circuit is open")
@@ -46,6 +49,19 @@ func NewCircuitBreaker(failureThreshold int, openTimeout time.Duration, halfOpen
 	}
 }
 
+func (b *CircuitBreaker) State() string {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	switch b.state {
+	case breakerOpen:
+		return "open"
+	case breakerHalfOpen:
+		return "half_open"
+	default:
+		return "closed"
+	}
+}
+
 func (b *CircuitBreaker) BeforeCall() error {
 	b.mu.Lock()
 	defer b.mu.Unlock()
@@ -57,6 +73,7 @@ func (b *CircuitBreaker) BeforeCall() error {
 		}
 		b.state = breakerHalfOpen
 		b.halfOpenInFlight = 0
+		logger.L().Warn("[熔断器] 进入半开状态，开始探测", zap.Duration("open_timeout", b.openTimeout))
 	}
 	if b.state == breakerHalfOpen {
 		if b.halfOpenInFlight >= b.halfOpenMaxRequests {
@@ -82,8 +99,14 @@ func (b *CircuitBreaker) AfterCall(err error) {
 	}
 	b.failures++
 	if b.state == breakerHalfOpen || b.failures >= b.failureThreshold {
+		prevState := b.state
 		b.state = breakerOpen
 		b.openUntil = time.Now().Add(b.openTimeout)
 		b.halfOpenInFlight = 0
+		logger.L().Warn("[熔断器] 熔断打开",
+			zap.Int("consecutive_failures", b.failures),
+			zap.Int("prev_state", int(prevState)),
+			zap.Duration("open_for", b.openTimeout),
+		)
 	}
 }

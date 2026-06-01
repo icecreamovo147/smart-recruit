@@ -1,9 +1,11 @@
 import { ElMessage } from 'element-plus'
 import router from '@/router'
-import { getToken, removeToken, removeUser } from '@/utils/token'
+import { clearLocalAuthCache } from '@/utils/token'
+import { useAuthStore } from '@/stores/auth'
 import { BusinessError } from '@/types/api'
 import type { StreamHandlers, StreamPayload, ChatSessionListItem } from '@/types/ai'
 import request from './request'
+import { silentRefresh } from './authRefresh'
 
 export const sendMessage = (data: { message: string; application_id?: number; session_id?: number }): Promise<{
   reply: string
@@ -53,13 +55,20 @@ export const updateSession = (sessionId: number, data: { title: string }): Promi
 export const deleteSession = (sessionId: number): Promise<void> =>
   request.delete(`/api/v1/hr/ai/sessions/${sessionId}`)
 
-const streamError = (code: number, msg: string, requestId?: string): void => {
+const friendlyStreamMsg = (code: number, msg: string): string => {
+  if (code === 42901) return msg || '今日 AI 使用次数已达上限，请明天再试'
+  if (code === 42902) return msg || 'AI 请求太频繁，请稍后再试'
+  if (code === 429) return msg || '请求过于频繁，请稍后再试'
+  return msg || 'AI 服务响应错误'
+}
+
+const streamError = (code: number, msg: string, _requestId?: string): void => {
   if (code === 401) {
-    removeToken()
-    removeUser()
+    clearLocalAuthCache()
+    useAuthStore().$reset()
     router.push('/login')
   }
-  ElMessage.error(msg)
+  ElMessage.error(friendlyStreamMsg(code, msg))
 }
 
 const parseSSEBlock = (block: string): string => block
@@ -74,8 +83,16 @@ const handleStreamPayload = (text: string, handlers: StreamHandlers): boolean =>
   try {
     const payload: StreamPayload = JSON.parse(text)
     if (payload.code && payload.code !== 0) {
+      handlers.onError?.(String(payload.code), payload.msg || 'AI 服务响应错误', payload)
       streamError(payload.code, payload.msg || 'AI 服务响应错误', payload.request_id)
       return true
+    }
+    // Phase 4: status/error events
+    if (payload.event_type && payload.event_type === 'error') {
+      handlers.onError?.(payload.error_type || '', payload.event_message || payload.msg || '', payload)
+    }
+    if (payload.event_type && payload.event_message && !payload.delta) {
+      handlers.onStatus?.(payload.event_type, payload.event_message, payload)
     }
     if (payload.delta) {
       handlers.onDelta?.(payload.delta, payload)
@@ -95,35 +112,66 @@ export const sendMessageStream = async (
   handlers: StreamHandlers = {},
   options: { signal?: AbortSignal; silentAbort?: boolean } = {},
 ): Promise<void> => {
-  const token = getToken()
   const timeoutController = new AbortController()
   const timeoutId = setTimeout(() => timeoutController.abort(), 180_000)
 
   // Track whether the abort came from the user's signal vs the timeout controller.
   let wasUserAbort = false
-  const externalSignal = options.signal
-  if (externalSignal) {
-    if (externalSignal.aborted) {
+
+  // Merge external signal with timeout controller: when external fires, timeout cancels too.
+  let signal: AbortSignal = timeoutController.signal
+  if (options.signal) {
+    if (options.signal.aborted) {
       wasUserAbort = true
-      timeoutController.abort()
-    } else {
-      externalSignal.addEventListener('abort', () => { wasUserAbort = true; timeoutController.abort() }, { once: true })
+      clearTimeout(timeoutId)
+      return
     }
+    const merged = new AbortController()
+    const onExternalAbort = () => { wasUserAbort = true; merged.abort() }
+    const onTimeoutAbort = () => merged.abort()
+    options.signal.addEventListener('abort', onExternalAbort, { once: true })
+    timeoutController.signal.addEventListener('abort', onTimeoutAbort, { once: true })
+    merged.signal.addEventListener('abort', () => {
+      options.signal!.removeEventListener('abort', onExternalAbort)
+      timeoutController.signal.removeEventListener('abort', onTimeoutAbort)
+      clearTimeout(timeoutId)
+    }, { once: true })
+    signal = merged.signal
   }
 
   try {
-    const response = await fetch(`${import.meta.env.VITE_API_BASE_URL || ''}/api/v1/hr/ai/chat/stream`, {
+    const fetchStream = () => fetch(`${import.meta.env.VITE_API_BASE_URL || ''}/api/v1/hr/ai/chat/stream`, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        ...(token ? { Authorization: `Bearer ${token}` } : {}),
-      },
+      headers: { 'Content-Type': 'application/json', 'X-Client-App': 'hr' },
       body: JSON.stringify(data),
-      signal: timeoutController.signal,
+      signal,
+      credentials: 'include',
     })
+    let response = await fetchStream()
+    if (response.status === 401) {
+      try {
+        await silentRefresh('hr')
+        response = await fetchStream()
+      } catch {
+        handlers.onError?.('401', '登录状态已失效，请重新登录', { code: 401, msg: '登录状态已失效，请重新登录' })
+        streamError(401, '登录状态已失效，请重新登录')
+        return
+      }
+    }
 
     if (!response.ok) {
-      streamError(response.status, 'AI 服务请求失败，请稍后重试')
+      try {
+        const errorText = await response.text()
+        const errorJson: StreamPayload = JSON.parse(errorText)
+        if (errorJson.code) {
+          handlers.onError?.(String(errorJson.code), errorJson.msg || '', errorJson)
+          streamError(errorJson.code, errorJson.msg || 'AI 服务请求失败，请稍后重试')
+        } else {
+          streamError(response.status, 'AI 服务请求失败，请稍后重试')
+        }
+      } catch {
+        streamError(response.status, 'AI 服务请求失败，请稍后重试')
+      }
       return
     }
 

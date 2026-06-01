@@ -1,11 +1,13 @@
 module logic-grpc-service
 
-go 1.24.1
+go 1.25.0
 
 require (
+	github.com/aliyun/aliyun-oss-go-sdk v3.0.2+incompatible
 	github.com/cloudwego/eino v0.8.13
 	github.com/cloudwego/eino-ext/components/model/openai v0.1.13
 	github.com/gen2brain/go-fitz v1.24.15
+	github.com/go-sql-driver/mysql v1.7.0
 	github.com/golang-jwt/jwt/v5 v5.3.0
 	github.com/google/uuid v1.6.0
 	github.com/rabbitmq/amqp091-go v1.11.0
@@ -17,6 +19,7 @@ require (
 	google.golang.org/protobuf v1.36.6
 	gopkg.in/yaml.v3 v3.0.1
 	gorm.io/driver/mysql v1.5.7
+	gorm.io/driver/sqlite v1.6.0
 	gorm.io/gorm v1.30.0
 )
 
@@ -34,7 +37,6 @@ require (
 	github.com/ebitengine/purego v0.8.4 // indirect
 	github.com/eino-contrib/jsonschema v1.0.3 // indirect
 	github.com/evanphx/json-patch v0.5.2 // indirect
-	github.com/go-sql-driver/mysql v1.7.0 // indirect
 	github.com/google/go-querystring v1.0.0 // indirect
 	github.com/goph/emperror v0.17.2 // indirect
 	github.com/jinzhu/inflection v1.0.0 // indirect
@@ -64,6 +66,6 @@ require (
 	golang.org/x/net v0.41.0 // indirect
 	golang.org/x/sys v0.34.0 // indirect
 	golang.org/x/text v0.27.0 // indirect
+	golang.org/x/time v0.15.0 // indirect
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20250324211829-b45e905df463 // indirect
-	gorm.io/driver/sqlite v1.6.0 // indirect
 )

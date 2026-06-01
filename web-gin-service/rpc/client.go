@@ -4,12 +4,15 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"time"
 
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/backoff"
 	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/metadata"
 	healthpb "google.golang.org/grpc/health/grpc_health_v1"
 
+	"web-gin-service/pkg/contextkeys"
 	"web-gin-service/recruitment/pb"
 )
 
@@ -25,6 +28,7 @@ func unaryClientInterceptor(token string) grpc.UnaryClientInterceptor {
 		if token != "" {
 			ctx = metadata.AppendToOutgoingContext(ctx, internalTokenHeader, token)
 		}
+		ctx = forwardMetadata(ctx)
 		return invoker(ctx, method, req, reply, cc, opts...)
 	}
 }
@@ -34,6 +38,7 @@ func streamClientInterceptor(token string) grpc.StreamClientInterceptor {
 		if token != "" {
 			ctx = metadata.AppendToOutgoingContext(ctx, internalTokenHeader, token)
 		}
+		ctx = forwardMetadata(ctx)
 		return streamer(ctx, desc, cc, method, opts...)
 	}
 }
@@ -89,7 +94,16 @@ func NewClients(addr string) (*Clients, error) {
 			]
 		}`),
 	}
-	conn, err := grpc.NewClient(addr, opts...)
+	conn, err := grpc.NewClient(addr,
+		append(opts,
+			grpc.WithConnectParams(grpc.ConnectParams{
+				Backoff: backoff.Config{
+					MaxDelay: 5 * time.Second,
+				},
+				MinConnectTimeout: 3 * time.Second,
+			}),
+		)...,
+	)
 	if err != nil {
 		return nil, err
 	}
@@ -119,4 +133,14 @@ func (c *Clients) Ready(ctx context.Context) error {
 		return fmt.Errorf("grpc health status is %s", resp.GetStatus().String())
 	}
 	return nil
+}
+
+func forwardMetadata(ctx context.Context) context.Context {
+	if rid, ok := ctx.Value(contextkeys.RequestID).(string); ok && rid != "" {
+		ctx = metadata.AppendToOutgoingContext(ctx, "x-request-id", rid)
+	}
+	if ip, ok := ctx.Value(contextkeys.ClientIP).(string); ok && ip != "" {
+		ctx = metadata.AppendToOutgoingContext(ctx, "x-client-ip", ip)
+	}
+	return ctx
 }

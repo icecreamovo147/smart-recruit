@@ -1,0 +1,4 @@
+packages:
+  - 'user-frontend'
+  - 'hr-frontend'
+  - 'packages/*'

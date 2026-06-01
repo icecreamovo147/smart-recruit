@@ -1,10 +1,16 @@
 package hr
 
 import (
+	"context"
+	"sync"
+
 	"github.com/gin-gonic/gin"
+	"go.uber.org/zap"
+	"golang.org/x/sync/errgroup"
 
 	base "web-gin-service/handler"
 	"web-gin-service/middleware"
+	"web-gin-service/pkg/logger"
 	"web-gin-service/recruitment/pb"
 	"web-gin-service/rpc"
 )
@@ -61,28 +67,41 @@ func (h *DashboardHandler) Summary(c *gin.Context) {
 	var pendingActions int64
 	stageCounts := make(map[int32]int64)
 	userIDs := make(map[int64]bool)
+	var mu sync.Mutex
 	jobCount := len(jobsResp.List)
 	if jobCount > 50 {
 		jobCount = 50
 	}
+
+	ctx, cancel := context.WithCancel(c.Request.Context())
+	defer cancel()
+	eg, ctx := errgroup.WithContext(ctx)
 	for i := 0; i < jobCount; i++ {
-		appsResp, err := h.clients.Application.ListJobApplications(c.Request.Context(), &pb.ListJobApplicationsRequest{
-			HrId:     hrID,
-			JobId:    jobsResp.List[i].JobId,
-			Page:     1,
-			PageSize: 500,
-		})
-		if err != nil {
-			continue
-		}
-		for _, app := range appsResp.List {
-			userIDs[app.UserId] = true
-			stageCounts[app.Status]++
-			if app.Status == 0 {
-				pendingActions++
+		jobID := jobsResp.List[i].JobId
+		eg.Go(func() error {
+			appsResp, err := h.clients.Application.ListJobApplications(ctx, &pb.ListJobApplicationsRequest{
+				HrId:     hrID,
+				JobId:    jobID,
+				Page:     1,
+				PageSize: 500,
+			})
+			if err != nil {
+				logger.L().Warn("dashboard: list job applications failed", zap.Int64("job_id", jobID), zap.Error(err))
+				return nil // don't fail the whole request; continue with other jobs
 			}
-		}
+			mu.Lock()
+			defer mu.Unlock()
+			for _, app := range appsResp.List {
+				userIDs[app.UserId] = true
+				stageCounts[app.Status]++
+				if app.Status == 0 {
+					pendingActions++
+				}
+			}
+			return nil
+		})
 	}
+	_ = eg.Wait() // errors are logged per-job above
 	totalCandidates := int64(len(userIDs))
 
 	unreadNotifications := int64(0)

@@ -1,16 +1,21 @@
 <script setup lang="ts">
-import { useRouter } from 'vue-router'
+import { computed } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 import { ArrowDown, Moon, Sunny, UserFilled } from '@element-plus/icons-vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { useAuthStore } from '@/stores/auth'
 import { useTheme } from '@/composables/useTheme'
+import request from '@/api/request'
 import CandidateAIAssistant from '@/components/CandidateAIAssistant.vue'
 import NotificationBell from '@/components/NotificationBell.vue'
-import logoFull from '@/assets/logo-full.png'
+import logoFullLight from '@/assets/logo-full.png'
+import logoFullDark from '@/assets/logo-full-dark.png'
 
 const router = useRouter()
+const route = useRoute()
 const auth = useAuthStore()
 const { isDark, toggleTheme } = useTheme()
+const logoSrc = computed(() => isDark.value ? logoFullDark : logoFullLight)
 
 const logout = async () => {
   try {
@@ -20,6 +25,13 @@ const logout = async () => {
       cancelButtonText: '取消',
     })
   } catch {
+    return
+  }
+  try {
+    // Clear httpOnly cookie server-side first; only clean local state on success.
+    await request.post('/api/v1/auth/logout')
+  } catch {
+    ElMessage.error('退出登录失败，请稍后重试')
     return
   }
   auth.logout()
@@ -34,13 +46,14 @@ const handleUserCommand = (command: string) => {
   }
   if (command === 'logout') logout()
 }
+
 </script>
 
 <template>
-  <div>
+  <div :class="{ 'candidate-auth-shell': route.path === '/login' || route.path === '/register' }">
     <header class="topbar">
       <RouterLink class="brand" to="/jobs" aria-label="智联招聘">
-        <img class="brand-logo" :src="logoFull" alt="智联招聘" />
+        <img class="brand-logo" :src="logoSrc" alt="智联招聘" />
       </RouterLink>
       <nav>
         <RouterLink to="/jobs">岗位</RouterLink>
@@ -71,7 +84,7 @@ const handleUserCommand = (command: string) => {
         <el-button v-else type="primary" @click="router.push('/login')">登录</el-button>
       </div>
     </header>
-    <main class="container">
+    <main class="container" :class="{ 'container--auth': route.path === '/login' || route.path === '/register' }">
       <RouterView v-slot="{ Component }">
         <Transition name="page-fade" mode="out-in">
           <component :is="Component" />

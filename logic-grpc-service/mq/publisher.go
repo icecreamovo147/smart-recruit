@@ -11,10 +11,6 @@ import (
 
 var ErrNotConnected = errors.New("rabbitmq: not connected")
 
-func IsNotConnected(err error) bool {
-	return errors.Is(err, ErrNotConnected)
-}
-
 func (c *Conn) Publish(ctx context.Context, routingKey string, body []byte) error {
 	return c.publish(ctx, c.cfg.Exchange, routingKey, body, nil)
 }

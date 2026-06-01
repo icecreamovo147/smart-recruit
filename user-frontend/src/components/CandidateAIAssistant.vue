@@ -49,27 +49,10 @@ const listRef = ref<any>(null)
 
 const md = new MarkdownIt({ html: false, linkify: true, breaks: true })
 
-const ZWS = '​' // zero-width space
-
-const normalizeMarkdown = (content: string): string => {
-  if (!content) return ''
-  return content
-    // Strip whitespace between ** and enclosed text.
-    // AI models often output "** text **" which CommonMark doesn't parse as bold.
-    .replace(/\*\* +/g, '**')
-    .replace(/ +\*\*/g, '**')
-    // Insert ZWS between emphasis delimiters and adjacent quotation marks.
-    // In CJK text there's no whitespace around punctuation, so ** followed by
-    // a quote (e.g. 是**"文字"**) makes the delimiter non-flanking per CommonMark.
-    // A zero-width space restores flanking without adding visible gaps.
-    .replace(/(\*\*|__|\*|_)([""""「」『』])/g, `$1${ZWS}$2`)
-    .replace(/([""""「」『』])(\*\*|__|\*|_)/g, `$1${ZWS}$2`)
-}
-
 const renderMarkdown = (content: string): string => {
-  const raw = DOMPurify.sanitize(md.render(normalizeMarkdown(content)), {
-    ALLOWED_TAGS: ['h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'p', 'br', 'hr', 'strong', 'b', 'em', 'i', 'u', 's', 'ul', 'ol', 'li', 'code', 'pre', 'a', 'blockquote'],
-    ALLOWED_ATTR: ['href', 'target'],
+  const raw = DOMPurify.sanitize(md.render(content || ''), {
+    ALLOWED_TAGS: ['h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'p', 'br', 'hr', 'strong', 'b', 'em', 'i', 'u', 's', 'del', 'ul', 'ol', 'li', 'code', 'pre', 'a', 'table', 'thead', 'tbody', 'tr', 'th', 'td', 'blockquote'],
+    ALLOWED_ATTR: ['href', 'title', 'target'],
     ALLOWED_URI_REGEXP: /^(?:(?:https?|mailto|tel):|[^a-z]|[a-z+.-]+(?:[^a-z+.\-:]|$))/i,
   })
   // Add rel="noopener noreferrer" to external links opened in new tabs.
@@ -273,6 +256,7 @@ const send = async (text?: string) => {
   scrollBottom()
 
   try {
+    let streamFailed = false
     const result = { payload: null as StreamPayload | null }
     await sendMessageStream(
       { message, session_id: session.session_id },
@@ -284,14 +268,28 @@ const send = async (text?: string) => {
           }
           scrollBottom()
         },
+        onStatus: (eventType, eventMessage) => {
+          const msg = messages.value[assistantIndex]
+          if (msg) {
+            messages.value[assistantIndex] = { ...msg, waitingText: eventMessage }
+          }
+        },
         onDone: (payload: StreamPayload) => {
           result.payload = payload
+        },
+        onError: (_errorType, errorMessage) => {
+          streamFailed = true
+          const msg = messages.value[assistantIndex]
+          if (msg) {
+            messages.value[assistantIndex] = { ...msg, content: errorMessage, pending: false, failed: true }
+          }
         },
       },
       { signal: controller.signal, silentAbort: true },
     )
 
     if (userAborted.value) return
+    if (streamFailed) return
 
     const finalPayload = result.payload
     if (finalPayload) {
@@ -1023,6 +1021,12 @@ onBeforeUnmount(() => {
 
 .ai-bubble__content :deep(p) { margin: 0 0 8px; }
 .ai-bubble__content :deep(p:last-child) { margin-bottom: 0; }
+.ai-bubble__content :deep(h1),
+.ai-bubble__content :deep(h2),
+.ai-bubble__content :deep(h3) { margin: 10px 0 6px; line-height: 1.35; }
+.ai-bubble__content :deep(h1) { font-size: 18px; }
+.ai-bubble__content :deep(h2) { font-size: 16px; }
+.ai-bubble__content :deep(h3) { font-size: 15px; }
 .ai-bubble__content :deep(ul),
 .ai-bubble__content :deep(ol) { margin: 6px 0 8px 20px; padding: 0; }
 .ai-bubble__content :deep(li) { margin: 2px 0; }
@@ -1034,6 +1038,10 @@ onBeforeUnmount(() => {
 .ai-bubble__content :deep(blockquote) { margin: 8px 0; padding: 6px 12px; border-left: 3px solid var(--brand); background: var(--brand-soft); }
 .ai-bubble__content :deep(a) { color: var(--brand); text-decoration: underline; }
 .ai-bubble__content :deep(hr) { border: none; border-top: 1px solid var(--border); margin: 8px 0; }
+.ai-bubble__content :deep(table) { width: 100%; border-collapse: collapse; margin: 8px 0; font-size: 13px; }
+.ai-bubble__content :deep(th),
+.ai-bubble__content :deep(td) { border: 1px solid var(--border); padding: 6px 8px; text-align: left; }
+.ai-bubble__content :deep(th) { background: var(--surface); font-weight: 600; }
 
 .ai-bubble--failed .ai-bubble__content {
   color: #991b1b;

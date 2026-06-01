@@ -1,20 +1,24 @@
 <script setup lang="ts">
-import { ref, watch } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ArrowDown, Briefcase, ChatDotRound, Expand, Fold, Key, Menu, Monitor, Moon, Operation, Sunny, UserFilled } from '@element-plus/icons-vue'
-import { ElMessageBox } from 'element-plus'
+import { ElMessage, ElMessageBox } from 'element-plus'
 import { useAuthStore } from '@/stores/auth'
 import { useTheme } from '@/composables/useTheme'
+import request from '@/api/request'
 import NotificationBell from '@/components/NotificationBell.vue'
-import logoSmall from '@/assets/logo-small.png'
+import logoSmallLight from '@/assets/logo-small.png'
+import logoSmallDark from '@/assets/logo-small-dark.png'
 
 const route = useRoute()
 const router = useRouter()
 const auth = useAuthStore()
 const { isDark, toggleTheme } = useTheme()
+const logoSrc = computed(() => isDark.value ? logoSmallDark : logoSmallLight)
 const sidebarCollapsed = ref(false)
 const mobileSidebarOpen = ref(false)
 const taxonomyOpen = ref(false)
+const isAuthRoute = computed(() => route.path === '/login' || route.path === '/register')
 
 const toggleTaxonomy = () => {
   taxonomyOpen.value = !taxonomyOpen.value
@@ -41,6 +45,13 @@ const logout = async () => {
   } catch {
     return
   }
+  try {
+    // Clear httpOnly cookie server-side first; only clean local state on success.
+    await request.post('/api/v1/auth/logout')
+  } catch {
+    ElMessage.error('退出登录失败，请稍后重试')
+    return
+  }
   auth.logout()
   router.push('/login')
 }
@@ -56,15 +67,16 @@ const handleUserCommand = (command: string) => {
 const toggleSidebar = () => {
   sidebarCollapsed.value = !sidebarCollapsed.value
 }
+
 </script>
 
 <template>
-  <div class="app-shell">
+  <div class="app-shell" :class="{ 'app-shell--auth': isAuthRoute }">
     <div v-if="mobileSidebarOpen" class="mobile-sidebar-backdrop" @click="closeMobileSidebar"></div>
     <aside v-if="route.meta.requiresAuth" class="sidebar" :class="{ 'sidebar--collapsed': sidebarCollapsed, 'sidebar--mobile-open': mobileSidebarOpen }">
       <div class="sidebar-head">
-        <RouterLink class="brand sidebar-brand" to="/hr/jobs" aria-label="智联招聘 HR">
-          <img class="sidebar-brand__icon" :src="logoSmall" alt="智联招聘" />
+        <RouterLink class="brand sidebar-brand" to="/hr/workbench" aria-label="智联招聘 HR">
+          <img class="sidebar-brand__icon" :src="logoSrc" alt="智联招聘" />
           <span v-if="!sidebarCollapsed" class="sidebar-brand__text">智联招聘</span>
         </RouterLink>
       </div>
@@ -138,7 +150,7 @@ const toggleSidebar = () => {
         </el-dropdown>
         </div>
       </header>
-      <main class="main-panel">
+      <main class="main-panel" :class="{ 'main-panel--auth': isAuthRoute }">
         <RouterView v-slot="{ Component }">
           <Transition name="page-fade" mode="out-in">
             <component :is="Component" />

@@ -38,11 +38,12 @@ func main() {
 
 	rdb := redisclient.New(cfg.Redis)
 	if err := redisclient.Ping(context.Background(), rdb); err != nil {
-		log.Fatal("connect redis failed", zap.String("addr", cfg.Redis.Addr), zap.Error(err))
+		log.Warn("connect redis failed, rate limiting will fall back to in-process memory", zap.String("addr", cfg.Redis.Addr), zap.Error(err))
+	} else {
+		log.Info("redis connected", zap.String("addr", cfg.Redis.Addr))
 	}
-	defer rdb.Close()
 
-	r := router.Setup(cfg, clients, rdb)
+	r, limiters := router.Setup(cfg, clients, rdb)
 	httpServer := &http.Server{
 		Addr:              ":" + cfg.HTTPPort,
 		Handler:           r,
@@ -68,7 +69,15 @@ func main() {
 	ctx, cancel := context.WithTimeout(context.Background(), cfg.ShutdownTimeout)
 	defer cancel()
 	if err := httpServer.Shutdown(ctx); err != nil {
-		log.Fatal("http shutdown failed", zap.Error(err))
+		log.Warn("http shutdown failed", zap.Error(err))
+	}
+	// Close in-memory rate limiter goroutines.
+	if limiters != nil {
+		limiters.Close()
+	}
+	// Close Redis client if connected.
+	if rdb != nil {
+		rdb.Close()
 	}
 	log.Info("web gin service stopped")
 }

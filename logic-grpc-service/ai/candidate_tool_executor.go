@@ -120,14 +120,17 @@ func (e *CandidateToolExecutor) getMyResumeText(ctx context.Context, userID int6
 
 	text := strings.TrimSpace(resume.ParsedText)
 	if text == "" {
-		return ToolResult{Content: fmt.Sprintf(`{"resume_available": false, "file_name": "%s", "message": "你的简历已上传，但解析文本暂不可用。请尝试重新上传简历，或等待系统完成解析后再使用此功能。"}`, resume.FileName)}, nil
+		b, _ := json.Marshal(map[string]any{"resume_available": false, "file_name": resume.FileName, "message": "你的简历已上传，但解析文本暂不可用。请尝试重新上传简历，或等待系统完成解析后再使用此功能。"})
+		return ToolResult{Content: string(b)}, nil
 	}
 
 	if len([]rune(text)) < 20 {
-		return ToolResult{Content: fmt.Sprintf(`{"resume_available": false, "file_name": "%s", "message": "简历解析文本内容过短（仅 %d 个字符），可能无法提供有效的分析和推荐。请检查上传的简历文件是否完整。"}`, resume.FileName, len([]rune(text)))}, nil
+		b, _ := json.Marshal(map[string]any{"resume_available": false, "file_name": resume.FileName, "message": fmt.Sprintf("简历解析文本内容过短（仅 %d 个字符），可能无法提供有效的分析和推荐。请检查上传的简历文件是否完整。", len([]rune(text)))})
+		return ToolResult{Content: string(b)}, nil
 	}
 
-	return ToolResult{Content: fmt.Sprintf(`{"resume_available": true, "file_name": "%s", "text_length": %d, "resume_text": "%s"}`, resume.FileName, len([]rune(text)), jsonEscape(text))}, nil
+	b, _ := json.Marshal(map[string]any{"resume_available": true, "file_name": resume.FileName, "text_length": len([]rune(text)), "resume_text": text})
+	return ToolResult{Content: string(b)}, nil
 }
 
 func (e *CandidateToolExecutor) listJobsForRecommendation(ctx context.Context, userID int64) (ToolResult, error) {

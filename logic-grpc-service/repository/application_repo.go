@@ -302,13 +302,16 @@ func (r *ApplicationRepo) TotalByHR(ctx context.Context, hrID int64) (int64, err
 	return total, err
 }
 
-func (r *ApplicationRepo) TodayByHR(ctx context.Context, hrID int64) (int64, error) {
-	start := time.Now().Truncate(24 * time.Hour)
+func (r *ApplicationRepo) TodayByHR(ctx context.Context, hrID, jobID int64) (int64, error) {
+	start := startOfLocalDay(time.Now())
 	var total int64
-	err := r.db.WithContext(ctx).Table("applications").
+	query := r.db.WithContext(ctx).Table("applications").
 		Joins("JOIN jobs ON jobs.id = applications.job_id").
-		Where("jobs.hr_id = ? AND applications.applied_at >= ?", hrID, start).
-		Count(&total).Error
+		Where("jobs.hr_id = ? AND applications.applied_at >= ?", hrID, start)
+	if jobID > 0 {
+		query = query.Where("applications.job_id = ?", jobID)
+	}
+	err := query.Count(&total).Error
 	return total, err
 }
 
@@ -375,7 +378,7 @@ func (r *ApplicationRepo) TrendByHR(ctx context.Context, hrID, jobID int64, days
 	if days < 1 {
 		days = 7
 	}
-	start := time.Now().AddDate(0, 0, -days+1).Truncate(24 * time.Hour)
+	start := startOfLocalDay(time.Now()).AddDate(0, 0, -days+1)
 	var rows []ApplicationTrendRow
 	query := r.db.WithContext(ctx).Table("applications").
 		Select("DATE_FORMAT(applications.applied_at, '%Y-%m-%d') AS date, COUNT(applications.id) AS total").
@@ -386,6 +389,11 @@ func (r *ApplicationRepo) TrendByHR(ctx context.Context, hrID, jobID int64, days
 	}
 	err := query.Group("date").Order("date ASC").Scan(&rows).Error
 	return rows, err
+}
+
+func startOfLocalDay(t time.Time) time.Time {
+	y, m, d := t.In(time.Local).Date()
+	return time.Date(y, m, d, 0, 0, 0, 0, time.Local)
 }
 
 func (r *ApplicationRepo) SearchCandidateApplications(ctx context.Context, hrID int64, keyword string, limit int) ([]CandidateApplicationOptionRow, error) {

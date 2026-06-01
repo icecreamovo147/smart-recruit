@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"testing"
+	"time"
 
 	"gorm.io/gorm"
 
@@ -117,5 +118,46 @@ func TestCreateNewRound_AfterRejected(t *testing.T) {
 	}
 	if app2.IsCurrent != 1 {
 		t.Errorf("expected IsCurrent=1, got %d", app2.IsCurrent)
+	}
+}
+
+func TestTodayByHRCountsFromLocalMidnightAndFiltersJob(t *testing.T) {
+	db := setupTestDB(t)
+	repo := NewApplicationRepo(db)
+	ctx := context.Background()
+
+	job1 := &model.Job{HrID: 1, Title: "后台开发实习生", Status: 1}
+	job2 := &model.Job{HrID: 1, Title: "产品实习生", Status: 1}
+	otherHRJob := &model.Job{HrID: 2, Title: "后台开发实习生", Status: 1}
+	if err := db.Create([]*model.Job{job1, job2, otherHRJob}).Error; err != nil {
+		t.Fatalf("create jobs: %v", err)
+	}
+
+	todayStart := startOfLocalDay(time.Now())
+	apps := []*model.Application{
+		{JobID: job1.ID, UserID: 1, ResumeID: 1, Status: 0, IsCurrent: 1, AppliedAt: todayStart},
+		{JobID: job1.ID, UserID: 2, ResumeID: 2, Status: 0, IsCurrent: 1, AppliedAt: todayStart.Add(2 * time.Hour)},
+		{JobID: job1.ID, UserID: 3, ResumeID: 3, Status: 0, IsCurrent: 1, AppliedAt: todayStart.Add(-time.Nanosecond)},
+		{JobID: job2.ID, UserID: 4, ResumeID: 4, Status: 0, IsCurrent: 1, AppliedAt: todayStart.Add(time.Hour)},
+		{JobID: otherHRJob.ID, UserID: 5, ResumeID: 5, Status: 0, IsCurrent: 1, AppliedAt: todayStart.Add(time.Hour)},
+	}
+	if err := db.Create(apps).Error; err != nil {
+		t.Fatalf("create applications: %v", err)
+	}
+
+	allToday, err := repo.TodayByHR(ctx, 1, 0)
+	if err != nil {
+		t.Fatalf("TodayByHR all: %v", err)
+	}
+	if allToday != 3 {
+		t.Fatalf("allToday = %d, want 3", allToday)
+	}
+
+	jobToday, err := repo.TodayByHR(ctx, 1, job1.ID)
+	if err != nil {
+		t.Fatalf("TodayByHR job: %v", err)
+	}
+	if jobToday != 2 {
+		t.Fatalf("jobToday = %d, want 2", jobToday)
 	}
 }

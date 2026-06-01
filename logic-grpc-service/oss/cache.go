@@ -14,14 +14,6 @@ type PresignCache struct {
 	ttl time.Duration
 }
 
-func NewPresignCache(addr, password string, db int) *PresignCache {
-	return NewPresignCacheWithOptions(&redis.Options{
-		Addr:     addr,
-		Password: password,
-		DB:       db,
-	})
-}
-
 func NewPresignCacheWithOptions(opts *redis.Options) *PresignCache {
 	rdb := redis.NewClient(opts)
 	return &PresignCache{Rdb: rdb, ttl: 10 * time.Minute}

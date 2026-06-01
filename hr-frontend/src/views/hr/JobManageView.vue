@@ -209,17 +209,33 @@ const save = async () => {
 }
 
 const offline = async (row: Job) => {
-  await ElMessageBox.confirm(`确认下架「${row.title}」？`, '下架岗位', { type: 'warning' })
-  await offlineJob(row.job_id)
-  ElMessage.success('岗位已下架')
-  load()
+  try {
+    await ElMessageBox.confirm(`确认下架「${row.title}」？`, '下架岗位', { type: 'warning' })
+  } catch {
+    return
+  }
+  try {
+    await offlineJob(row.job_id)
+    ElMessage.success('岗位已下架')
+    load()
+  } catch {
+    // error already shown by request interceptor
+  }
 }
 
 const online = async (row: Job) => {
-  await ElMessageBox.confirm(`确认重新上线「${row.title}」？`, '上线岗位', { type: 'info' })
-  await onlineJob(row.job_id)
-  ElMessage.success('岗位已上线')
-  load()
+  try {
+    await ElMessageBox.confirm(`确认重新上线「${row.title}」？`, '上线岗位', { type: 'info' })
+  } catch {
+    return
+  }
+  try {
+    await onlineJob(row.job_id)
+    ElMessage.success('岗位已上线')
+    load()
+  } catch {
+    // error already shown by request interceptor
+  }
 }
 
 onMounted(() => {

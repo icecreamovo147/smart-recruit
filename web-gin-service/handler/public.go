@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"errors"
 	"strconv"
 
 	"github.com/gin-gonic/gin"
@@ -21,6 +22,10 @@ func (h *PublicHandler) ListJobs(c *gin.Context) {
 	page, pageSize := pagination(c)
 	cursor, hasCursor := c.GetQuery("cursor")
 	if hasCursor {
+		if err := validateCursor(cursor); err != nil {
+			BadRequest(c, "cursor 参数格式错误")
+			return
+		}
 		page = 0
 	}
 	resp, err := h.clients.Job.ListPublicJobs(c.Request.Context(), &pb.ListPublicJobsRequest{Page: page, PageSize: pageSize, Keyword: c.Query("keyword"), Cursor: cursor})
@@ -59,4 +64,20 @@ func pagination(c *gin.Context) (int32, int32) {
 		pageSize = 10
 	}
 	return int32(page), int32(pageSize)
+}
+
+// validateCursor validates the cursor format as a basic sanity check.
+// Valid cursors are non-empty strings up to 256 characters containing only
+// printable ASCII characters. This is a defense-in-depth check; the actual
+// cursor parsing is done server-side.
+func validateCursor(cursor string) error {
+	if len(cursor) == 0 || len(cursor) > 256 {
+		return errors.New("cursor length out of range")
+	}
+	for _, b := range cursor {
+		if b < 0x20 || b > 0x7e {
+			return errors.New("cursor contains invalid characters")
+		}
+	}
+	return nil
 }

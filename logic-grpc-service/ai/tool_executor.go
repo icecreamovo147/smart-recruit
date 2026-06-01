@@ -18,7 +18,7 @@ type ToolExecutor struct {
 	applications *repository.ApplicationRepo
 	jobs         *repository.JobRepo
 	resumes      *repository.ResumeRepo
-	oss          *oss.Client
+	oss          oss.Storage
 }
 
 type ToolResult struct {
@@ -29,6 +29,21 @@ type ToolResult struct {
 type ToolMetadata struct {
 	CandidateOptions []ToolCandidateOption
 	Action           *ToolAction
+	// ToolTraces accumulates one entry per executed tool call within a single
+	// ChatWithTools invocation. Populated by ChatWithTools in eino_client.go.
+	// Used by fallback-reply builders when the LLM fails after tools succeeded.
+	ToolTraces []ToolTrace
+}
+
+// ToolTrace is the in-memory record of a single tool execution kept for fallback
+// reply construction. Result is the raw JSON returned by the executor (already
+// safe to inspect); Cost is the wall-clock time the tool took.
+type ToolTrace struct {
+	ToolName  string
+	Arguments map[string]any
+	Result    string
+	Cost      time.Duration
+	Error     error
 }
 
 type ToolCandidateOption struct {
@@ -52,15 +67,23 @@ type ToolAction struct {
 }
 
 func (m *ToolMetadata) merge(other ToolMetadata) {
+	// CandidateOptions is append-only: multiple tools may each contribute
+	// candidate records (e.g., search_candidates called multiple times).
 	if len(other.CandidateOptions) > 0 {
-		m.CandidateOptions = other.CandidateOptions
+		m.CandidateOptions = append(m.CandidateOptions, other.CandidateOptions...)
 	}
+	// Action is overwrite: at most one status-update action per agent turn.
 	if other.Action != nil {
 		m.Action = other.Action
 	}
 }
 
-func NewToolExecutor(apps *repository.ApplicationRepo, jobs *repository.JobRepo, resumes *repository.ResumeRepo, ossClient *oss.Client) *ToolExecutor {
+// recordTrace appends a single tool execution to the metadata trace log.
+func (m *ToolMetadata) recordTrace(t ToolTrace) {
+	m.ToolTraces = append(m.ToolTraces, t)
+}
+
+func NewToolExecutor(apps *repository.ApplicationRepo, jobs *repository.JobRepo, resumes *repository.ResumeRepo, ossClient oss.Storage) *ToolExecutor {
 	return &ToolExecutor{applications: apps, jobs: jobs, resumes: resumes, oss: ossClient}
 }
 
@@ -70,7 +93,7 @@ func (e *ToolExecutor) Execute(ctx context.Context, hrID int64, toolName string,
 	case "query_total_applications":
 		return e.queryTotal(ctx, hrID)
 	case "query_today_applications":
-		return e.queryToday(ctx, hrID)
+		return e.queryToday(ctx, hrID, args)
 	case "get_job_heat_ranking":
 		return e.jobHeatRanking(ctx, hrID, args)
 	case "search_candidates":
@@ -105,15 +128,27 @@ func (e *ToolExecutor) queryTotal(ctx context.Context, hrID int64) (ToolResult, 
 	if err != nil {
 		return ToolResult{}, err
 	}
-	return ToolResult{Content: fmt.Sprintf(`{"total_applications": %d}`, total)}, nil
+	b, _ := json.Marshal(map[string]any{"total_applications": total})
+	return ToolResult{Content: string(b)}, nil
 }
 
-func (e *ToolExecutor) queryToday(ctx context.Context, hrID int64) (ToolResult, error) {
-	today, err := e.applications.TodayByHR(ctx, hrID)
+func (e *ToolExecutor) queryToday(ctx context.Context, hrID int64, args map[string]any) (ToolResult, error) {
+	jobID := int64Arg(args, "job_id")
+	if jobID > 0 {
+		ok, err := e.jobs.BelongsToHR(ctx, hrID, jobID)
+		if err != nil {
+			return ToolResult{}, err
+		}
+		if !ok {
+			return ToolResult{Content: `{"error": "岗位不存在或无权限访问"}`}, nil
+		}
+	}
+	today, err := e.applications.TodayByHR(ctx, hrID, jobID)
 	if err != nil {
 		return ToolResult{}, err
 	}
-	return ToolResult{Content: fmt.Sprintf(`{"today_applications": %d}`, today)}, nil
+	b, _ := json.Marshal(map[string]any{"job_id": jobID, "today_applications": today})
+	return ToolResult{Content: string(b)}, nil
 }
 
 func (e *ToolExecutor) jobHeatRanking(ctx context.Context, hrID int64, args map[string]any) (ToolResult, error) {
@@ -437,6 +472,9 @@ func (e *ToolExecutor) applicationStatusSummary(ctx context.Context, hrID int64,
 
 func (e *ToolExecutor) applicationTrend(ctx context.Context, hrID int64, args map[string]any) (ToolResult, error) {
 	days := intArg(args, "days", 7)
+	if days < 1 {
+		days = 7
+	}
 	if days > 90 {
 		days = 90
 	}
@@ -454,9 +492,17 @@ func (e *ToolExecutor) applicationTrend(ctx context.Context, hrID int64, args ma
 	if err != nil {
 		return ToolResult{}, err
 	}
+	if rows == nil {
+		rows = make([]repository.ApplicationTrendRow, 0)
+	}
+	var total int64
+	for _, row := range rows {
+		total += row.Total
+	}
 	b, _ := json.Marshal(map[string]any{
 		"job_id": jobID,
 		"days":   days,
+		"total":  total,
 		"trend":  rows,
 	})
 	return ToolResult{Content: string(b)}, nil

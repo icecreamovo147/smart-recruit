@@ -62,3 +62,41 @@ export const getDepartmentLocationConfig = (departmentId: number): Promise<Depar
 
 export const updateDepartmentLocationConfig = (departmentId: number, data: { inherit_locations: number; location_ids: number[] }): Promise<DepartmentLocationConfig> =>
   request.put(`/api/v1/hr/admin/departments/${departmentId}/locations`, data)
+
+// ── Usage Audit ──────────────────────────────────────────────────────
+
+export interface UsageLogQuery {
+  page: number
+  page_size: number
+  service_type?: string
+  provider?: string
+  status?: string
+  user_id?: number
+  request_id?: string
+  start_time?: string
+  end_time?: string
+}
+
+export interface UsageLogItem {
+  id: number
+  user_id: number
+  role: number
+  service_type: string
+  endpoint: string
+  provider: string
+  model: string
+  request_chars: number
+  response_chars: number
+  estimated_tokens: number
+  object_key: string
+  object_size: number
+  status: string
+  error_code: string
+  cost_ms: number
+  request_id: string
+  ip: string
+  created_at: string
+}
+
+export const listUsageLogs = (params: UsageLogQuery): Promise<PaginatedList<UsageLogItem>> =>
+  request.get('/api/v1/hr/admin/third-party-usage-logs', { params })

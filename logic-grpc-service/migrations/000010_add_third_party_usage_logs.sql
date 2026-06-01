@@ -1,0 +1,25 @@
+-- Add third-party usage audit log table for cost tracking and anomaly detection.
+CREATE TABLE IF NOT EXISTS `third_party_usage_logs` (
+  `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+  `user_id` BIGINT NOT NULL DEFAULT 0 COMMENT '用户ID，0表示匿名/系统',
+  `role` TINYINT NOT NULL DEFAULT 0 COMMENT '用户角色：0未知 1候选人 2HR 3管理员',
+  `service_type` VARCHAR(32) NOT NULL DEFAULT '' COMMENT '服务类型：ai_chat/ai_analyze/oss_presign/oss_confirm',
+  `endpoint` VARCHAR(128) NOT NULL DEFAULT '' COMMENT '调用的接口路径',
+  `provider` VARCHAR(64) NOT NULL DEFAULT '' COMMENT '第三方服务商：dashscope/tencent_cos/aliyun_oss',
+  `model` VARCHAR(64) NOT NULL DEFAULT '' COMMENT 'AI模型名称',
+  `request_chars` INT UNSIGNED NOT NULL DEFAULT 0 COMMENT '请求字符数',
+  `response_chars` INT UNSIGNED NOT NULL DEFAULT 0 COMMENT '响应字符数',
+  `estimated_tokens` INT UNSIGNED NOT NULL DEFAULT 0 COMMENT '估算token消耗',
+  `object_key` VARCHAR(512) NOT NULL DEFAULT '' COMMENT 'OSS对象key',
+  `object_size` BIGINT NOT NULL DEFAULT 0 COMMENT 'OSS对象大小(字节)',
+  `status` VARCHAR(16) NOT NULL DEFAULT 'ok' COMMENT '调用结果：ok/error/timeout/rate_limited',
+  `error_code` VARCHAR(32) NOT NULL DEFAULT '' COMMENT '错误码',
+  `cost_ms` INT UNSIGNED NOT NULL DEFAULT 0 COMMENT '调用耗时(毫秒)',
+  `request_id` VARCHAR(64) NOT NULL DEFAULT '' COMMENT '请求追踪ID',
+  `ip` VARCHAR(64) NOT NULL DEFAULT '' COMMENT '客户端IP',
+  `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+  PRIMARY KEY (`id`),
+  KEY `idx_user_created` (`user_id`, `created_at`),
+  KEY `idx_service_created` (`service_type`, `created_at`),
+  KEY `idx_request_id` (`request_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='第三方服务调用审计日志';

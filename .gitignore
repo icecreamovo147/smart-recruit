@@ -1,7 +1,9 @@
 logic-grpc-service/config/config.yaml
 
+.env
 node_modules/
 dist/
+.dev/
 .claude/
 .ai-guides/
 *.pdf
@@ -15,3 +17,9 @@ dist/
 
 # Docker Compose 环境变量（含敏感密钥）
 docker/.env
+
+# Kubernetes / certificate secrets
+deploy/k8s/secret.yaml
+*.pem
+*.key
+*.crt

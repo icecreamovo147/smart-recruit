@@ -1,6 +1,11 @@
 package candidate
 
 import (
+	"errors"
+	"html"
+	"regexp"
+	"strings"
+
 	"github.com/gin-gonic/gin"
 
 	base "web-gin-service/handler"
@@ -39,10 +44,50 @@ func (h *ProfileHandler) Update(c *gin.Context) {
 		base.BadRequest(c, "请求参数错误")
 		return
 	}
-	resp, err := h.clients.Candidate.UpdateProfile(c.Request.Context(), &pb.UpdateProfileRequest{UserId: middleware.UserID(c), RealName: req.RealName, Phone: req.Phone, Education: req.Education, School: req.School, WorkExperience: req.WorkExperience, Skills: req.Skills})
+	// Validate field lengths and content to prevent XSS and DoS.
+	if err := validateProfileFields(req.RealName, req.Phone, req.Education, req.School, req.WorkExperience, req.Skills); err != nil {
+		base.BadRequest(c, err.Error())
+		return
+	}
+	resp, err := h.clients.Candidate.UpdateProfile(c.Request.Context(), &pb.UpdateProfileRequest{
+		UserId: middleware.UserID(c),
+		RealName:       html.EscapeString(strings.TrimSpace(req.RealName)),
+		Phone:          strings.TrimSpace(req.Phone),
+		Education:      strings.TrimSpace(req.Education),
+		School:         strings.TrimSpace(req.School),
+		WorkExperience: strings.TrimSpace(req.WorkExperience),
+		Skills:         strings.TrimSpace(req.Skills),
+	})
 	if err != nil {
 		base.Internal(c, err)
 		return
 	}
 	base.From(c, resp.Code, resp.Msg, resp.Profile)
+}
+
+const maxProfileFieldLen = 500
+
+// stripHTML removes HTML tags to prevent XSS when fields that expect plain text
+// are rendered in views without escaping.
+var tagStripper = regexp.MustCompile(`<[^>]*>`)
+
+func validateProfileFields(realName, phone, education, school, workExp, skills string) error {
+	fields := map[string]string{
+		"real_name":       realName,
+		"phone":           phone,
+		"education":       education,
+		"school":          school,
+		"work_experience": workExp,
+		"skills":          skills,
+	}
+	for name, val := range fields {
+		if len(val) > maxProfileFieldLen {
+			return errors.New(name + ": 内容过长，请精简后重试")
+		}
+		// Reject fields that contain HTML tags — strip and compare to detect markup.
+		if stripped := tagStripper.ReplaceAllString(val, ""); stripped != val {
+			return errors.New(name + ": 不允许包含 HTML 标签")
+		}
+	}
+	return nil
 }

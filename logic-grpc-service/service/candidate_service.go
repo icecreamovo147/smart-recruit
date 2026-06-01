@@ -22,12 +22,13 @@ import (
 type CandidateService struct {
 	profiles        *repository.ProfileRepo
 	resumes         *repository.ResumeRepo
-	oss             *oss.Client
+	oss             oss.Storage
 	outboxPublisher *OutboxPublisher
+	usageLogs       *repository.UsageLogRepo
 }
 
-func NewCandidateService(profiles *repository.ProfileRepo, resumes *repository.ResumeRepo, ossClient *oss.Client, outboxPublisher *OutboxPublisher) *CandidateService {
-	return &CandidateService{profiles: profiles, resumes: resumes, oss: ossClient, outboxPublisher: outboxPublisher}
+func NewCandidateService(profiles *repository.ProfileRepo, resumes *repository.ResumeRepo, ossClient oss.Storage, outboxPublisher *OutboxPublisher, usageLogs *repository.UsageLogRepo) *CandidateService {
+	return &CandidateService{profiles: profiles, resumes: resumes, oss: ossClient, outboxPublisher: outboxPublisher, usageLogs: usageLogs}
 }
 
 func (s *CandidateService) GetProfile(ctx context.Context, req *pb.GetProfileRequest) (*pb.GetProfileResponse, error) {
@@ -76,8 +77,14 @@ func (s *CandidateService) PresignResumeUpload(ctx context.Context, req *pb.Pres
 	if !allowedFileType(req.FileName, req.FileType) {
 		return &pb.PresignResumeUploadResponse{Code: errs.ErrBadRequest, Msg: "仅支持 " + allowedFileTypesText() + " 格式"}, nil
 	}
-	ossKey := fmt.Sprintf("resumes/%d/%d_%s", req.UserId, time.Now().Unix(), sanitizeFileName(req.FileName))
-	uploadURL, expireAt, err := s.oss.GeneratePresignedPutURL(ossKey)
+	uploadID, err := oss.GenerateUploadID()
+	if err != nil {
+		return nil, err
+	}
+	safeName := sanitizeFileName(req.FileName)
+	ossKey := fmt.Sprintf("resumes/tmp/%d/%s/%s", req.UserId, uploadID, safeName)
+	contentType := oss.ContentTypeFromFileType(req.FileType)
+	uploadURL, expireAt, err := s.oss.GeneratePresignedPutURL(ossKey, contentType)
 	if err != nil {
 		logger.L().Error("presign upload failed", zap.Int64("user_id", req.UserId), zap.Error(err))
 		return nil, err
@@ -86,18 +93,24 @@ func (s *CandidateService) PresignResumeUpload(ctx context.Context, req *pb.Pres
 	// Store upload session in Redis to bind the upload to this user.
 	// The session is validated at confirm time to prevent cross-user confirmation.
 	session := oss.PresignSession{
-		UserID:   req.UserId,
-		OssKey:   ossKey,
-		FileName: req.FileName,
-		FileType: req.FileType,
-		MaxSize:  oss.MaxResumeSizeBytes,
+		UserID:      req.UserId,
+		OssKey:      ossKey,
+		FileName:    req.FileName,
+		FileType:    req.FileType,
+		ContentType: contentType,
+		MaxSize:     oss.MaxResumeSizeBytes,
+		Status:      "pending",
 	}
-	uploadID, err := s.oss.SavePresignSession(ctx, session)
-	if err != nil {
+	if err := s.oss.SavePresignSessionWithID(ctx, uploadID, session); err != nil {
 		logger.L().Error("save presign session failed", zap.Int64("user_id", req.UserId), zap.Error(err))
 		return nil, err
 	}
 
+	writeAuditLog(ctx, s.usageLogs, AuditLogEntry{
+		UserID: req.UserId, Role: 1, ServiceType: "oss_presign",
+		Endpoint: "/candidate/resume/presign", Provider: ossProviderName(s.oss),
+		ObjectKey: ossKey, ObjectSize: oss.MaxResumeSizeBytes,
+	})
 	logger.L().Info("resume presign generated", zap.Int64("user_id", req.UserId), zap.String("file_name", req.FileName))
 	return &pb.PresignResumeUploadResponse{Code: errs.OK, Msg: "success", UploadUrl: uploadURL, OssKey: ossKey, ExpireAt: formatTime(expireAt), UploadId: uploadID}, nil
 }
@@ -124,6 +137,21 @@ func (s *CandidateService) ConfirmResumeUpload(ctx context.Context, req *pb.Conf
 		if session.OssKey != req.OssKey {
 			return &pb.ConfirmResumeUploadResponse{Code: errs.ErrBadRequest, Msg: "文件信息不匹配，请重新上传"}, nil
 		}
+		if session.FileType != req.FileType {
+			return &pb.ConfirmResumeUploadResponse{Code: errs.ErrBadRequest, Msg: "文件类型与上传凭证不一致，请重新上传"}, nil
+		}
+		if session.ContentType != "" && req.FileType != "" {
+			expectedCT := oss.ContentTypeFromFileType(req.FileType)
+			if session.ContentType != expectedCT {
+				return &pb.ConfirmResumeUploadResponse{Code: errs.ErrBadRequest, Msg: "文件类型与上传凭证不一致，请重新上传"}, nil
+			}
+		}
+		if session.Status != "pending" {
+			return &pb.ConfirmResumeUploadResponse{Code: errs.ErrBadRequest, Msg: "上传凭证已失效，请重新上传"}, nil
+		}
+		if req.FileSize > session.MaxSize {
+			return &pb.ConfirmResumeUploadResponse{Code: errs.ErrBadRequest, Msg: "简历文件大小超过限制（最大 20MB）"}, nil
+		}
 	} else {
 		// Legacy compat: verify oss_key starts with resumes/{user_id}/
 		expectedPrefix := fmt.Sprintf("resumes/%d/", req.UserId)
@@ -145,7 +173,18 @@ func (s *CandidateService) ConfirmResumeUpload(ctx context.Context, req *pb.Conf
 		return &pb.ConfirmResumeUploadResponse{Code: errs.ErrBadRequest, Msg: "简历文件大小超过限制（最大 20MB）"}, nil
 	}
 
-	resume := &model.Resume{UserID: req.UserId, OSSKey: req.OssKey, FileName: req.FileName, FileType: strings.ToLower(req.FileType), FileSize: req.FileSize, IsValid: 1, UploadedAt: time.Now()}
+	// Copy from temp to permanent key, then delete the temp object.
+	safeName := sanitizeFileName(req.FileName)
+	permanentKey := fmt.Sprintf("resumes/%d/%d_%s", req.UserId, time.Now().Unix(), safeName)
+	if err := s.oss.CopyObject(ctx, req.OssKey, permanentKey); err != nil {
+		logger.L().Error("copy resume to permanent key failed", zap.String("src", req.OssKey), zap.String("dst", permanentKey), zap.Error(err))
+		return &pb.ConfirmResumeUploadResponse{Code: 500, Msg: "简历保存失败，请重新上传"}, nil
+	}
+	if err := s.oss.DeleteObject(ctx, req.OssKey); err != nil {
+		logger.L().Warn("delete tmp resume object failed", zap.String("key", req.OssKey), zap.Error(err))
+	}
+
+	resume := &model.Resume{UserID: req.UserId, OSSKey: permanentKey, FileName: req.FileName, FileType: strings.ToLower(req.FileType), FileSize: req.FileSize, IsValid: 1, UploadedAt: time.Now()}
 	if err := s.resumes.ConfirmUploadWithTx(ctx, resume, func(tx *gorm.DB) error {
 		return s.outboxPublisher.WriteEventTx(tx, "resume.parse", "resume", uint64(resume.ID), "resume.parse", resumeParsePayload{
 			ResumeID: resume.ID,
@@ -163,6 +202,16 @@ func (s *CandidateService) ConfirmResumeUpload(ctx context.Context, req *pb.Conf
 		return nil, err
 	}
 	s.outboxPublisher.Signal()
+	writeAuditLog(ctx, s.usageLogs, AuditLogEntry{
+		UserID: req.UserId, Role: 1, ServiceType: "oss_confirm",
+		Endpoint: "/candidate/resume/confirm", Provider: ossProviderName(s.oss),
+		ObjectKey: req.OssKey, ObjectSize: req.FileSize,
+	})
 	logger.L().Info("resume upload confirmed", zap.Int64("user_id", req.UserId), zap.Int64("resume_id", resume.ID))
 	return &pb.ConfirmResumeUploadResponse{Code: errs.OK, Msg: "success", ResumeId: resume.ID}, nil
+}
+
+
+func ossProviderName(s oss.Storage) string {
+	return s.ProviderName()
 }

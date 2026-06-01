@@ -11,11 +11,13 @@ import (
 
 // PresignSession records the metadata for an active resume upload presign request.
 type PresignSession struct {
-	UserID   int64  `json:"user_id"`
-	OssKey   string `json:"oss_key"`
-	FileName string `json:"file_name"`
-	FileType string `json:"file_type"`
-	MaxSize  int64  `json:"max_size"`
+	UserID      int64  `json:"user_id"`
+	OssKey      string `json:"oss_key"`
+	FileName    string `json:"file_name"`
+	FileType    string `json:"file_type"`
+	ContentType string `json:"content_type"`
+	MaxSize     int64  `json:"max_size"`
+	Status      string `json:"status"`
 }
 
 // MaxResumeSizeBytes is the hard cap for resume file size (20 MB).
@@ -24,7 +26,7 @@ const MaxResumeSizeBytes = 20 * 1024 * 1024
 // MaxResumeDownloadSizeBytes is the download limit to prevent OOM (25 MB).
 const MaxResumeDownloadSizeBytes = 25 * 1024 * 1024
 
-func generateUploadID() (string, error) {
+func GenerateUploadID() (string, error) {
 	b := make([]byte, 16)
 	if _, err := rand.Read(b); err != nil {
 		return "", err
@@ -36,13 +38,25 @@ func presignSessionKey(uploadID string) string {
 	return fmt.Sprintf("oss:presign_session:%s", uploadID)
 }
 
-// SavePresignSession stores an upload session in Redis with 15-minute TTL.
-// Returns the generated upload_id.
-func (c *Client) SavePresignSession(ctx context.Context, session PresignSession) (string, error) {
-	if c.presignCache == nil {
+// SavePresignSessionWithID stores an upload session with a pre-generated upload ID.
+func savePresignSessionWithID(ctx context.Context, cache *PresignCache, uploadID string, session PresignSession) error {
+	if cache == nil {
+		return fmt.Errorf("presign cache is not available")
+	}
+	data, err := json.Marshal(session)
+	if err != nil {
+		return err
+	}
+	key := presignSessionKey(uploadID)
+	return cache.Rdb.Set(ctx, key, string(data), 15*time.Minute).Err()
+}
+
+// SavePresignSession stores an upload session in Redis with 15-minute TTL via the given cache.
+func savePresignSessionWithCache(ctx context.Context, cache *PresignCache, session PresignSession) (string, error) {
+	if cache == nil {
 		return "", fmt.Errorf("presign cache is not available")
 	}
-	uploadID, err := generateUploadID()
+	uploadID, err := GenerateUploadID()
 	if err != nil {
 		return "", err
 	}
@@ -51,20 +65,19 @@ func (c *Client) SavePresignSession(ctx context.Context, session PresignSession)
 		return "", err
 	}
 	key := presignSessionKey(uploadID)
-	if err := c.presignCache.Rdb.Set(ctx, key, string(data), 15*time.Minute).Err(); err != nil {
+	if err := cache.Rdb.Set(ctx, key, string(data), 15*time.Minute).Err(); err != nil {
 		return "", err
 	}
 	return uploadID, nil
 }
 
-// GetAndDeletePresignSession retrieves and atomically deletes the presign session.
-// This ensures each upload_id can only be used once (prevents replay).
-func (c *Client) GetAndDeletePresignSession(ctx context.Context, uploadID string) (*PresignSession, error) {
-	if c.presignCache == nil {
+// getAndDeletePresignSessionWithCache atomically retrieves and deletes the session.
+func getAndDeletePresignSessionWithCache(ctx context.Context, cache *PresignCache, uploadID string) (*PresignSession, error) {
+	if cache == nil {
 		return nil, fmt.Errorf("presign cache is not available")
 	}
 	key := presignSessionKey(uploadID)
-	data, err := c.presignCache.Rdb.GetDel(ctx, key).Result()
+	data, err := cache.Rdb.GetDel(ctx, key).Result()
 	if err != nil {
 		return nil, fmt.Errorf("upload session not found or expired: %w", err)
 	}
@@ -73,16 +86,4 @@ func (c *Client) GetAndDeletePresignSession(ctx context.Context, uploadID string
 		return nil, err
 	}
 	return &session, nil
-}
-
-// VerifyObjectSize checks that the uploaded object does not exceed the max size.
-func (c *Client) VerifyObjectSize(ctx context.Context, ossKey string, maxSize int64) error {
-	resp, err := c.client.Object.Head(ctx, ossKey, nil)
-	if err != nil {
-		return err
-	}
-	if resp.ContentLength > maxSize {
-		return fmt.Errorf("file size %d exceeds maximum allowed %d bytes", resp.ContentLength, maxSize)
-	}
-	return nil
 }

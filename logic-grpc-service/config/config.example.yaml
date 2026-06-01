@@ -6,6 +6,7 @@ mysql:
   conn_max_idle_time: "10m"
 
 oss:
+  provider: "tencent_cos" # tencent_cos / aliyun_oss
   endpoint: ""
   access_key_id: ""
   access_key_secret: ""
@@ -14,17 +15,27 @@ oss:
 
 ai:
   api_key: ""
-  model: ""
+  model: "qwen-plus"
   base_url: "https://dashscope.aliyuncs.com/compatible-mode/v1"
+  agent_runtime: "adk"                 # AI_AGENT_RUNTIME: adk / legacy
   timeout: "90s"
-  max_concurrency: 10
-  circuit_failure_threshold: 5
-  circuit_open_timeout: "30s"
-  circuit_half_open_max_requests: 2
+  # Phase 2-5: high-availability AI tuning knobs.
+  total_timeout: "120s"                # AI_TOTAL_TIMEOUT: end-to-end budget per conversation
+  tool_max_rounds: 5                   # AI_TOOL_MAX_ROUNDS: max tool-calling rounds
+  tool_total_timeout: "30s"            # AI_TOOL_TOTAL_TIMEOUT: cumulative tool execution budget
+  max_concurrency: 10                  # AI_MAX_CONCURRENCY: concurrent LLM call limit (semaphore)
+  circuit_failure_threshold: 5         # AI_CIRCUIT_FAILURE_THRESHOLD: consecutive failures to open
+  circuit_open_timeout: "30s"          # AI_CIRCUIT_OPEN_TIMEOUT: time before half-open probe
+  circuit_half_open_max_requests: 2    # AI_CIRCUIT_HALF_OPEN_MAX_REQUESTS: max concurrent probes
+  retry_max_attempts: 2               # AI_RETRY_MAX_ATTEMPTS: max retries for 429/5xx/timeout
+  retry_base_delay: "500ms"           # AI_RETRY_BASE_DELAY: base for exponential backoff
+  slow_response_threshold: "5s"       # AI_SLOW_RESPONSE_THRESHOLD: emit timeout_warning status
 
 jwt:
-  # 生产环境必须通过 JWT_SECRET 环境变量设置强密钥（>=32 字符）。
-  # 开发环境可设置 ALLOW_INSECURE_DEV_CONFIG=true 以使用弱密钥。
+  # 本地部署时必须填写，且必须与 Web 网关使用的 JWT_SECRET 完全一致。
+  # Docker / K8s 部署时通过 JWT_SECRET 环境变量注入，会覆盖此处配置。
+  # 示例（请替换为实际密钥）:
+  #   secret: "dev-jwt-secret-at-least-32-chars-long!!"
   secret: ""
 
 grpc:

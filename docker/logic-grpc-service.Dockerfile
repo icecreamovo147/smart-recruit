@@ -1,5 +1,5 @@
 # Stage 1: Build
-FROM golang:1.24-alpine AS builder
+FROM golang:1.25-alpine AS builder
 
 RUN sed -i 's/dl-cdn.alpinelinux.org/mirrors.aliyun.com/g' /etc/apk/repositories
 
@@ -22,6 +22,8 @@ RUN sed -i 's/dl-cdn.alpinelinux.org/mirrors.aliyun.com/g' /etc/apk/repositories
 
 RUN apk add --no-cache ca-certificates tzdata libffi mupdf && \
     ln -s /usr/lib/libmupdf.so.24.10 /usr/lib/libmupdf.so
+
+ENV FZ_VERSION=1.24.10
 
 COPY --from=builder /logic-grpc-service /usr/local/bin/logic-grpc-service
 COPY logic-grpc-service/config/config.example.yaml /app/config/config.example.yaml

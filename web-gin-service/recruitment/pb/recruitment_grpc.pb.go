@@ -5,7 +5,7 @@
 // versions:
 // - protoc-gen-go-grpc v1.6.2
 // - protoc             v3.20.3
-// source: web-gin-service/proto/recruitment.proto
+// source: proto/recruitment.proto
 
 package pb
 
@@ -22,8 +22,10 @@ import (
 const _ = grpc.SupportPackageIsVersion9
 
 const (
-	AuthService_Register_FullMethodName = "/recruitment.AuthService/Register"
-	AuthService_Login_FullMethodName    = "/recruitment.AuthService/Login"
+	AuthService_Register_FullMethodName           = "/recruitment.AuthService/Register"
+	AuthService_Login_FullMethodName              = "/recruitment.AuthService/Login"
+	AuthService_RefreshToken_FullMethodName       = "/recruitment.AuthService/RefreshToken"
+	AuthService_RevokeRefreshToken_FullMethodName = "/recruitment.AuthService/RevokeRefreshToken"
 )
 
 // AuthServiceClient is the client API for AuthService service.
@@ -32,6 +34,8 @@ const (
 type AuthServiceClient interface {
 	Register(ctx context.Context, in *RegisterRequest, opts ...grpc.CallOption) (*RegisterResponse, error)
 	Login(ctx context.Context, in *LoginRequest, opts ...grpc.CallOption) (*LoginResponse, error)
+	RefreshToken(ctx context.Context, in *RefreshTokenRequest, opts ...grpc.CallOption) (*RefreshTokenResponse, error)
+	RevokeRefreshToken(ctx context.Context, in *RevokeRefreshTokenRequest, opts ...grpc.CallOption) (*CommonResponse, error)
 }
 
 type authServiceClient struct {
@@ -62,12 +66,34 @@ func (c *authServiceClient) Login(ctx context.Context, in *LoginRequest, opts ..
 	return out, nil
 }
 
+func (c *authServiceClient) RefreshToken(ctx context.Context, in *RefreshTokenRequest, opts ...grpc.CallOption) (*RefreshTokenResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(RefreshTokenResponse)
+	err := c.cc.Invoke(ctx, AuthService_RefreshToken_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *authServiceClient) RevokeRefreshToken(ctx context.Context, in *RevokeRefreshTokenRequest, opts ...grpc.CallOption) (*CommonResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(CommonResponse)
+	err := c.cc.Invoke(ctx, AuthService_RevokeRefreshToken_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // AuthServiceServer is the server API for AuthService service.
 // All implementations must embed UnimplementedAuthServiceServer
 // for forward compatibility.
 type AuthServiceServer interface {
 	Register(context.Context, *RegisterRequest) (*RegisterResponse, error)
 	Login(context.Context, *LoginRequest) (*LoginResponse, error)
+	RefreshToken(context.Context, *RefreshTokenRequest) (*RefreshTokenResponse, error)
+	RevokeRefreshToken(context.Context, *RevokeRefreshTokenRequest) (*CommonResponse, error)
 	mustEmbedUnimplementedAuthServiceServer()
 }
 
@@ -83,6 +109,12 @@ func (UnimplementedAuthServiceServer) Register(context.Context, *RegisterRequest
 }
 func (UnimplementedAuthServiceServer) Login(context.Context, *LoginRequest) (*LoginResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method Login not implemented")
+}
+func (UnimplementedAuthServiceServer) RefreshToken(context.Context, *RefreshTokenRequest) (*RefreshTokenResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method RefreshToken not implemented")
+}
+func (UnimplementedAuthServiceServer) RevokeRefreshToken(context.Context, *RevokeRefreshTokenRequest) (*CommonResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method RevokeRefreshToken not implemented")
 }
 func (UnimplementedAuthServiceServer) mustEmbedUnimplementedAuthServiceServer() {}
 func (UnimplementedAuthServiceServer) testEmbeddedByValue()                     {}
@@ -141,6 +173,42 @@ func _AuthService_Login_Handler(srv interface{}, ctx context.Context, dec func(i
 	return interceptor(ctx, in, info, handler)
 }
 
+func _AuthService_RefreshToken_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(RefreshTokenRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(AuthServiceServer).RefreshToken(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: AuthService_RefreshToken_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(AuthServiceServer).RefreshToken(ctx, req.(*RefreshTokenRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _AuthService_RevokeRefreshToken_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(RevokeRefreshTokenRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(AuthServiceServer).RevokeRefreshToken(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: AuthService_RevokeRefreshToken_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(AuthServiceServer).RevokeRefreshToken(ctx, req.(*RevokeRefreshTokenRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // AuthService_ServiceDesc is the grpc.ServiceDesc for AuthService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -156,9 +224,17 @@ var AuthService_ServiceDesc = grpc.ServiceDesc{
 			MethodName: "Login",
 			Handler:    _AuthService_Login_Handler,
 		},
+		{
+			MethodName: "RefreshToken",
+			Handler:    _AuthService_RefreshToken_Handler,
+		},
+		{
+			MethodName: "RevokeRefreshToken",
+			Handler:    _AuthService_RevokeRefreshToken_Handler,
+		},
 	},
 	Streams:  []grpc.StreamDesc{},
-	Metadata: "web-gin-service/proto/recruitment.proto",
+	Metadata: "proto/recruitment.proto",
 }
 
 const (
@@ -564,7 +640,7 @@ var JobService_ServiceDesc = grpc.ServiceDesc{
 		},
 	},
 	Streams:  []grpc.StreamDesc{},
-	Metadata: "web-gin-service/proto/recruitment.proto",
+	Metadata: "proto/recruitment.proto",
 }
 
 const (
@@ -818,7 +894,7 @@ var CandidateService_ServiceDesc = grpc.ServiceDesc{
 		},
 	},
 	Streams:  []grpc.StreamDesc{},
-	Metadata: "web-gin-service/proto/recruitment.proto",
+	Metadata: "proto/recruitment.proto",
 }
 
 const (
@@ -1034,7 +1110,7 @@ var ApplicationService_ServiceDesc = grpc.ServiceDesc{
 		},
 	},
 	Streams:  []grpc.StreamDesc{},
-	Metadata: "web-gin-service/proto/recruitment.proto",
+	Metadata: "proto/recruitment.proto",
 }
 
 const (
@@ -1288,7 +1364,7 @@ var NotificationService_ServiceDesc = grpc.ServiceDesc{
 		},
 	},
 	Streams:  []grpc.StreamDesc{},
-	Metadata: "web-gin-service/proto/recruitment.proto",
+	Metadata: "proto/recruitment.proto",
 }
 
 const (
@@ -1969,7 +2045,7 @@ var AIService_ServiceDesc = grpc.ServiceDesc{
 			ServerStreams: true,
 		},
 	},
-	Metadata: "web-gin-service/proto/recruitment.proto",
+	Metadata: "proto/recruitment.proto",
 }
 
 const (
@@ -1992,6 +2068,7 @@ const (
 	AdminService_GetDepartmentLocationConfig_FullMethodName    = "/recruitment.AdminService/GetDepartmentLocationConfig"
 	AdminService_UpdateDepartmentLocationConfig_FullMethodName = "/recruitment.AdminService/UpdateDepartmentLocationConfig"
 	AdminService_ListDepartmentsLocationMap_FullMethodName     = "/recruitment.AdminService/ListDepartmentsLocationMap"
+	AdminService_QueryUsageLogs_FullMethodName                 = "/recruitment.AdminService/QueryUsageLogs"
 )
 
 // AdminServiceClient is the client API for AdminService service.
@@ -2017,6 +2094,7 @@ type AdminServiceClient interface {
 	GetDepartmentLocationConfig(ctx context.Context, in *GetDepartmentLocationConfigRequest, opts ...grpc.CallOption) (*DepartmentLocationConfigResponse, error)
 	UpdateDepartmentLocationConfig(ctx context.Context, in *UpdateDepartmentLocationConfigRequest, opts ...grpc.CallOption) (*DepartmentLocationConfigResponse, error)
 	ListDepartmentsLocationMap(ctx context.Context, in *ListDepartmentsLocationMapRequest, opts ...grpc.CallOption) (*ListDepartmentsLocationMapResponse, error)
+	QueryUsageLogs(ctx context.Context, in *QueryUsageLogsRequest, opts ...grpc.CallOption) (*QueryUsageLogsResponse, error)
 }
 
 type adminServiceClient struct {
@@ -2217,6 +2295,16 @@ func (c *adminServiceClient) ListDepartmentsLocationMap(ctx context.Context, in 
 	return out, nil
 }
 
+func (c *adminServiceClient) QueryUsageLogs(ctx context.Context, in *QueryUsageLogsRequest, opts ...grpc.CallOption) (*QueryUsageLogsResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(QueryUsageLogsResponse)
+	err := c.cc.Invoke(ctx, AdminService_QueryUsageLogs_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // AdminServiceServer is the server API for AdminService service.
 // All implementations must embed UnimplementedAdminServiceServer
 // for forward compatibility.
@@ -2240,6 +2328,7 @@ type AdminServiceServer interface {
 	GetDepartmentLocationConfig(context.Context, *GetDepartmentLocationConfigRequest) (*DepartmentLocationConfigResponse, error)
 	UpdateDepartmentLocationConfig(context.Context, *UpdateDepartmentLocationConfigRequest) (*DepartmentLocationConfigResponse, error)
 	ListDepartmentsLocationMap(context.Context, *ListDepartmentsLocationMapRequest) (*ListDepartmentsLocationMapResponse, error)
+	QueryUsageLogs(context.Context, *QueryUsageLogsRequest) (*QueryUsageLogsResponse, error)
 	mustEmbedUnimplementedAdminServiceServer()
 }
 
@@ -2306,6 +2395,9 @@ func (UnimplementedAdminServiceServer) UpdateDepartmentLocationConfig(context.Co
 }
 func (UnimplementedAdminServiceServer) ListDepartmentsLocationMap(context.Context, *ListDepartmentsLocationMapRequest) (*ListDepartmentsLocationMapResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method ListDepartmentsLocationMap not implemented")
+}
+func (UnimplementedAdminServiceServer) QueryUsageLogs(context.Context, *QueryUsageLogsRequest) (*QueryUsageLogsResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method QueryUsageLogs not implemented")
 }
 func (UnimplementedAdminServiceServer) mustEmbedUnimplementedAdminServiceServer() {}
 func (UnimplementedAdminServiceServer) testEmbeddedByValue()                      {}
@@ -2670,6 +2762,24 @@ func _AdminService_ListDepartmentsLocationMap_Handler(srv interface{}, ctx conte
 	return interceptor(ctx, in, info, handler)
 }
 
+func _AdminService_QueryUsageLogs_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(QueryUsageLogsRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(AdminServiceServer).QueryUsageLogs(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: AdminService_QueryUsageLogs_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(AdminServiceServer).QueryUsageLogs(ctx, req.(*QueryUsageLogsRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // AdminService_ServiceDesc is the grpc.ServiceDesc for AdminService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -2753,7 +2863,11 @@ var AdminService_ServiceDesc = grpc.ServiceDesc{
 			MethodName: "ListDepartmentsLocationMap",
 			Handler:    _AdminService_ListDepartmentsLocationMap_Handler,
 		},
+		{
+			MethodName: "QueryUsageLogs",
+			Handler:    _AdminService_QueryUsageLogs_Handler,
+		},
 	},
 	Streams:  []grpc.StreamDesc{},
-	Metadata: "web-gin-service/proto/recruitment.proto",
+	Metadata: "proto/recruitment.proto",
 }

@@ -79,13 +79,14 @@ func (c *NotificationConsumer) handle(ctx context.Context, body []byte) error {
 		unread, _ := c.repo.UnreadCount(ctx, p.ReceiverID, p.ReceiverRole)
 		c.cache.SetUnreadCount(ctx, uint64(p.ReceiverID), p.ReceiverRole, unread)
 		event, _ := json.Marshal(notificationEvent{
-			Type:           "notification_created",
-			NotificationID: n.ID,
-			Unread:         unread,
-			Title:          p.Title,
-			Content:        p.Content,
-			Link:           p.Link,
-			CreatedAt:      n.CreatedAt.Format("2006-01-02T15:04:05-07:00"),
+			Type:             "notification_created",
+			NotificationType: p.Type,
+			NotificationID:   n.ID,
+			Unread:           unread,
+			Title:            p.Title,
+			Content:          p.Content,
+			Link:             p.Link,
+			CreatedAt:        n.CreatedAt.Format("2006-01-02T15:04:05-07:00"),
 		})
 		c.cache.PublishNotificationEvent(ctx, uint64(p.ReceiverID), p.ReceiverRole, string(event))
 	}

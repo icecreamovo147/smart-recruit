@@ -6,11 +6,15 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"sync"
 	"time"
 
 	"go.uber.org/zap"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
+
+	"github.com/cloudwego/eino/components/tool"
+	"github.com/cloudwego/eino/schema"
 
 	"logic-grpc-service/ai"
 	"logic-grpc-service/model"
@@ -22,18 +26,22 @@ import (
 )
 
 type AIService struct {
-	chats          *repository.ChatRepo
-	applications   *repository.ApplicationRepo
-	jobs           *repository.JobRepo
-	resumes        *repository.ResumeRepo
-	oss            *oss.Client
-	ai             *ai.Client
-	toolExecutor   *ai.ToolExecutor
-	summaries      *repository.SessionSummaryRepo
-	toolTraces     *repository.ToolTraceRepo
-	memories       *repository.MemoryRepo
-	contextBuilder *AgentContextBuilder
-	candidateAI    *CandidateAIService
+	chats           *repository.ChatRepo
+	applications    *repository.ApplicationRepo
+	jobs            *repository.JobRepo
+	resumes         *repository.ResumeRepo
+	oss             oss.Storage
+	ai              *ai.Client
+	toolExecutor    *ai.ToolExecutor
+	summaries       *repository.SessionSummaryRepo
+	toolTraces      *repository.ToolTraceRepo
+	memories        *repository.MemoryRepo
+	contextBuilder  *AgentContextBuilder
+	candidateAI     *CandidateAIService
+	usageLogs       *repository.UsageLogRepo
+	agentRuntime    string
+	cachedADKTools []tool.BaseTool // lazy-initialized, shared across requests
+	cachedToolsMu  sync.Mutex       // guards cachedADKTools init and invalidation
 }
 
 func NewAIService(
@@ -44,24 +52,33 @@ func NewAIService(
 	summaries *repository.SessionSummaryRepo,
 	toolTraces *repository.ToolTraceRepo,
 	memories *repository.MemoryRepo,
-	ossClient *oss.Client,
+	ossClient oss.Storage,
 	aiClient *ai.Client,
 	toolExecutor *ai.ToolExecutor,
 	contextBuilder *AgentContextBuilder,
 	candidateAI *CandidateAIService,
+	usageLogs *repository.UsageLogRepo,
+	agentRuntime string,
 ) *AIService {
 	return &AIService{
 		chats: chats, applications: applications, jobs: jobs, resumes: resumes,
 		summaries: summaries, toolTraces: toolTraces, memories: memories,
 		oss: ossClient, ai: aiClient, toolExecutor: toolExecutor,
 		contextBuilder: contextBuilder, candidateAI: candidateAI,
+		usageLogs: usageLogs,
+		agentRuntime: agentRuntime,
 	}
 }
 
+// Chat is the non-streaming HR AI chat endpoint.
+// It reuses the same Eino Tool Calling path as ChatStream: the model decides
+// which tools to call based on the system prompt and tool descriptions.
 func (s *AIService) Chat(ctx context.Context, req *pb.ChatRequest) (*pb.ChatResponse, error) {
 	if strings.TrimSpace(req.Message) == "" {
 		return &pb.ChatResponse{Code: errs.ErrBadRequest, Msg: "消息不能为空"}, nil
 	}
+	startTime := time.Now()
+	inputChars := len([]rune(req.Message))
 	log := logger.With(zap.Int64("hr_id", req.HrId), zap.Int64("session_id", req.SessionId))
 	session, err := s.getOrCreateChatSession(ctx, req.HrId, req.SessionId)
 	if err != nil {
@@ -73,39 +90,52 @@ func (s *AIService) Chat(ctx context.Context, req *pb.ChatRequest) (*pb.ChatResp
 	if session.ApplicationID > 0 {
 		req.ApplicationId = session.ApplicationID
 	}
-	if req.ApplicationId > 0 {
-		return s.chatWithApplication(ctx, req, session.ID)
-	}
-	total, err := s.applications.TotalByHR(ctx, req.HrId)
+
+	var replyBuilder strings.Builder
+	reply, metadata, err := s.runToolCallingChat(ctx, req, session, func(delta string) error {
+		replyBuilder.WriteString(delta)
+		return nil
+	}, nil)
 	if err != nil {
-		return nil, err
-	}
-	today, err := s.applications.TodayByHR(ctx, req.HrId)
-	if err != nil {
-		return nil, err
-	}
-	hotRows, err := s.applications.HotJobs(ctx, req.HrId, 3)
-	if err != nil {
-		return nil, err
-	}
-	hot := make([]string, 0, len(hotRows))
-	for _, row := range hotRows {
-		hot = append(hot, fmt.Sprintf("%s（%d份）", row.Title, row.Total))
-	}
-	reply, err := s.ai.GenerateRecruitingReply(ctx, req.Message, ai.RecruitingStats{TotalApplications: total, TodayApplications: today, HotJobs: hot}, nil)
-	if err != nil {
-		log.Error("ai recruiting reply failed", zap.Error(err))
+		if isCanceledError(err) {
+			partial := strings.TrimSpace(replyBuilder.String())
+			if partial == "" {
+				partial = reply
+			}
+			log.Info("non-streaming chat canceled, returning partial reply", zap.Int("partial_chars", len([]rune(partial))))
+			writeAuditLog(ctx, s.usageLogs, AuditLogEntry{
+				UserID: req.HrId, Role: 2, ServiceType: "ai_chat",
+				Endpoint: "/hr/ai/chat", Provider: "dashscope", Model: s.ai.ModelName(),
+				RequestChars: inputChars, ResponseChars: len([]rune(partial)), Status: "timeout", CostMs: int(time.Since(startTime).Milliseconds()),
+			})
+			return &pb.ChatResponse{Code: errs.OK, Msg: "success", Reply: partial, CreatedAt: formatTime(time.Now()), SessionId: session.ID}, nil
+		}
+		writeAuditLog(ctx, s.usageLogs, AuditLogEntry{
+			UserID: req.HrId, Role: 2, ServiceType: "ai_chat",
+			Endpoint: "/hr/ai/chat", Provider: "dashscope", Model: s.ai.ModelName(),
+			RequestChars: inputChars, Status: "error", CostMs: int(time.Since(startTime).Milliseconds()),
+		})
 		return nil, wrapAIError(err)
 	}
+
 	now := time.Now()
-	if err := s.chats.Add(ctx, &model.AIChatHistory{SessionID: session.ID, HrID: req.HrId, Role: "user", Content: req.Message}); err != nil {
-		return nil, err
+	outputChars := len([]rune(reply))
+	writeAuditLog(ctx, s.usageLogs, AuditLogEntry{
+		UserID: req.HrId, Role: 2, ServiceType: "ai_chat",
+		Endpoint: "/hr/ai/chat", Provider: "dashscope", Model: s.ai.ModelName(),
+		RequestChars: inputChars, ResponseChars: outputChars, CostMs: int(time.Since(startTime).Milliseconds()),
+	})
+	log.Info("chat completed", zap.Int("reply_len", outputChars))
+	resp := &pb.ChatResponse{Code: errs.OK, Msg: "success", Reply: reply, CreatedAt: formatTime(now), SessionId: session.ID}
+	if metadata.Action != nil {
+		resp.Action = metadata.Action.Action
+		resp.ApplicationId = metadata.Action.ApplicationID
+		resp.ActionStatus = metadata.Action.ActionStatus
+		resp.CandidateName = metadata.Action.CandidateName
+		resp.JobTitle = metadata.Action.JobTitle
+		resp.Status = metadata.Action.Status
 	}
-	if err := s.chats.Add(ctx, &model.AIChatHistory{SessionID: session.ID, HrID: req.HrId, Role: "assistant", Content: reply}); err != nil {
-		return nil, err
-	}
-	log.Info("chat completed", zap.Int("reply_len", len([]rune(reply))))
-	return &pb.ChatResponse{Code: errs.OK, Msg: "success", Reply: reply, CreatedAt: formatTime(now), SessionId: session.ID}, nil
+	return resp, nil
 }
 
 func (s *AIService) ChatStream(req *pb.ChatRequest, stream pb.AIService_ChatStreamServer) error {
@@ -114,7 +144,9 @@ func (s *AIService) ChatStream(req *pb.ChatRequest, stream pb.AIService_ChatStre
 	if strings.TrimSpace(req.Message) == "" {
 		return stream.Send(&pb.ChatStreamResponse{Code: errs.ErrBadRequest, Msg: "消息不能为空", Done: true})
 	}
-	log.Info("chat stream started", zap.Int("msg_len", len([]rune(req.Message))))
+	startTime := time.Now()
+	inputChars := len([]rune(req.Message))
+	log.Info("chat stream started", zap.Int("msg_len", inputChars))
 	session, err := s.getOrCreateStreamChatSession(ctx, req)
 	if err != nil {
 		return err
@@ -125,99 +157,36 @@ func (s *AIService) ChatStream(req *pb.ChatRequest, stream pb.AIService_ChatStre
 	if session.ApplicationID > 0 {
 		req.ApplicationId = session.ApplicationID
 	}
-	return s.chatWithTools(ctx, req, session, stream)
-}
 
-func (s *AIService) chatWithTools(ctx context.Context, req *pb.ChatRequest, session *model.AIChatSession, stream pb.AIService_ChatStreamServer) error {
 	now := time.Now()
-
-	// Phase 1-5: Build agent context with all memory layers.
-	actx, err := s.contextBuilder.Build(ctx, AgentContextInput{
-		HrID:           req.HrId,
-		SessionID:      session.ID,
-		ApplicationID:  req.ApplicationId,
-		CurrentMessage: req.Message,
-	})
-	if err != nil {
-		return err
+	statusSender := func(eventType, eventMessage, errorType, toolName string) error {
+		return stream.Send(&pb.ChatStreamResponse{
+			Code:         errs.OK,
+			Msg:          "success",
+			EventType:    eventType,
+			EventMessage: eventMessage,
+			ErrorType:    errorType,
+			ToolName:     toolName,
+			SessionId:    session.ID,
+		})
 	}
-
-	logger.L().Info("[AI问答] 用户提问",
-		zap.String("question", req.Message),
-		zap.Int64("hr_id", req.HrId),
-		zap.Int64("session_id", session.ID),
-	)
-
-	userAlreadyPersisted := currentMessageAlreadyPersisted(actx, req.Message)
-	messages := buildToolCallingMessages(actx, req.Message)
-	tools := ai.RecruitingTools()
-
-	// Phase 3: Tool trace callback — records each tool execution asynchronously.
-	traceFn := func(toolCallID, toolName, argsJSON, resultContent string, execErr error) {
-		go s.recordToolTrace(session.ID, req.HrId, toolCallID, toolName, argsJSON, resultContent, execErr)
-	}
-
-	// Save user message before the model call so it persists even on cancel.
-	// Application-analysis sessions may already have persisted the first user
-	// message when the session was explicitly created from the ledger page.
-	if !userAlreadyPersisted {
-		if err := s.chats.Add(ctx, &model.AIChatHistory{SessionID: session.ID, HrID: req.HrId, Role: "user", Content: req.Message}); err != nil {
-			return err
-		}
-	}
-
-	if reply, ok := directHRAssistantReply(req.Message); ok {
-		logger.L().Info("[AI问答] 直接回复（无需工具）",
-			zap.String("question", req.Message),
-			zap.Int64("hr_id", req.HrId),
-			zap.Int64("session_id", session.ID),
-		)
-		if err := stream.Send(&pb.ChatStreamResponse{Code: errs.OK, Msg: "success", Delta: reply, SessionId: session.ID}); err != nil {
-			return err
-		}
-		if err := s.chats.Add(ctx, &model.AIChatHistory{SessionID: session.ID, HrID: req.HrId, Role: "assistant", Content: reply}); err != nil {
-			return err
-		}
-		go s.maybeRefreshSummary(session.ID, req.HrId)
-		go s.maybeWriteMemory(req.HrId, session.ID, req.ApplicationId, req.Message, reply, ai.ToolMetadata{})
-		return stream.Send(&pb.ChatStreamResponse{Code: errs.OK, Msg: "success", Done: true, CreatedAt: formatTime(now), SessionId: session.ID})
-	}
-
-	// Accumulate partial assistant reply for cancel-save.
-	var partialReply strings.Builder
-	reply, metadata, err := s.ai.ChatWithTools(ctx, messages, tools, s.toolExecutor, req.HrId, func(delta string) error {
-		partialReply.WriteString(delta)
+	reply, metadata, err := s.runToolCallingChat(ctx, req, session, func(delta string) error {
 		return stream.Send(&pb.ChatStreamResponse{Code: errs.OK, Msg: "success", Delta: delta, SessionId: session.ID})
-	}, traceFn)
+	}, statusSender)
 	if err != nil {
-		if isCanceledError(err) {
-			partial := strings.TrimSpace(partialReply.String())
-			if partial != "" {
-				saveCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-				defer cancel()
-				_ = s.chats.Add(saveCtx, &model.AIChatHistory{SessionID: session.ID, HrID: req.HrId, Role: "assistant", Content: partial + "\n\n（回复已中断）"})
-			}
-			logger.L().Info("chat stream canceled, partial reply saved if non-empty", zap.Int("partial_chars", len(partial)))
-			// Return the original cancel error so upstream knows this was a user abort, not an AI failure.
-			return err
-		}
-		return wrapAIError(err)
-	}
-	logger.L().Info("[AI问答] LLM最终回复",
-		zap.String("reply", reply),
-		zap.Int("reply_chars", len([]rune(reply))),
-	)
-
-	// Save full assistant reply on success.
-	if err := s.chats.Add(ctx, &model.AIChatHistory{SessionID: session.ID, HrID: req.HrId, Role: "assistant", Content: reply}); err != nil {
+		writeAuditLog(ctx, s.usageLogs, AuditLogEntry{
+			UserID: req.HrId, Role: 2, ServiceType: "ai_chat",
+			Endpoint: "/hr/ai/chat/stream", Provider: "dashscope", Model: s.ai.ModelName(),
+			RequestChars: inputChars, Status: "error", CostMs: int(time.Since(startTime).Milliseconds()),
+		})
 		return err
 	}
 
-	// Phase 2: Async refresh summary if needed.
-	go s.maybeRefreshSummary(session.ID, req.HrId)
-
-	// Phase 4: Async write long-term memory if applicable.
-	go s.maybeWriteMemory(req.HrId, session.ID, req.ApplicationId, req.Message, reply, metadata)
+	writeAuditLog(ctx, s.usageLogs, AuditLogEntry{
+		UserID: req.HrId, Role: 2, ServiceType: "ai_chat",
+		Endpoint: "/hr/ai/chat/stream", Provider: "dashscope", Model: s.ai.ModelName(),
+		RequestChars: inputChars, ResponseChars: len([]rune(reply)), CostMs: int(time.Since(startTime).Milliseconds()),
+	})
 
 	optionsJSON := ""
 	if len(metadata.CandidateOptions) > 0 {
@@ -237,6 +206,180 @@ func (s *AIService) chatWithTools(ctx context.Context, req *pb.ChatRequest, sess
 	return stream.Send(done)
 }
 
+// runToolCallingChat is the shared Eino Tool Calling pipeline for HR AI chat.
+// It handles context building, tool execution, message persistence, summary refresh,
+// and memory writing. Both streaming (ChatStream) and non-streaming (Chat) endpoints
+// use this method. The onDelta callback receives incremental reply text; for
+// non-streaming callers it accumulates the full reply, for streaming callers it
+// writes SSE deltas.
+func (s *AIService) runToolCallingChat(ctx context.Context, req *pb.ChatRequest, session *model.AIChatSession, onDelta func(string) error, onStatus func(eventType, eventMessage, errorType, toolName string) error) (reply string, metadata ai.ToolMetadata, err error) {
+	// Phase 1-5: Build agent context with all memory layers.
+	actx, err := s.contextBuilder.Build(ctx, AgentContextInput{
+		HrID:           req.HrId,
+		SessionID:      session.ID,
+		ApplicationID:  req.ApplicationId,
+		CurrentMessage: req.Message,
+	})
+	if err != nil {
+		return "", metadata, err
+	}
+
+	logger.L().Info("[AI问答] 用户提问",
+		zap.String("question", req.Message),
+		zap.Int64("hr_id", req.HrId),
+		zap.Int64("session_id", session.ID),
+	)
+
+	userAlreadyPersisted := currentMessageAlreadyPersisted(actx, req.Message)
+	messages := buildToolCallingMessages(actx, req.Message)
+
+	// Save user message before the model call so it persists even on cancel.
+	if !userAlreadyPersisted {
+		if err := s.chats.Add(ctx, &model.AIChatHistory{SessionID: session.ID, HrID: req.HrId, Role: "user", Content: req.Message}); err != nil {
+			return "", metadata, err
+		}
+	}
+
+	// Accumulate partial assistant reply for cancel-save.
+	var partialReply strings.Builder
+	wrappedDelta := func(delta string) error {
+		partialReply.WriteString(delta)
+		if onDelta != nil {
+			return onDelta(delta)
+		}
+		return nil
+	}
+
+	if s.agentRuntime == "adk" {
+		reply, metadata, err = s.runADKChat(ctx, req, session, messages, wrappedDelta, onStatus)
+	} else {
+		reply, metadata, err = s.runLegacyChat(ctx, req, session, messages, wrappedDelta, onStatus)
+	}
+	if err != nil {
+		if isCanceledError(err) {
+			partial := strings.TrimSpace(partialReply.String())
+			if partial != "" {
+				saveCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+				defer cancel()
+				_ = s.chats.Add(saveCtx, &model.AIChatHistory{SessionID: session.ID, HrID: req.HrId, Role: "assistant", Content: partial + "\n\n（回复已中断）"})
+			}
+			logger.L().Info("chat canceled, partial reply saved if non-empty", zap.Int("partial_chars", len(partial)))
+			return reply, metadata, err
+		}
+		// Phase 3: deterministic fallback from collected tool traces when LLM fails.
+		if len(metadata.ToolTraces) > 0 {
+			fallback := ai.BuildHRFallbackReply(metadata.ToolTraces)
+			aiErr := ai.ClassifyAIError(err)
+			if onStatus != nil {
+				_ = onStatus("partial_done", "已基于已查询数据给出保守回复", string(aiErr.Type), "")
+			}
+			logger.L().Warn("[AI兜底] LLM 失败，使用工具结果生成兜底回复",
+				zap.String("error_type", string(aiErr.Type)),
+				zap.Int("tool_traces", len(metadata.ToolTraces)),
+				zap.Int("fallback_chars", len([]rune(fallback))),
+			)
+			if onDelta != nil {
+				_ = onDelta(fallback)
+			}
+			saveCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+			defer cancel()
+			_ = s.chats.Add(saveCtx, &model.AIChatHistory{SessionID: session.ID, HrID: req.HrId, Role: "assistant", Content: fallback})
+			return fallback, metadata, nil
+		}
+		return reply, metadata, wrapAIError(err)
+	}
+	logger.L().Info("[AI问答] LLM最终回复",
+		zap.String("reply", reply),
+		zap.Int("reply_chars", len([]rune(reply))),
+	)
+
+	// Save full assistant reply on success.
+	if err := s.chats.Add(ctx, &model.AIChatHistory{SessionID: session.ID, HrID: req.HrId, Role: "assistant", Content: reply}); err != nil {
+		return reply, metadata, err
+	}
+
+	// Async refresh summary if needed.
+	go s.maybeRefreshSummary(session.ID, req.HrId)
+
+	// Async write long-term memory if applicable.
+	go s.maybeWriteMemory(req.HrId, req.ApplicationId, reply, metadata)
+
+	return reply, metadata, nil
+}
+
+// runADKChat executes the HR AI conversation through the Eino ADK ChatModelAgent.
+func (s *AIService) runADKChat(
+	ctx context.Context,
+	req *pb.ChatRequest,
+	session *model.AIChatSession,
+	messages []*schema.Message,
+	onDelta func(string) error,
+	onStatus func(string, string, string, string) error,
+) (string, ai.ToolMetadata, error) {
+	if req.HrId <= 0 {
+		return "", ai.ToolMetadata{}, fmt.Errorf("hrID must be positive, got %d", req.HrId)
+	}
+
+	// Thread-safe lazy-init of cached tools via getOrInitADKTools.
+	adkTools, err := s.getOrInitADKTools()
+	if err != nil {
+		logger.L().Warn("[ADK降级] 工具创建失败，自动切换到 Legacy 路径", zap.Error(err))
+		return s.runLegacyChat(ctx, req, session, messages, onDelta, onStatus)
+	}
+
+	state := &ai.AgentRunState{}
+
+	// Store per-request values in context so tool closures can retrieve them
+	// without capturing them (enabling tool caching).
+	ctx = ai.WithOwnerID(ctx, req.HrId)
+	ctx = ai.WithAgentRunState(ctx, state)
+
+	traceFn := func(toolCallID, toolName, argsJSON, resultContent string, execErr error) {
+		go s.recordToolTrace(session.ID, req.HrId, toolCallID, toolName, argsJSON, resultContent, execErr)
+	}
+
+	return s.ai.ChatWithADKAgent(ctx, ai.AgentRunInput{
+		AgentName:     "hr_recruiting_agent",
+		Instruction:   extractSystemInstruction(messages),
+		Messages:      messages,
+		Tools:         adkTools,
+		MaxIterations: 0,
+		OwnerID:       req.HrId,
+		SessionID:     session.ID,
+		State:         state,
+	}, onDelta, traceFn, onStatus)
+}
+
+// runLegacyChat delegates to the existing ChatWithTools (Eino Tool Calling) path.
+func (s *AIService) runLegacyChat(
+	ctx context.Context,
+	req *pb.ChatRequest,
+	session *model.AIChatSession,
+	messages []*schema.Message,
+	onDelta func(string) error,
+	onStatus func(string, string, string, string) error,
+) (string, ai.ToolMetadata, error) {
+	tools := ai.RecruitingTools()
+
+	traceFn := func(toolCallID, toolName, argsJSON, resultContent string, execErr error) {
+		go s.recordToolTrace(session.ID, req.HrId, toolCallID, toolName, argsJSON, resultContent, execErr)
+	}
+
+	return s.ai.ChatWithTools(ctx, messages, tools, s.toolExecutor, req.HrId, onDelta, traceFn, onStatus)
+}
+
+// extractSystemInstruction pulls the system prompt content from the messages
+// list to use as the ADK agent Instruction (the messages are forwarded
+// separately as history).
+func extractSystemInstruction(messages []*schema.Message) string {
+	for _, m := range messages {
+		if m.Role == schema.System {
+			return m.Content
+		}
+	}
+	return ""
+}
+
 func (s *AIService) getOrCreateStreamChatSession(ctx context.Context, req *pb.ChatRequest) (*model.AIChatSession, error) {
 	if req.SessionId > 0 || req.ApplicationId == 0 {
 		return s.getOrCreateChatSession(ctx, req.HrId, req.SessionId)
@@ -254,6 +397,10 @@ func (s *AIService) getOrCreateStreamChatSession(ctx context.Context, req *pb.Ch
 	return session, nil
 }
 
+// AnalyzeApplication is an explicit button-triggered functional interface for resume analysis.
+// It directly calls GenerateApplicationAnalysis with pre-loaded resume/position data.
+// It does NOT participate in natural-language intent recognition — that path is handled
+// exclusively by runToolCallingChat (Eino Tool Calling) for both Chat and ChatStream.
 func (s *AIService) AnalyzeApplication(ctx context.Context, req *pb.AnalyzeApplicationRequest) (*pb.AnalyzeApplicationResponse, error) {
 	detail, input, err := s.applicationAnalysisInput(ctx, req.HrId, req.ApplicationId, "")
 	if err != nil {
@@ -263,10 +410,22 @@ func (s *AIService) AnalyzeApplication(ctx context.Context, req *pb.AnalyzeAppli
 	if detail == nil {
 		return &pb.AnalyzeApplicationResponse{Code: errs.ErrForbidden, Msg: "无权限查看该投递记录"}, nil
 	}
+	startTime := time.Now()
+	inputChars := len([]rune(input.Question)) + len([]rune(input.JobTitle)) + len([]rune(input.ResumeText))
 	reply, err := s.ai.GenerateApplicationAnalysis(ctx, input, nil)
 	if err != nil {
+		writeAuditLog(ctx, s.usageLogs, AuditLogEntry{
+			UserID: req.HrId, Role: 2, ServiceType: "ai_analyze",
+			Endpoint: "/hr/ai/analyze-application", Provider: "dashscope", Model: s.ai.ModelName(),
+			RequestChars: inputChars, Status: "error", CostMs: int(time.Since(startTime).Milliseconds()),
+		})
 		return nil, wrapAIError(err)
 	}
+	writeAuditLog(ctx, s.usageLogs, AuditLogEntry{
+		UserID: req.HrId, Role: 2, ServiceType: "ai_analyze",
+		Endpoint: "/hr/ai/analyze-application", Provider: "dashscope", Model: s.ai.ModelName(),
+		RequestChars: inputChars, ResponseChars: len([]rune(reply)), CostMs: int(time.Since(startTime).Milliseconds()),
+	})
 	return &pb.AnalyzeApplicationResponse{
 		Code:          errs.OK,
 		Msg:           "success",
@@ -276,55 +435,6 @@ func (s *AIService) AnalyzeApplication(ctx context.Context, req *pb.AnalyzeAppli
 		Status:        detail.Status,
 		RoundNo:       detail.RoundNo,
 	}, nil
-}
-
-func (s *AIService) chatWithApplication(ctx context.Context, req *pb.ChatRequest, sessionID int64) (*pb.ChatResponse, error) {
-	detail, input, err := s.applicationAnalysisInput(ctx, req.HrId, req.ApplicationId, req.Message)
-	if err != nil {
-		return nil, err
-	}
-	if detail == nil {
-		return &pb.ChatResponse{Code: errs.ErrForbidden, Msg: "无权限查看该投递记录"}, nil
-	}
-	if actionStatus, ok := detectApplicationAction(req.Message); ok {
-		action := "reject_application"
-		actionText := "淘汰"
-		if actionStatus == 2 {
-			action = "approve_application"
-			actionText = "通过"
-		}
-		reply := fmt.Sprintf("我识别到你想将「%s」投递「%s」的申请标记为「%s」。请确认后我会为你更新投递状态。", displayCandidateName(detail), detail.JobTitle, actionText)
-		now := time.Now()
-		if err := s.chats.Add(ctx, &model.AIChatHistory{SessionID: sessionID, HrID: req.HrId, Role: "user", Content: req.Message}); err != nil {
-			return nil, err
-		}
-		logger.L().Info("[AI问答] LLM最终回复",
-			zap.String("reply", reply),
-			zap.Int("reply_chars", len([]rune(reply))),
-		)
-
-		if err := s.chats.Add(ctx, &model.AIChatHistory{SessionID: sessionID, HrID: req.HrId, Role: "assistant", Content: reply}); err != nil {
-			return nil, err
-		}
-		return &pb.ChatResponse{Code: errs.OK, Msg: "success", Reply: reply, CreatedAt: formatTime(now), Action: action, ApplicationId: req.ApplicationId, ActionStatus: actionStatus, CandidateName: displayCandidateName(detail), JobTitle: detail.JobTitle, Status: detail.Status, SessionId: sessionID}, nil
-	}
-	reply, err := s.ai.GenerateApplicationAnalysis(ctx, input, nil)
-	if err != nil {
-		return nil, wrapAIError(err)
-	}
-	// If context was canceled (e.g. user aborted), don't persist the half-baked reply.
-	if err := ctx.Err(); err != nil {
-		logger.L().Info("application analysis canceled before persistence", zap.Error(err))
-		return nil, err
-	}
-	now := time.Now()
-	if err := s.chats.Add(ctx, &model.AIChatHistory{SessionID: sessionID, HrID: req.HrId, Role: "user", Content: req.Message}); err != nil {
-		return nil, err
-	}
-	if err := s.chats.Add(ctx, &model.AIChatHistory{SessionID: sessionID, HrID: req.HrId, Role: "assistant", Content: reply}); err != nil {
-		return nil, err
-	}
-	return &pb.ChatResponse{Code: errs.OK, Msg: "success", Reply: reply, CreatedAt: formatTime(now), ApplicationId: req.ApplicationId, CandidateName: displayCandidateName(detail), JobTitle: detail.JobTitle, Status: detail.Status, SessionId: sessionID}, nil
 }
 
 func (s *AIService) History(ctx context.Context, req *pb.ChatHistoryRequest) (*pb.ChatHistoryResponse, error) {
@@ -351,7 +461,7 @@ func (s *AIService) ListChatSessions(ctx context.Context, req *pb.ChatSessionLis
 func (s *AIService) CreateChatSession(ctx context.Context, req *pb.CreateChatSessionRequest) (*pb.CreateChatSessionResponse, error) {
 	title := strings.TrimSpace(req.Title)
 	if title == "" {
-		title = "新对话"
+		return &pb.CreateChatSessionResponse{Code: errs.ErrBadRequest, Msg: "会话名称不能为空"}, nil
 	}
 	session := &model.AIChatSession{HrID: req.HrId, Title: title}
 	if err := s.chats.CreateSession(ctx, session); err != nil {
@@ -413,52 +523,6 @@ func currentMessageAlreadyPersisted(actx *AgentContext, message string) bool {
 	return last.Role == "user" && strings.TrimSpace(last.Content) == strings.TrimSpace(message)
 }
 
-func directHRAssistantReply(message string) (string, bool) {
-	normalized := normalizeDirectHRMessage(message)
-	if normalized == "" {
-		return "", false
-	}
-
-	greetings := map[string]struct{}{
-		"hi": {}, "hello": {}, "hey": {},
-		"你好": {}, "您好": {}, "哈喽": {}, "嗨": {},
-		"在吗": {}, "在不在": {},
-		"早上好": {}, "上午好": {}, "中午好": {}, "下午好": {}, "晚上好": {},
-	}
-	if _, ok := greetings[normalized]; ok {
-		return "你好，我是 HR 端的 AI 数据助手。你可以问我岗位、投递、候选人、招聘趋势等数据，也可以让我分析候选人简历或辅助生成状态变更确认。", true
-	}
-
-	helpRequests := map[string]struct{}{
-		"help": {}, "帮助": {}, "使用说明": {},
-		"你是谁": {}, "你能做什么": {}, "你可以做什么": {},
-		"有什么功能": {}, "有哪些功能": {}, "怎么用": {}, "如何使用": {},
-	}
-	if _, ok := helpRequests[normalized]; ok {
-		return "我是 HR 端的 AI 数据助手，可以帮你查询岗位和投递数据、查看候选人情况、分析简历与岗位匹配度、统计招聘趋势，并在你明确要求时生成通过或淘汰的待确认操作。", true
-	}
-
-	thanks := map[string]struct{}{
-		"谢谢": {}, "谢谢你": {}, "感谢": {}, "好的": {}, "好": {}, "ok": {}, "嗯": {},
-	}
-	if _, ok := thanks[normalized]; ok {
-		return "不客气。需要查询岗位、候选人或投递数据时，直接告诉我就行。", true
-	}
-
-	return "", false
-}
-
-func normalizeDirectHRMessage(message string) string {
-	text := strings.ToLower(strings.TrimSpace(message))
-	replacer := strings.NewReplacer(
-		" ", "", "\t", "", "\n", "", "\r", "",
-		"。", "", ".", "", "！", "", "!", "", "？", "", "?", "",
-		"，", "", ",", "", "、", "", ";", "", "；", "",
-		"～", "", "~", "", "呀", "", "啊", "", "呢", "",
-	)
-	return replacer.Replace(text)
-}
-
 func isCanceledError(err error) bool {
 	return errors.Is(err, context.Canceled) || status.Code(err) == codes.Canceled
 }
@@ -490,21 +554,6 @@ func (s *AIService) DeleteSession(ctx context.Context, req *pb.DeleteSessionRequ
 	}
 	logger.L().Info("session deleted", zap.Int64("session_id", req.SessionId))
 	return &pb.CommonResponse{Code: errs.OK, Msg: "会话已删除"}, nil
-}
-
-func (s *AIService) generateApplicationAnalysisMessage(sessionID, hrID int64, input ai.ApplicationAnalysisInput) {
-	ctx, cancel := context.WithTimeout(context.Background(), 100*time.Second)
-	defer cancel()
-	log := logger.With(zap.Int64("session_id", sessionID), zap.Int64("hr_id", hrID))
-	log.Info("async analysis started")
-	start := time.Now()
-	reply, err := s.ai.GenerateApplicationAnalysis(ctx, input, nil)
-	if err != nil {
-		log.Error("async analysis failed", zap.Error(err), zap.Duration("elapsed", time.Since(start)))
-		reply = fmt.Sprintf("简历分析暂时没有完成：%s。你可以稍后在当前会话中继续追问，或重新发起 AI 分析。", err.Error())
-	}
-	_ = s.chats.Add(ctx, &model.AIChatHistory{SessionID: sessionID, HrID: hrID, Role: "assistant", Content: reply})
-	log.Info("async analysis completed", zap.Duration("elapsed", time.Since(start)), zap.Int("reply_len", len([]rune(reply))))
 }
 
 func (s *AIService) getOrCreateChatSession(ctx context.Context, hrID, sessionID int64) (*model.AIChatSession, error) {
@@ -581,7 +630,7 @@ func (s *AIService) maybeRefreshSummary(sessionID, hrID int64) {
 }
 
 // maybeWriteMemory evaluates whether to persist a long-term memory from the current turn.
-func (s *AIService) maybeWriteMemory(hrID, sessionID, applicationID int64, userMsg, assistantReply string, metadata ai.ToolMetadata) {
+func (s *AIService) maybeWriteMemory(hrID, applicationID int64, assistantReply string, metadata ai.ToolMetadata) {
 	defer func() {
 		if r := recover(); r != nil {
 			logger.L().Error("memory write panic recovered", zap.Any("panic", r), zap.Int64("hr_id", hrID))
@@ -590,11 +639,6 @@ func (s *AIService) maybeWriteMemory(hrID, sessionID, applicationID int64, userM
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
-
-	// Rule 1: Detect explicit HR preferences in user message.
-	if pref := detectPreference(userMsg); pref != "" {
-		s.writeMemory(ctx, hrID, "hr", 0, "preference", pref, "user", 0.9)
-	}
 
 	// Rule 2: Write conclusion after application analysis (metadata Action + analysis response).
 	if metadata.Action != nil && applicationID > 0 {
@@ -631,33 +675,6 @@ func (s *AIService) writeMemory(ctx context.Context, hrID int64, scopeType strin
 			zap.Int("content_chars", len([]rune(content))),
 		)
 	}
-}
-
-// detectPreference checks if the user message contains an explicit preference statement.
-// This is a keyword-based rule; can be replaced with LLM classification later.
-func detectPreference(message string) string {
-	prefIndicators := []string{
-		"优先", "偏好", "更看重", "不太看重", "不喜欢", "更喜欢",
-		"以后", "未来", "之后都", "以后都",
-		"重点关注", "不关注", "不用看",
-	}
-	text := message
-	hasIndicator := false
-	for _, kw := range prefIndicators {
-		if strings.Contains(text, kw) {
-			hasIndicator = true
-			break
-		}
-	}
-	if !hasIndicator {
-		return ""
-	}
-	// Only capture if message is substantial enough (more than just the keyword itself).
-	runes := []rune(strings.TrimSpace(message))
-	if len(runes) < 10 {
-		return ""
-	}
-	return "HR 表达了以下偏好：" + strings.TrimSpace(message)
 }
 
 // buildAnalysisConclusion creates a concise conclusion from application analysis results.
@@ -713,4 +730,30 @@ func (s *AIService) applicationAnalysisInput(ctx context.Context, hrID, applicat
 		ResumeTextNote: resumeNote,
 		ResumeText:     resumeText,
 	}, nil
+}
+
+// getOrInitADKTools returns the cached ADK tools, initializing them under lock
+// on first call. This is safe for concurrent use and supports invalidation via
+// InvalidateCachedADKTools for future hot-reload scenarios.
+func (s *AIService) getOrInitADKTools() ([]tool.BaseTool, error) {
+	s.cachedToolsMu.Lock()
+	defer s.cachedToolsMu.Unlock()
+	if s.cachedADKTools != nil {
+		return s.cachedADKTools, nil
+	}
+	tools, err := ai.NewRecruitingADKTools(s.toolExecutor)
+	if err != nil {
+		return nil, err
+	}
+	s.cachedADKTools = tools
+	return tools, nil
+}
+
+// InvalidateCachedADKTools clears the cached ADK tools so the next request
+// re-creates them. Use this after replacing the ToolExecutor at runtime (e.g.
+// during configuration hot-reload).
+func (s *AIService) InvalidateCachedADKTools() {
+	s.cachedToolsMu.Lock()
+	defer s.cachedToolsMu.Unlock()
+	s.cachedADKTools = nil
 }

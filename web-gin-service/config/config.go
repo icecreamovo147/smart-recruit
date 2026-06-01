@@ -5,17 +5,19 @@ import (
 	"os"
 	"strconv"
 	"time"
-
-	"gopkg.in/yaml.v3"
 )
 
 type Config struct {
-	HTTPPort        string
-	GRPCAddr        string
-	JWTSecret       string
-	ShutdownTimeout time.Duration
-	Redis           RedisConfig
-	RateLimit       RateLimitConfig
+	HTTPPort         string
+	GRPCAddr         string
+	JWTSecret        string
+	AuthCookieName   string
+	CandidateCookie  string
+	HRCookie         string
+	AuthCookieSecure bool
+	ShutdownTimeout  time.Duration
+	Redis            RedisConfig
+	RateLimit        RateLimitConfig
 }
 
 type RedisConfig struct {
@@ -30,12 +32,18 @@ type RedisConfig struct {
 }
 
 type RateLimitConfig struct {
-	AuthRPS      int
-	AuthBurst    int
-	AIRPS        int
-	AIBurst      int
-	GeneralRPS   int
-	GeneralBurst int
+	AuthRPS                  int
+	AuthBurst                int
+	AIRPS                    int
+	AIBurst                  int
+	GeneralRPS               int
+	GeneralBurst             int
+	AIQuotaCandidateDaily    int
+	AIQuotaHRDaily           int
+	ResumePresignHourlyLimit int
+	ResumePresignDailyLimit  int
+	ResumeConfirmHourlyLimit int
+	ResumeConfirmDailyLimit  int
 }
 
 func Load() (Config, error) {
@@ -44,10 +52,14 @@ func Load() (Config, error) {
 		return Config{}, err
 	}
 	return Config{
-		HTTPPort:        env("HTTP_PORT", "8080"),
-		GRPCAddr:        env("GRPC_ADDR", "127.0.0.1:50051"),
-		JWTSecret:       secret,
-		ShutdownTimeout: envDuration("SHUTDOWN_TIMEOUT", 15*time.Second),
+		HTTPPort:         env("HTTP_PORT", "8080"),
+		GRPCAddr:         env("GRPC_ADDR", "127.0.0.1:50051"),
+		JWTSecret:        secret,
+		AuthCookieName:   env("AUTH_COOKIE_NAME", "recruitment_token"),
+		CandidateCookie:  env("CANDIDATE_AUTH_COOKIE_NAME", "recruitment_candidate_token"),
+		HRCookie:         env("HR_AUTH_COOKIE_NAME", "recruitment_hr_token"),
+		AuthCookieSecure: envBool("AUTH_COOKIE_SECURE", false),
+		ShutdownTimeout:  envDuration("SHUTDOWN_TIMEOUT", 15*time.Second),
 		Redis: RedisConfig{
 			Addr:         env("REDIS_ADDR", "127.0.0.1:6379"),
 			Password:     env("REDIS_PASSWORD", ""),
@@ -59,12 +71,18 @@ func Load() (Config, error) {
 			WriteTimeout: envDuration("REDIS_WRITE_TIMEOUT", time.Second),
 		},
 		RateLimit: RateLimitConfig{
-			AuthRPS:      envInt("RATE_LIMIT_AUTH_RPS", 20),
-			AuthBurst:    envInt("RATE_LIMIT_AUTH_BURST", 40),
-			AIRPS:        envInt("RATE_LIMIT_AI_RPS", 10),
-			AIBurst:      envInt("RATE_LIMIT_AI_BURST", 20),
-			GeneralRPS:   envInt("RATE_LIMIT_GENERAL_RPS", 100),
-			GeneralBurst: envInt("RATE_LIMIT_GENERAL_BURST", 200),
+			AuthRPS:                  envInt("RATE_LIMIT_AUTH_RPS", 20),
+			AuthBurst:                envInt("RATE_LIMIT_AUTH_BURST", 40),
+			AIRPS:                    envInt("RATE_LIMIT_AI_RPS", 1),
+			AIBurst:                  envInt("RATE_LIMIT_AI_BURST", 3),
+			GeneralRPS:               envInt("RATE_LIMIT_GENERAL_RPS", 100),
+			GeneralBurst:             envInt("RATE_LIMIT_GENERAL_BURST", 200),
+			AIQuotaCandidateDaily:    envInt("AI_QUOTA_CANDIDATE_DAILY", 20),
+			AIQuotaHRDaily:           envInt("AI_QUOTA_HR_DAILY", 100),
+			ResumePresignHourlyLimit: envInt("RESUME_PRESIGN_HOURLY_LIMIT", 5),
+			ResumePresignDailyLimit:  envInt("RESUME_PRESIGN_DAILY_LIMIT", 20),
+			ResumeConfirmHourlyLimit: envInt("RESUME_CONFIRM_HOURLY_LIMIT", 5),
+			ResumeConfirmDailyLimit:  envInt("RESUME_CONFIRM_DAILY_LIMIT", 20),
 		},
 	}, nil
 }
@@ -79,6 +97,16 @@ func env(key, fallback string) string {
 func envInt(key string, fallback int) int {
 	if value := os.Getenv(key); value != "" {
 		parsed, err := strconv.Atoi(value)
+		if err == nil {
+			return parsed
+		}
+	}
+	return fallback
+}
+
+func envBool(key string, fallback bool) bool {
+	if value := os.Getenv(key); value != "" {
+		parsed, err := strconv.ParseBool(value)
 		if err == nil {
 			return parsed
 		}
@@ -115,24 +143,12 @@ func validateJWTSecret(secret string) error {
 }
 
 func jwtSecret() string {
-	if value := os.Getenv("JWT_SECRET"); value != "" {
+	value := os.Getenv("JWT_SECRET")
+	if value != "" {
 		return value
 	}
-	path := os.Getenv("LOGIC_CONFIG_PATH")
-	if path == "" {
-		path = "../logic-grpc-service/config/config.yaml"
-	}
-	data, err := os.ReadFile(path)
-	if err != nil {
+	if os.Getenv("ALLOW_INSECURE_DEV_CONFIG") == "true" {
 		return ""
 	}
-	var cfg struct {
-		JWT struct {
-			Secret string `yaml:"secret"`
-		} `yaml:"jwt"`
-	}
-	if err := yaml.Unmarshal(data, &cfg); err != nil || cfg.JWT.Secret == "" {
-		return ""
-	}
-	return cfg.JWT.Secret
+	return ""
 }

@@ -10,17 +10,29 @@ WORKDIR /build
 
 RUN echo "registry=https://registry.npmmirror.com" > .npmrc
 
-COPY hr-frontend/package.json hr-frontend/pnpm-lock.yaml ./
+# Preserve monorepo structure so Vite @shared alias resolves correctly.
+# vite.config.ts maps @shared → ../packages/shared/src, which needs
+# sibling directories /build/hr-frontend/ and /build/packages/shared/.
+COPY hr-frontend/package.json hr-frontend/pnpm-lock.yaml ./hr-frontend/
+
+WORKDIR /build/hr-frontend
 RUN pnpm install --frozen-lockfile
 
-COPY hr-frontend/ ./
+WORKDIR /build
+COPY hr-frontend/ ./hr-frontend/
+COPY packages/ ./packages/
+
+WORKDIR /build/hr-frontend
+
+ARG VITE_API_BASE_URL=""
+ENV VITE_API_BASE_URL=${VITE_API_BASE_URL}
 RUN pnpm build
 
 # Stage 2: Runtime
 FROM nginx:alpine
 
 COPY docker/nginx-hr.conf /etc/nginx/conf.d/default.conf
-COPY --from=builder /build/dist /usr/share/nginx/html
+COPY --from=builder /build/hr-frontend/dist /usr/share/nginx/html
 
 EXPOSE 80
 

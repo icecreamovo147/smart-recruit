@@ -32,6 +32,14 @@ func (s *Server) Login(ctx context.Context, req *pb.LoginRequest) (*pb.LoginResp
 	return s.svc.Auth.Login(ctx, req)
 }
 
+func (s *Server) RefreshToken(ctx context.Context, req *pb.RefreshTokenRequest) (*pb.RefreshTokenResponse, error) {
+	return s.svc.Auth.RefreshToken(ctx, req)
+}
+
+func (s *Server) RevokeRefreshToken(ctx context.Context, req *pb.RevokeRefreshTokenRequest) (*pb.CommonResponse, error) {
+	return s.svc.Auth.RevokeRefreshToken(ctx, req)
+}
+
 // Job
 
 func (s *Server) CreateJob(ctx context.Context, req *pb.CreateJobRequest) (*pb.CreateJobResponse, error) {
@@ -282,4 +290,10 @@ func (s *Server) UpdateDepartmentLocationConfig(ctx context.Context, req *pb.Upd
 
 func (s *Server) ListDepartmentsLocationMap(ctx context.Context, req *pb.ListDepartmentsLocationMapRequest) (*pb.ListDepartmentsLocationMapResponse, error) {
 	return s.svc.Taxonomy.ListDepartmentsLocationMap(ctx, req)
+}
+
+// Admin — Usage Audit
+
+func (s *Server) QueryUsageLogs(ctx context.Context, req *pb.QueryUsageLogsRequest) (*pb.QueryUsageLogsResponse, error) {
+	return s.svc.Admin.QueryUsageLogs(ctx, req)
 }

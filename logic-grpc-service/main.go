@@ -8,6 +8,7 @@ import (
 	"os"
 	"os/signal"
 	"strconv"
+	"strings"
 	"syscall"
 	"time"
 
@@ -42,6 +43,11 @@ func main() {
 		panic("load config: " + err.Error())
 	}
 
+	if err := server.ValidateInternalToken(); err != nil {
+		fmt.Printf("gRPC internal token validation failed: %v\n", err)
+		panic("gRPC internal token validation: " + err.Error())
+	}
+
 	logger.Set(logger.New("info"))
 	log := logger.L()
 	log.Info("starting logic-grpc-service")
@@ -58,6 +64,7 @@ func main() {
 	log.Info("mysql connected", zap.Int("max_open", cfg.MySQL.MaxOpenConns), zap.Int("max_idle", cfg.MySQL.MaxIdleConns))
 
 	userRepo := repository.NewUserRepo(db)
+	tokenRepo := repository.NewRefreshTokenRepo(db)
 	jobRepo := repository.NewJobRepo(db)
 	profileRepo := repository.NewProfileRepo(db)
 	resumeRepo := repository.NewResumeRepo(db)
@@ -72,6 +79,7 @@ func main() {
 	departmentRepo := repository.NewDepartmentRepo(db)
 	locationRepo := repository.NewJobLocationRepo(db)
 	deptLocationRepo := repository.NewDepartmentLocationRepo(db)
+	usageLogRepo := repository.NewUsageLogRepo(db)
 
 	mqConn, err := mq.New(mq.Config{
 		URL:               cfg.RabbitMQ.URL,
@@ -91,11 +99,22 @@ func main() {
 	}
 	defer mqConn.Close()
 
-	ossClient, err := oss.NewClient(cfg.OSS.Endpoint, cfg.OSS.AccessKeyID, cfg.OSS.AccessKeySecret, cfg.OSS.BucketName, cfg.OSS.PublicBaseURL)
+	ossClient, err := oss.NewStorage(oss.Config{
+		Provider:        cfg.OSS.Provider,
+		Endpoint:        cfg.OSS.Endpoint,
+		AccessKeyID:     cfg.OSS.AccessKeyID,
+		AccessKeySecret: cfg.OSS.AccessKeySecret,
+		BucketName:      cfg.OSS.BucketName,
+		PublicBaseURL:   cfg.OSS.PublicBaseURL,
+	})
 	if err != nil {
-		log.Fatal("init cos client failed", zap.Error(err))
+		log.Fatal("init object storage failed", zap.Error(err))
 	}
-	log.Info("cos client initialized")
+	ossProvider := strings.TrimSpace(cfg.OSS.Provider)
+	if ossProvider == "" {
+		ossProvider = oss.ProviderTencentCOS
+	}
+	log.Info("object storage initialized", zap.String("provider", ossProvider))
 
 	var healthRedis *redis.Client
 	var presignCache *oss.PresignCache
@@ -117,41 +136,49 @@ func main() {
 
 	aiClient, err := ai.NewClient(ctx, cfg.AI.APIKey, cfg.AI.Model, cfg.AI.BaseURL, ai.Options{
 		Timeout:                 cfg.AI.Timeout.Duration,
+		TotalTimeout:            cfg.AI.TotalTimeout.Duration,
+		ToolMaxRounds:           cfg.AI.ToolMaxRounds,
+		ToolTotalTimeout:        cfg.AI.ToolTotalTimeout.Duration,
 		MaxConcurrency:          cfg.AI.MaxConcurrency,
 		CircuitFailureThreshold: cfg.AI.CircuitFailureThreshold,
 		CircuitOpenTimeout:      cfg.AI.CircuitOpenTimeout.Duration,
 		HalfOpenMaxRequests:     cfg.AI.CircuitHalfOpenMaxRequests,
+		RetryMaxAttempts:        cfg.AI.RetryMaxAttempts,
+		RetryBaseDelay:          cfg.AI.RetryBaseDelay.Duration,
+		SlowResponseThreshold:   cfg.AI.SlowResponseThreshold.Duration,
 	})
 	if err != nil {
 		log.Fatal("init ai client failed", zap.Error(err))
 	}
 	log.Info("ai client initialized", zap.String("model", cfg.AI.Model))
 
-		services := service.NewServices(
-			userRepo, jobRepo, profileRepo, resumeRepo, applicationRepo, chatRepo,
-			summaryRepo, toolTraceRepo, memoryRepo, notificationRepo, outboxRepo, inviteCodeRepo,
-			departmentRepo, locationRepo, deptLocationRepo,
-			notifCache, jobCache,
-			ossClient, aiClient, mqConn, cfg, cfg.JWT.Secret,
-		)
+	services := service.NewServices(
+		userRepo, tokenRepo,
+		jobRepo, profileRepo, resumeRepo, applicationRepo, chatRepo,
+		summaryRepo, toolTraceRepo, memoryRepo, notificationRepo, outboxRepo, inviteCodeRepo,
+		departmentRepo, locationRepo, deptLocationRepo,
+		usageLogRepo,
+		notifCache, jobCache,
+		ossClient, aiClient, mqConn, cfg, cfg.JWT.Secret,
+	)
 
-		// Bootstrap initial admin: promote user specified by INITIAL_ADMIN_USERNAME to role=3.
-		if adminName := os.Getenv("INITIAL_ADMIN_USERNAME"); adminName != "" {
-			adminUser, err := userRepo.GetByUsername(ctx, adminName)
-			if err != nil {
-				log.Warn("bootstrap admin: lookup failed", zap.String("username", adminName), zap.Error(err))
-			} else if adminUser == nil {
-				log.Warn("bootstrap admin: user not found", zap.String("username", adminName))
-			} else if adminUser.Role < 3 {
-				if err := userRepo.UpdateRole(ctx, adminUser.ID, 3); err != nil {
-					log.Warn("bootstrap admin: promote failed", zap.String("username", adminName), zap.Error(err))
-				} else {
-					log.Info("bootstrap admin: promoted to role=3", zap.String("username", adminName), zap.Int64("user_id", adminUser.ID))
-				}
+	// Bootstrap initial admin: promote user specified by INITIAL_ADMIN_USERNAME to role=3.
+	if adminName := os.Getenv("INITIAL_ADMIN_USERNAME"); adminName != "" {
+		adminUser, err := userRepo.GetByUsername(ctx, adminName)
+		if err != nil {
+			log.Warn("bootstrap admin: lookup failed", zap.String("username", adminName), zap.Error(err))
+		} else if adminUser == nil {
+			log.Warn("bootstrap admin: user not found", zap.String("username", adminName))
+		} else if adminUser.Role < 3 {
+			if err := userRepo.UpdateRole(ctx, adminUser.ID, 3); err != nil {
+				log.Warn("bootstrap admin: promote failed", zap.String("username", adminName), zap.Error(err))
+			} else {
+				log.Info("bootstrap admin: promoted to role=3", zap.String("username", adminName), zap.Int64("user_id", adminUser.ID))
 			}
 		}
+	}
 
-		// Start background workers
+	// Start background workers
 	bgCtx, cancelBg := context.WithCancel(ctx)
 	defer cancelBg()
 	workersEnabled := *workerOnly || !envBool("DISABLE_BACKGROUND_WORKERS")

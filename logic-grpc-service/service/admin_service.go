@@ -16,10 +16,11 @@ import (
 
 type AdminService struct {
 	inviteCodes *repository.InviteCodeRepo
+	usageLogs   *repository.UsageLogRepo
 }
 
-func NewAdminService(inviteCodes *repository.InviteCodeRepo) *AdminService {
-	return &AdminService{inviteCodes: inviteCodes}
+func NewAdminService(inviteCodes *repository.InviteCodeRepo, usageLogs *repository.UsageLogRepo) *AdminService {
+	return &AdminService{inviteCodes: inviteCodes, usageLogs: usageLogs}
 }
 
 const inviteCodeChars = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz"
@@ -153,4 +154,81 @@ func toPBInviteCode(ic *model.InviteCode) *pb.InviteCodeInfo {
 		info.ExpiresAt = ic.ExpiresAt.Format(time.RFC3339)
 	}
 	return info
+}
+
+func (s *AdminService) QueryUsageLogs(ctx context.Context, req *pb.QueryUsageLogsRequest) (*pb.QueryUsageLogsResponse, error) {
+	page := req.Page
+	if page <= 0 {
+		page = 1
+	}
+	pageSize := req.PageSize
+	if pageSize <= 0 || pageSize > 100 {
+		pageSize = 20
+	}
+
+	var filter repository.UsageLogFilter
+	if req.ServiceType != "" {
+		filter.ServiceType = req.ServiceType
+	}
+	if req.Provider != "" {
+		filter.Provider = req.Provider
+	}
+	if req.Status != "" {
+		filter.Status = req.Status
+	}
+	if req.UserId != 0 {
+		filter.UserID = req.UserId
+	}
+	if req.RequestId != "" {
+		filter.RequestID = req.RequestId
+	}
+	if req.StartTime != "" {
+		t, err := time.Parse(time.RFC3339, req.StartTime)
+		if err != nil {
+			return &pb.QueryUsageLogsResponse{Code: errs.ErrBadRequest, Msg: "开始时间格式无效"}, nil
+		}
+		filter.StartTime = &t
+	}
+	if req.EndTime != "" {
+		t, err := time.Parse(time.RFC3339, req.EndTime)
+		if err != nil {
+			return &pb.QueryUsageLogsResponse{Code: errs.ErrBadRequest, Msg: "结束时间格式无效"}, nil
+		}
+		filter.EndTime = &t
+	}
+
+	logs, total, err := s.usageLogs.List(ctx, filter, int(page), int(pageSize))
+	if err != nil {
+		logger.L().Error("query usage logs failed", zap.Error(err))
+		return nil, err
+	}
+
+	list := make([]*pb.UsageLogItem, len(logs))
+	for i, l := range logs {
+		list[i] = toPBUsageLogItem(&l)
+	}
+	return &pb.QueryUsageLogsResponse{Code: errs.OK, Msg: "success", Total: total, List: list}, nil
+}
+
+func toPBUsageLogItem(l *model.ThirdPartyUsageLog) *pb.UsageLogItem {
+	return &pb.UsageLogItem{
+		Id:              l.ID,
+		UserId:          l.UserID,
+		Role:            l.Role,
+		ServiceType:     l.ServiceType,
+		Endpoint:        l.Endpoint,
+		Provider:        l.Provider,
+		Model:           l.Model,
+		RequestChars:    int32(l.RequestChars),
+		ResponseChars:   int32(l.ResponseChars),
+		EstimatedTokens: int32(l.EstimatedTokens),
+		ObjectKey:       l.ObjectKey,
+		ObjectSize:      l.ObjectSize,
+		Status:          l.Status,
+		ErrorCode:       l.ErrorCode,
+		CostMs:          int32(l.CostMs),
+		RequestId:       l.RequestID,
+		Ip:              l.IP,
+		CreatedAt:       l.CreatedAt.Format(time.RFC3339),
+	}
 }

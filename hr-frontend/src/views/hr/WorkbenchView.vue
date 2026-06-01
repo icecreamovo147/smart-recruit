@@ -2,7 +2,7 @@
 import { ref, onMounted, computed, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import {
-  Briefcase, User, Bell, TrendCharts, DataAnalysis, Clock,
+  Briefcase, User, Bell, TrendCharts, DataAnalysis, Clock, Monitor,
 } from '@element-plus/icons-vue'
 import VChart from 'vue-echarts'
 import { use } from 'echarts/core'
@@ -13,6 +13,7 @@ import {
 } from 'echarts/components'
 import { getDashboardSummary } from '@/api/dashboard'
 import type { DashboardSummary } from '@/types/dashboard'
+import { useAuthStore } from '@/stores/auth'
 
 use([CanvasRenderer, LineChart, PieChart, BarChart, TitleComponent, TooltipComponent, LegendComponent, GridComponent])
 
@@ -46,6 +47,7 @@ function useCountUp(getTarget: () => number) {
 }
 
 const router = useRouter()
+const auth = useAuthStore()
 const loading = ref(true)
 const error = ref('')
 const data = ref<DashboardSummary | null>(null)
@@ -133,10 +135,16 @@ const stageDistOption = computed(() => {
   }
 })
 
-const quickLinks = [
-  { label: '岗位管理', path: '/hr/jobs', icon: Briefcase },
-  { label: 'AI 数据助手', path: '/hr/ai', icon: DataAnalysis },
-]
+const quickLinks = computed(() => {
+  const links: { label: string; path: string; icon: any }[] = [
+    { label: '岗位管理', path: '/hr/jobs', icon: Briefcase },
+    { label: 'AI 数据助手', path: '/hr/ai', icon: DataAnalysis },
+  ]
+  if (auth.role === 3) {
+    links.push({ label: '服务审计', path: '/hr/admin/usage-audit', icon: Monitor })
+  }
+  return links
+})
 
 const goTo = (path: string) => router.push(path)
 

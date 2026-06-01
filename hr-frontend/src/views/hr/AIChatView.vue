@@ -43,22 +43,8 @@ const md = new MarkdownIt({
   breaks: true,
 })
 
-  const ZWS = '​' // zero-width space
-
-  // Normalize markdown before parsing:
-  // 1. Strip whitespace between ** and enclosed text (AI models may output "** text **")
-  // 2. Insert ZWS between emphasis delimiters and adjacent quotation marks.
-  //    In CJK text without whitespace, delimiters adjacent to quotes become
-  //    non-flanking per CommonMark. ZWS restores flanking invisibly.
-  const preprocessMarkdown = (content: string): string =>
-    content
-      .replace(/\*\* +/g, '**')
-      .replace(/ +\*\*/g, '**')
-      .replace(/(\*\*|__|\*|_)(["""“”「」『』])/g, `$1${ZWS}$2`)
-      .replace(/(["""“”「」『』])(\*\*|__|\*|_)/g, `$1${ZWS}$2`)
-
 const renderMarkdown = (content: string): string => {
-  const raw = DOMPurify.sanitize(md.render(preprocessMarkdown(content || '')), {
+  const raw = DOMPurify.sanitize(md.render(content || ''), {
     ALLOWED_TAGS: [
       'h1', 'h2', 'h3', 'h4', 'h5', 'h6',
       'p', 'br', 'hr',
@@ -306,6 +292,12 @@ const createAnalysisSessionFromRoute = async () => {
           }
           scrollBottom()
         },
+        onStatus: (_eventType, eventMessage) => {
+          const msg = messages.value[assistantIndex]
+          if (msg) {
+            messages.value[assistantIndex] = { ...msg, waitingText: eventMessage }
+          }
+        },
         onDone: (_payload) => { /* session already created; done payload is informational */ },
       },
       { signal: controller.signal, silentAbort: true },
@@ -365,17 +357,29 @@ const analyzeCandidateOption = async (option: CandidateOption) => {
   activeController.value = controller
   try {
     let finalPayload: StreamPayload | null = null
+    let streamFailed = false
     await sendMessageStream(
       { message: userMessage, application_id: option.application_id },
       {
         onDelta: (delta) => appendAssistantDelta(assistantIndex, delta),
+        onStatus: (_eventType, eventMessage) => {
+          const msg = messages.value[assistantIndex]
+          if (msg) {
+            messages.value[assistantIndex] = { ...msg, waitingText: eventMessage }
+          }
+        },
         onDone: (payload) => {
           finalPayload = payload
+        },
+        onError: (_errorType, errorMessage) => {
+          streamFailed = true
+          markAssistantError(assistantIndex, new Error(errorMessage))
         },
       },
       { signal: controller.signal, silentAbort: true },
     )
     if (userAborted.value) return
+    if (streamFailed) return
     await refreshSessions()
     const session = sessions.value.find((item) => item.id === finalPayload?.session_id)
     if (session) {
@@ -434,11 +438,18 @@ const submit = async () => {
   try {
     messages.value.push({ role: 'assistant', content: '', pending: true, waitingText: session.application_id ? '分析中' : '响应中' })
     let finalPayload: StreamPayload | null = null
+    let streamFailed = false
     await sendMessageStream(
       { message: text, session_id: session.id },
       {
         onDelta: (delta) => {
           appendAssistantDelta(assistantIndex, delta)
+        },
+        onStatus: (_eventType, eventMessage) => {
+          const msg = messages.value[assistantIndex]
+          if (msg) {
+            messages.value[assistantIndex] = { ...msg, waitingText: eventMessage }
+          }
         },
         onDone: (payload) => {
           finalPayload = payload
@@ -448,10 +459,15 @@ const submit = async () => {
             if (msg) messages.value[assistantIndex] = { ...msg, candidateOptions: options, pending: false }
           }
         },
+        onError: (_errorType, errorMessage) => {
+          streamFailed = true
+          markAssistantError(assistantIndex, new Error(errorMessage))
+        },
       },
       { signal: controller.signal, silentAbort: true },
     )
     scrollBottom()
+    if (streamFailed) return
     if (finalPayload) {
       if ((finalPayload as StreamPayload).session_id && currentSession.value) {
         currentSession.value = { ...currentSession.value, id: (finalPayload as StreamPayload).session_id! }

@@ -1,6 +1,7 @@
 import { createRouter, createWebHistory } from 'vue-router'
 import type { RouteRecordRaw } from 'vue-router'
-import { getToken, getUser } from '@/utils/token'
+import { getUser } from '@/utils/token'
+import { useAuthStore } from '@/stores/auth'
 import { ROLE_CANDIDATE } from '@/types/domain'
 import LoginView from '@/views/LoginView.vue'
 import RegisterView from '@/views/RegisterView.vue'
@@ -28,10 +29,15 @@ const router = createRouter({
   routes,
 })
 
-router.beforeEach((to, _from, next) => {
-  const token = getToken()
-  const user = getUser()
-  if (to.meta.requiresAuth && !token) {
+router.beforeEach(async (to, _from, next) => {
+  let user = getUser()
+  if (to.meta.requiresAuth && !user) {
+    // Try restoring session from httpOnly cookie before rejecting.
+    const auth = useAuthStore()
+    await auth.restoreSession()
+    user = getUser()
+  }
+  if (to.meta.requiresAuth && !user) {
     next('/login')
     return
   }

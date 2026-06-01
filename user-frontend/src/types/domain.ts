@@ -43,7 +43,6 @@ export interface LoginPayload {
 }
 
 export interface LoginResponse {
-  token: string
   user_id: number
   role: number
   username: string

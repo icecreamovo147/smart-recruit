@@ -21,6 +21,14 @@ const popoverRef = ref<any>(null)
 let pollTimer: ReturnType<typeof setTimeout> | null = null
 let audioCtx: AudioContext | null = null
 const seenNotificationIds = new Set<number>()
+const MAX_SEEN_IDS = 500
+const pruneSeenIds = () => {
+  if (seenNotificationIds.size > MAX_SEEN_IDS) {
+    const ids = [...seenNotificationIds]
+    seenNotificationIds.clear()
+    ids.slice(-200).forEach((id) => seenNotificationIds.add(id))
+  }
+}
 let notificationBaselineReady = false
 const notificationStaggerMs = 350
 const notificationTimers = new Set<ReturnType<typeof setTimeout>>()
@@ -87,6 +95,7 @@ const fetchRecentNotifications = async (notifyNew: boolean) => {
   // 在弹窗逻辑之后才标记已见，防止 SSE 推送晚于 poll 拉取时遗漏
   freshUnread.forEach((item) => seenNotificationIds.add(item.notification_id))
   nextList.forEach((item) => seenNotificationIds.add(item.notification_id))
+  pruneSeenIds()
 }
 
 const handlePopoverShow = () => {
@@ -160,7 +169,7 @@ const readNotificationStream = async (signal: AbortSignal) => {
     const { value, done } = await reader.read()
     if (done) break
     buffer += decoder.decode(value, { stream: true })
-    const blocks = buffer.split('\n\n')
+    const blocks = buffer.split(/\r?\n\r?\n/)
     buffer = blocks.pop() || ''
     blocks.forEach(handleStreamBlock)
   }
@@ -182,22 +191,27 @@ const handleStreamBlock = (block: string) => {
 
 const handleNotificationEvent = (event: NotificationStreamEvent) => {
   if (event.type !== 'notification_created') return
-  unreadCount.value = event.unread || unreadCount.value + 1
+  unreadCount.value = event.unread ?? unreadCount.value + 1
   latestNotificationId = Math.max(latestNotificationId, event.notification_id)
-  const item: NotificationItem = {
-    notification_id: event.notification_id,
-    type: event.type,
-    title: event.title,
-    content: event.content,
-    link: event.link,
-    is_read: false,
-    created_at: event.created_at,
-  }
-  if (!seenNotificationIds.has(item.notification_id)) {
-    seenNotificationIds.add(item.notification_id)
+  if (!seenNotificationIds.has(event.notification_id)) {
+    seenNotificationIds.add(event.notification_id)
+    pruneSeenIds()
+    // Build a temporary item for immediate desktop notification.
+    // The correct notification_type will be supplied via REST fetch below.
+    const item: NotificationItem = {
+      notification_id: event.notification_id,
+      type: event.notification_type || '',
+      title: event.title,
+      content: event.content,
+      link: event.link,
+      is_read: false,
+      created_at: event.created_at,
+    }
     list.value = [item, ...list.value.filter((n) => n.notification_id !== item.notification_id)].slice(0, 20)
     listLoaded.value = true
     notifyFreshUnread([item])
+    // Replace with REST versions that carry fully correct notification types.
+    fetchRecentNotifications(true).catch(() => {})
   }
 }
 

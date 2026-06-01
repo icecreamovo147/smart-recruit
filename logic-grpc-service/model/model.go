@@ -243,3 +243,26 @@ type InviteCode struct {
 }
 
 func (InviteCode) TableName() string { return "invite_codes" }
+
+type ThirdPartyUsageLog struct {
+	ID              int64     `gorm:"primaryKey"`
+	UserID          int64     `gorm:"column:user_id"`
+	Role            int32     `gorm:"column:role"`
+	ServiceType     string    `gorm:"column:service_type"`
+	Endpoint        string    `gorm:"column:endpoint"`
+	Provider        string    `gorm:"column:provider"`
+	Model           string    `gorm:"column:model"`
+	RequestChars    int       `gorm:"column:request_chars"`
+	ResponseChars   int       `gorm:"column:response_chars"`
+	EstimatedTokens int       `gorm:"column:estimated_tokens"`
+	ObjectKey       string    `gorm:"column:object_key"`
+	ObjectSize      int64     `gorm:"column:object_size"`
+	Status          string    `gorm:"column:status"`
+	ErrorCode       string    `gorm:"column:error_code"`
+	CostMs          int       `gorm:"column:cost_ms"`
+	RequestID       string    `gorm:"column:request_id"`
+	IP              string    `gorm:"column:ip"`
+	CreatedAt       time.Time `gorm:"column:created_at"`
+}
+
+func (ThirdPartyUsageLog) TableName() string { return "third_party_usage_logs" }

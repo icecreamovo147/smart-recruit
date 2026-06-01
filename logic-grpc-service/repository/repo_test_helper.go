@@ -29,6 +29,7 @@ func setupTestDB(t *testing.T) *gorm.DB {
 		&model.AIMemory{},
 		&model.Notification{},
 		&model.EventOutbox{},
+		&model.RefreshToken{},
 	)
 	if err != nil {
 		t.Fatalf("auto-migrate failed: %v", err)

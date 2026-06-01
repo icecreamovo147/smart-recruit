@@ -23,19 +23,31 @@ type ToolRunner interface {
 }
 
 type Client struct {
-	model   string
-	cm      *openai.ChatModel
-	timeout time.Duration
-	sem     chan struct{}
-	breaker *CircuitBreaker
+	model            string
+	cm               *openai.ChatModel
+	timeout          time.Duration
+	totalTimeout     time.Duration
+	toolMaxRounds    int
+	toolTotalTimeout time.Duration
+	retryMaxAttempts int
+	retryBaseDelay   time.Duration
+	slowThreshold    time.Duration
+	sem              chan struct{}
+	breaker          *CircuitBreaker
 }
 
 type Options struct {
 	Timeout                 time.Duration
+	TotalTimeout            time.Duration
+	ToolMaxRounds           int
+	ToolTotalTimeout        time.Duration
 	MaxConcurrency          int
 	CircuitFailureThreshold int
 	CircuitOpenTimeout      time.Duration
 	HalfOpenMaxRequests     int
+	RetryMaxAttempts        int
+	RetryBaseDelay          time.Duration
+	SlowResponseThreshold   time.Duration
 }
 
 type RecruitingStats struct {
@@ -71,14 +83,29 @@ func NewClient(ctx context.Context, apiKey, model, baseURL string, opts ...Optio
 	}
 	opt := Options{
 		Timeout:                 45 * time.Second,
+		TotalTimeout:            120 * time.Second,
+		ToolMaxRounds:           5,
+		ToolTotalTimeout:        30 * time.Second,
 		MaxConcurrency:          10,
 		CircuitFailureThreshold: 5,
 		CircuitOpenTimeout:      30 * time.Second,
 		HalfOpenMaxRequests:     2,
+		RetryMaxAttempts:        0,
+		RetryBaseDelay:          500 * time.Millisecond,
+		SlowResponseThreshold:   5 * time.Second,
 	}
 	if len(opts) > 0 {
 		if opts[0].Timeout > 0 {
 			opt.Timeout = opts[0].Timeout
+		}
+		if opts[0].TotalTimeout > 0 {
+			opt.TotalTimeout = opts[0].TotalTimeout
+		}
+		if opts[0].ToolMaxRounds > 0 {
+			opt.ToolMaxRounds = opts[0].ToolMaxRounds
+		}
+		if opts[0].ToolTotalTimeout > 0 {
+			opt.ToolTotalTimeout = opts[0].ToolTotalTimeout
 		}
 		if opts[0].MaxConcurrency > 0 {
 			opt.MaxConcurrency = opts[0].MaxConcurrency
@@ -92,6 +119,15 @@ func NewClient(ctx context.Context, apiKey, model, baseURL string, opts ...Optio
 		if opts[0].HalfOpenMaxRequests > 0 {
 			opt.HalfOpenMaxRequests = opts[0].HalfOpenMaxRequests
 		}
+		if opts[0].RetryMaxAttempts > 0 {
+			opt.RetryMaxAttempts = opts[0].RetryMaxAttempts
+		}
+		if opts[0].RetryBaseDelay > 0 {
+			opt.RetryBaseDelay = opts[0].RetryBaseDelay
+		}
+		if opts[0].SlowResponseThreshold > 0 {
+			opt.SlowResponseThreshold = opts[0].SlowResponseThreshold
+		}
 	}
 	cm, err := openai.NewChatModel(ctx, &openai.ChatModelConfig{
 		APIKey:  apiKey,
@@ -103,16 +139,45 @@ func NewClient(ctx context.Context, apiKey, model, baseURL string, opts ...Optio
 		return nil, err
 	}
 	return &Client{
-		model:   model,
-		cm:      cm,
-		timeout: opt.Timeout,
-		sem:     make(chan struct{}, opt.MaxConcurrency),
-		breaker: NewCircuitBreaker(opt.CircuitFailureThreshold, opt.CircuitOpenTimeout, opt.HalfOpenMaxRequests),
+		model:            model,
+		cm:               cm,
+		timeout:          opt.Timeout,
+		totalTimeout:     opt.TotalTimeout,
+		toolMaxRounds:    opt.ToolMaxRounds,
+		toolTotalTimeout: opt.ToolTotalTimeout,
+		retryMaxAttempts: opt.RetryMaxAttempts,
+		retryBaseDelay:   opt.RetryBaseDelay,
+		slowThreshold:    opt.SlowResponseThreshold,
+		sem:              make(chan struct{}, opt.MaxConcurrency),
+		breaker:          NewCircuitBreaker(opt.CircuitFailureThreshold, opt.CircuitOpenTimeout, opt.HalfOpenMaxRequests),
 	}, nil
 }
 
+func (c *Client) ModelName() string { return c.model }
+
 func (c *Client) call(ctx context.Context, fn func(context.Context) error) error {
+	return c.callWithRetry(ctx, fn, nil)
+}
+
+// callStreaming is like call but passes hasOutput directly into the retry loop so
+// that each iteration can abort retry if deltas have already been streamed. This
+// prevents duplicate output when a streaming LLM call fails mid-stream.
+func (c *Client) callStreaming(ctx context.Context, fn func(context.Context) error, hasOutput func() bool) error {
+	return c.callWithRetry(ctx, fn, hasOutput)
+}
+
+// callWithRetry executes fn with optional retry for transient errors. When
+// shouldStopRetry is non-nil and returns true after a failed attempt, the retry
+// loop breaks immediately — this is used by streaming callers to avoid duplicating
+// output that has already been sent via onDelta.
+func (c *Client) callWithRetry(ctx context.Context, fn func(context.Context) error, shouldStopRetry func() bool) error {
+	callStart := time.Now()
+	circuitState := c.breaker.State()
 	if err := c.breaker.BeforeCall(); err != nil {
+		logger.L().Warn("[AI调用] 熔断器拒绝",
+			zap.String("circuit_state", circuitState),
+			zap.Error(err),
+		)
 		return err
 	}
 	select {
@@ -122,11 +187,55 @@ func (c *Client) call(ctx context.Context, fn func(context.Context) error) error
 		return ctx.Err()
 	}
 
-	callCtx, cancel := context.WithTimeout(ctx, c.timeout)
-	defer cancel()
-	err := fn(callCtx)
-	c.breaker.AfterCall(err)
-	return err
+	maxAttempts := c.retryMaxAttempts + 1 // +1 for the initial attempt
+	baseDelay := c.retryBaseDelay
+	var lastErr error
+	for attempt := 0; attempt < maxAttempts; attempt++ {
+		callCtx, cancel := context.WithTimeout(ctx, c.timeout)
+		err := fn(callCtx)
+		cancel()
+		if err == nil {
+			c.breaker.AfterCall(nil)
+			return nil
+		}
+		lastErr = err
+		aiErr := ClassifyAIError(err)
+		if !IsRetryable(aiErr.Type) || attempt >= maxAttempts-1 {
+			break
+		}
+		// Streaming safety: if output has already been sent to the caller,
+		// re-executing the LLM call would emit duplicate deltas.
+		if shouldStopRetry != nil && shouldStopRetry() {
+			logger.L().Warn("[AI重试] 流式输出已发送，跳过重试",
+				zap.Int("attempt", attempt+1),
+				zap.Error(err),
+			)
+			break
+		}
+		// Exponential backoff with jitter: baseDelay * 2^attempt + jitter(0..baseDelay)
+		backoff := baseDelay * (1 << attempt)
+		jitter := time.Duration(int64(baseDelay) * int64(attempt+1) % int64(baseDelay))
+		logger.L().Warn("[AI重试] LLM 调用失败，准备重试",
+			zap.Int("attempt", attempt+1),
+			zap.Int("max_attempts", maxAttempts),
+			zap.Duration("backoff", backoff+jitter),
+			zap.Error(err),
+		)
+		timer := time.NewTimer(backoff + jitter)
+		select {
+		case <-timer.C:
+		case <-ctx.Done():
+			timer.Stop()
+			return ctx.Err()
+		}
+	}
+	c.breaker.AfterCall(lastErr)
+	logger.L().Info("[AI调用] 完成",
+		zap.Duration("total_call_cost", time.Since(callStart)),
+		zap.String("circuit_state", c.breaker.State()),
+		zap.Error(lastErr),
+	)
+	return lastErr
 }
 
 // GenerateRecruitingReply answers HR questions using recruiting statistics.
@@ -172,7 +281,7 @@ func (c *Client) GenerateRecruitingReply(ctx context.Context, question string, s
 		return "", err
 	}
 	if strings.TrimSpace(resp.Content) == "" {
-		return "", fmt.Errorf("ai returned empty reply")
+		return "", NewAIError(AIEmptyReply, "", fmt.Errorf("ai returned empty reply"))
 	}
 	logger.L().Info("ai recruiting call done",
 		zap.String("model", c.model),
@@ -227,7 +336,7 @@ func (c *Client) GenerateApplicationAnalysis(ctx context.Context, input Applicat
 		return "", err
 	}
 	if strings.TrimSpace(resp.Content) == "" {
-		return "", fmt.Errorf("ai returned empty reply")
+		return "", NewAIError(AIEmptyReply, "", fmt.Errorf("ai returned empty reply"))
 	}
 	logger.L().Info("ai analysis call done",
 		zap.String("model", c.model),
@@ -324,20 +433,60 @@ func isContextCanceled(err error) bool {
 	return errors.Is(err, context.Canceled)
 }
 
+// sendStatus fires the onStatus callback if non-nil. Errors are silently dropped
+// since status events are purely informational and must not break the main flow.
+func sendStatus(onStatus func(eventType, eventMessage, errorType, toolName string) error, eventType, eventMessage, errorType, toolName string) {
+	if onStatus == nil {
+		return
+	}
+	_ = onStatus(eventType, eventMessage, errorType, toolName)
+}
+
 // ChatWithTools sends messages with tool definitions to the LLM. The LLM may
 // decide to call tools (function calling) to query real data from MySQL. This
-// method loops: LLM → tool calls → execute → feedback → LLM again, up to 5 rounds.
-// When the LLM returns a text answer instead of tool calls, it streams the reply
-// via onDelta and returns the full text.
+// method loops: LLM → tool calls → execute → feedback → LLM again, up to
+// c.toolMaxRounds rounds. When the LLM returns a text answer instead of tool
+// calls, it streams the reply via onDelta and returns the full text.
+//
+// Total-budget control: if c.totalTimeout > 0 the entire conversation must finish
+// within that window. Tool calls share an additional cumulative budget
+// (c.toolTotalTimeout); when exceeded, the loop falls back to a no-tools final
+// answer. Per-round elapsed/remaining is logged so operators can tune budgets.
+//
 // onToolExecuted is an optional callback invoked after each tool execution for trace recording.
-func (c *Client) ChatWithTools(ctx context.Context, messages []*schema.Message, tools []*schema.ToolInfo, executor ToolRunner, hrID int64, onDelta func(string) error, onToolExecuted ToolTraceCallback) (string, ToolMetadata, error) {
+// onStatus is an optional callback for Phase 4 streaming UX: event_type values are
+// thinking|tool_calling|tool_done|generating|timeout_warning|partial_done|done|error.
+func (c *Client) ChatWithTools(ctx context.Context, messages []*schema.Message, tools []*schema.ToolInfo, executor ToolRunner, hrID int64, onDelta func(string) error, onToolExecuted ToolTraceCallback, onStatus func(eventType, eventMessage, errorType, toolName string) error) (string, ToolMetadata, error) {
 	if c.cm == nil {
-		return "", ToolMetadata{}, fmt.Errorf("ai chat model is nil")
+		return "", ToolMetadata{}, NewAIError(AIUnavailable, "", fmt.Errorf("ai chat model is nil"))
+	}
+	if c.totalTimeout > 0 {
+		var cancel context.CancelFunc
+		ctx, cancel = applyTotalBudget(ctx, c.totalTimeout)
+		defer cancel()
 	}
 	start := time.Now()
 	round := 0
-	const maxRounds = 5
+	maxRounds := c.toolMaxRounds
+	if maxRounds <= 0 {
+		maxRounds = 5
+	}
 	var metadata ToolMetadata
+	toolBudget := c.toolTotalTimeout
+	var toolCumulative time.Duration
+
+	// Track whether streaming output has been sent so retry can be skipped after deltas.
+	var streamedOutput bool
+	streamingOnDelta := func(delta string) error {
+		streamedOutput = true
+		if onDelta != nil {
+			return onDelta(delta)
+		}
+		return nil
+	}
+
+	// Phase 4: emit "thinking" status before the first LLM call.
+	sendStatus(onStatus, "thinking", "正在分析问题...", "", "")
 
 	for {
 		round++
@@ -347,8 +496,24 @@ func (c *Client) ChatWithTools(ctx context.Context, messages []*schema.Message, 
 		default:
 		}
 
+		elapsed := time.Since(start)
+		remaining := time.Duration(-1)
+		if c.totalTimeout > 0 {
+			remaining = c.totalTimeout - elapsed
+			if budgetExhausted(start, c.totalTimeout) {
+				logger.L().Warn("[AI预算] 总预算耗尽，进入无工具兜底",
+					zap.Int("round", round),
+					zap.Duration("elapsed", elapsed),
+					zap.Duration("total_budget", c.totalTimeout),
+				)
+				return c.finalAnswerWithoutTools(ctx, messages, metadata, streamingOnDelta, func() bool { return streamedOutput }, start, round)
+			}
+		}
 		logger.L().Info("[AI意图] 询问LLM，等待决策...",
 			zap.Int("round", round),
+			zap.Duration("elapsed", elapsed),
+			zap.Duration("remaining_budget", remaining),
+			zap.Duration("tool_cumulative", toolCumulative),
 		)
 
 		toolModel, err := c.cm.WithTools(tools)
@@ -357,11 +522,23 @@ func (c *Client) ChatWithTools(ctx context.Context, messages []*schema.Message, 
 		}
 
 		var resp *schema.Message
-		err = c.call(ctx, func(callCtx context.Context) error {
+		err = c.callStreaming(ctx, func(callCtx context.Context) error {
 			var streamErr error
-			resp, streamErr = c.streamToolModel(callCtx, toolModel, messages, onDelta)
+			// Phase 4: fire timeout_warning if this LLM call exceeds slow threshold.
+			if c.slowThreshold > 0 {
+				timer := time.NewTimer(c.slowThreshold)
+				go func() {
+					defer timer.Stop()
+					select {
+					case <-timer.C:
+						sendStatus(onStatus, "timeout_warning", "AI 响应较慢，请稍候...", "", "")
+					case <-callCtx.Done():
+					}
+				}()
+			}
+			resp, streamErr = c.streamToolModel(callCtx, toolModel, messages, streamingOnDelta)
 			return streamErr
-		})
+		}, func() bool { return streamedOutput })
 		if err != nil {
 			if isContextCanceled(err) {
 				logger.L().Info("[AI意图] LLM调用被取消（用户中断或连接断开）",
@@ -369,8 +546,11 @@ func (c *Client) ChatWithTools(ctx context.Context, messages []*schema.Message, 
 					zap.Error(err),
 				)
 			} else {
+				aiErr := ClassifyAIError(err)
+				sendStatus(onStatus, "error", aiErr.UserMessage, string(aiErr.Type), "")
 				logger.L().Error("[AI意图] LLM调用失败",
 					zap.Int("round", round),
+					zap.String("error_type", string(aiErr.Type)),
 					zap.Error(err),
 				)
 			}
@@ -386,7 +566,15 @@ func (c *Client) ChatWithTools(ctx context.Context, messages []*schema.Message, 
 					zap.Int("tool_count", len(resp.ToolCalls)),
 					zap.Duration("elapsed", time.Since(start)),
 				)
-				return c.finalAnswerWithoutTools(ctx, messages, metadata, onDelta, start, round)
+				return c.finalAnswerWithoutTools(ctx, messages, metadata, streamingOnDelta, func() bool { return streamedOutput }, start, round)
+			}
+			if toolBudgetExhausted(toolCumulative, toolBudget) {
+				logger.L().Warn("[AI预算] 工具累计耗时超出预算，进入兜底",
+					zap.Int("round", round),
+					zap.Duration("tool_cumulative", toolCumulative),
+					zap.Duration("tool_budget", toolBudget),
+				)
+				return c.finalAnswerWithoutTools(ctx, messages, metadata, streamingOnDelta, func() bool { return streamedOutput }, start, round)
 			}
 			messages = append(messages, resp)
 
@@ -405,11 +593,15 @@ func (c *Client) ChatWithTools(ctx context.Context, messages []*schema.Message, 
 				if err := json.Unmarshal([]byte(tc.Function.Arguments), &args); err != nil {
 					args = map[string]any{}
 				}
+				sendStatus(onStatus, "tool_calling", "正在查询"+tc.Function.Name+"...", "", tc.Function.Name)
 				logger.L().Info("[AI意图]   执行工具",
 					zap.String("tool", tc.Function.Name),
 					zap.Any("args", args),
 				)
+				toolStart := time.Now()
 				result, execErr := executor.Execute(ctx, hrID, tc.Function.Name, args)
+				toolCost := time.Since(toolStart)
+				toolCumulative += toolCost
 				if execErr != nil {
 					data, _ := json.Marshal(map[string]string{"error": execErr.Error()})
 					result = ToolResult{Content: string(data)}
@@ -418,21 +610,34 @@ func (c *Client) ChatWithTools(ctx context.Context, messages []*schema.Message, 
 					onToolExecuted(tc.ID, tc.Function.Name, tc.Function.Arguments, result.Content, execErr)
 				}
 				metadata.merge(result.Metadata)
+				metadata.recordTrace(ToolTrace{
+					ToolName:  tc.Function.Name,
+					Arguments: args,
+					Result:    result.Content,
+					Cost:      toolCost,
+					Error:     execErr,
+				})
 				messages = append(messages, schema.ToolMessage(result.Content, tc.ID, schema.WithToolName(tc.Function.Name)))
 				logger.L().Info("[AI意图]   工具返回",
 					zap.String("tool", tc.Function.Name),
+					zap.Duration("tool_cost", toolCost),
+					zap.Duration("tool_cumulative", toolCumulative),
 					zap.String("result", result.Content),
 				)
 			}
+			sendStatus(onStatus, "tool_done", "数据查询完成", "", "")
 			logger.L().Info("[AI意图] 将工具结果反馈给LLM，继续下一轮...")
 			continue
 		}
 
 		// No tool calls — LLM is answering the user.
+		sendStatus(onStatus, "generating", "正在生成回答...", "", "")
 		reply := strings.TrimSpace(resp.Content)
 		if reply == "" {
-			return "", metadata, fmt.Errorf("ai returned empty reply")
+			sendStatus(onStatus, "error", "未能生成有效回复", string(AIEmptyReply), "")
+			return "", metadata, NewAIError(AIEmptyReply, "", fmt.Errorf("ai returned empty reply"))
 		}
+		sendStatus(onStatus, "done", "回答完成", "", "")
 		logger.L().Info("[AI意图] LLM决定直接回复（不再需要工具）",
 			zap.String("reply", reply),
 			zap.Int("total_rounds", round),
@@ -443,21 +648,21 @@ func (c *Client) ChatWithTools(ctx context.Context, messages []*schema.Message, 
 	}
 }
 
-func (c *Client) finalAnswerWithoutTools(ctx context.Context, messages []*schema.Message, metadata ToolMetadata, onDelta func(string) error, start time.Time, round int) (string, ToolMetadata, error) {
+func (c *Client) finalAnswerWithoutTools(ctx context.Context, messages []*schema.Message, metadata ToolMetadata, onDelta func(string) error, hasOutput func() bool, start time.Time, round int) (string, ToolMetadata, error) {
 	messages = append(messages, schema.SystemMessage("工具调用轮次已达到上限。请停止调用工具，必须仅基于当前对话和已经返回的工具结果直接回答用户；如果信息仍不足，请说明已查询到的信息和需要用户补充的具体条件。"))
 
 	var reply string
-	err := c.call(ctx, func(callCtx context.Context) error {
+	err := c.callStreaming(ctx, func(callCtx context.Context) error {
 		var streamErr error
 		reply, streamErr = c.stream(callCtx, messages, onDelta)
 		return streamErr
-	})
+	}, hasOutput)
 	if err != nil {
 		return "", metadata, err
 	}
 	reply = strings.TrimSpace(reply)
 	if reply == "" {
-		return "", metadata, fmt.Errorf("ai returned empty reply after tool round limit")
+		return "", metadata, NewAIError(AIEmptyReply, "", fmt.Errorf("ai returned empty reply after tool round limit"))
 	}
 	logger.L().Info("[AI意图] 工具上限兜底回复完成",
 		zap.String("reply", reply),
@@ -625,7 +830,7 @@ func (c *Client) stream(ctx context.Context, messages []*schema.Message, onDelta
 	}
 	reply := builder.String()
 	if strings.TrimSpace(reply) == "" {
-		return "", fmt.Errorf("ai returned empty reply")
+		return "", NewAIError(AIEmptyReply, "", fmt.Errorf("ai returned empty reply"))
 	}
 	ttfb := time.Duration(0)
 	if !firstChunkAt.IsZero() {
@@ -648,9 +853,19 @@ func msgCharCount(msgs []*schema.Message) int {
 	return n
 }
 
+const standardMarkdownReplyRules = `Markdown 输出硬性规范：
+你的正文回复会交给标准 CommonMark/Markdown 渲染器展示，必须严格输出合法 Markdown，不要依赖前端容错修正。
+1. 列表项必须写成 "- 内容"，短横线后必须有 1 个空格。禁止写成 "-内容"、"-**标题**"。
+2. 粗体必须写成 "**文字**"，星号内侧不能有空格。禁止写成 "** 文字**"、"**文字 **"。
+3. 粗体前后如果紧贴普通文字、数字、日期或中文标点，必须补空格或自然分隔。例如写 "2026-05-25 **淘汰**（第 4 轮面试）"，不要写 "2026-05-25** 淘汰**（第 4 轮面试）"。
+4. 标签式字段必须写成 "**字段：** 内容"，冒号后的正文前保留 1 个空格。例如 "**薪资：** 10000 元"，不要写 "**薪资：**10000 元"。
+5. 标题必须写成 "## 标题"，井号后必须有空格；标题前后各空一行。
+6. 多条记录必须使用 Markdown 列表逐条输出，每条记录一行；不要把多条记录直接堆成普通换行文本。
+7. 段落、标题、列表之间使用空行分隔；不要输出 HTML 标签。`
+
 func buildRecruitingMessages(question string, stats RecruitingStats) []*schema.Message {
 	return []*schema.Message{
-		schema.SystemMessage("你是智能招聘系统的数据分析助手。你必须基于系统提供的真实招聘统计数据回答 HR 的问题，不要编造不存在的数据。你只能回答与招聘系统相关的问题，如果用户询问无关内容，必须礼貌拒绝并引导回到招聘话题。回答要简洁、专业、中文输出。"),
+		schema.SystemMessage("你是智能招聘系统的数据分析助手。你必须基于系统提供的真实招聘统计数据回答 HR 的问题，不要编造不存在的数据。你只能回答与招聘系统相关的问题，如果用户询问无关内容，必须礼貌拒绝并引导回到招聘话题。回答要简洁、专业、中文输出。\n\n" + standardMarkdownReplyRules),
 		schema.UserMessage(fmt.Sprintf(`HR 问题：%s
 
 系统实时统计数据：
@@ -672,7 +887,7 @@ func buildApplicationAnalysisMessages(input ApplicationAnalysisInput) []*schema.
 		question = "请分析该候选人与投递岗位的匹配程度，并给出是否建议通过的判断。"
 	}
 	return []*schema.Message{
-		schema.SystemMessage("你是智能招聘系统的简历评估助手。你必须以 PDF 简历中提取出来的文字内容为主要依据，并结合岗位信息进行分析；不得使用候选人在系统资料页填写的信息，也不得编造经历。你提供的是辅助建议，最终决策权属于 HR。输出中文，结构清晰，精炼输出。匹配点和风险点各不超过 3 条，每条控制在 2 句话以内。结论和建议合并为一段，不超过 4 句话。"),
+		schema.SystemMessage("你是智能招聘系统的简历评估助手。你必须以 PDF 简历中提取出来的文字内容为主要依据，并结合岗位信息进行分析；不得使用候选人在系统资料页填写的信息，也不得编造经历。你提供的是辅助建议，最终决策权属于 HR。输出中文，结构清晰，精炼输出。匹配点和风险点各不超过 3 条，每条控制在 2 句话以内。结论和建议合并为一段，不超过 4 句话。\n\n" + standardMarkdownReplyRules),
 		schema.UserMessage(fmt.Sprintf(`HR 问题：%s
 
 投递信息：

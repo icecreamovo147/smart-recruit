@@ -16,11 +16,22 @@ type Claims struct {
 	golangjwt.RegisteredClaims
 }
 
-func JWTAuth(secret string) gin.HandlerFunc {
+func JWTAuth(secret, cookieName string) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		tokenText := strings.TrimPrefix(c.GetHeader("Authorization"), "Bearer ")
+		// Only consume Authorization if it's a Bearer header.
+		// Other schemes (Basic, Digest, proxy-injected headers) must not
+		// block the httpOnly cookie fallback.
+		var tokenText string
+		if authHeader := c.GetHeader("Authorization"); strings.HasPrefix(authHeader, "Bearer ") {
+			tokenText = authHeader[7:]
+		}
 		if tokenText == "" {
-			c.AbortWithStatusJSON(http.StatusOK, gin.H{"code": 401, "msg": "未登录或 Token 无效", "data": nil, "request_id": requestID(c)})
+			if cookie, err := c.Cookie(cookieName); err == nil {
+				tokenText = cookie
+			}
+		}
+		if tokenText == "" {
+			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"code": 401, "msg": "未登录或 Token 无效", "data": nil, "request_id": requestID(c)})
 			return
 		}
 		claims := &Claims{}
@@ -32,13 +43,27 @@ func JWTAuth(secret string) gin.HandlerFunc {
 			return []byte(secret), nil
 		}, golangjwt.WithValidMethods([]string{"HS256"}), golangjwt.WithLeeway(30*time.Second))
 		if err != nil || !token.Valid {
-			c.AbortWithStatusJSON(http.StatusOK, gin.H{"code": 401, "msg": "未登录或 Token 无效", "data": nil, "request_id": requestID(c)})
+			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"code": 401, "msg": "未登录或 Token 无效", "data": nil, "request_id": requestID(c)})
 			return
 		}
 		c.Set("user_id", claims.UserID)
 		c.Set("username", claims.Username)
 		c.Set("role", claims.Role)
 		c.Next()
+	}
+}
+
+func JWTAuthByClient(secret, candidateCookie, hrCookie, fallbackCookie string) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		cookieName := fallbackCookie
+		switch c.GetHeader("X-Client-App") {
+		case "hr":
+			cookieName = hrCookie
+		case "candidate", "user":
+			cookieName = candidateCookie
+		}
+		// Read from the short-lived access token cookie.
+		JWTAuth(secret, cookieName+"_access")(c)
 	}
 }
 

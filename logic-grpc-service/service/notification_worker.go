@@ -115,13 +115,14 @@ func (p *NotificationWorkerPool) publishCreatedEvent(ctx context.Context, n *mod
 		p.cache.SetUnreadCount(ctx, uint64(n.ReceiverID), n.ReceiverRole, count)
 	}
 	payload, err := json.Marshal(notificationEvent{
-		Type:           "notification_created",
-		NotificationID: n.ID,
-		Unread:         count,
-		Title:          n.Title,
-		Content:        n.Content,
-		Link:           n.Link,
-		CreatedAt:      n.CreatedAt.Format("2006-01-02T15:04:05-07:00"),
+		Type:             "notification_created",
+		NotificationType: n.Type,
+		NotificationID:   n.ID,
+		Unread:           count,
+		Title:            n.Title,
+		Content:          n.Content,
+		Link:             n.Link,
+		CreatedAt:        n.CreatedAt.Format("2006-01-02T15:04:05-07:00"),
 	})
 	if err != nil {
 		logger.L().Warn("notification worker event marshal failed", zap.Error(err))

@@ -12,16 +12,17 @@ import (
 	"github.com/tencentyun/cos-go-sdk-v5"
 )
 
-type Client struct {
+type TencentCOSClient struct {
 	client       *cos.Client
 	secretID     string
 	secretKey    string
 	presignCache *PresignCache
 }
 
-func (c *Client) SetPresignCache(cache *PresignCache) { c.presignCache = cache }
+func (c *TencentCOSClient) SetPresignCache(cache *PresignCache) { c.presignCache = cache }
+func (c *TencentCOSClient) ProviderName() string                { return ProviderTencentCOS }
 
-func NewClient(endpoint, secretID, secretKey, bucketName, publicBaseURL string) (*Client, error) {
+func NewTencentCOSClient(endpoint, secretID, secretKey, bucketName, publicBaseURL string) (*TencentCOSClient, error) {
 	baseURL := strings.TrimRight(publicBaseURL, "/")
 	if baseURL == "" {
 		baseURL = fmt.Sprintf("https://%s.%s", bucketName, endpoint)
@@ -36,14 +37,14 @@ func NewClient(endpoint, secretID, secretKey, bucketName, publicBaseURL string) 
 			SecretKey: secretKey,
 		},
 	})
-	return &Client{client: c, secretID: secretID, secretKey: secretKey}, nil
+	return &TencentCOSClient{client: c, secretID: secretID, secretKey: secretKey}, nil
 }
 
-func (c *Client) GeneratePresignedPutURL(ossKey string) (string, time.Time, error) {
+func (c *TencentCOSClient) GeneratePresignedPutURL(ossKey string, _ string) (string, time.Time, error) {
 	return c.signURL(context.Background(), http.MethodPut, ossKey)
 }
 
-func (c *Client) GeneratePresignedGetURL(ossKey string) (string, error) {
+func (c *TencentCOSClient) GeneratePresignedGetURL(ossKey string) (string, error) {
 	if c.presignCache != nil {
 		if cached, ok := c.presignCache.Get(context.Background(), ossKey); ok {
 			return cached, nil
@@ -59,7 +60,7 @@ func (c *Client) GeneratePresignedGetURL(ossKey string) (string, error) {
 	return signed, err
 }
 
-func (c *Client) VerifyObject(ctx context.Context, ossKey string) error {
+func (c *TencentCOSClient) VerifyObject(ctx context.Context, ossKey string) error {
 	if strings.TrimSpace(ossKey) == "" {
 		return fmt.Errorf("oss key is empty")
 	}
@@ -67,7 +68,18 @@ func (c *Client) VerifyObject(ctx context.Context, ossKey string) error {
 	return err
 }
 
-func (c *Client) DownloadObject(ctx context.Context, ossKey string) ([]byte, error) {
+func (c *TencentCOSClient) VerifyObjectSize(ctx context.Context, ossKey string, maxSize int64) error {
+	resp, err := c.client.Object.Head(ctx, ossKey, nil)
+	if err != nil {
+		return err
+	}
+	if resp.ContentLength > maxSize {
+		return fmt.Errorf("file size %d exceeds maximum allowed %d bytes", resp.ContentLength, maxSize)
+	}
+	return nil
+}
+
+func (c *TencentCOSClient) DownloadObject(ctx context.Context, ossKey string) ([]byte, error) {
 	if strings.TrimSpace(ossKey) == "" {
 		return nil, fmt.Errorf("oss key is empty")
 	}
@@ -76,22 +88,46 @@ func (c *Client) DownloadObject(ctx context.Context, ossKey string) ([]byte, err
 		return nil, err
 	}
 	defer resp.Body.Close()
-	// Limit download size to prevent OOM (25 MB hard cap).
 	return io.ReadAll(io.LimitReader(resp.Body, MaxResumeDownloadSizeBytes))
 }
 
-func IsNotFound(err error) bool {
-	return cos.IsNotFoundError(err)
+func (c *TencentCOSClient) DeleteObject(ctx context.Context, ossKey string) error {
+	if strings.TrimSpace(ossKey) == "" {
+		return fmt.Errorf("oss key is empty")
+	}
+	_, err := c.client.Object.Delete(ctx, ossKey)
+	return err
 }
 
-func (c *Client) signURL(ctx context.Context, method, ossKey string) (string, time.Time, error) {
+func (c *TencentCOSClient) SavePresignSessionWithID(ctx context.Context, uploadID string, session PresignSession) error {
+	return savePresignSessionWithID(ctx, c.presignCache, uploadID, session)
+}
+
+func (c *TencentCOSClient) SavePresignSession(ctx context.Context, session PresignSession) (string, error) {
+	return savePresignSessionWithCache(ctx, c.presignCache, session)
+}
+
+func (c *TencentCOSClient) GetAndDeletePresignSession(ctx context.Context, uploadID string) (*PresignSession, error) {
+	return getAndDeletePresignSessionWithCache(ctx, c.presignCache, uploadID)
+}
+
+func (c *TencentCOSClient) CopyObject(ctx context.Context, srcKey, dstKey string) error {
+	if strings.TrimSpace(srcKey) == "" || strings.TrimSpace(dstKey) == "" {
+		return fmt.Errorf("oss key is empty")
+	}
+	srcURL := fmt.Sprintf("%s/%s", c.client.BaseURL.BucketURL.Host, strings.TrimLeft(srcKey, "/"))
+	_, _, err := c.client.Object.Copy(ctx, dstKey, srcURL, nil)
+	return err
+}
+
+func (c *TencentCOSClient) signURL(ctx context.Context, method, ossKey string) (string, time.Time, error) {
 	if c.client == nil {
 		return "", time.Time{}, fmt.Errorf("cos client is nil")
 	}
 	if strings.TrimSpace(ossKey) == "" {
 		return "", time.Time{}, fmt.Errorf("oss key is empty")
 	}
-	expireAt := time.Now().Add(15 * time.Minute)
+	expireAt := time.Now().Add(PresignExpiry)
 	presignedURL, err := c.client.Object.GetPresignedURL(ctx, method, ossKey, c.secretID, c.secretKey, 15*time.Minute, nil)
 	if err != nil {
 		return "", time.Time{}, err

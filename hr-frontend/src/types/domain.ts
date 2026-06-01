@@ -44,7 +44,6 @@ export interface LoginPayload {
 }
 
 export interface LoginResponse {
-  token: string
   user_id: number
   role: number
   username: string
@@ -55,7 +54,6 @@ export interface RegisterPayload {
   password: string
   email?: string
   role: number
-  invite_code?: string
 }
 
 // ---- Job ----

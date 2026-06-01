@@ -2,6 +2,7 @@ package ai
 
 import "github.com/cloudwego/eino/schema"
 
+// Deprecated: Use NewRecruitingADKTools with ADK path instead.
 func RecruitingTools() []*schema.ToolInfo {
 	return []*schema.ToolInfo{
 		{
@@ -10,7 +11,14 @@ func RecruitingTools() []*schema.ToolInfo {
 		},
 		{
 			Name: "query_today_applications",
-			Desc: "查询今日新增投递数",
+			Desc: "查询今日新增投递数，可按岗位限定。用户询问今天某岗位投递了多少人时，先定位岗位 ID，再调用此工具",
+			ParamsOneOf: schema.NewParamsOneOfByParams(map[string]*schema.ParameterInfo{
+				"job_id": {
+					Type:     schema.Integer,
+					Desc:     "岗位 ID；不传则统计所有岗位",
+					Required: false,
+				},
+			}),
 		},
 		{
 			Name: "get_job_heat_ranking",
@@ -25,7 +33,7 @@ func RecruitingTools() []*schema.ToolInfo {
 		},
 		{
 			Name: "search_candidates",
-			Desc: "搜索候选人投递记录。姓名精确匹配，电话和岗位名称支持模糊匹配。如果未找到精确匹配的姓名，会尝试按电话或岗位名称搜索。只有工具返回空列表时才能说未找到",
+			Desc: "搜索候选人投递记录，用于定位候选人或投递记录。姓名精确匹配，电话和岗位名称支持模糊匹配。如果未找到精确匹配的姓名，会尝试按电话或岗位名称搜索。只有工具返回空列表时才能说未找到。需要确定候选人对应 application_id 时优先使用此工具",
 			ParamsOneOf: schema.NewParamsOneOfByParams(map[string]*schema.ParameterInfo{
 				"keyword": {
 					Type:     schema.String,
@@ -47,7 +55,7 @@ func RecruitingTools() []*schema.ToolInfo {
 		},
 		{
 			Name: "search_jobs",
-			Desc: "按关键词和上下架状态搜索当前 HR 发布的岗位。用户提到岗位名称、部门、地点，或需要先定位岗位 ID 时调用",
+			Desc: "按关键词和上下架状态搜索当前 HR 发布的岗位。用户提到岗位名称、部门、地点等模糊条件，或需要先定位岗位 ID 时优先使用此工具",
 			ParamsOneOf: schema.NewParamsOneOfByParams(map[string]*schema.ParameterInfo{
 				"keyword": {
 					Type:     schema.String,
@@ -73,7 +81,7 @@ func RecruitingTools() []*schema.ToolInfo {
 		},
 		{
 			Name: "get_candidate_detail",
-			Desc: "获取指定投递记录的完整信息，包括岗位信息和候选人上传简历的解析正文，用于简历分析。分析候选人匹配度时必须优先调用此工具，并以 resume_text 为主要依据；不要使用候选人资料页字段补充判断",
+			Desc: "获取指定投递记录的完整信息，包括岗位信息和候选人上传简历的解析正文，用于简历分析和岗位匹配度评估。分析候选人匹配度时必须调用此工具，并以 resume_text 为主要依据；不要使用候选人资料页字段补充判断。如果 resume_text 为空，要明确说明无法充分基于简历正文判断",
 			ParamsOneOf: schema.NewParamsOneOfByParams(map[string]*schema.ParameterInfo{
 				"application_id": {
 					Type:     schema.Integer,
@@ -84,7 +92,7 @@ func RecruitingTools() []*schema.ToolInfo {
 		},
 		{
 			Name: "propose_application_status_update",
-			Desc: "当 HR 明确要求将某个投递标记为通过或淘汰时调用。此工具只生成待确认动作，不会直接修改数据库；最终回复必须请求 HR 确认",
+			Desc: "当 HR 明确要求对某个投递进行状态变更时调用，包括通过、淘汰、拒绝、不通过、录用、进入下一轮等表达。此工具只生成待确认动作，不会直接修改数据库；最终回复必须请求 HR 确认。如果缺少 application_id，应先通过上下文绑定记录或候选人搜索工具定位，仍无法确定时向 HR 追问",
 			ParamsOneOf: schema.NewParamsOneOfByParams(map[string]*schema.ParameterInfo{
 				"application_id": {
 					Type:     schema.Integer,
@@ -147,7 +155,7 @@ func RecruitingTools() []*schema.ToolInfo {
 		},
 		{
 			Name: "list_applications_by_status",
-			Desc: "分页列出当前 HR 所有岗位下某个状态的投递候选人，也可限定岗位。用户询问待处理、已通过、已淘汰、已查看候选人名单时调用",
+			Desc: "分页列出当前 HR 所有岗位下某个状态的投递候选人，也可限定岗位。用户询问待查看、已查看、通过、淘汰名单时调用。支持待处理、已通过、已淘汰、已查看等状态筛选",
 			ParamsOneOf: schema.NewParamsOneOfByParams(map[string]*schema.ParameterInfo{
 				"status": {
 					Type:     schema.Integer,
@@ -189,7 +197,7 @@ func RecruitingTools() []*schema.ToolInfo {
 		},
 		{
 			Name: "get_application_trend",
-			Desc: "查询近 N 天投递趋势，可按岗位限定。用户询问最近几天、近一周、近一个月每天投递变化时调用",
+			Desc: "查询近 N 天投递趋势，可按岗位限定。用户询问最近 N 天、近一周、近一个月、每天投递变化等趋势数据时调用。若只问今天投递人数，优先使用 query_today_applications。days 参数控制时间范围，默认 7 天，最多 90 天",
 			ParamsOneOf: schema.NewParamsOneOfByParams(map[string]*schema.ParameterInfo{
 				"days": {
 					Type:     schema.Integer,

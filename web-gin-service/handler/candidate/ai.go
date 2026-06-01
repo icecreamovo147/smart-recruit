@@ -1,6 +1,8 @@
 package candidate
 
 import (
+	"encoding/json"
+	"fmt"
 	"io"
 	"strconv"
 
@@ -83,13 +85,18 @@ func (h *AIHandler) ChatStream(c *gin.Context) {
 					return
 				}
 				info := base.PublicError(result.err)
-				c.SSEvent("message", gin.H{
+				payload := fmt.Sprintf("event: message\ndata: %s\n\n", mustMarshal(gin.H{
 					"code":       info.Code,
 					"msg":        info.Msg,
 					"done":       true,
 					"request_id": base.RequestID(c),
-				})
-				c.Writer.Flush()
+				}))
+				if n, err := c.Writer.Write([]byte(payload)); err != nil || n == 0 {
+					return
+				}
+				if !base.FlushSSE(c.Writer) {
+					return
+				}
 				return
 			}
 			payload := gin.H{
@@ -101,16 +108,26 @@ func (h *AIHandler) ChatStream(c *gin.Context) {
 				"created_at":          result.chunk.CreatedAt,
 				"suggested_questions": result.chunk.SuggestedQuestions,
 				"suggestedQuestions":  result.chunk.SuggestedQuestions,
+				"event_type":          result.chunk.EventType,
+				"event_message":       result.chunk.EventMessage,
+				"error_type":          result.chunk.ErrorType,
+				"tool_name":           result.chunk.ToolName,
 				"request_id":          base.RequestID(c),
 			}
-			c.SSEvent("message", payload)
-			c.Writer.Flush()
+			line := fmt.Sprintf("event: message\ndata: %s\n\n", mustMarshal(payload))
+			if n, err := c.Writer.Write([]byte(line)); err != nil || n == 0 {
+				return
+			}
+			if !base.FlushSSE(c.Writer) {
+				return
+			}
 			if result.chunk.Done {
 				return
 			}
 		}
 	}
 }
+
 
 // ListSessions returns the candidate's AI chat sessions.
 func (h *AIHandler) ListSessions(c *gin.Context) {
@@ -132,7 +149,10 @@ func (h *AIHandler) CreateSession(c *gin.Context) {
 	var req struct {
 		Title string `json:"title"`
 	}
-	_ = c.ShouldBindJSON(&req)
+	if err := c.ShouldBindJSON(&req); err != nil {
+		base.BadRequest(c, "请求参数格式错误")
+		return
+	}
 	resp, err := h.clients.AI.CandidateCreateSession(c.Request.Context(), &pb.CandidateCreateSessionRequest{
 		UserId: middleware.UserID(c),
 		Title:  req.Title,
@@ -219,4 +239,9 @@ func basePagination(c *gin.Context) (int32, int32) {
 		pageSize = int32(v)
 	}
 	return page, pageSize
+}
+
+func mustMarshal(v any) string {
+	b, _ := json.Marshal(v)
+	return string(b)
 }

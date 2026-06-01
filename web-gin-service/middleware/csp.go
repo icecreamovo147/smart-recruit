@@ -3,6 +3,7 @@ package middleware
 import (
 	"net/http"
 	"os"
+	"strings"
 
 	"github.com/gin-gonic/gin"
 )
@@ -44,15 +45,45 @@ func SecurityHeaders() gin.HandlerFunc {
 }
 
 // CORSWrapper adds CORS headers with controlled origins.
+// Set CORS_ALLOWED_ORIGIN to a comma-separated list of allowed origins
+// (e.g. "http://localhost:5173,http://localhost:5174") or a single origin.
+// When empty or "*", allows all origins (credentials disabled).
 func CORSWrapper() gin.HandlerFunc {
-	allowedOrigin := os.Getenv("CORS_ALLOWED_ORIGIN")
-	if allowedOrigin == "" {
-		allowedOrigin = "*"
-	}
+	allowedOriginRaw := os.Getenv("CORS_ALLOWED_ORIGIN")
+	allowedOrigins := parseOrigins(allowedOriginRaw)
 	return func(c *gin.Context) {
-		c.Header("Access-Control-Allow-Origin", allowedOrigin)
-		c.Header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
-		c.Header("Access-Control-Allow-Headers", "Content-Type, Authorization")
+		origin := c.GetHeader("Origin")
+		useCredentials := false
+		if len(allowedOrigins) == 0 {
+			// Open CORS — any origin, no credentials.
+			c.Header("Access-Control-Allow-Origin", "*")
+		} else if origin != "" {
+			if matched := matchOrigin(allowedOrigins, origin); matched != "" {
+				c.Header("Access-Control-Allow-Origin", matched)
+				c.Header("Access-Control-Allow-Credentials", "true")
+				useCredentials = true
+			} else {
+				// Origin not in allowlist: reject preflight and also non-OPTIONS requests
+				// with an explicit 403 to ensure monitoring tools and load balancers can
+				// accurately distinguish blocked cross-origin requests.
+				if c.Request.Method == http.MethodOptions {
+					c.AbortWithStatus(http.StatusForbidden)
+					return
+				}
+				c.AbortWithStatusJSON(http.StatusForbidden, gin.H{
+					"code":       403,
+					"msg":        "不允许的请求来源",
+					"data":       nil,
+					"request_id": requestID(c),
+				})
+				return
+			}
+		}
+		c.Header("Access-Control-Allow-Methods", "GET, POST, PUT, PATCH, DELETE, OPTIONS")
+		c.Header("Access-Control-Allow-Headers", "Content-Type, Authorization, X-Client-App")
+		if useCredentials {
+			c.Header("Access-Control-Expose-Headers", "Set-Cookie")
+		}
 		c.Header("Access-Control-Max-Age", "86400")
 		if c.Request.Method == http.MethodOptions {
 			c.AbortWithStatus(http.StatusNoContent)
@@ -60,4 +91,28 @@ func CORSWrapper() gin.HandlerFunc {
 		}
 		c.Next()
 	}
+}
+
+func parseOrigins(raw string) []string {
+	if raw == "" || raw == "*" {
+		return nil
+	}
+	parts := strings.Split(raw, ",")
+	var origins []string
+	for _, p := range parts {
+		p = strings.TrimSpace(p)
+		if p != "" {
+			origins = append(origins, p)
+		}
+	}
+	return origins
+}
+
+func matchOrigin(allowed []string, origin string) string {
+	for _, o := range allowed {
+		if strings.EqualFold(o, origin) {
+			return origin
+		}
+	}
+	return ""
 }

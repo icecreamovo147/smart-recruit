@@ -19,7 +19,7 @@ import (
 	"web-gin-service/rpc"
 )
 
-func Setup(cfg config.Config, clients *rpc.Clients, rdb *redis.Client) *gin.Engine {
+func Setup(cfg config.Config, clients *rpc.Clients, rdb *redis.Client) (*gin.Engine, *middleware.LimiterRegistry) {
 	r := gin.New()
 	r.Use(middleware.RequestID(), middleware.AccessLog(), middleware.Recovery(), middleware.SecurityHeaders(), middleware.CSP(), middleware.CORSWrapper())
 	r.GET("/health", func(c *gin.Context) { c.JSON(200, gin.H{"status": "ok"}) })
@@ -47,7 +47,7 @@ func Setup(cfg config.Config, clients *rpc.Clients, rdb *redis.Client) *gin.Engi
 	})
 	r.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
 
-	authHandler := handler.NewAuthHandler(clients)
+	authHandler := handler.NewAuthHandler(clients, cfg.AuthCookieName, cfg.CandidateCookie, cfg.HRCookie, cfg.AuthCookieSecure, cfg.JWTSecret)
 	publicHandler := handler.NewPublicHandler(clients)
 	hrJobHandler := hr.NewJobHandler(clients)
 	hrApplicationHandler := hr.NewApplicationHandler(clients)
@@ -63,9 +63,20 @@ func Setup(cfg config.Config, clients *rpc.Clients, rdb *redis.Client) *gin.Engi
 	uploadTimeout := middleware.Timeout(20 * time.Second)
 	aiTimeout := middleware.Timeout(45 * time.Second)
 
-	authLimit := middleware.RedisRateLimit(rdb, "auth", cfg.RateLimit.AuthRPS, cfg.RateLimit.AuthBurst)
-	aiLimit := middleware.RedisRateLimit(rdb, "ai", cfg.RateLimit.AIRPS, cfg.RateLimit.AIBurst)
-	generalLimit := middleware.RedisRateLimit(rdb, "general", cfg.RateLimit.GeneralRPS, cfg.RateLimit.GeneralBurst)
+	limiters := middleware.NewLimiterRegistry(
+		cfg.RateLimit.AuthRPS, cfg.RateLimit.AuthBurst,
+		cfg.RateLimit.AIRPS, cfg.RateLimit.AIBurst,
+		cfg.RateLimit.GeneralRPS, cfg.RateLimit.GeneralBurst,
+	)
+
+	authLimit := middleware.ResilientRateLimit(rdb, "auth", cfg.RateLimit.AuthRPS, cfg.RateLimit.AuthBurst, limiters.Auth)
+	aiLimit := middleware.ResilientRateLimit(rdb, "ai", cfg.RateLimit.AIRPS, cfg.RateLimit.AIBurst, limiters.AI)
+	generalLimit := middleware.ResilientRateLimit(rdb, "general", cfg.RateLimit.GeneralRPS, cfg.RateLimit.GeneralBurst, limiters.General)
+	candidateAIQuota := middleware.AIDailyQuota(rdb, "candidate", cfg.RateLimit.AIQuotaCandidateDaily)
+	hrAIQuota := middleware.AIDailyQuota(rdb, "hr", cfg.RateLimit.AIQuotaHRDaily)
+	resumePresignQuota := middleware.ResumePresignQuota(rdb, cfg.RateLimit.ResumePresignHourlyLimit, cfg.RateLimit.ResumePresignDailyLimit)
+	resumeConfirmQuota := middleware.ResumeConfirmQuota(rdb, cfg.RateLimit.ResumeConfirmHourlyLimit, cfg.RateLimit.ResumeConfirmDailyLimit)
+	riskBlock := middleware.RiskBlock(rdb)
 
 	v1 := r.Group("/api/v1", generalLimit)
 	bodyAuth := middleware.MaxBodyBytes(4 << 10)
@@ -74,16 +85,20 @@ func Setup(cfg config.Config, clients *rpc.Clients, rdb *redis.Client) *gin.Engi
 	bodyJob := middleware.MaxBodyBytes(64 << 10)
 
 	v1.POST("/auth/register", normalTimeout, authLimit, bodyAuth, authHandler.Register)
+	v1.POST("/auth/register/validate-invite-code", normalTimeout, authHandler.ValidateInviteCode)
 	v1.POST("/auth/login", normalTimeout, authLimit, bodyAuth, authHandler.Login)
+	v1.POST("/auth/logout", normalTimeout, middleware.JWTAuthByClient(cfg.JWTSecret, cfg.CandidateCookie, cfg.HRCookie, cfg.AuthCookieName), authHandler.Logout)
+	v1.POST("/auth/refresh", normalTimeout, authHandler.RefreshToken)
+	v1.GET("/auth/me", normalTimeout, middleware.JWTAuthByClient(cfg.JWTSecret, cfg.CandidateCookie, cfg.HRCookie, cfg.AuthCookieName), authHandler.Me)
 	v1.GET("/jobs", normalTimeout, publicHandler.ListJobs)
 	v1.GET("/jobs/:job_id", normalTimeout, publicHandler.JobDetail)
 
-	candidateGroup := v1.Group("/candidate", middleware.JWTAuth(cfg.JWTSecret), middleware.RequireRole(1))
+	candidateGroup := v1.Group("/candidate", middleware.JWTAuthByClient(cfg.JWTSecret, cfg.CandidateCookie, cfg.HRCookie, cfg.AuthCookieName), middleware.RequireRole(1))
 	candidateGroup.GET("/profile", normalTimeout, profileHandler.Get)
 	candidateGroup.PUT("/profile", normalTimeout, bodyProfile, profileHandler.Update)
 	candidateGroup.GET("/resume", normalTimeout, resumeHandler.Get)
-	candidateGroup.POST("/resume/presign", normalTimeout, bodyAuth, resumeHandler.Presign)
-	candidateGroup.POST("/resume/confirm", uploadTimeout, bodyProfile, resumeHandler.Confirm)
+	candidateGroup.POST("/resume/presign", riskBlock, resumePresignQuota, normalTimeout, bodyAuth, resumeHandler.Presign)
+	candidateGroup.POST("/resume/confirm", riskBlock, resumeConfirmQuota, uploadTimeout, bodyProfile, resumeHandler.Confirm)
 	candidateGroup.POST("/applications", normalTimeout, bodyAuth, applyHandler.Apply)
 	candidateGroup.GET("/applications", normalTimeout, applyHandler.Mine)
 	candidateGroup.GET("/notifications", normalTimeout, notificationHandler.List)
@@ -97,9 +112,9 @@ func Setup(cfg config.Config, clients *rpc.Clients, rdb *redis.Client) *gin.Engi
 	candidateGroup.GET("/ai/sessions/:session_id/messages", normalTimeout, candidateAIHandler.SessionMessages)
 	candidateGroup.PUT("/ai/sessions/:session_id", normalTimeout, bodyAuth, candidateAIHandler.UpdateSession)
 	candidateGroup.DELETE("/ai/sessions/:session_id", normalTimeout, candidateAIHandler.DeleteSession)
-	candidateGroup.POST("/ai/chat/stream", aiLimit, bodyAI, candidateAIHandler.ChatStream)
+	candidateGroup.POST("/ai/chat/stream", riskBlock, aiLimit, candidateAIQuota, bodyAI, candidateAIHandler.ChatStream)
 
-	hrGroup := v1.Group("/hr", middleware.JWTAuth(cfg.JWTSecret), middleware.RequireMinRole(2))
+	hrGroup := v1.Group("/hr", middleware.JWTAuthByClient(cfg.JWTSecret, cfg.CandidateCookie, cfg.HRCookie, cfg.AuthCookieName), middleware.RequireMinRole(2))
 	hrGroup.GET("/job-options", normalTimeout, hrJobHandler.JobOptions)
 	hrGroup.POST("/jobs", normalTimeout, bodyJob, hrJobHandler.Create)
 	hrGroup.PUT("/jobs/:job_id", normalTimeout, bodyJob, hrJobHandler.Update)
@@ -113,10 +128,10 @@ func Setup(cfg config.Config, clients *rpc.Clients, rdb *redis.Client) *gin.Engi
 	hrGroup.GET("/ai/sessions/:session_id/messages", normalTimeout, hrAIHandler.SessionMessages)
 	hrGroup.PUT("/ai/sessions/:session_id", normalTimeout, hrAIHandler.UpdateSession)
 	hrGroup.DELETE("/ai/sessions/:session_id", normalTimeout, hrAIHandler.DeleteSession)
-	hrGroup.POST("/ai/application-analysis-sessions", aiTimeout, aiLimit, hrAIHandler.CreateApplicationAnalysisSession)
-	hrGroup.POST("/ai/chat", aiTimeout, aiLimit, hrAIHandler.Chat)
-	hrGroup.POST("/ai/chat/stream", aiLimit, hrAIHandler.ChatStream)
-	hrGroup.POST("/ai/analyze-application", aiTimeout, aiLimit, hrAIHandler.AnalyzeApplication)
+	hrGroup.POST("/ai/application-analysis-sessions", riskBlock, aiLimit, hrAIQuota, aiTimeout, hrAIHandler.CreateApplicationAnalysisSession)
+	hrGroup.POST("/ai/chat", riskBlock, aiLimit, hrAIQuota, aiTimeout, hrAIHandler.Chat)
+	hrGroup.POST("/ai/chat/stream", riskBlock, aiLimit, hrAIQuota, hrAIHandler.ChatStream)
+	hrGroup.POST("/ai/analyze-application", riskBlock, aiLimit, hrAIQuota, aiTimeout, hrAIHandler.AnalyzeApplication)
 	hrGroup.GET("/ai/history", normalTimeout, hrAIHandler.History)
 	hrGroup.GET("/notifications", normalTimeout, notificationHandler.List)
 	hrGroup.GET("/notifications/unread-count", normalTimeout, notificationHandler.UnreadCount)
@@ -153,5 +168,8 @@ func Setup(cfg config.Config, clients *rpc.Clients, rdb *redis.Client) *gin.Engi
 	adminGroup.GET("/departments/:id/locations", normalTimeout, adminHandler.GetDepartmentLocationConfig)
 	adminGroup.PUT("/departments/:id/locations", normalTimeout, bodyAuth, adminHandler.UpdateDepartmentLocationConfig)
 
-	return r
+	// Usage audit (admin only)
+	adminGroup.GET("/third-party-usage-logs", normalTimeout, adminHandler.ListUsageLogs)
+
+	return r, limiters
 }

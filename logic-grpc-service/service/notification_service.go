@@ -20,13 +20,14 @@ type NotificationService struct {
 }
 
 type notificationEvent struct {
-	Type           string `json:"type"`
-	NotificationID int64  `json:"notification_id"`
-	Unread         int64  `json:"unread"`
-	Title          string `json:"title"`
-	Content        string `json:"content"`
-	Link           string `json:"link"`
-	CreatedAt      string `json:"created_at"`
+	Type             string `json:"type"`
+	NotificationType string `json:"notification_type"`
+	NotificationID   int64  `json:"notification_id"`
+	Unread           int64  `json:"unread"`
+	Title            string `json:"title"`
+	Content          string `json:"content"`
+	Link             string `json:"link"`
+	CreatedAt        string `json:"created_at"`
 }
 
 func NewNotificationService(repo *repository.NotificationRepo, c *cache.NotificationCache) *NotificationService {
@@ -204,13 +205,14 @@ func (s *NotificationService) publishCreatedEvent(ctx context.Context, n *model.
 		logger.L().Warn("notification event unread count failed", zap.Error(err))
 	}
 	payload, err := json.Marshal(notificationEvent{
-		Type:           "notification_created",
-		NotificationID: n.ID,
-		Unread:         unread,
-		Title:          n.Title,
-		Content:        n.Content,
-		Link:           n.Link,
-		CreatedAt:      n.CreatedAt.Format("2006-01-02T15:04:05-07:00"),
+		Type:             "notification_created",
+		NotificationType: n.Type,
+		NotificationID:   n.ID,
+		Unread:           unread,
+		Title:            n.Title,
+		Content:          n.Content,
+		Link:             n.Link,
+		CreatedAt:        n.CreatedAt.Format("2006-01-02T15:04:05-07:00"),
 	})
 	if err != nil {
 		logger.L().Warn("notification event marshal failed", zap.Error(err))

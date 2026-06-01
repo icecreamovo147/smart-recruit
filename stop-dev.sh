@@ -1,53 +1,76 @@
-#!/bin/bash
-# Stop all 4 dev services (kill by port) and close their iTerm2 tabs (matched by [dev] badge)
+#!/usr/bin/env bash
+# Stop local dev services started by start-dev.sh.
 # Usage: ./stop-dev.sh
+
+set -euo pipefail
+
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+STATE_DIR="${ROOT}/.dev"
+PID_DIR="${STATE_DIR}/pids"
+
+info() {
+    printf '[dev] %s\n' "$*"
+}
+
+stop_pid_file() {
+    local name="$1"
+    local pid_file="${PID_DIR}/${name}.pid"
+
+    if [ ! -f "${pid_file}" ]; then
+        return 0
+    fi
+
+    local pid
+    pid="$(cat "${pid_file}")"
+    rm -f "${pid_file}"
+
+    if [ -z "${pid}" ] || ! kill -0 "${pid}" >/dev/null 2>&1; then
+        info "${name} is not running."
+        return 0
+    fi
+
+    info "Stopping ${name} (PID ${pid})..."
+    kill "${pid}" >/dev/null 2>&1 || true
+
+    for _ in $(seq 1 20); do
+        if ! kill -0 "${pid}" >/dev/null 2>&1; then
+            info "Stopped ${name}."
+            return 0
+        fi
+        sleep 0.2
+    done
+
+    info "${name} did not exit cleanly; force stopping PID ${pid}."
+    kill -9 "${pid}" >/dev/null 2>&1 || true
+}
 
 kill_port() {
     local port="$1"
     local name="$2"
-    local pids=$(lsof -ti :"$port" 2>/dev/null)
-    if [ -n "$pids" ]; then
-        echo "Stopping ${name} (port ${port})..."
-        for pid in $pids; do
-            kill "$pid" 2>/dev/null && echo "  Killed PID ${pid}" || true
-        done
-    else
-        echo "${name} (port ${port}) is not running"
+    local pids
+
+    pids="$(lsof -tiTCP:"${port}" -sTCP:LISTEN 2>/dev/null || true)"
+    if [ -z "${pids}" ]; then
+        info "${name} (port ${port}) is not running."
+        return 0
     fi
+
+    info "Stopping ${name} fallback listener(s) on port ${port}..."
+    for pid in ${pids}; do
+        kill "${pid}" >/dev/null 2>&1 && info "Killed PID ${pid}." || true
+    done
 }
 
-echo "=== Stopping all dev services ==="
-echo ""
+info "Stopping dev services..."
 
-# 1. Close iTerm2 tabs first (sends SIGHUP to the shell, which kills the process)
-#    Match tabs by the "[dev]" badge set by start-dev.sh
-#    Iterate backwards so closing tabs doesn't shift indices
-if command -v iterm2 &> /dev/null || [ -d "/Applications/iTerm.app" ]; then
-    echo "Closing iTerm2 dev tabs..."
-    osascript \
-        -e "tell application \"iTerm\"" \
-        -e "  repeat with w in windows" \
-        -e "    repeat with i from (count of tabs of w) to 1 by -1" \
-        -e "      set t to tab i of w" \
-        -e "      try" \
-        -e "        set bdg to badge of current session of t" \
-        -e "        if bdg is equal to \"[dev]\" then" \
-        -e "          tell t to close" \
-        -e "        end if" \
-        -e "      end try" \
-        -e "    end repeat" \
-        -e "  end repeat" \
-        -e "end tell"
-    echo "Dev tabs closed."
-fi
+stop_pid_file "user-frontend"
+stop_pid_file "hr-frontend"
+stop_pid_file "web-gin-service"
+stop_pid_file "logic-grpc-service"
 
-echo ""
-
-# 2. Kill any remaining processes by port (fallback for non-iTerm2 processes)
+kill_port 5174 "User Frontend"
+kill_port 5173 "HR Frontend"
+kill_port 8080 "Web Gin"
 kill_port 50051 "Logic gRPC"
-kill_port 8080  "Web Gin"
-kill_port 5173  "HR Frontend"
-kill_port 5174  "User Frontend"
 
-echo ""
-echo "All done."
+info "All done."

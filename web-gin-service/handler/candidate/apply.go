@@ -39,6 +39,10 @@ func (h *ApplyHandler) Mine(c *gin.Context) {
 	page, pageSize := pagination(c)
 	cursor, hasCursor := c.GetQuery("cursor")
 	if hasCursor {
+		if len(cursor) == 0 || len(cursor) > 256 {
+			base.BadRequest(c, "cursor 参数格式错误")
+			return
+		}
 		page = 0
 	}
 	resp, err := h.clients.Application.ListMyApplications(c.Request.Context(), &pb.ListMyApplicationsRequest{UserId: middleware.UserID(c), Page: page, PageSize: pageSize, Cursor: cursor})
@@ -52,5 +56,11 @@ func (h *ApplyHandler) Mine(c *gin.Context) {
 func pagination(c *gin.Context) (int32, int32) {
 	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
 	pageSize, _ := strconv.Atoi(c.DefaultQuery("page_size", "10"))
+	if page < 1 {
+		page = 1
+	}
+	if pageSize < 1 || pageSize > 50 {
+		pageSize = 10
+	}
 	return int32(page), int32(pageSize)
 }

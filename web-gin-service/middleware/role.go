@@ -1,11 +1,15 @@
 package middleware
 
-import "github.com/gin-gonic/gin"
+import (
+	"net/http"
+
+	"github.com/gin-gonic/gin"
+)
 
 func RequireRole(role int32) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		if Role(c) != role {
-			c.AbortWithStatusJSON(200, gin.H{"code": 403, "msg": "无权限操作", "data": nil, "request_id": requestID(c)})
+			c.AbortWithStatusJSON(http.StatusForbidden, gin.H{"code": 403, "msg": "无权限操作", "data": nil, "request_id": requestID(c)})
 			return
 		}
 		c.Next()
@@ -16,7 +20,7 @@ func RequireRole(role int32) gin.HandlerFunc {
 func RequireMinRole(minRole int32) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		if Role(c) < minRole {
-			c.AbortWithStatusJSON(200, gin.H{"code": 403, "msg": "无权限操作", "data": nil, "request_id": requestID(c)})
+			c.AbortWithStatusJSON(http.StatusForbidden, gin.H{"code": 403, "msg": "无权限操作", "data": nil, "request_id": requestID(c)})
 			return
 		}
 		c.Next()

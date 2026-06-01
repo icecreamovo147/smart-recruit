@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"net/http"
 	"strings"
 
 	"github.com/gin-gonic/gin"
@@ -98,30 +99,95 @@ func PublicError(err error) ErrorInfo {
 			return ErrorInfo{Code: 404, Msg: "请求的资源不存在或已失效"}
 		case codes.Internal:
 			msg := st.Message()
-			switch {
-			case strings.HasPrefix(msg, "ai:"):
-				return ErrorInfo{Code: 502, Msg: "AI 服务暂时不可用，请稍后重试"}
-			case strings.HasPrefix(msg, "oss:"):
+			if info, ok := classifyAIError(msg); ok {
+				return info
+			}
+			if strings.HasPrefix(msg, "oss:") {
 				return ErrorInfo{Code: 404, Msg: "文件不存在或已失效，请重新上传"}
 			}
 			return ErrorInfo{Code: 500, Msg: "服务暂时不可用，请稍后重试"}
 		case codes.ResourceExhausted:
-			return ErrorInfo{Code: 429, Msg: "请求过于频繁，请稍后重试"}
+			msg := st.Message()
+			switch {
+			case strings.HasPrefix(msg, "quota:ai_daily:"):
+				return ErrorInfo{Code: 42901, Msg: "今日 AI 使用次数已达上限，请明天再试"}
+			case strings.HasPrefix(msg, "quota:resume_presign:"):
+				return ErrorInfo{Code: 42911, Msg: "简历上传过于频繁，请稍后再试"}
+			case strings.HasPrefix(msg, "quota:resume_confirm:"):
+				return ErrorInfo{Code: 42912, Msg: "简历上传确认过于频繁，请稍后再试"}
+			case strings.HasPrefix(msg, "risk:block:"):
+				return ErrorInfo{Code: 42921, Msg: "当前操作过于频繁，请稍后再试"}
+			default:
+				return ErrorInfo{Code: 429, Msg: "请求过于频繁，请稍后重试"}
+			}
 		}
 	}
 	// Fallback string-based matching for unwrapped errors.
 	text := strings.ToLower(err.Error())
+	if info, ok := classifyAIError(err.Error()); ok {
+		return info
+	}
 	switch {
 	case strings.Contains(text, "deadline exceeded"), strings.Contains(text, "timeout"), strings.Contains(text, "timed out"):
 		return ErrorInfo{Code: 504, Msg: "请求处理超时，请稍后重试"}
 	case strings.Contains(text, "connection refused"), strings.Contains(text, "unavailable"), strings.Contains(text, "connection error"):
 		return ErrorInfo{Code: 503, Msg: "后端服务暂不可用，请稍后重试"}
-	case strings.Contains(text, "ai:"), strings.Contains(text, "dashscope"), strings.Contains(text, "chat completions"):
+	case strings.Contains(text, "dashscope"), strings.Contains(text, "chat completions"):
 		return ErrorInfo{Code: 502, Msg: "AI 服务暂时不可用，请稍后重试"}
 	case strings.Contains(text, "oss:"), strings.Contains(text, "not found"):
 		return ErrorInfo{Code: 404, Msg: "文件不存在或已失效，请重新上传"}
 	default:
 		return ErrorInfo{Code: 500, Msg: "服务暂时不可用，请稍后重试"}
+	}
+}
+
+// classifyAIError parses an AI error message in the format "ai:<TYPE>: <message>"
+// and returns a friendly ErrorInfo. Returns ok=false if the message is not an AI error.
+//
+// Status code mapping:
+// - timeout/empty/unknown → 502 (AI bad gateway)
+// - rate_limited → 429
+// - circuit_open / unavailable → 503
+// - tool_failed → 502
+// - canceled → 499 (only when not handled upstream)
+// - partial_reply → 200-class but msg flags partial; we report 502 to keep UX aligned
+func classifyAIError(msg string) (ErrorInfo, bool) {
+	if !strings.HasPrefix(msg, "ai:") {
+		return ErrorInfo{}, false
+	}
+	rest := strings.TrimPrefix(msg, "ai:")
+	// Format: "<TYPE>: <user message>"
+	parts := strings.SplitN(rest, ":", 2)
+	aiType := strings.TrimSpace(parts[0])
+	userMsg := ""
+	if len(parts) == 2 {
+		userMsg = strings.TrimSpace(parts[1])
+	}
+	if userMsg == "" {
+		userMsg = "AI 服务暂时不可用，请稍后重试"
+	}
+	switch aiType {
+	case "AI_TIMEOUT":
+		return ErrorInfo{Code: 504, Msg: userMsg}, true
+	case "AI_RATE_LIMITED":
+		return ErrorInfo{Code: 429, Msg: userMsg}, true
+	case "AI_UNAVAILABLE":
+		return ErrorInfo{Code: 503, Msg: userMsg}, true
+	case "AI_CIRCUIT_OPEN":
+		return ErrorInfo{Code: 503, Msg: userMsg}, true
+	case "AI_EMPTY_REPLY":
+		return ErrorInfo{Code: 502, Msg: userMsg}, true
+	case "AI_TOOL_FAILED":
+		return ErrorInfo{Code: 502, Msg: userMsg}, true
+	case "AI_CONTEXT_CANCELED":
+		return ErrorInfo{Code: 499, Msg: userMsg}, true
+	case "AI_PARTIAL_REPLY":
+		return ErrorInfo{Code: 502, Msg: userMsg}, true
+	case "AI_UNKNOWN":
+		return ErrorInfo{Code: 502, Msg: userMsg}, true
+	default:
+		// Legacy "ai: <raw>" form: keep generic prompt.
+		return ErrorInfo{Code: 502, Msg: "AI 服务暂时不可用，请稍后重试"}, true
 	}
 }
 
@@ -136,4 +202,14 @@ func RequestID(c *gin.Context) string {
 
 func envelope(c *gin.Context, code int32, msg string, data any) gin.H {
 	return gin.H{"code": code, "msg": msg, "data": data, "request_id": RequestID(c)}
+}
+
+// FlushSSE flushes the response writer for SSE streams and returns false if
+// the client has disconnected (broken pipe), signalling the caller to stop.
+func FlushSSE(w gin.ResponseWriter) bool {
+	if flusher, ok := w.(http.Flusher); ok {
+		flusher.Flush()
+		return true
+	}
+	return true
 }

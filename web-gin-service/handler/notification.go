@@ -94,7 +94,7 @@ func (h *NotificationHandler) Stream(c *gin.Context) {
 	c.Header("Connection", "keep-alive")
 	c.Header("X-Accel-Buffering", "no")
 	c.Status(200)
-	c.Writer.Flush()
+	flushWriter(c.Writer)
 
 	ch := pubsub.Channel()
 	heartbeat := time.NewTicker(25 * time.Second)
@@ -103,18 +103,39 @@ func (h *NotificationHandler) Stream(c *gin.Context) {
 	for {
 		select {
 		case <-c.Request.Context().Done():
+			pubsub.Close()
 			return
 		case msg := <-ch:
 			if msg == nil {
+				pubsub.Close()
 				return
 			}
-			_, _ = fmt.Fprintf(c.Writer, "event: notification\ndata: %s\n\n", msg.Payload)
-			c.Writer.Flush()
+			line := fmt.Sprintf("event: notification\ndata: %s\n\n", msg.Payload)
+			if n, err := c.Writer.Write([]byte(line)); err != nil || n == 0 {
+				pubsub.Close()
+				return
+			}
+			if !flushWriter(c.Writer) {
+				pubsub.Close()
+				return
+			}
 		case <-heartbeat.C:
-			_, _ = fmt.Fprint(c.Writer, ": heartbeat\n\n")
-			c.Writer.Flush()
+			line := []byte(": heartbeat\n\n")
+			if n, err := c.Writer.Write(line); err != nil || n == 0 {
+				pubsub.Close()
+				return
+			}
+			if !flushWriter(c.Writer) {
+				pubsub.Close()
+				return
+			}
 		}
 	}
+}
+
+// flushWriter is an alias for FlushSSE provided by response.go for internal use.
+func flushWriter(w gin.ResponseWriter) bool {
+	return FlushSSE(w)
 }
 
 func (h *NotificationHandler) MarkRead(c *gin.Context) {

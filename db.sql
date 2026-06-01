@@ -236,6 +236,31 @@ CREATE TABLE IF NOT EXISTS `invite_codes` (
   KEY `idx_code_active_expires` (`code`, `is_active`, `expires_at`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='HR 注册邀请码表';
 
+CREATE TABLE IF NOT EXISTS `third_party_usage_logs` (
+  `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+  `user_id` BIGINT NOT NULL DEFAULT 0 COMMENT '用户ID，0表示匿名/系统',
+  `role` TINYINT NOT NULL DEFAULT 0 COMMENT '用户角色：0未知 1候选人 2HR 3管理员',
+  `service_type` VARCHAR(32) NOT NULL DEFAULT '' COMMENT '服务类型：ai_chat/ai_analyze/oss_presign/oss_confirm',
+  `endpoint` VARCHAR(128) NOT NULL DEFAULT '' COMMENT '调用的接口路径',
+  `provider` VARCHAR(64) NOT NULL DEFAULT '' COMMENT '第三方服务商：dashscope/tencent_cos/aliyun_oss',
+  `model` VARCHAR(64) NOT NULL DEFAULT '' COMMENT 'AI模型名称',
+  `request_chars` INT UNSIGNED NOT NULL DEFAULT 0 COMMENT '请求字符数',
+  `response_chars` INT UNSIGNED NOT NULL DEFAULT 0 COMMENT '响应字符数',
+  `estimated_tokens` INT UNSIGNED NOT NULL DEFAULT 0 COMMENT '估算token消耗',
+  `object_key` VARCHAR(512) NOT NULL DEFAULT '' COMMENT 'OSS对象key',
+  `object_size` BIGINT NOT NULL DEFAULT 0 COMMENT 'OSS对象大小(字节)',
+  `status` VARCHAR(16) NOT NULL DEFAULT 'ok' COMMENT '调用结果：ok/error/timeout/rate_limited',
+  `error_code` VARCHAR(32) NOT NULL DEFAULT '' COMMENT '错误码',
+  `cost_ms` INT UNSIGNED NOT NULL DEFAULT 0 COMMENT '调用耗时(毫秒)',
+  `request_id` VARCHAR(64) NOT NULL DEFAULT '' COMMENT '请求追踪ID',
+  `ip` VARCHAR(64) NOT NULL DEFAULT '' COMMENT '客户端IP',
+  `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+  PRIMARY KEY (`id`),
+  KEY `idx_user_created` (`user_id`, `created_at`),
+  KEY `idx_service_created` (`service_type`, `created_at`),
+  KEY `idx_request_id` (`request_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='第三方服务调用审计日志';
+
 -- ── 插入默认 HR 管理员账号 (admin / 123456，角色=3 表示 HR 管理员) ────
 
 INSERT IGNORE INTO `users` (`username`, `password`, `role`) VALUES
@@ -338,3 +363,28 @@ INSERT INTO `job_locations` (`name`, `code`, `sort_order`, `is_active`) VALUES
   ('西安', 'xian',     8, 1),
   ('南京', 'nanjing',  9, 1),
   ('远程', 'remote',  10, 1);
+
+-- ── 初始化部门可用地点数据 ─────────────────────────────────────────────
+-- 每个默认部门至少配置两个可用地点；当前默认部门均为根部门，后续子部门配置需保持为父级地点子集。
+
+INSERT INTO `department_locations` (`department_id`, `location_id`, `is_active`)
+SELECT d.id, l.id, 1
+FROM `departments` d
+JOIN `job_locations` l ON (
+  (d.name = '技术研发部' AND l.name IN ('北京', '上海', '深圳', '杭州')) OR
+  (d.name = '产品部'     AND l.name IN ('北京', '上海', '杭州')) OR
+  (d.name = '设计部'     AND l.name IN ('上海', '深圳', '杭州')) OR
+  (d.name = '市场部'     AND l.name IN ('北京', '广州', '成都')) OR
+  (d.name = '销售部'     AND l.name IN ('广州', '深圳', '成都', '武汉')) OR
+  (d.name = '运营部'     AND l.name IN ('上海', '成都', '武汉')) OR
+  (d.name = '人力资源部' AND l.name IN ('北京', '上海', '南京')) OR
+  (d.name = '财务部'     AND l.name IN ('北京', '上海')) OR
+  (d.name = '客户成功部' AND l.name IN ('深圳', '成都', '远程'))
+)
+WHERE d.parent_id = 0
+  AND d.deleted_at IS NULL
+  AND l.deleted_at IS NULL
+ON DUPLICATE KEY UPDATE
+  is_active = 1,
+  deleted_at = NULL,
+  deleted_by = NULL;

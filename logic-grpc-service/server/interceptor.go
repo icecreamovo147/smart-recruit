@@ -2,27 +2,30 @@ package server
 
 import (
 	"context"
+	"fmt"
 	"os"
 
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/metadata"
+	grpcMetadata "google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/status"
 
 	"logic-grpc-service/pkg/logger"
+	"logic-grpc-service/pkg/metadata"
 )
 
 const internalTokenHeader = "x-internal-token"
 
-// authMode reads GRPC_INTERNAL_AUTH env: "required" (reject), "optional" (log but allow).
-// Default "required" — production must explicitly set GRPC_INTERNAL_TOKEN.
+// authMode reads GRPC_INTERNAL_AUTH env: "required" rejects invalid requests,
+// while the default "optional" keeps plain go run main.go friendly for local
+// coursework and automated smoke tests.
 func authMode() string {
 	mode := os.Getenv("GRPC_INTERNAL_AUTH")
-	if mode == "optional" {
-		return "optional"
+	if mode == "required" {
+		return "required"
 	}
-	return "required"
+	return "optional"
 }
 
 // UnaryAuthInterceptor validates x-internal-token for non-health unary RPCs.
@@ -44,6 +47,7 @@ func UnaryAuthInterceptor() grpc.UnaryServerInterceptor {
 		if !checkToken(ctx, internalToken, mode, info.FullMethod) {
 			return nil, status.Error(codes.Unauthenticated, "missing or invalid internal token")
 		}
+		ctx = injectMetadataIntoContext(ctx)
 		return handler(ctx, req)
 	}
 }
@@ -67,7 +71,8 @@ func StreamAuthInterceptor() grpc.StreamServerInterceptor {
 		if !checkToken(ss.Context(), internalToken, mode, info.FullMethod) {
 			return status.Error(codes.Unauthenticated, "missing or invalid internal token")
 		}
-		return handler(srv, ss)
+		ctx := injectMetadataIntoContext(ss.Context())
+		return handler(srv, &wrappedStream{ServerStream: ss, ctx: ctx})
 	}
 }
 
@@ -77,7 +82,7 @@ func isHealthCheck(fullMethod string) bool {
 }
 
 func checkToken(ctx context.Context, expectedToken, mode, fullMethod string) bool {
-	md, ok := metadata.FromIncomingContext(ctx)
+	md, ok := grpcMetadata.FromIncomingContext(ctx)
 	if !ok {
 		return authDecision(mode, fullMethod, "no metadata in request")
 	}
@@ -90,6 +95,40 @@ func checkToken(ctx context.Context, expectedToken, mode, fullMethod string) boo
 		return authDecision(mode, fullMethod, "invalid x-internal-token")
 	}
 	return true
+}
+
+type wrappedStream struct {
+	grpc.ServerStream
+	ctx context.Context
+}
+
+func (w *wrappedStream) Context() context.Context { return w.ctx }
+
+func injectMetadataIntoContext(ctx context.Context) context.Context {
+	md, ok := grpcMetadata.FromIncomingContext(ctx)
+	if ok {
+		if vals := md.Get("x-request-id"); len(vals) > 0 {
+			ctx = context.WithValue(ctx, metadata.KeyRequestID, vals[0])
+		}
+		if vals := md.Get("x-client-ip"); len(vals) > 0 {
+			ctx = context.WithValue(ctx, metadata.KeyClientIP, vals[0])
+		}
+	}
+	return ctx
+}
+
+// ValidateInternalToken fails when GRPC_INTERNAL_AUTH=required and GRPC_INTERNAL_TOKEN is empty.
+// This check is independent of ALLOW_INSECURE_DEV_CONFIG — gRPC internal auth must
+// always be explicitly configured. For local dev without Docker, set GRPC_INTERNAL_AUTH=optional.
+func ValidateInternalToken() error {
+	mode := authMode()
+	if mode != "required" {
+		return nil
+	}
+	if os.Getenv("GRPC_INTERNAL_TOKEN") == "" {
+		return fmt.Errorf("GRPC_INTERNAL_TOKEN is empty while GRPC_INTERNAL_AUTH=required: production requires a non-empty internal token. Set GRPC_INTERNAL_AUTH=optional only for local development without gRPC auth")
+	}
+	return nil
 }
 
 func authDecision(mode, fullMethod, reason string) bool {

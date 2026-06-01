@@ -1,6 +1,8 @@
 package hr
 
 import (
+	"encoding/json"
+	"fmt"
 	"io"
 	"strconv"
 
@@ -106,8 +108,13 @@ func (h *AIHandler) ChatStream(c *gin.Context) {
 					return
 				}
 				info := base.PublicError(result.err)
-				c.SSEvent("message", gin.H{"code": info.Code, "msg": info.Msg, "done": true, "request_id": base.RequestID(c)})
-				c.Writer.Flush()
+				payload := fmt.Sprintf("event: message\ndata: %s\n\n", mustMarshalHR(gin.H{"code": info.Code, "msg": info.Msg, "done": true, "request_id": base.RequestID(c)}))
+				if n, err := c.Writer.Write([]byte(payload)); err != nil || n == 0 {
+					return
+				}
+				if !base.FlushSSE(c.Writer) {
+					return
+				}
 				return
 			}
 			payload := gin.H{
@@ -124,10 +131,19 @@ func (h *AIHandler) ChatStream(c *gin.Context) {
 				"session_id":        result.chunk.SessionId,
 				"created_at":        result.chunk.CreatedAt,
 				"candidate_options": result.chunk.CandidateOptions,
+				"event_type":        result.chunk.EventType,
+				"event_message":     result.chunk.EventMessage,
+				"error_type":        result.chunk.ErrorType,
+				"tool_name":         result.chunk.ToolName,
 				"request_id":        base.RequestID(c),
 			}
-			c.SSEvent("message", payload)
-			c.Writer.Flush()
+			line := fmt.Sprintf("event: message\ndata: %s\n\n", mustMarshalHR(payload))
+			if n, err := c.Writer.Write([]byte(line)); err != nil || n == 0 {
+				return
+			}
+			if !base.FlushSSE(c.Writer) {
+				return
+			}
 			if result.chunk.Done {
 				return
 			}
@@ -159,7 +175,10 @@ func (h *AIHandler) CreateSession(c *gin.Context) {
 	var req struct {
 		Title string `json:"title"`
 	}
-	_ = c.ShouldBindJSON(&req)
+	if err := c.ShouldBindJSON(&req); err != nil {
+		base.BadRequest(c, "请求参数格式错误")
+		return
+	}
 	resp, err := h.clients.AI.CreateChatSession(c.Request.Context(), &pb.CreateChatSessionRequest{HrId: middleware.UserID(c), Title: req.Title})
 	if err != nil {
 		base.Internal(c, err)
@@ -254,4 +273,9 @@ func (h *AIHandler) DeleteSession(c *gin.Context) {
 		return
 	}
 	base.ProtoResponse(c, resp)
+}
+
+func mustMarshalHR(v any) string {
+	b, _ := json.Marshal(v)
+	return string(b)
 }

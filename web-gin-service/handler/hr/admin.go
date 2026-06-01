@@ -381,3 +381,39 @@ func (h *AdminHandler) UpdateDepartmentLocationConfig(c *gin.Context) {
 	}
 	base.ProtoResponse(c, resp)
 }
+
+// ── Usage Audit ──────────────────────────────────────────────────────
+
+func (h *AdminHandler) ListUsageLogs(c *gin.Context) {
+	var req struct {
+		Page        int32  `form:"page"`
+		PageSize    int32  `form:"page_size"`
+		ServiceType string `form:"service_type"`
+		Provider    string `form:"provider"`
+		Status      string `form:"status"`
+		UserID      int64  `form:"user_id"`
+		RequestID   string `form:"request_id"`
+		StartTime   string `form:"start_time"`
+		EndTime     string `form:"end_time"`
+	}
+	if err := c.ShouldBindQuery(&req); err != nil {
+		base.BadRequest(c, "请求参数错误")
+		return
+	}
+	resp, err := h.clients.Admin.QueryUsageLogs(c.Request.Context(), &pb.QueryUsageLogsRequest{
+		Page:        req.Page,
+		PageSize:    req.PageSize,
+		ServiceType: req.ServiceType,
+		Provider:    req.Provider,
+		Status:      req.Status,
+		UserId:      req.UserID,
+		RequestId:   req.RequestID,
+		StartTime:   req.StartTime,
+		EndTime:     req.EndTime,
+	})
+	if err != nil {
+		base.Internal(c, err)
+		return
+	}
+	base.ProtoResponse(c, resp)
+}

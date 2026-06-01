@@ -18,6 +18,7 @@ type Config struct {
 		ConnMaxIdleTime Duration `yaml:"conn_max_idle_time"`
 	} `yaml:"mysql"`
 	OSS struct {
+		Provider        string `yaml:"provider"`
 		Endpoint        string `yaml:"endpoint"`
 		AccessKeyID     string `yaml:"access_key_id"`
 		AccessKeySecret string `yaml:"access_key_secret"`
@@ -28,11 +29,18 @@ type Config struct {
 		APIKey                     string   `yaml:"api_key"`
 		Model                      string   `yaml:"model"`
 		BaseURL                    string   `yaml:"base_url"`
+		AgentRuntime               string   `yaml:"agent_runtime"`
 		Timeout                    Duration `yaml:"timeout"`
+		TotalTimeout               Duration `yaml:"total_timeout"`
+		ToolMaxRounds              int      `yaml:"tool_max_rounds"`
+		ToolTotalTimeout           Duration `yaml:"tool_total_timeout"`
 		MaxConcurrency             int      `yaml:"max_concurrency"`
 		CircuitFailureThreshold    int      `yaml:"circuit_failure_threshold"`
 		CircuitOpenTimeout         Duration `yaml:"circuit_open_timeout"`
 		CircuitHalfOpenMaxRequests int      `yaml:"circuit_half_open_max_requests"`
+		RetryMaxAttempts           int      `yaml:"retry_max_attempts"`
+		RetryBaseDelay             Duration `yaml:"retry_base_delay"`
+		SlowResponseThreshold      Duration `yaml:"slow_response_threshold"`
 	} `yaml:"ai"`
 	JWT struct {
 		Secret string `yaml:"secret"`
@@ -78,9 +86,15 @@ func Load() (Config, error) {
 	}
 	data, err := os.ReadFile(path)
 	if err != nil {
-		data, err = os.ReadFile("config/config.example.yaml")
-		if err != nil {
-			return Config{}, err
+		// In production (ALLOW_INSECURE_DEV_CONFIG not set), do NOT fall back to
+		// config.example.yaml which contains localhost/weak credentials.
+		if os.Getenv("ALLOW_INSECURE_DEV_CONFIG") == "true" {
+			data, err = os.ReadFile("config/config.example.yaml")
+			if err != nil {
+				return Config{}, err
+			}
+		} else {
+			return Config{}, fmt.Errorf("config file not found at %q and no fallback is allowed in production. Set ALLOW_INSECURE_DEV_CONFIG=true for local development", path)
 		}
 	}
 	var cfg Config
@@ -127,6 +141,15 @@ func Load() (Config, error) {
 	if cfg.AI.Timeout.Duration <= 0 {
 		cfg.AI.Timeout.Duration = 90 * time.Second
 	}
+	if cfg.AI.TotalTimeout.Duration <= 0 {
+		cfg.AI.TotalTimeout.Duration = 120 * time.Second
+	}
+	if cfg.AI.ToolMaxRounds <= 0 {
+		cfg.AI.ToolMaxRounds = 5
+	}
+	if cfg.AI.ToolTotalTimeout.Duration <= 0 {
+		cfg.AI.ToolTotalTimeout.Duration = 30 * time.Second
+	}
 	if cfg.AI.MaxConcurrency <= 0 {
 		cfg.AI.MaxConcurrency = 10
 	}
@@ -138,6 +161,18 @@ func Load() (Config, error) {
 	}
 	if cfg.AI.CircuitHalfOpenMaxRequests <= 0 {
 		cfg.AI.CircuitHalfOpenMaxRequests = 2
+	}
+	if cfg.AI.RetryMaxAttempts < 0 {
+		cfg.AI.RetryMaxAttempts = 0
+	}
+	if cfg.AI.RetryBaseDelay.Duration <= 0 {
+		cfg.AI.RetryBaseDelay.Duration = 500 * time.Millisecond
+	}
+	if cfg.AI.SlowResponseThreshold.Duration <= 0 {
+		cfg.AI.SlowResponseThreshold.Duration = 5 * time.Second
+	}
+	if cfg.AI.AgentRuntime == "" {
+		cfg.AI.AgentRuntime = "adk"
 	}
 	if cfg.Agent.RecentMessageLimit <= 0 {
 		cfg.Agent.RecentMessageLimit = 20
@@ -194,6 +229,7 @@ func applyEnvOverrides(cfg *Config) {
 	setDuration(&cfg.MySQL.ConnMaxLifetime, "MYSQL_CONN_MAX_LIFETIME")
 	setDuration(&cfg.MySQL.ConnMaxIdleTime, "MYSQL_CONN_MAX_IDLE_TIME")
 
+	setString(&cfg.OSS.Provider, "OSS_PROVIDER")
 	setString(&cfg.OSS.Endpoint, "OSS_ENDPOINT")
 	setString(&cfg.OSS.AccessKeyID, "OSS_ACCESS_KEY_ID")
 	setString(&cfg.OSS.AccessKeySecret, "OSS_ACCESS_KEY_SECRET")
@@ -203,11 +239,18 @@ func applyEnvOverrides(cfg *Config) {
 	setString(&cfg.AI.APIKey, "AI_API_KEY")
 	setString(&cfg.AI.Model, "AI_MODEL")
 	setString(&cfg.AI.BaseURL, "AI_BASE_URL")
+	setString(&cfg.AI.AgentRuntime, "AI_AGENT_RUNTIME")
 	setDuration(&cfg.AI.Timeout, "AI_TIMEOUT")
+	setDuration(&cfg.AI.TotalTimeout, "AI_TOTAL_TIMEOUT")
+	setInt(&cfg.AI.ToolMaxRounds, "AI_TOOL_MAX_ROUNDS")
+	setDuration(&cfg.AI.ToolTotalTimeout, "AI_TOOL_TOTAL_TIMEOUT")
 	setInt(&cfg.AI.MaxConcurrency, "AI_MAX_CONCURRENCY")
 	setInt(&cfg.AI.CircuitFailureThreshold, "AI_CIRCUIT_FAILURE_THRESHOLD")
 	setDuration(&cfg.AI.CircuitOpenTimeout, "AI_CIRCUIT_OPEN_TIMEOUT")
 	setInt(&cfg.AI.CircuitHalfOpenMaxRequests, "AI_CIRCUIT_HALF_OPEN_MAX_REQUESTS")
+	setInt(&cfg.AI.RetryMaxAttempts, "AI_RETRY_MAX_ATTEMPTS")
+	setDuration(&cfg.AI.RetryBaseDelay, "AI_RETRY_BASE_DELAY")
+	setDuration(&cfg.AI.SlowResponseThreshold, "AI_SLOW_RESPONSE_THRESHOLD")
 
 	setString(&cfg.JWT.Secret, "JWT_SECRET")
 	setInt(&cfg.GRPC.Port, "GRPC_PORT")

@@ -203,6 +203,25 @@ func (r *ChatRepo) ListBySessionOwned(ctx context.Context, ownerRole int32, owne
 	return rows, err
 }
 
+// ListRecentBySessionOwned returns the most recent N messages for an owned
+// session in chronological (ASC) order. It queries DESC then reverses.
+func (r *ChatRepo) ListRecentBySessionOwned(ctx context.Context, ownerRole int32, ownerID, sessionID int64, limit int) ([]model.AIChatHistory, error) {
+	var rows []model.AIChatHistory
+	err := r.db.WithContext(ctx).
+		Where("owner_role = ? AND owner_id = ? AND session_id = ?", ownerRole, ownerID, sessionID).
+		Where("EXISTS (SELECT 1 FROM ai_chat_sessions s WHERE s.id = ? AND s.owner_role = ? AND s.owner_id = ? AND s.deleted_at IS NULL)", sessionID, ownerRole, ownerID).
+		Order("created_at DESC, id DESC").
+		Limit(limit).
+		Find(&rows).Error
+	if err != nil {
+		return nil, err
+	}
+	for i, j := 0, len(rows)-1; i < j; i, j = i+1, j-1 {
+		rows[i], rows[j] = rows[j], rows[i]
+	}
+	return rows, nil
+}
+
 // UpdateSessionTitleOwned updates a session title by owner.
 func (r *ChatRepo) UpdateSessionTitleOwned(ctx context.Context, ownerRole int32, ownerID, sessionID int64, title string) (int64, error) {
 	result := r.db.WithContext(ctx).Model(&model.AIChatSession{}).

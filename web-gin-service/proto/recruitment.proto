@@ -91,6 +91,8 @@ service AdminService {
   rpc GetDepartmentLocationConfig(GetDepartmentLocationConfigRequest) returns (DepartmentLocationConfigResponse);
   rpc UpdateDepartmentLocationConfig(UpdateDepartmentLocationConfigRequest) returns (DepartmentLocationConfigResponse);
   rpc ListDepartmentsLocationMap(ListDepartmentsLocationMapRequest) returns (ListDepartmentsLocationMapResponse);
+
+  rpc QueryUsageLogs(QueryUsageLogsRequest) returns (QueryUsageLogsResponse);
 }
 
 message CommonResponse {
@@ -395,6 +397,11 @@ message ChatStreamResponse {
   string created_at = 12;
   string candidate_options = 13;
   repeated string suggested_questions = 14;
+  // Phase 4: streaming UX state events
+  string event_type = 15;
+  string event_message = 16;
+  string error_type = 17;
+  string tool_name = 18;
 }
 
 message ChatHistoryRequest {
@@ -816,4 +823,46 @@ message DepartmentLocationConfigResponse {
   repeated int64 effective_location_ids = 6;
   repeated LocationOption locations = 7;
   repeated int64 available_location_ids = 8;
+}
+
+// ── Usage Audit ──────────────────────────────────────────────────────
+
+message UsageLogItem {
+  int64 id = 1;
+  int64 user_id = 2;
+  int32 role = 3;
+  string service_type = 4;
+  string endpoint = 5;
+  string provider = 6;
+  string model = 7;
+  int32 request_chars = 8;
+  int32 response_chars = 9;
+  int32 estimated_tokens = 10;
+  string object_key = 11;
+  int64 object_size = 12;
+  string status = 13;
+  string error_code = 14;
+  int32 cost_ms = 15;
+  string request_id = 16;
+  string ip = 17;
+  string created_at = 18;
+}
+
+message QueryUsageLogsRequest {
+  int32 page = 1;
+  int32 page_size = 2;
+  string service_type = 3;
+  string provider = 4;
+  string status = 5;
+  int64 user_id = 6;
+  string request_id = 7;
+  string start_time = 8;
+  string end_time = 9;
+}
+
+message QueryUsageLogsResponse {
+  int32 code = 1;
+  string msg = 2;
+  int64 total = 3;
+  repeated UsageLogItem list = 4;
 }
