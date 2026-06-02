@@ -40,6 +40,8 @@
 
 ![Smart Recruit 系统架构图](./docs/assets/architecture.png)
 
+![HR 招聘 AI Agent 架构图](./docs/assets/hr-agent-architecture.png)
+
 - **Web 层**（Gin）：处理 HTTP API、鉴权、限流、请求体限制、SSE 流式响应和 HTTP → gRPC 转换
 - **Logic 层**（gRPC）：承载核心业务逻辑，通过 Eino/ADK Agent 编排招聘工具调用
 - **消息队列**：事务 Outbox 模式保障通知可靠投递，简历解析异步化
