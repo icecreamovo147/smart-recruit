@@ -11,7 +11,7 @@ package main
 // ---- Auth ----
 
 // @Summary      用户注册
-// @Description  注册候选人(role=1)或HR(role=2)账号
+// @Description  注册求职者账号（角色：candidate）。HR/管理员账号由管理员通过后台创建。
 // @Tags         认证
 // @Accept       json
 // @Produce      json

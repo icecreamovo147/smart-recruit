@@ -12,6 +12,8 @@ service AuthService {
   rpc Login(LoginRequest) returns (LoginResponse);
   rpc RefreshToken(RefreshTokenRequest) returns (RefreshTokenResponse);
   rpc RevokeRefreshToken(RevokeRefreshTokenRequest) returns (CommonResponse);
+  rpc RecordAuthDecision(AuthAuditRequest) returns (CommonResponse);
+  rpc GetPrincipal(GetPrincipalRequest) returns (GetPrincipalResponse);
 }
 
 service JobService {
@@ -95,6 +97,19 @@ service AdminService {
   rpc ListDepartmentsLocationMap(ListDepartmentsLocationMapRequest) returns (ListDepartmentsLocationMapResponse);
 
   rpc QueryUsageLogs(QueryUsageLogsRequest) returns (QueryUsageLogsResponse);
+
+  // RBAC role and permission management
+  rpc ListRoles(ListRolesRequest) returns (ListRolesResponse);
+  rpc ListPermissions(ListPermissionsRequest) returns (ListPermissionsResponse);
+  rpc GetUserRoles(GetUserRolesRequest) returns (GetUserRolesResponse);
+  rpc AssignUserRole(AssignUserRoleRequest) returns (CommonResponse);
+  rpc RevokeUserRole(RevokeUserRoleRequest) returns (CommonResponse);
+  rpc AssignDataScope(AssignDataScopeRequest) returns (CommonResponse);
+  rpc RevokeDataScope(RevokeDataScopeRequest) returns (CommonResponse);
+
+  // Staff user management
+  rpc ListStaffUsers(ListStaffUsersRequest) returns (ListStaffUsersResponse);
+  rpc CreateStaffUser(CreateStaffUserRequest) returns (CreateStaffUserResponse);
 }
 
 message CommonResponse {
@@ -107,6 +122,7 @@ message RegisterRequest {
   string password = 2;
   int32 role = 3;
   string email = 4;
+  string invite_code = 5;  // Required for staff (non-candidate) registration
 }
 
 message RegisterResponse {
@@ -127,8 +143,12 @@ message LoginResponse {
   string msg = 2;
   string token = 3;
   int64 user_id = 4;
-  int32 role = 5;
+  int32 role = 5;           // Deprecated: kept for migration compatibility
   string username = 6;
+  string account_type = 7;  // candidate | staff | service
+  repeated string roles = 8;       // RBAC role keys
+  repeated string permissions = 9; // RBAC permission keys
+  int32 token_version = 10;        // Incremented on permission change
 }
 
 message RefreshTokenRequest {
@@ -142,13 +162,52 @@ message RefreshTokenResponse {
   string msg = 2;
   int64 user_id = 3;
   string username = 4;
-  int32 role = 5;
+  int32 role = 5;           // Deprecated: kept for migration compatibility
   string refresh_token = 6;
   int64 refresh_expires_at = 7;
+  string account_type = 8;  // candidate | staff | service
+  repeated string roles = 9;       // RBAC role keys
+  repeated string permissions = 10; // RBAC permission keys
+  int32 token_version = 11;        // Incremented on permission change
 }
 
 message RevokeRefreshTokenRequest {
   string refresh_token = 1;
+}
+
+message AuthAuditRequest {
+  int64 actor_user_id = 1;
+  string actor_roles = 2;
+  string permission_key = 3;
+  string resource_type = 4;
+  uint64 resource_id = 5;
+  string decision = 6;
+  string reason = 7;
+  string request_id = 8;
+  string client_ip = 9;
+}
+
+message GetPrincipalRequest {
+  int64 user_id = 1;
+}
+
+message GetPrincipalResponse {
+  int32 code = 1;
+  string msg = 2;
+  int64 user_id = 3;
+  string username = 4;
+  string account_type = 5;
+  int32 role = 6;                      // Deprecated: legacy numeric role
+  repeated string roles = 7;           // RBAC role keys
+  repeated string permissions = 8;     // RBAC permission keys
+  int32 token_version = 9;
+  repeated ScopeAssignment data_scopes = 10;
+}
+
+message ScopeAssignment {
+  string scope_key = 1;
+  string resource_type = 2;
+  int64 resource_id = 3;
 }
 
 message CreateJobRequest {
@@ -576,7 +635,7 @@ message Notification {
 
 message ListNotificationsRequest {
   int64 user_id = 1;
-  int32 role = 2;
+  string account_type = 2;
   int32 page = 3;
   int32 page_size = 4;
   string cursor = 5;
@@ -593,7 +652,7 @@ message ListNotificationsResponse {
 
 message UnreadNotificationCountRequest {
   int64 user_id = 1;
-  int32 role = 2;
+  string account_type = 2;
 }
 
 message UnreadNotificationCountResponse {
@@ -604,7 +663,7 @@ message UnreadNotificationCountResponse {
 
 message NotificationSummaryRequest {
   int64 user_id = 1;
-  int32 role = 2;
+  string account_type = 2;
 }
 
 message NotificationSummaryResponse {
@@ -617,13 +676,13 @@ message NotificationSummaryResponse {
 
 message MarkNotificationReadRequest {
   int64 user_id = 1;
-  int32 role = 2;
+  string account_type = 2;
   int64 notification_id = 3;
 }
 
 message MarkAllNotificationsReadRequest {
   int64 user_id = 1;
-  int32 role = 2;
+  string account_type = 2;
 }
 
 // ---- Admin / Invite Codes ----
@@ -890,4 +949,125 @@ message QueryUsageLogsResponse {
   string msg = 2;
   int64 total = 3;
   repeated UsageLogItem list = 4;
+}
+
+// ── RBAC Role & Permission Management ────────────────────────────────
+
+message ListRolesRequest {}
+
+message ListRolesResponse {
+  int32 code = 1;
+  string msg = 2;
+  repeated RoleInfo list = 3;
+}
+
+message RoleInfo {
+  uint64 id = 1;
+  string role_key = 2;
+  string name = 3;
+  string description = 4;
+  bool is_system = 5;
+  string created_at = 6;
+  string updated_at = 7;
+}
+
+message ListPermissionsRequest {}
+
+message ListPermissionsResponse {
+  int32 code = 1;
+  string msg = 2;
+  repeated PermissionInfo list = 3;
+}
+
+message PermissionInfo {
+  uint64 id = 1;
+  string permission_key = 2;
+  string resource = 3;
+  string action = 4;
+  string description = 5;
+}
+
+message GetUserRolesRequest {
+  int64 user_id = 1;
+}
+
+message GetUserRolesResponse {
+  int32 code = 1;
+  string msg = 2;
+  repeated string role_keys = 3;
+  repeated string permission_keys = 4;
+  repeated DataScopeInfo data_scopes = 5;
+}
+
+message DataScopeInfo {
+  uint64 id = 1;
+  string scope_key = 2;
+  string resource_type = 3;
+  uint64 resource_id = 4;
+  string assigned_at = 5;
+}
+
+message AssignUserRoleRequest {
+  int64 admin_id = 1;
+  int64 user_id = 2;
+  string role_key = 3;
+}
+
+message RevokeUserRoleRequest {
+  int64 admin_id = 1;
+  int64 user_id = 2;
+  string role_key = 3;
+}
+
+message AssignDataScopeRequest {
+  int64 admin_id = 1;
+  int64 user_id = 2;
+  string scope_key = 3;
+  string resource_type = 4;
+  uint64 resource_id = 5;
+}
+
+message RevokeDataScopeRequest {
+  int64 admin_id = 1;
+  uint64 scope_id = 2;
+}
+
+// ── Staff User Management ────────────────────────────────────────────
+
+message ListStaffUsersRequest {
+  int32 page = 1;
+  int32 page_size = 2;
+  string status = 3;
+}
+
+message ListStaffUsersResponse {
+  int32 code = 1;
+  string msg = 2;
+  int64 total = 3;
+  repeated StaffUserInfo list = 4;
+}
+
+message StaffUserInfo {
+  int64 user_id = 1;
+  string username = 2;
+  string email = 3;
+  string status = 4;
+  string account_type = 5;
+  repeated string roles = 6;
+  int32 token_version = 7;
+  string created_at = 8;
+}
+
+message CreateStaffUserRequest {
+  int64 admin_id = 1;
+  string username = 2;
+  string password = 3;
+  string email = 4;
+  repeated string role_keys = 5;
+}
+
+message CreateStaffUserResponse {
+  int32 code = 1;
+  string msg = 2;
+  int64 user_id = 3;
 }

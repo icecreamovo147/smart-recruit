@@ -80,6 +80,7 @@ func main() {
 	locationRepo := repository.NewJobLocationRepo(db)
 	deptLocationRepo := repository.NewDepartmentLocationRepo(db)
 	usageLogRepo := repository.NewUsageLogRepo(db)
+	authzRepo := repository.NewAuthzRepo(db)
 
 	mqConn, err := mq.New(mq.Config{
 		URL:               cfg.RabbitMQ.URL,
@@ -153,29 +154,53 @@ func main() {
 	log.Info("ai client initialized", zap.String("model", cfg.AI.Model))
 
 	services := service.NewServices(
+		healthRedis,
 		userRepo, tokenRepo,
 		jobRepo, profileRepo, resumeRepo, applicationRepo, chatRepo,
 		summaryRepo, toolTraceRepo, memoryRepo, notificationRepo, outboxRepo, inviteCodeRepo,
 		departmentRepo, locationRepo, deptLocationRepo,
-		usageLogRepo,
+		usageLogRepo, authzRepo,
 		notifCache, jobCache,
 		ossClient, aiClient, mqConn, cfg, cfg.JWT.Secret,
 	)
 
-	// Bootstrap initial admin: promote user specified by INITIAL_ADMIN_USERNAME to role=3.
+	// Bootstrap initial admin: promote user specified by INITIAL_ADMIN_USERNAME
+	// to recruiting_admin + recruiter via the RBAC system, with legacy role=3
+	// for backward compatibility.
 	if adminName := os.Getenv("INITIAL_ADMIN_USERNAME"); adminName != "" {
 		adminUser, err := userRepo.GetByUsername(ctx, adminName)
 		if err != nil {
 			log.Warn("bootstrap admin: lookup failed", zap.String("username", adminName), zap.Error(err))
 		} else if adminUser == nil {
 			log.Warn("bootstrap admin: user not found", zap.String("username", adminName))
-		} else if adminUser.Role < 3 {
-			if err := userRepo.UpdateRole(ctx, adminUser.ID, 3); err != nil {
-				log.Warn("bootstrap admin: promote failed", zap.String("username", adminName), zap.Error(err))
-			} else {
-				log.Info("bootstrap admin: promoted to role=3", zap.String("username", adminName), zap.Int64("user_id", adminUser.ID))
+		} else {
+			hasAdmin, err := authzRepo.HasActiveAdminRole(ctx, uint64(adminUser.ID))
+				if err != nil {
+					log.Warn("bootstrap admin: RBAC role check failed", zap.Error(err))
+				}
+				needsPromotion := !hasAdmin || adminUser.AccountType != "staff"
+				if needsPromotion {
+				if err := userRepo.UpdateRole(ctx, adminUser.ID, 3); err != nil {
+					log.Warn("bootstrap admin: update legacy role failed", zap.Error(err))
+				}
+				if err := userRepo.UpdateAccountType(ctx, adminUser.ID, "staff"); err != nil {
+					log.Warn("bootstrap admin: update account_type failed", zap.Error(err))
+				}
+				if err := authzRepo.MigrateLegacyUserRoles(ctx, uint64(adminUser.ID), 3); err != nil {
+					log.Warn("bootstrap admin: RBAC assignment failed", zap.Error(err))
+				}
+				log.Info("bootstrap admin: promoted to recruiting_admin+recruiter",
+					zap.String("username", adminName), zap.Int64("user_id", adminUser.ID))
 			}
 		}
+	}
+
+	// Migrate all legacy users (those without user_roles records) to RBAC.
+	// Must run before gRPC server starts so existing users have valid roles.
+	if migrated, err := authzRepo.MigrateAllLegacyUsers(ctx); err != nil {
+		log.Warn("legacy user migration completed with errors", zap.Error(err))
+	} else {
+		log.Info("legacy user migration completed", zap.Int64("migrated", migrated))
 	}
 
 	// Start background workers

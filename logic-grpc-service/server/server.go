@@ -40,6 +40,14 @@ func (s *Server) RevokeRefreshToken(ctx context.Context, req *pb.RevokeRefreshTo
 	return s.svc.Auth.RevokeRefreshToken(ctx, req)
 }
 
+func (s *Server) RecordAuthDecision(ctx context.Context, req *pb.AuthAuditRequest) (*pb.CommonResponse, error) {
+	return s.svc.Auth.RecordAuthDecision(ctx, req)
+}
+
+func (s *Server) GetPrincipal(ctx context.Context, req *pb.GetPrincipalRequest) (*pb.GetPrincipalResponse, error) {
+	return s.svc.Auth.GetPrincipal(ctx, req)
+}
+
 // Job
 
 func (s *Server) CreateJob(ctx context.Context, req *pb.CreateJobRequest) (*pb.CreateJobResponse, error) {
@@ -296,4 +304,42 @@ func (s *Server) ListDepartmentsLocationMap(ctx context.Context, req *pb.ListDep
 
 func (s *Server) QueryUsageLogs(ctx context.Context, req *pb.QueryUsageLogsRequest) (*pb.QueryUsageLogsResponse, error) {
 	return s.svc.Admin.QueryUsageLogs(ctx, req)
+}
+
+// ── RBAC Admin dispatches ───────────────────────────────────────────────
+
+func (s *Server) ListRoles(ctx context.Context, req *pb.ListRolesRequest) (*pb.ListRolesResponse, error) {
+	return s.svc.Admin.ListRoles(ctx, req)
+}
+
+func (s *Server) ListPermissions(ctx context.Context, req *pb.ListPermissionsRequest) (*pb.ListPermissionsResponse, error) {
+	return s.svc.Admin.ListPermissions(ctx, req)
+}
+
+func (s *Server) GetUserRoles(ctx context.Context, req *pb.GetUserRolesRequest) (*pb.GetUserRolesResponse, error) {
+	return s.svc.Admin.GetUserRoles(ctx, req)
+}
+
+func (s *Server) AssignUserRole(ctx context.Context, req *pb.AssignUserRoleRequest) (*pb.CommonResponse, error) {
+	return s.svc.Admin.AssignUserRole(ctx, req)
+}
+
+func (s *Server) RevokeUserRole(ctx context.Context, req *pb.RevokeUserRoleRequest) (*pb.CommonResponse, error) {
+	return s.svc.Admin.RevokeUserRole(ctx, req)
+}
+
+func (s *Server) AssignDataScope(ctx context.Context, req *pb.AssignDataScopeRequest) (*pb.CommonResponse, error) {
+	return s.svc.Admin.AssignDataScope(ctx, req)
+}
+
+func (s *Server) RevokeDataScope(ctx context.Context, req *pb.RevokeDataScopeRequest) (*pb.CommonResponse, error) {
+	return s.svc.Admin.RevokeDataScope(ctx, req)
+}
+
+func (s *Server) ListStaffUsers(ctx context.Context, req *pb.ListStaffUsersRequest) (*pb.ListStaffUsersResponse, error) {
+	return s.svc.Admin.ListStaffUsers(ctx, req)
+}
+
+func (s *Server) CreateStaffUser(ctx context.Context, req *pb.CreateStaffUserRequest) (*pb.CreateStaffUserResponse, error) {
+	return s.svc.Admin.CreateStaffUser(ctx, req)
 }

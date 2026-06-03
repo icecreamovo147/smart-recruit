@@ -24,24 +24,26 @@ func TestListNotificationsCursorIncludesBusinessFields(t *testing.T) {
 	now := time.Now()
 	rows := []model.Notification{
 		{
-			ReceiverID:   10,
-			ReceiverRole: 1,
-			Type:         "new_application",
-			Title:        "新的岗位投递",
-			Content:      "候选人已投递",
-			BizType:      "application",
-			BizID:        99,
-			CreatedAt:    now,
+			ReceiverID:          10,
+			ReceiverRole:        1,
+			ReceiverAccountType: "candidate",
+			Type:                "new_application",
+			Title:               "新的岗位投递",
+			Content:             "候选人已投递",
+			BizType:             "application",
+			BizID:               99,
+			CreatedAt:           now,
 		},
 		{
-			ReceiverID:   10,
-			ReceiverRole: 1,
-			Type:         "application_approved",
-			Title:        "投递进展更新",
-			Content:      "通过筛选",
-			BizType:      "application",
-			BizID:        100,
-			CreatedAt:    now.Add(-time.Minute),
+			ReceiverID:          10,
+			ReceiverRole:        1,
+			ReceiverAccountType: "candidate",
+			Type:                "application_approved",
+			Title:               "投递进展更新",
+			Content:             "通过筛选",
+			BizType:             "application",
+			BizID:               100,
+			CreatedAt:           now.Add(-time.Minute),
 		},
 	}
 	if err := db.Create(&rows).Error; err != nil {
@@ -50,9 +52,9 @@ func TestListNotificationsCursorIncludesBusinessFields(t *testing.T) {
 
 	svc := NewNotificationService(repository.NewNotificationRepo(db), nil)
 	resp, err := svc.ListNotifications(context.Background(), &pb.ListNotificationsRequest{
-		UserId:   10,
-		Role:     1,
-		Page:     0,
+		UserId:      10,
+		AccountType: "candidate",
+		Page:        0,
 		PageSize: 1,
 	})
 	if err != nil {

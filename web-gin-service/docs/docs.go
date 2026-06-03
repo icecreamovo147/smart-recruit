@@ -60,7 +60,7 @@ const docTemplate = `{
         },
         "/api/v1/auth/register": {
             "post": {
-                "description": "注册候选人(role=1)或HR(role=2)账号",
+                "description": "注册求职者账号（角色：candidate）。HR/管理员账号由管理员通过后台创建。",
                 "consumes": [
                     "application/json"
                 ],

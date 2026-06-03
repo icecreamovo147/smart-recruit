@@ -26,6 +26,8 @@ const (
 	AuthService_Login_FullMethodName              = "/recruitment.AuthService/Login"
 	AuthService_RefreshToken_FullMethodName       = "/recruitment.AuthService/RefreshToken"
 	AuthService_RevokeRefreshToken_FullMethodName = "/recruitment.AuthService/RevokeRefreshToken"
+	AuthService_RecordAuthDecision_FullMethodName = "/recruitment.AuthService/RecordAuthDecision"
+	AuthService_GetPrincipal_FullMethodName       = "/recruitment.AuthService/GetPrincipal"
 )
 
 // AuthServiceClient is the client API for AuthService service.
@@ -36,6 +38,8 @@ type AuthServiceClient interface {
 	Login(ctx context.Context, in *LoginRequest, opts ...grpc.CallOption) (*LoginResponse, error)
 	RefreshToken(ctx context.Context, in *RefreshTokenRequest, opts ...grpc.CallOption) (*RefreshTokenResponse, error)
 	RevokeRefreshToken(ctx context.Context, in *RevokeRefreshTokenRequest, opts ...grpc.CallOption) (*CommonResponse, error)
+	RecordAuthDecision(ctx context.Context, in *AuthAuditRequest, opts ...grpc.CallOption) (*CommonResponse, error)
+	GetPrincipal(ctx context.Context, in *GetPrincipalRequest, opts ...grpc.CallOption) (*GetPrincipalResponse, error)
 }
 
 type authServiceClient struct {
@@ -86,6 +90,26 @@ func (c *authServiceClient) RevokeRefreshToken(ctx context.Context, in *RevokeRe
 	return out, nil
 }
 
+func (c *authServiceClient) RecordAuthDecision(ctx context.Context, in *AuthAuditRequest, opts ...grpc.CallOption) (*CommonResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(CommonResponse)
+	err := c.cc.Invoke(ctx, AuthService_RecordAuthDecision_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *authServiceClient) GetPrincipal(ctx context.Context, in *GetPrincipalRequest, opts ...grpc.CallOption) (*GetPrincipalResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(GetPrincipalResponse)
+	err := c.cc.Invoke(ctx, AuthService_GetPrincipal_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // AuthServiceServer is the server API for AuthService service.
 // All implementations must embed UnimplementedAuthServiceServer
 // for forward compatibility.
@@ -94,6 +118,8 @@ type AuthServiceServer interface {
 	Login(context.Context, *LoginRequest) (*LoginResponse, error)
 	RefreshToken(context.Context, *RefreshTokenRequest) (*RefreshTokenResponse, error)
 	RevokeRefreshToken(context.Context, *RevokeRefreshTokenRequest) (*CommonResponse, error)
+	RecordAuthDecision(context.Context, *AuthAuditRequest) (*CommonResponse, error)
+	GetPrincipal(context.Context, *GetPrincipalRequest) (*GetPrincipalResponse, error)
 	mustEmbedUnimplementedAuthServiceServer()
 }
 
@@ -115,6 +141,12 @@ func (UnimplementedAuthServiceServer) RefreshToken(context.Context, *RefreshToke
 }
 func (UnimplementedAuthServiceServer) RevokeRefreshToken(context.Context, *RevokeRefreshTokenRequest) (*CommonResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method RevokeRefreshToken not implemented")
+}
+func (UnimplementedAuthServiceServer) RecordAuthDecision(context.Context, *AuthAuditRequest) (*CommonResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method RecordAuthDecision not implemented")
+}
+func (UnimplementedAuthServiceServer) GetPrincipal(context.Context, *GetPrincipalRequest) (*GetPrincipalResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method GetPrincipal not implemented")
 }
 func (UnimplementedAuthServiceServer) mustEmbedUnimplementedAuthServiceServer() {}
 func (UnimplementedAuthServiceServer) testEmbeddedByValue()                     {}
@@ -209,6 +241,42 @@ func _AuthService_RevokeRefreshToken_Handler(srv interface{}, ctx context.Contex
 	return interceptor(ctx, in, info, handler)
 }
 
+func _AuthService_RecordAuthDecision_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(AuthAuditRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(AuthServiceServer).RecordAuthDecision(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: AuthService_RecordAuthDecision_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(AuthServiceServer).RecordAuthDecision(ctx, req.(*AuthAuditRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _AuthService_GetPrincipal_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetPrincipalRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(AuthServiceServer).GetPrincipal(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: AuthService_GetPrincipal_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(AuthServiceServer).GetPrincipal(ctx, req.(*GetPrincipalRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // AuthService_ServiceDesc is the grpc.ServiceDesc for AuthService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -231,6 +299,14 @@ var AuthService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "RevokeRefreshToken",
 			Handler:    _AuthService_RevokeRefreshToken_Handler,
+		},
+		{
+			MethodName: "RecordAuthDecision",
+			Handler:    _AuthService_RecordAuthDecision_Handler,
+		},
+		{
+			MethodName: "GetPrincipal",
+			Handler:    _AuthService_GetPrincipal_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},
@@ -2069,6 +2145,15 @@ const (
 	AdminService_UpdateDepartmentLocationConfig_FullMethodName = "/recruitment.AdminService/UpdateDepartmentLocationConfig"
 	AdminService_ListDepartmentsLocationMap_FullMethodName     = "/recruitment.AdminService/ListDepartmentsLocationMap"
 	AdminService_QueryUsageLogs_FullMethodName                 = "/recruitment.AdminService/QueryUsageLogs"
+	AdminService_ListRoles_FullMethodName                      = "/recruitment.AdminService/ListRoles"
+	AdminService_ListPermissions_FullMethodName                = "/recruitment.AdminService/ListPermissions"
+	AdminService_GetUserRoles_FullMethodName                   = "/recruitment.AdminService/GetUserRoles"
+	AdminService_AssignUserRole_FullMethodName                 = "/recruitment.AdminService/AssignUserRole"
+	AdminService_RevokeUserRole_FullMethodName                 = "/recruitment.AdminService/RevokeUserRole"
+	AdminService_AssignDataScope_FullMethodName                = "/recruitment.AdminService/AssignDataScope"
+	AdminService_RevokeDataScope_FullMethodName                = "/recruitment.AdminService/RevokeDataScope"
+	AdminService_ListStaffUsers_FullMethodName                 = "/recruitment.AdminService/ListStaffUsers"
+	AdminService_CreateStaffUser_FullMethodName                = "/recruitment.AdminService/CreateStaffUser"
 )
 
 // AdminServiceClient is the client API for AdminService service.
@@ -2095,6 +2180,17 @@ type AdminServiceClient interface {
 	UpdateDepartmentLocationConfig(ctx context.Context, in *UpdateDepartmentLocationConfigRequest, opts ...grpc.CallOption) (*DepartmentLocationConfigResponse, error)
 	ListDepartmentsLocationMap(ctx context.Context, in *ListDepartmentsLocationMapRequest, opts ...grpc.CallOption) (*ListDepartmentsLocationMapResponse, error)
 	QueryUsageLogs(ctx context.Context, in *QueryUsageLogsRequest, opts ...grpc.CallOption) (*QueryUsageLogsResponse, error)
+	// RBAC role and permission management
+	ListRoles(ctx context.Context, in *ListRolesRequest, opts ...grpc.CallOption) (*ListRolesResponse, error)
+	ListPermissions(ctx context.Context, in *ListPermissionsRequest, opts ...grpc.CallOption) (*ListPermissionsResponse, error)
+	GetUserRoles(ctx context.Context, in *GetUserRolesRequest, opts ...grpc.CallOption) (*GetUserRolesResponse, error)
+	AssignUserRole(ctx context.Context, in *AssignUserRoleRequest, opts ...grpc.CallOption) (*CommonResponse, error)
+	RevokeUserRole(ctx context.Context, in *RevokeUserRoleRequest, opts ...grpc.CallOption) (*CommonResponse, error)
+	AssignDataScope(ctx context.Context, in *AssignDataScopeRequest, opts ...grpc.CallOption) (*CommonResponse, error)
+	RevokeDataScope(ctx context.Context, in *RevokeDataScopeRequest, opts ...grpc.CallOption) (*CommonResponse, error)
+	// Staff user management
+	ListStaffUsers(ctx context.Context, in *ListStaffUsersRequest, opts ...grpc.CallOption) (*ListStaffUsersResponse, error)
+	CreateStaffUser(ctx context.Context, in *CreateStaffUserRequest, opts ...grpc.CallOption) (*CreateStaffUserResponse, error)
 }
 
 type adminServiceClient struct {
@@ -2305,6 +2401,96 @@ func (c *adminServiceClient) QueryUsageLogs(ctx context.Context, in *QueryUsageL
 	return out, nil
 }
 
+func (c *adminServiceClient) ListRoles(ctx context.Context, in *ListRolesRequest, opts ...grpc.CallOption) (*ListRolesResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ListRolesResponse)
+	err := c.cc.Invoke(ctx, AdminService_ListRoles_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *adminServiceClient) ListPermissions(ctx context.Context, in *ListPermissionsRequest, opts ...grpc.CallOption) (*ListPermissionsResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ListPermissionsResponse)
+	err := c.cc.Invoke(ctx, AdminService_ListPermissions_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *adminServiceClient) GetUserRoles(ctx context.Context, in *GetUserRolesRequest, opts ...grpc.CallOption) (*GetUserRolesResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(GetUserRolesResponse)
+	err := c.cc.Invoke(ctx, AdminService_GetUserRoles_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *adminServiceClient) AssignUserRole(ctx context.Context, in *AssignUserRoleRequest, opts ...grpc.CallOption) (*CommonResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(CommonResponse)
+	err := c.cc.Invoke(ctx, AdminService_AssignUserRole_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *adminServiceClient) RevokeUserRole(ctx context.Context, in *RevokeUserRoleRequest, opts ...grpc.CallOption) (*CommonResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(CommonResponse)
+	err := c.cc.Invoke(ctx, AdminService_RevokeUserRole_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *adminServiceClient) AssignDataScope(ctx context.Context, in *AssignDataScopeRequest, opts ...grpc.CallOption) (*CommonResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(CommonResponse)
+	err := c.cc.Invoke(ctx, AdminService_AssignDataScope_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *adminServiceClient) RevokeDataScope(ctx context.Context, in *RevokeDataScopeRequest, opts ...grpc.CallOption) (*CommonResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(CommonResponse)
+	err := c.cc.Invoke(ctx, AdminService_RevokeDataScope_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *adminServiceClient) ListStaffUsers(ctx context.Context, in *ListStaffUsersRequest, opts ...grpc.CallOption) (*ListStaffUsersResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ListStaffUsersResponse)
+	err := c.cc.Invoke(ctx, AdminService_ListStaffUsers_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *adminServiceClient) CreateStaffUser(ctx context.Context, in *CreateStaffUserRequest, opts ...grpc.CallOption) (*CreateStaffUserResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(CreateStaffUserResponse)
+	err := c.cc.Invoke(ctx, AdminService_CreateStaffUser_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // AdminServiceServer is the server API for AdminService service.
 // All implementations must embed UnimplementedAdminServiceServer
 // for forward compatibility.
@@ -2329,6 +2515,17 @@ type AdminServiceServer interface {
 	UpdateDepartmentLocationConfig(context.Context, *UpdateDepartmentLocationConfigRequest) (*DepartmentLocationConfigResponse, error)
 	ListDepartmentsLocationMap(context.Context, *ListDepartmentsLocationMapRequest) (*ListDepartmentsLocationMapResponse, error)
 	QueryUsageLogs(context.Context, *QueryUsageLogsRequest) (*QueryUsageLogsResponse, error)
+	// RBAC role and permission management
+	ListRoles(context.Context, *ListRolesRequest) (*ListRolesResponse, error)
+	ListPermissions(context.Context, *ListPermissionsRequest) (*ListPermissionsResponse, error)
+	GetUserRoles(context.Context, *GetUserRolesRequest) (*GetUserRolesResponse, error)
+	AssignUserRole(context.Context, *AssignUserRoleRequest) (*CommonResponse, error)
+	RevokeUserRole(context.Context, *RevokeUserRoleRequest) (*CommonResponse, error)
+	AssignDataScope(context.Context, *AssignDataScopeRequest) (*CommonResponse, error)
+	RevokeDataScope(context.Context, *RevokeDataScopeRequest) (*CommonResponse, error)
+	// Staff user management
+	ListStaffUsers(context.Context, *ListStaffUsersRequest) (*ListStaffUsersResponse, error)
+	CreateStaffUser(context.Context, *CreateStaffUserRequest) (*CreateStaffUserResponse, error)
 	mustEmbedUnimplementedAdminServiceServer()
 }
 
@@ -2398,6 +2595,33 @@ func (UnimplementedAdminServiceServer) ListDepartmentsLocationMap(context.Contex
 }
 func (UnimplementedAdminServiceServer) QueryUsageLogs(context.Context, *QueryUsageLogsRequest) (*QueryUsageLogsResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method QueryUsageLogs not implemented")
+}
+func (UnimplementedAdminServiceServer) ListRoles(context.Context, *ListRolesRequest) (*ListRolesResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method ListRoles not implemented")
+}
+func (UnimplementedAdminServiceServer) ListPermissions(context.Context, *ListPermissionsRequest) (*ListPermissionsResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method ListPermissions not implemented")
+}
+func (UnimplementedAdminServiceServer) GetUserRoles(context.Context, *GetUserRolesRequest) (*GetUserRolesResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method GetUserRoles not implemented")
+}
+func (UnimplementedAdminServiceServer) AssignUserRole(context.Context, *AssignUserRoleRequest) (*CommonResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method AssignUserRole not implemented")
+}
+func (UnimplementedAdminServiceServer) RevokeUserRole(context.Context, *RevokeUserRoleRequest) (*CommonResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method RevokeUserRole not implemented")
+}
+func (UnimplementedAdminServiceServer) AssignDataScope(context.Context, *AssignDataScopeRequest) (*CommonResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method AssignDataScope not implemented")
+}
+func (UnimplementedAdminServiceServer) RevokeDataScope(context.Context, *RevokeDataScopeRequest) (*CommonResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method RevokeDataScope not implemented")
+}
+func (UnimplementedAdminServiceServer) ListStaffUsers(context.Context, *ListStaffUsersRequest) (*ListStaffUsersResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method ListStaffUsers not implemented")
+}
+func (UnimplementedAdminServiceServer) CreateStaffUser(context.Context, *CreateStaffUserRequest) (*CreateStaffUserResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method CreateStaffUser not implemented")
 }
 func (UnimplementedAdminServiceServer) mustEmbedUnimplementedAdminServiceServer() {}
 func (UnimplementedAdminServiceServer) testEmbeddedByValue()                      {}
@@ -2780,6 +3004,168 @@ func _AdminService_QueryUsageLogs_Handler(srv interface{}, ctx context.Context, 
 	return interceptor(ctx, in, info, handler)
 }
 
+func _AdminService_ListRoles_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ListRolesRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(AdminServiceServer).ListRoles(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: AdminService_ListRoles_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(AdminServiceServer).ListRoles(ctx, req.(*ListRolesRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _AdminService_ListPermissions_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ListPermissionsRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(AdminServiceServer).ListPermissions(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: AdminService_ListPermissions_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(AdminServiceServer).ListPermissions(ctx, req.(*ListPermissionsRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _AdminService_GetUserRoles_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetUserRolesRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(AdminServiceServer).GetUserRoles(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: AdminService_GetUserRoles_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(AdminServiceServer).GetUserRoles(ctx, req.(*GetUserRolesRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _AdminService_AssignUserRole_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(AssignUserRoleRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(AdminServiceServer).AssignUserRole(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: AdminService_AssignUserRole_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(AdminServiceServer).AssignUserRole(ctx, req.(*AssignUserRoleRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _AdminService_RevokeUserRole_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(RevokeUserRoleRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(AdminServiceServer).RevokeUserRole(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: AdminService_RevokeUserRole_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(AdminServiceServer).RevokeUserRole(ctx, req.(*RevokeUserRoleRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _AdminService_AssignDataScope_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(AssignDataScopeRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(AdminServiceServer).AssignDataScope(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: AdminService_AssignDataScope_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(AdminServiceServer).AssignDataScope(ctx, req.(*AssignDataScopeRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _AdminService_RevokeDataScope_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(RevokeDataScopeRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(AdminServiceServer).RevokeDataScope(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: AdminService_RevokeDataScope_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(AdminServiceServer).RevokeDataScope(ctx, req.(*RevokeDataScopeRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _AdminService_ListStaffUsers_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ListStaffUsersRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(AdminServiceServer).ListStaffUsers(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: AdminService_ListStaffUsers_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(AdminServiceServer).ListStaffUsers(ctx, req.(*ListStaffUsersRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _AdminService_CreateStaffUser_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(CreateStaffUserRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(AdminServiceServer).CreateStaffUser(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: AdminService_CreateStaffUser_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(AdminServiceServer).CreateStaffUser(ctx, req.(*CreateStaffUserRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // AdminService_ServiceDesc is the grpc.ServiceDesc for AdminService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -2866,6 +3252,42 @@ var AdminService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "QueryUsageLogs",
 			Handler:    _AdminService_QueryUsageLogs_Handler,
+		},
+		{
+			MethodName: "ListRoles",
+			Handler:    _AdminService_ListRoles_Handler,
+		},
+		{
+			MethodName: "ListPermissions",
+			Handler:    _AdminService_ListPermissions_Handler,
+		},
+		{
+			MethodName: "GetUserRoles",
+			Handler:    _AdminService_GetUserRoles_Handler,
+		},
+		{
+			MethodName: "AssignUserRole",
+			Handler:    _AdminService_AssignUserRole_Handler,
+		},
+		{
+			MethodName: "RevokeUserRole",
+			Handler:    _AdminService_RevokeUserRole_Handler,
+		},
+		{
+			MethodName: "AssignDataScope",
+			Handler:    _AdminService_AssignDataScope_Handler,
+		},
+		{
+			MethodName: "RevokeDataScope",
+			Handler:    _AdminService_RevokeDataScope_Handler,
+		},
+		{
+			MethodName: "ListStaffUsers",
+			Handler:    _AdminService_ListStaffUsers_Handler,
+		},
+		{
+			MethodName: "CreateStaffUser",
+			Handler:    _AdminService_CreateStaffUser_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

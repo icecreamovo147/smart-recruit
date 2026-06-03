@@ -2,24 +2,81 @@ package router
 
 import (
 	"context"
+	"sync/atomic"
 	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/redis/go-redis/v9"
 	swaggerFiles "github.com/swaggo/files"
 	ginSwagger "github.com/swaggo/gin-swagger"
+	"go.uber.org/zap"
 
 	"web-gin-service/config"
 	_ "web-gin-service/docs"
+	pb "web-gin-service/recruitment/pb"
 	"web-gin-service/handler"
 	"web-gin-service/handler/candidate"
 	"web-gin-service/handler/hr"
 	"web-gin-service/middleware"
+	"web-gin-service/pkg/authz"
+	"web-gin-service/pkg/logger"
 	"web-gin-service/pkg/redisclient"
 	"web-gin-service/rpc"
 )
 
 func Setup(cfg config.Config, clients *rpc.Clients, rdb *redis.Client) (*gin.Engine, *middleware.LimiterRegistry) {
+	// ── Wire authorization audit logger ──────────────────────────────────
+	// Audit events are buffered and flushed asynchronously with fail-safe
+	// timeout to avoid blocking the request path while minimizing data loss.
+	var auditDropped int64
+	auditCh := make(chan middleware.AuthAuditEntry, 4096)
+	middleware.SetAuditLogger(func(entry middleware.AuthAuditEntry) {
+		select {
+		case auditCh <- entry:
+		default:
+			// Buffer full: blocking send with 50ms timeout
+			select {
+			case auditCh <- entry:
+			case <-time.After(50 * time.Millisecond):
+				dropped := atomic.AddInt64(&auditDropped, 1)
+				logger.L().Warn("audit event dropped (buffer full)",
+					zap.Int64("dropped_total", dropped),
+					zap.String("decision", entry.Decision),
+					zap.String("permission", entry.PermissionKey),
+					zap.String("request_id", entry.RequestID),
+				)
+			}
+		}
+	})
+	// Background audit consumer: forwards events to logic-grpc-service.
+	go func() {
+		for entry := range auditCh {
+			resp, err := clients.Auth.RecordAuthDecision(context.Background(), &pb.AuthAuditRequest{
+				ActorUserId:   entry.ActorUserID,
+				ActorRoles:    entry.ActorRoles,
+				PermissionKey: entry.PermissionKey,
+				ResourceType:  entry.ResourceType,
+				ResourceId:    entry.ResourceID,
+				Decision:      entry.Decision,
+				Reason:        entry.Reason,
+				RequestId:     entry.RequestID,
+				ClientIp:      entry.ClientIP,
+			})
+			if err != nil {
+				logger.L().Error("audit record gRPC call failed",
+					zap.Error(err),
+					zap.Int64("actor", entry.ActorUserID),
+					zap.String("permission", entry.PermissionKey),
+				)
+			} else if resp != nil && resp.Code != 0 {
+				logger.L().Warn("audit record returned non-zero code",
+					zap.String("msg", resp.Msg),
+					zap.Int64("actor", entry.ActorUserID),
+				)
+			}
+		}
+	}()
+
 	r := gin.New()
 	r.Use(middleware.RequestID(), middleware.AccessLog(), middleware.Recovery(), middleware.SecurityHeaders(), middleware.CSP(), middleware.CORSWrapper())
 	r.GET("/health", func(c *gin.Context) { c.JSON(200, gin.H{"status": "ok"}) })
@@ -47,7 +104,7 @@ func Setup(cfg config.Config, clients *rpc.Clients, rdb *redis.Client) (*gin.Eng
 	})
 	r.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
 
-	authHandler := handler.NewAuthHandler(clients, cfg.AuthCookieName, cfg.CandidateCookie, cfg.HRCookie, cfg.AuthCookieSecure, cfg.JWTSecret)
+	authHandler := handler.NewAuthHandler(clients, cfg.AuthCookieName, cfg.CandidateCookie, cfg.HRCookie, cfg.AuthCookieSecure, cfg.JWTSecret, rdb)
 	publicHandler := handler.NewPublicHandler(clients)
 	hrJobHandler := hr.NewJobHandler(clients)
 	hrApplicationHandler := hr.NewApplicationHandler(clients)
@@ -84,92 +141,123 @@ func Setup(cfg config.Config, clients *rpc.Clients, rdb *redis.Client) (*gin.Eng
 	bodyAI := middleware.MaxBodyBytes(64 << 10)
 	bodyJob := middleware.MaxBodyBytes(64 << 10)
 
+	// ── Public auth endpoints ──────────────────────────────────────────
 	v1.POST("/auth/register", normalTimeout, authLimit, bodyAuth, authHandler.Register)
 	v1.POST("/auth/register/validate-invite-code", normalTimeout, authHandler.ValidateInviteCode)
 	v1.POST("/auth/login", normalTimeout, authLimit, bodyAuth, authHandler.Login)
-	v1.POST("/auth/logout", normalTimeout, middleware.JWTAuthByClient(cfg.JWTSecret, cfg.CandidateCookie, cfg.HRCookie, cfg.AuthCookieName), authHandler.Logout)
+	v1.POST("/auth/logout", normalTimeout, middleware.JWTAuthByClient(cfg.JWTSecret, cfg.CandidateCookie, cfg.HRCookie, cfg.AuthCookieName, rdb), authHandler.Logout)
 	v1.POST("/auth/refresh", normalTimeout, authHandler.RefreshToken)
-	v1.GET("/auth/me", normalTimeout, middleware.JWTAuthByClient(cfg.JWTSecret, cfg.CandidateCookie, cfg.HRCookie, cfg.AuthCookieName), authHandler.Me)
+	v1.GET("/auth/me", normalTimeout, middleware.JWTAuthByClient(cfg.JWTSecret, cfg.CandidateCookie, cfg.HRCookie, cfg.AuthCookieName, rdb), authHandler.Me)
 	v1.GET("/jobs", normalTimeout, publicHandler.ListJobs)
 	v1.GET("/jobs/:job_id", normalTimeout, publicHandler.JobDetail)
 
-	candidateGroup := v1.Group("/candidate", middleware.JWTAuthByClient(cfg.JWTSecret, cfg.CandidateCookie, cfg.HRCookie, cfg.AuthCookieName), middleware.RequireRole(1))
-	candidateGroup.GET("/profile", normalTimeout, profileHandler.Get)
-	candidateGroup.PUT("/profile", normalTimeout, bodyProfile, profileHandler.Update)
-	candidateGroup.GET("/resume", normalTimeout, resumeHandler.Get)
-	candidateGroup.POST("/resume/presign", riskBlock, resumePresignQuota, normalTimeout, bodyAuth, resumeHandler.Presign)
-	candidateGroup.POST("/resume/confirm", riskBlock, resumeConfirmQuota, uploadTimeout, bodyProfile, resumeHandler.Confirm)
-	candidateGroup.POST("/applications", normalTimeout, bodyAuth, applyHandler.Apply)
-	candidateGroup.GET("/applications", normalTimeout, applyHandler.Mine)
-	candidateGroup.GET("/notifications", normalTimeout, notificationHandler.List)
-	candidateGroup.GET("/notifications/unread-count", normalTimeout, notificationHandler.UnreadCount)
-	candidateGroup.GET("/notifications/summary", normalTimeout, notificationHandler.Summary)
-	candidateGroup.GET("/notifications/stream", notificationHandler.Stream)
-	candidateGroup.PATCH("/notifications/:notification_id/read", normalTimeout, notificationHandler.MarkRead)
-	candidateGroup.PATCH("/notifications/read-all", normalTimeout, notificationHandler.MarkAllRead)
-	candidateGroup.GET("/ai/sessions", normalTimeout, candidateAIHandler.ListSessions)
-	candidateGroup.POST("/ai/sessions", normalTimeout, bodyProfile, candidateAIHandler.CreateSession)
-	candidateGroup.GET("/ai/sessions/:session_id/messages", normalTimeout, candidateAIHandler.SessionMessages)
-	candidateGroup.PUT("/ai/sessions/:session_id", normalTimeout, bodyAuth, candidateAIHandler.UpdateSession)
-	candidateGroup.DELETE("/ai/sessions/:session_id", normalTimeout, candidateAIHandler.DeleteSession)
-	candidateGroup.POST("/ai/chat/stream", riskBlock, aiLimit, candidateAIQuota, bodyAI, candidateAIHandler.ChatStream)
+	// ── Authenticated middleware (with token_version validation via Redis) ─
+	jwtAuth := middleware.JWTAuthByClient(cfg.JWTSecret, cfg.CandidateCookie, cfg.HRCookie, cfg.AuthCookieName, rdb)
 
-	hrGroup := v1.Group("/hr", middleware.JWTAuthByClient(cfg.JWTSecret, cfg.CandidateCookie, cfg.HRCookie, cfg.AuthCookieName), middleware.RequireMinRole(2))
-	hrGroup.GET("/job-options", normalTimeout, hrJobHandler.JobOptions)
-	hrGroup.POST("/jobs", normalTimeout, bodyJob, hrJobHandler.Create)
-	hrGroup.PUT("/jobs/:job_id", normalTimeout, bodyJob, hrJobHandler.Update)
-	hrGroup.PATCH("/jobs/:job_id/offline", normalTimeout, hrJobHandler.Offline)
-	hrGroup.PATCH("/jobs/:job_id/online", normalTimeout, hrJobHandler.Online)
-	hrGroup.GET("/jobs", normalTimeout, hrJobHandler.List)
-	hrGroup.GET("/jobs/:job_id/applications", normalTimeout, hrApplicationHandler.ListByJob)
-	hrGroup.PATCH("/applications/:application_id/status", normalTimeout, hrApplicationHandler.UpdateStatus)
-	hrGroup.GET("/ai/sessions", normalTimeout, hrAIHandler.ListSessions)
-	hrGroup.POST("/ai/sessions", normalTimeout, hrAIHandler.CreateSession)
-	hrGroup.GET("/ai/sessions/:session_id/messages", normalTimeout, hrAIHandler.SessionMessages)
-	hrGroup.PUT("/ai/sessions/:session_id", normalTimeout, hrAIHandler.UpdateSession)
-	hrGroup.DELETE("/ai/sessions/:session_id", normalTimeout, hrAIHandler.DeleteSession)
-	hrGroup.POST("/ai/application-analysis-sessions", riskBlock, aiLimit, hrAIQuota, aiTimeout, hrAIHandler.CreateApplicationAnalysisSession)
-	hrGroup.POST("/ai/chat", riskBlock, aiLimit, hrAIQuota, aiTimeout, hrAIHandler.Chat)
-	hrGroup.POST("/ai/chat/stream", riskBlock, aiLimit, hrAIQuota, hrAIHandler.ChatStream)
-	hrGroup.POST("/ai/analyze-application", riskBlock, aiLimit, hrAIQuota, aiTimeout, hrAIHandler.AnalyzeApplication)
-	hrGroup.GET("/ai/history", normalTimeout, hrAIHandler.History)
-	hrGroup.GET("/notifications", normalTimeout, notificationHandler.List)
-	hrGroup.GET("/notifications/unread-count", normalTimeout, notificationHandler.UnreadCount)
-	hrGroup.GET("/notifications/summary", normalTimeout, notificationHandler.Summary)
-	hrGroup.GET("/notifications/stream", notificationHandler.Stream)
-	hrGroup.PATCH("/notifications/:notification_id/read", normalTimeout, notificationHandler.MarkRead)
-	hrGroup.PATCH("/notifications/read-all", normalTimeout, notificationHandler.MarkAllRead)
-	hrGroup.GET("/dashboard/summary", normalTimeout, dashboardHandler.Summary)
+	// ── Candidate routes ───────────────────────────────────────────────
+	// Each candidate route declares the required permission explicitly.
+	candidateGroup := v1.Group("/candidate", jwtAuth, middleware.RequireAnyRole(authz.RoleCandidate))
+	candidateGroup.GET("/profile", normalTimeout, middleware.RequirePermission(authz.PermCandidateProfileManage), profileHandler.Get)
+	candidateGroup.PUT("/profile", normalTimeout, bodyProfile, middleware.RequirePermission(authz.PermCandidateProfileManage), profileHandler.Update)
+	candidateGroup.GET("/resume", normalTimeout, middleware.RequirePermission(authz.PermCandidateResumeManage), resumeHandler.Get)
+	candidateGroup.POST("/resume/presign", riskBlock, resumePresignQuota, normalTimeout, bodyAuth, middleware.RequirePermission(authz.PermCandidateResumeManage), resumeHandler.Presign)
+	candidateGroup.POST("/resume/confirm", riskBlock, resumeConfirmQuota, uploadTimeout, bodyProfile, middleware.RequirePermission(authz.PermCandidateResumeManage), resumeHandler.Confirm)
+	candidateGroup.POST("/applications", normalTimeout, bodyAuth, middleware.RequirePermission(authz.PermCandidateApplicationManage), applyHandler.Apply)
+	candidateGroup.GET("/applications", normalTimeout, middleware.RequirePermission(authz.PermCandidateApplicationManage), applyHandler.Mine)
+	candidateGroup.GET("/notifications", normalTimeout, middleware.RequirePermission(authz.PermNotificationRead), notificationHandler.List)
+	candidateGroup.GET("/notifications/unread-count", normalTimeout, middleware.RequirePermission(authz.PermNotificationRead), notificationHandler.UnreadCount)
+	candidateGroup.GET("/notifications/summary", normalTimeout, middleware.RequirePermission(authz.PermNotificationRead), notificationHandler.Summary)
+	candidateGroup.GET("/notifications/stream", middleware.RequirePermission(authz.PermNotificationRead), notificationHandler.Stream)
+	candidateGroup.PATCH("/notifications/:notification_id/read", normalTimeout, middleware.RequirePermission(authz.PermNotificationRead), notificationHandler.MarkRead)
+	candidateGroup.PATCH("/notifications/read-all", normalTimeout, middleware.RequirePermission(authz.PermNotificationRead), notificationHandler.MarkAllRead)
+	candidateGroup.GET("/ai/sessions", normalTimeout, middleware.RequirePermission(authz.PermAICandidateUse), candidateAIHandler.ListSessions)
+	candidateGroup.POST("/ai/sessions", normalTimeout, bodyProfile, middleware.RequirePermission(authz.PermAICandidateUse), candidateAIHandler.CreateSession)
+	candidateGroup.GET("/ai/sessions/:session_id/messages", normalTimeout, middleware.RequirePermission(authz.PermAICandidateUse), candidateAIHandler.SessionMessages)
+	candidateGroup.PUT("/ai/sessions/:session_id", normalTimeout, bodyAuth, middleware.RequirePermission(authz.PermAICandidateUse), candidateAIHandler.UpdateSession)
+	candidateGroup.DELETE("/ai/sessions/:session_id", normalTimeout, middleware.RequirePermission(authz.PermAICandidateUse), candidateAIHandler.DeleteSession)
+	candidateGroup.POST("/ai/chat/stream", riskBlock, aiLimit, candidateAIQuota, bodyAI, middleware.RequirePermission(authz.PermAICandidateUse), candidateAIHandler.ChatStream)
 
+	// ── Staff routes (formerly /hr) ────────────────────────────────────
+	// Base group: any staff role (recruiter, recruiting_admin, system_admin, interviewer).
+	staffGroup := v1.Group("/hr", jwtAuth, middleware.RequireAnyRole(authz.StaffRoles()...))
+
+	// Job management — requires explicit job permissions
+	staffGroup.GET("/job-options", normalTimeout, middleware.RequirePermission(authz.PermJobRead), hrJobHandler.JobOptions)
+	staffGroup.POST("/jobs", normalTimeout, bodyJob, middleware.RequirePermission(authz.PermJobCreate), hrJobHandler.Create)
+	staffGroup.PUT("/jobs/:job_id", normalTimeout, bodyJob, middleware.RequirePermission(authz.PermJobUpdate), hrJobHandler.Update)
+	staffGroup.PATCH("/jobs/:job_id/offline", normalTimeout, middleware.RequirePermission(authz.PermJobPublish), hrJobHandler.Offline)
+	staffGroup.PATCH("/jobs/:job_id/online", normalTimeout, middleware.RequirePermission(authz.PermJobPublish), hrJobHandler.Online)
+	staffGroup.GET("/jobs", normalTimeout, middleware.RequirePermission(authz.PermJobRead), hrJobHandler.List)
+	staffGroup.GET("/jobs/:job_id/applications", normalTimeout, middleware.RequirePermission(authz.PermApplicationRead), hrApplicationHandler.ListByJob)
+	staffGroup.PATCH("/applications/:application_id/status", normalTimeout, middleware.RequirePermission(authz.PermApplicationStatusUpdate), hrApplicationHandler.UpdateStatus)
+
+	// AI — requires HR AI permission
+	staffGroup.GET("/ai/sessions", normalTimeout, middleware.RequirePermission(authz.PermAIHRUse), hrAIHandler.ListSessions)
+	staffGroup.POST("/ai/sessions", normalTimeout, middleware.RequirePermission(authz.PermAIHRUse), hrAIHandler.CreateSession)
+	staffGroup.GET("/ai/sessions/:session_id/messages", normalTimeout, middleware.RequirePermission(authz.PermAIHRUse), hrAIHandler.SessionMessages)
+	staffGroup.PUT("/ai/sessions/:session_id", normalTimeout, middleware.RequirePermission(authz.PermAIHRUse), hrAIHandler.UpdateSession)
+	staffGroup.DELETE("/ai/sessions/:session_id", normalTimeout, middleware.RequirePermission(authz.PermAIHRUse), hrAIHandler.DeleteSession)
+	staffGroup.POST("/ai/application-analysis-sessions", riskBlock, aiLimit, hrAIQuota, aiTimeout, middleware.RequirePermission(authz.PermAIHRUse), hrAIHandler.CreateApplicationAnalysisSession)
+	staffGroup.POST("/ai/chat", riskBlock, aiLimit, hrAIQuota, aiTimeout, middleware.RequirePermission(authz.PermAIHRUse), hrAIHandler.Chat)
+	staffGroup.POST("/ai/chat/stream", riskBlock, aiLimit, hrAIQuota, middleware.RequirePermission(authz.PermAIHRUse), hrAIHandler.ChatStream)
+	staffGroup.POST("/ai/analyze-application", riskBlock, aiLimit, hrAIQuota, aiTimeout, middleware.RequirePermission(authz.PermAIHRUse), hrAIHandler.AnalyzeApplication)
+	staffGroup.GET("/ai/history", normalTimeout, middleware.RequirePermission(authz.PermAIHRUse), hrAIHandler.History)
+
+	// Notifications — requires notification read permission
+	staffGroup.GET("/notifications", normalTimeout, middleware.RequirePermission(authz.PermNotificationRead), notificationHandler.List)
+	staffGroup.GET("/notifications/unread-count", normalTimeout, middleware.RequirePermission(authz.PermNotificationRead), notificationHandler.UnreadCount)
+	staffGroup.GET("/notifications/summary", normalTimeout, middleware.RequirePermission(authz.PermNotificationRead), notificationHandler.Summary)
+	staffGroup.GET("/notifications/stream", middleware.RequirePermission(authz.PermNotificationRead), notificationHandler.Stream)
+	staffGroup.PATCH("/notifications/:notification_id/read", normalTimeout, middleware.RequirePermission(authz.PermNotificationRead), notificationHandler.MarkRead)
+	staffGroup.PATCH("/notifications/read-all", normalTimeout, middleware.RequirePermission(authz.PermNotificationRead), notificationHandler.MarkAllRead)
+
+	// Dashboard — requires job.read or application.read
+	staffGroup.GET("/dashboard/summary", normalTimeout, middleware.RequireAnyPermission(authz.PermJobRead, authz.PermApplicationRead), dashboardHandler.Summary)
+
+	// ── Admin routes (/hr/admin) ───────────────────────────────────────
+	// Admin routes require explicit admin permissions (not role hierarchy).
 	adminHandler := hr.NewAdminHandler(clients)
-	adminGroup := hrGroup.Group("/admin", middleware.RequireRole(3))
-	adminGroup.POST("/invite-codes", normalTimeout, bodyAuth, adminHandler.CreateInviteCode)
-	adminGroup.GET("/invite-codes", normalTimeout, adminHandler.ListInviteCodes)
-	adminGroup.PATCH("/invite-codes/:id/extend", normalTimeout, bodyAuth, adminHandler.ExtendInviteCode)
-	adminGroup.PATCH("/invite-codes/:id/revoke", normalTimeout, bodyAuth, adminHandler.RevokeInviteCode)
-	adminGroup.PATCH("/invite-codes/:id/reactivate", normalTimeout, bodyAuth, adminHandler.ReactivateInviteCode)
+	adminGroup := staffGroup.Group("/admin")
+
+	// Invite codes
+	adminGroup.POST("/invite-codes", normalTimeout, bodyAuth, middleware.RequirePermission(authz.PermAdminInviteManage), adminHandler.CreateInviteCode)
+	adminGroup.GET("/invite-codes", normalTimeout, middleware.RequirePermission(authz.PermAdminInviteManage), adminHandler.ListInviteCodes)
+	adminGroup.PATCH("/invite-codes/:id/extend", normalTimeout, bodyAuth, middleware.RequirePermission(authz.PermAdminInviteManage), adminHandler.ExtendInviteCode)
+	adminGroup.PATCH("/invite-codes/:id/revoke", normalTimeout, bodyAuth, middleware.RequirePermission(authz.PermAdminInviteManage), adminHandler.RevokeInviteCode)
+	adminGroup.PATCH("/invite-codes/:id/reactivate", normalTimeout, bodyAuth, middleware.RequirePermission(authz.PermAdminInviteManage), adminHandler.ReactivateInviteCode)
 
 	// Department taxonomy
-	adminGroup.GET("/departments", normalTimeout, adminHandler.ListDepartments)
-	adminGroup.POST("/departments", normalTimeout, bodyAuth, adminHandler.CreateDepartment)
-	adminGroup.PUT("/departments/:id", normalTimeout, bodyAuth, adminHandler.UpdateDepartment)
-	adminGroup.PATCH("/departments/:id/status", normalTimeout, bodyAuth, adminHandler.UpdateDepartmentStatus)
-	adminGroup.DELETE("/departments/:id", normalTimeout, adminHandler.DeleteDepartment)
+	adminGroup.GET("/departments", normalTimeout, middleware.RequirePermission(authz.PermAdminDepartmentManage), adminHandler.ListDepartments)
+	adminGroup.POST("/departments", normalTimeout, bodyAuth, middleware.RequirePermission(authz.PermAdminDepartmentManage), adminHandler.CreateDepartment)
+	adminGroup.PUT("/departments/:id", normalTimeout, bodyAuth, middleware.RequirePermission(authz.PermAdminDepartmentManage), adminHandler.UpdateDepartment)
+	adminGroup.PATCH("/departments/:id/status", normalTimeout, bodyAuth, middleware.RequirePermission(authz.PermAdminDepartmentManage), adminHandler.UpdateDepartmentStatus)
+	adminGroup.DELETE("/departments/:id", normalTimeout, middleware.RequirePermission(authz.PermAdminDepartmentManage), adminHandler.DeleteDepartment)
 
 	// Job location taxonomy
-	adminGroup.GET("/locations", normalTimeout, adminHandler.ListJobLocations)
-	adminGroup.POST("/locations", normalTimeout, bodyAuth, adminHandler.CreateJobLocation)
-	adminGroup.PUT("/locations/:id", normalTimeout, bodyAuth, adminHandler.UpdateJobLocation)
-	adminGroup.PATCH("/locations/:id/status", normalTimeout, bodyAuth, adminHandler.UpdateJobLocationStatus)
-	adminGroup.DELETE("/locations/:id", normalTimeout, adminHandler.DeleteJobLocation)
+	adminGroup.GET("/locations", normalTimeout, middleware.RequirePermission(authz.PermAdminLocationManage), adminHandler.ListJobLocations)
+	adminGroup.POST("/locations", normalTimeout, bodyAuth, middleware.RequirePermission(authz.PermAdminLocationManage), adminHandler.CreateJobLocation)
+	adminGroup.PUT("/locations/:id", normalTimeout, bodyAuth, middleware.RequirePermission(authz.PermAdminLocationManage), adminHandler.UpdateJobLocation)
+	adminGroup.PATCH("/locations/:id/status", normalTimeout, bodyAuth, middleware.RequirePermission(authz.PermAdminLocationManage), adminHandler.UpdateJobLocationStatus)
+	adminGroup.DELETE("/locations/:id", normalTimeout, middleware.RequirePermission(authz.PermAdminLocationManage), adminHandler.DeleteJobLocation)
 
-	// Department location config (admin)
-	adminGroup.GET("/departments/location-map", normalTimeout, adminHandler.ListDepartmentsLocationMap)
-	adminGroup.GET("/departments/:id/locations", normalTimeout, adminHandler.GetDepartmentLocationConfig)
-	adminGroup.PUT("/departments/:id/locations", normalTimeout, bodyAuth, adminHandler.UpdateDepartmentLocationConfig)
+	// Department location config
+	adminGroup.GET("/departments/location-map", normalTimeout, middleware.RequirePermission(authz.PermAdminDepartmentManage), adminHandler.ListDepartmentsLocationMap)
+	adminGroup.GET("/departments/:id/locations", normalTimeout, middleware.RequirePermission(authz.PermAdminDepartmentManage), adminHandler.GetDepartmentLocationConfig)
+	adminGroup.PUT("/departments/:id/locations", normalTimeout, bodyAuth, middleware.RequirePermission(authz.PermAdminDepartmentManage), adminHandler.UpdateDepartmentLocationConfig)
 
-	// Usage audit (admin only)
-	adminGroup.GET("/third-party-usage-logs", normalTimeout, adminHandler.ListUsageLogs)
+	// Usage audit
+	adminGroup.GET("/third-party-usage-logs", normalTimeout, middleware.RequirePermission(authz.PermAuditUsageRead), adminHandler.ListUsageLogs)
+
+	// RBAC role & permission management
+	adminGroup.GET("/roles", normalTimeout, middleware.RequirePermission(authz.PermAdminRoleManage), adminHandler.ListRoles)
+	adminGroup.GET("/permissions", normalTimeout, middleware.RequirePermission(authz.PermAdminRoleManage), adminHandler.ListPermissions)
+	adminGroup.GET("/users/:user_id/roles", normalTimeout, middleware.RequirePermission(authz.PermAdminRoleManage), adminHandler.GetUserRoles)
+	adminGroup.POST("/users/:user_id/roles/assign", normalTimeout, bodyAuth, middleware.RequirePermission(authz.PermAdminRoleManage), adminHandler.AssignUserRole)
+	adminGroup.POST("/users/:user_id/roles/revoke", normalTimeout, bodyAuth, middleware.RequirePermission(authz.PermAdminRoleManage), adminHandler.RevokeUserRole)
+	adminGroup.POST("/users/:user_id/data-scopes", normalTimeout, bodyAuth, middleware.RequirePermission(authz.PermAdminUserManage), adminHandler.AssignDataScope)
+	adminGroup.DELETE("/data-scopes/:scope_id", normalTimeout, middleware.RequirePermission(authz.PermAdminUserManage), adminHandler.RevokeDataScope)
+	adminGroup.GET("/staff-users", normalTimeout, middleware.RequirePermission(authz.PermAdminUserManage), adminHandler.ListStaffUsers)
+	adminGroup.POST("/staff-users", normalTimeout, bodyProfile, middleware.RequirePermission(authz.PermAdminUserManage), adminHandler.CreateStaffUser)
 
 	return r, limiters
 }

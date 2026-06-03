@@ -14,6 +14,7 @@ import {
 import { getDashboardSummary } from '@/api/dashboard'
 import type { DashboardSummary } from '@/types/dashboard'
 import { useAuthStore } from '@/stores/auth'
+import { PERM } from '@/types/domain'
 
 use([CanvasRenderer, LineChart, PieChart, BarChart, TitleComponent, TooltipComponent, LegendComponent, GridComponent])
 
@@ -140,7 +141,7 @@ const quickLinks = computed(() => {
     { label: '岗位管理', path: '/hr/jobs', icon: Briefcase },
     { label: 'AI 数据助手', path: '/hr/ai', icon: DataAnalysis },
   ]
-  if (auth.role === 3) {
+  if (auth.hasPermission(PERM.AUDIT_USAGE_READ)) {
     links.push({ label: '服务审计', path: '/hr/admin/usage-audit', icon: Monitor })
   }
   return links

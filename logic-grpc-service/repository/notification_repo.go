@@ -25,18 +25,17 @@ func (r *NotificationRepo) Create(ctx context.Context, n *model.Notification) er
 	return r.db.WithContext(ctx).Create(n).Error
 }
 
-func (r *NotificationRepo) Exists(ctx context.Context, receiverID int64, receiverRole int32, bizType string, bizID int64, notificationType string) (bool, error) {
+func (r *NotificationRepo) Exists(ctx context.Context, receiverID int64, accountType string, bizType string, bizID int64, notificationType string) (bool, error) {
 	var count int64
 	err := r.db.WithContext(ctx).Model(&model.Notification{}).
-		Where("receiver_id = ? AND receiver_role = ? AND biz_type = ? AND biz_id = ? AND type = ?",
-			receiverID, receiverRole, bizType, bizID, notificationType).
+		Where("receiver_id = ? AND receiver_account_type = ? AND biz_type = ? AND biz_id = ? AND type = ?",
+			receiverID, accountType, bizType, bizID, notificationType).
 		Count(&count).Error
 	return count > 0, err
 }
 
 // CreateOnce inserts a notification only if the same receiver/business/type
-// notification has not already been created. Use this for idempotent events,
-// such as "candidate has submitted this application".
+// notification has not already been created.
 func (r *NotificationRepo) CreateOnce(ctx context.Context, n *model.Notification) error {
 	_, err := r.CreateOnceWithResult(ctx, n)
 	return err
@@ -57,10 +56,10 @@ func (r *NotificationRepo) CreateOrIgnore(ctx context.Context, n *model.Notifica
 	return r.CreateOnce(ctx, n)
 }
 
-func (r *NotificationRepo) List(ctx context.Context, receiverID int64, receiverRole int32, page, pageSize int32) ([]model.Notification, int64, error) {
+func (r *NotificationRepo) List(ctx context.Context, receiverID int64, accountType string, page, pageSize int32) ([]model.Notification, int64, error) {
 	var total int64
 	query := r.db.WithContext(ctx).Model(&model.Notification{}).
-		Where("receiver_id = ? AND receiver_role = ?", receiverID, receiverRole)
+		Where("receiver_id = ? AND receiver_account_type = ?", receiverID, accountType)
 	if err := query.Count(&total).Error; err != nil {
 		return nil, 0, err
 	}
@@ -72,14 +71,13 @@ func (r *NotificationRepo) List(ctx context.Context, receiverID int64, receiverR
 	return rows, total, err
 }
 
-// ListCursor returns notifications using cursor-based pagination.
-func (r *NotificationRepo) ListCursor(ctx context.Context, receiverID int64, receiverRole int32, cursor string, limit int32) ([]model.Notification, string, bool, error) {
+func (r *NotificationRepo) ListCursor(ctx context.Context, receiverID int64, accountType string, cursor string, limit int32) ([]model.Notification, string, bool, error) {
 	t, id, err := pagination.DecodeCursor(cursor)
 	if err != nil {
 		return nil, "", false, err
 	}
 	query := r.db.WithContext(ctx).Model(&model.Notification{}).
-		Where("receiver_id = ? AND receiver_role = ?", receiverID, receiverRole)
+		Where("receiver_id = ? AND receiver_account_type = ?", receiverID, accountType)
 	if !t.IsZero() || id > 0 {
 		query = query.Where("(created_at, id) < (?, ?)", t, id)
 	}
@@ -100,18 +98,18 @@ func (r *NotificationRepo) ListCursor(ctx context.Context, receiverID int64, rec
 	return rows, nextCursor, hasMore, nil
 }
 
-func (r *NotificationRepo) UnreadCount(ctx context.Context, receiverID int64, receiverRole int32) (int64, error) {
+func (r *NotificationRepo) UnreadCount(ctx context.Context, receiverID int64, accountType string) (int64, error) {
 	var count int64
 	err := r.db.WithContext(ctx).Model(&model.Notification{}).
-		Where("receiver_id = ? AND receiver_role = ? AND is_read = ?", receiverID, receiverRole, 0).
+		Where("receiver_id = ? AND receiver_account_type = ? AND is_read = ?", receiverID, accountType, 0).
 		Count(&count).Error
 	return count, err
 }
 
-func (r *NotificationRepo) Latest(ctx context.Context, receiverID int64, receiverRole int32) (*model.Notification, error) {
+func (r *NotificationRepo) Latest(ctx context.Context, receiverID int64, accountType string) (*model.Notification, error) {
 	var row model.Notification
 	err := r.db.WithContext(ctx).Model(&model.Notification{}).
-		Where("receiver_id = ? AND receiver_role = ?", receiverID, receiverRole).
+		Where("receiver_id = ? AND receiver_account_type = ?", receiverID, accountType).
 		Order("created_at DESC, id DESC").
 		Limit(1).
 		First(&row).Error
@@ -121,20 +119,18 @@ func (r *NotificationRepo) Latest(ctx context.Context, receiverID int64, receive
 	return &row, err
 }
 
-func (r *NotificationRepo) MarkRead(ctx context.Context, receiverID int64, receiverRole int32, notificationID int64) (int64, error) {
+func (r *NotificationRepo) MarkRead(ctx context.Context, receiverID int64, accountType string, notificationID int64) (int64, error) {
 	now := time.Now()
 	result := r.db.WithContext(ctx).Model(&model.Notification{}).
-		Where("id = ? AND receiver_id = ? AND receiver_role = ? AND is_read = ?", notificationID, receiverID, receiverRole, 0).
+		Where("id = ? AND receiver_id = ? AND receiver_account_type = ? AND is_read = ?", notificationID, receiverID, accountType, 0).
 		Updates(map[string]any{"is_read": 1, "read_at": &now})
 	return result.RowsAffected, result.Error
 }
 
-// MarkAllReadBatch marks up to `limit` unread notifications as read in a single
-// UPDATE. Call in a loop until rows returned < limit.
-func (r *NotificationRepo) MarkAllReadBatch(ctx context.Context, receiverID int64, receiverRole int32, limit int) (int64, error) {
+func (r *NotificationRepo) MarkAllReadBatch(ctx context.Context, receiverID int64, accountType string, limit int) (int64, error) {
 	now := time.Now()
 	result := r.db.WithContext(ctx).Model(&model.Notification{}).
-		Where("receiver_id = ? AND receiver_role = ? AND is_read = ?", receiverID, receiverRole, 0).
+		Where("receiver_id = ? AND receiver_account_type = ? AND is_read = ?", receiverID, accountType, 0).
 		Limit(limit).
 		Updates(map[string]any{"is_read": 1, "read_at": &now})
 	return result.RowsAffected, result.Error

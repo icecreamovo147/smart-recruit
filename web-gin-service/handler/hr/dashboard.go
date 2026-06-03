@@ -25,7 +25,7 @@ func NewDashboardHandler(clients *rpc.Clients) *DashboardHandler {
 
 func (h *DashboardHandler) Summary(c *gin.Context) {
 	hrID := middleware.UserID(c)
-	role := middleware.Role(c)
+	acctType := middleware.AccountType(c)
 
 	// Fetch all jobs (large page to get full list for aggregation).
 	jobsResp, err := h.clients.Job.ListHRJobs(c.Request.Context(), &pb.ListHRJobsRequest{
@@ -41,7 +41,7 @@ func (h *DashboardHandler) Summary(c *gin.Context) {
 	// Fetch unread notification count.
 	unreadResp, err := h.clients.Notification.UnreadNotificationCount(c.Request.Context(), &pb.UnreadNotificationCountRequest{
 		UserId: hrID,
-		Role:   role,
+		AccountType: acctType,
 	})
 	if err != nil {
 		base.Internal(c, err)

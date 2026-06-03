@@ -22,9 +22,14 @@ func NewNotificationHandler(clients *rpc.Clients, rdb *redis.Client) *Notificati
 	return &NotificationHandler{clients: clients, rdb: rdb}
 }
 
+// accountType extracts the user's account_type from the Gin context.
+func accountType(c *gin.Context) string {
+	return middleware.AccountType(c)
+}
+
 func (h *NotificationHandler) List(c *gin.Context) {
 	userID := middleware.UserID(c)
-	role := middleware.Role(c)
+	acctType := accountType(c)
 	page, pageSize := int32(1), int32(20)
 	if v, err := strconv.Atoi(c.Query("page")); err == nil && v > 0 {
 		page = int32(v)
@@ -37,11 +42,11 @@ func (h *NotificationHandler) List(c *gin.Context) {
 		page = 0
 	}
 	resp, err := h.clients.Notification.ListNotifications(c.Request.Context(), &pb.ListNotificationsRequest{
-		UserId:   userID,
-		Role:     notificationReceiverRole(role),
-		Page:     page,
-		PageSize: pageSize,
-		Cursor:   cursor,
+		UserId:      userID,
+		AccountType: acctType,
+		Page:        page,
+		PageSize:    pageSize,
+		Cursor:      cursor,
 	})
 	if err != nil {
 		Internal(c, err)
@@ -52,8 +57,8 @@ func (h *NotificationHandler) List(c *gin.Context) {
 
 func (h *NotificationHandler) UnreadCount(c *gin.Context) {
 	resp, err := h.clients.Notification.UnreadNotificationCount(c.Request.Context(), &pb.UnreadNotificationCountRequest{
-		UserId: middleware.UserID(c),
-		Role:   notificationReceiverRole(middleware.Role(c)),
+		UserId:      middleware.UserID(c),
+		AccountType: accountType(c),
 	})
 	if err != nil {
 		Internal(c, err)
@@ -64,8 +69,8 @@ func (h *NotificationHandler) UnreadCount(c *gin.Context) {
 
 func (h *NotificationHandler) Summary(c *gin.Context) {
 	resp, err := h.clients.Notification.NotificationSummary(c.Request.Context(), &pb.NotificationSummaryRequest{
-		UserId: middleware.UserID(c),
-		Role:   notificationReceiverRole(middleware.Role(c)),
+		UserId:      middleware.UserID(c),
+		AccountType: accountType(c),
 	})
 	if err != nil {
 		Internal(c, err)
@@ -80,8 +85,8 @@ func (h *NotificationHandler) Stream(c *gin.Context) {
 		return
 	}
 	userID := middleware.UserID(c)
-	role := notificationReceiverRole(middleware.Role(c))
-	pubsub := h.rdb.Subscribe(c.Request.Context(), notificationEventChannel(userID, role))
+	acctType := accountType(c)
+	pubsub := h.rdb.Subscribe(c.Request.Context(), notificationEventChannel(userID, acctType))
 	defer pubsub.Close()
 
 	if _, err := pubsub.Receive(c.Request.Context()); err != nil {
@@ -146,7 +151,7 @@ func (h *NotificationHandler) MarkRead(c *gin.Context) {
 	}
 	resp, err := h.clients.Notification.MarkNotificationRead(c.Request.Context(), &pb.MarkNotificationReadRequest{
 		UserId:         middleware.UserID(c),
-		Role:           notificationReceiverRole(middleware.Role(c)),
+		AccountType:    accountType(c),
 		NotificationId: notificationID,
 	})
 	if err != nil {
@@ -156,21 +161,14 @@ func (h *NotificationHandler) MarkRead(c *gin.Context) {
 	ProtoResponse(c, resp)
 }
 
-func notificationEventChannel(userID int64, role int32) string {
-	return fmt.Sprintf("notif:event:%d:%d", role, userID)
-}
-
-func notificationReceiverRole(role int32) int32 {
-	if role >= 2 {
-		return 2
-	}
-	return role
+func notificationEventChannel(userID int64, acctType string) string {
+	return fmt.Sprintf("notif:event:%s:%d", acctType, userID)
 }
 
 func (h *NotificationHandler) MarkAllRead(c *gin.Context) {
 	resp, err := h.clients.Notification.MarkAllNotificationsRead(c.Request.Context(), &pb.MarkAllNotificationsReadRequest{
-		UserId: middleware.UserID(c),
-		Role:   notificationReceiverRole(middleware.Role(c)),
+		UserId:      middleware.UserID(c),
+		AccountType: accountType(c),
 	})
 	if err != nil {
 		Internal(c, err)

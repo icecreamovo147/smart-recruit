@@ -14,11 +14,19 @@ export const useAuthStore = defineStore('auth', {
     isLoggedIn: (state: AuthState): boolean => Boolean(state.user),
     role: (state: AuthState): number | undefined => state.user?.role,
     username: (state: AuthState): string => state.user?.username || '',
+    accountType: (state: AuthState): string => state.user?.account_type || 'candidate',
   },
   actions: {
     async login(payload: LoginPayload): Promise<void> {
       const data: LoginResponse = await loginApi(payload)
-      setUser({ user_id: data.user_id, role: data.role, username: data.username })
+      setUser({
+        user_id: data.user_id,
+        role: data.role,
+        username: data.username,
+        account_type: data.account_type,
+        roles: data.roles || [],
+        permissions: data.permissions || [],
+      })
       this.user = getUser()
     },
     logout(): void {
@@ -44,7 +52,15 @@ export const useAuthStore = defineStore('auth', {
         if (!resp.ok) { this.logout(); return false }
         const json = await resp.json()
         if (json.code === 0 && json.data) {
-          setUser({ user_id: Number(json.data.user_id), role: Number(json.data.role), username: String(json.data.username) })
+          const d = json.data
+          setUser({
+            user_id: Number(d.user_id),
+            role: Number(d.role),
+            username: String(d.username),
+            account_type: d.account_type ? String(d.account_type) : undefined,
+            roles: d.roles ?? undefined,
+            permissions: d.permissions ?? undefined,
+          })
           this.user = getUser()
           return true
         }

@@ -29,7 +29,7 @@ const submit = async () => {
   loading.value = true
   try {
     await auth.login(form)
-    if (auth.role !== 1) {
+    if (auth.accountType !== 'candidate') {
       await request.post('/api/v1/auth/logout').catch(() => {})
       auth.logout()
       ElMessage.error('请使用候选人账号登录')

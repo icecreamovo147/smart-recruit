@@ -25,12 +25,17 @@ var ErrTokenRevoked = errors.New("refresh token revoked")
 // ErrTokenReuseDetected is returned when a revoked token is reused — potential attack.
 var ErrTokenReuseDetected = errors.New("refresh token reuse detected")
 
-// RefreshTokenResult carries the identity of the user associated with a valid refresh token.
+// RefreshTokenResult carries the identity and authorization metadata of the user
+// associated with a valid refresh token.
 type RefreshTokenResult struct {
-	UserID   int64
-	Username string
-	Role     int32
-	FamilyID string
+	UserID       int64
+	Username     string
+	Role         int32    // Deprecated: kept for compatibility
+	AccountType  string
+	Roles        []string
+	Permissions  []string
+	TokenVersion int32
+	FamilyID     string
 }
 
 // RefreshTokenRepo manages opaque refresh token lifecycle.
@@ -137,10 +142,12 @@ func (r *RefreshTokenRepo) Rotate(ctx context.Context, plainToken string, newPla
 		}
 
 		result = &RefreshTokenResult{
-			UserID:   user.ID,
-			Username: user.Username,
-			Role:     user.Role,
-			FamilyID: rt.FamilyID,
+			UserID:       user.ID,
+			Username:     user.Username,
+			Role:         user.Role,
+			AccountType:  user.AccountType,
+			TokenVersion: user.TokenVersion,
+			FamilyID:     rt.FamilyID,
 		}
 		return nil
 	})

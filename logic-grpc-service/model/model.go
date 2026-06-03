@@ -3,14 +3,98 @@ package model
 import "time"
 
 type User struct {
-	ID        int64 `gorm:"primaryKey"`
-	Username  string
-	Password  string
-	Role      int32
-	Email     string
-	CreatedAt time.Time
-	UpdatedAt time.Time
+	ID           int64  `gorm:"primaryKey"`
+	Username     string
+	Password     string
+	Role         int32  `gorm:"column:role"` // Deprecated: kept for migration compatibility
+	Email        string
+	AccountType  string `gorm:"column:account_type;default:candidate"`
+	Status       string `gorm:"column:status;default:active"`
+	TokenVersion int32  `gorm:"column:token_version;default:1"`
+	CreatedAt    time.Time
+	UpdatedAt    time.Time
 }
+
+// ── RBAC models ────────────────────────────────────────────────────────
+
+// Role represents a named collection of permissions.
+type Role struct {
+	ID          uint64    `gorm:"primaryKey"`
+	RoleKey     string    `gorm:"column:role_key;uniqueIndex:uk_roles_role_key"`
+	Name        string    `gorm:"column:name"`
+	Description string    `gorm:"column:description"`
+	IsSystem    int32     `gorm:"column:is_system;default:1"`
+	CreatedAt   time.Time `gorm:"column:created_at"`
+	UpdatedAt   time.Time `gorm:"column:updated_at"`
+}
+
+func (Role) TableName() string { return "roles" }
+
+// Permission represents a single protected business capability.
+type Permission struct {
+	ID            uint64    `gorm:"primaryKey"`
+	PermissionKey string    `gorm:"column:permission_key;uniqueIndex:uk_permissions_permission_key"`
+	Resource      string    `gorm:"column:resource"`
+	Action        string    `gorm:"column:action"`
+	Description   string    `gorm:"column:description"`
+	CreatedAt     time.Time `gorm:"column:created_at"`
+	UpdatedAt     time.Time `gorm:"column:updated_at"`
+}
+
+func (Permission) TableName() string { return "permissions" }
+
+// RolePermission maps a permission to a role.
+type RolePermission struct {
+	ID           uint64    `gorm:"primaryKey"`
+	RoleID       uint64    `gorm:"column:role_id;uniqueIndex:uk_role_permission"`
+	PermissionID uint64    `gorm:"column:permission_id;uniqueIndex:uk_role_permission;index:idx_permission_id"`
+	CreatedAt    time.Time `gorm:"column:created_at"`
+}
+
+func (RolePermission) TableName() string { return "role_permissions" }
+
+// UserRole assigns a role to a user.
+type UserRole struct {
+	ID         uint64     `gorm:"primaryKey"`
+	UserID     uint64     `gorm:"column:user_id;uniqueIndex:uk_user_role_active"`
+	RoleID     uint64     `gorm:"column:role_id;uniqueIndex:uk_user_role_active;index:idx_user_roles_role"`
+	AssignedBy *uint64    `gorm:"column:assigned_by"`
+	AssignedAt time.Time  `gorm:"column:assigned_at"`
+	RevokedAt  *time.Time `gorm:"column:revoked_at;uniqueIndex:uk_user_role_active"`
+}
+
+func (UserRole) TableName() string { return "user_roles" }
+
+// UserDataScope constrains a user's permission usage to specific resources.
+type UserDataScope struct {
+	ID           uint64     `gorm:"primaryKey"`
+	UserID       uint64     `gorm:"column:user_id;index:idx_user_scope"`
+	ScopeKey     string     `gorm:"column:scope_key;index:idx_user_scope;index:idx_scope_resource"`
+	ResourceType string     `gorm:"column:resource_type;index:idx_scope_resource"`
+	ResourceID   uint64     `gorm:"column:resource_id;index:idx_scope_resource"`
+	AssignedBy   *uint64    `gorm:"column:assigned_by"`
+	AssignedAt   time.Time  `gorm:"column:assigned_at"`
+	RevokedAt    *time.Time `gorm:"column:revoked_at;index:idx_user_scope"`
+}
+
+func (UserDataScope) TableName() string { return "user_data_scopes" }
+
+// AuthorizationAuditLog records authorization decisions for audit purposes.
+type AuthorizationAuditLog struct {
+	ID             uint64    `gorm:"primaryKey"`
+	ActorUserID    uint64    `gorm:"column:actor_user_id;index:idx_actor_created"`
+	ActorRoles     string    `gorm:"column:actor_roles"`
+	PermissionKey  string    `gorm:"column:permission_key;index:idx_permission_created"`
+	ResourceType   string    `gorm:"column:resource_type"`
+	ResourceID     uint64    `gorm:"column:resource_id"`
+	Decision       string    `gorm:"column:decision;index:idx_decision_created"`
+	Reason         string    `gorm:"column:reason"`
+	RequestID      string    `gorm:"column:request_id"`
+	ClientIP       string    `gorm:"column:client_ip"`
+	CreatedAt      time.Time `gorm:"column:created_at"`
+}
+
+func (AuthorizationAuditLog) TableName() string { return "authorization_audit_logs" }
 
 type Job struct {
 	ID           int64 `gorm:"primaryKey"`
@@ -189,19 +273,20 @@ func (AIMemory) TableName() string         { return "ai_memories" }
 func (Notification) TableName() string     { return "notifications" }
 
 type Notification struct {
-	ID           int64      `gorm:"primaryKey"`
-	EventID      *string    `gorm:"column:event_id;uniqueIndex:uk_notification_event_id"`
-	ReceiverID   int64      `gorm:"column:receiver_id;uniqueIndex:uk_notification_once,priority:1"`
-	ReceiverRole int32      `gorm:"column:receiver_role;uniqueIndex:uk_notification_once,priority:2"`
-	Type         string     `gorm:"column:type;uniqueIndex:uk_notification_once,priority:5"`
-	Title        string     `gorm:"column:title"`
-	Content      string     `gorm:"column:content"`
-	Link         string     `gorm:"column:link"`
-	BizType      string     `gorm:"column:biz_type;uniqueIndex:uk_notification_once,priority:3"`
-	BizID        int64      `gorm:"column:biz_id;uniqueIndex:uk_notification_once,priority:4"`
-	IsRead       int32      `gorm:"column:is_read"`
-	CreatedAt    time.Time  `gorm:"column:created_at"`
-	ReadAt       *time.Time `gorm:"column:read_at"`
+	ID                  int64      `gorm:"primaryKey"`
+	EventID             *string    `gorm:"column:event_id;uniqueIndex:uk_notification_event_id"`
+	ReceiverID          int64      `gorm:"column:receiver_id;uniqueIndex:uk_notification_once,priority:1"`
+	ReceiverAccountType string     `gorm:"column:receiver_account_type;uniqueIndex:uk_notification_once,priority:2"`
+	ReceiverRole        int32      `gorm:"column:receiver_role"` // Deprecated: use ReceiverAccountType
+	Type                string     `gorm:"column:type;uniqueIndex:uk_notification_once,priority:5"`
+	Title               string     `gorm:"column:title"`
+	Content             string     `gorm:"column:content"`
+	Link                string     `gorm:"column:link"`
+	BizType             string     `gorm:"column:biz_type;uniqueIndex:uk_notification_once,priority:3"`
+	BizID               int64      `gorm:"column:biz_id;uniqueIndex:uk_notification_once,priority:4"`
+	IsRead              int32      `gorm:"column:is_read"`
+	CreatedAt           time.Time  `gorm:"column:created_at"`
+	ReadAt              *time.Time `gorm:"column:read_at"`
 }
 
 const (

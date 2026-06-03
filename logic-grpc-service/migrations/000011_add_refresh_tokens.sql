@@ -5,8 +5,8 @@
 -- Reuse detection: if a revoked token is used again, the entire family is invalidated.
 
 CREATE TABLE IF NOT EXISTS `refresh_tokens` (
-  `id` bigint NOT NULL AUTO_INCREMENT,
-  `user_id` bigint NOT NULL,
+  `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+  `user_id` BIGINT UNSIGNED NOT NULL,
   `token_hash` char(64) NOT NULL COMMENT 'sha256 of the plaintext refresh token',
   `family_id` varchar(64) NOT NULL COMMENT 'login session group; rotation keeps family_id unchanged',
   `expires_at` datetime(3) NOT NULL COMMENT 'token expiry, matches RefreshTokenTTL (~30 days)',
@@ -22,5 +22,5 @@ CREATE TABLE IF NOT EXISTS `refresh_tokens` (
   KEY `idx_refresh_tokens_user_id` (`user_id`),
   KEY `idx_refresh_tokens_family_id` (`family_id`),
   KEY `idx_refresh_tokens_expires_at` (`expires_at`),
-  CONSTRAINT `fk_refresh_tokens_user_id` FOREIGN KEY (`user_id`) REFERENCES `users` (`user_id`) ON DELETE CASCADE
+  CONSTRAINT `fk_refresh_tokens_user_id` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;

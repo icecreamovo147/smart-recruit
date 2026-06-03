@@ -248,6 +248,36 @@ func (r *ApplicationRepo) UpdateStatusOwnedWithTx(ctx context.Context, tx *gorm.
 	return result.RowsAffected, result.Error
 }
 
+// UpdateStatusInScopeWithTx updates application status if the application's job
+// belongs to one of the given departments or locations. Used by department/location-
+// scoped admins who don't own the job directly.
+func (r *ApplicationRepo) UpdateStatusInScopeWithTx(ctx context.Context, tx *gorm.DB, deptIDs, locIDs []uint64, applicationID int64, status int32) (int64, error) {
+	if len(deptIDs) == 0 && len(locIDs) == 0 {
+		return 0, nil
+	}
+	scopeJobQuery := tx.WithContext(ctx).Model(&model.Job{}).Select("id")
+	if len(deptIDs) > 0 && len(locIDs) > 0 {
+		scopeJobQuery = scopeJobQuery.Where("(department_id IN ? OR location_id IN ?)", deptIDs, locIDs)
+	} else if len(deptIDs) > 0 {
+		scopeJobQuery = scopeJobQuery.Where("department_id IN ?", deptIDs)
+	} else {
+		scopeJobQuery = scopeJobQuery.Where("location_id IN ?", locIDs)
+	}
+	result := tx.WithContext(ctx).Model(&model.Application{}).
+		Where("id = ? AND job_id IN (?)", applicationID, scopeJobQuery).
+		Update("status", status)
+	return result.RowsAffected, result.Error
+}
+
+// UpdateStatusAnyWithTx updates application status without hr_id ownership check.
+// Caller must have verified scope before calling.
+func (r *ApplicationRepo) UpdateStatusAnyWithTx(ctx context.Context, tx *gorm.DB, applicationID int64, status int32) (int64, error) {
+	result := tx.WithContext(ctx).Model(&model.Application{}).
+		Where("id = ?", applicationID).
+		Update("status", status)
+	return result.RowsAffected, result.Error
+}
+
 func (r *ApplicationRepo) GetDetailOwned(ctx context.Context, hrID, applicationID int64) (*ApplicationDetailRow, error) {
 	var row ApplicationDetailRow
 	result := r.db.WithContext(ctx).Table("applications").
@@ -262,6 +292,32 @@ func (r *ApplicationRepo) GetDetailOwned(ctx context.Context, hrID, applicationI
 		Joins("LEFT JOIN candidate_profiles ON candidate_profiles.user_id = applications.user_id").
 		Joins("LEFT JOIN resumes ON resumes.user_id = applications.user_id AND resumes.is_valid = 1").
 		Where("applications.id = ? AND jobs.hr_id = ?", applicationID, hrID).
+		Scan(&row)
+	if result.Error != nil {
+		return nil, result.Error
+	}
+	if result.RowsAffected == 0 {
+		return nil, nil
+	}
+	return &row, nil
+}
+
+// GetDetail returns an application detail row without hr_id ownership check.
+// Caller must have verified scope before calling this.
+func (r *ApplicationRepo) GetDetail(ctx context.Context, applicationID int64) (*ApplicationDetailRow, error) {
+	var row ApplicationDetailRow
+	result := r.db.WithContext(ctx).Table("applications").
+		Select(`applications.id AS application_id, applications.user_id, applications.resume_id,
+			applications.status, applications.round_no, applications.is_current, applications.applied_at,
+			candidate_profiles.real_name, candidate_profiles.phone, candidate_profiles.education,
+			candidate_profiles.school, candidate_profiles.work_experience, candidate_profiles.skills,
+			jobs.id AS job_id, jobs.title AS job_title, jobs.department, jobs.location,
+			jobs.salary_range, jobs.description, jobs.requirements,
+			resumes.file_name, resumes.file_type, resumes.file_size, resumes.oss_key, resumes.parsed_text`).
+		Joins("JOIN jobs ON jobs.id = applications.job_id").
+		Joins("LEFT JOIN candidate_profiles ON candidate_profiles.user_id = applications.user_id").
+		Joins("LEFT JOIN resumes ON resumes.user_id = applications.user_id AND resumes.is_valid = 1").
+		Where("applications.id = ?", applicationID).
 		Scan(&row)
 	if result.Error != nil {
 		return nil, result.Error

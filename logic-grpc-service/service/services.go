@@ -1,6 +1,8 @@
 package service
 
 import (
+	"github.com/redis/go-redis/v9"
+
 	"logic-grpc-service/ai"
 	"logic-grpc-service/config"
 	"logic-grpc-service/mq"
@@ -43,6 +45,7 @@ type Services struct {
 }
 
 func NewServices(
+	tokenCache *redis.Client,
 	users *repository.UserRepo,
 	tokens *repository.RefreshTokenRepo,
 	jobs *repository.JobRepo,
@@ -60,6 +63,7 @@ func NewServices(
 	locations *repository.JobLocationRepo,
 	deptLocs *repository.DepartmentLocationRepo,
 	usageLogs *repository.UsageLogRepo,
+	authzRepo *repository.AuthzRepo,
 	notifCache *cache.NotificationCache,
 	jobCache *cache.JobCache,
 	ossClient oss.Storage,
@@ -78,14 +82,15 @@ func NewServices(
 	outboxPublisher := NewOutboxPublisher(outbox, mqConn)
 	notificationConsumer := NewNotificationConsumer(notifications, notifCache)
 	resumeParseConsumer := NewResumeParseConsumer(resumes, ossClient)
+	scopeEval := &scopeEvaluator{authzRepo: authzRepo}
 
 	return &Services{
-		Auth:         NewAuthService(users, tokens, jwtSecret),
-		Admin:        NewAdminService(inviteCodes, usageLogs),
-		Job:          NewJobService(jobs, jobCache, taxonomy),
+		Auth:         NewAuthService(users, tokens, authzRepo, inviteCodes, jwtSecret),
+		Admin:        NewAdminService(inviteCodes, usageLogs, users, authzRepo, tokenCache),
+		Job:          NewJobService(jobs, jobCache, authzRepo, taxonomy, scopeEval),
 		Taxonomy:     taxonomy,
 		Candidate:    NewCandidateService(profiles, resumes, ossClient, outboxPublisher, usageLogs),
-		Application: NewApplicationService(applications, profiles, resumes, jobs, notifications, outboxPublisher, ossClient, jobCache),
+		Application: NewApplicationService(authzRepo, applications, profiles, resumes, jobs, notifications, outboxPublisher, ossClient, jobCache, scopeEval),
 		AI:          NewAIService(chats, applications, jobs, resumes, summaries, toolTraces, memories, ossClient, aiClient, toolExecutor, contextBuilder, candidateAI, usageLogs, agentRuntime),
 		CandidateAI: candidateAI,
 		Notification: NewNotificationService(notifications, notifCache),

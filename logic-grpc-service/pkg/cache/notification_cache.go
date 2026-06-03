@@ -28,32 +28,32 @@ func NewNotificationCacheWithOptions(opts *redis.Options) *NotificationCache {
 	return &NotificationCache{rdb: rdb, ttl: 120 * time.Second}
 }
 
-func (c *NotificationCache) unreadKey(receiverID uint64, receiverRole int32) string {
-	return fmt.Sprintf("notif:unread:%d:%d", receiverID, receiverRole)
+func (c *NotificationCache) unreadKey(receiverID uint64, accountType string) string {
+	return fmt.Sprintf("notif:unread:%d:%s", receiverID, accountType)
 }
 
-func NotificationEventChannel(receiverID uint64, receiverRole int32) string {
-	return fmt.Sprintf("notif:event:%d:%d", receiverRole, receiverID)
+func NotificationEventChannel(receiverID uint64, accountType string) string {
+	return fmt.Sprintf("notif:event:%s:%d", accountType, receiverID)
 }
 
-func (c *NotificationCache) GetUnreadCount(ctx context.Context, receiverID uint64, receiverRole int32) (int64, bool) {
-	val, err := c.rdb.Get(ctx, c.unreadKey(receiverID, receiverRole)).Int64()
+func (c *NotificationCache) GetUnreadCount(ctx context.Context, receiverID uint64, accountType string) (int64, bool) {
+	val, err := c.rdb.Get(ctx, c.unreadKey(receiverID, accountType)).Int64()
 	if err != nil {
 		return 0, false
 	}
 	return val, true
 }
 
-func (c *NotificationCache) SetUnreadCount(ctx context.Context, receiverID uint64, receiverRole int32, count int64) {
-	_ = c.rdb.Set(ctx, c.unreadKey(receiverID, receiverRole), count, c.ttl).Err()
+func (c *NotificationCache) SetUnreadCount(ctx context.Context, receiverID uint64, accountType string, count int64) {
+	_ = c.rdb.Set(ctx, c.unreadKey(receiverID, accountType), count, c.ttl).Err()
 }
 
-func (c *NotificationCache) Invalidate(ctx context.Context, receiverID uint64, receiverRole int32) {
-	_ = c.rdb.Del(ctx, c.unreadKey(receiverID, receiverRole)).Err()
+func (c *NotificationCache) Invalidate(ctx context.Context, receiverID uint64, accountType string) {
+	_ = c.rdb.Del(ctx, c.unreadKey(receiverID, accountType)).Err()
 }
 
-func (c *NotificationCache) PublishNotificationEvent(ctx context.Context, receiverID uint64, receiverRole int32, payload string) {
-	_ = c.rdb.Publish(ctx, NotificationEventChannel(receiverID, receiverRole), payload).Err()
+func (c *NotificationCache) PublishNotificationEvent(ctx context.Context, receiverID uint64, accountType string, payload string) {
+	_ = c.rdb.Publish(ctx, NotificationEventChannel(receiverID, accountType), payload).Err()
 }
 
 func (c *NotificationCache) Close() error {

@@ -6,10 +6,16 @@ import (
 	golangjwt "github.com/golang-jwt/jwt/v5"
 )
 
+// Claims represents the JWT access token payload.
+// During the migration window, both legacy Role and new RBAC fields are included.
 type Claims struct {
-	UserID   int64  `json:"user_id"`
-	Username string `json:"username"`
-	Role     int32  `json:"role"`
+	UserID       int64    `json:"user_id"`
+	Username     string   `json:"username"`
+	Role         int32    `json:"role"`          // Deprecated: kept for compatibility
+	AccountType  string   `json:"account_type"`
+	Roles        []string `json:"roles"`          // RBAC role keys
+	Permissions  []string `json:"permissions"`    // RBAC permission keys
+	TokenVersion int32    `json:"token_version"`  // Incremented on permission change
 	golangjwt.RegisteredClaims
 }
 
@@ -25,12 +31,21 @@ func Generate(secret string, userID int64, username string, role int32) (string,
 	return GenerateWithTTL(secret, userID, username, role, AccessTokenTTL)
 }
 
-// GenerateWithTTL creates a new token with a custom TTL.
+// GenerateWithTTL creates a new token with a custom TTL using legacy role only.
 func GenerateWithTTL(secret string, userID int64, username string, role int32, ttl time.Duration) (string, error) {
+	return GenerateFull(secret, userID, username, role, "", nil, nil, 1, ttl)
+}
+
+// GenerateFull creates a JWT with full RBAC metadata.
+func GenerateFull(secret string, userID int64, username string, role int32, accountType string, roles, permissions []string, tokenVersion int32, ttl time.Duration) (string, error) {
 	claims := Claims{
-		UserID:   userID,
-		Username: username,
-		Role:     role,
+		UserID:       userID,
+		Username:     username,
+		Role:         role,
+		AccountType:  accountType,
+		Roles:        roles,
+		Permissions:  permissions,
+		TokenVersion: tokenVersion,
 		RegisteredClaims: golangjwt.RegisteredClaims{
 			ExpiresAt: golangjwt.NewNumericDate(time.Now().Add(ttl)),
 			IssuedAt:  golangjwt.NewNumericDate(time.Now()),

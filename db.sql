@@ -9,13 +9,37 @@ CREATE TABLE IF NOT EXISTS `users` (
   `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT COMMENT '用户ID',
   `username` VARCHAR(64) NOT NULL COMMENT '用户名（唯一）',
   `password` VARCHAR(255) NOT NULL COMMENT 'bcrypt 哈希密码',
-  `role` TINYINT NOT NULL DEFAULT 1 COMMENT '角色：1=候选人 2=HR 3=HR管理员',
+  `role` TINYINT NOT NULL DEFAULT 1 COMMENT '角色：1=候选人 2=HR 3=HR管理员（Deprecated: 保留用于兼容，新授权逻辑使用 RBAC 表）',
   `email` VARCHAR(128) DEFAULT NULL COMMENT '邮箱（可选）',
+  `account_type` VARCHAR(32) NOT NULL DEFAULT 'candidate' COMMENT '账号类型：candidate | staff | service',
+  `status` VARCHAR(32) NOT NULL DEFAULT 'active' COMMENT '账号状态：active | disabled | locked | pending',
+  `token_version` INT NOT NULL DEFAULT 1 COMMENT '令牌版本号，权限变更时递增以失效旧令牌',
   `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   `updated_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`),
   UNIQUE KEY `uk_username` (`username`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='用户账号表';
+
+CREATE TABLE IF NOT EXISTS `refresh_tokens` (
+  `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT COMMENT '刷新令牌ID',
+  `user_id` BIGINT UNSIGNED NOT NULL COMMENT '关联 users.id',
+  `token_hash` CHAR(64) NOT NULL COMMENT '明文 refresh token 的 sha256 哈希',
+  `family_id` VARCHAR(64) NOT NULL COMMENT '登录会话族ID，轮换时保持不变',
+  `expires_at` DATETIME(3) NOT NULL COMMENT '刷新令牌过期时间',
+  `revoked_at` DATETIME(3) NULL COMMENT '令牌被轮换或撤销的时间',
+  `replaced_by_hash` CHAR(64) NULL COMMENT '替换它的新 refresh token 哈希',
+  `reuse_detected_at` DATETIME(3) NULL COMMENT '已撤销令牌被复用的检测时间',
+  `created_ip` VARCHAR(64) NULL COMMENT '创建该令牌的客户端IP',
+  `created_user_agent` VARCHAR(255) NULL COMMENT '创建该令牌的 User-Agent',
+  `created_at` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+  `updated_at` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3),
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `idx_refresh_tokens_token_hash` (`token_hash`),
+  KEY `idx_refresh_tokens_user_id` (`user_id`),
+  KEY `idx_refresh_tokens_family_id` (`family_id`),
+  KEY `idx_refresh_tokens_expires_at` (`expires_at`),
+  CONSTRAINT `fk_refresh_tokens_user_id` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='刷新令牌存储表';
 
 CREATE TABLE IF NOT EXISTS `jobs` (
   `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT COMMENT '岗位ID',
@@ -182,7 +206,8 @@ CREATE TABLE IF NOT EXISTS `notifications` (
   `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT COMMENT '通知ID',
   `event_id` VARCHAR(64) NULL COMMENT '来源 outbox 事件ID，用于 MQ 重复投递幂等',
   `receiver_id` BIGINT UNSIGNED NOT NULL COMMENT '接收用户ID',
-  `receiver_role` TINYINT NOT NULL COMMENT '接收者角色：1=候选人 2=HR',
+  `receiver_role` TINYINT NOT NULL COMMENT '接收者角色（废弃，用 receiver_account_type）',
+  `receiver_account_type` VARCHAR(32) NOT NULL DEFAULT '' COMMENT '接收者账户类型：candidate/staff',
   `type` VARCHAR(64) NOT NULL COMMENT '通知类型',
   `title` VARCHAR(128) NOT NULL COMMENT '通知标题',
   `content` VARCHAR(512) NOT NULL COMMENT '通知内容',
@@ -194,10 +219,10 @@ CREATE TABLE IF NOT EXISTS `notifications` (
   `read_at` DATETIME NULL,
   PRIMARY KEY (`id`),
   UNIQUE KEY `uk_notification_event_id` (`event_id`),
-  UNIQUE KEY `uk_notification_once` (`receiver_id`, `receiver_role`, `biz_type`, `biz_id`, `type`),
-  KEY `idx_receiver_read_created` (`receiver_id`, `receiver_role`, `is_read`, `created_at`),
-  KEY `idx_receiver_read_created_id` (`receiver_id`, `receiver_role`, `is_read`, `created_at`, `id`),
-  KEY `idx_receiver_created` (`receiver_id`, `receiver_role`, `created_at`)
+  UNIQUE KEY `uk_notification_once` (`receiver_id`, `receiver_account_type`, `biz_type`, `biz_id`, `type`),
+  KEY `idx_receiver_read_created` (`receiver_id`, `receiver_account_type`, `is_read`, `created_at`),
+  KEY `idx_receiver_read_created_id` (`receiver_id`, `receiver_account_type`, `is_read`, `created_at`, `id`),
+  KEY `idx_receiver_created` (`receiver_id`, `receiver_account_type`, `created_at`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='站内通知表';
 
 CREATE TABLE IF NOT EXISTS `event_outbox` (
@@ -261,10 +286,231 @@ CREATE TABLE IF NOT EXISTS `third_party_usage_logs` (
   KEY `idx_request_id` (`request_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='第三方服务调用审计日志';
 
--- ── 插入默认 HR 管理员账号 (admin / 123456，角色=3 表示 HR 管理员) ────
+-- ══════════════════════════════════════════════════════════════════════
+-- RBAC 角色与权限系统 (Role-Based Access Control)
+-- ══════════════════════════════════════════════════════════════════════
 
-INSERT IGNORE INTO `users` (`username`, `password`, `role`) VALUES
-  ('admin', '$2b$10$qxetp5jT6U7U5dd/k1G/v.qJ.FDlqFLWO3LHKv8Kwt6c49VXhLhOy', 3);
+CREATE TABLE IF NOT EXISTS `roles` (
+  `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+  `role_key` VARCHAR(64) NOT NULL COMMENT '角色唯一标识：candidate / recruiter / recruiting_admin / system_admin / interviewer',
+  `name` VARCHAR(128) NOT NULL COMMENT '角色中文名称',
+  `description` VARCHAR(512) DEFAULT NULL COMMENT '角色描述',
+  `is_system` TINYINT NOT NULL DEFAULT 1 COMMENT '是否系统角色：1=系统预置 0=自定义',
+  `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_roles_role_key` (`role_key`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='角色定义表';
+
+CREATE TABLE IF NOT EXISTS `permissions` (
+  `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+  `permission_key` VARCHAR(128) NOT NULL COMMENT '权限唯一标识，如 job.read / application.status.update',
+  `resource` VARCHAR(64) NOT NULL COMMENT '资源域：job / application / admin / audit 等',
+  `action` VARCHAR(64) NOT NULL COMMENT '操作：read / create / update / delete / manage / use',
+  `description` VARCHAR(512) DEFAULT NULL COMMENT '权限说明',
+  `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_permissions_permission_key` (`permission_key`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='权限定义表';
+
+CREATE TABLE IF NOT EXISTS `role_permissions` (
+  `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+  `role_id` BIGINT UNSIGNED NOT NULL COMMENT '关联 roles.id',
+  `permission_id` BIGINT UNSIGNED NOT NULL COMMENT '关联 permissions.id',
+  `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_role_permission` (`role_id`, `permission_id`),
+  KEY `idx_permission_id` (`permission_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='角色-权限关联表';
+
+CREATE TABLE IF NOT EXISTS `user_roles` (
+  `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+  `user_id` BIGINT UNSIGNED NOT NULL COMMENT '关联 users.id',
+  `role_id` BIGINT UNSIGNED NOT NULL COMMENT '关联 roles.id',
+  `assigned_by` BIGINT UNSIGNED DEFAULT NULL COMMENT '分配人用户ID',
+  `assigned_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '分配时间',
+  `revoked_at` DATETIME DEFAULT NULL COMMENT '撤销时间，NULL 表示当前有效',
+  `active_key` TINYINT GENERATED ALWAYS AS (CASE WHEN `revoked_at` IS NULL THEN 1 ELSE NULL END) STORED COMMENT '当前有效记录唯一约束键',
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_user_role_active` (`user_id`, `role_id`, `active_key`),
+  KEY `idx_user_roles_user` (`user_id`),
+  KEY `idx_user_roles_role` (`role_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='用户角色分配表';
+
+CREATE TABLE IF NOT EXISTS `user_data_scopes` (
+  `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+  `user_id` BIGINT UNSIGNED NOT NULL COMMENT '关联 users.id',
+  `scope_key` VARCHAR(64) NOT NULL COMMENT '数据范围：self / own_jobs / department / location / recruiting_all / system_all',
+  `resource_type` VARCHAR(64) NOT NULL DEFAULT '' COMMENT '限定资源类型，空=全局适用',
+  `resource_id` BIGINT UNSIGNED NOT NULL DEFAULT 0 COMMENT '限定资源ID，0=不限定具体资源',
+  `assigned_by` BIGINT UNSIGNED DEFAULT NULL COMMENT '分配人用户ID',
+  `assigned_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '分配时间',
+  `revoked_at` DATETIME DEFAULT NULL COMMENT '撤销时间，NULL 表示当前有效',
+  `active_key` TINYINT GENERATED ALWAYS AS (CASE WHEN `revoked_at` IS NULL THEN 1 ELSE NULL END) STORED COMMENT '当前有效记录唯一约束键',
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_user_scope_active` (`user_id`, `scope_key`, `resource_type`, `resource_id`, `active_key`),
+  KEY `idx_user_scope` (`user_id`, `scope_key`, `revoked_at`),
+  KEY `idx_scope_resource` (`scope_key`, `resource_type`, `resource_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='用户数据范围表';
+
+CREATE TABLE IF NOT EXISTS `authorization_audit_logs` (
+  `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+  `actor_user_id` BIGINT UNSIGNED NOT NULL COMMENT '操作人用户ID',
+  `actor_roles` VARCHAR(512) NOT NULL COMMENT '操作人当前角色，逗号分隔',
+  `permission_key` VARCHAR(128) NOT NULL COMMENT '被检查的权限 key',
+  `resource_type` VARCHAR(64) NOT NULL COMMENT '目标资源类型',
+  `resource_id` BIGINT UNSIGNED NOT NULL DEFAULT 0 COMMENT '目标资源ID',
+  `decision` VARCHAR(16) NOT NULL COMMENT '授权决策：allowed | denied',
+  `reason` VARCHAR(512) DEFAULT NULL COMMENT '拒绝原因或补充说明',
+  `request_id` VARCHAR(64) DEFAULT NULL COMMENT '请求追踪ID',
+  `client_ip` VARCHAR(64) DEFAULT NULL COMMENT '客户端IP',
+  `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  KEY `idx_actor_created` (`actor_user_id`, `created_at`),
+  KEY `idx_permission_created` (`permission_key`, `created_at`),
+  KEY `idx_decision_created` (`decision`, `created_at`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='授权审计日志表';
+
+-- ── 面试安排表 ────────────────────────────────────────────────────────
+-- 用于面试官 (interviewer) 角色的 assigned_interviews 数据范围匹配。
+-- 一个 application 可能对应多轮面试，每轮可指派不同面试官。
+
+CREATE TABLE IF NOT EXISTS `interview_schedules` (
+  `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+  `application_id` BIGINT UNSIGNED NOT NULL COMMENT '关联 applications.id',
+  `interviewer_id` BIGINT UNSIGNED NOT NULL COMMENT '面试官用户ID（users.id）',
+  `round_no` INT NOT NULL DEFAULT 1 COMMENT '面试轮次：1=初试 2=复试 ...',
+  `scheduled_at` DATETIME DEFAULT NULL COMMENT '计划面试时间',
+  `status` VARCHAR(32) NOT NULL DEFAULT 'pending' COMMENT '面试状态：pending / scheduled / completed / cancelled',
+  `created_by` BIGINT UNSIGNED DEFAULT NULL COMMENT '创建人用户ID',
+  `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  `deleted_at` DATETIME DEFAULT NULL COMMENT '软删除时间，NULL 表示有效',
+  PRIMARY KEY (`id`),
+  KEY `idx_interviewer_deleted` (`interviewer_id`, `deleted_at`),
+  KEY `idx_application_deleted` (`application_id`, `deleted_at`),
+  KEY `idx_interviewer_app` (`interviewer_id`, `application_id`, `deleted_at`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='面试安排表（用于面试官数据范围匹配）';
+
+-- ══════════════════════════════════════════════════════════════════════
+-- RBAC 种子数据
+-- ══════════════════════════════════════════════════════════════════════
+
+-- ── 角色 ──────────────────────────────────────────────────────────────
+
+INSERT INTO `roles` (`role_key`, `name`, `description`, `is_system`) VALUES
+  ('candidate',        '求职者',     '外部求职者，管理个人资料、简历、投递和AI会话', 1),
+  ('recruiter',        '招聘专员',   '负责岗位发布、候选人流程、面试安排和HR AI使用', 1),
+  ('recruiting_admin', '招聘管理员', '管理招聘配置、邀请码、部门、地点、用户角色分配', 1),
+  ('system_admin',     '系统管理员', '管理平台安全配置、角色目录、权限目录、审计日志', 1),
+  ('interviewer',      '面试官',     '查看被分配的面试并提交反馈', 1)
+ON DUPLICATE KEY UPDATE `name` = VALUES(`name`), `description` = VALUES(`description`);
+
+-- ── 权限 ──────────────────────────────────────────────────────────────
+
+INSERT INTO `permissions` (`permission_key`, `resource`, `action`, `description`) VALUES
+  ('auth.session.read',              'auth',        'read',   '查看自己的会话'),
+  ('candidate.profile.manage',       'candidate',   'manage', '管理候选人个人信息'),
+  ('candidate.resume.manage',        'candidate',   'manage', '管理个人简历'),
+  ('candidate.application.manage',   'candidate',   'manage', '创建和查看个人投递'),
+  ('job.read',                       'job',         'read',   '查看HR可见的岗位数据'),
+  ('job.create',                     'job',         'create', '创建岗位'),
+  ('job.update',                     'job',         'update', '编辑岗位'),
+  ('job.publish',                    'job',         'publish','上下线岗位'),
+  ('application.read',               'application', 'read',   '查看范围内的候选人台账'),
+  ('application.status.update',      'application', 'update', '变更候选人状态'),
+  ('interview.read',                 'interview',   'read',   '查看分配的面试'),
+  ('interview.schedule',             'interview',   'manage', '安排/修改/取消面试'),
+  ('interview.feedback.submit',      'interview',   'create', '提交面试反馈'),
+  ('notification.read',              'notification','read',   '查看自己的通知'),
+  ('ai.hr.use',                      'ai',          'use',    '使用HR AI助手'),
+  ('ai.candidate.use',               'ai',          'use',    '使用候选人AI助手'),
+  ('admin.invite.manage',            'admin',       'manage', '管理邀请码'),
+  ('admin.department.manage',        'admin',       'manage', '管理部门及部门地点关联'),
+  ('admin.location.manage',          'admin',       'manage', '管理工作地点'),
+  ('admin.user.manage',              'admin',       'manage', '创建/修改/禁用员工账号'),
+  ('admin.role.manage',              'admin',       'manage', '管理角色目录和权限分配'),
+  ('audit.usage.read',               'audit',       'read',   '查看第三方/AI使用日志'),
+  ('audit.security.read',            'audit',       'read',   '查看授权和安全审计事件'),
+  ('system.config.manage',           'system',      'manage', '管理平台安全配置')
+ON DUPLICATE KEY UPDATE `resource` = VALUES(`resource`), `action` = VALUES(`action`), `description` = VALUES(`description`);
+
+-- ── 角色-权限映射 ──────────────────────────────────────────────────────
+
+-- Candidate
+INSERT IGNORE INTO `role_permissions` (`role_id`, `permission_id`)
+  SELECT r.id, p.id FROM `roles` r, `permissions` p
+  WHERE r.role_key = 'candidate' AND p.permission_key IN (
+    'auth.session.read', 'candidate.profile.manage', 'candidate.resume.manage',
+    'candidate.application.manage', 'notification.read', 'ai.candidate.use'
+  );
+
+-- Recruiter
+INSERT IGNORE INTO `role_permissions` (`role_id`, `permission_id`)
+  SELECT r.id, p.id FROM `roles` r, `permissions` p
+  WHERE r.role_key = 'recruiter' AND p.permission_key IN (
+    'auth.session.read', 'job.read', 'job.create', 'job.update', 'job.publish',
+    'application.read', 'application.status.update',
+    'interview.read', 'interview.schedule', 'interview.feedback.submit',
+    'notification.read', 'ai.hr.use'
+  );
+
+-- Recruiting Admin (no recruiter workflow permissions by default)
+INSERT IGNORE INTO `role_permissions` (`role_id`, `permission_id`)
+  SELECT r.id, p.id FROM `roles` r, `permissions` p
+  WHERE r.role_key = 'recruiting_admin' AND p.permission_key IN (
+    'auth.session.read', 'job.read', 'application.read',
+    'notification.read', 'ai.hr.use',
+    'admin.invite.manage', 'admin.department.manage', 'admin.location.manage',
+    'admin.user.manage', 'admin.role.manage', 'audit.usage.read'
+  );
+
+-- System Admin (platform-level only, no recruiting workflow)
+INSERT IGNORE INTO `role_permissions` (`role_id`, `permission_id`)
+  SELECT r.id, p.id FROM `roles` r, `permissions` p
+  WHERE r.role_key = 'system_admin' AND p.permission_key IN (
+    'auth.session.read', 'admin.user.manage', 'admin.role.manage',
+    'audit.usage.read', 'audit.security.read', 'system.config.manage'
+  );
+
+-- Interviewer
+INSERT IGNORE INTO `role_permissions` (`role_id`, `permission_id`)
+  SELECT r.id, p.id FROM `roles` r, `permissions` p
+  WHERE r.role_key = 'interviewer' AND p.permission_key IN (
+    'auth.session.read', 'interview.read', 'interview.feedback.submit', 'notification.read'
+  );
+
+-- ── 默认管理员账号 (admin / 123456) ────────────────────────────────────
+-- account_type=staff, role=3（兼容旧逻辑）, 分配 recruiting_admin + recruiter 角色
+
+INSERT INTO `users` (`username`, `password`, `role`, `account_type`, `status`, `token_version`) VALUES
+  ('admin', '$2b$10$qxetp5jT6U7U5dd/k1G/v.qJ.FDlqFLWO3LHKv8Kwt6c49VXhLhOy', 3, 'staff', 'active', 1)
+ON DUPLICATE KEY UPDATE `account_type` = 'staff';
+
+-- 给 admin 分配 recruiting_admin 角色
+INSERT IGNORE INTO `user_roles` (`user_id`, `role_id`, `assigned_at`)
+  SELECT u.id, r.id, NOW()
+  FROM `users` u, `roles` r
+  WHERE u.username = 'admin' AND r.role_key = 'recruiting_admin';
+
+-- 给 admin 分配 recruiter 角色（显式授予，不依赖继承）
+INSERT IGNORE INTO `user_roles` (`user_id`, `role_id`, `assigned_at`)
+  SELECT u.id, r.id, NOW()
+  FROM `users` u, `roles` r
+  WHERE u.username = 'admin' AND r.role_key = 'recruiter';
+
+-- 给 admin 分配 recruiting_all 数据范围
+INSERT IGNORE INTO `user_data_scopes` (`user_id`, `scope_key`, `resource_type`, `resource_id`, `assigned_at`)
+  SELECT u.id, 'recruiting_all', '', 0, NOW()
+  FROM `users` u
+  WHERE u.username = 'admin';
+
+-- 给 admin 分配 system_admin 角色（系统管理权限，如审计日志查看、系统配置管理等）
+INSERT IGNORE INTO `user_roles` (`user_id`, `role_id`, `assigned_at`)
+  SELECT u.id, r.id, NOW()
+  FROM `users` u, `roles` r
+  WHERE u.username = 'admin' AND r.role_key = 'system_admin';
 
 -- ── 部门基础数据表 ──────────────────────────────────────────────────────
 

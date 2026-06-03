@@ -32,7 +32,7 @@ const submit = async () => {
   loading.value = true
   try {
     await auth.login(form)
-    if (auth.role !== 2 && auth.role !== 3) {
+    if (auth.accountType !== 'staff') {
       await request.post('/api/v1/auth/logout').catch(() => {})
       auth.logout()
       ElMessage.error('请使用 HR 账号登录')

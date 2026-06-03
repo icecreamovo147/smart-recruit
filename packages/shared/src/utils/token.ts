@@ -13,7 +13,14 @@ export const getUser = (): User | null => {
       removeUser()
       return null
     }
-    return { user_id: userId, role, username: String(parsed.username) } as User
+    return {
+      user_id: userId,
+      role,
+      username: String(parsed.username),
+      account_type: parsed.account_type ? String(parsed.account_type) : undefined,
+      roles: Array.isArray(parsed.roles) ? parsed.roles.map(String) : undefined,
+      permissions: Array.isArray(parsed.permissions) ? parsed.permissions.map(String) : undefined,
+    } as User
   } catch {
     removeUser()
     return null

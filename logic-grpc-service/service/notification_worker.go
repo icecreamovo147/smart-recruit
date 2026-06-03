@@ -30,8 +30,7 @@ func NewNotificationWorkerPool(repo *repository.NotificationRepo, c *cache.Notif
 }
 
 // Submit enqueues an idempotent notification write. If the pool is at capacity,
-// it drops the notification and logs a warning (non-blocking fallback). Use for
-// fire-and-forget scenarios where losing a notification is acceptable.
+// it drops the notification and logs a warning (non-blocking fallback).
 func (p *NotificationWorkerPool) Submit(n *model.Notification) {
 	p.submit(n, true)
 }
@@ -39,6 +38,18 @@ func (p *NotificationWorkerPool) Submit(n *model.Notification) {
 // SubmitAlways enqueues a notification write that always creates a new record.
 func (p *NotificationWorkerPool) SubmitAlways(n *model.Notification) {
 	p.submit(n, false)
+}
+
+// notifAccountType derives the account_type from the notification record.
+// Requires ReceiverAccountType to be set by the caller (FR-19).
+// Falls back to "candidate" only when the field is unexpectedly empty.
+func notifAccountType(n *model.Notification) string {
+	if n.ReceiverAccountType != "" {
+		return n.ReceiverAccountType
+	}
+	logger.L().Warn("notification worker: missing receiver_account_type, defaulting to candidate",
+		zap.Int64("receiver_id", n.ReceiverID))
+	return "candidate"
 }
 
 func (p *NotificationWorkerPool) submit(n *model.Notification, createOnce bool) {
@@ -77,7 +88,7 @@ func (p *NotificationWorkerPool) doWrite(n *model.Notification, createOnce bool)
 		err = p.repo.Create(ctx, n)
 	}
 	if err != nil {
-		logger.L().Error("notification worker write FAILED — check notifications table exists and schema matches",
+		logger.L().Error("notification worker write FAILED",
 			zap.String("type", n.Type),
 			zap.Int64("receiver_id", n.ReceiverID),
 			zap.String("title", n.Title),
@@ -86,11 +97,6 @@ func (p *NotificationWorkerPool) doWrite(n *model.Notification, createOnce bool)
 		return
 	}
 	if !created {
-		logger.L().Debug("notification already exists, skip event publish",
-			zap.String("type", n.Type),
-			zap.Int64("receiver_id", n.ReceiverID),
-			zap.Bool("create_once", createOnce),
-		)
 		return
 	}
 	logger.L().Info("notification created successfully",
@@ -99,20 +105,21 @@ func (p *NotificationWorkerPool) doWrite(n *model.Notification, createOnce bool)
 		zap.String("title", n.Title),
 		zap.Bool("create_once", createOnce),
 	)
-	// Invalidate cached unread count so the next poll picks up the new notification.
+	// Invalidate cached unread count and publish event.
 	if p.cache != nil {
-		p.cache.Invalidate(ctx, uint64(n.ReceiverID), n.ReceiverRole)
-		p.publishCreatedEvent(ctx, n)
+		acctType := notifAccountType(n)
+		p.cache.Invalidate(ctx, uint64(n.ReceiverID), acctType)
+		p.publishCreatedEvent(ctx, n, acctType)
 	}
 }
 
-func (p *NotificationWorkerPool) publishCreatedEvent(ctx context.Context, n *model.Notification) {
-	count, err := p.repo.UnreadCount(ctx, n.ReceiverID, n.ReceiverRole)
+func (p *NotificationWorkerPool) publishCreatedEvent(ctx context.Context, n *model.Notification, acctType string) {
+	count, err := p.repo.UnreadCount(ctx, n.ReceiverID, acctType)
 	if err != nil {
 		logger.L().Warn("notification worker event unread count failed", zap.Error(err))
 	}
 	if p.cache != nil {
-		p.cache.SetUnreadCount(ctx, uint64(n.ReceiverID), n.ReceiverRole, count)
+		p.cache.SetUnreadCount(ctx, uint64(n.ReceiverID), acctType, count)
 	}
 	payload, err := json.Marshal(notificationEvent{
 		Type:             "notification_created",
@@ -128,5 +135,5 @@ func (p *NotificationWorkerPool) publishCreatedEvent(ctx context.Context, n *mod
 		logger.L().Warn("notification worker event marshal failed", zap.Error(err))
 		return
 	}
-	p.cache.PublishNotificationEvent(ctx, uint64(n.ReceiverID), n.ReceiverRole, string(payload))
+	p.cache.PublishNotificationEvent(ctx, uint64(n.ReceiverID), acctType, string(payload))
 }

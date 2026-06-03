@@ -107,7 +107,7 @@ func TestNotificationListPassesCursor(t *testing.T) {
 	router := gin.New()
 	router.GET("/notifications", func(c *gin.Context) {
 		c.Set("user_id", int64(7))
-		c.Set("role", int32(1))
+		c.Set("account_type", "candidate")
 		handler.List(c)
 	})
 
@@ -118,19 +118,19 @@ func TestNotificationListPassesCursor(t *testing.T) {
 	if fake.got == nil {
 		t.Fatalf("expected ListNotifications to be called")
 	}
-	if fake.got.UserId != 7 || fake.got.Role != 1 || fake.got.Cursor != "next" || fake.got.Page != 0 || fake.got.PageSize != 30 {
+	if fake.got.UserId != 7 || fake.got.AccountType != "candidate" || fake.got.Cursor != "next" || fake.got.Page != 0 || fake.got.PageSize != 30 {
 		t.Fatalf("unexpected request: %+v", fake.got)
 	}
 }
 
-func TestNotificationListNormalizesAdminToHRRole(t *testing.T) {
+func TestNotificationListPassesAccountTypeForStaff(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	fake := &cursorNotificationClient{}
 	handler := NewNotificationHandler(&rpc.Clients{Notification: fake}, nil)
 	router := gin.New()
 	router.GET("/notifications", func(c *gin.Context) {
 		c.Set("user_id", int64(7))
-		c.Set("role", int32(3))
+		c.Set("account_type", "staff")
 		handler.List(c)
 	})
 
@@ -141,7 +141,7 @@ func TestNotificationListNormalizesAdminToHRRole(t *testing.T) {
 	if fake.got == nil {
 		t.Fatalf("expected ListNotifications to be called")
 	}
-	if fake.got.UserId != 7 || fake.got.Role != 2 {
-		t.Fatalf("unexpected notification receiver: user_id=%d role=%d", fake.got.UserId, fake.got.Role)
+	if fake.got.UserId != 7 || fake.got.AccountType != "staff" {
+		t.Fatalf("unexpected notification receiver: user_id=%d account_type=%s", fake.got.UserId, fake.got.AccountType)
 	}
 }

@@ -382,6 +382,185 @@ func (h *AdminHandler) UpdateDepartmentLocationConfig(c *gin.Context) {
 	base.ProtoResponse(c, resp)
 }
 
+// ── RBAC Roles & Permissions ─────────────────────────────────────────
+
+func (h *AdminHandler) ListRoles(c *gin.Context) {
+	resp, err := h.clients.Admin.ListRoles(c.Request.Context(), &pb.ListRolesRequest{})
+	if err != nil {
+		base.Internal(c, err)
+		return
+	}
+	base.ProtoResponse(c, resp)
+}
+
+func (h *AdminHandler) ListPermissions(c *gin.Context) {
+	resp, err := h.clients.Admin.ListPermissions(c.Request.Context(), &pb.ListPermissionsRequest{})
+	if err != nil {
+		base.Internal(c, err)
+		return
+	}
+	base.ProtoResponse(c, resp)
+}
+
+func (h *AdminHandler) GetUserRoles(c *gin.Context) {
+	userID, err := strconv.ParseInt(c.Param("user_id"), 10, 64)
+	if err != nil {
+		base.BadRequest(c, "无效的用户 ID")
+		return
+	}
+	resp, err := h.clients.Admin.GetUserRoles(c.Request.Context(), &pb.GetUserRolesRequest{
+		UserId: userID,
+	})
+	if err != nil {
+		base.Internal(c, err)
+		return
+	}
+	base.ProtoResponse(c, resp)
+}
+
+func (h *AdminHandler) AssignUserRole(c *gin.Context) {
+	userID, err := strconv.ParseInt(c.Param("user_id"), 10, 64)
+	if err != nil {
+		base.BadRequest(c, "无效的用户 ID")
+		return
+	}
+	var req struct {
+		RoleKey string `json:"role_key" binding:"required"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		base.BadRequest(c, "请求参数错误")
+		return
+	}
+	resp, err := h.clients.Admin.AssignUserRole(c.Request.Context(), &pb.AssignUserRoleRequest{
+		AdminId: middleware.UserID(c),
+		UserId:  userID,
+		RoleKey: req.RoleKey,
+	})
+	if err != nil {
+		base.Internal(c, err)
+		return
+	}
+	base.ProtoResponse(c, resp)
+}
+
+func (h *AdminHandler) RevokeUserRole(c *gin.Context) {
+	userID, err := strconv.ParseInt(c.Param("user_id"), 10, 64)
+	if err != nil {
+		base.BadRequest(c, "无效的用户 ID")
+		return
+	}
+	var req struct {
+		RoleKey string `json:"role_key" binding:"required"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		base.BadRequest(c, "请求参数错误")
+		return
+	}
+	resp, err := h.clients.Admin.RevokeUserRole(c.Request.Context(), &pb.RevokeUserRoleRequest{
+		AdminId: middleware.UserID(c),
+		UserId:  userID,
+		RoleKey: req.RoleKey,
+	})
+	if err != nil {
+		base.Internal(c, err)
+		return
+	}
+	base.ProtoResponse(c, resp)
+}
+
+func (h *AdminHandler) AssignDataScope(c *gin.Context) {
+	userID, err := strconv.ParseInt(c.Param("user_id"), 10, 64)
+	if err != nil {
+		base.BadRequest(c, "无效的用户 ID")
+		return
+	}
+	var req struct {
+		ScopeKey     string `json:"scope_key" binding:"required"`
+		ResourceType string `json:"resource_type"`
+		ResourceID   uint64 `json:"resource_id"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		base.BadRequest(c, "请求参数错误")
+		return
+	}
+	resp, err := h.clients.Admin.AssignDataScope(c.Request.Context(), &pb.AssignDataScopeRequest{
+		AdminId:      middleware.UserID(c),
+		UserId:       userID,
+		ScopeKey:     req.ScopeKey,
+		ResourceType: req.ResourceType,
+		ResourceId:   req.ResourceID,
+	})
+	if err != nil {
+		base.Internal(c, err)
+		return
+	}
+	base.ProtoResponse(c, resp)
+}
+
+func (h *AdminHandler) RevokeDataScope(c *gin.Context) {
+	scopeID, err := strconv.ParseUint(c.Param("scope_id"), 10, 64)
+	if err != nil {
+		base.BadRequest(c, "无效的范围 ID")
+		return
+	}
+	resp, err := h.clients.Admin.RevokeDataScope(c.Request.Context(), &pb.RevokeDataScopeRequest{
+		AdminId: middleware.UserID(c),
+		ScopeId: scopeID,
+	})
+	if err != nil {
+		base.Internal(c, err)
+		return
+	}
+	base.ProtoResponse(c, resp)
+}
+
+func (h *AdminHandler) ListStaffUsers(c *gin.Context) {
+	var req struct {
+		Page     int32  `form:"page"`
+		PageSize int32  `form:"page_size"`
+		Status   string `form:"status"`
+	}
+	if err := c.ShouldBindQuery(&req); err != nil {
+		base.BadRequest(c, "请求参数错误")
+		return
+	}
+	resp, err := h.clients.Admin.ListStaffUsers(c.Request.Context(), &pb.ListStaffUsersRequest{
+		Page:     req.Page,
+		PageSize: req.PageSize,
+		Status:   req.Status,
+	})
+	if err != nil {
+		base.Internal(c, err)
+		return
+	}
+	base.ProtoResponse(c, resp)
+}
+
+func (h *AdminHandler) CreateStaffUser(c *gin.Context) {
+	var req struct {
+		Username string   `json:"username" binding:"required"`
+		Password string   `json:"password" binding:"required"`
+		Email    string   `json:"email"`
+		RoleKeys []string `json:"role_keys"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		base.BadRequest(c, "请求参数错误")
+		return
+	}
+	resp, err := h.clients.Admin.CreateStaffUser(c.Request.Context(), &pb.CreateStaffUserRequest{
+		AdminId:  middleware.UserID(c),
+		Username: req.Username,
+		Password: req.Password,
+		Email:    req.Email,
+		RoleKeys: req.RoleKeys,
+	})
+	if err != nil {
+		base.Internal(c, err)
+		return
+	}
+	base.ProtoResponse(c, resp)
+}
+
 // ── Usage Audit ──────────────────────────────────────────────────────
 
 func (h *AdminHandler) ListUsageLogs(c *gin.Context) {

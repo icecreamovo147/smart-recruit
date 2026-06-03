@@ -5,8 +5,12 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
+	"github.com/redis/go-redis/v9"
+	"go.uber.org/zap"
 
+	"web-gin-service/middleware"
 	"web-gin-service/pkg/jwt"
+	"web-gin-service/pkg/logger"
 	"web-gin-service/recruitment/pb"
 	"web-gin-service/rpc"
 )
@@ -18,9 +22,10 @@ type AuthHandler struct {
 	hrCookie        string
 	cookieSecure    bool
 	jwtSecret       string
+	rdb             *redis.Client // optional: for token_version cache
 }
 
-func NewAuthHandler(clients *rpc.Clients, defaultCookie, candidateCookie, hrCookie string, cookieSecure bool, jwtSecret string) *AuthHandler {
+func NewAuthHandler(clients *rpc.Clients, defaultCookie, candidateCookie, hrCookie string, cookieSecure bool, jwtSecret string, rdb *redis.Client) *AuthHandler {
 	if defaultCookie == "" {
 		defaultCookie = "recruitment_token"
 	}
@@ -37,6 +42,7 @@ func NewAuthHandler(clients *rpc.Clients, defaultCookie, candidateCookie, hrCook
 		hrCookie:        hrCookie,
 		cookieSecure:    cookieSecure,
 		jwtSecret:       jwtSecret,
+		rdb:             rdb,
 	}
 }
 
@@ -53,12 +59,14 @@ func (h *AuthHandler) Register(c *gin.Context) {
 		return
 	}
 
-	// TODO(invite-code): The invite-code flow is reserved; validation is not yet wired.
+	// Candidate self-registration (role=1) is always allowed.
+	// Staff registration (role=2,3) requires a valid invite code — validated server-side.
 	resp, err := h.clients.Auth.Register(c.Request.Context(), &pb.RegisterRequest{
-		Username: req.Username,
-		Password: req.Password,
-		Role:     req.Role,
-		Email:    req.Email,
+		Username:   req.Username,
+		Password:   req.Password,
+		Role:       req.Role,
+		Email:      req.Email,
+		InviteCode: req.InviteCode,
 	})
 	if err != nil {
 		Internal(c, err)
@@ -82,12 +90,21 @@ func (h *AuthHandler) Login(c *gin.Context) {
 		return
 	}
 	if resp.Code == 0 && resp.Token != "" {
-		cookieName := h.loginCookieName(resp.Role)
+		cookieName := h.loginCookieNameByAccountType(resp.AccountType, resp.Role)
 		accessCookie := cookieName + "_access"
 		refreshCookie := cookieName + "_refresh"
 
-		// Write access JWT as httpOnly cookie (short TTL, 24h).
-		accessToken, _ := jwt.GenerateWithTTL(h.jwtSecret, resp.UserId, resp.Username, resp.Role, jwt.AccessTokenTTL)
+		// Write access JWT as httpOnly cookie (short TTL, 24h) with full RBAC metadata.
+		accessToken, err := jwt.GenerateFull(
+			h.jwtSecret, resp.UserId, resp.Username, resp.Role,
+			resp.AccountType, resp.Roles, resp.Permissions, resp.TokenVersion,
+			jwt.AccessTokenTTL,
+		)
+		if err != nil {
+			logger.L().Error("login: generate access JWT failed", zap.Int64("user_id", resp.UserId), zap.Error(err))
+			Internal(c, err)
+			return
+		}
 		http.SetCookie(c.Writer, &http.Cookie{
 			Name: accessCookie, Value: accessToken,
 			Path: "/", Expires: time.Now().Add(jwt.AccessTokenTTL),
@@ -100,26 +117,60 @@ func (h *AuthHandler) Login(c *gin.Context) {
 			HttpOnly: true, Secure: h.secureCookie(c), SameSite: http.SameSiteStrictMode,
 		})
 		// Erase token from JSON body — it lives in the httpOnly cookie only.
+		// Cache token_version so JWT middleware validates against Redis.
+		if h.rdb != nil && resp.TokenVersion > 0 {
+			if err := middleware.SetTokenVersionCache(c.Request.Context(), h.rdb, resp.UserId, resp.TokenVersion); err != nil {
+				logger.L().Warn("failed to cache token_version after login, user may face auth issues",
+					zap.Int64("user_id", resp.UserId), zap.Error(err))
+			}
+		}
 		resp.Token = ""
 	}
 	ProtoResponse(c, resp)
 }
 
+// Me returns the current server-side principal by calling GetPrincipal RPC.
+// This ensures the response always reflects the latest roles, permissions, and
+// token_version from the database, not stale JWT claims.
 func (h *AuthHandler) Me(c *gin.Context) {
-	userID, _ := c.Get("user_id")
-	username, _ := c.Get("username")
-	role, _ := c.Get("role")
-	OK(c, "ok", gin.H{"user_id": userID, "username": username, "role": role})
+	userID := middleware.UserID(c)
+	resp, err := h.clients.Auth.GetPrincipal(c.Request.Context(), &pb.GetPrincipalRequest{
+		UserId: userID,
+	})
+	if err != nil {
+		Internal(c, err)
+		return
+	}
+	if resp.Code != 0 {
+		From(c, 401, "会话已过期，请重新登录", nil)
+		return
+	}
+	// Convert data scopes to a serializable form
+	dataScopes := make([]gin.H, 0, len(resp.DataScopes))
+	for _, ds := range resp.DataScopes {
+		dataScopes = append(dataScopes, gin.H{
+			"scope_key":     ds.ScopeKey,
+			"resource_type": ds.ResourceType,
+			"resource_id":   ds.ResourceId,
+		})
+	}
+	OK(c, "ok", gin.H{
+		"user_id":      resp.UserId,
+		"username":     resp.Username,
+		"role":         resp.Role,         // Deprecated: kept for compatibility
+		"account_type": resp.AccountType,
+		"roles":        resp.Roles,
+		"permissions":  resp.Permissions,
+		"token_version": resp.TokenVersion,
+		"data_scopes":   dataScopes,
+	})
 }
 
 // Logout clears both cookies and revokes the refresh token via Logic.
 func (h *AuthHandler) Logout(c *gin.Context) {
-	cookieName := h.requestCookieName(c)
-	if role, ok := c.Get("role"); ok {
-		if r, ok := role.(int32); ok {
-			cookieName = h.loginCookieName(r)
-		}
-	}
+	accountType := middleware.AccountType(c)
+	legacyRole := middleware.Role(c)
+	cookieName := h.loginCookieNameByAccountType(accountType, legacyRole)
 
 	// Attempt to revoke the refresh token on Logic; ignore errors — cookie must be cleared regardless.
 	refreshCookieName := cookieName + "_refresh"
@@ -180,8 +231,22 @@ func (h *AuthHandler) RefreshToken(c *gin.Context) {
 		return
 	}
 
-	// Write new access JWT cookie.
-	accessToken, _ := jwt.GenerateWithTTL(h.jwtSecret, resp.UserId, resp.Username, resp.Role, jwt.AccessTokenTTL)
+	// Determine cookie name from account type
+	if resp.AccountType != "" {
+		cookieName = h.loginCookieNameByAccountType(resp.AccountType, resp.Role)
+	}
+
+	// Write new access JWT cookie with full RBAC metadata.
+	accessToken, err := jwt.GenerateFull(
+		h.jwtSecret, resp.UserId, resp.Username, resp.Role,
+		resp.AccountType, resp.Roles, resp.Permissions, resp.TokenVersion,
+		jwt.AccessTokenTTL,
+	)
+	if err != nil {
+		logger.L().Error("refresh: generate access JWT failed", zap.Int64("user_id", resp.UserId), zap.Error(err))
+		Internal(c, err)
+		return
+	}
 	http.SetCookie(c.Writer, &http.Cookie{
 		Name: cookieName + "_access", Value: accessToken,
 		Path: "/", Expires: time.Now().Add(jwt.AccessTokenTTL),
@@ -194,12 +259,20 @@ func (h *AuthHandler) RefreshToken(c *gin.Context) {
 		HttpOnly: true, Secure: h.secureCookie(c), SameSite: http.SameSiteStrictMode,
 	})
 
+	// Cache token_version so JWT middleware can validate.
+	if h.rdb != nil && resp.TokenVersion > 0 {
+		if err := middleware.SetTokenVersionCache(c.Request.Context(), h.rdb, resp.UserId, resp.TokenVersion); err != nil {
+			logger.L().Warn("failed to cache token_version after refresh, user may face auth issues",
+				zap.Int64("user_id", resp.UserId), zap.Error(err))
+		}
+	}
 	// JSON body carries no token.
 	resp.RefreshToken = ""
 	ProtoResponse(c, resp)
 }
 
-// ValidateInviteCode is a reserved capability; invite-code validation is not yet active.
+// ValidateInviteCode checks whether an invite code is valid (active and not expired).
+// Used by the registration page to give immediate feedback before form submission.
 func (h *AuthHandler) ValidateInviteCode(c *gin.Context) {
 	var req struct {
 		InviteCode string `json:"invite_code" binding:"required"`
@@ -222,11 +295,28 @@ func (h *AuthHandler) secureCookie(c *gin.Context) bool {
 	return h.cookieSecure || c.Request.TLS != nil
 }
 
-func (h *AuthHandler) loginCookieName(role int32) string {
+// Deprecated: loginCookieNameByRole uses legacy numeric role comparison.
+// Use loginCookieNameByAccountType instead, which derives the cookie name
+// from the account_type field. This function is retained only as a fallback
+// for callers that don't have account_type available.
+func (h *AuthHandler) loginCookieNameByRole(role int32) string {
 	if role >= 2 {
 		return h.hrCookie
 	}
 	return h.candidateCookie
+}
+
+// loginCookieNameByAccountType uses account_type as the primary signal,
+// falling back to legacy role for backward compatibility.
+func (h *AuthHandler) loginCookieNameByAccountType(accountType string, legacyRole int32) string {
+	if accountType == "staff" {
+		return h.hrCookie
+	}
+	if accountType == "candidate" {
+		return h.candidateCookie
+	}
+	// Fallback to legacy role check
+	return h.loginCookieNameByRole(legacyRole)
 }
 
 func (h *AuthHandler) requestCookieName(c *gin.Context) string {

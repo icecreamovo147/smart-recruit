@@ -149,6 +149,24 @@ install_frontend_dependencies() {
     fi
 }
 
+logic_jwt_secret() {
+    local config_file="${ROOT}/logic-grpc-service/config/config.yaml"
+
+    [ -f "${config_file}" ] || die "Missing ${config_file}; create it from config.example.yaml first."
+
+    awk '
+        /^[[:space:]]*jwt:[[:space:]]*$/ { in_jwt = 1; next }
+        /^[^[:space:]][^:]*:[[:space:]]*$/ { in_jwt = 0 }
+        in_jwt && /^[[:space:]]*secret:[[:space:]]*/ {
+            line = $0
+            sub(/^[[:space:]]*secret:[[:space:]]*/, "", line)
+            gsub(/^[\"\047]|[\"\047]$/, "", line)
+            print line
+            exit
+        }
+    ' "${config_file}"
+}
+
 port_in_use() {
     local port="$1"
     lsof -tiTCP:"${port}" -sTCP:LISTEN >/dev/null 2>&1
@@ -217,9 +235,13 @@ build_go_service "${ROOT}/web-gin-service" "web-gin-service"
 install_frontend_dependencies "${ROOT}/hr-frontend" "HR frontend"
 install_frontend_dependencies "${ROOT}/user-frontend" "User frontend"
 
+JWT_SECRET="${JWT_SECRET:-$(logic_jwt_secret)}"
+[ -n "${JWT_SECRET}" ] || die "JWT secret is empty. Set jwt.secret in logic-grpc-service/config/config.yaml or export JWT_SECRET."
+export JWT_SECRET
+
 start_service "logic-grpc-service" "${ROOT}/logic-grpc-service" 50051 "${BIN_DIR}/logic-grpc-service"
 sleep 3
-start_service "web-gin-service" "${ROOT}/web-gin-service" 8080 "${BIN_DIR}/web-gin-service"
+start_service "web-gin-service" "${ROOT}/web-gin-service" 8080 env JWT_SECRET="${JWT_SECRET}" "${BIN_DIR}/web-gin-service"
 start_service "hr-frontend" "${ROOT}/hr-frontend" 5173 pnpm run dev
 start_service "user-frontend" "${ROOT}/user-frontend" 5174 pnpm run dev
 

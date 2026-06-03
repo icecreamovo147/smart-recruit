@@ -1,12 +1,13 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { ArrowDown, Briefcase, ChatDotRound, Expand, Fold, Key, Menu, Monitor, Moon, Operation, Sunny, UserFilled } from '@element-plus/icons-vue'
+import { ArrowDown, Briefcase, ChatDotRound, DataAnalysis, Expand, Fold, Key, Menu, Monitor, Moon, Operation, Sunny, UserFilled } from '@element-plus/icons-vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { useAuthStore } from '@/stores/auth'
 import { useTheme } from '@/composables/useTheme'
 import request from '@/api/request'
 import NotificationBell from '@/components/NotificationBell.vue'
+import { PERM } from '@/types/domain'
 import logoSmallLight from '@/assets/logo-small.png'
 import logoSmallDark from '@/assets/logo-small-dark.png'
 
@@ -80,12 +81,12 @@ const toggleSidebar = () => {
           <span v-if="!sidebarCollapsed" class="sidebar-brand__text">智联招聘</span>
         </RouterLink>
       </div>
-      <RouterLink class="sidebar-link" to="/hr/workbench" @click="closeMobileSidebar">
+      <RouterLink v-if="auth.hasPermission(PERM.JOB_READ)" class="sidebar-link" to="/hr/workbench" @click="closeMobileSidebar">
         <el-icon><Monitor /></el-icon>
         <span>工作台</span>
       </RouterLink>
-      <!-- 基础数据 (admin only, first) -->
-      <template v-if="auth.role === 3">
+      <!-- 基础数据 (department/location admin permissions) -->
+      <template v-if="auth.hasAnyPermission(PERM.ADMIN_DEPARTMENT_MANAGE, PERM.ADMIN_LOCATION_MANAGE)">
         <button class="sidebar-link sidebar-group-toggle" type="button" :aria-expanded="taxonomyOpen && !sidebarCollapsed" @click="toggleTaxonomy">
           <el-icon><Operation /></el-icon>
           <span>基础数据</span>
@@ -93,26 +94,30 @@ const toggleSidebar = () => {
         </button>
         <el-collapse-transition>
           <div v-show="taxonomyOpen && !sidebarCollapsed" class="sidebar-sub-group">
-            <RouterLink class="sidebar-link sidebar-sub-link" to="/hr/admin/departments" @click="closeMobileSidebar">
+            <RouterLink v-if="auth.hasPermission(PERM.ADMIN_DEPARTMENT_MANAGE)" class="sidebar-link sidebar-sub-link" to="/hr/admin/departments" @click="closeMobileSidebar">
               <span>部门管理</span>
             </RouterLink>
-            <RouterLink class="sidebar-link sidebar-sub-link" to="/hr/admin/locations" @click="closeMobileSidebar">
+            <RouterLink v-if="auth.hasPermission(PERM.ADMIN_LOCATION_MANAGE)" class="sidebar-link sidebar-sub-link" to="/hr/admin/locations" @click="closeMobileSidebar">
               <span>地点管理</span>
             </RouterLink>
           </div>
         </el-collapse-transition>
       </template>
-      <RouterLink class="sidebar-link" to="/hr/jobs" @click="closeMobileSidebar">
+      <RouterLink v-if="auth.hasPermission(PERM.JOB_READ)" class="sidebar-link" to="/hr/jobs" @click="closeMobileSidebar">
         <el-icon><Briefcase /></el-icon>
         <span>岗位管理</span>
       </RouterLink>
-      <RouterLink class="sidebar-link" to="/hr/ai" @click="closeMobileSidebar">
+      <RouterLink v-if="auth.hasPermission(PERM.AI_HR_USE)" class="sidebar-link" to="/hr/ai" @click="closeMobileSidebar">
         <el-icon><ChatDotRound /></el-icon>
         <span>AI 数据助手</span>
       </RouterLink>
-      <RouterLink v-if="auth.role === 3" class="sidebar-link" to="/hr/admin/invite-codes" @click="closeMobileSidebar">
+      <RouterLink v-if="auth.hasPermission(PERM.ADMIN_INVITE_MANAGE)" class="sidebar-link" to="/hr/admin/invite-codes" @click="closeMobileSidebar">
         <el-icon><Key /></el-icon>
         <span>邀请码管理</span>
+      </RouterLink>
+      <RouterLink v-if="auth.hasPermission(PERM.AUDIT_USAGE_READ)" class="sidebar-link" to="/hr/admin/usage-audit" @click="closeMobileSidebar">
+        <el-icon><DataAnalysis /></el-icon>
+        <span>第三方服务审计</span>
       </RouterLink>
     </aside>
     <div class="workspace">

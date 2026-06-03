@@ -37,6 +37,74 @@ func (r *JobRepo) OnlineOwned(ctx context.Context, hrID, jobID int64) (int64, er
 	return result.RowsAffected, result.Error
 }
 
+// UpdateAny updates a job by ID without checking hr_id ownership.
+// Caller must have verified scope (e.g. recruiting_all) before calling.
+func (r *JobRepo) UpdateAny(ctx context.Context, jobID int64, fields map[string]any) (int64, error) {
+	result := r.db.WithContext(ctx).Model(&model.Job{}).Where("id = ?", jobID).Updates(fields)
+	return result.RowsAffected, result.Error
+}
+
+// OfflineAny sets job status to 0 without hr_id ownership check.
+func (r *JobRepo) OfflineAny(ctx context.Context, jobID int64) (int64, error) {
+	result := r.db.WithContext(ctx).Model(&model.Job{}).Where("id = ?", jobID).Update("status", 0)
+	return result.RowsAffected, result.Error
+}
+
+// OnlineAny sets job status to 1 without hr_id ownership check.
+func (r *JobRepo) OnlineAny(ctx context.Context, jobID int64) (int64, error) {
+	result := r.db.WithContext(ctx).Model(&model.Job{}).Where("id = ?", jobID).Update("status", 1)
+	return result.RowsAffected, result.Error
+}
+
+// UpdateInScope updates a job by ID if it belongs to one of the given departments or locations.
+// Used by department/location-scoped admins who don't own the job directly.
+func (r *JobRepo) UpdateInScope(ctx context.Context, jobID int64, deptIDs, locIDs []uint64, fields map[string]any) (int64, error) {
+	query := r.db.WithContext(ctx).Model(&model.Job{}).Where("id = ?", jobID)
+	if len(deptIDs) > 0 && len(locIDs) > 0 {
+		query = query.Where("(department_id IN ? OR location_id IN ?)", deptIDs, locIDs)
+	} else if len(deptIDs) > 0 {
+		query = query.Where("department_id IN ?", deptIDs)
+	} else if len(locIDs) > 0 {
+		query = query.Where("location_id IN ?", locIDs)
+	} else {
+		return 0, nil // no scope filters = no access
+	}
+	result := query.Updates(fields)
+	return result.RowsAffected, result.Error
+}
+
+// OfflineInScope sets job status to 0 if it belongs to one of the given departments or locations.
+func (r *JobRepo) OfflineInScope(ctx context.Context, jobID int64, deptIDs, locIDs []uint64) (int64, error) {
+	query := r.db.WithContext(ctx).Model(&model.Job{}).Where("id = ?", jobID)
+	if len(deptIDs) > 0 && len(locIDs) > 0 {
+		query = query.Where("(department_id IN ? OR location_id IN ?)", deptIDs, locIDs)
+	} else if len(deptIDs) > 0 {
+		query = query.Where("department_id IN ?", deptIDs)
+	} else if len(locIDs) > 0 {
+		query = query.Where("location_id IN ?", locIDs)
+	} else {
+		return 0, nil
+	}
+	result := query.Update("status", 0)
+	return result.RowsAffected, result.Error
+}
+
+// OnlineInScope sets job status to 1 if it belongs to one of the given departments or locations.
+func (r *JobRepo) OnlineInScope(ctx context.Context, jobID int64, deptIDs, locIDs []uint64) (int64, error) {
+	query := r.db.WithContext(ctx).Model(&model.Job{}).Where("id = ?", jobID)
+	if len(deptIDs) > 0 && len(locIDs) > 0 {
+		query = query.Where("(department_id IN ? OR location_id IN ?)", deptIDs, locIDs)
+	} else if len(deptIDs) > 0 {
+		query = query.Where("department_id IN ?", deptIDs)
+	} else if len(locIDs) > 0 {
+		query = query.Where("location_id IN ?", locIDs)
+	} else {
+		return 0, nil
+	}
+	result := query.Update("status", 1)
+	return result.RowsAffected, result.Error
+}
+
 func (r *JobRepo) GetByID(ctx context.Context, jobID int64) (*model.Job, error) {
 	var job model.Job
 	err := r.db.WithContext(ctx).Where("id = ?", jobID).First(&job).Error
@@ -145,6 +213,135 @@ func (r *JobRepo) ListByHRCursor(ctx context.Context, hrID int64, cursor string,
 		return nil, "", false, err
 	}
 	query := r.db.WithContext(ctx).Model(&model.Job{}).Where("hr_id = ?", hrID)
+	if !t.IsZero() || id > 0 {
+		query = query.Where("(created_at, id) < (?, ?)", t, id)
+	}
+	fetchLimit := int(limit) + 1
+	var jobs []model.Job
+	if err := query.Order("created_at DESC, id DESC").Limit(fetchLimit).Find(&jobs).Error; err != nil {
+		return nil, "", false, err
+	}
+	hasMore := len(jobs) > int(limit)
+	if hasMore {
+		jobs = jobs[:limit]
+	}
+	var nextCursor string
+	if hasMore && len(jobs) > 0 {
+		last := jobs[len(jobs)-1]
+		nextCursor = pagination.EncodeCursor(last.CreatedAt, last.ID)
+	}
+	return jobs, nextCursor, hasMore, nil
+}
+
+// ListByHRScope is like ListByHR but hrID=0 means no ownership filter (full scope).
+func (r *JobRepo) ListByHRScope(ctx context.Context, hrID int64, page, pageSize int32) ([]model.Job, int64, error) {
+	var total int64
+	query := r.db.WithContext(ctx).Model(&model.Job{})
+	if hrID > 0 {
+		query = query.Where("hr_id = ?", hrID)
+	}
+	if err := query.Count(&total).Error; err != nil {
+		return nil, 0, err
+	}
+	var jobs []model.Job
+	err := query.Order("created_at DESC").Offset(offset(page, pageSize)).Limit(int(pageSize)).Find(&jobs).Error
+	return jobs, total, err
+}
+
+// ListByScope adds optional department/location scope filters to hrID=0 queries.
+// hrID=0 means no ownership filter (use department/location filters instead).
+// deptIDs/locIDs are applied as OR conditions alongside own_jobs.
+func (r *JobRepo) ListByScope(ctx context.Context, hrID int64, deptIDs, locIDs []uint64, page, pageSize int32) ([]model.Job, int64, error) {
+	var total int64
+	query := r.db.WithContext(ctx).Model(&model.Job{})
+	query = applyScopeFilters(query, hrID, deptIDs, locIDs)
+	if err := query.Count(&total).Error; err != nil {
+		return nil, 0, err
+	}
+	var jobs []model.Job
+	err := query.Order("created_at DESC").Offset(offset(page, pageSize)).Limit(int(pageSize)).Find(&jobs).Error
+	return jobs, total, err
+}
+
+// ListByScopeCursor is the cursor-paginated version of ListByScope.
+func (r *JobRepo) ListByScopeCursor(ctx context.Context, hrID int64, deptIDs, locIDs []uint64, cursor string, limit int32) ([]model.Job, string, bool, error) {
+	t, id, err := pagination.DecodeCursor(cursor)
+	if err != nil {
+		return nil, "", false, err
+	}
+	query := r.db.WithContext(ctx).Model(&model.Job{})
+	query = applyScopeFilters(query, hrID, deptIDs, locIDs)
+	if !t.IsZero() || id > 0 {
+		query = query.Where("(created_at, id) < (?, ?)", t, id)
+	}
+	fetchLimit := int(limit) + 1
+	var jobs []model.Job
+	if err := query.Order("created_at DESC, id DESC").Limit(fetchLimit).Find(&jobs).Error; err != nil {
+		return nil, "", false, err
+	}
+	hasMore := len(jobs) > int(limit)
+	if hasMore {
+		jobs = jobs[:limit]
+	}
+	var nextCursor string
+	if hasMore && len(jobs) > 0 {
+		last := jobs[len(jobs)-1]
+		nextCursor = pagination.EncodeCursor(last.CreatedAt, last.ID)
+	}
+	return jobs, nextCursor, hasMore, nil
+}
+
+// applyScopeFilters adds WHERE conditions for ownership + department/location scope.
+// hrID=0 with no deptIDs/locIDs = no filter (full access).
+// hrID>0 alone = own_jobs scope.
+// deptIDs/locIDs = department/location scope (ORed with own_jobs if hrID>0).
+func applyScopeFilters(query *gorm.DB, hrID int64, deptIDs, locIDs []uint64) *gorm.DB {
+	hasOwnJobs := hrID > 0
+	hasDept := len(deptIDs) > 0
+	hasLoc := len(locIDs) > 0
+
+	if !hasOwnJobs && !hasDept && !hasLoc {
+		return query // full access, no filter
+	}
+
+	conditions := make([]string, 0, 3)
+	args := make([]any, 0, 6)
+
+	if hasOwnJobs {
+		conditions = append(conditions, "hr_id = ?")
+		args = append(args, hrID)
+	}
+	if hasDept {
+		conditions = append(conditions, "department_id IN ?")
+		args = append(args, deptIDs)
+	}
+	if hasLoc {
+		conditions = append(conditions, "location_id IN ?")
+		args = append(args, locIDs)
+	}
+
+	if len(conditions) == 1 {
+		return query.Where(conditions[0], args[0])
+	}
+
+	where := "(" + conditions[0]
+	for i := 1; i < len(conditions); i++ {
+		where += " OR " + conditions[i]
+	}
+	where += ")"
+	return query.Where(where, args...)
+}
+
+// ListByHRScopeCursor is like ListByHRCursor but hrID=0 means no ownership filter.
+func (r *JobRepo) ListByHRScopeCursor(ctx context.Context, hrID int64, cursor string, limit int32) ([]model.Job, string, bool, error) {
+	t, id, err := pagination.DecodeCursor(cursor)
+	if err != nil {
+		return nil, "", false, err
+	}
+	query := r.db.WithContext(ctx).Model(&model.Job{})
+	if hrID > 0 {
+		query = query.Where("hr_id = ?", hrID)
+	}
 	if !t.IsZero() || id > 0 {
 		query = query.Where("(created_at, id) < (?, ?)", t, id)
 	}

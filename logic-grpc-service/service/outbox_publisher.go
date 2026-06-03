@@ -162,7 +162,10 @@ func (p *OutboxPublisher) publishOne(ctx context.Context, ev model.EventOutbox) 
 		return
 	}
 	if err := p.repo.MarkPublished(ctx, ev.ID); err != nil {
-		logger.L().Error("outbox mark published error", zap.Error(err))
+		// Message was already published to MQ — a duplicate delivery is possible.
+		// The consumer must be idempotent (e.g. dedup by event_id).
+		logger.L().Error("outbox mark published failed after MQ publish, duplicate delivery possible",
+			zap.String("event_id", ev.EventID), zap.Error(err))
 	}
 }
 

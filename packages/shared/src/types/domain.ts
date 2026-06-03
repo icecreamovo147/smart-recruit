@@ -34,8 +34,11 @@ export enum JobStatus {
 
 export interface User {
   user_id: number
-  role: number
+  role: number              // Deprecated: kept for migration compatibility
   username: string
+  account_type?: string     // 'candidate' | 'staff' | 'service'
+  roles?: string[]          // RBAC role keys
+  permissions?: string[]    // RBAC permission keys
 }
 
 export interface LoginPayload {
@@ -45,8 +48,11 @@ export interface LoginPayload {
 
 export interface LoginResponse {
   user_id: number
-  role: number
+  role: number              // Deprecated: kept for migration compatibility
   username: string
+  account_type?: string
+  roles?: string[]
+  permissions?: string[]
 }
 
 export interface RegisterPayload {
@@ -54,6 +60,7 @@ export interface RegisterPayload {
   password: string
   email?: string
   role: number
+  invite_code?: string  // Required for staff (HR) registration
 }
 
 // ---- Job ----

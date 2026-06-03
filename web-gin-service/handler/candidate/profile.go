@@ -72,13 +72,16 @@ const maxProfileFieldLen = 500
 var tagStripper = regexp.MustCompile(`<[^>]*>`)
 
 func validateProfileFields(realName, phone, education, school, workExp, skills string) error {
+	// work_experience is intentionally excluded from HTML tag validation:
+	// the frontend uses a RichTextEditor for this field which naturally
+	// produces HTML markup. XSS sanitization for rich text fields is
+	// handled separately by the bluemonday policy at the output layer.
 	fields := map[string]string{
-		"real_name":       realName,
-		"phone":           phone,
-		"education":       education,
-		"school":          school,
-		"work_experience": workExp,
-		"skills":          skills,
+		"real_name": realName,
+		"phone":     phone,
+		"education": education,
+		"school":    school,
+		"skills":    skills,
 	}
 	for name, val := range fields {
 		if len(val) > maxProfileFieldLen {

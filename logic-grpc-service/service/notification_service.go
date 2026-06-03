@@ -38,9 +38,14 @@ func (s *NotificationService) Create(ctx context.Context, n *model.Notification)
 	if err := s.repo.Create(ctx, n); err != nil {
 		return err
 	}
-	// Invalidate cached unread count so next poll picks up the new notification.
+	acctType := n.ReceiverAccountType
+	if acctType == "" {
+		logger.L().Warn("notification missing receiver_account_type, defaulting to candidate",
+			zap.Int64("receiver_id", n.ReceiverID))
+		acctType = "candidate"
+	}
 	if s.cache != nil {
-		s.cache.Invalidate(ctx, uint64(n.ReceiverID), n.ReceiverRole)
+		s.cache.Invalidate(ctx, uint64(n.ReceiverID), acctType)
 	}
 	s.publishCreatedEvent(ctx, n)
 	return nil
@@ -52,7 +57,7 @@ func (s *NotificationService) ListNotifications(ctx context.Context, req *pb.Lis
 		ps = 20
 	}
 	if req.Cursor != "" || req.Page <= 0 {
-		rows, cursor, hasMore, err := s.repo.ListCursor(ctx, req.UserId, req.Role, req.Cursor, ps)
+		rows, cursor, hasMore, err := s.repo.ListCursor(ctx, req.UserId, req.AccountType, req.Cursor, ps)
 		if err != nil {
 			logger.L().Warn("list notifications cursor failed, returning empty", zap.Error(err))
 			return &pb.ListNotificationsResponse{List: nil}, nil
@@ -82,14 +87,14 @@ func (s *NotificationService) ListNotifications(ctx context.Context, req *pb.Lis
 	if page < 1 {
 		page = 1
 	}
-	rows, total, err := s.repo.List(ctx, req.UserId, req.Role, page, ps)
+	rows, total, err := s.repo.List(ctx, req.UserId, req.AccountType, page, ps)
 	if err != nil {
 		logger.L().Warn("list notifications failed, returning empty", zap.Error(err))
 		return &pb.ListNotificationsResponse{Total: 0, List: nil}, nil
 	}
 	logger.L().Debug("list notifications from db",
 		zap.Int64("user_id", req.UserId),
-		zap.Int32("role", req.Role),
+		zap.String("account_type", req.AccountType),
 		zap.Int64("total", total),
 		zap.Int("returned", len(rows)),
 	)
@@ -116,41 +121,39 @@ func (s *NotificationService) ListNotifications(ctx context.Context, req *pb.Lis
 }
 
 func (s *NotificationService) UnreadNotificationCount(ctx context.Context, req *pb.UnreadNotificationCountRequest) (*pb.UnreadNotificationCountResponse, error) {
-	// P0: Try Redis cache first.
 	if s.cache != nil {
-		if count, ok := s.cache.GetUnreadCount(ctx, uint64(req.UserId), req.Role); ok {
+		if count, ok := s.cache.GetUnreadCount(ctx, uint64(req.UserId), req.AccountType); ok {
 			logger.L().Debug("unread count from cache",
 				zap.Int64("user_id", req.UserId),
-				zap.Int32("role", req.Role),
+				zap.String("account_type", req.AccountType),
 				zap.Int64("count", count),
 			)
 			return &pb.UnreadNotificationCountResponse{Unread: count}, nil
 		}
 	}
-	count, err := s.repo.UnreadCount(ctx, req.UserId, req.Role)
+	count, err := s.repo.UnreadCount(ctx, req.UserId, req.AccountType)
 	if err != nil {
 		logger.L().Warn("unread count query failed, returning 0", zap.Error(err))
 		return &pb.UnreadNotificationCountResponse{Unread: 0}, nil
 	}
 	logger.L().Debug("unread count from db",
 		zap.Int64("user_id", req.UserId),
-		zap.Int32("role", req.Role),
+		zap.String("account_type", req.AccountType),
 		zap.Int64("count", count),
 	)
-	// Backfill cache.
 	if s.cache != nil {
-		s.cache.SetUnreadCount(ctx, uint64(req.UserId), req.Role, count)
+		s.cache.SetUnreadCount(ctx, uint64(req.UserId), req.AccountType, count)
 	}
 	return &pb.UnreadNotificationCountResponse{Unread: count}, nil
 }
 
 func (s *NotificationService) NotificationSummary(ctx context.Context, req *pb.NotificationSummaryRequest) (*pb.NotificationSummaryResponse, error) {
-	unread, err := s.unreadCount(ctx, req.UserId, req.Role)
+	unread, err := s.unreadCount(ctx, req.UserId, req.AccountType)
 	if err != nil {
 		logger.L().Warn("notification summary unread count failed, returning 0", zap.Error(err))
 		unread = 0
 	}
-	latest, err := s.repo.Latest(ctx, req.UserId, req.Role)
+	latest, err := s.repo.Latest(ctx, req.UserId, req.AccountType)
 	if err != nil {
 		logger.L().Warn("notification summary latest query failed", zap.Error(err))
 		return &pb.NotificationSummaryResponse{Unread: unread}, nil
@@ -166,7 +169,7 @@ func (s *NotificationService) NotificationSummary(ctx context.Context, req *pb.N
 }
 
 func (s *NotificationService) MarkNotificationRead(ctx context.Context, req *pb.MarkNotificationReadRequest) (*pb.CommonResponse, error) {
-	rows, err := s.repo.MarkRead(ctx, req.UserId, req.Role, req.NotificationId)
+	rows, err := s.repo.MarkRead(ctx, req.UserId, req.AccountType, req.NotificationId)
 	if err != nil {
 		logger.L().Warn("mark read failed", zap.Error(err))
 		return &pb.CommonResponse{Msg: "success"}, nil
@@ -175,23 +178,23 @@ func (s *NotificationService) MarkNotificationRead(ctx context.Context, req *pb.
 		return &pb.CommonResponse{Code: 403, Msg: "无权限或通知不存在"}, nil
 	}
 	if s.cache != nil {
-		s.cache.Invalidate(ctx, uint64(req.UserId), req.Role)
+		s.cache.Invalidate(ctx, uint64(req.UserId), req.AccountType)
 	}
 	return &pb.CommonResponse{Msg: "success"}, nil
 }
 
-func (s *NotificationService) unreadCount(ctx context.Context, userID int64, role int32) (int64, error) {
+func (s *NotificationService) unreadCount(ctx context.Context, userID int64, accountType string) (int64, error) {
 	if s.cache != nil {
-		if count, ok := s.cache.GetUnreadCount(ctx, uint64(userID), role); ok {
+		if count, ok := s.cache.GetUnreadCount(ctx, uint64(userID), accountType); ok {
 			return count, nil
 		}
 	}
-	count, err := s.repo.UnreadCount(ctx, userID, role)
+	count, err := s.repo.UnreadCount(ctx, userID, accountType)
 	if err != nil {
 		return 0, err
 	}
 	if s.cache != nil {
-		s.cache.SetUnreadCount(ctx, uint64(userID), role, count)
+		s.cache.SetUnreadCount(ctx, uint64(userID), accountType, count)
 	}
 	return count, nil
 }
@@ -200,7 +203,13 @@ func (s *NotificationService) publishCreatedEvent(ctx context.Context, n *model.
 	if s.cache == nil {
 		return
 	}
-	unread, err := s.unreadCount(ctx, n.ReceiverID, n.ReceiverRole)
+	acctType := n.ReceiverAccountType
+	if acctType == "" {
+		logger.L().Warn("notification event missing receiver_account_type, defaulting to candidate",
+			zap.Int64("receiver_id", n.ReceiverID))
+		acctType = "candidate"
+	}
+	unread, err := s.unreadCount(ctx, n.ReceiverID, acctType)
 	if err != nil {
 		logger.L().Warn("notification event unread count failed", zap.Error(err))
 	}
@@ -218,14 +227,13 @@ func (s *NotificationService) publishCreatedEvent(ctx context.Context, n *model.
 		logger.L().Warn("notification event marshal failed", zap.Error(err))
 		return
 	}
-	s.cache.PublishNotificationEvent(ctx, uint64(n.ReceiverID), n.ReceiverRole, string(payload))
+	s.cache.PublishNotificationEvent(ctx, uint64(n.ReceiverID), acctType, string(payload))
 }
 
 func (s *NotificationService) MarkAllNotificationsRead(ctx context.Context, req *pb.MarkAllNotificationsReadRequest) (*pb.CommonResponse, error) {
-	// P2: Batch loop to avoid long row locks.
 	var total int64
 	for {
-		rows, err := s.repo.MarkAllReadBatch(ctx, req.UserId, req.Role, 1000)
+		rows, err := s.repo.MarkAllReadBatch(ctx, req.UserId, req.AccountType, 1000)
 		if err != nil {
 			logger.L().Warn("mark all read batch failed", zap.Error(err))
 			break
@@ -237,11 +245,11 @@ func (s *NotificationService) MarkAllNotificationsRead(ctx context.Context, req 
 	}
 	logger.L().Info("mark all read done",
 		zap.Int64("user_id", req.UserId),
-		zap.Int32("role", req.Role),
+		zap.String("account_type", req.AccountType),
 		zap.Int64("rows", total),
 	)
 	if s.cache != nil {
-		s.cache.Invalidate(ctx, uint64(req.UserId), req.Role)
+		s.cache.Invalidate(ctx, uint64(req.UserId), req.AccountType)
 	}
 	return &pb.CommonResponse{Msg: "success"}, nil
 }
