@@ -14,6 +14,7 @@ type Server struct {
 	pb.UnimplementedApplicationServiceServer
 	pb.UnimplementedAIServiceServer
 	pb.UnimplementedNotificationServiceServer
+	pb.UnimplementedInterviewServiceServer
 	pb.UnimplementedAdminServiceServer
 	svc *service.Services
 }
@@ -214,6 +215,44 @@ func (s *Server) MarkNotificationRead(ctx context.Context, req *pb.MarkNotificat
 
 func (s *Server) MarkAllNotificationsRead(ctx context.Context, req *pb.MarkAllNotificationsReadRequest) (*pb.CommonResponse, error) {
 	return s.svc.Notification.MarkAllNotificationsRead(ctx, req)
+}
+
+// Interview
+
+func (s *Server) ScheduleInterview(ctx context.Context, req *pb.ScheduleInterviewRequest) (*pb.ScheduleInterviewResponse, error) {
+	return s.svc.Interview.ScheduleInterview(ctx, req)
+}
+
+func (s *Server) UpdateInterview(ctx context.Context, req *pb.UpdateInterviewRequest) (*pb.CommonResponse, error) {
+	return s.svc.Interview.UpdateInterview(ctx, req)
+}
+
+func (s *Server) CancelInterview(ctx context.Context, req *pb.CancelInterviewRequest) (*pb.CommonResponse, error) {
+	return s.svc.Interview.CancelInterview(ctx, req)
+}
+
+func (s *Server) GetInterview(ctx context.Context, req *pb.GetInterviewRequest) (*pb.GetInterviewResponse, error) {
+	return s.svc.Interview.GetInterview(ctx, req)
+}
+
+func (s *Server) ListApplicationInterviews(ctx context.Context, req *pb.ListApplicationInterviewsRequest) (*pb.ListApplicationInterviewsResponse, error) {
+	return s.svc.Interview.ListApplicationInterviews(ctx, req)
+}
+
+func (s *Server) ListMyInterviews(ctx context.Context, req *pb.ListMyInterviewsRequest) (*pb.ListMyInterviewsResponse, error) {
+	return s.svc.Interview.ListMyInterviews(ctx, req)
+}
+
+func (s *Server) ListCandidateInterviews(ctx context.Context, req *pb.ListCandidateInterviewsRequest) (*pb.ListCandidateInterviewsResponse, error) {
+	return s.svc.Interview.ListCandidateInterviews(ctx, req)
+}
+
+func (s *Server) SubmitFeedback(ctx context.Context, req *pb.SubmitFeedbackRequest) (*pb.CommonResponse, error) {
+	return s.svc.Interview.SubmitFeedback(ctx, req)
+}
+
+func (s *Server) GetFeedback(ctx context.Context, req *pb.GetFeedbackRequest) (*pb.GetFeedbackResponse, error) {
+	return s.svc.Interview.GetFeedback(ctx, req)
 }
 
 // Admin

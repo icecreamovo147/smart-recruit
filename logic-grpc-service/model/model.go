@@ -369,3 +369,45 @@ type ThirdPartyUsageLog struct {
 }
 
 func (ThirdPartyUsageLog) TableName() string { return "third_party_usage_logs" }
+
+// ── Interview Schedule ─────────────────────────────────────────────────────
+
+type InterviewSchedule struct {
+	ID              int64      `gorm:"primaryKey"`
+	ApplicationID   int64      `gorm:"column:application_id;not null"`
+	InterviewerID   int64      `gorm:"column:interviewer_id;not null"`
+	RoundNo         int32      `gorm:"column:round_no;default:1"`
+	ScheduledAt     *time.Time `gorm:"column:scheduled_at"`
+	Status          string     `gorm:"column:status;default:pending;size:32"`
+	CreatedBy       *int64     `gorm:"column:created_by"`
+	Title           string     `gorm:"column:title;size:128"`
+	Mode            string     `gorm:"column:mode;size:32"`           // video / phone / onsite
+	MeetingURL      string     `gorm:"column:meeting_url;size:512"`
+	Location        string     `gorm:"column:location;size:256"`
+	DurationMinutes int32      `gorm:"column:duration_minutes"`
+	CandidateNote   string     `gorm:"column:candidate_note;size:1024"`
+	InternalNote    string     `gorm:"column:internal_note;size:1024"`
+	CancelReason    string     `gorm:"column:cancel_reason;size:512"`
+	CreatedAt       time.Time  `gorm:"column:created_at"`
+	UpdatedAt       time.Time  `gorm:"column:updated_at"`
+	DeletedAt       *time.Time `gorm:"column:deleted_at"`
+}
+
+func (InterviewSchedule) TableName() string { return "interview_schedules" }
+
+// ── Interview Feedback ─────────────────────────────────────────────────────
+
+type InterviewFeedback struct {
+	ID                int64      `gorm:"primaryKey"`
+	InterviewID       int64      `gorm:"column:interview_id;uniqueIndex:uk_interview_feedback_once,priority:1"`
+	ApplicationID     int64      `gorm:"column:application_id;not null;uniqueIndex:uk_interview_feedback_once,priority:2"`
+	InterviewerID     int64      `gorm:"column:interviewer_id;not null;uniqueIndex:uk_interview_feedback_once,priority:3"`
+	Recommendation    string     `gorm:"column:recommendation;size:32"` // positive / negative / pending
+	Score             int32      `gorm:"column:score"`
+	DimensionScoresJSON string   `gorm:"column:dimension_scores_json;type:text"`
+	Comments          string     `gorm:"column:comments;type:text"`
+	SubmittedAt       time.Time  `gorm:"column:submitted_at"`
+	UpdatedAt         time.Time  `gorm:"column:updated_at"`
+}
+
+func (InterviewFeedback) TableName() string { return "interview_feedback" }

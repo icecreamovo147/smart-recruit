@@ -1228,6 +1228,412 @@ var ApplicationService_ServiceDesc = grpc.ServiceDesc{
 }
 
 const (
+	InterviewService_ScheduleInterview_FullMethodName         = "/recruitment.InterviewService/ScheduleInterview"
+	InterviewService_UpdateInterview_FullMethodName           = "/recruitment.InterviewService/UpdateInterview"
+	InterviewService_CancelInterview_FullMethodName           = "/recruitment.InterviewService/CancelInterview"
+	InterviewService_GetInterview_FullMethodName              = "/recruitment.InterviewService/GetInterview"
+	InterviewService_ListApplicationInterviews_FullMethodName = "/recruitment.InterviewService/ListApplicationInterviews"
+	InterviewService_ListMyInterviews_FullMethodName          = "/recruitment.InterviewService/ListMyInterviews"
+	InterviewService_ListCandidateInterviews_FullMethodName   = "/recruitment.InterviewService/ListCandidateInterviews"
+	InterviewService_SubmitFeedback_FullMethodName            = "/recruitment.InterviewService/SubmitFeedback"
+	InterviewService_GetFeedback_FullMethodName               = "/recruitment.InterviewService/GetFeedback"
+)
+
+// InterviewServiceClient is the client API for InterviewService service.
+//
+// For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
+type InterviewServiceClient interface {
+	ScheduleInterview(ctx context.Context, in *ScheduleInterviewRequest, opts ...grpc.CallOption) (*ScheduleInterviewResponse, error)
+	UpdateInterview(ctx context.Context, in *UpdateInterviewRequest, opts ...grpc.CallOption) (*CommonResponse, error)
+	CancelInterview(ctx context.Context, in *CancelInterviewRequest, opts ...grpc.CallOption) (*CommonResponse, error)
+	GetInterview(ctx context.Context, in *GetInterviewRequest, opts ...grpc.CallOption) (*GetInterviewResponse, error)
+	ListApplicationInterviews(ctx context.Context, in *ListApplicationInterviewsRequest, opts ...grpc.CallOption) (*ListApplicationInterviewsResponse, error)
+	ListMyInterviews(ctx context.Context, in *ListMyInterviewsRequest, opts ...grpc.CallOption) (*ListMyInterviewsResponse, error)
+	ListCandidateInterviews(ctx context.Context, in *ListCandidateInterviewsRequest, opts ...grpc.CallOption) (*ListCandidateInterviewsResponse, error)
+	SubmitFeedback(ctx context.Context, in *SubmitFeedbackRequest, opts ...grpc.CallOption) (*CommonResponse, error)
+	GetFeedback(ctx context.Context, in *GetFeedbackRequest, opts ...grpc.CallOption) (*GetFeedbackResponse, error)
+}
+
+type interviewServiceClient struct {
+	cc grpc.ClientConnInterface
+}
+
+func NewInterviewServiceClient(cc grpc.ClientConnInterface) InterviewServiceClient {
+	return &interviewServiceClient{cc}
+}
+
+func (c *interviewServiceClient) ScheduleInterview(ctx context.Context, in *ScheduleInterviewRequest, opts ...grpc.CallOption) (*ScheduleInterviewResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ScheduleInterviewResponse)
+	err := c.cc.Invoke(ctx, InterviewService_ScheduleInterview_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *interviewServiceClient) UpdateInterview(ctx context.Context, in *UpdateInterviewRequest, opts ...grpc.CallOption) (*CommonResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(CommonResponse)
+	err := c.cc.Invoke(ctx, InterviewService_UpdateInterview_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *interviewServiceClient) CancelInterview(ctx context.Context, in *CancelInterviewRequest, opts ...grpc.CallOption) (*CommonResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(CommonResponse)
+	err := c.cc.Invoke(ctx, InterviewService_CancelInterview_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *interviewServiceClient) GetInterview(ctx context.Context, in *GetInterviewRequest, opts ...grpc.CallOption) (*GetInterviewResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(GetInterviewResponse)
+	err := c.cc.Invoke(ctx, InterviewService_GetInterview_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *interviewServiceClient) ListApplicationInterviews(ctx context.Context, in *ListApplicationInterviewsRequest, opts ...grpc.CallOption) (*ListApplicationInterviewsResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ListApplicationInterviewsResponse)
+	err := c.cc.Invoke(ctx, InterviewService_ListApplicationInterviews_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *interviewServiceClient) ListMyInterviews(ctx context.Context, in *ListMyInterviewsRequest, opts ...grpc.CallOption) (*ListMyInterviewsResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ListMyInterviewsResponse)
+	err := c.cc.Invoke(ctx, InterviewService_ListMyInterviews_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *interviewServiceClient) ListCandidateInterviews(ctx context.Context, in *ListCandidateInterviewsRequest, opts ...grpc.CallOption) (*ListCandidateInterviewsResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ListCandidateInterviewsResponse)
+	err := c.cc.Invoke(ctx, InterviewService_ListCandidateInterviews_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *interviewServiceClient) SubmitFeedback(ctx context.Context, in *SubmitFeedbackRequest, opts ...grpc.CallOption) (*CommonResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(CommonResponse)
+	err := c.cc.Invoke(ctx, InterviewService_SubmitFeedback_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *interviewServiceClient) GetFeedback(ctx context.Context, in *GetFeedbackRequest, opts ...grpc.CallOption) (*GetFeedbackResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(GetFeedbackResponse)
+	err := c.cc.Invoke(ctx, InterviewService_GetFeedback_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+// InterviewServiceServer is the server API for InterviewService service.
+// All implementations must embed UnimplementedInterviewServiceServer
+// for forward compatibility.
+type InterviewServiceServer interface {
+	ScheduleInterview(context.Context, *ScheduleInterviewRequest) (*ScheduleInterviewResponse, error)
+	UpdateInterview(context.Context, *UpdateInterviewRequest) (*CommonResponse, error)
+	CancelInterview(context.Context, *CancelInterviewRequest) (*CommonResponse, error)
+	GetInterview(context.Context, *GetInterviewRequest) (*GetInterviewResponse, error)
+	ListApplicationInterviews(context.Context, *ListApplicationInterviewsRequest) (*ListApplicationInterviewsResponse, error)
+	ListMyInterviews(context.Context, *ListMyInterviewsRequest) (*ListMyInterviewsResponse, error)
+	ListCandidateInterviews(context.Context, *ListCandidateInterviewsRequest) (*ListCandidateInterviewsResponse, error)
+	SubmitFeedback(context.Context, *SubmitFeedbackRequest) (*CommonResponse, error)
+	GetFeedback(context.Context, *GetFeedbackRequest) (*GetFeedbackResponse, error)
+	mustEmbedUnimplementedInterviewServiceServer()
+}
+
+// UnimplementedInterviewServiceServer must be embedded to have
+// forward compatible implementations.
+//
+// NOTE: this should be embedded by value instead of pointer to avoid a nil
+// pointer dereference when methods are called.
+type UnimplementedInterviewServiceServer struct{}
+
+func (UnimplementedInterviewServiceServer) ScheduleInterview(context.Context, *ScheduleInterviewRequest) (*ScheduleInterviewResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method ScheduleInterview not implemented")
+}
+func (UnimplementedInterviewServiceServer) UpdateInterview(context.Context, *UpdateInterviewRequest) (*CommonResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method UpdateInterview not implemented")
+}
+func (UnimplementedInterviewServiceServer) CancelInterview(context.Context, *CancelInterviewRequest) (*CommonResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method CancelInterview not implemented")
+}
+func (UnimplementedInterviewServiceServer) GetInterview(context.Context, *GetInterviewRequest) (*GetInterviewResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method GetInterview not implemented")
+}
+func (UnimplementedInterviewServiceServer) ListApplicationInterviews(context.Context, *ListApplicationInterviewsRequest) (*ListApplicationInterviewsResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method ListApplicationInterviews not implemented")
+}
+func (UnimplementedInterviewServiceServer) ListMyInterviews(context.Context, *ListMyInterviewsRequest) (*ListMyInterviewsResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method ListMyInterviews not implemented")
+}
+func (UnimplementedInterviewServiceServer) ListCandidateInterviews(context.Context, *ListCandidateInterviewsRequest) (*ListCandidateInterviewsResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method ListCandidateInterviews not implemented")
+}
+func (UnimplementedInterviewServiceServer) SubmitFeedback(context.Context, *SubmitFeedbackRequest) (*CommonResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method SubmitFeedback not implemented")
+}
+func (UnimplementedInterviewServiceServer) GetFeedback(context.Context, *GetFeedbackRequest) (*GetFeedbackResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method GetFeedback not implemented")
+}
+func (UnimplementedInterviewServiceServer) mustEmbedUnimplementedInterviewServiceServer() {}
+func (UnimplementedInterviewServiceServer) testEmbeddedByValue()                          {}
+
+// UnsafeInterviewServiceServer may be embedded to opt out of forward compatibility for this service.
+// Use of this interface is not recommended, as added methods to InterviewServiceServer will
+// result in compilation errors.
+type UnsafeInterviewServiceServer interface {
+	mustEmbedUnimplementedInterviewServiceServer()
+}
+
+func RegisterInterviewServiceServer(s grpc.ServiceRegistrar, srv InterviewServiceServer) {
+	// If the following call panics, it indicates UnimplementedInterviewServiceServer was
+	// embedded by pointer and is nil.  This will cause panics if an
+	// unimplemented method is ever invoked, so we test this at initialization
+	// time to prevent it from happening at runtime later due to I/O.
+	if t, ok := srv.(interface{ testEmbeddedByValue() }); ok {
+		t.testEmbeddedByValue()
+	}
+	s.RegisterService(&InterviewService_ServiceDesc, srv)
+}
+
+func _InterviewService_ScheduleInterview_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ScheduleInterviewRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(InterviewServiceServer).ScheduleInterview(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: InterviewService_ScheduleInterview_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(InterviewServiceServer).ScheduleInterview(ctx, req.(*ScheduleInterviewRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _InterviewService_UpdateInterview_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(UpdateInterviewRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(InterviewServiceServer).UpdateInterview(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: InterviewService_UpdateInterview_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(InterviewServiceServer).UpdateInterview(ctx, req.(*UpdateInterviewRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _InterviewService_CancelInterview_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(CancelInterviewRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(InterviewServiceServer).CancelInterview(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: InterviewService_CancelInterview_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(InterviewServiceServer).CancelInterview(ctx, req.(*CancelInterviewRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _InterviewService_GetInterview_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetInterviewRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(InterviewServiceServer).GetInterview(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: InterviewService_GetInterview_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(InterviewServiceServer).GetInterview(ctx, req.(*GetInterviewRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _InterviewService_ListApplicationInterviews_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ListApplicationInterviewsRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(InterviewServiceServer).ListApplicationInterviews(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: InterviewService_ListApplicationInterviews_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(InterviewServiceServer).ListApplicationInterviews(ctx, req.(*ListApplicationInterviewsRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _InterviewService_ListMyInterviews_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ListMyInterviewsRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(InterviewServiceServer).ListMyInterviews(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: InterviewService_ListMyInterviews_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(InterviewServiceServer).ListMyInterviews(ctx, req.(*ListMyInterviewsRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _InterviewService_ListCandidateInterviews_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ListCandidateInterviewsRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(InterviewServiceServer).ListCandidateInterviews(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: InterviewService_ListCandidateInterviews_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(InterviewServiceServer).ListCandidateInterviews(ctx, req.(*ListCandidateInterviewsRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _InterviewService_SubmitFeedback_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(SubmitFeedbackRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(InterviewServiceServer).SubmitFeedback(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: InterviewService_SubmitFeedback_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(InterviewServiceServer).SubmitFeedback(ctx, req.(*SubmitFeedbackRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _InterviewService_GetFeedback_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetFeedbackRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(InterviewServiceServer).GetFeedback(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: InterviewService_GetFeedback_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(InterviewServiceServer).GetFeedback(ctx, req.(*GetFeedbackRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+// InterviewService_ServiceDesc is the grpc.ServiceDesc for InterviewService service.
+// It's only intended for direct use with grpc.RegisterService,
+// and not to be introspected or modified (even as a copy)
+var InterviewService_ServiceDesc = grpc.ServiceDesc{
+	ServiceName: "recruitment.InterviewService",
+	HandlerType: (*InterviewServiceServer)(nil),
+	Methods: []grpc.MethodDesc{
+		{
+			MethodName: "ScheduleInterview",
+			Handler:    _InterviewService_ScheduleInterview_Handler,
+		},
+		{
+			MethodName: "UpdateInterview",
+			Handler:    _InterviewService_UpdateInterview_Handler,
+		},
+		{
+			MethodName: "CancelInterview",
+			Handler:    _InterviewService_CancelInterview_Handler,
+		},
+		{
+			MethodName: "GetInterview",
+			Handler:    _InterviewService_GetInterview_Handler,
+		},
+		{
+			MethodName: "ListApplicationInterviews",
+			Handler:    _InterviewService_ListApplicationInterviews_Handler,
+		},
+		{
+			MethodName: "ListMyInterviews",
+			Handler:    _InterviewService_ListMyInterviews_Handler,
+		},
+		{
+			MethodName: "ListCandidateInterviews",
+			Handler:    _InterviewService_ListCandidateInterviews_Handler,
+		},
+		{
+			MethodName: "SubmitFeedback",
+			Handler:    _InterviewService_SubmitFeedback_Handler,
+		},
+		{
+			MethodName: "GetFeedback",
+			Handler:    _InterviewService_GetFeedback_Handler,
+		},
+	},
+	Streams:  []grpc.StreamDesc{},
+	Metadata: "proto/recruitment.proto",
+}
+
+const (
 	NotificationService_ListNotifications_FullMethodName        = "/recruitment.NotificationService/ListNotifications"
 	NotificationService_UnreadNotificationCount_FullMethodName  = "/recruitment.NotificationService/UnreadNotificationCount"
 	NotificationService_NotificationSummary_FullMethodName      = "/recruitment.NotificationService/NotificationSummary"

@@ -401,6 +401,14 @@ CREATE TABLE IF NOT EXISTS `interview_schedules` (
   `application_id` BIGINT UNSIGNED NOT NULL COMMENT '关联 applications.id',
   `interviewer_id` BIGINT UNSIGNED NOT NULL COMMENT '面试官用户ID（users.id）',
   `round_no` INT NOT NULL DEFAULT 1 COMMENT '面试轮次：1=初试 2=复试 ...',
+  `title` VARCHAR(128) DEFAULT NULL COMMENT '面试标题，如 初试/复试/终面',
+  `mode` VARCHAR(32) DEFAULT NULL COMMENT '面试模式：video / phone / onsite',
+  `meeting_url` VARCHAR(512) DEFAULT NULL COMMENT '视频会议链接',
+  `location` VARCHAR(256) DEFAULT NULL COMMENT '面试地点（线下）',
+  `duration_minutes` INT DEFAULT NULL COMMENT '面试时长（分钟）',
+  `candidate_note` VARCHAR(1024) DEFAULT NULL COMMENT '给候选人的注意事项',
+  `internal_note` VARCHAR(1024) DEFAULT NULL COMMENT '内部备注（候选人不可见）',
+  `cancel_reason` VARCHAR(512) DEFAULT NULL COMMENT '取消原因',
   `scheduled_at` DATETIME DEFAULT NULL COMMENT '计划面试时间',
   `status` VARCHAR(32) NOT NULL DEFAULT 'pending' COMMENT '面试状态：pending / scheduled / completed / cancelled',
   `created_by` BIGINT UNSIGNED DEFAULT NULL COMMENT '创建人用户ID',
@@ -411,7 +419,28 @@ CREATE TABLE IF NOT EXISTS `interview_schedules` (
   KEY `idx_interviewer_deleted` (`interviewer_id`, `deleted_at`),
   KEY `idx_application_deleted` (`application_id`, `deleted_at`),
   KEY `idx_interviewer_app` (`interviewer_id`, `application_id`, `deleted_at`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='面试安排表（用于面试官数据范围匹配）';
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='面试安排表';
+
+-- ── 面试反馈表 ────────────────────────────────────────────────────────
+-- 记录面试官对面试的反馈评价，提交后不可修改（有审核更正路径）。
+
+CREATE TABLE IF NOT EXISTS `interview_feedback` (
+  `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+  `interview_id` BIGINT UNSIGNED NOT NULL COMMENT '关联 interview_schedules.id',
+  `application_id` BIGINT UNSIGNED NOT NULL COMMENT '关联 applications.id',
+  `interviewer_id` BIGINT UNSIGNED NOT NULL COMMENT '面试官用户ID',
+  `recommendation` VARCHAR(32) DEFAULT NULL COMMENT '推荐结论：positive / negative / pending',
+  `score` INT DEFAULT NULL COMMENT '评分（0-10）',
+  `dimension_scores_json` TEXT DEFAULT NULL COMMENT '维度评分 JSON，如 {"communication":4,"technical":5}',
+  `comments` TEXT DEFAULT NULL COMMENT '面试评语',
+  `submitted_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '提交时间',
+  `updated_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_interview_feedback_once` (`interview_id`, `application_id`, `interviewer_id`),
+  KEY `idx_feedback_interview` (`interview_id`),
+  KEY `idx_feedback_interviewer` (`interviewer_id`),
+  KEY `idx_feedback_application` (`application_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='面试反馈表';
 
 -- ══════════════════════════════════════════════════════════════════════
 -- RBAC 种子数据

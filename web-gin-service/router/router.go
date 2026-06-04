@@ -109,6 +109,8 @@ func Setup(cfg config.Config, clients *rpc.Clients, rdb *redis.Client) (*gin.Eng
 	hrJobHandler := hr.NewJobHandler(clients)
 	hrApplicationHandler := hr.NewApplicationHandler(clients)
 	hrAIHandler := hr.NewAIHandler(clients)
+	hrInterviewHandler := hr.NewInterviewHandler(clients)
+	candidateInterviewHandler := candidate.NewInterviewHandler(clients)
 	profileHandler := candidate.NewProfileHandler(clients)
 	resumeHandler := candidate.NewResumeHandler(clients)
 	applyHandler := candidate.NewApplyHandler(clients)
@@ -164,6 +166,7 @@ func Setup(cfg config.Config, clients *rpc.Clients, rdb *redis.Client) (*gin.Eng
 	candidateGroup.POST("/resume/confirm", riskBlock, resumeConfirmQuota, uploadTimeout, bodyProfile, middleware.RequirePermission(authz.PermCandidateResumeManage), resumeHandler.Confirm)
 	candidateGroup.POST("/applications", normalTimeout, bodyAuth, middleware.RequirePermission(authz.PermCandidateApplicationManage), applyHandler.Apply)
 	candidateGroup.GET("/applications", normalTimeout, middleware.RequirePermission(authz.PermCandidateApplicationManage), applyHandler.Mine)
+	candidateGroup.GET("/interviews", normalTimeout, middleware.RequirePermission(authz.PermCandidateApplicationManage), candidateInterviewHandler.List)
 	candidateGroup.GET("/notifications", normalTimeout, middleware.RequirePermission(authz.PermNotificationRead), notificationHandler.List)
 	candidateGroup.GET("/notifications/unread-count", normalTimeout, middleware.RequirePermission(authz.PermNotificationRead), notificationHandler.UnreadCount)
 	candidateGroup.GET("/notifications/summary", normalTimeout, middleware.RequirePermission(authz.PermNotificationRead), notificationHandler.Summary)
@@ -191,6 +194,18 @@ func Setup(cfg config.Config, clients *rpc.Clients, rdb *redis.Client) (*gin.Eng
 	staffGroup.GET("/jobs/:job_id/applications", normalTimeout, middleware.RequirePermission(authz.PermApplicationRead), hrApplicationHandler.ListByJob)
 	staffGroup.PATCH("/applications/:application_id/status", normalTimeout, middleware.RequirePermission(authz.PermApplicationStatusUpdate), hrApplicationHandler.UpdateStatus)
 	staffGroup.GET("/applications/:id/transitions", normalTimeout, middleware.RequirePermission(authz.PermApplicationRead), hrApplicationHandler.ListTransitions)
+
+	// Interview management — requires interview permissions
+	staffGroup.GET("/applications/:application_id/interviews", normalTimeout, middleware.RequirePermission(authz.PermInterviewRead), hrInterviewHandler.ListByApplication)
+	staffGroup.POST("/interviews", normalTimeout, bodyAuth, middleware.RequirePermission(authz.PermInterviewSchedule), hrInterviewHandler.Schedule)
+	staffGroup.PUT("/interviews/:interview_id", normalTimeout, bodyAuth, middleware.RequirePermission(authz.PermInterviewSchedule), hrInterviewHandler.Update)
+	staffGroup.PATCH("/interviews/:interview_id/cancel", normalTimeout, bodyAuth, middleware.RequirePermission(authz.PermInterviewSchedule), hrInterviewHandler.Cancel)
+	staffGroup.GET("/interviews/:interview_id", normalTimeout, middleware.RequireAnyPermission(authz.PermInterviewRead, authz.PermInterviewSchedule), hrInterviewHandler.Get)
+
+	// Interviewer task routes (also under /hr for staff access)
+	staffGroup.GET("/my-interviews", normalTimeout, middleware.RequirePermission(authz.PermInterviewRead), hrInterviewHandler.ListMy)
+	staffGroup.POST("/interviews/:interview_id/feedback", normalTimeout, bodyAuth, middleware.RequirePermission(authz.PermInterviewFeedback), hrInterviewHandler.SubmitFeedback)
+	staffGroup.GET("/interviews/:interview_id/feedback", normalTimeout, middleware.RequirePermission(authz.PermInterviewFeedback), hrInterviewHandler.GetFeedback)
 
 	// AI — requires HR AI permission
 	staffGroup.GET("/ai/sessions", normalTimeout, middleware.RequirePermission(authz.PermAIHRUse), hrAIHandler.ListSessions)

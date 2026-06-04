@@ -241,3 +241,24 @@ export interface ConfirmPayload {
   file_size: number
   upload_id?: string
 }
+
+// ---- Interview ----
+
+export interface InterviewSchedule {
+  interview_id: number
+  application_id: number
+  round_no: number
+  title: string
+  mode: string          // video / phone / onsite
+  meeting_url: string
+  location: string
+  duration_minutes: number
+  candidate_note: string
+  scheduled_at: string
+  status: string        // pending / scheduled / completed / cancelled
+  created_at: string
+  updated_at: string
+  interviewer_name: string
+  job_title: string
+  candidate_name: string
+}

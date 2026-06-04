@@ -5,6 +5,7 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 import { listJobApplications, updateApplicationStatus } from '@/api/application'
 import type { Application, JobQuery } from '@/types/domain'
 import { getHRStatusLabel, getStatusType, APP_STATUS_KEY, TERMINAL_STATUS_KEYS, ALLOWED_HR_ACTIONS } from '@/types/domain'
+import InterviewScheduleDialog from '@/components/business/InterviewScheduleDialog.vue'
 
 const route = useRoute()
 const router = useRouter()
@@ -126,6 +127,20 @@ const aiAnalyze = (row: Application) => {
   router.push({ path: '/hr/ai', query: { application_id: String(row.application_id), candidate_name: row.real_name || '该求职者' } })
 }
 
+// ── Interview scheduling dialog ──────────────────────────────────────────
+
+const scheduleVisible = ref(false)
+const scheduleTarget = ref<Application | null>(null)
+
+const openScheduleDialog = (row: Application) => {
+  scheduleTarget.value = row
+  scheduleVisible.value = true
+}
+
+const onScheduleSuccess = () => {
+  ElMessage.success('面试安排成功，可前往面试管理页查看')
+}
+
 onMounted(load)
 </script>
 
@@ -166,6 +181,7 @@ onMounted(load)
               <div class="application-actions">
                 <el-button size="small" type="primary" plain @click="viewResume(row)">查看简历</el-button>
                 <el-button size="small" type="primary" plain @click="aiAnalyze(row)">AI 分析</el-button>
+                <el-button size="small" type="warning" plain @click="openScheduleDialog(row)">安排面试</el-button>
                 <el-button size="small" type="success" plain :disabled="!canAction(row, APP_STATUS_KEY.SCREEN_PASSED)" @click="decide(row, APP_STATUS_KEY.SCREEN_PASSED)">通过</el-button>
                 <el-button size="small" type="danger" plain :disabled="!canAction(row, APP_STATUS_KEY.REJECTED)" @click="decide(row, APP_STATUS_KEY.REJECTED)">淘汰</el-button>
               </div>
@@ -203,4 +219,15 @@ onMounted(load)
       <el-pagination class="application-ledger-pagination" v-model:current-page="query.page" v-model:page-size="query.page_size" layout="total, prev, pager, next, sizes" :total="total" @current-change="load" @size-change="load" />
     </div>
   </section>
+
+  <!-- Interview scheduling dialog -->
+  <InterviewScheduleDialog
+    v-if="scheduleTarget"
+    :visible="scheduleVisible"
+    :application-id="scheduleTarget.application_id"
+    :job-title="scheduleTarget.job_title"
+    :candidate-name="scheduleTarget.real_name || ''"
+    @update:visible="scheduleVisible = $event"
+    @success="onScheduleSuccess"
+  />
 </template>

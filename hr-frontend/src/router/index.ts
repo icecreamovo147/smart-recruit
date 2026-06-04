@@ -8,6 +8,8 @@ import RegisterView from '@/views/RegisterView.vue'
 import WorkbenchView from '@/views/hr/WorkbenchView.vue'
 import JobManageView from '@/views/hr/JobManageView.vue'
 import ApplicationListView from '@/views/hr/ApplicationListView.vue'
+import InterviewTaskView from '@/views/hr/InterviewTaskView.vue'
+import InterviewScheduleView from '@/views/hr/InterviewScheduleView.vue'
 import AIChatView from '@/views/hr/AIChatView.vue'
 import ProfileView from '@/views/hr/ProfileView.vue'
 import InviteCodeManageView from '@/views/hr/InviteCodeManageView.vue'
@@ -40,6 +42,18 @@ const routes: RouteRecordRaw[] = [
     path: '/hr/jobs/:jobId/applications',
     component: ApplicationListView,
     meta: { requiresAuth: true, requiresPermission: PERM.APPLICATION_READ, title: '候选人台账' },
+  },
+  // Interview tasks — for interviewers (requires interview.read)
+  {
+    path: '/hr/interviews',
+    component: InterviewTaskView,
+    meta: { requiresAuth: true, requiresPermission: PERM.INTERVIEW_READ, title: '面试管理' },
+  },
+  // Schedule interview — requires interview.schedule
+  {
+    path: '/hr/interviews/schedule',
+    component: InterviewScheduleView,
+    meta: { requiresAuth: true, requiresPermission: PERM.INTERVIEW_SCHEDULE, title: '安排面试' },
   },
   // AI assistant — requires ai.hr.use permission
   {

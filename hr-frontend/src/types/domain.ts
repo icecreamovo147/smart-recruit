@@ -456,3 +456,44 @@ export interface DepartmentLocationConfig {
   locations: LocationOption[]
   available_location_ids: number[]
 }
+
+// ── Interview ──────────────────────────────────────────────────────────────
+
+export interface InterviewSchedule {
+  interview_id: number
+  application_id: number
+  interviewer_id: number
+  round_no: number
+  title: string
+  mode: string          // video / phone / onsite
+  meeting_url: string
+  location: string
+  duration_minutes: number
+  candidate_note: string
+  internal_note: string
+  cancel_reason: string
+  scheduled_at: string
+  status: string        // pending / scheduled / completed / cancelled
+  created_by: number
+  created_at: string
+  updated_at: string
+  interviewer_name: string
+  application_status_key: string
+  job_title: string
+  candidate_name: string
+  candidate_phone: string
+}
+
+export interface InterviewFeedback {
+  feedback_id: number
+  interview_id: number
+  application_id: number
+  interviewer_id: number
+  recommendation: string
+  score: number
+  dimension_scores_json: string
+  comments: string
+  submitted_at: string
+  updated_at: string
+  interviewer_name: string
+}
