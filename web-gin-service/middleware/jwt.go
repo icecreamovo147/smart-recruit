@@ -13,6 +13,7 @@ import (
 	golangjwt "github.com/golang-jwt/jwt/v5"
 	"go.uber.org/zap"
 
+	"web-gin-service/pkg/contextkeys"
 	webjwt "web-gin-service/pkg/jwt"
 	"web-gin-service/pkg/logger"
 )
@@ -77,6 +78,13 @@ func JWTAuthWithTokenVersion(secret, cookieName string, rdb *redis.Client) gin.H
 		c.Set("roles", claims.Roles)              // []string of role keys
 		c.Set("permissions", claims.Permissions)  // []string of permission keys
 		c.Set("token_version", claims.TokenVersion)
+
+		// Also inject into the Go context so gRPC metadata forwarding
+		// can propagate the authenticated actor to the logic service.
+		ctx := c.Request.Context()
+		ctx = context.WithValue(ctx, contextkeys.UserID, claims.UserID)
+		ctx = context.WithValue(ctx, contextkeys.AccountType, claims.AccountType)
+		c.Request = c.Request.WithContext(ctx)
 
 		c.Next()
 	}

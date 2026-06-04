@@ -9,6 +9,7 @@ import (
 
 	"logic-grpc-service/model"
 	"logic-grpc-service/oss"
+	"logic-grpc-service/pkg/authz"
 	"logic-grpc-service/repository"
 	"logic-grpc-service/resumeparser"
 )
@@ -19,6 +20,7 @@ type ToolExecutor struct {
 	jobs         *repository.JobRepo
 	resumes      *repository.ResumeRepo
 	oss          oss.Storage
+	authzRepo    *repository.AuthzRepo // optional: for scope-aware access checks
 }
 
 type ToolResult struct {
@@ -83,8 +85,84 @@ func (m *ToolMetadata) recordTrace(t ToolTrace) {
 	m.ToolTraces = append(m.ToolTraces, t)
 }
 
-func NewToolExecutor(apps *repository.ApplicationRepo, jobs *repository.JobRepo, resumes *repository.ResumeRepo, ossClient oss.Storage) *ToolExecutor {
-	return &ToolExecutor{applications: apps, jobs: jobs, resumes: resumes, oss: ossClient}
+func NewToolExecutor(apps *repository.ApplicationRepo, jobs *repository.JobRepo, resumes *repository.ResumeRepo, ossClient oss.Storage, authzRepo *repository.AuthzRepo) *ToolExecutor {
+	return &ToolExecutor{applications: apps, jobs: jobs, resumes: resumes, oss: ossClient, authzRepo: authzRepo}
+}
+
+// hasJobAccess checks whether the given HR user has access to the specified job,
+// considering both ownership and data scopes. Returns true if access is allowed.
+func (e *ToolExecutor) hasJobAccess(ctx context.Context, hrID int64, jobID int64) (bool, error) {
+	// First check ownership (fast path).
+	if e.jobs == nil {
+		return false, nil
+	}
+	owned, err := e.jobs.BelongsToHR(ctx, hrID, jobID)
+	if err != nil {
+		return false, err
+	}
+	if owned {
+		return true, nil
+	}
+
+	// If authzRepo is available, also check data scopes.
+	if e.authzRepo == nil {
+		return false, nil
+	}
+
+	scopeKeys, err := e.authzRepo.GetUserScopeKeys(ctx, uint64(hrID))
+	if err != nil {
+		return false, err
+	}
+
+	for _, sk := range scopeKeys {
+		switch sk {
+		case authz.ScopeRecruitingAll, authz.ScopeSystemAll:
+			// Full access — no ownership or scope filtering needed.
+			// Verify the job exists (BelongsToHR already confirmed it doesn't belong to HR).
+			job, jerr := e.jobs.GetByID(ctx, jobID)
+			if jerr != nil {
+				return false, jerr
+			}
+			if job != nil {
+				return true, nil
+			}
+		case authz.ScopeDepartment:
+			deptIDs, derr := e.authzRepo.GetUserDepartmentIDs(ctx, uint64(hrID))
+			if derr != nil {
+				return false, derr
+			}
+			job, jerr := e.jobs.GetByID(ctx, jobID)
+			if jerr != nil {
+				return false, jerr
+			}
+			if job != nil && job.DepartmentID != nil {
+				for _, dID := range deptIDs {
+					if uint64(*job.DepartmentID) == dID {
+						return true, nil
+					}
+				}
+			}
+		case authz.ScopeLocation:
+			locIDs, lerr := e.authzRepo.GetUserLocationIDs(ctx, uint64(hrID))
+			if lerr != nil {
+				return false, lerr
+			}
+			job, jerr := e.jobs.GetByID(ctx, jobID)
+			if jerr != nil {
+				return false, jerr
+			}
+			if job != nil && job.LocationID != nil {
+				for _, lID := range locIDs {
+					if uint64(*job.LocationID) == lID {
+						return true, nil
+					}
+				}
+			}
+		case authz.ScopeOwnJobs:
+			// Already checked via BelongsToHR above.
+		}
+	}
+	return false, nil
 }
 
 // Execute runs the named tool with the given JSON-decoded arguments for the specified HR.
@@ -135,7 +213,7 @@ func (e *ToolExecutor) queryTotal(ctx context.Context, hrID int64) (ToolResult, 
 func (e *ToolExecutor) queryToday(ctx context.Context, hrID int64, args map[string]any) (ToolResult, error) {
 	jobID := int64Arg(args, "job_id")
 	if jobID > 0 {
-		ok, err := e.jobs.BelongsToHR(ctx, hrID, jobID)
+		ok, err := e.hasJobAccess(ctx, hrID, jobID)
 		if err != nil {
 			return ToolResult{}, err
 		}
@@ -414,7 +492,7 @@ func (e *ToolExecutor) listApplicationsByJob(ctx context.Context, hrID int64, ar
 	if jobID <= 0 {
 		return ToolResult{Content: `{"error": "job_id is required"}`}, nil
 	}
-	ok, err := e.jobs.BelongsToHR(ctx, hrID, jobID)
+	ok, err := e.hasJobAccess(ctx, hrID, jobID)
 	if err != nil {
 		return ToolResult{}, err
 	}
@@ -453,7 +531,7 @@ func (e *ToolExecutor) listApplicationsByStatus(ctx context.Context, hrID int64,
 func (e *ToolExecutor) applicationStatusSummary(ctx context.Context, hrID int64, args map[string]any) (ToolResult, error) {
 	jobID := int64Arg(args, "job_id")
 	if jobID > 0 {
-		ok, err := e.jobs.BelongsToHR(ctx, hrID, jobID)
+		ok, err := e.hasJobAccess(ctx, hrID, jobID)
 		if err != nil {
 			return ToolResult{}, err
 		}
@@ -482,7 +560,7 @@ func (e *ToolExecutor) applicationTrend(ctx context.Context, hrID int64, args ma
 	}
 	jobID := int64Arg(args, "job_id")
 	if jobID > 0 {
-		ok, err := e.jobs.BelongsToHR(ctx, hrID, jobID)
+		ok, err := e.hasJobAccess(ctx, hrID, jobID)
 		if err != nil {
 			return ToolResult{}, err
 		}

@@ -1,5 +1,17 @@
 import request from './request'
-import type { DepartmentLocationConfig, DepartmentNode, InviteCodeInfo, LocationOption, PaginatedList } from '@/types/domain'
+import type {
+  CreateStaffUserPayload,
+  DataScopeInfo,
+  DepartmentLocationConfig,
+  DepartmentNode,
+  InviteCodeInfo,
+  LocationOption,
+  PaginatedList,
+  PermissionInfo,
+  RoleInfo,
+  StaffUserInfo,
+  StaffUserQuery,
+} from '@/types/domain'
 
 export const createInviteCode = (expiresAt?: string): Promise<{
   invite_code: InviteCodeInfo
@@ -100,3 +112,44 @@ export interface UsageLogItem {
 
 export const listUsageLogs = (params: UsageLogQuery): Promise<PaginatedList<UsageLogItem>> =>
   request.get('/api/v1/hr/admin/third-party-usage-logs', { params })
+
+// ── Staff User Management ────────────────────────────────────────────────
+
+export const listStaffUsers = (params: StaffUserQuery): Promise<PaginatedList<StaffUserInfo>> =>
+  request.get('/api/v1/hr/admin/staff-users', { params })
+
+export const createStaffUser = (data: CreateStaffUserPayload): Promise<{ user_id: number }> =>
+  request.post('/api/v1/hr/admin/staff-users', data)
+
+// ── Role & Permission Catalog ────────────────────────────────────────────
+
+export const listRoles = (): Promise<{ list: RoleInfo[] }> =>
+  request.get('/api/v1/hr/admin/roles')
+
+export const listPermissions = (): Promise<{ list: PermissionInfo[] }> =>
+  request.get('/api/v1/hr/admin/permissions')
+
+// ── User Role Assignment ─────────────────────────────────────────────────
+
+export interface UserRolesResponse {
+  role_keys: string[]
+  permission_keys: string[]
+  data_scopes: DataScopeInfo[]
+}
+
+export const getUserRoles = (userId: number): Promise<UserRolesResponse> =>
+  request.get(`/api/v1/hr/admin/users/${userId}/roles`)
+
+export const assignUserRole = (userId: number, roleKey: string): Promise<void> =>
+  request.post(`/api/v1/hr/admin/users/${userId}/roles/assign`, { role_key: roleKey })
+
+export const revokeUserRole = (userId: number, roleKey: string): Promise<void> =>
+  request.post(`/api/v1/hr/admin/users/${userId}/roles/revoke`, { role_key: roleKey })
+
+// ── Data Scope Assignment ────────────────────────────────────────────────
+
+export const assignDataScope = (userId: number, scopeKey: string, resourceType?: string, resourceId?: number): Promise<void> =>
+  request.post(`/api/v1/hr/admin/users/${userId}/data-scopes`, { scope_key: scopeKey, resource_type: resourceType, resource_id: resourceId })
+
+export const revokeDataScope = (scopeId: number): Promise<void> =>
+  request.delete(`/api/v1/hr/admin/data-scopes/${scopeId}`)

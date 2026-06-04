@@ -17,6 +17,7 @@ import (
 	"logic-grpc-service/pkg/errs"
 	"logic-grpc-service/pkg/jwt"
 	"logic-grpc-service/pkg/logger"
+	"logic-grpc-service/pkg/metadata"
 	"logic-grpc-service/recruitment/pb"
 	"logic-grpc-service/repository"
 )
@@ -27,10 +28,33 @@ type AdminService struct {
 	users       *repository.UserRepo
 	authz       *repository.AuthzRepo
 	redisClient *redis.Client // optional: syncs token_version to Redis after permission changes
+	serviceAuth *ServiceAuthorizer
 }
 
-func NewAdminService(inviteCodes *repository.InviteCodeRepo, usageLogs *repository.UsageLogRepo, users *repository.UserRepo, authz *repository.AuthzRepo, redisClient *redis.Client) *AdminService {
-	return &AdminService{inviteCodes: inviteCodes, usageLogs: usageLogs, users: users, authz: authz, redisClient: redisClient}
+// getServiceAuth returns the ServiceAuthorizer, creating a nil-safe one if not configured.
+func (s *AdminService) getServiceAuth() *ServiceAuthorizer {
+	if s.serviceAuth != nil {
+		return s.serviceAuth
+	}
+	return NewServiceAuthorizer(nil, nil)
+}
+
+// verifyAdminPermission extracts the authenticated actor from the gRPC context
+// and verifies they hold the required permission.
+//
+// FAIL-CLOSED: if the authenticated actor is not present in the context,
+// the request is REJECTED. Every admin-facing read must carry the
+// authenticated user via gRPC metadata.
+func (s *AdminService) verifyAdminPermission(ctx context.Context, permKey string) error {
+	actorID := metadata.GetAuthUserID(ctx)
+	if actorID == 0 {
+		return fmt.Errorf("authenticated user not found in context — gRPC metadata x-authenticated-user-id is required for admin operations")
+	}
+	return s.getServiceAuth().AuthorizePermission(ctx, uint64(actorID), permKey)
+}
+
+func NewAdminService(inviteCodes *repository.InviteCodeRepo, usageLogs *repository.UsageLogRepo, users *repository.UserRepo, authz *repository.AuthzRepo, redisClient *redis.Client, serviceAuth *ServiceAuthorizer) *AdminService {
+	return &AdminService{inviteCodes: inviteCodes, usageLogs: usageLogs, users: users, authz: authz, redisClient: redisClient, serviceAuth: serviceAuth}
 }
 
 // setTokenVersionCache writes the current token_version to Redis so the
@@ -211,6 +235,9 @@ func toPBInviteCode(ic *model.InviteCode) *pb.InviteCodeInfo {
 }
 
 func (s *AdminService) QueryUsageLogs(ctx context.Context, req *pb.QueryUsageLogsRequest) (*pb.QueryUsageLogsResponse, error) {
+	if err := s.verifyAdminPermission(ctx, authz.PermAuditUsageRead); err != nil {
+		return &pb.QueryUsageLogsResponse{Code: errs.ErrForbidden, Msg: err.Error()}, nil
+	}
 	page := req.Page
 	if page <= 0 {
 		page = 1
@@ -270,6 +297,9 @@ func (s *AdminService) ListRoles(ctx context.Context, req *pb.ListRolesRequest) 
 	if s.authz == nil {
 		return &pb.ListRolesResponse{Code: errs.ErrInternal, Msg: "authz repo not configured"}, nil
 	}
+	if err := s.verifyAdminPermission(ctx, authz.PermAdminRoleManage); err != nil {
+		return &pb.ListRolesResponse{Code: errs.ErrForbidden, Msg: err.Error()}, nil
+	}
 	roles, err := s.authz.ListRoles(ctx)
 	if err != nil {
 		return nil, err
@@ -293,6 +323,9 @@ func (s *AdminService) ListPermissions(ctx context.Context, req *pb.ListPermissi
 	if s.authz == nil {
 		return &pb.ListPermissionsResponse{Code: errs.ErrInternal, Msg: "authz repo not configured"}, nil
 	}
+	if err := s.verifyAdminPermission(ctx, authz.PermAdminRoleManage); err != nil {
+		return &pb.ListPermissionsResponse{Code: errs.ErrForbidden, Msg: err.Error()}, nil
+	}
 	perms, err := s.authz.ListPermissions(ctx)
 	if err != nil {
 		return nil, err
@@ -313,6 +346,9 @@ func (s *AdminService) ListPermissions(ctx context.Context, req *pb.ListPermissi
 func (s *AdminService) GetUserRoles(ctx context.Context, req *pb.GetUserRolesRequest) (*pb.GetUserRolesResponse, error) {
 	if s.authz == nil {
 		return &pb.GetUserRolesResponse{Code: errs.ErrInternal, Msg: "authz repo not configured"}, nil
+	}
+	if err := s.verifyAdminPermission(ctx, authz.PermAdminRoleManage); err != nil {
+		return &pb.GetUserRolesResponse{Code: errs.ErrForbidden, Msg: err.Error()}, nil
 	}
 	roleKeys, err := s.authz.GetUserRoles(ctx, uint64(req.UserId))
 	if err != nil {
@@ -520,6 +556,9 @@ func (s *AdminService) RevokeDataScope(ctx context.Context, req *pb.RevokeDataSc
 func (s *AdminService) ListStaffUsers(ctx context.Context, req *pb.ListStaffUsersRequest) (*pb.ListStaffUsersResponse, error) {
 	if s.users == nil {
 		return &pb.ListStaffUsersResponse{Code: errs.ErrInternal, Msg: "user repo not configured"}, nil
+	}
+	if err := s.verifyAdminPermission(ctx, authz.PermAdminUserManage); err != nil {
+		return &pb.ListStaffUsersResponse{Code: errs.ErrForbidden, Msg: err.Error()}, nil
 	}
 	page := req.Page
 	if page <= 0 {

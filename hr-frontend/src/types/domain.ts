@@ -390,6 +390,58 @@ export interface DepartmentLocationMapItem {
   location_ids: number[]
 }
 
+// ── Staff User Management ───────────────────────────────────────────────
+
+export interface StaffUserInfo {
+  user_id: number
+  username: string
+  email: string
+  status: string
+  account_type: string
+  roles: string[]
+  token_version: number
+  created_at: string
+}
+
+export interface RoleInfo {
+  id: number
+  role_key: string
+  name: string
+  description: string
+  is_system: boolean
+  created_at: string
+  updated_at: string
+}
+
+export interface PermissionInfo {
+  id: number
+  permission_key: string
+  resource: string
+  action: string
+  description: string
+}
+
+export interface DataScopeInfo {
+  id: number
+  scope_key: string
+  resource_type: string
+  resource_id: number
+  assigned_at: string
+}
+
+export interface CreateStaffUserPayload {
+  username: string
+  password: string
+  email?: string
+  role_keys?: string[]
+}
+
+export interface StaffUserQuery {
+  page: number
+  page_size: number
+  status?: string
+}
+
 export interface JobOptionsResponse {
   department_tree: DepartmentNode[]
   locations: LocationOption[]

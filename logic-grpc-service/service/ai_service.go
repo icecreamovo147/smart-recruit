@@ -40,6 +40,7 @@ type AIService struct {
 	candidateAI     *CandidateAIService
 	usageLogs       *repository.UsageLogRepo
 	agentRuntime    string
+	authz           *ServiceAuthorizer
 	cachedADKTools []tool.BaseTool // lazy-initialized, shared across requests
 	cachedToolsMu  sync.Mutex       // guards cachedADKTools init and invalidation
 }
@@ -59,6 +60,7 @@ func NewAIService(
 	candidateAI *CandidateAIService,
 	usageLogs *repository.UsageLogRepo,
 	agentRuntime string,
+	authz *ServiceAuthorizer,
 ) *AIService {
 	return &AIService{
 		chats: chats, applications: applications, jobs: jobs, resumes: resumes,
@@ -67,6 +69,7 @@ func NewAIService(
 		contextBuilder: contextBuilder, candidateAI: candidateAI,
 		usageLogs: usageLogs,
 		agentRuntime: agentRuntime,
+		authz: authz,
 	}
 }
 

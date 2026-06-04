@@ -29,7 +29,7 @@ func main() {
 	appRepo := repository.NewApplicationRepo(db)
 	jobRepo := repository.NewJobRepo(db)
 	resumeRepo := repository.NewResumeRepo(db)
-	executor := ai.NewToolExecutor(appRepo, jobRepo, resumeRepo, nil)
+	executor := ai.NewToolExecutor(appRepo, jobRepo, resumeRepo, nil, nil)
 
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()

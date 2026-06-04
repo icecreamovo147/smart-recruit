@@ -25,10 +25,11 @@ type CandidateService struct {
 	oss             oss.Storage
 	outboxPublisher *OutboxPublisher
 	usageLogs       *repository.UsageLogRepo
+	authz           *ServiceAuthorizer
 }
 
-func NewCandidateService(profiles *repository.ProfileRepo, resumes *repository.ResumeRepo, ossClient oss.Storage, outboxPublisher *OutboxPublisher, usageLogs *repository.UsageLogRepo) *CandidateService {
-	return &CandidateService{profiles: profiles, resumes: resumes, oss: ossClient, outboxPublisher: outboxPublisher, usageLogs: usageLogs}
+func NewCandidateService(profiles *repository.ProfileRepo, resumes *repository.ResumeRepo, ossClient oss.Storage, outboxPublisher *OutboxPublisher, usageLogs *repository.UsageLogRepo, authz *ServiceAuthorizer) *CandidateService {
+	return &CandidateService{profiles: profiles, resumes: resumes, oss: ossClient, outboxPublisher: outboxPublisher, usageLogs: usageLogs, authz: authz}
 }
 
 func (s *CandidateService) GetProfile(ctx context.Context, req *pb.GetProfileRequest) (*pb.GetProfileResponse, error) {
@@ -58,6 +59,17 @@ func (s *CandidateService) UpdateProfile(ctx context.Context, req *pb.UpdateProf
 }
 
 func (s *CandidateService) GetResume(ctx context.Context, req *pb.GetResumeRequest) (*pb.GetResumeResponse, error) {
+	if req.UserId == 0 {
+		return &pb.GetResumeResponse{Code: errs.ErrBadRequest, Msg: "user_id is required"}, nil
+	}
+	// Verify the request user_id matches the authenticated actor from gRPC context.
+	// This prevents a compromised caller from generating a presigned resume URL
+	// for another candidate by forging the request UserId.
+	if s.authz != nil {
+		if err := s.authz.VerifyActorMatch(ctx, req.UserId); err != nil {
+			return &pb.GetResumeResponse{Code: errs.ErrForbidden, Msg: err.Error()}, nil
+		}
+	}
 	resume, err := s.resumes.GetValidByUserID(ctx, req.UserId)
 	if err != nil {
 		logger.L().Error("get resume failed", zap.Int64("user_id", req.UserId), zap.Error(err))

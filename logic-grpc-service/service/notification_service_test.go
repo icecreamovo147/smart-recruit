@@ -9,6 +9,7 @@ import (
 	"gorm.io/gorm"
 
 	"logic-grpc-service/model"
+	"logic-grpc-service/pkg/metadata"
 	"logic-grpc-service/recruitment/pb"
 	"logic-grpc-service/repository"
 )
@@ -50,8 +51,9 @@ func TestListNotificationsCursorIncludesBusinessFields(t *testing.T) {
 		t.Fatalf("insert notifications: %v", err)
 	}
 
-	svc := NewNotificationService(repository.NewNotificationRepo(db), nil)
-	resp, err := svc.ListNotifications(context.Background(), &pb.ListNotificationsRequest{
+	svc := NewNotificationService(repository.NewNotificationRepo(db), nil, NewServiceAuthorizer(nil, nil))
+	ctx := metadata.WithAuthActor(context.Background(), 10, "candidate")
+	resp, err := svc.ListNotifications(ctx, &pb.ListNotificationsRequest{
 		UserId:      10,
 		AccountType: "candidate",
 		Page:        0,

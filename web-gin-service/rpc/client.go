@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"strconv"
 	"time"
 
 	"google.golang.org/grpc"
@@ -141,6 +142,12 @@ func forwardMetadata(ctx context.Context) context.Context {
 	}
 	if ip, ok := ctx.Value(contextkeys.ClientIP).(string); ok && ip != "" {
 		ctx = metadata.AppendToOutgoingContext(ctx, "x-client-ip", ip)
+	}
+	if uid, ok := ctx.Value(contextkeys.UserID).(int64); ok && uid > 0 {
+		ctx = metadata.AppendToOutgoingContext(ctx, "x-authenticated-user-id", strconv.FormatInt(uid, 10))
+	}
+	if at, ok := ctx.Value(contextkeys.AccountType).(string); ok && at != "" {
+		ctx = metadata.AppendToOutgoingContext(ctx, "x-authenticated-account-type", at)
 	}
 	return ctx
 }

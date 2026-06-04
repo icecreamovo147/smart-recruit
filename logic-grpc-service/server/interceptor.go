@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"strconv"
 
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
@@ -112,6 +113,14 @@ func injectMetadataIntoContext(ctx context.Context) context.Context {
 		}
 		if vals := md.Get("x-client-ip"); len(vals) > 0 {
 			ctx = context.WithValue(ctx, metadata.KeyClientIP, vals[0])
+		}
+		if vals := md.Get("x-authenticated-user-id"); len(vals) > 0 {
+			if uid, err := strconv.ParseInt(vals[0], 10, 64); err == nil {
+				ctx = context.WithValue(ctx, metadata.KeyAuthUserID, uid)
+			}
+		}
+		if vals := md.Get("x-authenticated-account-type"); len(vals) > 0 {
+			ctx = context.WithValue(ctx, metadata.KeyAuthAccountType, vals[0])
 		}
 	}
 	return ctx

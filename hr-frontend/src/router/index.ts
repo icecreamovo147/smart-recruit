@@ -14,6 +14,7 @@ import InviteCodeManageView from '@/views/hr/InviteCodeManageView.vue'
 import DepartmentManageView from '@/views/hr/DepartmentManageView.vue'
 import LocationManageView from '@/views/hr/LocationManageView.vue'
 import UsageAuditView from '@/views/hr/UsageAuditView.vue'
+import StaffUserManageView from '@/views/hr/StaffUserManageView.vue'
 import ForbiddenView from '@/views/ForbiddenView.vue'
 
 const routes: RouteRecordRaw[] = [
@@ -75,6 +76,11 @@ const routes: RouteRecordRaw[] = [
     path: '/hr/admin/usage-audit',
     component: UsageAuditView,
     meta: { requiresAuth: true, requiresPermission: PERM.AUDIT_USAGE_READ, title: '第三方服务审计' },
+  },
+  {
+    path: '/hr/admin/staff-users',
+    component: StaffUserManageView,
+    meta: { requiresAuth: true, requiresPermission: PERM.ADMIN_USER_MANAGE, title: '员工账号管理' },
   },
 ]
 

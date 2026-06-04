@@ -15,8 +15,9 @@ import (
 )
 
 type NotificationService struct {
-	repo  *repository.NotificationRepo
-	cache *cache.NotificationCache
+	repo   *repository.NotificationRepo
+	cache  *cache.NotificationCache
+	authz  *ServiceAuthorizer
 }
 
 type notificationEvent struct {
@@ -30,8 +31,8 @@ type notificationEvent struct {
 	CreatedAt        string `json:"created_at"`
 }
 
-func NewNotificationService(repo *repository.NotificationRepo, c *cache.NotificationCache) *NotificationService {
-	return &NotificationService{repo: repo, cache: c}
+func NewNotificationService(repo *repository.NotificationRepo, c *cache.NotificationCache, authz *ServiceAuthorizer) *NotificationService {
+	return &NotificationService{repo: repo, cache: c, authz: authz}
 }
 
 func (s *NotificationService) Create(ctx context.Context, n *model.Notification) error {
@@ -52,6 +53,20 @@ func (s *NotificationService) Create(ctx context.Context, n *model.Notification)
 }
 
 func (s *NotificationService) ListNotifications(ctx context.Context, req *pb.ListNotificationsRequest) (*pb.ListNotificationsResponse, error) {
+	if req.UserId == 0 {
+		return &pb.ListNotificationsResponse{Code: errs.ErrBadRequest, Msg: "user_id is required"}, nil
+	}
+	if req.AccountType == "" {
+		return &pb.ListNotificationsResponse{Code: errs.ErrBadRequest, Msg: "account_type is required"}, nil
+	}
+	// Verify the request user_id matches the authenticated actor from gRPC context.
+	// This closes the gap where a compromised web-gin handler or direct gRPC call
+	// could read another user's notifications.
+	if s.authz != nil {
+		if err := s.authz.VerifyActorMatch(ctx, req.UserId); err != nil {
+			return &pb.ListNotificationsResponse{Code: errs.ErrForbidden, Msg: err.Error()}, nil
+		}
+	}
 	ps := req.PageSize
 	if ps < 1 || ps > 50 {
 		ps = 20

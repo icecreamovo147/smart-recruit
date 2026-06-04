@@ -115,6 +115,10 @@ const toggleSidebar = () => {
         <el-icon><Key /></el-icon>
         <span>邀请码管理</span>
       </RouterLink>
+      <RouterLink v-if="auth.hasPermission(PERM.ADMIN_USER_MANAGE)" class="sidebar-link" to="/hr/admin/staff-users" @click="closeMobileSidebar">
+        <el-icon><UserFilled /></el-icon>
+        <span>员工账号</span>
+      </RouterLink>
       <RouterLink v-if="auth.hasPermission(PERM.AUDIT_USAGE_READ)" class="sidebar-link" to="/hr/admin/usage-audit" @click="closeMobileSidebar">
         <el-icon><DataAnalysis /></el-icon>
         <span>第三方服务审计</span>

@@ -14,6 +14,7 @@ import (
 	"logic-grpc-service/pkg/authz"
 	"logic-grpc-service/pkg/errs"
 	"logic-grpc-service/pkg/jwt"
+	"logic-grpc-service/pkg/metadata"
 	"logic-grpc-service/recruitment/pb"
 	"logic-grpc-service/repository"
 )
@@ -450,7 +451,7 @@ func TestLastAdminSafety_RevokeLastSystemAdminIsBlocked(t *testing.T) {
 	}
 
 	// Create AdminService and attempt to revoke the last system_admin from user 2
-	svc := NewAdminService(nil, nil, nil, authzRepo, nil)
+	svc := NewAdminService(nil, nil, nil, authzRepo, nil, NewServiceAuthorizer(nil, nil))
 
 	// Revoke system_admin from user 2 (the only one) by admin 2 (self)
 	req := &pb.RevokeUserRoleRequest{
@@ -467,4 +468,115 @@ func TestLastAdminSafety_RevokeLastSystemAdminIsBlocked(t *testing.T) {
 	}
 }
 
+// ── Service-layer authorization fail-closed tests ────────────────────────
+
+// TestVerifyActorMatchMissingMetadata verifies that ListNotifications rejects
+// requests when the authenticated actor is not in the gRPC context.
+func TestVerifyActorMatchMissingMetadata(t *testing.T) {
+	db, err := gorm.Open(sqlite.Open(":memory:"), &gorm.Config{})
+	if err != nil {
+		t.Fatalf("open sqlite db: %v", err)
+	}
+	if err := db.AutoMigrate(&model.Notification{}); err != nil {
+		t.Fatalf("migrate: %v", err)
+	}
+
+	svc := NewNotificationService(repository.NewNotificationRepo(db), nil, NewServiceAuthorizer(nil, nil))
+	// No actor in context — VerifyActorMatch must reject.
+	resp, err := svc.ListNotifications(context.Background(), &pb.ListNotificationsRequest{
+		UserId:      10,
+		AccountType: "candidate",
+		Page:        0,
+		PageSize:    20,
+	})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if resp.Code != errs.ErrForbidden {
+		t.Errorf("expected ErrForbidden (403) when actor is missing from context, got code=%d msg=%s", resp.Code, resp.Msg)
+	}
+}
+
+// TestVerifyActorMatchRejectsMismatchedUser verifies that ListNotifications
+// rejects a request whose UserId does not match the authenticated actor.
+func TestVerifyActorMatchRejectsMismatchedUser(t *testing.T) {
+	db, err := gorm.Open(sqlite.Open(":memory:"), &gorm.Config{})
+	if err != nil {
+		t.Fatalf("open sqlite db: %v", err)
+	}
+	if err := db.AutoMigrate(&model.Notification{}); err != nil {
+		t.Fatalf("migrate: %v", err)
+	}
+
+	svc := NewNotificationService(repository.NewNotificationRepo(db), nil, NewServiceAuthorizer(nil, nil))
+	// Auth user is 10, but request asks for user 20 — must reject.
+	ctx := metadata.WithAuthActor(context.Background(), 10, "candidate")
+	resp, err := svc.ListNotifications(ctx, &pb.ListNotificationsRequest{
+		UserId:      20,
+		AccountType: "candidate",
+		Page:        0,
+		PageSize:    20,
+	})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if resp.Code != errs.ErrForbidden {
+		t.Errorf("expected ErrForbidden (403) for mismatched actor, got code=%d msg=%s", resp.Code, resp.Msg)
+	}
+}
+
+// TestVerifyAdminPermissionMissingMetadata verifies that admin read methods
+// reject requests when the authenticated actor is not in the gRPC context.
+func TestVerifyAdminPermissionMissingMetadata(t *testing.T) {
+	db := setupRBACTestDB(t)
+	authzRepo := repository.NewAuthzRepo(db)
+
+	svc := NewAdminService(nil, nil, nil, authzRepo, nil, NewServiceAuthorizer(authzRepo, nil))
+	// No actor in context — ListRoles must reject.
+	resp, err := svc.ListRoles(context.Background(), &pb.ListRolesRequest{})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if resp.Code != errs.ErrForbidden {
+		t.Errorf("expected ErrForbidden (403) when actor is missing from context, got code=%d msg=%s", resp.Code, resp.Msg)
+	}
+}
+
+// TestVerifyAdminPermissionRejectsInsufficientPermission verifies that
+// admin read methods reject a user who lacks the required permission.
+func TestVerifyAdminPermissionRejectsInsufficientPermission(t *testing.T) {
+	db := setupRBACTestDB(t)
+	authzRepo := repository.NewAuthzRepo(db)
+
+	ctx := context.Background()
+	// Create a staff user with no admin permissions (only a basic role).
+	user := model.User{
+		Username:    "basic_user",
+		Password:    "hashed",
+		AccountType: "staff",
+		Status:      "active",
+	}
+	if err := db.Create(&user).Error; err != nil {
+		t.Fatalf("create user: %v", err)
+	}
+	// Give them a role with no admin permissions.
+	role := model.Role{RoleKey: "recruiter", Name: "Recruiter", IsSystem: int32(1)}
+	if err := db.Create(&role).Error; err != nil {
+		t.Fatalf("create role: %v", err)
+	}
+	if err := db.Exec("INSERT INTO user_roles (user_id, role_id, assigned_by) VALUES (?, ?, ?)", user.ID, role.ID, user.ID).Error; err != nil {
+		t.Fatalf("assign role: %v", err)
+	}
+
+	svc := NewAdminService(nil, nil, nil, authzRepo, nil, NewServiceAuthorizer(authzRepo, nil))
+	// Auth as basic_user who lacks admin.role.manage
+	ctx = metadata.WithAuthActor(ctx, int64(user.ID), "staff")
+	resp, err := svc.ListRoles(ctx, &pb.ListRolesRequest{})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if resp.Code != errs.ErrForbidden {
+		t.Errorf("expected ErrForbidden (403) for user without admin.role.manage, got code=%d msg=%s", resp.Code, resp.Msg)
+	}
+}
 

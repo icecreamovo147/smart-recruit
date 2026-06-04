@@ -72,7 +72,7 @@ func NewServices(
 	cfg config.Config,
 	jwtSecret string,
 ) *Services {
-	toolExecutor := ai.NewToolExecutor(applications, jobs, resumes, ossClient)
+	toolExecutor := ai.NewToolExecutor(applications, jobs, resumes, ossClient, authzRepo)
 	candidateToolExecutor := ai.NewCandidateToolExecutor(applications, jobs, resumes)
 	contextBuilder := NewAgentContextBuilder(chats, summaries, memories, aiClient, cfg)
 	agentRuntime := cfg.AI.AgentRuntime
@@ -83,17 +83,18 @@ func NewServices(
 	notificationConsumer := NewNotificationConsumer(notifications, notifCache)
 	resumeParseConsumer := NewResumeParseConsumer(resumes, ossClient)
 	scopeEval := &scopeEvaluator{authzRepo: authzRepo}
+	serviceAuth := NewServiceAuthorizer(authzRepo, scopeEval)
 
 	return &Services{
 		Auth:         NewAuthService(users, tokens, authzRepo, inviteCodes, jwtSecret),
-		Admin:        NewAdminService(inviteCodes, usageLogs, users, authzRepo, tokenCache),
+		Admin:        NewAdminService(inviteCodes, usageLogs, users, authzRepo, tokenCache, serviceAuth),
 		Job:          NewJobService(jobs, jobCache, authzRepo, taxonomy, scopeEval),
 		Taxonomy:     taxonomy,
-		Candidate:    NewCandidateService(profiles, resumes, ossClient, outboxPublisher, usageLogs),
+		Candidate:    NewCandidateService(profiles, resumes, ossClient, outboxPublisher, usageLogs, serviceAuth),
 		Application: NewApplicationService(authzRepo, applications, profiles, resumes, jobs, notifications, outboxPublisher, ossClient, jobCache, scopeEval),
-		AI:          NewAIService(chats, applications, jobs, resumes, summaries, toolTraces, memories, ossClient, aiClient, toolExecutor, contextBuilder, candidateAI, usageLogs, agentRuntime),
+		AI:          NewAIService(chats, applications, jobs, resumes, summaries, toolTraces, memories, ossClient, aiClient, toolExecutor, contextBuilder, candidateAI, usageLogs, agentRuntime, serviceAuth),
 		CandidateAI: candidateAI,
-		Notification: NewNotificationService(notifications, notifCache),
+		Notification: NewNotificationService(notifications, notifCache, serviceAuth),
 
 		OutboxPublisher:      outboxPublisher,
 		NotificationConsumer: notificationConsumer,
