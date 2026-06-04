@@ -3,6 +3,7 @@ import { onMounted, reactive, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { listMyApplications } from '@/api/application'
 import type { Application, JobQuery } from '@/types/domain'
+import { getCandidateStatusLabel, getStatusType } from '@/types/domain'
 
 const router = useRouter()
 const loading = ref(false)
@@ -10,13 +11,6 @@ const errorMessage = ref('')
 const list = ref<Application[]>([])
 const total = ref(0)
 const query = reactive<JobQuery>({ page: 1, page_size: 10 })
-const statusText = ['待查看', '已查看', '通过', '已进入公司公共人才库']
-const statusType = ['info', 'primary', 'success', 'danger']
-
-const normalizeStatus = (value: unknown): number => {
-  const status = Number(value)
-  return Number.isInteger(status) && status >= 0 && status < statusText.length ? status : 0
-}
 
 const formatDateTime = (value: string): string => {
   if (!value) return '-'
@@ -24,6 +18,18 @@ const formatDateTime = (value: string): string => {
   if (Number.isNaN(date.getTime())) return value
   const pad = (num: number): string => String(num).padStart(2, '0')
   return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())} ${pad(date.getHours())}:${pad(date.getMinutes())}`
+}
+
+const getStatusLabel = (row: Application): string => {
+  if (row.status_key) return getCandidateStatusLabel(row.status_key)
+  // Legacy fallback
+  const labels = ['待查看', '已查看', '通过', '已进入公司公共人才库']
+  return labels[row.status] || '未知'
+}
+
+const getTagType = (row: Application): string => {
+  if (row.status_key) return getStatusType(row.status_key)
+  return ['info', 'primary', 'success', 'danger'][row.status] || 'info'
 }
 
 const load = async () => {
@@ -37,7 +43,7 @@ const load = async () => {
     list.value = applicationList.map((item) => ({
       ...item,
       applied_time_display: formatDateTime(item.applied_at),
-      status: normalizeStatus(item.status),
+      status: Number(item.status ?? 0),
       round_no: item.round_no || 1,
       is_current: Number(item.is_current ?? 0),
       application_id: item.application_id,
@@ -79,7 +85,7 @@ onMounted(load)
           </el-table-column>
           <el-table-column label="状态" width="180">
             <template #default="{ row }">
-              <el-tag :type="statusType[row.status] || 'info'">{{ statusText[row.status] || '未知' }}</el-tag>
+              <el-tag :type="getTagType(row)">{{ getStatusLabel(row) }}</el-tag>
             </template>
           </el-table-column>
           <el-table-column prop="applied_time_display" label="投递时间" width="170" />
@@ -106,7 +112,7 @@ onMounted(load)
             <h3 class="mobile-card__title">
               <el-link type="primary" @click="router.push(`/jobs/${row.job_id}`)">{{ row.job_title }}</el-link>
             </h3>
-            <el-tag :type="statusType[row.status] || 'info'" size="small">{{ statusText[row.status] || '未知' }}</el-tag>
+            <el-tag :type="getTagType(row)" size="small">{{ getStatusLabel(row) }}</el-tag>
           </div>
           <div class="mobile-card__meta">
             <span>{{ row.applied_time_display }}</span>

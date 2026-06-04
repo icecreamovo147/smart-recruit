@@ -35,6 +35,10 @@ func (f *cursorApplicationClient) UpdateApplicationStatus(context.Context, *pb.U
 	return nil, nil
 }
 
+func (f *cursorApplicationClient) ListApplicationStatusTransitions(context.Context, *pb.ListApplicationStatusTransitionsRequest, ...grpc.CallOption) (*pb.ListApplicationStatusTransitionsResponse, error) {
+	return nil, nil
+}
+
 func TestMinePassesCursor(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	fake := &cursorApplicationClient{}

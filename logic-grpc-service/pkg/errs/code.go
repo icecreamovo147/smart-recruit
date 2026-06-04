@@ -7,6 +7,7 @@ const (
 	ErrBadRequest        = 400
 	ErrUnauthorized      = 401
 	ErrForbidden         = 403
+	ErrConflict          = 409
 	ErrInternal          = 500
 	ErrProfileIncomplete = 4001
 	ErrResumeNotFound    = 4002

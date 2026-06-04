@@ -20,6 +20,7 @@ type MyApplicationRow struct {
 	JobID         int64
 	JobTitle      string
 	Status        int32
+	StatusKey     string
 	RoundNo       int32
 	IsCurrent     int32
 	AppliedAt     time.Time
@@ -40,6 +41,7 @@ type JobApplicationRow struct {
 	FileName      string
 	FileType      string
 	Status        int32
+	StatusKey     string
 	RoundNo       int32
 	IsCurrent     int32
 }
@@ -49,6 +51,7 @@ type ApplicationDetailRow struct {
 	UserID         int64
 	ResumeID       int64
 	Status         int32
+	StatusKey      string
 	RoundNo        int32
 	IsCurrent      int32
 	AppliedAt      time.Time
@@ -78,8 +81,9 @@ type HotJobRow struct {
 }
 
 type ApplicationStatusCountRow struct {
-	Status int32
-	Total  int64
+	Status    int32
+	StatusKey string
+	Total     int64
 }
 
 type ApplicationTrendRow struct {
@@ -100,6 +104,7 @@ type CandidateApplicationOptionRow struct {
 	Phone         string
 	JobTitle      string
 	Status        int32
+	StatusKey     string
 	RoundNo       int32
 	IsCurrent     int32
 	AppliedAt     time.Time
@@ -109,6 +114,31 @@ func NewApplicationRepo(db *gorm.DB) *ApplicationRepo {
 	return &ApplicationRepo{db: db}
 }
 
+// ── Status Transition Audit ────────────────────────────────────────────
+
+func (r *ApplicationRepo) CreateTransition(ctx context.Context, tx *gorm.DB, t *model.ApplicationStatusTransition) error {
+	return tx.WithContext(ctx).Create(t).Error
+}
+
+func (r *ApplicationRepo) ListTransitions(ctx context.Context, applicationID int64) ([]model.ApplicationStatusTransition, error) {
+	var rows []model.ApplicationStatusTransition
+	err := r.db.WithContext(ctx).
+		Where("application_id = ?", applicationID).
+		Order("created_at ASC").
+		Find(&rows).Error
+	return rows, err
+}
+
+func (r *ApplicationRepo) UpdateStatusKeyWithTx(ctx context.Context, tx *gorm.DB, applicationID int64, statusKey string, legacyStatus int32) (int64, error) {
+	result := tx.WithContext(ctx).Model(&model.Application{}).
+		Where("id = ?", applicationID).
+		Updates(map[string]any{
+			"status_key": statusKey,
+			"status":     legacyStatus,
+		})
+	return result.RowsAffected, result.Error
+}
+
 func (r *ApplicationRepo) Transaction(ctx context.Context, fn func(tx *gorm.DB) error) error {
 	return r.db.WithContext(ctx).Transaction(fn)
 }
@@ -116,7 +146,7 @@ func (r *ApplicationRepo) Transaction(ctx context.Context, fn func(tx *gorm.DB) 
 func (r *ApplicationRepo) ExistsActive(ctx context.Context, userID, jobID int64) (bool, error) {
 	var count int64
 	err := r.db.WithContext(ctx).Model(&model.Application{}).
-		Where("user_id = ? AND job_id = ? AND is_current = ? AND status <> ?", userID, jobID, 1, 3).
+		Where("user_id = ? AND job_id = ? AND is_current = ? AND status_key NOT IN ?", userID, jobID, 1, model.TerminalStatusKeyList()).
 		Count(&count).Error
 	return count > 0, err
 }
@@ -128,9 +158,10 @@ func (r *ApplicationRepo) CreateNewRound(ctx context.Context, application *model
 }
 
 func (r *ApplicationRepo) CreateNewRoundWithTx(ctx context.Context, tx *gorm.DB, application *model.Application) error {
+	terminalKeys := model.TerminalStatusKeyList()
 	var activeCount int64
 	err := tx.WithContext(ctx).Model(&model.Application{}).
-		Where("user_id = ? AND job_id = ? AND is_current = ? AND status <> ?", application.UserID, application.JobID, 1, 3).
+		Where("user_id = ? AND job_id = ? AND is_current = ? AND status_key NOT IN ?", application.UserID, application.JobID, 1, terminalKeys).
 		Count(&activeCount).Error
 	if err != nil {
 		return err
@@ -148,7 +179,7 @@ func (r *ApplicationRepo) CreateNewRoundWithTx(ctx context.Context, tx *gorm.DB,
 	}
 
 	err = tx.WithContext(ctx).Model(&model.Application{}).
-		Where("user_id = ? AND job_id = ? AND is_current = ? AND status = ?", application.UserID, application.JobID, 1, 3).
+		Where("user_id = ? AND job_id = ? AND is_current = ? AND status_key IN ?", application.UserID, application.JobID, 1, terminalKeys).
 		Update("is_current", 0).Error
 	if err != nil {
 		return err
@@ -174,7 +205,7 @@ func (r *ApplicationRepo) ListMy(ctx context.Context, userID int64, page, pageSi
 		return nil, 0, err
 	}
 	var rows []MyApplicationRow
-	err := base.Select("applications.id AS application_id, jobs.id AS job_id, jobs.title AS job_title, applications.status, applications.round_no, applications.is_current, applications.applied_at").
+	err := base.Select("applications.id AS application_id, jobs.id AS job_id, jobs.title AS job_title, applications.status, applications.status_key, applications.round_no, applications.is_current, applications.applied_at").
 		Joins("JOIN jobs ON jobs.id = applications.job_id").
 		Order("applications.applied_at DESC").
 		Offset(offset(page, pageSize)).
@@ -190,7 +221,7 @@ func (r *ApplicationRepo) ListMyCursor(ctx context.Context, userID int64, cursor
 		return nil, "", false, err
 	}
 	query := r.db.WithContext(ctx).Table("applications").
-		Select("applications.id AS application_id, jobs.id AS job_id, jobs.title AS job_title, applications.status, applications.round_no, applications.is_current, applications.applied_at").
+		Select("applications.id AS application_id, jobs.id AS job_id, jobs.title AS job_title, applications.status, applications.status_key, applications.round_no, applications.is_current, applications.applied_at").
 		Joins("JOIN jobs ON jobs.id = applications.job_id").
 		Where("applications.user_id = ?", userID)
 	if !t.IsZero() || id > 0 {
@@ -225,7 +256,7 @@ func (r *ApplicationRepo) ListByJob(ctx context.Context, jobID int64, page, page
 	var rows []JobApplicationRow
 	err := base.Select(`applications.id AS application_id, applications.user_id, jobs.id AS job_id, jobs.title AS job_title, candidate_profiles.real_name,
 		candidate_profiles.phone, candidate_profiles.education, candidate_profiles.school, candidate_profiles.skills,
-		applications.applied_at, resumes.oss_key, resumes.file_name, resumes.file_type, applications.status, applications.round_no, applications.is_current`).
+		applications.applied_at, resumes.oss_key, resumes.file_name, resumes.file_type, applications.status, applications.status_key, applications.round_no, applications.is_current`).
 		Joins("JOIN jobs ON jobs.id = applications.job_id").
 		Joins("LEFT JOIN candidate_profiles ON candidate_profiles.user_id = applications.user_id").
 		Joins("LEFT JOIN resumes ON resumes.user_id = applications.user_id AND resumes.is_valid = 1").
@@ -237,21 +268,28 @@ func (r *ApplicationRepo) ListByJob(ctx context.Context, jobID int64, page, page
 }
 
 func (r *ApplicationRepo) UpdateStatusOwned(ctx context.Context, hrID, applicationID int64, status int32) (int64, error) {
-	return r.UpdateStatusOwnedWithTx(ctx, r.db, hrID, applicationID, status)
+	return r.UpdateStatusOwnedWithTx(ctx, r.db, hrID, applicationID, "", "", status)
 }
 
-func (r *ApplicationRepo) UpdateStatusOwnedWithTx(ctx context.Context, tx *gorm.DB, hrID, applicationID int64, status int32) (int64, error) {
+func (r *ApplicationRepo) UpdateStatusOwnedWithTx(ctx context.Context, tx *gorm.DB, hrID, applicationID int64, currentStatusKey, statusKey string, legacyStatus int32) (int64, error) {
 	ownedJobIDs := tx.WithContext(ctx).Model(&model.Job{}).Select("id").Where("hr_id = ?", hrID)
-	result := tx.WithContext(ctx).Model(&model.Application{}).
-		Where("id = ? AND job_id IN (?)", applicationID, ownedJobIDs).
-		Update("status", status)
+	updates := map[string]any{"status": legacyStatus}
+	if statusKey != "" {
+		updates["status_key"] = statusKey
+	}
+	query := tx.WithContext(ctx).Model(&model.Application{}).
+		Where("id = ? AND job_id IN (?)", applicationID, ownedJobIDs)
+	if currentStatusKey != "" {
+		query = query.Where("status_key = ?", currentStatusKey)
+	}
+	result := query.Updates(updates)
 	return result.RowsAffected, result.Error
 }
 
 // UpdateStatusInScopeWithTx updates application status if the application's job
 // belongs to one of the given departments or locations. Used by department/location-
 // scoped admins who don't own the job directly.
-func (r *ApplicationRepo) UpdateStatusInScopeWithTx(ctx context.Context, tx *gorm.DB, deptIDs, locIDs []uint64, applicationID int64, status int32) (int64, error) {
+func (r *ApplicationRepo) UpdateStatusInScopeWithTx(ctx context.Context, tx *gorm.DB, deptIDs, locIDs []uint64, applicationID int64, currentStatusKey, statusKey string, legacyStatus int32) (int64, error) {
 	if len(deptIDs) == 0 && len(locIDs) == 0 {
 		return 0, nil
 	}
@@ -263,18 +301,32 @@ func (r *ApplicationRepo) UpdateStatusInScopeWithTx(ctx context.Context, tx *gor
 	} else {
 		scopeJobQuery = scopeJobQuery.Where("location_id IN ?", locIDs)
 	}
-	result := tx.WithContext(ctx).Model(&model.Application{}).
-		Where("id = ? AND job_id IN (?)", applicationID, scopeJobQuery).
-		Update("status", status)
+	updates := map[string]any{"status": legacyStatus}
+	if statusKey != "" {
+		updates["status_key"] = statusKey
+	}
+	query := tx.WithContext(ctx).Model(&model.Application{}).
+		Where("id = ? AND job_id IN (?)", applicationID, scopeJobQuery)
+	if currentStatusKey != "" {
+		query = query.Where("status_key = ?", currentStatusKey)
+	}
+	result := query.Updates(updates)
 	return result.RowsAffected, result.Error
 }
 
 // UpdateStatusAnyWithTx updates application status without hr_id ownership check.
 // Caller must have verified scope before calling.
-func (r *ApplicationRepo) UpdateStatusAnyWithTx(ctx context.Context, tx *gorm.DB, applicationID int64, status int32) (int64, error) {
-	result := tx.WithContext(ctx).Model(&model.Application{}).
-		Where("id = ?", applicationID).
-		Update("status", status)
+func (r *ApplicationRepo) UpdateStatusAnyWithTx(ctx context.Context, tx *gorm.DB, applicationID int64, currentStatusKey, statusKey string, legacyStatus int32) (int64, error) {
+	updates := map[string]any{"status": legacyStatus}
+	if statusKey != "" {
+		updates["status_key"] = statusKey
+	}
+	query := tx.WithContext(ctx).Model(&model.Application{}).
+		Where("id = ?", applicationID)
+	if currentStatusKey != "" {
+		query = query.Where("status_key = ?", currentStatusKey)
+	}
+	result := query.Updates(updates)
 	return result.RowsAffected, result.Error
 }
 
@@ -282,7 +334,7 @@ func (r *ApplicationRepo) GetDetailOwned(ctx context.Context, hrID, applicationI
 	var row ApplicationDetailRow
 	result := r.db.WithContext(ctx).Table("applications").
 		Select(`applications.id AS application_id, applications.user_id, applications.resume_id,
-			applications.status, applications.round_no, applications.is_current, applications.applied_at,
+			applications.status, applications.status_key, applications.round_no, applications.is_current, applications.applied_at,
 			candidate_profiles.real_name, candidate_profiles.phone, candidate_profiles.education,
 			candidate_profiles.school, candidate_profiles.work_experience, candidate_profiles.skills,
 			jobs.id AS job_id, jobs.title AS job_title, jobs.department, jobs.location,
@@ -308,7 +360,7 @@ func (r *ApplicationRepo) GetDetail(ctx context.Context, applicationID int64) (*
 	var row ApplicationDetailRow
 	result := r.db.WithContext(ctx).Table("applications").
 		Select(`applications.id AS application_id, applications.user_id, applications.resume_id,
-			applications.status, applications.round_no, applications.is_current, applications.applied_at,
+			applications.status, applications.status_key, applications.round_no, applications.is_current, applications.applied_at,
 			candidate_profiles.real_name, candidate_profiles.phone, candidate_profiles.education,
 			candidate_profiles.school, candidate_profiles.work_experience, candidate_profiles.skills,
 			jobs.id AS job_id, jobs.title AS job_title, jobs.department, jobs.location,
@@ -339,7 +391,7 @@ func (r *ApplicationRepo) ListAllByHR(ctx context.Context, hrID int64, page, pag
 	var rows []JobApplicationRow
 	err := base.Select(`applications.id AS application_id, applications.user_id, jobs.id AS job_id, jobs.title AS job_title, candidate_profiles.real_name,
 		candidate_profiles.phone, candidate_profiles.education, candidate_profiles.school, candidate_profiles.skills,
-		applications.applied_at, resumes.oss_key, resumes.file_name, resumes.file_type, applications.status, applications.round_no, applications.is_current`).
+		applications.applied_at, resumes.oss_key, resumes.file_name, resumes.file_type, applications.status, applications.status_key, applications.round_no, applications.is_current`).
 		Joins("LEFT JOIN candidate_profiles ON candidate_profiles.user_id = applications.user_id").
 		Joins("LEFT JOIN resumes ON resumes.user_id = applications.user_id AND resumes.is_valid = 1").
 		Order("applications.applied_at DESC").
@@ -407,7 +459,7 @@ func (r *ApplicationRepo) ListByHRFiltered(ctx context.Context, hrID int64, filt
 			candidate_profiles.real_name, candidate_profiles.phone, candidate_profiles.education,
 			candidate_profiles.school, candidate_profiles.skills,
 			applications.applied_at, resumes.oss_key, resumes.file_name, resumes.file_type,
-			applications.status, applications.round_no, applications.is_current`).
+			applications.status, applications.status_key, applications.round_no, applications.is_current`).
 		Joins("LEFT JOIN candidate_profiles ON candidate_profiles.user_id = applications.user_id").
 		Joins("LEFT JOIN resumes ON resumes.user_id = applications.user_id AND resumes.is_valid = 1").
 		Order("applications.applied_at DESC").
@@ -420,13 +472,13 @@ func (r *ApplicationRepo) ListByHRFiltered(ctx context.Context, hrID int64, filt
 func (r *ApplicationRepo) StatusSummaryByHR(ctx context.Context, hrID, jobID int64) ([]ApplicationStatusCountRow, error) {
 	var rows []ApplicationStatusCountRow
 	query := r.db.WithContext(ctx).Table("applications").
-		Select("applications.status, COUNT(applications.id) AS total").
+		Select("applications.status, applications.status_key, COUNT(applications.id) AS total").
 		Joins("JOIN jobs ON jobs.id = applications.job_id").
 		Where("jobs.hr_id = ?", hrID)
 	if jobID > 0 {
 		query = query.Where("applications.job_id = ?", jobID)
 	}
-	err := query.Group("applications.status").Order("applications.status ASC").Scan(&rows).Error
+	err := query.Group("applications.status, applications.status_key").Order("applications.status ASC").Scan(&rows).Error
 	return rows, err
 }
 
@@ -457,7 +509,7 @@ func (r *ApplicationRepo) SearchCandidateApplications(ctx context.Context, hrID 
 	like := "%" + keyword + "%"
 	err := r.db.WithContext(ctx).Table("applications").
 		Select(`applications.id AS application_id, applications.user_id, candidate_profiles.real_name,
-			candidate_profiles.phone, jobs.title AS job_title, applications.status,
+			candidate_profiles.phone, jobs.title AS job_title, applications.status, applications.status_key,
 			applications.round_no, applications.is_current, applications.applied_at`).
 		Joins("JOIN jobs ON jobs.id = applications.job_id").
 		Joins("LEFT JOIN candidate_profiles ON candidate_profiles.user_id = applications.user_id").
@@ -474,7 +526,7 @@ func (r *ApplicationRepo) GetDetailByUser(ctx context.Context, userID, applicati
 	var row ApplicationDetailRow
 	err := r.db.WithContext(ctx).Table("applications").
 		Select(`applications.id AS application_id, applications.user_id, applications.resume_id,
-			applications.status, applications.round_no, applications.is_current, applications.applied_at,
+			applications.status, applications.status_key, applications.round_no, applications.is_current, applications.applied_at,
 			jobs.id AS job_id, jobs.title AS job_title, jobs.department, jobs.location,
 			jobs.salary_range, jobs.description, jobs.requirements`).
 		Joins("JOIN jobs ON jobs.id = applications.job_id").

@@ -30,13 +30,15 @@ func setupTestDB(t *testing.T) *gorm.DB {
 		&model.Notification{},
 		&model.EventOutbox{},
 		&model.RefreshToken{},
+		&model.ApplicationStatusTransition{},
 	)
 	if err != nil {
 		t.Fatalf("auto-migrate failed: %v", err)
 	}
 
-	// SQLite 3.39+ partial unique indexes (equivalent to MySQL generated-column approach)
-	db.Exec("CREATE UNIQUE INDEX IF NOT EXISTS uk_active_application ON applications (job_id, user_id) WHERE is_current = 1 AND status <> 3")
+	// SQLite 3.39+ partial unique indexes (equivalent to MySQL generated-column approach).
+	// Uses status_key NOT IN terminal keys to match the production active_key rule.
+	db.Exec("CREATE UNIQUE INDEX IF NOT EXISTS uk_active_application ON applications (job_id, user_id) WHERE is_current = 1 AND status_key NOT IN ('rejected', 'withdrawn', 'offer_rejected', 'hired')")
 	db.Exec("CREATE UNIQUE INDEX IF NOT EXISTS uk_user_valid_resume ON resumes (user_id) WHERE is_valid = 1")
 
 	return db

@@ -974,10 +974,11 @@ var CandidateService_ServiceDesc = grpc.ServiceDesc{
 }
 
 const (
-	ApplicationService_ApplyJob_FullMethodName                = "/recruitment.ApplicationService/ApplyJob"
-	ApplicationService_ListMyApplications_FullMethodName      = "/recruitment.ApplicationService/ListMyApplications"
-	ApplicationService_ListJobApplications_FullMethodName     = "/recruitment.ApplicationService/ListJobApplications"
-	ApplicationService_UpdateApplicationStatus_FullMethodName = "/recruitment.ApplicationService/UpdateApplicationStatus"
+	ApplicationService_ApplyJob_FullMethodName                         = "/recruitment.ApplicationService/ApplyJob"
+	ApplicationService_ListMyApplications_FullMethodName               = "/recruitment.ApplicationService/ListMyApplications"
+	ApplicationService_ListJobApplications_FullMethodName              = "/recruitment.ApplicationService/ListJobApplications"
+	ApplicationService_UpdateApplicationStatus_FullMethodName          = "/recruitment.ApplicationService/UpdateApplicationStatus"
+	ApplicationService_ListApplicationStatusTransitions_FullMethodName = "/recruitment.ApplicationService/ListApplicationStatusTransitions"
 )
 
 // ApplicationServiceClient is the client API for ApplicationService service.
@@ -988,6 +989,7 @@ type ApplicationServiceClient interface {
 	ListMyApplications(ctx context.Context, in *ListMyApplicationsRequest, opts ...grpc.CallOption) (*ListMyApplicationsResponse, error)
 	ListJobApplications(ctx context.Context, in *ListJobApplicationsRequest, opts ...grpc.CallOption) (*ListJobApplicationsResponse, error)
 	UpdateApplicationStatus(ctx context.Context, in *UpdateApplicationStatusRequest, opts ...grpc.CallOption) (*CommonResponse, error)
+	ListApplicationStatusTransitions(ctx context.Context, in *ListApplicationStatusTransitionsRequest, opts ...grpc.CallOption) (*ListApplicationStatusTransitionsResponse, error)
 }
 
 type applicationServiceClient struct {
@@ -1038,6 +1040,16 @@ func (c *applicationServiceClient) UpdateApplicationStatus(ctx context.Context, 
 	return out, nil
 }
 
+func (c *applicationServiceClient) ListApplicationStatusTransitions(ctx context.Context, in *ListApplicationStatusTransitionsRequest, opts ...grpc.CallOption) (*ListApplicationStatusTransitionsResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ListApplicationStatusTransitionsResponse)
+	err := c.cc.Invoke(ctx, ApplicationService_ListApplicationStatusTransitions_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // ApplicationServiceServer is the server API for ApplicationService service.
 // All implementations must embed UnimplementedApplicationServiceServer
 // for forward compatibility.
@@ -1046,6 +1058,7 @@ type ApplicationServiceServer interface {
 	ListMyApplications(context.Context, *ListMyApplicationsRequest) (*ListMyApplicationsResponse, error)
 	ListJobApplications(context.Context, *ListJobApplicationsRequest) (*ListJobApplicationsResponse, error)
 	UpdateApplicationStatus(context.Context, *UpdateApplicationStatusRequest) (*CommonResponse, error)
+	ListApplicationStatusTransitions(context.Context, *ListApplicationStatusTransitionsRequest) (*ListApplicationStatusTransitionsResponse, error)
 	mustEmbedUnimplementedApplicationServiceServer()
 }
 
@@ -1067,6 +1080,9 @@ func (UnimplementedApplicationServiceServer) ListJobApplications(context.Context
 }
 func (UnimplementedApplicationServiceServer) UpdateApplicationStatus(context.Context, *UpdateApplicationStatusRequest) (*CommonResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method UpdateApplicationStatus not implemented")
+}
+func (UnimplementedApplicationServiceServer) ListApplicationStatusTransitions(context.Context, *ListApplicationStatusTransitionsRequest) (*ListApplicationStatusTransitionsResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method ListApplicationStatusTransitions not implemented")
 }
 func (UnimplementedApplicationServiceServer) mustEmbedUnimplementedApplicationServiceServer() {}
 func (UnimplementedApplicationServiceServer) testEmbeddedByValue()                            {}
@@ -1161,6 +1177,24 @@ func _ApplicationService_UpdateApplicationStatus_Handler(srv interface{}, ctx co
 	return interceptor(ctx, in, info, handler)
 }
 
+func _ApplicationService_ListApplicationStatusTransitions_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ListApplicationStatusTransitionsRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ApplicationServiceServer).ListApplicationStatusTransitions(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: ApplicationService_ListApplicationStatusTransitions_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ApplicationServiceServer).ListApplicationStatusTransitions(ctx, req.(*ListApplicationStatusTransitionsRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // ApplicationService_ServiceDesc is the grpc.ServiceDesc for ApplicationService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -1183,6 +1217,10 @@ var ApplicationService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "UpdateApplicationStatus",
 			Handler:    _ApplicationService_UpdateApplicationStatus_Handler,
+		},
+		{
+			MethodName: "ListApplicationStatusTransitions",
+			Handler:    _ApplicationService_ListApplicationStatusTransitions_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

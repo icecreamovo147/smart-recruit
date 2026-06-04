@@ -2,7 +2,7 @@ import { createRouter, createWebHistory } from 'vue-router'
 import type { RouteRecordRaw } from 'vue-router'
 import { getUser } from '@/utils/token'
 import { useAuthStore } from '@/stores/auth'
-import { ROLE_CANDIDATE } from '@/types/domain'
+const ROLE_CANDIDATE = 1
 import LoginView from '@/views/LoginView.vue'
 import RegisterView from '@/views/RegisterView.vue'
 import JobListView from '@/views/candidate/JobListView.vue'

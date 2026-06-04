@@ -111,6 +111,7 @@ export interface Application {
   job_id: number
   job_title: string
   status: number
+  status_key?: string
   round_no: number
   is_current: number
   applied_at: string

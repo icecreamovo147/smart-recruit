@@ -4,6 +4,7 @@ import { useRoute, useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { listJobApplications, updateApplicationStatus } from '@/api/application'
 import type { Application, JobQuery } from '@/types/domain'
+import { getHRStatusLabel, getStatusType, APP_STATUS_KEY, TERMINAL_STATUS_KEYS, ALLOWED_HR_ACTIONS } from '@/types/domain'
 
 const route = useRoute()
 const router = useRouter()
@@ -12,13 +13,6 @@ const errorMessage = ref('')
 const list = ref<Application[]>([])
 const total = ref(0)
 const query = reactive<JobQuery>({ page: 1, page_size: 10 })
-const statusText = ['待查看', '已查看', '通过', '淘汰']
-const statusType = ['info', 'primary', 'success', 'danger']
-
-const normalizeStatus = (value: unknown): number => {
-  const status = Number(value)
-  return Number.isInteger(status) && status >= 0 && status < statusText.length ? status : 0
-}
 
 const formatDateTime = (value: string): string => {
   if (!value) return '-'
@@ -26,6 +20,26 @@ const formatDateTime = (value: string): string => {
   if (Number.isNaN(date.getTime())) return value
   const pad = (num: number): string => String(num).padStart(2, '0')
   return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())} ${pad(date.getHours())}:${pad(date.getMinutes())}`
+}
+
+const getStatusKey = (row: Application): string => {
+  return row.status_key || ''
+}
+
+const canAction = (row: Application, targetKey: string): boolean => {
+  const currentKey = getStatusKey(row)
+  if (!currentKey) {
+    // Fallback for legacy numeric status
+    const legacyStatus = Number(row.status)
+    if (targetKey === APP_STATUS_KEY.REJECTED) return legacyStatus < 3
+    if (targetKey === APP_STATUS_KEY.SCREEN_PASSED) return legacyStatus < 2
+    return false
+  }
+  if (TERMINAL_STATUS_KEYS.has(currentKey)) return false
+  // Check against the server-side transition matrix.
+  const allowed = ALLOWED_HR_ACTIONS[targetKey]
+  if (!allowed) return false
+  return allowed.has(currentKey)
 }
 
 const load = async () => {
@@ -40,7 +54,7 @@ const load = async () => {
       application_id: item.application_id,
       skills: Array.isArray(item.skills) ? item.skills : (String(item.skills || '')).split(',').map((skill: string) => skill.trim()).filter(Boolean),
       applied_time_display: formatDateTime(item.applied_at),
-      status: normalizeStatus(item.status),
+      status: Number(item.status ?? 0),
       round_no: item.round_no || 1,
       is_current: Number(item.is_current ?? 1),
     }))
@@ -52,9 +66,21 @@ const load = async () => {
   }
 }
 
-const setRowStatus = async (row: Application, status: number, successMessage: string) => {
-  await updateApplicationStatus(row.application_id, status)
-  row.status = status
+const statusLabel = (row: Application): string => {
+  const key = getStatusKey(row)
+  if (key) return getHRStatusLabel(key)
+  return ['待查看', '已查看', '通过', '淘汰'][row.status] || '待查看'
+}
+
+const statusType = (row: Application): string => {
+  const key = getStatusKey(row)
+  if (key) return getStatusType(key)
+  return ['info', 'primary', 'success', 'danger'][row.status] || 'info'
+}
+
+const setRowStatus = async (row: Application, statusKey: string, successMessage: string, reason?: string) => {
+  await updateApplicationStatus(row.application_id, statusKey, reason)
+  row.status_key = statusKey
   ElMessage.success(successMessage)
 }
 
@@ -67,19 +93,33 @@ const viewResume = async (row: Application) => {
   if (row.file_type && row.file_type !== 'pdf') {
     ElMessage.info('系统暂不支持预览 DOCX 格式的文档，请在本地进行查看')
   }
-  if (row.status === 0) {
-    await setRowStatus(row, 1, '已标记为已查看')
+  const currentKey = getStatusKey(row)
+  if (!currentKey || currentKey === APP_STATUS_KEY.APPLIED) {
+    await setRowStatus(row, APP_STATUS_KEY.VIEWED, '已标记为已查看')
   }
 }
 
-const decide = async (row: Application, status: number) => {
-  const text = status === 2 ? '通过' : '淘汰'
-  try {
-    await ElMessageBox.confirm(`确认将「${row.real_name || '该候选人'}」标记为${text}？`, '更新投递状态', { type: status === 2 ? 'success' : 'warning' })
-  } catch {
-    return
+const decide = async (row: Application, statusKey: string) => {
+  const text = getHRStatusLabel(statusKey, statusKey === APP_STATUS_KEY.REJECTED ? '淘汰' : '通过')
+  let reason: string | undefined
+  if (statusKey === APP_STATUS_KEY.REJECTED) {
+    try {
+      const { value } = await ElMessageBox.prompt(`确认将「${row.real_name || '该候选人'}」标记为${text}？请输入淘汰原因。`, '更新投递状态', {
+        inputPlaceholder: '请输入淘汰原因',
+        type: 'warning',
+      })
+      reason = value
+    } catch {
+      return
+    }
+  } else {
+    try {
+      await ElMessageBox.confirm(`确认将「${row.real_name || '该候选人'}」标记为${text}？`, '更新投递状态', { type: 'success' })
+    } catch {
+      return
+    }
   }
-  await setRowStatus(row, status, `已标记为${text}`)
+  await setRowStatus(row, statusKey, `已标记为${text}`, reason)
 }
 
 const aiAnalyze = (row: Application) => {
@@ -118,7 +158,7 @@ onMounted(load)
           </el-table-column>
           <el-table-column label="状态" width="110">
             <template #default="{ row }">
-              <el-tag :type="statusType[row.status] || 'info'">{{ statusText[row.status] || '待查看' }}</el-tag>
+              <el-tag :type="statusType(row)">{{ statusLabel(row) }}</el-tag>
             </template>
           </el-table-column>
           <el-table-column label="操作" width="330" fixed="right">
@@ -126,8 +166,8 @@ onMounted(load)
               <div class="application-actions">
                 <el-button size="small" type="primary" plain @click="viewResume(row)">查看简历</el-button>
                 <el-button size="small" type="primary" plain @click="aiAnalyze(row)">AI 分析</el-button>
-                <el-button size="small" type="success" plain :disabled="row.status === 2" @click="decide(row, 2)">通过</el-button>
-                <el-button size="small" type="danger" plain :disabled="row.status === 3" @click="decide(row, 3)">淘汰</el-button>
+                <el-button size="small" type="success" plain :disabled="!canAction(row, APP_STATUS_KEY.SCREEN_PASSED)" @click="decide(row, APP_STATUS_KEY.SCREEN_PASSED)">通过</el-button>
+                <el-button size="small" type="danger" plain :disabled="!canAction(row, APP_STATUS_KEY.REJECTED)" @click="decide(row, APP_STATUS_KEY.REJECTED)">淘汰</el-button>
               </div>
             </template>
           </el-table-column>
@@ -139,7 +179,7 @@ onMounted(load)
         <div v-for="row in list" :key="row.application_id" class="mobile-application-card">
           <div class="mobile-card__header">
             <h3 class="mobile-card__title">{{ row.real_name || '未知姓名' }}</h3>
-            <el-tag :type="statusType[row.status] || 'info'" size="small">{{ statusText[row.status] || '待查看' }}</el-tag>
+            <el-tag :type="statusType(row)" size="small">{{ statusLabel(row) }}</el-tag>
           </div>
           <div class="mobile-card__meta">
             <span>{{ row.phone || '未填写电话' }}</span>
@@ -155,8 +195,8 @@ onMounted(load)
           <div class="mobile-card__actions">
             <el-button size="small" type="primary" plain @click="viewResume(row)">查看简历</el-button>
             <el-button size="small" type="primary" plain @click="aiAnalyze(row)">AI 分析</el-button>
-            <el-button size="small" type="success" plain :disabled="row.status === 2" @click="decide(row, 2)">通过</el-button>
-            <el-button size="small" type="danger" plain :disabled="row.status === 3" @click="decide(row, 3)">淘汰</el-button>
+            <el-button size="small" type="success" plain :disabled="!canAction(row, APP_STATUS_KEY.SCREEN_PASSED)" @click="decide(row, APP_STATUS_KEY.SCREEN_PASSED)">通过</el-button>
+            <el-button size="small" type="danger" plain :disabled="!canAction(row, APP_STATUS_KEY.REJECTED)" @click="decide(row, APP_STATUS_KEY.REJECTED)">淘汰</el-button>
           </div>
         </div>
       </div>

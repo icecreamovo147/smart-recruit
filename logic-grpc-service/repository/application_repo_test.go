@@ -81,10 +81,11 @@ func TestCreateNewRound_UniqueConstraintBlocksDuplicate(t *testing.T) {
 		}
 	}
 
-	// DB-level: exactly one active application
+	// DB-level: exactly one active application.
+	// Use status_key NOT IN terminal keys instead of legacy status <> 3.
 	var count int64
 	db.Model(&model.Application{}).
-		Where("user_id = ? AND job_id = ? AND is_current = ? AND status <> ?", userID, jobID, 1, 3).
+		Where("user_id = ? AND job_id = ? AND is_current = ? AND status_key NOT IN ?", userID, jobID, 1, model.TerminalStatusKeyList()).
 		Count(&count)
 	if count != 1 {
 		t.Errorf("expected exactly 1 active application, got %d", count)

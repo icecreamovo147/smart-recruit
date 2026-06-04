@@ -102,13 +102,14 @@ CREATE TABLE IF NOT EXISTS `applications` (
   `job_id` BIGINT UNSIGNED NOT NULL COMMENT '投递的岗位ID',
   `user_id` BIGINT UNSIGNED NOT NULL COMMENT '投递的候选人用户ID',
   `resume_id` BIGINT UNSIGNED NOT NULL COMMENT '投递时使用的简历ID',
-  `status` TINYINT NOT NULL DEFAULT 0 COMMENT '投递状态：0=待查看 1=已查看 2=通过 3=淘汰',
+  `status` TINYINT NOT NULL DEFAULT 0 COMMENT '投递状态（旧数值）：0=待查看 1=已查看 2=通过 3=淘汰（Phase 1 迁移兼容保留）',
+  `status_key` VARCHAR(64) NOT NULL DEFAULT 'applied' COMMENT '投递状态键（Phase 1 新状态机）',
   `round_no` INT NOT NULL DEFAULT 1 COMMENT '同一候选人同一岗位的第几次投递',
   `is_current` TINYINT NOT NULL DEFAULT 1 COMMENT '是否当前有效投递：1=当前流程 0=历史流程',
   `applied_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   `updated_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   `active_key` TINYINT GENERATED ALWAYS AS (
-    CASE WHEN `is_current` = 1 AND `status` <> 3 THEN 1 ELSE NULL END
+    CASE WHEN `is_current` = 1 AND `status_key` NOT IN ('rejected', 'withdrawn', 'offer_rejected', 'hired') THEN 1 ELSE NULL END
   ) STORED,
   PRIMARY KEY (`id`),
   UNIQUE KEY `uk_active_application` (`job_id`, `user_id`, `active_key`),
@@ -117,8 +118,27 @@ CREATE TABLE IF NOT EXISTS `applications` (
   KEY `idx_job_current_applied` (`job_id`, `is_current`, `applied_at`, `id`),
   KEY `idx_user_applied` (`user_id`, `applied_at`, `id`),
   KEY `idx_job_id` (`job_id`),
-  KEY `idx_user_id` (`user_id`)
+  KEY `idx_user_id` (`user_id`),
+  KEY `idx_status_key` (`status_key`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='岗位投递关联表';
+
+-- ── Phase 1: 投递状态变更审计表 ─────────────────────────────────────────
+-- 记录每次状态变更的 actor、前后状态、原因和时间戳。
+
+CREATE TABLE IF NOT EXISTS `application_status_transitions` (
+  `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+  `application_id` BIGINT UNSIGNED NOT NULL COMMENT '关联 applications.id',
+  `from_status` VARCHAR(64) NOT NULL COMMENT '变更前状态 key',
+  `to_status` VARCHAR(64) NOT NULL COMMENT '变更后状态 key',
+  `actor_user_id` BIGINT UNSIGNED NOT NULL COMMENT '操作人用户ID',
+  `actor_account_type` VARCHAR(32) NOT NULL COMMENT '操作人账号类型：candidate / staff / service',
+  `reason` VARCHAR(512) DEFAULT NULL COMMENT '变更原因（HR 操作时必填）',
+  `metadata_json` TEXT DEFAULT NULL COMMENT '附加元数据 JSON',
+  `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  KEY `idx_transition_app` (`application_id`),
+  KEY `idx_transition_created` (`application_id`, `created_at`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='投递状态变更审计记录表';
 
 CREATE TABLE IF NOT EXISTS `ai_chat_sessions` (
   `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,

@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 
 	"go.uber.org/zap"
@@ -97,7 +98,7 @@ func (s *ApplicationService) ApplyJob(ctx context.Context, req *pb.ApplyJobReque
 	if job == nil || job.Status != 1 {
 		return &pb.CommonResponse{Code: errs.ErrJobNotAvailable, Msg: "该岗位已下架或不存在，无法投递"}, nil
 	}
-	app := &model.Application{UserID: req.UserId, JobID: req.JobId, ResumeID: resume.ID, Status: 0, AppliedAt: time.Now()}
+	app := &model.Application{UserID: req.UserId, JobID: req.JobId, ResumeID: resume.ID, Status: 0, StatusKey: model.DefaultStatusKey(), AppliedAt: time.Now()}
 	err = s.applications.Transaction(ctx, func(tx *gorm.DB) error {
 		if err := s.applications.CreateNewRoundWithTx(ctx, tx, app); err != nil {
 			return err
@@ -142,7 +143,7 @@ func (s *ApplicationService) ListMyApplications(ctx context.Context, req *pb.Lis
 		}
 		list := make([]*pb.MyApplication, 0, len(rows))
 		for _, row := range rows {
-			list = append(list, &pb.MyApplication{ApplicationId: row.ApplicationID, JobId: row.JobID, JobTitle: row.JobTitle, Status: row.Status, AppliedAt: formatTime(row.AppliedAt), RoundNo: row.RoundNo, IsCurrent: row.IsCurrent})
+			list = append(list, &pb.MyApplication{ApplicationId: row.ApplicationID, JobId: row.JobID, JobTitle: row.JobTitle, Status: row.Status, StatusKey: row.StatusKey, AppliedAt: formatTime(row.AppliedAt), RoundNo: row.RoundNo, IsCurrent: row.IsCurrent})
 		}
 		return &pb.ListMyApplicationsResponse{Code: errs.OK, Msg: "success", List: list, NextCursor: cursor, HasMore: hasMore}, nil
 	}
@@ -153,7 +154,7 @@ func (s *ApplicationService) ListMyApplications(ctx context.Context, req *pb.Lis
 	}
 	list := make([]*pb.MyApplication, 0, len(rows))
 	for _, row := range rows {
-		list = append(list, &pb.MyApplication{ApplicationId: row.ApplicationID, JobId: row.JobID, JobTitle: row.JobTitle, Status: row.Status, AppliedAt: formatTime(row.AppliedAt), RoundNo: row.RoundNo, IsCurrent: row.IsCurrent})
+		list = append(list, &pb.MyApplication{ApplicationId: row.ApplicationID, JobId: row.JobID, JobTitle: row.JobTitle, Status: row.Status, StatusKey: row.StatusKey, AppliedAt: formatTime(row.AppliedAt), RoundNo: row.RoundNo, IsCurrent: row.IsCurrent})
 	}
 	return &pb.ListMyApplicationsResponse{Code: errs.OK, Msg: "success", Total: total, List: list}, nil
 }
@@ -173,15 +174,27 @@ func (s *ApplicationService) ListJobApplications(ctx context.Context, req *pb.Li
 		if err != nil {
 			return nil, err
 		}
-		list = append(list, &pb.JobApplication{ApplicationId: row.ApplicationID, UserId: row.UserID, RealName: row.RealName, Phone: row.Phone, Education: row.Education, School: row.School, Skills: splitSkills(row.Skills), AppliedAt: formatTime(row.AppliedAt), ResumeUrl: resumeURL, FileName: row.FileName, FileType: row.FileType, Status: row.Status, RoundNo: row.RoundNo, IsCurrent: row.IsCurrent})
+		list = append(list, &pb.JobApplication{ApplicationId: row.ApplicationID, UserId: row.UserID, RealName: row.RealName, Phone: row.Phone, Education: row.Education, School: row.School, Skills: splitSkills(row.Skills), AppliedAt: formatTime(row.AppliedAt), ResumeUrl: resumeURL, FileName: row.FileName, FileType: row.FileType, Status: row.Status, StatusKey: row.StatusKey, RoundNo: row.RoundNo, IsCurrent: row.IsCurrent})
 	}
 	return &pb.ListJobApplicationsResponse{Code: errs.OK, Msg: "success", Total: total, List: list}, nil
 }
 
 func (s *ApplicationService) UpdateApplicationStatus(ctx context.Context, req *pb.UpdateApplicationStatusRequest) (*pb.CommonResponse, error) {
-	if req.Status < 0 || req.Status > 3 {
+	// Determine the target status key.
+	targetKey := req.StatusKey
+	if targetKey == "" {
+		// Fallback to legacy numeric status for migration compatibility.
+		if req.Status >= 0 && int(req.Status) < len(model.LegacyStatusToKey) {
+			targetKey = model.LegacyStatusToKey[req.Status]
+		}
+	}
+	if targetKey == "" {
 		return &pb.CommonResponse{Code: errs.ErrBadRequest, Msg: "投递状态不合法"}, nil
 	}
+	if err := ValidateStatusKey(targetKey); err != nil {
+		return &pb.CommonResponse{Code: errs.ErrBadRequest, Msg: err.Error()}, nil
+	}
+
 	// Load application first to determine the job for scope check.
 	detail, err := s.applications.GetDetail(ctx, req.ApplicationId)
 	if err != nil {
@@ -190,50 +203,93 @@ func (s *ApplicationService) UpdateApplicationStatus(ctx context.Context, req *p
 	if detail == nil {
 		return &pb.CommonResponse{Code: errs.ErrForbidden, Msg: "该投递记录不存在或无权限访问"}, nil
 	}
+
+	// Derive current status key from the detail.
+	currentKey := detail.StatusKey
+	if currentKey == "" {
+		currentKey = model.LegacyStatusToKey[detail.Status]
+	}
+
+	// Validate transition.
+	if err := ValidateTransition(currentKey, targetKey); err != nil {
+		return &pb.CommonResponse{Code: errs.ErrBadRequest, Msg: err.Error()}, nil
+	}
+
+	// FR-4: Reason is required for rejection, withdrawal, and offer rejection.
+	reasonRequired := map[string]bool{
+		model.StatusKeyRejected:      true,
+		model.StatusKeyWithdrawn:     true,
+		model.StatusKeyOfferRejected: true,
+	}
+	if reasonRequired[targetKey] && strings.TrimSpace(req.Reason) == "" {
+		return &pb.CommonResponse{Code: errs.ErrBadRequest, Msg: "该状态变更必须填写原因"}, nil
+	}
+
 	// Scope check against the application's job.
 	scopeLevel, scopeErr := s.checkApplicationJobScope(ctx, req.HrId, detail.JobID)
 	if scopeErr != nil {
 		return &pb.CommonResponse{Code: errs.ErrForbidden, Msg: "无权限操作投递状态"}, nil
 	}
-	if detail.IsCurrent != 1 && !(detail.Status == 3 && req.Status == 2) {
+	if detail.IsCurrent != 1 {
 		return &pb.CommonResponse{Code: errs.ErrForbidden, Msg: "该投递已不是当前有效流程，不能修改状态"}, nil
 	}
+
+	legacyStatus := model.StatusKeyToLegacy[targetKey]
+
+	// Determine notification based on target key.
 	var notifyType, notifyContent string
-	switch req.Status {
-	case 2:
+	switch targetKey {
+	case model.StatusKeyViewed:
+		// Viewed is informational only — no notification to candidate.
+	case model.StatusKeyScreenPassed:
 		notifyType = "application_approved"
 		notifyContent = fmt.Sprintf("你投递的「%s」岗位已通过筛选，请留意后续安排。", detail.JobTitle)
-	case 3:
+	case model.StatusKeyRejected:
 		notifyType = "application_rejected"
 		notifyContent = fmt.Sprintf("你投递的「%s」岗位当前未通过筛选，感谢你的投递。", detail.JobTitle)
+	case model.StatusKeyWithdrawn:
+		notifyType = "application_withdrawn"
+		notifyContent = fmt.Sprintf("你已撤回对「%s」岗位的投递。", detail.JobTitle)
+	case model.StatusKeyHired:
+		notifyType = "application_hired"
+		notifyContent = fmt.Sprintf("恭喜！你投递的「%s」岗位已确认入职。", detail.JobTitle)
 	}
+
 	var rows int64
 	err = s.applications.Transaction(ctx, func(tx *gorm.DB) error {
-		var err error
 		if scopeLevel >= scopeFull {
-			rows, err = s.applications.UpdateStatusAnyWithTx(ctx, tx, req.ApplicationId, req.Status)
+			rows, err = s.applications.UpdateStatusAnyWithTx(ctx, tx, req.ApplicationId, currentKey, targetKey, legacyStatus)
 		} else if scopeLevel == scopeDepartmentOrLocation {
 			deptIDs, locIDs := s.getAppScopeDeptAndLocIDs(ctx, uint64(req.HrId))
-			rows, err = s.applications.UpdateStatusInScopeWithTx(ctx, tx, deptIDs, locIDs, req.ApplicationId, req.Status)
+			rows, err = s.applications.UpdateStatusInScopeWithTx(ctx, tx, deptIDs, locIDs, req.ApplicationId, currentKey, targetKey, legacyStatus)
 		} else {
-			rows, err = s.applications.UpdateStatusOwnedWithTx(ctx, tx, req.HrId, req.ApplicationId, req.Status)
+			rows, err = s.applications.UpdateStatusOwnedWithTx(ctx, tx, req.HrId, req.ApplicationId, currentKey, targetKey, legacyStatus)
 		}
 		if err != nil {
 			return err
 		}
-		if rows > 0 && req.Status == 3 {
+		if rows > 0 && model.IsTerminalStatusKey(targetKey) {
 			if err := tx.Model(&model.Application{}).Where("id = ?", req.ApplicationId).Update("is_current", 0).Error; err != nil {
 				return err
 			}
 		}
-		if rows > 0 && req.Status == 2 && detail.Status == 3 {
-			if err := tx.Model(&model.Application{}).Where("user_id = ? AND job_id = ? AND is_current = 1", detail.UserID, detail.JobID).Update("is_current", 0).Error; err != nil {
-				return err
+
+		// Write transition audit row.
+		if rows > 0 {
+			actorAccountType := "staff"
+			transition := &model.ApplicationStatusTransition{
+				ApplicationID:    req.ApplicationId,
+				FromStatus:       currentKey,
+				ToStatus:         targetKey,
+				ActorUserID:      req.HrId,
+				ActorAccountType: actorAccountType,
+				Reason:           req.Reason,
 			}
-			if err := tx.Model(&model.Application{}).Where("id = ?", req.ApplicationId).Update("is_current", 1).Error; err != nil {
+			if err := s.applications.CreateTransition(ctx, tx, transition); err != nil {
 				return err
 			}
 		}
+
 		if rows == 0 || notifyType == "" {
 			return nil
 		}
@@ -252,10 +308,51 @@ func (s *ApplicationService) UpdateApplicationStatus(ctx context.Context, req *p
 		return nil, err
 	}
 	s.outboxPublisher.Signal()
-	if rows == 0 && detail.Status != req.Status {
-		return &pb.CommonResponse{Code: errs.ErrForbidden, Msg: "该投递已不是当前有效流程，不能修改状态"}, nil
+	if rows == 0 {
+		return &pb.CommonResponse{Code: errs.ErrConflict, Msg: "投递状态已变化，请刷新后重试"}, nil
 	}
-	logger.L().Info("application status updated", zap.Int64("application_id", req.ApplicationId), zap.Int32("status", req.Status))
+	logger.L().Info("application status updated",
+		zap.Int64("application_id", req.ApplicationId),
+		zap.String("from_status", currentKey),
+		zap.String("to_status", targetKey),
+	)
 
 	return &pb.CommonResponse{Code: errs.OK, Msg: "投递状态已更新"}, nil
+}
+
+func (s *ApplicationService) ListApplicationStatusTransitions(ctx context.Context, req *pb.ListApplicationStatusTransitionsRequest) (*pb.ListApplicationStatusTransitionsResponse, error) {
+	// Load application first to determine the job for scope check.
+	detail, err := s.applications.GetDetail(ctx, req.ApplicationId)
+	if err != nil {
+		return nil, err
+	}
+	if detail == nil {
+		return &pb.ListApplicationStatusTransitionsResponse{Code: errs.ErrForbidden, Msg: "该投递记录不存在"}, nil
+	}
+
+	// Scope check against the application's job.
+	if _, scopeErr := s.checkApplicationJobScope(ctx, req.HrId, detail.JobID); scopeErr != nil {
+		return &pb.ListApplicationStatusTransitionsResponse{Code: errs.ErrForbidden, Msg: "无权限查看投递状态变更记录"}, nil
+	}
+
+	transitions, err := s.applications.ListTransitions(ctx, req.ApplicationId)
+	if err != nil {
+		return nil, err
+	}
+
+	list := make([]*pb.ApplicationStatusTransition, 0, len(transitions))
+	for _, t := range transitions {
+		list = append(list, &pb.ApplicationStatusTransition{
+			Id:               int64(t.ID),
+			ApplicationId:    t.ApplicationID,
+			FromStatus:       t.FromStatus,
+			ToStatus:         t.ToStatus,
+			ActorUserId:      t.ActorUserID,
+			ActorAccountType: t.ActorAccountType,
+			Reason:           t.Reason,
+			CreatedAt:        t.CreatedAt.Format("2006-01-02 15:04:05"),
+		})
+	}
+
+	return &pb.ListApplicationStatusTransitionsResponse{Code: errs.OK, Msg: "success", List: list}, nil
 }

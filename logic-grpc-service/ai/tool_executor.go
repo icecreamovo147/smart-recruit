@@ -202,7 +202,7 @@ func (e *ToolExecutor) searchCandidates(ctx context.Context, hrID int64, args ma
 	entries := make([]candidateEntry, 0, len(rows))
 	options := make([]ToolCandidateOption, 0, len(rows))
 	for _, r := range rows {
-		statusText := applicationStatusTextTool(r.Status)
+		statusText := applicationStatusTextPreferred(r.StatusKey, r.Status)
 		name := r.RealName
 		if strings.TrimSpace(name) == "" {
 			name = fmt.Sprintf("候选人 %d", r.UserID)
@@ -294,6 +294,8 @@ func (e *ToolExecutor) candidateDetail(ctx context.Context, hrID int64, args map
 		"description":    detail.Description,
 		"requirements":   detail.Requirements,
 		"status":         detail.Status,
+		"status_key":     detail.StatusKey,
+		"status_text":    applicationStatusTextPreferred(detail.StatusKey, detail.Status),
 		"round_no":       detail.RoundNo,
 		"resume_file":    detail.FileName,
 		"resume_note":    resumeNote,
@@ -516,20 +518,35 @@ func (e *ToolExecutor) proposeApplicationStatusUpdate(ctx context.Context, hrID 
 	case int64:
 		appID = v
 	}
+	// Accept either status_key (string) or legacy status (numeric 2/3).
 	var status int32
-	switch v := args["status"].(type) {
-	case float64:
-		status = int32(v)
-	case int32:
-		status = v
-	case int:
-		status = int32(v)
+	var statusKey string
+	if sk, ok := args["status_key"].(string); ok && sk != "" {
+		statusKey = sk
+		// Map status_key to legacy numeric for Action compatibility.
+		if legacy, ok := model.StatusKeyToLegacy[statusKey]; ok {
+			status = legacy
+		}
+	} else {
+		switch v := args["status"].(type) {
+		case float64:
+			status = int32(v)
+		case int32:
+			status = v
+		case int:
+			status = int32(v)
+		}
 	}
 	if appID <= 0 {
 		return ToolResult{Content: `{"error": "application_id is required"}`}, nil
 	}
-	if status != 2 && status != 3 {
-		return ToolResult{Content: `{"error": "status must be 2(通过) or 3(淘汰)"}`}, nil
+	if statusKey == "" && status != 2 && status != 3 {
+		return ToolResult{Content: `{"error": "status must be 2(通过) or 3(淘汰), or provide a valid status_key"}`}, nil
+	}
+	if statusKey != "" {
+		if _, ok := model.StatusKeyToLegacy[statusKey]; !ok {
+			return ToolResult{Content: fmt.Sprintf(`{"error": "invalid status_key: %s"}`, statusKey)}, nil
+		}
 	}
 	detail, err := e.applications.GetDetailOwned(ctx, hrID, appID)
 	if err != nil {
@@ -581,6 +598,7 @@ func (e *ToolExecutor) applicationRowsResult(rows []repository.JobApplicationRow
 		School        string `json:"school"`
 		Skills        string `json:"skills"`
 		Status        int32  `json:"status"`
+		StatusKey     string `json:"status_key"`
 		StatusText    string `json:"status_text"`
 		RoundNo       int32  `json:"round_no"`
 		AppliedAt     string `json:"applied_at"`
@@ -597,7 +615,8 @@ func (e *ToolExecutor) applicationRowsResult(rows []repository.JobApplicationRow
 			School:        r.School,
 			Skills:        r.Skills,
 			Status:        r.Status,
-			StatusText:    applicationStatusTextTool(r.Status),
+			StatusKey:     r.StatusKey,
+			StatusText:    applicationStatusTextPreferred(r.StatusKey, r.Status),
 			RoundNo:       r.RoundNo,
 			AppliedAt:     r.AppliedAt.Format("2006-01-02 15:04"),
 		})
@@ -703,7 +722,8 @@ func statusCountMap(rows []repository.ApplicationStatusCountRow) []map[string]an
 	for _, row := range rows {
 		counts = append(counts, map[string]any{
 			"status":      row.Status,
-			"status_text": applicationStatusTextTool(row.Status),
+			"status_key":  row.StatusKey,
+			"status_text": applicationStatusTextPreferred(row.StatusKey, row.Status),
 			"total":       row.Total,
 		})
 	}
@@ -720,6 +740,9 @@ func maskPhoneTool(phone string) string {
 }
 
 func applicationStatusTextTool(status int32) string {
+	if text, ok := model.HRStatusLabels[model.LegacyStatusToKey[status]]; ok {
+		return text
+	}
 	switch status {
 	case 0:
 		return "待查看"
@@ -732,6 +755,24 @@ func applicationStatusTextTool(status int32) string {
 	default:
 		return "未知"
 	}
+}
+
+// applicationStatusTextPreferred returns the HR-facing status text.
+// Prefers statusKey (new status machine) and falls back to legacy numeric mapping.
+func applicationStatusTextPreferred(statusKey string, status int32) string {
+	if statusKey != "" {
+		if text, ok := model.HRStatusLabels[statusKey]; ok {
+			return text
+		}
+	}
+	return applicationStatusTextTool(status)
+}
+
+func applicationStatusTextByKey(key string) string {
+	if text, ok := model.HRStatusLabels[key]; ok {
+		return text
+	}
+	return "未知"
 }
 
 func jobStatusTextTool(status int32) string {

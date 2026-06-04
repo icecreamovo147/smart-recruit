@@ -191,16 +191,34 @@ type Resume struct {
 }
 
 type Application struct {
-	ID        int64 `gorm:"primaryKey"`
-	JobID     int64
-	UserID    int64
-	ResumeID  int64
-	Status    int32
-	RoundNo   int32
-	IsCurrent int32
-	AppliedAt time.Time
-	UpdatedAt time.Time
+	ID        int64  `gorm:"primaryKey"`
+	JobID     int64  `gorm:"column:job_id"`
+	UserID    int64  `gorm:"column:user_id"`
+	ResumeID  int64  `gorm:"column:resume_id"`
+	Status    int32  `gorm:"column:status"`
+	StatusKey string `gorm:"column:status_key;default:applied;size:64"`
+	RoundNo   int32  `gorm:"column:round_no"`
+	IsCurrent int32  `gorm:"column:is_current"`
+	AppliedAt time.Time `gorm:"column:applied_at"`
+	UpdatedAt time.Time `gorm:"column:updated_at"`
 }
+
+func (Application) TableName() string { return "applications" }
+
+// ApplicationStatusTransition records every status change for audit trail purposes.
+type ApplicationStatusTransition struct {
+	ID              uint64    `gorm:"primaryKey"`
+	ApplicationID   int64     `gorm:"column:application_id;index:idx_transition_app;not null"`
+	FromStatus      string    `gorm:"column:from_status;size:64;not null"`
+	ToStatus        string    `gorm:"column:to_status;size:64;not null"`
+	ActorUserID     int64     `gorm:"column:actor_user_id;not null"`
+	ActorAccountType string   `gorm:"column:actor_account_type;size:32;not null"`
+	Reason          string    `gorm:"column:reason;size:512"`
+	MetadataJSON    string    `gorm:"column:metadata_json;type:text"`
+	CreatedAt       time.Time `gorm:"column:created_at"`
+}
+
+func (ApplicationStatusTransition) TableName() string { return "application_status_transitions" }
 
 type AIChatHistory struct {
 	ID        int64 `gorm:"primaryKey"`

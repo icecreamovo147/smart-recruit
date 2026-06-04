@@ -41,16 +41,44 @@ func (h *ApplicationHandler) UpdateStatus(c *gin.Context) {
 		return
 	}
 	var req struct {
-		Status *int32 `json:"status" binding:"required"`
+		Status    *int32 `json:"status"`
+		StatusKey string `json:"status_key"`
+		Reason    string `json:"reason"`
 	}
-	if err := c.ShouldBindJSON(&req); err != nil || req.Status == nil {
+	if err := c.ShouldBindJSON(&req); err != nil {
 		base.BadRequest(c, "请求参数错误")
 		return
 	}
-	resp, err := h.clients.Application.UpdateApplicationStatus(c.Request.Context(), &pb.UpdateApplicationStatusRequest{
+	if req.StatusKey == "" && req.Status == nil {
+		base.BadRequest(c, "status_key 或 status 不能同时为空")
+		return
+	}
+	grpcReq := &pb.UpdateApplicationStatusRequest{
 		HrId:          middleware.UserID(c),
 		ApplicationId: applicationID,
-		Status:        *req.Status,
+		StatusKey:     req.StatusKey,
+		Reason:        req.Reason,
+	}
+	if req.Status != nil {
+		grpcReq.Status = *req.Status
+	}
+	resp, err := h.clients.Application.UpdateApplicationStatus(c.Request.Context(), grpcReq)
+	if err != nil {
+		base.Internal(c, err)
+		return
+	}
+	base.ProtoResponse(c, resp)
+}
+
+func (h *ApplicationHandler) ListTransitions(c *gin.Context) {
+	applicationID, err := strconv.ParseInt(c.Param("id"), 10, 64)
+	if err != nil {
+		base.BadRequest(c, "投递记录 ID 不合法")
+		return
+	}
+	resp, err := h.clients.Application.ListApplicationStatusTransitions(c.Request.Context(), &pb.ListApplicationStatusTransitionsRequest{
+		HrId:          middleware.UserID(c),
+		ApplicationId: applicationID,
 	})
 	if err != nil {
 		base.Internal(c, err)

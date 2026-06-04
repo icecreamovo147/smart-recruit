@@ -329,13 +329,32 @@ const createAnalysisSessionFromRoute = async () => {
 
 const confirmAction = async (data: StreamPayload) => {
   if (!data.action || !data.application_id || !data.action_status) return
+  const actionKey = data.action_status === 2 ? 'screen_passed' : 'rejected'
   const actionText = data.action_status === 2 ? '通过' : '淘汰'
-  try {
-    await ElMessageBox.confirm(`确认将「${data.candidate_name || '该候选人'}」投递「${data.job_title || '该岗位'}」的申请标记为${actionText}？`, '确认更新投递状态', { type: data.action_status === 2 ? 'success' : 'warning' })
-  } catch {
-    return
+  let reason: string | undefined
+  if (actionKey === 'rejected') {
+    try {
+      const { value } = await ElMessageBox.prompt(
+        `确认将「${data.candidate_name || '该候选人'}」投递「${data.job_title || '该岗位'}」的申请标记为${actionText}？请输入淘汰原因。`,
+        '确认更新投递状态',
+        { type: 'warning', inputPlaceholder: '淘汰原因' }
+      )
+      reason = value
+    } catch {
+      return
+    }
+  } else {
+    try {
+      await ElMessageBox.confirm(
+        `确认将「${data.candidate_name || '该候选人'}」投递「${data.job_title || '该岗位'}」的申请标记为${actionText}？`,
+        '确认更新投递状态',
+        { type: 'success' }
+      )
+    } catch {
+      return
+    }
   }
-  await updateApplicationStatus(data.application_id, data.action_status)
+  await updateApplicationStatus(data.application_id, actionKey, reason)
   ElMessage.success(`已标记为${actionText}`)
   messages.value.push({ role: 'assistant', content: `已将「${data.candidate_name || '该候选人'}」的投递状态更新为“${actionText}”。` })
   scrollBottom()

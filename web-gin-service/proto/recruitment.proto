@@ -41,6 +41,7 @@ service ApplicationService {
   rpc ListMyApplications(ListMyApplicationsRequest) returns (ListMyApplicationsResponse);
   rpc ListJobApplications(ListJobApplicationsRequest) returns (ListJobApplicationsResponse);
   rpc UpdateApplicationStatus(UpdateApplicationStatusRequest) returns (CommonResponse);
+  rpc ListApplicationStatusTransitions(ListApplicationStatusTransitionsRequest) returns (ListApplicationStatusTransitionsResponse);
 }
 
 service NotificationService {
@@ -394,6 +395,7 @@ message MyApplication {
   string applied_at = 5;
   int32 round_no = 6;
   int32 is_current = 7;
+  string status_key = 8;
 }
 
 message ListMyApplicationsResponse {
@@ -427,6 +429,7 @@ message JobApplication {
   int32 is_current = 12;
   string file_name = 13;
   string file_type = 14;
+  string status_key = 15;
 }
 
 message ListJobApplicationsResponse {
@@ -440,6 +443,30 @@ message UpdateApplicationStatusRequest {
   int64 hr_id = 1;
   int64 application_id = 2;
   int32 status = 3;
+  string status_key = 4;
+  string reason = 5;
+}
+
+message ListApplicationStatusTransitionsRequest {
+  int64 hr_id = 1;
+  int64 application_id = 2;
+}
+
+message ApplicationStatusTransition {
+  int64 id = 1;
+  int64 application_id = 2;
+  string from_status = 3;
+  string to_status = 4;
+  int64 actor_user_id = 5;
+  string actor_account_type = 6;
+  string reason = 7;
+  string created_at = 8;
+}
+
+message ListApplicationStatusTransitionsResponse {
+  int32 code = 1;
+  string msg = 2;
+  repeated ApplicationStatusTransition list = 3;
 }
 
 message ChatRequest {

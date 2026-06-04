@@ -41,14 +41,127 @@ export const PERM = {
 
 export type PermissionKey = (typeof PERM)[keyof typeof PERM]
 
-// ── Enums ──────────────────────────────────────────────────────────────
+// ── Application Status Keys (Phase 1 string-based state machine) ───────
 
+export const APP_STATUS_KEY = {
+  APPLIED: 'applied',
+  VIEWED: 'viewed',
+  SCREENING: 'screening',
+  SCREEN_PASSED: 'screen_passed',
+  INTERVIEW_PENDING: 'interview_pending',
+  INTERVIEWING: 'interviewing',
+  INTERVIEW_PASSED: 'interview_passed',
+  OFFER_PENDING: 'offer_pending',
+  OFFER_SENT: 'offer_sent',
+  OFFER_ACCEPTED: 'offer_accepted',
+  OFFER_REJECTED: 'offer_rejected',
+  HIRED: 'hired',
+  REJECTED: 'rejected',
+  WITHDRAWN: 'withdrawn',
+} as const
+
+export type AppStatusKey = (typeof APP_STATUS_KEY)[keyof typeof APP_STATUS_KEY]
+
+// Legacy numeric status mapping for backward compatibility.
 export enum ApplicationStatus {
   Pending = 0,
   Viewed = 1,
   Passed = 2,
   Rejected = 3,
 }
+
+// Legacy status to status key mapping.
+export const LEGACY_STATUS_TO_KEY: Record<number, AppStatusKey> = {
+  [ApplicationStatus.Pending]: APP_STATUS_KEY.APPLIED,
+  [ApplicationStatus.Viewed]: APP_STATUS_KEY.VIEWED,
+  [ApplicationStatus.Passed]: APP_STATUS_KEY.SCREEN_PASSED,
+  [ApplicationStatus.Rejected]: APP_STATUS_KEY.REJECTED,
+}
+
+// HR-facing status labels (internal).
+export const HR_STATUS_LABELS: Record<string, string> = {
+  [APP_STATUS_KEY.APPLIED]: '待查看',
+  [APP_STATUS_KEY.VIEWED]: '已查看',
+  [APP_STATUS_KEY.SCREENING]: '筛选中',
+  [APP_STATUS_KEY.SCREEN_PASSED]: '筛选通过',
+  [APP_STATUS_KEY.INTERVIEW_PENDING]: '待安排面试',
+  [APP_STATUS_KEY.INTERVIEWING]: '面试中',
+  [APP_STATUS_KEY.INTERVIEW_PASSED]: '面试通过',
+  [APP_STATUS_KEY.OFFER_PENDING]: '待发Offer',
+  [APP_STATUS_KEY.OFFER_SENT]: 'Offer已发',
+  [APP_STATUS_KEY.OFFER_ACCEPTED]: 'Offer已接受',
+  [APP_STATUS_KEY.OFFER_REJECTED]: 'Offer被拒',
+  [APP_STATUS_KEY.HIRED]: '已入职',
+  [APP_STATUS_KEY.REJECTED]: '淘汰',
+  [APP_STATUS_KEY.WITHDRAWN]: '候选人撤回',
+}
+
+// Candidate-facing status labels (safe, no internal reasons).
+export const CANDIDATE_STATUS_LABELS: Record<string, string> = {
+  [APP_STATUS_KEY.APPLIED]: '已投递',
+  [APP_STATUS_KEY.VIEWED]: '简历被查看',
+  [APP_STATUS_KEY.SCREENING]: '筛选中',
+  [APP_STATUS_KEY.SCREEN_PASSED]: '筛选通过',
+  [APP_STATUS_KEY.INTERVIEW_PENDING]: '待面试',
+  [APP_STATUS_KEY.INTERVIEWING]: '面试中',
+  [APP_STATUS_KEY.INTERVIEW_PASSED]: '面试通过',
+  [APP_STATUS_KEY.OFFER_PENDING]: '待发offer',
+  [APP_STATUS_KEY.OFFER_SENT]: 'Offer已发',
+  [APP_STATUS_KEY.OFFER_ACCEPTED]: 'Offer已接受',
+  [APP_STATUS_KEY.OFFER_REJECTED]: 'Offer已拒绝',
+  [APP_STATUS_KEY.HIRED]: '已入职',
+  [APP_STATUS_KEY.REJECTED]: '未通过',
+  [APP_STATUS_KEY.WITHDRAWN]: '已撤回',
+}
+
+// Elo-type tag mapping for status display (for element-plus el-tag).
+export const STATUS_TYPE_MAP: Record<string, string> = {
+  [APP_STATUS_KEY.APPLIED]: 'info',
+  [APP_STATUS_KEY.VIEWED]: 'primary',
+  [APP_STATUS_KEY.SCREENING]: 'warning',
+  [APP_STATUS_KEY.SCREEN_PASSED]: 'success',
+  [APP_STATUS_KEY.INTERVIEW_PENDING]: 'warning',
+  [APP_STATUS_KEY.INTERVIEWING]: 'warning',
+  [APP_STATUS_KEY.INTERVIEW_PASSED]: 'success',
+  [APP_STATUS_KEY.OFFER_PENDING]: 'warning',
+  [APP_STATUS_KEY.OFFER_SENT]: 'primary',
+  [APP_STATUS_KEY.OFFER_ACCEPTED]: 'success',
+  [APP_STATUS_KEY.OFFER_REJECTED]: 'danger',
+  [APP_STATUS_KEY.HIRED]: 'success',
+  [APP_STATUS_KEY.REJECTED]: 'danger',
+  [APP_STATUS_KEY.WITHDRAWN]: 'info',
+}
+
+// Terminal status keys (no outgoing transitions).
+export const TERMINAL_STATUS_KEYS: Set<string> = new Set([
+  APP_STATUS_KEY.REJECTED,
+  APP_STATUS_KEY.WITHDRAWN,
+  APP_STATUS_KEY.OFFER_REJECTED,
+  APP_STATUS_KEY.HIRED,
+])
+
+// HR action buttons and the statuses they are allowed FROM.
+// Mirrors the server-side transition validator matrix.
+export const ALLOWED_HR_ACTIONS: Record<string, Set<string>> = {
+  [APP_STATUS_KEY.SCREEN_PASSED]: new Set([
+    APP_STATUS_KEY.APPLIED,
+    APP_STATUS_KEY.VIEWED,
+    APP_STATUS_KEY.SCREENING,
+  ]),
+  [APP_STATUS_KEY.REJECTED]: new Set([
+    APP_STATUS_KEY.APPLIED,
+    APP_STATUS_KEY.VIEWED,
+    APP_STATUS_KEY.SCREENING,
+    APP_STATUS_KEY.SCREEN_PASSED,
+    APP_STATUS_KEY.INTERVIEW_PENDING,
+    APP_STATUS_KEY.INTERVIEWING,
+    APP_STATUS_KEY.INTERVIEW_PASSED,
+    APP_STATUS_KEY.OFFER_PENDING,
+    APP_STATUS_KEY.OFFER_SENT,
+  ]),
+}
+
+// ── Enums (legacy numeric) ─────────────────────────────────────────────
 
 export const APPLICATION_STATUS_TEXT: Record<ApplicationStatus, string> = {
   [ApplicationStatus.Pending]: '待查看',
@@ -67,6 +180,20 @@ export const APPLICATION_STATUS_TYPE: Record<ApplicationStatus, string> = {
 export enum JobStatus {
   Offline = 0,
   Recruiting = 1,
+}
+
+// ── Helpers ────────────────────────────────────────────────────────────
+
+export function getHRStatusLabel(statusKey: string, fallback?: string): string {
+  return HR_STATUS_LABELS[statusKey] || fallback || '未知'
+}
+
+export function getCandidateStatusLabel(statusKey: string, fallback?: string): string {
+  return CANDIDATE_STATUS_LABELS[statusKey] || fallback || '未知'
+}
+
+export function getStatusType(statusKey: string, fallback?: string): string {
+  return STATUS_TYPE_MAP[statusKey] || fallback || 'info'
 }
 
 // ── User ───────────────────────────────────────────────────────────────
@@ -157,6 +284,7 @@ export interface Application {
   job_id: number
   job_title: string
   status: number
+  status_key?: string       // Phase 1: string status key
   round_no: number
   is_current: number
   applied_at: string
