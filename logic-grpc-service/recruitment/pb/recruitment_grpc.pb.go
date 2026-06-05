@@ -4219,3 +4219,571 @@ var AdminService_ServiceDesc = grpc.ServiceDesc{
 	Streams:  []grpc.StreamDesc{},
 	Metadata: "proto/recruitment.proto",
 }
+
+const (
+	CollaborationService_GetCandidateWorkspace_FullMethodName = "/recruitment.CollaborationService/GetCandidateWorkspace"
+	CollaborationService_CreateNote_FullMethodName            = "/recruitment.CollaborationService/CreateNote"
+	CollaborationService_ListNotes_FullMethodName             = "/recruitment.CollaborationService/ListNotes"
+	CollaborationService_CreateTag_FullMethodName             = "/recruitment.CollaborationService/CreateTag"
+	CollaborationService_ListTags_FullMethodName              = "/recruitment.CollaborationService/ListTags"
+	CollaborationService_AssignTag_FullMethodName             = "/recruitment.CollaborationService/AssignTag"
+	CollaborationService_UnassignTag_FullMethodName           = "/recruitment.CollaborationService/UnassignTag"
+	CollaborationService_ListCandidateTags_FullMethodName     = "/recruitment.CollaborationService/ListCandidateTags"
+	CollaborationService_CreateFollowUpTask_FullMethodName    = "/recruitment.CollaborationService/CreateFollowUpTask"
+	CollaborationService_ListFollowUpTasks_FullMethodName     = "/recruitment.CollaborationService/ListFollowUpTasks"
+	CollaborationService_CompleteFollowUpTask_FullMethodName  = "/recruitment.CollaborationService/CompleteFollowUpTask"
+	CollaborationService_GetFollowUpTask_FullMethodName       = "/recruitment.CollaborationService/GetFollowUpTask"
+	CollaborationService_ListTimelineEvents_FullMethodName    = "/recruitment.CollaborationService/ListTimelineEvents"
+)
+
+// CollaborationServiceClient is the client API for CollaborationService service.
+//
+// For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
+type CollaborationServiceClient interface {
+	// Candidate workspace aggregation
+	GetCandidateWorkspace(ctx context.Context, in *GetCandidateWorkspaceRequest, opts ...grpc.CallOption) (*GetCandidateWorkspaceResponse, error)
+	// Notes
+	CreateNote(ctx context.Context, in *CreateNoteRequest, opts ...grpc.CallOption) (*CreateNoteResponse, error)
+	ListNotes(ctx context.Context, in *ListNotesRequest, opts ...grpc.CallOption) (*ListNotesResponse, error)
+	// Tags
+	CreateTag(ctx context.Context, in *CreateTagRequest, opts ...grpc.CallOption) (*CreateTagResponse, error)
+	ListTags(ctx context.Context, in *ListTagsRequest, opts ...grpc.CallOption) (*ListTagsResponse, error)
+	AssignTag(ctx context.Context, in *AssignTagRequest, opts ...grpc.CallOption) (*CommonResponse, error)
+	UnassignTag(ctx context.Context, in *UnassignTagRequest, opts ...grpc.CallOption) (*CommonResponse, error)
+	ListCandidateTags(ctx context.Context, in *ListCandidateTagsRequest, opts ...grpc.CallOption) (*ListCandidateTagsResponse, error)
+	// Follow-up tasks
+	CreateFollowUpTask(ctx context.Context, in *CreateFollowUpTaskRequest, opts ...grpc.CallOption) (*CreateFollowUpTaskResponse, error)
+	ListFollowUpTasks(ctx context.Context, in *ListFollowUpTasksRequest, opts ...grpc.CallOption) (*ListFollowUpTasksResponse, error)
+	CompleteFollowUpTask(ctx context.Context, in *CompleteFollowUpTaskRequest, opts ...grpc.CallOption) (*CommonResponse, error)
+	GetFollowUpTask(ctx context.Context, in *GetFollowUpTaskRequest, opts ...grpc.CallOption) (*GetFollowUpTaskResponse, error)
+	// Timeline
+	ListTimelineEvents(ctx context.Context, in *ListTimelineEventsRequest, opts ...grpc.CallOption) (*ListTimelineEventsResponse, error)
+}
+
+type collaborationServiceClient struct {
+	cc grpc.ClientConnInterface
+}
+
+func NewCollaborationServiceClient(cc grpc.ClientConnInterface) CollaborationServiceClient {
+	return &collaborationServiceClient{cc}
+}
+
+func (c *collaborationServiceClient) GetCandidateWorkspace(ctx context.Context, in *GetCandidateWorkspaceRequest, opts ...grpc.CallOption) (*GetCandidateWorkspaceResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(GetCandidateWorkspaceResponse)
+	err := c.cc.Invoke(ctx, CollaborationService_GetCandidateWorkspace_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *collaborationServiceClient) CreateNote(ctx context.Context, in *CreateNoteRequest, opts ...grpc.CallOption) (*CreateNoteResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(CreateNoteResponse)
+	err := c.cc.Invoke(ctx, CollaborationService_CreateNote_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *collaborationServiceClient) ListNotes(ctx context.Context, in *ListNotesRequest, opts ...grpc.CallOption) (*ListNotesResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ListNotesResponse)
+	err := c.cc.Invoke(ctx, CollaborationService_ListNotes_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *collaborationServiceClient) CreateTag(ctx context.Context, in *CreateTagRequest, opts ...grpc.CallOption) (*CreateTagResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(CreateTagResponse)
+	err := c.cc.Invoke(ctx, CollaborationService_CreateTag_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *collaborationServiceClient) ListTags(ctx context.Context, in *ListTagsRequest, opts ...grpc.CallOption) (*ListTagsResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ListTagsResponse)
+	err := c.cc.Invoke(ctx, CollaborationService_ListTags_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *collaborationServiceClient) AssignTag(ctx context.Context, in *AssignTagRequest, opts ...grpc.CallOption) (*CommonResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(CommonResponse)
+	err := c.cc.Invoke(ctx, CollaborationService_AssignTag_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *collaborationServiceClient) UnassignTag(ctx context.Context, in *UnassignTagRequest, opts ...grpc.CallOption) (*CommonResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(CommonResponse)
+	err := c.cc.Invoke(ctx, CollaborationService_UnassignTag_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *collaborationServiceClient) ListCandidateTags(ctx context.Context, in *ListCandidateTagsRequest, opts ...grpc.CallOption) (*ListCandidateTagsResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ListCandidateTagsResponse)
+	err := c.cc.Invoke(ctx, CollaborationService_ListCandidateTags_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *collaborationServiceClient) CreateFollowUpTask(ctx context.Context, in *CreateFollowUpTaskRequest, opts ...grpc.CallOption) (*CreateFollowUpTaskResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(CreateFollowUpTaskResponse)
+	err := c.cc.Invoke(ctx, CollaborationService_CreateFollowUpTask_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *collaborationServiceClient) ListFollowUpTasks(ctx context.Context, in *ListFollowUpTasksRequest, opts ...grpc.CallOption) (*ListFollowUpTasksResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ListFollowUpTasksResponse)
+	err := c.cc.Invoke(ctx, CollaborationService_ListFollowUpTasks_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *collaborationServiceClient) CompleteFollowUpTask(ctx context.Context, in *CompleteFollowUpTaskRequest, opts ...grpc.CallOption) (*CommonResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(CommonResponse)
+	err := c.cc.Invoke(ctx, CollaborationService_CompleteFollowUpTask_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *collaborationServiceClient) GetFollowUpTask(ctx context.Context, in *GetFollowUpTaskRequest, opts ...grpc.CallOption) (*GetFollowUpTaskResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(GetFollowUpTaskResponse)
+	err := c.cc.Invoke(ctx, CollaborationService_GetFollowUpTask_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *collaborationServiceClient) ListTimelineEvents(ctx context.Context, in *ListTimelineEventsRequest, opts ...grpc.CallOption) (*ListTimelineEventsResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ListTimelineEventsResponse)
+	err := c.cc.Invoke(ctx, CollaborationService_ListTimelineEvents_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+// CollaborationServiceServer is the server API for CollaborationService service.
+// All implementations must embed UnimplementedCollaborationServiceServer
+// for forward compatibility.
+type CollaborationServiceServer interface {
+	// Candidate workspace aggregation
+	GetCandidateWorkspace(context.Context, *GetCandidateWorkspaceRequest) (*GetCandidateWorkspaceResponse, error)
+	// Notes
+	CreateNote(context.Context, *CreateNoteRequest) (*CreateNoteResponse, error)
+	ListNotes(context.Context, *ListNotesRequest) (*ListNotesResponse, error)
+	// Tags
+	CreateTag(context.Context, *CreateTagRequest) (*CreateTagResponse, error)
+	ListTags(context.Context, *ListTagsRequest) (*ListTagsResponse, error)
+	AssignTag(context.Context, *AssignTagRequest) (*CommonResponse, error)
+	UnassignTag(context.Context, *UnassignTagRequest) (*CommonResponse, error)
+	ListCandidateTags(context.Context, *ListCandidateTagsRequest) (*ListCandidateTagsResponse, error)
+	// Follow-up tasks
+	CreateFollowUpTask(context.Context, *CreateFollowUpTaskRequest) (*CreateFollowUpTaskResponse, error)
+	ListFollowUpTasks(context.Context, *ListFollowUpTasksRequest) (*ListFollowUpTasksResponse, error)
+	CompleteFollowUpTask(context.Context, *CompleteFollowUpTaskRequest) (*CommonResponse, error)
+	GetFollowUpTask(context.Context, *GetFollowUpTaskRequest) (*GetFollowUpTaskResponse, error)
+	// Timeline
+	ListTimelineEvents(context.Context, *ListTimelineEventsRequest) (*ListTimelineEventsResponse, error)
+	mustEmbedUnimplementedCollaborationServiceServer()
+}
+
+// UnimplementedCollaborationServiceServer must be embedded to have
+// forward compatible implementations.
+//
+// NOTE: this should be embedded by value instead of pointer to avoid a nil
+// pointer dereference when methods are called.
+type UnimplementedCollaborationServiceServer struct{}
+
+func (UnimplementedCollaborationServiceServer) GetCandidateWorkspace(context.Context, *GetCandidateWorkspaceRequest) (*GetCandidateWorkspaceResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method GetCandidateWorkspace not implemented")
+}
+func (UnimplementedCollaborationServiceServer) CreateNote(context.Context, *CreateNoteRequest) (*CreateNoteResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method CreateNote not implemented")
+}
+func (UnimplementedCollaborationServiceServer) ListNotes(context.Context, *ListNotesRequest) (*ListNotesResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method ListNotes not implemented")
+}
+func (UnimplementedCollaborationServiceServer) CreateTag(context.Context, *CreateTagRequest) (*CreateTagResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method CreateTag not implemented")
+}
+func (UnimplementedCollaborationServiceServer) ListTags(context.Context, *ListTagsRequest) (*ListTagsResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method ListTags not implemented")
+}
+func (UnimplementedCollaborationServiceServer) AssignTag(context.Context, *AssignTagRequest) (*CommonResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method AssignTag not implemented")
+}
+func (UnimplementedCollaborationServiceServer) UnassignTag(context.Context, *UnassignTagRequest) (*CommonResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method UnassignTag not implemented")
+}
+func (UnimplementedCollaborationServiceServer) ListCandidateTags(context.Context, *ListCandidateTagsRequest) (*ListCandidateTagsResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method ListCandidateTags not implemented")
+}
+func (UnimplementedCollaborationServiceServer) CreateFollowUpTask(context.Context, *CreateFollowUpTaskRequest) (*CreateFollowUpTaskResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method CreateFollowUpTask not implemented")
+}
+func (UnimplementedCollaborationServiceServer) ListFollowUpTasks(context.Context, *ListFollowUpTasksRequest) (*ListFollowUpTasksResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method ListFollowUpTasks not implemented")
+}
+func (UnimplementedCollaborationServiceServer) CompleteFollowUpTask(context.Context, *CompleteFollowUpTaskRequest) (*CommonResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method CompleteFollowUpTask not implemented")
+}
+func (UnimplementedCollaborationServiceServer) GetFollowUpTask(context.Context, *GetFollowUpTaskRequest) (*GetFollowUpTaskResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method GetFollowUpTask not implemented")
+}
+func (UnimplementedCollaborationServiceServer) ListTimelineEvents(context.Context, *ListTimelineEventsRequest) (*ListTimelineEventsResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method ListTimelineEvents not implemented")
+}
+func (UnimplementedCollaborationServiceServer) mustEmbedUnimplementedCollaborationServiceServer() {}
+func (UnimplementedCollaborationServiceServer) testEmbeddedByValue()                              {}
+
+// UnsafeCollaborationServiceServer may be embedded to opt out of forward compatibility for this service.
+// Use of this interface is not recommended, as added methods to CollaborationServiceServer will
+// result in compilation errors.
+type UnsafeCollaborationServiceServer interface {
+	mustEmbedUnimplementedCollaborationServiceServer()
+}
+
+func RegisterCollaborationServiceServer(s grpc.ServiceRegistrar, srv CollaborationServiceServer) {
+	// If the following call panics, it indicates UnimplementedCollaborationServiceServer was
+	// embedded by pointer and is nil.  This will cause panics if an
+	// unimplemented method is ever invoked, so we test this at initialization
+	// time to prevent it from happening at runtime later due to I/O.
+	if t, ok := srv.(interface{ testEmbeddedByValue() }); ok {
+		t.testEmbeddedByValue()
+	}
+	s.RegisterService(&CollaborationService_ServiceDesc, srv)
+}
+
+func _CollaborationService_GetCandidateWorkspace_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetCandidateWorkspaceRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(CollaborationServiceServer).GetCandidateWorkspace(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: CollaborationService_GetCandidateWorkspace_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(CollaborationServiceServer).GetCandidateWorkspace(ctx, req.(*GetCandidateWorkspaceRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _CollaborationService_CreateNote_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(CreateNoteRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(CollaborationServiceServer).CreateNote(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: CollaborationService_CreateNote_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(CollaborationServiceServer).CreateNote(ctx, req.(*CreateNoteRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _CollaborationService_ListNotes_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ListNotesRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(CollaborationServiceServer).ListNotes(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: CollaborationService_ListNotes_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(CollaborationServiceServer).ListNotes(ctx, req.(*ListNotesRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _CollaborationService_CreateTag_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(CreateTagRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(CollaborationServiceServer).CreateTag(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: CollaborationService_CreateTag_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(CollaborationServiceServer).CreateTag(ctx, req.(*CreateTagRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _CollaborationService_ListTags_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ListTagsRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(CollaborationServiceServer).ListTags(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: CollaborationService_ListTags_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(CollaborationServiceServer).ListTags(ctx, req.(*ListTagsRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _CollaborationService_AssignTag_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(AssignTagRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(CollaborationServiceServer).AssignTag(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: CollaborationService_AssignTag_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(CollaborationServiceServer).AssignTag(ctx, req.(*AssignTagRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _CollaborationService_UnassignTag_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(UnassignTagRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(CollaborationServiceServer).UnassignTag(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: CollaborationService_UnassignTag_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(CollaborationServiceServer).UnassignTag(ctx, req.(*UnassignTagRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _CollaborationService_ListCandidateTags_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ListCandidateTagsRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(CollaborationServiceServer).ListCandidateTags(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: CollaborationService_ListCandidateTags_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(CollaborationServiceServer).ListCandidateTags(ctx, req.(*ListCandidateTagsRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _CollaborationService_CreateFollowUpTask_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(CreateFollowUpTaskRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(CollaborationServiceServer).CreateFollowUpTask(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: CollaborationService_CreateFollowUpTask_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(CollaborationServiceServer).CreateFollowUpTask(ctx, req.(*CreateFollowUpTaskRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _CollaborationService_ListFollowUpTasks_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ListFollowUpTasksRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(CollaborationServiceServer).ListFollowUpTasks(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: CollaborationService_ListFollowUpTasks_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(CollaborationServiceServer).ListFollowUpTasks(ctx, req.(*ListFollowUpTasksRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _CollaborationService_CompleteFollowUpTask_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(CompleteFollowUpTaskRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(CollaborationServiceServer).CompleteFollowUpTask(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: CollaborationService_CompleteFollowUpTask_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(CollaborationServiceServer).CompleteFollowUpTask(ctx, req.(*CompleteFollowUpTaskRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _CollaborationService_GetFollowUpTask_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetFollowUpTaskRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(CollaborationServiceServer).GetFollowUpTask(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: CollaborationService_GetFollowUpTask_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(CollaborationServiceServer).GetFollowUpTask(ctx, req.(*GetFollowUpTaskRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _CollaborationService_ListTimelineEvents_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ListTimelineEventsRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(CollaborationServiceServer).ListTimelineEvents(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: CollaborationService_ListTimelineEvents_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(CollaborationServiceServer).ListTimelineEvents(ctx, req.(*ListTimelineEventsRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+// CollaborationService_ServiceDesc is the grpc.ServiceDesc for CollaborationService service.
+// It's only intended for direct use with grpc.RegisterService,
+// and not to be introspected or modified (even as a copy)
+var CollaborationService_ServiceDesc = grpc.ServiceDesc{
+	ServiceName: "recruitment.CollaborationService",
+	HandlerType: (*CollaborationServiceServer)(nil),
+	Methods: []grpc.MethodDesc{
+		{
+			MethodName: "GetCandidateWorkspace",
+			Handler:    _CollaborationService_GetCandidateWorkspace_Handler,
+		},
+		{
+			MethodName: "CreateNote",
+			Handler:    _CollaborationService_CreateNote_Handler,
+		},
+		{
+			MethodName: "ListNotes",
+			Handler:    _CollaborationService_ListNotes_Handler,
+		},
+		{
+			MethodName: "CreateTag",
+			Handler:    _CollaborationService_CreateTag_Handler,
+		},
+		{
+			MethodName: "ListTags",
+			Handler:    _CollaborationService_ListTags_Handler,
+		},
+		{
+			MethodName: "AssignTag",
+			Handler:    _CollaborationService_AssignTag_Handler,
+		},
+		{
+			MethodName: "UnassignTag",
+			Handler:    _CollaborationService_UnassignTag_Handler,
+		},
+		{
+			MethodName: "ListCandidateTags",
+			Handler:    _CollaborationService_ListCandidateTags_Handler,
+		},
+		{
+			MethodName: "CreateFollowUpTask",
+			Handler:    _CollaborationService_CreateFollowUpTask_Handler,
+		},
+		{
+			MethodName: "ListFollowUpTasks",
+			Handler:    _CollaborationService_ListFollowUpTasks_Handler,
+		},
+		{
+			MethodName: "CompleteFollowUpTask",
+			Handler:    _CollaborationService_CompleteFollowUpTask_Handler,
+		},
+		{
+			MethodName: "GetFollowUpTask",
+			Handler:    _CollaborationService_GetFollowUpTask_Handler,
+		},
+		{
+			MethodName: "ListTimelineEvents",
+			Handler:    _CollaborationService_ListTimelineEvents_Handler,
+		},
+	},
+	Streams:  []grpc.StreamDesc{},
+	Metadata: "proto/recruitment.proto",
+}

@@ -17,6 +17,7 @@ type Server struct {
 	pb.UnimplementedInterviewServiceServer
 	pb.UnimplementedOfferServiceServer
 	pb.UnimplementedAdminServiceServer
+	pb.UnimplementedCollaborationServiceServer
 	svc *service.Services
 }
 
@@ -126,6 +127,10 @@ func (s *Server) ListJobApplications(ctx context.Context, req *pb.ListJobApplica
 
 func (s *Server) UpdateApplicationStatus(ctx context.Context, req *pb.UpdateApplicationStatusRequest) (*pb.CommonResponse, error) {
 	return s.svc.Application.UpdateApplicationStatus(ctx, req)
+}
+
+func (s *Server) ListApplicationStatusTransitions(ctx context.Context, req *pb.ListApplicationStatusTransitionsRequest) (*pb.ListApplicationStatusTransitionsResponse, error) {
+	return s.svc.Application.ListApplicationStatusTransitions(ctx, req)
 }
 
 // AI
@@ -428,4 +433,58 @@ func (s *Server) ListStaffUsers(ctx context.Context, req *pb.ListStaffUsersReque
 
 func (s *Server) CreateStaffUser(ctx context.Context, req *pb.CreateStaffUserRequest) (*pb.CreateStaffUserResponse, error) {
 	return s.svc.Admin.CreateStaffUser(ctx, req)
+}
+
+// ── Phase 4: Collaboration ────────────────────────────────────────────
+
+func (s *Server) GetCandidateWorkspace(ctx context.Context, req *pb.GetCandidateWorkspaceRequest) (*pb.GetCandidateWorkspaceResponse, error) {
+	return s.svc.Collaboration.GetCandidateWorkspace(ctx, req)
+}
+
+func (s *Server) CreateNote(ctx context.Context, req *pb.CreateNoteRequest) (*pb.CreateNoteResponse, error) {
+	return s.svc.Collaboration.CreateNote(ctx, req)
+}
+
+func (s *Server) ListNotes(ctx context.Context, req *pb.ListNotesRequest) (*pb.ListNotesResponse, error) {
+	return s.svc.Collaboration.ListNotes(ctx, req)
+}
+
+func (s *Server) CreateTag(ctx context.Context, req *pb.CreateTagRequest) (*pb.CreateTagResponse, error) {
+	return s.svc.Collaboration.CreateTag(ctx, req)
+}
+
+func (s *Server) ListTags(ctx context.Context, req *pb.ListTagsRequest) (*pb.ListTagsResponse, error) {
+	return s.svc.Collaboration.ListTags(ctx, req)
+}
+
+func (s *Server) AssignTag(ctx context.Context, req *pb.AssignTagRequest) (*pb.CommonResponse, error) {
+	return s.svc.Collaboration.AssignTag(ctx, req)
+}
+
+func (s *Server) UnassignTag(ctx context.Context, req *pb.UnassignTagRequest) (*pb.CommonResponse, error) {
+	return s.svc.Collaboration.UnassignTag(ctx, req)
+}
+
+func (s *Server) ListCandidateTags(ctx context.Context, req *pb.ListCandidateTagsRequest) (*pb.ListCandidateTagsResponse, error) {
+	return s.svc.Collaboration.ListCandidateTags(ctx, req)
+}
+
+func (s *Server) CreateFollowUpTask(ctx context.Context, req *pb.CreateFollowUpTaskRequest) (*pb.CreateFollowUpTaskResponse, error) {
+	return s.svc.Collaboration.CreateFollowUpTask(ctx, req)
+}
+
+func (s *Server) ListFollowUpTasks(ctx context.Context, req *pb.ListFollowUpTasksRequest) (*pb.ListFollowUpTasksResponse, error) {
+	return s.svc.Collaboration.ListFollowUpTasks(ctx, req)
+}
+
+func (s *Server) CompleteFollowUpTask(ctx context.Context, req *pb.CompleteFollowUpTaskRequest) (*pb.CommonResponse, error) {
+	return s.svc.Collaboration.CompleteFollowUpTask(ctx, req)
+}
+
+func (s *Server) GetFollowUpTask(ctx context.Context, req *pb.GetFollowUpTaskRequest) (*pb.GetFollowUpTaskResponse, error) {
+	return s.svc.Collaboration.GetFollowUpTask(ctx, req)
+}
+
+func (s *Server) ListTimelineEvents(ctx context.Context, req *pb.ListTimelineEventsRequest) (*pb.ListTimelineEventsResponse, error) {
+	return s.svc.Collaboration.ListTimelineEvents(ctx, req)
 }

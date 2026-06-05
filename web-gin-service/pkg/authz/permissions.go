@@ -52,4 +52,10 @@ const (
 	PermOfferManage  = "offer.manage"
 	PermOfferSend    = "offer.send"
 	PermOfferDecisionManage = "offer.decision.manage"
+
+	// Phase 4: Candidate Collaboration
+	PermCollaborationNoteRead   = "collaboration.note.read"
+	PermCollaborationNoteCreate = "collaboration.note.create"
+	PermCollaborationTagManage  = "collaboration.tag.manage"
+	PermCollaborationTaskManage = "collaboration.task.manage"
 )

@@ -56,6 +56,12 @@ const (
 	PermOfferManage  = "offer.manage"  // create/update/withdraw offers
 	PermOfferSend    = "offer.send"    // send offers (snapshot terms)
 	PermOfferDecisionManage = "offer.decision.manage" // candidate accept/reject own offer
+
+	// Phase 4: Candidate Collaboration
+	PermCollaborationNoteRead   = "collaboration.note.read"   // read candidate internal notes
+	PermCollaborationNoteCreate = "collaboration.note.create" // create candidate internal notes
+	PermCollaborationTagManage  = "collaboration.tag.manage"  // manage candidate tags
+	PermCollaborationTaskManage = "collaboration.task.manage" // manage follow-up tasks
 )
 
 // PermissionDisplayNames maps permission keys to human-readable descriptions.
@@ -88,4 +94,8 @@ var PermissionDisplayNames = map[string]string{
 	PermOfferManage:                  "管理Offer",
 	PermOfferSend:                    "发送Offer",
 	PermOfferDecisionManage:          "决定Offer（接受/拒绝）",
+	PermCollaborationNoteRead:        "查看候选人备注",
+	PermCollaborationNoteCreate:      "创建候选人备注",
+	PermCollaborationTagManage:       "管理候选人标签",
+	PermCollaborationTaskManage:      "管理跟进任务",
 }

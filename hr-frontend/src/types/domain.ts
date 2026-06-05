@@ -43,6 +43,12 @@ export const PERM = {
   OFFER_MANAGE: 'offer.manage',
   OFFER_SEND: 'offer.send',
   OFFER_DECISION_MANAGE: 'offer.decision.manage',
+
+  // Collaboration
+  COLLABORATION_NOTE_READ: 'collaboration.note.read',
+  COLLABORATION_NOTE_CREATE: 'collaboration.note.create',
+  COLLABORATION_TAG_MANAGE: 'collaboration.tag.manage',
+  COLLABORATION_TASK_MANAGE: 'collaboration.task.manage',
 } as const
 
 export type PermissionKey = (typeof PERM)[keyof typeof PERM]
@@ -545,4 +551,105 @@ export interface InterviewFeedback {
   submitted_at: string
   updated_at: string
   interviewer_name: string
+}
+
+export interface TimelineEventInfo {
+  id: string
+  event_type: string  // status_transition | interview | offer | note
+  title: string
+  description: string
+  timestamp: string
+  actor_name: string
+  application_id: number
+}
+
+export interface CandidateWorkspaceInterview {
+  interview_id: number
+  application_id: number
+  title: string
+  mode: string
+  status: string
+  scheduled_at: string
+  interviewer_name: string
+  job_title: string
+  round_no: number
+}
+
+export interface CandidateWorkspaceOffer {
+  offer_id: number
+  application_id: number
+  title: string
+  status: string
+  salary_range: string
+  level: string
+  work_location: string
+  start_date: string
+  job_title: string
+}
+
+// ── Phase 4: Collaboration ────────────────────────────────────────────
+
+export interface CandidateWorkspace {
+  real_name: string
+  phone: string
+  education: string
+  school: string
+  work_experience: string
+  skills: string[]
+  applications: CandidateWorkspaceApplication[]
+  tags: CandidateTagInfo[]
+  total_applications: number
+  total_interviews: number
+  total_offers: number
+  latest_activity_at: string
+  resume_url: string
+  interviews: CandidateWorkspaceInterview[]
+  offers: CandidateWorkspaceOffer[]
+}
+
+export interface CandidateWorkspaceApplication {
+  application_id: number
+  job_id: number
+  job_title: string
+  department: string
+  location: string
+  status_key: string
+  round_no: number
+  is_current: number
+  applied_at: string
+}
+
+export interface CandidateNoteInfo {
+  id: number
+  candidate_user_id: number
+  application_id: number
+  author_user_id: number
+  content: string
+  visibility: string
+  created_at: string
+  updated_at: string
+  author_name: string
+}
+
+export interface CandidateTagInfo {
+  id: number
+  name: string
+  color: string
+}
+
+export interface FollowUpTaskInfo {
+  id: number
+  candidate_user_id: number
+  application_id: number
+  assignee_user_id: number
+  created_by: number
+  title: string
+  description: string
+  due_at: string
+  status: string
+  completed_at: string
+  created_at: string
+  updated_at: string
+  assignee_name: string
+  candidate_name: string
 }

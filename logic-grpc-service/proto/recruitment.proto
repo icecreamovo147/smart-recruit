@@ -139,6 +139,33 @@ service AdminService {
   rpc CreateStaffUser(CreateStaffUserRequest) returns (CreateStaffUserResponse);
 }
 
+// ── Phase 4: Candidate Collaboration ───────────────────────────────────
+
+service CollaborationService {
+  // Candidate workspace aggregation
+  rpc GetCandidateWorkspace(GetCandidateWorkspaceRequest) returns (GetCandidateWorkspaceResponse);
+
+  // Notes
+  rpc CreateNote(CreateNoteRequest) returns (CreateNoteResponse);
+  rpc ListNotes(ListNotesRequest) returns (ListNotesResponse);
+
+  // Tags
+  rpc CreateTag(CreateTagRequest) returns (CreateTagResponse);
+  rpc ListTags(ListTagsRequest) returns (ListTagsResponse);
+  rpc AssignTag(AssignTagRequest) returns (CommonResponse);
+  rpc UnassignTag(UnassignTagRequest) returns (CommonResponse);
+  rpc ListCandidateTags(ListCandidateTagsRequest) returns (ListCandidateTagsResponse);
+
+  // Follow-up tasks
+  rpc CreateFollowUpTask(CreateFollowUpTaskRequest) returns (CreateFollowUpTaskResponse);
+  rpc ListFollowUpTasks(ListFollowUpTasksRequest) returns (ListFollowUpTasksResponse);
+  rpc CompleteFollowUpTask(CompleteFollowUpTaskRequest) returns (CommonResponse);
+  rpc GetFollowUpTask(GetFollowUpTaskRequest) returns (GetFollowUpTaskResponse);
+
+  // Timeline
+  rpc ListTimelineEvents(ListTimelineEventsRequest) returns (ListTimelineEventsResponse);
+}
+
 message CommonResponse {
   int32 code = 1;
   string msg = 2;
@@ -1423,4 +1450,265 @@ message CreateStaffUserResponse {
   int32 code = 1;
   string msg = 2;
   int64 user_id = 3;
+}
+
+// ── Phase 4: Candidate Collaboration ───────────────────────────────────
+
+// ── Candidate Workspace ────────────────────────────────────────────────
+
+message GetCandidateWorkspaceRequest {
+  int64 staff_user_id = 1;
+  int64 candidate_user_id = 2;
+}
+
+message CandidateWorkspace {
+  // Profile
+  string real_name = 1;
+  string phone = 2;
+  string education = 3;
+  string school = 4;
+  string work_experience = 5;
+  repeated string skills = 6;
+
+  // Applications
+  repeated CandidateWorkspaceApplication applications = 7;
+
+  // Tags
+  repeated CandidateTagInfo tags = 8;
+
+  // Statistics
+  int64 total_applications = 9;
+  int64 total_interviews = 10;
+  int64 total_offers = 11;
+  string latest_activity_at = 12;
+
+  // Resume
+  string resume_url = 13;
+
+  // Detailed interview and offer records
+  repeated CandidateWorkspaceInterview interviews = 14;
+  repeated CandidateWorkspaceOffer offers = 15;
+}
+
+message CandidateWorkspaceInterview {
+  int64 interview_id = 1;
+  int64 application_id = 2;
+  string title = 3;
+  string mode = 4;
+  string status = 5;
+  string scheduled_at = 6;
+  string interviewer_name = 7;
+  string job_title = 8;
+  int32 round_no = 9;
+}
+
+message CandidateWorkspaceOffer {
+  int64 offer_id = 1;
+  int64 application_id = 2;
+  string title = 3;
+  string status = 4;
+  string salary_range = 5;
+  string level = 6;
+  string work_location = 7;
+  string start_date = 8;
+  string job_title = 9;
+}
+
+message CandidateWorkspaceApplication {
+  int64 application_id = 1;
+  int64 job_id = 2;
+  string job_title = 3;
+  string department = 4;
+  string location = 5;
+  string status_key = 6;
+  int32 round_no = 7;
+  int32 is_current = 8;
+  string applied_at = 9;
+}
+
+message GetCandidateWorkspaceResponse {
+  int32 code = 1;
+  string msg = 2;
+  CandidateWorkspace workspace = 3;
+}
+
+// ── Notes ──────────────────────────────────────────────────────────────
+
+message CandidateNoteInfo {
+  uint64 id = 1;
+  uint64 candidate_user_id = 2;
+  uint64 application_id = 3;
+  uint64 author_user_id = 4;
+  string content = 5;
+  string visibility = 6;
+  string created_at = 7;
+  string updated_at = 8;
+  string author_name = 9;
+}
+
+message CreateNoteRequest {
+  int64 staff_user_id = 1;
+  uint64 candidate_user_id = 2;
+  uint64 application_id = 3;
+  string content = 4;
+}
+
+message CreateNoteResponse {
+  int32 code = 1;
+  string msg = 2;
+  CandidateNoteInfo note = 3;
+}
+
+message ListNotesRequest {
+  int64 staff_user_id = 1;
+  uint64 candidate_user_id = 2;
+  uint64 application_id = 3;  // optional filter
+}
+
+message ListNotesResponse {
+  int32 code = 1;
+  string msg = 2;
+  repeated CandidateNoteInfo list = 3;
+}
+
+// ── Tags ───────────────────────────────────────────────────────────────
+
+message CandidateTagInfo {
+  uint64 id = 1;
+  string name = 2;
+  string color = 3;
+  uint64 created_by = 4;
+  string created_at = 5;
+}
+
+message CreateTagRequest {
+  int64 staff_user_id = 1;
+  string name = 2;
+  string color = 3;
+}
+
+message CreateTagResponse {
+  int32 code = 1;
+  string msg = 2;
+  CandidateTagInfo tag = 3;
+}
+
+message ListTagsRequest {
+  int64 staff_user_id = 1;
+}
+
+message ListTagsResponse {
+  int32 code = 1;
+  string msg = 2;
+  repeated CandidateTagInfo list = 3;
+}
+
+message AssignTagRequest {
+  int64 staff_user_id = 1;
+  uint64 tag_id = 2;
+  uint64 candidate_user_id = 3;
+}
+
+message UnassignTagRequest {
+  int64 staff_user_id = 1;
+  uint64 tag_id = 2;
+  uint64 candidate_user_id = 3;
+}
+
+message ListCandidateTagsRequest {
+  int64 staff_user_id = 1;
+  uint64 candidate_user_id = 2;
+}
+
+message ListCandidateTagsResponse {
+  int32 code = 1;
+  string msg = 2;
+  repeated CandidateTagInfo list = 3;
+}
+
+// ── Follow-up Tasks ────────────────────────────────────────────────────
+
+message FollowUpTaskInfo {
+  uint64 id = 1;
+  uint64 candidate_user_id = 2;
+  uint64 application_id = 3;
+  uint64 assignee_user_id = 4;
+  uint64 created_by = 5;
+  string title = 6;
+  string description = 7;
+  string due_at = 8;
+  string status = 9;
+  string completed_at = 10;
+  string created_at = 11;
+  string updated_at = 12;
+  string assignee_name = 13;
+  string candidate_name = 14;
+}
+
+message CreateFollowUpTaskRequest {
+  int64 staff_user_id = 1;
+  uint64 candidate_user_id = 2;
+  uint64 application_id = 3;
+  uint64 assignee_user_id = 4;
+  string title = 5;
+  string description = 6;
+  string due_at = 7;  // RFC 3339
+}
+
+message CreateFollowUpTaskResponse {
+  int32 code = 1;
+  string msg = 2;
+  FollowUpTaskInfo task = 3;
+}
+
+message ListFollowUpTasksRequest {
+  int64 staff_user_id = 1;
+  uint64 candidate_user_id = 2;  // optional filter
+  uint64 assignee_user_id = 3;   // optional filter
+  string status = 4;             // optional filter
+}
+
+message ListFollowUpTasksResponse {
+  int32 code = 1;
+  string msg = 2;
+  repeated FollowUpTaskInfo list = 3;
+}
+
+message CompleteFollowUpTaskRequest {
+  int64 staff_user_id = 1;
+  uint64 task_id = 2;
+}
+
+message GetFollowUpTaskRequest {
+  int64 staff_user_id = 1;
+  uint64 task_id = 2;
+}
+
+message GetFollowUpTaskResponse {
+  int32 code = 1;
+  string msg = 2;
+  FollowUpTaskInfo task = 3;
+}
+
+// ── Timeline Events ──────────────────────────────────────────────
+
+message TimelineEventInfo {
+  string id = 1;
+  string event_type = 2;  // status_transition | interview | offer | note
+  string title = 3;
+  string description = 4;
+  string timestamp = 5;
+  string actor_name = 6;
+  int64 application_id = 7;
+}
+
+message ListTimelineEventsRequest {
+  int64 staff_user_id = 1;
+  uint64 candidate_user_id = 2;
+}
+
+message ListTimelineEventsResponse {
+  int32 code = 1;
+  string msg = 2;
+  repeated TimelineEventInfo events = 3;
 }

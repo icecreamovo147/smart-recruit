@@ -157,6 +157,7 @@ func main() {
 
 	services := service.NewServices(
 		healthRedis,
+		db,
 		userRepo, tokenRepo,
 		jobRepo, profileRepo, resumeRepo, applicationRepo, interviewRepo, offerRepo, chatRepo,
 		summaryRepo, toolTraceRepo, memoryRepo, notificationRepo, outboxRepo, inviteCodeRepo,
@@ -268,6 +269,7 @@ func main() {
 	pb.RegisterInterviewServiceServer(grpcServer, recruitmentServer)
 	pb.RegisterOfferServiceServer(grpcServer, recruitmentServer)
 	pb.RegisterAdminServiceServer(grpcServer, recruitmentServer)
+	pb.RegisterCollaborationServiceServer(grpcServer, recruitmentServer)
 	healthpb.RegisterHealthServer(grpcServer, server.NewHealthServer(sqlDB, healthRedis, mqConn))
 
 	// Graceful shutdown

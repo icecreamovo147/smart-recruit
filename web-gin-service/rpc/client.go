@@ -55,6 +55,7 @@ type Clients struct {
 	Interview    pb.InterviewServiceClient
 	Offer        pb.OfferServiceClient
 	Admin        pb.AdminServiceClient
+	Collaboration pb.CollaborationServiceClient
 	Health       healthpb.HealthClient
 }
 
@@ -121,6 +122,7 @@ func NewClients(addr string) (*Clients, error) {
 		Interview:    pb.NewInterviewServiceClient(conn),
 		Offer:        pb.NewOfferServiceClient(conn),
 		Admin:        pb.NewAdminServiceClient(conn),
+		Collaboration: pb.NewCollaborationServiceClient(conn),
 		Health:       healthpb.NewHealthClient(conn),
 	}, nil
 }

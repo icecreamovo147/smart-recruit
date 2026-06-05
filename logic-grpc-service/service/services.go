@@ -2,6 +2,7 @@ package service
 
 import (
 	"github.com/redis/go-redis/v9"
+	"gorm.io/gorm"
 
 	"logic-grpc-service/ai"
 	"logic-grpc-service/config"
@@ -39,6 +40,7 @@ type Services struct {
 	Notification *NotificationService
 	Admin        *AdminService
 	Taxonomy     *JobTaxonomyService
+	Collaboration *CollaborationService
 
 	// Background workers (caller must Start/Stop)
 	OutboxPublisher      *OutboxPublisher
@@ -48,6 +50,7 @@ type Services struct {
 
 func NewServices(
 	tokenCache *redis.Client,
+	db *gorm.DB,
 	users *repository.UserRepo,
 	tokens *repository.RefreshTokenRepo,
 	jobs *repository.JobRepo,
@@ -89,6 +92,8 @@ func NewServices(
 	scopeEval := &scopeEvaluator{authzRepo: authzRepo}
 	serviceAuth := NewServiceAuthorizer(authzRepo, scopeEval)
 
+	collaborationRepo := repository.NewCollaborationRepo(db)
+
 	return &Services{
 		Auth:         NewAuthService(users, tokens, authzRepo, inviteCodes, jwtSecret),
 		Admin:        NewAdminService(inviteCodes, usageLogs, users, authzRepo, tokenCache, serviceAuth),
@@ -101,6 +106,19 @@ func NewServices(
 		AI:           NewAIService(chats, applications, jobs, resumes, summaries, toolTraces, memories, ossClient, aiClient, toolExecutor, contextBuilder, candidateAI, usageLogs, agentRuntime, serviceAuth),
 		CandidateAI:  candidateAI,
 		Notification: NewNotificationService(notifications, notifCache, serviceAuth),
+		Collaboration: NewCollaborationService(
+			authzRepo,
+			collaborationRepo,
+			applications,
+			profiles,
+			jobs,
+			users,
+			interviews,
+			offers,
+			resumes,
+			serviceAuth,
+			scopeEval,
+		),
 
 		OutboxPublisher:      outboxPublisher,
 		NotificationConsumer: notificationConsumer,

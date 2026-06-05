@@ -192,6 +192,7 @@ onMounted(load)
           <el-table-column label="操作" width="360" fixed="right">
             <template #default="{ row }">
               <div class="application-actions">
+                <el-button size="small" type="primary" plain @click="$router.push('/hr/candidates/' + row.user_id)">候选人详情</el-button>
                 <el-button size="small" type="primary" plain @click="viewResume(row)">查看简历</el-button>
                 <el-button size="small" type="primary" plain @click="aiAnalyze(row)">AI 分析</el-button>
                 <el-button size="small" type="warning" plain :disabled="!canAction(row, APP_STATUS_KEY.INTERVIEW_PENDING)" @click="openScheduleDialog(row)">安排面试</el-button>
@@ -222,6 +223,7 @@ onMounted(load)
             <span>第 {{ row.round_no }} 轮</span>
           </div>
           <div class="mobile-card__actions">
+            <el-button size="small" type="primary" plain @click="$router.push('/hr/candidates/' + row.user_id)">候选人详情</el-button>
             <el-button size="small" type="primary" plain @click="viewResume(row)">查看简历</el-button>
             <el-button size="small" type="primary" plain @click="aiAnalyze(row)">AI 分析</el-button>
             <el-button size="small" type="warning" plain :disabled="!canAction(row, APP_STATUS_KEY.INTERVIEW_PENDING)" @click="openScheduleDialog(row)">安排面试</el-button>

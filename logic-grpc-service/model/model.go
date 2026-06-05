@@ -449,3 +449,55 @@ type OfferEvent struct {
 }
 
 func (OfferEvent) TableName() string { return "offer_events" }
+
+// ── Phase 4: Candidate Collaboration ──────────────────────────────────────────────────
+
+type CandidateNote struct {
+	ID              uint64    `gorm:"primaryKey"`
+	CandidateUserID uint64    `gorm:"column:candidate_user_id;not null"`
+	ApplicationID   *uint64   `gorm:"column:application_id"`
+	AuthorUserID    uint64    `gorm:"column:author_user_id;not null"`
+	Content         string    `gorm:"column:content;type:text;not null"`
+	Visibility      string    `gorm:"column:visibility;size:32;default:internal"`
+	CreatedAt       time.Time `gorm:"column:created_at"`
+	UpdatedAt       time.Time `gorm:"column:updated_at"`
+}
+
+func (CandidateNote) TableName() string { return "candidate_notes" }
+
+type CandidateTag struct {
+	ID        uint64    `gorm:"primaryKey"`
+	Name      string    `gorm:"column:name;size:64;not null;uniqueIndex:uk_tag_name"`
+	Color     string    `gorm:"column:color;size:16;default:#409eff"`
+	CreatedBy *uint64   `gorm:"column:created_by"`
+	CreatedAt time.Time `gorm:"column:created_at"`
+}
+
+func (CandidateTag) TableName() string { return "candidate_tags" }
+
+type CandidateTagAssignment struct {
+	ID              uint64    `gorm:"primaryKey"`
+	TagID           uint64    `gorm:"column:tag_id;not null;uniqueIndex:uk_tag_candidate,priority:1"`
+	CandidateUserID uint64    `gorm:"column:candidate_user_id;not null;uniqueIndex:uk_tag_candidate,priority:2"`
+	CreatedBy       *uint64   `gorm:"column:created_by"`
+	CreatedAt       time.Time `gorm:"column:created_at"`
+}
+
+func (CandidateTagAssignment) TableName() string { return "candidate_tag_assignments" }
+
+type FollowUpTask struct {
+	ID              uint64     `gorm:"primaryKey"`
+	CandidateUserID uint64     `gorm:"column:candidate_user_id;not null"`
+	ApplicationID   *uint64    `gorm:"column:application_id"`
+	AssigneeUserID  uint64     `gorm:"column:assignee_user_id;not null"`
+	CreatedBy       uint64     `gorm:"column:created_by;not null"`
+	Title           string     `gorm:"column:title;size:256;not null"`
+	Description     string     `gorm:"column:description;type:text"`
+	DueAt           *time.Time `gorm:"column:due_at"`
+	Status          string     `gorm:"column:status;size:32;default:pending"`
+	CompletedAt     *time.Time `gorm:"column:completed_at"`
+	CreatedAt       time.Time  `gorm:"column:created_at"`
+	UpdatedAt       time.Time  `gorm:"column:updated_at"`
+}
+
+func (FollowUpTask) TableName() string { return "follow_up_tasks" }

@@ -19,6 +19,7 @@ import LocationManageView from '@/views/hr/LocationManageView.vue'
 import UsageAuditView from '@/views/hr/UsageAuditView.vue'
 import StaffUserManageView from '@/views/hr/StaffUserManageView.vue'
 import ForbiddenView from '@/views/ForbiddenView.vue'
+import CandidateDetailView from '@/views/hr/CandidateDetailView.vue'
 
 const routes: RouteRecordRaw[] = [
   { path: '/', redirect: '/hr/workbench' },
@@ -43,6 +44,12 @@ const routes: RouteRecordRaw[] = [
     path: '/hr/jobs/:jobId/applications',
     component: ApplicationListView,
     meta: { requiresAuth: true, requiresPermission: PERM.APPLICATION_READ, title: '候选人台账' },
+  },
+  // Candidate detail — requires application.read permission
+  {
+    path: '/hr/candidates/:candidateUserId',
+    component: CandidateDetailView,
+    meta: { requiresAuth: true, requiresPermission: PERM.APPLICATION_READ, title: '候选人详情' },
   },
   // Interview tasks — for interviewers (requires interview.read)
   {
