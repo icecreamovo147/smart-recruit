@@ -119,6 +119,7 @@ func Setup(cfg config.Config, clients *rpc.Clients, rdb *redis.Client) (*gin.Eng
 	candidateAIHandler := candidate.NewAIHandler(clients)
 	notificationHandler := handler.NewNotificationHandler(clients, rdb)
 	dashboardHandler := hr.NewDashboardHandler(clients)
+	analyticsHandler := hr.NewAnalyticsHandler(clients)
 	collaborationHandler := hr.NewCollaborationHandler(clients)
 
 	normalTimeout := middleware.Timeout(10 * time.Second)
@@ -246,6 +247,22 @@ func Setup(cfg config.Config, clients *rpc.Clients, rdb *redis.Client) (*gin.Eng
 
 	// Dashboard — requires job.read or application.read
 	staffGroup.GET("/dashboard/summary", normalTimeout, middleware.RequireAnyPermission(authz.PermJobRead, authz.PermApplicationRead), dashboardHandler.Summary)
+
+	// ── Phase 6: Analytics & Reporting routes ─────────────────────
+	// Dashboard report (scoped KPI) — requires job.read or application.read
+	staffGroup.GET("/analytics/dashboard", normalTimeout, middleware.RequireAnyPermission(authz.PermJobRead, authz.PermApplicationRead), analyticsHandler.DashboardReport)
+
+	// Funnel report — requires application.read
+	staffGroup.GET("/analytics/funnel", normalTimeout, middleware.RequirePermission(authz.PermApplicationRead), analyticsHandler.FunnelReport)
+
+	// Time-in-stage report — requires application.read
+	staffGroup.GET("/analytics/time-in-stage", normalTimeout, middleware.RequirePermission(authz.PermApplicationRead), analyticsHandler.TimeInStageReport)
+
+	// Interview & Offer metrics — requires application.read
+	staffGroup.GET("/analytics/metrics", normalTimeout, middleware.RequirePermission(authz.PermApplicationRead), analyticsHandler.InterviewOfferMetrics)
+
+	// Auth audit logs (security audit) — requires audit.security.read
+	staffGroup.GET("/admin/auth-audit-logs", normalTimeout, middleware.RequirePermission(authz.PermAuditSecurityRead), analyticsHandler.AuthAuditLogs)
 
 		// ── Collaboration routes ──────────────────────────────────────────
 		// Candidate workspace

@@ -1,16 +1,10 @@
 package hr
 
 import (
-	"context"
-	"sync"
-
 	"github.com/gin-gonic/gin"
-	"go.uber.org/zap"
-	"golang.org/x/sync/errgroup"
 
 	base "web-gin-service/handler"
 	"web-gin-service/middleware"
-	"web-gin-service/pkg/logger"
 	"web-gin-service/recruitment/pb"
 	"web-gin-service/rpc"
 )
@@ -27,8 +21,29 @@ func (h *DashboardHandler) Summary(c *gin.Context) {
 	hrID := middleware.UserID(c)
 	acctType := middleware.AccountType(c)
 
-	// Fetch all jobs (large page to get full list for aggregation).
-	jobsResp, err := h.clients.Job.ListHRJobs(c.Request.Context(), &pb.ListHRJobsRequest{
+	ctx := c.Request.Context()
+
+	// Fetch dashboard report from analytics service.
+	reportResp, err := h.clients.Admin.GetDashboardReport(ctx, &pb.GetDashboardReportRequest{
+		StaffUserId: hrID,
+	})
+	if err != nil {
+		base.Internal(c, err)
+		return
+	}
+
+	// Fetch unread notification count.
+	unreadResp, err := h.clients.Notification.UnreadNotificationCount(ctx, &pb.UnreadNotificationCountRequest{
+		UserId:      hrID,
+		AccountType: acctType,
+	})
+	if err != nil {
+		base.Internal(c, err)
+		return
+	}
+
+	// Fetch jobs for department distribution.
+	jobsResp, err := h.clients.Job.ListHRJobs(ctx, &pb.ListHRJobsRequest{
 		HrId:     hrID,
 		Page:     1,
 		PageSize: 1000,
@@ -38,71 +53,29 @@ func (h *DashboardHandler) Summary(c *gin.Context) {
 		return
 	}
 
-	// Fetch unread notification count.
-	unreadResp, err := h.clients.Notification.UnreadNotificationCount(c.Request.Context(), &pb.UnreadNotificationCountRequest{
-		UserId: hrID,
-		AccountType: acctType,
-	})
-	if err != nil {
-		base.Internal(c, err)
-		return
-	}
+	// Compute KPI from analytics report.
+	onlineJobs := reportResp.GetOnlineJobs()
+	offlineJobs := reportResp.GetOfflineJobs()
+	totalApplications := reportResp.GetTotalApplications()
+	todayApplications := reportResp.GetTodayApplications()
+	pendingActions := reportResp.GetPendingActions()
 
-	// Compute KPIs from job list.
-	var onlineJobs, offlineJobs int64
+	// Build department distribution from job list.
 	deptMap := make(map[string]int64)
-
 	for _, job := range jobsResp.List {
-		if job.Status == 1 {
-			onlineJobs++
-		} else {
-			offlineJobs++
-		}
 		deptMap[job.Department]++
 	}
 
-	// Compute pending actions and stage distribution from per-job applications.
-	// Collect unique user_ids to count distinct candidates (not total application records).
-	// Cap at 50 jobs to keep response time reasonable.
-	var pendingActions int64
-	stageCounts := make(map[int32]int64)
-	userIDs := make(map[int64]bool)
-	var mu sync.Mutex
-	jobCount := len(jobsResp.List)
-	if jobCount > 50 {
-		jobCount = 50
+	// Compute pending actions and stage distribution from analytics report.
+	var pendingActionsFromReport int64
+	stageCounts := make(map[string]int64)
+	for _, item := range reportResp.GetStageDistribution() {
+		stageCounts[item.StageKey] = item.Count
+		if item.StageKey == "applied" || item.StageKey == "viewed" {
+			pendingActionsFromReport += item.Count
+		}
 	}
-
-	ctx, cancel := context.WithCancel(c.Request.Context())
-	defer cancel()
-	eg, ctx := errgroup.WithContext(ctx)
-	for i := 0; i < jobCount; i++ {
-		jobID := jobsResp.List[i].JobId
-		eg.Go(func() error {
-			appsResp, err := h.clients.Application.ListJobApplications(ctx, &pb.ListJobApplicationsRequest{
-				HrId:     hrID,
-				JobId:    jobID,
-				Page:     1,
-				PageSize: 500,
-			})
-			if err != nil {
-				logger.L().Warn("dashboard: list job applications failed", zap.Int64("job_id", jobID), zap.Error(err))
-				return nil // don't fail the whole request; continue with other jobs
-			}
-			mu.Lock()
-			defer mu.Unlock()
-			for _, app := range appsResp.List {
-				userIDs[app.UserId] = true
-				stageCounts[app.Status]++
-				if app.Status == 0 {
-					pendingActions++
-				}
-			}
-			return nil
-		})
-	}
-	_ = eg.Wait() // errors are logged per-job above
-	totalCandidates := int64(len(userIDs))
+	_ = pendingActionsFromReport // prefer report's pending_actions
 
 	unreadNotifications := int64(0)
 	if unreadResp != nil {
@@ -117,23 +90,28 @@ func (h *DashboardHandler) Summary(c *gin.Context) {
 		deptValues = append(deptValues, count)
 	}
 
-	// Build stage distribution from collected counts (status 0-3 maps to labels).
-	stageLabels := []string{"待查看", "已查看", "通过", "淘汰"}
-	stageValues := make([]int64, 4)
-	for i := 0; i < 4; i++ {
-		stageValues[i] = stageCounts[int32(i)]
+	// Build stage distribution from report.
+	stageLabels := []string{"已投递", "已查看", "筛选中", "筛选通过", "面试中", "面试通过", "待发Offer", "Offer已发", "已入职", "淘汰"}
+	stageKeys := []string{"applied", "viewed", "screening", "screen_passed", "interviewing", "interview_passed", "offer_pending", "offer_sent", "hired", "rejected"}
+	stageValues := make([]int64, len(stageLabels))
+	for i, key := range stageKeys {
+		stageValues[i] = stageCounts[key]
 	}
 
-	// Trend data: placeholder for now (requires time-series aggregation not available from current gRPC APIs).
-	trendDates := make([]string, 7)
-	trendApps := make([]int64, 7)
+	// Build trend data from report.
+	trendDates := make([]string, 0)
+	trendApps := make([]int64, 0)
+	for _, p := range reportResp.GetTrend() {
+		trendDates = append(trendDates, p.Date)
+		trendApps = append(trendApps, p.Applications)
+	}
 
 	base.OK(c, "success", gin.H{
 		"kpi": gin.H{
 			"online_jobs":          onlineJobs,
 			"offline_jobs":         offlineJobs,
-			"total_applications":   totalCandidates,
-			"today_applications":   0,
+			"total_applications":   totalApplications,
+			"today_applications":   todayApplications,
 			"unread_notifications": unreadNotifications,
 			"pending_actions":      pendingActions,
 		},

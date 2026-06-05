@@ -370,6 +370,24 @@ type ThirdPartyUsageLog struct {
 
 func (ThirdPartyUsageLog) TableName() string { return "third_party_usage_logs" }
 
+// AIUsageAuthContext records RBAC context for AI usage audit.
+type AIUsageAuthContext struct {
+	ID            uint64    `gorm:"primaryKey"`
+	UsageLogID    uint64    `gorm:"column:usage_log_id;not null;index:idx_audit_context_usage_log"`
+	ActorUserID   uint64    `gorm:"column:actor_user_id;not null;index:idx_audit_context_actor,priority:1"`
+	AccountType   string    `gorm:"column:account_type;size:32"`
+	RoleKeys      string    `gorm:"column:role_keys;size:512"`
+	PermissionKey string    `gorm:"column:permission_key;size:128;index:idx_audit_context_permission,priority:1"`
+	ScopeKeys     string    `gorm:"column:scope_keys;size:512"`
+	ResourceType  string    `gorm:"column:resource_type;size:64"`
+	ResourceID    uint64    `gorm:"column:resource_id"`
+	Decision      string    `gorm:"column:decision;size:32"`
+	RequestID     string    `gorm:"column:request_id;size:64;index:idx_audit_context_request"`
+	CreatedAt     time.Time `gorm:"column:created_at"`
+}
+
+func (AIUsageAuthContext) TableName() string { return "ai_usage_auth_contexts" }
+
 // ── Interview Schedule ─────────────────────────────────────────────────────
 
 type InterviewSchedule struct {

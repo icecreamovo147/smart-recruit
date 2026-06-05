@@ -28,6 +28,8 @@ const candidateSuggestedQuestionsEndMarker = "<<<END_CANDIDATE_SUGGESTED_QUESTIO
 // CandidateAIService handles AI assistant requests for candidates.
 type CandidateAIService struct {
 	usageLogs             *repository.UsageLogRepo
+	usageAuditCtx         *repository.UsageAuditContextRepo
+	authzRepo             *repository.AuthzRepo
 	chats                 *repository.ChatRepo
 	applications          *repository.ApplicationRepo
 	jobs                  *repository.JobRepo
@@ -43,6 +45,8 @@ type CandidateAIService struct {
 
 func NewCandidateAIService(
 	usageLogs *repository.UsageLogRepo,
+	usageAuditCtx *repository.UsageAuditContextRepo,
+	authzRepo *repository.AuthzRepo,
 	chats *repository.ChatRepo,
 	applications *repository.ApplicationRepo,
 	jobs *repository.JobRepo,
@@ -55,11 +59,44 @@ func NewCandidateAIService(
 ) *CandidateAIService {
 	return &CandidateAIService{
 		usageLogs: usageLogs,
+		usageAuditCtx: usageAuditCtx,
+		authzRepo: authzRepo,
 		chats: chats, applications: applications, jobs: jobs, resumes: resumes,
 		aiClient: aiClient, toolExecutor: toolExecutor,
 		agentRuntime: agentRuntime,
 		toolTraces: toolTraces,
 		summaries:  summaries,
+	}
+}
+
+// writeCandidateUsageAudit writes both the usage log and the RBAC auth context for a candidate AI operation.
+// The usage log is created synchronously so the returned ID can be linked to the auth context record.
+func (s *CandidateAIService) writeCandidateUsageAudit(ctx context.Context, entry AuditLogEntry) {
+	usageLogID := createUsageLogSync(ctx, s.usageLogs, entry)
+
+	if s.usageAuditCtx != nil && s.authzRepo != nil {
+		ua := uint64(entry.UserID)
+		roleKeys, _ := s.authzRepo.GetUserRoles(ctx, ua)
+		scopeKeys, _ := s.authzRepo.GetUserScopeKeys(ctx, ua)
+		if roleKeys == nil {
+			roleKeys = []string{}
+		}
+		if scopeKeys == nil {
+			scopeKeys = []string{}
+		}
+
+		writeAIUsageAuthContext(ctx, s.usageAuditCtx, AIUsageAuthContextEntry{
+			UsageLogID:    uint64(usageLogID),
+			ActorUserID:   ua,
+			AccountType:   "candidate",
+			RoleKeys:      roleKeys,
+			PermissionKey: "ai.candidate.use",
+			ScopeKeys:     scopeKeys,
+			ResourceType:  "ai",
+			ResourceID:    0,
+			Decision:      "allowed",
+			RequestID:     entry.RequestID,
+		})
 	}
 }
 
@@ -216,7 +253,7 @@ func (s *CandidateAIService) StreamChat(ctx context.Context, userID int64, messa
 				&model.AIChatHistory{SessionID: session.ID, Role: "assistant", Content: fallback})
 			return onDone(fallback, session.ID)
 		}
-		writeAuditLog(ctx, s.usageLogs, AuditLogEntry{
+		s.writeCandidateUsageAudit(ctx, AuditLogEntry{
 			UserID: userID, Role: 1, ServiceType: "ai_chat",
 			Endpoint: "/candidate/ai/chat/stream", Provider: "dashscope", Model: s.aiClient.ModelName(),
 			RequestChars: inputChars, Status: "error", CostMs: int(time.Since(startTime).Milliseconds()),
@@ -238,7 +275,7 @@ func (s *CandidateAIService) StreamChat(ctx context.Context, userID int64, messa
 	}
 	go s.maybeRefreshSummary(session.ID, userID)
 
-	writeAuditLog(ctx, s.usageLogs, AuditLogEntry{
+	s.writeCandidateUsageAudit(ctx, AuditLogEntry{
 		UserID: userID, Role: 1, ServiceType: "ai_chat",
 		Endpoint: "/candidate/ai/chat/stream", Provider: "dashscope", Model: s.aiClient.ModelName(),
 		RequestChars: inputChars, ResponseChars: len([]rune(cleanReply)), CostMs: int(time.Since(startTime).Milliseconds()),
@@ -404,7 +441,7 @@ func (s *CandidateAIService) StreamChatGRPC(req *pb.CandidateChatRequest, stream
 		if isCanceledError(execErr) {
 			partial := partialReply.String()
 			s.saveCandidateInterruptedReply(req.UserId, session.ID, partial)
-			writeAuditLog(ctx, s.usageLogs, AuditLogEntry{
+			s.writeCandidateUsageAudit(ctx, AuditLogEntry{
 				UserID: req.UserId, Role: 1, ServiceType: "ai_chat",
 				Endpoint: "/candidate/ai/chat/stream", Provider: "dashscope", Model: s.aiClient.ModelName(),
 				RequestChars: inputChars, ResponseChars: len([]rune(partial)),
@@ -437,7 +474,7 @@ func (s *CandidateAIService) StreamChatGRPC(req *pb.CandidateChatRequest, stream
 			defer cancel()
 			_ = s.chats.AddOwned(saveCtx, ownerRoleCandidate, req.UserId,
 				&model.AIChatHistory{SessionID: session.ID, Role: "assistant", Content: fallback})
-			writeAuditLog(ctx, s.usageLogs, AuditLogEntry{
+			s.writeCandidateUsageAudit(ctx, AuditLogEntry{
 				UserID: req.UserId, Role: 1, ServiceType: "ai_chat",
 				Endpoint: "/candidate/ai/chat/stream", Provider: "dashscope", Model: s.aiClient.ModelName(),
 				RequestChars: inputChars, ResponseChars: len([]rune(fallback)),
@@ -450,7 +487,7 @@ func (s *CandidateAIService) StreamChatGRPC(req *pb.CandidateChatRequest, stream
 				SuggestedQuestions: candidateSuggestedQuestions(req.Message, fallback),
 			})
 		}
-		writeAuditLog(ctx, s.usageLogs, AuditLogEntry{
+		s.writeCandidateUsageAudit(ctx, AuditLogEntry{
 			UserID: req.UserId, Role: 1, ServiceType: "ai_chat",
 			Endpoint: "/candidate/ai/chat/stream", Provider: "dashscope", Model: s.aiClient.ModelName(),
 			RequestChars: inputChars, Status: "error", CostMs: int(time.Since(startTime).Milliseconds()),
@@ -461,7 +498,7 @@ func (s *CandidateAIService) StreamChatGRPC(req *pb.CandidateChatRequest, stream
 		if isCanceledError(err) {
 			partial := partialReply.String()
 			s.saveCandidateInterruptedReply(req.UserId, session.ID, partial)
-			writeAuditLog(ctx, s.usageLogs, AuditLogEntry{
+			s.writeCandidateUsageAudit(ctx, AuditLogEntry{
 				UserID: req.UserId, Role: 1, ServiceType: "ai_chat",
 				Endpoint: "/candidate/ai/chat/stream", Provider: "dashscope", Model: s.aiClient.ModelName(),
 				RequestChars: inputChars, ResponseChars: len([]rune(partial)),
@@ -485,7 +522,7 @@ func (s *CandidateAIService) StreamChatGRPC(req *pb.CandidateChatRequest, stream
 		zap.Int64("session_id", session.ID),
 		zap.Int("reply_chars", len([]rune(cleanReply))),
 	)
-	writeAuditLog(ctx, s.usageLogs, AuditLogEntry{
+	s.writeCandidateUsageAudit(ctx, AuditLogEntry{
 		UserID: req.UserId, Role: 1, ServiceType: "ai_chat",
 		Endpoint: "/candidate/ai/chat/stream", Provider: "dashscope", Model: s.aiClient.ModelName(),
 		RequestChars: inputChars, ResponseChars: len([]rune(cleanReply)), CostMs: int(time.Since(startTime).Milliseconds()),

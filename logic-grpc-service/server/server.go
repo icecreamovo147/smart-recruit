@@ -435,6 +435,28 @@ func (s *Server) CreateStaffUser(ctx context.Context, req *pb.CreateStaffUserReq
 	return s.svc.Admin.CreateStaffUser(ctx, req)
 }
 
+// ── Phase 6: Analytics & AI Audit ────────────────────────────────────
+
+func (s *Server) QueryAuthAuditLogs(ctx context.Context, req *pb.QueryAuthAuditLogsRequest) (*pb.QueryAuthAuditLogsResponse, error) {
+	return s.svc.Analytics.QueryAuthAuditLogs(ctx, req)
+}
+
+func (s *Server) GetDashboardReport(ctx context.Context, req *pb.GetDashboardReportRequest) (*pb.GetDashboardReportResponse, error) {
+	return s.svc.Analytics.GetDashboardReport(ctx, req)
+}
+
+func (s *Server) GetFunnelReport(ctx context.Context, req *pb.GetFunnelReportRequest) (*pb.GetFunnelReportResponse, error) {
+	return s.svc.Analytics.GetFunnelReport(ctx, req)
+}
+
+func (s *Server) GetTimeInStageReport(ctx context.Context, req *pb.GetTimeInStageReportRequest) (*pb.GetTimeInStageReportResponse, error) {
+	return s.svc.Analytics.GetTimeInStageReport(ctx, req)
+}
+
+func (s *Server) GetInterviewOfferMetrics(ctx context.Context, req *pb.GetInterviewOfferMetricsRequest) (*pb.GetInterviewOfferMetricsResponse, error) {
+	return s.svc.Analytics.GetInterviewOfferMetrics(ctx, req)
+}
+
 // ── Phase 4: Collaboration ────────────────────────────────────────────
 
 func (s *Server) GetCandidateWorkspace(ctx context.Context, req *pb.GetCandidateWorkspaceRequest) (*pb.GetCandidateWorkspaceResponse, error) {

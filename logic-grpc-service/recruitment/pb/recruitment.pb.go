@@ -14456,6 +14456,1127 @@ func (x *ListTimelineEventsResponse) GetEvents() []*TimelineEventInfo {
 	return nil
 }
 
+type QueryAuthAuditLogsRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	ActorUserId   int64                  `protobuf:"varint,1,opt,name=actor_user_id,json=actorUserId,proto3" json:"actor_user_id,omitempty"`    // optional filter
+	PermissionKey string                 `protobuf:"bytes,2,opt,name=permission_key,json=permissionKey,proto3" json:"permission_key,omitempty"` // optional filter
+	Decision      string                 `protobuf:"bytes,3,opt,name=decision,proto3" json:"decision,omitempty"`                                // optional filter: allowed / denied
+	Page          int32                  `protobuf:"varint,4,opt,name=page,proto3" json:"page,omitempty"`
+	PageSize      int32                  `protobuf:"varint,5,opt,name=page_size,json=pageSize,proto3" json:"page_size,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *QueryAuthAuditLogsRequest) Reset() {
+	*x = QueryAuthAuditLogsRequest{}
+	mi := &file_proto_recruitment_proto_msgTypes[201]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *QueryAuthAuditLogsRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*QueryAuthAuditLogsRequest) ProtoMessage() {}
+
+func (x *QueryAuthAuditLogsRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_recruitment_proto_msgTypes[201]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use QueryAuthAuditLogsRequest.ProtoReflect.Descriptor instead.
+func (*QueryAuthAuditLogsRequest) Descriptor() ([]byte, []int) {
+	return file_proto_recruitment_proto_rawDescGZIP(), []int{201}
+}
+
+func (x *QueryAuthAuditLogsRequest) GetActorUserId() int64 {
+	if x != nil {
+		return x.ActorUserId
+	}
+	return 0
+}
+
+func (x *QueryAuthAuditLogsRequest) GetPermissionKey() string {
+	if x != nil {
+		return x.PermissionKey
+	}
+	return ""
+}
+
+func (x *QueryAuthAuditLogsRequest) GetDecision() string {
+	if x != nil {
+		return x.Decision
+	}
+	return ""
+}
+
+func (x *QueryAuthAuditLogsRequest) GetPage() int32 {
+	if x != nil {
+		return x.Page
+	}
+	return 0
+}
+
+func (x *QueryAuthAuditLogsRequest) GetPageSize() int32 {
+	if x != nil {
+		return x.PageSize
+	}
+	return 0
+}
+
+type AuthAuditLogItem struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Id            uint64                 `protobuf:"varint,1,opt,name=id,proto3" json:"id,omitempty"`
+	ActorUserId   int64                  `protobuf:"varint,2,opt,name=actor_user_id,json=actorUserId,proto3" json:"actor_user_id,omitempty"`
+	ActorRoles    string                 `protobuf:"bytes,3,opt,name=actor_roles,json=actorRoles,proto3" json:"actor_roles,omitempty"`
+	PermissionKey string                 `protobuf:"bytes,4,opt,name=permission_key,json=permissionKey,proto3" json:"permission_key,omitempty"`
+	ResourceType  string                 `protobuf:"bytes,5,opt,name=resource_type,json=resourceType,proto3" json:"resource_type,omitempty"`
+	ResourceId    uint64                 `protobuf:"varint,6,opt,name=resource_id,json=resourceId,proto3" json:"resource_id,omitempty"`
+	Decision      string                 `protobuf:"bytes,7,opt,name=decision,proto3" json:"decision,omitempty"`
+	Reason        string                 `protobuf:"bytes,8,opt,name=reason,proto3" json:"reason,omitempty"`
+	RequestId     string                 `protobuf:"bytes,9,opt,name=request_id,json=requestId,proto3" json:"request_id,omitempty"`
+	ClientIp      string                 `protobuf:"bytes,10,opt,name=client_ip,json=clientIp,proto3" json:"client_ip,omitempty"`
+	CreatedAt     string                 `protobuf:"bytes,11,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *AuthAuditLogItem) Reset() {
+	*x = AuthAuditLogItem{}
+	mi := &file_proto_recruitment_proto_msgTypes[202]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *AuthAuditLogItem) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*AuthAuditLogItem) ProtoMessage() {}
+
+func (x *AuthAuditLogItem) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_recruitment_proto_msgTypes[202]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use AuthAuditLogItem.ProtoReflect.Descriptor instead.
+func (*AuthAuditLogItem) Descriptor() ([]byte, []int) {
+	return file_proto_recruitment_proto_rawDescGZIP(), []int{202}
+}
+
+func (x *AuthAuditLogItem) GetId() uint64 {
+	if x != nil {
+		return x.Id
+	}
+	return 0
+}
+
+func (x *AuthAuditLogItem) GetActorUserId() int64 {
+	if x != nil {
+		return x.ActorUserId
+	}
+	return 0
+}
+
+func (x *AuthAuditLogItem) GetActorRoles() string {
+	if x != nil {
+		return x.ActorRoles
+	}
+	return ""
+}
+
+func (x *AuthAuditLogItem) GetPermissionKey() string {
+	if x != nil {
+		return x.PermissionKey
+	}
+	return ""
+}
+
+func (x *AuthAuditLogItem) GetResourceType() string {
+	if x != nil {
+		return x.ResourceType
+	}
+	return ""
+}
+
+func (x *AuthAuditLogItem) GetResourceId() uint64 {
+	if x != nil {
+		return x.ResourceId
+	}
+	return 0
+}
+
+func (x *AuthAuditLogItem) GetDecision() string {
+	if x != nil {
+		return x.Decision
+	}
+	return ""
+}
+
+func (x *AuthAuditLogItem) GetReason() string {
+	if x != nil {
+		return x.Reason
+	}
+	return ""
+}
+
+func (x *AuthAuditLogItem) GetRequestId() string {
+	if x != nil {
+		return x.RequestId
+	}
+	return ""
+}
+
+func (x *AuthAuditLogItem) GetClientIp() string {
+	if x != nil {
+		return x.ClientIp
+	}
+	return ""
+}
+
+func (x *AuthAuditLogItem) GetCreatedAt() string {
+	if x != nil {
+		return x.CreatedAt
+	}
+	return ""
+}
+
+type QueryAuthAuditLogsResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Code          int32                  `protobuf:"varint,1,opt,name=code,proto3" json:"code,omitempty"`
+	Msg           string                 `protobuf:"bytes,2,opt,name=msg,proto3" json:"msg,omitempty"`
+	Total         int64                  `protobuf:"varint,3,opt,name=total,proto3" json:"total,omitempty"`
+	List          []*AuthAuditLogItem    `protobuf:"bytes,4,rep,name=list,proto3" json:"list,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *QueryAuthAuditLogsResponse) Reset() {
+	*x = QueryAuthAuditLogsResponse{}
+	mi := &file_proto_recruitment_proto_msgTypes[203]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *QueryAuthAuditLogsResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*QueryAuthAuditLogsResponse) ProtoMessage() {}
+
+func (x *QueryAuthAuditLogsResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_recruitment_proto_msgTypes[203]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use QueryAuthAuditLogsResponse.ProtoReflect.Descriptor instead.
+func (*QueryAuthAuditLogsResponse) Descriptor() ([]byte, []int) {
+	return file_proto_recruitment_proto_rawDescGZIP(), []int{203}
+}
+
+func (x *QueryAuthAuditLogsResponse) GetCode() int32 {
+	if x != nil {
+		return x.Code
+	}
+	return 0
+}
+
+func (x *QueryAuthAuditLogsResponse) GetMsg() string {
+	if x != nil {
+		return x.Msg
+	}
+	return ""
+}
+
+func (x *QueryAuthAuditLogsResponse) GetTotal() int64 {
+	if x != nil {
+		return x.Total
+	}
+	return 0
+}
+
+func (x *QueryAuthAuditLogsResponse) GetList() []*AuthAuditLogItem {
+	if x != nil {
+		return x.List
+	}
+	return nil
+}
+
+type GetDashboardReportRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	StaffUserId   int64                  `protobuf:"varint,1,opt,name=staff_user_id,json=staffUserId,proto3" json:"staff_user_id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GetDashboardReportRequest) Reset() {
+	*x = GetDashboardReportRequest{}
+	mi := &file_proto_recruitment_proto_msgTypes[204]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetDashboardReportRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetDashboardReportRequest) ProtoMessage() {}
+
+func (x *GetDashboardReportRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_recruitment_proto_msgTypes[204]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetDashboardReportRequest.ProtoReflect.Descriptor instead.
+func (*GetDashboardReportRequest) Descriptor() ([]byte, []int) {
+	return file_proto_recruitment_proto_rawDescGZIP(), []int{204}
+}
+
+func (x *GetDashboardReportRequest) GetStaffUserId() int64 {
+	if x != nil {
+		return x.StaffUserId
+	}
+	return 0
+}
+
+type DashboardReportItem struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	StageKey      string                 `protobuf:"bytes,1,opt,name=stage_key,json=stageKey,proto3" json:"stage_key,omitempty"`
+	StageLabel    string                 `protobuf:"bytes,2,opt,name=stage_label,json=stageLabel,proto3" json:"stage_label,omitempty"`
+	Count         int64                  `protobuf:"varint,3,opt,name=count,proto3" json:"count,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *DashboardReportItem) Reset() {
+	*x = DashboardReportItem{}
+	mi := &file_proto_recruitment_proto_msgTypes[205]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *DashboardReportItem) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*DashboardReportItem) ProtoMessage() {}
+
+func (x *DashboardReportItem) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_recruitment_proto_msgTypes[205]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use DashboardReportItem.ProtoReflect.Descriptor instead.
+func (*DashboardReportItem) Descriptor() ([]byte, []int) {
+	return file_proto_recruitment_proto_rawDescGZIP(), []int{205}
+}
+
+func (x *DashboardReportItem) GetStageKey() string {
+	if x != nil {
+		return x.StageKey
+	}
+	return ""
+}
+
+func (x *DashboardReportItem) GetStageLabel() string {
+	if x != nil {
+		return x.StageLabel
+	}
+	return ""
+}
+
+func (x *DashboardReportItem) GetCount() int64 {
+	if x != nil {
+		return x.Count
+	}
+	return 0
+}
+
+type DashboardTrendPoint struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Date          string                 `protobuf:"bytes,1,opt,name=date,proto3" json:"date,omitempty"`
+	Applications  int64                  `protobuf:"varint,2,opt,name=applications,proto3" json:"applications,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *DashboardTrendPoint) Reset() {
+	*x = DashboardTrendPoint{}
+	mi := &file_proto_recruitment_proto_msgTypes[206]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *DashboardTrendPoint) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*DashboardTrendPoint) ProtoMessage() {}
+
+func (x *DashboardTrendPoint) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_recruitment_proto_msgTypes[206]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use DashboardTrendPoint.ProtoReflect.Descriptor instead.
+func (*DashboardTrendPoint) Descriptor() ([]byte, []int) {
+	return file_proto_recruitment_proto_rawDescGZIP(), []int{206}
+}
+
+func (x *DashboardTrendPoint) GetDate() string {
+	if x != nil {
+		return x.Date
+	}
+	return ""
+}
+
+func (x *DashboardTrendPoint) GetApplications() int64 {
+	if x != nil {
+		return x.Applications
+	}
+	return 0
+}
+
+type GetDashboardReportResponse struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	Code  int32                  `protobuf:"varint,1,opt,name=code,proto3" json:"code,omitempty"`
+	Msg   string                 `protobuf:"bytes,2,opt,name=msg,proto3" json:"msg,omitempty"`
+	// KPI
+	OnlineJobs          int64 `protobuf:"varint,3,opt,name=online_jobs,json=onlineJobs,proto3" json:"online_jobs,omitempty"`
+	OfflineJobs         int64 `protobuf:"varint,4,opt,name=offline_jobs,json=offlineJobs,proto3" json:"offline_jobs,omitempty"`
+	TotalApplications   int64 `protobuf:"varint,5,opt,name=total_applications,json=totalApplications,proto3" json:"total_applications,omitempty"`
+	TodayApplications   int64 `protobuf:"varint,6,opt,name=today_applications,json=todayApplications,proto3" json:"today_applications,omitempty"`
+	UnreadNotifications int64 `protobuf:"varint,7,opt,name=unread_notifications,json=unreadNotifications,proto3" json:"unread_notifications,omitempty"`
+	PendingActions      int64 `protobuf:"varint,8,opt,name=pending_actions,json=pendingActions,proto3" json:"pending_actions,omitempty"`
+	// Trend (last 7 days)
+	Trend []*DashboardTrendPoint `protobuf:"bytes,9,rep,name=trend,proto3" json:"trend,omitempty"`
+	// Stage distribution (funnel)
+	StageDistribution []*DashboardReportItem `protobuf:"bytes,10,rep,name=stage_distribution,json=stageDistribution,proto3" json:"stage_distribution,omitempty"`
+	unknownFields     protoimpl.UnknownFields
+	sizeCache         protoimpl.SizeCache
+}
+
+func (x *GetDashboardReportResponse) Reset() {
+	*x = GetDashboardReportResponse{}
+	mi := &file_proto_recruitment_proto_msgTypes[207]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetDashboardReportResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetDashboardReportResponse) ProtoMessage() {}
+
+func (x *GetDashboardReportResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_recruitment_proto_msgTypes[207]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetDashboardReportResponse.ProtoReflect.Descriptor instead.
+func (*GetDashboardReportResponse) Descriptor() ([]byte, []int) {
+	return file_proto_recruitment_proto_rawDescGZIP(), []int{207}
+}
+
+func (x *GetDashboardReportResponse) GetCode() int32 {
+	if x != nil {
+		return x.Code
+	}
+	return 0
+}
+
+func (x *GetDashboardReportResponse) GetMsg() string {
+	if x != nil {
+		return x.Msg
+	}
+	return ""
+}
+
+func (x *GetDashboardReportResponse) GetOnlineJobs() int64 {
+	if x != nil {
+		return x.OnlineJobs
+	}
+	return 0
+}
+
+func (x *GetDashboardReportResponse) GetOfflineJobs() int64 {
+	if x != nil {
+		return x.OfflineJobs
+	}
+	return 0
+}
+
+func (x *GetDashboardReportResponse) GetTotalApplications() int64 {
+	if x != nil {
+		return x.TotalApplications
+	}
+	return 0
+}
+
+func (x *GetDashboardReportResponse) GetTodayApplications() int64 {
+	if x != nil {
+		return x.TodayApplications
+	}
+	return 0
+}
+
+func (x *GetDashboardReportResponse) GetUnreadNotifications() int64 {
+	if x != nil {
+		return x.UnreadNotifications
+	}
+	return 0
+}
+
+func (x *GetDashboardReportResponse) GetPendingActions() int64 {
+	if x != nil {
+		return x.PendingActions
+	}
+	return 0
+}
+
+func (x *GetDashboardReportResponse) GetTrend() []*DashboardTrendPoint {
+	if x != nil {
+		return x.Trend
+	}
+	return nil
+}
+
+func (x *GetDashboardReportResponse) GetStageDistribution() []*DashboardReportItem {
+	if x != nil {
+		return x.StageDistribution
+	}
+	return nil
+}
+
+type GetFunnelReportRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	StaffUserId   int64                  `protobuf:"varint,1,opt,name=staff_user_id,json=staffUserId,proto3" json:"staff_user_id,omitempty"`
+	StartDate     string                 `protobuf:"bytes,2,opt,name=start_date,json=startDate,proto3" json:"start_date,omitempty"` // RFC 3339, optional
+	EndDate       string                 `protobuf:"bytes,3,opt,name=end_date,json=endDate,proto3" json:"end_date,omitempty"`       // RFC 3339, optional
+	JobId         int64                  `protobuf:"varint,4,opt,name=job_id,json=jobId,proto3" json:"job_id,omitempty"`            // optional filter
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GetFunnelReportRequest) Reset() {
+	*x = GetFunnelReportRequest{}
+	mi := &file_proto_recruitment_proto_msgTypes[208]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetFunnelReportRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetFunnelReportRequest) ProtoMessage() {}
+
+func (x *GetFunnelReportRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_recruitment_proto_msgTypes[208]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetFunnelReportRequest.ProtoReflect.Descriptor instead.
+func (*GetFunnelReportRequest) Descriptor() ([]byte, []int) {
+	return file_proto_recruitment_proto_rawDescGZIP(), []int{208}
+}
+
+func (x *GetFunnelReportRequest) GetStaffUserId() int64 {
+	if x != nil {
+		return x.StaffUserId
+	}
+	return 0
+}
+
+func (x *GetFunnelReportRequest) GetStartDate() string {
+	if x != nil {
+		return x.StartDate
+	}
+	return ""
+}
+
+func (x *GetFunnelReportRequest) GetEndDate() string {
+	if x != nil {
+		return x.EndDate
+	}
+	return ""
+}
+
+func (x *GetFunnelReportRequest) GetJobId() int64 {
+	if x != nil {
+		return x.JobId
+	}
+	return 0
+}
+
+type FunnelStage struct {
+	state          protoimpl.MessageState `protogen:"open.v1"`
+	StageKey       string                 `protobuf:"bytes,1,opt,name=stage_key,json=stageKey,proto3" json:"stage_key,omitempty"`
+	StageLabel     string                 `protobuf:"bytes,2,opt,name=stage_label,json=stageLabel,proto3" json:"stage_label,omitempty"`
+	Count          int64                  `protobuf:"varint,3,opt,name=count,proto3" json:"count,omitempty"`
+	ConversionRate float64                `protobuf:"fixed64,4,opt,name=conversion_rate,json=conversionRate,proto3" json:"conversion_rate,omitempty"` // rate from previous stage (0-100)
+	unknownFields  protoimpl.UnknownFields
+	sizeCache      protoimpl.SizeCache
+}
+
+func (x *FunnelStage) Reset() {
+	*x = FunnelStage{}
+	mi := &file_proto_recruitment_proto_msgTypes[209]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *FunnelStage) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*FunnelStage) ProtoMessage() {}
+
+func (x *FunnelStage) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_recruitment_proto_msgTypes[209]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use FunnelStage.ProtoReflect.Descriptor instead.
+func (*FunnelStage) Descriptor() ([]byte, []int) {
+	return file_proto_recruitment_proto_rawDescGZIP(), []int{209}
+}
+
+func (x *FunnelStage) GetStageKey() string {
+	if x != nil {
+		return x.StageKey
+	}
+	return ""
+}
+
+func (x *FunnelStage) GetStageLabel() string {
+	if x != nil {
+		return x.StageLabel
+	}
+	return ""
+}
+
+func (x *FunnelStage) GetCount() int64 {
+	if x != nil {
+		return x.Count
+	}
+	return 0
+}
+
+func (x *FunnelStage) GetConversionRate() float64 {
+	if x != nil {
+		return x.ConversionRate
+	}
+	return 0
+}
+
+type GetFunnelReportResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Code          int32                  `protobuf:"varint,1,opt,name=code,proto3" json:"code,omitempty"`
+	Msg           string                 `protobuf:"bytes,2,opt,name=msg,proto3" json:"msg,omitempty"`
+	Stages        []*FunnelStage         `protobuf:"bytes,3,rep,name=stages,proto3" json:"stages,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GetFunnelReportResponse) Reset() {
+	*x = GetFunnelReportResponse{}
+	mi := &file_proto_recruitment_proto_msgTypes[210]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetFunnelReportResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetFunnelReportResponse) ProtoMessage() {}
+
+func (x *GetFunnelReportResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_recruitment_proto_msgTypes[210]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetFunnelReportResponse.ProtoReflect.Descriptor instead.
+func (*GetFunnelReportResponse) Descriptor() ([]byte, []int) {
+	return file_proto_recruitment_proto_rawDescGZIP(), []int{210}
+}
+
+func (x *GetFunnelReportResponse) GetCode() int32 {
+	if x != nil {
+		return x.Code
+	}
+	return 0
+}
+
+func (x *GetFunnelReportResponse) GetMsg() string {
+	if x != nil {
+		return x.Msg
+	}
+	return ""
+}
+
+func (x *GetFunnelReportResponse) GetStages() []*FunnelStage {
+	if x != nil {
+		return x.Stages
+	}
+	return nil
+}
+
+type GetTimeInStageReportRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	StaffUserId   int64                  `protobuf:"varint,1,opt,name=staff_user_id,json=staffUserId,proto3" json:"staff_user_id,omitempty"`
+	StartDate     string                 `protobuf:"bytes,2,opt,name=start_date,json=startDate,proto3" json:"start_date,omitempty"` // RFC 3339, optional
+	EndDate       string                 `protobuf:"bytes,3,opt,name=end_date,json=endDate,proto3" json:"end_date,omitempty"`       // RFC 3339, optional
+	JobId         int64                  `protobuf:"varint,4,opt,name=job_id,json=jobId,proto3" json:"job_id,omitempty"`            // optional filter
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GetTimeInStageReportRequest) Reset() {
+	*x = GetTimeInStageReportRequest{}
+	mi := &file_proto_recruitment_proto_msgTypes[211]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetTimeInStageReportRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetTimeInStageReportRequest) ProtoMessage() {}
+
+func (x *GetTimeInStageReportRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_recruitment_proto_msgTypes[211]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetTimeInStageReportRequest.ProtoReflect.Descriptor instead.
+func (*GetTimeInStageReportRequest) Descriptor() ([]byte, []int) {
+	return file_proto_recruitment_proto_rawDescGZIP(), []int{211}
+}
+
+func (x *GetTimeInStageReportRequest) GetStaffUserId() int64 {
+	if x != nil {
+		return x.StaffUserId
+	}
+	return 0
+}
+
+func (x *GetTimeInStageReportRequest) GetStartDate() string {
+	if x != nil {
+		return x.StartDate
+	}
+	return ""
+}
+
+func (x *GetTimeInStageReportRequest) GetEndDate() string {
+	if x != nil {
+		return x.EndDate
+	}
+	return ""
+}
+
+func (x *GetTimeInStageReportRequest) GetJobId() int64 {
+	if x != nil {
+		return x.JobId
+	}
+	return 0
+}
+
+type StageDuration struct {
+	state           protoimpl.MessageState `protogen:"open.v1"`
+	StageKey        string                 `protobuf:"bytes,1,opt,name=stage_key,json=stageKey,proto3" json:"stage_key,omitempty"`
+	StageLabel      string                 `protobuf:"bytes,2,opt,name=stage_label,json=stageLabel,proto3" json:"stage_label,omitempty"`
+	AvgHours        float64                `protobuf:"fixed64,3,opt,name=avg_hours,json=avgHours,proto3" json:"avg_hours,omitempty"` // average hours spent in this stage
+	TransitionCount int64                  `protobuf:"varint,4,opt,name=transition_count,json=transitionCount,proto3" json:"transition_count,omitempty"`
+	unknownFields   protoimpl.UnknownFields
+	sizeCache       protoimpl.SizeCache
+}
+
+func (x *StageDuration) Reset() {
+	*x = StageDuration{}
+	mi := &file_proto_recruitment_proto_msgTypes[212]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *StageDuration) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*StageDuration) ProtoMessage() {}
+
+func (x *StageDuration) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_recruitment_proto_msgTypes[212]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use StageDuration.ProtoReflect.Descriptor instead.
+func (*StageDuration) Descriptor() ([]byte, []int) {
+	return file_proto_recruitment_proto_rawDescGZIP(), []int{212}
+}
+
+func (x *StageDuration) GetStageKey() string {
+	if x != nil {
+		return x.StageKey
+	}
+	return ""
+}
+
+func (x *StageDuration) GetStageLabel() string {
+	if x != nil {
+		return x.StageLabel
+	}
+	return ""
+}
+
+func (x *StageDuration) GetAvgHours() float64 {
+	if x != nil {
+		return x.AvgHours
+	}
+	return 0
+}
+
+func (x *StageDuration) GetTransitionCount() int64 {
+	if x != nil {
+		return x.TransitionCount
+	}
+	return 0
+}
+
+type GetTimeInStageReportResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Code          int32                  `protobuf:"varint,1,opt,name=code,proto3" json:"code,omitempty"`
+	Msg           string                 `protobuf:"bytes,2,opt,name=msg,proto3" json:"msg,omitempty"`
+	Durations     []*StageDuration       `protobuf:"bytes,3,rep,name=durations,proto3" json:"durations,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GetTimeInStageReportResponse) Reset() {
+	*x = GetTimeInStageReportResponse{}
+	mi := &file_proto_recruitment_proto_msgTypes[213]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetTimeInStageReportResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetTimeInStageReportResponse) ProtoMessage() {}
+
+func (x *GetTimeInStageReportResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_recruitment_proto_msgTypes[213]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetTimeInStageReportResponse.ProtoReflect.Descriptor instead.
+func (*GetTimeInStageReportResponse) Descriptor() ([]byte, []int) {
+	return file_proto_recruitment_proto_rawDescGZIP(), []int{213}
+}
+
+func (x *GetTimeInStageReportResponse) GetCode() int32 {
+	if x != nil {
+		return x.Code
+	}
+	return 0
+}
+
+func (x *GetTimeInStageReportResponse) GetMsg() string {
+	if x != nil {
+		return x.Msg
+	}
+	return ""
+}
+
+func (x *GetTimeInStageReportResponse) GetDurations() []*StageDuration {
+	if x != nil {
+		return x.Durations
+	}
+	return nil
+}
+
+type GetInterviewOfferMetricsRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	StaffUserId   int64                  `protobuf:"varint,1,opt,name=staff_user_id,json=staffUserId,proto3" json:"staff_user_id,omitempty"`
+	StartDate     string                 `protobuf:"bytes,2,opt,name=start_date,json=startDate,proto3" json:"start_date,omitempty"` // RFC 3339, optional
+	EndDate       string                 `protobuf:"bytes,3,opt,name=end_date,json=endDate,proto3" json:"end_date,omitempty"`       // RFC 3339, optional
+	JobId         int64                  `protobuf:"varint,4,opt,name=job_id,json=jobId,proto3" json:"job_id,omitempty"`            // optional filter
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GetInterviewOfferMetricsRequest) Reset() {
+	*x = GetInterviewOfferMetricsRequest{}
+	mi := &file_proto_recruitment_proto_msgTypes[214]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetInterviewOfferMetricsRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetInterviewOfferMetricsRequest) ProtoMessage() {}
+
+func (x *GetInterviewOfferMetricsRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_recruitment_proto_msgTypes[214]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetInterviewOfferMetricsRequest.ProtoReflect.Descriptor instead.
+func (*GetInterviewOfferMetricsRequest) Descriptor() ([]byte, []int) {
+	return file_proto_recruitment_proto_rawDescGZIP(), []int{214}
+}
+
+func (x *GetInterviewOfferMetricsRequest) GetStaffUserId() int64 {
+	if x != nil {
+		return x.StaffUserId
+	}
+	return 0
+}
+
+func (x *GetInterviewOfferMetricsRequest) GetStartDate() string {
+	if x != nil {
+		return x.StartDate
+	}
+	return ""
+}
+
+func (x *GetInterviewOfferMetricsRequest) GetEndDate() string {
+	if x != nil {
+		return x.EndDate
+	}
+	return ""
+}
+
+func (x *GetInterviewOfferMetricsRequest) GetJobId() int64 {
+	if x != nil {
+		return x.JobId
+	}
+	return 0
+}
+
+type GetInterviewOfferMetricsResponse struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	Code  int32                  `protobuf:"varint,1,opt,name=code,proto3" json:"code,omitempty"`
+	Msg   string                 `protobuf:"bytes,2,opt,name=msg,proto3" json:"msg,omitempty"`
+	// Interview metrics
+	TotalInterviews     int64   `protobuf:"varint,3,opt,name=total_interviews,json=totalInterviews,proto3" json:"total_interviews,omitempty"`
+	CompletedInterviews int64   `protobuf:"varint,4,opt,name=completed_interviews,json=completedInterviews,proto3" json:"completed_interviews,omitempty"`
+	PositiveFeedbacks   int64   `protobuf:"varint,5,opt,name=positive_feedbacks,json=positiveFeedbacks,proto3" json:"positive_feedbacks,omitempty"`
+	PassRate            float64 `protobuf:"fixed64,6,opt,name=pass_rate,json=passRate,proto3" json:"pass_rate,omitempty"` // 0-100
+	// Offer metrics
+	TotalOffers    int64   `protobuf:"varint,7,opt,name=total_offers,json=totalOffers,proto3" json:"total_offers,omitempty"`
+	AcceptedOffers int64   `protobuf:"varint,8,opt,name=accepted_offers,json=acceptedOffers,proto3" json:"accepted_offers,omitempty"`
+	RejectedOffers int64   `protobuf:"varint,9,opt,name=rejected_offers,json=rejectedOffers,proto3" json:"rejected_offers,omitempty"`
+	AcceptanceRate float64 `protobuf:"fixed64,10,opt,name=acceptance_rate,json=acceptanceRate,proto3" json:"acceptance_rate,omitempty"` // 0-100
+	unknownFields  protoimpl.UnknownFields
+	sizeCache      protoimpl.SizeCache
+}
+
+func (x *GetInterviewOfferMetricsResponse) Reset() {
+	*x = GetInterviewOfferMetricsResponse{}
+	mi := &file_proto_recruitment_proto_msgTypes[215]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetInterviewOfferMetricsResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetInterviewOfferMetricsResponse) ProtoMessage() {}
+
+func (x *GetInterviewOfferMetricsResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_recruitment_proto_msgTypes[215]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetInterviewOfferMetricsResponse.ProtoReflect.Descriptor instead.
+func (*GetInterviewOfferMetricsResponse) Descriptor() ([]byte, []int) {
+	return file_proto_recruitment_proto_rawDescGZIP(), []int{215}
+}
+
+func (x *GetInterviewOfferMetricsResponse) GetCode() int32 {
+	if x != nil {
+		return x.Code
+	}
+	return 0
+}
+
+func (x *GetInterviewOfferMetricsResponse) GetMsg() string {
+	if x != nil {
+		return x.Msg
+	}
+	return ""
+}
+
+func (x *GetInterviewOfferMetricsResponse) GetTotalInterviews() int64 {
+	if x != nil {
+		return x.TotalInterviews
+	}
+	return 0
+}
+
+func (x *GetInterviewOfferMetricsResponse) GetCompletedInterviews() int64 {
+	if x != nil {
+		return x.CompletedInterviews
+	}
+	return 0
+}
+
+func (x *GetInterviewOfferMetricsResponse) GetPositiveFeedbacks() int64 {
+	if x != nil {
+		return x.PositiveFeedbacks
+	}
+	return 0
+}
+
+func (x *GetInterviewOfferMetricsResponse) GetPassRate() float64 {
+	if x != nil {
+		return x.PassRate
+	}
+	return 0
+}
+
+func (x *GetInterviewOfferMetricsResponse) GetTotalOffers() int64 {
+	if x != nil {
+		return x.TotalOffers
+	}
+	return 0
+}
+
+func (x *GetInterviewOfferMetricsResponse) GetAcceptedOffers() int64 {
+	if x != nil {
+		return x.AcceptedOffers
+	}
+	return 0
+}
+
+func (x *GetInterviewOfferMetricsResponse) GetRejectedOffers() int64 {
+	if x != nil {
+		return x.RejectedOffers
+	}
+	return 0
+}
+
+func (x *GetInterviewOfferMetricsResponse) GetAcceptanceRate() float64 {
+	if x != nil {
+		return x.AcceptanceRate
+	}
+	return 0
+}
+
 var File_proto_recruitment_proto protoreflect.FileDescriptor
 
 const file_proto_recruitment_proto_rawDesc = "" +
@@ -15704,7 +16825,108 @@ const file_proto_recruitment_proto_rawDesc = "" +
 	"\x1aListTimelineEventsResponse\x12\x12\n" +
 	"\x04code\x18\x01 \x01(\x05R\x04code\x12\x10\n" +
 	"\x03msg\x18\x02 \x01(\tR\x03msg\x126\n" +
-	"\x06events\x18\x03 \x03(\v2\x1e.recruitment.TimelineEventInfoR\x06events2\xed\x03\n" +
+	"\x06events\x18\x03 \x03(\v2\x1e.recruitment.TimelineEventInfoR\x06events\"\xb3\x01\n" +
+	"\x19QueryAuthAuditLogsRequest\x12\"\n" +
+	"\ractor_user_id\x18\x01 \x01(\x03R\vactorUserId\x12%\n" +
+	"\x0epermission_key\x18\x02 \x01(\tR\rpermissionKey\x12\x1a\n" +
+	"\bdecision\x18\x03 \x01(\tR\bdecision\x12\x12\n" +
+	"\x04page\x18\x04 \x01(\x05R\x04page\x12\x1b\n" +
+	"\tpage_size\x18\x05 \x01(\x05R\bpageSize\"\xe3\x02\n" +
+	"\x10AuthAuditLogItem\x12\x0e\n" +
+	"\x02id\x18\x01 \x01(\x04R\x02id\x12\"\n" +
+	"\ractor_user_id\x18\x02 \x01(\x03R\vactorUserId\x12\x1f\n" +
+	"\vactor_roles\x18\x03 \x01(\tR\n" +
+	"actorRoles\x12%\n" +
+	"\x0epermission_key\x18\x04 \x01(\tR\rpermissionKey\x12#\n" +
+	"\rresource_type\x18\x05 \x01(\tR\fresourceType\x12\x1f\n" +
+	"\vresource_id\x18\x06 \x01(\x04R\n" +
+	"resourceId\x12\x1a\n" +
+	"\bdecision\x18\a \x01(\tR\bdecision\x12\x16\n" +
+	"\x06reason\x18\b \x01(\tR\x06reason\x12\x1d\n" +
+	"\n" +
+	"request_id\x18\t \x01(\tR\trequestId\x12\x1b\n" +
+	"\tclient_ip\x18\n" +
+	" \x01(\tR\bclientIp\x12\x1d\n" +
+	"\n" +
+	"created_at\x18\v \x01(\tR\tcreatedAt\"\x8b\x01\n" +
+	"\x1aQueryAuthAuditLogsResponse\x12\x12\n" +
+	"\x04code\x18\x01 \x01(\x05R\x04code\x12\x10\n" +
+	"\x03msg\x18\x02 \x01(\tR\x03msg\x12\x14\n" +
+	"\x05total\x18\x03 \x01(\x03R\x05total\x121\n" +
+	"\x04list\x18\x04 \x03(\v2\x1d.recruitment.AuthAuditLogItemR\x04list\"?\n" +
+	"\x19GetDashboardReportRequest\x12\"\n" +
+	"\rstaff_user_id\x18\x01 \x01(\x03R\vstaffUserId\"i\n" +
+	"\x13DashboardReportItem\x12\x1b\n" +
+	"\tstage_key\x18\x01 \x01(\tR\bstageKey\x12\x1f\n" +
+	"\vstage_label\x18\x02 \x01(\tR\n" +
+	"stageLabel\x12\x14\n" +
+	"\x05count\x18\x03 \x01(\x03R\x05count\"M\n" +
+	"\x13DashboardTrendPoint\x12\x12\n" +
+	"\x04date\x18\x01 \x01(\tR\x04date\x12\"\n" +
+	"\fapplications\x18\x02 \x01(\x03R\fapplications\"\xc9\x03\n" +
+	"\x1aGetDashboardReportResponse\x12\x12\n" +
+	"\x04code\x18\x01 \x01(\x05R\x04code\x12\x10\n" +
+	"\x03msg\x18\x02 \x01(\tR\x03msg\x12\x1f\n" +
+	"\vonline_jobs\x18\x03 \x01(\x03R\n" +
+	"onlineJobs\x12!\n" +
+	"\foffline_jobs\x18\x04 \x01(\x03R\vofflineJobs\x12-\n" +
+	"\x12total_applications\x18\x05 \x01(\x03R\x11totalApplications\x12-\n" +
+	"\x12today_applications\x18\x06 \x01(\x03R\x11todayApplications\x121\n" +
+	"\x14unread_notifications\x18\a \x01(\x03R\x13unreadNotifications\x12'\n" +
+	"\x0fpending_actions\x18\b \x01(\x03R\x0ependingActions\x126\n" +
+	"\x05trend\x18\t \x03(\v2 .recruitment.DashboardTrendPointR\x05trend\x12O\n" +
+	"\x12stage_distribution\x18\n" +
+	" \x03(\v2 .recruitment.DashboardReportItemR\x11stageDistribution\"\x8d\x01\n" +
+	"\x16GetFunnelReportRequest\x12\"\n" +
+	"\rstaff_user_id\x18\x01 \x01(\x03R\vstaffUserId\x12\x1d\n" +
+	"\n" +
+	"start_date\x18\x02 \x01(\tR\tstartDate\x12\x19\n" +
+	"\bend_date\x18\x03 \x01(\tR\aendDate\x12\x15\n" +
+	"\x06job_id\x18\x04 \x01(\x03R\x05jobId\"\x8a\x01\n" +
+	"\vFunnelStage\x12\x1b\n" +
+	"\tstage_key\x18\x01 \x01(\tR\bstageKey\x12\x1f\n" +
+	"\vstage_label\x18\x02 \x01(\tR\n" +
+	"stageLabel\x12\x14\n" +
+	"\x05count\x18\x03 \x01(\x03R\x05count\x12'\n" +
+	"\x0fconversion_rate\x18\x04 \x01(\x01R\x0econversionRate\"q\n" +
+	"\x17GetFunnelReportResponse\x12\x12\n" +
+	"\x04code\x18\x01 \x01(\x05R\x04code\x12\x10\n" +
+	"\x03msg\x18\x02 \x01(\tR\x03msg\x120\n" +
+	"\x06stages\x18\x03 \x03(\v2\x18.recruitment.FunnelStageR\x06stages\"\x92\x01\n" +
+	"\x1bGetTimeInStageReportRequest\x12\"\n" +
+	"\rstaff_user_id\x18\x01 \x01(\x03R\vstaffUserId\x12\x1d\n" +
+	"\n" +
+	"start_date\x18\x02 \x01(\tR\tstartDate\x12\x19\n" +
+	"\bend_date\x18\x03 \x01(\tR\aendDate\x12\x15\n" +
+	"\x06job_id\x18\x04 \x01(\x03R\x05jobId\"\x95\x01\n" +
+	"\rStageDuration\x12\x1b\n" +
+	"\tstage_key\x18\x01 \x01(\tR\bstageKey\x12\x1f\n" +
+	"\vstage_label\x18\x02 \x01(\tR\n" +
+	"stageLabel\x12\x1b\n" +
+	"\tavg_hours\x18\x03 \x01(\x01R\bavgHours\x12)\n" +
+	"\x10transition_count\x18\x04 \x01(\x03R\x0ftransitionCount\"~\n" +
+	"\x1cGetTimeInStageReportResponse\x12\x12\n" +
+	"\x04code\x18\x01 \x01(\x05R\x04code\x12\x10\n" +
+	"\x03msg\x18\x02 \x01(\tR\x03msg\x128\n" +
+	"\tdurations\x18\x03 \x03(\v2\x1a.recruitment.StageDurationR\tdurations\"\x96\x01\n" +
+	"\x1fGetInterviewOfferMetricsRequest\x12\"\n" +
+	"\rstaff_user_id\x18\x01 \x01(\x03R\vstaffUserId\x12\x1d\n" +
+	"\n" +
+	"start_date\x18\x02 \x01(\tR\tstartDate\x12\x19\n" +
+	"\bend_date\x18\x03 \x01(\tR\aendDate\x12\x15\n" +
+	"\x06job_id\x18\x04 \x01(\x03R\x05jobId\"\x90\x03\n" +
+	" GetInterviewOfferMetricsResponse\x12\x12\n" +
+	"\x04code\x18\x01 \x01(\x05R\x04code\x12\x10\n" +
+	"\x03msg\x18\x02 \x01(\tR\x03msg\x12)\n" +
+	"\x10total_interviews\x18\x03 \x01(\x03R\x0ftotalInterviews\x121\n" +
+	"\x14completed_interviews\x18\x04 \x01(\x03R\x13completedInterviews\x12-\n" +
+	"\x12positive_feedbacks\x18\x05 \x01(\x03R\x11positiveFeedbacks\x12\x1b\n" +
+	"\tpass_rate\x18\x06 \x01(\x01R\bpassRate\x12!\n" +
+	"\ftotal_offers\x18\a \x01(\x03R\vtotalOffers\x12'\n" +
+	"\x0faccepted_offers\x18\b \x01(\x03R\x0eacceptedOffers\x12'\n" +
+	"\x0frejected_offers\x18\t \x01(\x03R\x0erejectedOffers\x12'\n" +
+	"\x0facceptance_rate\x18\n" +
+	" \x01(\x01R\x0eacceptanceRate2\xed\x03\n" +
 	"\vAuthService\x12G\n" +
 	"\bRegister\x12\x1c.recruitment.RegisterRequest\x1a\x1d.recruitment.RegisterResponse\x12>\n" +
 	"\x05Login\x12\x19.recruitment.LoginRequest\x1a\x1a.recruitment.LoginResponse\x12S\n" +
@@ -15783,7 +17005,7 @@ const file_proto_recruitment_proto_rawDesc = "" +
 	"\vAcceptOffer\x12\x1f.recruitment.AcceptOfferRequest\x1a\x1b.recruitment.CommonResponse\x12K\n" +
 	"\vRejectOffer\x12\x1f.recruitment.RejectOfferRequest\x1a\x1b.recruitment.CommonResponse\x12S\n" +
 	"\fListMyOffers\x12 .recruitment.ListMyOffersRequest\x1a!.recruitment.ListMyOffersResponse\x12\\\n" +
-	"\x0fListOfferEvents\x12#.recruitment.ListOfferEventsRequest\x1a$.recruitment.ListOfferEventsResponse2\xd1\x15\n" +
+	"\x0fListOfferEvents\x12#.recruitment.ListOfferEventsRequest\x1a$.recruitment.ListOfferEventsResponse2\xe3\x19\n" +
 	"\fAdminService\x12_\n" +
 	"\x10CreateInviteCode\x12$.recruitment.CreateInviteCodeRequest\x1a%.recruitment.CreateInviteCodeResponse\x12\\\n" +
 	"\x0fListInviteCodes\x12#.recruitment.ListInviteCodesRequest\x1a$.recruitment.ListInviteCodesResponse\x12U\n" +
@@ -15813,7 +17035,12 @@ const file_proto_recruitment_proto_rawDesc = "" +
 	"\x0fAssignDataScope\x12#.recruitment.AssignDataScopeRequest\x1a\x1b.recruitment.CommonResponse\x12S\n" +
 	"\x0fRevokeDataScope\x12#.recruitment.RevokeDataScopeRequest\x1a\x1b.recruitment.CommonResponse\x12Y\n" +
 	"\x0eListStaffUsers\x12\".recruitment.ListStaffUsersRequest\x1a#.recruitment.ListStaffUsersResponse\x12\\\n" +
-	"\x0fCreateStaffUser\x12#.recruitment.CreateStaffUserRequest\x1a$.recruitment.CreateStaffUserResponse2\x9f\t\n" +
+	"\x0fCreateStaffUser\x12#.recruitment.CreateStaffUserRequest\x1a$.recruitment.CreateStaffUserResponse\x12e\n" +
+	"\x12QueryAuthAuditLogs\x12&.recruitment.QueryAuthAuditLogsRequest\x1a'.recruitment.QueryAuthAuditLogsResponse\x12e\n" +
+	"\x12GetDashboardReport\x12&.recruitment.GetDashboardReportRequest\x1a'.recruitment.GetDashboardReportResponse\x12\\\n" +
+	"\x0fGetFunnelReport\x12#.recruitment.GetFunnelReportRequest\x1a$.recruitment.GetFunnelReportResponse\x12k\n" +
+	"\x14GetTimeInStageReport\x12(.recruitment.GetTimeInStageReportRequest\x1a).recruitment.GetTimeInStageReportResponse\x12w\n" +
+	"\x18GetInterviewOfferMetrics\x12,.recruitment.GetInterviewOfferMetricsRequest\x1a-.recruitment.GetInterviewOfferMetricsResponse2\x9f\t\n" +
 	"\x14CollaborationService\x12n\n" +
 	"\x15GetCandidateWorkspace\x12).recruitment.GetCandidateWorkspaceRequest\x1a*.recruitment.GetCandidateWorkspaceResponse\x12M\n" +
 	"\n" +
@@ -15842,7 +17069,7 @@ func file_proto_recruitment_proto_rawDescGZIP() []byte {
 	return file_proto_recruitment_proto_rawDescData
 }
 
-var file_proto_recruitment_proto_msgTypes = make([]protoimpl.MessageInfo, 201)
+var file_proto_recruitment_proto_msgTypes = make([]protoimpl.MessageInfo, 216)
 var file_proto_recruitment_proto_goTypes = []any{
 	(*CommonResponse)(nil),                           // 0: recruitment.CommonResponse
 	(*RegisterRequest)(nil),                          // 1: recruitment.RegisterRequest
@@ -16045,6 +17272,21 @@ var file_proto_recruitment_proto_goTypes = []any{
 	(*TimelineEventInfo)(nil),                        // 198: recruitment.TimelineEventInfo
 	(*ListTimelineEventsRequest)(nil),                // 199: recruitment.ListTimelineEventsRequest
 	(*ListTimelineEventsResponse)(nil),               // 200: recruitment.ListTimelineEventsResponse
+	(*QueryAuthAuditLogsRequest)(nil),                // 201: recruitment.QueryAuthAuditLogsRequest
+	(*AuthAuditLogItem)(nil),                         // 202: recruitment.AuthAuditLogItem
+	(*QueryAuthAuditLogsResponse)(nil),               // 203: recruitment.QueryAuthAuditLogsResponse
+	(*GetDashboardReportRequest)(nil),                // 204: recruitment.GetDashboardReportRequest
+	(*DashboardReportItem)(nil),                      // 205: recruitment.DashboardReportItem
+	(*DashboardTrendPoint)(nil),                      // 206: recruitment.DashboardTrendPoint
+	(*GetDashboardReportResponse)(nil),               // 207: recruitment.GetDashboardReportResponse
+	(*GetFunnelReportRequest)(nil),                   // 208: recruitment.GetFunnelReportRequest
+	(*FunnelStage)(nil),                              // 209: recruitment.FunnelStage
+	(*GetFunnelReportResponse)(nil),                  // 210: recruitment.GetFunnelReportResponse
+	(*GetTimeInStageReportRequest)(nil),              // 211: recruitment.GetTimeInStageReportRequest
+	(*StageDuration)(nil),                            // 212: recruitment.StageDuration
+	(*GetTimeInStageReportResponse)(nil),             // 213: recruitment.GetTimeInStageReportResponse
+	(*GetInterviewOfferMetricsRequest)(nil),          // 214: recruitment.GetInterviewOfferMetricsRequest
+	(*GetInterviewOfferMetricsResponse)(nil),         // 215: recruitment.GetInterviewOfferMetricsResponse
 }
 var file_proto_recruitment_proto_depIdxs = []int32{
 	11,  // 0: recruitment.GetPrincipalResponse.data_scopes:type_name -> recruitment.ScopeAssignment
@@ -16103,227 +17345,242 @@ var file_proto_recruitment_proto_depIdxs = []int32{
 	190, // 53: recruitment.ListFollowUpTasksResponse.list:type_name -> recruitment.FollowUpTaskInfo
 	190, // 54: recruitment.GetFollowUpTaskResponse.task:type_name -> recruitment.FollowUpTaskInfo
 	198, // 55: recruitment.ListTimelineEventsResponse.events:type_name -> recruitment.TimelineEventInfo
-	1,   // 56: recruitment.AuthService.Register:input_type -> recruitment.RegisterRequest
-	3,   // 57: recruitment.AuthService.Login:input_type -> recruitment.LoginRequest
-	5,   // 58: recruitment.AuthService.RefreshToken:input_type -> recruitment.RefreshTokenRequest
-	7,   // 59: recruitment.AuthService.RevokeRefreshToken:input_type -> recruitment.RevokeRefreshTokenRequest
-	8,   // 60: recruitment.AuthService.RecordAuthDecision:input_type -> recruitment.AuthAuditRequest
-	9,   // 61: recruitment.AuthService.GetPrincipal:input_type -> recruitment.GetPrincipalRequest
-	12,  // 62: recruitment.JobService.CreateJob:input_type -> recruitment.CreateJobRequest
-	14,  // 63: recruitment.JobService.UpdateJob:input_type -> recruitment.UpdateJobRequest
-	15,  // 64: recruitment.JobService.OfflineJob:input_type -> recruitment.OfflineJobRequest
-	15,  // 65: recruitment.JobService.OnlineJob:input_type -> recruitment.OfflineJobRequest
-	16,  // 66: recruitment.JobService.ListHRJobs:input_type -> recruitment.ListHRJobsRequest
-	17,  // 67: recruitment.JobService.ListPublicJobs:input_type -> recruitment.ListPublicJobsRequest
-	18,  // 68: recruitment.JobService.GetJobDetail:input_type -> recruitment.GetJobDetailRequest
-	106, // 69: recruitment.JobService.ListJobOptions:input_type -> recruitment.ListJobOptionsRequest
-	127, // 70: recruitment.JobService.ListDepartmentLocations:input_type -> recruitment.ListDepartmentLocationsRequest
-	22,  // 71: recruitment.CandidateService.GetProfile:input_type -> recruitment.GetProfileRequest
-	23,  // 72: recruitment.CandidateService.UpdateProfile:input_type -> recruitment.UpdateProfileRequest
-	26,  // 73: recruitment.CandidateService.GetResume:input_type -> recruitment.GetResumeRequest
-	29,  // 74: recruitment.CandidateService.PresignResumeUpload:input_type -> recruitment.PresignResumeUploadRequest
-	31,  // 75: recruitment.CandidateService.ConfirmResumeUpload:input_type -> recruitment.ConfirmResumeUploadRequest
-	33,  // 76: recruitment.ApplicationService.ApplyJob:input_type -> recruitment.ApplyJobRequest
-	34,  // 77: recruitment.ApplicationService.ListMyApplications:input_type -> recruitment.ListMyApplicationsRequest
-	37,  // 78: recruitment.ApplicationService.ListJobApplications:input_type -> recruitment.ListJobApplicationsRequest
-	40,  // 79: recruitment.ApplicationService.UpdateApplicationStatus:input_type -> recruitment.UpdateApplicationStatusRequest
-	41,  // 80: recruitment.ApplicationService.ListApplicationStatusTransitions:input_type -> recruitment.ListApplicationStatusTransitionsRequest
-	69,  // 81: recruitment.InterviewService.ScheduleInterview:input_type -> recruitment.ScheduleInterviewRequest
-	71,  // 82: recruitment.InterviewService.UpdateInterview:input_type -> recruitment.UpdateInterviewRequest
-	72,  // 83: recruitment.InterviewService.CancelInterview:input_type -> recruitment.CancelInterviewRequest
-	73,  // 84: recruitment.InterviewService.GetInterview:input_type -> recruitment.GetInterviewRequest
-	75,  // 85: recruitment.InterviewService.ListInterviewers:input_type -> recruitment.ListInterviewersRequest
-	77,  // 86: recruitment.InterviewService.ListApplicationInterviews:input_type -> recruitment.ListApplicationInterviewsRequest
-	79,  // 87: recruitment.InterviewService.ListMyInterviews:input_type -> recruitment.ListMyInterviewsRequest
-	81,  // 88: recruitment.InterviewService.ListCandidateInterviews:input_type -> recruitment.ListCandidateInterviewsRequest
-	84,  // 89: recruitment.InterviewService.SubmitFeedback:input_type -> recruitment.SubmitFeedbackRequest
-	85,  // 90: recruitment.InterviewService.GetFeedback:input_type -> recruitment.GetFeedbackRequest
-	88,  // 91: recruitment.NotificationService.ListNotifications:input_type -> recruitment.ListNotificationsRequest
-	90,  // 92: recruitment.NotificationService.UnreadNotificationCount:input_type -> recruitment.UnreadNotificationCountRequest
-	92,  // 93: recruitment.NotificationService.NotificationSummary:input_type -> recruitment.NotificationSummaryRequest
-	94,  // 94: recruitment.NotificationService.MarkNotificationRead:input_type -> recruitment.MarkNotificationReadRequest
-	95,  // 95: recruitment.NotificationService.MarkAllNotificationsRead:input_type -> recruitment.MarkAllNotificationsReadRequest
-	44,  // 96: recruitment.AIService.Chat:input_type -> recruitment.ChatRequest
-	44,  // 97: recruitment.AIService.ChatStream:input_type -> recruitment.ChatRequest
-	47,  // 98: recruitment.AIService.History:input_type -> recruitment.ChatHistoryRequest
-	50,  // 99: recruitment.AIService.AnalyzeApplication:input_type -> recruitment.AnalyzeApplicationRequest
-	52,  // 100: recruitment.AIService.ListChatSessions:input_type -> recruitment.ChatSessionListRequest
-	55,  // 101: recruitment.AIService.CreateChatSession:input_type -> recruitment.CreateChatSessionRequest
-	57,  // 102: recruitment.AIService.SessionMessages:input_type -> recruitment.SessionMessagesRequest
-	58,  // 103: recruitment.AIService.CreateApplicationAnalysisSession:input_type -> recruitment.CreateApplicationAnalysisSessionRequest
-	60,  // 104: recruitment.AIService.UpdateSession:input_type -> recruitment.UpdateSessionRequest
-	61,  // 105: recruitment.AIService.DeleteSession:input_type -> recruitment.DeleteSessionRequest
-	62,  // 106: recruitment.AIService.CandidateChatStream:input_type -> recruitment.CandidateChatRequest
-	63,  // 107: recruitment.AIService.CandidateListSessions:input_type -> recruitment.CandidateSessionListRequest
-	64,  // 108: recruitment.AIService.CandidateCreateSession:input_type -> recruitment.CandidateCreateSessionRequest
-	65,  // 109: recruitment.AIService.CandidateSessionMessages:input_type -> recruitment.CandidateSessionMessagesRequest
-	66,  // 110: recruitment.AIService.CandidateUpdateSession:input_type -> recruitment.CandidateUpdateSessionRequest
-	67,  // 111: recruitment.AIService.CandidateDeleteSession:input_type -> recruitment.CandidateDeleteSessionRequest
-	136, // 112: recruitment.OfferService.CreateOffer:input_type -> recruitment.CreateOfferRequest
-	138, // 113: recruitment.OfferService.UpdateOffer:input_type -> recruitment.UpdateOfferRequest
-	139, // 114: recruitment.OfferService.GetOffer:input_type -> recruitment.GetOfferRequest
-	141, // 115: recruitment.OfferService.ListOffersByApplication:input_type -> recruitment.ListOffersByApplicationRequest
-	143, // 116: recruitment.OfferService.SendOffer:input_type -> recruitment.SendOfferRequest
-	144, // 117: recruitment.OfferService.WithdrawOffer:input_type -> recruitment.WithdrawOfferRequest
-	145, // 118: recruitment.OfferService.AcceptOffer:input_type -> recruitment.AcceptOfferRequest
-	146, // 119: recruitment.OfferService.RejectOffer:input_type -> recruitment.RejectOfferRequest
-	147, // 120: recruitment.OfferService.ListMyOffers:input_type -> recruitment.ListMyOffersRequest
-	150, // 121: recruitment.OfferService.ListOfferEvents:input_type -> recruitment.ListOfferEventsRequest
-	97,  // 122: recruitment.AdminService.CreateInviteCode:input_type -> recruitment.CreateInviteCodeRequest
-	99,  // 123: recruitment.AdminService.ListInviteCodes:input_type -> recruitment.ListInviteCodesRequest
-	101, // 124: recruitment.AdminService.ExtendInviteCode:input_type -> recruitment.ExtendInviteCodeRequest
-	102, // 125: recruitment.AdminService.RevokeInviteCode:input_type -> recruitment.RevokeInviteCodeRequest
-	103, // 126: recruitment.AdminService.ReactivateInviteCode:input_type -> recruitment.ReactivateInviteCodeRequest
-	104, // 127: recruitment.AdminService.ValidateInviteCode:input_type -> recruitment.ValidateInviteCodeRequest
-	110, // 128: recruitment.AdminService.ListDepartments:input_type -> recruitment.ListDepartmentsRequest
-	112, // 129: recruitment.AdminService.CreateDepartment:input_type -> recruitment.CreateDepartmentRequest
-	113, // 130: recruitment.AdminService.UpdateDepartment:input_type -> recruitment.UpdateDepartmentRequest
-	114, // 131: recruitment.AdminService.UpdateDepartmentStatus:input_type -> recruitment.UpdateDepartmentStatusRequest
-	115, // 132: recruitment.AdminService.DeleteDepartment:input_type -> recruitment.DeleteDepartmentRequest
-	117, // 133: recruitment.AdminService.ListJobLocations:input_type -> recruitment.ListJobLocationsRequest
-	119, // 134: recruitment.AdminService.CreateJobLocation:input_type -> recruitment.CreateJobLocationRequest
-	120, // 135: recruitment.AdminService.UpdateJobLocation:input_type -> recruitment.UpdateJobLocationRequest
-	121, // 136: recruitment.AdminService.UpdateJobLocationStatus:input_type -> recruitment.UpdateJobLocationStatusRequest
-	122, // 137: recruitment.AdminService.DeleteJobLocation:input_type -> recruitment.DeleteJobLocationRequest
-	129, // 138: recruitment.AdminService.GetDepartmentLocationConfig:input_type -> recruitment.GetDepartmentLocationConfigRequest
-	130, // 139: recruitment.AdminService.UpdateDepartmentLocationConfig:input_type -> recruitment.UpdateDepartmentLocationConfigRequest
-	125, // 140: recruitment.AdminService.ListDepartmentsLocationMap:input_type -> recruitment.ListDepartmentsLocationMapRequest
-	133, // 141: recruitment.AdminService.QueryUsageLogs:input_type -> recruitment.QueryUsageLogsRequest
-	152, // 142: recruitment.AdminService.ListRoles:input_type -> recruitment.ListRolesRequest
-	155, // 143: recruitment.AdminService.ListPermissions:input_type -> recruitment.ListPermissionsRequest
-	158, // 144: recruitment.AdminService.GetUserRoles:input_type -> recruitment.GetUserRolesRequest
-	161, // 145: recruitment.AdminService.AssignUserRole:input_type -> recruitment.AssignUserRoleRequest
-	162, // 146: recruitment.AdminService.RevokeUserRole:input_type -> recruitment.RevokeUserRoleRequest
-	163, // 147: recruitment.AdminService.AssignDataScope:input_type -> recruitment.AssignDataScopeRequest
-	164, // 148: recruitment.AdminService.RevokeDataScope:input_type -> recruitment.RevokeDataScopeRequest
-	165, // 149: recruitment.AdminService.ListStaffUsers:input_type -> recruitment.ListStaffUsersRequest
-	168, // 150: recruitment.AdminService.CreateStaffUser:input_type -> recruitment.CreateStaffUserRequest
-	170, // 151: recruitment.CollaborationService.GetCandidateWorkspace:input_type -> recruitment.GetCandidateWorkspaceRequest
-	177, // 152: recruitment.CollaborationService.CreateNote:input_type -> recruitment.CreateNoteRequest
-	179, // 153: recruitment.CollaborationService.ListNotes:input_type -> recruitment.ListNotesRequest
-	182, // 154: recruitment.CollaborationService.CreateTag:input_type -> recruitment.CreateTagRequest
-	184, // 155: recruitment.CollaborationService.ListTags:input_type -> recruitment.ListTagsRequest
-	186, // 156: recruitment.CollaborationService.AssignTag:input_type -> recruitment.AssignTagRequest
-	187, // 157: recruitment.CollaborationService.UnassignTag:input_type -> recruitment.UnassignTagRequest
-	188, // 158: recruitment.CollaborationService.ListCandidateTags:input_type -> recruitment.ListCandidateTagsRequest
-	191, // 159: recruitment.CollaborationService.CreateFollowUpTask:input_type -> recruitment.CreateFollowUpTaskRequest
-	193, // 160: recruitment.CollaborationService.ListFollowUpTasks:input_type -> recruitment.ListFollowUpTasksRequest
-	195, // 161: recruitment.CollaborationService.CompleteFollowUpTask:input_type -> recruitment.CompleteFollowUpTaskRequest
-	196, // 162: recruitment.CollaborationService.GetFollowUpTask:input_type -> recruitment.GetFollowUpTaskRequest
-	199, // 163: recruitment.CollaborationService.ListTimelineEvents:input_type -> recruitment.ListTimelineEventsRequest
-	2,   // 164: recruitment.AuthService.Register:output_type -> recruitment.RegisterResponse
-	4,   // 165: recruitment.AuthService.Login:output_type -> recruitment.LoginResponse
-	6,   // 166: recruitment.AuthService.RefreshToken:output_type -> recruitment.RefreshTokenResponse
-	0,   // 167: recruitment.AuthService.RevokeRefreshToken:output_type -> recruitment.CommonResponse
-	0,   // 168: recruitment.AuthService.RecordAuthDecision:output_type -> recruitment.CommonResponse
-	10,  // 169: recruitment.AuthService.GetPrincipal:output_type -> recruitment.GetPrincipalResponse
-	13,  // 170: recruitment.JobService.CreateJob:output_type -> recruitment.CreateJobResponse
-	0,   // 171: recruitment.JobService.UpdateJob:output_type -> recruitment.CommonResponse
-	0,   // 172: recruitment.JobService.OfflineJob:output_type -> recruitment.CommonResponse
-	0,   // 173: recruitment.JobService.OnlineJob:output_type -> recruitment.CommonResponse
-	20,  // 174: recruitment.JobService.ListHRJobs:output_type -> recruitment.ListJobsResponse
-	20,  // 175: recruitment.JobService.ListPublicJobs:output_type -> recruitment.ListJobsResponse
-	21,  // 176: recruitment.JobService.GetJobDetail:output_type -> recruitment.GetJobDetailResponse
-	107, // 177: recruitment.JobService.ListJobOptions:output_type -> recruitment.ListJobOptionsResponse
-	128, // 178: recruitment.JobService.ListDepartmentLocations:output_type -> recruitment.ListDepartmentLocationsResponse
-	25,  // 179: recruitment.CandidateService.GetProfile:output_type -> recruitment.GetProfileResponse
-	25,  // 180: recruitment.CandidateService.UpdateProfile:output_type -> recruitment.GetProfileResponse
-	28,  // 181: recruitment.CandidateService.GetResume:output_type -> recruitment.GetResumeResponse
-	30,  // 182: recruitment.CandidateService.PresignResumeUpload:output_type -> recruitment.PresignResumeUploadResponse
-	32,  // 183: recruitment.CandidateService.ConfirmResumeUpload:output_type -> recruitment.ConfirmResumeUploadResponse
-	0,   // 184: recruitment.ApplicationService.ApplyJob:output_type -> recruitment.CommonResponse
-	36,  // 185: recruitment.ApplicationService.ListMyApplications:output_type -> recruitment.ListMyApplicationsResponse
-	39,  // 186: recruitment.ApplicationService.ListJobApplications:output_type -> recruitment.ListJobApplicationsResponse
-	0,   // 187: recruitment.ApplicationService.UpdateApplicationStatus:output_type -> recruitment.CommonResponse
-	43,  // 188: recruitment.ApplicationService.ListApplicationStatusTransitions:output_type -> recruitment.ListApplicationStatusTransitionsResponse
-	70,  // 189: recruitment.InterviewService.ScheduleInterview:output_type -> recruitment.ScheduleInterviewResponse
-	0,   // 190: recruitment.InterviewService.UpdateInterview:output_type -> recruitment.CommonResponse
-	0,   // 191: recruitment.InterviewService.CancelInterview:output_type -> recruitment.CommonResponse
-	74,  // 192: recruitment.InterviewService.GetInterview:output_type -> recruitment.GetInterviewResponse
-	76,  // 193: recruitment.InterviewService.ListInterviewers:output_type -> recruitment.ListInterviewersResponse
-	78,  // 194: recruitment.InterviewService.ListApplicationInterviews:output_type -> recruitment.ListApplicationInterviewsResponse
-	80,  // 195: recruitment.InterviewService.ListMyInterviews:output_type -> recruitment.ListMyInterviewsResponse
-	82,  // 196: recruitment.InterviewService.ListCandidateInterviews:output_type -> recruitment.ListCandidateInterviewsResponse
-	0,   // 197: recruitment.InterviewService.SubmitFeedback:output_type -> recruitment.CommonResponse
-	86,  // 198: recruitment.InterviewService.GetFeedback:output_type -> recruitment.GetFeedbackResponse
-	89,  // 199: recruitment.NotificationService.ListNotifications:output_type -> recruitment.ListNotificationsResponse
-	91,  // 200: recruitment.NotificationService.UnreadNotificationCount:output_type -> recruitment.UnreadNotificationCountResponse
-	93,  // 201: recruitment.NotificationService.NotificationSummary:output_type -> recruitment.NotificationSummaryResponse
-	0,   // 202: recruitment.NotificationService.MarkNotificationRead:output_type -> recruitment.CommonResponse
-	0,   // 203: recruitment.NotificationService.MarkAllNotificationsRead:output_type -> recruitment.CommonResponse
-	45,  // 204: recruitment.AIService.Chat:output_type -> recruitment.ChatResponse
-	46,  // 205: recruitment.AIService.ChatStream:output_type -> recruitment.ChatStreamResponse
-	49,  // 206: recruitment.AIService.History:output_type -> recruitment.ChatHistoryResponse
-	51,  // 207: recruitment.AIService.AnalyzeApplication:output_type -> recruitment.AnalyzeApplicationResponse
-	54,  // 208: recruitment.AIService.ListChatSessions:output_type -> recruitment.ChatSessionListResponse
-	56,  // 209: recruitment.AIService.CreateChatSession:output_type -> recruitment.CreateChatSessionResponse
-	49,  // 210: recruitment.AIService.SessionMessages:output_type -> recruitment.ChatHistoryResponse
-	59,  // 211: recruitment.AIService.CreateApplicationAnalysisSession:output_type -> recruitment.CreateApplicationAnalysisSessionResponse
-	0,   // 212: recruitment.AIService.UpdateSession:output_type -> recruitment.CommonResponse
-	0,   // 213: recruitment.AIService.DeleteSession:output_type -> recruitment.CommonResponse
-	46,  // 214: recruitment.AIService.CandidateChatStream:output_type -> recruitment.ChatStreamResponse
-	54,  // 215: recruitment.AIService.CandidateListSessions:output_type -> recruitment.ChatSessionListResponse
-	56,  // 216: recruitment.AIService.CandidateCreateSession:output_type -> recruitment.CreateChatSessionResponse
-	49,  // 217: recruitment.AIService.CandidateSessionMessages:output_type -> recruitment.ChatHistoryResponse
-	0,   // 218: recruitment.AIService.CandidateUpdateSession:output_type -> recruitment.CommonResponse
-	0,   // 219: recruitment.AIService.CandidateDeleteSession:output_type -> recruitment.CommonResponse
-	137, // 220: recruitment.OfferService.CreateOffer:output_type -> recruitment.CreateOfferResponse
-	0,   // 221: recruitment.OfferService.UpdateOffer:output_type -> recruitment.CommonResponse
-	140, // 222: recruitment.OfferService.GetOffer:output_type -> recruitment.GetOfferResponse
-	142, // 223: recruitment.OfferService.ListOffersByApplication:output_type -> recruitment.ListOffersByApplicationResponse
-	0,   // 224: recruitment.OfferService.SendOffer:output_type -> recruitment.CommonResponse
-	0,   // 225: recruitment.OfferService.WithdrawOffer:output_type -> recruitment.CommonResponse
-	0,   // 226: recruitment.OfferService.AcceptOffer:output_type -> recruitment.CommonResponse
-	0,   // 227: recruitment.OfferService.RejectOffer:output_type -> recruitment.CommonResponse
-	148, // 228: recruitment.OfferService.ListMyOffers:output_type -> recruitment.ListMyOffersResponse
-	151, // 229: recruitment.OfferService.ListOfferEvents:output_type -> recruitment.ListOfferEventsResponse
-	98,  // 230: recruitment.AdminService.CreateInviteCode:output_type -> recruitment.CreateInviteCodeResponse
-	100, // 231: recruitment.AdminService.ListInviteCodes:output_type -> recruitment.ListInviteCodesResponse
-	0,   // 232: recruitment.AdminService.ExtendInviteCode:output_type -> recruitment.CommonResponse
-	0,   // 233: recruitment.AdminService.RevokeInviteCode:output_type -> recruitment.CommonResponse
-	0,   // 234: recruitment.AdminService.ReactivateInviteCode:output_type -> recruitment.CommonResponse
-	105, // 235: recruitment.AdminService.ValidateInviteCode:output_type -> recruitment.ValidateInviteCodeResponse
-	111, // 236: recruitment.AdminService.ListDepartments:output_type -> recruitment.ListDepartmentsResponse
-	116, // 237: recruitment.AdminService.CreateDepartment:output_type -> recruitment.DepartmentResponse
-	116, // 238: recruitment.AdminService.UpdateDepartment:output_type -> recruitment.DepartmentResponse
-	0,   // 239: recruitment.AdminService.UpdateDepartmentStatus:output_type -> recruitment.CommonResponse
-	0,   // 240: recruitment.AdminService.DeleteDepartment:output_type -> recruitment.CommonResponse
-	118, // 241: recruitment.AdminService.ListJobLocations:output_type -> recruitment.ListJobLocationsResponse
-	123, // 242: recruitment.AdminService.CreateJobLocation:output_type -> recruitment.JobLocationResponse
-	123, // 243: recruitment.AdminService.UpdateJobLocation:output_type -> recruitment.JobLocationResponse
-	0,   // 244: recruitment.AdminService.UpdateJobLocationStatus:output_type -> recruitment.CommonResponse
-	0,   // 245: recruitment.AdminService.DeleteJobLocation:output_type -> recruitment.CommonResponse
-	131, // 246: recruitment.AdminService.GetDepartmentLocationConfig:output_type -> recruitment.DepartmentLocationConfigResponse
-	131, // 247: recruitment.AdminService.UpdateDepartmentLocationConfig:output_type -> recruitment.DepartmentLocationConfigResponse
-	126, // 248: recruitment.AdminService.ListDepartmentsLocationMap:output_type -> recruitment.ListDepartmentsLocationMapResponse
-	134, // 249: recruitment.AdminService.QueryUsageLogs:output_type -> recruitment.QueryUsageLogsResponse
-	153, // 250: recruitment.AdminService.ListRoles:output_type -> recruitment.ListRolesResponse
-	156, // 251: recruitment.AdminService.ListPermissions:output_type -> recruitment.ListPermissionsResponse
-	159, // 252: recruitment.AdminService.GetUserRoles:output_type -> recruitment.GetUserRolesResponse
-	0,   // 253: recruitment.AdminService.AssignUserRole:output_type -> recruitment.CommonResponse
-	0,   // 254: recruitment.AdminService.RevokeUserRole:output_type -> recruitment.CommonResponse
-	0,   // 255: recruitment.AdminService.AssignDataScope:output_type -> recruitment.CommonResponse
-	0,   // 256: recruitment.AdminService.RevokeDataScope:output_type -> recruitment.CommonResponse
-	166, // 257: recruitment.AdminService.ListStaffUsers:output_type -> recruitment.ListStaffUsersResponse
-	169, // 258: recruitment.AdminService.CreateStaffUser:output_type -> recruitment.CreateStaffUserResponse
-	175, // 259: recruitment.CollaborationService.GetCandidateWorkspace:output_type -> recruitment.GetCandidateWorkspaceResponse
-	178, // 260: recruitment.CollaborationService.CreateNote:output_type -> recruitment.CreateNoteResponse
-	180, // 261: recruitment.CollaborationService.ListNotes:output_type -> recruitment.ListNotesResponse
-	183, // 262: recruitment.CollaborationService.CreateTag:output_type -> recruitment.CreateTagResponse
-	185, // 263: recruitment.CollaborationService.ListTags:output_type -> recruitment.ListTagsResponse
-	0,   // 264: recruitment.CollaborationService.AssignTag:output_type -> recruitment.CommonResponse
-	0,   // 265: recruitment.CollaborationService.UnassignTag:output_type -> recruitment.CommonResponse
-	189, // 266: recruitment.CollaborationService.ListCandidateTags:output_type -> recruitment.ListCandidateTagsResponse
-	192, // 267: recruitment.CollaborationService.CreateFollowUpTask:output_type -> recruitment.CreateFollowUpTaskResponse
-	194, // 268: recruitment.CollaborationService.ListFollowUpTasks:output_type -> recruitment.ListFollowUpTasksResponse
-	0,   // 269: recruitment.CollaborationService.CompleteFollowUpTask:output_type -> recruitment.CommonResponse
-	197, // 270: recruitment.CollaborationService.GetFollowUpTask:output_type -> recruitment.GetFollowUpTaskResponse
-	200, // 271: recruitment.CollaborationService.ListTimelineEvents:output_type -> recruitment.ListTimelineEventsResponse
-	164, // [164:272] is the sub-list for method output_type
-	56,  // [56:164] is the sub-list for method input_type
-	56,  // [56:56] is the sub-list for extension type_name
-	56,  // [56:56] is the sub-list for extension extendee
-	0,   // [0:56] is the sub-list for field type_name
+	202, // 56: recruitment.QueryAuthAuditLogsResponse.list:type_name -> recruitment.AuthAuditLogItem
+	206, // 57: recruitment.GetDashboardReportResponse.trend:type_name -> recruitment.DashboardTrendPoint
+	205, // 58: recruitment.GetDashboardReportResponse.stage_distribution:type_name -> recruitment.DashboardReportItem
+	209, // 59: recruitment.GetFunnelReportResponse.stages:type_name -> recruitment.FunnelStage
+	212, // 60: recruitment.GetTimeInStageReportResponse.durations:type_name -> recruitment.StageDuration
+	1,   // 61: recruitment.AuthService.Register:input_type -> recruitment.RegisterRequest
+	3,   // 62: recruitment.AuthService.Login:input_type -> recruitment.LoginRequest
+	5,   // 63: recruitment.AuthService.RefreshToken:input_type -> recruitment.RefreshTokenRequest
+	7,   // 64: recruitment.AuthService.RevokeRefreshToken:input_type -> recruitment.RevokeRefreshTokenRequest
+	8,   // 65: recruitment.AuthService.RecordAuthDecision:input_type -> recruitment.AuthAuditRequest
+	9,   // 66: recruitment.AuthService.GetPrincipal:input_type -> recruitment.GetPrincipalRequest
+	12,  // 67: recruitment.JobService.CreateJob:input_type -> recruitment.CreateJobRequest
+	14,  // 68: recruitment.JobService.UpdateJob:input_type -> recruitment.UpdateJobRequest
+	15,  // 69: recruitment.JobService.OfflineJob:input_type -> recruitment.OfflineJobRequest
+	15,  // 70: recruitment.JobService.OnlineJob:input_type -> recruitment.OfflineJobRequest
+	16,  // 71: recruitment.JobService.ListHRJobs:input_type -> recruitment.ListHRJobsRequest
+	17,  // 72: recruitment.JobService.ListPublicJobs:input_type -> recruitment.ListPublicJobsRequest
+	18,  // 73: recruitment.JobService.GetJobDetail:input_type -> recruitment.GetJobDetailRequest
+	106, // 74: recruitment.JobService.ListJobOptions:input_type -> recruitment.ListJobOptionsRequest
+	127, // 75: recruitment.JobService.ListDepartmentLocations:input_type -> recruitment.ListDepartmentLocationsRequest
+	22,  // 76: recruitment.CandidateService.GetProfile:input_type -> recruitment.GetProfileRequest
+	23,  // 77: recruitment.CandidateService.UpdateProfile:input_type -> recruitment.UpdateProfileRequest
+	26,  // 78: recruitment.CandidateService.GetResume:input_type -> recruitment.GetResumeRequest
+	29,  // 79: recruitment.CandidateService.PresignResumeUpload:input_type -> recruitment.PresignResumeUploadRequest
+	31,  // 80: recruitment.CandidateService.ConfirmResumeUpload:input_type -> recruitment.ConfirmResumeUploadRequest
+	33,  // 81: recruitment.ApplicationService.ApplyJob:input_type -> recruitment.ApplyJobRequest
+	34,  // 82: recruitment.ApplicationService.ListMyApplications:input_type -> recruitment.ListMyApplicationsRequest
+	37,  // 83: recruitment.ApplicationService.ListJobApplications:input_type -> recruitment.ListJobApplicationsRequest
+	40,  // 84: recruitment.ApplicationService.UpdateApplicationStatus:input_type -> recruitment.UpdateApplicationStatusRequest
+	41,  // 85: recruitment.ApplicationService.ListApplicationStatusTransitions:input_type -> recruitment.ListApplicationStatusTransitionsRequest
+	69,  // 86: recruitment.InterviewService.ScheduleInterview:input_type -> recruitment.ScheduleInterviewRequest
+	71,  // 87: recruitment.InterviewService.UpdateInterview:input_type -> recruitment.UpdateInterviewRequest
+	72,  // 88: recruitment.InterviewService.CancelInterview:input_type -> recruitment.CancelInterviewRequest
+	73,  // 89: recruitment.InterviewService.GetInterview:input_type -> recruitment.GetInterviewRequest
+	75,  // 90: recruitment.InterviewService.ListInterviewers:input_type -> recruitment.ListInterviewersRequest
+	77,  // 91: recruitment.InterviewService.ListApplicationInterviews:input_type -> recruitment.ListApplicationInterviewsRequest
+	79,  // 92: recruitment.InterviewService.ListMyInterviews:input_type -> recruitment.ListMyInterviewsRequest
+	81,  // 93: recruitment.InterviewService.ListCandidateInterviews:input_type -> recruitment.ListCandidateInterviewsRequest
+	84,  // 94: recruitment.InterviewService.SubmitFeedback:input_type -> recruitment.SubmitFeedbackRequest
+	85,  // 95: recruitment.InterviewService.GetFeedback:input_type -> recruitment.GetFeedbackRequest
+	88,  // 96: recruitment.NotificationService.ListNotifications:input_type -> recruitment.ListNotificationsRequest
+	90,  // 97: recruitment.NotificationService.UnreadNotificationCount:input_type -> recruitment.UnreadNotificationCountRequest
+	92,  // 98: recruitment.NotificationService.NotificationSummary:input_type -> recruitment.NotificationSummaryRequest
+	94,  // 99: recruitment.NotificationService.MarkNotificationRead:input_type -> recruitment.MarkNotificationReadRequest
+	95,  // 100: recruitment.NotificationService.MarkAllNotificationsRead:input_type -> recruitment.MarkAllNotificationsReadRequest
+	44,  // 101: recruitment.AIService.Chat:input_type -> recruitment.ChatRequest
+	44,  // 102: recruitment.AIService.ChatStream:input_type -> recruitment.ChatRequest
+	47,  // 103: recruitment.AIService.History:input_type -> recruitment.ChatHistoryRequest
+	50,  // 104: recruitment.AIService.AnalyzeApplication:input_type -> recruitment.AnalyzeApplicationRequest
+	52,  // 105: recruitment.AIService.ListChatSessions:input_type -> recruitment.ChatSessionListRequest
+	55,  // 106: recruitment.AIService.CreateChatSession:input_type -> recruitment.CreateChatSessionRequest
+	57,  // 107: recruitment.AIService.SessionMessages:input_type -> recruitment.SessionMessagesRequest
+	58,  // 108: recruitment.AIService.CreateApplicationAnalysisSession:input_type -> recruitment.CreateApplicationAnalysisSessionRequest
+	60,  // 109: recruitment.AIService.UpdateSession:input_type -> recruitment.UpdateSessionRequest
+	61,  // 110: recruitment.AIService.DeleteSession:input_type -> recruitment.DeleteSessionRequest
+	62,  // 111: recruitment.AIService.CandidateChatStream:input_type -> recruitment.CandidateChatRequest
+	63,  // 112: recruitment.AIService.CandidateListSessions:input_type -> recruitment.CandidateSessionListRequest
+	64,  // 113: recruitment.AIService.CandidateCreateSession:input_type -> recruitment.CandidateCreateSessionRequest
+	65,  // 114: recruitment.AIService.CandidateSessionMessages:input_type -> recruitment.CandidateSessionMessagesRequest
+	66,  // 115: recruitment.AIService.CandidateUpdateSession:input_type -> recruitment.CandidateUpdateSessionRequest
+	67,  // 116: recruitment.AIService.CandidateDeleteSession:input_type -> recruitment.CandidateDeleteSessionRequest
+	136, // 117: recruitment.OfferService.CreateOffer:input_type -> recruitment.CreateOfferRequest
+	138, // 118: recruitment.OfferService.UpdateOffer:input_type -> recruitment.UpdateOfferRequest
+	139, // 119: recruitment.OfferService.GetOffer:input_type -> recruitment.GetOfferRequest
+	141, // 120: recruitment.OfferService.ListOffersByApplication:input_type -> recruitment.ListOffersByApplicationRequest
+	143, // 121: recruitment.OfferService.SendOffer:input_type -> recruitment.SendOfferRequest
+	144, // 122: recruitment.OfferService.WithdrawOffer:input_type -> recruitment.WithdrawOfferRequest
+	145, // 123: recruitment.OfferService.AcceptOffer:input_type -> recruitment.AcceptOfferRequest
+	146, // 124: recruitment.OfferService.RejectOffer:input_type -> recruitment.RejectOfferRequest
+	147, // 125: recruitment.OfferService.ListMyOffers:input_type -> recruitment.ListMyOffersRequest
+	150, // 126: recruitment.OfferService.ListOfferEvents:input_type -> recruitment.ListOfferEventsRequest
+	97,  // 127: recruitment.AdminService.CreateInviteCode:input_type -> recruitment.CreateInviteCodeRequest
+	99,  // 128: recruitment.AdminService.ListInviteCodes:input_type -> recruitment.ListInviteCodesRequest
+	101, // 129: recruitment.AdminService.ExtendInviteCode:input_type -> recruitment.ExtendInviteCodeRequest
+	102, // 130: recruitment.AdminService.RevokeInviteCode:input_type -> recruitment.RevokeInviteCodeRequest
+	103, // 131: recruitment.AdminService.ReactivateInviteCode:input_type -> recruitment.ReactivateInviteCodeRequest
+	104, // 132: recruitment.AdminService.ValidateInviteCode:input_type -> recruitment.ValidateInviteCodeRequest
+	110, // 133: recruitment.AdminService.ListDepartments:input_type -> recruitment.ListDepartmentsRequest
+	112, // 134: recruitment.AdminService.CreateDepartment:input_type -> recruitment.CreateDepartmentRequest
+	113, // 135: recruitment.AdminService.UpdateDepartment:input_type -> recruitment.UpdateDepartmentRequest
+	114, // 136: recruitment.AdminService.UpdateDepartmentStatus:input_type -> recruitment.UpdateDepartmentStatusRequest
+	115, // 137: recruitment.AdminService.DeleteDepartment:input_type -> recruitment.DeleteDepartmentRequest
+	117, // 138: recruitment.AdminService.ListJobLocations:input_type -> recruitment.ListJobLocationsRequest
+	119, // 139: recruitment.AdminService.CreateJobLocation:input_type -> recruitment.CreateJobLocationRequest
+	120, // 140: recruitment.AdminService.UpdateJobLocation:input_type -> recruitment.UpdateJobLocationRequest
+	121, // 141: recruitment.AdminService.UpdateJobLocationStatus:input_type -> recruitment.UpdateJobLocationStatusRequest
+	122, // 142: recruitment.AdminService.DeleteJobLocation:input_type -> recruitment.DeleteJobLocationRequest
+	129, // 143: recruitment.AdminService.GetDepartmentLocationConfig:input_type -> recruitment.GetDepartmentLocationConfigRequest
+	130, // 144: recruitment.AdminService.UpdateDepartmentLocationConfig:input_type -> recruitment.UpdateDepartmentLocationConfigRequest
+	125, // 145: recruitment.AdminService.ListDepartmentsLocationMap:input_type -> recruitment.ListDepartmentsLocationMapRequest
+	133, // 146: recruitment.AdminService.QueryUsageLogs:input_type -> recruitment.QueryUsageLogsRequest
+	152, // 147: recruitment.AdminService.ListRoles:input_type -> recruitment.ListRolesRequest
+	155, // 148: recruitment.AdminService.ListPermissions:input_type -> recruitment.ListPermissionsRequest
+	158, // 149: recruitment.AdminService.GetUserRoles:input_type -> recruitment.GetUserRolesRequest
+	161, // 150: recruitment.AdminService.AssignUserRole:input_type -> recruitment.AssignUserRoleRequest
+	162, // 151: recruitment.AdminService.RevokeUserRole:input_type -> recruitment.RevokeUserRoleRequest
+	163, // 152: recruitment.AdminService.AssignDataScope:input_type -> recruitment.AssignDataScopeRequest
+	164, // 153: recruitment.AdminService.RevokeDataScope:input_type -> recruitment.RevokeDataScopeRequest
+	165, // 154: recruitment.AdminService.ListStaffUsers:input_type -> recruitment.ListStaffUsersRequest
+	168, // 155: recruitment.AdminService.CreateStaffUser:input_type -> recruitment.CreateStaffUserRequest
+	201, // 156: recruitment.AdminService.QueryAuthAuditLogs:input_type -> recruitment.QueryAuthAuditLogsRequest
+	204, // 157: recruitment.AdminService.GetDashboardReport:input_type -> recruitment.GetDashboardReportRequest
+	208, // 158: recruitment.AdminService.GetFunnelReport:input_type -> recruitment.GetFunnelReportRequest
+	211, // 159: recruitment.AdminService.GetTimeInStageReport:input_type -> recruitment.GetTimeInStageReportRequest
+	214, // 160: recruitment.AdminService.GetInterviewOfferMetrics:input_type -> recruitment.GetInterviewOfferMetricsRequest
+	170, // 161: recruitment.CollaborationService.GetCandidateWorkspace:input_type -> recruitment.GetCandidateWorkspaceRequest
+	177, // 162: recruitment.CollaborationService.CreateNote:input_type -> recruitment.CreateNoteRequest
+	179, // 163: recruitment.CollaborationService.ListNotes:input_type -> recruitment.ListNotesRequest
+	182, // 164: recruitment.CollaborationService.CreateTag:input_type -> recruitment.CreateTagRequest
+	184, // 165: recruitment.CollaborationService.ListTags:input_type -> recruitment.ListTagsRequest
+	186, // 166: recruitment.CollaborationService.AssignTag:input_type -> recruitment.AssignTagRequest
+	187, // 167: recruitment.CollaborationService.UnassignTag:input_type -> recruitment.UnassignTagRequest
+	188, // 168: recruitment.CollaborationService.ListCandidateTags:input_type -> recruitment.ListCandidateTagsRequest
+	191, // 169: recruitment.CollaborationService.CreateFollowUpTask:input_type -> recruitment.CreateFollowUpTaskRequest
+	193, // 170: recruitment.CollaborationService.ListFollowUpTasks:input_type -> recruitment.ListFollowUpTasksRequest
+	195, // 171: recruitment.CollaborationService.CompleteFollowUpTask:input_type -> recruitment.CompleteFollowUpTaskRequest
+	196, // 172: recruitment.CollaborationService.GetFollowUpTask:input_type -> recruitment.GetFollowUpTaskRequest
+	199, // 173: recruitment.CollaborationService.ListTimelineEvents:input_type -> recruitment.ListTimelineEventsRequest
+	2,   // 174: recruitment.AuthService.Register:output_type -> recruitment.RegisterResponse
+	4,   // 175: recruitment.AuthService.Login:output_type -> recruitment.LoginResponse
+	6,   // 176: recruitment.AuthService.RefreshToken:output_type -> recruitment.RefreshTokenResponse
+	0,   // 177: recruitment.AuthService.RevokeRefreshToken:output_type -> recruitment.CommonResponse
+	0,   // 178: recruitment.AuthService.RecordAuthDecision:output_type -> recruitment.CommonResponse
+	10,  // 179: recruitment.AuthService.GetPrincipal:output_type -> recruitment.GetPrincipalResponse
+	13,  // 180: recruitment.JobService.CreateJob:output_type -> recruitment.CreateJobResponse
+	0,   // 181: recruitment.JobService.UpdateJob:output_type -> recruitment.CommonResponse
+	0,   // 182: recruitment.JobService.OfflineJob:output_type -> recruitment.CommonResponse
+	0,   // 183: recruitment.JobService.OnlineJob:output_type -> recruitment.CommonResponse
+	20,  // 184: recruitment.JobService.ListHRJobs:output_type -> recruitment.ListJobsResponse
+	20,  // 185: recruitment.JobService.ListPublicJobs:output_type -> recruitment.ListJobsResponse
+	21,  // 186: recruitment.JobService.GetJobDetail:output_type -> recruitment.GetJobDetailResponse
+	107, // 187: recruitment.JobService.ListJobOptions:output_type -> recruitment.ListJobOptionsResponse
+	128, // 188: recruitment.JobService.ListDepartmentLocations:output_type -> recruitment.ListDepartmentLocationsResponse
+	25,  // 189: recruitment.CandidateService.GetProfile:output_type -> recruitment.GetProfileResponse
+	25,  // 190: recruitment.CandidateService.UpdateProfile:output_type -> recruitment.GetProfileResponse
+	28,  // 191: recruitment.CandidateService.GetResume:output_type -> recruitment.GetResumeResponse
+	30,  // 192: recruitment.CandidateService.PresignResumeUpload:output_type -> recruitment.PresignResumeUploadResponse
+	32,  // 193: recruitment.CandidateService.ConfirmResumeUpload:output_type -> recruitment.ConfirmResumeUploadResponse
+	0,   // 194: recruitment.ApplicationService.ApplyJob:output_type -> recruitment.CommonResponse
+	36,  // 195: recruitment.ApplicationService.ListMyApplications:output_type -> recruitment.ListMyApplicationsResponse
+	39,  // 196: recruitment.ApplicationService.ListJobApplications:output_type -> recruitment.ListJobApplicationsResponse
+	0,   // 197: recruitment.ApplicationService.UpdateApplicationStatus:output_type -> recruitment.CommonResponse
+	43,  // 198: recruitment.ApplicationService.ListApplicationStatusTransitions:output_type -> recruitment.ListApplicationStatusTransitionsResponse
+	70,  // 199: recruitment.InterviewService.ScheduleInterview:output_type -> recruitment.ScheduleInterviewResponse
+	0,   // 200: recruitment.InterviewService.UpdateInterview:output_type -> recruitment.CommonResponse
+	0,   // 201: recruitment.InterviewService.CancelInterview:output_type -> recruitment.CommonResponse
+	74,  // 202: recruitment.InterviewService.GetInterview:output_type -> recruitment.GetInterviewResponse
+	76,  // 203: recruitment.InterviewService.ListInterviewers:output_type -> recruitment.ListInterviewersResponse
+	78,  // 204: recruitment.InterviewService.ListApplicationInterviews:output_type -> recruitment.ListApplicationInterviewsResponse
+	80,  // 205: recruitment.InterviewService.ListMyInterviews:output_type -> recruitment.ListMyInterviewsResponse
+	82,  // 206: recruitment.InterviewService.ListCandidateInterviews:output_type -> recruitment.ListCandidateInterviewsResponse
+	0,   // 207: recruitment.InterviewService.SubmitFeedback:output_type -> recruitment.CommonResponse
+	86,  // 208: recruitment.InterviewService.GetFeedback:output_type -> recruitment.GetFeedbackResponse
+	89,  // 209: recruitment.NotificationService.ListNotifications:output_type -> recruitment.ListNotificationsResponse
+	91,  // 210: recruitment.NotificationService.UnreadNotificationCount:output_type -> recruitment.UnreadNotificationCountResponse
+	93,  // 211: recruitment.NotificationService.NotificationSummary:output_type -> recruitment.NotificationSummaryResponse
+	0,   // 212: recruitment.NotificationService.MarkNotificationRead:output_type -> recruitment.CommonResponse
+	0,   // 213: recruitment.NotificationService.MarkAllNotificationsRead:output_type -> recruitment.CommonResponse
+	45,  // 214: recruitment.AIService.Chat:output_type -> recruitment.ChatResponse
+	46,  // 215: recruitment.AIService.ChatStream:output_type -> recruitment.ChatStreamResponse
+	49,  // 216: recruitment.AIService.History:output_type -> recruitment.ChatHistoryResponse
+	51,  // 217: recruitment.AIService.AnalyzeApplication:output_type -> recruitment.AnalyzeApplicationResponse
+	54,  // 218: recruitment.AIService.ListChatSessions:output_type -> recruitment.ChatSessionListResponse
+	56,  // 219: recruitment.AIService.CreateChatSession:output_type -> recruitment.CreateChatSessionResponse
+	49,  // 220: recruitment.AIService.SessionMessages:output_type -> recruitment.ChatHistoryResponse
+	59,  // 221: recruitment.AIService.CreateApplicationAnalysisSession:output_type -> recruitment.CreateApplicationAnalysisSessionResponse
+	0,   // 222: recruitment.AIService.UpdateSession:output_type -> recruitment.CommonResponse
+	0,   // 223: recruitment.AIService.DeleteSession:output_type -> recruitment.CommonResponse
+	46,  // 224: recruitment.AIService.CandidateChatStream:output_type -> recruitment.ChatStreamResponse
+	54,  // 225: recruitment.AIService.CandidateListSessions:output_type -> recruitment.ChatSessionListResponse
+	56,  // 226: recruitment.AIService.CandidateCreateSession:output_type -> recruitment.CreateChatSessionResponse
+	49,  // 227: recruitment.AIService.CandidateSessionMessages:output_type -> recruitment.ChatHistoryResponse
+	0,   // 228: recruitment.AIService.CandidateUpdateSession:output_type -> recruitment.CommonResponse
+	0,   // 229: recruitment.AIService.CandidateDeleteSession:output_type -> recruitment.CommonResponse
+	137, // 230: recruitment.OfferService.CreateOffer:output_type -> recruitment.CreateOfferResponse
+	0,   // 231: recruitment.OfferService.UpdateOffer:output_type -> recruitment.CommonResponse
+	140, // 232: recruitment.OfferService.GetOffer:output_type -> recruitment.GetOfferResponse
+	142, // 233: recruitment.OfferService.ListOffersByApplication:output_type -> recruitment.ListOffersByApplicationResponse
+	0,   // 234: recruitment.OfferService.SendOffer:output_type -> recruitment.CommonResponse
+	0,   // 235: recruitment.OfferService.WithdrawOffer:output_type -> recruitment.CommonResponse
+	0,   // 236: recruitment.OfferService.AcceptOffer:output_type -> recruitment.CommonResponse
+	0,   // 237: recruitment.OfferService.RejectOffer:output_type -> recruitment.CommonResponse
+	148, // 238: recruitment.OfferService.ListMyOffers:output_type -> recruitment.ListMyOffersResponse
+	151, // 239: recruitment.OfferService.ListOfferEvents:output_type -> recruitment.ListOfferEventsResponse
+	98,  // 240: recruitment.AdminService.CreateInviteCode:output_type -> recruitment.CreateInviteCodeResponse
+	100, // 241: recruitment.AdminService.ListInviteCodes:output_type -> recruitment.ListInviteCodesResponse
+	0,   // 242: recruitment.AdminService.ExtendInviteCode:output_type -> recruitment.CommonResponse
+	0,   // 243: recruitment.AdminService.RevokeInviteCode:output_type -> recruitment.CommonResponse
+	0,   // 244: recruitment.AdminService.ReactivateInviteCode:output_type -> recruitment.CommonResponse
+	105, // 245: recruitment.AdminService.ValidateInviteCode:output_type -> recruitment.ValidateInviteCodeResponse
+	111, // 246: recruitment.AdminService.ListDepartments:output_type -> recruitment.ListDepartmentsResponse
+	116, // 247: recruitment.AdminService.CreateDepartment:output_type -> recruitment.DepartmentResponse
+	116, // 248: recruitment.AdminService.UpdateDepartment:output_type -> recruitment.DepartmentResponse
+	0,   // 249: recruitment.AdminService.UpdateDepartmentStatus:output_type -> recruitment.CommonResponse
+	0,   // 250: recruitment.AdminService.DeleteDepartment:output_type -> recruitment.CommonResponse
+	118, // 251: recruitment.AdminService.ListJobLocations:output_type -> recruitment.ListJobLocationsResponse
+	123, // 252: recruitment.AdminService.CreateJobLocation:output_type -> recruitment.JobLocationResponse
+	123, // 253: recruitment.AdminService.UpdateJobLocation:output_type -> recruitment.JobLocationResponse
+	0,   // 254: recruitment.AdminService.UpdateJobLocationStatus:output_type -> recruitment.CommonResponse
+	0,   // 255: recruitment.AdminService.DeleteJobLocation:output_type -> recruitment.CommonResponse
+	131, // 256: recruitment.AdminService.GetDepartmentLocationConfig:output_type -> recruitment.DepartmentLocationConfigResponse
+	131, // 257: recruitment.AdminService.UpdateDepartmentLocationConfig:output_type -> recruitment.DepartmentLocationConfigResponse
+	126, // 258: recruitment.AdminService.ListDepartmentsLocationMap:output_type -> recruitment.ListDepartmentsLocationMapResponse
+	134, // 259: recruitment.AdminService.QueryUsageLogs:output_type -> recruitment.QueryUsageLogsResponse
+	153, // 260: recruitment.AdminService.ListRoles:output_type -> recruitment.ListRolesResponse
+	156, // 261: recruitment.AdminService.ListPermissions:output_type -> recruitment.ListPermissionsResponse
+	159, // 262: recruitment.AdminService.GetUserRoles:output_type -> recruitment.GetUserRolesResponse
+	0,   // 263: recruitment.AdminService.AssignUserRole:output_type -> recruitment.CommonResponse
+	0,   // 264: recruitment.AdminService.RevokeUserRole:output_type -> recruitment.CommonResponse
+	0,   // 265: recruitment.AdminService.AssignDataScope:output_type -> recruitment.CommonResponse
+	0,   // 266: recruitment.AdminService.RevokeDataScope:output_type -> recruitment.CommonResponse
+	166, // 267: recruitment.AdminService.ListStaffUsers:output_type -> recruitment.ListStaffUsersResponse
+	169, // 268: recruitment.AdminService.CreateStaffUser:output_type -> recruitment.CreateStaffUserResponse
+	203, // 269: recruitment.AdminService.QueryAuthAuditLogs:output_type -> recruitment.QueryAuthAuditLogsResponse
+	207, // 270: recruitment.AdminService.GetDashboardReport:output_type -> recruitment.GetDashboardReportResponse
+	210, // 271: recruitment.AdminService.GetFunnelReport:output_type -> recruitment.GetFunnelReportResponse
+	213, // 272: recruitment.AdminService.GetTimeInStageReport:output_type -> recruitment.GetTimeInStageReportResponse
+	215, // 273: recruitment.AdminService.GetInterviewOfferMetrics:output_type -> recruitment.GetInterviewOfferMetricsResponse
+	175, // 274: recruitment.CollaborationService.GetCandidateWorkspace:output_type -> recruitment.GetCandidateWorkspaceResponse
+	178, // 275: recruitment.CollaborationService.CreateNote:output_type -> recruitment.CreateNoteResponse
+	180, // 276: recruitment.CollaborationService.ListNotes:output_type -> recruitment.ListNotesResponse
+	183, // 277: recruitment.CollaborationService.CreateTag:output_type -> recruitment.CreateTagResponse
+	185, // 278: recruitment.CollaborationService.ListTags:output_type -> recruitment.ListTagsResponse
+	0,   // 279: recruitment.CollaborationService.AssignTag:output_type -> recruitment.CommonResponse
+	0,   // 280: recruitment.CollaborationService.UnassignTag:output_type -> recruitment.CommonResponse
+	189, // 281: recruitment.CollaborationService.ListCandidateTags:output_type -> recruitment.ListCandidateTagsResponse
+	192, // 282: recruitment.CollaborationService.CreateFollowUpTask:output_type -> recruitment.CreateFollowUpTaskResponse
+	194, // 283: recruitment.CollaborationService.ListFollowUpTasks:output_type -> recruitment.ListFollowUpTasksResponse
+	0,   // 284: recruitment.CollaborationService.CompleteFollowUpTask:output_type -> recruitment.CommonResponse
+	197, // 285: recruitment.CollaborationService.GetFollowUpTask:output_type -> recruitment.GetFollowUpTaskResponse
+	200, // 286: recruitment.CollaborationService.ListTimelineEvents:output_type -> recruitment.ListTimelineEventsResponse
+	174, // [174:287] is the sub-list for method output_type
+	61,  // [61:174] is the sub-list for method input_type
+	61,  // [61:61] is the sub-list for extension type_name
+	61,  // [61:61] is the sub-list for extension extendee
+	0,   // [0:61] is the sub-list for field type_name
 }
 
 func init() { file_proto_recruitment_proto_init() }
@@ -16337,7 +17594,7 @@ func file_proto_recruitment_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_proto_recruitment_proto_rawDesc), len(file_proto_recruitment_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   201,
+			NumMessages:   216,
 			NumExtensions: 0,
 			NumServices:   10,
 		},

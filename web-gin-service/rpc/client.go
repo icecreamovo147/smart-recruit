@@ -85,6 +85,11 @@ func NewClients(addr string) (*Clients, error) {
 						{"service": "recruitment.AIService", "method": "SessionMessages"},
 						{"service": "recruitment.NotificationService", "method": "ListNotifications"},
 						{"service": "recruitment.NotificationService", "method": "UnreadNotificationCount"},
+						{"service": "recruitment.AdminService", "method": "GetDashboardReport"},
+						{"service": "recruitment.AdminService", "method": "GetFunnelReport"},
+						{"service": "recruitment.AdminService", "method": "GetTimeInStageReport"},
+						{"service": "recruitment.AdminService", "method": "GetInterviewOfferMetrics"},
+						{"service": "recruitment.AdminService", "method": "QueryAuthAuditLogs"},
 						{"service": "grpc.health.v1.Health", "method": "Check"}
 					],
 					"retryPolicy": {

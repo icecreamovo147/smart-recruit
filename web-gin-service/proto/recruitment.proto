@@ -137,6 +137,13 @@ service AdminService {
   // Staff user management
   rpc ListStaffUsers(ListStaffUsersRequest) returns (ListStaffUsersResponse);
   rpc CreateStaffUser(CreateStaffUserRequest) returns (CreateStaffUserResponse);
+
+  // ── Phase 6: Analytics & AI Audit ─────────────────────────────────────
+  rpc QueryAuthAuditLogs(QueryAuthAuditLogsRequest) returns (QueryAuthAuditLogsResponse);
+  rpc GetDashboardReport(GetDashboardReportRequest) returns (GetDashboardReportResponse);
+  rpc GetFunnelReport(GetFunnelReportRequest) returns (GetFunnelReportResponse);
+  rpc GetTimeInStageReport(GetTimeInStageReportRequest) returns (GetTimeInStageReportResponse);
+  rpc GetInterviewOfferMetrics(GetInterviewOfferMetricsRequest) returns (GetInterviewOfferMetricsResponse);
 }
 
 // ── Phase 4: Candidate Collaboration ───────────────────────────────────
@@ -1711,4 +1718,145 @@ message ListTimelineEventsResponse {
   int32 code = 1;
   string msg = 2;
   repeated TimelineEventInfo events = 3;
+}
+
+// ══════════════════════════════════════════════════════════════════════
+// Phase 6: Analytics & AI Audit
+// ══════════════════════════════════════════════════════════════════════
+
+// ── Auth Audit Logs ───────────────────────────────────────────────────
+
+message QueryAuthAuditLogsRequest {
+  int64 actor_user_id = 1;    // optional filter
+  string permission_key = 2;  // optional filter
+  string decision = 3;        // optional filter: allowed / denied
+  int32 page = 4;
+  int32 page_size = 5;
+}
+
+message AuthAuditLogItem {
+  uint64 id = 1;
+  int64 actor_user_id = 2;
+  string actor_roles = 3;
+  string permission_key = 4;
+  string resource_type = 5;
+  uint64 resource_id = 6;
+  string decision = 7;
+  string reason = 8;
+  string request_id = 9;
+  string client_ip = 10;
+  string created_at = 11;
+}
+
+message QueryAuthAuditLogsResponse {
+  int32 code = 1;
+  string msg = 2;
+  int64 total = 3;
+  repeated AuthAuditLogItem list = 4;
+}
+
+// ── Dashboard Report ─────────────────────────────────────────────────
+
+message GetDashboardReportRequest {
+  int64 staff_user_id = 1;
+}
+
+message DashboardReportItem {
+  string stage_key = 1;
+  string stage_label = 2;
+  int64 count = 3;
+}
+
+message DashboardTrendPoint {
+  string date = 1;
+  int64 applications = 2;
+}
+
+message GetDashboardReportResponse {
+  int32 code = 1;
+  string msg = 2;
+
+  // KPI
+  int64 online_jobs = 3;
+  int64 offline_jobs = 4;
+  int64 total_applications = 5;
+  int64 today_applications = 6;
+  int64 unread_notifications = 7;
+  int64 pending_actions = 8;
+
+  // Trend (last 7 days)
+  repeated DashboardTrendPoint trend = 9;
+
+  // Stage distribution (funnel)
+  repeated DashboardReportItem stage_distribution = 10;
+}
+
+// ── Funnel Report ────────────────────────────────────────────────────
+
+message GetFunnelReportRequest {
+  int64 staff_user_id = 1;
+  string start_date = 2;  // RFC 3339, optional
+  string end_date = 3;    // RFC 3339, optional
+  int64 job_id = 4;       // optional filter
+}
+
+message FunnelStage {
+  string stage_key = 1;
+  string stage_label = 2;
+  int64 count = 3;
+  double conversion_rate = 4; // rate from previous stage (0-100)
+}
+
+message GetFunnelReportResponse {
+  int32 code = 1;
+  string msg = 2;
+  repeated FunnelStage stages = 3;
+}
+
+// ── Time-in-Stage Report ─────────────────────────────────────────────
+
+message GetTimeInStageReportRequest {
+  int64 staff_user_id = 1;
+  string start_date = 2;  // RFC 3339, optional
+  string end_date = 3;    // RFC 3339, optional
+  int64 job_id = 4;       // optional filter
+}
+
+message StageDuration {
+  string stage_key = 1;
+  string stage_label = 2;
+  double avg_hours = 3;    // average hours spent in this stage
+  int64 transition_count = 4;
+}
+
+message GetTimeInStageReportResponse {
+  int32 code = 1;
+  string msg = 2;
+  repeated StageDuration durations = 3;
+}
+
+// ── Interview & Offer Metrics ────────────────────────────────────────
+
+message GetInterviewOfferMetricsRequest {
+  int64 staff_user_id = 1;
+  string start_date = 2;  // RFC 3339, optional
+  string end_date = 3;    // RFC 3339, optional
+  int64 job_id = 4;       // optional filter
+}
+
+message GetInterviewOfferMetricsResponse {
+  int32 code = 1;
+  string msg = 2;
+
+  // Interview metrics
+  int64 total_interviews = 3;
+  int64 completed_interviews = 4;
+  int64 positive_feedbacks = 5;
+  double pass_rate = 6;  // 0-100
+
+  // Offer metrics
+  int64 total_offers = 7;
+  int64 accepted_offers = 8;
+  int64 rejected_offers = 9;
+  double acceptance_rate = 10; // 0-100
 }

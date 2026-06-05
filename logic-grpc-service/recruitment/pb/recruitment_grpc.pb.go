@@ -3080,6 +3080,11 @@ const (
 	AdminService_RevokeDataScope_FullMethodName                = "/recruitment.AdminService/RevokeDataScope"
 	AdminService_ListStaffUsers_FullMethodName                 = "/recruitment.AdminService/ListStaffUsers"
 	AdminService_CreateStaffUser_FullMethodName                = "/recruitment.AdminService/CreateStaffUser"
+	AdminService_QueryAuthAuditLogs_FullMethodName             = "/recruitment.AdminService/QueryAuthAuditLogs"
+	AdminService_GetDashboardReport_FullMethodName             = "/recruitment.AdminService/GetDashboardReport"
+	AdminService_GetFunnelReport_FullMethodName                = "/recruitment.AdminService/GetFunnelReport"
+	AdminService_GetTimeInStageReport_FullMethodName           = "/recruitment.AdminService/GetTimeInStageReport"
+	AdminService_GetInterviewOfferMetrics_FullMethodName       = "/recruitment.AdminService/GetInterviewOfferMetrics"
 )
 
 // AdminServiceClient is the client API for AdminService service.
@@ -3117,6 +3122,12 @@ type AdminServiceClient interface {
 	// Staff user management
 	ListStaffUsers(ctx context.Context, in *ListStaffUsersRequest, opts ...grpc.CallOption) (*ListStaffUsersResponse, error)
 	CreateStaffUser(ctx context.Context, in *CreateStaffUserRequest, opts ...grpc.CallOption) (*CreateStaffUserResponse, error)
+	// ── Phase 6: Analytics & AI Audit ─────────────────────────────────────
+	QueryAuthAuditLogs(ctx context.Context, in *QueryAuthAuditLogsRequest, opts ...grpc.CallOption) (*QueryAuthAuditLogsResponse, error)
+	GetDashboardReport(ctx context.Context, in *GetDashboardReportRequest, opts ...grpc.CallOption) (*GetDashboardReportResponse, error)
+	GetFunnelReport(ctx context.Context, in *GetFunnelReportRequest, opts ...grpc.CallOption) (*GetFunnelReportResponse, error)
+	GetTimeInStageReport(ctx context.Context, in *GetTimeInStageReportRequest, opts ...grpc.CallOption) (*GetTimeInStageReportResponse, error)
+	GetInterviewOfferMetrics(ctx context.Context, in *GetInterviewOfferMetricsRequest, opts ...grpc.CallOption) (*GetInterviewOfferMetricsResponse, error)
 }
 
 type adminServiceClient struct {
@@ -3417,6 +3428,56 @@ func (c *adminServiceClient) CreateStaffUser(ctx context.Context, in *CreateStaf
 	return out, nil
 }
 
+func (c *adminServiceClient) QueryAuthAuditLogs(ctx context.Context, in *QueryAuthAuditLogsRequest, opts ...grpc.CallOption) (*QueryAuthAuditLogsResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(QueryAuthAuditLogsResponse)
+	err := c.cc.Invoke(ctx, AdminService_QueryAuthAuditLogs_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *adminServiceClient) GetDashboardReport(ctx context.Context, in *GetDashboardReportRequest, opts ...grpc.CallOption) (*GetDashboardReportResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(GetDashboardReportResponse)
+	err := c.cc.Invoke(ctx, AdminService_GetDashboardReport_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *adminServiceClient) GetFunnelReport(ctx context.Context, in *GetFunnelReportRequest, opts ...grpc.CallOption) (*GetFunnelReportResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(GetFunnelReportResponse)
+	err := c.cc.Invoke(ctx, AdminService_GetFunnelReport_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *adminServiceClient) GetTimeInStageReport(ctx context.Context, in *GetTimeInStageReportRequest, opts ...grpc.CallOption) (*GetTimeInStageReportResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(GetTimeInStageReportResponse)
+	err := c.cc.Invoke(ctx, AdminService_GetTimeInStageReport_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *adminServiceClient) GetInterviewOfferMetrics(ctx context.Context, in *GetInterviewOfferMetricsRequest, opts ...grpc.CallOption) (*GetInterviewOfferMetricsResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(GetInterviewOfferMetricsResponse)
+	err := c.cc.Invoke(ctx, AdminService_GetInterviewOfferMetrics_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // AdminServiceServer is the server API for AdminService service.
 // All implementations must embed UnimplementedAdminServiceServer
 // for forward compatibility.
@@ -3452,6 +3513,12 @@ type AdminServiceServer interface {
 	// Staff user management
 	ListStaffUsers(context.Context, *ListStaffUsersRequest) (*ListStaffUsersResponse, error)
 	CreateStaffUser(context.Context, *CreateStaffUserRequest) (*CreateStaffUserResponse, error)
+	// ── Phase 6: Analytics & AI Audit ─────────────────────────────────────
+	QueryAuthAuditLogs(context.Context, *QueryAuthAuditLogsRequest) (*QueryAuthAuditLogsResponse, error)
+	GetDashboardReport(context.Context, *GetDashboardReportRequest) (*GetDashboardReportResponse, error)
+	GetFunnelReport(context.Context, *GetFunnelReportRequest) (*GetFunnelReportResponse, error)
+	GetTimeInStageReport(context.Context, *GetTimeInStageReportRequest) (*GetTimeInStageReportResponse, error)
+	GetInterviewOfferMetrics(context.Context, *GetInterviewOfferMetricsRequest) (*GetInterviewOfferMetricsResponse, error)
 	mustEmbedUnimplementedAdminServiceServer()
 }
 
@@ -3548,6 +3615,21 @@ func (UnimplementedAdminServiceServer) ListStaffUsers(context.Context, *ListStaf
 }
 func (UnimplementedAdminServiceServer) CreateStaffUser(context.Context, *CreateStaffUserRequest) (*CreateStaffUserResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method CreateStaffUser not implemented")
+}
+func (UnimplementedAdminServiceServer) QueryAuthAuditLogs(context.Context, *QueryAuthAuditLogsRequest) (*QueryAuthAuditLogsResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method QueryAuthAuditLogs not implemented")
+}
+func (UnimplementedAdminServiceServer) GetDashboardReport(context.Context, *GetDashboardReportRequest) (*GetDashboardReportResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method GetDashboardReport not implemented")
+}
+func (UnimplementedAdminServiceServer) GetFunnelReport(context.Context, *GetFunnelReportRequest) (*GetFunnelReportResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method GetFunnelReport not implemented")
+}
+func (UnimplementedAdminServiceServer) GetTimeInStageReport(context.Context, *GetTimeInStageReportRequest) (*GetTimeInStageReportResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method GetTimeInStageReport not implemented")
+}
+func (UnimplementedAdminServiceServer) GetInterviewOfferMetrics(context.Context, *GetInterviewOfferMetricsRequest) (*GetInterviewOfferMetricsResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method GetInterviewOfferMetrics not implemented")
 }
 func (UnimplementedAdminServiceServer) mustEmbedUnimplementedAdminServiceServer() {}
 func (UnimplementedAdminServiceServer) testEmbeddedByValue()                      {}
@@ -4092,6 +4174,96 @@ func _AdminService_CreateStaffUser_Handler(srv interface{}, ctx context.Context,
 	return interceptor(ctx, in, info, handler)
 }
 
+func _AdminService_QueryAuthAuditLogs_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(QueryAuthAuditLogsRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(AdminServiceServer).QueryAuthAuditLogs(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: AdminService_QueryAuthAuditLogs_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(AdminServiceServer).QueryAuthAuditLogs(ctx, req.(*QueryAuthAuditLogsRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _AdminService_GetDashboardReport_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetDashboardReportRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(AdminServiceServer).GetDashboardReport(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: AdminService_GetDashboardReport_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(AdminServiceServer).GetDashboardReport(ctx, req.(*GetDashboardReportRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _AdminService_GetFunnelReport_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetFunnelReportRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(AdminServiceServer).GetFunnelReport(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: AdminService_GetFunnelReport_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(AdminServiceServer).GetFunnelReport(ctx, req.(*GetFunnelReportRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _AdminService_GetTimeInStageReport_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetTimeInStageReportRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(AdminServiceServer).GetTimeInStageReport(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: AdminService_GetTimeInStageReport_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(AdminServiceServer).GetTimeInStageReport(ctx, req.(*GetTimeInStageReportRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _AdminService_GetInterviewOfferMetrics_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetInterviewOfferMetricsRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(AdminServiceServer).GetInterviewOfferMetrics(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: AdminService_GetInterviewOfferMetrics_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(AdminServiceServer).GetInterviewOfferMetrics(ctx, req.(*GetInterviewOfferMetricsRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // AdminService_ServiceDesc is the grpc.ServiceDesc for AdminService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -4214,6 +4386,26 @@ var AdminService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "CreateStaffUser",
 			Handler:    _AdminService_CreateStaffUser_Handler,
+		},
+		{
+			MethodName: "QueryAuthAuditLogs",
+			Handler:    _AdminService_QueryAuthAuditLogs_Handler,
+		},
+		{
+			MethodName: "GetDashboardReport",
+			Handler:    _AdminService_GetDashboardReport_Handler,
+		},
+		{
+			MethodName: "GetFunnelReport",
+			Handler:    _AdminService_GetFunnelReport_Handler,
+		},
+		{
+			MethodName: "GetTimeInStageReport",
+			Handler:    _AdminService_GetTimeInStageReport_Handler,
+		},
+		{
+			MethodName: "GetInterviewOfferMetrics",
+			Handler:    _AdminService_GetInterviewOfferMetrics_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

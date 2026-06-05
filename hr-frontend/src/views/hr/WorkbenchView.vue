@@ -140,6 +140,7 @@ const quickLinks = computed(() => {
   const links: { label: string; path: string; icon: any }[] = [
     { label: '岗位管理', path: '/hr/jobs', icon: Briefcase },
     { label: 'AI 数据助手', path: '/hr/ai', icon: DataAnalysis },
+    { label: '数据分析', path: '/hr/analytics', icon: DataAnalysis },
   ]
   if (auth.hasPermission(PERM.AUDIT_USAGE_READ)) {
     links.push({ label: '服务审计', path: '/hr/admin/usage-audit', icon: Monitor })

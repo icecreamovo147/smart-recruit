@@ -26,7 +26,7 @@ import (
 )
 
 type AIService struct {
-	chats           *repository.ChatRepo
+	chats            *repository.ChatRepo
 	applications    *repository.ApplicationRepo
 	jobs            *repository.JobRepo
 	resumes         *repository.ResumeRepo
@@ -39,6 +39,8 @@ type AIService struct {
 	contextBuilder  *AgentContextBuilder
 	candidateAI     *CandidateAIService
 	usageLogs       *repository.UsageLogRepo
+	usageAuditCtx   *repository.UsageAuditContextRepo
+	authzRepo       *repository.AuthzRepo
 	agentRuntime    string
 	authz           *ServiceAuthorizer
 	cachedADKTools []tool.BaseTool // lazy-initialized, shared across requests
@@ -59,6 +61,8 @@ func NewAIService(
 	contextBuilder *AgentContextBuilder,
 	candidateAI *CandidateAIService,
 	usageLogs *repository.UsageLogRepo,
+		usageAuditCtx *repository.UsageAuditContextRepo,
+		authzRepo *repository.AuthzRepo,
 	agentRuntime string,
 	authz *ServiceAuthorizer,
 ) *AIService {
@@ -68,8 +72,41 @@ func NewAIService(
 		oss: ossClient, ai: aiClient, toolExecutor: toolExecutor,
 		contextBuilder: contextBuilder, candidateAI: candidateAI,
 		usageLogs: usageLogs,
+		usageAuditCtx: usageAuditCtx,
+		authzRepo: authzRepo,
 		agentRuntime: agentRuntime,
 		authz: authz,
+	}
+}
+
+// writeHRUsageAudit writes both the usage log and the RBAC auth context for an HR AI operation.
+// The usage log is created synchronously so the returned ID can be linked to the auth context record.
+func (s *AIService) writeHRUsageAudit(ctx context.Context, entry AuditLogEntry, hrID int64, resourceType string, resourceID int64) {
+	usageLogID := createUsageLogSync(ctx, s.usageLogs, entry)
+
+	if s.usageAuditCtx != nil && s.authzRepo != nil {
+		ua := uint64(hrID)
+		roleKeys, _ := s.authzRepo.GetUserRoles(ctx, ua)
+		scopeKeys, _ := s.authzRepo.GetUserScopeKeys(ctx, ua)
+		if roleKeys == nil {
+			roleKeys = []string{}
+		}
+		if scopeKeys == nil {
+			scopeKeys = []string{}
+		}
+
+		writeAIUsageAuthContext(ctx, s.usageAuditCtx, AIUsageAuthContextEntry{
+			UsageLogID:    uint64(usageLogID),
+			ActorUserID:   ua,
+			AccountType:   "staff",
+			RoleKeys:      roleKeys,
+			PermissionKey: "ai.hr.use",
+			ScopeKeys:     scopeKeys,
+			ResourceType:  resourceType,
+			ResourceID:    uint64(resourceID),
+			Decision:      "allowed",
+			RequestID:     entry.RequestID,
+		})
 	}
 }
 
@@ -106,28 +143,28 @@ func (s *AIService) Chat(ctx context.Context, req *pb.ChatRequest) (*pb.ChatResp
 				partial = reply
 			}
 			log.Info("non-streaming chat canceled, returning partial reply", zap.Int("partial_chars", len([]rune(partial))))
-			writeAuditLog(ctx, s.usageLogs, AuditLogEntry{
+			s.writeHRUsageAudit(ctx, AuditLogEntry{
 				UserID: req.HrId, Role: 2, ServiceType: "ai_chat",
 				Endpoint: "/hr/ai/chat", Provider: "dashscope", Model: s.ai.ModelName(),
 				RequestChars: inputChars, ResponseChars: len([]rune(partial)), Status: "timeout", CostMs: int(time.Since(startTime).Milliseconds()),
-			})
+			}, req.HrId, "ai", req.ApplicationId)
 			return &pb.ChatResponse{Code: errs.OK, Msg: "success", Reply: partial, CreatedAt: formatTime(time.Now()), SessionId: session.ID}, nil
 		}
-		writeAuditLog(ctx, s.usageLogs, AuditLogEntry{
+		s.writeHRUsageAudit(ctx, AuditLogEntry{
 			UserID: req.HrId, Role: 2, ServiceType: "ai_chat",
 			Endpoint: "/hr/ai/chat", Provider: "dashscope", Model: s.ai.ModelName(),
 			RequestChars: inputChars, Status: "error", CostMs: int(time.Since(startTime).Milliseconds()),
-		})
+		}, req.HrId, "ai", req.ApplicationId)
 		return nil, wrapAIError(err)
 	}
 
 	now := time.Now()
 	outputChars := len([]rune(reply))
-	writeAuditLog(ctx, s.usageLogs, AuditLogEntry{
+	s.writeHRUsageAudit(ctx, AuditLogEntry{
 		UserID: req.HrId, Role: 2, ServiceType: "ai_chat",
 		Endpoint: "/hr/ai/chat", Provider: "dashscope", Model: s.ai.ModelName(),
 		RequestChars: inputChars, ResponseChars: outputChars, CostMs: int(time.Since(startTime).Milliseconds()),
-	})
+	}, req.HrId, "ai", req.ApplicationId)
 	log.Info("chat completed", zap.Int("reply_len", outputChars))
 	resp := &pb.ChatResponse{Code: errs.OK, Msg: "success", Reply: reply, CreatedAt: formatTime(now), SessionId: session.ID}
 	if metadata.Action != nil {
@@ -177,19 +214,19 @@ func (s *AIService) ChatStream(req *pb.ChatRequest, stream pb.AIService_ChatStre
 		return stream.Send(&pb.ChatStreamResponse{Code: errs.OK, Msg: "success", Delta: delta, SessionId: session.ID})
 	}, statusSender)
 	if err != nil {
-		writeAuditLog(ctx, s.usageLogs, AuditLogEntry{
+		s.writeHRUsageAudit(ctx, AuditLogEntry{
 			UserID: req.HrId, Role: 2, ServiceType: "ai_chat",
 			Endpoint: "/hr/ai/chat/stream", Provider: "dashscope", Model: s.ai.ModelName(),
 			RequestChars: inputChars, Status: "error", CostMs: int(time.Since(startTime).Milliseconds()),
-		})
+		}, req.HrId, "ai", req.ApplicationId)
 		return err
 	}
 
-	writeAuditLog(ctx, s.usageLogs, AuditLogEntry{
+	s.writeHRUsageAudit(ctx, AuditLogEntry{
 		UserID: req.HrId, Role: 2, ServiceType: "ai_chat",
 		Endpoint: "/hr/ai/chat/stream", Provider: "dashscope", Model: s.ai.ModelName(),
 		RequestChars: inputChars, ResponseChars: len([]rune(reply)), CostMs: int(time.Since(startTime).Milliseconds()),
-	})
+	}, req.HrId, "ai", req.ApplicationId)
 
 	optionsJSON := ""
 	if len(metadata.CandidateOptions) > 0 {
@@ -417,18 +454,18 @@ func (s *AIService) AnalyzeApplication(ctx context.Context, req *pb.AnalyzeAppli
 	inputChars := len([]rune(input.Question)) + len([]rune(input.JobTitle)) + len([]rune(input.ResumeText))
 	reply, err := s.ai.GenerateApplicationAnalysis(ctx, input, nil)
 	if err != nil {
-		writeAuditLog(ctx, s.usageLogs, AuditLogEntry{
+		s.writeHRUsageAudit(ctx, AuditLogEntry{
 			UserID: req.HrId, Role: 2, ServiceType: "ai_analyze",
 			Endpoint: "/hr/ai/analyze-application", Provider: "dashscope", Model: s.ai.ModelName(),
 			RequestChars: inputChars, Status: "error", CostMs: int(time.Since(startTime).Milliseconds()),
-		})
+		}, req.HrId, "application", req.ApplicationId)
 		return nil, wrapAIError(err)
 	}
-	writeAuditLog(ctx, s.usageLogs, AuditLogEntry{
+	s.writeHRUsageAudit(ctx, AuditLogEntry{
 		UserID: req.HrId, Role: 2, ServiceType: "ai_analyze",
 		Endpoint: "/hr/ai/analyze-application", Provider: "dashscope", Model: s.ai.ModelName(),
 		RequestChars: inputChars, ResponseChars: len([]rune(reply)), CostMs: int(time.Since(startTime).Milliseconds()),
-	})
+	}, req.HrId, "application", req.ApplicationId)
 	return &pb.AnalyzeApplicationResponse{
 		Code:          errs.OK,
 		Msg:           "success",

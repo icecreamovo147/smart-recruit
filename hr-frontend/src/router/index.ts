@@ -17,6 +17,8 @@ import InviteCodeManageView from '@/views/hr/InviteCodeManageView.vue'
 import DepartmentManageView from '@/views/hr/DepartmentManageView.vue'
 import LocationManageView from '@/views/hr/LocationManageView.vue'
 import UsageAuditView from '@/views/hr/UsageAuditView.vue'
+import SecurityAuditView from '@/views/hr/SecurityAuditView.vue'
+import AnalyticsView from '@/views/hr/AnalyticsView.vue'
 import StaffUserManageView from '@/views/hr/StaffUserManageView.vue'
 import ForbiddenView from '@/views/ForbiddenView.vue'
 import CandidateDetailView from '@/views/hr/CandidateDetailView.vue'
@@ -101,9 +103,19 @@ const routes: RouteRecordRaw[] = [
     meta: { requiresAuth: true, requiresPermission: PERM.ADMIN_LOCATION_MANAGE, title: '地点管理' },
   },
   {
+    path: '/hr/analytics',
+    component: AnalyticsView,
+    meta: { requiresAuth: true, requiresPermission: PERM.APPLICATION_READ, title: '数据分析' },
+  },
+  {
     path: '/hr/admin/usage-audit',
     component: UsageAuditView,
     meta: { requiresAuth: true, requiresPermission: PERM.AUDIT_USAGE_READ, title: '第三方服务审计' },
+  },
+  {
+    path: '/hr/admin/security-audit',
+    component: SecurityAuditView,
+    meta: { requiresAuth: true, requiresPermission: PERM.AUDIT_SECURITY_READ, title: '安全审计' },
   },
   {
     path: '/hr/admin/staff-users',
