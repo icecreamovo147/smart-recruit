@@ -37,6 +37,12 @@ export const PERM = {
   AUDIT_USAGE_READ: 'audit.usage.read',
   AUDIT_SECURITY_READ: 'audit.security.read',
   SYSTEM_CONFIG_MANAGE: 'system.config.manage',
+
+  // Offer management
+  OFFER_READ: 'offer.read',
+  OFFER_MANAGE: 'offer.manage',
+  OFFER_SEND: 'offer.send',
+  OFFER_DECISION_MANAGE: 'offer.decision.manage',
 } as const
 
 export type PermissionKey = (typeof PERM)[keyof typeof PERM]
@@ -488,6 +494,43 @@ export interface InterviewSchedule {
   job_title: string
   candidate_name: string
   candidate_phone: string
+}
+
+// ── Offer ──────────────────────────────────────────────────────────────────
+
+export interface Offer {
+  id: number
+  application_id: number
+  candidate_user_id: number
+  job_id: number
+  status: string              // draft / sent / accepted / rejected / withdrawn
+  title: string
+  salary_range: string
+  level: string
+  work_location: string
+  start_date: string
+  expires_at: string
+  terms_json: string
+  sent_snapshot_json: string
+  created_by: number
+  sent_by: number
+  decided_at: string
+  created_at: string
+  updated_at: string
+  job_title: string
+  candidate_name: string
+  application_status_key: string
+}
+
+export interface OfferEvent {
+  id: number
+  offer_id: number
+  event_type: string
+  actor_user_id: number
+  actor_account_type: string
+  reason: string
+  metadata_json: string
+  created_at: string
 }
 
 export interface InterviewFeedback {

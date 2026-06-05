@@ -10,6 +10,7 @@ import JobManageView from '@/views/hr/JobManageView.vue'
 import ApplicationListView from '@/views/hr/ApplicationListView.vue'
 import InterviewTaskView from '@/views/hr/InterviewTaskView.vue'
 import InterviewScheduleView from '@/views/hr/InterviewScheduleView.vue'
+import OfferManageView from '@/views/hr/OfferManageView.vue'
 import AIChatView from '@/views/hr/AIChatView.vue'
 import ProfileView from '@/views/hr/ProfileView.vue'
 import InviteCodeManageView from '@/views/hr/InviteCodeManageView.vue'
@@ -54,6 +55,12 @@ const routes: RouteRecordRaw[] = [
     path: '/hr/interviews/schedule',
     component: InterviewScheduleView,
     meta: { requiresAuth: true, requiresPermission: PERM.INTERVIEW_SCHEDULE, title: '安排面试' },
+  },
+  // Offer management — requires offer.read permission
+  {
+    path: '/hr/applications/:applicationId/offers',
+    component: OfferManageView,
+    meta: { requiresAuth: true, requiresPermission: PERM.OFFER_READ, title: 'Offer管理' },
   },
   // AI assistant — requires ai.hr.use permission
   {

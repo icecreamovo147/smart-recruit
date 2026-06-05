@@ -11,6 +11,7 @@ import ProfileView from '@/views/candidate/ProfileView.vue'
 import ResumeUploadView from '@/views/candidate/ResumeUploadView.vue'
 import MyApplicationsView from '@/views/candidate/MyApplicationsView.vue'
 import MyInterviewsView from '@/views/candidate/MyInterviewsView.vue'
+import MyOffersView from '@/views/candidate/MyOffersView.vue'
 import ForbiddenView from '@/views/ForbiddenView.vue'
 
 const routes: RouteRecordRaw[] = [
@@ -24,6 +25,7 @@ const routes: RouteRecordRaw[] = [
   { path: '/resume', component: ResumeUploadView, meta: { requiresAuth: true, requiresCandidate: true } },
   { path: '/applications', component: MyApplicationsView, meta: { requiresAuth: true, requiresCandidate: true } },
   { path: '/interviews', component: MyInterviewsView, meta: { requiresAuth: true, requiresCandidate: true } },
+  { path: '/offers', component: MyOffersView, meta: { requiresAuth: true, requiresCandidate: true } },
 ]
 
 const router = createRouter({

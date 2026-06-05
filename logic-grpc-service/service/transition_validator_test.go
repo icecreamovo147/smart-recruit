@@ -54,6 +54,7 @@ func TestAllowedTransitions(t *testing.T) {
 		{model.StatusKeyViewed, model.StatusKeyScreenPassed, "viewed -> screen_passed"},
 		{model.StatusKeyScreening, model.StatusKeyScreenPassed, "screening -> screen_passed"},
 		{model.StatusKeyOfferSent, model.StatusKeyOfferAccepted, "offer_sent -> offer_accepted"},
+		{model.StatusKeyOfferSent, model.StatusKeyOfferPending, "offer_sent -> offer_pending (HR withdraws to re-issue)"},
 	}
 
 	for _, tt := range allowed {

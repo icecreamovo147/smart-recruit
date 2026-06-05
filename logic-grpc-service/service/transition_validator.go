@@ -57,6 +57,7 @@ var allowedTransitions = map[string]map[string]bool{
 	model.StatusKeyOfferSent: {
 		model.StatusKeyOfferAccepted: true,
 		model.StatusKeyOfferRejected: true,
+		model.StatusKeyOfferPending:  true, // HR withdraws sent offer → back to pending for re-issuance
 		model.StatusKeyWithdrawn:     true,
 	},
 	model.StatusKeyOfferAccepted: {

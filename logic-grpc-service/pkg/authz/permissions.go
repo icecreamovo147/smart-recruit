@@ -50,6 +50,12 @@ const (
 
 	// System
 	PermSystemConfigManage = "system.config.manage" // manage platform/security configuration
+
+	// Offer management
+	PermOfferRead    = "offer.read"    // view offers in scope
+	PermOfferManage  = "offer.manage"  // create/update/withdraw offers
+	PermOfferSend    = "offer.send"    // send offers (snapshot terms)
+	PermOfferDecisionManage = "offer.decision.manage" // candidate accept/reject own offer
 )
 
 // PermissionDisplayNames maps permission keys to human-readable descriptions.
@@ -78,4 +84,8 @@ var PermissionDisplayNames = map[string]string{
 	PermAuditUsageRead:               "查看第三方服务审计",
 	PermAuditSecurityRead:            "查看安全审计日志",
 	PermSystemConfigManage:           "管理系统配置",
+	PermOfferRead:                    "查看Offer",
+	PermOfferManage:                  "管理Offer",
+	PermOfferSend:                    "发送Offer",
+	PermOfferDecisionManage:          "决定Offer（接受/拒绝）",
 }

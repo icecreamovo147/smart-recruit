@@ -2607,6 +2607,450 @@ var AIService_ServiceDesc = grpc.ServiceDesc{
 }
 
 const (
+	OfferService_CreateOffer_FullMethodName             = "/recruitment.OfferService/CreateOffer"
+	OfferService_UpdateOffer_FullMethodName             = "/recruitment.OfferService/UpdateOffer"
+	OfferService_GetOffer_FullMethodName                = "/recruitment.OfferService/GetOffer"
+	OfferService_ListOffersByApplication_FullMethodName = "/recruitment.OfferService/ListOffersByApplication"
+	OfferService_SendOffer_FullMethodName               = "/recruitment.OfferService/SendOffer"
+	OfferService_WithdrawOffer_FullMethodName           = "/recruitment.OfferService/WithdrawOffer"
+	OfferService_AcceptOffer_FullMethodName             = "/recruitment.OfferService/AcceptOffer"
+	OfferService_RejectOffer_FullMethodName             = "/recruitment.OfferService/RejectOffer"
+	OfferService_ListMyOffers_FullMethodName            = "/recruitment.OfferService/ListMyOffers"
+	OfferService_ListOfferEvents_FullMethodName         = "/recruitment.OfferService/ListOfferEvents"
+)
+
+// OfferServiceClient is the client API for OfferService service.
+//
+// For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
+type OfferServiceClient interface {
+	CreateOffer(ctx context.Context, in *CreateOfferRequest, opts ...grpc.CallOption) (*CreateOfferResponse, error)
+	UpdateOffer(ctx context.Context, in *UpdateOfferRequest, opts ...grpc.CallOption) (*CommonResponse, error)
+	GetOffer(ctx context.Context, in *GetOfferRequest, opts ...grpc.CallOption) (*GetOfferResponse, error)
+	ListOffersByApplication(ctx context.Context, in *ListOffersByApplicationRequest, opts ...grpc.CallOption) (*ListOffersByApplicationResponse, error)
+	SendOffer(ctx context.Context, in *SendOfferRequest, opts ...grpc.CallOption) (*CommonResponse, error)
+	WithdrawOffer(ctx context.Context, in *WithdrawOfferRequest, opts ...grpc.CallOption) (*CommonResponse, error)
+	AcceptOffer(ctx context.Context, in *AcceptOfferRequest, opts ...grpc.CallOption) (*CommonResponse, error)
+	RejectOffer(ctx context.Context, in *RejectOfferRequest, opts ...grpc.CallOption) (*CommonResponse, error)
+	ListMyOffers(ctx context.Context, in *ListMyOffersRequest, opts ...grpc.CallOption) (*ListMyOffersResponse, error)
+	ListOfferEvents(ctx context.Context, in *ListOfferEventsRequest, opts ...grpc.CallOption) (*ListOfferEventsResponse, error)
+}
+
+type offerServiceClient struct {
+	cc grpc.ClientConnInterface
+}
+
+func NewOfferServiceClient(cc grpc.ClientConnInterface) OfferServiceClient {
+	return &offerServiceClient{cc}
+}
+
+func (c *offerServiceClient) CreateOffer(ctx context.Context, in *CreateOfferRequest, opts ...grpc.CallOption) (*CreateOfferResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(CreateOfferResponse)
+	err := c.cc.Invoke(ctx, OfferService_CreateOffer_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *offerServiceClient) UpdateOffer(ctx context.Context, in *UpdateOfferRequest, opts ...grpc.CallOption) (*CommonResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(CommonResponse)
+	err := c.cc.Invoke(ctx, OfferService_UpdateOffer_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *offerServiceClient) GetOffer(ctx context.Context, in *GetOfferRequest, opts ...grpc.CallOption) (*GetOfferResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(GetOfferResponse)
+	err := c.cc.Invoke(ctx, OfferService_GetOffer_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *offerServiceClient) ListOffersByApplication(ctx context.Context, in *ListOffersByApplicationRequest, opts ...grpc.CallOption) (*ListOffersByApplicationResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ListOffersByApplicationResponse)
+	err := c.cc.Invoke(ctx, OfferService_ListOffersByApplication_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *offerServiceClient) SendOffer(ctx context.Context, in *SendOfferRequest, opts ...grpc.CallOption) (*CommonResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(CommonResponse)
+	err := c.cc.Invoke(ctx, OfferService_SendOffer_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *offerServiceClient) WithdrawOffer(ctx context.Context, in *WithdrawOfferRequest, opts ...grpc.CallOption) (*CommonResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(CommonResponse)
+	err := c.cc.Invoke(ctx, OfferService_WithdrawOffer_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *offerServiceClient) AcceptOffer(ctx context.Context, in *AcceptOfferRequest, opts ...grpc.CallOption) (*CommonResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(CommonResponse)
+	err := c.cc.Invoke(ctx, OfferService_AcceptOffer_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *offerServiceClient) RejectOffer(ctx context.Context, in *RejectOfferRequest, opts ...grpc.CallOption) (*CommonResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(CommonResponse)
+	err := c.cc.Invoke(ctx, OfferService_RejectOffer_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *offerServiceClient) ListMyOffers(ctx context.Context, in *ListMyOffersRequest, opts ...grpc.CallOption) (*ListMyOffersResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ListMyOffersResponse)
+	err := c.cc.Invoke(ctx, OfferService_ListMyOffers_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *offerServiceClient) ListOfferEvents(ctx context.Context, in *ListOfferEventsRequest, opts ...grpc.CallOption) (*ListOfferEventsResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ListOfferEventsResponse)
+	err := c.cc.Invoke(ctx, OfferService_ListOfferEvents_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+// OfferServiceServer is the server API for OfferService service.
+// All implementations must embed UnimplementedOfferServiceServer
+// for forward compatibility.
+type OfferServiceServer interface {
+	CreateOffer(context.Context, *CreateOfferRequest) (*CreateOfferResponse, error)
+	UpdateOffer(context.Context, *UpdateOfferRequest) (*CommonResponse, error)
+	GetOffer(context.Context, *GetOfferRequest) (*GetOfferResponse, error)
+	ListOffersByApplication(context.Context, *ListOffersByApplicationRequest) (*ListOffersByApplicationResponse, error)
+	SendOffer(context.Context, *SendOfferRequest) (*CommonResponse, error)
+	WithdrawOffer(context.Context, *WithdrawOfferRequest) (*CommonResponse, error)
+	AcceptOffer(context.Context, *AcceptOfferRequest) (*CommonResponse, error)
+	RejectOffer(context.Context, *RejectOfferRequest) (*CommonResponse, error)
+	ListMyOffers(context.Context, *ListMyOffersRequest) (*ListMyOffersResponse, error)
+	ListOfferEvents(context.Context, *ListOfferEventsRequest) (*ListOfferEventsResponse, error)
+	mustEmbedUnimplementedOfferServiceServer()
+}
+
+// UnimplementedOfferServiceServer must be embedded to have
+// forward compatible implementations.
+//
+// NOTE: this should be embedded by value instead of pointer to avoid a nil
+// pointer dereference when methods are called.
+type UnimplementedOfferServiceServer struct{}
+
+func (UnimplementedOfferServiceServer) CreateOffer(context.Context, *CreateOfferRequest) (*CreateOfferResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method CreateOffer not implemented")
+}
+func (UnimplementedOfferServiceServer) UpdateOffer(context.Context, *UpdateOfferRequest) (*CommonResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method UpdateOffer not implemented")
+}
+func (UnimplementedOfferServiceServer) GetOffer(context.Context, *GetOfferRequest) (*GetOfferResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method GetOffer not implemented")
+}
+func (UnimplementedOfferServiceServer) ListOffersByApplication(context.Context, *ListOffersByApplicationRequest) (*ListOffersByApplicationResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method ListOffersByApplication not implemented")
+}
+func (UnimplementedOfferServiceServer) SendOffer(context.Context, *SendOfferRequest) (*CommonResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method SendOffer not implemented")
+}
+func (UnimplementedOfferServiceServer) WithdrawOffer(context.Context, *WithdrawOfferRequest) (*CommonResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method WithdrawOffer not implemented")
+}
+func (UnimplementedOfferServiceServer) AcceptOffer(context.Context, *AcceptOfferRequest) (*CommonResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method AcceptOffer not implemented")
+}
+func (UnimplementedOfferServiceServer) RejectOffer(context.Context, *RejectOfferRequest) (*CommonResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method RejectOffer not implemented")
+}
+func (UnimplementedOfferServiceServer) ListMyOffers(context.Context, *ListMyOffersRequest) (*ListMyOffersResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method ListMyOffers not implemented")
+}
+func (UnimplementedOfferServiceServer) ListOfferEvents(context.Context, *ListOfferEventsRequest) (*ListOfferEventsResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method ListOfferEvents not implemented")
+}
+func (UnimplementedOfferServiceServer) mustEmbedUnimplementedOfferServiceServer() {}
+func (UnimplementedOfferServiceServer) testEmbeddedByValue()                      {}
+
+// UnsafeOfferServiceServer may be embedded to opt out of forward compatibility for this service.
+// Use of this interface is not recommended, as added methods to OfferServiceServer will
+// result in compilation errors.
+type UnsafeOfferServiceServer interface {
+	mustEmbedUnimplementedOfferServiceServer()
+}
+
+func RegisterOfferServiceServer(s grpc.ServiceRegistrar, srv OfferServiceServer) {
+	// If the following call panics, it indicates UnimplementedOfferServiceServer was
+	// embedded by pointer and is nil.  This will cause panics if an
+	// unimplemented method is ever invoked, so we test this at initialization
+	// time to prevent it from happening at runtime later due to I/O.
+	if t, ok := srv.(interface{ testEmbeddedByValue() }); ok {
+		t.testEmbeddedByValue()
+	}
+	s.RegisterService(&OfferService_ServiceDesc, srv)
+}
+
+func _OfferService_CreateOffer_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(CreateOfferRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(OfferServiceServer).CreateOffer(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: OfferService_CreateOffer_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(OfferServiceServer).CreateOffer(ctx, req.(*CreateOfferRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _OfferService_UpdateOffer_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(UpdateOfferRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(OfferServiceServer).UpdateOffer(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: OfferService_UpdateOffer_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(OfferServiceServer).UpdateOffer(ctx, req.(*UpdateOfferRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _OfferService_GetOffer_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetOfferRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(OfferServiceServer).GetOffer(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: OfferService_GetOffer_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(OfferServiceServer).GetOffer(ctx, req.(*GetOfferRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _OfferService_ListOffersByApplication_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ListOffersByApplicationRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(OfferServiceServer).ListOffersByApplication(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: OfferService_ListOffersByApplication_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(OfferServiceServer).ListOffersByApplication(ctx, req.(*ListOffersByApplicationRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _OfferService_SendOffer_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(SendOfferRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(OfferServiceServer).SendOffer(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: OfferService_SendOffer_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(OfferServiceServer).SendOffer(ctx, req.(*SendOfferRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _OfferService_WithdrawOffer_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(WithdrawOfferRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(OfferServiceServer).WithdrawOffer(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: OfferService_WithdrawOffer_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(OfferServiceServer).WithdrawOffer(ctx, req.(*WithdrawOfferRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _OfferService_AcceptOffer_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(AcceptOfferRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(OfferServiceServer).AcceptOffer(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: OfferService_AcceptOffer_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(OfferServiceServer).AcceptOffer(ctx, req.(*AcceptOfferRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _OfferService_RejectOffer_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(RejectOfferRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(OfferServiceServer).RejectOffer(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: OfferService_RejectOffer_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(OfferServiceServer).RejectOffer(ctx, req.(*RejectOfferRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _OfferService_ListMyOffers_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ListMyOffersRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(OfferServiceServer).ListMyOffers(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: OfferService_ListMyOffers_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(OfferServiceServer).ListMyOffers(ctx, req.(*ListMyOffersRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _OfferService_ListOfferEvents_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ListOfferEventsRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(OfferServiceServer).ListOfferEvents(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: OfferService_ListOfferEvents_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(OfferServiceServer).ListOfferEvents(ctx, req.(*ListOfferEventsRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+// OfferService_ServiceDesc is the grpc.ServiceDesc for OfferService service.
+// It's only intended for direct use with grpc.RegisterService,
+// and not to be introspected or modified (even as a copy)
+var OfferService_ServiceDesc = grpc.ServiceDesc{
+	ServiceName: "recruitment.OfferService",
+	HandlerType: (*OfferServiceServer)(nil),
+	Methods: []grpc.MethodDesc{
+		{
+			MethodName: "CreateOffer",
+			Handler:    _OfferService_CreateOffer_Handler,
+		},
+		{
+			MethodName: "UpdateOffer",
+			Handler:    _OfferService_UpdateOffer_Handler,
+		},
+		{
+			MethodName: "GetOffer",
+			Handler:    _OfferService_GetOffer_Handler,
+		},
+		{
+			MethodName: "ListOffersByApplication",
+			Handler:    _OfferService_ListOffersByApplication_Handler,
+		},
+		{
+			MethodName: "SendOffer",
+			Handler:    _OfferService_SendOffer_Handler,
+		},
+		{
+			MethodName: "WithdrawOffer",
+			Handler:    _OfferService_WithdrawOffer_Handler,
+		},
+		{
+			MethodName: "AcceptOffer",
+			Handler:    _OfferService_AcceptOffer_Handler,
+		},
+		{
+			MethodName: "RejectOffer",
+			Handler:    _OfferService_RejectOffer_Handler,
+		},
+		{
+			MethodName: "ListMyOffers",
+			Handler:    _OfferService_ListMyOffers_Handler,
+		},
+		{
+			MethodName: "ListOfferEvents",
+			Handler:    _OfferService_ListOfferEvents_Handler,
+		},
+	},
+	Streams:  []grpc.StreamDesc{},
+	Metadata: "proto/recruitment.proto",
+}
+
+const (
 	AdminService_CreateInviteCode_FullMethodName               = "/recruitment.AdminService/CreateInviteCode"
 	AdminService_ListInviteCodes_FullMethodName                = "/recruitment.AdminService/ListInviteCodes"
 	AdminService_ExtendInviteCode_FullMethodName               = "/recruitment.AdminService/ExtendInviteCode"

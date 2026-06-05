@@ -86,6 +86,19 @@ service AIService {
   rpc CandidateDeleteSession(CandidateDeleteSessionRequest) returns (CommonResponse);
 }
 
+service OfferService {
+  rpc CreateOffer(CreateOfferRequest) returns (CreateOfferResponse);
+  rpc UpdateOffer(UpdateOfferRequest) returns (CommonResponse);
+  rpc GetOffer(GetOfferRequest) returns (GetOfferResponse);
+  rpc ListOffersByApplication(ListOffersByApplicationRequest) returns (ListOffersByApplicationResponse);
+  rpc SendOffer(SendOfferRequest) returns (CommonResponse);
+  rpc WithdrawOffer(WithdrawOfferRequest) returns (CommonResponse);
+  rpc AcceptOffer(AcceptOfferRequest) returns (CommonResponse);
+  rpc RejectOffer(RejectOfferRequest) returns (CommonResponse);
+  rpc ListMyOffers(ListMyOffersRequest) returns (ListMyOffersResponse);
+  rpc ListOfferEvents(ListOfferEventsRequest) returns (ListOfferEventsResponse);
+}
+
 service AdminService {
   rpc CreateInviteCode(CreateInviteCodeRequest) returns (CreateInviteCodeResponse);
   rpc ListInviteCodes(ListInviteCodesRequest) returns (ListInviteCodesResponse);
@@ -1150,6 +1163,145 @@ message QueryUsageLogsResponse {
   string msg = 2;
   int64 total = 3;
   repeated UsageLogItem list = 4;
+}
+
+// ── Offer ────────────────────────────────────────────────────────────
+
+message Offer {
+  int64 id = 1;
+  int64 application_id = 2;
+  int64 candidate_user_id = 3;
+  int64 job_id = 4;
+  string status = 5;          // draft / sent / accepted / rejected / withdrawn
+  string title = 6;
+  string salary_range = 7;
+  string level = 8;
+  string work_location = 9;
+  string start_date = 10;
+  string expires_at = 11;     // RFC 3339
+  string terms_json = 12;
+  string sent_snapshot_json = 13;
+  int64 created_by = 14;
+  int64 sent_by = 15;
+  string decided_at = 16;     // RFC 3339
+  string created_at = 17;     // RFC 3339
+  string updated_at = 18;     // RFC 3339
+  // Joined fields
+  string job_title = 19;
+  string candidate_name = 20;
+  string application_status_key = 21;
+}
+
+message CreateOfferRequest {
+  int64 hr_id = 1;
+  int64 application_id = 2;
+  string title = 3;
+  string salary_range = 4;
+  string level = 5;
+  string work_location = 6;
+  string start_date = 7;
+  string expires_at = 8;     // RFC 3339
+  string terms_json = 9;
+}
+
+message CreateOfferResponse {
+  int32 code = 1;
+  string msg = 2;
+  int64 offer_id = 3;
+}
+
+message UpdateOfferRequest {
+  int64 hr_id = 1;
+  int64 offer_id = 2;
+  string title = 3;
+  string salary_range = 4;
+  string level = 5;
+  string work_location = 6;
+  string start_date = 7;
+  string expires_at = 8;     // RFC 3339
+  string terms_json = 9;
+}
+
+message GetOfferRequest {
+  int64 user_id = 1;
+  int64 offer_id = 2;
+}
+
+message GetOfferResponse {
+  int32 code = 1;
+  string msg = 2;
+  Offer offer = 3;
+}
+
+message ListOffersByApplicationRequest {
+  int64 hr_id = 1;
+  int64 application_id = 2;
+}
+
+message ListOffersByApplicationResponse {
+  int32 code = 1;
+  string msg = 2;
+  repeated Offer list = 3;
+}
+
+message SendOfferRequest {
+  int64 hr_id = 1;
+  int64 offer_id = 2;
+}
+
+message WithdrawOfferRequest {
+  int64 hr_id = 1;
+  int64 offer_id = 2;
+  string reason = 3;
+}
+
+message AcceptOfferRequest {
+  int64 user_id = 1;
+  int64 offer_id = 2;
+}
+
+message RejectOfferRequest {
+  int64 user_id = 1;
+  int64 offer_id = 2;
+  string reason = 3;
+}
+
+message ListMyOffersRequest {
+  int64 user_id = 1;
+  int32 page = 2;
+  int32 page_size = 3;
+  string cursor = 4;
+}
+
+message ListMyOffersResponse {
+  int32 code = 1;
+  string msg = 2;
+  int64 total = 3;
+  repeated Offer list = 4;
+  string next_cursor = 5;
+  bool has_more = 6;
+}
+
+message OfferEventInfo {
+  int64 id = 1;
+  int64 offer_id = 2;
+  string event_type = 3;
+  int64 actor_user_id = 4;
+  string actor_account_type = 5;
+  string reason = 6;
+  string metadata_json = 7;
+  string created_at = 8;
+}
+
+message ListOfferEventsRequest {
+  int64 hr_id = 1;
+  int64 offer_id = 2;
+}
+
+message ListOfferEventsResponse {
+  int32 code = 1;
+  string msg = 2;
+  repeated OfferEventInfo list = 3;
 }
 
 // ── RBAC Role & Permission Management ────────────────────────────────

@@ -33,6 +33,7 @@ type Services struct {
 	Candidate    *CandidateService
 	Application  *ApplicationService
 	Interview    *InterviewService
+	Offer        *OfferService
 	AI           *AIService
 	CandidateAI  *CandidateAIService
 	Notification *NotificationService
@@ -54,6 +55,7 @@ func NewServices(
 	resumes *repository.ResumeRepo,
 	applications *repository.ApplicationRepo,
 	interviews *repository.InterviewRepo,
+	offers *repository.OfferRepo,
 	chats *repository.ChatRepo,
 	summaries *repository.SessionSummaryRepo,
 	toolTraces *repository.ToolTraceRepo,
@@ -95,6 +97,7 @@ func NewServices(
 		Candidate:    NewCandidateService(profiles, resumes, ossClient, outboxPublisher, usageLogs, serviceAuth),
 		Application:  NewApplicationService(authzRepo, applications, profiles, resumes, jobs, notifications, outboxPublisher, ossClient, jobCache, scopeEval),
 		Interview:    NewInterviewService(authzRepo, interviews, users, applications, jobs, notifications, outboxPublisher, scopeEval, serviceAuth),
+		Offer:        NewOfferService(authzRepo, offers, applications, jobs, notifications, outboxPublisher, scopeEval, serviceAuth),
 		AI:           NewAIService(chats, applications, jobs, resumes, summaries, toolTraces, memories, ossClient, aiClient, toolExecutor, contextBuilder, candidateAI, usageLogs, agentRuntime, serviceAuth),
 		CandidateAI:  candidateAI,
 		Notification: NewNotificationService(notifications, notifCache, serviceAuth),

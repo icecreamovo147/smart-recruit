@@ -70,6 +70,7 @@ func main() {
 	resumeRepo := repository.NewResumeRepo(db)
 	applicationRepo := repository.NewApplicationRepo(db)
 	interviewRepo := repository.NewInterviewRepo(db)
+	offerRepo := repository.NewOfferRepo(db)
 	chatRepo := repository.NewChatRepo(db)
 	summaryRepo := repository.NewSessionSummaryRepo(db)
 	toolTraceRepo := repository.NewToolTraceRepo(db)
@@ -157,7 +158,7 @@ func main() {
 	services := service.NewServices(
 		healthRedis,
 		userRepo, tokenRepo,
-		jobRepo, profileRepo, resumeRepo, applicationRepo, interviewRepo, chatRepo,
+		jobRepo, profileRepo, resumeRepo, applicationRepo, interviewRepo, offerRepo, chatRepo,
 		summaryRepo, toolTraceRepo, memoryRepo, notificationRepo, outboxRepo, inviteCodeRepo,
 		departmentRepo, locationRepo, deptLocationRepo,
 		usageLogRepo, authzRepo,
@@ -265,6 +266,7 @@ func main() {
 	pb.RegisterAIServiceServer(grpcServer, recruitmentServer)
 	pb.RegisterNotificationServiceServer(grpcServer, recruitmentServer)
 	pb.RegisterInterviewServiceServer(grpcServer, recruitmentServer)
+	pb.RegisterOfferServiceServer(grpcServer, recruitmentServer)
 	pb.RegisterAdminServiceServer(grpcServer, recruitmentServer)
 	healthpb.RegisterHealthServer(grpcServer, server.NewHealthServer(sqlDB, healthRedis, mqConn))
 

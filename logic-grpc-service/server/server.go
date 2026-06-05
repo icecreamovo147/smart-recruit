@@ -15,6 +15,7 @@ type Server struct {
 	pb.UnimplementedAIServiceServer
 	pb.UnimplementedNotificationServiceServer
 	pb.UnimplementedInterviewServiceServer
+	pb.UnimplementedOfferServiceServer
 	pb.UnimplementedAdminServiceServer
 	svc *service.Services
 }
@@ -215,6 +216,48 @@ func (s *Server) MarkNotificationRead(ctx context.Context, req *pb.MarkNotificat
 
 func (s *Server) MarkAllNotificationsRead(ctx context.Context, req *pb.MarkAllNotificationsReadRequest) (*pb.CommonResponse, error) {
 	return s.svc.Notification.MarkAllNotificationsRead(ctx, req)
+}
+
+// Offer
+
+func (s *Server) CreateOffer(ctx context.Context, req *pb.CreateOfferRequest) (*pb.CreateOfferResponse, error) {
+	return s.svc.Offer.CreateOffer(ctx, req)
+}
+
+func (s *Server) UpdateOffer(ctx context.Context, req *pb.UpdateOfferRequest) (*pb.CommonResponse, error) {
+	return s.svc.Offer.UpdateOffer(ctx, req)
+}
+
+func (s *Server) GetOffer(ctx context.Context, req *pb.GetOfferRequest) (*pb.GetOfferResponse, error) {
+	return s.svc.Offer.GetOffer(ctx, req)
+}
+
+func (s *Server) ListOffersByApplication(ctx context.Context, req *pb.ListOffersByApplicationRequest) (*pb.ListOffersByApplicationResponse, error) {
+	return s.svc.Offer.ListOffersByApplication(ctx, req)
+}
+
+func (s *Server) SendOffer(ctx context.Context, req *pb.SendOfferRequest) (*pb.CommonResponse, error) {
+	return s.svc.Offer.SendOffer(ctx, req)
+}
+
+func (s *Server) WithdrawOffer(ctx context.Context, req *pb.WithdrawOfferRequest) (*pb.CommonResponse, error) {
+	return s.svc.Offer.WithdrawOffer(ctx, req)
+}
+
+func (s *Server) AcceptOffer(ctx context.Context, req *pb.AcceptOfferRequest) (*pb.CommonResponse, error) {
+	return s.svc.Offer.AcceptOffer(ctx, req)
+}
+
+func (s *Server) RejectOffer(ctx context.Context, req *pb.RejectOfferRequest) (*pb.CommonResponse, error) {
+	return s.svc.Offer.RejectOffer(ctx, req)
+}
+
+func (s *Server) ListMyOffers(ctx context.Context, req *pb.ListMyOffersRequest) (*pb.ListMyOffersResponse, error) {
+	return s.svc.Offer.ListMyOffers(ctx, req)
+}
+
+func (s *Server) ListOfferEvents(ctx context.Context, req *pb.ListOfferEventsRequest) (*pb.ListOfferEventsResponse, error) {
+	return s.svc.Offer.ListOfferEvents(ctx, req)
 }
 
 // Interview

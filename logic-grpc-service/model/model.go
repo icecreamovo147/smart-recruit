@@ -411,3 +411,41 @@ type InterviewFeedback struct {
 }
 
 func (InterviewFeedback) TableName() string { return "interview_feedback" }
+
+// ── Offer ─────────────────────────────────────────────────────────────────────
+
+type Offer struct {
+	ID               int64      `gorm:"primaryKey"`
+	ApplicationID    int64      `gorm:"column:application_id;not null;index:idx_offer_application"`
+	CandidateUserID  int64      `gorm:"column:candidate_user_id;not null;index:idx_offer_candidate"`
+	JobID            int64      `gorm:"column:job_id;not null;index:idx_offer_job"`
+	Status           string     `gorm:"column:status;size:32;default:draft;index:idx_offer_status"`
+	Title            string     `gorm:"column:title;size:128;not null"`
+	SalaryRange      string     `gorm:"column:salary_range;size:64"`
+	Level            string     `gorm:"column:level;size:64"`
+	WorkLocation     string     `gorm:"column:work_location;size:128"`
+	StartDate        string     `gorm:"column:start_date;size:32"`
+	ExpiresAt        *time.Time `gorm:"column:expires_at"`
+	TermsJSON        string     `gorm:"column:terms_json;type:text"`
+	SentSnapshotJSON string     `gorm:"column:sent_snapshot_json;type:text"`
+	CreatedBy        int64      `gorm:"column:created_by;not null;index:idx_offer_created_by"`
+	SentBy           *int64     `gorm:"column:sent_by"`
+	DecidedAt        *time.Time `gorm:"column:decided_at"`
+	CreatedAt        time.Time  `gorm:"column:created_at"`
+	UpdatedAt        time.Time  `gorm:"column:updated_at"`
+}
+
+func (Offer) TableName() string { return "offers" }
+
+type OfferEvent struct {
+	ID               uint64    `gorm:"primaryKey"`
+	OfferID          int64     `gorm:"column:offer_id;not null;index:idx_offer_event_offer"`
+	EventType        string    `gorm:"column:event_type;size:64;not null;index:idx_offer_event_type"`
+	ActorUserID      int64     `gorm:"column:actor_user_id;not null"`
+	ActorAccountType string    `gorm:"column:actor_account_type;size:32;not null"`
+	Reason           string    `gorm:"column:reason;size:512"`
+	MetadataJSON     string    `gorm:"column:metadata_json;type:text"`
+	CreatedAt        time.Time `gorm:"column:created_at"`
+}
+
+func (OfferEvent) TableName() string { return "offer_events" }

@@ -46,4 +46,10 @@ const (
 
 	// System
 	PermSystemConfigManage = "system.config.manage"
+
+	// Offer management
+	PermOfferRead    = "offer.read"
+	PermOfferManage  = "offer.manage"
+	PermOfferSend    = "offer.send"
+	PermOfferDecisionManage = "offer.decision.manage"
 )

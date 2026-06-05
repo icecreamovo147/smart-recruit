@@ -442,6 +442,52 @@ CREATE TABLE IF NOT EXISTS `interview_feedback` (
   KEY `idx_feedback_application` (`application_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='面试反馈表';
 
+-- ── Offer 表 ─────────────────────────────────────────────────────────────
+-- 记录 Offer 的创建、发送、决策全过程。
+
+CREATE TABLE IF NOT EXISTS `offers` (
+  `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT COMMENT 'Offer ID',
+  `application_id` BIGINT UNSIGNED NOT NULL COMMENT '关联 applications.id',
+  `candidate_user_id` BIGINT UNSIGNED NOT NULL COMMENT '候选人用户ID',
+  `job_id` BIGINT UNSIGNED NOT NULL COMMENT '关联 jobs.id',
+  `status` VARCHAR(32) NOT NULL DEFAULT 'draft' COMMENT 'Offer状态：draft / sent / accepted / rejected / withdrawn',
+  `title` VARCHAR(128) NOT NULL COMMENT 'Offer职位名称',
+  `salary_range` VARCHAR(64) DEFAULT NULL COMMENT '薪资范围',
+  `level` VARCHAR(64) DEFAULT NULL COMMENT '职级',
+  `work_location` VARCHAR(128) DEFAULT NULL COMMENT '工作地点',
+  `start_date` VARCHAR(32) DEFAULT NULL COMMENT '预计入职日期',
+  `expires_at` DATETIME DEFAULT NULL COMMENT 'Offer过期时间',
+  `terms_json` TEXT DEFAULT NULL COMMENT 'Offer条款JSON（起草时填写）',
+  `sent_snapshot_json` TEXT DEFAULT NULL COMMENT '发送时的快照JSON（发送时冻结）',
+  `created_by` BIGINT UNSIGNED NOT NULL COMMENT '创建人用户ID',
+  `sent_by` BIGINT UNSIGNED DEFAULT NULL COMMENT '发送人用户ID',
+  `decided_at` DATETIME DEFAULT NULL COMMENT '候选人决策时间',
+  `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  KEY `idx_offer_application` (`application_id`),
+  KEY `idx_offer_candidate` (`candidate_user_id`),
+  KEY `idx_offer_job` (`job_id`),
+  KEY `idx_offer_status` (`status`),
+  KEY `idx_offer_created_by` (`created_by`),
+  KEY `idx_offer_created` (`created_at`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='Offer表';
+
+CREATE TABLE IF NOT EXISTS `offer_events` (
+  `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+  `offer_id` BIGINT UNSIGNED NOT NULL COMMENT '关联 offers.id',
+  `event_type` VARCHAR(64) NOT NULL COMMENT '事件类型：created / updated / sent / withdrawn / accepted / rejected / expired',
+  `actor_user_id` BIGINT UNSIGNED NOT NULL COMMENT '操作用户ID',
+  `actor_account_type` VARCHAR(32) NOT NULL COMMENT '操作人账号类型：candidate / staff / service',
+  `reason` VARCHAR(512) DEFAULT NULL COMMENT '操作原因说明',
+  `metadata_json` TEXT DEFAULT NULL COMMENT '附加元数据JSON',
+  `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  KEY `idx_offer_event_offer` (`offer_id`),
+  KEY `idx_offer_event_type` (`event_type`),
+  KEY `idx_offer_event_created` (`offer_id`, `created_at`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='Offer事件审计表';
+
 -- ══════════════════════════════════════════════════════════════════════
 -- RBAC 种子数据
 -- ══════════════════════════════════════════════════════════════════════
@@ -482,7 +528,11 @@ INSERT INTO `permissions` (`permission_key`, `resource`, `action`, `description`
   ('admin.role.manage',              'admin',       'manage', '管理角色目录和权限分配'),
   ('audit.usage.read',               'audit',       'read',   '查看第三方/AI使用日志'),
   ('audit.security.read',            'audit',       'read',   '查看授权和安全审计事件'),
-  ('system.config.manage',           'system',      'manage', '管理平台安全配置')
+  ('system.config.manage',           'system',      'manage', '管理平台安全配置'),
+  ('offer.read',                     'offer',       'read',   '查看Offer'),
+  ('offer.manage',                   'offer',       'manage', '创建/编辑/撤回Offer'),
+  ('offer.send',                     'offer',       'send',   '发送Offer（快照条款）'),
+  ('offer.decision.manage',          'offer',       'manage', '候选人接受/拒绝Offer')
 ON DUPLICATE KEY UPDATE `resource` = VALUES(`resource`), `action` = VALUES(`action`), `description` = VALUES(`description`);
 
 -- ── 角色-权限映射 ──────────────────────────────────────────────────────
@@ -492,7 +542,8 @@ INSERT IGNORE INTO `role_permissions` (`role_id`, `permission_id`)
   SELECT r.id, p.id FROM `roles` r, `permissions` p
   WHERE r.role_key = 'candidate' AND p.permission_key IN (
     'auth.session.read', 'candidate.profile.manage', 'candidate.resume.manage',
-    'candidate.application.manage', 'notification.read', 'ai.candidate.use'
+    'candidate.application.manage', 'notification.read', 'ai.candidate.use',
+    'offer.decision.manage'
   );
 
 -- Recruiter
@@ -502,7 +553,8 @@ INSERT IGNORE INTO `role_permissions` (`role_id`, `permission_id`)
     'auth.session.read', 'job.read', 'job.create', 'job.update', 'job.publish',
     'application.read', 'application.status.update',
     'interview.read', 'interview.schedule', 'interview.feedback.submit',
-    'notification.read', 'ai.hr.use'
+    'notification.read', 'ai.hr.use',
+    'offer.read', 'offer.manage', 'offer.send'
   );
 
 -- Recruiting Admin (no recruiter workflow permissions by default)

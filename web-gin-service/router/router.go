@@ -110,6 +110,8 @@ func Setup(cfg config.Config, clients *rpc.Clients, rdb *redis.Client) (*gin.Eng
 	hrApplicationHandler := hr.NewApplicationHandler(clients)
 	hrAIHandler := hr.NewAIHandler(clients)
 	hrInterviewHandler := hr.NewInterviewHandler(clients)
+	hrOfferHandler := hr.NewOfferHandler(clients)
+	candidateOfferHandler := candidate.NewOfferHandler(clients)
 	candidateInterviewHandler := candidate.NewInterviewHandler(clients)
 	profileHandler := candidate.NewProfileHandler(clients)
 	resumeHandler := candidate.NewResumeHandler(clients)
@@ -167,6 +169,10 @@ func Setup(cfg config.Config, clients *rpc.Clients, rdb *redis.Client) (*gin.Eng
 	candidateGroup.POST("/applications", normalTimeout, bodyAuth, middleware.RequirePermission(authz.PermCandidateApplicationManage), applyHandler.Apply)
 	candidateGroup.GET("/applications", normalTimeout, middleware.RequirePermission(authz.PermCandidateApplicationManage), applyHandler.Mine)
 	candidateGroup.GET("/interviews", normalTimeout, middleware.RequirePermission(authz.PermCandidateApplicationManage), candidateInterviewHandler.List)
+	candidateGroup.GET("/offers", normalTimeout, middleware.RequirePermission(authz.PermOfferDecisionManage), candidateOfferHandler.ListMyOffers)
+	candidateGroup.GET("/offers/:offer_id", normalTimeout, middleware.RequirePermission(authz.PermOfferDecisionManage), candidateOfferHandler.Get)
+	candidateGroup.POST("/offers/:offer_id/accept", normalTimeout, middleware.RequirePermission(authz.PermOfferDecisionManage), candidateOfferHandler.Accept)
+	candidateGroup.POST("/offers/:offer_id/reject", normalTimeout, bodyAuth, middleware.RequirePermission(authz.PermOfferDecisionManage), candidateOfferHandler.Reject)
 	candidateGroup.GET("/notifications", normalTimeout, middleware.RequirePermission(authz.PermNotificationRead), notificationHandler.List)
 	candidateGroup.GET("/notifications/unread-count", normalTimeout, middleware.RequirePermission(authz.PermNotificationRead), notificationHandler.UnreadCount)
 	candidateGroup.GET("/notifications/summary", normalTimeout, middleware.RequirePermission(authz.PermNotificationRead), notificationHandler.Summary)
@@ -207,6 +213,15 @@ func Setup(cfg config.Config, clients *rpc.Clients, rdb *redis.Client) (*gin.Eng
 	staffGroup.GET("/my-interviews", normalTimeout, middleware.RequirePermission(authz.PermInterviewRead), hrInterviewHandler.ListMy)
 	staffGroup.POST("/interviews/:interview_id/feedback", normalTimeout, bodyAuth, middleware.RequirePermission(authz.PermInterviewFeedback), hrInterviewHandler.SubmitFeedback)
 	staffGroup.GET("/interviews/:interview_id/feedback", normalTimeout, middleware.RequirePermission(authz.PermInterviewFeedback), hrInterviewHandler.GetFeedback)
+
+	// Offer management — requires offer permissions
+	staffGroup.POST("/offers", normalTimeout, bodyAuth, middleware.RequirePermission(authz.PermOfferManage), hrOfferHandler.Create)
+	staffGroup.PUT("/offers/:offer_id", normalTimeout, bodyAuth, middleware.RequirePermission(authz.PermOfferManage), hrOfferHandler.Update)
+	staffGroup.GET("/offers/:offer_id", normalTimeout, middleware.RequirePermission(authz.PermOfferRead), hrOfferHandler.Get)
+	staffGroup.GET("/applications/:id/offers", normalTimeout, middleware.RequirePermission(authz.PermOfferRead), hrOfferHandler.ListByApplication)
+	staffGroup.POST("/offers/:offer_id/send", normalTimeout, middleware.RequirePermission(authz.PermOfferSend), hrOfferHandler.Send)
+	staffGroup.POST("/offers/:offer_id/withdraw", normalTimeout, bodyAuth, middleware.RequirePermission(authz.PermOfferManage), hrOfferHandler.Withdraw)
+	staffGroup.GET("/offers/:offer_id/events", normalTimeout, middleware.RequirePermission(authz.PermOfferRead), hrOfferHandler.ListEvents)
 
 	// AI — requires HR AI permission
 	staffGroup.GET("/ai/sessions", normalTimeout, middleware.RequirePermission(authz.PermAIHRUse), hrAIHandler.ListSessions)
