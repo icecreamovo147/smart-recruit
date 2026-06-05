@@ -421,7 +421,11 @@ func (s *CollaborationService) ListTags(ctx context.Context, req *pb.ListTagsReq
 
 func (s *CollaborationService) AssignTag(ctx context.Context, req *pb.AssignTagRequest) (*pb.CommonResponse, error) {
 	staffUID := uint64(req.StaffUserId)
+	candidateUID := req.CandidateUserId
 
+	if err := s.requireCollabReadScope(ctx, staffUID, candidateUID); err != nil {
+		return nil, err
+	}
 	if err := s.serviceAuth.AuthorizePermission(ctx, staffUID, authz.PermCollaborationTagManage); err != nil {
 		return nil, fmt.Errorf("permission denied: collaboration.tag.manage required: %w", err)
 	}
@@ -468,7 +472,11 @@ func (s *CollaborationService) ListCandidateTags(ctx context.Context, req *pb.Li
 
 func (s *CollaborationService) UnassignTag(ctx context.Context, req *pb.UnassignTagRequest) (*pb.CommonResponse, error) {
 	staffUID := uint64(req.StaffUserId)
+	candidateUID := req.CandidateUserId
 
+	if err := s.requireCollabReadScope(ctx, staffUID, candidateUID); err != nil {
+		return nil, err
+	}
 	if err := s.serviceAuth.AuthorizePermission(ctx, staffUID, authz.PermCollaborationTagManage); err != nil {
 		return nil, fmt.Errorf("permission denied: collaboration.tag.manage required: %w", err)
 	}
@@ -537,7 +545,7 @@ func (s *CollaborationService) CreateFollowUpTask(ctx context.Context, req *pb.C
 	}, nil
 }
 
-// B2 fix: add scope check for ListFollowUpTasks when candidate_user_id filter is provided.
+// ListFollowUpTasks requires candidate_user_id filter to enforce scope.
 func (s *CollaborationService) ListFollowUpTasks(ctx context.Context, req *pb.ListFollowUpTasksRequest) (*pb.ListFollowUpTasksResponse, error) {
 	staffUID := uint64(req.StaffUserId)
 
@@ -545,11 +553,10 @@ func (s *CollaborationService) ListFollowUpTasks(ctx context.Context, req *pb.Li
 		return nil, fmt.Errorf("permission denied: collaboration.task.manage required: %w", err)
 	}
 
-	// B2: Verify candidate scope if candidate filter is provided
-	if req.CandidateUserId > 0 {
-		if err := s.requireCollabReadScope(ctx, staffUID, req.CandidateUserId); err != nil {
-			return nil, err
-		}
+	// Always require candidate scope — never expose tasks without candidate-level access check.
+	candidateUID := req.CandidateUserId
+	if err := s.requireCollabReadScope(ctx, staffUID, candidateUID); err != nil {
+		return nil, err
 	}
 
 	filter := repository.TaskFilter{Status: req.Status}

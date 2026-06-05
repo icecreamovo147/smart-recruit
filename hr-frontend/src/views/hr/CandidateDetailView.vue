@@ -5,7 +5,8 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 import { ArrowLeft, Plus, Delete } from '@element-plus/icons-vue'
 import { getCandidateWorkspace, createNote, listNotes, createTag, listTags, assignTag, unassignTag, listCandidateTags, createFollowUpTask, listFollowUpTasks, completeFollowUpTask } from '@/api/collaboration'
 import { getHRStatusLabel, getStatusType } from '@/types/domain'
-import type { CandidateWorkspace, CandidateNoteInfo, CandidateTagInfo, FollowUpTaskInfo } from '@/types/domain'
+import type { CandidateWorkspace, CandidateNoteInfo, CandidateTagInfo, FollowUpTaskInfo, CandidateWorkspaceInterview, CandidateWorkspaceOffer } from '@/types/domain'
+import TimelineView from '@/components/business/TimelineView.vue'
 
 const route = useRoute()
 const router = useRouter()
@@ -234,6 +235,10 @@ onMounted(async () => {
                 <el-descriptions-item label="工作经验" :span="2">
                   <div class="work-experience">{{ workspace.work_experience || '-' }}</div>
                 </el-descriptions-item>
+                <el-descriptions-item label="简历" :span="2">
+                  <a v-if="workspace.resume_url" :href="workspace.resume_url" target="_blank" rel="noopener">查看简历</a>
+                  <span v-else>-</span>
+                </el-descriptions-item>
               </el-descriptions>
             </el-card>
 
@@ -397,6 +402,48 @@ onMounted(async () => {
               </div>
             </el-card>
 
+            <!-- Interviews Card -->
+            <el-card v-if="workspace.interviews && workspace.interviews.length > 0" shadow="never" class="detail-card">
+              <template #header>
+                <span class="card-title">面试记录</span>
+              </template>
+              <div class="interview-list">
+                <div v-for="iv in workspace.interviews" :key="iv.interview_id" class="detail-item">
+                  <div class="detail-item-header">
+                    <el-tag size="small" :type="iv.status === 'completed' ? 'success' : iv.status === 'cancelled' ? 'info' : 'warning'">
+                      {{ iv.status === 'completed' ? '已完成' : iv.status === 'cancelled' ? '已取消' : '待面试' }}
+                    </el-tag>
+                    <span class="detail-item-round">第{{ iv.round_no }}轮</span>
+                  </div>
+                  <div class="detail-item-meta">
+                    <span v-if="iv.scheduled_at">{{ formatDateTime(iv.scheduled_at) }}</span>
+                    <span v-if="iv.interviewer_name"> | 面试官: {{ iv.interviewer_name }}</span>
+                  </div>
+                </div>
+              </div>
+            </el-card>
+
+            <!-- Offers Card -->
+            <el-card v-if="workspace.offers && workspace.offers.length > 0" shadow="never" class="detail-card">
+              <template #header>
+                <span class="card-title">Offer 记录</span>
+              </template>
+              <div class="offer-list">
+                <div v-for="o in workspace.offers" :key="o.offer_id" class="detail-item">
+                  <div class="detail-item-header">
+                    <el-tag size="small" :type="o.status === 'accepted' ? 'success' : o.status === 'rejected' ? 'danger' : 'warning'">
+                      {{ o.status === 'draft' ? '草稿' : o.status === 'sent' ? '已发送' : o.status === 'accepted' ? '已接受' : o.status === 'rejected' ? '已拒绝' : o.status === 'withdrawn' ? '已撤回' : o.status }}
+                    </el-tag>
+                  </div>
+                  <div class="detail-item-meta">
+                    <span v-if="o.salary_range">薪资: {{ o.salary_range }}</span>
+                    <span v-if="o.work_location"> | 工作地点: {{ o.work_location }}</span>
+                    <span v-if="o.job_title"> | 岗位: {{ o.job_title }}</span>
+                  </div>
+                </div>
+              </div>
+            </el-card>
+
             <!-- Follow-up Tasks Card -->
             <el-card shadow="never" class="detail-card">
               <template #header>
@@ -427,6 +474,14 @@ onMounted(async () => {
             </el-card>
           </el-col>
         </el-row>
+
+        <!-- Timeline -->
+        <el-card shadow="never" class="detail-card timeline-card">
+          <template #header>
+            <span class="card-title">动态时间线</span>
+          </template>
+          <TimelineView :candidate-user-id="candidateUserId" />
+        </el-card>
       </template>
     </div>
 
@@ -643,5 +698,35 @@ onMounted(async () => {
 
 .empty-state {
   padding: 60px 0;
+}
+
+.timeline-card {
+  margin-top: 20px;
+}
+
+.detail-item {
+  padding: 10px 0;
+  border-bottom: 1px solid #f0f0f0;
+}
+
+.detail-item:last-child {
+  border-bottom: none;
+}
+
+.detail-item-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 4px;
+}
+
+.detail-item-round {
+  font-size: 13px;
+  color: #666;
+}
+
+.detail-item-meta {
+  font-size: 12px;
+  color: #999;
 }
 </style>

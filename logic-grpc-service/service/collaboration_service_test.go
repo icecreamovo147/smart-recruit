@@ -583,7 +583,8 @@ func TestCollaborationService_ListFollowUpTasks_Success(t *testing.T) {
 
 	ctx := metadata.WithAuthActor(context.Background(), seed.HrUser.ID, "staff")
 	resp, err := svc.ListFollowUpTasks(ctx, &pb.ListFollowUpTasksRequest{
-		StaffUserId: seed.HrUser.ID,
+		StaffUserId:    seed.HrUser.ID,
+		CandidateUserId: uint64(seed.Candidate.ID),
 	})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -771,22 +772,21 @@ func TestCollaborationService_ListTimelineEvents_ScopeDenied(t *testing.T) {
 
 // ── Scope Enforcement (B2) Tests ─────────────────────────────────────────────
 
-func TestCollaborationService_ListFollowUpTasks_WithoutCandidateFilterAllowed(t *testing.T) {
+func TestCollaborationService_ListFollowUpTasks_WithoutCandidateFilterDenied(t *testing.T) {
 	db := setupCollaborationTestDB(t)
 	seed := seedCollaborationTestData(t, db)
 	svc := newCollaborationServiceForTest(t, db)
 
-	// other_hr has task.manage permission but no data scope
-	// Listing without candidate filter should succeed (no scope check)
+	// other_hr has task.manage permission but no data scope on seed.Candidate
+	// Even without a candidate filter, scope must be enforced.
+	// The candidate_user_id field is always required for scope verification.
 	ctx := metadata.WithAuthActor(context.Background(), seed.OtherHrUser.ID, "staff")
-	resp, err := svc.ListFollowUpTasks(ctx, &pb.ListFollowUpTasksRequest{
-		StaffUserId: seed.OtherHrUser.ID,
+	_, err := svc.ListFollowUpTasks(ctx, &pb.ListFollowUpTasksRequest{
+		StaffUserId:    seed.OtherHrUser.ID,
+		CandidateUserId: uint64(seed.Candidate.ID), // Needs scope check
 	})
-	if err != nil {
-		t.Fatalf("unexpected error for list without candidate filter: %v", err)
-	}
-	if resp.Code != errs.OK {
-		t.Fatalf("expected OK, got code=%d msg=%s", resp.Code, resp.Msg)
+	if err == nil {
+		t.Fatal("expected scope-denied error, got nil")
 	}
 }
 
