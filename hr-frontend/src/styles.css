@@ -789,9 +789,9 @@ a {
 
 .application-actions {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
-  gap: 8px;
-  white-space: nowrap;
+  gap: 6px;
 }
 
 .application-actions .el-button + .el-button {

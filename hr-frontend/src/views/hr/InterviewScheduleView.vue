@@ -1,16 +1,19 @@
 <script setup lang="ts">
-import { onMounted, reactive, ref } from 'vue'
+import { computed, onMounted, reactive, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { scheduleInterview } from '@/api/interview'
 import { listJobApplications } from '@/api/application'
-import type { Application } from '@/types/domain'
+import type { Application, StaffUserInfo } from '@/types/domain'
+import InterviewerPickerDialog from '@/components/business/InterviewerPickerDialog.vue'
 
 const route = useRoute()
 const router = useRouter()
 const loading = ref(false)
 const applications = ref<Application[]>([])
 const appLoading = ref(false)
+const pickerVisible = ref(false)
+const selectedInterviewerName = ref('')
 
 const jobId = Number(route.query.job_id) || 0
 
@@ -41,26 +44,36 @@ const loadApplications = async () => {
   }
 }
 
+const interviewerDisplay = computed(() => {
+  if (!form.interviewer_id) return ''
+  return selectedInterviewerName.value || `面试官 #${form.interviewer_id}`
+})
+
+const handleInterviewerSelect = (user: StaffUserInfo) => {
+  form.interviewer_id = Number(user.user_id)
+  selectedInterviewerName.value = user.username
+}
+
 const handleSubmit = async () => {
   if (!form.application_id) {
     ElMessage.warning('请选择投递记录')
     return
   }
   if (!form.interviewer_id) {
-    ElMessage.warning('请输入面试官 ID')
+    ElMessage.warning('请选择面试官')
     return
   }
   loading.value = true
   try {
     const data = await scheduleInterview({
-      application_id: form.application_id,
-      interviewer_id: form.interviewer_id,
-      round_no: form.round_no,
+      application_id: Number(form.application_id),
+      interviewer_id: Number(form.interviewer_id),
+      round_no: Number(form.round_no),
       title: form.title || undefined,
       mode: form.mode,
       meeting_url: form.meeting_url || undefined,
       location: form.location || undefined,
-      duration_minutes: form.duration_minutes,
+      duration_minutes: Number(form.duration_minutes),
       candidate_note: form.candidate_note || undefined,
       internal_note: form.internal_note || undefined,
       scheduled_at: form.scheduled_at ? new Date(form.scheduled_at).toISOString() : undefined,
@@ -95,8 +108,18 @@ onMounted(() => {
           </el-select>
         </el-form-item>
 
-        <el-form-item label="面试官 ID" required>
-          <el-input-number v-model="form.interviewer_id" :min="1" style="width: 100%" placeholder="请输入面试官用户 ID" />
+        <el-form-item label="面试官" required>
+          <el-input
+            :model-value="interviewerDisplay"
+            readonly
+            placeholder="请选择面试官"
+            style="width: 100%"
+            @click="pickerVisible = true"
+          >
+            <template #append>
+              <el-button @click.stop="pickerVisible = true">选择</el-button>
+            </template>
+          </el-input>
         </el-form-item>
 
         <el-form-item label="面试轮次">
@@ -152,6 +175,12 @@ onMounted(() => {
         </el-form-item>
       </el-form>
     </el-card>
+
+    <InterviewerPickerDialog
+      v-model:visible="pickerVisible"
+      :selected-id="form.interviewer_id"
+      @select="handleInterviewerSelect"
+    />
   </div>
 </template>
 

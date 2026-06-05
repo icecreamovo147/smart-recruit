@@ -49,6 +49,7 @@ service InterviewService {
   rpc UpdateInterview(UpdateInterviewRequest) returns (CommonResponse);
   rpc CancelInterview(CancelInterviewRequest) returns (CommonResponse);
   rpc GetInterview(GetInterviewRequest) returns (GetInterviewResponse);
+  rpc ListInterviewers(ListInterviewersRequest) returns (ListInterviewersResponse);
   rpc ListApplicationInterviews(ListApplicationInterviewsRequest) returns (ListApplicationInterviewsResponse);
   rpc ListMyInterviews(ListMyInterviewsRequest) returns (ListMyInterviewsResponse);
   rpc ListCandidateInterviews(ListCandidateInterviewsRequest) returns (ListCandidateInterviewsResponse);
@@ -737,6 +738,20 @@ message GetInterviewResponse {
   int32 code = 1;
   string msg = 2;
   InterviewSchedule interview = 3;
+}
+
+message ListInterviewersRequest {
+  int64 hr_id = 1;
+  int32 page = 2;
+  int32 page_size = 3;
+  string keyword = 4;
+}
+
+message ListInterviewersResponse {
+  int32 code = 1;
+  string msg = 2;
+  int64 total = 3;
+  repeated StaffUserInfo list = 4;
 }
 
 message ListApplicationInterviewsRequest {

@@ -44,6 +44,19 @@ service ApplicationService {
   rpc ListApplicationStatusTransitions(ListApplicationStatusTransitionsRequest) returns (ListApplicationStatusTransitionsResponse);
 }
 
+service InterviewService {
+  rpc ScheduleInterview(ScheduleInterviewRequest) returns (ScheduleInterviewResponse);
+  rpc UpdateInterview(UpdateInterviewRequest) returns (CommonResponse);
+  rpc CancelInterview(CancelInterviewRequest) returns (CommonResponse);
+  rpc GetInterview(GetInterviewRequest) returns (GetInterviewResponse);
+  rpc ListInterviewers(ListInterviewersRequest) returns (ListInterviewersResponse);
+  rpc ListApplicationInterviews(ListApplicationInterviewsRequest) returns (ListApplicationInterviewsResponse);
+  rpc ListMyInterviews(ListMyInterviewsRequest) returns (ListMyInterviewsResponse);
+  rpc ListCandidateInterviews(ListCandidateInterviewsRequest) returns (ListCandidateInterviewsResponse);
+  rpc SubmitFeedback(SubmitFeedbackRequest) returns (CommonResponse);
+  rpc GetFeedback(GetFeedbackRequest) returns (GetFeedbackResponse);
+}
+
 service NotificationService {
   rpc ListNotifications(ListNotificationsRequest) returns (ListNotificationsResponse);
   rpc UnreadNotificationCount(UnreadNotificationCountRequest) returns (UnreadNotificationCountResponse);
@@ -645,6 +658,167 @@ message CandidateUpdateSessionRequest {
 message CandidateDeleteSessionRequest {
   int64 user_id = 1;
   int64 session_id = 2;
+}
+
+// ── Interview ─────────────────────────────────────────────────────────
+
+message InterviewSchedule {
+  int64 interview_id = 1;
+  int64 application_id = 2;
+  int64 interviewer_id = 3;
+  int32 round_no = 4;
+  string title = 5;
+  string mode = 6;        // video / phone / onsite
+  string meeting_url = 7;
+  string location = 8;
+  int32 duration_minutes = 9;
+  string candidate_note = 10;
+  string internal_note = 11;
+  string cancel_reason = 12;
+  string scheduled_at = 13;
+  string status = 14;     // pending / scheduled / completed / cancelled
+  int64 created_by = 15;
+  string created_at = 16;
+  string updated_at = 17;
+
+  // Joined fields for display
+  string interviewer_name = 18;
+  string application_status_key = 19;
+  string job_title = 20;
+  string candidate_name = 21;
+  string candidate_phone = 22;
+}
+
+message ScheduleInterviewRequest {
+  int64 hr_id = 1;
+  int64 application_id = 2;
+  int64 interviewer_id = 3;
+  int32 round_no = 4;
+  string title = 5;
+  string mode = 6;
+  string meeting_url = 7;
+  string location = 8;
+  int32 duration_minutes = 9;
+  string candidate_note = 10;
+  string internal_note = 11;
+  string scheduled_at = 12;  // RFC 3339
+}
+
+message ScheduleInterviewResponse {
+  int32 code = 1;
+  string msg = 2;
+  int64 interview_id = 3;
+}
+
+message UpdateInterviewRequest {
+  int64 hr_id = 1;
+  int64 interview_id = 2;
+  string title = 3;
+  string mode = 4;
+  string meeting_url = 5;
+  string location = 6;
+  int32 duration_minutes = 7;
+  string candidate_note = 8;
+  string internal_note = 9;
+  string scheduled_at = 10;  // RFC 3339
+}
+
+message CancelInterviewRequest {
+  int64 hr_id = 1;
+  int64 interview_id = 2;
+  string cancel_reason = 3;
+}
+
+message GetInterviewRequest {
+  int64 user_id = 1;
+  int64 interview_id = 2;
+}
+
+message GetInterviewResponse {
+  int32 code = 1;
+  string msg = 2;
+  InterviewSchedule interview = 3;
+}
+
+message ListInterviewersRequest {
+  int64 hr_id = 1;
+  int32 page = 2;
+  int32 page_size = 3;
+  string keyword = 4;
+}
+
+message ListInterviewersResponse {
+  int32 code = 1;
+  string msg = 2;
+  int64 total = 3;
+  repeated StaffUserInfo list = 4;
+}
+
+message ListApplicationInterviewsRequest {
+  int64 hr_id = 1;
+  int64 application_id = 2;
+}
+
+message ListApplicationInterviewsResponse {
+  int32 code = 1;
+  string msg = 2;
+  repeated InterviewSchedule list = 3;
+}
+
+message ListMyInterviewsRequest {
+  int64 interviewer_id = 1;
+  string status = 2;  // optional filter
+}
+
+message ListMyInterviewsResponse {
+  int32 code = 1;
+  string msg = 2;
+  repeated InterviewSchedule list = 3;
+}
+
+message ListCandidateInterviewsRequest {
+  int64 user_id = 1;
+}
+
+message ListCandidateInterviewsResponse {
+  int32 code = 1;
+  string msg = 2;
+  repeated InterviewSchedule list = 3;
+}
+
+message InterviewFeedback {
+  int64 feedback_id = 1;
+  int64 interview_id = 2;
+  int64 application_id = 3;
+  int64 interviewer_id = 4;
+  string recommendation = 5;  // positive / negative / pending
+  int32 score = 6;
+  string dimension_scores_json = 7;
+  string comments = 8;
+  string submitted_at = 9;
+  string updated_at = 10;
+  string interviewer_name = 11;
+}
+
+message SubmitFeedbackRequest {
+  int64 interviewer_id = 1;
+  int64 interview_id = 2;
+  int64 application_id = 3;
+  string recommendation = 4;
+  int32 score = 5;
+  string dimension_scores_json = 6;
+  string comments = 7;
+}
+
+message GetFeedbackRequest {
+  int64 interviewer_id = 1;
+  int64 interview_id = 2;
+}
+
+message GetFeedbackResponse {
+  int32 code = 1;
+  string msg = 2;
+  InterviewFeedback feedback = 3;
 }
 
 message Notification {

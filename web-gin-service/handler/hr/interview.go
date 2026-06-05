@@ -34,7 +34,7 @@ func (h *InterviewHandler) Schedule(c *gin.Context) {
 		ScheduledAt     string `json:"scheduled_at"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
-		base.BadRequest(c, "请求参数错误")
+		base.BadRequest(c, "请求参数错误："+err.Error())
 		return
 	}
 	resp, err := h.clients.Interview.ScheduleInterview(c.Request.Context(), &pb.ScheduleInterviewRequest{
@@ -123,7 +123,7 @@ func (h *InterviewHandler) Cancel(c *gin.Context) {
 }
 
 func (h *InterviewHandler) ListByApplication(c *gin.Context) {
-	applicationID, err := strconv.ParseInt(c.Param("application_id"), 10, 64)
+	applicationID, err := strconv.ParseInt(c.Param("id"), 10, 64)
 	if err != nil {
 		base.BadRequest(c, "投递记录 ID 不合法")
 		return
@@ -156,6 +156,29 @@ func (h *InterviewHandler) Get(c *gin.Context) {
 	base.ProtoResponse(c, resp)
 }
 
+func (h *InterviewHandler) ListInterviewers(c *gin.Context) {
+	var req struct {
+		Page     int32  `form:"page"`
+		PageSize int32  `form:"page_size"`
+		Keyword  string `form:"keyword"`
+	}
+	if err := c.ShouldBindQuery(&req); err != nil {
+		base.BadRequest(c, "请求参数错误")
+		return
+	}
+	resp, err := h.clients.Interview.ListInterviewers(c.Request.Context(), &pb.ListInterviewersRequest{
+		HrId:     middleware.UserID(c),
+		Page:     req.Page,
+		PageSize: req.PageSize,
+		Keyword:  req.Keyword,
+	})
+	if err != nil {
+		base.Internal(c, err)
+		return
+	}
+	base.ProtoResponse(c, resp)
+}
+
 // ListMy returns the current staff user's assigned interviews (interviewer view).
 func (h *InterviewHandler) ListMy(c *gin.Context) {
 	status := c.DefaultQuery("status", "")
@@ -178,24 +201,24 @@ func (h *InterviewHandler) SubmitFeedback(c *gin.Context) {
 		return
 	}
 	var req struct {
-		ApplicationID     int64  `json:"application_id" binding:"required"`
-		Recommendation    string `json:"recommendation" binding:"required"`
-		Score             int32  `json:"score"`
-		DimensionScores   string `json:"dimension_scores_json"`
-		Comments          string `json:"comments"`
+		ApplicationID   int64  `json:"application_id" binding:"required"`
+		Recommendation  string `json:"recommendation" binding:"required"`
+		Score           int32  `json:"score"`
+		DimensionScores string `json:"dimension_scores_json"`
+		Comments        string `json:"comments"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
 		base.BadRequest(c, "请求参数错误")
 		return
 	}
 	resp, err := h.clients.Interview.SubmitFeedback(c.Request.Context(), &pb.SubmitFeedbackRequest{
-		InterviewerId:     middleware.UserID(c),
-		InterviewId:       interviewID,
-		ApplicationId:     req.ApplicationID,
-		Recommendation:    req.Recommendation,
-		Score:             req.Score,
+		InterviewerId:       middleware.UserID(c),
+		InterviewId:         interviewID,
+		ApplicationId:       req.ApplicationID,
+		Recommendation:      req.Recommendation,
+		Score:               req.Score,
 		DimensionScoresJson: req.DimensionScores,
-		Comments:          req.Comments,
+		Comments:            req.Comments,
 	})
 	if err != nil {
 		base.Internal(c, err)
@@ -221,4 +244,3 @@ func (h *InterviewHandler) GetFeedback(c *gin.Context) {
 	}
 	base.ProtoResponse(c, resp)
 }
-

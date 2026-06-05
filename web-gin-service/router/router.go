@@ -13,7 +13,6 @@ import (
 
 	"web-gin-service/config"
 	_ "web-gin-service/docs"
-	pb "web-gin-service/recruitment/pb"
 	"web-gin-service/handler"
 	"web-gin-service/handler/candidate"
 	"web-gin-service/handler/hr"
@@ -21,6 +20,7 @@ import (
 	"web-gin-service/pkg/authz"
 	"web-gin-service/pkg/logger"
 	"web-gin-service/pkg/redisclient"
+	pb "web-gin-service/recruitment/pb"
 	"web-gin-service/rpc"
 )
 
@@ -196,11 +196,12 @@ func Setup(cfg config.Config, clients *rpc.Clients, rdb *redis.Client) (*gin.Eng
 	staffGroup.GET("/applications/:id/transitions", normalTimeout, middleware.RequirePermission(authz.PermApplicationRead), hrApplicationHandler.ListTransitions)
 
 	// Interview management — requires interview permissions
-	staffGroup.GET("/applications/:application_id/interviews", normalTimeout, middleware.RequirePermission(authz.PermInterviewRead), hrInterviewHandler.ListByApplication)
+	staffGroup.GET("/applications/:id/interviews", normalTimeout, middleware.RequirePermission(authz.PermInterviewRead), hrInterviewHandler.ListByApplication)
 	staffGroup.POST("/interviews", normalTimeout, bodyAuth, middleware.RequirePermission(authz.PermInterviewSchedule), hrInterviewHandler.Schedule)
 	staffGroup.PUT("/interviews/:interview_id", normalTimeout, bodyAuth, middleware.RequirePermission(authz.PermInterviewSchedule), hrInterviewHandler.Update)
 	staffGroup.PATCH("/interviews/:interview_id/cancel", normalTimeout, bodyAuth, middleware.RequirePermission(authz.PermInterviewSchedule), hrInterviewHandler.Cancel)
 	staffGroup.GET("/interviews/:interview_id", normalTimeout, middleware.RequireAnyPermission(authz.PermInterviewRead, authz.PermInterviewSchedule), hrInterviewHandler.Get)
+	staffGroup.GET("/interviewers", normalTimeout, middleware.RequirePermission(authz.PermInterviewSchedule), hrInterviewHandler.ListInterviewers)
 
 	// Interviewer task routes (also under /hr for staff access)
 	staffGroup.GET("/my-interviews", normalTimeout, middleware.RequirePermission(authz.PermInterviewRead), hrInterviewHandler.ListMy)

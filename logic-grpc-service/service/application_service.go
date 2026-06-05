@@ -230,7 +230,11 @@ func (s *ApplicationService) UpdateApplicationStatus(ctx context.Context, req *p
 	if scopeErr != nil {
 		return &pb.CommonResponse{Code: errs.ErrForbidden, Msg: "无权限操作投递状态"}, nil
 	}
-	if detail.IsCurrent != 1 {
+
+	// Detect HR re-pass: rejected → screen_passed creates a new application round.
+	isRePass := currentKey == model.StatusKeyRejected && targetKey == model.StatusKeyScreenPassed
+
+	if detail.IsCurrent != 1 && !isRePass {
 		return &pb.CommonResponse{Code: errs.ErrForbidden, Msg: "该投递已不是当前有效流程，不能修改状态"}, nil
 	}
 
@@ -243,7 +247,11 @@ func (s *ApplicationService) UpdateApplicationStatus(ctx context.Context, req *p
 		// Viewed is informational only — no notification to candidate.
 	case model.StatusKeyScreenPassed:
 		notifyType = "application_approved"
-		notifyContent = fmt.Sprintf("你投递的「%s」岗位已通过筛选，请留意后续安排。", detail.JobTitle)
+		if isRePass {
+			notifyContent = fmt.Sprintf("你投递的「%s」岗位已重新通过筛选（第%d轮），请留意后续安排。", detail.JobTitle, detail.RoundNo+1)
+		} else {
+			notifyContent = fmt.Sprintf("你投递的「%s」岗位已通过筛选，请留意后续安排。", detail.JobTitle)
+		}
 	case model.StatusKeyRejected:
 		notifyType = "application_rejected"
 		notifyContent = fmt.Sprintf("你投递的「%s」岗位当前未通过筛选，感谢你的投递。", detail.JobTitle)
@@ -257,18 +265,27 @@ func (s *ApplicationService) UpdateApplicationStatus(ctx context.Context, req *p
 
 	var rows int64
 	err = s.applications.Transaction(ctx, func(tx *gorm.DB) error {
-		if scopeLevel >= scopeFull {
-			rows, err = s.applications.UpdateStatusAnyWithTx(ctx, tx, req.ApplicationId, currentKey, targetKey, legacyStatus)
-		} else if scopeLevel == scopeDepartmentOrLocation {
-			deptIDs, locIDs := s.getAppScopeDeptAndLocIDs(ctx, uint64(req.HrId))
-			rows, err = s.applications.UpdateStatusInScopeWithTx(ctx, tx, deptIDs, locIDs, req.ApplicationId, currentKey, targetKey, legacyStatus)
+		if isRePass {
+			// Re-pass: increment round_no, reset is_current, update status — all in one atomic update.
+			var deptIDs, locIDs []uint64
+			if scopeLevel == scopeDepartmentOrLocation {
+				deptIDs, locIDs = s.getAppScopeDeptAndLocIDs(ctx, uint64(req.HrId))
+			}
+			rows, err = s.applications.RePassWithTx(ctx, tx, req.ApplicationId, currentKey, targetKey, legacyStatus, req.HrId, deptIDs, locIDs, int(scopeLevel))
 		} else {
-			rows, err = s.applications.UpdateStatusOwnedWithTx(ctx, tx, req.HrId, req.ApplicationId, currentKey, targetKey, legacyStatus)
+			if scopeLevel >= scopeFull {
+				rows, err = s.applications.UpdateStatusAnyWithTx(ctx, tx, req.ApplicationId, currentKey, targetKey, legacyStatus)
+			} else if scopeLevel == scopeDepartmentOrLocation {
+				deptIDs, locIDs := s.getAppScopeDeptAndLocIDs(ctx, uint64(req.HrId))
+				rows, err = s.applications.UpdateStatusInScopeWithTx(ctx, tx, deptIDs, locIDs, req.ApplicationId, currentKey, targetKey, legacyStatus)
+			} else {
+				rows, err = s.applications.UpdateStatusOwnedWithTx(ctx, tx, req.HrId, req.ApplicationId, currentKey, targetKey, legacyStatus)
+			}
 		}
 		if err != nil {
 			return err
 		}
-		if rows > 0 && model.IsTerminalStatusKey(targetKey) {
+		if rows > 0 && model.IsTerminalStatusKey(targetKey) && !isRePass {
 			if err := tx.Model(&model.Application{}).Where("id = ?", req.ApplicationId).Update("is_current", 0).Error; err != nil {
 				return err
 			}

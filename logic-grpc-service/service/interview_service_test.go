@@ -50,14 +50,14 @@ func setupInterviewServiceTestDB(t *testing.T) *gorm.DB {
 
 // interviewTestSeed holds references to all entities created during seed setup.
 type interviewTestSeed struct {
-	InterviewerUser    *model.User
-	OtherInterviewer   *model.User
-	ScopeUser          *model.User // user with recruiting_all scope
-	CandidateUser      *model.User
-	UnprivilegedUser   *model.User // user with interview.read but no scope
-	Job                *model.Job
-	Application        *model.Application
-	AssignedInterview  *model.InterviewSchedule
+	InterviewerUser     *model.User
+	OtherInterviewer    *model.User
+	ScopeUser           *model.User // user with recruiting_all scope
+	CandidateUser       *model.User
+	UnprivilegedUser    *model.User // user with interview.read but no scope
+	Job                 *model.Job
+	Application         *model.Application
+	AssignedInterview   *model.InterviewSchedule
 	UnassignedInterview *model.InterviewSchedule
 }
 
@@ -164,9 +164,9 @@ func seedInterviewTestData(t *testing.T, db *gorm.DB) *interviewTestSeed {
 	// ── Job ─────────────────────────────────────────────────────────────
 
 	job := &model.Job{
-		HrID:    interviewer.ID,
-		Title:   "Software Engineer",
-		Status:  1,
+		HrID:   interviewer.ID,
+		Title:  "Software Engineer",
+		Status: 1,
 	}
 	if err := db.Create(job).Error; err != nil {
 		t.Fatalf("create job: %v", err)
@@ -237,6 +237,7 @@ func newInterviewServiceForTest(t *testing.T, db *gorm.DB) *InterviewService {
 	t.Helper()
 	authzRepo := repository.NewAuthzRepo(db)
 	interviewRepo := repository.NewInterviewRepo(db)
+	userRepo := repository.NewUserRepo(db)
 	appRepo := repository.NewApplicationRepo(db)
 	jobRepo := repository.NewJobRepo(db)
 	scopeEval := &scopeEvaluator{authzRepo: authzRepo}
@@ -245,7 +246,7 @@ func newInterviewServiceForTest(t *testing.T, db *gorm.DB) *InterviewService {
 	// OutboxPublisher with nil repo — methods that don't call outbox work fine.
 	outboxPublisher := &OutboxPublisher{}
 
-	return NewInterviewService(authzRepo, interviewRepo, appRepo, jobRepo, nil, outboxPublisher, scopeEval, serviceAuth)
+	return NewInterviewService(authzRepo, interviewRepo, userRepo, appRepo, jobRepo, nil, outboxPublisher, scopeEval, serviceAuth)
 }
 
 // ── GetInterview ───────────────────────────────────────────────────────────

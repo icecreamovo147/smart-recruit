@@ -1,5 +1,5 @@
 import request from './request'
-import type { InterviewSchedule, InterviewFeedback } from '@/types/domain'
+import type { InterviewSchedule, InterviewFeedback, StaffUserInfo } from '@/types/domain'
 
 export interface ScheduleInterviewPayload {
   application_id: number
@@ -34,6 +34,12 @@ export interface SubmitFeedbackPayload {
   comments?: string
 }
 
+export interface InterviewerQuery {
+  page: number
+  page_size: number
+  keyword?: string
+}
+
 export const scheduleInterview = (data: ScheduleInterviewPayload): Promise<{ interview_id: number }> =>
   request.post('/api/v1/hr/interviews', data)
 
@@ -45,6 +51,9 @@ export const cancelInterview = (interviewId: number, cancelReason?: string): Pro
 
 export const getInterview = (interviewId: number): Promise<{ interview: InterviewSchedule }> =>
   request.get(`/api/v1/hr/interviews/${interviewId}`)
+
+export const listInterviewers = (params: InterviewerQuery): Promise<{ total: number; list: StaffUserInfo[] }> =>
+  request.get('/api/v1/hr/interviewers', { params })
 
 export const listApplicationInterviews = (applicationId: number): Promise<{ list: InterviewSchedule[] }> =>
   request.get(`/api/v1/hr/applications/${applicationId}/interviews`)

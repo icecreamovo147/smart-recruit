@@ -83,3 +83,35 @@ func (r *UserRepo) ListStaff(ctx context.Context, page, pageSize int32, status s
 	}
 	return users, total, nil
 }
+
+// ListStaffByRole returns staff users assigned to a specific active role, with
+// optional keyword matching on username or email.
+func (r *UserRepo) ListStaffByRole(ctx context.Context, roleKey, status, keyword string, page, pageSize int32) ([]model.User, int64, error) {
+	query := r.db.WithContext(ctx).Model(&model.User{}).
+		Joins("JOIN user_roles ur ON ur.user_id = users.id AND ur.revoked_at IS NULL").
+		Joins("JOIN roles r ON r.id = ur.role_id AND r.role_key = ?", roleKey).
+		Where("users.account_type = ?", "staff")
+	if status != "" {
+		query = query.Where("users.status = ?", status)
+	}
+	if keyword != "" {
+		like := "%" + keyword + "%"
+		query = query.Where("(users.username LIKE ? OR users.email LIKE ?)", like, like)
+	}
+
+	var total int64
+	if err := query.Distinct("users.id").Count(&total).Error; err != nil {
+		return nil, 0, err
+	}
+
+	var users []model.User
+	if err := query.Select("users.*").
+		Group("users.id").
+		Order("users.id DESC").
+		Offset(int((page - 1) * pageSize)).
+		Limit(int(pageSize)).
+		Find(&users).Error; err != nil {
+		return nil, 0, err
+	}
+	return users, total, nil
+}

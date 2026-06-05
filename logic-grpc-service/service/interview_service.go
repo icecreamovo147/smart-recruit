@@ -18,6 +18,7 @@ import (
 type InterviewService struct {
 	authzRepo       *repository.AuthzRepo
 	interviews      *repository.InterviewRepo
+	users           *repository.UserRepo
 	applications    *repository.ApplicationRepo
 	jobs            *repository.JobRepo
 	notifications   *repository.NotificationRepo
@@ -29,6 +30,7 @@ type InterviewService struct {
 func NewInterviewService(
 	authzRepo *repository.AuthzRepo,
 	interviews *repository.InterviewRepo,
+	users *repository.UserRepo,
 	applications *repository.ApplicationRepo,
 	jobs *repository.JobRepo,
 	notifications *repository.NotificationRepo,
@@ -39,6 +41,7 @@ func NewInterviewService(
 	return &InterviewService{
 		authzRepo:       authzRepo,
 		interviews:      interviews,
+		users:           users,
 		applications:    applications,
 		jobs:            jobs,
 		notifications:   notifications,
@@ -289,6 +292,48 @@ func (s *InterviewService) ScheduleInterview(ctx context.Context, req *pb.Schedu
 	return &pb.ScheduleInterviewResponse{Code: errs.OK, Msg: "面试安排成功", InterviewId: interview.ID}, nil
 }
 
+func (s *InterviewService) ListInterviewers(ctx context.Context, req *pb.ListInterviewersRequest) (*pb.ListInterviewersResponse, error) {
+	if err := s.serviceAuth.VerifyActorMatch(ctx, req.HrId); err != nil {
+		return nil, err
+	}
+	if err := s.serviceAuth.AuthorizePermission(ctx, uint64(req.HrId), "interview.schedule"); err != nil {
+		return &pb.ListInterviewersResponse{Code: errs.ErrForbidden, Msg: err.Error()}, nil
+	}
+	if s.users == nil {
+		return &pb.ListInterviewersResponse{Code: errs.ErrInternal, Msg: "user repo not configured"}, nil
+	}
+
+	page := req.Page
+	if page <= 0 {
+		page = 1
+	}
+	pageSize := req.PageSize
+	if pageSize <= 0 || pageSize > 100 {
+		pageSize = 10
+	}
+
+	users, total, err := s.users.ListStaffByRole(ctx, "interviewer", "active", req.Keyword, page, pageSize)
+	if err != nil {
+		return nil, err
+	}
+
+	list := make([]*pb.StaffUserInfo, 0, len(users))
+	for _, u := range users {
+		list = append(list, &pb.StaffUserInfo{
+			UserId:       int64(u.ID),
+			Username:     u.Username,
+			Email:        u.Email,
+			Status:       u.Status,
+			AccountType:  u.AccountType,
+			Roles:        []string{"interviewer"},
+			TokenVersion: u.TokenVersion,
+			CreatedAt:    u.CreatedAt.Format(time.RFC3339),
+		})
+	}
+
+	return &pb.ListInterviewersResponse{Code: errs.OK, Msg: "success", Total: total, List: list}, nil
+}
+
 func (s *InterviewService) UpdateInterview(ctx context.Context, req *pb.UpdateInterviewRequest) (*pb.CommonResponse, error) {
 	if err := s.serviceAuth.VerifyActorMatch(ctx, req.HrId); err != nil {
 		return nil, err
@@ -522,8 +567,8 @@ func (s *InterviewService) GetInterview(ctx context.Context, req *pb.GetIntervie
 	}
 
 	return &pb.GetInterviewResponse{
-		Code: errs.OK,
-		Msg:  "success",
+		Code:      errs.OK,
+		Msg:       "success",
 		Interview: toPBInterview(detail),
 	}, nil
 }
@@ -722,28 +767,28 @@ func toPBInterview(row *repository.InterviewWithDetailsRow) *pb.InterviewSchedul
 		scheduledAt = row.ScheduledAt.Format(time.RFC3339)
 	}
 	return &pb.InterviewSchedule{
-		InterviewId:         row.ID,
-		ApplicationId:       row.ApplicationID,
-		InterviewerId:       row.InterviewerID,
-		RoundNo:             row.RoundNo,
-		Title:               row.Title,
-		Mode:                row.Mode,
-		MeetingUrl:          row.MeetingURL,
-		Location:            row.Location,
-		DurationMinutes:     row.DurationMinutes,
-		CandidateNote:       row.CandidateNote,
-		InternalNote:        row.InternalNote,
-		CancelReason:        row.CancelReason,
-		ScheduledAt:         scheduledAt,
-		Status:              row.Status,
-		CreatedBy:           int64PtrToInt64(row.CreatedBy),
-		CreatedAt:           formatTime(row.CreatedAt),
-		UpdatedAt:           formatTime(row.UpdatedAt),
-		InterviewerName:     row.InterviewerName,
+		InterviewId:          row.ID,
+		ApplicationId:        row.ApplicationID,
+		InterviewerId:        row.InterviewerID,
+		RoundNo:              row.RoundNo,
+		Title:                row.Title,
+		Mode:                 row.Mode,
+		MeetingUrl:           row.MeetingURL,
+		Location:             row.Location,
+		DurationMinutes:      row.DurationMinutes,
+		CandidateNote:        row.CandidateNote,
+		InternalNote:         row.InternalNote,
+		CancelReason:         row.CancelReason,
+		ScheduledAt:          scheduledAt,
+		Status:               row.Status,
+		CreatedBy:            int64PtrToInt64(row.CreatedBy),
+		CreatedAt:            formatTime(row.CreatedAt),
+		UpdatedAt:            formatTime(row.UpdatedAt),
+		InterviewerName:      row.InterviewerName,
 		ApplicationStatusKey: row.ApplicationStatusKey,
-		JobTitle:            row.JobTitle,
-		CandidateName:       row.CandidateName,
-		CandidatePhone:      row.CandidatePhone,
+		JobTitle:             row.JobTitle,
+		CandidateName:        row.CandidateName,
+		CandidatePhone:       row.CandidatePhone,
 	}
 }
 

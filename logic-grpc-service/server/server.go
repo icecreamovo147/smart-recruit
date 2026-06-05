@@ -235,6 +235,10 @@ func (s *Server) GetInterview(ctx context.Context, req *pb.GetInterviewRequest) 
 	return s.svc.Interview.GetInterview(ctx, req)
 }
 
+func (s *Server) ListInterviewers(ctx context.Context, req *pb.ListInterviewersRequest) (*pb.ListInterviewersResponse, error) {
+	return s.svc.Interview.ListInterviewers(ctx, req)
+}
+
 func (s *Server) ListApplicationInterviews(ctx context.Context, req *pb.ListApplicationInterviewsRequest) (*pb.ListApplicationInterviewsResponse, error) {
 	return s.svc.Interview.ListApplicationInterviews(ctx, req)
 }

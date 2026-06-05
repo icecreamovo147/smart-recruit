@@ -1232,6 +1232,7 @@ const (
 	InterviewService_UpdateInterview_FullMethodName           = "/recruitment.InterviewService/UpdateInterview"
 	InterviewService_CancelInterview_FullMethodName           = "/recruitment.InterviewService/CancelInterview"
 	InterviewService_GetInterview_FullMethodName              = "/recruitment.InterviewService/GetInterview"
+	InterviewService_ListInterviewers_FullMethodName          = "/recruitment.InterviewService/ListInterviewers"
 	InterviewService_ListApplicationInterviews_FullMethodName = "/recruitment.InterviewService/ListApplicationInterviews"
 	InterviewService_ListMyInterviews_FullMethodName          = "/recruitment.InterviewService/ListMyInterviews"
 	InterviewService_ListCandidateInterviews_FullMethodName   = "/recruitment.InterviewService/ListCandidateInterviews"
@@ -1247,6 +1248,7 @@ type InterviewServiceClient interface {
 	UpdateInterview(ctx context.Context, in *UpdateInterviewRequest, opts ...grpc.CallOption) (*CommonResponse, error)
 	CancelInterview(ctx context.Context, in *CancelInterviewRequest, opts ...grpc.CallOption) (*CommonResponse, error)
 	GetInterview(ctx context.Context, in *GetInterviewRequest, opts ...grpc.CallOption) (*GetInterviewResponse, error)
+	ListInterviewers(ctx context.Context, in *ListInterviewersRequest, opts ...grpc.CallOption) (*ListInterviewersResponse, error)
 	ListApplicationInterviews(ctx context.Context, in *ListApplicationInterviewsRequest, opts ...grpc.CallOption) (*ListApplicationInterviewsResponse, error)
 	ListMyInterviews(ctx context.Context, in *ListMyInterviewsRequest, opts ...grpc.CallOption) (*ListMyInterviewsResponse, error)
 	ListCandidateInterviews(ctx context.Context, in *ListCandidateInterviewsRequest, opts ...grpc.CallOption) (*ListCandidateInterviewsResponse, error)
@@ -1296,6 +1298,16 @@ func (c *interviewServiceClient) GetInterview(ctx context.Context, in *GetInterv
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(GetInterviewResponse)
 	err := c.cc.Invoke(ctx, InterviewService_GetInterview_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *interviewServiceClient) ListInterviewers(ctx context.Context, in *ListInterviewersRequest, opts ...grpc.CallOption) (*ListInterviewersResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ListInterviewersResponse)
+	err := c.cc.Invoke(ctx, InterviewService_ListInterviewers_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
@@ -1360,6 +1372,7 @@ type InterviewServiceServer interface {
 	UpdateInterview(context.Context, *UpdateInterviewRequest) (*CommonResponse, error)
 	CancelInterview(context.Context, *CancelInterviewRequest) (*CommonResponse, error)
 	GetInterview(context.Context, *GetInterviewRequest) (*GetInterviewResponse, error)
+	ListInterviewers(context.Context, *ListInterviewersRequest) (*ListInterviewersResponse, error)
 	ListApplicationInterviews(context.Context, *ListApplicationInterviewsRequest) (*ListApplicationInterviewsResponse, error)
 	ListMyInterviews(context.Context, *ListMyInterviewsRequest) (*ListMyInterviewsResponse, error)
 	ListCandidateInterviews(context.Context, *ListCandidateInterviewsRequest) (*ListCandidateInterviewsResponse, error)
@@ -1386,6 +1399,9 @@ func (UnimplementedInterviewServiceServer) CancelInterview(context.Context, *Can
 }
 func (UnimplementedInterviewServiceServer) GetInterview(context.Context, *GetInterviewRequest) (*GetInterviewResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method GetInterview not implemented")
+}
+func (UnimplementedInterviewServiceServer) ListInterviewers(context.Context, *ListInterviewersRequest) (*ListInterviewersResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method ListInterviewers not implemented")
 }
 func (UnimplementedInterviewServiceServer) ListApplicationInterviews(context.Context, *ListApplicationInterviewsRequest) (*ListApplicationInterviewsResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method ListApplicationInterviews not implemented")
@@ -1491,6 +1507,24 @@ func _InterviewService_GetInterview_Handler(srv interface{}, ctx context.Context
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(InterviewServiceServer).GetInterview(ctx, req.(*GetInterviewRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _InterviewService_ListInterviewers_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ListInterviewersRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(InterviewServiceServer).ListInterviewers(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: InterviewService_ListInterviewers_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(InterviewServiceServer).ListInterviewers(ctx, req.(*ListInterviewersRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -1607,6 +1641,10 @@ var InterviewService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "GetInterview",
 			Handler:    _InterviewService_GetInterview_Handler,
+		},
+		{
+			MethodName: "ListInterviewers",
+			Handler:    _InterviewService_ListInterviewers_Handler,
 		},
 		{
 			MethodName: "ListApplicationInterviews",

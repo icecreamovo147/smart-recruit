@@ -1,7 +1,9 @@
 <script setup lang="ts">
-import { reactive, ref, watch } from 'vue'
+import { computed, reactive, ref } from 'vue'
 import { ElMessage } from 'element-plus'
 import { scheduleInterview } from '@/api/interview'
+import type { StaffUserInfo } from '@/types/domain'
+import InterviewerPickerDialog from '@/components/business/InterviewerPickerDialog.vue'
 
 const props = defineProps<{
   visible: boolean
@@ -16,6 +18,8 @@ const emit = defineEmits<{
 }>()
 
 const loading = ref(false)
+const pickerVisible = ref(false)
+const selectedInterviewerName = ref('')
 const form = reactive({
   interviewer_id: 0,
   round_no: 1,
@@ -40,24 +44,39 @@ const resetForm = () => {
   form.candidate_note = ''
   form.internal_note = ''
   form.scheduled_at = ''
+  selectedInterviewerName.value = ''
+}
+
+const candidateSummary = computed(() => {
+  return [props.candidateName, props.jobTitle].filter((item) => item && item.trim()).join(' - ')
+})
+
+const interviewerDisplay = computed(() => {
+  if (!form.interviewer_id) return ''
+  return selectedInterviewerName.value || `面试官 #${form.interviewer_id}`
+})
+
+const handleInterviewerSelect = (user: StaffUserInfo) => {
+  form.interviewer_id = Number(user.user_id)
+  selectedInterviewerName.value = user.username
 }
 
 const handleSubmit = async () => {
   if (!form.interviewer_id) {
-    ElMessage.warning('请输入面试官 ID')
+    ElMessage.warning('请选择面试官')
     return
   }
   loading.value = true
   try {
     await scheduleInterview({
-      application_id: props.applicationId,
-      interviewer_id: form.interviewer_id,
-      round_no: form.round_no,
+      application_id: Number(props.applicationId),
+      interviewer_id: Number(form.interviewer_id),
+      round_no: Number(form.round_no),
       title: form.title || undefined,
       mode: form.mode,
       meeting_url: form.meeting_url || undefined,
       location: form.location || undefined,
-      duration_minutes: form.duration_minutes,
+      duration_minutes: Number(form.duration_minutes),
       candidate_note: form.candidate_note || undefined,
       internal_note: form.internal_note || undefined,
       scheduled_at: form.scheduled_at ? new Date(form.scheduled_at).toISOString() : undefined,
@@ -87,10 +106,20 @@ const handleClose = () => {
     @close="handleClose"
   >
     <el-form :model="form" label-width="110px">
-      <el-alert v-if="candidateName || jobTitle" :title="candidateName + ' - ' + jobTitle" type="info" :closable="false" class="mb-4" />
+      <el-alert v-if="candidateSummary" :title="candidateSummary" type="info" :closable="false" class="mb-4" />
 
-      <el-form-item label="面试官 ID" required>
-        <el-input-number v-model="form.interviewer_id" :min="1" style="width: 100%" placeholder="面试官用户 ID" />
+      <el-form-item label="面试官" required>
+        <el-input
+          :model-value="interviewerDisplay"
+          readonly
+          placeholder="请选择面试官"
+          style="width: 100%"
+          @click="pickerVisible = true"
+        >
+          <template #append>
+            <el-button @click.stop="pickerVisible = true">选择</el-button>
+          </template>
+        </el-input>
       </el-form-item>
 
       <el-form-item label="面试轮次">
@@ -145,6 +174,12 @@ const handleClose = () => {
       <el-button type="primary" :loading="loading" @click="handleSubmit">安排面试</el-button>
     </template>
   </el-dialog>
+
+  <InterviewerPickerDialog
+    v-model:visible="pickerVisible"
+    :selected-id="form.interviewer_id"
+    @select="handleInterviewerSelect"
+  />
 </template>
 
 <style scoped>

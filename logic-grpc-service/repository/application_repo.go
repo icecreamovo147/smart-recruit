@@ -330,6 +330,43 @@ func (r *ApplicationRepo) UpdateStatusAnyWithTx(ctx context.Context, tx *gorm.DB
 	return result.RowsAffected, result.Error
 }
 
+// RePassWithTx re-opens a rejected application as a new round, setting status to
+// screen_passed. It increments round_no by 1 and marks the record as is_current=1.
+// Scope enforcement mirrors the calling service's UpdateStatus*WithTx pattern:
+//   - scopeLevel = 2 (scopeFull): no additional ownership filter.
+//   - scopeLevel = 1 (scopeDepartmentOrLocation): filter by deptIDs/locIDs.
+//   - scopeLevel = 0 (scopeOwned): filter by hrID ownership of the job.
+func (r *ApplicationRepo) RePassWithTx(ctx context.Context, tx *gorm.DB, applicationID int64, currentStatusKey, targetStatusKey string, legacyStatus int32, hrID int64, deptIDs, locIDs []uint64, scopeLevel int) (int64, error) {
+	updates := map[string]any{
+		"status":     legacyStatus,
+		"status_key": targetStatusKey,
+		"is_current": 1,
+		"round_no":   gorm.Expr("round_no + 1"),
+	}
+	query := tx.WithContext(ctx).Model(&model.Application{}).
+		Where("id = ? AND status_key = ?", applicationID, currentStatusKey)
+
+	if scopeLevel < 2 { // not scopeFull
+		if scopeLevel == 1 && (len(deptIDs) > 0 || len(locIDs) > 0) { // scopeDepartmentOrLocation
+			scopeJobQuery := tx.WithContext(ctx).Model(&model.Job{}).Select("id")
+			if len(deptIDs) > 0 && len(locIDs) > 0 {
+				scopeJobQuery = scopeJobQuery.Where("(department_id IN ? OR location_id IN ?)", deptIDs, locIDs)
+			} else if len(deptIDs) > 0 {
+				scopeJobQuery = scopeJobQuery.Where("department_id IN ?", deptIDs)
+			} else {
+				scopeJobQuery = scopeJobQuery.Where("location_id IN ?", locIDs)
+			}
+			query = query.Where("job_id IN (?)", scopeJobQuery)
+		} else { // scopeOwned (or fallback)
+			ownedJobIDs := tx.WithContext(ctx).Model(&model.Job{}).Select("id").Where("hr_id = ?", hrID)
+			query = query.Where("job_id IN (?)", ownedJobIDs)
+		}
+	}
+
+	result := query.Updates(updates)
+	return result.RowsAffected, result.Error
+}
+
 func (r *ApplicationRepo) GetDetailOwned(ctx context.Context, hrID, applicationID int64) (*ApplicationDetailRow, error) {
 	var row ApplicationDetailRow
 	result := r.db.WithContext(ctx).Table("applications").

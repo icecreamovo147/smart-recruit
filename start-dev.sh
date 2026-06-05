@@ -239,9 +239,12 @@ JWT_SECRET="${JWT_SECRET:-$(logic_jwt_secret)}"
 [ -n "${JWT_SECRET}" ] || die "JWT secret is empty. Set jwt.secret in logic-grpc-service/config/config.yaml or export JWT_SECRET."
 export JWT_SECRET
 
+GRPC_INTERNAL_TOKEN="${GRPC_INTERNAL_TOKEN:-local-dev-internal-token}"
+export GRPC_INTERNAL_TOKEN
+
 start_service "logic-grpc-service" "${ROOT}/logic-grpc-service" 50051 "${BIN_DIR}/logic-grpc-service"
 sleep 3
-start_service "web-gin-service" "${ROOT}/web-gin-service" 8080 env JWT_SECRET="${JWT_SECRET}" "${BIN_DIR}/web-gin-service"
+start_service "web-gin-service" "${ROOT}/web-gin-service" 8080 env JWT_SECRET="${JWT_SECRET}" GRPC_INTERNAL_TOKEN="${GRPC_INTERNAL_TOKEN}" "${BIN_DIR}/web-gin-service"
 start_service "hr-frontend" "${ROOT}/hr-frontend" 5173 pnpm run dev
 start_service "user-frontend" "${ROOT}/user-frontend" 5174 pnpm run dev
 

@@ -132,9 +132,8 @@ export const STATUS_TYPE_MAP: Record<string, string> = {
   [APP_STATUS_KEY.WITHDRAWN]: 'info',
 }
 
-// Terminal status keys (no outgoing transitions).
+// Terminal status keys (no outgoing transitions, except REJECTED allows HR re-pass).
 export const TERMINAL_STATUS_KEYS: Set<string> = new Set([
-  APP_STATUS_KEY.REJECTED,
   APP_STATUS_KEY.WITHDRAWN,
   APP_STATUS_KEY.OFFER_REJECTED,
   APP_STATUS_KEY.HIRED,
@@ -147,6 +146,7 @@ export const ALLOWED_HR_ACTIONS: Record<string, Set<string>> = {
     APP_STATUS_KEY.APPLIED,
     APP_STATUS_KEY.VIEWED,
     APP_STATUS_KEY.SCREENING,
+    APP_STATUS_KEY.REJECTED, // HR re-pass: re-open as a new round
   ]),
   [APP_STATUS_KEY.REJECTED]: new Set([
     APP_STATUS_KEY.APPLIED,
@@ -158,6 +158,12 @@ export const ALLOWED_HR_ACTIONS: Record<string, Set<string>> = {
     APP_STATUS_KEY.INTERVIEW_PASSED,
     APP_STATUS_KEY.OFFER_PENDING,
     APP_STATUS_KEY.OFFER_SENT,
+  ]),
+  // Schedule interview: allowed only after screening passed or in interview stages.
+  [APP_STATUS_KEY.INTERVIEW_PENDING]: new Set([
+    APP_STATUS_KEY.SCREEN_PASSED,
+    APP_STATUS_KEY.INTERVIEW_PENDING,
+    APP_STATUS_KEY.INTERVIEW_PASSED,
   ]),
 }
 

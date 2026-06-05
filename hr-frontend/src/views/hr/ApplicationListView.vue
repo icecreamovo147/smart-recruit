@@ -102,6 +102,9 @@ const viewResume = async (row: Application) => {
 
 const decide = async (row: Application, statusKey: string) => {
   const text = getHRStatusLabel(statusKey, statusKey === APP_STATUS_KEY.REJECTED ? '淘汰' : '通过')
+  const currentKey = getStatusKey(row)
+  const isRePass = currentKey === APP_STATUS_KEY.REJECTED && statusKey === APP_STATUS_KEY.SCREEN_PASSED
+
   let reason: string | undefined
   if (statusKey === APP_STATUS_KEY.REJECTED) {
     try {
@@ -110,6 +113,16 @@ const decide = async (row: Application, statusKey: string) => {
         type: 'warning',
       })
       reason = value
+    } catch {
+      return
+    }
+  } else if (isRePass) {
+    try {
+      await ElMessageBox.confirm(
+        `该候选人之前已被淘汰，重新通过将作为第 ${(row.round_no || 0) + 1} 轮投递处理，确认继续？`,
+        '重新通过候选人',
+        { type: 'warning', confirmButtonText: '确认重新通过' },
+      )
     } catch {
       return
     }
@@ -176,12 +189,12 @@ onMounted(load)
               <el-tag :type="statusType(row)">{{ statusLabel(row) }}</el-tag>
             </template>
           </el-table-column>
-          <el-table-column label="操作" width="330" fixed="right">
+          <el-table-column label="操作" width="360" fixed="right">
             <template #default="{ row }">
               <div class="application-actions">
                 <el-button size="small" type="primary" plain @click="viewResume(row)">查看简历</el-button>
                 <el-button size="small" type="primary" plain @click="aiAnalyze(row)">AI 分析</el-button>
-                <el-button size="small" type="warning" plain @click="openScheduleDialog(row)">安排面试</el-button>
+                <el-button size="small" type="warning" plain :disabled="!canAction(row, APP_STATUS_KEY.INTERVIEW_PENDING)" @click="openScheduleDialog(row)">安排面试</el-button>
                 <el-button size="small" type="success" plain :disabled="!canAction(row, APP_STATUS_KEY.SCREEN_PASSED)" @click="decide(row, APP_STATUS_KEY.SCREEN_PASSED)">通过</el-button>
                 <el-button size="small" type="danger" plain :disabled="!canAction(row, APP_STATUS_KEY.REJECTED)" @click="decide(row, APP_STATUS_KEY.REJECTED)">淘汰</el-button>
               </div>
@@ -211,6 +224,7 @@ onMounted(load)
           <div class="mobile-card__actions">
             <el-button size="small" type="primary" plain @click="viewResume(row)">查看简历</el-button>
             <el-button size="small" type="primary" plain @click="aiAnalyze(row)">AI 分析</el-button>
+            <el-button size="small" type="warning" plain :disabled="!canAction(row, APP_STATUS_KEY.INTERVIEW_PENDING)" @click="openScheduleDialog(row)">安排面试</el-button>
             <el-button size="small" type="success" plain :disabled="!canAction(row, APP_STATUS_KEY.SCREEN_PASSED)" @click="decide(row, APP_STATUS_KEY.SCREEN_PASSED)">通过</el-button>
             <el-button size="small" type="danger" plain :disabled="!canAction(row, APP_STATUS_KEY.REJECTED)" @click="decide(row, APP_STATUS_KEY.REJECTED)">淘汰</el-button>
           </div>

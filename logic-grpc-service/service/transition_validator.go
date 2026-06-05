@@ -62,9 +62,11 @@ var allowedTransitions = map[string]map[string]bool{
 	model.StatusKeyOfferAccepted: {
 		model.StatusKeyHired: true,
 	},
-	// Terminal states: no outgoing transitions
+	// Terminal states: no outgoing transitions (except Rejected → ScreenPassed for HR re-pass).
 	model.StatusKeyHired:         {},
-	model.StatusKeyRejected:      {},
+	model.StatusKeyRejected: {
+		model.StatusKeyScreenPassed: true, // HR re-pass creates a new application round.
+	},
 	model.StatusKeyOfferRejected: {},
 	model.StatusKeyWithdrawn:     {},
 }
