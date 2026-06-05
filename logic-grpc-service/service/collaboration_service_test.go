@@ -544,6 +544,48 @@ func TestCollaborationService_UnassignTag_Success(t *testing.T) {
 	}
 }
 
+func TestCollaborationService_AssignTag_ScopeDenied(t *testing.T) {
+	db := setupCollaborationTestDB(t)
+	seed := seedCollaborationTestData(t, db)
+	svc := newCollaborationServiceForTest(t, db)
+
+	// other_hr has tag.manage permission but no data scope on seed.Candidate
+	ctx := metadata.WithAuthActor(context.Background(), seed.OtherHrUser.ID, "staff")
+	_, err := svc.AssignTag(ctx, &pb.AssignTagRequest{
+		StaffUserId:     seed.OtherHrUser.ID,
+		TagId:           seed.Tag.ID,
+		CandidateUserId: uint64(seed.Candidate.ID),
+	})
+	if err == nil {
+		t.Fatal("expected scope-denied error for assign tag, got nil")
+	}
+}
+
+func TestCollaborationService_UnassignTag_ScopeDenied(t *testing.T) {
+	db := setupCollaborationTestDB(t)
+	seed := seedCollaborationTestData(t, db)
+	svc := newCollaborationServiceForTest(t, db)
+
+	// First assign the tag as a user with scope access
+	ctxHr := metadata.WithAuthActor(context.Background(), seed.HrUser.ID, "staff")
+	svc.AssignTag(ctxHr, &pb.AssignTagRequest{
+		StaffUserId:     seed.HrUser.ID,
+		TagId:           seed.Tag.ID,
+		CandidateUserId: uint64(seed.Candidate.ID),
+	})
+
+	// other_hr has tag.manage permission but no data scope on seed.Candidate
+	ctx := metadata.WithAuthActor(context.Background(), seed.OtherHrUser.ID, "staff")
+	_, err := svc.UnassignTag(ctx, &pb.UnassignTagRequest{
+		StaffUserId:     seed.OtherHrUser.ID,
+		TagId:           seed.Tag.ID,
+		CandidateUserId: uint64(seed.Candidate.ID),
+	})
+	if err == nil {
+		t.Fatal("expected scope-denied error for unassign tag, got nil")
+	}
+}
+
 // ── Task Tests ──────────────────────────────────────────────────────────────
 
 func TestCollaborationService_CreateFollowUpTask_Success(t *testing.T) {
