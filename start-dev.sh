@@ -234,6 +234,7 @@ build_go_service "${ROOT}/logic-grpc-service" "logic-grpc-service"
 build_go_service "${ROOT}/web-gin-service" "web-gin-service"
 install_frontend_dependencies "${ROOT}/hr-frontend" "HR frontend"
 install_frontend_dependencies "${ROOT}/user-frontend" "User frontend"
+install_frontend_dependencies "${ROOT}/interviewer-frontend" "Interviewer frontend"
 
 JWT_SECRET="${JWT_SECRET:-$(logic_jwt_secret)}"
 [ -n "${JWT_SECRET}" ] || die "JWT secret is empty. Set jwt.secret in logic-grpc-service/config/config.yaml or export JWT_SECRET."
@@ -247,6 +248,7 @@ sleep 3
 start_service "web-gin-service" "${ROOT}/web-gin-service" 8080 env JWT_SECRET="${JWT_SECRET}" GRPC_INTERNAL_TOKEN="${GRPC_INTERNAL_TOKEN}" "${BIN_DIR}/web-gin-service"
 start_service "hr-frontend" "${ROOT}/hr-frontend" 5173 pnpm run dev
 start_service "user-frontend" "${ROOT}/user-frontend" 5174 pnpm run dev
+start_service "interviewer-frontend" "${ROOT}/interviewer-frontend" 5175 pnpm run dev
 
 cat <<EOF
 
@@ -255,6 +257,7 @@ Done. Dev services are starting in the background.
   API:  http://localhost:8080
   HR:   http://localhost:5173
   User: http://localhost:5174
+  IV:   http://localhost:5175
 
 Logs:
   ${LOG_DIR}

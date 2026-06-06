@@ -9,6 +9,7 @@ import (
 	"gorm.io/gorm"
 
 	"logic-grpc-service/model"
+	"logic-grpc-service/oss"
 	"logic-grpc-service/pkg/errs"
 	"logic-grpc-service/pkg/logger"
 	"logic-grpc-service/recruitment/pb"
@@ -23,6 +24,7 @@ type InterviewService struct {
 	jobs            *repository.JobRepo
 	notifications   *repository.NotificationRepo
 	outboxPublisher *OutboxPublisher
+	oss             oss.Storage
 	scopeEval       *scopeEvaluator
 	serviceAuth     *ServiceAuthorizer
 }
@@ -35,6 +37,7 @@ func NewInterviewService(
 	jobs *repository.JobRepo,
 	notifications *repository.NotificationRepo,
 	outboxPublisher *OutboxPublisher,
+	ossClient oss.Storage,
 	scopeEval *scopeEvaluator,
 	serviceAuth *ServiceAuthorizer,
 ) *InterviewService {
@@ -46,6 +49,7 @@ func NewInterviewService(
 		jobs:            jobs,
 		notifications:   notifications,
 		outboxPublisher: outboxPublisher,
+		oss:             ossClient,
 		scopeEval:       scopeEval,
 		serviceAuth:     serviceAuth,
 	}
@@ -205,14 +209,20 @@ func (s *InterviewService) ScheduleInterview(ctx context.Context, req *pb.Schedu
 		return &pb.ScheduleInterviewResponse{Code: errs.ErrBadRequest, Msg: "投递记录不存在"}, nil
 	}
 
+	// Auto-calculate round_no from existing interviews when not specified
+	roundNo := req.RoundNo
+	if roundNo <= 0 {
+		maxRound, err := s.interviews.GetMaxRoundNo(ctx, req.ApplicationId)
+		if err != nil {
+			return nil, err
+		}
+		roundNo = maxRound + 1
+	}
+
 	// Build defaults
 	title := req.Title
 	if title == "" {
-		if req.RoundNo > 0 {
-			title = fmt.Sprintf("第 %d 轮面试", req.RoundNo)
-		} else {
-			title = "面试"
-		}
+		title = fmt.Sprintf("第 %d 轮面试", roundNo)
 	}
 
 	mode := req.Mode
@@ -223,7 +233,7 @@ func (s *InterviewService) ScheduleInterview(ctx context.Context, req *pb.Schedu
 	interview := &model.InterviewSchedule{
 		ApplicationID:   req.ApplicationId,
 		InterviewerID:   req.InterviewerId,
-		RoundNo:         req.RoundNo,
+		RoundNo:         roundNo,
 		Title:           title,
 		Mode:            mode,
 		MeetingURL:      req.MeetingUrl,
@@ -236,10 +246,29 @@ func (s *InterviewService) ScheduleInterview(ctx context.Context, req *pb.Schedu
 		CreatedBy:       &req.HrId,
 	}
 
-	// Transaction: create interview + notification outbox
+	// Transaction: create interview + auto-transition application status + notification outbox
 	err = s.interviews.Transaction(ctx, func(tx *gorm.DB) error {
 		if err := s.interviews.CreateWithTx(ctx, tx, interview); err != nil {
 			return err
+		}
+
+		// Auto-transition application status to interview_pending
+		currentKey := appDetail.StatusKey
+		if currentKey == model.StatusKeyViewed || currentKey == model.StatusKeyScreenPassed || currentKey == model.StatusKeyInterviewPassed {
+			legacyStatus := model.StatusKeyToLegacy[model.StatusKeyInterviewPending]
+			if _, err := s.applications.UpdateStatusAnyWithTx(ctx, tx, req.ApplicationId, currentKey, model.StatusKeyInterviewPending, legacyStatus); err != nil {
+				return err
+			}
+			if err := s.applications.CreateTransition(ctx, tx, &model.ApplicationStatusTransition{
+				ApplicationID:    req.ApplicationId,
+				FromStatus:       currentKey,
+				ToStatus:         model.StatusKeyInterviewPending,
+				ActorUserID:      req.HrId,
+				ActorAccountType: "staff",
+				Reason:           fmt.Sprintf("安排第 %d 轮面试自动推进", roundNo),
+			}); err != nil {
+				return err
+			}
 		}
 
 		// Notify the interviewer
@@ -250,7 +279,7 @@ func (s *InterviewService) ScheduleInterview(ctx context.Context, req *pb.Schedu
 			Type:                "interview_assigned",
 			Title:               "新的面试安排",
 			Content:             fmt.Sprintf("您被安排为「%s」岗位的面试官：%s", appDetail.JobTitle, title),
-			Link:                "/hr/interviews",
+			Link:                fmt.Sprintf("/hr/interviews/%d", interview.ID),
 			BizType:             "interview",
 			BizID:               interview.ID,
 		}); err != nil {
@@ -408,7 +437,7 @@ func (s *InterviewService) UpdateInterview(ctx context.Context, req *pb.UpdateIn
 			Type:                "interview_updated",
 			Title:               "面试信息已更新",
 			Content:             fmt.Sprintf("「%s」岗位的面试安排已更新：%s", appDetail.JobTitle, existing.Title),
-			Link:                "/hr/interviews",
+			Link:                fmt.Sprintf("/hr/interviews/%d", existing.ID),
 			BizType:             "interview",
 			BizID:               existing.ID,
 		}); err != nil {
@@ -495,7 +524,7 @@ func (s *InterviewService) CancelInterview(ctx context.Context, req *pb.CancelIn
 			Type:                "interview_cancelled",
 			Title:               "面试已取消",
 			Content:             fmt.Sprintf("「%s」岗位的面试已取消。原因：%s", appDetail.JobTitle, reasonText),
-			Link:                "/hr/interviews",
+			Link:                fmt.Sprintf("/hr/interviews/%d", existing.ID),
 			BizType:             "interview",
 			BizID:               existing.ID,
 		}); err != nil {
@@ -569,7 +598,7 @@ func (s *InterviewService) GetInterview(ctx context.Context, req *pb.GetIntervie
 	return &pb.GetInterviewResponse{
 		Code:      errs.OK,
 		Msg:       "success",
-		Interview: toPBInterview(detail),
+		Interview: toPBInterview(detail, s.signResumeURL(detail)),
 	}, nil
 }
 
@@ -590,7 +619,7 @@ func (s *InterviewService) ListApplicationInterviews(ctx context.Context, req *p
 
 	list := make([]*pb.InterviewSchedule, 0, len(rows))
 	for _, row := range rows {
-		list = append(list, toPBInterview(&row))
+		list = append(list, toPBInterview(&row, s.signResumeURL(&row)))
 	}
 
 	return &pb.ListApplicationInterviewsResponse{Code: errs.OK, Msg: "success", List: list}, nil
@@ -611,9 +640,29 @@ func (s *InterviewService) ListMyInterviews(ctx context.Context, req *pb.ListMyI
 		return nil, err
 	}
 
+	// Batch check feedback existence for this interviewer
+	interviewIDs := make([]int64, 0, len(rows))
+	for _, row := range rows {
+		interviewIDs = append(interviewIDs, row.ID)
+	}
+	feedbackMap := make(map[int64]bool)
+	if len(interviewIDs) > 0 {
+		feedbacks, err := s.interviews.ListFeedbackByInterviews(ctx, interviewIDs)
+		if err != nil {
+			return nil, err
+		}
+		for _, f := range feedbacks {
+			if f.InterviewerID == req.InterviewerId {
+				feedbackMap[f.InterviewID] = true
+			}
+		}
+	}
+
 	list := make([]*pb.InterviewSchedule, 0, len(rows))
 	for _, row := range rows {
-		list = append(list, toPBInterview(&row))
+		pbInterview := toPBInterview(&row, s.signResumeURL(&row))
+		pbInterview.HasFeedback = feedbackMap[row.ID]
+		list = append(list, pbInterview)
 	}
 
 	return &pb.ListMyInterviewsResponse{Code: errs.OK, Msg: "success", List: list}, nil
@@ -633,7 +682,7 @@ func (s *InterviewService) ListCandidateInterviews(ctx context.Context, req *pb.
 	for _, row := range rows {
 		// Remove internal notes for candidate-facing display
 		row.InternalNote = ""
-		list = append(list, toPBInterview(&row))
+		list = append(list, toPBInterview(&row, s.signResumeURL(&row)))
 	}
 
 	return &pb.ListCandidateInterviewsResponse{Code: errs.OK, Msg: "success", List: list}, nil
@@ -666,6 +715,11 @@ func (s *InterviewService) SubmitFeedback(ctx context.Context, req *pb.SubmitFee
 		return &pb.CommonResponse{Code: errs.ErrBadRequest, Msg: "ApplicationId 与面试记录不匹配"}, nil
 	}
 
+	// Check if the application is still active (not rejected/withdrawn/etc.)
+	if model.IsTerminalStatusKey(interviewDetail.ApplicationStatusKey) {
+		return &pb.CommonResponse{Code: errs.ErrForbidden, Msg: "该候选人已结束投递流程（已被淘汰或撤回），无法提交面试反馈"}, nil
+	}
+
 	// Check if feedback already exists (immutability)
 	exists, err := s.interviews.FeedbackExistsByInterviewer(ctx, req.InterviewId, req.InterviewerId)
 	if err != nil {
@@ -682,9 +736,13 @@ func (s *InterviewService) SubmitFeedback(ctx context.Context, req *pb.SubmitFee
 	if req.Score < 0 || req.Score > 10 {
 		return &pb.CommonResponse{Code: errs.ErrBadRequest, Msg: "评分范围为 0-10"}, nil
 	}
-	validRecs := map[string]bool{"positive": true, "negative": true, "pending": true}
+	validRecs := map[string]bool{
+		"positive": true, "negative": true, "pending": true,
+		"strong_recommend": true, "recommend": true, "neutral": true,
+		"not_recommend": true, "strong_not_recommend": true,
+	}
 	if !validRecs[req.Recommendation] {
-		return &pb.CommonResponse{Code: errs.ErrBadRequest, Msg: "推荐结论 must be positive/negative/pending"}, nil
+		return &pb.CommonResponse{Code: errs.ErrBadRequest, Msg: "推荐结论值不合法"}, nil
 	}
 
 	feedback := &model.InterviewFeedback{
@@ -725,7 +783,42 @@ func (s *InterviewService) SubmitFeedback(ctx context.Context, req *pb.SubmitFee
 		}
 	}
 
+	// Auto-transition application status: interview_pending → interviewing
+	if err := s.advanceToInterviewing(ctx, req.ApplicationId, req.InterviewerId); err != nil {
+		logger.L().Warn("auto-advance application to interviewing failed (non-fatal)",
+			zap.Int64("application_id", req.ApplicationId),
+			zap.Error(err),
+		)
+	}
+
 	return &pb.CommonResponse{Code: errs.OK, Msg: "面试反馈已提交"}, nil
+}
+
+// advanceToInterviewing auto-transitions an application from interview_pending to
+// interviewing after an interviewer submits feedback. This is a non-fatal operation;
+// if it fails the feedback was still saved and HR can manually advance the status.
+func (s *InterviewService) advanceToInterviewing(ctx context.Context, applicationID, actorUserID int64) error {
+	appDetail, err := s.applications.GetDetail(ctx, applicationID)
+	if err != nil || appDetail == nil {
+		return err
+	}
+	if appDetail.StatusKey != model.StatusKeyInterviewPending {
+		return nil // already past this stage or not yet there — idempotent skip
+	}
+	legacyStatus := model.StatusKeyToLegacy[model.StatusKeyInterviewing]
+	return s.applications.Transaction(ctx, func(tx *gorm.DB) error {
+		if _, err := s.applications.UpdateStatusAnyWithTx(ctx, tx, applicationID, model.StatusKeyInterviewPending, model.StatusKeyInterviewing, legacyStatus); err != nil {
+			return err
+		}
+		return s.applications.CreateTransition(ctx, tx, &model.ApplicationStatusTransition{
+			ApplicationID:    applicationID,
+			FromStatus:       model.StatusKeyInterviewPending,
+			ToStatus:         model.StatusKeyInterviewing,
+			ActorUserID:      actorUserID,
+			ActorAccountType: "staff",
+			Reason:           "面试官提交反馈，自动推进至面试中",
+		})
+	})
 }
 
 func (s *InterviewService) GetFeedback(ctx context.Context, req *pb.GetFeedbackRequest) (*pb.GetFeedbackResponse, error) {
@@ -761,7 +854,19 @@ func (s *InterviewService) GetFeedback(ctx context.Context, req *pb.GetFeedbackR
 
 // ── PB Conversion helpers ─────────────────────────────────────────────
 
-func toPBInterview(row *repository.InterviewWithDetailsRow) *pb.InterviewSchedule {
+func (s *InterviewService) signResumeURL(row *repository.InterviewWithDetailsRow) string {
+	if row.ResumeOssKey == "" || s.oss == nil {
+		return ""
+	}
+	url, err := s.oss.GeneratePresignedGetURL(row.ResumeOssKey)
+	if err != nil {
+		logger.L().Warn("presign resume url failed", zap.String("oss_key", row.ResumeOssKey), zap.Error(err))
+		return ""
+	}
+	return url
+}
+
+func toPBInterview(row *repository.InterviewWithDetailsRow, resumeURL string) *pb.InterviewSchedule {
 	var scheduledAt string
 	if row.ScheduledAt != nil {
 		scheduledAt = row.ScheduledAt.Format(time.RFC3339)
@@ -789,6 +894,7 @@ func toPBInterview(row *repository.InterviewWithDetailsRow) *pb.InterviewSchedul
 		JobTitle:             row.JobTitle,
 		CandidateName:        row.CandidateName,
 		CandidatePhone:       row.CandidatePhone,
+		ResumeUrl:            resumeURL,
 	}
 }
 

@@ -266,7 +266,7 @@ const createAnalysisSessionFromRoute = async () => {
   messages.value = (data.messages || []) as MessageItem[]
   // Replace URL: remove application_id/candidate_name, set session_id so a refresh
   // will load the session normally instead of re-triggering analysis.
-  router.replace({ path: '/hr/ai', query: { session_id: String(session.id) } })
+  await router.replace({ path: '/hr/ai', query: { session_id: String(session.id) } })
   await refreshSessions()
   scrollBottom()
 

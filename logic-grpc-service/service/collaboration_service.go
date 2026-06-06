@@ -218,13 +218,31 @@ func (s *CollaborationService) GetCandidateWorkspace(ctx context.Context, req *p
 		logger.L().Error("list candidate interviews failed", zap.Uint64("candidate_user_id", candidateUID), zap.Error(err))
 		interviewRows = nil
 	}
+
+	// Batch fetch feedback for all interviews
+	interviewIDs := make([]int64, 0, len(interviewRows))
+	for _, iv := range interviewRows {
+		interviewIDs = append(interviewIDs, iv.ID)
+	}
+	feedbackMap := make(map[int64]*model.InterviewFeedback)
+	if len(interviewIDs) > 0 {
+		feedbacks, err := s.interviews.ListFeedbackByInterviews(ctx, interviewIDs)
+		if err != nil {
+			logger.L().Warn("list interview feedbacks failed", zap.Error(err))
+		} else {
+			for i := range feedbacks {
+				feedbackMap[feedbacks[i].InterviewID] = &feedbacks[i]
+			}
+		}
+	}
+
 	pbInterviews := make([]*pb.CandidateWorkspaceInterview, 0, len(interviewRows))
 	for _, iv := range interviewRows {
 		var scheduledAt string
 		if iv.ScheduledAt != nil {
 			scheduledAt = iv.ScheduledAt.Format(time.RFC3339)
 		}
-		pbInterviews = append(pbInterviews, &pb.CandidateWorkspaceInterview{
+		pbIv := &pb.CandidateWorkspaceInterview{
 			InterviewId:     iv.ID,
 			ApplicationId:   iv.ApplicationID,
 			Title:           iv.Title,
@@ -234,7 +252,15 @@ func (s *CollaborationService) GetCandidateWorkspace(ctx context.Context, req *p
 			InterviewerName: iv.InterviewerName,
 			JobTitle:        iv.JobTitle,
 			RoundNo:         iv.RoundNo,
-		})
+		}
+		if fb, ok := feedbackMap[iv.ID]; ok {
+			pbIv.HasFeedback = true
+			pbIv.FeedbackRecommendation = fb.Recommendation
+			pbIv.FeedbackScore = fb.Score
+			pbIv.FeedbackDimensionScoresJson = fb.DimensionScoresJSON
+			pbIv.FeedbackComments = fb.Comments
+		}
+		pbInterviews = append(pbInterviews, pbIv)
 	}
 
 	// Get offer details

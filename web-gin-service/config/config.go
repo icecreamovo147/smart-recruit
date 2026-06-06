@@ -13,8 +13,9 @@ type Config struct {
 	JWTSecret        string
 	AuthCookieName   string
 	CandidateCookie  string
-	HRCookie         string
-	AuthCookieSecure bool
+	HRCookie           string
+	InterviewerCookie  string
+	AuthCookieSecure   bool
 	ShutdownTimeout  time.Duration
 	Redis            RedisConfig
 	RateLimit        RateLimitConfig
@@ -57,7 +58,8 @@ func Load() (Config, error) {
 		JWTSecret:        secret,
 		AuthCookieName:   env("AUTH_COOKIE_NAME", "recruitment_token"),
 		CandidateCookie:  env("CANDIDATE_AUTH_COOKIE_NAME", "recruitment_candidate_token"),
-		HRCookie:         env("HR_AUTH_COOKIE_NAME", "recruitment_hr_token"),
+		HRCookie:          env("HR_AUTH_COOKIE_NAME", "recruitment_hr_token"),
+		InterviewerCookie: env("INTERVIEWER_AUTH_COOKIE_NAME", "recruitment_interviewer_token"),
 		AuthCookieSecure: envBool("AUTH_COOKIE_SECURE", false),
 		ShutdownTimeout:  envDuration("SHUTDOWN_TIMEOUT", 15*time.Second),
 		Redis: RedisConfig{

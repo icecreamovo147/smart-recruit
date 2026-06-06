@@ -22,7 +22,6 @@ const pickerVisible = ref(false)
 const selectedInterviewerName = ref('')
 const form = reactive({
   interviewer_id: 0,
-  round_no: 1,
   title: '',
   mode: 'video',
   meeting_url: '',
@@ -35,7 +34,6 @@ const form = reactive({
 
 const resetForm = () => {
   form.interviewer_id = 0
-  form.round_no = 1
   form.title = ''
   form.mode = 'video'
   form.meeting_url = ''
@@ -71,7 +69,7 @@ const handleSubmit = async () => {
     await scheduleInterview({
       application_id: Number(props.applicationId),
       interviewer_id: Number(form.interviewer_id),
-      round_no: Number(form.round_no),
+      round_no: 0, // 0 signals backend to auto-calculate
       title: form.title || undefined,
       mode: form.mode,
       meeting_url: form.meeting_url || undefined,
@@ -120,10 +118,6 @@ const handleClose = () => {
             <el-button @click.stop="pickerVisible = true">选择</el-button>
           </template>
         </el-input>
-      </el-form-item>
-
-      <el-form-item label="面试轮次">
-        <el-input-number v-model="form.round_no" :min="1" :max="10" />
       </el-form-item>
 
       <el-form-item label="面试标题">

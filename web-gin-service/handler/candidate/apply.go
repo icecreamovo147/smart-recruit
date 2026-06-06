@@ -21,13 +21,13 @@ func NewApplyHandler(clients *rpc.Clients) *ApplyHandler {
 
 func (h *ApplyHandler) Apply(c *gin.Context) {
 	var req struct {
-		JobID int64 `json:"job_id" binding:"required"`
+		JobID base.FlexInt64 `json:"job_id" binding:"required"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
-		base.BadRequest(c, "请求参数错误")
+		base.BadRequest(c, "请求参数错误: "+err.Error())
 		return
 	}
-	resp, err := h.clients.Application.ApplyJob(c.Request.Context(), &pb.ApplyJobRequest{UserId: middleware.UserID(c), JobId: req.JobID})
+	resp, err := h.clients.Application.ApplyJob(c.Request.Context(), &pb.ApplyJobRequest{UserId: middleware.UserID(c), JobId: int64(req.JobID)})
 	if err != nil {
 		base.Internal(c, err)
 		return

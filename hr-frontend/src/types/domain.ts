@@ -96,7 +96,7 @@ export const HR_STATUS_LABELS: Record<string, string> = {
   [APP_STATUS_KEY.VIEWED]: '已查看',
   [APP_STATUS_KEY.SCREENING]: '筛选中',
   [APP_STATUS_KEY.SCREEN_PASSED]: '筛选通过',
-  [APP_STATUS_KEY.INTERVIEW_PENDING]: '待安排面试',
+  [APP_STATUS_KEY.INTERVIEW_PENDING]: '待面试',
   [APP_STATUS_KEY.INTERVIEWING]: '面试中',
   [APP_STATUS_KEY.INTERVIEW_PASSED]: '面试通过',
   [APP_STATUS_KEY.OFFER_PENDING]: '待发Offer',
@@ -171,10 +171,23 @@ export const ALLOWED_HR_ACTIONS: Record<string, Set<string>> = {
     APP_STATUS_KEY.OFFER_PENDING,
     APP_STATUS_KEY.OFFER_SENT,
   ]),
-  // Schedule interview: allowed only after screening passed or in interview stages.
+  // Schedule interview: allowed from screen_passed, interview stages, and multi-round loop.
   [APP_STATUS_KEY.INTERVIEW_PENDING]: new Set([
+    APP_STATUS_KEY.VIEWED,            // skip screening, go directly to interview
     APP_STATUS_KEY.SCREEN_PASSED,
-    APP_STATUS_KEY.INTERVIEW_PENDING,
+    APP_STATUS_KEY.INTERVIEW_PENDING,  // reschedule after cancellation
+    APP_STATUS_KEY.INTERVIEWING,       // reschedule after cancellation
+    APP_STATUS_KEY.INTERVIEW_PASSED,   // multi-round interview (2nd, 3rd, ...)
+  ]),
+  // Mark interview as passed: allowed from interviewing or interview_pending.
+  [APP_STATUS_KEY.INTERVIEW_PASSED]: new Set([
+    APP_STATUS_KEY.VIEWED,             // skip intermediate stages
+    APP_STATUS_KEY.INTERVIEWING,
+    APP_STATUS_KEY.INTERVIEW_PENDING,  // all rounds complete, skip directly
+  ]),
+  // Advance to offer stage: allowed from interview_passed.
+  [APP_STATUS_KEY.OFFER_PENDING]: new Set([
+    APP_STATUS_KEY.VIEWED,             // skip intermediate stages
     APP_STATUS_KEY.INTERVIEW_PASSED,
   ]),
 }
@@ -553,6 +566,32 @@ export interface InterviewFeedback {
   interviewer_name: string
 }
 
+// ── Interview feedback display constants ─────────────────────────────
+
+export const RECOMMENDATION_LABEL: Record<string, string> = {
+  strong_recommend: '强烈推荐',
+  recommend: '推荐通过',
+  neutral: '待定',
+  not_recommend: '不推荐',
+  strong_not_recommend: '强烈不推荐',
+}
+
+export const RECOMMENDATION_TYPE: Record<string, string> = {
+  strong_recommend: 'success',
+  recommend: 'success',
+  neutral: 'warning',
+  not_recommend: 'danger',
+  strong_not_recommend: 'danger',
+}
+
+export const DIMENSION_LABELS: Record<string, string> = {
+  professional: '专业能力',
+  communication: '沟通表达',
+  problem_solving: '问题分析',
+  job_fit: '岗位匹配',
+  potential: '发展潜力',
+}
+
 export interface TimelineEventInfo {
   id: string
   event_type: string  // status_transition | interview | offer | note
@@ -573,6 +612,12 @@ export interface CandidateWorkspaceInterview {
   interviewer_name: string
   job_title: string
   round_no: number
+  // Feedback fields
+  has_feedback: boolean
+  feedback_recommendation: string
+  feedback_score: number
+  feedback_dimension_scores_json: string
+  feedback_comments: string
 }
 
 export interface CandidateWorkspaceOffer {

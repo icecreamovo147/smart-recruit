@@ -734,6 +734,8 @@ message InterviewSchedule {
   string job_title = 20;
   string candidate_name = 21;
   string candidate_phone = 22;
+  string resume_url = 23;
+  bool has_feedback = 24;  // 当前面试官是否已提交反馈
 }
 
 message ScheduleInterviewRequest {
@@ -1507,6 +1509,12 @@ message CandidateWorkspaceInterview {
   string interviewer_name = 7;
   string job_title = 8;
   int32 round_no = 9;
+  // Interview feedback fields
+  string feedback_recommendation = 10;
+  int32 feedback_score = 11;
+  string feedback_dimension_scores_json = 12;
+  string feedback_comments = 13;
+  bool has_feedback = 14;
 }
 
 message CandidateWorkspaceOffer {

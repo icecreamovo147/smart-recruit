@@ -74,6 +74,11 @@ const routeViewKey = (viewRoute: { fullPath: string; path: string; params: Recor
   if (viewRoute.path.startsWith('/hr/candidates/') && candidateUserId) {
     return `/hr/candidates/${String(candidateUserId)}`
   }
+  // For AI chat, use path-only key so query changes (application_id → session_id)
+  // don't destroy and recreate the component mid-stream.
+  if (viewRoute.path === '/hr/ai') {
+    return '/hr/ai'
+  }
   return viewRoute.fullPath
 }
 

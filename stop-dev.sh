@@ -65,11 +65,13 @@ info "Stopping dev services..."
 
 stop_pid_file "user-frontend"
 stop_pid_file "hr-frontend"
+stop_pid_file "interviewer-frontend"
 stop_pid_file "web-gin-service"
 stop_pid_file "logic-grpc-service"
 
 kill_port 5174 "User Frontend"
 kill_port 5173 "HR Frontend"
+kill_port 5175 "Interviewer Frontend"
 kill_port 8080 "Web Gin"
 kill_port 50051 "Logic gRPC"
 

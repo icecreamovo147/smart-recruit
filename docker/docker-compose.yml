@@ -130,7 +130,8 @@ services:
       AUTH_COOKIE_SECURE: ${AUTH_COOKIE_SECURE:-false}
       CANDIDATE_AUTH_COOKIE_NAME: ${CANDIDATE_AUTH_COOKIE_NAME:-recruitment_candidate_token}
       HR_AUTH_COOKIE_NAME: ${HR_AUTH_COOKIE_NAME:-recruitment_hr_token}
-      CORS_ALLOWED_ORIGIN: ${CORS_ALLOWED_ORIGIN:-http://localhost:5173,http://localhost:5174}
+      INTERVIEWER_AUTH_COOKIE_NAME: ${INTERVIEWER_AUTH_COOKIE_NAME:-recruitment_interviewer_token}
+      CORS_ALLOWED_ORIGIN: ${CORS_ALLOWED_ORIGIN:-http://localhost:5173,http://localhost:5174,http://localhost:5175}
       RATE_LIMIT_AI_RPS: "1"
       RATE_LIMIT_AI_BURST: "3"
       AI_QUOTA_CANDIDATE_DAILY: "20"
@@ -162,6 +163,17 @@ services:
     restart: unless-stopped
     ports:
       - "5174:80"
+    depends_on:
+      - web-gin-service
+
+  interviewer-frontend:
+    build:
+      context: ..
+      dockerfile: docker/interviewer-frontend.Dockerfile
+    container_name: recruitment-interviewer-frontend
+    restart: unless-stopped
+    ports:
+      - "5175:80"
     depends_on:
       - web-gin-service
 

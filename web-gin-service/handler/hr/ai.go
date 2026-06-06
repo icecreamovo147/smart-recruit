@@ -24,15 +24,15 @@ func NewAIHandler(clients *rpc.Clients) *AIHandler {
 
 func (h *AIHandler) Chat(c *gin.Context) {
 	var req struct {
-		Message       string `json:"message" binding:"required"`
-		ApplicationID int64  `json:"application_id"`
-		SessionID     int64  `json:"session_id"`
+		Message       string         `json:"message" binding:"required"`
+		ApplicationID base.FlexInt64 `json:"application_id"`
+		SessionID     base.FlexInt64 `json:"session_id"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
 		base.BadRequest(c, "消息不能为空")
 		return
 	}
-	resp, err := h.clients.AI.Chat(c.Request.Context(), &pb.ChatRequest{HrId: middleware.UserID(c), Message: req.Message, ApplicationId: req.ApplicationID, SessionId: req.SessionID})
+	resp, err := h.clients.AI.Chat(c.Request.Context(), &pb.ChatRequest{HrId: middleware.UserID(c), Message: req.Message, ApplicationId: int64(req.ApplicationID), SessionId: int64(req.SessionID)})
 	if err != nil {
 		base.Internal(c, err)
 		return
@@ -52,15 +52,15 @@ func (h *AIHandler) Chat(c *gin.Context) {
 
 func (h *AIHandler) ChatStream(c *gin.Context) {
 	var req struct {
-		Message       string `json:"message" binding:"required"`
-		ApplicationID int64  `json:"application_id"`
-		SessionID     int64  `json:"session_id"`
+		Message       string         `json:"message" binding:"required"`
+		ApplicationID base.FlexInt64 `json:"application_id"`
+		SessionID     base.FlexInt64 `json:"session_id"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
 		base.BadRequest(c, "消息不能为空")
 		return
 	}
-	stream, err := h.clients.AI.ChatStream(c.Request.Context(), &pb.ChatRequest{HrId: middleware.UserID(c), Message: req.Message, ApplicationId: req.ApplicationID, SessionId: req.SessionID})
+	stream, err := h.clients.AI.ChatStream(c.Request.Context(), &pb.ChatRequest{HrId: middleware.UserID(c), Message: req.Message, ApplicationId: int64(req.ApplicationID), SessionId: int64(req.SessionID)})
 	if err != nil {
 		base.Internal(c, err)
 		return
@@ -204,13 +204,13 @@ func (h *AIHandler) SessionMessages(c *gin.Context) {
 
 func (h *AIHandler) CreateApplicationAnalysisSession(c *gin.Context) {
 	var req struct {
-		ApplicationID int64 `json:"application_id" binding:"required"`
+		ApplicationID base.FlexInt64 `json:"application_id" binding:"required"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
 		base.BadRequest(c, "投递记录 ID 不能为空")
 		return
 	}
-	resp, err := h.clients.AI.CreateApplicationAnalysisSession(c.Request.Context(), &pb.CreateApplicationAnalysisSessionRequest{HrId: middleware.UserID(c), ApplicationId: req.ApplicationID})
+	resp, err := h.clients.AI.CreateApplicationAnalysisSession(c.Request.Context(), &pb.CreateApplicationAnalysisSessionRequest{HrId: middleware.UserID(c), ApplicationId: int64(req.ApplicationID)})
 	if err != nil {
 		base.Internal(c, err)
 		return
@@ -220,13 +220,13 @@ func (h *AIHandler) CreateApplicationAnalysisSession(c *gin.Context) {
 
 func (h *AIHandler) AnalyzeApplication(c *gin.Context) {
 	var req struct {
-		ApplicationID int64 `json:"application_id" binding:"required"`
+		ApplicationID base.FlexInt64 `json:"application_id" binding:"required"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
 		base.BadRequest(c, "投递记录 ID 不能为空")
 		return
 	}
-	resp, err := h.clients.AI.AnalyzeApplication(c.Request.Context(), &pb.AnalyzeApplicationRequest{HrId: middleware.UserID(c), ApplicationId: req.ApplicationID})
+	resp, err := h.clients.AI.AnalyzeApplication(c.Request.Context(), &pb.AnalyzeApplicationRequest{HrId: middleware.UserID(c), ApplicationId: int64(req.ApplicationID)})
 	if err != nil {
 		base.Internal(c, err)
 		return

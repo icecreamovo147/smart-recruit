@@ -130,7 +130,7 @@ func SetTokenVersionCache(ctx context.Context, rdb *redis.Client, userID int64, 
 
 // JWTAuthByClient selects the appropriate cookie based on the X-Client-App header
 // and delegates to JWTAuthWithTokenVersion when rdb is provided, or JWTAuth otherwise.
-func JWTAuthByClient(secret, candidateCookie, hrCookie, fallbackCookie string, rdb *redis.Client) gin.HandlerFunc {
+func JWTAuthByClient(secret, candidateCookie, hrCookie, interviewerCookie, fallbackCookie string, rdb *redis.Client) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		cookieName := fallbackCookie
 		switch c.GetHeader("X-Client-App") {
@@ -138,6 +138,8 @@ func JWTAuthByClient(secret, candidateCookie, hrCookie, fallbackCookie string, r
 			cookieName = hrCookie
 		case "candidate", "user":
 			cookieName = candidateCookie
+		case "interviewer":
+			cookieName = interviewerCookie
 		}
 		// Read from the short-lived access token cookie, with optional token_version validation.
 		JWTAuthWithTokenVersion(secret, cookieName+"_access", rdb)(c)

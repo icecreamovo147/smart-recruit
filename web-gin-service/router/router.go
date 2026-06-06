@@ -104,7 +104,7 @@ func Setup(cfg config.Config, clients *rpc.Clients, rdb *redis.Client) (*gin.Eng
 	})
 	r.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
 
-	authHandler := handler.NewAuthHandler(clients, cfg.AuthCookieName, cfg.CandidateCookie, cfg.HRCookie, cfg.AuthCookieSecure, cfg.JWTSecret, rdb)
+	authHandler := handler.NewAuthHandler(clients, cfg.AuthCookieName, cfg.CandidateCookie, cfg.HRCookie, cfg.InterviewerCookie, cfg.AuthCookieSecure, cfg.JWTSecret, rdb)
 	publicHandler := handler.NewPublicHandler(clients)
 	hrJobHandler := hr.NewJobHandler(clients)
 	hrApplicationHandler := hr.NewApplicationHandler(clients)
@@ -151,14 +151,14 @@ func Setup(cfg config.Config, clients *rpc.Clients, rdb *redis.Client) (*gin.Eng
 	v1.POST("/auth/register", normalTimeout, authLimit, bodyAuth, authHandler.Register)
 	v1.POST("/auth/register/validate-invite-code", normalTimeout, authHandler.ValidateInviteCode)
 	v1.POST("/auth/login", normalTimeout, authLimit, bodyAuth, authHandler.Login)
-	v1.POST("/auth/logout", normalTimeout, middleware.JWTAuthByClient(cfg.JWTSecret, cfg.CandidateCookie, cfg.HRCookie, cfg.AuthCookieName, rdb), authHandler.Logout)
+	v1.POST("/auth/logout", normalTimeout, middleware.JWTAuthByClient(cfg.JWTSecret, cfg.CandidateCookie, cfg.HRCookie, cfg.InterviewerCookie, cfg.AuthCookieName, rdb), authHandler.Logout)
 	v1.POST("/auth/refresh", normalTimeout, authHandler.RefreshToken)
-	v1.GET("/auth/me", normalTimeout, middleware.JWTAuthByClient(cfg.JWTSecret, cfg.CandidateCookie, cfg.HRCookie, cfg.AuthCookieName, rdb), authHandler.Me)
+	v1.GET("/auth/me", normalTimeout, middleware.JWTAuthByClient(cfg.JWTSecret, cfg.CandidateCookie, cfg.HRCookie, cfg.InterviewerCookie, cfg.AuthCookieName, rdb), authHandler.Me)
 	v1.GET("/jobs", normalTimeout, publicHandler.ListJobs)
 	v1.GET("/jobs/:job_id", normalTimeout, publicHandler.JobDetail)
 
 	// ── Authenticated middleware (with token_version validation via Redis) ─
-	jwtAuth := middleware.JWTAuthByClient(cfg.JWTSecret, cfg.CandidateCookie, cfg.HRCookie, cfg.AuthCookieName, rdb)
+	jwtAuth := middleware.JWTAuthByClient(cfg.JWTSecret, cfg.CandidateCookie, cfg.HRCookie, cfg.InterviewerCookie, cfg.AuthCookieName, rdb)
 
 	// ── Candidate routes ───────────────────────────────────────────────
 	// Each candidate route declares the required permission explicitly.

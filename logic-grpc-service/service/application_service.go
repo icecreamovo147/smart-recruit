@@ -25,6 +25,7 @@ type ApplicationService struct {
 	profiles        *repository.ProfileRepo
 	resumes         *repository.ResumeRepo
 	jobs            *repository.JobRepo
+	interviews      *repository.InterviewRepo
 	notifications   *repository.NotificationRepo
 	outboxPublisher *OutboxPublisher
 	oss             oss.Storage
@@ -32,8 +33,8 @@ type ApplicationService struct {
 	scopeEval       *scopeEvaluator
 }
 
-func NewApplicationService(authzRepo *repository.AuthzRepo, applications *repository.ApplicationRepo, profiles *repository.ProfileRepo, resumes *repository.ResumeRepo, jobs *repository.JobRepo, notifications *repository.NotificationRepo, outboxPublisher *OutboxPublisher, ossClient oss.Storage, jobCache *cache.JobCache, scopeEval *scopeEvaluator) *ApplicationService {
-	return &ApplicationService{authzRepo: authzRepo, applications: applications, profiles: profiles, resumes: resumes, jobs: jobs, notifications: notifications, outboxPublisher: outboxPublisher, oss: ossClient, jobCache: jobCache, scopeEval: scopeEval}
+func NewApplicationService(authzRepo *repository.AuthzRepo, applications *repository.ApplicationRepo, profiles *repository.ProfileRepo, resumes *repository.ResumeRepo, jobs *repository.JobRepo, interviews *repository.InterviewRepo, notifications *repository.NotificationRepo, outboxPublisher *OutboxPublisher, ossClient oss.Storage, jobCache *cache.JobCache, scopeEval *scopeEvaluator) *ApplicationService {
+	return &ApplicationService{authzRepo: authzRepo, applications: applications, profiles: profiles, resumes: resumes, jobs: jobs, interviews: interviews, notifications: notifications, outboxPublisher: outboxPublisher, oss: ossClient, jobCache: jobCache, scopeEval: scopeEval}
 }
 
 // getAppScopeDeptAndLocIDs returns the department and location IDs for a department/location-scoped user.
@@ -288,6 +289,19 @@ func (s *ApplicationService) UpdateApplicationStatus(ctx context.Context, req *p
 		if rows > 0 && model.IsTerminalStatusKey(targetKey) && !isRePass {
 			if err := tx.Model(&model.Application{}).Where("id = ?", req.ApplicationId).Update("is_current", 0).Error; err != nil {
 				return err
+			}
+		}
+
+		// Cancel pending interviews when application is rejected or withdrawn
+		if rows > 0 && (targetKey == model.StatusKeyRejected || targetKey == model.StatusKeyWithdrawn) {
+			cancelReason := "投递状态变更为" + model.HRStatusLabels[targetKey]
+			if req.Reason != "" {
+				cancelReason = req.Reason
+			}
+			if err := s.interviews.CancelPendingByApplication(ctx, tx, req.ApplicationId, cancelReason); err != nil {
+				logger.L().Warn("cancel pending interviews failed (non-fatal)",
+					zap.Int64("application_id", req.ApplicationId),
+					zap.Error(err))
 			}
 		}
 

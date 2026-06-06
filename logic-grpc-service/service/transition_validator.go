@@ -19,10 +19,13 @@ var allowedTransitions = map[string]map[string]bool{
 		model.StatusKeyWithdrawn:    true,
 	},
 	model.StatusKeyViewed: {
-		model.StatusKeyScreening:    true,
-		model.StatusKeyScreenPassed: true,
-		model.StatusKeyRejected:     true,
-		model.StatusKeyWithdrawn:    true,
+		model.StatusKeyScreening:        true,
+		model.StatusKeyScreenPassed:     true,
+		model.StatusKeyInterviewPending: true, // skip screening, go directly to interview
+		model.StatusKeyInterviewPassed:  true, // skip intermediate stages
+		model.StatusKeyOfferPending:     true, // skip intermediate stages
+		model.StatusKeyRejected:         true,
+		model.StatusKeyWithdrawn:        true,
 	},
 	model.StatusKeyScreening: {
 		model.StatusKeyScreenPassed: true,
@@ -35,19 +38,22 @@ var allowedTransitions = map[string]map[string]bool{
 		model.StatusKeyWithdrawn:        true,
 	},
 	model.StatusKeyInterviewPending: {
-		model.StatusKeyInterviewing: true,
-		model.StatusKeyRejected:     true,
-		model.StatusKeyWithdrawn:    true,
-	},
-	model.StatusKeyInterviewing: {
-		model.StatusKeyInterviewPassed: true,
+		model.StatusKeyInterviewing:    true,
+		model.StatusKeyInterviewPassed: true, // HR can directly pass after all rounds complete
 		model.StatusKeyRejected:        true,
 		model.StatusKeyWithdrawn:       true,
 	},
+	model.StatusKeyInterviewing: {
+		model.StatusKeyInterviewPending: true, // reschedule after cancellation within same round
+		model.StatusKeyInterviewPassed:  true,
+		model.StatusKeyRejected:         true,
+		model.StatusKeyWithdrawn:        true,
+	},
 	model.StatusKeyInterviewPassed: {
-		model.StatusKeyOfferPending: true,
-		model.StatusKeyRejected:     true,
-		model.StatusKeyWithdrawn:    true,
+		model.StatusKeyInterviewPending: true, // multi-round interview loop (2nd, 3rd, ...)
+		model.StatusKeyOfferPending:     true,
+		model.StatusKeyRejected:         true,
+		model.StatusKeyWithdrawn:        true,
 	},
 	model.StatusKeyOfferPending: {
 		model.StatusKeyOfferSent: true,

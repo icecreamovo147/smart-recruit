@@ -21,8 +21,8 @@ func NewOfferHandler(clients *rpc.Clients) *OfferHandler {
 
 func (h *OfferHandler) Create(c *gin.Context) {
 	var req struct {
-		ApplicationID int64  `json:"application_id" binding:"required"`
-		Title         string `json:"title" binding:"required"`
+		ApplicationID base.FlexInt64 `json:"application_id" binding:"required"`
+		Title         string         `json:"title" binding:"required"`
 		SalaryRange   string `json:"salary_range"`
 		Level         string `json:"level"`
 		WorkLocation  string `json:"work_location"`
@@ -36,7 +36,7 @@ func (h *OfferHandler) Create(c *gin.Context) {
 	}
 	resp, err := h.clients.Offer.CreateOffer(c.Request.Context(), &pb.CreateOfferRequest{
 		HrId:          middleware.UserID(c),
-		ApplicationId: req.ApplicationID,
+		ApplicationId: int64(req.ApplicationID),
 		Title:         req.Title,
 		SalaryRange:   req.SalaryRange,
 		Level:         req.Level,

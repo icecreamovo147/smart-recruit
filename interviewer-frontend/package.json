@@ -1,0 +1,29 @@
+{
+  "name": "interviewer-frontend",
+  "version": "1.0.0",
+  "private": true,
+  "packageManager": "pnpm@10.19.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite --host 0.0.0.0 --port 5175",
+    "build": "vite build",
+    "preview": "vite preview --host 0.0.0.0 --port 4175",
+    "typecheck": "vue-tsc --noEmit"
+  },
+  "dependencies": {
+    "@element-plus/icons-vue": "2.3.1",
+    "@vitejs/plugin-vue": "5.2.4",
+    "axios": "1.10.0",
+    "element-plus": "2.10.4",
+    "pinia": "3.0.3",
+    "vite": "6.3.5",
+    "vue": "3.5.32",
+    "vue-router": "4.5.1"
+  },
+  "devDependencies": {
+    "@types/node": "^25.7.0",
+    "@vue/tsconfig": "^0.9.1",
+    "typescript": "^6.0.3",
+    "vue-tsc": "^3.2.8"
+  }
+}

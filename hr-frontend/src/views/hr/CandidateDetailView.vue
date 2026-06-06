@@ -4,7 +4,7 @@ import { useRoute, useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { ArrowLeft, Briefcase, Clock, Document, Plus, TrendCharts, User } from '@element-plus/icons-vue'
 import { getCandidateWorkspace, createNote, listNotes, createTag, listTags, assignTag, unassignTag, createFollowUpTask, listFollowUpTasks, completeFollowUpTask } from '@/api/collaboration'
-import { getHRStatusLabel, getStatusType } from '@/types/domain'
+import { getHRStatusLabel, getStatusType, RECOMMENDATION_LABEL, RECOMMENDATION_TYPE, DIMENSION_LABELS } from '@/types/domain'
 import type { CandidateWorkspace, CandidateNoteInfo, CandidateTagInfo, FollowUpTaskInfo, StaffUserInfo } from '@/types/domain'
 import { renderRichText } from '@/utils/richText'
 import TimelineView from '@/components/business/TimelineView.vue'
@@ -53,6 +53,22 @@ const formatDateTime = (value: string): string => {
   if (Number.isNaN(date.getTime())) return value
   const pad = (num: number): string => String(num).padStart(2, '0')
   return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())} ${pad(date.getHours())}:${pad(date.getMinutes())}`
+}
+
+const parseDimensionScores = (json: string): Array<{ key: string; label: string; score: number }> => {
+  if (!json) return []
+  try {
+    const obj = JSON.parse(json)
+    return Object.entries(obj)
+      .map(([key, score]) => ({
+        key,
+        label: DIMENSION_LABELS[key] || key,
+        score: Number(score) || 0,
+      }))
+      .filter((d) => d.score > 0)
+  } catch {
+    return []
+  }
 }
 
 const activeSection = computed(() => {
@@ -505,6 +521,28 @@ watch(activeSection, (section) => {
                       <span v-if="iv.scheduled_at">{{ formatDateTime(iv.scheduled_at) }}</span>
                       <span v-if="iv.interviewer_name">面试官：{{ iv.interviewer_name }}</span>
                       <span v-if="iv.job_title">岗位：{{ iv.job_title }}</span>
+                    </div>
+                    <!-- 面试反馈展示 -->
+                    <div v-if="iv.has_feedback" class="interview-feedback">
+                      <div class="feedback-header">
+                        <span class="feedback-label">面试反馈</span>
+                        <el-tag :type="(RECOMMENDATION_TYPE[iv.feedback_recommendation] || 'info') as any" size="small" effect="light">
+                          {{ RECOMMENDATION_LABEL[iv.feedback_recommendation] || iv.feedback_recommendation }}
+                        </el-tag>
+                        <el-tag v-if="iv.feedback_score" size="small" type="primary" effect="plain">
+                          {{ iv.feedback_score }}分
+                        </el-tag>
+                      </div>
+                      <!-- 维度评分 -->
+                      <div v-if="parseDimensionScores(iv.feedback_dimension_scores_json).length" class="feedback-dimensions">
+                        <span v-for="dim in parseDimensionScores(iv.feedback_dimension_scores_json)" :key="dim.key" class="dimension-item">
+                          {{ dim.label }}: <strong>{{ dim.score }}</strong>
+                        </span>
+                      </div>
+                      <!-- 评语 -->
+                      <div v-if="iv.feedback_comments" class="feedback-comments">
+                        {{ iv.feedback_comments }}
+                      </div>
                     </div>
                   </div>
                   <div v-if="!workspace.interviews || workspace.interviews.length === 0" class="no-data">暂无面试记录</div>
@@ -1121,6 +1159,51 @@ watch(activeSection, (section) => {
   color: #64748b;
   font-size: 12px;
   line-height: 1.6;
+}
+
+/* Interview feedback styles */
+.interview-feedback {
+  margin-top: 10px;
+  padding: 10px 12px;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+}
+
+.feedback-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.feedback-label {
+  font-weight: 600;
+  font-size: 13px;
+  color: #475569;
+}
+
+.feedback-dimensions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-bottom: 8px;
+}
+
+.dimension-item {
+  font-size: 12px;
+  color: #64748b;
+}
+
+.dimension-item strong {
+  color: #1e293b;
+}
+
+.feedback-comments {
+  font-size: 13px;
+  color: #475569;
+  line-height: 1.6;
+  white-space: pre-wrap;
 }
 
 .compact-list {

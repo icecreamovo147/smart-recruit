@@ -2,6 +2,7 @@ package handler
 
 import (
 	"net/http"
+	"slices"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -9,6 +10,7 @@ import (
 	"go.uber.org/zap"
 
 	"web-gin-service/middleware"
+	"web-gin-service/pkg/authz"
 	"web-gin-service/pkg/jwt"
 	"web-gin-service/pkg/logger"
 	"web-gin-service/recruitment/pb"
@@ -16,16 +18,17 @@ import (
 )
 
 type AuthHandler struct {
-	clients         *rpc.Clients
-	defaultCookie   string
-	candidateCookie string
-	hrCookie        string
-	cookieSecure    bool
-	jwtSecret       string
-	rdb             *redis.Client // optional: for token_version cache
+	clients          *rpc.Clients
+	defaultCookie    string
+	candidateCookie  string
+	hrCookie         string
+	interviewerCookie string
+	cookieSecure     bool
+	jwtSecret        string
+	rdb              *redis.Client // optional: for token_version cache
 }
 
-func NewAuthHandler(clients *rpc.Clients, defaultCookie, candidateCookie, hrCookie string, cookieSecure bool, jwtSecret string, rdb *redis.Client) *AuthHandler {
+func NewAuthHandler(clients *rpc.Clients, defaultCookie, candidateCookie, hrCookie, interviewerCookie string, cookieSecure bool, jwtSecret string, rdb *redis.Client) *AuthHandler {
 	if defaultCookie == "" {
 		defaultCookie = "recruitment_token"
 	}
@@ -35,14 +38,18 @@ func NewAuthHandler(clients *rpc.Clients, defaultCookie, candidateCookie, hrCook
 	if hrCookie == "" {
 		hrCookie = "recruitment_hr_token"
 	}
+	if interviewerCookie == "" {
+		interviewerCookie = "recruitment_interviewer_token"
+	}
 	return &AuthHandler{
-		clients:         clients,
-		defaultCookie:   defaultCookie,
-		candidateCookie: candidateCookie,
-		hrCookie:        hrCookie,
-		cookieSecure:    cookieSecure,
-		jwtSecret:       jwtSecret,
-		rdb:             rdb,
+		clients:           clients,
+		defaultCookie:     defaultCookie,
+		candidateCookie:   candidateCookie,
+		hrCookie:          hrCookie,
+		interviewerCookie: interviewerCookie,
+		cookieSecure:      cookieSecure,
+		jwtSecret:         jwtSecret,
+		rdb:               rdb,
 	}
 }
 
@@ -90,7 +97,7 @@ func (h *AuthHandler) Login(c *gin.Context) {
 		return
 	}
 	if resp.Code == 0 && resp.Token != "" {
-		cookieName := h.loginCookieNameByAccountType(resp.AccountType, resp.Role)
+		cookieName := h.loginCookieName(c, resp.AccountType, resp.Role, resp.Roles)
 		accessCookie := cookieName + "_access"
 		refreshCookie := cookieName + "_refresh"
 
@@ -168,9 +175,16 @@ func (h *AuthHandler) Me(c *gin.Context) {
 
 // Logout clears both cookies and revokes the refresh token via Logic.
 func (h *AuthHandler) Logout(c *gin.Context) {
-	accountType := middleware.AccountType(c)
-	legacyRole := middleware.Role(c)
-	cookieName := h.loginCookieNameByAccountType(accountType, legacyRole)
+	// Prefer X-Client-App header for cookie selection when available;
+	// fall back to JWT claims (account_type/role) for backward compatibility.
+	var cookieName string
+	if clientApp := c.GetHeader("X-Client-App"); clientApp != "" {
+		cookieName = h.requestCookieName(c)
+	} else {
+		accountType := middleware.AccountType(c)
+		legacyRole := middleware.Role(c)
+		cookieName = h.loginCookieNameByAccountType(accountType, legacyRole)
+	}
 
 	// Attempt to revoke the refresh token on Logic; ignore errors — cookie must be cleared regardless.
 	refreshCookieName := cookieName + "_refresh"
@@ -231,8 +245,11 @@ func (h *AuthHandler) RefreshToken(c *gin.Context) {
 		return
 	}
 
-	// Determine cookie name from account type
-	if resp.AccountType != "" {
+	// Determine cookie name: prefer X-Client-App header to keep the
+	// interviewer cookie namespace consistent across refresh cycles.
+	if clientApp := c.GetHeader("X-Client-App"); clientApp != "" {
+		cookieName = h.requestCookieName(c)
+	} else if resp.AccountType != "" {
 		cookieName = h.loginCookieNameByAccountType(resp.AccountType, resp.Role)
 	}
 
@@ -325,7 +342,25 @@ func (h *AuthHandler) requestCookieName(c *gin.Context) string {
 		return h.hrCookie
 	case "candidate", "user":
 		return h.candidateCookie
+	case "interviewer":
+		return h.interviewerCookie
 	default:
 		return h.defaultCookie
 	}
+}
+
+// loginCookieName selects the cookie namespace for a login request.
+// When X-Client-App is "interviewer", it validates that the user holds the
+// interviewer role and returns the interviewer cookie namespace.
+func (h *AuthHandler) loginCookieName(c *gin.Context, accountType string, legacyRole int32, roles []string) string {
+	if c.GetHeader("X-Client-App") == "interviewer" {
+		if slices.Contains(roles, authz.RoleInterviewer) {
+			return h.interviewerCookie
+		}
+		// Non-interviewer account attempting to log in via interviewer client.
+		// Return interviewer cookie anyway — the frontend will detect the
+		// missing role and force logout with an appropriate message.
+		return h.interviewerCookie
+	}
+	return h.loginCookieNameByAccountType(accountType, legacyRole)
 }

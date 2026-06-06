@@ -1,4 +1,5 @@
 packages:
   - 'user-frontend'
   - 'hr-frontend'
+  - 'interviewer-frontend'
   - 'packages/*'

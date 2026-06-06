@@ -26,8 +26,8 @@ func NewAIHandler(clients *rpc.Clients) *AIHandler {
 // ChatStream handles SSE streaming candidate AI chat.
 func (h *AIHandler) ChatStream(c *gin.Context) {
 	var req struct {
-		Message   string `json:"message" binding:"required"`
-		SessionID int64  `json:"session_id"`
+		Message   string         `json:"message" binding:"required"`
+		SessionID base.FlexInt64 `json:"session_id"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
 		base.BadRequest(c, "消息不能为空")
@@ -36,7 +36,7 @@ func (h *AIHandler) ChatStream(c *gin.Context) {
 	stream, err := h.clients.AI.CandidateChatStream(c.Request.Context(), &pb.CandidateChatRequest{
 		UserId:    middleware.UserID(c),
 		Message:   req.Message,
-		SessionId: req.SessionID,
+		SessionId: int64(req.SessionID),
 	})
 	if err != nil {
 		base.Internal(c, err)

@@ -89,8 +89,8 @@ http.interceptors.response.use(
 
 const friendlyBusinessMessage = (code: number, msg: string): string => {
   if (code === 401) return '登录状态已失效，请重新登录'
-  if (code === 403 || code === 4030) return '当前账号没有权限执行这个操作'
-  if (code === 404) return '请求的资源不存在或已失效'
+  if (code === 403 || code === 4030) return msg || '当前账号没有权限执行这个操作'
+  if (code === 404) return msg || '请求的资源不存在或已失效'
   if (code === 429) return msg || '请求过于频繁，请稍后再试'
   if (code === 42901) return msg || '今日 AI 使用次数已达上限，请明天再试'
   if (code === 42902) return msg || 'AI 请求太频繁，请稍后再试'
@@ -99,7 +99,7 @@ const friendlyBusinessMessage = (code: number, msg: string): string => {
   if (code === 502) return 'AI 或第三方服务暂时不可用，请稍后重试'
   if (code === 503) return '后端服务暂不可用，请稍后重试'
   if (code === 504) return '请求处理超时，请稍后重试'
-  if (code === 500) return '服务暂时开小差了，请稍后再试'
+  if (code === 500) return msg || '服务暂时开小差了，请稍后再试'
   return msg || '操作没有成功，请稍后再试'
 }
 

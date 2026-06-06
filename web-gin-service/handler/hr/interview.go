@@ -21,17 +21,17 @@ func NewInterviewHandler(clients *rpc.Clients) *InterviewHandler {
 
 func (h *InterviewHandler) Schedule(c *gin.Context) {
 	var req struct {
-		ApplicationID   int64  `json:"application_id" binding:"required"`
-		InterviewerID   int64  `json:"interviewer_id" binding:"required"`
-		RoundNo         int32  `json:"round_no"`
-		Title           string `json:"title"`
-		Mode            string `json:"mode"`
-		MeetingURL      string `json:"meeting_url"`
-		Location        string `json:"location"`
-		DurationMinutes int32  `json:"duration_minutes"`
-		CandidateNote   string `json:"candidate_note"`
-		InternalNote    string `json:"internal_note"`
-		ScheduledAt     string `json:"scheduled_at"`
+		ApplicationID   base.FlexInt64 `json:"application_id" binding:"required"`
+		InterviewerID   base.FlexInt64 `json:"interviewer_id" binding:"required"`
+		RoundNo         int32          `json:"round_no"`
+		Title           string         `json:"title"`
+		Mode            string         `json:"mode"`
+		MeetingURL      string         `json:"meeting_url"`
+		Location        string         `json:"location"`
+		DurationMinutes int32          `json:"duration_minutes"`
+		CandidateNote   string         `json:"candidate_note"`
+		InternalNote    string         `json:"internal_note"`
+		ScheduledAt     string         `json:"scheduled_at"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
 		base.BadRequest(c, "请求参数错误："+err.Error())
@@ -39,8 +39,8 @@ func (h *InterviewHandler) Schedule(c *gin.Context) {
 	}
 	resp, err := h.clients.Interview.ScheduleInterview(c.Request.Context(), &pb.ScheduleInterviewRequest{
 		HrId:            middleware.UserID(c),
-		ApplicationId:   req.ApplicationID,
-		InterviewerId:   req.InterviewerID,
+		ApplicationId:   int64(req.ApplicationID),
+		InterviewerId:   int64(req.InterviewerID),
 		RoundNo:         req.RoundNo,
 		Title:           req.Title,
 		Mode:            req.Mode,
@@ -201,20 +201,20 @@ func (h *InterviewHandler) SubmitFeedback(c *gin.Context) {
 		return
 	}
 	var req struct {
-		ApplicationID   int64  `json:"application_id" binding:"required"`
-		Recommendation  string `json:"recommendation" binding:"required"`
-		Score           int32  `json:"score"`
-		DimensionScores string `json:"dimension_scores_json"`
-		Comments        string `json:"comments"`
+		ApplicationID   base.FlexInt64 `json:"application_id" binding:"required"`
+		Recommendation  string         `json:"recommendation" binding:"required"`
+		Score           int32          `json:"score"`
+		DimensionScores string         `json:"dimension_scores_json"`
+		Comments        string         `json:"comments"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
-		base.BadRequest(c, "请求参数错误")
+		base.BadRequest(c, "请求参数错误: "+err.Error())
 		return
 	}
 	resp, err := h.clients.Interview.SubmitFeedback(c.Request.Context(), &pb.SubmitFeedbackRequest{
 		InterviewerId:       middleware.UserID(c),
 		InterviewId:         interviewID,
-		ApplicationId:       req.ApplicationID,
+		ApplicationId:       int64(req.ApplicationID),
 		Recommendation:      req.Recommendation,
 		Score:               req.Score,
 		DimensionScoresJson: req.DimensionScores,

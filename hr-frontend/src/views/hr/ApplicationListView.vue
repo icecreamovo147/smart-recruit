@@ -2,6 +2,7 @@
 import { onMounted, reactive, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
+import { ArrowDown } from '@element-plus/icons-vue'
 import { listJobApplications, updateApplicationStatus } from '@/api/application'
 import type { Application, JobQuery } from '@/types/domain'
 import { getHRStatusLabel, getStatusType, APP_STATUS_KEY, TERMINAL_STATUS_KEYS, ALLOWED_HR_ACTIONS } from '@/types/domain'
@@ -126,6 +127,26 @@ const decide = async (row: Application, statusKey: string) => {
     } catch {
       return
     }
+  } else if (statusKey === APP_STATUS_KEY.INTERVIEW_PASSED) {
+    try {
+      await ElMessageBox.confirm(
+        `确认将「${row.real_name || '该候选人'}」标记为面试通过？通过后可安排下一轮面试或发起 Offer。`,
+        '面试通过确认',
+        { type: 'success' },
+      )
+    } catch {
+      return
+    }
+  } else if (statusKey === APP_STATUS_KEY.OFFER_PENDING) {
+    try {
+      await ElMessageBox.confirm(
+        `确认将「${row.real_name || '该候选人'}」推进到待发 Offer 阶段？`,
+        '发起 Offer 确认',
+        { type: 'success' },
+      )
+    } catch {
+      return
+    }
   } else {
     try {
       await ElMessageBox.confirm(`确认将「${row.real_name || '该候选人'}」标记为${text}？`, '更新投递状态', { type: 'success' })
@@ -151,7 +172,29 @@ const openScheduleDialog = (row: Application) => {
 }
 
 const onScheduleSuccess = () => {
-  ElMessage.success('面试安排成功，可前往面试管理页查看')
+  ElMessage.success('面试安排成功，候选人状态已更新')
+  // Reload list because backend auto-transitions application status to interview_pending
+  load()
+}
+
+const handleDropdownCommand = (command: string, row: Application) => {
+  switch (command) {
+    case 'ai_analyze':
+      aiAnalyze(row)
+      break
+    case 'schedule_interview':
+      openScheduleDialog(row)
+      break
+    case 'interview_passed':
+      decide(row, APP_STATUS_KEY.INTERVIEW_PASSED)
+      break
+    case 'offer_pending':
+      decide(row, APP_STATUS_KEY.OFFER_PENDING)
+      break
+    case 'rejected':
+      decide(row, APP_STATUS_KEY.REJECTED)
+      break
+  }
 }
 
 onMounted(load)
@@ -189,15 +232,25 @@ onMounted(load)
               <el-tag :type="statusType(row)">{{ statusLabel(row) }}</el-tag>
             </template>
           </el-table-column>
-          <el-table-column label="操作" width="360" fixed="right">
+          <el-table-column label="操作" width="280" fixed="right">
             <template #default="{ row }">
               <div class="application-actions">
                 <el-button size="small" type="primary" plain @click="$router.push('/hr/candidates/' + row.user_id)">候选人详情</el-button>
                 <el-button size="small" type="primary" plain @click="viewResume(row)">查看简历</el-button>
-                <el-button size="small" type="primary" plain @click="aiAnalyze(row)">AI 分析</el-button>
-                <el-button size="small" type="warning" plain :disabled="!canAction(row, APP_STATUS_KEY.INTERVIEW_PENDING)" @click="openScheduleDialog(row)">安排面试</el-button>
-                <el-button size="small" type="success" plain :disabled="!canAction(row, APP_STATUS_KEY.SCREEN_PASSED)" @click="decide(row, APP_STATUS_KEY.SCREEN_PASSED)">通过</el-button>
-                <el-button size="small" type="danger" plain :disabled="!canAction(row, APP_STATUS_KEY.REJECTED)" @click="decide(row, APP_STATUS_KEY.REJECTED)">淘汰</el-button>
+                <el-dropdown trigger="click" @command="(cmd: string) => handleDropdownCommand(cmd, row)">
+                  <el-button size="small" type="info" plain>
+                    更多<el-icon class="el-icon--right"><ArrowDown /></el-icon>
+                  </el-button>
+                  <template #dropdown>
+                    <el-dropdown-menu>
+                      <el-dropdown-item command="ai_analyze">AI 分析</el-dropdown-item>
+                      <el-dropdown-item divided command="schedule_interview" :disabled="!canAction(row, APP_STATUS_KEY.INTERVIEW_PENDING)">安排面试</el-dropdown-item>
+                      <el-dropdown-item command="interview_passed" :disabled="!canAction(row, APP_STATUS_KEY.INTERVIEW_PASSED)">面试通过</el-dropdown-item>
+                      <el-dropdown-item command="offer_pending" :disabled="!canAction(row, APP_STATUS_KEY.OFFER_PENDING)">发起Offer</el-dropdown-item>
+                      <el-dropdown-item command="rejected" :disabled="!canAction(row, APP_STATUS_KEY.REJECTED)">淘汰</el-dropdown-item>
+                    </el-dropdown-menu>
+                  </template>
+                </el-dropdown>
               </div>
             </template>
           </el-table-column>
@@ -225,10 +278,18 @@ onMounted(load)
           <div class="mobile-card__actions">
             <el-button size="small" type="primary" plain @click="$router.push('/hr/candidates/' + row.user_id)">候选人详情</el-button>
             <el-button size="small" type="primary" plain @click="viewResume(row)">查看简历</el-button>
-            <el-button size="small" type="primary" plain @click="aiAnalyze(row)">AI 分析</el-button>
-            <el-button size="small" type="warning" plain :disabled="!canAction(row, APP_STATUS_KEY.INTERVIEW_PENDING)" @click="openScheduleDialog(row)">安排面试</el-button>
-            <el-button size="small" type="success" plain :disabled="!canAction(row, APP_STATUS_KEY.SCREEN_PASSED)" @click="decide(row, APP_STATUS_KEY.SCREEN_PASSED)">通过</el-button>
-            <el-button size="small" type="danger" plain :disabled="!canAction(row, APP_STATUS_KEY.REJECTED)" @click="decide(row, APP_STATUS_KEY.REJECTED)">淘汰</el-button>
+            <el-dropdown trigger="click" @command="(cmd: string) => handleDropdownCommand(cmd, row)">
+              <el-button size="small" type="info" plain>更多操作</el-button>
+              <template #dropdown>
+                <el-dropdown-menu>
+                  <el-dropdown-item command="ai_analyze">AI 分析</el-dropdown-item>
+                  <el-dropdown-item divided command="schedule_interview" :disabled="!canAction(row, APP_STATUS_KEY.INTERVIEW_PENDING)">安排面试</el-dropdown-item>
+                  <el-dropdown-item command="interview_passed" :disabled="!canAction(row, APP_STATUS_KEY.INTERVIEW_PASSED)">面试通过</el-dropdown-item>
+                  <el-dropdown-item command="offer_pending" :disabled="!canAction(row, APP_STATUS_KEY.OFFER_PENDING)">发起Offer</el-dropdown-item>
+                  <el-dropdown-item command="rejected" :disabled="!canAction(row, APP_STATUS_KEY.REJECTED)">淘汰</el-dropdown-item>
+                </el-dropdown-menu>
+              </template>
+            </el-dropdown>
           </div>
         </div>
       </div>

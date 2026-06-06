@@ -246,7 +246,7 @@ func newInterviewServiceForTest(t *testing.T, db *gorm.DB) *InterviewService {
 	// OutboxPublisher with nil repo — methods that don't call outbox work fine.
 	outboxPublisher := &OutboxPublisher{}
 
-	return NewInterviewService(authzRepo, interviewRepo, userRepo, appRepo, jobRepo, nil, outboxPublisher, scopeEval, serviceAuth)
+	return NewInterviewService(authzRepo, interviewRepo, userRepo, appRepo, jobRepo, nil, outboxPublisher, nil, scopeEval, serviceAuth)
 }
 
 // ── GetInterview ───────────────────────────────────────────────────────────

@@ -5093,6 +5093,8 @@ type InterviewSchedule struct {
 	JobTitle             string `protobuf:"bytes,20,opt,name=job_title,json=jobTitle,proto3" json:"job_title,omitempty"`
 	CandidateName        string `protobuf:"bytes,21,opt,name=candidate_name,json=candidateName,proto3" json:"candidate_name,omitempty"`
 	CandidatePhone       string `protobuf:"bytes,22,opt,name=candidate_phone,json=candidatePhone,proto3" json:"candidate_phone,omitempty"`
+	ResumeUrl            string `protobuf:"bytes,23,opt,name=resume_url,json=resumeUrl,proto3" json:"resume_url,omitempty"`
+	HasFeedback          bool   `protobuf:"varint,24,opt,name=has_feedback,json=hasFeedback,proto3" json:"has_feedback,omitempty"` // 当前面试官是否已提交反馈
 	unknownFields        protoimpl.UnknownFields
 	sizeCache            protoimpl.SizeCache
 }
@@ -5279,6 +5281,20 @@ func (x *InterviewSchedule) GetCandidatePhone() string {
 		return x.CandidatePhone
 	}
 	return ""
+}
+
+func (x *InterviewSchedule) GetResumeUrl() string {
+	if x != nil {
+		return x.ResumeUrl
+	}
+	return ""
+}
+
+func (x *InterviewSchedule) GetHasFeedback() bool {
+	if x != nil {
+		return x.HasFeedback
+	}
+	return false
 }
 
 type ScheduleInterviewRequest struct {
@@ -6231,7 +6247,7 @@ type InterviewFeedback struct {
 	InterviewId         int64                  `protobuf:"varint,2,opt,name=interview_id,json=interviewId,proto3" json:"interview_id,omitempty"`
 	ApplicationId       int64                  `protobuf:"varint,3,opt,name=application_id,json=applicationId,proto3" json:"application_id,omitempty"`
 	InterviewerId       int64                  `protobuf:"varint,4,opt,name=interviewer_id,json=interviewerId,proto3" json:"interviewer_id,omitempty"`
-	Recommendation      string                 `protobuf:"bytes,5,opt,name=recommendation,proto3" json:"recommendation,omitempty"` // positive / negative / pending
+	Recommendation      string                 `protobuf:"bytes,5,opt,name=recommendation,proto3" json:"recommendation,omitempty"` // strong_recommend / recommend / neutral / not_recommend / strong_not_recommend (legacy: positive / negative / pending)
 	Score               int32                  `protobuf:"varint,6,opt,name=score,proto3" json:"score,omitempty"`
 	DimensionScoresJson string                 `protobuf:"bytes,7,opt,name=dimension_scores_json,json=dimensionScoresJson,proto3" json:"dimension_scores_json,omitempty"`
 	Comments            string                 `protobuf:"bytes,8,opt,name=comments,proto3" json:"comments,omitempty"`
@@ -12399,8 +12415,14 @@ type CandidateWorkspaceInterview struct {
 	InterviewerName string                 `protobuf:"bytes,7,opt,name=interviewer_name,json=interviewerName,proto3" json:"interviewer_name,omitempty"`
 	JobTitle        string                 `protobuf:"bytes,8,opt,name=job_title,json=jobTitle,proto3" json:"job_title,omitempty"`
 	RoundNo         int32                  `protobuf:"varint,9,opt,name=round_no,json=roundNo,proto3" json:"round_no,omitempty"`
-	unknownFields   protoimpl.UnknownFields
-	sizeCache       protoimpl.SizeCache
+	// Interview feedback fields
+	FeedbackRecommendation      string `protobuf:"bytes,10,opt,name=feedback_recommendation,json=feedbackRecommendation,proto3" json:"feedback_recommendation,omitempty"`
+	FeedbackScore               int32  `protobuf:"varint,11,opt,name=feedback_score,json=feedbackScore,proto3" json:"feedback_score,omitempty"`
+	FeedbackDimensionScoresJson string `protobuf:"bytes,12,opt,name=feedback_dimension_scores_json,json=feedbackDimensionScoresJson,proto3" json:"feedback_dimension_scores_json,omitempty"`
+	FeedbackComments            string `protobuf:"bytes,13,opt,name=feedback_comments,json=feedbackComments,proto3" json:"feedback_comments,omitempty"`
+	HasFeedback                 bool   `protobuf:"varint,14,opt,name=has_feedback,json=hasFeedback,proto3" json:"has_feedback,omitempty"`
+	unknownFields               protoimpl.UnknownFields
+	sizeCache                   protoimpl.SizeCache
 }
 
 func (x *CandidateWorkspaceInterview) Reset() {
@@ -12494,6 +12516,41 @@ func (x *CandidateWorkspaceInterview) GetRoundNo() int32 {
 		return x.RoundNo
 	}
 	return 0
+}
+
+func (x *CandidateWorkspaceInterview) GetFeedbackRecommendation() string {
+	if x != nil {
+		return x.FeedbackRecommendation
+	}
+	return ""
+}
+
+func (x *CandidateWorkspaceInterview) GetFeedbackScore() int32 {
+	if x != nil {
+		return x.FeedbackScore
+	}
+	return 0
+}
+
+func (x *CandidateWorkspaceInterview) GetFeedbackDimensionScoresJson() string {
+	if x != nil {
+		return x.FeedbackDimensionScoresJson
+	}
+	return ""
+}
+
+func (x *CandidateWorkspaceInterview) GetFeedbackComments() string {
+	if x != nil {
+		return x.FeedbackComments
+	}
+	return ""
+}
+
+func (x *CandidateWorkspaceInterview) GetHasFeedback() bool {
+	if x != nil {
+		return x.HasFeedback
+	}
+	return false
 }
 
 type CandidateWorkspaceOffer struct {
@@ -16032,7 +16089,7 @@ const file_proto_recruitment_proto_rawDesc = "" +
 	"\x1dCandidateDeleteSessionRequest\x12\x17\n" +
 	"\auser_id\x18\x01 \x01(\x03R\x06userId\x12\x1d\n" +
 	"\n" +
-	"session_id\x18\x02 \x01(\x03R\tsessionId\"\x88\x06\n" +
+	"session_id\x18\x02 \x01(\x03R\tsessionId\"\xca\x06\n" +
 	"\x11InterviewSchedule\x12!\n" +
 	"\finterview_id\x18\x01 \x01(\x03R\vinterviewId\x12%\n" +
 	"\x0eapplication_id\x18\x02 \x01(\x03R\rapplicationId\x12%\n" +
@@ -16060,7 +16117,10 @@ const file_proto_recruitment_proto_rawDesc = "" +
 	"\x16application_status_key\x18\x13 \x01(\tR\x14applicationStatusKey\x12\x1b\n" +
 	"\tjob_title\x18\x14 \x01(\tR\bjobTitle\x12%\n" +
 	"\x0ecandidate_name\x18\x15 \x01(\tR\rcandidateName\x12'\n" +
-	"\x0fcandidate_phone\x18\x16 \x01(\tR\x0ecandidatePhone\"\x99\x03\n" +
+	"\x0fcandidate_phone\x18\x16 \x01(\tR\x0ecandidatePhone\x12\x1d\n" +
+	"\n" +
+	"resume_url\x18\x17 \x01(\tR\tresumeUrl\x12!\n" +
+	"\fhas_feedback\x18\x18 \x01(\bR\vhasFeedback\"\x99\x03\n" +
 	"\x18ScheduleInterviewRequest\x12\x13\n" +
 	"\x05hr_id\x18\x01 \x01(\x03R\x04hrId\x12%\n" +
 	"\x0eapplication_id\x18\x02 \x01(\x03R\rapplicationId\x12%\n" +
@@ -16649,7 +16709,7 @@ const file_proto_recruitment_proto_rawDesc = "" +
 	"\n" +
 	"interviews\x18\x0e \x03(\v2(.recruitment.CandidateWorkspaceInterviewR\n" +
 	"interviews\x12<\n" +
-	"\x06offers\x18\x0f \x03(\v2$.recruitment.CandidateWorkspaceOfferR\x06offers\"\xaf\x02\n" +
+	"\x06offers\x18\x0f \x03(\v2$.recruitment.CandidateWorkspaceOfferR\x06offers\"\xa4\x04\n" +
 	"\x1bCandidateWorkspaceInterview\x12!\n" +
 	"\finterview_id\x18\x01 \x01(\x03R\vinterviewId\x12%\n" +
 	"\x0eapplication_id\x18\x02 \x01(\x03R\rapplicationId\x12\x14\n" +
@@ -16659,7 +16719,13 @@ const file_proto_recruitment_proto_rawDesc = "" +
 	"\fscheduled_at\x18\x06 \x01(\tR\vscheduledAt\x12)\n" +
 	"\x10interviewer_name\x18\a \x01(\tR\x0finterviewerName\x12\x1b\n" +
 	"\tjob_title\x18\b \x01(\tR\bjobTitle\x12\x19\n" +
-	"\bround_no\x18\t \x01(\x05R\aroundNo\"\xa3\x02\n" +
+	"\bround_no\x18\t \x01(\x05R\aroundNo\x127\n" +
+	"\x17feedback_recommendation\x18\n" +
+	" \x01(\tR\x16feedbackRecommendation\x12%\n" +
+	"\x0efeedback_score\x18\v \x01(\x05R\rfeedbackScore\x12C\n" +
+	"\x1efeedback_dimension_scores_json\x18\f \x01(\tR\x1bfeedbackDimensionScoresJson\x12+\n" +
+	"\x11feedback_comments\x18\r \x01(\tR\x10feedbackComments\x12!\n" +
+	"\fhas_feedback\x18\x0e \x01(\bR\vhasFeedback\"\xa3\x02\n" +
 	"\x17CandidateWorkspaceOffer\x12\x19\n" +
 	"\boffer_id\x18\x01 \x01(\x03R\aofferId\x12%\n" +
 	"\x0eapplication_id\x18\x02 \x01(\x03R\rapplicationId\x12\x14\n" +

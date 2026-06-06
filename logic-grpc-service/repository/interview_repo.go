@@ -2,6 +2,7 @@ package repository
 
 import (
 	"context"
+	"database/sql"
 	"time"
 
 	"gorm.io/gorm"
@@ -33,11 +34,12 @@ type InterviewWithDetailsRow struct {
 	UpdatedAt       time.Time
 
 	// Joined fields
-	InterviewerName     string
+	InterviewerName      string
 	ApplicationStatusKey string
-	JobTitle            string
-	CandidateName       string
-	CandidatePhone      string
+	JobTitle             string
+	CandidateName        string
+	CandidatePhone       string
+	ResumeOssKey         string
 }
 
 func NewInterviewRepo(db *gorm.DB) *InterviewRepo {
@@ -56,7 +58,8 @@ func baseInterviewSelect() string {
 		a.status_key AS application_status_key,
 		j.title AS job_title,
 		COALESCE(cp.real_name, CONCAT('候选人', a.user_id)) AS candidate_name,
-		COALESCE(cp.phone, '') AS candidate_phone`
+		COALESCE(cp.phone, '') AS candidate_phone,
+		COALESCE(res.oss_key, '') AS resume_oss_key`
 }
 
 func (r *InterviewRepo) baseJoins() *gorm.DB {
@@ -65,7 +68,8 @@ func (r *InterviewRepo) baseJoins() *gorm.DB {
 		Joins("JOIN users u ON u.id = interview_schedules.interviewer_id").
 		Joins("JOIN applications a ON a.id = interview_schedules.application_id").
 		Joins("JOIN jobs j ON j.id = a.job_id").
-		Joins("LEFT JOIN candidate_profiles cp ON cp.user_id = a.user_id")
+		Joins("LEFT JOIN candidate_profiles cp ON cp.user_id = a.user_id").
+		Joins("LEFT JOIN resumes res ON res.user_id = a.user_id AND res.id = (SELECT MAX(r2.id) FROM resumes r2 WHERE r2.user_id = a.user_id)")
 }
 
 // ── Schedule CRUD ──────────────────────────────────────────────────────
@@ -112,6 +116,24 @@ func (r *InterviewRepo) Update(ctx context.Context, s *model.InterviewSchedule) 
 
 func (r *InterviewRepo) UpdateWithTx(ctx context.Context, tx *gorm.DB, s *model.InterviewSchedule) error {
 	return tx.WithContext(ctx).Save(s).Error
+}
+
+// GetMaxRoundNo returns the highest round_no among all active interviews for an application.
+// Returns 0 if no interviews exist yet.
+func (r *InterviewRepo) GetMaxRoundNo(ctx context.Context, applicationID int64) (int32, error) {
+	var maxRound sql.NullInt32
+	err := r.db.WithContext(ctx).
+		Model(&model.InterviewSchedule{}).
+		Where("application_id = ? AND deleted_at IS NULL", applicationID).
+		Select("MAX(round_no)").
+		Scan(&maxRound).Error
+	if err != nil {
+		return 0, err
+	}
+	if maxRound.Valid {
+		return maxRound.Int32, nil
+	}
+	return 0, nil
 }
 
 // ListByApplication returns all interviews for an application.
@@ -200,6 +222,30 @@ func (r *InterviewRepo) FeedbackExistsByInterviewer(ctx context.Context, intervi
 		Where("interview_id = ? AND interviewer_id = ?", interviewID, interviewerID).
 		Count(&count).Error
 	return count > 0, err
+}
+
+// ListFeedbackByInterviews returns feedback records for multiple interview IDs in a single query.
+func (r *InterviewRepo) ListFeedbackByInterviews(ctx context.Context, interviewIDs []int64) ([]model.InterviewFeedback, error) {
+	if len(interviewIDs) == 0 {
+		return nil, nil
+	}
+	var feedbacks []model.InterviewFeedback
+	err := r.db.WithContext(ctx).
+		Where("interview_id IN ?", interviewIDs).
+		Find(&feedbacks).Error
+	return feedbacks, err
+}
+
+// CancelPendingByApplication cancels all pending/scheduled interviews for an application.
+// This is called when the application is rejected or withdrawn.
+func (r *InterviewRepo) CancelPendingByApplication(ctx context.Context, tx *gorm.DB, applicationID int64, reason string) error {
+	return tx.WithContext(ctx).
+		Model(&model.InterviewSchedule{}).
+		Where("application_id = ? AND status IN ? AND deleted_at IS NULL", applicationID, []string{"pending", "scheduled"}).
+		Updates(map[string]interface{}{
+			"status":        "cancelled",
+			"cancel_reason": reason,
+		}).Error
 }
 
 // Transaction wraps a function in a DB transaction.

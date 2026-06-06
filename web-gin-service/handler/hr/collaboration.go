@@ -40,9 +40,9 @@ func (h *CollaborationHandler) GetCandidateWorkspace(c *gin.Context) {
 // CreateNote creates an internal note for a candidate.
 func (h *CollaborationHandler) CreateNote(c *gin.Context) {
 	var req struct {
-		CandidateUserID uint64 `json:"candidate_user_id" binding:"required"`
-		ApplicationID   uint64 `json:"application_id"`
-		Content         string `json:"content" binding:"required"`
+		CandidateUserID base.FlexUint64 `json:"candidate_user_id" binding:"required"`
+		ApplicationID   base.FlexUint64 `json:"application_id"`
+		Content         string          `json:"content" binding:"required"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
 		base.BadRequest(c, "请求参数错误："+err.Error())
@@ -50,8 +50,8 @@ func (h *CollaborationHandler) CreateNote(c *gin.Context) {
 	}
 	resp, err := h.clients.Collaboration.CreateNote(c.Request.Context(), &pb.CreateNoteRequest{
 		StaffUserId:     middleware.UserID(c),
-		CandidateUserId: req.CandidateUserID,
-		ApplicationId:   req.ApplicationID,
+		CandidateUserId: uint64(req.CandidateUserID),
+		ApplicationId:   uint64(req.ApplicationID),
 		Content:         req.Content,
 	})
 	if err != nil {
@@ -121,8 +121,8 @@ func (h *CollaborationHandler) ListTags(c *gin.Context) {
 // AssignTag assigns a tag to a candidate.
 func (h *CollaborationHandler) AssignTag(c *gin.Context) {
 	var req struct {
-		TagID           uint64 `json:"tag_id" binding:"required"`
-		CandidateUserID uint64 `json:"candidate_user_id" binding:"required"`
+		TagID           base.FlexUint64 `json:"tag_id" binding:"required"`
+		CandidateUserID base.FlexUint64 `json:"candidate_user_id" binding:"required"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
 		base.BadRequest(c, "请求参数错误："+err.Error())
@@ -130,8 +130,8 @@ func (h *CollaborationHandler) AssignTag(c *gin.Context) {
 	}
 	resp, err := h.clients.Collaboration.AssignTag(c.Request.Context(), &pb.AssignTagRequest{
 		StaffUserId:     middleware.UserID(c),
-		TagId:           req.TagID,
-		CandidateUserId: req.CandidateUserID,
+		TagId:           uint64(req.TagID),
+		CandidateUserId: uint64(req.CandidateUserID),
 	})
 	if err != nil {
 		base.Internal(c, err)
@@ -143,8 +143,8 @@ func (h *CollaborationHandler) AssignTag(c *gin.Context) {
 // UnassignTag removes a tag from a candidate.
 func (h *CollaborationHandler) UnassignTag(c *gin.Context) {
 	var req struct {
-		TagID           uint64 `json:"tag_id" binding:"required"`
-		CandidateUserID uint64 `json:"candidate_user_id" binding:"required"`
+		TagID           base.FlexUint64 `json:"tag_id" binding:"required"`
+		CandidateUserID base.FlexUint64 `json:"candidate_user_id" binding:"required"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
 		base.BadRequest(c, "请求参数错误："+err.Error())
@@ -152,8 +152,8 @@ func (h *CollaborationHandler) UnassignTag(c *gin.Context) {
 	}
 	resp, err := h.clients.Collaboration.UnassignTag(c.Request.Context(), &pb.UnassignTagRequest{
 		StaffUserId:     middleware.UserID(c),
-		TagId:           req.TagID,
-		CandidateUserId: req.CandidateUserID,
+		TagId:           uint64(req.TagID),
+		CandidateUserId: uint64(req.CandidateUserID),
 	})
 	if err != nil {
 		base.Internal(c, err)
@@ -185,12 +185,12 @@ func (h *CollaborationHandler) ListCandidateTags(c *gin.Context) {
 // CreateFollowUpTask creates a follow-up task.
 func (h *CollaborationHandler) CreateFollowUpTask(c *gin.Context) {
 	var req struct {
-		CandidateUserID uint64 `json:"candidate_user_id" binding:"required"`
-		ApplicationID   uint64 `json:"application_id"`
-		AssigneeUserID  uint64 `json:"assignee_user_id" binding:"required"`
-		Title           string `json:"title" binding:"required"`
-		Description     string `json:"description"`
-		DueAt           string `json:"due_at"`
+		CandidateUserID base.FlexUint64 `json:"candidate_user_id" binding:"required"`
+		ApplicationID   base.FlexUint64 `json:"application_id"`
+		AssigneeUserID  base.FlexUint64 `json:"assignee_user_id" binding:"required"`
+		Title           string          `json:"title" binding:"required"`
+		Description     string          `json:"description"`
+		DueAt           string          `json:"due_at"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
 		base.BadRequest(c, "请求参数错误："+err.Error())
@@ -198,9 +198,9 @@ func (h *CollaborationHandler) CreateFollowUpTask(c *gin.Context) {
 	}
 	resp, err := h.clients.Collaboration.CreateFollowUpTask(c.Request.Context(), &pb.CreateFollowUpTaskRequest{
 		StaffUserId:     middleware.UserID(c),
-		CandidateUserId: req.CandidateUserID,
-		ApplicationId:   req.ApplicationID,
-		AssigneeUserId:  req.AssigneeUserID,
+		CandidateUserId: uint64(req.CandidateUserID),
+		ApplicationId:   uint64(req.ApplicationID),
+		AssigneeUserId:  uint64(req.AssigneeUserID),
 		Title:           req.Title,
 		Description:     req.Description,
 		DueAt:           req.DueAt,
