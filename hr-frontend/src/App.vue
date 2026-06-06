@@ -137,7 +137,7 @@ const routeViewKey = (viewRoute: { fullPath: string; path: string; params: Recor
         <span>第三方服务审计</span>
       </RouterLink>
     </aside>
-    <div class="workspace">
+    <div class="workspace" :class="{ 'workspace--collapsed': sidebarCollapsed }">
       <header v-if="route.meta.requiresAuth" class="top-header">
         <div class="header-left">
           <el-tooltip :content="sidebarCollapsed ? '展开菜单' : '折叠菜单'" placement="bottom">
