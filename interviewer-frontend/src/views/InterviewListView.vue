@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { Search } from '@element-plus/icons-vue'
 import { listMyInterviews } from '@/api/interview'
@@ -11,6 +11,10 @@ const loading = ref(false)
 const interviews = ref<InterviewSchedule[]>([])
 const activeFilter = ref('all')
 const keyword = ref('')
+
+// Pagination
+const currentPage = ref(1)
+const pageSize = ref(20)
 
 const filters = [
   { key: 'all', label: '全部' },
@@ -35,6 +39,16 @@ const filteredInterviews = computed(() => {
   return list
 })
 
+const pagedInterviews = computed(() => {
+  const start = (currentPage.value - 1) * pageSize.value
+  return filteredInterviews.value.slice(start, start + pageSize.value)
+})
+
+// Reset to page 1 when filter or keyword changes
+watch([activeFilter, keyword], () => {
+  currentPage.value = 1
+})
+
 const formatDateTime = (iso: string): string => {
   if (!iso) return '-'
   const d = new Date(iso)
@@ -53,11 +67,40 @@ const loadData = async () => {
   }
 }
 
-onMounted(loadData)
+// Dynamic table max-height
+const listRef = ref<HTMLElement | null>(null)
+const tableMaxHeight = ref<number>(400)
+let resizeObserver: ResizeObserver | null = null
+
+const calcTableHeight = () => {
+  nextTick(() => {
+    const el = listRef.value
+    if (!el) return
+    const toolbar = el.querySelector('.list-toolbar') as HTMLElement | null
+    const pagination = el.querySelector('.pagination-wrapper') as HTMLElement | null
+    const toolbarH = toolbar ? toolbar.offsetHeight : 0
+    const paginationH = pagination ? pagination.offsetHeight : 0
+    // gap between children (2 × 16px) + extra buffer
+    const available = el.clientHeight - toolbarH - paginationH - 48
+    tableMaxHeight.value = Math.max(available, 120)
+  })
+}
+
+onMounted(() => {
+  loadData()
+  if (listRef.value) {
+    resizeObserver = new ResizeObserver(calcTableHeight)
+    resizeObserver.observe(listRef.value)
+  }
+})
+
+onBeforeUnmount(() => {
+  resizeObserver?.disconnect()
+})
 </script>
 
 <template>
-  <div class="interview-list">
+  <div ref="listRef" class="interview-list">
     <div class="list-toolbar">
       <div class="filter-tabs">
         <el-radio-group v-model="activeFilter" size="default">
@@ -74,8 +117,10 @@ onMounted(loadData)
     </div>
 
     <el-table
+      v-if="filteredInterviews.length > 0 || loading"
       v-loading="loading"
-      :data="filteredInterviews"
+      :data="pagedInterviews"
+      :height="tableMaxHeight"
       style="width: 100%"
       row-class-name="interview-row"
       @row-click="(row: InterviewSchedule) => router.push(`/interviews/${row.interview_id}`)"
@@ -114,11 +159,33 @@ onMounted(loadData)
       </el-table-column>
     </el-table>
 
-    <el-empty v-if="!loading && filteredInterviews.length === 0" description="暂无面试记录" />
+    <div v-if="!loading && filteredInterviews.length === 0" class="empty-wrapper">
+      <el-empty description="暂无面试记录" />
+    </div>
+
+    <div v-if="filteredInterviews.length > 0" class="pagination-wrapper">
+      <el-pagination
+        v-model:current-page="currentPage"
+        v-model:page-size="pageSize"
+        :total="filteredInterviews.length"
+        :page-sizes="[10, 20, 50, 100]"
+        layout="total, sizes, prev, pager, next, jumper"
+        background
+        small
+      />
+    </div>
   </div>
 </template>
 
 <style scoped>
+.interview-list {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+  overflow: hidden;
+}
+
 .list-toolbar {
   display: flex;
   align-items: center;
@@ -126,11 +193,27 @@ onMounted(loadData)
   margin-bottom: 16px;
   flex-wrap: wrap;
   gap: 12px;
+  flex-shrink: 0;
 }
 
 .filter-tabs {
   display: flex;
   gap: 8px;
+}
+
+.pagination-wrapper {
+  display: flex;
+  justify-content: flex-end;
+  padding-top: 16px;
+  flex-shrink: 0;
+}
+
+.empty-wrapper {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 200px;
 }
 
 :deep(.interview-row) {

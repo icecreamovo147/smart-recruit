@@ -73,6 +73,111 @@
   --danger-soft: #3b2028;
 
   --shadow-float: 0 12px 28px rgba(0, 0, 0, 0.28);
+
+  /* Element Plus dark mode overrides */
+  --el-bg-color: var(--surface-primary);
+  --el-bg-color-overlay: #1e293b;
+  --el-text-color-primary: var(--text-primary);
+  --el-text-color-regular: var(--text-secondary);
+  --el-text-color-secondary: var(--text-muted);
+  --el-border-color: var(--border-primary);
+  --el-border-color-light: var(--border-subtle);
+  --el-fill-color-light: var(--surface-secondary);
+  --el-fill-color-blank: var(--surface-primary);
+  --el-fill-color: var(--surface-secondary);
+  --el-mask-color: rgba(0, 0, 0, 0.5);
+
+  /* Table */
+  --el-table-bg-color: var(--surface-primary);
+  --el-table-tr-bg-color: var(--surface-primary);
+  --el-table-header-bg-color: var(--surface-secondary);
+  --el-table-row-hover-bg-color: var(--surface-secondary);
+  --el-table-border-color: var(--border-subtle);
+  --el-table-text-color: var(--text-primary);
+  --el-table-header-text-color: var(--text-secondary);
+
+  /* Input */
+  --el-input-bg-color: var(--surface-secondary);
+  --el-input-text-color: var(--text-primary);
+  --el-input-border-color: var(--border-primary);
+  --el-input-hover-border-color: var(--border-primary);
+
+  /* Pagination */
+  --el-pagination-bg-color: var(--surface-secondary);
+  --el-pagination-text-color: var(--text-secondary);
+  --el-pagination-button-bg-color: var(--surface-secondary);
+  --el-pagination-hover-color: var(--brand-primary);
+
+  /* Radio */
+  --el-radio-button-checked-bg-color: var(--brand-primary);
+  --el-radio-button-checked-text-color: #fff;
+
+  /* Tag */
+  --el-tag-bg-color: var(--surface-secondary);
+  --el-tag-text-color: var(--text-secondary);
+  --el-tag-border-color: var(--border-primary);
+
+  /* Empty */
+  --el-empty-fill-color-0: var(--surface-secondary);
+  --el-empty-fill-color-1: var(--surface-primary);
+  --el-empty-fill-color-2: var(--surface-secondary);
+  --el-empty-fill-color-3: var(--surface-primary);
+  --el-empty-fill-color-4: var(--surface-secondary);
+  --el-empty-fill-color-5: var(--surface-primary);
+  --el-empty-fill-color-6: var(--surface-secondary);
+  --el-empty-fill-color-7: var(--surface-primary);
+  --el-empty-fill-color-8: var(--surface-secondary);
+  --el-empty-fill-color-9: var(--surface-primary);
+}
+
+/* ── Dark mode: Element Plus component deep overrides ──────────── */
+
+:root[data-theme='dark'] .el-radio-button__inner {
+  background: var(--surface-secondary);
+  border-color: var(--border-primary);
+  color: var(--text-secondary);
+}
+:root[data-theme='dark'] .el-radio-button__original-radio:checked + .el-radio-button__inner {
+  background: var(--brand-primary);
+  border-color: var(--brand-primary);
+  color: #fff;
+  box-shadow: -1px 0 0 0 var(--brand-primary);
+}
+
+:root[data-theme='dark'] .el-table__fixed-right-patch,
+:root[data-theme='dark'] .el-table__fixed-column-body {
+  background: var(--surface-primary);
+}
+
+:root[data-theme='dark'] .el-pagination .el-pager li.is-active {
+  color: var(--brand-primary);
+}
+:root[data-theme='dark'] .el-pagination button:disabled {
+  background: var(--surface-secondary);
+  color: var(--text-disabled);
+}
+:root[data-theme='dark'] .el-pagination .el-input__inner {
+  color: var(--text-primary);
+}
+
+:root[data-theme='dark'] .el-empty__description p {
+  color: var(--text-muted);
+}
+
+:root[data-theme='dark'] .el-input__wrapper {
+  background: var(--surface-secondary);
+  box-shadow: 0 0 0 1px var(--border-primary) inset;
+}
+:root[data-theme='dark'] .el-input__wrapper:hover {
+  box-shadow: 0 0 0 1px var(--border-primary) inset;
+}
+:root[data-theme='dark'] .el-input__wrapper.is-focus {
+  box-shadow: 0 0 0 1px var(--brand-primary) inset;
+}
+
+:root[data-theme='dark'] .el-tag--effect-light {
+  background: var(--surface-secondary);
+  border-color: var(--border-primary);
 }
 
 /* ── Base reset ─────────────────────────────────────────────────── */
@@ -140,8 +245,9 @@ a:hover {
 
 .app-layout {
   display: flex;
-  min-height: 100vh;
-  min-height: 100dvh;
+  height: 100vh;
+  height: 100dvh;
+  overflow: hidden;
 }
 
 .app-sidebar {
@@ -245,8 +351,9 @@ a:hover {
   margin-left: var(--sidebar-width);
   display: flex;
   flex-direction: column;
-  min-height: 100vh;
-  min-height: 100dvh;
+  height: 100vh;
+  height: 100dvh;
+  overflow: hidden;
   transition: margin-left 260ms cubic-bezier(0.4, 0, 0.2, 1);
 }
 
@@ -356,9 +463,13 @@ a:hover {
 
 .app-content {
   flex: 1;
+  display: flex;
+  flex-direction: column;
   padding: 28px 32px;
   max-width: 1600px;
   width: 100%;
+  min-height: 0;
+  overflow: auto;
 }
 
 /* ── Page transition ────────────────────────────────────────────── */
