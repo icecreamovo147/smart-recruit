@@ -49,7 +49,7 @@ const routes: RouteRecordRaw[] = [
   },
   // Candidate detail — requires application.read permission
   {
-    path: '/hr/candidates/:candidateUserId',
+    path: '/hr/candidates/:candidateUserId/:section?',
     component: CandidateDetailView,
     meta: { requiresAuth: true, requiresPermission: PERM.APPLICATION_READ, title: '候选人详情' },
   },

@@ -22,8 +22,10 @@ const (
 	StatusKeyWithdrawn       = "withdrawn"
 )
 
-// TerminalStatusKeys are statuses from which no further transitions are allowed
-// (except reapplication, which creates a new round).
+// TerminalStatusKeys are statuses that close the current active application round
+// and allow the candidate to create a new round. Rejected also has one staff-side
+// exception in the transition validator: HR can re-pass it into screen_passed,
+// which increments round_no and reopens the same application record as a new round.
 var TerminalStatusKeys = map[string]bool{
 	StatusKeyRejected:      true,
 	StatusKeyWithdrawn:     true,
@@ -121,8 +123,8 @@ func DefaultStatusKey() string {
 
 // ── Reapplication Rules ────────────────────────────────────────────────
 
-// CanReapply returns true if the current terminal status key allows reapplication.
-// Candidates can reapply only from terminal states.
+// CanReapply returns true if the current status key closes the current round.
+// Candidates can reapply only from these configured closeout states.
 func CanReapply(statusKey string) bool {
 	return IsTerminalStatusKey(statusKey)
 }

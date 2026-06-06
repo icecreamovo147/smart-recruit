@@ -29,19 +29,19 @@ import (
 
 // Services aggregates all domain services and background workers.
 type Services struct {
-	Auth         *AuthService
-	Job          *JobService
-	Candidate    *CandidateService
-	Application  *ApplicationService
-	Interview    *InterviewService
-	Offer        *OfferService
-	AI           *AIService
-	CandidateAI  *CandidateAIService
-	Notification *NotificationService
-	Admin        *AdminService
-	Taxonomy     *JobTaxonomyService
+	Auth          *AuthService
+	Job           *JobService
+	Candidate     *CandidateService
+	Application   *ApplicationService
+	Interview     *InterviewService
+	Offer         *OfferService
+	AI            *AIService
+	CandidateAI   *CandidateAIService
+	Notification  *NotificationService
+	Admin         *AdminService
+	Taxonomy      *JobTaxonomyService
 	Collaboration *CollaborationService
-	Analytics    *AnalyticsService
+	Analytics     *AnalyticsService
 
 	// Phase 6: Audit context repo for AI usage audit writes
 	UsageAuditCtxRepo *repository.UsageAuditContextRepo
@@ -101,19 +101,19 @@ func NewServices(
 	collaborationRepo := repository.NewCollaborationRepo(db)
 
 	return &Services{
-		Auth:         NewAuthService(users, tokens, authzRepo, inviteCodes, jwtSecret),
-		Analytics:    NewAnalyticsService(analyticsRepo, authzRepo, serviceAuth),
-		Admin:        NewAdminService(inviteCodes, usageLogs, users, authzRepo, tokenCache, serviceAuth),
+		Auth:              NewAuthService(users, tokens, authzRepo, inviteCodes, jwtSecret),
+		Analytics:         NewAnalyticsService(analyticsRepo, authzRepo, serviceAuth),
+		Admin:             NewAdminService(inviteCodes, usageLogs, users, authzRepo, tokenCache, serviceAuth),
 		UsageAuditCtxRepo: usageAuditCtxRepo,
-		Job:          NewJobService(jobs, jobCache, authzRepo, taxonomy, scopeEval),
-		Taxonomy:     taxonomy,
-		Candidate:    NewCandidateService(profiles, resumes, ossClient, outboxPublisher, usageLogs, serviceAuth),
-		Application:  NewApplicationService(authzRepo, applications, profiles, resumes, jobs, notifications, outboxPublisher, ossClient, jobCache, scopeEval),
-		Interview:    NewInterviewService(authzRepo, interviews, users, applications, jobs, notifications, outboxPublisher, scopeEval, serviceAuth),
-		Offer:        NewOfferService(authzRepo, offers, applications, jobs, notifications, outboxPublisher, scopeEval, serviceAuth),
-		AI:           NewAIService(chats, applications, jobs, resumes, summaries, toolTraces, memories, ossClient, aiClient, toolExecutor, contextBuilder, candidateAI, usageLogs, usageAuditCtxRepo, authzRepo, agentRuntime, serviceAuth),
-		CandidateAI:  candidateAI,
-		Notification: NewNotificationService(notifications, notifCache, serviceAuth),
+		Job:               NewJobService(jobs, jobCache, authzRepo, taxonomy, scopeEval),
+		Taxonomy:          taxonomy,
+		Candidate:         NewCandidateService(profiles, resumes, ossClient, outboxPublisher, usageLogs, serviceAuth),
+		Application:       NewApplicationService(authzRepo, applications, profiles, resumes, jobs, notifications, outboxPublisher, ossClient, jobCache, scopeEval),
+		Interview:         NewInterviewService(authzRepo, interviews, users, applications, jobs, notifications, outboxPublisher, scopeEval, serviceAuth),
+		Offer:             NewOfferService(authzRepo, offers, applications, jobs, notifications, outboxPublisher, scopeEval, serviceAuth),
+		AI:                NewAIService(chats, applications, jobs, resumes, summaries, toolTraces, memories, ossClient, aiClient, toolExecutor, contextBuilder, candidateAI, usageLogs, usageAuditCtxRepo, authzRepo, agentRuntime, serviceAuth),
+		CandidateAI:       candidateAI,
+		Notification:      NewNotificationService(notifications, notifCache, serviceAuth),
 		Collaboration: NewCollaborationService(
 			authzRepo,
 			collaborationRepo,
@@ -124,6 +124,7 @@ func NewServices(
 			interviews,
 			offers,
 			resumes,
+			ossClient,
 			serviceAuth,
 			scopeEval,
 		),

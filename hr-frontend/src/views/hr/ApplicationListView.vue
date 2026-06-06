@@ -234,16 +234,16 @@ onMounted(load)
       </div>
       <el-pagination class="application-ledger-pagination" v-model:current-page="query.page" v-model:page-size="query.page_size" layout="total, prev, pager, next, sizes" :total="total" @current-change="load" @size-change="load" />
     </div>
-  </section>
 
-  <!-- Interview scheduling dialog -->
-  <InterviewScheduleDialog
-    v-if="scheduleTarget"
-    :visible="scheduleVisible"
-    :application-id="scheduleTarget.application_id"
-    :job-title="scheduleTarget.job_title"
-    :candidate-name="scheduleTarget.real_name || ''"
-    @update:visible="scheduleVisible = $event"
-    @success="onScheduleSuccess"
-  />
+    <!-- Interview scheduling dialog -->
+    <InterviewScheduleDialog
+      v-if="scheduleTarget"
+      :visible="scheduleVisible"
+      :application-id="scheduleTarget.application_id"
+      :job-title="scheduleTarget.job_title"
+      :candidate-name="scheduleTarget.real_name || ''"
+      @update:visible="scheduleVisible = $event"
+      @success="onScheduleSuccess"
+    />
+  </section>
 </template>

@@ -8,6 +8,7 @@ import (
 	"go.uber.org/zap"
 
 	"logic-grpc-service/model"
+	"logic-grpc-service/oss"
 	"logic-grpc-service/pkg/authz"
 	"logic-grpc-service/pkg/errs"
 	"logic-grpc-service/pkg/logger"
@@ -16,17 +17,18 @@ import (
 )
 
 type CollaborationService struct {
-	authzRepo    *repository.AuthzRepo
+	authzRepo     *repository.AuthzRepo
 	collaboration *repository.CollaborationRepo
-	applications *repository.ApplicationRepo
-	profiles     *repository.ProfileRepo
-	jobs         *repository.JobRepo
-	users        *repository.UserRepo
-	interviews   *repository.InterviewRepo
-	offers       *repository.OfferRepo
-	resumes      *repository.ResumeRepo
-	serviceAuth  *ServiceAuthorizer
-	scopeEval    *scopeEvaluator
+	applications  *repository.ApplicationRepo
+	profiles      *repository.ProfileRepo
+	jobs          *repository.JobRepo
+	users         *repository.UserRepo
+	interviews    *repository.InterviewRepo
+	offers        *repository.OfferRepo
+	resumes       *repository.ResumeRepo
+	oss           oss.Storage
+	serviceAuth   *ServiceAuthorizer
+	scopeEval     *scopeEvaluator
 }
 
 func NewCollaborationService(
@@ -39,21 +41,23 @@ func NewCollaborationService(
 	interviews *repository.InterviewRepo,
 	offers *repository.OfferRepo,
 	resumes *repository.ResumeRepo,
+	ossClient oss.Storage,
 	serviceAuth *ServiceAuthorizer,
 	scopeEval *scopeEvaluator,
 ) *CollaborationService {
 	return &CollaborationService{
-		authzRepo:    authzRepo,
+		authzRepo:     authzRepo,
 		collaboration: collaboration,
-		applications: applications,
-		profiles:     profiles,
-		jobs:         jobs,
-		users:        users,
-		interviews:   interviews,
-		offers:       offers,
-		resumes:      resumes,
-		serviceAuth:  serviceAuth,
-		scopeEval:    scopeEval,
+		applications:  applications,
+		profiles:      profiles,
+		jobs:          jobs,
+		users:         users,
+		interviews:    interviews,
+		offers:        offers,
+		resumes:       resumes,
+		oss:           ossClient,
+		serviceAuth:   serviceAuth,
+		scopeEval:     scopeEval,
 	}
 }
 
@@ -138,7 +142,13 @@ func (s *CollaborationService) GetCandidateWorkspace(ctx context.Context, req *p
 	if err != nil {
 		logger.L().Error("get resume failed", zap.Uint64("candidate_user_id", candidateUID), zap.Error(err))
 	} else if resume != nil {
-		resumeURL = resume.OSSKey
+		if s.oss != nil {
+			if signedURL, signErr := s.oss.GeneratePresignedGetURL(resume.OSSKey); signErr != nil {
+				logger.L().Error("presign candidate workspace resume failed", zap.Uint64("candidate_user_id", candidateUID), zap.String("oss_key", resume.OSSKey), zap.Error(signErr))
+			} else {
+				resumeURL = signedURL
+			}
+		}
 	}
 
 	// Get applications with department/location

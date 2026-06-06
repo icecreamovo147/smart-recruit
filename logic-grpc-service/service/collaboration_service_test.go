@@ -53,15 +53,15 @@ func setupCollaborationTestDB(t *testing.T) *gorm.DB {
 }
 
 type collabTestSeed struct {
-	HrUser        *model.User
-	OtherHrUser   *model.User
-	Candidate     *model.User
+	HrUser         *model.User
+	OtherHrUser    *model.User
+	Candidate      *model.User
 	OtherCandidate *model.User
-	Job           *model.Job
-	Application   *model.Application
-	Tag           *model.CandidateTag
-	Note          *model.CandidateNote
-	Task          *model.FollowUpTask
+	Job            *model.Job
+	Application    *model.Application
+	Tag            *model.CandidateTag
+	Note           *model.CandidateNote
+	Task           *model.FollowUpTask
 }
 
 func seedCollaborationTestData(t *testing.T, db *gorm.DB) *collabTestSeed {
@@ -238,6 +238,7 @@ func newCollaborationServiceForTest(t *testing.T, db *gorm.DB) *CollaborationSer
 		interviewRepo,
 		offerRepo,
 		resumeRepo,
+		nil,
 		serviceAuth,
 		scopeEval,
 	)
@@ -295,10 +296,10 @@ func TestCollaborationService_GetCandidateWorkspace_Success(t *testing.T) {
 		t.Errorf("StatusKey=%s, want %s", app.StatusKey, model.StatusKeyApplied)
 	}
 
-		_ = ws.Tags // Tags may be empty since no assignment in seed
-		_ = ws.Tags // Tags may be empty since no assignment in seed
-		_ = ws.Tags // Tags may be empty since no assignment in seed
-		_ = ws.Tags // Tags may be empty since no assignment in seed
+	_ = ws.Tags // Tags may be empty since no assignment in seed
+	_ = ws.Tags // Tags may be empty since no assignment in seed
+	_ = ws.Tags // Tags may be empty since no assignment in seed
+	_ = ws.Tags // Tags may be empty since no assignment in seed
 
 	// Check resume_url
 	_ = ws.ResumeUrl // Should be empty string since no resume uploaded
@@ -625,7 +626,7 @@ func TestCollaborationService_ListFollowUpTasks_Success(t *testing.T) {
 
 	ctx := metadata.WithAuthActor(context.Background(), seed.HrUser.ID, "staff")
 	resp, err := svc.ListFollowUpTasks(ctx, &pb.ListFollowUpTasksRequest{
-		StaffUserId:    seed.HrUser.ID,
+		StaffUserId:     seed.HrUser.ID,
 		CandidateUserId: uint64(seed.Candidate.ID),
 	})
 	if err != nil {
@@ -824,7 +825,7 @@ func TestCollaborationService_ListFollowUpTasks_WithoutCandidateFilterDenied(t *
 	// The candidate_user_id field is always required for scope verification.
 	ctx := metadata.WithAuthActor(context.Background(), seed.OtherHrUser.ID, "staff")
 	_, err := svc.ListFollowUpTasks(ctx, &pb.ListFollowUpTasksRequest{
-		StaffUserId:    seed.OtherHrUser.ID,
+		StaffUserId:     seed.OtherHrUser.ID,
 		CandidateUserId: uint64(seed.Candidate.ID), // Needs scope check
 	})
 	if err == nil {

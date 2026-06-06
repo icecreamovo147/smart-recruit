@@ -69,6 +69,14 @@ const toggleSidebar = () => {
   sidebarCollapsed.value = !sidebarCollapsed.value
 }
 
+const routeViewKey = (viewRoute: { fullPath: string; path: string; params: Record<string, unknown> }): string => {
+  const candidateUserId = viewRoute.params.candidateUserId
+  if (viewRoute.path.startsWith('/hr/candidates/') && candidateUserId) {
+    return `/hr/candidates/${String(candidateUserId)}`
+  }
+  return viewRoute.fullPath
+}
+
 </script>
 
 <template>
@@ -160,9 +168,9 @@ const toggleSidebar = () => {
         </div>
       </header>
       <main class="main-panel" :class="{ 'main-panel--auth': isAuthRoute }">
-        <RouterView v-slot="{ Component }">
+        <RouterView v-slot="{ Component, route: viewRoute }">
           <Transition name="page-fade" mode="out-in">
-            <component :is="Component" />
+            <component :is="Component" :key="routeViewKey(viewRoute)" />
           </Transition>
         </RouterView>
       </main>

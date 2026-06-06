@@ -53,6 +53,7 @@ func TestAllowedTransitions(t *testing.T) {
 		{model.StatusKeyApplied, model.StatusKeyScreenPassed, "applied -> screen_passed"},
 		{model.StatusKeyViewed, model.StatusKeyScreenPassed, "viewed -> screen_passed"},
 		{model.StatusKeyScreening, model.StatusKeyScreenPassed, "screening -> screen_passed"},
+		{model.StatusKeyRejected, model.StatusKeyScreenPassed, "rejected -> screen_passed (HR re-pass opens a new round)"},
 		{model.StatusKeyOfferSent, model.StatusKeyOfferAccepted, "offer_sent -> offer_accepted"},
 		{model.StatusKeyOfferSent, model.StatusKeyOfferPending, "offer_sent -> offer_pending (HR withdraws to re-issue)"},
 	}
@@ -119,15 +120,10 @@ func TestAllowedNextStatuses(t *testing.T) {
 		}
 	})
 
-	t.Run("terminal state returns empty set", func(t *testing.T) {
+	t.Run("closeout states without HR re-pass return empty set", func(t *testing.T) {
 		next := AllowedNextStatuses(model.StatusKeyHired)
 		if len(next) != 0 {
 			t.Errorf("expected empty set for terminal state hired, got %d entries", len(next))
-		}
-
-		next = AllowedNextStatuses(model.StatusKeyRejected)
-		if len(next) != 0 {
-			t.Errorf("expected empty set for terminal state rejected, got %d entries", len(next))
 		}
 
 		next = AllowedNextStatuses(model.StatusKeyWithdrawn)
@@ -138,6 +134,16 @@ func TestAllowedNextStatuses(t *testing.T) {
 		next = AllowedNextStatuses(model.StatusKeyOfferRejected)
 		if len(next) != 0 {
 			t.Errorf("expected empty set for terminal state offer_rejected, got %d entries", len(next))
+		}
+	})
+
+	t.Run("rejected only allows HR re-pass to screen_passed", func(t *testing.T) {
+		next := AllowedNextStatuses(model.StatusKeyRejected)
+		if len(next) != 1 {
+			t.Fatalf("expected exactly one next status for rejected, got %d entries", len(next))
+		}
+		if !next[model.StatusKeyScreenPassed] {
+			t.Errorf("expected screen_passed to be the only allowed next status from rejected")
 		}
 	})
 

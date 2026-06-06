@@ -8,6 +8,9 @@ import type { StaffUserInfo } from '@/types/domain'
 const props = defineProps<{
   visible: boolean
   selectedId?: number
+  title?: string
+  emptyText?: string
+  selectLabel?: string
 }>()
 
 const emit = defineEmits<{
@@ -66,7 +69,7 @@ onMounted(() => {
 <template>
   <el-dialog
     :model-value="props.visible"
-    title="选择面试官"
+    :title="props.title || '选择面试官'"
     width="720px"
     :close-on-click-modal="false"
     @close="emit('update:visible', false)"
@@ -92,7 +95,7 @@ onMounted(() => {
         :data="list"
         height="360"
         row-key="user_id"
-        empty-text="暂无面试官"
+        :empty-text="props.emptyText || '暂无面试官'"
         highlight-current-row
         @row-dblclick="handleSelect"
       >
@@ -117,7 +120,7 @@ onMounted(() => {
               :disabled="Number(row.user_id) === Number(props.selectedId)"
               @click="handleSelect(row)"
             >
-              {{ Number(row.user_id) === Number(props.selectedId) ? '已选择' : '选择' }}
+              {{ Number(row.user_id) === Number(props.selectedId) ? '已选择' : (props.selectLabel || '选择') }}
             </el-button>
           </template>
         </el-table-column>

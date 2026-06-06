@@ -840,7 +840,6 @@ a {
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  height: 0;
 }
 
 .job-management-surface {
@@ -850,7 +849,6 @@ a {
   flex-direction: column;
   gap: 14px;
   overflow: hidden;
-  height: calc(100vh - 180px);
 }
 
 .job-table-area {
