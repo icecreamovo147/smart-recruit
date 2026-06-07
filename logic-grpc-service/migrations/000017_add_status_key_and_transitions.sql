@@ -1,12 +1,8 @@
 -- 000017: Add status_key and application_status_transitions (Phase 1 Pipeline State)
--- Uses IF NOT EXISTS / IF EXISTS for idempotency when db.sql is pre-imported.
 
 ALTER TABLE `applications`
-  ADD COLUMN IF NOT EXISTS `status_key` VARCHAR(64) NOT NULL DEFAULT 'applied' COMMENT '投递状态键（Phase 1 新状态机）' AFTER `status`;
-
-ALTER TABLE `applications`
-  DROP INDEX IF EXISTS `idx_status_key`,
-  ADD INDEX `idx_status_key` (`status_key`);
+  ADD COLUMN `status_key` VARCHAR(64) NOT NULL DEFAULT 'applied' COMMENT '投递状态键（Phase 1 新状态机）' AFTER `status`,
+  ADD KEY `idx_status_key` (`status_key`);
 
 -- Backfill status_key from legacy numeric status so existing rows are not
 -- all mapped to 'applied'. This must run before the active_key rebuild so
@@ -20,12 +16,15 @@ SET `status_key` = CASE `status`
   ELSE 'applied'
 END;
 
--- Rebuild active_key to reference status_key (instead of numeric status)
+-- Also update active_key to exclude hired (terminal state)
+-- Drop the old unique index explicitly before dropping the generated column.
+-- MySQL may otherwise keep or reshape the composite index while active_key is
+-- removed, which can fail or conflict with the new uk_active_application name.
 ALTER TABLE `applications`
-  DROP INDEX IF EXISTS `uk_active_application`;
+  DROP INDEX `uk_active_application`;
 
 ALTER TABLE `applications`
-  DROP COLUMN IF EXISTS `active_key`;
+  DROP COLUMN `active_key`;
 
 ALTER TABLE `applications`
   ADD COLUMN `active_key` TINYINT GENERATED ALWAYS AS (

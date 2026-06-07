@@ -35,6 +35,26 @@ var filePattern = regexp.MustCompile(`^(\d+)_.+\.sql$`)
 // createTablePattern matches CREATE TABLE statements to extract table names.
 var createTablePattern = regexp.MustCompile(`(?i)CREATE\s+TABLE\s+(?:IF\s+NOT\s+EXISTS\s+)?` + "`?" + `(\w+)` + "`?")
 
+// MySQL 8.0 does not accept ADD COLUMN IF NOT EXISTS, although some compatible
+// databases do. Keep historical migration files unchanged for checksum
+// stability and normalize the clause only at execution time.
+var addColumnIfNotExistsPattern = regexp.MustCompile(`(?i)\bADD\s+COLUMN\s+IF\s+NOT\s+EXISTS\b`)
+
+// legacyMigrationChecksums contains only the checksums shipped by the
+// production-readiness commit that rewrote already-published migrations.
+// Accepting these exact values lets those databases move back to the canonical
+// migration history without weakening checksum validation for other changes.
+var legacyMigrationChecksums = map[int]string{
+	2:  "a7fbc6258825a439855aa19d62d304207c50fbb37acd86bdcd0f884e310d266c",
+	3:  "c8ff0c30a98122920c7e0f1266d1fbd990f0ea85712c901780bb9a1417950a45",
+	5:  "4ec291ccfc65e03bb6daa107b6fac269eaa693832072c5402725b8b81a2fb424",
+	6:  "cee95e501c5d611364222efcfb314a304b4e491eaf6c3f35d4a187854ff1fb92",
+	12: "28caed7cbb9a6a0d49a687a9328b20acad2924579e03c34c96bc09159f760cae",
+	14: "5e8a85b71db7971a4eeaf4d6b6c006a90ce83cc1f2fdb033ceaeeae296a6540d",
+	17: "d2f52cfed883ad77ec1e1b9e5d32cee4255ff087525b6ae6b55bd0e489e0fcc3",
+	22: "7631c39e1df666e3bd99109d298a8c4c207efb54f3826d099f21d9d15c027395",
+}
+
 // Migration represents a single migration file.
 type Migration struct {
 	Version  int    // Parsed from filename prefix, e.g. 000001 → 1
@@ -540,7 +560,7 @@ func (r *Runner) Up(ctx context.Context) error {
 	log := logger.L()
 	for _, m := range migrations {
 		if a, ok := applied[m.Version]; ok {
-			if a.Checksum != m.Checksum {
+			if !migrationChecksumMatches(m.Version, a.Checksum, m.Checksum) {
 				return fmt.Errorf("migration: checksum mismatch for version %d (%s). "+
 					"Applied checksum: %s, file checksum: %s. "+
 					"Do not modify already-applied migration files",
@@ -707,11 +727,26 @@ func (r *Runner) execSQLConn(ctx context.Context, conn *sql.Conn, sqlStr string)
 		if stmt == "" || stmt == "--" {
 			continue
 		}
+		if r.db.Dialector.Name() == "mysql" {
+			stmt = normalizeMySQLDDL(stmt)
+		}
 		if _, err := conn.ExecContext(ctx, stmt); err != nil {
 			return fmt.Errorf("exec %q: %w", truncate(stmt, 80), err)
 		}
 	}
 	return nil
+}
+
+func migrationChecksumMatches(version int, applied, canonical string) bool {
+	if applied == canonical {
+		return true
+	}
+	legacy, ok := legacyMigrationChecksums[version]
+	return ok && applied == legacy
+}
+
+func normalizeMySQLDDL(stmt string) string {
+	return addColumnIfNotExistsPattern.ReplaceAllString(stmt, "ADD COLUMN")
 }
 
 // splitStatements splits SQL text into individual statements on semicolons,

@@ -203,6 +203,30 @@ func TestTruncate(t *testing.T) {
 	}
 }
 
+func TestNormalizeMySQLDDL(t *testing.T) {
+	input := "ALTER TABLE users ADD COLUMN IF NOT EXISTS status VARCHAR(32), ADD COLUMN if not exists token_version INT"
+	want := "ALTER TABLE users ADD COLUMN status VARCHAR(32), ADD COLUMN token_version INT"
+	if got := normalizeMySQLDDL(input); got != want {
+		t.Fatalf("normalizeMySQLDDL() = %q, want %q", got, want)
+	}
+}
+
+func TestMigrationChecksumMatches(t *testing.T) {
+	canonical := "canonical"
+	if !migrationChecksumMatches(2, canonical, canonical) {
+		t.Fatal("canonical checksum should match")
+	}
+	if !migrationChecksumMatches(2, legacyMigrationChecksums[2], canonical) {
+		t.Fatal("known legacy checksum should match")
+	}
+	if migrationChecksumMatches(2, "unknown", canonical) {
+		t.Fatal("unknown checksum must not match")
+	}
+	if migrationChecksumMatches(1, legacyMigrationChecksums[2], canonical) {
+		t.Fatal("legacy checksum must not match a different migration version")
+	}
+}
+
 func TestRunnerDownNoDownFile(t *testing.T) {
 	db := newTestDB(t)
 	r := newTestRunner(t, db)

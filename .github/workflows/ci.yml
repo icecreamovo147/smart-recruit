@@ -27,6 +27,9 @@ jobs:
       - uses: actions/setup-go@v5
         with:
           go-version: "1.25"
+          cache-dependency-path: |
+            logic-grpc-service/go.sum
+            web-gin-service/go.sum
       - name: Logic service tests
         working-directory: logic-grpc-service
         run: go test ./...
