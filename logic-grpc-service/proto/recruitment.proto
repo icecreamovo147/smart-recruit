@@ -1226,6 +1226,8 @@ message Offer {
   string job_title = 19;
   string candidate_name = 20;
   string application_status_key = 21;
+  string created_by_name = 22;
+  string sent_by_name = 23;
 }
 
 message CreateOfferRequest {

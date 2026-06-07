@@ -38,6 +38,8 @@ type OfferWithDetailsRow struct {
 	JobTitle            string
 	CandidateName       string
 	ApplicationStatusKey string
+	CreatedByName       string
+	SentByName          string
 }
 
 func NewOfferRepo(db *gorm.DB) *OfferRepo {
@@ -52,7 +54,9 @@ func baseOfferSelect() string {
 		offers.created_by, offers.sent_by, offers.decided_at, offers.created_at, offers.updated_at,
 		j.title AS job_title,
 		COALESCE(cp.real_name, CONCAT('候选人', offers.candidate_user_id)) AS candidate_name,
-		a.status_key AS application_status_key`
+		a.status_key AS application_status_key,
+		cu.username AS created_by_name,
+		COALESCE(su.username, '') AS sent_by_name`
 }
 
 func (r *OfferRepo) baseJoins() *gorm.DB {
@@ -60,7 +64,9 @@ func (r *OfferRepo) baseJoins() *gorm.DB {
 		Select(baseOfferSelect()).
 		Joins("JOIN jobs j ON j.id = offers.job_id").
 		Joins("JOIN applications a ON a.id = offers.application_id").
-		Joins("LEFT JOIN candidate_profiles cp ON cp.user_id = offers.candidate_user_id")
+		Joins("LEFT JOIN candidate_profiles cp ON cp.user_id = offers.candidate_user_id").
+		Joins("LEFT JOIN users cu ON cu.id = offers.created_by").
+		Joins("LEFT JOIN users su ON su.id = offers.sent_by")
 }
 
 // ── Offer CRUD ──────────────────────────────────────────────────────────
@@ -150,7 +156,8 @@ func (r *OfferRepo) ListByCandidate(ctx context.Context, candidateUserID int64, 
 		return nil, "", false, err
 	}
 	query := r.baseJoins().
-		Where("offers.candidate_user_id = ?", candidateUserID)
+		Where("offers.candidate_user_id = ?", candidateUserID).
+		Where("offers.status != ?", "draft")
 	if !t.IsZero() || id > 0 {
 		query = query.Where("(offers.created_at, offers.id) < (?, ?)", t, id)
 	}

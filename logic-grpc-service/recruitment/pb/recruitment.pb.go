@@ -9753,6 +9753,8 @@ type Offer struct {
 	JobTitle             string `protobuf:"bytes,19,opt,name=job_title,json=jobTitle,proto3" json:"job_title,omitempty"`
 	CandidateName        string `protobuf:"bytes,20,opt,name=candidate_name,json=candidateName,proto3" json:"candidate_name,omitempty"`
 	ApplicationStatusKey string `protobuf:"bytes,21,opt,name=application_status_key,json=applicationStatusKey,proto3" json:"application_status_key,omitempty"`
+	CreatedByName        string `protobuf:"bytes,22,opt,name=created_by_name,json=createdByName,proto3" json:"created_by_name,omitempty"`
+	SentByName           string `protobuf:"bytes,23,opt,name=sent_by_name,json=sentByName,proto3" json:"sent_by_name,omitempty"`
 	unknownFields        protoimpl.UnknownFields
 	sizeCache            protoimpl.SizeCache
 }
@@ -9930,6 +9932,20 @@ func (x *Offer) GetCandidateName() string {
 func (x *Offer) GetApplicationStatusKey() string {
 	if x != nil {
 		return x.ApplicationStatusKey
+	}
+	return ""
+}
+
+func (x *Offer) GetCreatedByName() string {
+	if x != nil {
+		return x.CreatedByName
+	}
+	return ""
+}
+
+func (x *Offer) GetSentByName() string {
+	if x != nil {
+		return x.SentByName
 	}
 	return ""
 }
@@ -16477,7 +16493,7 @@ const file_proto_recruitment_proto_rawDesc = "" +
 	"\x04code\x18\x01 \x01(\x05R\x04code\x12\x10\n" +
 	"\x03msg\x18\x02 \x01(\tR\x03msg\x12\x14\n" +
 	"\x05total\x18\x03 \x01(\x03R\x05total\x12-\n" +
-	"\x04list\x18\x04 \x03(\v2\x19.recruitment.UsageLogItemR\x04list\"\xa7\x05\n" +
+	"\x04list\x18\x04 \x03(\v2\x19.recruitment.UsageLogItemR\x04list\"\xf1\x05\n" +
 	"\x05Offer\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\x03R\x02id\x12%\n" +
 	"\x0eapplication_id\x18\x02 \x01(\x03R\rapplicationId\x12*\n" +
@@ -16507,7 +16523,10 @@ const file_proto_recruitment_proto_rawDesc = "" +
 	"updated_at\x18\x12 \x01(\tR\tupdatedAt\x12\x1b\n" +
 	"\tjob_title\x18\x13 \x01(\tR\bjobTitle\x12%\n" +
 	"\x0ecandidate_name\x18\x14 \x01(\tR\rcandidateName\x124\n" +
-	"\x16application_status_key\x18\x15 \x01(\tR\x14applicationStatusKey\"\xa1\x02\n" +
+	"\x16application_status_key\x18\x15 \x01(\tR\x14applicationStatusKey\x12&\n" +
+	"\x0fcreated_by_name\x18\x16 \x01(\tR\rcreatedByName\x12 \n" +
+	"\fsent_by_name\x18\x17 \x01(\tR\n" +
+	"sentByName\"\xa1\x02\n" +
 	"\x12CreateOfferRequest\x12\x13\n" +
 	"\x05hr_id\x18\x01 \x01(\x03R\x04hrId\x12%\n" +
 	"\x0eapplication_id\x18\x02 \x01(\x03R\rapplicationId\x12\x14\n" +

@@ -18,3 +18,6 @@ export const onlineJob = (jobId: number): Promise<void> =>
 
 export const listHRJobs = (params: JobQuery): Promise<PaginatedList<Job>> =>
   request.get('/api/v1/hr/jobs', { params })
+
+export const getJobDetail = (jobId: number): Promise<Job> =>
+  request.get(`/api/v1/jobs/${jobId}`)

@@ -4,6 +4,7 @@ import { useRoute, useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { ArrowLeft } from '@element-plus/icons-vue'
 import { listOffersByApplication } from '@/api/offer'
+import { getJobDetail } from '@/api/job'
 import type { Offer } from '@/types/domain'
 import OfferCreateDialog from '@/components/business/OfferCreateDialog.vue'
 import OfferDetailDialog from '@/components/business/OfferDetailDialog.vue'
@@ -19,6 +20,8 @@ const detailDialogVisible = ref(false)
 const selectedOfferId = ref<number | null>(null)
 const jobTitle = ref('')
 const candidateName = ref('')
+const jobSalaryRange = ref('')
+const jobWorkLocation = ref('')
 
 const formatDateTime = (value: string): string => {
   if (!value) return '-'
@@ -67,6 +70,17 @@ const loadOffers = async () => {
   }
 }
 
+const loadJobDetail = async (jobId: number) => {
+  try {
+    const job = await getJobDetail(jobId)
+    jobTitle.value = job.title || ''
+    jobSalaryRange.value = job.salary_range || ''
+    jobWorkLocation.value = job.location || ''
+  } catch {
+    // Silently fail — job detail is best-effort
+  }
+}
+
 const showCreateDialog = () => {
   createDialogVisible.value = true
 }
@@ -82,6 +96,10 @@ const goBack = () => {
 
 onMounted(() => {
   loadOffers()
+  const jobId = Number(route.query.job_id)
+  if (jobId) {
+    loadJobDetail(jobId)
+  }
 })
 </script>
 
@@ -93,7 +111,7 @@ onMounted(() => {
         返回
       </el-button>
       <h2>Offer管理</h2>
-      <el-button type="primary" @click="showCreateDialog" v-if="offers.length === 0 || offers.every(o => o.status === 'withdrawn')">
+      <el-button type="primary" @click="showCreateDialog">
         创建Offer
       </el-button>
     </div>
@@ -103,35 +121,54 @@ onMounted(() => {
         <el-button type="primary" @click="showCreateDialog">创建Offer</el-button>
       </el-empty>
 
-      <el-card
+      <div
         v-for="offer in offers"
         :key="offer.id"
         class="offer-card"
-        shadow="hover"
         @click="showDetail(offer.id)"
       >
-        <div class="offer-card-header">
-          <span class="offer-title">{{ offer.title }}</span>
-          <el-tag :type="offerStatusType(offer.status) as any" size="small">
-            {{ offerStatusLabel(offer.status) }}
-          </el-tag>
+        <div class="offer-card__top">
+          <div class="offer-card__title-row">
+            <span class="offer-card__title">{{ offer.title }}</span>
+            <el-tag :type="offerStatusType(offer.status) as any" size="small" effect="plain">
+              {{ offerStatusLabel(offer.status) }}
+            </el-tag>
+          </div>
+          <div class="offer-card__meta">
+            <div class="offer-card__meta-item">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
+              <span>{{ formatDateTime(offer.created_at) }}</span>
+            </div>
+            <div class="offer-card__meta-item">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+              <span>{{ offer.candidate_name || `#${offer.candidate_user_id}` }}</span>
+            </div>
+          </div>
         </div>
-        <div class="offer-card-body">
-          <el-descriptions :column="3" :size="'small'">
-            <el-descriptions-item label="薪资">{{ offer.salary_range || '-' }}</el-descriptions-item>
-            <el-descriptions-item label="职级">{{ offer.level || '-' }}</el-descriptions-item>
-            <el-descriptions-item label="地点">{{ offer.work_location || '-' }}</el-descriptions-item>
-            <el-descriptions-item label="创建时间">{{ formatDateTime(offer.created_at) }}</el-descriptions-item>
-            <el-descriptions-item label="候选人">{{ offer.candidate_name || `#${offer.candidate_user_id}` }}</el-descriptions-item>
-          </el-descriptions>
+        <div class="offer-card__divider" />
+        <div class="offer-card__grid">
+          <div class="offer-card__field">
+            <span class="offer-card__label">薪资</span>
+            <strong class="offer-card__value">{{ offer.salary_range || '-' }}</strong>
+          </div>
+          <div class="offer-card__field">
+            <span class="offer-card__label">职级</span>
+            <strong class="offer-card__value">{{ offer.level || '-' }}</strong>
+          </div>
+          <div class="offer-card__field">
+            <span class="offer-card__label">地点</span>
+            <strong class="offer-card__value">{{ offer.work_location || '-' }}</strong>
+          </div>
         </div>
-      </el-card>
+      </div>
     </div>
 
     <OfferCreateDialog
       v-model:visible="createDialogVisible"
       :application-id="applicationId"
       :job-title="jobTitle"
+      :salary-range="jobSalaryRange"
+      :work-location="jobWorkLocation"
       :candidate-name="candidateName"
       @success="loadOffers"
     />
@@ -152,29 +189,92 @@ onMounted(() => {
   display: flex;
   align-items: center;
   gap: 16px;
-  margin-bottom: 20px;
+  margin-bottom: 24px;
 }
 .page-header h2 {
   flex: 1;
   margin: 0;
-  font-size: 20px;
+  font-size: 22px;
+  font-weight: 700;
+}
+.offer-list {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+}
+
+@media (max-width: 1100px) {
+  .offer-list {
+    grid-template-columns: repeat(2, 1fr);
+  }
 }
 .offer-card {
-  margin-bottom: 12px;
+  border: 1px solid var(--el-border-color-light);
+  border-radius: 12px;
+  background: #fff;
   cursor: pointer;
+  transition: box-shadow 0.2s, border-color 0.2s;
+  padding: 16px 20px;
 }
-.offer-card-header {
+.offer-card:hover {
+  border-color: var(--el-color-primary-light-5);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.06);
+}
+.offer-card__top {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.offer-card__title-row {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  margin-bottom: 12px;
+  gap: 10px;
 }
-.offer-title {
+.offer-card__title {
   font-size: 16px;
-  font-weight: 600;
-  color: #333;
+  font-weight: 700;
+  color: var(--el-text-color-primary);
 }
-.offer-card-body {
-  padding: 0;
+.offer-card__meta {
+  display: flex;
+  gap: 20px;
+  color: var(--el-text-color-secondary);
+  font-size: 12px;
+}
+.offer-card__meta-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+.offer-card__meta-item svg {
+  flex-shrink: 0;
+  opacity: 0.6;
+}
+.offer-card__divider {
+  height: 1px;
+  background: var(--el-border-color-lighter);
+  margin: 12px 0;
+}
+.offer-card__grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+}
+.offer-card__field {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.offer-card__label {
+  font-size: 11px;
+  color: var(--el-text-color-secondary);
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.offer-card__value {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--el-text-color-primary);
 }
 </style>

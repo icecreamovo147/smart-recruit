@@ -287,4 +287,6 @@ export interface Offer {
   job_title: string
   candidate_name: string
   application_status_key: string
+  created_by_name: string
+  sent_by_name: string
 }

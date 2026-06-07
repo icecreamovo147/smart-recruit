@@ -191,6 +191,9 @@ const handleDropdownCommand = (command: string, row: Application) => {
     case 'offer_pending':
       decide(row, APP_STATUS_KEY.OFFER_PENDING)
       break
+    case 'manage_offer':
+      router.push({ path: `/hr/applications/${row.application_id}/offers`, query: { job_id: String(route.params.jobId) } })
+      break
     case 'rejected':
       decide(row, APP_STATUS_KEY.REJECTED)
       break
@@ -246,7 +249,8 @@ onMounted(load)
                       <el-dropdown-item command="ai_analyze">AI 分析</el-dropdown-item>
                       <el-dropdown-item divided command="schedule_interview" :disabled="!canAction(row, APP_STATUS_KEY.INTERVIEW_PENDING)">安排面试</el-dropdown-item>
                       <el-dropdown-item command="interview_passed" :disabled="!canAction(row, APP_STATUS_KEY.INTERVIEW_PASSED)">面试通过</el-dropdown-item>
-                      <el-dropdown-item command="offer_pending" :disabled="!canAction(row, APP_STATUS_KEY.OFFER_PENDING)">发起Offer</el-dropdown-item>
+                      <el-dropdown-item command="offer_pending" :disabled="!canAction(row, APP_STATUS_KEY.OFFER_PENDING)">推进至Offer阶段</el-dropdown-item>
+                      <el-dropdown-item command="manage_offer">创建/发送Offer</el-dropdown-item>
                       <el-dropdown-item command="rejected" :disabled="!canAction(row, APP_STATUS_KEY.REJECTED)">淘汰</el-dropdown-item>
                     </el-dropdown-menu>
                   </template>
@@ -285,7 +289,8 @@ onMounted(load)
                   <el-dropdown-item command="ai_analyze">AI 分析</el-dropdown-item>
                   <el-dropdown-item divided command="schedule_interview" :disabled="!canAction(row, APP_STATUS_KEY.INTERVIEW_PENDING)">安排面试</el-dropdown-item>
                   <el-dropdown-item command="interview_passed" :disabled="!canAction(row, APP_STATUS_KEY.INTERVIEW_PASSED)">面试通过</el-dropdown-item>
-                  <el-dropdown-item command="offer_pending" :disabled="!canAction(row, APP_STATUS_KEY.OFFER_PENDING)">发起Offer</el-dropdown-item>
+                  <el-dropdown-item command="offer_pending" :disabled="!canAction(row, APP_STATUS_KEY.OFFER_PENDING)">推进至Offer阶段</el-dropdown-item>
+                  <el-dropdown-item command="manage_offer">创建/发送Offer</el-dropdown-item>
                   <el-dropdown-item command="rejected" :disabled="!canAction(row, APP_STATUS_KEY.REJECTED)">淘汰</el-dropdown-item>
                 </el-dropdown-menu>
               </template>

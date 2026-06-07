@@ -10,9 +10,7 @@ const JobListView = () => import('@/views/candidate/JobListView.vue')
 const JobDetailView = () => import('@/views/candidate/JobDetailView.vue')
 const ProfileView = () => import('@/views/candidate/ProfileView.vue')
 const ResumeUploadView = () => import('@/views/candidate/ResumeUploadView.vue')
-const MyApplicationsView = () => import('@/views/candidate/MyApplicationsView.vue')
-const MyInterviewsView = () => import('@/views/candidate/MyInterviewsView.vue')
-const MyOffersView = () => import('@/views/candidate/MyOffersView.vue')
+const JobProgressView = () => import('@/views/candidate/JobProgressView.vue')
 const ForbiddenView = () => import('@/views/ForbiddenView.vue')
 
 const routes: RouteRecordRaw[] = [
@@ -24,9 +22,11 @@ const routes: RouteRecordRaw[] = [
   { path: '/jobs/:jobId', component: JobDetailView },
   { path: '/profile', component: ProfileView, meta: { requiresAuth: true, requiresCandidate: true } },
   { path: '/resume', component: ResumeUploadView, meta: { requiresAuth: true, requiresCandidate: true } },
-  { path: '/applications', component: MyApplicationsView, meta: { requiresAuth: true, requiresCandidate: true } },
-  { path: '/interviews', component: MyInterviewsView, meta: { requiresAuth: true, requiresCandidate: true } },
-  { path: '/offers', component: MyOffersView, meta: { requiresAuth: true, requiresCandidate: true } },
+  { path: '/progress', component: JobProgressView, meta: { requiresAuth: true, requiresCandidate: true } },
+  // Legacy routes kept for notification deep-links – redirect to /progress with query preserved
+  { path: '/applications', redirect: (to) => ({ path: '/progress', query: { ...to.query, tab: 'applications' } }) },
+  { path: '/interviews', redirect: (to) => ({ path: '/progress', query: { ...to.query, tab: 'interviews' } }) },
+  { path: '/offers', redirect: (to) => ({ path: '/progress', query: { ...to.query, tab: 'offers' } }) },
 ]
 
 const router = createRouter({

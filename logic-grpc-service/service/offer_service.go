@@ -173,35 +173,40 @@ func (s *OfferService) CreateOffer(ctx context.Context, req *pb.CreateOfferReque
 		CreatedBy:       req.HrId,
 	}
 
-	// Validate transition before attempting update
-	if err := ValidateTransition(appDetail.StatusKey, model.StatusKeyOfferPending); err != nil {
-		return &pb.CreateOfferResponse{Code: errs.ErrBadRequest, Msg: err.Error()}, nil
+	// Validate transition before attempting update (skip if already at offer_pending)
+	needStatusUpdate := appDetail.StatusKey != model.StatusKeyOfferPending
+	if needStatusUpdate {
+		if err := ValidateTransition(appDetail.StatusKey, model.StatusKeyOfferPending); err != nil {
+			return &pb.CreateOfferResponse{Code: errs.ErrBadRequest, Msg: err.Error()}, nil
+		}
 	}
 
-	// Transaction: create offer + update application status to offer_pending + event + notification
+	// Transaction: create offer + optionally update application status + event + notification
 	err = s.offers.Transaction(ctx, func(tx *gorm.DB) error {
 		if err := s.offers.CreateWithTx(ctx, tx, offer); err != nil {
 			return err
 		}
 
-		// Update application status to offer_pending if not already
-		rows, err := s.applications.UpdateStatusAnyWithTx(ctx, tx, req.ApplicationId, appDetail.StatusKey, model.StatusKeyOfferPending, 0)
-		if err != nil {
-			return err
-		}
-		if rows == 0 {
-			return fmt.Errorf("application status changed concurrently, expected %s", appDetail.StatusKey)
-		}
+		if needStatusUpdate {
+			// Update application status to offer_pending
+			rows, err := s.applications.UpdateStatusAnyWithTx(ctx, tx, req.ApplicationId, appDetail.StatusKey, model.StatusKeyOfferPending, 0)
+			if err != nil {
+				return err
+			}
+			if rows == 0 {
+				return fmt.Errorf("application status changed concurrently, expected %s", appDetail.StatusKey)
+			}
 
-		// Write application status transition audit record
-		if err := s.applications.CreateTransition(ctx, tx, &model.ApplicationStatusTransition{
-			ApplicationID:    req.ApplicationId,
-			FromStatus:       appDetail.StatusKey,
-			ToStatus:         model.StatusKeyOfferPending,
-			ActorUserID:      req.HrId,
-			ActorAccountType: "staff",
-		}); err != nil {
-			return err
+			// Write application status transition audit record
+			if err := s.applications.CreateTransition(ctx, tx, &model.ApplicationStatusTransition{
+				ApplicationID:    req.ApplicationId,
+				FromStatus:       appDetail.StatusKey,
+				ToStatus:         model.StatusKeyOfferPending,
+				ActorUserID:      req.HrId,
+				ActorAccountType: "staff",
+			}); err != nil {
+				return err
+			}
 		}
 
 		// Write offer event
@@ -1042,5 +1047,7 @@ func toPBOffer(row *repository.OfferWithDetailsRow) *pb.Offer {
 		JobTitle:            row.JobTitle,
 		CandidateName:       row.CandidateName,
 		ApplicationStatusKey: row.ApplicationStatusKey,
+		CreatedByName:        row.CreatedByName,
+		SentByName:           row.SentByName,
 	}
 }

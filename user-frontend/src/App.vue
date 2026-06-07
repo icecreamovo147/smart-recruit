@@ -1,10 +1,11 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ArrowDown, Moon, Sunny, UserFilled } from '@element-plus/icons-vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { useAuthStore } from '@/stores/auth'
 import { useTheme } from '@/composables/useTheme'
+import { useOfferBadge } from '@/composables/useOfferBadge'
 import request from '@/api/request'
 import CandidateAIAssistant from '@/components/CandidateAIAssistant.vue'
 import NotificationBell from '@/components/NotificationBell.vue'
@@ -15,7 +16,15 @@ const router = useRouter()
 const route = useRoute()
 const auth = useAuthStore()
 const { isDark, toggleTheme } = useTheme()
-const logoSrc = computed(() => isDark.value ? logoFullDark : logoFullLight)
+const { pendingOfferCount, refreshPendingOfferCount } = useOfferBadge()
+const logoSrc = computed(() => (isDark.value ? logoFullDark : logoFullLight))
+
+// Fetch pending-offer badge count on mount when logged in
+onMounted(() => {
+  if (auth.isLoggedIn) {
+    refreshPendingOfferCount()
+  }
+})
 
 const logout = async () => {
   try {
@@ -57,9 +66,12 @@ const handleUserCommand = (command: string) => {
       </RouterLink>
       <nav>
         <RouterLink to="/jobs">岗位</RouterLink>
+        <RouterLink v-if="auth.isLoggedIn" to="/progress">
+          求职进展
+          <el-badge v-if="pendingOfferCount > 0" :value="pendingOfferCount" class="nav-badge" />
+        </RouterLink>
         <RouterLink v-if="auth.isLoggedIn" to="/profile">资料</RouterLink>
         <RouterLink v-if="auth.isLoggedIn" to="/resume">简历</RouterLink>
-        <RouterLink v-if="auth.isLoggedIn" to="/applications">投递</RouterLink>
       </nav>
       <div class="account" style="display:flex;align-items:center;gap:4px;">
         <el-tooltip :content="isDark ? '切换日间模式' : '切换夜间模式'" placement="bottom">
@@ -94,3 +106,16 @@ const handleUserCommand = (command: string) => {
     <CandidateAIAssistant v-if="auth.isLoggedIn" />
   </div>
 </template>
+
+<style scoped>
+.nav-badge {
+  margin-left: 2px;
+}
+.nav-badge :deep(.el-badge__content) {
+  font-size: 10px;
+  height: 16px;
+  line-height: 16px;
+  padding: 0 4px;
+  border: none;
+}
+</style>

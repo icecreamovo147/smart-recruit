@@ -7,6 +7,8 @@ const props = defineProps<{
   visible: boolean
   applicationId: number
   jobTitle?: string
+  salaryRange?: string
+  workLocation?: string
   candidateName?: string
 }>()
 
@@ -28,9 +30,9 @@ const form = reactive({
 
 const resetForm = () => {
   form.title = props.jobTitle || ''
-  form.salary_range = ''
+  form.salary_range = props.salaryRange || ''
   form.level = ''
-  form.work_location = ''
+  form.work_location = props.workLocation || ''
   form.start_date = ''
   form.expires_at = ''
   form.terms_json = ''
@@ -82,17 +84,13 @@ const dialogVisible = ref(false)
     @open="resetForm"
   >
     <el-form label-width="120px" label-position="top" size="default">
-      <el-form-item v-if="props.candidateName || props.jobTitle" label="基本信息">
-        <el-tag type="info" class="mr-2">{{ props.candidateName }}</el-tag>
-        <el-tag type="primary">{{ props.jobTitle }}</el-tag>
-      </el-form-item>
       <el-form-item label="Offer职位名称" required>
-        <el-input v-model="form.title" placeholder="例如：高级后端工程师" />
+        <el-input v-model="form.title" disabled placeholder="从岗位信息自动带入" />
       </el-form-item>
       <el-row :gutter="16">
         <el-col :span="12">
           <el-form-item label="薪资范围">
-            <el-input v-model="form.salary_range" placeholder="例如：15k-25k" />
+            <el-input v-model="form.salary_range" disabled placeholder="从岗位信息自动带入" />
           </el-form-item>
         </el-col>
         <el-col :span="12">
@@ -104,12 +102,19 @@ const dialogVisible = ref(false)
       <el-row :gutter="16">
         <el-col :span="12">
           <el-form-item label="工作地点">
-            <el-input v-model="form.work_location" placeholder="例如：北京" />
+            <el-input v-model="form.work_location" disabled placeholder="从岗位信息自动带入" />
           </el-form-item>
         </el-col>
         <el-col :span="12">
           <el-form-item label="预计入职日期">
-            <el-input v-model="form.start_date" placeholder="例如：2026-07-01" />
+            <el-date-picker
+              v-model="form.start_date"
+              type="date"
+              placeholder="选择入职日期"
+              format="YYYY-MM-DD"
+              value-format="YYYY-MM-DD"
+              style="width: 100%"
+            />
           </el-form-item>
         </el-col>
       </el-row>

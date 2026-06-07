@@ -166,8 +166,8 @@ onMounted(() => {
           <el-descriptions-item label="工作地点">{{ offer.work_location || '-' }}</el-descriptions-item>
           <el-descriptions-item label="预计入职日期">{{ offer.start_date || '-' }}</el-descriptions-item>
           <el-descriptions-item label="过期时间">{{ formatDateTime(offer.expires_at) || '-' }}</el-descriptions-item>
-          <el-descriptions-item label="创建人">#{{ offer.created_by }}</el-descriptions-item>
-          <el-descriptions-item label="发送人">{{ offer.sent_by ? `#${offer.sent_by}` : '-' }}</el-descriptions-item>
+          <el-descriptions-item label="创建人">{{ offer.created_by_name || `#${offer.created_by}` }}</el-descriptions-item>
+          <el-descriptions-item label="发送人">{{ offer.sent_by_name || (offer.sent_by ? `#${offer.sent_by}` : '-') }}</el-descriptions-item>
           <el-descriptions-item label="决策时间">{{ formatDateTime(offer.decided_at) || '-' }}</el-descriptions-item>
           <el-descriptions-item label="创建时间">{{ formatDateTime(offer.created_at) }}</el-descriptions-item>
           <el-descriptions-item label="更新时间">{{ formatDateTime(offer.updated_at) }}</el-descriptions-item>
@@ -198,7 +198,6 @@ onMounted(() => {
         <!-- Actions -->
         <div v-if="offer.status === 'draft'" class="action-buttons">
           <el-button type="primary" :loading="actionLoading" @click="handleSend">发送Offer</el-button>
-          <el-button type="danger" plain :loading="actionLoading" @click="handleWithdraw">撤回</el-button>
         </div>
         <div v-else-if="offer.status === 'sent'" class="action-buttons">
           <el-tag type="warning">等待候选人决策</el-tag>
