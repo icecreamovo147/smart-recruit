@@ -605,7 +605,7 @@ a {
   color: #fff;
   background:
     linear-gradient(145deg, rgba(15, 23, 42, 0.9), rgba(30, 64, 175, 0.78)),
-    url("/src/assets/logo-small.png") right 40px bottom 36px / 170px auto no-repeat;
+    url("/src/assets/logo-small.webp") right 40px bottom 36px / 170px auto no-repeat;
 }
 
 .auth-brand-panel::before {
@@ -736,7 +736,7 @@ a {
 :root[data-theme='dark'] .auth-brand-panel {
   background:
     linear-gradient(145deg, rgba(2, 6, 23, 0.96), rgba(30, 41, 59, 0.9)),
-    url("/src/assets/logo-small-dark.png") right 40px bottom 36px / 170px auto no-repeat;
+    url("/src/assets/logo-small-dark.webp") right 40px bottom 36px / 170px auto no-repeat;
 }
 
 .detail-grid {

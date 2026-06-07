@@ -5,8 +5,8 @@ import { Monitor, Briefcase, Bell, UserFilled, Sunny, Moon, Menu, Close, Expand,
 import { useAuthStore } from '@/stores/auth'
 import { useTheme } from '@/composables/useTheme'
 import NotificationBell from '@/components/NotificationBell.vue'
-import logoSmallLight from '@/assets/logo-small.png'
-import logoSmallDark from '@/assets/logo-small-dark.png'
+import logoSmallLight from '@shared/assets/logo-small.webp'
+import logoSmallDark from '@shared/assets/logo-small-dark.webp'
 
 const route = useRoute()
 const router = useRouter()

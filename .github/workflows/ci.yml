@@ -1,0 +1,86 @@
+name: CI
+
+on:
+  push:
+    branches: [main, dev]
+  pull_request:
+    branches: [main]
+
+jobs:
+  # ── Go Backend Tests ──────────────────────────────────────────────
+  go-test:
+    name: Go Tests
+    runs-on: ubuntu-latest
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_ROOT_PASSWORD: test
+          MYSQL_DATABASE: recruitment_test
+        ports: ["3306:3306"]
+        options: >-
+          --health-cmd="mysqladmin ping"
+          --health-interval=10s
+          --health-retries=5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.25"
+      - name: Logic service tests
+        working-directory: logic-grpc-service
+        run: go test ./...
+        env:
+          MYSQL_DSN: root:test@tcp(127.0.0.1:3306)/recruitment_test?parseTime=true
+          ALLOW_INSECURE_DEV_CONFIG: "true"
+      - name: MySQL migration consistency test
+        working-directory: logic-grpc-service
+        run: go test -tags=mysql -run 'TestMySQLMigrationConsistency|TestBaselineScenarios' ./migration/
+        env:
+          MYSQL_DSN: root:test@tcp(127.0.0.1:3306)/recruitment_test?parseTime=true
+          ALLOW_INSECURE_DEV_CONFIG: "true"
+      - name: Web service tests
+        working-directory: web-gin-service
+        run: go test ./...
+
+  # ── Frontend Type Check + Build ──────────────────────────────────
+  frontend:
+    name: Frontend (${{ matrix.app }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        app: [hr-frontend, user-frontend, interviewer-frontend]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+        working-directory: ${{ matrix.app }}
+      - name: Type check
+        run: pnpm typecheck
+        working-directory: ${{ matrix.app }}
+      - name: Build
+        run: pnpm build
+        working-directory: ${{ matrix.app }}
+      - name: Run tests
+        run: pnpm test
+        working-directory: ${{ matrix.app }}
+
+  # ── Secret Scanning ──────────────────────────────────────────────
+  secret-scan:
+    name: Secret Scan
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: gitleaks/gitleaks-action@v2
+        env:
+          GITLEAKS_LICENSE: ${{ secrets.GITLEAKS_LICENSE }}

@@ -8,8 +8,8 @@ import { useTheme } from '@/composables/useTheme'
 import request from '@/api/request'
 import CandidateAIAssistant from '@/components/CandidateAIAssistant.vue'
 import NotificationBell from '@/components/NotificationBell.vue'
-import logoFullLight from '@/assets/logo-full.png'
-import logoFullDark from '@/assets/logo-full-dark.png'
+import logoFullLight from '@shared/assets/logo-full.webp'
+import logoFullDark from '@shared/assets/logo-full-dark.webp'
 
 const router = useRouter()
 const route = useRoute()

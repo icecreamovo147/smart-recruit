@@ -1,0 +1,11 @@
+[extend]
+useDefault = true
+
+[allowlist]
+paths = [
+  '''docker/\.env\.example$''',
+  '''config/config\.example\.yaml$''',
+  '''deploy/k8s/secret\.example\.yaml$''',
+  '''\.github/''',
+  '''docs/''',
+]

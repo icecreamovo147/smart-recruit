@@ -3,16 +3,17 @@ import type { RouteRecordRaw } from 'vue-router'
 import { getUser } from '@/utils/token'
 import { useAuthStore } from '@/stores/auth'
 const ROLE_CANDIDATE = 1
-import LoginView from '@/views/LoginView.vue'
-import RegisterView from '@/views/RegisterView.vue'
-import JobListView from '@/views/candidate/JobListView.vue'
-import JobDetailView from '@/views/candidate/JobDetailView.vue'
-import ProfileView from '@/views/candidate/ProfileView.vue'
-import ResumeUploadView from '@/views/candidate/ResumeUploadView.vue'
-import MyApplicationsView from '@/views/candidate/MyApplicationsView.vue'
-import MyInterviewsView from '@/views/candidate/MyInterviewsView.vue'
-import MyOffersView from '@/views/candidate/MyOffersView.vue'
-import ForbiddenView from '@/views/ForbiddenView.vue'
+
+const LoginView = () => import('@/views/LoginView.vue')
+const RegisterView = () => import('@/views/RegisterView.vue')
+const JobListView = () => import('@/views/candidate/JobListView.vue')
+const JobDetailView = () => import('@/views/candidate/JobDetailView.vue')
+const ProfileView = () => import('@/views/candidate/ProfileView.vue')
+const ResumeUploadView = () => import('@/views/candidate/ResumeUploadView.vue')
+const MyApplicationsView = () => import('@/views/candidate/MyApplicationsView.vue')
+const MyInterviewsView = () => import('@/views/candidate/MyInterviewsView.vue')
+const MyOffersView = () => import('@/views/candidate/MyOffersView.vue')
+const ForbiddenView = () => import('@/views/ForbiddenView.vue')
 
 const routes: RouteRecordRaw[] = [
   { path: '/', redirect: '/jobs' },

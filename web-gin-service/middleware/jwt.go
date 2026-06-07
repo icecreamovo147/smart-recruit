@@ -9,8 +9,8 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
-	"github.com/redis/go-redis/v9"
 	golangjwt "github.com/golang-jwt/jwt/v5"
+	"github.com/redis/go-redis/v9"
 	"go.uber.org/zap"
 
 	"web-gin-service/pkg/contextkeys"
@@ -73,10 +73,10 @@ func JWTAuthWithTokenVersion(secret, cookieName string, rdb *redis.Client) gin.H
 		// Populate context with full principal data.
 		c.Set("user_id", claims.UserID)
 		c.Set("username", claims.Username)
-		c.Set("role", claims.Role)                // Deprecated: kept for compatibility
+		c.Set("role", claims.Role) // Deprecated: kept for compatibility
 		c.Set("account_type", claims.AccountType)
-		c.Set("roles", claims.Roles)              // []string of role keys
-		c.Set("permissions", claims.Permissions)  // []string of permission keys
+		c.Set("roles", claims.Roles)             // []string of role keys
+		c.Set("permissions", claims.Permissions) // []string of permission keys
 		c.Set("token_version", claims.TokenVersion)
 
 		// Also inject into the Go context so gRPC metadata forwarding
@@ -90,15 +90,68 @@ func JWTAuthWithTokenVersion(secret, cookieName string, rdb *redis.Client) gin.H
 	}
 }
 
+// CurrentPrincipal is the database-backed identity used to revalidate JWT claims.
+type CurrentPrincipal struct {
+	UserID       int64
+	Username     string
+	Role         int32
+	AccountType  string
+	Roles        []string
+	Permissions  []string
+	TokenVersion int32
+}
+
+// PrincipalLoader loads the current identity from the source of truth.
+type PrincipalLoader func(context.Context, int64) (*CurrentPrincipal, error)
+
+// ValidateCurrentPrincipal rejects JWTs for deleted users and refreshes the
+// authorization context from the database-backed principal.
+func ValidateCurrentPrincipal(load PrincipalLoader) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		if load == nil {
+			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{
+				"code": 401, "msg": "会话验证不可用，请重新登录", "data": nil, "request_id": requestID(c),
+			})
+			return
+		}
+
+		userID := UserID(c)
+		principal, err := load(c.Request.Context(), userID)
+		if err != nil || principal == nil || principal.UserID != userID {
+			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{
+				"code": 401, "msg": "账号不存在或会话已失效，请重新登录", "data": nil, "request_id": requestID(c),
+			})
+			return
+		}
+		if principal.TokenVersion != TokenVersion(c) {
+			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{
+				"code": 401, "msg": "权限已变更，请重新登录", "data": nil, "request_id": requestID(c),
+			})
+			return
+		}
+
+		c.Set("username", principal.Username)
+		c.Set("role", principal.Role)
+		c.Set("account_type", principal.AccountType)
+		c.Set("roles", principal.Roles)
+		c.Set("permissions", principal.Permissions)
+		c.Set("token_version", principal.TokenVersion)
+
+		ctx := context.WithValue(c.Request.Context(), contextkeys.AccountType, principal.AccountType)
+		c.Request = c.Request.WithContext(ctx)
+		c.Next()
+	}
+}
+
 // validateTokenVersion checks the JWT token_version against the cached server-side
 // version in Redis. Returns true if the token is still valid.
 // Uses the cache key: "token_version:{user_id}".
 //
 // Strategy:
-// - Redis hit: compare stored version <= jwt version, reject if stored > jwt.
-// - Redis miss (redis.Nil): reject — key genuinely doesn't exist, force re-login.
-// - Redis error (unreachable): allow through in degraded mode — JWT signature is
-//   still verified, we just can't check token version revocation.
+//   - Redis hit: compare stored version <= jwt version, reject if stored > jwt.
+//   - Redis miss (redis.Nil): reject — key genuinely doesn't exist, force re-login.
+//   - Redis error (unreachable): allow through in degraded mode — JWT signature is
+//     still verified, we just can't check token version revocation.
 func validateTokenVersion(ctx context.Context, rdb *redis.Client, userID int64, jwtVersion int32) bool {
 	key := fmt.Sprintf("token_version:%d", userID)
 	stored, err := rdb.Get(ctx, key).Int()

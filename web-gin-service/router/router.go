@@ -159,10 +159,28 @@ func Setup(cfg config.Config, clients *rpc.Clients, rdb *redis.Client) (*gin.Eng
 
 	// ── Authenticated middleware (with token_version validation via Redis) ─
 	jwtAuth := middleware.JWTAuthByClient(cfg.JWTSecret, cfg.CandidateCookie, cfg.HRCookie, cfg.InterviewerCookie, cfg.AuthCookieName, rdb)
+	currentPrincipal := middleware.ValidateCurrentPrincipal(func(ctx context.Context, userID int64) (*middleware.CurrentPrincipal, error) {
+		resp, err := clients.Auth.GetPrincipal(ctx, &pb.GetPrincipalRequest{UserId: userID})
+		if err != nil {
+			return nil, err
+		}
+		if resp == nil || resp.Code != 0 {
+			return nil, nil
+		}
+		return &middleware.CurrentPrincipal{
+			UserID:       resp.UserId,
+			Username:     resp.Username,
+			Role:         resp.Role,
+			AccountType:  resp.AccountType,
+			Roles:        resp.Roles,
+			Permissions:  resp.Permissions,
+			TokenVersion: resp.TokenVersion,
+		}, nil
+	})
 
 	// ── Candidate routes ───────────────────────────────────────────────
 	// Each candidate route declares the required permission explicitly.
-	candidateGroup := v1.Group("/candidate", jwtAuth, middleware.RequireAnyRole(authz.RoleCandidate))
+	candidateGroup := v1.Group("/candidate", jwtAuth, currentPrincipal, middleware.RequireAnyRole(authz.RoleCandidate))
 	candidateGroup.GET("/profile", normalTimeout, middleware.RequirePermission(authz.PermCandidateProfileManage), profileHandler.Get)
 	candidateGroup.PUT("/profile", normalTimeout, bodyProfile, middleware.RequirePermission(authz.PermCandidateProfileManage), profileHandler.Update)
 	candidateGroup.GET("/resume", normalTimeout, middleware.RequirePermission(authz.PermCandidateResumeManage), resumeHandler.Get)
@@ -190,7 +208,7 @@ func Setup(cfg config.Config, clients *rpc.Clients, rdb *redis.Client) (*gin.Eng
 
 	// ── Staff routes (formerly /hr) ────────────────────────────────────
 	// Base group: any staff role (recruiter, recruiting_admin, system_admin, interviewer).
-	staffGroup := v1.Group("/hr", jwtAuth, middleware.RequireAnyRole(authz.StaffRoles()...))
+	staffGroup := v1.Group("/hr", jwtAuth, currentPrincipal, middleware.RequireAnyRole(authz.StaffRoles()...))
 
 	// Job management — requires explicit job permissions
 	staffGroup.GET("/job-options", normalTimeout, middleware.RequirePermission(authz.PermJobRead), hrJobHandler.JobOptions)
@@ -264,28 +282,27 @@ func Setup(cfg config.Config, clients *rpc.Clients, rdb *redis.Client) (*gin.Eng
 	// Auth audit logs (security audit) — requires audit.security.read
 	staffGroup.GET("/admin/auth-audit-logs", normalTimeout, middleware.RequirePermission(authz.PermAuditSecurityRead), analyticsHandler.AuthAuditLogs)
 
-		// ── Collaboration routes ──────────────────────────────────────────
-		// Candidate workspace
-		staffGroup.GET("/candidates/:candidate_user_id/workspace", normalTimeout, middleware.RequirePermission(authz.PermApplicationRead), collaborationHandler.GetCandidateWorkspace)
+	// ── Collaboration routes ──────────────────────────────────────────
+	// Candidate workspace
+	staffGroup.GET("/candidates/:candidate_user_id/workspace", normalTimeout, middleware.RequirePermission(authz.PermApplicationRead), collaborationHandler.GetCandidateWorkspace)
 
-		// Notes
-		staffGroup.POST("/notes", normalTimeout, bodyAuth, middleware.RequirePermission(authz.PermCollaborationNoteCreate), collaborationHandler.CreateNote)
-		staffGroup.GET("/notes", normalTimeout, middleware.RequirePermission(authz.PermCollaborationNoteRead), collaborationHandler.ListNotes)
+	// Notes
+	staffGroup.POST("/notes", normalTimeout, bodyAuth, middleware.RequirePermission(authz.PermCollaborationNoteCreate), collaborationHandler.CreateNote)
+	staffGroup.GET("/notes", normalTimeout, middleware.RequirePermission(authz.PermCollaborationNoteRead), collaborationHandler.ListNotes)
 
-		// Tags
-		staffGroup.GET("/tags", normalTimeout, middleware.RequirePermission(authz.PermCollaborationTagManage), collaborationHandler.ListTags)
-		staffGroup.POST("/tags", normalTimeout, bodyAuth, middleware.RequirePermission(authz.PermCollaborationTagManage), collaborationHandler.CreateTag)
-		staffGroup.POST("/tags/assign", normalTimeout, bodyAuth, middleware.RequirePermission(authz.PermCollaborationTagManage), collaborationHandler.AssignTag)
-		staffGroup.POST("/tags/unassign", normalTimeout, bodyAuth, middleware.RequirePermission(authz.PermCollaborationTagManage), collaborationHandler.UnassignTag)
-		staffGroup.GET("/candidates/:candidate_user_id/tags", normalTimeout, middleware.RequirePermission(authz.PermApplicationRead), collaborationHandler.ListCandidateTags)
+	// Tags
+	staffGroup.GET("/tags", normalTimeout, middleware.RequirePermission(authz.PermCollaborationTagManage), collaborationHandler.ListTags)
+	staffGroup.POST("/tags", normalTimeout, bodyAuth, middleware.RequirePermission(authz.PermCollaborationTagManage), collaborationHandler.CreateTag)
+	staffGroup.POST("/tags/assign", normalTimeout, bodyAuth, middleware.RequirePermission(authz.PermCollaborationTagManage), collaborationHandler.AssignTag)
+	staffGroup.POST("/tags/unassign", normalTimeout, bodyAuth, middleware.RequirePermission(authz.PermCollaborationTagManage), collaborationHandler.UnassignTag)
+	staffGroup.GET("/candidates/:candidate_user_id/tags", normalTimeout, middleware.RequirePermission(authz.PermApplicationRead), collaborationHandler.ListCandidateTags)
 
-		// Follow-up tasks
-		staffGroup.POST("/follow-up-tasks", normalTimeout, bodyAuth, middleware.RequirePermission(authz.PermCollaborationTaskManage), collaborationHandler.CreateFollowUpTask)
-		staffGroup.GET("/follow-up-tasks", normalTimeout, middleware.RequirePermission(authz.PermCollaborationTaskManage), collaborationHandler.ListFollowUpTasks)
-		staffGroup.PATCH("/follow-up-tasks/:task_id/complete", normalTimeout, middleware.RequirePermission(authz.PermCollaborationTaskManage), collaborationHandler.CompleteFollowUpTask)
-			// Timeline
-			staffGroup.GET("/candidates/:candidate_user_id/timeline", normalTimeout, middleware.RequirePermission(authz.PermApplicationRead), collaborationHandler.ListTimelineEvents)
-
+	// Follow-up tasks
+	staffGroup.POST("/follow-up-tasks", normalTimeout, bodyAuth, middleware.RequirePermission(authz.PermCollaborationTaskManage), collaborationHandler.CreateFollowUpTask)
+	staffGroup.GET("/follow-up-tasks", normalTimeout, middleware.RequirePermission(authz.PermCollaborationTaskManage), collaborationHandler.ListFollowUpTasks)
+	staffGroup.PATCH("/follow-up-tasks/:task_id/complete", normalTimeout, middleware.RequirePermission(authz.PermCollaborationTaskManage), collaborationHandler.CompleteFollowUpTask)
+	// Timeline
+	staffGroup.GET("/candidates/:candidate_user_id/timeline", normalTimeout, middleware.RequirePermission(authz.PermApplicationRead), collaborationHandler.ListTimelineEvents)
 
 	// ── Admin routes (/hr/admin) ───────────────────────────────────────
 	// Admin routes require explicit admin permissions (not role hierarchy).

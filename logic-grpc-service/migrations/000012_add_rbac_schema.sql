@@ -5,9 +5,9 @@
 -- ── Users table changes ───────────────────────────────────────────────
 
 ALTER TABLE users
-  ADD COLUMN IF NOT EXISTS account_type VARCHAR(32) NOT NULL DEFAULT 'candidate',
-  ADD COLUMN IF NOT EXISTS status VARCHAR(32) NOT NULL DEFAULT 'active',
-  ADD COLUMN IF NOT EXISTS token_version INT NOT NULL DEFAULT 1;
+  ADD COLUMN account_type VARCHAR(32) NOT NULL DEFAULT 'candidate',
+  ADD COLUMN status VARCHAR(32) NOT NULL DEFAULT 'active',
+  ADD COLUMN token_version INT NOT NULL DEFAULT 1;
 
 -- ── Roles ─────────────────────────────────────────────────────────────
 

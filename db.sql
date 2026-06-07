@@ -720,25 +720,37 @@ INSERT INTO `job_locations` (`name`, `code`, `sort_order`, `is_active`) VALUES
   ('远程', 'remote',  10, 1);
 
 -- ── 初始化部门可用地点数据 ─────────────────────────────────────────────
--- 每个默认部门至少配置两个可用地点；当前默认部门均为根部门，后续子部门配置需保持为父级地点子集。
+-- 使用 CTE 为每个根部门分配 3 个伪随机地点，与 v9 迁移逻辑一致。
 
 INSERT INTO `department_locations` (`department_id`, `location_id`, `is_active`)
-SELECT d.id, l.id, 1
-FROM `departments` d
-JOIN `job_locations` l ON (
-  (d.name = '技术研发部' AND l.name IN ('北京', '上海', '深圳', '杭州')) OR
-  (d.name = '产品部'     AND l.name IN ('北京', '上海', '杭州')) OR
-  (d.name = '设计部'     AND l.name IN ('上海', '深圳', '杭州')) OR
-  (d.name = '市场部'     AND l.name IN ('北京', '广州', '成都')) OR
-  (d.name = '销售部'     AND l.name IN ('广州', '深圳', '成都', '武汉')) OR
-  (d.name = '运营部'     AND l.name IN ('上海', '成都', '武汉')) OR
-  (d.name = '人力资源部' AND l.name IN ('北京', '上海', '南京')) OR
-  (d.name = '财务部'     AND l.name IN ('北京', '上海')) OR
-  (d.name = '客户成功部' AND l.name IN ('深圳', '成都', '远程'))
+WITH active_locations AS (
+  SELECT
+    id,
+    ROW_NUMBER() OVER (ORDER BY sort_order, id) AS rn,
+    COUNT(*) OVER () AS total_count
+  FROM job_locations
+  WHERE is_active = 1
+    AND deleted_at IS NULL
+),
+root_targets AS (
+  SELECT d.id AS department_id, l.id AS location_id
+  FROM departments d
+  JOIN active_locations l ON (
+    l.rn = MOD(d.id - 1, l.total_count) + 1
+    OR l.rn = MOD(d.id + 2, l.total_count) + 1
+    OR l.rn = MOD(d.id + 5, l.total_count) + 1
+  )
+  WHERE d.deleted_at IS NULL
+    AND d.parent_id = 0
+    AND NOT EXISTS (
+      SELECT 1
+      FROM department_locations dl
+      WHERE dl.department_id = d.id
+        AND dl.deleted_at IS NULL
+  )
 )
-WHERE d.parent_id = 0
-  AND d.deleted_at IS NULL
-  AND l.deleted_at IS NULL
+SELECT department_id, location_id, 1
+FROM root_targets
 ON DUPLICATE KEY UPDATE
   is_active = 1,
   deleted_at = NULL,
@@ -806,3 +818,27 @@ CREATE TABLE IF NOT EXISTS `follow_up_tasks` (
   KEY `idx_task_status` (`status`),
   KEY `idx_task_due` (`due_at`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='跟进任务表';
+
+-- ══════════════════════════════════════════════════════════════════════
+-- Phase 6: AI Usage Auth Context
+-- ══════════════════════════════════════════════════════════════════════
+
+CREATE TABLE IF NOT EXISTS `ai_usage_auth_contexts` (
+  `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+  `usage_log_id` BIGINT UNSIGNED NOT NULL COMMENT '关联 third_party_usage_logs.id',
+  `actor_user_id` BIGINT UNSIGNED NOT NULL COMMENT '操作人用户ID',
+  `account_type` VARCHAR(32) NOT NULL DEFAULT '' COMMENT '账号类型：candidate / staff / service',
+  `role_keys` VARCHAR(512) NOT NULL DEFAULT '' COMMENT '逗号分隔的角色key列表',
+  `permission_key` VARCHAR(128) NOT NULL DEFAULT '' COMMENT '触发该次操作的权限key',
+  `scope_keys` VARCHAR(512) NOT NULL DEFAULT '' COMMENT '逗号分隔的数据范围key列表',
+  `resource_type` VARCHAR(64) NOT NULL DEFAULT '' COMMENT '资源类型，如 ai / application / job',
+  `resource_id` BIGINT UNSIGNED NOT NULL DEFAULT 0 COMMENT '资源ID，0表示全局',
+  `decision` VARCHAR(32) NOT NULL DEFAULT 'allowed' COMMENT '授权决策：allowed / denied',
+  `request_id` VARCHAR(64) NOT NULL DEFAULT '' COMMENT '请求追踪ID',
+  `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  KEY `idx_audit_context_actor` (`actor_user_id`, `created_at`),
+  KEY `idx_audit_context_permission` (`permission_key`, `created_at`),
+  KEY `idx_audit_context_usage_log` (`usage_log_id`),
+  KEY `idx_audit_context_request` (`request_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='AI使用审计RBAC上下文表';

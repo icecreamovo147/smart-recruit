@@ -3,25 +3,26 @@ import type { RouteRecordRaw } from 'vue-router'
 import { getUser } from '@/utils/token'
 import { useAuthStore } from '@/stores/auth'
 import { PERM } from '@/types/domain'
-import LoginView from '@/views/LoginView.vue'
-import RegisterView from '@/views/RegisterView.vue'
-import WorkbenchView from '@/views/hr/WorkbenchView.vue'
-import JobManageView from '@/views/hr/JobManageView.vue'
-import ApplicationListView from '@/views/hr/ApplicationListView.vue'
-import InterviewTaskView from '@/views/hr/InterviewTaskView.vue'
-import InterviewScheduleView from '@/views/hr/InterviewScheduleView.vue'
-import OfferManageView from '@/views/hr/OfferManageView.vue'
-import AIChatView from '@/views/hr/AIChatView.vue'
-import ProfileView from '@/views/hr/ProfileView.vue'
-import InviteCodeManageView from '@/views/hr/InviteCodeManageView.vue'
-import DepartmentManageView from '@/views/hr/DepartmentManageView.vue'
-import LocationManageView from '@/views/hr/LocationManageView.vue'
-import UsageAuditView from '@/views/hr/UsageAuditView.vue'
-import SecurityAuditView from '@/views/hr/SecurityAuditView.vue'
-import AnalyticsView from '@/views/hr/AnalyticsView.vue'
-import StaffUserManageView from '@/views/hr/StaffUserManageView.vue'
-import ForbiddenView from '@/views/ForbiddenView.vue'
-import CandidateDetailView from '@/views/hr/CandidateDetailView.vue'
+
+const LoginView = () => import('@/views/LoginView.vue')
+const RegisterView = () => import('@/views/RegisterView.vue')
+const WorkbenchView = () => import('@/views/hr/WorkbenchView.vue')
+const JobManageView = () => import('@/views/hr/JobManageView.vue')
+const ApplicationListView = () => import('@/views/hr/ApplicationListView.vue')
+const InterviewTaskView = () => import('@/views/hr/InterviewTaskView.vue')
+const InterviewScheduleView = () => import('@/views/hr/InterviewScheduleView.vue')
+const OfferManageView = () => import('@/views/hr/OfferManageView.vue')
+const AIChatView = () => import('@/views/hr/AIChatView.vue')
+const ProfileView = () => import('@/views/hr/ProfileView.vue')
+const InviteCodeManageView = () => import('@/views/hr/InviteCodeManageView.vue')
+const DepartmentManageView = () => import('@/views/hr/DepartmentManageView.vue')
+const LocationManageView = () => import('@/views/hr/LocationManageView.vue')
+const UsageAuditView = () => import('@/views/hr/UsageAuditView.vue')
+const SecurityAuditView = () => import('@/views/hr/SecurityAuditView.vue')
+const AnalyticsView = () => import('@/views/hr/AnalyticsView.vue')
+const StaffUserManageView = () => import('@/views/hr/StaffUserManageView.vue')
+const ForbiddenView = () => import('@/views/ForbiddenView.vue')
+const CandidateDetailView = () => import('@/views/hr/CandidateDetailView.vue')
 
 const routes: RouteRecordRaw[] = [
   { path: '/', redirect: '/hr/workbench' },

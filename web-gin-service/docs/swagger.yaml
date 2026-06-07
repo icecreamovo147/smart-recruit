@@ -32,6 +32,64 @@ paths:
       summary: 用户登录
       tags:
       - 认证
+  /api/v1/auth/logout:
+    post:
+      description: 退出登录，清除 Token
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: 用户登出
+      tags:
+      - 认证
+  /api/v1/auth/me:
+    get:
+      description: 获取当前已登录用户的详细信息
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: 获取当前用户信息
+      tags:
+      - 认证
+  /api/v1/auth/refresh:
+    post:
+      consumes:
+      - application/json
+      description: 使用 Refresh Token 获取新的 Access Token
+      parameters:
+      - description: 刷新令牌
+        in: body
+        name: body
+        required: true
+        schema:
+          properties:
+            refresh_token:
+              type: string
+          type: object
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      summary: 刷新 Token
+      tags:
+      - 认证
   /api/v1/auth/register:
     post:
       consumes:
@@ -64,6 +122,150 @@ paths:
       summary: 用户注册
       tags:
       - 认证
+  /api/v1/auth/register/validate-invite-code:
+    post:
+      consumes:
+      - application/json
+      description: 注册前验证邀请码是否有效
+      parameters:
+      - description: 邀请码
+        in: body
+        name: body
+        required: true
+        schema:
+          properties:
+            code:
+              type: string
+          type: object
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      summary: 验证邀请码
+      tags:
+      - 认证
+  /api/v1/candidate/ai/chat/stream:
+    post:
+      consumes:
+      - application/json
+      description: 候选人端 SSE 流式 AI 对话
+      produces:
+      - text/event-stream
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: AI 流式对话
+      tags:
+      - 候选人-AI
+  /api/v1/candidate/ai/sessions:
+    get:
+      description: 获取候选人的 AI 对话会话列表
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: AI 会话列表
+      tags:
+      - 候选人-AI
+    post:
+      consumes:
+      - application/json
+      description: 创建新的 AI 对话会话
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: 新建 AI 会话
+      tags:
+      - 候选人-AI
+  /api/v1/candidate/ai/sessions/{session_id}:
+    delete:
+      description: 删除候选人 AI 会话
+      parameters:
+      - description: 会话ID
+        in: path
+        name: session_id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: 删除 AI 会话
+      tags:
+      - 候选人-AI
+    put:
+      consumes:
+      - application/json
+      description: 修改会话标题
+      parameters:
+      - description: 会话ID
+        in: path
+        name: session_id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: 重命名 AI 会话
+      tags:
+      - 候选人-AI
+  /api/v1/candidate/ai/sessions/{session_id}/messages:
+    get:
+      description: 获取指定会话的消息列表
+      parameters:
+      - description: 会话ID
+        in: path
+        name: session_id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: AI 会话消息
+      tags:
+      - 候选人-AI
   /api/v1/candidate/applications:
     get:
       consumes:
@@ -120,6 +322,219 @@ paths:
       summary: 投递岗位
       tags:
       - 候选人
+  /api/v1/candidate/interviews:
+    get:
+      description: 获取安排给我的面试列表
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: 我的面试列表
+      tags:
+      - 候选人-面试
+  /api/v1/candidate/notifications:
+    get:
+      description: 获取候选人通知列表
+      parameters:
+      - default: 1
+        description: 页码
+        in: query
+        name: page
+        type: integer
+      - default: 10
+        description: 每页数量
+        in: query
+        name: page_size
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: 通知列表
+      tags:
+      - 候选人-通知
+  /api/v1/candidate/notifications/{notification_id}/read:
+    patch:
+      description: 将指定通知标记为已读
+      parameters:
+      - description: 通知ID
+        in: path
+        name: notification_id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: 标记通知已读
+      tags:
+      - 候选人-通知
+  /api/v1/candidate/notifications/read-all:
+    patch:
+      description: 将所有通知标记为已读
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: 全部标记已读
+      tags:
+      - 候选人-通知
+  /api/v1/candidate/notifications/stream:
+    get:
+      description: SSE 实时推送新通知
+      produces:
+      - text/event-stream
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: 通知实时流
+      tags:
+      - 候选人-通知
+  /api/v1/candidate/notifications/summary:
+    get:
+      description: 获取通知分类摘要
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: 通知摘要
+      tags:
+      - 候选人-通知
+  /api/v1/candidate/notifications/unread-count:
+    get:
+      description: 获取未读通知数量
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: 未读通知数
+      tags:
+      - 候选人-通知
+  /api/v1/candidate/offers:
+    get:
+      description: 获取发送给我的 Offer 列表
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: 我的 Offer 列表
+      tags:
+      - 候选人-Offer
+  /api/v1/candidate/offers/{offer_id}:
+    get:
+      description: 查看 Offer 详细信息
+      parameters:
+      - description: Offer ID
+        in: path
+        name: offer_id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Offer 详情
+      tags:
+      - 候选人-Offer
+  /api/v1/candidate/offers/{offer_id}/accept:
+    post:
+      description: 候选人接受录用 Offer
+      parameters:
+      - description: Offer ID
+        in: path
+        name: offer_id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: 接受 Offer
+      tags:
+      - 候选人-Offer
+  /api/v1/candidate/offers/{offer_id}/reject:
+    post:
+      consumes:
+      - application/json
+      description: 候选人拒绝录用 Offer
+      parameters:
+      - description: Offer ID
+        in: path
+        name: offer_id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: 拒绝 Offer
+      tags:
+      - 候选人-Offer
   /api/v1/candidate/profile:
     get:
       consumes:
@@ -257,6 +672,561 @@ paths:
       summary: 获取上传签名URL
       tags:
       - 候选人
+  /api/v1/hr/admin/auth-audit-logs:
+    get:
+      description: 获取认证授权审计日志
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: 安全审计日志
+      tags:
+      - HR-数据分析
+  /api/v1/hr/admin/data-scopes/{scope_id}:
+    delete:
+      parameters:
+      - description: 范围ID
+        in: path
+        name: scope_id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: 撤销数据范围
+      tags:
+      - 管理后台-RBAC
+  /api/v1/hr/admin/departments:
+    get:
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: 部门列表
+      tags:
+      - 管理后台-部门
+    post:
+      consumes:
+      - application/json
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: 创建部门
+      tags:
+      - 管理后台-部门
+  /api/v1/hr/admin/departments/{id}:
+    delete:
+      parameters:
+      - description: 部门ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: 删除部门
+      tags:
+      - 管理后台-部门
+    put:
+      consumes:
+      - application/json
+      parameters:
+      - description: 部门ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: 更新部门
+      tags:
+      - 管理后台-部门
+  /api/v1/hr/admin/departments/{id}/locations:
+    get:
+      parameters:
+      - description: 部门ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: 部门地点配置
+      tags:
+      - 管理后台-部门
+    put:
+      consumes:
+      - application/json
+      parameters:
+      - description: 部门ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: 更新部门地点配置
+      tags:
+      - 管理后台-部门
+  /api/v1/hr/admin/departments/{id}/status:
+    patch:
+      consumes:
+      - application/json
+      parameters:
+      - description: 部门ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: 更新部门状态
+      tags:
+      - 管理后台-部门
+  /api/v1/hr/admin/departments/location-map:
+    get:
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: 部门地点映射列表
+      tags:
+      - 管理后台-部门
+  /api/v1/hr/admin/invite-codes:
+    get:
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: 邀请码列表
+      tags:
+      - 管理后台-邀请码
+    post:
+      consumes:
+      - application/json
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: 创建邀请码
+      tags:
+      - 管理后台-邀请码
+  /api/v1/hr/admin/invite-codes/{id}/extend:
+    patch:
+      consumes:
+      - application/json
+      parameters:
+      - description: 邀请码ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: 延长邀请码
+      tags:
+      - 管理后台-邀请码
+  /api/v1/hr/admin/invite-codes/{id}/reactivate:
+    patch:
+      consumes:
+      - application/json
+      parameters:
+      - description: 邀请码ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: 重新激活邀请码
+      tags:
+      - 管理后台-邀请码
+  /api/v1/hr/admin/invite-codes/{id}/revoke:
+    patch:
+      consumes:
+      - application/json
+      parameters:
+      - description: 邀请码ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: 撤销邀请码
+      tags:
+      - 管理后台-邀请码
+  /api/v1/hr/admin/locations:
+    get:
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: 地点列表
+      tags:
+      - 管理后台-地点
+    post:
+      consumes:
+      - application/json
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: 创建地点
+      tags:
+      - 管理后台-地点
+  /api/v1/hr/admin/locations/{id}:
+    delete:
+      parameters:
+      - description: 地点ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: 删除地点
+      tags:
+      - 管理后台-地点
+    put:
+      consumes:
+      - application/json
+      parameters:
+      - description: 地点ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: 更新地点
+      tags:
+      - 管理后台-地点
+  /api/v1/hr/admin/locations/{id}/status:
+    patch:
+      consumes:
+      - application/json
+      parameters:
+      - description: 地点ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: 更新地点状态
+      tags:
+      - 管理后台-地点
+  /api/v1/hr/admin/permissions:
+    get:
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: 权限列表
+      tags:
+      - 管理后台-RBAC
+  /api/v1/hr/admin/roles:
+    get:
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: 角色列表
+      tags:
+      - 管理后台-RBAC
+  /api/v1/hr/admin/staff-users:
+    get:
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: 员工用户列表
+      tags:
+      - 管理后台-用户
+    post:
+      consumes:
+      - application/json
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: 创建员工用户
+      tags:
+      - 管理后台-用户
+  /api/v1/hr/admin/third-party-usage-logs:
+    get:
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: 第三方服务使用日志
+      tags:
+      - 管理后台-审计
+  /api/v1/hr/admin/users/{user_id}/data-scopes:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: 用户ID
+        in: path
+        name: user_id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: 分配数据范围
+      tags:
+      - 管理后台-RBAC
+  /api/v1/hr/admin/users/{user_id}/roles:
+    get:
+      parameters:
+      - description: 用户ID
+        in: path
+        name: user_id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: 用户角色
+      tags:
+      - 管理后台-RBAC
+  /api/v1/hr/admin/users/{user_id}/roles/assign:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: 用户ID
+        in: path
+        name: user_id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: 分配角色
+      tags:
+      - 管理后台-RBAC
+  /api/v1/hr/admin/users/{user_id}/roles/revoke:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: 用户ID
+        in: path
+        name: user_id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: 撤销角色
+      tags:
+      - 管理后台-RBAC
   /api/v1/hr/ai/analyze-application:
     post:
       consumes:
@@ -551,6 +1521,70 @@ paths:
       summary: 会话消息
       tags:
       - HR-AI助手
+  /api/v1/hr/analytics/dashboard:
+    get:
+      description: 获取 KPI 概览报表数据
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: 仪表盘报表
+      tags:
+      - HR-数据分析
+  /api/v1/hr/analytics/funnel:
+    get:
+      description: 获取投递漏斗报表数据
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: 漏斗报表
+      tags:
+      - HR-数据分析
+  /api/v1/hr/analytics/metrics:
+    get:
+      description: 获取面试和 Offer 的关键指标
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: 面试与 Offer 指标
+      tags:
+      - HR-数据分析
+  /api/v1/hr/analytics/time-in-stage:
+    get:
+      description: 获取投递在各阶段的停留时长报表
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: 阶段停留时长
+      tags:
+      - HR-数据分析
   /api/v1/hr/applications/{application_id}/status:
     patch:
       consumes:
@@ -584,6 +1618,402 @@ paths:
       summary: 更新投递状态
       tags:
       - HR-投递管理
+  /api/v1/hr/applications/{id}/interviews:
+    get:
+      description: 获取指定投递记录的所有面试安排
+      parameters:
+      - description: 投递ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: 投递的面试列表
+      tags:
+      - HR-面试管理
+  /api/v1/hr/applications/{id}/offers:
+    get:
+      description: 获取指定投递记录的 Offer 列表
+      parameters:
+      - description: 投递ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: 投递的 Offer 列表
+      tags:
+      - HR-Offer管理
+  /api/v1/hr/applications/{id}/transitions:
+    get:
+      description: 获取指定投递的状态变更历史
+      parameters:
+      - description: 投递ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: 投递状态转换历史
+      tags:
+      - HR-投递管理
+  /api/v1/hr/candidates/{candidate_user_id}/tags:
+    get:
+      description: 获取指定候选人的标签列表
+      parameters:
+      - description: 候选人用户ID
+        in: path
+        name: candidate_user_id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: 候选人标签列表
+      tags:
+      - HR-协作
+  /api/v1/hr/candidates/{candidate_user_id}/timeline:
+    get:
+      description: 获取候选人操作时间线
+      parameters:
+      - description: 候选人用户ID
+        in: path
+        name: candidate_user_id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: 候选人时间线
+      tags:
+      - HR-协作
+  /api/v1/hr/candidates/{candidate_user_id}/workspace:
+    get:
+      description: 获取候选人协作工作台数据
+      parameters:
+      - description: 候选人用户ID
+        in: path
+        name: candidate_user_id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: 候选人工作台
+      tags:
+      - HR-协作
+  /api/v1/hr/dashboard/summary:
+    get:
+      description: 获取 HR 工作台汇总数据
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: 工作台汇总
+      tags:
+      - HR-仪表盘
+  /api/v1/hr/follow-up-tasks:
+    get:
+      description: 获取跟进任务列表
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: 跟进任务列表
+      tags:
+      - HR-协作
+    post:
+      consumes:
+      - application/json
+      description: 创建候选人跟进任务
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: 创建跟进任务
+      tags:
+      - HR-协作
+  /api/v1/hr/follow-up-tasks/{task_id}/complete:
+    patch:
+      description: 标记跟进任务为已完成
+      parameters:
+      - description: 任务ID
+        in: path
+        name: task_id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: 完成跟进任务
+      tags:
+      - HR-协作
+  /api/v1/hr/interviewers:
+    get:
+      description: 获取可选面试官列表
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: 面试官列表
+      tags:
+      - HR-面试管理
+  /api/v1/hr/interviews:
+    post:
+      consumes:
+      - application/json
+      description: 为候选人安排一场新的面试
+      parameters:
+      - description: 面试信息
+        in: body
+        name: body
+        required: true
+        schema:
+          properties:
+            application_id:
+              type: integer
+            interviewer_id:
+              type: integer
+            mode:
+              type: string
+            round_no:
+              type: integer
+            scheduled_at:
+              type: string
+          type: object
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: 安排面试
+      tags:
+      - HR-面试管理
+  /api/v1/hr/interviews/{interview_id}:
+    get:
+      description: 获取面试安排的详细信息
+      parameters:
+      - description: 面试ID
+        in: path
+        name: interview_id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: 面试详情
+      tags:
+      - HR-面试管理
+    put:
+      consumes:
+      - application/json
+      description: 更新面试安排信息
+      parameters:
+      - description: 面试ID
+        in: path
+        name: interview_id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: 更新面试
+      tags:
+      - HR-面试管理
+  /api/v1/hr/interviews/{interview_id}/cancel:
+    patch:
+      consumes:
+      - application/json
+      description: 取消已安排的面试
+      parameters:
+      - description: 面试ID
+        in: path
+        name: interview_id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: 取消面试
+      tags:
+      - HR-面试管理
+  /api/v1/hr/interviews/{interview_id}/feedback:
+    get:
+      description: 查看已提交的面试反馈
+      parameters:
+      - description: 面试ID
+        in: path
+        name: interview_id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: 获取面试反馈
+      tags:
+      - HR-面试管理
+    post:
+      consumes:
+      - application/json
+      description: 面试官提交面试评价
+      parameters:
+      - description: 面试ID
+        in: path
+        name: interview_id
+        required: true
+        type: integer
+      - description: 反馈内容
+        in: body
+        name: body
+        required: true
+        schema:
+          properties:
+            comment:
+              type: string
+            rating:
+              type: integer
+          type: object
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: 提交面试反馈
+      tags:
+      - HR-面试管理
+  /api/v1/hr/job-options:
+    get:
+      description: 获取所有岗位的下拉选项（用于筛选器）
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: 岗位选项列表
+      tags:
+      - HR-岗位管理
   /api/v1/hr/jobs:
     get:
       consumes:
@@ -756,6 +2186,384 @@ paths:
       summary: 上线岗位
       tags:
       - HR-岗位管理
+  /api/v1/hr/my-interviews:
+    get:
+      description: 获取当前用户的面试任务列表
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: 我的面试任务
+      tags:
+      - HR-面试管理
+  /api/v1/hr/notes:
+    get:
+      description: 获取候选人备注列表
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: 备注列表
+      tags:
+      - HR-协作
+    post:
+      consumes:
+      - application/json
+      description: 为候选人创建备注
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: 创建备注
+      tags:
+      - HR-协作
+  /api/v1/hr/notifications:
+    get:
+      description: 获取 HR 通知列表
+      parameters:
+      - default: 1
+        description: 页码
+        in: query
+        name: page
+        type: integer
+      - default: 10
+        description: 每页数量
+        in: query
+        name: page_size
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: 通知列表
+      tags:
+      - HR-通知
+  /api/v1/hr/notifications/{notification_id}/read:
+    patch:
+      description: 将指定通知标记为已读
+      parameters:
+      - description: 通知ID
+        in: path
+        name: notification_id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: 标记通知已读
+      tags:
+      - HR-通知
+  /api/v1/hr/notifications/read-all:
+    patch:
+      description: 将所有通知标记为已读
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: 全部标记已读
+      tags:
+      - HR-通知
+  /api/v1/hr/notifications/stream:
+    get:
+      description: SSE 实时推送新通知
+      produces:
+      - text/event-stream
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: 通知实时流
+      tags:
+      - HR-通知
+  /api/v1/hr/notifications/summary:
+    get:
+      description: 获取 HR 通知分类摘要
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: 通知摘要
+      tags:
+      - HR-通知
+  /api/v1/hr/notifications/unread-count:
+    get:
+      description: 获取 HR 未读通知数量
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: 未读通知数
+      tags:
+      - HR-通知
+  /api/v1/hr/offers:
+    post:
+      consumes:
+      - application/json
+      description: 为候选人创建录用 Offer
+      parameters:
+      - description: Offer信息
+        in: body
+        name: body
+        required: true
+        schema:
+          properties:
+            application_id:
+              type: integer
+            salary:
+              type: string
+            start_date:
+              type: string
+            title:
+              type: string
+          type: object
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: 创建 Offer
+      tags:
+      - HR-Offer管理
+  /api/v1/hr/offers/{offer_id}:
+    get:
+      description: 获取 Offer 详细信息
+      parameters:
+      - description: Offer ID
+        in: path
+        name: offer_id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Offer 详情
+      tags:
+      - HR-Offer管理
+    put:
+      consumes:
+      - application/json
+      description: 编辑 Offer 信息
+      parameters:
+      - description: Offer ID
+        in: path
+        name: offer_id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: 更新 Offer
+      tags:
+      - HR-Offer管理
+  /api/v1/hr/offers/{offer_id}/events:
+    get:
+      description: 获取 Offer 的状态变更事件
+      parameters:
+      - description: Offer ID
+        in: path
+        name: offer_id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Offer 事件列表
+      tags:
+      - HR-Offer管理
+  /api/v1/hr/offers/{offer_id}/send:
+    post:
+      description: 将 Offer 发送给候选人
+      parameters:
+      - description: Offer ID
+        in: path
+        name: offer_id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: 发送 Offer
+      tags:
+      - HR-Offer管理
+  /api/v1/hr/offers/{offer_id}/withdraw:
+    post:
+      consumes:
+      - application/json
+      description: 撤回已发送的 Offer
+      parameters:
+      - description: Offer ID
+        in: path
+        name: offer_id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: 撤回 Offer
+      tags:
+      - HR-Offer管理
+  /api/v1/hr/tags:
+    get:
+      description: 获取所有可用标签
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: 标签列表
+      tags:
+      - HR-协作
+    post:
+      consumes:
+      - application/json
+      description: 创建新标签
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: 创建标签
+      tags:
+      - HR-协作
+  /api/v1/hr/tags/assign:
+    post:
+      consumes:
+      - application/json
+      description: 为候选人分配标签
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: 分配标签
+      tags:
+      - HR-协作
+  /api/v1/hr/tags/unassign:
+    post:
+      consumes:
+      - application/json
+      description: 取消候选人的标签
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: 取消标签
+      tags:
+      - HR-协作
   /api/v1/jobs:
     get:
       consumes:
@@ -809,4 +2617,10 @@ paths:
       summary: 查看岗位详情
       tags:
       - 岗位
+securityDefinitions:
+  BearerAuth:
+    description: 输入 Bearer {JWT Token}
+    in: header
+    name: Authorization
+    type: apiKey
 swagger: "2.0"

@@ -5,8 +5,8 @@ import { ElMessage } from 'element-plus'
 import { Lock, Moon, Sunny } from '@element-plus/icons-vue'
 import { useAuthStore } from '@/stores/auth'
 import { useTheme } from '@/composables/useTheme'
-import logoSmallLight from '@/assets/logo-small.png'
-import logoSmallDark from '@/assets/logo-small-dark.png'
+import logoSmallLight from '@shared/assets/logo-small.webp'
+import logoSmallDark from '@shared/assets/logo-small-dark.webp'
 
 const route = useRoute()
 const router = useRouter()

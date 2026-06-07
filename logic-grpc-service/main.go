@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"embed"
 	"flag"
 	"fmt"
 	"net"
@@ -21,6 +22,7 @@ import (
 
 	"logic-grpc-service/ai"
 	"logic-grpc-service/config"
+	"logic-grpc-service/migration"
 	"logic-grpc-service/mq"
 	"logic-grpc-service/oss"
 	"logic-grpc-service/pkg/cache"
@@ -31,8 +33,14 @@ import (
 	"logic-grpc-service/service"
 )
 
+//go:embed migrations/*.sql
+var migrationsFS embed.FS
+
 func main() {
 	workerOnly := flag.Bool("worker-only", false, "run background workers without serving gRPC")
+	migrateStatusFlag := flag.Bool("migrate-status", false, "show migration status and exit")
+	migrateDownFlag := flag.Int("migrate-down", -1, "rollback migrations to specified version and exit")
+	migrateBaselineFlag := flag.Int("migrate-baseline", -1, "mark v1–N as applied without executing (use after db.sql import)")
 	flag.Parse()
 
 	ctx := context.Background()
@@ -62,6 +70,41 @@ func main() {
 	sqlDB.SetConnMaxLifetime(cfg.MySQL.ConnMaxLifetime.Duration)
 	sqlDB.SetConnMaxIdleTime(cfg.MySQL.ConnMaxIdleTime.Duration)
 	log.Info("mysql connected", zap.Int("max_open", cfg.MySQL.MaxOpenConns), zap.Int("max_idle", cfg.MySQL.MaxIdleConns))
+
+	// ── Database migrations ──────────────────────────────────────────
+	migrator, err := migration.NewRunner(db, migrationsFS, "migrations")
+	if err != nil {
+		log.Fatal("init migration runner", zap.Error(err))
+	}
+
+	// Handle CLI migration flags.
+	if *migrateBaselineFlag >= 0 {
+		if err := migrator.Baseline(ctx, *migrateBaselineFlag); err != nil {
+			log.Fatal("migration baseline", zap.Error(err))
+		}
+		log.Info("migration baseline completed")
+		return
+	}
+	if *migrateStatusFlag {
+		entries, err := migrator.Status(ctx)
+		if err != nil {
+			log.Fatal("migration status", zap.Error(err))
+		}
+		migration.PrintStatus(entries)
+		return
+	}
+	if *migrateDownFlag >= 0 {
+		if err := migrator.Down(ctx, *migrateDownFlag); err != nil {
+			log.Fatal("migration down", zap.Error(err))
+		}
+		log.Info("migration rollback completed")
+		return
+	}
+
+	// Apply pending migrations on startup.
+	if err := migrator.Up(ctx); err != nil {
+		log.Fatal("run migrations", zap.Error(err))
+	}
 
 	userRepo := repository.NewUserRepo(db)
 	tokenRepo := repository.NewRefreshTokenRepo(db)
@@ -178,11 +221,11 @@ func main() {
 			log.Warn("bootstrap admin: user not found", zap.String("username", adminName))
 		} else {
 			hasAdmin, err := authzRepo.HasActiveAdminRole(ctx, uint64(adminUser.ID))
-				if err != nil {
-					log.Warn("bootstrap admin: RBAC role check failed", zap.Error(err))
-				}
-				needsPromotion := !hasAdmin || adminUser.AccountType != "staff"
-				if needsPromotion {
+			if err != nil {
+				log.Warn("bootstrap admin: RBAC role check failed", zap.Error(err))
+			}
+			needsPromotion := !hasAdmin || adminUser.AccountType != "staff"
+			if needsPromotion {
 				if err := userRepo.UpdateRole(ctx, adminUser.ID, 3); err != nil {
 					log.Warn("bootstrap admin: update legacy role failed", zap.Error(err))
 				}
