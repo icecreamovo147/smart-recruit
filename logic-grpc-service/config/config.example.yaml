@@ -65,7 +65,19 @@ rabbitmq:
   retry_exchange: "recruitment.events.retry"
   notification_queue: "recruitment.notification.create"
   resume_parse_queue: "recruitment.resume.parse"
+  email_queue: "recruitment.email.send"
   prefetch_count: 10
   max_retries: 5
   retry_delay: "5s"
   reconnect_interval: "3s"
+
+smtp:
+  host: ""                  # SMTP_HOST: SMTP 服务器地址，留空则使用 LogSender（仅日志输出）
+  port: 587                 # SMTP_PORT: SMTP 端口
+  username: ""              # SMTP_USERNAME
+  password: ""              # SMTP_PASSWORD
+  from_address: "noreply@example.com"  # SMTP_FROM_ADDRESS
+  from_name: "Smart Recruit"           # SMTP_FROM_NAME
+  tls: true                 # 是否使用 TLS
+
+frontend_base_url: "http://localhost:5173"  # FRONTEND_BASE_URL: 前端地址基础 URL

@@ -8,6 +8,7 @@ export const APP_STATUS_KEY = {
   INTERVIEW_PENDING: 'interview_pending',
   INTERVIEWING: 'interviewing',
   INTERVIEW_PASSED: 'interview_passed',
+  INTERVIEW_CANCELLED: 'interview_cancelled',
   OFFER_PENDING: 'offer_pending',
   OFFER_SENT: 'offer_sent',
   OFFER_ACCEPTED: 'offer_accepted',
@@ -28,6 +29,7 @@ export const CANDIDATE_STATUS_LABELS: Record<string, string> = {
   [APP_STATUS_KEY.INTERVIEW_PENDING]: '待面试',
   [APP_STATUS_KEY.INTERVIEWING]: '面试中',
   [APP_STATUS_KEY.INTERVIEW_PASSED]: '面试通过',
+  [APP_STATUS_KEY.INTERVIEW_CANCELLED]: '面试已取消',
   [APP_STATUS_KEY.OFFER_PENDING]: '待发offer',
   [APP_STATUS_KEY.OFFER_SENT]: 'Offer已发',
   [APP_STATUS_KEY.OFFER_ACCEPTED]: 'Offer已接受',
@@ -45,6 +47,7 @@ export const STATUS_TYPE_MAP: Record<string, string> = {
   [APP_STATUS_KEY.INTERVIEW_PENDING]: 'warning',
   [APP_STATUS_KEY.INTERVIEWING]: 'warning',
   [APP_STATUS_KEY.INTERVIEW_PASSED]: 'success',
+  [APP_STATUS_KEY.INTERVIEW_CANCELLED]: 'info',
   [APP_STATUS_KEY.OFFER_PENDING]: 'warning',
   [APP_STATUS_KEY.OFFER_SENT]: 'primary',
   [APP_STATUS_KEY.OFFER_ACCEPTED]: 'success',
@@ -100,6 +103,7 @@ export interface User {
   account_type?: string     // 'candidate' | 'staff' | 'service'
   roles?: string[]          // RBAC role keys
   permissions?: string[]    // RBAC permission keys
+  email?: string
 }
 
 export interface LoginPayload {

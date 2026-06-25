@@ -6,6 +6,7 @@ dist/
 .dev/
 .claude/
 .ai-guides/
+.codegraph
 *.pdf
 .env.production
 .env.development

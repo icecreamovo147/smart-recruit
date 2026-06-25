@@ -154,6 +154,7 @@ func Setup(cfg config.Config, clients *rpc.Clients, rdb *redis.Client) (*gin.Eng
 	v1.POST("/auth/logout", normalTimeout, middleware.JWTAuthByClient(cfg.JWTSecret, cfg.CandidateCookie, cfg.HRCookie, cfg.InterviewerCookie, cfg.AuthCookieName, rdb), authHandler.Logout)
 	v1.POST("/auth/refresh", normalTimeout, authHandler.RefreshToken)
 	v1.GET("/auth/me", normalTimeout, middleware.JWTAuthByClient(cfg.JWTSecret, cfg.CandidateCookie, cfg.HRCookie, cfg.InterviewerCookie, cfg.AuthCookieName, rdb), authHandler.Me)
+	v1.PUT("/auth/email", normalTimeout, bodyAuth, middleware.JWTAuthByClient(cfg.JWTSecret, cfg.CandidateCookie, cfg.HRCookie, cfg.InterviewerCookie, cfg.AuthCookieName, rdb), authHandler.UpdateEmail)
 	v1.GET("/jobs", normalTimeout, publicHandler.ListJobs)
 	v1.GET("/jobs/:job_id", normalTimeout, publicHandler.JobDetail)
 

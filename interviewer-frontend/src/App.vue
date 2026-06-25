@@ -1,9 +1,11 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { Monitor, Briefcase, Bell, UserFilled, Sunny, Moon, Menu, Close, Expand, Fold } from '@element-plus/icons-vue'
+import { ElMessage } from 'element-plus'
 import { useAuthStore } from '@/stores/auth'
 import { useTheme } from '@/composables/useTheme'
+import { updateEmail } from '@/api/auth'
 import NotificationBell from '@/components/NotificationBell.vue'
 import logoSmallLight from '@shared/assets/logo-small.webp'
 import logoSmallDark from '@shared/assets/logo-small-dark.webp'
@@ -55,6 +57,40 @@ const toggleSidebar = () => {
 
 const toggleMobileMenu = () => {
   mobileMenuOpen.value = !mobileMenuOpen.value
+}
+
+// ── Email setup dialog ────────────────────────────────────────────
+const showEmailSetup = ref(false)
+const emailSetupInput = ref('')
+const emailSetupSaving = ref(false)
+
+watch(
+  () => ({ path: route.path, loggedIn: auth.isLoggedIn, email: auth.email }),
+  ({ path, loggedIn, email }) => {
+    if (loggedIn && !email && path !== '/login') {
+      showEmailSetup.value = true
+    }
+  },
+  { immediate: true },
+)
+
+const saveEmailSetup = async () => {
+  const email = emailSetupInput.value.trim()
+  if (!email || !email.includes('@') || !email.includes('.')) {
+    ElMessage.warning('请输入有效的邮箱地址')
+    return
+  }
+  emailSetupSaving.value = true
+  try {
+    await updateEmail(email)
+    ElMessage.success('邮箱设置成功')
+    showEmailSetup.value = false
+    await auth.restoreSession()
+  } catch {
+    // error handled by interceptor
+  } finally {
+    emailSetupSaving.value = false
+  }
 }
 </script>
 
@@ -152,10 +188,39 @@ const toggleMobileMenu = () => {
         </RouterView>
       </main>
     </div>
+
+    <!-- 邮箱设置弹窗 -->
+    <el-dialog
+      v-model="showEmailSetup"
+      title="设置通知邮箱"
+      width="440px"
+      :show-close="false"
+      :close-on-click-modal="false"
+      :close-on-press-escape="false"
+    >
+      <p class="email-setup-hint">
+        设置邮箱后，面试安排等重要通知将同时发送到您的邮箱，确保不会错过关键信息。
+      </p>
+      <el-input
+        v-model="emailSetupInput"
+        placeholder="请输入邮箱地址"
+        clearable
+        @keyup.enter="saveEmailSetup"
+      />
+      <template #footer>
+        <el-button type="primary" :loading="emailSetupSaving" @click="saveEmailSetup">保存</el-button>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
 <style scoped>
+.email-setup-hint {
+  margin: 0 0 16px;
+  color: var(--text-secondary);
+  font-size: 14px;
+  line-height: 1.7;
+}
 .desktop-only {
   display: none;
 }

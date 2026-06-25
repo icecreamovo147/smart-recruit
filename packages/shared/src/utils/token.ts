@@ -20,6 +20,7 @@ export const getUser = (): User | null => {
       account_type: parsed.account_type ? String(parsed.account_type) : undefined,
       roles: Array.isArray(parsed.roles) ? parsed.roles.map(String) : undefined,
       permissions: Array.isArray(parsed.permissions) ? parsed.permissions.map(String) : undefined,
+      email: parsed.email ? String(parsed.email) : undefined,
     } as User
   } catch {
     removeUser()

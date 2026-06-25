@@ -14,6 +14,7 @@ service AuthService {
   rpc RevokeRefreshToken(RevokeRefreshTokenRequest) returns (CommonResponse);
   rpc RecordAuthDecision(AuthAuditRequest) returns (CommonResponse);
   rpc GetPrincipal(GetPrincipalRequest) returns (GetPrincipalResponse);
+  rpc UpdateEmail(UpdateEmailRequest) returns (CommonResponse);
 }
 
 service JobService {
@@ -263,6 +264,12 @@ message GetPrincipalResponse {
   repeated string permissions = 8;     // RBAC permission keys
   int32 token_version = 9;
   repeated ScopeAssignment data_scopes = 10;
+  string email = 11;
+}
+
+message UpdateEmailRequest {
+  int64 user_id = 1;
+  string email = 2;
 }
 
 message ScopeAssignment {
@@ -840,7 +847,7 @@ message InterviewFeedback {
   int64 interview_id = 2;
   int64 application_id = 3;
   int64 interviewer_id = 4;
-  string recommendation = 5;  // positive / negative / pending
+  string recommendation = 5;  // strong_recommend / recommend / neutral / not_recommend / strong_not_recommend (legacy: positive / negative / pending)
   int32 score = 6;
   string dimension_scores_json = 7;
   string comments = 8;

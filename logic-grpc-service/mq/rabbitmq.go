@@ -16,8 +16,10 @@ const (
 	defaultRetryExchange     = "recruitment.events.retry"
 	defaultNotificationQueue = "recruitment.notification.create"
 	defaultResumeParseQueue  = "recruitment.resume.parse"
+	defaultEmailQueue        = "recruitment.email.send"
 	notificationRoutingKey   = "notification.create"
 	resumeParseRoutingKey    = "resume.parse"
+	emailRoutingKey          = "email.send"
 	retryHeader              = "x-retry-count"
 )
 
@@ -28,6 +30,7 @@ type Config struct {
 	RetryExchange     string
 	NotificationQueue string
 	ResumeParseQueue  string
+	EmailQueue        string
 	PrefetchCount     int
 	MaxRetries        int
 	RetryDelay        time.Duration
@@ -88,6 +91,9 @@ func (cfg Config) withDefaults() Config {
 	if cfg.ResumeParseQueue == "" {
 		cfg.ResumeParseQueue = defaultResumeParseQueue
 	}
+	if cfg.EmailQueue == "" {
+		cfg.EmailQueue = defaultEmailQueue
+	}
 	if cfg.PrefetchCount <= 0 {
 		cfg.PrefetchCount = 10
 	}
@@ -112,10 +118,17 @@ func (c *Conn) ResumeParseQueue() string {
 	return c.cfg.ResumeParseQueue
 }
 
+func (c *Conn) EmailQueue() string {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	return c.cfg.EmailQueue
+}
+
 func (c *Conn) bindings() []queueBinding {
 	return []queueBinding{
 		{name: c.cfg.NotificationQueue, routingKey: notificationRoutingKey},
 		{name: c.cfg.ResumeParseQueue, routingKey: resumeParseRoutingKey},
+		{name: c.cfg.EmailQueue, routingKey: emailRoutingKey},
 	}
 }
 

@@ -509,6 +509,21 @@ func (s *OfferService) SendOffer(ctx context.Context, req *pb.SendOfferRequest) 
 			return err
 		}
 
+		// Email notification to candidate
+		if err := s.outboxPublisher.WriteEventTx(tx, "email.send", "offer", uint64(offer.ID), "email.send", emailPayload{
+			ReceiverID:          offer.CandidateUserID,
+			ReceiverAccountType: "candidate",
+			Type:                "offer_sent",
+			Title:               "Offer 已发送",
+			Content:             notifyContent,
+			Link:                "/applications",
+			BizType:             "offer",
+			BizID:               offer.ID,
+			JobTitle:            appDetail.JobTitle,
+		}); err != nil {
+			return err
+		}
+
 		return nil
 	})
 	if err != nil {
@@ -636,6 +651,21 @@ func (s *OfferService) WithdrawOffer(ctx context.Context, req *pb.WithdrawOfferR
 			Link:                "/applications",
 			BizType:             "offer",
 			BizID:               offer.ID,
+		}); err != nil {
+			return err
+		}
+
+		// Email notification to candidate
+		if err := s.outboxPublisher.WriteEventTx(tx, "email.send", "offer", uint64(offer.ID), "email.send", emailPayload{
+			ReceiverID:          offer.CandidateUserID,
+			ReceiverAccountType: "candidate",
+			Type:                "offer_withdrawn",
+			Title:               "Offer 已撤回",
+			Content:             notifyContent,
+			Link:                "/applications",
+			BizType:             "offer",
+			BizID:               offer.ID,
+			JobTitle:            appDetail.JobTitle,
 		}); err != nil {
 			return err
 		}

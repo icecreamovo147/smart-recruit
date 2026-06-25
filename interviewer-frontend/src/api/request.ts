@@ -81,13 +81,13 @@ http.interceptors.response.use(
 )
 
 const friendlyBusinessMessage = (code: number, msg: string): string => {
-  if (code === 401) return '登录状态已失效，请重新登录'
+  if (code === 401) return msg || '登录状态已失效，请重新登录'
   if (code === 403 || code === 4030) return msg || '当前账号没有权限执行这个操作'
   if (code === 404) return msg || '请求的资源不存在或已失效'
   if (code === 429) return msg || '请求过于频繁，请稍后再试'
   if (code === 499) return '请求已取消，请重新操作'
-  if (code === 503) return '后端服务暂不可用，请稍后重试'
-  if (code === 504) return '请求处理超时，请稍后重试'
+  if (code === 503) return msg || '后端服务暂不可用，请稍后重试'
+  if (code === 504) return msg || '请求处理超时，请稍后重试'
   if (code === 500) return msg || '服务暂时开小差了，请稍后再试'
   return msg || '操作没有成功，请稍后再试'
 }

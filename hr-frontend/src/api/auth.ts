@@ -9,3 +9,6 @@ export const register = (data: RegisterPayload): Promise<{ user_id: number; user
 
 export const validateInviteCode = (inviteCode: string): Promise<{ code: number; msg: string; valid: boolean }> =>
   request.post('/api/v1/auth/register/validate-invite-code', { invite_code: inviteCode })
+
+export const updateEmail = (email: string): Promise<{ code: number; msg: string }> =>
+  request.put('/api/v1/auth/email', { email })

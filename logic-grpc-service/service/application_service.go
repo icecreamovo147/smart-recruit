@@ -104,7 +104,7 @@ func (s *ApplicationService) ApplyJob(ctx context.Context, req *pb.ApplyJobReque
 		if err := s.applications.CreateNewRoundWithTx(ctx, tx, app); err != nil {
 			return err
 		}
-		return s.outboxPublisher.WriteEventTx(tx, "notification.create", "application", uint64(app.ID), "notification.create", notificationPayload{
+		if err := s.outboxPublisher.WriteEventTx(tx, "notification.create", "application", uint64(app.ID), "notification.create", notificationPayload{
 			ReceiverID:   job.HrID,
 			ReceiverRole: 2, ReceiverAccountType: "staff",
 			Type:         "new_application",
@@ -113,6 +113,19 @@ func (s *ApplicationService) ApplyJob(ctx context.Context, req *pb.ApplyJobReque
 			Link:         fmt.Sprintf("/hr/jobs/%d/applications", job.ID),
 			BizType:      "application",
 			BizID:        app.ID,
+		}); err != nil {
+			return err
+		}
+		return s.outboxPublisher.WriteEventTx(tx, "email.send", "application", uint64(app.ID), "email.send", emailPayload{
+			ReceiverID:          job.HrID,
+			ReceiverAccountType: "staff",
+			Type:                "new_application",
+			Title:               "新的岗位投递",
+			Content:             fmt.Sprintf("%s 投递了「%s」岗位，请及时查看简历。", candidateDisplayName(profile.RealName, req.UserId), job.Title),
+			Link:                fmt.Sprintf("/hr/jobs/%d/applications", job.ID),
+			BizType:             "application",
+			BizID:               app.ID,
+			JobTitle:            job.Title,
 		})
 	})
 	if errors.Is(err, gorm.ErrDuplicatedKey) {
@@ -324,7 +337,7 @@ func (s *ApplicationService) UpdateApplicationStatus(ctx context.Context, req *p
 		if rows == 0 || notifyType == "" {
 			return nil
 		}
-		return s.outboxPublisher.WriteEventTx(tx, "notification.create", "application", uint64(req.ApplicationId), "notification.create", notificationPayload{
+		if err := s.outboxPublisher.WriteEventTx(tx, "notification.create", "application", uint64(req.ApplicationId), "notification.create", notificationPayload{
 			ReceiverID:   detail.UserID,
 			ReceiverRole: 1, ReceiverAccountType: "candidate",
 			Type:         notifyType,
@@ -333,6 +346,20 @@ func (s *ApplicationService) UpdateApplicationStatus(ctx context.Context, req *p
 			Link:         "/applications",
 			BizType:      "application",
 			BizID:        req.ApplicationId,
+		}); err != nil {
+			return err
+		}
+		return s.outboxPublisher.WriteEventTx(tx, "email.send", "application", uint64(req.ApplicationId), "email.send", emailPayload{
+			ReceiverID:          detail.UserID,
+			ReceiverAccountType: "candidate",
+			Type:                notifyType,
+			Title:               "投递进展更新",
+			Content:             notifyContent,
+			Link:                "/applications",
+			BizType:             "application",
+			BizID:               req.ApplicationId,
+			JobTitle:            detail.JobTitle,
+			RecipientName:       detail.RealName,
 		})
 	})
 	if err != nil {

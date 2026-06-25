@@ -11,6 +11,7 @@ type Principal struct {
 	Permissions  []string `json:"permissions"`
 	DataScopes   []ScopeAssignment `json:"data_scopes,omitempty"`
 	TokenVersion int32    `json:"token_version"`
+	Email        string   `json:"email"`
 	// Deprecated: kept for compatibility during migration window.
 	LegacyRole int32 `json:"role"`
 }

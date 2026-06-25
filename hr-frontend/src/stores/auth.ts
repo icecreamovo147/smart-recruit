@@ -20,6 +20,8 @@ export const useAuthStore = defineStore('auth', {
 
     username: (state: AuthState): string => state.user?.username || '',
 
+    email: (state: AuthState): string => state.user?.email || '',
+
     accountType: (state: AuthState): string => state.user?.account_type || '',
 
     roles: (state: AuthState): string[] => state.user?.roles || [],
@@ -98,6 +100,7 @@ export const useAuthStore = defineStore('auth', {
             account_type: json.data.account_type ? String(json.data.account_type) : undefined,
             roles: Array.isArray(json.data.roles) ? json.data.roles.map(String) : [],
             permissions: Array.isArray(json.data.permissions) ? json.data.permissions.map(String) : [],
+            email: json.data.email ? String(json.data.email) : undefined,
           })
           this.user = getUser()
           return true

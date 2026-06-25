@@ -254,7 +254,7 @@ func (s *InterviewService) ScheduleInterview(ctx context.Context, req *pb.Schedu
 
 		// Auto-transition application status to interview_pending
 		currentKey := appDetail.StatusKey
-		if currentKey == model.StatusKeyViewed || currentKey == model.StatusKeyScreenPassed || currentKey == model.StatusKeyInterviewPassed {
+		if currentKey == model.StatusKeyViewed || currentKey == model.StatusKeyScreenPassed || currentKey == model.StatusKeyInterviewCancelled || currentKey == model.StatusKeyInterviewPassed {
 			legacyStatus := model.StatusKeyToLegacy[model.StatusKeyInterviewPending]
 			if _, err := s.applications.UpdateStatusAnyWithTx(ctx, tx, req.ApplicationId, currentKey, model.StatusKeyInterviewPending, legacyStatus); err != nil {
 				return err
@@ -286,6 +286,25 @@ func (s *InterviewService) ScheduleInterview(ctx context.Context, req *pb.Schedu
 			return err
 		}
 
+		// Email to interviewer
+		if err := s.outboxPublisher.WriteEventTx(tx, "email.send", "interview", uint64(interview.ID), "email.send", emailPayload{
+			ReceiverID:          req.InterviewerId,
+			ReceiverAccountType: "staff",
+			Type:                "interview_assigned",
+			Title:               "新的面试安排",
+			Content:             fmt.Sprintf("您被安排为「%s」岗位的面试官：%s", appDetail.JobTitle, title),
+			Link:                fmt.Sprintf("/hr/interviews/%d", interview.ID),
+			BizType:             "interview",
+			BizID:               interview.ID,
+			JobTitle:            appDetail.JobTitle,
+			InterviewDate:       formatInterviewDate(interview.ScheduledAt),
+			InterviewMode:       formatInterviewMode(interview.Mode),
+			InterviewLink:       interview.MeetingURL,
+			InterviewLoc:        interview.Location,
+		}); err != nil {
+			return err
+		}
+
 		// Notify the candidate
 		if err := s.outboxPublisher.WriteEventTx(tx, "notification.create", "interview", uint64(interview.ID), "notification.create", notificationPayload{
 			ReceiverID:          appDetail.UserID,
@@ -297,6 +316,26 @@ func (s *InterviewService) ScheduleInterview(ctx context.Context, req *pb.Schedu
 			Link:                "/applications",
 			BizType:             "interview",
 			BizID:               interview.ID,
+		}); err != nil {
+			return err
+		}
+
+		// Email to candidate
+		if err := s.outboxPublisher.WriteEventTx(tx, "email.send", "interview", uint64(interview.ID), "email.send", emailPayload{
+			ReceiverID:          appDetail.UserID,
+			ReceiverAccountType: "candidate",
+			Type:                "interview_scheduled",
+			Title:               "面试安排通知",
+			Content:             fmt.Sprintf("您的「%s」岗位面试已安排：%s", appDetail.JobTitle, title),
+			Link:                "/applications",
+			BizType:             "interview",
+			BizID:               interview.ID,
+			JobTitle:            appDetail.JobTitle,
+			RecipientName:       appDetail.RealName,
+			InterviewDate:       formatInterviewDate(interview.ScheduledAt),
+			InterviewMode:       formatInterviewMode(interview.Mode),
+			InterviewLink:       interview.MeetingURL,
+			InterviewLoc:        interview.Location,
 		}); err != nil {
 			return err
 		}
@@ -444,6 +483,25 @@ func (s *InterviewService) UpdateInterview(ctx context.Context, req *pb.UpdateIn
 			return err
 		}
 
+		// Email to interviewer
+		if err := s.outboxPublisher.WriteEventTx(tx, "email.send", "interview", uint64(existing.ID), "email.send", emailPayload{
+			ReceiverID:          existing.InterviewerID,
+			ReceiverAccountType: "staff",
+			Type:                "interview_updated",
+			Title:               "面试信息已更新",
+			Content:             fmt.Sprintf("「%s」岗位的面试安排已更新：%s", appDetail.JobTitle, existing.Title),
+			Link:                fmt.Sprintf("/hr/interviews/%d", existing.ID),
+			BizType:             "interview",
+			BizID:               existing.ID,
+			JobTitle:            appDetail.JobTitle,
+			InterviewDate:       formatInterviewDate(existing.ScheduledAt),
+			InterviewMode:       formatInterviewMode(existing.Mode),
+			InterviewLink:       existing.MeetingURL,
+			InterviewLoc:        existing.Location,
+		}); err != nil {
+			return err
+		}
+
 		// Notify candidate
 		if err := s.outboxPublisher.WriteEventTx(tx, "notification.create", "interview", uint64(existing.ID), "notification.create", notificationPayload{
 			ReceiverID:          appDetail.UserID,
@@ -455,6 +513,26 @@ func (s *InterviewService) UpdateInterview(ctx context.Context, req *pb.UpdateIn
 			Link:                "/applications",
 			BizType:             "interview",
 			BizID:               existing.ID,
+		}); err != nil {
+			return err
+		}
+
+		// Email to candidate
+		if err := s.outboxPublisher.WriteEventTx(tx, "email.send", "interview", uint64(existing.ID), "email.send", emailPayload{
+			ReceiverID:          appDetail.UserID,
+			ReceiverAccountType: "candidate",
+			Type:                "interview_updated",
+			Title:               "面试时间变更通知",
+			Content:             fmt.Sprintf("您的「%s」岗位面试信息已更新，请查看最新安排", appDetail.JobTitle),
+			Link:                "/applications",
+			BizType:             "interview",
+			BizID:               existing.ID,
+			JobTitle:            appDetail.JobTitle,
+			RecipientName:       appDetail.RealName,
+			InterviewDate:       formatInterviewDate(existing.ScheduledAt),
+			InterviewMode:       formatInterviewMode(existing.Mode),
+			InterviewLink:       existing.MeetingURL,
+			InterviewLoc:        existing.Location,
 		}); err != nil {
 			return err
 		}
@@ -516,6 +594,25 @@ func (s *InterviewService) CancelInterview(ctx context.Context, req *pb.CancelIn
 			reasonText = "暂无说明"
 		}
 
+		// Transition application status to interview_cancelled.
+		currentKey := appDetail.StatusKey
+		if currentKey == model.StatusKeyInterviewPending || currentKey == model.StatusKeyInterviewing {
+			legacyStatus := model.StatusKeyToLegacy[model.StatusKeyInterviewCancelled]
+			if _, err := s.applications.UpdateStatusAnyWithTx(ctx, tx, existing.ApplicationID, currentKey, model.StatusKeyInterviewCancelled, legacyStatus); err != nil {
+				return err
+			}
+			if err := s.applications.CreateTransition(ctx, tx, &model.ApplicationStatusTransition{
+				ApplicationID:    existing.ApplicationID,
+				FromStatus:       currentKey,
+				ToStatus:         model.StatusKeyInterviewCancelled,
+				ActorUserID:      req.HrId,
+				ActorAccountType: "staff",
+				Reason:           fmt.Sprintf("取消面试（ID=%d）：%s", existing.ID, reasonText),
+			}); err != nil {
+				return err
+			}
+		}
+
 		// Notify interviewer
 		if err := s.outboxPublisher.WriteEventTx(tx, "notification.create", "interview", uint64(existing.ID), "notification.create", notificationPayload{
 			ReceiverID:          existing.InterviewerID,
@@ -531,6 +628,25 @@ func (s *InterviewService) CancelInterview(ctx context.Context, req *pb.CancelIn
 			return err
 		}
 
+		// Email to interviewer
+		if err := s.outboxPublisher.WriteEventTx(tx, "email.send", "interview", uint64(existing.ID), "email.send", emailPayload{
+			ReceiverID:          existing.InterviewerID,
+			ReceiverAccountType: "staff",
+			Type:                "interview_cancelled",
+			Title:               "面试已取消",
+			Content:             fmt.Sprintf("「%s」岗位的面试已取消。原因：%s", appDetail.JobTitle, reasonText),
+			Link:                fmt.Sprintf("/hr/interviews/%d", existing.ID),
+			BizType:             "interview",
+			BizID:               existing.ID,
+			JobTitle:            appDetail.JobTitle,
+			InterviewDate:       formatInterviewDate(existing.ScheduledAt),
+			InterviewMode:       formatInterviewMode(existing.Mode),
+			InterviewLink:       existing.MeetingURL,
+			InterviewLoc:        existing.Location,
+		}); err != nil {
+			return err
+		}
+
 		// Notify candidate
 		if err := s.outboxPublisher.WriteEventTx(tx, "notification.create", "interview", uint64(existing.ID), "notification.create", notificationPayload{
 			ReceiverID:          appDetail.UserID,
@@ -542,6 +658,26 @@ func (s *InterviewService) CancelInterview(ctx context.Context, req *pb.CancelIn
 			Link:                "/applications",
 			BizType:             "interview",
 			BizID:               existing.ID,
+		}); err != nil {
+			return err
+		}
+
+		// Email to candidate
+		if err := s.outboxPublisher.WriteEventTx(tx, "email.send", "interview", uint64(existing.ID), "email.send", emailPayload{
+			ReceiverID:          appDetail.UserID,
+			ReceiverAccountType: "candidate",
+			Type:                "interview_cancelled",
+			Title:               "面试已取消",
+			Content:             fmt.Sprintf("您的「%s」岗位面试已取消。原因：%s", appDetail.JobTitle, reasonText),
+			Link:                "/applications",
+			BizType:             "interview",
+			BizID:               existing.ID,
+			JobTitle:            appDetail.JobTitle,
+			RecipientName:       appDetail.RealName,
+			InterviewDate:       formatInterviewDate(existing.ScheduledAt),
+			InterviewMode:       formatInterviewMode(existing.Mode),
+			InterviewLink:       existing.MeetingURL,
+			InterviewLoc:        existing.Location,
 		}); err != nil {
 			return err
 		}

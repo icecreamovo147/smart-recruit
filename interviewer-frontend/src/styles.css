@@ -272,6 +272,7 @@ a:hover {
 
 .sidebar-brand {
   padding: 20px 16px 12px;
+  height: 55px;
   display: flex;
   align-items: center;
   gap: 10px;

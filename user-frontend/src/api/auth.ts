@@ -6,3 +6,6 @@ export const login = (data: LoginPayload): Promise<LoginResponse> =>
 
 export const register = (data: RegisterPayload): Promise<{ user_id: number; username: string; role: number }> =>
   request.post('/api/v1/auth/register', data)
+
+export const updateEmail = (email: string): Promise<{ code: number; msg: string }> =>
+  request.put('/api/v1/auth/email', { email })

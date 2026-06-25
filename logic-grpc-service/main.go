@@ -22,6 +22,7 @@ import (
 
 	"logic-grpc-service/ai"
 	"logic-grpc-service/config"
+	"logic-grpc-service/email"
 	"logic-grpc-service/migration"
 	"logic-grpc-service/mq"
 	"logic-grpc-service/oss"
@@ -120,6 +121,7 @@ func main() {
 	memoryRepo := repository.NewMemoryRepo(db)
 	notificationRepo := repository.NewNotificationRepo(db)
 	outboxRepo := repository.NewOutboxRepo(db)
+	emailLogRepo := repository.NewEmailLogRepo(db)
 	inviteCodeRepo := repository.NewInviteCodeRepo(db)
 	departmentRepo := repository.NewDepartmentRepo(db)
 	locationRepo := repository.NewJobLocationRepo(db)
@@ -198,6 +200,21 @@ func main() {
 	}
 	log.Info("ai client initialized", zap.String("model", cfg.AI.Model))
 
+	// ── Email sender and renderer ───────────────────────────────────────
+	emailSender := email.NewSender(email.SMTPConfig{
+		Host:        cfg.SMTP.Host,
+		Port:        cfg.SMTP.Port,
+		Username:    cfg.SMTP.Username,
+		Password:    cfg.SMTP.Password,
+		FromAddress: cfg.SMTP.FromAddress,
+		FromName:    cfg.SMTP.FromName,
+		TLS:         cfg.SMTP.TLS,
+	})
+	emailRenderer, err := email.NewRenderer(cfg.FrontendBaseURL)
+	if err != nil {
+		log.Fatal("init email renderer failed", zap.Error(err))
+	}
+
 	services := service.NewServices(
 		healthRedis,
 		db,
@@ -206,8 +223,10 @@ func main() {
 		summaryRepo, toolTraceRepo, memoryRepo, notificationRepo, outboxRepo, inviteCodeRepo,
 		departmentRepo, locationRepo, deptLocationRepo,
 		usageLogRepo, authzRepo,
+		emailLogRepo,
 		notifCache, jobCache,
 		ossClient, aiClient, mqConn, cfg, cfg.JWT.Secret,
+		emailSender, emailRenderer,
 	)
 
 	// Bootstrap initial admin: promote user specified by INITIAL_ADMIN_USERNAME
@@ -260,6 +279,9 @@ func main() {
 		}
 		if err := services.ResumeParseConsumer.Start(bgCtx, mqConn); err != nil {
 			log.Warn("resume parse consumer start failed", zap.Error(err))
+		}
+		if err := services.EmailConsumer.Start(bgCtx, mqConn); err != nil {
+			log.Warn("email consumer start failed", zap.Error(err))
 		}
 		go mqConn.KeepAlive(bgCtx, cfg.RabbitMQ.ReconnectInterval.Duration)
 	} else {

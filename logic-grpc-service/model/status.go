@@ -12,8 +12,9 @@ const (
 	StatusKeyScreenPassed    = "screen_passed"
 	StatusKeyInterviewPending = "interview_pending"
 	StatusKeyInterviewing    = "interviewing"
-	StatusKeyInterviewPassed = "interview_passed"
-	StatusKeyOfferPending    = "offer_pending"
+	StatusKeyInterviewPassed   = "interview_passed"
+	StatusKeyInterviewCancelled = "interview_cancelled"
+	StatusKeyOfferPending      = "offer_pending"
 	StatusKeyOfferSent       = "offer_sent"
 	StatusKeyOfferAccepted   = "offer_accepted"
 	StatusKeyOfferRejected   = "offer_rejected"
@@ -58,8 +59,9 @@ var CandidateStatusLabels = map[string]string{
 	StatusKeyScreenPassed:    "筛选通过",
 	StatusKeyInterviewPending: "待面试",
 	StatusKeyInterviewing:    "面试中",
-	StatusKeyInterviewPassed: "面试通过",
-	StatusKeyOfferPending:    "待发offer",
+	StatusKeyInterviewPassed:   "面试通过",
+	StatusKeyInterviewCancelled: "面试已取消",
+	StatusKeyOfferPending:      "待发offer",
 	StatusKeyOfferSent:       "Offer已发",
 	StatusKeyOfferAccepted:   "Offer已接受",
 	StatusKeyOfferRejected:   "Offer已拒绝",
@@ -107,6 +109,7 @@ var StatusKeyToLegacy = map[string]int32{
 	StatusKeyInterviewPending: 2,
 	StatusKeyInterviewing:    2,
 	StatusKeyInterviewPassed: 2,
+	StatusKeyInterviewCancelled: 2,
 	StatusKeyOfferPending:    2,
 	StatusKeyOfferSent:       2,
 	StatusKeyOfferAccepted:   2,

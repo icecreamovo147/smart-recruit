@@ -14,6 +14,7 @@ service AuthService {
   rpc RevokeRefreshToken(RevokeRefreshTokenRequest) returns (CommonResponse);
   rpc RecordAuthDecision(AuthAuditRequest) returns (CommonResponse);
   rpc GetPrincipal(GetPrincipalRequest) returns (GetPrincipalResponse);
+  rpc UpdateEmail(UpdateEmailRequest) returns (CommonResponse);
 }
 
 service JobService {
@@ -263,6 +264,12 @@ message GetPrincipalResponse {
   repeated string permissions = 8;     // RBAC permission keys
   int32 token_version = 9;
   repeated ScopeAssignment data_scopes = 10;
+  string email = 11;
+}
+
+message UpdateEmailRequest {
+  int64 user_id = 1;
+  string email = 2;
 }
 
 message ScopeAssignment {

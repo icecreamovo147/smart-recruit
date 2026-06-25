@@ -4,7 +4,8 @@ import { useRoute, useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { ArrowDown } from '@element-plus/icons-vue'
 import { listJobApplications, updateApplicationStatus } from '@/api/application'
-import type { Application, JobQuery } from '@/types/domain'
+import { listApplicationInterviews, cancelInterview } from '@/api/interview'
+import type { Application, InterviewSchedule, JobQuery } from '@/types/domain'
 import { getHRStatusLabel, getStatusType, APP_STATUS_KEY, TERMINAL_STATUS_KEYS, ALLOWED_HR_ACTIONS } from '@/types/domain'
 import InterviewScheduleDialog from '@/components/business/InterviewScheduleDialog.vue'
 
@@ -177,6 +178,35 @@ const onScheduleSuccess = () => {
   load()
 }
 
+// ── Cancel interview ────────────────────────────────────────────────
+
+const handleCancelInterview = async (row: Application) => {
+  try {
+    const data = await listApplicationInterviews(row.application_id)
+    const activeInterviews = (data.list || []).filter(
+      (iv: InterviewSchedule) => iv.status === 'scheduled' || iv.status === 'pending',
+    )
+    if (activeInterviews.length === 0) {
+      ElMessage.warning('该候选人没有可取消的面试')
+      return
+    }
+    const { value: reason } = await ElMessageBox.prompt('请输入取消原因', '取消面试', {
+      confirmButtonText: '确认取消',
+      cancelButtonText: '返回',
+      inputPattern: /.{1,}/,
+      inputErrorMessage: '请填写取消原因',
+    })
+    // Cancel all active interviews for this application
+    for (const iv of activeInterviews) {
+      await cancelInterview(iv.interview_id, reason || '')
+    }
+    ElMessage.success(`已取消 ${activeInterviews.length} 场面试`)
+    load()
+  } catch {
+    // User cancelled or error handled by interceptor
+  }
+}
+
 const handleDropdownCommand = (command: string, row: Application) => {
   switch (command) {
     case 'ai_analyze':
@@ -184,6 +214,9 @@ const handleDropdownCommand = (command: string, row: Application) => {
       break
     case 'schedule_interview':
       openScheduleDialog(row)
+      break
+    case 'cancel_interview':
+      handleCancelInterview(row)
       break
     case 'interview_passed':
       decide(row, APP_STATUS_KEY.INTERVIEW_PASSED)
@@ -248,6 +281,7 @@ onMounted(load)
                     <el-dropdown-menu>
                       <el-dropdown-item command="ai_analyze">AI 分析</el-dropdown-item>
                       <el-dropdown-item divided command="schedule_interview" :disabled="!canAction(row, APP_STATUS_KEY.INTERVIEW_PENDING)">安排面试</el-dropdown-item>
+                      <el-dropdown-item command="cancel_interview">取消面试</el-dropdown-item>
                       <el-dropdown-item command="interview_passed" :disabled="!canAction(row, APP_STATUS_KEY.INTERVIEW_PASSED)">面试通过</el-dropdown-item>
                       <el-dropdown-item command="offer_pending" :disabled="!canAction(row, APP_STATUS_KEY.OFFER_PENDING)">推进至Offer阶段</el-dropdown-item>
                       <el-dropdown-item command="manage_offer">创建/发送Offer</el-dropdown-item>
@@ -288,6 +322,7 @@ onMounted(load)
                 <el-dropdown-menu>
                   <el-dropdown-item command="ai_analyze">AI 分析</el-dropdown-item>
                   <el-dropdown-item divided command="schedule_interview" :disabled="!canAction(row, APP_STATUS_KEY.INTERVIEW_PENDING)">安排面试</el-dropdown-item>
+                  <el-dropdown-item command="cancel_interview">取消面试</el-dropdown-item>
                   <el-dropdown-item command="interview_passed" :disabled="!canAction(row, APP_STATUS_KEY.INTERVIEW_PASSED)">面试通过</el-dropdown-item>
                   <el-dropdown-item command="offer_pending" :disabled="!canAction(row, APP_STATUS_KEY.OFFER_PENDING)">推进至Offer阶段</el-dropdown-item>
                   <el-dropdown-item command="manage_offer">创建/发送Offer</el-dropdown-item>

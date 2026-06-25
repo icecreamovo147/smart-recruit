@@ -28,6 +28,7 @@ const (
 	AuthService_RevokeRefreshToken_FullMethodName = "/recruitment.AuthService/RevokeRefreshToken"
 	AuthService_RecordAuthDecision_FullMethodName = "/recruitment.AuthService/RecordAuthDecision"
 	AuthService_GetPrincipal_FullMethodName       = "/recruitment.AuthService/GetPrincipal"
+	AuthService_UpdateEmail_FullMethodName        = "/recruitment.AuthService/UpdateEmail"
 )
 
 // AuthServiceClient is the client API for AuthService service.
@@ -40,6 +41,7 @@ type AuthServiceClient interface {
 	RevokeRefreshToken(ctx context.Context, in *RevokeRefreshTokenRequest, opts ...grpc.CallOption) (*CommonResponse, error)
 	RecordAuthDecision(ctx context.Context, in *AuthAuditRequest, opts ...grpc.CallOption) (*CommonResponse, error)
 	GetPrincipal(ctx context.Context, in *GetPrincipalRequest, opts ...grpc.CallOption) (*GetPrincipalResponse, error)
+	UpdateEmail(ctx context.Context, in *UpdateEmailRequest, opts ...grpc.CallOption) (*CommonResponse, error)
 }
 
 type authServiceClient struct {
@@ -110,6 +112,16 @@ func (c *authServiceClient) GetPrincipal(ctx context.Context, in *GetPrincipalRe
 	return out, nil
 }
 
+func (c *authServiceClient) UpdateEmail(ctx context.Context, in *UpdateEmailRequest, opts ...grpc.CallOption) (*CommonResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(CommonResponse)
+	err := c.cc.Invoke(ctx, AuthService_UpdateEmail_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // AuthServiceServer is the server API for AuthService service.
 // All implementations must embed UnimplementedAuthServiceServer
 // for forward compatibility.
@@ -120,6 +132,7 @@ type AuthServiceServer interface {
 	RevokeRefreshToken(context.Context, *RevokeRefreshTokenRequest) (*CommonResponse, error)
 	RecordAuthDecision(context.Context, *AuthAuditRequest) (*CommonResponse, error)
 	GetPrincipal(context.Context, *GetPrincipalRequest) (*GetPrincipalResponse, error)
+	UpdateEmail(context.Context, *UpdateEmailRequest) (*CommonResponse, error)
 	mustEmbedUnimplementedAuthServiceServer()
 }
 
@@ -147,6 +160,9 @@ func (UnimplementedAuthServiceServer) RecordAuthDecision(context.Context, *AuthA
 }
 func (UnimplementedAuthServiceServer) GetPrincipal(context.Context, *GetPrincipalRequest) (*GetPrincipalResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method GetPrincipal not implemented")
+}
+func (UnimplementedAuthServiceServer) UpdateEmail(context.Context, *UpdateEmailRequest) (*CommonResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method UpdateEmail not implemented")
 }
 func (UnimplementedAuthServiceServer) mustEmbedUnimplementedAuthServiceServer() {}
 func (UnimplementedAuthServiceServer) testEmbeddedByValue()                     {}
@@ -277,6 +293,24 @@ func _AuthService_GetPrincipal_Handler(srv interface{}, ctx context.Context, dec
 	return interceptor(ctx, in, info, handler)
 }
 
+func _AuthService_UpdateEmail_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(UpdateEmailRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(AuthServiceServer).UpdateEmail(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: AuthService_UpdateEmail_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(AuthServiceServer).UpdateEmail(ctx, req.(*UpdateEmailRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // AuthService_ServiceDesc is the grpc.ServiceDesc for AuthService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -307,6 +341,10 @@ var AuthService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "GetPrincipal",
 			Handler:    _AuthService_GetPrincipal_Handler,
+		},
+		{
+			MethodName: "UpdateEmail",
+			Handler:    _AuthService_UpdateEmail_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

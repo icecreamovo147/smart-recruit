@@ -61,6 +61,11 @@ func (r *UserRepo) UpdateStatus(ctx context.Context, userID int64, status string
 	return r.db.WithContext(ctx).Model(&model.User{}).Where("id = ?", userID).Update("status", status).Error
 }
 
+// UpdateEmail sets the user's email address.
+func (r *UserRepo) UpdateEmail(ctx context.Context, userID int64, email string) error {
+	return r.db.WithContext(ctx).Model(&model.User{}).Where("id = ?", userID).Update("email", email).Error
+}
+
 // StaffUserResult holds a user with their role keys for staff listing.
 type StaffUserResult struct {
 	model.User

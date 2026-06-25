@@ -335,6 +335,22 @@ type EventOutbox struct {
 
 func (EventOutbox) TableName() string { return "event_outbox" }
 
+// EmailLog records email send attempts for audit and idempotency.
+type EmailLog struct {
+	ID        int64     `gorm:"primaryKey"`
+	EventID   string    `gorm:"column:event_id;uniqueIndex:uk_email_event_id"`
+	UserID    int64     `gorm:"column:user_id"`
+	Email     string    `gorm:"column:email"`
+	Type      string    `gorm:"column:type"`
+	Subject   string    `gorm:"column:subject"`
+	Status    string    `gorm:"column:status;default:sent"`
+	ErrorMsg  *string   `gorm:"column:error_msg"`
+	SentAt    time.Time `gorm:"column:sent_at"`
+	CreatedAt time.Time `gorm:"column:created_at"`
+}
+
+func (EmailLog) TableName() string { return "email_logs" }
+
 type InviteCode struct {
 	ID        int64      `gorm:"primaryKey"`
 	Code      string     `gorm:"column:code"`

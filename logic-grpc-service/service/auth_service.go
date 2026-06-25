@@ -361,5 +361,32 @@ func (s *AuthService) GetPrincipal(ctx context.Context, req *pb.GetPrincipalRequ
 		Permissions:  principal.Permissions,
 		TokenVersion: principal.TokenVersion,
 		DataScopes:   scopeAssignments,
+		Email:        principal.Email,
 	}, nil
+}
+
+// UpdateEmail updates the user's email address.
+func (s *AuthService) UpdateEmail(ctx context.Context, req *pb.UpdateEmailRequest) (*pb.CommonResponse, error) {
+	email := strings.TrimSpace(req.Email)
+	if len(email) > 128 {
+		return &pb.CommonResponse{Code: errs.ErrBadRequest, Msg: "邮箱长度不能超过128个字符"}, nil
+	}
+	if email != "" {
+		if !strings.Contains(email, "@") || !strings.Contains(email, ".") {
+			return &pb.CommonResponse{Code: errs.ErrBadRequest, Msg: "请输入有效的邮箱地址"}, nil
+		}
+	}
+	user, err := s.users.GetByID(ctx, req.UserId)
+	if err != nil {
+		return nil, err
+	}
+	if user == nil {
+		return &pb.CommonResponse{Code: errs.ErrBadRequest, Msg: "用户不存在"}, nil
+	}
+	if err := s.users.UpdateEmail(ctx, req.UserId, email); err != nil {
+		logger.L().Error("update email failed", zap.Int64("user_id", req.UserId), zap.Error(err))
+		return nil, err
+	}
+	logger.L().Info("email updated", zap.Int64("user_id", req.UserId), zap.String("email", email))
+	return &pb.CommonResponse{Code: errs.OK, Msg: "邮箱更新成功"}, nil
 }

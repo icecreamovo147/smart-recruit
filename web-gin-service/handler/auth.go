@@ -170,6 +170,7 @@ func (h *AuthHandler) Me(c *gin.Context) {
 		"permissions":  resp.Permissions,
 		"token_version": resp.TokenVersion,
 		"data_scopes":   dataScopes,
+		"email":        resp.Email,
 	})
 }
 
@@ -300,6 +301,26 @@ func (h *AuthHandler) ValidateInviteCode(c *gin.Context) {
 	}
 	resp, err := h.clients.Admin.ValidateInviteCode(c.Request.Context(), &pb.ValidateInviteCodeRequest{
 		InviteCode: req.InviteCode,
+	})
+	if err != nil {
+		Internal(c, err)
+		return
+	}
+	ProtoResponse(c, resp)
+}
+
+// UpdateEmail updates the current user's email address.
+func (h *AuthHandler) UpdateEmail(c *gin.Context) {
+	var req struct {
+		Email string `json:"email"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		BadRequest(c, "请求参数错误")
+		return
+	}
+	resp, err := h.clients.Auth.UpdateEmail(c.Request.Context(), &pb.UpdateEmailRequest{
+		UserId: middleware.UserID(c),
+		Email:  req.Email,
 	})
 	if err != nil {
 		Internal(c, err)

@@ -72,11 +72,22 @@ type Config struct {
 		RetryExchange     string   `yaml:"retry_exchange"`
 		NotificationQueue string   `yaml:"notification_queue"`
 		ResumeParseQueue  string   `yaml:"resume_parse_queue"`
+		EmailQueue        string   `yaml:"email_queue"`
 		PrefetchCount     int      `yaml:"prefetch_count"`
 		MaxRetries        int      `yaml:"max_retries"`
 		RetryDelay        Duration `yaml:"retry_delay"`
 		ReconnectInterval Duration `yaml:"reconnect_interval"`
 	} `yaml:"rabbitmq"`
+	SMTP struct {
+		Host        string `yaml:"host"`
+		Port        int    `yaml:"port"`
+		Username    string `yaml:"username"`
+		Password    string `yaml:"password"`
+		FromAddress string `yaml:"from_address"`
+		FromName    string `yaml:"from_name"`
+		TLS         bool   `yaml:"tls"`
+	} `yaml:"smtp"`
+	FrontendBaseURL string `yaml:"frontend_base_url"`
 }
 
 func Load() (Config, error) {
@@ -204,6 +215,9 @@ func Load() (Config, error) {
 	if cfg.RabbitMQ.NotificationQueue == "" {
 		cfg.RabbitMQ.NotificationQueue = "recruitment.notification.create"
 	}
+	if cfg.RabbitMQ.EmailQueue == "" {
+		cfg.RabbitMQ.EmailQueue = "recruitment.email.send"
+	}
 	if cfg.RabbitMQ.ResumeParseQueue == "" {
 		cfg.RabbitMQ.ResumeParseQueue = "recruitment.resume.parse"
 	}
@@ -215,6 +229,18 @@ func Load() (Config, error) {
 	}
 	if cfg.RabbitMQ.RetryDelay.Duration <= 0 {
 		cfg.RabbitMQ.RetryDelay.Duration = 5 * time.Second
+	}
+	if cfg.SMTP.Port == 0 {
+		cfg.SMTP.Port = 587
+	}
+	if cfg.SMTP.FromAddress == "" {
+		cfg.SMTP.FromAddress = "noreply@smart-recruit.local"
+	}
+	if cfg.SMTP.FromName == "" {
+		cfg.SMTP.FromName = "Smart Recruit"
+	}
+	if cfg.FrontendBaseURL == "" {
+		cfg.FrontendBaseURL = "http://localhost:5173"
 	}
 	if cfg.RabbitMQ.ReconnectInterval.Duration <= 0 {
 		cfg.RabbitMQ.ReconnectInterval.Duration = 3 * time.Second
@@ -270,12 +296,22 @@ func applyEnvOverrides(cfg *Config) {
 	setInt(&cfg.Agent.MaxPromptChars, "AGENT_MAX_PROMPT_CHARS")
 	setInt(&cfg.Agent.MaxMemories, "AGENT_MAX_MEMORIES")
 
+	setString(&cfg.SMTP.Host, "SMTP_HOST")
+	setInt(&cfg.SMTP.Port, "SMTP_PORT")
+	setString(&cfg.SMTP.Username, "SMTP_USERNAME")
+	setString(&cfg.SMTP.Password, "SMTP_PASSWORD")
+	setString(&cfg.SMTP.FromAddress, "SMTP_FROM_ADDRESS")
+	setString(&cfg.SMTP.FromName, "SMTP_FROM_NAME")
+
+	setString(&cfg.FrontendBaseURL, "FRONTEND_BASE_URL")
+
 	setString(&cfg.RabbitMQ.URL, "RABBITMQ_URL")
 	setString(&cfg.RabbitMQ.Exchange, "RABBITMQ_EXCHANGE")
 	setString(&cfg.RabbitMQ.DLXExchange, "RABBITMQ_DLX_EXCHANGE")
 	setString(&cfg.RabbitMQ.RetryExchange, "RABBITMQ_RETRY_EXCHANGE")
 	setString(&cfg.RabbitMQ.NotificationQueue, "RABBITMQ_NOTIFICATION_QUEUE")
 	setString(&cfg.RabbitMQ.ResumeParseQueue, "RABBITMQ_RESUME_PARSE_QUEUE")
+	setString(&cfg.RabbitMQ.EmailQueue, "RABBITMQ_EMAIL_QUEUE")
 	setInt(&cfg.RabbitMQ.PrefetchCount, "RABBITMQ_PREFETCH_COUNT")
 	setInt(&cfg.RabbitMQ.MaxRetries, "RABBITMQ_MAX_RETRIES")
 	setDuration(&cfg.RabbitMQ.RetryDelay, "RABBITMQ_RETRY_DELAY")

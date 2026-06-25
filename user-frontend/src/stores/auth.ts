@@ -14,6 +14,7 @@ export const useAuthStore = defineStore('auth', {
     isLoggedIn: (state: AuthState): boolean => Boolean(state.user),
     role: (state: AuthState): number | undefined => state.user?.role,
     username: (state: AuthState): string => state.user?.username || '',
+    email: (state: AuthState): string => state.user?.email || '',
     accountType: (state: AuthState): string => state.user?.account_type || 'candidate',
   },
   actions: {
@@ -60,6 +61,7 @@ export const useAuthStore = defineStore('auth', {
             account_type: d.account_type ? String(d.account_type) : undefined,
             roles: d.roles ?? undefined,
             permissions: d.permissions ?? undefined,
+            email: d.email ? String(d.email) : undefined,
           })
           this.user = getUser()
           return true

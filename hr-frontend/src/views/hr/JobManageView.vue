@@ -156,6 +156,23 @@ const openCreate = () => {
   dialogVisible.value = true
 }
 
+const openCopy = (row: Job) => {
+  editingId.value = null
+  populating.value = true
+  Object.assign(form, {
+    title: row.title,
+    department: row.department,
+    department_id: toNum(row.department_id ?? row.departmentId),
+    location: row.location,
+    location_id: toNum(row.location_id ?? row.locationId),
+    salary_range: row.salary_range,
+    description: normalizeRichText(row.description),
+    requirements: normalizeRichText(row.requirements),
+  })
+  populating.value = false
+  dialogVisible.value = true
+}
+
 const openEdit = (row: Job) => {
   editingId.value = row.job_id
   populating.value = true
@@ -275,9 +292,10 @@ onMounted(() => {
               <el-tag :type="row.status === 1 ? 'success' : 'info'">{{ row.status === 1 ? '招募中' : '已下架' }}</el-tag>
             </template>
           </el-table-column>
-          <el-table-column label="操作" width="280" fixed="right" align="center">
+          <el-table-column label="操作" width="340" fixed="right" align="center">
             <template #default="{ row }">
               <el-button text type="primary" @click="openEdit(row)">编辑</el-button>
+              <el-button text type="primary" @click="openCopy(row)">复制</el-button>
               <el-button text type="primary" @click="router.push(`/hr/jobs/${row.job_id}/applications`)">台账</el-button>
               <el-button v-if="row.status === 1" text type="danger" @click="offline(row)">下架</el-button>
               <el-button v-else text type="success" @click="online(row)">上线</el-button>
@@ -301,6 +319,7 @@ onMounted(() => {
           </div>
           <div class="mobile-card__actions">
             <el-button size="small" type="primary" plain @click="openEdit(job)">编辑</el-button>
+            <el-button size="small" type="primary" plain @click="openCopy(job)">复制</el-button>
             <el-button size="small" type="primary" plain @click="router.push(`/hr/jobs/${job.job_id}/applications`)">台账</el-button>
             <el-button v-if="job.status === 1" size="small" type="danger" plain @click="offline(job)">下架</el-button>
             <el-button v-else size="small" type="success" plain @click="online(job)">上线</el-button>

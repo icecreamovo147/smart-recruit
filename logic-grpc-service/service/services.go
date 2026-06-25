@@ -6,6 +6,7 @@ import (
 
 	"logic-grpc-service/ai"
 	"logic-grpc-service/config"
+	"logic-grpc-service/email"
 	"logic-grpc-service/mq"
 	"logic-grpc-service/oss"
 	"logic-grpc-service/pkg/cache"
@@ -50,6 +51,7 @@ type Services struct {
 	OutboxPublisher      *OutboxPublisher
 	NotificationConsumer *NotificationConsumer
 	ResumeParseConsumer  *ResumeParseConsumer
+	EmailConsumer        *EmailConsumer
 }
 
 func NewServices(
@@ -75,6 +77,7 @@ func NewServices(
 	deptLocs *repository.DepartmentLocationRepo,
 	usageLogs *repository.UsageLogRepo,
 	authzRepo *repository.AuthzRepo,
+	emailLogRepo *repository.EmailLogRepo,
 	notifCache *cache.NotificationCache,
 	jobCache *cache.JobCache,
 	ossClient oss.Storage,
@@ -82,6 +85,8 @@ func NewServices(
 	mqConn *mq.Conn,
 	cfg config.Config,
 	jwtSecret string,
+	emailSender email.Sender,
+	emailRenderer *email.Renderer,
 ) *Services {
 	toolExecutor := ai.NewToolExecutor(applications, jobs, resumes, ossClient, authzRepo)
 	candidateToolExecutor := ai.NewCandidateToolExecutor(applications, jobs, resumes)
@@ -95,6 +100,7 @@ func NewServices(
 	outboxPublisher := NewOutboxPublisher(outbox, mqConn)
 	notificationConsumer := NewNotificationConsumer(notifications, notifCache)
 	resumeParseConsumer := NewResumeParseConsumer(resumes, ossClient)
+	emailConsumer := NewEmailConsumer(users, emailLogRepo, emailRenderer, emailSender)
 	scopeEval := &scopeEvaluator{authzRepo: authzRepo}
 	serviceAuth := NewServiceAuthorizer(authzRepo, scopeEval)
 
@@ -132,5 +138,6 @@ func NewServices(
 		OutboxPublisher:      outboxPublisher,
 		NotificationConsumer: notificationConsumer,
 		ResumeParseConsumer:  resumeParseConsumer,
+		EmailConsumer:        emailConsumer,
 	}
 }

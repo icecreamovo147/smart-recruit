@@ -9,7 +9,6 @@ const RegisterView = () => import('@/views/RegisterView.vue')
 const WorkbenchView = () => import('@/views/hr/WorkbenchView.vue')
 const JobManageView = () => import('@/views/hr/JobManageView.vue')
 const ApplicationListView = () => import('@/views/hr/ApplicationListView.vue')
-const InterviewTaskView = () => import('@/views/hr/InterviewTaskView.vue')
 const InterviewScheduleView = () => import('@/views/hr/InterviewScheduleView.vue')
 const OfferManageView = () => import('@/views/hr/OfferManageView.vue')
 const AIChatView = () => import('@/views/hr/AIChatView.vue')
@@ -53,12 +52,6 @@ const routes: RouteRecordRaw[] = [
     path: '/hr/candidates/:candidateUserId/:section?',
     component: CandidateDetailView,
     meta: { requiresAuth: true, requiresPermission: PERM.APPLICATION_READ, title: '候选人详情' },
-  },
-  // Interview tasks — for interviewers (requires interview.read)
-  {
-    path: '/hr/interviews',
-    component: InterviewTaskView,
-    meta: { requiresAuth: true, requiresPermission: PERM.INTERVIEW_READ, title: '面试管理' },
   },
   // Schedule interview — requires interview.schedule
   {

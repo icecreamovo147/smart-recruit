@@ -51,6 +51,10 @@ func (s *Server) GetPrincipal(ctx context.Context, req *pb.GetPrincipalRequest) 
 	return s.svc.Auth.GetPrincipal(ctx, req)
 }
 
+func (s *Server) UpdateEmail(ctx context.Context, req *pb.UpdateEmailRequest) (*pb.CommonResponse, error) {
+	return s.svc.Auth.UpdateEmail(ctx, req)
+}
+
 // Job
 
 func (s *Server) CreateJob(ctx context.Context, req *pb.CreateJobRequest) (*pb.CreateJobResponse, error) {

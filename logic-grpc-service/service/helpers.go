@@ -84,6 +84,26 @@ func formatTime(t time.Time) string {
 	return t.Format(time.RFC3339)
 }
 
+func formatInterviewDate(t *time.Time) string {
+	if t == nil {
+		return ""
+	}
+	return t.Format("2006年01月02日 15:04")
+}
+
+func formatInterviewMode(mode string) string {
+	switch mode {
+	case "video":
+		return "视频面试"
+	case "phone":
+		return "电话面试"
+	case "onsite":
+		return "现场面试"
+	default:
+		return mode
+	}
+}
+
 // ---- Validation ----
 
 func allNotEmpty(values ...string) bool {

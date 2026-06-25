@@ -63,6 +63,7 @@ export const APP_STATUS_KEY = {
   INTERVIEW_PENDING: 'interview_pending',
   INTERVIEWING: 'interviewing',
   INTERVIEW_PASSED: 'interview_passed',
+  INTERVIEW_CANCELLED: 'interview_cancelled',
   OFFER_PENDING: 'offer_pending',
   OFFER_SENT: 'offer_sent',
   OFFER_ACCEPTED: 'offer_accepted',
@@ -99,6 +100,7 @@ export const HR_STATUS_LABELS: Record<string, string> = {
   [APP_STATUS_KEY.INTERVIEW_PENDING]: '待面试',
   [APP_STATUS_KEY.INTERVIEWING]: '面试中',
   [APP_STATUS_KEY.INTERVIEW_PASSED]: '面试通过',
+  [APP_STATUS_KEY.INTERVIEW_CANCELLED]: '面试已取消',
   [APP_STATUS_KEY.OFFER_PENDING]: '待发Offer',
   [APP_STATUS_KEY.OFFER_SENT]: 'Offer已发',
   [APP_STATUS_KEY.OFFER_ACCEPTED]: 'Offer已接受',
@@ -135,6 +137,7 @@ export const STATUS_TYPE_MAP: Record<string, string> = {
   [APP_STATUS_KEY.INTERVIEW_PENDING]: 'warning',
   [APP_STATUS_KEY.INTERVIEWING]: 'warning',
   [APP_STATUS_KEY.INTERVIEW_PASSED]: 'success',
+  [APP_STATUS_KEY.INTERVIEW_CANCELLED]: 'info',
   [APP_STATUS_KEY.OFFER_PENDING]: 'warning',
   [APP_STATUS_KEY.OFFER_SENT]: 'primary',
   [APP_STATUS_KEY.OFFER_ACCEPTED]: 'success',
@@ -168,16 +171,17 @@ export const ALLOWED_HR_ACTIONS: Record<string, Set<string>> = {
     APP_STATUS_KEY.INTERVIEW_PENDING,
     APP_STATUS_KEY.INTERVIEWING,
     APP_STATUS_KEY.INTERVIEW_PASSED,
+    APP_STATUS_KEY.INTERVIEW_CANCELLED,
     APP_STATUS_KEY.OFFER_PENDING,
     APP_STATUS_KEY.OFFER_SENT,
   ]),
   // Schedule interview: allowed from screen_passed, interview stages, and multi-round loop.
   [APP_STATUS_KEY.INTERVIEW_PENDING]: new Set([
-    APP_STATUS_KEY.VIEWED,            // skip screening, go directly to interview
+    APP_STATUS_KEY.VIEWED,              // skip screening, go directly to interview
     APP_STATUS_KEY.SCREEN_PASSED,
-    APP_STATUS_KEY.INTERVIEW_PENDING,  // reschedule after cancellation
-    APP_STATUS_KEY.INTERVIEWING,       // reschedule after cancellation
-    APP_STATUS_KEY.INTERVIEW_PASSED,   // multi-round interview (2nd, 3rd, ...)
+    APP_STATUS_KEY.INTERVIEW_CANCELLED,  // reschedule after cancellation
+    APP_STATUS_KEY.INTERVIEWING,         // reschedule after cancellation
+    APP_STATUS_KEY.INTERVIEW_PASSED,     // multi-round interview (2nd, 3rd, ...)
   ]),
   // Mark interview as passed: allowed from interviewing or interview_pending.
   [APP_STATUS_KEY.INTERVIEW_PASSED]: new Set([
@@ -236,6 +240,7 @@ export interface User {
   account_type?: string     // 'candidate' | 'staff' | 'service'
   roles?: string[]          // RBAC role keys
   permissions?: string[]    // RBAC permission keys
+  email?: string
 }
 
 export interface LoginPayload {

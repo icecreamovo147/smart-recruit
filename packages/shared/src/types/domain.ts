@@ -39,6 +39,7 @@ export interface User {
   account_type?: string     // 'candidate' | 'staff' | 'service'
   roles?: string[]          // RBAC role keys
   permissions?: string[]    // RBAC permission keys
+  email?: string
 }
 
 export interface LoginPayload {

@@ -1,7 +1,10 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, ref } from 'vue'
 import { useRouter } from 'vue-router'
+import { Edit } from '@element-plus/icons-vue'
+import { ElMessage } from 'element-plus'
 import { useAuthStore } from '@/stores/auth'
+import { updateEmail } from '@/api/auth'
 import { ROLE_KEY_INTERVIEWER } from '@/types/domain'
 
 const ROLE_LABELS: Record<string, string> = {
@@ -19,6 +22,33 @@ const accountTypeLabel = computed(() => {
   if (t === 'candidate') return '候选人账号'
   return t || '-'
 })
+
+const editingEmail = ref(false)
+const emailInput = ref(auth.email || '')
+const savingEmail = ref(false)
+
+const startEditEmail = () => {
+  emailInput.value = auth.email || ''
+  editingEmail.value = true
+}
+
+const saveEmail = async () => {
+  savingEmail.value = true
+  try {
+    await updateEmail(emailInput.value.trim())
+    ElMessage.success('邮箱更新成功')
+    editingEmail.value = false
+    await auth.restoreSession()
+  } catch {
+    // error handled by interceptor
+  } finally {
+    savingEmail.value = false
+  }
+}
+
+const cancelEditEmail = () => {
+  editingEmail.value = false
+}
 
 const handleLogout = async () => {
   await auth.logoutApi()
@@ -57,6 +87,22 @@ const handleLogout = async () => {
               </el-tag>
             </template>
             <span v-else>-</span>
+          </span>
+        </div>
+        <div class="profile-field">
+          <span class="field-label">邮箱</span>
+          <span class="field-value">
+            <template v-if="editingEmail">
+              <div class="email-edit-row">
+                <el-input v-model="emailInput" placeholder="请输入邮箱" clearable size="small" style="max-width: 240px" />
+                <el-button type="primary" :loading="savingEmail" size="small" @click="saveEmail">保存</el-button>
+                <el-button size="small" @click="cancelEditEmail">取消</el-button>
+              </div>
+            </template>
+            <template v-else>
+              <span>{{ auth.email || '未设置' }}</span>
+              <el-button :icon="Edit" link type="primary" size="small" style="margin-left: 8px" @click="startEditEmail">编辑</el-button>
+            </template>
           </span>
         </div>
       </div>
@@ -108,6 +154,12 @@ const handleLogout = async () => {
   font-size: 14px;
   color: var(--text-primary);
   font-weight: 500;
+}
+
+.email-edit-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
 
 .actions {

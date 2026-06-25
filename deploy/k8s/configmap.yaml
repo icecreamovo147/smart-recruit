@@ -32,6 +32,7 @@ data:
   RABBITMQ_RETRY_EXCHANGE: "recruitment.events.retry"
   RABBITMQ_NOTIFICATION_QUEUE: "recruitment.notification.create"
   RABBITMQ_RESUME_PARSE_QUEUE: "recruitment.resume.parse"
+  RABBITMQ_EMAIL_QUEUE: "recruitment.email.send"
   RABBITMQ_PREFETCH_COUNT: "10"
   RABBITMQ_RECONNECT_INTERVAL: "3s"
   AGENT_RECENT_MESSAGE_LIMIT: "20"
@@ -39,6 +40,11 @@ data:
   AGENT_MAX_MEMORY_CHARS: "1500"
   AGENT_MAX_PROMPT_CHARS: "20000"
   AGENT_MAX_MEMORIES: "10"
+  SMTP_HOST: ""
+  SMTP_PORT: "587"
+  SMTP_FROM_ADDRESS: "noreply@example.com"
+  SMTP_FROM_NAME: "Smart Recruit"
+  FRONTEND_BASE_URL: "https://recruit.example.com"
 ---
 apiVersion: v1
 kind: ConfigMap

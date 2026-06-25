@@ -664,6 +664,7 @@ func (r *AuthzRepo) LoadPrincipal(ctx context.Context, userID uint64) (*authz.Pr
 		DataScopes:   scopeAssignments,
 		TokenVersion: user.TokenVersion,
 		LegacyRole:   user.Role,
+		Email:        user.Email,
 	}, nil
 }
 
