@@ -28,14 +28,14 @@ type testConfig struct {
 func loadTestConfig(t *testing.T) (SMTPConfig, string) {
 	t.Helper()
 
-	data, err := os.ReadFile("../config/config.yaml")
+	data, err := os.ReadFile("../config/config.example.yaml")
 	if err != nil {
-		t.Fatalf("read config.yaml: %v", err)
+		t.Fatalf("read config.example.yaml: %v", err)
 	}
 
 	var cfg testConfig
 	if err := yaml.Unmarshal(data, &cfg); err != nil {
-		t.Fatalf("parse config.yaml: %v", err)
+		t.Fatalf("parse config.example.yaml: %v", err)
 	}
 
 	if cfg.SMTP.Host == "" {

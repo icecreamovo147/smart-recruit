@@ -45,13 +45,13 @@ func TestInterviewEmailFlow(t *testing.T) {
 	}
 
 	// ── Load config ────────────────────────────────────────────────────
-	raw, err := os.ReadFile("../config/config.yaml")
+	raw, err := os.ReadFile("../config/config.example.yaml")
 	if err != nil {
-		t.Fatalf("read config.yaml: %v", err)
+		t.Fatalf("read config.example.yaml: %v", err)
 	}
 	var cfg fullTestConfig
 	if err := yaml.Unmarshal(raw, &cfg); err != nil {
-		t.Fatalf("parse config.yaml: %v", err)
+		t.Fatalf("parse config.example.yaml: %v", err)
 	}
 
 	// ── DB: lookup candidate ───────────────────────────────────────────

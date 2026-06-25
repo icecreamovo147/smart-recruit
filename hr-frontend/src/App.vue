@@ -208,8 +208,6 @@ const routeViewKey = (viewRoute: { fullPath: string; path: string; params: Recor
     </div>
 
     <!-- 邮箱设置弹窗 -->
-    <EmailSetupDialog v-model="showEmailSetup" @saved="handleEmailSaved" />
+    <EmailSetupDialog v-model="showEmailSetup" @saved="handleEmailSaved" @error="(msg) => ElMessage.warning(msg)" />
   </div>
 </template>
-
-<style scoped>

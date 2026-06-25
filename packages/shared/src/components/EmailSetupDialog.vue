@@ -1,6 +1,5 @@
 <script setup lang="ts">
 import { ref } from 'vue'
-import { ElMessage } from 'element-plus'
 
 const props = defineProps<{
   modelValue: boolean
@@ -9,6 +8,7 @@ const props = defineProps<{
 const emit = defineEmits<{
   (e: 'update:modelValue', value: boolean): void
   (e: 'saved', email: string): void
+  (e: 'error', message: string): void
 }>()
 
 const emailInput = ref('')
@@ -17,7 +17,7 @@ const saving = ref(false)
 const save = async () => {
   const email = emailInput.value.trim()
   if (!email || !email.includes('@') || !email.includes('.')) {
-    ElMessage.warning('请输入有效的邮箱地址')
+    emit('error', '请输入有效的邮箱地址')
     return
   }
   saving.value = true

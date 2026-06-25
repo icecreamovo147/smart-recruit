@@ -1097,11 +1097,7 @@ func (s *InterviewService) SubmitFeedback(ctx context.Context, req *pb.SubmitFee
 		}
 
 		// Step 3: Auto-transition application status: interview_pending → interviewing
-		appDetail, err := s.applications.GetDetail(ctx, req.ApplicationId)
-		if err != nil || appDetail == nil {
-			return err
-		}
-		if appDetail.StatusKey == model.StatusKeyInterviewPending {
+		if interviewDetail.ApplicationStatusKey == model.StatusKeyInterviewPending {
 			legacyStatus := model.StatusKeyToLegacy[model.StatusKeyInterviewing]
 			if _, err := s.applications.UpdateStatusAnyWithTx(ctx, tx, req.ApplicationId, model.StatusKeyInterviewPending, model.StatusKeyInterviewing, legacyStatus); err != nil {
 				return err

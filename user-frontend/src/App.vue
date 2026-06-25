@@ -133,7 +133,7 @@ const handleEmailSaved = async (email: string) => {
     <CandidateAIAssistant v-if="auth.isLoggedIn" />
 
     <!-- 邮箱设置弹窗 -->
-    <EmailSetupDialog v-model="showEmailSetup" @saved="handleEmailSaved" />
+    <EmailSetupDialog v-model="showEmailSetup" @saved="handleEmailSaved" @error="(msg) => ElMessage.warning(msg)" />
   </div>
 </template>
 
