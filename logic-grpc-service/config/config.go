@@ -9,6 +9,15 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
+type Password string
+
+func (p Password) String() string {
+	if p == "" {
+		return ""
+	}
+	return "****"
+}
+
 type Config struct {
 	MySQL struct {
 		DSN             string   `yaml:"dsn"`
@@ -79,13 +88,14 @@ type Config struct {
 		ReconnectInterval Duration `yaml:"reconnect_interval"`
 	} `yaml:"rabbitmq"`
 	SMTP struct {
-		Host        string `yaml:"host"`
-		Port        int    `yaml:"port"`
-		Username    string `yaml:"username"`
-		Password    string `yaml:"password"`
-		FromAddress string `yaml:"from_address"`
-		FromName    string `yaml:"from_name"`
-		TLS         bool   `yaml:"tls"`
+		Host        string   `yaml:"host"`
+		Port        int      `yaml:"port"`
+		Username    string   `yaml:"username"`
+		Password    Password `yaml:"password"`
+		FromAddress string   `yaml:"from_address"`
+		FromName    string   `yaml:"from_name"`
+		TLS         bool     `yaml:"tls"`
+		Required    bool     `yaml:"required"`
 	} `yaml:"smtp"`
 	FrontendBaseURL string `yaml:"frontend_base_url"`
 }
@@ -299,9 +309,14 @@ func applyEnvOverrides(cfg *Config) {
 	setString(&cfg.SMTP.Host, "SMTP_HOST")
 	setInt(&cfg.SMTP.Port, "SMTP_PORT")
 	setString(&cfg.SMTP.Username, "SMTP_USERNAME")
-	setString(&cfg.SMTP.Password, "SMTP_PASSWORD")
+	setString((*string)(&cfg.SMTP.Password), "SMTP_PASSWORD")
 	setString(&cfg.SMTP.FromAddress, "SMTP_FROM_ADDRESS")
 	setString(&cfg.SMTP.FromName, "SMTP_FROM_NAME")
+	if v := os.Getenv("SMTP_REQUIRED"); v != "" {
+		if b, err := strconv.ParseBool(v); err == nil {
+			cfg.SMTP.Required = b
+		}
+	}
 
 	setString(&cfg.FrontendBaseURL, "FRONTEND_BASE_URL")
 

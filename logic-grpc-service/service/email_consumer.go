@@ -39,10 +39,10 @@ type emailPayload struct {
 
 // EmailConsumer consumes email.send events from RabbitMQ and sends HTML emails.
 type EmailConsumer struct {
-	userRepo    *repository.UserRepo
-	emailLog    *repository.EmailLogRepo
-	renderer    *email.Renderer
-	sender      email.Sender
+	userRepo *repository.UserRepo
+	emailLog *repository.EmailLogRepo
+	renderer *email.Renderer
+	sender   email.Sender
 }
 
 // NewEmailConsumer creates a new EmailConsumer.
@@ -91,6 +91,10 @@ func (c *EmailConsumer) handle(ctx context.Context, body []byte) error {
 		if exists {
 			logger.L().Info("email consumer: duplicate event, skipping",
 				zap.String("event_id", p.EventID))
+			// Record as skipped; if logging fails, warn but do not retry (skip is correct).
+			if err := c.recordLog(ctx, p, "", "skipped", nil); err != nil {
+				logger.L().Warn("email consumer: failed to record skip log", zap.Error(err))
+			}
 			return nil
 		}
 	}
@@ -106,7 +110,9 @@ func (c *EmailConsumer) handle(ctx context.Context, body []byte) error {
 		logger.L().Info("email consumer: user has no email, skipping",
 			zap.Int64("receiver_id", p.ReceiverID), zap.String("type", p.Type))
 		// Record as skipped.
-		c.recordLog(ctx, p, "", "skipped", nil)
+		if err := c.recordLog(ctx, p, "", "skipped", nil); err != nil {
+			logger.L().Warn("email consumer: failed to record skip log", zap.Error(err))
+		}
 		return nil
 	}
 
@@ -165,21 +171,25 @@ func (c *EmailConsumer) handle(ctx context.Context, body []byte) error {
 	// Send email.
 	if err := c.sender.Send(ctx, user.Email, subject, htmlBody); err != nil {
 		logger.L().Error("email consumer: send failed",
-			zap.String("to", user.Email), zap.String("type", p.Type), zap.Error(err))
-		c.recordLog(ctx, p, user.Email, "failed", &err)
+			zap.String("to", email.MaskEmail(user.Email)), zap.String("type", p.Type), zap.Error(err))
+		if err := c.recordLog(ctx, p, user.Email, "failed", &err); err != nil {
+			return err
+		}
 		return err
 	}
 
 	logger.L().Info("email sent successfully",
-		zap.String("to", user.Email),
+		zap.String("to", email.MaskEmail(user.Email)),
 		zap.String("type", p.Type),
 		zap.String("event_id", p.EventID),
 	)
-	c.recordLog(ctx, p, user.Email, "sent", nil)
+	if err := c.recordLog(ctx, p, user.Email, "sent", nil); err != nil {
+		return err
+	}
 	return nil
 }
 
-func (c *EmailConsumer) recordLog(ctx context.Context, p emailPayload, addr, status string, sendErr *error) {
+func (c *EmailConsumer) recordLog(ctx context.Context, p emailPayload, addr, status string, sendErr *error) error {
 	log := &model.EmailLog{
 		EventID: p.EventID,
 		UserID:  p.ReceiverID,
@@ -195,5 +205,7 @@ func (c *EmailConsumer) recordLog(ctx context.Context, p emailPayload, addr, sta
 	}
 	if err := c.emailLog.Create(ctx, log); err != nil {
 		logger.L().Warn("email consumer: record log failed", zap.Error(err))
+		return err
 	}
+	return nil
 }

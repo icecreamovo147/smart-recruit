@@ -201,15 +201,19 @@ func main() {
 	log.Info("ai client initialized", zap.String("model", cfg.AI.Model))
 
 	// ── Email sender and renderer ───────────────────────────────────────
-	emailSender := email.NewSender(email.SMTPConfig{
+	emailSender, err := email.NewSender(email.SMTPConfig{
 		Host:        cfg.SMTP.Host,
 		Port:        cfg.SMTP.Port,
 		Username:    cfg.SMTP.Username,
-		Password:    cfg.SMTP.Password,
+		Password:    string(cfg.SMTP.Password),
 		FromAddress: cfg.SMTP.FromAddress,
 		FromName:    cfg.SMTP.FromName,
 		TLS:         cfg.SMTP.TLS,
+		Required:    cfg.SMTP.Required,
 	})
+	if err != nil {
+		log.Fatal("SMTP required but unreachable", zap.Error(err))
+	}
 	emailRenderer, err := email.NewRenderer(cfg.FrontendBaseURL)
 	if err != nil {
 		log.Fatal("init email renderer failed", zap.Error(err))

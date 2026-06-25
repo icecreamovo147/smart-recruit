@@ -57,7 +57,10 @@ func loadTestConfig(t *testing.T) (SMTPConfig, string) {
 func TestSMTPConnection(t *testing.T) {
 	smtpCfg, _ := loadTestConfig(t)
 
-	sender := NewSender(smtpCfg)
+	sender, err := NewSender(smtpCfg)
+	if err != nil {
+		t.Fatalf("NewSender failed: %v", err)
+	}
 	defer sender.Close()
 
 	// If NewSender fell back to LogSender, skip the real send test.

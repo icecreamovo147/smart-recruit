@@ -283,6 +283,10 @@ func (s *Server) CancelInterview(ctx context.Context, req *pb.CancelInterviewReq
 	return s.svc.Interview.CancelInterview(ctx, req)
 }
 
+func (s *Server) BatchCancelInterviews(ctx context.Context, req *pb.BatchCancelInterviewsRequest) (*pb.BatchCancelInterviewsResponse, error) {
+	return s.svc.Interview.BatchCancelInterviews(ctx, req)
+}
+
 func (s *Server) GetInterview(ctx context.Context, req *pb.GetInterviewRequest) (*pb.GetInterviewResponse, error) {
 	return s.svc.Interview.GetInterview(ctx, req)
 }

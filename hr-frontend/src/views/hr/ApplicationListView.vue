@@ -4,7 +4,7 @@ import { useRoute, useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { ArrowDown } from '@element-plus/icons-vue'
 import { listJobApplications, updateApplicationStatus } from '@/api/application'
-import { listApplicationInterviews, cancelInterview } from '@/api/interview'
+import { listApplicationInterviews, batchCancelInterviews } from '@/api/interview'
 import type { Application, InterviewSchedule, JobQuery } from '@/types/domain'
 import { getHRStatusLabel, getStatusType, APP_STATUS_KEY, TERMINAL_STATUS_KEYS, ALLOWED_HR_ACTIONS } from '@/types/domain'
 import InterviewScheduleDialog from '@/components/business/InterviewScheduleDialog.vue'
@@ -196,11 +196,9 @@ const handleCancelInterview = async (row: Application) => {
       inputPattern: /.{1,}/,
       inputErrorMessage: '请填写取消原因',
     })
-    // Cancel all active interviews for this application
-    for (const iv of activeInterviews) {
-      await cancelInterview(iv.interview_id, reason || '')
-    }
-    ElMessage.success(`已取消 ${activeInterviews.length} 场面试`)
+    // Cancel all active interviews for this application via batch API
+    await batchCancelInterviews(row.application_id, reason || '')
+    ElMessage.success('已取消该候选人的所有面试')
     load()
   } catch {
     // User cancelled or error handled by interceptor

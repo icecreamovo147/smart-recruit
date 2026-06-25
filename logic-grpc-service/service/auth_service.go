@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"net/mail"
 	"strings"
 	"time"
 	"unicode"
@@ -82,10 +83,18 @@ type AuthService struct {
 	authz       *repository.AuthzRepo
 	inviteCodes *repository.InviteCodeRepo
 	jwtSecret   string
+	serviceAuth *ServiceAuthorizer
 }
 
 func NewAuthService(users *repository.UserRepo, tokens *repository.RefreshTokenRepo, authzRepo *repository.AuthzRepo, inviteCodes *repository.InviteCodeRepo, jwtSecret string) *AuthService {
-	return &AuthService{users: users, tokens: tokens, authz: authzRepo, inviteCodes: inviteCodes, jwtSecret: jwtSecret}
+	return &AuthService{
+		users:       users,
+		tokens:      tokens,
+		authz:       authzRepo,
+		inviteCodes: inviteCodes,
+		jwtSecret:   jwtSecret,
+		serviceAuth: NewServiceAuthorizer(authzRepo, &scopeEvaluator{authzRepo: authzRepo}),
+	}
 }
 
 func (s *AuthService) Register(ctx context.Context, req *pb.RegisterRequest) (*pb.RegisterResponse, error) {
@@ -258,6 +267,7 @@ func (s *AuthService) Login(ctx context.Context, req *pb.LoginRequest) (*pb.Logi
 		UserId:       user.ID,
 		Role:         user.Role,
 		Username:     user.Username,
+		Email:        user.Email,
 		AccountType:  user.AccountType,
 		Roles:        roles,
 		Permissions:  perms,
@@ -367,12 +377,15 @@ func (s *AuthService) GetPrincipal(ctx context.Context, req *pb.GetPrincipalRequ
 
 // UpdateEmail updates the user's email address.
 func (s *AuthService) UpdateEmail(ctx context.Context, req *pb.UpdateEmailRequest) (*pb.CommonResponse, error) {
+	if err := s.serviceAuth.VerifyActorMatch(ctx, req.UserId); err != nil {
+		return nil, err
+	}
 	email := strings.TrimSpace(req.Email)
 	if len(email) > 128 {
 		return &pb.CommonResponse{Code: errs.ErrBadRequest, Msg: "邮箱长度不能超过128个字符"}, nil
 	}
 	if email != "" {
-		if !strings.Contains(email, "@") || !strings.Contains(email, ".") {
+		if _, err := mail.ParseAddress(email); err != nil {
 			return &pb.CommonResponse{Code: errs.ErrBadRequest, Msg: "请输入有效的邮箱地址"}, nil
 		}
 	}

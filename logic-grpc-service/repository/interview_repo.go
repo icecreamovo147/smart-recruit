@@ -164,7 +164,7 @@ func (r *InterviewRepo) ListByCandidate(ctx context.Context, userID int64) ([]In
 	var rows []InterviewWithDetailsRow
 	err := r.baseJoins().
 		Where("a.user_id = ? AND interview_schedules.deleted_at IS NULL", userID).
-		Where("interview_schedules.status NOT IN (?)", []string{"cancelled"}).
+		Where("interview_schedules.status NOT IN (?)", []string{model.InterviewStatusCancelled}).
 		Order("interview_schedules.scheduled_at DESC, interview_schedules.created_at DESC").
 		Scan(&rows).Error
 	return rows, err
@@ -241,9 +241,9 @@ func (r *InterviewRepo) ListFeedbackByInterviews(ctx context.Context, interviewI
 func (r *InterviewRepo) CancelPendingByApplication(ctx context.Context, tx *gorm.DB, applicationID int64, reason string) error {
 	return tx.WithContext(ctx).
 		Model(&model.InterviewSchedule{}).
-		Where("application_id = ? AND status IN ? AND deleted_at IS NULL", applicationID, []string{"pending", "scheduled"}).
+		Where("application_id = ? AND status IN ? AND deleted_at IS NULL", applicationID, []string{model.InterviewStatusPending, model.InterviewStatusScheduled}).
 		Updates(map[string]interface{}{
-			"status":        "cancelled",
+			"status":        model.InterviewStatusCancelled,
 			"cancel_reason": reason,
 		}).Error
 }

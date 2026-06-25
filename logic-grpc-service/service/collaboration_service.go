@@ -750,7 +750,7 @@ func (s *CollaborationService) ListTimelineEvents(ctx context.Context, req *pb.L
 				scheduledAt = iv.ScheduledAt.Format(time.RFC3339)
 			}
 			title := "面试: " + iv.Title
-			if iv.Status == "cancelled" {
+			if iv.Status == model.InterviewStatusCancelled {
 				title = "面试已取消: " + iv.Title
 			}
 			desc := "面试官: " + iv.InterviewerName

@@ -6701,6 +6701,7 @@ type BatchCancelInterviewsResponse struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Code          int32                  `protobuf:"varint,1,opt,name=code,proto3" json:"code,omitempty"`
 	Msg           string                 `protobuf:"bytes,2,opt,name=msg,proto3" json:"msg,omitempty"`
+	Affected      int32                  `protobuf:"varint,3,opt,name=affected,proto3" json:"affected,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -6747,6 +6748,13 @@ func (x *BatchCancelInterviewsResponse) GetMsg() string {
 		return x.Msg
 	}
 	return ""
+}
+
+func (x *BatchCancelInterviewsResponse) GetAffected() int32 {
+	if x != nil {
+		return x.Affected
+	}
+	return 0
 }
 
 type Notification struct {
@@ -16428,10 +16436,11 @@ const file_proto_recruitment_proto_rawDesc = "" +
 	"\x1cBatchCancelInterviewsRequest\x12\x13\n" +
 	"\x05hr_id\x18\x01 \x01(\x03R\x04hrId\x12%\n" +
 	"\x0eapplication_id\x18\x02 \x01(\x03R\rapplicationId\x12#\n" +
-	"\rcancel_reason\x18\x03 \x01(\tR\fcancelReason\"E\n" +
+	"\rcancel_reason\x18\x03 \x01(\tR\fcancelReason\"a\n" +
 	"\x1dBatchCancelInterviewsResponse\x12\x12\n" +
 	"\x04code\x18\x01 \x01(\x05R\x04code\x12\x10\n" +
-	"\x03msg\x18\x02 \x01(\tR\x03msg\"\x92\x02\n" +
+	"\x03msg\x18\x02 \x01(\tR\x03msg\x12\x1a\n" +
+	"\baffected\x18\x03 \x01(\x05R\baffected\"\x92\x02\n" +
 	"\fNotification\x12'\n" +
 	"\x0fnotification_id\x18\x01 \x01(\x03R\x0enotificationId\x12\x12\n" +
 	"\x04type\x18\x02 \x01(\tR\x04type\x12\x14\n" +

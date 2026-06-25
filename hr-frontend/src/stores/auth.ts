@@ -68,6 +68,7 @@ export const useAuthStore = defineStore('auth', {
         account_type: data.account_type,
         roles: data.roles || [],
         permissions: data.permissions || [],
+        email: data.email,
       })
       this.user = getUser()
     },

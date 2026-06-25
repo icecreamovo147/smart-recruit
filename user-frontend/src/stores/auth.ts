@@ -27,6 +27,7 @@ export const useAuthStore = defineStore('auth', {
         account_type: data.account_type,
         roles: data.roles || [],
         permissions: data.permissions || [],
+        email: data.email,
       })
       this.user = getUser()
     },
@@ -59,8 +60,8 @@ export const useAuthStore = defineStore('auth', {
             role: Number(d.role),
             username: String(d.username),
             account_type: d.account_type ? String(d.account_type) : undefined,
-            roles: d.roles ?? undefined,
-            permissions: d.permissions ?? undefined,
+            roles: Array.isArray(d.roles) ? d.roles.map(String) : [],
+            permissions: Array.isArray(d.permissions) ? d.permissions.map(String) : [],
             email: d.email ? String(d.email) : undefined,
           })
           this.user = getUser()

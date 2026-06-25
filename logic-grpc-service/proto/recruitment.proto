@@ -888,6 +888,7 @@ message BatchCancelInterviewsRequest {
 message BatchCancelInterviewsResponse {
   int32 code = 1;
   string msg = 2;
+  int32 affected = 3;
 }
 
 message Notification {

@@ -255,6 +255,7 @@ export interface LoginResponse {
   account_type?: string
   roles?: string[]
   permissions?: string[]
+  email?: string
 }
 
 export interface RegisterPayload {

@@ -122,6 +122,32 @@ func (h *InterviewHandler) Cancel(c *gin.Context) {
 	base.ProtoResponse(c, resp)
 }
 
+// BatchCancelInterviews cancels all pending/scheduled interviews for an application.
+func (h *InterviewHandler) BatchCancelInterviews(c *gin.Context) {
+	applicationID, err := strconv.ParseInt(c.Param("application_id"), 10, 64)
+	if err != nil {
+		base.BadRequest(c, "投递记录 ID 不合法")
+		return
+	}
+	var req struct {
+		CancelReason string `json:"cancel_reason"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		base.BadRequest(c, "请求参数错误")
+		return
+	}
+	resp, err := h.clients.Interview.BatchCancelInterviews(c.Request.Context(), &pb.BatchCancelInterviewsRequest{
+		HrId:          middleware.UserID(c),
+		ApplicationId: applicationID,
+		CancelReason:  req.CancelReason,
+	})
+	if err != nil {
+		base.Internal(c, err)
+		return
+	}
+	base.ProtoResponse(c, resp)
+}
+
 func (h *InterviewHandler) ListByApplication(c *gin.Context) {
 	applicationID, err := strconv.ParseInt(c.Param("id"), 10, 64)
 	if err != nil {

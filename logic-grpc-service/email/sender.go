@@ -28,6 +28,7 @@ type SMTPConfig struct {
 	FromAddress string
 	FromName    string
 	TLS         bool
+	Required    bool
 }
 
 // SMTPSender sends emails via SMTP with STARTTLS support.
@@ -108,7 +109,7 @@ func NewLogSender() *LogSender {
 
 func (s *LogSender) Send(_ context.Context, to, subject, htmlBody string) error {
 	logger.L().Info("email (log mode)",
-		zap.String("to", to),
+		zap.String("to", MaskEmail(to)),
 		zap.String("subject", subject),
 		zap.Int("html_len", len(htmlBody)),
 	)
@@ -138,10 +139,10 @@ func buildMIMEMessage(from, fromName, to, subject, htmlBody string) []byte {
 
 // NewSender creates the appropriate Sender based on configuration.
 // Returns LogSender when SMTP host is empty (development mode).
-func NewSender(cfg SMTPConfig) Sender {
+func NewSender(cfg SMTPConfig) (Sender, error) {
 	if cfg.Host == "" {
 		logger.L().Info("SMTP not configured, using log-only email sender")
-		return NewLogSender()
+		return NewLogSender(), nil
 	}
 	if cfg.Port == 0 {
 		cfg.Port = 587
@@ -155,12 +156,31 @@ func NewSender(cfg SMTPConfig) Sender {
 	// Validate host:port is reachable (best-effort).
 	conn, err := net.DialTimeout("tcp", fmt.Sprintf("%s:%d", cfg.Host, cfg.Port), 5e9)
 	if err != nil {
+		if cfg.Required {
+			return nil, fmt.Errorf("SMTP host %s:%d unreachable: %w", cfg.Host, cfg.Port, err)
+		}
 		logger.L().Warn("SMTP host unreachable, falling back to log sender",
 			zap.String("host", cfg.Host), zap.Int("port", cfg.Port), zap.Error(err))
-		return NewLogSender()
+		return NewLogSender(), nil
 	}
 	conn.Close()
 	logger.L().Info("SMTP sender initialized",
 		zap.String("host", cfg.Host), zap.Int("port", cfg.Port))
-	return NewSMTPSender(cfg)
+	return NewSMTPSender(cfg), nil
+}
+
+// MaskEmail masks the local part of an email address for PII protection.
+// Returns "***" if the address cannot be parsed.
+func MaskEmail(addr string) string {
+	if addr == "" {
+		return ""
+	}
+	idx := strings.LastIndex(addr, "@")
+	if idx < 0 {
+		return "***"
+	}
+	if idx <= 1 {
+		return "***" + addr[idx:]
+	}
+	return addr[:1] + "***" + addr[idx:]
 }

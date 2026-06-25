@@ -242,7 +242,7 @@ func (s *InterviewService) ScheduleInterview(ctx context.Context, req *pb.Schedu
 		CandidateNote:   req.CandidateNote,
 		InternalNote:    req.InternalNote,
 		ScheduledAt:     scheduledAt,
-		Status:          "scheduled",
+		Status:          model.InterviewStatusScheduled,
 		CreatedBy:       &req.HrId,
 	}
 
@@ -564,7 +564,7 @@ func (s *InterviewService) CancelInterview(ctx context.Context, req *pb.CancelIn
 		return &pb.CommonResponse{Code: errs.ErrBadRequest, Msg: "面试记录不存在"}, nil
 	}
 
-	if existing.Status == "cancelled" {
+	if existing.Status == model.InterviewStatusCancelled {
 		return &pb.CommonResponse{Code: errs.ErrBadRequest, Msg: "该面试已取消"}, nil
 	}
 
@@ -573,7 +573,7 @@ func (s *InterviewService) CancelInterview(ctx context.Context, req *pb.CancelIn
 		return &pb.CommonResponse{Code: errs.ErrForbidden, Msg: err.Error()}, nil
 	}
 
-	existing.Status = "cancelled"
+	existing.Status = model.InterviewStatusCancelled
 	existing.CancelReason = req.CancelReason
 
 	err = s.interviews.Transaction(ctx, func(tx *gorm.DB) error {
@@ -598,18 +598,23 @@ func (s *InterviewService) CancelInterview(ctx context.Context, req *pb.CancelIn
 		currentKey := appDetail.StatusKey
 		if currentKey == model.StatusKeyInterviewPending || currentKey == model.StatusKeyInterviewing {
 			legacyStatus := model.StatusKeyToLegacy[model.StatusKeyInterviewCancelled]
-			if _, err := s.applications.UpdateStatusAnyWithTx(ctx, tx, existing.ApplicationID, currentKey, model.StatusKeyInterviewCancelled, legacyStatus); err != nil {
+			rows, err := s.applications.UpdateStatusAnyWithTx(ctx, tx, existing.ApplicationID, currentKey, model.StatusKeyInterviewCancelled, legacyStatus)
+			if err != nil {
 				return err
 			}
-			if err := s.applications.CreateTransition(ctx, tx, &model.ApplicationStatusTransition{
-				ApplicationID:    existing.ApplicationID,
-				FromStatus:       currentKey,
-				ToStatus:         model.StatusKeyInterviewCancelled,
-				ActorUserID:      req.HrId,
-				ActorAccountType: "staff",
-				Reason:           fmt.Sprintf("取消面试（ID=%d）：%s", existing.ID, reasonText),
-			}); err != nil {
-				return err
+			// Only write transition audit record if the status was actually changed.
+			// If rows == 0, another concurrent cancel already transitioned the application status.
+			if rows > 0 {
+				if err := s.applications.CreateTransition(ctx, tx, &model.ApplicationStatusTransition{
+					ApplicationID:    existing.ApplicationID,
+					FromStatus:       currentKey,
+					ToStatus:         model.StatusKeyInterviewCancelled,
+					ActorUserID:      req.HrId,
+					ActorAccountType: "staff",
+					Reason:           fmt.Sprintf("取消面试（ID=%d）：%s", existing.ID, reasonText),
+				}); err != nil {
+					return err
+				}
 			}
 		}
 
@@ -699,6 +704,177 @@ func (s *InterviewService) CancelInterview(ctx context.Context, req *pb.CancelIn
 	)
 
 	return &pb.CommonResponse{Code: errs.OK, Msg: "面试已取消"}, nil
+}
+
+func (s *InterviewService) BatchCancelInterviews(ctx context.Context, req *pb.BatchCancelInterviewsRequest) (*pb.BatchCancelInterviewsResponse, error) {
+	if err := s.serviceAuth.VerifyActorMatch(ctx, req.HrId); err != nil {
+		return nil, err
+	}
+
+	// Permission + scope check
+	if err := s.checkInterviewScheduleScope(ctx, req.HrId, req.ApplicationId); err != nil {
+		return &pb.BatchCancelInterviewsResponse{Code: errs.ErrForbidden, Msg: err.Error()}, nil
+	}
+
+	// Load application detail
+	appDetail, err := s.applications.GetDetail(ctx, req.ApplicationId)
+	if err != nil {
+		return nil, err
+	}
+	if appDetail == nil {
+		return &pb.BatchCancelInterviewsResponse{Code: errs.ErrBadRequest, Msg: "投递记录不存在"}, nil
+	}
+
+	// Load all interviews for the application
+	allInterviews, err := s.interviews.ListByApplication(ctx, req.ApplicationId)
+	if err != nil {
+		return nil, err
+	}
+
+	// Filter to active (pending/scheduled) interviews
+	var activeInterviews []repository.InterviewWithDetailsRow
+	for _, iv := range allInterviews {
+		if iv.Status == model.InterviewStatusPending || iv.Status == model.InterviewStatusScheduled {
+			activeInterviews = append(activeInterviews, iv)
+		}
+	}
+
+	if len(activeInterviews) == 0 {
+		return &pb.BatchCancelInterviewsResponse{
+			Code:     errs.OK,
+			Msg:      "没有需要取消的面试",
+			Affected: 0,
+		}, nil
+	}
+
+	reasonText := req.CancelReason
+	if reasonText == "" {
+		reasonText = "批量取消"
+	}
+
+	var cancelledCount int32
+	err = s.interviews.Transaction(ctx, func(tx *gorm.DB) error {
+		// Cancel all pending/scheduled interviews
+		if err := s.interviews.CancelPendingByApplication(ctx, tx, req.ApplicationId, reasonText); err != nil {
+			return err
+		}
+
+		// Transition application status to interview_cancelled if applicable
+		currentKey := appDetail.StatusKey
+		if currentKey == model.StatusKeyInterviewPending || currentKey == model.StatusKeyInterviewing {
+			legacyStatus := model.StatusKeyToLegacy[model.StatusKeyInterviewCancelled]
+			rows, err := s.applications.UpdateStatusAnyWithTx(ctx, tx, req.ApplicationId, currentKey, model.StatusKeyInterviewCancelled, legacyStatus)
+			if err != nil {
+				return err
+			}
+			if rows > 0 {
+				if err := s.applications.CreateTransition(ctx, tx, &model.ApplicationStatusTransition{
+					ApplicationID:    req.ApplicationId,
+					FromStatus:       currentKey,
+					ToStatus:         model.StatusKeyInterviewCancelled,
+					ActorUserID:      req.HrId,
+					ActorAccountType: "staff",
+					Reason:           fmt.Sprintf("批量取消面试：%s", reasonText),
+				}); err != nil {
+					return err
+				}
+			}
+		}
+
+		// Write outbox events for the first cancelled interview only (to avoid spam)
+		first := activeInterviews[0]
+
+		// Notify interviewer
+		if err := s.outboxPublisher.WriteEventTx(tx, "notification.create", "interview", uint64(first.ID), "notification.create", notificationPayload{
+			ReceiverID:          first.InterviewerID,
+			ReceiverRole:        2,
+			ReceiverAccountType: "staff",
+			Type:                "interview_cancelled",
+			Title:               "面试已取消",
+			Content:             fmt.Sprintf("「%s」岗位的面试已取消。原因：%s", appDetail.JobTitle, reasonText),
+			Link:                fmt.Sprintf("/hr/interviews/%d", first.ID),
+			BizType:             "interview",
+			BizID:               first.ID,
+		}); err != nil {
+			return err
+		}
+
+		// Email to interviewer
+		if err := s.outboxPublisher.WriteEventTx(tx, "email.send", "interview", uint64(first.ID), "email.send", emailPayload{
+			ReceiverID:          first.InterviewerID,
+			ReceiverAccountType: "staff",
+			Type:                "interview_cancelled",
+			Title:               "面试已取消",
+			Content:             fmt.Sprintf("「%s」岗位的面试已取消。原因：%s", appDetail.JobTitle, reasonText),
+			Link:                fmt.Sprintf("/hr/interviews/%d", first.ID),
+			BizType:             "interview",
+			BizID:               first.ID,
+			JobTitle:            appDetail.JobTitle,
+			InterviewDate:       formatInterviewDate(first.ScheduledAt),
+			InterviewMode:       formatInterviewMode(first.Mode),
+			InterviewLink:       first.MeetingURL,
+			InterviewLoc:        first.Location,
+		}); err != nil {
+			return err
+		}
+
+		// Notify candidate
+		if err := s.outboxPublisher.WriteEventTx(tx, "notification.create", "interview", uint64(first.ID), "notification.create", notificationPayload{
+			ReceiverID:          appDetail.UserID,
+			ReceiverRole:        1,
+			ReceiverAccountType: "candidate",
+			Type:                "interview_cancelled",
+			Title:               "面试已取消",
+			Content:             fmt.Sprintf("您的「%s」岗位面试已取消。原因：%s", appDetail.JobTitle, reasonText),
+			Link:                "/applications",
+			BizType:             "interview",
+			BizID:               first.ID,
+		}); err != nil {
+			return err
+		}
+
+		// Email to candidate
+		if err := s.outboxPublisher.WriteEventTx(tx, "email.send", "interview", uint64(first.ID), "email.send", emailPayload{
+			ReceiverID:          appDetail.UserID,
+			ReceiverAccountType: "candidate",
+			Type:                "interview_cancelled",
+			Title:               "面试已取消",
+			Content:             fmt.Sprintf("您的「%s」岗位面试已取消。原因：%s", appDetail.JobTitle, reasonText),
+			Link:                "/applications",
+			BizType:             "interview",
+			BizID:               first.ID,
+			JobTitle:            appDetail.JobTitle,
+			RecipientName:       appDetail.RealName,
+			InterviewDate:       formatInterviewDate(first.ScheduledAt),
+			InterviewMode:       formatInterviewMode(first.Mode),
+			InterviewLink:       first.MeetingURL,
+			InterviewLoc:        first.Location,
+		}); err != nil {
+			return err
+		}
+
+		cancelledCount = int32(len(activeInterviews))
+		return nil
+	})
+	if err != nil {
+		logger.L().Error("batch cancel interviews failed",
+			zap.Int64("application_id", req.ApplicationId),
+			zap.Error(err),
+		)
+		return nil, err
+	}
+	s.outboxPublisher.Signal()
+
+	logger.L().Info("batch cancelled interviews",
+		zap.Int64("application_id", req.ApplicationId),
+		zap.Int32("count", cancelledCount),
+	)
+
+	return &pb.BatchCancelInterviewsResponse{
+		Code:     errs.OK,
+		Msg:      fmt.Sprintf("已取消 %d 个面试", cancelledCount),
+		Affected: cancelledCount,
+	}, nil
 }
 
 func (s *InterviewService) GetInterview(ctx context.Context, req *pb.GetInterviewRequest) (*pb.GetInterviewResponse, error) {
@@ -892,8 +1068,53 @@ func (s *InterviewService) SubmitFeedback(ctx context.Context, req *pb.SubmitFee
 		SubmittedAt:         time.Now(),
 	}
 
-	if err := s.interviews.CreateFeedback(ctx, feedback); err != nil {
-		logger.L().Error("submit feedback failed",
+	// Read interview model before the single transaction
+	interviewModel, err := s.interviews.GetModelByID(ctx, req.InterviewId)
+	if err != nil {
+		return nil, err
+	}
+
+	// Single transaction: create feedback + update interview status + advance application status
+	err = s.interviews.Transaction(ctx, func(tx *gorm.DB) error {
+		// Step 1: Create feedback
+		if err := s.interviews.CreateFeedbackWithTx(ctx, tx, feedback); err != nil {
+			return err
+		}
+
+		// Step 2: Update interview status to completed
+		if interviewModel != nil && interviewModel.Status == model.InterviewStatusScheduled {
+			interviewModel.Status = model.InterviewStatusCompleted
+			if err := s.interviews.UpdateWithTx(ctx, tx, interviewModel); err != nil {
+				return err
+			}
+		}
+
+		// Step 3: Auto-transition application status: interview_pending → interviewing
+		appDetail, err := s.applications.GetDetail(ctx, req.ApplicationId)
+		if err != nil || appDetail == nil {
+			return err
+		}
+		if appDetail.StatusKey == model.StatusKeyInterviewPending {
+			legacyStatus := model.StatusKeyToLegacy[model.StatusKeyInterviewing]
+			if _, err := s.applications.UpdateStatusAnyWithTx(ctx, tx, req.ApplicationId, model.StatusKeyInterviewPending, model.StatusKeyInterviewing, legacyStatus); err != nil {
+				return err
+			}
+			if err := s.applications.CreateTransition(ctx, tx, &model.ApplicationStatusTransition{
+				ApplicationID:    req.ApplicationId,
+				FromStatus:       model.StatusKeyInterviewPending,
+				ToStatus:         model.StatusKeyInterviewing,
+				ActorUserID:      req.InterviewerId,
+				ActorAccountType: "staff",
+				Reason:           "面试官提交反馈，自动推进至面试中",
+			}); err != nil {
+				return err
+			}
+		}
+
+		return nil
+	})
+	if err != nil {
+		logger.L().Error("submit feedback transaction failed",
 			zap.Int64("interview_id", req.InterviewId),
 			zap.Error(err),
 		)
@@ -905,27 +1126,6 @@ func (s *InterviewService) SubmitFeedback(ctx context.Context, req *pb.SubmitFee
 		zap.Int64("interview_id", req.InterviewId),
 		zap.Int64("interviewer_id", req.InterviewerId),
 	)
-
-	// After feedback submission, mark interview as completed
-	interviewModel, err := s.interviews.GetModelByID(ctx, req.InterviewId)
-	if err != nil {
-		return nil, err
-	}
-	if interviewModel != nil && interviewModel.Status == "scheduled" {
-		interviewModel.Status = "completed"
-		if err := s.interviews.Update(ctx, interviewModel); err != nil {
-			logger.L().Error("update interview status to completed failed", zap.Error(err))
-			// Non-fatal: feedback was still saved
-		}
-	}
-
-	// Auto-transition application status: interview_pending → interviewing
-	if err := s.advanceToInterviewing(ctx, req.ApplicationId, req.InterviewerId); err != nil {
-		logger.L().Warn("auto-advance application to interviewing failed (non-fatal)",
-			zap.Int64("application_id", req.ApplicationId),
-			zap.Error(err),
-		)
-	}
 
 	return &pb.CommonResponse{Code: errs.OK, Msg: "面试反馈已提交"}, nil
 }

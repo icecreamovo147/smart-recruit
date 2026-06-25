@@ -49,6 +49,9 @@ export const updateInterview = (interviewId: number, data: UpdateInterviewPayloa
 export const cancelInterview = (interviewId: number, cancelReason?: string): Promise<void> =>
   request.patch(`/api/v1/hr/interviews/${interviewId}/cancel`, { cancel_reason: cancelReason || '' })
 
+export const batchCancelInterviews = (applicationId: number, cancelReason?: string): Promise<{ code: number; msg: string }> =>
+  request.post(`/api/v1/hr/applications/${applicationId}/cancel-interviews`, { cancel_reason: cancelReason || '' })
+
 export const getInterview = (interviewId: number): Promise<{ interview: InterviewSchedule }> =>
   request.get(`/api/v1/hr/interviews/${interviewId}`)
 

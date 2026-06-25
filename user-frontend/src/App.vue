@@ -10,6 +10,7 @@ import request from '@/api/request'
 import { updateEmail } from '@/api/auth'
 import CandidateAIAssistant from '@/components/CandidateAIAssistant.vue'
 import NotificationBell from '@/components/NotificationBell.vue'
+import EmailSetupDialog from '@shared/components/EmailSetupDialog.vue'
 import logoFullLight from '@shared/assets/logo-full.webp'
 import logoFullDark from '@shared/assets/logo-full-dark.webp'
 
@@ -59,8 +60,6 @@ const handleUserCommand = (command: string) => {
 
 // ── Email setup dialog ────────────────────────────────────────────
 const showEmailSetup = ref(false)
-const emailSetupInput = ref('')
-const emailSetupSaving = ref(false)
 
 watch(
   () => ({ path: route.fullPath, loggedIn: auth.isLoggedIn, email: auth.email }),
@@ -72,13 +71,7 @@ watch(
   { immediate: true },
 )
 
-const saveEmailSetup = async () => {
-  const email = emailSetupInput.value.trim()
-  if (!email || !email.includes('@') || !email.includes('.')) {
-    ElMessage.warning('请输入有效的邮箱地址')
-    return
-  }
-  emailSetupSaving.value = true
+const handleEmailSaved = async (email: string) => {
   try {
     await updateEmail(email)
     ElMessage.success('邮箱设置成功')
@@ -86,8 +79,6 @@ const saveEmailSetup = async () => {
     await auth.restoreSession()
   } catch {
     // error handled by interceptor
-  } finally {
-    emailSetupSaving.value = false
   }
 }
 
@@ -142,37 +133,11 @@ const saveEmailSetup = async () => {
     <CandidateAIAssistant v-if="auth.isLoggedIn" />
 
     <!-- 邮箱设置弹窗 -->
-    <el-dialog
-      v-model="showEmailSetup"
-      title="设置通知邮箱"
-      width="440px"
-      :show-close="false"
-      :close-on-click-modal="false"
-      :close-on-press-escape="false"
-    >
-      <p class="email-setup-hint">
-        设置邮箱后，面试安排、Offer 等重要通知将同时发送到您的邮箱，确保不会错过关键信息。
-      </p>
-      <el-input
-        v-model="emailSetupInput"
-        placeholder="请输入邮箱地址"
-        clearable
-        @keyup.enter="saveEmailSetup"
-      />
-      <template #footer>
-        <el-button type="primary" :loading="emailSetupSaving" @click="saveEmailSetup">保存</el-button>
-      </template>
-    </el-dialog>
+    <EmailSetupDialog v-model="showEmailSetup" @saved="handleEmailSaved" />
   </div>
 </template>
 
 <style scoped>
-.email-setup-hint {
-  margin: 0 0 16px;
-  color: var(--text-secondary);
-  font-size: 14px;
-  line-height: 1.7;
-}
 .nav-badge {
   margin-left: 2px;
 }

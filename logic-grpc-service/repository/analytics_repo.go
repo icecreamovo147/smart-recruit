@@ -390,7 +390,7 @@ func (r *AnalyticsRepo) GetInterviewMetrics(ctx context.Context, userID uint64, 
 	}
 
 	// Completed interviews
-	completedQuery := baseQuery.Where("interview_schedules.status = ?", "completed")
+	completedQuery := baseQuery.Where("interview_schedules.status = ?", model.InterviewStatusCompleted)
 	if err := completedQuery.Count(&metrics.CompletedInterviews).Error; err != nil {
 		return nil, err
 	}
