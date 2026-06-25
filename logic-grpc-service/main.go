@@ -57,11 +57,17 @@ func main() {
 		panic("gRPC internal token validation: " + err.Error())
 	}
 
-	logger.Set(logger.New("info"))
+	if err := logger.Init(cfg.Logging); err != nil {
+		fmt.Printf("init logger: %v\n", err)
+		panic("init logger: " + err.Error())
+	}
 	log := logger.L()
 	log.Info("starting logic-grpc-service")
 
-	db, err := gorm.Open(mysql.Open(cfg.MySQL.DSN), &gorm.Config{TranslateError: true})
+	db, err := gorm.Open(mysql.Open(cfg.MySQL.DSN), &gorm.Config{
+		TranslateError: true,
+		Logger:         logger.NewGormLogger(&cfg.Logging.Gorm),
+	})
 	if err != nil {
 		log.Fatal("connect mysql failed", zap.Error(err))
 	}
@@ -325,8 +331,14 @@ func main() {
 
 	grpcServer := grpc.NewServer(
 		grpc.MaxConcurrentStreams(1000),
-		grpc.UnaryInterceptor(server.UnaryAuthInterceptor()),
-		grpc.StreamInterceptor(server.StreamAuthInterceptor()),
+		grpc.ChainUnaryInterceptor(
+			server.UnaryAuthInterceptor(),
+			logger.UnaryServerInterceptor(),
+		),
+		grpc.ChainStreamInterceptor(
+			server.StreamAuthInterceptor(),
+			logger.StreamServerInterceptor(),
+		),
 	)
 	recruitmentServer := server.New(services)
 	pb.RegisterAuthServiceServer(grpcServer, recruitmentServer)

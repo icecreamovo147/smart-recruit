@@ -7,6 +7,8 @@ import (
 	"time"
 
 	"gopkg.in/yaml.v3"
+
+	"logic-grpc-service/pkg/logger"
 )
 
 type Password string
@@ -57,7 +59,8 @@ type Config struct {
 	GRPC struct {
 		Port int `yaml:"port"`
 	} `yaml:"grpc"`
-	Redis struct {
+	Logging logger.LogConfig `yaml:"logging"`
+	Redis   struct {
 		Addr         string   `yaml:"addr"`
 		Password     string   `yaml:"password"`
 		DB           int      `yaml:"db"`
@@ -125,6 +128,24 @@ func Load() (Config, error) {
 	applyEnvOverrides(&cfg)
 	if cfg.GRPC.Port == 0 {
 		cfg.GRPC.Port = 50051
+	}
+	if cfg.Logging.Level == "" {
+		cfg.Logging.Level = "info"
+	}
+	if cfg.Logging.FilePath == "" {
+		cfg.Logging.FilePath = "logs/logic-grpc-service.log"
+	}
+	if cfg.Logging.MaxSizeMB <= 0 {
+		cfg.Logging.MaxSizeMB = 100
+	}
+	if cfg.Logging.MaxBackups <= 0 {
+		cfg.Logging.MaxBackups = 3
+	}
+	if cfg.Logging.MaxAgeDays <= 0 {
+		cfg.Logging.MaxAgeDays = 28
+	}
+	if cfg.Logging.Gorm.SlowThresholdMS <= 0 {
+		cfg.Logging.Gorm.SlowThresholdMS = 200
 	}
 	if cfg.JWT.Secret == "" {
 		cfg.JWT.Secret = os.Getenv("JWT_SECRET")
@@ -291,6 +312,19 @@ func applyEnvOverrides(cfg *Config) {
 	setString(&cfg.JWT.Secret, "JWT_SECRET")
 	setInt(&cfg.GRPC.Port, "GRPC_PORT")
 
+	setString(&cfg.Logging.Level, "LOG_LEVEL")
+	setString(&cfg.Logging.Format, "LOG_FORMAT")
+	setBool(&cfg.Logging.EnableFile, "LOG_ENABLE_FILE")
+	setString(&cfg.Logging.FilePath, "LOG_FILE_PATH")
+	setInt(&cfg.Logging.MaxSizeMB, "LOG_MAX_SIZE_MB")
+	setInt(&cfg.Logging.MaxBackups, "LOG_MAX_BACKUPS")
+	setInt(&cfg.Logging.MaxAgeDays, "LOG_MAX_AGE_DAYS")
+	setBool(&cfg.Logging.Compress, "LOG_COMPRESS")
+	setBool(&cfg.Logging.EnableConsole, "LOG_ENABLE_CONSOLE")
+	setBool(&cfg.Logging.Gorm.EnableSQLLog, "GORM_ENABLE_SQL_LOG")
+	setInt(&cfg.Logging.Gorm.SlowThresholdMS, "GORM_SLOW_THRESHOLD_MS")
+	setBool(&cfg.Logging.Gorm.IgnoreRecordNotFoundError, "GORM_IGNORE_NOT_FOUND")
+
 	setString(&cfg.Redis.Addr, "REDIS_ADDR")
 	setString(&cfg.Redis.Password, "REDIS_PASSWORD")
 	setInt(&cfg.Redis.DB, "REDIS_DB")
@@ -351,6 +385,14 @@ func setDuration(target *Duration, key string) {
 	if value := os.Getenv(key); value != "" {
 		if parsed, err := time.ParseDuration(value); err == nil {
 			target.Duration = parsed
+		}
+	}
+}
+
+func setBool(target *bool, key string) {
+	if value := os.Getenv(key); value != "" {
+		if parsed, err := strconv.ParseBool(value); err == nil {
+			*target = parsed
 		}
 	}
 }
