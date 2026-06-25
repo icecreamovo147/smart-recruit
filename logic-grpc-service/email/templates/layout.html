@@ -1,0 +1,42 @@
+{{define "layout"}}<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<style>
+  body { margin: 0; padding: 0; background-color: #f4f7fa; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; }
+  .wrapper { max-width: 600px; margin: 0 auto; padding: 24px 16px; }
+  .card { background: #ffffff; border-radius: 12px; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.06); }
+  .header { background: linear-gradient(135deg, #4f46e5, #7c3aed); padding: 32px 28px; text-align: center; }
+  .header h1 { color: #ffffff; margin: 0; font-size: 22px; font-weight: 600; letter-spacing: 0.5px; }
+  .header p { color: rgba(255,255,255,0.85); margin: 6px 0 0; font-size: 14px; }
+  .body { padding: 28px; }
+  .body h2 { color: #1e293b; font-size: 18px; margin: 0 0 16px; }
+  .body p { color: #475569; font-size: 15px; line-height: 1.7; margin: 0 0 12px; }
+  .info-box { background: #f8fafc; border-left: 4px solid #4f46e5; border-radius: 6px; padding: 16px 20px; margin: 16px 0; }
+  .info-box .label { color: #94a3b8; font-size: 12px; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px; }
+  .info-box .value { color: #1e293b; font-size: 15px; font-weight: 500; }
+  .btn { display: inline-block; background: #4f46e5; color: #ffffff; text-decoration: none; padding: 12px 28px; border-radius: 8px; font-size: 15px; font-weight: 500; margin: 20px 0 8px; }
+  .btn:hover { background: #4338ca; }
+  .footer { padding: 20px 28px; background: #f8fafc; border-top: 1px solid #e2e8f0; text-align: center; }
+  .footer p { color: #94a3b8; font-size: 12px; margin: 0; line-height: 1.6; }
+  .divider { height: 1px; background: #e2e8f0; margin: 20px 0; }
+</style>
+</head>
+<body>
+<div class="wrapper">
+  <div class="card">
+    <div class="header">
+      <h1>Smart Recruit</h1>
+      <p>智能招聘平台</p>
+    </div>
+    <div class="body">
+      {{template "content" .}}
+    </div>
+    <div class="footer">
+      <p>此邮件由 Smart Recruit 智能招聘平台自动发送，请勿直接回复。</p>
+    </div>
+  </div>
+</div>
+</body>
+</html>{{end}}

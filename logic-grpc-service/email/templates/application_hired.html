@@ -1,0 +1,15 @@
+{{define "content"}}
+<h2>🎉 入职确认</h2>
+<p>您好，{{.RecipientName}}！</p>
+<p>恭喜！您投递的 <strong>{{.JobTitle}}</strong> 岗位已确认入职。</p>
+
+<div class="info-box">
+  <div class="label">岗位名称</div>
+  <div class="value">{{.JobTitle}}</div>
+</div>
+
+<p>{{.Content}}</p>
+
+{{if .ActionURL}}<a href="{{.ActionURL}}" class="btn">查看详情</a>{{end}}
+<p>欢迎加入团队！后续入职指引将另行通知，请留意查看。</p>
+{{end}}

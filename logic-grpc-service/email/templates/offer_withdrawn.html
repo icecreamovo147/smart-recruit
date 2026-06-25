@@ -1,0 +1,15 @@
+{{define "content"}}
+<h2>⚠️ Offer 已撤回</h2>
+<p>您好，{{.RecipientName}}！</p>
+<p>很抱歉地通知您，<strong>{{.JobTitle}}</strong> 岗位的 Offer 已被撤回。</p>
+
+<div class="info-box">
+  <div class="label">岗位名称</div>
+  <div class="value">{{.JobTitle}}</div>
+</div>
+
+<p>{{.Content}}</p>
+
+{{if .ActionURL}}<a href="{{.ActionURL}}" class="btn">查看详情</a>{{end}}
+<p>如您对此有疑问，请联系招聘方了解具体原因。感谢您的理解。</p>
+{{end}}

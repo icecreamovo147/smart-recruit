@@ -56,6 +56,7 @@ service InterviewService {
   rpc ListCandidateInterviews(ListCandidateInterviewsRequest) returns (ListCandidateInterviewsResponse);
   rpc SubmitFeedback(SubmitFeedbackRequest) returns (CommonResponse);
   rpc GetFeedback(GetFeedbackRequest) returns (GetFeedbackResponse);
+  rpc BatchCancelInterviews(BatchCancelInterviewsRequest) returns (BatchCancelInterviewsResponse);
 }
 
 service NotificationService {
@@ -211,6 +212,7 @@ message LoginResponse {
   repeated string roles = 8;       // RBAC role keys
   repeated string permissions = 9; // RBAC permission keys
   int32 token_version = 10;        // Incremented on permission change
+  string email = 11;
 }
 
 message RefreshTokenRequest {
@@ -875,6 +877,17 @@ message GetFeedbackResponse {
   int32 code = 1;
   string msg = 2;
   InterviewFeedback feedback = 3;
+}
+
+message BatchCancelInterviewsRequest {
+  int64 hr_id = 1;
+  int64 application_id = 2;
+  string cancel_reason = 3;
+}
+
+message BatchCancelInterviewsResponse {
+  int32 code = 1;
+  string msg = 2;
 }
 
 message Notification {

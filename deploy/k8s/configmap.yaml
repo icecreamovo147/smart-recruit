@@ -40,6 +40,8 @@ data:
   AGENT_MAX_MEMORY_CHARS: "1500"
   AGENT_MAX_PROMPT_CHARS: "20000"
   AGENT_MAX_MEMORIES: "10"
+  # Override via per-environment values (e.g., smtp.sendgrid.net for production).
+  # Leave empty for development — emails will be logged to stdout instead.
   SMTP_HOST: ""
   SMTP_PORT: "587"
   SMTP_FROM_ADDRESS: "noreply@example.com"

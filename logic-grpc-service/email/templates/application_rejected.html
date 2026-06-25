@@ -1,0 +1,15 @@
+{{define "content"}}
+<h2>💡 投递状态更新</h2>
+<p>您好，{{.RecipientName}}！</p>
+<p>感谢您对 <strong>{{.JobTitle}}</strong> 岗位的关注。我们很遗憾地通知您，您的投递目前未通过筛选。</p>
+
+<div class="info-box">
+  <div class="label">岗位名称</div>
+  <div class="value">{{.JobTitle}}</div>
+</div>
+
+<p>{{.Content}}</p>
+
+{{if .ActionURL}}<a href="{{.ActionURL}}" class="btn">查看详情</a>{{end}}
+<p>您的简历已存入人才库，未来如有合适机会，我们会主动联系您。感谢您的理解与支持。</p>
+{{end}}

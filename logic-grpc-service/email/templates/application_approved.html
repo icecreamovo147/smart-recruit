@@ -1,0 +1,15 @@
+{{define "content"}}
+<h2>✅ 投递通过筛选</h2>
+<p>您好，{{.RecipientName}}！</p>
+<p>您投递的 <strong>{{.JobTitle}}</strong> 岗位已通过初步筛选，请留意后续安排。</p>
+
+<div class="info-box">
+  <div class="label">岗位名称</div>
+  <div class="value">{{.JobTitle}}</div>
+</div>
+
+<p>{{.Content}}</p>
+
+{{if .ActionURL}}<a href="{{.ActionURL}}" class="btn">查看详情</a>{{end}}
+<p>请保持通讯畅通，我们会尽快与您联系安排面试。</p>
+{{end}}

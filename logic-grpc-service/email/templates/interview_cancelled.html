@@ -1,0 +1,15 @@
+{{define "content"}}
+<h2>❌ 面试取消通知</h2>
+<p>您好，{{.RecipientName}}！</p>
+<p>很抱歉地通知您，<strong>{{.JobTitle}}</strong> 岗位的面试已取消。</p>
+
+<div class="info-box">
+  <div class="label">面试岗位</div>
+  <div class="value">{{.JobTitle}}</div>
+</div>
+
+<p>{{.Content}}</p>
+
+{{if .ActionURL}}<a href="{{.ActionURL}}" class="btn">查看详情</a>{{end}}
+<p>如有疑问，请联系招聘方了解更多信息。</p>
+{{end}}

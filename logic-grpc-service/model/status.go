@@ -100,6 +100,15 @@ var LegacyStatusToKey = map[int32]string{
 	3: StatusKeyRejected,
 }
 
+// ── Interview Status Keys ──────────────────────────────────────────────
+
+const (
+	InterviewStatusPending   = "pending"
+	InterviewStatusScheduled = "scheduled"
+	InterviewStatusCompleted = "completed"
+	InterviewStatusCancelled = "cancelled"
+)
+
 // StatusKeyToLegacy maps string status keys to legacy numeric values.
 var StatusKeyToLegacy = map[string]int32{
 	StatusKeyApplied:         0,

@@ -1276,6 +1276,7 @@ const (
 	InterviewService_ListCandidateInterviews_FullMethodName   = "/recruitment.InterviewService/ListCandidateInterviews"
 	InterviewService_SubmitFeedback_FullMethodName            = "/recruitment.InterviewService/SubmitFeedback"
 	InterviewService_GetFeedback_FullMethodName               = "/recruitment.InterviewService/GetFeedback"
+	InterviewService_BatchCancelInterviews_FullMethodName     = "/recruitment.InterviewService/BatchCancelInterviews"
 )
 
 // InterviewServiceClient is the client API for InterviewService service.
@@ -1292,6 +1293,7 @@ type InterviewServiceClient interface {
 	ListCandidateInterviews(ctx context.Context, in *ListCandidateInterviewsRequest, opts ...grpc.CallOption) (*ListCandidateInterviewsResponse, error)
 	SubmitFeedback(ctx context.Context, in *SubmitFeedbackRequest, opts ...grpc.CallOption) (*CommonResponse, error)
 	GetFeedback(ctx context.Context, in *GetFeedbackRequest, opts ...grpc.CallOption) (*GetFeedbackResponse, error)
+	BatchCancelInterviews(ctx context.Context, in *BatchCancelInterviewsRequest, opts ...grpc.CallOption) (*BatchCancelInterviewsResponse, error)
 }
 
 type interviewServiceClient struct {
@@ -1402,6 +1404,16 @@ func (c *interviewServiceClient) GetFeedback(ctx context.Context, in *GetFeedbac
 	return out, nil
 }
 
+func (c *interviewServiceClient) BatchCancelInterviews(ctx context.Context, in *BatchCancelInterviewsRequest, opts ...grpc.CallOption) (*BatchCancelInterviewsResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(BatchCancelInterviewsResponse)
+	err := c.cc.Invoke(ctx, InterviewService_BatchCancelInterviews_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // InterviewServiceServer is the server API for InterviewService service.
 // All implementations must embed UnimplementedInterviewServiceServer
 // for forward compatibility.
@@ -1416,6 +1428,7 @@ type InterviewServiceServer interface {
 	ListCandidateInterviews(context.Context, *ListCandidateInterviewsRequest) (*ListCandidateInterviewsResponse, error)
 	SubmitFeedback(context.Context, *SubmitFeedbackRequest) (*CommonResponse, error)
 	GetFeedback(context.Context, *GetFeedbackRequest) (*GetFeedbackResponse, error)
+	BatchCancelInterviews(context.Context, *BatchCancelInterviewsRequest) (*BatchCancelInterviewsResponse, error)
 	mustEmbedUnimplementedInterviewServiceServer()
 }
 
@@ -1455,6 +1468,9 @@ func (UnimplementedInterviewServiceServer) SubmitFeedback(context.Context, *Subm
 }
 func (UnimplementedInterviewServiceServer) GetFeedback(context.Context, *GetFeedbackRequest) (*GetFeedbackResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method GetFeedback not implemented")
+}
+func (UnimplementedInterviewServiceServer) BatchCancelInterviews(context.Context, *BatchCancelInterviewsRequest) (*BatchCancelInterviewsResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method BatchCancelInterviews not implemented")
 }
 func (UnimplementedInterviewServiceServer) mustEmbedUnimplementedInterviewServiceServer() {}
 func (UnimplementedInterviewServiceServer) testEmbeddedByValue()                          {}
@@ -1657,6 +1673,24 @@ func _InterviewService_GetFeedback_Handler(srv interface{}, ctx context.Context,
 	return interceptor(ctx, in, info, handler)
 }
 
+func _InterviewService_BatchCancelInterviews_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(BatchCancelInterviewsRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(InterviewServiceServer).BatchCancelInterviews(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: InterviewService_BatchCancelInterviews_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(InterviewServiceServer).BatchCancelInterviews(ctx, req.(*BatchCancelInterviewsRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // InterviewService_ServiceDesc is the grpc.ServiceDesc for InterviewService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -1703,6 +1737,10 @@ var InterviewService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "GetFeedback",
 			Handler:    _InterviewService_GetFeedback_Handler,
+		},
+		{
+			MethodName: "BatchCancelInterviews",
+			Handler:    _InterviewService_BatchCancelInterviews_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

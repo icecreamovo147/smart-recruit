@@ -1,0 +1,15 @@
+{{define "content"}}
+<h2>↩️ 投递已撤回</h2>
+<p>您好，{{.RecipientName}}！</p>
+<p>您已成功撤回对 <strong>{{.JobTitle}}</strong> 岗位的投递。</p>
+
+<div class="info-box">
+  <div class="label">岗位名称</div>
+  <div class="value">{{.JobTitle}}</div>
+</div>
+
+<p>{{.Content}}</p>
+
+{{if .ActionURL}}<a href="{{.ActionURL}}" class="btn">查看投递</a>{{end}}
+<p>如您希望重新投递，请前往平台搜索该岗位。</p>
+{{end}}

@@ -1,0 +1,27 @@
+{{define "content"}}
+<h2>🎉 恭喜！您收到了一份 Offer</h2>
+<p>您好，{{.RecipientName}}！</p>
+<p>恭喜您通过了 <strong>{{.JobTitle}}</strong> 岗位的面试考核，我们很高兴向您发出 Offer！</p>
+
+<div class="info-box">
+  <div class="label">岗位名称</div>
+  <div class="value">{{.JobTitle}}</div>
+</div>
+{{if .OfferTitle}}
+<div class="info-box">
+  <div class="label">Offer 标题</div>
+  <div class="value">{{.OfferTitle}}</div>
+</div>
+{{end}}
+{{if .ExpiryDate}}
+<div class="info-box">
+  <div class="label">回复截止日期</div>
+  <div class="value">{{.ExpiryDate}}</div>
+</div>
+{{end}}
+
+<p>{{.Content}}</p>
+
+{{if .ActionURL}}<a href="{{.ActionURL}}" class="btn">查看并处理 Offer</a>{{end}}
+<p>请在规定时间内查看并确认 Offer 详情。期待您的加入！</p>
+{{end}}
