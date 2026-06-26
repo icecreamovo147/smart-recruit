@@ -199,6 +199,14 @@ func (s *AIService) ChatStream(req *pb.ChatRequest, stream pb.AIService_ChatStre
 		req.ApplicationId = session.ApplicationID
 	}
 
+	// Send model/agent info to the frontend status bar.
+	_ = stream.Send(&pb.ChatStreamResponse{
+		Code:         errs.OK,
+		EventType:    "model_info",
+		EventMessage: s.ai.ModelName(),
+		SessionId:    session.ID,
+	})
+
 	now := time.Now()
 	statusSender := func(eventType, eventMessage, errorType, toolName string) error {
 		return stream.Send(&pb.ChatStreamResponse{

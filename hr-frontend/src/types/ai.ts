@@ -44,10 +44,11 @@ export interface StreamPayload {
   status?: number
   created_at?: string
   // Phase 4: streaming UX status events
-  event_type?: string // thinking | tool_calling | tool_done | generating | timeout_warning | partial_done | done | error
+  event_type?: string // thinking | tool_calling | tool_done | generating | timeout_warning | partial_done | done | error | model_info
   event_message?: string
   error_type?: string
   tool_name?: string
+  model_name?: string
 }
 
 export interface StreamHandlers {

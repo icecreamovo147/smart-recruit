@@ -35,7 +35,7 @@ const candidatePosition = ref('')
 const activeController = ref<AbortController | null>(null)
 const userAborted = ref(false)
 const statusBarExpanded = ref(true)
-const modelName = ref('GPT-4o')
+const modelName = ref('')
 const dataSource = ref('招聘业务数据库')
 const tracePanelVisible = ref(false)
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -298,6 +298,7 @@ const createAnalysisSessionFromRoute = async () => {
           scrollBottom()
         },
         onStatus: (_eventType, eventMessage) => {
+          if (_eventType === 'model_info') { modelName.value = eventMessage; return }
           const msg = messages.value[assistantIndex]
           if (msg) {
             messages.value[assistantIndex] = { ...msg, waitingText: eventMessage }
@@ -387,6 +388,7 @@ const analyzeCandidateOption = async (option: CandidateOption) => {
       {
         onDelta: (delta) => appendAssistantDelta(assistantIndex, delta),
         onStatus: (_eventType, eventMessage) => {
+          if (_eventType === 'model_info') { modelName.value = eventMessage; return }
           const msg = messages.value[assistantIndex]
           if (msg) {
             messages.value[assistantIndex] = { ...msg, waitingText: eventMessage }
@@ -470,6 +472,7 @@ const submit = async () => {
           appendAssistantDelta(assistantIndex, delta)
         },
         onStatus: (_eventType, eventMessage) => {
+          if (_eventType === 'model_info') { modelName.value = eventMessage; return }
           const msg = messages.value[assistantIndex]
           if (msg) {
             messages.value[assistantIndex] = { ...msg, waitingText: eventMessage }
@@ -567,6 +570,7 @@ const retry = async (failedIndex: number) => {
           appendAssistantDelta(assistantIndex, delta)
         },
         onStatus: (_eventType, eventMessage) => {
+          if (_eventType === 'model_info') { modelName.value = eventMessage; return }
           const msg = messages.value[assistantIndex]
           if (msg) {
             messages.value[assistantIndex] = { ...msg, waitingText: eventMessage }
@@ -705,21 +709,45 @@ onBeforeUnmount(() => {
         </div>
       </div>
 
-      <!-- Status bar: model name + data source -->
-      <div v-if="currentSession" class="ai-status-bar" :class="{ 'is-collapsed': !statusBarExpanded }">
-        <div v-show="statusBarExpanded" class="ai-status-bar__body">
-          <el-tag type="info" size="small">当前模型：{{ modelName }}</el-tag>
-          <el-tag type="info" size="small">数据来源：{{ dataSource }}</el-tag>
-          <el-button
-            size="small"
-            type="primary"
-            plain
-            @click="tracePanelVisible = true"
-            :disabled="!currentSession"
-          >执行轨迹</el-button>
+      <!-- Status bar: model name + data source + execution trace -->
+      <div v-if="currentSession" class="ai-status-bar" :class="{ 'ai-status-bar--collapsed': !statusBarExpanded }">
+        <div class="ai-status-bar__content">
+          <div class="ai-status-bar__left">
+            <div class="ai-status-bar__model">
+              <span class="ai-status-bar__label">模型</span>
+              <el-tag
+                v-if="modelName"
+                type="primary"
+                size="small"
+                effect="plain"
+                round
+              >{{ modelName }}</el-tag>
+              <span v-else class="ai-status-bar__placeholder">—</span>
+            </div>
+            <el-divider direction="vertical" />
+            <div class="ai-status-bar__source">
+              <span class="ai-status-bar__label">数据来源</span>
+              <span class="ai-status-bar__source-text">{{ dataSource }}</span>
+            </div>
+          </div>
+          <div class="ai-status-bar__right">
+            <el-button
+              size="small"
+              type="primary"
+              plain
+              :icon="null"
+              @click="tracePanelVisible = true"
+            >
+              执行轨迹
+            </el-button>
+          </div>
         </div>
-        <button class="ai-status-bar__toggle" @click="statusBarExpanded = !statusBarExpanded" :title="statusBarExpanded ? '收起状态栏' : '展开状态栏'">
-          <span>{{ statusBarExpanded ? '▲' : '▶' }}</span>
+        <button
+          class="ai-status-bar__toggle"
+          @click="statusBarExpanded = !statusBarExpanded"
+          :title="statusBarExpanded ? '收起' : '展开'"
+        >
+          <span class="ai-status-bar__toggle-icon">{{ statusBarExpanded ? '▲' : '▼' }}</span>
         </button>
       </div>
 
@@ -773,23 +801,65 @@ onBeforeUnmount(() => {
 .ai-status-bar {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  padding: 6px 12px;
-  background: var(--el-color-info-light-9);
+  padding: 0 16px;
+  min-height: 36px;
+  background: var(--el-bg-color);
   border-bottom: 1px solid var(--el-border-color-lighter);
-  gap: 8px;
   flex-shrink: 0;
+  transition: min-height 0.2s ease;
 }
 
-.ai-status-bar.is-collapsed {
-  padding: 2px 12px;
+.ai-status-bar--collapsed {
+  min-height: 8px;
+  overflow: hidden;
 }
 
-.ai-status-bar__body {
+.ai-status-bar--collapsed .ai-status-bar__content {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.ai-status-bar__content {
   display: flex;
   align-items: center;
-  gap: 8px;
+  justify-content: space-between;
   flex: 1;
+  gap: 12px;
+  transition: opacity 0.15s ease;
+}
+
+.ai-status-bar__left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.ai-status-bar__model,
+.ai-status-bar__source {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.ai-status-bar__label {
+  font-size: 12px;
+  color: var(--el-text-color-secondary);
+  white-space: nowrap;
+}
+
+.ai-status-bar__source-text {
+  font-size: 13px;
+  color: var(--el-text-color-regular);
+}
+
+.ai-status-bar__placeholder {
+  color: var(--el-text-color-placeholder);
+  font-size: 13px;
+}
+
+.ai-status-bar__right {
+  display: flex;
+  align-items: center;
 }
 
 .ai-status-bar__toggle {
@@ -800,13 +870,18 @@ onBeforeUnmount(() => {
   border: none;
   cursor: pointer;
   padding: 0 4px;
-  font-size: 10px;
-  color: var(--el-text-color-secondary);
+  margin-left: auto;
   flex-shrink: 0;
   line-height: 1;
 }
 
-.ai-status-bar__toggle:hover {
+.ai-status-bar__toggle-icon {
+  font-size: 10px;
+  color: var(--el-text-color-placeholder);
+  transition: color 0.15s;
+}
+
+.ai-status-bar__toggle:hover .ai-status-bar__toggle-icon {
   color: var(--el-color-primary);
 }
 </style>

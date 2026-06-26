@@ -179,6 +179,10 @@ func (s *Server) DeleteSession(ctx context.Context, req *pb.DeleteSessionRequest
 	return s.svc.AI.DeleteSession(ctx, req)
 }
 
+func (s *Server) GetToolTraces(ctx context.Context, req *pb.GetToolTracesRequest) (*pb.GetToolTracesResponse, error) {
+	return s.svc.AI.GetToolTraces(ctx, req)
+}
+
 // Candidate AI
 
 func (s *Server) CandidateChatStream(req *pb.CandidateChatRequest, stream pb.AIService_CandidateChatStreamServer) error {
