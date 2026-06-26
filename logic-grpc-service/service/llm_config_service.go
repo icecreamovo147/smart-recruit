@@ -240,11 +240,16 @@ func (s *LlmConfigService) TestProviderConnection(ctx context.Context, req *pb.T
 	}
 	apiKey := string(apiKeyBytes)
 
-	// Call /v1/models endpoint (OpenAI compatible)
+	// Build request based on provider type
 	baseURL := strings.TrimRight(provider.BaseURL, "/")
-	modelsURL := baseURL + "/v1/models"
+	var testURL string
+	testURL = baseURL + "/v1/models" // default: OpenAI-compatible
+	switch provider.ProviderType {
+	case "ollama":
+		testURL = baseURL + "/api/tags"
+	}
 
-	httpReq, err := http.NewRequestWithContext(ctx, http.MethodGet, modelsURL, nil)
+	httpReq, err := http.NewRequestWithContext(ctx, http.MethodGet, testURL, nil)
 	if err != nil {
 		return &pb.TestProviderConnectionResponse{
 			Code:    1,
@@ -254,10 +259,17 @@ func (s *LlmConfigService) TestProviderConnection(ctx context.Context, req *pb.T
 		}, nil
 	}
 
-	httpReq.Header.Set("Authorization", "Bearer "+apiKey)
 	httpReq.Header.Set("Content-Type", "application/json")
+	switch provider.ProviderType {
+	case "anthropic":
+		httpReq.Header.Set("x-api-key", apiKey)
+	case "ollama":
+		// Ollama typically uses no auth on localhost
+	default: // openai_compatible, deepseek, etc.
+		httpReq.Header.Set("Authorization", "Bearer "+apiKey)
+	}
 
-	// Add extra headers if present
+	// Add extra headers if present (may override default auth header)
 	if provider.ExtraHeaders != nil && *provider.ExtraHeaders != "" {
 		var extra map[string]string
 		if err := json.Unmarshal([]byte(*provider.ExtraHeaders), &extra); err == nil {
