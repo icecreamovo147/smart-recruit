@@ -2258,3 +2258,119 @@ message GetActivePromptByAgentTypeResponse {
   string msg = 2;
   PromptTemplateInfo template = 3;
 }
+
+// ══════════════════════════════════════════════════════════════════════
+// P1-004: Agent Configuration Management
+// ══════════════════════════════════════════════════════════════════════
+
+service AgentConfigService {
+  rpc ListAgents(ListAgentsRequest) returns (ListAgentsResponse);
+  rpc CreateAgent(CreateAgentRequest) returns (AgentConfigResponse);
+  rpc UpdateAgent(UpdateAgentRequest) returns (AgentConfigResponse);
+  rpc DeleteAgent(DeleteAgentRequest) returns (CommonResponse);
+
+  // Internal gRPC (not exposed via HTTP gateway)
+  rpc GetAgentConfig(GetAgentConfigRequest) returns (GetAgentConfigResponse);
+}
+
+// ── Agent Config messages ──────────────────────────────────────────
+
+message AgentConfigInfo {
+  int64 id = 1;
+  string name = 2;
+  string display_name = 3;
+  string description = 4;
+  string agent_type = 5;           // hr_recruiting_agent / candidate_assistant / custom
+  int64 model_id = 6;              // FK → llm_models.id
+  int64 prompt_template_id = 7;    // FK → prompt_templates.id
+  string instruction = 8;          // Extra instruction appended after Prompt
+  int32 max_iterations = 9;        // Default 5
+  double temperature_override = 10; // NULL = use model default
+  bool is_default = 11;
+  bool is_enabled = 12;
+  string created_at = 13;
+  string updated_at = 14;
+
+  // Joined fields (read-only)
+  string model_name = 15;
+  string prompt_template_name = 16;
+  repeated AgentToolBindingInfo tool_bindings = 17;
+}
+
+message AgentToolBindingInfo {
+  int64 id = 1;
+  int64 agent_id = 2;
+  string tool_name = 3;
+  bool is_enabled = 4;
+  string created_at = 5;
+}
+
+message ListAgentsRequest {
+  int32 page = 1;
+  int32 page_size = 2;
+  string agent_type = 3;           // optional filter
+}
+
+message ListAgentsResponse {
+  int32 code = 1;
+  string msg = 2;
+  int64 total = 3;
+  repeated AgentConfigInfo list = 4;
+}
+
+message CreateAgentRequest {
+  string name = 1;
+  string display_name = 2;
+  string description = 3;
+  string agent_type = 4;
+  int64 model_id = 5;
+  int64 prompt_template_id = 6;
+  string instruction = 7;
+  int32 max_iterations = 8;        // Default 5
+  double temperature_override = 9; // 0 = use model default (not set)
+  bool temperature_override_set = 10; // Whether temperature_override was set
+  bool is_default = 11;
+  repeated string tool_names = 12; // Tool names to bind
+}
+
+message UpdateAgentRequest {
+  int64 id = 1;
+  string name = 2;                 // 空 = 不更新
+  string display_name = 3;         // 空 = 不更新
+  string description = 4;          // 空 = 不更新
+  int64 model_id = 5;
+  bool model_id_set = 6;           // Whether model_id was set
+  int64 prompt_template_id = 7;
+  bool prompt_template_id_set = 8;
+  string instruction = 9;          // 空 = 不更新
+  int32 max_iterations = 10;
+  bool max_iterations_set = 11;
+  double temperature_override = 12;
+  bool temperature_override_set = 13;
+  bool is_default = 14;
+  bool is_default_set = 15;
+  bool is_enabled = 16;
+  bool is_enabled_set = 17;
+  repeated string tool_names = 18; // Full replacement of tool bindings
+  bool tool_names_set = 19;        // Whether tool_names were explicitly set
+}
+
+message AgentConfigResponse {
+  int32 code = 1;
+  string msg = 2;
+  AgentConfigInfo agent = 3;
+}
+
+message DeleteAgentRequest {
+  int64 id = 1;
+}
+
+message GetAgentConfigRequest {
+  string agent_type = 1;
+}
+
+message GetAgentConfigResponse {
+  int32 code = 1;
+  string msg = 2;
+  AgentConfigInfo agent = 3;
+}

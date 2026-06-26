@@ -48,6 +48,7 @@ type Services struct {
 	Analytics     *AnalyticsService
 	LlmConfig     *LlmConfigService
 	Prompt        *PromptService
+	AgentConfig   *AgentConfigService
 
 	// Phase 6: Audit context repo for AI usage audit writes
 	UsageAuditCtxRepo *repository.UsageAuditContextRepo
@@ -133,6 +134,7 @@ func NewServices(
 		Notification:      NewNotificationService(notifications, notifCache, serviceAuth),
 		LlmConfig:         newLlmConfigServiceWithFallback(db),
 		Prompt:            NewPromptService(repository.NewPromptTemplateRepo(db)),
+		AgentConfig:       NewAgentConfigService(repository.NewAgentConfigRepo(db), repository.NewModelConfigRepo(db), repository.NewPromptTemplateRepo(db)),
 
 		Collaboration: NewCollaborationService(
 			authzRepo,

@@ -243,6 +243,14 @@ func main() {
 			log.Info("default prompts seeded")
 		}
 	}
+	// Seed default agent configurations from hardcoded agents.
+	{
+		if err := service.SeedDefaultAgents(ctx, repository.NewAgentConfigRepo(db)); err != nil {
+			log.Warn("seed default agents failed", zap.Error(err))
+		} else {
+			log.Info("default agents seeded")
+		}
+	}
 	// Bootstrap initial admin: promote user specified by INITIAL_ADMIN_USERNAME
 	// to recruiting_admin + recruiter via the RBAC system, with legacy role=3
 	// for backward compatibility.
@@ -357,6 +365,7 @@ func main() {
 	pb.RegisterCollaborationServiceServer(grpcServer, recruitmentServer)
 	pb.RegisterLlmConfigServiceServer(grpcServer, recruitmentServer)
 	pb.RegisterPromptServiceServer(grpcServer, recruitmentServer)
+	pb.RegisterAgentConfigServiceServer(grpcServer, recruitmentServer)
 	healthpb.RegisterHealthServer(grpcServer, server.NewHealthServer(sqlDB, healthRedis, mqConn))
 
 	// Graceful shutdown

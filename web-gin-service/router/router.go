@@ -379,5 +379,12 @@ func Setup(cfg config.Config, clients *rpc.Clients, rdb *redis.Client) (*gin.Eng
 		adminGroup.GET("/prompt-templates/:id/versions", normalTimeout, middleware.RequirePermission(authz.PermSystemConfigManage), promptHandler.ListVersions)
 		adminGroup.POST("/prompt-templates/:id/rollback", normalTimeout, bodyAuth, middleware.RequirePermission(authz.PermSystemConfigManage), promptHandler.Rollback)
 
+		// Agent configuration management
+		agentConfigHandler := hr.NewAgentConfigHandler(clients)
+		adminGroup.GET("/agent-configs", normalTimeout, middleware.RequirePermission(authz.PermSystemConfigManage), agentConfigHandler.ListAgents)
+		adminGroup.POST("/agent-configs", normalTimeout, bodyAuth, middleware.RequirePermission(authz.PermSystemConfigManage), agentConfigHandler.CreateAgent)
+		adminGroup.PUT("/agent-configs/:id", normalTimeout, bodyAuth, middleware.RequirePermission(authz.PermSystemConfigManage), agentConfigHandler.UpdateAgent)
+		adminGroup.DELETE("/agent-configs/:id", normalTimeout, middleware.RequirePermission(authz.PermSystemConfigManage), agentConfigHandler.DeleteAgent)
+
 	return r, limiters
 }

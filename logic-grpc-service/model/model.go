@@ -604,3 +604,36 @@ type PromptVersion struct {
 }
 
 func (PromptVersion) TableName() string { return "prompt_versions" }
+
+// ── Agent Configuration (P1-004) ──────────────────────────────────────
+
+// AgentConfig represents an agent configuration entry.
+type AgentConfig struct {
+	ID                  int64      `gorm:"primaryKey"`
+	Name                string     `gorm:"column:name;size:128;not null;uniqueIndex:uk_name"`
+	DisplayName         string     `gorm:"column:display_name;size:256;not null"`
+	Description         string     `gorm:"column:description;type:text"`
+	AgentType           string     `gorm:"column:agent_type;size:64;not null"`
+	ModelID             *int64     `gorm:"column:model_id"`
+	PromptTemplateID    *int64     `gorm:"column:prompt_template_id"`
+	Instruction         string     `gorm:"column:instruction;type:text"`
+	MaxIterations       int32      `gorm:"column:max_iterations;default:5"`
+	TemperatureOverride *float64   `gorm:"column:temperature_override"`
+	IsDefault           int32      `gorm:"column:is_default;default:0"`
+	IsEnabled           int32      `gorm:"column:is_enabled;default:1"`
+	CreatedAt           time.Time  `gorm:"column:created_at"`
+	UpdatedAt           time.Time  `gorm:"column:updated_at"`
+}
+
+func (AgentConfig) TableName() string { return "agent_configs" }
+
+// AgentToolBinding represents a tool binding for an agent.
+type AgentToolBinding struct {
+	ID        int64     `gorm:"primaryKey"`
+	AgentID   int64     `gorm:"column:agent_id;not null;uniqueIndex:uk_agent_tool,priority:1"`
+	ToolName  string    `gorm:"column:tool_name;size:128;not null;uniqueIndex:uk_agent_tool,priority:2"`
+	IsEnabled int32     `gorm:"column:is_enabled;default:1"`
+	CreatedAt time.Time `gorm:"column:created_at"`
+}
+
+func (AgentToolBinding) TableName() string { return "agent_tool_bindings" }

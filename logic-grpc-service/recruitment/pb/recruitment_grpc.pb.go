@@ -5949,3 +5949,259 @@ var PromptService_ServiceDesc = grpc.ServiceDesc{
 	Streams:  []grpc.StreamDesc{},
 	Metadata: "proto/recruitment.proto",
 }
+
+const (
+	AgentConfigService_ListAgents_FullMethodName     = "/recruitment.AgentConfigService/ListAgents"
+	AgentConfigService_CreateAgent_FullMethodName    = "/recruitment.AgentConfigService/CreateAgent"
+	AgentConfigService_UpdateAgent_FullMethodName    = "/recruitment.AgentConfigService/UpdateAgent"
+	AgentConfigService_DeleteAgent_FullMethodName    = "/recruitment.AgentConfigService/DeleteAgent"
+	AgentConfigService_GetAgentConfig_FullMethodName = "/recruitment.AgentConfigService/GetAgentConfig"
+)
+
+// AgentConfigServiceClient is the client API for AgentConfigService service.
+//
+// For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
+type AgentConfigServiceClient interface {
+	ListAgents(ctx context.Context, in *ListAgentsRequest, opts ...grpc.CallOption) (*ListAgentsResponse, error)
+	CreateAgent(ctx context.Context, in *CreateAgentRequest, opts ...grpc.CallOption) (*AgentConfigResponse, error)
+	UpdateAgent(ctx context.Context, in *UpdateAgentRequest, opts ...grpc.CallOption) (*AgentConfigResponse, error)
+	DeleteAgent(ctx context.Context, in *DeleteAgentRequest, opts ...grpc.CallOption) (*CommonResponse, error)
+	// Internal gRPC (not exposed via HTTP gateway)
+	GetAgentConfig(ctx context.Context, in *GetAgentConfigRequest, opts ...grpc.CallOption) (*GetAgentConfigResponse, error)
+}
+
+type agentConfigServiceClient struct {
+	cc grpc.ClientConnInterface
+}
+
+func NewAgentConfigServiceClient(cc grpc.ClientConnInterface) AgentConfigServiceClient {
+	return &agentConfigServiceClient{cc}
+}
+
+func (c *agentConfigServiceClient) ListAgents(ctx context.Context, in *ListAgentsRequest, opts ...grpc.CallOption) (*ListAgentsResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ListAgentsResponse)
+	err := c.cc.Invoke(ctx, AgentConfigService_ListAgents_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *agentConfigServiceClient) CreateAgent(ctx context.Context, in *CreateAgentRequest, opts ...grpc.CallOption) (*AgentConfigResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(AgentConfigResponse)
+	err := c.cc.Invoke(ctx, AgentConfigService_CreateAgent_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *agentConfigServiceClient) UpdateAgent(ctx context.Context, in *UpdateAgentRequest, opts ...grpc.CallOption) (*AgentConfigResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(AgentConfigResponse)
+	err := c.cc.Invoke(ctx, AgentConfigService_UpdateAgent_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *agentConfigServiceClient) DeleteAgent(ctx context.Context, in *DeleteAgentRequest, opts ...grpc.CallOption) (*CommonResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(CommonResponse)
+	err := c.cc.Invoke(ctx, AgentConfigService_DeleteAgent_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *agentConfigServiceClient) GetAgentConfig(ctx context.Context, in *GetAgentConfigRequest, opts ...grpc.CallOption) (*GetAgentConfigResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(GetAgentConfigResponse)
+	err := c.cc.Invoke(ctx, AgentConfigService_GetAgentConfig_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+// AgentConfigServiceServer is the server API for AgentConfigService service.
+// All implementations must embed UnimplementedAgentConfigServiceServer
+// for forward compatibility.
+type AgentConfigServiceServer interface {
+	ListAgents(context.Context, *ListAgentsRequest) (*ListAgentsResponse, error)
+	CreateAgent(context.Context, *CreateAgentRequest) (*AgentConfigResponse, error)
+	UpdateAgent(context.Context, *UpdateAgentRequest) (*AgentConfigResponse, error)
+	DeleteAgent(context.Context, *DeleteAgentRequest) (*CommonResponse, error)
+	// Internal gRPC (not exposed via HTTP gateway)
+	GetAgentConfig(context.Context, *GetAgentConfigRequest) (*GetAgentConfigResponse, error)
+	mustEmbedUnimplementedAgentConfigServiceServer()
+}
+
+// UnimplementedAgentConfigServiceServer must be embedded to have
+// forward compatible implementations.
+//
+// NOTE: this should be embedded by value instead of pointer to avoid a nil
+// pointer dereference when methods are called.
+type UnimplementedAgentConfigServiceServer struct{}
+
+func (UnimplementedAgentConfigServiceServer) ListAgents(context.Context, *ListAgentsRequest) (*ListAgentsResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method ListAgents not implemented")
+}
+func (UnimplementedAgentConfigServiceServer) CreateAgent(context.Context, *CreateAgentRequest) (*AgentConfigResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method CreateAgent not implemented")
+}
+func (UnimplementedAgentConfigServiceServer) UpdateAgent(context.Context, *UpdateAgentRequest) (*AgentConfigResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method UpdateAgent not implemented")
+}
+func (UnimplementedAgentConfigServiceServer) DeleteAgent(context.Context, *DeleteAgentRequest) (*CommonResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method DeleteAgent not implemented")
+}
+func (UnimplementedAgentConfigServiceServer) GetAgentConfig(context.Context, *GetAgentConfigRequest) (*GetAgentConfigResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method GetAgentConfig not implemented")
+}
+func (UnimplementedAgentConfigServiceServer) mustEmbedUnimplementedAgentConfigServiceServer() {}
+func (UnimplementedAgentConfigServiceServer) testEmbeddedByValue()                            {}
+
+// UnsafeAgentConfigServiceServer may be embedded to opt out of forward compatibility for this service.
+// Use of this interface is not recommended, as added methods to AgentConfigServiceServer will
+// result in compilation errors.
+type UnsafeAgentConfigServiceServer interface {
+	mustEmbedUnimplementedAgentConfigServiceServer()
+}
+
+func RegisterAgentConfigServiceServer(s grpc.ServiceRegistrar, srv AgentConfigServiceServer) {
+	// If the following call panics, it indicates UnimplementedAgentConfigServiceServer was
+	// embedded by pointer and is nil.  This will cause panics if an
+	// unimplemented method is ever invoked, so we test this at initialization
+	// time to prevent it from happening at runtime later due to I/O.
+	if t, ok := srv.(interface{ testEmbeddedByValue() }); ok {
+		t.testEmbeddedByValue()
+	}
+	s.RegisterService(&AgentConfigService_ServiceDesc, srv)
+}
+
+func _AgentConfigService_ListAgents_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ListAgentsRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(AgentConfigServiceServer).ListAgents(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: AgentConfigService_ListAgents_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(AgentConfigServiceServer).ListAgents(ctx, req.(*ListAgentsRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _AgentConfigService_CreateAgent_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(CreateAgentRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(AgentConfigServiceServer).CreateAgent(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: AgentConfigService_CreateAgent_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(AgentConfigServiceServer).CreateAgent(ctx, req.(*CreateAgentRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _AgentConfigService_UpdateAgent_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(UpdateAgentRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(AgentConfigServiceServer).UpdateAgent(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: AgentConfigService_UpdateAgent_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(AgentConfigServiceServer).UpdateAgent(ctx, req.(*UpdateAgentRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _AgentConfigService_DeleteAgent_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(DeleteAgentRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(AgentConfigServiceServer).DeleteAgent(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: AgentConfigService_DeleteAgent_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(AgentConfigServiceServer).DeleteAgent(ctx, req.(*DeleteAgentRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _AgentConfigService_GetAgentConfig_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetAgentConfigRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(AgentConfigServiceServer).GetAgentConfig(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: AgentConfigService_GetAgentConfig_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(AgentConfigServiceServer).GetAgentConfig(ctx, req.(*GetAgentConfigRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+// AgentConfigService_ServiceDesc is the grpc.ServiceDesc for AgentConfigService service.
+// It's only intended for direct use with grpc.RegisterService,
+// and not to be introspected or modified (even as a copy)
+var AgentConfigService_ServiceDesc = grpc.ServiceDesc{
+	ServiceName: "recruitment.AgentConfigService",
+	HandlerType: (*AgentConfigServiceServer)(nil),
+	Methods: []grpc.MethodDesc{
+		{
+			MethodName: "ListAgents",
+			Handler:    _AgentConfigService_ListAgents_Handler,
+		},
+		{
+			MethodName: "CreateAgent",
+			Handler:    _AgentConfigService_CreateAgent_Handler,
+		},
+		{
+			MethodName: "UpdateAgent",
+			Handler:    _AgentConfigService_UpdateAgent_Handler,
+		},
+		{
+			MethodName: "DeleteAgent",
+			Handler:    _AgentConfigService_DeleteAgent_Handler,
+		},
+		{
+			MethodName: "GetAgentConfig",
+			Handler:    _AgentConfigService_GetAgentConfig_Handler,
+		},
+	},
+	Streams:  []grpc.StreamDesc{},
+	Metadata: "proto/recruitment.proto",
+}

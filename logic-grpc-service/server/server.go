@@ -23,6 +23,7 @@ type Server struct {
 	pb.UnimplementedCollaborationServiceServer
 	pb.UnimplementedLlmConfigServiceServer
 	pb.UnimplementedPromptServiceServer
+	pb.UnimplementedAgentConfigServiceServer
 	svc *service.Services
 }
 
@@ -663,4 +664,41 @@ func (s *Server) GetUsageTrend(ctx context.Context, req *pb.GetUsageTrendRequest
 		return nil, status.Error(codes.Unavailable, "usage stats service not available")
 	}
 	return s.svc.UsageStats.GetUsageTrend(ctx, req)
+}
+
+// ── AgentConfigService ───────────────────────────────────────────────────
+
+func (s *Server) ListAgents(ctx context.Context, req *pb.ListAgentsRequest) (*pb.ListAgentsResponse, error) {
+	if s.svc.AgentConfig == nil {
+		return nil, status.Error(codes.Unavailable, "agent config service not available")
+	}
+	return s.svc.AgentConfig.ListAgents(ctx, req)
+}
+
+func (s *Server) CreateAgent(ctx context.Context, req *pb.CreateAgentRequest) (*pb.AgentConfigResponse, error) {
+	if s.svc.AgentConfig == nil {
+		return nil, status.Error(codes.Unavailable, "agent config service not available")
+	}
+	return s.svc.AgentConfig.CreateAgent(ctx, req)
+}
+
+func (s *Server) UpdateAgent(ctx context.Context, req *pb.UpdateAgentRequest) (*pb.AgentConfigResponse, error) {
+	if s.svc.AgentConfig == nil {
+		return nil, status.Error(codes.Unavailable, "agent config service not available")
+	}
+	return s.svc.AgentConfig.UpdateAgent(ctx, req)
+}
+
+func (s *Server) DeleteAgent(ctx context.Context, req *pb.DeleteAgentRequest) (*pb.CommonResponse, error) {
+	if s.svc.AgentConfig == nil {
+		return nil, status.Error(codes.Unavailable, "agent config service not available")
+	}
+	return s.svc.AgentConfig.DeleteAgent(ctx, req)
+}
+
+func (s *Server) GetAgentConfig(ctx context.Context, req *pb.GetAgentConfigRequest) (*pb.GetAgentConfigResponse, error) {
+	if s.svc.AgentConfig == nil {
+		return nil, status.Error(codes.Unavailable, "agent config service not available")
+	}
+	return s.svc.AgentConfig.GetAgentConfig(ctx, req)
 }
