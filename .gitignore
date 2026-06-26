@@ -27,6 +27,7 @@ deploy/k8s/secret.yaml
 
 # Agent harness — do not commit
 docs/agent-harness/
+tools/
 
 # Reasonix agent metadata — do not commit
 .reasonix/
