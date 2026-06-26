@@ -139,8 +139,8 @@ const routeViewKey = (viewRoute: { fullPath: string; path: string; params: Recor
           <span>基础数据</span>
           <el-icon class="group-arrow" :class="{ 'group-arrow--open': taxonomyOpen }"><ArrowDown /></el-icon>
         </button>
-        <el-collapse-transition>
-          <div v-show="taxonomyOpen && !sidebarCollapsed" class="sidebar-sub-group">
+        <div class="sidebar-sub-wrap" :class="{ 'sidebar-sub-wrap--open': taxonomyOpen && !sidebarCollapsed }">
+          <div class="sidebar-sub-group">
             <RouterLink v-if="auth.hasPermission(PERM.ADMIN_DEPARTMENT_MANAGE)" class="sidebar-link sidebar-sub-link" to="/hr/admin/departments" @click="closeMobileSidebar">
               <span>部门管理</span>
             </RouterLink>
@@ -148,7 +148,7 @@ const routeViewKey = (viewRoute: { fullPath: string; path: string; params: Recor
               <span>地点管理</span>
             </RouterLink>
           </div>
-        </el-collapse-transition>
+        </div>
       </template>
       <RouterLink v-if="auth.hasPermission(PERM.JOB_READ)" class="sidebar-link" to="/hr/jobs" @click="closeMobileSidebar">
         <el-icon><Briefcase /></el-icon>
@@ -181,8 +181,8 @@ const routeViewKey = (viewRoute: { fullPath: string; path: string; params: Recor
           <span>第三方服务审计</span>
           <el-icon class="group-arrow" :class="{ 'group-arrow--open': usageAuditOpen }"><ArrowDown /></el-icon>
         </button>
-        <el-collapse-transition>
-          <div v-show="usageAuditOpen && !sidebarCollapsed" class="sidebar-sub-group">
+        <div class="sidebar-sub-wrap" :class="{ 'sidebar-sub-wrap--open': usageAuditOpen && !sidebarCollapsed }">
+          <div class="sidebar-sub-group">
             <RouterLink class="sidebar-link sidebar-sub-link" to="/hr/admin/usage-stats" @click="closeMobileSidebar">
               <span>使用统计</span>
             </RouterLink>
@@ -190,7 +190,7 @@ const routeViewKey = (viewRoute: { fullPath: string; path: string; params: Recor
               <span>审计日志</span>
             </RouterLink>
           </div>
-        </el-collapse-transition>
+        </div>
       </template>
     </aside>
     <div class="workspace" :class="{ 'workspace--collapsed': sidebarCollapsed }">

@@ -383,6 +383,16 @@ a {
   transform: rotate(180deg);
 }
 
+.sidebar-sub-wrap {
+  display: grid;
+  grid-template-rows: 0fr;
+  transition: grid-template-rows 0.25s ease;
+}
+
+.sidebar-sub-wrap--open {
+  grid-template-rows: 1fr;
+}
+
 .sidebar-sub-group {
   display: flex;
   flex-direction: column;
