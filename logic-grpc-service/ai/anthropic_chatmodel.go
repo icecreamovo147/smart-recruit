@@ -357,9 +357,11 @@ func (m *anthropicChatModel) processStream(body io.ReadCloser, sw *schema.Stream
 	)
 
 	type eventData struct {
-		Type  string          `json:"type"`
-		Delta json.RawMessage `json:"delta,omitempty"`
-		Usage json.RawMessage `json:"usage,omitempty"`
+		Type         string          `json:"type"`
+		Delta        json.RawMessage `json:"delta,omitempty"`
+		Usage        json.RawMessage `json:"usage,omitempty"`
+		Index        int             `json:"index"`
+		ContentBlock json.RawMessage `json:"content_block"`
 	}
 
 	for scanner.Scan() {
@@ -377,24 +379,25 @@ func (m *anthropicChatModel) processStream(body io.ReadCloser, sw *schema.Stream
 		switch ev.Type {
 		case "content_block_delta":
 			var d struct {
-				Type  string `json:"type"`
-				Text  string `json:"text"`
-				Index int    `json:"index"`
+				Type        string `json:"type"`
+				Text        string `json:"text"`
+				PartialJSON string `json:"partial_json"`
 			}
 			if err := json.Unmarshal(ev.Delta, &d); err != nil {
 				continue
 			}
 			mu.Lock()
-			b, ok := blocks[d.Index]
+			idx := ev.Index
+			b, ok := blocks[idx]
 			if !ok {
-				b = &streamBlock{index: d.Index}
-				blocks[d.Index] = b
+				b = &streamBlock{index: idx}
+				blocks[idx] = b
 			}
 			if d.Type == "text_delta" {
 				b.text.WriteString(d.Text)
 				hasContent = true
 			} else if d.Type == "input_json_delta" {
-				b.input.WriteString(d.Text)
+				b.input.WriteString(d.PartialJSON)
 			}
 			mu.Unlock()
 
@@ -405,11 +408,8 @@ func (m *anthropicChatModel) processStream(body io.ReadCloser, sw *schema.Stream
 				}, nil)
 			}
 		case "content_block_start":
-			var d struct {
-				Index        int             `json:"index"`
-				ContentBlock json.RawMessage `json:"content_block"`
-			}
-			if err := json.Unmarshal(ev.Delta, &d); err != nil {
+			idx := ev.Index
+			if ev.ContentBlock == nil {
 				continue
 			}
 			var cb struct {
@@ -417,26 +417,46 @@ func (m *anthropicChatModel) processStream(body io.ReadCloser, sw *schema.Stream
 				Name string `json:"name"`
 				ID   string `json:"id"`
 			}
-			json.Unmarshal(d.ContentBlock, &cb)
+			json.Unmarshal(ev.ContentBlock, &cb)
 			mu.Lock()
-			blocks[d.Index] = &streamBlock{
-				index:    d.Index,
+			blocks[idx] = &streamBlock{
+				index:     idx,
 				blockType: cb.Type,
-				toolName: cb.Name,
-				toolID:   cb.ID,
+				toolName:  cb.Name,
+				toolID:    cb.ID,
 			}
 			mu.Unlock()
 		}
 	}
 
-	// If no delta was ever emitted, send a final message with assembled content/tool calls
-	if !hasContent {
-		mu.Lock()
+	// Always emit assembled tool calls at end, even if text deltas were already
+	// streamed. This is necessary because input_json_delta chunks are never sent
+	// during streaming (only text_delta chunks are). Without this, tool calls that
+	// follow text in the same response are dropped.
+	mu.Lock()
+	hasToolUse := false
+	for _, b := range blocks {
+		if b.blockType == "tool_use" {
+			hasToolUse = true
+			break
+		}
+	}
+	if !hasContent || hasToolUse {
 		final := assembleStreamBlocks(blocks)
 		mu.Unlock()
-		if final.Content != "" || len(final.ToolCalls) > 0 {
-			sw.Send(final, nil)
+		if !hasContent {
+			if final.Content != "" || len(final.ToolCalls) > 0 {
+				sw.Send(final, nil)
+			}
+		} else if len(final.ToolCalls) > 0 {
+			// Content was already streamed — only emit tool calls to avoid duplication.
+			sw.Send(&schema.Message{
+				Role:      schema.Assistant,
+				ToolCalls: final.ToolCalls,
+			}, nil)
 		}
+	} else {
+		mu.Unlock()
 	}
 }
 
