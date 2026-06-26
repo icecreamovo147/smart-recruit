@@ -115,6 +115,9 @@ const markAssistantError = (index: number, error: Error | null) => {
 const refreshSessions = async () => {
   const data = await listSessions({ page: 1, page_size: 50 })
   sessions.value = (data.list || []).map(normalizeSession)
+  if (data.model_name) {
+    modelName.value = data.model_name
+  }
 }
 
 const selectSession = async (session: Session) => {

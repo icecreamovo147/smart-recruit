@@ -4310,6 +4310,7 @@ type ChatSessionListResponse struct {
 	Msg           string                 `protobuf:"bytes,2,opt,name=msg,proto3" json:"msg,omitempty"`
 	Total         int64                  `protobuf:"varint,3,opt,name=total,proto3" json:"total,omitempty"`
 	List          []*ChatSession         `protobuf:"bytes,4,rep,name=list,proto3" json:"list,omitempty"`
+	ModelName     string                 `protobuf:"bytes,5,opt,name=model_name,json=modelName,proto3" json:"model_name,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -4370,6 +4371,13 @@ func (x *ChatSessionListResponse) GetList() []*ChatSession {
 		return x.List
 	}
 	return nil
+}
+
+func (x *ChatSessionListResponse) GetModelName() string {
+	if x != nil {
+		return x.ModelName
+	}
+	return ""
 }
 
 type CreateChatSessionRequest struct {

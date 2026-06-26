@@ -168,7 +168,7 @@ func (h *AIHandler) ListSessions(c *gin.Context) {
 		base.Internal(c, err)
 		return
 	}
-	base.From(c, resp.Code, resp.Msg, gin.H{"total": resp.Total, "list": resp.List})
+	base.From(c, resp.Code, resp.Msg, gin.H{"total": resp.Total, "list": resp.List, "model_name": resp.ModelName})
 }
 
 func (h *AIHandler) CreateSession(c *gin.Context) {

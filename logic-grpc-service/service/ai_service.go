@@ -504,7 +504,7 @@ func (s *AIService) ListChatSessions(ctx context.Context, req *pb.ChatSessionLis
 	for _, row := range rows {
 		list = append(list, toPBChatSession(row))
 	}
-	return &pb.ChatSessionListResponse{Code: errs.OK, Msg: "success", Total: total, List: list}, nil
+	return &pb.ChatSessionListResponse{Code: errs.OK, Msg: "success", Total: total, List: list, ModelName: s.ai.ModelName()}, nil
 }
 
 func (s *AIService) CreateChatSession(ctx context.Context, req *pb.CreateChatSessionRequest) (*pb.CreateChatSessionResponse, error) {

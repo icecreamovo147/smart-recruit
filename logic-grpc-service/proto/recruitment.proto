@@ -639,6 +639,7 @@ message ChatSessionListResponse {
   string msg = 2;
   int64 total = 3;
   repeated ChatSession list = 4;
+  string model_name = 5;
 }
 
 message CreateChatSessionRequest {

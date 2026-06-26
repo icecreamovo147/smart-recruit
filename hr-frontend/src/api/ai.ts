@@ -34,6 +34,7 @@ export const analyzeApplication = (data: { application_id: number }): Promise<{
 export const listSessions = (params: { page: number; page_size: number }): Promise<{
   total: number
   list: ChatSessionListItem[]
+  model_name?: string
 }> => request.get('/api/v1/hr/ai/sessions', { params })
 
 export const createSession = (data: { title?: string }): Promise<{
