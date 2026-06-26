@@ -240,6 +240,18 @@ func (s *LlmConfigService) TestProviderConnection(ctx context.Context, req *pb.T
 	}
 	apiKey := string(apiKeyBytes)
 
+	// Pick a model name from configured models for this provider
+	models, err := s.modelRepo.GetEnabledModelsByProvider(ctx, id)
+	if err != nil || len(models) == 0 {
+		return &pb.TestProviderConnectionResponse{
+			Code:    1,
+			Msg:     "no model configured",
+			Success: false,
+			Detail:  "no enabled model found for this provider, please add a model first",
+		}, nil
+	}
+	modelName := models[0].ModelName
+
 	// Build a minimal chat request based on provider protocol
 	baseURL := strings.TrimRight(provider.BaseURL, "/")
 	var (
@@ -248,7 +260,7 @@ func (s *LlmConfigService) TestProviderConnection(ctx context.Context, req *pb.T
 	)
 	switch provider.ProviderType {
 	case "anthropic":
-		body = `{"model":"claude-haiku-3-5","max_tokens":1,"messages":[{"role":"user","content":"hi"}]}`
+		body = fmt.Sprintf(`{"model":"%s","max_tokens":1,"messages":[{"role":"user","content":"hi"}]}`, modelName)
 		httpReq, err = http.NewRequestWithContext(ctx, http.MethodPost, baseURL+"/v1/messages",
 			strings.NewReader(body))
 		if err == nil {
@@ -256,11 +268,11 @@ func (s *LlmConfigService) TestProviderConnection(ctx context.Context, req *pb.T
 			httpReq.Header.Set("anthropic-version", "2023-06-01")
 		}
 	case "ollama":
-		body = `{"model":"llama3","stream":false,"messages":[{"role":"user","content":"hi"}]}`
+		body = fmt.Sprintf(`{"model":"%s","stream":false,"messages":[{"role":"user","content":"hi"}]}`, modelName)
 		httpReq, err = http.NewRequestWithContext(ctx, http.MethodPost, baseURL+"/api/chat",
 			strings.NewReader(body))
 	default: // openai_compatible, deepseek, etc.
-		body = `{"model":"gpt-3.5-turbo","max_tokens":1,"messages":[{"role":"user","content":"hi"}]}`
+		body = fmt.Sprintf(`{"model":"%s","max_tokens":1,"messages":[{"role":"user","content":"hi"}]}`, modelName)
 		httpReq, err = http.NewRequestWithContext(ctx, http.MethodPost, baseURL+"/v1/chat/completions",
 			strings.NewReader(body))
 		if err == nil {
