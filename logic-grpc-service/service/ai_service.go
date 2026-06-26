@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"regexp"
 	"strings"
 	"sync"
 	"time"
@@ -796,4 +797,79 @@ func (s *AIService) InvalidateCachedADKTools() {
 	s.cachedToolsMu.Lock()
 	defer s.cachedToolsMu.Unlock()
 	s.cachedADKTools = nil
+}
+
+// GetToolTraces returns tool call traces for a given session, desensitized.
+// Only the HR user who owns the session can query its traces.
+func (s *AIService) GetToolTraces(ctx context.Context, req *pb.GetToolTracesRequest) (*pb.GetToolTracesResponse, error) {
+	if req.SessionId <= 0 {
+		return &pb.GetToolTracesResponse{Code: errs.ErrBadRequest, Msg: "session_id 不能为空"}, nil
+	}
+
+	// Verify the session belongs to this HR user.
+	session, err := s.chats.GetSessionOwned(ctx, req.HrId, req.SessionId)
+	if err != nil {
+		logger.L().Error("get session owned failed", zap.Int64("hr_id", req.HrId), zap.Int64("session_id", req.SessionId), zap.Error(err))
+		return nil, err
+	}
+	if session == nil {
+		return &pb.GetToolTracesResponse{Code: errs.ErrForbidden, Msg: "会话不存在或无权限访问"}, nil
+	}
+
+	// Query tool traces filtered by hr_id and session_id.
+	traces, err := s.toolTraces.ListBySession(ctx, req.HrId, req.SessionId, 500)
+	if err != nil {
+		logger.L().Error("list tool traces failed", zap.Int64("hr_id", req.HrId), zap.Int64("session_id", req.SessionId), zap.Error(err))
+		return nil, err
+	}
+
+	items := make([]*pb.ToolTraceItem, 0, len(traces))
+	for _, t := range traces {
+		items = append(items, &pb.ToolTraceItem{
+			Id:             int64(t.ID),
+			SessionId:      int64(t.SessionID),
+			ToolName:       t.ToolName,
+			ArgsJson:       desensitizeArgsJSON(t.ArgumentsJSON),
+			ResultContent:  desensitizeResultContent(t.ResultJSON),
+			DurationMs:     0, // duration not recorded yet; reserved field
+			ErrorMsg:       t.ErrorMessage,
+			CreatedAt:      t.CreatedAt.Format(time.RFC3339),
+		})
+	}
+
+	return &pb.GetToolTracesResponse{Code: errs.OK, Msg: "success", List: items}, nil
+}
+
+// desensitizeArgsJSON masks sensitive fields (phone, ID card) in tool argument JSON.
+// It uses regex-based matching to find and replace common PII patterns.
+func desensitizeArgsJSON(jsonStr string) string {
+	if jsonStr == "" {
+		return ""
+	}
+	// Mask phone numbers: 1xx-xxxx-xxxx or 1xxxxxxxxx
+	rePhone := regexp.MustCompile(`1[3-9]\d{1}[\s\-]?\d{4}[\s\-]?\d{4}`)
+	jsonStr = rePhone.ReplaceAllString(jsonStr, "****")
+
+	// Mask ID card numbers (18 digits, possibly with X suffix)
+	reIDCard := regexp.MustCompile(`\d{6}[\s\-]?\d{8}[\s\-]?[\dXx]{4}`)
+	jsonStr = reIDCard.ReplaceAllString(jsonStr, "****")
+
+	return jsonStr
+}
+
+// desensitizeResultContent truncates and masks sensitive data in tool result content.
+// For large results (e.g. resume text), it truncates to a reasonable length.
+func desensitizeResultContent(content string) string {
+	if content == "" {
+		return ""
+	}
+	// First apply PII masking (phone, ID card).
+	content = desensitizeArgsJSON(content)
+
+	// Truncate very large results (e.g. full resume text) to a summary length.
+	runes := []rune(content)
+	if len(runes) > 2000 {
+		return string(runes[:2000]) + fmt.Sprintf("... [已截断，总字符数: %d]", len(runes))
+	}
+	return content
 }

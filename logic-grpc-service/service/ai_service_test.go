@@ -227,3 +227,107 @@ func TestRecruitingToolsAllRequiredToolsPresent(t *testing.T) {
 		}
 	}
 }
+
+func TestDesensitizeArgsJSON_Phone(t *testing.T) {
+	cases := []struct {
+		name  string
+		input string
+	}{
+		{"11-digit phone", `{"phone": "13812345678"}`},
+		{"phone with spaces", `{"phone": "138 1234 5678"}`},
+		{"phone with dash", `{"phone": "138-1234-5678"}`},
+		{"phone in text", `联系手机号13812345678请查收`},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			got := desensitizeArgsJSON(tc.input)
+			if got == tc.input {
+				t.Errorf("desensitizeArgsJSON(%q) = %q, want phone masked", tc.input, got)
+			}
+		})
+	}
+}
+
+func TestDesensitizeArgsJSON_IDCard(t *testing.T) {
+	cases := []struct {
+		name  string
+		input string
+	}{
+		{"18-digit ID", `{"id_card": "110101199001011234"}`},
+		{"ID with X suffix", `{"id_card": "11010119900101123X"}`},
+		{"ID with spaces", `{"id_card": "110101 19900101 1234"}`},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			got := desensitizeArgsJSON(tc.input)
+			if got == tc.input {
+				t.Errorf("desensitizeArgsJSON(%q) = %q, want ID card masked", tc.input, got)
+			}
+		})
+	}
+}
+
+func TestDesensitizeArgsJSON_Empty(t *testing.T) {
+	if got := desensitizeArgsJSON(""); got != "" {
+		t.Errorf("desensitizeArgsJSON(\"\") = %q, want empty", got)
+	}
+}
+
+func TestDesensitizeArgsJSON_NoPII(t *testing.T) {
+	input := `{"tool": "search_jobs", "keyword": "工程师"}`
+	if got := desensitizeArgsJSON(input); got != input {
+		t.Errorf("desensitizeArgsJSON(%q) = %q, want unchanged", input, got)
+	}
+}
+
+func TestDesensitizeResultContent_Empty(t *testing.T) {
+	if got := desensitizeResultContent(""); got != "" {
+		t.Errorf("desensitizeResultContent(\"\") = %q, want empty", got)
+	}
+}
+
+func TestDesensitizeResultContent_Short(t *testing.T) {
+	input := "查询成功，共找到 5 个匹配岗位"
+	if got := desensitizeResultContent(input); got != input {
+		t.Errorf("desensitizeResultContent(%q) = %q, want unchanged", input, got)
+	}
+}
+
+func TestDesensitizeResultContent_Truncate(t *testing.T) {
+	input := make([]rune, 2500)
+	for i := range input {
+		input[i] = 'x'
+	}
+	got := desensitizeResultContent(string(input))
+	if len([]rune(got)) > 2100 {
+		t.Errorf("desensitizeResultContent truncated result too long: %d chars", len([]rune(got)))
+	}
+	if !strings.Contains(got, "已截断") {
+		t.Error("desensitizeResultContent should include truncation notice")
+	}
+}
+
+func TestDesensitizeResultContent_PhoneMasked(t *testing.T) {
+	input := `{"result": "联系手机: 13812345678, 身份证: 110101199001011234"}`
+	got := desensitizeResultContent(input)
+	if strings.Contains(got, "13812345678") {
+		t.Error("desensitizeResultContent should mask phone number")
+	}
+	if strings.Contains(got, "110101199001011234") {
+		t.Error("desensitizeResultContent should mask ID card")
+	}
+}
+
+func TestDesensitizeResultContent_AtBoundary(t *testing.T) {
+	input := make([]rune, 2000)
+	for i := range input {
+		input[i] = 'a'
+	}
+	got := desensitizeResultContent(string(input))
+	if strings.Contains(got, "已截断") {
+		t.Error("desensitizeResultContent should not truncate at exactly 2000 chars")
+	}
+	if len([]rune(got)) != 2000 {
+		t.Errorf("desensitizeResultContent should keep 2000 chars unchanged, got %d", len([]rune(got)))
+	}
+}

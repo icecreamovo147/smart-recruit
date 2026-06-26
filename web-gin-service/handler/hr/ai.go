@@ -275,6 +275,25 @@ func (h *AIHandler) DeleteSession(c *gin.Context) {
 	base.ProtoResponse(c, resp)
 }
 
+// GetToolTraces returns tool call traces for a given session.
+// Only accessible by the HR user who owns the session.
+func (h *AIHandler) GetToolTraces(c *gin.Context) {
+	sessionID, err := strconv.ParseInt(c.Param("session_id"), 10, 64)
+	if err != nil {
+		base.BadRequest(c, "会话 ID 不合法")
+		return
+	}
+	resp, err := h.clients.AI.GetToolTraces(c.Request.Context(), &pb.GetToolTracesRequest{
+		HrId:      middleware.UserID(c),
+		SessionId: sessionID,
+	})
+	if err != nil {
+		base.Internal(c, err)
+		return
+	}
+	base.From(c, resp.Code, resp.Msg, gin.H{"list": resp.List})
+}
+
 func mustMarshalHR(v any) string {
 	b, _ := json.Marshal(v)
 	return string(b)

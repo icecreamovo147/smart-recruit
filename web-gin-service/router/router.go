@@ -249,6 +249,7 @@ func Setup(cfg config.Config, clients *rpc.Clients, rdb *redis.Client) (*gin.Eng
 	staffGroup.GET("/ai/sessions", normalTimeout, middleware.RequirePermission(authz.PermAIHRUse), hrAIHandler.ListSessions)
 	staffGroup.POST("/ai/sessions", normalTimeout, middleware.RequirePermission(authz.PermAIHRUse), hrAIHandler.CreateSession)
 	staffGroup.GET("/ai/sessions/:session_id/messages", normalTimeout, middleware.RequirePermission(authz.PermAIHRUse), hrAIHandler.SessionMessages)
+	staffGroup.GET("/ai/sessions/:session_id/tool-traces", normalTimeout, middleware.RequirePermission(authz.PermAIHRUse), hrAIHandler.GetToolTraces)
 	staffGroup.PUT("/ai/sessions/:session_id", normalTimeout, middleware.RequirePermission(authz.PermAIHRUse), hrAIHandler.UpdateSession)
 	staffGroup.DELETE("/ai/sessions/:session_id", normalTimeout, middleware.RequirePermission(authz.PermAIHRUse), hrAIHandler.DeleteSession)
 	staffGroup.POST("/ai/application-analysis-sessions", riskBlock, aiLimit, hrAIQuota, aiTimeout, middleware.RequirePermission(authz.PermAIHRUse), hrAIHandler.CreateApplicationAnalysisSession)

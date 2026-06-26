@@ -2018,6 +2018,7 @@ const (
 	AIService_CandidateSessionMessages_FullMethodName         = "/recruitment.AIService/CandidateSessionMessages"
 	AIService_CandidateUpdateSession_FullMethodName           = "/recruitment.AIService/CandidateUpdateSession"
 	AIService_CandidateDeleteSession_FullMethodName           = "/recruitment.AIService/CandidateDeleteSession"
+	AIService_GetToolTraces_FullMethodName                    = "/recruitment.AIService/GetToolTraces"
 )
 
 // AIServiceClient is the client API for AIService service.
@@ -2041,6 +2042,8 @@ type AIServiceClient interface {
 	CandidateSessionMessages(ctx context.Context, in *CandidateSessionMessagesRequest, opts ...grpc.CallOption) (*ChatHistoryResponse, error)
 	CandidateUpdateSession(ctx context.Context, in *CandidateUpdateSessionRequest, opts ...grpc.CallOption) (*CommonResponse, error)
 	CandidateDeleteSession(ctx context.Context, in *CandidateDeleteSessionRequest, opts ...grpc.CallOption) (*CommonResponse, error)
+	// Agent tool call trace query
+	GetToolTraces(ctx context.Context, in *GetToolTracesRequest, opts ...grpc.CallOption) (*GetToolTracesResponse, error)
 }
 
 type aIServiceClient struct {
@@ -2229,6 +2232,16 @@ func (c *aIServiceClient) CandidateDeleteSession(ctx context.Context, in *Candid
 	return out, nil
 }
 
+func (c *aIServiceClient) GetToolTraces(ctx context.Context, in *GetToolTracesRequest, opts ...grpc.CallOption) (*GetToolTracesResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(GetToolTracesResponse)
+	err := c.cc.Invoke(ctx, AIService_GetToolTraces_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // AIServiceServer is the server API for AIService service.
 // All implementations must embed UnimplementedAIServiceServer
 // for forward compatibility.
@@ -2250,6 +2263,8 @@ type AIServiceServer interface {
 	CandidateSessionMessages(context.Context, *CandidateSessionMessagesRequest) (*ChatHistoryResponse, error)
 	CandidateUpdateSession(context.Context, *CandidateUpdateSessionRequest) (*CommonResponse, error)
 	CandidateDeleteSession(context.Context, *CandidateDeleteSessionRequest) (*CommonResponse, error)
+	// Agent tool call trace query
+	GetToolTraces(context.Context, *GetToolTracesRequest) (*GetToolTracesResponse, error)
 	mustEmbedUnimplementedAIServiceServer()
 }
 
@@ -2307,6 +2322,9 @@ func (UnimplementedAIServiceServer) CandidateUpdateSession(context.Context, *Can
 }
 func (UnimplementedAIServiceServer) CandidateDeleteSession(context.Context, *CandidateDeleteSessionRequest) (*CommonResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method CandidateDeleteSession not implemented")
+}
+func (UnimplementedAIServiceServer) GetToolTraces(context.Context, *GetToolTracesRequest) (*GetToolTracesResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method GetToolTraces not implemented")
 }
 func (UnimplementedAIServiceServer) mustEmbedUnimplementedAIServiceServer() {}
 func (UnimplementedAIServiceServer) testEmbeddedByValue()                   {}
@@ -2603,6 +2621,24 @@ func _AIService_CandidateDeleteSession_Handler(srv interface{}, ctx context.Cont
 	return interceptor(ctx, in, info, handler)
 }
 
+func _AIService_GetToolTraces_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetToolTracesRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(AIServiceServer).GetToolTraces(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: AIService_GetToolTraces_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(AIServiceServer).GetToolTraces(ctx, req.(*GetToolTracesRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // AIService_ServiceDesc is the grpc.ServiceDesc for AIService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -2665,6 +2701,10 @@ var AIService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "CandidateDeleteSession",
 			Handler:    _AIService_CandidateDeleteSession_Handler,
+		},
+		{
+			MethodName: "GetToolTraces",
+			Handler:    _AIService_GetToolTraces_Handler,
 		},
 	},
 	Streams: []grpc.StreamDesc{

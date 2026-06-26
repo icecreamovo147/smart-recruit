@@ -86,6 +86,9 @@ service AIService {
   rpc CandidateSessionMessages(CandidateSessionMessagesRequest) returns (ChatHistoryResponse);
   rpc CandidateUpdateSession(CandidateUpdateSessionRequest) returns (CommonResponse);
   rpc CandidateDeleteSession(CandidateDeleteSessionRequest) returns (CommonResponse);
+
+  // Agent tool call trace query
+  rpc GetToolTraces(GetToolTracesRequest) returns (GetToolTracesResponse);
 }
 
 service OfferService {
@@ -714,6 +717,30 @@ message CandidateUpdateSessionRequest {
 message CandidateDeleteSessionRequest {
   int64 user_id = 1;
   int64 session_id = 2;
+}
+
+// ---- Agent Tool Trace messages ----
+
+message GetToolTracesRequest {
+  int64 hr_id = 1;
+  int64 session_id = 2;
+}
+
+message ToolTraceItem {
+  int64 id = 1;
+  int64 session_id = 2;
+  string tool_name = 3;
+  string args_json = 4;       // 脱敏后的工具入参
+  string result_content = 5;  // 脱敏后的工具结果
+  int64 duration_ms = 6;      // 执行耗时(毫秒)
+  string error_msg = 7;       // 错误信息(如有)
+  string created_at = 8;
+}
+
+message GetToolTracesResponse {
+  int32 code = 1;
+  string msg = 2;
+  repeated ToolTraceItem list = 3;
 }
 
 // ── Interview ─────────────────────────────────────────────────────────
