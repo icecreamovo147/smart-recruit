@@ -311,6 +311,12 @@ func (s *AIService) runToolCallingChat(ctx context.Context, req *pb.ChatRequest,
 		return "", metadata, err
 	}
 
+	// If agent config has a bound prompt template, it takes priority.
+	runtimeCfg := s.getAgentRuntimeConfig(ctx, "hr_recruiting_agent")
+	if runtimeCfg.SystemPrompt != "" {
+		actx.SystemPromptTemplate = runtimeCfg.SystemPrompt
+	}
+
 	logger.L().Info("[AI问答] 用户提问",
 		zap.String("question", req.Message),
 		zap.Int64("hr_id", req.HrId),
@@ -431,8 +437,12 @@ func (s *AIService) runADKChat(
 
 	// Read agent runtime config and filter tools
 	runtimeCfg := s.getAgentRuntimeConfig(ctx, "hr_recruiting_agent")
-	if len(runtimeCfg.ToolNames) > 0 {
-		adkTools = filterToolsByName(adkTools, runtimeCfg.ToolNames)
+	if runtimeCfg.HasConfig {
+		if len(runtimeCfg.ToolNames) > 0 {
+			adkTools = filterToolsByName(adkTools, runtimeCfg.ToolNames)
+		} else {
+			adkTools = nil // agent config exists but all tools disabled
+		}
 	}
 	maxIterations := 0
 	if runtimeCfg.MaxIterations > 0 {
@@ -463,8 +473,12 @@ func (s *AIService) runLegacyChat(
 ) (string, ai.ToolMetadata, error) {
 	runtimeCfg := s.getAgentRuntimeConfig(ctx, "hr_recruiting_agent")
 	tools := ai.RecruitingTools()
-	if len(runtimeCfg.ToolNames) > 0 {
-		tools = filterToolInfosByName(tools, runtimeCfg.ToolNames)
+	if runtimeCfg.HasConfig {
+		if len(runtimeCfg.ToolNames) > 0 {
+			tools = filterToolInfosByName(tools, runtimeCfg.ToolNames)
+		} else {
+			tools = nil // agent config exists but all tools disabled
+		}
 	}
 
 	traceFn := func(toolCallID, toolName, argsJSON, resultContent string, execErr error) {
@@ -866,6 +880,7 @@ func (s *AIService) InvalidateCachedADKTools() {
 
 // agentRuntimeConfig holds resolved runtime configuration for an agent.
 type agentRuntimeConfig struct {
+		HasConfig           bool // true when an agent config record exists in DB
 	SystemPrompt        string
 	ToolNames           []string
 	MaxIterations       int
@@ -881,7 +896,8 @@ func (s *AIService) getAgentRuntimeConfig(ctx context.Context, agentType string)
 	if s.agentConfigRepo != nil {
 		agentCfg, err := s.agentConfigRepo.GetByAgentType(ctx, agentType)
 		if err == nil && agentCfg != nil && agentCfg.IsEnabled == 1 {
-			if agentCfg.MaxIterations > 0 {
+				cfg.HasConfig = true
+				if agentCfg.MaxIterations > 0 {
 				cfg.MaxIterations = int(agentCfg.MaxIterations)
 			}
 			if agentCfg.TemperatureOverride != nil {

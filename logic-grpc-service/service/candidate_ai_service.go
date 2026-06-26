@@ -84,6 +84,7 @@ func (s *CandidateAIService) getCandidateAgentRuntimeConfig(ctx context.Context)
 	if s.agentConfigRepo != nil {
 		agentCfg, err := s.agentConfigRepo.GetByAgentType(ctx, "candidate_assistant")
 		if err == nil && agentCfg != nil && agentCfg.IsEnabled == 1 {
+			cfg.HasConfig = true
 			if agentCfg.MaxIterations > 0 {
 				cfg.MaxIterations = int(agentCfg.MaxIterations)
 			}
@@ -256,8 +257,12 @@ func (s *CandidateAIService) StreamChat(ctx context.Context, userID int64, messa
 			legacyFallback = true
 		} else {
 			// Filter tools by agent config allowlist
-			if len(runtimeCfg.ToolNames) > 0 {
-				adkTools = filterToolsByName(adkTools, runtimeCfg.ToolNames)
+			if runtimeCfg.HasConfig {
+				if len(runtimeCfg.ToolNames) > 0 {
+					adkTools = filterToolsByName(adkTools, runtimeCfg.ToolNames)
+				} else {
+					adkTools = nil // agent config exists but all tools disabled
+				}
 			}
 			// Determine max iterations
 			maxIter := 0
