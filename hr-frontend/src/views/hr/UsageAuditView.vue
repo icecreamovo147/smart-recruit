@@ -304,9 +304,12 @@ const renderDimensionChart = () => {
     if (!dimensionChartRef.value) return;
     if (activeDimension.value === 'user' || activeDimension.value === 'session') return; // Only pie for model
 
-    if (!dimensionChart) {
-        dimensionChart = echarts.init(dimensionChartRef.value);
+    // Dispose and re-init when DOM node changed (v-if destroys/recreates the element)
+    if (dimensionChart) {
+        dimensionChart.dispose();
+        dimensionChart = null;
     }
+    dimensionChart = echarts.init(dimensionChartRef.value);
 
     const pieData = statsItems.value.map((item) => ({
         name: item.name,
