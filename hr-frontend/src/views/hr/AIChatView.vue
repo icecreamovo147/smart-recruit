@@ -709,48 +709,6 @@ onBeforeUnmount(() => {
         </div>
       </div>
 
-      <!-- Status bar: model name + data source + execution trace -->
-      <div v-if="currentSession" class="ai-status-bar" :class="{ 'ai-status-bar--collapsed': !statusBarExpanded }">
-        <div class="ai-status-bar__content">
-          <div class="ai-status-bar__left">
-            <div class="ai-status-bar__model">
-              <span class="ai-status-bar__label">模型</span>
-              <el-tag
-                v-if="modelName"
-                type="primary"
-                size="small"
-                effect="plain"
-                round
-              >{{ modelName }}</el-tag>
-              <span v-else class="ai-status-bar__placeholder">—</span>
-            </div>
-            <el-divider direction="vertical" />
-            <div class="ai-status-bar__source">
-              <span class="ai-status-bar__label">数据来源</span>
-              <span class="ai-status-bar__source-text">{{ dataSource }}</span>
-            </div>
-          </div>
-          <div class="ai-status-bar__right">
-            <el-button
-              size="small"
-              type="primary"
-              plain
-              :icon="null"
-              @click="tracePanelVisible = true"
-            >
-              执行轨迹
-            </el-button>
-          </div>
-        </div>
-        <button
-          class="ai-status-bar__toggle"
-          @click="statusBarExpanded = !statusBarExpanded"
-          :title="statusBarExpanded ? '收起' : '展开'"
-        >
-          <span class="ai-status-bar__toggle-icon">{{ statusBarExpanded ? '▲' : '▼' }}</span>
-        </button>
-      </div>
-
       <div class="chat-layout">
         <div ref="listRef" class="chat-list" v-loading="sessionLoading">
           <el-empty v-if="messages.length === 0 && !loading" description="暂无对话" />
@@ -787,6 +745,47 @@ onBeforeUnmount(() => {
           <el-button v-if="streaming" type="danger" plain @click="stopStreaming">中断</el-button>
           <el-button v-else type="primary" :loading="loading" :disabled="!input.trim()" @click="submit">发送</el-button>
         </div>
+
+        <!-- Status bar: model name + data source + execution trace -->
+        <div v-if="currentSession" class="ai-status-bar" :class="{ 'ai-status-bar--collapsed': !statusBarExpanded }">
+          <div class="ai-status-bar__content">
+            <div class="ai-status-bar__left">
+              <div class="ai-status-bar__model">
+                <span class="ai-status-bar__label">模型</span>
+                <el-tag
+                  v-if="modelName"
+                  type="primary"
+                  size="small"
+                  effect="plain"
+                  round
+                >{{ modelName }}</el-tag>
+                <span v-else class="ai-status-bar__placeholder">—</span>
+              </div>
+              <el-divider direction="vertical" />
+              <div class="ai-status-bar__source">
+                <span class="ai-status-bar__label">数据来源</span>
+                <span class="ai-status-bar__source-text">{{ dataSource }}</span>
+              </div>
+            </div>
+            <div class="ai-status-bar__right">
+              <el-button
+                size="small"
+                type="primary"
+                plain
+                @click="tracePanelVisible = true"
+              >
+                执行轨迹
+              </el-button>
+            </div>
+          </div>
+          <button
+            class="ai-status-bar__toggle"
+            @click="statusBarExpanded = !statusBarExpanded"
+            :title="statusBarExpanded ? '收起' : '展开'"
+          >
+            <span class="ai-status-bar__toggle-icon">{{ statusBarExpanded ? '▲' : '▼' }}</span>
+          </button>
+        </div>
       </div>
     </div>
 
@@ -804,7 +803,8 @@ onBeforeUnmount(() => {
   padding: 0 16px;
   min-height: 36px;
   background: var(--el-bg-color);
-  border-bottom: 1px solid var(--el-border-color-lighter);
+  border-bottom: none;
+  border-top: 1px solid var(--el-border-color-lighter);
   flex-shrink: 0;
   transition: min-height 0.2s ease;
 }
