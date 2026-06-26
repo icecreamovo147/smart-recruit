@@ -240,24 +240,29 @@ func (s *LlmConfigService) TestProviderConnection(ctx context.Context, req *pb.T
 	}
 	apiKey := string(apiKeyBytes)
 
-	// Build request based on provider type
+	// Build a minimal chat request based on provider protocol
 	baseURL := strings.TrimRight(provider.BaseURL, "/")
-	var httpReq *http.Request
+	var (
+		httpReq *http.Request
+		body    string
+	)
 	switch provider.ProviderType {
 	case "anthropic":
-		// Anthropic has no /v1/models — send minimal Messages request
-		body := `{"model":"claude-haiku-3-5","max_tokens":1,"messages":[{"role":"user","content":"hi"}]}`
+		body = `{"model":"claude-haiku-3-5","max_tokens":1,"messages":[{"role":"user","content":"hi"}]}`
 		httpReq, err = http.NewRequestWithContext(ctx, http.MethodPost, baseURL+"/v1/messages",
 			strings.NewReader(body))
 		if err == nil {
 			httpReq.Header.Set("x-api-key", apiKey)
 			httpReq.Header.Set("anthropic-version", "2023-06-01")
-			httpReq.Header.Set("Content-Type", "application/json")
 		}
 	case "ollama":
-		httpReq, err = http.NewRequestWithContext(ctx, http.MethodGet, baseURL+"/api/tags", nil)
+		body = `{"model":"llama3","stream":false,"messages":[{"role":"user","content":"hi"}]}`
+		httpReq, err = http.NewRequestWithContext(ctx, http.MethodPost, baseURL+"/api/chat",
+			strings.NewReader(body))
 	default: // openai_compatible, deepseek, etc.
-		httpReq, err = http.NewRequestWithContext(ctx, http.MethodGet, baseURL+"/v1/models", nil)
+		body = `{"model":"gpt-3.5-turbo","max_tokens":1,"messages":[{"role":"user","content":"hi"}]}`
+		httpReq, err = http.NewRequestWithContext(ctx, http.MethodPost, baseURL+"/v1/chat/completions",
+			strings.NewReader(body))
 		if err == nil {
 			httpReq.Header.Set("Authorization", "Bearer "+apiKey)
 		}
