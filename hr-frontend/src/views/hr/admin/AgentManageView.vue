@@ -8,7 +8,6 @@ import {
   updateAgentConfig,
   deleteAgentConfig,
 } from '@/api/agent'
-import { listModels } from '@/api/llm'
 import { listPromptTemplates } from '@/api/prompt'
 import type {
   AgentConfigInfo,
@@ -16,7 +15,6 @@ import type {
   CreateAgentPayload,
   UpdateAgentPayload,
 } from '@/types/agent'
-import type { LlmModel } from '@/types/llm'
 import type { PromptTemplate } from '@/types/prompt'
 
 // ====== Agent types dropdown options ======
@@ -93,16 +91,11 @@ const loadList = async () => {
 
 // ====== Reference data for selectors ======
 
-const modelList = ref<LlmModel[]>([])
 const promptList = ref<PromptTemplate[]>([])
 
 const loadReferenceData = async () => {
   try {
-    const [modelData, promptData] = await Promise.all([
-      listModels(1, 200),
-      listPromptTemplates(1, 200),
-    ])
-    modelList.value = modelData.list || []
+    const promptData = await listPromptTemplates(1, 200)
     promptList.value = promptData.list || []
   } catch {
     // Non-fatal: selectors will be empty but user can still type
@@ -128,7 +121,6 @@ const dialogForm = reactive({
   display_name: '',
   description: '',
   agent_type: 'hr_recruiting_agent',
-  model_id: 0,
   prompt_template_id: 0,
   instruction: '',
   max_iterations: 5,
@@ -148,7 +140,6 @@ const resetDialogForm = () => {
   dialogForm.display_name = ''
   dialogForm.description = ''
   dialogForm.agent_type = 'hr_recruiting_agent'
-  dialogForm.model_id = 0
   dialogForm.prompt_template_id = 0
   dialogForm.instruction = ''
   dialogForm.max_iterations = 5
@@ -175,7 +166,6 @@ const openEdit = (row: AgentConfigInfo) => {
   dialogForm.display_name = row.display_name
   dialogForm.description = row.description || ''
   dialogForm.agent_type = row.agent_type
-  dialogForm.model_id = row.model_id || 0
   dialogForm.prompt_template_id = row.prompt_template_id || 0
   dialogForm.instruction = row.instruction || ''
   dialogForm.max_iterations = row.max_iterations || 5
@@ -210,8 +200,6 @@ const save = async () => {
         display_name: dialogForm.display_name,
       }
       if (dialogForm.description) payload.description = dialogForm.description
-      payload.model_id = dialogForm.model_id
-      payload.model_id_set = dialogForm.model_id > 0
       payload.prompt_template_id = dialogForm.prompt_template_id
       payload.prompt_template_id_set = dialogForm.prompt_template_id > 0
       if (dialogForm.instruction) payload.instruction = dialogForm.instruction
@@ -234,7 +222,6 @@ const save = async () => {
         agent_type: dialogForm.agent_type,
       }
       if (dialogForm.description) payload.description = dialogForm.description
-      if (dialogForm.model_id > 0) payload.model_id = dialogForm.model_id
       if (dialogForm.prompt_template_id > 0) payload.prompt_template_id = dialogForm.prompt_template_id
       if (dialogForm.instruction) payload.instruction = dialogForm.instruction
       payload.max_iterations = dialogForm.max_iterations
@@ -325,11 +312,6 @@ onMounted(() => {
           {{ AGENT_TYPE_LABEL[row.agent_type] || row.agent_type }}
         </template>
       </el-table-column>
-      <el-table-column label="绑定模型" width="160" show-overflow-tooltip>
-        <template #default="{ row }: { row: AgentConfigInfo }">
-          {{ row.model_name || '-' }}
-        </template>
-      </el-table-column>
       <el-table-column label="绑定 Prompt" width="160" show-overflow-tooltip>
         <template #default="{ row }: { row: AgentConfigInfo }">
           {{ row.prompt_template_name || '-' }}
@@ -416,18 +398,8 @@ onMounted(() => {
           </el-select>
         </el-form-item>
 
-        <el-divider content-position="left">模型与 Prompt</el-divider>
+        <el-divider content-position="left">Prompt 配置</el-divider>
 
-        <el-form-item label="绑定模型">
-          <el-select v-model="dialogForm.model_id" style="width: 100%" placeholder="选择模型" clearable>
-            <el-option
-              v-for="m in modelList"
-              :key="m.id"
-              :value="m.id"
-              :label="m.display_name || m.model_name"
-            />
-          </el-select>
-        </el-form-item>
         <el-form-item label="绑定 Prompt">
           <el-select v-model="dialogForm.prompt_template_id" style="width: 100%" placeholder="选择 Prompt 模板" clearable>
             <el-option

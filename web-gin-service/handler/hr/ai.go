@@ -7,6 +7,7 @@ import (
 	"strconv"
 
 	"github.com/gin-gonic/gin"
+	"google.golang.org/grpc/metadata"
 
 	base "web-gin-service/handler"
 	"web-gin-service/middleware"
@@ -55,12 +56,18 @@ func (h *AIHandler) ChatStream(c *gin.Context) {
 		Message       string         `json:"message" binding:"required"`
 		ApplicationID base.FlexInt64 `json:"application_id"`
 		SessionID     base.FlexInt64 `json:"session_id"`
+		ModelID       base.FlexInt64 `json:"model_id"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
 		base.BadRequest(c, "消息不能为空")
 		return
 	}
-	stream, err := h.clients.AI.ChatStream(c.Request.Context(), &pb.ChatRequest{HrId: middleware.UserID(c), Message: req.Message, ApplicationId: int64(req.ApplicationID), SessionId: int64(req.SessionID)})
+	// Pass model_id via gRPC metadata so the logic service can use it for runtime model selection.
+	ctx := c.Request.Context()
+	if req.ModelID > 0 {
+		ctx = metadata.NewOutgoingContext(ctx, metadata.Pairs("x-model-id", strconv.FormatInt(int64(req.ModelID), 10)))
+	}
+	stream, err := h.clients.AI.ChatStream(ctx, &pb.ChatRequest{HrId: middleware.UserID(c), Message: req.Message, ApplicationId: int64(req.ApplicationID), SessionId: int64(req.SessionID)})
 	if err != nil {
 		base.Internal(c, err)
 		return
@@ -76,7 +83,7 @@ func (h *AIHandler) ChatStream(c *gin.Context) {
 		err   error
 	}
 	recvCh := make(chan recvResult, 1)
-	ctx := c.Request.Context()
+	cancelCtx := c.Request.Context()
 	go func() {
 		defer close(recvCh)
 		for {
@@ -94,7 +101,7 @@ func (h *AIHandler) ChatStream(c *gin.Context) {
 
 	for {
 		select {
-		case <-ctx.Done():
+		case <-cancelCtx.Done():
 			return
 		case result, ok := <-recvCh:
 			if !ok {

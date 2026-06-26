@@ -6,8 +6,10 @@ import DOMPurify from 'dompurify'
 import MarkdownIt from 'markdown-it'
 import { createApplicationAnalysisSession, createSession, deleteSession, getSessionMessages, listSessions, sendMessageStream, updateSession } from '@/api/ai'
 import { updateApplicationStatus } from '@/api/application'
+import { listModels } from '@/api/llm'
 import AgentTracePanel from '@/components/AgentTracePanel.vue'
 import type { ChatMessage, ChatSessionListItem, Session, CandidateOption, StreamPayload } from '@/types/ai'
+import type { LlmModel } from '@/types/llm'
 import { BusinessError } from '@/types/api'
 
 interface MessageItem {
@@ -36,6 +38,8 @@ const activeController = ref<AbortController | null>(null)
 const userAborted = ref(false)
 const statusBarExpanded = ref(true)
 const modelName = ref('')
+const modelList = ref<LlmModel[]>([])
+const selectedModelId = ref(0)
 const dataSource = ref('招聘业务数据库')
 const tracePanelVisible = ref(false)
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -291,7 +295,7 @@ const createAnalysisSessionFromRoute = async () => {
   userAborted.value = false
   try {
     await sendMessageStream(
-      { message: messages.value[0].content, session_id: session.id },
+      { message: messages.value[0].content, session_id: session.id, ...(selectedModelId.value > 0 ? { model_id: selectedModelId.value } : {}) },
       {
         onDelta: (delta) => {
           const msg = messages.value[assistantIndex]
@@ -387,7 +391,7 @@ const analyzeCandidateOption = async (option: CandidateOption) => {
     let finalPayload: StreamPayload | null = null
     let streamFailed = false
     await sendMessageStream(
-      { message: userMessage, application_id: option.application_id },
+      { message: userMessage, application_id: option.application_id, ...(selectedModelId.value > 0 ? { model_id: selectedModelId.value } : {}) },
       {
         onDelta: (delta) => appendAssistantDelta(assistantIndex, delta),
         onStatus: (_eventType, eventMessage) => {
@@ -469,7 +473,7 @@ const submit = async () => {
     let finalPayload: StreamPayload | null = null
     let streamFailed = false
     await sendMessageStream(
-      { message: text, session_id: session.id },
+      { message: text, session_id: session.id, ...(selectedModelId.value > 0 ? { model_id: selectedModelId.value } : {}) },
       {
         onDelta: (delta) => {
           appendAssistantDelta(assistantIndex, delta)
@@ -567,7 +571,7 @@ const retry = async (failedIndex: number) => {
     let finalPayload: StreamPayload | null = null
     let streamFailed = false
     await sendMessageStream(
-      { message: lastUserContent, session_id: session.id },
+      { message: lastUserContent, session_id: session.id, ...(selectedModelId.value > 0 ? { model_id: selectedModelId.value } : {}) },
       {
         onDelta: (delta) => {
           appendAssistantDelta(assistantIndex, delta)
@@ -633,6 +637,11 @@ const retry = async (failedIndex: number) => {
 
 onMounted(async () => {
   document.addEventListener('click', closeMenu)
+  // Load available models for the model selector.
+  try {
+    const modelData = await listModels(1, 200)
+    modelList.value = (modelData.list || []).filter((m) => m.is_enabled)
+  } catch { /* non-fatal: model selector will be empty */ }
   await refreshSessions()
   if (await createAnalysisSessionFromRoute()) return
   const querySessionId = Number(route.query.session_id || 0)
@@ -744,6 +753,21 @@ onBeforeUnmount(() => {
           <div v-if="loading && !streaming" class="bubble assistant">分析中...</div>
         </div>
         <div class="chat-input">
+          <el-select
+            v-if="modelList.length > 0"
+            v-model="selectedModelId"
+            size="small"
+            placeholder="默认模型"
+            style="width: 180px; flex-shrink: 0;"
+            clearable
+          >
+            <el-option
+              v-for="m in modelList"
+              :key="m.id"
+              :value="m.id"
+              :label="m.display_name || m.model_name"
+            />
+          </el-select>
           <el-input v-model="input" :disabled="streaming" :placeholder="currentSession?.application_id ? '例如：他的项目经历和岗位要求匹配吗？也可以说“通过这个候选人”' : '例如：今天后端岗位投递了多少人？'" @keyup.enter="streaming ? undefined : submit()" />
           <el-button v-if="streaming" type="danger" plain @click="stopStreaming">中断</el-button>
           <el-button v-else type="primary" :loading="loading" :disabled="!input.trim()" @click="submit">发送</el-button>

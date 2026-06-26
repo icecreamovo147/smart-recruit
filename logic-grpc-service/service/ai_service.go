@@ -6,12 +6,14 @@ import (
 	"errors"
 	"fmt"
 	"regexp"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
 
 	"go.uber.org/zap"
 	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/status"
 
 	"github.com/cloudwego/eino/components/tool"
@@ -44,6 +46,7 @@ type AIService struct {
 	authzRepo       *repository.AuthzRepo
 	agentRuntime    string
 	authz           *ServiceAuthorizer
+	llmConfigSvc    *LlmConfigService         // for runtime model selection
 	cachedADKTools []tool.BaseTool // lazy-initialized, shared across requests
 	cachedToolsMu  sync.Mutex       // guards cachedADKTools init and invalidation
 }
@@ -66,6 +69,7 @@ func NewAIService(
 		authzRepo *repository.AuthzRepo,
 	agentRuntime string,
 	authz *ServiceAuthorizer,
+	llmConfigSvc *LlmConfigService,
 ) *AIService {
 	return &AIService{
 		chats: chats, applications: applications, jobs: jobs, resumes: resumes,
@@ -77,6 +81,7 @@ func NewAIService(
 		authzRepo: authzRepo,
 		agentRuntime: agentRuntime,
 		authz: authz,
+		llmConfigSvc: llmConfigSvc,
 	}
 }
 
@@ -136,7 +141,7 @@ func (s *AIService) Chat(ctx context.Context, req *pb.ChatRequest) (*pb.ChatResp
 	reply, metadata, err := s.runToolCallingChat(ctx, req, session, func(delta string) error {
 		replyBuilder.WriteString(delta)
 		return nil
-	}, nil)
+	}, nil, nil)
 	if err != nil {
 		if isCanceledError(err) {
 			partial := strings.TrimSpace(replyBuilder.String())
@@ -199,11 +204,38 @@ func (s *AIService) ChatStream(req *pb.ChatRequest, stream pb.AIService_ChatStre
 		req.ApplicationId = session.ApplicationID
 	}
 
+	// Resolve runtime model override from gRPC metadata (set by web-gin gateway).
+	aiClient := s.ai
+	modelNameForStatus := s.ai.ModelName()
+	if s.llmConfigSvc != nil {
+		md, ok := metadata.FromIncomingContext(ctx)
+		if ok {
+			modelIDStrs := md.Get("x-model-id")
+			if len(modelIDStrs) > 0 {
+				if modelID, parseErr := strconv.ParseInt(modelIDStrs[0], 10, 64); parseErr == nil && modelID > 0 {
+					providerType, apiKey, modelName, baseURL, err := s.llmConfigSvc.GetModelDetails(ctx, modelID)
+					if err != nil {
+						log.Warn("runtime model selection failed, falling back to default", zap.Int64("model_id", modelID), zap.Error(err))
+					} else {
+						cm, cmErr := ai.NewChatModel(ctx, providerType, apiKey, modelName, baseURL, s.ai.Timeout())
+						if cmErr != nil {
+							log.Warn("create chat model failed, falling back to default", zap.Error(cmErr))
+						} else {
+							aiClient = s.ai.CloneWithModel(modelName, cm)
+							modelNameForStatus = modelName
+							log.Info("runtime model selected", zap.Int64("model_id", modelID), zap.String("model", modelName))
+						}
+					}
+				}
+			}
+		}
+	}
+
 	// Send model/agent info to the frontend status bar.
 	_ = stream.Send(&pb.ChatStreamResponse{
 		Code:         errs.OK,
 		EventType:    "model_info",
-		EventMessage: s.ai.ModelName(),
+		EventMessage: modelNameForStatus,
 		SessionId:    session.ID,
 	})
 
@@ -221,11 +253,11 @@ func (s *AIService) ChatStream(req *pb.ChatRequest, stream pb.AIService_ChatStre
 	}
 	reply, metadata, err := s.runToolCallingChat(ctx, req, session, func(delta string) error {
 		return stream.Send(&pb.ChatStreamResponse{Code: errs.OK, Msg: "success", Delta: delta, SessionId: session.ID})
-	}, statusSender)
+	}, statusSender, aiClient)
 	if err != nil {
 		s.writeHRUsageAudit(ctx, AuditLogEntry{
 			UserID: req.HrId, Role: 2, ServiceType: "ai_chat",
-			Endpoint: "/hr/ai/chat/stream", Provider: "dashscope", Model: s.ai.ModelName(),
+			Endpoint: "/hr/ai/chat/stream", Provider: "dashscope", Model: modelNameForStatus,
 			RequestChars: inputChars, Status: "error", CostMs: int(time.Since(startTime).Milliseconds()),
 		}, req.HrId, "ai", req.ApplicationId)
 		return err
@@ -233,7 +265,7 @@ func (s *AIService) ChatStream(req *pb.ChatRequest, stream pb.AIService_ChatStre
 
 	s.writeHRUsageAudit(ctx, AuditLogEntry{
 		UserID: req.HrId, Role: 2, ServiceType: "ai_chat",
-		Endpoint: "/hr/ai/chat/stream", Provider: "dashscope", Model: s.ai.ModelName(),
+		Endpoint: "/hr/ai/chat/stream", Provider: "dashscope", Model: modelNameForStatus,
 		RequestChars: inputChars, ResponseChars: len([]rune(reply)), CostMs: int(time.Since(startTime).Milliseconds()),
 	}, req.HrId, "ai", req.ApplicationId)
 
@@ -261,7 +293,7 @@ func (s *AIService) ChatStream(req *pb.ChatRequest, stream pb.AIService_ChatStre
 // use this method. The onDelta callback receives incremental reply text; for
 // non-streaming callers it accumulates the full reply, for streaming callers it
 // writes SSE deltas.
-func (s *AIService) runToolCallingChat(ctx context.Context, req *pb.ChatRequest, session *model.AIChatSession, onDelta func(string) error, onStatus func(eventType, eventMessage, errorType, toolName string) error) (reply string, metadata ai.ToolMetadata, err error) {
+func (s *AIService) runToolCallingChat(ctx context.Context, req *pb.ChatRequest, session *model.AIChatSession, onDelta func(string) error, onStatus func(eventType, eventMessage, errorType, toolName string) error, aiClient *ai.Client) (reply string, metadata ai.ToolMetadata, err error) {
 	// Phase 1-5: Build agent context with all memory layers.
 	actx, err := s.contextBuilder.Build(ctx, AgentContextInput{
 		HrID:           req.HrId,
@@ -299,10 +331,13 @@ func (s *AIService) runToolCallingChat(ctx context.Context, req *pb.ChatRequest,
 		return nil
 	}
 
+	if aiClient == nil {
+		aiClient = s.ai
+	}
 	if s.agentRuntime == "adk" {
-		reply, metadata, err = s.runADKChat(ctx, req, session, messages, wrappedDelta, onStatus)
+		reply, metadata, err = s.runADKChat(ctx, req, session, messages, wrappedDelta, onStatus, aiClient)
 	} else {
-		reply, metadata, err = s.runLegacyChat(ctx, req, session, messages, wrappedDelta, onStatus)
+		reply, metadata, err = s.runLegacyChat(ctx, req, session, messages, wrappedDelta, onStatus, aiClient)
 	}
 	if err != nil {
 		if isCanceledError(err) {
@@ -364,6 +399,7 @@ func (s *AIService) runADKChat(
 	messages []*schema.Message,
 	onDelta func(string) error,
 	onStatus func(string, string, string, string) error,
+	aiClient *ai.Client,
 ) (string, ai.ToolMetadata, error) {
 	if req.HrId <= 0 {
 		return "", ai.ToolMetadata{}, fmt.Errorf("hrID must be positive, got %d", req.HrId)
@@ -373,7 +409,7 @@ func (s *AIService) runADKChat(
 	adkTools, err := s.getOrInitADKTools()
 	if err != nil {
 		logger.L().Warn("[ADK降级] 工具创建失败，自动切换到 Legacy 路径", zap.Error(err))
-		return s.runLegacyChat(ctx, req, session, messages, onDelta, onStatus)
+		return s.runLegacyChat(ctx, req, session, messages, onDelta, onStatus, aiClient)
 	}
 
 	state := &ai.AgentRunState{}
@@ -387,7 +423,7 @@ func (s *AIService) runADKChat(
 		go s.recordToolTrace(session.ID, req.HrId, toolCallID, toolName, argsJSON, resultContent, execErr)
 	}
 
-	return s.ai.ChatWithADKAgent(ctx, ai.AgentRunInput{
+	return aiClient.ChatWithADKAgent(ctx, ai.AgentRunInput{
 		AgentName:     "hr_recruiting_agent",
 		Instruction:   extractSystemInstruction(messages),
 		Messages:      messages,
@@ -407,6 +443,7 @@ func (s *AIService) runLegacyChat(
 	messages []*schema.Message,
 	onDelta func(string) error,
 	onStatus func(string, string, string, string) error,
+	aiClient *ai.Client,
 ) (string, ai.ToolMetadata, error) {
 	tools := ai.RecruitingTools()
 
@@ -414,7 +451,7 @@ func (s *AIService) runLegacyChat(
 		go s.recordToolTrace(session.ID, req.HrId, toolCallID, toolName, argsJSON, resultContent, execErr)
 	}
 
-	return s.ai.ChatWithTools(ctx, messages, tools, s.toolExecutor, req.HrId, onDelta, traceFn, onStatus)
+	return aiClient.ChatWithTools(ctx, messages, tools, s.toolExecutor, req.HrId, onDelta, traceFn, onStatus)
 }
 
 // extractSystemInstruction pulls the system prompt content from the messages

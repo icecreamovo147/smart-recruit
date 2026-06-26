@@ -40,6 +40,12 @@ func newChatModel(ctx context.Context, providerType, apiKey, model, baseURL stri
 	}
 }
 
+// NewChatModel is the exported version of newChatModel, used by the service layer
+// for per-request runtime model selection.
+func NewChatModel(ctx context.Context, providerType, apiKey, model, baseURL string, timeout time.Duration) (chatmodel.ToolCallingChatModel, error) {
+	return newChatModel(ctx, providerType, apiKey, model, baseURL, timeout)
+}
+
 // ToolRunner is the interface that both HR and candidate tool executors implement.
 type ToolRunner interface {
 	Execute(ctx context.Context, hrID int64, toolName string, args map[string]any) (ToolResult, error)
@@ -304,6 +310,16 @@ func NewClientFromConfig(ctx context.Context, cfg ClientConfig, opts ...Options)
 }
 
 func (c *Client) ModelName() string { return c.model }
+func (c *Client) Timeout() time.Duration { return c.timeout }
+
+// CloneWithModel returns a shallow copy of the Client that uses a different ChatModel
+// and model name. Used for per-request runtime model selection.
+func (c *Client) CloneWithModel(model string, cm chatmodel.ToolCallingChatModel) *Client {
+	clone := *c
+	clone.model = model
+	clone.cm = cm
+	return &clone
+}
 
 func (c *Client) call(ctx context.Context, fn func(context.Context) error) error {
 	return c.callWithRetry(ctx, fn, nil)

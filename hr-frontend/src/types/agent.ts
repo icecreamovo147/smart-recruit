@@ -14,7 +14,6 @@ export interface AgentConfigInfo {
   display_name: string
   description: string
   agent_type: string        // hr_recruiting_agent / candidate_assistant / custom
-  model_id: number
   prompt_template_id: number
   instruction: string
   max_iterations: number
@@ -24,7 +23,6 @@ export interface AgentConfigInfo {
   created_at: string
   updated_at: string
   // Joined fields (read-only)
-  model_name: string
   prompt_template_name: string
   tool_bindings: AgentToolBindingInfo[]
 }
@@ -36,7 +34,6 @@ export interface CreateAgentPayload {
   display_name: string
   description?: string
   agent_type: string
-  model_id?: number
   prompt_template_id?: number
   instruction?: string
   max_iterations?: number
@@ -51,8 +48,6 @@ export interface UpdateAgentPayload {
   display_name?: string
   description?: string
   agent_type?: string
-  model_id?: number
-  model_id_set?: boolean
   prompt_template_id?: number
   prompt_template_id_set?: boolean
   instruction?: string

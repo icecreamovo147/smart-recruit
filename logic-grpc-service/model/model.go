@@ -614,7 +614,6 @@ type AgentConfig struct {
 	DisplayName         string     `gorm:"column:display_name;size:256;not null"`
 	Description         string     `gorm:"column:description;type:text"`
 	AgentType           string     `gorm:"column:agent_type;size:64;not null"`
-	ModelID             *int64     `gorm:"column:model_id"`
 	PromptTemplateID    *int64     `gorm:"column:prompt_template_id"`
 	Instruction         string     `gorm:"column:instruction;type:text"`
 	MaxIterations       int32      `gorm:"column:max_iterations;default:5"`

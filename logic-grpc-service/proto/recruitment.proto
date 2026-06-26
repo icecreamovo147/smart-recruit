@@ -550,6 +550,7 @@ message ChatRequest {
   string message = 2;
   int64 application_id = 3;
   int64 session_id = 4;
+  int64 model_id = 5;               // Optional: user-selected model override
 }
 
 message ChatResponse {
@@ -2281,7 +2282,6 @@ message AgentConfigInfo {
   string display_name = 3;
   string description = 4;
   string agent_type = 5;           // hr_recruiting_agent / candidate_assistant / custom
-  int64 model_id = 6;              // FK → llm_models.id
   int64 prompt_template_id = 7;    // FK → prompt_templates.id
   string instruction = 8;          // Extra instruction appended after Prompt
   int32 max_iterations = 9;        // Default 5
@@ -2292,7 +2292,6 @@ message AgentConfigInfo {
   string updated_at = 14;
 
   // Joined fields (read-only)
-  string model_name = 15;
   string prompt_template_name = 16;
   repeated AgentToolBindingInfo tool_bindings = 17;
 }
@@ -2323,7 +2322,6 @@ message CreateAgentRequest {
   string display_name = 2;
   string description = 3;
   string agent_type = 4;
-  int64 model_id = 5;
   int64 prompt_template_id = 6;
   string instruction = 7;
   int32 max_iterations = 8;        // Default 5
@@ -2338,8 +2336,6 @@ message UpdateAgentRequest {
   string name = 2;                 // 空 = 不更新
   string display_name = 3;         // 空 = 不更新
   string description = 4;          // 空 = 不更新
-  int64 model_id = 5;
-  bool model_id_set = 6;           // Whether model_id was set
   int64 prompt_template_id = 7;
   bool prompt_template_id_set = 8;
   string instruction = 9;          // 空 = 不更新

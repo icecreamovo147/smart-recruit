@@ -113,7 +113,7 @@ const handleStreamPayload = (text: string, handlers: StreamHandlers): boolean =>
 }
 
 export const sendMessageStream = async (
-  data: { message: string; application_id?: number; session_id?: number },
+  data: { message: string; application_id?: number; session_id?: number; model_id?: number },
   handlers: StreamHandlers = {},
   options: { signal?: AbortSignal; silentAbort?: boolean } = {},
 ): Promise<void> => {

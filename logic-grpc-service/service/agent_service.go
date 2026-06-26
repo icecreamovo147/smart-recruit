@@ -19,20 +19,17 @@ import (
 // AgentConfigService implements the pb.AgentConfigServiceServer interface.
 type AgentConfigService struct {
 	pb.UnimplementedAgentConfigServiceServer
-	repo              *repository.AgentConfigRepo
-	modelRepo         *repository.ModelConfigRepo
-	promptRepo        *repository.PromptTemplateRepo
+	repo       *repository.AgentConfigRepo
+	promptRepo *repository.PromptTemplateRepo
 }
 
 // NewAgentConfigService creates a new AgentConfigService.
 func NewAgentConfigService(
 	repo *repository.AgentConfigRepo,
-	modelRepo *repository.ModelConfigRepo,
 	promptRepo *repository.PromptTemplateRepo,
 ) *AgentConfigService {
 	return &AgentConfigService{
 		repo:       repo,
-		modelRepo:  modelRepo,
 		promptRepo: promptRepo,
 	}
 }
@@ -97,11 +94,6 @@ func (s *AgentConfigService) CreateAgent(ctx context.Context, req *pb.CreateAgen
 	}
 
 	// Validate FK references if specified.
-	if req.GetModelId() > 0 {
-		if _, err := s.modelRepo.GetByID(ctx, req.GetModelId()); err != nil {
-			return nil, status.Error(codes.InvalidArgument, "model_id not found")
-		}
-	}
 	if req.GetPromptTemplateId() > 0 {
 		if _, err := s.promptRepo.GetByID(ctx, req.GetPromptTemplateId()); err != nil {
 			return nil, status.Error(codes.InvalidArgument, "prompt_template_id not found")
@@ -134,7 +126,6 @@ func (s *AgentConfigService) CreateAgent(ctx context.Context, req *pb.CreateAgen
 		DisplayName:         req.GetDisplayName(),
 		Description:         req.GetDescription(),
 		AgentType:           req.GetAgentType(),
-		ModelID:             int64Ptr(req.GetModelId(), req.GetModelId() > 0),
 		PromptTemplateID:    int64Ptr(req.GetPromptTemplateId(), req.GetPromptTemplateId() > 0),
 		Instruction:         req.GetInstruction(),
 		MaxIterations:       maxIter,
@@ -196,18 +187,6 @@ func (s *AgentConfigService) UpdateAgent(ctx context.Context, req *pb.UpdateAgen
 	}
 	if req.GetInstruction() != "" {
 		updates["instruction"] = req.GetInstruction()
-	}
-	if req.GetModelIdSet() {
-		if req.GetModelId() > 0 {
-			if _, err := s.modelRepo.GetByID(ctx, req.GetModelId()); err != nil {
-				return nil, status.Error(codes.InvalidArgument, "model_id not found")
-			}
-		}
-		v := req.GetModelId()
-		updates["model_id"] = &v
-		if v == 0 {
-			updates["model_id"] = nil
-		}
 	}
 	if req.GetPromptTemplateIdSet() {
 		if req.GetPromptTemplateId() > 0 {
@@ -337,13 +316,6 @@ func (s *AgentConfigService) GetAgentConfig(ctx context.Context, req *pb.GetAgen
 func (s *AgentConfigService) agentToPB(ctx context.Context, cfg *model.AgentConfig) (*pb.AgentConfigInfo, error) {
 	info := agentToPBBasic(cfg)
 
-	// Join model name.
-	if cfg.ModelID != nil && *cfg.ModelID > 0 {
-		if m, err := s.modelRepo.GetByID(ctx, *cfg.ModelID); err == nil && m != nil {
-			info.ModelName = m.ModelName
-		}
-	}
-
 	// Join prompt template name.
 	if cfg.PromptTemplateID != nil && *cfg.PromptTemplateID > 0 {
 		if t, err := s.promptRepo.GetByID(ctx, *cfg.PromptTemplateID); err == nil && t != nil {
@@ -371,10 +343,6 @@ func (s *AgentConfigService) agentToPB(ctx context.Context, cfg *model.AgentConf
 }
 
 func agentToPBBasic(cfg *model.AgentConfig) *pb.AgentConfigInfo {
-	var modelID int64
-	if cfg.ModelID != nil {
-		modelID = *cfg.ModelID
-	}
 	var promptTemplateID int64
 	if cfg.PromptTemplateID != nil {
 		promptTemplateID = *cfg.PromptTemplateID
@@ -390,7 +358,6 @@ func agentToPBBasic(cfg *model.AgentConfig) *pb.AgentConfigInfo {
 		DisplayName:          cfg.DisplayName,
 		Description:          cfg.Description,
 		AgentType:            cfg.AgentType,
-		ModelId:              modelID,
 		PromptTemplateId:     promptTemplateID,
 		Instruction:          cfg.Instruction,
 		MaxIterations:        cfg.MaxIterations,

@@ -113,6 +113,7 @@ func NewServices(
 	serviceAuth := NewServiceAuthorizer(authzRepo, scopeEval)
 
 	collaborationRepo := repository.NewCollaborationRepo(db)
+	llmConfigSvc := newLlmConfigServiceWithFallback(db)
 
 	return &Services{
 		Auth:              NewAuthService(users, tokens, authzRepo, inviteCodes, jwtSecret),
@@ -129,12 +130,12 @@ func NewServices(
 		Application:       NewApplicationService(authzRepo, applications, profiles, resumes, jobs, interviews, notifications, outboxPublisher, ossClient, jobCache, scopeEval),
 		Interview:         NewInterviewService(authzRepo, interviews, users, applications, jobs, notifications, outboxPublisher, ossClient, scopeEval, serviceAuth),
 		Offer:             NewOfferService(authzRepo, offers, applications, jobs, notifications, outboxPublisher, scopeEval, serviceAuth),
-		AI:                NewAIService(chats, applications, jobs, resumes, summaries, toolTraces, memories, ossClient, aiClient, toolExecutor, contextBuilder, candidateAI, usageLogs, usageAuditCtxRepo, authzRepo, agentRuntime, serviceAuth),
+		AI:                NewAIService(chats, applications, jobs, resumes, summaries, toolTraces, memories, ossClient, aiClient, toolExecutor, contextBuilder, candidateAI, usageLogs, usageAuditCtxRepo, authzRepo, agentRuntime, serviceAuth, llmConfigSvc),
 		CandidateAI:       candidateAI,
 		Notification:      NewNotificationService(notifications, notifCache, serviceAuth),
-		LlmConfig:         newLlmConfigServiceWithFallback(db),
+		LlmConfig:         llmConfigSvc,
 		Prompt:            NewPromptService(repository.NewPromptTemplateRepo(db)),
-		AgentConfig:       NewAgentConfigService(repository.NewAgentConfigRepo(db), repository.NewModelConfigRepo(db), repository.NewPromptTemplateRepo(db)),
+		AgentConfig:       NewAgentConfigService(repository.NewAgentConfigRepo(db), repository.NewPromptTemplateRepo(db)),
 
 		Collaboration: NewCollaborationService(
 			authzRepo,

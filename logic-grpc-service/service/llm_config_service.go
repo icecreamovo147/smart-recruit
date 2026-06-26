@@ -602,6 +602,27 @@ func maskExtraHeaders(jsonStr string) string {
 	return string(masked)
 }
 
+// GetModelDetails looks up model config by ID for runtime model selection.
+// Returns provider_type, api_key (decrypted), model_name, and base_url.
+func (s *LlmConfigService) GetModelDetails(ctx context.Context, modelID int64) (providerType, apiKey, modelName, baseURL string, err error) {
+	llmModel, err := s.modelRepo.GetByID(ctx, modelID)
+	if err != nil {
+		return "", "", "", "", fmt.Errorf("model %d not found: %w", modelID, err)
+	}
+	provider, err := s.providerRepo.GetByID(ctx, llmModel.ProviderID)
+	if err != nil {
+		return "", "", "", "", fmt.Errorf("provider %d not found: %w", llmModel.ProviderID, err)
+	}
+	if provider.IsEnabled != 1 {
+		return "", "", "", "", fmt.Errorf("provider %d is disabled", provider.ID)
+	}
+	keyBytes, err := crypto.Decrypt(s.encKey, provider.APIKeyEncrypted)
+	if err != nil {
+		return "", "", "", "", fmt.Errorf("decrypt api key for provider %d: %w", provider.ID, err)
+	}
+	return provider.ProviderType, string(keyBytes), llmModel.ModelName, provider.BaseURL, nil
+}
+
 // GetDefaultModelConfig retrieves the default model config (Provider + Model) for AI client initialization.
 // Returns provider name, base_url, api_key, model name, and model params.
 func GetDefaultModelConfig(ctx context.Context, providerRepo *repository.ProviderRepo, modelRepo *repository.ModelConfigRepo, encKey crypto.EncryptionKey, cfg config.Config) (baseURL, apiKey, model, providerType string, err error) {
