@@ -242,14 +242,26 @@ func (s *LlmConfigService) TestProviderConnection(ctx context.Context, req *pb.T
 
 	// Build request based on provider type
 	baseURL := strings.TrimRight(provider.BaseURL, "/")
-	var testURL string
-	testURL = baseURL + "/v1/models" // default: OpenAI-compatible
+	var httpReq *http.Request
 	switch provider.ProviderType {
+	case "anthropic":
+		// Anthropic has no /v1/models — send minimal Messages request
+		body := `{"model":"claude-haiku-3-5","max_tokens":1,"messages":[{"role":"user","content":"hi"}]}`
+		httpReq, err = http.NewRequestWithContext(ctx, http.MethodPost, baseURL+"/v1/messages",
+			strings.NewReader(body))
+		if err == nil {
+			httpReq.Header.Set("x-api-key", apiKey)
+			httpReq.Header.Set("anthropic-version", "2023-06-01")
+			httpReq.Header.Set("Content-Type", "application/json")
+		}
 	case "ollama":
-		testURL = baseURL + "/api/tags"
+		httpReq, err = http.NewRequestWithContext(ctx, http.MethodGet, baseURL+"/api/tags", nil)
+	default: // openai_compatible, deepseek, etc.
+		httpReq, err = http.NewRequestWithContext(ctx, http.MethodGet, baseURL+"/v1/models", nil)
+		if err == nil {
+			httpReq.Header.Set("Authorization", "Bearer "+apiKey)
+		}
 	}
-
-	httpReq, err := http.NewRequestWithContext(ctx, http.MethodGet, testURL, nil)
 	if err != nil {
 		return &pb.TestProviderConnectionResponse{
 			Code:    1,
@@ -260,16 +272,8 @@ func (s *LlmConfigService) TestProviderConnection(ctx context.Context, req *pb.T
 	}
 
 	httpReq.Header.Set("Content-Type", "application/json")
-	switch provider.ProviderType {
-	case "anthropic":
-		httpReq.Header.Set("x-api-key", apiKey)
-	case "ollama":
-		// Ollama typically uses no auth on localhost
-	default: // openai_compatible, deepseek, etc.
-		httpReq.Header.Set("Authorization", "Bearer "+apiKey)
-	}
 
-	// Add extra headers if present (may override default auth header)
+	// Add extra headers if present (may override the default auth header)
 	if provider.ExtraHeaders != nil && *provider.ExtraHeaders != "" {
 		var extra map[string]string
 		if err := json.Unmarshal([]byte(*provider.ExtraHeaders), &extra); err == nil {
