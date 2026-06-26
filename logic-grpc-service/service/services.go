@@ -102,7 +102,6 @@ func NewServices(
 	agentRuntime := cfg.AI.AgentRuntime
 	analyticsRepo := repository.NewAnalyticsRepo(db)
 	usageAuditCtxRepo := repository.NewUsageAuditContextRepo(db)
-	candidateAI := NewCandidateAIService(usageLogs, usageAuditCtxRepo, authzRepo, chats, applications, jobs, resumes, aiClient, candidateToolExecutor, agentRuntime, toolTraces, summaries, nil)
 	taxonomy := NewJobTaxonomyService(departments, locations, jobs, deptLocs)
 
 	outboxPublisher := NewOutboxPublisher(outbox, mqConn)
@@ -116,6 +115,7 @@ func NewServices(
 	llmConfigSvc := newLlmConfigServiceWithFallback(db)
 	agentCfgRepo := repository.NewAgentConfigRepo(db)
 	promptTmplRepo := repository.NewPromptTemplateRepo(db)
+	candidateAI := NewCandidateAIService(usageLogs, usageAuditCtxRepo, authzRepo, chats, applications, jobs, resumes, aiClient, candidateToolExecutor, agentRuntime, toolTraces, summaries, promptTmplRepo, agentCfgRepo)
 
 	return &Services{
 		Auth:              NewAuthService(users, tokens, authzRepo, inviteCodes, jwtSecret),

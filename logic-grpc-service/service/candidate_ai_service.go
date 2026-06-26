@@ -40,6 +40,7 @@ type CandidateAIService struct {
 	toolTraces            *repository.ToolTraceRepo
 	summaries              *repository.SessionSummaryRepo
 	promptRepo             *repository.PromptTemplateRepo // optional: nil-safe when not injected
+	agentConfigRepo        *repository.AgentConfigRepo    // optional: nil-safe when not injected
 	cachedCandidateADKTools []tool.BaseTool                // lazy-initialized, shared across requests
 	cachedToolsMu           sync.Mutex       // guards cachedCandidateADKTools init and invalidation
 }
@@ -58,6 +59,7 @@ func NewCandidateAIService(
 	toolTraces *repository.ToolTraceRepo,
 	summaries  *repository.SessionSummaryRepo,
 	promptRepo *repository.PromptTemplateRepo,
+	agentConfigRepo *repository.AgentConfigRepo,
 ) *CandidateAIService {
 	return &CandidateAIService{
 		usageLogs: usageLogs,
@@ -69,7 +71,42 @@ func NewCandidateAIService(
 		toolTraces: toolTraces,
 		summaries:  summaries,
 		promptRepo: promptRepo,
+		agentConfigRepo: agentConfigRepo,
 	}
+}
+
+// getCandidateAgentRuntimeConfig reads agent runtime config from the agent_configs
+// table for the candidate_assistant agent type, returning tool allowlist, max iterations,
+// temperature override, and optional system prompt from the bound prompt template.
+func (s *CandidateAIService) getCandidateAgentRuntimeConfig(ctx context.Context) *agentRuntimeConfig {
+	cfg := &agentRuntimeConfig{MaxIterations: 0}
+
+	if s.agentConfigRepo != nil {
+		agentCfg, err := s.agentConfigRepo.GetByAgentType(ctx, "candidate_assistant")
+		if err == nil && agentCfg != nil && agentCfg.IsEnabled == 1 {
+			if agentCfg.MaxIterations > 0 {
+				cfg.MaxIterations = int(agentCfg.MaxIterations)
+			}
+			if agentCfg.TemperatureOverride != nil {
+				cfg.TemperatureOverride = agentCfg.TemperatureOverride
+			}
+
+			bindings, _ := s.agentConfigRepo.ListToolBindings(ctx, agentCfg.ID)
+			for _, b := range bindings {
+				if b.IsEnabled == 1 {
+					cfg.ToolNames = append(cfg.ToolNames, b.ToolName)
+				}
+			}
+
+			if agentCfg.PromptTemplateID != nil && *agentCfg.PromptTemplateID > 0 && s.promptRepo != nil {
+				tmpl, _ := s.promptRepo.GetByID(ctx, *agentCfg.PromptTemplateID)
+				if tmpl != nil {
+					cfg.SystemPrompt = tmpl.Content
+				}
+			}
+		}
+	}
+	return cfg
 }
 
 // writeCandidateUsageAudit writes both the usage log and the RBAC auth context for a candidate AI operation.
@@ -194,11 +231,19 @@ func (s *CandidateAIService) StreamChat(ctx context.Context, userID int64, messa
 		if userID <= 0 {
 			return fmt.Errorf("userID must be positive, got %d", userID)
 		}
+		// Read agent runtime config for system prompt, tool filtering, and max iterations
+		runtimeCfg := s.getCandidateAgentRuntimeConfig(ctx)
+
+		// Determine system prompt: agent config > agent_type query > hardcoded fallback (in buildCandidateAgentMessages)
 		systemPrompt := ""
-		if s.promptRepo != nil {
-			tmpl, err := s.promptRepo.GetActiveByAgentType(ctx, "candidate_assistant", "system")
-			if err == nil && tmpl != nil {
-				systemPrompt = tmpl.Content
+		if runtimeCfg.SystemPrompt != "" {
+			systemPrompt = runtimeCfg.SystemPrompt
+		} else {
+			if s.promptRepo != nil {
+				tmpl, err := s.promptRepo.GetActiveByAgentType(ctx, "candidate_assistant", "system")
+				if err == nil && tmpl != nil {
+					systemPrompt = tmpl.Content
+				}
 			}
 		}
 		messages, buildErr := s.buildCandidateAgentMessages(ctx, userID, session.ID, message, systemPrompt)
@@ -210,6 +255,16 @@ func (s *CandidateAIService) StreamChat(ctx context.Context, userID int64, messa
 			logger.L().Warn("[候选人ADK降级] 工具创建失败，降级到 Legacy 路径", zap.Error(toolErr))
 			legacyFallback = true
 		} else {
+			// Filter tools by agent config allowlist
+			if len(runtimeCfg.ToolNames) > 0 {
+				adkTools = filterToolsByName(adkTools, runtimeCfg.ToolNames)
+			}
+			// Determine max iterations
+			maxIter := 0
+			if runtimeCfg.MaxIterations > 0 {
+				maxIter = runtimeCfg.MaxIterations
+			}
+
 			state := &ai.AgentRunState{}
 			adkCtx := ai.WithOwnerID(ctx, userID)
 			adkCtx = ai.WithAgentRunState(adkCtx, state)
@@ -217,22 +272,29 @@ func (s *CandidateAIService) StreamChat(ctx context.Context, userID int64, messa
 				go s.recordToolTrace(session.ID, userID, toolCallID, toolName, argsJSON, resultContent, execErr)
 			}
 			reply, metadata, execErr = s.aiClient.ChatWithADKAgent(adkCtx, ai.AgentRunInput{
-				AgentName:   "candidate_assistant",
-				Instruction: extractSystemInstruction(messages),
-				Messages:    messages,
-				Tools:       adkTools,
-				OwnerID:     userID,
-				SessionID:   session.ID,
-				State:       state,
+				AgentName:     "candidate_assistant",
+				Instruction:   extractSystemInstruction(messages),
+				Messages:      messages,
+				Tools:         adkTools,
+				MaxIterations: maxIter,
+				OwnerID:       userID,
+				SessionID:     session.ID,
+				State:         state,
 			}, streamFilter.Write, traceFn, nil)
 		}
 	}
 	if legacyFallback || s.agentRuntime != "adk" {
+		runtimeCfg := s.getCandidateAgentRuntimeConfig(ctx)
+
 		systemPrompt := ""
-		if s.promptRepo != nil {
-			tmpl, err := s.promptRepo.GetActiveByAgentType(ctx, "candidate_assistant", "system")
-			if err == nil && tmpl != nil {
-				systemPrompt = tmpl.Content
+		if runtimeCfg.SystemPrompt != "" {
+			systemPrompt = runtimeCfg.SystemPrompt
+		} else {
+			if s.promptRepo != nil {
+				tmpl, err := s.promptRepo.GetActiveByAgentType(ctx, "candidate_assistant", "system")
+				if err == nil && tmpl != nil {
+					systemPrompt = tmpl.Content
+				}
 			}
 		}
 		prompt := systemPrompt
@@ -244,6 +306,9 @@ func (s *CandidateAIService) StreamChat(ctx context.Context, userID int64, messa
 			schema.UserMessage(message),
 		}
 		tools := ai.CandidateTools()
+		if len(runtimeCfg.ToolNames) > 0 {
+			tools = filterToolInfosByName(tools, runtimeCfg.ToolNames)
+		}
 		reply, metadata, execErr = s.aiClient.ChatWithTools(ctx, messages, tools, s.toolExecutor, userID, streamFilter.Write, nil, nil)
 	}
 	if execErr != nil {
@@ -424,11 +489,19 @@ func (s *CandidateAIService) StreamChatGRPC(req *pb.CandidateChatRequest, stream
 		if req.UserId <= 0 {
 			return fmt.Errorf("userID must be positive, got %d", req.UserId)
 		}
+		// Read agent runtime config for system prompt, tool filtering, and max iterations
+		runtimeCfg := s.getCandidateAgentRuntimeConfig(ctx)
+
+		// Determine system prompt: agent config > agent_type query > hardcoded fallback (in buildCandidateAgentMessages)
 		systemPrompt := ""
-		if s.promptRepo != nil {
-			tmpl, err := s.promptRepo.GetActiveByAgentType(ctx, "candidate_assistant", "system")
-			if err == nil && tmpl != nil {
-				systemPrompt = tmpl.Content
+		if runtimeCfg.SystemPrompt != "" {
+			systemPrompt = runtimeCfg.SystemPrompt
+		} else {
+			if s.promptRepo != nil {
+				tmpl, err := s.promptRepo.GetActiveByAgentType(ctx, "candidate_assistant", "system")
+				if err == nil && tmpl != nil {
+					systemPrompt = tmpl.Content
+				}
 			}
 		}
 		messages, buildErr := s.buildCandidateAgentMessages(ctx, req.UserId, session.ID, req.Message, systemPrompt)
@@ -440,6 +513,16 @@ func (s *CandidateAIService) StreamChatGRPC(req *pb.CandidateChatRequest, stream
 			logger.L().Warn("[候选人ADK降级] 工具创建失败，降级到 Legacy 路径", zap.Error(toolErr))
 			legacyFallback = true
 		} else {
+			// Filter tools by agent config allowlist
+			if len(runtimeCfg.ToolNames) > 0 {
+				adkTools = filterToolsByName(adkTools, runtimeCfg.ToolNames)
+			}
+			// Determine max iterations
+			maxIter := 0
+			if runtimeCfg.MaxIterations > 0 {
+				maxIter = runtimeCfg.MaxIterations
+			}
+
 			state := &ai.AgentRunState{}
 			adkCtx := ai.WithOwnerID(ctx, req.UserId)
 			adkCtx = ai.WithAgentRunState(adkCtx, state)
@@ -447,22 +530,29 @@ func (s *CandidateAIService) StreamChatGRPC(req *pb.CandidateChatRequest, stream
 				go s.recordToolTrace(session.ID, req.UserId, toolCallID, toolName, argsJSON, resultContent, execErr)
 			}
 			reply, metadata, execErr = s.aiClient.ChatWithADKAgent(adkCtx, ai.AgentRunInput{
-				AgentName:   "candidate_assistant",
-				Instruction: extractSystemInstruction(messages),
-				Messages:    messages,
-				Tools:       adkTools,
-				OwnerID:     req.UserId,
-				SessionID:   session.ID,
-				State:       state,
+				AgentName:     "candidate_assistant",
+				Instruction:   extractSystemInstruction(messages),
+				Messages:      messages,
+				Tools:         adkTools,
+				MaxIterations: maxIter,
+				OwnerID:       req.UserId,
+				SessionID:     session.ID,
+				State:         state,
 			}, streamFilter.Write, traceFn, statusSender)
 		}
 	}
 	if legacyFallback || s.agentRuntime != "adk" {
+		runtimeCfg := s.getCandidateAgentRuntimeConfig(ctx)
+
 		systemPrompt := ""
-		if s.promptRepo != nil {
-			tmpl, err := s.promptRepo.GetActiveByAgentType(ctx, "candidate_assistant", "system")
-			if err == nil && tmpl != nil {
-				systemPrompt = tmpl.Content
+		if runtimeCfg.SystemPrompt != "" {
+			systemPrompt = runtimeCfg.SystemPrompt
+		} else {
+			if s.promptRepo != nil {
+				tmpl, err := s.promptRepo.GetActiveByAgentType(ctx, "candidate_assistant", "system")
+				if err == nil && tmpl != nil {
+					systemPrompt = tmpl.Content
+				}
 			}
 		}
 		prompt := systemPrompt
@@ -474,6 +564,9 @@ func (s *CandidateAIService) StreamChatGRPC(req *pb.CandidateChatRequest, stream
 			schema.UserMessage(req.Message),
 		}
 		tools := ai.CandidateTools()
+		if len(runtimeCfg.ToolNames) > 0 {
+			tools = filterToolInfosByName(tools, runtimeCfg.ToolNames)
+		}
 		reply, metadata, execErr = s.aiClient.ChatWithTools(ctx, messages, tools, s.toolExecutor, req.UserId, streamFilter.Write, nil, statusSender)
 	}
 	if execErr != nil {
