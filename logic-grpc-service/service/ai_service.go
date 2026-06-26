@@ -47,6 +47,8 @@ type AIService struct {
 	agentRuntime    string
 	authz           *ServiceAuthorizer
 	llmConfigSvc    *LlmConfigService         // for runtime model selection
+	agentConfigRepo *repository.AgentConfigRepo
+	promptRepo      *repository.PromptTemplateRepo
 	cachedADKTools []tool.BaseTool // lazy-initialized, shared across requests
 	cachedToolsMu  sync.Mutex       // guards cachedADKTools init and invalidation
 }
@@ -70,6 +72,8 @@ func NewAIService(
 	agentRuntime string,
 	authz *ServiceAuthorizer,
 	llmConfigSvc *LlmConfigService,
+	agentConfigRepo *repository.AgentConfigRepo,
+	promptRepo *repository.PromptTemplateRepo,
 ) *AIService {
 	return &AIService{
 		chats: chats, applications: applications, jobs: jobs, resumes: resumes,
@@ -82,6 +86,8 @@ func NewAIService(
 		agentRuntime: agentRuntime,
 		authz: authz,
 		llmConfigSvc: llmConfigSvc,
+		agentConfigRepo: agentConfigRepo,
+		promptRepo: promptRepo,
 	}
 }
 
@@ -423,12 +429,22 @@ func (s *AIService) runADKChat(
 		go s.recordToolTrace(session.ID, req.HrId, toolCallID, toolName, argsJSON, resultContent, execErr)
 	}
 
+	// Read agent runtime config and filter tools
+	runtimeCfg := s.getAgentRuntimeConfig(ctx, "hr_recruiting_agent")
+	if len(runtimeCfg.ToolNames) > 0 {
+		adkTools = filterToolsByName(adkTools, runtimeCfg.ToolNames)
+	}
+	maxIterations := 0
+	if runtimeCfg.MaxIterations > 0 {
+		maxIterations = runtimeCfg.MaxIterations
+	}
+
 	return aiClient.ChatWithADKAgent(ctx, ai.AgentRunInput{
 		AgentName:     "hr_recruiting_agent",
 		Instruction:   extractSystemInstruction(messages),
 		Messages:      messages,
 		Tools:         adkTools,
-		MaxIterations: 0,
+		MaxIterations: maxIterations,
 		OwnerID:       req.HrId,
 		SessionID:     session.ID,
 		State:         state,
@@ -445,7 +461,11 @@ func (s *AIService) runLegacyChat(
 	onStatus func(string, string, string, string) error,
 	aiClient *ai.Client,
 ) (string, ai.ToolMetadata, error) {
+	runtimeCfg := s.getAgentRuntimeConfig(ctx, "hr_recruiting_agent")
 	tools := ai.RecruitingTools()
+	if len(runtimeCfg.ToolNames) > 0 {
+		tools = filterToolInfosByName(tools, runtimeCfg.ToolNames)
+	}
 
 	traceFn := func(toolCallID, toolName, argsJSON, resultContent string, execErr error) {
 		go s.recordToolTrace(session.ID, req.HrId, toolCallID, toolName, argsJSON, resultContent, execErr)
@@ -842,6 +862,53 @@ func (s *AIService) InvalidateCachedADKTools() {
 	s.cachedToolsMu.Lock()
 	defer s.cachedToolsMu.Unlock()
 	s.cachedADKTools = nil
+}
+
+// agentRuntimeConfig holds resolved runtime configuration for an agent.
+type agentRuntimeConfig struct {
+	SystemPrompt        string
+	ToolNames           []string
+	MaxIterations       int
+	TemperatureOverride *float64
+}
+
+func (s *AIService) getAgentRuntimeConfig(ctx context.Context, agentType string) *agentRuntimeConfig {
+	cfg := &agentRuntimeConfig{
+		MaxIterations: 0, // 0 means use ADK default
+	}
+
+	// 1. Read agent config from DB
+	if s.agentConfigRepo != nil {
+		agentCfg, err := s.agentConfigRepo.GetByAgentType(ctx, agentType)
+		if err == nil && agentCfg != nil && agentCfg.IsEnabled == 1 {
+			if agentCfg.MaxIterations > 0 {
+				cfg.MaxIterations = int(agentCfg.MaxIterations)
+			}
+			if agentCfg.TemperatureOverride != nil {
+				cfg.TemperatureOverride = agentCfg.TemperatureOverride
+			}
+
+			// 2. Read tool bindings
+			bindings, err := s.agentConfigRepo.ListToolBindings(ctx, agentCfg.ID)
+			if err == nil {
+				for _, b := range bindings {
+					if b.IsEnabled == 1 {
+						cfg.ToolNames = append(cfg.ToolNames, b.ToolName)
+					}
+				}
+			}
+
+			// 3. Read bound prompt template
+			if agentCfg.PromptTemplateID != nil && *agentCfg.PromptTemplateID > 0 && s.promptRepo != nil {
+				tmpl, err := s.promptRepo.GetByID(ctx, *agentCfg.PromptTemplateID)
+				if err == nil && tmpl != nil {
+					cfg.SystemPrompt = tmpl.Content
+				}
+			}
+		}
+	}
+
+	return cfg
 }
 
 // GetToolTraces returns tool call traces for a given session, desensitized.

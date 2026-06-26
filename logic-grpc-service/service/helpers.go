@@ -9,6 +9,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/cloudwego/eino/components/tool"
 	"github.com/cloudwego/eino/schema"
 	"github.com/google/uuid"
 	"go.uber.org/zap"
@@ -517,4 +518,43 @@ func buildToolCallingMessages(actx *AgentContext, currentMessage string) []*sche
 		messages = append(messages, schema.UserMessage(currentMessage))
 	}
 	return messages
+}
+
+// filterToolsByName returns ADK tools whose name is in the allowlist.
+// If allowlist is empty, returns all tools unchanged.
+func filterToolsByName(tools []tool.BaseTool, allowlist []string) []tool.BaseTool {
+	if len(allowlist) == 0 {
+		return tools
+	}
+	allowed := make(map[string]bool, len(allowlist))
+	for _, name := range allowlist {
+		allowed[name] = true
+	}
+	filtered := make([]tool.BaseTool, 0, len(tools))
+	for _, t := range tools {
+		info, err := t.Info(context.Background())
+		if err == nil && allowed[info.Name] {
+			filtered = append(filtered, t)
+		}
+	}
+	return filtered
+}
+
+// filterToolInfosByName returns ToolInfo entries whose name is in the allowlist.
+// If allowlist is empty, returns all tools unchanged.
+func filterToolInfosByName(tools []*schema.ToolInfo, allowlist []string) []*schema.ToolInfo {
+	if len(allowlist) == 0 {
+		return tools
+	}
+	allowed := make(map[string]bool, len(allowlist))
+	for _, name := range allowlist {
+		allowed[name] = true
+	}
+	filtered := make([]*schema.ToolInfo, 0, len(tools))
+	for _, t := range tools {
+		if allowed[t.Name] {
+			filtered = append(filtered, t)
+		}
+	}
+	return filtered
 }
