@@ -88,7 +88,7 @@ func (r *ModelConfigRepo) GetDefaultModel(ctx context.Context) (*model.LlmModel,
 // GetEnabledModelsByProvider returns all enabled models for a given provider.
 func (r *ModelConfigRepo) GetEnabledModelsByProvider(ctx context.Context, providerID int64) ([]model.LlmModel, error) {
 	var list []model.LlmModel
-	err := r.db.WithContext(ctx).Where("provider_id = ? AND is_enabled = 1").Order("id ASC").Find(&list).Error
+	err := r.db.WithContext(ctx).Where("provider_id = ? AND is_enabled = 1", providerID).Order("id ASC").Find(&list).Error
 	if err != nil {
 		return nil, err
 	}
