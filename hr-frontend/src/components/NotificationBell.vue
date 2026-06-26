@@ -65,7 +65,7 @@ const pollNotifications = async () => {
     const nextLatestId = summary.latest_notification_id || 0
     const wasBaselineReady = notificationBaselineReady
     const shouldFetchRecent = nextLatestId > 0 && (!notificationBaselineReady || nextLatestId !== latestNotificationId)
-    unreadCount.value = summary.unread || 0
+    unreadCount.value = Number(summary.unread) || 0
     latestNotificationId = nextLatestId
     notificationBaselineReady = true
     if (shouldFetchRecent) {
