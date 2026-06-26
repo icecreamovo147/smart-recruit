@@ -21,10 +21,15 @@ const logoSrc = computed(() => isDark.value ? logoSmallDark : logoSmallLight)
 const sidebarCollapsed = ref(false)
 const mobileSidebarOpen = ref(false)
 const taxonomyOpen = ref(false)
+const usageAuditOpen = ref(false)
 const isAuthRoute = computed(() => route.path === '/login' || route.path === '/register')
 
 const toggleTaxonomy = () => {
   taxonomyOpen.value = !taxonomyOpen.value
+}
+
+const toggleUsageAudit = () => {
+  usageAuditOpen.value = !usageAuditOpen.value
 }
 
 const openMobileSidebar = () => { mobileSidebarOpen.value = true }
@@ -35,6 +40,9 @@ watch(() => route.fullPath, () => {
   // Auto-expand taxonomy group when on a taxonomy sub-page
   if (route.path.startsWith('/hr/admin/departments') || route.path.startsWith('/hr/admin/locations')) {
     taxonomyOpen.value = true
+  }
+  if (route.path.startsWith('/hr/admin/usage')) {
+    usageAuditOpen.value = true
   }
 })
 
@@ -166,10 +174,24 @@ const routeViewKey = (viewRoute: { fullPath: string; path: string; params: Recor
         <el-icon><Edit /></el-icon>
         <span>Prompt 管理</span>
       </RouterLink>
-      <RouterLink v-if="auth.hasPermission(PERM.AUDIT_USAGE_READ)" class="sidebar-link" to="/hr/admin/usage-audit" @click="closeMobileSidebar">
-        <el-icon><DataAnalysis /></el-icon>
-        <span>第三方服务审计</span>
-      </RouterLink>
+      <!-- 第三方服务审计 -->
+      <template v-if="auth.hasPermission(PERM.AUDIT_USAGE_READ)">
+        <button class="sidebar-link sidebar-group-toggle" type="button" :aria-expanded="usageAuditOpen && !sidebarCollapsed" @click="toggleUsageAudit">
+          <el-icon><DataAnalysis /></el-icon>
+          <span>第三方服务审计</span>
+          <el-icon class="group-arrow" :class="{ 'group-arrow--open': usageAuditOpen }"><ArrowDown /></el-icon>
+        </button>
+        <el-collapse-transition>
+          <div v-show="usageAuditOpen && !sidebarCollapsed" class="sidebar-sub-group">
+            <RouterLink class="sidebar-link sidebar-sub-link" to="/hr/admin/usage-stats" @click="closeMobileSidebar">
+              <span>使用统计</span>
+            </RouterLink>
+            <RouterLink class="sidebar-link sidebar-sub-link" to="/hr/admin/usage-audit" @click="closeMobileSidebar">
+              <span>审计日志</span>
+            </RouterLink>
+          </div>
+        </el-collapse-transition>
+      </template>
     </aside>
     <div class="workspace" :class="{ 'workspace--collapsed': sidebarCollapsed }">
       <header v-if="route.meta.requiresAuth" class="top-header">

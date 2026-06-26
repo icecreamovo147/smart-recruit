@@ -17,6 +17,7 @@ const InviteCodeManageView = () => import('@/views/hr/InviteCodeManageView.vue')
 const DepartmentManageView = () => import('@/views/hr/DepartmentManageView.vue')
 const LocationManageView = () => import('@/views/hr/LocationManageView.vue')
 const UsageAuditView = () => import('@/views/hr/UsageAuditView.vue')
+const UsageStatsView = () => import('@/views/hr/UsageStatsView.vue')
 const SecurityAuditView = () => import('@/views/hr/SecurityAuditView.vue')
 const AnalyticsView = () => import('@/views/hr/AnalyticsView.vue')
 const StaffUserManageView = () => import('@/views/hr/StaffUserManageView.vue')
@@ -104,9 +105,14 @@ const routes: RouteRecordRaw[] = [
     meta: { requiresAuth: true, requiresPermission: PERM.APPLICATION_READ, title: '数据分析' },
   },
   {
+    path: '/hr/admin/usage-stats',
+    component: UsageStatsView,
+    meta: { requiresAuth: true, requiresPermission: PERM.AUDIT_USAGE_READ, title: '使用统计' },
+  },
+  {
     path: '/hr/admin/usage-audit',
     component: UsageAuditView,
-    meta: { requiresAuth: true, requiresPermission: PERM.AUDIT_USAGE_READ, title: '第三方服务审计' },
+    meta: { requiresAuth: true, requiresPermission: PERM.AUDIT_USAGE_READ, title: '审计日志' },
   },
   {
     path: '/hr/admin/security-audit',
