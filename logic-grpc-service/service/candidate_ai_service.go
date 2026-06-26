@@ -38,8 +38,9 @@ type CandidateAIService struct {
 	toolExecutor          *ai.CandidateToolExecutor
 	agentRuntime          string
 	toolTraces            *repository.ToolTraceRepo
-	summaries             *repository.SessionSummaryRepo
-	cachedCandidateADKTools []tool.BaseTool // lazy-initialized, shared across requests
+	summaries              *repository.SessionSummaryRepo
+	promptRepo             *repository.PromptTemplateRepo // optional: nil-safe when not injected
+	cachedCandidateADKTools []tool.BaseTool                // lazy-initialized, shared across requests
 	cachedToolsMu           sync.Mutex       // guards cachedCandidateADKTools init and invalidation
 }
 
@@ -55,7 +56,8 @@ func NewCandidateAIService(
 	toolExecutor *ai.CandidateToolExecutor,
 	agentRuntime string,
 	toolTraces *repository.ToolTraceRepo,
-	summaries *repository.SessionSummaryRepo,
+	summaries  *repository.SessionSummaryRepo,
+	promptRepo *repository.PromptTemplateRepo,
 ) *CandidateAIService {
 	return &CandidateAIService{
 		usageLogs: usageLogs,
@@ -66,6 +68,7 @@ func NewCandidateAIService(
 		agentRuntime: agentRuntime,
 		toolTraces: toolTraces,
 		summaries:  summaries,
+		promptRepo: promptRepo,
 	}
 }
 
@@ -191,7 +194,14 @@ func (s *CandidateAIService) StreamChat(ctx context.Context, userID int64, messa
 		if userID <= 0 {
 			return fmt.Errorf("userID must be positive, got %d", userID)
 		}
-		messages, buildErr := s.buildCandidateAgentMessages(ctx, userID, session.ID, message)
+		systemPrompt := ""
+		if s.promptRepo != nil {
+			tmpl, err := s.promptRepo.GetActiveByAgentType(ctx, "candidate_assistant", "system")
+			if err == nil && tmpl != nil {
+				systemPrompt = tmpl.Content
+			}
+		}
+		messages, buildErr := s.buildCandidateAgentMessages(ctx, userID, session.ID, message, systemPrompt)
 		if buildErr != nil {
 			return buildErr
 		}
@@ -218,8 +228,19 @@ func (s *CandidateAIService) StreamChat(ctx context.Context, userID int64, messa
 		}
 	}
 	if legacyFallback || s.agentRuntime != "adk" {
+		systemPrompt := ""
+		if s.promptRepo != nil {
+			tmpl, err := s.promptRepo.GetActiveByAgentType(ctx, "candidate_assistant", "system")
+			if err == nil && tmpl != nil {
+				systemPrompt = tmpl.Content
+			}
+		}
+		prompt := systemPrompt
+		if prompt == "" {
+			prompt = candidateSystemPrompt
+		}
 		messages := []*schema.Message{
-			schema.SystemMessage(candidateSystemPrompt),
+			schema.SystemMessage(prompt),
 			schema.UserMessage(message),
 		}
 		tools := ai.CandidateTools()
@@ -403,7 +424,14 @@ func (s *CandidateAIService) StreamChatGRPC(req *pb.CandidateChatRequest, stream
 		if req.UserId <= 0 {
 			return fmt.Errorf("userID must be positive, got %d", req.UserId)
 		}
-		messages, buildErr := s.buildCandidateAgentMessages(ctx, req.UserId, session.ID, req.Message)
+		systemPrompt := ""
+		if s.promptRepo != nil {
+			tmpl, err := s.promptRepo.GetActiveByAgentType(ctx, "candidate_assistant", "system")
+			if err == nil && tmpl != nil {
+				systemPrompt = tmpl.Content
+			}
+		}
+		messages, buildErr := s.buildCandidateAgentMessages(ctx, req.UserId, session.ID, req.Message, systemPrompt)
 		if buildErr != nil {
 			return buildErr
 		}
@@ -430,8 +458,19 @@ func (s *CandidateAIService) StreamChatGRPC(req *pb.CandidateChatRequest, stream
 		}
 	}
 	if legacyFallback || s.agentRuntime != "adk" {
+		systemPrompt := ""
+		if s.promptRepo != nil {
+			tmpl, err := s.promptRepo.GetActiveByAgentType(ctx, "candidate_assistant", "system")
+			if err == nil && tmpl != nil {
+				systemPrompt = tmpl.Content
+			}
+		}
+		prompt := systemPrompt
+		if prompt == "" {
+			prompt = candidateSystemPrompt
+		}
 		messages := []*schema.Message{
-			schema.SystemMessage(candidateSystemPrompt),
+			schema.SystemMessage(prompt),
 			schema.UserMessage(req.Message),
 		}
 		tools := ai.CandidateTools()

@@ -102,7 +102,7 @@ func NewServices(
 	agentRuntime := cfg.AI.AgentRuntime
 	analyticsRepo := repository.NewAnalyticsRepo(db)
 	usageAuditCtxRepo := repository.NewUsageAuditContextRepo(db)
-	candidateAI := NewCandidateAIService(usageLogs, usageAuditCtxRepo, authzRepo, chats, applications, jobs, resumes, aiClient, candidateToolExecutor, agentRuntime, toolTraces, summaries)
+	candidateAI := NewCandidateAIService(usageLogs, usageAuditCtxRepo, authzRepo, chats, applications, jobs, resumes, aiClient, candidateToolExecutor, agentRuntime, toolTraces, summaries, nil)
 	taxonomy := NewJobTaxonomyService(departments, locations, jobs, deptLocs)
 
 	outboxPublisher := NewOutboxPublisher(outbox, mqConn)
