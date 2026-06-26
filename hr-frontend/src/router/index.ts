@@ -20,6 +20,7 @@ const UsageAuditView = () => import('@/views/hr/UsageAuditView.vue')
 const SecurityAuditView = () => import('@/views/hr/SecurityAuditView.vue')
 const AnalyticsView = () => import('@/views/hr/AnalyticsView.vue')
 const StaffUserManageView = () => import('@/views/hr/StaffUserManageView.vue')
+const LlmConfigView = () => import('@/views/hr/LlmConfigView.vue')
 const ForbiddenView = () => import('@/views/ForbiddenView.vue')
 const CandidateDetailView = () => import('@/views/hr/CandidateDetailView.vue')
 
@@ -115,6 +116,11 @@ const routes: RouteRecordRaw[] = [
     path: '/hr/admin/staff-users',
     component: StaffUserManageView,
     meta: { requiresAuth: true, requiresPermission: PERM.ADMIN_USER_MANAGE, title: '员工账号管理' },
+  },
+  {
+    path: '/hr/admin/llm-config',
+    component: LlmConfigView,
+    meta: { requiresAuth: true, requiresPermission: PERM.SYSTEM_CONFIG_MANAGE, title: '模型配置' },
   },
 ]
 
