@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, nextTick, onBeforeUnmount, onMounted, ref } from 'vue'
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import DOMPurify from 'dompurify'
@@ -39,7 +39,7 @@ const userAborted = ref(false)
 const statusBarExpanded = ref(true)
 const modelName = ref('')
 const modelList = ref<LlmModel[]>([])
-const selectedModelId = ref(0)
+const selectedModelId = ref<number | null>(null)
 const dataSource = ref('招聘业务数据库')
 const tracePanelVisible = ref(false)
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -295,7 +295,7 @@ const createAnalysisSessionFromRoute = async () => {
   userAborted.value = false
   try {
     await sendMessageStream(
-      { message: messages.value[0].content, session_id: session.id, ...(selectedModelId.value > 0 ? { model_id: selectedModelId.value } : {}) },
+      { message: messages.value[0].content, session_id: session.id, ...(selectedModelId.value != null ? { model_id: selectedModelId.value } : {}) },
       {
         onDelta: (delta) => {
           const msg = messages.value[assistantIndex]
@@ -391,7 +391,7 @@ const analyzeCandidateOption = async (option: CandidateOption) => {
     let finalPayload: StreamPayload | null = null
     let streamFailed = false
     await sendMessageStream(
-      { message: userMessage, application_id: option.application_id, ...(selectedModelId.value > 0 ? { model_id: selectedModelId.value } : {}) },
+      { message: userMessage, application_id: option.application_id, ...(selectedModelId.value != null ? { model_id: selectedModelId.value } : {}) },
       {
         onDelta: (delta) => appendAssistantDelta(assistantIndex, delta),
         onStatus: (_eventType, eventMessage) => {
@@ -473,7 +473,7 @@ const submit = async () => {
     let finalPayload: StreamPayload | null = null
     let streamFailed = false
     await sendMessageStream(
-      { message: text, session_id: session.id, ...(selectedModelId.value > 0 ? { model_id: selectedModelId.value } : {}) },
+      { message: text, session_id: session.id, ...(selectedModelId.value != null ? { model_id: selectedModelId.value } : {}) },
       {
         onDelta: (delta) => {
           appendAssistantDelta(assistantIndex, delta)
@@ -571,7 +571,7 @@ const retry = async (failedIndex: number) => {
     let finalPayload: StreamPayload | null = null
     let streamFailed = false
     await sendMessageStream(
-      { message: lastUserContent, session_id: session.id, ...(selectedModelId.value > 0 ? { model_id: selectedModelId.value } : {}) },
+      { message: lastUserContent, session_id: session.id, ...(selectedModelId.value != null ? { model_id: selectedModelId.value } : {}) },
       {
         onDelta: (delta) => {
           appendAssistantDelta(assistantIndex, delta)
@@ -652,6 +652,14 @@ onMounted(async () => {
 })
 
 const closeMenu = () => { menuSessionId.value = 0 }
+
+// Sync status bar model name with user selection.
+watch(selectedModelId, (id) => {
+  if (id != null) {
+    const m = modelList.value.find((x) => x.id === id)
+    if (m) modelName.value = m.display_name || m.model_name
+  }
+})
 const toggleSessionSidebar = () => { sessionSidebarOpen.value = !sessionSidebarOpen.value }
 const closeSessionSidebar = () => { sessionSidebarOpen.value = false }
 
