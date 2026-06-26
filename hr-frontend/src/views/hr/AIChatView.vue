@@ -6,6 +6,7 @@ import DOMPurify from 'dompurify'
 import MarkdownIt from 'markdown-it'
 import { createApplicationAnalysisSession, createSession, deleteSession, getSessionMessages, listSessions, sendMessageStream, updateSession } from '@/api/ai'
 import { updateApplicationStatus } from '@/api/application'
+import AgentTracePanel from '@/components/AgentTracePanel.vue'
 import type { ChatMessage, ChatSessionListItem, Session, CandidateOption, StreamPayload } from '@/types/ai'
 import { BusinessError } from '@/types/api'
 
@@ -36,6 +37,7 @@ const userAborted = ref(false)
 const statusBarExpanded = ref(true)
 const modelName = ref('GPT-4o')
 const dataSource = ref('招聘业务数据库')
+const tracePanelVisible = ref(false)
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const listRef = ref<any>(null)
 let pollTimer: ReturnType<typeof setInterval> | null = null
@@ -708,6 +710,13 @@ onBeforeUnmount(() => {
         <div v-show="statusBarExpanded" class="ai-status-bar__body">
           <el-tag type="info" size="small">当前模型：{{ modelName }}</el-tag>
           <el-tag type="info" size="small">数据来源：{{ dataSource }}</el-tag>
+          <el-button
+            size="small"
+            type="primary"
+            plain
+            @click="tracePanelVisible = true"
+            :disabled="!currentSession"
+          >执行轨迹</el-button>
         </div>
         <button class="ai-status-bar__toggle" @click="statusBarExpanded = !statusBarExpanded" :title="statusBarExpanded ? '收起状态栏' : '展开状态栏'">
           <span>{{ statusBarExpanded ? '▲' : '▶' }}</span>
@@ -752,6 +761,11 @@ onBeforeUnmount(() => {
         </div>
       </div>
     </div>
+
+    <AgentTracePanel
+      v-model:visible="tracePanelVisible"
+      :session-id="currentSession?.id ?? null"
+    />
   </section>
 </template>
 

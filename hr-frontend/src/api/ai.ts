@@ -3,7 +3,7 @@ import router from '@/router'
 import { clearLocalAuthCache } from '@/utils/token'
 import { useAuthStore } from '@/stores/auth'
 import { BusinessError } from '@/types/api'
-import type { StreamHandlers, StreamPayload, ChatSessionListItem } from '@/types/ai'
+import type { StreamHandlers, StreamPayload, ChatSessionListItem, ToolTraceItem } from '@/types/ai'
 import request from './request'
 import { silentRefresh } from './authRefresh'
 
@@ -54,6 +54,10 @@ export const updateSession = (sessionId: number, data: { title: string }): Promi
 
 export const deleteSession = (sessionId: number): Promise<void> =>
   request.delete(`/api/v1/hr/ai/sessions/${sessionId}`)
+
+export const getToolTraces = (sessionId: number): Promise<{
+  list: ToolTraceItem[]
+}> => request.get(`/api/v1/hr/ai/sessions/${sessionId}/tool-traces`)
 
 const friendlyStreamMsg = (code: number, msg: string): string => {
   if (code === 42901) return msg || '今日 AI 使用次数已达上限，请明天再试'

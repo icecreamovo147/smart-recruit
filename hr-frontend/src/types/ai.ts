@@ -70,3 +70,16 @@ export interface ChatSessionListItem {
   created_at: string
   updated_at: string
 }
+
+// ---- Agent Tool Trace Types ----
+
+export interface ToolTraceItem {
+  id: number
+  session_id: number
+  tool_name: string
+  args_json: string
+  result_content: string
+  duration_ms: number
+  error_msg: string
+  created_at: string
+}
