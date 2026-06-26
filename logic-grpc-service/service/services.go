@@ -47,6 +47,7 @@ type Services struct {
 	Collaboration *CollaborationService
 	Analytics     *AnalyticsService
 	LlmConfig     *LlmConfigService
+	Prompt        *PromptService
 
 	// Phase 6: Audit context repo for AI usage audit writes
 	UsageAuditCtxRepo *repository.UsageAuditContextRepo
@@ -94,7 +95,7 @@ func NewServices(
 ) *Services {
 	toolExecutor := ai.NewToolExecutor(applications, jobs, resumes, ossClient, authzRepo)
 	candidateToolExecutor := ai.NewCandidateToolExecutor(applications, jobs, resumes)
-	contextBuilder := NewAgentContextBuilder(chats, summaries, memories, aiClient, cfg)
+	contextBuilder := NewAgentContextBuilder(chats, summaries, memories, aiClient, cfg, repository.NewPromptTemplateRepo(db))
 	agentRuntime := cfg.AI.AgentRuntime
 	analyticsRepo := repository.NewAnalyticsRepo(db)
 	usageAuditCtxRepo := repository.NewUsageAuditContextRepo(db)
@@ -125,6 +126,7 @@ func NewServices(
 		CandidateAI:       candidateAI,
 		Notification:      NewNotificationService(notifications, notifCache, serviceAuth),
 		LlmConfig:         newLlmConfigServiceWithFallback(db),
+		Prompt:            NewPromptService(repository.NewPromptTemplateRepo(db)),
 
 		Collaboration: NewCollaborationService(
 			authzRepo,

@@ -17346,6 +17346,1066 @@ func (x *DeleteModelRequest) GetId() int64 {
 	return 0
 }
 
+type PromptTemplateInfo struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Id            int64                  `protobuf:"varint,1,opt,name=id,proto3" json:"id,omitempty"`
+	Name          string                 `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
+	Content       string                 `protobuf:"bytes,3,opt,name=content,proto3" json:"content,omitempty"`
+	VariablesJson string                 `protobuf:"bytes,4,opt,name=variables_json,json=variablesJson,proto3" json:"variables_json,omitempty"` // JSON array string
+	Version       int32                  `protobuf:"varint,5,opt,name=version,proto3" json:"version,omitempty"`
+	IsActive      bool                   `protobuf:"varint,6,opt,name=is_active,json=isActive,proto3" json:"is_active,omitempty"`
+	AgentType     string                 `protobuf:"bytes,7,opt,name=agent_type,json=agentType,proto3" json:"agent_type,omitempty"`
+	PromptRole    string                 `protobuf:"bytes,8,opt,name=prompt_role,json=promptRole,proto3" json:"prompt_role,omitempty"`
+	CreatedBy     int64                  `protobuf:"varint,9,opt,name=created_by,json=createdBy,proto3" json:"created_by,omitempty"`
+	UpdatedBy     int64                  `protobuf:"varint,10,opt,name=updated_by,json=updatedBy,proto3" json:"updated_by,omitempty"`
+	CreatedAt     string                 `protobuf:"bytes,11,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
+	UpdatedAt     string                 `protobuf:"bytes,12,opt,name=updated_at,json=updatedAt,proto3" json:"updated_at,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *PromptTemplateInfo) Reset() {
+	*x = PromptTemplateInfo{}
+	mi := &file_proto_recruitment_proto_msgTypes[238]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *PromptTemplateInfo) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*PromptTemplateInfo) ProtoMessage() {}
+
+func (x *PromptTemplateInfo) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_recruitment_proto_msgTypes[238]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use PromptTemplateInfo.ProtoReflect.Descriptor instead.
+func (*PromptTemplateInfo) Descriptor() ([]byte, []int) {
+	return file_proto_recruitment_proto_rawDescGZIP(), []int{238}
+}
+
+func (x *PromptTemplateInfo) GetId() int64 {
+	if x != nil {
+		return x.Id
+	}
+	return 0
+}
+
+func (x *PromptTemplateInfo) GetName() string {
+	if x != nil {
+		return x.Name
+	}
+	return ""
+}
+
+func (x *PromptTemplateInfo) GetContent() string {
+	if x != nil {
+		return x.Content
+	}
+	return ""
+}
+
+func (x *PromptTemplateInfo) GetVariablesJson() string {
+	if x != nil {
+		return x.VariablesJson
+	}
+	return ""
+}
+
+func (x *PromptTemplateInfo) GetVersion() int32 {
+	if x != nil {
+		return x.Version
+	}
+	return 0
+}
+
+func (x *PromptTemplateInfo) GetIsActive() bool {
+	if x != nil {
+		return x.IsActive
+	}
+	return false
+}
+
+func (x *PromptTemplateInfo) GetAgentType() string {
+	if x != nil {
+		return x.AgentType
+	}
+	return ""
+}
+
+func (x *PromptTemplateInfo) GetPromptRole() string {
+	if x != nil {
+		return x.PromptRole
+	}
+	return ""
+}
+
+func (x *PromptTemplateInfo) GetCreatedBy() int64 {
+	if x != nil {
+		return x.CreatedBy
+	}
+	return 0
+}
+
+func (x *PromptTemplateInfo) GetUpdatedBy() int64 {
+	if x != nil {
+		return x.UpdatedBy
+	}
+	return 0
+}
+
+func (x *PromptTemplateInfo) GetCreatedAt() string {
+	if x != nil {
+		return x.CreatedAt
+	}
+	return ""
+}
+
+func (x *PromptTemplateInfo) GetUpdatedAt() string {
+	if x != nil {
+		return x.UpdatedAt
+	}
+	return ""
+}
+
+type ListPromptTemplatesRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Page          int32                  `protobuf:"varint,1,opt,name=page,proto3" json:"page,omitempty"`
+	PageSize      int32                  `protobuf:"varint,2,opt,name=page_size,json=pageSize,proto3" json:"page_size,omitempty"`
+	AgentType     string                 `protobuf:"bytes,3,opt,name=agent_type,json=agentType,proto3" json:"agent_type,omitempty"` // optional filter
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ListPromptTemplatesRequest) Reset() {
+	*x = ListPromptTemplatesRequest{}
+	mi := &file_proto_recruitment_proto_msgTypes[239]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ListPromptTemplatesRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ListPromptTemplatesRequest) ProtoMessage() {}
+
+func (x *ListPromptTemplatesRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_recruitment_proto_msgTypes[239]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ListPromptTemplatesRequest.ProtoReflect.Descriptor instead.
+func (*ListPromptTemplatesRequest) Descriptor() ([]byte, []int) {
+	return file_proto_recruitment_proto_rawDescGZIP(), []int{239}
+}
+
+func (x *ListPromptTemplatesRequest) GetPage() int32 {
+	if x != nil {
+		return x.Page
+	}
+	return 0
+}
+
+func (x *ListPromptTemplatesRequest) GetPageSize() int32 {
+	if x != nil {
+		return x.PageSize
+	}
+	return 0
+}
+
+func (x *ListPromptTemplatesRequest) GetAgentType() string {
+	if x != nil {
+		return x.AgentType
+	}
+	return ""
+}
+
+type ListPromptTemplatesResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Code          int32                  `protobuf:"varint,1,opt,name=code,proto3" json:"code,omitempty"`
+	Msg           string                 `protobuf:"bytes,2,opt,name=msg,proto3" json:"msg,omitempty"`
+	Total         int64                  `protobuf:"varint,3,opt,name=total,proto3" json:"total,omitempty"`
+	List          []*PromptTemplateInfo  `protobuf:"bytes,4,rep,name=list,proto3" json:"list,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ListPromptTemplatesResponse) Reset() {
+	*x = ListPromptTemplatesResponse{}
+	mi := &file_proto_recruitment_proto_msgTypes[240]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ListPromptTemplatesResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ListPromptTemplatesResponse) ProtoMessage() {}
+
+func (x *ListPromptTemplatesResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_recruitment_proto_msgTypes[240]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ListPromptTemplatesResponse.ProtoReflect.Descriptor instead.
+func (*ListPromptTemplatesResponse) Descriptor() ([]byte, []int) {
+	return file_proto_recruitment_proto_rawDescGZIP(), []int{240}
+}
+
+func (x *ListPromptTemplatesResponse) GetCode() int32 {
+	if x != nil {
+		return x.Code
+	}
+	return 0
+}
+
+func (x *ListPromptTemplatesResponse) GetMsg() string {
+	if x != nil {
+		return x.Msg
+	}
+	return ""
+}
+
+func (x *ListPromptTemplatesResponse) GetTotal() int64 {
+	if x != nil {
+		return x.Total
+	}
+	return 0
+}
+
+func (x *ListPromptTemplatesResponse) GetList() []*PromptTemplateInfo {
+	if x != nil {
+		return x.List
+	}
+	return nil
+}
+
+type CreatePromptTemplateRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Name          string                 `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
+	Content       string                 `protobuf:"bytes,2,opt,name=content,proto3" json:"content,omitempty"`
+	VariablesJson string                 `protobuf:"bytes,3,opt,name=variables_json,json=variablesJson,proto3" json:"variables_json,omitempty"` // JSON array string, optional
+	AgentType     string                 `protobuf:"bytes,4,opt,name=agent_type,json=agentType,proto3" json:"agent_type,omitempty"`
+	PromptRole    string                 `protobuf:"bytes,5,opt,name=prompt_role,json=promptRole,proto3" json:"prompt_role,omitempty"` // system / user, default system
+	CreatedBy     int64                  `protobuf:"varint,6,opt,name=created_by,json=createdBy,proto3" json:"created_by,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *CreatePromptTemplateRequest) Reset() {
+	*x = CreatePromptTemplateRequest{}
+	mi := &file_proto_recruitment_proto_msgTypes[241]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *CreatePromptTemplateRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*CreatePromptTemplateRequest) ProtoMessage() {}
+
+func (x *CreatePromptTemplateRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_recruitment_proto_msgTypes[241]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use CreatePromptTemplateRequest.ProtoReflect.Descriptor instead.
+func (*CreatePromptTemplateRequest) Descriptor() ([]byte, []int) {
+	return file_proto_recruitment_proto_rawDescGZIP(), []int{241}
+}
+
+func (x *CreatePromptTemplateRequest) GetName() string {
+	if x != nil {
+		return x.Name
+	}
+	return ""
+}
+
+func (x *CreatePromptTemplateRequest) GetContent() string {
+	if x != nil {
+		return x.Content
+	}
+	return ""
+}
+
+func (x *CreatePromptTemplateRequest) GetVariablesJson() string {
+	if x != nil {
+		return x.VariablesJson
+	}
+	return ""
+}
+
+func (x *CreatePromptTemplateRequest) GetAgentType() string {
+	if x != nil {
+		return x.AgentType
+	}
+	return ""
+}
+
+func (x *CreatePromptTemplateRequest) GetPromptRole() string {
+	if x != nil {
+		return x.PromptRole
+	}
+	return ""
+}
+
+func (x *CreatePromptTemplateRequest) GetCreatedBy() int64 {
+	if x != nil {
+		return x.CreatedBy
+	}
+	return 0
+}
+
+type UpdatePromptTemplateRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Id            int64                  `protobuf:"varint,1,opt,name=id,proto3" json:"id,omitempty"`
+	Name          string                 `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`                                        // 空 = 不更新
+	Content       string                 `protobuf:"bytes,3,opt,name=content,proto3" json:"content,omitempty"`                                  // 空 = 不更新
+	VariablesJson string                 `protobuf:"bytes,4,opt,name=variables_json,json=variablesJson,proto3" json:"variables_json,omitempty"` // 空 = 不更新
+	IsActive      bool                   `protobuf:"varint,5,opt,name=is_active,json=isActive,proto3" json:"is_active,omitempty"`
+	IsActiveSet   bool                   `protobuf:"varint,6,opt,name=is_active_set,json=isActiveSet,proto3" json:"is_active_set,omitempty"` // 是否设置了 is_active
+	UpdatedBy     int64                  `protobuf:"varint,7,opt,name=updated_by,json=updatedBy,proto3" json:"updated_by,omitempty"`
+	ChangeNote    string                 `protobuf:"bytes,8,opt,name=change_note,json=changeNote,proto3" json:"change_note,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *UpdatePromptTemplateRequest) Reset() {
+	*x = UpdatePromptTemplateRequest{}
+	mi := &file_proto_recruitment_proto_msgTypes[242]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *UpdatePromptTemplateRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*UpdatePromptTemplateRequest) ProtoMessage() {}
+
+func (x *UpdatePromptTemplateRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_recruitment_proto_msgTypes[242]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use UpdatePromptTemplateRequest.ProtoReflect.Descriptor instead.
+func (*UpdatePromptTemplateRequest) Descriptor() ([]byte, []int) {
+	return file_proto_recruitment_proto_rawDescGZIP(), []int{242}
+}
+
+func (x *UpdatePromptTemplateRequest) GetId() int64 {
+	if x != nil {
+		return x.Id
+	}
+	return 0
+}
+
+func (x *UpdatePromptTemplateRequest) GetName() string {
+	if x != nil {
+		return x.Name
+	}
+	return ""
+}
+
+func (x *UpdatePromptTemplateRequest) GetContent() string {
+	if x != nil {
+		return x.Content
+	}
+	return ""
+}
+
+func (x *UpdatePromptTemplateRequest) GetVariablesJson() string {
+	if x != nil {
+		return x.VariablesJson
+	}
+	return ""
+}
+
+func (x *UpdatePromptTemplateRequest) GetIsActive() bool {
+	if x != nil {
+		return x.IsActive
+	}
+	return false
+}
+
+func (x *UpdatePromptTemplateRequest) GetIsActiveSet() bool {
+	if x != nil {
+		return x.IsActiveSet
+	}
+	return false
+}
+
+func (x *UpdatePromptTemplateRequest) GetUpdatedBy() int64 {
+	if x != nil {
+		return x.UpdatedBy
+	}
+	return 0
+}
+
+func (x *UpdatePromptTemplateRequest) GetChangeNote() string {
+	if x != nil {
+		return x.ChangeNote
+	}
+	return ""
+}
+
+type PromptTemplateResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Code          int32                  `protobuf:"varint,1,opt,name=code,proto3" json:"code,omitempty"`
+	Msg           string                 `protobuf:"bytes,2,opt,name=msg,proto3" json:"msg,omitempty"`
+	Template      *PromptTemplateInfo    `protobuf:"bytes,3,opt,name=template,proto3" json:"template,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *PromptTemplateResponse) Reset() {
+	*x = PromptTemplateResponse{}
+	mi := &file_proto_recruitment_proto_msgTypes[243]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *PromptTemplateResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*PromptTemplateResponse) ProtoMessage() {}
+
+func (x *PromptTemplateResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_recruitment_proto_msgTypes[243]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use PromptTemplateResponse.ProtoReflect.Descriptor instead.
+func (*PromptTemplateResponse) Descriptor() ([]byte, []int) {
+	return file_proto_recruitment_proto_rawDescGZIP(), []int{243}
+}
+
+func (x *PromptTemplateResponse) GetCode() int32 {
+	if x != nil {
+		return x.Code
+	}
+	return 0
+}
+
+func (x *PromptTemplateResponse) GetMsg() string {
+	if x != nil {
+		return x.Msg
+	}
+	return ""
+}
+
+func (x *PromptTemplateResponse) GetTemplate() *PromptTemplateInfo {
+	if x != nil {
+		return x.Template
+	}
+	return nil
+}
+
+type DeletePromptTemplateRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Id            int64                  `protobuf:"varint,1,opt,name=id,proto3" json:"id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *DeletePromptTemplateRequest) Reset() {
+	*x = DeletePromptTemplateRequest{}
+	mi := &file_proto_recruitment_proto_msgTypes[244]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *DeletePromptTemplateRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*DeletePromptTemplateRequest) ProtoMessage() {}
+
+func (x *DeletePromptTemplateRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_recruitment_proto_msgTypes[244]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use DeletePromptTemplateRequest.ProtoReflect.Descriptor instead.
+func (*DeletePromptTemplateRequest) Descriptor() ([]byte, []int) {
+	return file_proto_recruitment_proto_rawDescGZIP(), []int{244}
+}
+
+func (x *DeletePromptTemplateRequest) GetId() int64 {
+	if x != nil {
+		return x.Id
+	}
+	return 0
+}
+
+type PromptVersionInfo struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Id            int64                  `protobuf:"varint,1,opt,name=id,proto3" json:"id,omitempty"`
+	TemplateId    int64                  `protobuf:"varint,2,opt,name=template_id,json=templateId,proto3" json:"template_id,omitempty"`
+	Version       int32                  `protobuf:"varint,3,opt,name=version,proto3" json:"version,omitempty"`
+	Content       string                 `protobuf:"bytes,4,opt,name=content,proto3" json:"content,omitempty"`
+	ChangedBy     int64                  `protobuf:"varint,5,opt,name=changed_by,json=changedBy,proto3" json:"changed_by,omitempty"`
+	ChangeNote    string                 `protobuf:"bytes,6,opt,name=change_note,json=changeNote,proto3" json:"change_note,omitempty"`
+	CreatedAt     string                 `protobuf:"bytes,7,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *PromptVersionInfo) Reset() {
+	*x = PromptVersionInfo{}
+	mi := &file_proto_recruitment_proto_msgTypes[245]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *PromptVersionInfo) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*PromptVersionInfo) ProtoMessage() {}
+
+func (x *PromptVersionInfo) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_recruitment_proto_msgTypes[245]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use PromptVersionInfo.ProtoReflect.Descriptor instead.
+func (*PromptVersionInfo) Descriptor() ([]byte, []int) {
+	return file_proto_recruitment_proto_rawDescGZIP(), []int{245}
+}
+
+func (x *PromptVersionInfo) GetId() int64 {
+	if x != nil {
+		return x.Id
+	}
+	return 0
+}
+
+func (x *PromptVersionInfo) GetTemplateId() int64 {
+	if x != nil {
+		return x.TemplateId
+	}
+	return 0
+}
+
+func (x *PromptVersionInfo) GetVersion() int32 {
+	if x != nil {
+		return x.Version
+	}
+	return 0
+}
+
+func (x *PromptVersionInfo) GetContent() string {
+	if x != nil {
+		return x.Content
+	}
+	return ""
+}
+
+func (x *PromptVersionInfo) GetChangedBy() int64 {
+	if x != nil {
+		return x.ChangedBy
+	}
+	return 0
+}
+
+func (x *PromptVersionInfo) GetChangeNote() string {
+	if x != nil {
+		return x.ChangeNote
+	}
+	return ""
+}
+
+func (x *PromptVersionInfo) GetCreatedAt() string {
+	if x != nil {
+		return x.CreatedAt
+	}
+	return ""
+}
+
+type GetPromptVersionHistoryRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	TemplateId    int64                  `protobuf:"varint,1,opt,name=template_id,json=templateId,proto3" json:"template_id,omitempty"`
+	Page          int32                  `protobuf:"varint,2,opt,name=page,proto3" json:"page,omitempty"`
+	PageSize      int32                  `protobuf:"varint,3,opt,name=page_size,json=pageSize,proto3" json:"page_size,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GetPromptVersionHistoryRequest) Reset() {
+	*x = GetPromptVersionHistoryRequest{}
+	mi := &file_proto_recruitment_proto_msgTypes[246]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetPromptVersionHistoryRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetPromptVersionHistoryRequest) ProtoMessage() {}
+
+func (x *GetPromptVersionHistoryRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_recruitment_proto_msgTypes[246]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetPromptVersionHistoryRequest.ProtoReflect.Descriptor instead.
+func (*GetPromptVersionHistoryRequest) Descriptor() ([]byte, []int) {
+	return file_proto_recruitment_proto_rawDescGZIP(), []int{246}
+}
+
+func (x *GetPromptVersionHistoryRequest) GetTemplateId() int64 {
+	if x != nil {
+		return x.TemplateId
+	}
+	return 0
+}
+
+func (x *GetPromptVersionHistoryRequest) GetPage() int32 {
+	if x != nil {
+		return x.Page
+	}
+	return 0
+}
+
+func (x *GetPromptVersionHistoryRequest) GetPageSize() int32 {
+	if x != nil {
+		return x.PageSize
+	}
+	return 0
+}
+
+type GetPromptVersionHistoryResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Code          int32                  `protobuf:"varint,1,opt,name=code,proto3" json:"code,omitempty"`
+	Msg           string                 `protobuf:"bytes,2,opt,name=msg,proto3" json:"msg,omitempty"`
+	Total         int64                  `protobuf:"varint,3,opt,name=total,proto3" json:"total,omitempty"`
+	List          []*PromptVersionInfo   `protobuf:"bytes,4,rep,name=list,proto3" json:"list,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GetPromptVersionHistoryResponse) Reset() {
+	*x = GetPromptVersionHistoryResponse{}
+	mi := &file_proto_recruitment_proto_msgTypes[247]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetPromptVersionHistoryResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetPromptVersionHistoryResponse) ProtoMessage() {}
+
+func (x *GetPromptVersionHistoryResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_recruitment_proto_msgTypes[247]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetPromptVersionHistoryResponse.ProtoReflect.Descriptor instead.
+func (*GetPromptVersionHistoryResponse) Descriptor() ([]byte, []int) {
+	return file_proto_recruitment_proto_rawDescGZIP(), []int{247}
+}
+
+func (x *GetPromptVersionHistoryResponse) GetCode() int32 {
+	if x != nil {
+		return x.Code
+	}
+	return 0
+}
+
+func (x *GetPromptVersionHistoryResponse) GetMsg() string {
+	if x != nil {
+		return x.Msg
+	}
+	return ""
+}
+
+func (x *GetPromptVersionHistoryResponse) GetTotal() int64 {
+	if x != nil {
+		return x.Total
+	}
+	return 0
+}
+
+func (x *GetPromptVersionHistoryResponse) GetList() []*PromptVersionInfo {
+	if x != nil {
+		return x.List
+	}
+	return nil
+}
+
+type RollbackPromptVersionRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	TemplateId    int64                  `protobuf:"varint,1,opt,name=template_id,json=templateId,proto3" json:"template_id,omitempty"`
+	Version       int32                  `protobuf:"varint,2,opt,name=version,proto3" json:"version,omitempty"`
+	UpdatedBy     int64                  `protobuf:"varint,3,opt,name=updated_by,json=updatedBy,proto3" json:"updated_by,omitempty"`
+	ChangeNote    string                 `protobuf:"bytes,4,opt,name=change_note,json=changeNote,proto3" json:"change_note,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *RollbackPromptVersionRequest) Reset() {
+	*x = RollbackPromptVersionRequest{}
+	mi := &file_proto_recruitment_proto_msgTypes[248]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *RollbackPromptVersionRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*RollbackPromptVersionRequest) ProtoMessage() {}
+
+func (x *RollbackPromptVersionRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_recruitment_proto_msgTypes[248]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use RollbackPromptVersionRequest.ProtoReflect.Descriptor instead.
+func (*RollbackPromptVersionRequest) Descriptor() ([]byte, []int) {
+	return file_proto_recruitment_proto_rawDescGZIP(), []int{248}
+}
+
+func (x *RollbackPromptVersionRequest) GetTemplateId() int64 {
+	if x != nil {
+		return x.TemplateId
+	}
+	return 0
+}
+
+func (x *RollbackPromptVersionRequest) GetVersion() int32 {
+	if x != nil {
+		return x.Version
+	}
+	return 0
+}
+
+func (x *RollbackPromptVersionRequest) GetUpdatedBy() int64 {
+	if x != nil {
+		return x.UpdatedBy
+	}
+	return 0
+}
+
+func (x *RollbackPromptVersionRequest) GetChangeNote() string {
+	if x != nil {
+		return x.ChangeNote
+	}
+	return ""
+}
+
+type RenderPromptRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	TemplateId    int64                  `protobuf:"varint,1,opt,name=template_id,json=templateId,proto3" json:"template_id,omitempty"`
+	Variables     map[string]string      `protobuf:"bytes,2,rep,name=variables,proto3" json:"variables,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *RenderPromptRequest) Reset() {
+	*x = RenderPromptRequest{}
+	mi := &file_proto_recruitment_proto_msgTypes[249]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *RenderPromptRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*RenderPromptRequest) ProtoMessage() {}
+
+func (x *RenderPromptRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_recruitment_proto_msgTypes[249]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use RenderPromptRequest.ProtoReflect.Descriptor instead.
+func (*RenderPromptRequest) Descriptor() ([]byte, []int) {
+	return file_proto_recruitment_proto_rawDescGZIP(), []int{249}
+}
+
+func (x *RenderPromptRequest) GetTemplateId() int64 {
+	if x != nil {
+		return x.TemplateId
+	}
+	return 0
+}
+
+func (x *RenderPromptRequest) GetVariables() map[string]string {
+	if x != nil {
+		return x.Variables
+	}
+	return nil
+}
+
+type RenderPromptResponse struct {
+	state           protoimpl.MessageState `protogen:"open.v1"`
+	Code            int32                  `protobuf:"varint,1,opt,name=code,proto3" json:"code,omitempty"`
+	Msg             string                 `protobuf:"bytes,2,opt,name=msg,proto3" json:"msg,omitempty"`
+	RenderedContent string                 `protobuf:"bytes,3,opt,name=rendered_content,json=renderedContent,proto3" json:"rendered_content,omitempty"`
+	unknownFields   protoimpl.UnknownFields
+	sizeCache       protoimpl.SizeCache
+}
+
+func (x *RenderPromptResponse) Reset() {
+	*x = RenderPromptResponse{}
+	mi := &file_proto_recruitment_proto_msgTypes[250]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *RenderPromptResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*RenderPromptResponse) ProtoMessage() {}
+
+func (x *RenderPromptResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_recruitment_proto_msgTypes[250]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use RenderPromptResponse.ProtoReflect.Descriptor instead.
+func (*RenderPromptResponse) Descriptor() ([]byte, []int) {
+	return file_proto_recruitment_proto_rawDescGZIP(), []int{250}
+}
+
+func (x *RenderPromptResponse) GetCode() int32 {
+	if x != nil {
+		return x.Code
+	}
+	return 0
+}
+
+func (x *RenderPromptResponse) GetMsg() string {
+	if x != nil {
+		return x.Msg
+	}
+	return ""
+}
+
+func (x *RenderPromptResponse) GetRenderedContent() string {
+	if x != nil {
+		return x.RenderedContent
+	}
+	return ""
+}
+
+type GetActivePromptByAgentTypeRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	AgentType     string                 `protobuf:"bytes,1,opt,name=agent_type,json=agentType,proto3" json:"agent_type,omitempty"`    // hr_agent / candidate_assistant
+	PromptRole    string                 `protobuf:"bytes,2,opt,name=prompt_role,json=promptRole,proto3" json:"prompt_role,omitempty"` // system / user, optional
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GetActivePromptByAgentTypeRequest) Reset() {
+	*x = GetActivePromptByAgentTypeRequest{}
+	mi := &file_proto_recruitment_proto_msgTypes[251]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetActivePromptByAgentTypeRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetActivePromptByAgentTypeRequest) ProtoMessage() {}
+
+func (x *GetActivePromptByAgentTypeRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_recruitment_proto_msgTypes[251]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetActivePromptByAgentTypeRequest.ProtoReflect.Descriptor instead.
+func (*GetActivePromptByAgentTypeRequest) Descriptor() ([]byte, []int) {
+	return file_proto_recruitment_proto_rawDescGZIP(), []int{251}
+}
+
+func (x *GetActivePromptByAgentTypeRequest) GetAgentType() string {
+	if x != nil {
+		return x.AgentType
+	}
+	return ""
+}
+
+func (x *GetActivePromptByAgentTypeRequest) GetPromptRole() string {
+	if x != nil {
+		return x.PromptRole
+	}
+	return ""
+}
+
+type GetActivePromptByAgentTypeResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Code          int32                  `protobuf:"varint,1,opt,name=code,proto3" json:"code,omitempty"`
+	Msg           string                 `protobuf:"bytes,2,opt,name=msg,proto3" json:"msg,omitempty"`
+	Template      *PromptTemplateInfo    `protobuf:"bytes,3,opt,name=template,proto3" json:"template,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GetActivePromptByAgentTypeResponse) Reset() {
+	*x = GetActivePromptByAgentTypeResponse{}
+	mi := &file_proto_recruitment_proto_msgTypes[252]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetActivePromptByAgentTypeResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetActivePromptByAgentTypeResponse) ProtoMessage() {}
+
+func (x *GetActivePromptByAgentTypeResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_recruitment_proto_msgTypes[252]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetActivePromptByAgentTypeResponse.ProtoReflect.Descriptor instead.
+func (*GetActivePromptByAgentTypeResponse) Descriptor() ([]byte, []int) {
+	return file_proto_recruitment_proto_rawDescGZIP(), []int{252}
+}
+
+func (x *GetActivePromptByAgentTypeResponse) GetCode() int32 {
+	if x != nil {
+		return x.Code
+	}
+	return 0
+}
+
+func (x *GetActivePromptByAgentTypeResponse) GetMsg() string {
+	if x != nil {
+		return x.Msg
+	}
+	return ""
+}
+
+func (x *GetActivePromptByAgentTypeResponse) GetTemplate() *PromptTemplateInfo {
+	if x != nil {
+		return x.Template
+	}
+	return nil
+}
+
 var File_proto_recruitment_proto protoreflect.FileDescriptor
 
 const file_proto_recruitment_proto_rawDesc = "" +
@@ -18870,7 +19930,114 @@ const file_proto_recruitment_proto_rawDesc = "" +
 	"\x03msg\x18\x02 \x01(\tR\x03msg\x12/\n" +
 	"\x05model\x18\x03 \x01(\v2\x19.recruitment.LlmModelInfoR\x05model\"$\n" +
 	"\x12DeleteModelRequest\x12\x0e\n" +
-	"\x02id\x18\x01 \x01(\x03R\x02id2\xba\x04\n" +
+	"\x02id\x18\x01 \x01(\x03R\x02id\"\xec\x02\n" +
+	"\x12PromptTemplateInfo\x12\x0e\n" +
+	"\x02id\x18\x01 \x01(\x03R\x02id\x12\x12\n" +
+	"\x04name\x18\x02 \x01(\tR\x04name\x12\x18\n" +
+	"\acontent\x18\x03 \x01(\tR\acontent\x12%\n" +
+	"\x0evariables_json\x18\x04 \x01(\tR\rvariablesJson\x12\x18\n" +
+	"\aversion\x18\x05 \x01(\x05R\aversion\x12\x1b\n" +
+	"\tis_active\x18\x06 \x01(\bR\bisActive\x12\x1d\n" +
+	"\n" +
+	"agent_type\x18\a \x01(\tR\tagentType\x12\x1f\n" +
+	"\vprompt_role\x18\b \x01(\tR\n" +
+	"promptRole\x12\x1d\n" +
+	"\n" +
+	"created_by\x18\t \x01(\x03R\tcreatedBy\x12\x1d\n" +
+	"\n" +
+	"updated_by\x18\n" +
+	" \x01(\x03R\tupdatedBy\x12\x1d\n" +
+	"\n" +
+	"created_at\x18\v \x01(\tR\tcreatedAt\x12\x1d\n" +
+	"\n" +
+	"updated_at\x18\f \x01(\tR\tupdatedAt\"l\n" +
+	"\x1aListPromptTemplatesRequest\x12\x12\n" +
+	"\x04page\x18\x01 \x01(\x05R\x04page\x12\x1b\n" +
+	"\tpage_size\x18\x02 \x01(\x05R\bpageSize\x12\x1d\n" +
+	"\n" +
+	"agent_type\x18\x03 \x01(\tR\tagentType\"\x8e\x01\n" +
+	"\x1bListPromptTemplatesResponse\x12\x12\n" +
+	"\x04code\x18\x01 \x01(\x05R\x04code\x12\x10\n" +
+	"\x03msg\x18\x02 \x01(\tR\x03msg\x12\x14\n" +
+	"\x05total\x18\x03 \x01(\x03R\x05total\x123\n" +
+	"\x04list\x18\x04 \x03(\v2\x1f.recruitment.PromptTemplateInfoR\x04list\"\xd1\x01\n" +
+	"\x1bCreatePromptTemplateRequest\x12\x12\n" +
+	"\x04name\x18\x01 \x01(\tR\x04name\x12\x18\n" +
+	"\acontent\x18\x02 \x01(\tR\acontent\x12%\n" +
+	"\x0evariables_json\x18\x03 \x01(\tR\rvariablesJson\x12\x1d\n" +
+	"\n" +
+	"agent_type\x18\x04 \x01(\tR\tagentType\x12\x1f\n" +
+	"\vprompt_role\x18\x05 \x01(\tR\n" +
+	"promptRole\x12\x1d\n" +
+	"\n" +
+	"created_by\x18\x06 \x01(\x03R\tcreatedBy\"\x83\x02\n" +
+	"\x1bUpdatePromptTemplateRequest\x12\x0e\n" +
+	"\x02id\x18\x01 \x01(\x03R\x02id\x12\x12\n" +
+	"\x04name\x18\x02 \x01(\tR\x04name\x12\x18\n" +
+	"\acontent\x18\x03 \x01(\tR\acontent\x12%\n" +
+	"\x0evariables_json\x18\x04 \x01(\tR\rvariablesJson\x12\x1b\n" +
+	"\tis_active\x18\x05 \x01(\bR\bisActive\x12\"\n" +
+	"\ris_active_set\x18\x06 \x01(\bR\visActiveSet\x12\x1d\n" +
+	"\n" +
+	"updated_by\x18\a \x01(\x03R\tupdatedBy\x12\x1f\n" +
+	"\vchange_note\x18\b \x01(\tR\n" +
+	"changeNote\"{\n" +
+	"\x16PromptTemplateResponse\x12\x12\n" +
+	"\x04code\x18\x01 \x01(\x05R\x04code\x12\x10\n" +
+	"\x03msg\x18\x02 \x01(\tR\x03msg\x12;\n" +
+	"\btemplate\x18\x03 \x01(\v2\x1f.recruitment.PromptTemplateInfoR\btemplate\"-\n" +
+	"\x1bDeletePromptTemplateRequest\x12\x0e\n" +
+	"\x02id\x18\x01 \x01(\x03R\x02id\"\xd7\x01\n" +
+	"\x11PromptVersionInfo\x12\x0e\n" +
+	"\x02id\x18\x01 \x01(\x03R\x02id\x12\x1f\n" +
+	"\vtemplate_id\x18\x02 \x01(\x03R\n" +
+	"templateId\x12\x18\n" +
+	"\aversion\x18\x03 \x01(\x05R\aversion\x12\x18\n" +
+	"\acontent\x18\x04 \x01(\tR\acontent\x12\x1d\n" +
+	"\n" +
+	"changed_by\x18\x05 \x01(\x03R\tchangedBy\x12\x1f\n" +
+	"\vchange_note\x18\x06 \x01(\tR\n" +
+	"changeNote\x12\x1d\n" +
+	"\n" +
+	"created_at\x18\a \x01(\tR\tcreatedAt\"r\n" +
+	"\x1eGetPromptVersionHistoryRequest\x12\x1f\n" +
+	"\vtemplate_id\x18\x01 \x01(\x03R\n" +
+	"templateId\x12\x12\n" +
+	"\x04page\x18\x02 \x01(\x05R\x04page\x12\x1b\n" +
+	"\tpage_size\x18\x03 \x01(\x05R\bpageSize\"\x91\x01\n" +
+	"\x1fGetPromptVersionHistoryResponse\x12\x12\n" +
+	"\x04code\x18\x01 \x01(\x05R\x04code\x12\x10\n" +
+	"\x03msg\x18\x02 \x01(\tR\x03msg\x12\x14\n" +
+	"\x05total\x18\x03 \x01(\x03R\x05total\x122\n" +
+	"\x04list\x18\x04 \x03(\v2\x1e.recruitment.PromptVersionInfoR\x04list\"\x99\x01\n" +
+	"\x1cRollbackPromptVersionRequest\x12\x1f\n" +
+	"\vtemplate_id\x18\x01 \x01(\x03R\n" +
+	"templateId\x12\x18\n" +
+	"\aversion\x18\x02 \x01(\x05R\aversion\x12\x1d\n" +
+	"\n" +
+	"updated_by\x18\x03 \x01(\x03R\tupdatedBy\x12\x1f\n" +
+	"\vchange_note\x18\x04 \x01(\tR\n" +
+	"changeNote\"\xc3\x01\n" +
+	"\x13RenderPromptRequest\x12\x1f\n" +
+	"\vtemplate_id\x18\x01 \x01(\x03R\n" +
+	"templateId\x12M\n" +
+	"\tvariables\x18\x02 \x03(\v2/.recruitment.RenderPromptRequest.VariablesEntryR\tvariables\x1a<\n" +
+	"\x0eVariablesEntry\x12\x10\n" +
+	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
+	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01\"g\n" +
+	"\x14RenderPromptResponse\x12\x12\n" +
+	"\x04code\x18\x01 \x01(\x05R\x04code\x12\x10\n" +
+	"\x03msg\x18\x02 \x01(\tR\x03msg\x12)\n" +
+	"\x10rendered_content\x18\x03 \x01(\tR\x0frenderedContent\"c\n" +
+	"!GetActivePromptByAgentTypeRequest\x12\x1d\n" +
+	"\n" +
+	"agent_type\x18\x01 \x01(\tR\tagentType\x12\x1f\n" +
+	"\vprompt_role\x18\x02 \x01(\tR\n" +
+	"promptRole\"\x87\x01\n" +
+	"\"GetActivePromptByAgentTypeResponse\x12\x12\n" +
+	"\x04code\x18\x01 \x01(\x05R\x04code\x12\x10\n" +
+	"\x03msg\x18\x02 \x01(\tR\x03msg\x12;\n" +
+	"\btemplate\x18\x03 \x01(\v2\x1f.recruitment.PromptTemplateInfoR\btemplate2\xba\x04\n" +
 	"\vAuthService\x12G\n" +
 	"\bRegister\x12\x1c.recruitment.RegisterRequest\x1a\x1d.recruitment.RegisterResponse\x12>\n" +
 	"\x05Login\x12\x19.recruitment.LoginRequest\x1a\x1a.recruitment.LoginResponse\x12S\n" +
@@ -19013,7 +20180,16 @@ const file_proto_recruitment_proto_rawDesc = "" +
 	"ListModels\x12\x1e.recruitment.ListModelsRequest\x1a\x1f.recruitment.ListModelsResponse\x12J\n" +
 	"\vCreateModel\x12\x1f.recruitment.CreateModelRequest\x1a\x1a.recruitment.ModelResponse\x12J\n" +
 	"\vUpdateModel\x12\x1f.recruitment.UpdateModelRequest\x1a\x1a.recruitment.ModelResponse\x12K\n" +
-	"\vDeleteModel\x12\x1f.recruitment.DeleteModelRequest\x1a\x1b.recruitment.CommonResponseB\x13Z\x11recruitment/pb;pbb\x06proto3"
+	"\vDeleteModel\x12\x1f.recruitment.DeleteModelRequest\x1a\x1b.recruitment.CommonResponse2\xd9\x06\n" +
+	"\rPromptService\x12h\n" +
+	"\x13ListPromptTemplates\x12'.recruitment.ListPromptTemplatesRequest\x1a(.recruitment.ListPromptTemplatesResponse\x12e\n" +
+	"\x14CreatePromptTemplate\x12(.recruitment.CreatePromptTemplateRequest\x1a#.recruitment.PromptTemplateResponse\x12e\n" +
+	"\x14UpdatePromptTemplate\x12(.recruitment.UpdatePromptTemplateRequest\x1a#.recruitment.PromptTemplateResponse\x12]\n" +
+	"\x14DeletePromptTemplate\x12(.recruitment.DeletePromptTemplateRequest\x1a\x1b.recruitment.CommonResponse\x12t\n" +
+	"\x17GetPromptVersionHistory\x12+.recruitment.GetPromptVersionHistoryRequest\x1a,.recruitment.GetPromptVersionHistoryResponse\x12g\n" +
+	"\x15RollbackPromptVersion\x12).recruitment.RollbackPromptVersionRequest\x1a#.recruitment.PromptTemplateResponse\x12S\n" +
+	"\fRenderPrompt\x12 .recruitment.RenderPromptRequest\x1a!.recruitment.RenderPromptResponse\x12}\n" +
+	"\x1aGetActivePromptByAgentType\x12..recruitment.GetActivePromptByAgentTypeRequest\x1a/.recruitment.GetActivePromptByAgentTypeResponseB\x13Z\x11recruitment/pb;pbb\x06proto3"
 
 var (
 	file_proto_recruitment_proto_rawDescOnce sync.Once
@@ -19027,7 +20203,7 @@ func file_proto_recruitment_proto_rawDescGZIP() []byte {
 	return file_proto_recruitment_proto_rawDescData
 }
 
-var file_proto_recruitment_proto_msgTypes = make([]protoimpl.MessageInfo, 238)
+var file_proto_recruitment_proto_msgTypes = make([]protoimpl.MessageInfo, 254)
 var file_proto_recruitment_proto_goTypes = []any{
 	(*CommonResponse)(nil),                           // 0: recruitment.CommonResponse
 	(*RegisterRequest)(nil),                          // 1: recruitment.RegisterRequest
@@ -19267,6 +20443,22 @@ var file_proto_recruitment_proto_goTypes = []any{
 	(*UpdateModelRequest)(nil),                       // 235: recruitment.UpdateModelRequest
 	(*ModelResponse)(nil),                            // 236: recruitment.ModelResponse
 	(*DeleteModelRequest)(nil),                       // 237: recruitment.DeleteModelRequest
+	(*PromptTemplateInfo)(nil),                       // 238: recruitment.PromptTemplateInfo
+	(*ListPromptTemplatesRequest)(nil),               // 239: recruitment.ListPromptTemplatesRequest
+	(*ListPromptTemplatesResponse)(nil),              // 240: recruitment.ListPromptTemplatesResponse
+	(*CreatePromptTemplateRequest)(nil),              // 241: recruitment.CreatePromptTemplateRequest
+	(*UpdatePromptTemplateRequest)(nil),              // 242: recruitment.UpdatePromptTemplateRequest
+	(*PromptTemplateResponse)(nil),                   // 243: recruitment.PromptTemplateResponse
+	(*DeletePromptTemplateRequest)(nil),              // 244: recruitment.DeletePromptTemplateRequest
+	(*PromptVersionInfo)(nil),                        // 245: recruitment.PromptVersionInfo
+	(*GetPromptVersionHistoryRequest)(nil),           // 246: recruitment.GetPromptVersionHistoryRequest
+	(*GetPromptVersionHistoryResponse)(nil),          // 247: recruitment.GetPromptVersionHistoryResponse
+	(*RollbackPromptVersionRequest)(nil),             // 248: recruitment.RollbackPromptVersionRequest
+	(*RenderPromptRequest)(nil),                      // 249: recruitment.RenderPromptRequest
+	(*RenderPromptResponse)(nil),                     // 250: recruitment.RenderPromptResponse
+	(*GetActivePromptByAgentTypeRequest)(nil),        // 251: recruitment.GetActivePromptByAgentTypeRequest
+	(*GetActivePromptByAgentTypeResponse)(nil),       // 252: recruitment.GetActivePromptByAgentTypeResponse
+	nil, // 253: recruitment.RenderPromptRequest.VariablesEntry
 }
 var file_proto_recruitment_proto_depIdxs = []int32{
 	12,  // 0: recruitment.GetPrincipalResponse.data_scopes:type_name -> recruitment.ScopeAssignment
@@ -19335,261 +20527,282 @@ var file_proto_recruitment_proto_depIdxs = []int32{
 	222, // 63: recruitment.ProviderResponse.provider:type_name -> recruitment.LlmProviderInfo
 	231, // 64: recruitment.ListModelsResponse.list:type_name -> recruitment.LlmModelInfo
 	231, // 65: recruitment.ModelResponse.model:type_name -> recruitment.LlmModelInfo
-	1,   // 66: recruitment.AuthService.Register:input_type -> recruitment.RegisterRequest
-	3,   // 67: recruitment.AuthService.Login:input_type -> recruitment.LoginRequest
-	5,   // 68: recruitment.AuthService.RefreshToken:input_type -> recruitment.RefreshTokenRequest
-	7,   // 69: recruitment.AuthService.RevokeRefreshToken:input_type -> recruitment.RevokeRefreshTokenRequest
-	8,   // 70: recruitment.AuthService.RecordAuthDecision:input_type -> recruitment.AuthAuditRequest
-	9,   // 71: recruitment.AuthService.GetPrincipal:input_type -> recruitment.GetPrincipalRequest
-	11,  // 72: recruitment.AuthService.UpdateEmail:input_type -> recruitment.UpdateEmailRequest
-	13,  // 73: recruitment.JobService.CreateJob:input_type -> recruitment.CreateJobRequest
-	15,  // 74: recruitment.JobService.UpdateJob:input_type -> recruitment.UpdateJobRequest
-	16,  // 75: recruitment.JobService.OfflineJob:input_type -> recruitment.OfflineJobRequest
-	16,  // 76: recruitment.JobService.OnlineJob:input_type -> recruitment.OfflineJobRequest
-	17,  // 77: recruitment.JobService.ListHRJobs:input_type -> recruitment.ListHRJobsRequest
-	18,  // 78: recruitment.JobService.ListPublicJobs:input_type -> recruitment.ListPublicJobsRequest
-	19,  // 79: recruitment.JobService.GetJobDetail:input_type -> recruitment.GetJobDetailRequest
-	112, // 80: recruitment.JobService.ListJobOptions:input_type -> recruitment.ListJobOptionsRequest
-	133, // 81: recruitment.JobService.ListDepartmentLocations:input_type -> recruitment.ListDepartmentLocationsRequest
-	23,  // 82: recruitment.CandidateService.GetProfile:input_type -> recruitment.GetProfileRequest
-	24,  // 83: recruitment.CandidateService.UpdateProfile:input_type -> recruitment.UpdateProfileRequest
-	27,  // 84: recruitment.CandidateService.GetResume:input_type -> recruitment.GetResumeRequest
-	30,  // 85: recruitment.CandidateService.PresignResumeUpload:input_type -> recruitment.PresignResumeUploadRequest
-	32,  // 86: recruitment.CandidateService.ConfirmResumeUpload:input_type -> recruitment.ConfirmResumeUploadRequest
-	34,  // 87: recruitment.ApplicationService.ApplyJob:input_type -> recruitment.ApplyJobRequest
-	35,  // 88: recruitment.ApplicationService.ListMyApplications:input_type -> recruitment.ListMyApplicationsRequest
-	38,  // 89: recruitment.ApplicationService.ListJobApplications:input_type -> recruitment.ListJobApplicationsRequest
-	41,  // 90: recruitment.ApplicationService.UpdateApplicationStatus:input_type -> recruitment.UpdateApplicationStatusRequest
-	42,  // 91: recruitment.ApplicationService.ListApplicationStatusTransitions:input_type -> recruitment.ListApplicationStatusTransitionsRequest
-	73,  // 92: recruitment.InterviewService.ScheduleInterview:input_type -> recruitment.ScheduleInterviewRequest
-	75,  // 93: recruitment.InterviewService.UpdateInterview:input_type -> recruitment.UpdateInterviewRequest
-	76,  // 94: recruitment.InterviewService.CancelInterview:input_type -> recruitment.CancelInterviewRequest
-	77,  // 95: recruitment.InterviewService.GetInterview:input_type -> recruitment.GetInterviewRequest
-	79,  // 96: recruitment.InterviewService.ListInterviewers:input_type -> recruitment.ListInterviewersRequest
-	81,  // 97: recruitment.InterviewService.ListApplicationInterviews:input_type -> recruitment.ListApplicationInterviewsRequest
-	83,  // 98: recruitment.InterviewService.ListMyInterviews:input_type -> recruitment.ListMyInterviewsRequest
-	85,  // 99: recruitment.InterviewService.ListCandidateInterviews:input_type -> recruitment.ListCandidateInterviewsRequest
-	88,  // 100: recruitment.InterviewService.SubmitFeedback:input_type -> recruitment.SubmitFeedbackRequest
-	89,  // 101: recruitment.InterviewService.GetFeedback:input_type -> recruitment.GetFeedbackRequest
-	91,  // 102: recruitment.InterviewService.BatchCancelInterviews:input_type -> recruitment.BatchCancelInterviewsRequest
-	94,  // 103: recruitment.NotificationService.ListNotifications:input_type -> recruitment.ListNotificationsRequest
-	96,  // 104: recruitment.NotificationService.UnreadNotificationCount:input_type -> recruitment.UnreadNotificationCountRequest
-	98,  // 105: recruitment.NotificationService.NotificationSummary:input_type -> recruitment.NotificationSummaryRequest
-	100, // 106: recruitment.NotificationService.MarkNotificationRead:input_type -> recruitment.MarkNotificationReadRequest
-	101, // 107: recruitment.NotificationService.MarkAllNotificationsRead:input_type -> recruitment.MarkAllNotificationsReadRequest
-	45,  // 108: recruitment.AIService.Chat:input_type -> recruitment.ChatRequest
-	45,  // 109: recruitment.AIService.ChatStream:input_type -> recruitment.ChatRequest
-	48,  // 110: recruitment.AIService.History:input_type -> recruitment.ChatHistoryRequest
-	51,  // 111: recruitment.AIService.AnalyzeApplication:input_type -> recruitment.AnalyzeApplicationRequest
-	53,  // 112: recruitment.AIService.ListChatSessions:input_type -> recruitment.ChatSessionListRequest
-	56,  // 113: recruitment.AIService.CreateChatSession:input_type -> recruitment.CreateChatSessionRequest
-	58,  // 114: recruitment.AIService.SessionMessages:input_type -> recruitment.SessionMessagesRequest
-	59,  // 115: recruitment.AIService.CreateApplicationAnalysisSession:input_type -> recruitment.CreateApplicationAnalysisSessionRequest
-	61,  // 116: recruitment.AIService.UpdateSession:input_type -> recruitment.UpdateSessionRequest
-	62,  // 117: recruitment.AIService.DeleteSession:input_type -> recruitment.DeleteSessionRequest
-	63,  // 118: recruitment.AIService.CandidateChatStream:input_type -> recruitment.CandidateChatRequest
-	64,  // 119: recruitment.AIService.CandidateListSessions:input_type -> recruitment.CandidateSessionListRequest
-	65,  // 120: recruitment.AIService.CandidateCreateSession:input_type -> recruitment.CandidateCreateSessionRequest
-	66,  // 121: recruitment.AIService.CandidateSessionMessages:input_type -> recruitment.CandidateSessionMessagesRequest
-	67,  // 122: recruitment.AIService.CandidateUpdateSession:input_type -> recruitment.CandidateUpdateSessionRequest
-	68,  // 123: recruitment.AIService.CandidateDeleteSession:input_type -> recruitment.CandidateDeleteSessionRequest
-	69,  // 124: recruitment.AIService.GetToolTraces:input_type -> recruitment.GetToolTracesRequest
-	142, // 125: recruitment.OfferService.CreateOffer:input_type -> recruitment.CreateOfferRequest
-	144, // 126: recruitment.OfferService.UpdateOffer:input_type -> recruitment.UpdateOfferRequest
-	145, // 127: recruitment.OfferService.GetOffer:input_type -> recruitment.GetOfferRequest
-	147, // 128: recruitment.OfferService.ListOffersByApplication:input_type -> recruitment.ListOffersByApplicationRequest
-	149, // 129: recruitment.OfferService.SendOffer:input_type -> recruitment.SendOfferRequest
-	150, // 130: recruitment.OfferService.WithdrawOffer:input_type -> recruitment.WithdrawOfferRequest
-	151, // 131: recruitment.OfferService.AcceptOffer:input_type -> recruitment.AcceptOfferRequest
-	152, // 132: recruitment.OfferService.RejectOffer:input_type -> recruitment.RejectOfferRequest
-	153, // 133: recruitment.OfferService.ListMyOffers:input_type -> recruitment.ListMyOffersRequest
-	156, // 134: recruitment.OfferService.ListOfferEvents:input_type -> recruitment.ListOfferEventsRequest
-	103, // 135: recruitment.AdminService.CreateInviteCode:input_type -> recruitment.CreateInviteCodeRequest
-	105, // 136: recruitment.AdminService.ListInviteCodes:input_type -> recruitment.ListInviteCodesRequest
-	107, // 137: recruitment.AdminService.ExtendInviteCode:input_type -> recruitment.ExtendInviteCodeRequest
-	108, // 138: recruitment.AdminService.RevokeInviteCode:input_type -> recruitment.RevokeInviteCodeRequest
-	109, // 139: recruitment.AdminService.ReactivateInviteCode:input_type -> recruitment.ReactivateInviteCodeRequest
-	110, // 140: recruitment.AdminService.ValidateInviteCode:input_type -> recruitment.ValidateInviteCodeRequest
-	116, // 141: recruitment.AdminService.ListDepartments:input_type -> recruitment.ListDepartmentsRequest
-	118, // 142: recruitment.AdminService.CreateDepartment:input_type -> recruitment.CreateDepartmentRequest
-	119, // 143: recruitment.AdminService.UpdateDepartment:input_type -> recruitment.UpdateDepartmentRequest
-	120, // 144: recruitment.AdminService.UpdateDepartmentStatus:input_type -> recruitment.UpdateDepartmentStatusRequest
-	121, // 145: recruitment.AdminService.DeleteDepartment:input_type -> recruitment.DeleteDepartmentRequest
-	123, // 146: recruitment.AdminService.ListJobLocations:input_type -> recruitment.ListJobLocationsRequest
-	125, // 147: recruitment.AdminService.CreateJobLocation:input_type -> recruitment.CreateJobLocationRequest
-	126, // 148: recruitment.AdminService.UpdateJobLocation:input_type -> recruitment.UpdateJobLocationRequest
-	127, // 149: recruitment.AdminService.UpdateJobLocationStatus:input_type -> recruitment.UpdateJobLocationStatusRequest
-	128, // 150: recruitment.AdminService.DeleteJobLocation:input_type -> recruitment.DeleteJobLocationRequest
-	135, // 151: recruitment.AdminService.GetDepartmentLocationConfig:input_type -> recruitment.GetDepartmentLocationConfigRequest
-	136, // 152: recruitment.AdminService.UpdateDepartmentLocationConfig:input_type -> recruitment.UpdateDepartmentLocationConfigRequest
-	131, // 153: recruitment.AdminService.ListDepartmentsLocationMap:input_type -> recruitment.ListDepartmentsLocationMapRequest
-	139, // 154: recruitment.AdminService.QueryUsageLogs:input_type -> recruitment.QueryUsageLogsRequest
-	158, // 155: recruitment.AdminService.ListRoles:input_type -> recruitment.ListRolesRequest
-	161, // 156: recruitment.AdminService.ListPermissions:input_type -> recruitment.ListPermissionsRequest
-	164, // 157: recruitment.AdminService.GetUserRoles:input_type -> recruitment.GetUserRolesRequest
-	167, // 158: recruitment.AdminService.AssignUserRole:input_type -> recruitment.AssignUserRoleRequest
-	168, // 159: recruitment.AdminService.RevokeUserRole:input_type -> recruitment.RevokeUserRoleRequest
-	169, // 160: recruitment.AdminService.AssignDataScope:input_type -> recruitment.AssignDataScopeRequest
-	170, // 161: recruitment.AdminService.RevokeDataScope:input_type -> recruitment.RevokeDataScopeRequest
-	171, // 162: recruitment.AdminService.ListStaffUsers:input_type -> recruitment.ListStaffUsersRequest
-	174, // 163: recruitment.AdminService.CreateStaffUser:input_type -> recruitment.CreateStaffUserRequest
-	207, // 164: recruitment.AdminService.QueryAuthAuditLogs:input_type -> recruitment.QueryAuthAuditLogsRequest
-	210, // 165: recruitment.AdminService.GetDashboardReport:input_type -> recruitment.GetDashboardReportRequest
-	214, // 166: recruitment.AdminService.GetFunnelReport:input_type -> recruitment.GetFunnelReportRequest
-	217, // 167: recruitment.AdminService.GetTimeInStageReport:input_type -> recruitment.GetTimeInStageReportRequest
-	220, // 168: recruitment.AdminService.GetInterviewOfferMetrics:input_type -> recruitment.GetInterviewOfferMetricsRequest
-	176, // 169: recruitment.CollaborationService.GetCandidateWorkspace:input_type -> recruitment.GetCandidateWorkspaceRequest
-	183, // 170: recruitment.CollaborationService.CreateNote:input_type -> recruitment.CreateNoteRequest
-	185, // 171: recruitment.CollaborationService.ListNotes:input_type -> recruitment.ListNotesRequest
-	188, // 172: recruitment.CollaborationService.CreateTag:input_type -> recruitment.CreateTagRequest
-	190, // 173: recruitment.CollaborationService.ListTags:input_type -> recruitment.ListTagsRequest
-	192, // 174: recruitment.CollaborationService.AssignTag:input_type -> recruitment.AssignTagRequest
-	193, // 175: recruitment.CollaborationService.UnassignTag:input_type -> recruitment.UnassignTagRequest
-	194, // 176: recruitment.CollaborationService.ListCandidateTags:input_type -> recruitment.ListCandidateTagsRequest
-	197, // 177: recruitment.CollaborationService.CreateFollowUpTask:input_type -> recruitment.CreateFollowUpTaskRequest
-	199, // 178: recruitment.CollaborationService.ListFollowUpTasks:input_type -> recruitment.ListFollowUpTasksRequest
-	201, // 179: recruitment.CollaborationService.CompleteFollowUpTask:input_type -> recruitment.CompleteFollowUpTaskRequest
-	202, // 180: recruitment.CollaborationService.GetFollowUpTask:input_type -> recruitment.GetFollowUpTaskRequest
-	205, // 181: recruitment.CollaborationService.ListTimelineEvents:input_type -> recruitment.ListTimelineEventsRequest
-	223, // 182: recruitment.LlmConfigService.ListProviders:input_type -> recruitment.ListProvidersRequest
-	225, // 183: recruitment.LlmConfigService.CreateProvider:input_type -> recruitment.CreateProviderRequest
-	226, // 184: recruitment.LlmConfigService.UpdateProvider:input_type -> recruitment.UpdateProviderRequest
-	228, // 185: recruitment.LlmConfigService.DeleteProvider:input_type -> recruitment.DeleteProviderRequest
-	229, // 186: recruitment.LlmConfigService.TestProviderConnection:input_type -> recruitment.TestProviderConnectionRequest
-	232, // 187: recruitment.LlmConfigService.ListModels:input_type -> recruitment.ListModelsRequest
-	234, // 188: recruitment.LlmConfigService.CreateModel:input_type -> recruitment.CreateModelRequest
-	235, // 189: recruitment.LlmConfigService.UpdateModel:input_type -> recruitment.UpdateModelRequest
-	237, // 190: recruitment.LlmConfigService.DeleteModel:input_type -> recruitment.DeleteModelRequest
-	2,   // 191: recruitment.AuthService.Register:output_type -> recruitment.RegisterResponse
-	4,   // 192: recruitment.AuthService.Login:output_type -> recruitment.LoginResponse
-	6,   // 193: recruitment.AuthService.RefreshToken:output_type -> recruitment.RefreshTokenResponse
-	0,   // 194: recruitment.AuthService.RevokeRefreshToken:output_type -> recruitment.CommonResponse
-	0,   // 195: recruitment.AuthService.RecordAuthDecision:output_type -> recruitment.CommonResponse
-	10,  // 196: recruitment.AuthService.GetPrincipal:output_type -> recruitment.GetPrincipalResponse
-	0,   // 197: recruitment.AuthService.UpdateEmail:output_type -> recruitment.CommonResponse
-	14,  // 198: recruitment.JobService.CreateJob:output_type -> recruitment.CreateJobResponse
-	0,   // 199: recruitment.JobService.UpdateJob:output_type -> recruitment.CommonResponse
-	0,   // 200: recruitment.JobService.OfflineJob:output_type -> recruitment.CommonResponse
-	0,   // 201: recruitment.JobService.OnlineJob:output_type -> recruitment.CommonResponse
-	21,  // 202: recruitment.JobService.ListHRJobs:output_type -> recruitment.ListJobsResponse
-	21,  // 203: recruitment.JobService.ListPublicJobs:output_type -> recruitment.ListJobsResponse
-	22,  // 204: recruitment.JobService.GetJobDetail:output_type -> recruitment.GetJobDetailResponse
-	113, // 205: recruitment.JobService.ListJobOptions:output_type -> recruitment.ListJobOptionsResponse
-	134, // 206: recruitment.JobService.ListDepartmentLocations:output_type -> recruitment.ListDepartmentLocationsResponse
-	26,  // 207: recruitment.CandidateService.GetProfile:output_type -> recruitment.GetProfileResponse
-	26,  // 208: recruitment.CandidateService.UpdateProfile:output_type -> recruitment.GetProfileResponse
-	29,  // 209: recruitment.CandidateService.GetResume:output_type -> recruitment.GetResumeResponse
-	31,  // 210: recruitment.CandidateService.PresignResumeUpload:output_type -> recruitment.PresignResumeUploadResponse
-	33,  // 211: recruitment.CandidateService.ConfirmResumeUpload:output_type -> recruitment.ConfirmResumeUploadResponse
-	0,   // 212: recruitment.ApplicationService.ApplyJob:output_type -> recruitment.CommonResponse
-	37,  // 213: recruitment.ApplicationService.ListMyApplications:output_type -> recruitment.ListMyApplicationsResponse
-	40,  // 214: recruitment.ApplicationService.ListJobApplications:output_type -> recruitment.ListJobApplicationsResponse
-	0,   // 215: recruitment.ApplicationService.UpdateApplicationStatus:output_type -> recruitment.CommonResponse
-	44,  // 216: recruitment.ApplicationService.ListApplicationStatusTransitions:output_type -> recruitment.ListApplicationStatusTransitionsResponse
-	74,  // 217: recruitment.InterviewService.ScheduleInterview:output_type -> recruitment.ScheduleInterviewResponse
-	0,   // 218: recruitment.InterviewService.UpdateInterview:output_type -> recruitment.CommonResponse
-	0,   // 219: recruitment.InterviewService.CancelInterview:output_type -> recruitment.CommonResponse
-	78,  // 220: recruitment.InterviewService.GetInterview:output_type -> recruitment.GetInterviewResponse
-	80,  // 221: recruitment.InterviewService.ListInterviewers:output_type -> recruitment.ListInterviewersResponse
-	82,  // 222: recruitment.InterviewService.ListApplicationInterviews:output_type -> recruitment.ListApplicationInterviewsResponse
-	84,  // 223: recruitment.InterviewService.ListMyInterviews:output_type -> recruitment.ListMyInterviewsResponse
-	86,  // 224: recruitment.InterviewService.ListCandidateInterviews:output_type -> recruitment.ListCandidateInterviewsResponse
-	0,   // 225: recruitment.InterviewService.SubmitFeedback:output_type -> recruitment.CommonResponse
-	90,  // 226: recruitment.InterviewService.GetFeedback:output_type -> recruitment.GetFeedbackResponse
-	92,  // 227: recruitment.InterviewService.BatchCancelInterviews:output_type -> recruitment.BatchCancelInterviewsResponse
-	95,  // 228: recruitment.NotificationService.ListNotifications:output_type -> recruitment.ListNotificationsResponse
-	97,  // 229: recruitment.NotificationService.UnreadNotificationCount:output_type -> recruitment.UnreadNotificationCountResponse
-	99,  // 230: recruitment.NotificationService.NotificationSummary:output_type -> recruitment.NotificationSummaryResponse
-	0,   // 231: recruitment.NotificationService.MarkNotificationRead:output_type -> recruitment.CommonResponse
-	0,   // 232: recruitment.NotificationService.MarkAllNotificationsRead:output_type -> recruitment.CommonResponse
-	46,  // 233: recruitment.AIService.Chat:output_type -> recruitment.ChatResponse
-	47,  // 234: recruitment.AIService.ChatStream:output_type -> recruitment.ChatStreamResponse
-	50,  // 235: recruitment.AIService.History:output_type -> recruitment.ChatHistoryResponse
-	52,  // 236: recruitment.AIService.AnalyzeApplication:output_type -> recruitment.AnalyzeApplicationResponse
-	55,  // 237: recruitment.AIService.ListChatSessions:output_type -> recruitment.ChatSessionListResponse
-	57,  // 238: recruitment.AIService.CreateChatSession:output_type -> recruitment.CreateChatSessionResponse
-	50,  // 239: recruitment.AIService.SessionMessages:output_type -> recruitment.ChatHistoryResponse
-	60,  // 240: recruitment.AIService.CreateApplicationAnalysisSession:output_type -> recruitment.CreateApplicationAnalysisSessionResponse
-	0,   // 241: recruitment.AIService.UpdateSession:output_type -> recruitment.CommonResponse
-	0,   // 242: recruitment.AIService.DeleteSession:output_type -> recruitment.CommonResponse
-	47,  // 243: recruitment.AIService.CandidateChatStream:output_type -> recruitment.ChatStreamResponse
-	55,  // 244: recruitment.AIService.CandidateListSessions:output_type -> recruitment.ChatSessionListResponse
-	57,  // 245: recruitment.AIService.CandidateCreateSession:output_type -> recruitment.CreateChatSessionResponse
-	50,  // 246: recruitment.AIService.CandidateSessionMessages:output_type -> recruitment.ChatHistoryResponse
-	0,   // 247: recruitment.AIService.CandidateUpdateSession:output_type -> recruitment.CommonResponse
-	0,   // 248: recruitment.AIService.CandidateDeleteSession:output_type -> recruitment.CommonResponse
-	71,  // 249: recruitment.AIService.GetToolTraces:output_type -> recruitment.GetToolTracesResponse
-	143, // 250: recruitment.OfferService.CreateOffer:output_type -> recruitment.CreateOfferResponse
-	0,   // 251: recruitment.OfferService.UpdateOffer:output_type -> recruitment.CommonResponse
-	146, // 252: recruitment.OfferService.GetOffer:output_type -> recruitment.GetOfferResponse
-	148, // 253: recruitment.OfferService.ListOffersByApplication:output_type -> recruitment.ListOffersByApplicationResponse
-	0,   // 254: recruitment.OfferService.SendOffer:output_type -> recruitment.CommonResponse
-	0,   // 255: recruitment.OfferService.WithdrawOffer:output_type -> recruitment.CommonResponse
-	0,   // 256: recruitment.OfferService.AcceptOffer:output_type -> recruitment.CommonResponse
-	0,   // 257: recruitment.OfferService.RejectOffer:output_type -> recruitment.CommonResponse
-	154, // 258: recruitment.OfferService.ListMyOffers:output_type -> recruitment.ListMyOffersResponse
-	157, // 259: recruitment.OfferService.ListOfferEvents:output_type -> recruitment.ListOfferEventsResponse
-	104, // 260: recruitment.AdminService.CreateInviteCode:output_type -> recruitment.CreateInviteCodeResponse
-	106, // 261: recruitment.AdminService.ListInviteCodes:output_type -> recruitment.ListInviteCodesResponse
-	0,   // 262: recruitment.AdminService.ExtendInviteCode:output_type -> recruitment.CommonResponse
-	0,   // 263: recruitment.AdminService.RevokeInviteCode:output_type -> recruitment.CommonResponse
-	0,   // 264: recruitment.AdminService.ReactivateInviteCode:output_type -> recruitment.CommonResponse
-	111, // 265: recruitment.AdminService.ValidateInviteCode:output_type -> recruitment.ValidateInviteCodeResponse
-	117, // 266: recruitment.AdminService.ListDepartments:output_type -> recruitment.ListDepartmentsResponse
-	122, // 267: recruitment.AdminService.CreateDepartment:output_type -> recruitment.DepartmentResponse
-	122, // 268: recruitment.AdminService.UpdateDepartment:output_type -> recruitment.DepartmentResponse
-	0,   // 269: recruitment.AdminService.UpdateDepartmentStatus:output_type -> recruitment.CommonResponse
-	0,   // 270: recruitment.AdminService.DeleteDepartment:output_type -> recruitment.CommonResponse
-	124, // 271: recruitment.AdminService.ListJobLocations:output_type -> recruitment.ListJobLocationsResponse
-	129, // 272: recruitment.AdminService.CreateJobLocation:output_type -> recruitment.JobLocationResponse
-	129, // 273: recruitment.AdminService.UpdateJobLocation:output_type -> recruitment.JobLocationResponse
-	0,   // 274: recruitment.AdminService.UpdateJobLocationStatus:output_type -> recruitment.CommonResponse
-	0,   // 275: recruitment.AdminService.DeleteJobLocation:output_type -> recruitment.CommonResponse
-	137, // 276: recruitment.AdminService.GetDepartmentLocationConfig:output_type -> recruitment.DepartmentLocationConfigResponse
-	137, // 277: recruitment.AdminService.UpdateDepartmentLocationConfig:output_type -> recruitment.DepartmentLocationConfigResponse
-	132, // 278: recruitment.AdminService.ListDepartmentsLocationMap:output_type -> recruitment.ListDepartmentsLocationMapResponse
-	140, // 279: recruitment.AdminService.QueryUsageLogs:output_type -> recruitment.QueryUsageLogsResponse
-	159, // 280: recruitment.AdminService.ListRoles:output_type -> recruitment.ListRolesResponse
-	162, // 281: recruitment.AdminService.ListPermissions:output_type -> recruitment.ListPermissionsResponse
-	165, // 282: recruitment.AdminService.GetUserRoles:output_type -> recruitment.GetUserRolesResponse
-	0,   // 283: recruitment.AdminService.AssignUserRole:output_type -> recruitment.CommonResponse
-	0,   // 284: recruitment.AdminService.RevokeUserRole:output_type -> recruitment.CommonResponse
-	0,   // 285: recruitment.AdminService.AssignDataScope:output_type -> recruitment.CommonResponse
-	0,   // 286: recruitment.AdminService.RevokeDataScope:output_type -> recruitment.CommonResponse
-	172, // 287: recruitment.AdminService.ListStaffUsers:output_type -> recruitment.ListStaffUsersResponse
-	175, // 288: recruitment.AdminService.CreateStaffUser:output_type -> recruitment.CreateStaffUserResponse
-	209, // 289: recruitment.AdminService.QueryAuthAuditLogs:output_type -> recruitment.QueryAuthAuditLogsResponse
-	213, // 290: recruitment.AdminService.GetDashboardReport:output_type -> recruitment.GetDashboardReportResponse
-	216, // 291: recruitment.AdminService.GetFunnelReport:output_type -> recruitment.GetFunnelReportResponse
-	219, // 292: recruitment.AdminService.GetTimeInStageReport:output_type -> recruitment.GetTimeInStageReportResponse
-	221, // 293: recruitment.AdminService.GetInterviewOfferMetrics:output_type -> recruitment.GetInterviewOfferMetricsResponse
-	181, // 294: recruitment.CollaborationService.GetCandidateWorkspace:output_type -> recruitment.GetCandidateWorkspaceResponse
-	184, // 295: recruitment.CollaborationService.CreateNote:output_type -> recruitment.CreateNoteResponse
-	186, // 296: recruitment.CollaborationService.ListNotes:output_type -> recruitment.ListNotesResponse
-	189, // 297: recruitment.CollaborationService.CreateTag:output_type -> recruitment.CreateTagResponse
-	191, // 298: recruitment.CollaborationService.ListTags:output_type -> recruitment.ListTagsResponse
-	0,   // 299: recruitment.CollaborationService.AssignTag:output_type -> recruitment.CommonResponse
-	0,   // 300: recruitment.CollaborationService.UnassignTag:output_type -> recruitment.CommonResponse
-	195, // 301: recruitment.CollaborationService.ListCandidateTags:output_type -> recruitment.ListCandidateTagsResponse
-	198, // 302: recruitment.CollaborationService.CreateFollowUpTask:output_type -> recruitment.CreateFollowUpTaskResponse
-	200, // 303: recruitment.CollaborationService.ListFollowUpTasks:output_type -> recruitment.ListFollowUpTasksResponse
-	0,   // 304: recruitment.CollaborationService.CompleteFollowUpTask:output_type -> recruitment.CommonResponse
-	203, // 305: recruitment.CollaborationService.GetFollowUpTask:output_type -> recruitment.GetFollowUpTaskResponse
-	206, // 306: recruitment.CollaborationService.ListTimelineEvents:output_type -> recruitment.ListTimelineEventsResponse
-	224, // 307: recruitment.LlmConfigService.ListProviders:output_type -> recruitment.ListProvidersResponse
-	227, // 308: recruitment.LlmConfigService.CreateProvider:output_type -> recruitment.ProviderResponse
-	227, // 309: recruitment.LlmConfigService.UpdateProvider:output_type -> recruitment.ProviderResponse
-	0,   // 310: recruitment.LlmConfigService.DeleteProvider:output_type -> recruitment.CommonResponse
-	230, // 311: recruitment.LlmConfigService.TestProviderConnection:output_type -> recruitment.TestProviderConnectionResponse
-	233, // 312: recruitment.LlmConfigService.ListModels:output_type -> recruitment.ListModelsResponse
-	236, // 313: recruitment.LlmConfigService.CreateModel:output_type -> recruitment.ModelResponse
-	236, // 314: recruitment.LlmConfigService.UpdateModel:output_type -> recruitment.ModelResponse
-	0,   // 315: recruitment.LlmConfigService.DeleteModel:output_type -> recruitment.CommonResponse
-	191, // [191:316] is the sub-list for method output_type
-	66,  // [66:191] is the sub-list for method input_type
-	66,  // [66:66] is the sub-list for extension type_name
-	66,  // [66:66] is the sub-list for extension extendee
-	0,   // [0:66] is the sub-list for field type_name
+	238, // 66: recruitment.ListPromptTemplatesResponse.list:type_name -> recruitment.PromptTemplateInfo
+	238, // 67: recruitment.PromptTemplateResponse.template:type_name -> recruitment.PromptTemplateInfo
+	245, // 68: recruitment.GetPromptVersionHistoryResponse.list:type_name -> recruitment.PromptVersionInfo
+	253, // 69: recruitment.RenderPromptRequest.variables:type_name -> recruitment.RenderPromptRequest.VariablesEntry
+	238, // 70: recruitment.GetActivePromptByAgentTypeResponse.template:type_name -> recruitment.PromptTemplateInfo
+	1,   // 71: recruitment.AuthService.Register:input_type -> recruitment.RegisterRequest
+	3,   // 72: recruitment.AuthService.Login:input_type -> recruitment.LoginRequest
+	5,   // 73: recruitment.AuthService.RefreshToken:input_type -> recruitment.RefreshTokenRequest
+	7,   // 74: recruitment.AuthService.RevokeRefreshToken:input_type -> recruitment.RevokeRefreshTokenRequest
+	8,   // 75: recruitment.AuthService.RecordAuthDecision:input_type -> recruitment.AuthAuditRequest
+	9,   // 76: recruitment.AuthService.GetPrincipal:input_type -> recruitment.GetPrincipalRequest
+	11,  // 77: recruitment.AuthService.UpdateEmail:input_type -> recruitment.UpdateEmailRequest
+	13,  // 78: recruitment.JobService.CreateJob:input_type -> recruitment.CreateJobRequest
+	15,  // 79: recruitment.JobService.UpdateJob:input_type -> recruitment.UpdateJobRequest
+	16,  // 80: recruitment.JobService.OfflineJob:input_type -> recruitment.OfflineJobRequest
+	16,  // 81: recruitment.JobService.OnlineJob:input_type -> recruitment.OfflineJobRequest
+	17,  // 82: recruitment.JobService.ListHRJobs:input_type -> recruitment.ListHRJobsRequest
+	18,  // 83: recruitment.JobService.ListPublicJobs:input_type -> recruitment.ListPublicJobsRequest
+	19,  // 84: recruitment.JobService.GetJobDetail:input_type -> recruitment.GetJobDetailRequest
+	112, // 85: recruitment.JobService.ListJobOptions:input_type -> recruitment.ListJobOptionsRequest
+	133, // 86: recruitment.JobService.ListDepartmentLocations:input_type -> recruitment.ListDepartmentLocationsRequest
+	23,  // 87: recruitment.CandidateService.GetProfile:input_type -> recruitment.GetProfileRequest
+	24,  // 88: recruitment.CandidateService.UpdateProfile:input_type -> recruitment.UpdateProfileRequest
+	27,  // 89: recruitment.CandidateService.GetResume:input_type -> recruitment.GetResumeRequest
+	30,  // 90: recruitment.CandidateService.PresignResumeUpload:input_type -> recruitment.PresignResumeUploadRequest
+	32,  // 91: recruitment.CandidateService.ConfirmResumeUpload:input_type -> recruitment.ConfirmResumeUploadRequest
+	34,  // 92: recruitment.ApplicationService.ApplyJob:input_type -> recruitment.ApplyJobRequest
+	35,  // 93: recruitment.ApplicationService.ListMyApplications:input_type -> recruitment.ListMyApplicationsRequest
+	38,  // 94: recruitment.ApplicationService.ListJobApplications:input_type -> recruitment.ListJobApplicationsRequest
+	41,  // 95: recruitment.ApplicationService.UpdateApplicationStatus:input_type -> recruitment.UpdateApplicationStatusRequest
+	42,  // 96: recruitment.ApplicationService.ListApplicationStatusTransitions:input_type -> recruitment.ListApplicationStatusTransitionsRequest
+	73,  // 97: recruitment.InterviewService.ScheduleInterview:input_type -> recruitment.ScheduleInterviewRequest
+	75,  // 98: recruitment.InterviewService.UpdateInterview:input_type -> recruitment.UpdateInterviewRequest
+	76,  // 99: recruitment.InterviewService.CancelInterview:input_type -> recruitment.CancelInterviewRequest
+	77,  // 100: recruitment.InterviewService.GetInterview:input_type -> recruitment.GetInterviewRequest
+	79,  // 101: recruitment.InterviewService.ListInterviewers:input_type -> recruitment.ListInterviewersRequest
+	81,  // 102: recruitment.InterviewService.ListApplicationInterviews:input_type -> recruitment.ListApplicationInterviewsRequest
+	83,  // 103: recruitment.InterviewService.ListMyInterviews:input_type -> recruitment.ListMyInterviewsRequest
+	85,  // 104: recruitment.InterviewService.ListCandidateInterviews:input_type -> recruitment.ListCandidateInterviewsRequest
+	88,  // 105: recruitment.InterviewService.SubmitFeedback:input_type -> recruitment.SubmitFeedbackRequest
+	89,  // 106: recruitment.InterviewService.GetFeedback:input_type -> recruitment.GetFeedbackRequest
+	91,  // 107: recruitment.InterviewService.BatchCancelInterviews:input_type -> recruitment.BatchCancelInterviewsRequest
+	94,  // 108: recruitment.NotificationService.ListNotifications:input_type -> recruitment.ListNotificationsRequest
+	96,  // 109: recruitment.NotificationService.UnreadNotificationCount:input_type -> recruitment.UnreadNotificationCountRequest
+	98,  // 110: recruitment.NotificationService.NotificationSummary:input_type -> recruitment.NotificationSummaryRequest
+	100, // 111: recruitment.NotificationService.MarkNotificationRead:input_type -> recruitment.MarkNotificationReadRequest
+	101, // 112: recruitment.NotificationService.MarkAllNotificationsRead:input_type -> recruitment.MarkAllNotificationsReadRequest
+	45,  // 113: recruitment.AIService.Chat:input_type -> recruitment.ChatRequest
+	45,  // 114: recruitment.AIService.ChatStream:input_type -> recruitment.ChatRequest
+	48,  // 115: recruitment.AIService.History:input_type -> recruitment.ChatHistoryRequest
+	51,  // 116: recruitment.AIService.AnalyzeApplication:input_type -> recruitment.AnalyzeApplicationRequest
+	53,  // 117: recruitment.AIService.ListChatSessions:input_type -> recruitment.ChatSessionListRequest
+	56,  // 118: recruitment.AIService.CreateChatSession:input_type -> recruitment.CreateChatSessionRequest
+	58,  // 119: recruitment.AIService.SessionMessages:input_type -> recruitment.SessionMessagesRequest
+	59,  // 120: recruitment.AIService.CreateApplicationAnalysisSession:input_type -> recruitment.CreateApplicationAnalysisSessionRequest
+	61,  // 121: recruitment.AIService.UpdateSession:input_type -> recruitment.UpdateSessionRequest
+	62,  // 122: recruitment.AIService.DeleteSession:input_type -> recruitment.DeleteSessionRequest
+	63,  // 123: recruitment.AIService.CandidateChatStream:input_type -> recruitment.CandidateChatRequest
+	64,  // 124: recruitment.AIService.CandidateListSessions:input_type -> recruitment.CandidateSessionListRequest
+	65,  // 125: recruitment.AIService.CandidateCreateSession:input_type -> recruitment.CandidateCreateSessionRequest
+	66,  // 126: recruitment.AIService.CandidateSessionMessages:input_type -> recruitment.CandidateSessionMessagesRequest
+	67,  // 127: recruitment.AIService.CandidateUpdateSession:input_type -> recruitment.CandidateUpdateSessionRequest
+	68,  // 128: recruitment.AIService.CandidateDeleteSession:input_type -> recruitment.CandidateDeleteSessionRequest
+	69,  // 129: recruitment.AIService.GetToolTraces:input_type -> recruitment.GetToolTracesRequest
+	142, // 130: recruitment.OfferService.CreateOffer:input_type -> recruitment.CreateOfferRequest
+	144, // 131: recruitment.OfferService.UpdateOffer:input_type -> recruitment.UpdateOfferRequest
+	145, // 132: recruitment.OfferService.GetOffer:input_type -> recruitment.GetOfferRequest
+	147, // 133: recruitment.OfferService.ListOffersByApplication:input_type -> recruitment.ListOffersByApplicationRequest
+	149, // 134: recruitment.OfferService.SendOffer:input_type -> recruitment.SendOfferRequest
+	150, // 135: recruitment.OfferService.WithdrawOffer:input_type -> recruitment.WithdrawOfferRequest
+	151, // 136: recruitment.OfferService.AcceptOffer:input_type -> recruitment.AcceptOfferRequest
+	152, // 137: recruitment.OfferService.RejectOffer:input_type -> recruitment.RejectOfferRequest
+	153, // 138: recruitment.OfferService.ListMyOffers:input_type -> recruitment.ListMyOffersRequest
+	156, // 139: recruitment.OfferService.ListOfferEvents:input_type -> recruitment.ListOfferEventsRequest
+	103, // 140: recruitment.AdminService.CreateInviteCode:input_type -> recruitment.CreateInviteCodeRequest
+	105, // 141: recruitment.AdminService.ListInviteCodes:input_type -> recruitment.ListInviteCodesRequest
+	107, // 142: recruitment.AdminService.ExtendInviteCode:input_type -> recruitment.ExtendInviteCodeRequest
+	108, // 143: recruitment.AdminService.RevokeInviteCode:input_type -> recruitment.RevokeInviteCodeRequest
+	109, // 144: recruitment.AdminService.ReactivateInviteCode:input_type -> recruitment.ReactivateInviteCodeRequest
+	110, // 145: recruitment.AdminService.ValidateInviteCode:input_type -> recruitment.ValidateInviteCodeRequest
+	116, // 146: recruitment.AdminService.ListDepartments:input_type -> recruitment.ListDepartmentsRequest
+	118, // 147: recruitment.AdminService.CreateDepartment:input_type -> recruitment.CreateDepartmentRequest
+	119, // 148: recruitment.AdminService.UpdateDepartment:input_type -> recruitment.UpdateDepartmentRequest
+	120, // 149: recruitment.AdminService.UpdateDepartmentStatus:input_type -> recruitment.UpdateDepartmentStatusRequest
+	121, // 150: recruitment.AdminService.DeleteDepartment:input_type -> recruitment.DeleteDepartmentRequest
+	123, // 151: recruitment.AdminService.ListJobLocations:input_type -> recruitment.ListJobLocationsRequest
+	125, // 152: recruitment.AdminService.CreateJobLocation:input_type -> recruitment.CreateJobLocationRequest
+	126, // 153: recruitment.AdminService.UpdateJobLocation:input_type -> recruitment.UpdateJobLocationRequest
+	127, // 154: recruitment.AdminService.UpdateJobLocationStatus:input_type -> recruitment.UpdateJobLocationStatusRequest
+	128, // 155: recruitment.AdminService.DeleteJobLocation:input_type -> recruitment.DeleteJobLocationRequest
+	135, // 156: recruitment.AdminService.GetDepartmentLocationConfig:input_type -> recruitment.GetDepartmentLocationConfigRequest
+	136, // 157: recruitment.AdminService.UpdateDepartmentLocationConfig:input_type -> recruitment.UpdateDepartmentLocationConfigRequest
+	131, // 158: recruitment.AdminService.ListDepartmentsLocationMap:input_type -> recruitment.ListDepartmentsLocationMapRequest
+	139, // 159: recruitment.AdminService.QueryUsageLogs:input_type -> recruitment.QueryUsageLogsRequest
+	158, // 160: recruitment.AdminService.ListRoles:input_type -> recruitment.ListRolesRequest
+	161, // 161: recruitment.AdminService.ListPermissions:input_type -> recruitment.ListPermissionsRequest
+	164, // 162: recruitment.AdminService.GetUserRoles:input_type -> recruitment.GetUserRolesRequest
+	167, // 163: recruitment.AdminService.AssignUserRole:input_type -> recruitment.AssignUserRoleRequest
+	168, // 164: recruitment.AdminService.RevokeUserRole:input_type -> recruitment.RevokeUserRoleRequest
+	169, // 165: recruitment.AdminService.AssignDataScope:input_type -> recruitment.AssignDataScopeRequest
+	170, // 166: recruitment.AdminService.RevokeDataScope:input_type -> recruitment.RevokeDataScopeRequest
+	171, // 167: recruitment.AdminService.ListStaffUsers:input_type -> recruitment.ListStaffUsersRequest
+	174, // 168: recruitment.AdminService.CreateStaffUser:input_type -> recruitment.CreateStaffUserRequest
+	207, // 169: recruitment.AdminService.QueryAuthAuditLogs:input_type -> recruitment.QueryAuthAuditLogsRequest
+	210, // 170: recruitment.AdminService.GetDashboardReport:input_type -> recruitment.GetDashboardReportRequest
+	214, // 171: recruitment.AdminService.GetFunnelReport:input_type -> recruitment.GetFunnelReportRequest
+	217, // 172: recruitment.AdminService.GetTimeInStageReport:input_type -> recruitment.GetTimeInStageReportRequest
+	220, // 173: recruitment.AdminService.GetInterviewOfferMetrics:input_type -> recruitment.GetInterviewOfferMetricsRequest
+	176, // 174: recruitment.CollaborationService.GetCandidateWorkspace:input_type -> recruitment.GetCandidateWorkspaceRequest
+	183, // 175: recruitment.CollaborationService.CreateNote:input_type -> recruitment.CreateNoteRequest
+	185, // 176: recruitment.CollaborationService.ListNotes:input_type -> recruitment.ListNotesRequest
+	188, // 177: recruitment.CollaborationService.CreateTag:input_type -> recruitment.CreateTagRequest
+	190, // 178: recruitment.CollaborationService.ListTags:input_type -> recruitment.ListTagsRequest
+	192, // 179: recruitment.CollaborationService.AssignTag:input_type -> recruitment.AssignTagRequest
+	193, // 180: recruitment.CollaborationService.UnassignTag:input_type -> recruitment.UnassignTagRequest
+	194, // 181: recruitment.CollaborationService.ListCandidateTags:input_type -> recruitment.ListCandidateTagsRequest
+	197, // 182: recruitment.CollaborationService.CreateFollowUpTask:input_type -> recruitment.CreateFollowUpTaskRequest
+	199, // 183: recruitment.CollaborationService.ListFollowUpTasks:input_type -> recruitment.ListFollowUpTasksRequest
+	201, // 184: recruitment.CollaborationService.CompleteFollowUpTask:input_type -> recruitment.CompleteFollowUpTaskRequest
+	202, // 185: recruitment.CollaborationService.GetFollowUpTask:input_type -> recruitment.GetFollowUpTaskRequest
+	205, // 186: recruitment.CollaborationService.ListTimelineEvents:input_type -> recruitment.ListTimelineEventsRequest
+	223, // 187: recruitment.LlmConfigService.ListProviders:input_type -> recruitment.ListProvidersRequest
+	225, // 188: recruitment.LlmConfigService.CreateProvider:input_type -> recruitment.CreateProviderRequest
+	226, // 189: recruitment.LlmConfigService.UpdateProvider:input_type -> recruitment.UpdateProviderRequest
+	228, // 190: recruitment.LlmConfigService.DeleteProvider:input_type -> recruitment.DeleteProviderRequest
+	229, // 191: recruitment.LlmConfigService.TestProviderConnection:input_type -> recruitment.TestProviderConnectionRequest
+	232, // 192: recruitment.LlmConfigService.ListModels:input_type -> recruitment.ListModelsRequest
+	234, // 193: recruitment.LlmConfigService.CreateModel:input_type -> recruitment.CreateModelRequest
+	235, // 194: recruitment.LlmConfigService.UpdateModel:input_type -> recruitment.UpdateModelRequest
+	237, // 195: recruitment.LlmConfigService.DeleteModel:input_type -> recruitment.DeleteModelRequest
+	239, // 196: recruitment.PromptService.ListPromptTemplates:input_type -> recruitment.ListPromptTemplatesRequest
+	241, // 197: recruitment.PromptService.CreatePromptTemplate:input_type -> recruitment.CreatePromptTemplateRequest
+	242, // 198: recruitment.PromptService.UpdatePromptTemplate:input_type -> recruitment.UpdatePromptTemplateRequest
+	244, // 199: recruitment.PromptService.DeletePromptTemplate:input_type -> recruitment.DeletePromptTemplateRequest
+	246, // 200: recruitment.PromptService.GetPromptVersionHistory:input_type -> recruitment.GetPromptVersionHistoryRequest
+	248, // 201: recruitment.PromptService.RollbackPromptVersion:input_type -> recruitment.RollbackPromptVersionRequest
+	249, // 202: recruitment.PromptService.RenderPrompt:input_type -> recruitment.RenderPromptRequest
+	251, // 203: recruitment.PromptService.GetActivePromptByAgentType:input_type -> recruitment.GetActivePromptByAgentTypeRequest
+	2,   // 204: recruitment.AuthService.Register:output_type -> recruitment.RegisterResponse
+	4,   // 205: recruitment.AuthService.Login:output_type -> recruitment.LoginResponse
+	6,   // 206: recruitment.AuthService.RefreshToken:output_type -> recruitment.RefreshTokenResponse
+	0,   // 207: recruitment.AuthService.RevokeRefreshToken:output_type -> recruitment.CommonResponse
+	0,   // 208: recruitment.AuthService.RecordAuthDecision:output_type -> recruitment.CommonResponse
+	10,  // 209: recruitment.AuthService.GetPrincipal:output_type -> recruitment.GetPrincipalResponse
+	0,   // 210: recruitment.AuthService.UpdateEmail:output_type -> recruitment.CommonResponse
+	14,  // 211: recruitment.JobService.CreateJob:output_type -> recruitment.CreateJobResponse
+	0,   // 212: recruitment.JobService.UpdateJob:output_type -> recruitment.CommonResponse
+	0,   // 213: recruitment.JobService.OfflineJob:output_type -> recruitment.CommonResponse
+	0,   // 214: recruitment.JobService.OnlineJob:output_type -> recruitment.CommonResponse
+	21,  // 215: recruitment.JobService.ListHRJobs:output_type -> recruitment.ListJobsResponse
+	21,  // 216: recruitment.JobService.ListPublicJobs:output_type -> recruitment.ListJobsResponse
+	22,  // 217: recruitment.JobService.GetJobDetail:output_type -> recruitment.GetJobDetailResponse
+	113, // 218: recruitment.JobService.ListJobOptions:output_type -> recruitment.ListJobOptionsResponse
+	134, // 219: recruitment.JobService.ListDepartmentLocations:output_type -> recruitment.ListDepartmentLocationsResponse
+	26,  // 220: recruitment.CandidateService.GetProfile:output_type -> recruitment.GetProfileResponse
+	26,  // 221: recruitment.CandidateService.UpdateProfile:output_type -> recruitment.GetProfileResponse
+	29,  // 222: recruitment.CandidateService.GetResume:output_type -> recruitment.GetResumeResponse
+	31,  // 223: recruitment.CandidateService.PresignResumeUpload:output_type -> recruitment.PresignResumeUploadResponse
+	33,  // 224: recruitment.CandidateService.ConfirmResumeUpload:output_type -> recruitment.ConfirmResumeUploadResponse
+	0,   // 225: recruitment.ApplicationService.ApplyJob:output_type -> recruitment.CommonResponse
+	37,  // 226: recruitment.ApplicationService.ListMyApplications:output_type -> recruitment.ListMyApplicationsResponse
+	40,  // 227: recruitment.ApplicationService.ListJobApplications:output_type -> recruitment.ListJobApplicationsResponse
+	0,   // 228: recruitment.ApplicationService.UpdateApplicationStatus:output_type -> recruitment.CommonResponse
+	44,  // 229: recruitment.ApplicationService.ListApplicationStatusTransitions:output_type -> recruitment.ListApplicationStatusTransitionsResponse
+	74,  // 230: recruitment.InterviewService.ScheduleInterview:output_type -> recruitment.ScheduleInterviewResponse
+	0,   // 231: recruitment.InterviewService.UpdateInterview:output_type -> recruitment.CommonResponse
+	0,   // 232: recruitment.InterviewService.CancelInterview:output_type -> recruitment.CommonResponse
+	78,  // 233: recruitment.InterviewService.GetInterview:output_type -> recruitment.GetInterviewResponse
+	80,  // 234: recruitment.InterviewService.ListInterviewers:output_type -> recruitment.ListInterviewersResponse
+	82,  // 235: recruitment.InterviewService.ListApplicationInterviews:output_type -> recruitment.ListApplicationInterviewsResponse
+	84,  // 236: recruitment.InterviewService.ListMyInterviews:output_type -> recruitment.ListMyInterviewsResponse
+	86,  // 237: recruitment.InterviewService.ListCandidateInterviews:output_type -> recruitment.ListCandidateInterviewsResponse
+	0,   // 238: recruitment.InterviewService.SubmitFeedback:output_type -> recruitment.CommonResponse
+	90,  // 239: recruitment.InterviewService.GetFeedback:output_type -> recruitment.GetFeedbackResponse
+	92,  // 240: recruitment.InterviewService.BatchCancelInterviews:output_type -> recruitment.BatchCancelInterviewsResponse
+	95,  // 241: recruitment.NotificationService.ListNotifications:output_type -> recruitment.ListNotificationsResponse
+	97,  // 242: recruitment.NotificationService.UnreadNotificationCount:output_type -> recruitment.UnreadNotificationCountResponse
+	99,  // 243: recruitment.NotificationService.NotificationSummary:output_type -> recruitment.NotificationSummaryResponse
+	0,   // 244: recruitment.NotificationService.MarkNotificationRead:output_type -> recruitment.CommonResponse
+	0,   // 245: recruitment.NotificationService.MarkAllNotificationsRead:output_type -> recruitment.CommonResponse
+	46,  // 246: recruitment.AIService.Chat:output_type -> recruitment.ChatResponse
+	47,  // 247: recruitment.AIService.ChatStream:output_type -> recruitment.ChatStreamResponse
+	50,  // 248: recruitment.AIService.History:output_type -> recruitment.ChatHistoryResponse
+	52,  // 249: recruitment.AIService.AnalyzeApplication:output_type -> recruitment.AnalyzeApplicationResponse
+	55,  // 250: recruitment.AIService.ListChatSessions:output_type -> recruitment.ChatSessionListResponse
+	57,  // 251: recruitment.AIService.CreateChatSession:output_type -> recruitment.CreateChatSessionResponse
+	50,  // 252: recruitment.AIService.SessionMessages:output_type -> recruitment.ChatHistoryResponse
+	60,  // 253: recruitment.AIService.CreateApplicationAnalysisSession:output_type -> recruitment.CreateApplicationAnalysisSessionResponse
+	0,   // 254: recruitment.AIService.UpdateSession:output_type -> recruitment.CommonResponse
+	0,   // 255: recruitment.AIService.DeleteSession:output_type -> recruitment.CommonResponse
+	47,  // 256: recruitment.AIService.CandidateChatStream:output_type -> recruitment.ChatStreamResponse
+	55,  // 257: recruitment.AIService.CandidateListSessions:output_type -> recruitment.ChatSessionListResponse
+	57,  // 258: recruitment.AIService.CandidateCreateSession:output_type -> recruitment.CreateChatSessionResponse
+	50,  // 259: recruitment.AIService.CandidateSessionMessages:output_type -> recruitment.ChatHistoryResponse
+	0,   // 260: recruitment.AIService.CandidateUpdateSession:output_type -> recruitment.CommonResponse
+	0,   // 261: recruitment.AIService.CandidateDeleteSession:output_type -> recruitment.CommonResponse
+	71,  // 262: recruitment.AIService.GetToolTraces:output_type -> recruitment.GetToolTracesResponse
+	143, // 263: recruitment.OfferService.CreateOffer:output_type -> recruitment.CreateOfferResponse
+	0,   // 264: recruitment.OfferService.UpdateOffer:output_type -> recruitment.CommonResponse
+	146, // 265: recruitment.OfferService.GetOffer:output_type -> recruitment.GetOfferResponse
+	148, // 266: recruitment.OfferService.ListOffersByApplication:output_type -> recruitment.ListOffersByApplicationResponse
+	0,   // 267: recruitment.OfferService.SendOffer:output_type -> recruitment.CommonResponse
+	0,   // 268: recruitment.OfferService.WithdrawOffer:output_type -> recruitment.CommonResponse
+	0,   // 269: recruitment.OfferService.AcceptOffer:output_type -> recruitment.CommonResponse
+	0,   // 270: recruitment.OfferService.RejectOffer:output_type -> recruitment.CommonResponse
+	154, // 271: recruitment.OfferService.ListMyOffers:output_type -> recruitment.ListMyOffersResponse
+	157, // 272: recruitment.OfferService.ListOfferEvents:output_type -> recruitment.ListOfferEventsResponse
+	104, // 273: recruitment.AdminService.CreateInviteCode:output_type -> recruitment.CreateInviteCodeResponse
+	106, // 274: recruitment.AdminService.ListInviteCodes:output_type -> recruitment.ListInviteCodesResponse
+	0,   // 275: recruitment.AdminService.ExtendInviteCode:output_type -> recruitment.CommonResponse
+	0,   // 276: recruitment.AdminService.RevokeInviteCode:output_type -> recruitment.CommonResponse
+	0,   // 277: recruitment.AdminService.ReactivateInviteCode:output_type -> recruitment.CommonResponse
+	111, // 278: recruitment.AdminService.ValidateInviteCode:output_type -> recruitment.ValidateInviteCodeResponse
+	117, // 279: recruitment.AdminService.ListDepartments:output_type -> recruitment.ListDepartmentsResponse
+	122, // 280: recruitment.AdminService.CreateDepartment:output_type -> recruitment.DepartmentResponse
+	122, // 281: recruitment.AdminService.UpdateDepartment:output_type -> recruitment.DepartmentResponse
+	0,   // 282: recruitment.AdminService.UpdateDepartmentStatus:output_type -> recruitment.CommonResponse
+	0,   // 283: recruitment.AdminService.DeleteDepartment:output_type -> recruitment.CommonResponse
+	124, // 284: recruitment.AdminService.ListJobLocations:output_type -> recruitment.ListJobLocationsResponse
+	129, // 285: recruitment.AdminService.CreateJobLocation:output_type -> recruitment.JobLocationResponse
+	129, // 286: recruitment.AdminService.UpdateJobLocation:output_type -> recruitment.JobLocationResponse
+	0,   // 287: recruitment.AdminService.UpdateJobLocationStatus:output_type -> recruitment.CommonResponse
+	0,   // 288: recruitment.AdminService.DeleteJobLocation:output_type -> recruitment.CommonResponse
+	137, // 289: recruitment.AdminService.GetDepartmentLocationConfig:output_type -> recruitment.DepartmentLocationConfigResponse
+	137, // 290: recruitment.AdminService.UpdateDepartmentLocationConfig:output_type -> recruitment.DepartmentLocationConfigResponse
+	132, // 291: recruitment.AdminService.ListDepartmentsLocationMap:output_type -> recruitment.ListDepartmentsLocationMapResponse
+	140, // 292: recruitment.AdminService.QueryUsageLogs:output_type -> recruitment.QueryUsageLogsResponse
+	159, // 293: recruitment.AdminService.ListRoles:output_type -> recruitment.ListRolesResponse
+	162, // 294: recruitment.AdminService.ListPermissions:output_type -> recruitment.ListPermissionsResponse
+	165, // 295: recruitment.AdminService.GetUserRoles:output_type -> recruitment.GetUserRolesResponse
+	0,   // 296: recruitment.AdminService.AssignUserRole:output_type -> recruitment.CommonResponse
+	0,   // 297: recruitment.AdminService.RevokeUserRole:output_type -> recruitment.CommonResponse
+	0,   // 298: recruitment.AdminService.AssignDataScope:output_type -> recruitment.CommonResponse
+	0,   // 299: recruitment.AdminService.RevokeDataScope:output_type -> recruitment.CommonResponse
+	172, // 300: recruitment.AdminService.ListStaffUsers:output_type -> recruitment.ListStaffUsersResponse
+	175, // 301: recruitment.AdminService.CreateStaffUser:output_type -> recruitment.CreateStaffUserResponse
+	209, // 302: recruitment.AdminService.QueryAuthAuditLogs:output_type -> recruitment.QueryAuthAuditLogsResponse
+	213, // 303: recruitment.AdminService.GetDashboardReport:output_type -> recruitment.GetDashboardReportResponse
+	216, // 304: recruitment.AdminService.GetFunnelReport:output_type -> recruitment.GetFunnelReportResponse
+	219, // 305: recruitment.AdminService.GetTimeInStageReport:output_type -> recruitment.GetTimeInStageReportResponse
+	221, // 306: recruitment.AdminService.GetInterviewOfferMetrics:output_type -> recruitment.GetInterviewOfferMetricsResponse
+	181, // 307: recruitment.CollaborationService.GetCandidateWorkspace:output_type -> recruitment.GetCandidateWorkspaceResponse
+	184, // 308: recruitment.CollaborationService.CreateNote:output_type -> recruitment.CreateNoteResponse
+	186, // 309: recruitment.CollaborationService.ListNotes:output_type -> recruitment.ListNotesResponse
+	189, // 310: recruitment.CollaborationService.CreateTag:output_type -> recruitment.CreateTagResponse
+	191, // 311: recruitment.CollaborationService.ListTags:output_type -> recruitment.ListTagsResponse
+	0,   // 312: recruitment.CollaborationService.AssignTag:output_type -> recruitment.CommonResponse
+	0,   // 313: recruitment.CollaborationService.UnassignTag:output_type -> recruitment.CommonResponse
+	195, // 314: recruitment.CollaborationService.ListCandidateTags:output_type -> recruitment.ListCandidateTagsResponse
+	198, // 315: recruitment.CollaborationService.CreateFollowUpTask:output_type -> recruitment.CreateFollowUpTaskResponse
+	200, // 316: recruitment.CollaborationService.ListFollowUpTasks:output_type -> recruitment.ListFollowUpTasksResponse
+	0,   // 317: recruitment.CollaborationService.CompleteFollowUpTask:output_type -> recruitment.CommonResponse
+	203, // 318: recruitment.CollaborationService.GetFollowUpTask:output_type -> recruitment.GetFollowUpTaskResponse
+	206, // 319: recruitment.CollaborationService.ListTimelineEvents:output_type -> recruitment.ListTimelineEventsResponse
+	224, // 320: recruitment.LlmConfigService.ListProviders:output_type -> recruitment.ListProvidersResponse
+	227, // 321: recruitment.LlmConfigService.CreateProvider:output_type -> recruitment.ProviderResponse
+	227, // 322: recruitment.LlmConfigService.UpdateProvider:output_type -> recruitment.ProviderResponse
+	0,   // 323: recruitment.LlmConfigService.DeleteProvider:output_type -> recruitment.CommonResponse
+	230, // 324: recruitment.LlmConfigService.TestProviderConnection:output_type -> recruitment.TestProviderConnectionResponse
+	233, // 325: recruitment.LlmConfigService.ListModels:output_type -> recruitment.ListModelsResponse
+	236, // 326: recruitment.LlmConfigService.CreateModel:output_type -> recruitment.ModelResponse
+	236, // 327: recruitment.LlmConfigService.UpdateModel:output_type -> recruitment.ModelResponse
+	0,   // 328: recruitment.LlmConfigService.DeleteModel:output_type -> recruitment.CommonResponse
+	240, // 329: recruitment.PromptService.ListPromptTemplates:output_type -> recruitment.ListPromptTemplatesResponse
+	243, // 330: recruitment.PromptService.CreatePromptTemplate:output_type -> recruitment.PromptTemplateResponse
+	243, // 331: recruitment.PromptService.UpdatePromptTemplate:output_type -> recruitment.PromptTemplateResponse
+	0,   // 332: recruitment.PromptService.DeletePromptTemplate:output_type -> recruitment.CommonResponse
+	247, // 333: recruitment.PromptService.GetPromptVersionHistory:output_type -> recruitment.GetPromptVersionHistoryResponse
+	243, // 334: recruitment.PromptService.RollbackPromptVersion:output_type -> recruitment.PromptTemplateResponse
+	250, // 335: recruitment.PromptService.RenderPrompt:output_type -> recruitment.RenderPromptResponse
+	252, // 336: recruitment.PromptService.GetActivePromptByAgentType:output_type -> recruitment.GetActivePromptByAgentTypeResponse
+	204, // [204:337] is the sub-list for method output_type
+	71,  // [71:204] is the sub-list for method input_type
+	71,  // [71:71] is the sub-list for extension type_name
+	71,  // [71:71] is the sub-list for extension extendee
+	0,   // [0:71] is the sub-list for field type_name
 }
 
 func init() { file_proto_recruitment_proto_init() }
@@ -19603,9 +20816,9 @@ func file_proto_recruitment_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_proto_recruitment_proto_rawDesc), len(file_proto_recruitment_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   238,
+			NumMessages:   254,
 			NumExtensions: 0,
-			NumServices:   11,
+			NumServices:   12,
 		},
 		GoTypes:           file_proto_recruitment_proto_goTypes,
 		DependencyIndexes: file_proto_recruitment_proto_depIdxs,

@@ -2077,3 +2077,136 @@ message ModelResponse {
 message DeleteModelRequest {
   int64 id = 1;
 }
+
+// ══════════════════════════════════════════════════════════════════════
+// Phase M2: Prompt Template Management
+// ══════════════════════════════════════════════════════════════════════
+
+service PromptService {
+  rpc ListPromptTemplates(ListPromptTemplatesRequest) returns (ListPromptTemplatesResponse);
+  rpc CreatePromptTemplate(CreatePromptTemplateRequest) returns (PromptTemplateResponse);
+  rpc UpdatePromptTemplate(UpdatePromptTemplateRequest) returns (PromptTemplateResponse);
+  rpc DeletePromptTemplate(DeletePromptTemplateRequest) returns (CommonResponse);
+  rpc GetPromptVersionHistory(GetPromptVersionHistoryRequest) returns (GetPromptVersionHistoryResponse);
+  rpc RollbackPromptVersion(RollbackPromptVersionRequest) returns (PromptTemplateResponse);
+
+  // Internal gRPC (not exposed via HTTP gateway)
+  rpc RenderPrompt(RenderPromptRequest) returns (RenderPromptResponse);
+  rpc GetActivePromptByAgentType(GetActivePromptByAgentTypeRequest) returns (GetActivePromptByAgentTypeResponse);
+}
+
+// ── Prompt Template messages ─────────────────────────────────────────
+
+message PromptTemplateInfo {
+  int64 id = 1;
+  string name = 2;
+  string content = 3;
+  string variables_json = 4;     // JSON array string
+  int32 version = 5;
+  bool is_active = 6;
+  string agent_type = 7;
+  string prompt_role = 8;
+  int64 created_by = 9;
+  int64 updated_by = 10;
+  string created_at = 11;
+  string updated_at = 12;
+}
+
+message ListPromptTemplatesRequest {
+  int32 page = 1;
+  int32 page_size = 2;
+  string agent_type = 3;       // optional filter
+}
+
+message ListPromptTemplatesResponse {
+  int32 code = 1;
+  string msg = 2;
+  int64 total = 3;
+  repeated PromptTemplateInfo list = 4;
+}
+
+message CreatePromptTemplateRequest {
+  string name = 1;
+  string content = 2;
+  string variables_json = 3;   // JSON array string, optional
+  string agent_type = 4;
+  string prompt_role = 5;      // system / user, default system
+  int64 created_by = 6;
+}
+
+message UpdatePromptTemplateRequest {
+  int64 id = 1;
+  string name = 2;             // 空 = 不更新
+  string content = 3;          // 空 = 不更新
+  string variables_json = 4;   // 空 = 不更新
+  bool is_active = 5;
+  bool is_active_set = 6;      // 是否设置了 is_active
+  int64 updated_by = 7;
+  string change_note = 8;
+}
+
+message PromptTemplateResponse {
+  int32 code = 1;
+  string msg = 2;
+  PromptTemplateInfo template = 3;
+}
+
+message DeletePromptTemplateRequest {
+  int64 id = 1;
+}
+
+// ── Version history messages ─────────────────────────────────────────
+
+message PromptVersionInfo {
+  int64 id = 1;
+  int64 template_id = 2;
+  int32 version = 3;
+  string content = 4;
+  int64 changed_by = 5;
+  string change_note = 6;
+  string created_at = 7;
+}
+
+message GetPromptVersionHistoryRequest {
+  int64 template_id = 1;
+  int32 page = 2;
+  int32 page_size = 3;
+}
+
+message GetPromptVersionHistoryResponse {
+  int32 code = 1;
+  string msg = 2;
+  int64 total = 3;
+  repeated PromptVersionInfo list = 4;
+}
+
+message RollbackPromptVersionRequest {
+  int64 template_id = 1;
+  int32 version = 2;
+  int64 updated_by = 3;
+  string change_note = 4;
+}
+
+// ── Render & internal messages ──────────────────────────────────────
+
+message RenderPromptRequest {
+  int64 template_id = 1;
+  map<string, string> variables = 2;
+}
+
+message RenderPromptResponse {
+  int32 code = 1;
+  string msg = 2;
+  string rendered_content = 3;
+}
+
+message GetActivePromptByAgentTypeRequest {
+  string agent_type = 1;       // hr_agent / candidate_assistant
+  string prompt_role = 2;      // system / user, optional
+}
+
+message GetActivePromptByAgentTypeResponse {
+  int32 code = 1;
+  string msg = 2;
+  PromptTemplateInfo template = 3;
+}

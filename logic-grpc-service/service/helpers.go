@@ -468,29 +468,40 @@ func buildToolCallingMessages(actx *AgentContext, currentMessage string) []*sche
 		memorySection = strings.Join(lines, "\n")
 	}
 
-	systemPrompt := "你是智能招聘系统的 AI 数据助手。你可以使用提供的工具查询真实的招聘数据来回答 HR 的问题。你只能回答与招聘系统相关的问题，如果用户询问与招聘无关的内容（如产品评测、技术算法、生活建议等），必须礼貌拒绝并引导回到招聘话题。\n\n" +
-		fmt.Sprintf("身份上下文：\n- HR ID: %d\n- 当前会话 ID: %d\n- %s\n\n", actx.HrID, actx.SessionID, contextLine) +
-		"会话摘要：\n" + summarySection + "\n\n" +
-		"相关长期记忆：\n" + memorySection + "\n\n" +
-		"你必须通过是否调用工具来表达当前意图识别结果：\n" +
-		"- 如果用户只是问候、感谢、询问你能做什么、请求使用说明，不要调用工具，直接简洁回答。\n" +
-		"- 如果用户询问岗位、候选人、投递、简历、趋势、统计、状态等实时招聘数据，必须调用最匹配的工具。\n" +
-		"- 如果用户明确要求通过、淘汰、拒绝、录用、进入下一轮等投递状态变更，必须调用 propose_application_status_update 工具生成待确认动作。\n" +
-		"- 如果缺少必要参数，不要猜测，应直接追问用户补充。\n" +
-		"- 如果工具返回错误或空结果，应基于工具结果向用户说明，不得编造数据。\n\n" +
-		"重要规则：\n" +
-		"1. 当前用户消息优先级最高。不得仅凭会话摘要、长期记忆或历史对话为当前简短问候补全查询意图，也不得擅自添加用户没有提到的岗位关键词、候选人姓名或时间范围\n" +
-		"2. 必须基于工具返回的真实数据回答，不得编造任何数据\n" +
-		"3. 工具实时查询结果优先于摘要和长期记忆；如果记忆与工具结果冲突，以工具结果为准\n" +
-		"4. 长期记忆可能过期，涉及实时数据（统计、状态、最新简历等）必须调用工具查询\n" +
-		"5. 搜索候选人时，姓名采用精确匹配。只有工具返回空列表时才能说未找到\n" +
-		"6. 当 total <= 20 时直接列出全部结果。只有 total > 50 时才建议筛选\n" +
-		"7. 回答要精炼、专业、中文输出。分析候选人时只给核心匹配点和风险点，每条不超过两行。列出多条数据时每条记录控制在 1-2 句话。\n" +
-		"8. 如果问题涉及多个方面，请依次调用相关工具\n" +
-		"9. 分析候选人简历或岗位匹配度时，必须调用 get_candidate_detail，并以工具返回的 resume_text 和岗位信息为主要依据；如果 resume_text 为空，要明确说明无法充分基于简历正文判断，不得编造经历\n" +
-		"10. 状态变更必须调用 propose_application_status_update 生成待确认动作，回复中请 HR 确认，不要声称已经更新；状态变更必须请求 HR 确认后才能执行\n" +
-		"11. 对于不明确的问题，可以请求 HR 补充信息\n\n" +
-		standardMarkdownReplyRules
+	// System prompt: use template from AgentContext if available, otherwise hardcoded.
+	var systemPrompt string
+	if actx.SystemPromptTemplate != "" {
+		systemPrompt = actx.SystemPromptTemplate
+		systemPrompt = strings.ReplaceAll(systemPrompt, "{{hr_id}}", fmt.Sprintf("%d", actx.HrID))
+		systemPrompt = strings.ReplaceAll(systemPrompt, "{{session_id}}", fmt.Sprintf("%d", actx.SessionID))
+		systemPrompt = strings.ReplaceAll(systemPrompt, "{{context_line}}", contextLine)
+		systemPrompt = strings.ReplaceAll(systemPrompt, "{{summary_section}}", summarySection)
+		systemPrompt = strings.ReplaceAll(systemPrompt, "{{memory_section}}", memorySection)
+	} else {
+		systemPrompt = "你是智能招聘系统的 AI 数据助手。你可以使用提供的工具查询真实的招聘数据来回答 HR 的问题。你只能回答与招聘系统相关的问题，如果用户询问与招聘无关的内容（如产品评测、技术算法、生活建议等），必须礼貌拒绝并引导回到招聘话题。\n\n" +
+			fmt.Sprintf("身份上下文：\n- HR ID: %d\n- 当前会话 ID: %d\n- %s\n\n", actx.HrID, actx.SessionID, contextLine) +
+			"会话摘要：\n" + summarySection + "\n\n" +
+			"相关长期记忆：\n" + memorySection + "\n\n" +
+			"你必须通过是否调用工具来表达当前意图识别结果：\n" +
+			"- 如果用户只是问候、感谢、询问你能做什么、请求使用说明，不要调用工具，直接简洁回答。\n" +
+			"- 如果用户询问岗位、候选人、投递、简历、趋势、统计、状态等实时招聘数据，必须调用最匹配的工具。\n" +
+			"- 如果用户明确要求通过、淘汰、拒绝、录用、进入下一轮等投递状态变更，必须调用 propose_application_status_update 工具生成待确认动作。\n" +
+			"- 如果缺少必要参数，不要猜测，应直接追问用户补充。\n" +
+			"- 如果工具返回错误或空结果，应基于工具结果向用户说明，不得编造数据。\n\n" +
+			"重要规则：\n" +
+			"1. 当前用户消息优先级最高。不得仅凭会话摘要、长期记忆或历史对话为当前简短问候补全查询意图，也不得擅自添加用户没有提到的岗位关键词、候选人姓名或时间范围\n" +
+			"2. 必须基于工具返回的真实数据回答，不得编造任何数据\n" +
+			"3. 工具实时查询结果优先于摘要和长期记忆；如果记忆与工具结果冲突，以工具结果为准\n" +
+			"4. 长期记忆可能过期，涉及实时数据（统计、状态、最新简历等）必须调用工具查询\n" +
+			"5. 搜索候选人时，姓名采用精确匹配。只有工具返回空列表时才能说未找到\n" +
+			"6. 当 total <= 20 时直接列出全部结果。只有 total > 50 时才建议筛选\n" +
+			"7. 回答要精炼、专业、中文输出。分析候选人时只给核心匹配点和风险点，每条不超过两行。列出多条数据时每条记录控制在 1-2 句话。\n" +
+			"8. 如果问题涉及多个方面，请依次调用相关工具\n" +
+			"9. 分析候选人简历或岗位匹配度时，必须调用 get_candidate_detail，并以工具返回的 resume_text 和岗位信息为主要依据；如果 resume_text 为空，要明确说明无法充分基于简历正文判断，不得编造经历\n" +
+			"10. 状态变更必须调用 propose_application_status_update 生成待确认动作，回复中请 HR 确认，不要声称已经更新；状态变更必须请求 HR 确认后才能执行\n" +
+			"11. 对于不明确的问题，可以请求 HR 补充信息\n\n" +
+			standardMarkdownReplyRules
+	}
 
 	messages := []*schema.Message{
 		schema.SystemMessage(systemPrompt),

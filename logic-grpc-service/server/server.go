@@ -22,6 +22,7 @@ type Server struct {
 	pb.UnimplementedAdminServiceServer
 	pb.UnimplementedCollaborationServiceServer
 	pb.UnimplementedLlmConfigServiceServer
+	pb.UnimplementedPromptServiceServer
 	svc *service.Services
 }
 
@@ -590,4 +591,62 @@ func (s *Server) DeleteModel(ctx context.Context, req *pb.DeleteModelRequest) (*
 		return nil, status.Error(codes.Unavailable, "llm config service not available (ENCRYPTION_KEY not set)")
 	}
 	return s.svc.LlmConfig.DeleteModel(ctx, req)
+}
+
+// ── PromptService ─────────────────────────────────────────────────────────
+
+func (s *Server) ListPromptTemplates(ctx context.Context, req *pb.ListPromptTemplatesRequest) (*pb.ListPromptTemplatesResponse, error) {
+	if s.svc.Prompt == nil {
+		return nil, status.Error(codes.Unavailable, "prompt service not available")
+	}
+	return s.svc.Prompt.ListPromptTemplates(ctx, req)
+}
+
+func (s *Server) CreatePromptTemplate(ctx context.Context, req *pb.CreatePromptTemplateRequest) (*pb.PromptTemplateResponse, error) {
+	if s.svc.Prompt == nil {
+		return nil, status.Error(codes.Unavailable, "prompt service not available")
+	}
+	return s.svc.Prompt.CreatePromptTemplate(ctx, req)
+}
+
+func (s *Server) UpdatePromptTemplate(ctx context.Context, req *pb.UpdatePromptTemplateRequest) (*pb.PromptTemplateResponse, error) {
+	if s.svc.Prompt == nil {
+		return nil, status.Error(codes.Unavailable, "prompt service not available")
+	}
+	return s.svc.Prompt.UpdatePromptTemplate(ctx, req)
+}
+
+func (s *Server) DeletePromptTemplate(ctx context.Context, req *pb.DeletePromptTemplateRequest) (*pb.CommonResponse, error) {
+	if s.svc.Prompt == nil {
+		return nil, status.Error(codes.Unavailable, "prompt service not available")
+	}
+	return s.svc.Prompt.DeletePromptTemplate(ctx, req)
+}
+
+func (s *Server) GetPromptVersionHistory(ctx context.Context, req *pb.GetPromptVersionHistoryRequest) (*pb.GetPromptVersionHistoryResponse, error) {
+	if s.svc.Prompt == nil {
+		return nil, status.Error(codes.Unavailable, "prompt service not available")
+	}
+	return s.svc.Prompt.GetPromptVersionHistory(ctx, req)
+}
+
+func (s *Server) RollbackPromptVersion(ctx context.Context, req *pb.RollbackPromptVersionRequest) (*pb.PromptTemplateResponse, error) {
+	if s.svc.Prompt == nil {
+		return nil, status.Error(codes.Unavailable, "prompt service not available")
+	}
+	return s.svc.Prompt.RollbackPromptVersion(ctx, req)
+}
+
+func (s *Server) RenderPrompt(ctx context.Context, req *pb.RenderPromptRequest) (*pb.RenderPromptResponse, error) {
+	if s.svc.Prompt == nil {
+		return nil, status.Error(codes.Unavailable, "prompt service not available")
+	}
+	return s.svc.Prompt.RenderPrompt(ctx, req)
+}
+
+func (s *Server) GetActivePromptByAgentType(ctx context.Context, req *pb.GetActivePromptByAgentTypeRequest) (*pb.GetActivePromptByAgentTypeResponse, error) {
+	if s.svc.Prompt == nil {
+		return nil, status.Error(codes.Unavailable, "prompt service not available")
+	}
+	return s.svc.Prompt.GetActivePromptByAgentType(ctx, req)
 }

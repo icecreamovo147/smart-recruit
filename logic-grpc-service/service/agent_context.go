@@ -35,27 +35,29 @@ type AgentContextInput struct {
 
 // AgentContext holds the assembled context for a single AI request.
 type AgentContext struct {
-	HrID               int64
-	SessionID          int64
-	ApplicationID      int64
-	JobID              int64
-	SessionSummary     string
-	RecentMessages     []model.AIChatHistory
-	LongTermMemories   []model.AIMemory
-	PromptCharEstimate int
-	MemoryCount        int
-	MemoryCharCount    int
-	SummaryCharCount   int
-	MessageCount       int
+	HrID                 int64
+	SessionID            int64
+	ApplicationID        int64
+	JobID                int64
+	SessionSummary       string
+	RecentMessages       []model.AIChatHistory
+	LongTermMemories     []model.AIMemory
+	SystemPromptTemplate string // Raw template content with {{variable}} placeholders from DB
+	PromptCharEstimate   int
+	MemoryCount          int
+	MemoryCharCount      int
+	SummaryCharCount     int
+	MessageCount         int
 }
 
 // AgentContextBuilder assembles the prompt context from multiple memory layers.
 type AgentContextBuilder struct {
-	chats     *repository.ChatRepo
-	summaries *repository.SessionSummaryRepo
-	memories  *repository.MemoryRepo
-	ai        *ai.Client
-	cfg       config.Config
+	chats      *repository.ChatRepo
+	summaries  *repository.SessionSummaryRepo
+	memories   *repository.MemoryRepo
+	ai         *ai.Client
+	cfg        config.Config
+	promptRepo *repository.PromptTemplateRepo
 }
 
 // NewAgentContextBuilder creates a new AgentContextBuilder.
@@ -65,13 +67,15 @@ func NewAgentContextBuilder(
 	memories *repository.MemoryRepo,
 	aiClient *ai.Client,
 	cfg config.Config,
+	promptRepo *repository.PromptTemplateRepo,
 ) *AgentContextBuilder {
 	return &AgentContextBuilder{
-		chats:     chats,
-		summaries: summaries,
-		memories:  memories,
-		ai:        aiClient,
-		cfg:       cfg,
+		chats:       chats,
+		summaries:   summaries,
+		memories:    memories,
+		ai:          aiClient,
+		cfg:         cfg,
+		promptRepo:  promptRepo,
 	}
 }
 
@@ -136,6 +140,14 @@ func (b *AgentContextBuilder) Build(ctx context.Context, input AgentContextInput
 	if summary != nil {
 		actx.SessionSummary = summary.Summary
 		actx.SummaryCharCount = utf8.RuneCountInString(summary.Summary)
+	}
+
+	// Phase 3: System prompt template from DB.
+	if b.promptRepo != nil {
+		tmpl, err := b.promptRepo.GetActiveByAgentType(ctx, "hr_agent", "system")
+		if err == nil && tmpl != nil {
+			actx.SystemPromptTemplate = tmpl.Content
+		}
 	}
 
 	// Phase 4: Long-term memories.
@@ -205,6 +217,9 @@ func (b *AgentContextBuilder) retrieveMemories(ctx context.Context, input AgentC
 // estimatePromptChars provides a rough estimate of the total prompt characters.
 func (b *AgentContextBuilder) estimatePromptChars(actx *AgentContext, currentMsg string) int {
 	n := 2000 // Base system prompt overhead (rules, identity, tool descriptions).
+	if actx.SystemPromptTemplate != "" {
+		n = utf8.RuneCountInString(actx.SystemPromptTemplate)
+	}
 	n += utf8.RuneCountInString(actx.SessionSummary)
 	n += utf8.RuneCountInString(currentMsg)
 	for _, m := range actx.RecentMessages {

@@ -571,3 +571,36 @@ type LlmModel struct {
 }
 
 func (LlmModel) TableName() string { return "llm_models" }
+
+// ── Prompt Templates (Phase M2) ────────────────────────────────────────
+
+// PromptTemplate represents a prompt template definition.
+type PromptTemplate struct {
+	ID         int64     `gorm:"primaryKey"`
+	Name       string    `gorm:"column:name;size:256;not null"`
+	Content    string    `gorm:"column:content;type:text;not null"`
+	Variables  *string   `gorm:"column:variables;type:json"`
+	Version    int32     `gorm:"column:version;default:1"`
+	IsActive   int32     `gorm:"column:is_active;default:1"`
+	AgentType  string    `gorm:"column:agent_type;size:64;not null"`
+	PromptRole string    `gorm:"column:prompt_role;size:32;default:system"`
+	CreatedBy  *int64    `gorm:"column:created_by"`
+	UpdatedBy  *int64    `gorm:"column:updated_by"`
+	CreatedAt  time.Time `gorm:"column:created_at"`
+	UpdatedAt  time.Time `gorm:"column:updated_at"`
+}
+
+func (PromptTemplate) TableName() string { return "prompt_templates" }
+
+// PromptVersion represents a version snapshot of a prompt template.
+type PromptVersion struct {
+	ID         int64     `gorm:"primaryKey"`
+	TemplateID int64     `gorm:"column:template_id;not null"`
+	Version    int32     `gorm:"column:version;not null"`
+	Content    string    `gorm:"column:content;type:text;not null"`
+	ChangedBy  *int64    `gorm:"column:changed_by"`
+	ChangeNote string    `gorm:"column:change_note;size:512"`
+	CreatedAt  time.Time `gorm:"column:created_at"`
+}
+
+func (PromptVersion) TableName() string { return "prompt_versions" }

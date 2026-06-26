@@ -311,6 +311,7 @@ func Setup(cfg config.Config, clients *rpc.Clients, rdb *redis.Client) (*gin.Eng
 	// Admin routes require explicit admin permissions (not role hierarchy).
 	adminHandler := hr.NewAdminHandler(clients)
 	llmConfigHandler := hr.NewLlmConfigHandler(clients)
+	promptHandler := hr.NewPromptHandler(clients)
 	adminGroup := staffGroup.Group("/admin")
 
 	// Invite codes
@@ -365,6 +366,15 @@ func Setup(cfg config.Config, clients *rpc.Clients, rdb *redis.Client) (*gin.Eng
 	adminGroup.POST("/llm-models", normalTimeout, bodyAuth, middleware.RequirePermission(authz.PermSystemConfigManage), llmConfigHandler.CreateModel)
 	adminGroup.PUT("/llm-models/:id", normalTimeout, bodyAuth, middleware.RequirePermission(authz.PermSystemConfigManage), llmConfigHandler.UpdateModel)
 	adminGroup.DELETE("/llm-models/:id", normalTimeout, middleware.RequirePermission(authz.PermSystemConfigManage), llmConfigHandler.DeleteModel)
+
+
+		// Prompt template management
+		adminGroup.GET("/prompt-templates", normalTimeout, middleware.RequirePermission(authz.PermSystemConfigManage), promptHandler.List)
+		adminGroup.POST("/prompt-templates", normalTimeout, bodyAuth, middleware.RequirePermission(authz.PermSystemConfigManage), promptHandler.Create)
+		adminGroup.PUT("/prompt-templates/:id", normalTimeout, bodyAuth, middleware.RequirePermission(authz.PermSystemConfigManage), promptHandler.Update)
+		adminGroup.DELETE("/prompt-templates/:id", normalTimeout, middleware.RequirePermission(authz.PermSystemConfigManage), promptHandler.Delete)
+		adminGroup.GET("/prompt-templates/:id/versions", normalTimeout, middleware.RequirePermission(authz.PermSystemConfigManage), promptHandler.ListVersions)
+		adminGroup.POST("/prompt-templates/:id/rollback", normalTimeout, bodyAuth, middleware.RequirePermission(authz.PermSystemConfigManage), promptHandler.Rollback)
 
 	return r, limiters
 }

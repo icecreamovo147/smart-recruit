@@ -5501,3 +5501,373 @@ var LlmConfigService_ServiceDesc = grpc.ServiceDesc{
 	Streams:  []grpc.StreamDesc{},
 	Metadata: "proto/recruitment.proto",
 }
+
+const (
+	PromptService_ListPromptTemplates_FullMethodName        = "/recruitment.PromptService/ListPromptTemplates"
+	PromptService_CreatePromptTemplate_FullMethodName       = "/recruitment.PromptService/CreatePromptTemplate"
+	PromptService_UpdatePromptTemplate_FullMethodName       = "/recruitment.PromptService/UpdatePromptTemplate"
+	PromptService_DeletePromptTemplate_FullMethodName       = "/recruitment.PromptService/DeletePromptTemplate"
+	PromptService_GetPromptVersionHistory_FullMethodName    = "/recruitment.PromptService/GetPromptVersionHistory"
+	PromptService_RollbackPromptVersion_FullMethodName      = "/recruitment.PromptService/RollbackPromptVersion"
+	PromptService_RenderPrompt_FullMethodName               = "/recruitment.PromptService/RenderPrompt"
+	PromptService_GetActivePromptByAgentType_FullMethodName = "/recruitment.PromptService/GetActivePromptByAgentType"
+)
+
+// PromptServiceClient is the client API for PromptService service.
+//
+// For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
+type PromptServiceClient interface {
+	ListPromptTemplates(ctx context.Context, in *ListPromptTemplatesRequest, opts ...grpc.CallOption) (*ListPromptTemplatesResponse, error)
+	CreatePromptTemplate(ctx context.Context, in *CreatePromptTemplateRequest, opts ...grpc.CallOption) (*PromptTemplateResponse, error)
+	UpdatePromptTemplate(ctx context.Context, in *UpdatePromptTemplateRequest, opts ...grpc.CallOption) (*PromptTemplateResponse, error)
+	DeletePromptTemplate(ctx context.Context, in *DeletePromptTemplateRequest, opts ...grpc.CallOption) (*CommonResponse, error)
+	GetPromptVersionHistory(ctx context.Context, in *GetPromptVersionHistoryRequest, opts ...grpc.CallOption) (*GetPromptVersionHistoryResponse, error)
+	RollbackPromptVersion(ctx context.Context, in *RollbackPromptVersionRequest, opts ...grpc.CallOption) (*PromptTemplateResponse, error)
+	// Internal gRPC (not exposed via HTTP gateway)
+	RenderPrompt(ctx context.Context, in *RenderPromptRequest, opts ...grpc.CallOption) (*RenderPromptResponse, error)
+	GetActivePromptByAgentType(ctx context.Context, in *GetActivePromptByAgentTypeRequest, opts ...grpc.CallOption) (*GetActivePromptByAgentTypeResponse, error)
+}
+
+type promptServiceClient struct {
+	cc grpc.ClientConnInterface
+}
+
+func NewPromptServiceClient(cc grpc.ClientConnInterface) PromptServiceClient {
+	return &promptServiceClient{cc}
+}
+
+func (c *promptServiceClient) ListPromptTemplates(ctx context.Context, in *ListPromptTemplatesRequest, opts ...grpc.CallOption) (*ListPromptTemplatesResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ListPromptTemplatesResponse)
+	err := c.cc.Invoke(ctx, PromptService_ListPromptTemplates_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *promptServiceClient) CreatePromptTemplate(ctx context.Context, in *CreatePromptTemplateRequest, opts ...grpc.CallOption) (*PromptTemplateResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(PromptTemplateResponse)
+	err := c.cc.Invoke(ctx, PromptService_CreatePromptTemplate_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *promptServiceClient) UpdatePromptTemplate(ctx context.Context, in *UpdatePromptTemplateRequest, opts ...grpc.CallOption) (*PromptTemplateResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(PromptTemplateResponse)
+	err := c.cc.Invoke(ctx, PromptService_UpdatePromptTemplate_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *promptServiceClient) DeletePromptTemplate(ctx context.Context, in *DeletePromptTemplateRequest, opts ...grpc.CallOption) (*CommonResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(CommonResponse)
+	err := c.cc.Invoke(ctx, PromptService_DeletePromptTemplate_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *promptServiceClient) GetPromptVersionHistory(ctx context.Context, in *GetPromptVersionHistoryRequest, opts ...grpc.CallOption) (*GetPromptVersionHistoryResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(GetPromptVersionHistoryResponse)
+	err := c.cc.Invoke(ctx, PromptService_GetPromptVersionHistory_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *promptServiceClient) RollbackPromptVersion(ctx context.Context, in *RollbackPromptVersionRequest, opts ...grpc.CallOption) (*PromptTemplateResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(PromptTemplateResponse)
+	err := c.cc.Invoke(ctx, PromptService_RollbackPromptVersion_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *promptServiceClient) RenderPrompt(ctx context.Context, in *RenderPromptRequest, opts ...grpc.CallOption) (*RenderPromptResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(RenderPromptResponse)
+	err := c.cc.Invoke(ctx, PromptService_RenderPrompt_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *promptServiceClient) GetActivePromptByAgentType(ctx context.Context, in *GetActivePromptByAgentTypeRequest, opts ...grpc.CallOption) (*GetActivePromptByAgentTypeResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(GetActivePromptByAgentTypeResponse)
+	err := c.cc.Invoke(ctx, PromptService_GetActivePromptByAgentType_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+// PromptServiceServer is the server API for PromptService service.
+// All implementations must embed UnimplementedPromptServiceServer
+// for forward compatibility.
+type PromptServiceServer interface {
+	ListPromptTemplates(context.Context, *ListPromptTemplatesRequest) (*ListPromptTemplatesResponse, error)
+	CreatePromptTemplate(context.Context, *CreatePromptTemplateRequest) (*PromptTemplateResponse, error)
+	UpdatePromptTemplate(context.Context, *UpdatePromptTemplateRequest) (*PromptTemplateResponse, error)
+	DeletePromptTemplate(context.Context, *DeletePromptTemplateRequest) (*CommonResponse, error)
+	GetPromptVersionHistory(context.Context, *GetPromptVersionHistoryRequest) (*GetPromptVersionHistoryResponse, error)
+	RollbackPromptVersion(context.Context, *RollbackPromptVersionRequest) (*PromptTemplateResponse, error)
+	// Internal gRPC (not exposed via HTTP gateway)
+	RenderPrompt(context.Context, *RenderPromptRequest) (*RenderPromptResponse, error)
+	GetActivePromptByAgentType(context.Context, *GetActivePromptByAgentTypeRequest) (*GetActivePromptByAgentTypeResponse, error)
+	mustEmbedUnimplementedPromptServiceServer()
+}
+
+// UnimplementedPromptServiceServer must be embedded to have
+// forward compatible implementations.
+//
+// NOTE: this should be embedded by value instead of pointer to avoid a nil
+// pointer dereference when methods are called.
+type UnimplementedPromptServiceServer struct{}
+
+func (UnimplementedPromptServiceServer) ListPromptTemplates(context.Context, *ListPromptTemplatesRequest) (*ListPromptTemplatesResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method ListPromptTemplates not implemented")
+}
+func (UnimplementedPromptServiceServer) CreatePromptTemplate(context.Context, *CreatePromptTemplateRequest) (*PromptTemplateResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method CreatePromptTemplate not implemented")
+}
+func (UnimplementedPromptServiceServer) UpdatePromptTemplate(context.Context, *UpdatePromptTemplateRequest) (*PromptTemplateResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method UpdatePromptTemplate not implemented")
+}
+func (UnimplementedPromptServiceServer) DeletePromptTemplate(context.Context, *DeletePromptTemplateRequest) (*CommonResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method DeletePromptTemplate not implemented")
+}
+func (UnimplementedPromptServiceServer) GetPromptVersionHistory(context.Context, *GetPromptVersionHistoryRequest) (*GetPromptVersionHistoryResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method GetPromptVersionHistory not implemented")
+}
+func (UnimplementedPromptServiceServer) RollbackPromptVersion(context.Context, *RollbackPromptVersionRequest) (*PromptTemplateResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method RollbackPromptVersion not implemented")
+}
+func (UnimplementedPromptServiceServer) RenderPrompt(context.Context, *RenderPromptRequest) (*RenderPromptResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method RenderPrompt not implemented")
+}
+func (UnimplementedPromptServiceServer) GetActivePromptByAgentType(context.Context, *GetActivePromptByAgentTypeRequest) (*GetActivePromptByAgentTypeResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method GetActivePromptByAgentType not implemented")
+}
+func (UnimplementedPromptServiceServer) mustEmbedUnimplementedPromptServiceServer() {}
+func (UnimplementedPromptServiceServer) testEmbeddedByValue()                       {}
+
+// UnsafePromptServiceServer may be embedded to opt out of forward compatibility for this service.
+// Use of this interface is not recommended, as added methods to PromptServiceServer will
+// result in compilation errors.
+type UnsafePromptServiceServer interface {
+	mustEmbedUnimplementedPromptServiceServer()
+}
+
+func RegisterPromptServiceServer(s grpc.ServiceRegistrar, srv PromptServiceServer) {
+	// If the following call panics, it indicates UnimplementedPromptServiceServer was
+	// embedded by pointer and is nil.  This will cause panics if an
+	// unimplemented method is ever invoked, so we test this at initialization
+	// time to prevent it from happening at runtime later due to I/O.
+	if t, ok := srv.(interface{ testEmbeddedByValue() }); ok {
+		t.testEmbeddedByValue()
+	}
+	s.RegisterService(&PromptService_ServiceDesc, srv)
+}
+
+func _PromptService_ListPromptTemplates_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ListPromptTemplatesRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(PromptServiceServer).ListPromptTemplates(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: PromptService_ListPromptTemplates_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(PromptServiceServer).ListPromptTemplates(ctx, req.(*ListPromptTemplatesRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _PromptService_CreatePromptTemplate_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(CreatePromptTemplateRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(PromptServiceServer).CreatePromptTemplate(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: PromptService_CreatePromptTemplate_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(PromptServiceServer).CreatePromptTemplate(ctx, req.(*CreatePromptTemplateRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _PromptService_UpdatePromptTemplate_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(UpdatePromptTemplateRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(PromptServiceServer).UpdatePromptTemplate(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: PromptService_UpdatePromptTemplate_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(PromptServiceServer).UpdatePromptTemplate(ctx, req.(*UpdatePromptTemplateRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _PromptService_DeletePromptTemplate_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(DeletePromptTemplateRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(PromptServiceServer).DeletePromptTemplate(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: PromptService_DeletePromptTemplate_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(PromptServiceServer).DeletePromptTemplate(ctx, req.(*DeletePromptTemplateRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _PromptService_GetPromptVersionHistory_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetPromptVersionHistoryRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(PromptServiceServer).GetPromptVersionHistory(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: PromptService_GetPromptVersionHistory_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(PromptServiceServer).GetPromptVersionHistory(ctx, req.(*GetPromptVersionHistoryRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _PromptService_RollbackPromptVersion_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(RollbackPromptVersionRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(PromptServiceServer).RollbackPromptVersion(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: PromptService_RollbackPromptVersion_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(PromptServiceServer).RollbackPromptVersion(ctx, req.(*RollbackPromptVersionRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _PromptService_RenderPrompt_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(RenderPromptRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(PromptServiceServer).RenderPrompt(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: PromptService_RenderPrompt_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(PromptServiceServer).RenderPrompt(ctx, req.(*RenderPromptRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _PromptService_GetActivePromptByAgentType_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetActivePromptByAgentTypeRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(PromptServiceServer).GetActivePromptByAgentType(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: PromptService_GetActivePromptByAgentType_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(PromptServiceServer).GetActivePromptByAgentType(ctx, req.(*GetActivePromptByAgentTypeRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+// PromptService_ServiceDesc is the grpc.ServiceDesc for PromptService service.
+// It's only intended for direct use with grpc.RegisterService,
+// and not to be introspected or modified (even as a copy)
+var PromptService_ServiceDesc = grpc.ServiceDesc{
+	ServiceName: "recruitment.PromptService",
+	HandlerType: (*PromptServiceServer)(nil),
+	Methods: []grpc.MethodDesc{
+		{
+			MethodName: "ListPromptTemplates",
+			Handler:    _PromptService_ListPromptTemplates_Handler,
+		},
+		{
+			MethodName: "CreatePromptTemplate",
+			Handler:    _PromptService_CreatePromptTemplate_Handler,
+		},
+		{
+			MethodName: "UpdatePromptTemplate",
+			Handler:    _PromptService_UpdatePromptTemplate_Handler,
+		},
+		{
+			MethodName: "DeletePromptTemplate",
+			Handler:    _PromptService_DeletePromptTemplate_Handler,
+		},
+		{
+			MethodName: "GetPromptVersionHistory",
+			Handler:    _PromptService_GetPromptVersionHistory_Handler,
+		},
+		{
+			MethodName: "RollbackPromptVersion",
+			Handler:    _PromptService_RollbackPromptVersion_Handler,
+		},
+		{
+			MethodName: "RenderPrompt",
+			Handler:    _PromptService_RenderPrompt_Handler,
+		},
+		{
+			MethodName: "GetActivePromptByAgentType",
+			Handler:    _PromptService_GetActivePromptByAgentType_Handler,
+		},
+	},
+	Streams:  []grpc.StreamDesc{},
+	Metadata: "proto/recruitment.proto",
+}
