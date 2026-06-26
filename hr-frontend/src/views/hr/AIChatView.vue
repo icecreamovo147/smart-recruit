@@ -33,6 +33,9 @@ const candidateName = ref('')
 const candidatePosition = ref('')
 const activeController = ref<AbortController | null>(null)
 const userAborted = ref(false)
+const statusBarExpanded = ref(true)
+const modelName = ref('GPT-4o')
+const dataSource = ref('招聘业务数据库')
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const listRef = ref<any>(null)
 let pollTimer: ReturnType<typeof setInterval> | null = null
@@ -700,6 +703,17 @@ onBeforeUnmount(() => {
         </div>
       </div>
 
+      <!-- Status bar: model name + data source -->
+      <div v-if="currentSession" class="ai-status-bar" :class="{ 'is-collapsed': !statusBarExpanded }">
+        <div v-show="statusBarExpanded" class="ai-status-bar__body">
+          <el-tag type="info" size="small">当前模型：{{ modelName }}</el-tag>
+          <el-tag type="info" size="small">数据来源：{{ dataSource }}</el-tag>
+        </div>
+        <button class="ai-status-bar__toggle" @click="statusBarExpanded = !statusBarExpanded" :title="statusBarExpanded ? '收起状态栏' : '展开状态栏'">
+          <span>{{ statusBarExpanded ? '▲' : '▶' }}</span>
+        </button>
+      </div>
+
       <div class="chat-layout">
         <div ref="listRef" class="chat-list" v-loading="sessionLoading">
           <el-empty v-if="messages.length === 0 && !loading" description="暂无对话" />
@@ -740,3 +754,45 @@ onBeforeUnmount(() => {
     </div>
   </section>
 </template>
+
+<style scoped>
+.ai-status-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 6px 12px;
+  background: var(--el-color-info-light-9);
+  border-bottom: 1px solid var(--el-border-color-lighter);
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.ai-status-bar.is-collapsed {
+  padding: 2px 12px;
+}
+
+.ai-status-bar__body {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 1;
+}
+
+.ai-status-bar__toggle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 0 4px;
+  font-size: 10px;
+  color: var(--el-text-color-secondary);
+  flex-shrink: 0;
+  line-height: 1;
+}
+
+.ai-status-bar__toggle:hover {
+  color: var(--el-color-primary);
+}
+</style>
