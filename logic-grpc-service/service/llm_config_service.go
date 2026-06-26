@@ -94,12 +94,18 @@ func (s *LlmConfigService) CreateProvider(ctx context.Context, req *pb.CreatePro
 		return nil, status.Error(codes.Internal, "encrypt api key failed")
 	}
 
+	var extraHeaders *string
+	if req.GetExtraHeadersJson() != "" {
+		eh := req.GetExtraHeadersJson()
+		extraHeaders = &eh
+	}
+
 	provider := &model.LlmProvider{
 		Name:             strings.TrimSpace(req.GetName()),
 		BaseURL:          strings.TrimSpace(req.GetBaseUrl()),
 		APIKeyEncrypted:  encrypted,
 		ProviderType:     strings.TrimSpace(req.GetProviderType()),
-		ExtraHeaders:     req.GetExtraHeadersJson(),
+		ExtraHeaders:     extraHeaders,
 		IsEnabled:        1,
 	}
 
@@ -149,7 +155,12 @@ func (s *LlmConfigService) UpdateProvider(ctx context.Context, req *pb.UpdatePro
 		updates["provider_type"] = strings.TrimSpace(req.GetProviderType())
 	}
 	if req.GetExtraHeadersJson() != "" || req.GetExtraHeadersSet() {
-		updates["extra_headers"] = req.GetExtraHeadersJson()
+		if req.GetExtraHeadersJson() != "" {
+			eh := req.GetExtraHeadersJson()
+			updates["extra_headers"] = &eh
+		} else {
+			updates["extra_headers"] = nil
+		}
 	}
 	if req.GetIsEnabledSet() {
 		v := int32(0)
@@ -247,9 +258,9 @@ func (s *LlmConfigService) TestProviderConnection(ctx context.Context, req *pb.T
 	httpReq.Header.Set("Content-Type", "application/json")
 
 	// Add extra headers if present
-	if provider.ExtraHeaders != "" {
+	if provider.ExtraHeaders != nil && *provider.ExtraHeaders != "" {
 		var extra map[string]string
-		if err := json.Unmarshal([]byte(provider.ExtraHeaders), &extra); err == nil {
+		if err := json.Unmarshal([]byte(*provider.ExtraHeaders), &extra); err == nil {
 			for k, v := range extra {
 				httpReq.Header.Set(k, v)
 			}
@@ -508,9 +519,9 @@ func (s *LlmConfigService) providerToInfo(p *model.LlmProvider) *pb.LlmProviderI
 	}
 
 	// Mask extra_headers values
-	extraHeaders := p.ExtraHeaders
-	if extraHeaders != "" {
-		extraHeaders = maskExtraHeaders(extraHeaders)
+	extraHeaders := ""
+	if p.ExtraHeaders != nil {
+		extraHeaders = maskExtraHeaders(*p.ExtraHeaders)
 	}
 
 	return &pb.LlmProviderInfo{

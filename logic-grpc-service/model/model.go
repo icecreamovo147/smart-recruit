@@ -545,7 +545,7 @@ type LlmProvider struct {
 	BaseURL          string    `gorm:"column:base_url;size:512;not null"`
 	APIKeyEncrypted  string    `gorm:"column:api_key_encrypted;size:512;not null"`
 	ProviderType     string    `gorm:"column:provider_type;size:64;not null"`
-	ExtraHeaders     string    `gorm:"column:extra_headers;type:json"`
+	ExtraHeaders     *string   `gorm:"column:extra_headers;type:json"`
 	IsEnabled        int32     `gorm:"column:is_enabled;default:1"`
 	CreatedAt        time.Time `gorm:"column:created_at"`
 	UpdatedAt        time.Time `gorm:"column:updated_at"`
