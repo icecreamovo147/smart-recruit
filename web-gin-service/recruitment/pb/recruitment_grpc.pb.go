@@ -3201,6 +3201,8 @@ const (
 	AdminService_GetFunnelReport_FullMethodName                = "/recruitment.AdminService/GetFunnelReport"
 	AdminService_GetTimeInStageReport_FullMethodName           = "/recruitment.AdminService/GetTimeInStageReport"
 	AdminService_GetInterviewOfferMetrics_FullMethodName       = "/recruitment.AdminService/GetInterviewOfferMetrics"
+	AdminService_GetUsageStats_FullMethodName                  = "/recruitment.AdminService/GetUsageStats"
+	AdminService_GetUsageTrend_FullMethodName                  = "/recruitment.AdminService/GetUsageTrend"
 )
 
 // AdminServiceClient is the client API for AdminService service.
@@ -3244,6 +3246,9 @@ type AdminServiceClient interface {
 	GetFunnelReport(ctx context.Context, in *GetFunnelReportRequest, opts ...grpc.CallOption) (*GetFunnelReportResponse, error)
 	GetTimeInStageReport(ctx context.Context, in *GetTimeInStageReportRequest, opts ...grpc.CallOption) (*GetTimeInStageReportResponse, error)
 	GetInterviewOfferMetrics(ctx context.Context, in *GetInterviewOfferMetricsRequest, opts ...grpc.CallOption) (*GetInterviewOfferMetricsResponse, error)
+	// P1-003: AI usage statistics & trend
+	GetUsageStats(ctx context.Context, in *GetUsageStatsRequest, opts ...grpc.CallOption) (*GetUsageStatsResponse, error)
+	GetUsageTrend(ctx context.Context, in *GetUsageTrendRequest, opts ...grpc.CallOption) (*GetUsageTrendResponse, error)
 }
 
 type adminServiceClient struct {
@@ -3594,6 +3599,26 @@ func (c *adminServiceClient) GetInterviewOfferMetrics(ctx context.Context, in *G
 	return out, nil
 }
 
+func (c *adminServiceClient) GetUsageStats(ctx context.Context, in *GetUsageStatsRequest, opts ...grpc.CallOption) (*GetUsageStatsResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(GetUsageStatsResponse)
+	err := c.cc.Invoke(ctx, AdminService_GetUsageStats_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *adminServiceClient) GetUsageTrend(ctx context.Context, in *GetUsageTrendRequest, opts ...grpc.CallOption) (*GetUsageTrendResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(GetUsageTrendResponse)
+	err := c.cc.Invoke(ctx, AdminService_GetUsageTrend_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // AdminServiceServer is the server API for AdminService service.
 // All implementations must embed UnimplementedAdminServiceServer
 // for forward compatibility.
@@ -3635,6 +3660,9 @@ type AdminServiceServer interface {
 	GetFunnelReport(context.Context, *GetFunnelReportRequest) (*GetFunnelReportResponse, error)
 	GetTimeInStageReport(context.Context, *GetTimeInStageReportRequest) (*GetTimeInStageReportResponse, error)
 	GetInterviewOfferMetrics(context.Context, *GetInterviewOfferMetricsRequest) (*GetInterviewOfferMetricsResponse, error)
+	// P1-003: AI usage statistics & trend
+	GetUsageStats(context.Context, *GetUsageStatsRequest) (*GetUsageStatsResponse, error)
+	GetUsageTrend(context.Context, *GetUsageTrendRequest) (*GetUsageTrendResponse, error)
 	mustEmbedUnimplementedAdminServiceServer()
 }
 
@@ -3746,6 +3774,12 @@ func (UnimplementedAdminServiceServer) GetTimeInStageReport(context.Context, *Ge
 }
 func (UnimplementedAdminServiceServer) GetInterviewOfferMetrics(context.Context, *GetInterviewOfferMetricsRequest) (*GetInterviewOfferMetricsResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method GetInterviewOfferMetrics not implemented")
+}
+func (UnimplementedAdminServiceServer) GetUsageStats(context.Context, *GetUsageStatsRequest) (*GetUsageStatsResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method GetUsageStats not implemented")
+}
+func (UnimplementedAdminServiceServer) GetUsageTrend(context.Context, *GetUsageTrendRequest) (*GetUsageTrendResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method GetUsageTrend not implemented")
 }
 func (UnimplementedAdminServiceServer) mustEmbedUnimplementedAdminServiceServer() {}
 func (UnimplementedAdminServiceServer) testEmbeddedByValue()                      {}
@@ -4380,6 +4414,42 @@ func _AdminService_GetInterviewOfferMetrics_Handler(srv interface{}, ctx context
 	return interceptor(ctx, in, info, handler)
 }
 
+func _AdminService_GetUsageStats_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetUsageStatsRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(AdminServiceServer).GetUsageStats(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: AdminService_GetUsageStats_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(AdminServiceServer).GetUsageStats(ctx, req.(*GetUsageStatsRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _AdminService_GetUsageTrend_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetUsageTrendRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(AdminServiceServer).GetUsageTrend(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: AdminService_GetUsageTrend_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(AdminServiceServer).GetUsageTrend(ctx, req.(*GetUsageTrendRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // AdminService_ServiceDesc is the grpc.ServiceDesc for AdminService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -4522,6 +4592,14 @@ var AdminService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "GetInterviewOfferMetrics",
 			Handler:    _AdminService_GetInterviewOfferMetrics_Handler,
+		},
+		{
+			MethodName: "GetUsageStats",
+			Handler:    _AdminService_GetUsageStats_Handler,
+		},
+		{
+			MethodName: "GetUsageTrend",
+			Handler:    _AdminService_GetUsageTrend_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

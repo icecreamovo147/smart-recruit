@@ -650,3 +650,17 @@ func (s *Server) GetActivePromptByAgentType(ctx context.Context, req *pb.GetActi
 	}
 	return s.svc.Prompt.GetActivePromptByAgentType(ctx, req)
 }
+
+func (s *Server) GetUsageStats(ctx context.Context, req *pb.GetUsageStatsRequest) (*pb.GetUsageStatsResponse, error) {
+	if s.svc.UsageStats == nil {
+		return nil, status.Error(codes.Unavailable, "usage stats service not available")
+	}
+	return s.svc.UsageStats.GetUsageStats(ctx, req)
+}
+
+func (s *Server) GetUsageTrend(ctx context.Context, req *pb.GetUsageTrendRequest) (*pb.GetUsageTrendResponse, error) {
+	if s.svc.UsageStats == nil {
+		return nil, status.Error(codes.Unavailable, "usage stats service not available")
+	}
+	return s.svc.UsageStats.GetUsageTrend(ctx, req)
+}

@@ -149,6 +149,10 @@ service AdminService {
   rpc GetFunnelReport(GetFunnelReportRequest) returns (GetFunnelReportResponse);
   rpc GetTimeInStageReport(GetTimeInStageReportRequest) returns (GetTimeInStageReportResponse);
   rpc GetInterviewOfferMetrics(GetInterviewOfferMetricsRequest) returns (GetInterviewOfferMetricsResponse);
+
+  // P1-003: AI usage statistics & trend
+  rpc GetUsageStats(GetUsageStatsRequest) returns (GetUsageStatsResponse);
+  rpc GetUsageTrend(GetUsageTrendRequest) returns (GetUsageTrendResponse);
 }
 
 // ── Phase 4: Candidate Collaboration ───────────────────────────────────
@@ -1918,6 +1922,50 @@ message GetInterviewOfferMetricsResponse {
   int64 accepted_offers = 8;
   int64 rejected_offers = 9;
   double acceptance_rate = 10; // 0-100
+}
+
+// ══════════════════════════════════════════════════════════════════════
+// P1-003: AI Usage Statistics & Trend
+// ══════════════════════════════════════════════════════════════════════
+
+message GetUsageStatsRequest {
+  string start_time = 1;   // RFC 3339
+  string end_time = 2;     // RFC 3339
+  string dimension = 3;    // user / model / session
+}
+
+message UsageStatsItem {
+  string name = 1;                // dimension value: user_id, model name, or session_id
+  int64 total_tokens = 2;         // total estimated tokens
+  int64 call_count = 3;           // total call count
+  double avg_cost_ms = 4;         // average cost in milliseconds
+  double estimated_cost = 5;      // estimated cost in USD
+}
+
+message GetUsageStatsResponse {
+  int32 code = 1;
+  string msg = 2;
+  repeated UsageStatsItem list = 3;
+}
+
+message GetUsageTrendRequest {
+  string start_time = 1;   // RFC 3339
+  string end_time = 2;     // RFC 3339
+  string granularity = 3;  // day / week / month
+}
+
+message UsageTrendPoint {
+  string date = 1;                // date label (e.g. "2026-06-01")
+  int64 total_tokens = 2;         // total estimated tokens
+  int64 call_count = 3;           // total call count
+  double avg_cost_ms = 4;         // average cost in milliseconds
+  double estimated_cost = 5;      // estimated cost in USD
+}
+
+message GetUsageTrendResponse {
+  int32 code = 1;
+  string msg = 2;
+  repeated UsageTrendPoint list = 3;
 }
 
 // ══════════════════════════════════════════════════════════════════════

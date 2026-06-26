@@ -596,3 +596,49 @@ func (h *AdminHandler) ListUsageLogs(c *gin.Context) {
 	}
 	base.ProtoResponse(c, resp)
 }
+
+// ── Usage Stats ─────────────────────────────────────────────────────────
+
+func (h *AdminHandler) GetUsageStats(c *gin.Context) {
+	var req struct {
+		StartTime string `form:"start_time"`
+		EndTime   string `form:"end_time"`
+		Dimension string `form:"dimension"` // user / model / session
+	}
+	if err := c.ShouldBindQuery(&req); err != nil {
+		base.BadRequest(c, "请求参数错误")
+		return
+	}
+	resp, err := h.clients.Admin.GetUsageStats(c.Request.Context(), &pb.GetUsageStatsRequest{
+		StartTime: req.StartTime,
+		EndTime:   req.EndTime,
+		Dimension: req.Dimension,
+	})
+	if err != nil {
+		base.Internal(c, err)
+		return
+	}
+	base.ProtoResponse(c, resp)
+}
+
+func (h *AdminHandler) GetUsageTrend(c *gin.Context) {
+	var req struct {
+		StartTime   string `form:"start_time"`
+		EndTime     string `form:"end_time"`
+		Granularity string `form:"granularity"` // day / week / month
+	}
+	if err := c.ShouldBindQuery(&req); err != nil {
+		base.BadRequest(c, "请求参数错误")
+		return
+	}
+	resp, err := h.clients.Admin.GetUsageTrend(c.Request.Context(), &pb.GetUsageTrendRequest{
+		StartTime:   req.StartTime,
+		EndTime:     req.EndTime,
+		Granularity: req.Granularity,
+	})
+	if err != nil {
+		base.Internal(c, err)
+		return
+	}
+	base.ProtoResponse(c, resp)
+}

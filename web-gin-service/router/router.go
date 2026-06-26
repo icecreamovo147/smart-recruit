@@ -343,6 +343,9 @@ func Setup(cfg config.Config, clients *rpc.Clients, rdb *redis.Client) (*gin.Eng
 	// Usage audit
 	adminGroup.GET("/third-party-usage-logs", normalTimeout, middleware.RequirePermission(authz.PermAuditUsageRead), adminHandler.ListUsageLogs)
 
+	// P1-003: AI usage statistics & trend
+	adminGroup.GET("/usage-stats", normalTimeout, middleware.RequirePermission(authz.PermAuditUsageRead), adminHandler.GetUsageStats)
+	adminGroup.GET("/usage-trend", normalTimeout, middleware.RequirePermission(authz.PermAuditUsageRead), adminHandler.GetUsageTrend)
 	// RBAC role & permission management
 	adminGroup.GET("/roles", normalTimeout, middleware.RequirePermission(authz.PermAdminRoleManage), adminHandler.ListRoles)
 	adminGroup.GET("/permissions", normalTimeout, middleware.RequirePermission(authz.PermAdminRoleManage), adminHandler.ListPermissions)

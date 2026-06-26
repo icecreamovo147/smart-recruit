@@ -52,6 +52,8 @@ type Services struct {
 	// Phase 6: Audit context repo for AI usage audit writes
 	UsageAuditCtxRepo *repository.UsageAuditContextRepo
 
+	// P1-003: AI usage statistics
+	UsageStats *UsageStatsService
 	// Background workers (caller must Start/Stop)
 	OutboxPublisher      *OutboxPublisher
 	NotificationConsumer *NotificationConsumer
@@ -116,6 +118,10 @@ func NewServices(
 		Analytics:         NewAnalyticsService(analyticsRepo, authzRepo, serviceAuth),
 		Admin:             NewAdminService(inviteCodes, usageLogs, users, authzRepo, tokenCache, serviceAuth),
 		UsageAuditCtxRepo: usageAuditCtxRepo,
+
+	// P1-003: AI usage statistics
+	UsageStats: NewUsageStatsService(repository.NewUsageStatsRepo(db), serviceAuth),
+
 		Job:               NewJobService(jobs, jobCache, authzRepo, taxonomy, scopeEval),
 		Taxonomy:          taxonomy,
 		Candidate:         NewCandidateService(profiles, resumes, ossClient, outboxPublisher, usageLogs, serviceAuth),
