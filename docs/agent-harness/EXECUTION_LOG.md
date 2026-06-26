@@ -21,7 +21,7 @@
 | 5 | P0-005 | docs/agent-harness/tasks/P0-005-模型配置中心-后端.md | merged | agent/P0-005-模型配置中心-后端 | PASS | Dev: 3cfb608, Fix: 9e26ffb, Merge: c038bcc, Fix rounds: 1. ADR written, migration 000024, LlmConfigService gRPC (9 methods), AES-256-GCM encryption, API key masking, DB-first AI config. 2026-06-26 |
 | 6 | P0-006 | docs/agent-harness/tasks/P0-006-模型配置中心-前端.md | merged | agent/P0-006-模型配置中心-前端 | PASS | Dev: 6dcf23f, Merge: a25f171, Fix rounds: 0. LlmConfigView 组件 (Provider 管理 + Model 管理双 Tab), API Key 密码框 + 脱敏, 路由/菜单权限控制. 2026-06-26 |
 | 7 | P1-001 | docs/agent-harness/tasks/P1-001-Prompt管理-后端.md | merged | agent/P1-001-Prompt管理-后端 | PASS | Dev: 060913f, Fix: e148967, Merge: e4afc70, Fix rounds: 1. Migration 000025, PromptService gRPC, 后端 CRUD + 版本 + 变量插值 + seed 初始模板 + agent_context.go 读取 DB, 2026-06-26 |
-| 8 | P1-002 | docs/agent-harness/tasks/P1-002-Prompt管理-前端.md | pending |  |  |  |
+| 8 | P1-002 | docs/agent-harness/tasks/P1-002-Prompt管理-前端.md | merged | agent/P1-002-Prompt管理-前端 | PASS | Dev: 8378361, Merge: 85e0911, Fix rounds: 0. PromptManageView 组件 (列表+编辑+版本历史+回滚), API/Types 层, 路由/菜单权限, 2026-06-26 |
 | 9 | P1-003 | docs/agent-harness/tasks/P1-003-AI成本统计增强.md | pending |  |  |  |
 | 10 | P1-004 | docs/agent-harness/tasks/P1-004-Agent配置管理-后端.md | pending |  |  |  |
 | 11 | P1-005 | docs/agent-harness/tasks/P1-005-Agent配置管理-前端.md | pending |  |  |  |
