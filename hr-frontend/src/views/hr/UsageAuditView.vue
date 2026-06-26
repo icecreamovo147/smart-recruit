@@ -236,7 +236,7 @@ const renderTrendChart = () => {
         trendChart = echarts.init(trendChartRef.value);
     }
 
-    const dates = trendPoints.value.map((p) => p.date);
+    const dates = trendPoints.value.map((p) => p.date?.slice(0, 10));
     const tokens = trendPoints.value.map((p) => p.total_tokens);
     const calls = trendPoints.value.map((p) => p.call_count);
 
