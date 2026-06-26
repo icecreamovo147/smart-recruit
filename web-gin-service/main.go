@@ -22,7 +22,7 @@ import (
 // @version         1.0
 // @description     智能招聘平台后端接口文档，包含候选人端和 HR 管理端接口。
 func main() {
-	logger.Set(logger.New("info"))
+	logger.Set(logger.NewConsole())
 	log := logger.L()
 
 	cfg, err := config.Load()
