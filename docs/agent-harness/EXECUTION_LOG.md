@@ -24,7 +24,7 @@
 | 8 | P1-002 | docs/agent-harness/tasks/P1-002-Prompt管理-前端.md | merged | agent/P1-002-Prompt管理-前端 | PASS | Dev: 8378361, Merge: 85e0911, Fix rounds: 0. PromptManageView 组件 (列表+编辑+版本历史+回滚), API/Types 层, 路由/菜单权限, 2026-06-26 |
 | 9 | P1-003 | docs/agent-harness/tasks/P1-003-AI成本统计增强.md | merged | agent/P1-003-AI成本统计增强 | PASS | Dev: d853381, Fix: 5414aa9 + 15a46c9, Merge: 1d5364f, Fix rounds: 2. GetUsageStats/GetUsageTrend, UsageAuditView 增强 (统计卡片+ECharts趋势+维度切换), ADR, 16 new tests, 2026-06-26 |
 | 10 | P1-004 | docs/agent-harness/tasks/P1-004-Agent配置管理-后端.md | merged | agent/P1-004-agent-config-mgmt | PASS | Dev: 137a3d7, Merge: 9525b27, Fix rounds: 0. Migration 000026, AgentConfigService gRPC CRUD (5 methods), web-gin handler+router, seed default agents, 2026-06-26 |
-| 11 | P1-005 | docs/agent-harness/tasks/P1-005-Agent配置管理-前端.md | pending |  |  |  |
+| 11 | P1-005 | docs/agent-harness/tasks/P1-005-Agent配置管理-前端.md | passed | agent/P1-005-agent-config-frontend | 通过 — 可合并 | Dev: (current commit), AgentManageView, api/agent.ts, types/agent.ts, 路由/菜单, 2026-06-26 |
 | 12 | P1-006 | docs/agent-harness/tasks/P1-006-MCP工具中心-后端.md | pending |  |  |  |
 | 13 | P1-007 | docs/agent-harness/tasks/P1-007-MCP工具中心-前端.md | pending |  |  |  |
 | 14 | P1-008 | docs/agent-harness/tasks/P1-008-调试面板-后端.md | pending |  |  |  |

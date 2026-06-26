@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { ArrowDown, Briefcase, ChatDotRound, DataAnalysis, Edit, Expand, Fold, Key, Menu, Monitor, Moon, Operation, Sunny, Tools, UserFilled } from '@element-plus/icons-vue'
+import { ArrowDown, Briefcase, ChatDotRound, DataAnalysis, Edit, Expand, Fold, Key, Menu, Monitor, Moon, Operation, Setting, Sunny, Tools, UserFilled } from '@element-plus/icons-vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { useAuthStore } from '@/stores/auth'
 import { useTheme } from '@/composables/useTheme'
@@ -173,6 +173,10 @@ const routeViewKey = (viewRoute: { fullPath: string; path: string; params: Recor
       <RouterLink v-if="auth.hasPermission(PERM.SYSTEM_CONFIG_MANAGE)" class="sidebar-link" to="/hr/admin/prompts" @click="closeMobileSidebar">
         <el-icon><Edit /></el-icon>
         <span>Prompt 管理</span>
+      </RouterLink>
+      <RouterLink v-if="auth.hasPermission(PERM.SYSTEM_CONFIG_MANAGE)" class="sidebar-link" to="/hr/admin/agents" @click="closeMobileSidebar">
+        <el-icon><Setting /></el-icon>
+        <span>Agent 管理</span>
       </RouterLink>
       <!-- 第三方服务审计 -->
       <template v-if="auth.hasPermission(PERM.AUDIT_USAGE_READ)">
