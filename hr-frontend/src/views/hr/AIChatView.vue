@@ -524,6 +524,101 @@ const submit = async () => {
   }
 }
 
+const retry = async (failedIndex: number) => {
+  const failedMsg = messages.value[failedIndex]
+  if (!failedMsg || failedMsg.role !== 'assistant' || !failedMsg.failed) return
+
+  let lastUserContent = ''
+  for (let i = failedIndex - 1; i >= 0; i--) {
+    if (messages.value[i]?.role === 'user') {
+      lastUserContent = messages.value[i].content
+      break
+    }
+  }
+  if (!lastUserContent) return
+
+  const session = currentSession.value
+  if (!session) return
+
+  messages.value.splice(failedIndex, 1)
+  messages.value.push({ role: 'assistant', content: '', pending: true, waitingText: session.application_id ? '分析中' : '响应中' })
+  const assistantIndex = messages.value.length - 1
+
+  loading.value = true
+  streaming.value = true
+  scrollBottom()
+
+  const controller = new AbortController()
+  activeController.value = controller
+  userAborted.value = false
+
+  try {
+    let finalPayload: StreamPayload | null = null
+    let streamFailed = false
+    await sendMessageStream(
+      { message: lastUserContent, session_id: session.id },
+      {
+        onDelta: (delta) => {
+          appendAssistantDelta(assistantIndex, delta)
+        },
+        onStatus: (_eventType, eventMessage) => {
+          const msg = messages.value[assistantIndex]
+          if (msg) {
+            messages.value[assistantIndex] = { ...msg, waitingText: eventMessage }
+          }
+        },
+        onDone: (payload) => {
+          finalPayload = payload
+          const options = parseCandidateOptions(payload.candidate_options)
+          if (options.length > 0) {
+            const msg = messages.value[assistantIndex]
+            if (msg) messages.value[assistantIndex] = { ...msg, candidateOptions: options, pending: false }
+          }
+        },
+        onError: (_errorType, errorMessage) => {
+          streamFailed = true
+          markAssistantError(assistantIndex, new Error(errorMessage))
+        },
+      },
+      { signal: controller.signal, silentAbort: true },
+    )
+    scrollBottom()
+    if (streamFailed) return
+    if (finalPayload) {
+      if ((finalPayload as StreamPayload).session_id && currentSession.value) {
+        currentSession.value = { ...currentSession.value, id: (finalPayload as StreamPayload).session_id! }
+      }
+      if (!userAborted.value) {
+        await confirmAction(finalPayload)
+      }
+      if (!messages.value[assistantIndex]?.content) {
+        const sid = (finalPayload as StreamPayload).session_id || session.id
+        const data = await getSessionMessages(sid, { page: 1, page_size: 100 })
+        messages.value = (data.list || messages.value) as MessageItem[]
+      }
+    }
+    if (!userAborted.value) {
+      await refreshSessions()
+    }
+  } catch (error: unknown) {
+    if (userAborted.value) return
+    markAssistantError(assistantIndex, error instanceof Error ? error : new Error('AI 流式响应失败'))
+    const err = error as { code?: string; message?: string }
+    if (err.code === 'ECONNABORTED') {
+      ElMessage.warning('AI 分析耗时较长，请稍后重新发送')
+    } else {
+      ElMessage.error(err.message || 'AI 流式响应失败')
+    }
+  } finally {
+    if (activeController.value === controller) {
+      loading.value = false
+      streaming.value = false
+      activeController.value = null
+      userAborted.value = false
+    }
+  }
+}
+
 onMounted(async () => {
   document.addEventListener('click', closeMenu)
   await refreshSessions()
@@ -621,6 +716,9 @@ onBeforeUnmount(() => {
               <div v-else-if="message.content" class="md-content" v-html="renderMarkdown(message.content)"></div>
             </div>
             <template v-else>{{ message.content }}</template>
+            <div v-if="message.role === 'assistant' && message.failed" class="bubble__retry">
+              <el-button type="warning" size="small" @click="retry(index)">重新发送</el-button>
+            </div>
             <div v-if="message.role === 'assistant' && message.candidateOptions?.length" class="candidate-options">
               <button v-for="option in message.candidateOptions" :key="option.application_id" class="candidate-option" @click="analyzeCandidateOption(option)">
                 <span class="candidate-option__name">{{ option.candidate_name }}</span>
