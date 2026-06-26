@@ -126,20 +126,22 @@ const activeDimension = ref<'user' | 'model' | 'session'>('model');
 const activeGranularity = ref<'day' | 'week' | 'month'>('day');
 const statsDateRange = ref<[string, string] | null>(null);
 
-// Computed summary from stats
+// Computed summary from stats — NB: protojson serializes int64 as strings.
+const toNum = (v: unknown): number => Number(v) || 0;
+
 const totalTokens = computed(() =>
-    statsItems.value.reduce((sum, item) => sum + item.total_tokens, 0)
+    statsItems.value.reduce((sum, item) => sum + toNum(item.total_tokens), 0)
 );
 const totalCalls = computed(() =>
-    statsItems.value.reduce((sum, item) => sum + item.call_count, 0)
+    statsItems.value.reduce((sum, item) => sum + toNum(item.call_count), 0)
 );
 const avgCostMs = computed(() => {
     if (totalCalls.value === 0) return 0;
-    const totalMs = statsItems.value.reduce((sum, item) => sum + item.avg_cost_ms * item.call_count, 0);
+    const totalMs = statsItems.value.reduce((sum, item) => sum + toNum(item.avg_cost_ms) * toNum(item.call_count), 0);
     return totalCalls.value > 0 ? totalMs / totalCalls.value : 0;
 });
 const estimatedCostTotal = computed(() =>
-    statsItems.value.reduce((sum, item) => sum + item.estimated_cost, 0)
+    statsItems.value.reduce((sum, item) => sum + toNum(item.estimated_cost), 0)
 );
 
 // Default stats date range: last 30 days

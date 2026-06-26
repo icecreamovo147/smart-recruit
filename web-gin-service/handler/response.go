@@ -39,7 +39,7 @@ func From(c *gin.Context, code int32, msg string, data any) {
 // ProtoResponse converts a protobuf response with code/msg fields to the standard JSON envelope.
 // Fields other than code and msg become the "data" payload, using proto snake_case names.
 func ProtoResponse(c *gin.Context, msg proto.Message) {
-	mo := protojson.MarshalOptions{UseProtoNames: true}
+	mo := protojson.MarshalOptions{UseProtoNames: true, EmitUnpopulated: true}
 	jsonBytes, _ := mo.Marshal(msg)
 	var raw map[string]any
 	_ = json.Unmarshal(jsonBytes, &raw)
