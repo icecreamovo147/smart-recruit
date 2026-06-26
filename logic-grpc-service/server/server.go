@@ -3,6 +3,9 @@ package server
 import (
 	"context"
 
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
+
 	"logic-grpc-service/recruitment/pb"
 	"logic-grpc-service/service"
 )
@@ -18,6 +21,7 @@ type Server struct {
 	pb.UnimplementedOfferServiceServer
 	pb.UnimplementedAdminServiceServer
 	pb.UnimplementedCollaborationServiceServer
+	pb.UnimplementedLlmConfigServiceServer
 	svc *service.Services
 }
 
@@ -521,4 +525,69 @@ func (s *Server) GetFollowUpTask(ctx context.Context, req *pb.GetFollowUpTaskReq
 
 func (s *Server) ListTimelineEvents(ctx context.Context, req *pb.ListTimelineEventsRequest) (*pb.ListTimelineEventsResponse, error) {
 	return s.svc.Collaboration.ListTimelineEvents(ctx, req)
+}
+
+// ── LlmConfig ───────────────────────────────────────────────────────────
+
+func (s *Server) ListProviders(ctx context.Context, req *pb.ListProvidersRequest) (*pb.ListProvidersResponse, error) {
+	if s.svc.LlmConfig == nil {
+		return nil, status.Error(codes.Unavailable, "llm config service not available (ENCRYPTION_KEY not set)")
+	}
+	return s.svc.LlmConfig.ListProviders(ctx, req)
+}
+
+func (s *Server) CreateProvider(ctx context.Context, req *pb.CreateProviderRequest) (*pb.ProviderResponse, error) {
+	if s.svc.LlmConfig == nil {
+		return nil, status.Error(codes.Unavailable, "llm config service not available (ENCRYPTION_KEY not set)")
+	}
+	return s.svc.LlmConfig.CreateProvider(ctx, req)
+}
+
+func (s *Server) UpdateProvider(ctx context.Context, req *pb.UpdateProviderRequest) (*pb.ProviderResponse, error) {
+	if s.svc.LlmConfig == nil {
+		return nil, status.Error(codes.Unavailable, "llm config service not available (ENCRYPTION_KEY not set)")
+	}
+	return s.svc.LlmConfig.UpdateProvider(ctx, req)
+}
+
+func (s *Server) DeleteProvider(ctx context.Context, req *pb.DeleteProviderRequest) (*pb.CommonResponse, error) {
+	if s.svc.LlmConfig == nil {
+		return nil, status.Error(codes.Unavailable, "llm config service not available (ENCRYPTION_KEY not set)")
+	}
+	return s.svc.LlmConfig.DeleteProvider(ctx, req)
+}
+
+func (s *Server) TestProviderConnection(ctx context.Context, req *pb.TestProviderConnectionRequest) (*pb.TestProviderConnectionResponse, error) {
+	if s.svc.LlmConfig == nil {
+		return nil, status.Error(codes.Unavailable, "llm config service not available (ENCRYPTION_KEY not set)")
+	}
+	return s.svc.LlmConfig.TestProviderConnection(ctx, req)
+}
+
+func (s *Server) ListModels(ctx context.Context, req *pb.ListModelsRequest) (*pb.ListModelsResponse, error) {
+	if s.svc.LlmConfig == nil {
+		return nil, status.Error(codes.Unavailable, "llm config service not available (ENCRYPTION_KEY not set)")
+	}
+	return s.svc.LlmConfig.ListModels(ctx, req)
+}
+
+func (s *Server) CreateModel(ctx context.Context, req *pb.CreateModelRequest) (*pb.ModelResponse, error) {
+	if s.svc.LlmConfig == nil {
+		return nil, status.Error(codes.Unavailable, "llm config service not available (ENCRYPTION_KEY not set)")
+	}
+	return s.svc.LlmConfig.CreateModel(ctx, req)
+}
+
+func (s *Server) UpdateModel(ctx context.Context, req *pb.UpdateModelRequest) (*pb.ModelResponse, error) {
+	if s.svc.LlmConfig == nil {
+		return nil, status.Error(codes.Unavailable, "llm config service not available (ENCRYPTION_KEY not set)")
+	}
+	return s.svc.LlmConfig.UpdateModel(ctx, req)
+}
+
+func (s *Server) DeleteModel(ctx context.Context, req *pb.DeleteModelRequest) (*pb.CommonResponse, error) {
+	if s.svc.LlmConfig == nil {
+		return nil, status.Error(codes.Unavailable, "llm config service not available (ENCRYPTION_KEY not set)")
+	}
+	return s.svc.LlmConfig.DeleteModel(ctx, req)
 }

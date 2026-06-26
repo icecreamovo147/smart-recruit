@@ -310,6 +310,7 @@ func Setup(cfg config.Config, clients *rpc.Clients, rdb *redis.Client) (*gin.Eng
 	// ── Admin routes (/hr/admin) ───────────────────────────────────────
 	// Admin routes require explicit admin permissions (not role hierarchy).
 	adminHandler := hr.NewAdminHandler(clients)
+	llmConfigHandler := hr.NewLlmConfigHandler(clients)
 	adminGroup := staffGroup.Group("/admin")
 
 	// Invite codes
@@ -351,6 +352,19 @@ func Setup(cfg config.Config, clients *rpc.Clients, rdb *redis.Client) (*gin.Eng
 	adminGroup.DELETE("/data-scopes/:scope_id", normalTimeout, middleware.RequirePermission(authz.PermAdminUserManage), adminHandler.RevokeDataScope)
 	adminGroup.GET("/staff-users", normalTimeout, middleware.RequirePermission(authz.PermAdminUserManage), adminHandler.ListStaffUsers)
 	adminGroup.POST("/staff-users", normalTimeout, bodyProfile, middleware.RequirePermission(authz.PermAdminUserManage), adminHandler.CreateStaffUser)
+
+
+	// LLM Provider & Model configuration — requires SYSTEM_CONFIG_MANAGE
+	adminGroup.GET("/llm-providers", normalTimeout, middleware.RequirePermission(authz.PermSystemConfigManage), llmConfigHandler.ListProviders)
+	adminGroup.POST("/llm-providers", normalTimeout, bodyAuth, middleware.RequirePermission(authz.PermSystemConfigManage), llmConfigHandler.CreateProvider)
+	adminGroup.PUT("/llm-providers/:id", normalTimeout, bodyAuth, middleware.RequirePermission(authz.PermSystemConfigManage), llmConfigHandler.UpdateProvider)
+	adminGroup.DELETE("/llm-providers/:id", normalTimeout, middleware.RequirePermission(authz.PermSystemConfigManage), llmConfigHandler.DeleteProvider)
+	adminGroup.POST("/llm-providers/:id/test", normalTimeout, middleware.RequirePermission(authz.PermSystemConfigManage), llmConfigHandler.TestProviderConnection)
+
+	adminGroup.GET("/llm-models", normalTimeout, middleware.RequirePermission(authz.PermSystemConfigManage), llmConfigHandler.ListModels)
+	adminGroup.POST("/llm-models", normalTimeout, bodyAuth, middleware.RequirePermission(authz.PermSystemConfigManage), llmConfigHandler.CreateModel)
+	adminGroup.PUT("/llm-models/:id", normalTimeout, bodyAuth, middleware.RequirePermission(authz.PermSystemConfigManage), llmConfigHandler.UpdateModel)
+	adminGroup.DELETE("/llm-models/:id", normalTimeout, middleware.RequirePermission(authz.PermSystemConfigManage), llmConfigHandler.DeleteModel)
 
 	return r, limiters
 }

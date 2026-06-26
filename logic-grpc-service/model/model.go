@@ -535,3 +535,39 @@ type FollowUpTask struct {
 }
 
 func (FollowUpTask) TableName() string { return "follow_up_tasks" }
+
+// ── LLM Provider & Model Config (Phase M2) ─────────────────────────────
+
+// LlmProvider represents an LLM service provider configuration.
+type LlmProvider struct {
+	ID               int64     `gorm:"primaryKey"`
+	Name             string    `gorm:"column:name;size:128;not null"`
+	BaseURL          string    `gorm:"column:base_url;size:512;not null"`
+	APIKeyEncrypted  string    `gorm:"column:api_key_encrypted;size:512;not null"`
+	ProviderType     string    `gorm:"column:provider_type;size:64;not null"`
+	ExtraHeaders     string    `gorm:"column:extra_headers;type:json"`
+	IsEnabled        int32     `gorm:"column:is_enabled;default:1"`
+	CreatedAt        time.Time `gorm:"column:created_at"`
+	UpdatedAt        time.Time `gorm:"column:updated_at"`
+}
+
+func (LlmProvider) TableName() string { return "llm_providers" }
+
+// LlmModel represents an LLM model configuration under a provider.
+type LlmModel struct {
+	ID             int64     `gorm:"primaryKey"`
+	ProviderID     int64     `gorm:"column:provider_id;not null"`
+	ModelName      string    `gorm:"column:model_name;size:128;not null"`
+	DisplayName    string    `gorm:"column:display_name;size:128"`
+	Temperature    float64   `gorm:"column:temperature;default:0.7"`
+	TopP           float64   `gorm:"column:top_p;default:1.0"`
+	MaxTokens      int32     `gorm:"column:max_tokens;default:4096"`
+	MaxConcurrency int32     `gorm:"column:max_concurrency;default:10"`
+	TimeoutSeconds int32     `gorm:"column:timeout_seconds;default:90"`
+	IsEnabled      int32     `gorm:"column:is_enabled;default:1"`
+	IsDefault      int32     `gorm:"column:is_default;default:0"`
+	CreatedAt      time.Time `gorm:"column:created_at"`
+	UpdatedAt      time.Time `gorm:"column:updated_at"`
+}
+
+func (LlmModel) TableName() string { return "llm_models" }

@@ -27,6 +27,7 @@ import (
 	"logic-grpc-service/mq"
 	"logic-grpc-service/oss"
 	"logic-grpc-service/pkg/cache"
+	"logic-grpc-service/pkg/crypto"
 	"logic-grpc-service/pkg/logger"
 	"logic-grpc-service/recruitment/pb"
 	"logic-grpc-service/repository"
@@ -188,23 +189,17 @@ func main() {
 		log.Info("redis job cache enabled", zap.String("addr", cfg.Redis.Addr))
 	}
 
-	aiClient, err := ai.NewClient(ctx, cfg.AI.APIKey, cfg.AI.Model, cfg.AI.BaseURL, ai.Options{
-		Timeout:                 cfg.AI.Timeout.Duration,
-		TotalTimeout:            cfg.AI.TotalTimeout.Duration,
-		ToolMaxRounds:           cfg.AI.ToolMaxRounds,
-		ToolTotalTimeout:        cfg.AI.ToolTotalTimeout.Duration,
-		MaxConcurrency:          cfg.AI.MaxConcurrency,
-		CircuitFailureThreshold: cfg.AI.CircuitFailureThreshold,
-		CircuitOpenTimeout:      cfg.AI.CircuitOpenTimeout.Duration,
-		HalfOpenMaxRequests:     cfg.AI.CircuitHalfOpenMaxRequests,
-		RetryMaxAttempts:        cfg.AI.RetryMaxAttempts,
-		RetryBaseDelay:          cfg.AI.RetryBaseDelay.Duration,
-		SlowResponseThreshold:   cfg.AI.SlowResponseThreshold.Duration,
-	})
+	providerRepo := repository.NewProviderRepo(db)
+	modelRepo := repository.NewModelConfigRepo(db)
+	encKey, encKeyErr := crypto.LoadEncryptionKey()
+	if encKeyErr != nil {
+		log.Warn("ENCRYPTION_KEY not set, AI client will use env var config only; "+
+			"provider/model config APIs will be unavailable", zap.Error(encKeyErr))
+	}
+	aiClient, err := initAIClient(ctx, cfg, providerRepo, modelRepo, encKey)
 	if err != nil {
 		log.Fatal("init ai client failed", zap.Error(err))
 	}
-	log.Info("ai client initialized", zap.String("model", cfg.AI.Model))
 
 	// ── Email sender and renderer ───────────────────────────────────────
 	emailSender, err := email.NewSender(email.SMTPConfig{
@@ -351,6 +346,7 @@ func main() {
 	pb.RegisterOfferServiceServer(grpcServer, recruitmentServer)
 	pb.RegisterAdminServiceServer(grpcServer, recruitmentServer)
 	pb.RegisterCollaborationServiceServer(grpcServer, recruitmentServer)
+	pb.RegisterLlmConfigServiceServer(grpcServer, recruitmentServer)
 	healthpb.RegisterHealthServer(grpcServer, server.NewHealthServer(sqlDB, healthRedis, mqConn))
 
 	// Graceful shutdown
@@ -419,3 +415,56 @@ func envBool(key string) bool {
 	parsed, err := strconv.ParseBool(value)
 	return err == nil && parsed
 }
+
+// initAIClient initializes the AI client with DB-first config, falling back to env vars.
+func initAIClient(ctx context.Context, cfg config.Config, providerRepo *repository.ProviderRepo, modelRepo *repository.ModelConfigRepo, encKey crypto.EncryptionKey) (*ai.Client, error) {
+	// Try to get default model config from DB
+	dbBaseURL, dbAPIKey, dbModel, err := service.GetDefaultModelConfig(ctx, providerRepo, modelRepo, encKey, cfg)
+	if err == nil && dbAPIKey != "" && dbModel != "" {
+		logger.L().Info("ai client initialized from DB config",
+			zap.String("model", dbModel),
+			zap.String("base_url", dbBaseURL),
+		)
+		client, err := ai.NewClient(ctx, dbAPIKey, dbModel, dbBaseURL, ai.Options{
+			Timeout:                 cfg.AI.Timeout.Duration,
+			TotalTimeout:            cfg.AI.TotalTimeout.Duration,
+			ToolMaxRounds:           cfg.AI.ToolMaxRounds,
+			ToolTotalTimeout:        cfg.AI.ToolTotalTimeout.Duration,
+			MaxConcurrency:          cfg.AI.MaxConcurrency,
+			CircuitFailureThreshold: cfg.AI.CircuitFailureThreshold,
+			CircuitOpenTimeout:      cfg.AI.CircuitOpenTimeout.Duration,
+			HalfOpenMaxRequests:     cfg.AI.CircuitHalfOpenMaxRequests,
+			RetryMaxAttempts:        cfg.AI.RetryMaxAttempts,
+			RetryBaseDelay:          cfg.AI.RetryBaseDelay.Duration,
+			SlowResponseThreshold:   cfg.AI.SlowResponseThreshold.Duration,
+		})
+		if err == nil {
+			return client, nil
+		}
+		logger.L().Warn("ai client from DB config failed, falling back to env vars", zap.Error(err))
+	}
+
+	// Fall back to environment variable configuration
+	logger.L().Info("ai client initialized from env config",
+		zap.String("model", cfg.AI.Model),
+	)
+	client, err := ai.NewClient(ctx, cfg.AI.APIKey, cfg.AI.Model, cfg.AI.BaseURL, ai.Options{
+		Timeout:                 cfg.AI.Timeout.Duration,
+		TotalTimeout:            cfg.AI.TotalTimeout.Duration,
+		ToolMaxRounds:           cfg.AI.ToolMaxRounds,
+		ToolTotalTimeout:        cfg.AI.ToolTotalTimeout.Duration,
+		MaxConcurrency:          cfg.AI.MaxConcurrency,
+		CircuitFailureThreshold: cfg.AI.CircuitFailureThreshold,
+		CircuitOpenTimeout:      cfg.AI.CircuitOpenTimeout.Duration,
+		HalfOpenMaxRequests:     cfg.AI.CircuitHalfOpenMaxRequests,
+		RetryMaxAttempts:        cfg.AI.RetryMaxAttempts,
+		RetryBaseDelay:          cfg.AI.RetryBaseDelay.Duration,
+		SlowResponseThreshold:   cfg.AI.SlowResponseThreshold.Duration,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("init ai client from env: %w", err)
+	}
+	return client, nil
+}
+
+

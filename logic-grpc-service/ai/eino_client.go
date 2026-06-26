@@ -71,6 +71,18 @@ type ApplicationAnalysisInput struct {
 	ResumeText     string
 }
 
+// ClientConfig holds model configuration parameters for creating an AI client.
+// This is used to pass config from the DB (llm_providers + llm_models) instead of env vars.
+type ClientConfig struct {
+	APIKey          string
+	Model           string
+	BaseURL         string
+	Timeout         time.Duration
+	TotalTimeout    time.Duration
+	ToolMaxRounds   int
+	MaxConcurrency  int
+}
+
 func NewClient(ctx context.Context, apiKey, model, baseURL string, opts ...Options) (*Client, error) {
 	if strings.TrimSpace(apiKey) == "" {
 		return nil, fmt.Errorf("ai api_key is empty")
@@ -93,6 +105,102 @@ func NewClient(ctx context.Context, apiKey, model, baseURL string, opts ...Optio
 		RetryMaxAttempts:        0,
 		RetryBaseDelay:          500 * time.Millisecond,
 		SlowResponseThreshold:   5 * time.Second,
+	}
+	if len(opts) > 0 {
+		if opts[0].Timeout > 0 {
+			opt.Timeout = opts[0].Timeout
+		}
+		if opts[0].TotalTimeout > 0 {
+			opt.TotalTimeout = opts[0].TotalTimeout
+		}
+		if opts[0].ToolMaxRounds > 0 {
+			opt.ToolMaxRounds = opts[0].ToolMaxRounds
+		}
+		if opts[0].ToolTotalTimeout > 0 {
+			opt.ToolTotalTimeout = opts[0].ToolTotalTimeout
+		}
+		if opts[0].MaxConcurrency > 0 {
+			opt.MaxConcurrency = opts[0].MaxConcurrency
+		}
+		if opts[0].CircuitFailureThreshold > 0 {
+			opt.CircuitFailureThreshold = opts[0].CircuitFailureThreshold
+		}
+		if opts[0].CircuitOpenTimeout > 0 {
+			opt.CircuitOpenTimeout = opts[0].CircuitOpenTimeout
+		}
+		if opts[0].HalfOpenMaxRequests > 0 {
+			opt.HalfOpenMaxRequests = opts[0].HalfOpenMaxRequests
+		}
+		if opts[0].RetryMaxAttempts > 0 {
+			opt.RetryMaxAttempts = opts[0].RetryMaxAttempts
+		}
+		if opts[0].RetryBaseDelay > 0 {
+			opt.RetryBaseDelay = opts[0].RetryBaseDelay
+		}
+		if opts[0].SlowResponseThreshold > 0 {
+			opt.SlowResponseThreshold = opts[0].SlowResponseThreshold
+		}
+	}
+	cm, err := openai.NewChatModel(ctx, &openai.ChatModelConfig{
+		APIKey:  apiKey,
+		Model:   model,
+		BaseURL: baseURL,
+		Timeout: opt.Timeout,
+	})
+	if err != nil {
+		return nil, err
+	}
+	return &Client{
+		model:            model,
+		cm:               cm,
+		timeout:          opt.Timeout,
+		totalTimeout:     opt.TotalTimeout,
+		toolMaxRounds:    opt.ToolMaxRounds,
+		toolTotalTimeout: opt.ToolTotalTimeout,
+		retryMaxAttempts: opt.RetryMaxAttempts,
+		retryBaseDelay:   opt.RetryBaseDelay,
+		slowThreshold:    opt.SlowResponseThreshold,
+		sem:              make(chan struct{}, opt.MaxConcurrency),
+		breaker:          NewCircuitBreaker(opt.CircuitFailureThreshold, opt.CircuitOpenTimeout, opt.HalfOpenMaxRequests),
+	}, nil
+}
+
+// NewClientFromConfig creates an AI client using a ClientConfig struct.
+// This allows the caller to provide model configuration from DB tables
+// while falling back to env-var defaults for unspecified fields.
+func NewClientFromConfig(ctx context.Context, cfg ClientConfig, opts ...Options) (*Client, error) {
+	apiKey := cfg.APIKey
+	model := cfg.Model
+	baseURL := cfg.BaseURL
+
+	if strings.TrimSpace(baseURL) == "" {
+		baseURL = "https://dashscope.aliyuncs.com/compatible-mode/v1"
+	}
+
+	opt := Options{
+		Timeout:                 45 * time.Second,
+		TotalTimeout:            120 * time.Second,
+		ToolMaxRounds:           5,
+		ToolTotalTimeout:        30 * time.Second,
+		MaxConcurrency:          10,
+		CircuitFailureThreshold: 5,
+		CircuitOpenTimeout:      30 * time.Second,
+		HalfOpenMaxRequests:     2,
+		RetryMaxAttempts:        0,
+		RetryBaseDelay:          500 * time.Millisecond,
+		SlowResponseThreshold:   5 * time.Second,
+	}
+	if cfg.Timeout > 0 {
+		opt.Timeout = cfg.Timeout
+	}
+	if cfg.TotalTimeout > 0 {
+		opt.TotalTimeout = cfg.TotalTimeout
+	}
+	if cfg.ToolMaxRounds > 0 {
+		opt.ToolMaxRounds = cfg.ToolMaxRounds
+	}
+	if cfg.MaxConcurrency > 0 {
+		opt.MaxConcurrency = cfg.MaxConcurrency
 	}
 	if len(opts) > 0 {
 		if opts[0].Timeout > 0 {

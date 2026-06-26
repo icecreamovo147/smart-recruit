@@ -916,6 +916,7 @@ message BatchCancelInterviewsRequest {
 message BatchCancelInterviewsResponse {
   int32 code = 1;
   string msg = 2;
+  int32 affected = 3;
 }
 
 message Notification {
@@ -1917,4 +1918,162 @@ message GetInterviewOfferMetricsResponse {
   int64 accepted_offers = 8;
   int64 rejected_offers = 9;
   double acceptance_rate = 10; // 0-100
+}
+
+// ══════════════════════════════════════════════════════════════════════
+// Phase M2: LLM Provider & Model Configuration
+// ══════════════════════════════════════════════════════════════════════
+
+service LlmConfigService {
+  rpc ListProviders(ListProvidersRequest) returns (ListProvidersResponse);
+  rpc CreateProvider(CreateProviderRequest) returns (ProviderResponse);
+  rpc UpdateProvider(UpdateProviderRequest) returns (ProviderResponse);
+  rpc DeleteProvider(DeleteProviderRequest) returns (CommonResponse);
+  rpc TestProviderConnection(TestProviderConnectionRequest) returns (TestProviderConnectionResponse);
+
+  rpc ListModels(ListModelsRequest) returns (ListModelsResponse);
+  rpc CreateModel(CreateModelRequest) returns (ModelResponse);
+  rpc UpdateModel(UpdateModelRequest) returns (ModelResponse);
+  rpc DeleteModel(DeleteModelRequest) returns (CommonResponse);
+}
+
+// ── LLM Provider messages ───────────────────────────────────────────
+
+message LlmProviderInfo {
+  int64 id = 1;
+  string name = 2;
+  string base_url = 3;
+  string api_key_masked = 4;       // 脱敏后的 key（前4+后4）
+  string provider_type = 5;
+  string extra_headers_json = 6;   // JSON 字符串，value 已脱敏
+  bool is_enabled = 7;
+  string created_at = 8;
+  string updated_at = 9;
+}
+
+message ListProvidersRequest {
+  int32 page = 1;
+  int32 page_size = 2;
+}
+
+message ListProvidersResponse {
+  int32 code = 1;
+  string msg = 2;
+  int64 total = 3;
+  repeated LlmProviderInfo list = 4;
+}
+
+message CreateProviderRequest {
+  string name = 1;
+  string base_url = 2;
+  string api_key = 3;              // 明文传入，服务端加密存储
+  string provider_type = 4;
+  string extra_headers_json = 5;   // JSON string
+}
+
+message UpdateProviderRequest {
+  int64 id = 1;
+  string name = 2;                 // 空 = 不更新
+  string base_url = 3;             // 空 = 不更新
+  string api_key = 4;              // 空 = 不更新
+  string provider_type = 5;        // 空 = 不更新
+  string extra_headers_json = 6;   // 空 = 不更新，extra_headers_set=true 时显式清空
+  bool is_enabled = 7;
+  bool is_enabled_set = 8;         // 是否设置了 is_enabled
+  bool extra_headers_set = 9;      // 是否显式设置了 extra_headers_json（支持清空）
+}
+
+message ProviderResponse {
+  int32 code = 1;
+  string msg = 2;
+  LlmProviderInfo provider = 3;
+}
+
+message DeleteProviderRequest {
+  int64 id = 1;
+}
+
+message TestProviderConnectionRequest {
+  int64 provider_id = 1;
+}
+
+message TestProviderConnectionResponse {
+  int32 code = 1;
+  string msg = 2;
+  bool success = 3;
+  string detail = 4;               // 连接详情或错误信息
+}
+
+// ── LLM Model messages ─────────────────────────────────────────────
+
+message LlmModelInfo {
+  int64 id = 1;
+  int64 provider_id = 2;
+  string model_name = 3;
+  string display_name = 4;
+  double temperature = 5;
+  double top_p = 6;
+  int32 max_tokens = 7;
+  int32 max_concurrency = 8;
+  int32 timeout_seconds = 9;
+  bool is_enabled = 10;
+  bool is_default = 11;
+  string created_at = 12;
+  string updated_at = 13;
+  string provider_name = 14;       // Joined field
+}
+
+message ListModelsRequest {
+  int32 page = 1;
+  int32 page_size = 2;
+  int64 provider_id = 3;           // optional filter
+}
+
+message ListModelsResponse {
+  int32 code = 1;
+  string msg = 2;
+  int64 total = 3;
+  repeated LlmModelInfo list = 4;
+}
+
+message CreateModelRequest {
+  int64 provider_id = 1;
+  string model_name = 2;
+  string display_name = 3;
+  double temperature = 4;
+  double top_p = 5;
+  int32 max_tokens = 6;
+  int32 max_concurrency = 7;
+  int32 timeout_seconds = 8;
+  bool is_default = 9;
+}
+
+message UpdateModelRequest {
+  int64 id = 1;
+  string model_name = 2;           // 空 = 不更新
+  string display_name = 3;         // 空 = 不更新
+  double temperature = 4;
+  bool temperature_set = 5;        // 是否设置了 temperature
+  double top_p = 6;
+  bool top_p_set = 7;
+  int32 max_tokens = 8;
+  bool max_tokens_set = 9;
+  int32 max_concurrency = 10;
+  bool max_concurrency_set = 11;
+  int32 timeout_seconds = 12;
+  bool timeout_seconds_set = 13;
+  bool is_enabled = 14;
+  bool is_enabled_set = 15;
+  bool is_default = 16;
+  bool is_default_set = 17;
+}
+
+message ModelResponse {
+  int32 code = 1;
+  string msg = 2;
+  LlmModelInfo model = 3;
+}
+
+message DeleteModelRequest {
+  int64 id = 1;
 }

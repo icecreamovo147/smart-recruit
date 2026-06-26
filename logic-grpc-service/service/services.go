@@ -2,6 +2,7 @@ package service
 
 import (
 	"github.com/redis/go-redis/v9"
+	"go.uber.org/zap"
 	"gorm.io/gorm"
 
 	"logic-grpc-service/ai"
@@ -10,6 +11,8 @@ import (
 	"logic-grpc-service/mq"
 	"logic-grpc-service/oss"
 	"logic-grpc-service/pkg/cache"
+	"logic-grpc-service/pkg/crypto"
+	"logic-grpc-service/pkg/logger"
 	"logic-grpc-service/repository"
 )
 
@@ -43,6 +46,7 @@ type Services struct {
 	Taxonomy      *JobTaxonomyService
 	Collaboration *CollaborationService
 	Analytics     *AnalyticsService
+	LlmConfig     *LlmConfigService
 
 	// Phase 6: Audit context repo for AI usage audit writes
 	UsageAuditCtxRepo *repository.UsageAuditContextRepo
@@ -120,6 +124,8 @@ func NewServices(
 		AI:                NewAIService(chats, applications, jobs, resumes, summaries, toolTraces, memories, ossClient, aiClient, toolExecutor, contextBuilder, candidateAI, usageLogs, usageAuditCtxRepo, authzRepo, agentRuntime, serviceAuth),
 		CandidateAI:       candidateAI,
 		Notification:      NewNotificationService(notifications, notifCache, serviceAuth),
+		LlmConfig:         newLlmConfigServiceWithFallback(db),
+
 		Collaboration: NewCollaborationService(
 			authzRepo,
 			collaborationRepo,
@@ -140,4 +146,16 @@ func NewServices(
 		ResumeParseConsumer:  resumeParseConsumer,
 		EmailConsumer:        emailConsumer,
 	}
+}
+
+// newLlmConfigServiceWithFallback creates a LlmConfigService if ENCRYPTION_KEY is available,
+// or returns nil if not set, allowing the rest of the app to function without the encryption key.
+func newLlmConfigServiceWithFallback(db *gorm.DB) *LlmConfigService {
+	encKey, err := crypto.LoadEncryptionKey()
+	if err != nil {
+		logger.L().Warn("llm config service disabled: ENCRYPTION_KEY not set, "+
+			"provider config and model config APIs will return errors", zap.Error(err))
+		return nil
+	}
+	return NewLlmConfigService(repository.NewProviderRepo(db), repository.NewModelConfigRepo(db), encKey)
 }

@@ -5095,3 +5095,409 @@ var CollaborationService_ServiceDesc = grpc.ServiceDesc{
 	Streams:  []grpc.StreamDesc{},
 	Metadata: "proto/recruitment.proto",
 }
+
+const (
+	LlmConfigService_ListProviders_FullMethodName          = "/recruitment.LlmConfigService/ListProviders"
+	LlmConfigService_CreateProvider_FullMethodName         = "/recruitment.LlmConfigService/CreateProvider"
+	LlmConfigService_UpdateProvider_FullMethodName         = "/recruitment.LlmConfigService/UpdateProvider"
+	LlmConfigService_DeleteProvider_FullMethodName         = "/recruitment.LlmConfigService/DeleteProvider"
+	LlmConfigService_TestProviderConnection_FullMethodName = "/recruitment.LlmConfigService/TestProviderConnection"
+	LlmConfigService_ListModels_FullMethodName             = "/recruitment.LlmConfigService/ListModels"
+	LlmConfigService_CreateModel_FullMethodName            = "/recruitment.LlmConfigService/CreateModel"
+	LlmConfigService_UpdateModel_FullMethodName            = "/recruitment.LlmConfigService/UpdateModel"
+	LlmConfigService_DeleteModel_FullMethodName            = "/recruitment.LlmConfigService/DeleteModel"
+)
+
+// LlmConfigServiceClient is the client API for LlmConfigService service.
+//
+// For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
+type LlmConfigServiceClient interface {
+	ListProviders(ctx context.Context, in *ListProvidersRequest, opts ...grpc.CallOption) (*ListProvidersResponse, error)
+	CreateProvider(ctx context.Context, in *CreateProviderRequest, opts ...grpc.CallOption) (*ProviderResponse, error)
+	UpdateProvider(ctx context.Context, in *UpdateProviderRequest, opts ...grpc.CallOption) (*ProviderResponse, error)
+	DeleteProvider(ctx context.Context, in *DeleteProviderRequest, opts ...grpc.CallOption) (*CommonResponse, error)
+	TestProviderConnection(ctx context.Context, in *TestProviderConnectionRequest, opts ...grpc.CallOption) (*TestProviderConnectionResponse, error)
+	ListModels(ctx context.Context, in *ListModelsRequest, opts ...grpc.CallOption) (*ListModelsResponse, error)
+	CreateModel(ctx context.Context, in *CreateModelRequest, opts ...grpc.CallOption) (*ModelResponse, error)
+	UpdateModel(ctx context.Context, in *UpdateModelRequest, opts ...grpc.CallOption) (*ModelResponse, error)
+	DeleteModel(ctx context.Context, in *DeleteModelRequest, opts ...grpc.CallOption) (*CommonResponse, error)
+}
+
+type llmConfigServiceClient struct {
+	cc grpc.ClientConnInterface
+}
+
+func NewLlmConfigServiceClient(cc grpc.ClientConnInterface) LlmConfigServiceClient {
+	return &llmConfigServiceClient{cc}
+}
+
+func (c *llmConfigServiceClient) ListProviders(ctx context.Context, in *ListProvidersRequest, opts ...grpc.CallOption) (*ListProvidersResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ListProvidersResponse)
+	err := c.cc.Invoke(ctx, LlmConfigService_ListProviders_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *llmConfigServiceClient) CreateProvider(ctx context.Context, in *CreateProviderRequest, opts ...grpc.CallOption) (*ProviderResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ProviderResponse)
+	err := c.cc.Invoke(ctx, LlmConfigService_CreateProvider_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *llmConfigServiceClient) UpdateProvider(ctx context.Context, in *UpdateProviderRequest, opts ...grpc.CallOption) (*ProviderResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ProviderResponse)
+	err := c.cc.Invoke(ctx, LlmConfigService_UpdateProvider_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *llmConfigServiceClient) DeleteProvider(ctx context.Context, in *DeleteProviderRequest, opts ...grpc.CallOption) (*CommonResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(CommonResponse)
+	err := c.cc.Invoke(ctx, LlmConfigService_DeleteProvider_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *llmConfigServiceClient) TestProviderConnection(ctx context.Context, in *TestProviderConnectionRequest, opts ...grpc.CallOption) (*TestProviderConnectionResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(TestProviderConnectionResponse)
+	err := c.cc.Invoke(ctx, LlmConfigService_TestProviderConnection_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *llmConfigServiceClient) ListModels(ctx context.Context, in *ListModelsRequest, opts ...grpc.CallOption) (*ListModelsResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ListModelsResponse)
+	err := c.cc.Invoke(ctx, LlmConfigService_ListModels_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *llmConfigServiceClient) CreateModel(ctx context.Context, in *CreateModelRequest, opts ...grpc.CallOption) (*ModelResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ModelResponse)
+	err := c.cc.Invoke(ctx, LlmConfigService_CreateModel_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *llmConfigServiceClient) UpdateModel(ctx context.Context, in *UpdateModelRequest, opts ...grpc.CallOption) (*ModelResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ModelResponse)
+	err := c.cc.Invoke(ctx, LlmConfigService_UpdateModel_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *llmConfigServiceClient) DeleteModel(ctx context.Context, in *DeleteModelRequest, opts ...grpc.CallOption) (*CommonResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(CommonResponse)
+	err := c.cc.Invoke(ctx, LlmConfigService_DeleteModel_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+// LlmConfigServiceServer is the server API for LlmConfigService service.
+// All implementations must embed UnimplementedLlmConfigServiceServer
+// for forward compatibility.
+type LlmConfigServiceServer interface {
+	ListProviders(context.Context, *ListProvidersRequest) (*ListProvidersResponse, error)
+	CreateProvider(context.Context, *CreateProviderRequest) (*ProviderResponse, error)
+	UpdateProvider(context.Context, *UpdateProviderRequest) (*ProviderResponse, error)
+	DeleteProvider(context.Context, *DeleteProviderRequest) (*CommonResponse, error)
+	TestProviderConnection(context.Context, *TestProviderConnectionRequest) (*TestProviderConnectionResponse, error)
+	ListModels(context.Context, *ListModelsRequest) (*ListModelsResponse, error)
+	CreateModel(context.Context, *CreateModelRequest) (*ModelResponse, error)
+	UpdateModel(context.Context, *UpdateModelRequest) (*ModelResponse, error)
+	DeleteModel(context.Context, *DeleteModelRequest) (*CommonResponse, error)
+	mustEmbedUnimplementedLlmConfigServiceServer()
+}
+
+// UnimplementedLlmConfigServiceServer must be embedded to have
+// forward compatible implementations.
+//
+// NOTE: this should be embedded by value instead of pointer to avoid a nil
+// pointer dereference when methods are called.
+type UnimplementedLlmConfigServiceServer struct{}
+
+func (UnimplementedLlmConfigServiceServer) ListProviders(context.Context, *ListProvidersRequest) (*ListProvidersResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method ListProviders not implemented")
+}
+func (UnimplementedLlmConfigServiceServer) CreateProvider(context.Context, *CreateProviderRequest) (*ProviderResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method CreateProvider not implemented")
+}
+func (UnimplementedLlmConfigServiceServer) UpdateProvider(context.Context, *UpdateProviderRequest) (*ProviderResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method UpdateProvider not implemented")
+}
+func (UnimplementedLlmConfigServiceServer) DeleteProvider(context.Context, *DeleteProviderRequest) (*CommonResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method DeleteProvider not implemented")
+}
+func (UnimplementedLlmConfigServiceServer) TestProviderConnection(context.Context, *TestProviderConnectionRequest) (*TestProviderConnectionResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method TestProviderConnection not implemented")
+}
+func (UnimplementedLlmConfigServiceServer) ListModels(context.Context, *ListModelsRequest) (*ListModelsResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method ListModels not implemented")
+}
+func (UnimplementedLlmConfigServiceServer) CreateModel(context.Context, *CreateModelRequest) (*ModelResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method CreateModel not implemented")
+}
+func (UnimplementedLlmConfigServiceServer) UpdateModel(context.Context, *UpdateModelRequest) (*ModelResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method UpdateModel not implemented")
+}
+func (UnimplementedLlmConfigServiceServer) DeleteModel(context.Context, *DeleteModelRequest) (*CommonResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method DeleteModel not implemented")
+}
+func (UnimplementedLlmConfigServiceServer) mustEmbedUnimplementedLlmConfigServiceServer() {}
+func (UnimplementedLlmConfigServiceServer) testEmbeddedByValue()                          {}
+
+// UnsafeLlmConfigServiceServer may be embedded to opt out of forward compatibility for this service.
+// Use of this interface is not recommended, as added methods to LlmConfigServiceServer will
+// result in compilation errors.
+type UnsafeLlmConfigServiceServer interface {
+	mustEmbedUnimplementedLlmConfigServiceServer()
+}
+
+func RegisterLlmConfigServiceServer(s grpc.ServiceRegistrar, srv LlmConfigServiceServer) {
+	// If the following call panics, it indicates UnimplementedLlmConfigServiceServer was
+	// embedded by pointer and is nil.  This will cause panics if an
+	// unimplemented method is ever invoked, so we test this at initialization
+	// time to prevent it from happening at runtime later due to I/O.
+	if t, ok := srv.(interface{ testEmbeddedByValue() }); ok {
+		t.testEmbeddedByValue()
+	}
+	s.RegisterService(&LlmConfigService_ServiceDesc, srv)
+}
+
+func _LlmConfigService_ListProviders_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ListProvidersRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(LlmConfigServiceServer).ListProviders(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: LlmConfigService_ListProviders_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(LlmConfigServiceServer).ListProviders(ctx, req.(*ListProvidersRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _LlmConfigService_CreateProvider_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(CreateProviderRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(LlmConfigServiceServer).CreateProvider(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: LlmConfigService_CreateProvider_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(LlmConfigServiceServer).CreateProvider(ctx, req.(*CreateProviderRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _LlmConfigService_UpdateProvider_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(UpdateProviderRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(LlmConfigServiceServer).UpdateProvider(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: LlmConfigService_UpdateProvider_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(LlmConfigServiceServer).UpdateProvider(ctx, req.(*UpdateProviderRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _LlmConfigService_DeleteProvider_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(DeleteProviderRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(LlmConfigServiceServer).DeleteProvider(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: LlmConfigService_DeleteProvider_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(LlmConfigServiceServer).DeleteProvider(ctx, req.(*DeleteProviderRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _LlmConfigService_TestProviderConnection_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(TestProviderConnectionRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(LlmConfigServiceServer).TestProviderConnection(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: LlmConfigService_TestProviderConnection_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(LlmConfigServiceServer).TestProviderConnection(ctx, req.(*TestProviderConnectionRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _LlmConfigService_ListModels_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ListModelsRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(LlmConfigServiceServer).ListModels(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: LlmConfigService_ListModels_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(LlmConfigServiceServer).ListModels(ctx, req.(*ListModelsRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _LlmConfigService_CreateModel_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(CreateModelRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(LlmConfigServiceServer).CreateModel(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: LlmConfigService_CreateModel_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(LlmConfigServiceServer).CreateModel(ctx, req.(*CreateModelRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _LlmConfigService_UpdateModel_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(UpdateModelRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(LlmConfigServiceServer).UpdateModel(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: LlmConfigService_UpdateModel_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(LlmConfigServiceServer).UpdateModel(ctx, req.(*UpdateModelRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _LlmConfigService_DeleteModel_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(DeleteModelRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(LlmConfigServiceServer).DeleteModel(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: LlmConfigService_DeleteModel_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(LlmConfigServiceServer).DeleteModel(ctx, req.(*DeleteModelRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+// LlmConfigService_ServiceDesc is the grpc.ServiceDesc for LlmConfigService service.
+// It's only intended for direct use with grpc.RegisterService,
+// and not to be introspected or modified (even as a copy)
+var LlmConfigService_ServiceDesc = grpc.ServiceDesc{
+	ServiceName: "recruitment.LlmConfigService",
+	HandlerType: (*LlmConfigServiceServer)(nil),
+	Methods: []grpc.MethodDesc{
+		{
+			MethodName: "ListProviders",
+			Handler:    _LlmConfigService_ListProviders_Handler,
+		},
+		{
+			MethodName: "CreateProvider",
+			Handler:    _LlmConfigService_CreateProvider_Handler,
+		},
+		{
+			MethodName: "UpdateProvider",
+			Handler:    _LlmConfigService_UpdateProvider_Handler,
+		},
+		{
+			MethodName: "DeleteProvider",
+			Handler:    _LlmConfigService_DeleteProvider_Handler,
+		},
+		{
+			MethodName: "TestProviderConnection",
+			Handler:    _LlmConfigService_TestProviderConnection_Handler,
+		},
+		{
+			MethodName: "ListModels",
+			Handler:    _LlmConfigService_ListModels_Handler,
+		},
+		{
+			MethodName: "CreateModel",
+			Handler:    _LlmConfigService_CreateModel_Handler,
+		},
+		{
+			MethodName: "UpdateModel",
+			Handler:    _LlmConfigService_UpdateModel_Handler,
+		},
+		{
+			MethodName: "DeleteModel",
+			Handler:    _LlmConfigService_DeleteModel_Handler,
+		},
+	},
+	Streams:  []grpc.StreamDesc{},
+	Metadata: "proto/recruitment.proto",
+}
