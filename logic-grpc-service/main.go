@@ -419,13 +419,18 @@ func envBool(key string) bool {
 // initAIClient initializes the AI client with DB-first config, falling back to env vars.
 func initAIClient(ctx context.Context, cfg config.Config, providerRepo *repository.ProviderRepo, modelRepo *repository.ModelConfigRepo, encKey crypto.EncryptionKey) (*ai.Client, error) {
 	// Try to get default model config from DB
-	dbBaseURL, dbAPIKey, dbModel, err := service.GetDefaultModelConfig(ctx, providerRepo, modelRepo, encKey, cfg)
+	dbBaseURL, dbAPIKey, dbModel, dbProviderType, err := service.GetDefaultModelConfig(ctx, providerRepo, modelRepo, encKey, cfg)
 	if err == nil && dbAPIKey != "" && dbModel != "" {
 		logger.L().Info("ai client initialized from DB config",
 			zap.String("model", dbModel),
 			zap.String("base_url", dbBaseURL),
+			zap.String("provider_type", dbProviderType),
 		)
-		client, err := ai.NewClient(ctx, dbAPIKey, dbModel, dbBaseURL, ai.Options{
+		client, err := ai.NewClientFromConfig(ctx, ai.ClientConfig{
+			APIKey:       dbAPIKey,
+			Model:        dbModel,
+			BaseURL:      dbBaseURL,
+			ProviderType: dbProviderType,
 			Timeout:                 cfg.AI.Timeout.Duration,
 			TotalTimeout:            cfg.AI.TotalTimeout.Duration,
 			ToolMaxRounds:           cfg.AI.ToolMaxRounds,

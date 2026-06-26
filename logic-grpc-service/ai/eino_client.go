@@ -17,6 +17,29 @@ import (
 	"logic-grpc-service/pkg/logger"
 )
 
+// newChatModel creates a ToolCallingChatModel based on the provider type.
+func newChatModel(ctx context.Context, providerType, apiKey, model, baseURL string, timeout time.Duration) (chatmodel.ToolCallingChatModel, error) {
+	switch providerType {
+	case "anthropic":
+		return newAnthropicChatModel(AnthropicChatModelConfig{
+			APIKey:  apiKey,
+			BaseURL: baseURL,
+			Model:   model,
+		}), nil
+	default: // openai_compatible, deepseek, ""
+		cm, err := openai.NewChatModel(ctx, &openai.ChatModelConfig{
+			APIKey:  apiKey,
+			Model:   model,
+			BaseURL: baseURL,
+			Timeout: timeout,
+		})
+		if err != nil {
+			return nil, err
+		}
+		return cm, nil
+	}
+}
+
 // ToolRunner is the interface that both HR and candidate tool executors implement.
 type ToolRunner interface {
 	Execute(ctx context.Context, hrID int64, toolName string, args map[string]any) (ToolResult, error)
@@ -24,7 +47,7 @@ type ToolRunner interface {
 
 type Client struct {
 	model            string
-	cm               *openai.ChatModel
+	cm               chatmodel.ToolCallingChatModel
 	timeout          time.Duration
 	totalTimeout     time.Duration
 	toolMaxRounds    int
@@ -74,13 +97,21 @@ type ApplicationAnalysisInput struct {
 // ClientConfig holds model configuration parameters for creating an AI client.
 // This is used to pass config from the DB (llm_providers + llm_models) instead of env vars.
 type ClientConfig struct {
-	APIKey          string
-	Model           string
-	BaseURL         string
-	Timeout         time.Duration
-	TotalTimeout    time.Duration
-	ToolMaxRounds   int
-	MaxConcurrency  int
+	APIKey                  string
+	Model                   string
+	BaseURL                 string
+	ProviderType            string
+	Timeout                 time.Duration
+	TotalTimeout            time.Duration
+	ToolMaxRounds           int
+	ToolTotalTimeout        time.Duration
+	MaxConcurrency          int
+	CircuitFailureThreshold int
+	CircuitOpenTimeout      time.Duration
+	HalfOpenMaxRequests     int
+	RetryMaxAttempts        int
+	RetryBaseDelay          time.Duration
+	SlowResponseThreshold   time.Duration
 }
 
 func NewClient(ctx context.Context, apiKey, model, baseURL string, opts ...Options) (*Client, error) {
@@ -141,12 +172,7 @@ func NewClient(ctx context.Context, apiKey, model, baseURL string, opts ...Optio
 			opt.SlowResponseThreshold = opts[0].SlowResponseThreshold
 		}
 	}
-	cm, err := openai.NewChatModel(ctx, &openai.ChatModelConfig{
-		APIKey:  apiKey,
-		Model:   model,
-		BaseURL: baseURL,
-		Timeout: opt.Timeout,
-	})
+	cm, err := newChatModel(ctx, "", apiKey, model, baseURL, opt.Timeout)
 	if err != nil {
 		return nil, err
 	}
@@ -202,6 +228,27 @@ func NewClientFromConfig(ctx context.Context, cfg ClientConfig, opts ...Options)
 	if cfg.MaxConcurrency > 0 {
 		opt.MaxConcurrency = cfg.MaxConcurrency
 	}
+	if cfg.ToolTotalTimeout > 0 {
+		opt.ToolTotalTimeout = cfg.ToolTotalTimeout
+	}
+	if cfg.CircuitFailureThreshold > 0 {
+		opt.CircuitFailureThreshold = cfg.CircuitFailureThreshold
+	}
+	if cfg.CircuitOpenTimeout > 0 {
+		opt.CircuitOpenTimeout = cfg.CircuitOpenTimeout
+	}
+	if cfg.HalfOpenMaxRequests > 0 {
+		opt.HalfOpenMaxRequests = cfg.HalfOpenMaxRequests
+	}
+	if cfg.RetryMaxAttempts > 0 {
+		opt.RetryMaxAttempts = cfg.RetryMaxAttempts
+	}
+	if cfg.RetryBaseDelay > 0 {
+		opt.RetryBaseDelay = cfg.RetryBaseDelay
+	}
+	if cfg.SlowResponseThreshold > 0 {
+		opt.SlowResponseThreshold = cfg.SlowResponseThreshold
+	}
 	if len(opts) > 0 {
 		if opts[0].Timeout > 0 {
 			opt.Timeout = opts[0].Timeout
@@ -237,12 +284,7 @@ func NewClientFromConfig(ctx context.Context, cfg ClientConfig, opts ...Options)
 			opt.SlowResponseThreshold = opts[0].SlowResponseThreshold
 		}
 	}
-	cm, err := openai.NewChatModel(ctx, &openai.ChatModelConfig{
-		APIKey:  apiKey,
-		Model:   model,
-		BaseURL: baseURL,
-		Timeout: opt.Timeout,
-	})
+	cm, err := newChatModel(ctx, cfg.ProviderType, apiKey, model, baseURL, opt.Timeout)
 	if err != nil {
 		return nil, err
 	}

@@ -604,7 +604,7 @@ func maskExtraHeaders(jsonStr string) string {
 
 // GetDefaultModelConfig retrieves the default model config (Provider + Model) for AI client initialization.
 // Returns provider name, base_url, api_key, model name, and model params.
-func GetDefaultModelConfig(ctx context.Context, providerRepo *repository.ProviderRepo, modelRepo *repository.ModelConfigRepo, encKey crypto.EncryptionKey, cfg config.Config) (baseURL, apiKey, model string, err error) {
+func GetDefaultModelConfig(ctx context.Context, providerRepo *repository.ProviderRepo, modelRepo *repository.ModelConfigRepo, encKey crypto.EncryptionKey, cfg config.Config) (baseURL, apiKey, model, providerType string, err error) {
 	// Try to find default model from DB
 	llmModel, dbErr := modelRepo.GetDefaultModel(ctx)
 	if dbErr == nil && llmModel != nil {
@@ -612,15 +612,15 @@ func GetDefaultModelConfig(ctx context.Context, providerRepo *repository.Provide
 		if pErr == nil && provider != nil && provider.IsEnabled == 1 {
 			keyBytes, dErr := crypto.Decrypt(encKey, provider.APIKeyEncrypted)
 			if dErr == nil {
-				return provider.BaseURL, string(keyBytes), llmModel.ModelName, nil
+				return provider.BaseURL, string(keyBytes), llmModel.ModelName, provider.ProviderType, nil
 			}
 		}
 	}
 
 	// Fall back to environment variable configuration
 	if cfg.AI.APIKey != "" {
-		return cfg.AI.BaseURL, cfg.AI.APIKey, cfg.AI.Model, nil
+		return cfg.AI.BaseURL, cfg.AI.APIKey, cfg.AI.Model, "", nil
 	}
 
-	return "", "", "", fmt.Errorf("no default model config found and no AI env config")
+	return "", "", "", "", fmt.Errorf("no default model config found and no AI env config")
 }
