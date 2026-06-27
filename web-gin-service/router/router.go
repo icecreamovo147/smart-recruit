@@ -125,6 +125,7 @@ func Setup(cfg config.Config, clients *rpc.Clients, rdb *redis.Client) (*gin.Eng
 	normalTimeout := middleware.Timeout(10 * time.Second)
 	uploadTimeout := middleware.Timeout(20 * time.Second)
 	aiTimeout := middleware.Timeout(45 * time.Second)
+	mcpTimeout := middleware.Timeout(120 * time.Second)
 
 	limiters := middleware.NewLimiterRegistry(
 		cfg.RateLimit.AuthRPS, cfg.RateLimit.AuthBurst,
@@ -393,9 +394,9 @@ func Setup(cfg config.Config, clients *rpc.Clients, rdb *redis.Client) (*gin.Eng
 		adminGroup.POST("/mcp-servers", normalTimeout, bodyAdmin, middleware.RequirePermission(authz.PermSystemConfigManage), mcpHandler.CreateMCPServer)
 		adminGroup.PUT("/mcp-servers/:id", normalTimeout, bodyAdmin, middleware.RequirePermission(authz.PermSystemConfigManage), mcpHandler.UpdateMCPServer)
 		adminGroup.DELETE("/mcp-servers/:id", normalTimeout, middleware.RequirePermission(authz.PermSystemConfigManage), mcpHandler.DeleteMCPServer)
-		adminGroup.POST("/mcp-servers/:id/test", normalTimeout, middleware.RequirePermission(authz.PermSystemConfigManage), mcpHandler.TestMCPConnection)
-		adminGroup.GET("/mcp-servers/:id/tools", normalTimeout, middleware.RequirePermission(authz.PermSystemConfigManage), mcpHandler.ListMCPTools)
-		adminGroup.POST("/mcp-servers/:id/call-tool", normalTimeout, bodyAdmin, middleware.RequirePermission(authz.PermSystemConfigManage), mcpHandler.CallMCPTool)
+		adminGroup.POST("/mcp-servers/:id/test", mcpTimeout, middleware.RequirePermission(authz.PermSystemConfigManage), mcpHandler.TestMCPConnection)
+		adminGroup.GET("/mcp-servers/:id/tools", mcpTimeout, middleware.RequirePermission(authz.PermSystemConfigManage), mcpHandler.ListMCPTools)
+		adminGroup.POST("/mcp-servers/:id/call-tool", mcpTimeout, bodyAdmin, middleware.RequirePermission(authz.PermSystemConfigManage), mcpHandler.CallMCPTool)
 
 	return r, limiters
 }
