@@ -5175,6 +5175,336 @@ var CollaborationService_ServiceDesc = grpc.ServiceDesc{
 }
 
 const (
+	MCPService_ListMCPServers_FullMethodName    = "/recruitment.MCPService/ListMCPServers"
+	MCPService_CreateMCPServer_FullMethodName   = "/recruitment.MCPService/CreateMCPServer"
+	MCPService_UpdateMCPServer_FullMethodName   = "/recruitment.MCPService/UpdateMCPServer"
+	MCPService_DeleteMCPServer_FullMethodName   = "/recruitment.MCPService/DeleteMCPServer"
+	MCPService_TestMCPConnection_FullMethodName = "/recruitment.MCPService/TestMCPConnection"
+	MCPService_ListMCPTools_FullMethodName      = "/recruitment.MCPService/ListMCPTools"
+	MCPService_CallMCPTool_FullMethodName       = "/recruitment.MCPService/CallMCPTool"
+)
+
+// MCPServiceClient is the client API for MCPService service.
+//
+// For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
+type MCPServiceClient interface {
+	ListMCPServers(ctx context.Context, in *ListMCPServersRequest, opts ...grpc.CallOption) (*ListMCPServersResponse, error)
+	CreateMCPServer(ctx context.Context, in *CreateMCPServerRequest, opts ...grpc.CallOption) (*MCPServerResponse, error)
+	UpdateMCPServer(ctx context.Context, in *UpdateMCPServerRequest, opts ...grpc.CallOption) (*MCPServerResponse, error)
+	DeleteMCPServer(ctx context.Context, in *DeleteMCPServerRequest, opts ...grpc.CallOption) (*CommonResponse, error)
+	TestMCPConnection(ctx context.Context, in *TestMCPConnectionRequest, opts ...grpc.CallOption) (*TestMCPConnectionResponse, error)
+	ListMCPTools(ctx context.Context, in *ListMCPToolsRequest, opts ...grpc.CallOption) (*ListMCPToolsResponse, error)
+	CallMCPTool(ctx context.Context, in *CallMCPToolRequest, opts ...grpc.CallOption) (*CallMCPToolResponse, error)
+}
+
+type mCPServiceClient struct {
+	cc grpc.ClientConnInterface
+}
+
+func NewMCPServiceClient(cc grpc.ClientConnInterface) MCPServiceClient {
+	return &mCPServiceClient{cc}
+}
+
+func (c *mCPServiceClient) ListMCPServers(ctx context.Context, in *ListMCPServersRequest, opts ...grpc.CallOption) (*ListMCPServersResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ListMCPServersResponse)
+	err := c.cc.Invoke(ctx, MCPService_ListMCPServers_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *mCPServiceClient) CreateMCPServer(ctx context.Context, in *CreateMCPServerRequest, opts ...grpc.CallOption) (*MCPServerResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(MCPServerResponse)
+	err := c.cc.Invoke(ctx, MCPService_CreateMCPServer_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *mCPServiceClient) UpdateMCPServer(ctx context.Context, in *UpdateMCPServerRequest, opts ...grpc.CallOption) (*MCPServerResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(MCPServerResponse)
+	err := c.cc.Invoke(ctx, MCPService_UpdateMCPServer_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *mCPServiceClient) DeleteMCPServer(ctx context.Context, in *DeleteMCPServerRequest, opts ...grpc.CallOption) (*CommonResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(CommonResponse)
+	err := c.cc.Invoke(ctx, MCPService_DeleteMCPServer_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *mCPServiceClient) TestMCPConnection(ctx context.Context, in *TestMCPConnectionRequest, opts ...grpc.CallOption) (*TestMCPConnectionResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(TestMCPConnectionResponse)
+	err := c.cc.Invoke(ctx, MCPService_TestMCPConnection_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *mCPServiceClient) ListMCPTools(ctx context.Context, in *ListMCPToolsRequest, opts ...grpc.CallOption) (*ListMCPToolsResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ListMCPToolsResponse)
+	err := c.cc.Invoke(ctx, MCPService_ListMCPTools_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *mCPServiceClient) CallMCPTool(ctx context.Context, in *CallMCPToolRequest, opts ...grpc.CallOption) (*CallMCPToolResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(CallMCPToolResponse)
+	err := c.cc.Invoke(ctx, MCPService_CallMCPTool_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+// MCPServiceServer is the server API for MCPService service.
+// All implementations must embed UnimplementedMCPServiceServer
+// for forward compatibility.
+type MCPServiceServer interface {
+	ListMCPServers(context.Context, *ListMCPServersRequest) (*ListMCPServersResponse, error)
+	CreateMCPServer(context.Context, *CreateMCPServerRequest) (*MCPServerResponse, error)
+	UpdateMCPServer(context.Context, *UpdateMCPServerRequest) (*MCPServerResponse, error)
+	DeleteMCPServer(context.Context, *DeleteMCPServerRequest) (*CommonResponse, error)
+	TestMCPConnection(context.Context, *TestMCPConnectionRequest) (*TestMCPConnectionResponse, error)
+	ListMCPTools(context.Context, *ListMCPToolsRequest) (*ListMCPToolsResponse, error)
+	CallMCPTool(context.Context, *CallMCPToolRequest) (*CallMCPToolResponse, error)
+	mustEmbedUnimplementedMCPServiceServer()
+}
+
+// UnimplementedMCPServiceServer must be embedded to have
+// forward compatible implementations.
+//
+// NOTE: this should be embedded by value instead of pointer to avoid a nil
+// pointer dereference when methods are called.
+type UnimplementedMCPServiceServer struct{}
+
+func (UnimplementedMCPServiceServer) ListMCPServers(context.Context, *ListMCPServersRequest) (*ListMCPServersResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method ListMCPServers not implemented")
+}
+func (UnimplementedMCPServiceServer) CreateMCPServer(context.Context, *CreateMCPServerRequest) (*MCPServerResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method CreateMCPServer not implemented")
+}
+func (UnimplementedMCPServiceServer) UpdateMCPServer(context.Context, *UpdateMCPServerRequest) (*MCPServerResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method UpdateMCPServer not implemented")
+}
+func (UnimplementedMCPServiceServer) DeleteMCPServer(context.Context, *DeleteMCPServerRequest) (*CommonResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method DeleteMCPServer not implemented")
+}
+func (UnimplementedMCPServiceServer) TestMCPConnection(context.Context, *TestMCPConnectionRequest) (*TestMCPConnectionResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method TestMCPConnection not implemented")
+}
+func (UnimplementedMCPServiceServer) ListMCPTools(context.Context, *ListMCPToolsRequest) (*ListMCPToolsResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method ListMCPTools not implemented")
+}
+func (UnimplementedMCPServiceServer) CallMCPTool(context.Context, *CallMCPToolRequest) (*CallMCPToolResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method CallMCPTool not implemented")
+}
+func (UnimplementedMCPServiceServer) mustEmbedUnimplementedMCPServiceServer() {}
+func (UnimplementedMCPServiceServer) testEmbeddedByValue()                    {}
+
+// UnsafeMCPServiceServer may be embedded to opt out of forward compatibility for this service.
+// Use of this interface is not recommended, as added methods to MCPServiceServer will
+// result in compilation errors.
+type UnsafeMCPServiceServer interface {
+	mustEmbedUnimplementedMCPServiceServer()
+}
+
+func RegisterMCPServiceServer(s grpc.ServiceRegistrar, srv MCPServiceServer) {
+	// If the following call panics, it indicates UnimplementedMCPServiceServer was
+	// embedded by pointer and is nil.  This will cause panics if an
+	// unimplemented method is ever invoked, so we test this at initialization
+	// time to prevent it from happening at runtime later due to I/O.
+	if t, ok := srv.(interface{ testEmbeddedByValue() }); ok {
+		t.testEmbeddedByValue()
+	}
+	s.RegisterService(&MCPService_ServiceDesc, srv)
+}
+
+func _MCPService_ListMCPServers_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ListMCPServersRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(MCPServiceServer).ListMCPServers(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: MCPService_ListMCPServers_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(MCPServiceServer).ListMCPServers(ctx, req.(*ListMCPServersRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _MCPService_CreateMCPServer_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(CreateMCPServerRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(MCPServiceServer).CreateMCPServer(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: MCPService_CreateMCPServer_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(MCPServiceServer).CreateMCPServer(ctx, req.(*CreateMCPServerRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _MCPService_UpdateMCPServer_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(UpdateMCPServerRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(MCPServiceServer).UpdateMCPServer(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: MCPService_UpdateMCPServer_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(MCPServiceServer).UpdateMCPServer(ctx, req.(*UpdateMCPServerRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _MCPService_DeleteMCPServer_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(DeleteMCPServerRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(MCPServiceServer).DeleteMCPServer(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: MCPService_DeleteMCPServer_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(MCPServiceServer).DeleteMCPServer(ctx, req.(*DeleteMCPServerRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _MCPService_TestMCPConnection_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(TestMCPConnectionRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(MCPServiceServer).TestMCPConnection(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: MCPService_TestMCPConnection_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(MCPServiceServer).TestMCPConnection(ctx, req.(*TestMCPConnectionRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _MCPService_ListMCPTools_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ListMCPToolsRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(MCPServiceServer).ListMCPTools(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: MCPService_ListMCPTools_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(MCPServiceServer).ListMCPTools(ctx, req.(*ListMCPToolsRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _MCPService_CallMCPTool_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(CallMCPToolRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(MCPServiceServer).CallMCPTool(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: MCPService_CallMCPTool_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(MCPServiceServer).CallMCPTool(ctx, req.(*CallMCPToolRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+// MCPService_ServiceDesc is the grpc.ServiceDesc for MCPService service.
+// It's only intended for direct use with grpc.RegisterService,
+// and not to be introspected or modified (even as a copy)
+var MCPService_ServiceDesc = grpc.ServiceDesc{
+	ServiceName: "recruitment.MCPService",
+	HandlerType: (*MCPServiceServer)(nil),
+	Methods: []grpc.MethodDesc{
+		{
+			MethodName: "ListMCPServers",
+			Handler:    _MCPService_ListMCPServers_Handler,
+		},
+		{
+			MethodName: "CreateMCPServer",
+			Handler:    _MCPService_CreateMCPServer_Handler,
+		},
+		{
+			MethodName: "UpdateMCPServer",
+			Handler:    _MCPService_UpdateMCPServer_Handler,
+		},
+		{
+			MethodName: "DeleteMCPServer",
+			Handler:    _MCPService_DeleteMCPServer_Handler,
+		},
+		{
+			MethodName: "TestMCPConnection",
+			Handler:    _MCPService_TestMCPConnection_Handler,
+		},
+		{
+			MethodName: "ListMCPTools",
+			Handler:    _MCPService_ListMCPTools_Handler,
+		},
+		{
+			MethodName: "CallMCPTool",
+			Handler:    _MCPService_CallMCPTool_Handler,
+		},
+	},
+	Streams:  []grpc.StreamDesc{},
+	Metadata: "proto/recruitment.proto",
+}
+
+const (
 	LlmConfigService_ListProviders_FullMethodName          = "/recruitment.LlmConfigService/ListProviders"
 	LlmConfigService_CreateProvider_FullMethodName         = "/recruitment.LlmConfigService/CreateProvider"
 	LlmConfigService_UpdateProvider_FullMethodName         = "/recruitment.LlmConfigService/UpdateProvider"

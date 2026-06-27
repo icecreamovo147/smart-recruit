@@ -49,6 +49,7 @@ type Services struct {
 	LlmConfig     *LlmConfigService
 	Prompt        *PromptService
 	AgentConfig   *AgentConfigService
+	MCP           *MCPService
 
 	// Phase 6: Audit context repo for AI usage audit writes
 	UsageAuditCtxRepo *repository.UsageAuditContextRepo
@@ -117,6 +118,9 @@ func NewServices(
 	promptTmplRepo := repository.NewPromptTemplateRepo(db)
 	candidateAI := NewCandidateAIService(usageLogs, usageAuditCtxRepo, authzRepo, chats, applications, jobs, resumes, aiClient, candidateToolExecutor, agentRuntime, toolTraces, summaries, promptTmplRepo, agentCfgRepo)
 
+	// Initialize MCP service before AI service for MCP tool injection
+	mcpSvc := NewMCPService(repository.NewMCPRepo(db), cfg)
+
 	return &Services{
 		Auth:              NewAuthService(users, tokens, authzRepo, inviteCodes, jwtSecret),
 		Analytics:         NewAnalyticsService(analyticsRepo, authzRepo, serviceAuth),
@@ -132,12 +136,13 @@ func NewServices(
 		Application:       NewApplicationService(authzRepo, applications, profiles, resumes, jobs, interviews, notifications, outboxPublisher, ossClient, jobCache, scopeEval),
 		Interview:         NewInterviewService(authzRepo, interviews, users, applications, jobs, notifications, outboxPublisher, ossClient, scopeEval, serviceAuth),
 		Offer:             NewOfferService(authzRepo, offers, applications, jobs, notifications, outboxPublisher, scopeEval, serviceAuth),
-		AI:                NewAIService(chats, applications, jobs, resumes, summaries, toolTraces, memories, ossClient, aiClient, toolExecutor, contextBuilder, candidateAI, usageLogs, usageAuditCtxRepo, authzRepo, agentRuntime, serviceAuth, llmConfigSvc, agentCfgRepo, promptTmplRepo),
+		AI:                NewAIService(chats, applications, jobs, resumes, summaries, toolTraces, memories, ossClient, aiClient, toolExecutor, contextBuilder, candidateAI, usageLogs, usageAuditCtxRepo, authzRepo, agentRuntime, serviceAuth, llmConfigSvc, agentCfgRepo, promptTmplRepo, mcpSvc),
 		CandidateAI:       candidateAI,
 		Notification:      NewNotificationService(notifications, notifCache, serviceAuth),
 		LlmConfig:         llmConfigSvc,
 		Prompt:            NewPromptService(promptTmplRepo),
 		AgentConfig:       NewAgentConfigService(agentCfgRepo, promptTmplRepo),
+		MCP:              mcpSvc,
 
 		Collaboration: NewCollaborationService(
 			authzRepo,

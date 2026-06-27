@@ -366,6 +366,7 @@ func main() {
 	pb.RegisterLlmConfigServiceServer(grpcServer, recruitmentServer)
 	pb.RegisterPromptServiceServer(grpcServer, recruitmentServer)
 	pb.RegisterAgentConfigServiceServer(grpcServer, recruitmentServer)
+	pb.RegisterMCPServiceServer(grpcServer, recruitmentServer)
 	healthpb.RegisterHealthServer(grpcServer, server.NewHealthServer(sqlDB, healthRedis, mqConn))
 
 	// Graceful shutdown

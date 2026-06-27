@@ -33,6 +33,8 @@ func setupTestDB(t *testing.T) *gorm.DB {
 		&model.ApplicationStatusTransition{},
 		&model.InterviewSchedule{},
 		&model.InterviewFeedback{},
+		&model.MCPServer{},
+		&model.MCPToolLog{},
 	)
 	if err != nil {
 		t.Fatalf("auto-migrate failed: %v", err)

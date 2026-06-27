@@ -49,6 +49,7 @@ type AIService struct {
 	llmConfigSvc    *LlmConfigService         // for runtime model selection
 	agentConfigRepo *repository.AgentConfigRepo
 	promptRepo      *repository.PromptTemplateRepo
+	mcpSvc          *MCPService
 	cachedADKTools []tool.BaseTool // lazy-initialized, shared across requests
 	cachedToolsMu  sync.Mutex       // guards cachedADKTools init and invalidation
 }
@@ -74,6 +75,7 @@ func NewAIService(
 	llmConfigSvc *LlmConfigService,
 	agentConfigRepo *repository.AgentConfigRepo,
 	promptRepo *repository.PromptTemplateRepo,
+	mcpSvc *MCPService,
 ) *AIService {
 	return &AIService{
 		chats: chats, applications: applications, jobs: jobs, resumes: resumes,
@@ -88,6 +90,7 @@ func NewAIService(
 		llmConfigSvc: llmConfigSvc,
 		agentConfigRepo: agentConfigRepo,
 		promptRepo: promptRepo,
+		mcpSvc: mcpSvc,
 	}
 }
 
@@ -449,6 +452,16 @@ func (s *AIService) runADKChat(
 		maxIterations = runtimeCfg.MaxIterations
 	}
 
+	// Merge MCP tools from enabled MCP servers (same as runLegacyChat path).
+	if s.mcpSvc != nil {
+		if mcpTools, err := s.mcpSvc.CollectEnabledMCPCallableTools(ctx); err == nil && len(mcpTools) > 0 {
+			merged := make([]tool.BaseTool, 0, len(adkTools)+len(mcpTools))
+			merged = append(merged, adkTools...)
+			merged = append(merged, mcpTools...)
+			adkTools = merged
+		}
+	}
+
 	instruction := extractSystemInstruction(messages)
 	logger.L().Info("[提示词诊断] HR Agent 当前使用的 System Prompt",
 		zap.Int("总字符数", len([]rune(instruction))),
@@ -485,6 +498,13 @@ func (s *AIService) runLegacyChat(
 			tools = filterToolInfosByName(tools, runtimeCfg.ToolNames)
 		} else {
 			tools = nil // agent config exists but all tools disabled
+		}
+	}
+
+	// Merge MCP tools from enabled MCP servers
+	if s.mcpSvc != nil {
+		if mcpTools, err := s.mcpSvc.CollectEnabledMCPToolInfos(ctx); err == nil && len(mcpTools) > 0 {
+			tools = append(tools, mcpTools...)
 		}
 	}
 

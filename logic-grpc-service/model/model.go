@@ -636,3 +636,37 @@ type AgentToolBinding struct {
 }
 
 func (AgentToolBinding) TableName() string { return "agent_tool_bindings" }
+
+// ── MCP Server (P1-006) ─────────────────────────────────────────────
+
+// MCPServer represents a registered MCP server.
+type MCPServer struct {
+	ID            int64      `gorm:"primaryKey"`
+	Name          string     `gorm:"column:name;size:128;not null"`
+	Transport     string     `gorm:"column:transport;size:16;not null"`
+	CommandOrURL  string     `gorm:"column:command_or_url;type:text;not null"`
+	Args          *string    `gorm:"column:args;type:json"`
+	EnvVars       *string    `gorm:"column:env_vars;type:json"`
+	TimeoutSeconds int32     `gorm:"column:timeout_seconds;default:30"`
+	IsEnabled     int32      `gorm:"column:is_enabled;default:0"`
+	CreatedAt     time.Time  `gorm:"column:created_at"`
+	UpdatedAt     time.Time  `gorm:"column:updated_at"`
+}
+
+func (MCPServer) TableName() string { return "mcp_servers" }
+
+// MCPToolLog records a single MCP tool call for audit purposes.
+type MCPToolLog struct {
+	ID            int64      `gorm:"primaryKey"`
+	ServerID      int64      `gorm:"column:server_id;not null"`
+	ToolName      string     `gorm:"column:tool_name;size:128;not null"`
+	ArgsJSON      *string    `gorm:"column:args_json;type:json"`
+	ResultContent *string    `gorm:"column:result_content;type:text"`
+	DurationMs    int32      `gorm:"column:duration_ms;default:0"`
+	ErrorMsg      *string    `gorm:"column:error_msg;size:512"`
+	CalledByHRID  *int64     `gorm:"column:called_by_hr_id"`
+	SessionID     *int64     `gorm:"column:session_id"`
+	CreatedAt     time.Time  `gorm:"column:created_at"`
+}
+
+func (MCPToolLog) TableName() string { return "mcp_tool_logs" }

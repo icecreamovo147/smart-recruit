@@ -24,6 +24,7 @@ type Server struct {
 	pb.UnimplementedLlmConfigServiceServer
 	pb.UnimplementedPromptServiceServer
 	pb.UnimplementedAgentConfigServiceServer
+	pb.UnimplementedMCPServiceServer
 	svc *service.Services
 }
 
@@ -701,4 +702,34 @@ func (s *Server) GetAgentConfig(ctx context.Context, req *pb.GetAgentConfigReque
 		return nil, status.Error(codes.Unavailable, "agent config service not available")
 	}
 	return s.svc.AgentConfig.GetAgentConfig(ctx, req)
+}
+
+// --- MCPService ---------------------------------------------------------
+
+func (s *Server) ListMCPServers(ctx context.Context, req *pb.ListMCPServersRequest) (*pb.ListMCPServersResponse, error) {
+	return s.svc.MCP.ListMCPServers(ctx, req)
+}
+
+func (s *Server) CreateMCPServer(ctx context.Context, req *pb.CreateMCPServerRequest) (*pb.MCPServerResponse, error) {
+	return s.svc.MCP.CreateMCPServer(ctx, req)
+}
+
+func (s *Server) UpdateMCPServer(ctx context.Context, req *pb.UpdateMCPServerRequest) (*pb.MCPServerResponse, error) {
+	return s.svc.MCP.UpdateMCPServer(ctx, req)
+}
+
+func (s *Server) DeleteMCPServer(ctx context.Context, req *pb.DeleteMCPServerRequest) (*pb.CommonResponse, error) {
+	return s.svc.MCP.DeleteMCPServer(ctx, req)
+}
+
+func (s *Server) TestMCPConnection(ctx context.Context, req *pb.TestMCPConnectionRequest) (*pb.TestMCPConnectionResponse, error) {
+	return s.svc.MCP.TestMCPConnection(ctx, req)
+}
+
+func (s *Server) ListMCPTools(ctx context.Context, req *pb.ListMCPToolsRequest) (*pb.ListMCPToolsResponse, error) {
+	return s.svc.MCP.ListMCPTools(ctx, req)
+}
+
+func (s *Server) CallMCPTool(ctx context.Context, req *pb.CallMCPToolRequest) (*pb.CallMCPToolResponse, error) {
+	return s.svc.MCP.CallMCPTool(ctx, req)
 }

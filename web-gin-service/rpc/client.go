@@ -59,6 +59,7 @@ type Clients struct {
 	LlmConfig    pb.LlmConfigServiceClient
 	Prompt       pb.PromptServiceClient
 	AgentConfig  pb.AgentConfigServiceClient
+	MCP          pb.MCPServiceClient
 	Health       healthpb.HealthClient
 }
 
@@ -134,6 +135,7 @@ func NewClients(addr string) (*Clients, error) {
 		LlmConfig:    pb.NewLlmConfigServiceClient(conn),
 		Prompt:       pb.NewPromptServiceClient(conn),
 		AgentConfig:  pb.NewAgentConfigServiceClient(conn),
+		MCP:          pb.NewMCPServiceClient(conn),
 		Health:       healthpb.NewHealthClient(conn),
 	}, nil
 }

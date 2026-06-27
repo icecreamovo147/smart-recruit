@@ -13,7 +13,7 @@
 | 1 | 模型与 Provider 不可视化配置 | P0 | M2 | P0-005 / P0-006 | `logic-grpc-service/ai/`、`hr-frontend/` 新增页面 | 待开发 | 页面 CRUD + 连接测试 + 聊天页模型切换 |
 | 2 | Agent 配置全部硬编码 | P1 | M6 | P1-004 / P1-005 | `ai/adk_agent.go`、新增 Agent 管理页 | 待开发 | Agent CRUD + 绑定模型/工具/Prompt |
 | 3 | System Prompt 硬编码 | P1 | M2 | P1-001 / P1-002 | `service/` Prompt 字符串解耦、新增 Prompt 管理页 | 已验收 | Prompt CRUD + 版本 + 变量插值 |
-| 4 | 无 MCP 工具能力 | P1 | M4 | P1-006 / P1-007 | 新增 MCP 管理服务 + 前端工具中心页 | 待开发 | MCP Server 管理 + 工具列表 + 调用日志 |
+| 4 | 无 MCP 工具能力 | P1 | M4 | P1-006 / P1-007 | 新增 MCP 管理服务 + 前端工具中心页 | 审查中 | MCP Server 管理 + 工具列表 + 调用日志 |
 | 5 | 无 Skills 能力 | P2 | M6 | P2-001 | 新增 Skills 管理服务 + 前端 | 待开发 | Skills 安装/启用/禁用/配置 |
 | 6 | Agent 执行轨迹后端落库前端零展示 | P0 | M1 | P0-003 / P0-004 | `tool_trace_repo.go`、`AIChatView.vue` | 已完成 | 前端时间线展示工具调用/入参/结果/耗时 |
 | 7 | 无独立 Token/成本统计与调试面板 | P0/P1 | M3 | P1-003 / P1-008 / P1-009 | `ThirdPartyUsageLog` 查询增强、成本统计页+Playground | 待开发 | 多维度聚合 + 趋势图 + 调试面板 |

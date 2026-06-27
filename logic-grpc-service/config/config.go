@@ -101,6 +101,10 @@ type Config struct {
 		Required    bool     `yaml:"required"`
 	} `yaml:"smtp"`
 	FrontendBaseURL string `yaml:"frontend_base_url"`
+	MCP struct {
+		DefaultTimeoutSeconds int `yaml:"default_timeout_seconds"`
+		DefaultMaxRetries     int `yaml:"default_max_retries"`
+	} `yaml:"mcp"`
 }
 
 func Load() (Config, error) {
@@ -275,6 +279,12 @@ func Load() (Config, error) {
 	}
 	if cfg.RabbitMQ.ReconnectInterval.Duration <= 0 {
 		cfg.RabbitMQ.ReconnectInterval.Duration = 3 * time.Second
+	}
+	if cfg.MCP.DefaultTimeoutSeconds <= 0 {
+		cfg.MCP.DefaultTimeoutSeconds = 30
+	}
+	if cfg.MCP.DefaultMaxRetries <= 0 {
+		cfg.MCP.DefaultMaxRetries = 3
 	}
 	return cfg, nil
 }

@@ -387,5 +387,15 @@ func Setup(cfg config.Config, clients *rpc.Clients, rdb *redis.Client) (*gin.Eng
 		adminGroup.PUT("/agent-configs/:id", normalTimeout, bodyAdmin, middleware.RequirePermission(authz.PermSystemConfigManage), agentConfigHandler.UpdateAgent)
 		adminGroup.DELETE("/agent-configs/:id", normalTimeout, middleware.RequirePermission(authz.PermSystemConfigManage), agentConfigHandler.DeleteAgent)
 
+		// MCP server management
+		mcpHandler := hr.NewMCPHandler(clients)
+		adminGroup.GET("/mcp-servers", normalTimeout, middleware.RequirePermission(authz.PermSystemConfigManage), mcpHandler.ListMCPServers)
+		adminGroup.POST("/mcp-servers", normalTimeout, bodyAdmin, middleware.RequirePermission(authz.PermSystemConfigManage), mcpHandler.CreateMCPServer)
+		adminGroup.PUT("/mcp-servers/:id", normalTimeout, bodyAdmin, middleware.RequirePermission(authz.PermSystemConfigManage), mcpHandler.UpdateMCPServer)
+		adminGroup.DELETE("/mcp-servers/:id", normalTimeout, middleware.RequirePermission(authz.PermSystemConfigManage), mcpHandler.DeleteMCPServer)
+		adminGroup.POST("/mcp-servers/:id/test", normalTimeout, middleware.RequirePermission(authz.PermSystemConfigManage), mcpHandler.TestMCPConnection)
+		adminGroup.GET("/mcp-servers/:id/tools", normalTimeout, middleware.RequirePermission(authz.PermSystemConfigManage), mcpHandler.ListMCPTools)
+		adminGroup.POST("/mcp-servers/:id/call-tool", normalTimeout, bodyAdmin, middleware.RequirePermission(authz.PermSystemConfigManage), mcpHandler.CallMCPTool)
+
 	return r, limiters
 }
