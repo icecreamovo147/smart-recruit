@@ -8,6 +8,10 @@ import { createApplicationAnalysisSession, createSession, deleteSession, getSess
 import { updateApplicationStatus } from '@/api/application'
 import { listModels } from '@/api/llm'
 import AgentTracePanel from '@/components/AgentTracePanel.vue'
+import ConversationSidebar from '@/components/chat/ConversationSidebar.vue'
+import ConversationHeader from '@/components/chat/ConversationHeader.vue'
+import ChatMessageList from '@/components/chat/ChatMessageList.vue'
+import ChatComposer from '@/components/chat/ChatComposer.vue'
 import type { ChatMessage, ChatSessionListItem, Session, CandidateOption, StreamPayload } from '@/types/ai'
 import type { LlmModel } from '@/types/llm'
 import { BusinessError } from '@/types/api'
@@ -95,7 +99,7 @@ const normalizeSession = (item: ChatSessionListItem): Session => ({
 
 const scrollBottom = async () => {
   await nextTick()
-  if (listRef.value) listRef.value.scrollTop = listRef.value.scrollHeight
+  listRef.value?.scrollToBottom()
 }
 
 const appendAssistantDelta = (index: number, delta: string) => {
@@ -369,7 +373,7 @@ const confirmAction = async (data: StreamPayload) => {
   }
   await updateApplicationStatus(data.application_id, actionKey, reason)
   ElMessage.success(`已标记为${actionText}`)
-  messages.value.push({ role: 'assistant', content: `已将「${data.candidate_name || '该候选人'}」的投递状态更新为“${actionText}”。` })
+  messages.value.push({ role: 'assistant', content: `已将「${data.candidate_name || '该候选人'}」的投递状态更新为"${actionText}"。` })
   scrollBottom()
 }
 
@@ -688,139 +692,61 @@ onBeforeUnmount(() => {
 
 <template>
   <section class="chat-page">
-    <div v-if="sessionSidebarOpen" class="mobile-sidebar-backdrop" @click="closeSessionSidebar"></div>
-    <aside class="chat-sidebar" :class="{ 'chat-sidebar--mobile-open': sessionSidebarOpen }">
-      <div class="chat-sidebar__head">
-        <h2>AI 会话</h2>
-        <el-button size="small" type="primary" @click="createNewSession">新建对话</el-button>
-      </div>
-      <div class="session-list">
-        <div v-for="session in sessions" :key="session.id" class="session-item" :class="{ 'session-item--active': currentSession?.id === session.id, 'session-item--menu-open': menuSessionId === session.id }" @click="selectSession(session)">
-          <div class="session-item__info">
-            <span class="session-title">{{ session.title }}</span>
-            <span class="session-meta">{{ session.application_id ? '简历分析' : '数据问答' }}</span>
-          </div>
-          <div class="session-item__actions">
-            <button class="session-item__more" @click.stop="menuSessionId = menuSessionId === session.id ? 0 : session.id">⋮</button>
-            <div v-if="menuSessionId === session.id" class="session-item__menu" @click.stop>
-              <button @click.stop="menuSessionId = 0; renameSession(session)">重命名</button>
-              <button @click.stop="menuSessionId = 0; removeSession(session)">删除会话</button>
-            </div>
-          </div>
-        </div>
-        <el-empty v-if="sessions.length === 0" description="暂无会话" />
-      </div>
-    </aside>
+    <div
+      v-if="sessionSidebarOpen"
+      class="mobile-sidebar-backdrop"
+      @click="closeSessionSidebar"
+    ></div>
+    <ConversationSidebar
+      :sessions="sessions"
+      :current-session="currentSession"
+      :menu-session-id="menuSessionId"
+      :session-sidebar-open="sessionSidebarOpen"
+      @select-session="selectSession"
+      @create-session="createNewSession"
+      @rename-session="renameSession"
+      @remove-session="removeSession"
+      @menu-toggle="(id: number) => menuSessionId = id"
+      @close-sidebar="closeSessionSidebar"
+    />
 
     <div class="chat-main">
-      <div v-if="currentSession" class="ai-context">
-        <!-- Top row: ☰ mobile toggle + tag -->
-        <div class="ai-context__top">
-          <button class="session-sidebar-toggle mobile-only" @click="toggleSessionSidebar">☰ 会话</button>
-          <div class="ai-context__title desktop-only">{{ currentSession.title }}</div>
-          <el-tag :type="currentSession.application_id ? 'success' : 'info'">{{ currentSession.application_id ? '简历分析' : '普通对话' }}</el-tag>
-        </div>
-        <!-- Desktop meta -->
-        <div class="ai-context__meta desktop-only">{{ currentSession.application_id ? '候选人分析会话' : '招聘数据问答会话' }}</div>
-        <!-- Mobile expanded info -->
-        <div v-if="currentSession.application_id" class="ai-context__mobile mobile-only">
-          <div class="ai-context__candidate-name">{{ mobileContextTitle }}</div>
-          <div class="ai-context__candidate-pos">{{ mobileContextSub }}</div>
-        </div>
-      </div>
+      <ConversationHeader
+        v-if="currentSession"
+        :current-session="currentSession"
+        :mobile-context-title="mobileContextTitle"
+        :mobile-context-sub="mobileContextSub"
+        @toggle-sidebar="toggleSessionSidebar"
+        @show-trace="tracePanelVisible = true"
+      />
 
-      <div class="chat-layout">
-        <div ref="listRef" class="chat-list" v-loading="sessionLoading">
-          <el-empty v-if="messages.length === 0 && !loading" description="暂无对话" />
-          <div v-for="(message, index) in messages" :key="index" class="bubble" :class="[message.role, { 'bubble--failed': message.failed }]">
-            <div v-if="message.role === 'assistant'">
-              <div v-if="message.pending" class="typing-indicator">
-                <span>{{ waitingText(message) }}</span>
-                <span class="typing-indicator__dots">
-                  <i></i>
-                  <i></i>
-                  <i></i>
-                </span>
-              </div>
-              <div v-else-if="message.content" class="md-content" v-html="renderMarkdown(message.content)"></div>
-            </div>
-            <template v-else>{{ message.content }}</template>
-            <div v-if="message.role === 'assistant' && message.failed" class="bubble__retry">
-              <el-button type="warning" size="small" @click="retry(index)">重新发送</el-button>
-            </div>
-            <div v-if="message.role === 'assistant' && message.candidateOptions?.length" class="candidate-options">
-              <button v-for="option in message.candidateOptions" :key="option.application_id" class="candidate-option" @click="analyzeCandidateOption(option)">
-                <span class="candidate-option__name">{{ option.candidate_name }}</span>
-                <span>{{ option.job_title }}</span>
-                <span>{{ option.masked_phone }}</span>
-                <span>第 {{ option.round_no }} 轮</span>
-                <strong>分析</strong>
-              </button>
-            </div>
-          </div>
-          <div v-if="loading && !streaming" class="bubble assistant">分析中...</div>
-        </div>
-        <div class="chat-input">
-          <el-select
-            v-if="modelList.length > 0"
-            v-model="selectedModelId"
-            size="small"
-            placeholder="默认模型"
-            style="width: 180px; flex-shrink: 0;"
-            clearable
-          >
-            <el-option
-              v-for="m in modelList"
-              :key="m.id"
-              :value="m.id"
-              :label="m.display_name || m.model_name"
-            />
-          </el-select>
-          <el-input v-model="input" :disabled="streaming" :placeholder="currentSession?.application_id ? '例如：他的项目经历和岗位要求匹配吗？也可以说“通过这个候选人”' : '例如：今天后端岗位投递了多少人？'" @keyup.enter="streaming ? undefined : submit()" />
-          <el-button v-if="streaming" type="danger" plain @click="stopStreaming">中断</el-button>
-          <el-button v-else type="primary" :loading="loading" :disabled="!input.trim()" @click="submit">发送</el-button>
-        </div>
+      <div class="chat-content">
+        <ChatMessageList
+          ref="listRef"
+          :messages="messages"
+          :loading="loading"
+          :streaming="streaming"
+          :session-loading="sessionLoading"
+          :has-session="!!currentSession"
+          :render-markdown="renderMarkdown"
+          :waiting-text="waitingText"
+          @retry="retry"
+          @analyze-candidate="analyzeCandidateOption"
+        />
 
-        <!-- Status bar: model name + data source + execution trace -->
-        <div v-if="currentSession" class="ai-status-bar" :class="{ 'ai-status-bar--collapsed': !statusBarExpanded }">
-          <div class="ai-status-bar__content">
-            <div class="ai-status-bar__left">
-              <div class="ai-status-bar__model">
-                <span class="ai-status-bar__label">模型</span>
-                <el-tag
-                  v-if="modelName"
-                  type="primary"
-                  size="small"
-                  effect="plain"
-                  round
-                >{{ modelName }}</el-tag>
-                <span v-else class="ai-status-bar__placeholder">—</span>
-              </div>
-              <el-divider direction="vertical" />
-              <div class="ai-status-bar__source">
-                <span class="ai-status-bar__label">数据来源</span>
-                <span class="ai-status-bar__source-text">{{ dataSource }}</span>
-              </div>
-            </div>
-            <div class="ai-status-bar__right">
-              <el-button
-                size="small"
-                type="primary"
-                plain
-                @click="tracePanelVisible = true"
-              >
-                执行轨迹
-              </el-button>
-            </div>
-          </div>
-          <button
-            class="ai-status-bar__toggle"
-            @click="statusBarExpanded = !statusBarExpanded"
-            :title="statusBarExpanded ? '收起' : '展开'"
-          >
-            <span class="ai-status-bar__toggle-icon">{{ statusBarExpanded ? '▲' : '▼' }}</span>
-          </button>
-        </div>
+        <ChatComposer
+          :input="input"
+          :loading="loading"
+          :streaming="streaming"
+          :model-list="modelList"
+          :selected-model-id="selectedModelId"
+          :data-source="dataSource"
+          :current-session="currentSession"
+          @update:input="(val: string) => input = val"
+          @update:selected-model-id="(val: number | null) => selectedModelId = val"
+          @submit="submit"
+          @stop="stopStreaming"
+        />
       </div>
     </div>
 
@@ -830,93 +756,3 @@ onBeforeUnmount(() => {
     />
   </section>
 </template>
-
-<style scoped>
-.ai-status-bar {
-  display: flex;
-  align-items: center;
-  padding: 0 16px;
-  min-height: 36px;
-  background: var(--el-bg-color);
-  border-bottom: none;
-  border-top: 1px solid var(--el-border-color-lighter);
-  flex-shrink: 0;
-  transition: min-height 0.2s ease;
-}
-
-.ai-status-bar--collapsed {
-  min-height: 8px;
-  overflow: hidden;
-}
-
-.ai-status-bar--collapsed .ai-status-bar__content {
-  opacity: 0;
-  pointer-events: none;
-}
-
-.ai-status-bar__content {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  flex: 1;
-  gap: 12px;
-  transition: opacity 0.15s ease;
-}
-
-.ai-status-bar__left {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-}
-
-.ai-status-bar__model,
-.ai-status-bar__source {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-}
-
-.ai-status-bar__label {
-  font-size: 12px;
-  color: var(--el-text-color-secondary);
-  white-space: nowrap;
-}
-
-.ai-status-bar__source-text {
-  font-size: 13px;
-  color: var(--el-text-color-regular);
-}
-
-.ai-status-bar__placeholder {
-  color: var(--el-text-color-placeholder);
-  font-size: 13px;
-}
-
-.ai-status-bar__right {
-  display: flex;
-  align-items: center;
-}
-
-.ai-status-bar__toggle {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: none;
-  border: none;
-  cursor: pointer;
-  padding: 0 4px;
-  margin-left: auto;
-  flex-shrink: 0;
-  line-height: 1;
-}
-
-.ai-status-bar__toggle-icon {
-  font-size: 10px;
-  color: var(--el-text-color-placeholder);
-  transition: color 0.15s;
-}
-
-.ai-status-bar__toggle:hover .ai-status-bar__toggle-icon {
-  color: var(--el-color-primary);
-}
-</style>

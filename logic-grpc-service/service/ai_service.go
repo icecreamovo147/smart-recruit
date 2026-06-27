@@ -449,9 +449,16 @@ func (s *AIService) runADKChat(
 		maxIterations = runtimeCfg.MaxIterations
 	}
 
+	instruction := extractSystemInstruction(messages)
+	logger.L().Info("[提示词诊断] HR Agent 当前使用的 System Prompt",
+		zap.Int("总字符数", len([]rune(instruction))),
+		zap.String("前200字符", truncateString(instruction, 200)),
+		zap.String("后200字符", tailString(instruction, 200)),
+	)
+
 	return aiClient.ChatWithADKAgent(ctx, ai.AgentRunInput{
 		AgentName:     "hr_recruiting_agent",
-		Instruction:   extractSystemInstruction(messages),
+		Instruction:   instruction,
 		Messages:      messages,
 		Tools:         adkTools,
 		MaxIterations: maxIterations,
@@ -1000,4 +1007,22 @@ func desensitizeResultContent(content string) string {
 		return string(runes[:2000]) + fmt.Sprintf("... [已截断，总字符数: %d]", len(runes))
 	}
 	return content
+}
+
+// truncateString returns the first n runes of s.
+func truncateString(s string, n int) string {
+	runes := []rune(s)
+	if len(runes) <= n {
+		return s
+	}
+	return string(runes[:n])
+}
+
+// tailString returns the last n runes of s.
+func tailString(s string, n int) string {
+	runes := []rune(s)
+	if len(runes) <= n {
+		return s
+	}
+	return string(runes[len(runes)-n:])
 }

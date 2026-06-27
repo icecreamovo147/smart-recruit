@@ -146,6 +146,7 @@ func Setup(cfg config.Config, clients *rpc.Clients, rdb *redis.Client) (*gin.Eng
 	bodyProfile := middleware.MaxBodyBytes(16 << 10)
 	bodyAI := middleware.MaxBodyBytes(64 << 10)
 	bodyJob := middleware.MaxBodyBytes(64 << 10)
+	bodyAdmin := middleware.MaxBodyBytes(128 << 10) // 128KB for admin config (prompts, agents, etc.)
 
 	// ── Public auth endpoints ──────────────────────────────────────────
 	v1.POST("/auth/register", normalTimeout, authLimit, bodyAuth, authHandler.Register)
@@ -373,17 +374,17 @@ func Setup(cfg config.Config, clients *rpc.Clients, rdb *redis.Client) (*gin.Eng
 
 		// Prompt template management
 		adminGroup.GET("/prompt-templates", normalTimeout, middleware.RequirePermission(authz.PermSystemConfigManage), promptHandler.List)
-		adminGroup.POST("/prompt-templates", normalTimeout, bodyAuth, middleware.RequirePermission(authz.PermSystemConfigManage), promptHandler.Create)
-		adminGroup.PUT("/prompt-templates/:id", normalTimeout, bodyAuth, middleware.RequirePermission(authz.PermSystemConfigManage), promptHandler.Update)
+		adminGroup.POST("/prompt-templates", normalTimeout, bodyAdmin, middleware.RequirePermission(authz.PermSystemConfigManage), promptHandler.Create)
+		adminGroup.PUT("/prompt-templates/:id", normalTimeout, bodyAdmin, middleware.RequirePermission(authz.PermSystemConfigManage), promptHandler.Update)
 		adminGroup.DELETE("/prompt-templates/:id", normalTimeout, middleware.RequirePermission(authz.PermSystemConfigManage), promptHandler.Delete)
 		adminGroup.GET("/prompt-templates/:id/versions", normalTimeout, middleware.RequirePermission(authz.PermSystemConfigManage), promptHandler.ListVersions)
-		adminGroup.POST("/prompt-templates/:id/rollback", normalTimeout, bodyAuth, middleware.RequirePermission(authz.PermSystemConfigManage), promptHandler.Rollback)
+		adminGroup.POST("/prompt-templates/:id/rollback", normalTimeout, bodyAdmin, middleware.RequirePermission(authz.PermSystemConfigManage), promptHandler.Rollback)
 
 		// Agent configuration management
 		agentConfigHandler := hr.NewAgentConfigHandler(clients)
 		adminGroup.GET("/agent-configs", normalTimeout, middleware.RequirePermission(authz.PermSystemConfigManage), agentConfigHandler.ListAgents)
-		adminGroup.POST("/agent-configs", normalTimeout, bodyAuth, middleware.RequirePermission(authz.PermSystemConfigManage), agentConfigHandler.CreateAgent)
-		adminGroup.PUT("/agent-configs/:id", normalTimeout, bodyAuth, middleware.RequirePermission(authz.PermSystemConfigManage), agentConfigHandler.UpdateAgent)
+		adminGroup.POST("/agent-configs", normalTimeout, bodyAdmin, middleware.RequirePermission(authz.PermSystemConfigManage), agentConfigHandler.CreateAgent)
+		adminGroup.PUT("/agent-configs/:id", normalTimeout, bodyAdmin, middleware.RequirePermission(authz.PermSystemConfigManage), agentConfigHandler.UpdateAgent)
 		adminGroup.DELETE("/agent-configs/:id", normalTimeout, middleware.RequirePermission(authz.PermSystemConfigManage), agentConfigHandler.DeleteAgent)
 
 	return r, limiters

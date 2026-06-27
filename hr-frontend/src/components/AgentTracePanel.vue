@@ -53,6 +53,14 @@ const toggleResult = (id: number) => {
   expandedResult.value = next
 }
 
+const formatTime = (iso: string): string => {
+  if (!iso) return ''
+  const d = new Date(iso)
+  if (isNaN(d.getTime())) return iso
+  const pad = (n: number) => String(n).padStart(2, '0')
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`
+}
+
 const formatJson = (json: string): string => {
   try {
     return JSON.stringify(JSON.parse(json), null, 2)
@@ -94,7 +102,7 @@ watch(() => props.sessionId, () => {
           v-for="item in traces"
           :key="item.id"
           :color="item.error_msg ? 'var(--el-color-danger)' : 'var(--el-color-primary)'"
-          :timestamp="item.created_at"
+          :timestamp="formatTime(item.created_at)"
         >
           <div class="trace-item">
             <!-- Tool name -->
