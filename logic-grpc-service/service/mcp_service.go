@@ -231,8 +231,12 @@ func (s *MCPService) TestMCPConnection(ctx context.Context, req *pb.TestMCPConne
 		return nil, status.Error(codes.Internal, "get MCP server failed")
 	}
 
-	// Use a shorter timeout for connection testing (10s)
-	testCtx, cancel := context.WithTimeout(ctx, 10*time.Second)
+	// Use a longer timeout for connection testing (60s) to allow npx cold start
+	timeout := server.TimeoutSeconds
+	if timeout <= 0 || timeout < 60 {
+		timeout = 60
+	}
+	testCtx, cancel := context.WithTimeout(ctx, time.Duration(timeout)*time.Second)
 	defer cancel()
 
 	mcpClient, err := s.createClient(server)
@@ -290,7 +294,7 @@ func (s *MCPService) ListMCPTools(ctx context.Context, req *pb.ListMCPToolsReque
 	}
 	defer mcpClient.Close()
 
-	listCtx, cancel := context.WithTimeout(ctx, time.Duration(server.TimeoutSeconds)*time.Second)
+	listCtx, cancel := s.mcpTimeoutCtx(ctx, server)
 	defer cancel()
 
 	initResult, err := mcpClient.Initialize(listCtx, mcp.InitializeRequest{})
@@ -359,7 +363,7 @@ func (s *MCPService) CallMCPTool(ctx context.Context, req *pb.CallMCPToolRequest
 	}
 	defer mcpClient.Close()
 
-	callCtx, cancel := context.WithTimeout(ctx, time.Duration(server.TimeoutSeconds)*time.Second)
+	callCtx, cancel := s.mcpTimeoutCtx(ctx, server)
 	defer cancel()
 
 	initResult, err := mcpClient.Initialize(callCtx, mcp.InitializeRequest{})
@@ -486,6 +490,19 @@ func (s *MCPService) createSSEClient(server *model.MCPServer) (client.MCPClient,
 
 func (s *MCPService) createHTTPClient(server *model.MCPServer) (client.MCPClient, error) {
 	return client.NewStreamableHttpClient(server.CommandOrURL)
+}
+
+// mcpTimeoutCtx returns a context with a timeout derived from the server's configured timeout.
+// Ensures the timeout is at least 60s for stdio transports (npx cold start can be slow).
+func (s *MCPService) mcpTimeoutCtx(parent context.Context, server *model.MCPServer) (context.Context, context.CancelFunc) {
+	timeout := server.TimeoutSeconds
+	if timeout <= 0 {
+		timeout = int32(s.cfg.MCP.DefaultTimeoutSeconds)
+	}
+	if timeout < 60 && server.Transport == "stdio" {
+		timeout = 60
+	}
+	return context.WithTimeout(parent, time.Duration(timeout)*time.Second)
 }
 
 // serverToInfo converts a model.MCPServer to a pb.MCPServerInfo.
@@ -679,7 +696,7 @@ func (s *MCPService) CollectEnabledMCPToolInfos(ctx context.Context) ([]*schema.
 
 		func() {
 			defer mcpClient.Close()
-			listCtx, cancel := context.WithTimeout(ctx, time.Duration(server.TimeoutSeconds)*time.Second)
+			listCtx, cancel := s.mcpTimeoutCtx(ctx, server)
 			defer cancel()
 
 			initResult, err := mcpClient.Initialize(listCtx, mcp.InitializeRequest{})
@@ -794,7 +811,7 @@ func (s *MCPService) CollectEnabledMCPCallableTools(ctx context.Context) ([]tool
 
 		func() {
 			defer mcpClient.Close()
-			listCtx, cancel := context.WithTimeout(ctx, time.Duration(server.TimeoutSeconds)*time.Second)
+			listCtx, cancel := s.mcpTimeoutCtx(ctx, server)
 			defer cancel()
 
 			initResult, err := mcpClient.Initialize(listCtx, mcp.InitializeRequest{})
