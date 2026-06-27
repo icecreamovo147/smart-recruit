@@ -24,6 +24,7 @@ const StaffUserManageView = () => import('@/views/hr/StaffUserManageView.vue')
 const LlmConfigView = () => import('@/views/hr/LlmConfigView.vue')
 const PromptManageView = () => import('@/views/hr/PromptManageView.vue')
 const AgentManageView = () => import('@/views/hr/admin/AgentManageView.vue')
+const McpManageView = () => import('@/views/hr/admin/McpManageView.vue')
 const ForbiddenView = () => import('@/views/ForbiddenView.vue')
 const CandidateDetailView = () => import('@/views/hr/CandidateDetailView.vue')
 
@@ -139,6 +140,11 @@ const routes: RouteRecordRaw[] = [
     path: '/hr/admin/agents',
     component: AgentManageView,
     meta: { requiresAuth: true, requiresPermission: PERM.SYSTEM_CONFIG_MANAGE, title: 'Agent 管理' },
+  },
+  {
+    path: '/hr/admin/mcp-tools',
+    component: McpManageView,
+    meta: { requiresAuth: true, requiresPermission: PERM.SYSTEM_CONFIG_MANAGE, title: '工具中心' },
   },
 ]
 

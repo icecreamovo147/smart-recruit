@@ -26,7 +26,7 @@
 | 10 | P1-004 | docs/agent-harness/tasks/P1-004-Agent配置管理-后端.md | merged | agent/P1-004-agent-config-mgmt | PASS | Dev: 137a3d7, Merge: 9525b27, Fix rounds: 0. Migration 000026, AgentConfigService gRPC CRUD (5 methods), web-gin handler+router, seed default agents, 2026-06-26 |
 | 11 | P1-005 | docs/agent-harness/tasks/P1-005-Agent配置管理-前端.md | merged | agent/P1-005-agent-config-frontend | PASS | Dev: c0e8d7f, Merge: 9c23f8f, Fix rounds: 0. AgentManageView, api/agent.ts, types/agent.ts, 路由/菜单, 2026-06-26 |
 | 12 | P1-006 | docs/agent-harness/tasks/P1-006-MCP工具中心-后端.md | merged | agent/P1-006-mcp-tool-center-backend | PASS | Dev: d2345ec, Fix: 3cf6889, Merge: 13fb970, Fix rounds: 1. Migration 000028, MCPService gRPC (7 methods), MCP SDK (mark3labs/mcp-go), JSON desensitization, ADK+Legacy tool injection, 39 new tests. 2026-06-27 |
-| 13 | P1-007 | docs/agent-harness/tasks/P1-007-MCP工具中心-前端.md | pending |  |  |  |
+| 13 | P1-007 | docs/agent-harness/tasks/P1-007-MCP工具中心-前端.md | review | agent/P1-007-mcp-tool-center-frontend |  | Dev: under review, McpManageView + api/types + route/menu, typecheck+build PASS. 2026-06-27 |
 | 14 | P1-008 | docs/agent-harness/tasks/P1-008-调试面板-后端.md | pending |  |  |  |
 | 15 | P1-009 | docs/agent-harness/tasks/P1-009-调试面板-前端.md | pending |  |  |  |
 | 16 | P1-010 | docs/agent-harness/tasks/P1-010-输入区增强.md | pending |  |  |  |
