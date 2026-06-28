@@ -5,6 +5,7 @@ import type { CandidateOption } from '@/types/ai'
 interface MessageItem {
   role: string
   content: string
+  model_name?: string
   pending?: boolean
   failed?: boolean
   waitingText?: string
@@ -108,6 +109,13 @@ const quickHints = [
 
         <!-- User plain text -->
         <template v-else-if="message.role === 'user'">{{ message.content }}</template>
+
+        <div
+          v-if="message.role === 'assistant' && message.model_name && !message.pending"
+          class="bubble__meta"
+        >
+          <el-tag size="small" effect="plain">{{ message.model_name }}</el-tag>
+        </div>
 
         <!-- Retry button -->
         <div v-if="message.role === 'assistant' && message.failed" class="bubble__retry">
@@ -222,6 +230,21 @@ const quickHints = [
 
 .bubble__retry {
   margin-top: 10px;
+}
+
+.bubble__meta {
+  display: flex;
+  justify-content: flex-start;
+  margin-top: 8px;
+  line-height: 1;
+}
+
+.bubble__meta :deep(.el-tag) {
+  max-width: 100%;
+  height: 20px;
+  font-size: 11px;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .candidate-options {

@@ -681,6 +681,13 @@ func (s *Server) ListAgents(ctx context.Context, req *pb.ListAgentsRequest) (*pb
 	return s.svc.AgentConfig.ListAgents(ctx, req)
 }
 
+func (s *Server) ListCapabilities(ctx context.Context, req *pb.ListCapabilitiesRequest) (*pb.ListCapabilitiesResponse, error) {
+	if s.svc.AgentConfig == nil {
+		return nil, status.Error(codes.Unavailable, "agent config service not available")
+	}
+	return s.svc.AgentConfig.ListCapabilities(ctx, req)
+}
+
 func (s *Server) CreateAgent(ctx context.Context, req *pb.CreateAgentRequest) (*pb.AgentConfigResponse, error) {
 	if s.svc.AgentConfig == nil {
 		return nil, status.Error(codes.Unavailable, "agent config service not available")

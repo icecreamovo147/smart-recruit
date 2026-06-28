@@ -24,16 +24,17 @@ func NewAIHandler(clients *rpc.Clients) *AIHandler {
 
 func (h *AIHandler) Chat(c *gin.Context) {
 	var req struct {
-		Message       string         `json:"message" binding:"required"`
-		ApplicationID base.FlexInt64 `json:"application_id"`
-		SessionID     base.FlexInt64 `json:"session_id"`
-		ModelID       base.FlexInt64 `json:"model_id"`
+		Message             string         `json:"message" binding:"required"`
+		ApplicationID       base.FlexInt64 `json:"application_id"`
+		SessionID           base.FlexInt64 `json:"session_id"`
+		ModelID             base.FlexInt64 `json:"model_id"`
+		SkillCapabilityKeys []string       `json:"skill_capability_keys"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
 		base.BadRequest(c, "消息不能为空")
 		return
 	}
-	resp, err := h.clients.AI.Chat(c.Request.Context(), &pb.ChatRequest{HrId: middleware.UserID(c), Message: req.Message, ApplicationId: int64(req.ApplicationID), SessionId: int64(req.SessionID), ModelId: int64(req.ModelID)})
+	resp, err := h.clients.AI.Chat(c.Request.Context(), &pb.ChatRequest{HrId: middleware.UserID(c), Message: req.Message, ApplicationId: int64(req.ApplicationID), SessionId: int64(req.SessionID), ModelId: int64(req.ModelID), SkillCapabilityKeys: req.SkillCapabilityKeys})
 	if err != nil {
 		base.Internal(c, err)
 		return
@@ -53,17 +54,18 @@ func (h *AIHandler) Chat(c *gin.Context) {
 
 func (h *AIHandler) ChatStream(c *gin.Context) {
 	var req struct {
-		Message       string         `json:"message" binding:"required"`
-		ApplicationID base.FlexInt64 `json:"application_id"`
-		SessionID     base.FlexInt64 `json:"session_id"`
-		ModelID       base.FlexInt64 `json:"model_id"`
+		Message             string         `json:"message" binding:"required"`
+		ApplicationID       base.FlexInt64 `json:"application_id"`
+		SessionID           base.FlexInt64 `json:"session_id"`
+		ModelID             base.FlexInt64 `json:"model_id"`
+		SkillCapabilityKeys []string       `json:"skill_capability_keys"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
 		base.BadRequest(c, "消息不能为空")
 		return
 	}
 	ctx := c.Request.Context()
-	stream, err := h.clients.AI.ChatStream(ctx, &pb.ChatRequest{HrId: middleware.UserID(c), Message: req.Message, ApplicationId: int64(req.ApplicationID), SessionId: int64(req.SessionID), ModelId: int64(req.ModelID)})
+	stream, err := h.clients.AI.ChatStream(ctx, &pb.ChatRequest{HrId: middleware.UserID(c), Message: req.Message, ApplicationId: int64(req.ApplicationID), SessionId: int64(req.SessionID), ModelId: int64(req.ModelID), SkillCapabilityKeys: req.SkillCapabilityKeys})
 	if err != nil {
 		base.Internal(c, err)
 		return
@@ -152,6 +154,23 @@ func (h *AIHandler) ChatStream(c *gin.Context) {
 			}
 		}
 	}
+}
+
+func (h *AIHandler) ListSkillCapabilities(c *gin.Context) {
+	resp, err := h.clients.AgentConfig.ListCapabilities(c.Request.Context(), &pb.ListCapabilitiesRequest{
+		AgentType: "hr_recruiting_agent",
+	})
+	if err != nil {
+		base.Internal(c, err)
+		return
+	}
+	list := make([]*pb.CapabilityInfo, 0, len(resp.List))
+	for _, item := range resp.List {
+		if item.GetSource() == "skill" && item.GetIsAvailable() {
+			list = append(list, item)
+		}
+	}
+	base.From(c, resp.Code, resp.Msg, gin.H{"list": list})
 }
 
 func (h *AIHandler) History(c *gin.Context) {

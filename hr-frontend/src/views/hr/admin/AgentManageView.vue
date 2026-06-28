@@ -145,11 +145,12 @@ const dialogForm = reactive({
 })
 
 const currentToolOptions = computed(() => {
-  if (capabilityList.value.length > 0) {
-    return capabilityList.value.map((cap) => ({
+  const configurableCapabilities = capabilityList.value.filter((cap) => cap.source !== 'skill')
+  if (configurableCapabilities.length > 0) {
+    return configurableCapabilities.map((cap) => ({
       id: capabilitySelectID(cap.source, cap.key),
       label: capabilityDisplayLabel(cap),
-      group: cap.source === 'mcp' ? 'MCP' : cap.source === 'skill' ? 'SKILL' : '内置',
+      group: cap.source === 'mcp' ? 'MCP' : '内置',
       description: cap.description,
       disabled: !cap.is_available,
     }))
@@ -193,6 +194,9 @@ const capabilityFromSelectID = (id: string): AgentCapabilityBindingInfo | null =
 
 const capabilityIDFromBinding = (binding: AgentCapabilityBindingInfo) =>
   capabilitySelectID(binding.capability_source, binding.capability_key)
+
+const configurableBindings = (bindings: AgentCapabilityBindingInfo[] = []) =>
+  bindings.filter((binding) => binding.capability_source !== 'skill')
 
 const handleAgentTypeChange = async () => {
   dialogForm.capability_ids = []
@@ -239,7 +243,7 @@ const openEdit = async (row: AgentConfigInfo) => {
   dialogForm.is_default = row.is_default
   dialogForm.is_enabled = row.is_enabled
   await loadCapabilities(row.agent_type)
-  const capabilityBindings = row.capability_bindings || []
+  const capabilityBindings = configurableBindings(row.capability_bindings || [])
   dialogForm.capability_ids = capabilityBindings.length > 0
     ? capabilityBindings
       .filter((binding) => binding.is_enabled !== false)
@@ -390,7 +394,7 @@ onMounted(() => {
       </el-table-column>
       <el-table-column label="工具数" width="80">
         <template #default="{ row }: { row: AgentConfigInfo }">
-          {{ (row.capability_bindings || row.tool_bindings || []).length }}
+          {{ configurableBindings(row.capability_bindings || []).length || (row.tool_bindings || []).length }}
         </template>
       </el-table-column>
       <el-table-column label="默认" width="70">

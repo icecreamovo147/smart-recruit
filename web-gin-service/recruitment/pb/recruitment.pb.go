@@ -3469,14 +3469,15 @@ func (x *ListApplicationStatusTransitionsResponse) GetList() []*ApplicationStatu
 }
 
 type ChatRequest struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	HrId          int64                  `protobuf:"varint,1,opt,name=hr_id,json=hrId,proto3" json:"hr_id,omitempty"`
-	Message       string                 `protobuf:"bytes,2,opt,name=message,proto3" json:"message,omitempty"`
-	ApplicationId int64                  `protobuf:"varint,3,opt,name=application_id,json=applicationId,proto3" json:"application_id,omitempty"`
-	SessionId     int64                  `protobuf:"varint,4,opt,name=session_id,json=sessionId,proto3" json:"session_id,omitempty"`
-	ModelId       int64                  `protobuf:"varint,5,opt,name=model_id,json=modelId,proto3" json:"model_id,omitempty"` // Optional: user-selected model override
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	state               protoimpl.MessageState `protogen:"open.v1"`
+	HrId                int64                  `protobuf:"varint,1,opt,name=hr_id,json=hrId,proto3" json:"hr_id,omitempty"`
+	Message             string                 `protobuf:"bytes,2,opt,name=message,proto3" json:"message,omitempty"`
+	ApplicationId       int64                  `protobuf:"varint,3,opt,name=application_id,json=applicationId,proto3" json:"application_id,omitempty"`
+	SessionId           int64                  `protobuf:"varint,4,opt,name=session_id,json=sessionId,proto3" json:"session_id,omitempty"`
+	ModelId             int64                  `protobuf:"varint,5,opt,name=model_id,json=modelId,proto3" json:"model_id,omitempty"`                                      // Optional: user-selected model override
+	SkillCapabilityKeys []string               `protobuf:"bytes,6,rep,name=skill_capability_keys,json=skillCapabilityKeys,proto3" json:"skill_capability_keys,omitempty"` // Optional: per-message SKILL capabilities selected by the user
+	unknownFields       protoimpl.UnknownFields
+	sizeCache           protoimpl.SizeCache
 }
 
 func (x *ChatRequest) Reset() {
@@ -3542,6 +3543,13 @@ func (x *ChatRequest) GetModelId() int64 {
 		return x.ModelId
 	}
 	return 0
+}
+
+func (x *ChatRequest) GetSkillCapabilityKeys() []string {
+	if x != nil {
+		return x.SkillCapabilityKeys
+	}
+	return nil
 }
 
 type ChatResponse struct {
@@ -23071,14 +23079,15 @@ const file_proto_recruitment_proto_rawDesc = "" +
 	"(ListApplicationStatusTransitionsResponse\x12\x12\n" +
 	"\x04code\x18\x01 \x01(\x05R\x04code\x12\x10\n" +
 	"\x03msg\x18\x02 \x01(\tR\x03msg\x12<\n" +
-	"\x04list\x18\x03 \x03(\v2(.recruitment.ApplicationStatusTransitionR\x04list\"\x9d\x01\n" +
+	"\x04list\x18\x03 \x03(\v2(.recruitment.ApplicationStatusTransitionR\x04list\"\xd1\x01\n" +
 	"\vChatRequest\x12\x13\n" +
 	"\x05hr_id\x18\x01 \x01(\x03R\x04hrId\x12\x18\n" +
 	"\amessage\x18\x02 \x01(\tR\amessage\x12%\n" +
 	"\x0eapplication_id\x18\x03 \x01(\x03R\rapplicationId\x12\x1d\n" +
 	"\n" +
 	"session_id\x18\x04 \x01(\x03R\tsessionId\x12\x19\n" +
-	"\bmodel_id\x18\x05 \x01(\x03R\amodelId\"\xc8\x02\n" +
+	"\bmodel_id\x18\x05 \x01(\x03R\amodelId\x122\n" +
+	"\x15skill_capability_keys\x18\x06 \x03(\tR\x13skillCapabilityKeys\"\xc8\x02\n" +
 	"\fChatResponse\x12\x12\n" +
 	"\x04code\x18\x01 \x01(\x05R\x04code\x12\x10\n" +
 	"\x03msg\x18\x02 \x01(\tR\x03msg\x12\x14\n" +

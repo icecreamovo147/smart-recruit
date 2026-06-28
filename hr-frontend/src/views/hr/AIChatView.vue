@@ -4,7 +4,7 @@ import { useRoute, useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import DOMPurify from 'dompurify'
 import MarkdownIt from 'markdown-it'
-import { createApplicationAnalysisSession, createSession, deleteSession, getSessionMessages, listSessions, sendMessageStream, updateSession } from '@/api/ai'
+import { createApplicationAnalysisSession, createSession, deleteSession, getSessionMessages, listSessions, listSkillCapabilities, sendMessageStream, updateSession } from '@/api/ai'
 import { updateApplicationStatus } from '@/api/application'
 import { listModels } from '@/api/llm'
 import AgentTracePanel from '@/components/AgentTracePanel.vue'
@@ -14,6 +14,7 @@ import ChatMessageList from '@/components/chat/ChatMessageList.vue'
 import ChatComposer from '@/components/chat/ChatComposer.vue'
 import type { ChatMessage, ChatSessionListItem, Session, CandidateOption, StreamPayload } from '@/types/ai'
 import type { LlmModel } from '@/types/llm'
+import type { CapabilityInfo } from '@/types/agent'
 import { BusinessError } from '@/types/api'
 
 interface MessageItem {
@@ -46,6 +47,8 @@ const modelList = ref<LlmModel[]>([])
 const selectedModelId = ref<number | null>(null)
 const dataSource = ref('招聘业务数据库')
 const tracePanelVisible = ref(false)
+const skillCapabilities = ref<CapabilityInfo[]>([])
+const selectedSkillKeys = ref<string[]>([])
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const listRef = ref<any>(null)
 let pollTimer: ReturnType<typeof setInterval> | null = null
@@ -461,7 +464,9 @@ const submit = async () => {
   if (!currentSession.value) {
     await createNewSession()
   }
+  const skillKeysForMessage = [...selectedSkillKeys.value]
   input.value = ''
+  selectedSkillKeys.value = []
   messages.value.push({ role: 'user', content: text })
   const session = currentSession.value
   if (!session) return
@@ -477,7 +482,12 @@ const submit = async () => {
     let finalPayload: StreamPayload | null = null
     let streamFailed = false
     await sendMessageStream(
-      { message: text, session_id: session.id, ...(selectedModelId.value != null ? { model_id: selectedModelId.value } : {}) },
+      {
+        message: text,
+        session_id: session.id,
+        ...(selectedModelId.value != null ? { model_id: selectedModelId.value } : {}),
+        ...(skillKeysForMessage.length > 0 ? { skill_capability_keys: skillKeysForMessage } : {}),
+      },
       {
         onDelta: (delta) => {
           appendAssistantDelta(assistantIndex, delta)
@@ -505,7 +515,10 @@ const submit = async () => {
       { signal: controller.signal, silentAbort: true },
     )
     scrollBottom()
-    if (streamFailed) return
+    if (streamFailed) {
+      selectedSkillKeys.value = skillKeysForMessage
+      return
+    }
     if (finalPayload) {
       if ((finalPayload as StreamPayload).session_id && currentSession.value) {
         currentSession.value = { ...currentSession.value, id: (finalPayload as StreamPayload).session_id! }
@@ -526,6 +539,7 @@ const submit = async () => {
     if (userAborted.value) return
     markAssistantError(assistantIndex, error instanceof Error ? error : new Error('AI 流式响应失败'))
     input.value = text
+    selectedSkillKeys.value = skillKeysForMessage
     const err = error as { code?: string; message?: string }
     if (err.code === 'ECONNABORTED') {
       ElMessage.warning('AI 分析耗时较长，请稍后重新发送')
@@ -646,6 +660,10 @@ onMounted(async () => {
     const modelData = await listModels(1, 200)
     modelList.value = (modelData.list || []).filter((m) => m.is_enabled)
   } catch { /* non-fatal: model selector will be empty */ }
+  try {
+    const skillData = await listSkillCapabilities()
+    skillCapabilities.value = skillData.list || []
+  } catch { /* non-fatal: slash menu will be empty */ }
   await refreshSessions()
   if (await createAnalysisSessionFromRoute()) return
   const querySessionId = Number(route.query.session_id || 0)
@@ -742,8 +760,11 @@ onBeforeUnmount(() => {
           :selected-model-id="selectedModelId"
           :data-source="dataSource"
           :current-session="currentSession"
+          :skill-capabilities="skillCapabilities"
+          :selected-skill-keys="selectedSkillKeys"
           @update:input="(val: string) => input = val"
           @update:selected-model-id="(val: number | null) => selectedModelId = val"
+          @update:selected-skill-keys="(val: string[]) => selectedSkillKeys = val"
           @submit="submit"
           @stop="stopStreaming"
         />

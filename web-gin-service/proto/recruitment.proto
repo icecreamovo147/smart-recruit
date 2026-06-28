@@ -552,6 +552,7 @@ message ChatRequest {
   int64 application_id = 3;
   int64 session_id = 4;
   int64 model_id = 5;               // Optional: user-selected model override
+  repeated string skill_capability_keys = 6; // Optional: per-message SKILL capabilities selected by the user
 }
 
 message ChatResponse {

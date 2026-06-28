@@ -4,10 +4,19 @@ import { clearLocalAuthCache } from '@/utils/token'
 import { useAuthStore } from '@/stores/auth'
 import { BusinessError } from '@/types/api'
 import type { StreamHandlers, StreamPayload, ChatSessionListItem, ToolTraceItem, AgentRunItem } from '@/types/ai'
+import type { CapabilityInfo } from '@/types/agent'
 import request from './request'
 import { silentRefresh } from './authRefresh'
 
-export const sendMessage = (data: { message: string; application_id?: number; session_id?: number; model_id?: number }): Promise<{
+export interface ChatRequestPayload {
+  message: string
+  application_id?: number
+  session_id?: number
+  model_id?: number
+  skill_capability_keys?: string[]
+}
+
+export const sendMessage = (data: ChatRequestPayload): Promise<{
   reply: string
   created_at: string
   action?: string
@@ -64,6 +73,10 @@ export const getAgentRuns = (sessionId: number): Promise<{
   list: AgentRunItem[]
 }> => request.get(`/api/v1/hr/ai/sessions/${sessionId}/agent-runs`)
 
+export const listSkillCapabilities = (): Promise<{
+  list: CapabilityInfo[]
+}> => request.get('/api/v1/hr/ai/skill-capabilities')
+
 const friendlyStreamMsg = (code: number, msg: string): string => {
   if (code === 42901) return msg || '今日 AI 使用次数已达上限，请明天再试'
   if (code === 42902) return msg || 'AI 请求太频繁，请稍后再试'
@@ -117,7 +130,7 @@ const handleStreamPayload = (text: string, handlers: StreamHandlers): boolean =>
 }
 
 export const sendMessageStream = async (
-  data: { message: string; application_id?: number; session_id?: number; model_id?: number },
+  data: ChatRequestPayload,
   handlers: StreamHandlers = {},
   options: { signal?: AbortSignal; silentAbort?: boolean } = {},
 ): Promise<void> => {

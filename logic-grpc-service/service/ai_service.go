@@ -155,7 +155,7 @@ func (s *AIService) Chat(ctx context.Context, req *pb.ChatRequest) (*pb.ChatResp
 		req.ApplicationId = session.ApplicationID
 	}
 
-	runtimeCfg := s.getAgentRuntimeConfig(ctx, "hr_recruiting_agent")
+	runtimeCfg := s.getAgentRuntimeConfig(ctx, "hr_recruiting_agent", req.GetSkillCapabilityKeys())
 	runtimeClient, err := s.resolveRuntimeAIClient(ctx, req.GetModelId(), runtimeCfg)
 	if err != nil {
 		s.recordFailedAgentRun(ctx, req, session, requestedModelIDPtr(req.GetModelId()), s.defaultRuntimeModelName(), "model_resolution_failed", err)
@@ -229,7 +229,7 @@ func (s *AIService) ChatStream(req *pb.ChatRequest, stream pb.AIService_ChatStre
 		req.ApplicationId = session.ApplicationID
 	}
 
-	runtimeCfg := s.getAgentRuntimeConfig(ctx, "hr_recruiting_agent")
+	runtimeCfg := s.getAgentRuntimeConfig(ctx, "hr_recruiting_agent", req.GetSkillCapabilityKeys())
 	runtimeClient, err := s.resolveRuntimeAIClient(ctx, req.GetModelId(), runtimeCfg)
 	if err != nil {
 		s.recordFailedAgentRun(ctx, req, session, requestedModelIDPtr(req.GetModelId()), s.defaultRuntimeModelName(), "model_resolution_failed", err)
@@ -1237,7 +1237,7 @@ type agentRuntimeConfig struct {
 	TemperatureOverride *float64
 }
 
-func (s *AIService) getAgentRuntimeConfig(ctx context.Context, agentType string) *agentRuntimeConfig {
+func (s *AIService) getAgentRuntimeConfig(ctx context.Context, agentType string, selectedSkillKeySets ...[]string) *agentRuntimeConfig {
 	cfg := &agentRuntimeConfig{
 		MaxIterations: 0, // 0 means use ADK default
 	}
@@ -1288,6 +1288,19 @@ func (s *AIService) getAgentRuntimeConfig(ctx context.Context, agentType string)
 					cfg.SystemPrompt = tmpl.Content
 				}
 			}
+		}
+	}
+
+	for _, keys := range selectedSkillKeySets {
+		for _, key := range keys {
+			key = strings.TrimSpace(key)
+			if key == "" {
+				continue
+			}
+			if cfg.SkillCapabilityKeys == nil {
+				cfg.SkillCapabilityKeys = map[string]bool{}
+			}
+			cfg.SkillCapabilityKeys[key] = true
 		}
 	}
 
