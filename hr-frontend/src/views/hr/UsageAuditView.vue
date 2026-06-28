@@ -1,6 +1,7 @@
 <script setup lang="ts">
-import { ref, reactive, onMounted } from "vue";
+import { computed, ref, reactive, onMounted } from "vue";
 import { ElMessage } from "element-plus";
+import { Refresh, Search } from "@element-plus/icons-vue";
 import { listUsageLogs } from "@/api/admin";
 import type { UsageLogQuery, UsageLogItem } from "@/api/admin";
 
@@ -104,6 +105,13 @@ const formatSize = (bytes: number): string => {
     return `${(bytes / 1024 / 1024).toFixed(1)} MB`;
 };
 
+const usageStats = computed(() => [
+    { label: "调用记录", value: total.value || logs.value.length, hint: "第三方服务调用明细" },
+    { label: "成功", value: logs.value.filter((item) => item.status === "ok").length, hint: "状态为 ok 的请求" },
+    { label: "异常", value: logs.value.filter((item) => item.status && item.status !== "ok").length, hint: "错误、超时或限流" },
+    { label: "估算 Token", value: logs.value.reduce((sum, item) => sum + Number(item.estimated_tokens || 0), 0), hint: "当前列表内累计" },
+]);
+
 // ── Lifecycle ────────────────────────────────────────────────────────────
 
 onMounted(() => {
@@ -112,12 +120,33 @@ onMounted(() => {
 </script>
 
 <template>
-    <div class="usage-audit">
+    <div class="console-page console-page--fill usage-audit">
+        <div class="console-header">
+            <div class="console-header__copy">
+                <p class="console-eyebrow">USAGE AUDIT</p>
+                <h1 class="console-title">第三方服务审计日志</h1>
+                <p class="console-description">追踪 AI、对象存储等外部服务的调用状态、耗时、Token 和 Request ID，支撑成本与稳定性审计。</p>
+            </div>
+            <div class="console-header__actions">
+                <el-button :icon="Refresh" @click="load">刷新</el-button>
+            </div>
+        </div>
+
+        <section class="console-stats">
+            <div v-for="item in usageStats" :key="item.label" class="console-stat">
+                <div class="console-stat__label">{{ item.label }}</div>
+                <div class="console-stat__value">{{ item.value }}</div>
+                <div class="console-stat__hint">{{ item.hint }}</div>
+            </div>
+        </section>
+
+        <div class="console-card console-card--fill">
         <el-form
             :inline="true"
-            class="filter-form"
+            class="console-toolbar filter-form"
             @submit.prevent="handleSearch"
         >
+            <div class="console-toolbar__filters">
             <el-form-item label="服务类型">
                 <el-select
                     v-model="query.service_type"
@@ -185,9 +214,10 @@ onMounted(() => {
                 />
             </el-form-item>
             <el-form-item>
-                <el-button type="primary" @click="handleSearch">查询</el-button>
+                <el-button type="primary" :icon="Search" @click="handleSearch">查询</el-button>
                 <el-button @click="handleReset">重置</el-button>
             </el-form-item>
+            </div>
         </el-form>
 
         <el-alert
@@ -205,10 +235,11 @@ onMounted(() => {
             </template>
         </el-alert>
 
-        <div class="table-wrapper">
+        <div class="console-table-wrap table-wrapper">
             <el-table
                 v-loading="loading"
                 :data="logs"
+                class="console-table"
                 empty-text="暂无审计日志"
                 stripe
                 height="100%"
@@ -366,7 +397,7 @@ onMounted(() => {
             </el-table>
         </div>
 
-        <div class="pagination-wrapper">
+        <div class="console-pagination pagination-wrapper">
             <el-pagination
                 v-model:current-page="query.page"
                 v-model:page-size="query.page_size"
@@ -376,6 +407,7 @@ onMounted(() => {
                 @current-change="load"
                 @size-change="load"
             />
+        </div>
         </div>
     </div>
 </template>

@@ -2,6 +2,7 @@
 import { computed, onMounted, reactive, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
+import { Plus, Refresh, Search } from '@element-plus/icons-vue'
 import { createJob, getJobOptions, listHRJobs, offlineJob, onlineJob, updateJob } from '@/api/job'
 import RichTextEditor from '@/components/RichTextEditor.vue'
 import type { DepartmentLocationMapItem, DepartmentNode, Job, JobCreatePayload, JobQuery, LocationOption } from '@/types/domain'
@@ -15,6 +16,8 @@ const editingId = ref<number | null>(null)
 const jobs = ref<Job[]>([])
 const total = ref(0)
 const query = reactive<JobQuery>({ page: 1, page_size: 10 })
+const keyword = ref('')
+const statusFilter = ref('')
 
 // Taxonomy options loaded from API
 const departmentTree = ref<DepartmentNode[]>([])
@@ -255,6 +258,26 @@ const online = async (row: Job) => {
   }
 }
 
+const filteredJobs = computed(() => {
+  const q = keyword.value.trim().toLowerCase()
+  return jobs.value.filter((item) => {
+    const matchesKeyword = !q
+      || item.title.toLowerCase().includes(q)
+      || (item.department || '').toLowerCase().includes(q)
+      || (item.location || '').toLowerCase().includes(q)
+    const matchesStatus = !statusFilter.value
+      || (statusFilter.value === 'online' ? item.status === 1 : item.status !== 1)
+    return matchesKeyword && matchesStatus
+  })
+})
+
+const jobStats = computed(() => [
+  { label: '岗位总数', value: total.value || jobs.value.length, hint: '当前招聘中的岗位资产' },
+  { label: '招募中', value: jobs.value.filter((item) => item.status === 1).length, hint: '候选人可见岗位' },
+  { label: '已下架', value: jobs.value.filter((item) => item.status !== 1).length, hint: '暂不继续接收投递' },
+  { label: '投递总量', value: jobs.value.reduce((sum, item) => sum + Number(item.application_count || 0), 0), hint: '当前列表内累计投递' },
+])
+
 onMounted(() => {
   load()
   loadOptions()
@@ -262,26 +285,59 @@ onMounted(() => {
 </script>
 
 <template>
-  <section class="job-management-page">
-    <div class="page-header">
-      <h1 class="page-title">岗位管理</h1>
-      <div class="toolbar">
-        <el-button type="primary" @click="openCreate">新增岗位</el-button>
+  <section class="console-page console-page--fill job-management-page">
+    <div class="console-header">
+      <div class="console-header__copy">
+        <p class="console-eyebrow">RECRUITING OPS</p>
+        <h1 class="console-title">岗位管理</h1>
+        <p class="console-description">管理招聘岗位的发布状态、部门地点、薪资信息和候选人台账入口，让岗位运营状态一眼可见。</p>
+      </div>
+      <div class="console-header__actions">
+        <el-button :icon="Refresh" @click="load">刷新</el-button>
+        <el-button type="primary" :icon="Plus" @click="openCreate">新增岗位</el-button>
       </div>
     </div>
 
-    <div class="content-surface job-management-surface">
+    <section class="console-stats">
+      <div v-for="item in jobStats" :key="item.label" class="console-stat">
+        <div class="console-stat__label">{{ item.label }}</div>
+        <div class="console-stat__value">{{ item.value }}</div>
+        <div class="console-stat__hint">{{ item.hint }}</div>
+      </div>
+    </section>
+
+    <div class="console-card console-card--fill job-management-surface">
+      <div class="console-card__head">
+        <div>
+          <h2 class="console-card__title">岗位列表</h2>
+          <p class="console-card__desc">共 {{ filteredJobs.length }} 个匹配岗位</p>
+        </div>
+      </div>
+      <div class="console-toolbar">
+        <div class="console-toolbar__filters">
+          <el-input v-model="keyword" :prefix-icon="Search" clearable placeholder="搜索岗位 / 部门 / 地点" style="width: 260px" />
+          <el-select v-model="statusFilter" clearable placeholder="全部状态" style="width: 140px">
+            <el-option label="招募中" value="online" />
+            <el-option label="已下架" value="offline" />
+          </el-select>
+        </div>
+      </div>
       <el-alert v-if="errorMessage" class="page-error" type="error" :title="errorMessage" show-icon :closable="false">
         <template #default>
           <el-button size="small" type="danger" plain @click="load">重试</el-button>
         </template>
       </el-alert>
       <div class="job-table-area desktop-only">
-        <el-table class="job-table" height="100%" v-loading="loading" :data="jobs" empty-text="暂无岗位">
-          <el-table-column prop="title" label="岗位" min-width="160" align="center" />
-          <el-table-column prop="department" label="部门" width="120" align="center" />
-          <el-table-column prop="location" label="地点" width="140" align="center" />
-          <el-table-column prop="salary_range" label="薪资" width="130" align="center" />
+        <el-table class="console-table job-table" height="100%" v-loading="loading" :data="filteredJobs" empty-text="暂无岗位">
+          <el-table-column label="岗位信息" min-width="240">
+            <template #default="{ row }">
+              <div class="console-entity">
+                <div class="console-entity__name">{{ row.title }}</div>
+                <div class="console-entity__meta">{{ row.department || '未填写部门' }} / {{ row.location || '地点待定' }}</div>
+              </div>
+            </template>
+          </el-table-column>
+          <el-table-column prop="salary_range" label="薪资" width="140" align="center" />
           <el-table-column label="投递数" width="90" align="center">
             <template #default="{ row }">
               {{ row.application_count ?? 0 }}
@@ -305,8 +361,8 @@ onMounted(() => {
       </div>
       <!-- Mobile job cards -->
       <div class="mobile-card-list mobile-only">
-        <el-empty v-if="!loading && jobs.length === 0" description="暂无岗位" />
-        <div v-for="job in jobs" :key="job.job_id" class="mobile-job-card">
+        <el-empty v-if="!loading && filteredJobs.length === 0" description="暂无岗位" />
+        <div v-for="job in filteredJobs" :key="job.job_id" class="mobile-job-card">
           <div class="mobile-card__header">
             <h3 class="mobile-card__title">{{ job.title }}</h3>
             <el-tag :type="job.status === 1 ? 'success' : 'info'" size="small">{{ job.status === 1 ? '招募中' : '已下架' }}</el-tag>
@@ -329,7 +385,7 @@ onMounted(() => {
       <el-pagination class="job-pagination" v-model:current-page="query.page" v-model:page-size="query.page_size" layout="total, prev, pager, next, sizes" :total="total" @current-change="load" @size-change="load" />
     </div>
 
-    <el-dialog v-model="dialogVisible" :title="editingId ? '编辑岗位' : '新增岗位'" width="860px" @closed="resetForm">
+    <el-drawer v-model="dialogVisible" :title="editingId ? '编辑岗位' : '新增岗位'" size="860px" @closed="resetForm">
       <el-form label-width="80px">
         <el-form-item label="岗位名称">
           <el-input v-model="form.title" />
@@ -376,6 +432,6 @@ onMounted(() => {
         <el-button @click="dialogVisible = false">取消</el-button>
         <el-button type="primary" :loading="saving" @click="save">保存</el-button>
       </template>
-    </el-dialog>
+    </el-drawer>
   </section>
 </template>

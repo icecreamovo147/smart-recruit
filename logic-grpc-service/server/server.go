@@ -26,6 +26,7 @@ type Server struct {
 	pb.UnimplementedAgentConfigServiceServer
 	pb.UnimplementedMCPServiceServer
 	pb.UnimplementedSkillServiceServer
+	pb.UnimplementedAgentSkillServiceServer
 	svc *service.Services
 }
 
@@ -778,4 +779,46 @@ func (s *Server) ListSkillTools(ctx context.Context, req *pb.ListSkillToolsReque
 
 func (s *Server) UpdateSkillTool(ctx context.Context, req *pb.UpdateSkillToolRequest) (*pb.SkillToolResponse, error) {
 	return s.svc.Skill.UpdateSkillTool(ctx, req)
+}
+
+// --- AgentSkillService --------------------------------------------------
+
+func (s *Server) ListAgentSkills(ctx context.Context, req *pb.ListAgentSkillsRequest) (*pb.ListAgentSkillsResponse, error) {
+	return s.svc.AgentSkill.ListAgentSkills(ctx, req)
+}
+
+func (s *Server) GetAgentSkill(ctx context.Context, req *pb.GetAgentSkillRequest) (*pb.AgentSkillResponse, error) {
+	return s.svc.AgentSkill.GetAgentSkill(ctx, req)
+}
+
+func (s *Server) CreateAgentSkill(ctx context.Context, req *pb.CreateAgentSkillRequest) (*pb.AgentSkillResponse, error) {
+	return s.svc.AgentSkill.CreateAgentSkill(ctx, req)
+}
+
+func (s *Server) UpdateAgentSkill(ctx context.Context, req *pb.UpdateAgentSkillRequest) (*pb.AgentSkillResponse, error) {
+	return s.svc.AgentSkill.UpdateAgentSkill(ctx, req)
+}
+
+func (s *Server) CreateAgentSkillVersion(ctx context.Context, req *pb.CreateAgentSkillVersionRequest) (*pb.AgentSkillVersionResponse, error) {
+	return s.svc.AgentSkill.CreateAgentSkillVersion(ctx, req)
+}
+
+func (s *Server) ListAgentSkillVersions(ctx context.Context, req *pb.ListAgentSkillVersionsRequest) (*pb.ListAgentSkillVersionsResponse, error) {
+	return s.svc.AgentSkill.ListAgentSkillVersions(ctx, req)
+}
+
+func (s *Server) ActivateAgentSkillVersion(ctx context.Context, req *pb.ActivateAgentSkillVersionRequest) (*pb.AgentSkillResponse, error) {
+	return s.svc.AgentSkill.ActivateAgentSkillVersion(ctx, req)
+}
+
+func (s *Server) UpdateAgentSkillStatus(ctx context.Context, req *pb.UpdateAgentSkillStatusRequest) (*pb.AgentSkillResponse, error) {
+	return s.svc.AgentSkill.UpdateAgentSkillStatus(ctx, req)
+}
+
+func (s *Server) PreviewAgentSkill(ctx context.Context, req *pb.PreviewAgentSkillRequest) (*pb.PreviewAgentSkillResponse, error) {
+	return s.svc.AgentSkill.PreviewAgentSkill(ctx, req)
+}
+
+func (s *Server) ListAvailableAgentSkills(ctx context.Context, req *pb.ListAvailableAgentSkillsRequest) (*pb.ListAgentSkillsResponse, error) {
+	return s.svc.AgentSkill.ListAvailableAgentSkills(ctx, req)
 }

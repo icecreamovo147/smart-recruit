@@ -1,6 +1,7 @@
 <script setup lang="ts">
-import { onMounted, reactive, ref } from 'vue'
+import { computed, onMounted, reactive, ref } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
+import { Plus, Refresh, Search } from '@element-plus/icons-vue'
 import { listLocations, createLocation, updateLocation, updateLocationStatus, deleteLocation } from '@/api/admin'
 import type { LocationOption } from '@/types/domain'
 
@@ -8,6 +9,8 @@ const toNum = (v: unknown): number => (v != null ? Number(v) : 0)
 
 const loading = ref(false)
 const list = ref<LocationOption[]>([])
+const keyword = ref('')
+const statusFilter = ref('')
 
 const dialogVisible = ref(false)
 const editing = ref<LocationOption | null>(null)
@@ -91,19 +94,75 @@ const remove = async (row: LocationOption) => {
   load()
 }
 
+const filteredList = computed(() => {
+  const q = keyword.value.trim().toLowerCase()
+  return list.value.filter((item) => {
+    const matchesKeyword = !q
+      || item.name.toLowerCase().includes(q)
+      || (item.code || '').toLowerCase().includes(q)
+    const matchesStatus = !statusFilter.value
+      || (statusFilter.value === 'active' ? item.is_active === 1 : item.is_active !== 1)
+    return matchesKeyword && matchesStatus
+  })
+})
+
+const stats = computed(() => [
+  { label: '地点总数', value: list.value.length, hint: '可用于岗位发布和数据范围' },
+  { label: '已启用', value: list.value.filter((item) => item.is_active === 1).length, hint: '当前可选地点' },
+  { label: '已停用', value: list.value.filter((item) => item.is_active !== 1).length, hint: '历史保留或暂不可用' },
+])
+
 onMounted(load)
 </script>
 
 <template>
-  <section class="taxonomy-page">
-    <div class="page-header">
-      <h1 class="page-title">地点管理</h1>
-      <el-button type="primary" @click="openCreate()">新增地点</el-button>
+  <section class="console-page console-page--fill taxonomy-page">
+    <div class="console-header">
+      <div class="console-header__copy">
+        <p class="console-eyebrow">BASIC DATA</p>
+        <h1 class="console-title">地点管理</h1>
+        <p class="console-description">维护招聘业务中可使用的城市、园区或办公地点，供岗位发布、部门地点配置和权限数据范围复用。</p>
+      </div>
+      <div class="console-header__actions">
+        <el-button :icon="Refresh" @click="load">刷新</el-button>
+        <el-button type="primary" :icon="Plus" @click="openCreate()">新增地点</el-button>
+      </div>
     </div>
-    <div class="content-surface">
-      <el-table v-loading="loading" :data="list" border>
-        <el-table-column prop="name" label="地点名称" min-width="160" />
-        <el-table-column prop="code" label="编码" width="120" />
+
+    <section class="console-stats">
+      <div v-for="item in stats" :key="item.label" class="console-stat">
+        <div class="console-stat__label">{{ item.label }}</div>
+        <div class="console-stat__value">{{ item.value }}</div>
+        <div class="console-stat__hint">{{ item.hint }}</div>
+      </div>
+    </section>
+
+    <div class="console-card console-card--fill">
+      <div class="console-card__head">
+        <div>
+          <h2 class="console-card__title">地点列表</h2>
+          <p class="console-card__desc">共 {{ filteredList.length }} 个匹配地点</p>
+        </div>
+      </div>
+      <div class="console-toolbar">
+        <div class="console-toolbar__filters">
+          <el-input v-model="keyword" :prefix-icon="Search" clearable placeholder="搜索地点名称 / 编码" style="width: 240px" />
+          <el-select v-model="statusFilter" clearable placeholder="全部状态" style="width: 140px">
+            <el-option label="启用" value="active" />
+            <el-option label="停用" value="inactive" />
+          </el-select>
+        </div>
+      </div>
+      <div class="console-table-wrap">
+      <el-table v-loading="loading" :data="filteredList" class="console-table" stripe>
+        <el-table-column label="地点信息" min-width="220">
+          <template #default="{ row }">
+            <div class="console-entity">
+              <div class="console-entity__name">{{ row.name }}</div>
+              <div class="console-entity__meta">编码：<span class="console-code">{{ row.code || '-' }}</span></div>
+            </div>
+          </template>
+        </el-table-column>
         <el-table-column label="状态" width="80" align="center">
           <template #default="{ row }">
             <el-tag :type="row.is_active === 1 ? 'success' : 'info'" size="small">
@@ -121,9 +180,10 @@ onMounted(load)
           </template>
         </el-table-column>
       </el-table>
+      </div>
     </div>
 
-    <el-dialog v-model="dialogVisible" :title="editing ? '编辑地点' : '新增地点'" width="480px">
+    <el-drawer v-model="dialogVisible" :title="editing ? '编辑地点' : '新增地点'" size="480px">
       <el-form label-width="80px">
         <el-form-item label="地点名称">
           <el-input v-model="form.name" placeholder="请输入地点名称" />
@@ -139,6 +199,6 @@ onMounted(load)
         <el-button @click="dialogVisible = false">取消</el-button>
         <el-button type="primary" @click="saveLoc">保存</el-button>
       </template>
-    </el-dialog>
+    </el-drawer>
   </section>
 </template>

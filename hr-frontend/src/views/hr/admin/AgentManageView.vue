@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { onMounted, reactive, ref, computed } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { Delete, Edit, Plus, Refresh } from '@element-plus/icons-vue'
+import { Delete, Edit, MoreFilled, Plus, Refresh, Search, View } from '@element-plus/icons-vue'
 import {
   listAgentConfigs,
   listAgentCapabilities,
@@ -73,6 +73,9 @@ const pageSize = ref(20)
 const loading = ref(false)
 const error = ref('')
 const agentTypeFilter = ref('')
+const keywordFilter = ref('')
+const statusFilter = ref('')
+const promptFilter = ref('')
 
 const loadList = async () => {
   loading.value = true
@@ -122,6 +125,58 @@ const formatTime = (s?: string): string => {
   return new Date(s).toLocaleString('zh-CN')
 }
 
+const agentTypeLabel = (type: string) => AGENT_TYPE_LABEL[type] || type || '-'
+
+const getAgentCapabilityCount = (row: AgentConfigInfo) =>
+  configurableBindings(row.capability_bindings || []).length || (row.tool_bindings || []).length
+
+const filteredList = computed(() => {
+  const keyword = keywordFilter.value.trim().toLowerCase()
+  return list.value.filter((item) => {
+    const matchesKeyword = !keyword
+      || item.name.toLowerCase().includes(keyword)
+      || item.display_name.toLowerCase().includes(keyword)
+    const matchesStatus = !statusFilter.value
+      || (statusFilter.value === 'enabled' ? item.is_enabled : !item.is_enabled)
+    const hasPrompt = Boolean(item.prompt_template_id || item.prompt_template_name)
+    const matchesPrompt = !promptFilter.value
+      || (promptFilter.value === 'bound' ? hasPrompt : !hasPrompt)
+    return matchesKeyword && matchesStatus && matchesPrompt
+  })
+})
+
+const stats = computed(() => {
+  const enabled = list.value.filter((item) => item.is_enabled).length
+  const defaults = list.value.filter((item) => item.is_default).length
+  const promptBound = list.value.filter((item) => item.prompt_template_id || item.prompt_template_name).length
+  const capabilityCount = list.value.reduce((sum, item) => sum + getAgentCapabilityCount(item), 0)
+  return [
+    { label: 'Agent 总数', value: total.value || list.value.length },
+    { label: '已启用', value: enabled },
+    { label: '默认 Agent', value: defaults },
+    { label: '已绑定 Prompt', value: promptBound },
+    { label: '工具/能力绑定数', value: capabilityCount },
+  ]
+})
+
+const resetFilters = () => {
+  keywordFilter.value = ''
+  agentTypeFilter.value = ''
+  statusFilter.value = ''
+  promptFilter.value = ''
+  page.value = 1
+  loadList()
+}
+
+const bindingLabel = (binding: AgentCapabilityBindingInfo) => {
+  const sourceLabel: Record<string, string> = {
+    builtin: '内置',
+    mcp: 'MCP',
+    skill: 'SKILL',
+  }
+  return `${sourceLabel[binding.capability_source] || binding.capability_source} / ${binding.capability_key}`
+}
+
 // ====== Edit / Create Dialog ======
 
 const dialogVisible = ref(false)
@@ -143,6 +198,14 @@ const dialogForm = reactive({
   is_enabled: true,
   capability_ids: [] as string[],
 })
+
+const detailVisible = ref(false)
+const detailAgent = ref<AgentConfigInfo | null>(null)
+
+const openDetail = (row: AgentConfigInfo) => {
+  detailAgent.value = row
+  detailVisible.value = true
+}
 
 const currentToolOptions = computed(() => {
   const configurableCapabilities = capabilityList.value.filter((cap) => cap.source !== 'skill')
@@ -347,16 +410,38 @@ onMounted(() => {
 
 <template>
   <div class="agent-manage-view">
-    <h2 class="page-title">Agent 管理</h2>
-
-    <div class="toolbar">
-      <div class="toolbar-left">
+    <section class="page-header">
+      <div>
+        <p class="page-kicker">AI Agent Console</p>
+        <h2 class="page-title">Agent 管理</h2>
+        <p class="page-desc">配置 HR 后台可调用的 AI Agent、Prompt 绑定、工具能力和运行参数。</p>
+      </div>
+      <div class="page-actions">
         <el-button type="primary" :icon="Plus" @click="openCreate">新增 Agent</el-button>
+      </div>
+    </section>
+
+    <section class="stats-grid">
+      <div v-for="item in stats" :key="item.label" class="stat-card">
+        <div class="stat-label">{{ item.label }}</div>
+        <div class="stat-value">{{ item.value }}</div>
+      </div>
+    </section>
+
+    <el-card class="table-card" shadow="never">
+      <div class="filter-toolbar">
+        <el-input
+          v-model="keywordFilter"
+          class="filter-search"
+          :prefix-icon="Search"
+          clearable
+          placeholder="搜索名称 / 标识"
+        />
         <el-select
           v-model="agentTypeFilter"
           placeholder="全部类型"
           clearable
-          style="width: 180px"
+          class="filter-select"
           @change="() => { page = 1; loadList() }"
         >
           <el-option value="" label="全部类型" />
@@ -367,83 +452,109 @@ onMounted(() => {
             :label="opt.label"
           />
         </el-select>
+        <el-select v-model="statusFilter" placeholder="全部状态" clearable class="filter-select">
+          <el-option value="enabled" label="已启用" />
+          <el-option value="disabled" label="已禁用" />
+        </el-select>
+        <el-select v-model="promptFilter" placeholder="Prompt 绑定" clearable class="filter-select">
+          <el-option value="bound" label="已绑定 Prompt" />
+          <el-option value="unbound" label="未绑定 Prompt" />
+        </el-select>
+        <div class="filter-actions">
+          <el-button @click="resetFilters">重置</el-button>
+          <el-button :icon="Refresh" @click="loadList">刷新</el-button>
+        </div>
       </div>
-      <el-button :icon="Refresh" @click="loadList">刷新</el-button>
-    </div>
 
-    <!-- ── List Table ──────────────────────────────────────────────── -->
-    <el-table
-      v-loading="loading"
-      :data="list"
-      stripe
-      border
-      style="width: 100%"
-      :empty-text="error || '暂无数据'"
-    >
-      <el-table-column prop="display_name" label="显示名称" min-width="140" />
-      <el-table-column prop="name" label="标识" width="180" />
-      <el-table-column label="类型" width="140">
-        <template #default="{ row }: { row: AgentConfigInfo }">
-          {{ AGENT_TYPE_LABEL[row.agent_type] || row.agent_type }}
-        </template>
-      </el-table-column>
-      <el-table-column label="绑定 Prompt" width="160" show-overflow-tooltip>
-        <template #default="{ row }: { row: AgentConfigInfo }">
-          {{ row.prompt_template_name || '-' }}
-        </template>
-      </el-table-column>
-      <el-table-column label="工具数" width="80">
-        <template #default="{ row }: { row: AgentConfigInfo }">
-          {{ configurableBindings(row.capability_bindings || []).length || (row.tool_bindings || []).length }}
-        </template>
-      </el-table-column>
-      <el-table-column label="默认" width="70">
-        <template #default="{ row }: { row: AgentConfigInfo }">
-          <el-tag v-if="row.is_default" type="warning" size="small">默认</el-tag>
-          <span v-else>-</span>
-        </template>
-      </el-table-column>
-      <el-table-column label="状态" width="80">
-        <template #default="{ row }: { row: AgentConfigInfo }">
-          <el-tag :type="row.is_enabled ? 'success' : 'info'" size="small">
-            {{ row.is_enabled ? '启用' : '禁用' }}
-          </el-tag>
-        </template>
-      </el-table-column>
-      <el-table-column label="更新时间" width="170">
-        <template #default="{ row }: { row: AgentConfigInfo }">
-          {{ formatTime(row.updated_at) }}
-        </template>
-      </el-table-column>
-      <el-table-column label="操作" width="170" fixed="right">
-        <template #default="{ row }: { row: AgentConfigInfo }">
-          <el-button size="small" :icon="Edit" @click="openEdit(row)">
-            编辑
-          </el-button>
-          <el-button size="small" type="danger" :icon="Delete" @click="handleDelete(row)">
-            删除
-          </el-button>
-        </template>
-      </el-table-column>
-    </el-table>
+      <el-table
+        v-loading="loading"
+        :data="filteredList"
+        stripe
+        style="width: 100%"
+        :empty-text="error || '暂无 Agent 配置'"
+        @row-click="openDetail"
+      >
+        <el-table-column label="Agent 信息" min-width="240">
+          <template #default="{ row }: { row: AgentConfigInfo }">
+            <div class="entity-cell">
+              <div class="entity-title">{{ row.display_name || row.name }}</div>
+              <div class="entity-sub">{{ row.name }}</div>
+              <div v-if="row.description" class="entity-desc">{{ row.description }}</div>
+            </div>
+          </template>
+        </el-table-column>
+        <el-table-column label="类型" min-width="140">
+          <template #default="{ row }: { row: AgentConfigInfo }">
+            <el-tag effect="plain">{{ agentTypeLabel(row.agent_type) }}</el-tag>
+          </template>
+        </el-table-column>
+        <el-table-column label="Prompt" min-width="180" show-overflow-tooltip>
+          <template #default="{ row }: { row: AgentConfigInfo }">
+            <span v-if="row.prompt_template_name">{{ row.prompt_template_name }}</span>
+            <el-tag v-else size="small" type="info">未绑定</el-tag>
+          </template>
+        </el-table-column>
+        <el-table-column label="能力数" width="92">
+          <template #default="{ row }: { row: AgentConfigInfo }">
+            <el-tag size="small" type="primary">{{ getAgentCapabilityCount(row) }}</el-tag>
+          </template>
+        </el-table-column>
+        <el-table-column label="运行参数" min-width="150">
+          <template #default="{ row }: { row: AgentConfigInfo }">
+            <div class="runtime-cell">
+              <span>迭代 {{ row.max_iterations || '-' }}</span>
+              <span>温度 {{ row.temperature_override > 0 ? row.temperature_override.toFixed(2) : '默认' }}</span>
+            </div>
+          </template>
+        </el-table-column>
+        <el-table-column label="默认 / 状态" width="128">
+          <template #default="{ row }: { row: AgentConfigInfo }">
+            <div class="tag-stack">
+              <el-tag v-if="row.is_default" type="warning" size="small">默认</el-tag>
+              <el-tag :type="row.is_enabled ? 'success' : 'info'" size="small">
+                {{ row.is_enabled ? '启用' : '禁用' }}
+              </el-tag>
+            </div>
+          </template>
+        </el-table-column>
+        <el-table-column label="更新时间" width="170">
+          <template #default="{ row }: { row: AgentConfigInfo }">
+            {{ formatTime(row.updated_at) }}
+          </template>
+        </el-table-column>
+        <el-table-column label="操作" width="168" fixed="right">
+          <template #default="{ row }: { row: AgentConfigInfo }">
+            <el-button size="small" :icon="Edit" @click.stop="openEdit(row)">编辑</el-button>
+            <el-button size="small" :icon="View" @click.stop="openDetail(row)">详情</el-button>
+            <el-dropdown trigger="click" @click.stop>
+              <el-button size="small" :icon="MoreFilled" circle />
+              <template #dropdown>
+                <el-dropdown-menu>
+                  <el-dropdown-item :icon="Delete" @click="handleDelete(row)">删除</el-dropdown-item>
+                </el-dropdown-menu>
+              </template>
+            </el-dropdown>
+          </template>
+        </el-table-column>
+      </el-table>
 
-    <div class="pagination-wrap">
-      <el-pagination
-        v-model:current-page="page"
-        v-model:page-size="pageSize"
-        :total="total"
-        :page-sizes="[10, 20, 50]"
-        layout="total, sizes, prev, pager, next"
-        @current-change="loadList"
-        @size-change="(s: number) => { pageSize = s; page = 1; loadList() }"
-      />
-    </div>
+      <div class="pagination-wrap">
+        <el-pagination
+          v-model:current-page="page"
+          v-model:page-size="pageSize"
+          :total="total"
+          :page-sizes="[10, 20, 50]"
+          layout="total, sizes, prev, pager, next"
+          @current-change="loadList"
+          @size-change="(s: number) => { pageSize = s; page = 1; loadList() }"
+        />
+      </div>
+    </el-card>
 
-    <!-- ── Edit / Create Dialog ────────────────────────────────────── -->
-    <el-dialog
+    <el-drawer
       v-model="dialogVisible"
       :title="dialogTitle"
-      width="640px"
+      size="680px"
       :close-on-click-modal="false"
       destroy-on-close
     >
@@ -551,40 +662,224 @@ onMounted(() => {
           {{ isEditing ? '保存' : '创建' }}
         </el-button>
       </template>
-    </el-dialog>
+    </el-drawer>
+
+    <el-drawer v-model="detailVisible" title="Agent 详情" size="560px" destroy-on-close>
+      <template v-if="detailAgent">
+        <el-descriptions :column="1" border>
+          <el-descriptions-item label="显示名称">{{ detailAgent.display_name || '-' }}</el-descriptions-item>
+          <el-descriptions-item label="标识">{{ detailAgent.name }}</el-descriptions-item>
+          <el-descriptions-item label="类型">{{ agentTypeLabel(detailAgent.agent_type) }}</el-descriptions-item>
+          <el-descriptions-item label="描述">{{ detailAgent.description || '-' }}</el-descriptions-item>
+          <el-descriptions-item label="Prompt">{{ detailAgent.prompt_template_name || '未绑定' }}</el-descriptions-item>
+          <el-descriptions-item label="运行参数">
+            最大迭代 {{ detailAgent.max_iterations || '-' }}；
+            温度 {{ detailAgent.temperature_override > 0 ? detailAgent.temperature_override.toFixed(2) : '默认' }}
+          </el-descriptions-item>
+          <el-descriptions-item label="状态">
+            <div class="tag-stack inline">
+              <el-tag v-if="detailAgent.is_default" type="warning" size="small">默认</el-tag>
+              <el-tag :type="detailAgent.is_enabled ? 'success' : 'info'" size="small">
+                {{ detailAgent.is_enabled ? '启用' : '禁用' }}
+              </el-tag>
+            </div>
+          </el-descriptions-item>
+          <el-descriptions-item label="更新时间">{{ formatTime(detailAgent.updated_at) }}</el-descriptions-item>
+        </el-descriptions>
+
+        <h3 class="detail-title">工具能力</h3>
+        <div v-if="configurableBindings(detailAgent.capability_bindings || []).length" class="binding-list">
+          <el-tag
+            v-for="binding in configurableBindings(detailAgent.capability_bindings || [])"
+            :key="bindingLabel(binding)"
+            effect="plain"
+          >
+            {{ bindingLabel(binding) }}
+          </el-tag>
+        </div>
+        <div v-else-if="(detailAgent.tool_bindings || []).length" class="binding-list">
+          <el-tag v-for="tool in detailAgent.tool_bindings" :key="tool.id" effect="plain">
+            {{ tool.tool_name }}
+          </el-tag>
+        </div>
+        <el-empty v-else description="暂无绑定能力" :image-size="72" />
+
+        <h3 class="detail-title">额外指令</h3>
+        <pre class="instruction-preview">{{ detailAgent.instruction || '暂无额外指令' }}</pre>
+      </template>
+    </el-drawer>
   </div>
 </template>
 
 <style scoped>
 .agent-manage-view {
-  padding-bottom: 24px;
-}
-
-.page-title {
-  font-size: 20px;
-  font-weight: 600;
-  margin: 0 0 16px;
-}
-
-.toolbar {
+  height: 100%;
+  min-height: 0;
+  padding-bottom: 0;
   display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: 16px;
-  flex-wrap: wrap;
-  gap: 8px;
+  flex-direction: column;
+  overflow: hidden;
 }
 
+.page-header,
+.filter-toolbar,
+.filter-actions,
+.page-actions,
 .toolbar-left {
   display: flex;
   align-items: center;
+}
+
+.page-header {
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 20px;
+  margin-bottom: 18px;
+  padding: 22px 24px;
+  border: 1px solid var(--el-border-color-light);
+  border-radius: 8px;
+  background: var(--admin-console-header-bg);
+  flex-shrink: 0;
+}
+
+.page-title {
+  font-size: 24px;
+  font-weight: 700;
+  margin: 0;
+  line-height: 1.25;
+}
+
+.page-kicker {
+  margin: 0 0 6px;
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1;
+  color: var(--el-color-primary);
+  text-transform: uppercase;
+  letter-spacing: 0;
+}
+
+.page-desc {
+  margin: 6px 0 0;
+  color: var(--el-text-color-secondary);
+  line-height: 1.5;
+}
+
+.stats-grid {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(130px, 1fr));
+  gap: 12px;
+  margin-bottom: 12px;
+  flex-shrink: 0;
+}
+
+.stat-card {
+  border: 1px solid var(--el-border-color-light);
+  border-radius: 8px;
+  padding: 10px 14px;
+  background: var(--el-bg-color);
+}
+
+.stat-label {
+  color: var(--el-text-color-secondary);
+  font-size: 13px;
+}
+
+.stat-value {
+  margin-top: 4px;
+  color: var(--el-text-color-primary);
+  font-size: 22px;
+  font-weight: 650;
+}
+
+.table-card {
+  border-radius: 8px;
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.table-card :deep(.el-card__body) {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.filter-toolbar {
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-bottom: 12px;
+  flex-shrink: 0;
+}
+
+.table-card :deep(.el-table) {
+  flex: 1;
+  min-height: 320px;
+}
+
+.table-card :deep(.el-table__body-wrapper) {
+  overflow-y: auto;
+}
+
+.filter-search {
+  width: 260px;
+}
+
+.filter-select {
+  width: 168px;
+}
+
+.filter-actions {
   gap: 8px;
+  margin-left: auto;
+}
+
+.entity-cell {
+  min-width: 0;
+}
+
+.entity-title {
+  font-weight: 600;
+  color: var(--el-text-color-primary);
+}
+
+.entity-sub,
+.entity-desc,
+.runtime-cell {
+  color: var(--el-text-color-secondary);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.entity-desc {
+  margin-top: 2px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.runtime-cell,
+.tag-stack {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+}
+
+.tag-stack.inline {
+  flex-direction: row;
+  align-items: center;
 }
 
 .pagination-wrap {
   display: flex;
   justify-content: flex-end;
-  margin-top: 16px;
+  margin-top: 12px;
+  flex-shrink: 0;
 }
 
 .slider-with-toggle {
@@ -608,5 +903,54 @@ onMounted(() => {
   color: var(--el-text-color-placeholder);
   margin-top: 4px;
   line-height: 1.4;
+}
+
+.detail-title {
+  margin: 18px 0 10px;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--el-text-color-primary);
+}
+
+.binding-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.instruction-preview {
+  max-height: 220px;
+  overflow: auto;
+  margin: 0;
+  padding: 12px;
+  border: 1px solid var(--el-border-color);
+  border-radius: 6px;
+  background: var(--el-fill-color-light);
+  color: var(--el-text-color-regular);
+  font-size: 13px;
+  line-height: 1.6;
+  white-space: pre-wrap;
+}
+
+@media (max-width: 900px) {
+  .page-header,
+  .filter-actions {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .stats-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .filter-search,
+  .filter-select {
+    width: 100%;
+  }
+
+  .filter-actions {
+    width: 100%;
+    margin-left: 0;
+  }
 }
 </style>

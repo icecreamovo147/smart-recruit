@@ -1,6 +1,7 @@
 <script setup lang="ts">
-import { onMounted, reactive, ref, watch } from 'vue'
+import { computed, onMounted, reactive, ref, watch } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
+import { Plus, Refresh, Search } from '@element-plus/icons-vue'
 import {
   assignDataScope,
   assignUserRole,
@@ -28,6 +29,8 @@ const page = ref(1)
 const pageSize = ref(20)
 const loading = ref(false)
 const errorMessage = ref('')
+const keyword = ref('')
+const statusFilter = ref('')
 
 const load = async () => {
   loading.value = true
@@ -257,27 +260,83 @@ const statusTag = (user: StaffUserInfo) => {
   if (user.status === 'pending') return { text: '待激活', type: 'warning' as const }
   return { text: '正常', type: 'success' as const }
 }
+
+const filteredList = computed(() => {
+  const q = keyword.value.trim().toLowerCase()
+  return list.value.filter((item) => {
+    const matchesKeyword = !q
+      || item.username.toLowerCase().includes(q)
+      || (item.email || '').toLowerCase().includes(q)
+      || String(item.user_id).includes(q)
+    const matchesStatus = !statusFilter.value
+      || (statusFilter.value === 'active' ? statusTag(item).text === '正常' : item.status === statusFilter.value)
+    return matchesKeyword && matchesStatus
+  })
+})
+
+const staffStats = computed(() => [
+  { label: '员工账号', value: total.value || list.value.length, hint: '可登录 HR 管理端' },
+  { label: '正常', value: list.value.filter((item) => statusTag(item).text === '正常').length, hint: '当前可用账号' },
+  { label: '待激活', value: list.value.filter((item) => statusTag(item).text === '待激活').length, hint: '需完成初始化' },
+  { label: '已锁定/禁用', value: list.value.filter((item) => ['已锁定', '已禁用'].includes(statusTag(item).text)).length, hint: '暂不可登录' },
+])
 </script>
 
 <template>
-  <section class="staff-user-page">
-    <div class="page-header">
-      <h1 class="page-title">员工账号管理</h1>
-      <div class="toolbar">
-        <el-button type="primary" @click="openCreateDialog">创建员工账号</el-button>
+  <section class="console-page console-page--fill staff-user-page">
+    <div class="console-header">
+      <div class="console-header__copy">
+        <p class="console-eyebrow">IAM</p>
+        <h1 class="console-title">员工账号管理</h1>
+        <p class="console-description">统一管理员工账号、角色和数据范围，确保招聘数据只被正确的团队成员访问。</p>
+      </div>
+      <div class="console-header__actions">
+        <el-button :icon="Refresh" @click="load">刷新</el-button>
+        <el-button type="primary" :icon="Plus" @click="openCreateDialog">创建员工账号</el-button>
       </div>
     </div>
-    <div class="content-surface">
+
+    <section class="console-stats">
+      <div v-for="item in staffStats" :key="item.label" class="console-stat">
+        <div class="console-stat__label">{{ item.label }}</div>
+        <div class="console-stat__value">{{ item.value }}</div>
+        <div class="console-stat__hint">{{ item.hint }}</div>
+      </div>
+    </section>
+
+    <div class="console-card console-card--fill">
+      <div class="console-card__head">
+        <div>
+          <h2 class="console-card__title">账号列表</h2>
+          <p class="console-card__desc">共 {{ filteredList.length }} 个匹配账号</p>
+        </div>
+      </div>
+      <div class="console-toolbar">
+        <div class="console-toolbar__filters">
+          <el-input v-model="keyword" :prefix-icon="Search" clearable placeholder="搜索用户名 / 邮箱 / ID" style="width: 260px" />
+          <el-select v-model="statusFilter" clearable placeholder="全部状态" style="width: 140px">
+            <el-option label="正常" value="active" />
+            <el-option label="待激活" value="pending" />
+            <el-option label="已禁用" value="disabled" />
+            <el-option label="已锁定" value="locked" />
+          </el-select>
+        </div>
+      </div>
       <el-alert v-if="errorMessage" class="page-error" type="error" :title="errorMessage" show-icon :closable="false">
         <template #default>
           <el-button type="primary" size="small" @click="load">重试</el-button>
         </template>
       </el-alert>
-      <el-table v-loading="loading" :data="list" empty-text="暂无员工账号" height="100%">
+      <div class="console-table-wrap">
+      <el-table v-loading="loading" :data="filteredList" class="console-table" empty-text="暂无员工账号" height="100%">
         <el-table-column prop="user_id" label="ID" width="80" align="center" />
-        <el-table-column prop="username" label="用户名" min-width="140" />
-        <el-table-column prop="email" label="邮箱" min-width="180">
-          <template #default="{ row }">{{ row.email || '-' }}</template>
+        <el-table-column label="账号信息" min-width="220">
+          <template #default="{ row }">
+            <div class="console-entity">
+              <div class="console-entity__name">{{ row.username }}</div>
+              <div class="console-entity__meta">{{ row.email || '未设置邮箱' }}</div>
+            </div>
+          </template>
         </el-table-column>
         <el-table-column label="状态" width="90" align="center">
           <template #default="{ row }">
@@ -292,7 +351,7 @@ const statusTag = (user: StaffUserInfo) => {
               size="small"
               style="margin-right: 4px; margin-bottom: 2px"
             >{{ rk }}</el-tag>
-            <span v-if="!row.roles || row.roles.length === 0" style="color: #909399">无</span>
+            <span v-if="!row.roles || row.roles.length === 0" style="color: var(--el-text-color-secondary)">无</span>
           </template>
         </el-table-column>
         <el-table-column label="创建时间" width="180" align="center">
@@ -305,6 +364,7 @@ const statusTag = (user: StaffUserInfo) => {
           </template>
         </el-table-column>
       </el-table>
+      </div>
       <el-pagination
         v-if="total > 0"
         v-model:current-page="page"
@@ -318,7 +378,7 @@ const statusTag = (user: StaffUserInfo) => {
     </div>
 
     <!-- Create user dialog -->
-    <el-dialog v-model="createDialogVisible" title="创建员工账号" width="480px">
+    <el-drawer v-model="createDialogVisible" title="创建员工账号" size="480px">
       <el-form label-position="top">
         <el-form-item label="用户名" required>
           <el-input v-model="createForm.username" placeholder="输入登录用户名" />
@@ -335,7 +395,7 @@ const statusTag = (user: StaffUserInfo) => {
               {{ role.name }}
             </el-checkbox>
           </el-checkbox-group>
-          <div v-if="allRoles.length === 0" style="color: #909399; font-size: 13px; margin-top: 4px">
+          <div v-if="allRoles.length === 0" style="color: var(--el-text-color-secondary); font-size: 13px; margin-top: 4px">
             加载角色列表失败，创建后可在角色管理中分配
           </div>
         </el-form-item>
@@ -344,12 +404,12 @@ const statusTag = (user: StaffUserInfo) => {
         <el-button @click="createDialogVisible = false">取消</el-button>
         <el-button type="primary" :loading="saving" @click="saveCreate">创建</el-button>
       </template>
-    </el-dialog>
+    </el-drawer>
 
     <!-- Role management dialog -->
     <el-dialog v-model="roleDialogVisible" title="角色管理" width="560px">
       <template v-if="targetUser">
-        <p style="margin-bottom: 12px; color: #606266">
+        <p style="margin-bottom: 12px; color: var(--el-text-color-regular)">
           用户：<strong>{{ targetUser.username }}</strong>（ID: {{ targetUser.user_id }}）
         </p>
         <el-table :data="allRoles" style="margin-bottom: 16px" max-height="320">
@@ -387,7 +447,7 @@ const statusTag = (user: StaffUserInfo) => {
             <div v-if="userPermKeys.length > 0" style="display: flex; flex-wrap: wrap; gap: 4px">
               <el-tag v-for="pk in userPermKeys" :key="pk" size="small" type="info">{{ pk }}</el-tag>
             </div>
-            <span v-else style="color: #909399">暂无权限</span>
+            <span v-else style="color: var(--el-text-color-secondary)">暂无权限</span>
           </el-collapse-item>
         </el-collapse>
       </template>
@@ -399,7 +459,7 @@ const statusTag = (user: StaffUserInfo) => {
     <!-- Data scope dialog -->
     <el-dialog v-model="scopeDialogVisible" title="数据范围管理" width="560px">
       <template v-if="targetUser">
-        <p style="margin-bottom: 12px; color: #606266">
+        <p style="margin-bottom: 12px; color: var(--el-text-color-regular)">
           用户：<strong>{{ targetUser.username }}</strong>（ID: {{ targetUser.user_id }}）
         </p>
         <h4 style="margin-bottom: 8px">当前已分配的数据范围</h4>

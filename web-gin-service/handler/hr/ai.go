@@ -29,12 +29,13 @@ func (h *AIHandler) Chat(c *gin.Context) {
 		SessionID           base.FlexInt64 `json:"session_id"`
 		ModelID             base.FlexInt64 `json:"model_id"`
 		SkillCapabilityKeys []string       `json:"skill_capability_keys"`
+		AgentSkillIDs       []int64        `json:"agent_skill_ids"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
 		base.BadRequest(c, "消息不能为空")
 		return
 	}
-	resp, err := h.clients.AI.Chat(c.Request.Context(), &pb.ChatRequest{HrId: middleware.UserID(c), Message: req.Message, ApplicationId: int64(req.ApplicationID), SessionId: int64(req.SessionID), ModelId: int64(req.ModelID), SkillCapabilityKeys: req.SkillCapabilityKeys})
+	resp, err := h.clients.AI.Chat(c.Request.Context(), &pb.ChatRequest{HrId: middleware.UserID(c), Message: req.Message, ApplicationId: int64(req.ApplicationID), SessionId: int64(req.SessionID), ModelId: int64(req.ModelID), SkillCapabilityKeys: req.SkillCapabilityKeys, AgentSkillIds: req.AgentSkillIDs})
 	if err != nil {
 		base.Internal(c, err)
 		return
@@ -59,13 +60,14 @@ func (h *AIHandler) ChatStream(c *gin.Context) {
 		SessionID           base.FlexInt64 `json:"session_id"`
 		ModelID             base.FlexInt64 `json:"model_id"`
 		SkillCapabilityKeys []string       `json:"skill_capability_keys"`
+		AgentSkillIDs       []int64        `json:"agent_skill_ids"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
 		base.BadRequest(c, "消息不能为空")
 		return
 	}
 	ctx := c.Request.Context()
-	stream, err := h.clients.AI.ChatStream(ctx, &pb.ChatRequest{HrId: middleware.UserID(c), Message: req.Message, ApplicationId: int64(req.ApplicationID), SessionId: int64(req.SessionID), ModelId: int64(req.ModelID), SkillCapabilityKeys: req.SkillCapabilityKeys})
+	stream, err := h.clients.AI.ChatStream(ctx, &pb.ChatRequest{HrId: middleware.UserID(c), Message: req.Message, ApplicationId: int64(req.ApplicationID), SessionId: int64(req.SessionID), ModelId: int64(req.ModelID), SkillCapabilityKeys: req.SkillCapabilityKeys, AgentSkillIds: req.AgentSkillIDs})
 	if err != nil {
 		base.Internal(c, err)
 		return

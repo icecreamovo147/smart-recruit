@@ -5,6 +5,7 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 import DOMPurify from 'dompurify'
 import MarkdownIt from 'markdown-it'
 import { createApplicationAnalysisSession, createSession, deleteSession, getSessionMessages, listSessions, listSkillCapabilities, sendMessageStream, updateSession } from '@/api/ai'
+import { listAvailableAgentSkills } from '@/api/agentSkill'
 import { updateApplicationStatus } from '@/api/application'
 import { listModels } from '@/api/llm'
 import AgentTracePanel from '@/components/AgentTracePanel.vue'
@@ -15,6 +16,7 @@ import ChatComposer from '@/components/chat/ChatComposer.vue'
 import type { ChatMessage, ChatSessionListItem, Session, CandidateOption, StreamPayload } from '@/types/ai'
 import type { LlmModel } from '@/types/llm'
 import type { CapabilityInfo } from '@/types/agent'
+import type { AvailableAgentSkill } from '@/types/agentSkill'
 import { BusinessError } from '@/types/api'
 
 interface MessageItem {
@@ -49,6 +51,8 @@ const dataSource = ref('招聘业务数据库')
 const tracePanelVisible = ref(false)
 const skillCapabilities = ref<CapabilityInfo[]>([])
 const selectedSkillKeys = ref<string[]>([])
+const agentSkills = ref<AvailableAgentSkill[]>([])
+const selectedAgentSkillIds = ref<number[]>([])
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const listRef = ref<any>(null)
 let pollTimer: ReturnType<typeof setInterval> | null = null
@@ -465,8 +469,10 @@ const submit = async () => {
     await createNewSession()
   }
   const skillKeysForMessage = [...selectedSkillKeys.value]
+  const agentSkillIdsForMessage = [...selectedAgentSkillIds.value]
   input.value = ''
   selectedSkillKeys.value = []
+  selectedAgentSkillIds.value = []
   messages.value.push({ role: 'user', content: text })
   const session = currentSession.value
   if (!session) return
@@ -487,6 +493,7 @@ const submit = async () => {
         session_id: session.id,
         ...(selectedModelId.value != null ? { model_id: selectedModelId.value } : {}),
         ...(skillKeysForMessage.length > 0 ? { skill_capability_keys: skillKeysForMessage } : {}),
+        ...(agentSkillIdsForMessage.length > 0 ? { agent_skill_ids: agentSkillIdsForMessage } : {}),
       },
       {
         onDelta: (delta) => {
@@ -517,6 +524,7 @@ const submit = async () => {
     scrollBottom()
     if (streamFailed) {
       selectedSkillKeys.value = skillKeysForMessage
+      selectedAgentSkillIds.value = agentSkillIdsForMessage
       return
     }
     if (finalPayload) {
@@ -540,6 +548,7 @@ const submit = async () => {
     markAssistantError(assistantIndex, error instanceof Error ? error : new Error('AI 流式响应失败'))
     input.value = text
     selectedSkillKeys.value = skillKeysForMessage
+    selectedAgentSkillIds.value = agentSkillIdsForMessage
     const err = error as { code?: string; message?: string }
     if (err.code === 'ECONNABORTED') {
       ElMessage.warning('AI 分析耗时较长，请稍后重新发送')
@@ -664,6 +673,10 @@ onMounted(async () => {
     const skillData = await listSkillCapabilities()
     skillCapabilities.value = skillData.list || []
   } catch { /* non-fatal: slash menu will be empty */ }
+  try {
+    const agentSkillData = await listAvailableAgentSkills()
+    agentSkills.value = agentSkillData.list || []
+  } catch { /* non-fatal: agent skill selector will be empty */ }
   await refreshSessions()
   if (await createAnalysisSessionFromRoute()) return
   const querySessionId = Number(route.query.session_id || 0)
@@ -762,9 +775,12 @@ onBeforeUnmount(() => {
           :current-session="currentSession"
           :skill-capabilities="skillCapabilities"
           :selected-skill-keys="selectedSkillKeys"
+          :agent-skills="agentSkills"
+          :selected-agent-skill-ids="selectedAgentSkillIds"
           @update:input="(val: string) => input = val"
           @update:selected-model-id="(val: number | null) => selectedModelId = val"
           @update:selected-skill-keys="(val: string[]) => selectedSkillKeys = val"
+          @update:selected-agent-skill-ids="(val: number[]) => selectedAgentSkillIds = val"
           @submit="submit"
           @stop="stopStreaming"
         />

@@ -2,7 +2,7 @@ import { createRouter, createWebHistory } from 'vue-router'
 import type { RouteRecordRaw } from 'vue-router'
 import { getUser } from '@/utils/token'
 import { useAuthStore } from '@/stores/auth'
-import { PERM } from '@/types/domain'
+import { PERM, ROLE_KEY_RECRUITING_ADMIN, ROLE_KEY_SYSTEM_ADMIN } from '@/types/domain'
 
 const LoginView = () => import('@/views/LoginView.vue')
 const RegisterView = () => import('@/views/RegisterView.vue')
@@ -12,6 +12,7 @@ const ApplicationListView = () => import('@/views/hr/ApplicationListView.vue')
 const InterviewScheduleView = () => import('@/views/hr/InterviewScheduleView.vue')
 const OfferManageView = () => import('@/views/hr/OfferManageView.vue')
 const AIChatView = () => import('@/views/hr/AIChatView.vue')
+const CapabilityCenterView = () => import('@/views/hr/CapabilityCenterView.vue')
 const ProfileView = () => import('@/views/hr/ProfileView.vue')
 const InviteCodeManageView = () => import('@/views/hr/InviteCodeManageView.vue')
 const DepartmentManageView = () => import('@/views/hr/DepartmentManageView.vue')
@@ -26,6 +27,7 @@ const PromptManageView = () => import('@/views/hr/PromptManageView.vue')
 const AgentManageView = () => import('@/views/hr/admin/AgentManageView.vue')
 const McpManageView = () => import('@/views/hr/admin/McpManageView.vue')
 const SkillManageView = () => import('@/views/hr/admin/SkillManageView.vue')
+const AgentSkillManageView = () => import('@/views/hr/admin/AgentSkillManageView.vue')
 const ForbiddenView = () => import('@/views/ForbiddenView.vue')
 const CandidateDetailView = () => import('@/views/hr/CandidateDetailView.vue')
 
@@ -76,6 +78,12 @@ const routes: RouteRecordRaw[] = [
     path: '/hr/ai',
     component: AIChatView,
     meta: { requiresAuth: true, requiresPermission: PERM.AI_HR_USE, title: 'AI 数据助手' },
+  },
+  // AI recruiting capability center — requires ai.hr.use permission
+  {
+    path: '/hr/capabilities',
+    component: CapabilityCenterView,
+    meta: { requiresAuth: true, requiresPermission: PERM.AI_HR_USE, title: 'AI 能力中心' },
   },
   // Profile — any authenticated staff user
   {
@@ -145,7 +153,16 @@ const routes: RouteRecordRaw[] = [
   {
     path: '/hr/admin/skills',
     component: SkillManageView,
-    meta: { requiresAuth: true, requiresPermission: PERM.SYSTEM_CONFIG_MANAGE, title: 'SKILL 管理' },
+    meta: { requiresAuth: true, requiresPermission: PERM.SYSTEM_CONFIG_MANAGE, title: '高级 SKILL 配置' },
+  },
+  {
+    path: '/hr/admin/agent-skills',
+    component: AgentSkillManageView,
+    meta: {
+      requiresAuth: true,
+      requiresAnyRole: [ROLE_KEY_RECRUITING_ADMIN, ROLE_KEY_SYSTEM_ADMIN],
+      title: 'Agent Skill 管理',
+    },
   },
   {
     path: '/hr/admin/mcp-tools',
@@ -177,6 +194,14 @@ router.beforeEach(async (to, _from, next) => {
   const requiredPerm = to.meta.requiresPermission as string | undefined
   if (requiredPerm && user) {
     if (!auth.hasPermission(requiredPerm)) {
+      next('/403')
+      return
+    }
+  }
+
+  const requiredRoles = to.meta.requiresAnyRole as string[] | undefined
+  if (requiredRoles?.length && user) {
+    if (!requiredRoles.some((role) => auth.hasRole(role))) {
       next('/403')
       return
     }

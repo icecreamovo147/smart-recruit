@@ -61,6 +61,7 @@ type Clients struct {
 	AgentConfig   pb.AgentConfigServiceClient
 	MCP           pb.MCPServiceClient
 	Skill         pb.SkillServiceClient
+	AgentSkill    pb.AgentSkillServiceClient
 	Health        healthpb.HealthClient
 }
 
@@ -138,6 +139,7 @@ func NewClients(addr string) (*Clients, error) {
 		AgentConfig:   pb.NewAgentConfigServiceClient(conn),
 		MCP:           pb.NewMCPServiceClient(conn),
 		Skill:         pb.NewSkillServiceClient(conn),
+		AgentSkill:    pb.NewAgentSkillServiceClient(conn),
 		Health:        healthpb.NewHealthClient(conn),
 	}, nil
 }

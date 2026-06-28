@@ -553,6 +553,7 @@ message ChatRequest {
   int64 session_id = 4;
   int64 model_id = 5;               // Optional: user-selected model override
   repeated string skill_capability_keys = 6; // Optional: per-message SKILL capabilities selected by the user
+  repeated int64 agent_skill_ids = 7; // Optional: database-backed Agent Skills selected by the user
 }
 
 message ChatResponse {
@@ -2728,4 +2729,157 @@ message SkillToolResponse {
   int32 code = 1;
   string msg = 2;
   SkillToolInfo tool = 3;
+}
+
+// ══════════════════════════════════════════════════════════════════════
+// Agent SKILL.md Management
+// ══════════════════════════════════════════════════════════════════════
+
+service AgentSkillService {
+  rpc ListAgentSkills(ListAgentSkillsRequest) returns (ListAgentSkillsResponse);
+  rpc GetAgentSkill(GetAgentSkillRequest) returns (AgentSkillResponse);
+  rpc CreateAgentSkill(CreateAgentSkillRequest) returns (AgentSkillResponse);
+  rpc UpdateAgentSkill(UpdateAgentSkillRequest) returns (AgentSkillResponse);
+  rpc CreateAgentSkillVersion(CreateAgentSkillVersionRequest) returns (AgentSkillVersionResponse);
+  rpc ListAgentSkillVersions(ListAgentSkillVersionsRequest) returns (ListAgentSkillVersionsResponse);
+  rpc ActivateAgentSkillVersion(ActivateAgentSkillVersionRequest) returns (AgentSkillResponse);
+  rpc UpdateAgentSkillStatus(UpdateAgentSkillStatusRequest) returns (AgentSkillResponse);
+  rpc PreviewAgentSkill(PreviewAgentSkillRequest) returns (PreviewAgentSkillResponse);
+  rpc ListAvailableAgentSkills(ListAvailableAgentSkillsRequest) returns (ListAgentSkillsResponse);
+}
+
+message AgentSkillInfo {
+  int64 id = 1;
+  string name = 2;
+  string display_name = 3;
+  string description = 4;
+  int64 current_version_id = 5;
+  bool is_enabled = 6;
+  bool is_manual_invocable = 7;
+  repeated string trigger_keywords = 8;
+  string created_at = 9;
+  string updated_at = 10;
+}
+
+message AgentSkillVersionInfo {
+  int64 id = 1;
+  int64 skill_id = 2;
+  string version = 3;
+  string flow_json = 4;
+  string skill_md = 5;
+  string frontmatter_json = 6;
+  string body_markdown = 7;
+  string change_note = 8;
+  string created_at = 9;
+}
+
+message ListAgentSkillsRequest {
+  int32 page = 1;
+  int32 page_size = 2;
+  string keyword = 3;
+  bool enabled_only = 4;
+}
+
+message ListAvailableAgentSkillsRequest {
+  int32 page = 1;
+  int32 page_size = 2;
+}
+
+message ListAgentSkillsResponse {
+  int32 code = 1;
+  string msg = 2;
+  int64 total = 3;
+  repeated AgentSkillInfo list = 4;
+}
+
+message GetAgentSkillRequest {
+  int64 id = 1;
+}
+
+message CreateAgentSkillRequest {
+  string name = 1;
+  string display_name = 2;
+  string description = 3;
+  bool is_enabled = 4;
+  bool is_enabled_set = 5;
+  bool is_manual_invocable = 6;
+  bool is_manual_invocable_set = 7;
+  repeated string trigger_keywords = 8;
+  int64 actor_user_id = 9;
+  string version = 10;
+  string flow_json = 11;
+  string change_note = 12;
+  bool activate = 13;
+  string skill_md = 14;
+}
+
+message UpdateAgentSkillRequest {
+  int64 id = 1;
+  string display_name = 2;
+  string description = 3;
+  bool is_enabled = 4;
+  bool is_enabled_set = 5;
+  bool is_manual_invocable = 6;
+  bool is_manual_invocable_set = 7;
+  repeated string trigger_keywords = 8;
+  bool trigger_keywords_set = 9;
+  int64 actor_user_id = 10;
+}
+
+message AgentSkillResponse {
+  int32 code = 1;
+  string msg = 2;
+  AgentSkillInfo skill = 3;
+}
+
+message CreateAgentSkillVersionRequest {
+  int64 skill_id = 1;
+  string version = 2;
+  string flow_json = 3;
+  string change_note = 4;
+  bool activate = 5;
+  int64 actor_user_id = 6;
+  string skill_md = 7;
+}
+
+message AgentSkillVersionResponse {
+  int32 code = 1;
+  string msg = 2;
+  AgentSkillVersionInfo version = 3;
+}
+
+message ListAgentSkillVersionsRequest {
+  int64 skill_id = 1;
+}
+
+message ListAgentSkillVersionsResponse {
+  int32 code = 1;
+  string msg = 2;
+  repeated AgentSkillVersionInfo list = 3;
+}
+
+message ActivateAgentSkillVersionRequest {
+  int64 skill_id = 1;
+  int64 version_id = 2;
+  int64 actor_user_id = 3;
+}
+
+message UpdateAgentSkillStatusRequest {
+  int64 id = 1;
+  bool is_enabled = 2;
+  int64 actor_user_id = 3;
+}
+
+message PreviewAgentSkillRequest {
+  string name = 1;
+  string description = 2;
+  string flow_json = 3;
+}
+
+message PreviewAgentSkillResponse {
+  int32 code = 1;
+  string msg = 2;
+  string skill_md = 3;
+  string frontmatter_json = 4;
+  string body_markdown = 5;
 }

@@ -1,6 +1,7 @@
 <script setup lang="ts">
-import { ref, reactive, onMounted } from 'vue'
+import { computed, ref, reactive, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
+import { Refresh, Search } from '@element-plus/icons-vue'
 import { getAuthAuditLogs } from '@/api/analytics'
 import type { AuthAuditLogItem } from '@/types/analytics'
 
@@ -64,12 +65,40 @@ const DECISION_TAG_TYPE: Record<string, string> = {
   denied: 'danger',
 }
 
+const auditStats = computed(() => [
+  { label: '审计记录', value: total.value || logs.value.length, hint: '权限判定访问记录' },
+  { label: '允许', value: logs.value.filter((item) => item.decision === 'allowed').length, hint: '通过权限校验' },
+  { label: '拒绝', value: logs.value.filter((item) => item.decision === 'denied').length, hint: '被策略拦截' },
+  { label: '涉及用户', value: new Set(logs.value.map((item) => item.actor_user_id).filter(Boolean)).size, hint: '当前列表内操作用户' },
+])
+
 onMounted(load)
 </script>
 
 <template>
-  <div class="security-audit">
-    <el-form :inline="true" class="filter-form" @submit.prevent="handleSearch">
+  <div class="console-page console-page--fill security-audit">
+    <div class="console-header">
+      <div class="console-header__copy">
+        <p class="console-eyebrow">SECURITY AUDIT</p>
+        <h1 class="console-title">安全审计日志</h1>
+        <p class="console-description">追踪权限判定、访问资源、用户角色和请求 ID，帮助定位越权风险与权限配置问题。</p>
+      </div>
+      <div class="console-header__actions">
+        <el-button :icon="Refresh" @click="load">刷新</el-button>
+      </div>
+    </div>
+
+    <section class="console-stats">
+      <div v-for="item in auditStats" :key="item.label" class="console-stat">
+        <div class="console-stat__label">{{ item.label }}</div>
+        <div class="console-stat__value">{{ item.value }}</div>
+        <div class="console-stat__hint">{{ item.hint }}</div>
+      </div>
+    </section>
+
+    <div class="console-card console-card--fill">
+    <el-form :inline="true" class="console-toolbar filter-form" @submit.prevent="handleSearch">
+      <div class="console-toolbar__filters">
       <el-form-item label="操作用户ID">
         <el-input
           v-model.number="query.actor_user_id"
@@ -93,9 +122,10 @@ onMounted(load)
         </el-select>
       </el-form-item>
       <el-form-item>
-        <el-button type="primary" @click="handleSearch">查询</el-button>
+        <el-button type="primary" :icon="Search" @click="handleSearch">查询</el-button>
         <el-button @click="handleReset">重置</el-button>
       </el-form-item>
+      </div>
     </el-form>
 
     <el-alert
@@ -111,10 +141,11 @@ onMounted(load)
       </template>
     </el-alert>
 
-    <div class="table-wrapper">
+    <div class="console-table-wrap table-wrapper">
       <el-table
         v-loading="loading"
         :data="logs"
+        class="console-table"
         empty-text="暂无安全审计日志"
         stripe
         height="100%"
@@ -154,7 +185,7 @@ onMounted(load)
       </el-table>
     </div>
 
-    <div class="pagination-wrapper">
+    <div class="console-pagination pagination-wrapper">
       <el-pagination
         v-model:current-page="query.page"
         v-model:page-size="query.page_size"
@@ -164,6 +195,7 @@ onMounted(load)
         @current-change="load"
         @size-change="load"
       />
+    </div>
     </div>
   </div>
 </template>

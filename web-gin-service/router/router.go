@@ -111,6 +111,8 @@ func Setup(cfg config.Config, clients *rpc.Clients, rdb *redis.Client) (*gin.Eng
 	hrAIHandler := hr.NewAIHandler(clients)
 	hrInterviewHandler := hr.NewInterviewHandler(clients)
 	hrOfferHandler := hr.NewOfferHandler(clients)
+	hrCapabilityHandler := hr.NewCapabilityHandler(clients)
+	agentSkillHandler := hr.NewAgentSkillHandler(clients)
 	candidateOfferHandler := candidate.NewOfferHandler(clients)
 	candidateInterviewHandler := candidate.NewInterviewHandler(clients)
 	profileHandler := candidate.NewProfileHandler(clients)
@@ -256,6 +258,10 @@ func Setup(cfg config.Config, clients *rpc.Clients, rdb *redis.Client) (*gin.Eng
 	staffGroup.PUT("/ai/sessions/:session_id", normalTimeout, middleware.RequirePermission(authz.PermAIHRUse), hrAIHandler.UpdateSession)
 	staffGroup.DELETE("/ai/sessions/:session_id", normalTimeout, middleware.RequirePermission(authz.PermAIHRUse), hrAIHandler.DeleteSession)
 	staffGroup.GET("/ai/skill-capabilities", normalTimeout, middleware.RequirePermission(authz.PermAIHRUse), hrAIHandler.ListSkillCapabilities)
+	staffGroup.GET("/agent-skills/available", normalTimeout, middleware.RequirePermission(authz.PermAIHRUse), agentSkillHandler.ListAvailable)
+	staffGroup.GET("/capabilities", normalTimeout, middleware.RequirePermission(authz.PermAIHRUse), hrCapabilityHandler.List)
+	staffGroup.GET("/capabilities/:id", normalTimeout, middleware.RequirePermission(authz.PermAIHRUse), hrCapabilityHandler.Get)
+	staffGroup.POST("/capabilities/from-template", normalTimeout, bodyAdmin, middleware.RequireAnyRole(authz.RoleRecruitingAdmin, authz.RoleSystemAdmin), hrCapabilityHandler.CreateFromTemplate)
 	staffGroup.POST("/ai/application-analysis-sessions", riskBlock, aiLimit, hrAIQuota, aiTimeout, middleware.RequirePermission(authz.PermAIHRUse), hrAIHandler.CreateApplicationAnalysisSession)
 	staffGroup.POST("/ai/chat", riskBlock, aiLimit, hrAIQuota, aiTimeout, middleware.RequirePermission(authz.PermAIHRUse), hrAIHandler.Chat)
 	staffGroup.POST("/ai/chat/stream", riskBlock, aiLimit, hrAIQuota, middleware.RequirePermission(authz.PermAIHRUse), hrAIHandler.ChatStream)
@@ -409,6 +415,17 @@ func Setup(cfg config.Config, clients *rpc.Clients, rdb *redis.Client) (*gin.Eng
 	adminGroup.POST("/skills/:id/versions/:version_id/activate", normalTimeout, middleware.RequirePermission(authz.PermSystemConfigManage), skillHandler.ActivateSkillVersion)
 	adminGroup.GET("/skills/:id/tools", normalTimeout, middleware.RequirePermission(authz.PermSystemConfigManage), skillHandler.ListSkillTools)
 	adminGroup.PUT("/skills/:id/tools/:tool_id", normalTimeout, bodyAdmin, middleware.RequirePermission(authz.PermSystemConfigManage), skillHandler.UpdateSkillTool)
+
+	// Agent SKILL.md management
+	adminGroup.GET("/agent-skills", normalTimeout, middleware.RequireAnyRole(authz.RoleRecruitingAdmin, authz.RoleSystemAdmin), agentSkillHandler.List)
+	adminGroup.POST("/agent-skills", normalTimeout, bodyAdmin, middleware.RequireAnyRole(authz.RoleRecruitingAdmin, authz.RoleSystemAdmin), agentSkillHandler.Create)
+	adminGroup.POST("/agent-skills/preview", normalTimeout, bodyAdmin, middleware.RequireAnyRole(authz.RoleRecruitingAdmin, authz.RoleSystemAdmin), agentSkillHandler.Preview)
+	adminGroup.GET("/agent-skills/:id", normalTimeout, middleware.RequireAnyRole(authz.RoleRecruitingAdmin, authz.RoleSystemAdmin), agentSkillHandler.Get)
+	adminGroup.PUT("/agent-skills/:id", normalTimeout, bodyAdmin, middleware.RequireAnyRole(authz.RoleRecruitingAdmin, authz.RoleSystemAdmin), agentSkillHandler.Update)
+	adminGroup.PATCH("/agent-skills/:id/status", normalTimeout, bodyAuth, middleware.RequireAnyRole(authz.RoleRecruitingAdmin, authz.RoleSystemAdmin), agentSkillHandler.UpdateStatus)
+	adminGroup.GET("/agent-skills/:id/versions", normalTimeout, middleware.RequireAnyRole(authz.RoleRecruitingAdmin, authz.RoleSystemAdmin), agentSkillHandler.ListVersions)
+	adminGroup.POST("/agent-skills/:id/versions", normalTimeout, bodyAdmin, middleware.RequireAnyRole(authz.RoleRecruitingAdmin, authz.RoleSystemAdmin), agentSkillHandler.CreateVersion)
+	adminGroup.POST("/agent-skills/:id/versions/:version_id/activate", normalTimeout, middleware.RequireAnyRole(authz.RoleRecruitingAdmin, authz.RoleSystemAdmin), agentSkillHandler.ActivateVersion)
 
 	return r, limiters
 }

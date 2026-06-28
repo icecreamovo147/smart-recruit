@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { Check, Document, Edit, Plus, Refresh, Sort, Tools } from '@element-plus/icons-vue'
+import { Check, Document, Edit, Plus, Refresh, Search, Sort, Tools, View } from '@element-plus/icons-vue'
 import {
   activateSkillVersion,
   createSkill,
@@ -39,12 +39,12 @@ const selectedSkill = ref<SkillInfo | null>(null)
 
 const viewTitle = computed(() => {
   if (activeView.value === 'versions' && selectedSkill.value) {
-    return `版本管理 - ${selectedSkill.value.display_name || selectedSkill.value.name}`
+    return `Manifest 版本管理 - ${selectedSkill.value.display_name || selectedSkill.value.name}`
   }
   if (activeView.value === 'tools' && selectedSkill.value) {
-    return `Tool 管理 - ${selectedSkill.value.display_name || selectedSkill.value.name}`
+    return `运行时 Tool 管理 - ${selectedSkill.value.display_name || selectedSkill.value.name}`
   }
-  return 'SKILL 管理'
+  return '高级 SKILL 配置'
 })
 
 const list = ref<SkillInfo[]>([])
@@ -53,6 +53,9 @@ const page = ref(1)
 const pageSize = ref(20)
 const loading = ref(false)
 const error = ref('')
+const keywordFilter = ref('')
+const sourceFilter = ref('')
+const statusFilter = ref('')
 
 const loadList = async () => {
   loading.value = true
@@ -85,6 +88,36 @@ const formatJson = (json?: string): string => {
 const shortText = (value?: string, max = 80): string => {
   if (!value) return '-'
   return value.length > max ? `${value.slice(0, max)}...` : value
+}
+
+const filteredSkills = computed(() => {
+  const keyword = keywordFilter.value.trim().toLowerCase()
+  return list.value.filter((item) => {
+    const matchesKeyword = !keyword
+      || item.name.toLowerCase().includes(keyword)
+      || (item.display_name || '').toLowerCase().includes(keyword)
+      || (item.description || '').toLowerCase().includes(keyword)
+    const matchesSource = !sourceFilter.value || item.source_type === sourceFilter.value
+    const matchesStatus = !statusFilter.value
+      || (statusFilter.value === 'enabled' ? item.is_enabled : !item.is_enabled)
+    return matchesKeyword && matchesSource && matchesStatus
+  })
+})
+
+const listStats = computed(() => [
+  { label: 'SKILL 总数', value: total.value || list.value.length },
+  { label: '已启用', value: list.value.filter((item) => item.is_enabled).length },
+  { label: '有当前版本', value: list.value.filter((item) => item.current_version_id).length },
+  { label: 'Tool 数', value: tools.value.length },
+])
+
+const sourceLabel = (source?: string) =>
+  SOURCE_OPTIONS.find((item) => item.value === source)?.label || source || '-'
+
+const resetListFilters = () => {
+  keywordFilter.value = ''
+  sourceFilter.value = ''
+  statusFilter.value = ''
 }
 
 const validateJsonText = (value: string, label: string, allowEmpty = false): boolean => {
@@ -146,15 +179,20 @@ const resetDialogForm = () => {
 const openCreate = () => {
   isEditing.value = false
   editingId.value = 0
-  dialogTitle.value = '新增 SKILL'
+  dialogTitle.value = '新增底层 SKILL'
   resetDialogForm()
   dialogVisible.value = true
+}
+
+const openCreateWithSource = (sourceType: string) => {
+  openCreate()
+  dialogForm.source_type = sourceType
 }
 
 const openEdit = (row: SkillInfo) => {
   isEditing.value = true
   editingId.value = row.id
-  dialogTitle.value = '编辑 SKILL'
+  dialogTitle.value = '编辑底层 SKILL 配置'
   dialogForm.name = row.name
   dialogForm.display_name = row.display_name || ''
   dialogForm.description = row.description || ''
@@ -181,7 +219,7 @@ const saveSkill = async () => {
         is_enabled_set: true,
       }
       await updateSkill(editingId.value, payload)
-      ElMessage.success('SKILL 已更新')
+      ElMessage.success('底层 SKILL 配置已更新')
     } else {
       const payload: CreateSkillPayload = {
         name: dialogForm.name,
@@ -193,7 +231,7 @@ const saveSkill = async () => {
         is_enabled_set: true,
       }
       await createSkill(payload)
-      ElMessage.success('SKILL 已创建')
+      ElMessage.success('底层 SKILL 已创建')
     }
     dialogVisible.value = false
     await loadList()
@@ -212,6 +250,33 @@ const handleToggleEnabled = async (row: SkillInfo) => {
   } catch (e: unknown) {
     ElMessage.error((e as { message?: string }).message || '操作失败')
   }
+}
+
+const detailVisible = ref(false)
+const detailSkill = ref<SkillInfo | null>(null)
+const openDetail = (row: SkillInfo) => {
+  detailSkill.value = row
+  detailVisible.value = true
+}
+
+const exampleVisible = ref(false)
+const exampleManifest = `{
+  "name": "resume_parser",
+  "version": "1.0.0",
+  "runtime_type": "tool",
+  "instruction": "Parse resume text and return structured candidate profile.",
+  "tools": [
+    {
+      "name": "parse_resume",
+      "capability_key": "resume.parse",
+      "description": "Extract candidate basics, skills and work history."
+    }
+  ]
+}`
+
+const openCreateFromExample = () => {
+  exampleVisible.value = false
+  openCreate()
 }
 
 // ====== Version management ======
@@ -415,143 +480,200 @@ onMounted(() => {
 
 <template>
   <div class="skill-manage-view">
-    <div class="page-head">
-      <h2 class="page-title">{{ viewTitle }}</h2>
-      <el-button v-if="activeView !== 'list'" text :icon="Sort" @click="goBackToList">
-        返回列表
-      </el-button>
-    </div>
+    <section class="page-header">
+      <div>
+        <p class="page-kicker">System Admin · Skill Registry</p>
+        <h2 class="page-title">{{ viewTitle }}</h2>
+        <p class="page-desc">
+          用于系统管理员维护底层 Skill Registry、Manifest 版本与运行时 Tool，不作为普通 HR 的业务能力入口。
+        </p>
+      </div>
+      <div class="page-actions">
+        <el-button v-if="activeView !== 'list'" text :icon="Sort" @click="goBackToList">
+          返回列表
+        </el-button>
+        <el-button v-if="activeView === 'list'" type="primary" :icon="Plus" @click="openCreate">
+          新增底层 SKILL
+        </el-button>
+      </div>
+    </section>
 
     <template v-if="activeView === 'list'">
-      <div class="toolbar">
-        <div class="toolbar-left">
-          <el-button type="primary" :icon="Plus" @click="openCreate">新增 SKILL</el-button>
+      <section v-if="list.length > 0" class="stats-grid">
+        <div v-for="item in listStats" :key="item.label" class="stat-card">
+          <div class="stat-label">{{ item.label }}</div>
+          <div class="stat-value">{{ item.value }}</div>
         </div>
-        <el-button :icon="Refresh" @click="loadList">刷新</el-button>
-      </div>
+      </section>
 
-      <el-table
-        v-loading="loading"
-        :data="list"
-        stripe
-        border
-        style="width: 100%"
-        :empty-text="error || '暂无数据'"
-      >
-        <el-table-column prop="display_name" label="显示名称" min-width="150">
-          <template #default="{ row }: { row: SkillInfo }">
-            {{ row.display_name || row.name }}
-          </template>
-        </el-table-column>
-        <el-table-column prop="name" label="标识" min-width="160" />
-        <el-table-column label="Source" min-width="220" show-overflow-tooltip>
-          <template #default="{ row }: { row: SkillInfo }">
-            <el-tag size="small">{{ row.source_type || '-' }}</el-tag>
-            <span class="source-uri">{{ row.source_uri || '-' }}</span>
-          </template>
-        </el-table-column>
-        <el-table-column label="当前版本" width="100">
-          <template #default="{ row }: { row: SkillInfo }">
-            <el-tag v-if="row.current_version_id" size="small" type="success">#{{ row.current_version_id }}</el-tag>
-            <span v-else>-</span>
-          </template>
-        </el-table-column>
-        <el-table-column label="状态" width="90">
-          <template #default="{ row }: { row: SkillInfo }">
-            <el-switch
-              :model-value="row.is_enabled"
-              size="small"
-              @click="handleToggleEnabled(row)"
+      <el-card v-if="list.length === 0 && !loading" class="empty-card" shadow="never">
+        <el-empty :description="error || '暂无底层 SKILL 配置'">
+          <div class="empty-copy">
+            当前还没有系统级 Skill Registry 条目。请由系统管理员添加底层 SKILL，并通过 Manifest 版本声明 Runtime Config、Tool 暴露与运行时绑定。
+          </div>
+          <div class="empty-actions">
+            <el-button type="primary" :icon="Plus" @click="openCreate">新增底层 SKILL</el-button>
+            <el-button @click="openCreateWithSource('git')">从 Git 导入</el-button>
+            <el-button text :icon="Document" @click="exampleVisible = true">查看示例</el-button>
+          </div>
+        </el-empty>
+      </el-card>
+
+      <el-card v-else class="table-card" shadow="never">
+        <div class="filter-toolbar">
+          <el-input
+            v-model="keywordFilter"
+            class="filter-search"
+            :prefix-icon="Search"
+            clearable
+            placeholder="搜索底层 SKILL 名称 / 标识"
+          />
+          <el-select v-model="sourceFilter" placeholder="全部来源" clearable class="filter-select">
+            <el-option
+              v-for="opt in SOURCE_OPTIONS"
+              :key="opt.value"
+              :value="opt.value"
+              :label="opt.label"
             />
-          </template>
-        </el-table-column>
-        <el-table-column label="更新时间" width="170">
-          <template #default="{ row }: { row: SkillInfo }">
-            {{ formatTime(row.updated_at) }}
-          </template>
-        </el-table-column>
-        <el-table-column label="操作" width="260" fixed="right">
-          <template #default="{ row }: { row: SkillInfo }">
-            <el-button size="small" :icon="Document" @click="navigateToVersions(row)">
-              版本
-            </el-button>
-            <el-button size="small" :icon="Tools" @click="navigateToTools(row)">
-              Tools
-            </el-button>
-            <el-button size="small" :icon="Edit" @click="openEdit(row)">
-              编辑
-            </el-button>
-          </template>
-        </el-table-column>
-      </el-table>
+          </el-select>
+          <el-select v-model="statusFilter" placeholder="全部状态" clearable class="filter-select">
+            <el-option value="enabled" label="已启用" />
+            <el-option value="disabled" label="已禁用" />
+          </el-select>
+          <div class="filter-actions">
+            <el-button @click="resetListFilters">重置</el-button>
+            <el-button :icon="Refresh" @click="loadList">刷新</el-button>
+          </div>
+        </div>
 
-      <div class="pagination-wrap">
-        <el-pagination
-          v-model:current-page="page"
-          v-model:page-size="pageSize"
-          :total="total"
-          :page-sizes="[10, 20, 50]"
-          layout="total, sizes, prev, pager, next"
-          @current-change="loadList"
-          @size-change="(s: number) => { pageSize = s; page = 1; loadList() }"
-        />
-      </div>
+        <el-table
+          v-loading="loading"
+          :data="filteredSkills"
+          stripe
+          style="width: 100%"
+          :empty-text="error || '暂无匹配的底层 SKILL 配置'"
+          @row-click="openDetail"
+        >
+          <el-table-column label="Skill 信息" min-width="240">
+            <template #default="{ row }: { row: SkillInfo }">
+              <div class="entity-cell">
+                <div class="entity-title">{{ row.display_name || row.name }}</div>
+                <div class="entity-sub">{{ row.name }}</div>
+                <div v-if="row.description" class="entity-desc">{{ row.description }}</div>
+              </div>
+            </template>
+          </el-table-column>
+          <el-table-column label="来源" min-width="220" show-overflow-tooltip>
+            <template #default="{ row }: { row: SkillInfo }">
+              <el-tag size="small" effect="plain">{{ sourceLabel(row.source_type) }}</el-tag>
+              <span class="source-uri">{{ row.source_uri || '-' }}</span>
+            </template>
+          </el-table-column>
+          <el-table-column label="当前版本" width="112">
+            <template #default="{ row }: { row: SkillInfo }">
+              <el-tag v-if="row.current_version_id" size="small" type="success">#{{ row.current_version_id }}</el-tag>
+              <el-tag v-else size="small" type="info">未设置</el-tag>
+            </template>
+          </el-table-column>
+          <el-table-column label="Tools / 版本入口" width="174">
+            <template #default="{ row }: { row: SkillInfo }">
+              <div class="inline-actions">
+                <el-button size="small" :icon="Document" @click.stop="navigateToVersions(row)">版本</el-button>
+                <el-button size="small" :icon="Tools" @click.stop="navigateToTools(row)">Tools</el-button>
+              </div>
+            </template>
+          </el-table-column>
+          <el-table-column label="状态" width="90">
+            <template #default="{ row }: { row: SkillInfo }">
+              <el-switch
+                :model-value="row.is_enabled"
+                size="small"
+                @click.stop="handleToggleEnabled(row)"
+              />
+            </template>
+          </el-table-column>
+          <el-table-column label="更新时间" width="170">
+            <template #default="{ row }: { row: SkillInfo }">
+              {{ formatTime(row.updated_at) }}
+            </template>
+          </el-table-column>
+          <el-table-column label="操作" width="150" fixed="right">
+            <template #default="{ row }: { row: SkillInfo }">
+              <el-button size="small" :icon="View" @click.stop="openDetail(row)">详情</el-button>
+              <el-button size="small" :icon="Edit" @click.stop="openEdit(row)">编辑</el-button>
+            </template>
+          </el-table-column>
+        </el-table>
+
+        <div class="pagination-wrap">
+          <el-pagination
+            v-model:current-page="page"
+            v-model:page-size="pageSize"
+            :total="total"
+            :page-sizes="[10, 20, 50]"
+            layout="total, sizes, prev, pager, next"
+            @current-change="loadList"
+            @size-change="(s: number) => { pageSize = s; page = 1; loadList() }"
+          />
+        </div>
+      </el-card>
     </template>
 
     <template v-else-if="activeView === 'versions'">
-      <div class="toolbar">
-        <div class="toolbar-left">
+      <el-card class="table-card" shadow="never">
+        <div class="filter-toolbar">
           <el-button type="primary" :icon="Plus" @click="openCreateVersion">创建版本</el-button>
+          <div class="filter-actions">
+            <el-button :icon="Refresh" @click="loadVersions">刷新</el-button>
+          </div>
         </div>
-        <el-button :icon="Refresh" @click="loadVersions">刷新</el-button>
-      </div>
 
-      <el-table
-        v-loading="versionsLoading"
-        :data="versions"
-        stripe
-        border
-        style="width: 100%"
-        :empty-text="versionsError || '暂无版本'"
-      >
-        <el-table-column prop="version" label="版本" width="140" />
-        <el-table-column label="状态" width="100">
-          <template #default="{ row }: { row: SkillVersionInfo }">
-            <el-tag v-if="row.id === selectedSkill?.current_version_id" type="success" size="small">当前</el-tag>
-            <span v-else>-</span>
-          </template>
-        </el-table-column>
-        <el-table-column prop="runtime_type" label="运行类型" width="120" />
-        <el-table-column label="Instruction" min-width="220" show-overflow-tooltip>
-          <template #default="{ row }: { row: SkillVersionInfo }">
-            {{ shortText(row.instruction) }}
-          </template>
-        </el-table-column>
-        <el-table-column label="创建时间" width="170">
-          <template #default="{ row }: { row: SkillVersionInfo }">
-            {{ formatTime(row.created_at) }}
-          </template>
-        </el-table-column>
-        <el-table-column label="操作" width="180" fixed="right">
-          <template #default="{ row }: { row: SkillVersionInfo }">
-            <el-button size="small" :icon="Document" @click="openVersionDetail(row)">详情</el-button>
-            <el-button
-              size="small"
-              type="primary"
-              :icon="Check"
-              :disabled="row.id === selectedSkill?.current_version_id"
-              @click="activateVersion(row)"
-            >
-              激活
-            </el-button>
-          </template>
-        </el-table-column>
-      </el-table>
+        <el-table
+          v-loading="versionsLoading"
+          :data="versions"
+          stripe
+          style="width: 100%"
+          :empty-text="versionsError || '暂无版本'"
+        >
+          <el-table-column prop="version" label="版本" width="140" />
+          <el-table-column label="状态" width="100">
+            <template #default="{ row }: { row: SkillVersionInfo }">
+              <el-tag v-if="row.id === selectedSkill?.current_version_id" type="success" size="small">当前</el-tag>
+              <span v-else>-</span>
+            </template>
+          </el-table-column>
+          <el-table-column prop="runtime_type" label="运行类型" width="120" />
+          <el-table-column label="Instruction" min-width="220" show-overflow-tooltip>
+            <template #default="{ row }: { row: SkillVersionInfo }">
+              {{ shortText(row.instruction) }}
+            </template>
+          </el-table-column>
+          <el-table-column label="创建时间" width="170">
+            <template #default="{ row }: { row: SkillVersionInfo }">
+              {{ formatTime(row.created_at) }}
+            </template>
+          </el-table-column>
+          <el-table-column label="操作" width="180" fixed="right">
+            <template #default="{ row }: { row: SkillVersionInfo }">
+              <el-button size="small" :icon="Document" @click="openVersionDetail(row)">详情</el-button>
+              <el-button
+                size="small"
+                type="primary"
+                :icon="Check"
+                :disabled="row.id === selectedSkill?.current_version_id"
+                @click="activateVersion(row)"
+              >
+                激活
+              </el-button>
+            </template>
+          </el-table-column>
+        </el-table>
+      </el-card>
     </template>
 
     <template v-else>
-      <div class="toolbar">
-        <div class="toolbar-left">
+      <el-card class="table-card" shadow="never">
+        <div class="filter-toolbar">
           <el-select v-model="toolVersionId" style="width: 180px">
             <el-option
               v-for="opt in toolVersionOptions"
@@ -560,49 +682,50 @@ onMounted(() => {
               :label="opt.label"
             />
           </el-select>
+          <div class="filter-actions">
+            <el-button :icon="Refresh" @click="loadTools">刷新</el-button>
+          </div>
         </div>
-        <el-button :icon="Refresh" @click="loadTools">刷新</el-button>
-      </div>
 
-      <el-table
-        v-loading="toolsLoading"
-        :data="visibleTools"
-        stripe
-        border
-        style="width: 100%"
-        :empty-text="toolsError || '暂无 Tool'"
-      >
-        <el-table-column prop="tool_name" label="Tool" min-width="160" />
-        <el-table-column prop="capability_key" label="Capability Key" min-width="180" show-overflow-tooltip />
-        <el-table-column prop="runtime_tool_name" label="Runtime Tool" min-width="160" show-overflow-tooltip />
-        <el-table-column label="Schema" min-width="180" show-overflow-tooltip>
-          <template #default="{ row }: { row: SkillToolInfo }">
-            <code>{{ shortText(formatJson(row.input_schema_json), 120) }}</code>
-          </template>
-        </el-table-column>
-        <el-table-column label="Runtime Config" min-width="180" show-overflow-tooltip>
-          <template #default="{ row }: { row: SkillToolInfo }">
-            <code>{{ shortText(formatJson(row.runtime_config_json), 120) }}</code>
-          </template>
-        </el-table-column>
-        <el-table-column label="状态" width="110">
-          <template #default="{ row }: { row: SkillToolInfo }">
-            <el-tag :type="toolTagType(row)" size="small">
-              {{ row.is_enabled ? '启用' : '禁用' }}
-            </el-tag>
-          </template>
-        </el-table-column>
-        <el-table-column label="更新时间" width="170">
-          <template #default="{ row }: { row: SkillToolInfo }">
-            {{ formatTime(row.updated_at) }}
-          </template>
-        </el-table-column>
-        <el-table-column label="操作" width="90" fixed="right">
-          <template #default="{ row }: { row: SkillToolInfo }">
-            <el-button size="small" :icon="Edit" @click="openEditTool(row)">编辑</el-button>
-          </template>
-        </el-table-column>
-      </el-table>
+        <el-table
+          v-loading="toolsLoading"
+          :data="visibleTools"
+          stripe
+          style="width: 100%"
+          :empty-text="toolsError || '暂无 Tool'"
+        >
+          <el-table-column prop="tool_name" label="Tool" min-width="160" />
+          <el-table-column prop="capability_key" label="Capability Key" min-width="180" show-overflow-tooltip />
+          <el-table-column prop="runtime_tool_name" label="Runtime Tool" min-width="160" show-overflow-tooltip />
+          <el-table-column label="Schema" min-width="180" show-overflow-tooltip>
+            <template #default="{ row }: { row: SkillToolInfo }">
+              <code>{{ shortText(formatJson(row.input_schema_json), 120) }}</code>
+            </template>
+          </el-table-column>
+          <el-table-column label="Runtime Config" min-width="180" show-overflow-tooltip>
+            <template #default="{ row }: { row: SkillToolInfo }">
+              <code>{{ shortText(formatJson(row.runtime_config_json), 120) }}</code>
+            </template>
+          </el-table-column>
+          <el-table-column label="状态" width="110">
+            <template #default="{ row }: { row: SkillToolInfo }">
+              <el-tag :type="toolTagType(row)" size="small">
+                {{ row.is_enabled ? '启用' : '禁用' }}
+              </el-tag>
+            </template>
+          </el-table-column>
+          <el-table-column label="更新时间" width="170">
+            <template #default="{ row }: { row: SkillToolInfo }">
+              {{ formatTime(row.updated_at) }}
+            </template>
+          </el-table-column>
+          <el-table-column label="操作" width="90" fixed="right">
+            <template #default="{ row }: { row: SkillToolInfo }">
+              <el-button size="small" :icon="Edit" @click="openEditTool(row)">编辑</el-button>
+            </template>
+          </el-table-column>
+        </el-table>
+      </el-card>
     </template>
 
     <el-dialog
@@ -613,11 +736,11 @@ onMounted(() => {
       destroy-on-close
     >
       <el-form :model="dialogForm" label-width="120px">
-        <el-form-item label="SKILL 名称" required>
+        <el-form-item label="SKILL 标识" required>
           <el-input v-model="dialogForm.name" placeholder="英文标识，例如：resume_parser" :disabled="isEditing" />
         </el-form-item>
         <el-form-item label="显示名称">
-          <el-input v-model="dialogForm.display_name" placeholder="例如：简历解析 Skill" />
+          <el-input v-model="dialogForm.display_name" placeholder="例如：Resume Parser Runtime Skill" />
         </el-form-item>
         <el-form-item label="描述">
           <el-input v-model="dialogForm.description" type="textarea" :rows="3" />
@@ -649,7 +772,7 @@ onMounted(() => {
 
     <el-dialog
       v-model="versionDialogVisible"
-      title="创建 SKILL 版本"
+      title="创建 Manifest 版本"
       width="820px"
       :close-on-click-modal="false"
       destroy-on-close
@@ -745,50 +868,245 @@ onMounted(() => {
         <el-button type="primary" :loading="toolSaving" @click="saveTool">保存</el-button>
       </template>
     </el-dialog>
+
+    <el-drawer v-model="detailVisible" title="底层 SKILL 配置详情" size="560px" destroy-on-close>
+      <template v-if="detailSkill">
+        <el-descriptions :column="1" border>
+          <el-descriptions-item label="显示名称">{{ detailSkill.display_name || '-' }}</el-descriptions-item>
+          <el-descriptions-item label="标识">{{ detailSkill.name }}</el-descriptions-item>
+          <el-descriptions-item label="描述">{{ detailSkill.description || '-' }}</el-descriptions-item>
+          <el-descriptions-item label="来源">
+            <el-tag size="small" effect="plain">{{ sourceLabel(detailSkill.source_type) }}</el-tag>
+            <span class="source-uri">{{ detailSkill.source_uri || '-' }}</span>
+          </el-descriptions-item>
+          <el-descriptions-item label="当前版本">
+            <el-tag v-if="detailSkill.current_version_id" type="success" size="small">
+              #{{ detailSkill.current_version_id }}
+            </el-tag>
+            <el-tag v-else type="info" size="small">未设置</el-tag>
+          </el-descriptions-item>
+          <el-descriptions-item label="状态">
+            <el-tag :type="detailSkill.is_enabled ? 'success' : 'info'" size="small">
+              {{ detailSkill.is_enabled ? '启用' : '禁用' }}
+            </el-tag>
+          </el-descriptions-item>
+          <el-descriptions-item label="创建时间">{{ formatTime(detailSkill.created_at) }}</el-descriptions-item>
+          <el-descriptions-item label="更新时间">{{ formatTime(detailSkill.updated_at) }}</el-descriptions-item>
+        </el-descriptions>
+        <div class="drawer-actions">
+          <el-button :icon="Document" @click="navigateToVersions(detailSkill)">Manifest 版本</el-button>
+          <el-button :icon="Tools" @click="navigateToTools(detailSkill)">运行时 Tools</el-button>
+          <el-button type="primary" :icon="Edit" @click="openEdit(detailSkill)">编辑</el-button>
+        </div>
+      </template>
+    </el-drawer>
+
+    <el-dialog v-model="exampleVisible" title="示例 Manifest" width="720px" destroy-on-close>
+      <pre class="json-preview">{{ exampleManifest }}</pre>
+      <template #footer>
+        <el-button @click="exampleVisible = false">关闭</el-button>
+        <el-button type="primary" @click="openCreateFromExample">基于示例新增底层 SKILL</el-button>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
 <style scoped>
 .skill-manage-view {
-  padding-bottom: 24px;
+  height: 100%;
+  min-height: 0;
+  padding-bottom: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
 }
 
-.page-head,
-.toolbar,
-.toolbar-left,
+.page-header,
+.page-actions,
+.filter-toolbar,
+.filter-actions,
+.empty-actions,
+.inline-actions,
+.drawer-actions,
 .form-actions {
   display: flex;
   align-items: center;
 }
 
-.page-head,
-.toolbar {
+.page-header {
   justify-content: space-between;
-  gap: 8px;
-  flex-wrap: wrap;
-  margin-bottom: 16px;
+  align-items: flex-start;
+  gap: 20px;
+  margin-bottom: 18px;
+  padding: 22px 24px;
+  border: 1px solid var(--el-border-color-light);
+  border-radius: 8px;
+  background: var(--admin-console-header-bg);
+  flex-shrink: 0;
 }
 
 .page-title {
-  font-size: 20px;
-  font-weight: 600;
+  font-size: 24px;
+  font-weight: 700;
   margin: 0;
+  line-height: 1.25;
 }
 
-.toolbar-left,
+.page-kicker {
+  margin: 0 0 6px;
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1;
+  color: var(--el-color-primary);
+  text-transform: uppercase;
+  letter-spacing: 0;
+}
+
+.page-desc {
+  margin: 6px 0 0;
+  color: var(--el-text-color-secondary);
+  line-height: 1.5;
+}
+
+.stats-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(140px, 1fr));
+  gap: 12px;
+  margin-bottom: 12px;
+  flex-shrink: 0;
+}
+
+.stat-card {
+  border: 1px solid var(--el-border-color-light);
+  border-radius: 8px;
+  padding: 10px 14px;
+  background: var(--el-bg-color);
+}
+
+.stat-label {
+  color: var(--el-text-color-secondary);
+  font-size: 13px;
+}
+
+.stat-value {
+  margin-top: 4px;
+  color: var(--el-text-color-primary);
+  font-size: 22px;
+  font-weight: 650;
+}
+
+.table-card,
+.empty-card {
+  border-radius: 8px;
+}
+
+.table-card {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.table-card :deep(.el-card__body) {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.filter-toolbar {
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-bottom: 12px;
+  flex-shrink: 0;
+}
+
+.table-card :deep(.el-table) {
+  flex: 1;
+  min-height: 320px;
+}
+
+.table-card :deep(.el-table__body-wrapper) {
+  overflow-y: auto;
+}
+
+.filter-search {
+  width: 260px;
+}
+
+.filter-select {
+  width: 168px;
+}
+
+.filter-actions {
+  gap: 8px;
+  margin-left: auto;
+}
+
+.entity-cell {
+  min-width: 0;
+}
+
+.entity-title {
+  font-weight: 600;
+  color: var(--el-text-color-primary);
+}
+
+.entity-sub,
+.entity-desc {
+  color: var(--el-text-color-secondary);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.entity-desc {
+  margin-top: 2px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.inline-actions,
 .form-actions {
   gap: 8px;
+}
+
+.empty-card {
+  padding: 18px;
+}
+
+.empty-copy {
+  max-width: 520px;
+  margin: 0 auto 16px;
+  color: var(--el-text-color-secondary);
+  line-height: 1.6;
+}
+
+.empty-actions {
+  justify-content: center;
+  gap: 10px;
+  flex-wrap: wrap;
 }
 
 .pagination-wrap {
   display: flex;
   justify-content: flex-end;
-  margin-top: 16px;
+  margin-top: 12px;
+  flex-shrink: 0;
 }
 
 .source-uri {
   margin-left: 8px;
   color: var(--el-text-color-regular);
+}
+
+.drawer-actions {
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 18px;
+  flex-wrap: wrap;
 }
 
 .json-editor :deep(textarea),
@@ -820,5 +1138,27 @@ code {
   font-size: 12px;
   line-height: 1.5;
   white-space: pre-wrap;
+}
+
+@media (max-width: 900px) {
+  .page-header,
+  .filter-actions {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .stats-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .filter-search,
+  .filter-select {
+    width: 100%;
+  }
+
+  .filter-actions {
+    width: 100%;
+    margin-left: 0;
+  }
 }
 </style>

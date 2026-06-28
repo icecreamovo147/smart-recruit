@@ -745,6 +745,38 @@ type SkillTool struct {
 
 func (SkillTool) TableName() string { return "ai_skill_tools" }
 
+type AgentSkill struct {
+	ID                int64     `gorm:"primaryKey"`
+	Name              string    `gorm:"column:name;size:128;not null;uniqueIndex:uk_agent_skills_name"`
+	DisplayName       string    `gorm:"column:display_name;size:128;not null"`
+	Description       string    `gorm:"column:description;type:text"`
+	CurrentVersionID  *int64    `gorm:"column:current_version_id"`
+	IsEnabled         int32     `gorm:"column:is_enabled;default:1"`
+	IsManualInvocable int32     `gorm:"column:is_manual_invocable;default:1"`
+	TriggerKeywords   string    `gorm:"column:trigger_keywords;type:json"`
+	CreatedBy         *int64    `gorm:"column:created_by"`
+	UpdatedBy         *int64    `gorm:"column:updated_by"`
+	CreatedAt         time.Time `gorm:"column:created_at"`
+	UpdatedAt         time.Time `gorm:"column:updated_at"`
+}
+
+func (AgentSkill) TableName() string { return "agent_skills" }
+
+type AgentSkillVersion struct {
+	ID              int64     `gorm:"primaryKey"`
+	SkillID         int64     `gorm:"column:skill_id;not null;uniqueIndex:uk_agent_skill_versions_skill_version,priority:1"`
+	Version         string    `gorm:"column:version;size:64;not null;uniqueIndex:uk_agent_skill_versions_skill_version,priority:2"`
+	FlowJSON        string    `gorm:"column:flow_json;type:json"`
+	SkillMD         string    `gorm:"column:skill_md;type:mediumtext;not null"`
+	FrontmatterJSON string    `gorm:"column:frontmatter_json;type:json"`
+	BodyMarkdown    string    `gorm:"column:body_markdown;type:mediumtext"`
+	ChangeNote      string    `gorm:"column:change_note;type:text"`
+	CreatedBy       *int64    `gorm:"column:created_by"`
+	CreatedAt       time.Time `gorm:"column:created_at"`
+}
+
+func (AgentSkillVersion) TableName() string { return "agent_skill_versions" }
+
 // ── MCP Server (P1-006) ─────────────────────────────────────────────
 
 // MCPServer represents a registered MCP server.

@@ -14,6 +14,7 @@ export interface ChatRequestPayload {
   session_id?: number
   model_id?: number
   skill_capability_keys?: string[]
+  agent_skill_ids?: number[]
 }
 
 export const sendMessage = (data: ChatRequestPayload): Promise<{

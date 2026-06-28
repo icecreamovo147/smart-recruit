@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { ArrowDown, Briefcase, ChatDotRound, Collection, Connection, DataAnalysis, Edit, Expand, Fold, Key, Menu, Monitor, Moon, Operation, Setting, Sunny, Tools, UserFilled } from '@element-plus/icons-vue'
+import { ArrowDown, Briefcase, ChatDotRound, Collection, Connection, DataAnalysis, Edit, Expand, Fold, Key, MagicStick, Menu, Monitor, Moon, Operation, Setting, Sunny, Tools, UserFilled } from '@element-plus/icons-vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { useAuthStore } from '@/stores/auth'
 import { useTheme } from '@/composables/useTheme'
@@ -23,6 +23,7 @@ const mobileSidebarOpen = ref(false)
 const taxonomyOpen = ref(false)
 const usageAuditOpen = ref(false)
 const isAuthRoute = computed(() => route.path === '/login' || route.path === '/register')
+const canManageAgentSkills = computed(() => auth.isRecruitingAdmin || auth.isSystemAdmin)
 
 const toggleTaxonomy = () => {
   taxonomyOpen.value = !taxonomyOpen.value
@@ -158,6 +159,10 @@ const routeViewKey = (viewRoute: { fullPath: string; path: string; params: Recor
         <el-icon><ChatDotRound /></el-icon>
         <span>AI 数据助手</span>
       </RouterLink>
+      <RouterLink v-if="auth.hasPermission(PERM.AI_HR_USE)" class="sidebar-link" to="/hr/capabilities" @click="closeMobileSidebar">
+        <el-icon><MagicStick /></el-icon>
+        <span>AI 能力中心</span>
+      </RouterLink>
       <RouterLink v-if="auth.hasPermission(PERM.ADMIN_INVITE_MANAGE)" class="sidebar-link" to="/hr/admin/invite-codes" @click="closeMobileSidebar">
         <el-icon><Key /></el-icon>
         <span>邀请码管理</span>
@@ -180,7 +185,11 @@ const routeViewKey = (viewRoute: { fullPath: string; path: string; params: Recor
       </RouterLink>
       <RouterLink v-if="auth.hasPermission(PERM.SYSTEM_CONFIG_MANAGE)" class="sidebar-link" to="/hr/admin/skills" @click="closeMobileSidebar">
         <el-icon><Collection /></el-icon>
-        <span>SKILL 管理</span>
+        <span>高级 SKILL 配置</span>
+      </RouterLink>
+      <RouterLink v-if="canManageAgentSkills" class="sidebar-link" to="/hr/admin/agent-skills" @click="closeMobileSidebar">
+        <el-icon><MagicStick /></el-icon>
+        <span>Agent Skill 管理</span>
       </RouterLink>
       <RouterLink v-if="auth.hasPermission(PERM.SYSTEM_CONFIG_MANAGE)" class="sidebar-link" to="/hr/admin/mcp-tools" @click="closeMobileSidebar">
         <el-icon><Connection /></el-icon>

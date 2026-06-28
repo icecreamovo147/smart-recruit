@@ -52,6 +52,7 @@ export interface StreamPayload {
   error_type?: string
   tool_name?: string
   model_name?: string
+  agent_skill_ids?: number[]
 }
 
 export interface StreamHandlers {

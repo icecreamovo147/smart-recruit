@@ -1,6 +1,7 @@
 <script setup lang="ts">
-import { onMounted, reactive, ref } from 'vue'
+import { computed, onMounted, reactive, ref } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
+import { Plus, Refresh, Search } from '@element-plus/icons-vue'
 import { createInviteCode, extendInviteCode, listInviteCodes, reactivateInviteCode, revokeInviteCode } from '@/api/admin'
 import type { InviteCodeInfo } from '@/types/domain'
 
@@ -16,6 +17,8 @@ const form = reactive({ expires_at: '' })
 const extendingId = ref(0)
 const extendingVisible = ref(false)
 const extendForm = reactive({ new_expires_at: '' })
+const keyword = ref('')
+const statusFilter = ref('')
 
 const load = async () => {
   loading.value = true
@@ -123,6 +126,23 @@ const copyLink = async (row: InviteCodeInfo) => {
 const isExpired = (row: InviteCodeInfo) =>
   !row.is_active || (!!row.expires_at && new Date(row.expires_at) < new Date())
 
+const filteredList = computed(() => {
+  const q = keyword.value.trim().toLowerCase()
+  return list.value.filter((item) => {
+    const tag = statusTag(item).text
+    const matchesKeyword = !q || item.code.toLowerCase().includes(q)
+    const matchesStatus = !statusFilter.value || tag === statusFilter.value
+    return matchesKeyword && matchesStatus
+  })
+})
+
+const inviteStats = computed(() => [
+  { label: '邀请码总数', value: total.value || list.value.length, hint: '当前分页范围内可见管理' },
+  { label: '有效', value: list.value.filter((item) => statusTag(item).text === '有效').length, hint: '可用于 HR 注册' },
+  { label: '已过期', value: list.value.filter((item) => statusTag(item).text === '已过期').length, hint: '到期不可使用' },
+  { label: '已撤销', value: list.value.filter((item) => statusTag(item).text === '已撤销').length, hint: '手动停用的邀请码' },
+])
+
 const onPageChange = (p: number) => { page.value = p; load() }
 const onSizeChange = (s: number) => { pageSize.value = s; page.value = 1; load() }
 
@@ -130,22 +150,59 @@ onMounted(load)
 </script>
 
 <template>
-  <section class="invite-code-page">
-    <div class="page-header">
-      <h1 class="page-title">邀请码管理</h1>
-      <div class="toolbar">
-        <el-button type="primary" @click="openCreate">生成邀请码</el-button>
+  <section class="console-page console-page--fill invite-code-page">
+    <div class="console-header">
+      <div class="console-header__copy">
+        <p class="console-eyebrow">ACCESS CONTROL</p>
+        <h1 class="console-title">邀请码管理</h1>
+        <p class="console-description">生成和管理 HR 注册入口的邀请码，控制账号创建边界，并跟踪有效、过期和撤销状态。</p>
+      </div>
+      <div class="console-header__actions">
+        <el-button :icon="Refresh" @click="load">刷新</el-button>
+        <el-button type="primary" :icon="Plus" @click="openCreate">生成邀请码</el-button>
       </div>
     </div>
-    <div class="content-surface invite-code-surface">
+
+    <section class="console-stats">
+      <div v-for="item in inviteStats" :key="item.label" class="console-stat">
+        <div class="console-stat__label">{{ item.label }}</div>
+        <div class="console-stat__value">{{ item.value }}</div>
+        <div class="console-stat__hint">{{ item.hint }}</div>
+      </div>
+    </section>
+
+    <div class="console-card console-card--fill invite-code-surface">
+      <div class="console-card__head">
+        <div>
+          <h2 class="console-card__title">邀请码列表</h2>
+          <p class="console-card__desc">共 {{ filteredList.length }} 个匹配邀请码</p>
+        </div>
+      </div>
+      <div class="console-toolbar">
+        <div class="console-toolbar__filters">
+          <el-input v-model="keyword" :prefix-icon="Search" clearable placeholder="搜索邀请码" style="width: 240px" />
+          <el-select v-model="statusFilter" clearable placeholder="全部状态" style="width: 140px">
+            <el-option label="有效" value="有效" />
+            <el-option label="已过期" value="已过期" />
+            <el-option label="已撤销" value="已撤销" />
+          </el-select>
+        </div>
+      </div>
       <el-alert v-if="errorMessage" class="page-error" type="error" :title="errorMessage" show-icon :closable="false">
         <template #default>
           <el-button type="primary" size="small" @click="load">重试</el-button>
         </template>
       </el-alert>
       <div class="invite-code-table-area desktop-only">
-        <el-table v-loading="loading" :data="list" empty-text="暂无邀请码" height="100%">
-          <el-table-column prop="code" label="邀请码" min-width="280" />
+        <el-table v-loading="loading" :data="filteredList" class="console-table" empty-text="暂无邀请码" height="100%">
+          <el-table-column label="邀请码" min-width="280">
+            <template #default="{ row }">
+              <div class="console-entity">
+                <div class="console-entity__name console-code">{{ row.code }}</div>
+                <div class="console-entity__meta">注册链接可复制给 HR 用户完成注册</div>
+              </div>
+            </template>
+          </el-table-column>
           <el-table-column label="状态" width="100" align="center">
             <template #default="{ row }">
               <el-tag :type="statusTag(row).type" size="small">{{ statusTag(row).text }}</el-tag>
@@ -168,8 +225,8 @@ onMounted(load)
       </div>
       <!-- Mobile invite code cards -->
       <div class="mobile-card-list mobile-only">
-        <el-empty v-if="!loading && list.length === 0" description="暂无邀请码" />
-        <div v-for="row in list" :key="row.id" class="mobile-invite-card">
+        <el-empty v-if="!loading && filteredList.length === 0" description="暂无邀请码" />
+        <div v-for="row in filteredList" :key="row.id" class="mobile-invite-card">
           <div class="mobile-card__header">
             <div><span class="invite-code__label">邀请码：</span><span class="invite-code__text">{{ row.code }}</span></div>
             <el-tag :type="statusTag(row).type" size="small">{{ statusTag(row).text }}</el-tag>
@@ -200,7 +257,7 @@ onMounted(load)
     </div>
 
     <!-- Create dialog -->
-    <el-dialog v-model="dialogVisible" title="生成邀请码" width="460px" @closed="form.expires_at = ''">
+    <el-drawer v-model="dialogVisible" title="生成邀请码" size="460px" @closed="form.expires_at = ''">
       <el-form label-position="top">
         <el-form-item label="过期时间">
           <el-date-picker
@@ -211,16 +268,16 @@ onMounted(load)
             style="width: 100%"
           />
         </el-form-item>
-        <p style="color: #909399; font-size: 13px; margin-top: -8px">留空则生成永久有效的邀请码。</p>
+        <p style="color: var(--el-text-color-secondary); font-size: 13px; margin-top: -8px">留空则生成永久有效的邀请码。</p>
       </el-form>
       <template #footer>
         <el-button @click="dialogVisible = false">取消</el-button>
         <el-button type="primary" :loading="saving" @click="saveCreate">生成</el-button>
       </template>
-    </el-dialog>
+    </el-drawer>
 
     <!-- Extend dialog -->
-    <el-dialog v-model="extendingVisible" title="延长有效期" width="460px">
+    <el-drawer v-model="extendingVisible" title="延长有效期" size="460px">
       <el-form label-position="top">
         <el-form-item label="新过期时间">
           <el-date-picker
@@ -236,6 +293,6 @@ onMounted(load)
         <el-button @click="extendingVisible = false">取消</el-button>
         <el-button type="primary" :loading="saving" @click="saveExtend">确认</el-button>
       </template>
-    </el-dialog>
+    </el-drawer>
   </section>
 </template>

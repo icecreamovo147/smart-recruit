@@ -6979,3 +6979,447 @@ var SkillService_ServiceDesc = grpc.ServiceDesc{
 	Streams:  []grpc.StreamDesc{},
 	Metadata: "proto/recruitment.proto",
 }
+
+const (
+	AgentSkillService_ListAgentSkills_FullMethodName           = "/recruitment.AgentSkillService/ListAgentSkills"
+	AgentSkillService_GetAgentSkill_FullMethodName             = "/recruitment.AgentSkillService/GetAgentSkill"
+	AgentSkillService_CreateAgentSkill_FullMethodName          = "/recruitment.AgentSkillService/CreateAgentSkill"
+	AgentSkillService_UpdateAgentSkill_FullMethodName          = "/recruitment.AgentSkillService/UpdateAgentSkill"
+	AgentSkillService_CreateAgentSkillVersion_FullMethodName   = "/recruitment.AgentSkillService/CreateAgentSkillVersion"
+	AgentSkillService_ListAgentSkillVersions_FullMethodName    = "/recruitment.AgentSkillService/ListAgentSkillVersions"
+	AgentSkillService_ActivateAgentSkillVersion_FullMethodName = "/recruitment.AgentSkillService/ActivateAgentSkillVersion"
+	AgentSkillService_UpdateAgentSkillStatus_FullMethodName    = "/recruitment.AgentSkillService/UpdateAgentSkillStatus"
+	AgentSkillService_PreviewAgentSkill_FullMethodName         = "/recruitment.AgentSkillService/PreviewAgentSkill"
+	AgentSkillService_ListAvailableAgentSkills_FullMethodName  = "/recruitment.AgentSkillService/ListAvailableAgentSkills"
+)
+
+// AgentSkillServiceClient is the client API for AgentSkillService service.
+//
+// For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
+type AgentSkillServiceClient interface {
+	ListAgentSkills(ctx context.Context, in *ListAgentSkillsRequest, opts ...grpc.CallOption) (*ListAgentSkillsResponse, error)
+	GetAgentSkill(ctx context.Context, in *GetAgentSkillRequest, opts ...grpc.CallOption) (*AgentSkillResponse, error)
+	CreateAgentSkill(ctx context.Context, in *CreateAgentSkillRequest, opts ...grpc.CallOption) (*AgentSkillResponse, error)
+	UpdateAgentSkill(ctx context.Context, in *UpdateAgentSkillRequest, opts ...grpc.CallOption) (*AgentSkillResponse, error)
+	CreateAgentSkillVersion(ctx context.Context, in *CreateAgentSkillVersionRequest, opts ...grpc.CallOption) (*AgentSkillVersionResponse, error)
+	ListAgentSkillVersions(ctx context.Context, in *ListAgentSkillVersionsRequest, opts ...grpc.CallOption) (*ListAgentSkillVersionsResponse, error)
+	ActivateAgentSkillVersion(ctx context.Context, in *ActivateAgentSkillVersionRequest, opts ...grpc.CallOption) (*AgentSkillResponse, error)
+	UpdateAgentSkillStatus(ctx context.Context, in *UpdateAgentSkillStatusRequest, opts ...grpc.CallOption) (*AgentSkillResponse, error)
+	PreviewAgentSkill(ctx context.Context, in *PreviewAgentSkillRequest, opts ...grpc.CallOption) (*PreviewAgentSkillResponse, error)
+	ListAvailableAgentSkills(ctx context.Context, in *ListAvailableAgentSkillsRequest, opts ...grpc.CallOption) (*ListAgentSkillsResponse, error)
+}
+
+type agentSkillServiceClient struct {
+	cc grpc.ClientConnInterface
+}
+
+func NewAgentSkillServiceClient(cc grpc.ClientConnInterface) AgentSkillServiceClient {
+	return &agentSkillServiceClient{cc}
+}
+
+func (c *agentSkillServiceClient) ListAgentSkills(ctx context.Context, in *ListAgentSkillsRequest, opts ...grpc.CallOption) (*ListAgentSkillsResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ListAgentSkillsResponse)
+	err := c.cc.Invoke(ctx, AgentSkillService_ListAgentSkills_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *agentSkillServiceClient) GetAgentSkill(ctx context.Context, in *GetAgentSkillRequest, opts ...grpc.CallOption) (*AgentSkillResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(AgentSkillResponse)
+	err := c.cc.Invoke(ctx, AgentSkillService_GetAgentSkill_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *agentSkillServiceClient) CreateAgentSkill(ctx context.Context, in *CreateAgentSkillRequest, opts ...grpc.CallOption) (*AgentSkillResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(AgentSkillResponse)
+	err := c.cc.Invoke(ctx, AgentSkillService_CreateAgentSkill_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *agentSkillServiceClient) UpdateAgentSkill(ctx context.Context, in *UpdateAgentSkillRequest, opts ...grpc.CallOption) (*AgentSkillResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(AgentSkillResponse)
+	err := c.cc.Invoke(ctx, AgentSkillService_UpdateAgentSkill_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *agentSkillServiceClient) CreateAgentSkillVersion(ctx context.Context, in *CreateAgentSkillVersionRequest, opts ...grpc.CallOption) (*AgentSkillVersionResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(AgentSkillVersionResponse)
+	err := c.cc.Invoke(ctx, AgentSkillService_CreateAgentSkillVersion_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *agentSkillServiceClient) ListAgentSkillVersions(ctx context.Context, in *ListAgentSkillVersionsRequest, opts ...grpc.CallOption) (*ListAgentSkillVersionsResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ListAgentSkillVersionsResponse)
+	err := c.cc.Invoke(ctx, AgentSkillService_ListAgentSkillVersions_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *agentSkillServiceClient) ActivateAgentSkillVersion(ctx context.Context, in *ActivateAgentSkillVersionRequest, opts ...grpc.CallOption) (*AgentSkillResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(AgentSkillResponse)
+	err := c.cc.Invoke(ctx, AgentSkillService_ActivateAgentSkillVersion_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *agentSkillServiceClient) UpdateAgentSkillStatus(ctx context.Context, in *UpdateAgentSkillStatusRequest, opts ...grpc.CallOption) (*AgentSkillResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(AgentSkillResponse)
+	err := c.cc.Invoke(ctx, AgentSkillService_UpdateAgentSkillStatus_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *agentSkillServiceClient) PreviewAgentSkill(ctx context.Context, in *PreviewAgentSkillRequest, opts ...grpc.CallOption) (*PreviewAgentSkillResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(PreviewAgentSkillResponse)
+	err := c.cc.Invoke(ctx, AgentSkillService_PreviewAgentSkill_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *agentSkillServiceClient) ListAvailableAgentSkills(ctx context.Context, in *ListAvailableAgentSkillsRequest, opts ...grpc.CallOption) (*ListAgentSkillsResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ListAgentSkillsResponse)
+	err := c.cc.Invoke(ctx, AgentSkillService_ListAvailableAgentSkills_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+// AgentSkillServiceServer is the server API for AgentSkillService service.
+// All implementations must embed UnimplementedAgentSkillServiceServer
+// for forward compatibility.
+type AgentSkillServiceServer interface {
+	ListAgentSkills(context.Context, *ListAgentSkillsRequest) (*ListAgentSkillsResponse, error)
+	GetAgentSkill(context.Context, *GetAgentSkillRequest) (*AgentSkillResponse, error)
+	CreateAgentSkill(context.Context, *CreateAgentSkillRequest) (*AgentSkillResponse, error)
+	UpdateAgentSkill(context.Context, *UpdateAgentSkillRequest) (*AgentSkillResponse, error)
+	CreateAgentSkillVersion(context.Context, *CreateAgentSkillVersionRequest) (*AgentSkillVersionResponse, error)
+	ListAgentSkillVersions(context.Context, *ListAgentSkillVersionsRequest) (*ListAgentSkillVersionsResponse, error)
+	ActivateAgentSkillVersion(context.Context, *ActivateAgentSkillVersionRequest) (*AgentSkillResponse, error)
+	UpdateAgentSkillStatus(context.Context, *UpdateAgentSkillStatusRequest) (*AgentSkillResponse, error)
+	PreviewAgentSkill(context.Context, *PreviewAgentSkillRequest) (*PreviewAgentSkillResponse, error)
+	ListAvailableAgentSkills(context.Context, *ListAvailableAgentSkillsRequest) (*ListAgentSkillsResponse, error)
+	mustEmbedUnimplementedAgentSkillServiceServer()
+}
+
+// UnimplementedAgentSkillServiceServer must be embedded to have
+// forward compatible implementations.
+//
+// NOTE: this should be embedded by value instead of pointer to avoid a nil
+// pointer dereference when methods are called.
+type UnimplementedAgentSkillServiceServer struct{}
+
+func (UnimplementedAgentSkillServiceServer) ListAgentSkills(context.Context, *ListAgentSkillsRequest) (*ListAgentSkillsResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method ListAgentSkills not implemented")
+}
+func (UnimplementedAgentSkillServiceServer) GetAgentSkill(context.Context, *GetAgentSkillRequest) (*AgentSkillResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method GetAgentSkill not implemented")
+}
+func (UnimplementedAgentSkillServiceServer) CreateAgentSkill(context.Context, *CreateAgentSkillRequest) (*AgentSkillResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method CreateAgentSkill not implemented")
+}
+func (UnimplementedAgentSkillServiceServer) UpdateAgentSkill(context.Context, *UpdateAgentSkillRequest) (*AgentSkillResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method UpdateAgentSkill not implemented")
+}
+func (UnimplementedAgentSkillServiceServer) CreateAgentSkillVersion(context.Context, *CreateAgentSkillVersionRequest) (*AgentSkillVersionResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method CreateAgentSkillVersion not implemented")
+}
+func (UnimplementedAgentSkillServiceServer) ListAgentSkillVersions(context.Context, *ListAgentSkillVersionsRequest) (*ListAgentSkillVersionsResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method ListAgentSkillVersions not implemented")
+}
+func (UnimplementedAgentSkillServiceServer) ActivateAgentSkillVersion(context.Context, *ActivateAgentSkillVersionRequest) (*AgentSkillResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method ActivateAgentSkillVersion not implemented")
+}
+func (UnimplementedAgentSkillServiceServer) UpdateAgentSkillStatus(context.Context, *UpdateAgentSkillStatusRequest) (*AgentSkillResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method UpdateAgentSkillStatus not implemented")
+}
+func (UnimplementedAgentSkillServiceServer) PreviewAgentSkill(context.Context, *PreviewAgentSkillRequest) (*PreviewAgentSkillResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method PreviewAgentSkill not implemented")
+}
+func (UnimplementedAgentSkillServiceServer) ListAvailableAgentSkills(context.Context, *ListAvailableAgentSkillsRequest) (*ListAgentSkillsResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method ListAvailableAgentSkills not implemented")
+}
+func (UnimplementedAgentSkillServiceServer) mustEmbedUnimplementedAgentSkillServiceServer() {}
+func (UnimplementedAgentSkillServiceServer) testEmbeddedByValue()                           {}
+
+// UnsafeAgentSkillServiceServer may be embedded to opt out of forward compatibility for this service.
+// Use of this interface is not recommended, as added methods to AgentSkillServiceServer will
+// result in compilation errors.
+type UnsafeAgentSkillServiceServer interface {
+	mustEmbedUnimplementedAgentSkillServiceServer()
+}
+
+func RegisterAgentSkillServiceServer(s grpc.ServiceRegistrar, srv AgentSkillServiceServer) {
+	// If the following call panics, it indicates UnimplementedAgentSkillServiceServer was
+	// embedded by pointer and is nil.  This will cause panics if an
+	// unimplemented method is ever invoked, so we test this at initialization
+	// time to prevent it from happening at runtime later due to I/O.
+	if t, ok := srv.(interface{ testEmbeddedByValue() }); ok {
+		t.testEmbeddedByValue()
+	}
+	s.RegisterService(&AgentSkillService_ServiceDesc, srv)
+}
+
+func _AgentSkillService_ListAgentSkills_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ListAgentSkillsRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(AgentSkillServiceServer).ListAgentSkills(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: AgentSkillService_ListAgentSkills_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(AgentSkillServiceServer).ListAgentSkills(ctx, req.(*ListAgentSkillsRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _AgentSkillService_GetAgentSkill_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetAgentSkillRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(AgentSkillServiceServer).GetAgentSkill(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: AgentSkillService_GetAgentSkill_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(AgentSkillServiceServer).GetAgentSkill(ctx, req.(*GetAgentSkillRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _AgentSkillService_CreateAgentSkill_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(CreateAgentSkillRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(AgentSkillServiceServer).CreateAgentSkill(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: AgentSkillService_CreateAgentSkill_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(AgentSkillServiceServer).CreateAgentSkill(ctx, req.(*CreateAgentSkillRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _AgentSkillService_UpdateAgentSkill_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(UpdateAgentSkillRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(AgentSkillServiceServer).UpdateAgentSkill(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: AgentSkillService_UpdateAgentSkill_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(AgentSkillServiceServer).UpdateAgentSkill(ctx, req.(*UpdateAgentSkillRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _AgentSkillService_CreateAgentSkillVersion_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(CreateAgentSkillVersionRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(AgentSkillServiceServer).CreateAgentSkillVersion(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: AgentSkillService_CreateAgentSkillVersion_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(AgentSkillServiceServer).CreateAgentSkillVersion(ctx, req.(*CreateAgentSkillVersionRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _AgentSkillService_ListAgentSkillVersions_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ListAgentSkillVersionsRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(AgentSkillServiceServer).ListAgentSkillVersions(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: AgentSkillService_ListAgentSkillVersions_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(AgentSkillServiceServer).ListAgentSkillVersions(ctx, req.(*ListAgentSkillVersionsRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _AgentSkillService_ActivateAgentSkillVersion_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ActivateAgentSkillVersionRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(AgentSkillServiceServer).ActivateAgentSkillVersion(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: AgentSkillService_ActivateAgentSkillVersion_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(AgentSkillServiceServer).ActivateAgentSkillVersion(ctx, req.(*ActivateAgentSkillVersionRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _AgentSkillService_UpdateAgentSkillStatus_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(UpdateAgentSkillStatusRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(AgentSkillServiceServer).UpdateAgentSkillStatus(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: AgentSkillService_UpdateAgentSkillStatus_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(AgentSkillServiceServer).UpdateAgentSkillStatus(ctx, req.(*UpdateAgentSkillStatusRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _AgentSkillService_PreviewAgentSkill_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(PreviewAgentSkillRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(AgentSkillServiceServer).PreviewAgentSkill(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: AgentSkillService_PreviewAgentSkill_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(AgentSkillServiceServer).PreviewAgentSkill(ctx, req.(*PreviewAgentSkillRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _AgentSkillService_ListAvailableAgentSkills_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ListAvailableAgentSkillsRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(AgentSkillServiceServer).ListAvailableAgentSkills(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: AgentSkillService_ListAvailableAgentSkills_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(AgentSkillServiceServer).ListAvailableAgentSkills(ctx, req.(*ListAvailableAgentSkillsRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+// AgentSkillService_ServiceDesc is the grpc.ServiceDesc for AgentSkillService service.
+// It's only intended for direct use with grpc.RegisterService,
+// and not to be introspected or modified (even as a copy)
+var AgentSkillService_ServiceDesc = grpc.ServiceDesc{
+	ServiceName: "recruitment.AgentSkillService",
+	HandlerType: (*AgentSkillServiceServer)(nil),
+	Methods: []grpc.MethodDesc{
+		{
+			MethodName: "ListAgentSkills",
+			Handler:    _AgentSkillService_ListAgentSkills_Handler,
+		},
+		{
+			MethodName: "GetAgentSkill",
+			Handler:    _AgentSkillService_GetAgentSkill_Handler,
+		},
+		{
+			MethodName: "CreateAgentSkill",
+			Handler:    _AgentSkillService_CreateAgentSkill_Handler,
+		},
+		{
+			MethodName: "UpdateAgentSkill",
+			Handler:    _AgentSkillService_UpdateAgentSkill_Handler,
+		},
+		{
+			MethodName: "CreateAgentSkillVersion",
+			Handler:    _AgentSkillService_CreateAgentSkillVersion_Handler,
+		},
+		{
+			MethodName: "ListAgentSkillVersions",
+			Handler:    _AgentSkillService_ListAgentSkillVersions_Handler,
+		},
+		{
+			MethodName: "ActivateAgentSkillVersion",
+			Handler:    _AgentSkillService_ActivateAgentSkillVersion_Handler,
+		},
+		{
+			MethodName: "UpdateAgentSkillStatus",
+			Handler:    _AgentSkillService_UpdateAgentSkillStatus_Handler,
+		},
+		{
+			MethodName: "PreviewAgentSkill",
+			Handler:    _AgentSkillService_PreviewAgentSkill_Handler,
+		},
+		{
+			MethodName: "ListAvailableAgentSkills",
+			Handler:    _AgentSkillService_ListAvailableAgentSkills_Handler,
+		},
+	},
+	Streams:  []grpc.StreamDesc{},
+	Metadata: "proto/recruitment.proto",
+}

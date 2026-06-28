@@ -236,7 +236,7 @@ const goTo = (path: string) => router.push(path)
   color: #fff; flex-shrink: 0;
 }
 .kpi-value { font-size: 24px; font-weight: 700; line-height: 1.2; }
-.kpi-label { font-size: 12px; color: #909399; margin-top: 2px; }
+.kpi-label { font-size: 12px; color: var(--el-text-color-secondary); margin-top: 2px; }
 
 .chart-row { margin-bottom: 16px; }
 .chart-col { margin-bottom: 12px; }

@@ -51,6 +51,7 @@ type Services struct {
 	AgentConfig   *AgentConfigService
 	MCP           *MCPService
 	Skill         *SkillService
+	AgentSkill    *AgentSkillService
 
 	// Phase 6: Audit context repo for AI usage audit writes
 	UsageAuditCtxRepo *repository.UsageAuditContextRepo
@@ -123,6 +124,8 @@ func NewServices(
 	// Initialize MCP service before AI service for MCP tool injection
 	mcpSvc := NewMCPService(repository.NewMCPRepo(db), cfg)
 	skillSvc := NewSkillService(repository.NewSkillRepo(db))
+	agentSkillSvc := NewAgentSkillService(repository.NewAgentSkillRepo(db))
+	agentSkillRepo := repository.NewAgentSkillRepo(db)
 
 	return &Services{
 		Auth:              NewAuthService(users, tokens, authzRepo, inviteCodes, jwtSecret),
@@ -139,7 +142,7 @@ func NewServices(
 		Application:  NewApplicationService(authzRepo, applications, profiles, resumes, jobs, interviews, notifications, outboxPublisher, ossClient, jobCache, scopeEval),
 		Interview:    NewInterviewService(authzRepo, interviews, users, applications, jobs, notifications, outboxPublisher, ossClient, scopeEval, serviceAuth),
 		Offer:        NewOfferService(authzRepo, offers, applications, jobs, notifications, outboxPublisher, scopeEval, serviceAuth),
-		AI:           NewAIService(chats, applications, jobs, resumes, summaries, toolTraces, agentRuns, memories, ossClient, aiClient, toolExecutor, contextBuilder, candidateAI, usageLogs, usageAuditCtxRepo, authzRepo, agentRuntime, serviceAuth, llmConfigSvc, agentCfgRepo, promptTmplRepo, mcpSvc, skillSvc),
+		AI:           NewAIService(chats, applications, jobs, resumes, summaries, toolTraces, agentRuns, memories, ossClient, aiClient, toolExecutor, contextBuilder, candidateAI, usageLogs, usageAuditCtxRepo, authzRepo, agentRuntime, serviceAuth, llmConfigSvc, agentCfgRepo, promptTmplRepo, mcpSvc, skillSvc, agentSkillRepo),
 		CandidateAI:  candidateAI,
 		Notification: NewNotificationService(notifications, notifCache, serviceAuth),
 		LlmConfig:    llmConfigSvc,
@@ -147,6 +150,7 @@ func NewServices(
 		AgentConfig:  NewAgentConfigService(agentCfgRepo, promptTmplRepo, mcpSvc, skillSvc),
 		MCP:          mcpSvc,
 		Skill:        skillSvc,
+		AgentSkill:   agentSkillSvc,
 
 		Collaboration: NewCollaborationService(
 			authzRepo,

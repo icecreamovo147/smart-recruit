@@ -50,6 +50,7 @@ type AIService struct {
 	promptRepo      *repository.PromptTemplateRepo
 	mcpSvc          *MCPService
 	skillSvc        *SkillService
+	agentSkillRepo  agentSkillLister
 	cachedADKTools  []tool.BaseTool // lazy-initialized, shared across requests
 	cachedToolsMu   sync.Mutex      // guards cachedADKTools init and invalidation
 }
@@ -84,6 +85,7 @@ func NewAIService(
 	promptRepo *repository.PromptTemplateRepo,
 	mcpSvc *MCPService,
 	skillSvc *SkillService,
+	agentSkillRepo agentSkillLister,
 ) *AIService {
 	return &AIService{
 		chats: chats, applications: applications, jobs: jobs, resumes: resumes,
@@ -100,6 +102,7 @@ func NewAIService(
 		promptRepo:      promptRepo,
 		mcpSvc:          mcpSvc,
 		skillSvc:        skillSvc,
+		agentSkillRepo:  agentSkillRepo,
 	}
 }
 
@@ -379,9 +382,9 @@ func (s *AIService) runToolCallingChat(ctx context.Context, req *pb.ChatRequest,
 		recorder.markRunning(ctx)
 	}
 	if s.agentRuntime == "adk" {
-		reply, metadata, err = s.runADKChat(ctx, req, session, messages, wrappedDelta, effectiveOnStatus, aiClient, recorder)
+		reply, metadata, err = s.runADKChat(ctx, req, session, messages, runtimeCfg, wrappedDelta, effectiveOnStatus, aiClient, recorder)
 	} else {
-		reply, metadata, err = s.runLegacyChat(ctx, req, session, messages, wrappedDelta, effectiveOnStatus, aiClient, recorder)
+		reply, metadata, err = s.runLegacyChat(ctx, req, session, messages, runtimeCfg, wrappedDelta, effectiveOnStatus, aiClient, recorder)
 	}
 	if err != nil {
 		if isCanceledError(err) {
@@ -471,6 +474,7 @@ func (s *AIService) runADKChat(
 	req *pb.ChatRequest,
 	session *model.AIChatSession,
 	messages []*schema.Message,
+	runtimeCfg *agentRuntimeConfig,
 	onDelta func(string) error,
 	onStatus func(string, string, string, string) error,
 	aiClient *ai.Client,
@@ -484,7 +488,7 @@ func (s *AIService) runADKChat(
 	adkTools, err := s.getOrInitADKTools()
 	if err != nil {
 		logger.L().Warn("[ADK降级] 工具创建失败，自动切换到 Legacy 路径", zap.Error(err))
-		return s.runLegacyChat(ctx, req, session, messages, onDelta, onStatus, aiClient, recorder)
+		return s.runLegacyChat(ctx, req, session, messages, runtimeCfg, onDelta, onStatus, aiClient, recorder)
 	}
 
 	state := &ai.AgentRunState{}
@@ -494,8 +498,9 @@ func (s *AIService) runADKChat(
 	ctx = ai.WithOwnerID(ctx, req.HrId)
 	ctx = ai.WithAgentRunState(ctx, state)
 
-	// Read agent runtime config and filter tools
-	runtimeCfg := s.getAgentRuntimeConfig(ctx, "hr_recruiting_agent")
+	if runtimeCfg == nil {
+		runtimeCfg = s.getAgentRuntimeConfig(ctx, "hr_recruiting_agent", req.GetSkillCapabilityKeys())
+	}
 	traceFn := func(toolCallID, toolName, argsJSON, resultContent string, duration time.Duration, execErr error) {
 		stepID := uint64(0)
 		if recorder != nil {
@@ -527,6 +532,16 @@ func (s *AIService) runADKChat(
 	}
 
 	instruction := extractSystemInstruction(messages)
+	agentSkills, err := selectAgentSkills(ctx, s.agentSkillRepo, req.GetMessage(), req.GetAgentSkillIds())
+	if err != nil {
+		logger.L().Warn("select Agent Skills failed", zap.Error(err))
+	} else if len(agentSkills) > 0 {
+		instruction = appendAgentSkillInstructionBlock(instruction, renderAgentSkillInstructionBlock(agentSkills))
+		if recorder != nil {
+			recorder.setSelectedAgentSkillIDs(selectedAgentSkillIDs(agentSkills))
+		}
+		logSelectedAgentSkills(agentSkills)
+	}
 	if s.skillSvc != nil && len(runtimeCfg.SkillCapabilityKeys) > 0 {
 		if skillTools, skillInstructions, err := s.skillSvc.CollectBoundSkillCallableTools(ctx, runtimeCfg.SkillCapabilityKeys); err == nil {
 			if len(skillTools) > 0 {
@@ -564,12 +579,15 @@ func (s *AIService) runLegacyChat(
 	req *pb.ChatRequest,
 	session *model.AIChatSession,
 	messages []*schema.Message,
+	runtimeCfg *agentRuntimeConfig,
 	onDelta func(string) error,
 	onStatus func(string, string, string, string) error,
 	aiClient *ai.Client,
 	recorder *agentRunRecorder,
 ) (string, ai.ToolMetadata, error) {
-	runtimeCfg := s.getAgentRuntimeConfig(ctx, "hr_recruiting_agent")
+	if runtimeCfg == nil {
+		runtimeCfg = s.getAgentRuntimeConfig(ctx, "hr_recruiting_agent", req.GetSkillCapabilityKeys())
+	}
 	tools := ai.RecruitingTools()
 	if runtimeCfg.HasConfig {
 		if len(runtimeCfg.ToolNames) > 0 {
@@ -583,6 +601,16 @@ func (s *AIService) runLegacyChat(
 		if mcpTools, err := s.mcpSvc.CollectBoundMCPToolInfos(ctx, runtimeCfg.MCPCapabilityKeys); err == nil && len(mcpTools) > 0 {
 			tools = append(tools, mcpTools...)
 		}
+	}
+	agentSkills, err := selectAgentSkills(ctx, s.agentSkillRepo, req.GetMessage(), req.GetAgentSkillIds())
+	if err != nil {
+		logger.L().Warn("select Agent Skills failed", zap.Error(err))
+	} else if len(agentSkills) > 0 {
+		messages = appendAgentSkillInstructionBlockToMessages(messages, renderAgentSkillInstructionBlock(agentSkills))
+		if recorder != nil {
+			recorder.setSelectedAgentSkillIDs(selectedAgentSkillIDs(agentSkills))
+		}
+		logSelectedAgentSkills(agentSkills)
 	}
 	var executor ai.ToolRunner = s.toolExecutor
 	if s.skillSvc != nil && len(runtimeCfg.SkillCapabilityKeys) > 0 {

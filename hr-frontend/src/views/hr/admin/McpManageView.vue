@@ -7,6 +7,8 @@ import {
   Plus,
   Refresh,
   Connection,
+  MoreFilled,
+  Search,
   Monitor,
   Document,
   Sort,
@@ -99,6 +101,9 @@ const page = ref(1)
 const pageSize = ref(20)
 const loading = ref(false)
 const error = ref('')
+const keywordFilter = ref('')
+const statusFilter = ref('')
+const transportFilter = ref('')
 
 const loadList = async () => {
   loading.value = true
@@ -113,6 +118,27 @@ const loadList = async () => {
     loading.value = false
   }
 }
+
+const filteredServers = computed(() => {
+  const keyword = keywordFilter.value.trim().toLowerCase()
+  return list.value.filter((item) => {
+    const matchesKeyword = !keyword
+      || item.name.toLowerCase().includes(keyword)
+      || (item.description || '').toLowerCase().includes(keyword)
+      || (item.command || '').toLowerCase().includes(keyword)
+      || (item.url || '').toLowerCase().includes(keyword)
+    const matchesStatus = !statusFilter.value || item.status === statusFilter.value
+    const matchesTransport = !transportFilter.value || item.transport_type === transportFilter.value
+    return matchesKeyword && matchesStatus && matchesTransport
+  })
+})
+
+const serverStats = computed(() => [
+  { label: 'Server 总数', value: total.value || list.value.length, hint: '可供 Agent 调用的 MCP 服务' },
+  { label: '已连接', value: list.value.filter((item) => item.status === 'connected').length, hint: '最近连接状态正常' },
+  { label: '已启用', value: list.value.filter((item) => item.is_enabled).length, hint: '可参与能力发现' },
+  { label: '工具总数', value: list.value.reduce((sum, item) => sum + Number(item.tool_count || 0), 0), hint: '当前服务暴露 Tool 数' },
+])
 
 // ====== Edit / Create Dialog ======
 
@@ -424,39 +450,75 @@ onMounted(() => {
 </script>
 
 <template>
-  <div class="mcp-manage-view">
-    <div class="page-head">
-      <h2 class="page-title">{{ viewTitle }}</h2>
+  <div class="console-page console-page--fill mcp-manage-view">
+    <div class="console-header">
+      <div class="console-header__copy">
+        <p class="console-eyebrow">TOOL CENTER</p>
+        <h2 class="console-title">{{ viewTitle }}</h2>
+        <p class="console-description">接入和管理 MCP Server，统一查看工具能力、连接状态和调用审计，作为 Agent 工具层的控制台。</p>
+      </div>
+      <div class="console-header__actions">
       <el-button
         v-if="activeView !== 'list'"
-        text
         :icon="Sort"
         @click="goBackToList"
       >
         返回列表
       </el-button>
+      <el-button v-if="activeView === 'list'" :icon="Refresh" @click="loadList">刷新</el-button>
+      <el-button v-if="activeView === 'list'" type="primary" :icon="Plus" @click="openCreate">新增 Server</el-button>
+      </div>
     </div>
 
     <!-- ════════════════════════════════════════════════════════════════════════
          View 1: MCP Server List (Main)
          ════════════════════════════════════════════════════════════════════════ -->
     <template v-if="activeView === 'list'">
-      <div class="toolbar">
-        <div class="toolbar-left">
-          <el-button type="primary" :icon="Plus" @click="openCreate">新增 Server</el-button>
+      <section class="console-stats">
+        <div v-for="item in serverStats" :key="item.label" class="console-stat">
+          <div class="console-stat__label">{{ item.label }}</div>
+          <div class="console-stat__value">{{ item.value }}</div>
+          <div class="console-stat__hint">{{ item.hint }}</div>
         </div>
-        <el-button :icon="Refresh" @click="loadList">刷新</el-button>
-      </div>
+      </section>
 
+      <div class="console-card console-card--fill">
+        <div class="console-card__head">
+          <div>
+            <h3 class="console-card__title">MCP Server 列表</h3>
+            <p class="console-card__desc">共 {{ filteredServers.length }} 个匹配服务</p>
+          </div>
+        </div>
+        <div class="console-toolbar">
+          <div class="console-toolbar__filters">
+            <el-input v-model="keywordFilter" :prefix-icon="Search" clearable placeholder="搜索名称 / 命令 / URL" style="width: 260px" />
+            <el-select v-model="transportFilter" clearable placeholder="全部传输" style="width: 140px">
+              <el-option v-for="opt in TRANSPORT_OPTIONS" :key="opt.value" :label="opt.label" :value="opt.value" />
+            </el-select>
+            <el-select v-model="statusFilter" clearable placeholder="全部状态" style="width: 140px">
+              <el-option label="已连接" value="connected" />
+              <el-option label="未连接" value="disconnected" />
+              <el-option label="错误" value="error" />
+            </el-select>
+          </div>
+        </div>
+      <div class="console-table-wrap">
       <el-table
         v-loading="loading"
-        :data="list"
+        :data="filteredServers"
+        class="console-table"
         stripe
-        border
         style="width: 100%"
         :empty-text="error || '暂无数据'"
       >
-        <el-table-column prop="name" label="名称" min-width="150" />
+        <el-table-column label="Server 信息" min-width="240">
+          <template #default="{ row }: { row: McpServerInfo }">
+            <div class="console-entity">
+              <div class="console-entity__name">{{ row.name }}</div>
+              <div class="console-entity__meta">{{ row.description || '暂无描述' }}</div>
+            </div>
+          </template>
+        </el-table-column>
         <el-table-column label="传输类型" width="100">
           <template #default="{ row }: { row: McpServerInfo }">
             <el-tag size="small">{{ TRANSPORT_LABEL[row.transport_type] || row.transport_type }}</el-tag>
@@ -490,7 +552,7 @@ onMounted(() => {
             {{ formatTime(row.updated_at) }}
           </template>
         </el-table-column>
-        <el-table-column label="操作" width="280" fixed="right">
+        <el-table-column label="操作" width="260" fixed="right">
           <template #default="{ row }: { row: McpServerInfo }">
             <el-button size="small" :icon="Connection" @click="handleTestConnection(row)" :loading="testingId === row.id">
               测试
@@ -504,14 +566,23 @@ onMounted(() => {
             <el-button size="small" :icon="Edit" @click="openEdit(row)">
               编辑
             </el-button>
-            <el-button size="small" type="danger" :icon="Delete" @click="handleDelete(row)">
-              删除
-            </el-button>
+            <el-dropdown trigger="click">
+              <el-button size="small" :icon="MoreFilled" circle />
+              <template #dropdown>
+                <el-dropdown-menu>
+                  <el-dropdown-item @click="handleToggleEnabled(row)">{{ row.is_enabled ? '禁用' : '启用' }}</el-dropdown-item>
+                  <el-dropdown-item divided style="color: var(--el-color-danger)" @click="handleDelete(row)">
+                    <el-icon><Delete /></el-icon>删除
+                  </el-dropdown-item>
+                </el-dropdown-menu>
+              </template>
+            </el-dropdown>
           </template>
         </el-table-column>
       </el-table>
+      </div>
 
-      <div class="pagination-wrap">
+      <div class="console-pagination">
         <el-pagination
           v-model:current-page="page"
           v-model:page-size="pageSize"
@@ -522,17 +593,27 @@ onMounted(() => {
           @size-change="(s: number) => { pageSize = s; page = 1; loadList() }"
         />
       </div>
+      </div>
     </template>
 
     <!-- ════════════════════════════════════════════════════════════════════════
          View 2: Tool List (sub-view)
          ════════════════════════════════════════════════════════════════════════ -->
     <template v-if="activeView === 'tools'">
+      <div class="console-card console-card--fill">
+        <div class="console-card__head">
+          <div>
+            <h3 class="console-card__title">工具能力</h3>
+            <p class="console-card__desc">{{ selectedServer?.name }} 暴露的 Tool 与输入 Schema</p>
+          </div>
+          <el-button :icon="Refresh" @click="loadTools">刷新</el-button>
+        </div>
+        <div class="console-table-wrap">
       <el-table
         v-loading="toolsLoading"
         :data="tools"
+        class="console-table"
         stripe
-        border
         style="width: 100%"
         :empty-text="toolsError || '暂无工具'"
       >
@@ -556,14 +637,17 @@ onMounted(() => {
           </template>
         </el-table-column>
       </el-table>
+        </div>
+      </div>
     </template>
 
     <!-- ════════════════════════════════════════════════════════════════════════
          View 3: Tool Call Logs (sub-view)
          ════════════════════════════════════════════════════════════════════════ -->
     <template v-if="activeView === 'logs'">
-      <div class="toolbar">
-        <div class="toolbar-left">
+      <div class="console-card console-card--fill">
+      <div class="console-toolbar">
+        <div class="console-toolbar__filters">
           <el-input
             v-model="logFilterToolName"
             placeholder="工具名"
@@ -589,14 +673,17 @@ onMounted(() => {
           />
           <el-button type="primary" @click="logPage = 1; loadLogs()">查询</el-button>
         </div>
+        <div class="console-toolbar__actions">
         <el-button :icon="Refresh" @click="logPage = 1; loadLogs()">刷新</el-button>
+        </div>
       </div>
 
+      <div class="console-table-wrap">
       <el-table
         v-loading="logsLoading"
         :data="logs"
+        class="console-table"
         stripe
-        border
         style="width: 100%"
         :empty-text="logsError || '暂无日志'"
       >
@@ -634,8 +721,9 @@ onMounted(() => {
           </template>
         </el-table-column>
       </el-table>
+      </div>
 
-      <div class="pagination-wrap">
+      <div class="console-pagination">
         <el-pagination
           v-model:current-page="logPage"
           v-model:page-size="logPageSize"
@@ -646,15 +734,16 @@ onMounted(() => {
           @size-change="(s: number) => { logPageSize = s; logPage = 1; loadLogs() }"
         />
       </div>
+      </div>
     </template>
 
     <!-- ════════════════════════════════════════════════════════════════════════
          Create / Edit Dialog
          ════════════════════════════════════════════════════════════════════════ -->
-    <el-dialog
+    <el-drawer
       v-model="dialogVisible"
       :title="dialogTitle"
-      width="640px"
+      size="640px"
       :close-on-click-modal="false"
       destroy-on-close
     >
@@ -724,7 +813,7 @@ onMounted(() => {
           {{ isEditing ? '保存' : '创建' }}
         </el-button>
       </template>
-    </el-dialog>
+    </el-drawer>
 
     <!-- ════════════════════════════════════════════════════════════════════════
          Log Detail Dialog

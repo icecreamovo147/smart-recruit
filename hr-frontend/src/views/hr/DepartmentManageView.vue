@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, nextTick, onMounted, reactive, ref, watch } from 'vue'
-import { ArrowDown } from '@element-plus/icons-vue'
+import { ArrowDown, Plus, Refresh } from '@element-plus/icons-vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import {
   listDepartments, createDepartment, updateDepartment, updateDepartmentStatus, deleteDepartment,
@@ -101,6 +101,25 @@ const visibleDepartments = computed(() => {
 })
 
 const currentDeptName = computed(() => selectedDept.value?.name || '全部部门')
+
+const flattenDepartments = computed(() => {
+  const result: DepartmentNode[] = []
+  const walk = (nodes: DepartmentNode[]) => {
+    for (const node of nodes) {
+      result.push(node)
+      walk(node.children || [])
+    }
+  }
+  walk(tree.value)
+  return result
+})
+
+const deptStats = computed(() => [
+  { label: '部门总数', value: flattenDepartments.value.length, hint: '包含全部层级部门' },
+  { label: '已启用', value: flattenDepartments.value.filter((item) => item.is_active === 1).length, hint: '可用于岗位与权限范围' },
+  { label: '已配置地点', value: [...deptLocationMap.value.values()].filter((ids) => ids.length > 0).length, hint: '拥有直接地点配置' },
+  { label: '当前子部门', value: visibleDepartments.value.length, hint: currentDeptName.value },
+])
 
 // ── Tree methods ──────────────────────────────────────────────
 const selectAllDepartments = () => {
@@ -273,12 +292,28 @@ onMounted(load)
 </script>
 
 <template>
-  <section class="taxonomy-page">
-    <div class="page-header">
-      <h1 class="page-title">部门管理</h1>
-      <el-button type="primary" @click="openCreate()">新增根部门</el-button>
+  <section class="console-page console-page--fill taxonomy-page">
+    <div class="console-header">
+      <div class="console-header__copy">
+        <p class="console-eyebrow">BASIC DATA</p>
+        <h1 class="console-title">部门管理</h1>
+        <p class="console-description">维护企业组织树，并配置部门可用地点。岗位、候选人台账和员工数据权限都会复用这里的组织结构。</p>
+      </div>
+      <div class="console-header__actions">
+        <el-button :icon="Refresh" @click="load">刷新</el-button>
+        <el-button type="primary" :icon="Plus" @click="openCreate()">新增根部门</el-button>
+      </div>
     </div>
-    <div class="content-surface department-layout">
+
+    <section class="console-stats">
+      <div v-for="item in deptStats" :key="item.label" class="console-stat">
+        <div class="console-stat__label">{{ item.label }}</div>
+        <div class="console-stat__value">{{ item.value }}</div>
+        <div class="console-stat__hint">{{ item.hint }}</div>
+      </div>
+    </section>
+
+    <div class="console-card console-card--fill content-surface department-layout">
       <aside class="department-tree-panel">
         
         <el-input
@@ -319,13 +354,20 @@ onMounted(load)
             <el-button v-if="selectedDept && selectedDept.depth < 2" type="primary" @click="openCreateUnderSelected">
               新增子部门
             </el-button>
-            <el-button @click="load">刷新</el-button>
+            <el-button :icon="Refresh" @click="load">刷新</el-button>
           </div>
         </div>
 
         <div class="department-table-wrapper">
-          <el-table v-loading="loading" :data="visibleDepartments" row-key="id" border>
-            <el-table-column prop="name" label="部门名称" min-width="180" />
+          <el-table v-loading="loading" :data="visibleDepartments" row-key="id" class="console-table" stripe>
+            <el-table-column label="部门信息" min-width="220">
+              <template #default="{ row }">
+                <div class="console-entity">
+                  <div class="console-entity__name">{{ row.name }}</div>
+                  <div class="console-entity__meta">层级 {{ row.depth ?? 0 }} / 排序 {{ row.sort_order ?? 0 }}</div>
+                </div>
+              </template>
+            </el-table-column>
             <el-table-column label="部门地点" min-width="240">
               <template #default="{ row }">
                 <template v-if="deptLocationMap.get(row.id)?.length">
@@ -347,9 +389,6 @@ onMounted(load)
                   {{ row.is_active === 1 ? '启用' : '停用' }}
                 </el-tag>
               </template>
-            </el-table-column>
-            <el-table-column label="排序" width="70" align="center">
-              <template #default="{ row }">{{ row.sort_order ?? 0 }}</template>
             </el-table-column>
             <el-table-column label="操作" width="240" fixed="right" align="center">
               <template #default="{ row }">
@@ -378,7 +417,7 @@ onMounted(load)
       </section>
     </div>
 
-    <el-dialog v-model="dialogVisible" :title="editing ? '编辑部门' : '新增部门'" width="480px">
+    <el-drawer v-model="dialogVisible" :title="editing ? '编辑部门' : '新增部门'" size="480px">
       <el-form label-width="80px">
         <el-form-item v-if="!editing && form.parent_id > 0" label="父部门">
           <el-input disabled :model-value="parentName" />
@@ -394,10 +433,10 @@ onMounted(load)
         <el-button @click="dialogVisible = false">取消</el-button>
         <el-button type="primary" @click="save">保存</el-button>
       </template>
-    </el-dialog>
+    </el-drawer>
 
     <!-- Location config dialog -->
-    <el-dialog v-model="locDialogVisible" :title="`地点配置 - ${locDept?.name || ''}`" width="540px">
+    <el-drawer v-model="locDialogVisible" :title="`地点配置 - ${locDept?.name || ''}`" size="540px">
       <el-form v-if="locConfig" label-width="120px">
         <el-form-item label="继承上级地点">
           <el-switch
@@ -440,7 +479,7 @@ onMounted(load)
         <el-button @click="locDialogVisible = false">取消</el-button>
         <el-button type="primary" :loading="locSaving" @click="saveLocConfig">保存</el-button>
       </template>
-    </el-dialog>
+    </el-drawer>
   </section>
 </template>
 

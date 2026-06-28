@@ -29,11 +29,12 @@ const (
 )
 
 type agentRunRecorder struct {
-	repo    *repository.AgentRunRepo
-	runID   uint64
-	session *model.AIChatSession
-	hrID    int64
-	stepMu  sync.Mutex
+	repo                  *repository.AgentRunRepo
+	runID                 uint64
+	session               *model.AIChatSession
+	hrID                  int64
+	selectedAgentSkillIDs []int64
+	stepMu                sync.Mutex
 }
 
 type agentRunPlan struct {
@@ -209,6 +210,19 @@ func buildAgentRunPlanJSON(req *pb.ChatRequest, modelID *int64, modelName string
 	return safeJSON(plan)
 }
 
+func (r *agentRunRecorder) setSelectedAgentSkillIDs(ids []int64) {
+	if r == nil {
+		return
+	}
+	r.stepMu.Lock()
+	r.selectedAgentSkillIDs = append([]int64(nil), ids...)
+	r.stepMu.Unlock()
+	r.step(context.Background(), "prompt", "agent_skill", "", "", safeJSON(map[string]any{
+		"event":                    "agent_skill_selected",
+		"selected_agent_skill_ids": append([]int64(nil), ids...),
+	}), "{}", "succeeded", 0, "")
+}
+
 func capabilityOverviewJSON(runtimeCfg *agentRuntimeConfig) string {
 	return safeJSON(capabilityOverview(runtimeCfg))
 }
@@ -222,6 +236,7 @@ func capabilityOverview(runtimeCfg *agentRuntimeConfig) map[string]any {
 		"builtin_tools":  append([]string(nil), runtimeCfg.ToolNames...),
 		"mcp":            sortedBoolMapKeys(runtimeCfg.MCPCapabilityKeys),
 		"skills":         sortedBoolMapKeys(runtimeCfg.SkillCapabilityKeys),
+		"tool_skills":    sortedBoolMapKeys(runtimeCfg.SkillCapabilityKeys),
 		"max_iterations": runtimeCfg.MaxIterations,
 	}
 }

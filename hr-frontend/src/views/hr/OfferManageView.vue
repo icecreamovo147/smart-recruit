@@ -211,14 +211,14 @@ onMounted(() => {
 .offer-card {
   border: 1px solid var(--el-border-color-light);
   border-radius: 12px;
-  background: #fff;
+  background: var(--el-bg-color);
   cursor: pointer;
   transition: box-shadow 0.2s, border-color 0.2s;
   padding: 16px 20px;
 }
 .offer-card:hover {
   border-color: var(--el-color-primary-light-5);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.06);
+  box-shadow: var(--shadow-hover);
 }
 .offer-card__top {
   display: flex;

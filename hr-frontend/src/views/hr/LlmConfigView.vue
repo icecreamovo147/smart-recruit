@@ -1,7 +1,17 @@
 <script setup lang="ts">
-import { onMounted, reactive, ref, computed } from 'vue'
+import { computed, onMounted, reactive, ref } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { Delete, Edit, Plus, Refresh, Connection } from '@element-plus/icons-vue'
+import {
+  Connection,
+  Delete,
+  Edit,
+  Grid,
+  MoreFilled,
+  Plus,
+  Refresh,
+  Search,
+  Setting,
+} from '@element-plus/icons-vue'
 import {
   listProviders,
   createProvider,
@@ -22,6 +32,14 @@ import type {
   UpdateModelPayload,
 } from '@/types/llm'
 
+type ConnectionStatus = 'unknown' | 'success' | 'failed'
+
+interface ProviderHealth {
+  status: ConnectionStatus
+  detail: string
+  testedAt: string
+}
+
 // ====== Provider State ======
 
 const providerList = ref<LlmProvider[]>([])
@@ -30,6 +48,12 @@ const providerPage = ref(1)
 const providerPageSize = ref(20)
 const providerLoading = ref(false)
 const providerError = ref('')
+
+const providerSearch = ref('')
+const providerTypeFilter = ref('')
+const providerStatusFilter = ref('')
+const providerHealthFilter = ref('')
+const providerHealthMap = reactive<Record<number, ProviderHealth>>({})
 
 const loadProviders = async () => {
   providerLoading.value = true
@@ -45,10 +69,10 @@ const loadProviders = async () => {
   }
 }
 
-// ---- Provider Dialog ----
+// ---- Provider Drawer ----
 
-const providerDialogVisible = ref(false)
-const providerDialogTitle = ref('')
+const providerDrawerVisible = ref(false)
+const providerDrawerTitle = ref('')
 const providerSaving = ref(false)
 const isEditingProvider = ref(false)
 const editingProviderId = ref(0)
@@ -73,22 +97,22 @@ const resetProviderForm = () => {
 const openCreateProvider = () => {
   isEditingProvider.value = false
   editingProviderId.value = 0
-  providerDialogTitle.value = '新增 Provider'
+  providerDrawerTitle.value = '新增 Provider'
   resetProviderForm()
-  providerDialogVisible.value = true
+  providerDrawerVisible.value = true
 }
 
 const openEditProvider = (row: LlmProvider) => {
   isEditingProvider.value = true
   editingProviderId.value = row.id
-  providerDialogTitle.value = '编辑 Provider'
+  providerDrawerTitle.value = '编辑 Provider'
   providerForm.name = row.name
   providerForm.base_url = row.base_url
   providerForm.api_key = ''      // empty = do not change
   providerForm.provider_type = row.provider_type
   providerForm.extra_headers_json = row.extra_headers_json || ''
   providerForm.is_enabled = row.is_enabled
-  providerDialogVisible.value = true
+  providerDrawerVisible.value = true
 }
 
 const saveProvider = async () => {
@@ -136,7 +160,7 @@ const saveProvider = async () => {
       await createProvider(payload)
       ElMessage.success('Provider 已创建')
     }
-    providerDialogVisible.value = false
+    providerDrawerVisible.value = false
     await loadProviders()
   } finally {
     providerSaving.value = false
@@ -170,13 +194,24 @@ const handleTestConnection = async (row: LlmProvider) => {
   testingId.value = row.id
   try {
     const result = await testProviderConnection(row.id)
+    providerHealthMap[row.id] = {
+      status: result.success ? 'success' : 'failed',
+      detail: result.detail || (result.success ? '连接正常' : '未知错误'),
+      testedAt: new Date().toISOString(),
+    }
     if (result.success) {
       ElMessage.success('连接测试成功')
     } else {
       ElMessage.error(`连接测试失败：${result.detail || '未知错误'}`)
     }
   } catch (e: unknown) {
-    ElMessage.error((e as { message?: string }).message || '连接测试失败')
+    const detail = (e as { message?: string }).message || '连接测试失败'
+    providerHealthMap[row.id] = {
+      status: 'failed',
+      detail,
+      testedAt: new Date().toISOString(),
+    }
+    ElMessage.error(detail)
   } finally {
     testingId.value = 0
   }
@@ -191,19 +226,9 @@ const modelPageSize = ref(20)
 const modelLoading = ref(false)
 const modelError = ref('')
 const modelProviderFilter = ref(0) // 0 = all
-
-// Flat list sorted by provider for grouped display
-const groupedModels = computed(() => {
-  const groups: Record<string, { provider_id: number; provider_name: string; models: LlmModel[] }> = {}
-  for (const m of modelList.value) {
-    const key = m.provider_name || `Provider ${m.provider_id}`
-    if (!groups[key]) {
-      groups[key] = { provider_id: m.provider_id, provider_name: key, models: [] }
-    }
-    groups[key].models.push(m)
-  }
-  return Object.values(groups).sort((a, b) => a.provider_name.localeCompare(b.provider_name, 'zh'))
-})
+const modelSearch = ref('')
+const modelStatusFilter = ref('')
+const modelDefaultFilter = ref('')
 
 const loadModels = async () => {
   modelLoading.value = true
@@ -219,10 +244,10 @@ const loadModels = async () => {
   }
 }
 
-// ---- Model Dialog ----
+// ---- Model Drawer ----
 
-const modelDialogVisible = ref(false)
-const modelDialogTitle = ref('')
+const modelDrawerVisible = ref(false)
+const modelDrawerTitle = ref('')
 const modelSaving = ref(false)
 const isEditingModel = ref(false)
 const editingModelId = ref(0)
@@ -255,15 +280,15 @@ const resetModelForm = () => {
 const openCreateModel = () => {
   isEditingModel.value = false
   editingModelId.value = 0
-  modelDialogTitle.value = '新增 Model'
+  modelDrawerTitle.value = '新增 Model'
   resetModelForm()
-  modelDialogVisible.value = true
+  modelDrawerVisible.value = true
 }
 
 const openEditModel = (row: LlmModel) => {
   isEditingModel.value = true
   editingModelId.value = row.id
-  modelDialogTitle.value = '编辑 Model'
+  modelDrawerTitle.value = '编辑 Model'
   modelForm.provider_id = row.provider_id
   modelForm.model_name = row.model_name
   modelForm.display_name = row.display_name
@@ -274,7 +299,7 @@ const openEditModel = (row: LlmModel) => {
   modelForm.timeout_seconds = row.timeout_seconds
   modelForm.is_default = row.is_default
   modelForm.is_enabled = row.is_enabled
-  modelDialogVisible.value = true
+  modelDrawerVisible.value = true
 }
 
 const saveModel = async () => {
@@ -324,7 +349,7 @@ const saveModel = async () => {
       await createModel(payload)
       ElMessage.success('Model 已创建')
     }
-    modelDialogVisible.value = false
+    modelDrawerVisible.value = false
     await loadModels()
   } finally {
     modelSaving.value = false
@@ -358,7 +383,6 @@ const onTabChange = (tab: string) => {
   if (tab === 'providers') {
     loadProviders()
   } else if (tab === 'models') {
-    // Ensure provider list is loaded for the dropdown; then load models
     if (providerList.value.length === 0) {
       loadProviders().then(() => loadModels())
     } else {
@@ -366,6 +390,74 @@ const onTabChange = (tab: string) => {
     }
   }
 }
+
+// ====== Computed Views ======
+
+const providerTypeOptions = computed(() => {
+  const set = new Set(providerList.value.map((item) => item.provider_type).filter(Boolean))
+  return Array.from(set)
+})
+
+const filteredProviders = computed(() => {
+  const keyword = providerSearch.value.trim().toLowerCase()
+  return providerList.value.filter((item) => {
+    const healthStatus = providerHealthMap[item.id]?.status || 'unknown'
+    const matchesKeyword = !keyword
+      || item.name.toLowerCase().includes(keyword)
+      || item.base_url.toLowerCase().includes(keyword)
+    const matchesType = !providerTypeFilter.value || item.provider_type === providerTypeFilter.value
+    const matchesStatus = !providerStatusFilter.value
+      || (providerStatusFilter.value === 'enabled' ? item.is_enabled : !item.is_enabled)
+    const matchesHealth = !providerHealthFilter.value || healthStatus === providerHealthFilter.value
+    return matchesKeyword && matchesType && matchesStatus && matchesHealth
+  })
+})
+
+const providerStats = computed(() => {
+  const enabled = providerList.value.filter((item) => item.is_enabled).length
+  const tested = Object.values(providerHealthMap)
+  const latest = tested
+    .slice()
+    .sort((a, b) => new Date(b.testedAt).getTime() - new Date(a.testedAt).getTime())[0]
+  return [
+    { label: 'Provider 总数', value: providerTotal.value || providerList.value.length, meta: '已接入服务商', tone: 'blue' },
+    { label: '已启用', value: enabled, meta: `${providerList.value.length - enabled} 个禁用`, tone: 'green' },
+    { label: '默认/可用 Provider', value: enabled, meta: '当前接口未返回默认字段', tone: 'violet' },
+    {
+      label: '最近测试结果',
+      value: latest ? (latest.status === 'success' ? '成功' : '失败') : '未测试',
+      meta: latest ? latest.detail : '本次会话暂无连接测试',
+      tone: latest?.status === 'failed' ? 'red' : 'slate',
+    },
+  ]
+})
+
+const filteredModels = computed(() => {
+  const keyword = modelSearch.value.trim().toLowerCase()
+  return modelList.value.filter((item) => {
+    const matchesKeyword = !keyword
+      || item.model_name.toLowerCase().includes(keyword)
+      || (item.display_name || '').toLowerCase().includes(keyword)
+      || (item.provider_name || '').toLowerCase().includes(keyword)
+    const matchesStatus = !modelStatusFilter.value
+      || (modelStatusFilter.value === 'enabled' ? item.is_enabled : !item.is_enabled)
+    const matchesDefault = !modelDefaultFilter.value
+      || (modelDefaultFilter.value === 'default' ? item.is_default : !item.is_default)
+    return matchesKeyword && matchesStatus && matchesDefault
+  })
+})
+
+const modelStats = computed(() => {
+  const enabled = modelList.value.filter((item) => item.is_enabled).length
+  const defaultModel = modelList.value.find((item) => item.is_default)
+  const providerCoverage = new Set(modelList.value.map((item) => item.provider_id)).size
+  return [
+    { label: 'Model 总数', value: modelTotal.value || modelList.value.length, meta: '已配置模型', tone: 'blue' },
+    { label: '已启用', value: enabled, meta: `${modelList.value.length - enabled} 个禁用`, tone: 'green' },
+    { label: '默认 Model', value: defaultModel?.display_name || defaultModel?.model_name || '未设置', meta: defaultModel?.provider_name || '用于默认对话路由', tone: 'amber' },
+    { label: 'Provider 覆盖数', value: providerCoverage, meta: '当前页覆盖 Provider', tone: 'violet' },
+  ]
+})
 
 // ====== Helpers ======
 
@@ -391,6 +483,50 @@ const maskApiKey = (key: string): string => {
   return key.slice(0, 4) + '****' + key.slice(-4)
 }
 
+const providerHealth = (row: LlmProvider): ProviderHealth => (
+  providerHealthMap[row.id] || { status: 'unknown', detail: '尚未在本次会话中测试连接', testedAt: '' }
+)
+
+const healthTagType = (status: ConnectionStatus): 'success' | 'danger' | 'info' => {
+  if (status === 'success') return 'success'
+  if (status === 'failed') return 'danger'
+  return 'info'
+}
+
+const healthLabel = (status: ConnectionStatus): string => {
+  if (status === 'success') return '连接正常'
+  if (status === 'failed') return '连接失败'
+  return '未测试'
+}
+
+const inferModelCapabilities = (modelName: string): string[] => {
+  const name = modelName.toLowerCase()
+  const tags = ['chat']
+  if (name.includes('embed')) tags.push('embedding')
+  if (name.includes('vision') || name.includes('4o') || name.includes('vl')) tags.push('vision')
+  if (name.includes('rerank')) tags.push('rerank')
+  if (name.includes('tool') || name.includes('function') || name.includes('gpt') || name.includes('claude')) tags.push('tool-call')
+  return Array.from(new Set(tags))
+}
+
+const formatNumber = (value: number): string => Number(value || 0).toLocaleString()
+
+const resetProviderFilters = () => {
+  providerSearch.value = ''
+  providerTypeFilter.value = ''
+  providerStatusFilter.value = ''
+  providerHealthFilter.value = ''
+}
+
+const resetModelFilters = () => {
+  modelSearch.value = ''
+  modelProviderFilter.value = 0
+  modelStatusFilter.value = ''
+  modelDefaultFilter.value = ''
+  modelPage.value = 1
+  loadModels()
+}
+
 // ====== Init ======
 
 onMounted(() => {
@@ -400,177 +536,283 @@ onMounted(() => {
 
 <template>
   <div class="llm-config-view">
-    <h2 class="page-title">模型配置</h2>
+    <section class="page-header">
+      <div>
+        <p class="page-kicker">AI Platform Console</p>
+        <h2 class="page-title">模型配置</h2>
+        <p class="page-description">统一管理大模型服务商、模型参数和默认路由，支撑 HR AI 对话、分析与自动化能力。</p>
+      </div>
+      <div class="page-actions">
+        <el-button :icon="Refresh" @click="activeTab === 'providers' ? loadProviders() : loadModels()">刷新</el-button>
+        <el-button v-if="activeTab === 'providers'" type="primary" :icon="Plus" @click="openCreateProvider">新增 Provider</el-button>
+        <el-button v-else type="primary" :icon="Plus" @click="openCreateModel">新增 Model</el-button>
+      </div>
+    </section>
 
-    <el-tabs v-model="activeTab" @tab-change="onTabChange">
-      <!-- ── Provider 管理 ──────────────────────────────────────────── -->
-      <el-tab-pane label="Provider 管理" name="providers">
-        <div class="toolbar">
-          <el-button type="primary" :icon="Plus" @click="openCreateProvider">新增 Provider</el-button>
+    <el-tabs v-model="activeTab" class="console-tabs" @tab-change="onTabChange">
+      <el-tab-pane label="Provider" name="providers">
+        <div class="stats-grid">
+          <div v-for="item in providerStats" :key="item.label" class="stat-card" :class="`tone-${item.tone}`">
+            <span>{{ item.label }}</span>
+            <strong>{{ item.value }}</strong>
+            <small>{{ item.meta }}</small>
+          </div>
         </div>
 
-        <el-table
-          v-loading="providerLoading"
-          :data="providerList"
-          stripe
-          border
-          style="width: 100%"
-          :empty-text="providerError || '暂无数据'"
-        >
-          <el-table-column prop="name" label="名称" min-width="140" />
-          <el-table-column prop="base_url" label="Base URL" min-width="240" show-overflow-tooltip />
-          <el-table-column label="API Key" width="180">
-            <template #default="{ row }: { row: LlmProvider }">
-              <span style="font-family: monospace">{{ maskApiKey(row.api_key_masked) }}</span>
-            </template>
-          </el-table-column>
-          <el-table-column label="类型" width="140">
-            <template #default="{ row }: { row: LlmProvider }">
-              {{ providerTypeLabel(row.provider_type) }}
-            </template>
-          </el-table-column>
-          <el-table-column label="状态" width="90">
-            <template #default="{ row }: { row: LlmProvider }">
-              <el-tag :type="row.is_enabled ? 'success' : 'info'" size="small">
-                {{ row.is_enabled ? '启用' : '禁用' }}
-              </el-tag>
-            </template>
-          </el-table-column>
-          <el-table-column label="创建时间" width="170">
-            <template #default="{ row }: { row: LlmProvider }">
-              {{ formatTime(row.created_at) }}
-            </template>
-          </el-table-column>
-          <el-table-column label="操作" width="220" fixed="right">
-            <template #default="{ row }: { row: LlmProvider }">
-              <el-button size="small" :icon="Connection" :loading="testingId === row.id" @click="handleTestConnection(row)">
-                测试
-              </el-button>
-              <el-button size="small" :icon="Edit" @click="openEditProvider(row)">
-                编辑
-              </el-button>
-              <el-button size="small" type="danger" :icon="Delete" @click="handleDeleteProvider(row)">
-                删除
-              </el-button>
-            </template>
-          </el-table-column>
-        </el-table>
+        <section class="panel-card">
+          <div class="panel-head">
+            <div>
+              <h3>Provider 目录</h3>
+              <p>维护 API 入口、密钥和连接健康状态。</p>
+            </div>
+            <el-button type="primary" :icon="Plus" @click="openCreateProvider">新增 Provider</el-button>
+          </div>
 
-        <div class="pagination-wrap">
-          <el-pagination
-            v-model:current-page="providerPage"
-            v-model:page-size="providerPageSize"
-            :total="providerTotal"
-            :page-sizes="[10, 20, 50]"
-            layout="total, sizes, prev, pager, next"
-            @current-change="loadProviders"
-            @size-change="(s: number) => { providerPageSize = s; providerPage = 1; loadProviders() }"
-          />
-        </div>
+          <div class="filter-bar">
+            <el-input v-model="providerSearch" :prefix-icon="Search" clearable placeholder="搜索名称 / Base URL" />
+            <el-select v-model="providerTypeFilter" clearable placeholder="类型">
+              <el-option v-for="type in providerTypeOptions" :key="type" :value="type" :label="providerTypeLabel(type)" />
+            </el-select>
+            <el-select v-model="providerStatusFilter" clearable placeholder="状态">
+              <el-option value="enabled" label="启用" />
+              <el-option value="disabled" label="禁用" />
+            </el-select>
+            <el-select v-model="providerHealthFilter" clearable placeholder="连接状态">
+              <el-option value="success" label="连接正常" />
+              <el-option value="failed" label="连接失败" />
+              <el-option value="unknown" label="未测试" />
+            </el-select>
+            <el-button @click="resetProviderFilters">重置</el-button>
+          </div>
+
+          <el-table
+            v-loading="providerLoading"
+            :data="filteredProviders"
+            class="console-table"
+            style="width: 100%"
+            :empty-text="providerError || '暂无 Provider'"
+          >
+            <el-table-column label="Provider 信息" min-width="220">
+              <template #default="{ row }: { row: LlmProvider }">
+                <div class="entity-cell">
+                  <div class="entity-icon"><Setting /></div>
+                  <div>
+                    <strong>{{ row.name }}</strong>
+                    <span>ID {{ row.id }}</span>
+                  </div>
+                </div>
+              </template>
+            </el-table-column>
+            <el-table-column label="连接状态" width="140">
+              <template #default="{ row }: { row: LlmProvider }">
+                <el-tooltip :content="`${providerHealth(row).detail}${providerHealth(row).testedAt ? ' · ' + formatTime(providerHealth(row).testedAt) : ''}`" placement="top">
+                  <el-tag :type="healthTagType(providerHealth(row).status)" effect="light">
+                    {{ healthLabel(providerHealth(row).status) }}
+                  </el-tag>
+                </el-tooltip>
+              </template>
+            </el-table-column>
+            <el-table-column label="Base URL" min-width="260">
+              <template #default="{ row }: { row: LlmProvider }">
+                <el-tooltip :content="row.base_url" placement="top">
+                  <span class="url-text">{{ row.base_url }}</span>
+                </el-tooltip>
+              </template>
+            </el-table-column>
+            <el-table-column label="API Key" width="170">
+              <template #default="{ row }: { row: LlmProvider }">
+                <span class="secret-text">{{ maskApiKey(row.api_key_masked) }}</span>
+              </template>
+            </el-table-column>
+            <el-table-column label="类型" width="140">
+              <template #default="{ row }: { row: LlmProvider }">
+                <el-tag type="info" effect="plain">{{ providerTypeLabel(row.provider_type) }}</el-tag>
+              </template>
+            </el-table-column>
+            <el-table-column label="启用状态" width="110">
+              <template #default="{ row }: { row: LlmProvider }">
+                <el-tag :type="row.is_enabled ? 'success' : 'info'" effect="light">
+                  {{ row.is_enabled ? '启用' : '禁用' }}
+                </el-tag>
+              </template>
+            </el-table-column>
+            <el-table-column label="创建时间" width="170">
+              <template #default="{ row }: { row: LlmProvider }">
+                {{ formatTime(row.created_at) }}
+              </template>
+            </el-table-column>
+            <el-table-column label="操作" width="190" fixed="right">
+              <template #default="{ row }: { row: LlmProvider }">
+                <div class="row-actions">
+                  <el-button size="small" :icon="Connection" :loading="testingId === row.id" @click="handleTestConnection(row)">测试</el-button>
+                  <el-button size="small" :icon="Edit" @click="openEditProvider(row)">编辑</el-button>
+                  <el-dropdown trigger="click">
+                    <el-button size="small" :icon="MoreFilled" circle />
+                    <template #dropdown>
+                      <el-dropdown-menu>
+                        <el-dropdown-item :icon="Delete" @click="handleDeleteProvider(row)">删除</el-dropdown-item>
+                      </el-dropdown-menu>
+                    </template>
+                  </el-dropdown>
+                </div>
+              </template>
+            </el-table-column>
+          </el-table>
+
+          <div class="pagination-wrap">
+            <el-pagination
+              v-model:current-page="providerPage"
+              v-model:page-size="providerPageSize"
+              :total="providerTotal"
+              :page-sizes="[10, 20, 50]"
+              layout="total, sizes, prev, pager, next"
+              @current-change="loadProviders"
+              @size-change="(s: number) => { providerPageSize = s; providerPage = 1; loadProviders() }"
+            />
+          </div>
+        </section>
       </el-tab-pane>
 
-      <!-- ── Model 管理 ────────────────────────────────────────────── -->
-      <el-tab-pane label="Model 管理" name="models">
-        <div class="toolbar">
-          <div class="toolbar-left">
+      <el-tab-pane label="Model" name="models">
+        <div class="stats-grid">
+          <div v-for="item in modelStats" :key="item.label" class="stat-card" :class="`tone-${item.tone}`">
+            <span>{{ item.label }}</span>
+            <strong>{{ item.value }}</strong>
+            <small>{{ item.meta }}</small>
+          </div>
+        </div>
+
+        <section class="panel-card">
+          <div class="panel-head">
+            <div>
+              <h3>Model 清单</h3>
+              <p>配置模型能力、推理参数、并发与默认状态。</p>
+            </div>
             <el-button type="primary" :icon="Plus" @click="openCreateModel">新增 Model</el-button>
+          </div>
+
+          <div class="filter-bar model-filter-bar">
+            <el-input v-model="modelSearch" :prefix-icon="Search" clearable placeholder="搜索模型 / 显示名称 / Provider" />
             <el-select
               v-model="modelProviderFilter"
-              placeholder="全部 Provider"
               clearable
-              style="width: 200px"
+              placeholder="全部 Provider"
               @change="() => { modelPage = 1; loadModels() }"
             >
               <el-option :value="0" label="全部 Provider" />
-              <el-option
-                v-for="p in providerList"
-                :key="p.id"
-                :value="p.id"
-                :label="p.name"
-              />
+              <el-option v-for="p in providerList" :key="p.id" :value="p.id" :label="p.name" />
             </el-select>
+            <el-select v-model="modelStatusFilter" clearable placeholder="状态">
+              <el-option value="enabled" label="启用" />
+              <el-option value="disabled" label="禁用" />
+            </el-select>
+            <el-select v-model="modelDefaultFilter" clearable placeholder="默认">
+              <el-option value="default" label="默认 Model" />
+              <el-option value="custom" label="非默认" />
+            </el-select>
+            <el-button @click="resetModelFilters">重置</el-button>
           </div>
-          <el-button :icon="Refresh" @click="loadModels">刷新</el-button>
-        </div>
 
-        <el-table
-          v-loading="modelLoading"
-          :data="modelList"
-          stripe
-          border
-          style="width: 100%"
-          :empty-text="modelError || '暂无数据'"
-        >
-          <el-table-column prop="model_name" label="模型名称" min-width="160" />
-          <el-table-column prop="display_name" label="显示名称" min-width="140" />
-          <el-table-column prop="provider_name" label="Provider" width="140" />
-          <el-table-column label="Temperature" width="120">
-            <template #default="{ row }: { row: LlmModel }">
-              {{ row.temperature.toFixed(2) }}
-            </template>
-          </el-table-column>
-          <el-table-column label="Top P" width="100">
-            <template #default="{ row }: { row: LlmModel }">
-              {{ row.top_p.toFixed(2) }}
-            </template>
-          </el-table-column>
-          <el-table-column label="Max Tokens" width="110">
-            <template #default="{ row }: { row: LlmModel }">
-              {{ row.max_tokens.toLocaleString() }}
-            </template>
-          </el-table-column>
-          <el-table-column label="默认" width="80">
-            <template #default="{ row }: { row: LlmModel }">
-              <el-tag v-if="row.is_default" type="warning" size="small">默认</el-tag>
-              <span v-else>-</span>
-            </template>
-          </el-table-column>
-          <el-table-column label="状态" width="80">
-            <template #default="{ row }: { row: LlmModel }">
-              <el-tag :type="row.is_enabled ? 'success' : 'info'" size="small">
-                {{ row.is_enabled ? '启用' : '禁用' }}
-              </el-tag>
-            </template>
-          </el-table-column>
-          <el-table-column label="创建时间" width="170">
-            <template #default="{ row }: { row: LlmModel }">
-              {{ formatTime(row.created_at) }}
-            </template>
-          </el-table-column>
-          <el-table-column label="操作" width="180" fixed="right">
-            <template #default="{ row }: { row: LlmModel }">
-              <el-button size="small" :icon="Edit" @click="openEditModel(row)">
-                编辑
-              </el-button>
-              <el-button size="small" type="danger" :icon="Delete" @click="handleDeleteModel(row)">
-                删除
-              </el-button>
-            </template>
-          </el-table-column>
-        </el-table>
+          <el-table
+            v-loading="modelLoading"
+            :data="filteredModels"
+            class="console-table"
+            style="width: 100%"
+            :empty-text="modelError || '暂无 Model'"
+          >
+            <el-table-column label="模型信息" min-width="230">
+              <template #default="{ row }: { row: LlmModel }">
+                <div class="entity-cell">
+                  <div class="entity-icon model"><Grid /></div>
+                  <div>
+                    <strong>{{ row.display_name || row.model_name }}</strong>
+                    <span>{{ row.model_name }}</span>
+                  </div>
+                </div>
+              </template>
+            </el-table-column>
+            <el-table-column label="Provider" min-width="150">
+              <template #default="{ row }: { row: LlmModel }">
+                {{ row.provider_name || `Provider ${row.provider_id}` }}
+              </template>
+            </el-table-column>
+            <el-table-column label="能力标签" min-width="220">
+              <template #default="{ row }: { row: LlmModel }">
+                <div class="capability-tags">
+                  <el-tag v-for="tag in inferModelCapabilities(row.model_name)" :key="tag" size="small" effect="plain">
+                    {{ tag }}
+                  </el-tag>
+                </div>
+              </template>
+            </el-table-column>
+            <el-table-column label="参数摘要" min-width="180">
+              <template #default="{ row }: { row: LlmModel }">
+                <div class="metric-stack">
+                  <span>Temp {{ row.temperature.toFixed(2) }}</span>
+                  <span>Top P {{ row.top_p.toFixed(2) }}</span>
+                  <span>{{ formatNumber(row.max_tokens) }} tokens</span>
+                </div>
+              </template>
+            </el-table-column>
+            <el-table-column label="并发 / 超时" width="150">
+              <template #default="{ row }: { row: LlmModel }">
+                <div class="metric-stack">
+                  <span>{{ row.max_concurrency }} 并发</span>
+                  <span>{{ row.timeout_seconds }}s 超时</span>
+                </div>
+              </template>
+            </el-table-column>
+            <el-table-column label="默认 / 状态" width="140">
+              <template #default="{ row }: { row: LlmModel }">
+                <div class="status-stack">
+                  <el-tag v-if="row.is_default" type="warning" effect="light">默认</el-tag>
+                  <el-tag v-else type="info" effect="plain">非默认</el-tag>
+                  <el-tag :type="row.is_enabled ? 'success' : 'info'" effect="light">
+                    {{ row.is_enabled ? '启用' : '禁用' }}
+                  </el-tag>
+                </div>
+              </template>
+            </el-table-column>
+            <el-table-column label="操作" width="130" fixed="right">
+              <template #default="{ row }: { row: LlmModel }">
+                <div class="row-actions">
+                  <el-button size="small" :icon="Edit" @click="openEditModel(row)">编辑</el-button>
+                  <el-dropdown trigger="click">
+                    <el-button size="small" :icon="MoreFilled" circle />
+                    <template #dropdown>
+                      <el-dropdown-menu>
+                        <el-dropdown-item :icon="Delete" @click="handleDeleteModel(row)">删除</el-dropdown-item>
+                      </el-dropdown-menu>
+                    </template>
+                  </el-dropdown>
+                </div>
+              </template>
+            </el-table-column>
+          </el-table>
 
-        <div class="pagination-wrap">
-          <el-pagination
-            v-model:current-page="modelPage"
-            v-model:page-size="modelPageSize"
-            :total="modelTotal"
-            :page-sizes="[10, 20, 50]"
-            layout="total, sizes, prev, pager, next"
-            @current-change="loadModels"
-            @size-change="(s: number) => { modelPageSize = s; modelPage = 1; loadModels() }"
-          />
-        </div>
+          <div class="pagination-wrap">
+            <el-pagination
+              v-model:current-page="modelPage"
+              v-model:page-size="modelPageSize"
+              :total="modelTotal"
+              :page-sizes="[10, 20, 50]"
+              layout="total, sizes, prev, pager, next"
+              @current-change="loadModels"
+              @size-change="(s: number) => { modelPageSize = s; modelPage = 1; loadModels() }"
+            />
+          </div>
+        </section>
       </el-tab-pane>
     </el-tabs>
 
-    <!-- ── Provider Dialog ────────────────────────────────────────── -->
-    <el-dialog
-      v-model="providerDialogVisible"
-      :title="providerDialogTitle"
-      width="540px"
+    <el-drawer
+      v-model="providerDrawerVisible"
+      :title="providerDrawerTitle"
+      size="520px"
       :close-on-click-modal="false"
+      class="config-drawer"
     >
-      <el-form :model="providerForm" label-width="110px">
+      <el-form :model="providerForm" label-position="top">
         <el-form-item label="名称" required>
           <el-input v-model="providerForm.name" placeholder="例如：OpenAI" />
         </el-form-item>
@@ -587,10 +829,7 @@ onMounted(() => {
         <el-form-item label="Base URL" required>
           <el-input v-model="providerForm.base_url" placeholder="例如：https://api.openai.com" />
         </el-form-item>
-        <el-form-item
-          :label="isEditingProvider ? 'API Key（留空不修改）' : 'API Key'"
-          :required="!isEditingProvider"
-        >
+        <el-form-item :label="isEditingProvider ? 'API Key（留空不修改）' : 'API Key'" :required="!isEditingProvider">
           <el-input
             v-model="providerForm.api_key"
             type="password"
@@ -603,38 +842,33 @@ onMounted(() => {
           <el-input
             v-model="providerForm.extra_headers_json"
             type="textarea"
-            :rows="2"
+            :rows="4"
             placeholder='可选，JSON 格式，如 {"X-Custom-Header": "value"}'
           />
         </el-form-item>
         <el-form-item label="启用">
-          <el-switch v-model="providerForm.is_enabled" />
+          <el-switch v-model="providerForm.is_enabled" active-text="启用" inactive-text="禁用" />
         </el-form-item>
       </el-form>
       <template #footer>
-        <el-button @click="providerDialogVisible = false">取消</el-button>
-        <el-button type="primary" :loading="providerSaving" @click="saveProvider">
-          保存
-        </el-button>
+        <div class="drawer-footer">
+          <el-button @click="providerDrawerVisible = false">取消</el-button>
+          <el-button type="primary" :loading="providerSaving" @click="saveProvider">保存</el-button>
+        </div>
       </template>
-    </el-dialog>
+    </el-drawer>
 
-    <!-- ── Model Dialog ───────────────────────────────────────────── -->
-    <el-dialog
-      v-model="modelDialogVisible"
-      :title="modelDialogTitle"
-      width="540px"
+    <el-drawer
+      v-model="modelDrawerVisible"
+      :title="modelDrawerTitle"
+      size="560px"
       :close-on-click-modal="false"
+      class="config-drawer"
     >
-      <el-form :model="modelForm" label-width="120px">
+      <el-form :model="modelForm" label-position="top">
         <el-form-item label="所属 Provider" required>
           <el-select v-model="modelForm.provider_id" style="width: 100%" placeholder="选择 Provider">
-            <el-option
-              v-for="p in providerList"
-              :key="p.id"
-              :value="p.id"
-              :label="p.name"
-            />
+            <el-option v-for="p in providerList" :key="p.id" :value="p.id" :label="p.name" />
           </el-select>
         </el-form-item>
         <el-form-item label="模型名称" required>
@@ -645,78 +879,310 @@ onMounted(() => {
         </el-form-item>
         <el-form-item label="Temperature">
           <div class="slider-with-value">
-            <el-slider
-              v-model="modelForm.temperature"
-              :min="0"
-              :max="2"
-              :step="0.01"
-              style="flex: 1"
-            />
+            <el-slider v-model="modelForm.temperature" :min="0" :max="2" :step="0.01" />
             <span class="slider-value">{{ modelForm.temperature.toFixed(2) }}</span>
           </div>
         </el-form-item>
         <el-form-item label="Top P">
           <div class="slider-with-value">
-            <el-slider
-              v-model="modelForm.top_p"
-              :min="0"
-              :max="1"
-              :step="0.01"
-              style="flex: 1"
-            />
+            <el-slider v-model="modelForm.top_p" :min="0" :max="1" :step="0.01" />
             <span class="slider-value">{{ modelForm.top_p.toFixed(2) }}</span>
           </div>
         </el-form-item>
-        <el-form-item label="Max Tokens">
-          <el-input-number v-model="modelForm.max_tokens" :min="1" :max="1000000" :step="1" style="width: 100%" />
-        </el-form-item>
-        <el-form-item label="最大并发">
-          <el-input-number v-model="modelForm.max_concurrency" :min="1" :max="100" :step="1" style="width: 100%" />
-        </el-form-item>
-        <el-form-item label="超时（秒）">
-          <el-input-number v-model="modelForm.timeout_seconds" :min="1" :max="600" :step="1" style="width: 100%" />
-        </el-form-item>
-        <el-form-item label="设为默认">
-          <el-switch v-model="modelForm.is_default" />
-        </el-form-item>
-        <el-form-item label="启用">
-          <el-switch v-model="modelForm.is_enabled" />
-        </el-form-item>
+        <div class="form-grid">
+          <el-form-item label="Max Tokens">
+            <el-input-number v-model="modelForm.max_tokens" :min="1" :max="1000000" :step="1" controls-position="right" />
+          </el-form-item>
+          <el-form-item label="最大并发">
+            <el-input-number v-model="modelForm.max_concurrency" :min="1" :max="100" :step="1" controls-position="right" />
+          </el-form-item>
+          <el-form-item label="超时（秒）">
+            <el-input-number v-model="modelForm.timeout_seconds" :min="1" :max="600" :step="1" controls-position="right" />
+          </el-form-item>
+        </div>
+        <div class="switch-row">
+          <el-form-item label="设为默认">
+            <el-switch v-model="modelForm.is_default" active-text="默认" inactive-text="普通" />
+          </el-form-item>
+          <el-form-item label="启用">
+            <el-switch v-model="modelForm.is_enabled" active-text="启用" inactive-text="禁用" />
+          </el-form-item>
+        </div>
       </el-form>
       <template #footer>
-        <el-button @click="modelDialogVisible = false">取消</el-button>
-        <el-button type="primary" :loading="modelSaving" @click="saveModel">
-          保存
-        </el-button>
+        <div class="drawer-footer">
+          <el-button @click="modelDrawerVisible = false">取消</el-button>
+          <el-button type="primary" :loading="modelSaving" @click="saveModel">保存</el-button>
+        </div>
       </template>
-    </el-dialog>
+    </el-drawer>
   </div>
 </template>
 
 <style scoped>
 .llm-config-view {
+  height: 100%;
+  min-height: 0;
   padding-bottom: 24px;
+  overflow-y: auto;
+  color: var(--el-text-color-primary);
+}
+
+.page-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 20px;
+  padding: 22px 24px;
+  margin-bottom: 18px;
+  border: 1px solid var(--el-border-color-light);
+  border-radius: 8px;
+  background: var(--admin-console-header-bg);
+}
+
+.page-kicker {
+  margin: 0 0 6px;
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1;
+  color: var(--el-color-primary);
+  text-transform: uppercase;
+  letter-spacing: .08em;
 }
 
 .page-title {
-  font-size: 20px;
-  font-weight: 600;
-  margin: 0 0 16px;
+  margin: 0;
+  font-size: 24px;
+  font-weight: 700;
+  line-height: 1.25;
 }
 
-.toolbar {
+.page-description {
+  max-width: 720px;
+  margin: 8px 0 0;
+  color: var(--el-text-color-secondary);
+  line-height: 1.6;
+}
+
+.page-actions {
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  gap: 10px;
+  flex-shrink: 0;
+}
+
+.console-tabs :deep(.el-tabs__header) {
+  padding: 0 16px;
   margin-bottom: 16px;
-  flex-wrap: wrap;
-  gap: 8px;
+  border: 1px solid var(--el-border-color-light);
+  border-radius: 8px;
+  background: var(--el-bg-color);
 }
 
-.toolbar-left {
+.console-tabs :deep(.el-tabs__nav-wrap::after) {
+  display: none;
+}
+
+.console-tabs :deep(.el-tabs__item) {
+  height: 46px;
+  font-weight: 600;
+}
+
+.stats-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.stat-card {
+  min-height: 112px;
+  padding: 16px;
+  border: 1px solid var(--el-border-color-light);
+  border-radius: 8px;
+  background: var(--el-bg-color);
+  box-shadow: 0 8px 20px rgba(25, 35, 55, .04);
+}
+
+.stat-card span {
+  display: block;
+  margin-bottom: 12px;
+  font-size: 13px;
+  color: var(--el-text-color-secondary);
+}
+
+.stat-card strong {
+  display: block;
+  min-height: 32px;
+  overflow: hidden;
+  font-size: 26px;
+  font-weight: 700;
+  line-height: 1.2;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.stat-card small {
+  display: block;
+  margin-top: 10px;
+  overflow: hidden;
+  color: var(--el-text-color-secondary);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.tone-blue {
+  border-top: 3px solid #409eff;
+}
+
+.tone-green {
+  border-top: 3px solid #67c23a;
+}
+
+.tone-violet {
+  border-top: 3px solid #8b5cf6;
+}
+
+.tone-amber {
+  border-top: 3px solid #e6a23c;
+}
+
+.tone-red {
+  border-top: 3px solid #f56c6c;
+}
+
+.tone-slate {
+  border-top: 3px solid #909399;
+}
+
+.panel-card {
+  padding: 18px;
+  border: 1px solid var(--el-border-color-light);
+  border-radius: 8px;
+  background: var(--el-bg-color);
+}
+
+.panel-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 16px;
+}
+
+.panel-head h3 {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 700;
+}
+
+.panel-head p {
+  margin: 6px 0 0;
+  color: var(--el-text-color-secondary);
+}
+
+.filter-bar {
+  display: grid;
+  grid-template-columns: minmax(220px, 1.4fr) repeat(3, minmax(140px, .7fr)) auto;
+  gap: 10px;
+  padding: 12px;
+  margin-bottom: 14px;
+  border: 1px solid var(--el-border-color-lighter);
+  border-radius: 8px;
+  background: var(--el-fill-color-extra-light);
+}
+
+.model-filter-bar {
+  grid-template-columns: minmax(240px, 1.4fr) repeat(3, minmax(150px, .7fr)) auto;
+}
+
+.console-table {
+  border: 1px solid var(--el-border-color-lighter);
+  border-radius: 8px;
+}
+
+.console-table :deep(.el-table__header th) {
+  background: var(--el-fill-color-light);
+  color: var(--el-text-color-secondary);
+  font-weight: 700;
+}
+
+.entity-cell {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+  gap: 12px;
+}
+
+.entity-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  color: var(--el-color-primary);
+  border-radius: 8px;
+  background: var(--el-color-primary-light-9);
+  flex: 0 0 auto;
+}
+
+.entity-icon.model {
+  color: #8b5cf6;
+  background: rgba(139, 92, 246, 0.14);
+}
+
+.entity-cell strong,
+.entity-cell span {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.entity-cell strong {
+  max-width: 220px;
+  font-weight: 700;
+}
+
+.entity-cell span {
+  max-width: 240px;
+  margin-top: 4px;
+  font-size: 12px;
+  color: var(--el-text-color-secondary);
+}
+
+.url-text {
+  display: inline-block;
+  max-width: 100%;
+  overflow: hidden;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 12px;
+  color: var(--el-text-color-regular);
+  text-overflow: ellipsis;
+  vertical-align: middle;
+  white-space: nowrap;
+}
+
+.secret-text {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  color: var(--el-text-color-secondary);
+}
+
+.row-actions,
+.capability-tags,
+.status-stack {
   display: flex;
   align-items: center;
   gap: 8px;
+  flex-wrap: wrap;
+}
+
+.metric-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  font-size: 12px;
+  color: var(--el-text-color-regular);
 }
 
 .pagination-wrap {
@@ -732,11 +1198,68 @@ onMounted(() => {
   width: 100%;
 }
 
+.slider-with-value :deep(.el-slider) {
+  flex: 1;
+}
+
 .slider-value {
-  min-width: 40px;
+  min-width: 44px;
   text-align: right;
-  font-family: monospace;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
   font-size: 13px;
   color: var(--el-text-color-secondary);
+}
+
+.form-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0 12px;
+}
+
+.form-grid :deep(.el-input-number) {
+  width: 100%;
+}
+
+.switch-row {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.drawer-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+@media (max-width: 1100px) {
+  .stats-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .filter-bar,
+  .model-filter-bar {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 720px) {
+  .page-header,
+  .panel-head {
+    flex-direction: column;
+  }
+
+  .page-actions {
+    width: 100%;
+    flex-wrap: wrap;
+  }
+
+  .stats-grid,
+  .filter-bar,
+  .model-filter-bar,
+  .form-grid,
+  .switch-row {
+    grid-template-columns: 1fr;
+  }
 }
 </style>

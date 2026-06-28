@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { onMounted, reactive, ref, computed } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { Delete, Edit, Plus, Refresh, View, Back } from '@element-plus/icons-vue'
+import { Delete, Edit, MoreFilled, Plus, Refresh, Search, View, Back } from '@element-plus/icons-vue'
 import { useAuthStore } from '@/stores/auth'
 import {
   listPromptTemplates,
@@ -32,6 +32,8 @@ const templatePageSize = ref(20)
 const templateLoading = ref(false)
 const templateError = ref('')
 const agentTypeFilter = ref('')
+const keywordFilter = ref('')
+const statusFilter = ref('')
 
 const loadList = async () => {
   templateLoading.value = true
@@ -86,6 +88,25 @@ const extractVariables = (content: string): string[] => {
   }
   return vars
 }
+
+const filteredTemplates = computed(() => {
+  const keyword = keywordFilter.value.trim().toLowerCase()
+  return templateList.value.filter((item) => {
+    const matchesKeyword = !keyword
+      || item.name.toLowerCase().includes(keyword)
+      || item.content.toLowerCase().includes(keyword)
+    const matchesStatus = !statusFilter.value
+      || (statusFilter.value === 'active' ? item.is_active : !item.is_active)
+    return matchesKeyword && matchesStatus
+  })
+})
+
+const promptStats = computed(() => [
+  { label: '模板总数', value: templateTotal.value || templateList.value.length, hint: '可绑定到 Agent 的 Prompt 资产' },
+  { label: '已启用', value: templateList.value.filter((item) => item.is_active).length, hint: '当前可用模板' },
+  { label: '变量数量', value: templateList.value.reduce((sum, item) => sum + extractVariables(item.content).length, 0), hint: '检测到的占位符总数' },
+  { label: '候选人模板', value: templateList.value.filter((item) => item.agent_type === 'candidate_assistant').length, hint: '面向候选人侧 Agent' },
+])
 
 // ====== Edit / Create Dialog ======
 
@@ -306,12 +327,37 @@ onMounted(() => {
 </script>
 
 <template>
-  <div class="prompt-manage-view">
-    <h2 class="page-title">Prompt 管理</h2>
-
-    <div class="toolbar">
-      <div class="toolbar-left">
+  <div class="console-page console-page--fill prompt-manage-view">
+    <div class="console-header">
+      <div class="console-header__copy">
+        <p class="console-eyebrow">PROMPT OPS</p>
+        <h2 class="console-title">Prompt 管理</h2>
+        <p class="console-description">管理可版本化的 Prompt 模板，跟踪变量、角色、Agent 类型和版本回滚，保障 Agent 输出策略可控。</p>
+      </div>
+      <div class="console-header__actions">
+        <el-button :icon="Refresh" @click="loadList">刷新</el-button>
         <el-button type="primary" :icon="Plus" @click="openCreate">新增模板</el-button>
+      </div>
+    </div>
+
+    <section class="console-stats">
+      <div v-for="item in promptStats" :key="item.label" class="console-stat">
+        <div class="console-stat__label">{{ item.label }}</div>
+        <div class="console-stat__value">{{ item.value }}</div>
+        <div class="console-stat__hint">{{ item.hint }}</div>
+      </div>
+    </section>
+
+    <div class="console-card console-card--fill">
+      <div class="console-card__head">
+        <div>
+          <h3 class="console-card__title">Prompt 模板列表</h3>
+          <p class="console-card__desc">共 {{ filteredTemplates.length }} 个匹配模板</p>
+        </div>
+      </div>
+      <div class="console-toolbar">
+      <div class="console-toolbar__filters">
+        <el-input v-model="keywordFilter" :prefix-icon="Search" clearable placeholder="搜索模板名称 / 内容" style="width: 260px" />
         <el-select
           v-model="agentTypeFilter"
           placeholder="全部 Agent 类型"
@@ -323,20 +369,31 @@ onMounted(() => {
           <el-option value="hr_agent" label="HR" />
           <el-option value="candidate_assistant" label="候选人" />
         </el-select>
+        <el-select v-model="statusFilter" placeholder="全部状态" clearable style="width: 140px">
+          <el-option value="active" label="启用" />
+          <el-option value="inactive" label="禁用" />
+        </el-select>
       </div>
-      <el-button :icon="Refresh" @click="loadList">刷新</el-button>
     </div>
 
     <!-- ── List Table ──────────────────────────────────────────────── -->
+    <div class="console-table-wrap">
     <el-table
       v-loading="templateLoading"
-      :data="templateList"
+      :data="filteredTemplates"
+      class="console-table"
       stripe
-      border
       style="width: 100%"
       :empty-text="templateError || '暂无数据'"
     >
-      <el-table-column prop="name" label="名称" min-width="160" />
+      <el-table-column label="模板信息" min-width="240">
+        <template #default="{ row }: { row: PromptTemplate }">
+          <div class="console-entity">
+            <div class="console-entity__name">{{ row.name }}</div>
+            <div class="console-entity__meta">变量 {{ extractVariables(row.content).length }} 个 / v{{ row.version }}</div>
+          </div>
+        </template>
+      </el-table-column>
       <el-table-column label="角色" width="90">
         <template #default="{ row }: { row: PromptTemplate }">
           {{ promptRoleLabel(row.prompt_role) }}
@@ -347,7 +404,11 @@ onMounted(() => {
           {{ agentTypeLabel(row.agent_type) }}
         </template>
       </el-table-column>
-      <el-table-column prop="version" label="当前版本" width="100" />
+      <el-table-column prop="version" label="当前版本" width="100">
+        <template #default="{ row }: { row: PromptTemplate }">
+          <el-tag size="small" type="primary">v{{ row.version }}</el-tag>
+        </template>
+      </el-table-column>
       <el-table-column label="状态" width="80">
         <template #default="{ row }: { row: PromptTemplate }">
           <el-tag :type="row.is_active ? 'success' : 'info'" size="small">
@@ -360,7 +421,7 @@ onMounted(() => {
           {{ formatTime(row.updated_at) }}
         </template>
       </el-table-column>
-      <el-table-column label="操作" width="320" fixed="right">
+      <el-table-column label="操作" width="220" fixed="right">
         <template #default="{ row }: { row: PromptTemplate }">
           <el-button size="small" :icon="Edit" @click="openEdit(row)">
             编辑
@@ -368,21 +429,23 @@ onMounted(() => {
           <el-button size="small" :icon="View" @click="openVersionHistory(row)">
             版本历史
           </el-button>
-          <el-button
-            size="small"
-            :type="row.is_active ? 'warning' : 'success'"
-            @click="handleToggleActive(row)"
-          >
-            {{ row.is_active ? '禁用' : '启用' }}
-          </el-button>
-          <el-button size="small" type="danger" :icon="Delete" @click="handleDelete(row)">
-            删除
-          </el-button>
+          <el-dropdown trigger="click">
+            <el-button size="small" :icon="MoreFilled" circle />
+            <template #dropdown>
+              <el-dropdown-menu>
+                <el-dropdown-item @click="handleToggleActive(row)">{{ row.is_active ? '禁用' : '启用' }}</el-dropdown-item>
+                <el-dropdown-item divided style="color: var(--el-color-danger)" @click="handleDelete(row)">
+                  <el-icon><Delete /></el-icon>删除
+                </el-dropdown-item>
+              </el-dropdown-menu>
+            </template>
+          </el-dropdown>
         </template>
       </el-table-column>
     </el-table>
+    </div>
 
-    <div class="pagination-wrap">
+    <div class="console-pagination">
       <el-pagination
         v-model:current-page="templatePage"
         v-model:page-size="templatePageSize"
@@ -393,12 +456,13 @@ onMounted(() => {
         @size-change="(s: number) => { templatePageSize = s; templatePage = 1; loadList() }"
       />
     </div>
+    </div>
 
     <!-- ── Edit / Create Dialog ────────────────────────────────────── -->
-    <el-dialog
+    <el-drawer
       v-model="dialogVisible"
       :title="dialogTitle"
-      width="680px"
+      size="680px"
       :close-on-click-modal="false"
       destroy-on-close
     >
@@ -459,7 +523,7 @@ onMounted(() => {
           {{ isEditing ? '保存（版本号自动递增）' : '创建' }}
         </el-button>
       </template>
-    </el-dialog>
+    </el-drawer>
 
     <!-- ── Version History Dialog ──────────────────────────────────── -->
     <el-dialog
