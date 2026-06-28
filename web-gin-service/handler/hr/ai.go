@@ -7,7 +7,6 @@ import (
 	"strconv"
 
 	"github.com/gin-gonic/gin"
-	"google.golang.org/grpc/metadata"
 
 	base "web-gin-service/handler"
 	"web-gin-service/middleware"
@@ -28,12 +27,13 @@ func (h *AIHandler) Chat(c *gin.Context) {
 		Message       string         `json:"message" binding:"required"`
 		ApplicationID base.FlexInt64 `json:"application_id"`
 		SessionID     base.FlexInt64 `json:"session_id"`
+		ModelID       base.FlexInt64 `json:"model_id"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
 		base.BadRequest(c, "消息不能为空")
 		return
 	}
-	resp, err := h.clients.AI.Chat(c.Request.Context(), &pb.ChatRequest{HrId: middleware.UserID(c), Message: req.Message, ApplicationId: int64(req.ApplicationID), SessionId: int64(req.SessionID)})
+	resp, err := h.clients.AI.Chat(c.Request.Context(), &pb.ChatRequest{HrId: middleware.UserID(c), Message: req.Message, ApplicationId: int64(req.ApplicationID), SessionId: int64(req.SessionID), ModelId: int64(req.ModelID)})
 	if err != nil {
 		base.Internal(c, err)
 		return
@@ -62,12 +62,8 @@ func (h *AIHandler) ChatStream(c *gin.Context) {
 		base.BadRequest(c, "消息不能为空")
 		return
 	}
-	// Pass model_id via gRPC metadata so the logic service can use it for runtime model selection.
 	ctx := c.Request.Context()
-	if req.ModelID > 0 {
-		ctx = metadata.NewOutgoingContext(ctx, metadata.Pairs("x-model-id", strconv.FormatInt(int64(req.ModelID), 10)))
-	}
-	stream, err := h.clients.AI.ChatStream(ctx, &pb.ChatRequest{HrId: middleware.UserID(c), Message: req.Message, ApplicationId: int64(req.ApplicationID), SessionId: int64(req.SessionID)})
+	stream, err := h.clients.AI.ChatStream(ctx, &pb.ChatRequest{HrId: middleware.UserID(c), Message: req.Message, ApplicationId: int64(req.ApplicationID), SessionId: int64(req.SessionID), ModelId: int64(req.ModelID)})
 	if err != nil {
 		base.Internal(c, err)
 		return
@@ -212,12 +208,13 @@ func (h *AIHandler) SessionMessages(c *gin.Context) {
 func (h *AIHandler) CreateApplicationAnalysisSession(c *gin.Context) {
 	var req struct {
 		ApplicationID base.FlexInt64 `json:"application_id" binding:"required"`
+		ModelID       base.FlexInt64 `json:"model_id"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
 		base.BadRequest(c, "投递记录 ID 不能为空")
 		return
 	}
-	resp, err := h.clients.AI.CreateApplicationAnalysisSession(c.Request.Context(), &pb.CreateApplicationAnalysisSessionRequest{HrId: middleware.UserID(c), ApplicationId: int64(req.ApplicationID)})
+	resp, err := h.clients.AI.CreateApplicationAnalysisSession(c.Request.Context(), &pb.CreateApplicationAnalysisSessionRequest{HrId: middleware.UserID(c), ApplicationId: int64(req.ApplicationID), ModelId: int64(req.ModelID)})
 	if err != nil {
 		base.Internal(c, err)
 		return
@@ -228,12 +225,13 @@ func (h *AIHandler) CreateApplicationAnalysisSession(c *gin.Context) {
 func (h *AIHandler) AnalyzeApplication(c *gin.Context) {
 	var req struct {
 		ApplicationID base.FlexInt64 `json:"application_id" binding:"required"`
+		ModelID       base.FlexInt64 `json:"model_id"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
 		base.BadRequest(c, "投递记录 ID 不能为空")
 		return
 	}
-	resp, err := h.clients.AI.AnalyzeApplication(c.Request.Context(), &pb.AnalyzeApplicationRequest{HrId: middleware.UserID(c), ApplicationId: int64(req.ApplicationID)})
+	resp, err := h.clients.AI.AnalyzeApplication(c.Request.Context(), &pb.AnalyzeApplicationRequest{HrId: middleware.UserID(c), ApplicationId: int64(req.ApplicationID), ModelId: int64(req.ModelID)})
 	if err != nil {
 		base.Internal(c, err)
 		return
@@ -291,6 +289,25 @@ func (h *AIHandler) GetToolTraces(c *gin.Context) {
 		return
 	}
 	resp, err := h.clients.AI.GetToolTraces(c.Request.Context(), &pb.GetToolTracesRequest{
+		HrId:      middleware.UserID(c),
+		SessionId: sessionID,
+	})
+	if err != nil {
+		base.Internal(c, err)
+		return
+	}
+	base.From(c, resp.Code, resp.Msg, gin.H{"list": resp.List})
+}
+
+// GetAgentRuns returns agent runs and their steps for a given session.
+// Only accessible by the HR user who owns the session.
+func (h *AIHandler) GetAgentRuns(c *gin.Context) {
+	sessionID, err := strconv.ParseInt(c.Param("session_id"), 10, 64)
+	if err != nil {
+		base.BadRequest(c, "会话 ID 不合法")
+		return
+	}
+	resp, err := h.clients.AI.GetAgentRuns(c.Request.Context(), &pb.GetAgentRunsRequest{
 		HrId:      middleware.UserID(c),
 		SessionId: sessionID,
 	})

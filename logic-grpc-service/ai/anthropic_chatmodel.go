@@ -18,20 +18,22 @@ import (
 // anthropicChatModel implements chatmodel.ToolCallingChatModel using the
 // Anthropic Messages API protocol (x-api-key auth, /v1/messages endpoint).
 type anthropicChatModel struct {
-	apiKey     string
-	baseURL    string
-	model      string
-	tools      []*schema.ToolInfo
-	maxTokens  int
-	httpClient *http.Client
+	apiKey      string
+	baseURL     string
+	model       string
+	tools       []*schema.ToolInfo
+	maxTokens   int
+	temperature *float64
+	httpClient  *http.Client
 }
 
 // AnthropicChatModelConfig holds configuration for creating an Anthropic chat model.
 type AnthropicChatModelConfig struct {
-	APIKey  string
-	BaseURL string
-	Model   string
-	Timeout int // seconds, 0 uses default
+	APIKey      string
+	BaseURL     string
+	Model       string
+	Timeout     int // seconds, 0 uses default
+	Temperature *float64
 }
 
 // newAnthropicChatModel creates a new Anthropic chat model.
@@ -41,11 +43,12 @@ func newAnthropicChatModel(config AnthropicChatModelConfig) *anthropicChatModel 
 		timeout = 60
 	}
 	return &anthropicChatModel{
-		apiKey:     config.APIKey,
-		baseURL:    strings.TrimRight(config.BaseURL, "/"),
-		model:      config.Model,
-		maxTokens:  4096,
-		httpClient: &http.Client{},
+		apiKey:      config.APIKey,
+		baseURL:     strings.TrimRight(config.BaseURL, "/"),
+		model:       config.Model,
+		maxTokens:   4096,
+		temperature: config.Temperature,
+		httpClient:  &http.Client{},
 	}
 }
 
@@ -128,12 +131,13 @@ func (m *anthropicChatModel) newRequest(ctx context.Context, body []byte) (*http
 }
 
 type anthropicReq struct {
-	Model     string            `json:"model"`
-	MaxTokens int               `json:"max_tokens"`
-	System    string            `json:"system,omitempty"`
-	Messages  []anthropicMsg    `json:"messages"`
-	Tools     []anthropicTool   `json:"tools,omitempty"`
-	Stream    bool              `json:"stream"`
+	Model       string          `json:"model"`
+	MaxTokens   int             `json:"max_tokens"`
+	System      string          `json:"system,omitempty"`
+	Messages    []anthropicMsg  `json:"messages"`
+	Tools       []anthropicTool `json:"tools,omitempty"`
+	Stream      bool            `json:"stream"`
+	Temperature *float64        `json:"temperature,omitempty"`
 }
 
 type anthropicMsg struct {
@@ -142,13 +146,13 @@ type anthropicMsg struct {
 }
 
 type anthropicBlock struct {
-	Type       string          `json:"type"`
-	Text       string          `json:"text,omitempty"`
-	ID         string          `json:"id,omitempty"`
-	Name       string          `json:"name,omitempty"`
-	Input      json.RawMessage `json:"input,omitempty"`
-	ToolUseID  string          `json:"tool_use_id,omitempty"`
-	Content    string          `json:"content,omitempty"`
+	Type      string          `json:"type"`
+	Text      string          `json:"text,omitempty"`
+	ID        string          `json:"id,omitempty"`
+	Name      string          `json:"name,omitempty"`
+	Input     json.RawMessage `json:"input,omitempty"`
+	ToolUseID string          `json:"tool_use_id,omitempty"`
+	Content   string          `json:"content,omitempty"`
 }
 
 type anthropicTool struct {
@@ -202,13 +206,19 @@ func (m *anthropicChatModel) buildRequest(messages []*schema.Message, stream boo
 	if options.MaxTokens != nil && *options.MaxTokens > 0 {
 		maxTokens = *options.MaxTokens
 	}
+	temperature := m.temperature
+	if options.Temperature != nil {
+		value := float64(*options.Temperature)
+		temperature = &value
+	}
 
 	req := anthropicReq{
-		Model:     m.model,
-		MaxTokens: maxTokens,
-		System:    strings.Join(systemParts, "\n"),
-		Messages:  msgs,
-		Stream:    stream,
+		Model:       m.model,
+		MaxTokens:   maxTokens,
+		System:      strings.Join(systemParts, "\n"),
+		Messages:    msgs,
+		Stream:      stream,
+		Temperature: temperature,
 	}
 
 	for _, t := range tools {

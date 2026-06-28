@@ -25,6 +25,7 @@ type Server struct {
 	pb.UnimplementedPromptServiceServer
 	pb.UnimplementedAgentConfigServiceServer
 	pb.UnimplementedMCPServiceServer
+	pb.UnimplementedSkillServiceServer
 	svc *service.Services
 }
 
@@ -188,6 +189,10 @@ func (s *Server) DeleteSession(ctx context.Context, req *pb.DeleteSessionRequest
 
 func (s *Server) GetToolTraces(ctx context.Context, req *pb.GetToolTracesRequest) (*pb.GetToolTracesResponse, error) {
 	return s.svc.AI.GetToolTraces(ctx, req)
+}
+
+func (s *Server) GetAgentRuns(ctx context.Context, req *pb.GetAgentRunsRequest) (*pb.GetAgentRunsResponse, error) {
+	return s.svc.AI.GetAgentRuns(ctx, req)
 }
 
 // Candidate AI
@@ -732,4 +737,38 @@ func (s *Server) ListMCPTools(ctx context.Context, req *pb.ListMCPToolsRequest) 
 
 func (s *Server) CallMCPTool(ctx context.Context, req *pb.CallMCPToolRequest) (*pb.CallMCPToolResponse, error) {
 	return s.svc.MCP.CallMCPTool(ctx, req)
+}
+
+// --- SkillService --------------------------------------------------------
+
+func (s *Server) ListSkills(ctx context.Context, req *pb.ListSkillsRequest) (*pb.ListSkillsResponse, error) {
+	return s.svc.Skill.ListSkills(ctx, req)
+}
+
+func (s *Server) CreateSkill(ctx context.Context, req *pb.CreateSkillRequest) (*pb.SkillResponse, error) {
+	return s.svc.Skill.CreateSkill(ctx, req)
+}
+
+func (s *Server) UpdateSkill(ctx context.Context, req *pb.UpdateSkillRequest) (*pb.SkillResponse, error) {
+	return s.svc.Skill.UpdateSkill(ctx, req)
+}
+
+func (s *Server) CreateSkillVersion(ctx context.Context, req *pb.CreateSkillVersionRequest) (*pb.SkillVersionResponse, error) {
+	return s.svc.Skill.CreateSkillVersion(ctx, req)
+}
+
+func (s *Server) ListSkillVersions(ctx context.Context, req *pb.ListSkillVersionsRequest) (*pb.ListSkillVersionsResponse, error) {
+	return s.svc.Skill.ListSkillVersions(ctx, req)
+}
+
+func (s *Server) ActivateSkillVersion(ctx context.Context, req *pb.ActivateSkillVersionRequest) (*pb.SkillResponse, error) {
+	return s.svc.Skill.ActivateSkillVersion(ctx, req)
+}
+
+func (s *Server) ListSkillTools(ctx context.Context, req *pb.ListSkillToolsRequest) (*pb.ListSkillToolsResponse, error) {
+	return s.svc.Skill.ListSkillTools(ctx, req)
+}
+
+func (s *Server) UpdateSkillTool(ctx context.Context, req *pb.UpdateSkillToolRequest) (*pb.SkillToolResponse, error) {
+	return s.svc.Skill.UpdateSkillTool(ctx, req)
 }

@@ -6,14 +6,12 @@ import (
 	"errors"
 	"fmt"
 	"regexp"
-	"strconv"
 	"strings"
 	"sync"
 	"time"
 
 	"go.uber.org/zap"
 	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/status"
 
 	"github.com/cloudwego/eino/components/tool"
@@ -29,7 +27,7 @@ import (
 )
 
 type AIService struct {
-	chats            *repository.ChatRepo
+	chats           *repository.ChatRepo
 	applications    *repository.ApplicationRepo
 	jobs            *repository.JobRepo
 	resumes         *repository.ResumeRepo
@@ -38,6 +36,7 @@ type AIService struct {
 	toolExecutor    *ai.ToolExecutor
 	summaries       *repository.SessionSummaryRepo
 	toolTraces      *repository.ToolTraceRepo
+	agentRuns       *repository.AgentRunRepo
 	memories        *repository.MemoryRepo
 	contextBuilder  *AgentContextBuilder
 	candidateAI     *CandidateAIService
@@ -46,12 +45,19 @@ type AIService struct {
 	authzRepo       *repository.AuthzRepo
 	agentRuntime    string
 	authz           *ServiceAuthorizer
-	llmConfigSvc    *LlmConfigService         // for runtime model selection
+	llmConfigSvc    *LlmConfigService // for runtime model selection
 	agentConfigRepo *repository.AgentConfigRepo
 	promptRepo      *repository.PromptTemplateRepo
 	mcpSvc          *MCPService
-	cachedADKTools []tool.BaseTool // lazy-initialized, shared across requests
-	cachedToolsMu  sync.Mutex       // guards cachedADKTools init and invalidation
+	skillSvc        *SkillService
+	cachedADKTools  []tool.BaseTool // lazy-initialized, shared across requests
+	cachedToolsMu   sync.Mutex      // guards cachedADKTools init and invalidation
+}
+
+type runtimeAIClient struct {
+	client    *ai.Client
+	modelID   *int64
+	modelName string
 }
 
 func NewAIService(
@@ -61,6 +67,7 @@ func NewAIService(
 	resumes *repository.ResumeRepo,
 	summaries *repository.SessionSummaryRepo,
 	toolTraces *repository.ToolTraceRepo,
+	agentRuns *repository.AgentRunRepo,
 	memories *repository.MemoryRepo,
 	ossClient oss.Storage,
 	aiClient *ai.Client,
@@ -68,29 +75,31 @@ func NewAIService(
 	contextBuilder *AgentContextBuilder,
 	candidateAI *CandidateAIService,
 	usageLogs *repository.UsageLogRepo,
-		usageAuditCtx *repository.UsageAuditContextRepo,
-		authzRepo *repository.AuthzRepo,
+	usageAuditCtx *repository.UsageAuditContextRepo,
+	authzRepo *repository.AuthzRepo,
 	agentRuntime string,
 	authz *ServiceAuthorizer,
 	llmConfigSvc *LlmConfigService,
 	agentConfigRepo *repository.AgentConfigRepo,
 	promptRepo *repository.PromptTemplateRepo,
 	mcpSvc *MCPService,
+	skillSvc *SkillService,
 ) *AIService {
 	return &AIService{
 		chats: chats, applications: applications, jobs: jobs, resumes: resumes,
-		summaries: summaries, toolTraces: toolTraces, memories: memories,
+		summaries: summaries, toolTraces: toolTraces, agentRuns: agentRuns, memories: memories,
 		oss: ossClient, ai: aiClient, toolExecutor: toolExecutor,
 		contextBuilder: contextBuilder, candidateAI: candidateAI,
-		usageLogs: usageLogs,
-		usageAuditCtx: usageAuditCtx,
-		authzRepo: authzRepo,
-		agentRuntime: agentRuntime,
-		authz: authz,
-		llmConfigSvc: llmConfigSvc,
+		usageLogs:       usageLogs,
+		usageAuditCtx:   usageAuditCtx,
+		authzRepo:       authzRepo,
+		agentRuntime:    agentRuntime,
+		authz:           authz,
+		llmConfigSvc:    llmConfigSvc,
 		agentConfigRepo: agentConfigRepo,
-		promptRepo: promptRepo,
-		mcpSvc: mcpSvc,
+		promptRepo:      promptRepo,
+		mcpSvc:          mcpSvc,
+		skillSvc:        skillSvc,
 	}
 }
 
@@ -146,11 +155,18 @@ func (s *AIService) Chat(ctx context.Context, req *pb.ChatRequest) (*pb.ChatResp
 		req.ApplicationId = session.ApplicationID
 	}
 
+	runtimeCfg := s.getAgentRuntimeConfig(ctx, "hr_recruiting_agent")
+	runtimeClient, err := s.resolveRuntimeAIClient(ctx, req.GetModelId(), runtimeCfg)
+	if err != nil {
+		s.recordFailedAgentRun(ctx, req, session, requestedModelIDPtr(req.GetModelId()), s.defaultRuntimeModelName(), "model_resolution_failed", err)
+		return &pb.ChatResponse{Code: errs.ErrBadRequest, Msg: fmt.Sprintf("模型不可用：%v", err), SessionId: session.ID}, nil
+	}
+
 	var replyBuilder strings.Builder
-	reply, metadata, err := s.runToolCallingChat(ctx, req, session, func(delta string) error {
+	reply, metadata, err := s.runToolCallingChat(ctx, req, session, runtimeClient.modelID, runtimeClient.modelName, runtimeCfg, func(delta string) error {
 		replyBuilder.WriteString(delta)
 		return nil
-	}, nil, nil)
+	}, nil, runtimeClient.client)
 	if err != nil {
 		if isCanceledError(err) {
 			partial := strings.TrimSpace(replyBuilder.String())
@@ -160,14 +176,14 @@ func (s *AIService) Chat(ctx context.Context, req *pb.ChatRequest) (*pb.ChatResp
 			log.Info("non-streaming chat canceled, returning partial reply", zap.Int("partial_chars", len([]rune(partial))))
 			s.writeHRUsageAudit(ctx, AuditLogEntry{
 				UserID: req.HrId, Role: 2, ServiceType: "ai_chat",
-				Endpoint: "/hr/ai/chat", Provider: "dashscope", Model: s.ai.ModelName(),
+				Endpoint: "/hr/ai/chat", Provider: "dashscope", Model: runtimeClient.modelName,
 				RequestChars: inputChars, ResponseChars: len([]rune(partial)), Status: "timeout", CostMs: int(time.Since(startTime).Milliseconds()),
 			}, req.HrId, "ai", req.ApplicationId)
 			return &pb.ChatResponse{Code: errs.OK, Msg: "success", Reply: partial, CreatedAt: formatTime(time.Now()), SessionId: session.ID}, nil
 		}
 		s.writeHRUsageAudit(ctx, AuditLogEntry{
 			UserID: req.HrId, Role: 2, ServiceType: "ai_chat",
-			Endpoint: "/hr/ai/chat", Provider: "dashscope", Model: s.ai.ModelName(),
+			Endpoint: "/hr/ai/chat", Provider: "dashscope", Model: runtimeClient.modelName,
 			RequestChars: inputChars, Status: "error", CostMs: int(time.Since(startTime).Milliseconds()),
 		}, req.HrId, "ai", req.ApplicationId)
 		return nil, wrapAIError(err)
@@ -177,7 +193,7 @@ func (s *AIService) Chat(ctx context.Context, req *pb.ChatRequest) (*pb.ChatResp
 	outputChars := len([]rune(reply))
 	s.writeHRUsageAudit(ctx, AuditLogEntry{
 		UserID: req.HrId, Role: 2, ServiceType: "ai_chat",
-		Endpoint: "/hr/ai/chat", Provider: "dashscope", Model: s.ai.ModelName(),
+		Endpoint: "/hr/ai/chat", Provider: "dashscope", Model: runtimeClient.modelName,
 		RequestChars: inputChars, ResponseChars: outputChars, CostMs: int(time.Since(startTime).Milliseconds()),
 	}, req.HrId, "ai", req.ApplicationId)
 	log.Info("chat completed", zap.Int("reply_len", outputChars))
@@ -213,38 +229,18 @@ func (s *AIService) ChatStream(req *pb.ChatRequest, stream pb.AIService_ChatStre
 		req.ApplicationId = session.ApplicationID
 	}
 
-	// Resolve runtime model override from gRPC metadata (set by web-gin gateway).
-	aiClient := s.ai
-	modelNameForStatus := s.ai.ModelName()
-	if s.llmConfigSvc != nil {
-		md, ok := metadata.FromIncomingContext(ctx)
-		if ok {
-			modelIDStrs := md.Get("x-model-id")
-			if len(modelIDStrs) > 0 {
-				if modelID, parseErr := strconv.ParseInt(modelIDStrs[0], 10, 64); parseErr == nil && modelID > 0 {
-					providerType, apiKey, modelName, baseURL, err := s.llmConfigSvc.GetModelDetails(ctx, modelID)
-					if err != nil {
-						log.Warn("runtime model selection failed, falling back to default", zap.Int64("model_id", modelID), zap.Error(err))
-					} else {
-						cm, cmErr := ai.NewChatModel(ctx, providerType, apiKey, modelName, baseURL, s.ai.Timeout())
-						if cmErr != nil {
-							log.Warn("create chat model failed, falling back to default", zap.Error(cmErr))
-						} else {
-							aiClient = s.ai.CloneWithModel(modelName, cm)
-							modelNameForStatus = modelName
-							log.Info("runtime model selected", zap.Int64("model_id", modelID), zap.String("model", modelName))
-						}
-					}
-				}
-			}
-		}
+	runtimeCfg := s.getAgentRuntimeConfig(ctx, "hr_recruiting_agent")
+	runtimeClient, err := s.resolveRuntimeAIClient(ctx, req.GetModelId(), runtimeCfg)
+	if err != nil {
+		s.recordFailedAgentRun(ctx, req, session, requestedModelIDPtr(req.GetModelId()), s.defaultRuntimeModelName(), "model_resolution_failed", err)
+		return stream.Send(&pb.ChatStreamResponse{Code: errs.ErrBadRequest, Msg: fmt.Sprintf("模型不可用：%v", err), Done: true, SessionId: session.ID})
 	}
 
 	// Send model/agent info to the frontend status bar.
 	_ = stream.Send(&pb.ChatStreamResponse{
 		Code:         errs.OK,
 		EventType:    "model_info",
-		EventMessage: modelNameForStatus,
+		EventMessage: runtimeClient.modelName,
 		SessionId:    session.ID,
 	})
 
@@ -260,13 +256,13 @@ func (s *AIService) ChatStream(req *pb.ChatRequest, stream pb.AIService_ChatStre
 			SessionId:    session.ID,
 		})
 	}
-	reply, metadata, err := s.runToolCallingChat(ctx, req, session, func(delta string) error {
+	reply, metadata, err := s.runToolCallingChat(ctx, req, session, runtimeClient.modelID, runtimeClient.modelName, runtimeCfg, func(delta string) error {
 		return stream.Send(&pb.ChatStreamResponse{Code: errs.OK, Msg: "success", Delta: delta, SessionId: session.ID})
-	}, statusSender, aiClient)
+	}, statusSender, runtimeClient.client)
 	if err != nil {
 		s.writeHRUsageAudit(ctx, AuditLogEntry{
 			UserID: req.HrId, Role: 2, ServiceType: "ai_chat",
-			Endpoint: "/hr/ai/chat/stream", Provider: "dashscope", Model: modelNameForStatus,
+			Endpoint: "/hr/ai/chat/stream", Provider: "dashscope", Model: runtimeClient.modelName,
 			RequestChars: inputChars, Status: "error", CostMs: int(time.Since(startTime).Milliseconds()),
 		}, req.HrId, "ai", req.ApplicationId)
 		return err
@@ -274,7 +270,7 @@ func (s *AIService) ChatStream(req *pb.ChatRequest, stream pb.AIService_ChatStre
 
 	s.writeHRUsageAudit(ctx, AuditLogEntry{
 		UserID: req.HrId, Role: 2, ServiceType: "ai_chat",
-		Endpoint: "/hr/ai/chat/stream", Provider: "dashscope", Model: modelNameForStatus,
+		Endpoint: "/hr/ai/chat/stream", Provider: "dashscope", Model: runtimeClient.modelName,
 		RequestChars: inputChars, ResponseChars: len([]rune(reply)), CostMs: int(time.Since(startTime).Milliseconds()),
 	}, req.HrId, "ai", req.ApplicationId)
 
@@ -302,7 +298,24 @@ func (s *AIService) ChatStream(req *pb.ChatRequest, stream pb.AIService_ChatStre
 // use this method. The onDelta callback receives incremental reply text; for
 // non-streaming callers it accumulates the full reply, for streaming callers it
 // writes SSE deltas.
-func (s *AIService) runToolCallingChat(ctx context.Context, req *pb.ChatRequest, session *model.AIChatSession, onDelta func(string) error, onStatus func(eventType, eventMessage, errorType, toolName string) error, aiClient *ai.Client) (reply string, metadata ai.ToolMetadata, err error) {
+func (s *AIService) runToolCallingChat(ctx context.Context, req *pb.ChatRequest, session *model.AIChatSession, modelID *int64, modelName string, runtimeCfg *agentRuntimeConfig, onDelta func(string) error, onStatus func(eventType, eventMessage, errorType, toolName string) error, aiClient *ai.Client) (reply string, metadata ai.ToolMetadata, err error) {
+	recorder := s.startAgentRun(ctx, req, session, modelID, modelName, runtimeCfg)
+	fallbackObserved := false
+	effectiveOnStatus := func(eventType, eventMessage, errorType, toolName string) error {
+		if (eventType == "fallback" || eventType == "partial_done") && recorder != nil && !fallbackObserved {
+			fallbackObserved = true
+			recorder.recordFallback(ctx, eventType, errorType, eventMessage, len(metadata.ToolTraces))
+		}
+		if onStatus != nil {
+			return onStatus(eventType, eventMessage, errorType, toolName)
+		}
+		return nil
+	}
+	sendAgentRunStatus(effectiveOnStatus, "agent_run_started", "Agent run 已开始", "", "")
+	sendAgentRunStatus(effectiveOnStatus, "model_selected", modelName, "", "")
+	sendAgentRunStatus(effectiveOnStatus, "planning", "正在规划本轮执行", "", "")
+	sendAgentRunStatus(effectiveOnStatus, "capability_selected", "已选择可用能力", "", "")
+
 	// Phase 1-5: Build agent context with all memory layers.
 	actx, err := s.contextBuilder.Build(ctx, AgentContextInput{
 		HrID:           req.HrId,
@@ -311,11 +324,16 @@ func (s *AIService) runToolCallingChat(ctx context.Context, req *pb.ChatRequest,
 		CurrentMessage: req.Message,
 	})
 	if err != nil {
+		if recorder != nil {
+			recorder.finish(ctx, agentRunStatusFailed, "", "context_build_failed", err.Error())
+		}
 		return "", metadata, err
 	}
 
 	// If agent config has a bound prompt template, it takes priority.
-	runtimeCfg := s.getAgentRuntimeConfig(ctx, "hr_recruiting_agent")
+	if runtimeCfg == nil {
+		runtimeCfg = s.getAgentRuntimeConfig(ctx, "hr_recruiting_agent")
+	}
 	if runtimeCfg.SystemPrompt != "" {
 		actx.SystemPromptTemplate = runtimeCfg.SystemPrompt
 	}
@@ -331,8 +349,16 @@ func (s *AIService) runToolCallingChat(ctx context.Context, req *pb.ChatRequest,
 
 	// Save user message before the model call so it persists even on cancel.
 	if !userAlreadyPersisted {
-		if err := s.chats.Add(ctx, &model.AIChatHistory{SessionID: session.ID, HrID: req.HrId, Role: "user", Content: req.Message}); err != nil {
+		userHistory := &model.AIChatHistory{SessionID: session.ID, HrID: req.HrId, Role: "user", Content: req.Message}
+		if err := s.chats.Add(ctx, userHistory); err != nil {
+			if recorder != nil {
+				recorder.finish(ctx, agentRunStatusFailed, "", "persist_failed", err.Error())
+				sendAgentRunStatus(effectiveOnStatus, "agent_run_done", "Agent run 保存失败", "persist_failed", "")
+			}
 			return "", metadata, err
+		}
+		if recorder != nil && userHistory.ID > 0 {
+			_ = s.agentRuns.UpdateRunMessageID(ctx, recorder.runID, uint64(userHistory.ID))
 		}
 	}
 
@@ -349,10 +375,13 @@ func (s *AIService) runToolCallingChat(ctx context.Context, req *pb.ChatRequest,
 	if aiClient == nil {
 		aiClient = s.ai
 	}
+	if recorder != nil {
+		recorder.markRunning(ctx)
+	}
 	if s.agentRuntime == "adk" {
-		reply, metadata, err = s.runADKChat(ctx, req, session, messages, wrappedDelta, onStatus, aiClient)
+		reply, metadata, err = s.runADKChat(ctx, req, session, messages, wrappedDelta, effectiveOnStatus, aiClient, recorder)
 	} else {
-		reply, metadata, err = s.runLegacyChat(ctx, req, session, messages, wrappedDelta, onStatus, aiClient)
+		reply, metadata, err = s.runLegacyChat(ctx, req, session, messages, wrappedDelta, effectiveOnStatus, aiClient, recorder)
 	}
 	if err != nil {
 		if isCanceledError(err) {
@@ -360,17 +389,26 @@ func (s *AIService) runToolCallingChat(ctx context.Context, req *pb.ChatRequest,
 			if partial != "" {
 				saveCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 				defer cancel()
-				_ = s.chats.Add(saveCtx, &model.AIChatHistory{SessionID: session.ID, HrID: req.HrId, Role: "assistant", Content: partial + "\n\n（回复已中断）"})
+				_ = s.chats.Add(saveCtx, &model.AIChatHistory{SessionID: session.ID, HrID: req.HrId, Role: "assistant", Content: partial + "\n\n（回复已中断）", ModelID: modelID, ModelName: modelName})
 			}
 			logger.L().Info("chat canceled, partial reply saved if non-empty", zap.Int("partial_chars", len(partial)))
+			if recorder != nil {
+				recorder.recordRecovery(ctx, "canceled", "用户中断或连接关闭")
+				recorder.finish(ctx, agentRunStatusCanceled, partial, "canceled", err.Error())
+				sendAgentRunStatus(effectiveOnStatus, "agent_run_done", "Agent run 已取消", "canceled", "")
+			}
 			return reply, metadata, err
 		}
 		// Phase 3: deterministic fallback from collected tool traces when LLM fails.
 		if len(metadata.ToolTraces) > 0 {
 			fallback := ai.BuildHRFallbackReply(metadata.ToolTraces)
 			aiErr := ai.ClassifyAIError(err)
-			if onStatus != nil {
-				_ = onStatus("partial_done", "已基于已查询数据给出保守回复", string(aiErr.Type), "")
+			_ = effectiveOnStatus("fallback", "已基于已查询数据给出保守回复", string(aiErr.Type), "")
+			_ = effectiveOnStatus("partial_done", "已基于已查询数据给出保守回复", string(aiErr.Type), "")
+			if recorder != nil {
+				if !fallbackObserved {
+					recorder.recordFallback(ctx, "llm_failed_after_tools", string(aiErr.Type), err.Error(), len(metadata.ToolTraces))
+				}
 			}
 			logger.L().Warn("[AI兜底] LLM 失败，使用工具结果生成兜底回复",
 				zap.String("error_type", string(aiErr.Type)),
@@ -382,8 +420,17 @@ func (s *AIService) runToolCallingChat(ctx context.Context, req *pb.ChatRequest,
 			}
 			saveCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 			defer cancel()
-			_ = s.chats.Add(saveCtx, &model.AIChatHistory{SessionID: session.ID, HrID: req.HrId, Role: "assistant", Content: fallback})
+			_ = s.chats.Add(saveCtx, &model.AIChatHistory{SessionID: session.ID, HrID: req.HrId, Role: "assistant", Content: fallback, ModelID: modelID, ModelName: modelName})
+			if recorder != nil {
+				recorder.finish(ctx, agentRunStatusPartial, fallback, string(aiErr.Type), err.Error())
+				sendAgentRunStatus(effectiveOnStatus, "agent_run_done", "Agent run 已部分完成", string(aiErr.Type), "")
+			}
 			return fallback, metadata, nil
+		}
+		if recorder != nil {
+			aiErr := ai.ClassifyAIError(err)
+			recorder.finish(ctx, agentRunStatusFailed, reply, string(aiErr.Type), err.Error())
+			sendAgentRunStatus(effectiveOnStatus, "agent_run_done", "Agent run 失败", string(aiErr.Type), "")
 		}
 		return reply, metadata, wrapAIError(err)
 	}
@@ -393,7 +440,11 @@ func (s *AIService) runToolCallingChat(ctx context.Context, req *pb.ChatRequest,
 	)
 
 	// Save full assistant reply on success.
-	if err := s.chats.Add(ctx, &model.AIChatHistory{SessionID: session.ID, HrID: req.HrId, Role: "assistant", Content: reply}); err != nil {
+	if err := s.chats.Add(ctx, &model.AIChatHistory{SessionID: session.ID, HrID: req.HrId, Role: "assistant", Content: reply, ModelID: modelID, ModelName: modelName}); err != nil {
+		if recorder != nil {
+			recorder.finish(ctx, agentRunStatusFailed, reply, "persist_failed", err.Error())
+			sendAgentRunStatus(effectiveOnStatus, "agent_run_done", "Agent run 保存失败", "persist_failed", "")
+		}
 		return reply, metadata, err
 	}
 
@@ -402,6 +453,14 @@ func (s *AIService) runToolCallingChat(ctx context.Context, req *pb.ChatRequest,
 
 	// Async write long-term memory if applicable.
 	go s.maybeWriteMemory(req.HrId, req.ApplicationId, reply, metadata)
+	if recorder != nil {
+		status := agentRunStatusSucceeded
+		if fallbackObserved {
+			status = agentRunStatusPartial
+		}
+		recorder.finish(ctx, status, reply, "", "")
+		sendAgentRunStatus(effectiveOnStatus, "agent_run_done", "Agent run 已完成", "", "")
+	}
 
 	return reply, metadata, nil
 }
@@ -415,6 +474,7 @@ func (s *AIService) runADKChat(
 	onDelta func(string) error,
 	onStatus func(string, string, string, string) error,
 	aiClient *ai.Client,
+	recorder *agentRunRecorder,
 ) (string, ai.ToolMetadata, error) {
 	if req.HrId <= 0 {
 		return "", ai.ToolMetadata{}, fmt.Errorf("hrID must be positive, got %d", req.HrId)
@@ -424,7 +484,7 @@ func (s *AIService) runADKChat(
 	adkTools, err := s.getOrInitADKTools()
 	if err != nil {
 		logger.L().Warn("[ADK降级] 工具创建失败，自动切换到 Legacy 路径", zap.Error(err))
-		return s.runLegacyChat(ctx, req, session, messages, onDelta, onStatus, aiClient)
+		return s.runLegacyChat(ctx, req, session, messages, onDelta, onStatus, aiClient, recorder)
 	}
 
 	state := &ai.AgentRunState{}
@@ -434,12 +494,17 @@ func (s *AIService) runADKChat(
 	ctx = ai.WithOwnerID(ctx, req.HrId)
 	ctx = ai.WithAgentRunState(ctx, state)
 
-	traceFn := func(toolCallID, toolName, argsJSON, resultContent string, execErr error) {
-		go s.recordToolTrace(session.ID, req.HrId, toolCallID, toolName, argsJSON, resultContent, execErr)
-	}
-
 	// Read agent runtime config and filter tools
 	runtimeCfg := s.getAgentRuntimeConfig(ctx, "hr_recruiting_agent")
+	traceFn := func(toolCallID, toolName, argsJSON, resultContent string, duration time.Duration, execErr error) {
+		stepID := uint64(0)
+		if recorder != nil {
+			source, key := resolveCapabilityForTool(runtimeCfg, toolName)
+			stepID = recorder.recordTool(ctx, toolCallID, toolName, argsJSON, resultContent, source, key, duration, execErr)
+		}
+		go s.recordToolTrace(session.ID, req.HrId, toolCallID, toolName, argsJSON, resultContent, duration, recorderRunID(recorder), stepID, execErr)
+	}
+
 	if runtimeCfg.HasConfig {
 		if len(runtimeCfg.ToolNames) > 0 {
 			adkTools = filterToolsByName(adkTools, runtimeCfg.ToolNames)
@@ -452,9 +517,8 @@ func (s *AIService) runADKChat(
 		maxIterations = runtimeCfg.MaxIterations
 	}
 
-	// Merge MCP tools from enabled MCP servers (same as runLegacyChat path).
-	if s.mcpSvc != nil {
-		if mcpTools, err := s.mcpSvc.CollectEnabledMCPCallableTools(ctx); err == nil && len(mcpTools) > 0 {
+	if s.mcpSvc != nil && len(runtimeCfg.MCPCapabilityKeys) > 0 {
+		if mcpTools, err := s.mcpSvc.CollectBoundMCPCallableTools(ctx, runtimeCfg.MCPCapabilityKeys); err == nil && len(mcpTools) > 0 {
 			merged := make([]tool.BaseTool, 0, len(adkTools)+len(mcpTools))
 			merged = append(merged, adkTools...)
 			merged = append(merged, mcpTools...)
@@ -463,6 +527,19 @@ func (s *AIService) runADKChat(
 	}
 
 	instruction := extractSystemInstruction(messages)
+	if s.skillSvc != nil && len(runtimeCfg.SkillCapabilityKeys) > 0 {
+		if skillTools, skillInstructions, err := s.skillSvc.CollectBoundSkillCallableTools(ctx, runtimeCfg.SkillCapabilityKeys); err == nil {
+			if len(skillTools) > 0 {
+				merged := make([]tool.BaseTool, 0, len(adkTools)+len(skillTools))
+				merged = append(merged, adkTools...)
+				merged = append(merged, skillTools...)
+				adkTools = merged
+			}
+			instruction = appendSkillInstructions(instruction, skillInstructions)
+		} else {
+			logger.L().Warn("collect bound SKILL callable tools failed", zap.Error(err))
+		}
+	}
 	logger.L().Info("[提示词诊断] HR Agent 当前使用的 System Prompt",
 		zap.Int("总字符数", len([]rune(instruction))),
 		zap.String("前200字符", truncateString(instruction, 200)),
@@ -490,6 +567,7 @@ func (s *AIService) runLegacyChat(
 	onDelta func(string) error,
 	onStatus func(string, string, string, string) error,
 	aiClient *ai.Client,
+	recorder *agentRunRecorder,
 ) (string, ai.ToolMetadata, error) {
 	runtimeCfg := s.getAgentRuntimeConfig(ctx, "hr_recruiting_agent")
 	tools := ai.RecruitingTools()
@@ -501,18 +579,42 @@ func (s *AIService) runLegacyChat(
 		}
 	}
 
-	// Merge MCP tools from enabled MCP servers
-	if s.mcpSvc != nil {
-		if mcpTools, err := s.mcpSvc.CollectEnabledMCPToolInfos(ctx); err == nil && len(mcpTools) > 0 {
+	if s.mcpSvc != nil && len(runtimeCfg.MCPCapabilityKeys) > 0 {
+		if mcpTools, err := s.mcpSvc.CollectBoundMCPToolInfos(ctx, runtimeCfg.MCPCapabilityKeys); err == nil && len(mcpTools) > 0 {
 			tools = append(tools, mcpTools...)
 		}
 	}
-
-	traceFn := func(toolCallID, toolName, argsJSON, resultContent string, execErr error) {
-		go s.recordToolTrace(session.ID, req.HrId, toolCallID, toolName, argsJSON, resultContent, execErr)
+	var executor ai.ToolRunner = s.toolExecutor
+	if s.skillSvc != nil && len(runtimeCfg.SkillCapabilityKeys) > 0 {
+		if skillCallableTools, skillInstructions, err := s.skillSvc.CollectBoundSkillCallableTools(ctx, runtimeCfg.SkillCapabilityKeys); err == nil {
+			if len(skillCallableTools) > 0 {
+				for _, t := range skillCallableTools {
+					info, err := t.Info(ctx)
+					if err == nil {
+						tools = append(tools, info)
+					}
+				}
+				executor = &compositeToolRunner{
+					primary:    executor,
+					skillTools: skillInvokableToolsByName(ctx, skillCallableTools),
+				}
+			}
+			messages = appendSkillInstructionsToMessages(messages, skillInstructions)
+		} else {
+			logger.L().Warn("collect bound SKILL tool infos failed", zap.Error(err))
+		}
 	}
 
-	return aiClient.ChatWithTools(ctx, messages, tools, s.toolExecutor, req.HrId, onDelta, traceFn, onStatus)
+	traceFn := func(toolCallID, toolName, argsJSON, resultContent string, duration time.Duration, execErr error) {
+		stepID := uint64(0)
+		if recorder != nil {
+			source, key := resolveCapabilityForTool(runtimeCfg, toolName)
+			stepID = recorder.recordTool(ctx, toolCallID, toolName, argsJSON, resultContent, source, key, duration, execErr)
+		}
+		go s.recordToolTrace(session.ID, req.HrId, toolCallID, toolName, argsJSON, resultContent, duration, recorderRunID(recorder), stepID, execErr)
+	}
+
+	return aiClient.ChatWithTools(ctx, messages, tools, executor, req.HrId, onDelta, traceFn, onStatus)
 }
 
 // extractSystemInstruction pulls the system prompt content from the messages
@@ -525,6 +627,62 @@ func extractSystemInstruction(messages []*schema.Message) string {
 		}
 	}
 	return ""
+}
+
+func appendSkillInstructions(base string, skillInstructions []string) string {
+	if len(skillInstructions) == 0 {
+		return base
+	}
+	addition := "Bound SKILL instructions:\n" + strings.Join(skillInstructions, "\n\n")
+	if strings.TrimSpace(base) == "" {
+		return addition
+	}
+	return base + "\n\n" + addition
+}
+
+func appendSkillInstructionsToMessages(messages []*schema.Message, skillInstructions []string) []*schema.Message {
+	if len(skillInstructions) == 0 {
+		return messages
+	}
+	addition := "Bound SKILL instructions:\n" + strings.Join(skillInstructions, "\n\n")
+	copied := append([]*schema.Message(nil), messages...)
+	for _, m := range copied {
+		if m.Role == schema.System {
+			m.Content = appendSkillInstructions(m.Content, skillInstructions)
+			return copied
+		}
+	}
+	return append([]*schema.Message{schema.SystemMessage(addition)}, copied...)
+}
+
+type compositeToolRunner struct {
+	primary    ai.ToolRunner
+	skillTools map[string]tool.InvokableTool
+}
+
+func (r *compositeToolRunner) Execute(ctx context.Context, hrID int64, toolName string, args map[string]any) (ai.ToolResult, error) {
+	if t, ok := r.skillTools[toolName]; ok {
+		payload, _ := json.Marshal(args)
+		result, err := t.InvokableRun(ctx, string(payload))
+		return ai.ToolResult{Content: result}, err
+	}
+	return r.primary.Execute(ctx, hrID, toolName, args)
+}
+
+func skillInvokableToolsByName(ctx context.Context, tools []tool.BaseTool) map[string]tool.InvokableTool {
+	result := map[string]tool.InvokableTool{}
+	for _, t := range tools {
+		invokable, ok := t.(tool.InvokableTool)
+		if !ok {
+			continue
+		}
+		info, err := t.Info(ctx)
+		if err != nil || info == nil || info.Name == "" {
+			continue
+		}
+		result[info.Name] = invokable
+	}
+	return result
 }
 
 func (s *AIService) getOrCreateStreamChatSession(ctx context.Context, req *pb.ChatRequest) (*model.AIChatSession, error) {
@@ -559,18 +717,25 @@ func (s *AIService) AnalyzeApplication(ctx context.Context, req *pb.AnalyzeAppli
 	}
 	startTime := time.Now()
 	inputChars := len([]rune(input.Question)) + len([]rune(input.JobTitle)) + len([]rune(input.ResumeText))
-	reply, err := s.ai.GenerateApplicationAnalysis(ctx, input, nil)
+
+	runtimeCfg := s.getAgentRuntimeConfig(ctx, "hr_recruiting_agent")
+	runtimeClient, err := s.resolveRuntimeAIClient(ctx, req.GetModelId(), runtimeCfg)
+	if err != nil {
+		return &pb.AnalyzeApplicationResponse{Code: errs.ErrBadRequest, Msg: fmt.Sprintf("模型不可用：%v", err)}, nil
+	}
+
+	reply, err := runtimeClient.client.GenerateApplicationAnalysis(ctx, input, nil)
 	if err != nil {
 		s.writeHRUsageAudit(ctx, AuditLogEntry{
 			UserID: req.HrId, Role: 2, ServiceType: "ai_analyze",
-			Endpoint: "/hr/ai/analyze-application", Provider: "dashscope", Model: s.ai.ModelName(),
+			Endpoint: "/hr/ai/analyze-application", Provider: "dashscope", Model: runtimeClient.modelName,
 			RequestChars: inputChars, Status: "error", CostMs: int(time.Since(startTime).Milliseconds()),
 		}, req.HrId, "application", req.ApplicationId)
 		return nil, wrapAIError(err)
 	}
 	s.writeHRUsageAudit(ctx, AuditLogEntry{
 		UserID: req.HrId, Role: 2, ServiceType: "ai_analyze",
-		Endpoint: "/hr/ai/analyze-application", Provider: "dashscope", Model: s.ai.ModelName(),
+		Endpoint: "/hr/ai/analyze-application", Provider: "dashscope", Model: runtimeClient.modelName,
 		RequestChars: inputChars, ResponseChars: len([]rune(reply)), CostMs: int(time.Since(startTime).Milliseconds()),
 	}, req.HrId, "application", req.ApplicationId)
 	return &pb.AnalyzeApplicationResponse{
@@ -670,6 +835,13 @@ func currentMessageAlreadyPersisted(actx *AgentContext, message string) bool {
 	return last.Role == "user" && strings.TrimSpace(last.Content) == strings.TrimSpace(message)
 }
 
+func sendAgentRunStatus(onStatus func(string, string, string, string) error, eventType, eventMessage, errorType, toolName string) {
+	if onStatus == nil {
+		return
+	}
+	_ = onStatus(eventType, eventMessage, errorType, toolName)
+}
+
 func isCanceledError(err error) bool {
 	return errors.Is(err, context.Canceled) || status.Code(err) == codes.Canceled
 }
@@ -716,7 +888,7 @@ func (s *AIService) getOrCreateChatSession(ctx context.Context, hrID, sessionID 
 
 // recordToolTrace persists a single tool execution trace asynchronously.
 // Failures are logged but do not affect the chat flow.
-func (s *AIService) recordToolTrace(sessionID, hrID int64, toolCallID, toolName, argsJSON, resultContent string, execErr error) {
+func (s *AIService) recordToolTrace(sessionID, hrID int64, toolCallID, toolName, argsJSON, resultContent string, duration time.Duration, runID, stepID uint64, execErr error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
@@ -731,15 +903,18 @@ func (s *AIService) recordToolTrace(sessionID, hrID int64, toolCallID, toolName,
 	resultSummary := truncateResultSummary(resultContent, 500)
 
 	trace := &model.AIToolTrace{
-		SessionID:     uint64(sessionID),
-		HrID:          uint64(hrID),
-		ToolCallID:    toolCallID,
-		ToolName:      toolName,
-		ArgumentsJSON: argsJSON,
-		ResultJSON:    resultContent,
-		ResultSummary: resultSummary,
-		Status:        status,
-		ErrorMessage:  errMsg,
+		SessionID:      uint64(sessionID),
+		HrID:           uint64(hrID),
+		AgentRunID:     optionalUint64(runID),
+		AgentRunStepID: optionalUint64(stepID),
+		ToolCallID:     toolCallID,
+		ToolName:       toolName,
+		ArgumentsJSON:  argsJSON,
+		ResultJSON:     resultContent,
+		ResultSummary:  resultSummary,
+		Status:         status,
+		DurationMs:     duration.Milliseconds(),
+		ErrorMessage:   errMsg,
 	}
 
 	if err := s.toolTraces.Create(ctx, trace); err != nil {
@@ -755,6 +930,81 @@ func (s *AIService) recordToolTrace(sessionID, hrID int64, toolCallID, toolName,
 			zap.Int("result_chars", len([]rune(resultContent))),
 		)
 	}
+}
+
+func recorderRunID(r *agentRunRecorder) uint64 {
+	if r == nil {
+		return 0
+	}
+	return r.runID
+}
+
+func optionalUint64(v uint64) *uint64 {
+	if v == 0 {
+		return nil
+	}
+	return &v
+}
+
+func toPBAgentRun(run model.AgentRun, steps []model.AgentRunStep) *pb.AgentRunItem {
+	item := &pb.AgentRunItem{
+		Id:           int64(run.ID),
+		SessionId:    int64(run.SessionID),
+		HrId:         int64(run.HrID),
+		AgentType:    run.AgentType,
+		AgentName:    run.AgentName,
+		ModelName:    run.ModelName,
+		Status:       run.Status,
+		PlanJson:     run.PlanJSON,
+		FinalAnswer:  run.FinalAnswer,
+		ErrorType:    run.ErrorType,
+		ErrorMessage: run.ErrorMessage,
+		StartedAt:    formatTime(run.StartedAt),
+		CreatedAt:    formatTime(run.CreatedAt),
+		Steps:        make([]*pb.AgentRunStepItem, 0, len(steps)),
+	}
+	if run.MessageID != nil {
+		item.MessageId = int64(*run.MessageID)
+	}
+	if run.HistoryID != nil {
+		item.HistoryId = int64(*run.HistoryID)
+	}
+	if run.AgentID != nil {
+		item.AgentId = int64(*run.AgentID)
+	}
+	if run.ModelID != nil {
+		item.ModelId = int64(*run.ModelID)
+	}
+	if run.CompletedAt != nil {
+		item.CompletedAt = formatTime(*run.CompletedAt)
+	}
+	for _, step := range steps {
+		item.Steps = append(item.Steps, toPBAgentRunStep(step))
+	}
+	return item
+}
+
+func toPBAgentRunStep(step model.AgentRunStep) *pb.AgentRunStepItem {
+	item := &pb.AgentRunStepItem{
+		Id:               int64(step.ID),
+		RunId:            int64(step.RunID),
+		StepIndex:        int32(step.StepIndex),
+		StepType:         step.StepType,
+		CapabilitySource: step.CapabilitySource,
+		CapabilityKey:    step.CapabilityKey,
+		ToolName:         step.ToolName,
+		InputJson:        desensitizeArgsJSON(step.InputJSON),
+		OutputJson:       desensitizeResultContent(step.OutputJSON),
+		Status:           step.Status,
+		DurationMs:       step.DurationMs,
+		ErrorMessage:     step.ErrorMessage,
+		StartedAt:        formatTime(step.StartedAt),
+		CreatedAt:        formatTime(step.CreatedAt),
+	}
+	if step.CompletedAt != nil {
+		item.CompletedAt = formatTime(*step.CompletedAt)
+	}
+	return item
 }
 
 // maybeRefreshSummary checks if the session needs summary refresh and triggers it.
@@ -905,11 +1155,84 @@ func (s *AIService) InvalidateCachedADKTools() {
 	s.cachedADKTools = nil
 }
 
+func (s *AIService) resolveRuntimeAIClient(ctx context.Context, requestedModelID int64, runtimeCfg *agentRuntimeConfig) (*runtimeAIClient, error) {
+	result := &runtimeAIClient{
+		client:    s.ai,
+		modelName: s.defaultRuntimeModelName(),
+	}
+	var temperatureOverride *float64
+	if runtimeCfg != nil {
+		temperatureOverride = runtimeCfg.TemperatureOverride
+	}
+
+	if requestedModelID > 0 {
+		if s.llmConfigSvc == nil {
+			return nil, fmt.Errorf("runtime model config service is unavailable")
+		}
+		providerType, apiKey, modelName, baseURL, err := s.llmConfigSvc.GetModelDetails(ctx, requestedModelID)
+		if err != nil {
+			return nil, err
+		}
+		cm, err := ai.NewChatModelWithTemperature(ctx, providerType, apiKey, modelName, baseURL, s.ai.Timeout(), temperatureOverride)
+		if err != nil {
+			return nil, fmt.Errorf("create chat model %d: %w", requestedModelID, err)
+		}
+		modelID := requestedModelID
+		result.client = s.ai.CloneWithModel(modelName, cm)
+		result.modelID = &modelID
+		result.modelName = modelName
+		logger.L().Info("runtime model selected", zap.Int64("model_id", requestedModelID), zap.String("model", modelName))
+		return result, nil
+	}
+
+	if temperatureOverride == nil {
+		if s.llmConfigSvc != nil {
+			if modelID, _, _, modelName, _, err := s.llmConfigSvc.GetDefaultModelDetails(ctx); err == nil && modelName == result.modelName {
+				result.modelID = &modelID
+			}
+		}
+		return result, nil
+	}
+	if s.llmConfigSvc == nil {
+		return nil, fmt.Errorf("runtime model config service is unavailable for temperature_override")
+	}
+	modelID, providerType, apiKey, modelName, baseURL, err := s.llmConfigSvc.GetDefaultModelDetails(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("default model details are unavailable for temperature_override: %w", err)
+	}
+	cm, err := ai.NewChatModelWithTemperature(ctx, providerType, apiKey, modelName, baseURL, s.ai.Timeout(), temperatureOverride)
+	if err != nil {
+		return nil, fmt.Errorf("create default chat model for temperature_override: %w", err)
+	}
+	result.client = s.ai.CloneWithModel(modelName, cm)
+	result.modelID = &modelID
+	result.modelName = modelName
+	return result, nil
+}
+
+func (s *AIService) defaultRuntimeModelName() string {
+	if s != nil && s.ai != nil {
+		return s.ai.ModelName()
+	}
+	return "unknown"
+}
+
+func requestedModelIDPtr(modelID int64) *int64 {
+	if modelID <= 0 {
+		return nil
+	}
+	return &modelID
+}
+
 // agentRuntimeConfig holds resolved runtime configuration for an agent.
 type agentRuntimeConfig struct {
-		HasConfig           bool // true when an agent config record exists in DB
+	HasConfig           bool // true when an agent config record exists in DB
+	AgentID             int64
+	AgentName           string
 	SystemPrompt        string
 	ToolNames           []string
+	MCPCapabilityKeys   map[string]bool
+	SkillCapabilityKeys map[string]bool
 	MaxIterations       int
 	TemperatureOverride *float64
 }
@@ -923,20 +1246,37 @@ func (s *AIService) getAgentRuntimeConfig(ctx context.Context, agentType string)
 	if s.agentConfigRepo != nil {
 		agentCfg, err := s.agentConfigRepo.GetByAgentType(ctx, agentType)
 		if err == nil && agentCfg != nil && agentCfg.IsEnabled == 1 {
-				cfg.HasConfig = true
-				if agentCfg.MaxIterations > 0 {
+			cfg.HasConfig = true
+			cfg.AgentID = agentCfg.ID
+			cfg.AgentName = agentCfg.Name
+			if agentCfg.MaxIterations > 0 {
 				cfg.MaxIterations = int(agentCfg.MaxIterations)
 			}
 			if agentCfg.TemperatureOverride != nil {
 				cfg.TemperatureOverride = agentCfg.TemperatureOverride
 			}
 
-			// 2. Read tool bindings
-			bindings, err := s.agentConfigRepo.ListToolBindings(ctx, agentCfg.ID)
+			// 2. Read unified capability bindings. Legacy tool bindings are
+			// exposed as builtin capabilities by the repository fallback.
+			bindings, err := s.agentConfigRepo.ListCapabilityBindings(ctx, agentCfg.ID)
 			if err == nil {
 				for _, b := range bindings {
-					if b.IsEnabled == 1 {
-						cfg.ToolNames = append(cfg.ToolNames, b.ToolName)
+					if b.IsEnabled != 1 {
+						continue
+					}
+					switch b.CapabilitySource {
+					case "builtin":
+						cfg.ToolNames = append(cfg.ToolNames, b.CapabilityKey)
+					case "mcp":
+						if cfg.MCPCapabilityKeys == nil {
+							cfg.MCPCapabilityKeys = map[string]bool{}
+						}
+						cfg.MCPCapabilityKeys[b.CapabilityKey] = true
+					case "skill":
+						if cfg.SkillCapabilityKeys == nil {
+							cfg.SkillCapabilityKeys = map[string]bool{}
+						}
+						cfg.SkillCapabilityKeys[b.CapabilityKey] = true
 					}
 				}
 			}
@@ -981,18 +1321,58 @@ func (s *AIService) GetToolTraces(ctx context.Context, req *pb.GetToolTracesRequ
 	items := make([]*pb.ToolTraceItem, 0, len(traces))
 	for _, t := range traces {
 		items = append(items, &pb.ToolTraceItem{
-			Id:             int64(t.ID),
-			SessionId:      int64(t.SessionID),
-			ToolName:       t.ToolName,
-			ArgsJson:       desensitizeArgsJSON(t.ArgumentsJSON),
-			ResultContent:  desensitizeResultContent(t.ResultJSON),
-			DurationMs:     0, // duration not recorded yet; reserved field
-			ErrorMsg:       t.ErrorMessage,
-			CreatedAt:      t.CreatedAt.Format(time.RFC3339),
+			Id:            int64(t.ID),
+			SessionId:     int64(t.SessionID),
+			ToolName:      t.ToolName,
+			ArgsJson:      desensitizeArgsJSON(t.ArgumentsJSON),
+			ResultContent: desensitizeResultContent(t.ResultJSON),
+			DurationMs:    t.DurationMs,
+			ErrorMsg:      t.ErrorMessage,
+			CreatedAt:     t.CreatedAt.Format(time.RFC3339),
 		})
 	}
 
 	return &pb.GetToolTracesResponse{Code: errs.OK, Msg: "success", List: items}, nil
+}
+
+func (s *AIService) GetAgentRuns(ctx context.Context, req *pb.GetAgentRunsRequest) (*pb.GetAgentRunsResponse, error) {
+	if req.SessionId <= 0 {
+		return &pb.GetAgentRunsResponse{Code: errs.ErrBadRequest, Msg: "session_id 不能为空"}, nil
+	}
+	if s.agentRuns == nil {
+		return &pb.GetAgentRunsResponse{Code: errs.OK, Msg: "success", List: []*pb.AgentRunItem{}}, nil
+	}
+	session, err := s.chats.GetSessionOwned(ctx, req.HrId, req.SessionId)
+	if err != nil {
+		logger.L().Error("get session owned failed", zap.Int64("hr_id", req.HrId), zap.Int64("session_id", req.SessionId), zap.Error(err))
+		return nil, err
+	}
+	if session == nil {
+		return &pb.GetAgentRunsResponse{Code: errs.ErrForbidden, Msg: "会话不存在或无权限访问"}, nil
+	}
+	runs, err := s.agentRuns.ListRunsBySession(ctx, req.HrId, req.SessionId, 100)
+	if err != nil {
+		logger.L().Error("list agent runs failed", zap.Int64("hr_id", req.HrId), zap.Int64("session_id", req.SessionId), zap.Error(err))
+		return nil, err
+	}
+	runIDs := make([]uint64, 0, len(runs))
+	for _, run := range runs {
+		runIDs = append(runIDs, run.ID)
+	}
+	steps, err := s.agentRuns.ListStepsByRunIDs(ctx, runIDs)
+	if err != nil {
+		logger.L().Error("list agent run steps failed", zap.Int64("hr_id", req.HrId), zap.Int64("session_id", req.SessionId), zap.Error(err))
+		return nil, err
+	}
+	stepsByRun := make(map[uint64][]model.AgentRunStep, len(runs))
+	for _, step := range steps {
+		stepsByRun[step.RunID] = append(stepsByRun[step.RunID], step)
+	}
+	items := make([]*pb.AgentRunItem, 0, len(runs))
+	for _, run := range runs {
+		items = append(items, toPBAgentRun(run, stepsByRun[run.ID]))
+	}
+	return &pb.GetAgentRunsResponse{Code: errs.OK, Msg: "success", List: items}, nil
 }
 
 // desensitizeArgsJSON masks sensitive fields (phone, ID card) in tool argument JSON.

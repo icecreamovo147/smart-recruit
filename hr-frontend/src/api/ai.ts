@@ -3,11 +3,11 @@ import router from '@/router'
 import { clearLocalAuthCache } from '@/utils/token'
 import { useAuthStore } from '@/stores/auth'
 import { BusinessError } from '@/types/api'
-import type { StreamHandlers, StreamPayload, ChatSessionListItem, ToolTraceItem } from '@/types/ai'
+import type { StreamHandlers, StreamPayload, ChatSessionListItem, ToolTraceItem, AgentRunItem } from '@/types/ai'
 import request from './request'
 import { silentRefresh } from './authRefresh'
 
-export const sendMessage = (data: { message: string; application_id?: number; session_id?: number }): Promise<{
+export const sendMessage = (data: { message: string; application_id?: number; session_id?: number; model_id?: number }): Promise<{
   reply: string
   created_at: string
   action?: string
@@ -20,10 +20,10 @@ export const sendMessage = (data: { message: string; application_id?: number; se
 }> => request.post('/api/v1/hr/ai/chat', data)
 
 export const getHistory = (params: { page: number; page_size: number }): Promise<{
-  list: { role: string; content: string; created_at: string }[]
+  list: { role: string; content: string; created_at: string; model_id?: number; model_name?: string }[]
 }> => request.get('/api/v1/hr/ai/history', { params })
 
-export const analyzeApplication = (data: { application_id: number }): Promise<{
+export const analyzeApplication = (data: { application_id: number; model_id?: number }): Promise<{
   reply: string
   candidate_name: string
   job_title: string
@@ -42,12 +42,12 @@ export const createSession = (data: { title?: string }): Promise<{
 }> => request.post('/api/v1/hr/ai/sessions', data)
 
 export const getSessionMessages = (sessionId: number, params: { page: number; page_size: number }): Promise<{
-  list: { role: string; content: string; created_at: string }[]
+  list: { role: string; content: string; created_at: string; model_id?: number; model_name?: string }[]
 }> => request.get(`/api/v1/hr/ai/sessions/${sessionId}/messages`, { params })
 
-export const createApplicationAnalysisSession = (data: { application_id: number }): Promise<{
+export const createApplicationAnalysisSession = (data: { application_id: number; model_id?: number }): Promise<{
   session: ChatSessionListItem
-  messages: { role: string; content: string; created_at: string }[]
+  messages: { role: string; content: string; created_at: string; model_id?: number; model_name?: string }[]
 }> => request.post('/api/v1/hr/ai/application-analysis-sessions', data)
 
 export const updateSession = (sessionId: number, data: { title: string }): Promise<void> =>
@@ -59,6 +59,10 @@ export const deleteSession = (sessionId: number): Promise<void> =>
 export const getToolTraces = (sessionId: number): Promise<{
   list: ToolTraceItem[]
 }> => request.get(`/api/v1/hr/ai/sessions/${sessionId}/tool-traces`)
+
+export const getAgentRuns = (sessionId: number): Promise<{
+  list: AgentRunItem[]
+}> => request.get(`/api/v1/hr/ai/sessions/${sessionId}/agent-runs`)
 
 const friendlyStreamMsg = (code: number, msg: string): string => {
   if (code === 42901) return msg || '今日 AI 使用次数已达上限，请明天再试'

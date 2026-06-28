@@ -94,7 +94,7 @@ func (m *RecruitingAgentMiddleware) WrapInvokableToolCall(
 		})
 
 		if m.OnToolExecuted != nil {
-			m.OnToolExecuted(tCtx.CallID, tCtx.Name, argumentsInJSON, resultContent, execErr)
+			m.OnToolExecuted(tCtx.CallID, tCtx.Name, argumentsInJSON, resultContent, cost, execErr)
 		}
 
 		sendStatus(m.OnStatus, "tool_done", "数据查询完成", "", "")

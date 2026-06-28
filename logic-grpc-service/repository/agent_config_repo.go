@@ -9,7 +9,7 @@ import (
 	"logic-grpc-service/model"
 )
 
-// AgentConfigRepo handles database operations for agent_configs and agent_tool_bindings.
+// AgentConfigRepo handles database operations for agent configs and capability bindings.
 type AgentConfigRepo struct {
 	db *gorm.DB
 }
@@ -87,6 +87,9 @@ func (r *AgentConfigRepo) ReplaceToolBindings(ctx context.Context, agentID int64
 		if err := tx.Where("agent_id = ?", agentID).Delete(&model.AgentToolBinding{}).Error; err != nil {
 			return fmt.Errorf("delete existing bindings: %w", err)
 		}
+		if err := tx.Where("agent_id = ? AND capability_source = ?", agentID, "builtin").Delete(&model.AgentCapabilityBinding{}).Error; err != nil {
+			return fmt.Errorf("delete existing builtin capability bindings: %w", err)
+		}
 		for _, name := range toolNames {
 			if err := tx.Create(&model.AgentToolBinding{
 				AgentID:   agentID,
@@ -94,6 +97,76 @@ func (r *AgentConfigRepo) ReplaceToolBindings(ctx context.Context, agentID int64
 				IsEnabled: 1,
 			}).Error; err != nil {
 				return fmt.Errorf("create binding for %s: %w", name, err)
+			}
+			if err := tx.Create(&model.AgentCapabilityBinding{
+				AgentID:          agentID,
+				CapabilitySource: "builtin",
+				CapabilityKey:    name,
+				IsEnabled:        1,
+			}).Error; err != nil {
+				return fmt.Errorf("create capability binding for %s: %w", name, err)
+			}
+		}
+		return nil
+	})
+}
+
+func (r *AgentConfigRepo) ListCapabilityBindings(ctx context.Context, agentID int64) ([]model.AgentCapabilityBinding, error) {
+	var list []model.AgentCapabilityBinding
+	err := r.db.WithContext(ctx).
+		Where("agent_id = ? AND is_enabled = 1", agentID).
+		Order("priority ASC, id ASC").
+		Find(&list).Error
+	if err != nil {
+		return nil, err
+	}
+	if len(list) > 0 {
+		return list, nil
+	}
+
+	legacy, err := r.ListToolBindings(ctx, agentID)
+	if err != nil {
+		return nil, err
+	}
+	list = make([]model.AgentCapabilityBinding, 0, len(legacy))
+	for _, b := range legacy {
+		list = append(list, model.AgentCapabilityBinding{
+			AgentID:          b.AgentID,
+			CapabilitySource: "builtin",
+			CapabilityKey:    b.ToolName,
+			IsEnabled:        b.IsEnabled,
+			CreatedAt:        b.CreatedAt,
+			UpdatedAt:        b.CreatedAt,
+		})
+	}
+	return list, nil
+}
+
+func (r *AgentConfigRepo) ReplaceCapabilityBindings(ctx context.Context, agentID int64, bindings []model.AgentCapabilityBinding) error {
+	return r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		if err := tx.Where("agent_id = ?", agentID).Delete(&model.AgentCapabilityBinding{}).Error; err != nil {
+			return fmt.Errorf("delete existing capability bindings: %w", err)
+		}
+		if err := tx.Where("agent_id = ?", agentID).Delete(&model.AgentToolBinding{}).Error; err != nil {
+			return fmt.Errorf("delete existing legacy tool bindings: %w", err)
+		}
+
+		for _, b := range bindings {
+			b.AgentID = agentID
+			if b.IsEnabled == 0 {
+				b.IsEnabled = 1
+			}
+			if err := tx.Create(&b).Error; err != nil {
+				return fmt.Errorf("create capability binding %s:%s: %w", b.CapabilitySource, b.CapabilityKey, err)
+			}
+			if b.CapabilitySource == "builtin" {
+				if err := tx.Create(&model.AgentToolBinding{
+					AgentID:   agentID,
+					ToolName:  b.CapabilityKey,
+					IsEnabled: b.IsEnabled,
+				}).Error; err != nil {
+					return fmt.Errorf("create legacy tool binding %s: %w", b.CapabilityKey, err)
+				}
 			}
 		}
 		return nil

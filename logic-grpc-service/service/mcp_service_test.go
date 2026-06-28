@@ -3,11 +3,13 @@ package service
 import (
 	"context"
 	"encoding/json"
+	"net/http/httptest"
 	"strings"
 	"testing"
 
 	"github.com/cloudwego/eino/schema"
 	"github.com/mark3labs/mcp-go/mcp"
+	mcpserver "github.com/mark3labs/mcp-go/server"
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
 
@@ -128,13 +130,13 @@ func TestDesensitizeEnvVars_InvalidJSON(t *testing.T) {
 func TestServerToInfo_DesensitizesEnvVars(t *testing.T) {
 	envVars := `{"API_KEY":"sk-xxx","SECRET":"s3cr3t"}`
 	srv := &model.MCPServer{
-		ID:            1,
-		Name:          "test",
-		Transport:     "stdio",
-		CommandOrURL:  "/usr/bin/test",
-		EnvVars:       &envVars,
+		ID:             1,
+		Name:           "test",
+		Transport:      "stdio",
+		CommandOrURL:   "/usr/bin/test",
+		EnvVars:        &envVars,
 		TimeoutSeconds: 30,
-		IsEnabled:     1,
+		IsEnabled:      1,
 	}
 	info := serverToInfo(srv)
 	if info.EnvVars == envVars {
@@ -153,10 +155,10 @@ func TestServerToInfo_DesensitizesEnvVars(t *testing.T) {
 
 func TestServerToInfo_NilPtrs(t *testing.T) {
 	srv := &model.MCPServer{
-		ID:            2,
-		Name:          "no-env-server",
-		Transport:     "sse",
-		CommandOrURL:  "http://localhost:8080",
+		ID:             2,
+		Name:           "no-env-server",
+		Transport:      "sse",
+		CommandOrURL:   "http://localhost:8080",
 		TimeoutSeconds: 30,
 	}
 	info := serverToInfo(srv)
@@ -300,6 +302,65 @@ func TestMCPSchemaToEinoParams_Empty(t *testing.T) {
 	if len(params) != 0 {
 		t.Fatalf("expected 0 params for empty schema, got %d", len(params))
 	}
+}
+
+func TestCollectBoundMCPToolsFiltersByCapabilityKey(t *testing.T) {
+	ctx := context.Background()
+	db := setupServiceTestDB(t)
+	repo := repository.NewMCPRepo(db)
+	var cfg config.Config
+	cfg.MCP.DefaultTimeoutSeconds = 2
+	svc := NewMCPService(repo, cfg)
+
+	alphaHTTP := newTestMCPHTTPServer(t, "alpha-upstream", []string{"search", "summarize"})
+	defer alphaHTTP.Close()
+	betaHTTP := newTestMCPHTTPServer(t, "beta-upstream", []string{"lookup"})
+	defer betaHTTP.Close()
+
+	alpha := &model.MCPServer{
+		Name:           "alpha",
+		Transport:      "http",
+		CommandOrURL:   alphaHTTP.URL,
+		TimeoutSeconds: 2,
+		IsEnabled:      1,
+	}
+	if err := repo.CreateServer(ctx, alpha); err != nil {
+		t.Fatalf("CreateServer alpha failed: %v", err)
+	}
+	beta := &model.MCPServer{
+		Name:           "beta",
+		Transport:      "http",
+		CommandOrURL:   betaHTTP.URL,
+		TimeoutSeconds: 2,
+		IsEnabled:      1,
+	}
+	if err := repo.CreateServer(ctx, beta); err != nil {
+		t.Fatalf("CreateServer beta failed: %v", err)
+	}
+
+	allowed := map[string]bool{
+		MCPCapabilityKey(alpha.ID, "search"): true,
+	}
+
+	infos, err := svc.CollectBoundMCPToolInfos(ctx, allowed)
+	if err != nil {
+		t.Fatalf("CollectBoundMCPToolInfos failed: %v", err)
+	}
+	assertToolNames(t, toolInfoNames(infos), []string{"mcp_alpha_search"})
+
+	callableTools, err := svc.CollectBoundMCPCallableTools(ctx, allowed)
+	if err != nil {
+		t.Fatalf("CollectBoundMCPCallableTools failed: %v", err)
+	}
+	callableNames := make([]string, 0, len(callableTools))
+	for _, callableTool := range callableTools {
+		info, err := callableTool.Info(ctx)
+		if err != nil {
+			t.Fatalf("callable tool Info failed: %v", err)
+		}
+		callableNames = append(callableNames, info.Name)
+	}
+	assertToolNames(t, callableNames, []string{"mcp_alpha_search"})
 }
 
 // ── isSensitiveField tests ────────────────────────────────────────────
@@ -518,4 +579,48 @@ func setupServiceTestDB(t *testing.T) *gorm.DB {
 		t.Fatalf("auto-migrate failed: %v", err)
 	}
 	return db
+}
+
+func newTestMCPHTTPServer(t *testing.T, name string, toolNames []string) *httptest.Server {
+	t.Helper()
+	srv := mcpserver.NewMCPServer(name, "1.0.0")
+	for _, toolName := range toolNames {
+		name := toolName
+		srv.AddTool(
+			mcp.NewTool(name, mcp.WithDescription("test tool "+name)),
+			func(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+				return mcp.NewToolResultText(name + " ok"), nil
+			},
+		)
+	}
+	return mcpserver.NewTestStreamableHTTPServer(srv)
+}
+
+func toolInfoNames(infos []*schema.ToolInfo) []string {
+	names := make([]string, 0, len(infos))
+	for _, info := range infos {
+		names = append(names, info.Name)
+	}
+	return names
+}
+
+func assertToolNames(t *testing.T, got []string, want []string) {
+	t.Helper()
+	if len(got) != len(want) {
+		t.Fatalf("expected tool names %v, got %v", want, got)
+	}
+	seen := make(map[string]bool, len(got))
+	for _, name := range got {
+		seen[name] = true
+	}
+	for _, name := range want {
+		if !seen[name] {
+			t.Fatalf("expected tool names %v, got %v", want, got)
+		}
+	}
+	for _, forbidden := range []string{"mcp_alpha_summarize", "mcp_beta_lookup"} {
+		if seen[forbidden] {
+			t.Fatalf("unexpected unbound tool %q in %v", forbidden, got)
+		}
+	}
 }

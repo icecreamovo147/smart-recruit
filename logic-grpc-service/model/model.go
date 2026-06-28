@@ -3,10 +3,10 @@ package model
 import "time"
 
 type User struct {
-	ID           int64  `gorm:"primaryKey"`
+	ID           int64 `gorm:"primaryKey"`
 	Username     string
 	Password     string
-	Role         int32  `gorm:"column:role"` // Deprecated: kept for migration compatibility
+	Role         int32 `gorm:"column:role"` // Deprecated: kept for migration compatibility
 	Email        string
 	AccountType  string `gorm:"column:account_type;default:candidate"`
 	Status       string `gorm:"column:status;default:active"`
@@ -81,17 +81,17 @@ func (UserDataScope) TableName() string { return "user_data_scopes" }
 
 // AuthorizationAuditLog records authorization decisions for audit purposes.
 type AuthorizationAuditLog struct {
-	ID             uint64    `gorm:"primaryKey"`
-	ActorUserID    uint64    `gorm:"column:actor_user_id;index:idx_actor_created"`
-	ActorRoles     string    `gorm:"column:actor_roles"`
-	PermissionKey  string    `gorm:"column:permission_key;index:idx_permission_created"`
-	ResourceType   string    `gorm:"column:resource_type"`
-	ResourceID     uint64    `gorm:"column:resource_id"`
-	Decision       string    `gorm:"column:decision;index:idx_decision_created"`
-	Reason         string    `gorm:"column:reason"`
-	RequestID      string    `gorm:"column:request_id"`
-	ClientIP       string    `gorm:"column:client_ip"`
-	CreatedAt      time.Time `gorm:"column:created_at"`
+	ID            uint64    `gorm:"primaryKey"`
+	ActorUserID   uint64    `gorm:"column:actor_user_id;index:idx_actor_created"`
+	ActorRoles    string    `gorm:"column:actor_roles"`
+	PermissionKey string    `gorm:"column:permission_key;index:idx_permission_created"`
+	ResourceType  string    `gorm:"column:resource_type"`
+	ResourceID    uint64    `gorm:"column:resource_id"`
+	Decision      string    `gorm:"column:decision;index:idx_decision_created"`
+	Reason        string    `gorm:"column:reason"`
+	RequestID     string    `gorm:"column:request_id"`
+	ClientIP      string    `gorm:"column:client_ip"`
+	CreatedAt     time.Time `gorm:"column:created_at"`
 }
 
 func (AuthorizationAuditLog) TableName() string { return "authorization_audit_logs" }
@@ -191,14 +191,14 @@ type Resume struct {
 }
 
 type Application struct {
-	ID        int64  `gorm:"primaryKey"`
-	JobID     int64  `gorm:"column:job_id"`
-	UserID    int64  `gorm:"column:user_id"`
-	ResumeID  int64  `gorm:"column:resume_id"`
-	Status    int32  `gorm:"column:status"`
-	StatusKey string `gorm:"column:status_key;default:applied;size:64"`
-	RoundNo   int32  `gorm:"column:round_no"`
-	IsCurrent int32  `gorm:"column:is_current"`
+	ID        int64     `gorm:"primaryKey"`
+	JobID     int64     `gorm:"column:job_id"`
+	UserID    int64     `gorm:"column:user_id"`
+	ResumeID  int64     `gorm:"column:resume_id"`
+	Status    int32     `gorm:"column:status"`
+	StatusKey string    `gorm:"column:status_key;default:applied;size:64"`
+	RoundNo   int32     `gorm:"column:round_no"`
+	IsCurrent int32     `gorm:"column:is_current"`
 	AppliedAt time.Time `gorm:"column:applied_at"`
 	UpdatedAt time.Time `gorm:"column:updated_at"`
 }
@@ -207,15 +207,15 @@ func (Application) TableName() string { return "applications" }
 
 // ApplicationStatusTransition records every status change for audit trail purposes.
 type ApplicationStatusTransition struct {
-	ID              uint64    `gorm:"primaryKey"`
-	ApplicationID   int64     `gorm:"column:application_id;index:idx_transition_app;not null"`
-	FromStatus      string    `gorm:"column:from_status;size:64;not null"`
-	ToStatus        string    `gorm:"column:to_status;size:64;not null"`
-	ActorUserID     int64     `gorm:"column:actor_user_id;not null"`
-	ActorAccountType string   `gorm:"column:actor_account_type;size:32;not null"`
-	Reason          string    `gorm:"column:reason;size:512"`
-	MetadataJSON    string    `gorm:"column:metadata_json;type:text"`
-	CreatedAt       time.Time `gorm:"column:created_at"`
+	ID               uint64    `gorm:"primaryKey"`
+	ApplicationID    int64     `gorm:"column:application_id;index:idx_transition_app;not null"`
+	FromStatus       string    `gorm:"column:from_status;size:64;not null"`
+	ToStatus         string    `gorm:"column:to_status;size:64;not null"`
+	ActorUserID      int64     `gorm:"column:actor_user_id;not null"`
+	ActorAccountType string    `gorm:"column:actor_account_type;size:32;not null"`
+	Reason           string    `gorm:"column:reason;size:512"`
+	MetadataJSON     string    `gorm:"column:metadata_json;type:text"`
+	CreatedAt        time.Time `gorm:"column:created_at"`
 }
 
 func (ApplicationStatusTransition) TableName() string { return "application_status_transitions" }
@@ -228,6 +228,8 @@ type AIChatHistory struct {
 	OwnerID   int64 `gorm:"column:owner_id;default:0"`
 	Role      string
 	Content   string
+	ModelID   *int64 `gorm:"column:model_id"`
+	ModelName string `gorm:"column:model_name;size:128"`
 	CreatedAt time.Time
 }
 
@@ -255,17 +257,61 @@ type AISessionSummary struct {
 }
 
 type AIToolTrace struct {
-	ID            uint64 `gorm:"primaryKey"`
-	SessionID     uint64 `gorm:"column:session_id"`
-	HrID          uint64 `gorm:"column:hr_id"`
-	ToolCallID    string `gorm:"column:tool_call_id"`
-	ToolName      string `gorm:"column:tool_name"`
-	ArgumentsJSON string `gorm:"column:arguments_json"`
-	ResultJSON    string `gorm:"column:result_json"`
-	ResultSummary string `gorm:"column:result_summary"`
-	Status        string `gorm:"column:status"`
-	ErrorMessage  string `gorm:"column:error_message"`
-	CreatedAt     time.Time
+	ID             uint64  `gorm:"primaryKey"`
+	SessionID      uint64  `gorm:"column:session_id"`
+	HrID           uint64  `gorm:"column:hr_id"`
+	AgentRunID     *uint64 `gorm:"column:agent_run_id"`
+	AgentRunStepID *uint64 `gorm:"column:agent_run_step_id"`
+	ToolCallID     string  `gorm:"column:tool_call_id"`
+	ToolName       string  `gorm:"column:tool_name"`
+	ArgumentsJSON  string  `gorm:"column:arguments_json"`
+	ResultJSON     string  `gorm:"column:result_json"`
+	ResultSummary  string  `gorm:"column:result_summary"`
+	Status         string  `gorm:"column:status"`
+	DurationMs     int64   `gorm:"column:duration_ms"`
+	ErrorMessage   string  `gorm:"column:error_message"`
+	CreatedAt      time.Time
+}
+
+type AgentRun struct {
+	ID           uint64     `gorm:"primaryKey"`
+	SessionID    uint64     `gorm:"column:session_id"`
+	MessageID    *uint64    `gorm:"column:message_id"`
+	HistoryID    *uint64    `gorm:"column:history_id"`
+	HrID         uint64     `gorm:"column:hr_id"`
+	AgentType    string     `gorm:"column:agent_type"`
+	AgentID      *uint64    `gorm:"column:agent_id"`
+	AgentName    string     `gorm:"column:agent_name"`
+	ModelID      *uint64    `gorm:"column:model_id"`
+	ModelName    string     `gorm:"column:model_name"`
+	Status       string     `gorm:"column:status"`
+	PlanJSON     string     `gorm:"column:plan_json"`
+	FinalAnswer  string     `gorm:"column:final_answer"`
+	ErrorType    string     `gorm:"column:error_type"`
+	ErrorMessage string     `gorm:"column:error_message"`
+	StartedAt    time.Time  `gorm:"column:started_at"`
+	CompletedAt  *time.Time `gorm:"column:completed_at"`
+	CreatedAt    time.Time
+	UpdatedAt    time.Time
+}
+
+type AgentRunStep struct {
+	ID               uint64     `gorm:"primaryKey"`
+	RunID            uint64     `gorm:"column:run_id"`
+	StepIndex        int        `gorm:"column:step_index"`
+	StepType         string     `gorm:"column:step_type"`
+	CapabilitySource string     `gorm:"column:capability_source"`
+	CapabilityKey    string     `gorm:"column:capability_key"`
+	ToolName         string     `gorm:"column:tool_name"`
+	InputJSON        string     `gorm:"column:input_json"`
+	OutputJSON       string     `gorm:"column:output_json"`
+	Status           string     `gorm:"column:status"`
+	DurationMs       int64      `gorm:"column:duration_ms"`
+	ErrorMessage     string     `gorm:"column:error_message"`
+	StartedAt        time.Time  `gorm:"column:started_at"`
+	CompletedAt      *time.Time `gorm:"column:completed_at"`
+	CreatedAt        time.Time
+	UpdatedAt        time.Time
 }
 
 type AIMemory struct {
@@ -287,6 +333,8 @@ func (AIChatHistory) TableName() string    { return "ai_chat_history" }
 func (AIChatSession) TableName() string    { return "ai_chat_sessions" }
 func (AISessionSummary) TableName() string { return "ai_session_summaries" }
 func (AIToolTrace) TableName() string      { return "ai_tool_traces" }
+func (AgentRun) TableName() string         { return "agent_runs" }
+func (AgentRunStep) TableName() string     { return "agent_run_steps" }
 func (AIMemory) TableName() string         { return "ai_memories" }
 func (Notification) TableName() string     { return "notifications" }
 
@@ -415,7 +463,7 @@ type InterviewSchedule struct {
 	Status          string     `gorm:"column:status;default:pending;size:32"`
 	CreatedBy       *int64     `gorm:"column:created_by"`
 	Title           string     `gorm:"column:title;size:128"`
-	Mode            string     `gorm:"column:mode;size:32"`           // video / phone / onsite
+	Mode            string     `gorm:"column:mode;size:32"` // video / phone / onsite
 	MeetingURL      string     `gorm:"column:meeting_url;size:512"`
 	Location        string     `gorm:"column:location;size:256"`
 	DurationMinutes int32      `gorm:"column:duration_minutes"`
@@ -432,16 +480,16 @@ func (InterviewSchedule) TableName() string { return "interview_schedules" }
 // ── Interview Feedback ─────────────────────────────────────────────────────
 
 type InterviewFeedback struct {
-	ID                int64      `gorm:"primaryKey"`
-	InterviewID       int64      `gorm:"column:interview_id;uniqueIndex:uk_interview_feedback_once,priority:1"`
-	ApplicationID     int64      `gorm:"column:application_id;not null;uniqueIndex:uk_interview_feedback_once,priority:2"`
-	InterviewerID     int64      `gorm:"column:interviewer_id;not null;uniqueIndex:uk_interview_feedback_once,priority:3"`
-	Recommendation    string     `gorm:"column:recommendation;size:32"` // positive / negative / pending
-	Score             int32      `gorm:"column:score"`
-	DimensionScoresJSON string   `gorm:"column:dimension_scores_json;type:text"`
-	Comments          string     `gorm:"column:comments;type:text"`
-	SubmittedAt       time.Time  `gorm:"column:submitted_at"`
-	UpdatedAt         time.Time  `gorm:"column:updated_at"`
+	ID                  int64     `gorm:"primaryKey"`
+	InterviewID         int64     `gorm:"column:interview_id;uniqueIndex:uk_interview_feedback_once,priority:1"`
+	ApplicationID       int64     `gorm:"column:application_id;not null;uniqueIndex:uk_interview_feedback_once,priority:2"`
+	InterviewerID       int64     `gorm:"column:interviewer_id;not null;uniqueIndex:uk_interview_feedback_once,priority:3"`
+	Recommendation      string    `gorm:"column:recommendation;size:32"` // positive / negative / pending
+	Score               int32     `gorm:"column:score"`
+	DimensionScoresJSON string    `gorm:"column:dimension_scores_json;type:text"`
+	Comments            string    `gorm:"column:comments;type:text"`
+	SubmittedAt         time.Time `gorm:"column:submitted_at"`
+	UpdatedAt           time.Time `gorm:"column:updated_at"`
 }
 
 func (InterviewFeedback) TableName() string { return "interview_feedback" }
@@ -540,15 +588,15 @@ func (FollowUpTask) TableName() string { return "follow_up_tasks" }
 
 // LlmProvider represents an LLM service provider configuration.
 type LlmProvider struct {
-	ID               int64     `gorm:"primaryKey"`
-	Name             string    `gorm:"column:name;size:128;not null"`
-	BaseURL          string    `gorm:"column:base_url;size:512;not null"`
-	APIKeyEncrypted  string    `gorm:"column:api_key_encrypted;size:512;not null"`
-	ProviderType     string    `gorm:"column:provider_type;size:64;not null"`
-	ExtraHeaders     *string   `gorm:"column:extra_headers;type:json"`
-	IsEnabled        int32     `gorm:"column:is_enabled;default:1"`
-	CreatedAt        time.Time `gorm:"column:created_at"`
-	UpdatedAt        time.Time `gorm:"column:updated_at"`
+	ID              int64     `gorm:"primaryKey"`
+	Name            string    `gorm:"column:name;size:128;not null"`
+	BaseURL         string    `gorm:"column:base_url;size:512;not null"`
+	APIKeyEncrypted string    `gorm:"column:api_key_encrypted;size:512;not null"`
+	ProviderType    string    `gorm:"column:provider_type;size:64;not null"`
+	ExtraHeaders    *string   `gorm:"column:extra_headers;type:json"`
+	IsEnabled       int32     `gorm:"column:is_enabled;default:1"`
+	CreatedAt       time.Time `gorm:"column:created_at"`
+	UpdatedAt       time.Time `gorm:"column:updated_at"`
 }
 
 func (LlmProvider) TableName() string { return "llm_providers" }
@@ -609,19 +657,19 @@ func (PromptVersion) TableName() string { return "prompt_versions" }
 
 // AgentConfig represents an agent configuration entry.
 type AgentConfig struct {
-	ID                  int64      `gorm:"primaryKey"`
-	Name                string     `gorm:"column:name;size:128;not null;uniqueIndex:uk_name"`
-	DisplayName         string     `gorm:"column:display_name;size:256;not null"`
-	Description         string     `gorm:"column:description;type:text"`
-	AgentType           string     `gorm:"column:agent_type;size:64;not null"`
-	PromptTemplateID    *int64     `gorm:"column:prompt_template_id"`
-	Instruction         string     `gorm:"column:instruction;type:text"`
-	MaxIterations       int32      `gorm:"column:max_iterations;default:5"`
-	TemperatureOverride *float64   `gorm:"column:temperature_override"`
-	IsDefault           int32      `gorm:"column:is_default;default:0"`
-	IsEnabled           int32      `gorm:"column:is_enabled;default:1"`
-	CreatedAt           time.Time  `gorm:"column:created_at"`
-	UpdatedAt           time.Time  `gorm:"column:updated_at"`
+	ID                  int64     `gorm:"primaryKey"`
+	Name                string    `gorm:"column:name;size:128;not null;uniqueIndex:uk_name"`
+	DisplayName         string    `gorm:"column:display_name;size:256;not null"`
+	Description         string    `gorm:"column:description;type:text"`
+	AgentType           string    `gorm:"column:agent_type;size:64;not null"`
+	PromptTemplateID    *int64    `gorm:"column:prompt_template_id"`
+	Instruction         string    `gorm:"column:instruction;type:text"`
+	MaxIterations       int32     `gorm:"column:max_iterations;default:5"`
+	TemperatureOverride *float64  `gorm:"column:temperature_override"`
+	IsDefault           int32     `gorm:"column:is_default;default:0"`
+	IsEnabled           int32     `gorm:"column:is_enabled;default:1"`
+	CreatedAt           time.Time `gorm:"column:created_at"`
+	UpdatedAt           time.Time `gorm:"column:updated_at"`
 }
 
 func (AgentConfig) TableName() string { return "agent_configs" }
@@ -637,36 +685,96 @@ type AgentToolBinding struct {
 
 func (AgentToolBinding) TableName() string { return "agent_tool_bindings" }
 
+// AgentCapabilityBinding represents a unified capability binding for an agent.
+type AgentCapabilityBinding struct {
+	ID               int64     `gorm:"primaryKey"`
+	AgentID          int64     `gorm:"column:agent_id;not null;uniqueIndex:uk_agent_capability,priority:1"`
+	CapabilitySource string    `gorm:"column:capability_source;size:32;not null;uniqueIndex:uk_agent_capability,priority:2"`
+	CapabilityKey    string    `gorm:"column:capability_key;size:256;not null;uniqueIndex:uk_agent_capability,priority:3"`
+	IsEnabled        int32     `gorm:"column:is_enabled;default:1"`
+	Priority         int32     `gorm:"column:priority;default:0"`
+	PolicyJSON       *string   `gorm:"column:policy_json;type:json"`
+	CreatedAt        time.Time `gorm:"column:created_at"`
+	UpdatedAt        time.Time `gorm:"column:updated_at"`
+}
+
+func (AgentCapabilityBinding) TableName() string { return "agent_capability_bindings" }
+
+// ── SKILL Registry ───────────────────────────────────────────────────
+
+type Skill struct {
+	ID               int64     `gorm:"primaryKey"`
+	Name             string    `gorm:"column:name;size:128;not null;uniqueIndex:uk_ai_skills_name"`
+	DisplayName      string    `gorm:"column:display_name;size:256;not null"`
+	Description      string    `gorm:"column:description;type:text"`
+	SourceType       string    `gorm:"column:source_type;size:32;not null;default:local"`
+	SourceURI        string    `gorm:"column:source_uri;type:text"`
+	CurrentVersionID *int64    `gorm:"column:current_version_id"`
+	IsEnabled        int32     `gorm:"column:is_enabled;default:1"`
+	CreatedAt        time.Time `gorm:"column:created_at"`
+	UpdatedAt        time.Time `gorm:"column:updated_at"`
+}
+
+func (Skill) TableName() string { return "ai_skills" }
+
+type SkillVersion struct {
+	ID               int64     `gorm:"primaryKey"`
+	SkillID          int64     `gorm:"column:skill_id;not null;uniqueIndex:uk_ai_skill_versions_skill_version,priority:1"`
+	Version          string    `gorm:"column:version;size:64;not null;uniqueIndex:uk_ai_skill_versions_skill_version,priority:2"`
+	ManifestJSON     string    `gorm:"column:manifest_json;type:json;not null"`
+	Instruction      string    `gorm:"column:instruction;type:text"`
+	InputSchemaJSON  *string   `gorm:"column:input_schema_json;type:json"`
+	OutputSchemaJSON *string   `gorm:"column:output_schema_json;type:json"`
+	RuntimeType      string    `gorm:"column:runtime_type;size:32;not null;default:prompt"`
+	CreatedAt        time.Time `gorm:"column:created_at"`
+}
+
+func (SkillVersion) TableName() string { return "ai_skill_versions" }
+
+type SkillTool struct {
+	ID                int64     `gorm:"primaryKey"`
+	SkillVersionID    int64     `gorm:"column:skill_version_id;not null;uniqueIndex:uk_ai_skill_tools_version_tool,priority:1"`
+	ToolName          string    `gorm:"column:tool_name;size:128;not null;uniqueIndex:uk_ai_skill_tools_version_tool,priority:2"`
+	Description       string    `gorm:"column:description;type:text"`
+	InputSchemaJSON   *string   `gorm:"column:input_schema_json;type:json"`
+	RuntimeConfigJSON *string   `gorm:"column:runtime_config_json;type:json"`
+	IsEnabled         int32     `gorm:"column:is_enabled;default:1"`
+	CreatedAt         time.Time `gorm:"column:created_at"`
+	UpdatedAt         time.Time `gorm:"column:updated_at"`
+}
+
+func (SkillTool) TableName() string { return "ai_skill_tools" }
+
 // ── MCP Server (P1-006) ─────────────────────────────────────────────
 
 // MCPServer represents a registered MCP server.
 type MCPServer struct {
-	ID            int64      `gorm:"primaryKey"`
-	Name          string     `gorm:"column:name;size:128;not null"`
-	Transport     string     `gorm:"column:transport;size:16;not null"`
-	CommandOrURL  string     `gorm:"column:command_or_url;type:text;not null"`
-	Args          *string    `gorm:"column:args;type:json"`
-	EnvVars       *string    `gorm:"column:env_vars;type:json"`
+	ID             int64     `gorm:"primaryKey"`
+	Name           string    `gorm:"column:name;size:128;not null"`
+	Transport      string    `gorm:"column:transport;size:16;not null"`
+	CommandOrURL   string    `gorm:"column:command_or_url;type:text;not null"`
+	Args           *string   `gorm:"column:args;type:json"`
+	EnvVars        *string   `gorm:"column:env_vars;type:json"`
 	TimeoutSeconds int32     `gorm:"column:timeout_seconds;default:30"`
-	IsEnabled     int32      `gorm:"column:is_enabled;default:0"`
-	CreatedAt     time.Time  `gorm:"column:created_at"`
-	UpdatedAt     time.Time  `gorm:"column:updated_at"`
+	IsEnabled      int32     `gorm:"column:is_enabled;default:0"`
+	CreatedAt      time.Time `gorm:"column:created_at"`
+	UpdatedAt      time.Time `gorm:"column:updated_at"`
 }
 
 func (MCPServer) TableName() string { return "mcp_servers" }
 
 // MCPToolLog records a single MCP tool call for audit purposes.
 type MCPToolLog struct {
-	ID            int64      `gorm:"primaryKey"`
-	ServerID      int64      `gorm:"column:server_id;not null"`
-	ToolName      string     `gorm:"column:tool_name;size:128;not null"`
-	ArgsJSON      *string    `gorm:"column:args_json;type:json"`
-	ResultContent *string    `gorm:"column:result_content;type:text"`
-	DurationMs    int32      `gorm:"column:duration_ms;default:0"`
-	ErrorMsg      *string    `gorm:"column:error_msg;size:512"`
-	CalledByHRID  *int64     `gorm:"column:called_by_hr_id"`
-	SessionID     *int64     `gorm:"column:session_id"`
-	CreatedAt     time.Time  `gorm:"column:created_at"`
+	ID            int64     `gorm:"primaryKey"`
+	ServerID      int64     `gorm:"column:server_id;not null"`
+	ToolName      string    `gorm:"column:tool_name;size:128;not null"`
+	ArgsJSON      *string   `gorm:"column:args_json;type:json"`
+	ResultContent *string   `gorm:"column:result_content;type:text"`
+	DurationMs    int32     `gorm:"column:duration_ms;default:0"`
+	ErrorMsg      *string   `gorm:"column:error_msg;size:512"`
+	CalledByHRID  *int64    `gorm:"column:called_by_hr_id"`
+	SessionID     *int64    `gorm:"column:session_id"`
+	CreatedAt     time.Time `gorm:"column:created_at"`
 }
 
 func (MCPToolLog) TableName() string { return "mcp_tool_logs" }

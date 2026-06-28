@@ -103,13 +103,13 @@ func (s *MCPService) CreateMCPServer(ctx context.Context, req *pb.CreateMCPServe
 	}
 
 	server := &model.MCPServer{
-		Name:          strings.TrimSpace(req.GetName()),
-		Transport:     transportType,
-		CommandOrURL:  strings.TrimSpace(req.GetCommandOrUrl()),
-		Args:          argsStr,
-		EnvVars:       envStr,
+		Name:           strings.TrimSpace(req.GetName()),
+		Transport:      transportType,
+		CommandOrURL:   strings.TrimSpace(req.GetCommandOrUrl()),
+		Args:           argsStr,
+		EnvVars:        envStr,
 		TimeoutSeconds: timeout,
-		IsEnabled:     0, // Default disabled for safety
+		IsEnabled:      0, // Default disabled for safety
 	}
 
 	if err := s.mcpRepo.CreateServer(ctx, server); err != nil {
@@ -330,6 +330,60 @@ func (s *MCPService) ListMCPTools(ctx context.Context, req *pb.ListMCPToolsReque
 	}, nil
 }
 
+func (s *MCPService) ListEnabledMCPCapabilities(ctx context.Context) ([]*pb.CapabilityInfo, error) {
+	servers, err := s.mcpRepo.ListEnabledServers(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("list enabled servers: %w", err)
+	}
+
+	var capabilities []*pb.CapabilityInfo
+	for i := range servers {
+		server := &servers[i]
+		tools, err := s.listToolsForServer(ctx, server)
+		if err != nil {
+			logger.L().Warn("list MCP capabilities failed",
+				zap.Int64("server_id", server.ID),
+				zap.String("server_name", server.Name),
+				zap.Error(err))
+			continue
+		}
+		for _, t := range tools {
+			key := MCPCapabilityKey(server.ID, t.Name)
+			capabilities = append(capabilities, &pb.CapabilityInfo{
+				Source:        "mcp",
+				Key:           key,
+				Name:          MCPRuntimeToolName(server.Name, t.Name),
+				DisplayName:   fmt.Sprintf("%s / %s", server.Name, t.Name),
+				Description:   t.Description,
+				McpServerId:   server.ID,
+				McpServerName: server.Name,
+				IsAvailable:   true,
+			})
+		}
+	}
+	return capabilities, nil
+}
+
+func (s *MCPService) listToolsForServer(ctx context.Context, server *model.MCPServer) ([]mcp.Tool, error) {
+	mcpClient, err := s.createClient(server)
+	if err != nil {
+		return nil, fmt.Errorf("create MCP client: %w", err)
+	}
+	defer mcpClient.Close()
+
+	listCtx, cancel := s.mcpTimeoutCtx(ctx, server)
+	defer cancel()
+
+	if _, err := mcpClient.Initialize(listCtx, mcp.InitializeRequest{}); err != nil {
+		return nil, fmt.Errorf("initialize MCP client: %w", err)
+	}
+	toolsResult, err := mcpClient.ListTools(listCtx, mcp.ListToolsRequest{})
+	if err != nil {
+		return nil, fmt.Errorf("list MCP tools: %w", err)
+	}
+	return toolsResult.Tools, nil
+}
+
 // ── Tool Call ───────────────────────────────────────────────────────
 
 func (s *MCPService) CallMCPTool(ctx context.Context, req *pb.CallMCPToolRequest) (*pb.CallMCPToolResponse, error) {
@@ -517,16 +571,16 @@ func serverToInfo(s *model.MCPServer) *pb.MCPServerInfo {
 		envVars = desensitizeEnvVars(*s.EnvVars)
 	}
 	return &pb.MCPServerInfo{
-		Id:            s.ID,
-		Name:          s.Name,
-		Transport:     s.Transport,
-		CommandOrUrl:  s.CommandOrURL,
-		Args:          args,
-		EnvVars:       envVars,
+		Id:             s.ID,
+		Name:           s.Name,
+		Transport:      s.Transport,
+		CommandOrUrl:   s.CommandOrURL,
+		Args:           args,
+		EnvVars:        envVars,
 		TimeoutSeconds: s.TimeoutSeconds,
-		IsEnabled:     s.IsEnabled == 1,
-		CreatedAt:     s.CreatedAt.Format(time.RFC3339),
-		UpdatedAt:     s.UpdatedAt.Format(time.RFC3339),
+		IsEnabled:      s.IsEnabled == 1,
+		CreatedAt:      s.CreatedAt.Format(time.RFC3339),
+		UpdatedAt:      s.UpdatedAt.Format(time.RFC3339),
 	}
 }
 
@@ -673,10 +727,22 @@ func strPtrOrNil(s string) *string {
 
 // ── Agent Tool Injection ───────────────────────────────────────────
 
-// CollectEnabledMCPToolInfos collects tool definitions from all enabled MCP servers
+func MCPCapabilityKey(serverID int64, toolName string) string {
+	return fmt.Sprintf("%d:%s", serverID, toolName)
+}
+
+func MCPRuntimeToolName(serverName, toolName string) string {
+	return fmt.Sprintf("mcp_%s_%s", serverName, toolName)
+}
+
+// CollectEnabledMCPToolInfos collects tool definitions from enabled MCP servers
 // and returns them as Eino schema.ToolInfo slice, suitable for injection into the
 // ADK Agent tool list.
 func (s *MCPService) CollectEnabledMCPToolInfos(ctx context.Context) ([]*schema.ToolInfo, error) {
+	return s.CollectBoundMCPToolInfos(ctx, nil)
+}
+
+func (s *MCPService) CollectBoundMCPToolInfos(ctx context.Context, allowedKeys map[string]bool) ([]*schema.ToolInfo, error) {
 	servers, err := s.mcpRepo.ListEnabledServers(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("list enabled servers: %w", err)
@@ -717,8 +783,10 @@ func (s *MCPService) CollectEnabledMCPToolInfos(ctx context.Context) ([]*schema.
 			}
 
 			for _, t := range toolsResult.Tools {
-				// Create a unique tool name: mcp_<server_name>_<tool_name>
-				qualifiedName := fmt.Sprintf("mcp_%s_%s", server.Name, t.Name)
+				if allowedKeys != nil && !allowedKeys[MCPCapabilityKey(server.ID, t.Name)] {
+					continue
+				}
+				qualifiedName := MCPRuntimeToolName(server.Name, t.Name)
 				toolInfo := &schema.ToolInfo{
 					Name: qualifiedName,
 					Desc: t.Description,
@@ -792,6 +860,10 @@ func getStringField(m map[string]any, key string) string {
 // can be used with the ADK runtime (ChatWithADKAgent). When invoked, the wrapper
 // connects to the MCP server and calls the tool.
 func (s *MCPService) CollectEnabledMCPCallableTools(ctx context.Context) ([]tool.BaseTool, error) {
+	return s.CollectBoundMCPCallableTools(ctx, nil)
+}
+
+func (s *MCPService) CollectBoundMCPCallableTools(ctx context.Context, allowedKeys map[string]bool) ([]tool.BaseTool, error) {
 	servers, err := s.mcpRepo.ListEnabledServers(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("list enabled servers: %w", err)
@@ -832,7 +904,10 @@ func (s *MCPService) CollectEnabledMCPCallableTools(ctx context.Context) ([]tool
 			}
 
 			for _, t := range toolsResult.Tools {
-				qualifiedName := fmt.Sprintf("mcp_%s_%s", server.Name, t.Name)
+				if allowedKeys != nil && !allowedKeys[MCPCapabilityKey(server.ID, t.Name)] {
+					continue
+				}
+				qualifiedName := MCPRuntimeToolName(server.Name, t.Name)
 				toolInfo := &schema.ToolInfo{
 					Name: qualifiedName,
 					Desc: t.Description,
@@ -845,9 +920,9 @@ func (s *MCPService) CollectEnabledMCPCallableTools(ctx context.Context) ([]tool
 				tName := t.Name
 				wrapper := utils.NewTool(toolInfo, func(ctx context.Context, argsJSON string) (string, error) {
 					resp, err := s.CallMCPTool(ctx, &pb.CallMCPToolRequest{
-						ServerId:  sid,
-						ToolName:  tName,
-						ArgsJson:  argsJSON,
+						ServerId: sid,
+						ToolName: tName,
+						ArgsJson: argsJSON,
 					})
 					if err != nil {
 						return "", err

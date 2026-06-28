@@ -27,22 +27,22 @@ const candidateSuggestedQuestionsEndMarker = "<<<END_CANDIDATE_SUGGESTED_QUESTIO
 
 // CandidateAIService handles AI assistant requests for candidates.
 type CandidateAIService struct {
-	usageLogs             *repository.UsageLogRepo
-	usageAuditCtx         *repository.UsageAuditContextRepo
-	authzRepo             *repository.AuthzRepo
-	chats                 *repository.ChatRepo
-	applications          *repository.ApplicationRepo
-	jobs                  *repository.JobRepo
-	resumes               *repository.ResumeRepo
-	aiClient              *ai.Client
-	toolExecutor          *ai.CandidateToolExecutor
-	agentRuntime          string
-	toolTraces            *repository.ToolTraceRepo
-	summaries              *repository.SessionSummaryRepo
-	promptRepo             *repository.PromptTemplateRepo // optional: nil-safe when not injected
-	agentConfigRepo        *repository.AgentConfigRepo    // optional: nil-safe when not injected
+	usageLogs               *repository.UsageLogRepo
+	usageAuditCtx           *repository.UsageAuditContextRepo
+	authzRepo               *repository.AuthzRepo
+	chats                   *repository.ChatRepo
+	applications            *repository.ApplicationRepo
+	jobs                    *repository.JobRepo
+	resumes                 *repository.ResumeRepo
+	aiClient                *ai.Client
+	toolExecutor            *ai.CandidateToolExecutor
+	agentRuntime            string
+	toolTraces              *repository.ToolTraceRepo
+	summaries               *repository.SessionSummaryRepo
+	promptRepo              *repository.PromptTemplateRepo // optional: nil-safe when not injected
+	agentConfigRepo         *repository.AgentConfigRepo    // optional: nil-safe when not injected
 	cachedCandidateADKTools []tool.BaseTool                // lazy-initialized, shared across requests
-	cachedToolsMu           sync.Mutex       // guards cachedCandidateADKTools init and invalidation
+	cachedToolsMu           sync.Mutex                     // guards cachedCandidateADKTools init and invalidation
 }
 
 func NewCandidateAIService(
@@ -57,20 +57,20 @@ func NewCandidateAIService(
 	toolExecutor *ai.CandidateToolExecutor,
 	agentRuntime string,
 	toolTraces *repository.ToolTraceRepo,
-	summaries  *repository.SessionSummaryRepo,
+	summaries *repository.SessionSummaryRepo,
 	promptRepo *repository.PromptTemplateRepo,
 	agentConfigRepo *repository.AgentConfigRepo,
 ) *CandidateAIService {
 	return &CandidateAIService{
-		usageLogs: usageLogs,
+		usageLogs:     usageLogs,
 		usageAuditCtx: usageAuditCtx,
-		authzRepo: authzRepo,
-		chats: chats, applications: applications, jobs: jobs, resumes: resumes,
+		authzRepo:     authzRepo,
+		chats:         chats, applications: applications, jobs: jobs, resumes: resumes,
 		aiClient: aiClient, toolExecutor: toolExecutor,
-		agentRuntime: agentRuntime,
-		toolTraces: toolTraces,
-		summaries:  summaries,
-		promptRepo: promptRepo,
+		agentRuntime:    agentRuntime,
+		toolTraces:      toolTraces,
+		summaries:       summaries,
+		promptRepo:      promptRepo,
 		agentConfigRepo: agentConfigRepo,
 	}
 }
@@ -273,7 +273,7 @@ func (s *CandidateAIService) StreamChat(ctx context.Context, userID int64, messa
 			state := &ai.AgentRunState{}
 			adkCtx := ai.WithOwnerID(ctx, userID)
 			adkCtx = ai.WithAgentRunState(adkCtx, state)
-			traceFn := func(toolCallID, toolName, argsJSON, resultContent string, execErr error) {
+			traceFn := func(toolCallID, toolName, argsJSON, resultContent string, duration time.Duration, execErr error) {
 				go s.recordToolTrace(session.ID, userID, toolCallID, toolName, argsJSON, resultContent, execErr)
 			}
 			reply, metadata, execErr = s.aiClient.ChatWithADKAgent(adkCtx, ai.AgentRunInput{
@@ -531,7 +531,7 @@ func (s *CandidateAIService) StreamChatGRPC(req *pb.CandidateChatRequest, stream
 			state := &ai.AgentRunState{}
 			adkCtx := ai.WithOwnerID(ctx, req.UserId)
 			adkCtx = ai.WithAgentRunState(adkCtx, state)
-			traceFn := func(toolCallID, toolName, argsJSON, resultContent string, execErr error) {
+			traceFn := func(toolCallID, toolName, argsJSON, resultContent string, duration time.Duration, execErr error) {
 				go s.recordToolTrace(session.ID, req.UserId, toolCallID, toolName, argsJSON, resultContent, execErr)
 			}
 			reply, metadata, execErr = s.aiClient.ChatWithADKAgent(adkCtx, ai.AgentRunInput{

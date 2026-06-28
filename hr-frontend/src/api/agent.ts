@@ -1,6 +1,7 @@
 import request from './request'
 import type {
   AgentConfigInfo,
+  CapabilityInfo,
   CreateAgentPayload,
   UpdateAgentPayload,
 } from '@/types/agent'
@@ -16,6 +17,14 @@ export const listAgentConfigs = (
   const params: Record<string, string | number> = { page, page_size: pageSize }
   if (agentType) params.agent_type = agentType
   return request.get('/api/v1/hr/admin/agent-configs', { params })
+}
+
+export const listAgentCapabilities = (
+  agentType?: string,
+): Promise<{ list: CapabilityInfo[] }> => {
+  const params: Record<string, string> = {}
+  if (agentType) params.agent_type = agentType
+  return request.get('/api/v1/hr/admin/agent-configs/capabilities', { params })
 }
 
 export const createAgentConfig = (

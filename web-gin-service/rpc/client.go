@@ -10,8 +10,8 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/backoff"
 	"google.golang.org/grpc/credentials/insecure"
-	"google.golang.org/grpc/metadata"
 	healthpb "google.golang.org/grpc/health/grpc_health_v1"
+	"google.golang.org/grpc/metadata"
 
 	"web-gin-service/pkg/contextkeys"
 	"web-gin-service/recruitment/pb"
@@ -45,22 +45,23 @@ func streamClientInterceptor(token string) grpc.StreamClientInterceptor {
 }
 
 type Clients struct {
-	conn         *grpc.ClientConn
-	Auth         pb.AuthServiceClient
-	Job          pb.JobServiceClient
-	Candidate    pb.CandidateServiceClient
-	Application  pb.ApplicationServiceClient
-	AI           pb.AIServiceClient
-	Notification pb.NotificationServiceClient
-	Interview    pb.InterviewServiceClient
-	Offer        pb.OfferServiceClient
-	Admin        pb.AdminServiceClient
+	conn          *grpc.ClientConn
+	Auth          pb.AuthServiceClient
+	Job           pb.JobServiceClient
+	Candidate     pb.CandidateServiceClient
+	Application   pb.ApplicationServiceClient
+	AI            pb.AIServiceClient
+	Notification  pb.NotificationServiceClient
+	Interview     pb.InterviewServiceClient
+	Offer         pb.OfferServiceClient
+	Admin         pb.AdminServiceClient
 	Collaboration pb.CollaborationServiceClient
-	LlmConfig    pb.LlmConfigServiceClient
-	Prompt       pb.PromptServiceClient
-	AgentConfig  pb.AgentConfigServiceClient
-	MCP          pb.MCPServiceClient
-	Health       healthpb.HealthClient
+	LlmConfig     pb.LlmConfigServiceClient
+	Prompt        pb.PromptServiceClient
+	AgentConfig   pb.AgentConfigServiceClient
+	MCP           pb.MCPServiceClient
+	Skill         pb.SkillServiceClient
+	Health        healthpb.HealthClient
 }
 
 // NewClients creates a gRPC client connection with round-robin load balancing.
@@ -121,22 +122,23 @@ func NewClients(addr string) (*Clients, error) {
 		return nil, err
 	}
 	return &Clients{
-		conn:         conn,
-		Auth:         pb.NewAuthServiceClient(conn),
-		Job:          pb.NewJobServiceClient(conn),
-		Candidate:    pb.NewCandidateServiceClient(conn),
-		Application:  pb.NewApplicationServiceClient(conn),
-		AI:           pb.NewAIServiceClient(conn),
-		Notification: pb.NewNotificationServiceClient(conn),
-		Interview:    pb.NewInterviewServiceClient(conn),
-		Offer:        pb.NewOfferServiceClient(conn),
-		Admin:        pb.NewAdminServiceClient(conn),
+		conn:          conn,
+		Auth:          pb.NewAuthServiceClient(conn),
+		Job:           pb.NewJobServiceClient(conn),
+		Candidate:     pb.NewCandidateServiceClient(conn),
+		Application:   pb.NewApplicationServiceClient(conn),
+		AI:            pb.NewAIServiceClient(conn),
+		Notification:  pb.NewNotificationServiceClient(conn),
+		Interview:     pb.NewInterviewServiceClient(conn),
+		Offer:         pb.NewOfferServiceClient(conn),
+		Admin:         pb.NewAdminServiceClient(conn),
 		Collaboration: pb.NewCollaborationServiceClient(conn),
-		LlmConfig:    pb.NewLlmConfigServiceClient(conn),
-		Prompt:       pb.NewPromptServiceClient(conn),
-		AgentConfig:  pb.NewAgentConfigServiceClient(conn),
-		MCP:          pb.NewMCPServiceClient(conn),
-		Health:       healthpb.NewHealthClient(conn),
+		LlmConfig:     pb.NewLlmConfigServiceClient(conn),
+		Prompt:        pb.NewPromptServiceClient(conn),
+		AgentConfig:   pb.NewAgentConfigServiceClient(conn),
+		MCP:           pb.NewMCPServiceClient(conn),
+		Skill:         pb.NewSkillServiceClient(conn),
+		Health:        healthpb.NewHealthClient(conn),
 	}, nil
 }
 

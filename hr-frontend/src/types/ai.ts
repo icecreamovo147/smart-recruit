@@ -3,6 +3,9 @@
 export interface ChatMessage {
   role: 'user' | 'assistant'
   content: string
+  created_at?: string
+  model_id?: number
+  model_name?: string
   pending?: boolean
   failed?: boolean
   waitingText?: string
@@ -44,7 +47,7 @@ export interface StreamPayload {
   status?: number
   created_at?: string
   // Phase 4: streaming UX status events
-  event_type?: string // thinking | tool_calling | tool_done | generating | timeout_warning | partial_done | done | error | model_info
+  event_type?: string // thinking | tool_calling | tool_done | generating | timeout_warning | partial_done | done | error | model_info | agent_run_started | model_selected | planning | capability_selected | fallback | agent_run_done
   event_message?: string
   error_type?: string
   tool_name?: string
@@ -83,4 +86,44 @@ export interface ToolTraceItem {
   duration_ms: number
   error_msg: string
   created_at: string
+}
+
+export interface AgentRunStepItem {
+  id: number
+  run_id: number
+  step_index: number
+  step_type: string
+  capability_source: string
+  capability_key: string
+  tool_name: string
+  input_json: string
+  output_json: string
+  status: string
+  duration_ms: number
+  error_message: string
+  started_at: string
+  completed_at: string
+  created_at: string
+}
+
+export interface AgentRunItem {
+  id: number
+  session_id: number
+  message_id: number
+  history_id: number
+  hr_id: number
+  agent_type: string
+  agent_id: number
+  agent_name: string
+  model_id: number
+  model_name: string
+  status: string
+  plan_json: string
+  final_answer: string
+  error_type: string
+  error_message: string
+  started_at: string
+  completed_at: string
+  created_at: string
+  steps: AgentRunStepItem[]
 }

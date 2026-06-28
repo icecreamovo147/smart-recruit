@@ -1,11 +1,20 @@
 package service
 
 import (
+	"context"
 	"strings"
 	"testing"
+	"time"
+
+	"gorm.io/driver/sqlite"
+	"gorm.io/gorm"
 
 	"logic-grpc-service/ai"
+	"logic-grpc-service/config"
 	"logic-grpc-service/model"
+	"logic-grpc-service/pkg/crypto"
+	"logic-grpc-service/recruitment/pb"
+	"logic-grpc-service/repository"
 )
 
 func TestBuildToolCallingMessagesNoToolsForGreeting(t *testing.T) {
@@ -226,6 +235,255 @@ func TestRecruitingToolsAllRequiredToolsPresent(t *testing.T) {
 			t.Errorf("required tool %q is missing from RecruitingTools", name)
 		}
 	}
+}
+
+func TestAgentRuntimeConfigDoesNotEnableMCPWithoutBinding(t *testing.T) {
+	db := setupAgentRuntimeConfigTestDB(t)
+	repo := repository.NewAgentConfigRepo(db)
+	ctx := context.Background()
+
+	agent := &model.AgentConfig{
+		Name:          "hr_agent_without_mcp",
+		DisplayName:   "HR Agent",
+		AgentType:     "hr_recruiting_agent",
+		MaxIterations: 5,
+		IsEnabled:     1,
+	}
+	if err := repo.Create(ctx, agent); err != nil {
+		t.Fatalf("create agent: %v", err)
+	}
+	if err := repo.ReplaceCapabilityBindings(ctx, agent.ID, []model.AgentCapabilityBinding{
+		{CapabilitySource: "builtin", CapabilityKey: "search_jobs", IsEnabled: 1},
+	}); err != nil {
+		t.Fatalf("replace bindings: %v", err)
+	}
+
+	svc := &AIService{agentConfigRepo: repo}
+	cfg := svc.getAgentRuntimeConfig(ctx, "hr_recruiting_agent")
+	if !cfg.HasConfig {
+		t.Fatal("expected runtime config")
+	}
+	if len(cfg.MCPCapabilityKeys) != 0 {
+		t.Fatalf("expected no MCP capabilities, got %#v", cfg.MCPCapabilityKeys)
+	}
+	if len(cfg.ToolNames) != 1 || cfg.ToolNames[0] != "search_jobs" {
+		t.Fatalf("expected builtin search_jobs, got %#v", cfg.ToolNames)
+	}
+}
+
+func TestAgentRuntimeConfigEnablesOnlyBoundMCPCapability(t *testing.T) {
+	db := setupAgentRuntimeConfigTestDB(t)
+	repo := repository.NewAgentConfigRepo(db)
+	ctx := context.Background()
+
+	agent := &model.AgentConfig{
+		Name:          "hr_agent_with_mcp",
+		DisplayName:   "HR Agent",
+		AgentType:     "hr_recruiting_agent",
+		MaxIterations: 5,
+		IsEnabled:     1,
+	}
+	if err := repo.Create(ctx, agent); err != nil {
+		t.Fatalf("create agent: %v", err)
+	}
+	if err := repo.ReplaceCapabilityBindings(ctx, agent.ID, []model.AgentCapabilityBinding{
+		{CapabilitySource: "builtin", CapabilityKey: "search_jobs", IsEnabled: 1},
+		{CapabilitySource: "mcp", CapabilityKey: "7:lookup_candidate", IsEnabled: 1},
+	}); err != nil {
+		t.Fatalf("replace bindings: %v", err)
+	}
+
+	svc := &AIService{agentConfigRepo: repo}
+	cfg := svc.getAgentRuntimeConfig(ctx, "hr_recruiting_agent")
+	if !cfg.MCPCapabilityKeys["7:lookup_candidate"] {
+		t.Fatalf("expected bound MCP capability, got %#v", cfg.MCPCapabilityKeys)
+	}
+	if cfg.MCPCapabilityKeys["7:unbound_tool"] {
+		t.Fatalf("unexpected unbound MCP capability present: %#v", cfg.MCPCapabilityKeys)
+	}
+}
+
+func TestAgentRuntimeConfigFallsBackToLegacyBuiltinBindings(t *testing.T) {
+	db := setupAgentRuntimeConfigTestDB(t)
+	repo := repository.NewAgentConfigRepo(db)
+	ctx := context.Background()
+
+	agent := &model.AgentConfig{
+		Name:          "hr_agent_legacy",
+		DisplayName:   "HR Agent",
+		AgentType:     "hr_recruiting_agent",
+		MaxIterations: 5,
+		IsEnabled:     1,
+	}
+	if err := repo.Create(ctx, agent); err != nil {
+		t.Fatalf("create agent: %v", err)
+	}
+	if err := db.WithContext(ctx).Create(&model.AgentToolBinding{
+		AgentID:   agent.ID,
+		ToolName:  "get_job_detail",
+		IsEnabled: 1,
+	}).Error; err != nil {
+		t.Fatalf("create legacy binding: %v", err)
+	}
+
+	svc := &AIService{agentConfigRepo: repo}
+	cfg := svc.getAgentRuntimeConfig(ctx, "hr_recruiting_agent")
+	if len(cfg.ToolNames) != 1 || cfg.ToolNames[0] != "get_job_detail" {
+		t.Fatalf("expected legacy builtin binding, got %#v", cfg.ToolNames)
+	}
+}
+
+func TestAgentRunFinishUsesBackgroundContextAfterCancellation(t *testing.T) {
+	db := setupAgentRunServiceTestDB(t)
+	repo := repository.NewAgentRunRepo(db)
+	run := &model.AgentRun{
+		SessionID: 1,
+		HrID:      2,
+		AgentType: "hr",
+		AgentName: "hr_recruiting_agent",
+		ModelName: "test-model",
+		Status:    agentRunStatusRunning,
+		StartedAt: time.Now(),
+	}
+	if err := repo.CreateRun(context.Background(), run); err != nil {
+		t.Fatalf("CreateRun failed: %v", err)
+	}
+
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	rec := &agentRunRecorder{repo: repo, runID: run.ID}
+	rec.finish(ctx, agentRunStatusCanceled, "partial", "canceled", context.Canceled.Error())
+
+	runs, err := repo.ListRunsBySession(context.Background(), 2, 1, 10)
+	if err != nil {
+		t.Fatalf("ListRunsBySession failed: %v", err)
+	}
+	if len(runs) != 1 || runs[0].Status != agentRunStatusCanceled {
+		t.Fatalf("expected canceled run despite canceled ctx, got %+v", runs)
+	}
+	if runs[0].CompletedAt == nil {
+		t.Fatal("expected completed_at to be set")
+	}
+	steps, err := repo.ListStepsByRunIDs(context.Background(), []uint64{run.ID})
+	if err != nil {
+		t.Fatalf("ListStepsByRunIDs failed: %v", err)
+	}
+	if len(steps) != 1 || steps[0].Status != agentRunStatusCanceled {
+		t.Fatalf("expected canceled final step, got %+v", steps)
+	}
+}
+
+func TestChatModelResolutionFailureCreatesFailedAgentRun(t *testing.T) {
+	db := setupAgentRunServiceTestDB(t)
+	aiClient, err := ai.NewClient(context.Background(), "test-key", "default-model", "")
+	if err != nil {
+		t.Fatalf("NewClient failed: %v", err)
+	}
+	svc := &AIService{
+		chats:        repository.NewChatRepo(db),
+		agentRuns:    repository.NewAgentRunRepo(db),
+		ai:           aiClient,
+		llmConfigSvc: NewLlmConfigService(repository.NewProviderRepo(db), repository.NewModelConfigRepo(db), crypto.EncryptionKey{}),
+	}
+
+	resp, err := svc.Chat(context.Background(), &pb.ChatRequest{HrId: 7, Message: "hello", ModelId: 404})
+	if err != nil {
+		t.Fatalf("Chat returned error: %v", err)
+	}
+	if resp == nil || !strings.Contains(resp.Msg, "模型不可用") {
+		t.Fatalf("expected model unavailable response, got %+v", resp)
+	}
+
+	runs, err := svc.agentRuns.ListRunsBySession(context.Background(), 7, resp.SessionId, 10)
+	if err != nil {
+		t.Fatalf("ListRunsBySession failed: %v", err)
+	}
+	if len(runs) != 1 {
+		t.Fatalf("expected one failed run, got %+v", runs)
+	}
+	if runs[0].Status != agentRunStatusFailed || runs[0].ErrorType != "model_resolution_failed" {
+		t.Fatalf("unexpected run failure state: %+v", runs[0])
+	}
+	steps, err := svc.agentRuns.ListStepsByRunIDs(context.Background(), []uint64{runs[0].ID})
+	if err != nil {
+		t.Fatalf("ListStepsByRunIDs failed: %v", err)
+	}
+	if len(steps) == 0 || steps[len(steps)-1].Status != agentRunStatusFailed {
+		t.Fatalf("expected failed final step, got %+v", steps)
+	}
+}
+
+func TestUserMessagePersistFailureFinalizesFailedAgentRun(t *testing.T) {
+	db := setupAgentRunServiceTestDB(t)
+	aiClient, err := ai.NewClient(context.Background(), "test-key", "default-model", "")
+	if err != nil {
+		t.Fatalf("NewClient failed: %v", err)
+	}
+	chats := repository.NewChatRepo(db)
+	svc := &AIService{
+		chats:     chats,
+		summaries: repository.NewSessionSummaryRepo(db),
+		memories:  repository.NewMemoryRepo(db),
+		agentRuns: repository.NewAgentRunRepo(db),
+		ai:        aiClient,
+	}
+	svc.contextBuilder = NewAgentContextBuilder(chats, svc.summaries, svc.memories, aiClient, zeroConfig(), nil)
+
+	missingSession := &model.AIChatSession{ID: 999, HrID: 3}
+	_, _, err = svc.runToolCallingChat(context.Background(),
+		&pb.ChatRequest{HrId: 3, SessionId: missingSession.ID, Message: "persist me"},
+		missingSession, nil, "default-model", nil, nil, nil, aiClient)
+	if err == nil {
+		t.Fatal("expected user message persist failure")
+	}
+
+	runs, err := svc.agentRuns.ListRunsBySession(context.Background(), 3, missingSession.ID, 10)
+	if err != nil {
+		t.Fatalf("ListRunsBySession failed: %v", err)
+	}
+	if len(runs) != 1 {
+		t.Fatalf("expected one run for failed persist, got %+v", runs)
+	}
+	if runs[0].Status != agentRunStatusFailed || runs[0].ErrorType != "persist_failed" {
+		t.Fatalf("expected persist_failed run, got %+v", runs[0])
+	}
+}
+
+func setupAgentRunServiceTestDB(t *testing.T) *gorm.DB {
+	t.Helper()
+	db, err := gorm.Open(sqlite.Open(":memory:"), &gorm.Config{TranslateError: true})
+	if err != nil {
+		t.Fatalf("failed to open in-memory SQLite: %v", err)
+	}
+	if err := db.AutoMigrate(
+		&model.AIChatSession{},
+		&model.AIChatHistory{},
+		&model.AISessionSummary{},
+		&model.AIMemory{},
+		&model.AgentRun{},
+		&model.AgentRunStep{},
+		&model.LlmProvider{},
+		&model.LlmModel{},
+	); err != nil {
+		t.Fatalf("auto-migrate failed: %v", err)
+	}
+	return db
+}
+
+func zeroConfig() config.Config {
+	return config.Config{}
+}
+
+func setupAgentRuntimeConfigTestDB(t *testing.T) *gorm.DB {
+	t.Helper()
+	db, err := gorm.Open(sqlite.Open(":memory:"), &gorm.Config{TranslateError: true})
+	if err != nil {
+		t.Fatalf("open sqlite db: %v", err)
+	}
+	if err := db.AutoMigrate(&model.AgentConfig{}, &model.AgentToolBinding{}, &model.AgentCapabilityBinding{}); err != nil {
+		t.Fatalf("auto migrate: %v", err)
+	}
+	return db
 }
 
 func TestDesensitizeArgsJSON_Phone(t *testing.T) {

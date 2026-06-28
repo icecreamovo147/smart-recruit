@@ -43,6 +43,22 @@ func (h *AgentConfigHandler) ListAgents(c *gin.Context) {
 	})
 }
 
+func (h *AgentConfigHandler) ListCapabilities(c *gin.Context) {
+	agentType := c.DefaultQuery("agent_type", "")
+
+	resp, err := h.clients.AgentConfig.ListCapabilities(c.Request.Context(), &pb.ListCapabilitiesRequest{
+		AgentType: agentType,
+	})
+	if err != nil {
+		logger.L().Error("ListCapabilities failed", zap.Error(err))
+		base.Internal(c, err)
+		return
+	}
+	base.From(c, resp.Code, resp.Msg, gin.H{
+		"list": resp.List,
+	})
+}
+
 // CreateAgent creates a new agent configuration.
 func (h *AgentConfigHandler) CreateAgent(c *gin.Context) {
 	var req pb.CreateAgentRequest

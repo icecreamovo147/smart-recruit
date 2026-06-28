@@ -19,20 +19,32 @@ import (
 
 // newChatModel creates a ToolCallingChatModel based on the provider type.
 func newChatModel(ctx context.Context, providerType, apiKey, model, baseURL string, timeout time.Duration) (chatmodel.ToolCallingChatModel, error) {
+	return newChatModelWithTemperature(ctx, providerType, apiKey, model, baseURL, timeout, nil)
+}
+
+// newChatModelWithTemperature creates a ToolCallingChatModel with an optional
+// per-request temperature override.
+func newChatModelWithTemperature(ctx context.Context, providerType, apiKey, model, baseURL string, timeout time.Duration, temperatureOverride *float64) (chatmodel.ToolCallingChatModel, error) {
 	switch providerType {
 	case "anthropic":
 		return newAnthropicChatModel(AnthropicChatModelConfig{
-			APIKey:  apiKey,
-			BaseURL: baseURL,
-			Model:   model,
+			APIKey:      apiKey,
+			BaseURL:     baseURL,
+			Model:       model,
+			Temperature: temperatureOverride,
 		}), nil
 	default: // openai_compatible, deepseek, ""
-		cm, err := openai.NewChatModel(ctx, &openai.ChatModelConfig{
+		cfg := &openai.ChatModelConfig{
 			APIKey:  apiKey,
 			Model:   model,
 			BaseURL: baseURL,
 			Timeout: timeout,
-		})
+		}
+		if temperatureOverride != nil {
+			temperature := float32(*temperatureOverride)
+			cfg.Temperature = &temperature
+		}
+		cm, err := openai.NewChatModel(ctx, cfg)
 		if err != nil {
 			return nil, err
 		}
@@ -44,6 +56,12 @@ func newChatModel(ctx context.Context, providerType, apiKey, model, baseURL stri
 // for per-request runtime model selection.
 func NewChatModel(ctx context.Context, providerType, apiKey, model, baseURL string, timeout time.Duration) (chatmodel.ToolCallingChatModel, error) {
 	return newChatModel(ctx, providerType, apiKey, model, baseURL, timeout)
+}
+
+// NewChatModelWithTemperature is used by service-layer per-request model
+// selection when AgentConfig provides temperature_override.
+func NewChatModelWithTemperature(ctx context.Context, providerType, apiKey, model, baseURL string, timeout time.Duration, temperatureOverride *float64) (chatmodel.ToolCallingChatModel, error) {
+	return newChatModelWithTemperature(ctx, providerType, apiKey, model, baseURL, timeout, temperatureOverride)
 }
 
 // ToolRunner is the interface that both HR and candidate tool executors implement.
@@ -309,7 +327,7 @@ func NewClientFromConfig(ctx context.Context, cfg ClientConfig, opts ...Options)
 	}, nil
 }
 
-func (c *Client) ModelName() string { return c.model }
+func (c *Client) ModelName() string      { return c.model }
 func (c *Client) Timeout() time.Duration { return c.timeout }
 
 // CloneWithModel returns a shallow copy of the Client that uses a different ChatModel
@@ -590,8 +608,8 @@ func parseSuggestedQuestions(content string) []string {
 }
 
 // ToolTraceCallback is invoked after each tool execution for audit/logging.
-// Parameters: toolCallID, toolName, argumentsJSON, resultContent, execErr (nil on success).
-type ToolTraceCallback func(toolCallID, toolName, argsJSON, resultContent string, execErr error)
+// Parameters: toolCallID, toolName, argumentsJSON, resultContent, duration, execErr (nil on success).
+type ToolTraceCallback func(toolCallID, toolName, argsJSON, resultContent string, duration time.Duration, execErr error)
 
 // isContextCanceled returns true when the error is due to context cancellation
 // (user abort or connection drop) vs deadline exceeded (timeout).
@@ -773,7 +791,7 @@ func (c *Client) ChatWithTools(ctx context.Context, messages []*schema.Message, 
 					result = ToolResult{Content: string(data)}
 				}
 				if onToolExecuted != nil {
-					onToolExecuted(tc.ID, tc.Function.Name, tc.Function.Arguments, result.Content, execErr)
+					onToolExecuted(tc.ID, tc.Function.Name, tc.Function.Arguments, result.Content, toolCost, execErr)
 				}
 				metadata.merge(result.Metadata)
 				metadata.recordTrace(ToolTrace{

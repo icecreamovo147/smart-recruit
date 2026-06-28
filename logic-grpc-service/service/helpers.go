@@ -226,7 +226,11 @@ func toPBResume(resume *model.Resume, resumeURL string) *pb.CandidateResume {
 func toPBChatMessages(rows []model.AIChatHistory) []*pb.ChatMessage {
 	list := make([]*pb.ChatMessage, 0, len(rows))
 	for _, row := range rows {
-		list = append(list, &pb.ChatMessage{Role: row.Role, Content: row.Content, CreatedAt: formatTime(row.CreatedAt)})
+		msg := &pb.ChatMessage{Role: row.Role, Content: row.Content, CreatedAt: formatTime(row.CreatedAt), ModelName: row.ModelName}
+		if row.ModelID != nil {
+			msg.ModelId = *row.ModelID
+		}
+		list = append(list, msg)
 	}
 	return list
 }

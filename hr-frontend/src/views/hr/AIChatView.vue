@@ -269,7 +269,7 @@ const createAnalysisSessionFromRoute = async () => {
   // and the URL can be replaced with session_id, preventing re-analysis on refresh.
   let data: { session: ChatSessionListItem; messages: { role: string; content: string; created_at: string }[] }
   try {
-    data = await createApplicationAnalysisSession({ application_id: applicationId })
+    data = await createApplicationAnalysisSession({ application_id: applicationId, ...(selectedModelId.value != null ? { model_id: selectedModelId.value } : {}) })
   } catch {
     ElMessage.error('创建分析会话失败，请稍后重试')
     loading.value = false

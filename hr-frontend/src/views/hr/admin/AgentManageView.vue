@@ -4,6 +4,7 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 import { Delete, Edit, Plus, Refresh } from '@element-plus/icons-vue'
 import {
   listAgentConfigs,
+  listAgentCapabilities,
   createAgentConfig,
   updateAgentConfig,
   deleteAgentConfig,
@@ -11,6 +12,8 @@ import {
 import { listPromptTemplates } from '@/api/prompt'
 import type {
   AgentConfigInfo,
+  AgentCapabilityBindingInfo,
+  CapabilityInfo,
   AgentToolBindingInfo,
   CreateAgentPayload,
   UpdateAgentPayload,
@@ -92,6 +95,7 @@ const loadList = async () => {
 // ====== Reference data for selectors ======
 
 const promptList = ref<PromptTemplate[]>([])
+const capabilityList = ref<CapabilityInfo[]>([])
 
 const loadReferenceData = async () => {
   try {
@@ -99,6 +103,15 @@ const loadReferenceData = async () => {
     promptList.value = promptData.list || []
   } catch {
     // Non-fatal: selectors will be empty but user can still type
+  }
+}
+
+const loadCapabilities = async (agentType = dialogForm.agent_type) => {
+  try {
+    const data = await listAgentCapabilities(agentType)
+    capabilityList.value = data.list || []
+  } catch {
+    capabilityList.value = []
   }
 }
 
@@ -128,12 +141,63 @@ const dialogForm = reactive({
   temperature_override_enabled: false,
   is_default: false,
   is_enabled: true,
-  tool_names: [] as string[],
+  capability_ids: [] as string[],
 })
 
 const currentToolOptions = computed(() => {
-  return AVAILABLE_TOOLS_BY_TYPE[dialogForm.agent_type] || []
+  if (capabilityList.value.length > 0) {
+    return capabilityList.value.map((cap) => ({
+      id: capabilitySelectID(cap.source, cap.key),
+      label: capabilityDisplayLabel(cap),
+      group: cap.source === 'mcp' ? 'MCP' : cap.source === 'skill' ? 'SKILL' : '内置',
+      description: cap.description,
+      disabled: !cap.is_available,
+    }))
+  }
+  return (AVAILABLE_TOOLS_BY_TYPE[dialogForm.agent_type] || []).map((tool) => ({
+    id: capabilitySelectID('builtin', tool.name),
+    label: tool.label,
+    group: '内置',
+    description: '',
+    disabled: false,
+  }))
 })
+
+const capabilityDisplayLabel = (cap: CapabilityInfo) => {
+  if (cap.source === 'builtin') {
+    const builtin = (AVAILABLE_TOOLS_BY_TYPE[dialogForm.agent_type] || []).find((tool) => tool.name === cap.key)
+    return builtin?.label || cap.display_name || cap.name || cap.key
+  }
+  return cap.display_name || cap.name || cap.key
+}
+
+const selectedCapabilities = computed(() =>
+  dialogForm.capability_ids.map(capabilityFromSelectID).filter((cap): cap is AgentCapabilityBindingInfo => Boolean(cap)),
+)
+
+const capabilitySelectID = (source: string, key: string) => `${source}:${key}`
+
+const capabilityFromSelectID = (id: string): AgentCapabilityBindingInfo | null => {
+  const index = id.indexOf(':')
+  if (index <= 0) return null
+  const source = id.slice(0, index) as AgentCapabilityBindingInfo['capability_source']
+  const key = id.slice(index + 1)
+  if (!source || !key) return null
+  return {
+    capability_source: source,
+    capability_key: key,
+    is_enabled: true,
+    priority: 0,
+  }
+}
+
+const capabilityIDFromBinding = (binding: AgentCapabilityBindingInfo) =>
+  capabilitySelectID(binding.capability_source, binding.capability_key)
+
+const handleAgentTypeChange = async () => {
+  dialogForm.capability_ids = []
+  await loadCapabilities(dialogForm.agent_type)
+}
 
 const resetDialogForm = () => {
   dialogForm.name = ''
@@ -147,18 +211,19 @@ const resetDialogForm = () => {
   dialogForm.temperature_override_enabled = false
   dialogForm.is_default = false
   dialogForm.is_enabled = true
-  dialogForm.tool_names = []
+  dialogForm.capability_ids = []
 }
 
-const openCreate = () => {
+const openCreate = async () => {
   isEditing.value = false
   editingId.value = 0
   dialogTitle.value = '新增 Agent 配置'
   resetDialogForm()
+  await loadCapabilities(dialogForm.agent_type)
   dialogVisible.value = true
 }
 
-const openEdit = (row: AgentConfigInfo) => {
+const openEdit = async (row: AgentConfigInfo) => {
   isEditing.value = true
   editingId.value = row.id
   dialogTitle.value = '编辑 Agent 配置'
@@ -173,9 +238,15 @@ const openEdit = (row: AgentConfigInfo) => {
   dialogForm.temperature_override_enabled = row.temperature_override > 0
   dialogForm.is_default = row.is_default
   dialogForm.is_enabled = row.is_enabled
-  dialogForm.tool_names = (row.tool_bindings || [])
-    .filter((tb: AgentToolBindingInfo) => tb.is_enabled)
-    .map((tb: AgentToolBindingInfo) => tb.tool_name)
+  await loadCapabilities(row.agent_type)
+  const capabilityBindings = row.capability_bindings || []
+  dialogForm.capability_ids = capabilityBindings.length > 0
+    ? capabilityBindings
+      .filter((binding) => binding.is_enabled !== false)
+      .map(capabilityIDFromBinding)
+    : (row.tool_bindings || [])
+      .filter((tb: AgentToolBindingInfo) => tb.is_enabled)
+      .map((tb: AgentToolBindingInfo) => capabilitySelectID('builtin', tb.tool_name))
   dialogVisible.value = true
 }
 
@@ -211,8 +282,8 @@ const save = async () => {
       payload.is_default_set = true
       payload.is_enabled = dialogForm.is_enabled
       payload.is_enabled_set = true
-      payload.tool_names = dialogForm.tool_names
-      payload.tool_names_set = true
+      payload.capability_bindings = selectedCapabilities.value
+      payload.capability_bindings_set = true
       await updateAgentConfig(editingId.value, payload)
       ElMessage.success('Agent 配置已更新')
     } else {
@@ -228,7 +299,7 @@ const save = async () => {
       payload.temperature_override = dialogForm.temperature_override
       payload.temperature_override_set = dialogForm.temperature_override_enabled
       payload.is_default = dialogForm.is_default
-      if (dialogForm.tool_names.length > 0) payload.tool_names = dialogForm.tool_names
+      if (selectedCapabilities.value.length > 0) payload.capability_bindings = selectedCapabilities.value
       await createAgentConfig(payload)
       ElMessage.success('Agent 配置已创建')
     }
@@ -319,7 +390,7 @@ onMounted(() => {
       </el-table-column>
       <el-table-column label="工具数" width="80">
         <template #default="{ row }: { row: AgentConfigInfo }">
-          {{ (row.tool_bindings || []).length }}
+          {{ (row.capability_bindings || row.tool_bindings || []).length }}
         </template>
       </el-table-column>
       <el-table-column label="默认" width="70">
@@ -388,7 +459,7 @@ onMounted(() => {
           />
         </el-form-item>
         <el-form-item label="Agent 类型" required>
-          <el-select v-model="dialogForm.agent_type" style="width: 100%" @change="dialogForm.tool_names = []">
+          <el-select v-model="dialogForm.agent_type" style="width: 100%" @change="handleAgentTypeChange">
             <el-option
               v-for="opt in AGENT_TYPE_OPTIONS"
               :key="opt.value"
@@ -444,16 +515,17 @@ onMounted(() => {
 
         <el-form-item label="绑定工具">
           <el-select
-            v-model="dialogForm.tool_names"
+            v-model="dialogForm.capability_ids"
             multiple
             style="width: 100%"
             placeholder="选择要绑定的工具（多选）"
           >
             <el-option
               v-for="tool in currentToolOptions"
-              :key="tool.name"
-              :value="tool.name"
+              :key="tool.id"
+              :value="tool.id"
               :label="tool.label"
+              :disabled="tool.disabled"
             />
           </el-select>
           <div v-if="currentToolOptions.length === 0" class="form-help-text">当前 Agent 类型没有预定义工具</div>

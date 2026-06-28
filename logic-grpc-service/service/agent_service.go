@@ -5,11 +5,13 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/cloudwego/eino/schema"
 	"go.uber.org/zap"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"gorm.io/gorm"
 
+	"logic-grpc-service/ai"
 	"logic-grpc-service/model"
 	"logic-grpc-service/pkg/logger"
 	"logic-grpc-service/recruitment/pb"
@@ -21,16 +23,22 @@ type AgentConfigService struct {
 	pb.UnimplementedAgentConfigServiceServer
 	repo       *repository.AgentConfigRepo
 	promptRepo *repository.PromptTemplateRepo
+	mcpSvc     *MCPService
+	skillSvc   *SkillService
 }
 
 // NewAgentConfigService creates a new AgentConfigService.
 func NewAgentConfigService(
 	repo *repository.AgentConfigRepo,
 	promptRepo *repository.PromptTemplateRepo,
+	mcpSvc *MCPService,
+	skillSvc *SkillService,
 ) *AgentConfigService {
 	return &AgentConfigService{
 		repo:       repo,
 		promptRepo: promptRepo,
+		mcpSvc:     mcpSvc,
+		skillSvc:   skillSvc,
 	}
 }
 
@@ -68,6 +76,32 @@ func (s *AgentConfigService) ListAgents(ctx context.Context, req *pb.ListAgentsR
 		Msg:   "success",
 		Total: total,
 		List:  list,
+	}, nil
+}
+
+func (s *AgentConfigService) ListCapabilities(ctx context.Context, req *pb.ListCapabilitiesRequest) (*pb.ListCapabilitiesResponse, error) {
+	list := builtinCapabilities(req.GetAgentType())
+	if s.mcpSvc != nil {
+		mcpCaps, err := s.mcpSvc.ListEnabledMCPCapabilities(ctx)
+		if err != nil {
+			logger.L().Warn("list MCP capabilities failed", zap.Error(err))
+		} else {
+			list = append(list, mcpCaps...)
+		}
+	}
+	if s.skillSvc != nil {
+		skillCaps, err := s.skillSvc.ListEnabledSkillCapabilities(ctx)
+		if err != nil {
+			logger.L().Warn("list SKILL capabilities failed", zap.Error(err))
+		} else {
+			list = append(list, skillCaps...)
+		}
+	}
+
+	return &pb.ListCapabilitiesResponse{
+		Code: 0,
+		Msg:  "success",
+		List: list,
 	}, nil
 }
 
@@ -139,11 +173,13 @@ func (s *AgentConfigService) CreateAgent(ctx context.Context, req *pb.CreateAgen
 		return nil, status.Error(codes.Internal, "create agent config failed")
 	}
 
-	// Bind tools.
-	if len(req.GetToolNames()) > 0 {
-		if err := s.repo.ReplaceToolBindings(ctx, cfg.ID, req.GetToolNames()); err != nil {
-			logger.L().Error("bind tools failed", zap.Error(err))
-			// Non-fatal: agent config was created, tool bindings can be updated later.
+	bindings := capabilityBindingsFromPB(req.GetCapabilityBindings())
+	if len(bindings) == 0 && len(req.GetToolNames()) > 0 {
+		bindings = builtinCapabilityBindings(req.GetToolNames())
+	}
+	if len(bindings) > 0 {
+		if err := s.repo.ReplaceCapabilityBindings(ctx, cfg.ID, bindings); err != nil {
+			logger.L().Error("bind capabilities failed", zap.Error(err))
 		}
 	}
 
@@ -240,10 +276,14 @@ func (s *AgentConfigService) UpdateAgent(ctx context.Context, req *pb.UpdateAgen
 		}
 	}
 
-	// Replace tool bindings if explicitly set.
-	if req.GetToolNamesSet() {
-		if err := s.repo.ReplaceToolBindings(ctx, existing.ID, req.GetToolNames()); err != nil {
-			logger.L().Error("replace tool bindings failed", zap.Error(err))
+	if req.GetCapabilityBindingsSet() {
+		if err := s.repo.ReplaceCapabilityBindings(ctx, existing.ID, capabilityBindingsFromPB(req.GetCapabilityBindings())); err != nil {
+			logger.L().Error("replace capability bindings failed", zap.Error(err))
+			return nil, status.Error(codes.Internal, "replace capability bindings failed")
+		}
+	} else if req.GetToolNamesSet() {
+		if err := s.repo.ReplaceCapabilityBindings(ctx, existing.ID, builtinCapabilityBindings(req.GetToolNames())); err != nil {
+			logger.L().Error("replace tool capability bindings failed", zap.Error(err))
 			return nil, status.Error(codes.Internal, "replace tool bindings failed")
 		}
 	}
@@ -339,6 +379,15 @@ func (s *AgentConfigService) agentToPB(ctx context.Context, cfg *model.AgentConf
 		info.ToolBindings = pbBindings
 	}
 
+	capabilityBindings, err := s.repo.ListCapabilityBindings(ctx, cfg.ID)
+	if err == nil {
+		pbBindings := make([]*pb.AgentCapabilityBindingInfo, 0, len(capabilityBindings))
+		for _, b := range capabilityBindings {
+			pbBindings = append(pbBindings, capabilityBindingToPB(b))
+		}
+		info.CapabilityBindings = pbBindings
+	}
+
 	return info, nil
 }
 
@@ -353,19 +402,19 @@ func agentToPBBasic(cfg *model.AgentConfig) *pb.AgentConfigInfo {
 	}
 
 	return &pb.AgentConfigInfo{
-		Id:                   cfg.ID,
-		Name:                 cfg.Name,
-		DisplayName:          cfg.DisplayName,
-		Description:          cfg.Description,
-		AgentType:            cfg.AgentType,
-		PromptTemplateId:     promptTemplateID,
-		Instruction:          cfg.Instruction,
-		MaxIterations:        cfg.MaxIterations,
-		TemperatureOverride:  tempOverride,
-		IsDefault:            cfg.IsDefault == 1,
-		IsEnabled:            cfg.IsEnabled == 1,
-		CreatedAt:            cfg.CreatedAt.Format("2006-01-02 15:04:05"),
-		UpdatedAt:            cfg.UpdatedAt.Format("2006-01-02 15:04:05"),
+		Id:                  cfg.ID,
+		Name:                cfg.Name,
+		DisplayName:         cfg.DisplayName,
+		Description:         cfg.Description,
+		AgentType:           cfg.AgentType,
+		PromptTemplateId:    promptTemplateID,
+		Instruction:         cfg.Instruction,
+		MaxIterations:       cfg.MaxIterations,
+		TemperatureOverride: tempOverride,
+		IsDefault:           cfg.IsDefault == 1,
+		IsEnabled:           cfg.IsEnabled == 1,
+		CreatedAt:           cfg.CreatedAt.Format("2006-01-02 15:04:05"),
+		UpdatedAt:           cfg.UpdatedAt.Format("2006-01-02 15:04:05"),
 	}
 }
 
@@ -374,6 +423,101 @@ func int64Ptr(v int64, set bool) *int64 {
 		return nil
 	}
 	return &v
+}
+
+func capabilityBindingsFromPB(items []*pb.AgentCapabilityBindingInfo) []model.AgentCapabilityBinding {
+	bindings := make([]model.AgentCapabilityBinding, 0, len(items))
+	seen := map[string]bool{}
+	for _, item := range items {
+		source := strings.TrimSpace(strings.ToLower(item.GetCapabilitySource()))
+		key := strings.TrimSpace(item.GetCapabilityKey())
+		if source == "" || key == "" {
+			continue
+		}
+		if source != "builtin" && source != "mcp" && source != "skill" {
+			continue
+		}
+		seenKey := source + ":" + key
+		if seen[seenKey] {
+			continue
+		}
+		seen[seenKey] = true
+		policyJSON := strings.TrimSpace(item.GetPolicyJson())
+		var policyPtr *string
+		if policyJSON != "" {
+			policyPtr = &policyJSON
+		}
+		bindings = append(bindings, model.AgentCapabilityBinding{
+			CapabilitySource: source,
+			CapabilityKey:    key,
+			IsEnabled:        1,
+			Priority:         item.GetPriority(),
+			PolicyJSON:       policyPtr,
+		})
+	}
+	return bindings
+}
+
+func builtinCapabilityBindings(toolNames []string) []model.AgentCapabilityBinding {
+	items := make([]*pb.AgentCapabilityBindingInfo, 0, len(toolNames))
+	for _, name := range toolNames {
+		items = append(items, &pb.AgentCapabilityBindingInfo{
+			CapabilitySource: "builtin",
+			CapabilityKey:    name,
+			IsEnabled:        true,
+		})
+	}
+	return capabilityBindingsFromPB(items)
+}
+
+func capabilityBindingToPB(b model.AgentCapabilityBinding) *pb.AgentCapabilityBindingInfo {
+	policyJSON := ""
+	if b.PolicyJSON != nil {
+		policyJSON = *b.PolicyJSON
+	}
+	return &pb.AgentCapabilityBindingInfo{
+		Id:               b.ID,
+		AgentId:          b.AgentID,
+		CapabilitySource: b.CapabilitySource,
+		CapabilityKey:    b.CapabilityKey,
+		IsEnabled:        b.IsEnabled == 1,
+		Priority:         b.Priority,
+		PolicyJson:       policyJSON,
+		CreatedAt:        b.CreatedAt.Format("2006-01-02 15:04:05"),
+		UpdatedAt:        b.UpdatedAt.Format("2006-01-02 15:04:05"),
+	}
+}
+
+func builtinCapabilities(agentType string) []*pb.CapabilityInfo {
+	var tools []*schema.ToolInfo
+	switch agentType {
+	case "", "hr_recruiting_agent":
+		tools = append(tools, ai.RecruitingTools()...)
+	case "candidate_assistant":
+		tools = append(tools, ai.CandidateTools()...)
+	default:
+		return nil
+	}
+	if agentType == "" {
+		tools = append(tools, ai.CandidateTools()...)
+	}
+	caps := make([]*pb.CapabilityInfo, 0, len(tools))
+	seen := map[string]bool{}
+	for _, t := range tools {
+		if t == nil || seen[t.Name] {
+			continue
+		}
+		seen[t.Name] = true
+		caps = append(caps, &pb.CapabilityInfo{
+			Source:      "builtin",
+			Key:         t.Name,
+			Name:        t.Name,
+			DisplayName: t.Name,
+			Description: t.Desc,
+			IsAvailable: true,
+		})
+	}
+	return caps
 }
 
 // ── Seed Functions ───────────────────────────────────────────────────────

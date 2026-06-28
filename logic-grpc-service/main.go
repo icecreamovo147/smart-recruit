@@ -125,6 +125,7 @@ func main() {
 	chatRepo := repository.NewChatRepo(db)
 	summaryRepo := repository.NewSessionSummaryRepo(db)
 	toolTraceRepo := repository.NewToolTraceRepo(db)
+	agentRunRepo := repository.NewAgentRunRepo(db)
 	memoryRepo := repository.NewMemoryRepo(db)
 	notificationRepo := repository.NewNotificationRepo(db)
 	outboxRepo := repository.NewOutboxRepo(db)
@@ -225,7 +226,7 @@ func main() {
 		db,
 		userRepo, tokenRepo,
 		jobRepo, profileRepo, resumeRepo, applicationRepo, interviewRepo, offerRepo, chatRepo,
-		summaryRepo, toolTraceRepo, memoryRepo, notificationRepo, outboxRepo, inviteCodeRepo,
+		summaryRepo, toolTraceRepo, agentRunRepo, memoryRepo, notificationRepo, outboxRepo, inviteCodeRepo,
 		departmentRepo, locationRepo, deptLocationRepo,
 		usageLogRepo, authzRepo,
 		emailLogRepo,
@@ -233,7 +234,6 @@ func main() {
 		ossClient, aiClient, mqConn, cfg, cfg.JWT.Secret,
 		emailSender, emailRenderer,
 	)
-
 
 	// Seed default prompt templates from hardcoded prompts.
 	if services.Prompt != nil {
@@ -367,6 +367,7 @@ func main() {
 	pb.RegisterPromptServiceServer(grpcServer, recruitmentServer)
 	pb.RegisterAgentConfigServiceServer(grpcServer, recruitmentServer)
 	pb.RegisterMCPServiceServer(grpcServer, recruitmentServer)
+	pb.RegisterSkillServiceServer(grpcServer, recruitmentServer)
 	healthpb.RegisterHealthServer(grpcServer, server.NewHealthServer(sqlDB, healthRedis, mqConn))
 
 	// Graceful shutdown
@@ -447,10 +448,10 @@ func initAIClient(ctx context.Context, cfg config.Config, providerRepo *reposito
 			zap.String("provider_type", dbProviderType),
 		)
 		client, err := ai.NewClientFromConfig(ctx, ai.ClientConfig{
-			APIKey:       dbAPIKey,
-			Model:        dbModel,
-			BaseURL:      dbBaseURL,
-			ProviderType: dbProviderType,
+			APIKey:                  dbAPIKey,
+			Model:                   dbModel,
+			BaseURL:                 dbBaseURL,
+			ProviderType:            dbProviderType,
 			Timeout:                 cfg.AI.Timeout.Duration,
 			TotalTimeout:            cfg.AI.TotalTimeout.Duration,
 			ToolMaxRounds:           cfg.AI.ToolMaxRounds,
@@ -491,5 +492,3 @@ func initAIClient(ctx context.Context, cfg config.Config, providerRepo *reposito
 	}
 	return client, nil
 }
-
-

@@ -50,6 +50,7 @@ type Services struct {
 	Prompt        *PromptService
 	AgentConfig   *AgentConfigService
 	MCP           *MCPService
+	Skill         *SkillService
 
 	// Phase 6: Audit context repo for AI usage audit writes
 	UsageAuditCtxRepo *repository.UsageAuditContextRepo
@@ -77,6 +78,7 @@ func NewServices(
 	chats *repository.ChatRepo,
 	summaries *repository.SessionSummaryRepo,
 	toolTraces *repository.ToolTraceRepo,
+	agentRuns *repository.AgentRunRepo,
 	memories *repository.MemoryRepo,
 	notifications *repository.NotificationRepo,
 	outbox *repository.OutboxRepo,
@@ -120,6 +122,7 @@ func NewServices(
 
 	// Initialize MCP service before AI service for MCP tool injection
 	mcpSvc := NewMCPService(repository.NewMCPRepo(db), cfg)
+	skillSvc := NewSkillService(repository.NewSkillRepo(db))
 
 	return &Services{
 		Auth:              NewAuthService(users, tokens, authzRepo, inviteCodes, jwtSecret),
@@ -127,22 +130,23 @@ func NewServices(
 		Admin:             NewAdminService(inviteCodes, usageLogs, users, authzRepo, tokenCache, serviceAuth),
 		UsageAuditCtxRepo: usageAuditCtxRepo,
 
-	// P1-003: AI usage statistics
-	UsageStats: NewUsageStatsService(repository.NewUsageStatsRepo(db), serviceAuth),
+		// P1-003: AI usage statistics
+		UsageStats: NewUsageStatsService(repository.NewUsageStatsRepo(db), serviceAuth),
 
-		Job:               NewJobService(jobs, jobCache, authzRepo, taxonomy, scopeEval),
-		Taxonomy:          taxonomy,
-		Candidate:         NewCandidateService(profiles, resumes, ossClient, outboxPublisher, usageLogs, serviceAuth),
-		Application:       NewApplicationService(authzRepo, applications, profiles, resumes, jobs, interviews, notifications, outboxPublisher, ossClient, jobCache, scopeEval),
-		Interview:         NewInterviewService(authzRepo, interviews, users, applications, jobs, notifications, outboxPublisher, ossClient, scopeEval, serviceAuth),
-		Offer:             NewOfferService(authzRepo, offers, applications, jobs, notifications, outboxPublisher, scopeEval, serviceAuth),
-		AI:                NewAIService(chats, applications, jobs, resumes, summaries, toolTraces, memories, ossClient, aiClient, toolExecutor, contextBuilder, candidateAI, usageLogs, usageAuditCtxRepo, authzRepo, agentRuntime, serviceAuth, llmConfigSvc, agentCfgRepo, promptTmplRepo, mcpSvc),
-		CandidateAI:       candidateAI,
-		Notification:      NewNotificationService(notifications, notifCache, serviceAuth),
-		LlmConfig:         llmConfigSvc,
-		Prompt:            NewPromptService(promptTmplRepo),
-		AgentConfig:       NewAgentConfigService(agentCfgRepo, promptTmplRepo),
-		MCP:              mcpSvc,
+		Job:          NewJobService(jobs, jobCache, authzRepo, taxonomy, scopeEval),
+		Taxonomy:     taxonomy,
+		Candidate:    NewCandidateService(profiles, resumes, ossClient, outboxPublisher, usageLogs, serviceAuth),
+		Application:  NewApplicationService(authzRepo, applications, profiles, resumes, jobs, interviews, notifications, outboxPublisher, ossClient, jobCache, scopeEval),
+		Interview:    NewInterviewService(authzRepo, interviews, users, applications, jobs, notifications, outboxPublisher, ossClient, scopeEval, serviceAuth),
+		Offer:        NewOfferService(authzRepo, offers, applications, jobs, notifications, outboxPublisher, scopeEval, serviceAuth),
+		AI:           NewAIService(chats, applications, jobs, resumes, summaries, toolTraces, agentRuns, memories, ossClient, aiClient, toolExecutor, contextBuilder, candidateAI, usageLogs, usageAuditCtxRepo, authzRepo, agentRuntime, serviceAuth, llmConfigSvc, agentCfgRepo, promptTmplRepo, mcpSvc, skillSvc),
+		CandidateAI:  candidateAI,
+		Notification: NewNotificationService(notifications, notifCache, serviceAuth),
+		LlmConfig:    llmConfigSvc,
+		Prompt:       NewPromptService(promptTmplRepo),
+		AgentConfig:  NewAgentConfigService(agentCfgRepo, promptTmplRepo, mcpSvc, skillSvc),
+		MCP:          mcpSvc,
+		Skill:        skillSvc,
 
 		Collaboration: NewCollaborationService(
 			authzRepo,
