@@ -12,7 +12,6 @@ const ApplicationListView = () => import('@/views/hr/ApplicationListView.vue')
 const InterviewScheduleView = () => import('@/views/hr/InterviewScheduleView.vue')
 const OfferManageView = () => import('@/views/hr/OfferManageView.vue')
 const AIChatView = () => import('@/views/hr/AIChatView.vue')
-const CapabilityCenterView = () => import('@/views/hr/CapabilityCenterView.vue')
 const ProfileView = () => import('@/views/hr/ProfileView.vue')
 const InviteCodeManageView = () => import('@/views/hr/InviteCodeManageView.vue')
 const DepartmentManageView = () => import('@/views/hr/DepartmentManageView.vue')
@@ -78,12 +77,6 @@ const routes: RouteRecordRaw[] = [
     path: '/hr/ai',
     component: AIChatView,
     meta: { requiresAuth: true, requiresPermission: PERM.AI_HR_USE, title: 'AI 数据助手' },
-  },
-  // AI recruiting capability center — requires ai.hr.use permission
-  {
-    path: '/hr/capabilities',
-    component: CapabilityCenterView,
-    meta: { requiresAuth: true, requiresPermission: PERM.AI_HR_USE, title: 'AI 能力中心' },
   },
   // Profile — any authenticated staff user
   {

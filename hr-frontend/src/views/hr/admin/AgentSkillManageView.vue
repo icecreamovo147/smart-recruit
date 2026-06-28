@@ -1,10 +1,12 @@
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref, watch } from 'vue'
 import { ElMessage } from 'element-plus'
-import { ArrowDown, ArrowUp, CircleCheck, Document, Plus, Refresh, Search, Switch, WarningFilled } from '@element-plus/icons-vue'
+import { CircleCheck, Document, Refresh, Search, Switch, WarningFilled } from '@element-plus/icons-vue'
 import { createAgentSkill, listAgentSkills, previewAgentSkill, updateAgentSkillStatus } from '@/api/agentSkill'
-import { DataTableCard, EmptyGuide, FilterToolbar, PageHeader, StatCard, StatusTag } from '@/components/admin-console'
+import { DataTableCard, EmptyGuide, FilterToolbar, PageHeader, StatusTag } from '@/components/admin-console'
+import AgentSkillCanvasEditor from '@/components/agent-skill/AgentSkillCanvasEditor.vue'
 import type {
+  AgentSkillCanvasFlow,
   AgentSkillInfo,
   AgentSkillNode,
   AgentSkillNodeType,
@@ -37,6 +39,9 @@ const keyword = ref('')
 const statusFilter = ref('')
 const previewMarkdown = ref('')
 const validation = ref<AgentSkillValidation>({ valid: false, errors: [], warnings: [] })
+const selectedNodeId = ref('')
+const activeTab = ref<'builder' | 'list'>('builder')
+const previewDrawerVisible = ref(false)
 
 const form = reactive({
   name: '',
@@ -47,21 +52,38 @@ const form = reactive({
   is_enabled: true,
 })
 
-const nodes = ref<AgentSkillNode[]>([
-  createNode('trigger'),
-  createNode('context'),
-  createNode('instruction'),
-  createNode('output'),
-  createNode('constraint'),
-])
+const flow = ref<AgentSkillCanvasFlow>(createDefaultFlow())
 
-function createNode(type: AgentSkillNodeType): AgentSkillNode {
+function createCanvasNode(type: AgentSkillNodeType, index: number) {
   const config = NODE_TYPES.find((item) => item.type === type)!
   return {
     id: `${type}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
     type,
-    title: config.label,
-    content: '',
+    position: {
+      x: 80 + (index % 2) * 300,
+      y: 80 + Math.floor(index / 2) * 150,
+    },
+    data: {
+      title: config.label,
+      content: '',
+    },
+  }
+}
+
+function createDefaultFlow(): AgentSkillCanvasFlow {
+  const nodes = (['trigger', 'context', 'instruction', 'output', 'constraint'] as AgentSkillNodeType[])
+    .map((type, index) => createCanvasNode(type, index))
+  return {
+    format: 'canvas.v1',
+    version: '1.0.0',
+    type: 'agent-skill',
+    nodes,
+    edges: nodes.slice(0, -1).map((node, index) => ({
+      id: `edge-${node.id}-${nodes[index + 1].id}`,
+      source: node.id,
+      target: nodes[index + 1].id,
+    })),
+    viewport: { x: 0, y: 0, zoom: 1 },
   }
 }
 
@@ -84,33 +106,6 @@ const loadList = async () => {
   }
 }
 
-const stats = computed(() => {
-  const enabled = list.value.filter((item) => item.is_enabled).length
-  return [
-    { label: 'Agent Skill 总数', value: total.value || list.value.length },
-    { label: '已启用', value: enabled },
-    { label: '已停用', value: Math.max((total.value || list.value.length) - enabled, 0) },
-    { label: '当前节点数', value: nodes.value.length },
-  ]
-})
-
-const addNode = (type: AgentSkillNodeType) => {
-  nodes.value.push(createNode(type))
-}
-
-const removeNode = (id: string) => {
-  nodes.value = nodes.value.filter((node) => node.id !== id)
-}
-
-const moveNode = (index: number, direction: -1 | 1) => {
-  const nextIndex = index + direction
-  if (nextIndex < 0 || nextIndex >= nodes.value.length) return
-  const next = [...nodes.value]
-  const [item] = next.splice(index, 1)
-  next.splice(nextIndex, 0, item)
-  nodes.value = next
-}
-
 const resetBuilder = () => {
   form.name = ''
   form.display_name = ''
@@ -118,16 +113,24 @@ const resetBuilder = () => {
   form.category = 'recruiting'
   form.version = '1.0.0'
   form.is_enabled = true
-  nodes.value = [
-    createNode('trigger'),
-    createNode('context'),
-    createNode('instruction'),
-    createNode('output'),
-    createNode('constraint'),
-  ]
+  flow.value = createDefaultFlow()
+  selectedNodeId.value = flow.value.nodes[0]?.id || ''
   previewMarkdown.value = ''
   validation.value = { valid: false, errors: [], warnings: [] }
 }
+
+const canvasNodes = computed<AgentSkillNode[]>(() => flow.value.nodes.map((node, index) => ({
+  id: node.id,
+  type: node.type,
+  title: node.data.title,
+  content: node.data.content,
+  order: index + 1,
+})))
+
+const selectedNode = computed(() => (
+  flow.value.nodes.find((node) => node.id === selectedNodeId.value)
+  || null
+))
 
 const buildLocalValidation = (): AgentSkillValidation => {
   const errors: string[] = []
@@ -136,10 +139,11 @@ const buildLocalValidation = (): AgentSkillValidation => {
   if (!/^[a-z][a-z0-9_-]{1,127}$/.test(form.name.trim())) errors.push('唯一标识只能使用小写字母开头，包含小写字母、数字、下划线或短横线，长度 2-128')
   if (!form.display_name.trim()) errors.push('请填写显示名称')
   if (!form.description.trim()) errors.push('请填写技能描述，描述会写入 SKILL.md frontmatter')
-  if (!nodes.value.some((node) => node.type === 'trigger' && node.content.trim())) errors.push('至少需要一个有内容的触发场景节点')
-  if (!nodes.value.some((node) => node.type === 'instruction' && node.content.trim())) errors.push('至少需要一个有内容的执行指令节点')
-  if (!nodes.value.some((node) => node.type === 'output' && node.content.trim())) warnings.push('建议补充输出格式节点，方便助手稳定回答')
-  if (!nodes.value.some((node) => node.type === 'constraint' && node.content.trim())) warnings.push('建议补充约束边界节点，降低越权或编造风险')
+  if (!canvasNodes.value.some((node) => node.type === 'trigger' && node.content.trim())) errors.push('至少需要一个有内容的触发场景节点')
+  if (!canvasNodes.value.some((node) => node.type === 'instruction' && node.content.trim())) errors.push('至少需要一个有内容的执行指令节点')
+  if (!canvasNodes.value.some((node) => node.type === 'output' && node.content.trim())) errors.push('至少需要一个有内容的输出格式节点')
+  if (!canvasNodes.value.some((node) => node.type === 'constraint' && node.content.trim())) errors.push('至少需要一个有内容的约束边界节点')
+  if (!flow.value.nodes.length) errors.push('画布至少需要一个节点')
   return { valid: errors.length === 0, errors, warnings }
 }
 
@@ -155,12 +159,30 @@ const localMarkdown = computed(() => {
   if (form.description.trim()) {
     lines.push(`- description: ${form.description.trim()}`)
   }
-  nodes.value.forEach((node, index) => {
+  canvasNodes.value.forEach((node, index) => {
     lines.push('', `## ${index + 1}. ${node.title || NODE_TYPE_LABEL[node.type]}`, '', `> node_type: ${node.type}`, '')
     lines.push(node.content.trim() || `（待补充${NODE_TYPE_LABEL[node.type]}）`)
   })
   return lines.join('\n')
 })
+
+const flowJson = computed(() => JSON.stringify({
+  ...flow.value,
+  format: 'canvas.v1',
+  version: flow.value.version || '1.0.0',
+  type: 'agent-skill',
+  nodes: flow.value.nodes.map((node) => ({
+    id: node.id,
+    type: node.type,
+    position: node.position,
+    data: {
+      title: node.data.title?.trim() || NODE_TYPE_LABEL[node.type],
+      content: node.data.content?.trim() || '',
+    },
+  })),
+  edges: flow.value.edges,
+  viewport: flow.value.viewport || { x: 0, y: 0, zoom: 1 },
+}))
 
 const payload = (): CreateAgentSkillPayload => ({
   name: form.name.trim(),
@@ -173,7 +195,8 @@ const payload = (): CreateAgentSkillPayload => ({
   is_manual_invocable: true,
   is_manual_invocable_set: true,
   activate: true,
-  nodes: nodes.value.map((node, index) => ({
+  flow_json: flowJson.value,
+  nodes: canvasNodes.value.map((node, index) => ({
     id: node.id,
     type: node.type,
     title: node.title.trim() || NODE_TYPE_LABEL[node.type],
@@ -195,6 +218,11 @@ const refreshPreview = async () => {
   } finally {
     previewLoading.value = false
   }
+}
+
+const openPreviewDrawer = async () => {
+  previewDrawerVisible.value = true
+  await refreshPreview()
 }
 
 const saveSkill = async () => {
@@ -225,12 +253,15 @@ const formatTime = (value?: string) => {
   return new Date(value).toLocaleString('zh-CN')
 }
 
-watch([() => form.name, () => form.display_name, () => form.description, () => form.category, () => form.version, nodes], () => {
+watch([() => form.name, () => form.display_name, () => form.description, () => form.category, () => form.version, flow], () => {
   validation.value = buildLocalValidation()
   previewMarkdown.value = localMarkdown.value
 }, { deep: true, immediate: true })
 
-onMounted(loadList)
+onMounted(() => {
+  selectedNodeId.value = flow.value.nodes[0]?.id || ''
+  loadList()
+})
 </script>
 
 <template>
@@ -240,44 +271,35 @@ onMounted(loadList)
       description="用流程节点编排生成数据库版 SKILL.md，供 AI 助手手动选择使用。"
     >
       <template #primary>
-        <el-button type="primary" :icon="CircleCheck" :loading="saving" @click="saveSkill">创建 Agent Skill</el-button>
+        <el-button
+          v-if="activeTab === 'builder'"
+          type="primary"
+          :icon="CircleCheck"
+          :loading="saving"
+          @click="saveSkill"
+        >
+          创建 Agent Skill
+        </el-button>
       </template>
       <template #secondary>
-        <el-button :icon="Refresh" @click="loadList">刷新列表</el-button>
+        <el-button v-if="activeTab === 'builder'" plain @click="resetBuilder">清空重置</el-button>
+        <el-button v-else :icon="Refresh" @click="loadList">刷新列表</el-button>
       </template>
     </PageHeader>
 
-    <div class="agent-skill-stats">
-      <StatCard
-        v-for="item in stats"
-        :key="item.label"
-        :title="item.label"
-        :value="String(item.value)"
-      />
-    </div>
+    <el-tabs v-model="activeTab" class="agent-skill-tabs">
+      <el-tab-pane label="画布编排" name="builder" />
+      <el-tab-pane label="列表管理" name="list" />
+    </el-tabs>
 
-    <section class="builder-shell">
-      <aside class="node-palette">
-        <div class="section-title">节点类型</div>
-        <button
-          v-for="item in NODE_TYPES"
-          :key="item.type"
-          class="node-type"
-          type="button"
-          @click="addNode(item.type)"
-        >
-          <span class="node-type__label">{{ item.label }}</span>
-          <span class="node-type__desc">{{ item.description }}</span>
-        </button>
-      </aside>
-
-      <main class="node-canvas">
+    <section v-show="activeTab === 'builder'" class="builder-shell">
+      <main class="canvas-workbench">
         <div class="builder-title-row">
           <div>
-            <h2>流程化创建</h2>
-            <p>按节点顺序生成 SKILL.md，本页面只编排提示规则，不执行工作流。</p>
+            <h2>画布式流程编排</h2>
+            <p>按 canvas.v1 flow 生成 SKILL.md，本页面只编排提示规则，不执行工作流。</p>
           </div>
-          <el-button plain @click="resetBuilder">清空重置</el-button>
+          <el-button :icon="Document" :loading="previewLoading" @click="openPreviewDrawer">预览 SKILL.md</el-button>
         </div>
 
         <div class="meta-grid">
@@ -301,37 +323,94 @@ onMounted(loadList)
           placeholder="简要描述这个 Agent Skill 的招聘业务用途"
         />
 
-        <div class="node-list">
-          <article v-for="(node, index) in nodes" :key="node.id" class="node-card">
-            <div class="node-card__head">
-              <div class="node-card__index">{{ index + 1 }}</div>
-              <el-select v-model="node.type" class="node-card__type">
-                <el-option v-for="item in NODE_TYPES" :key="item.type" :label="item.label" :value="item.type" />
-              </el-select>
-              <el-input v-model="node.title" class="node-card__title" placeholder="节点标题" />
-              <div class="node-card__actions">
-                <el-button :icon="ArrowUp" circle :disabled="index === 0" @click="moveNode(index, -1)" />
-                <el-button :icon="ArrowDown" circle :disabled="index === nodes.length - 1" @click="moveNode(index, 1)" />
-                <el-button text type="danger" @click="removeNode(node.id)">删除</el-button>
-              </div>
-            </div>
-            <el-input
-              v-model="node.content"
-              type="textarea"
-              :rows="4"
-              :placeholder="NODE_TYPES.find((item) => item.type === node.type)?.placeholder"
-            />
-          </article>
+        <div class="canvas-frame">
+          <AgentSkillCanvasEditor
+            v-model="flow"
+            v-model:selected-node-id="selectedNodeId"
+            class="canvas-editor"
+            :show-preview="false"
+          />
         </div>
       </main>
 
-      <aside class="preview-panel">
+    </section>
+
+    <section v-show="activeTab === 'list'" class="list-shell">
+      <FilterToolbar>
+        <el-input
+          v-model="keyword"
+          class="filter-input"
+          placeholder="搜索名称/标识"
+          clearable
+          :prefix-icon="Search"
+          @keyup.enter="loadList"
+        />
+        <el-select v-model="statusFilter" class="filter-select" placeholder="状态" clearable @change="loadList">
+          <el-option label="已启用" value="enabled" />
+          <el-option label="已停用" value="disabled" />
+        </el-select>
+        <template #actions>
+          <el-button :icon="Search" type="primary" plain @click="loadList">查询</el-button>
+        </template>
+      </FilterToolbar>
+
+      <DataTableCard title="Agent Skill 列表" :result-count="total">
+        <el-table v-loading="loading" :data="list" row-key="id">
+          <el-table-column prop="display_name" label="名称" min-width="180">
+            <template #default="{ row }">
+              <div class="skill-name">{{ row.display_name || row.name }}</div>
+              <div class="skill-key">{{ row.name }}</div>
+            </template>
+          </el-table-column>
+          <el-table-column prop="description" label="描述" min-width="240" show-overflow-tooltip />
+          <el-table-column label="当前版本" width="110">
+            <template #default="{ row }">
+              <el-tag v-if="row.current_version_id" size="small" type="success">#{{ row.current_version_id }}</el-tag>
+              <el-tag v-else size="small" type="info">未发布</el-tag>
+            </template>
+          </el-table-column>
+          <el-table-column label="状态" width="110">
+            <template #default="{ row }">
+              <StatusTag :status="row.is_enabled ? 'enabled' : 'disabled'">
+                {{ row.is_enabled ? '已启用' : '已停用' }}
+              </StatusTag>
+            </template>
+          </el-table-column>
+          <el-table-column label="更新时间" width="180">
+            <template #default="{ row }">{{ formatTime(row.updated_at || row.created_at) }}</template>
+          </el-table-column>
+          <el-table-column label="操作" width="120" fixed="right">
+            <template #default="{ row }">
+              <el-button :icon="Switch" link type="primary" @click="toggleStatus(row)">
+                {{ row.is_enabled ? '停用' : '启用' }}
+              </el-button>
+            </template>
+          </el-table-column>
+        </el-table>
+        <EmptyGuide v-if="!loading && list.length === 0" title="暂无 Agent Skill" description="从画布编排中创建第一个数据库版 SKILL.md。" />
+      </DataTableCard>
+    </section>
+
+    <el-drawer
+      v-model="previewDrawerVisible"
+      title="SKILL.md 只读预览"
+      size="min(560px, 92vw)"
+      direction="rtl"
+      class="agent-skill-preview-drawer"
+      destroy-on-close
+    >
+      <div class="preview-drawer-body" v-loading="previewLoading">
         <div class="preview-panel__head">
           <div>
-            <div class="section-title">SKILL.md 只读预览</div>
-            <p>由左侧节点实时生成，不提供原生 Markdown 编辑。</p>
+            <div class="section-title">生成结果</div>
+            <p>由画布 flow 生成，不提供原生 Markdown 编辑。</p>
           </div>
-          <el-button :icon="Document" :loading="previewLoading" @click="refreshPreview">后端预览</el-button>
+          <el-button :icon="Document" :loading="previewLoading" @click="refreshPreview">重新预览</el-button>
+        </div>
+
+        <div v-if="selectedNode" class="selected-node-summary">
+          <span>{{ NODE_TYPE_LABEL[selectedNode.type] }}</span>
+          <strong>{{ selectedNode.data.title || NODE_TYPE_LABEL[selectedNode.type] }}</strong>
         </div>
 
         <div class="validation-box" :class="{ 'validation-box--ok': validation.valid }">
@@ -344,62 +423,8 @@ onMounted(loadList)
         </ul>
 
         <pre class="markdown-preview">{{ previewMarkdown }}</pre>
-      </aside>
-    </section>
-
-    <FilterToolbar>
-      <el-input
-        v-model="keyword"
-        class="filter-input"
-        placeholder="搜索名称/标识"
-        clearable
-        :prefix-icon="Search"
-        @keyup.enter="loadList"
-      />
-      <el-select v-model="statusFilter" class="filter-select" placeholder="状态" clearable @change="loadList">
-        <el-option label="已启用" value="enabled" />
-        <el-option label="已停用" value="disabled" />
-      </el-select>
-      <template #actions>
-        <el-button :icon="Search" type="primary" plain @click="loadList">查询</el-button>
-      </template>
-    </FilterToolbar>
-
-    <DataTableCard title="Agent Skill 列表" :result-count="total">
-      <el-table v-loading="loading" :data="list" row-key="id">
-        <el-table-column prop="display_name" label="名称" min-width="180">
-          <template #default="{ row }">
-            <div class="skill-name">{{ row.display_name || row.name }}</div>
-            <div class="skill-key">{{ row.name }}</div>
-          </template>
-        </el-table-column>
-        <el-table-column prop="description" label="描述" min-width="240" show-overflow-tooltip />
-        <el-table-column label="当前版本" width="110">
-          <template #default="{ row }">
-            <el-tag v-if="row.current_version_id" size="small" type="success">#{{ row.current_version_id }}</el-tag>
-            <el-tag v-else size="small" type="info">未发布</el-tag>
-          </template>
-        </el-table-column>
-        <el-table-column label="状态" width="110">
-          <template #default="{ row }">
-            <StatusTag :status="row.is_enabled ? 'enabled' : 'disabled'">
-              {{ row.is_enabled ? '已启用' : '已停用' }}
-            </StatusTag>
-          </template>
-        </el-table-column>
-        <el-table-column label="更新时间" width="180">
-          <template #default="{ row }">{{ formatTime(row.updated_at || row.created_at) }}</template>
-        </el-table-column>
-        <el-table-column label="操作" width="120" fixed="right">
-          <template #default="{ row }">
-            <el-button :icon="Switch" link type="primary" @click="toggleStatus(row)">
-              {{ row.is_enabled ? '停用' : '启用' }}
-            </el-button>
-          </template>
-        </el-table-column>
-      </el-table>
-      <EmptyGuide v-if="!loading && list.length === 0" title="暂无 Agent Skill" description="从上方节点编排器创建第一个数据库版 SKILL.md。" />
-    </DataTableCard>
+      </div>
+    </el-drawer>
   </section>
 </template>
 
@@ -415,34 +440,48 @@ onMounted(loadList)
   padding-bottom: 24px;
 }
 
-.agent-skill-stats {
-  display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 14px;
+.agent-skill-tabs {
+  flex-shrink: 0;
+}
+
+.agent-skill-tabs :deep(.el-tabs__header) {
+  margin: 0;
+}
+
+.agent-skill-tabs :deep(.el-tabs__nav-wrap::after) {
+  display: none;
+}
+
+.agent-skill-tabs :deep(.el-tabs__item) {
+  height: 36px;
+  padding: 0 18px;
+  color: var(--text-muted);
+  font-weight: 700;
+}
+
+.agent-skill-tabs :deep(.el-tabs__item.is-active) {
+  color: var(--brand);
 }
 
 .builder-shell {
-  display: grid;
-  grid-template-columns: 220px minmax(0, 1.15fr) minmax(360px, 0.85fr);
-  gap: 14px;
-  align-items: start;
+  min-height: 760px;
 }
 
-.node-palette,
-.node-canvas,
-.preview-panel {
+.list-shell {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.canvas-workbench {
   border: 1px solid var(--border);
   border-radius: 8px;
   background: var(--surface);
   box-shadow: var(--admin-console-card-shadow);
 }
 
-.node-palette,
-.preview-panel {
-  padding: 14px;
-}
-
-.node-canvas {
+.canvas-workbench {
+  min-width: 0;
   padding: 16px;
   display: flex;
   flex-direction: column;
@@ -455,31 +494,13 @@ onMounted(loadList)
   color: var(--text-primary);
 }
 
-.node-type {
-  width: 100%;
-  margin-top: 10px;
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  padding: 10px;
-  background: var(--surface-muted);
-  color: var(--text-primary);
-  text-align: left;
-  cursor: pointer;
-}
-
-.node-type:hover {
-  border-color: var(--brand);
-}
-
-.node-type__label,
 .skill-name {
   display: block;
   font-weight: 700;
 }
 
-.node-type__desc,
 .skill-key,
-.preview-panel p,
+.preview-drawer-body p,
 .builder-title-row p {
   margin: 4px 0 0;
   color: var(--text-faint);
@@ -488,8 +509,7 @@ onMounted(loadList)
 }
 
 .builder-title-row,
-.preview-panel__head,
-.node-card__head {
+.preview-panel__head {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -507,55 +527,49 @@ onMounted(loadList)
   gap: 10px;
 }
 
-.node-list {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-}
-
-.node-card {
+.canvas-frame {
+  min-height: 560px;
+  height: clamp(560px, 58vh, 760px);
+  overflow: hidden;
   border: 1px solid var(--border);
   border-radius: 8px;
-  padding: 12px;
-  background: var(--surface);
+  background: var(--surface-muted);
 }
 
-.node-card__head {
-  margin-bottom: 10px;
+.canvas-editor {
+  width: 100%;
+  height: 100%;
+  min-height: 560px;
 }
 
-.node-card__index {
-  width: 28px;
-  height: 28px;
-  border-radius: 50%;
-  display: grid;
-  place-items: center;
-  background: var(--brand);
-  color: #fff;
-  font-weight: 700;
-  flex-shrink: 0;
-}
-
-.node-card__type {
-  width: 124px;
-}
-
-.node-card__title {
-  flex: 1;
-}
-
-.node-card__actions {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-}
-
-.preview-panel {
-  position: sticky;
-  top: 16px;
+.preview-drawer-body {
   display: flex;
   flex-direction: column;
   gap: 12px;
+  min-height: 100%;
+}
+
+.selected-node-summary {
+  display: grid;
+  gap: 4px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 10px;
+  background: var(--surface-muted);
+}
+
+.selected-node-summary span {
+  color: var(--text-faint);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.selected-node-summary strong {
+  overflow: hidden;
+  color: var(--text-primary);
+  font-size: 13px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .validation-box {
@@ -586,8 +600,8 @@ onMounted(loadList)
 }
 
 .markdown-preview {
-  min-height: 360px;
-  max-height: 680px;
+  min-height: 420px;
+  max-height: calc(100vh - 300px);
   margin: 0;
   padding: 14px;
   overflow: auto;
@@ -607,32 +621,18 @@ onMounted(loadList)
   width: 140px;
 }
 
-@media (max-width: 1280px) {
-  .builder-shell {
-    grid-template-columns: 200px minmax(0, 1fr);
-  }
-
-  .preview-panel {
-    grid-column: 1 / -1;
-    position: static;
-  }
-}
-
 @media (max-width: 860px) {
-  .agent-skill-stats,
   .builder-shell,
   .meta-grid {
     grid-template-columns: 1fr;
   }
 
-  .node-card__head {
-    align-items: stretch;
-    flex-wrap: wrap;
+  .builder-shell {
+    min-height: 0;
   }
 
-  .node-card__type,
-  .node-card__title {
-    width: 100%;
+  .canvas-frame {
+    height: 560px;
   }
 }
 </style>

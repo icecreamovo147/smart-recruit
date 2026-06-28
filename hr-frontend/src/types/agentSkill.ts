@@ -6,12 +6,67 @@ export type AgentSkillNodeType =
   | 'output'
   | 'constraint'
 
+export const AGENT_SKILL_NODE_TYPES = [
+  'trigger',
+  'context',
+  'instruction',
+  'condition',
+  'output',
+  'constraint',
+] as const satisfies readonly AgentSkillNodeType[]
+
+export interface AgentSkillCanvasNodeData {
+  title: string
+  content: string
+}
+
+export interface AgentSkillCanvasPosition {
+  x: number
+  y: number
+}
+
+export interface AgentSkillCanvasEdge {
+  id: string
+  source: string
+  target: string
+  label?: string
+}
+
+export interface AgentSkillCanvasViewport {
+  x: number
+  y: number
+  zoom: number
+}
+
+export interface AgentSkillNodeTypeOption {
+  type: AgentSkillNodeType
+  label: string
+  description: string
+  placeholder?: string
+}
+
 export interface AgentSkillNode {
   id: string
   type: AgentSkillNodeType
   title: string
   content: string
   order?: number
+}
+
+export interface AgentSkillCanvasNode {
+  id: string
+  type: AgentSkillNodeType
+  position: AgentSkillCanvasPosition
+  data: AgentSkillCanvasNodeData
+}
+
+export interface AgentSkillCanvasFlow {
+  format: 'canvas.v1'
+  version: string
+  type: 'agent-skill'
+  nodes: AgentSkillCanvasNode[]
+  edges: AgentSkillCanvasEdge[]
+  viewport?: AgentSkillCanvasViewport
 }
 
 export interface AgentSkillInfo {
@@ -25,6 +80,7 @@ export interface AgentSkillInfo {
   is_manual_invocable?: boolean
   trigger_keywords?: string[]
   node_schema?: AgentSkillNode[]
+  flow_json?: string
   skill_md?: string
   created_at?: string
   updated_at?: string
@@ -43,7 +99,8 @@ export interface AgentSkillPreviewPayload {
   description?: string
   category?: string
   version?: string
-  nodes: AgentSkillNode[]
+  flow_json?: string
+  nodes?: AgentSkillNode[]
 }
 
 export interface AgentSkillPreviewResult {

@@ -12,7 +12,10 @@ import (
 )
 
 type AgentSkillFlow struct {
-	Nodes []AgentSkillFlowNode `json:"nodes"`
+	Format  string               `json:"format,omitempty"`
+	Version string               `json:"version,omitempty"`
+	Type    string               `json:"type,omitempty"`
+	Nodes   []AgentSkillFlowNode `json:"nodes"`
 }
 
 type AgentSkillFlowNode struct {
@@ -21,6 +24,34 @@ type AgentSkillFlowNode struct {
 	Title   string `json:"title"`
 	Content string `json:"content"`
 	Order   int32  `json:"order"`
+}
+
+type agentSkillCanvasFlow struct {
+	Format   string                     `json:"format"`
+	Version  string                     `json:"version"`
+	Type     string                     `json:"type"`
+	Nodes    []agentSkillCanvasNode     `json:"nodes"`
+	Edges    []agentSkillCanvasEdge     `json:"edges"`
+	Viewport map[string]json.RawMessage `json:"viewport"`
+}
+
+type agentSkillCanvasNode struct {
+	ID       string               `json:"id"`
+	Type     string               `json:"type"`
+	Position map[string]float64   `json:"position"`
+	Data     agentSkillCanvasData `json:"data"`
+}
+
+type agentSkillCanvasData struct {
+	Title   string `json:"title"`
+	Content string `json:"content"`
+}
+
+type agentSkillCanvasEdge struct {
+	ID     string `json:"id"`
+	Source string `json:"source"`
+	Target string `json:"target"`
+	Label  string `json:"label"`
 }
 
 type AgentSkillDocument struct {
@@ -169,26 +200,177 @@ func parseAgentSkillFlow(flowJSON string) (*AgentSkillFlow, string, error) {
 	if strings.TrimSpace(flowJSON) == "" {
 		return nil, "", fmt.Errorf("flow_json is required")
 	}
-	var flow AgentSkillFlow
-	if err := json.Unmarshal([]byte(flowJSON), &flow); err != nil {
+	var raw map[string]json.RawMessage
+	if err := json.Unmarshal([]byte(flowJSON), &raw); err != nil {
 		return nil, "", fmt.Errorf("invalid flow_json: %w", err)
 	}
+	var flow *AgentSkillFlow
+	canonicalSource := any(nil)
+	var err error
+	if isCanvasV1Flow(raw) {
+		flow, canonicalSource, err = parseCanvasAgentSkillFlow(flowJSON)
+	} else {
+		flow, err = parseLegacyAgentSkillFlow(flowJSON)
+		canonicalSource = flow
+	}
+	if err != nil {
+		return nil, "", err
+	}
+	if err := validateAgentSkillFlow(flow); err != nil {
+		return nil, "", err
+	}
+	canonical, _ := json.Marshal(canonicalSource)
+	return flow, string(canonical), nil
+}
+
+func parseLegacyAgentSkillFlow(flowJSON string) (*AgentSkillFlow, error) {
+	var flow AgentSkillFlow
+	if err := json.Unmarshal([]byte(flowJSON), &flow); err != nil {
+		return nil, fmt.Errorf("invalid flow_json: %w", err)
+	}
+	return &flow, nil
+}
+
+func parseCanvasAgentSkillFlow(flowJSON string) (*AgentSkillFlow, *agentSkillCanvasFlow, error) {
+	var canvas agentSkillCanvasFlow
+	if err := json.Unmarshal([]byte(flowJSON), &canvas); err != nil {
+		return nil, nil, fmt.Errorf("invalid flow_json: %w", err)
+	}
+	if len(canvas.Nodes) == 0 {
+		return nil, nil, fmt.Errorf("flow_json.nodes is required")
+	}
+	canvas.Format = "canvas.v1"
+	if strings.TrimSpace(canvas.Version) == "" {
+		canvas.Version = "1.0.0"
+	}
+	if strings.TrimSpace(canvas.Type) == "" {
+		canvas.Type = "agent-skill"
+	}
+	nodeOrder := canvasNodeOrder(canvas.Nodes, canvas.Edges)
+	flow := &AgentSkillFlow{
+		Format: "canvas.v1",
+		Nodes:  make([]AgentSkillFlowNode, 0, len(canvas.Nodes)),
+	}
+	for _, node := range canvas.Nodes {
+		order := nodeOrder[node.ID]
+		flow.Nodes = append(flow.Nodes, AgentSkillFlowNode{
+			ID:      node.ID,
+			Type:    node.Type,
+			Title:   node.Data.Title,
+			Content: node.Data.Content,
+			Order:   int32(order),
+		})
+	}
+	return flow, &canvas, nil
+}
+
+func validateAgentSkillFlow(flow *AgentSkillFlow) error {
 	if len(flow.Nodes) == 0 {
-		return nil, "", fmt.Errorf("flow_json.nodes is required")
+		return fmt.Errorf("flow_json.nodes is required")
+	}
+	requiredContent := map[string]bool{
+		"trigger":     false,
+		"instruction": false,
+		"output":      false,
+		"constraint":  false,
 	}
 	for _, node := range flow.Nodes {
 		if _, ok := agentSkillNodeSections[node.Type]; !ok {
-			return nil, "", fmt.Errorf("unsupported flow node type %q", node.Type)
+			return fmt.Errorf("unsupported flow node type %q", node.Type)
 		}
 		if strings.TrimSpace(node.Content) == "" && strings.TrimSpace(node.Title) == "" {
-			return nil, "", fmt.Errorf("flow node %q must include content or title", node.ID)
+			return fmt.Errorf("flow node %q must include content or title", node.ID)
 		}
 		if err := ValidateAgentSkillMarkdown(node.Content); err != nil {
-			return nil, "", err
+			return err
+		}
+		if _, ok := requiredContent[node.Type]; ok && (strings.TrimSpace(node.Content) != "" || strings.TrimSpace(node.Title) != "") {
+			requiredContent[node.Type] = true
 		}
 	}
-	canonical, _ := json.Marshal(flow)
-	return &flow, string(canonical), nil
+	missing := make([]string, 0)
+	for _, nodeType := range []string{"trigger", "instruction", "output", "constraint"} {
+		if !requiredContent[nodeType] {
+			missing = append(missing, nodeType)
+		}
+	}
+	if len(missing) > 0 {
+		return fmt.Errorf("flow_json missing required node content for: %s", strings.Join(missing, ", "))
+	}
+	return nil
+}
+
+func isCanvasV1Flow(raw map[string]json.RawMessage) bool {
+	for _, key := range []string{"format", "version", "type"} {
+		var value string
+		if err := json.Unmarshal(raw[key], &value); err == nil && strings.EqualFold(strings.TrimSpace(value), "canvas.v1") {
+			return true
+		}
+	}
+	return false
+}
+
+func canvasNodeOrder(nodes []agentSkillCanvasNode, edges []agentSkillCanvasEdge) map[string]int {
+	ids := make(map[string]bool, len(nodes))
+	inDegree := make(map[string]int, len(nodes))
+	adjacent := make(map[string][]string, len(nodes))
+	for _, node := range nodes {
+		ids[node.ID] = true
+		inDegree[node.ID] = 0
+	}
+	sort.SliceStable(edges, func(i, j int) bool {
+		if edges[i].Source == edges[j].Source {
+			if edges[i].Target == edges[j].Target {
+				return edges[i].ID < edges[j].ID
+			}
+			return edges[i].Target < edges[j].Target
+		}
+		return edges[i].Source < edges[j].Source
+	})
+	for _, edge := range edges {
+		if !ids[edge.Source] || !ids[edge.Target] {
+			continue
+		}
+		adjacent[edge.Source] = append(adjacent[edge.Source], edge.Target)
+		inDegree[edge.Target]++
+	}
+	ready := make([]string, 0)
+	for _, node := range nodes {
+		if inDegree[node.ID] == 0 {
+			ready = append(ready, node.ID)
+		}
+	}
+	sort.Strings(ready)
+	order := make(map[string]int, len(nodes))
+	next := 0
+	for len(ready) > 0 {
+		id := ready[0]
+		ready = ready[1:]
+		if _, exists := order[id]; exists {
+			continue
+		}
+		order[id] = next
+		next++
+		for _, target := range adjacent[id] {
+			inDegree[target]--
+			if inDegree[target] == 0 {
+				ready = append(ready, target)
+				sort.Strings(ready)
+			}
+		}
+	}
+	remaining := make([]string, 0)
+	for _, node := range nodes {
+		if _, exists := order[node.ID]; !exists {
+			remaining = append(remaining, node.ID)
+		}
+	}
+	sort.Strings(remaining)
+	for _, id := range remaining {
+		order[id] = next
+		next++
+	}
+	return order
 }
 
 func nodesByType(nodes []AgentSkillFlowNode, nodeType string) []AgentSkillFlowNode {
