@@ -1,14 +1,34 @@
 // ---- AI Chat Types ----
 
+export interface ChatMessageSkill {
+  id?: string | number
+  name: string
+  command?: string
+}
+
 export interface ChatMessage {
   role: 'user' | 'assistant'
   content: string
   created_at?: string
   model_id?: number
   model_name?: string
+  skill?: ChatMessageSkill
+  skills?: ChatMessageSkill[]
+  skill_id?: string | number
+  skill_name?: string
+  skill_command?: string
+  skillId?: string | number
+  skillName?: string
+  skillCommand?: string
+  agent_skill_ids?: number[]
+  agent_skill_names?: string[]
+  agentSkillIds?: number[]
+  agentSkillNames?: string[]
   pending?: boolean
   failed?: boolean
   waitingText?: string
+  process_content?: string
+  processContent?: string
   candidateOptions?: CandidateOption[]
 }
 
@@ -47,7 +67,7 @@ export interface StreamPayload {
   status?: number
   created_at?: string
   // Phase 4: streaming UX status events
-  event_type?: string // thinking | tool_calling | tool_done | generating | timeout_warning | partial_done | done | error | model_info | agent_run_started | model_selected | planning | capability_selected | fallback | agent_run_done
+  event_type?: string // thinking | process_delta | process_clear | tool_calling | tool_done | generating | timeout_warning | partial_done | done | error | model_info | agent_run_started | model_selected | planning | capability_selected | fallback | agent_run_done
   event_message?: string
   error_type?: string
   tool_name?: string

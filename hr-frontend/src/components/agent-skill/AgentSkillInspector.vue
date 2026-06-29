@@ -10,7 +10,6 @@ const props = defineProps<{
 const emit = defineEmits<{
   updateNode: [node: AgentSkillCanvasNode]
   deleteNode: [id: string]
-  startConnect: [id: string]
   clearSelection: []
 }>()
 
@@ -79,9 +78,6 @@ function updateType(type: string | number | boolean | undefined) {
       </div>
 
       <div class="agent-skill-inspector__actions">
-        <button type="button" class="agent-skill-inspector__primary" @click="emit('startConnect', node.id)">
-          设为连线源
-        </button>
         <button type="button" class="agent-skill-inspector__danger" @click="emit('deleteNode', node.id)">
           删除节点
         </button>
@@ -188,15 +184,9 @@ function updateType(type: string | number | boolean | undefined) {
 }
 
 .agent-skill-inspector__actions {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
+  display: flex;
+  justify-content: flex-end;
   gap: 8px;
-}
-
-.agent-skill-inspector__actions .agent-skill-inspector__primary {
-  border-color: color-mix(in srgb, var(--brand) 48%, var(--border));
-  background: var(--brand);
-  color: #fff;
 }
 
 .agent-skill-inspector__actions .agent-skill-inspector__danger {

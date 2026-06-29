@@ -25,10 +25,15 @@ export interface AgentSkillCanvasPosition {
   y: number
 }
 
+export type AgentSkillCanvasHandle = 'top' | 'right' | 'bottom' | 'left'
+
 export interface AgentSkillCanvasEdge {
   id: string
   source: string
   target: string
+  sourceHandle?: AgentSkillCanvasHandle
+  targetHandle?: AgentSkillCanvasHandle
+  curvature?: number
   label?: string
 }
 

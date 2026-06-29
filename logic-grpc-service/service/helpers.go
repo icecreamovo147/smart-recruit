@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"path/filepath"
@@ -226,13 +227,65 @@ func toPBResume(resume *model.Resume, resumeURL string) *pb.CandidateResume {
 func toPBChatMessages(rows []model.AIChatHistory) []*pb.ChatMessage {
 	list := make([]*pb.ChatMessage, 0, len(rows))
 	for _, row := range rows {
-		msg := &pb.ChatMessage{Role: row.Role, Content: row.Content, CreatedAt: formatTime(row.CreatedAt), ModelName: row.ModelName}
+		msg := &pb.ChatMessage{
+			Role:            row.Role,
+			Content:         row.Content,
+			CreatedAt:       formatTime(row.CreatedAt),
+			ModelName:       row.ModelName,
+			AgentSkillIds:   parseInt64Slice(row.AgentSkillIDsJSON),
+			AgentSkillNames: parseStringSlice(row.AgentSkillNamesJSON),
+			ProcessContent:  row.ProcessContent,
+		}
 		if row.ModelID != nil {
 			msg.ModelId = *row.ModelID
 		}
 		list = append(list, msg)
 	}
 	return list
+}
+
+func marshalInt64Slice(values []int64) string {
+	if len(values) == 0 {
+		return ""
+	}
+	data, err := json.Marshal(values)
+	if err != nil {
+		return ""
+	}
+	return string(data)
+}
+
+func marshalStringSlice(values []string) string {
+	if len(values) == 0 {
+		return ""
+	}
+	data, err := json.Marshal(values)
+	if err != nil {
+		return ""
+	}
+	return string(data)
+}
+
+func parseInt64Slice(raw string) []int64 {
+	if strings.TrimSpace(raw) == "" {
+		return nil
+	}
+	var values []int64
+	if err := json.Unmarshal([]byte(raw), &values); err != nil {
+		return nil
+	}
+	return values
+}
+
+func parseStringSlice(raw string) []string {
+	if strings.TrimSpace(raw) == "" {
+		return nil
+	}
+	var values []string
+	if err := json.Unmarshal([]byte(raw), &values); err != nil {
+		return nil
+	}
+	return values
 }
 
 func toPBChatSession(session model.AIChatSession) *pb.ChatSession {

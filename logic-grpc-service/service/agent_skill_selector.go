@@ -242,6 +242,24 @@ func selectedAgentSkillIDs(skills []selectedAgentSkill) []int64 {
 	return ids
 }
 
+func selectedAgentSkillNames(skills []selectedAgentSkill) []string {
+	names := make([]string, 0, len(skills))
+	for _, skill := range skills {
+		names = append(names, skill.DisplayName)
+	}
+	return names
+}
+
+func manualAgentSkills(skills []selectedAgentSkill) []selectedAgentSkill {
+	manual := make([]selectedAgentSkill, 0, len(skills))
+	for _, skill := range skills {
+		if skill.Manual {
+			manual = append(manual, skill)
+		}
+	}
+	return manual
+}
+
 func logSelectedAgentSkills(skills []selectedAgentSkill) {
 	if len(skills) == 0 {
 		return

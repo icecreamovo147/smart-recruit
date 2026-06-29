@@ -110,6 +110,42 @@ func (c *Client) ChatWithADKAgent(
 
 	var replyBuilder strings.Builder
 	var modelStarted bool
+	var toolCallsObserved bool
+	var processEmitted bool
+	emitProcess := func(text string) error {
+		if text == "" {
+			return nil
+		}
+		if onStatus != nil {
+			if err := onStatus("process_delta", text, "", ""); err != nil {
+				return err
+			}
+		}
+		processEmitted = true
+		return nil
+	}
+	clearProcess := func() error {
+		if onStatus != nil {
+			return onStatus("process_clear", "", "", "")
+		}
+		return nil
+	}
+	flushReply := func(text string) error {
+		if text == "" {
+			return nil
+		}
+		if !modelStarted {
+			modelStarted = true
+			sendStatus(onStatus, "generating", "正在生成回答...", "", "")
+		}
+		replyBuilder.WriteString(text)
+		if onDelta != nil {
+			if err := onDelta(text); err != nil {
+				return err
+			}
+		}
+		return nil
+	}
 
 	for {
 		event, ok := iter.Next()
@@ -139,6 +175,8 @@ func (c *Client) ChatWithADKAgent(
 		}
 
 		if mv.IsStreaming && mv.MessageStream != nil {
+			var turnBuilder strings.Builder
+			var turnHasToolCall bool
 			for {
 				chunk, chunkErr := mv.MessageStream.Recv()
 				if chunkErr == io.EOF {
@@ -154,32 +192,45 @@ func (c *Client) ChatWithADKAgent(
 				if chunk == nil {
 					continue
 				}
-				if !modelStarted && chunk.Content != "" && len(chunk.ToolCalls) == 0 {
-					modelStarted = true
-					sendStatus(onStatus, "generating", "正在生成回答...", "", "")
+				if chunk.Content != "" {
+					turnBuilder.WriteString(chunk.Content)
 				}
-				if chunk.Content != "" && len(chunk.ToolCalls) == 0 {
-					replyBuilder.WriteString(chunk.Content)
-					if onDelta != nil {
-						if err := onDelta(chunk.Content); err != nil {
-							return replyBuilder.String(), state.ReadMetadata(), err
-						}
-					}
+				if len(chunk.ToolCalls) > 0 {
+					toolCallsObserved = true
+					turnHasToolCall = true
+				}
+			}
+			if turnHasToolCall {
+				if err := emitProcess(turnBuilder.String()); err != nil {
+					return replyBuilder.String(), state.ReadMetadata(), err
+				}
+			} else if turnBuilder.Len() > 0 {
+				if err := flushReply(turnBuilder.String()); err != nil {
+					return replyBuilder.String(), state.ReadMetadata(), err
 				}
 			}
 		} else if mv.Message != nil {
-			if mv.Message.Content != "" && len(mv.Message.ToolCalls) == 0 {
-				if !modelStarted {
-					modelStarted = true
-					sendStatus(onStatus, "generating", "正在生成回答...", "", "")
-				}
-				replyBuilder.WriteString(mv.Message.Content)
-				if onDelta != nil {
-					if err := onDelta(mv.Message.Content); err != nil {
+			turnHasToolCall := len(mv.Message.ToolCalls) > 0
+			if mv.Message.Content != "" {
+				if turnHasToolCall {
+					if err := emitProcess(mv.Message.Content); err != nil {
+						return replyBuilder.String(), state.ReadMetadata(), err
+					}
+				} else {
+					if err := flushReply(mv.Message.Content); err != nil {
 						return replyBuilder.String(), state.ReadMetadata(), err
 					}
 				}
 			}
+			if turnHasToolCall {
+				toolCallsObserved = true
+			}
+		}
+	}
+
+	if !toolCallsObserved && processEmitted {
+		if err := clearProcess(); err != nil {
+			return replyBuilder.String(), state.ReadMetadata(), err
 		}
 	}
 

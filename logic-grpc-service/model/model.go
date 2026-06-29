@@ -221,16 +221,19 @@ type ApplicationStatusTransition struct {
 func (ApplicationStatusTransition) TableName() string { return "application_status_transitions" }
 
 type AIChatHistory struct {
-	ID        int64 `gorm:"primaryKey"`
-	SessionID int64 `gorm:"column:session_id"`
-	HrID      int64 `gorm:"column:hr_id"`
-	OwnerRole int32 `gorm:"column:owner_role;default:2"` // 1 candidate / 2 HR
-	OwnerID   int64 `gorm:"column:owner_id;default:0"`
-	Role      string
-	Content   string
-	ModelID   *int64 `gorm:"column:model_id"`
-	ModelName string `gorm:"column:model_name;size:128"`
-	CreatedAt time.Time
+	ID                  int64 `gorm:"primaryKey"`
+	SessionID           int64 `gorm:"column:session_id"`
+	HrID                int64 `gorm:"column:hr_id"`
+	OwnerRole           int32 `gorm:"column:owner_role;default:2"` // 1 candidate / 2 HR
+	OwnerID             int64 `gorm:"column:owner_id;default:0"`
+	Role                string
+	Content             string
+	ProcessContent      string `gorm:"column:process_content;type:text"`
+	ModelID             *int64 `gorm:"column:model_id"`
+	ModelName           string `gorm:"column:model_name;size:128"`
+	AgentSkillIDsJSON   string `gorm:"column:agent_skill_ids_json;type:text"`
+	AgentSkillNamesJSON string `gorm:"column:agent_skill_names_json;type:text"`
+	CreatedAt           time.Time
 }
 
 type AIChatSession struct {

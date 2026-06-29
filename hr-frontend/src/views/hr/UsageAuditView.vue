@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref, reactive, onMounted } from "vue";
+import { ref, reactive, onMounted } from "vue";
 import { ElMessage } from "element-plus";
 import { Refresh, Search } from "@element-plus/icons-vue";
 import { listUsageLogs } from "@/api/admin";
@@ -105,13 +105,6 @@ const formatSize = (bytes: number): string => {
     return `${(bytes / 1024 / 1024).toFixed(1)} MB`;
 };
 
-const usageStats = computed(() => [
-    { label: "调用记录", value: total.value || logs.value.length, hint: "第三方服务调用明细" },
-    { label: "成功", value: logs.value.filter((item) => item.status === "ok").length, hint: "状态为 ok 的请求" },
-    { label: "异常", value: logs.value.filter((item) => item.status && item.status !== "ok").length, hint: "错误、超时或限流" },
-    { label: "估算 Token", value: logs.value.reduce((sum, item) => sum + Number(item.estimated_tokens || 0), 0), hint: "当前列表内累计" },
-]);
-
 // ── Lifecycle ────────────────────────────────────────────────────────────
 
 onMounted(() => {
@@ -131,14 +124,6 @@ onMounted(() => {
                 <el-button :icon="Refresh" @click="load">刷新</el-button>
             </div>
         </div>
-
-        <section class="console-stats">
-            <div v-for="item in usageStats" :key="item.label" class="console-stat">
-                <div class="console-stat__label">{{ item.label }}</div>
-                <div class="console-stat__value">{{ item.value }}</div>
-                <div class="console-stat__hint">{{ item.hint }}</div>
-            </div>
-        </section>
 
         <div class="console-card console-card--fill">
         <el-form

@@ -56,9 +56,10 @@ type AIService struct {
 }
 
 type runtimeAIClient struct {
-	client    *ai.Client
-	modelID   *int64
-	modelName string
+	client        *ai.Client
+	modelID       *int64
+	modelName     string
+	auditProvider string
 }
 
 func NewAIService(
@@ -179,14 +180,14 @@ func (s *AIService) Chat(ctx context.Context, req *pb.ChatRequest) (*pb.ChatResp
 			log.Info("non-streaming chat canceled, returning partial reply", zap.Int("partial_chars", len([]rune(partial))))
 			s.writeHRUsageAudit(ctx, AuditLogEntry{
 				UserID: req.HrId, Role: 2, ServiceType: "ai_chat",
-				Endpoint: "/hr/ai/chat", Provider: "dashscope", Model: runtimeClient.modelName,
+				Endpoint: "/hr/ai/chat", Provider: runtimeClient.auditProvider, Model: runtimeClient.modelName,
 				RequestChars: inputChars, ResponseChars: len([]rune(partial)), Status: "timeout", CostMs: int(time.Since(startTime).Milliseconds()),
 			}, req.HrId, "ai", req.ApplicationId)
 			return &pb.ChatResponse{Code: errs.OK, Msg: "success", Reply: partial, CreatedAt: formatTime(time.Now()), SessionId: session.ID}, nil
 		}
 		s.writeHRUsageAudit(ctx, AuditLogEntry{
 			UserID: req.HrId, Role: 2, ServiceType: "ai_chat",
-			Endpoint: "/hr/ai/chat", Provider: "dashscope", Model: runtimeClient.modelName,
+			Endpoint: "/hr/ai/chat", Provider: runtimeClient.auditProvider, Model: runtimeClient.modelName,
 			RequestChars: inputChars, Status: "error", CostMs: int(time.Since(startTime).Milliseconds()),
 		}, req.HrId, "ai", req.ApplicationId)
 		return nil, wrapAIError(err)
@@ -196,7 +197,7 @@ func (s *AIService) Chat(ctx context.Context, req *pb.ChatRequest) (*pb.ChatResp
 	outputChars := len([]rune(reply))
 	s.writeHRUsageAudit(ctx, AuditLogEntry{
 		UserID: req.HrId, Role: 2, ServiceType: "ai_chat",
-		Endpoint: "/hr/ai/chat", Provider: "dashscope", Model: runtimeClient.modelName,
+		Endpoint: "/hr/ai/chat", Provider: runtimeClient.auditProvider, Model: runtimeClient.modelName,
 		RequestChars: inputChars, ResponseChars: outputChars, CostMs: int(time.Since(startTime).Milliseconds()),
 	}, req.HrId, "ai", req.ApplicationId)
 	log.Info("chat completed", zap.Int("reply_len", outputChars))
@@ -265,7 +266,7 @@ func (s *AIService) ChatStream(req *pb.ChatRequest, stream pb.AIService_ChatStre
 	if err != nil {
 		s.writeHRUsageAudit(ctx, AuditLogEntry{
 			UserID: req.HrId, Role: 2, ServiceType: "ai_chat",
-			Endpoint: "/hr/ai/chat/stream", Provider: "dashscope", Model: runtimeClient.modelName,
+			Endpoint: "/hr/ai/chat/stream", Provider: runtimeClient.auditProvider, Model: runtimeClient.modelName,
 			RequestChars: inputChars, Status: "error", CostMs: int(time.Since(startTime).Milliseconds()),
 		}, req.HrId, "ai", req.ApplicationId)
 		return err
@@ -273,7 +274,7 @@ func (s *AIService) ChatStream(req *pb.ChatRequest, stream pb.AIService_ChatStre
 
 	s.writeHRUsageAudit(ctx, AuditLogEntry{
 		UserID: req.HrId, Role: 2, ServiceType: "ai_chat",
-		Endpoint: "/hr/ai/chat/stream", Provider: "dashscope", Model: runtimeClient.modelName,
+		Endpoint: "/hr/ai/chat/stream", Provider: runtimeClient.auditProvider, Model: runtimeClient.modelName,
 		RequestChars: inputChars, ResponseChars: len([]rune(reply)), CostMs: int(time.Since(startTime).Milliseconds()),
 	}, req.HrId, "ai", req.ApplicationId)
 
@@ -304,7 +305,13 @@ func (s *AIService) ChatStream(req *pb.ChatRequest, stream pb.AIService_ChatStre
 func (s *AIService) runToolCallingChat(ctx context.Context, req *pb.ChatRequest, session *model.AIChatSession, modelID *int64, modelName string, runtimeCfg *agentRuntimeConfig, onDelta func(string) error, onStatus func(eventType, eventMessage, errorType, toolName string) error, aiClient *ai.Client) (reply string, metadata ai.ToolMetadata, err error) {
 	recorder := s.startAgentRun(ctx, req, session, modelID, modelName, runtimeCfg)
 	fallbackObserved := false
+	var processContent strings.Builder
 	effectiveOnStatus := func(eventType, eventMessage, errorType, toolName string) error {
+		if eventType == "process_delta" {
+			processContent.WriteString(eventMessage)
+		} else if eventType == "process_clear" {
+			processContent.Reset()
+		}
 		if (eventType == "fallback" || eventType == "partial_done") && recorder != nil && !fallbackObserved {
 			fallbackObserved = true
 			recorder.recordFallback(ctx, eventType, errorType, eventMessage, len(metadata.ToolTraces))
@@ -347,12 +354,25 @@ func (s *AIService) runToolCallingChat(ctx context.Context, req *pb.ChatRequest,
 		zap.Int64("session_id", session.ID),
 	)
 
+	selectedSkillsForHistory, err := selectAgentSkills(ctx, s.agentSkillRepo, req.GetMessage(), req.GetAgentSkillIds())
+	if err != nil {
+		logger.L().Warn("select Agent Skills for history failed", zap.Error(err))
+		selectedSkillsForHistory = nil
+	}
+	selectedSkillsForHistory = manualAgentSkills(selectedSkillsForHistory)
 	userAlreadyPersisted := currentMessageAlreadyPersisted(actx, req.Message)
 	messages := buildToolCallingMessages(actx, req.Message)
 
 	// Save user message before the model call so it persists even on cancel.
 	if !userAlreadyPersisted {
-		userHistory := &model.AIChatHistory{SessionID: session.ID, HrID: req.HrId, Role: "user", Content: req.Message}
+		userHistory := &model.AIChatHistory{
+			SessionID:           session.ID,
+			HrID:                req.HrId,
+			Role:                "user",
+			Content:             req.Message,
+			AgentSkillIDsJSON:   marshalInt64Slice(selectedAgentSkillIDs(selectedSkillsForHistory)),
+			AgentSkillNamesJSON: marshalStringSlice(selectedAgentSkillNames(selectedSkillsForHistory)),
+		}
 		if err := s.chats.Add(ctx, userHistory); err != nil {
 			if recorder != nil {
 				recorder.finish(ctx, agentRunStatusFailed, "", "persist_failed", err.Error())
@@ -392,7 +412,7 @@ func (s *AIService) runToolCallingChat(ctx context.Context, req *pb.ChatRequest,
 			if partial != "" {
 				saveCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 				defer cancel()
-				_ = s.chats.Add(saveCtx, &model.AIChatHistory{SessionID: session.ID, HrID: req.HrId, Role: "assistant", Content: partial + "\n\n（回复已中断）", ModelID: modelID, ModelName: modelName})
+				_ = s.chats.Add(saveCtx, &model.AIChatHistory{SessionID: session.ID, HrID: req.HrId, Role: "assistant", Content: partial + "\n\n（回复已中断）", ProcessContent: processContent.String(), ModelID: modelID, ModelName: modelName})
 			}
 			logger.L().Info("chat canceled, partial reply saved if non-empty", zap.Int("partial_chars", len(partial)))
 			if recorder != nil {
@@ -423,7 +443,7 @@ func (s *AIService) runToolCallingChat(ctx context.Context, req *pb.ChatRequest,
 			}
 			saveCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 			defer cancel()
-			_ = s.chats.Add(saveCtx, &model.AIChatHistory{SessionID: session.ID, HrID: req.HrId, Role: "assistant", Content: fallback, ModelID: modelID, ModelName: modelName})
+			_ = s.chats.Add(saveCtx, &model.AIChatHistory{SessionID: session.ID, HrID: req.HrId, Role: "assistant", Content: fallback, ProcessContent: processContent.String(), ModelID: modelID, ModelName: modelName})
 			if recorder != nil {
 				recorder.finish(ctx, agentRunStatusPartial, fallback, string(aiErr.Type), err.Error())
 				sendAgentRunStatus(effectiveOnStatus, "agent_run_done", "Agent run 已部分完成", string(aiErr.Type), "")
@@ -443,7 +463,7 @@ func (s *AIService) runToolCallingChat(ctx context.Context, req *pb.ChatRequest,
 	)
 
 	// Save full assistant reply on success.
-	if err := s.chats.Add(ctx, &model.AIChatHistory{SessionID: session.ID, HrID: req.HrId, Role: "assistant", Content: reply, ModelID: modelID, ModelName: modelName}); err != nil {
+	if err := s.chats.Add(ctx, &model.AIChatHistory{SessionID: session.ID, HrID: req.HrId, Role: "assistant", Content: reply, ProcessContent: processContent.String(), ModelID: modelID, ModelName: modelName}); err != nil {
 		if recorder != nil {
 			recorder.finish(ctx, agentRunStatusFailed, reply, "persist_failed", err.Error())
 			sendAgentRunStatus(effectiveOnStatus, "agent_run_done", "Agent run 保存失败", "persist_failed", "")
@@ -756,14 +776,14 @@ func (s *AIService) AnalyzeApplication(ctx context.Context, req *pb.AnalyzeAppli
 	if err != nil {
 		s.writeHRUsageAudit(ctx, AuditLogEntry{
 			UserID: req.HrId, Role: 2, ServiceType: "ai_analyze",
-			Endpoint: "/hr/ai/analyze-application", Provider: "dashscope", Model: runtimeClient.modelName,
+			Endpoint: "/hr/ai/analyze-application", Provider: runtimeClient.auditProvider, Model: runtimeClient.modelName,
 			RequestChars: inputChars, Status: "error", CostMs: int(time.Since(startTime).Milliseconds()),
 		}, req.HrId, "application", req.ApplicationId)
 		return nil, wrapAIError(err)
 	}
 	s.writeHRUsageAudit(ctx, AuditLogEntry{
 		UserID: req.HrId, Role: 2, ServiceType: "ai_analyze",
-		Endpoint: "/hr/ai/analyze-application", Provider: "dashscope", Model: runtimeClient.modelName,
+		Endpoint: "/hr/ai/analyze-application", Provider: runtimeClient.auditProvider, Model: runtimeClient.modelName,
 		RequestChars: inputChars, ResponseChars: len([]rune(reply)), CostMs: int(time.Since(startTime).Milliseconds()),
 	}, req.HrId, "application", req.ApplicationId)
 	return &pb.AnalyzeApplicationResponse{
@@ -1185,8 +1205,9 @@ func (s *AIService) InvalidateCachedADKTools() {
 
 func (s *AIService) resolveRuntimeAIClient(ctx context.Context, requestedModelID int64, runtimeCfg *agentRuntimeConfig) (*runtimeAIClient, error) {
 	result := &runtimeAIClient{
-		client:    s.ai,
-		modelName: s.defaultRuntimeModelName(),
+		client:        s.ai,
+		modelName:     s.defaultRuntimeModelName(),
+		auditProvider: "dashscope",
 	}
 	var temperatureOverride *float64
 	if runtimeCfg != nil {
@@ -1197,7 +1218,7 @@ func (s *AIService) resolveRuntimeAIClient(ctx context.Context, requestedModelID
 		if s.llmConfigSvc == nil {
 			return nil, fmt.Errorf("runtime model config service is unavailable")
 		}
-		providerType, apiKey, modelName, baseURL, err := s.llmConfigSvc.GetModelDetails(ctx, requestedModelID)
+		providerType, providerName, apiKey, modelName, baseURL, err := s.llmConfigSvc.GetModelDetails(ctx, requestedModelID)
 		if err != nil {
 			return nil, err
 		}
@@ -1209,14 +1230,16 @@ func (s *AIService) resolveRuntimeAIClient(ctx context.Context, requestedModelID
 		result.client = s.ai.CloneWithModel(modelName, cm)
 		result.modelID = &modelID
 		result.modelName = modelName
+		result.auditProvider = auditProviderName(providerName, providerType)
 		logger.L().Info("runtime model selected", zap.Int64("model_id", requestedModelID), zap.String("model", modelName))
 		return result, nil
 	}
 
 	if temperatureOverride == nil {
 		if s.llmConfigSvc != nil {
-			if modelID, _, _, modelName, _, err := s.llmConfigSvc.GetDefaultModelDetails(ctx); err == nil && modelName == result.modelName {
+			if modelID, providerType, providerName, _, modelName, _, err := s.llmConfigSvc.GetDefaultModelDetails(ctx); err == nil && modelName == result.modelName {
 				result.modelID = &modelID
+				result.auditProvider = auditProviderName(providerName, providerType)
 			}
 		}
 		return result, nil
@@ -1224,7 +1247,7 @@ func (s *AIService) resolveRuntimeAIClient(ctx context.Context, requestedModelID
 	if s.llmConfigSvc == nil {
 		return nil, fmt.Errorf("runtime model config service is unavailable for temperature_override")
 	}
-	modelID, providerType, apiKey, modelName, baseURL, err := s.llmConfigSvc.GetDefaultModelDetails(ctx)
+	modelID, providerType, providerName, apiKey, modelName, baseURL, err := s.llmConfigSvc.GetDefaultModelDetails(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("default model details are unavailable for temperature_override: %w", err)
 	}
@@ -1235,7 +1258,18 @@ func (s *AIService) resolveRuntimeAIClient(ctx context.Context, requestedModelID
 	result.client = s.ai.CloneWithModel(modelName, cm)
 	result.modelID = &modelID
 	result.modelName = modelName
+	result.auditProvider = auditProviderName(providerName, providerType)
 	return result, nil
+}
+
+func auditProviderName(providerName, providerType string) string {
+	if strings.TrimSpace(providerName) != "" {
+		return strings.TrimSpace(providerName)
+	}
+	if strings.TrimSpace(providerType) != "" {
+		return strings.TrimSpace(providerType)
+	}
+	return "unknown"
 }
 
 func (s *AIService) defaultRuntimeModelName() string {

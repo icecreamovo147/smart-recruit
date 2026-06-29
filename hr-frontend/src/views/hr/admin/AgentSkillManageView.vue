@@ -267,6 +267,7 @@ onMounted(() => {
 <template>
   <section class="agent-skill-page">
     <PageHeader
+      kicker="Agent Skill"
       title="Agent Skill 管理"
       description="用流程节点编排生成数据库版 SKILL.md，供 AI 助手手动选择使用。"
     >

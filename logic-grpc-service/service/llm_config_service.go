@@ -603,40 +603,40 @@ func maskExtraHeaders(jsonStr string) string {
 }
 
 // GetModelDetails looks up model config by ID for runtime model selection.
-// Returns provider_type, api_key (decrypted), model_name, and base_url.
-func (s *LlmConfigService) GetModelDetails(ctx context.Context, modelID int64) (providerType, apiKey, modelName, baseURL string, err error) {
+// Returns provider_type, provider_name, api_key (decrypted), model_name, and base_url.
+func (s *LlmConfigService) GetModelDetails(ctx context.Context, modelID int64) (providerType, providerName, apiKey, modelName, baseURL string, err error) {
 	llmModel, err := s.modelRepo.GetByID(ctx, modelID)
 	if err != nil {
-		return "", "", "", "", fmt.Errorf("model %d not found: %w", modelID, err)
+		return "", "", "", "", "", fmt.Errorf("model %d not found: %w", modelID, err)
 	}
 	if llmModel.IsEnabled != 1 {
-		return "", "", "", "", fmt.Errorf("model %d is disabled", modelID)
+		return "", "", "", "", "", fmt.Errorf("model %d is disabled", modelID)
 	}
 	provider, err := s.providerRepo.GetByID(ctx, llmModel.ProviderID)
 	if err != nil {
-		return "", "", "", "", fmt.Errorf("provider %d not found: %w", llmModel.ProviderID, err)
+		return "", "", "", "", "", fmt.Errorf("provider %d not found: %w", llmModel.ProviderID, err)
 	}
 	if provider.IsEnabled != 1 {
-		return "", "", "", "", fmt.Errorf("provider %d is disabled", provider.ID)
+		return "", "", "", "", "", fmt.Errorf("provider %d is disabled", provider.ID)
 	}
 	keyBytes, err := crypto.Decrypt(s.encKey, provider.APIKeyEncrypted)
 	if err != nil {
-		return "", "", "", "", fmt.Errorf("decrypt api key for provider %d: %w", provider.ID, err)
+		return "", "", "", "", "", fmt.Errorf("decrypt api key for provider %d: %w", provider.ID, err)
 	}
-	return provider.ProviderType, string(keyBytes), llmModel.ModelName, provider.BaseURL, nil
+	return provider.ProviderType, provider.Name, string(keyBytes), llmModel.ModelName, provider.BaseURL, nil
 }
 
 // GetDefaultModelDetails returns the enabled default model plus provider details.
-func (s *LlmConfigService) GetDefaultModelDetails(ctx context.Context) (modelID int64, providerType, apiKey, modelName, baseURL string, err error) {
+func (s *LlmConfigService) GetDefaultModelDetails(ctx context.Context) (modelID int64, providerType, providerName, apiKey, modelName, baseURL string, err error) {
 	llmModel, err := s.modelRepo.GetDefaultModel(ctx)
 	if err != nil {
-		return 0, "", "", "", "", fmt.Errorf("default model not found: %w", err)
+		return 0, "", "", "", "", "", fmt.Errorf("default model not found: %w", err)
 	}
-	providerType, apiKey, modelName, baseURL, err = s.GetModelDetails(ctx, llmModel.ID)
+	providerType, providerName, apiKey, modelName, baseURL, err = s.GetModelDetails(ctx, llmModel.ID)
 	if err != nil {
-		return 0, "", "", "", "", err
+		return 0, "", "", "", "", "", err
 	}
-	return llmModel.ID, providerType, apiKey, modelName, baseURL, nil
+	return llmModel.ID, providerType, providerName, apiKey, modelName, baseURL, nil
 }
 
 // GetDefaultModelConfig retrieves the default model config (Provider + Model) for AI client initialization.

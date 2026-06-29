@@ -114,8 +114,8 @@ const handleStreamPayload = (text: string, handlers: StreamHandlers): boolean =>
     if (payload.event_type && payload.event_type === 'error') {
       handlers.onError?.(payload.error_type || '', payload.event_message || payload.msg || '', payload)
     }
-    if (payload.event_type && payload.event_message && !payload.delta) {
-      handlers.onStatus?.(payload.event_type, payload.event_message, payload)
+    if (payload.event_type && !payload.delta) {
+      handlers.onStatus?.(payload.event_type, payload.event_message || '', payload)
     }
     if (payload.delta) {
       handlers.onDelta?.(payload.delta, payload)

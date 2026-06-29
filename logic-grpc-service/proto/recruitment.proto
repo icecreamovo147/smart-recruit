@@ -607,6 +607,9 @@ message ChatMessage {
   string created_at = 3;
   int64 model_id = 4;
   string model_name = 5;
+  repeated int64 agent_skill_ids = 6;
+  repeated string agent_skill_names = 7;
+  string process_content = 8;
 }
 
 message ChatHistoryResponse {

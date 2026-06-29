@@ -3929,14 +3929,17 @@ func (x *ChatHistoryRequest) GetPageSize() int32 {
 }
 
 type ChatMessage struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Role          string                 `protobuf:"bytes,1,opt,name=role,proto3" json:"role,omitempty"`
-	Content       string                 `protobuf:"bytes,2,opt,name=content,proto3" json:"content,omitempty"`
-	CreatedAt     string                 `protobuf:"bytes,3,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
-	ModelId       int64                  `protobuf:"varint,4,opt,name=model_id,json=modelId,proto3" json:"model_id,omitempty"`
-	ModelName     string                 `protobuf:"bytes,5,opt,name=model_name,json=modelName,proto3" json:"model_name,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	state           protoimpl.MessageState `protogen:"open.v1"`
+	Role            string                 `protobuf:"bytes,1,opt,name=role,proto3" json:"role,omitempty"`
+	Content         string                 `protobuf:"bytes,2,opt,name=content,proto3" json:"content,omitempty"`
+	CreatedAt       string                 `protobuf:"bytes,3,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
+	ModelId         int64                  `protobuf:"varint,4,opt,name=model_id,json=modelId,proto3" json:"model_id,omitempty"`
+	ModelName       string                 `protobuf:"bytes,5,opt,name=model_name,json=modelName,proto3" json:"model_name,omitempty"`
+	AgentSkillIds   []int64                `protobuf:"varint,6,rep,packed,name=agent_skill_ids,json=agentSkillIds,proto3" json:"agent_skill_ids,omitempty"`
+	AgentSkillNames []string               `protobuf:"bytes,7,rep,name=agent_skill_names,json=agentSkillNames,proto3" json:"agent_skill_names,omitempty"`
+	ProcessContent  string                 `protobuf:"bytes,8,opt,name=process_content,json=processContent,proto3" json:"process_content,omitempty"`
+	unknownFields   protoimpl.UnknownFields
+	sizeCache       protoimpl.SizeCache
 }
 
 func (x *ChatMessage) Reset() {
@@ -4000,6 +4003,27 @@ func (x *ChatMessage) GetModelId() int64 {
 func (x *ChatMessage) GetModelName() string {
 	if x != nil {
 		return x.ModelName
+	}
+	return ""
+}
+
+func (x *ChatMessage) GetAgentSkillIds() []int64 {
+	if x != nil {
+		return x.AgentSkillIds
+	}
+	return nil
+}
+
+func (x *ChatMessage) GetAgentSkillNames() []string {
+	if x != nil {
+		return x.AgentSkillNames
+	}
+	return nil
+}
+
+func (x *ChatMessage) GetProcessContent() string {
+	if x != nil {
+		return x.ProcessContent
 	}
 	return ""
 }
@@ -24431,7 +24455,7 @@ const file_proto_recruitment_proto_rawDesc = "" +
 	"\x12ChatHistoryRequest\x12\x13\n" +
 	"\x05hr_id\x18\x01 \x01(\x03R\x04hrId\x12\x12\n" +
 	"\x04page\x18\x02 \x01(\x05R\x04page\x12\x1b\n" +
-	"\tpage_size\x18\x03 \x01(\x05R\bpageSize\"\x94\x01\n" +
+	"\tpage_size\x18\x03 \x01(\x05R\bpageSize\"\x91\x02\n" +
 	"\vChatMessage\x12\x12\n" +
 	"\x04role\x18\x01 \x01(\tR\x04role\x12\x18\n" +
 	"\acontent\x18\x02 \x01(\tR\acontent\x12\x1d\n" +
@@ -24439,7 +24463,10 @@ const file_proto_recruitment_proto_rawDesc = "" +
 	"created_at\x18\x03 \x01(\tR\tcreatedAt\x12\x19\n" +
 	"\bmodel_id\x18\x04 \x01(\x03R\amodelId\x12\x1d\n" +
 	"\n" +
-	"model_name\x18\x05 \x01(\tR\tmodelName\"i\n" +
+	"model_name\x18\x05 \x01(\tR\tmodelName\x12&\n" +
+	"\x0fagent_skill_ids\x18\x06 \x03(\x03R\ragentSkillIds\x12*\n" +
+	"\x11agent_skill_names\x18\a \x03(\tR\x0fagentSkillNames\x12'\n" +
+	"\x0fprocess_content\x18\b \x01(\tR\x0eprocessContent\"i\n" +
 	"\x13ChatHistoryResponse\x12\x12\n" +
 	"\x04code\x18\x01 \x01(\x05R\x04code\x12\x10\n" +
 	"\x03msg\x18\x02 \x01(\tR\x03msg\x12,\n" +

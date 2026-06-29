@@ -179,10 +179,6 @@ const routeViewKey = (viewRoute: { fullPath: string; path: string; params: Recor
         <el-icon><Setting /></el-icon>
         <span>Agent 管理</span>
       </RouterLink>
-      <RouterLink v-if="auth.hasPermission(PERM.SYSTEM_CONFIG_MANAGE)" class="sidebar-link" to="/hr/admin/skills" @click="closeMobileSidebar">
-        <el-icon><Collection /></el-icon>
-        <span>高级 SKILL 配置</span>
-      </RouterLink>
       <RouterLink v-if="canManageAgentSkills" class="sidebar-link" to="/hr/admin/agent-skills" @click="closeMobileSidebar">
         <el-icon><MagicStick /></el-icon>
         <span>Agent Skill 管理</span>
