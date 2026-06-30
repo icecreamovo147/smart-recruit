@@ -44,6 +44,10 @@ func TestGenerateAgentSkillMarkdownCanvasV1(t *testing.T) {
 	}
 	for _, want := range []string{
 		"## When to use",
+		"## Workflow",
+		"1. When to use: Use when handling inbound candidates.",
+		"1. Instructions: First review the candidate profile.",
+		"1. Instructions: Then send the result.",
 		"## Instructions",
 		"## Output format",
 		"## Constraints",
@@ -51,6 +55,53 @@ func TestGenerateAgentSkillMarkdownCanvasV1(t *testing.T) {
 		if !strings.Contains(bodyMarkdown, want) {
 			t.Fatalf("bodyMarkdown missing section %q:\n%s", want, bodyMarkdown)
 		}
+	}
+}
+
+func TestGenerateAgentSkillMarkdownWorkflowBranches(t *testing.T) {
+	flowJSON := `{
+		"format":"canvas.v1",
+		"nodes":[
+			{"id":"trigger","type":"trigger","position":{"x":0,"y":0},"data":{"title":"Trigger","content":"Use when comparing candidates."}},
+			{"id":"context","type":"context","position":{"x":1,"y":0},"data":{"title":"Context","content":"Read resume and job description."}},
+			{"id":"condition","type":"condition","position":{"x":2,"y":0},"data":{"title":"Information check","content":"Check whether required evidence is available."}},
+			{"id":"instruction","type":"instruction","position":{"x":3,"y":0},"data":{"title":"Compare evidence","content":"Compare evidence against the job requirements."}},
+			{"id":"output","type":"output","position":{"x":4,"y":0},"data":{"title":"Output","content":"Return match summary and risks."}},
+			{"id":"constraint","type":"constraint","position":{"x":5,"y":0},"data":{"title":"Constraint","content":"Do not invent missing evidence."}}
+		],
+		"edges":[
+			{"id":"e1","source":"trigger","target":"context","label":"start"},
+			{"id":"e2","source":"context","target":"condition","label":"next"},
+			{"id":"e3","source":"condition","target":"instruction","label":"evidence is available"},
+			{"id":"e4","source":"condition","target":"output","label":"evidence is missing"},
+			{"id":"e5","source":"instruction","target":"output","label":"finish"},
+			{"id":"e6","source":"output","target":"constraint","label":"guard"}
+		]
+	}`
+
+	_, _, bodyMarkdown, err := GenerateAgentSkillMarkdown("branch-flow", "Branch flow", flowJSON)
+	if err != nil {
+		t.Fatalf("GenerateAgentSkillMarkdown returned error: %v", err)
+	}
+	for _, want := range []string{
+		"## Workflow",
+		`If evidence is available, continue to "Compare evidence".`,
+		`If evidence is missing, continue to "Output".`,
+		"1. Decision rules: Check whether required evidence is available.",
+	} {
+		if !strings.Contains(bodyMarkdown, want) {
+			t.Fatalf("bodyMarkdown missing workflow content %q:\n%s", want, bodyMarkdown)
+		}
+	}
+	workflow := bodyMarkdown[strings.Index(bodyMarkdown, "## Workflow"):]
+	contextIndex := strings.Index(workflow, "1. Required context: Read resume and job description.")
+	conditionIndex := strings.Index(workflow, "1. Decision rules: Check whether required evidence is available.")
+	instructionIndex := strings.Index(workflow, "1. Instructions: Compare evidence against the job requirements.")
+	if contextIndex < 0 || conditionIndex < 0 || instructionIndex < 0 {
+		t.Fatalf("workflow missing expected ordered steps:\n%s", workflow)
+	}
+	if !(contextIndex < conditionIndex && conditionIndex < instructionIndex) {
+		t.Fatalf("workflow did not follow edge order:\n%s", workflow)
 	}
 }
 
@@ -64,7 +115,7 @@ func TestParseAgentSkillFlowCanvasCanonicalKeepsCanvasShape(t *testing.T) {
 			{"id":"constraint","type":"constraint","position":{"x":700,"y":20},"data":{"title":"Constraint","content":"Keep it factual."}}
 		],
 		"edges":[
-			{"id":"e1","source":"trigger","target":"instruction","label":"next"},
+			{"id":"e1","source":"trigger","target":"instruction","sourceHandle":"right","targetHandle":"left","curvature":0.25,"label":"next"},
 			{"id":"e2","source":"instruction","target":"output","label":"next"},
 			{"id":"e3","source":"output","target":"constraint","label":"guard"}
 		]
@@ -80,6 +131,9 @@ func TestParseAgentSkillFlowCanvasCanonicalKeepsCanvasShape(t *testing.T) {
 		`"edges":[`,
 		`"source":"trigger"`,
 		`"target":"instruction"`,
+		`"sourceHandle":"right"`,
+		`"targetHandle":"left"`,
+		`"curvature":0.25`,
 	} {
 		if !strings.Contains(canonical, want) {
 			t.Fatalf("canonical flow missing %q: %s", want, canonical)

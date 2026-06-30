@@ -39,7 +39,29 @@ type agentSkillCreateRequest struct {
 	IsManualInvocableSet bool                    `json:"is_manual_invocable_set"`
 	TriggerKeywords      []string                `json:"trigger_keywords"`
 	ChangeNote           string                  `json:"change_note"`
-	Activate             bool                    `json:"activate"`
+	Activate             *bool                   `json:"activate"`
+}
+
+type agentSkillUpdateRequest struct {
+	DisplayName          *string  `json:"display_name"`
+	DisplayNameSet       bool     `json:"display_name_set"`
+	Description          *string  `json:"description"`
+	DescriptionSet       bool     `json:"description_set"`
+	IsEnabled            *bool    `json:"is_enabled"`
+	IsEnabledSet         bool     `json:"is_enabled_set"`
+	IsManualInvocable    *bool    `json:"is_manual_invocable"`
+	IsManualInvocableSet bool     `json:"is_manual_invocable_set"`
+	TriggerKeywords      []string `json:"trigger_keywords"`
+	TriggerKeywordsSet   bool     `json:"trigger_keywords_set"`
+}
+
+type agentSkillCreateVersionRequest struct {
+	Version    string                  `json:"version"`
+	FlowJSON   string                  `json:"flow_json"`
+	Nodes      []agentSkillNodeRequest `json:"nodes"`
+	ChangeNote string                  `json:"change_note"`
+	Activate   bool                    `json:"activate"`
+	SkillMD    string                  `json:"skill_md"`
 }
 
 type agentSkillPreviewRequest struct {
@@ -118,12 +140,15 @@ func (h *AgentSkillHandler) Create(c *gin.Context) {
 		Version:              strings.TrimSpace(body.Version),
 		FlowJson:             flowJSON,
 		ChangeNote:           strings.TrimSpace(body.ChangeNote),
-		Activate:             true,
 		IsEnabled:            body.IsEnabled,
 		IsEnabledSet:         true,
 		IsManualInvocable:    true,
 		IsManualInvocableSet: true,
 		TriggerKeywords:      body.TriggerKeywords,
+	}
+	req.Activate = true
+	if body.Activate != nil {
+		req.Activate = *body.Activate
 	}
 	if body.IsEnabledSet {
 		req.IsEnabled = body.IsEnabled
@@ -147,13 +172,39 @@ func (h *AgentSkillHandler) Update(c *gin.Context) {
 		base.BadRequest(c, "invalid id")
 		return
 	}
-	var req pb.UpdateAgentSkillRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
+	var body agentSkillUpdateRequest
+	if err := c.ShouldBindJSON(&body); err != nil {
 		base.BadRequest(c, "invalid request body")
 		return
 	}
-	req.Id = id
-	req.ActorUserId = currentUserID(c)
+	req := pb.UpdateAgentSkillRequest{
+		Id:                   id,
+		ActorUserId:          currentUserID(c),
+		TriggerKeywords:      body.TriggerKeywords,
+		TriggerKeywordsSet:   body.TriggerKeywordsSet,
+		IsEnabledSet:         body.IsEnabledSet,
+		IsManualInvocableSet: body.IsManualInvocableSet,
+	}
+	if body.DisplayName != nil || body.DisplayNameSet {
+		if body.DisplayName != nil {
+			req.DisplayName = strings.TrimSpace(*body.DisplayName)
+		}
+		req.DisplayNameSet = true
+	}
+	if body.Description != nil || body.DescriptionSet {
+		if body.Description != nil {
+			req.Description = strings.TrimSpace(*body.Description)
+		}
+		req.DescriptionSet = true
+	}
+	if body.IsEnabled != nil {
+		req.IsEnabled = *body.IsEnabled
+		req.IsEnabledSet = true
+	}
+	if body.IsManualInvocable != nil {
+		req.IsManualInvocable = *body.IsManualInvocable
+		req.IsManualInvocableSet = true
+	}
 	resp, err := h.clients.AgentSkill.UpdateAgentSkill(c.Request.Context(), &req)
 	if err != nil {
 		logger.L().Error("UpdateAgentSkill failed", zap.Error(err))
@@ -169,13 +220,25 @@ func (h *AgentSkillHandler) CreateVersion(c *gin.Context) {
 		base.BadRequest(c, "invalid id")
 		return
 	}
-	var req pb.CreateAgentSkillVersionRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
+	var body agentSkillCreateVersionRequest
+	if err := c.ShouldBindJSON(&body); err != nil {
 		base.BadRequest(c, "invalid request body")
 		return
 	}
-	req.SkillId = skillID
-	req.ActorUserId = currentUserID(c)
+	flowJSON, err := flowJSONFromRequest(body.FlowJSON, body.Nodes)
+	if err != nil {
+		base.BadRequest(c, err.Error())
+		return
+	}
+	req := pb.CreateAgentSkillVersionRequest{
+		SkillId:     skillID,
+		Version:     strings.TrimSpace(body.Version),
+		FlowJson:    flowJSON,
+		ChangeNote:  strings.TrimSpace(body.ChangeNote),
+		Activate:    body.Activate,
+		ActorUserId: currentUserID(c),
+		SkillMd:     strings.TrimSpace(body.SkillMD),
+	}
 	resp, err := h.clients.AgentSkill.CreateAgentSkillVersion(c.Request.Context(), &req)
 	if err != nil {
 		logger.L().Error("CreateAgentSkillVersion failed", zap.Error(err))

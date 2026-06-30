@@ -2,6 +2,7 @@ logic-grpc-service/config/config.yaml
 
 .env
 node_modules/
+.pnpm-store/
 dist/
 .dev/
 .claude/

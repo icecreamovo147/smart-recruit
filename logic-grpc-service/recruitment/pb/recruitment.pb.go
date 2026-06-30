@@ -23411,6 +23411,8 @@ type UpdateAgentSkillRequest struct {
 	TriggerKeywords      []string               `protobuf:"bytes,8,rep,name=trigger_keywords,json=triggerKeywords,proto3" json:"trigger_keywords,omitempty"`
 	TriggerKeywordsSet   bool                   `protobuf:"varint,9,opt,name=trigger_keywords_set,json=triggerKeywordsSet,proto3" json:"trigger_keywords_set,omitempty"`
 	ActorUserId          int64                  `protobuf:"varint,10,opt,name=actor_user_id,json=actorUserId,proto3" json:"actor_user_id,omitempty"`
+	DisplayNameSet       bool                   `protobuf:"varint,11,opt,name=display_name_set,json=displayNameSet,proto3" json:"display_name_set,omitempty"`
+	DescriptionSet       bool                   `protobuf:"varint,12,opt,name=description_set,json=descriptionSet,proto3" json:"description_set,omitempty"`
 	unknownFields        protoimpl.UnknownFields
 	sizeCache            protoimpl.SizeCache
 }
@@ -23513,6 +23515,20 @@ func (x *UpdateAgentSkillRequest) GetActorUserId() int64 {
 		return x.ActorUserId
 	}
 	return 0
+}
+
+func (x *UpdateAgentSkillRequest) GetDisplayNameSet() bool {
+	if x != nil {
+		return x.DisplayNameSet
+	}
+	return false
+}
+
+func (x *UpdateAgentSkillRequest) GetDescriptionSet() bool {
+	if x != nil {
+		return x.DescriptionSet
+	}
+	return false
 }
 
 type AgentSkillResponse struct {
@@ -26210,7 +26226,7 @@ const file_proto_recruitment_proto_rawDesc = "" +
 	"\vchange_note\x18\f \x01(\tR\n" +
 	"changeNote\x12\x1a\n" +
 	"\bactivate\x18\r \x01(\bR\bactivate\x12\x19\n" +
-	"\bskill_md\x18\x0e \x01(\tR\askillMd\"\x9b\x03\n" +
+	"\bskill_md\x18\x0e \x01(\tR\askillMd\"\xee\x03\n" +
 	"\x17UpdateAgentSkillRequest\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\x03R\x02id\x12!\n" +
 	"\fdisplay_name\x18\x02 \x01(\tR\vdisplayName\x12 \n" +
@@ -26223,7 +26239,9 @@ const file_proto_recruitment_proto_rawDesc = "" +
 	"\x10trigger_keywords\x18\b \x03(\tR\x0ftriggerKeywords\x120\n" +
 	"\x14trigger_keywords_set\x18\t \x01(\bR\x12triggerKeywordsSet\x12\"\n" +
 	"\ractor_user_id\x18\n" +
-	" \x01(\x03R\vactorUserId\"m\n" +
+	" \x01(\x03R\vactorUserId\x12(\n" +
+	"\x10display_name_set\x18\v \x01(\bR\x0edisplayNameSet\x12'\n" +
+	"\x0fdescription_set\x18\f \x01(\bR\x0edescriptionSet\"m\n" +
 	"\x12AgentSkillResponse\x12\x12\n" +
 	"\x04code\x18\x01 \x01(\x05R\x04code\x12\x10\n" +
 	"\x03msg\x18\x02 \x01(\tR\x03msg\x121\n" +

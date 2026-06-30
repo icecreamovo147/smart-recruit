@@ -2827,6 +2827,8 @@ message UpdateAgentSkillRequest {
   repeated string trigger_keywords = 8;
   bool trigger_keywords_set = 9;
   int64 actor_user_id = 10;
+  bool display_name_set = 11;
+  bool description_set = 12;
 }
 
 message AgentSkillResponse {

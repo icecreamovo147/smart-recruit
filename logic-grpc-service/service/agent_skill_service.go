@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"strings"
 	"time"
@@ -119,10 +120,19 @@ func (s *AgentSkillService) CreateAgentSkill(ctx context.Context, req *pb.Create
 			ChangeNote:      strings.TrimSpace(req.GetChangeNote()),
 			CreatedBy:       createdBy,
 		}
-		if err := s.repo.CreateSkillWithVersion(ctx, skill, version, true); err != nil {
+		if err := s.repo.CreateSkillWithVersion(ctx, skill, version, req.GetActivate()); err != nil {
+			if errors.Is(err, repository.ErrAgentSkillDuplicateName) {
+				return nil, status.Error(codes.AlreadyExists, "agent skill name already exists")
+			}
+			if errors.Is(err, repository.ErrAgentSkillDuplicateVersion) {
+				return nil, status.Error(codes.AlreadyExists, "agent skill version already exists")
+			}
 			return nil, status.Error(codes.Internal, "create agent skill failed")
 		}
 	} else if err := s.repo.CreateSkill(ctx, skill); err != nil {
+		if errors.Is(err, repository.ErrAgentSkillDuplicateName) {
+			return nil, status.Error(codes.AlreadyExists, "agent skill name already exists")
+		}
 		return nil, status.Error(codes.Internal, "create agent skill failed")
 	}
 	return &pb.AgentSkillResponse{Code: 0, Msg: "success", Skill: agentSkillToPB(skill)}, nil
@@ -133,10 +143,10 @@ func (s *AgentSkillService) UpdateAgentSkill(ctx context.Context, req *pb.Update
 		return nil, status.Error(codes.InvalidArgument, "id is required")
 	}
 	updates := map[string]any{}
-	if req.GetDisplayName() != "" {
+	if req.GetDisplayNameSet() {
 		updates["display_name"] = strings.TrimSpace(req.GetDisplayName())
 	}
-	if req.GetDescription() != "" {
+	if req.GetDescriptionSet() {
 		updates["description"] = strings.TrimSpace(req.GetDescription())
 	}
 	if req.GetTriggerKeywordsSet() {
@@ -204,7 +214,11 @@ func (s *AgentSkillService) CreateAgentSkillVersion(ctx context.Context, req *pb
 		ChangeNote:      strings.TrimSpace(req.GetChangeNote()),
 		CreatedBy:       optionalPositiveInt64(req.GetActorUserId()),
 	}
-	if err := s.repo.CreateVersion(ctx, version, req.GetActivate()); err != nil {
+	actor := optionalPositiveInt64(req.GetActorUserId())
+	if err := s.repo.CreateVersion(ctx, version, req.GetActivate(), actor); err != nil {
+		if errors.Is(err, repository.ErrAgentSkillDuplicateVersion) {
+			return nil, status.Error(codes.AlreadyExists, "agent skill version already exists")
+		}
 		return nil, status.Error(codes.Internal, "create agent skill version failed")
 	}
 	return &pb.AgentSkillVersionResponse{Code: 0, Msg: "success", Version: agentSkillVersionToPB(version)}, nil
@@ -229,14 +243,11 @@ func (s *AgentSkillService) ActivateAgentSkillVersion(ctx context.Context, req *
 	if req.GetSkillId() <= 0 || req.GetVersionId() <= 0 {
 		return nil, status.Error(codes.InvalidArgument, "skill_id and version_id are required")
 	}
-	if err := s.repo.ActivateVersion(ctx, req.GetSkillId(), req.GetVersionId()); err != nil {
-		if err == gorm.ErrRecordNotFound {
+	if err := s.repo.ActivateVersion(ctx, req.GetSkillId(), req.GetVersionId(), optionalPositiveInt64(req.GetActorUserId())); err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, status.Error(codes.NotFound, "agent skill version not found")
 		}
 		return nil, status.Error(codes.Internal, "activate agent skill version failed")
-	}
-	if actor := optionalPositiveInt64(req.GetActorUserId()); actor != nil {
-		_ = s.repo.UpdateSkillPartial(ctx, req.GetSkillId(), map[string]any{"updated_by": actor})
 	}
 	skill, err := s.repo.GetSkillByID(ctx, req.GetSkillId())
 	if err != nil {

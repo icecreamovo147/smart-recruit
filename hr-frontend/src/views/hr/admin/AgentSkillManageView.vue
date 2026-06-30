@@ -1,18 +1,25 @@
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref, watch } from 'vue'
-import { ElMessage } from 'element-plus'
-import { CircleCheck, Document, Refresh, Search, Switch, WarningFilled } from '@element-plus/icons-vue'
-import { createAgentSkill, listAgentSkills, previewAgentSkill, updateAgentSkillStatus } from '@/api/agentSkill'
-import { DataTableCard, EmptyGuide, FilterToolbar, PageHeader, StatusTag } from '@/components/admin-console'
+import { ElMessage, ElMessageBox } from 'element-plus'
+import { CircleCheck, Document, Edit, Plus, Refresh, Search, Tickets, TurnOff, WarningFilled, View } from '@element-plus/icons-vue'
+import * as agentSkillApi from '@/api/agentSkill'
+import { DataTableCard, EmptyGuide, FilterToolbar, PageHeader } from '@/components/admin-console'
 import AgentSkillCanvasEditor from '@/components/agent-skill/AgentSkillCanvasEditor.vue'
 import type {
+  AgentSkillCanvasEdge,
   AgentSkillCanvasFlow,
+  AgentSkillCanvasNode,
   AgentSkillInfo,
   AgentSkillNode,
   AgentSkillNodeType,
   AgentSkillValidation,
+  AgentSkillVersionInfo,
+  CreateAgentSkillVersionPayload,
   CreateAgentSkillPayload,
+  UpdateAgentSkillPayload,
 } from '@/types/agentSkill'
+
+const api = agentSkillApi
 
 const NODE_TYPES: { type: AgentSkillNodeType; label: string; description: string; placeholder: string }[] = [
   { type: 'trigger', label: '触发场景', description: '定义何时适合使用这个 Agent Skill', placeholder: '例如：当 HR 要求比较候选人与岗位 JD 的匹配度时使用。' },
@@ -34,14 +41,29 @@ const page = ref(1)
 const pageSize = ref(20)
 const loading = ref(false)
 const saving = ref(false)
+const editLoading = ref(false)
 const previewLoading = ref(false)
+const savedPreviewLoading = ref(false)
+const versionsLoading = ref(false)
+const statusChangingId = ref<number | null>(null)
+const activatingVersionId = ref<number | null>(null)
 const keyword = ref('')
 const statusFilter = ref('')
 const previewMarkdown = ref('')
 const validation = ref<AgentSkillValidation>({ valid: false, errors: [], warnings: [] })
 const selectedNodeId = ref('')
-const activeTab = ref<'builder' | 'list'>('builder')
+const builderDialogVisible = ref(false)
 const previewDrawerVisible = ref(false)
+const savedPreviewDrawerVisible = ref(false)
+const versionsDrawerVisible = ref(false)
+const editingSkill = ref<AgentSkillInfo | null>(null)
+const savedPreviewSkill = ref<AgentSkillInfo | null>(null)
+const savedPreviewVersion = ref<AgentSkillVersionInfo | null>(null)
+const versionSkill = ref<AgentSkillInfo | null>(null)
+const versions = ref<AgentSkillVersionInfo[]>([])
+const selectedVersion = ref<AgentSkillVersionInfo | null>(null)
+const changeNote = ref('')
+const flowIntegrityWarning = ref('')
 
 const form = reactive({
   name: '',
@@ -52,9 +74,7 @@ const form = reactive({
   is_enabled: true,
 })
 
-const flow = ref<AgentSkillCanvasFlow>(createDefaultFlow())
-
-function createCanvasNode(type: AgentSkillNodeType, index: number) {
+function createCanvasNode(type: AgentSkillNodeType, index: number): AgentSkillCanvasNode {
   const config = NODE_TYPES.find((item) => item.type === type)!
   return {
     id: `${type}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
@@ -70,6 +90,43 @@ function createCanvasNode(type: AgentSkillNodeType, index: number) {
   }
 }
 
+const NODE_WIDTH = 184
+const NODE_HEIGHT = 104
+
+const nodeCenter = (node: AgentSkillCanvasNode) => ({
+  x: node.position.x + NODE_WIDTH / 2,
+  y: node.position.y + NODE_HEIGHT / 2,
+})
+
+const inferSequentialEdgeHandles = (
+  source: AgentSkillCanvasNode,
+  target: AgentSkillCanvasNode,
+): Pick<AgentSkillCanvasEdge, 'sourceHandle' | 'targetHandle'> => {
+  const sourceCenter = nodeCenter(source)
+  const targetCenter = nodeCenter(target)
+  const dx = targetCenter.x - sourceCenter.x
+  const dy = targetCenter.y - sourceCenter.y
+  if (Math.abs(dx) >= Math.abs(dy)) {
+    return dx >= 0
+      ? { sourceHandle: 'right', targetHandle: 'left' }
+      : { sourceHandle: 'left', targetHandle: 'right' }
+  }
+  return dy >= 0
+    ? { sourceHandle: 'bottom', targetHandle: 'top' }
+    : { sourceHandle: 'top', targetHandle: 'bottom' }
+}
+
+const createSequentialEdge = (
+  source: AgentSkillCanvasNode,
+  target: AgentSkillCanvasNode,
+  index = 0,
+): AgentSkillCanvasEdge => ({
+  id: `edge-${source.id}-${target.id}-${index}`,
+  source: source.id,
+  target: target.id,
+  ...inferSequentialEdgeHandles(source, target),
+})
+
 function createDefaultFlow(): AgentSkillCanvasFlow {
   const nodes = (['trigger', 'context', 'instruction', 'output', 'constraint'] as AgentSkillNodeType[])
     .map((type, index) => createCanvasNode(type, index))
@@ -78,19 +135,25 @@ function createDefaultFlow(): AgentSkillCanvasFlow {
     version: '1.0.0',
     type: 'agent-skill',
     nodes,
-    edges: nodes.slice(0, -1).map((node, index) => ({
-      id: `edge-${node.id}-${nodes[index + 1].id}`,
-      source: node.id,
-      target: nodes[index + 1].id,
-    })),
+    edges: nodes.slice(0, -1).map((node, index) => createSequentialEdge(node, nodes[index + 1], index)),
     viewport: { x: 0, y: 0, zoom: 1 },
   }
 }
 
+const flow = ref<AgentSkillCanvasFlow>(createDefaultFlow())
+
+const isEditing = computed(() => Boolean(editingSkill.value))
+const saveButtonText = computed(() => (isEditing.value ? '保存并发布新版本' : '创建 Agent Skill'))
+const currentVersion = computed(() => (
+  versions.value.find((item) => item.id === versionSkill.value?.current_version_id)
+  || versions.value.find((item) => item.is_current)
+  || null
+))
+
 const loadList = async () => {
   loading.value = true
   try {
-    const data = await listAgentSkills({
+    const data = await api.listAgentSkills({
       page: page.value,
       page_size: pageSize.value,
       keyword: keyword.value.trim() || undefined,
@@ -101,22 +164,44 @@ const loadList = async () => {
       ? rawList.filter((item) => !item.is_enabled)
       : rawList
     total.value = data.total || list.value.length
+  } catch (e: unknown) {
+    ElMessage.error(getErrorMessage(e, 'Agent Skill 列表加载失败'))
   } finally {
     loading.value = false
   }
 }
 
 const resetBuilder = () => {
+  editingSkill.value = null
   form.name = ''
   form.display_name = ''
   form.description = ''
   form.category = 'recruiting'
   form.version = '1.0.0'
   form.is_enabled = true
+  changeNote.value = ''
+  flowIntegrityWarning.value = ''
   flow.value = createDefaultFlow()
   selectedNodeId.value = flow.value.nodes[0]?.id || ''
   previewMarkdown.value = ''
   validation.value = { valid: false, errors: [], warnings: [] }
+}
+
+const openCreate = () => {
+  resetBuilder()
+  builderDialogVisible.value = true
+}
+
+const closeBuilderDialog = () => {
+  builderDialogVisible.value = false
+}
+
+const resetOrCloseBuilder = () => {
+  if (isEditing.value) {
+    closeBuilderDialog()
+    return
+  }
+  resetBuilder()
 }
 
 const canvasNodes = computed<AgentSkillNode[]>(() => flow.value.nodes.map((node, index) => ({
@@ -147,6 +232,61 @@ const buildLocalValidation = (): AgentSkillValidation => {
   return { valid: errors.length === 0, errors, warnings }
 }
 
+const workflowNodeText = (node: AgentSkillCanvasNode) => {
+  const content = node.data.content.trim()
+  const title = node.data.title.trim() || NODE_TYPE_LABEL[node.type]
+  return `${NODE_TYPE_LABEL[node.type]}：${content || title}`
+}
+
+const localWorkflowLines = () => {
+  const nodes = flow.value.nodes
+  const nodeMap = new Map(nodes.map((node) => [node.id, node]))
+  const validEdges = flow.value.edges.filter((edge) => nodeMap.has(edge.source) && nodeMap.has(edge.target))
+  if (!validEdges.length) return []
+  const indegree = new Map(nodes.map((node) => [node.id, 0]))
+  const outgoing = new Map<string, AgentSkillCanvasEdge[]>()
+  validEdges.forEach((edge) => {
+    indegree.set(edge.target, (indegree.get(edge.target) || 0) + 1)
+    outgoing.set(edge.source, [...(outgoing.get(edge.source) || []), edge])
+  })
+  outgoing.forEach((edges) => edges.sort((a, b) => {
+    const left = nodes.findIndex((node) => node.id === a.target)
+    const right = nodes.findIndex((node) => node.id === b.target)
+    return left - right
+  }))
+  const starts = nodes.filter((node) => node.type === 'trigger' && (indegree.get(node.id) || 0) === 0)
+  const fallbackStarts = starts.length ? starts : nodes.filter((node) => (indegree.get(node.id) || 0) === 0)
+  const entryNodes = fallbackStarts.length ? fallbackStarts : nodes
+  const visited = new Set<string>()
+  const visiting = new Set<string>()
+  const lines: string[] = ['## Workflow', '']
+  const visit = (node: AgentSkillCanvasNode) => {
+    if (visited.has(node.id) || visiting.has(node.id)) return
+    visiting.add(node.id)
+    lines.push(`1. ${workflowNodeText(node)}`)
+    const nextEdges = outgoing.get(node.id) || []
+    if (nextEdges.length > 1) {
+      nextEdges.forEach((edge) => {
+        const target = nodeMap.get(edge.target)
+        if (!target) return
+        lines.push(`   - 如果 ${edge.label?.trim() || '选择该路径'}，继续到「${target.data.title || NODE_TYPE_LABEL[target.type]}」。`)
+      })
+    }
+    nextEdges.forEach((edge) => {
+      const target = nodeMap.get(edge.target)
+      if (target) visit(target)
+    })
+    visiting.delete(node.id)
+    visited.add(node.id)
+  }
+  entryNodes.forEach(visit)
+  nodes.forEach((node) => {
+    if (!visited.has(node.id)) visit(node)
+  })
+  lines.push('')
+  return lines
+}
+
 const localMarkdown = computed(() => {
   const lines = [
     `# ${form.display_name.trim() || '未命名 Agent Skill'}`,
@@ -158,6 +298,10 @@ const localMarkdown = computed(() => {
   ]
   if (form.description.trim()) {
     lines.push(`- description: ${form.description.trim()}`)
+  }
+  const workflowLines = localWorkflowLines()
+  if (workflowLines.length) {
+    lines.push('', ...workflowLines)
   }
   canvasNodes.value.forEach((node, index) => {
     lines.push('', `## ${index + 1}. ${node.title || NODE_TYPE_LABEL[node.type]}`, '', `> node_type: ${node.type}`, '')
@@ -205,6 +349,171 @@ const payload = (): CreateAgentSkillPayload => ({
   })),
 })
 
+const updatePayload = (): UpdateAgentSkillPayload => ({
+  display_name: form.display_name.trim(),
+  display_name_set: true,
+  description: form.description.trim(),
+  description_set: true,
+  is_enabled: form.is_enabled,
+  is_enabled_set: true,
+  is_manual_invocable: true,
+  is_manual_invocable_set: true,
+})
+
+const versionPayload = (): CreateAgentSkillVersionPayload => ({
+  version: form.version.trim(),
+  skill_md: previewMarkdown.value || localMarkdown.value,
+  flow_json: flowJson.value,
+  nodes: canvasNodes.value.map((node, index) => ({
+    id: node.id,
+    type: node.type,
+    title: node.title.trim() || NODE_TYPE_LABEL[node.type],
+    content: node.content.trim(),
+    order: index + 1,
+  })),
+  change_note: changeNote.value.trim() || undefined,
+  activate: true,
+})
+
+const getErrorMessage = (e: unknown, fallback: string) => (
+  (e as { response?: { data?: { message?: string } }; message?: string })?.response?.data?.message
+  || (e as { message?: string })?.message
+  || fallback
+)
+
+const normalizeVersionList = (data: AgentSkillVersionInfo[] | { list: AgentSkillVersionInfo[] }) => (
+  Array.isArray(data) ? data : data.list || []
+)
+
+const normalizeSkill = (data: AgentSkillInfo | { skill: AgentSkillInfo }) => (
+  'skill' in data ? data.skill : data
+)
+
+const nextVersionText = (version?: string) => {
+  const value = version?.trim()
+  if (!value) return '1.0.0'
+  const semver = value.match(/^(\d+)\.(\d+)\.(\d+)$/)
+  if (semver) {
+    return `${semver[1]}.${semver[2]}.${Number(semver[3]) + 1}`
+  }
+  const integer = value.match(/^(\d+)$/)
+  if (integer) {
+    return String(Number(integer[1]) + 1)
+  }
+  return `${value}.${new Date().toISOString().replace(/[-:TZ.]/g, '').slice(0, 14)}`
+}
+
+const buildSequentialEdges = (nodes: AgentSkillCanvasNode[]): AgentSkillCanvasEdge[] => (
+  nodes.slice(0, -1).map((node, index) => createSequentialEdge(node, nodes[index + 1], index))
+)
+
+const normalizeCanvasEdges = (
+  edges: AgentSkillCanvasFlow['edges'] | undefined,
+  nodes: AgentSkillCanvasNode[],
+  fallbackToSequential = false,
+): AgentSkillCanvasEdge[] => {
+  const nodeIds = new Set(nodes.map((node) => node.id))
+  const validEdges = Array.isArray(edges)
+    ? edges
+      .filter((edge) => edge.source && edge.target && nodeIds.has(edge.source) && nodeIds.has(edge.target))
+      .map((edge, index) => ({
+        ...edge,
+        id: edge.id || `edge-${edge.source}-${edge.target}-${index}`,
+      }))
+    : []
+  if (validEdges.length > 0) return validEdges
+  return fallbackToSequential ? buildSequentialEdges(nodes) : []
+}
+
+const flowEdgeIntegrityWarning = (value?: string) => {
+  if (!value) return ''
+  try {
+    const parsed = JSON.parse(value) as Partial<AgentSkillCanvasFlow>
+    if (!Array.isArray(parsed.nodes)) return ''
+    const isCanvasFlow = parsed.format === 'canvas.v1' || parsed.type === 'agent-skill'
+    if (!isCanvasFlow || parsed.nodes.length <= 1) return ''
+    const nodeIds = new Set(parsed.nodes.map((node, index) => node.id || `node-${index}`))
+    const validEdgeCount = Array.isArray(parsed.edges)
+      ? parsed.edges.filter((edge) => edge.source && edge.target && nodeIds.has(edge.source) && nodeIds.has(edge.target)).length
+      : 0
+    if (validEdgeCount === 0) {
+      return '当前历史版本没有保存有效的节点连接关系。请在画布中重新连线后发布新版本，系统不会自动猜测错误连线。'
+    }
+    const missingHandleCount = parsed.edges?.filter((edge) => !edge.sourceHandle || !edge.targetHandle).length || 0
+    if (missingHandleCount > 0) {
+      return '当前历史版本的部分连接缺少锚点信息，回显时会使用默认左右连接点。重新发布新版本后会完整保存锚点。'
+    }
+    return ''
+  } catch {
+    return ''
+  }
+}
+
+const parseFlowJson = (value?: string): AgentSkillCanvasFlow | null => {
+  if (!value) return null
+  try {
+    const parsed = JSON.parse(value) as Partial<AgentSkillCanvasFlow>
+    if (!Array.isArray(parsed.nodes)) return null
+    const isCanvasFlow = parsed.format === 'canvas.v1' || parsed.type === 'agent-skill'
+    const nodes = parsed.nodes.map((node, index) => ({
+      id: node.id || `node-${index}`,
+      type: node.type,
+      position: {
+        x: Number.isFinite(node.position?.x) ? node.position!.x : 80 + (index % 2) * 300,
+        y: Number.isFinite(node.position?.y) ? node.position!.y : 80 + Math.floor(index / 2) * 150,
+      },
+      data: {
+        title: node.data?.title || ('title' in node ? String(node.title || '') : '') || NODE_TYPE_LABEL[node.type] || '节点',
+        content: node.data?.content || ('content' in node ? String(node.content || '') : ''),
+      },
+    }))
+    return {
+      format: 'canvas.v1',
+      version: parsed.version || '1.0.0',
+      type: 'agent-skill',
+      nodes,
+      edges: normalizeCanvasEdges(parsed.edges, nodes, !isCanvasFlow),
+      viewport: parsed.viewport || { x: 0, y: 0, zoom: 1 },
+    }
+  } catch {
+    return null
+  }
+}
+
+const flowFromNodes = (nodes?: AgentSkillNode[]): AgentSkillCanvasFlow => {
+  if (!nodes?.length) return createDefaultFlow()
+  const sorted = [...nodes].sort((a, b) => (a.order || 0) - (b.order || 0))
+  const canvasNodes = sorted.map((node, index) => ({
+    id: node.id || `${node.type}-${index}`,
+    type: node.type,
+    position: {
+      x: 80 + (index % 2) * 300,
+      y: 80 + Math.floor(index / 2) * 150,
+    },
+    data: {
+      title: node.title || NODE_TYPE_LABEL[node.type],
+      content: node.content || '',
+    },
+  }))
+  return {
+    format: 'canvas.v1',
+    version: '1.0.0',
+    type: 'agent-skill',
+    nodes: canvasNodes,
+    edges: buildSequentialEdges(canvasNodes),
+    viewport: { x: 0, y: 0, zoom: 1 },
+  }
+}
+
+const loadVersions = async (skillId: number) => normalizeVersionList(await api.listAgentSkillVersions(skillId))
+
+const findCurrentVersion = (skill: AgentSkillInfo, versionList: AgentSkillVersionInfo[]) => (
+  versionList.find((item) => item.id === skill.current_version_id)
+  || versionList.find((item) => item.is_current)
+  || ('current_version' in skill ? (skill.current_version as AgentSkillVersionInfo | undefined) : undefined)
+  || null
+)
+
 const refreshPreview = async () => {
   const localValidation = buildLocalValidation()
   validation.value = localValidation
@@ -212,9 +521,12 @@ const refreshPreview = async () => {
   if (!localValidation.valid) return
   previewLoading.value = true
   try {
-    const data = await previewAgentSkill(payload())
+    const data = await api.previewAgentSkill(payload())
+    const serverValidation = (data as { validation?: AgentSkillValidation }).validation
     previewMarkdown.value = data.skill_md || localMarkdown.value
-    validation.value = data.validation || { ...localValidation, valid: localValidation.errors.length === 0 }
+    validation.value = serverValidation || { ...localValidation, valid: localValidation.errors.length === 0 }
+  } catch (e: unknown) {
+    ElMessage.error(getErrorMessage(e, 'SKILL.md 预览生成失败'))
   } finally {
     previewLoading.value = false
   }
@@ -226,6 +538,7 @@ const openPreviewDrawer = async () => {
 }
 
 const saveSkill = async () => {
+  if (saving.value) return
   await refreshPreview()
   if (!validation.value.valid) {
     ElMessage.warning('请先修复校验错误')
@@ -233,19 +546,141 @@ const saveSkill = async () => {
   }
   saving.value = true
   try {
-    await createAgentSkill(payload())
-    ElMessage.success('Agent Skill 已创建')
-    resetBuilder()
+    if (editingSkill.value) {
+      const skillId = editingSkill.value.id
+      await api.updateAgentSkill(skillId, updatePayload())
+      await api.createAgentSkillVersion(skillId, versionPayload())
+      ElMessage.success('Agent Skill 已保存并激活新版本')
+    } else {
+      await api.createAgentSkill(payload())
+      ElMessage.success('Agent Skill 已创建')
+    }
+    builderDialogVisible.value = false
     await loadList()
+  } catch (e: unknown) {
+    ElMessage.error(getErrorMessage(e, 'Agent Skill 保存失败'))
   } finally {
     saving.value = false
   }
 }
 
 const toggleStatus = async (row: AgentSkillInfo) => {
-  await updateAgentSkillStatus(row.id, { is_enabled: !row.is_enabled })
-  ElMessage.success(row.is_enabled ? 'Agent Skill 已停用' : 'Agent Skill 已启用')
-  await loadList()
+  if (statusChangingId.value) return
+  statusChangingId.value = row.id
+  try {
+    await api.updateAgentSkillStatus(row.id, { is_enabled: !row.is_enabled })
+    ElMessage.success(row.is_enabled ? 'Agent Skill 已停用' : 'Agent Skill 已启用')
+    await loadList()
+  } catch (e: unknown) {
+    ElMessage.error(getErrorMessage(e, '状态更新失败'))
+  } finally {
+    statusChangingId.value = null
+  }
+}
+
+const openEdit = async (row: AgentSkillInfo) => {
+  if (editLoading.value) return
+  editLoading.value = true
+  try {
+    const detail = normalizeSkill(await api.getAgentSkill(row.id))
+    const versionList = await loadVersions(row.id)
+    const current = findCurrentVersion(detail, versionList)
+    editingSkill.value = detail
+    form.name = detail.name
+    form.display_name = detail.display_name || detail.name
+    form.description = detail.description || ''
+    form.category = detail.category || 'recruiting'
+    form.version = nextVersionText(current?.version)
+    form.is_enabled = detail.is_enabled
+    changeNote.value = ''
+    const rawFlowJson = current?.flow_json || detail.flow_json
+    flow.value = parseFlowJson(rawFlowJson) || flowFromNodes(detail.node_schema)
+    flowIntegrityWarning.value = flowEdgeIntegrityWarning(rawFlowJson)
+    selectedNodeId.value = flow.value.nodes[0]?.id || ''
+    previewMarkdown.value = current?.skill_md || detail.skill_md || localMarkdown.value
+    validation.value = buildLocalValidation()
+    builderDialogVisible.value = true
+  } catch (e: unknown) {
+    ElMessage.error(getErrorMessage(e, '加载 Agent Skill 详情失败'))
+  } finally {
+    editLoading.value = false
+  }
+}
+
+const openSavedPreview = async (row: AgentSkillInfo) => {
+  savedPreviewDrawerVisible.value = true
+  savedPreviewLoading.value = true
+  savedPreviewSkill.value = row
+  savedPreviewVersion.value = null
+  try {
+    const detail = normalizeSkill(await api.getAgentSkill(row.id))
+    const versionList = await loadVersions(row.id)
+    savedPreviewSkill.value = detail
+    savedPreviewVersion.value = findCurrentVersion(detail, versionList)
+  } catch (e: unknown) {
+    ElMessage.error(getErrorMessage(e, '加载当前版本预览失败'))
+  } finally {
+    savedPreviewLoading.value = false
+  }
+}
+
+const openVersions = async (row: AgentSkillInfo) => {
+  versionsDrawerVisible.value = true
+  versionsLoading.value = true
+  versionSkill.value = row
+  versions.value = []
+  selectedVersion.value = null
+  try {
+    const detail = normalizeSkill(await api.getAgentSkill(row.id))
+    const versionList = await loadVersions(row.id)
+    versionSkill.value = detail
+    versions.value = versionList
+    selectedVersion.value = findCurrentVersion(detail, versionList) || versionList[0] || null
+  } catch (e: unknown) {
+    ElMessage.error(getErrorMessage(e, '加载版本列表失败'))
+  } finally {
+    versionsLoading.value = false
+  }
+}
+
+const selectVersion = (version: AgentSkillVersionInfo) => {
+  selectedVersion.value = version
+}
+
+const activateVersion = async (version: AgentSkillVersionInfo) => {
+  if (!versionSkill.value || activatingVersionId.value) return
+  try {
+    await ElMessageBox.confirm(
+      `确认将版本 #${version.id} ${version.version || ''} 设为当前版本？该操作会影响后续使用该 Agent Skill 的请求。`,
+      '设为当前版本',
+      {
+        confirmButtonText: '设为当前',
+        cancelButtonText: '取消',
+        type: 'warning',
+      },
+    )
+  } catch {
+    return
+  }
+  activatingVersionId.value = version.id
+  try {
+    await api.activateAgentSkillVersion(versionSkill.value.id, version.id)
+    ElMessage.success('已设为当前版本')
+    await loadList()
+    if (versionSkill.value) {
+      const nextSkill = { ...versionSkill.value, current_version_id: version.id }
+      versionSkill.value = nextSkill
+      versions.value = versions.value.map((item) => ({
+        ...item,
+        is_current: item.id === version.id,
+      }))
+      selectedVersion.value = versions.value.find((item) => item.id === version.id) || version
+    }
+  } catch (e: unknown) {
+    ElMessage.error(getErrorMessage(e, '设为当前版本失败'))
+  } finally {
+    activatingVersionId.value = null
+  }
 }
 
 const formatTime = (value?: string) => {
@@ -272,39 +707,116 @@ onMounted(() => {
       description="用流程节点编排生成数据库版 SKILL.md，供 AI 助手手动选择使用。"
     >
       <template #primary>
-        <el-button
-          v-if="activeTab === 'builder'"
-          type="primary"
-          :icon="CircleCheck"
-          :loading="saving"
-          @click="saveSkill"
-        >
-          创建 Agent Skill
-        </el-button>
+        <el-button type="primary" :icon="Plus" @click="openCreate">新建 Skill</el-button>
       </template>
       <template #secondary>
-        <el-button v-if="activeTab === 'builder'" plain @click="resetBuilder">清空重置</el-button>
-        <el-button v-else :icon="Refresh" @click="loadList">刷新列表</el-button>
+        <el-button :icon="Refresh" @click="loadList">刷新列表</el-button>
       </template>
     </PageHeader>
 
-    <el-tabs v-model="activeTab" class="agent-skill-tabs">
-      <el-tab-pane label="画布编排" name="builder" />
-      <el-tab-pane label="列表管理" name="list" />
-    </el-tabs>
+    <section class="list-shell">
+      <FilterToolbar>
+        <el-input
+          v-model="keyword"
+          class="filter-input"
+          placeholder="搜索名称/标识"
+          clearable
+          :prefix-icon="Search"
+          @keyup.enter="loadList"
+        />
+        <el-select v-model="statusFilter" class="filter-select" placeholder="状态" clearable @change="loadList">
+          <el-option label="已启用" value="enabled" />
+          <el-option label="已停用" value="disabled" />
+        </el-select>
+        <template #actions>
+          <el-button :icon="Search" type="primary" @click="loadList">查询</el-button>
+        </template>
+      </FilterToolbar>
 
-    <section v-show="activeTab === 'builder'" class="builder-shell">
+      <DataTableCard class="list-table-card" title="Agent Skill 列表" :result-count="total">
+        <div class="agent-skill-table-wrap">
+          <el-table v-loading="loading" class="agent-skill-table" :data="list" row-key="id" height="100%">
+            <el-table-column prop="display_name" label="名称" min-width="180">
+              <template #default="{ row }">
+                <div class="skill-name">{{ row.display_name || row.name }}</div>
+                <div class="skill-key">{{ row.name }}</div>
+              </template>
+            </el-table-column>
+            <el-table-column prop="description" label="描述" min-width="240" show-overflow-tooltip />
+            <el-table-column label="当前版本" width="110">
+              <template #default="{ row }">
+                <el-tag v-if="row.current_version_id" size="small" type="success">#{{ row.current_version_id }}</el-tag>
+                <el-tag v-else size="small" type="info">未发布</el-tag>
+              </template>
+            </el-table-column>
+            <el-table-column label="状态" width="110">
+              <template #default="{ row }">
+                <el-tag size="small" :type="row.is_enabled ? 'success' : 'info'">
+                  {{ row.is_enabled ? '已启用' : '已停用' }}
+                </el-tag>
+              </template>
+            </el-table-column>
+            <el-table-column label="更新时间" width="180">
+              <template #default="{ row }">{{ formatTime(row.updated_at || row.created_at) }}</template>
+            </el-table-column>
+            <el-table-column label="操作" width="260" fixed="right">
+              <template #default="{ row }">
+                <el-button :icon="View" link type="primary" @click="openSavedPreview(row)">预览</el-button>
+                <el-button :icon="Edit" link type="primary" :loading="editLoading" @click="openEdit(row)">编辑</el-button>
+                <el-button :icon="Tickets" link type="primary" @click="openVersions(row)">版本</el-button>
+                <el-button
+                  :icon="row.is_enabled ? TurnOff : CircleCheck"
+                  link
+                  :type="row.is_enabled ? 'danger' : 'primary'"
+                  :loading="statusChangingId === row.id"
+                  @click="toggleStatus(row)"
+                >
+                  {{ row.is_enabled ? '停用' : '启用' }}
+                </el-button>
+              </template>
+            </el-table-column>
+          </el-table>
+        </div>
+        <EmptyGuide v-if="!loading && list.length === 0" title="暂无 Agent Skill" description="从画布编排中创建第一个数据库版 SKILL.md。" />
+        <div class="pagination-wrap">
+          <el-pagination
+            v-model:current-page="page"
+            v-model:page-size="pageSize"
+            :total="total"
+            :page-sizes="[10, 20, 50]"
+            layout="total, sizes, prev, pager, next"
+            @current-change="loadList"
+            @size-change="(size: number) => { pageSize = size; page = 1; loadList() }"
+          />
+        </div>
+      </DataTableCard>
+    </section>
+
+    <el-dialog
+      v-model="builderDialogVisible"
+      :title="isEditing ? '编辑 Agent Skill' : '新建 Agent Skill'"
+      width="min(1180px, 96vw)"
+      top="4vh"
+      class="agent-skill-builder-dialog"
+      :close-on-click-modal="false"
+      destroy-on-close
+      @closed="resetBuilder"
+    >
       <main class="canvas-workbench">
         <div class="builder-title-row">
           <div>
-            <h2>画布式流程编排</h2>
-            <p>按 canvas.v1 flow 生成 SKILL.md，本页面只编排提示规则，不执行工作流。</p>
+            <h2>{{ isEditing ? '编辑 Agent Skill' : '画布式流程编排' }}</h2>
+            <p>
+              {{ isEditing
+                ? `正在编辑 ${editingSkill?.display_name || editingSkill?.name}，保存会发布并激活一个新版本。`
+                : '按 canvas.v1 flow 生成 SKILL.md，本页面只编排提示规则，不执行工作流。' }}
+            </p>
           </div>
           <el-button :icon="Document" :loading="previewLoading" @click="openPreviewDrawer">预览 SKILL.md</el-button>
         </div>
 
         <div class="meta-grid">
-          <el-input v-model="form.name" placeholder="唯一标识，例如 resume_matching" clearable>
+          <el-input v-model="form.name" placeholder="唯一标识，例如 resume_matching" clearable :disabled="isEditing">
             <template #prepend>标识</template>
           </el-input>
           <el-input v-model="form.display_name" placeholder="显示名称，例如 简历匹配分析" clearable>
@@ -323,6 +835,21 @@ onMounted(() => {
           :rows="2"
           placeholder="简要描述这个 Agent Skill 的招聘业务用途"
         />
+        <el-input
+          v-if="isEditing"
+          v-model="changeNote"
+          type="textarea"
+          :rows="2"
+          placeholder="版本变更说明，例如：补充候选人风险提示输出要求"
+        />
+        <el-alert
+          v-if="flowIntegrityWarning"
+          class="flow-integrity-alert"
+          type="warning"
+          :closable="false"
+          show-icon
+          :title="flowIntegrityWarning"
+        />
 
         <div class="canvas-frame">
           <AgentSkillCanvasEditor
@@ -332,65 +859,23 @@ onMounted(() => {
             :show-preview="false"
           />
         </div>
+
+        <div class="builder-action-bar">
+          <el-button plain @click="resetOrCloseBuilder">
+            {{ isEditing ? '退出编辑' : '清空重置' }}
+          </el-button>
+          <el-button plain @click="closeBuilderDialog">取消</el-button>
+          <el-button
+            type="primary"
+            :icon="CircleCheck"
+            :loading="saving"
+            @click="saveSkill"
+          >
+            {{ saveButtonText }}
+          </el-button>
+        </div>
       </main>
-
-    </section>
-
-    <section v-show="activeTab === 'list'" class="list-shell">
-      <FilterToolbar>
-        <el-input
-          v-model="keyword"
-          class="filter-input"
-          placeholder="搜索名称/标识"
-          clearable
-          :prefix-icon="Search"
-          @keyup.enter="loadList"
-        />
-        <el-select v-model="statusFilter" class="filter-select" placeholder="状态" clearable @change="loadList">
-          <el-option label="已启用" value="enabled" />
-          <el-option label="已停用" value="disabled" />
-        </el-select>
-        <template #actions>
-          <el-button :icon="Search" type="primary" plain @click="loadList">查询</el-button>
-        </template>
-      </FilterToolbar>
-
-      <DataTableCard title="Agent Skill 列表" :result-count="total">
-        <el-table v-loading="loading" :data="list" row-key="id">
-          <el-table-column prop="display_name" label="名称" min-width="180">
-            <template #default="{ row }">
-              <div class="skill-name">{{ row.display_name || row.name }}</div>
-              <div class="skill-key">{{ row.name }}</div>
-            </template>
-          </el-table-column>
-          <el-table-column prop="description" label="描述" min-width="240" show-overflow-tooltip />
-          <el-table-column label="当前版本" width="110">
-            <template #default="{ row }">
-              <el-tag v-if="row.current_version_id" size="small" type="success">#{{ row.current_version_id }}</el-tag>
-              <el-tag v-else size="small" type="info">未发布</el-tag>
-            </template>
-          </el-table-column>
-          <el-table-column label="状态" width="110">
-            <template #default="{ row }">
-              <StatusTag :status="row.is_enabled ? 'enabled' : 'disabled'">
-                {{ row.is_enabled ? '已启用' : '已停用' }}
-              </StatusTag>
-            </template>
-          </el-table-column>
-          <el-table-column label="更新时间" width="180">
-            <template #default="{ row }">{{ formatTime(row.updated_at || row.created_at) }}</template>
-          </el-table-column>
-          <el-table-column label="操作" width="120" fixed="right">
-            <template #default="{ row }">
-              <el-button :icon="Switch" link type="primary" @click="toggleStatus(row)">
-                {{ row.is_enabled ? '停用' : '启用' }}
-              </el-button>
-            </template>
-          </el-table-column>
-        </el-table>
-        <EmptyGuide v-if="!loading && list.length === 0" title="暂无 Agent Skill" description="从画布编排中创建第一个数据库版 SKILL.md。" />
-      </DataTableCard>
-    </section>
+    </el-dialog>
 
     <el-drawer
       v-model="previewDrawerVisible"
@@ -426,6 +911,144 @@ onMounted(() => {
         <pre class="markdown-preview">{{ previewMarkdown }}</pre>
       </div>
     </el-drawer>
+
+    <el-drawer
+      v-model="savedPreviewDrawerVisible"
+      title="当前版本预览"
+      size="min(640px, 94vw)"
+      direction="rtl"
+      destroy-on-close
+    >
+      <div class="preview-drawer-body" v-loading="savedPreviewLoading">
+        <div class="preview-panel__head">
+          <div>
+            <div class="section-title">{{ savedPreviewSkill?.display_name || savedPreviewSkill?.name || 'Agent Skill' }}</div>
+            <p>
+              当前版本：
+              <span v-if="savedPreviewVersion">#{{ savedPreviewVersion.id }} {{ savedPreviewVersion.version || '' }}</span>
+              <span v-else>未发布</span>
+            </p>
+          </div>
+        </div>
+
+        <EmptyGuide
+          v-if="!savedPreviewLoading && !savedPreviewVersion"
+          title="暂无当前版本"
+          description="该 Agent Skill 尚未激活版本，无法展示 SKILL.md。"
+        />
+        <pre v-else class="markdown-preview">{{ savedPreviewVersion?.skill_md || '当前版本暂无 SKILL.md 内容。' }}</pre>
+      </div>
+    </el-drawer>
+
+    <el-drawer
+      v-model="versionsDrawerVisible"
+      title="版本管理"
+      size="min(1180px, 96vw)"
+      direction="rtl"
+      class="agent-skill-versions-drawer"
+      destroy-on-close
+    >
+      <div class="version-drawer-body" v-loading="versionsLoading">
+        <div class="version-hero">
+          <div class="version-hero__main">
+            <div class="version-hero__title-row">
+              <div class="version-hero__title">{{ versionSkill?.display_name || versionSkill?.name || 'Agent Skill' }}</div>
+              <el-tag v-if="versionSkill?.current_version_id" type="success" size="small">
+                当前 #{{ versionSkill.current_version_id }}
+              </el-tag>
+            </div>
+            <p>查看历史版本、预览 SKILL.md，并可将历史版本重新设为当前版本。</p>
+            <div class="version-meta-line">
+              <span>Skill Key：{{ versionSkill?.name || '-' }}</span>
+              <span>当前版本 #{{ versionSkill?.current_version_id || '-' }}</span>
+              <span>版本号：{{ currentVersion?.version || '-' }}</span>
+            </div>
+          </div>
+        </div>
+
+        <EmptyGuide
+          v-if="!versionsLoading && versions.length === 0"
+          title="暂无版本"
+          description="保存编辑后会生成可设为当前的 Agent Skill 版本。"
+        />
+
+        <div v-else class="version-layout">
+          <aside class="version-history" aria-label="版本历史">
+            <div class="version-history__head">
+              <span>版本历史</span>
+              <el-tag size="small" type="info">{{ versions.length }} 个版本</el-tag>
+            </div>
+            <div class="version-history__list">
+              <button
+                v-for="item in versions"
+                :key="item.id"
+                type="button"
+                class="version-history-item"
+                :class="{ 'version-history-item--active': selectedVersion?.id === item.id }"
+                @click="selectVersion(item)"
+              >
+                <div class="version-history-item__top">
+                  <span class="version-history-item__id">#{{ item.id }}</span>
+                  <span class="version-history-item__version">{{ item.version || '-' }}</span>
+                  <el-tag v-if="item.id === versionSkill?.current_version_id || item.is_current" size="small" type="success">当前</el-tag>
+                </div>
+                <div class="version-history-item__note">{{ item.change_note || '暂无变更说明' }}</div>
+                <div class="version-history-item__time">{{ formatTime(item.created_at) }}</div>
+              </button>
+            </div>
+          </aside>
+
+          <section class="version-detail">
+            <template v-if="selectedVersion">
+              <div class="version-detail__head">
+                <div class="version-detail__title-block">
+                  <div class="version-title">
+                    <span>#{{ selectedVersion.id }}</span>
+                    <strong>{{ selectedVersion.version || '-' }}</strong>
+                    <el-tag
+                      v-if="selectedVersion.id === versionSkill?.current_version_id || selectedVersion.is_current"
+                      size="small"
+                      type="success"
+                    >
+                      当前
+                    </el-tag>
+                  </div>
+                  <div class="version-detail__meta">
+                    <span>创建时间：{{ formatTime(selectedVersion.created_at) }}</span>
+                    <span>状态：{{ selectedVersion.id === versionSkill?.current_version_id || selectedVersion.is_current ? '当前版本' : '历史版本' }}</span>
+                  </div>
+                </div>
+                <el-button
+                  v-if="selectedVersion.id !== versionSkill?.current_version_id && !selectedVersion.is_current"
+                  type="primary"
+                  :loading="activatingVersionId === selectedVersion.id"
+                  @click="activateVersion(selectedVersion)"
+                >
+                  设为当前
+                </el-button>
+              </div>
+
+              <div class="version-detail__note">
+                <span>变更说明</span>
+                <p>{{ selectedVersion.change_note || '暂无变更说明' }}</p>
+              </div>
+
+              <div class="version-doc">
+                <div class="version-doc__head">
+                  <div class="section-title">SKILL.md 预览</div>
+                </div>
+                <pre class="version-doc__content">{{ selectedVersion.skill_md || '当前版本暂无 SKILL.md 内容。' }}</pre>
+              </div>
+            </template>
+
+            <div v-else class="version-empty-detail">
+              <div class="section-title">版本详情</div>
+              <p>请选择左侧版本查看详情和 SKILL.md 内容。</p>
+            </div>
+          </section>
+        </div>
+      </div>
+    </el-drawer>
   </section>
 </template>
 
@@ -441,37 +1064,26 @@ onMounted(() => {
   padding-bottom: 24px;
 }
 
-.agent-skill-tabs {
-  flex-shrink: 0;
-}
-
-.agent-skill-tabs :deep(.el-tabs__header) {
-  margin: 0;
-}
-
-.agent-skill-tabs :deep(.el-tabs__nav-wrap::after) {
-  display: none;
-}
-
-.agent-skill-tabs :deep(.el-tabs__item) {
-  height: 36px;
-  padding: 0 18px;
-  color: var(--text-muted);
-  font-weight: 700;
-}
-
-.agent-skill-tabs :deep(.el-tabs__item.is-active) {
-  color: var(--brand);
-}
-
-.builder-shell {
-  min-height: 760px;
-}
-
 .list-shell {
   display: flex;
+  flex: 1 1 auto;
   flex-direction: column;
   gap: 14px;
+  min-height: 0;
+}
+
+:global(.agent-skill-builder-dialog) {
+  max-height: 92vh;
+  display: flex;
+  flex-direction: column;
+}
+
+:global(.agent-skill-builder-dialog .el-dialog__body) {
+  flex: 1 1 auto;
+  min-height: 0;
+  max-height: calc(92vh - 72px);
+  overflow: auto;
+  padding-top: 8px;
 }
 
 .canvas-workbench {
@@ -530,7 +1142,7 @@ onMounted(() => {
 
 .canvas-frame {
   min-height: 560px;
-  height: clamp(560px, 58vh, 760px);
+  height: clamp(560px, 52vh, 720px);
   overflow: hidden;
   border: 1px solid var(--border);
   border-radius: 8px;
@@ -541,6 +1153,14 @@ onMounted(() => {
   width: 100%;
   height: 100%;
   min-height: 560px;
+}
+
+.builder-action-bar {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+  padding-top: 4px;
 }
 
 .preview-drawer-body {
@@ -614,6 +1234,309 @@ onMounted(() => {
   font-size: 12px;
 }
 
+.pagination-wrap {
+  display: flex;
+  flex: 0 0 auto;
+  justify-content: flex-end;
+  padding-top: 14px;
+  padding-bottom: 14px;
+}
+
+.list-table-card {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.list-table-card :deep(.admin-table-card__header) {
+  flex: 0 0 auto;
+}
+
+.list-table-card :deep(.admin-table-card__body) {
+  display: flex;
+  flex: 1 1 auto;
+  min-height: 0;
+  flex-direction: column;
+  padding: 0;
+}
+
+.agent-skill-table-wrap {
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+.agent-skill-table {
+  height: 100%;
+}
+
+:global(.agent-skill-versions-drawer .el-drawer__body) {
+  min-height: 0;
+  overflow: hidden;
+}
+
+.version-drawer-body {
+  display: flex;
+  height: calc(100vh - 96px);
+  max-height: 86vh;
+  min-height: 0;
+  flex-direction: column;
+  gap: 16px;
+  overflow: hidden;
+}
+
+.version-hero {
+  flex: 0 0 auto;
+  padding: 2px 0 0;
+}
+
+.version-hero__main {
+  min-width: 0;
+}
+
+.version-hero__title-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.version-hero__title {
+  color: var(--text-primary);
+  font-size: 18px;
+  font-weight: 700;
+}
+
+.version-hero p {
+  margin: 6px 0 0;
+  color: var(--text-faint);
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+.version-meta-line {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 16px;
+  margin-top: 10px;
+  color: var(--text-secondary);
+  font-size: 12px;
+}
+
+.version-layout {
+  display: grid;
+  flex: 1 1 auto;
+  grid-template-columns: clamp(320px, 31vw, 360px) minmax(0, 1fr);
+  gap: 16px;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.version-history,
+.version-detail {
+  min-height: 0;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface);
+}
+
+.version-history {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.version-history__head {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 12px 14px;
+  border-bottom: 1px solid var(--border);
+  color: var(--text-primary);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.version-history__list {
+  display: flex;
+  flex: 1 1 auto;
+  min-height: 0;
+  flex-direction: column;
+  gap: 8px;
+  overflow: auto;
+  padding: 10px;
+}
+
+.version-history-item {
+  appearance: none;
+  width: 100%;
+  display: grid;
+  gap: 7px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 11px 12px;
+  background: var(--surface-muted);
+  color: var(--text-secondary);
+  cursor: pointer;
+  font: inherit;
+  text-align: left;
+  transition: border-color 0.18s ease, background-color 0.18s ease, box-shadow 0.18s ease;
+}
+
+.version-history-item:hover,
+.version-history-item--active {
+  border-color: var(--el-color-primary);
+  background: color-mix(in srgb, var(--el-color-primary) 8%, var(--surface));
+}
+
+.version-history-item--active {
+  box-shadow: inset 3px 0 0 var(--el-color-primary);
+}
+
+.version-history-item__top {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.version-history-item__id {
+  color: var(--text-primary);
+  font-weight: 700;
+}
+
+.version-history-item__version {
+  overflow: hidden;
+  color: var(--text-primary);
+  font-size: 13px;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.version-history-item__note {
+  display: -webkit-box;
+  overflow: hidden;
+  color: var(--text-secondary);
+  font-size: 12px;
+  line-height: 1.5;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+.version-history-item__time {
+  color: var(--text-faint);
+  font-size: 12px;
+}
+
+.version-detail {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.version-detail__head {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--border);
+}
+
+.version-detail__title-block {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+}
+
+.version-title {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  color: var(--text-primary);
+  font-size: 15px;
+  font-weight: 700;
+}
+
+.version-detail__meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 14px;
+  color: var(--text-faint);
+  font-size: 12px;
+}
+
+.version-detail__note {
+  flex: 0 0 auto;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--border);
+  background: color-mix(in srgb, var(--surface-muted) 72%, transparent);
+}
+
+.version-detail__note span {
+  color: var(--text-faint);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.version-detail__note p {
+  margin: 5px 0 0;
+  color: var(--text-secondary);
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+.version-doc {
+  display: flex;
+  flex: 1 1 auto;
+  min-height: 0;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.version-doc__head {
+  flex: 0 0 auto;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--border);
+}
+
+.version-doc__content {
+  flex: 1 1 auto;
+  min-height: 0;
+  margin: 0;
+  padding: 22px 24px;
+  overflow: auto;
+  background:
+    linear-gradient(180deg, color-mix(in srgb, var(--surface-muted) 92%, transparent), var(--surface-muted));
+  color: var(--text-primary);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+  font-size: 13px;
+  line-height: 1.72;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.version-empty-detail {
+  display: grid;
+  flex: 1 1 auto;
+  place-content: center;
+  gap: 6px;
+  padding: 24px;
+  color: var(--text-faint);
+  text-align: center;
+}
+
+.version-empty-detail p {
+  margin: 0;
+  font-size: 13px;
+}
+
 .filter-input {
   width: 260px;
 }
@@ -623,17 +1546,26 @@ onMounted(() => {
 }
 
 @media (max-width: 860px) {
-  .builder-shell,
-  .meta-grid {
+  .meta-grid,
+  .version-layout {
     grid-template-columns: 1fr;
   }
 
-  .builder-shell {
-    min-height: 0;
+  .version-drawer-body {
+    height: 84vh;
+    max-height: 84vh;
+  }
+
+  .version-history {
+    min-height: 240px;
   }
 
   .canvas-frame {
     height: 560px;
+  }
+
+  .builder-action-bar {
+    flex-wrap: wrap;
   }
 }
 </style>

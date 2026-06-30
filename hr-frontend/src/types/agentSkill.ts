@@ -91,6 +91,39 @@ export interface AgentSkillInfo {
   updated_at?: string
 }
 
+export interface AgentSkillVersionInfo {
+  id: number
+  skill_id: number
+  version: string
+  flow_json: string
+  skill_md: string
+  frontmatter_json: string
+  body_markdown: string
+  change_note: string
+  is_current?: boolean
+  created_at?: string
+}
+
+export interface AgentSkillDetail extends AgentSkillInfo {
+  current_version?: AgentSkillVersionInfo
+}
+
+export interface AgentSkillDetailResponse {
+  skill: AgentSkillDetail
+}
+
+export interface AgentSkillResponse {
+  skill: AgentSkillInfo
+}
+
+export interface AgentSkillVersionResponse {
+  version: AgentSkillVersionInfo
+}
+
+export interface AgentSkillVersionListResponse {
+  list: AgentSkillVersionInfo[]
+}
+
 export interface AgentSkillListParams {
   page?: number
   page_size?: number
@@ -110,7 +143,8 @@ export interface AgentSkillPreviewPayload {
 
 export interface AgentSkillPreviewResult {
   skill_md: string
-  validation: AgentSkillValidation
+  frontmatter_json: string
+  body_markdown: string
 }
 
 export interface AgentSkillValidation {
@@ -125,6 +159,30 @@ export interface CreateAgentSkillPayload extends AgentSkillPreviewPayload {
   is_manual_invocable?: boolean
   is_manual_invocable_set?: boolean
   trigger_keywords?: string[]
+  change_note?: string
+  activate?: boolean
+  skill_md?: string
+}
+
+export interface UpdateAgentSkillPayload {
+  display_name?: string
+  display_name_set?: boolean
+  description?: string
+  description_set?: boolean
+  is_enabled?: boolean
+  is_enabled_set?: boolean
+  is_manual_invocable?: boolean
+  is_manual_invocable_set?: boolean
+  trigger_keywords?: string[]
+  trigger_keywords_set?: boolean
+}
+
+export interface CreateAgentSkillVersionPayload {
+  version: string
+  flow_json?: string
+  nodes?: AgentSkillNode[]
+  skill_md?: string
+  change_note?: string
   activate?: boolean
 }
 

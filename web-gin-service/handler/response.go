@@ -97,6 +97,8 @@ func PublicError(err error) ErrorInfo {
 			return ErrorInfo{Code: 400, Msg: "请求参数不合法，请检查后重试"}
 		case codes.NotFound:
 			return ErrorInfo{Code: 404, Msg: "请求的资源不存在或已失效"}
+		case codes.AlreadyExists:
+			return ErrorInfo{Code: 409, Msg: st.Message()}
 		case codes.Internal:
 			msg := st.Message()
 			if info, ok := classifyAIError(msg); ok {

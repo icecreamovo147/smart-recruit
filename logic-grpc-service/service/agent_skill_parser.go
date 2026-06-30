@@ -16,6 +16,7 @@ type AgentSkillFlow struct {
 	Version string               `json:"version,omitempty"`
 	Type    string               `json:"type,omitempty"`
 	Nodes   []AgentSkillFlowNode `json:"nodes"`
+	Edges   []AgentSkillFlowEdge `json:"edges,omitempty"`
 }
 
 type AgentSkillFlowNode struct {
@@ -24,6 +25,13 @@ type AgentSkillFlowNode struct {
 	Title   string `json:"title"`
 	Content string `json:"content"`
 	Order   int32  `json:"order"`
+}
+
+type AgentSkillFlowEdge struct {
+	ID     string `json:"id"`
+	Source string `json:"source"`
+	Target string `json:"target"`
+	Label  string `json:"label,omitempty"`
 }
 
 type agentSkillCanvasFlow struct {
@@ -48,10 +56,13 @@ type agentSkillCanvasData struct {
 }
 
 type agentSkillCanvasEdge struct {
-	ID     string `json:"id"`
-	Source string `json:"source"`
-	Target string `json:"target"`
-	Label  string `json:"label"`
+	ID           string   `json:"id"`
+	Source       string   `json:"source"`
+	Target       string   `json:"target"`
+	SourceHandle string   `json:"sourceHandle,omitempty"`
+	TargetHandle string   `json:"targetHandle,omitempty"`
+	Curvature    *float64 `json:"curvature,omitempty"`
+	Label        string   `json:"label,omitempty"`
 }
 
 type AgentSkillDocument struct {
@@ -115,6 +126,12 @@ func GenerateAgentSkillMarkdown(name, description, flowJSON string) (skillMD, fr
 			body.WriteString("- " + normalizeMarkdownListText(content) + "\n")
 		}
 		body.WriteString("\n")
+		if nodeType == "trigger" {
+			workflow := renderAgentSkillWorkflow(flow)
+			if workflow != "" {
+				body.WriteString(workflow)
+			}
+		}
 	}
 
 	bodyText := strings.TrimSpace(body.String()) + "\n"
@@ -250,6 +267,11 @@ func parseCanvasAgentSkillFlow(flowJSON string) (*AgentSkillFlow, *agentSkillCan
 	flow := &AgentSkillFlow{
 		Format: "canvas.v1",
 		Nodes:  make([]AgentSkillFlowNode, 0, len(canvas.Nodes)),
+		Edges:  make([]AgentSkillFlowEdge, 0, len(canvas.Edges)),
+	}
+	nodeIDs := make(map[string]bool, len(canvas.Nodes))
+	for _, node := range canvas.Nodes {
+		nodeIDs[node.ID] = true
 	}
 	for _, node := range canvas.Nodes {
 		order := nodeOrder[node.ID]
@@ -259,6 +281,17 @@ func parseCanvasAgentSkillFlow(flowJSON string) (*AgentSkillFlow, *agentSkillCan
 			Title:   node.Data.Title,
 			Content: node.Data.Content,
 			Order:   int32(order),
+		})
+	}
+	for _, edge := range canvas.Edges {
+		if !nodeIDs[edge.Source] || !nodeIDs[edge.Target] {
+			continue
+		}
+		flow.Edges = append(flow.Edges, AgentSkillFlowEdge{
+			ID:     edge.ID,
+			Source: edge.Source,
+			Target: edge.Target,
+			Label:  strings.TrimSpace(edge.Label),
 		})
 	}
 	return flow, &canvas, nil
@@ -387,6 +420,171 @@ func nodesByType(nodes []AgentSkillFlowNode, nodeType string) []AgentSkillFlowNo
 		return items[i].Order < items[j].Order
 	})
 	return items
+}
+
+func renderAgentSkillWorkflow(flow *AgentSkillFlow) string {
+	if flow == nil || len(flow.Edges) == 0 {
+		return ""
+	}
+	nodesByID := make(map[string]AgentSkillFlowNode, len(flow.Nodes))
+	for _, node := range flow.Nodes {
+		nodesByID[node.ID] = node
+	}
+	validEdges := make([]AgentSkillFlowEdge, 0, len(flow.Edges))
+	inDegree := make(map[string]int, len(flow.Nodes))
+	outgoing := make(map[string][]AgentSkillFlowEdge, len(flow.Nodes))
+	for _, node := range flow.Nodes {
+		inDegree[node.ID] = 0
+	}
+	for _, edge := range flow.Edges {
+		if _, ok := nodesByID[edge.Source]; !ok {
+			continue
+		}
+		if _, ok := nodesByID[edge.Target]; !ok {
+			continue
+		}
+		validEdges = append(validEdges, edge)
+		outgoing[edge.Source] = append(outgoing[edge.Source], edge)
+		inDegree[edge.Target]++
+	}
+	if len(validEdges) == 0 {
+		return ""
+	}
+	for source := range outgoing {
+		sort.SliceStable(outgoing[source], func(i, j int) bool {
+			left := nodesByID[outgoing[source][i].Target]
+			right := nodesByID[outgoing[source][j].Target]
+			if left.Order == right.Order {
+				if outgoing[source][i].Label == outgoing[source][j].Label {
+					return outgoing[source][i].ID < outgoing[source][j].ID
+				}
+				return outgoing[source][i].Label < outgoing[source][j].Label
+			}
+			return left.Order < right.Order
+		})
+	}
+
+	orderedNodes := append([]AgentSkillFlowNode(nil), flow.Nodes...)
+	sort.SliceStable(orderedNodes, func(i, j int) bool {
+		if orderedNodes[i].Order == orderedNodes[j].Order {
+			return orderedNodes[i].ID < orderedNodes[j].ID
+		}
+		return orderedNodes[i].Order < orderedNodes[j].Order
+	})
+	starts := workflowStartNodes(orderedNodes, inDegree)
+	visited := map[string]bool{}
+	visiting := map[string]bool{}
+	steps := make([]string, 0, len(flow.Nodes))
+	for _, start := range starts {
+		appendWorkflowSteps(start.ID, nodesByID, outgoing, visited, visiting, &steps)
+	}
+	for _, node := range orderedNodes {
+		if !visited[node.ID] {
+			appendWorkflowSteps(node.ID, nodesByID, outgoing, visited, visiting, &steps)
+		}
+	}
+	if len(steps) == 0 {
+		return ""
+	}
+
+	var body bytes.Buffer
+	body.WriteString("## Workflow\n\n")
+	for _, step := range steps {
+		body.WriteString(step)
+		body.WriteString("\n")
+	}
+	body.WriteString("\n")
+	return body.String()
+}
+
+func workflowStartNodes(nodes []AgentSkillFlowNode, inDegree map[string]int) []AgentSkillFlowNode {
+	starts := make([]AgentSkillFlowNode, 0)
+	for _, node := range nodes {
+		if node.Type == "trigger" && inDegree[node.ID] == 0 {
+			starts = append(starts, node)
+		}
+	}
+	if len(starts) > 0 {
+		return starts
+	}
+	for _, node := range nodes {
+		if node.Type == "trigger" {
+			starts = append(starts, node)
+		}
+	}
+	if len(starts) > 0 {
+		return starts
+	}
+	for _, node := range nodes {
+		if inDegree[node.ID] == 0 {
+			starts = append(starts, node)
+		}
+	}
+	if len(starts) > 0 {
+		return starts
+	}
+	return nodes
+}
+
+func appendWorkflowSteps(
+	nodeID string,
+	nodesByID map[string]AgentSkillFlowNode,
+	outgoing map[string][]AgentSkillFlowEdge,
+	visited map[string]bool,
+	visiting map[string]bool,
+	steps *[]string,
+) {
+	if visited[nodeID] || visiting[nodeID] {
+		return
+	}
+	node, ok := nodesByID[nodeID]
+	if !ok {
+		return
+	}
+	visiting[nodeID] = true
+	*steps = append(*steps, "1. "+workflowNodeText(node))
+	if len(outgoing[nodeID]) > 1 {
+		for _, edge := range outgoing[nodeID] {
+			target, ok := nodesByID[edge.Target]
+			if !ok {
+				continue
+			}
+			label := strings.TrimSpace(edge.Label)
+			if label == "" {
+				label = "this path"
+			}
+			*steps = append(*steps, "   - If "+normalizeMarkdownListText(label)+", continue to \""+workflowNodeTitle(target)+"\".")
+		}
+	}
+	for _, edge := range outgoing[nodeID] {
+		appendWorkflowSteps(edge.Target, nodesByID, outgoing, visited, visiting, steps)
+	}
+	visiting[nodeID] = false
+	visited[nodeID] = true
+}
+
+func workflowNodeText(node AgentSkillFlowNode) string {
+	title := workflowNodeTitle(node)
+	content := strings.TrimSpace(node.Content)
+	if content == "" || content == strings.TrimSpace(node.Title) {
+		return fmt.Sprintf("%s: %s.", agentSkillNodeSections[node.Type], title)
+	}
+	return fmt.Sprintf("%s: %s", agentSkillNodeSections[node.Type], normalizeMarkdownListText(content))
+}
+
+func workflowNodeTitle(node AgentSkillFlowNode) string {
+	title := strings.TrimSpace(node.Title)
+	if title != "" {
+		return title
+	}
+	content := strings.TrimSpace(node.Content)
+	if content != "" {
+		return content
+	}
+	if section, ok := agentSkillNodeSections[node.Type]; ok {
+		return section
+	}
+	return node.ID
 }
 
 func normalizeMarkdownListText(s string) string {

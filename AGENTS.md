@@ -31,6 +31,8 @@ Use `gofmt` for Go code. Go package names should be short, lowercase, and aligne
 
 For feature work or refactoring, first analyze the current code structure, ownership boundaries, and established patterns. Implement the best-practice solution for this repository rather than a casual minimum-change patch. Keep the scope focused, but choose designs that remain maintainable as the product grows.
 
+When asked to analyze current code and propose an implementation plan, provide an enterprise-grade best-practice plan grounded in the existing frontend/backend architecture, data model, API contracts, testing strategy, and operational risks. Do not frame the plan as a minimal version, quick fix, or smallest possible change unless the user explicitly asks for that tradeoff.
+
 ## Testing Guidelines
 
 Frontend tests use Vitest and Vue Test Utils. Place tests near covered code or existing test folders, and use `*.test.ts` naming. Always run `typecheck` for touched apps.

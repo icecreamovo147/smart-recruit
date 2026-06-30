@@ -2,12 +2,20 @@ package repository
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strings"
+	"time"
 
+	"github.com/go-sql-driver/mysql"
 	"gorm.io/gorm"
 
 	"logic-grpc-service/model"
+)
+
+var (
+	ErrAgentSkillDuplicateName    = errors.New("agent skill name already exists")
+	ErrAgentSkillDuplicateVersion = errors.New("agent skill version already exists")
 )
 
 type AgentSkillRepo struct {
@@ -19,17 +27,20 @@ func NewAgentSkillRepo(db *gorm.DB) *AgentSkillRepo {
 }
 
 func (r *AgentSkillRepo) CreateSkill(ctx context.Context, skill *model.AgentSkill) error {
-	return r.db.WithContext(ctx).Create(skill).Error
+	if err := r.db.WithContext(ctx).Create(skill).Error; err != nil {
+		return mapAgentSkillCreateError(err)
+	}
+	return nil
 }
 
 func (r *AgentSkillRepo) CreateSkillWithVersion(ctx context.Context, skill *model.AgentSkill, version *model.AgentSkillVersion, activate bool) error {
 	return r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		if err := tx.Create(skill).Error; err != nil {
-			return fmt.Errorf("create agent skill: %w", err)
+			return fmt.Errorf("create agent skill: %w", mapAgentSkillCreateError(err))
 		}
 		version.SkillID = skill.ID
 		if err := tx.Create(version).Error; err != nil {
-			return fmt.Errorf("create agent skill version: %w", err)
+			return fmt.Errorf("create agent skill version: %w", mapAgentSkillVersionCreateError(err))
 		}
 		if activate {
 			if err := tx.Model(&model.AgentSkill{}).Where("id = ?", skill.ID).Update("current_version_id", version.ID).Error; err != nil {
@@ -115,13 +126,20 @@ func (r *AgentSkillRepo) ListEnabled(ctx context.Context) ([]AgentSkillRuntimeRe
 	return rows, err
 }
 
-func (r *AgentSkillRepo) CreateVersion(ctx context.Context, version *model.AgentSkillVersion, activate bool) error {
+func (r *AgentSkillRepo) CreateVersion(ctx context.Context, version *model.AgentSkillVersion, activate bool, actorUserID *int64) error {
 	return r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		if err := tx.Create(version).Error; err != nil {
-			return fmt.Errorf("create agent skill version: %w", err)
+			return fmt.Errorf("create agent skill version: %w", mapAgentSkillVersionCreateError(err))
 		}
 		if activate {
-			if err := tx.Model(&model.AgentSkill{}).Where("id = ?", version.SkillID).Update("current_version_id", version.ID).Error; err != nil {
+			updates := map[string]any{
+				"current_version_id": version.ID,
+				"updated_at":         time.Now(),
+			}
+			if actorUserID != nil {
+				updates["updated_by"] = actorUserID
+			}
+			if err := tx.Model(&model.AgentSkill{}).Where("id = ?", version.SkillID).Updates(updates).Error; err != nil {
 				return fmt.Errorf("activate agent skill version: %w", err)
 			}
 		}
@@ -143,7 +161,7 @@ func (r *AgentSkillRepo) GetVersionByID(ctx context.Context, versionID int64) (*
 	return &version, nil
 }
 
-func (r *AgentSkillRepo) ActivateVersion(ctx context.Context, skillID, versionID int64) error {
+func (r *AgentSkillRepo) ActivateVersion(ctx context.Context, skillID, versionID int64, actorUserID *int64) error {
 	return r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		var count int64
 		if err := tx.Model(&model.AgentSkillVersion{}).Where("id = ? AND skill_id = ?", versionID, skillID).Count(&count).Error; err != nil {
@@ -152,6 +170,39 @@ func (r *AgentSkillRepo) ActivateVersion(ctx context.Context, skillID, versionID
 		if count == 0 {
 			return gorm.ErrRecordNotFound
 		}
-		return tx.Model(&model.AgentSkill{}).Where("id = ?", skillID).Update("current_version_id", versionID).Error
+		updates := map[string]any{
+			"current_version_id": versionID,
+			"updated_at":         time.Now(),
+		}
+		if actorUserID != nil {
+			updates["updated_by"] = actorUserID
+		}
+		return tx.Model(&model.AgentSkill{}).Where("id = ?", skillID).Updates(updates).Error
 	})
+}
+
+func mapAgentSkillCreateError(err error) error {
+	if isDuplicateError(err) {
+		return ErrAgentSkillDuplicateName
+	}
+	return err
+}
+
+func mapAgentSkillVersionCreateError(err error) error {
+	if isDuplicateError(err) {
+		return ErrAgentSkillDuplicateVersion
+	}
+	return err
+}
+
+func isDuplicateError(err error) bool {
+	if errors.Is(err, gorm.ErrDuplicatedKey) {
+		return true
+	}
+	var mysqlErr *mysql.MySQLError
+	if errors.As(err, &mysqlErr) && mysqlErr.Number == 1062 {
+		return true
+	}
+	return strings.Contains(strings.ToLower(err.Error()), "unique constraint") ||
+		strings.Contains(strings.ToLower(err.Error()), "duplicate entry")
 }
