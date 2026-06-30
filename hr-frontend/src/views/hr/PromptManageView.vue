@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { onMounted, reactive, ref, computed } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { Delete, Edit, MoreFilled, Plus, Refresh, Search, View, Back } from '@element-plus/icons-vue'
+import { ArrowDown, Delete, Edit, MoreFilled, Plus, Refresh, Search, View, Back } from '@element-plus/icons-vue'
 import { useAuthStore } from '@/stores/auth'
 import {
   listPromptTemplates,
@@ -321,126 +321,119 @@ onMounted(() => {
 
 <template>
   <div class="console-page console-page--fill prompt-manage-view">
-    <div class="console-header">
-      <div class="console-header__copy">
-        <p class="console-eyebrow">PROMPT OPS</p>
-        <h2 class="console-title">Prompt 管理</h2>
-        <p class="console-description">管理可版本化的 Prompt 模板，跟踪变量、角色、Agent 类型和版本回滚，保障 Agent 输出策略可控。</p>
-      </div>
-      <div class="console-header__actions">
-        <el-button :icon="Refresh" @click="loadList">刷新</el-button>
-        <el-button type="primary" :icon="Plus" @click="openCreate">新增模板</el-button>
-      </div>
-    </div>
-
-    <div class="console-card console-card--fill">
-      <div class="console-card__head">
-        <div>
-          <h3 class="console-card__title">Prompt 模板列表</h3>
-          <p class="console-card__desc">共 {{ filteredTemplates.length }} 个匹配模板</p>
+    <div class="workspace-surface">
+      <div class="workspace-surface__header">
+        <div class="workspace-surface__header-copy">
+          <p class="console-eyebrow">PROMPT OPS</p>
+          <h2 class="console-title">Prompt 管理</h2>
+          <p class="console-description">管理可版本化的 Prompt 模板，跟踪变量、角色、Agent 类型和版本回滚，保障 Agent 输出策略可控。</p>
+        </div>
+        <div class="workspace-surface__header-actions">
+          <el-button :icon="Refresh" @click="loadList">刷新</el-button>
+          <el-button type="primary" :icon="Plus" @click="openCreate">新增模板</el-button>
         </div>
       </div>
-      <div class="console-toolbar">
-      <div class="console-toolbar__filters">
-        <el-input v-model="keywordFilter" :prefix-icon="Search" clearable placeholder="搜索模板名称 / 内容" style="width: 260px" />
-        <el-select
-          v-model="agentTypeFilter"
-          placeholder="全部 Agent 类型"
-          clearable
-          style="width: 180px"
-          @change="() => { templatePage = 1; loadList() }"
-        >
-          <el-option value="" label="全部 Agent 类型" />
-          <el-option value="hr_agent" label="HR" />
-          <el-option value="candidate_assistant" label="候选人" />
-        </el-select>
-        <el-select v-model="statusFilter" placeholder="全部状态" clearable style="width: 140px">
-          <el-option value="active" label="启用" />
-          <el-option value="inactive" label="禁用" />
-        </el-select>
+
+      <div class="workspace-surface__divider"></div>
+
+      <div class="workspace-surface__toolbar">
+        <div class="workspace-surface__filters">
+          <el-input v-model="keywordFilter" :prefix-icon="Search" clearable placeholder="搜索模板名称 / 内容" style="width: 260px" />
+          <el-select
+            v-model="agentTypeFilter"
+            placeholder="全部 Agent 类型"
+            clearable
+            style="width: 180px"
+            @change="() => { templatePage = 1; loadList() }"
+          >
+            <el-option value="" label="全部 Agent 类型" />
+            <el-option value="hr_agent" label="HR" />
+            <el-option value="candidate_assistant" label="候选人" />
+          </el-select>
+          <el-select v-model="statusFilter" placeholder="全部状态" clearable style="width: 140px">
+            <el-option value="active" label="启用" />
+            <el-option value="inactive" label="禁用" />
+          </el-select>
+        </div>
       </div>
-    </div>
 
-    <!-- ── List Table ──────────────────────────────────────────────── -->
-    <div class="console-table-wrap">
-    <el-table
-      v-loading="templateLoading"
-      :data="filteredTemplates"
-      class="console-table"
-      stripe
-      style="width: 100%"
-      :empty-text="templateError || '暂无数据'"
-    >
-      <el-table-column label="模板信息" min-width="240">
-        <template #default="{ row }: { row: PromptTemplate }">
-          <div class="console-entity">
-            <div class="console-entity__name">{{ row.name }}</div>
-            <div class="console-entity__meta">变量 {{ extractVariables(row.content).length }} 个 / v{{ row.version }}</div>
-          </div>
-        </template>
-      </el-table-column>
-      <el-table-column label="角色" width="90">
-        <template #default="{ row }: { row: PromptTemplate }">
-          {{ promptRoleLabel(row.prompt_role) }}
-        </template>
-      </el-table-column>
-      <el-table-column label="Agent 类型" width="110">
-        <template #default="{ row }: { row: PromptTemplate }">
-          {{ agentTypeLabel(row.agent_type) }}
-        </template>
-      </el-table-column>
-      <el-table-column prop="version" label="当前版本" width="100">
-        <template #default="{ row }: { row: PromptTemplate }">
-          <el-tag size="small" type="primary">v{{ row.version }}</el-tag>
-        </template>
-      </el-table-column>
-      <el-table-column label="状态" width="80">
-        <template #default="{ row }: { row: PromptTemplate }">
-          <el-tag :type="row.is_active ? 'success' : 'info'" size="small">
-            {{ row.is_active ? '启用' : '禁用' }}
-          </el-tag>
-        </template>
-      </el-table-column>
-      <el-table-column label="更新时间" width="170">
-        <template #default="{ row }: { row: PromptTemplate }">
-          {{ formatTime(row.updated_at) }}
-        </template>
-      </el-table-column>
-      <el-table-column label="操作" width="220" fixed="right">
-        <template #default="{ row }: { row: PromptTemplate }">
-          <el-button size="small" :icon="Edit" @click="openEdit(row)">
-            编辑
-          </el-button>
-          <el-button size="small" :icon="View" @click="openVersionHistory(row)">
-            版本历史
-          </el-button>
-          <el-dropdown trigger="click">
-            <el-button size="small" :icon="MoreFilled" circle />
-            <template #dropdown>
-              <el-dropdown-menu>
-                <el-dropdown-item @click="handleToggleActive(row)">{{ row.is_active ? '禁用' : '启用' }}</el-dropdown-item>
-                <el-dropdown-item divided style="color: var(--el-color-danger)" @click="handleDelete(row)">
-                  <el-icon><Delete /></el-icon>删除
-                </el-dropdown-item>
-              </el-dropdown-menu>
+      <div class="workspace-surface__body">
+        <el-table
+          v-loading="templateLoading"
+          :data="filteredTemplates"
+          class="console-table"
+          stripe
+          style="width: 100%"
+          :empty-text="templateError || '暂无数据'"
+        >
+          <el-table-column label="模板信息" min-width="240">
+            <template #default="{ row }: { row: PromptTemplate }">
+              <div class="console-entity">
+                <div class="console-entity__name">{{ row.name }}</div>
+                <div class="console-entity__meta">变量 {{ extractVariables(row.content).length }} 个 / v{{ row.version }}</div>
+              </div>
             </template>
-          </el-dropdown>
-        </template>
-      </el-table-column>
-    </el-table>
-    </div>
+          </el-table-column>
+          <el-table-column label="角色" width="90">
+            <template #default="{ row }: { row: PromptTemplate }">
+              {{ promptRoleLabel(row.prompt_role) }}
+            </template>
+          </el-table-column>
+          <el-table-column label="Agent 类型" width="110">
+            <template #default="{ row }: { row: PromptTemplate }">
+              {{ agentTypeLabel(row.agent_type) }}
+            </template>
+          </el-table-column>
+          <el-table-column prop="version" label="当前版本" width="100">
+            <template #default="{ row }: { row: PromptTemplate }">
+              <el-tag size="small" type="primary">v{{ row.version }}</el-tag>
+            </template>
+          </el-table-column>
+          <el-table-column label="状态" width="80">
+            <template #default="{ row }: { row: PromptTemplate }">
+              <el-tag :type="row.is_active ? 'success' : 'info'" size="small">
+                {{ row.is_active ? '启用' : '禁用' }}
+              </el-tag>
+            </template>
+          </el-table-column>
+          <el-table-column label="更新时间" width="170">
+            <template #default="{ row }: { row: PromptTemplate }">
+              {{ formatTime(row.updated_at) }}
+            </template>
+          </el-table-column>
+          <el-table-column label="操作" width="220" fixed="right">
+            <template #default="{ row }: { row: PromptTemplate }">
+              <el-button size="small" :icon="Edit" @click="openEdit(row)">
+                编辑
+              </el-button>
+              <el-button size="small" :icon="View" @click="openVersionHistory(row)">
+                版本历史
+              </el-button>
+              <el-dropdown trigger="click" @command="(cmd: string) => { if (cmd === 'toggle') handleToggleActive(row); if (cmd === 'delete') handleDelete(row) }">
+                <el-button size="small">更多<el-icon class="el-icon--right"><ArrowDown /></el-icon></el-button>
+                <template #dropdown>
+                  <el-dropdown-menu>
+                    <el-dropdown-item command="toggle">{{ row.is_active ? '禁用' : '启用' }}</el-dropdown-item>
+                    <el-dropdown-item command="delete" divided style="color: var(--el-color-danger)">删除</el-dropdown-item>
+                  </el-dropdown-menu>
+                </template>
+              </el-dropdown>
+            </template>
+          </el-table-column>
+        </el-table>
+      </div>
 
-    <div class="console-pagination">
-      <el-pagination
-        v-model:current-page="templatePage"
-        v-model:page-size="templatePageSize"
-        :total="templateTotal"
-        :page-sizes="[10, 20, 50]"
-        layout="total, sizes, prev, pager, next"
-        @current-change="loadList"
-        @size-change="(s: number) => { templatePageSize = s; templatePage = 1; loadList() }"
-      />
-    </div>
+      <div class="workspace-surface__pagination">
+        <el-pagination
+          v-model:current-page="templatePage"
+          v-model:page-size="templatePageSize"
+          :total="templateTotal"
+          :page-sizes="[10, 20, 50]"
+          layout="total, sizes, prev, pager, next"
+          @current-change="loadList"
+          @size-change="(s: number) => { templatePageSize = s; templatePage = 1; loadList() }"
+        />
+      </div>
     </div>
 
     <!-- ── Edit / Create Dialog ────────────────────────────────────── -->

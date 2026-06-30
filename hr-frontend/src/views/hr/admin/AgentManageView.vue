@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { onMounted, reactive, ref, computed } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { Delete, Edit, MoreFilled, Plus, Refresh, Search, View } from '@element-plus/icons-vue'
+import { ArrowDown, Delete, Edit, MoreFilled, Plus, Refresh, Search, View } from '@element-plus/icons-vue'
 import {
   listAgentConfigs,
   listAgentCapabilities,
@@ -399,128 +399,135 @@ onMounted(() => {
 
 <template>
   <div class="agent-manage-view">
-    <section class="page-header">
-      <div>
-        <p class="page-kicker">AI Agent Console</p>
-        <h2 class="page-title">Agent 管理</h2>
-        <p class="page-desc">配置 HR 后台可调用的 AI Agent、Prompt 绑定、工具能力和运行参数。</p>
+    <div class="workspace-surface">
+      <div class="workspace-surface__header">
+        <div class="workspace-surface__header-copy">
+          <p class="page-kicker">AI Agent Console</p>
+          <h2 class="page-title">Agent 管理</h2>
+          <p class="page-desc">配置 HR 后台可调用的 AI Agent、Prompt 绑定、工具能力和运行参数。</p>
+        </div>
+        <div class="workspace-surface__header-actions">
+          <el-button :icon="Refresh" @click="loadList">刷新</el-button>
+          <el-button type="primary" :icon="Plus" @click="openCreate">新增 Agent</el-button>
+        </div>
       </div>
-      <div class="page-actions">
-        <el-button type="primary" :icon="Plus" @click="openCreate">新增 Agent</el-button>
-      </div>
-    </section>
 
-    <el-card class="table-card" shadow="never">
-      <div class="filter-toolbar">
-        <el-input
-          v-model="keywordFilter"
-          class="filter-search"
-          :prefix-icon="Search"
-          clearable
-          placeholder="搜索名称 / 标识"
-        />
-        <el-select
-          v-model="agentTypeFilter"
-          placeholder="全部类型"
-          clearable
-          class="filter-select"
-          @change="() => { page = 1; loadList() }"
-        >
-          <el-option value="" label="全部类型" />
-          <el-option
-            v-for="opt in AGENT_TYPE_OPTIONS"
-            :key="opt.value"
-            :value="opt.value"
-            :label="opt.label"
+      <div class="workspace-surface__divider"></div>
+
+      <div class="workspace-surface__toolbar">
+        <div class="workspace-surface__filters">
+          <el-input
+            v-model="keywordFilter"
+            style="width: 260px"
+            :prefix-icon="Search"
+            clearable
+            placeholder="搜索名称 / 标识"
           />
-        </el-select>
-        <el-select v-model="statusFilter" placeholder="全部状态" clearable class="filter-select">
-          <el-option value="enabled" label="已启用" />
-          <el-option value="disabled" label="已禁用" />
-        </el-select>
-        <el-select v-model="promptFilter" placeholder="Prompt 绑定" clearable class="filter-select">
-          <el-option value="bound" label="已绑定 Prompt" />
-          <el-option value="unbound" label="未绑定 Prompt" />
-        </el-select>
-        <div class="filter-actions">
+          <el-select
+            v-model="agentTypeFilter"
+            placeholder="全部类型"
+            clearable
+            style="width: 168px"
+            @change="() => { page = 1; loadList() }"
+          >
+            <el-option value="" label="全部类型" />
+            <el-option
+              v-for="opt in AGENT_TYPE_OPTIONS"
+              :key="opt.value"
+              :value="opt.value"
+              :label="opt.label"
+            />
+          </el-select>
+          <el-select v-model="statusFilter" placeholder="全部状态" clearable style="width: 140px">
+            <el-option value="enabled" label="已启用" />
+            <el-option value="disabled" label="已禁用" />
+          </el-select>
+          <el-select v-model="promptFilter" placeholder="Prompt 绑定" clearable style="width: 150px">
+            <el-option value="bound" label="已绑定 Prompt" />
+            <el-option value="unbound" label="未绑定 Prompt" />
+          </el-select>
+        </div>
+        <div class="workspace-surface__actions">
           <el-button @click="resetFilters">重置</el-button>
           <el-button :icon="Refresh" @click="loadList">刷新</el-button>
         </div>
       </div>
 
-      <el-table
-        v-loading="loading"
-        :data="filteredList"
-        stripe
-        style="width: 100%"
-        :empty-text="error || '暂无 Agent 配置'"
-        @row-click="openDetail"
-      >
-        <el-table-column label="Agent 信息" min-width="240">
-          <template #default="{ row }: { row: AgentConfigInfo }">
-            <div class="entity-cell">
-              <div class="entity-title">{{ row.display_name || row.name }}</div>
-              <div class="entity-sub">{{ row.name }}</div>
-              <div v-if="row.description" class="entity-desc">{{ row.description }}</div>
-            </div>
-          </template>
-        </el-table-column>
-        <el-table-column label="类型" min-width="140">
-          <template #default="{ row }: { row: AgentConfigInfo }">
-            <el-tag effect="plain">{{ agentTypeLabel(row.agent_type) }}</el-tag>
-          </template>
-        </el-table-column>
-        <el-table-column label="Prompt" min-width="180" show-overflow-tooltip>
-          <template #default="{ row }: { row: AgentConfigInfo }">
-            <span v-if="row.prompt_template_name">{{ row.prompt_template_name }}</span>
-            <el-tag v-else size="small" type="info">未绑定</el-tag>
-          </template>
-        </el-table-column>
-        <el-table-column label="能力数" width="92">
-          <template #default="{ row }: { row: AgentConfigInfo }">
-            <el-tag size="small" type="primary">{{ getAgentCapabilityCount(row) }}</el-tag>
-          </template>
-        </el-table-column>
-        <el-table-column label="运行参数" min-width="150">
-          <template #default="{ row }: { row: AgentConfigInfo }">
-            <div class="runtime-cell">
-              <span>迭代 {{ row.max_iterations || '-' }}</span>
-              <span>温度 {{ row.temperature_override > 0 ? row.temperature_override.toFixed(2) : '默认' }}</span>
-            </div>
-          </template>
-        </el-table-column>
-        <el-table-column label="默认 / 状态" width="128">
-          <template #default="{ row }: { row: AgentConfigInfo }">
-            <div class="tag-stack">
-              <el-tag v-if="row.is_default" type="warning" size="small">默认</el-tag>
-              <el-tag :type="row.is_enabled ? 'success' : 'info'" size="small">
-                {{ row.is_enabled ? '启用' : '禁用' }}
-              </el-tag>
-            </div>
-          </template>
-        </el-table-column>
-        <el-table-column label="更新时间" width="170">
-          <template #default="{ row }: { row: AgentConfigInfo }">
-            {{ formatTime(row.updated_at) }}
-          </template>
-        </el-table-column>
-        <el-table-column label="操作" width="168" fixed="right">
-          <template #default="{ row }: { row: AgentConfigInfo }">
-            <el-button size="small" :icon="Edit" @click.stop="openEdit(row)">编辑</el-button>
-            <el-button size="small" :icon="View" @click.stop="openDetail(row)">详情</el-button>
-            <el-dropdown trigger="click" @click.stop>
-              <el-button size="small" :icon="MoreFilled" circle />
-              <template #dropdown>
-                <el-dropdown-menu>
-                  <el-dropdown-item :icon="Delete" @click="handleDelete(row)">删除</el-dropdown-item>
-                </el-dropdown-menu>
-              </template>
-            </el-dropdown>
-          </template>
-        </el-table-column>
-      </el-table>
+      <div class="workspace-surface__body">
+        <el-table
+          v-loading="loading"
+          :data="filteredList"
+          stripe
+          style="width: 100%"
+          :empty-text="error || '暂无 Agent 配置'"
+          @row-click="openDetail"
+        >
+          <el-table-column label="Agent 信息" min-width="240">
+            <template #default="{ row }: { row: AgentConfigInfo }">
+              <div class="entity-cell">
+                <div class="entity-title">{{ row.display_name || row.name }}</div>
+                <div class="entity-sub">{{ row.name }}</div>
+                <div v-if="row.description" class="entity-desc">{{ row.description }}</div>
+              </div>
+            </template>
+          </el-table-column>
+          <el-table-column label="类型" min-width="140">
+            <template #default="{ row }: { row: AgentConfigInfo }">
+              <el-tag effect="plain">{{ agentTypeLabel(row.agent_type) }}</el-tag>
+            </template>
+          </el-table-column>
+          <el-table-column label="Prompt" min-width="180" show-overflow-tooltip>
+            <template #default="{ row }: { row: AgentConfigInfo }">
+              <span v-if="row.prompt_template_name">{{ row.prompt_template_name }}</span>
+              <el-tag v-else size="small" type="info">未绑定</el-tag>
+            </template>
+          </el-table-column>
+          <el-table-column label="能力数" width="92">
+            <template #default="{ row }: { row: AgentConfigInfo }">
+              <el-tag size="small" type="primary">{{ getAgentCapabilityCount(row) }}</el-tag>
+            </template>
+          </el-table-column>
+          <el-table-column label="运行参数" min-width="150">
+            <template #default="{ row }: { row: AgentConfigInfo }">
+              <div class="runtime-cell">
+                <span>迭代 {{ row.max_iterations || '-' }}</span>
+                <span>温度 {{ row.temperature_override > 0 ? row.temperature_override.toFixed(2) : '默认' }}</span>
+              </div>
+            </template>
+          </el-table-column>
+          <el-table-column label="默认 / 状态" width="128">
+            <template #default="{ row }: { row: AgentConfigInfo }">
+              <div class="tag-stack">
+                <el-tag v-if="row.is_default" type="warning" size="small">默认</el-tag>
+                <el-tag :type="row.is_enabled ? 'success' : 'info'" size="small">
+                  {{ row.is_enabled ? '启用' : '禁用' }}
+                </el-tag>
+              </div>
+            </template>
+          </el-table-column>
+          <el-table-column label="更新时间" width="170">
+            <template #default="{ row }: { row: AgentConfigInfo }">
+              {{ formatTime(row.updated_at) }}
+            </template>
+          </el-table-column>
+          <el-table-column label="操作" width="168" fixed="right">
+            <template #default="{ row }: { row: AgentConfigInfo }">
+              <el-button size="small" :icon="Edit" @click.stop="openEdit(row)">编辑</el-button>
+              <el-button size="small" :icon="View" @click.stop="openDetail(row)">详情</el-button>
+              <el-dropdown trigger="click" @click.stop>
+                <el-button size="small">更多<el-icon class="el-icon--right"><ArrowDown /></el-icon></el-button>
+                <template #dropdown>
+                  <el-dropdown-menu>
+                    <el-dropdown-item :icon="Delete" @click="handleDelete(row)">删除</el-dropdown-item>
+                  </el-dropdown-menu>
+                </template>
+              </el-dropdown>
+            </template>
+          </el-table-column>
+        </el-table>
+      </div>
 
-      <div class="pagination-wrap">
+      <div class="workspace-surface__pagination">
         <el-pagination
           v-model:current-page="page"
           v-model:page-size="pageSize"
@@ -531,7 +538,7 @@ onMounted(() => {
           @size-change="(s: number) => { pageSize = s; page = 1; loadList() }"
         />
       </div>
-    </el-card>
+    </div>
 
     <el-drawer
       v-model="dialogVisible"

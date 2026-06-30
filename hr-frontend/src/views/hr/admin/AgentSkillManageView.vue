@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref, watch } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { CircleCheck, Document, Edit, Plus, Refresh, Search, Tickets, TurnOff, WarningFilled, View } from '@element-plus/icons-vue'
+import { ArrowDown, CircleCheck, Document, Edit, MoreFilled, Plus, Refresh, Search, Tickets, TurnOff, WarningFilled, View } from '@element-plus/icons-vue'
 import * as agentSkillApi from '@/api/agentSkill'
 import { DataTableCard, EmptyGuide, FilterToolbar, PageHeader } from '@/components/admin-console'
 import AgentSkillCanvasEditor from '@/components/agent-skill/AgentSkillCanvasEditor.vue'
@@ -712,39 +712,42 @@ onMounted(() => {
 
 <template>
   <section class="agent-skill-page">
-    <PageHeader
-      kicker="Agent Skill"
-      title="Agent Skill 管理"
-      description="用流程节点编排生成数据库版 SKILL.md，供 AI 助手手动选择使用。"
-    >
-      <template #primary>
-        <el-button type="primary" :icon="Plus" @click="openCreate">新建 Skill</el-button>
-      </template>
-      <template #secondary>
-        <el-button :icon="Refresh" @click="loadList">刷新列表</el-button>
-      </template>
-    </PageHeader>
+    <div class="workspace-surface">
+      <div class="workspace-surface__header">
+        <div class="workspace-surface__header-copy">
+          <p class="console-eyebrow">Agent Skill</p>
+          <h1 class="console-title">Agent Skill 管理</h1>
+          <p class="console-description">用流程节点编排生成数据库版 SKILL.md，供 AI 助手手动选择使用。</p>
+        </div>
+        <div class="workspace-surface__header-actions">
+          <el-button :icon="Refresh" @click="loadList">刷新列表</el-button>
+          <el-button type="primary" :icon="Plus" @click="openCreate">新建 Skill</el-button>
+        </div>
+      </div>
 
-    <section class="list-shell">
-      <FilterToolbar>
-        <el-input
-          v-model="keyword"
-          class="filter-input"
-          placeholder="搜索名称/标识"
-          clearable
-          :prefix-icon="Search"
-          @keyup.enter="loadList"
-        />
-        <el-select v-model="statusFilter" class="filter-select" placeholder="状态" clearable @change="loadList">
-          <el-option label="已启用" value="enabled" />
-          <el-option label="已停用" value="disabled" />
-        </el-select>
-        <template #actions>
+      <div class="workspace-surface__divider"></div>
+
+      <div class="workspace-surface__toolbar">
+        <div class="workspace-surface__filters">
+          <el-input
+            v-model="keyword"
+            style="width: 260px"
+            placeholder="搜索名称/标识"
+            clearable
+            :prefix-icon="Search"
+            @keyup.enter="loadList"
+          />
+          <el-select v-model="statusFilter" placeholder="状态" clearable style="width: 140px" @change="loadList">
+            <el-option label="已启用" value="enabled" />
+            <el-option label="已停用" value="disabled" />
+          </el-select>
+        </div>
+        <div class="workspace-surface__actions">
           <el-button :icon="Search" type="primary" @click="loadList">查询</el-button>
-        </template>
-      </FilterToolbar>
+        </div>
+      </div>
 
-      <DataTableCard class="list-table-card" title="Agent Skill 列表" :result-count="total">
+      <div class="workspace-surface__body">
         <div class="agent-skill-table-wrap">
           <el-table v-loading="loading" class="agent-skill-table" :data="list" row-key="id" height="100%">
             <el-table-column prop="display_name" label="名称" min-width="180">
@@ -770,38 +773,39 @@ onMounted(() => {
             <el-table-column label="更新时间" width="180">
               <template #default="{ row }">{{ formatTime(row.updated_at || row.created_at) }}</template>
             </el-table-column>
-            <el-table-column label="操作" width="260" fixed="right">
+            <el-table-column label="操作" width="200" fixed="right">
               <template #default="{ row }">
-                <el-button :icon="View" link type="primary" @click="openSavedPreview(row)">预览</el-button>
-                <el-button :icon="Edit" link type="primary" :loading="editLoading" @click="openEdit(row)">编辑</el-button>
-                <el-button :icon="Tickets" link type="primary" @click="openVersions(row)">版本</el-button>
-                <el-button
-                  :icon="row.is_enabled ? TurnOff : CircleCheck"
-                  link
-                  :type="row.is_enabled ? 'danger' : 'primary'"
-                  :loading="statusChangingId === row.id"
-                  @click="toggleStatus(row)"
-                >
-                  {{ row.is_enabled ? '停用' : '启用' }}
-                </el-button>
+                <el-button size="small" :icon="Edit" @click="openEdit(row)">编辑</el-button>
+                <el-dropdown trigger="click" @command="(cmd: string) => { if (cmd === 'preview') openSavedPreview(row); if (cmd === 'versions') openVersions(row); if (cmd === 'toggle') toggleStatus(row) }">
+                  <el-button size="small">更多<el-icon class="el-icon--right"><ArrowDown /></el-icon></el-button>
+                  <template #dropdown>
+                    <el-dropdown-menu>
+                      <el-dropdown-item command="preview" :icon="View">预览</el-dropdown-item>
+                      <el-dropdown-item command="versions" :icon="Tickets">版本</el-dropdown-item>
+                      <el-dropdown-item v-if="row.is_enabled" command="toggle" divided style="color: var(--el-color-danger)">停用</el-dropdown-item>
+                      <el-dropdown-item v-else command="toggle" divided>启用</el-dropdown-item>
+                    </el-dropdown-menu>
+                  </template>
+                </el-dropdown>
               </template>
             </el-table-column>
           </el-table>
         </div>
         <EmptyGuide v-if="!loading && list.length === 0" title="暂无 Agent Skill" description="从画布编排中创建第一个数据库版 SKILL.md。" />
-        <div class="pagination-wrap">
-          <el-pagination
-            v-model:current-page="page"
-            v-model:page-size="pageSize"
-            :total="total"
-            :page-sizes="[10, 20, 50]"
-            layout="total, sizes, prev, pager, next"
-            @current-change="loadList"
-            @size-change="(size: number) => { pageSize = size; page = 1; loadList() }"
-          />
-        </div>
-      </DataTableCard>
-    </section>
+      </div>
+
+      <div class="workspace-surface__pagination">
+        <el-pagination
+          v-model:current-page="page"
+          v-model:page-size="pageSize"
+          :total="total"
+          :page-sizes="[10, 20, 50]"
+          layout="total, sizes, prev, pager, next"
+          @current-change="loadList"
+          @size-change="(size: number) => { pageSize = size; page = 1; loadList() }"
+        />
+      </div>
+    </div>
 
     <el-dialog
       v-model="builderDialogVisible"

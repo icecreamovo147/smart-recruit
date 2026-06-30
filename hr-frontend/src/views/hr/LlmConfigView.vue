@@ -2,6 +2,7 @@
 import { computed, onMounted, reactive, ref } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import {
+  ArrowDown,
   Connection,
   Delete,
   Edit,
@@ -521,51 +522,50 @@ onMounted(() => {
 
 <template>
   <div class="llm-config-view">
-    <section class="page-header">
-      <div>
-        <p class="page-kicker">AI Platform Console</p>
-        <h2 class="page-title">{{ pageTitle }}</h2>
-        <p class="page-description">{{ pageDescription }}</p>
+    <div class="workspace-surface">
+      <div class="workspace-surface__header">
+        <div class="workspace-surface__header-copy">
+          <p class="page-kicker">AI Platform Console</p>
+          <h2 class="page-title">{{ pageTitle }}</h2>
+          <p class="page-description">{{ pageDescription }}</p>
+        </div>
+        <div class="workspace-surface__header-actions">
+          <el-button :icon="Refresh" @click="currentSection === 'providers' ? loadProviders() : loadModels()">刷新</el-button>
+          <el-button v-if="currentSection === 'providers'" type="primary" :icon="Plus" @click="openCreateProvider">新增 Provider</el-button>
+          <el-button v-else type="primary" :icon="Plus" @click="openCreateModel">新增 Model</el-button>
+        </div>
       </div>
-      <div class="page-actions">
-        <el-button :icon="Refresh" @click="currentSection === 'providers' ? loadProviders() : loadModels()">刷新</el-button>
-        <el-button v-if="currentSection === 'providers'" type="primary" :icon="Plus" @click="openCreateProvider">新增 Provider</el-button>
-        <el-button v-else type="primary" :icon="Plus" @click="openCreateModel">新增 Model</el-button>
-      </div>
-    </section>
 
-    <el-tabs v-if="!isSingleSection" v-model="activeTab" class="console-tabs" @tab-change="onTabChange">
-      <el-tab-pane label="Provider" name="providers" />
-      <el-tab-pane label="Model" name="models" />
-    </el-tabs>
+      <el-tabs v-if="!isSingleSection" v-model="activeTab" class="console-tabs" @tab-change="onTabChange">
+        <el-tab-pane label="Provider" name="providers" />
+        <el-tab-pane label="Model" name="models" />
+      </el-tabs>
 
-    <template v-if="currentSection === 'providers'">
-        <section class="panel-card">
-          <div class="panel-head">
-            <div>
-              <h3>Provider 目录</h3>
-              <p>维护 API 入口、密钥和连接健康状态。</p>
-            </div>
-            <el-button type="primary" :icon="Plus" @click="openCreateProvider">新增 Provider</el-button>
-          </div>
+      <div class="workspace-surface__divider"></div>
 
-          <div class="filter-bar">
-            <el-input v-model="providerSearch" :prefix-icon="Search" clearable placeholder="搜索名称 / Base URL" />
-            <el-select v-model="providerTypeFilter" clearable placeholder="类型">
+      <template v-if="currentSection === 'providers'">
+         <div class="workspace-surface__toolbar">
+          <div class="workspace-surface__filters">
+            <el-input v-model="providerSearch" :prefix-icon="Search" clearable placeholder="搜索名称 / Base URL" style="width: 200px" />
+            <el-select v-model="providerTypeFilter" clearable placeholder="类型" style="width: 140px">
               <el-option v-for="type in providerTypeOptions" :key="type" :value="type" :label="providerTypeLabel(type)" />
             </el-select>
-            <el-select v-model="providerStatusFilter" clearable placeholder="状态">
+            <el-select v-model="providerStatusFilter" clearable placeholder="状态" style="width: 110px">
               <el-option value="enabled" label="启用" />
               <el-option value="disabled" label="禁用" />
             </el-select>
-            <el-select v-model="providerHealthFilter" clearable placeholder="连接状态">
+            <el-select v-model="providerHealthFilter" clearable placeholder="连接状态" style="width: 140px">
               <el-option value="success" label="连接正常" />
               <el-option value="failed" label="连接失败" />
               <el-option value="unknown" label="未测试" />
             </el-select>
+          </div>
+          <div class="workspace-surface__actions">
             <el-button @click="resetProviderFilters">重置</el-button>
           </div>
+        </div>
 
+        <div class="workspace-surface__body">
           <el-table
             v-loading="providerLoading"
             :data="filteredProviders"
@@ -628,7 +628,7 @@ onMounted(() => {
                   <el-button size="small" :icon="Connection" :loading="testingId === row.id" @click="handleTestConnection(row)">测试</el-button>
                   <el-button size="small" :icon="Edit" @click="openEditProvider(row)">编辑</el-button>
                   <el-dropdown trigger="click">
-                    <el-button size="small" :icon="MoreFilled" circle />
+                    <el-button size="small">更多<el-icon class="el-icon--right"><ArrowDown /></el-icon></el-button>
                     <template #dropdown>
                       <el-dropdown-menu>
                         <el-dropdown-item :icon="Delete" @click="handleDeleteProvider(row)">删除</el-dropdown-item>
@@ -639,8 +639,9 @@ onMounted(() => {
               </template>
             </el-table-column>
           </el-table>
+          </div>
 
-          <div class="pagination-wrap">
+          <div class="workspace-surface__pagination">
             <el-pagination
               v-model:current-page="providerPage"
               v-model:page-size="providerPageSize"
@@ -651,41 +652,37 @@ onMounted(() => {
               @size-change="(s: number) => { providerPageSize = s; providerPage = 1; loadProviders() }"
             />
           </div>
-        </section>
     </template>
 
     <template v-else>
-        <section class="panel-card">
-          <div class="panel-head">
-            <div>
-              <h3>Model 清单</h3>
-              <p>配置模型能力、推理参数、并发与默认状态。</p>
-            </div>
-            <el-button type="primary" :icon="Plus" @click="openCreateModel">新增 Model</el-button>
-          </div>
-
-          <div class="filter-bar model-filter-bar">
-            <el-input v-model="modelSearch" :prefix-icon="Search" clearable placeholder="搜索模型 / 显示名称 / Provider" />
+        <div class="workspace-surface__toolbar">
+          <div class="workspace-surface__filters">
+            <el-input v-model="modelSearch" :prefix-icon="Search" clearable placeholder="搜索模型 / 显示名称 / Provider" style="width: 230px" />
             <el-select
               v-model="modelProviderFilter"
               clearable
               placeholder="全部 Provider"
+              style="width: 165px"
               @change="() => { modelPage = 1; loadModels() }"
             >
               <el-option :value="0" label="全部 Provider" />
               <el-option v-for="p in providerList" :key="p.id" :value="p.id" :label="p.name" />
             </el-select>
-            <el-select v-model="modelStatusFilter" clearable placeholder="状态">
+            <el-select v-model="modelStatusFilter" clearable placeholder="状态" style="width: 110px">
               <el-option value="enabled" label="启用" />
               <el-option value="disabled" label="禁用" />
             </el-select>
-            <el-select v-model="modelDefaultFilter" clearable placeholder="默认">
+            <el-select v-model="modelDefaultFilter" clearable placeholder="默认" style="width: 130px">
               <el-option value="default" label="默认 Model" />
               <el-option value="custom" label="非默认" />
             </el-select>
+          </div>
+          <div class="workspace-surface__actions">
             <el-button @click="resetModelFilters">重置</el-button>
           </div>
+        </div>
 
+        <div class="workspace-surface__body">
           <el-table
             v-loading="modelLoading"
             :data="filteredModels"
@@ -751,7 +748,7 @@ onMounted(() => {
                 <div class="row-actions">
                   <el-button size="small" :icon="Edit" @click="openEditModel(row)">编辑</el-button>
                   <el-dropdown trigger="click">
-                    <el-button size="small" :icon="MoreFilled" circle />
+                    <el-button size="small">更多<el-icon class="el-icon--right"><ArrowDown /></el-icon></el-button>
                     <template #dropdown>
                       <el-dropdown-menu>
                         <el-dropdown-item :icon="Delete" @click="handleDeleteModel(row)">删除</el-dropdown-item>
@@ -762,8 +759,9 @@ onMounted(() => {
               </template>
             </el-table-column>
           </el-table>
+          </div>
 
-          <div class="pagination-wrap">
+          <div class="workspace-surface__pagination">
             <el-pagination
               v-model:current-page="modelPage"
               v-model:page-size="modelPageSize"
@@ -774,8 +772,8 @@ onMounted(() => {
               @size-change="(s: number) => { modelPageSize = s; modelPage = 1; loadModels() }"
             />
           </div>
-        </section>
     </template>
+    </div>
 
     <el-drawer
       v-model="providerDrawerVisible"

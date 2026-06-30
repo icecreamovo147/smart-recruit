@@ -7,5 +7,7 @@ export { default as PageHeader } from './PageHeader.vue'
 export { default as ProviderHealthBadge } from './ProviderHealthBadge.vue'
 export { default as StatCard } from './StatCard.vue'
 export { default as StatusTag } from './StatusTag.vue'
+export { default as RowActions } from './RowActions.vue'
+export type { RowActionItem } from './RowActions.vue'
 
 export type { ConsoleAction, ConsoleStatus } from '@/types/ui'

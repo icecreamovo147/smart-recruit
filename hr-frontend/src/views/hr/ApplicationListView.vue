@@ -258,35 +258,23 @@ onMounted(load)
 
 <template>
   <section class="console-page console-page--fill application-ledger-page">
-    <div class="console-header">
-      <div class="console-header__copy">
-        <p class="console-eyebrow">CANDIDATE LEDGER</p>
-        <h1 class="console-title">候选人台账</h1>
-        <p class="console-description">围绕当前岗位跟进候选人投递、简历查看、AI 分析、面试安排和 Offer 推进。</p>
-      </div>
-      <div class="console-header__actions">
-        <el-button :icon="Back" @click="$router.push('/hr/jobs')">返回岗位</el-button>
-        <el-button :icon="Refresh" @click="load">刷新</el-button>
-      </div>
-    </div>
-
-    <section class="console-stats">
-      <div v-for="item in ledgerStats" :key="item.label" class="console-stat">
-        <div class="console-stat__label">{{ item.label }}</div>
-        <div class="console-stat__value">{{ item.value }}</div>
-        <div class="console-stat__hint">{{ item.hint }}</div>
-      </div>
-    </section>
-
-    <div class="console-card console-card--fill application-ledger-surface">
-      <div class="console-card__head">
-        <div>
-          <h2 class="console-card__title">候选人列表</h2>
-          <p class="console-card__desc">共 {{ filteredList.length }} 个匹配候选人</p>
+    <div class="workspace-surface">
+      <div class="workspace-surface__header">
+        <div class="workspace-surface__header-copy">
+          <p class="console-eyebrow">CANDIDATE LEDGER</p>
+          <h1 class="console-title">候选人台账</h1>
+          <p class="console-description">围绕当前岗位跟进候选人投递、简历查看、AI 分析、面试安排和 Offer 推进。</p>
+        </div>
+        <div class="workspace-surface__header-actions">
+          <el-button :icon="Back" @click="$router.push('/hr/jobs')">返回岗位</el-button>
+          <el-button :icon="Refresh" @click="load">刷新</el-button>
         </div>
       </div>
-      <div class="console-toolbar">
-        <div class="console-toolbar__filters">
+
+      <div class="workspace-surface__divider"></div>
+
+      <div class="workspace-surface__toolbar">
+        <div class="workspace-surface__filters">
           <el-input v-model="keyword" :prefix-icon="Search" clearable placeholder="搜索姓名 / 电话 / 学校 / 技能" style="width: 300px" />
           <el-select v-model="statusFilter" clearable placeholder="全部状态" style="width: 160px">
             <el-option label="已投递" :value="APP_STATUS_KEY.APPLIED" />
@@ -299,13 +287,13 @@ onMounted(load)
           </el-select>
         </div>
       </div>
-      <el-alert v-if="errorMessage" class="page-error" type="error" :title="errorMessage" show-icon :closable="false">
+      <el-alert v-if="errorMessage" class="workspace-surface__error" type="error" :title="errorMessage" show-icon :closable="false">
         <template #default>
           <el-button size="small" type="danger" plain @click="load">重试</el-button>
         </template>
       </el-alert>
-      <div class="application-ledger-table-area desktop-only">
-        <el-table class="console-table application-ledger-table" height="100%" v-loading="loading" :data="filteredList" empty-text="暂无投递">
+      <div class="workspace-surface__body desktop-only">
+        <el-table class="console-table" height="100%" v-loading="loading" :data="filteredList" empty-text="暂无投递">
           <el-table-column label="候选人" min-width="220">
             <template #default="{ row }">
               <div class="console-entity">
@@ -354,7 +342,11 @@ onMounted(load)
           </el-table-column>
         </el-table>
       </div>
-      <!-- Mobile candidate cards -->
+
+      <div class="workspace-surface__pagination desktop-only">
+        <el-pagination v-model:current-page="query.page" v-model:page-size="query.page_size" layout="total, prev, pager, next, sizes" :total="total" @current-change="load" @size-change="load" />
+      </div>
+
       <div class="mobile-card-list mobile-only">
         <el-empty v-if="!loading && filteredList.length === 0" description="暂无投递" />
         <div v-for="row in filteredList" :key="row.application_id" class="mobile-application-card">
@@ -393,7 +385,6 @@ onMounted(load)
           </div>
         </div>
       </div>
-      <el-pagination class="application-ledger-pagination" v-model:current-page="query.page" v-model:page-size="query.page_size" layout="total, prev, pager, next, sizes" :total="total" @current-change="load" @size-change="load" />
     </div>
 
     <!-- Interview scheduling dialog -->

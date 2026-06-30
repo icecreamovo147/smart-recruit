@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { Plus, Refresh, Search } from '@element-plus/icons-vue'
+import { ArrowDown, MoreFilled, Plus, Refresh, Search } from '@element-plus/icons-vue'
 import { createInviteCode, extendInviteCode, listInviteCodes, reactivateInviteCode, revokeInviteCode } from '@/api/admin'
 import type { InviteCodeInfo } from '@/types/domain'
 
@@ -144,27 +144,23 @@ onMounted(load)
 
 <template>
   <section class="console-page console-page--fill invite-code-page">
-    <div class="console-header">
-      <div class="console-header__copy">
-        <p class="console-eyebrow">ACCESS CONTROL</p>
-        <h1 class="console-title">邀请码管理</h1>
-        <p class="console-description">生成和管理 HR 注册入口的邀请码，控制账号创建边界，并跟踪有效、过期和撤销状态。</p>
-      </div>
-      <div class="console-header__actions">
-        <el-button :icon="Refresh" @click="load">刷新</el-button>
-        <el-button type="primary" :icon="Plus" @click="openCreate">生成邀请码</el-button>
-      </div>
-    </div>
-
-    <div class="console-card console-card--fill invite-code-surface">
-      <div class="console-card__head">
-        <div>
-          <h2 class="console-card__title">邀请码列表</h2>
-          <p class="console-card__desc">共 {{ filteredList.length }} 个匹配邀请码</p>
+    <div class="workspace-surface">
+      <div class="workspace-surface__header">
+        <div class="workspace-surface__header-copy">
+          <p class="console-eyebrow">ACCESS CONTROL</p>
+          <h1 class="console-title">邀请码管理</h1>
+          <p class="console-description">生成和管理 HR 注册入口的邀请码，控制账号创建边界，并跟踪有效、过期和撤销状态。</p>
+        </div>
+        <div class="workspace-surface__header-actions">
+          <el-button :icon="Refresh" @click="load">刷新</el-button>
+          <el-button type="primary" :icon="Plus" @click="openCreate">生成邀请码</el-button>
         </div>
       </div>
-      <div class="console-toolbar">
-        <div class="console-toolbar__filters">
+
+      <div class="workspace-surface__divider"></div>
+
+      <div class="workspace-surface__toolbar">
+        <div class="workspace-surface__filters">
           <el-input v-model="keyword" :prefix-icon="Search" clearable placeholder="搜索邀请码" style="width: 240px" />
           <el-select v-model="statusFilter" clearable placeholder="全部状态" style="width: 140px">
             <el-option label="有效" value="有效" />
@@ -173,12 +169,14 @@ onMounted(load)
           </el-select>
         </div>
       </div>
-      <el-alert v-if="errorMessage" class="page-error" type="error" :title="errorMessage" show-icon :closable="false">
+
+      <el-alert v-if="errorMessage" class="workspace-surface__error" type="error" :title="errorMessage" show-icon :closable="false">
         <template #default>
           <el-button type="primary" size="small" @click="load">重试</el-button>
         </template>
       </el-alert>
-      <div class="invite-code-table-area desktop-only">
+
+      <div class="workspace-surface__body desktop-only">
         <el-table v-loading="loading" :data="filteredList" class="console-table" empty-text="暂无邀请码" height="100%">
           <el-table-column label="邀请码" min-width="280">
             <template #default="{ row }">
@@ -199,16 +197,36 @@ onMounted(load)
           <el-table-column label="创建时间" width="180" align="center">
             <template #default="{ row }">{{ formatTime(row.created_at) }}</template>
           </el-table-column>
-          <el-table-column label="操作" width="320" fixed="right" align="center">
+          <el-table-column label="操作" width="200" fixed="right" align="center">
             <template #default="{ row }">
-              <el-button text type="primary" size="small" :disabled="isExpired(row)" @click="copyLink(row)">复制链接</el-button>
-              <el-button text type="primary" size="small" :disabled="!row.is_active" @click="openExtend(row)">延长</el-button>
-              <el-button text :type="row.is_active ? 'danger' : 'success'" size="small" @click="handleToggleActive(row)">{{ row.is_active ? '撤销' : '重启' }}</el-button>
+              <el-button size="small" :disabled="isExpired(row)" @click="copyLink(row)">复制链接</el-button>
+              <el-dropdown trigger="click" @command="(cmd: string) => { if (cmd === 'extend') openExtend(row); if (cmd === 'toggle') handleToggleActive(row) }">
+                <el-button size="small">更多<el-icon class="el-icon--right"><ArrowDown /></el-icon></el-button>
+                <template #dropdown>
+                  <el-dropdown-menu>
+                    <el-dropdown-item command="extend" :disabled="!row.is_active">延长</el-dropdown-item>
+                    <el-dropdown-item v-if="row.is_active" command="toggle" divided style="color: var(--el-color-danger)">撤销</el-dropdown-item>
+                    <el-dropdown-item v-else command="toggle" divided>重启</el-dropdown-item>
+                  </el-dropdown-menu>
+                </template>
+              </el-dropdown>
             </template>
           </el-table-column>
         </el-table>
       </div>
-      <!-- Mobile invite code cards -->
+
+      <div class="workspace-surface__pagination">
+        <el-pagination
+          v-if="total > 0"
+          v-model:current-page="page"
+          v-model:page-size="pageSize"
+          :total="total"
+          layout="total, prev, pager, next, sizes"
+          @current-change="onPageChange"
+          @size-change="onSizeChange"
+        />
+      </div>
+
       <div class="mobile-card-list mobile-only">
         <el-empty v-if="!loading && filteredList.length === 0" description="暂无邀请码" />
         <div v-for="row in filteredList" :key="row.id" class="mobile-invite-card">
@@ -229,16 +247,6 @@ onMounted(load)
           </div>
         </div>
       </div>
-      <el-pagination
-        v-if="total > 0"
-        v-model:current-page="page"
-        v-model:page-size="pageSize"
-        :total="total"
-        layout="total, prev, pager, next, sizes"
-        style="margin-top: 12px; justify-content: flex-end"
-        @current-change="onPageChange"
-        @size-change="onSizeChange"
-      />
     </div>
 
     <!-- Create dialog -->

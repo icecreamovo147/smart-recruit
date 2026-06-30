@@ -139,95 +139,97 @@ const routeViewKey = (viewRoute: { fullPath: string; path: string; params: Recor
         </RouterLink>
       </div>
       <div class="sidebar-nav">
-        <RouterLink v-if="auth.hasPermission(PERM.JOB_READ)" class="sidebar-link" to="/hr/workbench" @click="closeMobileSidebar">
-          <el-icon><Monitor /></el-icon>
-          <span>工作台</span>
-        </RouterLink>
-        <!-- 基础数据 (department/location admin permissions) -->
-        <template v-if="auth.hasAnyPermission(PERM.ADMIN_DEPARTMENT_MANAGE, PERM.ADMIN_LOCATION_MANAGE)">
-          <button class="sidebar-link sidebar-group-toggle" type="button" :aria-expanded="taxonomyOpen && !sidebarCollapsed" @click="toggleTaxonomy">
-            <el-icon><Operation /></el-icon>
-            <span>基础数据</span>
-            <el-icon class="group-arrow" :class="{ 'group-arrow--open': taxonomyOpen }"><ArrowDown /></el-icon>
-          </button>
-          <div class="sidebar-sub-wrap" :class="{ 'sidebar-sub-wrap--open': taxonomyOpen && !sidebarCollapsed }">
-            <div class="sidebar-sub-group">
-              <RouterLink v-if="auth.hasPermission(PERM.ADMIN_DEPARTMENT_MANAGE)" class="sidebar-link sidebar-sub-link" to="/hr/admin/departments" @click="closeMobileSidebar">
-                <span>部门管理</span>
-              </RouterLink>
-              <RouterLink v-if="auth.hasPermission(PERM.ADMIN_LOCATION_MANAGE)" class="sidebar-link sidebar-sub-link" to="/hr/admin/locations" @click="closeMobileSidebar">
-                <span>地点管理</span>
-              </RouterLink>
+        <el-scrollbar>
+          <RouterLink v-if="auth.hasPermission(PERM.JOB_READ)" class="sidebar-link" to="/hr/workbench" @click="closeMobileSidebar">
+            <el-icon><Monitor /></el-icon>
+            <span>工作台</span>
+          </RouterLink>
+          <!-- 基础数据 (department/location admin permissions) -->
+          <template v-if="auth.hasAnyPermission(PERM.ADMIN_DEPARTMENT_MANAGE, PERM.ADMIN_LOCATION_MANAGE)">
+            <button class="sidebar-link sidebar-group-toggle" type="button" :aria-expanded="taxonomyOpen && !sidebarCollapsed" @click="toggleTaxonomy">
+              <el-icon><Operation /></el-icon>
+              <span>基础数据</span>
+              <el-icon class="group-arrow" :class="{ 'group-arrow--open': taxonomyOpen }"><ArrowDown /></el-icon>
+            </button>
+            <div class="sidebar-sub-wrap" :class="{ 'sidebar-sub-wrap--open': taxonomyOpen && !sidebarCollapsed }">
+              <div class="sidebar-sub-group">
+                <RouterLink v-if="auth.hasPermission(PERM.ADMIN_DEPARTMENT_MANAGE)" class="sidebar-link sidebar-sub-link" to="/hr/admin/departments" @click="closeMobileSidebar">
+                  <span>部门管理</span>
+                </RouterLink>
+                <RouterLink v-if="auth.hasPermission(PERM.ADMIN_LOCATION_MANAGE)" class="sidebar-link sidebar-sub-link" to="/hr/admin/locations" @click="closeMobileSidebar">
+                  <span>地点管理</span>
+                </RouterLink>
+              </div>
             </div>
-          </div>
-        </template>
-        <RouterLink v-if="auth.hasPermission(PERM.JOB_READ)" class="sidebar-link" to="/hr/jobs" @click="closeMobileSidebar">
-          <el-icon><Briefcase /></el-icon>
-          <span>岗位管理</span>
-        </RouterLink>
-        <RouterLink v-if="auth.hasPermission(PERM.AI_HR_USE)" class="sidebar-link" to="/hr/ai" @click="closeMobileSidebar">
-          <el-icon><ChatDotRound /></el-icon>
-          <span>AI 数据助手</span>
-        </RouterLink>
-        <RouterLink v-if="auth.hasPermission(PERM.ADMIN_INVITE_MANAGE)" class="sidebar-link" to="/hr/admin/invite-codes" @click="closeMobileSidebar">
-          <el-icon><Key /></el-icon>
-          <span>邀请码管理</span>
-        </RouterLink>
-        <RouterLink v-if="auth.hasPermission(PERM.ADMIN_USER_MANAGE)" class="sidebar-link" to="/hr/admin/staff-users" @click="closeMobileSidebar">
-          <el-icon><UserFilled /></el-icon>
-          <span>员工账号</span>
-        </RouterLink>
-        <template v-if="auth.hasPermission(PERM.SYSTEM_CONFIG_MANAGE)">
-          <button class="sidebar-link sidebar-group-toggle" type="button" :aria-expanded="llmConfigOpen && !sidebarCollapsed" @click="toggleLlmConfig">
-            <el-icon><Tools /></el-icon>
-            <span>模型配置</span>
-            <el-icon class="group-arrow" :class="{ 'group-arrow--open': llmConfigOpen }"><ArrowDown /></el-icon>
-          </button>
-          <div class="sidebar-sub-wrap" :class="{ 'sidebar-sub-wrap--open': llmConfigOpen && !sidebarCollapsed }">
-            <div class="sidebar-sub-group">
-              <RouterLink class="sidebar-link sidebar-sub-link" to="/hr/admin/llm-config/providers" @click="closeMobileSidebar">
-                <span>Provider 配置</span>
-              </RouterLink>
-              <RouterLink class="sidebar-link sidebar-sub-link" to="/hr/admin/llm-config/models" @click="closeMobileSidebar">
-                <span>Model 配置</span>
-              </RouterLink>
+          </template>
+          <RouterLink v-if="auth.hasPermission(PERM.JOB_READ)" class="sidebar-link" to="/hr/jobs" @click="closeMobileSidebar">
+            <el-icon><Briefcase /></el-icon>
+            <span>岗位管理</span>
+          </RouterLink>
+          <RouterLink v-if="auth.hasPermission(PERM.AI_HR_USE)" class="sidebar-link" to="/hr/ai" @click="closeMobileSidebar">
+            <el-icon><ChatDotRound /></el-icon>
+            <span>AI 数据助手</span>
+          </RouterLink>
+          <RouterLink v-if="auth.hasPermission(PERM.ADMIN_INVITE_MANAGE)" class="sidebar-link" to="/hr/admin/invite-codes" @click="closeMobileSidebar">
+            <el-icon><Key /></el-icon>
+            <span>邀请码管理</span>
+          </RouterLink>
+          <RouterLink v-if="auth.hasPermission(PERM.ADMIN_USER_MANAGE)" class="sidebar-link" to="/hr/admin/staff-users" @click="closeMobileSidebar">
+            <el-icon><UserFilled /></el-icon>
+            <span>员工账号</span>
+          </RouterLink>
+          <template v-if="auth.hasPermission(PERM.SYSTEM_CONFIG_MANAGE)">
+            <button class="sidebar-link sidebar-group-toggle" type="button" :aria-expanded="llmConfigOpen && !sidebarCollapsed" @click="toggleLlmConfig">
+              <el-icon><Tools /></el-icon>
+              <span>模型配置</span>
+              <el-icon class="group-arrow" :class="{ 'group-arrow--open': llmConfigOpen }"><ArrowDown /></el-icon>
+            </button>
+            <div class="sidebar-sub-wrap" :class="{ 'sidebar-sub-wrap--open': llmConfigOpen && !sidebarCollapsed }">
+              <div class="sidebar-sub-group">
+                <RouterLink class="sidebar-link sidebar-sub-link" to="/hr/admin/llm-config/providers" @click="closeMobileSidebar">
+                  <span>Provider 配置</span>
+                </RouterLink>
+                <RouterLink class="sidebar-link sidebar-sub-link" to="/hr/admin/llm-config/models" @click="closeMobileSidebar">
+                  <span>Model 配置</span>
+                </RouterLink>
+              </div>
             </div>
-          </div>
-        </template>
-        <RouterLink v-if="auth.hasPermission(PERM.AI_PROMPT_MANAGE)" class="sidebar-link" to="/hr/admin/prompts" @click="closeMobileSidebar">
-          <el-icon><Edit /></el-icon>
-          <span>Prompt 管理</span>
-        </RouterLink>
-        <RouterLink v-if="auth.hasPermission(PERM.AI_AGENT_MANAGE)" class="sidebar-link" to="/hr/admin/agents" @click="closeMobileSidebar">
-          <el-icon><Setting /></el-icon>
-          <span>Agent 管理</span>
-        </RouterLink>
-        <RouterLink v-if="canManageAgentSkills" class="sidebar-link" to="/hr/admin/agent-skills" @click="closeMobileSidebar">
-          <el-icon><MagicStick /></el-icon>
-          <span>Agent Skill 管理</span>
-        </RouterLink>
-        <RouterLink v-if="auth.hasPermission(PERM.SYSTEM_CONFIG_MANAGE)" class="sidebar-link" to="/hr/admin/mcp-tools" @click="closeMobileSidebar">
-          <el-icon><Connection /></el-icon>
-          <span>工具中心</span>
-        </RouterLink>
-        <!-- 第三方服务审计 -->
-        <template v-if="auth.hasPermission(PERM.AUDIT_USAGE_READ)">
-          <button class="sidebar-link sidebar-group-toggle" type="button" :aria-expanded="usageAuditOpen && !sidebarCollapsed" @click="toggleUsageAudit">
-            <el-icon><DataAnalysis /></el-icon>
-            <span>第三方服务审计</span>
-            <el-icon class="group-arrow" :class="{ 'group-arrow--open': usageAuditOpen }"><ArrowDown /></el-icon>
-          </button>
-          <div class="sidebar-sub-wrap" :class="{ 'sidebar-sub-wrap--open': usageAuditOpen && !sidebarCollapsed }">
-            <div class="sidebar-sub-group">
-              <RouterLink class="sidebar-link sidebar-sub-link" to="/hr/admin/usage-stats" @click="closeMobileSidebar">
-                <span>使用统计</span>
-              </RouterLink>
-              <RouterLink class="sidebar-link sidebar-sub-link" to="/hr/admin/usage-audit" @click="closeMobileSidebar">
-                <span>审计日志</span>
-              </RouterLink>
+          </template>
+          <RouterLink v-if="auth.hasPermission(PERM.AI_PROMPT_MANAGE)" class="sidebar-link" to="/hr/admin/prompts" @click="closeMobileSidebar">
+            <el-icon><Edit /></el-icon>
+            <span>Prompt 管理</span>
+          </RouterLink>
+          <RouterLink v-if="auth.hasPermission(PERM.AI_AGENT_MANAGE)" class="sidebar-link" to="/hr/admin/agents" @click="closeMobileSidebar">
+            <el-icon><Setting /></el-icon>
+            <span>Agent 管理</span>
+          </RouterLink>
+          <RouterLink v-if="canManageAgentSkills" class="sidebar-link" to="/hr/admin/agent-skills" @click="closeMobileSidebar">
+            <el-icon><MagicStick /></el-icon>
+            <span>Agent Skill 管理</span>
+          </RouterLink>
+          <RouterLink v-if="auth.hasPermission(PERM.SYSTEM_CONFIG_MANAGE)" class="sidebar-link" to="/hr/admin/mcp-tools" @click="closeMobileSidebar">
+            <el-icon><Connection /></el-icon>
+            <span>工具中心</span>
+          </RouterLink>
+          <!-- 第三方服务审计 -->
+          <template v-if="auth.hasPermission(PERM.AUDIT_USAGE_READ)">
+            <button class="sidebar-link sidebar-group-toggle" type="button" :aria-expanded="usageAuditOpen && !sidebarCollapsed" @click="toggleUsageAudit">
+              <el-icon><DataAnalysis /></el-icon>
+              <span>第三方服务审计</span>
+              <el-icon class="group-arrow" :class="{ 'group-arrow--open': usageAuditOpen }"><ArrowDown /></el-icon>
+            </button>
+            <div class="sidebar-sub-wrap" :class="{ 'sidebar-sub-wrap--open': usageAuditOpen && !sidebarCollapsed }">
+              <div class="sidebar-sub-group">
+                <RouterLink class="sidebar-link sidebar-sub-link" to="/hr/admin/usage-stats" @click="closeMobileSidebar">
+                  <span>使用统计</span>
+                </RouterLink>
+                <RouterLink class="sidebar-link sidebar-sub-link" to="/hr/admin/usage-audit" @click="closeMobileSidebar">
+                  <span>审计日志</span>
+                </RouterLink>
+              </div>
             </div>
-          </div>
-        </template>
+          </template>
+        </el-scrollbar>
       </div>
       <div class="sidebar-footer">
         <el-tooltip :content="sidebarCollapsed ? '展开菜单' : '折叠菜单'" placement="right">

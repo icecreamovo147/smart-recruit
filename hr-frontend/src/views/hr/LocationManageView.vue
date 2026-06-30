@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { Plus, Refresh, Search } from '@element-plus/icons-vue'
+import { ArrowDown, MoreFilled, Plus, Refresh, Search } from '@element-plus/icons-vue'
 import { listLocations, createLocation, updateLocation, updateLocationStatus, deleteLocation } from '@/api/admin'
 import type { LocationOption } from '@/types/domain'
 
@@ -106,46 +106,28 @@ const filteredList = computed(() => {
   })
 })
 
-const stats = computed(() => [
-  { label: '地点总数', value: list.value.length, hint: '可用于岗位发布和数据范围' },
-  { label: '已启用', value: list.value.filter((item) => item.is_active === 1).length, hint: '当前可选地点' },
-  { label: '已停用', value: list.value.filter((item) => item.is_active !== 1).length, hint: '历史保留或暂不可用' },
-])
-
 onMounted(load)
 </script>
 
 <template>
   <section class="console-page console-page--fill taxonomy-page">
-    <div class="console-header">
-      <div class="console-header__copy">
-        <p class="console-eyebrow">BASIC DATA</p>
-        <h1 class="console-title">地点管理</h1>
-        <p class="console-description">维护招聘业务中可使用的城市、园区或办公地点，供岗位发布、部门地点配置和权限数据范围复用。</p>
-      </div>
-      <div class="console-header__actions">
-        <el-button :icon="Refresh" @click="load">刷新</el-button>
-        <el-button type="primary" :icon="Plus" @click="openCreate()">新增地点</el-button>
-      </div>
-    </div>
-
-    <section class="console-stats">
-      <div v-for="item in stats" :key="item.label" class="console-stat">
-        <div class="console-stat__label">{{ item.label }}</div>
-        <div class="console-stat__value">{{ item.value }}</div>
-        <div class="console-stat__hint">{{ item.hint }}</div>
-      </div>
-    </section>
-
-    <div class="console-card console-card--fill">
-      <div class="console-card__head">
-        <div>
-          <h2 class="console-card__title">地点列表</h2>
-          <p class="console-card__desc">共 {{ filteredList.length }} 个匹配地点</p>
+    <div class="workspace-surface">
+      <div class="workspace-surface__header">
+        <div class="workspace-surface__header-copy">
+          <p class="console-eyebrow">BASIC DATA</p>
+          <h1 class="console-title">地点管理</h1>
+          <p class="console-description">维护招聘业务中可使用的城市、园区或办公地点，供岗位发布、部门地点配置和权限数据范围复用。</p>
+        </div>
+        <div class="workspace-surface__header-actions">
+          <el-button :icon="Refresh" @click="load">刷新</el-button>
+          <el-button type="primary" :icon="Plus" @click="openCreate()">新增地点</el-button>
         </div>
       </div>
-      <div class="console-toolbar">
-        <div class="console-toolbar__filters">
+
+      <div class="workspace-surface__divider"></div>
+
+      <div class="workspace-surface__toolbar">
+        <div class="workspace-surface__filters">
           <el-input v-model="keyword" :prefix-icon="Search" clearable placeholder="搜索地点名称 / 编码" style="width: 240px" />
           <el-select v-model="statusFilter" clearable placeholder="全部状态" style="width: 140px">
             <el-option label="启用" value="active" />
@@ -153,33 +135,39 @@ onMounted(load)
           </el-select>
         </div>
       </div>
-      <div class="console-table-wrap">
-      <el-table v-loading="loading" :data="filteredList" class="console-table" stripe>
-        <el-table-column label="地点信息" min-width="220">
-          <template #default="{ row }">
-            <div class="console-entity">
-              <div class="console-entity__name">{{ row.name }}</div>
-              <div class="console-entity__meta">编码：<span class="console-code">{{ row.code || '-' }}</span></div>
-            </div>
-          </template>
-        </el-table-column>
-        <el-table-column label="状态" width="80" align="center">
-          <template #default="{ row }">
-            <el-tag :type="row.is_active === 1 ? 'success' : 'info'" size="small">
-              {{ row.is_active === 1 ? '启用' : '停用' }}
-            </el-tag>
-          </template>
-        </el-table-column>
-        <el-table-column label="操作" width="200" fixed="right" align="center">
-          <template #default="{ row }">
-            <el-button text type="primary" size="small" @click="openEdit(row)">编辑</el-button>
-            <el-button text :type="row.is_active === 1 ? 'warning' : 'success'" size="small" @click="toggleStatus(row)">
-              {{ row.is_active === 1 ? '停用' : '启用' }}
-            </el-button>
-            <el-button text type="danger" size="small" @click="remove(row)">删除</el-button>
-          </template>
-        </el-table-column>
-      </el-table>
+
+      <div class="workspace-surface__body">
+        <el-table v-loading="loading" :data="filteredList" class="console-table" stripe>
+          <el-table-column label="地点信息" min-width="220">
+            <template #default="{ row }">
+              <div class="console-entity">
+                <div class="console-entity__name">{{ row.name }}</div>
+                <div class="console-entity__meta">编码：<span class="console-code">{{ row.code || '-' }}</span></div>
+              </div>
+            </template>
+          </el-table-column>
+          <el-table-column label="状态" width="80" align="center">
+            <template #default="{ row }">
+              <el-tag :type="row.is_active === 1 ? 'success' : 'info'" size="small">
+                {{ row.is_active === 1 ? '启用' : '停用' }}
+              </el-tag>
+            </template>
+          </el-table-column>
+          <el-table-column label="操作" width="200" fixed="right" align="center">
+            <template #default="{ row }">
+              <el-button size="small" @click="openEdit(row)">编辑</el-button>
+              <el-dropdown trigger="click" @command="(cmd: string) => { if (cmd === 'toggle') toggleStatus(row); if (cmd === 'delete') remove(row) }">
+                <el-button size="small">更多<el-icon class="el-icon--right"><ArrowDown /></el-icon></el-button>
+                <template #dropdown>
+                  <el-dropdown-menu>
+                    <el-dropdown-item command="toggle">{{ row.is_active === 1 ? '停用' : '启用' }}</el-dropdown-item>
+                    <el-dropdown-item command="delete" divided style="color: var(--el-color-danger)">删除</el-dropdown-item>
+                  </el-dropdown-menu>
+                </template>
+              </el-dropdown>
+            </template>
+          </el-table-column>
+        </el-table>
       </div>
     </div>
 

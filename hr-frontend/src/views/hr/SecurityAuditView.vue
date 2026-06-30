@@ -77,60 +77,62 @@ onMounted(load)
 
 <template>
   <div class="console-page console-page--fill security-audit">
-    <div class="console-header">
-      <div class="console-header__copy">
-        <p class="console-eyebrow">SECURITY AUDIT</p>
-        <h1 class="console-title">安全审计日志</h1>
-        <p class="console-description">追踪权限判定、访问资源、用户角色和请求 ID，帮助定位越权风险与权限配置问题。</p>
+    <div class="workspace-surface">
+      <div class="workspace-surface__header">
+        <div class="workspace-surface__header-copy">
+          <p class="console-eyebrow">SECURITY AUDIT</p>
+          <h1 class="console-title">安全审计日志</h1>
+          <p class="console-description">追踪权限判定、访问资源、用户角色和请求 ID，帮助定位越权风险与权限配置问题。</p>
+        </div>
+        <div class="workspace-surface__header-actions">
+          <el-button :icon="Refresh" @click="load">刷新</el-button>
+        </div>
       </div>
-      <div class="console-header__actions">
-        <el-button :icon="Refresh" @click="load">刷新</el-button>
-      </div>
-    </div>
 
-    <section class="console-stats">
-      <div v-for="item in auditStats" :key="item.label" class="console-stat">
-        <div class="console-stat__label">{{ item.label }}</div>
-        <div class="console-stat__value">{{ item.value }}</div>
-        <div class="console-stat__hint">{{ item.hint }}</div>
-      </div>
-    </section>
+      <section class="console-stats">
+        <div v-for="item in auditStats" :key="item.label" class="console-stat">
+          <div class="console-stat__label">{{ item.label }}</div>
+          <div class="console-stat__value">{{ item.value }}</div>
+          <div class="console-stat__hint">{{ item.hint }}</div>
+        </div>
+      </section>
 
-    <div class="console-card console-card--fill">
-    <el-form :inline="true" class="console-toolbar filter-form" @submit.prevent="handleSearch">
-      <div class="console-toolbar__filters">
-      <el-form-item label="操作用户ID">
-        <el-input
-          v-model.number="query.actor_user_id"
-          placeholder="用户ID"
-          style="width: 120px"
-          clearable
-        />
-      </el-form-item>
-      <el-form-item label="权限">
-        <el-input
-          v-model="query.permission_key"
-          placeholder="权限key"
-          style="width: 180px"
-          clearable
-        />
-      </el-form-item>
-      <el-form-item label="决策">
-        <el-select v-model="query.decision" clearable placeholder="全部" style="width: 120px">
-          <el-option label="允许" value="allowed" />
-          <el-option label="拒绝" value="denied" />
-        </el-select>
-      </el-form-item>
-      <el-form-item>
-        <el-button type="primary" :icon="Search" @click="handleSearch">查询</el-button>
-        <el-button @click="handleReset">重置</el-button>
-      </el-form-item>
-      </div>
-    </el-form>
+      <div class="workspace-surface__divider"></div>
+
+      <el-form :inline="true" class="workspace-surface__toolbar filter-form" @submit.prevent="handleSearch">
+        <div class="workspace-surface__filters">
+          <el-form-item label="操作用户ID">
+            <el-input
+              v-model.number="query.actor_user_id"
+              placeholder="用户ID"
+              style="width: 120px"
+              clearable
+            />
+          </el-form-item>
+          <el-form-item label="权限">
+            <el-input
+              v-model="query.permission_key"
+              placeholder="权限key"
+              style="width: 180px"
+              clearable
+            />
+          </el-form-item>
+          <el-form-item label="决策">
+            <el-select v-model="query.decision" clearable placeholder="全部" style="width: 120px">
+              <el-option label="允许" value="allowed" />
+              <el-option label="拒绝" value="denied" />
+            </el-select>
+          </el-form-item>
+        </div>
+        <div class="workspace-surface__actions">
+          <el-button type="primary" :icon="Search" @click="handleSearch">查询</el-button>
+          <el-button @click="handleReset">重置</el-button>
+        </div>
+      </el-form>
 
     <el-alert
       v-if="errorMessage"
-      class="page-error"
+      class="workspace-surface__error"
       type="error"
       :title="errorMessage"
       show-icon
@@ -141,7 +143,7 @@ onMounted(load)
       </template>
     </el-alert>
 
-    <div class="console-table-wrap table-wrapper">
+    <div class="workspace-surface__body">
       <el-table
         v-loading="loading"
         :data="logs"
@@ -185,7 +187,7 @@ onMounted(load)
       </el-table>
     </div>
 
-    <div class="console-pagination pagination-wrapper">
+    <div class="workspace-surface__pagination">
       <el-pagination
         v-model:current-page="query.page"
         v-model:page-size="query.page_size"

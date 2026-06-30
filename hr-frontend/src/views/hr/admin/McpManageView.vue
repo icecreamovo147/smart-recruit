@@ -13,6 +13,7 @@ import {
   Document,
   Sort,
   View,
+  ArrowDown,
 } from '@element-plus/icons-vue'
 import {
   listMcpServers,
@@ -444,38 +445,33 @@ onMounted(() => {
 
 <template>
   <div class="console-page console-page--fill mcp-manage-view">
-    <div class="console-header">
-      <div class="console-header__copy">
-        <p class="console-eyebrow">TOOL CENTER</p>
-        <h2 class="console-title">{{ viewTitle }}</h2>
-        <p class="console-description">接入和管理 MCP Server，统一查看工具能力、连接状态和调用审计，作为 Agent 工具层的控制台。</p>
-      </div>
-      <div class="console-header__actions">
-      <el-button
-        v-if="activeView !== 'list'"
-        :icon="Sort"
-        @click="goBackToList"
-      >
-        返回列表
-      </el-button>
-      <el-button v-if="activeView === 'list'" :icon="Refresh" @click="loadList">刷新</el-button>
-      <el-button v-if="activeView === 'list'" type="primary" :icon="Plus" @click="openCreate">新增 Server</el-button>
-      </div>
-    </div>
-
-    <!-- ════════════════════════════════════════════════════════════════════════
-         View 1: MCP Server List (Main)
-         ════════════════════════════════════════════════════════════════════════ -->
-    <template v-if="activeView === 'list'">
-      <div class="console-card console-card--fill">
-        <div class="console-card__head">
-          <div>
-            <h3 class="console-card__title">MCP Server 列表</h3>
-            <p class="console-card__desc">共 {{ filteredServers.length }} 个匹配服务</p>
-          </div>
+    <div class="workspace-surface">
+      <div class="workspace-surface__header">
+        <div class="workspace-surface__header-copy">
+          <p class="console-eyebrow">TOOL CENTER</p>
+          <h2 class="console-title">{{ viewTitle }}</h2>
+          <p class="console-description">接入和管理 MCP Server，统一查看工具能力、连接状态和调用审计，作为 Agent 工具层的控制台。</p>
         </div>
-        <div class="console-toolbar">
-          <div class="console-toolbar__filters">
+        <div class="workspace-surface__header-actions">
+          <el-button
+            v-if="activeView !== 'list'"
+            :icon="Sort"
+            @click="goBackToList"
+          >
+            返回列表
+          </el-button>
+          <el-button v-if="activeView === 'list'" :icon="Refresh" @click="loadList">刷新</el-button>
+          <el-button v-if="activeView === 'list'" type="primary" :icon="Plus" @click="openCreate">新增 Server</el-button>
+        </div>
+      </div>
+
+      <!-- ════════════════════════════════════════════════════════════════════════
+           View 1: MCP Server List (Main)
+           ════════════════════════════════════════════════════════════════════════ -->
+      <template v-if="activeView === 'list'">
+        <div class="workspace-surface__divider"></div>
+        <div class="workspace-surface__toolbar">
+          <div class="workspace-surface__filters">
             <el-input v-model="keywordFilter" :prefix-icon="Search" clearable placeholder="搜索名称 / 命令 / URL" style="width: 260px" />
             <el-select v-model="transportFilter" clearable placeholder="全部传输" style="width: 140px">
               <el-option v-for="opt in TRANSPORT_OPTIONS" :key="opt.value" :label="opt.label" :value="opt.value" />
@@ -487,7 +483,7 @@ onMounted(() => {
             </el-select>
           </div>
         </div>
-      <div class="console-table-wrap">
+      <div class="workspace-surface__body">
       <el-table
         v-loading="loading"
         :data="filteredServers"
@@ -537,28 +533,22 @@ onMounted(() => {
             {{ formatTime(row.updated_at) }}
           </template>
         </el-table-column>
-        <el-table-column label="操作" width="260" fixed="right">
+        <el-table-column label="操作" width="200" fixed="right">
           <template #default="{ row }: { row: McpServerInfo }">
             <el-button size="small" :icon="Connection" @click="handleTestConnection(row)" :loading="testingId === row.id">
               测试
             </el-button>
-            <el-button size="small" :icon="Document" @click="navigateToTools(row)">
-              工具
-            </el-button>
-            <el-button size="small" :icon="Monitor" @click="navigateToLogs(row)">
-              日志
-            </el-button>
             <el-button size="small" :icon="Edit" @click="openEdit(row)">
               编辑
             </el-button>
-            <el-dropdown trigger="click">
-              <el-button size="small" :icon="MoreFilled" circle />
+            <el-dropdown trigger="click" @command="(cmd: string) => { if (cmd === 'tools') navigateToTools(row); if (cmd === 'logs') navigateToLogs(row); if (cmd === 'toggle') handleToggleEnabled(row); if (cmd === 'delete') handleDelete(row) }">
+              <el-button size="small">更多<el-icon class="el-icon--right"><ArrowDown /></el-icon></el-button>
               <template #dropdown>
                 <el-dropdown-menu>
-                  <el-dropdown-item @click="handleToggleEnabled(row)">{{ row.is_enabled ? '禁用' : '启用' }}</el-dropdown-item>
-                  <el-dropdown-item divided style="color: var(--el-color-danger)" @click="handleDelete(row)">
-                    <el-icon><Delete /></el-icon>删除
-                  </el-dropdown-item>
+                  <el-dropdown-item command="tools" :icon="Document">工具</el-dropdown-item>
+                  <el-dropdown-item command="logs" :icon="Monitor">日志</el-dropdown-item>
+                  <el-dropdown-item command="toggle">{{ row.is_enabled ? '禁用' : '启用' }}</el-dropdown-item>
+                  <el-dropdown-item command="delete" divided style="color: var(--el-color-danger)">删除</el-dropdown-item>
                 </el-dropdown-menu>
               </template>
             </el-dropdown>
@@ -567,7 +557,7 @@ onMounted(() => {
       </el-table>
       </div>
 
-      <div class="console-pagination">
+      <div class="workspace-surface__pagination">
         <el-pagination
           v-model:current-page="page"
           v-model:page-size="pageSize"
@@ -578,22 +568,13 @@ onMounted(() => {
           @size-change="(s: number) => { pageSize = s; page = 1; loadList() }"
         />
       </div>
-      </div>
     </template>
 
     <!-- ════════════════════════════════════════════════════════════════════════
          View 2: Tool List (sub-view)
          ════════════════════════════════════════════════════════════════════════ -->
     <template v-if="activeView === 'tools'">
-      <div class="console-card console-card--fill">
-        <div class="console-card__head">
-          <div>
-            <h3 class="console-card__title">工具能力</h3>
-            <p class="console-card__desc">{{ selectedServer?.name }} 暴露的 Tool 与输入 Schema</p>
-          </div>
-          <el-button :icon="Refresh" @click="loadTools">刷新</el-button>
-        </div>
-        <div class="console-table-wrap">
+      <div class="workspace-surface__body">
       <el-table
         v-loading="toolsLoading"
         :data="tools"
@@ -622,7 +603,6 @@ onMounted(() => {
           </template>
         </el-table-column>
       </el-table>
-        </div>
       </div>
     </template>
 
@@ -630,9 +610,8 @@ onMounted(() => {
          View 3: Tool Call Logs (sub-view)
          ════════════════════════════════════════════════════════════════════════ -->
     <template v-if="activeView === 'logs'">
-      <div class="console-card console-card--fill">
-      <div class="console-toolbar">
-        <div class="console-toolbar__filters">
+      <div class="workspace-surface__toolbar">
+        <div class="workspace-surface__filters">
           <el-input
             v-model="logFilterToolName"
             placeholder="工具名"
@@ -658,12 +637,12 @@ onMounted(() => {
           />
           <el-button type="primary" @click="logPage = 1; loadLogs()">查询</el-button>
         </div>
-        <div class="console-toolbar__actions">
+        <div class="workspace-surface__actions">
         <el-button :icon="Refresh" @click="logPage = 1; loadLogs()">刷新</el-button>
         </div>
       </div>
 
-      <div class="console-table-wrap">
+      <div class="workspace-surface__body">
       <el-table
         v-loading="logsLoading"
         :data="logs"
@@ -708,7 +687,7 @@ onMounted(() => {
       </el-table>
       </div>
 
-      <div class="console-pagination">
+      <div class="workspace-surface__pagination">
         <el-pagination
           v-model:current-page="logPage"
           v-model:page-size="logPageSize"
@@ -718,7 +697,6 @@ onMounted(() => {
           @current-change="loadLogs"
           @size-change="(s: number) => { logPageSize = s; logPage = 1; loadLogs() }"
         />
-      </div>
       </div>
     </template>
 
@@ -837,6 +815,7 @@ onMounted(() => {
         <el-button @click="logDetailVisible = false">关闭</el-button>
       </template>
     </el-dialog>
+    </div>
   </div>
 </template>
 

@@ -473,137 +473,145 @@ onMounted(() => {
 
 <template>
   <div class="skill-manage-view">
-    <section class="page-header">
-      <div>
-        <p class="page-kicker">System Admin · Skill Registry</p>
-        <h2 class="page-title">{{ viewTitle }}</h2>
-        <p class="page-desc">
-          用于系统管理员维护底层 Skill Registry、Manifest 版本与运行时 Tool，不作为普通 HR 的业务能力入口。
-        </p>
-      </div>
-      <div class="page-actions">
-        <el-button v-if="activeView !== 'list'" text :icon="Sort" @click="goBackToList">
-          返回列表
-        </el-button>
-        <el-button v-if="activeView === 'list'" type="primary" :icon="Plus" @click="openCreate">
-          新增底层 SKILL
-        </el-button>
-      </div>
-    </section>
-
-    <template v-if="activeView === 'list'">
-      <el-card v-if="list.length === 0 && !loading" class="empty-card" shadow="never">
-        <el-empty :description="error || '暂无底层 SKILL 配置'">
-          <div class="empty-copy">
-            当前还没有系统级 Skill Registry 条目。请由系统管理员添加底层 SKILL，并通过 Manifest 版本声明 Runtime Config、Tool 暴露与运行时绑定。
-          </div>
-          <div class="empty-actions">
-            <el-button type="primary" :icon="Plus" @click="openCreate">新增底层 SKILL</el-button>
-            <el-button @click="openCreateWithSource('git')">从 Git 导入</el-button>
-            <el-button text :icon="Document" @click="exampleVisible = true">查看示例</el-button>
-          </div>
-        </el-empty>
-      </el-card>
-
-      <el-card v-else class="table-card" shadow="never">
-        <div class="filter-toolbar">
-          <el-input
-            v-model="keywordFilter"
-            class="filter-search"
-            :prefix-icon="Search"
-            clearable
-            placeholder="搜索底层 SKILL 名称 / 标识"
-          />
-          <el-select v-model="sourceFilter" placeholder="全部来源" clearable class="filter-select">
-            <el-option
-              v-for="opt in SOURCE_OPTIONS"
-              :key="opt.value"
-              :value="opt.value"
-              :label="opt.label"
-            />
-          </el-select>
-          <el-select v-model="statusFilter" placeholder="全部状态" clearable class="filter-select">
-            <el-option value="enabled" label="已启用" />
-            <el-option value="disabled" label="已禁用" />
-          </el-select>
-          <div class="filter-actions">
-            <el-button @click="resetListFilters">重置</el-button>
-            <el-button :icon="Refresh" @click="loadList">刷新</el-button>
-          </div>
+    <div class="workspace-surface">
+      <div class="workspace-surface__header">
+        <div class="workspace-surface__header-copy">
+          <p class="page-kicker">System Admin · Skill Registry</p>
+          <h2 class="page-title">{{ viewTitle }}</h2>
+          <p class="page-desc">
+            用于系统管理员维护底层 Skill Registry、Manifest 版本与运行时 Tool，不作为普通 HR 的业务能力入口。
+          </p>
         </div>
+        <div class="workspace-surface__header-actions">
+          <el-button v-if="activeView !== 'list'" text :icon="Sort" @click="goBackToList">
+            返回列表
+          </el-button>
+          <el-button v-if="activeView === 'list'" type="primary" :icon="Plus" @click="openCreate">
+            新增底层 SKILL
+          </el-button>
+        </div>
+      </div>
 
-        <el-table
-          v-loading="loading"
-          :data="filteredSkills"
-          stripe
-          style="width: 100%"
-          :empty-text="error || '暂无匹配的底层 SKILL 配置'"
-          @row-click="openDetail"
-        >
-          <el-table-column label="Skill 信息" min-width="240">
-            <template #default="{ row }: { row: SkillInfo }">
-              <div class="entity-cell">
-                <div class="entity-title">{{ row.display_name || row.name }}</div>
-                <div class="entity-sub">{{ row.name }}</div>
-                <div v-if="row.description" class="entity-desc">{{ row.description }}</div>
-              </div>
-            </template>
-          </el-table-column>
-          <el-table-column label="来源" min-width="220" show-overflow-tooltip>
-            <template #default="{ row }: { row: SkillInfo }">
-              <el-tag size="small" effect="plain">{{ sourceLabel(row.source_type) }}</el-tag>
-              <span class="source-uri">{{ row.source_uri || '-' }}</span>
-            </template>
-          </el-table-column>
-          <el-table-column label="当前版本" width="112">
-            <template #default="{ row }: { row: SkillInfo }">
-              <el-tag v-if="row.current_version_id" size="small" type="success">#{{ row.current_version_id }}</el-tag>
-              <el-tag v-else size="small" type="info">未设置</el-tag>
-            </template>
-          </el-table-column>
-          <el-table-column label="Tools / 版本入口" width="174">
-            <template #default="{ row }: { row: SkillInfo }">
-              <div class="inline-actions">
-                <el-button size="small" :icon="Document" @click.stop="navigateToVersions(row)">版本</el-button>
-                <el-button size="small" :icon="Tools" @click.stop="navigateToTools(row)">Tools</el-button>
-              </div>
-            </template>
-          </el-table-column>
-          <el-table-column label="状态" width="90">
-            <template #default="{ row }: { row: SkillInfo }">
-              <el-switch
-                :model-value="row.is_enabled"
-                size="small"
-                @click.stop="handleToggleEnabled(row)"
+      <div class="workspace-surface__divider"></div>
+
+      <template v-if="activeView === 'list'">
+        <el-card v-if="list.length === 0 && !loading" class="empty-card" shadow="never">
+          <el-empty :description="error || '暂无底层 SKILL 配置'">
+            <div class="empty-copy">
+              当前还没有系统级 Skill Registry 条目。请由系统管理员添加底层 SKILL，并通过 Manifest 版本声明 Runtime Config、Tool 暴露与运行时绑定。
+            </div>
+            <div class="empty-actions">
+              <el-button type="primary" :icon="Plus" @click="openCreate">新增底层 SKILL</el-button>
+              <el-button @click="openCreateWithSource('git')">从 Git 导入</el-button>
+              <el-button text :icon="Document" @click="exampleVisible = true">查看示例</el-button>
+            </div>
+          </el-empty>
+        </el-card>
+
+        <template v-else>
+          <div class="workspace-surface__toolbar">
+            <div class="workspace-surface__filters">
+              <el-input
+                v-model="keywordFilter"
+                style="width: 260px"
+                :prefix-icon="Search"
+                clearable
+                placeholder="搜索底层 SKILL 名称 / 标识"
               />
-            </template>
-          </el-table-column>
-          <el-table-column label="更新时间" width="170">
-            <template #default="{ row }: { row: SkillInfo }">
-              {{ formatTime(row.updated_at) }}
-            </template>
-          </el-table-column>
-          <el-table-column label="操作" width="150" fixed="right">
-            <template #default="{ row }: { row: SkillInfo }">
-              <el-button size="small" :icon="View" @click.stop="openDetail(row)">详情</el-button>
-              <el-button size="small" :icon="Edit" @click.stop="openEdit(row)">编辑</el-button>
-            </template>
-          </el-table-column>
-        </el-table>
+              <el-select v-model="sourceFilter" placeholder="全部来源" clearable style="width: 140px">
+                <el-option
+                  v-for="opt in SOURCE_OPTIONS"
+                  :key="opt.value"
+                  :value="opt.value"
+                  :label="opt.label"
+                />
+              </el-select>
+              <el-select v-model="statusFilter" placeholder="全部状态" clearable style="width: 140px">
+                <el-option value="enabled" label="已启用" />
+                <el-option value="disabled" label="已禁用" />
+              </el-select>
+            </div>
+            <div class="workspace-surface__actions">
+              <el-button @click="resetListFilters">重置</el-button>
+              <el-button :icon="Refresh" @click="loadList">刷新</el-button>
+            </div>
+          </div>
 
-        <div class="pagination-wrap">
-          <el-pagination
-            v-model:current-page="page"
-            v-model:page-size="pageSize"
-            :total="total"
-            :page-sizes="[10, 20, 50]"
-            layout="total, sizes, prev, pager, next"
-            @current-change="loadList"
-            @size-change="(s: number) => { pageSize = s; page = 1; loadList() }"
-          />
-        </div>
-      </el-card>
-    </template>
+          <div class="workspace-surface__body">
+            <el-table
+              v-loading="loading"
+              :data="filteredSkills"
+              stripe
+              style="width: 100%"
+              :empty-text="error || '暂无匹配的底层 SKILL 配置'"
+              @row-click="openDetail"
+            >
+              <el-table-column label="Skill 信息" min-width="240">
+                <template #default="{ row }: { row: SkillInfo }">
+                  <div class="entity-cell">
+                    <div class="entity-title">{{ row.display_name || row.name }}</div>
+                    <div class="entity-sub">{{ row.name }}</div>
+                    <div v-if="row.description" class="entity-desc">{{ row.description }}</div>
+                  </div>
+                </template>
+              </el-table-column>
+              <el-table-column label="来源" min-width="220" show-overflow-tooltip>
+                <template #default="{ row }: { row: SkillInfo }">
+                  <el-tag size="small" effect="plain">{{ sourceLabel(row.source_type) }}</el-tag>
+                  <span class="source-uri">{{ row.source_uri || '-' }}</span>
+                </template>
+              </el-table-column>
+              <el-table-column label="当前版本" width="112">
+                <template #default="{ row }: { row: SkillInfo }">
+                  <el-tag v-if="row.current_version_id" size="small" type="success">#{{ row.current_version_id }}</el-tag>
+                  <el-tag v-else size="small" type="info">未设置</el-tag>
+                </template>
+              </el-table-column>
+              <el-table-column label="Tools / 版本入口" width="174">
+                <template #default="{ row }: { row: SkillInfo }">
+                  <div class="inline-actions">
+                    <el-button size="small" :icon="Document" @click.stop="navigateToVersions(row)">版本</el-button>
+                    <el-button size="small" :icon="Tools" @click.stop="navigateToTools(row)">Tools</el-button>
+                  </div>
+                </template>
+              </el-table-column>
+              <el-table-column label="状态" width="90">
+                <template #default="{ row }: { row: SkillInfo }">
+                  <el-switch
+                    :model-value="row.is_enabled"
+                    size="small"
+                    @click.stop="handleToggleEnabled(row)"
+                  />
+                </template>
+              </el-table-column>
+              <el-table-column label="更新时间" width="170">
+                <template #default="{ row }: { row: SkillInfo }">
+                  {{ formatTime(row.updated_at) }}
+                </template>
+              </el-table-column>
+              <el-table-column label="操作" width="150" fixed="right">
+                <template #default="{ row }: { row: SkillInfo }">
+                  <el-button size="small" :icon="View" @click.stop="openDetail(row)">详情</el-button>
+                  <el-button size="small" :icon="Edit" @click.stop="openEdit(row)">编辑</el-button>
+                </template>
+              </el-table-column>
+            </el-table>
+          </div>
+
+          <div class="workspace-surface__pagination">
+            <el-pagination
+              v-model:current-page="page"
+              v-model:page-size="pageSize"
+              :total="total"
+              :page-sizes="[10, 20, 50]"
+              layout="total, sizes, prev, pager, next"
+              @current-change="loadList"
+              @size-change="(s: number) => { pageSize = s; page = 1; loadList() }"
+            />
+          </div>
+        </template>
+      </template>
+    </div>
 
     <template v-else-if="activeView === 'versions'">
       <el-card class="table-card" shadow="never">
