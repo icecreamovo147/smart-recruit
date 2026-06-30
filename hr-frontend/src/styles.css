@@ -522,7 +522,7 @@ a {
   flex: 1;
   display: flex;
   flex-direction: column;
-  padding: 24px 32px 32px;
+  padding: 12px;
   min-width: 0;
   min-height: 0;
   overflow: hidden;
@@ -1956,7 +1956,7 @@ a {
 
   /* Main panel */
   .main-panel {
-    padding: var(--mobile-page-y) var(--mobile-page-x);
+    padding: 12px;
     overflow: visible;
     display: block;
   }
@@ -2409,13 +2409,13 @@ a {
 /* ---- Phone: <= 480px ---- */
 @media (max-width: 480px) {
   .page-title { font-size: 20px; }
-  .main-panel { padding: 12px var(--mobile-page-x); }
+  .main-panel { padding: 12px; }
   .chat-composer { margin: 0 6px 6px; }
 }
 
 /* ---- Tablet: 481px - 768px ---- */
 @media (min-width: 481px) and (max-width: 768px) {
-  .main-panel { padding: 18px 20px; }
+  .main-panel { padding: 12px; }
   .top-header { padding: 0 16px; }
   .page-title { font-size: 23px; }
   .el-dialog { width: min(640px, calc(100vw - 24px)) !important; }
@@ -2423,6 +2423,6 @@ a {
 
 /* ---- Tablet: 769px - 1024px ---- */
 @media (min-width: 769px) and (max-width: 1024px) {
-  .main-panel { padding: 20px 24px; }
+  .main-panel { padding: 12px; }
   .el-dialog { max-width: calc(100vw - 48px); }
 }

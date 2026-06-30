@@ -21,12 +21,17 @@ const logoSrc = computed(() => isDark.value ? logoSmallDark : logoSmallLight)
 const sidebarCollapsed = ref(false)
 const mobileSidebarOpen = ref(false)
 const taxonomyOpen = ref(false)
+const llmConfigOpen = ref(route.path.startsWith('/hr/admin/llm-config'))
 const usageAuditOpen = ref(false)
 const isAuthRoute = computed(() => route.path === '/login' || route.path === '/register')
 const canManageAgentSkills = computed(() => auth.isRecruitingAdmin || auth.isSystemAdmin)
 
 const toggleTaxonomy = () => {
   taxonomyOpen.value = !taxonomyOpen.value
+}
+
+const toggleLlmConfig = () => {
+  llmConfigOpen.value = !llmConfigOpen.value
 }
 
 const toggleUsageAudit = () => {
@@ -41,6 +46,9 @@ watch(() => route.fullPath, () => {
   // Auto-expand taxonomy group when on a taxonomy sub-page
   if (route.path.startsWith('/hr/admin/departments') || route.path.startsWith('/hr/admin/locations')) {
     taxonomyOpen.value = true
+  }
+  if (route.path.startsWith('/hr/admin/llm-config')) {
+    llmConfigOpen.value = true
   }
   if (route.path.startsWith('/hr/admin/usage')) {
     usageAuditOpen.value = true
@@ -167,10 +175,23 @@ const routeViewKey = (viewRoute: { fullPath: string; path: string; params: Recor
         <el-icon><UserFilled /></el-icon>
         <span>员工账号</span>
       </RouterLink>
-      <RouterLink v-if="auth.hasPermission(PERM.SYSTEM_CONFIG_MANAGE)" class="sidebar-link" to="/hr/admin/llm-config" @click="closeMobileSidebar">
-        <el-icon><Tools /></el-icon>
-        <span>模型配置</span>
-      </RouterLink>
+      <template v-if="auth.hasPermission(PERM.SYSTEM_CONFIG_MANAGE)">
+        <button class="sidebar-link sidebar-group-toggle" type="button" :aria-expanded="llmConfigOpen && !sidebarCollapsed" @click="toggleLlmConfig">
+          <el-icon><Tools /></el-icon>
+          <span>模型配置</span>
+          <el-icon class="group-arrow" :class="{ 'group-arrow--open': llmConfigOpen }"><ArrowDown /></el-icon>
+        </button>
+        <div class="sidebar-sub-wrap" :class="{ 'sidebar-sub-wrap--open': llmConfigOpen && !sidebarCollapsed }">
+          <div class="sidebar-sub-group">
+            <RouterLink class="sidebar-link sidebar-sub-link" to="/hr/admin/llm-config/providers" @click="closeMobileSidebar">
+              <span>Provider 配置</span>
+            </RouterLink>
+            <RouterLink class="sidebar-link sidebar-sub-link" to="/hr/admin/llm-config/models" @click="closeMobileSidebar">
+              <span>Model 配置</span>
+            </RouterLink>
+          </div>
+        </div>
+      </template>
       <RouterLink v-if="auth.hasPermission(PERM.SYSTEM_CONFIG_MANAGE)" class="sidebar-link" to="/hr/admin/prompts" @click="closeMobileSidebar">
         <el-icon><Edit /></el-icon>
         <span>Prompt 管理</span>

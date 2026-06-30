@@ -32,6 +32,10 @@ import type {
   UpdateModelPayload,
 } from '@/types/llm'
 
+const props = defineProps<{
+  section?: 'providers' | 'models'
+}>()
+
 type ConnectionStatus = 'unknown' | 'success' | 'failed'
 
 interface ProviderHealth {
@@ -377,9 +381,21 @@ const handleDeleteModel = async (row: LlmModel) => {
 
 // ====== Tab Switch ======
 
-const activeTab = ref('providers')
+const activeTab = ref<'providers' | 'models'>(props.section || 'providers')
+const isSingleSection = computed(() => Boolean(props.section))
+const currentSection = computed<'providers' | 'models'>(() => props.section || activeTab.value)
+const pageTitle = computed(() => {
+  if (props.section === 'providers') return 'Provider 配置'
+  if (props.section === 'models') return 'Model 配置'
+  return '模型配置'
+})
+const pageDescription = computed(() => {
+  if (props.section === 'providers') return '统一管理大模型服务商、API 入口、密钥和连接健康状态。'
+  if (props.section === 'models') return '统一管理模型参数、默认路由、并发和可用状态，支撑 HR AI 对话、分析与自动化能力。'
+  return '统一管理大模型服务商、模型参数和默认路由，支撑 HR AI 对话、分析与自动化能力。'
+})
 
-const onTabChange = (tab: string) => {
+const onTabChange = (tab: string | number) => {
   if (tab === 'providers') {
     loadProviders()
   } else if (tab === 'models') {
@@ -530,7 +546,7 @@ const resetModelFilters = () => {
 // ====== Init ======
 
 onMounted(() => {
-  loadProviders()
+  onTabChange(currentSection.value)
 })
 </script>
 
@@ -539,18 +555,22 @@ onMounted(() => {
     <section class="page-header">
       <div>
         <p class="page-kicker">AI Platform Console</p>
-        <h2 class="page-title">模型配置</h2>
-        <p class="page-description">统一管理大模型服务商、模型参数和默认路由，支撑 HR AI 对话、分析与自动化能力。</p>
+        <h2 class="page-title">{{ pageTitle }}</h2>
+        <p class="page-description">{{ pageDescription }}</p>
       </div>
       <div class="page-actions">
-        <el-button :icon="Refresh" @click="activeTab === 'providers' ? loadProviders() : loadModels()">刷新</el-button>
-        <el-button v-if="activeTab === 'providers'" type="primary" :icon="Plus" @click="openCreateProvider">新增 Provider</el-button>
+        <el-button :icon="Refresh" @click="currentSection === 'providers' ? loadProviders() : loadModels()">刷新</el-button>
+        <el-button v-if="currentSection === 'providers'" type="primary" :icon="Plus" @click="openCreateProvider">新增 Provider</el-button>
         <el-button v-else type="primary" :icon="Plus" @click="openCreateModel">新增 Model</el-button>
       </div>
     </section>
 
-    <el-tabs v-model="activeTab" class="console-tabs" @tab-change="onTabChange">
-      <el-tab-pane label="Provider" name="providers">
+    <el-tabs v-if="!isSingleSection" v-model="activeTab" class="console-tabs" @tab-change="onTabChange">
+      <el-tab-pane label="Provider" name="providers" />
+      <el-tab-pane label="Model" name="models" />
+    </el-tabs>
+
+    <template v-if="currentSection === 'providers'">
         <div class="stats-grid">
           <div v-for="item in providerStats" :key="item.label" class="stat-card" :class="`tone-${item.tone}`">
             <span>{{ item.label }}</span>
@@ -671,9 +691,9 @@ onMounted(() => {
             />
           </div>
         </section>
-      </el-tab-pane>
+    </template>
 
-      <el-tab-pane label="Model" name="models">
+    <template v-else>
         <div class="stats-grid">
           <div v-for="item in modelStats" :key="item.label" class="stat-card" :class="`tone-${item.tone}`">
             <span>{{ item.label }}</span>
@@ -802,8 +822,7 @@ onMounted(() => {
             />
           </div>
         </section>
-      </el-tab-pane>
-    </el-tabs>
+    </template>
 
     <el-drawer
       v-model="providerDrawerVisible"

@@ -21,7 +21,8 @@ const UsageStatsView = () => import('@/views/hr/UsageStatsView.vue')
 const SecurityAuditView = () => import('@/views/hr/SecurityAuditView.vue')
 const AnalyticsView = () => import('@/views/hr/AnalyticsView.vue')
 const StaffUserManageView = () => import('@/views/hr/StaffUserManageView.vue')
-const LlmConfigView = () => import('@/views/hr/LlmConfigView.vue')
+const LlmProviderConfigView = () => import('@/views/hr/LlmProviderConfigView.vue')
+const LlmModelConfigView = () => import('@/views/hr/LlmModelConfigView.vue')
 const PromptManageView = () => import('@/views/hr/PromptManageView.vue')
 const AgentManageView = () => import('@/views/hr/admin/AgentManageView.vue')
 const McpManageView = () => import('@/views/hr/admin/McpManageView.vue')
@@ -128,10 +129,16 @@ const routes: RouteRecordRaw[] = [
     component: StaffUserManageView,
     meta: { requiresAuth: true, requiresPermission: PERM.ADMIN_USER_MANAGE, title: '员工账号管理' },
   },
+  { path: '/hr/admin/llm-config', redirect: '/hr/admin/llm-config/providers' },
   {
-    path: '/hr/admin/llm-config',
-    component: LlmConfigView,
-    meta: { requiresAuth: true, requiresPermission: PERM.SYSTEM_CONFIG_MANAGE, title: '模型配置' },
+    path: '/hr/admin/llm-config/providers',
+    component: LlmProviderConfigView,
+    meta: { requiresAuth: true, requiresPermission: PERM.SYSTEM_CONFIG_MANAGE, title: 'Provider 配置' },
+  },
+  {
+    path: '/hr/admin/llm-config/models',
+    component: LlmModelConfigView,
+    meta: { requiresAuth: true, requiresPermission: PERM.SYSTEM_CONFIG_MANAGE, title: 'Model 配置' },
   },
   {
     path: '/hr/admin/prompts',
