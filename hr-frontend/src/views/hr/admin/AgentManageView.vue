@@ -145,20 +145,6 @@ const filteredList = computed(() => {
   })
 })
 
-const stats = computed(() => {
-  const enabled = list.value.filter((item) => item.is_enabled).length
-  const defaults = list.value.filter((item) => item.is_default).length
-  const promptBound = list.value.filter((item) => item.prompt_template_id || item.prompt_template_name).length
-  const capabilityCount = list.value.reduce((sum, item) => sum + getAgentCapabilityCount(item), 0)
-  return [
-    { label: 'Agent 总数', value: total.value || list.value.length },
-    { label: '已启用', value: enabled },
-    { label: '默认 Agent', value: defaults },
-    { label: '已绑定 Prompt', value: promptBound },
-    { label: '工具/能力绑定数', value: capabilityCount },
-  ]
-})
-
 const resetFilters = () => {
   keywordFilter.value = ''
   agentTypeFilter.value = ''
@@ -189,7 +175,7 @@ const dialogForm = reactive({
   display_name: '',
   description: '',
   agent_type: 'hr_recruiting_agent',
-  prompt_template_id: 0,
+  prompt_template_id: null as number | null,
   instruction: '',
   max_iterations: 5,
   temperature_override: 0,
@@ -274,7 +260,7 @@ const resetDialogForm = () => {
   dialogForm.display_name = ''
   dialogForm.description = ''
   dialogForm.agent_type = 'hr_recruiting_agent'
-  dialogForm.prompt_template_id = 0
+  dialogForm.prompt_template_id = null
   dialogForm.instruction = ''
   dialogForm.max_iterations = 5
   dialogForm.temperature_override = 0
@@ -301,7 +287,7 @@ const openEdit = async (row: AgentConfigInfo) => {
   dialogForm.display_name = row.display_name
   dialogForm.description = row.description || ''
   dialogForm.agent_type = row.agent_type
-  dialogForm.prompt_template_id = row.prompt_template_id || 0
+  dialogForm.prompt_template_id = row.prompt_template_id || null
   dialogForm.instruction = row.instruction || ''
   dialogForm.max_iterations = row.max_iterations || 5
   dialogForm.temperature_override = row.temperature_override || 0
@@ -341,8 +327,8 @@ const save = async () => {
         display_name: dialogForm.display_name,
       }
       if (dialogForm.description) payload.description = dialogForm.description
-      payload.prompt_template_id = dialogForm.prompt_template_id
-      payload.prompt_template_id_set = dialogForm.prompt_template_id > 0
+      payload.prompt_template_id = dialogForm.prompt_template_id ?? undefined
+      payload.prompt_template_id_set = (dialogForm.prompt_template_id ?? 0) > 0
       if (dialogForm.instruction) payload.instruction = dialogForm.instruction
       payload.max_iterations = dialogForm.max_iterations
       payload.max_iterations_set = true
@@ -363,7 +349,7 @@ const save = async () => {
         agent_type: dialogForm.agent_type,
       }
       if (dialogForm.description) payload.description = dialogForm.description
-      if (dialogForm.prompt_template_id > 0) payload.prompt_template_id = dialogForm.prompt_template_id
+      if ((dialogForm.prompt_template_id ?? 0) > 0) payload.prompt_template_id = dialogForm.prompt_template_id ?? undefined
       if (dialogForm.instruction) payload.instruction = dialogForm.instruction
       payload.max_iterations = dialogForm.max_iterations
       payload.temperature_override = dialogForm.temperature_override
@@ -421,13 +407,6 @@ onMounted(() => {
       </div>
       <div class="page-actions">
         <el-button type="primary" :icon="Plus" @click="openCreate">新增 Agent</el-button>
-      </div>
-    </section>
-
-    <section class="stats-grid">
-      <div v-for="item in stats" :key="item.label" class="stat-card">
-        <div class="stat-label">{{ item.label }}</div>
-        <div class="stat-value">{{ item.value }}</div>
       </div>
     </section>
 
@@ -783,33 +762,6 @@ onMounted(() => {
   line-height: 1.5;
 }
 
-.stats-grid {
-  display: grid;
-  grid-template-columns: repeat(5, minmax(130px, 1fr));
-  gap: 12px;
-  margin-bottom: 12px;
-  flex-shrink: 0;
-}
-
-.stat-card {
-  border: 1px solid var(--el-border-color-light);
-  border-radius: 8px;
-  padding: 10px 14px;
-  background: var(--el-bg-color);
-}
-
-.stat-label {
-  color: var(--el-text-color-secondary);
-  font-size: 13px;
-}
-
-.stat-value {
-  margin-top: 4px;
-  color: var(--el-text-color-primary);
-  font-size: 22px;
-  font-weight: 650;
-}
-
 .table-card {
   border-radius: 8px;
   flex: 1;
@@ -955,10 +907,6 @@ onMounted(() => {
   .filter-actions {
     align-items: stretch;
     flex-direction: column;
-  }
-
-  .stats-grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   .filter-search,

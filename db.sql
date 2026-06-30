@@ -598,6 +598,9 @@ INSERT INTO `permissions` (`permission_key`, `resource`, `action`, `description`
   ('notification.read',              'notification','read',   '查看自己的通知'),
   ('ai.hr.use',                      'ai',          'use',    '使用HR AI助手'),
   ('ai.candidate.use',               'ai',          'use',    '使用候选人AI助手'),
+  ('ai.prompt.manage',               'ai',          'manage', '管理招聘 Prompt 模板'),
+  ('ai.agent.manage',                'ai',          'manage', '管理招聘 Agent 配置'),
+  ('ai.agent_skill.manage',          'ai',          'manage', '管理招聘 Agent Skill'),
   ('admin.invite.manage',            'admin',       'manage', '管理邀请码'),
   ('admin.department.manage',        'admin',       'manage', '管理部门及部门地点关联'),
   ('admin.location.manage',          'admin',       'manage', '管理工作地点'),
@@ -649,7 +652,8 @@ INSERT IGNORE INTO `role_permissions` (`role_id`, `permission_id`)
     'admin.invite.manage', 'admin.department.manage', 'admin.location.manage',
     'admin.user.manage', 'admin.role.manage', 'audit.usage.read',
     'collaboration.note.read', 'collaboration.note.create',
-    'collaboration.tag.manage', 'collaboration.task.manage'
+    'collaboration.tag.manage', 'collaboration.task.manage',
+    'ai.prompt.manage', 'ai.agent.manage', 'ai.agent_skill.manage'
   );
 
 -- System Admin (platform-level only, no recruiting workflow)
@@ -657,7 +661,8 @@ INSERT IGNORE INTO `role_permissions` (`role_id`, `permission_id`)
   SELECT r.id, p.id FROM `roles` r, `permissions` p
   WHERE r.role_key = 'system_admin' AND p.permission_key IN (
     'auth.session.read', 'admin.user.manage', 'admin.role.manage',
-    'audit.usage.read', 'audit.security.read', 'system.config.manage'
+    'audit.usage.read', 'audit.security.read', 'system.config.manage',
+    'ai.prompt.manage', 'ai.agent.manage', 'ai.agent_skill.manage'
   );
 
 -- Interviewer

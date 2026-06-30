@@ -101,13 +101,6 @@ const filteredTemplates = computed(() => {
   })
 })
 
-const promptStats = computed(() => [
-  { label: '模板总数', value: templateTotal.value || templateList.value.length, hint: '可绑定到 Agent 的 Prompt 资产' },
-  { label: '已启用', value: templateList.value.filter((item) => item.is_active).length, hint: '当前可用模板' },
-  { label: '变量数量', value: templateList.value.reduce((sum, item) => sum + extractVariables(item.content).length, 0), hint: '检测到的占位符总数' },
-  { label: '候选人模板', value: templateList.value.filter((item) => item.agent_type === 'candidate_assistant').length, hint: '面向候选人侧 Agent' },
-])
-
 // ====== Edit / Create Dialog ======
 
 const dialogVisible = ref(false)
@@ -339,14 +332,6 @@ onMounted(() => {
         <el-button type="primary" :icon="Plus" @click="openCreate">新增模板</el-button>
       </div>
     </div>
-
-    <section class="console-stats">
-      <div v-for="item in promptStats" :key="item.label" class="console-stat">
-        <div class="console-stat__label">{{ item.label }}</div>
-        <div class="console-stat__value">{{ item.value }}</div>
-        <div class="console-stat__hint">{{ item.hint }}</div>
-      </div>
-    </section>
 
     <div class="console-card console-card--fill">
       <div class="console-card__head">

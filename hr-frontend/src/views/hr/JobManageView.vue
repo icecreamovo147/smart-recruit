@@ -271,13 +271,6 @@ const filteredJobs = computed(() => {
   })
 })
 
-const jobStats = computed(() => [
-  { label: '岗位总数', value: total.value || jobs.value.length, hint: '当前招聘中的岗位资产' },
-  { label: '招募中', value: jobs.value.filter((item) => item.status === 1).length, hint: '候选人可见岗位' },
-  { label: '已下架', value: jobs.value.filter((item) => item.status !== 1).length, hint: '暂不继续接收投递' },
-  { label: '投递总量', value: jobs.value.reduce((sum, item) => sum + Number(item.application_count || 0), 0), hint: '当前列表内累计投递' },
-])
-
 onMounted(() => {
   load()
   loadOptions()
@@ -297,14 +290,6 @@ onMounted(() => {
         <el-button type="primary" :icon="Plus" @click="openCreate">新增岗位</el-button>
       </div>
     </div>
-
-    <section class="console-stats">
-      <div v-for="item in jobStats" :key="item.label" class="console-stat">
-        <div class="console-stat__label">{{ item.label }}</div>
-        <div class="console-stat__value">{{ item.value }}</div>
-        <div class="console-stat__hint">{{ item.hint }}</div>
-      </div>
-    </section>
 
     <div class="console-card console-card--fill job-management-surface">
       <div class="console-card__head">

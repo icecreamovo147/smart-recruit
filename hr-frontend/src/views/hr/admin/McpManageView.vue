@@ -133,13 +133,6 @@ const filteredServers = computed(() => {
   })
 })
 
-const serverStats = computed(() => [
-  { label: 'Server 总数', value: total.value || list.value.length, hint: '可供 Agent 调用的 MCP 服务' },
-  { label: '已连接', value: list.value.filter((item) => item.status === 'connected').length, hint: '最近连接状态正常' },
-  { label: '已启用', value: list.value.filter((item) => item.is_enabled).length, hint: '可参与能力发现' },
-  { label: '工具总数', value: list.value.reduce((sum, item) => sum + Number(item.tool_count || 0), 0), hint: '当前服务暴露 Tool 数' },
-])
-
 // ====== Edit / Create Dialog ======
 
 const dialogVisible = ref(false)
@@ -474,14 +467,6 @@ onMounted(() => {
          View 1: MCP Server List (Main)
          ════════════════════════════════════════════════════════════════════════ -->
     <template v-if="activeView === 'list'">
-      <section class="console-stats">
-        <div v-for="item in serverStats" :key="item.label" class="console-stat">
-          <div class="console-stat__label">{{ item.label }}</div>
-          <div class="console-stat__value">{{ item.value }}</div>
-          <div class="console-stat__hint">{{ item.hint }}</div>
-        </div>
-      </section>
-
       <div class="console-card console-card--fill">
         <div class="console-card__head">
           <div>

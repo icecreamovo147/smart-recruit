@@ -35,6 +35,9 @@ export const listModels = (page = 1, pageSize = 20, providerId?: number): Promis
   return request.get('/api/v1/hr/admin/llm-models', { params })
 }
 
+export const listAvailableModels = (page = 1, pageSize = 200): Promise<PaginatedList<LlmModel>> =>
+  request.get('/api/v1/hr/ai/models', { params: { page, page_size: pageSize } })
+
 export const createModel = (data: CreateModelPayload): Promise<{ model: LlmModel }> =>
   request.post('/api/v1/hr/admin/llm-models', data)
 

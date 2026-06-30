@@ -143,7 +143,7 @@ function createDefaultFlow(): AgentSkillCanvasFlow {
 const flow = ref<AgentSkillCanvasFlow>(createDefaultFlow())
 
 const isEditing = computed(() => Boolean(editingSkill.value))
-const saveButtonText = computed(() => (isEditing.value ? '保存并发布新版本' : '创建 Agent Skill'))
+const saveButtonText = computed(() => (isEditing.value ? '保存' : '创建 Agent Skill'))
 const currentVersion = computed(() => (
   versions.value.find((item) => item.id === versionSkill.value?.current_version_id)
   || versions.value.find((item) => item.is_current)
@@ -539,6 +539,17 @@ const openPreviewDrawer = async () => {
 
 const saveSkill = async () => {
   if (saving.value) return
+  if (editingSkill.value) {
+    try {
+      await ElMessageBox.confirm(
+        '保存将覆盖当前版本的 Agent Skill，确定继续？',
+        '确认保存',
+        { confirmButtonText: '确定', cancelButtonText: '取消', type: 'warning' },
+      )
+    } catch {
+      return
+    }
+  }
   await refreshPreview()
   if (!validation.value.valid) {
     ElMessage.warning('请先修复校验错误')
@@ -864,7 +875,6 @@ onMounted(() => {
           <el-button plain @click="resetOrCloseBuilder">
             {{ isEditing ? '退出编辑' : '清空重置' }}
           </el-button>
-          <el-button plain @click="closeBuilderDialog">取消</el-button>
           <el-button
             type="primary"
             :icon="CircleCheck"

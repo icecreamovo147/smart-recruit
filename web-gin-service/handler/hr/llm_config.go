@@ -142,6 +142,43 @@ func (h *LlmConfigHandler) ListModels(c *gin.Context) {
 	})
 }
 
+func (h *LlmConfigHandler) ListAvailableModels(c *gin.Context) {
+	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
+	pageSize, _ := strconv.Atoi(c.DefaultQuery("page_size", "200"))
+	if pageSize <= 0 || pageSize > 200 {
+		pageSize = 200
+	}
+
+	resp, err := h.clients.LlmConfig.ListModels(c.Request.Context(), &pb.ListModelsRequest{
+		Page:     int32(page),
+		PageSize: int32(pageSize),
+	})
+	if err != nil {
+		logger.L().Error("ListAvailableModels failed", zap.Error(err))
+		base.Internal(c, err)
+		return
+	}
+
+	list := make([]gin.H, 0, len(resp.List))
+	for _, model := range resp.List {
+		if model == nil || !model.GetIsEnabled() {
+			continue
+		}
+		list = append(list, gin.H{
+			"id":           model.GetId(),
+			"model_name":   model.GetModelName(),
+			"display_name": model.GetDisplayName(),
+			"is_enabled":   model.GetIsEnabled(),
+			"is_default":   model.GetIsDefault(),
+		})
+	}
+
+	base.From(c, resp.Code, resp.Msg, gin.H{
+		"total": int64(len(list)),
+		"list":  list,
+	})
+}
+
 func (h *LlmConfigHandler) CreateModel(c *gin.Context) {
 	var req pb.CreateModelRequest
 	if err := c.ShouldBindJSON(&req); err != nil {

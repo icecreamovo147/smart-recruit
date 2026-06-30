@@ -12,12 +12,14 @@ const ProfileView = () => import('@/views/candidate/ProfileView.vue')
 const ResumeUploadView = () => import('@/views/candidate/ResumeUploadView.vue')
 const JobProgressView = () => import('@/views/candidate/JobProgressView.vue')
 const ForbiddenView = () => import('@/views/ForbiddenView.vue')
+const NotFoundView = () => import('@/views/NotFoundView.vue')
 
 const routes: RouteRecordRaw[] = [
   { path: '/', redirect: '/jobs' },
   { path: '/login', component: LoginView },
   { path: '/register', component: RegisterView },
   { path: '/403', component: ForbiddenView },
+  { path: '/:pathMatch(.*)*', component: NotFoundView },
   { path: '/jobs', component: JobListView },
   { path: '/jobs/:jobId', component: JobDetailView },
   { path: '/profile', component: ProfileView, meta: { requiresAuth: true, requiresCandidate: true } },

@@ -104,13 +104,6 @@ const filteredSkills = computed(() => {
   })
 })
 
-const listStats = computed(() => [
-  { label: 'SKILL 总数', value: total.value || list.value.length },
-  { label: '已启用', value: list.value.filter((item) => item.is_enabled).length },
-  { label: '有当前版本', value: list.value.filter((item) => item.current_version_id).length },
-  { label: 'Tool 数', value: tools.value.length },
-])
-
 const sourceLabel = (source?: string) =>
   SOURCE_OPTIONS.find((item) => item.value === source)?.label || source || '-'
 
@@ -499,13 +492,6 @@ onMounted(() => {
     </section>
 
     <template v-if="activeView === 'list'">
-      <section v-if="list.length > 0" class="stats-grid">
-        <div v-for="item in listStats" :key="item.label" class="stat-card">
-          <div class="stat-label">{{ item.label }}</div>
-          <div class="stat-value">{{ item.value }}</div>
-        </div>
-      </section>
-
       <el-card v-if="list.length === 0 && !loading" class="empty-card" shadow="never">
         <el-empty :description="error || '暂无底层 SKILL 配置'">
           <div class="empty-copy">
@@ -968,33 +954,6 @@ onMounted(() => {
   line-height: 1.5;
 }
 
-.stats-grid {
-  display: grid;
-  grid-template-columns: repeat(4, minmax(140px, 1fr));
-  gap: 12px;
-  margin-bottom: 12px;
-  flex-shrink: 0;
-}
-
-.stat-card {
-  border: 1px solid var(--el-border-color-light);
-  border-radius: 8px;
-  padding: 10px 14px;
-  background: var(--el-bg-color);
-}
-
-.stat-label {
-  color: var(--el-text-color-secondary);
-  font-size: 13px;
-}
-
-.stat-value {
-  margin-top: 4px;
-  color: var(--el-text-color-primary);
-  font-size: 22px;
-  font-weight: 650;
-}
-
 .table-card,
 .empty-card {
   border-radius: 8px;
@@ -1145,10 +1104,6 @@ code {
   .filter-actions {
     align-items: stretch;
     flex-direction: column;
-  }
-
-  .stats-grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   .filter-search,

@@ -136,13 +136,6 @@ const filteredList = computed(() => {
   })
 })
 
-const inviteStats = computed(() => [
-  { label: '邀请码总数', value: total.value || list.value.length, hint: '当前分页范围内可见管理' },
-  { label: '有效', value: list.value.filter((item) => statusTag(item).text === '有效').length, hint: '可用于 HR 注册' },
-  { label: '已过期', value: list.value.filter((item) => statusTag(item).text === '已过期').length, hint: '到期不可使用' },
-  { label: '已撤销', value: list.value.filter((item) => statusTag(item).text === '已撤销').length, hint: '手动停用的邀请码' },
-])
-
 const onPageChange = (p: number) => { page.value = p; load() }
 const onSizeChange = (s: number) => { pageSize.value = s; page.value = 1; load() }
 
@@ -162,14 +155,6 @@ onMounted(load)
         <el-button type="primary" :icon="Plus" @click="openCreate">生成邀请码</el-button>
       </div>
     </div>
-
-    <section class="console-stats">
-      <div v-for="item in inviteStats" :key="item.label" class="console-stat">
-        <div class="console-stat__label">{{ item.label }}</div>
-        <div class="console-stat__value">{{ item.value }}</div>
-        <div class="console-stat__hint">{{ item.hint }}</div>
-      </div>
-    </section>
 
     <div class="console-card console-card--fill invite-code-surface">
       <div class="console-card__head">

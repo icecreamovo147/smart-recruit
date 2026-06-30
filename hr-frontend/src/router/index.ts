@@ -2,7 +2,8 @@ import { createRouter, createWebHistory } from 'vue-router'
 import type { RouteRecordRaw } from 'vue-router'
 import { getUser } from '@/utils/token'
 import { useAuthStore } from '@/stores/auth'
-import { PERM, ROLE_KEY_RECRUITING_ADMIN, ROLE_KEY_SYSTEM_ADMIN } from '@/types/domain'
+import { PERM } from '@/types/domain'
+import { resolveStaffHomePathFromPermissions } from '@/utils/navigation'
 
 const LoginView = () => import('@/views/LoginView.vue')
 const RegisterView = () => import('@/views/RegisterView.vue')
@@ -29,10 +30,11 @@ const McpManageView = () => import('@/views/hr/admin/McpManageView.vue')
 const SkillManageView = () => import('@/views/hr/admin/SkillManageView.vue')
 const AgentSkillManageView = () => import('@/views/hr/admin/AgentSkillManageView.vue')
 const ForbiddenView = () => import('@/views/ForbiddenView.vue')
+const NotFoundView = () => import('@/views/NotFoundView.vue')
 const CandidateDetailView = () => import('@/views/hr/CandidateDetailView.vue')
 
 const routes: RouteRecordRaw[] = [
-  { path: '/', redirect: '/hr/workbench' },
+  { path: '/', redirect: () => resolveStaffHomePathFromPermissions(getUser()?.permissions || []) },
   { path: '/login', component: LoginView },
   { path: '/register', component: RegisterView },
   { path: '/403', component: ForbiddenView },
@@ -143,12 +145,12 @@ const routes: RouteRecordRaw[] = [
   {
     path: '/hr/admin/prompts',
     component: PromptManageView,
-    meta: { requiresAuth: true, requiresPermission: PERM.SYSTEM_CONFIG_MANAGE, title: 'Prompt 管理' },
+    meta: { requiresAuth: true, requiresPermission: PERM.AI_PROMPT_MANAGE, title: 'Prompt 管理' },
   },
   {
     path: '/hr/admin/agents',
     component: AgentManageView,
-    meta: { requiresAuth: true, requiresPermission: PERM.SYSTEM_CONFIG_MANAGE, title: 'Agent 管理' },
+    meta: { requiresAuth: true, requiresPermission: PERM.AI_AGENT_MANAGE, title: 'Agent 管理' },
   },
   {
     path: '/hr/admin/skills',
@@ -158,17 +160,14 @@ const routes: RouteRecordRaw[] = [
   {
     path: '/hr/admin/agent-skills',
     component: AgentSkillManageView,
-    meta: {
-      requiresAuth: true,
-      requiresAnyRole: [ROLE_KEY_RECRUITING_ADMIN, ROLE_KEY_SYSTEM_ADMIN],
-      title: 'Agent Skill 管理',
-    },
+    meta: { requiresAuth: true, requiresPermission: PERM.AI_AGENT_SKILL_MANAGE, title: 'Agent Skill 管理' },
   },
   {
     path: '/hr/admin/mcp-tools',
     component: McpManageView,
     meta: { requiresAuth: true, requiresPermission: PERM.SYSTEM_CONFIG_MANAGE, title: '工具中心' },
   },
+  { path: '/:pathMatch(.*)*', component: NotFoundView },
 ]
 
 const router = createRouter({

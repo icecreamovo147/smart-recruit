@@ -429,25 +429,6 @@ const filteredProviders = computed(() => {
   })
 })
 
-const providerStats = computed(() => {
-  const enabled = providerList.value.filter((item) => item.is_enabled).length
-  const tested = Object.values(providerHealthMap)
-  const latest = tested
-    .slice()
-    .sort((a, b) => new Date(b.testedAt).getTime() - new Date(a.testedAt).getTime())[0]
-  return [
-    { label: 'Provider 总数', value: providerTotal.value || providerList.value.length, meta: '已接入服务商', tone: 'blue' },
-    { label: '已启用', value: enabled, meta: `${providerList.value.length - enabled} 个禁用`, tone: 'green' },
-    { label: '默认/可用 Provider', value: enabled, meta: '当前接口未返回默认字段', tone: 'violet' },
-    {
-      label: '最近测试结果',
-      value: latest ? (latest.status === 'success' ? '成功' : '失败') : '未测试',
-      meta: latest ? latest.detail : '本次会话暂无连接测试',
-      tone: latest?.status === 'failed' ? 'red' : 'slate',
-    },
-  ]
-})
-
 const filteredModels = computed(() => {
   const keyword = modelSearch.value.trim().toLowerCase()
   return modelList.value.filter((item) => {
@@ -461,18 +442,6 @@ const filteredModels = computed(() => {
       || (modelDefaultFilter.value === 'default' ? item.is_default : !item.is_default)
     return matchesKeyword && matchesStatus && matchesDefault
   })
-})
-
-const modelStats = computed(() => {
-  const enabled = modelList.value.filter((item) => item.is_enabled).length
-  const defaultModel = modelList.value.find((item) => item.is_default)
-  const providerCoverage = new Set(modelList.value.map((item) => item.provider_id)).size
-  return [
-    { label: 'Model 总数', value: modelTotal.value || modelList.value.length, meta: '已配置模型', tone: 'blue' },
-    { label: '已启用', value: enabled, meta: `${modelList.value.length - enabled} 个禁用`, tone: 'green' },
-    { label: '默认 Model', value: defaultModel?.display_name || defaultModel?.model_name || '未设置', meta: defaultModel?.provider_name || '用于默认对话路由', tone: 'amber' },
-    { label: 'Provider 覆盖数', value: providerCoverage, meta: '当前页覆盖 Provider', tone: 'violet' },
-  ]
 })
 
 // ====== Helpers ======
@@ -571,14 +540,6 @@ onMounted(() => {
     </el-tabs>
 
     <template v-if="currentSection === 'providers'">
-        <div class="stats-grid">
-          <div v-for="item in providerStats" :key="item.label" class="stat-card" :class="`tone-${item.tone}`">
-            <span>{{ item.label }}</span>
-            <strong>{{ item.value }}</strong>
-            <small>{{ item.meta }}</small>
-          </div>
-        </div>
-
         <section class="panel-card">
           <div class="panel-head">
             <div>
@@ -694,14 +655,6 @@ onMounted(() => {
     </template>
 
     <template v-else>
-        <div class="stats-grid">
-          <div v-for="item in modelStats" :key="item.label" class="stat-card" :class="`tone-${item.tone}`">
-            <span>{{ item.label }}</span>
-            <strong>{{ item.value }}</strong>
-            <small>{{ item.meta }}</small>
-          </div>
-        </div>
-
         <section class="panel-card">
           <div class="panel-head">
             <div>
@@ -1007,73 +960,6 @@ onMounted(() => {
   font-weight: 600;
 }
 
-.stats-grid {
-  display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 12px;
-  margin-bottom: 16px;
-}
-
-.stat-card {
-  min-height: 112px;
-  padding: 16px;
-  border: 1px solid var(--el-border-color-light);
-  border-radius: 8px;
-  background: var(--el-bg-color);
-  box-shadow: 0 8px 20px rgba(25, 35, 55, .04);
-}
-
-.stat-card span {
-  display: block;
-  margin-bottom: 12px;
-  font-size: 13px;
-  color: var(--el-text-color-secondary);
-}
-
-.stat-card strong {
-  display: block;
-  min-height: 32px;
-  overflow: hidden;
-  font-size: 26px;
-  font-weight: 700;
-  line-height: 1.2;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.stat-card small {
-  display: block;
-  margin-top: 10px;
-  overflow: hidden;
-  color: var(--el-text-color-secondary);
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.tone-blue {
-  border-top: 3px solid #409eff;
-}
-
-.tone-green {
-  border-top: 3px solid #67c23a;
-}
-
-.tone-violet {
-  border-top: 3px solid #8b5cf6;
-}
-
-.tone-amber {
-  border-top: 3px solid #e6a23c;
-}
-
-.tone-red {
-  border-top: 3px solid #f56c6c;
-}
-
-.tone-slate {
-  border-top: 3px solid #909399;
-}
-
 .panel-card {
   padding: 18px;
   border: 1px solid var(--el-border-color-light);
@@ -1252,10 +1138,6 @@ onMounted(() => {
 }
 
 @media (max-width: 1100px) {
-  .stats-grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-
   .filter-bar,
   .model-filter-bar {
     grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -1273,7 +1155,6 @@ onMounted(() => {
     flex-wrap: wrap;
   }
 
-  .stats-grid,
   .filter-bar,
   .model-filter-bar,
   .form-grid,

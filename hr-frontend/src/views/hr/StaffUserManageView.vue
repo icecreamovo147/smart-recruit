@@ -274,12 +274,6 @@ const filteredList = computed(() => {
   })
 })
 
-const staffStats = computed(() => [
-  { label: '员工账号', value: total.value || list.value.length, hint: '可登录 HR 管理端' },
-  { label: '正常', value: list.value.filter((item) => statusTag(item).text === '正常').length, hint: '当前可用账号' },
-  { label: '待激活', value: list.value.filter((item) => statusTag(item).text === '待激活').length, hint: '需完成初始化' },
-  { label: '已锁定/禁用', value: list.value.filter((item) => ['已锁定', '已禁用'].includes(statusTag(item).text)).length, hint: '暂不可登录' },
-])
 </script>
 
 <template>
@@ -295,14 +289,6 @@ const staffStats = computed(() => [
         <el-button type="primary" :icon="Plus" @click="openCreateDialog">创建员工账号</el-button>
       </div>
     </div>
-
-    <section class="console-stats">
-      <div v-for="item in staffStats" :key="item.label" class="console-stat">
-        <div class="console-stat__label">{{ item.label }}</div>
-        <div class="console-stat__value">{{ item.value }}</div>
-        <div class="console-stat__hint">{{ item.hint }}</div>
-      </div>
-    </section>
 
     <div class="console-card console-card--fill">
       <div class="console-card__head">

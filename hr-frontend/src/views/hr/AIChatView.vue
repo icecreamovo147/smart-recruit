@@ -7,7 +7,7 @@ import MarkdownIt from 'markdown-it'
 import { createApplicationAnalysisSession, createSession, deleteSession, getSessionMessages, listSessions, sendMessageStream, updateSession } from '@/api/ai'
 import { listAvailableAgentSkills } from '@/api/agentSkill'
 import { updateApplicationStatus } from '@/api/application'
-import { listModels } from '@/api/llm'
+import { listAvailableModels } from '@/api/llm'
 import AgentTracePanel from '@/components/AgentTracePanel.vue'
 import ConversationSidebar from '@/components/chat/ConversationSidebar.vue'
 import ConversationHeader from '@/components/chat/ConversationHeader.vue'
@@ -896,8 +896,8 @@ onMounted(async () => {
   document.addEventListener('click', closeMenu)
   // Load available models for the model selector.
   try {
-    const modelData = await listModels(1, 200)
-    modelList.value = (modelData.list || []).filter((m) => m.is_enabled)
+    const modelData = await listAvailableModels(1, 200)
+    modelList.value = modelData.list || []
   } catch { /* non-fatal: model selector will be empty */ }
   try {
     const agentSkillData = await listAvailableAgentSkills()
