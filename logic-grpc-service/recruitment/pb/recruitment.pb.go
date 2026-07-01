@@ -17263,12 +17263,16 @@ type MCPServerInfo struct {
 	state          protoimpl.MessageState `protogen:"open.v1"`
 	Id             int64                  `protobuf:"varint,1,opt,name=id,proto3" json:"id,omitempty"`
 	Name           string                 `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
-	Transport      string                 `protobuf:"bytes,3,opt,name=transport,proto3" json:"transport,omitempty"` // stdio / sse / http
+	Description    string                 `protobuf:"bytes,11,opt,name=description,proto3" json:"description,omitempty"` // Human-readable server description
+	Transport      string                 `protobuf:"bytes,3,opt,name=transport,proto3" json:"transport,omitempty"`      // stdio / sse / http
 	CommandOrUrl   string                 `protobuf:"bytes,4,opt,name=command_or_url,json=commandOrUrl,proto3" json:"command_or_url,omitempty"`
 	Args           string                 `protobuf:"bytes,5,opt,name=args,proto3" json:"args,omitempty"`                      // JSON array string
 	EnvVars        string                 `protobuf:"bytes,6,opt,name=env_vars,json=envVars,proto3" json:"env_vars,omitempty"` // JSON object string
 	TimeoutSeconds int32                  `protobuf:"varint,7,opt,name=timeout_seconds,json=timeoutSeconds,proto3" json:"timeout_seconds,omitempty"`
 	IsEnabled      bool                   `protobuf:"varint,8,opt,name=is_enabled,json=isEnabled,proto3" json:"is_enabled,omitempty"`
+	Status         string                 `protobuf:"bytes,12,opt,name=status,proto3" json:"status,omitempty"`                         // connected / disconnected / error
+	ToolCount      int32                  `protobuf:"varint,13,opt,name=tool_count,json=toolCount,proto3" json:"tool_count,omitempty"` // Number of tools discovered
+	LastError      string                 `protobuf:"bytes,14,opt,name=last_error,json=lastError,proto3" json:"last_error,omitempty"`  // Last connection error message
 	CreatedAt      string                 `protobuf:"bytes,9,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
 	UpdatedAt      string                 `protobuf:"bytes,10,opt,name=updated_at,json=updatedAt,proto3" json:"updated_at,omitempty"`
 	unknownFields  protoimpl.UnknownFields
@@ -17319,6 +17323,13 @@ func (x *MCPServerInfo) GetName() string {
 	return ""
 }
 
+func (x *MCPServerInfo) GetDescription() string {
+	if x != nil {
+		return x.Description
+	}
+	return ""
+}
+
 func (x *MCPServerInfo) GetTransport() string {
 	if x != nil {
 		return x.Transport
@@ -17359,6 +17370,27 @@ func (x *MCPServerInfo) GetIsEnabled() bool {
 		return x.IsEnabled
 	}
 	return false
+}
+
+func (x *MCPServerInfo) GetStatus() string {
+	if x != nil {
+		return x.Status
+	}
+	return ""
+}
+
+func (x *MCPServerInfo) GetToolCount() int32 {
+	if x != nil {
+		return x.ToolCount
+	}
+	return 0
+}
+
+func (x *MCPServerInfo) GetLastError() string {
+	if x != nil {
+		return x.LastError
+	}
+	return ""
 }
 
 func (x *MCPServerInfo) GetCreatedAt() string {
@@ -17498,6 +17530,7 @@ func (x *ListMCPServersResponse) GetList() []*MCPServerInfo {
 type CreateMCPServerRequest struct {
 	state          protoimpl.MessageState `protogen:"open.v1"`
 	Name           string                 `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
+	Description    string                 `protobuf:"bytes,7,opt,name=description,proto3" json:"description,omitempty"` // Human-readable server description
 	Transport      string                 `protobuf:"bytes,2,opt,name=transport,proto3" json:"transport,omitempty"`
 	CommandOrUrl   string                 `protobuf:"bytes,3,opt,name=command_or_url,json=commandOrUrl,proto3" json:"command_or_url,omitempty"`
 	Args           string                 `protobuf:"bytes,4,opt,name=args,proto3" json:"args,omitempty"`                      // JSON array string
@@ -17544,6 +17577,13 @@ func (x *CreateMCPServerRequest) GetName() string {
 	return ""
 }
 
+func (x *CreateMCPServerRequest) GetDescription() string {
+	if x != nil {
+		return x.Description
+	}
+	return ""
+}
+
 func (x *CreateMCPServerRequest) GetTransport() string {
 	if x != nil {
 		return x.Transport
@@ -17583,6 +17623,7 @@ type UpdateMCPServerRequest struct {
 	state             protoimpl.MessageState `protogen:"open.v1"`
 	Id                int64                  `protobuf:"varint,1,opt,name=id,proto3" json:"id,omitempty"`
 	Name              string                 `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`                                       // Empty = no update
+	Description       string                 `protobuf:"bytes,11,opt,name=description,proto3" json:"description,omitempty"`                        // Empty = no update
 	Transport         string                 `protobuf:"bytes,3,opt,name=transport,proto3" json:"transport,omitempty"`                             // Empty = no update
 	CommandOrUrl      string                 `protobuf:"bytes,4,opt,name=command_or_url,json=commandOrUrl,proto3" json:"command_or_url,omitempty"` // Empty = no update
 	Args              string                 `protobuf:"bytes,5,opt,name=args,proto3" json:"args,omitempty"`                                       // Empty = no update
@@ -17635,6 +17676,13 @@ func (x *UpdateMCPServerRequest) GetId() int64 {
 func (x *UpdateMCPServerRequest) GetName() string {
 	if x != nil {
 		return x.Name
+	}
+	return ""
+}
+
+func (x *UpdateMCPServerRequest) GetDescription() string {
+	if x != nil {
+		return x.Description
 	}
 	return ""
 }
@@ -25938,17 +25986,23 @@ const file_proto_recruitment_proto_rawDesc = "" +
 	"\x15GetUsageTrendResponse\x12\x12\n" +
 	"\x04code\x18\x01 \x01(\x05R\x04code\x12\x10\n" +
 	"\x03msg\x18\x02 \x01(\tR\x03msg\x120\n" +
-	"\x04list\x18\x03 \x03(\v2\x1c.recruitment.UsageTrendPointR\x04list\"\xac\x02\n" +
+	"\x04list\x18\x03 \x03(\v2\x1c.recruitment.UsageTrendPointR\x04list\"\xa4\x03\n" +
 	"\rMCPServerInfo\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\x03R\x02id\x12\x12\n" +
-	"\x04name\x18\x02 \x01(\tR\x04name\x12\x1c\n" +
+	"\x04name\x18\x02 \x01(\tR\x04name\x12 \n" +
+	"\vdescription\x18\v \x01(\tR\vdescription\x12\x1c\n" +
 	"\ttransport\x18\x03 \x01(\tR\ttransport\x12$\n" +
 	"\x0ecommand_or_url\x18\x04 \x01(\tR\fcommandOrUrl\x12\x12\n" +
 	"\x04args\x18\x05 \x01(\tR\x04args\x12\x19\n" +
 	"\benv_vars\x18\x06 \x01(\tR\aenvVars\x12'\n" +
 	"\x0ftimeout_seconds\x18\a \x01(\x05R\x0etimeoutSeconds\x12\x1d\n" +
 	"\n" +
-	"is_enabled\x18\b \x01(\bR\tisEnabled\x12\x1d\n" +
+	"is_enabled\x18\b \x01(\bR\tisEnabled\x12\x16\n" +
+	"\x06status\x18\f \x01(\tR\x06status\x12\x1d\n" +
+	"\n" +
+	"tool_count\x18\r \x01(\x05R\ttoolCount\x12\x1d\n" +
+	"\n" +
+	"last_error\x18\x0e \x01(\tR\tlastError\x12\x1d\n" +
 	"\n" +
 	"created_at\x18\t \x01(\tR\tcreatedAt\x12\x1d\n" +
 	"\n" +
@@ -25961,17 +26015,19 @@ const file_proto_recruitment_proto_rawDesc = "" +
 	"\x04code\x18\x01 \x01(\x05R\x04code\x12\x10\n" +
 	"\x03msg\x18\x02 \x01(\tR\x03msg\x12\x14\n" +
 	"\x05total\x18\x03 \x01(\x03R\x05total\x12.\n" +
-	"\x04list\x18\x04 \x03(\v2\x1a.recruitment.MCPServerInfoR\x04list\"\xc8\x01\n" +
+	"\x04list\x18\x04 \x03(\v2\x1a.recruitment.MCPServerInfoR\x04list\"\xea\x01\n" +
 	"\x16CreateMCPServerRequest\x12\x12\n" +
-	"\x04name\x18\x01 \x01(\tR\x04name\x12\x1c\n" +
+	"\x04name\x18\x01 \x01(\tR\x04name\x12 \n" +
+	"\vdescription\x18\a \x01(\tR\vdescription\x12\x1c\n" +
 	"\ttransport\x18\x02 \x01(\tR\ttransport\x12$\n" +
 	"\x0ecommand_or_url\x18\x03 \x01(\tR\fcommandOrUrl\x12\x12\n" +
 	"\x04args\x18\x04 \x01(\tR\x04args\x12\x19\n" +
 	"\benv_vars\x18\x05 \x01(\tR\aenvVars\x12'\n" +
-	"\x0ftimeout_seconds\x18\x06 \x01(\x05R\x0etimeoutSeconds\"\xcd\x02\n" +
+	"\x0ftimeout_seconds\x18\x06 \x01(\x05R\x0etimeoutSeconds\"\xef\x02\n" +
 	"\x16UpdateMCPServerRequest\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\x03R\x02id\x12\x12\n" +
-	"\x04name\x18\x02 \x01(\tR\x04name\x12\x1c\n" +
+	"\x04name\x18\x02 \x01(\tR\x04name\x12 \n" +
+	"\vdescription\x18\v \x01(\tR\vdescription\x12\x1c\n" +
 	"\ttransport\x18\x03 \x01(\tR\ttransport\x12$\n" +
 	"\x0ecommand_or_url\x18\x04 \x01(\tR\fcommandOrUrl\x12\x12\n" +
 	"\x04args\x18\x05 \x01(\tR\x04args\x12\x19\n" +

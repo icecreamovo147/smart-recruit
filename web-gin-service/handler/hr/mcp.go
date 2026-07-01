@@ -143,11 +143,19 @@ func (h *MCPHandler) ListMCPTools(c *gin.Context) {
 // ── Tool Call ───────────────────────────────────────────────────────
 
 func (h *MCPHandler) CallMCPTool(c *gin.Context) {
+	idStr := c.Param("id")
+	id, err := strconv.ParseInt(idStr, 10, 64)
+	if err != nil {
+		base.BadRequest(c, "invalid server_id")
+		return
+	}
+
 	var req pb.CallMCPToolRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		base.BadRequest(c, "invalid request body")
 		return
 	}
+	req.ServerId = id
 
 	resp, err := h.clients.MCP.CallMCPTool(c.Request.Context(), &req)
 	if err != nil {

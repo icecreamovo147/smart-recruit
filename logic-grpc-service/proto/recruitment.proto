@@ -2079,12 +2079,16 @@ service MCPService {
 message MCPServerInfo {
   int64 id = 1;
   string name = 2;
+  string description = 11;        // Human-readable server description
   string transport = 3;           // stdio / sse / http
   string command_or_url = 4;
   string args = 5;                // JSON array string
   string env_vars = 6;            // JSON object string
   int32 timeout_seconds = 7;
   bool is_enabled = 8;
+  string status = 12;             // connected / disconnected / error
+  int32 tool_count = 13;          // Number of tools discovered
+  string last_error = 14;         // Last connection error message
   string created_at = 9;
   string updated_at = 10;
 }
@@ -2103,6 +2107,7 @@ message ListMCPServersResponse {
 
 message CreateMCPServerRequest {
   string name = 1;
+  string description = 7;         // Human-readable server description
   string transport = 2;
   string command_or_url = 3;
   string args = 4;                // JSON array string
@@ -2113,6 +2118,7 @@ message CreateMCPServerRequest {
 message UpdateMCPServerRequest {
   int64 id = 1;
   string name = 2;                // Empty = no update
+  string description = 11;        // Empty = no update
   string transport = 3;           // Empty = no update
   string command_or_url = 4;      // Empty = no update
   string args = 5;                // Empty = no update

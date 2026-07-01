@@ -120,8 +120,11 @@ func TestDesensitizeEnvVars_AllValuesMasked(t *testing.T) {
 func TestDesensitizeEnvVars_InvalidJSON(t *testing.T) {
 	input := `not-json`
 	got := desensitizeEnvVars(input)
-	if got != input {
-		t.Fatalf("expected original value for invalid JSON, got %q", got)
+	if got != "{}" {
+		t.Fatalf("expected '{}' for invalid JSON (not original), got %q", got)
+	}
+	if strings.Contains(got, "not-json") {
+		t.Fatalf("expected no raw values leaked on parse failure, got %q", got)
 	}
 }
 
@@ -308,8 +311,9 @@ func TestCollectBoundMCPToolsFiltersByCapabilityKey(t *testing.T) {
 	ctx := context.Background()
 	db := setupServiceTestDB(t)
 	repo := repository.NewMCPRepo(db)
-	var cfg config.Config
+	cfg := config.Config{}
 	cfg.MCP.DefaultTimeoutSeconds = 2
+	cfg.MCP.MaxTimeoutSeconds = 120
 	svc := NewMCPService(repo, cfg)
 
 	alphaHTTP := newTestMCPHTTPServer(t, "alpha-upstream", []string{"search", "summarize"})
@@ -392,8 +396,11 @@ func TestIsSensitiveField(t *testing.T) {
 func TestCreateMCPServer_Validation(t *testing.T) {
 	db := setupServiceTestDB(t)
 	repo := repository.NewMCPRepo(db)
-	var cfg config.Config
+	cfg := config.Config{}
 	cfg.MCP.DefaultTimeoutSeconds = 30
+	cfg.MCP.AllowStdio = true
+	cfg.MCP.AllowedStdioCommands = []string{"/usr/bin/test", "npx", "node"}
+	cfg.MCP.MaxTimeoutSeconds = 120
 	svc := NewMCPService(repo, cfg)
 	ctx := context.Background()
 
@@ -453,7 +460,8 @@ func TestCreateMCPServer_Validation(t *testing.T) {
 func TestListMCPServers_Empty(t *testing.T) {
 	db := setupServiceTestDB(t)
 	repo := repository.NewMCPRepo(db)
-	var cfg config.Config
+	cfg := config.Config{}
+	cfg.MCP.MaxTimeoutSeconds = 120
 	svc := NewMCPService(repo, cfg)
 	ctx := context.Background()
 
@@ -472,7 +480,8 @@ func TestListMCPServers_Empty(t *testing.T) {
 func TestDeleteMCPServer_InvalidID(t *testing.T) {
 	db := setupServiceTestDB(t)
 	repo := repository.NewMCPRepo(db)
-	var cfg config.Config
+	cfg := config.Config{}
+	cfg.MCP.MaxTimeoutSeconds = 120
 	svc := NewMCPService(repo, cfg)
 	ctx := context.Background()
 
@@ -494,7 +503,8 @@ func TestDeleteMCPServer_InvalidID(t *testing.T) {
 func TestUpdateMCPServer_NotFound(t *testing.T) {
 	db := setupServiceTestDB(t)
 	repo := repository.NewMCPRepo(db)
-	var cfg config.Config
+	cfg := config.Config{}
+	cfg.MCP.MaxTimeoutSeconds = 120
 	svc := NewMCPService(repo, cfg)
 	ctx := context.Background()
 
@@ -510,7 +520,9 @@ func TestUpdateMCPServer_NotFound(t *testing.T) {
 func TestCreateAndGetMCPServer_Integration(t *testing.T) {
 	db := setupServiceTestDB(t)
 	repo := repository.NewMCPRepo(db)
-	var cfg config.Config
+	cfg := config.Config{}
+	cfg.MCP.MaxTimeoutSeconds = 120
+	cfg.MCP.BlockPrivateNetwork = ptrBool(false)
 	svc := NewMCPService(repo, cfg)
 	ctx := context.Background()
 
@@ -518,7 +530,7 @@ func TestCreateAndGetMCPServer_Integration(t *testing.T) {
 	createResp, err := svc.CreateMCPServer(ctx, &pb.CreateMCPServerRequest{
 		Name:         "integration-test",
 		Transport:    "sse",
-		CommandOrUrl: "http://localhost:8080/mcp",
+		CommandOrUrl: "https://api.example.com/mcp",
 		EnvVars:      `{"KEY":"val"}`,
 	})
 	if err != nil {
@@ -623,4 +635,339 @@ func assertToolNames(t *testing.T, got []string, want []string) {
 			t.Fatalf("unexpected unbound tool %q in %v", forbidden, got)
 		}
 	}
+}
+
+// ── MCP Security Validation Tests ───────────────────────────────────
+
+func TestValidateStdioConfig_Disabled(t *testing.T) {
+	cfg := config.Config{MCP: struct {
+		DefaultTimeoutSeconds int      `yaml:"default_timeout_seconds"`
+		DefaultMaxRetries     int      `yaml:"default_max_retries"`
+		AllowStdio            bool     `yaml:"allow_stdio"`
+		AllowedStdioCommands  []string `yaml:"allowed_stdio_commands"`
+		AllowedURLHosts       []string `yaml:"allowed_url_hosts"`
+		BlockPrivateNetwork   *bool    `yaml:"block_private_network"`
+		MaxTimeoutSeconds     int      `yaml:"max_timeout_seconds"`
+	}{AllowStdio: false}}
+	err := validateStdioConfig(cfg, "npx", "")
+	if err == nil {
+		t.Fatal("expected error when stdio is disabled")
+	}
+	if !strings.Contains(err.Error(), "disabled") {
+		t.Fatalf("expected 'disabled' in error, got %v", err)
+	}
+}
+
+func TestValidateStdioConfig_ShellCommand(t *testing.T) {
+	cfg := config.Config{MCP: struct {
+		DefaultTimeoutSeconds int      `yaml:"default_timeout_seconds"`
+		DefaultMaxRetries     int      `yaml:"default_max_retries"`
+		AllowStdio            bool     `yaml:"allow_stdio"`
+		AllowedStdioCommands  []string `yaml:"allowed_stdio_commands"`
+		AllowedURLHosts       []string `yaml:"allowed_url_hosts"`
+		BlockPrivateNetwork   *bool    `yaml:"block_private_network"`
+		MaxTimeoutSeconds     int      `yaml:"max_timeout_seconds"`
+	}{AllowStdio: true, AllowedStdioCommands: []string{"npx"}}}
+	shellCmds := []string{"sh", "bash", "zsh", "cmd", "powershell", "sh -c 'echo hi'", "bash -c 'echo hi'"}
+	for _, cmd := range shellCmds {
+		err := validateStdioConfig(cfg, cmd, "")
+		if err == nil {
+			t.Errorf("expected error for shell command %q", cmd)
+		}
+	}
+}
+
+func TestValidateStdioConfig_NotAllowlisted(t *testing.T) {
+	cfg := config.Config{MCP: struct {
+		DefaultTimeoutSeconds int      `yaml:"default_timeout_seconds"`
+		DefaultMaxRetries     int      `yaml:"default_max_retries"`
+		AllowStdio            bool     `yaml:"allow_stdio"`
+		AllowedStdioCommands  []string `yaml:"allowed_stdio_commands"`
+		AllowedURLHosts       []string `yaml:"allowed_url_hosts"`
+		BlockPrivateNetwork   *bool    `yaml:"block_private_network"`
+		MaxTimeoutSeconds     int      `yaml:"max_timeout_seconds"`
+	}{AllowStdio: true, AllowedStdioCommands: []string{"npx"}}}
+	err := validateStdioConfig(cfg, "uvx", "")
+	if err == nil {
+		t.Fatal("expected error for non-allowlisted command")
+	}
+}
+
+func TestValidateStdioConfig_Allowlisted(t *testing.T) {
+	cfg := config.Config{MCP: struct {
+		DefaultTimeoutSeconds int      `yaml:"default_timeout_seconds"`
+		DefaultMaxRetries     int      `yaml:"default_max_retries"`
+		AllowStdio            bool     `yaml:"allow_stdio"`
+		AllowedStdioCommands  []string `yaml:"allowed_stdio_commands"`
+		AllowedURLHosts       []string `yaml:"allowed_url_hosts"`
+		BlockPrivateNetwork   *bool    `yaml:"block_private_network"`
+		MaxTimeoutSeconds     int      `yaml:"max_timeout_seconds"`
+	}{AllowStdio: true, AllowedStdioCommands: []string{"npx", "node"}}}
+	err := validateStdioConfig(cfg, "npx", `["mcp-server"]`)
+	if err != nil {
+		t.Fatalf("unexpected error for allowlisted command: %v", err)
+	}
+}
+
+func TestValidateStdioConfig_InvalidArgs(t *testing.T) {
+	cfg := config.Config{MCP: struct {
+		DefaultTimeoutSeconds int      `yaml:"default_timeout_seconds"`
+		DefaultMaxRetries     int      `yaml:"default_max_retries"`
+		AllowStdio            bool     `yaml:"allow_stdio"`
+		AllowedStdioCommands  []string `yaml:"allowed_stdio_commands"`
+		AllowedURLHosts       []string `yaml:"allowed_url_hosts"`
+		BlockPrivateNetwork   *bool    `yaml:"block_private_network"`
+		MaxTimeoutSeconds     int      `yaml:"max_timeout_seconds"`
+	}{AllowStdio: true, AllowedStdioCommands: []string{"npx"}}}
+	err := validateStdioConfig(cfg, "npx", "not-json")
+	if err == nil {
+		t.Fatal("expected error for invalid args JSON")
+	}
+}
+
+func TestValidateStdioConfig_ShellControlOperatorInArgs(t *testing.T) {
+	cfg := config.Config{MCP: struct {
+		DefaultTimeoutSeconds int      `yaml:"default_timeout_seconds"`
+		DefaultMaxRetries     int      `yaml:"default_max_retries"`
+		AllowStdio            bool     `yaml:"allow_stdio"`
+		AllowedStdioCommands  []string `yaml:"allowed_stdio_commands"`
+		AllowedURLHosts       []string `yaml:"allowed_url_hosts"`
+		BlockPrivateNetwork   *bool    `yaml:"block_private_network"`
+		MaxTimeoutSeconds     int      `yaml:"max_timeout_seconds"`
+	}{AllowStdio: true, AllowedStdioCommands: []string{"npx"}}}
+	err := validateStdioConfig(cfg, "npx", `["arg1;rm -rf /"]`)
+	if err == nil {
+		t.Fatal("expected error for shell control operator in args")
+	}
+}
+
+func TestValidateURLConfig_PrivateNetwork(t *testing.T) {
+	cfg := config.Config{MCP: struct {
+		DefaultTimeoutSeconds int      `yaml:"default_timeout_seconds"`
+		DefaultMaxRetries     int      `yaml:"default_max_retries"`
+		AllowStdio            bool     `yaml:"allow_stdio"`
+		AllowedStdioCommands  []string `yaml:"allowed_stdio_commands"`
+		AllowedURLHosts       []string `yaml:"allowed_url_hosts"`
+		BlockPrivateNetwork   *bool    `yaml:"block_private_network"`
+		MaxTimeoutSeconds     int      `yaml:"max_timeout_seconds"`
+	}{BlockPrivateNetwork: ptrBool(true)}}
+	privateURLs := []string{
+		"http://localhost:8080/mcp",
+		"http://127.0.0.1:3000",
+		"http://10.0.0.1:5000",
+		"http://192.168.1.1:5000",
+		"http://172.16.0.1:5000",
+	}
+	for _, u := range privateURLs {
+		err := validateURLConfig(cfg, u)
+		if err == nil {
+			t.Errorf("expected error for private URL %q", u)
+		}
+	}
+}
+
+func TestValidateURLConfig_AllowedPublic(t *testing.T) {
+	cfg := config.Config{MCP: struct {
+		DefaultTimeoutSeconds int      `yaml:"default_timeout_seconds"`
+		DefaultMaxRetries     int      `yaml:"default_max_retries"`
+		AllowStdio            bool     `yaml:"allow_stdio"`
+		AllowedStdioCommands  []string `yaml:"allowed_stdio_commands"`
+		AllowedURLHosts       []string `yaml:"allowed_url_hosts"`
+		BlockPrivateNetwork   *bool    `yaml:"block_private_network"`
+		MaxTimeoutSeconds     int      `yaml:"max_timeout_seconds"`
+	}{BlockPrivateNetwork: ptrBool(false)}}
+	err := validateURLConfig(cfg, "https://api.example.com/mcp")
+	if err != nil {
+		t.Fatalf("unexpected error for public URL: %v", err)
+	}
+}
+
+func TestValidateURLConfig_InvalidScheme(t *testing.T) {
+	cfg := config.Config{MCP: struct {
+		DefaultTimeoutSeconds int      `yaml:"default_timeout_seconds"`
+		DefaultMaxRetries     int      `yaml:"default_max_retries"`
+		AllowStdio            bool     `yaml:"allow_stdio"`
+		AllowedStdioCommands  []string `yaml:"allowed_stdio_commands"`
+		AllowedURLHosts       []string `yaml:"allowed_url_hosts"`
+		BlockPrivateNetwork   *bool    `yaml:"block_private_network"`
+		MaxTimeoutSeconds     int      `yaml:"max_timeout_seconds"`
+	}{BlockPrivateNetwork: ptrBool(true)}}
+	err := validateURLConfig(cfg, "ftp://example.com/mcp")
+	if err == nil {
+		t.Fatal("expected error for invalid scheme")
+	}
+}
+
+func TestValidateURLConfig_MetadataBlockedEvenInAllowlist(t *testing.T) {
+	cfg := config.Config{MCP: struct {
+		DefaultTimeoutSeconds int      `yaml:"default_timeout_seconds"`
+		DefaultMaxRetries     int      `yaml:"default_max_retries"`
+		AllowStdio            bool     `yaml:"allow_stdio"`
+		AllowedStdioCommands  []string `yaml:"allowed_stdio_commands"`
+		AllowedURLHosts       []string `yaml:"allowed_url_hosts"`
+		BlockPrivateNetwork   *bool    `yaml:"block_private_network"`
+		MaxTimeoutSeconds     int      `yaml:"max_timeout_seconds"`
+	}{AllowedURLHosts: []string{"169.254.169.254", "100.100.100.200"}}}
+
+	for _, url := range []string{
+		"http://169.254.169.254/latest/meta-data/",
+		"http://100.100.100.200/latest/meta-data/",
+	} {
+		err := validateURLConfig(cfg, url)
+		if err == nil {
+			t.Fatalf("expected metadata address %q to be blocked even if in allowlist", url)
+		}
+		if !strings.Contains(err.Error(), "blocked") {
+			t.Fatalf("expected 'blocked' in error for metadata address %q, got: %v", url, err)
+		}
+	}
+}
+
+func TestValidateMCPConfig_CreateServer_Security(t *testing.T) {
+	db := setupServiceTestDB(t)
+	repo := repository.NewMCPRepo(db)
+	cfg := config.Config{}
+	cfg.MCP.DefaultTimeoutSeconds = 30
+	cfg.MCP.AllowStdio = false
+	cfg.MCP.MaxTimeoutSeconds = 120
+	svc := NewMCPService(repo, cfg)
+	ctx := context.Background()
+
+	t.Run("stdio disabled", func(t *testing.T) {
+		_, err := svc.CreateMCPServer(ctx, &pb.CreateMCPServerRequest{
+			Name:         "stdio-disabled",
+			Transport:    "stdio",
+			CommandOrUrl: "npx",
+		})
+		if err == nil {
+			t.Fatal("expected error when stdio is disabled")
+		}
+	})
+
+	// Recreate with stdio allowed
+	cfg.MCP.AllowStdio = true
+	cfg.MCP.AllowedStdioCommands = []string{"npx"}
+	svc2 := NewMCPService(repo, cfg)
+
+	t.Run("stdio enabled with allowed command", func(t *testing.T) {
+		resp, err := svc2.CreateMCPServer(ctx, &pb.CreateMCPServerRequest{
+			Name:         "stdio-enabled",
+			Transport:    "stdio",
+			CommandOrUrl: "npx",
+			Args:         `["-y","@modelcontextprotocol/server-filesystem"]`,
+		})
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if resp.Server.Name != "stdio-enabled" {
+			t.Fatalf("expected name 'stdio-enabled', got %q", resp.Server.Name)
+		}
+	})
+
+	t.Run("remote private URL blocked", func(t *testing.T) {
+		cfg.MCP.BlockPrivateNetwork = ptrBool(true)
+		svc3 := NewMCPService(repo, cfg)
+		_, err := svc3.CreateMCPServer(ctx, &pb.CreateMCPServerRequest{
+			Name:         "private-url",
+			Transport:    "sse",
+			CommandOrUrl: "http://localhost:8080/mcp",
+		})
+		if err == nil {
+			t.Fatal("expected error for private URL")
+		}
+	})
+}
+
+func TestValidateURLConfig_AllowedURLHosts(t *testing.T) {
+	cfg := config.Config{MCP: struct {
+		DefaultTimeoutSeconds int      `yaml:"default_timeout_seconds"`
+		DefaultMaxRetries     int      `yaml:"default_max_retries"`
+		AllowStdio            bool     `yaml:"allow_stdio"`
+		AllowedStdioCommands  []string `yaml:"allowed_stdio_commands"`
+		AllowedURLHosts       []string `yaml:"allowed_url_hosts"`
+		BlockPrivateNetwork   *bool    `yaml:"block_private_network"`
+		MaxTimeoutSeconds     int      `yaml:"max_timeout_seconds"`
+	}{AllowedURLHosts: []string{"api.example.com", "mcp.trusted.io"}}}
+
+	t.Run("allowlisted host passes", func(t *testing.T) {
+		err := validateURLConfig(cfg, "https://api.example.com/mcp")
+		if err != nil {
+			t.Fatalf("expected allowlisted URL to pass, got: %v", err)
+		}
+	})
+
+	t.Run("non-allowlisted host rejected", func(t *testing.T) {
+		err := validateURLConfig(cfg, "https://evil.com/mcp")
+		if err == nil {
+			t.Fatal("expected non-allowlisted host to be rejected")
+		}
+		if !strings.Contains(err.Error(), "not in the allowed hosts list") {
+			t.Fatalf("expected 'not in the allowed hosts list' error, got: %v", err)
+		}
+	})
+
+	t.Run("allowlisted host bypasses private network check", func(t *testing.T) {
+		err := validateURLConfig(cfg, "http://localhost:8080/mcp")
+		if err == nil {
+			t.Fatal("expected localhost to be rejected (not in allowlist)")
+		}
+	})
+
+	t.Run("empty allowlist falls through to private network check", func(t *testing.T) {
+		cfg2 := config.Config{MCP: struct {
+			DefaultTimeoutSeconds int      `yaml:"default_timeout_seconds"`
+			DefaultMaxRetries     int      `yaml:"default_max_retries"`
+			AllowStdio            bool     `yaml:"allow_stdio"`
+			AllowedStdioCommands  []string `yaml:"allowed_stdio_commands"`
+			AllowedURLHosts       []string `yaml:"allowed_url_hosts"`
+			BlockPrivateNetwork   *bool    `yaml:"block_private_network"`
+			MaxTimeoutSeconds     int      `yaml:"max_timeout_seconds"`
+		}{BlockPrivateNetwork: ptrBool(true)}}
+		err := validateURLConfig(cfg2, "http://localhost:8080/mcp")
+		if err == nil {
+			t.Fatal("expected localhost blocked by private network check")
+		}
+	})
+}
+
+func TestValidateURLConfig_DNSFailureRejected(t *testing.T) {
+	cfg := config.Config{MCP: struct {
+		DefaultTimeoutSeconds int      `yaml:"default_timeout_seconds"`
+		DefaultMaxRetries     int      `yaml:"default_max_retries"`
+		AllowStdio            bool     `yaml:"allow_stdio"`
+		AllowedStdioCommands  []string `yaml:"allowed_stdio_commands"`
+		AllowedURLHosts       []string `yaml:"allowed_url_hosts"`
+		BlockPrivateNetwork   *bool    `yaml:"block_private_network"`
+		MaxTimeoutSeconds     int      `yaml:"max_timeout_seconds"`
+	}{BlockPrivateNetwork: ptrBool(true)}}
+
+	t.Run("unresolvable host rejected", func(t *testing.T) {
+		err := validateURLConfig(cfg, "http://this-domain-does-not-exist-12345.com/mcp")
+		if err == nil {
+			t.Fatal("expected unresolvable host to be rejected")
+		}
+		if !strings.Contains(err.Error(), "cannot be resolved") {
+			t.Fatalf("expected 'cannot be resolved' error, got: %v", err)
+		}
+	})
+
+	t.Run("unresolvable host passes if in allowlist", func(t *testing.T) {
+		cfg2 := config.Config{MCP: struct {
+			DefaultTimeoutSeconds int      `yaml:"default_timeout_seconds"`
+			DefaultMaxRetries     int      `yaml:"default_max_retries"`
+			AllowStdio            bool     `yaml:"allow_stdio"`
+			AllowedStdioCommands  []string `yaml:"allowed_stdio_commands"`
+			AllowedURLHosts       []string `yaml:"allowed_url_hosts"`
+			BlockPrivateNetwork   *bool    `yaml:"block_private_network"`
+			MaxTimeoutSeconds     int      `yaml:"max_timeout_seconds"`
+		}{AllowedURLHosts: []string{"unresolvable.example.com"}}}
+		err := validateURLConfig(cfg2, "http://unresolvable.example.com/mcp")
+		if err != nil {
+			t.Fatalf("expected unresolvable host in allowlist to pass, got: %v", err)
+		}
+	})
+}
+
+func ptrBool(v bool) *bool {
+	return &v
 }

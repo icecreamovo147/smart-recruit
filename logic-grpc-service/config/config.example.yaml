@@ -95,4 +95,15 @@ smtp:
   from_name: "Smart Recruit"           # SMTP_FROM_NAME
   tls: true                 # 是否使用 TLS
 
+mcp:
+  default_timeout_seconds: 30
+  default_max_retries: 1
+  allow_stdio: false
+  allowed_stdio_commands:
+    - npx
+    - node
+  allowed_url_hosts: []
+  block_private_network: true
+  max_timeout_seconds: 120
+
 frontend_base_url: "http://localhost:5173"  # FRONTEND_BASE_URL: 前端地址基础 URL

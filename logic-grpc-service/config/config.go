@@ -102,8 +102,13 @@ type Config struct {
 	} `yaml:"smtp"`
 	FrontendBaseURL string `yaml:"frontend_base_url"`
 	MCP struct {
-		DefaultTimeoutSeconds int `yaml:"default_timeout_seconds"`
-		DefaultMaxRetries     int `yaml:"default_max_retries"`
+		DefaultTimeoutSeconds  int      `yaml:"default_timeout_seconds"`
+		DefaultMaxRetries      int      `yaml:"default_max_retries"`
+		AllowStdio             bool     `yaml:"allow_stdio"`
+		AllowedStdioCommands   []string `yaml:"allowed_stdio_commands"`
+		AllowedURLHosts        []string `yaml:"allowed_url_hosts"`
+		BlockPrivateNetwork    *bool    `yaml:"block_private_network"`
+		MaxTimeoutSeconds      int      `yaml:"max_timeout_seconds"`
 	} `yaml:"mcp"`
 }
 
@@ -284,7 +289,20 @@ func Load() (Config, error) {
 		cfg.MCP.DefaultTimeoutSeconds = 30
 	}
 	if cfg.MCP.DefaultMaxRetries <= 0 {
-		cfg.MCP.DefaultMaxRetries = 3
+		cfg.MCP.DefaultMaxRetries = 1
+	}
+	if cfg.MCP.MaxTimeoutSeconds <= 0 {
+		cfg.MCP.MaxTimeoutSeconds = 120
+	}
+	if cfg.MCP.AllowedStdioCommands == nil {
+		cfg.MCP.AllowedStdioCommands = []string{"npx", "node"}
+	}
+	if cfg.MCP.AllowedURLHosts == nil {
+		cfg.MCP.AllowedURLHosts = []string{}
+	}
+	if cfg.MCP.BlockPrivateNetwork == nil {
+		v := true
+		cfg.MCP.BlockPrivateNetwork = &v
 	}
 	return cfg, nil
 }

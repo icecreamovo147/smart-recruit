@@ -4,6 +4,8 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"net"
+	"net/url"
 	"regexp"
 	"strings"
 	"time"
@@ -86,9 +88,16 @@ func (s *MCPService) CreateMCPServer(ctx context.Context, req *pb.CreateMCPServe
 		return nil, status.Error(codes.InvalidArgument, "command_or_url is required")
 	}
 
+	if err := validateMCPConfig(s.cfg, transportType, req.GetCommandOrUrl(), req.GetArgs(), req.GetEnvVars()); err != nil {
+		return nil, status.Error(codes.InvalidArgument, err.Error())
+	}
+
 	timeout := req.GetTimeoutSeconds()
 	if timeout <= 0 {
 		timeout = int32(s.cfg.MCP.DefaultTimeoutSeconds)
+	}
+	if timeout > int32(s.cfg.MCP.MaxTimeoutSeconds) {
+		timeout = int32(s.cfg.MCP.MaxTimeoutSeconds)
 	}
 
 	var argsStr *string
@@ -102,8 +111,15 @@ func (s *MCPService) CreateMCPServer(ctx context.Context, req *pb.CreateMCPServe
 		envStr = &e
 	}
 
+	desc := strings.TrimSpace(req.GetDescription())
+	var descPtr *string
+	if desc != "" {
+		descPtr = &desc
+	}
+
 	server := &model.MCPServer{
 		Name:           strings.TrimSpace(req.GetName()),
+		Description:    descPtr,
 		Transport:      transportType,
 		CommandOrURL:   strings.TrimSpace(req.GetCommandOrUrl()),
 		Args:           argsStr,
@@ -140,29 +156,56 @@ func (s *MCPService) UpdateMCPServer(ctx context.Context, req *pb.UpdateMCPServe
 	}
 
 	updates := map[string]any{}
+
+	transportType := existing.Transport
+	if req.GetTransport() != "" {
+		t := strings.ToLower(strings.TrimSpace(req.GetTransport()))
+		if t != "stdio" && t != "sse" && t != "http" {
+			return nil, status.Error(codes.InvalidArgument, "transport must be one of: stdio, sse, http")
+		}
+		transportType = t
+		updates["transport"] = transportType
+	}
+
+	commandOrURL := existing.CommandOrURL
+	if req.GetCommandOrUrl() != "" {
+		commandOrURL = strings.TrimSpace(req.GetCommandOrUrl())
+		updates["command_or_url"] = commandOrURL
+	}
+
+	args := ""
+	if req.GetArgs() != "" {
+		args = req.GetArgs()
+		updates["args"] = &args
+	} else if existing.Args != nil {
+		args = *existing.Args
+	}
+
+	envVars := ""
+	if req.GetEnvVars() != "" {
+		envVars = req.GetEnvVars()
+		updates["env_vars"] = &envVars
+	} else if existing.EnvVars != nil {
+		envVars = *existing.EnvVars
+	}
+
+	if err := validateMCPConfig(s.cfg, transportType, commandOrURL, args, envVars); err != nil {
+		return nil, status.Error(codes.InvalidArgument, err.Error())
+	}
+
 	if req.GetName() != "" {
 		updates["name"] = strings.TrimSpace(req.GetName())
 	}
-	if req.GetTransport() != "" {
-		transportType := strings.ToLower(strings.TrimSpace(req.GetTransport()))
-		if transportType != "stdio" && transportType != "sse" && transportType != "http" {
-			return nil, status.Error(codes.InvalidArgument, "transport must be one of: stdio, sse, http")
-		}
-		updates["transport"] = transportType
-	}
-	if req.GetCommandOrUrl() != "" {
-		updates["command_or_url"] = strings.TrimSpace(req.GetCommandOrUrl())
-	}
-	if req.GetArgs() != "" {
-		a := req.GetArgs()
-		updates["args"] = &a
-	}
-	if req.GetEnvVars() != "" {
-		e := req.GetEnvVars()
-		updates["env_vars"] = &e
+	if req.GetDescription() != "" {
+		desc := req.GetDescription()
+		updates["description"] = &desc
 	}
 	if req.GetTimeoutSecondsSet() {
-		updates["timeout_seconds"] = req.GetTimeoutSeconds()
+		timeout := req.GetTimeoutSeconds()
+		if timeout > int32(s.cfg.MCP.MaxTimeoutSeconds) {
+			timeout = int32(s.cfg.MCP.MaxTimeoutSeconds)
+		}
+		updates["timeout_seconds"] = timeout
 	}
 	if req.GetIsEnabledSet() {
 		v := int32(0)
@@ -570,15 +613,27 @@ func serverToInfo(s *model.MCPServer) *pb.MCPServerInfo {
 	if s.EnvVars != nil {
 		envVars = desensitizeEnvVars(*s.EnvVars)
 	}
+	description := ""
+	if s.Description != nil {
+		description = *s.Description
+	}
+	lastError := ""
+	if s.LastError != nil {
+		lastError = *s.LastError
+	}
 	return &pb.MCPServerInfo{
 		Id:             s.ID,
 		Name:           s.Name,
+		Description:    description,
 		Transport:      s.Transport,
 		CommandOrUrl:   s.CommandOrURL,
 		Args:           args,
 		EnvVars:        envVars,
 		TimeoutSeconds: s.TimeoutSeconds,
 		IsEnabled:      s.IsEnabled == 1,
+		Status:         s.Status,
+		ToolCount:      s.ToolCount,
+		LastError:      lastError,
 		CreatedAt:      s.CreatedAt.Format(time.RFC3339),
 		UpdatedAt:      s.UpdatedAt.Format(time.RFC3339),
 	}
@@ -587,23 +642,172 @@ func serverToInfo(s *model.MCPServer) *pb.MCPServerInfo {
 // desensitizeEnvVars masks all values in a JSON env_vars string.
 // It parses the JSON object and replaces every value with "***",
 // then returns the re-marshaled JSON. On any parse/marshal error,
-// it returns the original string unchanged.
+// it returns "{}" to avoid leaking raw values.
 func desensitizeEnvVars(envVarsJSON string) string {
 	if envVarsJSON == "" {
 		return ""
 	}
 	var envMap map[string]any
 	if err := json.Unmarshal([]byte(envVarsJSON), &envMap); err != nil {
-		return envVarsJSON
+		return "{}"
 	}
 	for k := range envMap {
 		envMap[k] = "***"
 	}
 	result, err := json.Marshal(envMap)
 	if err != nil {
-		return envVarsJSON
+		return "{}"
 	}
 	return string(result)
+}
+
+// ── MCP Security Validation ────────────────────────────────────────
+
+var shellCommands = map[string]bool{
+	"sh": true, "bash": true, "zsh": true, "cmd": true, "powershell": true, "pwsh": true, "dash": true, "ksh": true,
+}
+
+var shellControlOps = []string{";", "&&", "||", "|", "`"}
+
+func validateMCPConfig(cfg config.Config, transportType, commandOrURL, args, envVars string) error {
+	// Validate env_vars as valid JSON object
+	if envVars != "" {
+		var envObj map[string]any
+		if err := json.Unmarshal([]byte(envVars), &envObj); err != nil {
+			return fmt.Errorf("env_vars must be a valid JSON object: %w", err)
+		}
+	}
+
+	if transportType == "stdio" {
+		return validateStdioConfig(cfg, commandOrURL, args)
+	}
+
+	return validateURLConfig(cfg, commandOrURL)
+}
+
+func validateStdioConfig(cfg config.Config, command, args string) error {
+	if !cfg.MCP.AllowStdio {
+		return fmt.Errorf("stdio transport is disabled by server configuration")
+	}
+
+	command = strings.TrimSpace(command)
+
+	// Reject shell commands
+	baseCmd := command
+	if idx := strings.IndexAny(command, " /\\"); idx >= 0 {
+		baseCmd = command[:idx]
+	}
+	if shellCommands[baseCmd] {
+		return fmt.Errorf("shell command %q is not allowed as stdio command", baseCmd)
+	}
+
+	// Check shell control operators in the command
+	for _, op := range shellControlOps {
+		if strings.Contains(command, op) {
+			return fmt.Errorf("shell control operator %q is not allowed in stdio command", op)
+		}
+	}
+
+	// Validate against allowlist
+	if len(cfg.MCP.AllowedStdioCommands) > 0 {
+		allowed := false
+		for _, allowedCmd := range cfg.MCP.AllowedStdioCommands {
+			if command == allowedCmd || strings.HasPrefix(command, allowedCmd+" ") || strings.HasPrefix(command, allowedCmd+"/") {
+				allowed = true
+				break
+			}
+		}
+		if !allowed {
+			return fmt.Errorf("stdio command %q is not in the allowed commands list", baseCmd)
+		}
+	}
+
+	// Validate args is valid JSON array
+	if args != "" {
+		var parsedArgs []any
+		if err := json.Unmarshal([]byte(args), &parsedArgs); err != nil {
+			return fmt.Errorf("args must be a valid JSON array: %w", err)
+		}
+		for _, arg := range parsedArgs {
+			if argStr, ok := arg.(string); ok {
+				for _, op := range shellControlOps {
+					if strings.Contains(argStr, op) {
+						return fmt.Errorf("shell control operator %q is not allowed in arguments", op)
+					}
+				}
+				if shellCommands[strings.TrimSpace(argStr)] {
+					return fmt.Errorf("shell command %q is not allowed as argument", argStr)
+				}
+			}
+		}
+	}
+
+	return nil
+}
+
+func validateURLConfig(cfg config.Config, rawURL string) error {
+	u, err := url.Parse(strings.TrimSpace(rawURL))
+	if err != nil {
+		return fmt.Errorf("invalid URL: %w", err)
+	}
+
+	if u.Scheme != "http" && u.Scheme != "https" {
+		return fmt.Errorf("URL scheme must be http or https, got %q", u.Scheme)
+	}
+
+	host := u.Hostname()
+	if host == "" {
+		return fmt.Errorf("URL host is empty")
+	}
+
+	// Block metadata service addresses unconditionally (before allowlist).
+	metadataHosts := []string{"169.254.169.254", "100.100.100.200", "100.100.100.201"}
+	for _, mh := range metadataHosts {
+		if host == mh {
+			return fmt.Errorf("metadata service address %q is blocked", host)
+		}
+	}
+
+	// Check host allowlist: if allowed_url_hosts is non-empty, only those hosts are permitted.
+	if len(cfg.MCP.AllowedURLHosts) > 0 {
+		allowed := false
+		for _, allowedHost := range cfg.MCP.AllowedURLHosts {
+			if host == allowedHost {
+				allowed = true
+				break
+			}
+		}
+		if !allowed {
+			return fmt.Errorf("URL host %q is not in the allowed hosts list", host)
+		}
+		// Host is explicitly allowed, skip private network and DNS checks.
+		return nil
+	}
+
+	// Private network check (default: blocked).
+	if cfg.MCP.BlockPrivateNetwork == nil || *cfg.MCP.BlockPrivateNetwork {
+		ips, err := net.LookupHost(host)
+		if err != nil {
+			// DNS failure: reject by default (prevents SSRF via post-registration DNS rebind).
+			// Only localhost-like patterns are checked syntactically for early rejection.
+			if strings.HasPrefix(host, "127.") || host == "localhost" || host == "::1" || host == "0.0.0.0" {
+				return fmt.Errorf("private network address %q is blocked", host)
+			}
+			return fmt.Errorf("URL host %q cannot be resolved and is not in allowed hosts list", host)
+		}
+
+		for _, ipStr := range ips {
+			ip := net.ParseIP(ipStr)
+			if ip == nil {
+				continue
+			}
+			if ip.IsLoopback() || ip.IsPrivate() || ip.IsLinkLocalMulticast() || ip.IsLinkLocalUnicast() {
+				return fmt.Errorf("private network address %q is blocked", ipStr)
+			}
+		}
+	}
+
+	return nil
 }
 
 // extractResultText extracts text content from a CallToolResult.

@@ -611,61 +611,60 @@ onMounted(() => {
           </div>
         </template>
       </template>
-    </div>
 
-    <template v-else-if="activeView === 'versions'">
-      <el-card class="table-card" shadow="never">
-        <div class="filter-toolbar">
-          <el-button type="primary" :icon="Plus" @click="openCreateVersion">创建版本</el-button>
-          <div class="filter-actions">
-            <el-button :icon="Refresh" @click="loadVersions">刷新</el-button>
+      <template v-else-if="activeView === 'versions'">
+        <el-card class="table-card" shadow="never">
+          <div class="filter-toolbar">
+            <el-button type="primary" :icon="Plus" @click="openCreateVersion">创建版本</el-button>
+            <div class="filter-actions">
+              <el-button :icon="Refresh" @click="loadVersions">刷新</el-button>
+            </div>
           </div>
-        </div>
 
-        <el-table
-          v-loading="versionsLoading"
-          :data="versions"
-          stripe
-          style="width: 100%"
-          :empty-text="versionsError || '暂无版本'"
-        >
-          <el-table-column prop="version" label="版本" width="140" />
-          <el-table-column label="状态" width="100">
-            <template #default="{ row }: { row: SkillVersionInfo }">
-              <el-tag v-if="row.id === selectedSkill?.current_version_id" type="success" size="small">当前</el-tag>
-              <span v-else>-</span>
-            </template>
-          </el-table-column>
-          <el-table-column prop="runtime_type" label="运行类型" width="120" />
-          <el-table-column label="Instruction" min-width="220" show-overflow-tooltip>
-            <template #default="{ row }: { row: SkillVersionInfo }">
-              {{ shortText(row.instruction) }}
-            </template>
-          </el-table-column>
-          <el-table-column label="创建时间" width="170">
-            <template #default="{ row }: { row: SkillVersionInfo }">
-              {{ formatTime(row.created_at) }}
-            </template>
-          </el-table-column>
-          <el-table-column label="操作" width="180" fixed="right">
-            <template #default="{ row }: { row: SkillVersionInfo }">
-              <el-button size="small" :icon="Document" @click="openVersionDetail(row)">详情</el-button>
-              <el-button
-                size="small"
-                type="primary"
-                :icon="Check"
-                :disabled="row.id === selectedSkill?.current_version_id"
-                @click="activateVersion(row)"
-              >
-                激活
-              </el-button>
-            </template>
-          </el-table-column>
-        </el-table>
-      </el-card>
-    </template>
+          <el-table
+            v-loading="versionsLoading"
+            :data="versions"
+            stripe
+            style="width: 100%"
+            :empty-text="versionsError || '暂无版本'"
+          >
+            <el-table-column prop="version" label="版本" width="140" />
+            <el-table-column label="状态" width="100">
+              <template #default="{ row }: { row: SkillVersionInfo }">
+                <el-tag v-if="row.id === selectedSkill?.current_version_id" type="success" size="small">当前</el-tag>
+                <span v-else>-</span>
+              </template>
+            </el-table-column>
+            <el-table-column prop="runtime_type" label="运行类型" width="120" />
+            <el-table-column label="Instruction" min-width="220" show-overflow-tooltip>
+              <template #default="{ row }: { row: SkillVersionInfo }">
+                {{ shortText(row.instruction) }}
+              </template>
+            </el-table-column>
+            <el-table-column label="创建时间" width="170">
+              <template #default="{ row }: { row: SkillVersionInfo }">
+                {{ formatTime(row.created_at) }}
+              </template>
+            </el-table-column>
+            <el-table-column label="操作" width="180" fixed="right">
+              <template #default="{ row }: { row: SkillVersionInfo }">
+                <el-button size="small" :icon="Document" @click="openVersionDetail(row)">详情</el-button>
+                <el-button
+                  size="small"
+                  type="primary"
+                  :icon="Check"
+                  :disabled="row.id === selectedSkill?.current_version_id"
+                  @click="activateVersion(row)"
+                >
+                  激活
+                </el-button>
+              </template>
+            </el-table-column>
+          </el-table>
+        </el-card>
+      </template>
 
-    <template v-else>
+      <template v-else>
       <el-card class="table-card" shadow="never">
         <div class="filter-toolbar">
           <el-select v-model="toolVersionId" style="width: 180px">
@@ -721,6 +720,7 @@ onMounted(() => {
         </el-table>
       </el-card>
     </template>
+    </div>
 
     <el-dialog
       v-model="dialogVisible"

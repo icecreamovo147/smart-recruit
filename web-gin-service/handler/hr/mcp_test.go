@@ -9,6 +9,8 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 
 	"web-gin-service/recruitment/pb"
 	"web-gin-service/rpc"
@@ -225,12 +227,18 @@ func TestMCPHandler_TestConnection(t *testing.T) {
 	}
 }
 
-func TestMCPHandler_CallMCPTool(t *testing.T) {
+func TestMCPHandler_CallMCPTool_InjectServerID(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	mock := &mockMCPClient{
 		callToolFn: func(_ context.Context, req *pb.CallMCPToolRequest, _ ...grpc.CallOption) (*pb.CallMCPToolResponse, error) {
-			if req.ServerId != 1 || req.ToolName != "my_tool" {
-				t.Fatalf("unexpected request: server_id=%d, tool_name=%s", req.ServerId, req.ToolName)
+			if req.ServerId != 1 {
+				t.Fatalf("expected ServerId=1 (from path), got %d", req.ServerId)
+			}
+			if req.ToolName != "my_tool" {
+				t.Fatalf("expected ToolName='my_tool', got %s", req.ToolName)
+			}
+			if req.ArgsJson != `{"key":"val"}` {
+				t.Fatalf("expected ArgsJson='{\"key\":\"val\"}', got %s", req.ArgsJson)
 			}
 			return &pb.CallMCPToolResponse{
 				Code: 0, Msg: "ok", ResultContent: "tool output", DurationMs: 100,
@@ -241,7 +249,7 @@ func TestMCPHandler_CallMCPTool(t *testing.T) {
 	router := gin.New()
 	router.POST("/hr/mcp/servers/:id/call", handler.CallMCPTool)
 
-	body := `{"tool_name":"my_tool","server_id":1}`
+	body := `{"tool_name":"my_tool","args_json":"{\"key\":\"val\"}"}`
 	req := httptest.NewRequest(http.MethodPost, "/hr/mcp/servers/1/call", strings.NewReader(body))
 	req.Header.Set("Content-Type", "application/json")
 	w := httptest.NewRecorder()
@@ -249,5 +257,77 @@ func TestMCPHandler_CallMCPTool(t *testing.T) {
 
 	if w.Code != http.StatusOK {
 		t.Fatalf("expected 200 OK, got %d", w.Code)
+	}
+}
+
+func TestMCPHandler_CallMCPTool_BodyServerIDIgnored(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	mock := &mockMCPClient{
+		callToolFn: func(_ context.Context, req *pb.CallMCPToolRequest, _ ...grpc.CallOption) (*pb.CallMCPToolResponse, error) {
+			if req.ServerId != 1 {
+				t.Fatalf("expected ServerId=1 (from path, not body), got %d", req.ServerId)
+			}
+			return &pb.CallMCPToolResponse{
+				Code: 0, Msg: "ok", ResultContent: "tool output", DurationMs: 100,
+			}, nil
+		},
+	}
+	handler := NewMCPHandler(&rpc.Clients{MCP: mock})
+	router := gin.New()
+	router.POST("/hr/mcp/servers/:id/call", handler.CallMCPTool)
+
+	body := `{"tool_name":"my_tool","server_id":99,"args_json":"{}"}`
+	req := httptest.NewRequest(http.MethodPost, "/hr/mcp/servers/1/call", strings.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+	router.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected 200 OK, got %d", w.Code)
+	}
+}
+
+func TestMCPHandler_CallMCPTool_InvalidID(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	handler := NewMCPHandler(&rpc.Clients{MCP: &mockMCPClient{}})
+	router := gin.New()
+	router.POST("/hr/mcp/servers/:id/call", handler.CallMCPTool)
+
+	body := `{"tool_name":"my_tool","args_json":"{}"}`
+	req := httptest.NewRequest(http.MethodPost, "/hr/mcp/servers/invalid/call", strings.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+	router.ServeHTTP(w, req)
+
+	bodyStr := w.Body.String()
+	if !strings.Contains(bodyStr, "invalid server_id") {
+		t.Fatalf("expected error message containing 'invalid server_id', got %s", bodyStr)
+	}
+}
+
+func TestMCPHandler_CallMCPTool_GRPCError(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	mock := &mockMCPClient{
+		callToolFn: func(_ context.Context, req *pb.CallMCPToolRequest, _ ...grpc.CallOption) (*pb.CallMCPToolResponse, error) {
+			return nil, status.Error(codes.Internal, "gRPC error")
+		},
+	}
+	handler := NewMCPHandler(&rpc.Clients{MCP: mock})
+	router := gin.New()
+	router.POST("/hr/mcp/servers/:id/call", handler.CallMCPTool)
+
+	body := `{"tool_name":"my_tool","args_json":"{}"}`
+	req := httptest.NewRequest(http.MethodPost, "/hr/mcp/servers/1/call", strings.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+	router.ServeHTTP(w, req)
+
+	// base.Internal returns HTTP 200 with an error envelope
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected 200 OK, got %d", w.Code)
+	}
+	bodyStr := w.Body.String()
+	if !strings.Contains(bodyStr, "code") || !strings.Contains(bodyStr, "msg") {
+		t.Fatalf("expected error envelope in response, got %s", bodyStr)
 	}
 }

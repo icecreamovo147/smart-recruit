@@ -789,12 +789,16 @@ func (AgentSkillVersion) TableName() string { return "agent_skill_versions" }
 type MCPServer struct {
 	ID             int64     `gorm:"primaryKey"`
 	Name           string    `gorm:"column:name;size:128;not null"`
+	Description    *string   `gorm:"column:description;type:text"`
 	Transport      string    `gorm:"column:transport;size:16;not null"`
 	CommandOrURL   string    `gorm:"column:command_or_url;type:text;not null"`
 	Args           *string   `gorm:"column:args;type:json"`
 	EnvVars        *string   `gorm:"column:env_vars;type:json"`
 	TimeoutSeconds int32     `gorm:"column:timeout_seconds;default:30"`
 	IsEnabled      int32     `gorm:"column:is_enabled;default:0"`
+	Status         string    `gorm:"column:status;size:32;default:disconnected"`
+	ToolCount      int32     `gorm:"column:tool_count;default:0"`
+	LastError      *string   `gorm:"column:last_error;size:512"`
 	CreatedAt      time.Time `gorm:"column:created_at"`
 	UpdatedAt      time.Time `gorm:"column:updated_at"`
 }

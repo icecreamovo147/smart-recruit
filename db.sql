@@ -1012,13 +1012,16 @@ CREATE TABLE IF NOT EXISTS `agent_configs` (
   `temperature_override` DOUBLE COMMENT 'Overrides model default temperature, NULL = use model default',
   `is_default` TINYINT(1) NOT NULL DEFAULT 0 COMMENT 'Whether this is the default agent for its agent_type',
   `is_enabled` TINYINT(1) NOT NULL DEFAULT 1 COMMENT 'Whether this agent is enabled',
+  `default_key` VARCHAR(64) GENERATED ALWAYS AS (
+    CASE WHEN `is_default` = 1 AND `is_enabled` = 1 THEN `agent_type` ELSE NULL END
+  ) STORED COMMENT 'Enforces one enabled default per agent_type via unique index',
   `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   `updated_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`),
   UNIQUE KEY `uk_name` (`name`),
+  UNIQUE KEY `uk_agent_default_type` (`default_key`),
   KEY `idx_agent_type` (`agent_type`),
   KEY `idx_prompt_template_id` (`prompt_template_id`),
-  KEY `idx_agent_type_default` (`agent_type`, `is_default`),
   CONSTRAINT `fk_agent_configs_prompt` FOREIGN KEY (`prompt_template_id`) REFERENCES `prompt_templates` (`id`) ON DELETE SET NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='Agent configuration definitions';
 
@@ -1037,12 +1040,16 @@ CREATE TABLE IF NOT EXISTS `agent_tool_bindings` (
 CREATE TABLE IF NOT EXISTS `mcp_servers` (
   `id` BIGINT NOT NULL AUTO_INCREMENT,
   `name` VARCHAR(128) NOT NULL COMMENT 'MCP server display name',
+  `description` TEXT NULL COMMENT 'Human-readable server description',
   `transport` VARCHAR(16) NOT NULL COMMENT 'Transport type: stdio / sse / http',
   `command_or_url` TEXT NOT NULL COMMENT 'Command (stdio) or URL (sse/http)',
   `args` JSON COMMENT 'Command arguments (JSON array string)',
   `env_vars` JSON COMMENT 'Environment variables (JSON object)',
   `timeout_seconds` INT NOT NULL DEFAULT 30 COMMENT 'Connection timeout',
   `is_enabled` TINYINT(1) NOT NULL DEFAULT 0 COMMENT 'Default disabled for safety',
+  `status` VARCHAR(32) NOT NULL DEFAULT 'disconnected' COMMENT 'connected / disconnected / error',
+  `tool_count` INT NOT NULL DEFAULT 0 COMMENT 'Number of tools discovered',
+  `last_error` VARCHAR(512) NULL COMMENT 'Last connection or operation error message',
   `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   `updated_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`),

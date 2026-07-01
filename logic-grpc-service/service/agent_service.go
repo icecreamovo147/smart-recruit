@@ -148,11 +148,6 @@ func (s *AgentConfigService) CreateAgent(ctx context.Context, req *pb.CreateAgen
 	isDefault := int32(0)
 	if req.GetIsDefault() {
 		isDefault = 1
-		// Clear existing defaults for this type.
-		if err := s.repo.ClearDefaultsForType(ctx, req.GetAgentType()); err != nil {
-			logger.L().Error("clear defaults failed", zap.Error(err))
-			return nil, status.Error(codes.Internal, "clear defaults failed")
-		}
 	}
 
 	cfg := &model.AgentConfig{
@@ -168,19 +163,14 @@ func (s *AgentConfigService) CreateAgent(ctx context.Context, req *pb.CreateAgen
 		IsEnabled:           1,
 	}
 
-	if err := s.repo.Create(ctx, cfg); err != nil {
-		logger.L().Error("create agent config failed", zap.Error(err))
-		return nil, status.Error(codes.Internal, "create agent config failed")
-	}
-
 	bindings := capabilityBindingsFromPB(req.GetCapabilityBindings())
 	if len(bindings) == 0 && len(req.GetToolNames()) > 0 {
 		bindings = builtinCapabilityBindings(req.GetToolNames())
 	}
-	if len(bindings) > 0 {
-		if err := s.repo.ReplaceCapabilityBindings(ctx, cfg.ID, bindings); err != nil {
-			logger.L().Error("bind capabilities failed", zap.Error(err))
-		}
+
+	if err := s.repo.CreateWithCapabilityBindings(ctx, cfg, bindings); err != nil {
+		logger.L().Error("create agent config with bindings failed", zap.Error(err))
+		return nil, status.Error(codes.Internal, "create agent config failed")
 	}
 
 	info, err := s.agentToPB(ctx, cfg)
@@ -249,12 +239,6 @@ func (s *AgentConfigService) UpdateAgent(ctx context.Context, req *pb.UpdateAgen
 		updates["temperature_override"] = &v
 	}
 	if req.GetIsDefaultSet() {
-		if req.GetIsDefault() {
-			if err := s.repo.ClearDefaultsForType(ctx, existing.AgentType); err != nil {
-				logger.L().Error("clear defaults failed", zap.Error(err))
-				return nil, status.Error(codes.Internal, "clear defaults failed")
-			}
-		}
 		isDefault := int32(0)
 		if req.GetIsDefault() {
 			isDefault = 1
@@ -269,23 +253,17 @@ func (s *AgentConfigService) UpdateAgent(ctx context.Context, req *pb.UpdateAgen
 		updates["is_enabled"] = isEnabled
 	}
 
-	if len(updates) > 0 {
-		if err := s.repo.UpdatePartial(ctx, existing.ID, updates); err != nil {
-			logger.L().Error("update agent config failed", zap.Error(err))
-			return nil, status.Error(codes.Internal, "update agent config failed")
-		}
+	replaceBindings := req.GetCapabilityBindingsSet() || req.GetToolNamesSet()
+	var bindings []model.AgentCapabilityBinding
+	if req.GetCapabilityBindingsSet() {
+		bindings = capabilityBindingsFromPB(req.GetCapabilityBindings())
+	} else if req.GetToolNamesSet() {
+		bindings = builtinCapabilityBindings(req.GetToolNames())
 	}
 
-	if req.GetCapabilityBindingsSet() {
-		if err := s.repo.ReplaceCapabilityBindings(ctx, existing.ID, capabilityBindingsFromPB(req.GetCapabilityBindings())); err != nil {
-			logger.L().Error("replace capability bindings failed", zap.Error(err))
-			return nil, status.Error(codes.Internal, "replace capability bindings failed")
-		}
-	} else if req.GetToolNamesSet() {
-		if err := s.repo.ReplaceCapabilityBindings(ctx, existing.ID, builtinCapabilityBindings(req.GetToolNames())); err != nil {
-			logger.L().Error("replace tool capability bindings failed", zap.Error(err))
-			return nil, status.Error(codes.Internal, "replace tool bindings failed")
-		}
+	if err := s.repo.UpdateWithCapabilityBindings(ctx, existing.ID, updates, bindings, replaceBindings); err != nil {
+		logger.L().Error("update agent config with bindings failed", zap.Error(err))
+		return nil, status.Error(codes.Internal, "update agent config failed")
 	}
 
 	// Fetch updated config.

@@ -71,6 +71,117 @@ func (r *AgentConfigRepo) List(ctx context.Context, page, pageSize int32, agentT
 	return list, total, nil
 }
 
+// ── Transactional Agent Config + Capability Bindings ─────────────────
+
+// CreateWithCapabilityBindings creates an agent config and its capability
+// bindings within a single transaction. If the bindings cannot be written,
+// the entire operation is rolled back. If the agent is a default for its type,
+// it clears existing defaults atomically.
+func (r *AgentConfigRepo) CreateWithCapabilityBindings(ctx context.Context, cfg *model.AgentConfig, bindings []model.AgentCapabilityBinding) error {
+	return r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		// Clear existing defaults for this type if creating a new default.
+		if cfg.IsDefault == 1 {
+			if err := tx.Model(&model.AgentConfig{}).
+				Where("agent_type = ? AND is_default = 1", cfg.AgentType).
+				Update("is_default", 0).Error; err != nil {
+				return fmt.Errorf("clear existing defaults: %w", err)
+			}
+		}
+
+		if err := tx.Create(cfg).Error; err != nil {
+			return fmt.Errorf("create agent config: %w", err)
+		}
+
+		if len(bindings) == 0 {
+			return nil
+		}
+
+		for i := range bindings {
+			bindings[i].AgentID = cfg.ID
+			if bindings[i].IsEnabled == 0 {
+				bindings[i].IsEnabled = 1
+			}
+			if err := tx.Create(&bindings[i]).Error; err != nil {
+				return fmt.Errorf("create capability binding %s:%s: %w", bindings[i].CapabilitySource, bindings[i].CapabilityKey, err)
+			}
+			if bindings[i].CapabilitySource == "builtin" {
+				if err := tx.Create(&model.AgentToolBinding{
+					AgentID:   cfg.ID,
+					ToolName:  bindings[i].CapabilityKey,
+					IsEnabled: bindings[i].IsEnabled,
+				}).Error; err != nil {
+					return fmt.Errorf("create legacy tool binding %s: %w", bindings[i].CapabilityKey, err)
+				}
+			}
+		}
+
+		return nil
+	})
+}
+
+// UpdateWithCapabilityBindings updates an agent config and optionally replaces
+// its capability bindings within a single transaction.
+// If the updates include is_default=1, existing defaults for the same agent_type
+// are cleared within the same transaction.
+func (r *AgentConfigRepo) UpdateWithCapabilityBindings(ctx context.Context, id int64, updates map[string]any, bindings []model.AgentCapabilityBinding, replaceBindings bool) error {
+	return r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		if len(updates) > 0 {
+			// Clear existing defaults if setting this one as default.
+			if v, ok := updates["is_default"]; ok {
+				if vi, ok2 := v.(int32); ok2 && vi == 1 {
+					// Fetch the agent type to clear defaults for.
+					var existing model.AgentConfig
+					if err := tx.Select("agent_type").First(&existing, id).Error; err != nil {
+						return fmt.Errorf("get existing agent type: %w", err)
+					}
+					if err := tx.Model(&model.AgentConfig{}).
+						Where("agent_type = ? AND id <> ? AND is_default = 1", existing.AgentType, id).
+						Update("is_default", 0).Error; err != nil {
+						return fmt.Errorf("clear existing defaults: %w", err)
+					}
+				}
+			}
+
+			if err := tx.Model(&model.AgentConfig{}).Where("id = ?", id).Updates(updates).Error; err != nil {
+				return fmt.Errorf("update agent config: %w", err)
+			}
+		}
+
+		if !replaceBindings {
+			return nil
+		}
+
+		// Delete existing bindings (both capability and legacy tool)
+		if err := tx.Where("agent_id = ?", id).Delete(&model.AgentCapabilityBinding{}).Error; err != nil {
+			return fmt.Errorf("delete existing capability bindings: %w", err)
+		}
+		if err := tx.Where("agent_id = ?", id).Delete(&model.AgentToolBinding{}).Error; err != nil {
+			return fmt.Errorf("delete existing legacy tool bindings: %w", err)
+		}
+
+		for _, b := range bindings {
+			b.AgentID = id
+			if b.IsEnabled == 0 {
+				b.IsEnabled = 1
+			}
+			if err := tx.Create(&b).Error; err != nil {
+				return fmt.Errorf("create capability binding %s:%s: %w", b.CapabilitySource, b.CapabilityKey, err)
+			}
+			if b.CapabilitySource == "builtin" {
+				if err := tx.Create(&model.AgentToolBinding{
+					AgentID:   id,
+					ToolName:  b.CapabilityKey,
+					IsEnabled: b.IsEnabled,
+				}).Error; err != nil {
+					return fmt.Errorf("create legacy tool binding %s: %w", b.CapabilityKey, err)
+				}
+			}
+		}
+
+		return nil
+	})
+}
+
 // ── Tool Bindings ──────────────────────────────────────────────────────
 
 func (r *AgentConfigRepo) ListToolBindings(ctx context.Context, agentID int64) ([]model.AgentToolBinding, error) {

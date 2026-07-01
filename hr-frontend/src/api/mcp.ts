@@ -68,6 +68,7 @@ export const createMcpServer = async (
 ): Promise<{ server: McpServerInfo }> => {
   const body: Record<string, unknown> = {
     name: data.name,
+    description: data.description || '',
     transport: data.transport_type,
     command_or_url: data.transport_type === 'stdio' ? data.command : data.url,
     timeout_seconds: data.timeout_seconds ?? 30,
@@ -84,6 +85,7 @@ export const updateMcpServer = async (
 ): Promise<{ server: McpServerInfo }> => {
   const body: Record<string, unknown> = {}
   if (data.name !== undefined) body.name = data.name
+  if (data.description !== undefined) body.description = data.description
   if (data.transport_type !== undefined) {
     body.transport = data.transport_type
     body.command_or_url = data.transport_type === 'stdio' ? data.command : data.url
@@ -119,7 +121,10 @@ export const callMcpTool = (
   serverId: number,
   data: { tool_name: string; args: Record<string, unknown> },
 ): Promise<{ result: unknown }> =>
-  request.post(`/api/v1/hr/admin/mcp-servers/${serverId}/call`, data)
+  request.post(`/api/v1/hr/admin/mcp-servers/${serverId}/call-tool`, {
+    tool_name: data.tool_name,
+    args_json: JSON.stringify(data.args ?? {}),
+  })
 
 // ── Logs ───────────────────────────────────────────────────────────────────
 
