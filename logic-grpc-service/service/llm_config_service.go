@@ -14,6 +14,7 @@ import (
 	"google.golang.org/grpc/status"
 	"gorm.io/gorm"
 
+	"logic-grpc-service/ai"
 	"logic-grpc-service/config"
 	"logic-grpc-service/model"
 	"logic-grpc-service/pkg/crypto"
@@ -29,6 +30,20 @@ type LlmConfigService struct {
 	modelRepo    *repository.ModelConfigRepo
 	encKey       crypto.EncryptionKey
 	httpClient   *http.Client
+}
+
+// LlmRuntimeModelConfig is the complete model configuration needed to create
+// a runtime AI client for one request.
+type LlmRuntimeModelConfig struct {
+	ModelID      int64
+	ProviderType string
+	ProviderName string
+	APIKey       string
+	ModelName    string
+	BaseURL      string
+	Params       ai.ModelParams
+	Concurrency  int32
+	Timeout      time.Duration
 }
 
 // NewLlmConfigService creates a new LlmConfigService.
@@ -602,46 +617,73 @@ func maskExtraHeaders(jsonStr string) string {
 	return string(masked)
 }
 
-// GetModelDetails looks up model config by ID for runtime model selection.
-// Returns provider_type, provider_name, api_key (decrypted), model_name, and base_url.
-func (s *LlmConfigService) GetModelDetails(ctx context.Context, modelID int64) (providerType, providerName, apiKey, modelName, baseURL string, err error) {
+// GetModelRuntimeConfig looks up the complete model config for runtime model
+// selection, including generation parameters from llm_models.
+func (s *LlmConfigService) GetModelRuntimeConfig(ctx context.Context, modelID int64) (*LlmRuntimeModelConfig, error) {
 	llmModel, err := s.modelRepo.GetByID(ctx, modelID)
 	if err != nil {
-		return "", "", "", "", "", fmt.Errorf("model %d not found: %w", modelID, err)
+		return nil, fmt.Errorf("model %d not found: %w", modelID, err)
 	}
 	if llmModel.IsEnabled != 1 {
-		return "", "", "", "", "", fmt.Errorf("model %d is disabled", modelID)
+		return nil, fmt.Errorf("model %d is disabled", modelID)
 	}
 	provider, err := s.providerRepo.GetByID(ctx, llmModel.ProviderID)
 	if err != nil {
-		return "", "", "", "", "", fmt.Errorf("provider %d not found: %w", llmModel.ProviderID, err)
+		return nil, fmt.Errorf("provider %d not found: %w", llmModel.ProviderID, err)
 	}
 	if provider.IsEnabled != 1 {
-		return "", "", "", "", "", fmt.Errorf("provider %d is disabled", provider.ID)
+		return nil, fmt.Errorf("provider %d is disabled", provider.ID)
 	}
 	keyBytes, err := crypto.Decrypt(s.encKey, provider.APIKeyEncrypted)
 	if err != nil {
-		return "", "", "", "", "", fmt.Errorf("decrypt api key for provider %d: %w", provider.ID, err)
+		return nil, fmt.Errorf("decrypt api key for provider %d: %w", provider.ID, err)
 	}
-	return provider.ProviderType, provider.Name, string(keyBytes), llmModel.ModelName, provider.BaseURL, nil
+	params := modelParamsFromConfig(llmModel)
+	return &LlmRuntimeModelConfig{
+		ModelID:      llmModel.ID,
+		ProviderType: provider.ProviderType,
+		ProviderName: provider.Name,
+		APIKey:       string(keyBytes),
+		ModelName:    llmModel.ModelName,
+		BaseURL:      provider.BaseURL,
+		Params:       params,
+		Concurrency:  llmModel.MaxConcurrency,
+		Timeout:      time.Duration(llmModel.TimeoutSeconds) * time.Second,
+	}, nil
+}
+
+// GetModelDetails looks up model config by ID for runtime model selection.
+// Returns provider_type, provider_name, api_key (decrypted), model_name, and base_url.
+func (s *LlmConfigService) GetModelDetails(ctx context.Context, modelID int64) (providerType, providerName, apiKey, modelName, baseURL string, err error) {
+	runtimeCfg, err := s.GetModelRuntimeConfig(ctx, modelID)
+	if err != nil {
+		return "", "", "", "", "", err
+	}
+	return runtimeCfg.ProviderType, runtimeCfg.ProviderName, runtimeCfg.APIKey, runtimeCfg.ModelName, runtimeCfg.BaseURL, nil
+}
+
+// GetDefaultModelRuntimeConfig returns the enabled default model with provider
+// details and model generation parameters.
+func (s *LlmConfigService) GetDefaultModelRuntimeConfig(ctx context.Context) (*LlmRuntimeModelConfig, error) {
+	llmModel, err := s.modelRepo.GetDefaultModel(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("default model not found: %w", err)
+	}
+	return s.GetModelRuntimeConfig(ctx, llmModel.ID)
 }
 
 // GetDefaultModelDetails returns the enabled default model plus provider details.
 func (s *LlmConfigService) GetDefaultModelDetails(ctx context.Context) (modelID int64, providerType, providerName, apiKey, modelName, baseURL string, err error) {
-	llmModel, err := s.modelRepo.GetDefaultModel(ctx)
+	runtimeCfg, err := s.GetDefaultModelRuntimeConfig(ctx)
 	if err != nil {
 		return 0, "", "", "", "", "", fmt.Errorf("default model not found: %w", err)
 	}
-	providerType, providerName, apiKey, modelName, baseURL, err = s.GetModelDetails(ctx, llmModel.ID)
-	if err != nil {
-		return 0, "", "", "", "", "", err
-	}
-	return llmModel.ID, providerType, providerName, apiKey, modelName, baseURL, nil
+	return runtimeCfg.ModelID, runtimeCfg.ProviderType, runtimeCfg.ProviderName, runtimeCfg.APIKey, runtimeCfg.ModelName, runtimeCfg.BaseURL, nil
 }
 
 // GetDefaultModelConfig retrieves the default model config (Provider + Model) for AI client initialization.
 // Returns provider name, base_url, api_key, model name, and model params.
-func GetDefaultModelConfig(ctx context.Context, providerRepo *repository.ProviderRepo, modelRepo *repository.ModelConfigRepo, encKey crypto.EncryptionKey, cfg config.Config) (baseURL, apiKey, model, providerType string, err error) {
+func GetDefaultModelConfig(ctx context.Context, providerRepo *repository.ProviderRepo, modelRepo *repository.ModelConfigRepo, encKey crypto.EncryptionKey, cfg config.Config) (baseURL, apiKey, model, providerType string, params ai.ModelParams, err error) {
 	// Try to find default model from DB
 	llmModel, dbErr := modelRepo.GetDefaultModel(ctx)
 	if dbErr == nil && llmModel != nil {
@@ -649,15 +691,28 @@ func GetDefaultModelConfig(ctx context.Context, providerRepo *repository.Provide
 		if pErr == nil && provider != nil && provider.IsEnabled == 1 {
 			keyBytes, dErr := crypto.Decrypt(encKey, provider.APIKeyEncrypted)
 			if dErr == nil {
-				return provider.BaseURL, string(keyBytes), llmModel.ModelName, provider.ProviderType, nil
+				return provider.BaseURL, string(keyBytes), llmModel.ModelName, provider.ProviderType, modelParamsFromConfig(llmModel), nil
 			}
 		}
 	}
 
 	// Fall back to environment variable configuration
 	if cfg.AI.APIKey != "" {
-		return cfg.AI.BaseURL, cfg.AI.APIKey, cfg.AI.Model, "", nil
+		return cfg.AI.BaseURL, cfg.AI.APIKey, cfg.AI.Model, "", ai.ModelParams{}, nil
 	}
 
-	return "", "", "", "", fmt.Errorf("no default model config found and no AI env config")
+	return "", "", "", "", ai.ModelParams{}, fmt.Errorf("no default model config found and no AI env config")
+}
+
+func modelParamsFromConfig(llmModel *model.LlmModel) ai.ModelParams {
+	params := ai.ModelParams{}
+	temperature := llmModel.Temperature
+	params.Temperature = &temperature
+	topP := llmModel.TopP
+	params.TopP = &topP
+	if llmModel.MaxTokens > 0 {
+		maxTokens := int(llmModel.MaxTokens)
+		params.MaxTokens = &maxTokens
+	}
+	return params
 }

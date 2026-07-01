@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"strings"
 	"sync"
+	"time"
 
 	chatmodel "github.com/cloudwego/eino/components/model"
 	"github.com/cloudwego/eino/schema"
@@ -33,6 +34,7 @@ type AnthropicChatModelConfig struct {
 	BaseURL     string
 	Model       string
 	Timeout     int // seconds, 0 uses default
+	MaxTokens   *int
 	Temperature *float64
 }
 
@@ -42,13 +44,17 @@ func newAnthropicChatModel(config AnthropicChatModelConfig) *anthropicChatModel 
 	if timeout <= 0 {
 		timeout = 60
 	}
+	maxTokens := 4096
+	if config.MaxTokens != nil && *config.MaxTokens > 0 {
+		maxTokens = *config.MaxTokens
+	}
 	return &anthropicChatModel{
 		apiKey:      config.APIKey,
 		baseURL:     strings.TrimRight(config.BaseURL, "/"),
 		model:       config.Model,
-		maxTokens:   4096,
+		maxTokens:   maxTokens,
 		temperature: config.Temperature,
-		httpClient:  &http.Client{},
+		httpClient:  &http.Client{Timeout: time.Duration(timeout) * time.Second},
 	}
 }
 

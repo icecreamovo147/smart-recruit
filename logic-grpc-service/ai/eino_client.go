@@ -17,21 +17,39 @@ import (
 	"logic-grpc-service/pkg/logger"
 )
 
-// newChatModel creates a ToolCallingChatModel based on the provider type.
-func newChatModel(ctx context.Context, providerType, apiKey, model, baseURL string, timeout time.Duration) (chatmodel.ToolCallingChatModel, error) {
-	return newChatModelWithTemperature(ctx, providerType, apiKey, model, baseURL, timeout, nil)
+// ModelParams contains generation parameters configured for a model.
+type ModelParams struct {
+	Temperature *float64
+	TopP        *float64
+	MaxTokens   *int
 }
 
-// newChatModelWithTemperature creates a ToolCallingChatModel with an optional
-// per-request temperature override.
-func newChatModelWithTemperature(ctx context.Context, providerType, apiKey, model, baseURL string, timeout time.Duration, temperatureOverride *float64) (chatmodel.ToolCallingChatModel, error) {
+// WithTemperatureOverride returns params with the model default temperature
+// replaced by an agent/request-specific override when one is provided.
+func (p ModelParams) WithTemperatureOverride(temperatureOverride *float64) ModelParams {
+	if temperatureOverride != nil {
+		p.Temperature = temperatureOverride
+	}
+	return p
+}
+
+// newChatModel creates a ToolCallingChatModel based on the provider type.
+func newChatModel(ctx context.Context, providerType, apiKey, model, baseURL string, timeout time.Duration) (chatmodel.ToolCallingChatModel, error) {
+	return newChatModelWithParams(ctx, providerType, apiKey, model, baseURL, timeout, ModelParams{})
+}
+
+// newChatModelWithParams creates a ToolCallingChatModel with generation
+// parameters sourced from model configuration.
+func newChatModelWithParams(ctx context.Context, providerType, apiKey, model, baseURL string, timeout time.Duration, params ModelParams) (chatmodel.ToolCallingChatModel, error) {
 	switch providerType {
 	case "anthropic":
 		return newAnthropicChatModel(AnthropicChatModelConfig{
 			APIKey:      apiKey,
 			BaseURL:     baseURL,
 			Model:       model,
-			Temperature: temperatureOverride,
+			Timeout:     int(timeout.Seconds()),
+			MaxTokens:   params.MaxTokens,
+			Temperature: params.Temperature,
 		}), nil
 	default: // openai_compatible, deepseek, ""
 		cfg := &openai.ChatModelConfig{
@@ -40,9 +58,17 @@ func newChatModelWithTemperature(ctx context.Context, providerType, apiKey, mode
 			BaseURL: baseURL,
 			Timeout: timeout,
 		}
-		if temperatureOverride != nil {
-			temperature := float32(*temperatureOverride)
+		if params.Temperature != nil {
+			temperature := float32(*params.Temperature)
 			cfg.Temperature = &temperature
+		}
+		if params.TopP != nil {
+			topP := float32(*params.TopP)
+			cfg.TopP = &topP
+		}
+		if params.MaxTokens != nil && *params.MaxTokens > 0 {
+			maxTokens := *params.MaxTokens
+			cfg.MaxTokens = &maxTokens
 		}
 		cm, err := openai.NewChatModel(ctx, cfg)
 		if err != nil {
@@ -58,10 +84,15 @@ func NewChatModel(ctx context.Context, providerType, apiKey, model, baseURL stri
 	return newChatModel(ctx, providerType, apiKey, model, baseURL, timeout)
 }
 
-// NewChatModelWithTemperature is used by service-layer per-request model
-// selection when AgentConfig provides temperature_override.
+// NewChatModelWithParams is used by service-layer per-request model selection.
+func NewChatModelWithParams(ctx context.Context, providerType, apiKey, model, baseURL string, timeout time.Duration, params ModelParams) (chatmodel.ToolCallingChatModel, error) {
+	return newChatModelWithParams(ctx, providerType, apiKey, model, baseURL, timeout, params)
+}
+
+// NewChatModelWithTemperature is kept for callers that only need a temperature
+// override.
 func NewChatModelWithTemperature(ctx context.Context, providerType, apiKey, model, baseURL string, timeout time.Duration, temperatureOverride *float64) (chatmodel.ToolCallingChatModel, error) {
-	return newChatModelWithTemperature(ctx, providerType, apiKey, model, baseURL, timeout, temperatureOverride)
+	return newChatModelWithParams(ctx, providerType, apiKey, model, baseURL, timeout, ModelParams{Temperature: temperatureOverride})
 }
 
 // ToolRunner is the interface that both HR and candidate tool executors implement.
@@ -125,6 +156,7 @@ type ClientConfig struct {
 	Model                   string
 	BaseURL                 string
 	ProviderType            string
+	ModelParams             ModelParams
 	Timeout                 time.Duration
 	TotalTimeout            time.Duration
 	ToolMaxRounds           int
@@ -308,7 +340,7 @@ func NewClientFromConfig(ctx context.Context, cfg ClientConfig, opts ...Options)
 			opt.SlowResponseThreshold = opts[0].SlowResponseThreshold
 		}
 	}
-	cm, err := newChatModel(ctx, cfg.ProviderType, apiKey, model, baseURL, opt.Timeout)
+	cm, err := newChatModelWithParams(ctx, cfg.ProviderType, apiKey, model, baseURL, opt.Timeout, cfg.ModelParams)
 	if err != nil {
 		return nil, err
 	}
@@ -336,6 +368,21 @@ func (c *Client) CloneWithModel(model string, cm chatmodel.ToolCallingChatModel)
 	clone := *c
 	clone.model = model
 	clone.cm = cm
+	return &clone
+}
+
+// CloneWithRuntimeConfig returns a shallow copy of the Client that uses a
+// request-selected model plus model-level timeout/concurrency settings.
+func (c *Client) CloneWithRuntimeConfig(model string, cm chatmodel.ToolCallingChatModel, timeout time.Duration, maxConcurrency int32) *Client {
+	clone := *c
+	clone.model = model
+	clone.cm = cm
+	if timeout > 0 {
+		clone.timeout = timeout
+	}
+	if maxConcurrency > 0 {
+		clone.sem = make(chan struct{}, int(maxConcurrency))
+	}
 	return &clone
 }
 

@@ -21,6 +21,7 @@ import { BusinessError } from '@/types/api'
 interface MessageItem {
   role: string
   content: string
+  model_name?: string
   skill?: ChatMessageSkill
   skills?: ChatMessageSkill[]
   skill_id?: string | number
@@ -516,7 +517,7 @@ const createAnalysisSessionFromRoute = async () => {
           appendAssistantDelta(assistantIndex, delta)
         },
         onStatus: (_eventType, eventMessage) => {
-          if (_eventType === 'model_info') { modelName.value = eventMessage; return }
+          if (_eventType === 'model_info') { modelName.value = eventMessage; messages.value[assistantIndex] = { ...(messages.value[assistantIndex] || {}), model_name: eventMessage }; return }
           if (_eventType === 'process_delta') { appendAssistantProcess(assistantIndex, eventMessage); return }
           if (_eventType === 'process_clear') { clearAssistantProcess(assistantIndex); return }
           const msg = messages.value[assistantIndex]
@@ -609,7 +610,7 @@ const analyzeCandidateOption = async (option: CandidateOption) => {
       {
         onDelta: (delta) => appendAssistantDelta(assistantIndex, delta),
         onStatus: (_eventType, eventMessage) => {
-          if (_eventType === 'model_info') { modelName.value = eventMessage; return }
+          if (_eventType === 'model_info') { modelName.value = eventMessage; messages.value[assistantIndex] = { ...(messages.value[assistantIndex] || {}), model_name: eventMessage }; return }
           if (_eventType === 'process_delta') { appendAssistantProcess(assistantIndex, eventMessage); return }
           if (_eventType === 'process_clear') { clearAssistantProcess(assistantIndex); return }
           const msg = messages.value[assistantIndex]
@@ -709,7 +710,7 @@ const submit = async () => {
           appendAssistantDelta(assistantIndex, delta)
         },
         onStatus: (_eventType, eventMessage) => {
-          if (_eventType === 'model_info') { modelName.value = eventMessage; return }
+          if (_eventType === 'model_info') { modelName.value = eventMessage; messages.value[assistantIndex] = { ...(messages.value[assistantIndex] || {}), model_name: eventMessage }; return }
           if (_eventType === 'process_delta') { appendAssistantProcess(assistantIndex, eventMessage); return }
           if (_eventType === 'process_clear') { clearAssistantProcess(assistantIndex); return }
           const msg = messages.value[assistantIndex]
@@ -828,7 +829,7 @@ const retry = async (failedIndex: number) => {
           appendAssistantDelta(assistantIndex, delta)
         },
         onStatus: (_eventType, eventMessage) => {
-          if (_eventType === 'model_info') { modelName.value = eventMessage; return }
+          if (_eventType === 'model_info') { modelName.value = eventMessage; messages.value[assistantIndex] = { ...(messages.value[assistantIndex] || {}), model_name: eventMessage }; return }
           if (_eventType === 'process_delta') { appendAssistantProcess(assistantIndex, eventMessage); return }
           if (_eventType === 'process_clear') { clearAssistantProcess(assistantIndex); return }
           const msg = messages.value[assistantIndex]

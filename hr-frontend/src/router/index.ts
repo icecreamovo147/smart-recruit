@@ -34,7 +34,11 @@ const NotFoundView = () => import('@/views/NotFoundView.vue')
 const CandidateDetailView = () => import('@/views/hr/CandidateDetailView.vue')
 
 const routes: RouteRecordRaw[] = [
-  { path: '/', redirect: () => resolveStaffHomePathFromPermissions(getUser()?.permissions || []) },
+  { path: '/', redirect: () => {
+    const user = getUser()
+    if (!user) return '/login'
+    return resolveStaffHomePathFromPermissions(user.permissions || [])
+  }},
   { path: '/login', component: LoginView },
   { path: '/register', component: RegisterView },
   { path: '/403', component: ForbiddenView },

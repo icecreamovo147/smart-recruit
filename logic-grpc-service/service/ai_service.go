@@ -1218,20 +1218,28 @@ func (s *AIService) resolveRuntimeAIClient(ctx context.Context, requestedModelID
 		if s.llmConfigSvc == nil {
 			return nil, fmt.Errorf("runtime model config service is unavailable")
 		}
-		providerType, providerName, apiKey, modelName, baseURL, err := s.llmConfigSvc.GetModelDetails(ctx, requestedModelID)
+		modelRuntimeCfg, err := s.llmConfigSvc.GetModelRuntimeConfig(ctx, requestedModelID)
 		if err != nil {
 			return nil, err
 		}
-		cm, err := ai.NewChatModelWithTemperature(ctx, providerType, apiKey, modelName, baseURL, s.ai.Timeout(), temperatureOverride)
+		cm, err := ai.NewChatModelWithParams(
+			ctx,
+			modelRuntimeCfg.ProviderType,
+			modelRuntimeCfg.APIKey,
+			modelRuntimeCfg.ModelName,
+			modelRuntimeCfg.BaseURL,
+			modelRuntimeTimeout(modelRuntimeCfg.Timeout, s.ai.Timeout()),
+			modelRuntimeCfg.Params.WithTemperatureOverride(temperatureOverride),
+		)
 		if err != nil {
 			return nil, fmt.Errorf("create chat model %d: %w", requestedModelID, err)
 		}
 		modelID := requestedModelID
-		result.client = s.ai.CloneWithModel(modelName, cm)
+		result.client = s.ai.CloneWithRuntimeConfig(modelRuntimeCfg.ModelName, cm, modelRuntimeCfg.Timeout, modelRuntimeCfg.Concurrency)
 		result.modelID = &modelID
-		result.modelName = modelName
-		result.auditProvider = auditProviderName(providerName, providerType)
-		logger.L().Info("runtime model selected", zap.Int64("model_id", requestedModelID), zap.String("model", modelName))
+		result.modelName = modelRuntimeCfg.ModelName
+		result.auditProvider = auditProviderName(modelRuntimeCfg.ProviderName, modelRuntimeCfg.ProviderType)
+		logger.L().Info("runtime model selected", zap.Int64("model_id", requestedModelID), zap.String("model", modelRuntimeCfg.ModelName))
 		return result, nil
 	}
 
@@ -1247,19 +1255,34 @@ func (s *AIService) resolveRuntimeAIClient(ctx context.Context, requestedModelID
 	if s.llmConfigSvc == nil {
 		return nil, fmt.Errorf("runtime model config service is unavailable for temperature_override")
 	}
-	modelID, providerType, providerName, apiKey, modelName, baseURL, err := s.llmConfigSvc.GetDefaultModelDetails(ctx)
+	modelRuntimeCfg, err := s.llmConfigSvc.GetDefaultModelRuntimeConfig(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("default model details are unavailable for temperature_override: %w", err)
 	}
-	cm, err := ai.NewChatModelWithTemperature(ctx, providerType, apiKey, modelName, baseURL, s.ai.Timeout(), temperatureOverride)
+	cm, err := ai.NewChatModelWithParams(
+		ctx,
+		modelRuntimeCfg.ProviderType,
+		modelRuntimeCfg.APIKey,
+		modelRuntimeCfg.ModelName,
+		modelRuntimeCfg.BaseURL,
+		modelRuntimeTimeout(modelRuntimeCfg.Timeout, s.ai.Timeout()),
+		modelRuntimeCfg.Params.WithTemperatureOverride(temperatureOverride),
+	)
 	if err != nil {
 		return nil, fmt.Errorf("create default chat model for temperature_override: %w", err)
 	}
-	result.client = s.ai.CloneWithModel(modelName, cm)
-	result.modelID = &modelID
-	result.modelName = modelName
-	result.auditProvider = auditProviderName(providerName, providerType)
+	result.client = s.ai.CloneWithRuntimeConfig(modelRuntimeCfg.ModelName, cm, modelRuntimeCfg.Timeout, modelRuntimeCfg.Concurrency)
+	result.modelID = &modelRuntimeCfg.ModelID
+	result.modelName = modelRuntimeCfg.ModelName
+	result.auditProvider = auditProviderName(modelRuntimeCfg.ProviderName, modelRuntimeCfg.ProviderType)
 	return result, nil
+}
+
+func modelRuntimeTimeout(modelTimeout, fallback time.Duration) time.Duration {
+	if modelTimeout > 0 {
+		return modelTimeout
+	}
+	return fallback
 }
 
 func auditProviderName(providerName, providerType string) string {

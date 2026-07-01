@@ -92,8 +92,8 @@ const secondaryKpiCards = computed(() => {
   const kpi = data.value?.kpi
   if (!kpi) return []
   return [
-    { label: '已下线岗位', value: animatedOfflineJobs.value, icon: Briefcase },
-    { label: '未读通知', value: animatedUnread.value, icon: Bell },
+    { label: '已下线岗位', value: animatedOfflineJobs.value, icon: Briefcase, tone: 'slate', desc: '已关闭岗位数' },
+    { label: '未读通知', value: animatedUnread.value, icon: Bell, tone: 'slate', desc: '未读系统通知' },
   ]
 })
 
@@ -204,22 +204,24 @@ const goTo = (path: string) => router.push(path)
       </el-result>
     </div>
 
-    <template v-else>
-      <div class="console-header">
-        <div class="console-header__copy">
-          <p class="console-eyebrow">HR DASHBOARD</p>
-          <h1 class="console-title">工作台</h1>
-          <p class="console-description">欢迎回来，{{ username }}。今日招聘运营概览与待处理事项一目了然。</p>
+    <div v-else class="dashboard-shell">
+      <!-- ── Header ── -->
+      <div class="dashboard-header">
+        <div class="dashboard-header__title">
+          <span class="dashboard-header__eyebrow">HR DASHBOARD</span>
+          <h1 class="dashboard-header__heading">工作台</h1>
+          <p class="dashboard-header__welcome">欢迎回来，{{ username }}。今日招聘运营概览与待处理事项一目了然。</p>
         </div>
       </div>
 
-      <section class="quick-actions" aria-label="快捷入口">
-        <span class="section-kicker">快捷入口</span>
+      <!-- ── Quick Actions ── -->
+      <div class="quick-actions">
+        <span class="quick-actions__label">快捷操作</span>
         <div class="quick-actions__list">
           <el-button
             v-for="link in quickLinks"
             :key="link.path"
-            class="quick-action"
+            class="quick-actions__btn"
             text
             :icon="link.icon"
             @click="goTo(link.path)"
@@ -228,275 +230,305 @@ const goTo = (path: string) => router.push(path)
             <el-icon class="quick-action__arrow"><ArrowRight /></el-icon>
           </el-button>
         </div>
-      </section>
+      </div>
 
-      <section class="metrics-section">
-        <div class="metrics-grid">
-          <article
-            v-for="card in primaryKpiCards"
-            :key="card.label"
-            class="metric-card"
-            :class="`metric-card--${card.tone}`"
-          >
-            <div class="metric-card__icon">
-              <el-icon :size="22"><component :is="card.icon" /></el-icon>
-            </div>
-            <div class="metric-card__body">
-              <div class="metric-card__label">{{ card.label }}</div>
-              <div class="metric-card__value">{{ card.value }}</div>
-              <div class="metric-card__desc">{{ card.desc }}</div>
-            </div>
-          </article>
-        </div>
-
-        <div class="secondary-metrics">
-          <div v-for="card in secondaryKpiCards" :key="card.label" class="secondary-metric">
-            <el-icon><component :is="card.icon" /></el-icon>
-            <span>{{ card.label }}</span>
-            <strong>{{ card.value }}</strong>
+      <!-- ── KPI Strip ── -->
+      <div class="kpi-strip">
+        <div
+          v-for="card in primaryKpiCards"
+          :key="card.label"
+          class="kpi-item"
+          :class="`kpi-item--${card.tone}`"
+        >
+          <div class="kpi-item__icon">
+            <el-icon :size="18"><component :is="card.icon" /></el-icon>
+          </div>
+          <div class="kpi-item__body">
+            <div class="kpi-item__label">{{ card.label }}</div>
+            <div class="kpi-item__value">{{ card.value }}</div>
+            <div class="kpi-item__desc">{{ card.desc }}</div>
           </div>
         </div>
-      </section>
+        <div class="kpi-strip__group-divider" />
+        <div
+          v-for="card in secondaryKpiCards"
+          :key="card.label"
+          class="kpi-item"
+          :class="`kpi-item--${card.tone}`"
+        >
+          <div class="kpi-item__icon">
+            <el-icon :size="18"><component :is="card.icon" /></el-icon>
+          </div>
+          <div class="kpi-item__body">
+            <div class="kpi-item__label">{{ card.label }}</div>
+            <div class="kpi-item__value">{{ card.value }}</div>
+            <div class="kpi-item__desc">{{ card.desc }}</div>
+          </div>
+        </div>
+      </div>
 
-      <section class="main-workspace">
-        <div class="workspace-left">
-          <el-card shadow="never" class="workspace-card overview-card">
-            <div class="panel-header">
-              <div>
-                <h2>招聘运营概览</h2>
-                <p>按部门查看当前岗位供给，快速识别招聘资源投入重点。</p>
-              </div>
-              <el-tag effect="plain">{{ topDepartmentSummary }}</el-tag>
+      <!-- ── Dashboard Body ── -->
+      <div class="dashboard-body">
+        <!-- Overview Panel -->
+        <div class="overview-panel">
+          <div class="panel-header">
+            <div>
+              <h2>招聘运营概览</h2>
+              <p>按部门查看当前岗位供给，快速识别招聘资源投入重点。</p>
             </div>
-            <template v-if="emptyDeptData">
-              <el-empty description="暂无岗位数据">
+            <el-tag effect="plain">{{ topDepartmentSummary }}</el-tag>
+          </div>
+          <template v-if="emptyDeptData">
+            <el-empty description="暂无岗位数据">
+              <el-button type="primary" @click="goTo('/hr/jobs')">去发布岗位</el-button>
+            </el-empty>
+          </template>
+          <v-chart v-else :option="jobDistOption" class="overview-chart" autoresize />
+        </div>
+
+        <!-- Activity Panel -->
+        <div class="activity-panel">
+          <div class="panel-header panel-header--compact">
+            <div>
+              <h2>候选人动态</h2>
+              <p>聚合候选人阶段变化与当前推荐处理动作。</p>
+            </div>
+          </div>
+
+          <template v-if="emptyStageData">
+            <el-empty class="actionable-empty">
+              <template #description>
+                <div class="empty-copy">
+                  <strong>当前暂无候选人动态</strong>
+                  <span>发布岗位后，投递与候选人动态会显示在这里。</span>
+                </div>
+              </template>
+              <div class="empty-actions">
                 <el-button type="primary" @click="goTo('/hr/jobs')">去发布岗位</el-button>
-              </el-empty>
-            </template>
-            <v-chart v-else :option="jobDistOption" class="overview-chart" autoresize />
-          </el-card>
-        </div>
-
-        <div class="workspace-right">
-          <el-card shadow="never" class="workspace-card activity-card">
-            <div class="panel-header panel-header--compact">
-              <div>
-                <h2>候选人动态</h2>
-                <p>聚合候选人阶段变化与当前推荐处理动作。</p>
+                <el-button @click="goTo('/hr/jobs')">查看岗位管理</el-button>
+              </div>
+            </el-empty>
+          </template>
+          <template v-else>
+            <v-chart :option="stageDistOption" class="stage-chart" autoresize />
+            <div class="stage-list">
+              <div v-for="item in stageItems" :key="item.label" class="stage-item">
+                <span>{{ item.label }}</span>
+                <strong>{{ item.value }}</strong>
               </div>
             </div>
+          </template>
 
-            <template v-if="emptyStageData">
-              <el-empty class="actionable-empty" description="当前暂无候选人动态">
-                <template #description>
-                  <div class="empty-copy">
-                    <strong>当前暂无候选人动态</strong>
-                    <span>发布岗位后，投递与候选人动态会显示在这里。</span>
-                  </div>
-                </template>
-                <div class="empty-actions">
-                  <el-button type="primary" @click="goTo('/hr/jobs')">去发布岗位</el-button>
-                  <el-button @click="goTo('/hr/jobs')">查看岗位管理</el-button>
-                </div>
-              </el-empty>
-            </template>
-            <template v-else>
-              <v-chart :option="stageDistOption" class="stage-chart" autoresize />
-              <div class="stage-list">
-                <div v-for="item in stageItems" :key="item.label" class="stage-item">
-                  <span>{{ item.label }}</span>
-                  <strong>{{ item.value }}</strong>
-                </div>
-              </div>
-            </template>
-
-            <div class="todo-list">
-              <button
-                v-for="item in actionItems"
-                :key="item.title"
-                class="todo-item"
-                type="button"
-                @click="item.path === '/hr/workbench' ? fetchData() : goTo(item.path)"
-              >
-                <span class="todo-item__icon">
-                  <el-icon><component :is="item.icon" /></el-icon>
-                </span>
-                <span class="todo-item__content">
-                  <span class="todo-item__title">{{ item.title }}</span>
-                  <span class="todo-item__desc">{{ item.desc }}</span>
-                </span>
-                <span class="todo-item__meta">
-                  <strong>{{ item.value }}</strong>
-                  <span>{{ item.action }}</span>
-                </span>
-              </button>
-            </div>
-          </el-card>
+          <div class="todo-list">
+            <button
+              v-for="item in actionItems"
+              :key="item.title"
+              class="todo-item"
+              type="button"
+              @click="item.path === '/hr/workbench' ? fetchData() : goTo(item.path)"
+            >
+              <span class="todo-item__icon">
+                <el-icon><component :is="item.icon" /></el-icon>
+              </span>
+              <span class="todo-item__content">
+                <span class="todo-item__title">{{ item.title }}</span>
+                <span class="todo-item__desc">{{ item.desc }}</span>
+              </span>
+              <span class="todo-item__meta">
+                <strong>{{ item.value }}</strong>
+                <span>{{ item.action }}</span>
+              </span>
+            </button>
+          </div>
         </div>
-      </section>
-    </template>
+      </div>
+    </div>
   </div>
 </template>
 
 <style scoped>
+/* ── Page Level ── */
 .workbench {
   height: 100%;
   overflow-y: auto;
-  padding: 20px;
+  padding: 24px;
+  background: #F3F6FA;
   color: var(--text-primary);
 }
-.workbench-error { padding: 40px 0; }
+.workbench-error {
+  padding: 40px 0;
+}
 
+/* ── Main Container ── */
+.dashboard-shell {
+  background: #ffffff;
+  border-radius: 20px;
+  padding: 28px;
+  border: 1px solid #EEF2F6;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04), 0 1px 2px rgba(0, 0, 0, 0.03);
+}
+
+/* ── Dashboard Header ── */
+.dashboard-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 24px;
+}
+.dashboard-header__title {
+  flex: 1;
+  min-width: 0;
+}
+.dashboard-header__eyebrow {
+  display: block;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 1.2px;
+  color: var(--brand, #2563eb);
+  text-transform: uppercase;
+  margin-bottom: 4px;
+}
+.dashboard-header__heading {
+  margin: 0;
+  font-size: 22px;
+  font-weight: 750;
+  color: var(--text-primary);
+  line-height: 1.3;
+}
+.dashboard-header__welcome {
+  margin: 6px 0 0;
+  font-size: 14px;
+  color: var(--text-muted);
+}
+.dashboard-header__actions {
+  display: flex;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+/* ── Quick Actions ── */
 .quick-actions {
   display: flex;
   align-items: center;
-  gap: 14px;
-  margin-bottom: 18px;
-  padding: 0 2px;
+  gap: 12px;
+  margin-bottom: 24px;
+  padding: 12px 16px;
+  background: #F8FAFB;
+  border-radius: 10px;
+  border: 1px solid #EEF2F6;
 }
-
-.section-kicker {
-  color: var(--text-muted);
-  font-size: 13px;
+.quick-actions__label {
+  font-size: 12px;
   font-weight: 600;
+  color: var(--text-muted);
   white-space: nowrap;
+  letter-spacing: 0.5px;
 }
-
 .quick-actions__list {
   display: flex;
   flex-wrap: wrap;
-  gap: 8px;
+  gap: 4px;
 }
-
-.quick-action {
-  height: 34px;
-  padding: 0 10px;
-  border-radius: 8px;
+.quick-actions__btn {
+  height: 32px;
+  padding: 0 12px;
+  border-radius: 6px;
+  font-size: 13px;
   color: var(--text-secondary);
 }
-
-.quick-action:hover {
+.quick-actions__btn:hover {
   background: var(--brand-soft);
   color: var(--brand);
 }
-
 .quick-action__arrow {
   margin-left: 4px;
-  font-size: 12px;
+  font-size: 11px;
 }
 
-.metrics-section {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) 220px;
-  gap: 14px;
-  margin-bottom: 18px;
-}
-
-.metrics-grid {
-  display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 14px;
-}
-
-.metric-card {
-  position: relative;
-  min-height: 150px;
-  padding: 18px;
-  overflow: hidden;
-  border: 1px solid var(--border);
+/* ── KPI Strip ── */
+.kpi-strip {
+  display: flex;
+  align-items: stretch;
+  margin-bottom: 24px;
+  border: 1px solid #EEF2F6;
   border-radius: 12px;
-  background: var(--surface);
-  box-shadow: var(--admin-console-card-shadow);
+  background: #ffffff;
+  overflow: hidden;
 }
-
-.metric-card::after {
-  content: "";
-  position: absolute;
-  right: -22px;
-  top: -28px;
-  width: 92px;
-  height: 92px;
-  border-radius: 999px;
-  opacity: 0.13;
-  background: currentColor;
+.kpi-item {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 18px 20px;
 }
-
-.metric-card--blue { color: #2563eb; }
-.metric-card--green { color: #16a34a; }
-.metric-card--amber { color: #d97706; }
-.metric-card--red { color: #dc2626; }
-
-.metric-card__icon {
-  width: 42px;
-  height: 42px;
+.kpi-item + .kpi-item {
+  border-left: 1px solid #EEF2F6;
+}
+.kpi-strip__group-divider {
+  width: 2px;
+  min-height: 40px;
+  align-self: center;
+  background: #E2E8F0;
+  border-radius: 1px;
+  flex-shrink: 0;
+}
+.kpi-item__icon {
+  width: 38px;
+  height: 38px;
   display: flex;
   align-items: center;
   justify-content: center;
-  margin-bottom: 14px;
   border-radius: 10px;
-  background: color-mix(in srgb, currentColor 12%, transparent);
+  flex-shrink: 0;
+  background: color-mix(in srgb, currentColor 10%, transparent);
 }
-
-.metric-card__label {
-  color: var(--text-secondary);
-  font-size: 13px;
-  font-weight: 600;
+.kpi-item--blue { color: #2563eb; }
+.kpi-item--green { color: #16a34a; }
+.kpi-item--amber { color: #d97706; }
+.kpi-item--red { color: #dc2626; }
+.kpi-item--slate { color: #64748b; }
+.kpi-item__body {
+  min-width: 0;
 }
-
-.metric-card__value {
-  margin-top: 8px;
-  color: var(--text-primary);
-  font-size: 34px;
-  line-height: 1;
-  font-weight: 800;
-}
-
-.metric-card__desc {
-  margin-top: 10px;
-  color: var(--text-muted);
+.kpi-item__label {
   font-size: 12px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  margin-bottom: 2px;
 }
-
-.secondary-metrics {
-  display: grid;
-  gap: 10px;
-}
-
-.secondary-metric {
-  display: grid;
-  grid-template-columns: auto 1fr auto;
-  align-items: center;
-  gap: 10px;
-  min-height: 70px;
-  padding: 14px;
-  border: 1px solid var(--border);
-  border-radius: 12px;
-  background: color-mix(in srgb, var(--surface) 82%, transparent);
-  color: var(--text-muted);
-}
-
-.secondary-metric strong {
+.kpi-item__value {
+  font-size: 26px;
+  font-weight: 800;
   color: var(--text-primary);
-  font-size: 22px;
+  line-height: 1.2;
+}
+.kpi-item__desc {
+  font-size: 11px;
+  color: var(--text-muted);
+  margin-top: 1px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
-.main-workspace {
+/* ── Dashboard Body ── */
+.dashboard-body {
   display: grid;
-  grid-template-columns: minmax(0, 3fr) minmax(340px, 2fr);
-  gap: 16px;
+  grid-template-columns: 1.8fr 1fr;
+  gap: 24px;
   align-items: stretch;
 }
 
-.workspace-card {
-  height: 100%;
-  border: 1px solid var(--border);
-  border-radius: 12px;
-  background: var(--surface);
-}
-
-.workspace-card :deep(.el-card__body) {
-  height: 100%;
+/* ── Panels ── */
+.overview-panel,
+.activity-panel {
   padding: 20px;
+  border: 1px solid #EEF2F6;
+  border-radius: 12px;
+  background: #FAFBFC;
 }
 
 .panel-header {
@@ -504,175 +536,227 @@ const goTo = (path: string) => router.push(path)
   align-items: flex-start;
   justify-content: space-between;
   gap: 16px;
-  margin-bottom: 14px;
+  margin-bottom: 16px;
 }
-
 .panel-header h2 {
   margin: 0;
+  font-size: 16px;
+  font-weight: 700;
   color: var(--text-primary);
-  font-size: 18px;
   line-height: 1.3;
-  font-weight: 750;
 }
-
 .panel-header p {
-  margin: 6px 0 0;
+  margin: 4px 0 0;
+  font-size: 12px;
   color: var(--text-muted);
-  font-size: 13px;
 }
-
 .panel-header--compact {
-  margin-bottom: 8px;
+  margin-bottom: 12px;
 }
 
 .overview-chart {
-  height: 360px;
+  height: 340px;
 }
-
 .stage-chart {
-  height: 230px;
+  height: 200px;
 }
-
 .stage-list {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 8px;
-  margin-top: 8px;
+  gap: 6px;
+  margin-top: 12px;
 }
-
 .stage-item {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 8px;
-  padding: 8px 10px;
-  border-radius: 8px;
-  background: var(--surface-muted);
+  padding: 6px 10px;
+  border-radius: 6px;
+  background: #ffffff;
+  border: 1px solid #EEF2F6;
   color: var(--text-secondary);
   font-size: 12px;
 }
-
 .stage-item strong {
   color: var(--text-primary);
-  font-size: 15px;
+  font-size: 14px;
 }
 
+/* ── Empty States ── */
 .actionable-empty {
-  padding: 18px 0 10px;
+  padding: 12px 0 8px;
 }
-
 .empty-copy {
   display: grid;
   gap: 4px;
   color: var(--text-muted);
 }
-
 .empty-copy strong {
   color: var(--text-primary);
   font-weight: 700;
 }
-
 .empty-actions {
   display: flex;
   justify-content: center;
   gap: 8px;
 }
 
+/* ── Todo List ── */
 .todo-list {
   display: grid;
-  gap: 10px;
+  gap: 8px;
   margin-top: 16px;
+  padding-top: 16px;
+  border-top: 1px solid #EEF2F6;
 }
-
 .todo-item {
   width: 100%;
   display: grid;
   grid-template-columns: auto 1fr auto;
   align-items: center;
-  gap: 12px;
-  padding: 13px;
-  border: 1px solid var(--border);
-  border-radius: 10px;
-  background: transparent;
+  gap: 10px;
+  padding: 12px;
+  border: 1px solid #EEF2F6;
+  border-radius: 8px;
+  background: #ffffff;
   color: inherit;
   cursor: pointer;
   text-align: left;
-  transition: border-color var(--motion-normal) var(--motion-ease), background-color var(--motion-normal) var(--motion-ease);
+  transition: border-color var(--motion-normal), background-color var(--motion-normal);
 }
-
 .todo-item:hover {
   border-color: var(--el-color-primary-light-5);
   background: var(--el-color-primary-light-9);
 }
-
 .todo-item__icon {
-  width: 34px;
-  height: 34px;
+  width: 32px;
+  height: 32px;
   display: flex;
   align-items: center;
   justify-content: center;
-  border-radius: 9px;
+  border-radius: 8px;
   background: var(--brand-soft);
   color: var(--brand);
 }
-
 .todo-item__content,
 .todo-item__meta {
   display: grid;
-  gap: 4px;
+  gap: 2px;
 }
-
 .todo-item__title {
   color: var(--text-primary);
-  font-size: 14px;
+  font-size: 13px;
   font-weight: 700;
 }
-
 .todo-item__desc,
 .todo-item__meta span {
   color: var(--text-muted);
-  font-size: 12px;
+  font-size: 11px;
 }
-
 .todo-item__meta {
   justify-items: end;
   white-space: nowrap;
 }
-
 .todo-item__meta strong {
   color: var(--text-primary);
-  font-size: 20px;
+  font-size: 18px;
   line-height: 1;
 }
 
-@media (max-width: 768px) {
-  .workbench { padding: 14px; }
+/* ── Responsive ── */
+@media (max-width: 1200px) {
+  .kpi-item {
+    padding: 14px 16px;
+  }
+  .kpi-item__value {
+    font-size: 22px;
+  }
+}
 
-  .quick-actions {
-    align-items: flex-start;
-    flex-direction: column;
-    gap: 8px;
+@media (max-width: 992px) {
+  .kpi-strip {
+    flex-wrap: wrap;
+  }
+  .kpi-item {
+    flex: 1 1 calc(33.33% - 1px);
+    border-left: none !important;
+    border-bottom: 1px solid #EEF2F6;
+  }
+  .kpi-item:nth-child(3n) {
+    border-right: none;
+  }
+  .kpi-item:nth-last-child(-n+3) {
+    border-bottom: none;
+  }
+  .kpi-strip__group-divider {
+    display: none;
   }
 
-  .metrics-section,
-  .main-workspace {
+  .dashboard-body {
     grid-template-columns: 1fr;
   }
+  .overview-chart {
+    height: 300px;
+  }
+}
 
-  .metrics-grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+@media (max-width: 768px) {
+  .workbench {
+    padding: 16px;
+  }
+  .dashboard-shell {
+    padding: 20px;
   }
 
-  .metric-card { min-height: 138px; }
-  .metric-card__value { font-size: 28px; }
-  .secondary-metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .panel-header { flex-direction: column; }
-  .overview-chart { height: 300px; }
+  .dashboard-header {
+    flex-direction: column;
+  }
+  .dashboard-header__actions {
+    width: 100%;
+  }
+
+  .quick-actions {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .kpi-item {
+    flex: 1 1 calc(50% - 1px);
+    border-right: 1px solid #EEF2F6;
+  }
+  .kpi-item:nth-child(2n) {
+    border-right: none;
+  }
+  .kpi-item:nth-last-child(-n+2) {
+    border-bottom: none;
+  }
+  .kpi-item:nth-child(3n) {
+    border-right: 1px solid #EEF2F6;
+  }
+
+  .overview-chart {
+    height: 280px;
+  }
 }
 
 @media (max-width: 520px) {
-  .metrics-grid,
-  .secondary-metrics,
+  .dashboard-shell {
+    padding: 16px;
+    border-radius: 16px;
+  }
+
+  .kpi-strip {
+    flex-direction: column;
+  }
+  .kpi-item {
+    border-right: none !important;
+    border-bottom: 1px solid #EEF2F6;
+  }
+  .kpi-item:last-child {
+    border-bottom: none;
+  }
+
   .stage-list {
     grid-template-columns: 1fr;
   }
@@ -680,10 +764,13 @@ const goTo = (path: string) => router.push(path)
   .todo-item {
     grid-template-columns: auto 1fr;
   }
-
   .todo-item__meta {
     grid-column: 2;
     justify-items: start;
+  }
+
+  .panel-header {
+    flex-direction: column;
   }
 }
 </style>

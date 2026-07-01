@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed } from 'vue'
-import { ArrowDown, Close, Position } from '@element-plus/icons-vue'
+import { Close, Position } from '@element-plus/icons-vue'
 import type { Session } from '@/types/ai'
 import type { LlmModel } from '@/types/llm'
 import type { CapabilityInfo } from '@/types/agent'
@@ -38,7 +38,9 @@ const placeholderText = computed(() => {
 
 const activeSlashIndex = computed(() => {
   const value = props.input
-  const index = value.lastIndexOf('/')
+  const slashIndex = value.lastIndexOf('/')
+  const chineseSlashIndex = value.lastIndexOf('、')
+  const index = Math.max(slashIndex, chineseSlashIndex)
   if (index < 0) return -1
   const token = value.slice(index)
   if (/\s/.test(token)) return -1
@@ -95,12 +97,6 @@ const selectedAgentSkills = computed(() =>
     .filter((skill): skill is AvailableAgentSkill => Boolean(skill)),
 )
 
-const modeLabel = computed(() => {
-  if (selectedAgentSkills.value.length === 0) return '自动'
-  if (selectedAgentSkills.value.length === 1) return agentSkillLabel(selectedAgentSkills.value[0])
-  return `已选 ${selectedAgentSkills.value.length}`
-})
-
 const skillLabel = (cap: CapabilityInfo) => cap.display_name || cap.name || cap.key
 const agentSkillLabel = (skill: AvailableAgentSkill) => skill.display_name || skill.name
 
@@ -134,49 +130,44 @@ const removeAgentSkill = (id: number) => {
   emit('update:selectedAgentSkillIds', props.selectedAgentSkillIds.filter((item) => item !== id))
 }
 
-const toggleAgentSkill = (id: number) => {
-  if (props.selectedAgentSkillIds.includes(id)) {
-    removeAgentSkill(id)
-    return
-  }
-  emit('update:selectedAgentSkillIds', [...props.selectedAgentSkillIds, id])
-}
 </script>
 
 <template>
   <div class="chat-composer">
-    <div v-if="skillMenuVisible" class="chat-composer__skill-menu">
-      <template v-if="skillCapabilities.length > 0">
+    <Transition name="chat-composer-skill-menu">
+      <div v-if="skillMenuVisible" class="chat-composer__skill-menu">
+        <template v-if="skillCapabilities.length > 0">
+          <button
+            v-for="skill in filteredSkillCapabilities"
+            :key="skill.key"
+            type="button"
+            class="chat-composer__skill-option"
+            :class="{ 'chat-composer__skill-option--selected': selectedSkillKeys.includes(skill.key) }"
+            @click="selectSkill(skill)"
+          >
+            <span class="chat-composer__skill-name">{{ skillLabel(skill) }}</span>
+            <span class="chat-composer__skill-meta">{{ skill.runtime_type || 'skill' }}</span>
+          </button>
+        </template>
+        <div v-if="skillCapabilities.length > 0 && filteredSkillCapabilities.length === 0" class="chat-composer__skill-empty">
+          暂无匹配 Tool Skill
+        </div>
         <button
-          v-for="skill in filteredSkillCapabilities"
-          :key="skill.key"
+          v-for="skill in filteredAgentSkills"
+          :key="`agent-${skill.id}`"
           type="button"
           class="chat-composer__skill-option"
-          :class="{ 'chat-composer__skill-option--selected': selectedSkillKeys.includes(skill.key) }"
-          @click="selectSkill(skill)"
+          :class="{ 'chat-composer__skill-option--selected': selectedAgentSkillIds.includes(skill.id) }"
+          @click="selectAgentSkill(skill)"
         >
-          <span class="chat-composer__skill-name">{{ skillLabel(skill) }}</span>
-          <span class="chat-composer__skill-meta">{{ skill.runtime_type || 'skill' }}</span>
+          <span class="chat-composer__skill-name">{{ agentSkillLabel(skill) }}</span>
+          <span class="chat-composer__skill-meta">Skill</span>
         </button>
-      </template>
-      <div v-if="skillCapabilities.length > 0 && filteredSkillCapabilities.length === 0" class="chat-composer__skill-empty">
-        暂无匹配 Tool Skill
+        <div v-if="filteredAgentSkills.length === 0" class="chat-composer__skill-empty">
+          暂无匹配 Skill
+        </div>
       </div>
-      <button
-        v-for="skill in filteredAgentSkills"
-        :key="`agent-${skill.id}`"
-        type="button"
-        class="chat-composer__skill-option"
-        :class="{ 'chat-composer__skill-option--selected': selectedAgentSkillIds.includes(skill.id) }"
-        @click="selectAgentSkill(skill)"
-      >
-        <span class="chat-composer__skill-name">{{ agentSkillLabel(skill) }}</span>
-        <span class="chat-composer__skill-meta">Skill</span>
-      </button>
-      <div v-if="filteredAgentSkills.length === 0" class="chat-composer__skill-empty">
-        暂无匹配 Skill
-      </div>
-    </div>
+    </Transition>
     <div
       v-if="selectedSkillCapabilities.length > 0 || selectedAgentSkills.length > 0"
       class="chat-composer__selected-skills"
@@ -217,31 +208,7 @@ const toggleAgentSkill = (id: number) => {
     </div>
     <div class="chat-composer__toolbar">
       <div class="chat-composer__toolbar-left">
-        <el-dropdown v-if="agentSkills.length > 0" trigger="click" placement="top-start" :hide-on-click="false">
-          <button type="button" class="chat-composer__tool-pill">
-            <span class="chat-composer__tool-pill-text">{{ modeLabel }}</span>
-            <el-icon><ArrowDown /></el-icon>
-          </button>
-          <template #dropdown>
-            <el-dropdown-menu class="chat-composer__mode-menu">
-              <el-dropdown-item
-                v-for="skill in agentSkills"
-                :key="skill.id"
-                class="chat-composer__mode-item"
-                @click.stop="toggleAgentSkill(skill.id)"
-              >
-                <span
-                  class="chat-composer__mode-check"
-                  :class="{ 'chat-composer__mode-check--active': selectedAgentSkillIds.includes(skill.id) }"
-                ></span>
-                <span class="chat-composer__mode-copy">
-                  <span>{{ agentSkillLabel(skill) }}</span>
-                  <small>{{ skill.description || skill.name }}</small>
-                </span>
-              </el-dropdown-item>
-            </el-dropdown-menu>
-          </template>
-        </el-dropdown>
+
         <el-select
           v-if="modelList.length > 0"
           :model-value="selectedModelId"
@@ -309,8 +276,8 @@ const toggleAgentSkill = (id: number) => {
 
 .chat-composer__skill-menu {
   position: absolute;
-  left: 16px;
-  right: 16px;
+  left: 0;
+  right: 0;
   bottom: calc(100% + 8px);
   z-index: 10;
   max-height: 240px;
@@ -320,6 +287,26 @@ const toggleAgentSkill = (id: number) => {
   border: 1px solid var(--border);
   border-radius: 8px;
   box-shadow: 0 16px 40px rgba(15, 23, 42, 0.16);
+}
+
+.chat-composer-skill-menu-enter-active,
+.chat-composer-skill-menu-leave-active {
+  transition:
+    opacity var(--motion-normal) var(--motion-ease),
+    transform var(--motion-normal) var(--motion-ease);
+  transform-origin: bottom center;
+}
+
+.chat-composer-skill-menu-enter-from,
+.chat-composer-skill-menu-leave-to {
+  opacity: 0;
+  transform: translateY(6px) scale(0.98);
+}
+
+.chat-composer-skill-menu-enter-to,
+.chat-composer-skill-menu-leave-from {
+  opacity: 1;
+  transform: translateY(0) scale(1);
 }
 
 .chat-composer__skill-option {
@@ -451,33 +438,6 @@ const toggleAgentSkill = (id: number) => {
   flex: 1;
 }
 
-.chat-composer__tool-pill {
-  max-width: 176px;
-  height: 32px;
-  border: 1px solid var(--border);
-  border-radius: 999px;
-  background: var(--surface-muted);
-  color: var(--text-secondary);
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 0 11px;
-  font-size: 13px;
-  font-weight: 600;
-  cursor: pointer;
-}
-
-.chat-composer__tool-pill:hover {
-  border-color: var(--el-color-primary-light-7);
-  color: var(--text-primary);
-}
-
-.chat-composer__tool-pill-text {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
 .chat-composer__model-select {
   width: 150px;
   flex-shrink: 0;
@@ -488,58 +448,6 @@ const toggleAgentSkill = (id: number) => {
   border-radius: 999px;
   background: var(--surface-muted);
   box-shadow: 0 0 0 1px var(--border) inset;
-}
-
-.chat-composer__mode-menu {
-  max-width: min(360px, calc(100vw - 32px));
-}
-
-.chat-composer__mode-item {
-  min-width: 280px;
-  max-width: 360px;
-  height: auto;
-  display: flex;
-  align-items: flex-start;
-  gap: 10px;
-  padding: 9px 12px;
-}
-
-.chat-composer__mode-check {
-  width: 14px;
-  height: 14px;
-  margin-top: 3px;
-  border: 1px solid var(--border);
-  border-radius: 4px;
-  flex-shrink: 0;
-  background: var(--surface);
-}
-
-.chat-composer__mode-check--active {
-  border-color: var(--brand);
-  background: var(--brand);
-  box-shadow: inset 0 0 0 3px var(--surface);
-}
-
-.chat-composer__mode-copy {
-  min-width: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  line-height: 1.25;
-}
-
-.chat-composer__mode-copy span {
-  color: var(--text-primary);
-  font-size: 13px;
-  font-weight: 600;
-}
-
-.chat-composer__mode-copy small {
-  color: var(--text-faint);
-  font-size: 11px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
 }
 
 .chat-composer__datasource {
@@ -585,10 +493,6 @@ const toggleAgentSkill = (id: number) => {
   .chat-composer__toolbar-left {
     flex-wrap: wrap;
     gap: 8px;
-  }
-
-  .chat-composer__tool-pill {
-    max-width: 100%;
   }
 
   .chat-composer__model-select {
