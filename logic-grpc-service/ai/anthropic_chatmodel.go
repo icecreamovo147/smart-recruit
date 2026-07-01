@@ -172,16 +172,18 @@ type anthropicResp struct {
 	Type    string           `json:"type"`
 	Role    string           `json:"role"`
 	Content []anthropicBlock `json:"content"`
-	Usage   struct {
-		InputTokens  int `json:"input_tokens"`
-		OutputTokens int `json:"output_tokens"`
-	} `json:"usage"`
+	Usage   anthropicUsage   `json:"usage"`
 }
 
 type anthropicSSE struct {
 	Type  string          `json:"type"`
 	Delta json.RawMessage `json:"delta,omitempty"`
 	Usage json.RawMessage `json:"usage,omitempty"`
+}
+
+type anthropicUsage struct {
+	InputTokens  int `json:"input_tokens"`
+	OutputTokens int `json:"output_tokens"`
 }
 
 func (m *anthropicChatModel) buildRequest(messages []*schema.Message, stream bool, opts []chatmodel.Option) ([]byte, error) {
@@ -323,7 +325,9 @@ func (m *anthropicChatModel) parseResponse(body []byte) (*schema.Message, error)
 	if err := json.Unmarshal(body, &resp); err != nil {
 		return nil, fmt.Errorf("parse anthropic response: %w", err)
 	}
-	return anthropicContentToMessage(resp.Content), nil
+	msg := anthropicContentToMessage(resp.Content)
+	msg.ResponseMeta = &schema.ResponseMeta{Usage: anthropicTokenUsage(resp.Usage)}
+	return msg, nil
 }
 
 func anthropicContentToMessage(blocks []anthropicBlock) *schema.Message {
@@ -357,6 +361,18 @@ func anthropicContentToMessage(blocks []anthropicBlock) *schema.Message {
 	}
 }
 
+func anthropicTokenUsage(usage anthropicUsage) *schema.TokenUsage {
+	total := usage.InputTokens + usage.OutputTokens
+	if total == 0 {
+		return nil
+	}
+	return &schema.TokenUsage{
+		PromptTokens:     usage.InputTokens,
+		CompletionTokens: usage.OutputTokens,
+		TotalTokens:      total,
+	}
+}
+
 // ── SSE streaming ─────────────────────────────────────────────────────────
 
 func (m *anthropicChatModel) processStream(body io.ReadCloser, sw *schema.StreamWriter[*schema.Message]) {
@@ -370,6 +386,7 @@ func (m *anthropicChatModel) processStream(body io.ReadCloser, sw *schema.Stream
 		mu         sync.Mutex
 		blocks     = make(map[int]*streamBlock)
 		hasContent bool
+		usage      *schema.TokenUsage
 	)
 
 	type eventData struct {
@@ -393,6 +410,13 @@ func (m *anthropicChatModel) processStream(body io.ReadCloser, sw *schema.Stream
 		}
 
 		switch ev.Type {
+		case "message_delta":
+			if ev.Usage != nil {
+				var u anthropicUsage
+				if err := json.Unmarshal(ev.Usage, &u); err == nil {
+					usage = anthropicTokenUsage(u)
+				}
+			}
 		case "content_block_delta":
 			var d struct {
 				Type        string `json:"type"`
@@ -459,6 +483,9 @@ func (m *anthropicChatModel) processStream(body io.ReadCloser, sw *schema.Stream
 	}
 	if !hasContent || hasToolUse {
 		final := assembleStreamBlocks(blocks)
+		if usage != nil {
+			final.ResponseMeta = &schema.ResponseMeta{Usage: usage}
+		}
 		mu.Unlock()
 		if !hasContent {
 			if final.Content != "" || len(final.ToolCalls) > 0 {
@@ -467,12 +494,19 @@ func (m *anthropicChatModel) processStream(body io.ReadCloser, sw *schema.Stream
 		} else if len(final.ToolCalls) > 0 {
 			// Content was already streamed — only emit tool calls to avoid duplication.
 			sw.Send(&schema.Message{
-				Role:      schema.Assistant,
-				ToolCalls: final.ToolCalls,
+				Role:         schema.Assistant,
+				ToolCalls:    final.ToolCalls,
+				ResponseMeta: final.ResponseMeta,
 			}, nil)
 		}
 	} else {
 		mu.Unlock()
+		if usage != nil {
+			sw.Send(&schema.Message{
+				Role:         schema.Assistant,
+				ResponseMeta: &schema.ResponseMeta{Usage: usage},
+			}, nil)
+		}
 	}
 }
 

@@ -250,10 +250,10 @@ onMounted(() => {
                         </el-tag>
                     </template>
                 </el-table-column>
-                <el-table-column prop="duration_ms" label="耗时(ms)" width="100" align="center" />
-                <el-table-column prop="tokens" label="Token" width="100" align="center" />
-                <el-table-column prop="size_bytes" label="大小" width="100" align="center">
-                    <template #default="{ row }">{{ formatSize(row.size_bytes) }}</template>
+                <el-table-column prop="cost_ms" label="耗时(ms)" width="100" align="center" />
+                <el-table-column prop="estimated_tokens" label="Token" width="100" align="center" />
+                <el-table-column prop="object_size" label="大小" width="100" align="center">
+                    <template #default="{ row }">{{ formatSize(row.object_size) }}</template>
                 </el-table-column>
                 <el-table-column prop="request_id" label="Request ID" width="130" align="center">
                     <template #default="{ row }">

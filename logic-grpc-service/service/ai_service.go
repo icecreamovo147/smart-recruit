@@ -187,7 +187,7 @@ func (s *AIService) Chat(ctx context.Context, req *pb.ChatRequest) (*pb.ChatResp
 			s.writeHRUsageAudit(ctx, AuditLogEntry{
 				UserID: req.HrId, Role: 2, ServiceType: "ai_chat",
 				Endpoint: "/hr/ai/chat", Provider: runtimeClient.auditProvider, Model: runtimeClient.modelName,
-				RequestChars: inputChars, ResponseChars: len([]rune(partial)), TokenUsageTotal: tokenUsageTotal(metadata.TokenUsage), Status: "timeout", CostMs: int(time.Since(startTime).Milliseconds()),
+				RequestChars: inputChars, ResponseChars: len([]rune(partial)), TokenUsageTotal: tokenUsageTotal(metadata.BillingTokenUsage), Status: "timeout", CostMs: int(time.Since(startTime).Milliseconds()),
 			}, req.HrId, "ai", req.ApplicationId)
 			return &pb.ChatResponse{Code: errs.OK, Msg: "success", Reply: partial, CreatedAt: formatTime(time.Now()), SessionId: session.ID, ContextUsage: contextUsage}, nil
 		}
@@ -204,7 +204,7 @@ func (s *AIService) Chat(ctx context.Context, req *pb.ChatRequest) (*pb.ChatResp
 	s.writeHRUsageAudit(ctx, AuditLogEntry{
 		UserID: req.HrId, Role: 2, ServiceType: "ai_chat",
 		Endpoint: "/hr/ai/chat", Provider: runtimeClient.auditProvider, Model: runtimeClient.modelName,
-		RequestChars: inputChars, ResponseChars: outputChars, TokenUsageTotal: tokenUsageTotal(metadata.TokenUsage), CostMs: int(time.Since(startTime).Milliseconds()),
+		RequestChars: inputChars, ResponseChars: outputChars, TokenUsageTotal: tokenUsageTotal(metadata.BillingTokenUsage), CostMs: int(time.Since(startTime).Milliseconds()),
 	}, req.HrId, "ai", req.ApplicationId)
 	log.Info("chat completed", zap.Int("reply_len", outputChars))
 	resp := &pb.ChatResponse{Code: errs.OK, Msg: "success", Reply: reply, CreatedAt: formatTime(now), SessionId: session.ID}
@@ -291,7 +291,7 @@ func (s *AIService) ChatStream(req *pb.ChatRequest, stream pb.AIService_ChatStre
 	s.writeHRUsageAudit(ctx, AuditLogEntry{
 		UserID: req.HrId, Role: 2, ServiceType: "ai_chat",
 		Endpoint: "/hr/ai/chat/stream", Provider: runtimeClient.auditProvider, Model: runtimeClient.modelName,
-		RequestChars: inputChars, ResponseChars: len([]rune(reply)), TokenUsageTotal: tokenUsageTotal(metadata.TokenUsage), CostMs: int(time.Since(startTime).Milliseconds()),
+		RequestChars: inputChars, ResponseChars: len([]rune(reply)), TokenUsageTotal: tokenUsageTotal(metadata.BillingTokenUsage), CostMs: int(time.Since(startTime).Milliseconds()),
 	}, req.HrId, "ai", req.ApplicationId)
 
 	optionsJSON := ""
@@ -508,14 +508,15 @@ func (s *AIService) runToolCallingChatWithUsage(ctx context.Context, req *pb.Cha
 		return reply, metadata, wrapAIError(err)
 	}
 	logger.L().Info("[AI问答] LLM最终回复",
-		append(ai.TokenUsageLogFields(metadata.TokenUsage),
+		append(ai.TokenUsageLogFields(metadata.ContextTokenUsage),
 			zap.String("reply", reply),
 			zap.Int("reply_chars", len([]rune(reply))),
 		)...,
 	)
 
 	// Save full assistant reply on success.
-	contextUsage = s.buildSessionContextUsage(ctx, req.HrId, session.ID, actx, messages, modelID, modelName, "final", "estimator", "", reply)
+	estimatorFinal := s.buildSessionContextUsage(ctx, req.HrId, session.ID, actx, messages, modelID, modelName, "final", "estimator", "", reply)
+	contextUsage = s.buildProviderFinalContextUsage(ctx, estimatorFinal, metadata.ContextTokenUsage)
 	contextUsageJSON = marshalContextUsageJSON(contextUsage)
 	if contextUsage != nil && onContextUsage != nil {
 		if err := onContextUsage(contextUsage); err != nil {
@@ -1343,6 +1344,54 @@ func (s *AIService) buildContextUsageFromBreakdown(ctx context.Context, breakdow
 	}
 
 	return s.usageBuilder.Build(input)
+}
+
+// buildProviderFinalContextUsage converts the estimated final snapshot to a
+// provider-backed snapshot when provider token usage is available.
+//
+// Rules:
+//   - If usage is nil or PromptTokens <= 0, returns the estimator snapshot with
+//     source=estimator and estimated=true unchanged.
+//   - If provider usage exists, copies model metadata, breakdown, and session
+//     accumulated estimate from the estimated snapshot, sets actual fields
+//     from provider usage, and marks source=provider, estimated=false.
+//     Remaining/ratio continue to describe the session accumulated estimate,
+//     not the provider's per-request prompt token count.
+func (s *AIService) buildProviderFinalContextUsage(ctx context.Context, estimated *pb.ContextUsageInfo, usage *schema.TokenUsage) *pb.ContextUsageInfo {
+	if estimated == nil {
+		return nil
+	}
+	if usage == nil || usage.PromptTokens <= 0 {
+		estimated.Source = "estimator"
+		estimated.Estimated = true
+		estimated.Stage = "final"
+		return estimated
+	}
+
+	info := &pb.ContextUsageInfo{
+		ModelId:                estimated.ModelId,
+		ModelName:              estimated.ModelName,
+		ContextWindowTokens:    estimated.ContextWindowTokens,
+		MaxOutputTokens:        estimated.MaxOutputTokens,
+		PromptTokensEstimated:  estimated.PromptTokensEstimated,
+		PromptTokensActual:     int32(usage.PromptTokens),
+		CompletionTokensActual: int32(usage.CompletionTokens),
+		TotalTokensActual:      int32(usage.TotalTokens),
+		Breakdown:              estimated.Breakdown,
+		Source:                 "provider",
+		Estimated:              false,
+		Stage:                  "final",
+	}
+
+	if estimated.ContextWindowTokens > 0 {
+		info.RemainingTokensEstimated = estimated.RemainingTokensEstimated
+		info.UsageRatio = estimated.UsageRatio
+	} else {
+		info.RemainingTokensEstimated = 0
+		info.UsageRatio = 0
+	}
+
+	return info
 }
 
 // joinMessagesForEstimate concatenates recent message content for token estimation.

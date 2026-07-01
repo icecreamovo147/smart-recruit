@@ -16,6 +16,7 @@ import (
 	"go.uber.org/zap"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
+	"google.golang.org/protobuf/encoding/protojson"
 
 	"logic-grpc-service/ai"
 	"logic-grpc-service/model"
@@ -235,6 +236,7 @@ func toPBChatMessages(rows []model.AIChatHistory) []*pb.ChatMessage {
 			AgentSkillIds:   parseInt64Slice(row.AgentSkillIDsJSON),
 			AgentSkillNames: parseStringSlice(row.AgentSkillNamesJSON),
 			ProcessContent:  row.ProcessContent,
+			ContextUsage:    parseContextUsageJSON(row.ContextUsageJSON),
 		}
 		if row.ModelID != nil {
 			msg.ModelId = *row.ModelID
@@ -288,8 +290,37 @@ func parseStringSlice(raw string) []string {
 	return values
 }
 
+func marshalContextUsageJSON(usage *pb.ContextUsageInfo) string {
+	if usage == nil {
+		return ""
+	}
+	data, err := protojson.MarshalOptions{UseProtoNames: true}.Marshal(usage)
+	if err != nil {
+		return ""
+	}
+	return string(data)
+}
+
+func parseContextUsageJSON(raw string) *pb.ContextUsageInfo {
+	if strings.TrimSpace(raw) == "" {
+		return nil
+	}
+	var usage pb.ContextUsageInfo
+	if err := protojson.Unmarshal([]byte(raw), &usage); err != nil {
+		return nil
+	}
+	return &usage
+}
+
 func toPBChatSession(session model.AIChatSession) *pb.ChatSession {
-	return &pb.ChatSession{SessionId: session.ID, Title: session.Title, ApplicationId: session.ApplicationID, CreatedAt: formatTime(session.CreatedAt), UpdatedAt: formatTime(session.UpdatedAt)}
+	return &pb.ChatSession{
+		SessionId:          session.ID,
+		Title:              session.Title,
+		ApplicationId:      session.ApplicationID,
+		CreatedAt:          formatTime(session.CreatedAt),
+		UpdatedAt:          formatTime(session.UpdatedAt),
+		LatestContextUsage: parseContextUsageJSON(session.LatestContextUsageJSON),
+	}
 }
 
 func jobsToPB(ctx context.Context, jobs []model.Job, jobRepo *repository.JobRepo) []*pb.Job {

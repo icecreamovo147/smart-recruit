@@ -6,6 +6,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/cloudwego/eino/schema"
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
 
@@ -413,6 +414,67 @@ func TestChatModelResolutionFailureCreatesFailedAgentRun(t *testing.T) {
 	}
 }
 
+func TestBuildSessionContextUsageUsesAccumulatedHistory(t *testing.T) {
+	db := setupAgentRunServiceTestDB(t)
+	chats := repository.NewChatRepo(db)
+	ctx := context.Background()
+	session := &model.AIChatSession{HrID: 12, Title: "context test"}
+	if err := chats.CreateSession(ctx, session); err != nil {
+		t.Fatalf("CreateSession failed: %v", err)
+	}
+	for _, row := range []model.AIChatHistory{
+		{SessionID: session.ID, HrID: 12, Role: "user", Content: strings.Repeat("历史问题", 40)},
+		{SessionID: session.ID, HrID: 12, Role: "assistant", Content: strings.Repeat("历史回答", 60)},
+	} {
+		if err := chats.Add(ctx, &row); err != nil {
+			t.Fatalf("Add history failed: %v", err)
+		}
+	}
+
+	svc := &AIService{chats: chats, usageBuilder: NewContextUsageBuilder()}
+	actx := &AgentContext{
+		SessionSummary:   strings.Repeat("摘要", 30),
+		LongTermMemories: []model.AIMemory{{Content: strings.Repeat("记忆", 20)}},
+	}
+	initial := svc.buildSessionContextUsage(
+		ctx,
+		12,
+		session.ID,
+		actx,
+		[]*schema.Message{schema.SystemMessage(strings.Repeat("系统提示", 25))},
+		nil,
+		"test-model",
+		"initial",
+		"estimator",
+		strings.Repeat("当前问题", 10),
+		"",
+	)
+	if initial == nil {
+		t.Fatal("expected initial context usage")
+	}
+	toolStage := svc.buildSessionContextUsage(
+		ctx,
+		12,
+		session.ID,
+		actx,
+		[]*schema.Message{schema.SystemMessage(strings.Repeat("系统提示", 25))},
+		nil,
+		"test-model",
+		"tool_result",
+		"estimator",
+		"",
+		"",
+	)
+	if toolStage == nil {
+		t.Fatal("expected tool-stage context usage")
+	}
+	withoutCurrent := initial.PromptTokensEstimated - initial.Breakdown.CurrentMessageTokens
+	if toolStage.PromptTokensEstimated < withoutCurrent {
+		t.Fatalf("session usage should keep accumulated history across runtime updates: initial=%d without_current=%d tool_stage=%d",
+			initial.PromptTokensEstimated, withoutCurrent, toolStage.PromptTokensEstimated)
+	}
+}
+
 func TestUserMessagePersistFailureFinalizesFailedAgentRun(t *testing.T) {
 	db := setupAgentRunServiceTestDB(t)
 	aiClient, err := ai.NewClient(context.Background(), "test-key", "default-model", "")
@@ -587,5 +649,180 @@ func TestDesensitizeResultContent_AtBoundary(t *testing.T) {
 	}
 	if len([]rune(got)) != 2000 {
 		t.Errorf("desensitizeResultContent should keep 2000 chars unchanged, got %d", len([]rune(got)))
+	}
+}
+
+func TestBuildProviderFinalContextUsage_ProviderAvailable(t *testing.T) {
+	svc := &AIService{usageBuilder: NewContextUsageBuilder()}
+
+	estimated := &pb.ContextUsageInfo{
+		ModelId:               1,
+		ModelName:             "test-model",
+		ContextWindowTokens:   128000,
+		MaxOutputTokens:       4096,
+		PromptTokensEstimated: 5000,
+		Breakdown:             &pb.ContextUsageBreakdown{SystemPromptTokens: 100},
+		Source:                "estimator",
+		Estimated:             true,
+		Stage:                 "final",
+	}
+
+	usage := &schema.TokenUsage{PromptTokens: 3200, CompletionTokens: 800, TotalTokens: 4000}
+	result := svc.buildProviderFinalContextUsage(context.Background(), estimated, usage)
+
+	if result == nil {
+		t.Fatal("result should not be nil")
+	}
+	if result.Source != "provider" {
+		t.Errorf("source = %q, want provider", result.Source)
+	}
+	if result.Estimated {
+		t.Error("estimated should be false when provider usage is available")
+	}
+	if result.PromptTokensActual != 3200 {
+		t.Errorf("prompt_tokens_actual = %d, want 3200", result.PromptTokensActual)
+	}
+	if result.CompletionTokensActual != 800 {
+		t.Errorf("completion_tokens_actual = %d, want 800", result.CompletionTokensActual)
+	}
+	if result.TotalTokensActual != 4000 {
+		t.Errorf("total_tokens_actual = %d, want 4000", result.TotalTokensActual)
+	}
+	if result.Stage != "final" {
+		t.Errorf("stage = %q, want final", result.Stage)
+	}
+	// Model metadata should be preserved from estimated snapshot
+	if result.ModelId != 1 || result.ModelName != "test-model" {
+		t.Error("model metadata should be preserved from estimated snapshot")
+	}
+	// Breakdown should remain from estimated snapshot
+	if result.Breakdown == nil || result.Breakdown.SystemPromptTokens != 100 {
+		t.Error("breakdown should be preserved from estimated snapshot")
+	}
+	// Estimated prompt tokens should remain as reference
+	if result.PromptTokensEstimated != 5000 {
+		t.Errorf("prompt_tokens_estimated should remain as reference = %d", result.PromptTokensEstimated)
+	}
+}
+
+func TestBuildProviderFinalContextUsage_ProviderMissing(t *testing.T) {
+	svc := &AIService{usageBuilder: NewContextUsageBuilder()}
+
+	estimated := &pb.ContextUsageInfo{
+		ModelId:               1,
+		ModelName:             "test-model",
+		ContextWindowTokens:   128000,
+		MaxOutputTokens:       4096,
+		PromptTokensEstimated: 5000,
+		Breakdown:             &pb.ContextUsageBreakdown{},
+		Source:                "estimator",
+		Estimated:             true,
+		Stage:                 "tool_result",
+	}
+
+	result := svc.buildProviderFinalContextUsage(context.Background(), estimated, nil)
+
+	if result == nil {
+		t.Fatal("result should not be nil")
+	}
+	if result.Source != "estimator" {
+		t.Errorf("source = %q, want estimator when provider missing", result.Source)
+	}
+	if !result.Estimated {
+		t.Error("estimated should be true when provider usage is missing")
+	}
+	if result.PromptTokensActual != 0 {
+		t.Errorf("prompt_tokens_actual should be 0 when provider is missing, got %d", result.PromptTokensActual)
+	}
+	if result.Stage != "final" {
+		t.Errorf("stage = %q, want final", result.Stage)
+	}
+}
+
+func TestBuildProviderFinalContextUsage_ProviderWithZeroPromptTokens(t *testing.T) {
+	svc := &AIService{usageBuilder: NewContextUsageBuilder()}
+
+	estimated := &pb.ContextUsageInfo{
+		ModelId:               1,
+		ModelName:             "test-model",
+		ContextWindowTokens:   128000,
+		PromptTokensEstimated: 5000,
+		Breakdown:             &pb.ContextUsageBreakdown{},
+		Source:                "estimator",
+		Estimated:             true,
+		Stage:                 "tool_result",
+	}
+
+	result := svc.buildProviderFinalContextUsage(context.Background(), estimated, &schema.TokenUsage{PromptTokens: 0, CompletionTokens: 0, TotalTokens: 0})
+
+	if result == nil {
+		t.Fatal("result should not be nil")
+	}
+	if result.Source != "estimator" {
+		t.Errorf("source = %q, want estimator when prompt_tokens is 0", result.Source)
+	}
+	if !result.Estimated {
+		t.Error("estimated should be true when prompt_tokens is 0")
+	}
+}
+
+func TestBuildProviderFinalContextUsage_RemainingAndRatioUseSessionEstimate(t *testing.T) {
+	svc := &AIService{usageBuilder: NewContextUsageBuilder()}
+
+	estimated := &pb.ContextUsageInfo{
+		ModelId:                  1,
+		ModelName:                "test-model",
+		ContextWindowTokens:      128000,
+		MaxOutputTokens:          4096,
+		PromptTokensEstimated:    100000,
+		RemainingTokensEstimated: 23904,
+		UsageRatio:               0.78125,
+		Breakdown:                &pb.ContextUsageBreakdown{},
+		Source:                   "estimator",
+		Estimated:                true,
+		Stage:                    "final",
+	}
+
+	usage := &schema.TokenUsage{PromptTokens: 32000, CompletionTokens: 8000, TotalTokens: 40000}
+	result := svc.buildProviderFinalContextUsage(context.Background(), estimated, usage)
+
+	if result.RemainingTokensEstimated != estimated.RemainingTokensEstimated {
+		t.Errorf("remaining = %d, want %d", result.RemainingTokensEstimated, estimated.RemainingTokensEstimated)
+	}
+	if result.UsageRatio != estimated.UsageRatio {
+		t.Errorf("ratio = %f, want %f", result.UsageRatio, estimated.UsageRatio)
+	}
+}
+
+func TestBuildProviderFinalContextUsage_NilEstimated(t *testing.T) {
+	svc := &AIService{usageBuilder: NewContextUsageBuilder()}
+	result := svc.buildProviderFinalContextUsage(context.Background(), nil, &schema.TokenUsage{PromptTokens: 100})
+	if result != nil {
+		t.Error("result should be nil when estimated is nil")
+	}
+}
+
+func TestBuildProviderFinalContextUsage_NoContextWindow(t *testing.T) {
+	svc := &AIService{usageBuilder: NewContextUsageBuilder()}
+
+	estimated := &pb.ContextUsageInfo{
+		PromptTokensEstimated: 5000,
+		Breakdown:             &pb.ContextUsageBreakdown{},
+		Source:                "estimator",
+		Estimated:             true,
+		Stage:                 "final",
+	}
+
+	usage := &schema.TokenUsage{PromptTokens: 3200, CompletionTokens: 800, TotalTokens: 4000}
+	result := svc.buildProviderFinalContextUsage(context.Background(), estimated, usage)
+
+	if result == nil {
+		t.Fatal("result should not be nil")
+	}
+	if result.RemainingTokensEstimated != 0 {
+		t.Errorf("remaining should be 0 when context_window is 0, got %d", result.RemainingTokensEstimated)
+	}
+	if result.UsageRatio != 0 {
+		t.Errorf("ratio should be 0 when context_window is 0, got %f", result.UsageRatio)
 	}
 }

@@ -347,7 +347,7 @@ func (s *CandidateAIService) StreamChat(ctx context.Context, userID int64, messa
 		s.writeCandidateUsageAudit(ctx, AuditLogEntry{
 			UserID: userID, Role: 1, ServiceType: "ai_chat",
 			Endpoint: "/candidate/ai/chat/stream", Provider: "dashscope", Model: s.aiClient.ModelName(),
-			RequestChars: inputChars, Status: "error", CostMs: int(time.Since(startTime).Milliseconds()),
+			RequestChars: inputChars, TokenUsageTotal: tokenUsageTotal(metadata.BillingTokenUsage), Status: "error", CostMs: int(time.Since(startTime).Milliseconds()),
 		})
 		return wrapAIError(execErr)
 	}
@@ -369,7 +369,7 @@ func (s *CandidateAIService) StreamChat(ctx context.Context, userID int64, messa
 	s.writeCandidateUsageAudit(ctx, AuditLogEntry{
 		UserID: userID, Role: 1, ServiceType: "ai_chat",
 		Endpoint: "/candidate/ai/chat/stream", Provider: "dashscope", Model: s.aiClient.ModelName(),
-		RequestChars: inputChars, ResponseChars: len([]rune(cleanReply)), CostMs: int(time.Since(startTime).Milliseconds()),
+		RequestChars: inputChars, ResponseChars: len([]rune(cleanReply)), TokenUsageTotal: tokenUsageTotal(metadata.BillingTokenUsage), CostMs: int(time.Since(startTime).Milliseconds()),
 	})
 	logger.L().Info("[候选人AI] 回复完成",
 		zap.Int64("user_id", userID),
@@ -582,7 +582,7 @@ func (s *CandidateAIService) StreamChatGRPC(req *pb.CandidateChatRequest, stream
 				UserID: req.UserId, Role: 1, ServiceType: "ai_chat",
 				Endpoint: "/candidate/ai/chat/stream", Provider: "dashscope", Model: s.aiClient.ModelName(),
 				RequestChars: inputChars, ResponseChars: len([]rune(partial)),
-				Status: "timeout", CostMs: int(time.Since(startTime).Milliseconds()),
+				TokenUsageTotal: tokenUsageTotal(metadata.BillingTokenUsage), Status: "timeout", CostMs: int(time.Since(startTime).Milliseconds()),
 			})
 			logger.L().Info("candidate chat stream canceled, partial reply saved if non-empty",
 				zap.Int64("user_id", req.UserId),
@@ -615,7 +615,7 @@ func (s *CandidateAIService) StreamChatGRPC(req *pb.CandidateChatRequest, stream
 				UserID: req.UserId, Role: 1, ServiceType: "ai_chat",
 				Endpoint: "/candidate/ai/chat/stream", Provider: "dashscope", Model: s.aiClient.ModelName(),
 				RequestChars: inputChars, ResponseChars: len([]rune(fallback)),
-				Status: "error", ErrorCode: string(aiErr.Type), CostMs: int(time.Since(startTime).Milliseconds()),
+				TokenUsageTotal: tokenUsageTotal(metadata.BillingTokenUsage), Status: "error", ErrorCode: string(aiErr.Type), CostMs: int(time.Since(startTime).Milliseconds()),
 			})
 			return stream.Send(&pb.ChatStreamResponse{
 				Code: errs.OK, Msg: "success", Done: true,
@@ -627,7 +627,7 @@ func (s *CandidateAIService) StreamChatGRPC(req *pb.CandidateChatRequest, stream
 		s.writeCandidateUsageAudit(ctx, AuditLogEntry{
 			UserID: req.UserId, Role: 1, ServiceType: "ai_chat",
 			Endpoint: "/candidate/ai/chat/stream", Provider: "dashscope", Model: s.aiClient.ModelName(),
-			RequestChars: inputChars, Status: "error", CostMs: int(time.Since(startTime).Milliseconds()),
+			RequestChars: inputChars, TokenUsageTotal: tokenUsageTotal(metadata.BillingTokenUsage), Status: "error", CostMs: int(time.Since(startTime).Milliseconds()),
 		})
 		return wrapAIError(execErr)
 	}
@@ -639,7 +639,7 @@ func (s *CandidateAIService) StreamChatGRPC(req *pb.CandidateChatRequest, stream
 				UserID: req.UserId, Role: 1, ServiceType: "ai_chat",
 				Endpoint: "/candidate/ai/chat/stream", Provider: "dashscope", Model: s.aiClient.ModelName(),
 				RequestChars: inputChars, ResponseChars: len([]rune(partial)),
-				Status: "timeout", CostMs: int(time.Since(startTime).Milliseconds()),
+				TokenUsageTotal: tokenUsageTotal(metadata.BillingTokenUsage), Status: "timeout", CostMs: int(time.Since(startTime).Milliseconds()),
 			})
 			return err
 		}
@@ -662,7 +662,7 @@ func (s *CandidateAIService) StreamChatGRPC(req *pb.CandidateChatRequest, stream
 	s.writeCandidateUsageAudit(ctx, AuditLogEntry{
 		UserID: req.UserId, Role: 1, ServiceType: "ai_chat",
 		Endpoint: "/candidate/ai/chat/stream", Provider: "dashscope", Model: s.aiClient.ModelName(),
-		RequestChars: inputChars, ResponseChars: len([]rune(cleanReply)), CostMs: int(time.Since(startTime).Milliseconds()),
+		RequestChars: inputChars, ResponseChars: len([]rune(cleanReply)), TokenUsageTotal: tokenUsageTotal(metadata.BillingTokenUsage), CostMs: int(time.Since(startTime).Milliseconds()),
 	})
 
 	if len(suggestedQuestions) != 3 {

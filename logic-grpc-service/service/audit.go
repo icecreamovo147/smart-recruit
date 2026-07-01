@@ -27,6 +27,7 @@ type AuditLogEntry struct {
 	ResponseChars   int
 	ObjectKey       string
 	ObjectSize      int64
+	TokenUsageTotal int
 	Status          string
 	ErrorCode       string
 	CostMs          int
@@ -55,6 +56,10 @@ func writeAuditLog(ctx context.Context, repo *repository.UsageLogRepo, entry Aud
 	if entry.Status == "" {
 		entry.Status = "ok"
 	}
+	tokenCount := entry.TokenUsageTotal
+	if tokenCount <= 0 {
+		tokenCount = estimateTokens(entry.RequestChars, entry.ResponseChars)
+	}
 	log := &model.ThirdPartyUsageLog{
 		UserID:          entry.UserID,
 		Role:            entry.Role,
@@ -64,7 +69,7 @@ func writeAuditLog(ctx context.Context, repo *repository.UsageLogRepo, entry Aud
 		Model:           entry.Model,
 		RequestChars:    entry.RequestChars,
 		ResponseChars:   entry.ResponseChars,
-		EstimatedTokens: estimateTokens(entry.RequestChars, entry.ResponseChars),
+		EstimatedTokens: tokenCount,
 		ObjectKey:       entry.ObjectKey,
 		ObjectSize:      entry.ObjectSize,
 		Status:          entry.Status,
@@ -106,6 +111,10 @@ func createUsageLogSync(ctx context.Context, repo *repository.UsageLogRepo, entr
 	if entry.Status == "" {
 		entry.Status = "ok"
 	}
+	tokenCount := entry.TokenUsageTotal
+	if tokenCount <= 0 {
+		tokenCount = estimateTokens(entry.RequestChars, entry.ResponseChars)
+	}
 	log := &model.ThirdPartyUsageLog{
 		UserID:          entry.UserID,
 		Role:            entry.Role,
@@ -115,7 +124,7 @@ func createUsageLogSync(ctx context.Context, repo *repository.UsageLogRepo, entr
 		Model:           entry.Model,
 		RequestChars:    entry.RequestChars,
 		ResponseChars:   entry.ResponseChars,
-		EstimatedTokens: estimateTokens(entry.RequestChars, entry.ResponseChars),
+		EstimatedTokens: tokenCount,
 		ObjectKey:       entry.ObjectKey,
 		ObjectSize:      entry.ObjectSize,
 		Status:          entry.Status,

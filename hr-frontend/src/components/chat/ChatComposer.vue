@@ -6,6 +6,24 @@ import type { LlmModel } from '@/types/llm'
 import type { CapabilityInfo } from '@/types/agent'
 import type { AvailableAgentSkill } from '@/types/agentSkill'
 
+const sessionTokensUsed = computed(() => props.contextUsage?.prompt_tokens_estimated || 0)
+
+const hasProviderActual = computed(() =>
+  Boolean(props.contextUsage?.prompt_tokens_actual && props.contextUsage.prompt_tokens_actual > 0),
+)
+
+const hasEstimatedBreakdownDetails = computed(() => {
+  const breakdown = props.contextUsage?.breakdown
+  if (!breakdown) return false
+  return [
+    breakdown.summary_tokens,
+    breakdown.memory_tokens,
+    breakdown.current_message_tokens,
+    breakdown.skill_tokens,
+    breakdown.tool_result_tokens,
+  ].some((tokens) => tokens > 0)
+})
+
 const props = defineProps<{
   input: string
   loading: boolean
@@ -270,16 +288,15 @@ const contextUsageRatioClass = computed(() => {
             >
               <span class="chat-composer__context-label">Context</span>
               <span v-if="contextUsage.context_window_tokens > 0" class="chat-composer__context-value">
-                {{ formatContextUsage(contextUsage.prompt_tokens_estimated) }} / {{ formatContextUsage(contextUsage.context_window_tokens) }}
+                {{ formatContextUsage(sessionTokensUsed) }} / {{ formatContextUsage(contextUsage.context_window_tokens) }}
               </span>
               <span v-else class="chat-composer__context-unknown">未配置</span>
-              <span v-if="contextUsage.estimated" class="chat-composer__context-estimated">估算</span>
             </div>
           </template>
           <template v-if="contextUsage">
             <div class="context-usage-popover__header">
-              <span class="context-usage-popover__title">上下文占用</span>
-              <span v-if="contextUsage.estimated" class="context-usage-popover__badge">估算</span>
+              <span class="context-usage-popover__title">会话累计占用</span>
+              <span class="context-usage-popover__badge">累计估算</span>
             </div>
             <div class="context-usage-popover__grid">
               <div class="context-usage-popover__item">
@@ -291,8 +308,12 @@ const contextUsageRatioClass = computed(() => {
                 <span class="context-usage-popover__value">{{ contextUsage.context_window_tokens > 0 ? formatContextUsage(contextUsage.context_window_tokens) : '未配置' }}</span>
               </div>
               <div class="context-usage-popover__item">
-                <span class="context-usage-popover__label">已用（估算）</span>
-                <span class="context-usage-popover__value">{{ formatContextUsage(contextUsage.prompt_tokens_estimated) }}</span>
+                <span class="context-usage-popover__label">已用（累计估算）</span>
+                <span class="context-usage-popover__value">{{ formatContextUsage(sessionTokensUsed) }}</span>
+              </div>
+              <div v-if="hasProviderActual && contextUsage.prompt_tokens_estimated > 0" class="context-usage-popover__item">
+                <span class="context-usage-popover__label">本次输入（Provider）</span>
+                <span class="context-usage-popover__value">{{ formatContextUsage(contextUsage.prompt_tokens_actual) }}</span>
               </div>
               <div class="context-usage-popover__item">
                 <span class="context-usage-popover__label">占比</span>
@@ -311,15 +332,23 @@ const contextUsageRatioClass = computed(() => {
                 <span class="context-usage-popover__value">{{ formatContextUsage(contextUsage.max_output_tokens) }}</span>
               </div>
             </div>
-            <template v-if="contextUsage.breakdown">
+            <template v-if="hasProviderActual && (contextUsage.prompt_tokens_actual || contextUsage.completion_tokens_actual || contextUsage.total_tokens_actual)">
+              <div class="context-usage-popover__section-title">Provider 实际用量</div>
+              <div class="context-usage-popover__breakdown">
+                <div v-if="contextUsage.prompt_tokens_actual > 0" class="context-usage-popover__breakdown-item">
+                  <span>输入 Tokens</span><span>{{ formatContextUsage(contextUsage.prompt_tokens_actual) }}</span>
+                </div>
+                <div v-if="contextUsage.completion_tokens_actual > 0" class="context-usage-popover__breakdown-item">
+                  <span>输出 Tokens</span><span>{{ formatContextUsage(contextUsage.completion_tokens_actual) }}</span>
+                </div>
+                <div v-if="contextUsage.total_tokens_actual > 0" class="context-usage-popover__breakdown-item">
+                  <span>总计 Tokens</span><span>{{ formatContextUsage(contextUsage.total_tokens_actual) }}</span>
+                </div>
+              </div>
+            </template>
+            <template v-if="hasEstimatedBreakdownDetails && contextUsage.breakdown">
               <div class="context-usage-popover__section-title">细分（估算）</div>
               <div class="context-usage-popover__breakdown">
-                <div v-if="contextUsage.breakdown.system_prompt_tokens > 0" class="context-usage-popover__breakdown-item">
-                  <span>系统提示词</span><span>{{ formatContextUsage(contextUsage.breakdown.system_prompt_tokens) }}</span>
-                </div>
-                <div v-if="contextUsage.breakdown.recent_message_tokens > 0" class="context-usage-popover__breakdown-item">
-                  <span>最近消息</span><span>{{ formatContextUsage(contextUsage.breakdown.recent_message_tokens) }}</span>
-                </div>
                 <div v-if="contextUsage.breakdown.summary_tokens > 0" class="context-usage-popover__breakdown-item">
                   <span>会话摘要</span><span>{{ formatContextUsage(contextUsage.breakdown.summary_tokens) }}</span>
                 </div>

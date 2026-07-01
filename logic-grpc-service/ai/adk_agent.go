@@ -26,6 +26,9 @@ type AgentRunInput struct {
 	MaxIterations int
 	OwnerID       int64
 	SessionID     int64
+	// OnMessagesUpdated observes authoritative ADK message state before/after
+	// model calls so callers can compute context usage.
+	OnMessagesUpdated MessageUpdateCallback
 	// State is an optional pre-created AgentRunState. When non-nil, tools
 	// and middleware share this state so business metadata (CandidateOptions,
 	// Action) written by tools flows back to the caller. When nil,
@@ -72,9 +75,10 @@ func (c *Client) ChatWithADKAgent(
 	}
 
 	middleware := &RecruitingAgentMiddleware{
-		State:          state,
-		OnToolExecuted: onToolExecuted,
-		OnStatus:       onStatus,
+		State:             state,
+		OnToolExecuted:    onToolExecuted,
+		OnStatus:          onStatus,
+		OnMessagesUpdated: input.OnMessagesUpdated,
 	}
 
 	agent, err := adk.NewChatModelAgent(ctx, &adk.ChatModelAgentConfig{
@@ -177,6 +181,7 @@ func (c *Client) ChatWithADKAgent(
 		if mv.IsStreaming && mv.MessageStream != nil {
 			var turnBuilder strings.Builder
 			var turnHasToolCall bool
+			chunks := make([]*schema.Message, 0, 16)
 			for {
 				chunk, chunkErr := mv.MessageStream.Recv()
 				if chunkErr == io.EOF {
@@ -192,6 +197,7 @@ func (c *Client) ChatWithADKAgent(
 				if chunk == nil {
 					continue
 				}
+				chunks = append(chunks, chunk)
 				if chunk.Content != "" {
 					turnBuilder.WriteString(chunk.Content)
 				}
@@ -209,7 +215,11 @@ func (c *Client) ChatWithADKAgent(
 					return replyBuilder.String(), state.ReadMetadata(), err
 				}
 			}
+			if msg, err := schema.ConcatMessages(chunks); err == nil {
+				state.RecordModelUsage(tokenUsageFromMessage(msg))
+			}
 		} else if mv.Message != nil {
+			state.RecordModelUsage(tokenUsageFromMessage(mv.Message))
 			turnHasToolCall := len(mv.Message.ToolCalls) > 0
 			if mv.Message.Content != "" {
 				if turnHasToolCall {
@@ -260,9 +270,11 @@ func (c *Client) ChatWithADKAgent(
 	sendStatus(onStatus, "done", "回答完成", "", "")
 	meta := state.ReadMetadata()
 	logger.L().Info("[ADK Agent] 回复完成",
-		zap.Int("reply_chars", len([]rune(reply))),
-		zap.Int("tool_traces", len(meta.ToolTraces)),
-		zap.Duration("total_cost", time.Since(start)),
+		append(TokenUsageLogFields(meta.ContextTokenUsage),
+			zap.Int("reply_chars", len([]rune(reply))),
+			zap.Int("tool_traces", len(meta.ToolTraces)),
+			zap.Duration("total_cost", time.Since(start)),
+		)...,
 	)
 	return reply, meta, nil
 }

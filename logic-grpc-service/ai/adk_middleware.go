@@ -8,6 +8,7 @@ import (
 
 	"github.com/cloudwego/eino/adk"
 	"github.com/cloudwego/eino/components/tool"
+	"github.com/cloudwego/eino/schema"
 	"go.uber.org/zap"
 
 	"logic-grpc-service/pkg/logger"
@@ -42,6 +43,17 @@ func (s *AgentRunState) RecordTrace(t ToolTrace) {
 	s.Metadata.recordTrace(t)
 }
 
+// RecordModelUsage atomically records a model call's token usage for both
+// billing (cumulative) and context (latest-call) semantics.
+func (s *AgentRunState) RecordModelUsage(usage *schema.TokenUsage) {
+	if s == nil || usage == nil {
+		return
+	}
+	s.Mu.Lock()
+	defer s.Mu.Unlock()
+	s.Metadata.recordModelUsage(usage)
+}
+
 // ReadMetadata returns a copy of the current metadata under lock.
 // Use this for reads from goroutines other than the tool execution goroutine.
 func (s *AgentRunState) ReadMetadata() ToolMetadata {
@@ -60,9 +72,56 @@ func (s *AgentRunState) ReadMetadata() ToolMetadata {
 // defaults on unused methods.
 type RecruitingAgentMiddleware struct {
 	adk.BaseChatModelAgentMiddleware
-	State          *AgentRunState
-	OnToolExecuted ToolTraceCallback
-	OnStatus       func(eventType, eventMessage, errorType, toolName string) error
+	State             *AgentRunState
+	OnToolExecuted    ToolTraceCallback
+	OnStatus          func(eventType, eventMessage, errorType, toolName string) error
+	OnMessagesUpdated MessageUpdateCallback
+}
+
+const adkContextUsageToolSeenKey = "smart_recruit.context_usage_tool_seen"
+
+// BeforeModelRewriteState observes the exact ADK message state before each
+// model invocation. After a tool has run, this state includes tool results and
+// is the authoritative input for context usage estimation.
+func (m *RecruitingAgentMiddleware) BeforeModelRewriteState(
+	ctx context.Context,
+	state *adk.ChatModelAgentState,
+	mc *adk.ModelContext,
+) (context.Context, *adk.ChatModelAgentState, error) {
+	if m.OnMessagesUpdated == nil || state == nil {
+		return ctx, state, nil
+	}
+	if seen, _, err := adk.GetRunLocalValue(ctx, adkContextUsageToolSeenKey); err == nil {
+		if v, ok := seen.(bool); ok && v {
+			_ = adk.SetRunLocalValue(ctx, adkContextUsageToolSeenKey, false)
+			if err := m.OnMessagesUpdated(state.Messages, "tool_result"); err != nil {
+				return ctx, state, err
+			}
+		}
+	}
+	return ctx, state, nil
+}
+
+// AfterModelRewriteState observes the state after model output is appended.
+// When the agent finishes, this is the final prompt state used for persistence.
+func (m *RecruitingAgentMiddleware) AfterModelRewriteState(
+	ctx context.Context,
+	state *adk.ChatModelAgentState,
+	mc *adk.ModelContext,
+) (context.Context, *adk.ChatModelAgentState, error) {
+	if m.OnMessagesUpdated == nil || state == nil {
+		return ctx, state, nil
+	}
+	if len(state.Messages) == 0 {
+		return ctx, state, nil
+	}
+	last := state.Messages[len(state.Messages)-1]
+	if last != nil && len(last.ToolCalls) == 0 {
+		if err := m.OnMessagesUpdated(state.Messages, "final"); err != nil {
+			return ctx, state, err
+		}
+	}
+	return ctx, state, nil
 }
 
 // WrapInvokableToolCall wraps synchronous tool invocation to capture timing,
@@ -95,6 +154,9 @@ func (m *RecruitingAgentMiddleware) WrapInvokableToolCall(
 
 		if m.OnToolExecuted != nil {
 			m.OnToolExecuted(tCtx.CallID, tCtx.Name, argumentsInJSON, resultContent, cost, execErr)
+		}
+		if m.OnMessagesUpdated != nil {
+			_ = adk.SetRunLocalValue(ctx, adkContextUsageToolSeenKey, true)
 		}
 
 		sendStatus(m.OnStatus, "tool_done", "数据查询完成", "", "")

@@ -218,7 +218,9 @@ const rememberContextUsage = (sessionId: number, usage: ContextUsageInfo) => {
 }
 
 const applyModelToContextUsage = (usage: ContextUsageInfo, selectedModel: LlmModel): ContextUsageInfo => {
-  const promptTokens = usage.prompt_tokens_estimated || 0
+  const promptTokens = (usage.prompt_tokens_actual && usage.prompt_tokens_actual > 0)
+    ? usage.prompt_tokens_actual
+    : (usage.prompt_tokens_estimated || 0)
   const contextWindowTokens = selectedModel.context_window_tokens || 0
   const maxOutputTokens = selectedModel.max_tokens || 0
   const remainingTokens = contextWindowTokens > 0
