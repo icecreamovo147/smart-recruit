@@ -35,15 +35,17 @@ type LlmConfigService struct {
 // LlmRuntimeModelConfig is the complete model configuration needed to create
 // a runtime AI client for one request.
 type LlmRuntimeModelConfig struct {
-	ModelID      int64
-	ProviderType string
-	ProviderName string
-	APIKey       string
-	ModelName    string
-	BaseURL      string
-	Params       ai.ModelParams
-	Concurrency  int32
-	Timeout      time.Duration
+	ModelID             int64
+	ProviderType        string
+	ProviderName        string
+	APIKey              string
+	ModelName           string
+	BaseURL             string
+	Params              ai.ModelParams
+	Concurrency         int32
+	Timeout             time.Duration
+	ContextWindowTokens int32
+	MaxOutputTokens     int32
 }
 
 // NewLlmConfigService creates a new LlmConfigService.
@@ -447,6 +449,16 @@ func (s *LlmConfigService) CreateModel(ctx context.Context, req *pb.CreateModelR
 		IsDefault:      0,
 	}
 
+	contextWindowTokens := req.GetContextWindowTokens()
+	if contextWindowTokens < 0 {
+		return nil, status.Error(codes.InvalidArgument, "context_window_tokens must be >= 0")
+	}
+	model.ContextWindowTokens = contextWindowTokens
+
+	if contextWindowTokens > 0 && maxTokens >= contextWindowTokens {
+		return nil, status.Error(codes.InvalidArgument, "max_tokens must be less than context_window_tokens when context_window_tokens is configured")
+	}
+
 	if req.GetIsDefault() {
 		// Clear existing default for this provider
 		_ = s.modelRepo.ClearDefault(ctx, req.GetProviderId())
@@ -471,7 +483,8 @@ func (s *LlmConfigService) UpdateModel(ctx context.Context, req *pb.UpdateModelR
 		return nil, status.Error(codes.InvalidArgument, "id is required")
 	}
 
-	if _, err := s.modelRepo.GetByID(ctx, id); err != nil {
+	existing, err := s.modelRepo.GetByID(ctx, id)
+	if err != nil {
 		if err == gorm.ErrRecordNotFound {
 			return nil, status.Error(codes.NotFound, "model not found")
 		}
@@ -479,6 +492,8 @@ func (s *LlmConfigService) UpdateModel(ctx context.Context, req *pb.UpdateModelR
 	}
 
 	updates := map[string]any{}
+	finalMaxTokens := existing.MaxTokens
+	finalContextWindowTokens := existing.ContextWindowTokens
 	if req.GetModelName() != "" {
 		updates["model_name"] = strings.TrimSpace(req.GetModelName())
 	}
@@ -492,7 +507,20 @@ func (s *LlmConfigService) UpdateModel(ctx context.Context, req *pb.UpdateModelR
 		updates["top_p"] = req.GetTopP()
 	}
 	if req.GetMaxTokensSet() {
-		updates["max_tokens"] = req.GetMaxTokens()
+		maxTokens := req.GetMaxTokens()
+		if maxTokens <= 0 {
+			return nil, status.Error(codes.InvalidArgument, "max_tokens must be > 0")
+		}
+		finalMaxTokens = maxTokens
+		updates["max_tokens"] = maxTokens
+	}
+	if req.GetContextWindowTokensSet() {
+		ct := req.GetContextWindowTokens()
+		if ct < 0 {
+			return nil, status.Error(codes.InvalidArgument, "context_window_tokens must be >= 0")
+		}
+		finalContextWindowTokens = ct
+		updates["context_window_tokens"] = ct
 	}
 	if req.GetMaxConcurrencySet() {
 		updates["max_concurrency"] = req.GetMaxConcurrency()
@@ -509,13 +537,14 @@ func (s *LlmConfigService) UpdateModel(ctx context.Context, req *pb.UpdateModelR
 	}
 	if req.GetIsDefaultSet() && req.GetIsDefault() {
 		// Clear existing default first
-		existing, _ := s.modelRepo.GetByID(ctx, id)
-		if existing != nil {
-			_ = s.modelRepo.ClearDefault(ctx, existing.ProviderID)
-		}
+		_ = s.modelRepo.ClearDefault(ctx, existing.ProviderID)
 		updates["is_default"] = 1
 	} else if req.GetIsDefaultSet() && !req.GetIsDefault() {
 		updates["is_default"] = 0
+	}
+
+	if finalContextWindowTokens > 0 && finalMaxTokens >= finalContextWindowTokens {
+		return nil, status.Error(codes.InvalidArgument, "max_tokens must be less than context_window_tokens when context_window_tokens is configured")
 	}
 
 	if len(updates) > 0 {
@@ -587,20 +616,21 @@ func (s *LlmConfigService) providerToInfo(p *model.LlmProvider) *pb.LlmProviderI
 
 func (s *LlmConfigService) modelToInfo(m *model.LlmModel, providerName string) *pb.LlmModelInfo {
 	return &pb.LlmModelInfo{
-		Id:             m.ID,
-		ProviderId:     m.ProviderID,
-		ModelName:      m.ModelName,
-		DisplayName:    m.DisplayName,
-		Temperature:    m.Temperature,
-		TopP:           m.TopP,
-		MaxTokens:      m.MaxTokens,
-		MaxConcurrency: m.MaxConcurrency,
-		TimeoutSeconds: m.TimeoutSeconds,
-		IsEnabled:      m.IsEnabled == 1,
-		IsDefault:      m.IsDefault == 1,
-		CreatedAt:      m.CreatedAt.Format(time.RFC3339),
-		UpdatedAt:      m.UpdatedAt.Format(time.RFC3339),
-		ProviderName:   providerName,
+		Id:                  m.ID,
+		ProviderId:          m.ProviderID,
+		ModelName:           m.ModelName,
+		DisplayName:         m.DisplayName,
+		Temperature:         m.Temperature,
+		TopP:                m.TopP,
+		MaxTokens:           m.MaxTokens,
+		ContextWindowTokens: m.ContextWindowTokens,
+		MaxConcurrency:      m.MaxConcurrency,
+		TimeoutSeconds:      m.TimeoutSeconds,
+		IsEnabled:           m.IsEnabled == 1,
+		IsDefault:           m.IsDefault == 1,
+		CreatedAt:           m.CreatedAt.Format(time.RFC3339),
+		UpdatedAt:           m.UpdatedAt.Format(time.RFC3339),
+		ProviderName:        providerName,
 	}
 }
 
@@ -640,15 +670,17 @@ func (s *LlmConfigService) GetModelRuntimeConfig(ctx context.Context, modelID in
 	}
 	params := modelParamsFromConfig(llmModel)
 	return &LlmRuntimeModelConfig{
-		ModelID:      llmModel.ID,
-		ProviderType: provider.ProviderType,
-		ProviderName: provider.Name,
-		APIKey:       string(keyBytes),
-		ModelName:    llmModel.ModelName,
-		BaseURL:      provider.BaseURL,
-		Params:       params,
-		Concurrency:  llmModel.MaxConcurrency,
-		Timeout:      time.Duration(llmModel.TimeoutSeconds) * time.Second,
+		ModelID:             llmModel.ID,
+		ProviderType:        provider.ProviderType,
+		ProviderName:        provider.Name,
+		APIKey:              string(keyBytes),
+		ModelName:           llmModel.ModelName,
+		BaseURL:             provider.BaseURL,
+		Params:              params,
+		Concurrency:         llmModel.MaxConcurrency,
+		Timeout:             time.Duration(llmModel.TimeoutSeconds) * time.Second,
+		ContextWindowTokens: llmModel.ContextWindowTokens,
+		MaxOutputTokens:     llmModel.MaxTokens,
 	}, nil
 }
 

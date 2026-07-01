@@ -229,6 +229,7 @@ type AIChatHistory struct {
 	Role                string
 	Content             string
 	ProcessContent      string `gorm:"column:process_content;type:text"`
+	ContextUsageJSON    string `gorm:"column:context_usage_json;type:text"`
 	ModelID             *int64 `gorm:"column:model_id"`
 	ModelName           string `gorm:"column:model_name;size:128"`
 	AgentSkillIDsJSON   string `gorm:"column:agent_skill_ids_json;type:text"`
@@ -237,15 +238,16 @@ type AIChatHistory struct {
 }
 
 type AIChatSession struct {
-	ID            int64 `gorm:"primaryKey"`
-	HrID          int64 `gorm:"column:hr_id"`
-	OwnerRole     int32 `gorm:"column:owner_role;default:2"` // 1 candidate / 2 HR
-	OwnerID       int64 `gorm:"column:owner_id;default:0"`
-	Title         string
-	ApplicationID int64 `gorm:"column:application_id"`
-	CreatedAt     time.Time
-	UpdatedAt     time.Time
-	DeletedAt     *time.Time `gorm:"column:deleted_at"`
+	ID                     int64 `gorm:"primaryKey"`
+	HrID                   int64 `gorm:"column:hr_id"`
+	OwnerRole              int32 `gorm:"column:owner_role;default:2"` // 1 candidate / 2 HR
+	OwnerID                int64 `gorm:"column:owner_id;default:0"`
+	Title                  string
+	ApplicationID          int64  `gorm:"column:application_id"`
+	LatestContextUsageJSON string `gorm:"column:latest_context_usage_json;type:text"`
+	CreatedAt              time.Time
+	UpdatedAt              time.Time
+	DeletedAt              *time.Time `gorm:"column:deleted_at"`
 }
 
 type AISessionSummary struct {
@@ -606,19 +608,20 @@ func (LlmProvider) TableName() string { return "llm_providers" }
 
 // LlmModel represents an LLM model configuration under a provider.
 type LlmModel struct {
-	ID             int64     `gorm:"primaryKey"`
-	ProviderID     int64     `gorm:"column:provider_id;not null"`
-	ModelName      string    `gorm:"column:model_name;size:128;not null"`
-	DisplayName    string    `gorm:"column:display_name;size:128"`
-	Temperature    float64   `gorm:"column:temperature;default:0.7"`
-	TopP           float64   `gorm:"column:top_p;default:1.0"`
-	MaxTokens      int32     `gorm:"column:max_tokens;default:4096"`
-	MaxConcurrency int32     `gorm:"column:max_concurrency;default:10"`
-	TimeoutSeconds int32     `gorm:"column:timeout_seconds;default:90"`
-	IsEnabled      int32     `gorm:"column:is_enabled;default:1"`
-	IsDefault      int32     `gorm:"column:is_default;default:0"`
-	CreatedAt      time.Time `gorm:"column:created_at"`
-	UpdatedAt      time.Time `gorm:"column:updated_at"`
+	ID                  int64     `gorm:"primaryKey"`
+	ProviderID          int64     `gorm:"column:provider_id;not null"`
+	ModelName           string    `gorm:"column:model_name;size:128;not null"`
+	DisplayName         string    `gorm:"column:display_name;size:128"`
+	Temperature         float64   `gorm:"column:temperature;default:0.7"`
+	TopP                float64   `gorm:"column:top_p;default:1.0"`
+	MaxTokens           int32     `gorm:"column:max_tokens;default:4096"`
+	ContextWindowTokens int32     `gorm:"column:context_window_tokens;default:0"`
+	MaxConcurrency      int32     `gorm:"column:max_concurrency;default:10"`
+	TimeoutSeconds      int32     `gorm:"column:timeout_seconds;default:90"`
+	IsEnabled           int32     `gorm:"column:is_enabled;default:1"`
+	IsDefault           int32     `gorm:"column:is_default;default:0"`
+	CreatedAt           time.Time `gorm:"column:created_at"`
+	UpdatedAt           time.Time `gorm:"column:updated_at"`
 }
 
 func (LlmModel) TableName() string { return "llm_models" }

@@ -53,6 +53,7 @@ type AIService struct {
 	agentSkillRepo  agentSkillLister
 	cachedADKTools  []tool.BaseTool // lazy-initialized, shared across requests
 	cachedToolsMu   sync.Mutex      // guards cachedADKTools init and invalidation
+	usageBuilder    *ContextUsageBuilder
 }
 
 type runtimeAIClient struct {
@@ -104,6 +105,7 @@ func NewAIService(
 		mcpSvc:          mcpSvc,
 		skillSvc:        skillSvc,
 		agentSkillRepo:  agentSkillRepo,
+		usageBuilder:    NewContextUsageBuilder(),
 	}
 }
 
@@ -167,10 +169,14 @@ func (s *AIService) Chat(ctx context.Context, req *pb.ChatRequest) (*pb.ChatResp
 	}
 
 	var replyBuilder strings.Builder
-	reply, metadata, err := s.runToolCallingChat(ctx, req, session, runtimeClient.modelID, runtimeClient.modelName, runtimeCfg, func(delta string) error {
+	var contextUsage *pb.ContextUsageInfo
+	reply, metadata, err := s.runToolCallingChatWithUsage(ctx, req, session, runtimeClient.modelID, runtimeClient.modelName, runtimeCfg, func(delta string) error {
 		replyBuilder.WriteString(delta)
 		return nil
-	}, nil, runtimeClient.client)
+	}, nil, func(usage *pb.ContextUsageInfo) error {
+		contextUsage = usage
+		return nil
+	}, runtimeClient.client)
 	if err != nil {
 		if isCanceledError(err) {
 			partial := strings.TrimSpace(replyBuilder.String())
@@ -181,9 +187,9 @@ func (s *AIService) Chat(ctx context.Context, req *pb.ChatRequest) (*pb.ChatResp
 			s.writeHRUsageAudit(ctx, AuditLogEntry{
 				UserID: req.HrId, Role: 2, ServiceType: "ai_chat",
 				Endpoint: "/hr/ai/chat", Provider: runtimeClient.auditProvider, Model: runtimeClient.modelName,
-				RequestChars: inputChars, ResponseChars: len([]rune(partial)), Status: "timeout", CostMs: int(time.Since(startTime).Milliseconds()),
+				RequestChars: inputChars, ResponseChars: len([]rune(partial)), TokenUsageTotal: tokenUsageTotal(metadata.TokenUsage), Status: "timeout", CostMs: int(time.Since(startTime).Milliseconds()),
 			}, req.HrId, "ai", req.ApplicationId)
-			return &pb.ChatResponse{Code: errs.OK, Msg: "success", Reply: partial, CreatedAt: formatTime(time.Now()), SessionId: session.ID}, nil
+			return &pb.ChatResponse{Code: errs.OK, Msg: "success", Reply: partial, CreatedAt: formatTime(time.Now()), SessionId: session.ID, ContextUsage: contextUsage}, nil
 		}
 		s.writeHRUsageAudit(ctx, AuditLogEntry{
 			UserID: req.HrId, Role: 2, ServiceType: "ai_chat",
@@ -198,7 +204,7 @@ func (s *AIService) Chat(ctx context.Context, req *pb.ChatRequest) (*pb.ChatResp
 	s.writeHRUsageAudit(ctx, AuditLogEntry{
 		UserID: req.HrId, Role: 2, ServiceType: "ai_chat",
 		Endpoint: "/hr/ai/chat", Provider: runtimeClient.auditProvider, Model: runtimeClient.modelName,
-		RequestChars: inputChars, ResponseChars: outputChars, CostMs: int(time.Since(startTime).Milliseconds()),
+		RequestChars: inputChars, ResponseChars: outputChars, TokenUsageTotal: tokenUsageTotal(metadata.TokenUsage), CostMs: int(time.Since(startTime).Milliseconds()),
 	}, req.HrId, "ai", req.ApplicationId)
 	log.Info("chat completed", zap.Int("reply_len", outputChars))
 	resp := &pb.ChatResponse{Code: errs.OK, Msg: "success", Reply: reply, CreatedAt: formatTime(now), SessionId: session.ID}
@@ -210,6 +216,7 @@ func (s *AIService) Chat(ctx context.Context, req *pb.ChatRequest) (*pb.ChatResp
 		resp.JobTitle = metadata.Action.JobTitle
 		resp.Status = metadata.Action.Status
 	}
+	resp.ContextUsage = contextUsage
 	return resp, nil
 }
 
@@ -260,9 +267,18 @@ func (s *AIService) ChatStream(req *pb.ChatRequest, stream pb.AIService_ChatStre
 			SessionId:    session.ID,
 		})
 	}
-	reply, metadata, err := s.runToolCallingChat(ctx, req, session, runtimeClient.modelID, runtimeClient.modelName, runtimeCfg, func(delta string) error {
+	contextUsageSender := func(usage *pb.ContextUsageInfo) error {
+		return stream.Send(&pb.ChatStreamResponse{
+			Code:         errs.OK,
+			Msg:          "success",
+			EventType:    "context_usage",
+			ContextUsage: usage,
+			SessionId:    session.ID,
+		})
+	}
+	reply, metadata, err := s.runToolCallingChatWithUsage(ctx, req, session, runtimeClient.modelID, runtimeClient.modelName, runtimeCfg, func(delta string) error {
 		return stream.Send(&pb.ChatStreamResponse{Code: errs.OK, Msg: "success", Delta: delta, SessionId: session.ID})
-	}, statusSender, runtimeClient.client)
+	}, statusSender, contextUsageSender, runtimeClient.client)
 	if err != nil {
 		s.writeHRUsageAudit(ctx, AuditLogEntry{
 			UserID: req.HrId, Role: 2, ServiceType: "ai_chat",
@@ -275,7 +291,7 @@ func (s *AIService) ChatStream(req *pb.ChatRequest, stream pb.AIService_ChatStre
 	s.writeHRUsageAudit(ctx, AuditLogEntry{
 		UserID: req.HrId, Role: 2, ServiceType: "ai_chat",
 		Endpoint: "/hr/ai/chat/stream", Provider: runtimeClient.auditProvider, Model: runtimeClient.modelName,
-		RequestChars: inputChars, ResponseChars: len([]rune(reply)), CostMs: int(time.Since(startTime).Milliseconds()),
+		RequestChars: inputChars, ResponseChars: len([]rune(reply)), TokenUsageTotal: tokenUsageTotal(metadata.TokenUsage), CostMs: int(time.Since(startTime).Milliseconds()),
 	}, req.HrId, "ai", req.ApplicationId)
 
 	optionsJSON := ""
@@ -303,6 +319,12 @@ func (s *AIService) ChatStream(req *pb.ChatRequest, stream pb.AIService_ChatStre
 // non-streaming callers it accumulates the full reply, for streaming callers it
 // writes SSE deltas.
 func (s *AIService) runToolCallingChat(ctx context.Context, req *pb.ChatRequest, session *model.AIChatSession, modelID *int64, modelName string, runtimeCfg *agentRuntimeConfig, onDelta func(string) error, onStatus func(eventType, eventMessage, errorType, toolName string) error, aiClient *ai.Client) (reply string, metadata ai.ToolMetadata, err error) {
+	return s.runToolCallingChatWithUsage(ctx, req, session, modelID, modelName, runtimeCfg, onDelta, onStatus, nil, aiClient)
+}
+
+// runToolCallingChatWithUsage is like runToolCallingChat but additionally
+// accepts an onContextUsage callback to emit context usage info events.
+func (s *AIService) runToolCallingChatWithUsage(ctx context.Context, req *pb.ChatRequest, session *model.AIChatSession, modelID *int64, modelName string, runtimeCfg *agentRuntimeConfig, onDelta func(string) error, onStatus func(eventType, eventMessage, errorType, toolName string) error, onContextUsage func(*pb.ContextUsageInfo) error, aiClient *ai.Client) (reply string, metadata ai.ToolMetadata, err error) {
 	recorder := s.startAgentRun(ctx, req, session, modelID, modelName, runtimeCfg)
 	fallbackObserved := false
 	var processContent strings.Builder
@@ -362,6 +384,19 @@ func (s *AIService) runToolCallingChat(ctx context.Context, req *pb.ChatRequest,
 	selectedSkillsForHistory = manualAgentSkills(selectedSkillsForHistory)
 	userAlreadyPersisted := currentMessageAlreadyPersisted(actx, req.Message)
 	messages := buildToolCallingMessages(actx, req.Message)
+	var contextUsage *pb.ContextUsageInfo
+
+	// Emit the session-level accumulated context usage. This is intentionally
+	// based on persisted chat history plus the in-flight message, not on
+	// transient tool-calling message snapshots that can shrink between rounds.
+	contextUsage = s.buildSessionContextUsage(ctx, req.HrId, session.ID, actx, messages, modelID, modelName, "initial", "estimator", req.Message, "")
+	if contextUsage != nil {
+		if onContextUsage != nil {
+			usageInfo := contextUsage
+			_ = onContextUsage(usageInfo)
+		}
+	}
+	contextUsageJSON := marshalContextUsageJSON(contextUsage)
 
 	// Save user message before the model call so it persists even on cancel.
 	if !userAlreadyPersisted {
@@ -401,18 +436,31 @@ func (s *AIService) runToolCallingChat(ctx context.Context, req *pb.ChatRequest,
 	if recorder != nil {
 		recorder.markRunning(ctx)
 	}
+	usageUpdater := func(_ []*schema.Message, stage string) error {
+		usageInfo := s.buildSessionContextUsage(ctx, req.HrId, session.ID, actx, messages, modelID, modelName, stage, "estimator", "", "")
+		if usageInfo != nil {
+			contextUsage = usageInfo
+			contextUsageJSON = marshalContextUsageJSON(contextUsage)
+			if onContextUsage != nil {
+				return onContextUsage(usageInfo)
+			}
+		}
+		return nil
+	}
 	if s.agentRuntime == "adk" {
-		reply, metadata, err = s.runADKChat(ctx, req, session, messages, runtimeCfg, wrappedDelta, effectiveOnStatus, aiClient, recorder)
+		reply, metadata, err = s.runADKChat(ctx, req, session, messages, modelID, modelName, runtimeCfg, wrappedDelta, effectiveOnStatus, usageUpdater, aiClient, recorder)
 	} else {
-		reply, metadata, err = s.runLegacyChat(ctx, req, session, messages, runtimeCfg, wrappedDelta, effectiveOnStatus, aiClient, recorder)
+		reply, metadata, err = s.runLegacyChat(ctx, req, session, messages, modelID, modelName, runtimeCfg, wrappedDelta, effectiveOnStatus, usageUpdater, aiClient, recorder)
 	}
 	if err != nil {
 		if isCanceledError(err) {
 			partial := strings.TrimSpace(partialReply.String())
 			if partial != "" {
+				contextUsage = s.buildSessionContextUsage(ctx, req.HrId, session.ID, actx, messages, modelID, modelName, "final", "estimator", "", partial)
+				contextUsageJSON = marshalContextUsageJSON(contextUsage)
 				saveCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 				defer cancel()
-				_ = s.chats.Add(saveCtx, &model.AIChatHistory{SessionID: session.ID, HrID: req.HrId, Role: "assistant", Content: partial + "\n\n（回复已中断）", ProcessContent: processContent.String(), ModelID: modelID, ModelName: modelName})
+				_ = s.chats.Add(saveCtx, &model.AIChatHistory{SessionID: session.ID, HrID: req.HrId, Role: "assistant", Content: partial + "\n\n（回复已中断）", ProcessContent: processContent.String(), ContextUsageJSON: contextUsageJSON, ModelID: modelID, ModelName: modelName})
 			}
 			logger.L().Info("chat canceled, partial reply saved if non-empty", zap.Int("partial_chars", len(partial)))
 			if recorder != nil {
@@ -443,7 +491,9 @@ func (s *AIService) runToolCallingChat(ctx context.Context, req *pb.ChatRequest,
 			}
 			saveCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 			defer cancel()
-			_ = s.chats.Add(saveCtx, &model.AIChatHistory{SessionID: session.ID, HrID: req.HrId, Role: "assistant", Content: fallback, ProcessContent: processContent.String(), ModelID: modelID, ModelName: modelName})
+			contextUsage = s.buildSessionContextUsage(ctx, req.HrId, session.ID, actx, messages, modelID, modelName, "final", "estimator", "", fallback)
+			contextUsageJSON = marshalContextUsageJSON(contextUsage)
+			_ = s.chats.Add(saveCtx, &model.AIChatHistory{SessionID: session.ID, HrID: req.HrId, Role: "assistant", Content: fallback, ProcessContent: processContent.String(), ContextUsageJSON: contextUsageJSON, ModelID: modelID, ModelName: modelName})
 			if recorder != nil {
 				recorder.finish(ctx, agentRunStatusPartial, fallback, string(aiErr.Type), err.Error())
 				sendAgentRunStatus(effectiveOnStatus, "agent_run_done", "Agent run 已部分完成", string(aiErr.Type), "")
@@ -458,12 +508,21 @@ func (s *AIService) runToolCallingChat(ctx context.Context, req *pb.ChatRequest,
 		return reply, metadata, wrapAIError(err)
 	}
 	logger.L().Info("[AI问答] LLM最终回复",
-		zap.String("reply", reply),
-		zap.Int("reply_chars", len([]rune(reply))),
+		append(ai.TokenUsageLogFields(metadata.TokenUsage),
+			zap.String("reply", reply),
+			zap.Int("reply_chars", len([]rune(reply))),
+		)...,
 	)
 
 	// Save full assistant reply on success.
-	if err := s.chats.Add(ctx, &model.AIChatHistory{SessionID: session.ID, HrID: req.HrId, Role: "assistant", Content: reply, ProcessContent: processContent.String(), ModelID: modelID, ModelName: modelName}); err != nil {
+	contextUsage = s.buildSessionContextUsage(ctx, req.HrId, session.ID, actx, messages, modelID, modelName, "final", "estimator", "", reply)
+	contextUsageJSON = marshalContextUsageJSON(contextUsage)
+	if contextUsage != nil && onContextUsage != nil {
+		if err := onContextUsage(contextUsage); err != nil {
+			return reply, metadata, err
+		}
+	}
+	if err := s.chats.Add(ctx, &model.AIChatHistory{SessionID: session.ID, HrID: req.HrId, Role: "assistant", Content: reply, ProcessContent: processContent.String(), ContextUsageJSON: contextUsageJSON, ModelID: modelID, ModelName: modelName}); err != nil {
 		if recorder != nil {
 			recorder.finish(ctx, agentRunStatusFailed, reply, "persist_failed", err.Error())
 			sendAgentRunStatus(effectiveOnStatus, "agent_run_done", "Agent run 保存失败", "persist_failed", "")
@@ -494,9 +553,12 @@ func (s *AIService) runADKChat(
 	req *pb.ChatRequest,
 	session *model.AIChatSession,
 	messages []*schema.Message,
+	modelID *int64,
+	modelName string,
 	runtimeCfg *agentRuntimeConfig,
 	onDelta func(string) error,
 	onStatus func(string, string, string, string) error,
+	onMessagesUpdated ai.MessageUpdateCallback,
 	aiClient *ai.Client,
 	recorder *agentRunRecorder,
 ) (string, ai.ToolMetadata, error) {
@@ -508,7 +570,7 @@ func (s *AIService) runADKChat(
 	adkTools, err := s.getOrInitADKTools()
 	if err != nil {
 		logger.L().Warn("[ADK降级] 工具创建失败，自动切换到 Legacy 路径", zap.Error(err))
-		return s.runLegacyChat(ctx, req, session, messages, runtimeCfg, onDelta, onStatus, aiClient, recorder)
+		return s.runLegacyChat(ctx, req, session, messages, modelID, modelName, runtimeCfg, onDelta, onStatus, onMessagesUpdated, aiClient, recorder)
 	}
 
 	state := &ai.AgentRunState{}
@@ -582,14 +644,15 @@ func (s *AIService) runADKChat(
 	)
 
 	return aiClient.ChatWithADKAgent(ctx, ai.AgentRunInput{
-		AgentName:     "hr_recruiting_agent",
-		Instruction:   instruction,
-		Messages:      messages,
-		Tools:         adkTools,
-		MaxIterations: maxIterations,
-		OwnerID:       req.HrId,
-		SessionID:     session.ID,
-		State:         state,
+		AgentName:         "hr_recruiting_agent",
+		Instruction:       instruction,
+		Messages:          messages,
+		Tools:             adkTools,
+		MaxIterations:     maxIterations,
+		OwnerID:           req.HrId,
+		SessionID:         session.ID,
+		State:             state,
+		OnMessagesUpdated: onMessagesUpdated,
 	}, onDelta, traceFn, onStatus)
 }
 
@@ -599,9 +662,12 @@ func (s *AIService) runLegacyChat(
 	req *pb.ChatRequest,
 	session *model.AIChatSession,
 	messages []*schema.Message,
+	modelID *int64,
+	modelName string,
 	runtimeCfg *agentRuntimeConfig,
 	onDelta func(string) error,
 	onStatus func(string, string, string, string) error,
+	onMessagesUpdated ai.MessageUpdateCallback,
 	aiClient *ai.Client,
 	recorder *agentRunRecorder,
 ) (string, ai.ToolMetadata, error) {
@@ -662,7 +728,7 @@ func (s *AIService) runLegacyChat(
 		go s.recordToolTrace(session.ID, req.HrId, toolCallID, toolName, argsJSON, resultContent, duration, recorderRunID(recorder), stepID, execErr)
 	}
 
-	return aiClient.ChatWithTools(ctx, messages, tools, executor, req.HrId, onDelta, traceFn, onStatus)
+	return aiClient.ChatWithToolsWithMessageCallback(ctx, messages, tools, executor, req.HrId, onDelta, traceFn, onStatus, onMessagesUpdated)
 }
 
 // extractSystemInstruction pulls the system prompt content from the messages
@@ -772,7 +838,7 @@ func (s *AIService) AnalyzeApplication(ctx context.Context, req *pb.AnalyzeAppli
 		return &pb.AnalyzeApplicationResponse{Code: errs.ErrBadRequest, Msg: fmt.Sprintf("模型不可用：%v", err)}, nil
 	}
 
-	reply, err := runtimeClient.client.GenerateApplicationAnalysis(ctx, input, nil)
+	result, err := runtimeClient.client.GenerateApplicationAnalysisWithUsage(ctx, input, nil)
 	if err != nil {
 		s.writeHRUsageAudit(ctx, AuditLogEntry{
 			UserID: req.HrId, Role: 2, ServiceType: "ai_analyze",
@@ -781,10 +847,11 @@ func (s *AIService) AnalyzeApplication(ctx context.Context, req *pb.AnalyzeAppli
 		}, req.HrId, "application", req.ApplicationId)
 		return nil, wrapAIError(err)
 	}
+	reply := result.Content
 	s.writeHRUsageAudit(ctx, AuditLogEntry{
 		UserID: req.HrId, Role: 2, ServiceType: "ai_analyze",
 		Endpoint: "/hr/ai/analyze-application", Provider: runtimeClient.auditProvider, Model: runtimeClient.modelName,
-		RequestChars: inputChars, ResponseChars: len([]rune(reply)), CostMs: int(time.Since(startTime).Milliseconds()),
+		RequestChars: inputChars, ResponseChars: len([]rune(reply)), TokenUsageTotal: tokenUsageTotal(result.TokenUsage), CostMs: int(time.Since(startTime).Milliseconds()),
 	}, req.HrId, "application", req.ApplicationId)
 	return &pb.AnalyzeApplicationResponse{
 		Code:          errs.OK,
@@ -1175,6 +1242,127 @@ func (s *AIService) applicationAnalysisInput(ctx context.Context, hrID, applicat
 		ResumeTextNote: resumeNote,
 		ResumeText:     resumeText,
 	}, nil
+}
+
+// buildContextUsage computes a ContextUsageInfo from the actual messages sent
+// to the model and the resolved runtime model config.
+// Returns nil if model config cannot be resolved.
+func (s *AIService) buildContextUsage(ctx context.Context, messages []*schema.Message, modelID *int64, modelName string, stage, source string) *pb.ContextUsageInfo {
+	if s.usageBuilder == nil {
+		return nil
+	}
+	estimator := NewTokenEstimator()
+	breakdown := estimator.EstimateMessages(messages)
+	return s.buildContextUsageFromBreakdown(ctx, breakdown, modelID, modelName, stage, source)
+}
+
+// buildSessionContextUsage estimates the user-visible context size for the
+// whole chat session. It deliberately ignores transient tool-calling messages:
+// the displayed Context should represent accumulated session conversation,
+// which should not drop just because an agent runtime rewrites its inner state.
+func (s *AIService) buildSessionContextUsage(ctx context.Context, hrID, sessionID int64, actx *AgentContext, baseMessages []*schema.Message, modelID *int64, modelName string, stage, source, pendingUser, pendingAssistant string) *pb.ContextUsageInfo {
+	if s.usageBuilder == nil {
+		return nil
+	}
+	estimator := NewTokenEstimator()
+	breakdown := &pb.ContextUsageBreakdown{}
+	for _, msg := range baseMessages {
+		if msg != nil && msg.Role == schema.System {
+			breakdown.SystemPromptTokens = int32(estimator.EstimateText(msg.Content))
+			break
+		}
+	}
+	if actx != nil {
+		if actx.SessionSummary != "" {
+			breakdown.SummaryTokens = int32(estimator.EstimateText(actx.SessionSummary))
+		}
+		for _, memory := range actx.LongTermMemories {
+			breakdown.MemoryTokens += int32(estimator.EstimateText(memory.Content))
+		}
+	}
+	if s.chats != nil && sessionID > 0 {
+		rows, err := s.chats.ListAllBySession(ctx, hrID, sessionID)
+		if err == nil {
+			for _, row := range rows {
+				if row.Role == "user" && pendingUser != "" && strings.TrimSpace(row.Content) == strings.TrimSpace(pendingUser) {
+					pendingUser = ""
+				}
+				breakdown.RecentMessageTokens += int32(estimator.EstimateText(row.Content))
+			}
+		}
+	}
+	if pendingUser != "" {
+		breakdown.CurrentMessageTokens += int32(estimator.EstimateText(pendingUser))
+	}
+	if pendingAssistant != "" {
+		breakdown.RecentMessageTokens += int32(estimator.EstimateText(pendingAssistant))
+	}
+	return s.buildContextUsageFromBreakdown(ctx, breakdown, modelID, modelName, stage, source)
+}
+
+func (s *AIService) buildContextUsageFromBreakdown(ctx context.Context, breakdown *pb.ContextUsageBreakdown, modelID *int64, modelName string, stage, source string) *pb.ContextUsageInfo {
+	if s.usageBuilder == nil || breakdown == nil {
+		return nil
+	}
+	// Resolve model config from llmConfigSvc when available.
+	resolvedModelID := int64(0)
+	var cwTokens, maxOutTokens int32
+	if modelID != nil {
+		resolvedModelID = *modelID
+	}
+	if s.llmConfigSvc != nil {
+		var rc *LlmRuntimeModelConfig
+		var err error
+		if modelID != nil {
+			rc, err = s.llmConfigSvc.GetModelRuntimeConfig(ctx, *modelID)
+		} else {
+			rc, err = s.llmConfigSvc.GetDefaultModelRuntimeConfig(ctx)
+		}
+		if err == nil && rc != nil {
+			resolvedModelID = rc.ModelID
+			cwTokens = rc.ContextWindowTokens
+			maxOutTokens = rc.MaxOutputTokens
+			modelName = rc.ModelName
+		}
+	}
+
+	input := UsageBuildInput{
+		ModelID:              resolvedModelID,
+		ModelName:            modelName,
+		ContextWindowTokens:  cwTokens,
+		MaxOutputTokens:      maxOutTokens,
+		SystemPromptTokens:   breakdown.GetSystemPromptTokens(),
+		RecentMessageTokens:  breakdown.GetRecentMessageTokens(),
+		SummaryTokens:        breakdown.GetSummaryTokens(),
+		MemoryTokens:         breakdown.GetMemoryTokens(),
+		CurrentMessageTokens: breakdown.GetCurrentMessageTokens(),
+		SkillTokens:          breakdown.GetSkillTokens(),
+		ToolResultTokens:     breakdown.GetToolResultTokens(),
+		Stage:                stage,
+		Source:               source,
+	}
+
+	return s.usageBuilder.Build(input)
+}
+
+// joinMessagesForEstimate concatenates recent message content for token estimation.
+func joinMessagesForEstimate(messages []model.AIChatHistory) string {
+	var b strings.Builder
+	for _, m := range messages {
+		b.WriteString(m.Content)
+		b.WriteString("\n")
+	}
+	return b.String()
+}
+
+// joinMemoryForEstimate concatenates memory content for token estimation.
+func joinMemoryForEstimate(memories []model.AIMemory) string {
+	var b strings.Builder
+	for _, m := range memories {
+		b.WriteString(m.Content)
+		b.WriteString("\n")
+	}
+	return b.String()
 }
 
 // getOrInitADKTools returns the cached ADK tools, initializing them under lock

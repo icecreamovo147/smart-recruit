@@ -556,6 +556,33 @@ message ChatRequest {
   repeated int64 agent_skill_ids = 7; // Optional: database-backed Agent Skills selected by the user
 }
 
+message ContextUsageBreakdown {
+  int32 system_prompt_tokens = 1;
+  int32 recent_message_tokens = 2;
+  int32 summary_tokens = 3;
+  int32 memory_tokens = 4;
+  int32 current_message_tokens = 5;
+  int32 skill_tokens = 6;
+  int32 tool_result_tokens = 7;
+}
+
+message ContextUsageInfo {
+  int64 model_id = 1;
+  string model_name = 2;
+  int32 context_window_tokens = 3;
+  int32 max_output_tokens = 4;
+  int32 prompt_tokens_estimated = 5;
+  int32 prompt_tokens_actual = 6;
+  int32 completion_tokens_actual = 7;
+  int32 total_tokens_actual = 8;
+  int32 remaining_tokens_estimated = 9;
+  double usage_ratio = 10;
+  bool estimated = 11;
+  string source = 12;
+  string stage = 13;
+  ContextUsageBreakdown breakdown = 14;
+}
+
 message ChatResponse {
   int32 code = 1;
   string msg = 2;
@@ -568,6 +595,7 @@ message ChatResponse {
   string job_title = 9;
   int32 status = 10;
   int64 session_id = 11;
+  ContextUsageInfo context_usage = 12;
 }
 
 message ChatStreamResponse {
@@ -593,6 +621,8 @@ message ChatStreamResponse {
   string error_type = 17;
   // tool_name carries the active tool when event_type == "tool_calling" or "tool_done".
   string tool_name = 18;
+  // context_usage carries estimated/actual context usage information when event_type == "context_usage".
+  ContextUsageInfo context_usage = 19;
 }
 
 message ChatHistoryRequest {
@@ -610,6 +640,7 @@ message ChatMessage {
   repeated int64 agent_skill_ids = 6;
   repeated string agent_skill_names = 7;
   string process_content = 8;
+  ContextUsageInfo context_usage = 9;
 }
 
 message ChatHistoryResponse {
@@ -646,6 +677,7 @@ message ChatSession {
   int64 application_id = 3;
   string created_at = 4;
   string updated_at = 5;
+  ContextUsageInfo latest_context_usage = 6;
 }
 
 message ChatSessionListResponse {
@@ -2238,6 +2270,7 @@ message LlmModelInfo {
   double temperature = 5;
   double top_p = 6;
   int32 max_tokens = 7;
+  int32 context_window_tokens = 15;
   int32 max_concurrency = 8;
   int32 timeout_seconds = 9;
   bool is_enabled = 10;
@@ -2267,6 +2300,7 @@ message CreateModelRequest {
   double temperature = 4;
   double top_p = 5;
   int32 max_tokens = 6;
+  int32 context_window_tokens = 10;
   int32 max_concurrency = 7;
   int32 timeout_seconds = 8;
   bool is_default = 9;
@@ -2282,6 +2316,8 @@ message UpdateModelRequest {
   bool top_p_set = 7;
   int32 max_tokens = 8;
   bool max_tokens_set = 9;
+  int32 context_window_tokens = 18;
+  bool context_window_tokens_set = 19;
   int32 max_concurrency = 10;
   bool max_concurrency_set = 11;
   int32 timeout_seconds = 12;

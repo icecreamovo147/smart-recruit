@@ -3,7 +3,7 @@ import router from '@/router'
 import { clearLocalAuthCache } from '@/utils/token'
 import { useAuthStore } from '@/stores/auth'
 import { BusinessError } from '@/types/api'
-import type { StreamHandlers, StreamPayload, ChatSessionListItem, ToolTraceItem, AgentRunItem } from '@/types/ai'
+import type { StreamHandlers, StreamPayload, ChatSessionListItem, ToolTraceItem, AgentRunItem, ChatMessage } from '@/types/ai'
 import type { CapabilityInfo } from '@/types/agent'
 import request from './request'
 import { silentRefresh } from './authRefresh'
@@ -30,7 +30,7 @@ export const sendMessage = (data: ChatRequestPayload): Promise<{
 }> => request.post('/api/v1/hr/ai/chat', data)
 
 export const getHistory = (params: { page: number; page_size: number }): Promise<{
-  list: { role: string; content: string; created_at: string; model_id?: number; model_name?: string }[]
+  list: ChatMessage[]
 }> => request.get('/api/v1/hr/ai/history', { params })
 
 export const analyzeApplication = (data: { application_id: number; model_id?: number }): Promise<{
@@ -52,12 +52,12 @@ export const createSession = (data: { title?: string }): Promise<{
 }> => request.post('/api/v1/hr/ai/sessions', data)
 
 export const getSessionMessages = (sessionId: number, params: { page: number; page_size: number }): Promise<{
-  list: { role: string; content: string; created_at: string; model_id?: number; model_name?: string }[]
+  list: ChatMessage[]
 }> => request.get(`/api/v1/hr/ai/sessions/${sessionId}/messages`, { params })
 
 export const createApplicationAnalysisSession = (data: { application_id: number; model_id?: number }): Promise<{
   session: ChatSessionListItem
-  messages: { role: string; content: string; created_at: string; model_id?: number; model_name?: string }[]
+  messages: ChatMessage[]
 }> => request.post('/api/v1/hr/ai/application-analysis-sessions', data)
 
 export const updateSession = (sessionId: number, data: { title: string }): Promise<void> =>

@@ -263,6 +263,7 @@ const modelForm = reactive({
   temperature: 0.7,
   top_p: 1.0,
   max_tokens: 4096,
+  context_window_tokens: 0,
   max_concurrency: 1,
   timeout_seconds: 60,
   is_default: false,
@@ -276,6 +277,7 @@ const resetModelForm = () => {
   modelForm.temperature = 0.7
   modelForm.top_p = 1.0
   modelForm.max_tokens = 4096
+  modelForm.context_window_tokens = 0
   modelForm.max_concurrency = 1
   modelForm.timeout_seconds = 60
   modelForm.is_default = false
@@ -300,6 +302,7 @@ const openEditModel = (row: LlmModel) => {
   modelForm.temperature = row.temperature
   modelForm.top_p = row.top_p
   modelForm.max_tokens = row.max_tokens
+  modelForm.context_window_tokens = row.context_window_tokens || 0
   modelForm.max_concurrency = row.max_concurrency
   modelForm.timeout_seconds = row.timeout_seconds
   modelForm.is_default = row.is_default
@@ -328,6 +331,8 @@ const saveModel = async () => {
         top_p_set: true,
         max_tokens: modelForm.max_tokens,
         max_tokens_set: true,
+        context_window_tokens: modelForm.context_window_tokens,
+        context_window_tokens_set: true,
         max_concurrency: modelForm.max_concurrency,
         max_concurrency_set: true,
         timeout_seconds: modelForm.timeout_seconds,
@@ -347,6 +352,7 @@ const saveModel = async () => {
         temperature: modelForm.temperature,
         top_p: modelForm.top_p,
         max_tokens: modelForm.max_tokens,
+        context_window_tokens: modelForm.context_window_tokens || undefined,
         max_concurrency: modelForm.max_concurrency,
         timeout_seconds: modelForm.timeout_seconds,
         is_default: modelForm.is_default,
@@ -720,7 +726,9 @@ onMounted(() => {
                 <div class="metric-stack">
                   <span>Temp {{ row.temperature.toFixed(2) }}</span>
                   <span>Top P {{ row.top_p.toFixed(2) }}</span>
-                  <span>{{ formatNumber(row.max_tokens) }} tokens</span>
+                  <span>{{ formatNumber(row.max_tokens) }} tok (输出)</span>
+                  <span v-if="row.context_window_tokens > 0">{{ formatNumber(row.context_window_tokens) }} tok (窗口)</span>
+                  <span v-else style="color: var(--text-faint);">窗口未配置</span>
                 </div>
               </template>
             </el-table-column>
@@ -860,8 +868,12 @@ onMounted(() => {
           </div>
         </el-form-item>
         <div class="form-grid">
-          <el-form-item label="Max Tokens">
+          <el-form-item label="Max Tokens（输出上限）">
             <el-input-number v-model="modelForm.max_tokens" :min="1" :max="1000000" :step="1" controls-position="right" />
+          </el-form-item>
+          <el-form-item label="上下文窗口（总）">
+            <el-input-number v-model="modelForm.context_window_tokens" :min="0" :max="10000000" :step="1024" controls-position="right" />
+            <div style="font-size: 11px; color: var(--text-faint); margin-top: 4px;">0 = 未知。请根据模型文档填写总上下文窗口（输入 + 输出）。</div>
           </el-form-item>
           <el-form-item label="最大并发">
             <el-input-number v-model="modelForm.max_concurrency" :min="1" :max="100" :step="1" controls-position="right" />

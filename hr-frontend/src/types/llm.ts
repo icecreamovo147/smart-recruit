@@ -41,6 +41,7 @@ export interface LlmModel {
   temperature: number
   top_p: number
   max_tokens: number
+  context_window_tokens: number
   max_concurrency: number
   timeout_seconds: number
   is_enabled: boolean
@@ -57,6 +58,7 @@ export interface CreateModelPayload {
   temperature: number
   top_p: number
   max_tokens: number
+  context_window_tokens?: number
   max_concurrency?: number
   timeout_seconds?: number
   is_default?: boolean
@@ -71,6 +73,8 @@ export interface UpdateModelPayload {
   top_p_set?: boolean
   max_tokens?: number
   max_tokens_set?: boolean
+  context_window_tokens?: number
+  context_window_tokens_set?: boolean
   max_concurrency?: number
   max_concurrency_set?: boolean
   timeout_seconds?: number

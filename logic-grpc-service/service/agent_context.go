@@ -48,6 +48,12 @@ type AgentContext struct {
 	MemoryCharCount      int
 	SummaryCharCount     int
 	MessageCount         int
+	// Category-level character counts for token estimation.
+	SystemPromptCharCount  int
+	RecentMessageCharCount int
+	CurrentMessageCharCount int
+	MemoryCharCountTotal   int
+	SummaryCharTotal       int
 }
 
 // AgentContextBuilder assembles the prompt context from multiple memory layers.
@@ -154,11 +160,26 @@ func (b *AgentContextBuilder) Build(ctx context.Context, input AgentContextInput
 	memories := b.retrieveMemories(ctx, input)
 	actx.LongTermMemories = memories
 	actx.MemoryCount = len(memories)
+	actx.MemoryCharCountTotal = 0
 	for _, m := range memories {
-		actx.MemoryCharCount += utf8.RuneCountInString(m.Content)
+		mc := utf8.RuneCountInString(m.Content)
+		actx.MemoryCharCount += mc
+		actx.MemoryCharCountTotal += mc
 	}
 
 	// Phase 5: Estimate prompt chars and trim if needed.
+	// Populate category-level character counts.
+	actx.SystemPromptCharCount = 0
+	if actx.SystemPromptTemplate != "" {
+		actx.SystemPromptCharCount = utf8.RuneCountInString(actx.SystemPromptTemplate)
+	}
+	actx.RecentMessageCharCount = 0
+	for _, m := range actx.RecentMessages {
+		actx.RecentMessageCharCount += utf8.RuneCountInString(m.Content)
+	}
+	actx.CurrentMessageCharCount = utf8.RuneCountInString(input.CurrentMessage)
+	actx.SummaryCharTotal = actx.SummaryCharCount
+
 	actx.PromptCharEstimate = b.estimatePromptChars(actx, input.CurrentMessage)
 
 	// Log context budget.

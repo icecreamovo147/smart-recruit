@@ -13,7 +13,7 @@ import ConversationSidebar from '@/components/chat/ConversationSidebar.vue'
 import ConversationHeader from '@/components/chat/ConversationHeader.vue'
 import ChatMessageList from '@/components/chat/ChatMessageList.vue'
 import ChatComposer from '@/components/chat/ChatComposer.vue'
-import type { ChatMessageSkill, ChatSessionListItem, Session, CandidateOption, StreamPayload } from '@/types/ai'
+import type { ChatMessageSkill, ChatSessionListItem, Session, CandidateOption, StreamPayload, ContextUsageInfo } from '@/types/ai'
 import type { LlmModel } from '@/types/llm'
 import type { AvailableAgentSkill } from '@/types/agentSkill'
 import { BusinessError } from '@/types/api'
@@ -39,6 +39,8 @@ interface MessageItem {
   waitingText?: string
   process_content?: string
   processContent?: string
+  context_usage?: ContextUsageInfo
+  contextUsage?: ContextUsageInfo
   candidateOptions?: CandidateOption[]
 }
 
@@ -65,10 +67,12 @@ const dataSource = ref('招聘业务数据库')
 const tracePanelVisible = ref(false)
 const agentSkills = ref<AvailableAgentSkill[]>([])
 const selectedAgentSkillIds = ref<number[]>([])
+const contextUsage = ref<ContextUsageInfo | null>(null)
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const listRef = ref<any>(null)
 let pollTimer: ReturnType<typeof setInterval> | null = null
 let streamTypewriterTimer: ReturnType<typeof setInterval> | null = null
+const contextUsageStoragePrefix = 'hr-ai-context-usage:'
 
 type StreamTextTarget = 'content' | 'process'
 
@@ -125,6 +129,7 @@ const normalizeSession = (item: ChatSessionListItem): Session => ({
   title: item.title || '新对话',
   application_id: item.application_id || 0,
   updated_at: item.updated_at || item.created_at || '',
+  latest_context_usage: item.latest_context_usage || item.latestContextUsage,
 })
 
 const agentSkillLabel = (skill: AvailableAgentSkill) => skill.display_name || skill.name
@@ -189,16 +194,96 @@ const normalizeMessage = (message: Partial<MessageItem>, fallback?: MessageItem)
   const skill = normalizeSkillMeta(message, fallback)
   const skills = normalizeSkillsMeta(message, fallback)
   const processContent = message.processContent || message.process_content || fallback?.processContent
+  const contextUsageSnapshot = message.context_usage || message.contextUsage || fallback?.context_usage || fallback?.contextUsage
   return {
     ...(message as MessageItem),
     ...(skill ? { skill } : {}),
     ...(skills?.length ? { skills } : {}),
     ...(processContent ? { processContent } : {}),
+    ...(contextUsageSnapshot ? { context_usage: contextUsageSnapshot } : {}),
   }
 }
 
 const normalizeMessages = (list: Partial<MessageItem>[] = [], fallbackMessages: MessageItem[] = []): MessageItem[] =>
   list.map((message, index) => normalizeMessage(message, fallbackMessages[index]))
+
+const contextUsageStorageKey = (sessionId: number): string => `${contextUsageStoragePrefix}${sessionId}`
+
+const rememberContextUsage = (sessionId: number, usage: ContextUsageInfo) => {
+  try {
+    sessionStorage.setItem(contextUsageStorageKey(sessionId), JSON.stringify(usage))
+  } catch {
+    // Best-effort UI state; ignore quota or privacy-mode failures.
+  }
+}
+
+const applyModelToContextUsage = (usage: ContextUsageInfo, selectedModel: LlmModel): ContextUsageInfo => {
+  const promptTokens = usage.prompt_tokens_estimated || 0
+  const contextWindowTokens = selectedModel.context_window_tokens || 0
+  const maxOutputTokens = selectedModel.max_tokens || 0
+  const remainingTokens = contextWindowTokens > 0
+    ? Math.max(contextWindowTokens - promptTokens - maxOutputTokens, 0)
+    : 0
+  const usageRatio = contextWindowTokens > 0
+    ? Math.min(promptTokens / contextWindowTokens, 1)
+    : 0
+
+  return {
+    ...usage,
+    model_id: selectedModel.id,
+    model_name: selectedModel.model_name,
+    context_window_tokens: contextWindowTokens,
+    max_output_tokens: maxOutputTokens,
+    remaining_tokens_estimated: remainingTokens,
+    usage_ratio: usageRatio,
+  }
+}
+
+const restoreContextUsage = (sessionId: number) => {
+  try {
+    const raw = sessionStorage.getItem(contextUsageStorageKey(sessionId))
+    const restored = raw ? JSON.parse(raw) as ContextUsageInfo : null
+    const selectedModel = selectedModelId.value != null
+      ? modelList.value.find((model) => model.id === selectedModelId.value)
+      : null
+    contextUsage.value = restored && selectedModel
+      ? applyModelToContextUsage(restored, selectedModel)
+      : restored
+  } catch {
+    contextUsage.value = null
+  }
+}
+
+const latestMessageContextUsage = (items: MessageItem[]): ContextUsageInfo | null => {
+  for (let i = items.length - 1; i >= 0; i--) {
+    const usage = items[i]?.context_usage || items[i]?.contextUsage
+    if (usage) return usage
+  }
+  return null
+}
+
+const restorePersistedContextUsage = (session: Session, items: MessageItem[]) => {
+  const persisted = session.latest_context_usage || session.latestContextUsage || latestMessageContextUsage(items)
+  if (persisted) {
+    const selectedModel = selectedModelId.value != null
+      ? modelList.value.find((model) => model.id === selectedModelId.value)
+      : null
+    contextUsage.value = selectedModel
+      ? applyModelToContextUsage(persisted, selectedModel)
+      : persisted
+    rememberContextUsage(session.id, contextUsage.value)
+    return
+  }
+  restoreContextUsage(session.id)
+}
+
+const forgetContextUsage = (sessionId: number) => {
+  try {
+    sessionStorage.removeItem(contextUsageStorageKey(sessionId))
+  } catch {
+    // Best-effort cleanup only.
+  }
+}
 
 const scrollBottom = async () => {
   await nextTick()
@@ -341,11 +426,13 @@ const refreshSessions = async () => {
 const selectSession = async (session: Session) => {
   if (!session) return
   clearAssistantTextQueue()
+  resetContextUsage()
   currentSession.value = session
   sessionLoading.value = true
   try {
     const data = await getSessionMessages(session.id, { page: 1, page_size: 100 })
     messages.value = normalizeMessages(data.list || [])
+    restorePersistedContextUsage(session, messages.value)
     router.replace({ path: '/hr/ai', query: { session_id: String(session.id) } })
     scrollBottom()
   } finally {
@@ -427,6 +514,7 @@ const createNewSession = async () => {
   const session = normalizeSession(data.session)
   sessions.value = [session, ...sessions.value]
   messages.value = []
+  resetContextUsage()
   await selectSession(session)
 }
 
@@ -461,8 +549,10 @@ const removeSession = async (session: Session) => {
   }
   await deleteSession(session.id)
   sessions.value = sessions.value.filter((s) => s.id !== session.id)
+  forgetContextUsage(session.id)
   if (currentSession.value?.id === session.id) {
     clearAssistantTextQueue()
+    resetContextUsage()
     currentSession.value = null
     messages.value = []
     router.replace({ path: '/hr/ai' })
@@ -492,6 +582,7 @@ const createAnalysisSessionFromRoute = async () => {
   const session = normalizeSession(data.session)
   currentSession.value = session
   messages.value = normalizeMessages(data.messages || [])
+  restorePersistedContextUsage(session, messages.value)
   // Replace URL: remove application_id/candidate_name, set session_id so a refresh
   // will load the session normally instead of re-triggering analysis.
   await router.replace({ path: '/hr/ai', query: { session_id: String(session.id) } })
@@ -516,7 +607,8 @@ const createAnalysisSessionFromRoute = async () => {
         onDelta: (delta) => {
           appendAssistantDelta(assistantIndex, delta)
         },
-        onStatus: (_eventType, eventMessage) => {
+        onStatus: (_eventType, eventMessage, payload) => {
+          if (_eventType === 'context_usage') { handleContextUsage(payload); return }
           if (_eventType === 'model_info') { modelName.value = eventMessage; messages.value[assistantIndex] = { ...(messages.value[assistantIndex] || {}), model_name: eventMessage }; return }
           if (_eventType === 'process_delta') { appendAssistantProcess(assistantIndex, eventMessage); return }
           if (_eventType === 'process_clear') { clearAssistantProcess(assistantIndex); return }
@@ -609,7 +701,8 @@ const analyzeCandidateOption = async (option: CandidateOption) => {
       { message: userMessage, application_id: option.application_id, ...(selectedModelId.value != null ? { model_id: selectedModelId.value } : {}) },
       {
         onDelta: (delta) => appendAssistantDelta(assistantIndex, delta),
-        onStatus: (_eventType, eventMessage) => {
+        onStatus: (_eventType, eventMessage, payload) => {
+          if (_eventType === 'context_usage') { handleContextUsage(payload); return }
           if (_eventType === 'model_info') { modelName.value = eventMessage; messages.value[assistantIndex] = { ...(messages.value[assistantIndex] || {}), model_name: eventMessage }; return }
           if (_eventType === 'process_delta') { appendAssistantProcess(assistantIndex, eventMessage); return }
           if (_eventType === 'process_clear') { clearAssistantProcess(assistantIndex); return }
@@ -709,7 +802,8 @@ const submit = async () => {
         onDelta: (delta) => {
           appendAssistantDelta(assistantIndex, delta)
         },
-        onStatus: (_eventType, eventMessage) => {
+        onStatus: (_eventType, eventMessage, payload) => {
+          if (_eventType === 'context_usage') { handleContextUsage(payload); return }
           if (_eventType === 'model_info') { modelName.value = eventMessage; messages.value[assistantIndex] = { ...(messages.value[assistantIndex] || {}), model_name: eventMessage }; return }
           if (_eventType === 'process_delta') { appendAssistantProcess(assistantIndex, eventMessage); return }
           if (_eventType === 'process_clear') { clearAssistantProcess(assistantIndex); return }
@@ -828,7 +922,8 @@ const retry = async (failedIndex: number) => {
         onDelta: (delta) => {
           appendAssistantDelta(assistantIndex, delta)
         },
-        onStatus: (_eventType, eventMessage) => {
+        onStatus: (_eventType, eventMessage, payload) => {
+          if (_eventType === 'context_usage') { handleContextUsage(payload); return }
           if (_eventType === 'model_info') { modelName.value = eventMessage; messages.value[assistantIndex] = { ...(messages.value[assistantIndex] || {}), model_name: eventMessage }; return }
           if (_eventType === 'process_delta') { appendAssistantProcess(assistantIndex, eventMessage); return }
           if (_eventType === 'process_clear') { clearAssistantProcess(assistantIndex); return }
@@ -915,11 +1010,34 @@ onMounted(async () => {
 
 const closeMenu = () => { menuSessionId.value = 0 }
 
+const handleContextUsage = (payload: StreamPayload) => {
+  if (payload.context_usage) {
+    contextUsage.value = payload.context_usage
+    const sessionId = payload.session_id || currentSession.value?.id || 0
+    if (sessionId > 0) {
+      rememberContextUsage(sessionId, payload.context_usage)
+    }
+  }
+}
+
+const resetContextUsage = () => {
+  contextUsage.value = null
+}
+
 // Sync status bar model name with user selection.
 watch(selectedModelId, (id) => {
   if (id != null) {
     const m = modelList.value.find((x) => x.id === id)
-    if (m) modelName.value = m.display_name || m.model_name
+    if (m) {
+      modelName.value = m.display_name || m.model_name
+      if (contextUsage.value) {
+        contextUsage.value = applyModelToContextUsage(contextUsage.value, m)
+        const sessionId = currentSession.value?.id || 0
+        if (sessionId > 0) {
+          rememberContextUsage(sessionId, contextUsage.value)
+        }
+      }
+    }
   }
 })
 const toggleSessionSidebar = () => { sessionSidebarOpen.value = !sessionSidebarOpen.value }
@@ -1003,6 +1121,7 @@ onBeforeUnmount(() => {
           :streaming="streaming"
           :model-list="modelList"
           :selected-model-id="selectedModelId"
+          :context-usage="contextUsage"
           :data-source="dataSource"
           :current-session="currentSession"
           :skill-capabilities="[]"

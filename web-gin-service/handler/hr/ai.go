@@ -40,6 +40,37 @@ func (h *AIHandler) Chat(c *gin.Context) {
 		base.Internal(c, err)
 		return
 	}
+	var contextUsage map[string]any
+	if cu := resp.GetContextUsage(); cu != nil {
+		var breakdown map[string]any
+		if bd := cu.GetBreakdown(); bd != nil {
+			breakdown = gin.H{
+				"system_prompt_tokens":   bd.GetSystemPromptTokens(),
+				"recent_message_tokens":  bd.GetRecentMessageTokens(),
+				"summary_tokens":         bd.GetSummaryTokens(),
+				"memory_tokens":          bd.GetMemoryTokens(),
+				"current_message_tokens": bd.GetCurrentMessageTokens(),
+				"skill_tokens":           bd.GetSkillTokens(),
+				"tool_result_tokens":     bd.GetToolResultTokens(),
+			}
+		}
+		contextUsage = gin.H{
+			"model_id":                   cu.GetModelId(),
+			"model_name":                 cu.GetModelName(),
+			"context_window_tokens":      cu.GetContextWindowTokens(),
+			"max_output_tokens":          cu.GetMaxOutputTokens(),
+			"prompt_tokens_estimated":    cu.GetPromptTokensEstimated(),
+			"prompt_tokens_actual":       cu.GetPromptTokensActual(),
+			"completion_tokens_actual":   cu.GetCompletionTokensActual(),
+			"total_tokens_actual":        cu.GetTotalTokensActual(),
+			"remaining_tokens_estimated": cu.GetRemainingTokensEstimated(),
+			"usage_ratio":                cu.GetUsageRatio(),
+			"estimated":                  cu.GetEstimated(),
+			"source":                     cu.GetSource(),
+			"stage":                      cu.GetStage(),
+			"breakdown":                  breakdown,
+		}
+	}
 	base.From(c, resp.Code, resp.Msg, gin.H{
 		"reply":          resp.Reply,
 		"created_at":     resp.CreatedAt,
@@ -50,6 +81,7 @@ func (h *AIHandler) Chat(c *gin.Context) {
 		"job_title":      resp.JobTitle,
 		"status":         resp.Status,
 		"session_id":     resp.SessionId,
+		"context_usage":  contextUsage,
 	})
 }
 
@@ -124,6 +156,37 @@ func (h *AIHandler) ChatStream(c *gin.Context) {
 				}
 				return
 			}
+			var contextUsage map[string]any
+			if cu := result.chunk.GetContextUsage(); cu != nil {
+				var breakdown map[string]any
+				if bd := cu.GetBreakdown(); bd != nil {
+					breakdown = gin.H{
+						"system_prompt_tokens":   bd.GetSystemPromptTokens(),
+						"recent_message_tokens":  bd.GetRecentMessageTokens(),
+						"summary_tokens":         bd.GetSummaryTokens(),
+						"memory_tokens":          bd.GetMemoryTokens(),
+						"current_message_tokens": bd.GetCurrentMessageTokens(),
+						"skill_tokens":           bd.GetSkillTokens(),
+						"tool_result_tokens":     bd.GetToolResultTokens(),
+					}
+				}
+				contextUsage = gin.H{
+					"model_id":                   cu.GetModelId(),
+					"model_name":                 cu.GetModelName(),
+					"context_window_tokens":      cu.GetContextWindowTokens(),
+					"max_output_tokens":          cu.GetMaxOutputTokens(),
+					"prompt_tokens_estimated":    cu.GetPromptTokensEstimated(),
+					"prompt_tokens_actual":       cu.GetPromptTokensActual(),
+					"completion_tokens_actual":   cu.GetCompletionTokensActual(),
+					"total_tokens_actual":        cu.GetTotalTokensActual(),
+					"remaining_tokens_estimated": cu.GetRemainingTokensEstimated(),
+					"usage_ratio":                cu.GetUsageRatio(),
+					"estimated":                  cu.GetEstimated(),
+					"source":                     cu.GetSource(),
+					"stage":                      cu.GetStage(),
+					"breakdown":                  breakdown,
+				}
+			}
 			payload := gin.H{
 				"code":              result.chunk.Code,
 				"msg":               result.chunk.Msg,
@@ -142,6 +205,7 @@ func (h *AIHandler) ChatStream(c *gin.Context) {
 				"event_message":     result.chunk.EventMessage,
 				"error_type":        result.chunk.ErrorType,
 				"tool_name":         result.chunk.ToolName,
+				"context_usage":     contextUsage,
 				"request_id":        base.RequestID(c),
 			}
 			line := fmt.Sprintf("event: message\ndata: %s\n\n", mustMarshalHR(payload))

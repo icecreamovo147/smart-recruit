@@ -24,15 +24,16 @@ func (r *ModelConfigRepo) Create(ctx context.Context, m *model.LlmModel) error {
 
 func (r *ModelConfigRepo) Update(ctx context.Context, m *model.LlmModel) error {
 	return r.db.WithContext(ctx).Model(m).Where("id = ?", m.ID).Updates(map[string]any{
-		"model_name":      m.ModelName,
-		"display_name":    m.DisplayName,
-		"temperature":     m.Temperature,
-		"top_p":           m.TopP,
-		"max_tokens":      m.MaxTokens,
-		"max_concurrency": m.MaxConcurrency,
-		"timeout_seconds": m.TimeoutSeconds,
-		"is_enabled":      m.IsEnabled,
-		"is_default":      m.IsDefault,
+		"model_name":            m.ModelName,
+		"display_name":          m.DisplayName,
+		"temperature":           m.Temperature,
+		"top_p":                 m.TopP,
+		"max_tokens":            m.MaxTokens,
+		"context_window_tokens": m.ContextWindowTokens,
+		"max_concurrency":       m.MaxConcurrency,
+		"timeout_seconds":       m.TimeoutSeconds,
+		"is_enabled":            m.IsEnabled,
+		"is_default":            m.IsDefault,
 	}).Error
 }
 

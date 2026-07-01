@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { Close, Position } from '@element-plus/icons-vue'
-import type { Session } from '@/types/ai'
+import type { Session, ContextUsageInfo } from '@/types/ai'
 import type { LlmModel } from '@/types/llm'
 import type { CapabilityInfo } from '@/types/agent'
 import type { AvailableAgentSkill } from '@/types/agentSkill'
@@ -12,6 +12,7 @@ const props = defineProps<{
   streaming: boolean
   modelList: LlmModel[]
   selectedModelId: number | null
+  contextUsage: ContextUsageInfo | null
   dataSource: string
   currentSession: Session | null
   skillCapabilities: CapabilityInfo[]
@@ -130,6 +131,35 @@ const removeAgentSkill = (id: number) => {
   emit('update:selectedAgentSkillIds', props.selectedAgentSkillIds.filter((item) => item !== id))
 }
 
+const formatContextUsage = (tokens: number): string => {
+  if (!tokens && tokens !== 0) return '-'
+  if (tokens >= 1_000_000) return (tokens / 1_000_000).toFixed(1) + 'M'
+  if (tokens >= 1_000) return (tokens / 1_000).toFixed(1) + 'K'
+  return String(tokens)
+}
+
+const hasContextWindow = computed(() =>
+  Boolean(props.contextUsage && props.contextUsage.context_window_tokens > 0),
+)
+
+const contextUsageSeverityClass = computed(() => {
+  const cu = props.contextUsage
+  if (!cu) return ''
+  if (cu.context_window_tokens === 0) return 'chat-composer__context-indicator--unknown'
+  const ratio = cu.usage_ratio
+  if (ratio > 0.85) return 'chat-composer__context-indicator--warning'
+  if (ratio > 0.6) return 'chat-composer__context-indicator--caution'
+  return 'chat-composer__context-indicator--normal'
+})
+
+const contextUsageRatioClass = computed(() => {
+  const cu = props.contextUsage
+  if (!cu || !hasContextWindow.value) return ''
+  if (cu.usage_ratio > 0.85) return 'context-usage-popover__value--warning'
+  if (cu.usage_ratio > 0.6) return 'context-usage-popover__value--caution'
+  return ''
+})
+
 </script>
 
 <template>
@@ -225,6 +255,94 @@ const removeAgentSkill = (id: number) => {
             :label="m.display_name || m.model_name"
           />
         </el-select>
+        <el-popover
+          placement="top"
+          trigger="hover"
+          :width="320"
+          popper-class="context-usage-popover"
+          :disabled="!contextUsage"
+        >
+          <template #reference>
+            <div
+              v-if="contextUsage"
+              class="chat-composer__context-indicator"
+              :class="contextUsageSeverityClass"
+            >
+              <span class="chat-composer__context-label">Context</span>
+              <span v-if="contextUsage.context_window_tokens > 0" class="chat-composer__context-value">
+                {{ formatContextUsage(contextUsage.prompt_tokens_estimated) }} / {{ formatContextUsage(contextUsage.context_window_tokens) }}
+              </span>
+              <span v-else class="chat-composer__context-unknown">未配置</span>
+              <span v-if="contextUsage.estimated" class="chat-composer__context-estimated">估算</span>
+            </div>
+          </template>
+          <template v-if="contextUsage">
+            <div class="context-usage-popover__header">
+              <span class="context-usage-popover__title">上下文占用</span>
+              <span v-if="contextUsage.estimated" class="context-usage-popover__badge">估算</span>
+            </div>
+            <div class="context-usage-popover__grid">
+              <div class="context-usage-popover__item">
+                <span class="context-usage-popover__label">模型</span>
+                <span class="context-usage-popover__value">{{ contextUsage.model_name || '-' }}</span>
+              </div>
+              <div class="context-usage-popover__item">
+                <span class="context-usage-popover__label">上下文窗口</span>
+                <span class="context-usage-popover__value">{{ contextUsage.context_window_tokens > 0 ? formatContextUsage(contextUsage.context_window_tokens) : '未配置' }}</span>
+              </div>
+              <div class="context-usage-popover__item">
+                <span class="context-usage-popover__label">已用（估算）</span>
+                <span class="context-usage-popover__value">{{ formatContextUsage(contextUsage.prompt_tokens_estimated) }}</span>
+              </div>
+              <div class="context-usage-popover__item">
+                <span class="context-usage-popover__label">占比</span>
+                <span class="context-usage-popover__value" :class="contextUsageRatioClass">
+                  {{ hasContextWindow ? `${(contextUsage.usage_ratio * 100).toFixed(1)}%` : '无法计算' }}
+                </span>
+              </div>
+              <div class="context-usage-popover__item">
+                <span class="context-usage-popover__label">剩余（估算）</span>
+                <span class="context-usage-popover__value">
+                  {{ hasContextWindow ? formatContextUsage(contextUsage.remaining_tokens_estimated) : '无法计算' }}
+                </span>
+              </div>
+              <div class="context-usage-popover__item">
+                <span class="context-usage-popover__label">输出上限</span>
+                <span class="context-usage-popover__value">{{ formatContextUsage(contextUsage.max_output_tokens) }}</span>
+              </div>
+            </div>
+            <template v-if="contextUsage.breakdown">
+              <div class="context-usage-popover__section-title">细分（估算）</div>
+              <div class="context-usage-popover__breakdown">
+                <div v-if="contextUsage.breakdown.system_prompt_tokens > 0" class="context-usage-popover__breakdown-item">
+                  <span>系统提示词</span><span>{{ formatContextUsage(contextUsage.breakdown.system_prompt_tokens) }}</span>
+                </div>
+                <div v-if="contextUsage.breakdown.recent_message_tokens > 0" class="context-usage-popover__breakdown-item">
+                  <span>最近消息</span><span>{{ formatContextUsage(contextUsage.breakdown.recent_message_tokens) }}</span>
+                </div>
+                <div v-if="contextUsage.breakdown.summary_tokens > 0" class="context-usage-popover__breakdown-item">
+                  <span>会话摘要</span><span>{{ formatContextUsage(contextUsage.breakdown.summary_tokens) }}</span>
+                </div>
+                <div v-if="contextUsage.breakdown.memory_tokens > 0" class="context-usage-popover__breakdown-item">
+                  <span>长期记忆</span><span>{{ formatContextUsage(contextUsage.breakdown.memory_tokens) }}</span>
+                </div>
+                <div v-if="contextUsage.breakdown.current_message_tokens > 0" class="context-usage-popover__breakdown-item">
+                  <span>当前消息</span><span>{{ formatContextUsage(contextUsage.breakdown.current_message_tokens) }}</span>
+                </div>
+                <div v-if="contextUsage.breakdown.skill_tokens > 0" class="context-usage-popover__breakdown-item">
+                  <span>技能指令</span><span>{{ formatContextUsage(contextUsage.breakdown.skill_tokens) }}</span>
+                </div>
+                <div v-if="contextUsage.breakdown.tool_result_tokens > 0" class="context-usage-popover__breakdown-item">
+                  <span>工具结果</span><span>{{ formatContextUsage(contextUsage.breakdown.tool_result_tokens) }}</span>
+                </div>
+              </div>
+            </template>
+            <div class="context-usage-popover__footer">
+              <span>{{ contextUsage.stage === 'final' ? '最终值' : '实时值' }}</span>
+              <span>{{ contextUsage.source }}</span>
+            </div>
+          </template>
+        </el-popover>
         <div class="chat-composer__datasource">
           <span class="chat-composer__datasource-label">数据来源：</span>
           <span class="chat-composer__datasource-value">{{ dataSource }}</span>
@@ -436,6 +554,150 @@ const removeAgentSkill = (id: number) => {
   align-items: center;
   gap: 8px;
   flex: 1;
+}
+
+.chat-composer__context-indicator {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  height: 28px;
+  padding: 0 10px;
+  border-radius: 999px;
+  font-size: 12px;
+  cursor: pointer;
+  user-select: none;
+  transition: background var(--motion-fast) var(--motion-ease);
+}
+
+.chat-composer__context-indicator--normal {
+  background: rgba(52, 199, 89, 0.10);
+  color: #34c759;
+}
+
+.chat-composer__context-indicator--caution {
+  background: rgba(255, 204, 0, 0.12);
+  color: #b8860b;
+}
+
+.chat-composer__context-indicator--warning {
+  background: rgba(255, 69, 58, 0.10);
+  color: #ff453a;
+}
+
+.chat-composer__context-indicator--unknown {
+  background: rgba(142, 142, 147, 0.10);
+  color: var(--text-faint);
+}
+
+.chat-composer__context-label {
+  font-weight: 500;
+}
+
+.chat-composer__context-value {
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.chat-composer__context-unknown {
+  font-weight: 400;
+  opacity: 0.6;
+}
+
+.chat-composer__context-estimated {
+  font-size: 10px;
+  opacity: 0.7;
+  font-weight: 400;
+}
+
+:global(.context-usage-popover) {
+  padding: 12px 16px;
+}
+
+:global(.context-usage-popover__header) {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 10px;
+  font-weight: 600;
+  font-size: 14px;
+}
+
+:global(.context-usage-popover__badge) {
+  font-size: 10px;
+  font-weight: 500;
+  padding: 1px 6px;
+  border-radius: 4px;
+  background: rgba(255, 204, 0, 0.15);
+  color: #b8860b;
+}
+
+:global(.context-usage-popover__grid) {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px 16px;
+  margin-bottom: 10px;
+}
+
+:global(.context-usage-popover__item) {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+:global(.context-usage-popover__label) {
+  font-size: 11px;
+  color: var(--text-faint);
+}
+
+:global(.context-usage-popover__value) {
+  font-size: 13px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+:global(.context-usage-popover__value--warning) {
+  color: #ff453a;
+}
+
+:global(.context-usage-popover__value--caution) {
+  color: #b8860b;
+}
+
+:global(.context-usage-popover__section-title) {
+  font-size: 12px;
+  font-weight: 600;
+  margin-bottom: 6px;
+  color: var(--text-secondary);
+}
+
+:global(.context-usage-popover__breakdown) {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 4px 16px;
+  margin-bottom: 8px;
+}
+
+:global(.context-usage-popover__breakdown-item) {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 12px;
+}
+
+:global(.context-usage-popover__breakdown-item span:last-child) {
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+}
+
+:global(.context-usage-popover__footer) {
+  display: flex;
+  justify-content: space-between;
+  font-size: 10px;
+  color: var(--text-faint);
+  border-top: 1px solid var(--border);
+  padding-top: 6px;
+  margin-top: 4px;
 }
 
 .chat-composer__model-select {

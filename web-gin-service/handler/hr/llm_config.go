@@ -165,11 +165,13 @@ func (h *LlmConfigHandler) ListAvailableModels(c *gin.Context) {
 			continue
 		}
 		list = append(list, gin.H{
-			"id":           model.GetId(),
-			"model_name":   model.GetModelName(),
-			"display_name": model.GetDisplayName(),
-			"is_enabled":   model.GetIsEnabled(),
-			"is_default":   model.GetIsDefault(),
+			"id":                    model.GetId(),
+			"model_name":            model.GetModelName(),
+			"display_name":          model.GetDisplayName(),
+			"is_enabled":            model.GetIsEnabled(),
+			"is_default":            model.GetIsDefault(),
+			"max_tokens":            model.GetMaxTokens(),
+			"context_window_tokens": model.GetContextWindowTokens(),
 		})
 	}
 
