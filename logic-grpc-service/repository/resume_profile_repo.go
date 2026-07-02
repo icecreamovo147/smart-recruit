@@ -61,6 +61,10 @@ func (r *ResumeProfileRepo) SaveProfileVersion(ctx context.Context, snapshot *Re
 			}
 		}
 
+		if snapshot.ParseRun.Status == "failed" && isEmptyResumeProfileSnapshot(snapshot) {
+			return nil
+		}
+
 		var existing model.ResumeProfile
 		err := tx.Where("parse_run_id = ?", snapshot.ParseRun.ID).First(&existing).Error
 		switch {
@@ -191,4 +195,20 @@ func replaceResumeProfileChildren(tx *gorm.DB, snapshot *ResumeProfileSnapshot) 
 		}
 	}
 	return nil
+}
+
+func isEmptyResumeProfileSnapshot(snapshot *ResumeProfileSnapshot) bool {
+	return snapshot.Profile.FullName == "" &&
+		snapshot.Profile.Email == "" &&
+		snapshot.Profile.Phone == "" &&
+		snapshot.Profile.Location == "" &&
+		snapshot.Profile.Headline == "" &&
+		snapshot.Profile.Summary == "" &&
+		snapshot.Profile.TotalExperience == 0 &&
+		snapshot.Profile.HighestDegree == "" &&
+		snapshot.Profile.RawJSON == "" &&
+		len(snapshot.Educations) == 0 &&
+		len(snapshot.Experiences) == 0 &&
+		len(snapshot.Projects) == 0 &&
+		len(snapshot.Skills) == 0
 }

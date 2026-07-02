@@ -143,3 +143,44 @@ func TestResumeProfileRepoKeepsRunningParseRunOpen(t *testing.T) {
 		t.Fatalf("running parse run should not get completed_at, got %v", snapshot.ParseRun.CompletedAt)
 	}
 }
+
+func TestResumeProfileRepoFailedRunWithoutProfileDoesNotReplaceCurrent(t *testing.T) {
+	db := setupTestDB(t)
+	repo := NewResumeProfileRepo(db)
+	ctx := context.Background()
+
+	success := &ResumeProfileSnapshot{
+		ParseRun: model.ResumeParseRun{ResumeID: 13, UserID: 23, Status: "succeeded"},
+		Profile:  model.ResumeProfile{FullName: "Existing Candidate"},
+		Skills:   []model.ResumeSkill{{Name: "Go"}},
+	}
+	if err := repo.SaveProfileVersion(ctx, success); err != nil {
+		t.Fatalf("success SaveProfileVersion failed: %v", err)
+	}
+
+	failure := &ResumeProfileSnapshot{
+		ParseRun: model.ResumeParseRun{ResumeID: 13, UserID: 23, Status: "failed", ErrorMessage: "invalid JSON"},
+	}
+	if err := repo.SaveProfileVersion(ctx, failure); err != nil {
+		t.Fatalf("failure SaveProfileVersion failed: %v", err)
+	}
+	if failure.ParseRun.ID == 0 || failure.ParseRun.CompletedAt == nil {
+		t.Fatalf("expected failed parse run to be persisted as terminal, got %+v", failure.ParseRun)
+	}
+
+	current, err := repo.GetCurrentByResumeID(ctx, 13)
+	if err != nil {
+		t.Fatalf("GetCurrentByResumeID failed: %v", err)
+	}
+	if current == nil || current.ID != success.Profile.ID || current.FullName != "Existing Candidate" {
+		t.Fatalf("expected existing profile to remain current, got %+v", current)
+	}
+
+	var failureProfiles int64
+	if err := db.Model(&model.ResumeProfile{}).Where("parse_run_id = ?", failure.ParseRun.ID).Count(&failureProfiles).Error; err != nil {
+		t.Fatalf("count failure profiles failed: %v", err)
+	}
+	if failureProfiles != 0 {
+		t.Fatalf("expected no empty profile for failed run, got %d", failureProfiles)
+	}
+}

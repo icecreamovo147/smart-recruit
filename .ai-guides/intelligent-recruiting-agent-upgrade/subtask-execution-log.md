@@ -7,9 +7,9 @@
 - Goal: Upgrade the Eino ADK based recruiting Agent into a structured, governable, explainable, auditable, and extensible intelligent recruiting platform.
 - Created: `2026-07-02`
 - Coordinator: `Codex`
-- Status: `pending_confirmation`
-- Current branch: `integration/agent-platform`
-- Sub-agent delegation: `planned_after_user_confirmation`
+- Status: `in_progress`
+- Current branch: `feature/intelligent-recruiting-agent-upgrade`
+- Sub-agent delegation: `active`
 - Commit workflow: `auto-commit after each subtask receives Reviewer PASS to preserve rollback points`
 
 ## Subtasks
@@ -17,7 +17,7 @@
 | ID | Name | Status | Branch | Dev Commit | Review Verdict | Fix Rounds | Tests | Notes |
 |---|---|---|---|---|---|---:|---|---|
 | T001 | Structured resume and match data foundations | passed | feature/intelligent-recruiting-agent-upgrade | e4bb684 | PASS | 0 | `go test ./repository -run 'Test(ResumeProfileRepo|CandidateMatchRepo)' -count=1` passed; `go test ./...` passed per Developer report | Rollback point created. |
-| T002 | ResumeProfileService parsing and normalization | pending | integration/agent-platform | - | - | 0 | `go test ./...` in `logic-grpc-service` focused service tests | Builds schema validation, parse-run status, profile upsert, normalization. |
+| T002 | ResumeProfileService parsing and normalization | passed | feature/intelligent-recruiting-agent-upgrade | pending | PASS | 0 | `go test ./service ./repository -run 'TestResumeProfileService|TestResumeProfileRepo|TestResumeRepoGetByID' -count=1` passed; `go test ./...` passed per Developer report | Auto-commit pending. |
 | T003 | CandidateMatchService scoring and evidence | pending | integration/agent-platform | - | - | 0 | `go test ./...` in `logic-grpc-service` focused service tests | Builds deterministic scoring, versioning, risks, missing requirements, evidence records. |
 | T004 | Backend API contracts for resume profiles and match evaluations | pending | integration/agent-platform | - | - | 0 | `go test ./...` in `logic-grpc-service`; `go test ./...` in `web-gin-service` | Adds proto/gRPC/web-gin API surface needed by tools and HR UI. |
 | T005 | ADK tools for resume profile and candidate match workflows | pending | integration/agent-platform | - | - | 0 | `go test ./...` in `logic-grpc-service` focused AI tool tests | Exposes parse/get/evaluate/get/compare tools with scope checks and traceable outputs. |
@@ -296,3 +296,7 @@
 | `2026-07-02 13:45` | T001 | reviewer restarted | Previous Reviewer Subagent appeared stuck and was closed at user request. Restarting read-only review with a fresh Reviewer. |
 | `2026-07-02 13:50` | T001 | reviewer PASS | Reviewer returned PASS with scope and focused test verification. Coordinator reran focused repository tests successfully. |
 | `2026-07-02 13:52` | T001 | auto-commit created | Commit `e4bb684` (`feat: add recruiting intelligence data foundations`) created as T001 rollback point. |
+| `2026-07-02 13:55` | T002 | started | Coordinator confirmed clean working tree and scoped T002 to ResumeProfileService, strict schema validation, normalization, parse-run status, and focused service tests. |
+| `2026-07-02 14:05` | T002 | developer completed | Developer reported ResumeProfileService implementation complete with focused service/repository tests and escalated full Go suite passing. Coordinator scope check found changes within T002 allowed files. |
+| `2026-07-02 14:06` | T002 | reviewing | Reviewer Subagent started read-only review. |
+| `2026-07-02 14:12` | T002 | reviewer PASS | Reviewer returned PASS. Coordinator reran focused service/repository tests successfully. |
