@@ -361,6 +361,9 @@ func (s *AIService) runToolCallingChatWithUsage(ctx context.Context, req *pb.Cha
 		}
 		return "", metadata, err
 	}
+	if recorder != nil {
+		recorder.setSelectedMemoryIDs(ctx, selectedMemoryIDs(actx.LongTermMemories))
+	}
 
 	// If agent config has a bound prompt template, it takes priority.
 	if runtimeCfg == nil {
@@ -644,6 +647,9 @@ func (s *AIService) runADKChat(
 		AvailableTools: adkToolNames(ctx, adkTools),
 		ApplicationID:  req.GetApplicationId(),
 	})
+	if recorder != nil {
+		recorder.recordRecruitingPlan(ctx, plan)
+	}
 	instruction = appendRecruitingPlannerInstructionBlock(instruction, plan.InstructionBlock())
 	logger.L().Info("[Planner] HR Agent structured plan selected",
 		zap.String("intent", plan.Intent),
@@ -730,6 +736,16 @@ func (s *AIService) runLegacyChat(
 			logger.L().Warn("collect bound SKILL tool infos failed", zap.Error(err))
 		}
 	}
+	planner := ai.NewRecruitingPlanner()
+	plan := planner.Plan(ai.RecruitingPlannerInput{
+		Message:        req.GetMessage(),
+		AvailableTools: agentRunToolInfoNames(tools),
+		ApplicationID:  req.GetApplicationId(),
+	})
+	if recorder != nil {
+		recorder.recordRecruitingPlan(ctx, plan)
+	}
+	messages = appendRecruitingPlannerInstructionBlockToMessages(messages, plan.InstructionBlock())
 
 	traceFn := func(toolCallID, toolName, argsJSON, resultContent string, duration time.Duration, execErr error) {
 		stepID := uint64(0)
@@ -779,6 +795,31 @@ func appendSkillInstructionsToMessages(messages []*schema.Message, skillInstruct
 		}
 	}
 	return append([]*schema.Message{schema.SystemMessage(addition)}, copied...)
+}
+
+func appendRecruitingPlannerInstructionBlockToMessages(messages []*schema.Message, block string) []*schema.Message {
+	block = strings.TrimSpace(block)
+	if block == "" {
+		return messages
+	}
+	copied := append([]*schema.Message(nil), messages...)
+	for _, m := range copied {
+		if m.Role == schema.System {
+			m.Content = appendRecruitingPlannerInstructionBlock(m.Content, block)
+			return copied
+		}
+	}
+	return append([]*schema.Message{schema.SystemMessage(block)}, copied...)
+}
+
+func agentRunToolInfoNames(tools []*schema.ToolInfo) []string {
+	names := make([]string, 0, len(tools))
+	for _, t := range tools {
+		if t != nil && strings.TrimSpace(t.Name) != "" {
+			names = append(names, t.Name)
+		}
+	}
+	return names
 }
 
 type compositeToolRunner struct {

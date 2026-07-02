@@ -11,6 +11,7 @@ import (
 
 	"go.uber.org/zap"
 
+	"logic-grpc-service/ai"
 	"logic-grpc-service/model"
 	"logic-grpc-service/pkg/logger"
 	"logic-grpc-service/recruitment/pb"
@@ -34,6 +35,8 @@ type agentRunRecorder struct {
 	session               *model.AIChatSession
 	hrID                  int64
 	selectedAgentSkillIDs []int64
+	selectedMemoryIDs     []int64
+	planState             map[string]any
 	stepMu                sync.Mutex
 }
 
@@ -61,9 +64,9 @@ func (s *AIService) startAgentRun(ctx context.Context, req *pb.ChatRequest, sess
 		AgentName: "hr_recruiting_agent",
 		ModelName: modelName,
 		Status:    agentRunStatusPlanning,
-		PlanJSON:  buildAgentRunPlanJSON(req, modelID, modelName, runtimeCfg, s.agentRuntime),
 		StartedAt: now,
 	}
+	run.PlanJSON = buildAgentRunPlanJSON(req, modelID, modelName, runtimeCfg, s.agentRuntime)
 	if modelID != nil {
 		v := uint64(*modelID)
 		run.ModelID = &v
@@ -79,7 +82,13 @@ func (s *AIService) startAgentRun(ctx context.Context, req *pb.ChatRequest, sess
 		logger.L().Warn("create agent run failed", zap.Error(err), zap.Int64("session_id", session.ID))
 		return nil
 	}
-	rec := &agentRunRecorder{repo: s.agentRuns, runID: run.ID, session: session, hrID: req.HrId}
+	rec := &agentRunRecorder{
+		repo:      s.agentRuns,
+		runID:     run.ID,
+		session:   session,
+		hrID:      req.HrId,
+		planState: decodeObjectJSON(run.PlanJSON),
+	}
 	rec.step(ctx, "status", "", "", "", safeJSON(map[string]any{"event": "agent_run_started"}), "{}", "succeeded", 0, "")
 	rec.step(ctx, "status", "", "", "", safeJSON(map[string]any{"event": "model_selected", "model_id": modelID, "model_name": modelName}), "{}", "succeeded", 0, "")
 	rec.step(ctx, "model", "", "", "", safeJSON(map[string]any{"event": "planning"}), run.PlanJSON, "succeeded", 0, "")
@@ -121,7 +130,11 @@ func (r *agentRunRecorder) recordTool(ctx context.Context, toolCallID, toolName,
 	}
 	input := normalizeJSONString(argsJSON)
 	output := safeJSON(map[string]any{"tool_call_id": toolCallID, "result": resultContent})
-	stepID := r.step(ctx, "tool", capabilitySource, capabilityKey, toolName, input, output, status, duration.Milliseconds(), errMsg)
+	stepType := "tool"
+	if isEvidenceProducingToolOutput(toolName, resultContent) {
+		stepType = "evidence"
+	}
+	stepID := r.step(ctx, stepType, capabilitySource, capabilityKey, toolName, input, output, status, duration.Milliseconds(), errMsg)
 	return stepID
 }
 
@@ -153,6 +166,18 @@ func (r *agentRunRecorder) finish(ctx context.Context, status, finalAnswer, erro
 	if err := r.repo.UpdateRunStatus(writeCtx, r.runID, status, finalAnswer, errorType, errorMessage, &done); err != nil {
 		logger.L().Warn("finish agent run failed", zap.Uint64("run_id", r.runID), zap.Error(err))
 	}
+	r.updatePlanPatch(writeCtx, map[string]any{
+		"decision": map[string]any{
+			"status":        status,
+			"error_type":    errorType,
+			"has_answer":    strings.TrimSpace(finalAnswer) != "",
+			"completed_at":  done.Format(time.RFC3339),
+			"partial":       status == agentRunStatusPartial,
+			"failed":        status == agentRunStatusFailed,
+			"canceled":      status == agentRunStatusCanceled,
+			"risk_flag_hit": strings.TrimSpace(errorType) != "",
+		},
+	})
 	r.step(writeCtx, "status", "", "", "", safeJSON(map[string]any{"event": "agent_run_done", "status": status, "error_type": errorType}), "{}", statusToStepStatus(status), 0, errorMessage)
 }
 
@@ -217,10 +242,121 @@ func (r *agentRunRecorder) setSelectedAgentSkillIDs(ids []int64) {
 	r.stepMu.Lock()
 	r.selectedAgentSkillIDs = append([]int64(nil), ids...)
 	r.stepMu.Unlock()
+	r.updatePlanPatch(context.Background(), map[string]any{
+		"selected_agent_skill_ids": append([]int64(nil), ids...),
+	})
 	r.step(context.Background(), "prompt", "agent_skill", "", "", safeJSON(map[string]any{
 		"event":                    "agent_skill_selected",
 		"selected_agent_skill_ids": append([]int64(nil), ids...),
 	}), "{}", "succeeded", 0, "")
+}
+
+func (r *agentRunRecorder) setSelectedMemoryIDs(ctx context.Context, ids []int64) {
+	if r == nil {
+		return
+	}
+	r.stepMu.Lock()
+	r.selectedMemoryIDs = append([]int64(nil), ids...)
+	r.stepMu.Unlock()
+	r.updatePlanPatch(ctx, map[string]any{
+		"selected_memory_ids": append([]int64(nil), ids...),
+	})
+	r.step(ctx, "memory", "memory", "", "", safeJSON(map[string]any{
+		"event":               "memory_selected",
+		"selected_memory_ids": append([]int64(nil), ids...),
+	}), "{}", "succeeded", 0, "")
+}
+
+func (r *agentRunRecorder) recordRecruitingPlan(ctx context.Context, plan ai.RecruitingPlan) {
+	if r == nil {
+		return
+	}
+	decision := map[string]any{
+		"intent":                     plan.Intent,
+		"confirmation_required":      plan.ConfirmationRequirement.Required,
+		"confirmation_reason":        plan.ConfirmationRequirement.Reason,
+		"required_tool_count":        len(plan.RequiredTools),
+		"required_data_count":        len(plan.RequiredData),
+		"risk_flag_count":            len(plan.RiskChecks),
+		"unavailable_tool_risk":      containsRecorderString(plan.RiskChecks, "no_builtin_recruiting_tools_available"),
+		"requires_human_confirm":     plan.ConfirmationRequirement.Required,
+		"requires_evidence_citation": containsRecorderString(plan.RiskChecks, "cite_tool_returned_evidence"),
+	}
+	patch := map[string]any{
+		"recruiting_plan": plan,
+		"planner_json":    plan.JSON(),
+		"risk_flags":      append([]string(nil), plan.RiskChecks...),
+		"decision":        decision,
+	}
+	r.updatePlanPatch(ctx, patch)
+	r.step(ctx, "plan", "", "", "", safeJSON(map[string]any{"event": "recruiting_plan_selected"}), safeJSON(patch), "succeeded", 0, "")
+}
+
+func (r *agentRunRecorder) updatePlanPatch(ctx context.Context, patch map[string]any) {
+	if r == nil || r.repo == nil || len(patch) == 0 {
+		return
+	}
+	r.stepMu.Lock()
+	if r.planState == nil {
+		r.planState = map[string]any{}
+	}
+	for k, v := range patch {
+		r.planState[k] = v
+	}
+	planJSON := safeJSON(r.planState)
+	r.stepMu.Unlock()
+	if err := r.repo.UpdateRunPlan(ctx, r.runID, planJSON); err != nil {
+		logger.L().Warn("update agent run plan failed", zap.Uint64("run_id", r.runID), zap.Error(err))
+	}
+}
+
+func decodeObjectJSON(raw string) map[string]any {
+	out := map[string]any{}
+	if strings.TrimSpace(raw) == "" {
+		return out
+	}
+	if err := json.Unmarshal([]byte(raw), &out); err != nil {
+		return map[string]any{}
+	}
+	return out
+}
+
+func selectedMemoryIDs(memories []model.AIMemory) []int64 {
+	ids := make([]int64, 0, len(memories))
+	for _, memory := range memories {
+		if memory.ID > 0 {
+			ids = append(ids, int64(memory.ID))
+		}
+	}
+	return ids
+}
+
+func isEvidenceProducingToolOutput(toolName, resultContent string) bool {
+	name := strings.ToLower(strings.TrimSpace(toolName))
+	switch name {
+	case "get_candidate_detail", "parse_resume_profile", "get_resume_profile", "evaluate_candidate_match",
+		"get_candidate_match_evaluation", "compare_candidates_for_job", "get_job_detail":
+		return true
+	}
+	payload := decodeObjectJSON(resultContent)
+	if len(payload) == 0 {
+		return false
+	}
+	for _, key := range []string{"evidence", "evaluation", "risks", "strengths_json", "risks_json", "score_breakdown_json", "profile", "candidate"} {
+		if _, ok := payload[key]; ok {
+			return true
+		}
+	}
+	return false
+}
+
+func containsRecorderString(items []string, target string) bool {
+	for _, item := range items {
+		if item == target {
+			return true
+		}
+	}
+	return false
 }
 
 func capabilityOverviewJSON(runtimeCfg *agentRuntimeConfig) string {
