@@ -638,6 +638,17 @@ func (s *AIService) runADKChat(
 			logger.L().Warn("collect bound SKILL callable tools failed", zap.Error(err))
 		}
 	}
+	planner := ai.NewRecruitingPlanner()
+	plan := planner.Plan(ai.RecruitingPlannerInput{
+		Message:        req.GetMessage(),
+		AvailableTools: adkToolNames(ctx, adkTools),
+		ApplicationID:  req.GetApplicationId(),
+	})
+	instruction = appendRecruitingPlannerInstructionBlock(instruction, plan.InstructionBlock())
+	logger.L().Info("[Planner] HR Agent structured plan selected",
+		zap.String("intent", plan.Intent),
+		zap.Strings("required_tools", plan.RequiredTools),
+	)
 	logger.L().Info("[提示词诊断] HR Agent 当前使用的 System Prompt",
 		zap.Int("总字符数", len([]rune(instruction))),
 		zap.String("前200字符", truncateString(instruction, 200)),

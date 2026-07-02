@@ -646,3 +646,25 @@ func filterToolInfosByName(tools []*schema.ToolInfo, allowlist []string) []*sche
 	}
 	return filtered
 }
+
+func adkToolNames(ctx context.Context, tools []tool.BaseTool) []string {
+	names := make([]string, 0, len(tools))
+	for _, t := range tools {
+		info, err := t.Info(ctx)
+		if err == nil && strings.TrimSpace(info.Name) != "" {
+			names = append(names, info.Name)
+		}
+	}
+	return names
+}
+
+func appendRecruitingPlannerInstructionBlock(base string, block string) string {
+	block = strings.TrimSpace(block)
+	if block == "" {
+		return base
+	}
+	if strings.TrimSpace(base) == "" {
+		return block
+	}
+	return base + "\n\n" + block
+}
