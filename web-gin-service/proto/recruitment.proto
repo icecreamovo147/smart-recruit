@@ -183,6 +183,14 @@ service CollaborationService {
   rpc ListTimelineEvents(ListTimelineEventsRequest) returns (ListTimelineEventsResponse);
 }
 
+service RecruitingIntelligenceService {
+  rpc GetResumeProfile(GetResumeProfileRequest) returns (GetResumeProfileResponse);
+  rpc ParseResumeProfile(ParseResumeProfileRequest) returns (GetResumeProfileResponse);
+  rpc EvaluateCandidateMatch(EvaluateCandidateMatchRequest) returns (GetCandidateMatchEvaluationResponse);
+  rpc GetCandidateMatchEvaluation(GetCandidateMatchEvaluationRequest) returns (GetCandidateMatchEvaluationResponse);
+  rpc CompareCandidatesForJob(CompareCandidatesForJobRequest) returns (CompareCandidatesForJobResponse);
+}
+
 message CommonResponse {
   int32 code = 1;
   string msg = 2;
@@ -2929,4 +2937,200 @@ message PreviewAgentSkillResponse {
   string skill_md = 3;
   string frontmatter_json = 4;
   string body_markdown = 5;
+}
+
+message GetResumeProfileRequest {
+  int64 staff_user_id = 1;
+  int64 resume_id = 2;
+  uint64 profile_id = 3;
+  int64 application_id = 4;
+}
+
+message ParseResumeProfileRequest {
+  int64 staff_user_id = 1;
+  int64 resume_id = 2;
+  int64 application_id = 3;
+}
+
+message ResumeParseRunInfo {
+  uint64 id = 1;
+  int64 resume_id = 2;
+  int64 user_id = 3;
+  uint64 agent_run_id = 4;
+  string status = 5;
+  string parser_version = 6;
+  string input_hash = 7;
+  string error_message = 8;
+  string started_at = 9;
+  string completed_at = 10;
+  string created_at = 11;
+  string updated_at = 12;
+}
+
+message ResumeProfileInfo {
+  uint64 id = 1;
+  int64 resume_id = 2;
+  int64 user_id = 3;
+  uint64 parse_run_id = 4;
+  int32 version = 5;
+  int32 is_current = 6;
+  string full_name = 7;
+  string email = 8;
+  string phone = 9;
+  string location = 10;
+  string headline = 11;
+  string summary = 12;
+  double total_experience_years = 13;
+  string highest_degree = 14;
+  string raw_json = 15;
+  string created_at = 16;
+  string updated_at = 17;
+}
+
+message ResumeEducationInfo {
+  uint64 id = 1;
+  string school = 2;
+  string degree = 3;
+  string major = 4;
+  string start_date = 5;
+  string end_date = 6;
+  string description = 7;
+  int32 sort_order = 8;
+}
+
+message ResumeExperienceInfo {
+  uint64 id = 1;
+  string company = 2;
+  string title = 3;
+  string location = 4;
+  string start_date = 5;
+  string end_date = 6;
+  int32 is_current = 7;
+  string description = 8;
+  string achievements_json = 9;
+  int32 sort_order = 10;
+}
+
+message ResumeProjectInfo {
+  uint64 id = 1;
+  string name = 2;
+  string role = 3;
+  string start_date = 4;
+  string end_date = 5;
+  string description = 6;
+  string technologies_json = 7;
+  string highlights_json = 8;
+  int32 sort_order = 9;
+}
+
+message ResumeSkillInfo {
+  uint64 id = 1;
+  string name = 2;
+  string category = 3;
+  string level = 4;
+  double years = 5;
+  string evidence = 6;
+  int32 sort_order = 7;
+}
+
+message ResumeProfileSnapshotInfo {
+  ResumeParseRunInfo parse_run = 1;
+  ResumeProfileInfo profile = 2;
+  repeated ResumeEducationInfo educations = 3;
+  repeated ResumeExperienceInfo experiences = 4;
+  repeated ResumeProjectInfo projects = 5;
+  repeated ResumeSkillInfo skills = 6;
+}
+
+message GetResumeProfileResponse {
+  int32 code = 1;
+  string msg = 2;
+  ResumeProfileSnapshotInfo profile = 3;
+}
+
+message EvaluateCandidateMatchRequest {
+  int64 staff_user_id = 1;
+  int64 application_id = 2;
+  uint64 agent_run_id = 3;
+}
+
+message GetCandidateMatchEvaluationRequest {
+  int64 staff_user_id = 1;
+  int64 application_id = 2;
+  uint64 evaluation_id = 3;
+  int32 evaluation_version = 4;
+}
+
+message CandidateMatchEvaluationInfo {
+  uint64 id = 1;
+  int64 application_id = 2;
+  int64 job_id = 3;
+  int64 candidate_user_id = 4;
+  uint64 resume_profile_id = 5;
+  uint64 agent_run_id = 6;
+  int32 evaluation_version = 7;
+  int32 is_latest = 8;
+  double overall_score = 9;
+  string recommendation = 10;
+  string summary = 11;
+  string strengths_json = 12;
+  string risks_json = 13;
+  string missing_requirements_json = 14;
+  string score_breakdown_json = 15;
+  string model_name = 16;
+  string evaluated_at = 17;
+  string created_at = 18;
+  string updated_at = 19;
+  string dimensions_json = 20;
+}
+
+message CandidateMatchEvidenceInfo {
+  uint64 id = 1;
+  string evidence_type = 2;
+  string dimension = 3;
+  string source_table = 4;
+  uint64 source_id = 5;
+  string snippet = 6;
+  double weight = 7;
+  double score_impact = 8;
+  string metadata_json = 9;
+  string created_at = 10;
+}
+
+message CandidateMatchEvaluationSnapshotInfo {
+  CandidateMatchEvaluationInfo evaluation = 1;
+  repeated CandidateMatchEvidenceInfo evidence = 2;
+}
+
+message GetCandidateMatchEvaluationResponse {
+  int32 code = 1;
+  string msg = 2;
+  CandidateMatchEvaluationSnapshotInfo evaluation = 3;
+}
+
+message CompareCandidatesForJobRequest {
+  int64 staff_user_id = 1;
+  int64 job_id = 2;
+}
+
+message CandidateComparisonItem {
+  int64 application_id = 1;
+  int64 candidate_user_id = 2;
+  string candidate_name = 3;
+  int64 resume_id = 4;
+  uint64 evaluation_id = 5;
+  int32 evaluation_version = 6;
+  double overall_score = 7;
+  string recommendation = 8;
+  string summary = 9;
+  string evaluated_at = 10;
+  bool has_evaluation = 11;
+}
+
+message CompareCandidatesForJobResponse {
+  int32 code = 1;
+  string msg = 2;
+  int64 job_id = 3;
+  repeated CandidateComparisonItem candidates = 4;
+  repeated int64 missing_application_ids = 5;
 }

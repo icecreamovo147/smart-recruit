@@ -5213,6 +5213,261 @@ var CollaborationService_ServiceDesc = grpc.ServiceDesc{
 }
 
 const (
+	RecruitingIntelligenceService_GetResumeProfile_FullMethodName            = "/recruitment.RecruitingIntelligenceService/GetResumeProfile"
+	RecruitingIntelligenceService_ParseResumeProfile_FullMethodName          = "/recruitment.RecruitingIntelligenceService/ParseResumeProfile"
+	RecruitingIntelligenceService_EvaluateCandidateMatch_FullMethodName      = "/recruitment.RecruitingIntelligenceService/EvaluateCandidateMatch"
+	RecruitingIntelligenceService_GetCandidateMatchEvaluation_FullMethodName = "/recruitment.RecruitingIntelligenceService/GetCandidateMatchEvaluation"
+	RecruitingIntelligenceService_CompareCandidatesForJob_FullMethodName     = "/recruitment.RecruitingIntelligenceService/CompareCandidatesForJob"
+)
+
+// RecruitingIntelligenceServiceClient is the client API for RecruitingIntelligenceService service.
+//
+// For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
+type RecruitingIntelligenceServiceClient interface {
+	GetResumeProfile(ctx context.Context, in *GetResumeProfileRequest, opts ...grpc.CallOption) (*GetResumeProfileResponse, error)
+	ParseResumeProfile(ctx context.Context, in *ParseResumeProfileRequest, opts ...grpc.CallOption) (*GetResumeProfileResponse, error)
+	EvaluateCandidateMatch(ctx context.Context, in *EvaluateCandidateMatchRequest, opts ...grpc.CallOption) (*GetCandidateMatchEvaluationResponse, error)
+	GetCandidateMatchEvaluation(ctx context.Context, in *GetCandidateMatchEvaluationRequest, opts ...grpc.CallOption) (*GetCandidateMatchEvaluationResponse, error)
+	CompareCandidatesForJob(ctx context.Context, in *CompareCandidatesForJobRequest, opts ...grpc.CallOption) (*CompareCandidatesForJobResponse, error)
+}
+
+type recruitingIntelligenceServiceClient struct {
+	cc grpc.ClientConnInterface
+}
+
+func NewRecruitingIntelligenceServiceClient(cc grpc.ClientConnInterface) RecruitingIntelligenceServiceClient {
+	return &recruitingIntelligenceServiceClient{cc}
+}
+
+func (c *recruitingIntelligenceServiceClient) GetResumeProfile(ctx context.Context, in *GetResumeProfileRequest, opts ...grpc.CallOption) (*GetResumeProfileResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(GetResumeProfileResponse)
+	err := c.cc.Invoke(ctx, RecruitingIntelligenceService_GetResumeProfile_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *recruitingIntelligenceServiceClient) ParseResumeProfile(ctx context.Context, in *ParseResumeProfileRequest, opts ...grpc.CallOption) (*GetResumeProfileResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(GetResumeProfileResponse)
+	err := c.cc.Invoke(ctx, RecruitingIntelligenceService_ParseResumeProfile_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *recruitingIntelligenceServiceClient) EvaluateCandidateMatch(ctx context.Context, in *EvaluateCandidateMatchRequest, opts ...grpc.CallOption) (*GetCandidateMatchEvaluationResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(GetCandidateMatchEvaluationResponse)
+	err := c.cc.Invoke(ctx, RecruitingIntelligenceService_EvaluateCandidateMatch_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *recruitingIntelligenceServiceClient) GetCandidateMatchEvaluation(ctx context.Context, in *GetCandidateMatchEvaluationRequest, opts ...grpc.CallOption) (*GetCandidateMatchEvaluationResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(GetCandidateMatchEvaluationResponse)
+	err := c.cc.Invoke(ctx, RecruitingIntelligenceService_GetCandidateMatchEvaluation_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *recruitingIntelligenceServiceClient) CompareCandidatesForJob(ctx context.Context, in *CompareCandidatesForJobRequest, opts ...grpc.CallOption) (*CompareCandidatesForJobResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(CompareCandidatesForJobResponse)
+	err := c.cc.Invoke(ctx, RecruitingIntelligenceService_CompareCandidatesForJob_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+// RecruitingIntelligenceServiceServer is the server API for RecruitingIntelligenceService service.
+// All implementations must embed UnimplementedRecruitingIntelligenceServiceServer
+// for forward compatibility.
+type RecruitingIntelligenceServiceServer interface {
+	GetResumeProfile(context.Context, *GetResumeProfileRequest) (*GetResumeProfileResponse, error)
+	ParseResumeProfile(context.Context, *ParseResumeProfileRequest) (*GetResumeProfileResponse, error)
+	EvaluateCandidateMatch(context.Context, *EvaluateCandidateMatchRequest) (*GetCandidateMatchEvaluationResponse, error)
+	GetCandidateMatchEvaluation(context.Context, *GetCandidateMatchEvaluationRequest) (*GetCandidateMatchEvaluationResponse, error)
+	CompareCandidatesForJob(context.Context, *CompareCandidatesForJobRequest) (*CompareCandidatesForJobResponse, error)
+	mustEmbedUnimplementedRecruitingIntelligenceServiceServer()
+}
+
+// UnimplementedRecruitingIntelligenceServiceServer must be embedded to have
+// forward compatible implementations.
+//
+// NOTE: this should be embedded by value instead of pointer to avoid a nil
+// pointer dereference when methods are called.
+type UnimplementedRecruitingIntelligenceServiceServer struct{}
+
+func (UnimplementedRecruitingIntelligenceServiceServer) GetResumeProfile(context.Context, *GetResumeProfileRequest) (*GetResumeProfileResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method GetResumeProfile not implemented")
+}
+func (UnimplementedRecruitingIntelligenceServiceServer) ParseResumeProfile(context.Context, *ParseResumeProfileRequest) (*GetResumeProfileResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method ParseResumeProfile not implemented")
+}
+func (UnimplementedRecruitingIntelligenceServiceServer) EvaluateCandidateMatch(context.Context, *EvaluateCandidateMatchRequest) (*GetCandidateMatchEvaluationResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method EvaluateCandidateMatch not implemented")
+}
+func (UnimplementedRecruitingIntelligenceServiceServer) GetCandidateMatchEvaluation(context.Context, *GetCandidateMatchEvaluationRequest) (*GetCandidateMatchEvaluationResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method GetCandidateMatchEvaluation not implemented")
+}
+func (UnimplementedRecruitingIntelligenceServiceServer) CompareCandidatesForJob(context.Context, *CompareCandidatesForJobRequest) (*CompareCandidatesForJobResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method CompareCandidatesForJob not implemented")
+}
+func (UnimplementedRecruitingIntelligenceServiceServer) mustEmbedUnimplementedRecruitingIntelligenceServiceServer() {
+}
+func (UnimplementedRecruitingIntelligenceServiceServer) testEmbeddedByValue() {}
+
+// UnsafeRecruitingIntelligenceServiceServer may be embedded to opt out of forward compatibility for this service.
+// Use of this interface is not recommended, as added methods to RecruitingIntelligenceServiceServer will
+// result in compilation errors.
+type UnsafeRecruitingIntelligenceServiceServer interface {
+	mustEmbedUnimplementedRecruitingIntelligenceServiceServer()
+}
+
+func RegisterRecruitingIntelligenceServiceServer(s grpc.ServiceRegistrar, srv RecruitingIntelligenceServiceServer) {
+	// If the following call panics, it indicates UnimplementedRecruitingIntelligenceServiceServer was
+	// embedded by pointer and is nil.  This will cause panics if an
+	// unimplemented method is ever invoked, so we test this at initialization
+	// time to prevent it from happening at runtime later due to I/O.
+	if t, ok := srv.(interface{ testEmbeddedByValue() }); ok {
+		t.testEmbeddedByValue()
+	}
+	s.RegisterService(&RecruitingIntelligenceService_ServiceDesc, srv)
+}
+
+func _RecruitingIntelligenceService_GetResumeProfile_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetResumeProfileRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(RecruitingIntelligenceServiceServer).GetResumeProfile(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: RecruitingIntelligenceService_GetResumeProfile_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(RecruitingIntelligenceServiceServer).GetResumeProfile(ctx, req.(*GetResumeProfileRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _RecruitingIntelligenceService_ParseResumeProfile_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ParseResumeProfileRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(RecruitingIntelligenceServiceServer).ParseResumeProfile(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: RecruitingIntelligenceService_ParseResumeProfile_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(RecruitingIntelligenceServiceServer).ParseResumeProfile(ctx, req.(*ParseResumeProfileRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _RecruitingIntelligenceService_EvaluateCandidateMatch_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(EvaluateCandidateMatchRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(RecruitingIntelligenceServiceServer).EvaluateCandidateMatch(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: RecruitingIntelligenceService_EvaluateCandidateMatch_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(RecruitingIntelligenceServiceServer).EvaluateCandidateMatch(ctx, req.(*EvaluateCandidateMatchRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _RecruitingIntelligenceService_GetCandidateMatchEvaluation_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetCandidateMatchEvaluationRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(RecruitingIntelligenceServiceServer).GetCandidateMatchEvaluation(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: RecruitingIntelligenceService_GetCandidateMatchEvaluation_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(RecruitingIntelligenceServiceServer).GetCandidateMatchEvaluation(ctx, req.(*GetCandidateMatchEvaluationRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _RecruitingIntelligenceService_CompareCandidatesForJob_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(CompareCandidatesForJobRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(RecruitingIntelligenceServiceServer).CompareCandidatesForJob(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: RecruitingIntelligenceService_CompareCandidatesForJob_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(RecruitingIntelligenceServiceServer).CompareCandidatesForJob(ctx, req.(*CompareCandidatesForJobRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+// RecruitingIntelligenceService_ServiceDesc is the grpc.ServiceDesc for RecruitingIntelligenceService service.
+// It's only intended for direct use with grpc.RegisterService,
+// and not to be introspected or modified (even as a copy)
+var RecruitingIntelligenceService_ServiceDesc = grpc.ServiceDesc{
+	ServiceName: "recruitment.RecruitingIntelligenceService",
+	HandlerType: (*RecruitingIntelligenceServiceServer)(nil),
+	Methods: []grpc.MethodDesc{
+		{
+			MethodName: "GetResumeProfile",
+			Handler:    _RecruitingIntelligenceService_GetResumeProfile_Handler,
+		},
+		{
+			MethodName: "ParseResumeProfile",
+			Handler:    _RecruitingIntelligenceService_ParseResumeProfile_Handler,
+		},
+		{
+			MethodName: "EvaluateCandidateMatch",
+			Handler:    _RecruitingIntelligenceService_EvaluateCandidateMatch_Handler,
+		},
+		{
+			MethodName: "GetCandidateMatchEvaluation",
+			Handler:    _RecruitingIntelligenceService_GetCandidateMatchEvaluation_Handler,
+		},
+		{
+			MethodName: "CompareCandidatesForJob",
+			Handler:    _RecruitingIntelligenceService_CompareCandidatesForJob_Handler,
+		},
+	},
+	Streams:  []grpc.StreamDesc{},
+	Metadata: "proto/recruitment.proto",
+}
+
+const (
 	MCPService_ListMCPServers_FullMethodName    = "/recruitment.MCPService/ListMCPServers"
 	MCPService_CreateMCPServer_FullMethodName   = "/recruitment.MCPService/CreateMCPServer"
 	MCPService_UpdateMCPServer_FullMethodName   = "/recruitment.MCPService/UpdateMCPServer"

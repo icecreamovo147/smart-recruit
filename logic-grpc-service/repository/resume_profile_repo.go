@@ -131,6 +131,15 @@ func (r *ResumeProfileRepo) GetCurrentByResumeID(ctx context.Context, resumeID i
 	return &profile, err
 }
 
+func (r *ResumeProfileRepo) GetByID(ctx context.Context, profileID uint64) (*model.ResumeProfile, error) {
+	var profile model.ResumeProfile
+	err := r.db.WithContext(ctx).First(&profile, profileID).Error
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return nil, nil
+	}
+	return &profile, err
+}
+
 func (r *ResumeProfileRepo) GetSnapshot(ctx context.Context, profileID uint64) (*ResumeProfileSnapshot, error) {
 	var profile model.ResumeProfile
 	if err := r.db.WithContext(ctx).First(&profile, profileID).Error; err != nil {

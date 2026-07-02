@@ -98,6 +98,29 @@ func (r *CandidateMatchRepo) GetLatestByApplicationID(ctx context.Context, appli
 	return &evaluation, err
 }
 
+func (r *CandidateMatchRepo) GetByApplicationIDAndVersion(ctx context.Context, applicationID int64, version int32) (*model.CandidateMatchEvaluation, error) {
+	var evaluation model.CandidateMatchEvaluation
+	err := r.db.WithContext(ctx).
+		Where("application_id = ? AND evaluation_version = ?", applicationID, version).
+		First(&evaluation).Error
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return nil, nil
+	}
+	return &evaluation, err
+}
+
+func (r *CandidateMatchRepo) ListLatestByApplicationIDs(ctx context.Context, applicationIDs []int64) ([]model.CandidateMatchEvaluation, error) {
+	if len(applicationIDs) == 0 {
+		return nil, nil
+	}
+	var evaluations []model.CandidateMatchEvaluation
+	err := r.db.WithContext(ctx).
+		Where("application_id IN ? AND is_latest = 1", applicationIDs).
+		Order("overall_score DESC, application_id ASC").
+		Find(&evaluations).Error
+	return evaluations, err
+}
+
 func (r *CandidateMatchRepo) GetSnapshot(ctx context.Context, evaluationID uint64) (*CandidateMatchSnapshot, error) {
 	var evaluation model.CandidateMatchEvaluation
 	if err := r.db.WithContext(ctx).First(&evaluation, evaluationID).Error; err != nil {

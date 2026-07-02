@@ -27,6 +27,7 @@ type Server struct {
 	pb.UnimplementedMCPServiceServer
 	pb.UnimplementedSkillServiceServer
 	pb.UnimplementedAgentSkillServiceServer
+	pb.UnimplementedRecruitingIntelligenceServiceServer
 	svc *service.Services
 }
 
@@ -514,6 +515,28 @@ func (s *Server) UnassignTag(ctx context.Context, req *pb.UnassignTagRequest) (*
 
 func (s *Server) ListCandidateTags(ctx context.Context, req *pb.ListCandidateTagsRequest) (*pb.ListCandidateTagsResponse, error) {
 	return s.svc.Collaboration.ListCandidateTags(ctx, req)
+}
+
+// Recruiting Intelligence
+
+func (s *Server) GetResumeProfile(ctx context.Context, req *pb.GetResumeProfileRequest) (*pb.GetResumeProfileResponse, error) {
+	return s.svc.RecruitingIntelligence.GetResumeProfile(ctx, req)
+}
+
+func (s *Server) ParseResumeProfile(ctx context.Context, req *pb.ParseResumeProfileRequest) (*pb.GetResumeProfileResponse, error) {
+	return s.svc.RecruitingIntelligence.ParseResumeProfile(ctx, req)
+}
+
+func (s *Server) EvaluateCandidateMatch(ctx context.Context, req *pb.EvaluateCandidateMatchRequest) (*pb.GetCandidateMatchEvaluationResponse, error) {
+	return s.svc.RecruitingIntelligence.EvaluateCandidateMatch(ctx, req)
+}
+
+func (s *Server) GetCandidateMatchEvaluation(ctx context.Context, req *pb.GetCandidateMatchEvaluationRequest) (*pb.GetCandidateMatchEvaluationResponse, error) {
+	return s.svc.RecruitingIntelligence.GetCandidateMatchEvaluation(ctx, req)
+}
+
+func (s *Server) CompareCandidatesForJob(ctx context.Context, req *pb.CompareCandidatesForJobRequest) (*pb.CompareCandidatesForJobResponse, error) {
+	return s.svc.RecruitingIntelligence.CompareCandidatesForJob(ctx, req)
 }
 
 func (s *Server) CreateFollowUpTask(ctx context.Context, req *pb.CreateFollowUpTaskRequest) (*pb.CreateFollowUpTaskResponse, error) {
