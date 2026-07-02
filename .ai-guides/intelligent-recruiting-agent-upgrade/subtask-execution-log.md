@@ -17,7 +17,7 @@
 | ID | Name | Status | Branch | Dev Commit | Review Verdict | Fix Rounds | Tests | Notes |
 |---|---|---|---|---|---|---:|---|---|
 | T001 | Structured resume and match data foundations | passed | feature/intelligent-recruiting-agent-upgrade | e4bb684 | PASS | 0 | `go test ./repository -run 'Test(ResumeProfileRepo|CandidateMatchRepo)' -count=1` passed; `go test ./...` passed per Developer report | Rollback point created. |
-| T002 | ResumeProfileService parsing and normalization | passed | feature/intelligent-recruiting-agent-upgrade | pending | PASS | 0 | `go test ./service ./repository -run 'TestResumeProfileService|TestResumeProfileRepo|TestResumeRepoGetByID' -count=1` passed; `go test ./...` passed per Developer report | Auto-commit pending. |
+| T002 | ResumeProfileService parsing and normalization | passed | feature/intelligent-recruiting-agent-upgrade | ad3bf53 | PASS | 0 | `go test ./service ./repository -run 'TestResumeProfileService|TestResumeProfileRepo|TestResumeRepoGetByID' -count=1` passed; `go test ./...` passed per Developer report | Rollback point created. |
 | T003 | CandidateMatchService scoring and evidence | pending | integration/agent-platform | - | - | 0 | `go test ./...` in `logic-grpc-service` focused service tests | Builds deterministic scoring, versioning, risks, missing requirements, evidence records. |
 | T004 | Backend API contracts for resume profiles and match evaluations | pending | integration/agent-platform | - | - | 0 | `go test ./...` in `logic-grpc-service`; `go test ./...` in `web-gin-service` | Adds proto/gRPC/web-gin API surface needed by tools and HR UI. |
 | T005 | ADK tools for resume profile and candidate match workflows | pending | integration/agent-platform | - | - | 0 | `go test ./...` in `logic-grpc-service` focused AI tool tests | Exposes parse/get/evaluate/get/compare tools with scope checks and traceable outputs. |
@@ -300,3 +300,4 @@
 | `2026-07-02 14:05` | T002 | developer completed | Developer reported ResumeProfileService implementation complete with focused service/repository tests and escalated full Go suite passing. Coordinator scope check found changes within T002 allowed files. |
 | `2026-07-02 14:06` | T002 | reviewing | Reviewer Subagent started read-only review. |
 | `2026-07-02 14:12` | T002 | reviewer PASS | Reviewer returned PASS. Coordinator reran focused service/repository tests successfully. |
+| `2026-07-02 14:14` | T002 | auto-commit created | Commit `ad3bf53` (`feat: add structured resume profile service`) created as T002 rollback point. |
