@@ -28,7 +28,15 @@ func TestAgentRunRecorderPersistsSuccessfulPlanEvidenceDecisionSkillsAndMemories
 		t.Fatal("expected recorder")
 	}
 	rec.setSelectedMemoryIDs(ctx, []int64{101, 102})
-	rec.setSelectedAgentSkillIDs([]int64{201})
+	rec.setSelectedAgentSkills(ctx, []selectedAgentSkill{{
+		ID:                   201,
+		Name:                 "match_governance",
+		DisplayName:          "Match Governance",
+		Manual:               true,
+		Priority:             20,
+		Reason:               "manual selection",
+		RequiredCapabilities: []string{"builtin:evaluate_candidate_match"},
+	}})
 	rec.recordRecruitingPlan(ctx, ai.RecruitingPlan{
 		Intent:        ai.IntentCandidateMatchEvaluation,
 		RequiredTools: []string{"evaluate_candidate_match"},
@@ -41,6 +49,8 @@ func TestAgentRunRecorderPersistsSuccessfulPlanEvidenceDecisionSkillsAndMemories
 	assertRunPlanContains(t, db, rec.runID,
 		`"intent":"candidate_match_evaluation"`,
 		`"selected_agent_skill_ids":[201]`,
+		`"selected_agent_skills":[`,
+		`"reason":"manual selection"`,
 		`"selected_memory_ids":[101,102]`,
 		`"status":"succeeded"`,
 		`"risk_flags":["cite_tool_returned_evidence"]`,

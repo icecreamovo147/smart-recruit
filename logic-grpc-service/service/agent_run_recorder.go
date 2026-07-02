@@ -251,6 +251,26 @@ func (r *agentRunRecorder) setSelectedAgentSkillIDs(ids []int64) {
 	}), "{}", "succeeded", 0, "")
 }
 
+func (r *agentRunRecorder) setSelectedAgentSkills(ctx context.Context, skills []selectedAgentSkill) {
+	if r == nil {
+		return
+	}
+	ids := selectedAgentSkillIDs(skills)
+	details := selectedAgentSkillTraceItems(skills)
+	r.stepMu.Lock()
+	r.selectedAgentSkillIDs = append([]int64(nil), ids...)
+	r.stepMu.Unlock()
+	r.updatePlanPatch(ctx, map[string]any{
+		"selected_agent_skill_ids": append([]int64(nil), ids...),
+		"selected_agent_skills":    details,
+	})
+	r.step(ctx, "prompt", "agent_skill", "", "", safeJSON(map[string]any{
+		"event":                    "agent_skill_selected",
+		"selected_agent_skill_ids": append([]int64(nil), ids...),
+		"selected_agent_skills":    details,
+	}), "{}", "succeeded", 0, "")
+}
+
 func (r *agentRunRecorder) setSelectedMemoryIDs(ctx context.Context, ids []int64) {
 	if r == nil {
 		return

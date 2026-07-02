@@ -379,7 +379,13 @@ func (s *AIService) runToolCallingChatWithUsage(ctx context.Context, req *pb.Cha
 		zap.Int64("session_id", session.ID),
 	)
 
-	selectedSkillsForHistory, err := selectAgentSkills(ctx, s.agentSkillRepo, req.GetMessage(), req.GetAgentSkillIds())
+	var historyToolNames []string
+	if runtimeCfg != nil && runtimeCfg.HasConfig {
+		historyToolNames = runtimeCfg.ToolNames
+	} else {
+		historyToolNames = agentRunToolInfoNames(ai.RecruitingTools())
+	}
+	selectedSkillsForHistory, err := selectAgentSkills(ctx, s.agentSkillRepo, "hr_recruiting_agent", req.GetMessage(), req.GetAgentSkillIds(), agentSkillAvailableCapabilities(runtimeCfg, historyToolNames))
 	if err != nil {
 		logger.L().Warn("select Agent Skills for history failed", zap.Error(err))
 		selectedSkillsForHistory = nil
@@ -603,6 +609,7 @@ func (s *AIService) runADKChat(
 			adkTools = nil // agent config exists but all tools disabled
 		}
 	}
+	availableCapabilities := agentSkillAvailableCapabilities(runtimeCfg, adkToolNames(ctx, adkTools))
 	maxIterations := 0
 	if runtimeCfg.MaxIterations > 0 {
 		maxIterations = runtimeCfg.MaxIterations
@@ -614,20 +621,11 @@ func (s *AIService) runADKChat(
 			merged = append(merged, adkTools...)
 			merged = append(merged, mcpTools...)
 			adkTools = merged
+			availableCapabilities = addRuntimeCapabilityRefs(availableCapabilities, "mcp", runtimeCfg.MCPCapabilityKeys)
 		}
 	}
 
 	instruction := extractSystemInstruction(messages)
-	agentSkills, err := selectAgentSkills(ctx, s.agentSkillRepo, req.GetMessage(), req.GetAgentSkillIds())
-	if err != nil {
-		logger.L().Warn("select Agent Skills failed", zap.Error(err))
-	} else if len(agentSkills) > 0 {
-		instruction = appendAgentSkillInstructionBlock(instruction, renderAgentSkillInstructionBlock(agentSkills))
-		if recorder != nil {
-			recorder.setSelectedAgentSkillIDs(selectedAgentSkillIDs(agentSkills))
-		}
-		logSelectedAgentSkills(agentSkills)
-	}
 	if s.skillSvc != nil && len(runtimeCfg.SkillCapabilityKeys) > 0 {
 		if skillTools, skillInstructions, err := s.skillSvc.CollectBoundSkillCallableTools(ctx, runtimeCfg.SkillCapabilityKeys); err == nil {
 			if len(skillTools) > 0 {
@@ -635,18 +633,33 @@ func (s *AIService) runADKChat(
 				merged = append(merged, adkTools...)
 				merged = append(merged, skillTools...)
 				adkTools = merged
+				availableCapabilities = addRuntimeCapabilityRefs(availableCapabilities, "skill", runtimeCfg.SkillCapabilityKeys)
 			}
 			instruction = appendSkillInstructions(instruction, skillInstructions)
 		} else {
 			logger.L().Warn("collect bound SKILL callable tools failed", zap.Error(err))
 		}
 	}
+	availableToolNames := adkToolNames(ctx, adkTools)
+	availableCapabilities = addRuntimeToolCapabilities(availableCapabilities, availableToolNames)
+	agentSkills, err := selectAgentSkills(ctx, s.agentSkillRepo, "hr_recruiting_agent", req.GetMessage(), req.GetAgentSkillIds(), availableCapabilities)
+	if err != nil {
+		logger.L().Warn("select Agent Skills failed", zap.Error(err))
+	} else if len(agentSkills) > 0 {
+		instruction = appendAgentSkillInstructionBlock(instruction, renderAgentSkillInstructionBlock(agentSkills))
+		if recorder != nil {
+			recorder.setSelectedAgentSkills(ctx, agentSkills)
+		}
+		logSelectedAgentSkills(agentSkills)
+	}
 	planner := ai.NewRecruitingPlanner()
+	availableToolNames = adkToolNames(ctx, adkTools)
 	plan := planner.Plan(ai.RecruitingPlannerInput{
 		Message:        req.GetMessage(),
-		AvailableTools: adkToolNames(ctx, adkTools),
+		AvailableTools: availableToolNames,
 		ApplicationID:  req.GetApplicationId(),
 	})
+	plan = applyAgentSkillPlannerConstraints(plan, agentSkills, availableToolNames)
 	if recorder != nil {
 		recorder.recordRecruitingPlan(ctx, plan)
 	}
@@ -700,21 +713,13 @@ func (s *AIService) runLegacyChat(
 			tools = nil // agent config exists but all tools disabled
 		}
 	}
+	availableCapabilities := agentSkillAvailableCapabilities(runtimeCfg, agentRunToolInfoNames(tools))
 
 	if s.mcpSvc != nil && len(runtimeCfg.MCPCapabilityKeys) > 0 {
 		if mcpTools, err := s.mcpSvc.CollectBoundMCPToolInfos(ctx, runtimeCfg.MCPCapabilityKeys); err == nil && len(mcpTools) > 0 {
 			tools = append(tools, mcpTools...)
+			availableCapabilities = addRuntimeCapabilityRefs(availableCapabilities, "mcp", runtimeCfg.MCPCapabilityKeys)
 		}
-	}
-	agentSkills, err := selectAgentSkills(ctx, s.agentSkillRepo, req.GetMessage(), req.GetAgentSkillIds())
-	if err != nil {
-		logger.L().Warn("select Agent Skills failed", zap.Error(err))
-	} else if len(agentSkills) > 0 {
-		messages = appendAgentSkillInstructionBlockToMessages(messages, renderAgentSkillInstructionBlock(agentSkills))
-		if recorder != nil {
-			recorder.setSelectedAgentSkillIDs(selectedAgentSkillIDs(agentSkills))
-		}
-		logSelectedAgentSkills(agentSkills)
 	}
 	var executor ai.ToolRunner = s.toolExecutor
 	if s.skillSvc != nil && len(runtimeCfg.SkillCapabilityKeys) > 0 {
@@ -730,18 +735,33 @@ func (s *AIService) runLegacyChat(
 					primary:    executor,
 					skillTools: skillInvokableToolsByName(ctx, skillCallableTools),
 				}
+				availableCapabilities = addRuntimeCapabilityRefs(availableCapabilities, "skill", runtimeCfg.SkillCapabilityKeys)
 			}
 			messages = appendSkillInstructionsToMessages(messages, skillInstructions)
 		} else {
 			logger.L().Warn("collect bound SKILL tool infos failed", zap.Error(err))
 		}
 	}
+	availableToolNames := agentRunToolInfoNames(tools)
+	availableCapabilities = addRuntimeToolCapabilities(availableCapabilities, availableToolNames)
+	agentSkills, err := selectAgentSkills(ctx, s.agentSkillRepo, "hr_recruiting_agent", req.GetMessage(), req.GetAgentSkillIds(), availableCapabilities)
+	if err != nil {
+		logger.L().Warn("select Agent Skills failed", zap.Error(err))
+	} else if len(agentSkills) > 0 {
+		messages = appendAgentSkillInstructionBlockToMessages(messages, renderAgentSkillInstructionBlock(agentSkills))
+		if recorder != nil {
+			recorder.setSelectedAgentSkills(ctx, agentSkills)
+		}
+		logSelectedAgentSkills(agentSkills)
+	}
 	planner := ai.NewRecruitingPlanner()
+	availableToolNames = agentRunToolInfoNames(tools)
 	plan := planner.Plan(ai.RecruitingPlannerInput{
 		Message:        req.GetMessage(),
-		AvailableTools: agentRunToolInfoNames(tools),
+		AvailableTools: availableToolNames,
 		ApplicationID:  req.GetApplicationId(),
 	})
+	plan = applyAgentSkillPlannerConstraints(plan, agentSkills, availableToolNames)
 	if recorder != nil {
 		recorder.recordRecruitingPlan(ctx, plan)
 	}
