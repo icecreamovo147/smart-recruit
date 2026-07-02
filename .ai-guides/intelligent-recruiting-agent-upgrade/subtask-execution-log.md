@@ -18,7 +18,7 @@
 |---|---|---|---|---|---|---:|---|---|
 | T001 | Structured resume and match data foundations | passed | feature/intelligent-recruiting-agent-upgrade | e4bb684 | PASS | 0 | `go test ./repository -run 'Test(ResumeProfileRepo|CandidateMatchRepo)' -count=1` passed; `go test ./...` passed per Developer report | Rollback point created. |
 | T002 | ResumeProfileService parsing and normalization | passed | feature/intelligent-recruiting-agent-upgrade | ad3bf53 | PASS | 0 | `go test ./service ./repository -run 'TestResumeProfileService|TestResumeProfileRepo|TestResumeRepoGetByID' -count=1` passed; `go test ./...` passed per Developer report | Rollback point created. |
-| T003 | CandidateMatchService scoring and evidence | pending | integration/agent-platform | - | - | 0 | `go test ./...` in `logic-grpc-service` focused service tests | Builds deterministic scoring, versioning, risks, missing requirements, evidence records. |
+| T003 | CandidateMatchService scoring and evidence | passed | feature/intelligent-recruiting-agent-upgrade | pending | PASS | 1 | `go test ./service -run CandidateMatchService -count=1` passed; `go test ./...` passed per Developer report | Auto-commit pending. |
 | T004 | Backend API contracts for resume profiles and match evaluations | pending | integration/agent-platform | - | - | 0 | `go test ./...` in `logic-grpc-service`; `go test ./...` in `web-gin-service` | Adds proto/gRPC/web-gin API surface needed by tools and HR UI. |
 | T005 | ADK tools for resume profile and candidate match workflows | pending | integration/agent-platform | - | - | 0 | `go test ./...` in `logic-grpc-service` focused AI tool tests | Exposes parse/get/evaluate/get/compare tools with scope checks and traceable outputs. |
 | T006 | Structured planner output model | pending | integration/agent-platform | - | - | 0 | `go test ./...` in `logic-grpc-service` focused planner tests | Adds rule-based planner for common recruiting intents before ADK execution. |
@@ -301,3 +301,9 @@
 | `2026-07-02 14:06` | T002 | reviewing | Reviewer Subagent started read-only review. |
 | `2026-07-02 14:12` | T002 | reviewer PASS | Reviewer returned PASS. Coordinator reran focused service/repository tests successfully. |
 | `2026-07-02 14:14` | T002 | auto-commit created | Commit `ad3bf53` (`feat: add structured resume profile service`) created as T002 rollback point. |
+| `2026-07-02 14:16` | T003 | started | Coordinator confirmed clean working tree and scoped T003 to deterministic CandidateMatchService, repository support, scoring/evidence/risk tests, and version persistence. |
+| `2026-07-02 14:33` | T003 | developer completed | Developer reported CandidateMatchService implementation complete with focused service tests and full Go suite passing. Coordinator scope check found changes within T003 allowed files. |
+| `2026-07-02 14:34` | T003 | reviewing | Reviewer Subagent started read-only review. |
+| `2026-07-02 14:40` | T003 | reviewer NEEDS_FIX | Reviewer found missing-job handling is misclassified as missing application because ApplicationRepo.GetDetail inner-joins jobs. |
+| `2026-07-02 14:46` | T003 | fixer completed round 1 | Fixer added ApplicationRepo.GetByID, changed CandidateMatchService to check base application/job before joined detail, and added missing-job regression test. |
+| `2026-07-02 14:50` | T003 | reviewer PASS | Reviewer re-check returned PASS. Coordinator reran focused CandidateMatchService tests successfully. |

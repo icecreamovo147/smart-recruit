@@ -1,0 +1,609 @@
+package service
+
+import (
+	"context"
+	"crypto/sha256"
+	"encoding/hex"
+	"encoding/json"
+	"errors"
+	"fmt"
+	"math"
+	"regexp"
+	"sort"
+	"strings"
+	"time"
+
+	"logic-grpc-service/model"
+	"logic-grpc-service/repository"
+)
+
+const defaultCandidateMatchScorerVersion = "candidate-match-scorer-v1"
+
+var (
+	ErrCandidateMatchMissingApplication   = errors.New("application not found")
+	ErrCandidateMatchMissingJob           = errors.New("job not found")
+	ErrCandidateMatchMissingResume        = errors.New("resume not found")
+	ErrCandidateMatchMissingResumeProfile = errors.New("current resume profile not found")
+	ErrCandidateMatchIncompleteProfile    = errors.New("resume profile is incomplete")
+)
+
+type CandidateMatchService struct {
+	applications   *repository.ApplicationRepo
+	jobs           *repository.JobRepo
+	profiles       *repository.ProfileRepo
+	resumes        *repository.ResumeRepo
+	resumeProfiles *repository.ResumeProfileRepo
+	matches        *repository.CandidateMatchRepo
+	scorerVersion  string
+	now            func() time.Time
+}
+
+func NewCandidateMatchService(
+	applications *repository.ApplicationRepo,
+	jobs *repository.JobRepo,
+	profiles *repository.ProfileRepo,
+	resumes *repository.ResumeRepo,
+	resumeProfiles *repository.ResumeProfileRepo,
+	matches *repository.CandidateMatchRepo,
+) *CandidateMatchService {
+	return &CandidateMatchService{
+		applications:   applications,
+		jobs:           jobs,
+		profiles:       profiles,
+		resumes:        resumes,
+		resumeProfiles: resumeProfiles,
+		matches:        matches,
+		scorerVersion:  defaultCandidateMatchScorerVersion,
+		now:            time.Now,
+	}
+}
+
+func (s *CandidateMatchService) EvaluateApplication(ctx context.Context, applicationID int64, agentRunID *uint64) (*repository.CandidateMatchSnapshot, error) {
+	baseApplication, err := s.applications.GetByID(ctx, applicationID)
+	if err != nil {
+		return nil, fmt.Errorf("get application: %w", err)
+	}
+	if baseApplication == nil {
+		return nil, ErrCandidateMatchMissingApplication
+	}
+
+	job, err := s.jobs.GetByID(ctx, baseApplication.JobID)
+	if err != nil {
+		return nil, fmt.Errorf("get job: %w", err)
+	}
+	if job == nil {
+		return nil, ErrCandidateMatchMissingJob
+	}
+
+	application, err := s.applications.GetDetail(ctx, applicationID)
+	if err != nil {
+		return nil, fmt.Errorf("get application detail: %w", err)
+	}
+	if application == nil {
+		return nil, ErrCandidateMatchMissingApplication
+	}
+
+	profile, err := s.profiles.GetByUserID(ctx, application.UserID)
+	if err != nil {
+		return nil, fmt.Errorf("get candidate profile: %w", err)
+	}
+
+	resume, err := s.resumes.GetByID(ctx, application.ResumeID)
+	if err != nil {
+		return nil, fmt.Errorf("get resume: %w", err)
+	}
+	if resume == nil {
+		return nil, ErrCandidateMatchMissingResume
+	}
+
+	currentProfile, err := s.resumeProfiles.GetCurrentByResumeID(ctx, resume.ID)
+	if err != nil {
+		return nil, fmt.Errorf("get current resume profile: %w", err)
+	}
+	if currentProfile == nil {
+		return nil, ErrCandidateMatchMissingResumeProfile
+	}
+
+	resumeSnapshot, err := s.resumeProfiles.GetSnapshot(ctx, currentProfile.ID)
+	if err != nil {
+		return nil, fmt.Errorf("get resume profile snapshot: %w", err)
+	}
+	if isIncompleteResumeProfile(resumeSnapshot) {
+		return nil, ErrCandidateMatchIncompleteProfile
+	}
+
+	result := s.score(job, application, profile, resume, resumeSnapshot)
+	snapshot := &repository.CandidateMatchSnapshot{
+		Evaluation: model.CandidateMatchEvaluation{
+			ApplicationID:      application.ApplicationID,
+			JobID:              job.ID,
+			CandidateUserID:    application.UserID,
+			ResumeProfileID:    resumeSnapshot.Profile.ID,
+			AgentRunID:         agentRunID,
+			OverallScore:       result.OverallScore,
+			Recommendation:     result.Recommendation,
+			Summary:            result.Summary,
+			StrengthsJSON:      mustCandidateMatchJSON(result.Strengths),
+			RisksJSON:          mustCandidateMatchJSON(result.Risks),
+			ScoreBreakdownJSON: mustCandidateMatchJSON(result.Breakdown),
+			ModelName:          s.scorerVersion,
+			EvaluatedAt:        s.now().UTC(),
+		},
+		Evidence: result.Evidence,
+	}
+	if err := s.matches.SaveEvaluationVersion(ctx, snapshot); err != nil {
+		return nil, fmt.Errorf("save candidate match evaluation: %w", err)
+	}
+	return snapshot, nil
+}
+
+func (s *CandidateMatchService) score(job *model.Job, application *repository.ApplicationDetailRow, profile *model.CandidateProfile, resume *model.Resume, snapshot *repository.ResumeProfileSnapshot) candidateMatchScoreResult {
+	jobText := strings.Join([]string{job.Title, job.Department, job.Location, job.Description, job.Requirements}, " ")
+	resumeText := buildCandidateMatchResumeText(resume, snapshot, profile)
+	jobTokens := uniqueSortedTokens(jobText)
+	resumeTokens := tokenSet(resumeText)
+	requirementTerms := requirementKeywords(job.Requirements)
+	matchedRequirements, missingRequirements := splitMatches(requirementTerms, resumeTokens)
+
+	skillRequired := candidateMatchSkillTerms(jobText)
+	if len(skillRequired) == 0 {
+		skillRequired = requirementTerms
+	}
+	skillTerms := resumeSkillNames(snapshot.Skills)
+	skillSet := make(map[string]struct{}, len(skillTerms))
+	for _, term := range skillTerms {
+		for _, token := range uniqueSortedTokens(term) {
+			skillSet[token] = struct{}{}
+		}
+	}
+	matchedSkills, missingSkills := splitMatches(skillRequired, skillSet)
+
+	experienceScore := experienceDimensionScore(jobTokens, snapshot.Profile.TotalExperience, resumeTokens)
+	educationScore := educationDimensionScore(jobText, snapshot.Profile.HighestDegree, application.Education)
+	profileScore := profileDimensionScore(profile)
+	skillsScore := coverageScore(len(matchedSkills), len(skillRequired))
+	requirementsScore := coverageScore(len(matchedRequirements), len(requirementTerms))
+
+	dimensions := []candidateMatchDimension{
+		{Name: "skills", Weight: 0.35, Score: skillsScore, Matched: matchedSkills, Missing: missingSkills},
+		{Name: "requirements", Weight: 0.25, Score: requirementsScore, Matched: matchedRequirements, Missing: missingRequirements},
+		{Name: "experience", Weight: 0.20, Score: experienceScore},
+		{Name: "education", Weight: 0.10, Score: educationScore},
+		{Name: "profile", Weight: 0.10, Score: profileScore},
+	}
+
+	overall := 0.0
+	breakdown := candidateMatchBreakdown{
+		ScorerVersion:       s.scorerVersion,
+		InputHash:           candidateMatchInputHash(jobText, resumeText, s.scorerVersion),
+		MissingRequirements: missingRequirements,
+		Dimensions:          dimensions,
+	}
+	for _, dimension := range dimensions {
+		overall += dimension.Score * dimension.Weight
+	}
+	overall = roundCandidateMatchScore(overall)
+
+	risks := candidateMatchRisks(profile, resume, missingRequirements, missingSkills)
+	strengths := candidateMatchStrengths(matchedSkills, matchedRequirements, snapshot)
+	recommendation := candidateMatchRecommendation(overall, risks, missingRequirements)
+
+	return candidateMatchScoreResult{
+		OverallScore:   overall,
+		Recommendation: recommendation,
+		Summary:        candidateMatchSummary(overall, recommendation, matchedSkills, missingRequirements, risks),
+		Strengths:      strengths,
+		Risks:          risks,
+		Breakdown:      breakdown,
+		Evidence:       candidateMatchEvidence(job, profile, resume, snapshot, matchedSkills, matchedRequirements, missingRequirements, risks),
+	}
+}
+
+type candidateMatchScoreResult struct {
+	OverallScore   float64
+	Recommendation string
+	Summary        string
+	Strengths      []candidateMatchSignal
+	Risks          []candidateMatchSignal
+	Breakdown      candidateMatchBreakdown
+	Evidence       []model.CandidateMatchEvidence
+}
+
+type candidateMatchBreakdown struct {
+	ScorerVersion       string                    `json:"scorer_version"`
+	InputHash           string                    `json:"input_hash"`
+	MissingRequirements []string                  `json:"missing_requirements"`
+	Dimensions          []candidateMatchDimension `json:"dimensions"`
+}
+
+type candidateMatchDimension struct {
+	Name    string   `json:"name"`
+	Weight  float64  `json:"weight"`
+	Score   float64  `json:"score"`
+	Matched []string `json:"matched,omitempty"`
+	Missing []string `json:"missing,omitempty"`
+}
+
+type candidateMatchSignal struct {
+	Code    string `json:"code"`
+	Message string `json:"message"`
+}
+
+var candidateMatchTokenRE = regexp.MustCompile(`[a-z0-9+#.]+`)
+
+func uniqueSortedTokens(text string) []string {
+	matches := candidateMatchTokenRE.FindAllString(strings.ToLower(text), -1)
+	seen := make(map[string]struct{}, len(matches))
+	for _, match := range matches {
+		token := strings.Trim(match, ".")
+		if len(token) < 2 || candidateMatchStopwords[token] {
+			continue
+		}
+		seen[token] = struct{}{}
+	}
+	out := make([]string, 0, len(seen))
+	for token := range seen {
+		out = append(out, token)
+	}
+	sort.Strings(out)
+	return out
+}
+
+func tokenSet(text string) map[string]struct{} {
+	tokens := uniqueSortedTokens(text)
+	set := make(map[string]struct{}, len(tokens))
+	for _, token := range tokens {
+		set[token] = struct{}{}
+	}
+	return set
+}
+
+func requirementKeywords(requirements string) []string {
+	tokens := uniqueSortedTokens(requirements)
+	if len(tokens) > 16 {
+		tokens = tokens[:16]
+	}
+	return tokens
+}
+
+func candidateMatchSkillTerms(text string) []string {
+	tokens := uniqueSortedTokens(text)
+	out := make([]string, 0, len(tokens))
+	for _, token := range tokens {
+		if candidateMatchKnownSkills[token] {
+			out = append(out, token)
+		}
+	}
+	return out
+}
+
+func splitMatches(required []string, actual map[string]struct{}) ([]string, []string) {
+	matched := make([]string, 0, len(required))
+	missing := make([]string, 0, len(required))
+	for _, requirement := range required {
+		if _, ok := actual[requirement]; ok {
+			matched = append(matched, requirement)
+		} else {
+			missing = append(missing, requirement)
+		}
+	}
+	return matched, missing
+}
+
+func resumeSkillNames(skills []model.ResumeSkill) []string {
+	out := make([]string, 0, len(skills))
+	for _, skill := range skills {
+		if strings.TrimSpace(skill.Name) != "" {
+			out = append(out, skill.Name)
+		}
+	}
+	sort.Strings(out)
+	return out
+}
+
+func buildCandidateMatchResumeText(resume *model.Resume, snapshot *repository.ResumeProfileSnapshot, profile *model.CandidateProfile) string {
+	parts := []string{
+		resume.ParsedText,
+		snapshot.Profile.FullName,
+		snapshot.Profile.Headline,
+		snapshot.Profile.Summary,
+		snapshot.Profile.HighestDegree,
+	}
+	if profile != nil {
+		parts = append(parts, profile.RealName, profile.Education, profile.School, profile.WorkExperience, profile.Skills)
+	}
+	for _, education := range snapshot.Educations {
+		parts = append(parts, education.School, education.Degree, education.Major, education.Description)
+	}
+	for _, experience := range snapshot.Experiences {
+		parts = append(parts, experience.Company, experience.Title, experience.Description, experience.AchievementsJSON)
+	}
+	for _, project := range snapshot.Projects {
+		parts = append(parts, project.Name, project.Role, project.Description, project.TechnologiesJSON, project.HighlightsJSON)
+	}
+	for _, skill := range snapshot.Skills {
+		parts = append(parts, skill.Name, skill.Category, skill.Level, skill.Evidence)
+	}
+	return strings.Join(parts, " ")
+}
+
+func isIncompleteResumeProfile(snapshot *repository.ResumeProfileSnapshot) bool {
+	if snapshot == nil || snapshot.Profile.ID == 0 {
+		return true
+	}
+	return strings.TrimSpace(snapshot.Profile.FullName) == "" ||
+		(len(snapshot.Educations) == 0 && len(snapshot.Experiences) == 0 && len(snapshot.Projects) == 0 && len(snapshot.Skills) == 0)
+}
+
+func coverageScore(matched, total int) float64 {
+	if total == 0 {
+		return 70
+	}
+	return roundCandidateMatchScore(float64(matched) / float64(total) * 100)
+}
+
+func experienceDimensionScore(jobTokens []string, years float64, resumeTokens map[string]struct{}) float64 {
+	score := 55.0
+	if years >= 5 {
+		score += 25
+	} else if years >= 3 {
+		score += 18
+	} else if years >= 1 {
+		score += 10
+	}
+	matched := 0
+	for _, token := range jobTokens {
+		if _, ok := resumeTokens[token]; ok {
+			matched++
+		}
+	}
+	if len(jobTokens) > 0 {
+		score += math.Min(20, float64(matched)/float64(len(jobTokens))*35)
+	}
+	return roundCandidateMatchScore(math.Min(100, score))
+}
+
+func educationDimensionScore(jobText, highestDegree, applicationEducation string) float64 {
+	text := strings.ToLower(strings.Join([]string{highestDegree, applicationEducation}, " "))
+	job := strings.ToLower(jobText)
+	if strings.Contains(job, "master") || strings.Contains(job, "硕士") {
+		if strings.Contains(text, "master") || strings.Contains(text, "硕士") || strings.Contains(text, "phd") || strings.Contains(text, "doctor") || strings.Contains(text, "博士") {
+			return 100
+		}
+		return 45
+	}
+	if strings.Contains(job, "bachelor") || strings.Contains(job, "本科") {
+		if strings.Contains(text, "bachelor") || strings.Contains(text, "本科") || strings.Contains(text, "master") || strings.Contains(text, "硕士") || strings.Contains(text, "phd") || strings.Contains(text, "博士") {
+			return 100
+		}
+		return 55
+	}
+	if strings.TrimSpace(text) == "" {
+		return 60
+	}
+	return 80
+}
+
+func profileDimensionScore(profile *model.CandidateProfile) float64 {
+	if profile == nil {
+		return 35
+	}
+	score := 40.0
+	fields := []string{profile.RealName, profile.Phone, profile.Education, profile.School, profile.WorkExperience, profile.Skills}
+	for _, field := range fields {
+		if strings.TrimSpace(field) != "" {
+			score += 8
+		}
+	}
+	if profile.IsComplete == 1 {
+		score += 12
+	}
+	return roundCandidateMatchScore(math.Min(100, score))
+}
+
+func candidateMatchRisks(profile *model.CandidateProfile, resume *model.Resume, missingRequirements, missingSkills []string) []candidateMatchSignal {
+	var risks []candidateMatchSignal
+	if profile == nil {
+		risks = append(risks, candidateMatchSignal{Code: "candidate_profile_missing", Message: "Candidate profile is missing."})
+	} else if profile.IsComplete != 1 {
+		risks = append(risks, candidateMatchSignal{Code: "candidate_profile_incomplete", Message: "Candidate profile is incomplete."})
+	}
+	if strings.TrimSpace(resume.ParsedText) == "" {
+		risks = append(risks, candidateMatchSignal{Code: "resume_text_missing", Message: "Resume parsed text is empty, reducing evidence quality."})
+	}
+	if len(missingRequirements) > 0 {
+		risks = append(risks, candidateMatchSignal{Code: "requirements_gap", Message: "Missing job requirement evidence: " + strings.Join(missingRequirements, ", ")})
+	}
+	if len(missingSkills) > 0 {
+		risks = append(risks, candidateMatchSignal{Code: "skills_gap", Message: "Missing skill evidence: " + strings.Join(missingSkills, ", ")})
+	}
+	return risks
+}
+
+func candidateMatchStrengths(matchedSkills, matchedRequirements []string, snapshot *repository.ResumeProfileSnapshot) []candidateMatchSignal {
+	var strengths []candidateMatchSignal
+	if len(matchedSkills) > 0 {
+		strengths = append(strengths, candidateMatchSignal{Code: "matched_skills", Message: "Matched skills: " + strings.Join(matchedSkills, ", ")})
+	}
+	if len(matchedRequirements) > 0 {
+		strengths = append(strengths, candidateMatchSignal{Code: "matched_requirements", Message: "Matched requirements: " + strings.Join(matchedRequirements, ", ")})
+	}
+	if snapshot.Profile.TotalExperience >= 3 {
+		strengths = append(strengths, candidateMatchSignal{Code: "experience_depth", Message: fmt.Sprintf("Resume profile reports %.1f years of experience.", snapshot.Profile.TotalExperience)})
+	}
+	return strengths
+}
+
+func candidateMatchRecommendation(score float64, risks []candidateMatchSignal, missingRequirements []string) string {
+	if score >= 82 && len(missingRequirements) <= 1 {
+		return "strong_match"
+	}
+	if score >= 65 && len(risks) <= 3 {
+		return "possible_match"
+	}
+	if score >= 50 {
+		return "needs_review"
+	}
+	return "not_recommended"
+}
+
+func candidateMatchSummary(score float64, recommendation string, matchedSkills, missingRequirements []string, risks []candidateMatchSignal) string {
+	parts := []string{
+		fmt.Sprintf("Overall score %.1f with recommendation %s.", score, recommendation),
+	}
+	if len(matchedSkills) > 0 {
+		parts = append(parts, "Matched skills: "+strings.Join(matchedSkills, ", ")+".")
+	}
+	if len(missingRequirements) > 0 {
+		parts = append(parts, "Missing requirements: "+strings.Join(missingRequirements, ", ")+".")
+	}
+	if len(risks) > 0 {
+		parts = append(parts, fmt.Sprintf("%d risk signal(s) require review.", len(risks)))
+	}
+	return strings.Join(parts, " ")
+}
+
+func candidateMatchEvidence(job *model.Job, profile *model.CandidateProfile, resume *model.Resume, snapshot *repository.ResumeProfileSnapshot, matchedSkills, matchedRequirements, missingRequirements []string, risks []candidateMatchSignal) []model.CandidateMatchEvidence {
+	var evidence []model.CandidateMatchEvidence
+	for _, skill := range snapshot.Skills {
+		skillTokens := tokenSet(skill.Name)
+		for _, matched := range matchedSkills {
+			if _, ok := skillTokens[matched]; ok {
+				sourceID := skill.ID
+				evidence = append(evidence, model.CandidateMatchEvidence{
+					EvidenceType: "skill",
+					Dimension:    "skills",
+					SourceTable:  "resume_skills",
+					SourceID:     &sourceID,
+					Snippet:      skill.Name,
+					Weight:       0.35,
+					ScoreImpact:  100,
+				})
+			}
+		}
+	}
+	for _, experience := range snapshot.Experiences {
+		text := strings.Join([]string{experience.Title, experience.Description, experience.AchievementsJSON}, " ")
+		tokens := tokenSet(text)
+		for _, requirement := range matchedRequirements {
+			if _, ok := tokens[requirement]; ok {
+				sourceID := experience.ID
+				evidence = append(evidence, model.CandidateMatchEvidence{
+					EvidenceType: "experience",
+					Dimension:    "requirements",
+					SourceTable:  "resume_experiences",
+					SourceID:     &sourceID,
+					Snippet:      truncateCandidateMatchSnippet(text),
+					Weight:       0.25,
+					ScoreImpact:  75,
+				})
+			}
+		}
+	}
+	for _, requirement := range matchedRequirements {
+		if strings.Contains(strings.ToLower(resume.ParsedText), requirement) {
+			sourceID := uint64(resume.ID)
+			evidence = append(evidence, model.CandidateMatchEvidence{
+				EvidenceType: "resume_text",
+				Dimension:    "requirements",
+				SourceTable:  "resumes",
+				SourceID:     &sourceID,
+				Snippet:      truncateCandidateMatchSnippet(resume.ParsedText),
+				Weight:       0.10,
+				ScoreImpact:  50,
+			})
+			break
+		}
+	}
+	if len(missingRequirements) > 0 {
+		sourceID := uint64(job.ID)
+		evidence = append(evidence, model.CandidateMatchEvidence{
+			EvidenceType: "missing_requirement",
+			Dimension:    "requirements",
+			SourceTable:  "jobs",
+			SourceID:     &sourceID,
+			Snippet:      strings.Join(missingRequirements, ", "),
+			Weight:       0.25,
+			ScoreImpact:  -25,
+		})
+	}
+	if profile != nil {
+		sourceID := uint64(profile.ID)
+		evidence = append(evidence, model.CandidateMatchEvidence{
+			EvidenceType: "candidate_profile",
+			Dimension:    "profile",
+			SourceTable:  "candidate_profiles",
+			SourceID:     &sourceID,
+			Snippet:      truncateCandidateMatchSnippet(strings.Join([]string{profile.RealName, profile.Education, profile.School, profile.Skills}, " ")),
+			Weight:       0.10,
+			ScoreImpact:  profileDimensionScore(profile),
+		})
+	}
+	for _, risk := range risks {
+		evidence = append(evidence, model.CandidateMatchEvidence{
+			EvidenceType: "risk",
+			Dimension:    "risk",
+			SourceTable:  "resume_profiles",
+			SourceID:     &snapshot.Profile.ID,
+			Snippet:      risk.Message,
+			Weight:       0,
+			ScoreImpact:  -10,
+		})
+	}
+	sort.SliceStable(evidence, func(i, j int) bool {
+		left := evidence[i]
+		right := evidence[j]
+		if left.EvidenceType != right.EvidenceType {
+			return left.EvidenceType < right.EvidenceType
+		}
+		if left.SourceTable != right.SourceTable {
+			return left.SourceTable < right.SourceTable
+		}
+		return left.Snippet < right.Snippet
+	})
+	return evidence
+}
+
+func candidateMatchInputHash(jobText, resumeText, scorerVersion string) string {
+	sum := sha256.Sum256([]byte(strings.Join([]string{jobText, resumeText, scorerVersion}, "\n")))
+	return hex.EncodeToString(sum[:])
+}
+
+func roundCandidateMatchScore(score float64) float64 {
+	return math.Round(score*10) / 10
+}
+
+func truncateCandidateMatchSnippet(text string) string {
+	text = strings.Join(strings.Fields(text), " ")
+	if len(text) <= 240 {
+		return text
+	}
+	return text[:240]
+}
+
+func mustCandidateMatchJSON(v any) string {
+	data, err := json.Marshal(v)
+	if err != nil {
+		panic(err)
+	}
+	return string(data)
+}
+
+var candidateMatchStopwords = map[string]bool{
+	"and": true, "are": true, "but": true, "for": true, "have": true, "with": true,
+	"the": true, "this": true, "that": true, "you": true, "your": true, "our": true,
+	"will": true, "can": true, "able": true, "using": true, "use": true, "must": true,
+	"plus": true, "nice": true, "good": true, "strong": true, "experience": true,
+	"years": true, "year": true, "work": true, "candidate": true, "role": true,
+	"required": true, "requirement": true, "requirements": true, "knowledge": true,
+	"熟悉": true, "经验": true, "能力": true,
+}
+
+var candidateMatchKnownSkills = map[string]bool{
+	"aws": true, "azure": true, "c": true, "c++": true, "c#": true, "css": true,
+	"docker": true, "elasticsearch": true, "gin": true, "git": true, "go": true,
+	"golang": true, "grpc": true, "html": true, "java": true, "javascript": true,
+	"kafka": true, "kubernetes": true, "linux": true, "mysql": true, "node": true,
+	"postgres": true, "postgresql": true, "python": true, "rabbitmq": true,
+	"react": true, "redis": true, "sql": true, "typescript": true, "vue": true,
+}

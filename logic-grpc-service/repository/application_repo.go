@@ -198,6 +198,18 @@ func (r *ApplicationRepo) Create(ctx context.Context, application *model.Applica
 	return err
 }
 
+func (r *ApplicationRepo) GetByID(ctx context.Context, applicationID int64) (*model.Application, error) {
+	var application model.Application
+	err := r.db.WithContext(ctx).First(&application, applicationID).Error
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	return &application, nil
+}
+
 func (r *ApplicationRepo) ListMy(ctx context.Context, userID int64, page, pageSize int32) ([]MyApplicationRow, int64, error) {
 	var total int64
 	base := r.db.WithContext(ctx).Table("applications").Where("applications.user_id = ?", userID)
