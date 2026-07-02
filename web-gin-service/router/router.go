@@ -227,11 +227,11 @@ func Setup(cfg config.Config, clients *rpc.Clients, rdb *redis.Client) (*gin.Eng
 	staffGroup.GET("/jobs/:job_id/applications", normalTimeout, middleware.RequirePermission(authz.PermApplicationRead), hrApplicationHandler.ListByJob)
 	staffGroup.PATCH("/applications/:application_id/status", normalTimeout, middleware.RequirePermission(authz.PermApplicationStatusUpdate), hrApplicationHandler.UpdateStatus)
 	staffGroup.GET("/applications/:id/transitions", normalTimeout, middleware.RequirePermission(authz.PermApplicationRead), hrApplicationHandler.ListTransitions)
-	staffGroup.GET("/applications/:application_id/resume-profile", normalTimeout, middleware.RequirePermission(authz.PermApplicationRead), recruitingIntelligenceHandler.GetResumeProfileByApplication)
+	staffGroup.GET("/applications/:id/resume-profile", normalTimeout, middleware.RequirePermission(authz.PermApplicationRead), recruitingIntelligenceHandler.GetResumeProfileByApplication)
 	staffGroup.GET("/resume-profiles", normalTimeout, middleware.RequirePermission(authz.PermApplicationRead), recruitingIntelligenceHandler.GetResumeProfile)
 	staffGroup.POST("/resume-profiles/parse", riskBlock, aiLimit, hrAIQuota, aiTimeout, bodyAuth, middleware.RequirePermission(authz.PermAIHRUse), recruitingIntelligenceHandler.ParseResumeProfile)
 	staffGroup.POST("/applications/:application_id/match-evaluations", riskBlock, aiLimit, hrAIQuota, aiTimeout, bodyAuth, middleware.RequirePermission(authz.PermAIHRUse), recruitingIntelligenceHandler.EvaluateCandidateMatch)
-	staffGroup.GET("/applications/:application_id/match-evaluation", normalTimeout, middleware.RequirePermission(authz.PermApplicationRead), recruitingIntelligenceHandler.GetCandidateMatchEvaluation)
+	staffGroup.GET("/applications/:id/match-evaluation", normalTimeout, middleware.RequirePermission(authz.PermApplicationRead), recruitingIntelligenceHandler.GetCandidateMatchEvaluation)
 	staffGroup.GET("/jobs/:job_id/candidate-comparison", normalTimeout, middleware.RequirePermission(authz.PermApplicationRead), recruitingIntelligenceHandler.CompareCandidatesForJob)
 
 	// Interview management — requires interview permissions

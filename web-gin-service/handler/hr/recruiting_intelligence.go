@@ -20,7 +20,7 @@ func NewRecruitingIntelligenceHandler(clients *rpc.Clients) *RecruitingIntellige
 }
 
 func (h *RecruitingIntelligenceHandler) GetResumeProfileByApplication(c *gin.Context) {
-	applicationID, err := parseInt64Param(c, "application_id")
+	applicationID, err := parseApplicationIDParam(c)
 	if err != nil {
 		base.BadRequest(c, "投递记录 ID 不合法")
 		return
@@ -73,7 +73,7 @@ func (h *RecruitingIntelligenceHandler) ParseResumeProfile(c *gin.Context) {
 }
 
 func (h *RecruitingIntelligenceHandler) EvaluateCandidateMatch(c *gin.Context) {
-	applicationID, err := parseInt64Param(c, "application_id")
+	applicationID, err := parseApplicationIDParam(c)
 	if err != nil {
 		base.BadRequest(c, "投递记录 ID 不合法")
 		return
@@ -95,7 +95,7 @@ func (h *RecruitingIntelligenceHandler) EvaluateCandidateMatch(c *gin.Context) {
 }
 
 func (h *RecruitingIntelligenceHandler) GetCandidateMatchEvaluation(c *gin.Context) {
-	applicationID, err := parseInt64Param(c, "application_id")
+	applicationID, err := parseApplicationIDParam(c)
 	if err != nil {
 		base.BadRequest(c, "投递记录 ID 不合法")
 		return
@@ -132,6 +132,13 @@ func (h *RecruitingIntelligenceHandler) CompareCandidatesForJob(c *gin.Context) 
 
 func parseInt64Param(c *gin.Context, name string) (int64, error) {
 	return strconv.ParseInt(c.Param(name), 10, 64)
+}
+
+func parseApplicationIDParam(c *gin.Context) (int64, error) {
+	if value := c.Param("application_id"); value != "" {
+		return strconv.ParseInt(value, 10, 64)
+	}
+	return parseInt64Param(c, "id")
 }
 
 func parseInt64Query(c *gin.Context, name string) int64 {
