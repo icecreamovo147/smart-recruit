@@ -110,6 +110,52 @@ func TestAgentSkillServiceCreateStoresGovernanceMetadata(t *testing.T) {
 	}
 }
 
+func TestAgentSkillServiceDebugSemanticRetrievalFallback(t *testing.T) {
+	svc, db := newAgentSkillTestService(t)
+	if err := db.AutoMigrate(&model.AIMemory{}, &model.AIEmbedding{}); err != nil {
+		t.Fatalf("auto migrate semantic debug tables: %v", err)
+	}
+	svc.WithSemanticDebugDependencies(repository.NewMemoryRepo(db), NewEmbeddingService(repository.NewAIEmbeddingRepo(db), UnavailableEmbeddingProvider{}))
+	ctx := context.Background()
+	skill := &model.AgentSkill{
+		Name:              "candidate_match_debug",
+		DisplayName:       "Candidate Match Debug",
+		Description:       "candidate match",
+		IsEnabled:         1,
+		IsManualInvocable: 1,
+		AgentType:         defaultAgentSkillAgentType,
+		Category:          "candidate_match",
+		SemanticTags:      `["candidate","match"]`,
+	}
+	version := &model.AgentSkillVersion{Version: "1.0.0", SkillMD: "candidate match", BodyMarkdown: "candidate match"}
+	if err := repository.NewAgentSkillRepo(db).CreateSkillWithVersion(ctx, skill, version, true); err != nil {
+		t.Fatalf("CreateSkillWithVersion: %v", err)
+	}
+	if err := repository.NewMemoryRepo(db).Create(ctx, &model.AIMemory{
+		HrID:       20,
+		ScopeType:  "hr",
+		ScopeID:    0,
+		MemoryType: "preference",
+		Content:    "candidate match summaries should cite risks",
+		Source:     "user",
+		Confidence: 0.8,
+		Importance: 0.9,
+	}); err != nil {
+		t.Fatalf("Create memory: %v", err)
+	}
+
+	resp, err := svc.DebugSemanticRetrieval(ctx, &pb.DebugSemanticRetrievalRequest{HrId: 20, Query: "candidate match", Limit: 5})
+	if err != nil {
+		t.Fatalf("DebugSemanticRetrieval: %v", err)
+	}
+	if resp.GetCode() != 0 || resp.GetEmbeddingAvailable() {
+		t.Fatalf("unexpected response status: %#v", resp)
+	}
+	if resp.GetFallbackReason() == "" || len(resp.GetSkills()) != 1 || len(resp.GetMemories()) != 1 {
+		t.Fatalf("fallback debug payload incomplete: %#v", resp)
+	}
+}
+
 func TestAgentSkillServiceRejectsUnavailableRequiredCapability(t *testing.T) {
 	svc, _ := newAgentSkillTestService(t)
 

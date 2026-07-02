@@ -30,6 +30,7 @@ const AgentManageView = () => import('@/views/hr/admin/AgentManageView.vue')
 const McpManageView = () => import('@/views/hr/admin/McpManageView.vue')
 const SkillManageView = () => import('@/views/hr/admin/SkillManageView.vue')
 const AgentSkillManageView = () => import('@/views/hr/admin/AgentSkillManageView.vue')
+const SemanticRetrievalDebugView = () => import('@/views/hr/admin/SemanticRetrievalDebugView.vue')
 const ForbiddenView = () => import('@/views/ForbiddenView.vue')
 const NotFoundView = () => import('@/views/NotFoundView.vue')
 const CandidateDetailView = () => import('@/views/hr/CandidateDetailView.vue')
@@ -171,6 +172,11 @@ const routes: RouteRecordRaw[] = [
     path: '/hr/admin/agent-skills',
     component: AgentSkillManageView,
     meta: { requiresAuth: true, requiresPermission: PERM.AI_AGENT_SKILL_MANAGE, title: 'Agent Skill 管理' },
+  },
+  {
+    path: '/hr/admin/semantic-retrieval',
+    component: SemanticRetrievalDebugView,
+    meta: { requiresAuth: true, requiresPermission: PERM.AI_AGENT_SKILL_MANAGE, title: '语义召回调试' },
   },
   {
     path: '/hr/admin/mcp-tools',

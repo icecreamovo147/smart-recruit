@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { ArrowDown, Briefcase, ChatDotRound, Collection, Connection, DataAnalysis, Edit, Expand, Fold, Key, MagicStick, Menu, Monitor, Moon, Operation, Setting, Sunny, Tools, UserFilled } from '@element-plus/icons-vue'
+import { ArrowDown, Briefcase, ChatDotRound, Collection, Connection, DataAnalysis, Edit, Expand, Fold, Key, MagicStick, Menu, Monitor, Moon, Operation, Search, Setting, Sunny, Tools, UserFilled } from '@element-plus/icons-vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { useAuthStore } from '@/stores/auth'
 import { useTheme } from '@/composables/useTheme'
@@ -206,6 +206,10 @@ const routeViewKey = (viewRoute: { fullPath: string; path: string; params: Recor
           <RouterLink v-if="canManageAgentSkills" class="sidebar-link" to="/hr/admin/agent-skills" @click="closeMobileSidebar">
             <el-icon><MagicStick /></el-icon>
             <span>Agent Skill 管理</span>
+          </RouterLink>
+          <RouterLink v-if="canManageAgentSkills" class="sidebar-link" to="/hr/admin/semantic-retrieval" @click="closeMobileSidebar">
+            <el-icon><Search /></el-icon>
+            <span>语义召回调试</span>
           </RouterLink>
           <RouterLink v-if="auth.hasPermission(PERM.SYSTEM_CONFIG_MANAGE)" class="sidebar-link" to="/hr/admin/mcp-tools" @click="closeMobileSidebar">
             <el-icon><Connection /></el-icon>

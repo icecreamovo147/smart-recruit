@@ -134,6 +134,31 @@ func (h *AgentSkillHandler) ListAvailable(c *gin.Context) {
 	base.From(c, resp.Code, resp.Msg, gin.H{"total": resp.Total, "list": resp.List})
 }
 
+func (h *AgentSkillHandler) DebugSemanticRetrieval(c *gin.Context) {
+	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "5"))
+	jobID, _ := strconv.ParseInt(c.DefaultQuery("job_id", "0"), 10, 64)
+	applicationID, _ := strconv.ParseInt(c.DefaultQuery("application_id", "0"), 10, 64)
+	resp, err := h.clients.AgentSkill.DebugSemanticRetrieval(c.Request.Context(), &pb.DebugSemanticRetrievalRequest{
+		HrId:          currentUserID(c),
+		Query:         strings.TrimSpace(c.Query("query")),
+		AgentType:     strings.TrimSpace(c.DefaultQuery("agent_type", "hr_recruiting_agent")),
+		JobId:         jobID,
+		ApplicationId: applicationID,
+		Limit:         int32(limit),
+	})
+	if err != nil {
+		logger.L().Error("DebugSemanticRetrieval failed", zap.Error(err))
+		base.Internal(c, err)
+		return
+	}
+	base.From(c, resp.Code, resp.Msg, gin.H{
+		"embedding_available": resp.EmbeddingAvailable,
+		"fallback_reason":     resp.FallbackReason,
+		"skills":              resp.Skills,
+		"memories":            resp.Memories,
+	})
+}
+
 func (h *AgentSkillHandler) Get(c *gin.Context) {
 	id, err := parseIDParam(c, "id")
 	if err != nil {

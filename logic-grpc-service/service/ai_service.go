@@ -1254,6 +1254,7 @@ func (s *AIService) writeMemory(ctx context.Context, hrID int64, scopeType strin
 		Content:    content,
 		Source:     source,
 		Confidence: confidence,
+		Importance: confidence,
 	}
 	if err := s.memories.Create(ctx, memory); err != nil {
 		logger.L().Warn("[长期记忆] 写入失败",

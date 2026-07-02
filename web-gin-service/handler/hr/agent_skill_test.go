@@ -70,6 +70,10 @@ func (m *mockAgentSkillClient) ListAvailableAgentSkills(context.Context, *pb.Lis
 	return &pb.ListAgentSkillsResponse{Code: 0, Msg: "ok"}, nil
 }
 
+func (m *mockAgentSkillClient) DebugSemanticRetrieval(context.Context, *pb.DebugSemanticRetrievalRequest, ...grpc.CallOption) (*pb.DebugSemanticRetrievalResponse, error) {
+	return &pb.DebugSemanticRetrievalResponse{Code: 0, Msg: "ok"}, nil
+}
+
 func TestAgentSkillHandlerCreateVersionConvertsNodesToFlowJSON(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 

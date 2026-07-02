@@ -22,6 +22,8 @@ type AgentSkillService struct {
 	pb.UnimplementedAgentSkillServiceServer
 	repo            *repository.AgentSkillRepo
 	agentConfigRepo *repository.AgentConfigRepo
+	memoryRepo      *repository.MemoryRepo
+	embeddings      *EmbeddingService
 }
 
 const (
@@ -39,6 +41,14 @@ func NewAgentSkillService(repo *repository.AgentSkillRepo) *AgentSkillService {
 
 func NewAgentSkillServiceWithAgentConfigRepo(repo *repository.AgentSkillRepo, agentConfigRepo *repository.AgentConfigRepo) *AgentSkillService {
 	return &AgentSkillService{repo: repo, agentConfigRepo: agentConfigRepo}
+}
+
+func (s *AgentSkillService) WithSemanticDebugDependencies(memoryRepo *repository.MemoryRepo, embeddings *EmbeddingService) *AgentSkillService {
+	if s != nil {
+		s.memoryRepo = memoryRepo
+		s.embeddings = embeddings
+	}
+	return s
 }
 
 func (s *AgentSkillService) ListAgentSkills(ctx context.Context, req *pb.ListAgentSkillsRequest) (*pb.ListAgentSkillsResponse, error) {
@@ -59,6 +69,46 @@ func (s *AgentSkillService) ListAvailableAgentSkills(ctx context.Context, req *p
 	return &pb.ListAgentSkillsResponse{Code: 0, Msg: "success", Total: total, List: s.agentSkillsToPB(ctx, skills)}, nil
 }
 
+func (s *AgentSkillService) DebugSemanticRetrieval(ctx context.Context, req *pb.DebugSemanticRetrievalRequest) (*pb.DebugSemanticRetrievalResponse, error) {
+	query := strings.TrimSpace(req.GetQuery())
+	if query == "" {
+		return &pb.DebugSemanticRetrievalResponse{Code: 400, Msg: "query is required"}, nil
+	}
+	agentType := strings.TrimSpace(req.GetAgentType())
+	if agentType == "" {
+		agentType = defaultAgentSkillAgentType
+	}
+	limit := int(req.GetLimit())
+	if limit <= 0 {
+		limit = 5
+	}
+	if limit > 20 {
+		limit = 20
+	}
+
+	skillScores, embeddingAvailable := s.semanticDebugSkillScores(ctx, query, limit)
+	selected, err := selectAgentSkillsWithSemantic(ctx, s.repo, agentType, query, nil, nil, skillScores)
+	if err != nil {
+		return nil, status.Error(codes.Internal, "debug semantic skill retrieval failed")
+	}
+	if len(selected) > limit {
+		selected = selected[:limit]
+	}
+	memories := s.semanticDebugMemories(ctx, req, limit, &embeddingAvailable)
+	fallbackReason := ""
+	if !embeddingAvailable {
+		fallbackReason = "embedding retrieval unavailable; showing rule-based Skill matches and scoped memory fallback ordering"
+	}
+	return &pb.DebugSemanticRetrievalResponse{
+		Code:               0,
+		Msg:                "success",
+		EmbeddingAvailable: embeddingAvailable,
+		FallbackReason:     fallbackReason,
+		Skills:             semanticDebugSkillsToPB(selected),
+		Memories:           memories,
+	}, nil
+}
+
 func (s *AgentSkillService) GetAgentSkill(ctx context.Context, req *pb.GetAgentSkillRequest) (*pb.AgentSkillResponse, error) {
 	if req.GetId() <= 0 {
 		return nil, status.Error(codes.InvalidArgument, "id is required")
@@ -68,6 +118,96 @@ func (s *AgentSkillService) GetAgentSkill(ctx context.Context, req *pb.GetAgentS
 		return nil, status.Error(codes.NotFound, "agent skill not found")
 	}
 	return &pb.AgentSkillResponse{Code: 0, Msg: "success", Skill: s.agentSkillToPB(ctx, skill)}, nil
+}
+
+func (s *AgentSkillService) semanticDebugSkillScores(ctx context.Context, query string, limit int) (map[int64]float64, bool) {
+	if s == nil || s.embeddings == nil {
+		return nil, false
+	}
+	results, err := s.embeddings.Search(ctx, EmbeddingSearchInput{
+		QueryText:   query,
+		ObjectTypes: []string{"agent_skill"},
+		Limit:       limit * 4,
+	})
+	if err != nil {
+		return nil, false
+	}
+	scores := make(map[int64]float64, len(results))
+	for _, result := range results {
+		if result.Embedding.ObjectType == "agent_skill" {
+			scores[int64(result.Embedding.ObjectID)] = result.Score
+		}
+	}
+	return scores, len(scores) > 0
+}
+
+func (s *AgentSkillService) semanticDebugMemories(ctx context.Context, req *pb.DebugSemanticRetrievalRequest, limit int, embeddingAvailable *bool) []*pb.SemanticMemoryDebugItem {
+	if s == nil || s.memoryRepo == nil {
+		return nil
+	}
+	builder := (&AgentContextBuilder{memories: s.memoryRepo}).WithEmbeddingService(s.embeddings)
+	input := AgentContextInput{
+		HrID:           req.GetHrId(),
+		JobID:          req.GetJobId(),
+		ApplicationID:  req.GetApplicationId(),
+		CurrentMessage: req.GetQuery(),
+	}
+	scopes := memoryRecallScopes(input)
+	rows, err := s.memoryRepo.ListRecallCandidates(ctx, input.HrID, scopes, nil, limit*4)
+	if err != nil {
+		return nil
+	}
+	semanticScores := builder.semanticMemoryScores(ctx, input, rows)
+	if len(semanticScores) > 0 && embeddingAvailable != nil {
+		*embeddingAvailable = true
+	}
+	ranked := builder.rankMemories(ctx, input, rows)
+	if len(ranked) > limit {
+		ranked = ranked[:limit]
+	}
+	items := make([]*pb.SemanticMemoryDebugItem, 0, len(ranked))
+	for _, memory := range ranked {
+		score := memoryBaseRecallScore(memory, input)
+		reason := "scope/importance fallback"
+		if semanticScore, ok := semanticScores[memory.ID]; ok {
+			score += semanticScore * 100
+			reason = "semantic similarity and scope/importance"
+		} else {
+			score += keywordMemoryScore(input.CurrentMessage, memory.Content)
+		}
+		items = append(items, &pb.SemanticMemoryDebugItem{
+			Id:         memory.ID,
+			ScopeType:  memory.ScopeType,
+			ScopeId:    memory.ScopeID,
+			MemoryType: memory.MemoryType,
+			Content:    memory.Content,
+			Source:     memory.Source,
+			Confidence: memory.Confidence,
+			Importance: memory.Importance,
+			Score:      score,
+			Reason:     reason,
+			CreatedAt:  formatTime(memory.CreatedAt),
+		})
+	}
+	return items
+}
+
+func semanticDebugSkillsToPB(skills []selectedAgentSkill) []*pb.SemanticSkillDebugItem {
+	items := make([]*pb.SemanticSkillDebugItem, 0, len(skills))
+	for _, skill := range skills {
+		items = append(items, &pb.SemanticSkillDebugItem{
+			Id:           skill.ID,
+			Name:         skill.Name,
+			DisplayName:  skill.DisplayName,
+			Category:     skill.Category,
+			Scenario:     skill.Scenario,
+			Priority:     skill.Priority,
+			Score:        float64(skill.Score),
+			Reason:       skill.Reason,
+			SemanticTags: append([]string(nil), skill.SemanticTags...),
+		})
+	}
+	return items
 }
 
 func (s *AgentSkillService) CreateAgentSkill(ctx context.Context, req *pb.CreateAgentSkillRequest) (*pb.AgentSkillResponse, error) {

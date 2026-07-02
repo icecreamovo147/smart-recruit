@@ -37,6 +37,7 @@ type selectedAgentSkill struct {
 	Category             string
 	Scenario             string
 	RiskLevel            string
+	SemanticTags         []string
 	Reason               string
 }
 
@@ -212,6 +213,7 @@ func toSelectedAgentSkill(skill repository.AgentSkillRuntimeRecord, manual bool,
 		Category:             strings.TrimSpace(skill.Category),
 		Scenario:             strings.TrimSpace(skill.Scenario),
 		RiskLevel:            strings.TrimSpace(skill.RiskLevel),
+		SemanticTags:         agentSkillSemanticTags(skill.SemanticTags),
 		Reason:               reason,
 	}
 }
@@ -528,6 +530,7 @@ func selectedAgentSkillTraceItems(skills []selectedAgentSkill) []map[string]any 
 			"category":              skill.Category,
 			"scenario":              skill.Scenario,
 			"risk_level":            skill.RiskLevel,
+			"semantic_tags":         append([]string(nil), skill.SemanticTags...),
 			"required_capabilities": append([]string(nil), skill.RequiredCapabilities...),
 		})
 	}

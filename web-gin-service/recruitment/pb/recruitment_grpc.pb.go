@@ -7246,6 +7246,7 @@ const (
 	AgentSkillService_UpdateAgentSkillStatus_FullMethodName    = "/recruitment.AgentSkillService/UpdateAgentSkillStatus"
 	AgentSkillService_PreviewAgentSkill_FullMethodName         = "/recruitment.AgentSkillService/PreviewAgentSkill"
 	AgentSkillService_ListAvailableAgentSkills_FullMethodName  = "/recruitment.AgentSkillService/ListAvailableAgentSkills"
+	AgentSkillService_DebugSemanticRetrieval_FullMethodName    = "/recruitment.AgentSkillService/DebugSemanticRetrieval"
 )
 
 // AgentSkillServiceClient is the client API for AgentSkillService service.
@@ -7262,6 +7263,7 @@ type AgentSkillServiceClient interface {
 	UpdateAgentSkillStatus(ctx context.Context, in *UpdateAgentSkillStatusRequest, opts ...grpc.CallOption) (*AgentSkillResponse, error)
 	PreviewAgentSkill(ctx context.Context, in *PreviewAgentSkillRequest, opts ...grpc.CallOption) (*PreviewAgentSkillResponse, error)
 	ListAvailableAgentSkills(ctx context.Context, in *ListAvailableAgentSkillsRequest, opts ...grpc.CallOption) (*ListAgentSkillsResponse, error)
+	DebugSemanticRetrieval(ctx context.Context, in *DebugSemanticRetrievalRequest, opts ...grpc.CallOption) (*DebugSemanticRetrievalResponse, error)
 }
 
 type agentSkillServiceClient struct {
@@ -7372,6 +7374,16 @@ func (c *agentSkillServiceClient) ListAvailableAgentSkills(ctx context.Context, 
 	return out, nil
 }
 
+func (c *agentSkillServiceClient) DebugSemanticRetrieval(ctx context.Context, in *DebugSemanticRetrievalRequest, opts ...grpc.CallOption) (*DebugSemanticRetrievalResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(DebugSemanticRetrievalResponse)
+	err := c.cc.Invoke(ctx, AgentSkillService_DebugSemanticRetrieval_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // AgentSkillServiceServer is the server API for AgentSkillService service.
 // All implementations must embed UnimplementedAgentSkillServiceServer
 // for forward compatibility.
@@ -7386,6 +7398,7 @@ type AgentSkillServiceServer interface {
 	UpdateAgentSkillStatus(context.Context, *UpdateAgentSkillStatusRequest) (*AgentSkillResponse, error)
 	PreviewAgentSkill(context.Context, *PreviewAgentSkillRequest) (*PreviewAgentSkillResponse, error)
 	ListAvailableAgentSkills(context.Context, *ListAvailableAgentSkillsRequest) (*ListAgentSkillsResponse, error)
+	DebugSemanticRetrieval(context.Context, *DebugSemanticRetrievalRequest) (*DebugSemanticRetrievalResponse, error)
 	mustEmbedUnimplementedAgentSkillServiceServer()
 }
 
@@ -7425,6 +7438,9 @@ func (UnimplementedAgentSkillServiceServer) PreviewAgentSkill(context.Context, *
 }
 func (UnimplementedAgentSkillServiceServer) ListAvailableAgentSkills(context.Context, *ListAvailableAgentSkillsRequest) (*ListAgentSkillsResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method ListAvailableAgentSkills not implemented")
+}
+func (UnimplementedAgentSkillServiceServer) DebugSemanticRetrieval(context.Context, *DebugSemanticRetrievalRequest) (*DebugSemanticRetrievalResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method DebugSemanticRetrieval not implemented")
 }
 func (UnimplementedAgentSkillServiceServer) mustEmbedUnimplementedAgentSkillServiceServer() {}
 func (UnimplementedAgentSkillServiceServer) testEmbeddedByValue()                           {}
@@ -7627,6 +7643,24 @@ func _AgentSkillService_ListAvailableAgentSkills_Handler(srv interface{}, ctx co
 	return interceptor(ctx, in, info, handler)
 }
 
+func _AgentSkillService_DebugSemanticRetrieval_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(DebugSemanticRetrievalRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(AgentSkillServiceServer).DebugSemanticRetrieval(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: AgentSkillService_DebugSemanticRetrieval_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(AgentSkillServiceServer).DebugSemanticRetrieval(ctx, req.(*DebugSemanticRetrievalRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // AgentSkillService_ServiceDesc is the grpc.ServiceDesc for AgentSkillService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -7673,6 +7707,10 @@ var AgentSkillService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "ListAvailableAgentSkills",
 			Handler:    _AgentSkillService_ListAvailableAgentSkills_Handler,
+		},
+		{
+			MethodName: "DebugSemanticRetrieval",
+			Handler:    _AgentSkillService_DebugSemanticRetrieval_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

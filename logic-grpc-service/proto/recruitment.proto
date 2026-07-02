@@ -2799,6 +2799,7 @@ service AgentSkillService {
   rpc UpdateAgentSkillStatus(UpdateAgentSkillStatusRequest) returns (AgentSkillResponse);
   rpc PreviewAgentSkill(PreviewAgentSkillRequest) returns (PreviewAgentSkillResponse);
   rpc ListAvailableAgentSkills(ListAvailableAgentSkillsRequest) returns (ListAgentSkillsResponse);
+  rpc DebugSemanticRetrieval(DebugSemanticRetrievalRequest) returns (DebugSemanticRetrievalResponse);
 }
 
 message AgentSkillInfo {
@@ -2975,6 +2976,50 @@ message PreviewAgentSkillResponse {
   string skill_md = 3;
   string frontmatter_json = 4;
   string body_markdown = 5;
+}
+
+message DebugSemanticRetrievalRequest {
+  int64 hr_id = 1;
+  string query = 2;
+  string agent_type = 3;
+  int64 job_id = 4;
+  int64 application_id = 5;
+  int32 limit = 6;
+}
+
+message SemanticSkillDebugItem {
+  int64 id = 1;
+  string name = 2;
+  string display_name = 3;
+  string category = 4;
+  string scenario = 5;
+  int32 priority = 6;
+  double score = 7;
+  string reason = 8;
+  repeated string semantic_tags = 9;
+}
+
+message SemanticMemoryDebugItem {
+  uint64 id = 1;
+  string scope_type = 2;
+  uint64 scope_id = 3;
+  string memory_type = 4;
+  string content = 5;
+  string source = 6;
+  double confidence = 7;
+  double importance = 8;
+  double score = 9;
+  string reason = 10;
+  string created_at = 11;
+}
+
+message DebugSemanticRetrievalResponse {
+  int32 code = 1;
+  string msg = 2;
+  bool embedding_available = 3;
+  string fallback_reason = 4;
+  repeated SemanticSkillDebugItem skills = 5;
+  repeated SemanticMemoryDebugItem memories = 6;
 }
 
 message GetResumeProfileRequest {

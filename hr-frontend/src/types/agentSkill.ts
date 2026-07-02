@@ -244,3 +244,44 @@ export interface AvailableAgentSkill {
   current_version_id?: number
   trigger_keywords?: string[]
 }
+
+export interface SemanticSkillDebugItem {
+  id: number
+  name: string
+  display_name: string
+  category?: string
+  scenario?: string
+  priority?: number
+  score: number
+  reason: string
+  semantic_tags?: string[]
+}
+
+export interface SemanticMemoryDebugItem {
+  id: number
+  scope_type: string
+  scope_id: number
+  memory_type: string
+  content: string
+  source: string
+  confidence: number
+  importance: number
+  score: number
+  reason: string
+  created_at?: string
+}
+
+export interface SemanticRetrievalDebugParams {
+  query: string
+  agent_type?: string
+  job_id?: number
+  application_id?: number
+  limit?: number
+}
+
+export interface SemanticRetrievalDebugResult {
+  embedding_available: boolean
+  fallback_reason?: string
+  skills: SemanticSkillDebugItem[]
+  memories: SemanticMemoryDebugItem[]
+}

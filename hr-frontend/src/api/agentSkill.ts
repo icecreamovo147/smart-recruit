@@ -12,6 +12,8 @@ import type {
   AvailableAgentSkill,
   CreateAgentSkillPayload,
   CreateAgentSkillVersionPayload,
+  SemanticRetrievalDebugParams,
+  SemanticRetrievalDebugResult,
   UpdateAgentSkillPayload,
   UpdateAgentSkillStatusPayload,
 } from '@/types/agentSkill'
@@ -74,3 +76,16 @@ export const activateAgentSkillVersion = (
 
 export const listAvailableAgentSkills = (): Promise<{ list: AvailableAgentSkill[] }> =>
   request.get('/api/v1/hr/agent-skills/available')
+
+export const debugSemanticRetrieval = (
+  params: SemanticRetrievalDebugParams,
+): Promise<SemanticRetrievalDebugResult> =>
+  request.get('/api/v1/hr/admin/agent-skills/semantic-debug', {
+    params: {
+      query: params.query,
+      ...(params.agent_type ? { agent_type: params.agent_type } : {}),
+      ...(params.job_id ? { job_id: params.job_id } : {}),
+      ...(params.application_id ? { application_id: params.application_id } : {}),
+      ...(params.limit ? { limit: params.limit } : {}),
+    },
+  })

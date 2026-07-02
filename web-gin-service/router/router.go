@@ -426,6 +426,7 @@ func Setup(cfg config.Config, clients *rpc.Clients, rdb *redis.Client) (*gin.Eng
 
 	// Agent SKILL.md management — requires AI business permission
 	adminGroup.GET("/agent-skills", normalTimeout, middleware.RequirePermission(authz.PermAIAgentSkillManage), agentSkillHandler.List)
+	adminGroup.GET("/agent-skills/semantic-debug", normalTimeout, middleware.RequirePermission(authz.PermAIAgentSkillManage), agentSkillHandler.DebugSemanticRetrieval)
 	adminGroup.POST("/agent-skills", normalTimeout, bodyAdmin, middleware.RequirePermission(authz.PermAIAgentSkillManage), agentSkillHandler.Create)
 	adminGroup.POST("/agent-skills/preview", normalTimeout, bodyAdmin, middleware.RequirePermission(authz.PermAIAgentSkillManage), agentSkillHandler.Preview)
 	adminGroup.GET("/agent-skills/:id", normalTimeout, middleware.RequirePermission(authz.PermAIAgentSkillManage), agentSkillHandler.Get)
