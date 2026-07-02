@@ -33,7 +33,7 @@
 | T015 | Semantic retrieval debug UI | passed | feature/intelligent-recruiting-agent-upgrade | f2ad547 | PASS | 1 | `pnpm --filter hr-frontend typecheck` passed; `go test ./service -run 'DebugSemantic|AgentSkill|Memory' -count=1` passed; `go test ./handler/hr -run 'AgentSkill|Semantic' -count=1` passed; full Go suites passed in `logic-grpc-service` and `web-gin-service`; `git diff --check` passed | Rollback point created after adding sidebar menu entry. |
 | T016 | MCP tool policy backend enforcement and audit | passed | feature/intelligent-recruiting-agent-upgrade | c83ff72 | PASS | 1 | `go test ./...` in `logic-grpc-service` passed outside sandbox; `go test ./...` in `web-gin-service` passed; `git diff --check` passed | Rollback point created after redacted ADK trace fix. |
 | T017 | MCP policy management UI and trace exposure | passed | feature/intelligent-recruiting-agent-upgrade | f3acdfe | PASS | 1 | `pnpm --filter hr-frontend typecheck` passed; `go test ./...` passed in `logic-grpc-service` and `web-gin-service`; `git diff --check` passed | Rollback point created after gRPC forwarding fix. |
-| T018 | Feature flags, observability, reliability, and full regression | passed | feature/intelligent-recruiting-agent-upgrade | - | PASS | 0 | `go test ./...` passed in `logic-grpc-service` and `web-gin-service`; `pnpm --filter hr-frontend typecheck` passed; `git diff --check` passed | Reviewer PASS; rollback commit pending. |
+| T018 | Feature flags, observability, reliability, and full regression | passed | feature/intelligent-recruiting-agent-upgrade | 70bfbfc | PASS | 0 | `go test ./...` passed in `logic-grpc-service` and `web-gin-service`; `pnpm --filter hr-frontend typecheck` passed; `git diff --check` passed | Rollback point created. |
 
 ## Subtask Plans
 
@@ -405,3 +405,4 @@
 | `2026-07-02 20:53` | T018 | reviewing | Reviewer Subagent started read-only review of feature flags, observability, reliability, and final regression. |
 | `2026-07-02 20:56` | T018 | reviewer PASS | Reviewer returned PASS with no acceptance-criteria defects. |
 | `2026-07-02 20:56` | T018 | final verification | Coordinator verified focused config/service/AI tests, full Go suites in `logic-grpc-service` and `web-gin-service`, HR frontend typecheck, and `git diff --check`. |
+| `2026-07-02 20:56` | T018 | auto-commit created | Commit `70bfbfc` (`feat: add agent platform rollout controls`) created as T018 rollback point. |
