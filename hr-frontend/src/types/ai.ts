@@ -161,6 +161,63 @@ export interface AgentRunStepItem {
   created_at: string
 }
 
+export interface AgentRunConfirmationRequirement {
+  required?: boolean
+  reason?: string
+}
+
+export interface AgentRunRecruitingPlan {
+  intent?: string
+  required_tools?: string[]
+  required_data?: string[]
+  selected_skills?: string[]
+  selected_memories?: string[]
+  output_schema?: Record<string, unknown>
+  confirmation_requirement?: AgentRunConfirmationRequirement
+  risk_checks?: string[]
+  [key: string]: unknown
+}
+
+export interface AgentRunDecision {
+  intent?: string
+  confirmation_required?: boolean
+  confirmation_reason?: string
+  required_tool_count?: number
+  required_data_count?: number
+  risk_flag_count?: number
+  unavailable_tool_risk?: boolean
+  requires_human_confirm?: boolean
+  requires_evidence_citation?: boolean
+  status?: string
+  partial?: boolean
+  failed?: boolean
+  risk_flag_hit?: boolean
+  [key: string]: unknown
+}
+
+export interface AgentRunPlanJSON {
+  agent?: string
+  agent_type?: string
+  model?: string
+  model_id?: number
+  capabilities?: unknown
+  user_message_summary?: string
+  application_bound?: boolean
+  application_id?: number
+  runtime?: string
+  recruiting_plan?: AgentRunRecruitingPlan
+  planner_json?: string | AgentRunRecruitingPlan
+  risk_flags?: string[]
+  decision?: AgentRunDecision
+  selected_agent_skill_ids?: number[]
+  selected_memory_ids?: number[]
+  status?: string
+  partial?: boolean
+  failed?: boolean
+  risk_flag_hit?: boolean
+  [key: string]: unknown
+}
+
 export interface AgentRunItem {
   id: number
   session_id: number
