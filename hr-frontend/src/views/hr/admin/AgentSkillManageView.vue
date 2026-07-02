@@ -69,7 +69,15 @@ const form = reactive({
   name: '',
   display_name: '',
   description: '',
-  category: 'recruiting',
+  agent_type: 'hr_recruiting_agent',
+  category: 'general',
+  scenario: '',
+  priority: 0,
+  risk_level: 'medium',
+  required_capabilities_text: '',
+  output_schema: '',
+  evaluation_criteria_text: '',
+  semantic_tags_text: '',
   version: '1.0.0',
   is_enabled: true,
 })
@@ -176,7 +184,15 @@ const resetBuilder = () => {
   form.name = ''
   form.display_name = ''
   form.description = ''
-  form.category = 'recruiting'
+  form.agent_type = 'hr_recruiting_agent'
+  form.category = 'general'
+  form.scenario = ''
+  form.priority = 0
+  form.risk_level = 'medium'
+  form.required_capabilities_text = ''
+  form.output_schema = ''
+  form.evaluation_criteria_text = ''
+  form.semantic_tags_text = ''
   form.version = '1.0.0'
   form.is_enabled = true
   changeNote.value = ''
@@ -224,6 +240,18 @@ const buildLocalValidation = (): AgentSkillValidation => {
   if (!/^[a-z][a-z0-9_-]{1,127}$/.test(form.name.trim())) errors.push('唯一标识只能使用小写字母开头，包含小写字母、数字、下划线或短横线，长度 2-128')
   if (!form.display_name.trim()) errors.push('请填写显示名称')
   if (!form.description.trim()) errors.push('请填写技能描述，描述会写入 SKILL.md frontmatter')
+  if (!form.agent_type.trim()) errors.push('请填写适用 Agent 类型')
+  if (!form.category.trim()) errors.push('请填写治理分类')
+  if (!['low', 'medium', 'high', 'critical'].includes(form.risk_level)) errors.push('风险等级只能是 low / medium / high / critical')
+  if (form.priority < -1000 || form.priority > 1000) errors.push('优先级范围为 -1000 到 1000')
+  if (form.output_schema.trim()) {
+    try {
+      JSON.parse(form.output_schema)
+    } catch {
+      errors.push('输出 Schema 必须是合法 JSON')
+    }
+  }
+  warnings.push(...skillGovernanceWarnings(editingSkill.value))
   if (!canvasNodes.value.some((node) => node.type === 'trigger' && node.content.trim())) errors.push('至少需要一个有内容的触发场景节点')
   if (!canvasNodes.value.some((node) => node.type === 'instruction' && node.content.trim())) errors.push('至少需要一个有内容的执行指令节点')
   if (!canvasNodes.value.some((node) => node.type === 'output' && node.content.trim())) errors.push('至少需要一个有内容的输出格式节点')
@@ -328,11 +356,47 @@ const flowJson = computed(() => JSON.stringify({
   viewport: flow.value.viewport || { x: 0, y: 0, zoom: 1 },
 }))
 
+const splitListText = (value: string) => value
+  .split(/[\n,，]/)
+  .map((item) => item.trim())
+  .filter(Boolean)
+
+const joinListText = (value?: string[]) => (value || []).join('\n')
+
+const riskLevelLabel = (value?: string) => {
+  const labels: Record<string, string> = {
+    low: '低',
+    medium: '中',
+    high: '高',
+    critical: '关键',
+  }
+  return labels[value || ''] || value || '-'
+}
+
+const riskLevelTagType = (value?: string) => {
+  if (value === 'critical' || value === 'high') return 'danger'
+  if (value === 'medium') return 'warning'
+  return 'info'
+}
+
+const skillGovernanceWarnings = (skill?: AgentSkillInfo | null) => [
+  ...(skill?.unavailable_capabilities || []).map((item) => `不可用能力：${item}`),
+  ...(skill?.validation_warnings || []),
+]
+
 const payload = (): CreateAgentSkillPayload => ({
   name: form.name.trim(),
   display_name: form.display_name.trim(),
   description: form.description.trim(),
+  agent_type: form.agent_type.trim(),
   category: form.category.trim(),
+  scenario: form.scenario.trim(),
+  priority: Number(form.priority) || 0,
+  risk_level: form.risk_level,
+  required_capabilities: splitListText(form.required_capabilities_text),
+  output_schema: form.output_schema.trim(),
+  evaluation_criteria: splitListText(form.evaluation_criteria_text),
+  semantic_tags: splitListText(form.semantic_tags_text),
   version: form.version.trim(),
   is_enabled: form.is_enabled,
   is_enabled_set: true,
@@ -354,6 +418,24 @@ const updatePayload = (): UpdateAgentSkillPayload => ({
   display_name_set: true,
   description: form.description.trim(),
   description_set: true,
+  agent_type: form.agent_type.trim(),
+  agent_type_set: true,
+  category: form.category.trim(),
+  category_set: true,
+  scenario: form.scenario.trim(),
+  scenario_set: true,
+  priority: Number(form.priority) || 0,
+  priority_set: true,
+  risk_level: form.risk_level,
+  risk_level_set: true,
+  required_capabilities: splitListText(form.required_capabilities_text),
+  required_capabilities_set: true,
+  output_schema: form.output_schema.trim(),
+  output_schema_set: true,
+  evaluation_criteria: splitListText(form.evaluation_criteria_text),
+  evaluation_criteria_set: true,
+  semantic_tags: splitListText(form.semantic_tags_text),
+  semantic_tags_set: true,
   is_enabled: form.is_enabled,
   is_enabled_set: true,
   is_manual_invocable: true,
@@ -600,7 +682,15 @@ const openEdit = async (row: AgentSkillInfo) => {
     form.name = detail.name
     form.display_name = detail.display_name || detail.name
     form.description = detail.description || ''
-    form.category = detail.category || 'recruiting'
+    form.agent_type = detail.agent_type || 'hr_recruiting_agent'
+    form.category = detail.category || 'general'
+    form.scenario = detail.scenario || ''
+    form.priority = detail.priority || 0
+    form.risk_level = detail.risk_level || 'medium'
+    form.required_capabilities_text = joinListText(detail.required_capabilities)
+    form.output_schema = detail.output_schema || ''
+    form.evaluation_criteria_text = joinListText(detail.evaluation_criteria)
+    form.semantic_tags_text = joinListText(detail.semantic_tags)
     form.version = nextVersionText(current?.version)
     form.is_enabled = detail.is_enabled
     changeNote.value = ''
@@ -699,7 +789,22 @@ const formatTime = (value?: string) => {
   return new Date(value).toLocaleString('zh-CN')
 }
 
-watch([() => form.name, () => form.display_name, () => form.description, () => form.category, () => form.version, flow], () => {
+watch([
+  () => form.name,
+  () => form.display_name,
+  () => form.description,
+  () => form.agent_type,
+  () => form.category,
+  () => form.scenario,
+  () => form.priority,
+  () => form.risk_level,
+  () => form.required_capabilities_text,
+  () => form.output_schema,
+  () => form.evaluation_criteria_text,
+  () => form.semantic_tags_text,
+  () => form.version,
+  flow,
+], () => {
   validation.value = buildLocalValidation()
   previewMarkdown.value = localMarkdown.value
 }, { deep: true, immediate: true })
@@ -757,6 +862,21 @@ onMounted(() => {
               </template>
             </el-table-column>
             <el-table-column prop="description" label="描述" min-width="240" show-overflow-tooltip />
+            <el-table-column label="治理" min-width="220">
+              <template #default="{ row }">
+                <div class="governance-cell">
+                  <div>
+                    <el-tag size="small" type="info">{{ row.agent_type || 'hr_recruiting_agent' }}</el-tag>
+                    <el-tag size="small" :type="riskLevelTagType(row.risk_level)">{{ riskLevelLabel(row.risk_level) }}</el-tag>
+                    <el-tag size="small">P{{ row.priority ?? 0 }}</el-tag>
+                  </div>
+                  <div class="skill-key">{{ row.category || 'general' }}<span v-if="row.scenario"> · {{ row.scenario }}</span></div>
+                  <div v-if="skillGovernanceWarnings(row).length" class="capability-warning">
+                    {{ skillGovernanceWarnings(row).join('；') }}
+                  </div>
+                </div>
+              </template>
+            </el-table-column>
             <el-table-column label="当前版本" width="110">
               <template #default="{ row }">
                 <el-tag v-if="row.current_version_id" size="small" type="success">#{{ row.current_version_id }}</el-tag>
@@ -837,12 +957,53 @@ onMounted(() => {
           <el-input v-model="form.display_name" placeholder="显示名称，例如 简历匹配分析" clearable>
             <template #prepend>名称</template>
           </el-input>
-          <el-input v-model="form.category" placeholder="分类" clearable>
-            <template #prepend>分类</template>
-          </el-input>
           <el-input v-model="form.version" placeholder="版本" clearable>
             <template #prepend>版本</template>
           </el-input>
+        </div>
+        <div class="governance-grid">
+          <el-input v-model="form.agent_type" placeholder="hr_recruiting_agent" clearable>
+            <template #prepend>Agent</template>
+          </el-input>
+          <el-input v-model="form.category" placeholder="general / candidate_match" clearable>
+            <template #prepend>分类</template>
+          </el-input>
+          <el-input v-model="form.scenario" placeholder="screening / interview_prep" clearable>
+            <template #prepend>场景</template>
+          </el-input>
+          <el-input-number v-model="form.priority" :min="-1000" :max="1000" controls-position="right" />
+          <el-select v-model="form.risk_level" placeholder="风险等级">
+            <el-option label="低风险" value="low" />
+            <el-option label="中风险" value="medium" />
+            <el-option label="高风险" value="high" />
+            <el-option label="关键风险" value="critical" />
+          </el-select>
+        </div>
+        <div class="governance-text-grid">
+          <el-input
+            v-model="form.required_capabilities_text"
+            type="textarea"
+            :rows="2"
+            placeholder="required capabilities，每行一个，例如 builtin:evaluate_candidate_match"
+          />
+          <el-input
+            v-model="form.semantic_tags_text"
+            type="textarea"
+            :rows="2"
+            placeholder="语义标签，每行一个，例如 简历匹配"
+          />
+          <el-input
+            v-model="form.evaluation_criteria_text"
+            type="textarea"
+            :rows="2"
+            placeholder="评估标准，每行一个"
+          />
+          <el-input
+            v-model="form.output_schema"
+            type="textarea"
+            :rows="2"
+            placeholder='输出 Schema JSON，例如 {"type":"object"}'
+          />
         </div>
         <el-input
           v-model="form.description"
@@ -1152,6 +1313,37 @@ onMounted(() => {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 10px;
+}
+
+.governance-grid {
+  display: grid;
+  grid-template-columns: 1.3fr 1fr 1fr 150px 150px;
+  gap: 10px;
+}
+
+.governance-text-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.governance-cell {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.governance-cell > div:first-child {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.capability-warning {
+  color: var(--el-color-danger);
+  font-size: 12px;
+  line-height: 1.4;
 }
 
 .canvas-frame {
@@ -1561,6 +1753,8 @@ onMounted(() => {
 
 @media (max-width: 860px) {
   .meta-grid,
+  .governance-grid,
+  .governance-text-grid,
   .version-layout {
     grid-template-columns: 1fr;
   }

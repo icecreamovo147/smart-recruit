@@ -79,7 +79,17 @@ export interface AgentSkillInfo {
   name: string
   display_name: string
   description: string
+  agent_type?: string
   category?: string
+  scenario?: string
+  priority?: number
+  risk_level?: string
+  required_capabilities?: string[]
+  output_schema?: string
+  evaluation_criteria?: string[]
+  semantic_tags?: string[]
+  unavailable_capabilities?: string[]
+  validation_warnings?: string[]
   current_version_id?: number
   is_enabled: boolean
   is_manual_invocable?: boolean
@@ -135,7 +145,15 @@ export interface AgentSkillPreviewPayload {
   name: string
   display_name: string
   description?: string
+  agent_type?: string
   category?: string
+  scenario?: string
+  priority?: number
+  risk_level?: string
+  required_capabilities?: string[]
+  output_schema?: string
+  evaluation_criteria?: string[]
+  semantic_tags?: string[]
   version?: string
   flow_json?: string
   nodes?: AgentSkillNode[]
@@ -169,6 +187,24 @@ export interface UpdateAgentSkillPayload {
   display_name_set?: boolean
   description?: string
   description_set?: boolean
+  agent_type?: string
+  agent_type_set?: boolean
+  category?: string
+  category_set?: boolean
+  scenario?: string
+  scenario_set?: boolean
+  priority?: number
+  priority_set?: boolean
+  risk_level?: string
+  risk_level_set?: boolean
+  required_capabilities?: string[]
+  required_capabilities_set?: boolean
+  output_schema?: string
+  output_schema_set?: boolean
+  evaluation_criteria?: string[]
+  evaluation_criteria_set?: boolean
+  semantic_tags?: string[]
+  semantic_tags_set?: boolean
   is_enabled?: boolean
   is_enabled_set?: boolean
   is_manual_invocable?: boolean
@@ -195,7 +231,16 @@ export interface AvailableAgentSkill {
   name: string
   display_name: string
   description: string
+  agent_type?: string
   category?: string
+  scenario?: string
+  priority?: number
+  risk_level?: string
+  required_capabilities?: string[]
+  output_schema?: string
+  semantic_tags?: string[]
+  unavailable_capabilities?: string[]
+  validation_warnings?: string[]
   current_version_id?: number
   trigger_keywords?: string[]
 }
