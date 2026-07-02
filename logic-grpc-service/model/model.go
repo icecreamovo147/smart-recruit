@@ -479,6 +479,23 @@ type AIMemory struct {
 	UpdatedAt  time.Time
 }
 
+type AIEmbedding struct {
+	ID             uint64    `gorm:"primaryKey"`
+	ObjectType     string    `gorm:"column:object_type;uniqueIndex:uk_ai_embeddings_object_model_hash,priority:1;index:idx_ai_embeddings_object;index:idx_ai_embeddings_query,priority:1"`
+	ObjectID       uint64    `gorm:"column:object_id;uniqueIndex:uk_ai_embeddings_object_model_hash,priority:2;index:idx_ai_embeddings_object"`
+	ScopeType      string    `gorm:"column:scope_type;index:idx_ai_embeddings_scope,priority:1"`
+	ScopeID        uint64    `gorm:"column:scope_id;index:idx_ai_embeddings_scope,priority:2"`
+	TextHash       string    `gorm:"column:text_hash;uniqueIndex:uk_ai_embeddings_object_model_hash,priority:4"`
+	EmbeddingModel string    `gorm:"column:embedding_model;uniqueIndex:uk_ai_embeddings_object_model_hash,priority:3;index:idx_ai_embeddings_query,priority:2"`
+	EmbeddingDim   int       `gorm:"column:embedding_dim"`
+	VectorJSON     *string   `gorm:"column:vector_json;type:json"`
+	MetadataJSON   *string   `gorm:"column:metadata_json;type:json"`
+	Status         string    `gorm:"column:status;index:idx_ai_embeddings_query,priority:3"`
+	LastError      string    `gorm:"column:last_error"`
+	CreatedAt      time.Time `gorm:"column:created_at"`
+	UpdatedAt      time.Time `gorm:"column:updated_at"`
+}
+
 func (CandidateProfile) TableName() string { return "candidate_profiles" }
 func (AIChatHistory) TableName() string    { return "ai_chat_history" }
 func (AIChatSession) TableName() string    { return "ai_chat_sessions" }
@@ -487,6 +504,7 @@ func (AIToolTrace) TableName() string      { return "ai_tool_traces" }
 func (AgentRun) TableName() string         { return "agent_runs" }
 func (AgentRunStep) TableName() string     { return "agent_run_steps" }
 func (AIMemory) TableName() string         { return "ai_memories" }
+func (AIEmbedding) TableName() string      { return "ai_embeddings" }
 func (Notification) TableName() string     { return "notifications" }
 
 type Notification struct {

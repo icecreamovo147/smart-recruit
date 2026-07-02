@@ -37,6 +37,7 @@ func setupTestDB(t *testing.T) *gorm.DB {
 		&model.AgentRun{},
 		&model.AgentRunStep{},
 		&model.AIMemory{},
+		&model.AIEmbedding{},
 		&model.Notification{},
 		&model.EventOutbox{},
 		&model.RefreshToken{},

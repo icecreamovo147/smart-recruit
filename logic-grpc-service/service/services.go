@@ -55,6 +55,7 @@ type Services struct {
 	ResumeProfile          *ResumeProfileService
 	CandidateMatch         *CandidateMatchService
 	RecruitingIntelligence *RecruitingIntelligenceService
+	Embedding              *EmbeddingService
 
 	// Phase 6: Audit context repo for AI usage audit writes
 	UsageAuditCtxRepo *repository.UsageAuditContextRepo
@@ -134,6 +135,7 @@ func NewServices(
 	resumeProfileSvc := NewResumeProfileService(resumes, resumeProfileRepo, unavailableResumeProfileExtractor{})
 	candidateMatchSvc := NewCandidateMatchService(applications, jobs, profiles, resumes, resumeProfileRepo, candidateMatchRepo)
 	recruitingIntelligenceSvc := NewRecruitingIntelligenceService(applications, jobs, resumes, resumeProfileRepo, candidateMatchRepo, resumeProfileSvc, candidateMatchSvc, serviceAuth)
+	embeddingSvc := NewEmbeddingService(repository.NewAIEmbeddingRepo(db), UnavailableEmbeddingProvider{})
 
 	return &Services{
 		Auth:              NewAuthService(users, tokens, authzRepo, inviteCodes, jwtSecret),
@@ -162,6 +164,7 @@ func NewServices(
 		ResumeProfile:          resumeProfileSvc,
 		CandidateMatch:         candidateMatchSvc,
 		RecruitingIntelligence: recruitingIntelligenceSvc,
+		Embedding:              embeddingSvc,
 
 		Collaboration: NewCollaborationService(
 			authzRepo,
