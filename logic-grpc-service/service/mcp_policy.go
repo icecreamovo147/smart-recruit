@@ -9,9 +9,11 @@ import (
 	"strings"
 	"time"
 
+	"go.uber.org/zap"
 	"gorm.io/gorm"
 
 	"logic-grpc-service/model"
+	"logic-grpc-service/pkg/logger"
 )
 
 const (
@@ -39,11 +41,22 @@ type mcpArgRule struct {
 }
 
 func (s *MCPService) evaluateToolPolicy(ctx context.Context, serverID int64, toolName string, args map[string]any, callerRole, callerScope string, confirmationApproved bool) (mcpPolicyEvaluation, error) {
+	if s != nil && !s.policy.withDefaults().MCPPolicy {
+		logger.L().Info("MCP tool policy skipped",
+			zap.String("event", "agent.mcp_policy.evaluate"),
+			zap.String("status", "disabled"),
+			zap.Int64("server_id", serverID),
+			zap.String("tool_name", toolName))
+		return mcpPolicyEvaluation{Decision: mcpPolicyDecisionAllow, Reason: "policy_disabled"}, nil
+	}
+	started := time.Now()
 	policy, err := s.mcpRepo.GetEnabledToolPolicy(ctx, serverID, toolName)
 	if err != nil {
 		if err == gorm.ErrRecordNotFound {
+			s.logPolicyEvaluation(serverID, toolName, started, mcpPolicyDecisionAllow, "no_policy", nil)
 			return mcpPolicyEvaluation{Decision: mcpPolicyDecisionAllow, Reason: "no_policy"}, nil
 		}
+		s.logPolicyEvaluation(serverID, toolName, started, "error", "lookup_failed", err)
 		return mcpPolicyEvaluation{}, fmt.Errorf("get MCP tool policy: %w", err)
 	}
 
@@ -58,23 +71,27 @@ func (s *MCPService) evaluateToolPolicy(ctx context.Context, serverID int64, too
 	if strings.EqualFold(strings.TrimSpace(policy.Effect), mcpPolicyDecisionDeny) {
 		eval.Decision = mcpPolicyDecisionDeny
 		eval.Reason = "policy_effect_deny"
+		s.logPolicyEvaluation(serverID, toolName, started, eval.Decision, eval.Reason, nil)
 		return eval, nil
 	}
 
 	if !valueAllowed(callerRole, parseJSONStringArray(policy.AllowedRolesJSON)) {
 		eval.Decision = mcpPolicyDecisionDeny
 		eval.Reason = "caller_role_not_allowed"
+		s.logPolicyEvaluation(serverID, toolName, started, eval.Decision, eval.Reason, nil)
 		return eval, nil
 	}
 	if !valueAllowed(callerScope, parseJSONStringArray(policy.AllowedScopesJSON)) {
 		eval.Decision = mcpPolicyDecisionDeny
 		eval.Reason = "caller_scope_not_allowed"
+		s.logPolicyEvaluation(serverID, toolName, started, eval.Decision, eval.Reason, nil)
 		return eval, nil
 	}
 
 	if reason := validateMCPPolicyArgs(args, policy); reason != "" {
 		eval.Decision = mcpPolicyDecisionDeny
 		eval.Reason = reason
+		s.logPolicyEvaluation(serverID, toolName, started, eval.Decision, eval.Reason, nil)
 		return eval, nil
 	}
 
@@ -82,11 +99,13 @@ func (s *MCPService) evaluateToolPolicy(ctx context.Context, serverID int64, too
 		since := time.Now().Add(-time.Duration(policy.RateLimitWindowSeconds) * time.Second)
 		count, err := s.mcpRepo.CountToolLogsSince(ctx, serverID, toolName, since)
 		if err != nil {
+			s.logPolicyEvaluation(serverID, toolName, started, "error", "rate_limit_lookup_failed", err)
 			return mcpPolicyEvaluation{}, fmt.Errorf("count MCP tool logs for rate limit: %w", err)
 		}
 		if count >= int64(policy.RateLimitMaxCalls) {
 			eval.Decision = mcpPolicyDecisionRateLimited
 			eval.Reason = "rate_limit_exceeded"
+			s.logPolicyEvaluation(serverID, toolName, started, eval.Decision, eval.Reason, nil)
 			return eval, nil
 		}
 	}
@@ -94,10 +113,29 @@ func (s *MCPService) evaluateToolPolicy(ctx context.Context, serverID int64, too
 	if policy.RequireConfirmation == 1 && !confirmationApproved {
 		eval.Decision = mcpPolicyDecisionConfirmation
 		eval.Reason = "confirmation_required"
+		s.logPolicyEvaluation(serverID, toolName, started, eval.Decision, eval.Reason, nil)
 		return eval, nil
 	}
 
+	s.logPolicyEvaluation(serverID, toolName, started, eval.Decision, eval.Reason, nil)
 	return eval, nil
+}
+
+func (s *MCPService) logPolicyEvaluation(serverID int64, toolName string, started time.Time, decision, reason string, err error) {
+	fields := []zap.Field{
+		zap.String("event", "agent.mcp_policy.evaluate"),
+		zap.Int64("server_id", serverID),
+		zap.String("tool_name", toolName),
+		zap.String("decision", decision),
+		zap.String("reason", reason),
+		zap.Int64("duration_ms", time.Since(started).Milliseconds()),
+	}
+	if err != nil {
+		fields = append(fields, zap.Error(err))
+		logger.L().Warn("MCP tool policy evaluated", fields...)
+		return
+	}
+	logger.L().Info("MCP tool policy evaluated", fields...)
 }
 
 func validateMCPPolicyArgs(args map[string]any, policy *model.MCPToolPolicy) string {

@@ -121,6 +121,32 @@ func TestCandidateMatchServiceEvaluateApplicationRejectsIncompleteResumeProfile(
 	}
 }
 
+func TestCandidateMatchServiceEvaluateApplicationDisabledByRuntimePolicy(t *testing.T) {
+	db := setupCandidateMatchServiceTestDB(t)
+	seedCandidateMatchScenario(t, db, candidateMatchSeedOptions{ProfileComplete: true})
+	svc := newCandidateMatchServiceForTest(db).WithRuntimePolicy(AgentRuntimePolicy{
+		StructuredResumeParse: true,
+		CandidateMatch:        false,
+		SemanticRetrieval:     true,
+		MCPPolicy:             true,
+		Planner:               true,
+		SkillGovernance:       true,
+		Fallbacks:             true,
+	})
+
+	_, err := svc.EvaluateApplication(context.Background(), 1001, nil)
+	if !errors.Is(err, ErrAgentCapabilityDisabled) {
+		t.Fatalf("expected ErrAgentCapabilityDisabled, got %v", err)
+	}
+	var count int64
+	if err := db.Model(&model.CandidateMatchEvaluation{}).Count(&count).Error; err != nil {
+		t.Fatalf("count evaluations failed: %v", err)
+	}
+	if count != 0 {
+		t.Fatalf("expected disabled evaluation to skip persistence, got %d evaluations", count)
+	}
+}
+
 func TestCandidateMatchServiceEvaluateApplicationHandlesMissingDependencies(t *testing.T) {
 	db := setupCandidateMatchServiceTestDB(t)
 	svc := newCandidateMatchServiceForTest(db)

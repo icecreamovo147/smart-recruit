@@ -72,6 +72,17 @@ agent:
   max_memory_chars: 1500
   max_prompt_chars: 20000
   max_memories: 10
+  features:
+    planner: true                       # AGENT_FEATURE_PLANNER
+    structured_resume_parse: true       # AGENT_FEATURE_STRUCTURED_RESUME_PARSE
+    candidate_match: true               # AGENT_FEATURE_CANDIDATE_MATCH
+    skill_governance: true              # AGENT_FEATURE_SKILL_GOVERNANCE
+    semantic_retrieval: true            # AGENT_FEATURE_SEMANTIC_RETRIEVAL
+    mcp_policy: true                    # AGENT_FEATURE_MCP_POLICY
+    fallbacks: true                     # AGENT_FEATURE_FALLBACKS
+    resume_parse_timeout: "30s"         # AGENT_RESUME_PARSE_TIMEOUT
+    candidate_match_timeout: "15s"      # AGENT_CANDIDATE_MATCH_TIMEOUT
+    semantic_retrieval_timeout: "5s"    # AGENT_SEMANTIC_RETRIEVAL_TIMEOUT
 
 rabbitmq:
   url: "amqp://guest:guest@127.0.0.1:5672/"

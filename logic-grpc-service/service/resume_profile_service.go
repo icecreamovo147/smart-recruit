@@ -14,7 +14,10 @@ import (
 	"strings"
 	"time"
 
+	"go.uber.org/zap"
+
 	"logic-grpc-service/model"
+	"logic-grpc-service/pkg/logger"
 	"logic-grpc-service/repository"
 )
 
@@ -36,6 +39,7 @@ type ResumeProfileService struct {
 	extractor     ResumeProfileExtractor
 	parserVersion string
 	now           func() time.Time
+	policy        AgentRuntimePolicy
 }
 
 func NewResumeProfileService(resumes *repository.ResumeRepo, profiles *repository.ResumeProfileRepo, extractor ResumeProfileExtractor) *ResumeProfileService {
@@ -45,45 +49,88 @@ func NewResumeProfileService(resumes *repository.ResumeRepo, profiles *repositor
 		extractor:     extractor,
 		parserVersion: defaultResumeProfileParserVersion,
 		now:           time.Now,
+		policy:        DefaultAgentRuntimePolicy(),
 	}
+}
+
+func (s *ResumeProfileService) WithRuntimePolicy(policy AgentRuntimePolicy) *ResumeProfileService {
+	if s != nil {
+		s.policy = policy.withDefaults()
+	}
+	return s
 }
 
 func (s *ResumeProfileService) ParseResume(ctx context.Context, resumeID int64) (*repository.ResumeProfileSnapshot, error) {
 	if s == nil || s.resumes == nil || s.profiles == nil || s.extractor == nil {
 		return nil, fmt.Errorf("resume profile service is not configured")
 	}
+	policy := s.policy.withDefaults()
+	if !policy.StructuredResumeParse {
+		logger.L().Warn("agent capability disabled",
+			zap.String("capability", "structured_resume_parse"),
+			zap.Int64("resume_id", resumeID))
+		return nil, fmt.Errorf("%w: structured_resume_parse", ErrAgentCapabilityDisabled)
+	}
+	started := time.Now()
+	ctx, cancel := contextWithPolicyTimeout(ctx, policy.ResumeParseTimeout)
+	defer cancel()
+
 	resume, err := s.resumes.GetByID(ctx, resumeID)
 	if err != nil {
+		s.logParseFinished(resumeID, "", started, "failed", err)
 		return nil, fmt.Errorf("get resume: %w", err)
 	}
 	if resume == nil {
+		s.logParseFinished(resumeID, "", started, "failed", ErrResumeProfileMissingResume)
 		return nil, ErrResumeProfileMissingResume
 	}
 
 	text := strings.TrimSpace(resume.ParsedText)
 	inputHash := hashResumeProfileInput(text)
 	if text == "" {
+		s.logParseFinished(resumeID, inputHash, started, "failed", ErrResumeProfileMissingText)
 		return nil, s.saveFailure(ctx, resume, inputHash, ErrResumeProfileMissingText)
 	}
 
 	raw, err := s.extractor.Extract(ctx, text)
 	if err != nil {
+		s.logParseFinished(resumeID, inputHash, started, "failed", err)
 		return nil, s.saveFailure(ctx, resume, inputHash, fmt.Errorf("extract resume profile: %w", err))
 	}
 
 	extracted, err := decodeExtractedResumeProfile(raw)
 	if err != nil {
+		s.logParseFinished(resumeID, inputHash, started, "failed", err)
 		return nil, s.saveFailure(ctx, resume, inputHash, err)
 	}
 
 	snapshot, err := s.buildSnapshot(resume, inputHash, raw, extracted)
 	if err != nil {
+		s.logParseFinished(resumeID, inputHash, started, "failed", err)
 		return nil, s.saveFailure(ctx, resume, inputHash, err)
 	}
 	if err := s.profiles.SaveProfileVersion(ctx, snapshot); err != nil {
+		s.logParseFinished(resumeID, inputHash, started, "failed", err)
 		return nil, fmt.Errorf("save resume profile version: %w", err)
 	}
+	s.logParseFinished(resumeID, inputHash, started, "succeeded", nil)
 	return snapshot, nil
+}
+
+func (s *ResumeProfileService) logParseFinished(resumeID int64, inputHash string, started time.Time, status string, err error) {
+	fields := []zap.Field{
+		zap.String("event", "agent.resume_profile.parse"),
+		zap.Int64("resume_id", resumeID),
+		zap.String("input_hash", inputHash),
+		zap.String("status", status),
+		zap.Int64("duration_ms", time.Since(started).Milliseconds()),
+	}
+	if err != nil {
+		fields = append(fields, zap.Error(err))
+		logger.L().Warn("resume profile parse finished", fields...)
+		return
+	}
+	logger.L().Info("resume profile parse finished", fields...)
 }
 
 func (s *ResumeProfileService) saveFailure(ctx context.Context, resume *model.Resume, inputHash string, cause error) error {

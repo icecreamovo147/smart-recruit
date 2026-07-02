@@ -10,8 +10,12 @@ import (
 	"math"
 	"sort"
 	"strings"
+	"time"
+
+	"go.uber.org/zap"
 
 	"logic-grpc-service/model"
+	"logic-grpc-service/pkg/logger"
 	"logic-grpc-service/repository"
 )
 
@@ -45,13 +49,21 @@ func (UnavailableEmbeddingProvider) EmbedText(context.Context, string) (Embeddin
 type EmbeddingService struct {
 	repo     *repository.AIEmbeddingRepo
 	provider EmbeddingProvider
+	policy   AgentRuntimePolicy
 }
 
 func NewEmbeddingService(repo *repository.AIEmbeddingRepo, provider EmbeddingProvider) *EmbeddingService {
 	if provider == nil {
 		provider = UnavailableEmbeddingProvider{}
 	}
-	return &EmbeddingService{repo: repo, provider: provider}
+	return &EmbeddingService{repo: repo, provider: provider, policy: DefaultAgentRuntimePolicy()}
+}
+
+func (s *EmbeddingService) WithRuntimePolicy(policy AgentRuntimePolicy) *EmbeddingService {
+	if s != nil {
+		s.policy = policy.withDefaults()
+	}
+	return s
 }
 
 type EmbedObjectInput struct {
@@ -145,8 +157,21 @@ func (s *EmbeddingService) Search(ctx context.Context, input EmbeddingSearchInpu
 	if s == nil || s.repo == nil {
 		return nil, fmt.Errorf("embedding repository is not configured")
 	}
+	policy := s.policy.withDefaults()
+	if !policy.SemanticRetrieval {
+		logger.L().Info("semantic retrieval skipped",
+			zap.String("event", "agent.semantic_retrieval.search"),
+			zap.String("status", "disabled"),
+			zap.Strings("object_types", input.ObjectTypes))
+		return nil, ErrAgentCapabilityDisabled
+	}
+	started := time.Now()
+	ctx, cancel := contextWithPolicyTimeout(ctx, policy.SemanticRetrievalTimeout)
+	defer cancel()
+
 	queryVector, modelName, err := s.resolveQueryVector(ctx, input.QueryText, input.QueryVector, input.Model)
 	if err != nil {
+		s.logSearchFinished("agent.semantic_retrieval.search", started, "fallback", input.ObjectTypes, 0, err)
 		return nil, err
 	}
 	rows, err := s.repo.ListCandidates(ctx, repository.AIEmbeddingQuery{
@@ -158,6 +183,7 @@ func (s *EmbeddingService) Search(ctx context.Context, input EmbeddingSearchInpu
 		Limit:          candidateLimit(input.Limit),
 	})
 	if err != nil {
+		s.logSearchFinished("agent.semantic_retrieval.search", started, "failed", input.ObjectTypes, 0, err)
 		return nil, err
 	}
 	results := rankEmbeddingRows(queryVector, rows)
@@ -165,6 +191,7 @@ func (s *EmbeddingService) Search(ctx context.Context, input EmbeddingSearchInpu
 	if limit <= 0 || limit > len(results) {
 		limit = len(results)
 	}
+	s.logSearchFinished("agent.semantic_retrieval.search", started, "succeeded", input.ObjectTypes, limit, nil)
 	return results[:limit], nil
 }
 
@@ -172,16 +199,30 @@ func (s *EmbeddingService) SearchObjects(ctx context.Context, input EmbeddingObj
 	if s == nil || s.repo == nil {
 		return nil, fmt.Errorf("embedding repository is not configured")
 	}
+	policy := s.policy.withDefaults()
+	if !policy.SemanticRetrieval {
+		logger.L().Info("semantic retrieval skipped",
+			zap.String("event", "agent.semantic_retrieval.search_objects"),
+			zap.String("status", "disabled"),
+			zap.String("object_type", input.ObjectType))
+		return nil, ErrAgentCapabilityDisabled
+	}
 	objectType := strings.TrimSpace(input.ObjectType)
 	if objectType == "" || len(input.ObjectIDs) == 0 {
 		return nil, nil
 	}
+	started := time.Now()
+	ctx, cancel := contextWithPolicyTimeout(ctx, policy.SemanticRetrievalTimeout)
+	defer cancel()
+
 	queryVector, modelName, err := s.resolveQueryVector(ctx, input.QueryText, input.QueryVector, input.Model)
 	if err != nil {
+		s.logSearchFinished("agent.semantic_retrieval.search_objects", started, "fallback", []string{objectType}, 0, err)
 		return nil, err
 	}
 	rows, err := s.repo.ListByObjectIDs(ctx, objectType, input.ObjectIDs, modelName, EmbeddingStatusReady)
 	if err != nil {
+		s.logSearchFinished("agent.semantic_retrieval.search_objects", started, "failed", []string{objectType}, 0, err)
 		return nil, err
 	}
 	results := rankEmbeddingRows(queryVector, rows)
@@ -189,7 +230,24 @@ func (s *EmbeddingService) SearchObjects(ctx context.Context, input EmbeddingObj
 	if limit <= 0 || limit > len(results) {
 		limit = len(results)
 	}
+	s.logSearchFinished("agent.semantic_retrieval.search_objects", started, "succeeded", []string{objectType}, limit, nil)
 	return results[:limit], nil
+}
+
+func (s *EmbeddingService) logSearchFinished(event string, started time.Time, status string, objectTypes []string, resultCount int, err error) {
+	fields := []zap.Field{
+		zap.String("event", event),
+		zap.String("status", status),
+		zap.Strings("object_types", objectTypes),
+		zap.Int("result_count", resultCount),
+		zap.Int64("duration_ms", time.Since(started).Milliseconds()),
+	}
+	if err != nil {
+		fields = append(fields, zap.Error(err))
+		logger.L().Warn("semantic retrieval finished", fields...)
+		return
+	}
+	logger.L().Info("semantic retrieval finished", fields...)
 }
 
 func hashEmbeddingText(text string) string {

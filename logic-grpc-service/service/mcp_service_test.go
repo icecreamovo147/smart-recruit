@@ -536,6 +536,53 @@ func TestCallMCPToolPolicyConfirmationApprovedAllows(t *testing.T) {
 	}
 }
 
+func TestCallMCPToolPolicyDisabledAllowsWithAuditReason(t *testing.T) {
+	ctx := context.Background()
+	db := setupServiceTestDB(t)
+	repo := repository.NewMCPRepo(db)
+	svc := NewMCPService(repo, testMCPConfig()).WithRuntimePolicy(AgentRuntimePolicy{
+		StructuredResumeParse: true,
+		CandidateMatch:        true,
+		SemanticRetrieval:     true,
+		MCPPolicy:             false,
+		Planner:               true,
+		SkillGovernance:       true,
+		Fallbacks:             true,
+	})
+	upstream := newTestMCPHTTPServer(t, "policy-upstream", []string{"search"})
+	defer upstream.Close()
+	server := createEnabledHTTPMCPServer(t, ctx, repo, upstream.URL)
+	if err := repo.CreateToolPolicy(ctx, &model.MCPToolPolicy{
+		ServerID:  server.ID,
+		ToolName:  "search",
+		Effect:    "deny",
+		IsEnabled: 1,
+	}); err != nil {
+		t.Fatalf("CreateToolPolicy failed: %v", err)
+	}
+
+	resp, err := svc.CallMCPTool(ctx, &pb.CallMCPToolRequest{
+		ServerId:    server.ID,
+		ToolName:    "search",
+		ArgsJson:    `{"query":"golang"}`,
+		CallerRole:  "hr_agent",
+		CallerScope: "agent_runtime",
+	})
+	if err != nil {
+		t.Fatalf("CallMCPTool failed: %v", err)
+	}
+	if resp.Code != 0 || resp.PolicyDecision != "allow" || resp.PolicyReason != "policy_disabled" {
+		t.Fatalf("expected disabled policy to allow with audit reason, got code=%d decision=%q reason=%q", resp.Code, resp.PolicyDecision, resp.PolicyReason)
+	}
+	logs, _, err := repo.ListToolLogsByServer(ctx, server.ID, 1, 10)
+	if err != nil {
+		t.Fatalf("ListToolLogsByServer failed: %v", err)
+	}
+	if len(logs) == 0 || logs[0].PolicyDecision != "allow" || logs[0].PolicyReason == nil || *logs[0].PolicyReason != "policy_disabled" {
+		t.Fatalf("expected policy_disabled audit log, got %+v", logs)
+	}
+}
+
 func TestMCPADKToolReturnsRedactedPolicyTracePayload(t *testing.T) {
 	ctx := context.Background()
 	db := setupServiceTestDB(t)

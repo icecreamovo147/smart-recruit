@@ -131,6 +131,38 @@ func TestResumeProfileServiceParseResumeStoresFailureForMissingText(t *testing.T
 	assertResumeProfileServiceFailureRun(t, db, resume.ID, "failed", "parsed_text is empty")
 }
 
+func TestResumeProfileServiceParseResumeDisabledByRuntimePolicy(t *testing.T) {
+	db := setupResumeProfileServiceTestDB(t)
+	ctx := context.Background()
+	resume := seedResumeProfileServiceResume(t, db, "resume text")
+
+	svc := NewResumeProfileService(
+		repository.NewResumeRepo(db),
+		repository.NewResumeProfileRepo(db),
+		stubResumeProfileExtractor{output: `{}`},
+	).WithRuntimePolicy(AgentRuntimePolicy{
+		StructuredResumeParse: false,
+		CandidateMatch:        true,
+		SemanticRetrieval:     true,
+		MCPPolicy:             true,
+		Planner:               true,
+		SkillGovernance:       true,
+		Fallbacks:             true,
+	})
+
+	_, err := svc.ParseResume(ctx, resume.ID)
+	if !errors.Is(err, ErrAgentCapabilityDisabled) {
+		t.Fatalf("expected ErrAgentCapabilityDisabled, got %v", err)
+	}
+	var count int64
+	if err := db.Model(&model.ResumeParseRun{}).Count(&count).Error; err != nil {
+		t.Fatalf("count parse runs failed: %v", err)
+	}
+	if count != 0 {
+		t.Fatalf("expected disabled parse to skip persistence, got %d parse runs", count)
+	}
+}
+
 func TestResumeProfileServiceParseResumeRejectsMalformedAndIncompleteOutput(t *testing.T) {
 	tests := []struct {
 		name    string

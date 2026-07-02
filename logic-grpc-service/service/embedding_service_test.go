@@ -105,6 +105,32 @@ func TestEmbeddingServiceStoresExplicitVectorAndSearchesByCosineSimilarity(t *te
 	}
 }
 
+func TestEmbeddingServiceSearchDisabledByRuntimePolicy(t *testing.T) {
+	svc, _ := newEmbeddingTestService(t, UnavailableEmbeddingProvider{})
+	svc.WithRuntimePolicy(AgentRuntimePolicy{
+		StructuredResumeParse: true,
+		CandidateMatch:        true,
+		SemanticRetrieval:     false,
+		MCPPolicy:             true,
+		Planner:               true,
+		SkillGovernance:       true,
+		Fallbacks:             true,
+	})
+
+	_, err := svc.Search(context.Background(), EmbeddingSearchInput{QueryText: "screen"})
+	if !errors.Is(err, ErrAgentCapabilityDisabled) {
+		t.Fatalf("expected ErrAgentCapabilityDisabled, got %v", err)
+	}
+	_, err = svc.SearchObjects(context.Background(), EmbeddingObjectSearchInput{
+		QueryText:  "screen",
+		ObjectType: "agent_skill",
+		ObjectIDs:  []uint64{1},
+	})
+	if !errors.Is(err, ErrAgentCapabilityDisabled) {
+		t.Fatalf("expected ErrAgentCapabilityDisabled for SearchObjects, got %v", err)
+	}
+}
+
 func TestEmbeddingServiceProviderVectorUpsertsByObjectModelAndHash(t *testing.T) {
 	svc, repo := newEmbeddingTestService(t, fakeEmbeddingProvider{
 		vector: EmbeddingVector{Model: "provider-test", Vector: []float64{0.25, 0.75}},

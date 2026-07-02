@@ -14,6 +14,11 @@ func TestApplyEnvOverrides(t *testing.T) {
 	t.Setenv("AI_MODEL", "qwen-plus")
 	t.Setenv("RABBITMQ_URL", "amqp://guest:guest@rabbitmq:5672/")
 	t.Setenv("RABBITMQ_RETRY_DELAY", "9s")
+	t.Setenv("AGENT_FEATURE_PLANNER", "false")
+	t.Setenv("AGENT_FEATURE_SEMANTIC_RETRIEVAL", "false")
+	t.Setenv("AGENT_RESUME_PARSE_TIMEOUT", "7s")
+	t.Setenv("AGENT_CANDIDATE_MATCH_TIMEOUT", "8s")
+	t.Setenv("AGENT_SEMANTIC_RETRIEVAL_TIMEOUT", "9s")
 
 	var cfg Config
 	applyEnvOverrides(&cfg)
@@ -35,6 +40,20 @@ func TestApplyEnvOverrides(t *testing.T) {
 	}
 	if cfg.RabbitMQ.RetryDelay.Duration != 9*time.Second {
 		t.Fatalf("unexpected rabbitmq retry delay: %s", cfg.RabbitMQ.RetryDelay.Duration)
+	}
+	if cfg.Agent.Features.Planner == nil || *cfg.Agent.Features.Planner {
+		t.Fatalf("expected planner feature override false, got %v", cfg.Agent.Features.Planner)
+	}
+	if cfg.Agent.Features.SemanticRetrieval == nil || *cfg.Agent.Features.SemanticRetrieval {
+		t.Fatalf("expected semantic retrieval feature override false, got %v", cfg.Agent.Features.SemanticRetrieval)
+	}
+	if cfg.Agent.Features.ResumeParseTimeout.Duration != 7*time.Second ||
+		cfg.Agent.Features.CandidateMatchTimeout.Duration != 8*time.Second ||
+		cfg.Agent.Features.SemanticRetrievalTimeout.Duration != 9*time.Second {
+		t.Fatalf("unexpected agent feature timeouts: parse=%s match=%s semantic=%s",
+			cfg.Agent.Features.ResumeParseTimeout.Duration,
+			cfg.Agent.Features.CandidateMatchTimeout.Duration,
+			cfg.Agent.Features.SemanticRetrievalTimeout.Duration)
 	}
 }
 

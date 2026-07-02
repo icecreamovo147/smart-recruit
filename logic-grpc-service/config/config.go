@@ -76,6 +76,18 @@ type Config struct {
 		MaxMemoryChars         int `yaml:"max_memory_chars"`
 		MaxPromptChars         int `yaml:"max_prompt_chars"`
 		MaxMemories            int `yaml:"max_memories"`
+		Features               struct {
+			Planner                  *bool    `yaml:"planner"`
+			StructuredResumeParse    *bool    `yaml:"structured_resume_parse"`
+			CandidateMatch           *bool    `yaml:"candidate_match"`
+			SkillGovernance          *bool    `yaml:"skill_governance"`
+			SemanticRetrieval        *bool    `yaml:"semantic_retrieval"`
+			MCPPolicy                *bool    `yaml:"mcp_policy"`
+			Fallbacks                *bool    `yaml:"fallbacks"`
+			ResumeParseTimeout       Duration `yaml:"resume_parse_timeout"`
+			CandidateMatchTimeout    Duration `yaml:"candidate_match_timeout"`
+			SemanticRetrievalTimeout Duration `yaml:"semantic_retrieval_timeout"`
+		} `yaml:"features"`
 	} `yaml:"agent"`
 	RabbitMQ struct {
 		URL               string   `yaml:"url"`
@@ -101,14 +113,14 @@ type Config struct {
 		Required    bool     `yaml:"required"`
 	} `yaml:"smtp"`
 	FrontendBaseURL string `yaml:"frontend_base_url"`
-	MCP struct {
-		DefaultTimeoutSeconds  int      `yaml:"default_timeout_seconds"`
-		DefaultMaxRetries      int      `yaml:"default_max_retries"`
-		AllowStdio             bool     `yaml:"allow_stdio"`
-		AllowedStdioCommands   []string `yaml:"allowed_stdio_commands"`
-		AllowedURLHosts        []string `yaml:"allowed_url_hosts"`
-		BlockPrivateNetwork    *bool    `yaml:"block_private_network"`
-		MaxTimeoutSeconds      int      `yaml:"max_timeout_seconds"`
+	MCP             struct {
+		DefaultTimeoutSeconds int      `yaml:"default_timeout_seconds"`
+		DefaultMaxRetries     int      `yaml:"default_max_retries"`
+		AllowStdio            bool     `yaml:"allow_stdio"`
+		AllowedStdioCommands  []string `yaml:"allowed_stdio_commands"`
+		AllowedURLHosts       []string `yaml:"allowed_url_hosts"`
+		BlockPrivateNetwork   *bool    `yaml:"block_private_network"`
+		MaxTimeoutSeconds     int      `yaml:"max_timeout_seconds"`
 	} `yaml:"mcp"`
 }
 
@@ -240,6 +252,22 @@ func Load() (Config, error) {
 	if cfg.Agent.MaxMemories <= 0 {
 		cfg.Agent.MaxMemories = 10
 	}
+	defaultBool(&cfg.Agent.Features.Planner, true)
+	defaultBool(&cfg.Agent.Features.StructuredResumeParse, true)
+	defaultBool(&cfg.Agent.Features.CandidateMatch, true)
+	defaultBool(&cfg.Agent.Features.SkillGovernance, true)
+	defaultBool(&cfg.Agent.Features.SemanticRetrieval, true)
+	defaultBool(&cfg.Agent.Features.MCPPolicy, true)
+	defaultBool(&cfg.Agent.Features.Fallbacks, true)
+	if cfg.Agent.Features.ResumeParseTimeout.Duration <= 0 {
+		cfg.Agent.Features.ResumeParseTimeout.Duration = 30 * time.Second
+	}
+	if cfg.Agent.Features.CandidateMatchTimeout.Duration <= 0 {
+		cfg.Agent.Features.CandidateMatchTimeout.Duration = 15 * time.Second
+	}
+	if cfg.Agent.Features.SemanticRetrievalTimeout.Duration <= 0 {
+		cfg.Agent.Features.SemanticRetrievalTimeout.Duration = 5 * time.Second
+	}
 	if cfg.RabbitMQ.URL == "" {
 		cfg.RabbitMQ.URL = "amqp://guest:guest@127.0.0.1:5672/"
 	}
@@ -367,6 +395,16 @@ func applyEnvOverrides(cfg *Config) {
 	setInt(&cfg.Agent.MaxMemoryChars, "AGENT_MAX_MEMORY_CHARS")
 	setInt(&cfg.Agent.MaxPromptChars, "AGENT_MAX_PROMPT_CHARS")
 	setInt(&cfg.Agent.MaxMemories, "AGENT_MAX_MEMORIES")
+	setBoolPtr(&cfg.Agent.Features.Planner, "AGENT_FEATURE_PLANNER")
+	setBoolPtr(&cfg.Agent.Features.StructuredResumeParse, "AGENT_FEATURE_STRUCTURED_RESUME_PARSE")
+	setBoolPtr(&cfg.Agent.Features.CandidateMatch, "AGENT_FEATURE_CANDIDATE_MATCH")
+	setBoolPtr(&cfg.Agent.Features.SkillGovernance, "AGENT_FEATURE_SKILL_GOVERNANCE")
+	setBoolPtr(&cfg.Agent.Features.SemanticRetrieval, "AGENT_FEATURE_SEMANTIC_RETRIEVAL")
+	setBoolPtr(&cfg.Agent.Features.MCPPolicy, "AGENT_FEATURE_MCP_POLICY")
+	setBoolPtr(&cfg.Agent.Features.Fallbacks, "AGENT_FEATURE_FALLBACKS")
+	setDuration(&cfg.Agent.Features.ResumeParseTimeout, "AGENT_RESUME_PARSE_TIMEOUT")
+	setDuration(&cfg.Agent.Features.CandidateMatchTimeout, "AGENT_CANDIDATE_MATCH_TIMEOUT")
+	setDuration(&cfg.Agent.Features.SemanticRetrievalTimeout, "AGENT_SEMANTIC_RETRIEVAL_TIMEOUT")
 
 	setString(&cfg.SMTP.Host, "SMTP_HOST")
 	setInt(&cfg.SMTP.Port, "SMTP_PORT")
@@ -422,6 +460,20 @@ func setBool(target *bool, key string) {
 		if parsed, err := strconv.ParseBool(value); err == nil {
 			*target = parsed
 		}
+	}
+}
+
+func setBoolPtr(target **bool, key string) {
+	if value := os.Getenv(key); value != "" {
+		if parsed, err := strconv.ParseBool(value); err == nil {
+			*target = &parsed
+		}
+	}
+}
+
+func defaultBool(target **bool, value bool) {
+	if *target == nil {
+		*target = &value
 	}
 }
 

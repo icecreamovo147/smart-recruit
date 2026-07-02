@@ -33,6 +33,7 @@ type MCPService struct {
 	pb.UnimplementedMCPServiceServer
 	mcpRepo *repository.MCPRepo
 	cfg     config.Config
+	policy  AgentRuntimePolicy
 }
 
 // NewMCPService creates a new MCPService.
@@ -40,7 +41,15 @@ func NewMCPService(mcpRepo *repository.MCPRepo, cfg config.Config) *MCPService {
 	return &MCPService{
 		mcpRepo: mcpRepo,
 		cfg:     cfg,
+		policy:  NewAgentRuntimePolicy(cfg),
 	}
+}
+
+func (s *MCPService) WithRuntimePolicy(policy AgentRuntimePolicy) *MCPService {
+	if s != nil {
+		s.policy = policy.withDefaults()
+	}
+	return s
 }
 
 // ── Server CRUD ─────────────────────────────────────────────────────

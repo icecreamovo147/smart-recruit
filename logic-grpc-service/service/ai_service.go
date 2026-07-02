@@ -55,6 +55,7 @@ type AIService struct {
 	cachedADKTools  []tool.BaseTool // lazy-initialized, shared across requests
 	cachedToolsMu   sync.Mutex      // guards cachedADKTools init and invalidation
 	usageBuilder    *ContextUsageBuilder
+	runtimePolicy   AgentRuntimePolicy
 }
 
 type runtimeAIClient struct {
@@ -107,12 +108,20 @@ func NewAIService(
 		skillSvc:        skillSvc,
 		agentSkillRepo:  agentSkillRepo,
 		usageBuilder:    NewContextUsageBuilder(),
+		runtimePolicy:   DefaultAgentRuntimePolicy(),
 	}
 }
 
 func (s *AIService) WithEmbeddingService(embeddings *EmbeddingService) *AIService {
 	if s != nil {
 		s.embeddings = embeddings
+	}
+	return s
+}
+
+func (s *AIService) WithRuntimePolicy(policy AgentRuntimePolicy) *AIService {
+	if s != nil {
+		s.runtimePolicy = policy.withDefaults()
 	}
 	return s
 }
@@ -583,11 +592,18 @@ func (s *AIService) runADKChat(
 	if req.HrId <= 0 {
 		return "", ai.ToolMetadata{}, fmt.Errorf("hrID must be positive, got %d", req.HrId)
 	}
+	policy := s.runtimePolicy.withDefaults()
 
 	// Thread-safe lazy-init of cached tools via getOrInitADKTools.
 	adkTools, err := s.getOrInitADKTools()
 	if err != nil {
-		logger.L().Warn("[ADK降级] 工具创建失败，自动切换到 Legacy 路径", zap.Error(err))
+		logger.L().Warn("[ADK降级] 工具创建失败",
+			zap.String("event", "agent.fallback.adk_to_legacy"),
+			zap.Bool("enabled", policy.Fallbacks),
+			zap.Error(err))
+		if !policy.Fallbacks {
+			return "", ai.ToolMetadata{}, fmt.Errorf("ADK tool initialization failed and fallback is disabled: %w", err)
+		}
 		return s.runLegacyChat(ctx, req, session, messages, modelID, modelName, runtimeCfg, onDelta, onStatus, onMessagesUpdated, aiClient, recorder)
 	}
 
@@ -650,32 +666,50 @@ func (s *AIService) runADKChat(
 	}
 	availableToolNames := adkToolNames(ctx, adkTools)
 	availableCapabilities = addRuntimeToolCapabilities(availableCapabilities, availableToolNames)
-	agentSkills, err := s.selectAgentSkills(ctx, "hr_recruiting_agent", req.GetMessage(), req.GetAgentSkillIds(), availableCapabilities)
-	if err != nil {
-		logger.L().Warn("select Agent Skills failed", zap.Error(err))
-	} else if len(agentSkills) > 0 {
-		instruction = appendAgentSkillInstructionBlock(instruction, renderAgentSkillInstructionBlock(agentSkills))
-		if recorder != nil {
-			recorder.setSelectedAgentSkills(ctx, agentSkills)
+	agentSkills := []selectedAgentSkill{}
+	if policy.SkillGovernance {
+		var err error
+		agentSkills, err = s.selectAgentSkills(ctx, "hr_recruiting_agent", req.GetMessage(), req.GetAgentSkillIds(), availableCapabilities)
+		if err != nil {
+			logger.L().Warn("select Agent Skills failed",
+				zap.String("event", "agent.skill_governance.select"),
+				zap.String("status", "fallback"),
+				zap.Error(err))
+		} else if len(agentSkills) > 0 {
+			instruction = appendAgentSkillInstructionBlock(instruction, renderAgentSkillInstructionBlock(agentSkills))
+			if recorder != nil {
+				recorder.setSelectedAgentSkills(ctx, agentSkills)
+			}
+			logSelectedAgentSkills(agentSkills)
 		}
-		logSelectedAgentSkills(agentSkills)
+	} else {
+		logger.L().Info("Agent Skill governance skipped",
+			zap.String("event", "agent.skill_governance.select"),
+			zap.String("status", "disabled"))
 	}
-	planner := ai.NewRecruitingPlanner()
-	availableToolNames = adkToolNames(ctx, adkTools)
-	plan := planner.Plan(ai.RecruitingPlannerInput{
-		Message:        req.GetMessage(),
-		AvailableTools: availableToolNames,
-		ApplicationID:  req.GetApplicationId(),
-	})
-	plan = applyAgentSkillPlannerConstraints(plan, agentSkills, availableToolNames)
-	if recorder != nil {
-		recorder.recordRecruitingPlan(ctx, plan)
+	if policy.Planner {
+		planner := ai.NewRecruitingPlanner()
+		availableToolNames = adkToolNames(ctx, adkTools)
+		plan := planner.Plan(ai.RecruitingPlannerInput{
+			Message:        req.GetMessage(),
+			AvailableTools: availableToolNames,
+			ApplicationID:  req.GetApplicationId(),
+		})
+		plan = applyAgentSkillPlannerConstraints(plan, agentSkills, availableToolNames)
+		if recorder != nil {
+			recorder.recordRecruitingPlan(ctx, plan)
+		}
+		instruction = appendRecruitingPlannerInstructionBlock(instruction, plan.InstructionBlock())
+		logger.L().Info("[Planner] HR Agent structured plan selected",
+			zap.String("event", "agent.planner.plan"),
+			zap.String("intent", plan.Intent),
+			zap.Strings("required_tools", plan.RequiredTools),
+		)
+	} else {
+		logger.L().Info("HR Agent structured planner skipped",
+			zap.String("event", "agent.planner.plan"),
+			zap.String("status", "disabled"))
 	}
-	instruction = appendRecruitingPlannerInstructionBlock(instruction, plan.InstructionBlock())
-	logger.L().Info("[Planner] HR Agent structured plan selected",
-		zap.String("intent", plan.Intent),
-		zap.Strings("required_tools", plan.RequiredTools),
-	)
 	logger.L().Info("[提示词诊断] HR Agent 当前使用的 System Prompt",
 		zap.Int("总字符数", len([]rune(instruction))),
 		zap.String("前200字符", truncateString(instruction, 200)),
@@ -752,28 +786,51 @@ func (s *AIService) runLegacyChat(
 	}
 	availableToolNames := agentRunToolInfoNames(tools)
 	availableCapabilities = addRuntimeToolCapabilities(availableCapabilities, availableToolNames)
-	agentSkills, err := s.selectAgentSkills(ctx, "hr_recruiting_agent", req.GetMessage(), req.GetAgentSkillIds(), availableCapabilities)
-	if err != nil {
-		logger.L().Warn("select Agent Skills failed", zap.Error(err))
-	} else if len(agentSkills) > 0 {
-		messages = appendAgentSkillInstructionBlockToMessages(messages, renderAgentSkillInstructionBlock(agentSkills))
-		if recorder != nil {
-			recorder.setSelectedAgentSkills(ctx, agentSkills)
+	policy := s.runtimePolicy.withDefaults()
+	agentSkills := []selectedAgentSkill{}
+	if policy.SkillGovernance {
+		var err error
+		agentSkills, err = s.selectAgentSkills(ctx, "hr_recruiting_agent", req.GetMessage(), req.GetAgentSkillIds(), availableCapabilities)
+		if err != nil {
+			logger.L().Warn("select Agent Skills failed",
+				zap.String("event", "agent.skill_governance.select"),
+				zap.String("status", "fallback"),
+				zap.Error(err))
+		} else if len(agentSkills) > 0 {
+			messages = appendAgentSkillInstructionBlockToMessages(messages, renderAgentSkillInstructionBlock(agentSkills))
+			if recorder != nil {
+				recorder.setSelectedAgentSkills(ctx, agentSkills)
+			}
+			logSelectedAgentSkills(agentSkills)
 		}
-		logSelectedAgentSkills(agentSkills)
+	} else {
+		logger.L().Info("Agent Skill governance skipped",
+			zap.String("event", "agent.skill_governance.select"),
+			zap.String("status", "disabled"))
 	}
-	planner := ai.NewRecruitingPlanner()
-	availableToolNames = agentRunToolInfoNames(tools)
-	plan := planner.Plan(ai.RecruitingPlannerInput{
-		Message:        req.GetMessage(),
-		AvailableTools: availableToolNames,
-		ApplicationID:  req.GetApplicationId(),
-	})
-	plan = applyAgentSkillPlannerConstraints(plan, agentSkills, availableToolNames)
-	if recorder != nil {
-		recorder.recordRecruitingPlan(ctx, plan)
+	if policy.Planner {
+		planner := ai.NewRecruitingPlanner()
+		availableToolNames = agentRunToolInfoNames(tools)
+		plan := planner.Plan(ai.RecruitingPlannerInput{
+			Message:        req.GetMessage(),
+			AvailableTools: availableToolNames,
+			ApplicationID:  req.GetApplicationId(),
+		})
+		plan = applyAgentSkillPlannerConstraints(plan, agentSkills, availableToolNames)
+		if recorder != nil {
+			recorder.recordRecruitingPlan(ctx, plan)
+		}
+		messages = appendRecruitingPlannerInstructionBlockToMessages(messages, plan.InstructionBlock())
+		logger.L().Info("[Planner] HR Agent structured plan selected",
+			zap.String("event", "agent.planner.plan"),
+			zap.String("intent", plan.Intent),
+			zap.Strings("required_tools", plan.RequiredTools),
+		)
+	} else {
+		logger.L().Info("HR Agent structured planner skipped",
+			zap.String("event", "agent.planner.plan"),
+			zap.String("status", "disabled"))
 	}
-	messages = appendRecruitingPlannerInstructionBlockToMessages(messages, plan.InstructionBlock())
 
 	traceFn := func(toolCallID, toolName, argsJSON, resultContent string, duration time.Duration, execErr error) {
 		stepID := uint64(0)
