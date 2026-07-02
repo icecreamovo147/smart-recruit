@@ -10,6 +10,7 @@ const RegisterView = () => import('@/views/RegisterView.vue')
 const WorkbenchView = () => import('@/views/hr/WorkbenchView.vue')
 const JobManageView = () => import('@/views/hr/JobManageView.vue')
 const ApplicationListView = () => import('@/views/hr/ApplicationListView.vue')
+const ApplicationIntelligenceView = () => import('@/views/hr/ApplicationIntelligenceView.vue')
 const InterviewScheduleView = () => import('@/views/hr/InterviewScheduleView.vue')
 const OfferManageView = () => import('@/views/hr/OfferManageView.vue')
 const AIChatView = () => import('@/views/hr/AIChatView.vue')
@@ -60,6 +61,11 @@ const routes: RouteRecordRaw[] = [
     path: '/hr/jobs/:jobId/applications',
     component: ApplicationListView,
     meta: { requiresAuth: true, requiresPermission: PERM.APPLICATION_READ, title: '候选人台账' },
+  },
+  {
+    path: '/hr/applications/:applicationId/intelligence',
+    component: ApplicationIntelligenceView,
+    meta: { requiresAuth: true, requiresPermission: PERM.APPLICATION_READ, title: '简历画像与匹配评估' },
   },
   // Candidate detail — requires application.read permission
   {

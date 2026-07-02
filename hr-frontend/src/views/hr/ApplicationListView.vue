@@ -2,7 +2,7 @@
 import { computed, onMounted, reactive, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { ArrowDown, Back, Refresh, Search } from '@element-plus/icons-vue'
+import { ArrowDown, Back, Cpu, Refresh, Search } from '@element-plus/icons-vue'
 import { listJobApplications, updateApplicationStatus } from '@/api/application'
 import { listApplicationInterviews, batchCancelInterviews } from '@/api/interview'
 import type { Application, InterviewSchedule, JobQuery } from '@/types/domain'
@@ -164,6 +164,17 @@ const aiAnalyze = (row: Application) => {
   router.push({ path: '/hr/ai', query: { application_id: String(row.application_id), candidate_name: row.real_name || '该求职者' } })
 }
 
+const openIntelligence = (row: Application) => {
+  router.push({
+    path: `/hr/applications/${row.application_id}/intelligence`,
+    query: {
+      job_id: String(route.params.jobId),
+      job_title: row.job_title || '',
+      candidate_name: row.real_name || '',
+    },
+  })
+}
+
 // ── Interview scheduling dialog ──────────────────────────────────────────
 
 const scheduleVisible = ref(false)
@@ -211,6 +222,9 @@ const handleDropdownCommand = (command: string, row: Application) => {
   switch (command) {
     case 'ai_analyze':
       aiAnalyze(row)
+      break
+    case 'intelligence':
+      openIntelligence(row)
       break
     case 'schedule_interview':
       openScheduleDialog(row)
@@ -316,10 +330,11 @@ onMounted(load)
               <el-tag :type="statusType(row)">{{ statusLabel(row) }}</el-tag>
             </template>
           </el-table-column>
-          <el-table-column label="操作" width="280" fixed="right">
+          <el-table-column label="操作" width="370" fixed="right">
             <template #default="{ row }">
               <div class="application-actions">
                 <el-button size="small" type="primary" plain @click="$router.push('/hr/candidates/' + row.user_id)">候选人详情</el-button>
+                <el-button size="small" type="success" plain :icon="Cpu" @click="openIntelligence(row)">智能评估</el-button>
                 <el-button size="small" type="primary" plain @click="viewResume(row)">查看简历</el-button>
                 <el-dropdown trigger="click" @command="(cmd: string) => handleDropdownCommand(cmd, row)">
                   <el-button size="small" type="info" plain>
@@ -328,6 +343,7 @@ onMounted(load)
                   <template #dropdown>
                     <el-dropdown-menu>
                       <el-dropdown-item command="ai_analyze">AI 分析</el-dropdown-item>
+                      <el-dropdown-item command="intelligence">画像与匹配评估</el-dropdown-item>
                       <el-dropdown-item divided command="schedule_interview" :disabled="!canAction(row, APP_STATUS_KEY.INTERVIEW_PENDING)">安排面试</el-dropdown-item>
                       <el-dropdown-item command="cancel_interview">取消面试</el-dropdown-item>
                       <el-dropdown-item command="interview_passed" :disabled="!canAction(row, APP_STATUS_KEY.INTERVIEW_PASSED)">面试通过</el-dropdown-item>
@@ -367,12 +383,14 @@ onMounted(load)
           </div>
           <div class="mobile-card__actions">
             <el-button size="small" type="primary" plain @click="$router.push('/hr/candidates/' + row.user_id)">候选人详情</el-button>
+            <el-button size="small" type="success" plain :icon="Cpu" @click="openIntelligence(row)">智能评估</el-button>
             <el-button size="small" type="primary" plain @click="viewResume(row)">查看简历</el-button>
             <el-dropdown trigger="click" @command="(cmd: string) => handleDropdownCommand(cmd, row)">
               <el-button size="small" type="info" plain>更多操作</el-button>
               <template #dropdown>
                 <el-dropdown-menu>
                   <el-dropdown-item command="ai_analyze">AI 分析</el-dropdown-item>
+                  <el-dropdown-item command="intelligence">画像与匹配评估</el-dropdown-item>
                   <el-dropdown-item divided command="schedule_interview" :disabled="!canAction(row, APP_STATUS_KEY.INTERVIEW_PENDING)">安排面试</el-dropdown-item>
                   <el-dropdown-item command="cancel_interview">取消面试</el-dropdown-item>
                   <el-dropdown-item command="interview_passed" :disabled="!canAction(row, APP_STATUS_KEY.INTERVIEW_PASSED)">面试通过</el-dropdown-item>
