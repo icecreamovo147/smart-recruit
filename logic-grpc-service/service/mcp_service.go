@@ -20,6 +20,7 @@ import (
 	"google.golang.org/grpc/status"
 	"gorm.io/gorm"
 
+	"logic-grpc-service/ai"
 	"logic-grpc-service/config"
 	"logic-grpc-service/model"
 	"logic-grpc-service/pkg/logger"
@@ -453,6 +454,32 @@ func (s *MCPService) CallMCPTool(ctx context.Context, req *pb.CallMCPToolRequest
 
 	startTime := time.Now()
 
+	argsMap, args, err := parseMCPArgs(req.GetArgsJson())
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, fmt.Sprintf("invalid args_json: %v", err))
+	}
+
+	policyEval, err := s.evaluateToolPolicy(ctx, serverID, req.GetToolName(), argsMap, req.GetCallerRole(), req.GetCallerScope(), req.GetConfirmationApproved())
+	if err != nil {
+		logger.L().Error("evaluate MCP tool policy failed", zap.Error(err))
+		return nil, status.Error(codes.Internal, "evaluate MCP tool policy failed")
+	}
+	if policyEval.Decision != mcpPolicyDecisionAllow {
+		durationMs := time.Since(startTime).Milliseconds()
+		errorMsg := policyEval.Reason
+		s.createMCPToolLog(ctx, serverID, req, req.GetArgsJson(), "", durationMs, errorMsg, policyEval)
+		return &pb.CallMCPToolResponse{
+			Code:           1,
+			Msg:            policyEval.Decision,
+			ResultContent:  safeJSON(map[string]any{"policy_decision": policyEval.Decision, "policy_reason": policyEval.Reason}),
+			ErrorMsg:       errorMsg,
+			DurationMs:     durationMs,
+			PolicyDecision: policyEval.Decision,
+			PolicyReason:   policyEval.Reason,
+			PolicyId:       policyID(policyEval.Policy),
+		}, nil
+	}
+
 	mcpClient, err := s.createClient(server)
 	if err != nil {
 		logger.L().Error("create MCP client failed", zap.Error(err))
@@ -469,15 +496,6 @@ func (s *MCPService) CallMCPTool(ctx context.Context, req *pb.CallMCPToolRequest
 		return nil, status.Error(codes.Internal, fmt.Sprintf("MCP initialize failed: %v", err))
 	}
 	_ = initResult
-
-	// Parse arguments JSON
-	var args any
-	argsStr := req.GetArgsJson()
-	if argsStr != "" {
-		if err := json.Unmarshal([]byte(argsStr), &args); err != nil {
-			return nil, status.Error(codes.InvalidArgument, fmt.Sprintf("invalid args_json: %v", err))
-		}
-	}
 
 	callResult, err := mcpClient.CallTool(callCtx, mcp.CallToolRequest{
 		Params: mcp.CallToolParams{
@@ -499,20 +517,51 @@ func (s *MCPService) CallMCPTool(ctx context.Context, req *pb.CallMCPToolRequest
 		durationMs = time.Since(startTime).Milliseconds()
 	}
 
-	// Desensitize args and result for logging
-	desensitizedArgs := desensitizeJSON(argsStr)
-	desensitizedResult := truncateString(desensitizeJSON(resultText), 4096)
+	s.createMCPToolLog(ctx, serverID, req, req.GetArgsJson(), resultText, durationMs, errorMsg, policyEval)
 
-	// Log the tool call
+	if err != nil {
+		return &pb.CallMCPToolResponse{
+			Code:           1,
+			Msg:            "tool call failed",
+			ResultContent:  "",
+			ErrorMsg:       errorMsg,
+			DurationMs:     durationMs,
+			PolicyDecision: policyEval.Decision,
+			PolicyReason:   policyEval.Reason,
+			PolicyId:       policyID(policyEval.Policy),
+		}, nil
+	}
+
+	return &pb.CallMCPToolResponse{
+		Code:           0,
+		Msg:            "ok",
+		ResultContent:  resultText,
+		ErrorMsg:       errorMsg,
+		DurationMs:     durationMs,
+		PolicyDecision: policyEval.Decision,
+		PolicyReason:   policyEval.Reason,
+		PolicyId:       policyID(policyEval.Policy),
+	}, nil
+}
+
+func (s *MCPService) createMCPToolLog(ctx context.Context, serverID int64, req *pb.CallMCPToolRequest, argsJSON, resultText string, durationMs int64, errorMsg string, policyEval mcpPolicyEvaluation) {
+	desensitizedArgs := desensitizeJSONWithFields(argsJSON, policyEval.RedactFields)
+	desensitizedResult := truncateString(desensitizeJSONWithFields(resultText, policyEval.RedactFields), 4096)
 	toolLog := &model.MCPToolLog{
-		ServerID:      serverID,
-		ToolName:      req.GetToolName(),
-		ArgsJSON:      &desensitizedArgs,
-		ResultContent: &desensitizedResult,
-		DurationMs:    int32(durationMs),
-		ErrorMsg:      strPtrOrNil(errorMsg),
-		CalledByHRID:  &req.CalledByHrId,
-		SessionID:     &req.SessionId,
+		ServerID:           serverID,
+		ToolName:           req.GetToolName(),
+		ArgsJSON:           &desensitizedArgs,
+		ResultContent:      &desensitizedResult,
+		DurationMs:         int32(durationMs),
+		ErrorMsg:           strPtrOrNil(errorMsg),
+		CalledByHRID:       &req.CalledByHrId,
+		SessionID:          &req.SessionId,
+		PolicyDecision:     policyEval.Decision,
+		PolicyReason:       strPtrOrNil(policyEval.Reason),
+		PolicySnapshotJSON: strPtrOrNil(policyEval.SnapshotJSON),
+	}
+	if policyEval.Policy != nil {
+		toolLog.PolicyID = &policyEval.Policy.ID
 	}
 	if req.GetCalledByHrId() <= 0 {
 		toolLog.CalledByHRID = nil
@@ -523,24 +572,6 @@ func (s *MCPService) CallMCPTool(ctx context.Context, req *pb.CallMCPToolRequest
 	if logErr := s.mcpRepo.CreateToolLog(ctx, toolLog); logErr != nil {
 		logger.L().Warn("create MCP tool log failed", zap.Error(logErr))
 	}
-
-	if err != nil {
-		return &pb.CallMCPToolResponse{
-			Code:          1,
-			Msg:           "tool call failed",
-			ResultContent: "",
-			ErrorMsg:      errorMsg,
-			DurationMs:    durationMs,
-		}, nil
-	}
-
-	return &pb.CallMCPToolResponse{
-		Code:          0,
-		Msg:           "ok",
-		ResultContent: resultText,
-		ErrorMsg:      errorMsg,
-		DurationMs:    durationMs,
-	}, nil
 }
 
 // ── Internal Methods ────────────────────────────────────────────────
@@ -829,6 +860,10 @@ func extractResultText(result *mcp.CallToolResult) string {
 // of known sensitive field names (phone, email, API key, password, ID card, etc.)
 // with "***". If the input is not valid JSON, it falls back to regex-based PII masking.
 func desensitizeJSON(s string) string {
+	return desensitizeJSONWithFields(s, nil)
+}
+
+func desensitizeJSONWithFields(s string, extraFields []string) string {
 	if s == "" {
 		return ""
 	}
@@ -839,7 +874,7 @@ func desensitizeJSON(s string) string {
 		return desensitizePlainText(s)
 	}
 
-	desensitized := desensitizeValue(data)
+	desensitized := desensitizeValueWithFields(data, extraFields)
 	result, err := json.Marshal(desensitized)
 	if err != nil {
 		return s // fallback to original on marshal error
@@ -866,24 +901,37 @@ func desensitizePlainText(s string) string {
 
 // desensitizeValue recursively walks an arbitrary value and masks sensitive fields.
 func desensitizeValue(v any) any {
+	return desensitizeValueWithFields(v, nil)
+}
+
+func desensitizeValueWithFields(v any, extraFields []string) any {
 	switch val := v.(type) {
 	case map[string]any:
 		for key, subVal := range val {
-			if isSensitiveField(key) {
+			if isSensitiveField(key) || isConfiguredRedactField(key, extraFields) {
 				val[key] = "***"
 			} else {
-				val[key] = desensitizeValue(subVal)
+				val[key] = desensitizeValueWithFields(subVal, extraFields)
 			}
 		}
 		return val
 	case []any:
 		for i, item := range val {
-			val[i] = desensitizeValue(item)
+			val[i] = desensitizeValueWithFields(item, extraFields)
 		}
 		return val
 	default:
 		return v
 	}
+}
+
+func isConfiguredRedactField(name string, fields []string) bool {
+	for _, field := range fields {
+		if strings.EqualFold(strings.TrimSpace(field), name) {
+			return true
+		}
+	}
+	return false
 }
 
 // isSensitiveField checks whether a JSON field name is considered sensitive.
@@ -927,6 +975,13 @@ func strPtrOrNil(s string) *string {
 		return nil
 	}
 	return &s
+}
+
+func policyID(policy *model.MCPToolPolicy) int64 {
+	if policy == nil {
+		return 0
+	}
+	return policy.ID
 }
 
 // ── Agent Tool Injection ───────────────────────────────────────────
@@ -1124,19 +1179,54 @@ func (s *MCPService) CollectBoundMCPCallableTools(ctx context.Context, allowedKe
 				tName := t.Name
 				wrapper := utils.NewTool(toolInfo, func(ctx context.Context, argsJSON string) (string, error) {
 					resp, err := s.CallMCPTool(ctx, &pb.CallMCPToolRequest{
-						ServerId: sid,
-						ToolName: tName,
-						ArgsJson: argsJSON,
+						ServerId:     sid,
+						ToolName:     tName,
+						ArgsJson:     argsJSON,
+						CalledByHrId: ai.OwnerIDFromContext(ctx),
+						CallerRole:   "hr_agent",
+						CallerScope:  "agent_runtime",
 					})
 					if err != nil {
 						return "", err
 					}
-					return resp.ResultContent, nil
-				})
+					tracePayload := s.mcpADKTracePayload(ctx, sid, tName, argsJSON, resp)
+					if resp.GetCode() != 0 {
+						return tracePayload, nil
+					}
+					return tracePayload, nil
+				}, utils.WithUnmarshalArguments(func(ctx context.Context, arguments string) (any, error) {
+					return arguments, nil
+				}), utils.WithMarshalOutput(func(ctx context.Context, output any) (string, error) {
+					if text, ok := output.(string); ok {
+						return text, nil
+					}
+					return safeJSON(output), nil
+				}))
 				allTools = append(allTools, wrapper)
 			}
 		}()
 	}
 
 	return allTools, nil
+}
+
+func (s *MCPService) mcpADKTracePayload(ctx context.Context, serverID int64, toolName, argsJSON string, resp *pb.CallMCPToolResponse) string {
+	redactFields := s.mcpPolicyRedactFields(ctx, serverID, toolName)
+	redactedArgs := desensitizeJSONWithFields(argsJSON, redactFields)
+	redactedResult := truncateString(desensitizeJSONWithFields(resp.GetResultContent(), redactFields), 4096)
+	return safeJSON(map[string]any{
+		"policy_decision": resp.GetPolicyDecision(),
+		"policy_reason":   resp.GetPolicyReason(),
+		"policy_id":       resp.GetPolicyId(),
+		"arguments_json":  redactedArgs,
+		"result_content":  redactedResult,
+	})
+}
+
+func (s *MCPService) mcpPolicyRedactFields(ctx context.Context, serverID int64, toolName string) []string {
+	policy, err := s.mcpRepo.GetEnabledToolPolicy(ctx, serverID, toolName)
+	if err != nil {
+		return nil
+	}
+	return parseJSONStringArray(policy.RedactFieldsJSON)
 }

@@ -46,6 +46,7 @@ func setupTestDB(t *testing.T) *gorm.DB {
 		&model.InterviewFeedback{},
 		&model.MCPServer{},
 		&model.MCPToolLog{},
+		&model.MCPToolPolicy{},
 		&model.AgentConfig{},
 		&model.AgentToolBinding{},
 		&model.AgentCapabilityBinding{},

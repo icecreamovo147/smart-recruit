@@ -2079,6 +2079,10 @@ service MCPService {
   rpc CreateMCPServer(CreateMCPServerRequest) returns (MCPServerResponse);
   rpc UpdateMCPServer(UpdateMCPServerRequest) returns (MCPServerResponse);
   rpc DeleteMCPServer(DeleteMCPServerRequest) returns (CommonResponse);
+  rpc ListMCPToolPolicies(ListMCPToolPoliciesRequest) returns (ListMCPToolPoliciesResponse);
+  rpc CreateMCPToolPolicy(CreateMCPToolPolicyRequest) returns (MCPToolPolicyResponse);
+  rpc UpdateMCPToolPolicy(UpdateMCPToolPolicyRequest) returns (MCPToolPolicyResponse);
+  rpc DeleteMCPToolPolicy(DeleteMCPToolPolicyRequest) returns (CommonResponse);
   rpc TestMCPConnection(TestMCPConnectionRequest) returns (TestMCPConnectionResponse);
   rpc ListMCPTools(ListMCPToolsRequest) returns (ListMCPToolsResponse);
   rpc CallMCPTool(CallMCPToolRequest) returns (CallMCPToolResponse);
@@ -2147,6 +2151,93 @@ message MCPServerResponse {
   MCPServerInfo server = 3;
 }
 
+message MCPToolPolicyInfo {
+  int64 id = 1;
+  int64 server_id = 2;
+  string tool_name = 3;
+  string effect = 4;                    // allow / deny
+  string risk_level = 5;
+  bool require_confirmation = 6;
+  string allowed_roles_json = 7;         // JSON array string
+  string allowed_scopes_json = 8;        // JSON array string
+  string required_args_json = 9;         // JSON array string
+  string denied_args_json = 10;          // JSON array string
+  string arg_rules_json = 11;            // JSON object string
+  string redact_fields_json = 12;        // JSON array string
+  int32 rate_limit_window_seconds = 13;
+  int32 rate_limit_max_calls = 14;
+  bool is_enabled = 15;
+  int64 created_by_hr_id = 16;
+  int64 updated_by_hr_id = 17;
+  string created_at = 18;
+  string updated_at = 19;
+}
+
+message ListMCPToolPoliciesRequest {
+  int64 server_id = 1;                   // 0 = all servers
+  int32 page = 2;
+  int32 page_size = 3;
+}
+
+message ListMCPToolPoliciesResponse {
+  int32 code = 1;
+  string msg = 2;
+  int64 total = 3;
+  repeated MCPToolPolicyInfo list = 4;
+}
+
+message CreateMCPToolPolicyRequest {
+  int64 server_id = 1;
+  string tool_name = 2;
+  string effect = 3;
+  string risk_level = 4;
+  bool require_confirmation = 5;
+  string allowed_roles_json = 6;
+  string allowed_scopes_json = 7;
+  string required_args_json = 8;
+  string denied_args_json = 9;
+  string arg_rules_json = 10;
+  string redact_fields_json = 11;
+  int32 rate_limit_window_seconds = 12;
+  int32 rate_limit_max_calls = 13;
+  bool is_enabled = 14;
+  bool is_enabled_set = 15;
+  int64 operator_hr_id = 16;
+}
+
+message UpdateMCPToolPolicyRequest {
+  int64 id = 1;
+  int64 server_id = 2;
+  string tool_name = 3;
+  string effect = 4;
+  string risk_level = 5;
+  bool require_confirmation = 6;
+  bool require_confirmation_set = 7;
+  string allowed_roles_json = 8;
+  string allowed_scopes_json = 9;
+  string required_args_json = 10;
+  string denied_args_json = 11;
+  string arg_rules_json = 12;
+  string redact_fields_json = 13;
+  int32 rate_limit_window_seconds = 14;
+  bool rate_limit_window_seconds_set = 15;
+  int32 rate_limit_max_calls = 16;
+  bool rate_limit_max_calls_set = 17;
+  bool is_enabled = 18;
+  bool is_enabled_set = 19;
+  int64 operator_hr_id = 20;
+}
+
+message DeleteMCPToolPolicyRequest {
+  int64 id = 1;
+}
+
+message MCPToolPolicyResponse {
+  int32 code = 1;
+  string msg = 2;
+  MCPToolPolicyInfo policy = 3;
+}
+
 message TestMCPConnectionRequest {
   int64 server_id = 1;
 }
@@ -2180,6 +2271,9 @@ message CallMCPToolRequest {
   string args_json = 3;           // Tool arguments as JSON
   int64 called_by_hr_id = 4;
   int64 session_id = 5;
+  string caller_role = 6;
+  string caller_scope = 7;
+  bool confirmation_approved = 8;
 }
 
 message CallMCPToolResponse {
@@ -2188,6 +2282,9 @@ message CallMCPToolResponse {
   string result_content = 3;
   string error_msg = 4;           // Non-empty if tool execution failed but returned
   int64 duration_ms = 5;
+  string policy_decision = 6;
+  string policy_reason = 7;
+  int64 policy_id = 8;
 }
 
 // ══════════════════════════════════════════════════════════════════════

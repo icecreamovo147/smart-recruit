@@ -1272,12 +1272,43 @@ CREATE TABLE IF NOT EXISTS `mcp_tool_logs` (
   `error_msg` VARCHAR(512) COMMENT 'Error message if any',
   `called_by_hr_id` BIGINT COMMENT 'HR user who triggered the call',
   `session_id` BIGINT COMMENT 'AI chat session ID',
+  `policy_id` BIGINT COMMENT 'MCP tool policy ID evaluated for this call',
+  `policy_decision` VARCHAR(32) NOT NULL DEFAULT 'allow' COMMENT 'allow / deny / confirmation_required / rate_limited',
+  `policy_reason` VARCHAR(512) COMMENT 'Policy decision reason',
+  `policy_snapshot_json` JSON COMMENT 'Non-secret snapshot of evaluated policy',
   `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`),
   KEY `idx_mcp_tool_logs_server` (`server_id`),
   KEY `idx_mcp_tool_logs_session` (`session_id`),
+  KEY `idx_mcp_tool_logs_server_tool_created` (`server_id`, `tool_name`, `created_at`),
   CONSTRAINT `fk_mcp_tool_logs_server` FOREIGN KEY (`server_id`) REFERENCES `mcp_servers` (`id`) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='MCP tool call audit logs';
+
+CREATE TABLE IF NOT EXISTS `mcp_tool_policies` (
+  `id` BIGINT NOT NULL AUTO_INCREMENT,
+  `server_id` BIGINT NOT NULL COMMENT 'FK to mcp_servers.id',
+  `tool_name` VARCHAR(128) NOT NULL COMMENT 'Governed MCP tool name',
+  `effect` VARCHAR(32) NOT NULL DEFAULT 'allow' COMMENT 'allow / deny',
+  `risk_level` VARCHAR(32) DEFAULT 'medium' COMMENT 'low / medium / high / critical',
+  `require_confirmation` TINYINT(1) NOT NULL DEFAULT 0 COMMENT 'Whether caller confirmation is required',
+  `allowed_roles_json` JSON COMMENT 'Allowed caller roles JSON array',
+  `allowed_scopes_json` JSON COMMENT 'Allowed caller scopes JSON array',
+  `required_args_json` JSON COMMENT 'Required argument names JSON array',
+  `denied_args_json` JSON COMMENT 'Forbidden argument names JSON array',
+  `arg_rules_json` JSON COMMENT 'Per-argument validation rules JSON object',
+  `redact_fields_json` JSON COMMENT 'Additional fields to redact in logs JSON array',
+  `rate_limit_window_seconds` INT NOT NULL DEFAULT 0 COMMENT 'Rolling rate limit window, 0 disables',
+  `rate_limit_max_calls` INT NOT NULL DEFAULT 0 COMMENT 'Max calls in window, 0 disables',
+  `is_enabled` TINYINT(1) NOT NULL DEFAULT 1 COMMENT 'Whether this policy is active',
+  `created_by_hr_id` BIGINT COMMENT 'Creator HR ID',
+  `updated_by_hr_id` BIGINT COMMENT 'Last updater HR ID',
+  `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_mcp_tool_policy_server_tool` (`server_id`, `tool_name`),
+  KEY `idx_mcp_tool_policies_enabled` (`is_enabled`),
+  CONSTRAINT `fk_mcp_tool_policies_server` FOREIGN KEY (`server_id`) REFERENCES `mcp_servers` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='MCP tool governance policies';
 
 CREATE TABLE IF NOT EXISTS `agent_capability_bindings` (
   `id` BIGINT NOT NULL AUTO_INCREMENT,

@@ -44,6 +44,12 @@ func ownerIDFromContext(ctx context.Context) int64 {
 	return 0
 }
 
+// OwnerIDFromContext exposes the request owner identifier for service-level
+// tool wrappers that live outside the ai package.
+func OwnerIDFromContext(ctx context.Context) int64 {
+	return ownerIDFromContext(ctx)
+}
+
 // agentStateFromContext extracts the AgentRunState previously stored by
 // WithAgentRunState. Returns nil if not found.
 func agentStateFromContext(ctx context.Context) *AgentRunState {

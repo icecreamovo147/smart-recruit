@@ -758,6 +758,22 @@ func (s *Server) DeleteMCPServer(ctx context.Context, req *pb.DeleteMCPServerReq
 	return s.svc.MCP.DeleteMCPServer(ctx, req)
 }
 
+func (s *Server) ListMCPToolPolicies(ctx context.Context, req *pb.ListMCPToolPoliciesRequest) (*pb.ListMCPToolPoliciesResponse, error) {
+	return s.svc.MCP.ListMCPToolPolicies(ctx, req)
+}
+
+func (s *Server) CreateMCPToolPolicy(ctx context.Context, req *pb.CreateMCPToolPolicyRequest) (*pb.MCPToolPolicyResponse, error) {
+	return s.svc.MCP.CreateMCPToolPolicy(ctx, req)
+}
+
+func (s *Server) UpdateMCPToolPolicy(ctx context.Context, req *pb.UpdateMCPToolPolicyRequest) (*pb.MCPToolPolicyResponse, error) {
+	return s.svc.MCP.UpdateMCPToolPolicy(ctx, req)
+}
+
+func (s *Server) DeleteMCPToolPolicy(ctx context.Context, req *pb.DeleteMCPToolPolicyRequest) (*pb.CommonResponse, error) {
+	return s.svc.MCP.DeleteMCPToolPolicy(ctx, req)
+}
+
 func (s *Server) TestMCPConnection(ctx context.Context, req *pb.TestMCPConnectionRequest) (*pb.TestMCPConnectionResponse, error) {
 	return s.svc.MCP.TestMCPConnection(ctx, req)
 }

@@ -981,16 +981,45 @@ func (MCPServer) TableName() string { return "mcp_servers" }
 
 // MCPToolLog records a single MCP tool call for audit purposes.
 type MCPToolLog struct {
-	ID            int64     `gorm:"primaryKey"`
-	ServerID      int64     `gorm:"column:server_id;not null"`
-	ToolName      string    `gorm:"column:tool_name;size:128;not null"`
-	ArgsJSON      *string   `gorm:"column:args_json;type:json"`
-	ResultContent *string   `gorm:"column:result_content;type:text"`
-	DurationMs    int32     `gorm:"column:duration_ms;default:0"`
-	ErrorMsg      *string   `gorm:"column:error_msg;size:512"`
-	CalledByHRID  *int64    `gorm:"column:called_by_hr_id"`
-	SessionID     *int64    `gorm:"column:session_id"`
-	CreatedAt     time.Time `gorm:"column:created_at"`
+	ID                 int64     `gorm:"primaryKey"`
+	ServerID           int64     `gorm:"column:server_id;not null;index:idx_mcp_tool_logs_server_tool_created,priority:1"`
+	ToolName           string    `gorm:"column:tool_name;size:128;not null;index:idx_mcp_tool_logs_server_tool_created,priority:2"`
+	ArgsJSON           *string   `gorm:"column:args_json;type:json"`
+	ResultContent      *string   `gorm:"column:result_content;type:text"`
+	DurationMs         int32     `gorm:"column:duration_ms;default:0"`
+	ErrorMsg           *string   `gorm:"column:error_msg;size:512"`
+	CalledByHRID       *int64    `gorm:"column:called_by_hr_id"`
+	SessionID          *int64    `gorm:"column:session_id"`
+	PolicyID           *int64    `gorm:"column:policy_id"`
+	PolicyDecision     string    `gorm:"column:policy_decision;size:32;default:allow"`
+	PolicyReason       *string   `gorm:"column:policy_reason;size:512"`
+	PolicySnapshotJSON *string   `gorm:"column:policy_snapshot_json;type:json"`
+	CreatedAt          time.Time `gorm:"column:created_at;index:idx_mcp_tool_logs_server_tool_created,priority:3"`
 }
 
 func (MCPToolLog) TableName() string { return "mcp_tool_logs" }
+
+// MCPToolPolicy stores governable execution rules for one MCP server/tool pair.
+type MCPToolPolicy struct {
+	ID                     int64     `gorm:"primaryKey"`
+	ServerID               int64     `gorm:"column:server_id;not null;uniqueIndex:uk_mcp_tool_policy_server_tool,priority:1"`
+	ToolName               string    `gorm:"column:tool_name;size:128;not null;uniqueIndex:uk_mcp_tool_policy_server_tool,priority:2"`
+	Effect                 string    `gorm:"column:effect;size:32;not null;default:allow"`
+	RiskLevel              string    `gorm:"column:risk_level;size:32;default:medium"`
+	RequireConfirmation    int32     `gorm:"column:require_confirmation;default:0"`
+	AllowedRolesJSON       *string   `gorm:"column:allowed_roles_json;type:json"`
+	AllowedScopesJSON      *string   `gorm:"column:allowed_scopes_json;type:json"`
+	RequiredArgsJSON       *string   `gorm:"column:required_args_json;type:json"`
+	DeniedArgsJSON         *string   `gorm:"column:denied_args_json;type:json"`
+	ArgRulesJSON           *string   `gorm:"column:arg_rules_json;type:json"`
+	RedactFieldsJSON       *string   `gorm:"column:redact_fields_json;type:json"`
+	RateLimitWindowSeconds int32     `gorm:"column:rate_limit_window_seconds;default:0"`
+	RateLimitMaxCalls      int32     `gorm:"column:rate_limit_max_calls;default:0"`
+	IsEnabled              int32     `gorm:"column:is_enabled;default:1"`
+	CreatedByHRID          *int64    `gorm:"column:created_by_hr_id"`
+	UpdatedByHRID          *int64    `gorm:"column:updated_by_hr_id"`
+	CreatedAt              time.Time `gorm:"column:created_at"`
+	UpdatedAt              time.Time `gorm:"column:updated_at"`
+}
+
+func (MCPToolPolicy) TableName() string { return "mcp_tool_policies" }

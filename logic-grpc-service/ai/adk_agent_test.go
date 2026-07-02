@@ -1,9 +1,16 @@
 package ai
 
 import (
+	"context"
 	"encoding/json"
+	"errors"
+	"strings"
 	"sync"
 	"testing"
+	"time"
+
+	"github.com/cloudwego/eino/adk"
+	"github.com/cloudwego/eino/components/tool"
 )
 
 func TestEscapeADKInstruction(t *testing.T) {
@@ -92,6 +99,48 @@ func TestMarshalToolError(t *testing.T) {
 	}
 	if v, ok := m["error"]; !ok || v != true {
 		t.Errorf("expected error:true, got %v", m)
+	}
+}
+
+func TestRecruitingAgentMiddlewarePreservesStructuredPolicyErrorTrace(t *testing.T) {
+	state := &AgentRunState{}
+	middleware := &RecruitingAgentMiddleware{State: state}
+	var gotArgsJSON, gotResult string
+	var gotErr error
+	middleware.OnToolExecuted = func(toolCallID, toolName, argsJSON, resultContent string, duration time.Duration, execErr error) {
+		gotArgsJSON = argsJSON
+		gotResult = resultContent
+		gotErr = execErr
+	}
+	endpoint := func(ctx context.Context, argumentsInJSON string, opts ...tool.Option) (string, error) {
+		return `{"policy_decision":"confirmation_required","policy_reason":"policy_requires_confirmation","arguments_json":"{\"candidate_name\":\"***\",\"api_key\":\"***\"}","result_content":"{\"policy_decision\":\"confirmation_required\"}"}`, errors.New("MCP policy/tool call rejected: confirmation required")
+	}
+	wrapped, err := middleware.WrapInvokableToolCall(context.Background(), endpoint, &adk.ToolContext{Name: "mcp_policy_server_search", CallID: "call-1"})
+	if err != nil {
+		t.Fatalf("WrapInvokableToolCall failed: %v", err)
+	}
+	result, err := wrapped(context.Background(), `{"candidate_name":"Alice","api_key":"sk_secret"}`)
+	if err != nil {
+		t.Fatalf("wrapped tool should return structured error content with nil error, got %v", err)
+	}
+	if !json.Valid([]byte(result)) || !strings.Contains(result, `"policy_decision":"confirmation_required"`) {
+		t.Fatalf("expected structured policy output, got %s", result)
+	}
+	if strings.Contains(gotArgsJSON, "Alice") || strings.Contains(gotArgsJSON, "sk_secret") {
+		t.Fatalf("expected OnToolExecuted args to be redacted, got %s", gotArgsJSON)
+	}
+	if gotResult != result || gotErr == nil {
+		t.Fatalf("expected callback to receive structured result and original exec error")
+	}
+	if len(state.Metadata.ToolTraces) != 1 {
+		t.Fatalf("expected one tool trace, got %d", len(state.Metadata.ToolTraces))
+	}
+	trace := state.Metadata.ToolTraces[0]
+	if trace.Arguments["candidate_name"] != "***" || trace.Arguments["api_key"] != "***" {
+		t.Fatalf("expected redacted trace arguments, got %#v", trace.Arguments)
+	}
+	if !strings.Contains(trace.Result, `"policy_decision":"confirmation_required"`) {
+		t.Fatalf("expected trace result to preserve policy decision, got %s", trace.Result)
 	}
 }
 

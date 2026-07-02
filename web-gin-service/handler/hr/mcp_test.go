@@ -18,13 +18,17 @@ import (
 
 // mockMCPClient implements pb.MCPServiceClient for testing.
 type mockMCPClient struct {
-	listFn   func(context.Context, *pb.ListMCPServersRequest, ...grpc.CallOption) (*pb.ListMCPServersResponse, error)
-	createFn func(context.Context, *pb.CreateMCPServerRequest, ...grpc.CallOption) (*pb.MCPServerResponse, error)
-	updateFn func(context.Context, *pb.UpdateMCPServerRequest, ...grpc.CallOption) (*pb.MCPServerResponse, error)
-	deleteFn func(context.Context, *pb.DeleteMCPServerRequest, ...grpc.CallOption) (*pb.CommonResponse, error)
-	testFn   func(context.Context, *pb.TestMCPConnectionRequest, ...grpc.CallOption) (*pb.TestMCPConnectionResponse, error)
-	listToolFn func(context.Context, *pb.ListMCPToolsRequest, ...grpc.CallOption) (*pb.ListMCPToolsResponse, error)
-	callToolFn func(context.Context, *pb.CallMCPToolRequest, ...grpc.CallOption) (*pb.CallMCPToolResponse, error)
+	listFn         func(context.Context, *pb.ListMCPServersRequest, ...grpc.CallOption) (*pb.ListMCPServersResponse, error)
+	createFn       func(context.Context, *pb.CreateMCPServerRequest, ...grpc.CallOption) (*pb.MCPServerResponse, error)
+	updateFn       func(context.Context, *pb.UpdateMCPServerRequest, ...grpc.CallOption) (*pb.MCPServerResponse, error)
+	deleteFn       func(context.Context, *pb.DeleteMCPServerRequest, ...grpc.CallOption) (*pb.CommonResponse, error)
+	listPolicyFn   func(context.Context, *pb.ListMCPToolPoliciesRequest, ...grpc.CallOption) (*pb.ListMCPToolPoliciesResponse, error)
+	createPolicyFn func(context.Context, *pb.CreateMCPToolPolicyRequest, ...grpc.CallOption) (*pb.MCPToolPolicyResponse, error)
+	updatePolicyFn func(context.Context, *pb.UpdateMCPToolPolicyRequest, ...grpc.CallOption) (*pb.MCPToolPolicyResponse, error)
+	deletePolicyFn func(context.Context, *pb.DeleteMCPToolPolicyRequest, ...grpc.CallOption) (*pb.CommonResponse, error)
+	testFn         func(context.Context, *pb.TestMCPConnectionRequest, ...grpc.CallOption) (*pb.TestMCPConnectionResponse, error)
+	listToolFn     func(context.Context, *pb.ListMCPToolsRequest, ...grpc.CallOption) (*pb.ListMCPToolsResponse, error)
+	callToolFn     func(context.Context, *pb.CallMCPToolRequest, ...grpc.CallOption) (*pb.CallMCPToolResponse, error)
 }
 
 func (m *mockMCPClient) ListMCPServers(ctx context.Context, req *pb.ListMCPServersRequest, opts ...grpc.CallOption) (*pb.ListMCPServersResponse, error) {
@@ -51,6 +55,34 @@ func (m *mockMCPClient) UpdateMCPServer(ctx context.Context, req *pb.UpdateMCPSe
 func (m *mockMCPClient) DeleteMCPServer(ctx context.Context, req *pb.DeleteMCPServerRequest, opts ...grpc.CallOption) (*pb.CommonResponse, error) {
 	if m.deleteFn != nil {
 		return m.deleteFn(ctx, req, opts...)
+	}
+	return &pb.CommonResponse{Code: 0, Msg: "ok"}, nil
+}
+
+func (m *mockMCPClient) ListMCPToolPolicies(ctx context.Context, req *pb.ListMCPToolPoliciesRequest, opts ...grpc.CallOption) (*pb.ListMCPToolPoliciesResponse, error) {
+	if m.listPolicyFn != nil {
+		return m.listPolicyFn(ctx, req, opts...)
+	}
+	return &pb.ListMCPToolPoliciesResponse{Code: 0, Msg: "ok", List: []*pb.MCPToolPolicyInfo{}}, nil
+}
+
+func (m *mockMCPClient) CreateMCPToolPolicy(ctx context.Context, req *pb.CreateMCPToolPolicyRequest, opts ...grpc.CallOption) (*pb.MCPToolPolicyResponse, error) {
+	if m.createPolicyFn != nil {
+		return m.createPolicyFn(ctx, req, opts...)
+	}
+	return &pb.MCPToolPolicyResponse{Code: 0, Msg: "ok", Policy: &pb.MCPToolPolicyInfo{Id: 1, ServerId: req.ServerId, ToolName: req.ToolName}}, nil
+}
+
+func (m *mockMCPClient) UpdateMCPToolPolicy(ctx context.Context, req *pb.UpdateMCPToolPolicyRequest, opts ...grpc.CallOption) (*pb.MCPToolPolicyResponse, error) {
+	if m.updatePolicyFn != nil {
+		return m.updatePolicyFn(ctx, req, opts...)
+	}
+	return &pb.MCPToolPolicyResponse{Code: 0, Msg: "ok", Policy: &pb.MCPToolPolicyInfo{Id: req.Id, ServerId: req.ServerId, ToolName: req.ToolName}}, nil
+}
+
+func (m *mockMCPClient) DeleteMCPToolPolicy(ctx context.Context, req *pb.DeleteMCPToolPolicyRequest, opts ...grpc.CallOption) (*pb.CommonResponse, error) {
+	if m.deletePolicyFn != nil {
+		return m.deletePolicyFn(ctx, req, opts...)
 	}
 	return &pb.CommonResponse{Code: 0, Msg: "ok"}, nil
 }

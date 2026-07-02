@@ -5,7 +5,7 @@
 // versions:
 // - protoc-gen-go-grpc v1.6.2
 // - protoc             v3.20.3
-// source: proto/recruitment.proto
+// source: recruitment.proto
 
 package pb
 
@@ -348,7 +348,7 @@ var AuthService_ServiceDesc = grpc.ServiceDesc{
 		},
 	},
 	Streams:  []grpc.StreamDesc{},
-	Metadata: "proto/recruitment.proto",
+	Metadata: "recruitment.proto",
 }
 
 const (
@@ -754,7 +754,7 @@ var JobService_ServiceDesc = grpc.ServiceDesc{
 		},
 	},
 	Streams:  []grpc.StreamDesc{},
-	Metadata: "proto/recruitment.proto",
+	Metadata: "recruitment.proto",
 }
 
 const (
@@ -1008,7 +1008,7 @@ var CandidateService_ServiceDesc = grpc.ServiceDesc{
 		},
 	},
 	Streams:  []grpc.StreamDesc{},
-	Metadata: "proto/recruitment.proto",
+	Metadata: "recruitment.proto",
 }
 
 const (
@@ -1262,7 +1262,7 @@ var ApplicationService_ServiceDesc = grpc.ServiceDesc{
 		},
 	},
 	Streams:  []grpc.StreamDesc{},
-	Metadata: "proto/recruitment.proto",
+	Metadata: "recruitment.proto",
 }
 
 const (
@@ -1744,7 +1744,7 @@ var InterviewService_ServiceDesc = grpc.ServiceDesc{
 		},
 	},
 	Streams:  []grpc.StreamDesc{},
-	Metadata: "proto/recruitment.proto",
+	Metadata: "recruitment.proto",
 }
 
 const (
@@ -1998,7 +1998,7 @@ var NotificationService_ServiceDesc = grpc.ServiceDesc{
 		},
 	},
 	Streams:  []grpc.StreamDesc{},
-	Metadata: "proto/recruitment.proto",
+	Metadata: "recruitment.proto",
 }
 
 const (
@@ -2757,7 +2757,7 @@ var AIService_ServiceDesc = grpc.ServiceDesc{
 			ServerStreams: true,
 		},
 	},
-	Metadata: "proto/recruitment.proto",
+	Metadata: "recruitment.proto",
 }
 
 const (
@@ -3201,7 +3201,7 @@ var OfferService_ServiceDesc = grpc.ServiceDesc{
 		},
 	},
 	Streams:  []grpc.StreamDesc{},
-	Metadata: "proto/recruitment.proto",
+	Metadata: "recruitment.proto",
 }
 
 const (
@@ -4641,7 +4641,7 @@ var AdminService_ServiceDesc = grpc.ServiceDesc{
 		},
 	},
 	Streams:  []grpc.StreamDesc{},
-	Metadata: "proto/recruitment.proto",
+	Metadata: "recruitment.proto",
 }
 
 const (
@@ -5209,7 +5209,7 @@ var CollaborationService_ServiceDesc = grpc.ServiceDesc{
 		},
 	},
 	Streams:  []grpc.StreamDesc{},
-	Metadata: "proto/recruitment.proto",
+	Metadata: "recruitment.proto",
 }
 
 const (
@@ -5464,17 +5464,21 @@ var RecruitingIntelligenceService_ServiceDesc = grpc.ServiceDesc{
 		},
 	},
 	Streams:  []grpc.StreamDesc{},
-	Metadata: "proto/recruitment.proto",
+	Metadata: "recruitment.proto",
 }
 
 const (
-	MCPService_ListMCPServers_FullMethodName    = "/recruitment.MCPService/ListMCPServers"
-	MCPService_CreateMCPServer_FullMethodName   = "/recruitment.MCPService/CreateMCPServer"
-	MCPService_UpdateMCPServer_FullMethodName   = "/recruitment.MCPService/UpdateMCPServer"
-	MCPService_DeleteMCPServer_FullMethodName   = "/recruitment.MCPService/DeleteMCPServer"
-	MCPService_TestMCPConnection_FullMethodName = "/recruitment.MCPService/TestMCPConnection"
-	MCPService_ListMCPTools_FullMethodName      = "/recruitment.MCPService/ListMCPTools"
-	MCPService_CallMCPTool_FullMethodName       = "/recruitment.MCPService/CallMCPTool"
+	MCPService_ListMCPServers_FullMethodName      = "/recruitment.MCPService/ListMCPServers"
+	MCPService_CreateMCPServer_FullMethodName     = "/recruitment.MCPService/CreateMCPServer"
+	MCPService_UpdateMCPServer_FullMethodName     = "/recruitment.MCPService/UpdateMCPServer"
+	MCPService_DeleteMCPServer_FullMethodName     = "/recruitment.MCPService/DeleteMCPServer"
+	MCPService_ListMCPToolPolicies_FullMethodName = "/recruitment.MCPService/ListMCPToolPolicies"
+	MCPService_CreateMCPToolPolicy_FullMethodName = "/recruitment.MCPService/CreateMCPToolPolicy"
+	MCPService_UpdateMCPToolPolicy_FullMethodName = "/recruitment.MCPService/UpdateMCPToolPolicy"
+	MCPService_DeleteMCPToolPolicy_FullMethodName = "/recruitment.MCPService/DeleteMCPToolPolicy"
+	MCPService_TestMCPConnection_FullMethodName   = "/recruitment.MCPService/TestMCPConnection"
+	MCPService_ListMCPTools_FullMethodName        = "/recruitment.MCPService/ListMCPTools"
+	MCPService_CallMCPTool_FullMethodName         = "/recruitment.MCPService/CallMCPTool"
 )
 
 // MCPServiceClient is the client API for MCPService service.
@@ -5485,6 +5489,10 @@ type MCPServiceClient interface {
 	CreateMCPServer(ctx context.Context, in *CreateMCPServerRequest, opts ...grpc.CallOption) (*MCPServerResponse, error)
 	UpdateMCPServer(ctx context.Context, in *UpdateMCPServerRequest, opts ...grpc.CallOption) (*MCPServerResponse, error)
 	DeleteMCPServer(ctx context.Context, in *DeleteMCPServerRequest, opts ...grpc.CallOption) (*CommonResponse, error)
+	ListMCPToolPolicies(ctx context.Context, in *ListMCPToolPoliciesRequest, opts ...grpc.CallOption) (*ListMCPToolPoliciesResponse, error)
+	CreateMCPToolPolicy(ctx context.Context, in *CreateMCPToolPolicyRequest, opts ...grpc.CallOption) (*MCPToolPolicyResponse, error)
+	UpdateMCPToolPolicy(ctx context.Context, in *UpdateMCPToolPolicyRequest, opts ...grpc.CallOption) (*MCPToolPolicyResponse, error)
+	DeleteMCPToolPolicy(ctx context.Context, in *DeleteMCPToolPolicyRequest, opts ...grpc.CallOption) (*CommonResponse, error)
 	TestMCPConnection(ctx context.Context, in *TestMCPConnectionRequest, opts ...grpc.CallOption) (*TestMCPConnectionResponse, error)
 	ListMCPTools(ctx context.Context, in *ListMCPToolsRequest, opts ...grpc.CallOption) (*ListMCPToolsResponse, error)
 	CallMCPTool(ctx context.Context, in *CallMCPToolRequest, opts ...grpc.CallOption) (*CallMCPToolResponse, error)
@@ -5538,6 +5546,46 @@ func (c *mCPServiceClient) DeleteMCPServer(ctx context.Context, in *DeleteMCPSer
 	return out, nil
 }
 
+func (c *mCPServiceClient) ListMCPToolPolicies(ctx context.Context, in *ListMCPToolPoliciesRequest, opts ...grpc.CallOption) (*ListMCPToolPoliciesResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ListMCPToolPoliciesResponse)
+	err := c.cc.Invoke(ctx, MCPService_ListMCPToolPolicies_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *mCPServiceClient) CreateMCPToolPolicy(ctx context.Context, in *CreateMCPToolPolicyRequest, opts ...grpc.CallOption) (*MCPToolPolicyResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(MCPToolPolicyResponse)
+	err := c.cc.Invoke(ctx, MCPService_CreateMCPToolPolicy_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *mCPServiceClient) UpdateMCPToolPolicy(ctx context.Context, in *UpdateMCPToolPolicyRequest, opts ...grpc.CallOption) (*MCPToolPolicyResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(MCPToolPolicyResponse)
+	err := c.cc.Invoke(ctx, MCPService_UpdateMCPToolPolicy_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *mCPServiceClient) DeleteMCPToolPolicy(ctx context.Context, in *DeleteMCPToolPolicyRequest, opts ...grpc.CallOption) (*CommonResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(CommonResponse)
+	err := c.cc.Invoke(ctx, MCPService_DeleteMCPToolPolicy_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 func (c *mCPServiceClient) TestMCPConnection(ctx context.Context, in *TestMCPConnectionRequest, opts ...grpc.CallOption) (*TestMCPConnectionResponse, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(TestMCPConnectionResponse)
@@ -5576,6 +5624,10 @@ type MCPServiceServer interface {
 	CreateMCPServer(context.Context, *CreateMCPServerRequest) (*MCPServerResponse, error)
 	UpdateMCPServer(context.Context, *UpdateMCPServerRequest) (*MCPServerResponse, error)
 	DeleteMCPServer(context.Context, *DeleteMCPServerRequest) (*CommonResponse, error)
+	ListMCPToolPolicies(context.Context, *ListMCPToolPoliciesRequest) (*ListMCPToolPoliciesResponse, error)
+	CreateMCPToolPolicy(context.Context, *CreateMCPToolPolicyRequest) (*MCPToolPolicyResponse, error)
+	UpdateMCPToolPolicy(context.Context, *UpdateMCPToolPolicyRequest) (*MCPToolPolicyResponse, error)
+	DeleteMCPToolPolicy(context.Context, *DeleteMCPToolPolicyRequest) (*CommonResponse, error)
 	TestMCPConnection(context.Context, *TestMCPConnectionRequest) (*TestMCPConnectionResponse, error)
 	ListMCPTools(context.Context, *ListMCPToolsRequest) (*ListMCPToolsResponse, error)
 	CallMCPTool(context.Context, *CallMCPToolRequest) (*CallMCPToolResponse, error)
@@ -5600,6 +5652,18 @@ func (UnimplementedMCPServiceServer) UpdateMCPServer(context.Context, *UpdateMCP
 }
 func (UnimplementedMCPServiceServer) DeleteMCPServer(context.Context, *DeleteMCPServerRequest) (*CommonResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method DeleteMCPServer not implemented")
+}
+func (UnimplementedMCPServiceServer) ListMCPToolPolicies(context.Context, *ListMCPToolPoliciesRequest) (*ListMCPToolPoliciesResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method ListMCPToolPolicies not implemented")
+}
+func (UnimplementedMCPServiceServer) CreateMCPToolPolicy(context.Context, *CreateMCPToolPolicyRequest) (*MCPToolPolicyResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method CreateMCPToolPolicy not implemented")
+}
+func (UnimplementedMCPServiceServer) UpdateMCPToolPolicy(context.Context, *UpdateMCPToolPolicyRequest) (*MCPToolPolicyResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method UpdateMCPToolPolicy not implemented")
+}
+func (UnimplementedMCPServiceServer) DeleteMCPToolPolicy(context.Context, *DeleteMCPToolPolicyRequest) (*CommonResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method DeleteMCPToolPolicy not implemented")
 }
 func (UnimplementedMCPServiceServer) TestMCPConnection(context.Context, *TestMCPConnectionRequest) (*TestMCPConnectionResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method TestMCPConnection not implemented")
@@ -5703,6 +5767,78 @@ func _MCPService_DeleteMCPServer_Handler(srv interface{}, ctx context.Context, d
 	return interceptor(ctx, in, info, handler)
 }
 
+func _MCPService_ListMCPToolPolicies_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ListMCPToolPoliciesRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(MCPServiceServer).ListMCPToolPolicies(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: MCPService_ListMCPToolPolicies_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(MCPServiceServer).ListMCPToolPolicies(ctx, req.(*ListMCPToolPoliciesRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _MCPService_CreateMCPToolPolicy_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(CreateMCPToolPolicyRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(MCPServiceServer).CreateMCPToolPolicy(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: MCPService_CreateMCPToolPolicy_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(MCPServiceServer).CreateMCPToolPolicy(ctx, req.(*CreateMCPToolPolicyRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _MCPService_UpdateMCPToolPolicy_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(UpdateMCPToolPolicyRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(MCPServiceServer).UpdateMCPToolPolicy(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: MCPService_UpdateMCPToolPolicy_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(MCPServiceServer).UpdateMCPToolPolicy(ctx, req.(*UpdateMCPToolPolicyRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _MCPService_DeleteMCPToolPolicy_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(DeleteMCPToolPolicyRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(MCPServiceServer).DeleteMCPToolPolicy(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: MCPService_DeleteMCPToolPolicy_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(MCPServiceServer).DeleteMCPToolPolicy(ctx, req.(*DeleteMCPToolPolicyRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 func _MCPService_TestMCPConnection_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(TestMCPConnectionRequest)
 	if err := dec(in); err != nil {
@@ -5781,6 +5917,22 @@ var MCPService_ServiceDesc = grpc.ServiceDesc{
 			Handler:    _MCPService_DeleteMCPServer_Handler,
 		},
 		{
+			MethodName: "ListMCPToolPolicies",
+			Handler:    _MCPService_ListMCPToolPolicies_Handler,
+		},
+		{
+			MethodName: "CreateMCPToolPolicy",
+			Handler:    _MCPService_CreateMCPToolPolicy_Handler,
+		},
+		{
+			MethodName: "UpdateMCPToolPolicy",
+			Handler:    _MCPService_UpdateMCPToolPolicy_Handler,
+		},
+		{
+			MethodName: "DeleteMCPToolPolicy",
+			Handler:    _MCPService_DeleteMCPToolPolicy_Handler,
+		},
+		{
 			MethodName: "TestMCPConnection",
 			Handler:    _MCPService_TestMCPConnection_Handler,
 		},
@@ -5794,7 +5946,7 @@ var MCPService_ServiceDesc = grpc.ServiceDesc{
 		},
 	},
 	Streams:  []grpc.StreamDesc{},
-	Metadata: "proto/recruitment.proto",
+	Metadata: "recruitment.proto",
 }
 
 const (
@@ -6200,7 +6352,7 @@ var LlmConfigService_ServiceDesc = grpc.ServiceDesc{
 		},
 	},
 	Streams:  []grpc.StreamDesc{},
-	Metadata: "proto/recruitment.proto",
+	Metadata: "recruitment.proto",
 }
 
 const (
@@ -6570,7 +6722,7 @@ var PromptService_ServiceDesc = grpc.ServiceDesc{
 		},
 	},
 	Streams:  []grpc.StreamDesc{},
-	Metadata: "proto/recruitment.proto",
+	Metadata: "recruitment.proto",
 }
 
 const (
@@ -6864,7 +7016,7 @@ var AgentConfigService_ServiceDesc = grpc.ServiceDesc{
 		},
 	},
 	Streams:  []grpc.StreamDesc{},
-	Metadata: "proto/recruitment.proto",
+	Metadata: "recruitment.proto",
 }
 
 const (
@@ -7232,7 +7384,7 @@ var SkillService_ServiceDesc = grpc.ServiceDesc{
 		},
 	},
 	Streams:  []grpc.StreamDesc{},
-	Metadata: "proto/recruitment.proto",
+	Metadata: "recruitment.proto",
 }
 
 const (
@@ -7714,5 +7866,5 @@ var AgentSkillService_ServiceDesc = grpc.ServiceDesc{
 		},
 	},
 	Streams:  []grpc.StreamDesc{},
-	Metadata: "proto/recruitment.proto",
+	Metadata: "recruitment.proto",
 }
