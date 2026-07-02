@@ -16,7 +16,7 @@
 
 | ID | Name | Status | Branch | Dev Commit | Review Verdict | Fix Rounds | Tests | Notes |
 |---|---|---|---|---|---|---:|---|---|
-| T001 | Structured resume and match data foundations | passed | feature/intelligent-recruiting-agent-upgrade | pending | PASS | 0 | `go test ./repository -run 'Test(ResumeProfileRepo|CandidateMatchRepo)' -count=1` passed; `go test ./...` passed per Developer report | Auto-commit pending. |
+| T001 | Structured resume and match data foundations | passed | feature/intelligent-recruiting-agent-upgrade | e4bb684 | PASS | 0 | `go test ./repository -run 'Test(ResumeProfileRepo|CandidateMatchRepo)' -count=1` passed; `go test ./...` passed per Developer report | Rollback point created. |
 | T002 | ResumeProfileService parsing and normalization | pending | integration/agent-platform | - | - | 0 | `go test ./...` in `logic-grpc-service` focused service tests | Builds schema validation, parse-run status, profile upsert, normalization. |
 | T003 | CandidateMatchService scoring and evidence | pending | integration/agent-platform | - | - | 0 | `go test ./...` in `logic-grpc-service` focused service tests | Builds deterministic scoring, versioning, risks, missing requirements, evidence records. |
 | T004 | Backend API contracts for resume profiles and match evaluations | pending | integration/agent-platform | - | - | 0 | `go test ./...` in `logic-grpc-service`; `go test ./...` in `web-gin-service` | Adds proto/gRPC/web-gin API surface needed by tools and HR UI. |
@@ -295,3 +295,4 @@
 | `2026-07-02 13:26` | T001 | reviewing | Reviewer Subagent started read-only review. |
 | `2026-07-02 13:45` | T001 | reviewer restarted | Previous Reviewer Subagent appeared stuck and was closed at user request. Restarting read-only review with a fresh Reviewer. |
 | `2026-07-02 13:50` | T001 | reviewer PASS | Reviewer returned PASS with scope and focused test verification. Coordinator reran focused repository tests successfully. |
+| `2026-07-02 13:52` | T001 | auto-commit created | Commit `e4bb684` (`feat: add recruiting intelligence data foundations`) created as T001 rollback point. |
