@@ -257,6 +257,33 @@ type getJobListOutput struct {
 	Jobs []jobEntry `json:"jobs"`
 }
 
+type parseResumeProfileInput struct {
+	ApplicationID int64 `json:"application_id,omitempty" jsonschema_description:"投递记录 ID；与 resume_id 二选一"`
+	ResumeID      int64 `json:"resume_id,omitempty" jsonschema_description:"简历 ID；与 application_id 二选一"`
+}
+
+type getResumeProfileInput struct {
+	ApplicationID int64  `json:"application_id,omitempty" jsonschema_description:"投递记录 ID"`
+	ResumeID      int64  `json:"resume_id,omitempty" jsonschema_description:"简历 ID"`
+	ProfileID     uint64 `json:"profile_id,omitempty" jsonschema_description:"简历画像 ID；不传则返回当前版本"`
+}
+
+type evaluateCandidateMatchInput struct {
+	ApplicationID int64 `json:"application_id" jsonschema:"required" jsonschema_description:"投递记录 ID"`
+}
+
+type getCandidateMatchEvaluationInput struct {
+	ApplicationID     int64  `json:"application_id" jsonschema:"required" jsonschema_description:"投递记录 ID"`
+	EvaluationID      uint64 `json:"evaluation_id,omitempty" jsonschema_description:"匹配评估 ID；不传则按版本或最新版本查询"`
+	EvaluationVersion int32  `json:"evaluation_version,omitempty" jsonschema_description:"评估版本；不传则查询最新版本"`
+}
+
+type compareCandidatesForJobInput struct {
+	JobID int64 `json:"job_id" jsonschema:"required" jsonschema_description:"岗位 ID"`
+}
+
+type structuredToolOutput map[string]any
+
 // NewRecruitingADKTools creates all HR tools as tool.BaseTool with typed
 // input/output via utils.InferTool. Each tool delegates to *ToolExecutor so
 // business logic lives in a single place. Each tool is wrapped with a uniform
@@ -689,12 +716,158 @@ func NewRecruitingADKTools(executor *ToolExecutor) ([]tool.BaseTool, error) {
 		return nil, fmt.Errorf("get_job_list: %w", err)
 	}
 
+	parseResumeProfileTool, err := utils.InferTool(
+		"parse_resume_profile",
+		"基于已解析简历正文生成并保存结构化简历画像，可通过 application_id 或 resume_id 定位简历",
+		func(ctx context.Context, input parseResumeProfileInput) (structuredToolOutput, error) {
+			ownerID := ownerIDFromContext(ctx)
+			state := agentStateFromContext(ctx)
+			args := map[string]any{}
+			if input.ApplicationID > 0 {
+				args["application_id"] = input.ApplicationID
+			}
+			if input.ResumeID > 0 {
+				args["resume_id"] = input.ResumeID
+			}
+			result, err := executor.Execute(ctx, ownerID, "parse_resume_profile", args)
+			if err != nil {
+				return nil, err
+			}
+			if state != nil {
+				state.Merge(result.Metadata)
+			}
+			var out structuredToolOutput
+			if err := json.Unmarshal([]byte(result.Content), &out); err != nil {
+				return nil, err
+			}
+			return out, nil
+		},
+	)
+	if err != nil {
+		return nil, fmt.Errorf("parse_resume_profile: %w", err)
+	}
+
+	getResumeProfileTool, err := utils.InferTool(
+		"get_resume_profile",
+		"查询结构化简历画像，可按 application_id、resume_id 或 profile_id 查询",
+		func(ctx context.Context, input getResumeProfileInput) (structuredToolOutput, error) {
+			ownerID := ownerIDFromContext(ctx)
+			state := agentStateFromContext(ctx)
+			args := map[string]any{}
+			if input.ApplicationID > 0 {
+				args["application_id"] = input.ApplicationID
+			}
+			if input.ResumeID > 0 {
+				args["resume_id"] = input.ResumeID
+			}
+			if input.ProfileID > 0 {
+				args["profile_id"] = input.ProfileID
+			}
+			result, err := executor.Execute(ctx, ownerID, "get_resume_profile", args)
+			if err != nil {
+				return nil, err
+			}
+			if state != nil {
+				state.Merge(result.Metadata)
+			}
+			var out structuredToolOutput
+			if err := json.Unmarshal([]byte(result.Content), &out); err != nil {
+				return nil, err
+			}
+			return out, nil
+		},
+	)
+	if err != nil {
+		return nil, fmt.Errorf("get_resume_profile: %w", err)
+	}
+
+	evaluateCandidateMatchTool, err := utils.InferTool(
+		"evaluate_candidate_match",
+		"为指定投递生成并保存候选人与岗位的匹配评估；缺少简历画像时会先基于简历正文生成画像",
+		func(ctx context.Context, input evaluateCandidateMatchInput) (structuredToolOutput, error) {
+			ownerID := ownerIDFromContext(ctx)
+			state := agentStateFromContext(ctx)
+			result, err := executor.Execute(ctx, ownerID, "evaluate_candidate_match", map[string]any{"application_id": input.ApplicationID})
+			if err != nil {
+				return nil, err
+			}
+			if state != nil {
+				state.Merge(result.Metadata)
+			}
+			var out structuredToolOutput
+			if err := json.Unmarshal([]byte(result.Content), &out); err != nil {
+				return nil, err
+			}
+			return out, nil
+		},
+	)
+	if err != nil {
+		return nil, fmt.Errorf("evaluate_candidate_match: %w", err)
+	}
+
+	getCandidateMatchEvaluationTool, err := utils.InferTool(
+		"get_candidate_match_evaluation",
+		"查询指定投递的候选人匹配评估，可按评估 ID、版本或最新版本查询",
+		func(ctx context.Context, input getCandidateMatchEvaluationInput) (structuredToolOutput, error) {
+			ownerID := ownerIDFromContext(ctx)
+			state := agentStateFromContext(ctx)
+			args := map[string]any{"application_id": input.ApplicationID}
+			if input.EvaluationID > 0 {
+				args["evaluation_id"] = input.EvaluationID
+			}
+			if input.EvaluationVersion > 0 {
+				args["evaluation_version"] = input.EvaluationVersion
+			}
+			result, err := executor.Execute(ctx, ownerID, "get_candidate_match_evaluation", args)
+			if err != nil {
+				return nil, err
+			}
+			if state != nil {
+				state.Merge(result.Metadata)
+			}
+			var out structuredToolOutput
+			if err := json.Unmarshal([]byte(result.Content), &out); err != nil {
+				return nil, err
+			}
+			return out, nil
+		},
+	)
+	if err != nil {
+		return nil, fmt.Errorf("get_candidate_match_evaluation: %w", err)
+	}
+
+	compareCandidatesForJobTool, err := utils.InferTool(
+		"compare_candidates_for_job",
+		"对指定岗位的候选人进行匹配度排序比较；优先使用已存评估，缺失时生成本地评估",
+		func(ctx context.Context, input compareCandidatesForJobInput) (structuredToolOutput, error) {
+			ownerID := ownerIDFromContext(ctx)
+			state := agentStateFromContext(ctx)
+			result, err := executor.Execute(ctx, ownerID, "compare_candidates_for_job", map[string]any{"job_id": input.JobID})
+			if err != nil {
+				return nil, err
+			}
+			if state != nil {
+				state.Merge(result.Metadata)
+			}
+			var out structuredToolOutput
+			if err := json.Unmarshal([]byte(result.Content), &out); err != nil {
+				return nil, err
+			}
+			return out, nil
+		},
+	)
+	if err != nil {
+		return nil, fmt.Errorf("compare_candidates_for_job: %w", err)
+	}
+
 	baseTools := []tool.BaseTool{
 		queryTotalTool, queryTodayTool, heatRankingTool,
 		searchCandidatesTool, getJobDetailTool, searchJobsTool,
 		getCandidateDetailTool, proposeStatusUpdateTool,
 		listAllApplicationsTool, listAppsByJobTool, listAppsByStatusTool,
 		statusSummaryTool, trendTool, getJobListTool,
+		parseResumeProfileTool, getResumeProfileTool, evaluateCandidateMatchTool,
+		getCandidateMatchEvaluationTool, compareCandidatesForJobTool,
 	}
 
 	result := make([]tool.BaseTool, 0, len(baseTools))

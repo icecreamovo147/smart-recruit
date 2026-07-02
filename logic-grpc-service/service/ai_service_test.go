@@ -230,6 +230,11 @@ func TestRecruitingToolsAllRequiredToolsPresent(t *testing.T) {
 		"get_application_status_summary",
 		"get_application_trend",
 		"get_job_list",
+		"parse_resume_profile",
+		"get_resume_profile",
+		"evaluate_candidate_match",
+		"get_candidate_match_evaluation",
+		"compare_candidates_for_job",
 	}
 	for _, name := range required {
 		if !toolNames[name] {

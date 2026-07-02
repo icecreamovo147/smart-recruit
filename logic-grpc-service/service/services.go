@@ -103,7 +103,9 @@ func NewServices(
 	emailSender email.Sender,
 	emailRenderer *email.Renderer,
 ) *Services {
-	toolExecutor := ai.NewToolExecutor(applications, jobs, resumes, ossClient, authzRepo)
+	resumeProfileRepo := repository.NewResumeProfileRepo(db)
+	candidateMatchRepo := repository.NewCandidateMatchRepo(db)
+	toolExecutor := ai.NewToolExecutor(applications, jobs, resumes, ossClient, authzRepo, profiles, resumeProfileRepo, candidateMatchRepo)
 	candidateToolExecutor := ai.NewCandidateToolExecutor(applications, jobs, resumes)
 	contextBuilder := NewAgentContextBuilder(chats, summaries, memories, aiClient, cfg, repository.NewPromptTemplateRepo(db))
 	agentRuntime := cfg.AI.AgentRuntime
@@ -129,8 +131,6 @@ func NewServices(
 	skillSvc := NewSkillService(repository.NewSkillRepo(db))
 	agentSkillSvc := NewAgentSkillService(repository.NewAgentSkillRepo(db))
 	agentSkillRepo := repository.NewAgentSkillRepo(db)
-	resumeProfileRepo := repository.NewResumeProfileRepo(db)
-	candidateMatchRepo := repository.NewCandidateMatchRepo(db)
 	resumeProfileSvc := NewResumeProfileService(resumes, resumeProfileRepo, unavailableResumeProfileExtractor{})
 	candidateMatchSvc := NewCandidateMatchService(applications, jobs, profiles, resumes, resumeProfileRepo, candidateMatchRepo)
 	recruitingIntelligenceSvc := NewRecruitingIntelligenceService(applications, jobs, resumes, resumeProfileRepo, candidateMatchRepo, resumeProfileSvc, candidateMatchSvc, serviceAuth)
