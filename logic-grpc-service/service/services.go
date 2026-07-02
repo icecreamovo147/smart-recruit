@@ -129,7 +129,7 @@ func NewServices(
 	// Initialize MCP service before AI service for MCP tool injection
 	mcpSvc := NewMCPService(repository.NewMCPRepo(db), cfg)
 	skillSvc := NewSkillService(repository.NewSkillRepo(db))
-	agentSkillSvc := NewAgentSkillService(repository.NewAgentSkillRepo(db))
+	agentSkillSvc := NewAgentSkillServiceWithAgentConfigRepo(repository.NewAgentSkillRepo(db), agentCfgRepo)
 	agentSkillRepo := repository.NewAgentSkillRepo(db)
 	resumeProfileSvc := NewResumeProfileService(resumes, resumeProfileRepo, unavailableResumeProfileExtractor{})
 	candidateMatchSvc := NewCandidateMatchService(applications, jobs, profiles, resumes, resumeProfileRepo, candidateMatchRepo)

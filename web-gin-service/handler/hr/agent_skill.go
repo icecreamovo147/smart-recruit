@@ -40,19 +40,46 @@ type agentSkillCreateRequest struct {
 	TriggerKeywords      []string                `json:"trigger_keywords"`
 	ChangeNote           string                  `json:"change_note"`
 	Activate             *bool                   `json:"activate"`
+	AgentType            string                  `json:"agent_type"`
+	Category             string                  `json:"category"`
+	Scenario             string                  `json:"scenario"`
+	Priority             int32                   `json:"priority"`
+	RiskLevel            string                  `json:"risk_level"`
+	RequiredCapabilities []string                `json:"required_capabilities"`
+	OutputSchema         string                  `json:"output_schema"`
+	EvaluationCriteria   []string                `json:"evaluation_criteria"`
+	SemanticTags         []string                `json:"semantic_tags"`
 }
 
 type agentSkillUpdateRequest struct {
-	DisplayName          *string  `json:"display_name"`
-	DisplayNameSet       bool     `json:"display_name_set"`
-	Description          *string  `json:"description"`
-	DescriptionSet       bool     `json:"description_set"`
-	IsEnabled            *bool    `json:"is_enabled"`
-	IsEnabledSet         bool     `json:"is_enabled_set"`
-	IsManualInvocable    *bool    `json:"is_manual_invocable"`
-	IsManualInvocableSet bool     `json:"is_manual_invocable_set"`
-	TriggerKeywords      []string `json:"trigger_keywords"`
-	TriggerKeywordsSet   bool     `json:"trigger_keywords_set"`
+	DisplayName             *string  `json:"display_name"`
+	DisplayNameSet          bool     `json:"display_name_set"`
+	Description             *string  `json:"description"`
+	DescriptionSet          bool     `json:"description_set"`
+	IsEnabled               *bool    `json:"is_enabled"`
+	IsEnabledSet            bool     `json:"is_enabled_set"`
+	IsManualInvocable       *bool    `json:"is_manual_invocable"`
+	IsManualInvocableSet    bool     `json:"is_manual_invocable_set"`
+	TriggerKeywords         []string `json:"trigger_keywords"`
+	TriggerKeywordsSet      bool     `json:"trigger_keywords_set"`
+	AgentType               *string  `json:"agent_type"`
+	AgentTypeSet            bool     `json:"agent_type_set"`
+	Category                *string  `json:"category"`
+	CategorySet             bool     `json:"category_set"`
+	Scenario                *string  `json:"scenario"`
+	ScenarioSet             bool     `json:"scenario_set"`
+	Priority                *int32   `json:"priority"`
+	PrioritySet             bool     `json:"priority_set"`
+	RiskLevel               *string  `json:"risk_level"`
+	RiskLevelSet            bool     `json:"risk_level_set"`
+	RequiredCapabilities    []string `json:"required_capabilities"`
+	RequiredCapabilitiesSet bool     `json:"required_capabilities_set"`
+	OutputSchema            *string  `json:"output_schema"`
+	OutputSchemaSet         bool     `json:"output_schema_set"`
+	EvaluationCriteria      []string `json:"evaluation_criteria"`
+	EvaluationCriteriaSet   bool     `json:"evaluation_criteria_set"`
+	SemanticTags            []string `json:"semantic_tags"`
+	SemanticTagsSet         bool     `json:"semantic_tags_set"`
 }
 
 type agentSkillCreateVersionRequest struct {
@@ -145,6 +172,15 @@ func (h *AgentSkillHandler) Create(c *gin.Context) {
 		IsManualInvocable:    true,
 		IsManualInvocableSet: true,
 		TriggerKeywords:      body.TriggerKeywords,
+		AgentType:            strings.TrimSpace(body.AgentType),
+		Category:             strings.TrimSpace(body.Category),
+		Scenario:             strings.TrimSpace(body.Scenario),
+		Priority:             body.Priority,
+		RiskLevel:            strings.TrimSpace(body.RiskLevel),
+		RequiredCapabilities: body.RequiredCapabilities,
+		OutputSchema:         strings.TrimSpace(body.OutputSchema),
+		EvaluationCriteria:   body.EvaluationCriteria,
+		SemanticTags:         body.SemanticTags,
 	}
 	req.Activate = true
 	if body.Activate != nil {
@@ -204,6 +240,54 @@ func (h *AgentSkillHandler) Update(c *gin.Context) {
 	if body.IsManualInvocable != nil {
 		req.IsManualInvocable = *body.IsManualInvocable
 		req.IsManualInvocableSet = true
+	}
+	if body.AgentType != nil || body.AgentTypeSet {
+		if body.AgentType != nil {
+			req.AgentType = strings.TrimSpace(*body.AgentType)
+		}
+		req.AgentTypeSet = true
+	}
+	if body.Category != nil || body.CategorySet {
+		if body.Category != nil {
+			req.Category = strings.TrimSpace(*body.Category)
+		}
+		req.CategorySet = true
+	}
+	if body.Scenario != nil || body.ScenarioSet {
+		if body.Scenario != nil {
+			req.Scenario = strings.TrimSpace(*body.Scenario)
+		}
+		req.ScenarioSet = true
+	}
+	if body.Priority != nil || body.PrioritySet {
+		if body.Priority != nil {
+			req.Priority = *body.Priority
+		}
+		req.PrioritySet = true
+	}
+	if body.RiskLevel != nil || body.RiskLevelSet {
+		if body.RiskLevel != nil {
+			req.RiskLevel = strings.TrimSpace(*body.RiskLevel)
+		}
+		req.RiskLevelSet = true
+	}
+	if body.RequiredCapabilitiesSet {
+		req.RequiredCapabilities = body.RequiredCapabilities
+		req.RequiredCapabilitiesSet = true
+	}
+	if body.OutputSchema != nil || body.OutputSchemaSet {
+		if body.OutputSchema != nil {
+			req.OutputSchema = strings.TrimSpace(*body.OutputSchema)
+		}
+		req.OutputSchemaSet = true
+	}
+	if body.EvaluationCriteriaSet {
+		req.EvaluationCriteria = body.EvaluationCriteria
+		req.EvaluationCriteriaSet = true
+	}
+	if body.SemanticTagsSet {
+		req.SemanticTags = body.SemanticTags
+		req.SemanticTagsSet = true
 	}
 	resp, err := h.clients.AgentSkill.UpdateAgentSkill(c.Request.Context(), &req)
 	if err != nil {

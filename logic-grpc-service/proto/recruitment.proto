@@ -2812,6 +2812,17 @@ message AgentSkillInfo {
   repeated string trigger_keywords = 8;
   string created_at = 9;
   string updated_at = 10;
+  string agent_type = 11;
+  string category = 12;
+  string scenario = 13;
+  int32 priority = 14;
+  string risk_level = 15;
+  repeated string required_capabilities = 16;
+  string output_schema = 17;
+  repeated string evaluation_criteria = 18;
+  repeated string semantic_tags = 19;
+  repeated string unavailable_capabilities = 20;
+  repeated string validation_warnings = 21;
 }
 
 message AgentSkillVersionInfo {
@@ -2864,6 +2875,15 @@ message CreateAgentSkillRequest {
   string change_note = 12;
   bool activate = 13;
   string skill_md = 14;
+  string agent_type = 15;
+  string category = 16;
+  string scenario = 17;
+  int32 priority = 18;
+  string risk_level = 19;
+  repeated string required_capabilities = 20;
+  string output_schema = 21;
+  repeated string evaluation_criteria = 22;
+  repeated string semantic_tags = 23;
 }
 
 message UpdateAgentSkillRequest {
@@ -2879,6 +2899,24 @@ message UpdateAgentSkillRequest {
   int64 actor_user_id = 10;
   bool display_name_set = 11;
   bool description_set = 12;
+  string agent_type = 13;
+  bool agent_type_set = 14;
+  string category = 15;
+  bool category_set = 16;
+  string scenario = 17;
+  bool scenario_set = 18;
+  int32 priority = 19;
+  bool priority_set = 20;
+  string risk_level = 21;
+  bool risk_level_set = 22;
+  repeated string required_capabilities = 23;
+  bool required_capabilities_set = 24;
+  string output_schema = 25;
+  bool output_schema_set = 26;
+  repeated string evaluation_criteria = 27;
+  bool evaluation_criteria_set = 28;
+  repeated string semantic_tags = 29;
+  bool semantic_tags_set = 30;
 }
 
 message AgentSkillResponse {

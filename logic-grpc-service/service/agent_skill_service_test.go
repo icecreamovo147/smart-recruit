@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"strings"
 	"testing"
 	"time"
 
@@ -30,10 +31,10 @@ func newAgentSkillTestService(t *testing.T) (*AgentSkillService, *gorm.DB) {
 	if err != nil {
 		t.Fatalf("open sqlite: %v", err)
 	}
-	if err := db.AutoMigrate(&model.AgentSkill{}, &model.AgentSkillVersion{}); err != nil {
+	if err := db.AutoMigrate(&model.AgentSkill{}, &model.AgentSkillVersion{}, &model.AgentConfig{}, &model.AgentCapabilityBinding{}, &model.AgentToolBinding{}); err != nil {
 		t.Fatalf("auto migrate: %v", err)
 	}
-	return NewAgentSkillService(repository.NewAgentSkillRepo(db)), db
+	return NewAgentSkillServiceWithAgentConfigRepo(repository.NewAgentSkillRepo(db), repository.NewAgentConfigRepo(db)), db
 }
 
 func TestAgentSkillServiceUpdateClearsDisplayNameAndDescription(t *testing.T) {
@@ -62,6 +63,233 @@ func TestAgentSkillServiceUpdateClearsDisplayNameAndDescription(t *testing.T) {
 	}
 	if resp.GetSkill().GetDisplayName() != "" || resp.GetSkill().GetDescription() != "" {
 		t.Fatalf("expected cleared fields, got %+v", resp.GetSkill())
+	}
+}
+
+func TestAgentSkillServiceCreateStoresGovernanceMetadata(t *testing.T) {
+	svc, db := newAgentSkillTestService(t)
+
+	resp, err := svc.CreateAgentSkill(context.Background(), &pb.CreateAgentSkillRequest{
+		Name:                 "match_governance",
+		DisplayName:          "Match Governance",
+		Description:          "Evaluate candidate match.",
+		TriggerKeywords:      []string{"match", "match"},
+		AgentType:            "hr_recruiting_agent",
+		Category:             "candidate_match",
+		Scenario:             "screening",
+		Priority:             20,
+		RiskLevel:            "high",
+		RequiredCapabilities: []string{"builtin:evaluate_candidate_match", "search_jobs"},
+		OutputSchema:         `{"type":"object","required":["score"]}`,
+		EvaluationCriteria:   []string{"Evidence is cited", "Evidence is cited"},
+		SemanticTags:         []string{"resume", "matching"},
+	})
+	if err != nil {
+		t.Fatalf("CreateAgentSkill: %v", err)
+	}
+	skill := resp.GetSkill()
+	if skill.GetAgentType() != "hr_recruiting_agent" || skill.GetCategory() != "candidate_match" || skill.GetScenario() != "screening" {
+		t.Fatalf("metadata was not mapped to response: %+v", skill)
+	}
+	if skill.GetPriority() != 20 || skill.GetRiskLevel() != "high" {
+		t.Fatalf("unexpected priority/risk: %+v", skill)
+	}
+	if got := skill.GetRequiredCapabilities(); len(got) != 2 || got[0] != "builtin:evaluate_candidate_match" || got[1] != "builtin:search_jobs" {
+		t.Fatalf("unexpected required capabilities: %#v", got)
+	}
+	if len(skill.GetEvaluationCriteria()) != 1 || len(skill.GetSemanticTags()) != 2 {
+		t.Fatalf("unexpected criteria/tags: criteria=%#v tags=%#v", skill.GetEvaluationCriteria(), skill.GetSemanticTags())
+	}
+
+	var stored model.AgentSkill
+	if err := db.First(&stored, skill.GetId()).Error; err != nil {
+		t.Fatalf("load stored skill: %v", err)
+	}
+	if stored.RequiredCapabilities == "" || stored.OutputSchema != `{"required":["score"],"type":"object"}` {
+		t.Fatalf("metadata was not stored canonically: %+v", stored)
+	}
+}
+
+func TestAgentSkillServiceRejectsUnavailableRequiredCapability(t *testing.T) {
+	svc, _ := newAgentSkillTestService(t)
+
+	_, err := svc.CreateAgentSkill(context.Background(), &pb.CreateAgentSkillRequest{
+		Name:                 "bad_capability",
+		DisplayName:          "Bad Capability",
+		Description:          "Invalid capability.",
+		RequiredCapabilities: []string{"builtin:not_a_tool"},
+	})
+	if status.Code(err) != codes.InvalidArgument {
+		t.Fatalf("expected InvalidArgument, got %v (%v)", status.Code(err), err)
+	}
+	if !strings.Contains(err.Error(), "unavailable required capabilities: builtin:not_a_tool") {
+		t.Fatalf("expected unavailable capability details, got %v", err)
+	}
+}
+
+func TestAgentSkillServiceRejectsCapabilityUnavailableInAgentConfig(t *testing.T) {
+	svc, db := newAgentSkillTestService(t)
+	cfg := &model.AgentConfig{
+		Name:        "limited_hr_agent",
+		DisplayName: "Limited HR Agent",
+		AgentType:   "hr_recruiting_agent",
+		IsEnabled:   1,
+		IsDefault:   1,
+	}
+	if err := db.Create(cfg).Error; err != nil {
+		t.Fatalf("create agent config: %v", err)
+	}
+	if err := db.Create(&model.AgentCapabilityBinding{
+		AgentID:          cfg.ID,
+		CapabilitySource: "builtin",
+		CapabilityKey:    "search_jobs",
+		IsEnabled:        1,
+	}).Error; err != nil {
+		t.Fatalf("create capability binding: %v", err)
+	}
+
+	_, err := svc.CreateAgentSkill(context.Background(), &pb.CreateAgentSkillRequest{
+		Name:                 "config_rejected_capability",
+		DisplayName:          "Config Rejected Capability",
+		Description:          "Requires a capability not bound to the default HR agent.",
+		RequiredCapabilities: []string{"builtin:evaluate_candidate_match"},
+	})
+	if status.Code(err) != codes.InvalidArgument {
+		t.Fatalf("expected InvalidArgument, got %v (%v)", status.Code(err), err)
+	}
+	if !strings.Contains(err.Error(), "unavailable required capabilities: builtin:evaluate_candidate_match") {
+		t.Fatalf("expected configured availability details, got %v", err)
+	}
+}
+
+func TestAgentSkillServiceDoesNotUseNonDefaultConfigCapabilities(t *testing.T) {
+	svc, db := newAgentSkillTestService(t)
+	defaultCfg := &model.AgentConfig{
+		Name:        "default_hr_agent",
+		DisplayName: "Default HR Agent",
+		AgentType:   "hr_recruiting_agent",
+		IsEnabled:   1,
+		IsDefault:   1,
+	}
+	secondaryCfg := &model.AgentConfig{
+		Name:        "secondary_hr_agent",
+		DisplayName: "Secondary HR Agent",
+		AgentType:   "hr_recruiting_agent",
+		IsEnabled:   1,
+		IsDefault:   0,
+	}
+	if err := db.Create(defaultCfg).Error; err != nil {
+		t.Fatalf("create default agent config: %v", err)
+	}
+	if err := db.Create(secondaryCfg).Error; err != nil {
+		t.Fatalf("create secondary agent config: %v", err)
+	}
+	if err := db.Create(&model.AgentCapabilityBinding{
+		AgentID:          defaultCfg.ID,
+		CapabilitySource: "builtin",
+		CapabilityKey:    "search_jobs",
+		IsEnabled:        1,
+	}).Error; err != nil {
+		t.Fatalf("create default capability binding: %v", err)
+	}
+	if err := db.Create(&model.AgentCapabilityBinding{
+		AgentID:          secondaryCfg.ID,
+		CapabilitySource: "builtin",
+		CapabilityKey:    "evaluate_candidate_match",
+		IsEnabled:        1,
+	}).Error; err != nil {
+		t.Fatalf("create secondary capability binding: %v", err)
+	}
+
+	_, err := svc.CreateAgentSkill(context.Background(), &pb.CreateAgentSkillRequest{
+		Name:                 "non_default_config_rejected",
+		DisplayName:          "Non Default Config Rejected",
+		Description:          "Requires capability only bound to a secondary config.",
+		RequiredCapabilities: []string{"builtin:evaluate_candidate_match"},
+	})
+	if status.Code(err) != codes.InvalidArgument {
+		t.Fatalf("expected InvalidArgument, got %v (%v)", status.Code(err), err)
+	}
+}
+
+func TestAgentSkillServiceResponseReportsConfigAwareUnavailableCapabilities(t *testing.T) {
+	svc, db := newAgentSkillTestService(t)
+	cfg := &model.AgentConfig{
+		Name:        "default_hr_agent",
+		DisplayName: "Default HR Agent",
+		AgentType:   "hr_recruiting_agent",
+		IsEnabled:   1,
+		IsDefault:   1,
+	}
+	if err := db.Create(cfg).Error; err != nil {
+		t.Fatalf("create agent config: %v", err)
+	}
+	if err := db.Create(&model.AgentCapabilityBinding{
+		AgentID:          cfg.ID,
+		CapabilitySource: "builtin",
+		CapabilityKey:    "search_jobs",
+		IsEnabled:        1,
+	}).Error; err != nil {
+		t.Fatalf("create capability binding: %v", err)
+	}
+	required, err := marshalStringList([]string{"builtin:evaluate_candidate_match"})
+	if err != nil {
+		t.Fatalf("marshal capabilities: %v", err)
+	}
+	skill := &model.AgentSkill{
+		Name:                 "response_config_warning",
+		DisplayName:          "Response Config Warning",
+		Description:          "Stored before config changed.",
+		IsEnabled:            1,
+		IsManualInvocable:    1,
+		TriggerKeywords:      "[]",
+		AgentType:            "hr_recruiting_agent",
+		Category:             "general",
+		RiskLevel:            "medium",
+		RequiredCapabilities: required,
+	}
+	if err := db.Create(skill).Error; err != nil {
+		t.Fatalf("create skill: %v", err)
+	}
+
+	resp, err := svc.GetAgentSkill(context.Background(), &pb.GetAgentSkillRequest{Id: skill.ID})
+	if err != nil {
+		t.Fatalf("GetAgentSkill: %v", err)
+	}
+	if got := resp.GetSkill().GetUnavailableCapabilities(); len(got) != 1 || got[0] != "builtin:evaluate_candidate_match" {
+		t.Fatalf("expected config-aware unavailable capability, got %#v", got)
+	}
+}
+
+func TestAgentSkillServiceUpdateAgentTypeRevalidatesCapabilities(t *testing.T) {
+	svc, db := newAgentSkillTestService(t)
+	required, err := marshalStringList([]string{"builtin:evaluate_candidate_match"})
+	if err != nil {
+		t.Fatalf("marshal capabilities: %v", err)
+	}
+	skill := &model.AgentSkill{
+		Name:                 "agent_type_revalidation",
+		DisplayName:          "Agent Type Revalidation",
+		Description:          "Validate capabilities on agent type changes.",
+		IsEnabled:            1,
+		IsManualInvocable:    1,
+		TriggerKeywords:      "[]",
+		AgentType:            "hr_recruiting_agent",
+		Category:             "general",
+		RiskLevel:            "medium",
+		RequiredCapabilities: required,
+	}
+	if err := db.Create(skill).Error; err != nil {
+		t.Fatalf("create skill: %v", err)
+	}
+
+	_, err = svc.UpdateAgentSkill(context.Background(), &pb.UpdateAgentSkillRequest{
+		Id:           skill.ID,
+		AgentType:    "candidate_assistant",
+		AgentTypeSet: true,
+	})
+	if status.Code(err) != codes.InvalidArgument {
+		t.Fatalf("expected InvalidArgument, got %v (%v)", status.Code(err), err)
 	}
 }
 

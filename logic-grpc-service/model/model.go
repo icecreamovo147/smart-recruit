@@ -898,18 +898,27 @@ type SkillTool struct {
 func (SkillTool) TableName() string { return "ai_skill_tools" }
 
 type AgentSkill struct {
-	ID                int64     `gorm:"primaryKey"`
-	Name              string    `gorm:"column:name;size:128;not null;uniqueIndex:uk_agent_skills_name"`
-	DisplayName       string    `gorm:"column:display_name;size:128;not null"`
-	Description       string    `gorm:"column:description;type:text"`
-	CurrentVersionID  *int64    `gorm:"column:current_version_id"`
-	IsEnabled         int32     `gorm:"column:is_enabled;default:1"`
-	IsManualInvocable int32     `gorm:"column:is_manual_invocable;default:1"`
-	TriggerKeywords   string    `gorm:"column:trigger_keywords;type:json"`
-	CreatedBy         *int64    `gorm:"column:created_by"`
-	UpdatedBy         *int64    `gorm:"column:updated_by"`
-	CreatedAt         time.Time `gorm:"column:created_at"`
-	UpdatedAt         time.Time `gorm:"column:updated_at"`
+	ID                   int64     `gorm:"primaryKey"`
+	Name                 string    `gorm:"column:name;size:128;not null;uniqueIndex:uk_agent_skills_name"`
+	DisplayName          string    `gorm:"column:display_name;size:128;not null"`
+	Description          string    `gorm:"column:description;type:text"`
+	CurrentVersionID     *int64    `gorm:"column:current_version_id"`
+	IsEnabled            int32     `gorm:"column:is_enabled;default:1"`
+	IsManualInvocable    int32     `gorm:"column:is_manual_invocable;default:1"`
+	TriggerKeywords      string    `gorm:"column:trigger_keywords;type:json"`
+	AgentType            string    `gorm:"column:agent_type;size:64;not null;default:'hr_recruiting_agent'"`
+	Category             string    `gorm:"column:category;size:64;not null;default:'general'"`
+	Scenario             string    `gorm:"column:scenario;size:128;not null;default:''"`
+	Priority             int32     `gorm:"column:priority;not null;default:0"`
+	RiskLevel            string    `gorm:"column:risk_level;size:32;not null;default:'medium'"`
+	RequiredCapabilities string    `gorm:"column:required_capabilities;type:json"`
+	OutputSchema         string    `gorm:"column:output_schema;type:json"`
+	EvaluationCriteria   string    `gorm:"column:evaluation_criteria;type:json"`
+	SemanticTags         string    `gorm:"column:semantic_tags;type:json"`
+	CreatedBy            *int64    `gorm:"column:created_by"`
+	UpdatedBy            *int64    `gorm:"column:updated_by"`
+	CreatedAt            time.Time `gorm:"column:created_at"`
+	UpdatedAt            time.Time `gorm:"column:updated_at"`
 }
 
 func (AgentSkill) TableName() string { return "agent_skills" }

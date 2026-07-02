@@ -1,0 +1,11 @@
+ALTER TABLE agent_skills
+  DROP KEY idx_agent_skills_governance,
+  DROP COLUMN semantic_tags,
+  DROP COLUMN evaluation_criteria,
+  DROP COLUMN output_schema,
+  DROP COLUMN required_capabilities,
+  DROP COLUMN risk_level,
+  DROP COLUMN priority,
+  DROP COLUMN scenario,
+  DROP COLUMN category,
+  DROP COLUMN agent_type;

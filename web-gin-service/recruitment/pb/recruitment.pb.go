@@ -23149,19 +23149,30 @@ func (x *SkillToolResponse) GetTool() *SkillToolInfo {
 }
 
 type AgentSkillInfo struct {
-	state             protoimpl.MessageState `protogen:"open.v1"`
-	Id                int64                  `protobuf:"varint,1,opt,name=id,proto3" json:"id,omitempty"`
-	Name              string                 `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
-	DisplayName       string                 `protobuf:"bytes,3,opt,name=display_name,json=displayName,proto3" json:"display_name,omitempty"`
-	Description       string                 `protobuf:"bytes,4,opt,name=description,proto3" json:"description,omitempty"`
-	CurrentVersionId  int64                  `protobuf:"varint,5,opt,name=current_version_id,json=currentVersionId,proto3" json:"current_version_id,omitempty"`
-	IsEnabled         bool                   `protobuf:"varint,6,opt,name=is_enabled,json=isEnabled,proto3" json:"is_enabled,omitempty"`
-	IsManualInvocable bool                   `protobuf:"varint,7,opt,name=is_manual_invocable,json=isManualInvocable,proto3" json:"is_manual_invocable,omitempty"`
-	TriggerKeywords   []string               `protobuf:"bytes,8,rep,name=trigger_keywords,json=triggerKeywords,proto3" json:"trigger_keywords,omitempty"`
-	CreatedAt         string                 `protobuf:"bytes,9,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
-	UpdatedAt         string                 `protobuf:"bytes,10,opt,name=updated_at,json=updatedAt,proto3" json:"updated_at,omitempty"`
-	unknownFields     protoimpl.UnknownFields
-	sizeCache         protoimpl.SizeCache
+	state                   protoimpl.MessageState `protogen:"open.v1"`
+	Id                      int64                  `protobuf:"varint,1,opt,name=id,proto3" json:"id,omitempty"`
+	Name                    string                 `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
+	DisplayName             string                 `protobuf:"bytes,3,opt,name=display_name,json=displayName,proto3" json:"display_name,omitempty"`
+	Description             string                 `protobuf:"bytes,4,opt,name=description,proto3" json:"description,omitempty"`
+	CurrentVersionId        int64                  `protobuf:"varint,5,opt,name=current_version_id,json=currentVersionId,proto3" json:"current_version_id,omitempty"`
+	IsEnabled               bool                   `protobuf:"varint,6,opt,name=is_enabled,json=isEnabled,proto3" json:"is_enabled,omitempty"`
+	IsManualInvocable       bool                   `protobuf:"varint,7,opt,name=is_manual_invocable,json=isManualInvocable,proto3" json:"is_manual_invocable,omitempty"`
+	TriggerKeywords         []string               `protobuf:"bytes,8,rep,name=trigger_keywords,json=triggerKeywords,proto3" json:"trigger_keywords,omitempty"`
+	CreatedAt               string                 `protobuf:"bytes,9,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
+	UpdatedAt               string                 `protobuf:"bytes,10,opt,name=updated_at,json=updatedAt,proto3" json:"updated_at,omitempty"`
+	AgentType               string                 `protobuf:"bytes,11,opt,name=agent_type,json=agentType,proto3" json:"agent_type,omitempty"`
+	Category                string                 `protobuf:"bytes,12,opt,name=category,proto3" json:"category,omitempty"`
+	Scenario                string                 `protobuf:"bytes,13,opt,name=scenario,proto3" json:"scenario,omitempty"`
+	Priority                int32                  `protobuf:"varint,14,opt,name=priority,proto3" json:"priority,omitempty"`
+	RiskLevel               string                 `protobuf:"bytes,15,opt,name=risk_level,json=riskLevel,proto3" json:"risk_level,omitempty"`
+	RequiredCapabilities    []string               `protobuf:"bytes,16,rep,name=required_capabilities,json=requiredCapabilities,proto3" json:"required_capabilities,omitempty"`
+	OutputSchema            string                 `protobuf:"bytes,17,opt,name=output_schema,json=outputSchema,proto3" json:"output_schema,omitempty"`
+	EvaluationCriteria      []string               `protobuf:"bytes,18,rep,name=evaluation_criteria,json=evaluationCriteria,proto3" json:"evaluation_criteria,omitempty"`
+	SemanticTags            []string               `protobuf:"bytes,19,rep,name=semantic_tags,json=semanticTags,proto3" json:"semantic_tags,omitempty"`
+	UnavailableCapabilities []string               `protobuf:"bytes,20,rep,name=unavailable_capabilities,json=unavailableCapabilities,proto3" json:"unavailable_capabilities,omitempty"`
+	ValidationWarnings      []string               `protobuf:"bytes,21,rep,name=validation_warnings,json=validationWarnings,proto3" json:"validation_warnings,omitempty"`
+	unknownFields           protoimpl.UnknownFields
+	sizeCache               protoimpl.SizeCache
 }
 
 func (x *AgentSkillInfo) Reset() {
@@ -23262,6 +23273,83 @@ func (x *AgentSkillInfo) GetUpdatedAt() string {
 		return x.UpdatedAt
 	}
 	return ""
+}
+
+func (x *AgentSkillInfo) GetAgentType() string {
+	if x != nil {
+		return x.AgentType
+	}
+	return ""
+}
+
+func (x *AgentSkillInfo) GetCategory() string {
+	if x != nil {
+		return x.Category
+	}
+	return ""
+}
+
+func (x *AgentSkillInfo) GetScenario() string {
+	if x != nil {
+		return x.Scenario
+	}
+	return ""
+}
+
+func (x *AgentSkillInfo) GetPriority() int32 {
+	if x != nil {
+		return x.Priority
+	}
+	return 0
+}
+
+func (x *AgentSkillInfo) GetRiskLevel() string {
+	if x != nil {
+		return x.RiskLevel
+	}
+	return ""
+}
+
+func (x *AgentSkillInfo) GetRequiredCapabilities() []string {
+	if x != nil {
+		return x.RequiredCapabilities
+	}
+	return nil
+}
+
+func (x *AgentSkillInfo) GetOutputSchema() string {
+	if x != nil {
+		return x.OutputSchema
+	}
+	return ""
+}
+
+func (x *AgentSkillInfo) GetEvaluationCriteria() []string {
+	if x != nil {
+		return x.EvaluationCriteria
+	}
+	return nil
+}
+
+func (x *AgentSkillInfo) GetSemanticTags() []string {
+	if x != nil {
+		return x.SemanticTags
+	}
+	return nil
+}
+
+func (x *AgentSkillInfo) GetUnavailableCapabilities() []string {
+	if x != nil {
+		return x.UnavailableCapabilities
+	}
+	return nil
+}
+
+func (x *AgentSkillInfo) GetValidationWarnings() []string {
+	if x != nil {
+		return x.ValidationWarnings
+	}
+	return nil
 }
 
 type AgentSkillVersionInfo struct {
@@ -23620,6 +23708,15 @@ type CreateAgentSkillRequest struct {
 	ChangeNote           string                 `protobuf:"bytes,12,opt,name=change_note,json=changeNote,proto3" json:"change_note,omitempty"`
 	Activate             bool                   `protobuf:"varint,13,opt,name=activate,proto3" json:"activate,omitempty"`
 	SkillMd              string                 `protobuf:"bytes,14,opt,name=skill_md,json=skillMd,proto3" json:"skill_md,omitempty"`
+	AgentType            string                 `protobuf:"bytes,15,opt,name=agent_type,json=agentType,proto3" json:"agent_type,omitempty"`
+	Category             string                 `protobuf:"bytes,16,opt,name=category,proto3" json:"category,omitempty"`
+	Scenario             string                 `protobuf:"bytes,17,opt,name=scenario,proto3" json:"scenario,omitempty"`
+	Priority             int32                  `protobuf:"varint,18,opt,name=priority,proto3" json:"priority,omitempty"`
+	RiskLevel            string                 `protobuf:"bytes,19,opt,name=risk_level,json=riskLevel,proto3" json:"risk_level,omitempty"`
+	RequiredCapabilities []string               `protobuf:"bytes,20,rep,name=required_capabilities,json=requiredCapabilities,proto3" json:"required_capabilities,omitempty"`
+	OutputSchema         string                 `protobuf:"bytes,21,opt,name=output_schema,json=outputSchema,proto3" json:"output_schema,omitempty"`
+	EvaluationCriteria   []string               `protobuf:"bytes,22,rep,name=evaluation_criteria,json=evaluationCriteria,proto3" json:"evaluation_criteria,omitempty"`
+	SemanticTags         []string               `protobuf:"bytes,23,rep,name=semantic_tags,json=semanticTags,proto3" json:"semantic_tags,omitempty"`
 	unknownFields        protoimpl.UnknownFields
 	sizeCache            protoimpl.SizeCache
 }
@@ -23752,22 +23849,103 @@ func (x *CreateAgentSkillRequest) GetSkillMd() string {
 	return ""
 }
 
+func (x *CreateAgentSkillRequest) GetAgentType() string {
+	if x != nil {
+		return x.AgentType
+	}
+	return ""
+}
+
+func (x *CreateAgentSkillRequest) GetCategory() string {
+	if x != nil {
+		return x.Category
+	}
+	return ""
+}
+
+func (x *CreateAgentSkillRequest) GetScenario() string {
+	if x != nil {
+		return x.Scenario
+	}
+	return ""
+}
+
+func (x *CreateAgentSkillRequest) GetPriority() int32 {
+	if x != nil {
+		return x.Priority
+	}
+	return 0
+}
+
+func (x *CreateAgentSkillRequest) GetRiskLevel() string {
+	if x != nil {
+		return x.RiskLevel
+	}
+	return ""
+}
+
+func (x *CreateAgentSkillRequest) GetRequiredCapabilities() []string {
+	if x != nil {
+		return x.RequiredCapabilities
+	}
+	return nil
+}
+
+func (x *CreateAgentSkillRequest) GetOutputSchema() string {
+	if x != nil {
+		return x.OutputSchema
+	}
+	return ""
+}
+
+func (x *CreateAgentSkillRequest) GetEvaluationCriteria() []string {
+	if x != nil {
+		return x.EvaluationCriteria
+	}
+	return nil
+}
+
+func (x *CreateAgentSkillRequest) GetSemanticTags() []string {
+	if x != nil {
+		return x.SemanticTags
+	}
+	return nil
+}
+
 type UpdateAgentSkillRequest struct {
-	state                protoimpl.MessageState `protogen:"open.v1"`
-	Id                   int64                  `protobuf:"varint,1,opt,name=id,proto3" json:"id,omitempty"`
-	DisplayName          string                 `protobuf:"bytes,2,opt,name=display_name,json=displayName,proto3" json:"display_name,omitempty"`
-	Description          string                 `protobuf:"bytes,3,opt,name=description,proto3" json:"description,omitempty"`
-	IsEnabled            bool                   `protobuf:"varint,4,opt,name=is_enabled,json=isEnabled,proto3" json:"is_enabled,omitempty"`
-	IsEnabledSet         bool                   `protobuf:"varint,5,opt,name=is_enabled_set,json=isEnabledSet,proto3" json:"is_enabled_set,omitempty"`
-	IsManualInvocable    bool                   `protobuf:"varint,6,opt,name=is_manual_invocable,json=isManualInvocable,proto3" json:"is_manual_invocable,omitempty"`
-	IsManualInvocableSet bool                   `protobuf:"varint,7,opt,name=is_manual_invocable_set,json=isManualInvocableSet,proto3" json:"is_manual_invocable_set,omitempty"`
-	TriggerKeywords      []string               `protobuf:"bytes,8,rep,name=trigger_keywords,json=triggerKeywords,proto3" json:"trigger_keywords,omitempty"`
-	TriggerKeywordsSet   bool                   `protobuf:"varint,9,opt,name=trigger_keywords_set,json=triggerKeywordsSet,proto3" json:"trigger_keywords_set,omitempty"`
-	ActorUserId          int64                  `protobuf:"varint,10,opt,name=actor_user_id,json=actorUserId,proto3" json:"actor_user_id,omitempty"`
-	DisplayNameSet       bool                   `protobuf:"varint,11,opt,name=display_name_set,json=displayNameSet,proto3" json:"display_name_set,omitempty"`
-	DescriptionSet       bool                   `protobuf:"varint,12,opt,name=description_set,json=descriptionSet,proto3" json:"description_set,omitempty"`
-	unknownFields        protoimpl.UnknownFields
-	sizeCache            protoimpl.SizeCache
+	state                   protoimpl.MessageState `protogen:"open.v1"`
+	Id                      int64                  `protobuf:"varint,1,opt,name=id,proto3" json:"id,omitempty"`
+	DisplayName             string                 `protobuf:"bytes,2,opt,name=display_name,json=displayName,proto3" json:"display_name,omitempty"`
+	Description             string                 `protobuf:"bytes,3,opt,name=description,proto3" json:"description,omitempty"`
+	IsEnabled               bool                   `protobuf:"varint,4,opt,name=is_enabled,json=isEnabled,proto3" json:"is_enabled,omitempty"`
+	IsEnabledSet            bool                   `protobuf:"varint,5,opt,name=is_enabled_set,json=isEnabledSet,proto3" json:"is_enabled_set,omitempty"`
+	IsManualInvocable       bool                   `protobuf:"varint,6,opt,name=is_manual_invocable,json=isManualInvocable,proto3" json:"is_manual_invocable,omitempty"`
+	IsManualInvocableSet    bool                   `protobuf:"varint,7,opt,name=is_manual_invocable_set,json=isManualInvocableSet,proto3" json:"is_manual_invocable_set,omitempty"`
+	TriggerKeywords         []string               `protobuf:"bytes,8,rep,name=trigger_keywords,json=triggerKeywords,proto3" json:"trigger_keywords,omitempty"`
+	TriggerKeywordsSet      bool                   `protobuf:"varint,9,opt,name=trigger_keywords_set,json=triggerKeywordsSet,proto3" json:"trigger_keywords_set,omitempty"`
+	ActorUserId             int64                  `protobuf:"varint,10,opt,name=actor_user_id,json=actorUserId,proto3" json:"actor_user_id,omitempty"`
+	DisplayNameSet          bool                   `protobuf:"varint,11,opt,name=display_name_set,json=displayNameSet,proto3" json:"display_name_set,omitempty"`
+	DescriptionSet          bool                   `protobuf:"varint,12,opt,name=description_set,json=descriptionSet,proto3" json:"description_set,omitempty"`
+	AgentType               string                 `protobuf:"bytes,13,opt,name=agent_type,json=agentType,proto3" json:"agent_type,omitempty"`
+	AgentTypeSet            bool                   `protobuf:"varint,14,opt,name=agent_type_set,json=agentTypeSet,proto3" json:"agent_type_set,omitempty"`
+	Category                string                 `protobuf:"bytes,15,opt,name=category,proto3" json:"category,omitempty"`
+	CategorySet             bool                   `protobuf:"varint,16,opt,name=category_set,json=categorySet,proto3" json:"category_set,omitempty"`
+	Scenario                string                 `protobuf:"bytes,17,opt,name=scenario,proto3" json:"scenario,omitempty"`
+	ScenarioSet             bool                   `protobuf:"varint,18,opt,name=scenario_set,json=scenarioSet,proto3" json:"scenario_set,omitempty"`
+	Priority                int32                  `protobuf:"varint,19,opt,name=priority,proto3" json:"priority,omitempty"`
+	PrioritySet             bool                   `protobuf:"varint,20,opt,name=priority_set,json=prioritySet,proto3" json:"priority_set,omitempty"`
+	RiskLevel               string                 `protobuf:"bytes,21,opt,name=risk_level,json=riskLevel,proto3" json:"risk_level,omitempty"`
+	RiskLevelSet            bool                   `protobuf:"varint,22,opt,name=risk_level_set,json=riskLevelSet,proto3" json:"risk_level_set,omitempty"`
+	RequiredCapabilities    []string               `protobuf:"bytes,23,rep,name=required_capabilities,json=requiredCapabilities,proto3" json:"required_capabilities,omitempty"`
+	RequiredCapabilitiesSet bool                   `protobuf:"varint,24,opt,name=required_capabilities_set,json=requiredCapabilitiesSet,proto3" json:"required_capabilities_set,omitempty"`
+	OutputSchema            string                 `protobuf:"bytes,25,opt,name=output_schema,json=outputSchema,proto3" json:"output_schema,omitempty"`
+	OutputSchemaSet         bool                   `protobuf:"varint,26,opt,name=output_schema_set,json=outputSchemaSet,proto3" json:"output_schema_set,omitempty"`
+	EvaluationCriteria      []string               `protobuf:"bytes,27,rep,name=evaluation_criteria,json=evaluationCriteria,proto3" json:"evaluation_criteria,omitempty"`
+	EvaluationCriteriaSet   bool                   `protobuf:"varint,28,opt,name=evaluation_criteria_set,json=evaluationCriteriaSet,proto3" json:"evaluation_criteria_set,omitempty"`
+	SemanticTags            []string               `protobuf:"bytes,29,rep,name=semantic_tags,json=semanticTags,proto3" json:"semantic_tags,omitempty"`
+	SemanticTagsSet         bool                   `protobuf:"varint,30,opt,name=semantic_tags_set,json=semanticTagsSet,proto3" json:"semantic_tags_set,omitempty"`
+	unknownFields           protoimpl.UnknownFields
+	sizeCache               protoimpl.SizeCache
 }
 
 func (x *UpdateAgentSkillRequest) Reset() {
@@ -23880,6 +24058,132 @@ func (x *UpdateAgentSkillRequest) GetDisplayNameSet() bool {
 func (x *UpdateAgentSkillRequest) GetDescriptionSet() bool {
 	if x != nil {
 		return x.DescriptionSet
+	}
+	return false
+}
+
+func (x *UpdateAgentSkillRequest) GetAgentType() string {
+	if x != nil {
+		return x.AgentType
+	}
+	return ""
+}
+
+func (x *UpdateAgentSkillRequest) GetAgentTypeSet() bool {
+	if x != nil {
+		return x.AgentTypeSet
+	}
+	return false
+}
+
+func (x *UpdateAgentSkillRequest) GetCategory() string {
+	if x != nil {
+		return x.Category
+	}
+	return ""
+}
+
+func (x *UpdateAgentSkillRequest) GetCategorySet() bool {
+	if x != nil {
+		return x.CategorySet
+	}
+	return false
+}
+
+func (x *UpdateAgentSkillRequest) GetScenario() string {
+	if x != nil {
+		return x.Scenario
+	}
+	return ""
+}
+
+func (x *UpdateAgentSkillRequest) GetScenarioSet() bool {
+	if x != nil {
+		return x.ScenarioSet
+	}
+	return false
+}
+
+func (x *UpdateAgentSkillRequest) GetPriority() int32 {
+	if x != nil {
+		return x.Priority
+	}
+	return 0
+}
+
+func (x *UpdateAgentSkillRequest) GetPrioritySet() bool {
+	if x != nil {
+		return x.PrioritySet
+	}
+	return false
+}
+
+func (x *UpdateAgentSkillRequest) GetRiskLevel() string {
+	if x != nil {
+		return x.RiskLevel
+	}
+	return ""
+}
+
+func (x *UpdateAgentSkillRequest) GetRiskLevelSet() bool {
+	if x != nil {
+		return x.RiskLevelSet
+	}
+	return false
+}
+
+func (x *UpdateAgentSkillRequest) GetRequiredCapabilities() []string {
+	if x != nil {
+		return x.RequiredCapabilities
+	}
+	return nil
+}
+
+func (x *UpdateAgentSkillRequest) GetRequiredCapabilitiesSet() bool {
+	if x != nil {
+		return x.RequiredCapabilitiesSet
+	}
+	return false
+}
+
+func (x *UpdateAgentSkillRequest) GetOutputSchema() string {
+	if x != nil {
+		return x.OutputSchema
+	}
+	return ""
+}
+
+func (x *UpdateAgentSkillRequest) GetOutputSchemaSet() bool {
+	if x != nil {
+		return x.OutputSchemaSet
+	}
+	return false
+}
+
+func (x *UpdateAgentSkillRequest) GetEvaluationCriteria() []string {
+	if x != nil {
+		return x.EvaluationCriteria
+	}
+	return nil
+}
+
+func (x *UpdateAgentSkillRequest) GetEvaluationCriteriaSet() bool {
+	if x != nil {
+		return x.EvaluationCriteriaSet
+	}
+	return false
+}
+
+func (x *UpdateAgentSkillRequest) GetSemanticTags() []string {
+	if x != nil {
+		return x.SemanticTags
+	}
+	return nil
+}
+
+func (x *UpdateAgentSkillRequest) GetSemanticTagsSet() bool {
+	if x != nil {
+		return x.SemanticTagsSet
 	}
 	return false
 }
@@ -28358,7 +28662,7 @@ const file_proto_recruitment_proto_rawDesc = "" +
 	"\x11SkillToolResponse\x12\x12\n" +
 	"\x04code\x18\x01 \x01(\x05R\x04code\x12\x10\n" +
 	"\x03msg\x18\x02 \x01(\tR\x03msg\x12.\n" +
-	"\x04tool\x18\x03 \x01(\v2\x1a.recruitment.SkillToolInfoR\x04tool\"\xdf\x02\n" +
+	"\x04tool\x18\x03 \x01(\v2\x1a.recruitment.SkillToolInfoR\x04tool\"\x8d\x06\n" +
 	"\x0eAgentSkillInfo\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\x03R\x02id\x12\x12\n" +
 	"\x04name\x18\x02 \x01(\tR\x04name\x12!\n" +
@@ -28373,7 +28677,20 @@ const file_proto_recruitment_proto_rawDesc = "" +
 	"created_at\x18\t \x01(\tR\tcreatedAt\x12\x1d\n" +
 	"\n" +
 	"updated_at\x18\n" +
-	" \x01(\tR\tupdatedAt\"\xa4\x02\n" +
+	" \x01(\tR\tupdatedAt\x12\x1d\n" +
+	"\n" +
+	"agent_type\x18\v \x01(\tR\tagentType\x12\x1a\n" +
+	"\bcategory\x18\f \x01(\tR\bcategory\x12\x1a\n" +
+	"\bscenario\x18\r \x01(\tR\bscenario\x12\x1a\n" +
+	"\bpriority\x18\x0e \x01(\x05R\bpriority\x12\x1d\n" +
+	"\n" +
+	"risk_level\x18\x0f \x01(\tR\triskLevel\x123\n" +
+	"\x15required_capabilities\x18\x10 \x03(\tR\x14requiredCapabilities\x12#\n" +
+	"\routput_schema\x18\x11 \x01(\tR\foutputSchema\x12/\n" +
+	"\x13evaluation_criteria\x18\x12 \x03(\tR\x12evaluationCriteria\x12#\n" +
+	"\rsemantic_tags\x18\x13 \x03(\tR\fsemanticTags\x129\n" +
+	"\x18unavailable_capabilities\x18\x14 \x03(\tR\x17unavailableCapabilities\x12/\n" +
+	"\x13validation_warnings\x18\x15 \x03(\tR\x12validationWarnings\"\xa4\x02\n" +
 	"\x15AgentSkillVersionInfo\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\x03R\x02id\x12\x19\n" +
 	"\bskill_id\x18\x02 \x01(\x03R\askillId\x12\x18\n" +
@@ -28400,7 +28717,7 @@ const file_proto_recruitment_proto_rawDesc = "" +
 	"\x05total\x18\x03 \x01(\x03R\x05total\x12/\n" +
 	"\x04list\x18\x04 \x03(\v2\x1b.recruitment.AgentSkillInfoR\x04list\"&\n" +
 	"\x14GetAgentSkillRequest\x12\x0e\n" +
-	"\x02id\x18\x01 \x01(\x03R\x02id\"\xfc\x03\n" +
+	"\x02id\x18\x01 \x01(\x03R\x02id\"\xbe\x06\n" +
 	"\x17CreateAgentSkillRequest\x12\x12\n" +
 	"\x04name\x18\x01 \x01(\tR\x04name\x12!\n" +
 	"\fdisplay_name\x18\x02 \x01(\tR\vdisplayName\x12 \n" +
@@ -28418,7 +28735,18 @@ const file_proto_recruitment_proto_rawDesc = "" +
 	"\vchange_note\x18\f \x01(\tR\n" +
 	"changeNote\x12\x1a\n" +
 	"\bactivate\x18\r \x01(\bR\bactivate\x12\x19\n" +
-	"\bskill_md\x18\x0e \x01(\tR\askillMd\"\xee\x03\n" +
+	"\bskill_md\x18\x0e \x01(\tR\askillMd\x12\x1d\n" +
+	"\n" +
+	"agent_type\x18\x0f \x01(\tR\tagentType\x12\x1a\n" +
+	"\bcategory\x18\x10 \x01(\tR\bcategory\x12\x1a\n" +
+	"\bscenario\x18\x11 \x01(\tR\bscenario\x12\x1a\n" +
+	"\bpriority\x18\x12 \x01(\x05R\bpriority\x12\x1d\n" +
+	"\n" +
+	"risk_level\x18\x13 \x01(\tR\triskLevel\x123\n" +
+	"\x15required_capabilities\x18\x14 \x03(\tR\x14requiredCapabilities\x12#\n" +
+	"\routput_schema\x18\x15 \x01(\tR\foutputSchema\x12/\n" +
+	"\x13evaluation_criteria\x18\x16 \x03(\tR\x12evaluationCriteria\x12#\n" +
+	"\rsemantic_tags\x18\x17 \x03(\tR\fsemanticTags\"\xb1\t\n" +
 	"\x17UpdateAgentSkillRequest\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\x03R\x02id\x12!\n" +
 	"\fdisplay_name\x18\x02 \x01(\tR\vdisplayName\x12 \n" +
@@ -28433,7 +28761,27 @@ const file_proto_recruitment_proto_rawDesc = "" +
 	"\ractor_user_id\x18\n" +
 	" \x01(\x03R\vactorUserId\x12(\n" +
 	"\x10display_name_set\x18\v \x01(\bR\x0edisplayNameSet\x12'\n" +
-	"\x0fdescription_set\x18\f \x01(\bR\x0edescriptionSet\"m\n" +
+	"\x0fdescription_set\x18\f \x01(\bR\x0edescriptionSet\x12\x1d\n" +
+	"\n" +
+	"agent_type\x18\r \x01(\tR\tagentType\x12$\n" +
+	"\x0eagent_type_set\x18\x0e \x01(\bR\fagentTypeSet\x12\x1a\n" +
+	"\bcategory\x18\x0f \x01(\tR\bcategory\x12!\n" +
+	"\fcategory_set\x18\x10 \x01(\bR\vcategorySet\x12\x1a\n" +
+	"\bscenario\x18\x11 \x01(\tR\bscenario\x12!\n" +
+	"\fscenario_set\x18\x12 \x01(\bR\vscenarioSet\x12\x1a\n" +
+	"\bpriority\x18\x13 \x01(\x05R\bpriority\x12!\n" +
+	"\fpriority_set\x18\x14 \x01(\bR\vprioritySet\x12\x1d\n" +
+	"\n" +
+	"risk_level\x18\x15 \x01(\tR\triskLevel\x12$\n" +
+	"\x0erisk_level_set\x18\x16 \x01(\bR\friskLevelSet\x123\n" +
+	"\x15required_capabilities\x18\x17 \x03(\tR\x14requiredCapabilities\x12:\n" +
+	"\x19required_capabilities_set\x18\x18 \x01(\bR\x17requiredCapabilitiesSet\x12#\n" +
+	"\routput_schema\x18\x19 \x01(\tR\foutputSchema\x12*\n" +
+	"\x11output_schema_set\x18\x1a \x01(\bR\x0foutputSchemaSet\x12/\n" +
+	"\x13evaluation_criteria\x18\x1b \x03(\tR\x12evaluationCriteria\x126\n" +
+	"\x17evaluation_criteria_set\x18\x1c \x01(\bR\x15evaluationCriteriaSet\x12#\n" +
+	"\rsemantic_tags\x18\x1d \x03(\tR\fsemanticTags\x12*\n" +
+	"\x11semantic_tags_set\x18\x1e \x01(\bR\x0fsemanticTagsSet\"m\n" +
 	"\x12AgentSkillResponse\x12\x12\n" +
 	"\x04code\x18\x01 \x01(\x05R\x04code\x12\x10\n" +
 	"\x03msg\x18\x02 \x01(\tR\x03msg\x121\n" +

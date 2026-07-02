@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"sort"
 	"strings"
 	"time"
 
@@ -19,11 +20,25 @@ import (
 
 type AgentSkillService struct {
 	pb.UnimplementedAgentSkillServiceServer
-	repo *repository.AgentSkillRepo
+	repo            *repository.AgentSkillRepo
+	agentConfigRepo *repository.AgentConfigRepo
 }
+
+const (
+	defaultAgentSkillAgentType = "hr_recruiting_agent"
+	defaultAgentSkillCategory  = "general"
+	defaultAgentSkillRiskLevel = "medium"
+	maxAgentSkillListItems     = 50
+	maxAgentSkillListItemLen   = 128
+	maxAgentSkillJSONLen       = 8192
+)
 
 func NewAgentSkillService(repo *repository.AgentSkillRepo) *AgentSkillService {
 	return &AgentSkillService{repo: repo}
+}
+
+func NewAgentSkillServiceWithAgentConfigRepo(repo *repository.AgentSkillRepo, agentConfigRepo *repository.AgentConfigRepo) *AgentSkillService {
+	return &AgentSkillService{repo: repo, agentConfigRepo: agentConfigRepo}
 }
 
 func (s *AgentSkillService) ListAgentSkills(ctx context.Context, req *pb.ListAgentSkillsRequest) (*pb.ListAgentSkillsResponse, error) {
@@ -32,7 +47,7 @@ func (s *AgentSkillService) ListAgentSkills(ctx context.Context, req *pb.ListAge
 	if err != nil {
 		return nil, status.Error(codes.Internal, "list agent skills failed")
 	}
-	return &pb.ListAgentSkillsResponse{Code: 0, Msg: "success", Total: total, List: agentSkillsToPB(skills)}, nil
+	return &pb.ListAgentSkillsResponse{Code: 0, Msg: "success", Total: total, List: s.agentSkillsToPB(ctx, skills)}, nil
 }
 
 func (s *AgentSkillService) ListAvailableAgentSkills(ctx context.Context, req *pb.ListAvailableAgentSkillsRequest) (*pb.ListAgentSkillsResponse, error) {
@@ -41,7 +56,7 @@ func (s *AgentSkillService) ListAvailableAgentSkills(ctx context.Context, req *p
 	if err != nil {
 		return nil, status.Error(codes.Internal, "list available agent skills failed")
 	}
-	return &pb.ListAgentSkillsResponse{Code: 0, Msg: "success", Total: total, List: agentSkillsToPB(skills)}, nil
+	return &pb.ListAgentSkillsResponse{Code: 0, Msg: "success", Total: total, List: s.agentSkillsToPB(ctx, skills)}, nil
 }
 
 func (s *AgentSkillService) GetAgentSkill(ctx context.Context, req *pb.GetAgentSkillRequest) (*pb.AgentSkillResponse, error) {
@@ -52,7 +67,7 @@ func (s *AgentSkillService) GetAgentSkill(ctx context.Context, req *pb.GetAgentS
 	if err != nil {
 		return nil, status.Error(codes.NotFound, "agent skill not found")
 	}
-	return &pb.AgentSkillResponse{Code: 0, Msg: "success", Skill: agentSkillToPB(skill)}, nil
+	return &pb.AgentSkillResponse{Code: 0, Msg: "success", Skill: s.agentSkillToPB(ctx, skill)}, nil
 }
 
 func (s *AgentSkillService) CreateAgentSkill(ctx context.Context, req *pb.CreateAgentSkillRequest) (*pb.AgentSkillResponse, error) {
@@ -68,6 +83,20 @@ func (s *AgentSkillService) CreateAgentSkill(ctx context.Context, req *pb.Create
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, "invalid trigger_keywords")
 	}
+	metadata, err := s.validateAgentSkillMetadata(ctx, agentSkillMetadataInput{
+		AgentType:            req.GetAgentType(),
+		Category:             req.GetCategory(),
+		Scenario:             req.GetScenario(),
+		Priority:             req.GetPriority(),
+		RiskLevel:            req.GetRiskLevel(),
+		RequiredCapabilities: req.GetRequiredCapabilities(),
+		OutputSchema:         req.GetOutputSchema(),
+		EvaluationCriteria:   req.GetEvaluationCriteria(),
+		SemanticTags:         req.GetSemanticTags(),
+	}, true)
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, err.Error())
+	}
 	enabled := boolToInt32(true)
 	if req.GetIsEnabledSet() {
 		enabled = boolToInt32(req.GetIsEnabled())
@@ -78,14 +107,23 @@ func (s *AgentSkillService) CreateAgentSkill(ctx context.Context, req *pb.Create
 	}
 	createdBy := optionalPositiveInt64(req.GetActorUserId())
 	skill := &model.AgentSkill{
-		Name:              name,
-		DisplayName:       displayName,
-		Description:       strings.TrimSpace(req.GetDescription()),
-		IsEnabled:         enabled,
-		IsManualInvocable: manual,
-		TriggerKeywords:   triggerKeywords,
-		CreatedBy:         createdBy,
-		UpdatedBy:         createdBy,
+		Name:                 name,
+		DisplayName:          displayName,
+		Description:          strings.TrimSpace(req.GetDescription()),
+		IsEnabled:            enabled,
+		IsManualInvocable:    manual,
+		TriggerKeywords:      triggerKeywords,
+		AgentType:            metadata.AgentType,
+		Category:             metadata.Category,
+		Scenario:             metadata.Scenario,
+		Priority:             metadata.Priority,
+		RiskLevel:            metadata.RiskLevel,
+		RequiredCapabilities: metadata.RequiredCapabilitiesJSON,
+		OutputSchema:         metadata.OutputSchema,
+		EvaluationCriteria:   metadata.EvaluationCriteriaJSON,
+		SemanticTags:         metadata.SemanticTagsJSON,
+		CreatedBy:            createdBy,
+		UpdatedBy:            createdBy,
 	}
 	versionText := strings.TrimSpace(req.GetVersion())
 	flowJSON := strings.TrimSpace(req.GetFlowJson())
@@ -135,7 +173,7 @@ func (s *AgentSkillService) CreateAgentSkill(ctx context.Context, req *pb.Create
 		}
 		return nil, status.Error(codes.Internal, "create agent skill failed")
 	}
-	return &pb.AgentSkillResponse{Code: 0, Msg: "success", Skill: agentSkillToPB(skill)}, nil
+	return &pb.AgentSkillResponse{Code: 0, Msg: "success", Skill: s.agentSkillToPB(ctx, skill)}, nil
 }
 
 func (s *AgentSkillService) UpdateAgentSkill(ctx context.Context, req *pb.UpdateAgentSkillRequest) (*pb.AgentSkillResponse, error) {
@@ -162,6 +200,72 @@ func (s *AgentSkillService) UpdateAgentSkill(ctx context.Context, req *pb.Update
 	if req.GetIsManualInvocableSet() {
 		updates["is_manual_invocable"] = boolToInt32(req.GetIsManualInvocable())
 	}
+	if hasAgentSkillMetadataUpdate(req) {
+		existing, err := s.repo.GetSkillByID(ctx, req.GetId())
+		if err != nil {
+			return nil, status.Error(codes.NotFound, "agent skill not found")
+		}
+		agentType := req.GetAgentType()
+		if !req.GetAgentTypeSet() {
+			agentType = existing.AgentType
+		}
+		requiredCapabilities := req.GetRequiredCapabilities()
+		requiredCapabilitiesSet := req.GetRequiredCapabilitiesSet()
+		if req.GetAgentTypeSet() && !requiredCapabilitiesSet {
+			requiredCapabilities = unmarshalStringList(existing.RequiredCapabilities)
+			requiredCapabilitiesSet = true
+		}
+		metadata, err := s.validateAgentSkillMetadata(ctx, agentSkillMetadataInput{
+			AgentType:               agentType,
+			AgentTypeSet:            req.GetAgentTypeSet(),
+			Category:                req.GetCategory(),
+			CategorySet:             req.GetCategorySet(),
+			Scenario:                req.GetScenario(),
+			ScenarioSet:             req.GetScenarioSet(),
+			Priority:                req.GetPriority(),
+			PrioritySet:             req.GetPrioritySet(),
+			RiskLevel:               req.GetRiskLevel(),
+			RiskLevelSet:            req.GetRiskLevelSet(),
+			RequiredCapabilities:    requiredCapabilities,
+			RequiredCapabilitiesSet: requiredCapabilitiesSet,
+			OutputSchema:            req.GetOutputSchema(),
+			OutputSchemaSet:         req.GetOutputSchemaSet(),
+			EvaluationCriteria:      req.GetEvaluationCriteria(),
+			EvaluationCriteriaSet:   req.GetEvaluationCriteriaSet(),
+			SemanticTags:            req.GetSemanticTags(),
+			SemanticTagsSet:         req.GetSemanticTagsSet(),
+		}, false)
+		if err != nil {
+			return nil, status.Error(codes.InvalidArgument, err.Error())
+		}
+		if req.GetAgentTypeSet() {
+			updates["agent_type"] = metadata.AgentType
+		}
+		if req.GetCategorySet() {
+			updates["category"] = metadata.Category
+		}
+		if req.GetScenarioSet() {
+			updates["scenario"] = metadata.Scenario
+		}
+		if req.GetPrioritySet() {
+			updates["priority"] = metadata.Priority
+		}
+		if req.GetRiskLevelSet() {
+			updates["risk_level"] = metadata.RiskLevel
+		}
+		if req.GetRequiredCapabilitiesSet() {
+			updates["required_capabilities"] = metadata.RequiredCapabilitiesJSON
+		}
+		if req.GetOutputSchemaSet() {
+			updates["output_schema"] = metadata.OutputSchema
+		}
+		if req.GetEvaluationCriteriaSet() {
+			updates["evaluation_criteria"] = metadata.EvaluationCriteriaJSON
+		}
+		if req.GetSemanticTagsSet() {
+			updates["semantic_tags"] = metadata.SemanticTagsJSON
+		}
+	}
 	if actor := optionalPositiveInt64(req.GetActorUserId()); actor != nil {
 		updates["updated_by"] = actor
 	}
@@ -174,7 +278,7 @@ func (s *AgentSkillService) UpdateAgentSkill(ctx context.Context, req *pb.Update
 	if err != nil {
 		return nil, status.Error(codes.NotFound, "agent skill not found")
 	}
-	return &pb.AgentSkillResponse{Code: 0, Msg: "success", Skill: agentSkillToPB(skill)}, nil
+	return &pb.AgentSkillResponse{Code: 0, Msg: "success", Skill: s.agentSkillToPB(ctx, skill)}, nil
 }
 
 func (s *AgentSkillService) CreateAgentSkillVersion(ctx context.Context, req *pb.CreateAgentSkillVersionRequest) (*pb.AgentSkillVersionResponse, error) {
@@ -253,7 +357,7 @@ func (s *AgentSkillService) ActivateAgentSkillVersion(ctx context.Context, req *
 	if err != nil {
 		return nil, status.Error(codes.Internal, "get agent skill failed")
 	}
-	return &pb.AgentSkillResponse{Code: 0, Msg: "success", Skill: agentSkillToPB(skill)}, nil
+	return &pb.AgentSkillResponse{Code: 0, Msg: "success", Skill: s.agentSkillToPB(ctx, skill)}, nil
 }
 
 func (s *AgentSkillService) UpdateAgentSkillStatus(ctx context.Context, req *pb.UpdateAgentSkillStatusRequest) (*pb.AgentSkillResponse, error) {
@@ -271,7 +375,7 @@ func (s *AgentSkillService) UpdateAgentSkillStatus(ctx context.Context, req *pb.
 	if err != nil {
 		return nil, status.Error(codes.NotFound, "agent skill not found")
 	}
-	return &pb.AgentSkillResponse{Code: 0, Msg: "success", Skill: agentSkillToPB(skill)}, nil
+	return &pb.AgentSkillResponse{Code: 0, Msg: "success", Skill: s.agentSkillToPB(ctx, skill)}, nil
 }
 
 func (s *AgentSkillService) PreviewAgentSkill(ctx context.Context, req *pb.PreviewAgentSkillRequest) (*pb.PreviewAgentSkillResponse, error) {
@@ -307,27 +411,63 @@ func agentSkillsToPB(skills []model.AgentSkill) []*pb.AgentSkillInfo {
 	return list
 }
 
+func (s *AgentSkillService) agentSkillsToPB(ctx context.Context, skills []model.AgentSkill) []*pb.AgentSkillInfo {
+	list := make([]*pb.AgentSkillInfo, 0, len(skills))
+	for i := range skills {
+		list = append(list, s.agentSkillToPB(ctx, &skills[i]))
+	}
+	return list
+}
+
 func agentSkillToPB(skill *model.AgentSkill) *pb.AgentSkillInfo {
 	if skill == nil {
 		return nil
 	}
+	requiredCapabilities := unmarshalStringList(skill.RequiredCapabilities)
+	unavailable, warnings := evaluateAgentSkillCapabilityAvailability(skill.AgentType, requiredCapabilities)
+	return buildAgentSkillPB(skill, requiredCapabilities, unavailable, warnings)
+}
+
+func (s *AgentSkillService) agentSkillToPB(ctx context.Context, skill *model.AgentSkill) *pb.AgentSkillInfo {
+	if skill == nil {
+		return nil
+	}
+	requiredCapabilities := unmarshalStringList(skill.RequiredCapabilities)
+	unavailable, warnings := s.evaluateAgentSkillCapabilityAvailability(ctx, skill.AgentType, requiredCapabilities)
+	return buildAgentSkillPB(skill, requiredCapabilities, unavailable, warnings)
+}
+
+func buildAgentSkillPB(skill *model.AgentSkill, requiredCapabilities, unavailable, warnings []string) *pb.AgentSkillInfo {
 	var currentVersionID int64
 	if skill.CurrentVersionID != nil {
 		currentVersionID = *skill.CurrentVersionID
 	}
 	keywords := []string{}
 	_ = json.Unmarshal([]byte(skill.TriggerKeywords), &keywords)
+	evaluationCriteria := unmarshalStringList(skill.EvaluationCriteria)
+	semanticTags := unmarshalStringList(skill.SemanticTags)
 	return &pb.AgentSkillInfo{
-		Id:                skill.ID,
-		Name:              skill.Name,
-		DisplayName:       skill.DisplayName,
-		Description:       skill.Description,
-		CurrentVersionId:  currentVersionID,
-		IsEnabled:         skill.IsEnabled == 1,
-		IsManualInvocable: skill.IsManualInvocable == 1,
-		TriggerKeywords:   keywords,
-		CreatedAt:         formatTime(skill.CreatedAt),
-		UpdatedAt:         formatTime(skill.UpdatedAt),
+		Id:                      skill.ID,
+		Name:                    skill.Name,
+		DisplayName:             skill.DisplayName,
+		Description:             skill.Description,
+		CurrentVersionId:        currentVersionID,
+		IsEnabled:               skill.IsEnabled == 1,
+		IsManualInvocable:       skill.IsManualInvocable == 1,
+		TriggerKeywords:         keywords,
+		CreatedAt:               formatTime(skill.CreatedAt),
+		UpdatedAt:               formatTime(skill.UpdatedAt),
+		AgentType:               skill.AgentType,
+		Category:                skill.Category,
+		Scenario:                skill.Scenario,
+		Priority:                skill.Priority,
+		RiskLevel:               skill.RiskLevel,
+		RequiredCapabilities:    requiredCapabilities,
+		OutputSchema:            skill.OutputSchema,
+		EvaluationCriteria:      evaluationCriteria,
+		SemanticTags:            semanticTags,
+		UnavailableCapabilities: unavailable,
+		ValidationWarnings:      warnings,
 	}
 }
 
@@ -382,6 +522,344 @@ func marshalStringList(values []string) (string, error) {
 		return "", err
 	}
 	return string(b), nil
+}
+
+func unmarshalStringList(raw string) []string {
+	values := []string{}
+	if strings.TrimSpace(raw) == "" {
+		return values
+	}
+	if err := json.Unmarshal([]byte(raw), &values); err != nil {
+		return []string{}
+	}
+	return values
+}
+
+type agentSkillMetadataInput struct {
+	AgentType               string
+	AgentTypeSet            bool
+	Category                string
+	CategorySet             bool
+	Scenario                string
+	ScenarioSet             bool
+	Priority                int32
+	PrioritySet             bool
+	RiskLevel               string
+	RiskLevelSet            bool
+	RequiredCapabilities    []string
+	RequiredCapabilitiesSet bool
+	OutputSchema            string
+	OutputSchemaSet         bool
+	EvaluationCriteria      []string
+	EvaluationCriteriaSet   bool
+	SemanticTags            []string
+	SemanticTagsSet         bool
+}
+
+type agentSkillMetadataValues struct {
+	AgentType                string
+	Category                 string
+	Scenario                 string
+	Priority                 int32
+	RiskLevel                string
+	RequiredCapabilitiesJSON string
+	OutputSchema             string
+	EvaluationCriteriaJSON   string
+	SemanticTagsJSON         string
+}
+
+func (s *AgentSkillService) validateAgentSkillMetadata(ctx context.Context, input agentSkillMetadataInput, create bool) (agentSkillMetadataValues, error) {
+	values := agentSkillMetadataValues{}
+	effectiveAgentType := normalizeDefaultString(input.AgentType, defaultAgentSkillAgentType)
+	if create || input.AgentTypeSet {
+		values.AgentType = effectiveAgentType
+		if err := validateAgentSkillToken("agent_type", values.AgentType, 64, false); err != nil {
+			return values, err
+		}
+	}
+	if create || input.CategorySet {
+		values.Category = normalizeDefaultString(input.Category, defaultAgentSkillCategory)
+		if err := validateAgentSkillToken("category", values.Category, 64, false); err != nil {
+			return values, err
+		}
+	}
+	if create || input.ScenarioSet {
+		values.Scenario = strings.TrimSpace(input.Scenario)
+		if err := validateAgentSkillText("scenario", values.Scenario, 128); err != nil {
+			return values, err
+		}
+	}
+	if create || input.PrioritySet {
+		values.Priority = input.Priority
+		if values.Priority < -1000 || values.Priority > 1000 {
+			return values, fmt.Errorf("priority must be between -1000 and 1000")
+		}
+	}
+	if create || input.RiskLevelSet {
+		values.RiskLevel = strings.ToLower(normalizeDefaultString(input.RiskLevel, defaultAgentSkillRiskLevel))
+		switch values.RiskLevel {
+		case "low", "medium", "high", "critical":
+		default:
+			return values, fmt.Errorf("risk_level must be one of low, medium, high, critical")
+		}
+	}
+	if create || input.RequiredCapabilitiesSet {
+		capabilities, err := normalizeAgentSkillRequiredCapabilities(input.RequiredCapabilities, effectiveAgentType)
+		if err != nil {
+			return values, err
+		}
+		if unavailable, _ := s.evaluateAgentSkillCapabilityAvailability(ctx, effectiveAgentType, capabilities); len(unavailable) > 0 {
+			return values, fmt.Errorf("unavailable required capabilities: %s", strings.Join(unavailable, ", "))
+		}
+		values.RequiredCapabilitiesJSON, err = marshalStringList(capabilities)
+		if err != nil {
+			return values, fmt.Errorf("invalid required_capabilities")
+		}
+	}
+	if create || input.OutputSchemaSet {
+		outputSchema, err := normalizeAgentSkillJSON("output_schema", input.OutputSchema)
+		if err != nil {
+			return values, err
+		}
+		values.OutputSchema = outputSchema
+	}
+	if create || input.EvaluationCriteriaSet {
+		criteria, err := normalizeAgentSkillStringList("evaluation_criteria", input.EvaluationCriteria, maxAgentSkillListItems, 512)
+		if err != nil {
+			return values, err
+		}
+		values.EvaluationCriteriaJSON, err = marshalStringList(criteria)
+		if err != nil {
+			return values, fmt.Errorf("invalid evaluation_criteria")
+		}
+	}
+	if create || input.SemanticTagsSet {
+		tags, err := normalizeAgentSkillStringList("semantic_tags", input.SemanticTags, maxAgentSkillListItems, maxAgentSkillListItemLen)
+		if err != nil {
+			return values, err
+		}
+		values.SemanticTagsJSON, err = marshalStringList(tags)
+		if err != nil {
+			return values, fmt.Errorf("invalid semantic_tags")
+		}
+	}
+	return values, nil
+}
+
+func hasAgentSkillMetadataUpdate(req *pb.UpdateAgentSkillRequest) bool {
+	return req.GetAgentTypeSet() || req.GetCategorySet() || req.GetScenarioSet() ||
+		req.GetPrioritySet() || req.GetRiskLevelSet() || req.GetRequiredCapabilitiesSet() ||
+		req.GetOutputSchemaSet() || req.GetEvaluationCriteriaSet() || req.GetSemanticTagsSet()
+}
+
+func normalizeDefaultString(value, fallback string) string {
+	if trimmed := strings.TrimSpace(value); trimmed != "" {
+		return trimmed
+	}
+	return fallback
+}
+
+func validateAgentSkillToken(field, value string, maxLen int, allowEmpty bool) error {
+	if strings.TrimSpace(value) == "" {
+		if allowEmpty {
+			return nil
+		}
+		return fmt.Errorf("%s is required", field)
+	}
+	if len(value) > maxLen {
+		return fmt.Errorf("%s is too long", field)
+	}
+	for _, r := range value {
+		if (r >= 'a' && r <= 'z') || (r >= 'A' && r <= 'Z') || (r >= '0' && r <= '9') || r == '_' || r == '-' || r == '.' {
+			continue
+		}
+		return fmt.Errorf("%s contains invalid characters", field)
+	}
+	return nil
+}
+
+func validateAgentSkillText(field, value string, maxLen int) error {
+	if len(value) > maxLen {
+		return fmt.Errorf("%s is too long", field)
+	}
+	return nil
+}
+
+func normalizeAgentSkillStringList(field string, values []string, maxItems, maxLen int) ([]string, error) {
+	clean := make([]string, 0, len(values))
+	seen := map[string]bool{}
+	for _, value := range values {
+		value = strings.TrimSpace(value)
+		if value == "" {
+			continue
+		}
+		if len(value) > maxLen {
+			return nil, fmt.Errorf("%s contains an item that is too long", field)
+		}
+		key := strings.ToLower(value)
+		if seen[key] {
+			continue
+		}
+		seen[key] = true
+		clean = append(clean, value)
+		if len(clean) > maxItems {
+			return nil, fmt.Errorf("%s has too many items", field)
+		}
+	}
+	return clean, nil
+}
+
+func normalizeAgentSkillJSON(field, raw string) (string, error) {
+	raw = strings.TrimSpace(raw)
+	if raw == "" {
+		return "", nil
+	}
+	if len(raw) > maxAgentSkillJSONLen {
+		return "", fmt.Errorf("%s is too large", field)
+	}
+	var payload any
+	if err := json.Unmarshal([]byte(raw), &payload); err != nil {
+		return "", fmt.Errorf("%s must be valid JSON", field)
+	}
+	canonical, err := json.Marshal(payload)
+	if err != nil {
+		return "", fmt.Errorf("%s must be valid JSON", field)
+	}
+	return string(canonical), nil
+}
+
+func normalizeAgentSkillRequiredCapabilities(values []string, agentType string) ([]string, error) {
+	clean, err := normalizeAgentSkillStringList("required_capabilities", values, maxAgentSkillListItems, 256)
+	if err != nil {
+		return nil, err
+	}
+	normalized := make([]string, 0, len(clean))
+	seen := map[string]bool{}
+	for _, item := range clean {
+		source, key, err := parseAgentSkillCapabilityRef(item)
+		if err != nil {
+			return nil, err
+		}
+		if source == "" {
+			source = "builtin"
+		}
+		ref := source + ":" + key
+		if seen[ref] {
+			continue
+		}
+		seen[ref] = true
+		normalized = append(normalized, ref)
+	}
+	sort.Strings(normalized)
+	return normalized, nil
+}
+
+func parseAgentSkillCapabilityRef(value string) (source, key string, err error) {
+	value = strings.TrimSpace(value)
+	if value == "" {
+		return "", "", fmt.Errorf("required_capabilities contains empty item")
+	}
+	parts := strings.SplitN(value, ":", 2)
+	if len(parts) == 2 {
+		source = strings.ToLower(strings.TrimSpace(parts[0]))
+		key = strings.TrimSpace(parts[1])
+	} else {
+		key = value
+	}
+	if source != "" && source != "builtin" && source != "mcp" && source != "skill" {
+		return "", "", fmt.Errorf("required_capabilities contains unsupported source %q", source)
+	}
+	if err := validateAgentSkillToken("required_capabilities", key, 256, false); err != nil {
+		return "", "", err
+	}
+	return source, key, nil
+}
+
+func evaluateAgentSkillCapabilityAvailability(agentType string, refs []string) ([]string, []string) {
+	if strings.TrimSpace(agentType) == "" {
+		agentType = defaultAgentSkillAgentType
+	}
+	builtin := builtinAgentCapabilitySet(agentType)
+	unavailable := []string{}
+	warnings := []string{}
+	for _, ref := range refs {
+		source, key, err := parseAgentSkillCapabilityRef(ref)
+		if err != nil {
+			unavailable = append(unavailable, ref)
+			continue
+		}
+		if source == "" {
+			source = "builtin"
+		}
+		switch source {
+		case "builtin":
+			if !builtin[key] {
+				unavailable = append(unavailable, source+":"+key)
+			}
+		case "mcp", "skill":
+			warnings = append(warnings, source+":"+key+" requires runtime registry validation")
+		}
+	}
+	sort.Strings(unavailable)
+	sort.Strings(warnings)
+	return unavailable, warnings
+}
+
+func (s *AgentSkillService) evaluateAgentSkillCapabilityAvailability(ctx context.Context, agentType string, refs []string) ([]string, []string) {
+	if strings.TrimSpace(agentType) == "" {
+		agentType = defaultAgentSkillAgentType
+	}
+	configured := s.configuredAgentCapabilities(ctx, agentType)
+	if len(configured) == 0 {
+		return evaluateAgentSkillCapabilityAvailability(agentType, refs)
+	}
+	unavailable := []string{}
+	for _, ref := range refs {
+		source, key, err := parseAgentSkillCapabilityRef(ref)
+		if err != nil {
+			unavailable = append(unavailable, ref)
+			continue
+		}
+		if source == "" {
+			source = "builtin"
+		}
+		normalized := source + ":" + key
+		if !configured[normalized] {
+			unavailable = append(unavailable, normalized)
+		}
+	}
+	sort.Strings(unavailable)
+	return unavailable, nil
+}
+
+func (s *AgentSkillService) configuredAgentCapabilities(ctx context.Context, agentType string) map[string]bool {
+	if s == nil || s.agentConfigRepo == nil {
+		return nil
+	}
+	bindings, err := s.agentConfigRepo.ListEnabledCapabilityBindingsByAgentType(ctx, agentType)
+	if err != nil || len(bindings) == 0 {
+		return nil
+	}
+	configured := make(map[string]bool, len(bindings))
+	for _, binding := range bindings {
+		source := strings.ToLower(strings.TrimSpace(binding.CapabilitySource))
+		key := strings.TrimSpace(binding.CapabilityKey)
+		if source == "" || key == "" {
+			continue
+		}
+		configured[source+":"+key] = true
+	}
+	return configured
+}
+
+func builtinAgentCapabilitySet(agentType string) map[string]bool {
+	builtin := map[string]bool{}
+	for _, cap := range builtinCapabilities(agentType) {
+		if cap != nil && cap.GetSource() == "builtin" {
+			builtin[cap.GetKey()] = true
+		}
+	}
+	return builtin
 }
 
 func boolToInt32(v bool) int32 {
