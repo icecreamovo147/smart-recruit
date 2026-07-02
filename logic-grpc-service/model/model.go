@@ -474,6 +474,7 @@ type AIMemory struct {
 	Content    string     `gorm:"column:content"`
 	Source     string     `gorm:"column:source"`
 	Confidence float64    `gorm:"column:confidence"`
+	Importance float64    `gorm:"column:importance"`
 	ExpiresAt  *time.Time `gorm:"column:expires_at"`
 	CreatedAt  time.Time
 	UpdatedAt  time.Time

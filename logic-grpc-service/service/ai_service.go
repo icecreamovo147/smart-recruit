@@ -51,6 +51,7 @@ type AIService struct {
 	mcpSvc          *MCPService
 	skillSvc        *SkillService
 	agentSkillRepo  agentSkillLister
+	embeddings      *EmbeddingService
 	cachedADKTools  []tool.BaseTool // lazy-initialized, shared across requests
 	cachedToolsMu   sync.Mutex      // guards cachedADKTools init and invalidation
 	usageBuilder    *ContextUsageBuilder
@@ -107,6 +108,13 @@ func NewAIService(
 		agentSkillRepo:  agentSkillRepo,
 		usageBuilder:    NewContextUsageBuilder(),
 	}
+}
+
+func (s *AIService) WithEmbeddingService(embeddings *EmbeddingService) *AIService {
+	if s != nil {
+		s.embeddings = embeddings
+	}
+	return s
 }
 
 // writeHRUsageAudit writes both the usage log and the RBAC auth context for an HR AI operation.
@@ -385,7 +393,7 @@ func (s *AIService) runToolCallingChatWithUsage(ctx context.Context, req *pb.Cha
 	} else {
 		historyToolNames = agentRunToolInfoNames(ai.RecruitingTools())
 	}
-	selectedSkillsForHistory, err := selectAgentSkills(ctx, s.agentSkillRepo, "hr_recruiting_agent", req.GetMessage(), req.GetAgentSkillIds(), agentSkillAvailableCapabilities(runtimeCfg, historyToolNames))
+	selectedSkillsForHistory, err := s.selectAgentSkills(ctx, "hr_recruiting_agent", req.GetMessage(), req.GetAgentSkillIds(), agentSkillAvailableCapabilities(runtimeCfg, historyToolNames))
 	if err != nil {
 		logger.L().Warn("select Agent Skills for history failed", zap.Error(err))
 		selectedSkillsForHistory = nil
@@ -642,7 +650,7 @@ func (s *AIService) runADKChat(
 	}
 	availableToolNames := adkToolNames(ctx, adkTools)
 	availableCapabilities = addRuntimeToolCapabilities(availableCapabilities, availableToolNames)
-	agentSkills, err := selectAgentSkills(ctx, s.agentSkillRepo, "hr_recruiting_agent", req.GetMessage(), req.GetAgentSkillIds(), availableCapabilities)
+	agentSkills, err := s.selectAgentSkills(ctx, "hr_recruiting_agent", req.GetMessage(), req.GetAgentSkillIds(), availableCapabilities)
 	if err != nil {
 		logger.L().Warn("select Agent Skills failed", zap.Error(err))
 	} else if len(agentSkills) > 0 {
@@ -744,7 +752,7 @@ func (s *AIService) runLegacyChat(
 	}
 	availableToolNames := agentRunToolInfoNames(tools)
 	availableCapabilities = addRuntimeToolCapabilities(availableCapabilities, availableToolNames)
-	agentSkills, err := selectAgentSkills(ctx, s.agentSkillRepo, "hr_recruiting_agent", req.GetMessage(), req.GetAgentSkillIds(), availableCapabilities)
+	agentSkills, err := s.selectAgentSkills(ctx, "hr_recruiting_agent", req.GetMessage(), req.GetAgentSkillIds(), availableCapabilities)
 	if err != nil {
 		logger.L().Warn("select Agent Skills failed", zap.Error(err))
 	} else if len(agentSkills) > 0 {

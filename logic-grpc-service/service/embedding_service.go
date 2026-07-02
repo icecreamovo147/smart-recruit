@@ -75,6 +75,15 @@ type EmbeddingSearchInput struct {
 	Limit       int
 }
 
+type EmbeddingObjectSearchInput struct {
+	QueryText   string
+	QueryVector []float64
+	Model       string
+	ObjectType  string
+	ObjectIDs   []uint64
+	Limit       int
+}
+
 type EmbeddingSearchResult struct {
 	Embedding model.AIEmbedding
 	Score     float64
@@ -136,17 +145,8 @@ func (s *EmbeddingService) Search(ctx context.Context, input EmbeddingSearchInpu
 	if s == nil || s.repo == nil {
 		return nil, fmt.Errorf("embedding repository is not configured")
 	}
-	queryVector := append([]float64(nil), input.QueryVector...)
-	modelName := normalizeEmbeddingModel(input.Model)
-	if len(queryVector) == 0 {
-		result, err := s.provider.EmbedText(ctx, input.QueryText)
-		if err != nil {
-			return nil, err
-		}
-		queryVector = append([]float64(nil), result.Vector...)
-		modelName = normalizeEmbeddingModel(result.Model)
-	}
-	if err := validateEmbeddingVector(queryVector); err != nil {
+	queryVector, modelName, err := s.resolveQueryVector(ctx, input.QueryText, input.QueryVector, input.Model)
+	if err != nil {
 		return nil, err
 	}
 	rows, err := s.repo.ListCandidates(ctx, repository.AIEmbeddingQuery{
@@ -160,24 +160,31 @@ func (s *EmbeddingService) Search(ctx context.Context, input EmbeddingSearchInpu
 	if err != nil {
 		return nil, err
 	}
-	results := make([]EmbeddingSearchResult, 0, len(rows))
-	for _, row := range rows {
-		vector, err := unmarshalEmbeddingVector(row.VectorJSON)
-		if err != nil || len(vector) != len(queryVector) {
-			continue
-		}
-		score := cosineSimilarity(queryVector, vector)
-		if math.IsNaN(score) || math.IsInf(score, 0) {
-			continue
-		}
-		results = append(results, EmbeddingSearchResult{Embedding: row, Score: score})
+	results := rankEmbeddingRows(queryVector, rows)
+	limit := input.Limit
+	if limit <= 0 || limit > len(results) {
+		limit = len(results)
 	}
-	sort.SliceStable(results, func(i, j int) bool {
-		if results[i].Score == results[j].Score {
-			return results[i].Embedding.ID < results[j].Embedding.ID
-		}
-		return results[i].Score > results[j].Score
-	})
+	return results[:limit], nil
+}
+
+func (s *EmbeddingService) SearchObjects(ctx context.Context, input EmbeddingObjectSearchInput) ([]EmbeddingSearchResult, error) {
+	if s == nil || s.repo == nil {
+		return nil, fmt.Errorf("embedding repository is not configured")
+	}
+	objectType := strings.TrimSpace(input.ObjectType)
+	if objectType == "" || len(input.ObjectIDs) == 0 {
+		return nil, nil
+	}
+	queryVector, modelName, err := s.resolveQueryVector(ctx, input.QueryText, input.QueryVector, input.Model)
+	if err != nil {
+		return nil, err
+	}
+	rows, err := s.repo.ListByObjectIDs(ctx, objectType, input.ObjectIDs, modelName, EmbeddingStatusReady)
+	if err != nil {
+		return nil, err
+	}
+	results := rankEmbeddingRows(queryVector, rows)
 	limit := input.Limit
 	if limit <= 0 || limit > len(results) {
 		limit = len(results)
@@ -219,6 +226,45 @@ func validateEmbeddingVector(vector []float64) error {
 		}
 	}
 	return nil
+}
+
+func (s *EmbeddingService) resolveQueryVector(ctx context.Context, text string, vector []float64, modelName string) ([]float64, string, error) {
+	queryVector := append([]float64(nil), vector...)
+	normalizedModel := normalizeEmbeddingModel(modelName)
+	if len(queryVector) == 0 {
+		result, err := s.provider.EmbedText(ctx, text)
+		if err != nil {
+			return nil, "", err
+		}
+		queryVector = append([]float64(nil), result.Vector...)
+		normalizedModel = normalizeEmbeddingModel(result.Model)
+	}
+	if err := validateEmbeddingVector(queryVector); err != nil {
+		return nil, "", err
+	}
+	return queryVector, normalizedModel, nil
+}
+
+func rankEmbeddingRows(queryVector []float64, rows []model.AIEmbedding) []EmbeddingSearchResult {
+	results := make([]EmbeddingSearchResult, 0, len(rows))
+	for _, row := range rows {
+		vector, err := unmarshalEmbeddingVector(row.VectorJSON)
+		if err != nil || len(vector) != len(queryVector) {
+			continue
+		}
+		score := cosineSimilarity(queryVector, vector)
+		if math.IsNaN(score) || math.IsInf(score, 0) {
+			continue
+		}
+		results = append(results, EmbeddingSearchResult{Embedding: row, Score: score})
+	}
+	sort.SliceStable(results, func(i, j int) bool {
+		if results[i].Score == results[j].Score {
+			return results[i].Embedding.ID < results[j].Embedding.ID
+		}
+		return results[i].Score > results[j].Score
+	})
+	return results
 }
 
 func marshalEmbeddingVector(vector []float64) (string, error) {

@@ -91,6 +91,30 @@ func TestSelectAgentSkillsFiltersByAgentType(t *testing.T) {
 	}
 }
 
+func TestSelectAgentSkillsUsesSemanticScoresOnlyToRerankRuleCandidates(t *testing.T) {
+	repo := fakeAgentSkillLister{rows: []repository.AgentSkillRuntimeRecord{
+		{ID: 1, Name: "screening", DisplayName: "Screening", Description: "candidate screening", BodyMarkdown: "review candidate", IsManualInvocable: 1},
+		{ID: 2, Name: "offer", DisplayName: "Offer", Description: "candidate offer", BodyMarkdown: "prepare candidate offer", IsManualInvocable: 1},
+		{ID: 3, Name: "unrelated", DisplayName: "Unrelated", Description: "薪资", BodyMarkdown: "沟通", IsManualInvocable: 1},
+	}}
+
+	selected, err := selectAgentSkillsWithSemantic(context.Background(), repo, "hr_recruiting_agent", "candidate", nil, nil, map[int64]float64{2: 0.91, 3: 0.99})
+	if err != nil {
+		t.Fatalf("selectAgentSkillsWithSemantic returned error: %v", err)
+	}
+	if len(selected) != 2 {
+		t.Fatalf("selected = %+v, want only rule-matched candidates", selected)
+	}
+	if selected[0].ID != 2 || !strings.Contains(selected[0].Reason, "semantic") {
+		t.Fatalf("selected = %+v, want semantic reranked rule candidate 2 first", selected)
+	}
+	for _, skill := range selected {
+		if skill.ID == 3 {
+			t.Fatalf("semantic-only skill was selected: %+v", selected)
+		}
+	}
+}
+
 func TestAgentSkillAvailableCapabilitiesRequiresCollectedRuntimeCapabilities(t *testing.T) {
 	runtimeCfg := &agentRuntimeConfig{
 		MCPCapabilityKeys:   map[string]bool{"1:lookup": true},

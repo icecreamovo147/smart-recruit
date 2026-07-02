@@ -41,6 +41,14 @@ type selectedAgentSkill struct {
 }
 
 func selectAgentSkills(ctx context.Context, repo agentSkillLister, agentType, question string, manualIDs []int64, availableCapabilities map[string]bool) ([]selectedAgentSkill, error) {
+	return selectAgentSkillsWithSemantic(ctx, repo, agentType, question, manualIDs, availableCapabilities, nil)
+}
+
+func (s *AIService) selectAgentSkills(ctx context.Context, agentType, question string, manualIDs []int64, availableCapabilities map[string]bool) ([]selectedAgentSkill, error) {
+	return selectAgentSkillsWithSemantic(ctx, s.agentSkillRepo, agentType, question, manualIDs, availableCapabilities, s.semanticAgentSkillScores(ctx, question))
+}
+
+func selectAgentSkillsWithSemantic(ctx context.Context, repo agentSkillLister, agentType, question string, manualIDs []int64, availableCapabilities map[string]bool, semanticScores map[int64]float64) ([]selectedAgentSkill, error) {
 	if repo == nil {
 		return nil, nil
 	}
@@ -89,15 +97,20 @@ func selectAgentSkills(ctx context.Context, repo agentSkillLister, agentType, qu
 		if !agentSkillCapabilitiesAvailable(skill, availableCapabilities) {
 			continue
 		}
+		reason := "metadata and content match"
 		score := scoreAgentSkillMatch(question, skill)
 		if score <= 0 {
 			continue
+		}
+		if semanticScore, ok := semanticScores[skill.ID]; ok {
+			score += int(semanticScore * 100)
+			reason = "semantic and metadata match"
 		}
 		score += int(skill.Priority)
 		if score <= 0 {
 			continue
 		}
-		candidates = append(candidates, toSelectedAgentSkill(skill, false, score, "metadata and content match"))
+		candidates = append(candidates, toSelectedAgentSkill(skill, false, score, reason))
 	}
 	sort.SliceStable(candidates, func(i, j int) bool {
 		if candidates[i].Score == candidates[j].Score {
@@ -116,6 +129,28 @@ func selectAgentSkills(ctx context.Context, repo agentSkillLister, agentType, qu
 		selected = append(selected, skill)
 	}
 	return selected, nil
+}
+
+func (s *AIService) semanticAgentSkillScores(ctx context.Context, question string) map[int64]float64 {
+	if s == nil || s.embeddings == nil || strings.TrimSpace(question) == "" {
+		return nil
+	}
+	results, err := s.embeddings.Search(ctx, EmbeddingSearchInput{
+		QueryText:   question,
+		ObjectTypes: []string{"agent_skill"},
+		Limit:       maxAgentSkillsPerRequest * 4,
+	})
+	if err != nil {
+		return nil
+	}
+	scores := make(map[int64]float64, len(results))
+	for _, result := range results {
+		if result.Embedding.ObjectType != "agent_skill" {
+			continue
+		}
+		scores[int64(result.Embedding.ObjectID)] = result.Score
+	}
+	return scores
 }
 
 func agentSkillMatchesAgentType(skill repository.AgentSkillRuntimeRecord, agentType string) bool {

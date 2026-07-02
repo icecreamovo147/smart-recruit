@@ -63,6 +63,23 @@ func (r *AIEmbeddingRepo) GetByObject(ctx context.Context, objectType string, ob
 	return &row, err
 }
 
+func (r *AIEmbeddingRepo) ListByObjectIDs(ctx context.Context, objectType string, objectIDs []uint64, modelName string, status string) ([]model.AIEmbedding, error) {
+	if len(objectIDs) == 0 {
+		return nil, nil
+	}
+	db := r.db.WithContext(ctx).Model(&model.AIEmbedding{}).
+		Where("object_type = ? AND object_id IN ?", objectType, objectIDs)
+	if modelName != "" {
+		db = db.Where("embedding_model = ?", modelName)
+	}
+	if status != "" {
+		db = db.Where("status = ?", status)
+	}
+	var rows []model.AIEmbedding
+	err := db.Order("updated_at DESC, id DESC").Find(&rows).Error
+	return rows, err
+}
+
 func (r *AIEmbeddingRepo) ListCandidates(ctx context.Context, query AIEmbeddingQuery) ([]model.AIEmbedding, error) {
 	db := r.db.WithContext(ctx).Model(&model.AIEmbedding{})
 	if len(query.ObjectTypes) > 0 {

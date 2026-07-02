@@ -457,13 +457,15 @@ CREATE TABLE IF NOT EXISTS `ai_memories` (
   `content` TEXT NOT NULL COMMENT '记忆内容',
   `source` VARCHAR(32) NOT NULL DEFAULT 'agent' COMMENT 'user / tool / agent / system',
   `confidence` DECIMAL(4,3) NOT NULL DEFAULT 1.000,
+  `importance` DECIMAL(4,3) NOT NULL DEFAULT 1.000,
   `expires_at` DATETIME NULL COMMENT '可选过期时间',
   `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   `updated_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`),
   KEY `idx_hr_scope` (`hr_id`, `scope_type`, `scope_id`),
   KEY `idx_hr_type` (`hr_id`, `memory_type`),
-  KEY `idx_expires_at` (`expires_at`)
+  KEY `idx_expires_at` (`expires_at`),
+  KEY `idx_ai_memories_recall` (`hr_id`, `scope_type`, `scope_id`, `importance`, `created_at`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='AI 长期记忆表';
 
 CREATE TABLE IF NOT EXISTS `ai_embeddings` (
