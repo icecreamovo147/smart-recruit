@@ -415,6 +415,7 @@ func Setup(cfg config.Config, clients *rpc.Clients, rdb *redis.Client) (*gin.Eng
 	adminGroup.DELETE("/mcp-tool-policies/:id", normalTimeout, middleware.RequirePermission(authz.PermSystemConfigManage), mcpHandler.DeleteMCPToolPolicy)
 	adminGroup.POST("/mcp-servers/:id/test", mcpTimeout, middleware.RequirePermission(authz.PermSystemConfigManage), mcpHandler.TestMCPConnection)
 	adminGroup.GET("/mcp-servers/:id/tools", mcpTimeout, middleware.RequirePermission(authz.PermSystemConfigManage), mcpHandler.ListMCPTools)
+	adminGroup.GET("/mcp-servers/:id/logs", normalTimeout, middleware.RequirePermission(authz.PermSystemConfigManage), mcpHandler.ListMCPToolLogs)
 	adminGroup.POST("/mcp-servers/:id/call-tool", mcpTimeout, bodyAdmin, middleware.RequirePermission(authz.PermSystemConfigManage), mcpHandler.CallMCPTool)
 
 	// SKILL registry management

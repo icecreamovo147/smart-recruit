@@ -173,6 +173,31 @@ func (h *MCPHandler) DeleteMCPToolPolicy(c *gin.Context) {
 	base.From(c, resp.Code, resp.Msg, nil)
 }
 
+func (h *MCPHandler) ListMCPToolLogs(c *gin.Context) {
+	serverID, err := strconv.ParseInt(c.Param("id"), 10, 64)
+	if err != nil {
+		base.BadRequest(c, "invalid server_id")
+		return
+	}
+	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
+	pageSize, _ := strconv.Atoi(c.DefaultQuery("page_size", "20"))
+
+	resp, err := h.clients.MCP.ListMCPToolLogs(c.Request.Context(), &pb.ListMCPToolLogsRequest{
+		ServerId: serverID,
+		Page:     int32(page),
+		PageSize: int32(pageSize),
+	})
+	if err != nil {
+		logger.L().Error("ListMCPToolLogs failed", zap.Error(err))
+		base.Internal(c, err)
+		return
+	}
+	base.From(c, resp.Code, resp.Msg, gin.H{
+		"total": resp.Total,
+		"list":  resp.List,
+	})
+}
+
 // ── Connection Test ─────────────────────────────────────────────────
 
 func (h *MCPHandler) TestMCPConnection(c *gin.Context) {

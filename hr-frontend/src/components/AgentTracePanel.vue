@@ -110,6 +110,51 @@ const parseJsonObject = <T extends Record<string, unknown>>(json: string): T | n
   }
 }
 
+interface PolicyDecisionInfo {
+  decision: string
+  reason: string
+  policyId: number
+}
+
+const policyDecisionLabels: Record<string, string> = {
+  allow: '允许',
+  deny: '拒绝',
+  confirmation_required: '需要确认',
+  rate_limited: '限流',
+  invalid_args: '参数不合规',
+  no_policy: '无策略',
+}
+
+const policyDecisionTagType = (decision: string): 'success' | 'warning' | 'danger' | 'info' | 'primary' => {
+  if (decision === 'allow') return 'success'
+  if (decision === 'deny' || decision === 'invalid_args') return 'danger'
+  if (decision === 'confirmation_required' || decision === 'rate_limited') return 'warning'
+  return 'info'
+}
+
+const policyDecisionFromObject = (value: Record<string, unknown> | null): PolicyDecisionInfo | null => {
+  if (!value) return null
+  const decision = value.policy_decision
+  if (typeof decision !== 'string' || !decision) return null
+  const policyIdRaw = value.policy_id
+  const policyId = typeof policyIdRaw === 'number'
+    ? policyIdRaw
+    : typeof policyIdRaw === 'string'
+      ? Number(policyIdRaw)
+      : 0
+  return {
+    decision,
+    reason: typeof value.policy_reason === 'string' ? value.policy_reason : '',
+    policyId: Number.isFinite(policyId) ? policyId : 0,
+  }
+}
+
+const policyDecisionFromJson = (json: string): PolicyDecisionInfo | null =>
+  policyDecisionFromObject(parseJsonObject<Record<string, unknown>>(json))
+
+const policyDecisionFromTrace = (trace: ToolTraceItem): PolicyDecisionInfo | null =>
+  policyDecisionFromJson(trace.result_content)
+
 const parseNestedPlanner = (value: unknown): AgentRunRecruitingPlan | null => {
   if (!value) return null
   if (typeof value === 'string') return parseJsonObject<AgentRunRecruitingPlan>(value)
@@ -517,6 +562,22 @@ watch(() => props.sessionId, () => {
                   <span v-if="stepSummary(step)"> · {{ stepSummary(step) }}</span>
                 </div>
 
+                <div v-if="policyDecisionFromJson(step.output_json)" class="policy-decision">
+                  <el-tag
+                    :type="policyDecisionTagType(policyDecisionFromJson(step.output_json)?.decision || '')"
+                    size="small"
+                    effect="plain"
+                  >
+                    MCP 策略：{{ policyDecisionLabels[policyDecisionFromJson(step.output_json)?.decision || ''] || policyDecisionFromJson(step.output_json)?.decision }}
+                  </el-tag>
+                  <span v-if="policyDecisionFromJson(step.output_json)?.policyId" class="policy-decision__meta">
+                    #{{ policyDecisionFromJson(step.output_json)?.policyId }}
+                  </span>
+                  <span v-if="policyDecisionFromJson(step.output_json)?.reason" class="policy-decision__reason">
+                    {{ policyDecisionFromJson(step.output_json)?.reason }}
+                  </span>
+                </div>
+
                 <div v-if="step.input_json" class="trace-item__section">
                   <div class="trace-item__label">输入：</div>
                   <div class="trace-item__code">
@@ -590,6 +651,22 @@ watch(() => props.sessionId, () => {
               <!-- Duration -->
               <div class="trace-item__duration">
                 耗时：<strong>{{ item.duration_ms }}</strong> ms
+              </div>
+
+              <div v-if="policyDecisionFromTrace(item)" class="policy-decision">
+                <el-tag
+                  :type="policyDecisionTagType(policyDecisionFromTrace(item)?.decision || '')"
+                  size="small"
+                  effect="plain"
+                >
+                  MCP 策略：{{ policyDecisionLabels[policyDecisionFromTrace(item)?.decision || ''] || policyDecisionFromTrace(item)?.decision }}
+                </el-tag>
+                <span v-if="policyDecisionFromTrace(item)?.policyId" class="policy-decision__meta">
+                  #{{ policyDecisionFromTrace(item)?.policyId }}
+                </span>
+                <span v-if="policyDecisionFromTrace(item)?.reason" class="policy-decision__reason">
+                  {{ policyDecisionFromTrace(item)?.reason }}
+                </span>
               </div>
 
               <!-- Args -->
@@ -845,6 +922,24 @@ watch(() => props.sessionId, () => {
   color: var(--el-text-color-secondary);
   font-size: 12px;
   margin-bottom: 8px;
+}
+
+.policy-decision {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 8px;
+  font-size: 12px;
+  color: var(--el-text-color-secondary);
+}
+
+.policy-decision__meta {
+  color: var(--el-text-color-placeholder);
+}
+
+.policy-decision__reason {
+  overflow-wrap: anywhere;
 }
 
 .trace-item__section {

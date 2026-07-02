@@ -774,6 +774,10 @@ func (s *Server) DeleteMCPToolPolicy(ctx context.Context, req *pb.DeleteMCPToolP
 	return s.svc.MCP.DeleteMCPToolPolicy(ctx, req)
 }
 
+func (s *Server) ListMCPToolLogs(ctx context.Context, req *pb.ListMCPToolLogsRequest) (*pb.ListMCPToolLogsResponse, error) {
+	return s.svc.MCP.ListMCPToolLogs(ctx, req)
+}
+
 func (s *Server) TestMCPConnection(ctx context.Context, req *pb.TestMCPConnectionRequest) (*pb.TestMCPConnectionResponse, error) {
 	return s.svc.MCP.TestMCPConnection(ctx, req)
 }

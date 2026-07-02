@@ -2083,6 +2083,7 @@ service MCPService {
   rpc CreateMCPToolPolicy(CreateMCPToolPolicyRequest) returns (MCPToolPolicyResponse);
   rpc UpdateMCPToolPolicy(UpdateMCPToolPolicyRequest) returns (MCPToolPolicyResponse);
   rpc DeleteMCPToolPolicy(DeleteMCPToolPolicyRequest) returns (CommonResponse);
+  rpc ListMCPToolLogs(ListMCPToolLogsRequest) returns (ListMCPToolLogsResponse);
   rpc TestMCPConnection(TestMCPConnectionRequest) returns (TestMCPConnectionResponse);
   rpc ListMCPTools(ListMCPToolsRequest) returns (ListMCPToolsResponse);
   rpc CallMCPTool(CallMCPToolRequest) returns (CallMCPToolResponse);
@@ -2236,6 +2237,35 @@ message MCPToolPolicyResponse {
   int32 code = 1;
   string msg = 2;
   MCPToolPolicyInfo policy = 3;
+}
+
+message MCPToolLogInfo {
+  int64 id = 1;
+  int64 server_id = 2;
+  string tool_name = 3;
+  string args_json = 4;
+  string result_content = 5;
+  int32 duration_ms = 6;
+  string error_msg = 7;
+  int64 called_by_hr_id = 8;
+  int64 session_id = 9;
+  int64 policy_id = 10;
+  string policy_decision = 11;
+  string policy_reason = 12;
+  string created_at = 13;
+}
+
+message ListMCPToolLogsRequest {
+  int64 server_id = 1;
+  int32 page = 2;
+  int32 page_size = 3;
+}
+
+message ListMCPToolLogsResponse {
+  int32 code = 1;
+  string msg = 2;
+  int64 total = 3;
+  repeated MCPToolLogInfo list = 4;
 }
 
 message TestMCPConnectionRequest {

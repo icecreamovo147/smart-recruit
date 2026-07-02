@@ -5476,6 +5476,7 @@ const (
 	MCPService_CreateMCPToolPolicy_FullMethodName = "/recruitment.MCPService/CreateMCPToolPolicy"
 	MCPService_UpdateMCPToolPolicy_FullMethodName = "/recruitment.MCPService/UpdateMCPToolPolicy"
 	MCPService_DeleteMCPToolPolicy_FullMethodName = "/recruitment.MCPService/DeleteMCPToolPolicy"
+	MCPService_ListMCPToolLogs_FullMethodName     = "/recruitment.MCPService/ListMCPToolLogs"
 	MCPService_TestMCPConnection_FullMethodName   = "/recruitment.MCPService/TestMCPConnection"
 	MCPService_ListMCPTools_FullMethodName        = "/recruitment.MCPService/ListMCPTools"
 	MCPService_CallMCPTool_FullMethodName         = "/recruitment.MCPService/CallMCPTool"
@@ -5493,6 +5494,7 @@ type MCPServiceClient interface {
 	CreateMCPToolPolicy(ctx context.Context, in *CreateMCPToolPolicyRequest, opts ...grpc.CallOption) (*MCPToolPolicyResponse, error)
 	UpdateMCPToolPolicy(ctx context.Context, in *UpdateMCPToolPolicyRequest, opts ...grpc.CallOption) (*MCPToolPolicyResponse, error)
 	DeleteMCPToolPolicy(ctx context.Context, in *DeleteMCPToolPolicyRequest, opts ...grpc.CallOption) (*CommonResponse, error)
+	ListMCPToolLogs(ctx context.Context, in *ListMCPToolLogsRequest, opts ...grpc.CallOption) (*ListMCPToolLogsResponse, error)
 	TestMCPConnection(ctx context.Context, in *TestMCPConnectionRequest, opts ...grpc.CallOption) (*TestMCPConnectionResponse, error)
 	ListMCPTools(ctx context.Context, in *ListMCPToolsRequest, opts ...grpc.CallOption) (*ListMCPToolsResponse, error)
 	CallMCPTool(ctx context.Context, in *CallMCPToolRequest, opts ...grpc.CallOption) (*CallMCPToolResponse, error)
@@ -5586,6 +5588,16 @@ func (c *mCPServiceClient) DeleteMCPToolPolicy(ctx context.Context, in *DeleteMC
 	return out, nil
 }
 
+func (c *mCPServiceClient) ListMCPToolLogs(ctx context.Context, in *ListMCPToolLogsRequest, opts ...grpc.CallOption) (*ListMCPToolLogsResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ListMCPToolLogsResponse)
+	err := c.cc.Invoke(ctx, MCPService_ListMCPToolLogs_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 func (c *mCPServiceClient) TestMCPConnection(ctx context.Context, in *TestMCPConnectionRequest, opts ...grpc.CallOption) (*TestMCPConnectionResponse, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(TestMCPConnectionResponse)
@@ -5628,6 +5640,7 @@ type MCPServiceServer interface {
 	CreateMCPToolPolicy(context.Context, *CreateMCPToolPolicyRequest) (*MCPToolPolicyResponse, error)
 	UpdateMCPToolPolicy(context.Context, *UpdateMCPToolPolicyRequest) (*MCPToolPolicyResponse, error)
 	DeleteMCPToolPolicy(context.Context, *DeleteMCPToolPolicyRequest) (*CommonResponse, error)
+	ListMCPToolLogs(context.Context, *ListMCPToolLogsRequest) (*ListMCPToolLogsResponse, error)
 	TestMCPConnection(context.Context, *TestMCPConnectionRequest) (*TestMCPConnectionResponse, error)
 	ListMCPTools(context.Context, *ListMCPToolsRequest) (*ListMCPToolsResponse, error)
 	CallMCPTool(context.Context, *CallMCPToolRequest) (*CallMCPToolResponse, error)
@@ -5664,6 +5677,9 @@ func (UnimplementedMCPServiceServer) UpdateMCPToolPolicy(context.Context, *Updat
 }
 func (UnimplementedMCPServiceServer) DeleteMCPToolPolicy(context.Context, *DeleteMCPToolPolicyRequest) (*CommonResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method DeleteMCPToolPolicy not implemented")
+}
+func (UnimplementedMCPServiceServer) ListMCPToolLogs(context.Context, *ListMCPToolLogsRequest) (*ListMCPToolLogsResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method ListMCPToolLogs not implemented")
 }
 func (UnimplementedMCPServiceServer) TestMCPConnection(context.Context, *TestMCPConnectionRequest) (*TestMCPConnectionResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method TestMCPConnection not implemented")
@@ -5839,6 +5855,24 @@ func _MCPService_DeleteMCPToolPolicy_Handler(srv interface{}, ctx context.Contex
 	return interceptor(ctx, in, info, handler)
 }
 
+func _MCPService_ListMCPToolLogs_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ListMCPToolLogsRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(MCPServiceServer).ListMCPToolLogs(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: MCPService_ListMCPToolLogs_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(MCPServiceServer).ListMCPToolLogs(ctx, req.(*ListMCPToolLogsRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 func _MCPService_TestMCPConnection_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(TestMCPConnectionRequest)
 	if err := dec(in); err != nil {
@@ -5931,6 +5965,10 @@ var MCPService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "DeleteMCPToolPolicy",
 			Handler:    _MCPService_DeleteMCPToolPolicy_Handler,
+		},
+		{
+			MethodName: "ListMCPToolLogs",
+			Handler:    _MCPService_ListMCPToolLogs_Handler,
 		},
 		{
 			MethodName: "TestMCPConnection",
