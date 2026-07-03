@@ -134,7 +134,17 @@ func NewServices(
 	skillSvc := NewSkillService(repository.NewSkillRepo(db))
 	agentSkillSvc := NewAgentSkillServiceWithAgentConfigRepo(repository.NewAgentSkillRepo(db), agentCfgRepo).WithSemanticDebugDependencies(memories, embeddingSvc)
 	agentSkillRepo := repository.NewAgentSkillRepo(db)
-	resumeProfileSvc := NewResumeProfileService(resumes, resumeProfileRepo, unavailableResumeProfileExtractor{}).WithRuntimePolicy(runtimePolicy)
+	heuristicExtractor := NewHeuristicResumeProfileExtractor()
+	llmExtractor := NewLLMResumeProfileExtractor(llmConfigSvc, promptTmplRepo)
+	resumeProfileExtractor := NewFallbackResumeProfileExtractor(llmExtractor, heuristicExtractor,
+		WithFallbackEnabled(runtimePolicy.Fallbacks))
+	if llmConfigSvc == nil {
+		logger.L().Warn("resume profile extractor: LLM not configured (ENCRYPTION_KEY not set); " +
+			"fallback behavior controlled by agent.features.fallbacks config")
+	} else {
+		logger.L().Info("resume profile extractor: LLM + heuristic fallback chain initialized")
+	}
+	resumeProfileSvc := NewResumeProfileService(resumes, resumeProfileRepo, resumeProfileExtractor).WithRuntimePolicy(runtimePolicy)
 	candidateMatchSvc := NewCandidateMatchService(applications, jobs, profiles, resumes, resumeProfileRepo, candidateMatchRepo).WithRuntimePolicy(runtimePolicy)
 	recruitingIntelligenceSvc := NewRecruitingIntelligenceService(applications, jobs, resumes, resumeProfileRepo, candidateMatchRepo, resumeProfileSvc, candidateMatchSvc, serviceAuth)
 

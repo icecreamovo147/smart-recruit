@@ -6,10 +6,14 @@ import (
 	"errors"
 	"fmt"
 	"sort"
+	"time"
+
+	"go.uber.org/zap"
 
 	"logic-grpc-service/model"
 	"logic-grpc-service/pkg/authz"
 	"logic-grpc-service/pkg/errs"
+	"logic-grpc-service/pkg/logger"
 	"logic-grpc-service/recruitment/pb"
 	"logic-grpc-service/repository"
 )
@@ -56,51 +60,99 @@ func NewRecruitingIntelligenceService(
 }
 
 func (s *RecruitingIntelligenceService) GetResumeProfile(ctx context.Context, req *pb.GetResumeProfileRequest) (*pb.GetResumeProfileResponse, error) {
+	started := time.Now()
+	log := logger.GetRequestLogger(ctx)
+	log.Info("[logic][recruiting_intelligence] GetResumeProfile started",
+		zap.Int64("staff_user_id", req.GetStaffUserId()),
+		zap.Int64("application_id", req.GetApplicationId()),
+		zap.Int64("resume_id", req.GetResumeId()),
+		zap.Uint64("profile_id", req.GetProfileId()),
+	)
 	if req.GetApplicationId() <= 0 && req.GetResumeId() <= 0 && req.GetProfileId() == 0 {
+		log.Warn("[logic][recruiting_intelligence] GetResumeProfile validation failed: missing identifier")
 		return &pb.GetResumeProfileResponse{Code: errs.ErrBadRequest, Msg: "resume_id, profile_id, or application_id is required"}, nil
 	}
 	if err := s.validateResumeIdentifierConsistency(ctx, req.GetResumeId(), req.GetProfileId(), req.GetApplicationId()); err != nil {
+		log.Warn("[logic][recruiting_intelligence] GetResumeProfile consistency check failed", zap.Error(err))
 		return &pb.GetResumeProfileResponse{Code: errs.ErrBadRequest, Msg: err.Error()}, nil
 	}
 	if err := s.authorizeApplicationRead(ctx, req.GetStaffUserId(), req.GetApplicationId(), req.GetResumeId(), req.GetProfileId()); err != nil {
+		log.Warn("[logic][recruiting_intelligence] GetResumeProfile authorization failed", zap.Error(err))
 		return &pb.GetResumeProfileResponse{Code: errs.ErrForbidden, Msg: err.Error()}, nil
 	}
 	snapshot, resp := s.resolveResumeProfile(ctx, req.GetResumeId(), req.GetProfileId(), req.GetApplicationId())
 	if resp != nil {
+		log.Warn("[logic][recruiting_intelligence] GetResumeProfile resolution failed", zap.String("msg", resp.GetMsg()))
 		return resp, nil
 	}
+	log.Info("[logic][recruiting_intelligence] GetResumeProfile succeeded",
+		zap.Int64("duration_ms", time.Since(started).Milliseconds()),
+		zap.Uint64("profile_id", snapshot.Profile.ID),
+		zap.Int32("version", snapshot.Profile.Version),
+	)
 	return &pb.GetResumeProfileResponse{Code: errs.OK, Msg: "success", Profile: resumeProfileSnapshotPB(snapshot)}, nil
 }
 
 func (s *RecruitingIntelligenceService) ParseResumeProfile(ctx context.Context, req *pb.ParseResumeProfileRequest) (*pb.GetResumeProfileResponse, error) {
+	started := time.Now()
+	log := logger.GetRequestLogger(ctx)
+	log.Info("[logic][recruiting_intelligence] ParseResumeProfile started",
+		zap.Int64("staff_user_id", req.GetStaffUserId()),
+		zap.Int64("application_id", req.GetApplicationId()),
+		zap.Int64("resume_id", req.GetResumeId()),
+	)
 	if req.GetApplicationId() <= 0 && req.GetResumeId() <= 0 {
+		log.Warn("[logic][recruiting_intelligence] ParseResumeProfile validation failed: missing identifier")
 		return &pb.GetResumeProfileResponse{Code: errs.ErrBadRequest, Msg: "resume_id or application_id is required"}, nil
 	}
 	if err := s.validateResumeIdentifierConsistency(ctx, req.GetResumeId(), 0, req.GetApplicationId()); err != nil {
+		log.Warn("[logic][recruiting_intelligence] ParseResumeProfile consistency check failed", zap.Error(err))
 		return &pb.GetResumeProfileResponse{Code: errs.ErrBadRequest, Msg: err.Error()}, nil
 	}
 	if err := s.authorizeApplicationRead(ctx, req.GetStaffUserId(), req.GetApplicationId(), req.GetResumeId(), 0); err != nil {
+		log.Warn("[logic][recruiting_intelligence] ParseResumeProfile authz failed", zap.Error(err))
 		return &pb.GetResumeProfileResponse{Code: errs.ErrForbidden, Msg: err.Error()}, nil
 	}
 	if err := s.authorizePermission(ctx, req.GetStaffUserId(), authz.PermAIHRUse); err != nil {
+		log.Warn("[logic][recruiting_intelligence] ParseResumeProfile permission denied", zap.Error(err))
 		return &pb.GetResumeProfileResponse{Code: errs.ErrForbidden, Msg: err.Error()}, nil
 	}
 	resumeID, err := s.resolveResumeID(ctx, req.GetResumeId(), req.GetApplicationId())
 	if err != nil {
+		log.Warn("[logic][recruiting_intelligence] ParseResumeProfile resolveResumeID failed", zap.Error(err))
 		return &pb.GetResumeProfileResponse{Code: errs.ErrBadRequest, Msg: err.Error()}, nil
 	}
+	log.Info("[logic][recruiting_intelligence] ParseResumeProfile calling profileSvc.ParseResume",
+		zap.Int64("resolved_resume_id", resumeID))
 	snapshot, err := s.profileSvc.ParseResume(ctx, resumeID)
 	if err != nil {
+		log.Warn("[logic][recruiting_intelligence] ParseResumeProfile parse failed",
+			zap.Int64("duration_ms", time.Since(started).Milliseconds()),
+			zap.Error(err))
 		return &pb.GetResumeProfileResponse{Code: businessCodeForResumeProfileError(err), Msg: err.Error()}, nil
 	}
+	log.Info("[logic][recruiting_intelligence] ParseResumeProfile succeeded",
+		zap.Int64("duration_ms", time.Since(started).Milliseconds()),
+		zap.Int64("resume_id", resumeID),
+		zap.Uint64("profile_id", snapshot.Profile.ID),
+	)
 	return &pb.GetResumeProfileResponse{Code: errs.OK, Msg: "success", Profile: resumeProfileSnapshotPB(snapshot)}, nil
 }
 
 func (s *RecruitingIntelligenceService) EvaluateCandidateMatch(ctx context.Context, req *pb.EvaluateCandidateMatchRequest) (*pb.GetCandidateMatchEvaluationResponse, error) {
+	started := time.Now()
+	log := logger.GetRequestLogger(ctx)
+	log.Info("[logic][recruiting_intelligence] EvaluateCandidateMatch started",
+		zap.Int64("staff_user_id", req.GetStaffUserId()),
+		zap.Int64("application_id", req.GetApplicationId()),
+		zap.Uint64("agent_run_id", req.GetAgentRunId()),
+	)
 	if err := s.authorizeApplication(ctx, req.GetStaffUserId(), req.GetApplicationId(), authz.PermApplicationRead); err != nil {
+		log.Warn("[logic][recruiting_intelligence] EvaluateCandidateMatch authz failed", zap.Error(err))
 		return &pb.GetCandidateMatchEvaluationResponse{Code: errs.ErrForbidden, Msg: err.Error()}, nil
 	}
 	if err := s.authorizePermission(ctx, req.GetStaffUserId(), authz.PermAIHRUse); err != nil {
+		log.Warn("[logic][recruiting_intelligence] EvaluateCandidateMatch permission denied", zap.Error(err))
 		return &pb.GetCandidateMatchEvaluationResponse{Code: errs.ErrForbidden, Msg: err.Error()}, nil
 	}
 	var agentRunID *uint64
@@ -110,35 +162,70 @@ func (s *RecruitingIntelligenceService) EvaluateCandidateMatch(ctx context.Conte
 	}
 	snapshot, err := s.matchSvc.EvaluateApplication(ctx, req.GetApplicationId(), agentRunID)
 	if err != nil {
+		log.Warn("[logic][recruiting_intelligence] EvaluateCandidateMatch failed",
+			zap.Int64("duration_ms", time.Since(started).Milliseconds()),
+			zap.Error(err))
 		return &pb.GetCandidateMatchEvaluationResponse{Code: businessCodeForCandidateMatchError(err), Msg: err.Error()}, nil
 	}
+	log.Info("[logic][recruiting_intelligence] EvaluateCandidateMatch succeeded",
+		zap.Int64("duration_ms", time.Since(started).Milliseconds()),
+		zap.Uint64("evaluation_id", snapshot.Evaluation.ID),
+		zap.Float64("overall_score", snapshot.Evaluation.OverallScore),
+		zap.String("recommendation", snapshot.Evaluation.Recommendation),
+	)
 	return &pb.GetCandidateMatchEvaluationResponse{Code: errs.OK, Msg: "success", Evaluation: candidateMatchSnapshotPB(snapshot)}, nil
 }
 
 func (s *RecruitingIntelligenceService) GetCandidateMatchEvaluation(ctx context.Context, req *pb.GetCandidateMatchEvaluationRequest) (*pb.GetCandidateMatchEvaluationResponse, error) {
+	started := time.Now()
+	log := logger.GetRequestLogger(ctx)
+	log.Info("[logic][recruiting_intelligence] GetCandidateMatchEvaluation started",
+		zap.Int64("staff_user_id", req.GetStaffUserId()),
+		zap.Int64("application_id", req.GetApplicationId()),
+		zap.Uint64("evaluation_id", req.GetEvaluationId()),
+		zap.Int32("evaluation_version", req.GetEvaluationVersion()),
+	)
 	if err := s.authorizeApplication(ctx, req.GetStaffUserId(), req.GetApplicationId(), authz.PermApplicationRead); err != nil {
+		log.Warn("[logic][recruiting_intelligence] GetCandidateMatchEvaluation authz failed", zap.Error(err))
 		return &pb.GetCandidateMatchEvaluationResponse{Code: errs.ErrForbidden, Msg: err.Error()}, nil
 	}
 	evaluation, err := s.resolveCandidateMatchEvaluation(ctx, req)
 	if err != nil {
+		log.Error("[logic][recruiting_intelligence] GetCandidateMatchEvaluation resolve failed", zap.Error(err))
 		return nil, err
 	}
 	if evaluation == nil {
+		log.Warn("[logic][recruiting_intelligence] GetCandidateMatchEvaluation not found",
+			zap.Int64("duration_ms", time.Since(started).Milliseconds()))
 		return &pb.GetCandidateMatchEvaluationResponse{Code: errs.ErrBadRequest, Msg: "candidate match evaluation not found"}, nil
 	}
 	snapshot, err := s.matches.GetSnapshot(ctx, evaluation.ID)
 	if err != nil {
+		log.Error("[logic][recruiting_intelligence] GetCandidateMatchEvaluation GetSnapshot failed", zap.Error(err))
 		return nil, err
 	}
+	log.Info("[logic][recruiting_intelligence] GetCandidateMatchEvaluation succeeded",
+		zap.Int64("duration_ms", time.Since(started).Milliseconds()),
+		zap.Uint64("evaluation_id", snapshot.Evaluation.ID),
+		zap.Int32("evaluation_version", snapshot.Evaluation.EvaluationVersion),
+	)
 	return &pb.GetCandidateMatchEvaluationResponse{Code: errs.OK, Msg: "success", Evaluation: candidateMatchSnapshotPB(snapshot)}, nil
 }
 
 func (s *RecruitingIntelligenceService) CompareCandidatesForJob(ctx context.Context, req *pb.CompareCandidatesForJobRequest) (*pb.CompareCandidatesForJobResponse, error) {
+	started := time.Now()
+	log := logger.GetRequestLogger(ctx)
+	log.Info("[logic][recruiting_intelligence] CompareCandidatesForJob started",
+		zap.Int64("staff_user_id", req.GetStaffUserId()),
+		zap.Int64("job_id", req.GetJobId()),
+	)
 	if err := s.authorizeJob(ctx, req.GetStaffUserId(), req.GetJobId(), authz.PermApplicationRead); err != nil {
+		log.Warn("[logic][recruiting_intelligence] CompareCandidatesForJob authz failed", zap.Error(err))
 		return &pb.CompareCandidatesForJobResponse{Code: errs.ErrForbidden, Msg: err.Error(), JobId: req.GetJobId()}, nil
 	}
 	rows, err := s.applications.ListCurrentByJob(ctx, req.GetJobId())
 	if err != nil {
+		log.Error("[logic][recruiting_intelligence] CompareCandidatesForJob ListCurrentByJob failed", zap.Error(err))
 		return nil, err
 	}
 	applicationIDs := make([]int64, 0, len(rows))
@@ -147,6 +234,7 @@ func (s *RecruitingIntelligenceService) CompareCandidatesForJob(ctx context.Cont
 	}
 	evaluations, err := s.matches.ListLatestByApplicationIDs(ctx, applicationIDs)
 	if err != nil {
+		log.Error("[logic][recruiting_intelligence] CompareCandidatesForJob ListLatestByApplicationIDs failed", zap.Error(err))
 		return nil, err
 	}
 	byApplication := make(map[int64]model.CandidateMatchEvaluation, len(evaluations))
@@ -184,6 +272,12 @@ func (s *RecruitingIntelligenceService) CompareCandidatesForJob(ctx context.Cont
 		}
 		return items[i].GetApplicationId() < items[j].GetApplicationId()
 	})
+	log.Info("[logic][recruiting_intelligence] CompareCandidatesForJob succeeded",
+		zap.Int64("duration_ms", time.Since(started).Milliseconds()),
+		zap.Int64("job_id", req.GetJobId()),
+		zap.Int("candidate_count", len(items)),
+		zap.Int("missing_evaluation_count", len(missing)),
+	)
 	return &pb.CompareCandidatesForJobResponse{Code: errs.OK, Msg: "success", JobId: req.GetJobId(), Candidates: items, MissingApplicationIds: missing}, nil
 }
 

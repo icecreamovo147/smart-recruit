@@ -17,6 +17,8 @@ import (
 )
 
 func (s *MCPService) ListMCPToolPolicies(ctx context.Context, req *pb.ListMCPToolPoliciesRequest) (*pb.ListMCPToolPoliciesResponse, error) {
+	log := logger.GetRequestLogger(ctx)
+	log.Info("[logic][mcp_policy] ListMCPToolPolicies started", zap.Int64("server_id", req.GetServerId()))
 	page := req.GetPage()
 	if page <= 0 {
 		page = 1
@@ -27,78 +29,101 @@ func (s *MCPService) ListMCPToolPolicies(ctx context.Context, req *pb.ListMCPToo
 	}
 	policies, total, err := s.mcpRepo.ListToolPolicies(ctx, req.GetServerId(), page, pageSize)
 	if err != nil {
-		logger.L().Error("list MCP tool policies failed", zap.Error(err))
+		log.Error("[logic][mcp_policy] list MCP tool policies failed", zap.Error(err))
 		return nil, status.Error(codes.Internal, "list MCP tool policies failed")
 	}
 	list := make([]*pb.MCPToolPolicyInfo, 0, len(policies))
 	for i := range policies {
 		list = append(list, mcpToolPolicyToInfo(&policies[i]))
 	}
+	log.Info("[logic][mcp_policy] ListMCPToolPolicies succeeded", zap.Int("total", int(total)), zap.Int("returned", len(list)))
 	return &pb.ListMCPToolPoliciesResponse{Code: 0, Msg: "ok", Total: total, List: list}, nil
 }
 
 func (s *MCPService) CreateMCPToolPolicy(ctx context.Context, req *pb.CreateMCPToolPolicyRequest) (*pb.MCPToolPolicyResponse, error) {
+	log := logger.GetRequestLogger(ctx)
+	log.Info("[logic][mcp_policy] CreateMCPToolPolicy started",
+		zap.Int64("server_id", req.GetServerId()),
+		zap.String("tool_name", req.GetToolName()),
+		zap.String("effect", req.GetEffect()))
 	policy, err := buildMCPToolPolicyFromCreate(req)
 	if err != nil {
+		log.Warn("[logic][mcp_policy] CreateMCPToolPolicy validation failed", zap.Error(err))
 		return nil, status.Error(codes.InvalidArgument, err.Error())
 	}
 	if _, err := s.mcpRepo.GetServerByID(ctx, policy.ServerID); err != nil {
 		if err == gorm.ErrRecordNotFound {
+			log.Warn("[logic][mcp_policy] CreateMCPToolPolicy server not found")
 			return nil, status.Error(codes.NotFound, "MCP server not found")
 		}
-		logger.L().Error("get MCP server failed", zap.Error(err))
+		log.Error("[logic][mcp_policy] CreateMCPToolPolicy get server failed", zap.Error(err))
 		return nil, status.Error(codes.Internal, "get MCP server failed")
 	}
 	if err := s.mcpRepo.CreateToolPolicy(ctx, policy); err != nil {
-		logger.L().Error("create MCP tool policy failed", zap.Error(err))
+		log.Error("[logic][mcp_policy] create MCP tool policy failed", zap.Error(err))
 		return nil, status.Error(codes.Internal, "create MCP tool policy failed")
 	}
+	log.Info("[logic][mcp_policy] CreateMCPToolPolicy succeeded",
+		zap.Int64("policy_id", policy.ID),
+		zap.String("tool_name", policy.ToolName))
 	return &pb.MCPToolPolicyResponse{Code: 0, Msg: "ok", Policy: mcpToolPolicyToInfo(policy)}, nil
 }
 
 func (s *MCPService) UpdateMCPToolPolicy(ctx context.Context, req *pb.UpdateMCPToolPolicyRequest) (*pb.MCPToolPolicyResponse, error) {
+	log := logger.GetRequestLogger(ctx)
+	log.Info("[logic][mcp_policy] UpdateMCPToolPolicy started", zap.Int64("policy_id", req.GetId()))
 	if req.GetId() <= 0 {
+		log.Warn("[logic][mcp_policy] UpdateMCPToolPolicy invalid id")
 		return nil, status.Error(codes.InvalidArgument, "id is required")
 	}
 	existing, err := s.mcpRepo.GetToolPolicyByID(ctx, req.GetId())
 	if err != nil {
 		if err == gorm.ErrRecordNotFound {
+			log.Warn("[logic][mcp_policy] UpdateMCPToolPolicy policy not found")
 			return nil, status.Error(codes.NotFound, "MCP tool policy not found")
 		}
-		logger.L().Error("get MCP tool policy failed", zap.Error(err))
+		log.Error("[logic][mcp_policy] get MCP tool policy failed", zap.Error(err))
 		return nil, status.Error(codes.Internal, "get MCP tool policy failed")
 	}
 	policy, err := buildMCPToolPolicyFromUpdate(existing, req)
 	if err != nil {
+		log.Warn("[logic][mcp_policy] UpdateMCPToolPolicy validation failed", zap.Error(err))
 		return nil, status.Error(codes.InvalidArgument, err.Error())
 	}
 	if _, err := s.mcpRepo.GetServerByID(ctx, policy.ServerID); err != nil {
 		if err == gorm.ErrRecordNotFound {
 			return nil, status.Error(codes.NotFound, "MCP server not found")
 		}
-		logger.L().Error("get MCP server failed", zap.Error(err))
+		log.Error("[logic][mcp_policy] get MCP server failed", zap.Error(err))
 		return nil, status.Error(codes.Internal, "get MCP server failed")
 	}
 	if err := s.mcpRepo.UpdateToolPolicy(ctx, policy); err != nil {
-		logger.L().Error("update MCP tool policy failed", zap.Error(err))
+		log.Error("[logic][mcp_policy] update MCP tool policy failed", zap.Error(err))
 		return nil, status.Error(codes.Internal, "update MCP tool policy failed")
 	}
 	updated, err := s.mcpRepo.GetToolPolicyByID(ctx, policy.ID)
 	if err != nil {
-		logger.L().Error("get updated MCP tool policy failed", zap.Error(err))
+		log.Error("[logic][mcp_policy] get updated MCP tool policy failed", zap.Error(err))
 		return nil, status.Error(codes.Internal, "get updated MCP tool policy failed")
 	}
+	log.Info("[logic][mcp_policy] UpdateMCPToolPolicy succeeded",
+		zap.Int64("policy_id", updated.ID),
+		zap.String("tool_name", updated.ToolName))
 	return &pb.MCPToolPolicyResponse{Code: 0, Msg: "ok", Policy: mcpToolPolicyToInfo(updated)}, nil
 }
 
 func (s *MCPService) DeleteMCPToolPolicy(ctx context.Context, req *pb.DeleteMCPToolPolicyRequest) (*pb.CommonResponse, error) {
+	log := logger.GetRequestLogger(ctx)
+	log.Info("[logic][mcp_policy] DeleteMCPToolPolicy started", zap.Int64("policy_id", req.GetId()))
 	if req.GetId() <= 0 {
+		log.Warn("[logic][mcp_policy] DeleteMCPToolPolicy invalid id")
 		return nil, status.Error(codes.InvalidArgument, "id is required")
 	}
 	if err := s.mcpRepo.DeleteToolPolicy(ctx, req.GetId()); err != nil {
-		logger.L().Error("delete MCP tool policy failed", zap.Error(err))
+		log.Error("[logic][mcp_policy] delete MCP tool policy failed", zap.Error(err))
 		return nil, status.Error(codes.Internal, "delete MCP tool policy failed")
 	}
+	log.Info("[logic][mcp_policy] DeleteMCPToolPolicy succeeded", zap.Int64("policy_id", req.GetId()))
 	return &pb.CommonResponse{Code: 0, Msg: "ok"}, nil
 }
 

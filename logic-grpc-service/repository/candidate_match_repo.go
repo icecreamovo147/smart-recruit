@@ -2,8 +2,10 @@ package repository
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 
 	"gorm.io/gorm"
@@ -78,6 +80,7 @@ func (r *CandidateMatchRepo) SaveEvaluationVersion(ctx context.Context, snapshot
 		}
 		for i := range snapshot.Evidence {
 			snapshot.Evidence[i].EvaluationID = evaluation.ID
+			snapshot.Evidence[i].MetadataJSON = normalizeCandidateMatchEvidenceMetadata(snapshot.Evidence[i].MetadataJSON)
 			if err := tx.Create(&snapshot.Evidence[i]).Error; err != nil {
 				return fmt.Errorf("create candidate match evidence: %w", err)
 			}
@@ -134,4 +137,19 @@ func (r *CandidateMatchRepo) GetSnapshot(ctx context.Context, evaluationID uint6
 		return nil, err
 	}
 	return &CandidateMatchSnapshot{Evaluation: evaluation, Evidence: evidence}, nil
+}
+
+func normalizeCandidateMatchEvidenceMetadata(raw string) string {
+	raw = strings.TrimSpace(raw)
+	if raw == "" {
+		return "{}"
+	}
+	if json.Valid([]byte(raw)) {
+		return raw
+	}
+	wrapped, err := json.Marshal(map[string]string{"value": raw})
+	if err != nil {
+		return "{}"
+	}
+	return string(wrapped)
 }

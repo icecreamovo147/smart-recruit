@@ -60,6 +60,32 @@ func TestCandidateMatchRepoSaveEvaluationVersionCreatesLatestWithEvidence(t *tes
 	if len(loaded.Evidence) != 2 {
 		t.Fatalf("expected 2 evidence rows, got %+v", loaded.Evidence)
 	}
+	for _, evidence := range loaded.Evidence {
+		if evidence.MetadataJSON != "{}" {
+			t.Fatalf("expected empty metadata to be normalized to {}, got %q", evidence.MetadataJSON)
+		}
+	}
+}
+
+func TestCandidateMatchRepoNormalizesEvidenceMetadataJSON(t *testing.T) {
+	tests := []struct {
+		name string
+		raw  string
+		want string
+	}{
+		{name: "empty", raw: "", want: "{}"},
+		{name: "blank", raw: "  ", want: "{}"},
+		{name: "object", raw: `{"source":"test"}`, want: `{"source":"test"}`},
+		{name: "invalid", raw: "plain text", want: `{"value":"plain text"}`},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			if got := normalizeCandidateMatchEvidenceMetadata(tc.raw); got != tc.want {
+				t.Fatalf("expected %q, got %q", tc.want, got)
+			}
+		})
+	}
 }
 
 func TestCandidateMatchRepoSaveEvaluationVersionBumpsLatestAndReplacesEvidence(t *testing.T) {

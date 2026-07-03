@@ -21,7 +21,10 @@ import (
 	"logic-grpc-service/repository"
 )
 
-const defaultResumeProfileParserVersion = "resume-profile-parser-v1"
+const (
+	defaultResumeProfileParserVersion = "resume-profile-parser-v1"
+	resumeProfileSaveTimeout          = 5 * time.Second
+)
 
 var (
 	ErrResumeProfileMissingResume = errors.New("resume not found")
@@ -33,23 +36,40 @@ type ResumeProfileExtractor interface {
 	Extract(ctx context.Context, text string) (string, error)
 }
 
+type ExtractorMetadata struct {
+	ParserVersion string
+	ExtractorType string
+	ModelName     string
+	PromptKey     string
+	PromptVersion int32
+	FallbackUsed  bool
+	Duration      time.Duration
+}
+
+type ResumeProfileExtractResult struct {
+	RawJSON  string
+	Metadata ExtractorMetadata
+}
+
+type ResumeProfileExtractorV2 interface {
+	ExtractWithMetadata(ctx context.Context, text string) (ResumeProfileExtractResult, error)
+}
+
 type ResumeProfileService struct {
-	resumes       *repository.ResumeRepo
-	profiles      *repository.ResumeProfileRepo
-	extractor     ResumeProfileExtractor
-	parserVersion string
-	now           func() time.Time
-	policy        AgentRuntimePolicy
+	resumes   *repository.ResumeRepo
+	profiles  *repository.ResumeProfileRepo
+	extractor ResumeProfileExtractor
+	now       func() time.Time
+	policy    AgentRuntimePolicy
 }
 
 func NewResumeProfileService(resumes *repository.ResumeRepo, profiles *repository.ResumeProfileRepo, extractor ResumeProfileExtractor) *ResumeProfileService {
 	return &ResumeProfileService{
-		resumes:       resumes,
-		profiles:      profiles,
-		extractor:     extractor,
-		parserVersion: defaultResumeProfileParserVersion,
-		now:           time.Now,
-		policy:        DefaultAgentRuntimePolicy(),
+		resumes:   resumes,
+		profiles:  profiles,
+		extractor: extractor,
+		now:       time.Now,
+		policy:    DefaultAgentRuntimePolicy(),
 	}
 }
 
@@ -61,12 +81,14 @@ func (s *ResumeProfileService) WithRuntimePolicy(policy AgentRuntimePolicy) *Res
 }
 
 func (s *ResumeProfileService) ParseResume(ctx context.Context, resumeID int64) (*repository.ResumeProfileSnapshot, error) {
+	log := logger.GetRequestLogger(ctx)
 	if s == nil || s.resumes == nil || s.profiles == nil || s.extractor == nil {
+		log.Error("[logic][resume_profile] service not configured", zap.Int64("resume_id", resumeID))
 		return nil, fmt.Errorf("resume profile service is not configured")
 	}
 	policy := s.policy.withDefaults()
 	if !policy.StructuredResumeParse {
-		logger.L().Warn("agent capability disabled",
+		log.Warn("[logic][resume_profile] capability disabled",
 			zap.String("capability", "structured_resume_parse"),
 			zap.Int64("resume_id", resumeID))
 		return nil, fmt.Errorf("%w: structured_resume_parse", ErrAgentCapabilityDisabled)
@@ -75,55 +97,94 @@ func (s *ResumeProfileService) ParseResume(ctx context.Context, resumeID int64) 
 	ctx, cancel := contextWithPolicyTimeout(ctx, policy.ResumeParseTimeout)
 	defer cancel()
 
+	log.Info("[logic][resume_profile] ParseResume started",
+		zap.Int64("resume_id", resumeID),
+		zap.String("parser_version", defaultResumeProfileParserVersion))
+
 	resume, err := s.resumes.GetByID(ctx, resumeID)
 	if err != nil {
-		s.logParseFinished(resumeID, "", started, "failed", err)
+		s.logParseFinished(resumeID, "", started, "failed", ExtractorMetadata{}, err)
 		return nil, fmt.Errorf("get resume: %w", err)
 	}
 	if resume == nil {
-		s.logParseFinished(resumeID, "", started, "failed", ErrResumeProfileMissingResume)
+		s.logParseFinished(resumeID, "", started, "failed", ExtractorMetadata{}, ErrResumeProfileMissingResume)
 		return nil, ErrResumeProfileMissingResume
 	}
+	log.Info("[logic][resume_profile] resume loaded",
+		zap.Int64("resume_id", resumeID),
+		zap.Int64("user_id", resume.UserID))
 
 	text := strings.TrimSpace(resume.ParsedText)
 	inputHash := hashResumeProfileInput(text)
+	textLen := len(text)
+	log.Info("[logic][resume_profile] parsed_text loaded",
+		zap.Int64("resume_id", resumeID),
+		zap.Int("parsed_text_length", textLen),
+		zap.String("input_hash", inputHash),
+		zap.Bool("is_empty", text == ""),
+		zap.String("safe_preview", safeResumeProfileLogPreview(text, 500)))
 	if text == "" {
-		s.logParseFinished(resumeID, inputHash, started, "failed", ErrResumeProfileMissingText)
-		return nil, s.saveFailure(ctx, resume, inputHash, ErrResumeProfileMissingText)
+		s.logParseFinished(resumeID, inputHash, started, "failed", ExtractorMetadata{}, ErrResumeProfileMissingText)
+		return nil, s.saveFailure(ctx, resume, inputHash, defaultResumeProfileParserVersion, ErrResumeProfileMissingText)
 	}
 
-	raw, err := s.extractor.Extract(ctx, text)
+	log.Info("[logic][resume_profile] calling extractor", zap.Int64("resume_id", resumeID))
+	result, err := s.callExtractor(ctx, text)
 	if err != nil {
-		s.logParseFinished(resumeID, inputHash, started, "failed", err)
-		return nil, s.saveFailure(ctx, resume, inputHash, fmt.Errorf("extract resume profile: %w", err))
+		s.logParseFinished(resumeID, inputHash, started, "failed", result.Metadata, err)
+		return nil, s.saveFailure(ctx, resume, inputHash, result.Metadata.ParserVersion, fmt.Errorf("extract resume profile: %w", err))
+	}
+	meta := result.Metadata
+	log.Info("[logic][resume_profile] extractor finished",
+		zap.Int64("resume_id", resumeID),
+		zap.String("extractor_type", meta.ExtractorType),
+		zap.String("model_name", meta.ModelName),
+		zap.Bool("fallback_used", meta.FallbackUsed),
+		zap.Int("raw_json_length", len(result.RawJSON)))
+
+	extracted, err := decodeExtractedResumeProfile(result.RawJSON)
+	if err != nil {
+		s.logParseFinished(resumeID, inputHash, started, "failed", meta, err)
+		return nil, s.saveFailure(ctx, resume, inputHash, meta.ParserVersion, err)
 	}
 
-	extracted, err := decodeExtractedResumeProfile(raw)
+	snapshot, err := s.buildSnapshot(resume, inputHash, result.RawJSON, extracted, meta.ParserVersion)
 	if err != nil {
-		s.logParseFinished(resumeID, inputHash, started, "failed", err)
-		return nil, s.saveFailure(ctx, resume, inputHash, err)
+		s.logParseFinished(resumeID, inputHash, started, "failed", meta, err)
+		return nil, s.saveFailure(ctx, resume, inputHash, meta.ParserVersion, err)
 	}
+	log.Info("[logic][resume_profile] snapshot built",
+		zap.Int("educations", len(snapshot.Educations)),
+		zap.Int("experiences", len(snapshot.Experiences)),
+		zap.Int("projects", len(snapshot.Projects)),
+		zap.Int("skills", len(snapshot.Skills)),
+		zap.Any("summary", resumeProfileSnapshotLogSummary(snapshot)))
 
-	snapshot, err := s.buildSnapshot(resume, inputHash, raw, extracted)
-	if err != nil {
-		s.logParseFinished(resumeID, inputHash, started, "failed", err)
-		return nil, s.saveFailure(ctx, resume, inputHash, err)
-	}
-	if err := s.profiles.SaveProfileVersion(ctx, snapshot); err != nil {
-		s.logParseFinished(resumeID, inputHash, started, "failed", err)
+	log.Info("[logic][resume_profile] SaveProfileVersion started")
+	saveCtx, cancelSave := context.WithTimeout(context.Background(), resumeProfileSaveTimeout)
+	defer cancelSave()
+	if err := s.profiles.SaveProfileVersion(saveCtx, snapshot); err != nil {
+		s.logParseFinished(resumeID, inputHash, started, "failed", meta, err)
 		return nil, fmt.Errorf("save resume profile version: %w", err)
 	}
-	s.logParseFinished(resumeID, inputHash, started, "succeeded", nil)
+	log.Info("[logic][resume_profile] SaveProfileVersion finished")
+	s.logParseFinished(resumeID, inputHash, started, "succeeded", meta, nil)
 	return snapshot, nil
 }
 
-func (s *ResumeProfileService) logParseFinished(resumeID int64, inputHash string, started time.Time, status string, err error) {
+func (s *ResumeProfileService) logParseFinished(resumeID int64, inputHash string, started time.Time, status string, meta ExtractorMetadata, err error) {
 	fields := []zap.Field{
 		zap.String("event", "agent.resume_profile.parse"),
 		zap.Int64("resume_id", resumeID),
 		zap.String("input_hash", inputHash),
 		zap.String("status", status),
 		zap.Int64("duration_ms", time.Since(started).Milliseconds()),
+		zap.String("parser_version", meta.ParserVersion),
+		zap.String("extractor_type", meta.ExtractorType),
+		zap.String("model_name", meta.ModelName),
+		zap.String("prompt_key", meta.PromptKey),
+		zap.Int32("prompt_version", meta.PromptVersion),
+		zap.Bool("fallback_used", meta.FallbackUsed),
 	}
 	if err != nil {
 		fields = append(fields, zap.Error(err))
@@ -133,7 +194,7 @@ func (s *ResumeProfileService) logParseFinished(resumeID int64, inputHash string
 	logger.L().Info("resume profile parse finished", fields...)
 }
 
-func (s *ResumeProfileService) saveFailure(ctx context.Context, resume *model.Resume, inputHash string, cause error) error {
+func (s *ResumeProfileService) saveFailure(ctx context.Context, resume *model.Resume, inputHash, parserVersion string, cause error) error {
 	now := s.currentTime()
 	message := strings.TrimSpace(cause.Error())
 	if len(message) > 4000 {
@@ -144,7 +205,7 @@ func (s *ResumeProfileService) saveFailure(ctx context.Context, resume *model.Re
 			ResumeID:      resume.ID,
 			UserID:        resume.UserID,
 			Status:        "failed",
-			ParserVersion: s.version(),
+			ParserVersion: parserVersion,
 			InputHash:     inputHash,
 			ErrorMessage:  message,
 			StartedAt:     now,
@@ -152,13 +213,19 @@ func (s *ResumeProfileService) saveFailure(ctx context.Context, resume *model.Re
 		},
 		Profile: model.ResumeProfile{},
 	}
-	if err := s.profiles.SaveProfileVersion(ctx, snapshot); err != nil {
+	saveCtx := ctx
+	if ctx.Err() != nil {
+		var cancel context.CancelFunc
+		saveCtx, cancel = context.WithTimeout(context.Background(), resumeProfileSaveTimeout)
+		defer cancel()
+	}
+	if err := s.profiles.SaveProfileVersion(saveCtx, snapshot); err != nil {
 		return fmt.Errorf("%w; additionally failed to save parse failure: %v", cause, err)
 	}
 	return cause
 }
 
-func (s *ResumeProfileService) buildSnapshot(resume *model.Resume, inputHash, raw string, extracted extractedResumeProfile) (*repository.ResumeProfileSnapshot, error) {
+func (s *ResumeProfileService) buildSnapshot(resume *model.Resume, inputHash, raw string, extracted extractedResumeProfile, parserVersion string) (*repository.ResumeProfileSnapshot, error) {
 	normalized, err := normalizeExtractedResumeProfile(extracted)
 	if err != nil {
 		return nil, err
@@ -169,7 +236,7 @@ func (s *ResumeProfileService) buildSnapshot(resume *model.Resume, inputHash, ra
 			ResumeID:      resume.ID,
 			UserID:        resume.UserID,
 			Status:        "succeeded",
-			ParserVersion: s.version(),
+			ParserVersion: parserVersion,
 			InputHash:     inputHash,
 			StartedAt:     now,
 			CompletedAt:   &now,
@@ -199,11 +266,27 @@ func (s *ResumeProfileService) currentTime() time.Time {
 	return time.Now()
 }
 
-func (s *ResumeProfileService) version() string {
-	if strings.TrimSpace(s.parserVersion) == "" {
-		return defaultResumeProfileParserVersion
+func (s *ResumeProfileService) callExtractor(ctx context.Context, text string) (ResumeProfileExtractResult, error) {
+	if v2, ok := s.extractor.(ResumeProfileExtractorV2); ok {
+		result, err := v2.ExtractWithMetadata(ctx, text)
+		if err != nil {
+			return ResumeProfileExtractResult{}, err
+		}
+		if result.Metadata.ParserVersion == "" {
+			result.Metadata.ParserVersion = defaultResumeProfileParserVersion
+		}
+		return result, nil
 	}
-	return strings.TrimSpace(s.parserVersion)
+	raw, err := s.extractor.Extract(ctx, text)
+	if err != nil {
+		return ResumeProfileExtractResult{}, err
+	}
+	return ResumeProfileExtractResult{
+		RawJSON: raw,
+		Metadata: ExtractorMetadata{
+			ParserVersion: defaultResumeProfileParserVersion,
+		},
+	}, nil
 }
 
 type extractedResumeProfile struct {
@@ -540,4 +623,109 @@ func hashResumeProfileInput(text string) string {
 
 func roundYears(value float64) float64 {
 	return float64(int(value*10+0.5)) / 10
+}
+
+func safeResumeProfileLogPreview(text string, limit int) string {
+	text = normalizeWhitespace(text)
+	text = redactResumeProfileSensitiveText(text)
+	if limit <= 0 {
+		return ""
+	}
+	runes := []rune(text)
+	if len(runes) <= limit {
+		return text
+	}
+	return string(runes[:limit]) + "...[truncated]"
+}
+
+func redactResumeProfileSensitiveText(text string) string {
+	parts := strings.Fields(text)
+	for i, part := range parts {
+		if strings.Contains(part, "@") {
+			parts[i] = "[email]"
+			continue
+		}
+		digits := 0
+		for _, r := range part {
+			if r >= '0' && r <= '9' {
+				digits++
+			}
+		}
+		if digits >= 7 {
+			parts[i] = "[number]"
+		}
+	}
+	return strings.Join(parts, " ")
+}
+
+func resumeProfileSnapshotLogSummary(snapshot *repository.ResumeProfileSnapshot) map[string]any {
+	if snapshot == nil {
+		return map[string]any{}
+	}
+	return map[string]any{
+		"profile_id":             snapshot.Profile.ID,
+		"full_name":              snapshot.Profile.FullName,
+		"headline":               snapshot.Profile.Headline,
+		"total_experience_years": snapshot.Profile.TotalExperience,
+		"highest_degree":         snapshot.Profile.HighestDegree,
+		"educations":             resumeEducationNames(snapshot.Educations, 5),
+		"experiences":            resumeExperienceNames(snapshot.Experiences, 5),
+		"projects":               resumeProjectNames(snapshot.Projects, 5),
+		"skills":                 resumeProfileSkillNames(snapshot.Skills, 20),
+	}
+}
+
+func resumeEducationNames(rows []model.ResumeEducation, limit int) []string {
+	names := make([]string, 0, minInt(len(rows), limit))
+	for i, row := range rows {
+		if i >= limit {
+			break
+		}
+		names = append(names, row.School)
+	}
+	return names
+}
+
+func resumeExperienceNames(rows []model.ResumeExperience, limit int) []string {
+	names := make([]string, 0, minInt(len(rows), limit))
+	for i, row := range rows {
+		if i >= limit {
+			break
+		}
+		if row.Title != "" {
+			names = append(names, row.Company+" / "+row.Title)
+			continue
+		}
+		names = append(names, row.Company)
+	}
+	return names
+}
+
+func resumeProjectNames(rows []model.ResumeProject, limit int) []string {
+	names := make([]string, 0, minInt(len(rows), limit))
+	for i, row := range rows {
+		if i >= limit {
+			break
+		}
+		names = append(names, row.Name)
+	}
+	return names
+}
+
+func resumeProfileSkillNames(rows []model.ResumeSkill, limit int) []string {
+	names := make([]string, 0, minInt(len(rows), limit))
+	for i, row := range rows {
+		if i >= limit {
+			break
+		}
+		names = append(names, row.Name)
+	}
+	return names
+}
+
+func minInt(a, b int) int {
+	if a < b {
+		return a
+	}
+	return b
 }

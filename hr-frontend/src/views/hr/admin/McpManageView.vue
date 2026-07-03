@@ -41,6 +41,7 @@ import type {
   McpPolicyRiskLevel,
   McpTransportType,
 } from '@/types/mcp'
+import { debugLog } from '@/utils/debugLog'
 
 // ====== Transport type options ======
 
@@ -110,12 +111,14 @@ const viewTitle = computed(() => {
 })
 
 const navigateToTools = (row: McpServerInfo) => {
+  debugLog.mcp.info('navigateToTools', { server_id: row.id, server_name: row.name })
   selectedServer.value = row
   activeView.value = 'tools'
   loadTools()
 }
 
 const navigateToLogs = (row: McpServerInfo) => {
+  debugLog.mcp.info('navigateToLogs', { server_id: row.id, server_name: row.name })
   selectedServer.value = row
   activeView.value = 'logs'
   logPage.value = 1
@@ -123,6 +126,7 @@ const navigateToLogs = (row: McpServerInfo) => {
 }
 
 const navigateToPolicies = (row?: McpServerInfo) => {
+  debugLog.mcp.info('navigateToPolicies', { server_id: row?.id || null, server_name: row?.name || null })
   selectedServer.value = row || null
   activeView.value = 'policies'
   policyPage.value = 1
@@ -130,6 +134,7 @@ const navigateToPolicies = (row?: McpServerInfo) => {
 }
 
 const goBackToList = () => {
+  debugLog.mcp.info('goBackToList', { previous_view: activeView.value })
   activeView.value = 'list'
   selectedServer.value = null
 }
@@ -147,14 +152,17 @@ const statusFilter = ref('')
 const transportFilter = ref('')
 
 const loadList = async () => {
+  debugLog.mcp.info('loadList_started', { page: page.value, page_size: pageSize.value })
   loading.value = true
   error.value = ''
   try {
     const data = await listMcpServers(page.value, pageSize.value)
     list.value = data.list || []
     total.value = data.total || 0
+    debugLog.mcp.info('loadList_finished', { total: total.value, returned: list.value.length })
   } catch (e: unknown) {
     error.value = (e as { message?: string }).message || '加载 MCP Server 列表失败'
+    debugLog.mcp.error('loadList_failed', { error: error.value })
   } finally {
     loading.value = false
   }
@@ -235,6 +243,7 @@ const openEdit = (row: McpServerInfo) => {
 }
 
 const save = async () => {
+  debugLog.mcp.info('saveServer_started', { is_edit: isEditing.value, name: dialogForm.name })
   if (!dialogForm.name) {
     ElMessage.warning('请输入 Server 名称')
     return
@@ -304,8 +313,10 @@ const save = async () => {
       ElMessage.success('MCP Server 已创建')
     }
     dialogVisible.value = false
+    debugLog.mcp.info('saveServer_finished', { is_edit: isEditing.value })
     await loadList()
   } catch (e: unknown) {
+    debugLog.mcp.error('saveServer_failed', { is_edit: isEditing.value, error: (e as { message?: string }).message })
     ElMessage.error((e as { message?: string }).message || '保存失败')
   } finally {
     saving.value = false
@@ -317,16 +328,20 @@ const save = async () => {
 const testingId = ref<number | null>(null)
 
 const handleTestConnection = async (row: McpServerInfo) => {
+  debugLog.mcp.info('handleTestConnection_started', { server_id: row.id })
   testingId.value = row.id
   try {
     const result = await testMcpServerConnection(row.id)
     if (result.success) {
       ElMessage.success(`连接测试成功（发现 ${result.tools_found} 个工具，耗时 ${result.duration_ms}ms）`)
+      debugLog.mcp.info('handleTestConnection_succeeded', { server_id: row.id, tools_found: result.tools_found, duration_ms: result.duration_ms })
     } else {
       ElMessage.error(`连接测试失败：${result.message}`)
+      debugLog.mcp.warn('handleTestConnection_failed', { server_id: row.id, message: result.message })
     }
     await loadList()
   } catch (e: unknown) {
+    debugLog.mcp.error('handleTestConnection_error', { server_id: row.id, error: (e as { message?: string }).message })
     ElMessage.error((e as { message?: string }).message || '连接测试失败')
   } finally {
     testingId.value = null
@@ -336,11 +351,13 @@ const handleTestConnection = async (row: McpServerInfo) => {
 // ====== Toggle enabled ======
 
 const handleToggleEnabled = async (row: McpServerInfo) => {
+  debugLog.mcp.info('handleToggleEnabled', { server_id: row.id, new_enabled: !row.is_enabled })
   try {
     await updateMcpServer(row.id, { is_enabled: !row.is_enabled })
     ElMessage.success(row.is_enabled ? '已禁用' : '已启用')
     await loadList()
   } catch (e: unknown) {
+    debugLog.mcp.error('handleToggleEnabled_failed', { server_id: row.id, error: (e as { message?: string }).message })
     ElMessage.error((e as { message?: string }).message || '操作失败')
   }
 }
@@ -348,6 +365,7 @@ const handleToggleEnabled = async (row: McpServerInfo) => {
 // ====== Delete ======
 
 const handleDelete = async (row: McpServerInfo) => {
+  debugLog.mcp.info('handleDelete_started', { server_id: row.id, server_name: row.name })
   try {
     await ElMessageBox.confirm(
       `确认删除 MCP Server「${row.name}」？此操作不可撤销。`,
@@ -355,6 +373,7 @@ const handleDelete = async (row: McpServerInfo) => {
       { confirmButtonText: '删除', cancelButtonText: '取消', type: 'warning' },
     )
   } catch {
+    debugLog.mcp.info('handleDelete_cancelled', { server_id: row.id })
     return
   }
   try {
@@ -362,6 +381,7 @@ const handleDelete = async (row: McpServerInfo) => {
     ElMessage.success('MCP Server 已删除')
     await loadList()
   } catch (e: unknown) {
+    debugLog.mcp.error('handleDelete_failed', { server_id: row.id, error: (e as { message?: string }).message })
     ElMessage.error((e as { message?: string }).message || '删除失败')
   }
 }
@@ -374,13 +394,16 @@ const toolsError = ref('')
 
 const loadTools = async () => {
   if (!selectedServer.value) return
+  debugLog.mcp.info('loadTools_started', { server_id: selectedServer.value.id })
   toolsLoading.value = true
   toolsError.value = ''
   try {
     const data = await listMcpServerTools(selectedServer.value.id)
     tools.value = data.tools || []
+    debugLog.mcp.info('loadTools_finished', { server_id: selectedServer.value.id, tool_count: tools.value.length })
   } catch (e: unknown) {
     toolsError.value = (e as { message?: string }).message || '加载工具列表失败'
+    debugLog.mcp.error('loadTools_failed', { server_id: selectedServer.value.id, error: toolsError.value })
   } finally {
     toolsLoading.value = false
   }
@@ -494,6 +517,7 @@ const policyPayload = (): CreateMcpToolPolicyPayload | null => {
 }
 
 const loadPolicies = async () => {
+  debugLog.mcp.info('loadPolicies_started', { server_id: selectedServer.value?.id || policyFilterServerId.value || null })
   policiesLoading.value = true
   policiesError.value = ''
   try {
@@ -505,8 +529,10 @@ const loadPolicies = async () => {
     })
     policies.value = data.list || []
     policyTotal.value = data.total || 0
+    debugLog.mcp.info('loadPolicies_finished', { total: policyTotal.value, returned: policies.value.length })
   } catch (e: unknown) {
     policiesError.value = (e as { message?: string }).message || '加载工具策略失败'
+    debugLog.mcp.error('loadPolicies_failed', { error: policiesError.value })
   } finally {
     policiesLoading.value = false
   }
@@ -562,6 +588,7 @@ const openEditPolicy = (policy: McpToolPolicy) => {
 const savePolicy = async () => {
   const payload = policyPayload()
   if (!payload) return
+  debugLog.mcp.info('savePolicy_started', { is_edit: policyIsEditing.value, tool_name: payload.tool_name, effect: payload.effect })
   policySaving.value = true
   try {
     if (policyIsEditing.value) {
@@ -572,8 +599,10 @@ const savePolicy = async () => {
       ElMessage.success('工具策略已创建')
     }
     policyDialogVisible.value = false
+    debugLog.mcp.info('savePolicy_finished', { is_edit: policyIsEditing.value, policy_id: policyEditingId.value })
     await loadPolicies()
   } catch (e: unknown) {
+    debugLog.mcp.error('savePolicy_failed', { is_edit: policyIsEditing.value, error: (e as { message?: string }).message })
     ElMessage.error((e as { message?: string }).message || '保存工具策略失败')
   } finally {
     policySaving.value = false
@@ -581,16 +610,19 @@ const savePolicy = async () => {
 }
 
 const togglePolicyEnabled = async (policy: McpToolPolicy) => {
+  debugLog.mcp.info('togglePolicyEnabled', { policy_id: policy.id, tool_name: policy.tool_name, new_enabled: !policy.is_enabled })
   try {
     await updateMcpToolPolicy(policy.id, { is_enabled: !policy.is_enabled })
     ElMessage.success(policy.is_enabled ? '策略已禁用' : '策略已启用')
     await loadPolicies()
   } catch (e: unknown) {
+    debugLog.mcp.error('togglePolicyEnabled_failed', { policy_id: policy.id, error: (e as { message?: string }).message })
     ElMessage.error((e as { message?: string }).message || '切换策略失败')
   }
 }
 
 const deletePolicy = async (policy: McpToolPolicy) => {
+  debugLog.mcp.info('deletePolicy_started', { policy_id: policy.id, tool_name: policy.tool_name })
   try {
     await ElMessageBox.confirm(
       `确认删除「${policy.tool_name}」的 MCP 工具策略？`,
@@ -598,6 +630,7 @@ const deletePolicy = async (policy: McpToolPolicy) => {
       { confirmButtonText: '删除', cancelButtonText: '取消', type: 'warning' },
     )
   } catch {
+    debugLog.mcp.info('deletePolicy_cancelled', { policy_id: policy.id })
     return
   }
   try {
@@ -605,6 +638,7 @@ const deletePolicy = async (policy: McpToolPolicy) => {
     ElMessage.success('工具策略已删除')
     await loadPolicies()
   } catch (e: unknown) {
+    debugLog.mcp.error('deletePolicy_failed', { policy_id: policy.id, error: (e as { message?: string }).message })
     ElMessage.error((e as { message?: string }).message || '删除工具策略失败')
   }
 }
@@ -637,6 +671,7 @@ const logDetail = ref<McpCallLog | null>(null)
 
 const loadLogs = async () => {
   if (!selectedServer.value) return
+  debugLog.mcp.info('loadLogs_started', { server_id: selectedServer.value.id, tool_name: logFilterToolName.value || null })
   logsLoading.value = true
   logsError.value = ''
   try {
@@ -649,8 +684,10 @@ const loadLogs = async () => {
     })
     logs.value = data.list || []
     logsTotal.value = data.total || 0
+    debugLog.mcp.info('loadLogs_finished', { server_id: selectedServer.value.id, total: logsTotal.value, returned: logs.value.length })
   } catch (e: unknown) {
     logsError.value = (e as { message?: string }).message || '加载调用日志失败'
+    debugLog.mcp.error('loadLogs_failed', { server_id: selectedServer.value.id, error: logsError.value })
   } finally {
     logsLoading.value = false
   }

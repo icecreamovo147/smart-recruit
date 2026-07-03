@@ -26,6 +26,18 @@ func (s stubResumeProfileExtractor) Extract(ctx context.Context, text string) (s
 	return s.output, nil
 }
 
+type cancelingResumeProfileExtractor struct {
+	output string
+	cancel context.CancelFunc
+}
+
+func (s cancelingResumeProfileExtractor) Extract(ctx context.Context, text string) (string, error) {
+	if s.cancel != nil {
+		s.cancel()
+	}
+	return s.output, nil
+}
+
 func TestResumeProfileServiceParseResumeStoresNormalizedSnapshot(t *testing.T) {
 	db := setupResumeProfileServiceTestDB(t)
 	ctx := context.Background()
@@ -110,6 +122,48 @@ func TestResumeProfileServiceParseResumeStoresNormalizedSnapshot(t *testing.T) {
 	}
 	if current == nil || current.ID != snapshot.Profile.ID {
 		t.Fatalf("expected persisted current profile, got %+v", current)
+	}
+}
+
+func TestResumeProfileServiceParseResumePersistsWhenRequestContextCanceledAfterExtraction(t *testing.T) {
+	db := setupResumeProfileServiceTestDB(t)
+	ctx, cancel := context.WithCancel(context.Background())
+	resume := seedResumeProfileServiceResume(t, db, "Resume text")
+
+	raw := `{
+		"full_name": "Fallback Person",
+		"email": "fallback@example.com",
+		"phone": "",
+		"location": "",
+		"headline": "Backend Engineer",
+		"summary": "Parsed by fallback",
+		"total_experience_years": 3,
+		"highest_degree": "",
+		"educations": [],
+		"experiences": [],
+		"projects": [],
+		"skills": [{"name": "Go", "category": "language", "level": "advanced", "years": 3, "evidence": "resume"}]
+	}`
+
+	svc := NewResumeProfileService(
+		repository.NewResumeRepo(db),
+		repository.NewResumeProfileRepo(db),
+		cancelingResumeProfileExtractor{output: raw, cancel: cancel},
+	)
+
+	snapshot, err := svc.ParseResume(ctx, resume.ID)
+	if err != nil {
+		t.Fatalf("ParseResume failed after extractor canceled request context: %v", err)
+	}
+	if snapshot.Profile.FullName != "Fallback Person" {
+		t.Fatalf("expected persisted fallback profile, got %+v", snapshot.Profile)
+	}
+	current, err := repository.NewResumeProfileRepo(db).GetCurrentByResumeID(context.Background(), resume.ID)
+	if err != nil {
+		t.Fatalf("GetCurrentByResumeID failed: %v", err)
+	}
+	if current == nil || current.FullName != "Fallback Person" {
+		t.Fatalf("expected current fallback profile, got %+v", current)
 	}
 }
 

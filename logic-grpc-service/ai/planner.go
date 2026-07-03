@@ -4,6 +4,11 @@ import (
 	"encoding/json"
 	"sort"
 	"strings"
+	"time"
+
+	"go.uber.org/zap"
+
+	"logic-grpc-service/pkg/logger"
 )
 
 const (
@@ -48,6 +53,7 @@ func NewRecruitingPlanner() RecruitingPlanner {
 }
 
 func (RecruitingPlanner) Plan(input RecruitingPlannerInput) RecruitingPlan {
+	started := time.Now()
 	intent := classifyRecruitingIntent(input.Message)
 	available := toolSet(input.AvailableTools)
 
@@ -127,6 +133,11 @@ func (RecruitingPlanner) Plan(input RecruitingPlannerInput) RecruitingPlan {
 	}
 
 	plan.RiskChecks = appendUnavailableToolRisk(plan.RiskChecks, intent, available)
+	logger.L().Info("[logic][planner] plan finished",
+		zap.String("intent", intent),
+		zap.Int("required_tools", len(plan.RequiredTools)),
+		zap.Int("risk_checks", len(plan.RiskChecks)),
+		zap.Int64("duration_ms", time.Since(started).Milliseconds()))
 	return plan
 }
 

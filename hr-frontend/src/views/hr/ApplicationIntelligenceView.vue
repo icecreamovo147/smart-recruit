@@ -19,12 +19,16 @@ import type {
   ResumeExperienceInfo,
   ResumeProfileSnapshotInfo,
 } from '@/types/recruitingIntelligence'
+import { debugLog } from '@/utils/debugLog'
 
 type JsonRecord = Record<string, unknown>
 type JsonListItem = string | number | JsonRecord
 type DimensionScore = {
   key: string
   score: number
+  weight?: number
+  matched: string[]
+  missing: string[]
 }
 
 const route = useRoute()
@@ -80,6 +84,14 @@ const asText = (value: unknown): string => {
   return ''
 }
 
+const asSignalText = (value: unknown): string => {
+  if (value && typeof value === 'object') {
+    const record = value as JsonRecord
+    return asText(record.message || record.summary || record.name || record.title || record.requirement || record.code || value)
+  }
+  return asText(value)
+}
+
 const jsonList = (value?: string): JsonListItem[] => {
   const parsed = parseJson<unknown>(value, [])
   if (Array.isArray(parsed)) return parsed as JsonListItem[]
@@ -92,10 +104,10 @@ const jsonTags = (value?: string): string[] => jsonList(value).map(asText).filte
 const scoreBreakdown = computed(() => parseJson<JsonRecord>(evaluation.value?.score_breakdown_json, {}))
 
 const toDimensionScore = (item: unknown, fallbackKey = ''): DimensionScore | null => {
-  if (typeof item === 'number') return { key: fallbackKey, score: item }
+  if (typeof item === 'number') return { key: fallbackKey, score: item, matched: [], missing: [] }
   if (typeof item === 'string') {
     const score = Number(item)
-    return Number.isFinite(score) ? { key: fallbackKey, score } : null
+    return Number.isFinite(score) ? { key: fallbackKey, score, matched: [], missing: [] } : null
   }
   if (!item || typeof item !== 'object') return null
 
@@ -103,7 +115,12 @@ const toDimensionScore = (item: unknown, fallbackKey = ''): DimensionScore | nul
   const key = asText(record.name || record.key || record.dimension || fallbackKey)
   const scoreValue = record.score ?? record.value ?? record.percentage
   const score = Number(scoreValue)
-  return key || Number.isFinite(score) ? { key, score: Number.isFinite(score) ? score : 0 } : null
+  const weight = Number(record.weight)
+  const matched = Array.isArray(record.matched) ? record.matched.map(asText).filter(Boolean) : []
+  const missing = Array.isArray(record.missing) ? record.missing.map(asText).filter(Boolean) : []
+  return key || Number.isFinite(score)
+    ? { key, score: Number.isFinite(score) ? score : 0, weight: Number.isFinite(weight) ? weight : undefined, matched, missing }
+    : null
 }
 
 const dimensionScoresFromParsed = (value: unknown): DimensionScore[] => {
@@ -134,6 +151,8 @@ const dimensions = computed(() => {
 
 const strengths = computed(() => jsonList(evaluation.value?.strengths_json))
 const risks = computed(() => jsonList(evaluation.value?.risks_json))
+const strengthTexts = computed(() => strengths.value.map(asSignalText).filter(Boolean))
+const riskTexts = computed(() => risks.value.map(asSignalText).filter(Boolean))
 const missingRequirements = computed(() => {
   const fromField = jsonTags(evaluation.value?.missing_requirements_json)
   if (fromField.length) return fromField
@@ -142,6 +161,56 @@ const missingRequirements = computed(() => {
   if (!Array.isArray(fromBreakdown)) return []
   return fromBreakdown.map(asText).filter(Boolean)
 })
+
+const evidenceByType = computed(() => {
+  const groups: Record<string, CandidateMatchEvidenceInfo[]> = {}
+  for (const item of evidence.value) {
+    const key = item.evidence_type || 'evidence'
+    if (!groups[key]) groups[key] = []
+    groups[key].push(item)
+  }
+  return Object.entries(groups).map(([type, items]) => ({ type, items }))
+})
+
+const dimensionLabels: Record<string, string> = {
+  skills: '技能匹配',
+  requirements: '岗位要求',
+  experience: '经验背景',
+  education: '教育背景',
+  profile: '候选人资料',
+}
+
+const evidenceTypeLabels: Record<string, string> = {
+  skill: '技能证据',
+  experience: '经历证据',
+  resume_text: '简历文本',
+  missing_requirement: '缺失要求',
+  candidate_profile: '候选人资料',
+  risk: '风险信号',
+  evidence: '证据',
+}
+
+const sourceTableLabels: Record<string, string> = {
+  resume_skills: '技能画像',
+  resume_experiences: '工作经历',
+  resumes: '简历原文',
+  jobs: '岗位要求',
+  candidate_profiles: '候选人资料',
+  resume_profiles: '简历画像',
+}
+
+const dimensionLabel = (key: string): string => dimensionLabels[key] || key || '-'
+const evidenceTypeLabel = (type: string): string => evidenceTypeLabels[type] || type || '证据'
+const sourceTableLabel = (source: string): string => sourceTableLabels[source] || source || '-'
+const evidenceTagType = (type: string): string => {
+  if (type === 'risk' || type === 'missing_requirement') return 'danger'
+  if (type === 'candidate_profile') return 'info'
+  return 'success'
+}
+const scoreImpactText = (value: number): string => {
+  const score = Number(value || 0)
+  return `${score > 0 ? '+' : ''}${Math.round(score)}`
+}
 
 const recommendationLabel = computed(() => {
   const value = evaluation.value?.recommendation || ''
@@ -189,22 +258,42 @@ const scoreStatus = computed(() => {
   return 'exception'
 })
 
-const isNotFound = (error: unknown): boolean => error instanceof BusinessError && error.code === 404
+const isMissingBusinessError = (error: unknown, messages: string[]): boolean => {
+  if (!(error instanceof BusinessError)) return false
+  if (error.code === 404) return true
+  if (error.code !== 400) return false
+  return messages.includes(error.message)
+}
+
+const isProfileMissingError = (error: unknown): boolean =>
+  isMissingBusinessError(error, ['current resume profile not found'])
+
+const isEvaluationMissingError = (error: unknown): boolean =>
+  isMissingBusinessError(error, ['candidate match evaluation not found'])
 
 const loadProfile = async () => {
   if (!applicationId.value) return
+  debugLog.ri.info('loadProfile_started', { application_id: applicationId.value })
   profileLoading.value = true
   profileMissing.value = false
   try {
-    const data = await getApplicationResumeProfile(applicationId.value)
+    const data = await getApplicationResumeProfile(applicationId.value, { silentError: true })
     profile.value = data.profile?.profile ? data.profile : null
     profileMissing.value = !profile.value
+    debugLog.ri.info('loadProfile_finished', {
+      application_id: applicationId.value,
+      status: profileMissing.value ? 'empty' : 'succeeded',
+      profile_id: profile.value?.profile?.id ?? null,
+      version: profile.value?.profile?.version ?? null,
+    })
   } catch (error: unknown) {
-    if (isNotFound(error)) {
+    if (isProfileMissingError(error)) {
       profile.value = null
       profileMissing.value = true
+      debugLog.ri.info('loadProfile_finished', { application_id: applicationId.value, status: 'not_found' })
       return
     }
+    debugLog.ri.error('loadProfile_failed', { application_id: applicationId.value, error: (error as Error)?.message })
     throw error
   } finally {
     profileLoading.value = false
@@ -213,18 +302,27 @@ const loadProfile = async () => {
 
 const loadEvaluation = async () => {
   if (!applicationId.value) return
+  debugLog.ri.info('loadEvaluation_started', { application_id: applicationId.value })
   evaluationLoading.value = true
   evaluationMissing.value = false
   try {
-    const data = await getCandidateMatchEvaluation(applicationId.value)
+    const data = await getCandidateMatchEvaluation(applicationId.value, undefined, { silentError: true })
     evaluationSnapshot.value = data.evaluation?.evaluation ? data.evaluation : null
     evaluationMissing.value = !evaluationSnapshot.value
+    debugLog.ri.info('loadEvaluation_finished', {
+      application_id: applicationId.value,
+      status: evaluationMissing.value ? 'empty' : 'succeeded',
+      evaluation_id: evaluationSnapshot.value?.evaluation?.id ?? null,
+      overall_score: evaluationSnapshot.value?.evaluation?.overall_score ?? null,
+    })
   } catch (error: unknown) {
-    if (isNotFound(error)) {
+    if (isEvaluationMissingError(error)) {
       evaluationSnapshot.value = null
       evaluationMissing.value = true
+      debugLog.ri.info('loadEvaluation_finished', { application_id: applicationId.value, status: 'not_found' })
       return
     }
+    debugLog.ri.error('loadEvaluation_failed', { application_id: applicationId.value, error: (error as Error)?.message })
     throw error
   } finally {
     evaluationLoading.value = false
@@ -232,22 +330,31 @@ const loadEvaluation = async () => {
 }
 
 const loadAll = async () => {
+  debugLog.ri.info('loadAll_started', { application_id: applicationId.value, job_id: jobId.value })
   try {
     await Promise.all([loadProfile(), loadEvaluation()])
+    debugLog.ri.info('loadAll_finished', { application_id: applicationId.value })
   } catch (error: any) {
+    debugLog.ri.error('loadAll_failed', { application_id: applicationId.value, error: error?.message })
     ElMessage.error(error?.message || '智能评估信息加载失败')
   }
 }
 
 const runParse = async () => {
-  if (!canRunAIAction.value) return
+  if (!canRunAIAction.value) {
+    debugLog.ri.warn('runParse_skipped', { application_id: applicationId.value, reason: 'no_permission' })
+    return
+  }
+  debugLog.ri.info('runParse_started', { application_id: applicationId.value })
   actionLoading.value = 'parse'
   try {
     const data = await parseResumeProfile({ application_id: applicationId.value })
     profile.value = data.profile?.profile ? data.profile : null
     profileMissing.value = !profile.value
     ElMessage.success('简历画像解析已完成')
+    debugLog.ri.info('runParse_succeeded', { application_id: applicationId.value, has_profile: !!profile.value })
   } catch {
+    debugLog.ri.warn('runParse_fallback', { application_id: applicationId.value })
     await loadProfile().catch(() => undefined)
   } finally {
     actionLoading.value = ''
@@ -255,15 +362,26 @@ const runParse = async () => {
 }
 
 const runEvaluation = async () => {
-  if (!canRunAIAction.value) return
+  if (!canRunAIAction.value) {
+    debugLog.ri.warn('runEvaluation_skipped', { application_id: applicationId.value, reason: 'no_permission' })
+    return
+  }
+  debugLog.ri.info('runEvaluation_started', { application_id: applicationId.value })
   actionLoading.value = 'evaluate'
   try {
     const data = await evaluateCandidateMatch(applicationId.value)
     evaluationSnapshot.value = data.evaluation?.evaluation ? data.evaluation : null
     evaluationMissing.value = !evaluationSnapshot.value
     ElMessage.success('匹配评估已完成')
+    debugLog.ri.info('runEvaluation_succeeded', {
+      application_id: applicationId.value,
+      evaluation_id: evaluationSnapshot.value?.evaluation?.id ?? null,
+      overall_score: evaluationSnapshot.value?.evaluation?.overall_score ?? null,
+      recommendation: evaluationSnapshot.value?.evaluation?.recommendation ?? null,
+    })
     if (!profile.value) await loadProfile().catch(() => undefined)
   } catch {
+    debugLog.ri.warn('runEvaluation_fallback', { application_id: applicationId.value })
     await loadEvaluation().catch(() => undefined)
   } finally {
     actionLoading.value = ''
@@ -284,254 +402,248 @@ onMounted(loadAll)
 </script>
 
 <template>
-  <section class="intelligence-page">
-    <header class="page-header intelligence-header">
-      <div>
-        <p class="console-eyebrow">RECRUITING INTELLIGENCE</p>
-        <h2>简历画像与匹配评估</h2>
-        <p>{{ candidateName }} / {{ jobTitle }} / 投递 #{{ applicationId }}</p>
+  <section class="console-page console-page--fill">
+    <div class="workspace-surface">
+      <div class="workspace-surface__header">
+        <div class="workspace-surface__header-copy">
+          <p class="console-eyebrow">RECRUITING INTELLIGENCE</p>
+          <h1 class="console-title">简历画像与匹配评估</h1>
+          <p class="console-description">{{ candidateName }} / {{ jobTitle }} / 投递 #{{ applicationId }}</p>
+        </div>
+        <div class="workspace-surface__header-actions">
+          <el-button :icon="ArrowLeft" @click="goBack">返回</el-button>
+          <el-button :icon="Refresh" @click="loadAll">刷新</el-button>
+        </div>
       </div>
-      <div class="header-actions">
-        <el-button :icon="ArrowLeft" @click="goBack">返回</el-button>
-        <el-button :icon="Refresh" @click="loadAll">刷新</el-button>
-        <el-tooltip :disabled="canRunAIAction" content="需要 AI HR 使用权限">
-          <span>
-            <el-button :icon="DocumentChecked" :loading="actionLoading === 'parse'" :disabled="!canRunAIAction" @click="runParse">
-              {{ profile ? '重新解析画像' : '解析画像' }}
-            </el-button>
-          </span>
-        </el-tooltip>
-        <el-tooltip :disabled="canRunAIAction" content="需要 AI HR 使用权限">
-          <span>
-            <el-button type="primary" :icon="Cpu" :loading="actionLoading === 'evaluate'" :disabled="!canRunAIAction" @click="runEvaluation">
-              {{ evaluation ? '重新评估匹配' : '生成匹配评估' }}
-            </el-button>
-          </span>
-        </el-tooltip>
+
+      <div class="workspace-surface__divider"></div>
+
+      <div class="workspace-surface__toolbar">
+        <div class="workspace-surface__filters" />
+        <div class="workspace-surface__actions">
+          <el-tooltip :disabled="canRunAIAction" content="需要 AI HR 使用权限">
+            <span>
+              <el-button :icon="DocumentChecked" :loading="actionLoading === 'parse'" :disabled="!canRunAIAction" @click="runParse">
+                {{ profile ? '重新解析画像' : '解析画像' }}
+              </el-button>
+            </span>
+          </el-tooltip>
+          <el-tooltip :disabled="canRunAIAction" content="需要 AI HR 使用权限">
+            <span>
+              <el-button type="primary" :icon="Cpu" :loading="actionLoading === 'evaluate'" :disabled="!canRunAIAction" @click="runEvaluation">
+                {{ evaluation ? '重新评估匹配' : '生成匹配评估' }}
+              </el-button>
+            </span>
+          </el-tooltip>
+        </div>
       </div>
-    </header>
 
-    <div class="intelligence-grid">
-      <section class="intelligence-column" v-loading="profileLoading">
-        <el-card shadow="never" class="panel-card">
-          <template #header>
-            <div class="panel-title">
-              <span>结构化简历画像</span>
-              <div class="panel-tags">
-                <el-tag v-if="profile?.profile" size="small" type="primary">v{{ profile.profile.version }}</el-tag>
-                <el-tag v-if="profile?.profile?.is_current" size="small" type="success">当前版本</el-tag>
-                <el-tag v-if="profile?.parse_run?.status" size="small" type="info">{{ profile.parse_run.status }}</el-tag>
-              </div>
-            </div>
-          </template>
-
-          <template v-if="profile?.profile">
-            <div class="profile-summary">
-              <h3>{{ profile.profile.full_name || candidateName }}</h3>
-              <p>{{ profile.profile.headline || profile.profile.summary || '暂无画像摘要' }}</p>
-              <div class="metric-grid">
-                <div><span>经验年限</span><strong>{{ profile.profile.total_experience_years || 0 }} 年</strong></div>
-                <div><span>最高学历</span><strong>{{ profile.profile.highest_degree || '-' }}</strong></div>
-                <div><span>所在地</span><strong>{{ profile.profile.location || '-' }}</strong></div>
-                <div><span>更新时间</span><strong>{{ formatDateTime(profile.profile.updated_at) }}</strong></div>
-              </div>
-            </div>
-
-            <div class="section-block">
-              <div class="section-label">技能证据</div>
-              <div class="skill-list">
-                <div v-for="skill in profile.skills" :key="skill.id" class="skill-item">
-                  <div>
-                    <strong>{{ skill.name }}</strong>
-                    <span>{{ [skill.category, skill.level, skill.years ? `${skill.years}年` : ''].filter(Boolean).join(' / ') || '未标注' }}</span>
-                  </div>
-                  <p v-if="skill.evidence">{{ skill.evidence }}</p>
+      <div class="intelligence-grid">
+        <section class="intelligence-column" v-loading="profileLoading">
+          <el-card shadow="never" class="panel-card">
+            <template #header>
+              <div class="panel-title">
+                <span>结构化简历画像</span>
+                <div class="panel-tags">
+                  <el-tag v-if="profile?.profile" size="small" type="primary">v{{ profile.profile.version }}</el-tag>
+                  <el-tag v-if="profile?.profile?.is_current" size="small" type="success">当前版本</el-tag>
+                  <el-tag v-if="profile?.parse_run?.status" size="small" type="info">{{ profile.parse_run.status }}</el-tag>
                 </div>
-                <div v-if="profile.skills.length === 0" class="empty-inline">暂无技能画像</div>
               </div>
-            </div>
+            </template>
 
-            <div class="section-block">
-              <div class="section-label">工作经历</div>
-              <div class="timeline-list">
-                <div v-for="item in profile.experiences" :key="item.id" class="timeline-item">
-                  <div class="timeline-head">
-                    <strong>{{ item.company || '-' }}</strong>
-                    <span>{{ formatRange(item.start_date, item.end_date, item.is_current) }}</span>
-                  </div>
-                  <div class="timeline-role">{{ item.title || '-' }}<span v-if="item.location"> / {{ item.location }}</span></div>
-                  <p v-if="item.description">{{ item.description }}</p>
-                  <ul v-if="experienceAchievements(item).length">
-                    <li v-for="achievement in experienceAchievements(item)" :key="achievement">{{ achievement }}</li>
-                  </ul>
+            <template v-if="profile?.profile">
+              <div class="profile-summary">
+                <h3>{{ profile.profile.full_name || candidateName }}</h3>
+                <p>{{ profile.profile.headline || profile.profile.summary || '暂无画像摘要' }}</p>
+                <div class="metric-grid">
+                  <div><span>经验年限</span><strong>{{ profile.profile.total_experience_years || 0 }} 年</strong></div>
+                  <div><span>最高学历</span><strong>{{ profile.profile.highest_degree || '-' }}</strong></div>
+                  <div><span>所在地</span><strong>{{ profile.profile.location || '-' }}</strong></div>
+                  <div><span>更新时间</span><strong>{{ formatDateTime(profile.profile.updated_at) }}</strong></div>
                 </div>
-                <div v-if="profile.experiences.length === 0" class="empty-inline">暂无工作经历</div>
               </div>
-            </div>
 
-            <div class="two-column-block">
               <div class="section-block">
-                <div class="section-label">教育经历</div>
-                <div v-for="item in profile.educations" :key="item.id" class="compact-item">
-                  <strong>{{ item.school || '-' }}</strong>
-                  <span>{{ [item.degree, item.major].filter(Boolean).join(' / ') || '-' }}</span>
-                  <em>{{ formatRange(item.start_date, item.end_date) }}</em>
-                </div>
-                <div v-if="profile.educations.length === 0" class="empty-inline">暂无教育经历</div>
-              </div>
-              <div class="section-block">
-                <div class="section-label">项目经历</div>
-                <div v-for="item in profile.projects" :key="item.id" class="compact-item">
-                  <strong>{{ item.name || '-' }}</strong>
-                  <span>{{ item.role || '-' }}</span>
-                  <em>{{ jsonTags(item.technologies_json).join(' / ') || formatRange(item.start_date, item.end_date) }}</em>
-                </div>
-                <div v-if="profile.projects.length === 0" class="empty-inline">暂无项目经历</div>
-              </div>
-            </div>
-          </template>
-          <el-empty v-else :description="profileMissing ? '暂无结构化简历画像，可发起解析' : '画像数据未返回'" />
-        </el-card>
-      </section>
-
-      <section class="intelligence-column" v-loading="evaluationLoading">
-        <el-card shadow="never" class="panel-card">
-          <template #header>
-            <div class="panel-title">
-              <span>岗位匹配评估</span>
-              <div class="panel-tags">
-                <el-tag v-if="evaluation" size="small" type="primary">v{{ evaluation.evaluation_version }}</el-tag>
-                <el-tag v-if="evaluation?.is_latest" size="small" type="success">最新</el-tag>
-                <el-tag v-if="evaluation?.model_name" size="small" type="info">{{ evaluation.model_name }}</el-tag>
-              </div>
-            </div>
-          </template>
-
-          <template v-if="evaluation">
-            <div class="score-panel">
-              <el-progress type="dashboard" :percentage="Math.round(evaluation.overall_score || 0)" :status="scoreStatus as any" />
-              <div class="score-copy">
-                <el-tag :type="recommendationType as any" size="large">{{ recommendationLabel }}</el-tag>
-                <p>{{ evaluation.summary || '暂无评估摘要' }}</p>
-                <span>评估时间：{{ formatDateTime(evaluation.evaluated_at || evaluation.updated_at) }}</span>
-              </div>
-            </div>
-
-            <div v-if="dimensions.length" class="section-block">
-              <div class="section-label">评分拆解</div>
-              <div class="dimension-list">
-                <div v-for="item in dimensions" :key="item.key" class="dimension-row">
-                  <span>{{ item.key }}</span>
-                  <el-progress :percentage="Math.round(item.score)" :show-text="false" />
-                  <strong>{{ Math.round(item.score) }}</strong>
-                </div>
-              </div>
-            </div>
-
-            <div class="signal-grid">
-              <div class="signal-block">
-                <div class="section-label">优势</div>
-                <div v-for="item in strengths" :key="asText(item)" class="signal-item signal-item--strength">{{ asText(item) }}</div>
-                <div v-if="strengths.length === 0" class="empty-inline">暂无优势信号</div>
-              </div>
-              <div class="signal-block">
-                <div class="section-label">风险</div>
-                <div v-for="item in risks" :key="asText(item)" class="signal-item signal-item--risk">{{ asText(item) }}</div>
-                <div v-if="risks.length === 0" class="empty-inline">暂无风险信号</div>
-              </div>
-            </div>
-
-            <div class="section-block">
-              <div class="section-label">缺失要求</div>
-              <div class="tag-cloud">
-                <el-tag v-for="item in missingRequirements" :key="item" type="warning" effect="plain">{{ item }}</el-tag>
-                <span v-if="missingRequirements.length === 0" class="empty-inline">暂无缺失要求</span>
-              </div>
-            </div>
-
-            <div class="section-block">
-              <div class="section-label">证据明细</div>
-              <div class="evidence-list">
-                <div v-for="item in evidence" :key="item.id" class="evidence-item">
-                  <div class="evidence-head">
-                    <el-tag size="small" :type="item.evidence_type === 'risk' ? 'danger' : 'success'">{{ item.evidence_type || 'evidence' }}</el-tag>
-                    <span>{{ item.dimension || '-' }} / {{ item.source_table || '-' }}</span>
-                    <strong>{{ item.score_impact > 0 ? '+' : '' }}{{ item.score_impact || 0 }}</strong>
+                <div class="section-label">技能证据</div>
+                <div class="skill-list">
+                  <div v-for="skill in profile.skills" :key="skill.id" class="skill-item">
+                    <div>
+                      <strong>{{ skill.name }}</strong>
+                      <span>{{ [skill.category, skill.level, skill.years ? `${skill.years}年` : ''].filter(Boolean).join(' / ') || '未标注' }}</span>
+                    </div>
+                    <p v-if="skill.evidence">{{ skill.evidence }}</p>
                   </div>
-                  <p>{{ item.snippet || '暂无证据片段' }}</p>
+                  <div v-if="profile.skills.length === 0" class="empty-inline">暂无技能画像</div>
                 </div>
-                <div v-if="evidence.length === 0" class="empty-inline">暂无证据明细</div>
               </div>
-            </div>
-          </template>
-          <el-empty v-else :description="evaluationMissing ? '暂无匹配评估，可发起生成' : '评估数据未返回'" />
-        </el-card>
-      </section>
+
+              <div class="section-block">
+                <div class="section-label">工作经历</div>
+                <div class="timeline-list">
+                  <div v-for="item in profile.experiences" :key="item.id" class="timeline-item">
+                    <div class="timeline-head">
+                      <strong>{{ item.company || '-' }}</strong>
+                      <span>{{ formatRange(item.start_date, item.end_date, item.is_current) }}</span>
+                    </div>
+                    <div class="timeline-role">{{ item.title || '-' }}<span v-if="item.location"> / {{ item.location }}</span></div>
+                    <p v-if="item.description">{{ item.description }}</p>
+                    <ul v-if="experienceAchievements(item).length">
+                      <li v-for="achievement in experienceAchievements(item)" :key="achievement">{{ achievement }}</li>
+                    </ul>
+                  </div>
+                  <div v-if="profile.experiences.length === 0" class="empty-inline">暂无工作经历</div>
+                </div>
+              </div>
+
+              <div class="two-column-block">
+                <div class="section-block">
+                  <div class="section-label">教育经历</div>
+                  <div v-for="item in profile.educations" :key="item.id" class="compact-item">
+                    <strong>{{ item.school || '-' }}</strong>
+                    <span>{{ [item.degree, item.major].filter(Boolean).join(' / ') || '-' }}</span>
+                    <em>{{ formatRange(item.start_date, item.end_date) }}</em>
+                  </div>
+                  <div v-if="profile.educations.length === 0" class="empty-inline">暂无教育经历</div>
+                </div>
+                <div class="section-block">
+                  <div class="section-label">项目经历</div>
+                  <div v-for="item in profile.projects" :key="item.id" class="compact-item">
+                    <strong>{{ item.name || '-' }}</strong>
+                    <span>{{ item.role || '-' }}</span>
+                    <em>{{ jsonTags(item.technologies_json).join(' / ') || formatRange(item.start_date, item.end_date) }}</em>
+                  </div>
+                  <div v-if="profile.projects.length === 0" class="empty-inline">暂无项目经历</div>
+                </div>
+              </div>
+            </template>
+            <el-empty v-else :description="profileMissing ? '暂无结构化简历画像，可发起解析' : '画像数据未返回'" />
+          </el-card>
+        </section>
+
+        <section class="intelligence-column" v-loading="evaluationLoading">
+          <el-card shadow="never" class="panel-card">
+            <template #header>
+              <div class="panel-title">
+                <span>岗位匹配评估</span>
+                <div class="panel-tags">
+                  <el-tag v-if="evaluation" size="small" type="primary">v{{ evaluation.evaluation_version }}</el-tag>
+                  <el-tag v-if="evaluation?.is_latest" size="small" type="success">最新</el-tag>
+                  <el-tag v-if="evaluation?.model_name" size="small" type="info">{{ evaluation.model_name }}</el-tag>
+                </div>
+              </div>
+            </template>
+
+            <template v-if="evaluation">
+              <div class="score-panel">
+                <div class="dashboard-wrap">
+                  <el-progress type="dashboard" :percentage="Math.round(evaluation.overall_score || 0)" :status="scoreStatus as any" :width="120" :stroke-width="10" />
+                  <span class="dashboard-score">{{ Math.round(evaluation.overall_score || 0) }}</span>
+                </div>
+                <div class="score-copy">
+                  <el-tag :type="recommendationType as any" size="large">{{ recommendationLabel }}</el-tag>
+                  <p>{{ evaluation.summary || '暂无评估摘要' }}</p>
+                  <span>评估时间：{{ formatDateTime(evaluation.evaluated_at || evaluation.updated_at) }}</span>
+                </div>
+              </div>
+
+              <div v-if="dimensions.length" class="section-block">
+                <div class="section-label">评分拆解</div>
+                <div class="dimension-list">
+                  <div v-for="item in dimensions" :key="item.key" class="dimension-row">
+                    <div class="dimension-main">
+                      <span>{{ dimensionLabel(item.key) }}</span>
+                      <em v-if="item.weight">权重 {{ Math.round(item.weight * 100) }}%</em>
+                    </div>
+                    <div class="dimension-meter">
+                      <el-progress :percentage="Math.round(item.score)" :show-text="false" />
+                      <strong>{{ Math.round(item.score) }}</strong>
+                    </div>
+                    <div v-if="item.matched.length || item.missing.length" class="dimension-tags">
+                      <el-tag v-for="tag in item.matched" :key="`m-${item.key}-${tag}`" size="small" type="success" effect="plain">{{ tag }}</el-tag>
+                      <el-tag v-for="tag in item.missing" :key="`x-${item.key}-${tag}`" size="small" type="warning" effect="plain">{{ tag }}</el-tag>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div class="signal-grid">
+                <div class="signal-block">
+                  <div class="section-label">优势</div>
+                  <div v-for="item in strengthTexts" :key="item" class="signal-item signal-item--strength">{{ item }}</div>
+                  <div v-if="strengthTexts.length === 0" class="empty-inline">暂无优势信号</div>
+                </div>
+                <div class="signal-block">
+                  <div class="section-label">风险</div>
+                  <div v-for="item in riskTexts" :key="item" class="signal-item signal-item--risk">{{ item }}</div>
+                  <div v-if="riskTexts.length === 0" class="empty-inline">暂无风险信号</div>
+                </div>
+              </div>
+
+              <div class="section-block">
+                <div class="section-label">缺失要求</div>
+                <div class="tag-cloud">
+                  <el-tag v-for="item in missingRequirements" :key="item" type="warning" effect="plain">{{ item }}</el-tag>
+                  <span v-if="missingRequirements.length === 0" class="empty-inline">暂无缺失要求</span>
+                </div>
+              </div>
+
+              <div class="section-block">
+                <div class="section-label">证据明细</div>
+                <div class="evidence-list">
+                  <div v-for="group in evidenceByType" :key="group.type" class="evidence-group">
+                    <div class="evidence-group-title">
+                      <el-tag size="small" :type="evidenceTagType(group.type) as any">{{ evidenceTypeLabel(group.type) }}</el-tag>
+                      <span>{{ group.items.length }} 条</span>
+                    </div>
+                    <div v-for="item in group.items" :key="item.id" class="evidence-item">
+                      <div class="evidence-head">
+                        <span>{{ dimensionLabel(item.dimension) }} / {{ sourceTableLabel(item.source_table) }}</span>
+                        <strong>{{ scoreImpactText(item.score_impact) }}</strong>
+                      </div>
+                      <p>{{ item.snippet || '暂无证据片段' }}</p>
+                    </div>
+                  </div>
+                  <div v-if="evidence.length === 0" class="empty-inline">暂无证据明细</div>
+                </div>
+              </div>
+            </template>
+            <el-empty v-else :description="evaluationMissing ? '暂无匹配评估，可发起生成' : '评估数据未返回'" />
+          </el-card>
+        </section>
+      </div>
     </div>
   </section>
 </template>
 
 <style scoped>
-.intelligence-page {
-  width: 100%;
-  max-width: 1440px;
-  margin: 0 auto;
-  padding: 18px 20px 28px;
-  box-sizing: border-box;
+.intelligence-grid {
+  flex: 1;
+  min-height: 0;
+  display: grid;
+  grid-template-columns: minmax(0, 1.04fr) minmax(0, 0.96fr);
+  gap: 16px;
+  align-items: start;
+  overflow-y: auto;
+  padding: 16px 24px 24px;
 }
 
-.intelligence-header {
-  align-items: flex-start;
-  margin-bottom: 16px;
+.panel-card {
+  border-radius: 8px;
+  border-color: var(--border);
 }
 
-.intelligence-header h2 {
-  margin: 4px 0 6px;
+.panel-card :deep(.el-card__header) {
+  padding: 13px 16px;
+  background: var(--surface-muted);
 }
 
-.intelligence-header p {
-  margin: 0;
-  color: #64748b;
-}
-
-.console-eyebrow {
-  margin: 0;
-  color: #2563eb;
-  font-size: 12px;
-  font-weight: 800;
-  letter-spacing: 0;
-}
-
-.header-actions,
 .panel-title,
 .panel-tags,
 .tag-cloud,
 .evidence-head {
   display: flex;
   align-items: center;
-}
-
-.header-actions {
-  flex-wrap: wrap;
-  justify-content: flex-end;
-  gap: 8px;
-}
-
-.intelligence-grid {
-  display: grid;
-  grid-template-columns: minmax(0, 1.04fr) minmax(0, 0.96fr);
-  gap: 16px;
-  align-items: start;
-}
-
-.panel-card {
-  border-radius: 8px;
-  border-color: #e2e8f0;
-}
-
-.panel-card :deep(.el-card__header) {
-  padding: 13px 16px;
-  background: #f8fafc;
 }
 
 .panel-title {
@@ -548,7 +660,7 @@ onMounted(loadAll)
 
 .profile-summary h3 {
   margin: 0 0 8px;
-  color: #111827;
+  color: var(--text-primary);
   font-size: 22px;
 }
 
@@ -557,7 +669,7 @@ onMounted(loadAll)
 .timeline-item p,
 .evidence-item p,
 .skill-item p {
-  color: #475569;
+  color: var(--text-secondary);
   line-height: 1.65;
   white-space: pre-wrap;
   overflow-wrap: anywhere;
@@ -573,23 +685,23 @@ onMounted(loadAll)
 .metric-grid div {
   min-width: 0;
   padding: 11px;
-  border: 1px solid #e2e8f0;
+  border: 1px solid var(--border);
   border-radius: 8px;
-  background: #fff;
+  background: var(--surface);
 }
 
 .metric-grid span,
 .section-label {
   display: block;
   margin-bottom: 6px;
-  color: #64748b;
+  color: var(--text-muted);
   font-size: 12px;
   font-weight: 800;
 }
 
 .metric-grid strong {
   display: block;
-  color: #111827;
+  color: var(--text-primary);
   overflow-wrap: anywhere;
 }
 
@@ -610,9 +722,9 @@ onMounted(loadAll)
 .evidence-item,
 .compact-item,
 .signal-item {
-  border: 1px solid #e2e8f0;
+  border: 1px solid var(--border);
   border-radius: 8px;
-  background: #fff;
+  background: var(--surface);
   padding: 11px 12px;
 }
 
@@ -630,7 +742,7 @@ onMounted(loadAll)
 .compact-item em,
 .evidence-head span,
 .score-copy span {
-  color: #64748b;
+  color: var(--text-muted);
   font-size: 12px;
   font-style: normal;
 }
@@ -638,7 +750,7 @@ onMounted(loadAll)
 .timeline-item ul {
   margin: 8px 0 0 18px;
   padding: 0;
-  color: #475569;
+  color: var(--text-secondary);
 }
 
 .two-column-block,
@@ -657,9 +769,35 @@ onMounted(loadAll)
 
 .score-panel {
   display: grid;
-  grid-template-columns: 150px minmax(0, 1fr);
+  grid-template-columns: 140px minmax(0, 1fr);
   gap: 16px;
   align-items: center;
+}
+
+.dashboard-wrap {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.dashboard-wrap :deep(.el-progress) {
+  display: flex;
+}
+
+.dashboard-wrap :deep(.el-progress__text) {
+  display: none;
+}
+
+.dashboard-score {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  font-size: 26px;
+  font-weight: 800;
+  color: var(--text-primary);
+  line-height: 1;
 }
 
 .score-copy {
@@ -673,16 +811,55 @@ onMounted(loadAll)
 }
 
 .dimension-row {
-  display: grid;
-  grid-template-columns: minmax(96px, 0.8fr) minmax(0, 1.5fr) 42px;
-  gap: 10px;
-  align-items: center;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 11px 12px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface);
 }
 
-.dimension-row span,
-.dimension-row strong {
-  color: #334155;
+.dimension-main,
+.dimension-meter,
+.evidence-group-title {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.dimension-main {
+  justify-content: space-between;
+}
+
+.dimension-main span {
+  color: var(--text-primary);
   font-size: 13px;
+  font-weight: 700;
+}
+
+.dimension-main em,
+.dimension-meter strong,
+.evidence-group-title span {
+  color: var(--text-secondary);
+  font-size: 13px;
+  font-style: normal;
+}
+
+.dimension-meter :deep(.el-progress) {
+  flex: 1;
+  min-width: 0;
+}
+
+.dimension-meter strong {
+  width: 38px;
+  text-align: right;
+}
+
+.dimension-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
 }
 
 .signal-grid {
@@ -695,16 +872,16 @@ onMounted(loadAll)
 
 .signal-item {
   margin-bottom: 8px;
-  color: #334155;
+  color: var(--text-secondary);
   line-height: 1.55;
 }
 
 .signal-item--strength {
-  border-left: 3px solid #22c55e;
+  border-left: 3px solid var(--el-color-success, #22c55e);
 }
 
 .signal-item--risk {
-  border-left: 3px solid #ef4444;
+  border-left: 3px solid var(--el-color-danger, #ef4444);
 }
 
 .tag-cloud {
@@ -718,13 +895,28 @@ onMounted(loadAll)
   margin-bottom: 7px;
 }
 
+.evidence-group {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.evidence-group + .evidence-group {
+  margin-top: 4px;
+}
+
+.evidence-group-title {
+  justify-content: space-between;
+  padding: 2px 1px;
+}
+
 .evidence-head strong {
   margin-left: auto;
-  color: #1d4ed8;
+  color: var(--brand-strong);
 }
 
 .empty-inline {
-  color: #94a3b8;
+  color: var(--text-faint);
   font-size: 13px;
 }
 
@@ -737,16 +929,8 @@ onMounted(loadAll)
 }
 
 @media (max-width: 760px) {
-  .intelligence-page {
+  .intelligence-grid {
     padding: 12px;
-  }
-
-  .intelligence-header {
-    flex-direction: column;
-  }
-
-  .header-actions {
-    justify-content: flex-start;
   }
 
   .metric-grid {
@@ -763,50 +947,5 @@ onMounted(loadAll)
   .dimension-row {
     grid-template-columns: 1fr;
   }
-}
-
-:global(:root[data-theme='dark']) .intelligence-header p,
-:global(:root[data-theme='dark']) .profile-summary p,
-:global(:root[data-theme='dark']) .score-copy p,
-:global(:root[data-theme='dark']) .timeline-item p,
-:global(:root[data-theme='dark']) .evidence-item p,
-:global(:root[data-theme='dark']) .skill-item p {
-  color: var(--text-secondary);
-}
-
-:global(:root[data-theme='dark']) .panel-card,
-:global(:root[data-theme='dark']) .metric-grid div,
-:global(:root[data-theme='dark']) .skill-item,
-:global(:root[data-theme='dark']) .timeline-item,
-:global(:root[data-theme='dark']) .evidence-item,
-:global(:root[data-theme='dark']) .compact-item,
-:global(:root[data-theme='dark']) .signal-item {
-  border-color: var(--border);
-  background: var(--surface);
-}
-
-:global(:root[data-theme='dark']) .panel-card :deep(.el-card__header) {
-  background: var(--surface-muted);
-}
-
-:global(:root[data-theme='dark']) .profile-summary h3,
-:global(:root[data-theme='dark']) .metric-grid strong,
-:global(:root[data-theme='dark']) .dimension-row span,
-:global(:root[data-theme='dark']) .dimension-row strong,
-:global(:root[data-theme='dark']) .signal-item {
-  color: var(--text-primary);
-}
-
-:global(:root[data-theme='dark']) .metric-grid span,
-:global(:root[data-theme='dark']) .section-label,
-:global(:root[data-theme='dark']) .skill-item span,
-:global(:root[data-theme='dark']) .timeline-head span,
-:global(:root[data-theme='dark']) .timeline-role,
-:global(:root[data-theme='dark']) .compact-item span,
-:global(:root[data-theme='dark']) .compact-item em,
-:global(:root[data-theme='dark']) .evidence-head span,
-:global(:root[data-theme='dark']) .score-copy span,
-:global(:root[data-theme='dark']) .empty-inline {
-  color: var(--text-muted);
 }
 </style>

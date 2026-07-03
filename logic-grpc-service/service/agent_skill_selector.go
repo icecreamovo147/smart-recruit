@@ -50,16 +50,26 @@ func (s *AIService) selectAgentSkills(ctx context.Context, agentType, question s
 }
 
 func selectAgentSkillsWithSemantic(ctx context.Context, repo agentSkillLister, agentType, question string, manualIDs []int64, availableCapabilities map[string]bool, semanticScores map[int64]float64) ([]selectedAgentSkill, error) {
+	log := logger.GetRequestLogger(ctx)
+	log.Debug("[logic][agent_skill] selectAgentSkillsWithSemantic started",
+		zap.String("agent_type", agentType),
+		zap.Int("manual_ids", len(manualIDs)),
+		zap.Int("semantic_scores", len(semanticScores)))
 	if repo == nil {
+		log.Debug("[logic][agent_skill] selectAgentSkillsWithSemantic repo is nil, skipping")
 		return nil, nil
 	}
 	all, err := repo.ListEnabled(ctx)
 	if err != nil {
+		log.Error("[logic][agent_skill] selectAgentSkillsWithSemantic ListEnabled failed", zap.Error(err))
 		return nil, err
 	}
 	if len(all) == 0 {
+		log.Debug("[logic][agent_skill] selectAgentSkillsWithSemantic no enabled skills found")
 		return nil, nil
 	}
+	log.Debug("[logic][agent_skill] selectAgentSkillsWithSemantic candidates loaded",
+		zap.Int("total_enabled", len(all)))
 
 	manualSet := map[int64]bool{}
 	for _, id := range manualIDs {
@@ -83,6 +93,8 @@ func selectAgentSkillsWithSemantic(ctx context.Context, repo agentSkillLister, a
 		selected = append(selected, toSelectedAgentSkill(skill, true, int(skill.Priority), "manual selection"))
 		seen[skill.ID] = true
 		if len(selected) >= maxAgentSkillsPerRequest {
+			log.Debug("[logic][agent_skill] selectAgentSkillsWithSemantic returning manual selections",
+				zap.Int("selected_count", len(selected)))
 			return selected, nil
 		}
 	}
@@ -128,6 +140,16 @@ func selectAgentSkillsWithSemantic(ctx context.Context, repo agentSkillLister, a
 			break
 		}
 		selected = append(selected, skill)
+	}
+	log.Debug("[logic][agent_skill] selectAgentSkillsWithSemantic finished",
+		zap.Int("selected_count", len(selected)),
+		zap.Int("candidate_count", len(candidates)))
+	for _, s := range selected {
+		log.Debug("[logic][agent_skill] selected skill",
+			zap.Int64("skill_id", s.ID),
+			zap.String("name", s.Name),
+			zap.String("reason", s.Reason),
+			zap.Int("score", s.Score))
 	}
 	return selected, nil
 }

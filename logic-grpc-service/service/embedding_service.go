@@ -102,11 +102,20 @@ type EmbeddingSearchResult struct {
 }
 
 func (s *EmbeddingService) EmbedObject(ctx context.Context, input EmbedObjectInput) (*model.AIEmbedding, error) {
+	started := time.Now()
+	log := logger.GetRequestLogger(ctx)
+	log.Info("[logic][embedding] EmbedObject started",
+		zap.String("object_type", input.ObjectType),
+		zap.Uint64("object_id", input.ObjectID),
+		zap.String("scope_type", input.ScopeType),
+		zap.Uint64("scope_id", input.ScopeID))
 	if s == nil || s.repo == nil {
+		log.Error("[logic][embedding] repository not configured")
 		return nil, fmt.Errorf("embedding repository is not configured")
 	}
 	objectType := strings.TrimSpace(input.ObjectType)
 	if objectType == "" || input.ObjectID == 0 {
+		log.Warn("[logic][embedding] missing object type or id")
 		return nil, fmt.Errorf("embedding object type and id are required")
 	}
 	textHash := hashEmbeddingText(input.Text)
@@ -124,6 +133,11 @@ func (s *EmbeddingService) EmbedObject(ctx context.Context, input EmbedObjectInp
 	if len(vector) == 0 {
 		result, err := s.provider.EmbedText(ctx, input.Text)
 		if err != nil {
+			log.Warn("[logic][embedding] provider call failed, falling back to unavailable",
+				zap.String("object_type", objectType),
+				zap.Uint64("object_id", input.ObjectID),
+				zap.String("text_hash", textHash),
+				zap.Error(err))
 			row.EmbeddingModel = normalizeEmbeddingModel(result.Model)
 			row.Status = EmbeddingStatusUnavailable
 			row.LastError = err.Error()
@@ -136,6 +150,7 @@ func (s *EmbeddingService) EmbedObject(ctx context.Context, input EmbedObjectInp
 		modelName = normalizeEmbeddingModel(result.Model)
 	}
 	if err := validateEmbeddingVector(vector); err != nil {
+		log.Error("[logic][embedding] invalid embedding vector", zap.Error(err))
 		return nil, err
 	}
 	vectorJSON, err := marshalEmbeddingVector(vector)
@@ -150,16 +165,25 @@ func (s *EmbeddingService) EmbedObject(ctx context.Context, input EmbedObjectInp
 	if err := s.repo.Upsert(ctx, row); err != nil {
 		return nil, err
 	}
+	log.Info("[logic][embedding] EmbedObject succeeded",
+		zap.String("object_type", objectType),
+		zap.Uint64("object_id", input.ObjectID),
+		zap.String("text_hash", textHash),
+		zap.String("model", row.EmbeddingModel),
+		zap.Int("dim", row.EmbeddingDim),
+		zap.String("status", row.Status),
+		zap.Int64("duration_ms", time.Since(started).Milliseconds()))
 	return row, nil
 }
 
 func (s *EmbeddingService) Search(ctx context.Context, input EmbeddingSearchInput) ([]EmbeddingSearchResult, error) {
+	log := logger.GetRequestLogger(ctx)
 	if s == nil || s.repo == nil {
 		return nil, fmt.Errorf("embedding repository is not configured")
 	}
 	policy := s.policy.withDefaults()
 	if !policy.SemanticRetrieval {
-		logger.L().Info("semantic retrieval skipped",
+		log.Info("[logic][embedding] semantic retrieval disabled",
 			zap.String("event", "agent.semantic_retrieval.search"),
 			zap.String("status", "disabled"),
 			zap.Strings("object_types", input.ObjectTypes))
@@ -169,11 +193,25 @@ func (s *EmbeddingService) Search(ctx context.Context, input EmbeddingSearchInpu
 	ctx, cancel := contextWithPolicyTimeout(ctx, policy.SemanticRetrievalTimeout)
 	defer cancel()
 
+	querySource := "text"
+	if len(input.QueryVector) > 0 {
+		querySource = "vector"
+	}
+	log.Info("[logic][embedding] Search started",
+		zap.String("query_source", querySource),
+		zap.String("model", input.Model),
+		zap.Strings("object_types", input.ObjectTypes),
+		zap.Int("limit", input.Limit))
+
 	queryVector, modelName, err := s.resolveQueryVector(ctx, input.QueryText, input.QueryVector, input.Model)
 	if err != nil {
 		s.logSearchFinished("agent.semantic_retrieval.search", started, "fallback", input.ObjectTypes, 0, err)
 		return nil, err
 	}
+	log.Info("[logic][embedding] query vector resolved",
+		zap.String("model", modelName),
+		zap.Int("vector_dim", len(queryVector)))
+
 	rows, err := s.repo.ListCandidates(ctx, repository.AIEmbeddingQuery{
 		ObjectTypes:    input.ObjectTypes,
 		ScopeType:      input.ScopeType,
@@ -186,22 +224,39 @@ func (s *EmbeddingService) Search(ctx context.Context, input EmbeddingSearchInpu
 		s.logSearchFinished("agent.semantic_retrieval.search", started, "failed", input.ObjectTypes, 0, err)
 		return nil, err
 	}
+	log.Info("[logic][embedding] candidates loaded",
+		zap.Int("candidate_count", len(rows)))
+
 	results := rankEmbeddingRows(queryVector, rows)
 	limit := input.Limit
 	if limit <= 0 || limit > len(results) {
 		limit = len(results)
 	}
+	finalResults := results[:limit]
+	log.Info("[logic][embedding] ranking finished",
+		zap.Int("candidate_count", len(rows)),
+		zap.Int("returned_count", limit))
+	if len(finalResults) > 0 && len(finalResults) <= 10 {
+		for i, r := range finalResults {
+			log.Debug("[logic][embedding] ranked result",
+				zap.Int("rank", i+1),
+				zap.Uint64("object_id", r.Embedding.ObjectID),
+				zap.String("object_type", r.Embedding.ObjectType),
+				zap.Float64("score", r.Score))
+		}
+	}
 	s.logSearchFinished("agent.semantic_retrieval.search", started, "succeeded", input.ObjectTypes, limit, nil)
-	return results[:limit], nil
+	return finalResults, nil
 }
 
 func (s *EmbeddingService) SearchObjects(ctx context.Context, input EmbeddingObjectSearchInput) ([]EmbeddingSearchResult, error) {
+	log := logger.GetRequestLogger(ctx)
 	if s == nil || s.repo == nil {
 		return nil, fmt.Errorf("embedding repository is not configured")
 	}
 	policy := s.policy.withDefaults()
 	if !policy.SemanticRetrieval {
-		logger.L().Info("semantic retrieval skipped",
+		log.Info("[logic][embedding] semantic retrieval disabled",
 			zap.String("event", "agent.semantic_retrieval.search_objects"),
 			zap.String("status", "disabled"),
 			zap.String("object_type", input.ObjectType))
@@ -214,6 +269,16 @@ func (s *EmbeddingService) SearchObjects(ctx context.Context, input EmbeddingObj
 	started := time.Now()
 	ctx, cancel := contextWithPolicyTimeout(ctx, policy.SemanticRetrievalTimeout)
 	defer cancel()
+
+	querySource := "text"
+	if len(input.QueryVector) > 0 {
+		querySource = "vector"
+	}
+	log.Info("[logic][embedding] SearchObjects started",
+		zap.String("object_type", objectType),
+		zap.Int("object_id_count", len(input.ObjectIDs)),
+		zap.String("query_source", querySource),
+		zap.Int("limit", input.Limit))
 
 	queryVector, modelName, err := s.resolveQueryVector(ctx, input.QueryText, input.QueryVector, input.Model)
 	if err != nil {
@@ -230,8 +295,13 @@ func (s *EmbeddingService) SearchObjects(ctx context.Context, input EmbeddingObj
 	if limit <= 0 || limit > len(results) {
 		limit = len(results)
 	}
+	finalResults := results[:limit]
+	log.Info("[logic][embedding] SearchObjects finished",
+		zap.Int("candidate_count", len(rows)),
+		zap.Int("returned_count", len(finalResults)),
+		zap.Int64("duration_ms", time.Since(started).Milliseconds()))
 	s.logSearchFinished("agent.semantic_retrieval.search_objects", started, "succeeded", []string{objectType}, limit, nil)
-	return results[:limit], nil
+	return finalResults, nil
 }
 
 func (s *EmbeddingService) logSearchFinished(event string, started time.Time, status string, objectTypes []string, resultCount int, err error) {

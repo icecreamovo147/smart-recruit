@@ -450,6 +450,74 @@ func versionToPB(v *model.PromptVersion) *pb.PromptVersionInfo {
 
 // ── Seed Functions ───────────────────────────────────────────────────────
 
+// builtinResumeProfileExtractorPrompt is the fallback prompt used when no
+// DB prompt template exists for agent_type="resume_profile_extractor".
+const builtinResumeProfileExtractorPrompt = `You are a resume profile extractor. Extract structured data from the resume text below.
+
+You MUST output ONLY a JSON object — no explanation, no markdown, no code fences, no extra text.
+The JSON object MUST conform to this exact schema:
+{
+  "full_name": "string",
+  "email": "string",
+  "phone": "string",
+  "location": "string",
+  "headline": "string",
+  "summary": "string",
+  "total_experience_years": number,
+  "highest_degree": "string",
+  "educations": [
+    {
+      "school": "string",
+      "degree": "string",
+      "major": "string",
+      "start_date": "string (YYYY, YYYY-MM, or YYYY-MM-DD)",
+      "end_date": "string (YYYY, YYYY-MM, YYYY-MM-DD, or \"present\")",
+      "description": "string"
+    }
+  ],
+  "experiences": [
+    {
+      "company": "string",
+      "title": "string",
+      "location": "string",
+      "start_date": "string",
+      "end_date": "string",
+      "is_current": bool,
+      "description": "string",
+      "achievements": ["string"]
+    }
+  ],
+  "projects": [
+    {
+      "name": "string",
+      "role": "string",
+      "start_date": "string",
+      "end_date": "string",
+      "description": "string",
+      "technologies": ["string"],
+      "highlights": ["string"]
+    }
+  ],
+  "skills": [
+    {
+      "name": "string",
+      "category": "string",
+      "level": "string",
+      "years": number,
+      "evidence": "string"
+    }
+  ]
+}
+
+Rules:
+- full_name, email, phone, location, headline, summary can be empty strings if not found
+- total_experience_years MUST be a number (0 if unknown)
+- educations, experiences, projects, skills MUST be arrays (can be empty)
+- Use "present" for end_date if the person currently works/studies there
+- is_current must be true when end_date is "present" or "current"
+- Extract skills with any evidence mentioned (project names, companies where used)
+- Output ONLY the JSON, no other text.`
+
 // SeedDefaultPrompts creates initial prompt templates from hardcoded prompts.
 // This is idempotent: it only inserts if no templates exist for the agent_type.
 func SeedDefaultPrompts(ctx context.Context, repo *repository.PromptTemplateRepo) error {
@@ -619,9 +687,34 @@ Markdown 输出硬性规范（你的回复会以 Markdown 渲染展示给候选�
 		logger.L().Warn("seed candidate prompt version failed", zap.Error(err))
 	}
 
+	// Seed resume profile extractor prompt (used by LLMResumeProfileExtractor)
+	profileExtractorTmpl := &model.PromptTemplate{
+		Name:       "Resume Profile Extractor System Prompt",
+		Content:    builtinResumeProfileExtractorPrompt,
+		Version:    1,
+		IsActive:   1,
+		AgentType:  "resume_profile_extractor",
+		PromptRole: "system",
+		CreatedBy:  &seededBy,
+		UpdatedBy:  &seededBy,
+	}
+	if err := repo.Create(ctx, profileExtractorTmpl); err != nil {
+		return fmt.Errorf("seed resume profile extractor prompt: %w", err)
+	}
+	if err := repo.CreateVersion(ctx, &model.PromptVersion{
+		TemplateID: profileExtractorTmpl.ID,
+		Version:    1,
+		Content:    builtinResumeProfileExtractorPrompt,
+		ChangedBy:  &seededBy,
+		ChangeNote: "initial seed from hardcoded prompt",
+	}); err != nil {
+		logger.L().Warn("seed resume profile extractor prompt version failed", zap.Error(err))
+	}
+
 	logger.L().Info("default prompts seeded successfully",
 		zap.Int64("hr_template_id", hrTemplate.ID),
 		zap.Int64("candidate_template_id", candidateTemplate.ID),
+		zap.Int64("resume_profile_extractor_template_id", profileExtractorTmpl.ID),
 	)
 	return nil
 }

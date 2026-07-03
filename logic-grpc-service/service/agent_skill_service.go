@@ -9,11 +9,13 @@ import (
 	"strings"
 	"time"
 
+	"go.uber.org/zap"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"gorm.io/gorm"
 
 	"logic-grpc-service/model"
+	"logic-grpc-service/pkg/logger"
 	"logic-grpc-service/recruitment/pb"
 	"logic-grpc-service/repository"
 )
@@ -211,8 +213,14 @@ func semanticDebugSkillsToPB(skills []selectedAgentSkill) []*pb.SemanticSkillDeb
 }
 
 func (s *AgentSkillService) CreateAgentSkill(ctx context.Context, req *pb.CreateAgentSkillRequest) (*pb.AgentSkillResponse, error) {
+	log := logger.GetRequestLogger(ctx)
 	name := strings.TrimSpace(req.GetName())
+	log.Info("[logic][agent_skill] CreateAgentSkill started",
+		zap.String("name", name),
+		zap.String("display_name", req.GetDisplayName()),
+		zap.String("version", req.GetVersion()))
 	if !agentSkillNamePattern.MatchString(name) {
+		log.Warn("[logic][agent_skill] CreateAgentSkill invalid name", zap.String("name", name))
 		return nil, status.Error(codes.InvalidArgument, "invalid agent skill name")
 	}
 	displayName := strings.TrimSpace(req.GetDisplayName())
@@ -221,6 +229,7 @@ func (s *AgentSkillService) CreateAgentSkill(ctx context.Context, req *pb.Create
 	}
 	triggerKeywords, err := marshalStringList(req.GetTriggerKeywords())
 	if err != nil {
+		log.Warn("[logic][agent_skill] CreateAgentSkill invalid trigger_keywords", zap.Error(err))
 		return nil, status.Error(codes.InvalidArgument, "invalid trigger_keywords")
 	}
 	metadata, err := s.validateAgentSkillMetadata(ctx, agentSkillMetadataInput{
@@ -235,6 +244,7 @@ func (s *AgentSkillService) CreateAgentSkill(ctx context.Context, req *pb.Create
 		SemanticTags:         req.GetSemanticTags(),
 	}, true)
 	if err != nil {
+		log.Warn("[logic][agent_skill] CreateAgentSkill validation failed", zap.Error(err))
 		return nil, status.Error(codes.InvalidArgument, err.Error())
 	}
 	enabled := boolToInt32(true)
@@ -309,15 +319,21 @@ func (s *AgentSkillService) CreateAgentSkill(ctx context.Context, req *pb.Create
 		}
 	} else if err := s.repo.CreateSkill(ctx, skill); err != nil {
 		if errors.Is(err, repository.ErrAgentSkillDuplicateName) {
+			log.Warn("[logic][agent_skill] CreateAgentSkill duplicate name", zap.String("name", name))
 			return nil, status.Error(codes.AlreadyExists, "agent skill name already exists")
 		}
+		log.Error("[logic][agent_skill] CreateAgentSkill failed", zap.Error(err))
 		return nil, status.Error(codes.Internal, "create agent skill failed")
 	}
+	log.Info("[logic][agent_skill] CreateAgentSkill succeeded", zap.Int64("skill_id", skill.ID))
 	return &pb.AgentSkillResponse{Code: 0, Msg: "success", Skill: s.agentSkillToPB(ctx, skill)}, nil
 }
 
 func (s *AgentSkillService) UpdateAgentSkill(ctx context.Context, req *pb.UpdateAgentSkillRequest) (*pb.AgentSkillResponse, error) {
+	log := logger.GetRequestLogger(ctx)
+	log.Info("[logic][agent_skill] UpdateAgentSkill started", zap.Int64("skill_id", req.GetId()))
 	if req.GetId() <= 0 {
+		log.Warn("[logic][agent_skill] UpdateAgentSkill invalid id")
 		return nil, status.Error(codes.InvalidArgument, "id is required")
 	}
 	updates := map[string]any{}
@@ -484,24 +500,40 @@ func (s *AgentSkillService) ListAgentSkillVersions(ctx context.Context, req *pb.
 }
 
 func (s *AgentSkillService) ActivateAgentSkillVersion(ctx context.Context, req *pb.ActivateAgentSkillVersionRequest) (*pb.AgentSkillResponse, error) {
+	log := logger.GetRequestLogger(ctx)
+	log.Info("[logic][agent_skill] ActivateAgentSkillVersion started",
+		zap.Int64("skill_id", req.GetSkillId()),
+		zap.Int64("version_id", req.GetVersionId()))
 	if req.GetSkillId() <= 0 || req.GetVersionId() <= 0 {
+		log.Warn("[logic][agent_skill] ActivateAgentSkillVersion invalid params")
 		return nil, status.Error(codes.InvalidArgument, "skill_id and version_id are required")
 	}
 	if err := s.repo.ActivateVersion(ctx, req.GetSkillId(), req.GetVersionId(), optionalPositiveInt64(req.GetActorUserId())); err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
+			log.Warn("[logic][agent_skill] ActivateAgentSkillVersion version not found")
 			return nil, status.Error(codes.NotFound, "agent skill version not found")
 		}
+		log.Error("[logic][agent_skill] ActivateAgentSkillVersion failed", zap.Error(err))
 		return nil, status.Error(codes.Internal, "activate agent skill version failed")
 	}
 	skill, err := s.repo.GetSkillByID(ctx, req.GetSkillId())
 	if err != nil {
+		log.Error("[logic][agent_skill] ActivateAgentSkillVersion get skill failed", zap.Error(err))
 		return nil, status.Error(codes.Internal, "get agent skill failed")
 	}
+	log.Info("[logic][agent_skill] ActivateAgentSkillVersion succeeded",
+		zap.Int64("skill_id", req.GetSkillId()),
+		zap.Int64("version_id", req.GetVersionId()))
 	return &pb.AgentSkillResponse{Code: 0, Msg: "success", Skill: s.agentSkillToPB(ctx, skill)}, nil
 }
 
 func (s *AgentSkillService) UpdateAgentSkillStatus(ctx context.Context, req *pb.UpdateAgentSkillStatusRequest) (*pb.AgentSkillResponse, error) {
+	log := logger.GetRequestLogger(ctx)
+	log.Info("[logic][agent_skill] UpdateAgentSkillStatus started",
+		zap.Int64("skill_id", req.GetId()),
+		zap.Bool("is_enabled", req.GetIsEnabled()))
 	if req.GetId() <= 0 {
+		log.Warn("[logic][agent_skill] UpdateAgentSkillStatus invalid id")
 		return nil, status.Error(codes.InvalidArgument, "id is required")
 	}
 	updates := map[string]any{"is_enabled": boolToInt32(req.GetIsEnabled())}
@@ -509,24 +541,34 @@ func (s *AgentSkillService) UpdateAgentSkillStatus(ctx context.Context, req *pb.
 		updates["updated_by"] = actor
 	}
 	if err := s.repo.UpdateSkillPartial(ctx, req.GetId(), updates); err != nil {
+		log.Error("[logic][agent_skill] UpdateAgentSkillStatus repo failed", zap.Error(err))
 		return nil, status.Error(codes.Internal, "update agent skill status failed")
 	}
 	skill, err := s.repo.GetSkillByID(ctx, req.GetId())
 	if err != nil {
+		log.Error("[logic][agent_skill] UpdateAgentSkillStatus get skill failed", zap.Error(err))
 		return nil, status.Error(codes.NotFound, "agent skill not found")
 	}
+	log.Info("[logic][agent_skill] UpdateAgentSkillStatus succeeded", zap.Int64("skill_id", req.GetId()))
 	return &pb.AgentSkillResponse{Code: 0, Msg: "success", Skill: s.agentSkillToPB(ctx, skill)}, nil
 }
 
 func (s *AgentSkillService) PreviewAgentSkill(ctx context.Context, req *pb.PreviewAgentSkillRequest) (*pb.PreviewAgentSkillResponse, error) {
+	log := logger.GetRequestLogger(ctx)
 	name := strings.TrimSpace(req.GetName())
+	log.Info("[logic][agent_skill] PreviewAgentSkill started", zap.String("name", name))
 	if !agentSkillNamePattern.MatchString(name) {
+		log.Warn("[logic][agent_skill] PreviewAgentSkill invalid name")
 		return nil, status.Error(codes.InvalidArgument, "invalid agent skill name")
 	}
 	skillMD, frontmatterJSON, bodyMarkdown, err := GenerateAgentSkillMarkdown(name, strings.TrimSpace(req.GetDescription()), req.GetFlowJson())
 	if err != nil {
+		log.Warn("[logic][agent_skill] PreviewAgentSkill generation failed", zap.Error(err))
 		return nil, status.Error(codes.InvalidArgument, err.Error())
 	}
+	log.Info("[logic][agent_skill] PreviewAgentSkill succeeded",
+		zap.String("name", name),
+		zap.Int("skill_md_length", len(skillMD)))
 	return &pb.PreviewAgentSkillResponse{Code: 0, Msg: "success", SkillMd: skillMD, FrontmatterJson: frontmatterJSON, BodyMarkdown: bodyMarkdown}, nil
 }
 

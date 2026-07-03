@@ -9,6 +9,7 @@ import type {
   AgentRunStepItem,
   ToolTraceItem,
 } from '@/types/ai'
+import { debugLog } from '@/utils/debugLog'
 
 const props = defineProps<{
   sessionId: number | null
@@ -33,6 +34,7 @@ const loadTraces = async () => {
     runs.value = []
     return
   }
+  debugLog.trace.info('loadTraces_started', { session_id: props.sessionId })
   loading.value = true
   try {
     const [runData, traceData] = await Promise.all([
@@ -41,8 +43,14 @@ const loadTraces = async () => {
     ])
     runs.value = runData.list || []
     traces.value = traceData.list || []
+    debugLog.trace.info('loadTraces_finished', {
+      session_id: props.sessionId,
+      run_count: runs.value.length,
+      trace_count: traces.value.length,
+    })
   } catch (e) {
     traces.value = []
+    debugLog.trace.error('loadTraces_failed', { session_id: props.sessionId, error: (e as Error)?.message })
     ElMessage.error('加载执行轨迹失败，请稍后重试')
   } finally {
     loading.value = false

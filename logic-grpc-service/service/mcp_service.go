@@ -265,14 +265,19 @@ func (s *MCPService) DeleteMCPServer(ctx context.Context, req *pb.DeleteMCPServe
 // ── Connection Test ─────────────────────────────────────────────────
 
 func (s *MCPService) TestMCPConnection(ctx context.Context, req *pb.TestMCPConnectionRequest) (*pb.TestMCPConnectionResponse, error) {
+	started := time.Now()
+	log := logger.GetRequestLogger(ctx)
 	serverID := req.GetServerId()
+	log.Info("[logic][mcp] TestMCPConnection started", zap.Int64("server_id", serverID))
 	if serverID <= 0 {
+		log.Warn("[logic][mcp] TestMCPConnection invalid server_id")
 		return nil, status.Error(codes.InvalidArgument, "server_id is required")
 	}
 
 	server, err := s.mcpRepo.GetServerByID(ctx, serverID)
 	if err != nil {
 		if err == gorm.ErrRecordNotFound {
+			log.Warn("[logic][mcp] TestMCPConnection server not found", zap.Int64("server_id", serverID))
 			return &pb.TestMCPConnectionResponse{
 				Code:    1,
 				Msg:     "MCP server not found",
@@ -280,7 +285,7 @@ func (s *MCPService) TestMCPConnection(ctx context.Context, req *pb.TestMCPConne
 				Detail:  "MCP server not found",
 			}, nil
 		}
-		logger.L().Error("get MCP server failed", zap.Error(err))
+		log.Error("[logic][mcp] TestMCPConnection get server failed", zap.Error(err))
 		return nil, status.Error(codes.Internal, "get MCP server failed")
 	}
 
@@ -294,6 +299,8 @@ func (s *MCPService) TestMCPConnection(ctx context.Context, req *pb.TestMCPConne
 
 	mcpClient, err := s.createClient(server)
 	if err != nil {
+		log.Warn("[logic][mcp] TestMCPConnection create client failed",
+			zap.Int64("server_id", serverID), zap.Error(err))
 		return &pb.TestMCPConnectionResponse{
 			Code:    1,
 			Msg:     "create client failed",
@@ -306,6 +313,8 @@ func (s *MCPService) TestMCPConnection(ctx context.Context, req *pb.TestMCPConne
 	// Initialize the connection
 	initResult, err := mcpClient.Initialize(testCtx, mcp.InitializeRequest{})
 	if err != nil {
+		log.Warn("[logic][mcp] TestMCPConnection initialize failed",
+			zap.Int64("server_id", serverID), zap.Error(err))
 		return &pb.TestMCPConnectionResponse{
 			Code:    1,
 			Msg:     "initialize failed",
@@ -314,6 +323,10 @@ func (s *MCPService) TestMCPConnection(ctx context.Context, req *pb.TestMCPConne
 		}, nil
 	}
 
+	log.Info("[logic][mcp] TestMCPConnection succeeded",
+		zap.Int64("server_id", serverID),
+		zap.String("server_version", initResult.ServerInfo.Name),
+		zap.Int64("duration_ms", time.Since(started).Milliseconds()))
 	detail := fmt.Sprintf("connected successfully, server version: %s", initResult.ServerInfo.Name)
 	return &pb.TestMCPConnectionResponse{
 		Code:    0,
@@ -326,23 +339,28 @@ func (s *MCPService) TestMCPConnection(ctx context.Context, req *pb.TestMCPConne
 // ── Tool Listing ────────────────────────────────────────────────────
 
 func (s *MCPService) ListMCPTools(ctx context.Context, req *pb.ListMCPToolsRequest) (*pb.ListMCPToolsResponse, error) {
+	started := time.Now()
+	log := logger.GetRequestLogger(ctx)
 	serverID := req.GetServerId()
+	log.Info("[logic][mcp] ListMCPTools started", zap.Int64("server_id", serverID))
 	if serverID <= 0 {
+		log.Warn("[logic][mcp] ListMCPTools invalid server_id")
 		return nil, status.Error(codes.InvalidArgument, "server_id is required")
 	}
 
 	server, err := s.mcpRepo.GetServerByID(ctx, serverID)
 	if err != nil {
 		if err == gorm.ErrRecordNotFound {
+			log.Warn("[logic][mcp] ListMCPTools server not found", zap.Int64("server_id", serverID))
 			return nil, status.Error(codes.NotFound, "MCP server not found")
 		}
-		logger.L().Error("get MCP server failed", zap.Error(err))
+		log.Error("[logic][mcp] ListMCPTools get server failed", zap.Error(err))
 		return nil, status.Error(codes.Internal, "get MCP server failed")
 	}
 
 	mcpClient, err := s.createClient(server)
 	if err != nil {
-		logger.L().Error("create MCP client failed", zap.Error(err))
+		log.Error("[logic][mcp] ListMCPTools create client failed", zap.Error(err))
 		return nil, status.Error(codes.Internal, "create MCP client failed")
 	}
 	defer mcpClient.Close()
@@ -352,14 +370,14 @@ func (s *MCPService) ListMCPTools(ctx context.Context, req *pb.ListMCPToolsReque
 
 	initResult, err := mcpClient.Initialize(listCtx, mcp.InitializeRequest{})
 	if err != nil {
-		logger.L().Error("MCP initialize failed", zap.Error(err))
+		log.Error("[logic][mcp] ListMCPTools initialize failed", zap.Error(err))
 		return nil, status.Error(codes.Internal, fmt.Sprintf("MCP initialize failed: %v", err))
 	}
 	_ = initResult
 
 	toolsResult, err := mcpClient.ListTools(listCtx, mcp.ListToolsRequest{})
 	if err != nil {
-		logger.L().Error("list MCP tools failed", zap.Error(err))
+		log.Error("[logic][mcp] ListMCPTools list tools failed", zap.Error(err))
 		return nil, status.Error(codes.Internal, fmt.Sprintf("list MCP tools failed: %v", err))
 	}
 
@@ -376,6 +394,10 @@ func (s *MCPService) ListMCPTools(ctx context.Context, req *pb.ListMCPToolsReque
 		})
 	}
 
+	log.Info("[logic][mcp] ListMCPTools succeeded",
+		zap.Int64("server_id", serverID),
+		zap.Int("tool_count", len(tools)),
+		zap.Int64("duration_ms", time.Since(started).Milliseconds()))
 	return &pb.ListMCPToolsResponse{
 		Code: 0,
 		Msg:  "ok",
@@ -440,24 +462,33 @@ func (s *MCPService) listToolsForServer(ctx context.Context, server *model.MCPSe
 // ── Tool Call ───────────────────────────────────────────────────────
 
 func (s *MCPService) CallMCPTool(ctx context.Context, req *pb.CallMCPToolRequest) (*pb.CallMCPToolResponse, error) {
+	log := logger.GetRequestLogger(ctx)
 	serverID := req.GetServerId()
+	toolName := strings.TrimSpace(req.GetToolName())
+	log.Info("[logic][mcp] CallMCPTool started",
+		zap.Int64("server_id", serverID),
+		zap.String("tool_name", toolName))
 	if serverID <= 0 {
+		log.Warn("[logic][mcp] CallMCPTool invalid server_id")
 		return nil, status.Error(codes.InvalidArgument, "server_id is required")
 	}
-	if strings.TrimSpace(req.GetToolName()) == "" {
+	if toolName == "" {
+		log.Warn("[logic][mcp] CallMCPTool invalid tool_name")
 		return nil, status.Error(codes.InvalidArgument, "tool_name is required")
 	}
 
 	server, err := s.mcpRepo.GetServerByID(ctx, serverID)
 	if err != nil {
 		if err == gorm.ErrRecordNotFound {
+			log.Warn("[logic][mcp] CallMCPTool server not found", zap.Int64("server_id", serverID))
 			return nil, status.Error(codes.NotFound, "MCP server not found")
 		}
-		logger.L().Error("get MCP server failed", zap.Error(err))
+		log.Error("[logic][mcp] CallMCPTool get server failed", zap.Error(err))
 		return nil, status.Error(codes.Internal, "get MCP server failed")
 	}
 
 	if server.IsEnabled != 1 {
+		log.Warn("[logic][mcp] CallMCPTool server disabled", zap.Int64("server_id", serverID))
 		return nil, status.Error(codes.PermissionDenied, "MCP server is disabled")
 	}
 
@@ -465,18 +496,28 @@ func (s *MCPService) CallMCPTool(ctx context.Context, req *pb.CallMCPToolRequest
 
 	argsMap, args, err := parseMCPArgs(req.GetArgsJson())
 	if err != nil {
+		log.Warn("[logic][mcp] CallMCPTool invalid args_json", zap.Error(err))
 		return nil, status.Error(codes.InvalidArgument, fmt.Sprintf("invalid args_json: %v", err))
 	}
 
-	policyEval, err := s.evaluateToolPolicy(ctx, serverID, req.GetToolName(), argsMap, req.GetCallerRole(), req.GetCallerScope(), req.GetConfirmationApproved())
+	log.Debug("[logic][mcp] CallMCPTool evaluating policy",
+		zap.Int64("server_id", serverID),
+		zap.String("tool_name", toolName),
+		zap.String("caller_role", req.GetCallerRole()),
+		zap.String("caller_scope", req.GetCallerScope()))
+	policyEval, err := s.evaluateToolPolicy(ctx, serverID, toolName, argsMap, req.GetCallerRole(), req.GetCallerScope(), req.GetConfirmationApproved())
 	if err != nil {
-		logger.L().Error("evaluate MCP tool policy failed", zap.Error(err))
+		log.Error("[logic][mcp] CallMCPTool policy evaluation failed", zap.Error(err))
 		return nil, status.Error(codes.Internal, "evaluate MCP tool policy failed")
 	}
 	if policyEval.Decision != mcpPolicyDecisionAllow {
 		durationMs := time.Since(startTime).Milliseconds()
 		errorMsg := policyEval.Reason
 		s.createMCPToolLog(ctx, serverID, req, req.GetArgsJson(), "", durationMs, errorMsg, policyEval)
+		log.Warn("[logic][mcp] CallMCPTool policy denied",
+			zap.String("decision", policyEval.Decision),
+			zap.String("reason", policyEval.Reason),
+			zap.Int64("duration_ms", durationMs))
 		return &pb.CallMCPToolResponse{
 			Code:           1,
 			Msg:            policyEval.Decision,
@@ -491,7 +532,7 @@ func (s *MCPService) CallMCPTool(ctx context.Context, req *pb.CallMCPToolRequest
 
 	mcpClient, err := s.createClient(server)
 	if err != nil {
-		logger.L().Error("create MCP client failed", zap.Error(err))
+		log.Error("[logic][mcp] CallMCPTool create client failed", zap.Error(err))
 		return nil, status.Error(codes.Internal, "create MCP client failed")
 	}
 	defer mcpClient.Close()
@@ -501,14 +542,14 @@ func (s *MCPService) CallMCPTool(ctx context.Context, req *pb.CallMCPToolRequest
 
 	initResult, err := mcpClient.Initialize(callCtx, mcp.InitializeRequest{})
 	if err != nil {
-		logger.L().Error("MCP initialize failed", zap.Error(err))
+		log.Error("[logic][mcp] CallMCPTool initialize failed", zap.Error(err))
 		return nil, status.Error(codes.Internal, fmt.Sprintf("MCP initialize failed: %v", err))
 	}
 	_ = initResult
 
 	callResult, err := mcpClient.CallTool(callCtx, mcp.CallToolRequest{
 		Params: mcp.CallToolParams{
-			Name:      req.GetToolName(),
+			Name:      toolName,
 			Arguments: args,
 		},
 	})
@@ -529,6 +570,11 @@ func (s *MCPService) CallMCPTool(ctx context.Context, req *pb.CallMCPToolRequest
 	s.createMCPToolLog(ctx, serverID, req, req.GetArgsJson(), resultText, durationMs, errorMsg, policyEval)
 
 	if err != nil {
+		log.Warn("[logic][mcp] CallMCPTool call failed",
+			zap.Int64("server_id", serverID),
+			zap.String("tool_name", toolName),
+			zap.Int64("duration_ms", durationMs),
+			zap.Error(err))
 		return &pb.CallMCPToolResponse{
 			Code:           1,
 			Msg:            "tool call failed",
@@ -541,6 +587,11 @@ func (s *MCPService) CallMCPTool(ctx context.Context, req *pb.CallMCPToolRequest
 		}, nil
 	}
 
+	log.Info("[logic][mcp] CallMCPTool succeeded",
+		zap.Int64("server_id", serverID),
+		zap.String("tool_name", toolName),
+		zap.Int64("duration_ms", durationMs),
+		zap.String("policy_decision", policyEval.Decision))
 	return &pb.CallMCPToolResponse{
 		Code:           0,
 		Msg:            "ok",

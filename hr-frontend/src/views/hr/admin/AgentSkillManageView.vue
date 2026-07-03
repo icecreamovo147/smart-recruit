@@ -18,6 +18,7 @@ import type {
   CreateAgentSkillPayload,
   UpdateAgentSkillPayload,
 } from '@/types/agentSkill'
+import { debugLog } from '@/utils/debugLog'
 
 const api = agentSkillApi
 
@@ -159,6 +160,7 @@ const currentVersion = computed(() => (
 ))
 
 const loadList = async () => {
+  debugLog.skill.info('loadList_started', { page: page.value, keyword: keyword.value, status_filter: statusFilter.value })
   loading.value = true
   try {
     const data = await api.listAgentSkills({
@@ -172,7 +174,9 @@ const loadList = async () => {
       ? rawList.filter((item) => !item.is_enabled)
       : rawList
     total.value = data.total || list.value.length
+    debugLog.skill.info('loadList_finished', { total: total.value, returned: list.value.length })
   } catch (e: unknown) {
+    debugLog.skill.error('loadList_failed', { error: getErrorMessage(e, '') })
     ElMessage.error(getErrorMessage(e, 'Agent Skill 列表加载失败'))
   } finally {
     loading.value = false
@@ -597,17 +601,23 @@ const findCurrentVersion = (skill: AgentSkillInfo, versionList: AgentSkillVersio
 )
 
 const refreshPreview = async () => {
+  debugLog.skill.info('refreshPreview_started', {})
   const localValidation = buildLocalValidation()
   validation.value = localValidation
   previewMarkdown.value = localMarkdown.value
-  if (!localValidation.valid) return
+  if (!localValidation.valid) {
+    debugLog.skill.warn('refreshPreview_skipped', { reason: 'local_validation_failed', errors: localValidation.errors.length })
+    return
+  }
   previewLoading.value = true
   try {
     const data = await api.previewAgentSkill(payload())
     const serverValidation = (data as { validation?: AgentSkillValidation }).validation
     previewMarkdown.value = data.skill_md || localMarkdown.value
     validation.value = serverValidation || { ...localValidation, valid: localValidation.errors.length === 0 }
+    debugLog.skill.info('refreshPreview_finished', { valid: validation.value.valid })
   } catch (e: unknown) {
+    debugLog.skill.error('refreshPreview_failed', { error: getErrorMessage(e, '') })
     ElMessage.error(getErrorMessage(e, 'SKILL.md 预览生成失败'))
   } finally {
     previewLoading.value = false
@@ -620,6 +630,7 @@ const openPreviewDrawer = async () => {
 }
 
 const saveSkill = async () => {
+  debugLog.skill.info('saveSkill_started', { is_edit: !!editingSkill.value, skill_id: editingSkill.value?.id, name: form.name })
   if (saving.value) return
   if (editingSkill.value) {
     try {
@@ -629,11 +640,13 @@ const saveSkill = async () => {
         { confirmButtonText: '确定', cancelButtonText: '取消', type: 'warning' },
       )
     } catch {
+      debugLog.skill.info('saveSkill_cancelled', { skill_id: editingSkill.value.id })
       return
     }
   }
   await refreshPreview()
   if (!validation.value.valid) {
+    debugLog.skill.warn('saveSkill_skipped', { reason: 'validation_failed' })
     ElMessage.warning('请先修复校验错误')
     return
   }
@@ -644,13 +657,16 @@ const saveSkill = async () => {
       await api.updateAgentSkill(skillId, updatePayload())
       await api.createAgentSkillVersion(skillId, versionPayload())
       ElMessage.success('Agent Skill 已保存并激活新版本')
+      debugLog.skill.info('saveSkill_succeeded', { skill_id: skillId, action: 'update' })
     } else {
       await api.createAgentSkill(payload())
       ElMessage.success('Agent Skill 已创建')
+      debugLog.skill.info('saveSkill_succeeded', { action: 'create', name: form.name })
     }
     builderDialogVisible.value = false
     await loadList()
   } catch (e: unknown) {
+    debugLog.skill.error('saveSkill_failed', { error: getErrorMessage(e, '') })
     ElMessage.error(getErrorMessage(e, 'Agent Skill 保存失败'))
   } finally {
     saving.value = false
@@ -658,13 +674,16 @@ const saveSkill = async () => {
 }
 
 const toggleStatus = async (row: AgentSkillInfo) => {
+  debugLog.skill.info('toggleStatus_started', { skill_id: row.id, new_enabled: !row.is_enabled })
   if (statusChangingId.value) return
   statusChangingId.value = row.id
   try {
     await api.updateAgentSkillStatus(row.id, { is_enabled: !row.is_enabled })
     ElMessage.success(row.is_enabled ? 'Agent Skill 已停用' : 'Agent Skill 已启用')
+    debugLog.skill.info('toggleStatus_finished', { skill_id: row.id, is_enabled: !row.is_enabled })
     await loadList()
   } catch (e: unknown) {
+    debugLog.skill.error('toggleStatus_failed', { skill_id: row.id, error: getErrorMessage(e, '') })
     ElMessage.error(getErrorMessage(e, '状态更新失败'))
   } finally {
     statusChangingId.value = null
@@ -672,6 +691,7 @@ const toggleStatus = async (row: AgentSkillInfo) => {
 }
 
 const openEdit = async (row: AgentSkillInfo) => {
+  debugLog.skill.info('openEdit_started', { skill_id: row.id, name: row.name })
   if (editLoading.value) return
   editLoading.value = true
   try {
@@ -700,8 +720,10 @@ const openEdit = async (row: AgentSkillInfo) => {
     selectedNodeId.value = flow.value.nodes[0]?.id || ''
     previewMarkdown.value = current?.skill_md || detail.skill_md || localMarkdown.value
     validation.value = buildLocalValidation()
+    debugLog.skill.info('openEdit_finished', { skill_id: row.id, version: form.version, node_count: flow.value.nodes.length, edge_count: flow.value.edges.length })
     builderDialogVisible.value = true
   } catch (e: unknown) {
+    debugLog.skill.error('openEdit_failed', { skill_id: row.id, error: getErrorMessage(e, '') })
     ElMessage.error(getErrorMessage(e, '加载 Agent Skill 详情失败'))
   } finally {
     editLoading.value = false
@@ -709,6 +731,7 @@ const openEdit = async (row: AgentSkillInfo) => {
 }
 
 const openSavedPreview = async (row: AgentSkillInfo) => {
+  debugLog.skill.info('openSavedPreview_started', { skill_id: row.id })
   savedPreviewDrawerVisible.value = true
   savedPreviewLoading.value = true
   savedPreviewSkill.value = row
@@ -718,7 +741,9 @@ const openSavedPreview = async (row: AgentSkillInfo) => {
     const versionList = await loadVersions(row.id)
     savedPreviewSkill.value = detail
     savedPreviewVersion.value = findCurrentVersion(detail, versionList)
+    debugLog.skill.info('openSavedPreview_finished', { skill_id: row.id, has_current_version: !!savedPreviewVersion.value })
   } catch (e: unknown) {
+    debugLog.skill.error('openSavedPreview_failed', { skill_id: row.id, error: getErrorMessage(e, '') })
     ElMessage.error(getErrorMessage(e, '加载当前版本预览失败'))
   } finally {
     savedPreviewLoading.value = false
@@ -726,6 +751,7 @@ const openSavedPreview = async (row: AgentSkillInfo) => {
 }
 
 const openVersions = async (row: AgentSkillInfo) => {
+  debugLog.skill.info('openVersions_started', { skill_id: row.id })
   versionsDrawerVisible.value = true
   versionsLoading.value = true
   versionSkill.value = row
@@ -737,7 +763,9 @@ const openVersions = async (row: AgentSkillInfo) => {
     versionSkill.value = detail
     versions.value = versionList
     selectedVersion.value = findCurrentVersion(detail, versionList) || versionList[0] || null
+    debugLog.skill.info('openVersions_finished', { skill_id: row.id, version_count: versionList.length })
   } catch (e: unknown) {
+    debugLog.skill.error('openVersions_failed', { skill_id: row.id, error: getErrorMessage(e, '') })
     ElMessage.error(getErrorMessage(e, '加载版本列表失败'))
   } finally {
     versionsLoading.value = false
@@ -749,6 +777,7 @@ const selectVersion = (version: AgentSkillVersionInfo) => {
 }
 
 const activateVersion = async (version: AgentSkillVersionInfo) => {
+  debugLog.skill.info('activateVersion_started', { skill_id: versionSkill.value?.id, version_id: version.id, version_label: version.version })
   if (!versionSkill.value || activatingVersionId.value) return
   try {
     await ElMessageBox.confirm(
@@ -761,12 +790,14 @@ const activateVersion = async (version: AgentSkillVersionInfo) => {
       },
     )
   } catch {
+    debugLog.skill.info('activateVersion_cancelled', { version_id: version.id })
     return
   }
   activatingVersionId.value = version.id
   try {
     await api.activateAgentSkillVersion(versionSkill.value.id, version.id)
     ElMessage.success('已设为当前版本')
+    debugLog.skill.info('activateVersion_succeeded', { skill_id: versionSkill.value.id, version_id: version.id })
     await loadList()
     if (versionSkill.value) {
       const nextSkill = { ...versionSkill.value, current_version_id: version.id }
@@ -778,6 +809,7 @@ const activateVersion = async (version: AgentSkillVersionInfo) => {
       selectedVersion.value = versions.value.find((item) => item.id === version.id) || version
     }
   } catch (e: unknown) {
+    debugLog.skill.error('activateVersion_failed', { version_id: version.id, error: getErrorMessage(e, '') })
     ElMessage.error(getErrorMessage(e, '设为当前版本失败'))
   } finally {
     activatingVersionId.value = null

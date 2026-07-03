@@ -71,9 +71,10 @@ func (s *CandidateMatchService) WithRuntimePolicy(policy AgentRuntimePolicy) *Ca
 }
 
 func (s *CandidateMatchService) EvaluateApplication(ctx context.Context, applicationID int64, agentRunID *uint64) (*repository.CandidateMatchSnapshot, error) {
+	log := logger.GetRequestLogger(ctx)
 	policy := s.policy.withDefaults()
 	if !policy.CandidateMatch {
-		logger.L().Warn("agent capability disabled",
+		log.Warn("[logic][candidate_match] capability disabled",
 			zap.String("capability", "candidate_match"),
 			zap.Int64("application_id", applicationID))
 		return nil, fmt.Errorf("%w: candidate_match", ErrAgentCapabilityDisabled)
@@ -81,6 +82,9 @@ func (s *CandidateMatchService) EvaluateApplication(ctx context.Context, applica
 	started := time.Now()
 	ctx, cancel := contextWithPolicyTimeout(ctx, policy.CandidateMatchTimeout)
 	defer cancel()
+
+	log.Info("[logic][candidate_match] EvaluateApplication started",
+		zap.Int64("application_id", applicationID))
 
 	baseApplication, err := s.applications.GetByID(ctx, applicationID)
 	if err != nil {
@@ -91,6 +95,9 @@ func (s *CandidateMatchService) EvaluateApplication(ctx context.Context, applica
 		s.logEvaluationFinished(applicationID, nil, started, "failed", ErrCandidateMatchMissingApplication)
 		return nil, ErrCandidateMatchMissingApplication
 	}
+	log.Info("[logic][candidate_match] application loaded",
+		zap.Int64("application_id", applicationID),
+		zap.Int64("job_id", baseApplication.JobID))
 
 	job, err := s.jobs.GetByID(ctx, baseApplication.JobID)
 	if err != nil {
@@ -101,6 +108,9 @@ func (s *CandidateMatchService) EvaluateApplication(ctx context.Context, applica
 		s.logEvaluationFinished(applicationID, nil, started, "failed", ErrCandidateMatchMissingJob)
 		return nil, ErrCandidateMatchMissingJob
 	}
+	log.Info("[logic][candidate_match] job loaded",
+		zap.Int64("job_id", job.ID),
+		zap.String("job_title", job.Title))
 
 	application, err := s.applications.GetDetail(ctx, applicationID)
 	if err != nil {
@@ -111,12 +121,18 @@ func (s *CandidateMatchService) EvaluateApplication(ctx context.Context, applica
 		s.logEvaluationFinished(applicationID, nil, started, "failed", ErrCandidateMatchMissingApplication)
 		return nil, ErrCandidateMatchMissingApplication
 	}
+	log.Info("[logic][candidate_match] application detail loaded",
+		zap.Int64("user_id", application.UserID),
+		zap.Int64("resume_id", application.ResumeID))
 
 	profile, err := s.profiles.GetByUserID(ctx, application.UserID)
 	if err != nil {
 		s.logEvaluationFinished(applicationID, nil, started, "failed", err)
 		return nil, fmt.Errorf("get candidate profile: %w", err)
 	}
+	log.Info("[logic][candidate_match] candidate profile loaded",
+		zap.Bool("profile_exists", profile != nil),
+		zap.Int32("profile_complete", func() int32 { if profile != nil { return profile.IsComplete }; return 0 }()))
 
 	resume, err := s.resumes.GetByID(ctx, application.ResumeID)
 	if err != nil {
@@ -127,6 +143,8 @@ func (s *CandidateMatchService) EvaluateApplication(ctx context.Context, applica
 		s.logEvaluationFinished(applicationID, nil, started, "failed", ErrCandidateMatchMissingResume)
 		return nil, ErrCandidateMatchMissingResume
 	}
+	log.Info("[logic][candidate_match] resume loaded",
+		zap.Int64("resume_id", resume.ID))
 
 	currentProfile, err := s.resumeProfiles.GetCurrentByResumeID(ctx, resume.ID)
 	if err != nil {
@@ -137,6 +155,8 @@ func (s *CandidateMatchService) EvaluateApplication(ctx context.Context, applica
 		s.logEvaluationFinished(applicationID, nil, started, "failed", ErrCandidateMatchMissingResumeProfile)
 		return nil, ErrCandidateMatchMissingResumeProfile
 	}
+	log.Info("[logic][candidate_match] current resume profile loaded",
+		zap.Uint64("profile_id", currentProfile.ID))
 
 	resumeSnapshot, err := s.resumeProfiles.GetSnapshot(ctx, currentProfile.ID)
 	if err != nil {
@@ -144,11 +164,22 @@ func (s *CandidateMatchService) EvaluateApplication(ctx context.Context, applica
 		return nil, fmt.Errorf("get resume profile snapshot: %w", err)
 	}
 	if isIncompleteResumeProfile(resumeSnapshot) {
+		log.Warn("[logic][candidate_match] resume profile is incomplete",
+			zap.Int64("application_id", applicationID),
+			zap.Uint64("profile_id", currentProfile.ID))
 		s.logEvaluationFinished(applicationID, nil, started, "failed", ErrCandidateMatchIncompleteProfile)
 		return nil, ErrCandidateMatchIncompleteProfile
 	}
 
+	log.Info("[logic][candidate_match] scoring started",
+		zap.Int64("application_id", applicationID))
 	result := s.score(job, application, profile, resume, resumeSnapshot)
+	log.Info("[logic][candidate_match] scoring finished",
+		zap.Float64("overall_score", result.OverallScore),
+		zap.String("recommendation", result.Recommendation),
+		zap.Int("strengths", len(result.Strengths)),
+		zap.Int("risks", len(result.Risks)),
+		zap.Int("evidence", len(result.Evidence)))
 	snapshot := &repository.CandidateMatchSnapshot{
 		Evaluation: model.CandidateMatchEvaluation{
 			ApplicationID:      application.ApplicationID,
@@ -167,10 +198,13 @@ func (s *CandidateMatchService) EvaluateApplication(ctx context.Context, applica
 		},
 		Evidence: result.Evidence,
 	}
+	log.Info("[logic][candidate_match] saving evaluation")
 	if err := s.matches.SaveEvaluationVersion(ctx, snapshot); err != nil {
 		s.logEvaluationFinished(applicationID, nil, started, "failed", err)
 		return nil, fmt.Errorf("save candidate match evaluation: %w", err)
 	}
+	log.Info("[logic][candidate_match] evaluation saved",
+		zap.Uint64("evaluation_id", snapshot.Evaluation.ID))
 	s.logEvaluationFinished(applicationID, snapshot, started, "succeeded", nil)
 	return snapshot, nil
 }

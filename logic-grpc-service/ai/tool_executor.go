@@ -12,10 +12,12 @@ import (
 	"time"
 
 	"github.com/cloudwego/eino/schema"
+	"go.uber.org/zap"
 
 	"logic-grpc-service/model"
 	"logic-grpc-service/oss"
 	"logic-grpc-service/pkg/authz"
+	"logic-grpc-service/pkg/logger"
 	"logic-grpc-service/repository"
 	"logic-grpc-service/resumeparser"
 )
@@ -238,6 +240,34 @@ func (e *ToolExecutor) hasJobAccess(ctx context.Context, hrID int64, jobID int64
 
 // Execute runs the named tool with the given JSON-decoded arguments for the specified HR.
 func (e *ToolExecutor) Execute(ctx context.Context, hrID int64, toolName string, args map[string]any) (ToolResult, error) {
+	started := time.Now()
+	result, err := e.executeInner(ctx, hrID, toolName, args)
+	durationMs := time.Since(started).Milliseconds()
+	status := "succeeded"
+	if err != nil {
+		status = "failed"
+	}
+	logger.L().Info("[logic][tool_executor] tool execution finished",
+		zap.String("tool_name", toolName),
+		zap.Int64("hr_id", hrID),
+		zap.String("status", status),
+		zap.Int64("duration_ms", durationMs),
+		zap.Int("result_length", len(result.Content)),
+	)
+	if err != nil {
+		logger.L().Warn("[logic][tool_executor] tool execution failed",
+			zap.String("tool_name", toolName),
+			zap.Int64("hr_id", hrID),
+			zap.Int64("duration_ms", durationMs),
+			zap.Error(err))
+	}
+	return result, err
+}
+
+func (e *ToolExecutor) executeInner(ctx context.Context, hrID int64, toolName string, args map[string]any) (ToolResult, error) {
+	logger.L().Info("[logic][tool_executor] tool execution started",
+		zap.String("tool_name", toolName),
+		zap.Int64("hr_id", hrID))
 	switch toolName {
 	case "query_total_applications":
 		return e.queryTotal(ctx, hrID)
