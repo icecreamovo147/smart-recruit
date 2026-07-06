@@ -9,8 +9,23 @@ import type {
   SemanticSkillDebugItem,
 } from '@/types/agentSkill'
 
+const AGENT_TYPE_OPTIONS = [
+  { value: 'hr_recruiting_agent', label: 'HR 招聘助手' },
+  { value: 'candidate_assistant', label: '候选人 AI 助手' },
+  { value: 'custom', label: '自定义 Agent' },
+]
+
+const QUERY_EXAMPLES = [
+  '候选人有 5 年 Vue 和 TypeScript 经验，最近负责招聘系统前端架构。请判断他和高级前端工程师岗位是否匹配。',
+  '帮我生成这位候选人的面试关注点，重点验证项目复杂度、协作能力和岗位匹配风险。',
+  '分析当前岗位的投递情况，找出可能影响招聘转化的原因，并给出下一步建议。',
+]
+
 const loading = ref(false)
 const result = ref<SemanticRetrievalDebugResult | null>(null)
+const requestDurationMs = ref<number | null>(null)
+const expandedSkillIds = ref<number[]>([])
+const expandedMemoryIds = ref<number[]>([])
 
 const form = reactive({
   query: '',
@@ -22,8 +37,60 @@ const form = reactive({
 
 const skillRows = computed<SemanticSkillDebugItem[]>(() => result.value?.skills || [])
 const memoryRows = computed<SemanticMemoryDebugItem[]>(() => result.value?.memories || [])
+const hasResult = computed(() => Boolean(result.value))
+const selectedAgentLabel = computed(() => AGENT_TYPE_OPTIONS.find((item) => item.value === form.agent_type)?.label || form.agent_type)
+const runStatusText = computed(() => {
+  if (loading.value) return '运行中'
+  if (result.value) return '已完成'
+  return '未运行'
+})
+const embeddingStatusText = computed(() => {
+  if (!result.value) return '待检测'
+  return result.value.embedding_available ? 'Embedding 可用' : '规则回退'
+})
+const embeddingStatusType = computed(() => {
+  if (!result.value) return 'info'
+  return result.value.embedding_available ? 'success' : 'warning'
+})
+
+const fallbackMessage = computed(() => {
+  const reason = result.value?.fallback_reason?.trim()
+  if (!reason) return ''
+  if (reason.includes('embedding provider unavailable') || reason.includes('embedding retrieval unavailable')) {
+    return '当前未启用向量 Embedding Provider，已自动降级为规则匹配与上下文排序。Skill / Memory 结果仍可用于调试，但分数不是向量相似度。'
+  }
+  return reason
+})
+const highestScore = computed(() => {
+  const scores = [...skillRows.value, ...memoryRows.value]
+    .map((item) => item.score)
+    .filter((score): score is number => typeof score === 'number')
+  if (!scores.length) return undefined
+  return Math.max(...scores)
+})
 
 const formatScore = (value?: number) => (typeof value === 'number' ? value.toFixed(2) : '-')
+const formatDuration = (value: number | null) => (typeof value === 'number' ? `${value}ms` : '-')
+const skillTitle = (item: SemanticSkillDebugItem) => item.display_name || item.name || `Skill #${item.id}`
+const memoryScopeText = (item: SemanticMemoryDebugItem) => `${item.scope_type || '-'} #${item.scope_id || '-'}`
+const isSkillExpanded = (id: number) => expandedSkillIds.value.includes(id)
+const isMemoryExpanded = (id: number) => expandedMemoryIds.value.includes(id)
+
+const toggleId = (values: number[], id: number) => (
+  values.includes(id) ? values.filter((item) => item !== id) : [...values, id]
+)
+
+const toggleSkill = (id: number) => {
+  expandedSkillIds.value = toggleId(expandedSkillIds.value, id)
+}
+
+const toggleMemory = (id: number) => {
+  expandedMemoryIds.value = toggleId(expandedMemoryIds.value, id)
+}
+
+const applyExample = (example: string) => {
+  form.query = example
+}
 
 const runDebug = async () => {
   const query = form.query.trim()
@@ -32,6 +99,7 @@ const runDebug = async () => {
     return
   }
   loading.value = true
+  const startedAt = performance.now()
   try {
     result.value = await debugSemanticRetrieval({
       query,
@@ -40,8 +108,12 @@ const runDebug = async () => {
       application_id: form.application_id,
       limit: form.limit,
     })
+    requestDurationMs.value = Math.round(performance.now() - startedAt)
+    expandedSkillIds.value = []
+    expandedMemoryIds.value = []
   } catch (error) {
     console.error(error)
+    requestDurationMs.value = Math.round(performance.now() - startedAt)
     ElMessage.error('语义召回调试失败')
   } finally {
     loading.value = false
@@ -55,274 +127,643 @@ const reset = () => {
   form.application_id = undefined
   form.limit = 5
   result.value = null
+  requestDurationMs.value = null
+  expandedSkillIds.value = []
+  expandedMemoryIds.value = []
 }
 </script>
 
 <template>
   <div class="semantic-debug-view">
-    <div class="workspace-surface">
-      <div class="workspace-surface__header">
-        <div class="workspace-surface__header-copy">
-          <p class="page-kicker">Semantic Retrieval</p>
-          <h2 class="page-title">语义召回调试</h2>
-          <p class="page-desc">检查指定查询下 Agent Skill 与 AI Memory 的召回排序、分数和降级状态。</p>
+    <main class="debug-workbench" v-loading="loading">
+      <header class="workbench-header">
+        <div class="workbench-header__copy">
+          <p class="page-kicker">SEMANTIC RETRIEVAL</p>
+          <h1 class="page-title">语义召回调试</h1>
+          <p class="page-desc">用真实业务问题验证 Agent Skill 与 AI Memory 的召回效果</p>
         </div>
-        <div class="workspace-surface__header-actions">
+        <div class="workbench-header__actions">
           <el-button :icon="Refresh" @click="reset">重置</el-button>
-          <el-button type="primary" :icon="Search" :loading="loading" @click="runDebug">查询</el-button>
+          <el-button type="primary" :icon="Search" :loading="loading" @click="runDebug">运行测试</el-button>
         </div>
-      </div>
+      </header>
 
-      <div class="workspace-surface__divider"></div>
-
-      <div class="workspace-surface__toolbar">
-        <div class="workspace-surface__filters">
+      <section class="config-shell" aria-label="测试配置区">
+        <div class="query-editor">
+          <div class="section-title-row">
+            <div>
+              <h2>测试 Query</h2>
+              <p>输入一次真实 HR 问题，系统将按当前参数执行 Skill 与 Memory 召回。</p>
+            </div>
+            <span>Ctrl + Enter 运行</span>
+          </div>
           <el-input
             v-model="form.query"
-            class="query-input"
+            class="query-textarea"
             type="textarea"
-            :rows="2"
-            maxlength="500"
+            :rows="5"
+            maxlength="800"
             show-word-limit
-            placeholder="输入招聘场景查询"
+            resize="none"
+            placeholder="例如：这位候选人与高级前端工程师岗位是否匹配？请说明证据、风险和面试关注点。"
+            @keyup.ctrl.enter="runDebug"
           />
-          <el-input v-model="form.agent_type" class="filter-input" placeholder="Agent 类型" />
-          <el-input-number v-model="form.job_id" class="number-input" :min="0" :controls="false" placeholder="Job ID" />
-          <el-input-number
-            v-model="form.application_id"
-            class="number-input"
-            :min="0"
-            :controls="false"
-            placeholder="Application ID"
-          />
-          <el-input-number v-model="form.limit" class="limit-input" :min="1" :max="20" :controls="false" />
+          <div class="preset-block">
+            <div class="preset-block__label">快捷 Query</div>
+            <div class="preset-chip-row">
+              <button
+                v-for="example in QUERY_EXAMPLES"
+                :key="example"
+                type="button"
+                class="preset-chip"
+                @click="applyExample(example)"
+              >
+                {{ example }}
+              </button>
+            </div>
+          </div>
         </div>
-      </div>
 
-      <div v-if="result" class="debug-status">
-        <el-tag :type="result.embedding_available ? 'success' : 'warning'" effect="plain">
-          {{ result.embedding_available ? 'Embedding 可用' : 'Fallback' }}
-        </el-tag>
-        <span v-if="result.fallback_reason" class="debug-status__reason">{{ result.fallback_reason }}</span>
-      </div>
-
-      <div class="result-grid">
-        <section class="result-panel">
-          <div class="result-panel__header">
-            <h3>Agent Skills</h3>
-            <span>{{ skillRows.length }} 条</span>
+        <aside class="params-panel" aria-label="召回参数">
+          <div class="section-title-row section-title-row--compact">
+            <div>
+              <h2>召回参数</h2>
+              <p>{{ selectedAgentLabel }}</p>
+            </div>
           </div>
-          <el-table v-loading="loading" :data="skillRows" stripe :empty-text="result ? '暂无 Skill 召回' : '输入查询后查看结果'">
-            <el-table-column label="Skill" min-width="220">
-              <template #default="{ row }: { row: SemanticSkillDebugItem }">
-                <div class="entity-cell">
-                  <div class="entity-title">{{ row.display_name || row.name }}</div>
-                  <div class="entity-sub">{{ row.name }}</div>
-                  <div v-if="row.semantic_tags?.length" class="tag-row">
-                    <el-tag v-for="tag in row.semantic_tags" :key="tag" size="small" effect="plain">{{ tag }}</el-tag>
-                  </div>
-                </div>
-              </template>
-            </el-table-column>
-            <el-table-column label="分数" width="96">
-              <template #default="{ row }: { row: SemanticSkillDebugItem }">{{ formatScore(row.score) }}</template>
-            </el-table-column>
-            <el-table-column label="原因" min-width="180" prop="reason" show-overflow-tooltip />
-            <el-table-column label="分类" width="140" prop="category" show-overflow-tooltip />
-          </el-table>
-        </section>
-
-        <section class="result-panel">
-          <div class="result-panel__header">
-            <h3>AI Memories</h3>
-            <span>{{ memoryRows.length }} 条</span>
+          <label class="field-group">
+            <span>助手</span>
+            <el-select v-model="form.agent_type" placeholder="Agent 类型" filterable>
+              <el-option v-for="item in AGENT_TYPE_OPTIONS" :key="item.value" :label="item.label" :value="item.value" />
+            </el-select>
+          </label>
+          <div class="param-grid">
+            <label class="field-group">
+              <span>岗位 ID</span>
+              <el-input-number v-model="form.job_id" :min="0" :controls="false" placeholder="可选" />
+            </label>
+            <label class="field-group">
+              <span>投递 ID</span>
+              <el-input-number v-model="form.application_id" :min="0" :controls="false" placeholder="可选" />
+            </label>
+            <label class="field-group field-group--full">
+              <span>Top K</span>
+              <el-input-number v-model="form.limit" :min="1" :max="20" controls-position="right" />
+            </label>
           </div>
-          <el-table v-loading="loading" :data="memoryRows" stripe :empty-text="result ? '暂无 Memory 召回' : '输入查询后查看结果'">
-            <el-table-column label="Memory" min-width="260">
-              <template #default="{ row }: { row: SemanticMemoryDebugItem }">
-                <div class="entity-cell">
-                  <div class="entity-title">{{ row.content }}</div>
-                  <div class="entity-sub">{{ row.scope_type }} / {{ row.scope_id }} · {{ row.memory_type }}</div>
+          <div class="params-status-grid">
+            <div>
+              <span>运行状态</span>
+              <strong>{{ runStatusText }}</strong>
+            </div>
+            <div>
+              <span>Skill</span>
+              <strong>{{ skillRows.length }}</strong>
+            </div>
+            <div>
+              <span>Memory</span>
+              <strong>{{ memoryRows.length }}</strong>
+            </div>
+          </div>
+        </aside>
+      </section>
+
+      <section class="overview-strip" aria-label="召回结果概览">
+        <div class="overview-item">
+          <span>测试状态</span>
+          <strong>{{ runStatusText }}</strong>
+        </div>
+        <div class="overview-item">
+          <span>Skill 命中</span>
+          <strong>{{ skillRows.length }}</strong>
+        </div>
+        <div class="overview-item">
+          <span>Memory 命中</span>
+          <strong>{{ memoryRows.length }}</strong>
+        </div>
+        <div class="overview-item">
+          <span>最高匹配分数</span>
+          <strong>{{ formatScore(highestScore) }}</strong>
+        </div>
+        <div class="overview-item">
+          <span>请求耗时</span>
+          <strong>{{ formatDuration(requestDurationMs) }}</strong>
+        </div>
+        <div class="overview-item overview-item--status">
+          <span>召回模式</span>
+          <el-tag :type="embeddingStatusType" effect="plain">{{ embeddingStatusText }}</el-tag>
+        </div>
+      </section>
+
+      <el-alert
+        v-if="fallbackMessage"
+        type="warning"
+        show-icon
+        :closable="false"
+        :title="fallbackMessage"
+      />
+
+      <section class="result-compare" aria-label="召回结果对比">
+        <div class="result-panel">
+          <div class="result-panel__header">
+            <div>
+              <h2>Agent Skill 召回</h2>
+              <p>展示匹配到的数据库版 SKILL.md、分类、分数和触发原因。</p>
+            </div>
+            <el-tag size="small" type="info">{{ skillRows.length }} 条</el-tag>
+          </div>
+          <div v-if="skillRows.length" class="result-list">
+            <article v-for="item in skillRows" :key="item.id" class="result-card">
+              <div class="result-card__top">
+                <div>
+                  <h3>{{ skillTitle(item) }}</h3>
+                  <p>#{{ item.id }} · {{ item.name }}</p>
                 </div>
-              </template>
-            </el-table-column>
-            <el-table-column label="分数" width="96">
-              <template #default="{ row }: { row: SemanticMemoryDebugItem }">{{ formatScore(row.score) }}</template>
-            </el-table-column>
-            <el-table-column label="权重" width="120">
-              <template #default="{ row }: { row: SemanticMemoryDebugItem }">
-                {{ formatScore(row.importance) }} / {{ formatScore(row.confidence) }}
-              </template>
-            </el-table-column>
-            <el-table-column label="原因" min-width="190" prop="reason" show-overflow-tooltip />
-          </el-table>
-        </section>
-      </div>
-    </div>
+                <div class="score-pill">{{ formatScore(item.score) }}</div>
+              </div>
+              <div class="result-card__meta">
+                <span>{{ item.category || 'general' }}</span>
+                <span v-if="item.scenario">{{ item.scenario }}</span>
+                <span>P{{ item.priority ?? 0 }}</span>
+              </div>
+              <p class="result-card__summary">{{ item.reason || 'metadata and content match' }}</p>
+              <div v-if="item.semantic_tags?.length" class="tag-row">
+                <el-tag v-for="tag in item.semantic_tags" :key="tag" size="small" effect="plain">{{ tag }}</el-tag>
+              </div>
+              <button type="button" class="detail-toggle" @click="toggleSkill(item.id)">
+                {{ isSkillExpanded(item.id) ? '收起详情' : '查看详情' }}
+              </button>
+              <div v-if="isSkillExpanded(item.id)" class="detail-block">
+                <div><span>Skill ID</span><strong>{{ item.id }}</strong></div>
+                <div><span>匹配分数</span><strong>{{ formatScore(item.score) }}</strong></div>
+                <div><span>召回原因</span><strong>{{ item.reason || '-' }}</strong></div>
+              </div>
+            </article>
+          </div>
+          <div v-else class="empty-state">
+            <h3>{{ hasResult ? '未命中 Agent Skill' : '等待运行测试' }}</h3>
+            <p>{{ hasResult ? '本次查询没有匹配到可用 Skill。可以检查 Skill 是否启用、语义标签是否覆盖该场景，或调整 Query 表达。' : '运行后这里会展示命中的 Agent Skill、匹配分数、分类、触发原因和语义标签。' }}</p>
+          </div>
+        </div>
+
+        <div class="result-panel">
+          <div class="result-panel__header">
+            <div>
+              <h2>AI Memory 召回</h2>
+              <p>展示按 HR、岗位、投递等 scope 召回的长期记忆和排序依据。</p>
+            </div>
+            <el-tag size="small" type="info">{{ memoryRows.length }} 条</el-tag>
+          </div>
+          <div v-if="memoryRows.length" class="result-list">
+            <article v-for="item in memoryRows" :key="item.id" class="result-card">
+              <div class="result-card__top">
+                <div>
+                  <h3>{{ memoryScopeText(item) }}</h3>
+                  <p>{{ item.memory_type || '-' }} · {{ item.source || '-' }}</p>
+                </div>
+                <div class="score-pill">{{ formatScore(item.score) }}</div>
+              </div>
+              <div class="result-card__meta">
+                <span>重要度 {{ formatScore(item.importance) }}</span>
+                <span>置信度 {{ formatScore(item.confidence) }}</span>
+                <span v-if="item.created_at">{{ item.created_at }}</span>
+              </div>
+              <p class="result-card__summary">{{ item.content }}</p>
+              <button type="button" class="detail-toggle" @click="toggleMemory(item.id)">
+                {{ isMemoryExpanded(item.id) ? '收起详情' : '查看详情' }}
+              </button>
+              <div v-if="isMemoryExpanded(item.id)" class="detail-block">
+                <div><span>Memory ID</span><strong>{{ item.id }}</strong></div>
+                <div><span>Scope</span><strong>{{ item.scope_type }} #{{ item.scope_id }}</strong></div>
+                <div><span>召回原因</span><strong>{{ item.reason || '-' }}</strong></div>
+              </div>
+            </article>
+          </div>
+          <div v-else class="empty-state">
+            <h3>{{ hasResult ? '未命中 AI Memory' : '等待运行测试' }}</h3>
+            <p>{{ hasResult ? '本次查询没有召回长期记忆。可以补充岗位 ID 或投递 ID，确认对应 scope 下是否存在可召回内容。' : '运行后这里会展示命中的 Memory、scope、来源、匹配分数、重要度和召回原因。' }}</p>
+          </div>
+        </div>
+      </section>
+    </main>
   </div>
 </template>
 
 <style scoped>
 .semantic-debug-view {
   height: 100%;
+  min-height: 0;
+  overflow: auto;
+  background: var(--el-bg-color-page);
 }
 
-.workspace-surface {
-  display: flex;
-  flex-direction: column;
-  gap: 18px;
-  min-height: 100%;
-  padding: 22px 24px;
+.debug-workbench {
+  display: grid;
+  gap: 16px;
+  width: min(100%, 1500px);
+  margin: 0 auto;
+  padding: 16px 24px 24px;
 }
 
-.workspace-surface__header {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 20px;
-  padding: 22px 24px;
-  border: 1px solid var(--el-border-color-light);
-  border-radius: 8px;
-  background: var(--admin-console-header-bg);
+.workbench-header,
+.config-shell,
+.overview-strip,
+.result-compare {
+  display: grid;
 }
 
-.workspace-surface__header-actions,
-.workspace-surface__filters,
-.debug-status,
-.tag-row {
-  display: flex;
+.workbench-header {
+  grid-template-columns: minmax(0, 1fr) auto;
   align-items: center;
-  gap: 10px;
+  gap: 16px;
+  padding: 12px 0;
+  border-bottom: 1px solid var(--el-border-color-lighter);
 }
 
-.workspace-surface__divider {
-  height: 1px;
-  background: var(--el-border-color-lighter);
-}
-
-.workspace-surface__toolbar {
+.workbench-header__actions,
+.preset-chip-row,
+.result-card__top,
+.result-card__meta,
+.tag-row,
+.detail-block {
   display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 14px;
 }
 
-.workspace-surface__filters {
-  flex: 1;
-  flex-wrap: wrap;
+.workbench-header__actions {
+  gap: 8px;
+}
+
+.page-kicker {
+  margin: 0 0 4px;
+  color: var(--el-color-primary);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0;
 }
 
 .page-title {
   margin: 0;
-  font-size: 24px;
+  color: var(--el-text-color-primary);
+  font-size: 22px;
   font-weight: 700;
-  line-height: 1.25;
-}
-
-.page-kicker {
-  margin: 0 0 6px;
-  font-size: 12px;
-  font-weight: 700;
-  color: var(--el-color-primary);
-  text-transform: uppercase;
-  letter-spacing: 0;
+  line-height: 1.2;
 }
 
 .page-desc {
-  margin: 6px 0 0;
+  margin: 4px 0 0;
   color: var(--el-text-color-secondary);
+  font-size: 13px;
+}
+
+.config-shell {
+  grid-template-columns: minmax(0, 1fr) clamp(320px, 24vw, 360px);
+  gap: 16px;
+  align-items: start;
+}
+
+.query-editor,
+.params-panel,
+.result-panel {
+  display: grid;
+  align-content: start;
+  gap: 12px;
+  min-width: 0;
+  padding: 16px;
+  border: 1px solid var(--el-border-color-lighter);
+  border-radius: 8px;
+  background: var(--el-bg-color);
+}
+
+.section-title-row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.section-title-row h2,
+.result-panel__header h2 {
+  margin: 0;
+  color: var(--el-text-color-primary);
+  font-size: 15px;
+  font-weight: 700;
+}
+
+.section-title-row p,
+.result-panel__header p {
+  margin: 4px 0 0;
+  color: var(--el-text-color-secondary);
+  font-size: 12px;
   line-height: 1.5;
 }
 
-.query-input {
-  width: min(520px, 100%);
-}
-
-.filter-input {
-  width: 210px;
-}
-
-.number-input {
-  width: 140px;
-}
-
-.limit-input {
-  width: 90px;
-}
-
-.debug-status {
-  min-height: 32px;
-}
-
-.debug-status__reason,
-.entity-sub {
+.section-title-row > span {
+  flex: 0 0 auto;
   color: var(--el-text-color-secondary);
+  font-size: 12px;
 }
 
-.result-grid {
+.section-title-row--compact {
+  align-items: center;
+}
+
+.query-textarea :deep(.el-textarea__inner) {
+  min-height: 136px !important;
+  max-height: 160px;
+  line-height: 1.55;
+}
+
+.preset-block {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-  gap: 16px;
+  gap: 8px;
 }
 
-.result-panel {
+.preset-block__label,
+.field-group > span,
+.overview-item > span {
+  color: var(--el-text-color-secondary);
+  font-size: 12px;
+}
+
+.preset-chip-row {
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.preset-chip {
+  max-width: 100%;
+  padding: 6px 10px;
+  border: 1px solid var(--el-border-color);
+  border-radius: 999px;
+  background: var(--el-fill-color-blank);
+  color: var(--el-text-color-regular);
+  cursor: pointer;
+  font-size: 12px;
+  line-height: 1.4;
+  text-align: left;
+}
+
+.preset-chip:hover {
+  border-color: var(--el-color-primary-light-5);
+  color: var(--el-color-primary);
+}
+
+.field-group {
+  display: grid;
+  gap: 6px;
+}
+
+.field-group .el-select,
+.field-group .el-input-number {
+  width: 100%;
+}
+
+.param-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.field-group--full {
+  grid-column: 1 / -1;
+}
+
+.params-status-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+  padding-top: 4px;
+}
+
+.params-status-grid > div {
+  display: grid;
+  gap: 3px;
+  padding: 8px;
+  border: 1px solid var(--el-border-color-lighter);
+  border-radius: 8px;
+  background: var(--el-fill-color-lighter);
+}
+
+.params-status-grid span {
+  color: var(--el-text-color-secondary);
+  font-size: 12px;
+}
+
+.params-status-grid strong {
+  color: var(--el-text-color-primary);
+  font-size: 14px;
+}
+
+.overview-strip {
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 1px;
+  overflow: hidden;
+  border: 1px solid var(--el-border-color-lighter);
+  border-radius: 8px;
+  background: var(--el-border-color-lighter);
+}
+
+.overview-item {
+  display: grid;
+  gap: 4px;
   min-width: 0;
+  padding: 12px;
+  background: var(--el-bg-color);
+}
+
+.overview-item strong {
+  overflow: hidden;
+  color: var(--el-text-color-primary);
+  font-size: 16px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.overview-item--status strong {
+  font-size: 14px;
+}
+
+.result-compare {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+  align-items: start;
 }
 
 .result-panel__header {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: space-between;
-  margin-bottom: 10px;
+  gap: 12px;
 }
 
-.result-panel__header h3 {
+.result-list {
+  display: grid;
+  gap: 12px;
+  max-height: 560px;
+  overflow: auto;
+  padding-right: 2px;
+}
+
+.result-card {
+  display: grid;
+  gap: 10px;
+  padding: 12px;
+  border: 1px solid var(--el-border-color-lighter);
+  border-radius: 8px;
+  background: var(--el-fill-color-blank);
+}
+
+.result-card__top {
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.result-card__top h3 {
   margin: 0;
-  font-size: 16px;
-}
-
-.result-panel__header span {
-  color: var(--el-text-color-secondary);
-}
-
-.entity-cell {
-  min-width: 0;
-}
-
-.entity-title {
-  font-weight: 600;
+  color: var(--el-text-color-primary);
+  font-size: 14px;
+  font-weight: 700;
   line-height: 1.4;
-  word-break: break-word;
 }
 
-.entity-sub {
-  margin-top: 2px;
+.result-card__top p {
+  margin: 3px 0 0;
+  color: var(--el-text-color-secondary);
   font-size: 12px;
 }
 
-.tag-row {
-  flex-wrap: wrap;
-  margin-top: 6px;
+.score-pill {
+  flex: 0 0 auto;
+  padding: 3px 8px;
+  border-radius: 999px;
+  background: var(--el-color-primary-light-9);
+  color: var(--el-color-primary);
+  font-family: var(--font-mono, monospace);
+  font-size: 12px;
+  font-weight: 700;
 }
 
-@media (max-width: 1100px) {
-  .result-grid {
+.result-card__meta,
+.tag-row,
+.detail-block {
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.result-card__meta span {
+  padding: 2px 7px;
+  border-radius: 999px;
+  background: var(--el-fill-color-light);
+  color: var(--el-text-color-secondary);
+  font-size: 12px;
+}
+
+.result-card__summary {
+  display: -webkit-box;
+  margin: 0;
+  overflow: hidden;
+  color: var(--el-text-color-regular);
+  font-size: 12px;
+  line-height: 1.6;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+}
+
+.detail-toggle {
+  justify-self: start;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--el-color-primary);
+  cursor: pointer;
+  font-size: 12px;
+}
+
+.detail-block {
+  padding: 10px;
+  border-radius: 8px;
+  background: var(--el-fill-color-lighter);
+}
+
+.detail-block div {
+  display: grid;
+  gap: 2px;
+  min-width: 120px;
+}
+
+.detail-block span {
+  color: var(--el-text-color-secondary);
+  font-size: 12px;
+}
+
+.detail-block strong {
+  color: var(--el-text-color-primary);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.empty-state {
+  display: grid;
+  gap: 6px;
+  padding: 24px;
+  border: 1px dashed var(--el-border-color);
+  border-radius: 8px;
+  background: var(--el-fill-color-blank);
+}
+
+.empty-state h3 {
+  margin: 0;
+  color: var(--el-text-color-primary);
+  font-size: 14px;
+}
+
+.empty-state p {
+  margin: 0;
+  color: var(--el-text-color-secondary);
+  font-size: 12px;
+  line-height: 1.6;
+}
+
+@media (max-width: 1366px) {
+  .debug-workbench {
+    width: 100%;
+    padding-inline: 16px;
+  }
+
+  .config-shell {
+    grid-template-columns: minmax(0, 1fr) 320px;
+  }
+}
+
+@media (max-width: 1080px) {
+  .config-shell,
+  .result-compare {
     grid-template-columns: 1fr;
+  }
+
+  .overview-strip {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 }
 
 @media (max-width: 720px) {
-  .workspace-surface {
-    padding: 16px;
+  .debug-workbench {
+    padding: 12px;
   }
 
-  .workspace-surface__header {
-    flex-direction: column;
+  .workbench-header {
+    grid-template-columns: 1fr;
   }
 
-  .workspace-surface__header-actions {
-    width: 100%;
+  .workbench-header__actions {
     justify-content: flex-end;
+  }
+
+  .param-grid,
+  .params-status-grid,
+  .overview-strip {
+    grid-template-columns: 1fr;
   }
 }
 </style>

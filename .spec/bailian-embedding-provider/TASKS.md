@@ -1,0 +1,608 @@
+# Bailian Embedding Provider 开发任务清单
+
+## 1. 功能摘要
+
+本功能要解决的问题：当前系统已有 `EmbeddingService`、`ai_embeddings` 表和语义召回调试页，但生产初始化仍使用 `UnavailableEmbeddingProvider`，导致 Agent Skill 与 AI Memory 无法使用真实向量召回，只能进入规则回退或 provider unavailable 状态。
+
+实现边界：本期接入阿里云百炼 MaaS 原生 HTTP Embedding API，默认模型为 `text-embedding-v4`；新增独立 `embedding_providers` / `embedding_models` 配置；通过 MQ consumer 异步写入 Agent Skill / AI Memory embedding；支持 backfill、测试连接和语义调试状态展示。管理端配置页面不在本期实现，但接口与文档保留后续扩展能力。
+
+主要模块：`logic-grpc-service` 的 config、model、repository、service、migration、cmd、MQ consumer；`web-gin-service` 的 HR handler/router/rpc；`hr-frontend` 的语义召回调试 API、类型与页面。
+
+可能修改的文件范围：`logic-grpc-service/migrations/**`、`logic-grpc-service/model/**`、`logic-grpc-service/repository/**`、`logic-grpc-service/service/**`、`logic-grpc-service/config/**`、`logic-grpc-service/proto/**`、`logic-grpc-service/recruitment/pb/**`、`logic-grpc-service/cmd/backfill-embeddings/**`、`web-gin-service/handler/hr/**`、`web-gin-service/router/**`、`web-gin-service/rpc/**`、`hr-frontend/src/api/**`、`hr-frontend/src/types/**`、`hr-frontend/src/views/hr/admin/SemanticRetrievalDebugView.vue`。
+
+不能随意修改的公共模块：根依赖文件、各前端 `package.json`、`pnpm-lock.yaml`、全局部署配置、现有 LLM Provider/Model 配置、公共 proto/API、`config.Config`、`service.Services` 初始化、MQ 基础设施、`ai_embeddings` 核心检索语义。涉及公共模块的 TASK 已标记“需要人工确认”。
+
+当前仍存在的待确认问题：方案已确认采用 Service 层发布 MQ 事件；实现前仍需定位 AI Memory 当前真实创建/更新 Service 函数，确保所有 Memory 内容变更入口均接入事件发布。
+
+## 2. 执行原则
+
+- 每次只执行一个 TASK。
+- TASK 开始前必须阅读 SPEC、SDD、TASKS、AGENT_RULES、task-scope.json 和对应 acceptance 文件。
+- 修改必须严格限制在当前 TASK 的允许范围内。
+- 标记“需要人工确认”的 TASK，开始编码前必须先向用户确认。
+- 每个 TASK 必须单独测试、单独 Review、单独输出完成报告。
+
+## 3. 任务列表
+
+### TASK-001：新增 Embedding 配置表数据库迁移
+
+- 任务目标：新增 embedding_providers 与 embedding_models 数据库表，并提供可回滚迁移。
+- 修改范围：数据库 schema 迁移，不实现业务读写逻辑。
+- 允许修改的文件或目录：
+  - `logic-grpc-service/migrations/*embedding*provider*.sql`
+  - `logic-grpc-service/migrations/*embedding*model*.sql`
+  - `logic-grpc-service/migrations/*embedding*.sql`
+- 禁止修改的文件或目录：
+  - `package.json`
+  - `pnpm-lock.yaml`
+  - `pnpm-workspace.yaml`
+  - `hr-frontend/package.json`
+  - `user-frontend/package.json`
+  - `interviewer-frontend/package.json`
+  - `**/node_modules/**`
+  - `**/dist/**`
+  - `**/.env*`
+  - `deploy/**`
+  - `docker/**`
+  - `hr-frontend/**`
+  - `web-gin-service/**`
+  - `logic-grpc-service/service/**`
+  - `logic-grpc-service/repository/**`
+  - `logic-grpc-service/model/**`
+- 实现要点：
+  - 按现有 migration 命名序号新增 SQL。
+  - 创建 embedding_providers 与 embedding_models，字段与 SDD 数据结构一致。
+  - API Key 只保存加密字段，不创建明文字段。
+  - 默认模型唯一性需要通过唯一索引或事务逻辑设计支撑。
+  - 提供 down/rollback 语义；若项目迁移规范不支持 down，需要在文件注释中说明回滚 SQL。
+- 验收标准：
+  - 迁移 SQL 可在空库执行成功。
+  - 表、索引、默认值、时间字段符合 SPEC/SDD。
+  - 回滚 SQL 或回滚说明清晰可执行。
+  - 不修改已有 ai_embeddings 表的核心语义。
+- 自测命令：
+  - `cd logic-grpc-service && go test ./...`
+- 风险点：
+  - 迁移序号冲突。
+  - 默认模型唯一约束设计不当导致多默认模型。
+  - 误改已有 ai_embeddings 表影响现有召回。
+
+### TASK-002：新增 Embedding Provider/Model 的 Model 与 Repository
+
+- 任务目标：为 embedding_providers 与 embedding_models 增加 Go model 与 repository CRUD/query 能力。
+- 修改范围：logic-grpc-service 持久化层。
+- 允许修改的文件或目录：
+  - `logic-grpc-service/model/model.go`
+  - `logic-grpc-service/model/embedding_config.go`
+  - `logic-grpc-service/repository/embedding_provider_repo.go`
+  - `logic-grpc-service/repository/embedding_model_repo.go`
+  - `logic-grpc-service/repository/*embedding*_test.go`
+- 禁止修改的文件或目录：
+  - `package.json`
+  - `pnpm-lock.yaml`
+  - `pnpm-workspace.yaml`
+  - `hr-frontend/package.json`
+  - `user-frontend/package.json`
+  - `interviewer-frontend/package.json`
+  - `**/node_modules/**`
+  - `**/dist/**`
+  - `**/.env*`
+  - `deploy/**`
+  - `docker/**`
+  - `hr-frontend/**`
+  - `web-gin-service/**`
+  - `logic-grpc-service/service/services.go`
+  - `logic-grpc-service/proto/**`
+  - `logic-grpc-service/recruitment/pb/**`
+- 实现要点：
+  - 按现有 repository 风格实现 CRUD、List、GetDefaultModel、SetDefaultModel 所需基础方法。
+  - Repository 不处理 API Key 解密和业务事件发布。
+  - 错误返回应保留 cause，便于上层脱敏处理。
+  - 补充 table-driven repository 单测；如当前仓库缺少 DB test harness，需要说明未覆盖原因。
+- 验收标准：
+  - 新增 model 字段与 SDD 一致。
+  - Repository 支持读取启用 provider/model 和默认模型。
+  - SetDefault 相关能力具备事务或明确由 service 事务包裹。
+  - go test 通过。
+- 自测命令：
+  - `cd logic-grpc-service && go test ./...`
+- 风险点：
+  - Repository 侵入业务语义。
+  - 事务边界与 service 设计冲突。
+
+### TASK-003：新增 Embedding Config 配置段（需要人工确认）
+
+- 任务目标：在 logic-grpc-service 配置中增加 Embedding 配置段和默认值。
+- 修改范围：服务配置结构与配置样例。
+- 允许修改的文件或目录：
+  - `logic-grpc-service/config/config.go`
+  - `logic-grpc-service/config/*.go`
+  - `logic-grpc-service/config*.yaml`
+  - `logic-grpc-service/config/**/*.yaml`
+  - `logic-grpc-service/**/*.example.yaml`
+  - `logic-grpc-service/**/*config*.yaml`
+- 禁止修改的文件或目录：
+  - `package.json`
+  - `pnpm-lock.yaml`
+  - `pnpm-workspace.yaml`
+  - `hr-frontend/package.json`
+  - `user-frontend/package.json`
+  - `interviewer-frontend/package.json`
+  - `**/node_modules/**`
+  - `**/dist/**`
+  - `**/.env*`
+  - `deploy/**`
+  - `docker/**`
+  - `hr-frontend/**`
+  - `web-gin-service/**`
+  - `logic-grpc-service/service/**`
+  - `logic-grpc-service/repository/**`
+  - `logic-grpc-service/model/**`
+- 实现要点：
+  - 新增 enabled、default_model_id、fallback_to_rule_retrieval、request_timeout、max_concurrency、slow_request_threshold。
+  - 默认值符合 SPEC：enabled=true、fallback=true、timeout=30s、max_concurrency=8、slow=2s。
+  - 无配置时服务应可启动并走降级。
+  - 不得引入必填环境变量导致现有启动失败。
+- 验收标准：
+  - 无 embedding 配置时配置解析成功。
+  - 配置字段可被 services 初始化读取。
+  - go test 通过。
+- 自测命令：
+  - `cd logic-grpc-service && go test ./...`
+- 风险点：
+  - 公共 Config 结构影响服务启动，需人工确认。
+  - 错误默认值导致生产启动行为变化。
+- 标记：需要人工确认。
+
+### TASK-004：实现 Bailian Text Embedding Provider
+
+- 任务目标：实现阿里云百炼 MaaS 原生 HTTP text-embedding-v4 Provider。
+- 修改范围：Embedding Provider 实现，不接入服务初始化。
+- 允许修改的文件或目录：
+  - `logic-grpc-service/service/embedding_provider_bailian.go`
+  - `logic-grpc-service/service/embedding_provider_bailian_test.go`
+  - `logic-grpc-service/service/embedding_service.go`
+- 禁止修改的文件或目录：
+  - `package.json`
+  - `pnpm-lock.yaml`
+  - `pnpm-workspace.yaml`
+  - `hr-frontend/package.json`
+  - `user-frontend/package.json`
+  - `interviewer-frontend/package.json`
+  - `**/node_modules/**`
+  - `**/dist/**`
+  - `**/.env*`
+  - `deploy/**`
+  - `docker/**`
+  - `hr-frontend/**`
+  - `web-gin-service/**`
+  - `logic-grpc-service/service/services.go`
+  - `logic-grpc-service/proto/**`
+  - `logic-grpc-service/recruitment/pb/**`
+- 实现要点：
+  - 请求 endpoint 以配置为准，默认模型 text-embedding-v4。
+  - 请求体使用 {model,input:{texts:[...]}}。
+  - Header 使用 Authorization: Bearer <api_key> 与 Content-Type application/json。
+  - 支持超时、429/5xx/timeout 重试，401/403 不重试。
+  - 兼容解析 output.embeddings 与 data，但不得假造成功。
+  - 日志不得输出 API Key 或完整文本。
+- 验收标准：
+  - fake HTTP server 单测覆盖成功请求体和 header。
+  - 401/403 不重试。
+  - 429/5xx/timeout 按策略重试。
+  - 空 vector、维度异常返回错误。
+- 自测命令：
+  - `cd logic-grpc-service && go test ./...`
+- 风险点：
+  - 百炼真实响应结构与假设不一致。
+  - 错误日志泄漏敏感文本。
+
+### TASK-005：实现 Embedding Provider Factory
+
+- 任务目标：根据默认 embedding model 和 provider 配置构造真实 Provider 或降级 Provider。
+- 修改范围：Provider factory 和配置读取，不替换 services.go 初始化。
+- 允许修改的文件或目录：
+  - `logic-grpc-service/service/embedding_provider_factory.go`
+  - `logic-grpc-service/service/embedding_provider_factory_test.go`
+  - `logic-grpc-service/service/embedding_config_service.go`
+  - `logic-grpc-service/service/embedding_config_service_test.go`
+- 禁止修改的文件或目录：
+  - `package.json`
+  - `pnpm-lock.yaml`
+  - `pnpm-workspace.yaml`
+  - `hr-frontend/package.json`
+  - `user-frontend/package.json`
+  - `interviewer-frontend/package.json`
+  - `**/node_modules/**`
+  - `**/dist/**`
+  - `**/.env*`
+  - `deploy/**`
+  - `docker/**`
+  - `hr-frontend/**`
+  - `web-gin-service/**`
+  - `logic-grpc-service/service/services.go`
+  - `logic-grpc-service/proto/**`
+  - `logic-grpc-service/recruitment/pb/**`
+- 实现要点：
+  - 读取默认模型与关联 provider。
+  - 解密 API Key，失败时降级并记录 warn。
+  - provider/model disabled、缺失、类型不支持时返回 UnavailableEmbeddingProvider。
+  - Factory 保持可扩展 provider_type。
+- 验收标准：
+  - 配置缺失返回 unavailable。
+  - 配置正确返回 Bailian provider。
+  - 解密失败不 panic，不泄漏密钥。
+  - go test 通过。
+- 自测命令：
+  - `cd logic-grpc-service && go test ./...`
+- 风险点：
+  - 密钥解密依赖现有安全模块，需遵循现有模式。
+  - Factory 与未来 provider 扩展耦合过重。
+
+### TASK-006：接入 Services 初始化流程（需要人工确认）
+
+- 任务目标：将 services.go 中硬编码的 UnavailableEmbeddingProvider 替换为 Factory 构建结果。
+- 修改范围：logic-grpc-service 全局服务初始化。
+- 允许修改的文件或目录：
+  - `logic-grpc-service/service/services.go`
+  - `logic-grpc-service/service/services_test.go`
+  - `logic-grpc-service/service/embedding_provider_factory.go`
+- 禁止修改的文件或目录：
+  - `package.json`
+  - `pnpm-lock.yaml`
+  - `pnpm-workspace.yaml`
+  - `hr-frontend/package.json`
+  - `user-frontend/package.json`
+  - `interviewer-frontend/package.json`
+  - `**/node_modules/**`
+  - `**/dist/**`
+  - `**/.env*`
+  - `deploy/**`
+  - `docker/**`
+  - `hr-frontend/**`
+  - `web-gin-service/**`
+  - `logic-grpc-service/proto/**`
+  - `logic-grpc-service/recruitment/pb/**`
+  - `logic-grpc-service/repository/ai_embedding_repo.go`
+- 实现要点：
+  - 服务启动时根据 config/db 构造 provider。
+  - 失败时降级 UnavailableEmbeddingProvider，并输出脱敏 warn。
+  - 保持 EmbeddingService 对外调用方式不变。
+  - 不得影响其他 service 初始化顺序。
+- 验收标准：
+  - 无配置时服务仍可启动。
+  - 有默认模型时注入真实 provider。
+  - DebugSemanticRetrieval 可读取 provider 状态。
+  - go test 通过。
+- 自测命令：
+  - `cd logic-grpc-service && go test ./...`
+- 风险点：
+  - 公共 Services 初始化变更影响全部 gRPC 服务，需要人工确认。
+  - 初始化顺序错误导致 nil dependency。
+- 标记：需要人工确认。
+
+### TASK-007：新增 Embedding 配置与测试连接接口（需要人工确认）
+
+- 任务目标：提供后端管理接口用于 provider/model CRUD、默认模型设置、测试连接和回填触发入口。
+- 修改范围：proto、gRPC service、HTTP handler 和前端 API 类型；管理配置页面不实现。
+- 允许修改的文件或目录：
+  - `logic-grpc-service/proto/**`
+  - `logic-grpc-service/recruitment/pb/**`
+  - `logic-grpc-service/service/embedding_config_service.go`
+  - `logic-grpc-service/service/*embedding*_test.go`
+  - `logic-grpc-service/server/server.go`
+  - `web-gin-service/handler/hr/**`
+  - `web-gin-service/router/**`
+  - `web-gin-service/rpc/**`
+  - `hr-frontend/src/api/**`
+  - `hr-frontend/src/types/**`
+- 禁止修改的文件或目录：
+  - `package.json`
+  - `pnpm-lock.yaml`
+  - `pnpm-workspace.yaml`
+  - `hr-frontend/package.json`
+  - `user-frontend/package.json`
+  - `interviewer-frontend/package.json`
+  - `**/node_modules/**`
+  - `**/dist/**`
+  - `**/.env*`
+  - `deploy/**`
+  - `docker/**`
+  - `hr-frontend/src/views/**`
+  - `user-frontend/**`
+  - `interviewer-frontend/**`
+- 实现要点：
+  - 新增接口需具备管理员权限控制。
+  - TestEmbeddingModel 成功返回维度、耗时、request_id；失败返回脱敏错误。
+  - Create/Update 不返回 API Key 明文。
+  - 管理端页面本期不做，仅提供接口和类型。
+  - 生成 pb 代码时仅提交与 proto 对应的生成结果。
+- 验收标准：
+  - 接口请求/响应与 SDD 一致。
+  - 权限不足返回 403。
+  - 错误信息脱敏。
+  - go test 与 hr typecheck 通过。
+- 自测命令：
+  - `cd logic-grpc-service && go test ./...`
+  - `cd web-gin-service && go test ./...`
+  - `pnpm --filter hr-frontend typecheck`
+- 风险点：
+  - 公共 proto/API 变更需要人工确认。
+  - 生成代码可能产生大 diff。
+  - 权限模型需要复用现有管理员鉴权。
+- 标记：需要人工确认。
+
+### TASK-008：Agent Skill 写入链路发布 Embedding MQ 事件（需要人工确认）
+
+- 任务目标：Agent Skill 创建、更新、版本激活后在 Service 层发布 embedding.upsert 事件。
+- 修改范围：Agent Skill service 与 embedding event publisher。
+- 允许修改的文件或目录：
+  - `logic-grpc-service/service/agent_skill_service.go`
+  - `logic-grpc-service/service/embedding_event_publisher.go`
+  - `logic-grpc-service/service/embedding_text_builder.go`
+  - `logic-grpc-service/service/*agent_skill*_test.go`
+  - `logic-grpc-service/service/*embedding_event*_test.go`
+- 禁止修改的文件或目录：
+  - `package.json`
+  - `pnpm-lock.yaml`
+  - `pnpm-workspace.yaml`
+  - `hr-frontend/package.json`
+  - `user-frontend/package.json`
+  - `interviewer-frontend/package.json`
+  - `**/node_modules/**`
+  - `**/dist/**`
+  - `**/.env*`
+  - `deploy/**`
+  - `docker/**`
+  - `hr-frontend/**`
+  - `web-gin-service/**`
+  - `logic-grpc-service/repository/**`
+  - `logic-grpc-service/proto/**`
+  - `logic-grpc-service/recruitment/pb/**`
+- 实现要点：
+  - 只在主数据保存成功后发布事件。
+  - 事件 payload 包含 object_type=agent_skill、object_id、model_id 或默认模型标识、text_hash。
+  - 构建文本复用 embedding_text_builder。
+  - 发布失败不得回滚 Skill 保存，但必须记录可观测错误。
+  - 不得在 Repository 层发布事件。
+- 验收标准：
+  - 创建/更新/激活 Skill 后发布一次 upsert 事件。
+  - 无 Provider 或 MQ 失败时 Skill 保存不失败。
+  - 空文本或不可用 Skill 不发布无效事件。
+  - go test 通过。
+- 自测命令：
+  - `cd logic-grpc-service && go test ./...`
+- 风险点：
+  - Agent Skill 保存流程是核心业务，需人工确认。
+  - 重复事件导致重复写入或 API 浪费。
+- 标记：需要人工确认。
+
+### TASK-009：AI Memory 写入链路发布 Embedding MQ 事件（需要人工确认）
+
+- 任务目标：AI Memory 创建成功、内容更新成功后在 Service 层发布 embedding.upsert 事件。
+- 修改范围：AI Memory 创建/更新 Service，具体入口需实现前定位。
+- 允许修改的文件或目录：
+  - `logic-grpc-service/service/**memory*.go`
+  - `logic-grpc-service/service/**context*.go`
+  - `logic-grpc-service/service/embedding_event_publisher.go`
+  - `logic-grpc-service/service/embedding_text_builder.go`
+  - `logic-grpc-service/service/*memory*_test.go`
+  - `logic-grpc-service/service/*embedding_event*_test.go`
+- 禁止修改的文件或目录：
+  - `package.json`
+  - `pnpm-lock.yaml`
+  - `pnpm-workspace.yaml`
+  - `hr-frontend/package.json`
+  - `user-frontend/package.json`
+  - `interviewer-frontend/package.json`
+  - `**/node_modules/**`
+  - `**/dist/**`
+  - `**/.env*`
+  - `deploy/**`
+  - `docker/**`
+  - `hr-frontend/**`
+  - `web-gin-service/**`
+  - `logic-grpc-service/repository/**`
+  - `logic-grpc-service/proto/**`
+  - `logic-grpc-service/recruitment/pb/**`
+- 实现要点：
+  - 实现前必须先定位所有 Memory 创建/更新入口并在报告中列出。
+  - 只在内容字段变化后发布事件，非内容字段更新不重复触发。
+  - 事件 payload 包含 object_type=ai_memory、object_id、scope、memory_type、text_hash。
+  - 空内容跳过发布。
+  - 不得在 Repository 层隐式发布事件。
+- 验收标准：
+  - Memory 创建后发布 upsert 事件。
+  - Memory 内容更新后重新发布。
+  - 非内容更新不发布。
+  - 入口定位报告完整。
+- 自测命令：
+  - `cd logic-grpc-service && go test ./...`
+- 风险点：
+  - AI Memory 写入入口尚需定位，是当前唯一剩余待确认代码点。
+  - 漏接入口会导致部分 Memory 无 embedding，需要人工确认。
+- 标记：需要人工确认。
+
+### TASK-010：新增 Embedding MQ Consumer（需要人工确认）
+
+- 任务目标：新增消费 embedding.upsert 事件的 Consumer，调用 EmbeddingService.EmbedObject 写入 ai_embeddings。
+- 修改范围：MQ 消息类型、publisher/consumer、RabbitMQ 绑定配置和重试/死信策略。
+- 允许修改的文件或目录：
+  - `logic-grpc-service/service/embedding_event_publisher.go`
+  - `logic-grpc-service/service/embedding_event_consumer.go`
+  - `logic-grpc-service/service/embedding_event*.go`
+  - `logic-grpc-service/server/**`
+  - `logic-grpc-service/config/**`
+  - `logic-grpc-service/*rabbit*.go`
+  - `logic-grpc-service/**/*mq*.go`
+  - `logic-grpc-service/**/*rabbit*.go`
+  - `logic-grpc-service/service/*embedding_event*_test.go`
+- 禁止修改的文件或目录：
+  - `package.json`
+  - `pnpm-lock.yaml`
+  - `pnpm-workspace.yaml`
+  - `hr-frontend/package.json`
+  - `user-frontend/package.json`
+  - `interviewer-frontend/package.json`
+  - `**/node_modules/**`
+  - `**/dist/**`
+  - `**/.env*`
+  - `deploy/**`
+  - `docker/**`
+  - `hr-frontend/**`
+  - `web-gin-service/**`
+  - `logic-grpc-service/proto/**`
+  - `logic-grpc-service/recruitment/pb/**`
+- 实现要点：
+  - 定义 embedding.upsert 事件 schema 和版本号。
+  - Consumer 实现重试、限速、死信和幂等处理。
+  - 调用 EmbeddingService.EmbedObject，不重复实现向量写入。
+  - 日志只记录对象 id/hash/status，不记录完整文本。
+  - MQ 配置复用现有消息基础设施。
+- 验收标准：
+  - 发布事件后 consumer 生成 ready embedding。
+  - Provider 失败进入重试或死信。
+  - 重复事件不产生不一致数据。
+  - go test 通过。
+- 自测命令：
+  - `cd logic-grpc-service && go test ./...`
+- 风险点：
+  - MQ 基础设施属于公共模块，需要人工确认。
+  - 死信策略不当可能造成消息堆积。
+- 标记：需要人工确认。
+
+### TASK-011：新增 Embedding Backfill 命令
+
+- 任务目标：提供历史 Agent Skill 和 AI Memory 批量生成 embedding 的运维命令。
+- 修改范围：logic-grpc-service 命令行工具与复用服务能力。
+- 允许修改的文件或目录：
+  - `logic-grpc-service/cmd/backfill-embeddings/**`
+  - `logic-grpc-service/service/embedding_backfill_service.go`
+  - `logic-grpc-service/service/embedding_backfill_service_test.go`
+  - `logic-grpc-service/service/embedding_text_builder.go`
+- 禁止修改的文件或目录：
+  - `package.json`
+  - `pnpm-lock.yaml`
+  - `pnpm-workspace.yaml`
+  - `hr-frontend/package.json`
+  - `user-frontend/package.json`
+  - `interviewer-frontend/package.json`
+  - `**/node_modules/**`
+  - `**/dist/**`
+  - `**/.env*`
+  - `deploy/**`
+  - `docker/**`
+  - `hr-frontend/**`
+  - `web-gin-service/**`
+  - `logic-grpc-service/proto/**`
+  - `logic-grpc-service/recruitment/pb/**`
+- 实现要点：
+  - 支持 object_type、limit、batch_size、force、dry_run、model_id。
+  - 已有同 model + text_hash ready 记录默认跳过。
+  - 输出 success/failed/skipped 统计。
+  - 支持限速，避免触发 provider 限流。
+  - 中断后可继续执行。
+- 验收标准：
+  - dry-run 不写入数据且统计正确。
+  - force=false 跳过已有 ready。
+  - force=true 重新写入。
+  - go test 通过。
+- 自测命令：
+  - `cd logic-grpc-service && go test ./...`
+- 风险点：
+  - 批量调用触发百炼限流。
+  - 历史文本包含敏感信息，日志必须脱敏。
+
+### TASK-012：增强语义召回调试页 Provider 状态展示
+
+- 任务目标：在语义召回调试页面展示 provider/model、维度、候选数量、query embedding 耗时和降级原因。
+- 修改范围：HR 前端语义召回调试页、API 类型。
+- 允许修改的文件或目录：
+  - `hr-frontend/src/views/hr/admin/SemanticRetrievalDebugView.vue`
+  - `hr-frontend/src/api/agentSkill.ts`
+  - `hr-frontend/src/types/agentSkill.ts`
+  - `hr-frontend/src/views/hr/admin/__tests__/**`
+  - `hr-frontend/src/**/*.test.ts`
+- 禁止修改的文件或目录：
+  - `package.json`
+  - `pnpm-lock.yaml`
+  - `pnpm-workspace.yaml`
+  - `hr-frontend/package.json`
+  - `user-frontend/package.json`
+  - `interviewer-frontend/package.json`
+  - `**/node_modules/**`
+  - `**/dist/**`
+  - `**/.env*`
+  - `deploy/**`
+  - `docker/**`
+  - `logic-grpc-service/**`
+  - `web-gin-service/**`
+  - `user-frontend/**`
+  - `interviewer-frontend/**`
+  - `hr-frontend/src/router/**`
+  - `hr-frontend/src/stores/**`
+- 实现要点：
+  - 仅增强展示，不改变业务调用链。
+  - 新增字段保持 optional，兼容旧响应。
+  - provider unavailable 时显示规则回退说明。
+  - 空状态说明运行后会展示 Skill/Memory 命中、分数和摘要。
+  - 保持企业后台风格，不引入复杂动画。
+- 验收标准：
+  - 未运行状态展示占位。
+  - provider 可用展示 provider/model/维度/耗时。
+  - fallback 展示原因且页面不报错。
+  - typecheck 通过。
+- 自测命令：
+  - `pnpm --filter hr-frontend typecheck`
+  - `pnpm --filter hr-frontend test`
+  - `pnpm --filter hr-frontend build`
+- 风险点：
+  - 页面字段与后端 response 不一致。
+  - 布局回归影响 1366/1440/1920 宽度。
+
+### TASK-013：补充跨层测试与回归检查
+
+- 任务目标：补齐 Provider、Factory、Repository、Backfill、页面状态和降级路径测试。
+- 修改范围：测试文件和必要的测试 fixtures。
+- 允许修改的文件或目录：
+  - `logic-grpc-service/**/*_test.go`
+  - `web-gin-service/**/*_test.go`
+  - `hr-frontend/src/**/*.test.ts`
+  - `hr-frontend/src/**/__tests__/**`
+  - `.spec/bailian-embedding-provider/scripts/**`
+- 禁止修改的文件或目录：
+  - `package.json`
+  - `pnpm-lock.yaml`
+  - `pnpm-workspace.yaml`
+  - `hr-frontend/package.json`
+  - `user-frontend/package.json`
+  - `interviewer-frontend/package.json`
+  - `**/node_modules/**`
+  - `**/dist/**`
+  - `**/.env*`
+  - `deploy/**`
+  - `docker/**`
+  - `logic-grpc-service/**/*.go`
+  - `web-gin-service/**/*.go`
+  - `hr-frontend/src/**/*.vue`
+  - `hr-frontend/src/api/**`
+  - `hr-frontend/src/types/**`
+- 实现要点：
+  - 优先覆盖已实现任务的关键失败路径。
+  - 不得为了测试通过删除或弱化已有断言。
+  - 测试 fixture 不包含真实 API Key 或完整敏感文本。
+  - 若发现实现缺陷，应停止并输出修复建议，不在本任务改业务代码。
+- 验收标准：
+  - go test ./... 通过。
+  - hr-frontend typecheck/test/build 通过或明确记录未配置脚本。
+  - 新增测试覆盖 SPEC 关键 AC。
+- 自测命令：
+  - `cd logic-grpc-service && go test ./...`
+  - `cd web-gin-service && go test ./...`
+  - `pnpm --filter hr-frontend typecheck`
+  - `pnpm --filter hr-frontend test`
+  - `pnpm --filter hr-frontend build`
+- 风险点：
+  - 只改测试无法修复业务缺陷。
+  - 测试误依赖真实百炼 API。
+

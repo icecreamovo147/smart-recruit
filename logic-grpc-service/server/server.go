@@ -865,3 +865,7 @@ func (s *Server) PreviewAgentSkill(ctx context.Context, req *pb.PreviewAgentSkil
 func (s *Server) ListAvailableAgentSkills(ctx context.Context, req *pb.ListAvailableAgentSkillsRequest) (*pb.ListAgentSkillsResponse, error) {
 	return s.svc.AgentSkill.ListAvailableAgentSkills(ctx, req)
 }
+
+func (s *Server) DebugSemanticRetrieval(ctx context.Context, req *pb.DebugSemanticRetrievalRequest) (*pb.DebugSemanticRetrievalResponse, error) {
+	return s.svc.AgentSkill.DebugSemanticRetrieval(ctx, req)
+}

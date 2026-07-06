@@ -3,8 +3,10 @@ import { computed, onMounted, reactive, ref, watch } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { ArrowDown, CircleCheck, Document, Edit, MoreFilled, Plus, Refresh, Search, Tickets, TurnOff, WarningFilled, View } from '@element-plus/icons-vue'
 import * as agentSkillApi from '@/api/agentSkill'
+import { listAgentCapabilities } from '@/api/agent'
 import { DataTableCard, EmptyGuide, FilterToolbar, PageHeader } from '@/components/admin-console'
 import AgentSkillCanvasEditor from '@/components/agent-skill/AgentSkillCanvasEditor.vue'
+import type { CapabilityInfo } from '@/types/agent'
 import type {
   AgentSkillCanvasEdge,
   AgentSkillCanvasFlow,
@@ -36,6 +38,93 @@ const NODE_TYPE_LABEL = NODE_TYPES.reduce<Record<AgentSkillNodeType, string>>((a
   return acc
 }, {} as Record<AgentSkillNodeType, string>)
 
+const AGENT_TYPE_OPTIONS = [
+  { value: 'hr_recruiting_agent', label: 'HR 招聘助手' },
+  { value: 'candidate_assistant', label: '候选人 AI 助手' },
+  { value: 'custom', label: '自定义 Agent' },
+]
+
+const SCENARIO_OPTIONS = [
+  {
+    value: 'candidate_job_match',
+    label: '候选人与岗位匹配',
+    category: 'candidate_match',
+    riskLevel: 'medium',
+    tags: ['招聘', '简历筛选', '岗位匹配', '候选人评估'],
+    criteria: ['是否逐项对齐 JD 要求', '是否引用简历证据', '是否说明不确定性', '是否避免敏感因素判断'],
+  },
+  {
+    value: 'resume_risk_review',
+    label: '简历风险识别',
+    category: 'resume_screening',
+    riskLevel: 'high',
+    tags: ['招聘', '简历筛选', '风险识别'],
+    criteria: ['是否标明证据来源', '是否区分事实和推断', '是否避免敏感因素判断'],
+  },
+  {
+    value: 'interview_question_generation',
+    label: '面试题生成',
+    category: 'interview',
+    riskLevel: 'medium',
+    tags: ['招聘', '面试准备', '问题生成'],
+    criteria: ['问题是否围绕岗位要求', '是否覆盖关键能力', '是否可用于面试验证'],
+  },
+  {
+    value: 'interview_feedback_summary',
+    label: '面评总结',
+    category: 'interview',
+    riskLevel: 'high',
+    tags: ['招聘', '面试评估', '面评总结'],
+    criteria: ['是否基于面试记录', '是否列出优势和风险', '是否避免绝对化录用结论'],
+  },
+  {
+    value: 'job_requirement_extraction',
+    label: 'JD 要求提取',
+    category: 'job_analysis',
+    riskLevel: 'low',
+    tags: ['招聘', '岗位分析', 'JD 解析'],
+    criteria: ['是否区分硬性要求和加分项', '是否提取岗位职责', '是否保留不确定信息'],
+  },
+  {
+    value: 'recruiting_analytics',
+    label: '招聘数据分析',
+    category: 'recruiting_analytics',
+    riskLevel: 'low',
+    tags: ['招聘', '数据分析', '投递分析'],
+    criteria: ['是否引用指标口径', '是否说明时间范围', '是否给出可执行建议'],
+  },
+]
+
+const CATEGORY_OPTIONS = [
+  { value: 'general', label: '通用' },
+  { value: 'resume_screening', label: '简历筛选' },
+  { value: 'candidate_match', label: '候选人匹配' },
+  { value: 'interview', label: '面试' },
+  { value: 'job_analysis', label: '岗位分析' },
+  { value: 'recruiting_analytics', label: '招聘数据分析' },
+  { value: 'candidate_communication', label: '候选人沟通' },
+]
+
+const OUTPUT_SCHEMA_OPTIONS = [
+  { value: '', label: '普通文本', schema: '' },
+  {
+    value: 'analysis_report',
+    label: '结构化分析报告',
+    schema: '{"type":"object","properties":{"conclusion":{"type":"string"},"evidence":{"type":"array","items":{"type":"string"}},"risks":{"type":"array","items":{"type":"string"}},"next_steps":{"type":"array","items":{"type":"string"}}}}',
+  },
+  {
+    value: 'match_result',
+    label: '匹配评分结果',
+    schema: '{"type":"object","properties":{"match_level":{"type":"string"},"score":{"type":"number"},"matched_requirements":{"type":"array","items":{"type":"string"}},"gaps":{"type":"array","items":{"type":"string"}}}}',
+  },
+  {
+    value: 'risk_list',
+    label: '风险清单',
+    schema: '{"type":"object","properties":{"risks":{"type":"array","items":{"type":"object","properties":{"level":{"type":"string"},"description":{"type":"string"},"evidence":{"type":"string"}}}}}}',
+  },
+  { value: 'custom', label: '自定义 JSON Schema', schema: '' },
+]
+
 const list = ref<AgentSkillInfo[]>([])
 const total = ref(0)
 const page = ref(1)
@@ -65,7 +154,10 @@ const versions = ref<AgentSkillVersionInfo[]>([])
 const selectedVersion = ref<AgentSkillVersionInfo | null>(null)
 const changeNote = ref('')
 const flowIntegrityWarning = ref('')
-
+const advancedConfigVisible = ref(false)
+const capabilitiesLoading = ref(false)
+const capabilityList = ref<CapabilityInfo[]>([])
+const outputSchemaMode = ref('')
 const form = reactive({
   name: '',
   display_name: '',
@@ -75,10 +167,10 @@ const form = reactive({
   scenario: '',
   priority: 0,
   risk_level: 'medium',
-  required_capabilities_text: '',
+  required_capabilities: [] as string[],
   output_schema: '',
-  evaluation_criteria_text: '',
-  semantic_tags_text: '',
+  evaluation_criteria: [] as string[],
+  semantic_tags: [] as string[],
   version: '1.0.0',
   is_enabled: true,
 })
@@ -190,25 +282,29 @@ const resetBuilder = () => {
   form.description = ''
   form.agent_type = 'hr_recruiting_agent'
   form.category = 'general'
-  form.scenario = ''
+  form.scenario = 'candidate_job_match'
   form.priority = 0
   form.risk_level = 'medium'
-  form.required_capabilities_text = ''
+  form.required_capabilities = []
   form.output_schema = ''
-  form.evaluation_criteria_text = ''
-  form.semantic_tags_text = ''
+  form.evaluation_criteria = []
+  form.semantic_tags = []
   form.version = '1.0.0'
   form.is_enabled = true
+  outputSchemaMode.value = ''
+  advancedConfigVisible.value = false
   changeNote.value = ''
   flowIntegrityWarning.value = ''
   flow.value = createDefaultFlow()
   selectedNodeId.value = flow.value.nodes[0]?.id || ''
   previewMarkdown.value = ''
+  applyScenarioPreset(form.scenario)
   validation.value = { valid: false, errors: [], warnings: [] }
 }
 
 const openCreate = () => {
   resetBuilder()
+  loadCapabilities()
   builderDialogVisible.value = true
 }
 
@@ -360,12 +456,15 @@ const flowJson = computed(() => JSON.stringify({
   viewport: flow.value.viewport || { x: 0, y: 0, zoom: 1 },
 }))
 
-const splitListText = (value: string) => value
-  .split(/[\n,，]/)
-  .map((item) => item.trim())
-  .filter(Boolean)
+const uniqueList = (values: string[]) => Array.from(new Set(values.map((item) => item.trim()).filter(Boolean)))
 
-const joinListText = (value?: string[]) => (value || []).join('\n')
+const slugifySkillName = (value: string) => value
+  .trim()
+  .toLowerCase()
+  .replace(/[^a-z0-9_-]+/g, '_')
+  .replace(/^_+|_+$/g, '')
+  .replace(/_{2,}/g, '_')
+
 
 const riskLevelLabel = (value?: string) => {
   const labels: Record<string, string> = {
@@ -388,6 +487,71 @@ const skillGovernanceWarnings = (skill?: AgentSkillInfo | null) => [
   ...(skill?.validation_warnings || []),
 ]
 
+const selectedScenario = computed(() => SCENARIO_OPTIONS.find((item) => item.value === form.scenario) || null)
+
+const capabilitySelectOptions = computed(() => capabilityList.value
+  .filter((item) => item.source !== 'skill')
+  .map((item) => ({
+    value: `${item.source}:${item.key}`,
+    label: capabilityDisplayLabel(item),
+    disabled: !item.is_available,
+  })))
+
+const capabilityDisplayLabel = (capability: CapabilityInfo) => {
+  const sourceLabel: Record<string, string> = { builtin: '内置', mcp: 'MCP', skill: 'Skill' }
+  const title = capability.display_name || capability.name || capability.key
+  return `${sourceLabel[capability.source] || capability.source} / ${title}`
+}
+
+const applyScenarioPreset = (scenarioValue: string) => {
+  const preset = SCENARIO_OPTIONS.find((item) => item.value === scenarioValue)
+  if (!preset) return
+  form.category = preset.category
+  form.risk_level = preset.riskLevel
+  form.semantic_tags = uniqueList([...form.semantic_tags, ...preset.tags])
+  form.evaluation_criteria = uniqueList([...form.evaluation_criteria, ...preset.criteria])
+  if (!form.name.trim()) {
+    const slug = slugifySkillName(preset.value)
+    form.name = slug || `agent_skill_${Date.now().toString(36)}`
+  }
+}
+
+const handleScenarioChange = (value: string) => {
+  applyScenarioPreset(value)
+}
+
+const ensureGeneratedSkillName = () => {
+  if (form.name.trim() || isEditing.value) return
+  const scenarioSlug = slugifySkillName(form.scenario)
+  const displaySlug = slugifySkillName(form.display_name)
+  form.name = scenarioSlug || displaySlug || `agent_skill_${Date.now().toString(36)}`
+}
+
+const handleOutputSchemaModeChange = (value: string) => {
+  const option = OUTPUT_SCHEMA_OPTIONS.find((item) => item.value === value)
+  if (!option) return
+  if (value !== 'custom') {
+    form.output_schema = option.schema
+  }
+}
+
+const loadCapabilities = async (agentType = form.agent_type) => {
+  capabilitiesLoading.value = true
+  try {
+    const data = await listAgentCapabilities(agentType)
+    capabilityList.value = data.list || []
+  } catch {
+    capabilityList.value = []
+  } finally {
+    capabilitiesLoading.value = false
+  }
+}
+
+const handleAgentTypeChange = async () => {
+  form.required_capabilities = []
+  await loadCapabilities(form.agent_type)
+}
+
 const payload = (): CreateAgentSkillPayload => ({
   name: form.name.trim(),
   display_name: form.display_name.trim(),
@@ -397,10 +561,10 @@ const payload = (): CreateAgentSkillPayload => ({
   scenario: form.scenario.trim(),
   priority: Number(form.priority) || 0,
   risk_level: form.risk_level,
-  required_capabilities: splitListText(form.required_capabilities_text),
+  required_capabilities: form.required_capabilities,
   output_schema: form.output_schema.trim(),
-  evaluation_criteria: splitListText(form.evaluation_criteria_text),
-  semantic_tags: splitListText(form.semantic_tags_text),
+  evaluation_criteria: form.evaluation_criteria,
+  semantic_tags: form.semantic_tags,
   version: form.version.trim(),
   is_enabled: form.is_enabled,
   is_enabled_set: true,
@@ -432,13 +596,13 @@ const updatePayload = (): UpdateAgentSkillPayload => ({
   priority_set: true,
   risk_level: form.risk_level,
   risk_level_set: true,
-  required_capabilities: splitListText(form.required_capabilities_text),
+  required_capabilities: form.required_capabilities,
   required_capabilities_set: true,
   output_schema: form.output_schema.trim(),
   output_schema_set: true,
-  evaluation_criteria: splitListText(form.evaluation_criteria_text),
+  evaluation_criteria: form.evaluation_criteria,
   evaluation_criteria_set: true,
-  semantic_tags: splitListText(form.semantic_tags_text),
+  semantic_tags: form.semantic_tags,
   semantic_tags_set: true,
   is_enabled: form.is_enabled,
   is_enabled_set: true,
@@ -602,6 +766,7 @@ const findCurrentVersion = (skill: AgentSkillInfo, versionList: AgentSkillVersio
 
 const refreshPreview = async () => {
   debugLog.skill.info('refreshPreview_started', {})
+  ensureGeneratedSkillName()
   const localValidation = buildLocalValidation()
   validation.value = localValidation
   previewMarkdown.value = localMarkdown.value
@@ -707,12 +872,15 @@ const openEdit = async (row: AgentSkillInfo) => {
     form.scenario = detail.scenario || ''
     form.priority = detail.priority || 0
     form.risk_level = detail.risk_level || 'medium'
-    form.required_capabilities_text = joinListText(detail.required_capabilities)
+    form.required_capabilities = [...(detail.required_capabilities || [])]
     form.output_schema = detail.output_schema || ''
-    form.evaluation_criteria_text = joinListText(detail.evaluation_criteria)
-    form.semantic_tags_text = joinListText(detail.semantic_tags)
+    outputSchemaMode.value = detail.output_schema ? 'custom' : ''
+    form.evaluation_criteria = [...(detail.evaluation_criteria || [])]
+    form.semantic_tags = [...(detail.semantic_tags || [])]
     form.version = nextVersionText(current?.version)
     form.is_enabled = detail.is_enabled
+    advancedConfigVisible.value = true
+    await loadCapabilities(form.agent_type)
     changeNote.value = ''
     const rawFlowJson = current?.flow_json || detail.flow_json
     flow.value = parseFlowJson(rawFlowJson) || flowFromNodes(detail.node_schema)
@@ -830,10 +998,10 @@ watch([
   () => form.scenario,
   () => form.priority,
   () => form.risk_level,
-  () => form.required_capabilities_text,
+  () => form.required_capabilities,
   () => form.output_schema,
-  () => form.evaluation_criteria_text,
-  () => form.semantic_tags_text,
+  () => form.evaluation_criteria,
+  () => form.semantic_tags,
   () => form.version,
   flow,
 ], () => {
@@ -844,6 +1012,7 @@ watch([
 onMounted(() => {
   selectedNodeId.value = flow.value.nodes[0]?.id || ''
   loadList()
+  loadCapabilities()
 })
 </script>
 
@@ -982,74 +1151,147 @@ onMounted(() => {
           <el-button :icon="Document" :loading="previewLoading" @click="openPreviewDrawer">预览 SKILL.md</el-button>
         </div>
 
-        <div class="meta-grid">
-          <el-input v-model="form.name" placeholder="唯一标识，例如 resume_matching" clearable :disabled="isEditing">
-            <template #prepend>标识</template>
-          </el-input>
-          <el-input v-model="form.display_name" placeholder="显示名称，例如 简历匹配分析" clearable>
-            <template #prepend>名称</template>
-          </el-input>
-          <el-input v-model="form.version" placeholder="版本" clearable>
-            <template #prepend>版本</template>
-          </el-input>
+        <div class="meta-grid meta-grid--primary">
+          <label class="form-field">
+            <span class="form-label">显示名称</span>
+            <el-input v-model="form.display_name" placeholder="例如 简历匹配分析" clearable />
+          </label>
+          <label class="form-field">
+            <span class="form-label">适用 Agent</span>
+            <el-select v-model="form.agent_type" placeholder="选择适用 Agent" filterable @change="handleAgentTypeChange">
+              <el-option v-for="item in AGENT_TYPE_OPTIONS" :key="item.value" :label="item.label" :value="item.value" />
+            </el-select>
+          </label>
+          <label class="form-field">
+            <span class="form-label">业务场景</span>
+            <el-select v-model="form.scenario" placeholder="选择业务场景" filterable @change="handleScenarioChange">
+              <el-option v-for="item in SCENARIO_OPTIONS" :key="item.value" :label="item.label" :value="item.value" />
+            </el-select>
+          </label>
+          <label class="form-field">
+            <span class="form-label">风险等级</span>
+            <el-select v-model="form.risk_level" placeholder="风险等级">
+              <el-option label="低风险" value="low" />
+              <el-option label="中风险" value="medium" />
+              <el-option label="高风险" value="high" />
+              <el-option label="关键风险" value="critical" />
+            </el-select>
+          </label>
         </div>
-        <div class="governance-grid">
-          <el-input v-model="form.agent_type" placeholder="hr_recruiting_agent" clearable>
-            <template #prepend>Agent</template>
-          </el-input>
-          <el-input v-model="form.category" placeholder="general / candidate_match" clearable>
-            <template #prepend>分类</template>
-          </el-input>
-          <el-input v-model="form.scenario" placeholder="screening / interview_prep" clearable>
-            <template #prepend>场景</template>
-          </el-input>
-          <el-input-number v-model="form.priority" :min="-1000" :max="1000" controls-position="right" />
-          <el-select v-model="form.risk_level" placeholder="风险等级">
-            <el-option label="低风险" value="low" />
-            <el-option label="中风险" value="medium" />
-            <el-option label="高风险" value="high" />
-            <el-option label="关键风险" value="critical" />
-          </el-select>
+        <p v-if="selectedScenario" class="form-hint">
+          已按“{{ selectedScenario.label }}”预设分类、风险等级、语义标签和评估标准，可在高级配置中调整。
+        </p>
+        <label class="form-field">
+          <span class="form-label">业务用途描述</span>
+          <el-input
+            v-model="form.description"
+            type="textarea"
+            :rows="2"
+            placeholder="简要描述这个 Agent Skill 的招聘业务用途"
+          />
+        </label>
+        <div class="advanced-config-toggle">
+          <el-button text type="primary" @click="advancedConfigVisible = !advancedConfigVisible">
+            {{ advancedConfigVisible ? '收起高级配置' : '展开高级配置' }}
+          </el-button>
         </div>
-        <div class="governance-text-grid">
-          <el-input
-            v-model="form.required_capabilities_text"
-            type="textarea"
-            :rows="2"
-            placeholder="required capabilities，每行一个，例如 builtin:evaluate_candidate_match"
-          />
-          <el-input
-            v-model="form.semantic_tags_text"
-            type="textarea"
-            :rows="2"
-            placeholder="语义标签，每行一个，例如 简历匹配"
-          />
-          <el-input
-            v-model="form.evaluation_criteria_text"
-            type="textarea"
-            :rows="2"
-            placeholder="评估标准，每行一个"
-          />
-          <el-input
-            v-model="form.output_schema"
-            type="textarea"
-            :rows="2"
-            placeholder='输出 Schema JSON，例如 {"type":"object"}'
-          />
+        <div v-if="advancedConfigVisible" class="advanced-config-panel">
+          <div class="meta-grid">
+            <label class="form-field">
+              <span class="form-label">唯一标识</span>
+              <el-input v-model="form.name" placeholder="例如 candidate_job_match" clearable :disabled="isEditing" />
+            </label>
+            <label class="form-field">
+              <span class="form-label">版本号</span>
+              <el-input v-model="form.version" placeholder="例如 1.0.0" clearable />
+            </label>
+            <label class="form-field">
+              <span class="form-label">治理分类</span>
+              <el-select v-model="form.category" placeholder="治理分类" filterable>
+                <el-option v-for="item in CATEGORY_OPTIONS" :key="item.value" :label="item.label" :value="item.value" />
+              </el-select>
+            </label>
+            <label class="form-field">
+              <span class="form-label">自动选择优先级</span>
+              <el-input-number v-model="form.priority" :min="-1000" :max="1000" controls-position="right" />
+            </label>
+          </div>
+          <div class="governance-text-grid">
+            <label class="form-field">
+              <span class="form-label">依赖能力</span>
+              <el-select
+                v-model="form.required_capabilities"
+                multiple
+                filterable
+                clearable
+                collapse-tags
+                collapse-tags-tooltip
+                :loading="capabilitiesLoading"
+                placeholder="选择依赖能力"
+              >
+                <el-option
+                  v-for="item in capabilitySelectOptions"
+                  :key="item.value"
+                  :label="item.label"
+                  :value="item.value"
+                  :disabled="item.disabled"
+                />
+              </el-select>
+            </label>
+            <label class="form-field">
+              <span class="form-label">语义标签</span>
+              <el-select
+                v-model="form.semantic_tags"
+                multiple
+                filterable
+                allow-create
+                default-first-option
+                clearable
+                placeholder="选择或输入语义标签"
+              >
+                <el-option v-for="item in selectedScenario?.tags || []" :key="item" :label="item" :value="item" />
+              </el-select>
+            </label>
+            <label class="form-field">
+              <span class="form-label">评估标准</span>
+              <el-select
+                v-model="form.evaluation_criteria"
+                multiple
+                filterable
+                allow-create
+                default-first-option
+                clearable
+                placeholder="选择或输入评估标准"
+              >
+                <el-option v-for="item in selectedScenario?.criteria || []" :key="item" :label="item" :value="item" />
+              </el-select>
+            </label>
+            <label class="form-field">
+              <span class="form-label">输出模板</span>
+              <el-select v-model="outputSchemaMode" placeholder="输出模板" @change="handleOutputSchemaModeChange">
+                <el-option v-for="item in OUTPUT_SCHEMA_OPTIONS" :key="item.value || 'text'" :label="item.label" :value="item.value" />
+              </el-select>
+            </label>
+          </div>
+          <label v-if="outputSchemaMode === 'custom' || form.output_schema" class="form-field">
+            <span class="form-label">输出 Schema JSON</span>
+            <el-input
+              v-model="form.output_schema"
+              type="textarea"
+              :rows="3"
+              placeholder='例如 {"type":"object"}'
+            />
+          </label>
         </div>
-        <el-input
-          v-model="form.description"
-          type="textarea"
-          :rows="2"
-          placeholder="简要描述这个 Agent Skill 的招聘业务用途"
-        />
-        <el-input
-          v-if="isEditing"
-          v-model="changeNote"
-          type="textarea"
-          :rows="2"
-          placeholder="版本变更说明，例如：补充候选人风险提示输出要求"
-        />
+        <label v-if="isEditing" class="form-field">
+          <span class="form-label">版本变更说明</span>
+          <el-input
+            v-model="changeNote"
+            type="textarea"
+            :rows="2"
+            placeholder="例如：补充候选人风险提示输出要求"
+          />
+        </label>
         <el-alert
           v-if="flowIntegrityWarning"
           class="flow-integrity-alert"
@@ -1345,6 +1587,49 @@ onMounted(() => {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 10px;
+}
+
+.meta-grid--primary {
+  grid-template-columns: 1.2fr 1fr 1fr 150px;
+}
+
+.form-field {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.form-label {
+  color: var(--text-secondary);
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1.3;
+}
+
+.form-field :deep(.el-select),
+.form-field :deep(.el-input-number) {
+  width: 100%;
+}
+
+.form-hint {
+  margin: -2px 0 2px;
+  color: var(--text-faint);
+  font-size: 12px;
+}
+
+.advanced-config-toggle {
+  display: flex;
+  justify-content: flex-start;
+}
+
+.advanced-config-panel {
+  display: grid;
+  gap: 10px;
+  padding: 12px;
+  border: 1px solid var(--border-subtle);
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--surface-muted) 62%, transparent);
 }
 
 .governance-grid {
@@ -1785,11 +2070,13 @@ onMounted(() => {
 
 @media (max-width: 860px) {
   .meta-grid,
+  .meta-grid--primary,
   .governance-grid,
   .governance-text-grid,
   .version-layout {
     grid-template-columns: 1fr;
   }
+
 
   .version-drawer-body {
     height: 84vh;
