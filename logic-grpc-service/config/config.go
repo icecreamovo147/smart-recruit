@@ -80,6 +80,8 @@ type Config struct {
 			Planner                  *bool    `yaml:"planner"`
 			StructuredResumeParse    *bool    `yaml:"structured_resume_parse"`
 			CandidateMatch           *bool    `yaml:"candidate_match"`
+			CandidateMatchSemantic   *bool    `yaml:"candidate_match_semantic"`
+			CandidateMatchShadow     *bool    `yaml:"candidate_match_shadow"`
 			SkillGovernance          *bool    `yaml:"skill_governance"`
 			SemanticRetrieval        *bool    `yaml:"semantic_retrieval"`
 			MCPPolicy                *bool    `yaml:"mcp_policy"`
@@ -255,6 +257,8 @@ func Load() (Config, error) {
 	defaultBool(&cfg.Agent.Features.Planner, true)
 	defaultBool(&cfg.Agent.Features.StructuredResumeParse, true)
 	defaultBool(&cfg.Agent.Features.CandidateMatch, true)
+	defaultBool(&cfg.Agent.Features.CandidateMatchSemantic, true)
+	defaultBool(&cfg.Agent.Features.CandidateMatchShadow, false)
 	defaultBool(&cfg.Agent.Features.SkillGovernance, true)
 	defaultBool(&cfg.Agent.Features.SemanticRetrieval, true)
 	defaultBool(&cfg.Agent.Features.MCPPolicy, true)
@@ -398,6 +402,8 @@ func applyEnvOverrides(cfg *Config) {
 	setBoolPtr(&cfg.Agent.Features.Planner, "AGENT_FEATURE_PLANNER")
 	setBoolPtr(&cfg.Agent.Features.StructuredResumeParse, "AGENT_FEATURE_STRUCTURED_RESUME_PARSE")
 	setBoolPtr(&cfg.Agent.Features.CandidateMatch, "AGENT_FEATURE_CANDIDATE_MATCH")
+	setBoolPtr(&cfg.Agent.Features.CandidateMatchSemantic, "AGENT_FEATURE_CANDIDATE_MATCH_SEMANTIC")
+	setBoolPtr(&cfg.Agent.Features.CandidateMatchShadow, "AGENT_FEATURE_CANDIDATE_MATCH_SHADOW")
 	setBoolPtr(&cfg.Agent.Features.SkillGovernance, "AGENT_FEATURE_SKILL_GOVERNANCE")
 	setBoolPtr(&cfg.Agent.Features.SemanticRetrieval, "AGENT_FEATURE_SEMANTIC_RETRIEVAL")
 	setBoolPtr(&cfg.Agent.Features.MCPPolicy, "AGENT_FEATURE_MCP_POLICY")

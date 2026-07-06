@@ -145,7 +145,20 @@ func NewServices(
 		logger.L().Info("resume profile extractor: LLM + heuristic fallback chain initialized")
 	}
 	resumeProfileSvc := NewResumeProfileService(resumes, resumeProfileRepo, resumeProfileExtractor).WithRuntimePolicy(runtimePolicy)
-	candidateMatchSvc := NewCandidateMatchService(applications, jobs, profiles, resumes, resumeProfileRepo, candidateMatchRepo).WithRuntimePolicy(runtimePolicy)
+	var reqExtractor RequirementExtractorV2 = NewJobRequirementExtractorHeuristic()
+	if llmConfigSvc != nil {
+		reqExtractor = NewFallbackRequirementExtractor(
+			NewLLMJobRequirementExtractor(llmConfigSvc, promptTmplRepo),
+			NewJobRequirementExtractorHeuristic(),
+			WithReqFallbackEnabled(runtimePolicy.Fallbacks),
+		)
+	} else {
+		logger.L().Info("requirement extractor: LLM not configured, using heuristic only")
+	}
+	candidateMatchSvc := NewCandidateMatchService(applications, jobs, profiles, resumes, resumeProfileRepo, candidateMatchRepo).
+		WithRuntimePolicy(runtimePolicy).
+		WithRequirementExtractor(reqExtractor).
+		WithPromptRepo(promptTmplRepo)
 	recruitingIntelligenceSvc := NewRecruitingIntelligenceService(applications, jobs, resumes, resumeProfileRepo, candidateMatchRepo, resumeProfileSvc, candidateMatchSvc, serviceAuth)
 
 	return &Services{

@@ -15,6 +15,8 @@ func TestApplyEnvOverrides(t *testing.T) {
 	t.Setenv("RABBITMQ_URL", "amqp://guest:guest@rabbitmq:5672/")
 	t.Setenv("RABBITMQ_RETRY_DELAY", "9s")
 	t.Setenv("AGENT_FEATURE_PLANNER", "false")
+	t.Setenv("AGENT_FEATURE_CANDIDATE_MATCH_SEMANTIC", "false")
+	t.Setenv("AGENT_FEATURE_CANDIDATE_MATCH_SHADOW", "true")
 	t.Setenv("AGENT_FEATURE_SEMANTIC_RETRIEVAL", "false")
 	t.Setenv("AGENT_RESUME_PARSE_TIMEOUT", "7s")
 	t.Setenv("AGENT_CANDIDATE_MATCH_TIMEOUT", "8s")
@@ -43,6 +45,12 @@ func TestApplyEnvOverrides(t *testing.T) {
 	}
 	if cfg.Agent.Features.Planner == nil || *cfg.Agent.Features.Planner {
 		t.Fatalf("expected planner feature override false, got %v", cfg.Agent.Features.Planner)
+	}
+	if cfg.Agent.Features.CandidateMatchSemantic == nil || *cfg.Agent.Features.CandidateMatchSemantic {
+		t.Fatalf("expected candidate match semantic feature override false, got %v", cfg.Agent.Features.CandidateMatchSemantic)
+	}
+	if cfg.Agent.Features.CandidateMatchShadow == nil || !*cfg.Agent.Features.CandidateMatchShadow {
+		t.Fatalf("expected candidate match shadow feature override true, got %v", cfg.Agent.Features.CandidateMatchShadow)
 	}
 	if cfg.Agent.Features.SemanticRetrieval == nil || *cfg.Agent.Features.SemanticRetrieval {
 		t.Fatalf("expected semantic retrieval feature override false, got %v", cfg.Agent.Features.SemanticRetrieval)

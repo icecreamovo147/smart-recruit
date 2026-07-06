@@ -18,7 +18,7 @@ import (
 func TestCandidateMatchServiceEvaluateApplicationCreatesEvidenceRisksAndMissingRequirements(t *testing.T) {
 	db := setupCandidateMatchServiceTestDB(t)
 	seedCandidateMatchScenario(t, db, candidateMatchSeedOptions{ProfileComplete: false})
-	svc := newCandidateMatchServiceForTest(db)
+	svc := newCandidateMatchServiceForTest(db).WithRuntimePolicy(candidateMatchLegacyTestPolicy())
 
 	snapshot, err := svc.EvaluateApplication(context.Background(), 1001, nil)
 	if err != nil {
@@ -62,7 +62,7 @@ func TestCandidateMatchServiceEvaluateApplicationCreatesEvidenceRisksAndMissingR
 func TestCandidateMatchServiceEvaluateApplicationStableOutputAndRerunVersioning(t *testing.T) {
 	db := setupCandidateMatchServiceTestDB(t)
 	seedCandidateMatchScenario(t, db, candidateMatchSeedOptions{ProfileComplete: true})
-	svc := newCandidateMatchServiceForTest(db)
+	svc := newCandidateMatchServiceForTest(db).WithRuntimePolicy(candidateMatchLegacyTestPolicy())
 	svc.now = func() time.Time { return time.Date(2026, 7, 2, 10, 0, 0, 0, time.UTC) }
 
 	first, err := svc.EvaluateApplication(context.Background(), 1001, nil)
@@ -100,6 +100,28 @@ func TestCandidateMatchServiceEvaluateApplicationStableOutputAndRerunVersioning(
 	}
 	if firstStored.IsLatest != 0 {
 		t.Fatalf("expected first evaluation no longer latest, got %d", firstStored.IsLatest)
+	}
+}
+
+func TestCandidateMatchServiceEvaluateApplicationUsesEnhancedScoringByDefault(t *testing.T) {
+	db := setupCandidateMatchServiceTestDB(t)
+	seedCandidateMatchScenario(t, db, candidateMatchSeedOptions{ProfileComplete: true})
+	svc := newCandidateMatchServiceForTest(db)
+
+	snapshot, err := svc.EvaluateApplication(context.Background(), 1001, nil)
+	if err != nil {
+		t.Fatalf("EvaluateApplication failed: %v", err)
+	}
+
+	var breakdown EnhancedScoreBreakdown
+	if err := json.Unmarshal([]byte(snapshot.Evaluation.ScoreBreakdownJSON), &breakdown); err != nil {
+		t.Fatalf("unmarshal enhanced breakdown: %v", err)
+	}
+	if breakdown.ScorerType == "" || breakdown.RequirementProfile == nil || len(breakdown.RequirementResults) == 0 {
+		t.Fatalf("expected enhanced score breakdown, got %s", snapshot.Evaluation.ScoreBreakdownJSON)
+	}
+	if err := breakdown.Validate(); err != nil {
+		t.Fatalf("expected valid enhanced score breakdown: %v", err)
 	}
 }
 
@@ -230,6 +252,12 @@ func newCandidateMatchServiceForTest(db *gorm.DB) *CandidateMatchService {
 		repository.NewResumeProfileRepo(db),
 		repository.NewCandidateMatchRepo(db),
 	)
+}
+
+func candidateMatchLegacyTestPolicy() AgentRuntimePolicy {
+	policy := DefaultAgentRuntimePolicy()
+	policy.CandidateMatchSemantic = false
+	return policy
 }
 
 func seedCandidateMatchScenario(t *testing.T, db *gorm.DB, opts candidateMatchSeedOptions) {

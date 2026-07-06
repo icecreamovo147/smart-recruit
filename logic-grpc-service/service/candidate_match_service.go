@@ -37,9 +37,11 @@ type CandidateMatchService struct {
 	resumes        *repository.ResumeRepo
 	resumeProfiles *repository.ResumeProfileRepo
 	matches        *repository.CandidateMatchRepo
+	promptRepo     *repository.PromptTemplateRepo
 	scorerVersion  string
 	now            func() time.Time
 	policy         AgentRuntimePolicy
+	reqExtractor   RequirementExtractorV2
 }
 
 func NewCandidateMatchService(
@@ -60,12 +62,27 @@ func NewCandidateMatchService(
 		scorerVersion:  defaultCandidateMatchScorerVersion,
 		now:            time.Now,
 		policy:         DefaultAgentRuntimePolicy(),
+		reqExtractor:   NewJobRequirementExtractorHeuristic(),
 	}
 }
 
 func (s *CandidateMatchService) WithRuntimePolicy(policy AgentRuntimePolicy) *CandidateMatchService {
 	if s != nil {
 		s.policy = policy.withDefaults()
+	}
+	return s
+}
+
+func (s *CandidateMatchService) WithRequirementExtractor(extractor RequirementExtractorV2) *CandidateMatchService {
+	if s != nil {
+		s.reqExtractor = extractor
+	}
+	return s
+}
+
+func (s *CandidateMatchService) WithPromptRepo(repo *repository.PromptTemplateRepo) *CandidateMatchService {
+	if s != nil {
+		s.promptRepo = repo
 	}
 	return s
 }
@@ -132,7 +149,12 @@ func (s *CandidateMatchService) EvaluateApplication(ctx context.Context, applica
 	}
 	log.Info("[logic][candidate_match] candidate profile loaded",
 		zap.Bool("profile_exists", profile != nil),
-		zap.Int32("profile_complete", func() int32 { if profile != nil { return profile.IsComplete }; return 0 }()))
+		zap.Int32("profile_complete", func() int32 {
+			if profile != nil {
+				return profile.IsComplete
+			}
+			return 0
+		}()))
 
 	resume, err := s.resumes.GetByID(ctx, application.ResumeID)
 	if err != nil {
@@ -172,8 +194,18 @@ func (s *CandidateMatchService) EvaluateApplication(ctx context.Context, applica
 	}
 
 	log.Info("[logic][candidate_match] scoring started",
-		zap.Int64("application_id", applicationID))
-	result := s.score(job, application, profile, resume, resumeSnapshot)
+		zap.Int64("application_id", applicationID),
+		zap.Bool("semantic_enabled", policy.CandidateMatchSemantic),
+		zap.Bool("shadow_mode", policy.CandidateMatchShadow))
+
+	var result candidateMatchScoreResult
+	if policy.CandidateMatchSemantic {
+		result = s.scoreEnhanced(ctx, job, application, profile, resume, resumeSnapshot)
+		runShadowIfEnabled(ctx, &policy, s, job, application, profile, resume, resumeSnapshot, result)
+	} else {
+		result = s.score(job, application, profile, resume, resumeSnapshot)
+		runShadowIfEnabled(ctx, &policy, s, job, application, profile, resume, resumeSnapshot, result)
+	}
 	log.Info("[logic][candidate_match] scoring finished",
 		zap.Float64("overall_score", result.OverallScore),
 		zap.String("recommendation", result.Recommendation),
@@ -182,19 +214,24 @@ func (s *CandidateMatchService) EvaluateApplication(ctx context.Context, applica
 		zap.Int("evidence", len(result.Evidence)))
 	snapshot := &repository.CandidateMatchSnapshot{
 		Evaluation: model.CandidateMatchEvaluation{
-			ApplicationID:      application.ApplicationID,
-			JobID:              job.ID,
-			CandidateUserID:    application.UserID,
-			ResumeProfileID:    resumeSnapshot.Profile.ID,
-			AgentRunID:         agentRunID,
-			OverallScore:       result.OverallScore,
-			Recommendation:     result.Recommendation,
-			Summary:            result.Summary,
-			StrengthsJSON:      mustCandidateMatchJSON(result.Strengths),
-			RisksJSON:          mustCandidateMatchJSON(result.Risks),
-			ScoreBreakdownJSON: mustCandidateMatchJSON(result.Breakdown),
-			ModelName:          s.scorerVersion,
-			EvaluatedAt:        s.now().UTC(),
+			ApplicationID:   application.ApplicationID,
+			JobID:           job.ID,
+			CandidateUserID: application.UserID,
+			ResumeProfileID: resumeSnapshot.Profile.ID,
+			AgentRunID:      agentRunID,
+			OverallScore:    result.OverallScore,
+			Recommendation:  result.Recommendation,
+			Summary:         result.Summary,
+			StrengthsJSON:   mustCandidateMatchJSON(result.Strengths),
+			RisksJSON:       mustCandidateMatchJSON(result.Risks),
+			ScoreBreakdownJSON: func() string {
+				if result.ScoreBreakdownJSON != "" {
+					return result.ScoreBreakdownJSON
+				}
+				return mustCandidateMatchJSON(result.Breakdown)
+			}(),
+			ModelName:   s.scorerVersion,
+			EvaluatedAt: s.now().UTC(),
 		},
 		Evidence: result.Evidence,
 	}
@@ -230,6 +267,81 @@ func (s *CandidateMatchService) logEvaluationFinished(applicationID int64, snaps
 		return
 	}
 	logger.L().Info("candidate match evaluation finished", fields...)
+}
+
+func (s *CandidateMatchService) EvaluateApplicationEnhanced(ctx context.Context, applicationID int64, agentRunID *uint64) (*repository.CandidateMatchSnapshot, error) {
+	originalPolicy := s.policy
+	s.policy = s.policy.withDefaults()
+	s.policy.CandidateMatchSemantic = true
+	defer func() { s.policy = originalPolicy }()
+	return s.EvaluateApplication(ctx, applicationID, agentRunID)
+}
+
+func (s *CandidateMatchService) scoreEnhanced(ctx context.Context, job *model.Job, application *repository.ApplicationDetailRow, profile *model.CandidateProfile, resume *model.Resume, snapshot *repository.ResumeProfileSnapshot) candidateMatchScoreResult {
+	extractor := s.reqExtractor
+	if extractor == nil {
+		extractor = NewJobRequirementExtractorHeuristic()
+	}
+	extractResult, err := extractor.ExtractWithMetadata(ctx, job.Title, job.Department, job.Description, job.Requirements)
+	if err != nil || extractResult == nil || extractResult.Profile == nil {
+		if s.policy.Fallbacks {
+			return s.score(job, application, profile, resume, snapshot)
+		}
+		return candidateMatchScoreResult{
+			OverallScore:   0,
+			Recommendation: RecommendationNotRecommend,
+			Summary:        "增强评估服务不可用，且 fallback 已禁用",
+			Risks:          []candidateMatchSignal{{Code: "enhanced_unavailable", Message: "语义评估服务不可用，fallback 已禁用"}},
+		}
+	}
+
+	requirementProfile := extractResult.Profile
+	inputHash := extractResult.InputHash
+	evidenceIndex := BuildEvidenceIndex(snapshot, profile, resume)
+
+	var llmMatcher *LLMRequirementMatcher
+	if f, ok := s.reqExtractor.(*fallbackRequirementExtractor); ok {
+		if llmExt, ok := f.primary.(*LLMJobRequirementExtractor); ok {
+			llmMatcher = NewLLMRequirementMatcher(llmExt.LlmConfigSvc, s.promptRepo)
+		}
+	}
+	matcher := NewRequirementMatcher(llmMatcher)
+	matchResults := matcher.MatchAll(ctx, requirementProfile, evidenceIndex, snapshot)
+
+	scorerType := extractResult.Metadata.ExtractorType
+	if scorerType == "" {
+		scorerType = "hybrid"
+	}
+	agg := NewScoreAggregator(s.scorerVersion)
+	aggregated := agg.Aggregate(requirementProfile, matchResults, evidenceIndex, snapshot, inputHash, scorerType, extractResult.Metadata.FallbackUsed)
+	if err := aggregated.Breakdown.Validate(); err != nil {
+		logger.L().Warn("enhanced score breakdown validation failed, falling back to legacy", zap.Error(err))
+		if s.policy.Fallbacks {
+			return s.score(job, application, profile, resume, snapshot)
+		}
+		return candidateMatchScoreResult{
+			OverallScore:   0,
+			Recommendation: RecommendationNotRecommend,
+			Summary:        "增强评估结果不合法，且 fallback 已禁用",
+			Risks:          []candidateMatchSignal{{Code: "enhanced_invalid", Message: "语义评估结果不合法，fallback 已禁用"}},
+		}
+	}
+
+	return candidateMatchScoreResult{
+		OverallScore:       aggregated.OverallScore,
+		Recommendation:     aggregated.Recommendation,
+		Summary:            aggregated.Summary,
+		Strengths:          aggregated.Strengths,
+		Risks:              aggregated.Risks,
+		ScoreBreakdownJSON: mustCandidateMatchJSON(aggregated.Breakdown),
+		Evidence:           s.mapRequirementEvidenceToModel(matchResults, job.ID),
+		Breakdown: candidateMatchBreakdown{
+			ScorerVersion:       s.scorerVersion,
+			InputHash:           inputHash,
+			MissingRequirements: extractMissingRequirementIDs(matchResults, requirementProfile),
+			Dimensions:          convertScoreDimensions(aggregated.Breakdown.Dimensions),
+		},
+	}
 }
 
 func (s *CandidateMatchService) score(job *model.Job, application *repository.ApplicationDetailRow, profile *model.CandidateProfile, resume *model.Resume, snapshot *repository.ResumeProfileSnapshot) candidateMatchScoreResult {
@@ -295,13 +407,14 @@ func (s *CandidateMatchService) score(job *model.Job, application *repository.Ap
 }
 
 type candidateMatchScoreResult struct {
-	OverallScore   float64
-	Recommendation string
-	Summary        string
-	Strengths      []candidateMatchSignal
-	Risks          []candidateMatchSignal
-	Breakdown      candidateMatchBreakdown
-	Evidence       []model.CandidateMatchEvidence
+	OverallScore       float64
+	Recommendation     string
+	Summary            string
+	Strengths          []candidateMatchSignal
+	Risks              []candidateMatchSignal
+	Breakdown          candidateMatchBreakdown
+	ScoreBreakdownJSON string
+	Evidence           []model.CandidateMatchEvidence
 }
 
 type candidateMatchBreakdown struct {
@@ -682,6 +795,114 @@ func mustCandidateMatchJSON(v any) string {
 		panic(err)
 	}
 	return string(data)
+}
+
+func extractMissingRequirementIDs(results []RequirementMatchResult, profile *JobRequirementProfile) []string {
+	labelsByID := make(map[string]string)
+	if profile != nil {
+		for _, req := range profile.Requirements {
+			labelsByID[req.ID] = req.Label
+		}
+	}
+	var missing []string
+	for _, result := range results {
+		if result.Status == MatchStatusMissing || result.Status == MatchStatusConflict {
+			if label := labelsByID[result.RequirementID]; label != "" {
+				missing = append(missing, label)
+			} else {
+				missing = append(missing, result.RequirementID)
+			}
+		}
+	}
+	sort.Strings(missing)
+	return missing
+}
+
+func convertScoreDimensions(dimensions []ScoreDimension) []candidateMatchDimension {
+	out := make([]candidateMatchDimension, 0, len(dimensions))
+	for _, dimension := range dimensions {
+		out = append(out, candidateMatchDimension{
+			Name:    dimension.Name,
+			Weight:  dimension.Weight,
+			Score:   dimension.Score,
+			Matched: dimension.Matched,
+			Missing: dimension.Missing,
+		})
+	}
+	return out
+}
+
+func (s *CandidateMatchService) mapRequirementEvidenceToModel(results []RequirementMatchResult, jobID int64) []model.CandidateMatchEvidence {
+	var evidence []model.CandidateMatchEvidence
+	seen := make(map[string]bool)
+	for _, result := range results {
+		for _, ev := range result.Evidence {
+			key := result.RequirementID + ":" + ev.SourceTable + ":" + ev.Snippet
+			if seen[key] {
+				continue
+			}
+			seen[key] = true
+			sourceID := ev.SourceID
+			evidence = append(evidence, model.CandidateMatchEvidence{
+				EvidenceType: "requirement_match",
+				Dimension:    result.RequirementID,
+				SourceTable:  ev.SourceTable,
+				SourceID:     &sourceID,
+				Snippet:      ev.Snippet,
+				Weight:       0,
+				ScoreImpact:  result.Score,
+				MetadataJSON: mustCandidateMatchJSON(map[string]any{
+					"requirement_id": result.RequirementID,
+					"reason":         ev.Reason,
+				}),
+			})
+		}
+	}
+	if len(evidence) == 0 {
+		sourceID := uint64(jobID)
+		evidence = append(evidence, model.CandidateMatchEvidence{
+			EvidenceType: "no_match",
+			Dimension:    "overall",
+			SourceTable:  "jobs",
+			SourceID:     &sourceID,
+			Snippet:      "No requirement-level evidence found",
+			MetadataJSON: "{}",
+		})
+	}
+	return evidence
+}
+
+func runShadowIfEnabled(ctx context.Context, policy *AgentRuntimePolicy, s *CandidateMatchService, job *model.Job, application *repository.ApplicationDetailRow, profile *model.CandidateProfile, resume *model.Resume, resumeSnapshot *repository.ResumeProfileSnapshot, primaryResult candidateMatchScoreResult) {
+	if !policy.CandidateMatchShadow {
+		return
+	}
+	go func() {
+		shadowCtx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+		defer cancel()
+
+		started := time.Now()
+		shadowType := "enhanced"
+		var shadowResult candidateMatchScoreResult
+		if policy.CandidateMatchSemantic {
+			shadowType = "legacy"
+			shadowResult = s.score(job, application, profile, resume, resumeSnapshot)
+		} else {
+			shadowResult = s.scoreEnhanced(shadowCtx, job, application, profile, resume, resumeSnapshot)
+		}
+		recommendationDelta := ""
+		if primaryResult.Recommendation != shadowResult.Recommendation {
+			recommendationDelta = primaryResult.Recommendation + "→" + shadowResult.Recommendation
+		}
+		logger.L().Info("[logic][candidate_match] shadow mode comparison",
+			zap.String("shadow_type", shadowType),
+			zap.Int64("shadow_duration_ms", time.Since(started).Milliseconds()),
+			zap.Float64("primary_score", primaryResult.OverallScore),
+			zap.Float64("shadow_score", shadowResult.OverallScore),
+			zap.Float64("score_delta", shadowResult.OverallScore-primaryResult.OverallScore),
+			zap.String("recommendation_delta", recommendationDelta),
+			zap.Int("primary_evidence", len(primaryResult.Evidence)),
+			zap.Int("shadow_evidence", len(shadowResult.Evidence)))
+	}()
 }
 
 var candidateMatchStopwords = map[string]bool{

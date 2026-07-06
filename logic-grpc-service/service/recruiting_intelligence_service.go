@@ -641,11 +641,23 @@ func candidateMatchEvidencePB(row model.CandidateMatchEvidence) *pb.CandidateMat
 func missingRequirementsJSON(scoreBreakdown string) string {
 	var payload struct {
 		MissingRequirements []string `json:"missing_requirements"`
+		RequirementResults  []struct {
+			RequirementID string `json:"requirement_id"`
+			Status        string `json:"status"`
+		} `json:"requirement_results"`
 	}
-	if err := json.Unmarshal([]byte(scoreBreakdown), &payload); err != nil || payload.MissingRequirements == nil {
+	if err := json.Unmarshal([]byte(scoreBreakdown), &payload); err != nil {
 		return "[]"
 	}
-	raw, err := json.Marshal(payload.MissingRequirements)
+	missing := payload.MissingRequirements
+	if len(missing) == 0 {
+		for _, result := range payload.RequirementResults {
+			if result.Status == MatchStatusMissing || result.Status == MatchStatusConflict {
+				missing = append(missing, result.RequirementID)
+			}
+		}
+	}
+	raw, err := json.Marshal(missing)
 	if err != nil {
 		return "[]"
 	}

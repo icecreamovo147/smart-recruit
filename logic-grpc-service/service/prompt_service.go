@@ -711,10 +711,58 @@ Markdown 输出硬性规范（你的回复会以 Markdown 渲染展示给候选�
 		logger.L().Warn("seed resume profile extractor prompt version failed", zap.Error(err))
 	}
 
+	jobReqExtractorTmpl := &model.PromptTemplate{
+		Name:       "Job Requirement Extractor System Prompt",
+		Content:    llmRequirementDefaultPrompt,
+		Version:    1,
+		IsActive:   1,
+		AgentType:  "job_requirement_extractor",
+		PromptRole: "system",
+		CreatedBy:  &seededBy,
+		UpdatedBy:  &seededBy,
+	}
+	if err := repo.Create(ctx, jobReqExtractorTmpl); err != nil {
+		return fmt.Errorf("seed job requirement extractor prompt: %w", err)
+	}
+	if err := repo.CreateVersion(ctx, &model.PromptVersion{
+		TemplateID: jobReqExtractorTmpl.ID,
+		Version:    1,
+		Content:    llmRequirementDefaultPrompt,
+		ChangedBy:  &seededBy,
+		ChangeNote: "initial seed from hardcoded prompt",
+	}); err != nil {
+		logger.L().Warn("seed job requirement extractor prompt version failed", zap.Error(err))
+	}
+
+	matchEvalTmpl := &model.PromptTemplate{
+		Name:       "Candidate Match Evaluator System Prompt",
+		Content:    llmMatcherDefaultPrompt,
+		Version:    1,
+		IsActive:   1,
+		AgentType:  "candidate_match_evaluator",
+		PromptRole: "system",
+		CreatedBy:  &seededBy,
+		UpdatedBy:  &seededBy,
+	}
+	if err := repo.Create(ctx, matchEvalTmpl); err != nil {
+		return fmt.Errorf("seed candidate match evaluator prompt: %w", err)
+	}
+	if err := repo.CreateVersion(ctx, &model.PromptVersion{
+		TemplateID: matchEvalTmpl.ID,
+		Version:    1,
+		Content:    llmMatcherDefaultPrompt,
+		ChangedBy:  &seededBy,
+		ChangeNote: "initial seed from hardcoded prompt",
+	}); err != nil {
+		logger.L().Warn("seed candidate match evaluator prompt version failed", zap.Error(err))
+	}
+
 	logger.L().Info("default prompts seeded successfully",
 		zap.Int64("hr_template_id", hrTemplate.ID),
 		zap.Int64("candidate_template_id", candidateTemplate.ID),
 		zap.Int64("resume_profile_extractor_template_id", profileExtractorTmpl.ID),
+		zap.Int64("job_requirement_extractor_template_id", jobReqExtractorTmpl.ID),
+		zap.Int64("candidate_match_evaluator_template_id", matchEvalTmpl.ID),
 	)
 	return nil
 }

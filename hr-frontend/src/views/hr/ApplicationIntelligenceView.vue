@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { ElMessage } from 'element-plus'
+import { ElMessage, ElNotification } from 'element-plus'
 import { ArrowLeft, Cpu, DocumentChecked, Refresh, TrendCharts } from '@element-plus/icons-vue'
 import { useAuthStore } from '@/stores/auth'
 import { PERM } from '@/types/domain'
@@ -43,6 +43,11 @@ const profileMissing = ref(false)
 const evaluationMissing = ref(false)
 const profile = ref<ResumeProfileSnapshotInfo | null>(null)
 const evaluationSnapshot = ref<CandidateMatchEvaluationSnapshotInfo | null>(null)
+const actionLoadingText = computed(() => {
+  if (actionLoading.value === 'parse') return '正在解析简历画像，请稍候...'
+  if (actionLoading.value === 'evaluate') return '正在重新评估岗位匹配，请稍候...'
+  return ''
+})
 
 const canRunAIAction = computed(() => auth.hasPermission(PERM.AI_HR_USE))
 const candidateName = computed(() => String(route.query.candidate_name || profile.value?.profile?.full_name || '候选人'))
@@ -345,17 +350,31 @@ const runParse = async () => {
     debugLog.ri.warn('runParse_skipped', { application_id: applicationId.value, reason: 'no_permission' })
     return
   }
+  if (actionLoading.value) return
   debugLog.ri.info('runParse_started', { application_id: applicationId.value })
   actionLoading.value = 'parse'
   try {
     const data = await parseResumeProfile({ application_id: applicationId.value })
     profile.value = data.profile?.profile ? data.profile : null
     profileMissing.value = !profile.value
-    ElMessage.success('简历画像解析已完成')
+    ElNotification({
+      title: '简历画像解析完成',
+      message: profile.value ? '结构化画像已更新到当前页面。' : '接口已完成，但未返回可展示的画像数据。',
+      type: profile.value ? 'success' : 'warning',
+      position: 'top-right',
+      duration: 4500,
+    })
     debugLog.ri.info('runParse_succeeded', { application_id: applicationId.value, has_profile: !!profile.value })
-  } catch {
+  } catch (error: unknown) {
     debugLog.ri.warn('runParse_fallback', { application_id: applicationId.value })
     await loadProfile().catch(() => undefined)
+    ElNotification({
+      title: '简历画像解析未完成',
+      message: (error as Error)?.message || '接口执行失败，请稍后重试。',
+      type: 'error',
+      position: 'top-right',
+      duration: 6000,
+    })
   } finally {
     actionLoading.value = ''
   }
@@ -366,13 +385,22 @@ const runEvaluation = async () => {
     debugLog.ri.warn('runEvaluation_skipped', { application_id: applicationId.value, reason: 'no_permission' })
     return
   }
+  if (actionLoading.value) return
   debugLog.ri.info('runEvaluation_started', { application_id: applicationId.value })
   actionLoading.value = 'evaluate'
   try {
     const data = await evaluateCandidateMatch(applicationId.value)
     evaluationSnapshot.value = data.evaluation?.evaluation ? data.evaluation : null
     evaluationMissing.value = !evaluationSnapshot.value
-    ElMessage.success('匹配评估已完成')
+    ElNotification({
+      title: '岗位匹配评估完成',
+      message: evaluation.value
+        ? `综合评分 ${Math.round(evaluation.value.overall_score || 0)}，结论：${recommendationLabel.value}`
+        : '接口已完成，但未返回可展示的评估数据。',
+      type: evaluation.value ? 'success' : 'warning',
+      position: 'top-right',
+      duration: 5000,
+    })
     debugLog.ri.info('runEvaluation_succeeded', {
       application_id: applicationId.value,
       evaluation_id: evaluationSnapshot.value?.evaluation?.id ?? null,
@@ -380,9 +408,16 @@ const runEvaluation = async () => {
       recommendation: evaluationSnapshot.value?.evaluation?.recommendation ?? null,
     })
     if (!profile.value) await loadProfile().catch(() => undefined)
-  } catch {
+  } catch (error: unknown) {
     debugLog.ri.warn('runEvaluation_fallback', { application_id: applicationId.value })
     await loadEvaluation().catch(() => undefined)
+    ElNotification({
+      title: '岗位匹配评估未完成',
+      message: (error as Error)?.message || '接口执行失败，请稍后重试。',
+      type: 'error',
+      position: 'top-right',
+      duration: 6000,
+    })
   } finally {
     actionLoading.value = ''
   }
@@ -403,7 +438,12 @@ onMounted(loadAll)
 
 <template>
   <section class="console-page console-page--fill">
-    <div class="workspace-surface">
+    <div
+      class="workspace-surface"
+      v-loading="Boolean(actionLoading)"
+      :element-loading-text="actionLoadingText"
+      element-loading-background="rgba(255, 255, 255, 0.76)"
+    >
       <div class="workspace-surface__header">
         <div class="workspace-surface__header-copy">
           <p class="console-eyebrow">RECRUITING INTELLIGENCE</p>
@@ -412,7 +452,7 @@ onMounted(loadAll)
         </div>
         <div class="workspace-surface__header-actions">
           <el-button :icon="ArrowLeft" @click="goBack">返回</el-button>
-          <el-button :icon="Refresh" @click="loadAll">刷新</el-button>
+          <el-button :icon="Refresh" :disabled="Boolean(actionLoading)" @click="loadAll">刷新</el-button>
         </div>
       </div>
 
@@ -423,14 +463,14 @@ onMounted(loadAll)
         <div class="workspace-surface__actions">
           <el-tooltip :disabled="canRunAIAction" content="需要 AI HR 使用权限">
             <span>
-              <el-button :icon="DocumentChecked" :loading="actionLoading === 'parse'" :disabled="!canRunAIAction" @click="runParse">
+              <el-button :icon="DocumentChecked" :loading="actionLoading === 'parse'" :disabled="!canRunAIAction || Boolean(actionLoading)" @click="runParse">
                 {{ profile ? '重新解析画像' : '解析画像' }}
               </el-button>
             </span>
           </el-tooltip>
           <el-tooltip :disabled="canRunAIAction" content="需要 AI HR 使用权限">
             <span>
-              <el-button type="primary" :icon="Cpu" :loading="actionLoading === 'evaluate'" :disabled="!canRunAIAction" @click="runEvaluation">
+              <el-button type="primary" :icon="Cpu" :loading="actionLoading === 'evaluate'" :disabled="!canRunAIAction || Boolean(actionLoading)" @click="runEvaluation">
                 {{ evaluation ? '重新评估匹配' : '生成匹配评估' }}
               </el-button>
             </span>

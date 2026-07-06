@@ -14,6 +14,8 @@ type AgentRuntimePolicy struct {
 	Planner                  bool
 	StructuredResumeParse    bool
 	CandidateMatch           bool
+	CandidateMatchSemantic   bool
+	CandidateMatchShadow     bool
 	SkillGovernance          bool
 	SemanticRetrieval        bool
 	MCPPolicy                bool
@@ -28,6 +30,8 @@ func NewAgentRuntimePolicy(cfg config.Config) AgentRuntimePolicy {
 		Planner:                  boolValue(cfg.Agent.Features.Planner, true),
 		StructuredResumeParse:    boolValue(cfg.Agent.Features.StructuredResumeParse, true),
 		CandidateMatch:           boolValue(cfg.Agent.Features.CandidateMatch, true),
+		CandidateMatchSemantic:   boolValue(cfg.Agent.Features.CandidateMatchSemantic, true),
+		CandidateMatchShadow:     boolValue(cfg.Agent.Features.CandidateMatchShadow, false),
 		SkillGovernance:          boolValue(cfg.Agent.Features.SkillGovernance, true),
 		SemanticRetrieval:        boolValue(cfg.Agent.Features.SemanticRetrieval, true),
 		MCPPolicy:                boolValue(cfg.Agent.Features.MCPPolicy, true),
@@ -43,6 +47,8 @@ func DefaultAgentRuntimePolicy() AgentRuntimePolicy {
 		Planner:                  true,
 		StructuredResumeParse:    true,
 		CandidateMatch:           true,
+		CandidateMatchSemantic:   true,
+		CandidateMatchShadow:     false,
 		SkillGovernance:          true,
 		SemanticRetrieval:        true,
 		MCPPolicy:                true,
