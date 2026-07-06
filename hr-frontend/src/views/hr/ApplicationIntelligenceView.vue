@@ -25,10 +25,21 @@ type JsonRecord = Record<string, unknown>
 type JsonListItem = string | number | JsonRecord
 type DimensionScore = {
   key: string
+  label?: string
   score: number
   weight?: number
   matched: string[]
   missing: string[]
+}
+
+type SnippetRow = { key: string; value: string; hasHtml: boolean }
+type EvidenceDisplayItem = CandidateMatchEvidenceInfo & {
+  dimensionText: string
+  sourceText: string
+  typeText: string
+  impactText: string
+  reason: string
+  snippetRows: SnippetRow[]
 }
 
 const route = useRoute()
@@ -118,13 +129,14 @@ const toDimensionScore = (item: unknown, fallbackKey = ''): DimensionScore | nul
 
   const record = item as JsonRecord
   const key = asText(record.name || record.key || record.dimension || fallbackKey)
+  const label = asText(record.label)
   const scoreValue = record.score ?? record.value ?? record.percentage
   const score = Number(scoreValue)
   const weight = Number(record.weight)
   const matched = Array.isArray(record.matched) ? record.matched.map(asText).filter(Boolean) : []
   const missing = Array.isArray(record.missing) ? record.missing.map(asText).filter(Boolean) : []
-  return key || Number.isFinite(score)
-    ? { key, score: Number.isFinite(score) ? score : 0, weight: Number.isFinite(weight) ? weight : undefined, matched, missing }
+  return key || label || Number.isFinite(score)
+    ? { key, label, score: Number.isFinite(score) ? score : 0, weight: Number.isFinite(weight) ? weight : undefined, matched, missing }
     : null
 }
 
@@ -158,31 +170,52 @@ const strengths = computed(() => jsonList(evaluation.value?.strengths_json))
 const risks = computed(() => jsonList(evaluation.value?.risks_json))
 const strengthTexts = computed(() => strengths.value.map(asSignalText).filter(Boolean))
 const riskTexts = computed(() => risks.value.map(asSignalText).filter(Boolean))
+const requirementLabelMap = computed(() => {
+  const labels = new Map<string, string>()
+  const profile = scoreBreakdown.value.requirement_profile
+  if (profile && typeof profile === 'object') {
+    const requirements = (profile as JsonRecord).requirements
+    if (Array.isArray(requirements)) {
+      for (const item of requirements) {
+        if (!item || typeof item !== 'object') continue
+        const record = item as JsonRecord
+        const id = asText(record.id)
+        const label = asText(record.label || record.description)
+        if (id && label) labels.set(id, label)
+      }
+    }
+  }
+  return labels
+})
+
+const requirementDisplayText = (value: string): string => requirementLabelMap.value.get(value) || dimensionLabels[value] || value
+
 const missingRequirements = computed(() => {
-  const fromField = jsonTags(evaluation.value?.missing_requirements_json)
+  const fromField = jsonTags(evaluation.value?.missing_requirements_json).map(requirementDisplayText)
   if (fromField.length) return fromField
 
   const fromBreakdown = scoreBreakdown.value.missing_requirements
   if (!Array.isArray(fromBreakdown)) return []
-  return fromBreakdown.map(asText).filter(Boolean)
-})
-
-const evidenceByType = computed(() => {
-  const groups: Record<string, CandidateMatchEvidenceInfo[]> = {}
-  for (const item of evidence.value) {
-    const key = item.evidence_type || 'evidence'
-    if (!groups[key]) groups[key] = []
-    groups[key].push(item)
-  }
-  return Object.entries(groups).map(([type, items]) => ({ type, items }))
+  return fromBreakdown.map(asText).filter(Boolean).map(requirementDisplayText)
 })
 
 const dimensionLabels: Record<string, string> = {
   skills: '技能匹配',
   requirements: '岗位要求',
+  term_coverage: '要求覆盖度',
+  must_have: '必备要求满足度',
+  core_skills: '核心技能匹配',
+  growth: '成长潜力与加分项',
   experience: '经验背景',
   education: '教育背景',
   profile: '候选人资料',
+  overall: '综合评估',
+}
+
+const parseRunStatusLabels: Record<string, string> = {
+  running: '解析中',
+  succeeded: '解析成功',
+  failed: '解析失败',
 }
 
 const evidenceTypeLabels: Record<string, string> = {
@@ -191,6 +224,9 @@ const evidenceTypeLabels: Record<string, string> = {
   resume_text: '简历文本',
   missing_requirement: '缺失要求',
   candidate_profile: '候选人资料',
+  requirement_match: '要求匹配证据',
+  no_match: '无匹配证据',
+  strength: '优势证据',
   risk: '风险信号',
   evidence: '证据',
 }
@@ -198,13 +234,17 @@ const evidenceTypeLabels: Record<string, string> = {
 const sourceTableLabels: Record<string, string> = {
   resume_skills: '技能画像',
   resume_experiences: '工作经历',
+  resume_projects: '项目经历',
+  resume_educations: '教育经历',
   resumes: '简历原文',
   jobs: '岗位要求',
   candidate_profiles: '候选人资料',
   resume_profiles: '简历画像',
 }
 
-const dimensionLabel = (key: string): string => dimensionLabels[key] || key || '-'
+const parseRunStatusLabel = (status: string): string => parseRunStatusLabels[status] || status || '-'
+const dimensionLabel = (key: string): string => requirementLabelMap.value.get(key) || dimensionLabels[key] || key || '-'
+const dimensionDisplayLabel = (item: DimensionScore): string => item.label || dimensionLabel(item.key)
 const evidenceTypeLabel = (type: string): string => evidenceTypeLabels[type] || type || '证据'
 const sourceTableLabel = (source: string): string => sourceTableLabels[source] || source || '-'
 const evidenceTagType = (type: string): string => {
@@ -212,10 +252,63 @@ const evidenceTagType = (type: string): string => {
   if (type === 'candidate_profile') return 'info'
   return 'success'
 }
+const parsedSnippet = (snippet: string): SnippetRow[] => {
+  if (!snippet) return []
+  const htmlTagRe = /<[a-z][\s\S]*>/i
+  const parts = snippet.split('|').map(s => s.trim()).filter(Boolean)
+  if (parts.length < 2) return [{ key: '', value: snippet, hasHtml: htmlTagRe.test(snippet) }]
+  return parts.map(part => {
+    const idx = part.indexOf(': ')
+    if (idx === -1) return { key: '', value: part, hasHtml: htmlTagRe.test(part) }
+    const key = part.slice(0, idx).trim()
+    const value = part.slice(idx + 2).trim()
+    return { key, value, hasHtml: htmlTagRe.test(value) }
+  })
+}
+
 const scoreImpactText = (value: number): string => {
   const score = Number(value || 0)
   return `${score > 0 ? '+' : ''}${Math.round(score)}`
 }
+
+const evidenceMetadata = (item: CandidateMatchEvidenceInfo): JsonRecord => parseJson<JsonRecord>(item.metadata_json, {})
+const evidenceDimensionText = (item: CandidateMatchEvidenceInfo): string => {
+  const metadata = evidenceMetadata(item)
+  const requirementId = asText(metadata.requirement_id)
+  return dimensionLabel(requirementId || item.dimension)
+}
+const evidenceSourceText = (item: CandidateMatchEvidenceInfo): string => {
+  const base = sourceTableLabel(item.source_table)
+  return item.source_id ? `${base} #${item.source_id}` : base
+}
+
+const evidenceDisplayItems = computed<EvidenceDisplayItem[]>(() => evidence.value.map((item) => {
+  const metadata = evidenceMetadata(item)
+  return {
+    ...item,
+    dimensionText: evidenceDimensionText(item),
+    sourceText: evidenceSourceText(item),
+    typeText: evidenceTypeLabel(item.evidence_type),
+    impactText: scoreImpactText(item.score_impact),
+    reason: asText(metadata.reason),
+    snippetRows: parsedSnippet(item.snippet),
+  }
+}))
+
+const evidenceByDimension = computed(() => {
+  const groups = new Map<string, EvidenceDisplayItem[]>()
+  for (const item of evidenceDisplayItems.value) {
+    const key = item.dimensionText || '综合评估'
+    if (!groups.has(key)) groups.set(key, [])
+    groups.get(key)!.push(item)
+  }
+  return Array.from(groups.entries()).map(([dimension, items]) => {
+    const representativeImpact = items
+      .map(item => Number(item.score_impact || 0))
+      .sort((a, b) => Math.abs(b) - Math.abs(a))[0] || 0
+    return { dimension, items, impactText: scoreImpactText(representativeImpact) }
+  })
+})
 
 const recommendationLabel = computed(() => {
   const value = evaluation.value?.recommendation || ''
@@ -485,9 +578,9 @@ onMounted(loadAll)
               <div class="panel-title">
                 <span>结构化简历画像</span>
                 <div class="panel-tags">
-                  <el-tag v-if="profile?.profile" size="small" type="primary">v{{ profile.profile.version }}</el-tag>
                   <el-tag v-if="profile?.profile?.is_current" size="small" type="success">当前版本</el-tag>
-                  <el-tag v-if="profile?.parse_run?.status" size="small" type="info">{{ profile.parse_run.status }}</el-tag>
+                  <el-tag v-if="profile?.profile" size="small" type="primary">v{{ profile.profile.version }}</el-tag>
+                  <el-tag v-if="profile?.parse_run?.status" size="small" type="info">{{ parseRunStatusLabel(profile.parse_run.status) }}</el-tag>
                 </div>
               </div>
             </template>
@@ -569,7 +662,6 @@ onMounted(loadAll)
                 <div class="panel-tags">
                   <el-tag v-if="evaluation" size="small" type="primary">v{{ evaluation.evaluation_version }}</el-tag>
                   <el-tag v-if="evaluation?.is_latest" size="small" type="success">最新</el-tag>
-                  <el-tag v-if="evaluation?.model_name" size="small" type="info">{{ evaluation.model_name }}</el-tag>
                 </div>
               </div>
             </template>
@@ -592,7 +684,7 @@ onMounted(loadAll)
                 <div class="dimension-list">
                   <div v-for="item in dimensions" :key="item.key" class="dimension-row">
                     <div class="dimension-main">
-                      <span>{{ dimensionLabel(item.key) }}</span>
+                      <span>{{ dimensionDisplayLabel(item) }}</span>
                       <em v-if="item.weight">权重 {{ Math.round(item.weight * 100) }}%</em>
                     </div>
                     <div class="dimension-meter">
@@ -631,17 +723,33 @@ onMounted(loadAll)
               <div class="section-block">
                 <div class="section-label">证据明细</div>
                 <div class="evidence-list">
-                  <div v-for="group in evidenceByType" :key="group.type" class="evidence-group">
+                  <div v-for="group in evidenceByDimension" :key="group.dimension" class="evidence-group">
                     <div class="evidence-group-title">
-                      <el-tag size="small" :type="evidenceTagType(group.type) as any">{{ evidenceTypeLabel(group.type) }}</el-tag>
-                      <span>{{ group.items.length }} 条</span>
+                      <div>
+                        <span>匹配维度</span>
+                        <strong>{{ group.dimension }}</strong>
+                      </div>
+                      <div class="evidence-group-stats">
+                        <span>{{ group.items.length }} 条证据</span>
+                        <strong class="evidence-impact">影响 {{ group.impactText }}</strong>
+                      </div>
                     </div>
                     <div v-for="item in group.items" :key="item.id" class="evidence-item">
                       <div class="evidence-head">
-                        <span>{{ dimensionLabel(item.dimension) }} / {{ sourceTableLabel(item.source_table) }}</span>
-                        <strong>{{ scoreImpactText(item.score_impact) }}</strong>
+                        <div class="evidence-meta">
+                          <el-tag size="small" :type="evidenceTagType(item.evidence_type) as any" effect="plain">{{ item.typeText }}</el-tag>
+                          <el-tag size="small" type="info" effect="plain">{{ item.sourceText }}</el-tag>
+                        </div>
                       </div>
-                      <p>{{ item.snippet || '暂无证据片段' }}</p>
+                      <div v-if="item.reason" class="evidence-reason">{{ item.reason }}</div>
+                      <div v-if="item.snippetRows.length" class="snippet-list">
+                        <div v-for="(kv, i) in item.snippetRows" :key="i" class="snippet-row">
+                          <span v-if="kv.key" class="snippet-key">{{ kv.key }}</span>
+                          <span v-if="kv.hasHtml" class="snippet-value" v-html="kv.value" />
+                          <span v-else class="snippet-value">{{ kv.value }}</span>
+                        </div>
+                      </div>
+                      <span v-else class="snippet-empty">暂无证据片段</span>
                     </div>
                   </div>
                   <div v-if="evidence.length === 0" class="empty-inline">暂无证据明细</div>
@@ -766,6 +874,10 @@ onMounted(loadAll)
   border-radius: 8px;
   background: var(--surface);
   padding: 11px 12px;
+}
+
+.evidence-item {
+  border-left: 3px solid var(--brand-strong);
 }
 
 .skill-item div,
@@ -931,14 +1043,19 @@ onMounted(loadAll)
 
 .evidence-head {
   flex-wrap: wrap;
+  justify-content: space-between;
   gap: 8px;
-  margin-bottom: 7px;
+  margin-bottom: 9px;
 }
 
 .evidence-group {
   display: flex;
   flex-direction: column;
   gap: 8px;
+  padding: 10px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface-muted);
 }
 
 .evidence-group + .evidence-group {
@@ -947,12 +1064,99 @@ onMounted(loadAll)
 
 .evidence-group-title {
   justify-content: space-between;
-  padding: 2px 1px;
+  gap: 12px;
+  padding: 0 1px 2px;
+}
+
+.evidence-group-title div {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.evidence-group-title .evidence-group-stats {
+  min-width: max-content;
+  align-items: flex-end;
+}
+
+.evidence-group-title span,
+.evidence-group-title em {
+  color: var(--text-muted);
+  font-size: 12px;
+  font-style: normal;
+}
+
+.evidence-group-title strong {
+  color: var(--text-primary);
+  font-size: 14px;
+  overflow-wrap: anywhere;
+}
+
+.evidence-group-title .evidence-impact {
+  color: var(--brand);
+  font-size: 13px;
+  font-weight: 800;
 }
 
 .evidence-head strong {
-  margin-left: auto;
   color: var(--brand-strong);
+  font-size: 13px;
+}
+
+.evidence-meta {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.evidence-reason {
+  margin-bottom: 8px;
+  color: var(--text-secondary);
+  font-size: 13px;
+  line-height: 1.55;
+  overflow-wrap: anywhere;
+}
+
+.snippet-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 6px;
+}
+
+.snippet-row {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  line-height: 1.55;
+}
+
+.snippet-key {
+  color: var(--text-muted);
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+  min-width: 3.5em;
+}
+
+.snippet-value {
+  color: var(--text-secondary);
+  font-size: 13px;
+  overflow-wrap: anywhere;
+}
+
+.snippet-value :deep(p) {
+  margin: 0;
+  color: var(--text-secondary);
+  font-size: 13px;
+  line-height: 1.55;
+}
+
+.snippet-empty {
+  color: var(--text-faint);
+  font-size: 13px;
 }
 
 .empty-inline {

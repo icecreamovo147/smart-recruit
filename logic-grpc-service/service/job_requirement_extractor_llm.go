@@ -3,14 +3,12 @@ package service
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"strings"
 	"time"
 
 	"github.com/cloudwego/eino/schema"
 	"go.uber.org/zap"
-	"gorm.io/gorm"
 
 	"logic-grpc-service/ai"
 	"logic-grpc-service/pkg/logger"
@@ -23,36 +21,6 @@ const (
 	llmRequirementPromptRole       = "system"
 	llmRequirementSaveReserve      = 7 * time.Second
 	llmRequirementMinCallWindow    = 1 * time.Second
-	llmRequirementDefaultPrompt    = `You are a job requirement extractor. Given a job description, extract structured requirements.
-
-You MUST output ONLY a JSON object — no explanation, no markdown, no code fences, no extra text.
-The JSON object MUST conform to this exact schema:
-{
-  "profile_version": "job-requirement-profile-v1",
-  "requirements": [
-    {
-      "id": "unique-kebab-case-id",
-      "category": "core_skill|experience|education|certification|domain|language|soft_skill|other",
-      "label": "Chinese label for the requirement",
-      "description": "Brief description in Chinese",
-      "priority": "must_have|nice_to_have|soft_skill",
-      "weight": 0.0,
-      "knockout": false,
-      "aliases": ["alias1", "alias2"]
-    }
-  ]
-}
-
-Rules:
-- IDs must be kebab-case English (e.g., "java-backend", "distributed-systems")
-- Labels must be Chinese (e.g., "Java 后端开发经验", "分布式系统能力")
-- priority must_have = required/core, nice_to_have = bonus, soft_skill = soft capability
-- knockout = true only for hard disqualifiers (e.g., specific degree, certification)
-- weights must sum to 1.0, reflecting relative importance
-- aliases are alternate names/synonyms including Chinese variants
-- Extract MUST-HAVE requirements first, then nice-to-have, then soft skills
-- Minimum 2 requirements, maximum 20
-- Output ONLY the JSON, no other text.`
 )
 
 type LLMJobRequirementExtractor struct {
@@ -90,10 +58,13 @@ func (e *LLMJobRequirementExtractor) ExtractWithMetadata(ctx context.Context, jo
 		return nil, fmt.Errorf("llm requirement extractor: default model not fully configured")
 	}
 
-	systemPrompt, promptKey, promptVersion := e.loadPrompt(ctx)
+	systemPrompt, promptKey, promptVersion, err := e.loadPrompt(ctx)
+	if err != nil {
+		return nil, err
+	}
 
 	fullText := strings.Join([]string{jobTitle, department, description, requirements}, "\n")
-	userMsg := fmt.Sprintf("Job Information:\nTitle: %s\nDepartment: %s\nDescription:\n%s\nRequirements:\n%s\n\nExtract structured requirements as JSON.", jobTitle, department, description, requirements)
+	userMsg := fmt.Sprintf("岗位信息：\n岗位名称：%s\n所属部门：%s\n岗位描述：\n%s\n岗位要求：\n%s", jobTitle, department, description, requirements)
 
 	msgs := []*schema.Message{
 		schema.SystemMessage(systemPrompt),
@@ -172,28 +143,18 @@ func (e *LLMJobRequirementExtractor) ExtractWithMetadata(ctx context.Context, jo
 	}, nil
 }
 
-func (e *LLMJobRequirementExtractor) loadPrompt(ctx context.Context) (prompt string, key string, version int32) {
+func (e *LLMJobRequirementExtractor) loadPrompt(ctx context.Context) (prompt string, key string, version int32, err error) {
 	if e.promptRepo == nil {
-		logger.L().Info("llm requirement extractor: prompt repo is nil, using built-in fallback",
-			zap.String("agent_type", llmRequirementPromptAgent),
-		)
-		return llmRequirementDefaultPrompt, "builtin", 0
+		return "", "", 0, fmt.Errorf("llm requirement extractor: DB prompt repo is not configured for agent_type=%s role=%s", llmRequirementPromptAgent, llmRequirementPromptRole)
 	}
 	tmpl, err := e.promptRepo.GetActiveByAgentType(ctx, llmRequirementPromptAgent, llmRequirementPromptRole)
 	if err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			logger.L().Info("llm requirement extractor: no DB prompt template found, using built-in",
-				zap.String("agent_type", llmRequirementPromptAgent),
-			)
-			return llmRequirementDefaultPrompt, "builtin", 0
-		}
-		logger.L().Warn("llm requirement extractor: failed to load prompt from DB, using built-in",
-			zap.String("agent_type", llmRequirementPromptAgent),
-			zap.Error(err),
-		)
-		return llmRequirementDefaultPrompt, "builtin", 0
+		return "", "", 0, fmt.Errorf("llm requirement extractor: load DB prompt template for agent_type=%s role=%s: %w", llmRequirementPromptAgent, llmRequirementPromptRole, err)
 	}
-	return tmpl.Content, tmpl.Name, tmpl.Version
+	if strings.TrimSpace(tmpl.Content) == "" {
+		return "", "", 0, fmt.Errorf("llm requirement extractor: active DB prompt template is empty for agent_type=%s role=%s", llmRequirementPromptAgent, llmRequirementPromptRole)
+	}
+	return tmpl.Content, tmpl.Name, tmpl.Version, nil
 }
 
 func (e *LLMJobRequirementExtractor) resolveTimeout(ctx context.Context, cfg *LlmRuntimeModelConfig) time.Duration {

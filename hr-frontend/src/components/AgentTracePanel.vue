@@ -1,6 +1,8 @@
 <script setup lang="ts">
 import { ref, watch } from 'vue'
 import { ElMessage } from 'element-plus'
+import DOMPurify from 'dompurify'
+import MarkdownIt from 'markdown-it'
 import { getAgentRuns, getToolTraces } from '@/api/ai'
 import type {
   AgentRunItem,
@@ -27,6 +29,30 @@ const expandedArgs = ref<Set<number>>(new Set())
 const expandedResult = ref<Set<number>>(new Set())
 const expandedStepInput = ref<Set<number>>(new Set())
 const expandedStepOutput = ref<Set<number>>(new Set())
+
+const md = new MarkdownIt({
+  html: false,
+  linkify: true,
+  breaks: true,
+})
+
+const renderMarkdown = (content: string): string => {
+  const raw = DOMPurify.sanitize(md.render(content || ''), {
+    ALLOWED_TAGS: [
+      'h1', 'h2', 'h3', 'h4', 'h5', 'h6',
+      'p', 'br', 'hr',
+      'strong', 'b', 'em', 'i', 'u', 's', 'del',
+      'ul', 'ol', 'li',
+      'code', 'pre',
+      'a',
+      'table', 'thead', 'tbody', 'tr', 'th', 'td',
+      'blockquote',
+    ],
+    ALLOWED_ATTR: ['href', 'title', 'target'],
+    ALLOWED_URI_REGEXP: /^(?:(?:https?|mailto|tel):|[^a-z]|[a-z+.-]+(?:[^a-z+\.\-:]|$))/i,
+  })
+  return raw.replace(/<a\s/g, '<a rel="noopener noreferrer" ')
+}
 
 const loadTraces = async () => {
   if (!props.sessionId) {
@@ -133,6 +159,162 @@ const policyDecisionLabels: Record<string, string> = {
   no_policy: '无策略',
 }
 
+
+const agentLabels: Record<string, string> = {
+  hr_recruiting_agent: 'HR 招聘助手',
+  hr: 'HR 招聘助手',
+  candidate_assistant: '候选人助手',
+  custom: '自定义智能体',
+}
+
+const runtimeLabels: Record<string, string> = {
+  adk: 'ADK 运行时',
+  legacy: '兼容运行时',
+  mock: '模拟运行时',
+  fallback: '降级运行时',
+}
+
+const intentLabels: Record<string, string> = {
+  candidate_match_evaluation: '候选人匹配评估',
+  candidate_comparison: '候选人对比',
+  analytics: '招聘数据分析',
+  status_change_proposal: '状态变更建议',
+  interview_prep: '面试准备',
+  offer_support: 'Offer 支持',
+  unknown: '待澄清意图',
+}
+
+const toolLabels: Record<string, string> = {
+  search_candidates: '搜索候选人',
+  get_candidate_detail: '获取候选人详情',
+  parse_resume_profile: '解析简历画像',
+  evaluate_candidate_match: '评估候选人匹配度',
+  get_candidate_match_evaluation: '读取匹配评估结果',
+  search_jobs: '搜索职位',
+  list_applications_by_job: '查询职位投递列表',
+  compare_candidates_for_job: '对比职位候选人',
+  query_total_applications: '查询累计投递数',
+  query_today_applications: '查询今日投递数',
+  get_job_heat_ranking: '获取职位热度排行',
+  get_application_status_summary: '获取投递状态分布',
+  get_application_trend: '获取投递趋势',
+  propose_application_status_update: '生成状态变更建议',
+  get_resume_profile: '获取简历画像',
+  get_job_detail: '获取职位详情',
+}
+
+const dataLabels: Record<string, string> = {
+  application_id: '投递记录 ID',
+  resume_text: '简历文本',
+  job_requirements: '职位要求',
+  candidate_match_evaluation: '候选人匹配评估',
+  job_id: '职位 ID',
+  candidate_match_rankings: '候选人匹配排名',
+  time_range: '时间范围',
+  job_filter_optional: '职位筛选条件（可选）',
+  application_counts: '投递数量',
+  status_distribution: '状态分布',
+  trend: '趋势数据',
+  target_status: '目标状态',
+  candidate_identity: '候选人身份',
+  resume_profile: '简历画像',
+  interview_focus_areas: '面试关注点',
+  job_details: '职位详情',
+  compensation_constraints_optional: '薪酬约束（可选）',
+  clarifying_question: '澄清问题',
+}
+
+const riskLabels: Record<string, string> = {
+  verify_candidate_identity: '核验候选人身份',
+  do_not_infer_from_missing_resume_text: '简历缺失时不做推断',
+  cite_tool_returned_evidence: '引用工具返回的证据',
+  verify_job_scope: '核验职位范围',
+  avoid_unfair_attribute_comparisons: '避免不公平属性对比',
+  explain_missing_evaluations: '说明缺失的评估数据',
+  state_time_window: '明确统计时间窗口',
+  do_not_mix_filtered_and_global_counts: '不要混用筛选数据与全局数据',
+  call_tools_for_live_metrics: '实时指标必须调用工具查询',
+  verify_application_id: '核验投递记录 ID',
+  never_claim_database_updated: '不得声称已直接更新数据库',
+  ask_clarifying_question_when_target_status_missing: '目标状态缺失时先追问',
+  base_questions_on_resume_and_job_data: '面试题基于简历和职位数据',
+  avoid_protected_attribute_questions: '避免受保护属性相关问题',
+  ask_for_candidate_or_job_when_ambiguous: '候选人或职位不明确时先追问',
+  do_not_send_or_create_offer_without_tool_support: '无工具支持时不得发送或创建 Offer',
+  avoid_unverified_compensation_terms: '避免未经核验的薪酬承诺',
+  verify_authorization_and_candidate_identity: '核验授权与候选人身份',
+  do_not_claim_unavailable_tools: '不得声称使用了不可用工具',
+  ask_for_missing_recruiting_intent_or_entities: '招聘意图或对象缺失时先追问',
+  no_builtin_recruiting_tools_available: '内置招聘工具不可用',
+}
+
+const outputFieldLabels: Record<string, string> = {
+  candidate_match_evaluation: '候选人匹配评估',
+  summary: '摘要',
+  score: '评分',
+  evidence: '证据',
+  risks: '风险',
+  next_steps: '下一步',
+  candidate_comparison: '候选人对比',
+  job: '职位',
+  ranked_candidates: '候选人排名',
+  tradeoffs: '取舍分析',
+  recommended_follow_up: '建议跟进',
+  analytics: '数据分析',
+  metrics: '指标',
+  filters: '筛选条件',
+  observations: '观察结论',
+  caveats: '注意事项',
+  status_change_proposal: '状态变更建议',
+  candidate: '候选人',
+  current_status: '当前状态',
+  target_status: '目标状态',
+  confirmation_prompt: '确认提示',
+  interview_prep: '面试准备',
+  candidate_context: '候选人背景',
+  focus_areas: '关注领域',
+  questions: '面试问题',
+  evaluation_rubric: '评估标准',
+  offer_support: 'Offer 支持',
+  offer_inputs: 'Offer 输入信息',
+  draft_points: '草稿要点',
+  approval_or_confirmation_needed: '所需审批或确认',
+  clarifying_question: '澄清问题',
+  known_constraints: '已知约束',
+}
+
+const decisionKeyLabels: Record<string, string> = {
+  intent: '意图',
+  confirmation_required: '需要确认',
+  confirmation_reason: '确认原因',
+  required_tool_count: '所需工具数',
+  required_data_count: '所需数据数',
+  risk_flag_count: '风险检查数',
+  unavailable_tool_risk: '工具不可用风险',
+  requires_human_confirm: '需要人工确认',
+  requires_evidence_citation: '需要证据引用',
+  status: '状态',
+  error_type: '错误类型',
+  has_answer: '已生成回答',
+  completed_at: '完成时间',
+  partial: '部分完成',
+  failed: '执行失败',
+  canceled: '已取消',
+  risk_flag_hit: '命中风险',
+}
+
+const statusLabels: Record<string, string> = {
+  succeeded: '成功',
+  success: '成功',
+  failed: '失败',
+  error: '错误',
+  partial: '部分完成',
+  fallback: '降级',
+  canceled: '已取消',
+  running: '运行中',
+  pending: '等待中',
+}
+
 const policyDecisionTagType = (decision: string): 'success' | 'warning' | 'danger' | 'info' | 'primary' => {
   if (decision === 'allow') return 'success'
   if (decision === 'deny' || decision === 'invalid_args') return 'danger'
@@ -211,6 +393,34 @@ const shortText = (value: unknown): string => {
   return JSON.stringify(value)
 }
 
+const booleanLabel = (value: boolean): string => value ? '是' : '否'
+
+const labelFrom = (labels: Record<string, string>, value: unknown): string => {
+  const text = shortText(value)
+  return labels[text] || text
+}
+
+const agentLabel = (value: unknown): string => labelFrom(agentLabels, value)
+const runtimeLabel = (value: unknown): string => labelFrom(runtimeLabels, value)
+const intentLabel = (value: unknown): string => labelFrom(intentLabels, value)
+const toolLabel = (value: string): string => labelFrom(toolLabels, value)
+const dataLabel = (value: string): string => labelFrom(dataLabels, value)
+const riskLabel = (value: string): string => labelFrom(riskLabels, value)
+const outputFieldLabel = (value: string): string => labelFrom(outputFieldLabels, value)
+const decisionKeyLabel = (value: string): string => labelFrom(decisionKeyLabels, value)
+
+const localizedValue = (value: unknown): string => {
+  if (typeof value === 'boolean') return booleanLabel(value)
+  if (typeof value === 'string') {
+    return statusLabels[value]
+      || intentLabels[value]
+      || runtimeLabels[value]
+      || agentLabels[value]
+      || value
+  }
+  return shortText(value)
+}
+
 const outputSchemaFields = (plan: AgentRunRecruitingPlan | null): string[] => {
   if (!plan?.output_schema || !isRecord(plan.output_schema)) return []
   const properties = plan.output_schema.properties
@@ -245,14 +455,19 @@ const riskFlags = (run: AgentRunItem, plan: AgentRunRecruitingPlan | null): stri
   return fromRun.length > 0 ? fromRun : normalizeStringList(plan?.risk_checks)
 }
 
+const runAgentName = (run: AgentRunItem): string => {
+  if (run.agent_name && run.agent_name !== run.agent_type) return agentLabel(run.agent_name)
+  return agentLabel(run.agent_type || runPlan(run)?.agent || 'HR Agent')
+}
+
 const decisionEntries = (run: AgentRunItem): Array<{ key: string; value: string; warning: boolean }> => {
   const decision = runPlan(run)?.decision
   if (!decision || !isRecord(decision)) return []
   return Object.entries(decision)
     .filter(([, value]) => value !== undefined && value !== null && value !== '')
     .map(([key, value]) => ({
-      key,
-      value: shortText(value),
+      key: decisionKeyLabel(key),
+      value: localizedValue(value),
       warning: value === true && ['unavailable_tool_risk', 'requires_human_confirm', 'risk_flag_hit', 'partial', 'failed'].includes(key),
     }))
 }
@@ -361,13 +576,13 @@ watch(() => props.sessionId, () => {
         >
           <div class="run-item__header">
             <div>
-              <div class="run-item__title">{{ run.agent_name || 'HR Agent' }}</div>
+              <div class="run-item__title">{{ runAgentName(run) }}</div>
               <div class="run-item__meta">
                 {{ run.model_name || '未记录模型' }} · {{ formatTime(run.started_at || run.created_at) }}
               </div>
             </div>
             <el-tag :type="statusTagType(run.status)" size="small">
-              {{ run.status }}
+              {{ statusLabels[run.status] || run.status }}
             </el-tag>
           </div>
 
@@ -376,11 +591,11 @@ watch(() => props.sessionId, () => {
               <div class="summary-grid">
                 <div class="summary-cell">
                   <span class="summary-cell__label">意图</span>
-                  <strong>{{ recruitingPlan(run)?.intent || runPlan(run)?.decision?.intent || '未记录' }}</strong>
+                  <strong>{{ intentLabel(recruitingPlan(run)?.intent || runPlan(run)?.decision?.intent || '未记录') }}</strong>
                 </div>
                 <div class="summary-cell">
                   <span class="summary-cell__label">运行时</span>
-                  <strong>{{ runPlan(run)?.runtime || run.agent_type || '未记录' }}</strong>
+                  <strong>{{ runtimeLabel(runPlan(run)?.runtime || run.agent_type || '未记录') }}</strong>
                 </div>
                 <div class="summary-cell">
                   <span class="summary-cell__label">应用</span>
@@ -397,7 +612,7 @@ watch(() => props.sessionId, () => {
                     size="small"
                     effect="plain"
                   >
-                    {{ tool }}
+                    {{ toolLabel(tool) }}
                   </el-tag>
                 </div>
               </div>
@@ -412,7 +627,7 @@ watch(() => props.sessionId, () => {
                     type="info"
                     effect="plain"
                   >
-                    {{ dataKey }}
+                    {{ dataLabel(dataKey) }}
                   </el-tag>
                 </div>
               </div>
@@ -427,7 +642,7 @@ watch(() => props.sessionId, () => {
                     type="success"
                     effect="plain"
                   >
-                    {{ field }}
+                    {{ outputFieldLabel(field) }}
                   </el-tag>
                 </div>
               </div>
@@ -503,7 +718,7 @@ watch(() => props.sessionId, () => {
                     type="danger"
                     effect="plain"
                   >
-                    {{ risk }}
+                    {{ riskLabel(risk) }}
                   </el-tag>
                 </div>
               </div>
@@ -540,7 +755,7 @@ watch(() => props.sessionId, () => {
 
           <div v-if="run.final_answer" class="final-answer">
             <div class="compact-section__title">最终回答</div>
-            <div class="final-answer__content">{{ run.final_answer }}</div>
+            <div class="final-answer__content md-content" v-html="renderMarkdown(run.final_answer)"></div>
           </div>
 
           <el-timeline class="run-steps">
@@ -556,7 +771,7 @@ watch(() => props.sessionId, () => {
                     {{ stepTitle(step) }}
                   </span>
                   <el-tag :type="stepTagType(step)" size="small" effect="plain">
-                    {{ stepTypeLabel(step) }} · {{ step.status }}
+                    {{ stepTypeLabel(step) }} · {{ statusLabels[step.status] || step.status }}
                   </el-tag>
                   <el-tag v-if="isEvidenceStep(step)" type="warning" size="small" effect="dark">
                     Evidence
@@ -880,6 +1095,10 @@ watch(() => props.sessionId, () => {
   color: var(--el-text-color-primary);
   white-space: pre-wrap;
   overflow-wrap: anywhere;
+}
+
+.final-answer__content.md-content {
+  white-space: normal;
 }
 
 .run-steps {

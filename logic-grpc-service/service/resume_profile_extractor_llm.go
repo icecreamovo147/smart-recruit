@@ -12,7 +12,6 @@ import (
 
 	"github.com/cloudwego/eino/schema"
 	"go.uber.org/zap"
-	"gorm.io/gorm"
 
 	"logic-grpc-service/ai"
 	"logic-grpc-service/pkg/logger"
@@ -25,71 +24,6 @@ const (
 	llmExtractorPromptRole    = "system"
 	llmExtractorSaveReserve   = 7 * time.Second
 	llmExtractorMinCallWindow = 1 * time.Second
-	llmExtractorDefaultPrompt = `You are a resume profile extractor. Extract structured data from the resume text below.
-
-You MUST output ONLY a JSON object — no explanation, no markdown, no code fences, no extra text.
-The JSON object MUST conform to this exact schema:
-{
-  "full_name": "string",
-  "email": "string",
-  "phone": "string",
-  "location": "string",
-  "headline": "string",
-  "summary": "string",
-  "total_experience_years": number,
-  "highest_degree": "string",
-  "educations": [
-    {
-      "school": "string",
-      "degree": "string",
-      "major": "string",
-      "start_date": "string (YYYY, YYYY-MM, or YYYY-MM-DD)",
-      "end_date": "string (YYYY, YYYY-MM, YYYY-MM-DD, or \"present\")",
-      "description": "string"
-    }
-  ],
-  "experiences": [
-    {
-      "company": "string",
-      "title": "string",
-      "location": "string",
-      "start_date": "string",
-      "end_date": "string",
-      "is_current": bool,
-      "description": "string",
-      "achievements": ["string"]
-    }
-  ],
-  "projects": [
-    {
-      "name": "string",
-      "role": "string",
-      "start_date": "string",
-      "end_date": "string",
-      "description": "string",
-      "technologies": ["string"],
-      "highlights": ["string"]
-    }
-  ],
-  "skills": [
-    {
-      "name": "string",
-      "category": "string",
-      "level": "string",
-      "years": number,
-      "evidence": "string"
-    }
-  ]
-}
-
-Rules:
-- full_name, email, phone, location, headline, summary can be empty strings if not found
-- total_experience_years MUST be a number (0 if unknown)
-- educations, experiences, projects, skills MUST be arrays (can be empty)
-- Use "present" for end_date if the person currently works/studies there
-- is_current must be true when end_date is "present" or "current"
-- Extract skills with any evidence mentioned (project names, companies where used)
-- Output ONLY the JSON, no other text.`
 )
 
 type LLMResumeProfileExtractor struct {
@@ -127,11 +61,14 @@ func (e *LLMResumeProfileExtractor) ExtractWithMetadata(ctx context.Context, tex
 		return ResumeProfileExtractResult{}, fmt.Errorf("llm extractor: default model not fully configured (api_key or model_name empty)")
 	}
 
-	systemPrompt, promptKey, promptVersion := e.loadPrompt(ctx)
+	systemPrompt, promptKey, promptVersion, err := e.loadPrompt(ctx)
+	if err != nil {
+		return ResumeProfileExtractResult{}, err
+	}
 
 	msgs := []*schema.Message{
 		schema.SystemMessage(systemPrompt),
-		schema.UserMessage(fmt.Sprintf("Resume text:\n%s\n\nExtract the structured profile as JSON.", text)),
+		schema.UserMessage(fmt.Sprintf("简历文本：\n%s", text)),
 	}
 
 	timeout := e.resolveTimeout(ctx, cfg)
@@ -213,28 +150,18 @@ func (e *LLMResumeProfileExtractor) ExtractWithMetadata(ctx context.Context, tex
 	return ResumeProfileExtractResult{RawJSON: cleaned, Metadata: meta}, nil
 }
 
-func (e *LLMResumeProfileExtractor) loadPrompt(ctx context.Context) (prompt string, key string, version int32) {
+func (e *LLMResumeProfileExtractor) loadPrompt(ctx context.Context) (prompt string, key string, version int32, err error) {
 	if e.promptRepo == nil {
-		logger.L().Info("llm extractor: prompt repo is nil, using built-in fallback",
-			zap.String("agent_type", llmExtractorPromptAgent),
-		)
-		return llmExtractorDefaultPrompt, "builtin", 0
+		return "", "", 0, fmt.Errorf("llm extractor: DB prompt repo is not configured for agent_type=%s role=%s", llmExtractorPromptAgent, llmExtractorPromptRole)
 	}
 	tmpl, err := e.promptRepo.GetActiveByAgentType(ctx, llmExtractorPromptAgent, llmExtractorPromptRole)
 	if err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			logger.L().Info("llm extractor: no DB prompt template found, using built-in fallback",
-				zap.String("agent_type", llmExtractorPromptAgent),
-			)
-			return llmExtractorDefaultPrompt, "builtin", 0
-		}
-		logger.L().Warn("llm extractor: failed to load prompt template from DB, using built-in",
-			zap.String("agent_type", llmExtractorPromptAgent),
-			zap.Error(err),
-		)
-		return llmExtractorDefaultPrompt, "builtin", 0
+		return "", "", 0, fmt.Errorf("llm extractor: load DB prompt template for agent_type=%s role=%s: %w", llmExtractorPromptAgent, llmExtractorPromptRole, err)
 	}
-	return tmpl.Content, tmpl.Name, tmpl.Version
+	if strings.TrimSpace(tmpl.Content) == "" {
+		return "", "", 0, fmt.Errorf("llm extractor: active DB prompt template is empty for agent_type=%s role=%s", llmExtractorPromptAgent, llmExtractorPromptRole)
+	}
+	return tmpl.Content, tmpl.Name, tmpl.Version, nil
 }
 
 func (e *LLMResumeProfileExtractor) resolveTimeout(ctx context.Context, cfg *LlmRuntimeModelConfig) time.Duration {

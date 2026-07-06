@@ -3,14 +3,12 @@ package service
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"strings"
 	"time"
 
 	"github.com/cloudwego/eino/schema"
 	"go.uber.org/zap"
-	"gorm.io/gorm"
 
 	"logic-grpc-service/ai"
 	"logic-grpc-service/pkg/logger"
@@ -23,45 +21,6 @@ const (
 	llmMatcherPromptRole    = "system"
 	llmMatcherSaveReserve   = 7 * time.Second
 	llmMatcherMinCallWindow = 1 * time.Second
-	llmMatcherDefaultPrompt = `You are a candidate-job requirement matching evaluator. Given a job requirement and candidate evidence, determine how well the candidate satisfies the requirement.
-
-You MUST output ONLY a JSON object — no explanation, no markdown, no code fences, no extra text.
-The JSON object MUST conform to this exact schema:
-{
-  "status": "strong_match|match|partial_match|weak_evidence|missing|conflict",
-  "score": 0-100,
-  "confidence": 0.0-1.0,
-  "risk": "string or empty string",
-  "evidence": [
-    {
-      "source_table": "resume_skills|resume_experiences|resume_projects|resume_educations|resumes|candidate_profiles",
-      "source_id": 0,
-      "snippet": "the matching evidence text",
-      "reason": "explain why this evidence supports or contradicts the requirement"
-    }
-  ]
-}
-
-Rules:
-- strong_match: candidate clearly satisfies this requirement with strong evidence
-- match: candidate satisfies this requirement
-- partial_match: candidate partially satisfies or has related experience
-- weak_evidence: some evidence exists but is insufficient for a confident match
-- missing: no evidence found; candidate does not satisfy this requirement
-- conflict: evidence suggests the candidate contradicts this requirement
-- score 0-100: higher = better match
-- confidence 0-1: how confident you are in this assessment
-- risk: describe what is missing or concerning (empty string if strong_match/match)
-- evidence: list ALL relevant evidence snippets that support your assessment
-- Each evidence must include the source_table and source_id from the candidate evidence marker (e.g., [resume_skills#3] → source_table="resume_skills", source_id=3)
-- Use source_id from the evidence marker [table#id]; use 0 if no id is available
-- snippet: the actual matching text from the candidate evidence
-- reason: explain why this evidence supports or contradicts the requirement
-- For "missing" status, evidence can be empty
-- For "match" or "strong_match", at least one evidence entry is REQUIRED
-- Be objective: do not overstate weak evidence as a strong match
-- If the candidate's evidence is tangentially related but not a direct match, use "partial_match"
-- Output ONLY valid JSON, no other text.`
 )
 
 type LLMRequirementMatcher struct {
@@ -90,27 +49,27 @@ func (m *LLMRequirementMatcher) Match(ctx context.Context, req JobRequirementIte
 		return RequirementMatchResult{}, fmt.Errorf("llm matcher: model not fully configured")
 	}
 
-	systemPrompt, promptKey, promptVersion := m.loadPrompt(ctx)
+	systemPrompt, promptKey, promptVersion, err := m.loadPrompt(ctx)
+	if err != nil {
+		return RequirementMatchResult{}, err
+	}
 
 	evidenceText := buildEvidenceTextForLLM(index, req)
 	candidateInfo := buildCandidateInfoForLLM(snapshot)
 
-	userMsg := fmt.Sprintf(`Requirement:
-ID: %s
-Label: %s
-Description: %s
-Priority: %s
-Category: %s
-Aliases: %s
+	userMsg := fmt.Sprintf(`岗位要求：
+ID：%s
+名称：%s
+说明：%s
+优先级：%s
+类别：%s
+别名：%s
 
-Candidate Evidence:
+候选人证据：
 %s
 
-Candidate Profile:
-%s
-
-Evaluate the match between this requirement and the candidate evidence.
-Output ONLY valid JSON matching the required schema.`,
+候选人画像：
+%s`,
 		req.ID, req.Label, req.Description, req.Priority, req.Category,
 		strings.Join(req.Aliases, ", "),
 		evidenceText, candidateInfo)
@@ -189,19 +148,18 @@ Output ONLY valid JSON matching the required schema.`,
 	return matchResult, nil
 }
 
-func (m *LLMRequirementMatcher) loadPrompt(ctx context.Context) (prompt string, key string, version int32) {
+func (m *LLMRequirementMatcher) loadPrompt(ctx context.Context) (prompt string, key string, version int32, err error) {
 	if m.promptRepo == nil {
-		return llmMatcherDefaultPrompt, "builtin", 0
+		return "", "", 0, fmt.Errorf("llm matcher: DB prompt repo is not configured for agent_type=%s role=%s", llmMatcherPromptAgent, llmMatcherPromptRole)
 	}
 	tmpl, err := m.promptRepo.GetActiveByAgentType(ctx, llmMatcherPromptAgent, llmMatcherPromptRole)
 	if err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return llmMatcherDefaultPrompt, "builtin", 0
-		}
-		logger.L().Warn("llm matcher: failed to load prompt from DB, using built-in", zap.Error(err))
-		return llmMatcherDefaultPrompt, "builtin", 0
+		return "", "", 0, fmt.Errorf("llm matcher: load DB prompt template for agent_type=%s role=%s: %w", llmMatcherPromptAgent, llmMatcherPromptRole, err)
 	}
-	return tmpl.Content, tmpl.Name, tmpl.Version
+	if strings.TrimSpace(tmpl.Content) == "" {
+		return "", "", 0, fmt.Errorf("llm matcher: active DB prompt template is empty for agent_type=%s role=%s", llmMatcherPromptAgent, llmMatcherPromptRole)
+	}
+	return tmpl.Content, tmpl.Name, tmpl.Version, nil
 }
 
 func (m *LLMRequirementMatcher) resolveTimeout(ctx context.Context, cfg *LlmRuntimeModelConfig) time.Duration {
