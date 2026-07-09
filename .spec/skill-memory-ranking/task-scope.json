@@ -7,7 +7,19 @@
       "description": "新增 skill_memory_ranking.go，定义 RankingSignals / RankConfidence 类型与权重常量；实现 computeRelevanceScore / computeBusinessBoost / computeFinalRankScore / ComputePoolConfidence 工具函数；提供单测覆盖。",
       "allowedFiles": [
         "logic-grpc-service/service/skill_memory_ranking.go",
-        "logic-grpc-service/service/skill_memory_ranking_test.go"
+        "logic-grpc-service/service/skill_memory_ranking_test.go",
+        ".spec/skill-memory-ranking/pipeline-state.json",
+        ".spec/skill-memory-ranking/reports/",
+        ".spec/skill-memory-ranking/reports/*.md",
+        ".spec/skill-memory-ranking/task-scope.json",
+        ".spec/skill-memory-ranking/reports/TASK-001-report.md",
+        ".spec/skill-memory-ranking/reports/TASK-002-report.md",
+        ".spec/skill-memory-ranking/reports/TASK-003-report.md",
+        ".spec/skill-memory-ranking/reports/TASK-004-report.md",
+        ".spec/skill-memory-ranking/reports/TASK-005-report.md",
+        ".spec/skill-memory-ranking/reports/TASK-006-report.md",
+        ".spec/skill-memory-ranking/reports/TASK-007-report.md",
+        ".spec/skill-memory-ranking/reports/TASK-008-report.md"
       ],
       "forbiddenFiles": [
         "package.json",
@@ -59,7 +71,19 @@
         "logic-grpc-service/service/agent_skill_selector.go",
         "logic-grpc-service/service/agent_skill_selector_test.go",
         "logic-grpc-service/service/skill_memory_ranking.go",
-        "logic-grpc-service/service/skill_memory_ranking_test.go"
+        "logic-grpc-service/service/skill_memory_ranking_test.go",
+        ".spec/skill-memory-ranking/pipeline-state.json",
+        ".spec/skill-memory-ranking/reports/",
+        ".spec/skill-memory-ranking/reports/*.md",
+        ".spec/skill-memory-ranking/task-scope.json",
+        ".spec/skill-memory-ranking/reports/TASK-001-report.md",
+        ".spec/skill-memory-ranking/reports/TASK-002-report.md",
+        ".spec/skill-memory-ranking/reports/TASK-003-report.md",
+        ".spec/skill-memory-ranking/reports/TASK-004-report.md",
+        ".spec/skill-memory-ranking/reports/TASK-005-report.md",
+        ".spec/skill-memory-ranking/reports/TASK-006-report.md",
+        ".spec/skill-memory-ranking/reports/TASK-007-report.md",
+        ".spec/skill-memory-ranking/reports/TASK-008-report.md"
       ],
       "forbiddenFiles": [
         "package.json",
@@ -107,7 +131,19 @@
         "logic-grpc-service/service/agent_context.go",
         "logic-grpc-service/service/agent_context_memory_test.go",
         "logic-grpc-service/service/skill_memory_ranking.go",
-        "logic-grpc-service/service/skill_memory_ranking_test.go"
+        "logic-grpc-service/service/skill_memory_ranking_test.go",
+        ".spec/skill-memory-ranking/pipeline-state.json",
+        ".spec/skill-memory-ranking/reports/",
+        ".spec/skill-memory-ranking/reports/*.md",
+        ".spec/skill-memory-ranking/task-scope.json",
+        ".spec/skill-memory-ranking/reports/TASK-001-report.md",
+        ".spec/skill-memory-ranking/reports/TASK-002-report.md",
+        ".spec/skill-memory-ranking/reports/TASK-003-report.md",
+        ".spec/skill-memory-ranking/reports/TASK-004-report.md",
+        ".spec/skill-memory-ranking/reports/TASK-005-report.md",
+        ".spec/skill-memory-ranking/reports/TASK-006-report.md",
+        ".spec/skill-memory-ranking/reports/TASK-007-report.md",
+        ".spec/skill-memory-ranking/reports/TASK-008-report.md"
       ],
       "forbiddenFiles": [
         "package.json",
@@ -156,7 +192,19 @@
         "logic-grpc-service/service/agent_skill_selector.go",
         "logic-grpc-service/service/agent_context.go",
         "logic-grpc-service/service/skill_memory_ranking.go",
-        "logic-grpc-service/service/skill_memory_ranking_test.go"
+        "logic-grpc-service/service/skill_memory_ranking_test.go",
+        ".spec/skill-memory-ranking/pipeline-state.json",
+        ".spec/skill-memory-ranking/reports/",
+        ".spec/skill-memory-ranking/reports/*.md",
+        ".spec/skill-memory-ranking/task-scope.json",
+        ".spec/skill-memory-ranking/reports/TASK-001-report.md",
+        ".spec/skill-memory-ranking/reports/TASK-002-report.md",
+        ".spec/skill-memory-ranking/reports/TASK-003-report.md",
+        ".spec/skill-memory-ranking/reports/TASK-004-report.md",
+        ".spec/skill-memory-ranking/reports/TASK-005-report.md",
+        ".spec/skill-memory-ranking/reports/TASK-006-report.md",
+        ".spec/skill-memory-ranking/reports/TASK-007-report.md",
+        ".spec/skill-memory-ranking/reports/TASK-008-report.md"
       ],
       "forbiddenFiles": [
         "package.json",
@@ -200,7 +248,19 @@
       "allowedFiles": [
         "logic-grpc-service/proto/recruitment.proto",
         "logic-grpc-service/recruitment/pb/recruitment.pb.go",
-        "web-gin-service/recruitment/pb/recruitment.pb.go"
+        "web-gin-service/recruitment/pb/recruitment.pb.go",
+        ".spec/skill-memory-ranking/pipeline-state.json",
+        ".spec/skill-memory-ranking/reports/",
+        ".spec/skill-memory-ranking/reports/*.md",
+        ".spec/skill-memory-ranking/task-scope.json",
+        ".spec/skill-memory-ranking/reports/TASK-001-report.md",
+        ".spec/skill-memory-ranking/reports/TASK-002-report.md",
+        ".spec/skill-memory-ranking/reports/TASK-003-report.md",
+        ".spec/skill-memory-ranking/reports/TASK-004-report.md",
+        ".spec/skill-memory-ranking/reports/TASK-005-report.md",
+        ".spec/skill-memory-ranking/reports/TASK-006-report.md",
+        ".spec/skill-memory-ranking/reports/TASK-007-report.md",
+        ".spec/skill-memory-ranking/reports/TASK-008-report.md"
       ],
       "forbiddenFiles": [
         "package.json",
@@ -246,7 +306,19 @@
         "logic-grpc-service/service/agent_skill_service.go",
         "logic-grpc-service/service/agent_skill_selector.go",
         "logic-grpc-service/service/agent_context.go",
-        "logic-grpc-service/service/agent_skill_service_test.go"
+        "logic-grpc-service/service/agent_skill_service_test.go",
+        ".spec/skill-memory-ranking/pipeline-state.json",
+        ".spec/skill-memory-ranking/reports/",
+        ".spec/skill-memory-ranking/reports/*.md",
+        ".spec/skill-memory-ranking/task-scope.json",
+        ".spec/skill-memory-ranking/reports/TASK-001-report.md",
+        ".spec/skill-memory-ranking/reports/TASK-002-report.md",
+        ".spec/skill-memory-ranking/reports/TASK-003-report.md",
+        ".spec/skill-memory-ranking/reports/TASK-004-report.md",
+        ".spec/skill-memory-ranking/reports/TASK-005-report.md",
+        ".spec/skill-memory-ranking/reports/TASK-006-report.md",
+        ".spec/skill-memory-ranking/reports/TASK-007-report.md",
+        ".spec/skill-memory-ranking/reports/TASK-008-report.md"
       ],
       "forbiddenFiles": [
         "package.json",
@@ -288,7 +360,19 @@
       "status": "pending",
       "description": "在 hr-frontend/src/types/agentSkill.ts 末尾追加 SemanticSkillDebugItem / SemanticMemoryDebugItem / SemanticRetrievalDebugResult 的 optional 字段；保持现有 score 字段类型与语义不变。",
       "allowedFiles": [
-        "hr-frontend/src/types/agentSkill.ts"
+        "hr-frontend/src/types/agentSkill.ts",
+        ".spec/skill-memory-ranking/pipeline-state.json",
+        ".spec/skill-memory-ranking/reports/",
+        ".spec/skill-memory-ranking/reports/*.md",
+        ".spec/skill-memory-ranking/task-scope.json",
+        ".spec/skill-memory-ranking/reports/TASK-001-report.md",
+        ".spec/skill-memory-ranking/reports/TASK-002-report.md",
+        ".spec/skill-memory-ranking/reports/TASK-003-report.md",
+        ".spec/skill-memory-ranking/reports/TASK-004-report.md",
+        ".spec/skill-memory-ranking/reports/TASK-005-report.md",
+        ".spec/skill-memory-ranking/reports/TASK-006-report.md",
+        ".spec/skill-memory-ranking/reports/TASK-007-report.md",
+        ".spec/skill-memory-ranking/reports/TASK-008-report.md"
       ],
       "forbiddenFiles": [
         "hr-frontend/package.json",
@@ -326,7 +410,19 @@
         "logic-grpc-service/service/skill_memory_ranking_test.go",
         "logic-grpc-service/service/agent_skill_selector_test.go",
         "logic-grpc-service/service/agent_context_memory_test.go",
-        "logic-grpc-service/service/agent_skill_service_test.go"
+        "logic-grpc-service/service/agent_skill_service_test.go",
+        ".spec/skill-memory-ranking/pipeline-state.json",
+        ".spec/skill-memory-ranking/reports/",
+        ".spec/skill-memory-ranking/reports/*.md",
+        ".spec/skill-memory-ranking/task-scope.json",
+        ".spec/skill-memory-ranking/reports/TASK-001-report.md",
+        ".spec/skill-memory-ranking/reports/TASK-002-report.md",
+        ".spec/skill-memory-ranking/reports/TASK-003-report.md",
+        ".spec/skill-memory-ranking/reports/TASK-004-report.md",
+        ".spec/skill-memory-ranking/reports/TASK-005-report.md",
+        ".spec/skill-memory-ranking/reports/TASK-006-report.md",
+        ".spec/skill-memory-ranking/reports/TASK-007-report.md",
+        ".spec/skill-memory-ranking/reports/TASK-008-report.md"
       ],
       "forbiddenFiles": [
         "package.json",

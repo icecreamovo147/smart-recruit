@@ -1,0 +1,443 @@
+{
+  "feature_name": "skill-memory-ranking-followups",
+  "tasks": {
+    "TASK-FU-001": {
+      "title": "context-based debug 状态",
+      "status": "pending",
+      "description": "把 lastDebugPoolConfidence / lastDebugMemoryRankings 包级变量改为 ctx 传递；消除 DebugSemanticRetrieval 并发请求下的状态污染。",
+      "allowedFiles": [
+        "logic-grpc-service/service/agent_skill_service.go",
+        "logic-grpc-service/service/agent_skill_service_test.go",
+        ".spec/skill-memory-ranking-followups/pipeline-state.json",
+        ".spec/skill-memory-ranking-followups/reports/TASK-FU-001-report.md",
+        ".spec/skill-memory-ranking-followups/reports/TASK-FU-002-report.md",
+        ".spec/skill-memory-ranking-followups/reports/TASK-FU-003-report.md",
+        ".spec/skill-memory-ranking-followups/reports/TASK-FU-004-report.md",
+        ".spec/skill-memory-ranking-followups/task-scope.json",
+        ".spec/skill-memory-ranking-followups/reports/TASK-FU-005-report.md",
+        ".spec/skill-memory-ranking-followups/reports/TASK-FU-006-report.md",
+        ".spec/skill-memory-ranking-followups/reports/TASK-FU-007-report.md",
+        ".spec/skill-memory-ranking-followups/reports/TASK-FU-008-report.md",
+        ".spec/skill-memory-ranking-followups/reports/TASK-FU-009-report.md"
+      ],
+      "forbiddenFiles": [
+        "package.json",
+        "pnpm-lock.yaml",
+        "pnpm-workspace.yaml",
+        "hr-frontend/package.json",
+        "user-frontend/package.json",
+        "interviewer-frontend/package.json",
+        "**/node_modules/**",
+        "**/dist/**",
+        "**/.env*",
+        "deploy/**",
+        "docker/**",
+        "hr-frontend/**",
+        "user-frontend/**",
+        "interviewer-frontend/**",
+        "web-gin-service/**",
+        "logic-grpc-service/proto/**",
+        "logic-grpc-service/recruitment/pb/**",
+        "logic-grpc-service/config/**",
+        "logic-grpc-service/model/**",
+        "logic-grpc-service/repository/**",
+        "logic-grpc-service/cmd/**",
+        "logic-grpc-service/migrations/**",
+        "logic-grpc-service/service/agent_skill_selector.go",
+        "logic-grpc-service/service/agent_skill_selector_test.go",
+        "logic-grpc-service/service/agent_context.go",
+        "logic-grpc-service/service/agent_context_memory_test.go",
+        "logic-grpc-service/service/skill_memory_ranking.go",
+        "logic-grpc-service/service/skill_memory_ranking_test.go"
+      ],
+      "requiresHumanConfirmation": false,
+      "allowedActions": [
+        "modify",
+        "test"
+      ],
+      "acceptance": ".spec/skill-memory-ranking-followups/acceptance/TASK-FU-001.md",
+      "report": ".spec/skill-memory-ranking-followups/reports/TASK-FU-001-report.md",
+      "notes": [
+        "删除 2 个包级 var + 4 个旧 helper",
+        "新增 4 个 ctx helper (withDebugPoolConfidence / getDebugPoolConfidenceFromContext / withDebugMemoryRankings / getDebugMemoryRankingsFromContext)",
+        "现有 TASK-006 既有测试需保留；如需调整读取方式，最小改动"
+      ]
+    },
+    "TASK-FU-002": {
+      "title": "CI 流水线 protoc 步骤",
+      "status": "pending",
+      "description": ".github/workflows/ci.yml 新增 proto-lint job，protoc 25.x 重生成两侧 recruitment.pb.go 并 diff 检查。",
+      "allowedFiles": [
+        ".github/workflows/ci.yml",
+        ".spec/skill-memory-ranking-followups/pipeline-state.json",
+        ".spec/skill-memory-ranking-followups/reports/TASK-FU-001-report.md",
+        ".spec/skill-memory-ranking-followups/reports/TASK-FU-002-report.md",
+        ".spec/skill-memory-ranking-followups/reports/TASK-FU-003-report.md",
+        ".spec/skill-memory-ranking-followups/reports/TASK-FU-004-report.md",
+        ".spec/skill-memory-ranking-followups/task-scope.json",
+        ".spec/skill-memory-ranking-followups/reports/TASK-FU-005-report.md",
+        ".spec/skill-memory-ranking-followups/reports/TASK-FU-006-report.md",
+        ".spec/skill-memory-ranking-followups/reports/TASK-FU-007-report.md",
+        ".spec/skill-memory-ranking-followups/reports/TASK-FU-008-report.md",
+        ".spec/skill-memory-ranking-followups/reports/TASK-FU-009-report.md"
+      ],
+      "forbiddenFiles": [
+        "package.json",
+        "pnpm-lock.yaml",
+        "pnpm-workspace.yaml",
+        "deploy/**",
+        "docker/**",
+        "hr-frontend/**",
+        "user-frontend/**",
+        "interviewer-frontend/**",
+        "web-gin-service/**",
+        "logic-grpc-service/proto/**",
+        "logic-grpc-service/recruitment/pb/**",
+        "logic-grpc-service/config/**",
+        "logic-grpc-service/model/**",
+        "logic-grpc-service/repository/**",
+        "logic-grpc-service/cmd/**",
+        "logic-grpc-service/migrations/**",
+        "logic-grpc-service/service/**"
+      ],
+      "requiresHumanConfirmation": false,
+      "allowedActions": [
+        "modify"
+      ],
+      "acceptance": ".spec/skill-memory-ranking-followups/acceptance/TASK-FU-002.md",
+      "report": ".spec/skill-memory-ranking-followups/reports/TASK-FU-002-report.md",
+      "notes": [
+        "protoc 25.x 显式 wget 安装",
+        "protoc-gen-go 用 go install",
+        "重生成两侧 pb 后 git diff --exit-code 检查",
+        "不影响其他 3 个 job (go-test / frontend / secret-scan)"
+      ]
+    },
+    "TASK-FU-003": {
+      "title": "debug 视图 UI 升级",
+      "status": "pending",
+      "description": "SemanticRetrievalDebugView.vue 展示 8 个 breakdown 字段 + 2 个 pool_confidence。",
+      "allowedFiles": [
+        "hr-frontend/src/views/hr/admin/SemanticRetrievalDebugView.vue",
+        ".spec/skill-memory-ranking-followups/pipeline-state.json",
+        ".spec/skill-memory-ranking-followups/reports/TASK-FU-001-report.md",
+        ".spec/skill-memory-ranking-followups/reports/TASK-FU-002-report.md",
+        ".spec/skill-memory-ranking-followups/reports/TASK-FU-003-report.md",
+        ".spec/skill-memory-ranking-followups/reports/TASK-FU-004-report.md",
+        ".spec/skill-memory-ranking-followups/task-scope.json",
+        ".spec/skill-memory-ranking-followups/reports/TASK-FU-005-report.md",
+        ".spec/skill-memory-ranking-followups/reports/TASK-FU-006-report.md",
+        ".spec/skill-memory-ranking-followups/reports/TASK-FU-007-report.md",
+        ".spec/skill-memory-ranking-followups/reports/TASK-FU-008-report.md",
+        ".spec/skill-memory-ranking-followups/reports/TASK-FU-009-report.md"
+      ],
+      "forbiddenFiles": [
+        "hr-frontend/package.json",
+        "hr-frontend/src/types/**",
+        "hr-frontend/src/api/**",
+        "hr-frontend/src/components/**",
+        "hr-frontend/src/router/**",
+        "hr-frontend/src/stores/**",
+        "package.json",
+        "pnpm-lock.yaml",
+        "pnpm-workspace.yaml",
+        "user-frontend/**",
+        "interviewer-frontend/**",
+        "deploy/**",
+        "docker/**",
+        "web-gin-service/**",
+        "logic-grpc-service/**"
+      ],
+      "requiresHumanConfirmation": false,
+      "allowedActions": [
+        "modify"
+      ],
+      "acceptance": ".spec/skill-memory-ranking-followups/acceptance/TASK-FU-003.md",
+      "report": ".spec/skill-memory-ranking-followups/reports/TASK-FU-003-report.md",
+      "notes": [
+        "顶部 stats 追加 2 个 pool_confidence 指标",
+        "Skill / Memory item 展开区追加 8 个 breakdown 表格",
+        "复用现有 .debug-detail-block 样式"
+      ]
+    },
+    "TASK-FU-004": {
+      "title": "配置化权重 (config.Ranking)",
+      "status": "pending",
+      "description": "skill_memory_ranking.go 顶部 11 个 const 改为 var；config.Ranking 段启动时载入；提供 RANKING_* env 覆盖。",
+      "allowedFiles": [
+        "logic-grpc-service/config/config.go",
+        "logic-grpc-service/config/config.example.yaml",
+        "logic-grpc-service/service/skill_memory_ranking.go",
+        "logic-grpc-service/service/skill_memory_ranking_test.go",
+        "logic-grpc-service/cmd/**/main.go",
+        ".spec/skill-memory-ranking-followups/pipeline-state.json",
+        ".spec/skill-memory-ranking-followups/reports/TASK-FU-001-report.md",
+        ".spec/skill-memory-ranking-followups/reports/TASK-FU-002-report.md",
+        ".spec/skill-memory-ranking-followups/reports/TASK-FU-003-report.md",
+        ".spec/skill-memory-ranking-followups/reports/TASK-FU-004-report.md",
+        ".spec/skill-memory-ranking-followups/task-scope.json",
+        ".spec/skill-memory-ranking-followups/reports/TASK-FU-005-report.md",
+        ".spec/skill-memory-ranking-followups/reports/TASK-FU-006-report.md",
+        ".spec/skill-memory-ranking-followups/reports/TASK-FU-007-report.md",
+        ".spec/skill-memory-ranking-followups/reports/TASK-FU-008-report.md",
+        ".spec/skill-memory-ranking-followups/reports/TASK-FU-009-report.md"
+      ],
+      "forbiddenFiles": [
+        "package.json",
+        "pnpm-lock.yaml",
+        "pnpm-workspace.yaml",
+        "hr-frontend/**",
+        "user-frontend/**",
+        "interviewer-frontend/**",
+        "deploy/**",
+        "docker/**",
+        "web-gin-service/**",
+        "logic-grpc-service/proto/**",
+        "logic-grpc-service/recruitment/pb/**",
+        "logic-grpc-service/model/**",
+        "logic-grpc-service/repository/**",
+        "logic-grpc-service/migrations/**",
+        "logic-grpc-service/service/agent_skill_selector.go",
+        "logic-grpc-service/service/agent_skill_selector_test.go",
+        "logic-grpc-service/service/agent_context.go",
+        "logic-grpc-service/service/agent_context_memory_test.go",
+        "logic-grpc-service/service/agent_skill_service.go",
+        "logic-grpc-service/service/agent_skill_service_test.go"
+      ],
+      "requiresHumanConfirmation": false,
+      "allowedActions": [
+        "modify",
+        "test"
+      ],
+      "acceptance": ".spec/skill-memory-ranking-followups/acceptance/TASK-FU-004.md",
+      "report": ".spec/skill-memory-ranking-followups/reports/TASK-FU-004-report.md",
+      "notes": [
+        "11 个 const 改为 var（默认值不变）",
+        "新增 LoadRankingConfig(cfg) + ResetRankingConfigForTest()",
+        "config.Ranking 11 个字段都有 yaml + env tag",
+        "现有 TASK-001..004 既有测试不回归"
+      ]
+    },
+    "TASK-FU-005": {
+      "title": "applyRankingField warn 日志",
+      "status": "pending",
+      "description": "applyRankingField 在 env 值越界时输出结构化 warn 日志（key / value / clamped）。",
+      "allowedFiles": [
+        "logic-grpc-service/service/skill_memory_ranking.go",
+        "logic-grpc-service/service/skill_memory_ranking_test.go",
+        ".spec/skill-memory-ranking-followups/pipeline-state.json",
+        ".spec/skill-memory-ranking-followups/reports/TASK-FU-005-report.md",
+        ".spec/skill-memory-ranking-followups/reports/TASK-FU-006-report.md",
+        ".spec/skill-memory-ranking-followups/reports/TASK-FU-007-report.md",
+        ".spec/skill-memory-ranking-followups/reports/TASK-FU-008-report.md",
+        ".spec/skill-memory-ranking-followups/reports/TASK-FU-009-report.md",
+        ".spec/skill-memory-ranking-followups/task-scope.json"
+      ],
+      "forbiddenFiles": [
+        "package.json",
+        "pnpm-lock.yaml",
+        "pnpm-workspace.yaml",
+        "hr-frontend/**",
+        "user-frontend/**",
+        "interviewer-frontend/**",
+        "deploy/**",
+        "docker/**",
+        "web-gin-service/**",
+        "logic-grpc-service/proto/**",
+        "logic-grpc-service/recruitment/pb/**",
+        "logic-grpc-service/config/**",
+        "logic-grpc-service/model/**",
+        "logic-grpc-service/repository/**",
+        "logic-grpc-service/cmd/**",
+        "logic-grpc-service/migrations/**"
+      ],
+      "requiresHumanConfirmation": false,
+      "allowedActions": [
+        "modify",
+        "test"
+      ],
+      "acceptance": ".spec/skill-memory-ranking-followups/acceptance/TASK-FU-005.md",
+      "report": ".spec/skill-memory-ranking-followups/reports/TASK-FU-005-report.md",
+      "notes": [
+        "applyRankingField 增加 key string 参数",
+        "11 个调用点同步传 key 名",
+        "value 越界时 zap.Warn 输出 key/value/clamped"
+      ]
+    },
+    "TASK-FU-006": {
+      "title": "debug 视图 breakdown tooltip",
+      "status": "pending",
+      "description": "SemanticRetrievalDebugView.vue 6 个 breakdown 字段加 el-tooltip 解释。",
+      "allowedFiles": [
+        "hr-frontend/src/views/hr/admin/SemanticRetrievalDebugView.vue",
+        ".spec/skill-memory-ranking-followups/pipeline-state.json",
+        ".spec/skill-memory-ranking-followups/reports/TASK-FU-005-report.md",
+        ".spec/skill-memory-ranking-followups/reports/TASK-FU-006-report.md",
+        ".spec/skill-memory-ranking-followups/reports/TASK-FU-007-report.md",
+        ".spec/skill-memory-ranking-followups/reports/TASK-FU-008-report.md",
+        ".spec/skill-memory-ranking-followups/reports/TASK-FU-009-report.md",
+        ".spec/skill-memory-ranking-followups/task-scope.json"
+      ],
+      "forbiddenFiles": [
+        "hr-frontend/package.json",
+        "hr-frontend/src/types/**",
+        "hr-frontend/src/api/**",
+        "hr-frontend/src/components/**",
+        "hr-frontend/src/router/**",
+        "hr-frontend/src/stores/**",
+        "package.json",
+        "pnpm-lock.yaml",
+        "pnpm-workspace.yaml",
+        "user-frontend/**",
+        "interviewer-frontend/**",
+        "deploy/**",
+        "docker/**",
+        "web-gin-service/**",
+        "logic-grpc-service/**"
+      ],
+      "requiresHumanConfirmation": false,
+      "allowedActions": [
+        "modify"
+      ],
+      "acceptance": ".spec/skill-memory-ranking-followups/acceptance/TASK-FU-006.md",
+      "report": ".spec/skill-memory-ranking-followups/reports/TASK-FU-006-report.md",
+      "notes": [
+        "6 个 breakdown 字段都加 el-tooltip",
+        "tooltip 文案简洁（≤ 30 字符）",
+        "复用 Element Plus 内置组件"
+      ]
+    },
+    "TASK-FU-007": {
+      "title": "RankingConfig 收敛为单个 struct",
+      "status": "pending",
+      "description": "11 个 var rankXxx 替换为 var rankingConfig 单一 struct。",
+      "allowedFiles": [
+        "logic-grpc-service/service/skill_memory_ranking.go",
+        "logic-grpc-service/service/skill_memory_ranking_test.go",
+        ".spec/skill-memory-ranking-followups/pipeline-state.json",
+        ".spec/skill-memory-ranking-followups/reports/TASK-FU-005-report.md",
+        ".spec/skill-memory-ranking-followups/reports/TASK-FU-006-report.md",
+        ".spec/skill-memory-ranking-followups/reports/TASK-FU-007-report.md",
+        ".spec/skill-memory-ranking-followups/reports/TASK-FU-008-report.md",
+        ".spec/skill-memory-ranking-followups/reports/TASK-FU-009-report.md",
+        ".spec/skill-memory-ranking-followups/task-scope.json"
+      ],
+      "forbiddenFiles": [
+        "package.json",
+        "pnpm-lock.yaml",
+        "pnpm-workspace.yaml",
+        "hr-frontend/**",
+        "user-frontend/**",
+        "interviewer-frontend/**",
+        "deploy/**",
+        "docker/**",
+        "web-gin-service/**",
+        "logic-grpc-service/proto/**",
+        "logic-grpc-service/recruitment/pb/**",
+        "logic-grpc-service/config/**",
+        "logic-grpc-service/model/**",
+        "logic-grpc-service/repository/**",
+        "logic-grpc-service/cmd/**",
+        "logic-grpc-service/migrations/**"
+      ],
+      "requiresHumanConfirmation": false,
+      "allowedActions": [
+        "modify",
+        "test"
+      ],
+      "acceptance": ".spec/skill-memory-ranking-followups/acceptance/TASK-FU-007.md",
+      "report": ".spec/skill-memory-ranking-followups/reports/TASK-FU-007-report.md",
+      "notes": [
+        "11 个 var 替换为 1 个 struct",
+        "所有 rankXxx 引用改为 rankingConfig.Xxx",
+        "LoadRankingConfig / ResetRankingConfigForTest 签名不变"
+      ]
+    },
+    "TASK-FU-008": {
+      "title": "ranking-show CLI",
+      "status": "pending",
+      "description": "新增 logic-grpc-service/cmd/ranking-show/main.go 打印当前生效的 11 个权重。",
+      "allowedFiles": [
+        "logic-grpc-service/cmd/ranking-show/main.go",
+        ".spec/skill-memory-ranking-followups/pipeline-state.json",
+        ".spec/skill-memory-ranking-followups/reports/TASK-FU-005-report.md",
+        ".spec/skill-memory-ranking-followups/reports/TASK-FU-006-report.md",
+        ".spec/skill-memory-ranking-followups/reports/TASK-FU-007-report.md",
+        ".spec/skill-memory-ranking-followups/reports/TASK-FU-008-report.md",
+        ".spec/skill-memory-ranking-followups/reports/TASK-FU-009-report.md",
+        ".spec/skill-memory-ranking-followups/task-scope.json"
+      ],
+      "forbiddenFiles": [
+        "package.json",
+        "pnpm-lock.yaml",
+        "pnpm-workspace.yaml",
+        "hr-frontend/**",
+        "user-frontend/**",
+        "interviewer-frontend/**",
+        "deploy/**",
+        "docker/**",
+        "web-gin-service/**",
+        "logic-grpc-service/proto/**",
+        "logic-grpc-service/recruitment/pb/**",
+        "logic-grpc-service/config/**",
+        "logic-grpc-service/model/**",
+        "logic-grpc-service/repository/**",
+        "logic-grpc-service/service/**",
+        "logic-grpc-service/migrations/**"
+      ],
+      "requiresHumanConfirmation": false,
+      "allowedActions": [
+        "create"
+      ],
+      "acceptance": ".spec/skill-memory-ranking-followups/acceptance/TASK-FU-008.md",
+      "report": ".spec/skill-memory-ranking-followups/reports/TASK-FU-008-report.md",
+      "notes": [
+        "读取 11 个 RANKING_* env + hardcode 默认",
+        "输出 11 行 key=value",
+        "独立可执行（go run ./cmd/ranking-show/）"
+      ]
+    },
+    "TASK-FU-009": {
+      "title": "web-gin-service 同步 LoadRankingConfig",
+      "status": "pending",
+      "description": "web-gin-service 启动时也调 LoadRankingConfig；如不依赖 logic-grpc，走简化方案。",
+      "allowedFiles": [
+        "web-gin-service/main.go",
+        "web-gin-service/cmd/**/main.go",
+        ".spec/skill-memory-ranking-followups/pipeline-state.json",
+        ".spec/skill-memory-ranking-followups/reports/TASK-FU-005-report.md",
+        ".spec/skill-memory-ranking-followups/reports/TASK-FU-006-report.md",
+        ".spec/skill-memory-ranking-followups/reports/TASK-FU-007-report.md",
+        ".spec/skill-memory-ranking-followups/reports/TASK-FU-008-report.md",
+        ".spec/skill-memory-ranking-followups/reports/TASK-FU-009-report.md",
+        ".spec/skill-memory-ranking-followups/task-scope.json"
+      ],
+      "forbiddenFiles": [
+        "package.json",
+        "pnpm-lock.yaml",
+        "pnpm-workspace.yaml",
+        "hr-frontend/**",
+        "user-frontend/**",
+        "interviewer-frontend/**",
+        "deploy/**",
+        "docker/**",
+        "web-gin-service/handler/**",
+        "web-gin-service/router/**",
+        "web-gin-service/rpc/**",
+        "logic-grpc-service/**"
+      ],
+      "requiresHumanConfirmation": false,
+      "allowedActions": [
+        "modify"
+      ],
+      "acceptance": ".spec/skill-memory-ranking-followups/acceptance/TASK-FU-009.md",
+      "report": ".spec/skill-memory-ranking-followups/reports/TASK-FU-009-report.md",
+      "notes": [
+        "先检查 web-gin-service/go.mod 是否依赖 logic-grpc-service",
+        "如依赖：调 service.LoadRankingConfig",
+        "如不依赖：仅读取 config.Ranking 段 + 启动日志",
+        "web-gin 后续会引入排序逻辑时无需再次修改"
+      ]
+    }
+  }
+}

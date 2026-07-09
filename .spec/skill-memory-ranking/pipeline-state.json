@@ -1,0 +1,18 @@
+{
+  "feature_name": "skill-memory-ranking",
+  "current_task": "TASK-008",
+  "completed_tasks": ["TASK-001", "TASK-002", "TASK-003", "TASK-004", "TASK-005", "TASK-006", "TASK-007", "TASK-008"],
+  "failed_tasks": [],
+  "review_round": 0,
+  "status": "completed",
+  "task_review_rounds": {
+    "TASK-001": 1,
+    "TASK-002": 1,
+    "TASK-003": 1,
+    "TASK-004": 1,
+    "TASK-005": 1,
+    "TASK-006": 1,
+    "TASK-007": 1,
+    "TASK-008": 1
+  }
+}
