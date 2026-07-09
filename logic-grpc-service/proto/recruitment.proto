@@ -3124,6 +3124,14 @@ message SemanticSkillDebugItem {
   double score = 7;
   string reason = 8;
   repeated string semantic_tags = 9;
+  double vector_score = 10;
+  double lexical_score = 11;
+  double metadata_score = 12;
+  double relevance_score = 13;
+  double business_boost = 14;
+  double final_rank_score = 15;
+  string relevance_mode = 16;
+  int32 pool_rank = 17;
 }
 
 message SemanticMemoryDebugItem {
@@ -3138,6 +3146,14 @@ message SemanticMemoryDebugItem {
   double score = 9;
   string reason = 10;
   string created_at = 11;
+  double vector_score = 12;
+  double lexical_score = 13;
+  double metadata_score = 14;
+  double relevance_score = 15;
+  double business_boost = 16;
+  double final_rank_score = 17;
+  string relevance_mode = 18;
+  int32 pool_rank = 19;
 }
 
 message DebugSemanticRetrievalResponse {
@@ -3147,6 +3163,15 @@ message DebugSemanticRetrievalResponse {
   string fallback_reason = 4;
   repeated SemanticSkillDebugItem skills = 5;
   repeated SemanticMemoryDebugItem memories = 6;
+  string skill_pool_confidence = 7;
+  string memory_pool_confidence = 8;
+  // 修复：debug 端点补全 5 个 Provider / Model / Dim / Count / Latency 字段。
+  // 这些字段之前从未在 proto 中声明，所以一直显示 "-"；本次新增。
+  string embedding_provider = 9;
+  string embedding_model = 10;
+  int32 embedding_dim = 11;
+  int32 candidate_count = 12;
+  int64 query_embedding_latency_ms = 13;
 }
 
 message GetResumeProfileRequest {

@@ -255,6 +255,14 @@ export interface SemanticSkillDebugItem {
   score: number
   reason: string
   semantic_tags?: string[]
+  vector_score?: number
+  lexical_score?: number
+  metadata_score?: number
+  relevance_score?: number
+  business_boost?: number
+  final_rank_score?: number
+  relevance_mode?: string
+  pool_rank?: number
 }
 
 export interface SemanticMemoryDebugItem {
@@ -269,6 +277,14 @@ export interface SemanticMemoryDebugItem {
   score: number
   reason: string
   created_at?: string
+  vector_score?: number
+  lexical_score?: number
+  metadata_score?: number
+  relevance_score?: number
+  business_boost?: number
+  final_rank_score?: number
+  relevance_mode?: string
+  pool_rank?: number
 }
 
 export interface SemanticRetrievalDebugParams {
@@ -289,4 +305,6 @@ export interface SemanticRetrievalDebugResult {
   query_embedding_latency_ms?: number
   skills: SemanticSkillDebugItem[]
   memories: SemanticMemoryDebugItem[]
+  skill_pool_confidence?: string
+  memory_pool_confidence?: string
 }

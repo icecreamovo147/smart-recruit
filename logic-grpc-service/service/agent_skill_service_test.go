@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -453,4 +454,295 @@ func TestAgentSkillServiceCreateVersionActivateUpdatesSkillAudit(t *testing.T) {
 	if !updated.UpdatedAt.After(oldUpdatedAt) {
 		t.Fatalf("expected updated_at after %s, got %s", oldUpdatedAt, updated.UpdatedAt)
 	}
+}
+
+// TASK-006 验证：DebugSemanticRetrieval 响应填充 score breakdown 与 pool_confidence。
+
+func TestAgentSkillServiceDebugSemanticRetrievalPopulatesScoreBreakdown(t *testing.T) {
+	svc, db := newAgentSkillTestService(t)
+	if err := db.AutoMigrate(&model.AIMemory{}, &model.AIEmbedding{}); err != nil {
+		t.Fatalf("auto migrate: %v", err)
+	}
+	embeddingSvc := NewEmbeddingService(repository.NewAIEmbeddingRepo(db), nil, crypto.EncryptionKey{})
+	embeddingSvc.SetProviderForTest(fakeEmbeddingProvider{
+		vector: EmbeddingVector{Model: "fake-test", Vector: []float64{0.1, 0.2, 0.3}},
+	})
+	svc.WithSemanticDebugDependencies(repository.NewMemoryRepo(db), embeddingSvc)
+	ctx := context.Background()
+	skill := &model.AgentSkill{
+		Name:              "candidate_match_breakdown",
+		DisplayName:       "Candidate Match Breakdown",
+		Description:       "candidate match",
+		IsEnabled:         1,
+		IsManualInvocable: 1,
+		AgentType:         defaultAgentSkillAgentType,
+		Category:          "candidate_match",
+		SemanticTags:      `["candidate","match"]`,
+	}
+	version := &model.AgentSkillVersion{Version: "1.0.0", SkillMD: "candidate match", BodyMarkdown: "candidate match"}
+	if err := repository.NewAgentSkillRepo(db).CreateSkillWithVersion(ctx, skill, version, true); err != nil {
+		t.Fatalf("CreateSkillWithVersion: %v", err)
+	}
+	if err := repository.NewMemoryRepo(db).Create(ctx, &model.AIMemory{
+		HrID:       30,
+		ScopeType:  "hr",
+		ScopeID:    0,
+		MemoryType: "preference",
+		Content:    "candidate match summaries should cite risks",
+		Source:     "user",
+		Confidence: 0.8,
+		Importance: 0.9,
+	}); err != nil {
+		t.Fatalf("Create memory: %v", err)
+	}
+
+	resp, err := svc.DebugSemanticRetrieval(ctx, &pb.DebugSemanticRetrievalRequest{HrId: 30, Query: "candidate match", Limit: 5})
+	if err != nil {
+		t.Fatalf("DebugSemanticRetrieval: %v", err)
+	}
+	if resp.GetCode() != 0 {
+		t.Fatalf("code = %d, want 0", resp.GetCode())
+	}
+	if !resp.GetEmbeddingAvailable() {
+		t.Fatalf("expected embedding_available=true, got false; fallback_reason=%q", resp.GetFallbackReason())
+	}
+	// Skill item：breakdown 字段必须填充
+	if len(resp.GetSkills()) != 1 {
+		t.Fatalf("skills len = %d, want 1", len(resp.GetSkills()))
+	}
+	sk := resp.GetSkills()[0]
+	if sk.GetScore() == 0 || sk.GetFinalRankScore() == 0 {
+		t.Fatalf("Skill score fields should be non-zero: score=%v final_rank_score=%v", sk.GetScore(), sk.GetFinalRankScore())
+	}
+	if sk.GetScore() != sk.GetFinalRankScore() {
+		t.Fatalf("compat Score (=%v) must equal FinalRankScore (=%v) per SDD §3.10", sk.GetScore(), sk.GetFinalRankScore())
+	}
+	if sk.GetRelevanceMode() == "" {
+		t.Fatalf("Skill relevance_mode should be populated")
+	}
+	if sk.GetPoolRank() < 0 {
+		t.Fatalf("Skill pool_rank should be >= 0, got %d", sk.GetPoolRank())
+	}
+	if sk.GetVectorScore() < 0 || sk.GetLexicalScore() < 0 || sk.GetMetadataScore() < 0 {
+		t.Fatalf("breakdown scores should be non-negative: vector=%v lex=%v meta=%v", sk.GetVectorScore(), sk.GetLexicalScore(), sk.GetMetadataScore())
+	}
+	if sk.GetBusinessBoost() < 1.0 || sk.GetBusinessBoost() > 1.5 {
+		t.Fatalf("business_boost out of [1.0, 1.5]: %v", sk.GetBusinessBoost())
+	}
+	// Memory item：breakdown 字段必须填充
+	if len(resp.GetMemories()) != 1 {
+		t.Fatalf("memories len = %d, want 1", len(resp.GetMemories()))
+	}
+	mem := resp.GetMemories()[0]
+	if mem.GetScore() == 0 || mem.GetFinalRankScore() == 0 {
+		t.Fatalf("Memory score fields should be non-zero: score=%v final_rank_score=%v", mem.GetScore(), mem.GetFinalRankScore())
+	}
+	if mem.GetScore() != mem.GetFinalRankScore() {
+		t.Fatalf("Memory compat Score (=%v) must equal FinalRankScore (=%v)", mem.GetScore(), mem.GetFinalRankScore())
+	}
+	if mem.GetRelevanceMode() == "" {
+		t.Fatalf("Memory relevance_mode should be populated")
+	}
+	if mem.GetPoolRank() < 1 {
+		t.Fatalf("Memory pool_rank should be >= 1, got %d", mem.GetPoolRank())
+	}
+	// Top-level pool_confidence
+	if resp.GetSkillPoolConfidence() == "" {
+		t.Fatalf("SkillPoolConfidence should be populated")
+	}
+	if resp.GetMemoryPoolConfidence() == "" {
+		t.Fatalf("MemoryPoolConfidence should be populated")
+	}
+	// 修复：5 个新 debug 字段（embedding_provider / embedding_model / embedding_dim /
+	// candidate_count / query_embedding_latency_ms）必须填充。
+	if resp.GetEmbeddingProvider() == "" {
+		t.Fatalf("EmbeddingProvider should be populated, got %q", resp.GetEmbeddingProvider())
+	}
+	if resp.GetEmbeddingProvider() != "fake" {
+		t.Fatalf("EmbeddingProvider should be 'fake' (test provider), got %q", resp.GetEmbeddingProvider())
+	}
+	if resp.GetEmbeddingModel() == "" {
+		t.Fatalf("EmbeddingModel should be populated, got %q", resp.GetEmbeddingModel())
+	}
+	if resp.GetEmbeddingDim() != 3 {
+		t.Fatalf("EmbeddingDim should be 3 (test vector has 3 dims), got %d", resp.GetEmbeddingDim())
+	}
+	if resp.GetCandidateCount() != 0 {
+		// 没有 ai_embeddings 行，candidate_count 应为 0
+		t.Fatalf("CandidateCount should be 0 (no embeddings in db), got %d", resp.GetCandidateCount())
+	}
+	if resp.GetQueryEmbeddingLatencyMs() < 0 {
+		t.Fatalf("QueryEmbeddingLatencyMs should be >= 0, got %d", resp.GetQueryEmbeddingLatencyMs())
+	}
+}
+
+func TestAgentSkillServiceDebugSemanticRetrievalFallbackPopulatesBreakdown(t *testing.T) {
+	// Embedding 不可用时，降级路径也必须填充 breakdown 字段
+	svc, db := newAgentSkillTestService(t)
+	if err := db.AutoMigrate(&model.AIMemory{}, &model.AIEmbedding{}); err != nil {
+		t.Fatalf("auto migrate: %v", err)
+	}
+	// embeddings 留 nil → embedding 不可用
+	svc.WithSemanticDebugDependencies(repository.NewMemoryRepo(db), NewEmbeddingService(repository.NewAIEmbeddingRepo(db), nil, crypto.EncryptionKey{}))
+	ctx := context.Background()
+	skill := &model.AgentSkill{
+		Name:              "fallback_skill",
+		DisplayName:       "Fallback Skill",
+		Description:       "candidate match",
+		IsEnabled:         1,
+		IsManualInvocable: 1,
+		AgentType:         defaultAgentSkillAgentType,
+		Category:          "candidate_match",
+		SemanticTags:      `["candidate","match"]`,
+	}
+	version := &model.AgentSkillVersion{Version: "1.0.0", SkillMD: "candidate match", BodyMarkdown: "candidate match"}
+	if err := repository.NewAgentSkillRepo(db).CreateSkillWithVersion(ctx, skill, version, true); err != nil {
+		t.Fatalf("CreateSkillWithVersion: %v", err)
+	}
+
+	resp, err := svc.DebugSemanticRetrieval(ctx, &pb.DebugSemanticRetrievalRequest{HrId: 40, Query: "candidate match", Limit: 5})
+	if err != nil {
+		t.Fatalf("DebugSemanticRetrieval: %v", err)
+	}
+	if resp.GetEmbeddingAvailable() {
+		t.Fatalf("expected embedding_available=false (no provider)")
+	}
+	if len(resp.GetSkills()) != 1 {
+		t.Fatalf("skills len = %d, want 1", len(resp.GetSkills()))
+	}
+	sk := resp.GetSkills()[0]
+	if sk.GetVectorScore() != 0 {
+		t.Fatalf("fallback: vector_score should be 0, got %v", sk.GetVectorScore())
+	}
+	if sk.GetRelevanceMode() != "lexical_metadata" {
+		t.Fatalf("fallback: relevance_mode should be lexical_metadata, got %q", sk.GetRelevanceMode())
+	}
+	if sk.GetBusinessBoost() < 1.0 || sk.GetBusinessBoost() > 1.5 {
+		t.Fatalf("fallback: business_boost out of range: %v", sk.GetBusinessBoost())
+	}
+	if resp.GetSkillPoolConfidence() == "" {
+		t.Fatalf("fallback: SkillPoolConfidence should still be populated")
+	}
+}
+
+// TASK-FU-001 验证：context-based debug state 隔离。
+
+func TestDebugContextStateIsolation(t *testing.T) {
+	// 两个并发 ctx 互相不污染。
+	t.Run("concurrent_contexts_isolated", func(t *testing.T) {
+		ctx1 := withDebugPoolConfidence(context.Background(), debugPoolConfidenceView{
+			SkillPoolConfidence:  RankConfidenceHigh,
+			MemoryPoolConfidence: RankConfidenceLow,
+		})
+		ctx2 := withDebugPoolConfidence(context.Background(), debugPoolConfidenceView{
+			SkillPoolConfidence:  RankConfidenceMedium,
+			MemoryPoolConfidence: RankConfidenceNone,
+		})
+
+		got1 := getDebugPoolConfidenceFromContext(ctx1)
+		got2 := getDebugPoolConfidenceFromContext(ctx2)
+
+		if got1.SkillPoolConfidence != RankConfidenceHigh || got1.MemoryPoolConfidence != RankConfidenceLow {
+			t.Fatalf("ctx1 got %+v, want high/low", got1)
+		}
+		if got2.SkillPoolConfidence != RankConfidenceMedium || got2.MemoryPoolConfidence != RankConfidenceNone {
+			t.Fatalf("ctx2 got %+v, want medium/none", got2)
+		}
+		// 互相不污染
+		if got1.SkillPoolConfidence == got2.SkillPoolConfidence {
+			t.Fatalf("ctx1 and ctx2 should have different values")
+		}
+	})
+
+	t.Run("memory_rankings_isolated", func(t *testing.T) {
+		items1 := []RankedMemoryItem{{Memory: model.AIMemory{ID: 1}}}
+		items2 := []RankedMemoryItem{{Memory: model.AIMemory{ID: 2}}, {Memory: model.AIMemory{ID: 3}}}
+
+		ctx1 := withDebugMemoryRankings(context.Background(), items1)
+		ctx2 := withDebugMemoryRankings(context.Background(), items2)
+
+		got1 := getDebugMemoryRankingsFromContext(ctx1)
+		got2 := getDebugMemoryRankingsFromContext(ctx2)
+		if len(got1) != 1 || got1[0].Memory.ID != 1 {
+			t.Fatalf("ctx1 got %+v, want 1 item id=1", got1)
+		}
+		if len(got2) != 2 {
+			t.Fatalf("ctx2 got %+v, want 2 items", got2)
+		}
+	})
+
+	t.Run("simulated_concurrent_debug_requests", func(t *testing.T) {
+		// 模拟两个并发请求：ctx1 和 ctx2 各自走完 DebugSemanticRetrieval 的核心流程，
+		// pool_confidence 不能互相覆盖。
+		var wg sync.WaitGroup
+		results := make([]debugPoolConfidenceView, 2)
+		for i := 0; i < 2; i++ {
+			i := i
+			wg.Add(1)
+			go func() {
+				defer wg.Done()
+				ctx := context.Background()
+				// 给 memory 一个非零 final_rank_score（> rankRelevanceGate = 0.15）
+				// 这样 ComputePoolConfidence 会返回 low（top1 >= gate，1 个候选 → low）
+				items := []RankedMemoryItem{{
+					Memory:  model.AIMemory{ID: uint64(i + 1)},
+					Signals: RankingSignals{FinalRankScore: 0.5},
+				}}
+				ctx = withDebugMemoryRankings(ctx, items)
+				selected := []selectedAgentSkill{{FinalRankScore: 0.1, Manual: false}}
+				poolView := computeDebugPoolConfidence(selected, getDebugMemoryRankingsFromContext(ctx))
+				ctx = withDebugPoolConfidence(ctx, poolView)
+				results[i] = getDebugPoolConfidenceFromContext(ctx)
+			}()
+		}
+		wg.Wait()
+		// 两个并发请求的 results 应该是独立的（不污染）
+		if results[0].MemoryPoolConfidence == RankConfidenceNone {
+			t.Fatalf("concurrent ctx should have low pool confidence (1 candidate, top1 > gate), got %v", results[0].MemoryPoolConfidence)
+		}
+		if results[1].MemoryPoolConfidence == RankConfidenceNone {
+			t.Fatalf("concurrent ctx should have low pool confidence, got %v", results[1].MemoryPoolConfidence)
+		}
+	})
+}
+
+func TestDebugContextStateEmptyDefaults(t *testing.T) {
+	t.Run("nil_ctx_returns_zero_pool", func(t *testing.T) {
+		got := getDebugPoolConfidenceFromContext(context.Background())
+		if got.SkillPoolConfidence != RankConfidenceNone || got.MemoryPoolConfidence != RankConfidenceNone {
+			t.Fatalf("empty ctx should return zero value, got %+v", got)
+		}
+	})
+
+	t.Run("nil_ctx_returns_nil_rankings", func(t *testing.T) {
+		got := getDebugMemoryRankingsFromContext(context.Background())
+		if got != nil {
+			t.Fatalf("empty ctx should return nil rankings, got %+v", got)
+		}
+	})
+
+	t.Run("write_nil_items_stores_empty_slice", func(t *testing.T) {
+		// write nil should store empty slice (not nil) to keep type consistent
+		ctx := withDebugMemoryRankings(context.Background(), nil)
+		got := getDebugMemoryRankingsFromContext(ctx)
+		if got == nil {
+			t.Fatalf("write nil should store empty slice, got nil")
+		}
+		if len(got) != 0 {
+			t.Fatalf("write nil should store empty slice, got len=%d", len(got))
+		}
+	})
+
+	t.Run("child_ctx_inherits_parent", func(t *testing.T) {
+		parent := withDebugPoolConfidence(context.Background(), debugPoolConfidenceView{
+			SkillPoolConfidence: RankConfidenceHigh,
+		})
+		// 子 ctx 不显式覆盖时，WithValue 链向上查找
+		child, cancel := context.WithCancel(parent)
+		defer cancel()
+		got := getDebugPoolConfidenceFromContext(child)
+		if got.SkillPoolConfidence != RankConfidenceHigh {
+			t.Fatalf("child ctx should inherit parent's value, got %+v", got)
+		}
+	})
 }

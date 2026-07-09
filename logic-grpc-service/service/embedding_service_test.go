@@ -22,6 +22,8 @@ func (f fakeEmbeddingProvider) EmbedText(context.Context, string) (EmbeddingVect
 	return f.vector, f.err
 }
 
+func (f fakeEmbeddingProvider) Name() string { return "fake" }
+
 func newEmbeddingTestService(t *testing.T, provider EmbeddingProvider) (*EmbeddingService, *repository.AIEmbeddingRepo) {
 	t.Helper()
 	db, err := gorm.Open(sqlite.Open(":memory:"), &gorm.Config{TranslateError: true})

@@ -35,6 +35,10 @@ var (
 
 type EmbeddingProvider interface {
 	EmbedText(ctx context.Context, text string) (EmbeddingVector, error)
+	// Name returns a stable, human-readable identifier for the provider
+	// (e.g. "bailian", "openai", "unavailable"). Used by debug endpoints to
+	// surface which provider actually served the request.
+	Name() string
 }
 
 type EmbeddingVector struct {
@@ -48,12 +52,32 @@ func (UnavailableEmbeddingProvider) EmbedText(context.Context, string) (Embeddin
 	return EmbeddingVector{Model: DefaultEmbeddingModel}, ErrEmbeddingProviderUnavailable
 }
 
+// Name implements EmbeddingProvider.
+func (UnavailableEmbeddingProvider) Name() string { return "unavailable" }
+
 type EmbeddingService struct {
 	repo     *repository.AIEmbeddingRepo
 	provider atomic.Pointer[EmbeddingProvider]
 	policy   AgentRuntimePolicy
 	factory  *EmbeddingProviderFactory
 	encKey   crypto.EncryptionKey
+
+	// lastSearchMeta 记录最近一次 Search / SearchObjects 调用的元数据。
+	// 由 Search / SearchObjects 在执行末尾写入；由 LastSearchMeta() 读取。
+	// 用于 debug 端点展示当前生效的 provider / model / dim / candidate count / latency。
+	// 字段在并发场景下不严格 thread-safe（同一 service 多 goroutine 调用）；
+	// debug 端点单 goroutine 调用足够。
+	lastSearchMeta atomic.Pointer[SearchMeta]
+}
+
+// SearchMeta 记录一次 embedding 搜索的元数据。
+// 由 EmbeddingService 在 Search / SearchObjects 末尾写入。
+type SearchMeta struct {
+	ProviderName  string
+	ModelName     string
+	VectorDim     int
+	CandidateCount int
+	LatencyMs     int64
 }
 
 func NewEmbeddingService(repo *repository.AIEmbeddingRepo, factory *EmbeddingProviderFactory, encKey crypto.EncryptionKey) *EmbeddingService {
@@ -257,6 +281,7 @@ func (s *EmbeddingService) Search(ctx context.Context, input EmbeddingSearchInpu
 
 	queryVector, modelName, err := s.resolveQueryVector(ctx, input.QueryText, input.QueryVector, input.Model)
 	if err != nil {
+		s.recordSearchMeta(modelName, 0, 0, time.Since(started).Milliseconds())
 		s.logSearchFinished("agent.semantic_retrieval.search", started, "fallback", input.ObjectTypes, 0, err)
 		return nil, err
 	}
@@ -273,6 +298,7 @@ func (s *EmbeddingService) Search(ctx context.Context, input EmbeddingSearchInpu
 		Limit:          candidateLimit(input.Limit),
 	})
 	if err != nil {
+		s.recordSearchMeta(modelName, len(queryVector), 0, time.Since(started).Milliseconds())
 		s.logSearchFinished("agent.semantic_retrieval.search", started, "failed", input.ObjectTypes, 0, err)
 		return nil, err
 	}
@@ -297,8 +323,40 @@ func (s *EmbeddingService) Search(ctx context.Context, input EmbeddingSearchInpu
 				zap.Float64("score", r.Score))
 		}
 	}
+	s.recordSearchMeta(modelName, len(queryVector), len(finalResults), time.Since(started).Milliseconds())
 	s.logSearchFinished("agent.semantic_retrieval.search", started, "succeeded", input.ObjectTypes, limit, nil)
 	return finalResults, nil
+}
+
+// recordSearchMeta 写入最近一次搜索的元数据。
+// modelName / vectorDim / candidateCount / latencyMs 由 Search 末尾填入；
+// 即便 err 也会写入（带 candidateCount=0 / latencyMs 部分时长），
+// 让 debug 端点能区分"未搜索"与"搜索失败"两种状态。
+func (s *EmbeddingService) recordSearchMeta(modelName string, vectorDim, candidateCount int, latencyMs int64) {
+	if s == nil {
+		return
+	}
+	meta := &SearchMeta{
+		ProviderName:   s.currentProvider().Name(),
+		ModelName:      modelName,
+		VectorDim:      vectorDim,
+		CandidateCount: candidateCount,
+		LatencyMs:      latencyMs,
+	}
+	s.lastSearchMeta.Store(meta)
+}
+
+// LastSearchMeta 返回最近一次 Search / SearchObjects 调用的元数据。
+// 未调用过任何 search 时返回 zero value（ProviderName="unavailable"）。
+// 用于 debug 端点展示当前生效的 provider / model / dim / candidate count / latency。
+func (s *EmbeddingService) LastSearchMeta() SearchMeta {
+	if s == nil {
+		return SearchMeta{ProviderName: "unavailable"}
+	}
+	if m := s.lastSearchMeta.Load(); m != nil {
+		return *m
+	}
+	return SearchMeta{ProviderName: s.currentProvider().Name()}
 }
 
 func (s *EmbeddingService) SearchObjects(ctx context.Context, input EmbeddingObjectSearchInput) ([]EmbeddingSearchResult, error) {
@@ -334,11 +392,13 @@ func (s *EmbeddingService) SearchObjects(ctx context.Context, input EmbeddingObj
 
 	queryVector, modelName, err := s.resolveQueryVector(ctx, input.QueryText, input.QueryVector, input.Model)
 	if err != nil {
+		s.recordSearchMeta(modelName, 0, 0, time.Since(started).Milliseconds())
 		s.logSearchFinished("agent.semantic_retrieval.search_objects", started, "fallback", []string{objectType}, 0, err)
 		return nil, err
 	}
 	rows, err := s.repo.ListByObjectIDs(ctx, objectType, input.ObjectIDs, modelName, EmbeddingStatusReady)
 	if err != nil {
+		s.recordSearchMeta(modelName, len(queryVector), 0, time.Since(started).Milliseconds())
 		s.logSearchFinished("agent.semantic_retrieval.search_objects", started, "failed", []string{objectType}, 0, err)
 		return nil, err
 	}
@@ -352,6 +412,7 @@ func (s *EmbeddingService) SearchObjects(ctx context.Context, input EmbeddingObj
 		zap.Int("candidate_count", len(rows)),
 		zap.Int("returned_count", len(finalResults)),
 		zap.Int64("duration_ms", time.Since(started).Milliseconds()))
+	s.recordSearchMeta(modelName, len(queryVector), len(finalResults), time.Since(started).Milliseconds())
 	s.logSearchFinished("agent.semantic_retrieval.search_objects", started, "succeeded", []string{objectType}, limit, nil)
 	return finalResults, nil
 }

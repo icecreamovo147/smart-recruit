@@ -207,6 +207,11 @@ func extractModelFromResponse(body []byte) string {
 	return DefaultBailianModel
 }
 
+// Name implements EmbeddingProvider. Bailian-backed providers always report
+// "bailian" regardless of underlying model variant; the model name is
+// exposed separately via the EmbeddingVector.Model field.
+func (p *BailianTextEmbeddingProvider) Name() string { return "bailian" }
+
 func isRetryableStatus(statusCode int) bool {
 	return statusCode == http.StatusTooManyRequests ||
 		statusCode == http.StatusRequestTimeout ||

@@ -82,6 +82,7 @@ func (s *AgentSkillService) ListAvailableAgentSkills(ctx context.Context, req *p
 }
 
 func (s *AgentSkillService) DebugSemanticRetrieval(ctx context.Context, req *pb.DebugSemanticRetrievalRequest) (*pb.DebugSemanticRetrievalResponse, error) {
+	log := logger.GetRequestLogger(ctx)
 	query := strings.TrimSpace(req.GetQuery())
 	if query == "" {
 		return &pb.DebugSemanticRetrievalResponse{Code: 400, Msg: "query is required"}, nil
@@ -107,19 +108,127 @@ func (s *AgentSkillService) DebugSemanticRetrieval(ctx context.Context, req *pb.
 	if len(selected) > limit {
 		selected = selected[:limit]
 	}
-	memories := s.semanticDebugMemories(ctx, req, limit, &embeddingAvailable)
+	// TASK-FU-001：memories + 内部 state 写入 ctx 透传（不再使用包级 var）。
+	memories, debugCtx := s.semanticDebugMemories(ctx, req, limit, &embeddingAvailable)
 	fallbackReason := ""
 	if !embeddingAvailable {
 		fallbackReason = "embedding retrieval unavailable; showing rule-based Skill matches and scoped memory fallback ordering"
 	}
+
+	// TASK-004 → TASK-006 → TASK-FU-001：pool_confidence 暂存到 ctx（per-request）。
+	memoryRankings := getDebugMemoryRankingsFromContext(debugCtx)
+	poolView := computeDebugPoolConfidence(selected, memoryRankings)
+	debugCtx = withDebugPoolConfidence(debugCtx, poolView)
+	log.Debug("[debug_semantic_retrieval] pool confidences computed",
+		zap.String("skill_pool_confidence", string(poolView.SkillPoolConfidence)),
+		zap.String("memory_pool_confidence", string(poolView.MemoryPoolConfidence)),
+	)
+
+	// 修复：从最近一次 embedding 搜索读取 5 个 debug 字段。
+	// 这些字段之前在 proto 中未声明，本次补全；EmbeddingService.LastSearchMeta()
+	// 在 semanticDebugSkillScores 末尾写入（包含 nil 服务的 fallback）。
+	searchMeta := embeddingMetaSnapshot(s.embeddings)
+
 	return &pb.DebugSemanticRetrievalResponse{
-		Code:               0,
-		Msg:                "success",
-		EmbeddingAvailable: embeddingAvailable,
-		FallbackReason:     fallbackReason,
-		Skills:             semanticDebugSkillsToPB(selected),
-		Memories:           memories,
+		Code:                     0,
+		Msg:                      "success",
+		EmbeddingAvailable:       embeddingAvailable,
+		FallbackReason:           fallbackReason,
+		Skills:                   semanticDebugSkillsToPB(selected),
+		Memories:                 memories,
+		SkillPoolConfidence:      string(poolView.SkillPoolConfidence),
+		MemoryPoolConfidence:     string(poolView.MemoryPoolConfidence),
+		EmbeddingProvider:        searchMeta.ProviderName,
+		EmbeddingModel:           searchMeta.ModelName,
+		EmbeddingDim:             int32(searchMeta.VectorDim),
+		CandidateCount:           int32(searchMeta.CandidateCount),
+		QueryEmbeddingLatencyMs:  searchMeta.LatencyMs,
 	}, nil
+}
+
+// embeddingMetaSnapshot 安全地从 EmbeddingService 读取最近一次搜索的元数据。
+// service 为 nil 时返回 zero value（ProviderName="unavailable"），
+// 与 EmbeddingService.LastSearchMeta 行为一致。
+func embeddingMetaSnapshot(svc *EmbeddingService) SearchMeta {
+	if svc == nil {
+		return SearchMeta{ProviderName: "unavailable"}
+	}
+	return svc.LastSearchMeta()
+}
+
+// debugPoolConfidenceView 是 DebugSemanticRetrieval 内部暂存 pool_confidence 的 struct。
+// TASK-004 引入；TASK-006 将这两个字段透传到 proto。
+// TASK-FU-001：把状态从包级 var 改为 context.Context 私有 key 传递，消除并发覆盖。
+type debugPoolConfidenceView struct {
+	SkillPoolConfidence  RankConfidence
+	MemoryPoolConfidence RankConfidence
+}
+
+// debugContextKey 是 DebugSemanticRetrieval 内部 state 的私有 context key。
+// 使用 struct{} 类型避免与其他包的 context 值冲突。
+type debugContextKey struct{}
+
+// debugPoolConfidenceKey / debugMemoryRankingsKey 是两个独立的私有 key，
+// 避免 DebugSemanticRetrieval 一次请求只能存一个值的限制。
+var (
+	debugPoolConfidenceKey = debugContextKey{}
+	debugMemoryRankingsKey = debugContextKey{}
+)
+
+// withDebugPoolConfidence 把 pool confidence 写入 ctx（私有 key）。
+func withDebugPoolConfidence(ctx context.Context, v debugPoolConfidenceView) context.Context {
+	return context.WithValue(ctx, debugPoolConfidenceKey, v)
+}
+
+// getDebugPoolConfidenceFromContext 从 ctx 读取 pool confidence；缺失时返回 zero value。
+func getDebugPoolConfidenceFromContext(ctx context.Context) debugPoolConfidenceView {
+	if v, ok := ctx.Value(debugPoolConfidenceKey).(debugPoolConfidenceView); ok {
+		return v
+	}
+	return debugPoolConfidenceView{
+		SkillPoolConfidence:  RankConfidenceNone,
+		MemoryPoolConfidence: RankConfidenceNone,
+	}
+}
+
+// withDebugMemoryRankings 把 memory 完整 ranking 写入 ctx。
+func withDebugMemoryRankings(ctx context.Context, items []RankedMemoryItem) context.Context {
+	if items == nil {
+		items = []RankedMemoryItem{}
+	}
+	return context.WithValue(ctx, debugMemoryRankingsKey, items)
+}
+
+// getDebugMemoryRankingsFromContext 从 ctx 读取 memory 完整 ranking；缺失时返回 nil。
+func getDebugMemoryRankingsFromContext(ctx context.Context) []RankedMemoryItem {
+	if v, ok := ctx.Value(debugMemoryRankingsKey).([]RankedMemoryItem); ok {
+		return v
+	}
+	return nil
+}
+
+// computeDebugPoolConfidence 从 Skill 选中列表和 Memory ranking 列表推断两个池的 confidence。
+// 仅使用 FinalRankScore 字段；空 / 0 / NaN 的信号由 ComputePoolConfidence 内部过滤。
+func computeDebugPoolConfidence(selected []selectedAgentSkill, memoryRankings []RankedMemoryItem) debugPoolConfidenceView {
+	view := debugPoolConfidenceView{
+		SkillPoolConfidence:  RankConfidenceNone,
+		MemoryPoolConfidence: RankConfidenceNone,
+	}
+	skillSignals := make([]RankingSignals, 0, len(selected))
+	for _, sk := range selected {
+		if sk.Manual {
+			continue
+		}
+		skillSignals = append(skillSignals, RankingSignals{FinalRankScore: sk.FinalRankScore})
+	}
+	view.SkillPoolConfidence = ComputePoolConfidence(skillSignals)
+
+	memSignals := make([]RankingSignals, 0, len(memoryRankings))
+	for _, m := range memoryRankings {
+		memSignals = append(memSignals, m.Signals)
+	}
+	view.MemoryPoolConfidence = ComputePoolConfidence(memSignals)
+	return view
 }
 
 func (s *AgentSkillService) GetAgentSkill(ctx context.Context, req *pb.GetAgentSkillRequest) (*pb.AgentSkillResponse, error) {
@@ -154,9 +263,9 @@ func (s *AgentSkillService) semanticDebugSkillScores(ctx context.Context, query 
 	return scores, nil
 }
 
-func (s *AgentSkillService) semanticDebugMemories(ctx context.Context, req *pb.DebugSemanticRetrievalRequest, limit int, embeddingAvailable *bool) []*pb.SemanticMemoryDebugItem {
+func (s *AgentSkillService) semanticDebugMemories(ctx context.Context, req *pb.DebugSemanticRetrievalRequest, limit int, embeddingAvailable *bool) ([]*pb.SemanticMemoryDebugItem, context.Context) {
 	if s == nil || s.memoryRepo == nil {
-		return nil
+		return nil, ctx
 	}
 	builder := (&AgentContextBuilder{memories: s.memoryRepo}).WithEmbeddingService(s.embeddings)
 	input := AgentContextInput{
@@ -168,8 +277,9 @@ func (s *AgentSkillService) semanticDebugMemories(ctx context.Context, req *pb.D
 	scopes := memoryRecallScopes(input)
 	rows, err := s.memoryRepo.ListRecallCandidates(ctx, input.HrID, scopes, nil, limit*4)
 	if err != nil {
-		return nil
+		return nil, ctx
 	}
+	// TASK-003 重构后，rankMemories 内部走混合打分；semanticScores 仅用于在 proto 旧 reason 字段里保留"semantic vs fallback"语义。
 	semanticScores := builder.semanticMemoryScores(ctx, input, rows)
 	// embeddingAvailable was determined by semanticDebugSkillScores from the
 	// embedding service's health, not from hit count. Don't override it here.
@@ -177,46 +287,86 @@ func (s *AgentSkillService) semanticDebugMemories(ctx context.Context, req *pb.D
 	if len(ranked) > limit {
 		ranked = ranked[:limit]
 	}
+	rankings := builder.lastMemoryRankings
+	if len(rankings) > limit {
+		rankings = rankings[:limit]
+	}
+	// TASK-FU-001：把 memory 完整 ranking 写入 ctx 并返回新 ctx。
+	// 写入后 DebugSemanticRetrieval 可从 ctx 读取 rankings 计算 pool_confidence。
+	ctx = withDebugMemoryRankings(ctx, rankings)
+
+	signalsByID := make(map[uint64]RankingSignals, len(rankings))
+	for _, r := range rankings {
+		signalsByID[r.Memory.ID] = r.Signals
+	}
+
 	items := make([]*pb.SemanticMemoryDebugItem, 0, len(ranked))
 	for _, memory := range ranked {
-		score := memoryBaseRecallScore(memory, input)
 		reason := "scope/importance fallback"
-		if semanticScore, ok := semanticScores[memory.ID]; ok {
-			score += semanticScore * 100
+		if _, ok := semanticScores[memory.ID]; ok {
 			reason = "semantic similarity and scope/importance"
-		} else {
-			score += keywordMemoryScore(input.CurrentMessage, memory.Content)
 		}
+		// TASK-006: 从 lastDebugMemoryRankings 读取 breakdown signals；
+		// 旧 score 字段改为 final_rank_score（SDD §3.10 兼容映射）。
+		signals := signalsByID[memory.ID]
 		items = append(items, &pb.SemanticMemoryDebugItem{
-			Id:         memory.ID,
-			ScopeType:  memory.ScopeType,
-			ScopeId:    memory.ScopeID,
-			MemoryType: memory.MemoryType,
-			Content:    memory.Content,
-			Source:     memory.Source,
-			Confidence: memory.Confidence,
-			Importance: memory.Importance,
-			Score:      score,
-			Reason:     reason,
-			CreatedAt:  formatTime(memory.CreatedAt),
+			Id:             memory.ID,
+			ScopeType:      memory.ScopeType,
+			ScopeId:        memory.ScopeID,
+			MemoryType:     memory.MemoryType,
+			Content:        memory.Content,
+			Source:         memory.Source,
+			Confidence:     memory.Confidence,
+			Importance:     memory.Importance,
+			Score:          signals.FinalRankScore,
+			Reason:         reason,
+			CreatedAt:      formatTime(memory.CreatedAt),
+			VectorScore:    signals.VectorScore,
+			LexicalScore:   signals.LexicalScore,
+			MetadataScore:  signals.MetadataScore,
+			RelevanceScore: signals.RelevanceScore,
+			BusinessBoost:  signals.BusinessBoost,
+			FinalRankScore: signals.FinalRankScore,
+			RelevanceMode:  signals.RelevanceMode,
+			PoolRank:       int32(memoryPoolRankOf(rankings, memory.ID)),
 		})
 	}
-	return items
+	return items, ctx
+}
+
+// memoryPoolRankOf 返回给定 memory ID 在 rankings 中的 1-based 排名。
+// 未找到时返回 0（与 selectedAgentSkill 中 manual 池的 PoolRank=0 语义一致）。
+func memoryPoolRankOf(rankings []RankedMemoryItem, id uint64) int {
+	for i, r := range rankings {
+		if r.Memory.ID == id {
+			return i + 1
+		}
+	}
+	return 0
 }
 
 func semanticDebugSkillsToPB(skills []selectedAgentSkill) []*pb.SemanticSkillDebugItem {
 	items := make([]*pb.SemanticSkillDebugItem, 0, len(skills))
 	for _, skill := range skills {
+		// TASK-006: 填充新 breakdown 字段；旧 Score 字段改为 final_rank_score（SDD §3.10 兼容映射）。
 		items = append(items, &pb.SemanticSkillDebugItem{
-			Id:           skill.ID,
-			Name:         skill.Name,
-			DisplayName:  skill.DisplayName,
-			Category:     skill.Category,
-			Scenario:     skill.Scenario,
-			Priority:     skill.Priority,
-			Score:        float64(skill.Score),
-			Reason:       skill.Reason,
-			SemanticTags: append([]string(nil), skill.SemanticTags...),
+			Id:             skill.ID,
+			Name:           skill.Name,
+			DisplayName:    skill.DisplayName,
+			Category:       skill.Category,
+			Scenario:       skill.Scenario,
+			Priority:       skill.Priority,
+			Score:          skill.FinalRankScore,
+			Reason:         skill.Reason,
+			SemanticTags:   append([]string(nil), skill.SemanticTags...),
+			VectorScore:    skill.VectorScore,
+			LexicalScore:   skill.LexicalScore,
+			MetadataScore:  skill.MetadataScore,
+			RelevanceScore: skill.RelevanceScore,
+			BusinessBoost:  skill.BusinessBoost,
+			FinalRankScore: skill.FinalRankScore,
+			RelevanceMode:  skill.RelevanceMode,
+			PoolRank:       int32(skill.PoolRank),
 		})
 	}
 	return items
