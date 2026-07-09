@@ -1,0 +1,368 @@
+{
+  "feature_name": "skill-memory-ranking",
+  "tasks": {
+    "TASK-001": {
+      "title": "新增混合打分数据模型与权重常量",
+      "status": "pending",
+      "description": "新增 skill_memory_ranking.go，定义 RankingSignals / RankConfidence 类型与权重常量；实现 computeRelevanceScore / computeBusinessBoost / computeFinalRankScore / ComputePoolConfidence 工具函数；提供单测覆盖。",
+      "allowedFiles": [
+        "logic-grpc-service/service/skill_memory_ranking.go",
+        "logic-grpc-service/service/skill_memory_ranking_test.go"
+      ],
+      "forbiddenFiles": [
+        "package.json",
+        "pnpm-lock.yaml",
+        "pnpm-workspace.yaml",
+        "hr-frontend/package.json",
+        "user-frontend/package.json",
+        "interviewer-frontend/package.json",
+        "**/node_modules/**",
+        "**/dist/**",
+        "**/.env*",
+        "deploy/**",
+        "docker/**",
+        "hr-frontend/**",
+        "user-frontend/**",
+        "interviewer-frontend/**",
+        "web-gin-service/**",
+        "logic-grpc-service/proto/**",
+        "logic-grpc-service/recruitment/pb/**",
+        "logic-grpc-service/service/agent_skill_selector.go",
+        "logic-grpc-service/service/agent_skill_selector_test.go",
+        "logic-grpc-service/service/agent_context.go",
+        "logic-grpc-service/service/agent_context_memory_test.go",
+        "logic-grpc-service/service/agent_skill_service.go",
+        "logic-grpc-service/config/**",
+        "logic-grpc-service/model/**",
+        "logic-grpc-service/repository/**",
+        "logic-grpc-service/cmd/**",
+        "logic-grpc-service/migrations/**"
+      ],
+      "requiresHumanConfirmation": false,
+      "allowedActions": [
+        "create",
+        "test"
+      ],
+      "acceptance": ".spec/skill-memory-ranking/acceptance/TASK-001.md",
+      "report": ".spec/skill-memory-ranking/reports/TASK-001-report.md",
+      "notes": [
+        "权重与阈值常量集中在文件顶部",
+        "工具函数必须为纯函数，不依赖全局状态",
+        "不修改现有业务代码或 proto"
+      ]
+    },
+    "TASK-002": {
+      "title": "实现 Skill 池混合打分排序",
+      "status": "pending",
+      "description": "让 selectAgentSkillsWithSemantic 自动排序阶段走混合打分；扩展 selectedAgentSkill 字段；保留函数签名；兼容旧 Score 字段；同步更新旧测试断言。",
+      "allowedFiles": [
+        "logic-grpc-service/service/agent_skill_selector.go",
+        "logic-grpc-service/service/agent_skill_selector_test.go",
+        "logic-grpc-service/service/skill_memory_ranking.go",
+        "logic-grpc-service/service/skill_memory_ranking_test.go"
+      ],
+      "forbiddenFiles": [
+        "package.json",
+        "pnpm-lock.yaml",
+        "pnpm-workspace.yaml",
+        "hr-frontend/package.json",
+        "user-frontend/package.json",
+        "interviewer-frontend/package.json",
+        "**/node_modules/**",
+        "**/dist/**",
+        "**/.env*",
+        "deploy/**",
+        "docker/**",
+        "hr-frontend/**",
+        "user-frontend/**",
+        "interviewer-frontend/**",
+        "web-gin-service/**",
+        "logic-grpc-service/proto/**",
+        "logic-grpc-service/recruitment/pb/**",
+        "logic-grpc-service/service/agent_context.go",
+        "logic-grpc-service/service/agent_context_memory_test.go",
+        "logic-grpc-service/service/agent_skill_service.go",
+        "logic-grpc-service/config/**",
+        "logic-grpc-service/model/**",
+        "logic-grpc-service/repository/**"
+      ],
+      "requiresHumanConfirmation": false,
+      "allowedActions": [
+        "modify",
+        "test"
+      ],
+      "acceptance": ".spec/skill-memory-ranking/acceptance/TASK-002.md",
+      "report": ".spec/skill-memory-ranking/reports/TASK-002-report.md",
+      "notes": [
+        "保留 selectAgentSkills / selectAgentSkillsWithSemantic 函数签名",
+        "selectedAgentSkill.Score 旧字段值 = int(round(final_rank_score * 100))",
+        "不得修改 model.AgentSkill / AgentSkillVersion"
+      ]
+    },
+    "TASK-003": {
+      "title": "实现 Memory 池混合打分排序",
+      "status": "pending",
+      "description": "让 AgentContextBuilder.rankMemories 走混合打分；保留函数签名；保留 maxMemories + maxMemoryChars 双重截断；importance / confidence 在相关性 gating 后才参与 boost。",
+      "allowedFiles": [
+        "logic-grpc-service/service/agent_context.go",
+        "logic-grpc-service/service/agent_context_memory_test.go",
+        "logic-grpc-service/service/skill_memory_ranking.go",
+        "logic-grpc-service/service/skill_memory_ranking_test.go"
+      ],
+      "forbiddenFiles": [
+        "package.json",
+        "pnpm-lock.yaml",
+        "pnpm-workspace.yaml",
+        "hr-frontend/package.json",
+        "user-frontend/package.json",
+        "interviewer-frontend/package.json",
+        "**/node_modules/**",
+        "**/dist/**",
+        "**/.env*",
+        "deploy/**",
+        "docker/**",
+        "hr-frontend/**",
+        "user-frontend/**",
+        "interviewer-frontend/**",
+        "web-gin-service/**",
+        "logic-grpc-service/proto/**",
+        "logic-grpc-service/recruitment/pb/**",
+        "logic-grpc-service/service/agent_skill_selector.go",
+        "logic-grpc-service/service/agent_skill_selector_test.go",
+        "logic-grpc-service/service/agent_skill_service.go",
+        "logic-grpc-service/config/**",
+        "logic-grpc-service/model/**",
+        "logic-grpc-service/repository/**"
+      ],
+      "requiresHumanConfirmation": false,
+      "allowedActions": [
+        "modify",
+        "test"
+      ],
+      "acceptance": ".spec/skill-memory-ranking/acceptance/TASK-003.md",
+      "report": ".spec/skill-memory-ranking/reports/TASK-003-report.md",
+      "notes": [
+        "保留 AgentContextBuilder.Build / retrieveMemories / rankMemories 函数签名",
+        "Gating 仅对 Memory 生效，Skill 不应用",
+        "不得修改 model.AIMemory"
+      ]
+    },
+    "TASK-004": {
+      "title": "引入 top1/top2 gap 与池置信度计算",
+      "status": "pending",
+      "description": "在 skill_memory_ranking.go 提供 ComputePoolConfidence；接入 Skill / Memory 池的 debug 输出；为 gRPC response 透传准备 internal struct。",
+      "allowedFiles": [
+        "logic-grpc-service/service/agent_skill_service.go",
+        "logic-grpc-service/service/agent_skill_selector.go",
+        "logic-grpc-service/service/agent_context.go",
+        "logic-grpc-service/service/skill_memory_ranking.go",
+        "logic-grpc-service/service/skill_memory_ranking_test.go"
+      ],
+      "forbiddenFiles": [
+        "package.json",
+        "pnpm-lock.yaml",
+        "pnpm-workspace.yaml",
+        "hr-frontend/package.json",
+        "user-frontend/package.json",
+        "interviewer-frontend/package.json",
+        "**/node_modules/**",
+        "**/dist/**",
+        "**/.env*",
+        "deploy/**",
+        "docker/**",
+        "hr-frontend/**",
+        "user-frontend/**",
+        "interviewer-frontend/**",
+        "web-gin-service/**",
+        "logic-grpc-service/proto/**",
+        "logic-grpc-service/recruitment/pb/**",
+        "logic-grpc-service/config/**",
+        "logic-grpc-service/model/**",
+        "logic-grpc-service/repository/**"
+      ],
+      "requiresHumanConfirmation": false,
+      "allowedActions": [
+        "modify",
+        "test"
+      ],
+      "acceptance": ".spec/skill-memory-ranking/acceptance/TASK-004.md",
+      "report": ".spec/skill-memory-ranking/reports/TASK-004-report.md",
+      "notes": [
+        "本 TASK 允许在 agent_skill_service.go 引入 internal struct 暂存 pool_confidence",
+        "不得修改 DebugSemanticRetrieval 函数签名",
+        "ComputePoolConfidence 单测覆盖 4 种枚举"
+      ]
+    },
+    "TASK-005": {
+      "title": "扩展 proto 新增 score breakdown 字段",
+      "status": "pending",
+      "description": "在 recruitment.proto 末尾追加 vector_score / lexical_score / metadata_score / relevance_score / business_boost / final_rank_score / relevance_mode / pool_rank / pool_confidence 字段；同步更新 logic-grpc-service 与 web-gin-service 两侧 pb 文件。",
+      "allowedFiles": [
+        "logic-grpc-service/proto/recruitment.proto",
+        "logic-grpc-service/recruitment/pb/recruitment.pb.go",
+        "web-gin-service/recruitment/pb/recruitment.pb.go"
+      ],
+      "forbiddenFiles": [
+        "package.json",
+        "pnpm-lock.yaml",
+        "pnpm-workspace.yaml",
+        "hr-frontend/package.json",
+        "user-frontend/package.json",
+        "interviewer-frontend/package.json",
+        "**/node_modules/**",
+        "**/dist/**",
+        "**/.env*",
+        "deploy/**",
+        "docker/**",
+        "hr-frontend/**",
+        "user-frontend/**",
+        "interviewer-frontend/**",
+        "web-gin-service/handler/**",
+        "web-gin-service/router/**",
+        "web-gin-service/rpc/**",
+        "logic-grpc-service/service/**",
+        "logic-grpc-service/config/**",
+        "logic-grpc-service/model/**",
+        "logic-grpc-service/repository/**",
+        "logic-grpc-service/recruitment/pb/recruitment_grpc.pb.go"
+      ],
+      "requiresHumanConfirmation": true,
+      "allowedActions": [
+        "modify"
+      ],
+      "acceptance": ".spec/skill-memory-ranking/acceptance/TASK-005.md",
+      "report": ".spec/skill-memory-ranking/reports/TASK-005-report.md",
+      "notes": [
+        "proto 仅追加字段，不修改 / 删除 / 重用现有字段编号",
+        "修改前需与用户确认字段命名 / 类型 / 编号",
+        "建议优先尝试 protoc 生成；如不可用按字段手工同步最小集合"
+      ]
+    },
+    "TASK-006": {
+      "title": "DebugSemanticRetrieval 填充 score breakdown 与 pool_confidence",
+      "status": "pending",
+      "description": "在 agent_skill_service.go 的 DebugSemanticRetrieval 路径下，将新 score breakdown 字段与 pool_confidence 填充到 gRPC response；保持旧字段含义不变。",
+      "allowedFiles": [
+        "logic-grpc-service/service/agent_skill_service.go",
+        "logic-grpc-service/service/agent_skill_selector.go",
+        "logic-grpc-service/service/agent_context.go",
+        "logic-grpc-service/service/agent_skill_service_test.go"
+      ],
+      "forbiddenFiles": [
+        "package.json",
+        "pnpm-lock.yaml",
+        "pnpm-workspace.yaml",
+        "hr-frontend/package.json",
+        "user-frontend/package.json",
+        "interviewer-frontend/package.json",
+        "**/node_modules/**",
+        "**/dist/**",
+        "**/.env*",
+        "deploy/**",
+        "docker/**",
+        "hr-frontend/**",
+        "user-frontend/**",
+        "interviewer-frontend/**",
+        "web-gin-service/**",
+        "logic-grpc-service/proto/**",
+        "logic-grpc-service/recruitment/pb/**",
+        "logic-grpc-service/config/**",
+        "logic-grpc-service/model/**",
+        "logic-grpc-service/repository/**"
+      ],
+      "requiresHumanConfirmation": false,
+      "allowedActions": [
+        "modify",
+        "test"
+      ],
+      "acceptance": ".spec/skill-memory-ranking/acceptance/TASK-006.md",
+      "report": ".spec/skill-memory-ranking/reports/TASK-006-report.md",
+      "notes": [
+        "不得修改 DebugSemanticRetrieval 函数签名",
+        "不得修改 SemanticSkillDebugItem / SemanticMemoryDebugItem 现有字段",
+        "旧 score 字段值 = final_rank_score，保持兼容"
+      ]
+    },
+    "TASK-007": {
+      "title": "前端类型同步追加 optional 字段",
+      "status": "pending",
+      "description": "在 hr-frontend/src/types/agentSkill.ts 末尾追加 SemanticSkillDebugItem / SemanticMemoryDebugItem / SemanticRetrievalDebugResult 的 optional 字段；保持现有 score 字段类型与语义不变。",
+      "allowedFiles": [
+        "hr-frontend/src/types/agentSkill.ts"
+      ],
+      "forbiddenFiles": [
+        "hr-frontend/package.json",
+        "hr-frontend/src/views/**",
+        "hr-frontend/src/api/**",
+        "hr-frontend/src/components/**",
+        "hr-frontend/src/router/**",
+        "package.json",
+        "pnpm-lock.yaml",
+        "pnpm-workspace.yaml",
+        "user-frontend/**",
+        "interviewer-frontend/**",
+        "deploy/**",
+        "docker/**",
+        "web-gin-service/**",
+        "logic-grpc-service/**"
+      ],
+      "requiresHumanConfirmation": false,
+      "allowedActions": [
+        "modify"
+      ],
+      "acceptance": ".spec/skill-memory-ranking/acceptance/TASK-007.md",
+      "report": ".spec/skill-memory-ranking/reports/TASK-007-report.md",
+      "notes": [
+        "不得删除或修改现有字段",
+        "新增字段为 optional，使用 snake_case 与 proto 对齐",
+        "不得在 debug 视图引入新 UI"
+      ]
+    },
+    "TASK-008": {
+      "title": "补充单测与表驱动测试",
+      "status": "pending",
+      "description": "新增 / 更新单测与表驱动测试，覆盖混合打分、降级路径、置信度、gating、分池隔离；保证 go test ./... 与 pnpm --filter hr-frontend typecheck 全部通过。",
+      "allowedFiles": [
+        "logic-grpc-service/service/skill_memory_ranking_test.go",
+        "logic-grpc-service/service/agent_skill_selector_test.go",
+        "logic-grpc-service/service/agent_context_memory_test.go",
+        "logic-grpc-service/service/agent_skill_service_test.go"
+      ],
+      "forbiddenFiles": [
+        "package.json",
+        "pnpm-lock.yaml",
+        "pnpm-workspace.yaml",
+        "hr-frontend/package.json",
+        "user-frontend/package.json",
+        "interviewer-frontend/package.json",
+        "**/node_modules/**",
+        "**/dist/**",
+        "**/.env*",
+        "deploy/**",
+        "docker/**",
+        "hr-frontend/**",
+        "user-frontend/**",
+        "interviewer-frontend/**",
+        "web-gin-service/**",
+        "logic-grpc-service/proto/**",
+        "logic-grpc-service/recruitment/pb/**",
+        "logic-grpc-service/service/*.go",
+        "logic-grpc-service/config/**",
+        "logic-grpc-service/model/**",
+        "logic-grpc-service/repository/**"
+      ],
+      "requiresHumanConfirmation": false,
+      "allowedActions": [
+        "modify",
+        "test"
+      ],
+      "acceptance": ".spec/skill-memory-ranking/acceptance/TASK-008.md",
+      "report": ".spec/skill-memory-ranking/reports/TASK-008-report.md",
+      "notes": [
+        "不得删除已有测试或弱化已有断言",
+        "必要时更新对 Score 的强断言到 FinalRankScore",
+        "测试不得依赖真实 embedding provider"
+      ]
+    }
+  }
+}
