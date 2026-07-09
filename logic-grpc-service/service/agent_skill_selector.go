@@ -39,6 +39,17 @@ type selectedAgentSkill struct {
 	RiskLevel            string
 	SemanticTags         []string
 	Reason               string
+
+	// TASK-002：混合打分 breakdown（仅在自动排序阶段填充；手动 Skill 保持 0 / ""）
+	VectorScore       float64
+	LexicalScore      float64
+	MetadataScore     float64
+	RelevanceScore    float64
+	BusinessBoost     float64
+	FinalRankScore    float64
+	RelevanceMode     string
+	PoolRank          int
+	RankingConfidence string
 }
 
 func selectAgentSkills(ctx context.Context, repo agentSkillLister, agentType, question string, manualIDs []int64, availableCapabilities map[string]bool) ([]selectedAgentSkill, error) {
@@ -99,41 +110,7 @@ func selectAgentSkillsWithSemantic(ctx context.Context, repo agentSkillLister, a
 		}
 	}
 
-	candidates := make([]selectedAgentSkill, 0, len(all))
-	for _, skill := range all {
-		if !agentSkillMatchesAgentType(skill, agentType) {
-			continue
-		}
-		if seen[skill.ID] {
-			continue
-		}
-		if !agentSkillCapabilitiesAvailable(skill, availableCapabilities) {
-			continue
-		}
-		reason := "metadata and content match"
-		score := scoreAgentSkillMatch(question, skill)
-		if score <= 0 {
-			continue
-		}
-		if semanticScore, ok := semanticScores[skill.ID]; ok {
-			score += int(semanticScore * 100)
-			reason = "semantic and metadata match"
-		}
-		score += int(skill.Priority)
-		if score <= 0 {
-			continue
-		}
-		candidates = append(candidates, toSelectedAgentSkill(skill, false, score, reason))
-	}
-	sort.SliceStable(candidates, func(i, j int) bool {
-		if candidates[i].Score == candidates[j].Score {
-			if candidates[i].Priority == candidates[j].Priority {
-				return candidates[i].ID < candidates[j].ID
-			}
-			return candidates[i].Priority > candidates[j].Priority
-		}
-		return candidates[i].Score > candidates[j].Score
-	})
+	candidates := rankSkillCandidatesForAutoPool(question, all, semanticScores, seen, availableCapabilities, agentType)
 
 	for _, skill := range candidates {
 		if len(selected) >= maxAgentSkillsPerRequest {
@@ -144,14 +121,91 @@ func selectAgentSkillsWithSemantic(ctx context.Context, repo agentSkillLister, a
 	log.Debug("[logic][agent_skill] selectAgentSkillsWithSemantic finished",
 		zap.Int("selected_count", len(selected)),
 		zap.Int("candidate_count", len(candidates)))
+	refreshAgentSkillPoolMetadata(selected)
 	for _, s := range selected {
 		log.Debug("[logic][agent_skill] selected skill",
 			zap.Int64("skill_id", s.ID),
 			zap.String("name", s.Name),
 			zap.String("reason", s.Reason),
-			zap.Int("score", s.Score))
+			zap.Float64("final_rank_score", s.FinalRankScore),
+			zap.Float64("relevance_score", s.RelevanceScore),
+			zap.Float64("business_boost", s.BusinessBoost),
+			zap.String("relevance_mode", s.RelevanceMode),
+			zap.Int("pool_rank", s.PoolRank),
+			zap.String("ranking_confidence", s.RankingConfidence),
+			zap.Int("compat_score", s.Score))
 	}
 	return selected, nil
+}
+
+// rankSkillCandidatesForAutoPool 在 selectAgentSkillsWithSemantic 内部负责：先按 agentType / 已见 / 能力
+// 过滤，再调用 skill_memory_ranking.go 中的 RankSkillCandidates 做混合打分与排序。
+// 保留旧实现"rawRuleScore <= 0 候选被丢弃"的过滤行为（语义单独命中不入选）。
+func rankSkillCandidatesForAutoPool(
+	question string,
+	all []repository.AgentSkillRuntimeRecord,
+	semanticScores map[int64]float64,
+	seen map[int64]bool,
+	availableCapabilities map[string]bool,
+	agentType string,
+) []selectedAgentSkill {
+	pool := make([]repository.AgentSkillRuntimeRecord, 0, len(all))
+	for _, skill := range all {
+		if !agentSkillMatchesAgentType(skill, agentType) {
+			continue
+		}
+		if seen[skill.ID] {
+			continue
+		}
+		if !agentSkillCapabilitiesAvailable(skill, availableCapabilities) {
+			continue
+		}
+		pool = append(pool, skill)
+	}
+	embeddingAvailable := semanticScores != nil
+	return RankSkillCandidates(question, pool, semanticScores, embeddingAvailable)
+}
+
+// refreshAgentSkillPoolMetadata 重新计算 selected 中每个 Skill 的 PoolRank / RankingConfidence：
+//   - Manual 技能：PoolRank = 0，RankingConfidence = pool 总值
+//   - 自动技能：PoolRank = 1, 2, 3（按 FinalRankScore 倒序）
+//   - 池置信度 = ComputePoolConfidence(自动池的 RankingSignals)
+func refreshAgentSkillPoolMetadata(selected []selectedAgentSkill) {
+	autoSignals := make([]RankingSignals, 0, len(selected))
+	for _, s := range selected {
+		if s.Manual {
+			continue
+		}
+		autoSignals = append(autoSignals, RankingSignals{FinalRankScore: s.FinalRankScore})
+	}
+	poolConf := ComputePoolConfidence(autoSignals)
+
+	sort.SliceStable(selected, func(i, j int) bool {
+		if selected[i].Manual != selected[j].Manual {
+			return selected[i].Manual
+		}
+		if selected[i].Manual && selected[j].Manual {
+			return selected[i].ID < selected[j].ID
+		}
+		if rankingFloatAlmostEqual(selected[i].FinalRankScore, selected[j].FinalRankScore) {
+			if selected[i].Priority == selected[j].Priority {
+				return selected[i].ID < selected[j].ID
+			}
+			return selected[i].Priority > selected[j].Priority
+		}
+		return selected[i].FinalRankScore > selected[j].FinalRankScore
+	})
+
+	autoRank := 0
+	for i := range selected {
+		selected[i].RankingConfidence = string(poolConf)
+		if selected[i].Manual {
+			selected[i].PoolRank = 0
+			continue
+		}
+		autoRank++
+		selected[i].PoolRank = autoRank
+	}
 }
 
 func (s *AIService) semanticAgentSkillScores(ctx context.Context, question string) map[int64]float64 {
@@ -554,6 +608,15 @@ func selectedAgentSkillTraceItems(skills []selectedAgentSkill) []map[string]any 
 			"risk_level":            skill.RiskLevel,
 			"semantic_tags":         append([]string(nil), skill.SemanticTags...),
 			"required_capabilities": append([]string(nil), skill.RequiredCapabilities...),
+			"vector_score":          skill.VectorScore,
+			"lexical_score":         skill.LexicalScore,
+			"metadata_score":        skill.MetadataScore,
+			"relevance_score":       skill.RelevanceScore,
+			"business_boost":        skill.BusinessBoost,
+			"final_rank_score":      skill.FinalRankScore,
+			"relevance_mode":        skill.RelevanceMode,
+			"pool_rank":             skill.PoolRank,
+			"ranking_confidence":    skill.RankingConfidence,
 		})
 	}
 	return items

@@ -3,7 +3,6 @@ package service
 import (
 	"context"
 	"fmt"
-	"sort"
 	"strings"
 	"time"
 	"unicode/utf8"
@@ -66,6 +65,10 @@ type AgentContextBuilder struct {
 	cfg        config.Config
 	promptRepo *repository.PromptTemplateRepo
 	embeddings *EmbeddingService
+
+	// lastMemoryRankings 记录最近一次 rankMemories 调用的完整打分 breakdown，
+	// 仅供 DebugSemanticRetrieval 路径读取。生产请求不依赖此字段。
+	lastMemoryRankings []RankedMemoryItem
 }
 
 // NewAgentContextBuilder creates a new AgentContextBuilder.
@@ -245,36 +248,17 @@ func memoryRecallScopes(input AgentContextInput) []repository.MemoryRecallScope 
 	return scopes
 }
 
-type rankedMemory struct {
-	memory model.AIMemory
-	score  float64
-	index  int
-}
-
 func (b *AgentContextBuilder) rankMemories(ctx context.Context, input AgentContextInput, memories []model.AIMemory) []model.AIMemory {
 	if len(memories) == 0 {
 		return memories
 	}
 	semanticScores := b.semanticMemoryScores(ctx, input, memories)
-	ranked := make([]rankedMemory, 0, len(memories))
-	for i, memory := range memories {
-		score := memoryBaseRecallScore(memory, input)
-		if semanticScore, ok := semanticScores[memory.ID]; ok {
-			score += semanticScore * 100
-		} else {
-			score += keywordMemoryScore(input.CurrentMessage, memory.Content)
-		}
-		ranked = append(ranked, rankedMemory{memory: memory, score: score, index: i})
-	}
-	sort.SliceStable(ranked, func(i, j int) bool {
-		if ranked[i].score == ranked[j].score {
-			return ranked[i].index < ranked[j].index
-		}
-		return ranked[i].score > ranked[j].score
-	})
-	out := make([]model.AIMemory, 0, len(ranked))
-	for _, item := range ranked {
-		out = append(out, item.memory)
+	embeddingAvailable := b.embeddings != nil
+	items := RankMemoryCandidates(input.CurrentMessage, memories, input, semanticScores, embeddingAvailable)
+	b.lastMemoryRankings = items
+	out := make([]model.AIMemory, 0, len(items))
+	for _, item := range items {
+		out = append(out, item.Memory)
 	}
 	return out
 }
