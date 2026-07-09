@@ -63,6 +63,7 @@ type Clients struct {
 	Skill                  pb.SkillServiceClient
 	AgentSkill             pb.AgentSkillServiceClient
 	RecruitingIntelligence pb.RecruitingIntelligenceServiceClient
+	EmbeddingConfig        pb.EmbeddingConfigServiceClient
 	Health                 healthpb.HealthClient
 }
 
@@ -145,6 +146,7 @@ func NewClients(addr string) (*Clients, error) {
 		Skill:                  pb.NewSkillServiceClient(conn),
 		AgentSkill:             pb.NewAgentSkillServiceClient(conn),
 		RecruitingIntelligence: pb.NewRecruitingIntelligenceServiceClient(conn),
+		EmbeddingConfig:        pb.NewEmbeddingConfigServiceClient(conn),
 		Health:                 healthpb.NewHealthClient(conn),
 	}, nil
 }

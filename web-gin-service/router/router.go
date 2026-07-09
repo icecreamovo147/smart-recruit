@@ -113,6 +113,7 @@ func Setup(cfg config.Config, clients *rpc.Clients, rdb *redis.Client) (*gin.Eng
 	hrInterviewHandler := hr.NewInterviewHandler(clients)
 	hrOfferHandler := hr.NewOfferHandler(clients)
 	hrCapabilityHandler := hr.NewCapabilityHandler(clients)
+	embeddingConfigHandler := hr.NewEmbeddingConfigHandler(clients)
 	agentSkillHandler := hr.NewAgentSkillHandler(clients)
 	candidateOfferHandler := candidate.NewOfferHandler(clients)
 	candidateInterviewHandler := candidate.NewInterviewHandler(clients)
@@ -440,6 +441,20 @@ func Setup(cfg config.Config, clients *rpc.Clients, rdb *redis.Client) (*gin.Eng
 	adminGroup.GET("/agent-skills/:id/versions", normalTimeout, middleware.RequirePermission(authz.PermAIAgentSkillManage), agentSkillHandler.ListVersions)
 	adminGroup.POST("/agent-skills/:id/versions", normalTimeout, bodyAdmin, middleware.RequirePermission(authz.PermAIAgentSkillManage), agentSkillHandler.CreateVersion)
 	adminGroup.POST("/agent-skills/:id/versions/:version_id/activate", normalTimeout, middleware.RequirePermission(authz.PermAIAgentSkillManage), agentSkillHandler.ActivateVersion)
+
+	// Embedding Provider & Model configuration — requires SYSTEM_CONFIG_MANAGE
+	adminGroup.GET("/embedding-providers", normalTimeout, middleware.RequirePermission(authz.PermSystemConfigManage), embeddingConfigHandler.ListProviders)
+	adminGroup.POST("/embedding-providers", normalTimeout, bodyAuth, middleware.RequirePermission(authz.PermSystemConfigManage), embeddingConfigHandler.CreateProvider)
+	adminGroup.PUT("/embedding-providers/:id", normalTimeout, bodyAuth, middleware.RequirePermission(authz.PermSystemConfigManage), embeddingConfigHandler.UpdateProvider)
+	adminGroup.DELETE("/embedding-providers/:id", normalTimeout, middleware.RequirePermission(authz.PermSystemConfigManage), embeddingConfigHandler.DeleteProvider)
+
+	adminGroup.GET("/embedding-models", normalTimeout, middleware.RequirePermission(authz.PermSystemConfigManage), embeddingConfigHandler.ListModels)
+	adminGroup.POST("/embedding-models", normalTimeout, bodyAuth, middleware.RequirePermission(authz.PermSystemConfigManage), embeddingConfigHandler.CreateModel)
+	adminGroup.PUT("/embedding-models/:id", normalTimeout, bodyAuth, middleware.RequirePermission(authz.PermSystemConfigManage), embeddingConfigHandler.UpdateModel)
+	adminGroup.POST("/embedding-models/:id/set-default", normalTimeout, middleware.RequirePermission(authz.PermSystemConfigManage), embeddingConfigHandler.SetDefaultModel)
+	adminGroup.POST("/embedding-models/test", normalTimeout, bodyAuth, middleware.RequirePermission(authz.PermSystemConfigManage), embeddingConfigHandler.TestModel)
+
+	adminGroup.POST("/embedding-backfill", normalTimeout, bodyAuth, middleware.RequirePermission(authz.PermSystemConfigManage), embeddingConfigHandler.BackfillEmbeddings)
 
 	return r, limiters
 }
