@@ -61,6 +61,8 @@ type AIService struct {
 	runtimePolicy   AgentRuntimePolicy
 }
 
+var errAgentSkillSelectionRequired = errors.New("agent skill selection confirmation required")
+
 type runtimeAIClient struct {
 	client        *ai.Client
 	modelID       *int64
@@ -203,7 +205,7 @@ func (s *AIService) Chat(ctx context.Context, req *pb.ChatRequest) (*pb.ChatResp
 	}, nil, func(usage *pb.ContextUsageInfo) error {
 		contextUsage = usage
 		return nil
-	}, runtimeClient.client)
+	}, nil, runtimeClient.client)
 	if err != nil {
 		if isCanceledError(err) {
 			partial := strings.TrimSpace(replyBuilder.String())
@@ -303,10 +305,23 @@ func (s *AIService) ChatStream(req *pb.ChatRequest, stream pb.AIService_ChatStre
 			SessionId:    session.ID,
 		})
 	}
+	agentSkillSelectionSender := func(selection *pb.AgentSkillSelection) error {
+		return stream.Send(&pb.ChatStreamResponse{
+			Code:                errs.OK,
+			Msg:                 "success",
+			EventType:           "agent_skill_selection_required",
+			EventMessage:        "请确认本次要调用的 Skill",
+			AgentSkillSelection: selection,
+			SessionId:           session.ID,
+		})
+	}
 	reply, metadata, err := s.runToolCallingChatWithUsage(ctx, req, session, runtimeClient.modelID, runtimeClient.modelName, runtimeCfg, func(delta string) error {
 		return stream.Send(&pb.ChatStreamResponse{Code: errs.OK, Msg: "success", Delta: delta, SessionId: session.ID})
-	}, statusSender, contextUsageSender, runtimeClient.client)
+	}, statusSender, contextUsageSender, agentSkillSelectionSender, runtimeClient.client)
 	if err != nil {
+		if errors.Is(err, errAgentSkillSelectionRequired) {
+			return stream.Send(&pb.ChatStreamResponse{Code: errs.OK, Msg: "success", Done: true, CreatedAt: formatTime(now), SessionId: session.ID})
+		}
 		s.writeHRUsageAudit(ctx, AuditLogEntry{
 			UserID: req.HrId, Role: 2, ServiceType: "ai_chat",
 			Endpoint: "/hr/ai/chat/stream", Provider: runtimeClient.auditProvider, Model: runtimeClient.modelName,
@@ -346,12 +361,12 @@ func (s *AIService) ChatStream(req *pb.ChatRequest, stream pb.AIService_ChatStre
 // non-streaming callers it accumulates the full reply, for streaming callers it
 // writes SSE deltas.
 func (s *AIService) runToolCallingChat(ctx context.Context, req *pb.ChatRequest, session *model.AIChatSession, modelID *int64, modelName string, runtimeCfg *agentRuntimeConfig, onDelta func(string) error, onStatus func(eventType, eventMessage, errorType, toolName string) error, aiClient *ai.Client) (reply string, metadata ai.ToolMetadata, err error) {
-	return s.runToolCallingChatWithUsage(ctx, req, session, modelID, modelName, runtimeCfg, onDelta, onStatus, nil, aiClient)
+	return s.runToolCallingChatWithUsage(ctx, req, session, modelID, modelName, runtimeCfg, onDelta, onStatus, nil, nil, aiClient)
 }
 
 // runToolCallingChatWithUsage is like runToolCallingChat but additionally
 // accepts an onContextUsage callback to emit context usage info events.
-func (s *AIService) runToolCallingChatWithUsage(ctx context.Context, req *pb.ChatRequest, session *model.AIChatSession, modelID *int64, modelName string, runtimeCfg *agentRuntimeConfig, onDelta func(string) error, onStatus func(eventType, eventMessage, errorType, toolName string) error, onContextUsage func(*pb.ContextUsageInfo) error, aiClient *ai.Client) (reply string, metadata ai.ToolMetadata, err error) {
+func (s *AIService) runToolCallingChatWithUsage(ctx context.Context, req *pb.ChatRequest, session *model.AIChatSession, modelID *int64, modelName string, runtimeCfg *agentRuntimeConfig, onDelta func(string) error, onStatus func(eventType, eventMessage, errorType, toolName string) error, onContextUsage func(*pb.ContextUsageInfo) error, onAgentSkillSelection func(*pb.AgentSkillSelection) error, aiClient *ai.Client) (reply string, metadata ai.ToolMetadata, err error) {
 	recorder := s.startAgentRun(ctx, req, session, modelID, modelName, runtimeCfg)
 	fallbackObserved := false
 	var processContent strings.Builder
@@ -484,11 +499,18 @@ func (s *AIService) runToolCallingChatWithUsage(ctx context.Context, req *pb.Cha
 		return nil
 	}
 	if s.agentRuntime == "adk" {
-		reply, metadata, err = s.runADKChat(ctx, req, session, messages, modelID, modelName, runtimeCfg, wrappedDelta, effectiveOnStatus, usageUpdater, aiClient, recorder)
+		reply, metadata, err = s.runADKChat(ctx, req, session, messages, modelID, modelName, runtimeCfg, wrappedDelta, effectiveOnStatus, usageUpdater, onAgentSkillSelection, aiClient, recorder)
 	} else {
-		reply, metadata, err = s.runLegacyChat(ctx, req, session, messages, modelID, modelName, runtimeCfg, wrappedDelta, effectiveOnStatus, usageUpdater, aiClient, recorder)
+		reply, metadata, err = s.runLegacyChat(ctx, req, session, messages, modelID, modelName, runtimeCfg, wrappedDelta, effectiveOnStatus, usageUpdater, onAgentSkillSelection, aiClient, recorder)
 	}
 	if err != nil {
+		if errors.Is(err, errAgentSkillSelectionRequired) {
+			if recorder != nil {
+				recorder.finish(ctx, agentRunStatusCanceled, "", "agent_skill_selection_required", "")
+				sendAgentRunStatus(effectiveOnStatus, "agent_run_done", "等待用户确认 Skill", "agent_skill_selection_required", "")
+			}
+			return reply, metadata, err
+		}
 		if isCanceledError(err) {
 			partial := strings.TrimSpace(partialReply.String())
 			if partial != "" {
@@ -596,6 +618,7 @@ func (s *AIService) runADKChat(
 	onDelta func(string) error,
 	onStatus func(string, string, string, string) error,
 	onMessagesUpdated ai.MessageUpdateCallback,
+	onAgentSkillSelection func(*pb.AgentSkillSelection) error,
 	aiClient *ai.Client,
 	recorder *agentRunRecorder,
 ) (string, ai.ToolMetadata, error) {
@@ -614,7 +637,7 @@ func (s *AIService) runADKChat(
 		if !policy.Fallbacks {
 			return "", ai.ToolMetadata{}, fmt.Errorf("ADK tool initialization failed and fallback is disabled: %w", err)
 		}
-		return s.runLegacyChat(ctx, req, session, messages, modelID, modelName, runtimeCfg, onDelta, onStatus, onMessagesUpdated, aiClient, recorder)
+		return s.runLegacyChat(ctx, req, session, messages, modelID, modelName, runtimeCfg, onDelta, onStatus, onMessagesUpdated, onAgentSkillSelection, aiClient, recorder)
 	}
 
 	state := &ai.AgentRunState{}
@@ -686,6 +709,9 @@ func (s *AIService) runADKChat(
 				zap.String("status", "fallback"),
 				zap.Error(err))
 		} else if len(agentSkills) > 0 {
+			if err := maybeRequestAgentSkillSelection(ctx, req, agentSkills, onAgentSkillSelection); err != nil {
+				return "", ai.ToolMetadata{}, err
+			}
 			instruction = appendAgentSkillInstructionBlock(instruction, renderAgentSkillInstructionBlock(agentSkills))
 			if recorder != nil {
 				recorder.setSelectedAgentSkills(ctx, agentSkills)
@@ -751,6 +777,7 @@ func (s *AIService) runLegacyChat(
 	onDelta func(string) error,
 	onStatus func(string, string, string, string) error,
 	onMessagesUpdated ai.MessageUpdateCallback,
+	onAgentSkillSelection func(*pb.AgentSkillSelection) error,
 	aiClient *ai.Client,
 	recorder *agentRunRecorder,
 ) (string, ai.ToolMetadata, error) {
@@ -807,6 +834,9 @@ func (s *AIService) runLegacyChat(
 				zap.String("status", "fallback"),
 				zap.Error(err))
 		} else if len(agentSkills) > 0 {
+			if err := maybeRequestAgentSkillSelection(ctx, req, agentSkills, onAgentSkillSelection); err != nil {
+				return "", ai.ToolMetadata{}, err
+			}
 			messages = appendAgentSkillInstructionBlockToMessages(messages, renderAgentSkillInstructionBlock(agentSkills))
 			if recorder != nil {
 				recorder.setSelectedAgentSkills(ctx, agentSkills)
@@ -864,6 +894,59 @@ func extractSystemInstruction(messages []*schema.Message) string {
 		}
 	}
 	return ""
+}
+
+func maybeRequestAgentSkillSelection(ctx context.Context, req *pb.ChatRequest, skills []selectedAgentSkill, onAgentSkillSelection func(*pb.AgentSkillSelection) error) error {
+	if onAgentSkillSelection == nil || req.GetAgentSkillSelectionConfirmed() {
+		return nil
+	}
+	decision := decideAgentSkillSelectionConfirmation(skills, req.GetAgentSkillIds())
+	if !decision.Required {
+		return nil
+	}
+	selection := agentSkillSelectionDecisionPB(decision)
+	logger.GetRequestLogger(ctx).Info("agent skill selection confirmation required",
+		zap.Int("candidate_count", len(decision.Candidates)),
+		zap.Int64s("recommended_agent_skill_ids", decision.RecommendedIDs),
+		zap.String("reason", decision.Reason),
+	)
+	if err := onAgentSkillSelection(selection); err != nil {
+		return err
+	}
+	return errAgentSkillSelectionRequired
+}
+
+func agentSkillSelectionDecisionPB(decision agentSkillSelectionConfirmationDecision) *pb.AgentSkillSelection {
+	candidates := make([]*pb.AgentSkillSelectionCandidate, 0, len(decision.Candidates))
+	for _, candidate := range decision.Candidates {
+		candidates = append(candidates, &pb.AgentSkillSelectionCandidate{
+			Id:                candidate.ID,
+			Name:              candidate.Name,
+			DisplayName:       candidate.DisplayName,
+			Reason:            candidate.Reason,
+			Score:             int32(candidate.Score),
+			Priority:          candidate.Priority,
+			Category:          candidate.Category,
+			Scenario:          candidate.Scenario,
+			RiskLevel:         candidate.RiskLevel,
+			Recommended:       candidate.Recommended,
+			VectorScore:       candidate.VectorScore,
+			LexicalScore:      candidate.LexicalScore,
+			MetadataScore:     candidate.MetadataScore,
+			RelevanceScore:    candidate.RelevanceScore,
+			BusinessBoost:     candidate.BusinessBoost,
+			FinalRankScore:    candidate.FinalRankScore,
+			RelevanceMode:     candidate.RelevanceMode,
+			PoolRank:          int32(candidate.PoolRank),
+			RankingConfidence: candidate.RankingConfidence,
+		})
+	}
+	return &pb.AgentSkillSelection{
+		Required:                 decision.Required,
+		Reason:                   decision.Reason,
+		Candidates:               candidates,
+		RecommendedAgentSkillIds: append([]int64(nil), decision.RecommendedIDs...),
+	}
 }
 
 func appendSkillInstructions(base string, skillInstructions []string) string {

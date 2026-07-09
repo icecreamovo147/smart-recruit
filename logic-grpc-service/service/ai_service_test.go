@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"errors"
 	"strings"
 	"testing"
 	"time"
@@ -36,6 +37,49 @@ func TestBuildToolCallingMessagesNoToolsForGreeting(t *testing.T) {
 	}
 	if !strings.Contains(sys, "Markdown 输出硬性规范") || !strings.Contains(sys, "禁止写成 \"-内容\"") {
 		t.Error("system prompt should include strict standard markdown formatting rules")
+	}
+}
+
+func TestMaybeRequestAgentSkillSelectionEmitsPayload(t *testing.T) {
+	skills := []selectedAgentSkill{
+		{ID: 11, Name: "match", DisplayName: "Match", Reason: "hybrid score", FinalRankScore: 0.9},
+		{ID: 12, Name: "risk", DisplayName: "Risk", Reason: "hybrid score", FinalRankScore: 0.7},
+	}
+	var got *pb.AgentSkillSelection
+	err := maybeRequestAgentSkillSelection(context.Background(), &pb.ChatRequest{Message: "candidate match"}, skills, func(selection *pb.AgentSkillSelection) error {
+		got = selection
+		return nil
+	})
+	if !errors.Is(err, errAgentSkillSelectionRequired) {
+		t.Fatalf("err = %v, want errAgentSkillSelectionRequired", err)
+	}
+	if got == nil || !got.Required || got.Reason != "multiple_auto_candidates" {
+		t.Fatalf("selection payload = %+v, want required multiple_auto_candidates", got)
+	}
+	if len(got.Candidates) != 2 || len(got.RecommendedAgentSkillIds) != 1 || got.RecommendedAgentSkillIds[0] != 11 {
+		t.Fatalf("selection payload candidates/recommended = %+v", got)
+	}
+	if !got.Candidates[0].Recommended {
+		t.Fatalf("first candidate should be recommended: %+v", got.Candidates[0])
+	}
+}
+
+func TestMaybeRequestAgentSkillSelectionBypassesConfirmedRequest(t *testing.T) {
+	called := false
+	err := maybeRequestAgentSkillSelection(
+		context.Background(),
+		&pb.ChatRequest{Message: "candidate match", AgentSkillSelectionConfirmed: true},
+		[]selectedAgentSkill{{ID: 1}, {ID: 2}},
+		func(selection *pb.AgentSkillSelection) error {
+			called = true
+			return nil
+		},
+	)
+	if err != nil {
+		t.Fatalf("err = %v, want nil", err)
+	}
+	if called {
+		t.Fatalf("selection callback should not be called for confirmed requests")
 	}
 }
 

@@ -44,6 +44,7 @@ interface MessageItem {
   candidateOptions?: CandidateOption[]
   agentSkillSelection?: AgentSkillSelectionPayload
   skillSelectionRequest?: SkillSelectionRequest
+  skillSelectionConfirmed?: boolean
 }
 
 interface SkillSelectionRequest {
@@ -781,6 +782,7 @@ const applyUserMessageSkillsBefore = (assistantIndex: number, skillIds: number[]
       ...messages.value[i],
       skill: skills[0],
       skills,
+      skillSelectionConfirmed: true,
     }
     return
   }
@@ -1038,9 +1040,11 @@ const retry = async (failedIndex: number) => {
 
   let lastUserContent = ''
   let lastUserSkillIds: number[] = []
+  let lastUserSkillSelectionConfirmed = false
   for (let i = failedIndex - 1; i >= 0; i--) {
     if (messages.value[i]?.role === 'user') {
       lastUserContent = messages.value[i].content
+      lastUserSkillSelectionConfirmed = Boolean(messages.value[i].skillSelectionConfirmed)
       const skillsForRetry = (messages.value[i].skills || (messages.value[i].skill ? [messages.value[i].skill] : []))
         .filter((skill): skill is ChatMessageSkill => Boolean(skill))
       lastUserSkillIds = skillsForRetry
@@ -1075,6 +1079,7 @@ const retry = async (failedIndex: number) => {
         session_id: session.id,
         ...(selectedModelId.value != null ? { model_id: selectedModelId.value } : {}),
         ...(lastUserSkillIds.length > 0 ? { agent_skill_ids: lastUserSkillIds } : {}),
+        ...(lastUserSkillSelectionConfirmed ? { agent_skill_selection_confirmed: true } : {}),
       },
       {
         onDelta: (delta) => {

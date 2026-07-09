@@ -1,7 +1,7 @@
 {
   "feature_name": "agent-skill-selection-confirmation",
-  "current_task": "TASK-ASC-004",
-  "completed_tasks": ["TASK-ASC-001", "TASK-ASC-002", "TASK-ASC-003"],
+  "current_task": "TASK-ASC-005",
+  "completed_tasks": ["TASK-ASC-001", "TASK-ASC-002", "TASK-ASC-003", "TASK-ASC-004"],
   "failed_tasks": [],
   "review_round": 0,
   "status": "in_progress"
