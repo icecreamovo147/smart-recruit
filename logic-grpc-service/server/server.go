@@ -28,6 +28,7 @@ type Server struct {
 	pb.UnimplementedSkillServiceServer
 	pb.UnimplementedAgentSkillServiceServer
 	pb.UnimplementedRecruitingIntelligenceServiceServer
+	pb.UnimplementedEmbeddingConfigServiceServer
 	svc *service.Services
 }
 
@@ -868,4 +869,76 @@ func (s *Server) ListAvailableAgentSkills(ctx context.Context, req *pb.ListAvail
 
 func (s *Server) DebugSemanticRetrieval(ctx context.Context, req *pb.DebugSemanticRetrievalRequest) (*pb.DebugSemanticRetrievalResponse, error) {
 	return s.svc.AgentSkill.DebugSemanticRetrieval(ctx, req)
+}
+
+// ── EmbeddingConfigService ─────────────────────────────────────────────
+
+func (s *Server) ListEmbeddingProviders(ctx context.Context, req *pb.ListEmbeddingProvidersRequest) (*pb.ListEmbeddingProvidersResponse, error) {
+	if s.svc.EmbeddingConfig == nil {
+		return nil, status.Error(codes.Unavailable, "embedding config service not available (ENCRYPTION_KEY not set)")
+	}
+	return s.svc.EmbeddingConfig.ListEmbeddingProviders(ctx, req)
+}
+
+func (s *Server) CreateEmbeddingProvider(ctx context.Context, req *pb.CreateEmbeddingProviderRequest) (*pb.EmbeddingProviderResponse, error) {
+	if s.svc.EmbeddingConfig == nil {
+		return nil, status.Error(codes.Unavailable, "embedding config service not available (ENCRYPTION_KEY not set)")
+	}
+	return s.svc.EmbeddingConfig.CreateEmbeddingProvider(ctx, req)
+}
+
+func (s *Server) UpdateEmbeddingProvider(ctx context.Context, req *pb.UpdateEmbeddingProviderRequest) (*pb.EmbeddingProviderResponse, error) {
+	if s.svc.EmbeddingConfig == nil {
+		return nil, status.Error(codes.Unavailable, "embedding config service not available (ENCRYPTION_KEY not set)")
+	}
+	return s.svc.EmbeddingConfig.UpdateEmbeddingProvider(ctx, req)
+}
+
+func (s *Server) DeleteEmbeddingProvider(ctx context.Context, req *pb.DeleteEmbeddingProviderRequest) (*pb.CommonResponse, error) {
+	if s.svc.EmbeddingConfig == nil {
+		return nil, status.Error(codes.Unavailable, "embedding config service not available (ENCRYPTION_KEY not set)")
+	}
+	return s.svc.EmbeddingConfig.DeleteEmbeddingProvider(ctx, req)
+}
+
+func (s *Server) ListEmbeddingModels(ctx context.Context, req *pb.ListEmbeddingModelsRequest) (*pb.ListEmbeddingModelsResponse, error) {
+	if s.svc.EmbeddingConfig == nil {
+		return nil, status.Error(codes.Unavailable, "embedding config service not available (ENCRYPTION_KEY not set)")
+	}
+	return s.svc.EmbeddingConfig.ListEmbeddingModels(ctx, req)
+}
+
+func (s *Server) CreateEmbeddingModel(ctx context.Context, req *pb.CreateEmbeddingModelRequest) (*pb.EmbeddingModelResponse, error) {
+	if s.svc.EmbeddingConfig == nil {
+		return nil, status.Error(codes.Unavailable, "embedding config service not available (ENCRYPTION_KEY not set)")
+	}
+	return s.svc.EmbeddingConfig.CreateEmbeddingModel(ctx, req)
+}
+
+func (s *Server) UpdateEmbeddingModel(ctx context.Context, req *pb.UpdateEmbeddingModelRequest) (*pb.EmbeddingModelResponse, error) {
+	if s.svc.EmbeddingConfig == nil {
+		return nil, status.Error(codes.Unavailable, "embedding config service not available (ENCRYPTION_KEY not set)")
+	}
+	return s.svc.EmbeddingConfig.UpdateEmbeddingModel(ctx, req)
+}
+
+func (s *Server) SetDefaultEmbeddingModel(ctx context.Context, req *pb.SetDefaultEmbeddingModelRequest) (*pb.CommonResponse, error) {
+	if s.svc.EmbeddingConfig == nil {
+		return nil, status.Error(codes.Unavailable, "embedding config service not available (ENCRYPTION_KEY not set)")
+	}
+	return s.svc.EmbeddingConfig.SetDefaultEmbeddingModel(ctx, req)
+}
+
+func (s *Server) TestEmbeddingModel(ctx context.Context, req *pb.TestEmbeddingModelRequest) (*pb.TestEmbeddingModelResponse, error) {
+	if s.svc.EmbeddingConfig == nil {
+		return nil, status.Error(codes.Unavailable, "embedding config service not available (ENCRYPTION_KEY not set)")
+	}
+	return s.svc.EmbeddingConfig.TestEmbeddingModel(ctx, req)
+}
+
+func (s *Server) BackfillEmbeddings(ctx context.Context, req *pb.BackfillEmbeddingsRequest) (*pb.BackfillEmbeddingsResponse, error) {
+	if s.svc.EmbeddingConfig == nil {
+		return nil, status.Error(codes.Unavailable, "embedding config service not available (ENCRYPTION_KEY not set)")
+	}
+	return s.svc.EmbeddingConfig.BackfillEmbeddings(ctx, req)
 }
