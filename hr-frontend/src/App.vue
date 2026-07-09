@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { ArrowDown, Briefcase, ChatDotRound, Collection, Connection, DataAnalysis, Edit, Expand, Fold, Key, MagicStick, Menu, Monitor, Moon, Operation, Search, Setting, Sunny, Tools, UserFilled } from '@element-plus/icons-vue'
+import { ArrowDown, Briefcase, ChatDotRound, Collection, Connection, DataAnalysis, Edit, Expand, Fold, Key, Link, MagicStick, Menu, Monitor, Moon, Operation, Search, Setting, Sunny, Tools, UserFilled } from '@element-plus/icons-vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { useAuthStore } from '@/stores/auth'
 import { useTheme } from '@/composables/useTheme'
@@ -23,6 +23,7 @@ const sidebarCollapsed = ref(false)
 const mobileSidebarOpen = ref(false)
 const taxonomyOpen = ref(false)
 const llmConfigOpen = ref(route.path.startsWith('/hr/admin/llm-config'))
+const embeddingConfigOpen = ref(route.path.startsWith('/hr/admin/embedding-config'))
 const usageAuditOpen = ref(false)
 const isAuthRoute = computed(() => route.path === '/login' || route.path === '/register')
 const canManageAgentSkills = computed(() => auth.hasPermission(PERM.AI_AGENT_SKILL_MANAGE))
@@ -34,6 +35,10 @@ const toggleTaxonomy = () => {
 
 const toggleLlmConfig = () => {
   llmConfigOpen.value = !llmConfigOpen.value
+}
+
+const toggleEmbeddingConfig = () => {
+  embeddingConfigOpen.value = !embeddingConfigOpen.value
 }
 
 const toggleUsageAudit = () => {
@@ -51,6 +56,9 @@ watch(() => route.fullPath, () => {
   }
   if (route.path.startsWith('/hr/admin/llm-config')) {
     llmConfigOpen.value = true
+  }
+  if (route.path.startsWith('/hr/admin/embedding-config')) {
+    embeddingConfigOpen.value = true
   }
   if (route.path.startsWith('/hr/admin/usage')) {
     usageAuditOpen.value = true
@@ -181,7 +189,7 @@ const routeViewKey = (viewRoute: { fullPath: string; path: string; params: Recor
           <template v-if="auth.hasPermission(PERM.SYSTEM_CONFIG_MANAGE)">
             <button class="sidebar-link sidebar-group-toggle" type="button" :aria-expanded="llmConfigOpen && !sidebarCollapsed" @click="toggleLlmConfig">
               <el-icon><Tools /></el-icon>
-              <span>模型配置</span>
+              <span>LLM 模型配置</span>
               <el-icon class="group-arrow" :class="{ 'group-arrow--open': llmConfigOpen }"><ArrowDown /></el-icon>
             </button>
             <div class="sidebar-sub-wrap" :class="{ 'sidebar-sub-wrap--open': llmConfigOpen && !sidebarCollapsed }">
@@ -190,6 +198,23 @@ const routeViewKey = (viewRoute: { fullPath: string; path: string; params: Recor
                   <span>Provider 配置</span>
                 </RouterLink>
                 <RouterLink class="sidebar-link sidebar-sub-link" to="/hr/admin/llm-config/models" @click="closeMobileSidebar">
+                  <span>Model 配置</span>
+                </RouterLink>
+              </div>
+            </div>
+          </template>
+          <template v-if="auth.hasPermission(PERM.SYSTEM_CONFIG_MANAGE)">
+            <button class="sidebar-link sidebar-group-toggle" type="button" :aria-expanded="embeddingConfigOpen && !sidebarCollapsed" @click="toggleEmbeddingConfig">
+              <el-icon><Link /></el-icon>
+              <span>Embedding 模型配置</span>
+              <el-icon class="group-arrow" :class="{ 'group-arrow--open': embeddingConfigOpen }"><ArrowDown /></el-icon>
+            </button>
+            <div class="sidebar-sub-wrap" :class="{ 'sidebar-sub-wrap--open': embeddingConfigOpen && !sidebarCollapsed }">
+              <div class="sidebar-sub-group">
+                <RouterLink class="sidebar-link sidebar-sub-link" to="/hr/admin/embedding-config/providers" @click="closeMobileSidebar">
+                  <span>Provider 配置</span>
+                </RouterLink>
+                <RouterLink class="sidebar-link sidebar-sub-link" to="/hr/admin/embedding-config/models" @click="closeMobileSidebar">
                   <span>Model 配置</span>
                 </RouterLink>
               </div>

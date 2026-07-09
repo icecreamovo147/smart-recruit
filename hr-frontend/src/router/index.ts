@@ -25,6 +25,8 @@ const AnalyticsView = () => import('@/views/hr/AnalyticsView.vue')
 const StaffUserManageView = () => import('@/views/hr/StaffUserManageView.vue')
 const LlmProviderConfigView = () => import('@/views/hr/LlmProviderConfigView.vue')
 const LlmModelConfigView = () => import('@/views/hr/LlmModelConfigView.vue')
+const EmbeddingProviderConfigView = () => import('@/views/hr/EmbeddingProviderConfigView.vue')
+const EmbeddingModelConfigView = () => import('@/views/hr/EmbeddingModelConfigView.vue')
 const PromptManageView = () => import('@/views/hr/PromptManageView.vue')
 const AgentManageView = () => import('@/views/hr/admin/AgentManageView.vue')
 const McpManageView = () => import('@/views/hr/admin/McpManageView.vue')
@@ -152,6 +154,17 @@ const routes: RouteRecordRaw[] = [
     path: '/hr/admin/llm-config/models',
     component: LlmModelConfigView,
     meta: { requiresAuth: true, requiresPermission: PERM.SYSTEM_CONFIG_MANAGE, title: 'Model 配置' },
+  },
+  { path: '/hr/admin/embedding-config', redirect: '/hr/admin/embedding-config/providers' },
+  {
+    path: '/hr/admin/embedding-config/providers',
+    component: EmbeddingProviderConfigView,
+    meta: { requiresAuth: true, requiresPermission: PERM.SYSTEM_CONFIG_MANAGE, title: 'Embedding Provider 配置' },
+  },
+  {
+    path: '/hr/admin/embedding-config/models',
+    component: EmbeddingModelConfigView,
+    meta: { requiresAuth: true, requiresPermission: PERM.SYSTEM_CONFIG_MANAGE, title: 'Embedding Model 配置' },
   },
   {
     path: '/hr/admin/prompts',

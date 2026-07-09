@@ -282,6 +282,11 @@ export interface SemanticRetrievalDebugParams {
 export interface SemanticRetrievalDebugResult {
   embedding_available: boolean
   fallback_reason?: string
+  embedding_provider?: string
+  embedding_model?: string
+  embedding_dim?: number
+  candidate_count?: number
+  query_embedding_latency_ms?: number
   skills: SemanticSkillDebugItem[]
   memories: SemanticMemoryDebugItem[]
 }
