@@ -450,6 +450,74 @@ const selectedSkillNames = (plan: AgentRunRecruitingPlan | null): string[] =>
 const selectedMemoryNames = (plan: AgentRunRecruitingPlan | null): string[] =>
   normalizeStringList(plan?.selected_memories)
 
+interface SelectionChipItem {
+  key: string
+  label: string
+  meta: string
+  title: string
+}
+
+interface ParsedSelectionLabel {
+  id: number | null
+  label: string
+  title: string
+}
+
+const parseSelectionLabel = (raw: string): ParsedSelectionLabel => {
+  const text = raw.trim()
+  const match = text.match(/^(.+?)\s*\(\s*id\s*:\s*([^,\)]+).*?\)\s*$/i)
+  if (!match) {
+    return {
+      id: null,
+      label: text,
+      title: text,
+    }
+  }
+
+  const parsedId = Number(match[2])
+  return {
+    id: Number.isFinite(parsedId) ? parsedId : null,
+    label: match[1].trim() || text,
+    title: text,
+  }
+}
+
+const selectedSelectionItems = (ids: number[], names: string[], keyPrefix: string): SelectionChipItem[] => {
+  const byId = new Map<number, SelectionChipItem>()
+  const looseItems: SelectionChipItem[] = []
+
+  names.forEach((name, index) => {
+    const parsed = parseSelectionLabel(name)
+    const item: SelectionChipItem = {
+      key: parsed.id !== null ? `${keyPrefix}-${parsed.id}` : `${keyPrefix}-name-${index}-${parsed.label}`,
+      label: parsed.label,
+      meta: parsed.id !== null ? `#${parsed.id}` : '',
+      title: parsed.title,
+    }
+    if (parsed.id !== null) byId.set(parsed.id, item)
+    else looseItems.push(item)
+  })
+
+  ids.forEach((id) => {
+    if (!byId.has(id)) {
+      byId.set(id, {
+        key: `${keyPrefix}-${id}`,
+        label: `#${id}`,
+        meta: '',
+        title: `#${id}`,
+      })
+    }
+  })
+
+  return [...byId.values(), ...looseItems]
+}
+
+const selectedSkillItems = (run: AgentRunItem, plan: AgentRunRecruitingPlan | null): SelectionChipItem[] =>
+  selectedSelectionItems(selectedSkillIds(run), selectedSkillNames(plan), 'skill')
+
+const selectedMemoryItems = (run: AgentRunItem, plan: AgentRunRecruitingPlan | null): SelectionChipItem[] =>
+  selectedSelectionItems(selectedMemoryIds(run), selectedMemoryNames(plan), 'memory')
+
 const riskFlags = (run: AgentRunItem, plan: AgentRunRecruitingPlan | null): string[] => {
   const fromRun = normalizeStringList(runPlan(run)?.risk_flags)
   return fromRun.length > 0 ? fromRun : normalizeStringList(plan?.risk_checks)
@@ -655,55 +723,43 @@ watch(() => props.sessionId, () => {
               </div>
 
               <div
-                v-if="selectedSkillIds(run).length || selectedSkillNames(recruitingPlan(run)).length || selectedMemoryIds(run).length || selectedMemoryNames(recruitingPlan(run)).length"
+                v-if="selectedSkillItems(run, recruitingPlan(run)).length || selectedMemoryItems(run, recruitingPlan(run)).length"
                 class="selection-grid"
               >
                 <div class="selection-box">
                   <span class="selection-box__label">Skill</span>
                   <div class="chip-list">
                     <el-tag
-                      v-for="id in selectedSkillIds(run)"
-                      :key="`skill-id-${id}`"
+                      v-for="skill in selectedSkillItems(run, recruitingPlan(run))"
+                      :key="skill.key"
+                      class="selection-chip"
                       size="small"
                       type="warning"
                       effect="plain"
+                      :title="skill.title"
                     >
-                      #{{ id }}
+                      <span class="selection-chip__text">{{ skill.label }}</span>
+                      <span v-if="skill.meta" class="selection-chip__meta">{{ skill.meta }}</span>
                     </el-tag>
-                    <el-tag
-                      v-for="skill in selectedSkillNames(recruitingPlan(run))"
-                      :key="`skill-${skill}`"
-                      size="small"
-                      type="warning"
-                      effect="plain"
-                    >
-                      {{ skill }}
-                    </el-tag>
-                    <span v-if="!selectedSkillIds(run).length && !selectedSkillNames(recruitingPlan(run)).length" class="muted">未选择</span>
+                    <span v-if="!selectedSkillItems(run, recruitingPlan(run)).length" class="muted">未选择</span>
                   </div>
                 </div>
                 <div class="selection-box">
                   <span class="selection-box__label">Memory</span>
                   <div class="chip-list">
                     <el-tag
-                      v-for="id in selectedMemoryIds(run)"
-                      :key="`memory-id-${id}`"
+                      v-for="memory in selectedMemoryItems(run, recruitingPlan(run))"
+                      :key="memory.key"
+                      class="selection-chip"
                       size="small"
                       type="primary"
                       effect="plain"
+                      :title="memory.title"
                     >
-                      #{{ id }}
+                      <span class="selection-chip__text">{{ memory.label }}</span>
+                      <span v-if="memory.meta" class="selection-chip__meta">{{ memory.meta }}</span>
                     </el-tag>
-                    <el-tag
-                      v-for="memory in selectedMemoryNames(recruitingPlan(run))"
-                      :key="`memory-${memory}`"
-                      size="small"
-                      type="primary"
-                      effect="plain"
-                    >
-                      {{ memory }}
-                    </el-tag>
-                    <span v-if="!selectedMemoryIds(run).length && !selectedMemoryNames(recruitingPlan(run)).length" class="muted">未选择</span>
+                    <span v-if="!selectedMemoryItems(run, recruitingPlan(run)).length" class="muted">未选择</span>
                   </div>
                 </div>
               </div>
@@ -1034,6 +1090,31 @@ watch(() => props.sessionId, () => {
   flex-wrap: wrap;
   gap: 5px;
   min-width: 0;
+}
+
+.selection-chip {
+  max-width: 100%;
+  min-width: 0;
+}
+
+.selection-chip :deep(.el-tag__content) {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+  max-width: 100%;
+}
+
+.selection-chip__text {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.selection-chip__meta {
+  flex: 0 0 auto;
+  color: var(--el-text-color-secondary);
 }
 
 .compact-list {

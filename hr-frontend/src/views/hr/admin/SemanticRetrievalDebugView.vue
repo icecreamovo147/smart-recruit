@@ -107,13 +107,15 @@ const fallbackMessage = computed(() => {
 })
 const highestScore = computed(() => {
   const scores = [...skillRows.value, ...memoryRows.value]
-    .map((item) => item.score)
+    .map((item) => item.vector_score)
     .filter((score): score is number => typeof score === 'number')
   if (!scores.length) return undefined
   return Math.max(...scores)
 })
 
 const formatScore = (value?: number) => (typeof value === 'number' ? value.toFixed(2) : '-')
+const embeddingScore = (item: SemanticSkillDebugItem | SemanticMemoryDebugItem) => item.vector_score
+const finalRankScore = (item: SemanticSkillDebugItem | SemanticMemoryDebugItem) => item.final_rank_score ?? item.score
 const formatDuration = (value: number | null) => (typeof value === 'number' ? `${value}ms` : '-')
 const skillTitle = (item: SemanticSkillDebugItem) => item.display_name || item.name || `Skill #${item.id}`
 const memoryScopeText = (item: SemanticMemoryDebugItem) => `${item.scope_type || '-'} #${item.scope_id || '-'}`
@@ -276,7 +278,7 @@ const reset = () => {
             <div class="console-stat__value">{{ memoryRows.length }}</div>
           </div>
           <div class="console-stat">
-            <div class="console-stat__label">最高匹配分数</div>
+            <div class="console-stat__label">最高向量分数</div>
             <div class="console-stat__value">{{ formatScore(highestScore) }}</div>
           </div>
           <div class="console-stat">
@@ -374,7 +376,8 @@ const reset = () => {
                       >
                         {{ relevanceModeMeta(item.relevance_mode)?.label }}
                       </span>
-                      <span class="debug-score-pill">{{ formatScore(item.score) }}</span>
+                      <span class="debug-score-pill debug-score-pill--vector">向量 {{ formatScore(embeddingScore(item)) }}</span>
+                      <span class="debug-score-pill">排序 {{ formatScore(finalRankScore(item)) }}</span>
                     </div>
                   </div>
                   <div class="debug-result-item__meta">
@@ -392,7 +395,8 @@ const reset = () => {
                   </button>
                   <div v-if="isSkillExpanded(item.id)" class="debug-detail-block">
                     <div><span>Skill ID</span><strong>{{ item.id }}</strong></div>
-                    <div><span>匹配分数</span><strong>{{ formatScore(item.score) }}</strong></div>
+                    <div><span>Embedding 分数</span><strong>{{ formatScore(embeddingScore(item)) }}</strong></div>
+                    <div><span>最终排序分</span><strong>{{ formatScore(finalRankScore(item)) }}</strong></div>
                     <div><span>召回原因</span><strong>{{ item.reason || '-' }}</strong></div>
                   </div>
                   <!-- TASK-FU-003：breakdown 展开区 -->
@@ -441,7 +445,7 @@ const reset = () => {
               </div>
               <div v-else class="debug-empty">
                 <h4>{{ hasResult ? '未命中 Agent Skill' : '等待运行测试' }}</h4>
-                <p>{{ hasResult ? '本次查询没有匹配到可用 Skill。可以检查 Skill 是否启用、语义标签是否覆盖该场景，或调整 Query 表达。' : '运行后这里会展示命中的 Agent Skill、匹配分数、分类、触发原因和语义标签。' }}</p>
+                <p>{{ hasResult ? '本次查询没有匹配到可用 Skill。可以检查 Skill 是否启用、语义标签是否覆盖该场景，或调整 Query 表达。' : '运行后这里会展示命中的 Agent Skill、Embedding 分数、最终排序分、分类、触发原因和语义标签。' }}</p>
               </div>
             </div>
           </div>
@@ -470,7 +474,8 @@ const reset = () => {
                       >
                         {{ relevanceModeMeta(item.relevance_mode)?.label }}
                       </span>
-                      <span class="debug-score-pill">{{ formatScore(item.score) }}</span>
+                      <span class="debug-score-pill debug-score-pill--vector">向量 {{ formatScore(embeddingScore(item)) }}</span>
+                      <span class="debug-score-pill">排序 {{ formatScore(finalRankScore(item)) }}</span>
                     </div>
                   </div>
                   <div class="debug-result-item__meta">
@@ -486,6 +491,8 @@ const reset = () => {
                   <div v-if="isMemoryExpanded(item.id)" class="debug-detail-block">
                     <div><span>Memory ID</span><strong>{{ item.id }}</strong></div>
                     <div><span>Scope</span><strong>{{ item.scope_type }} #{{ item.scope_id }}</strong></div>
+                    <div><span>Embedding 分数</span><strong>{{ formatScore(embeddingScore(item)) }}</strong></div>
+                    <div><span>最终排序分</span><strong>{{ formatScore(finalRankScore(item)) }}</strong></div>
                     <div><span>召回原因</span><strong>{{ item.reason || '-' }}</strong></div>
                   </div>
                   <!-- TASK-FU-003：breakdown 展开区 -->
@@ -534,7 +541,7 @@ const reset = () => {
               </div>
               <div v-else class="debug-empty">
                 <h4>{{ hasResult ? '未命中 AI Memory' : '等待运行测试' }}</h4>
-                <p>{{ hasResult ? '本次查询没有召回长期记忆。可以补充岗位 ID 或投递 ID，确认对应 scope 下是否存在可召回内容。' : '运行后这里会展示命中的 Memory、scope、来源、匹配分数、重要度和召回原因。' }}</p>
+                <p>{{ hasResult ? '本次查询没有召回长期记忆。可以补充岗位 ID 或投递 ID，确认对应 scope 下是否存在可召回内容。' : '运行后这里会展示命中的 Memory、scope、来源、Embedding 分数、最终排序分、重要度和召回原因。' }}</p>
               </div>
             </div>
           </div>
@@ -680,6 +687,11 @@ const reset = () => {
   font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
   font-size: 12px;
   font-weight: 700;
+}
+
+.debug-score-pill--vector {
+  background: var(--el-color-success-light-9);
+  color: var(--el-color-success);
 }
 
 .debug-result-item__meta {

@@ -7,18 +7,58 @@ import (
 const maxEmbeddingTextLen = 8192
 
 func BuildAgentSkillEmbeddingText(skillName, description, bodyMarkdown string, semanticTags []string) string {
+	return BuildAgentSkillEmbeddingTextWithMetadata(AgentSkillEmbeddingTextInput{
+		SkillName:    skillName,
+		Description:  description,
+		BodyMarkdown: bodyMarkdown,
+		SemanticTags: semanticTags,
+	})
+}
+
+type AgentSkillEmbeddingTextInput struct {
+	SkillName          string
+	Description        string
+	BodyMarkdown       string
+	Category           string
+	Scenario           string
+	RiskLevel          string
+	TriggerKeywords    []string
+	SemanticTags       []string
+	EvaluationCriteria string
+	OutputSchema       string
+}
+
+func BuildAgentSkillEmbeddingTextWithMetadata(input AgentSkillEmbeddingTextInput) string {
 	parts := make([]string, 0, 4)
-	if skillName != "" {
-		parts = append(parts, "Skill Name: "+skillName)
+	if input.SkillName != "" {
+		parts = append(parts, "Skill Name: "+input.SkillName)
 	}
-	if description != "" {
-		parts = append(parts, "Description: "+description)
+	if input.Description != "" {
+		parts = append(parts, "Description: "+input.Description)
 	}
-	if len(semanticTags) > 0 {
-		parts = append(parts, "Tags: "+strings.Join(semanticTags, ", "))
+	if input.Category != "" {
+		parts = append(parts, "Category: "+input.Category)
 	}
-	if bodyMarkdown != "" {
-		body := stripMarkdown(bodyMarkdown)
+	if input.Scenario != "" {
+		parts = append(parts, "Scenario: "+input.Scenario)
+	}
+	if input.RiskLevel != "" {
+		parts = append(parts, "Risk Level: "+input.RiskLevel)
+	}
+	if len(input.TriggerKeywords) > 0 {
+		parts = append(parts, "Trigger Keywords: "+strings.Join(input.TriggerKeywords, ", "))
+	}
+	if len(input.SemanticTags) > 0 {
+		parts = append(parts, "Tags: "+strings.Join(input.SemanticTags, ", "))
+	}
+	if input.EvaluationCriteria != "" {
+		parts = append(parts, "Evaluation Criteria: "+truncateEmbeddingSection(input.EvaluationCriteria, 1000))
+	}
+	if input.OutputSchema != "" {
+		parts = append(parts, "Output Schema: "+truncateEmbeddingSection(input.OutputSchema, 1000))
+	}
+	if input.BodyMarkdown != "" {
+		body := stripMarkdown(input.BodyMarkdown)
 		if len(body) > 2000 {
 			body = body[:2000]
 		}
@@ -27,6 +67,14 @@ func BuildAgentSkillEmbeddingText(skillName, description, bodyMarkdown string, s
 	text := strings.Join(parts, "\n\n")
 	if len(text) > maxEmbeddingTextLen {
 		text = text[:maxEmbeddingTextLen]
+	}
+	return text
+}
+
+func truncateEmbeddingSection(text string, maxLen int) string {
+	text = strings.TrimSpace(text)
+	if len(text) > maxLen {
+		return text[:maxLen]
 	}
 	return text
 }

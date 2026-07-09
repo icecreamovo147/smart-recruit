@@ -130,19 +130,19 @@ func (s *AgentSkillService) DebugSemanticRetrieval(ctx context.Context, req *pb.
 	searchMeta := embeddingMetaSnapshot(s.embeddings)
 
 	return &pb.DebugSemanticRetrievalResponse{
-		Code:                     0,
-		Msg:                      "success",
-		EmbeddingAvailable:       embeddingAvailable,
-		FallbackReason:           fallbackReason,
-		Skills:                   semanticDebugSkillsToPB(selected),
-		Memories:                 memories,
-		SkillPoolConfidence:      string(poolView.SkillPoolConfidence),
-		MemoryPoolConfidence:     string(poolView.MemoryPoolConfidence),
-		EmbeddingProvider:        searchMeta.ProviderName,
-		EmbeddingModel:           searchMeta.ModelName,
-		EmbeddingDim:             int32(searchMeta.VectorDim),
-		CandidateCount:           int32(searchMeta.CandidateCount),
-		QueryEmbeddingLatencyMs:  searchMeta.LatencyMs,
+		Code:                    0,
+		Msg:                     "success",
+		EmbeddingAvailable:      embeddingAvailable,
+		FallbackReason:          fallbackReason,
+		Skills:                  semanticDebugSkillsToPB(selected),
+		Memories:                memories,
+		SkillPoolConfidence:     string(poolView.SkillPoolConfidence),
+		MemoryPoolConfidence:    string(poolView.MemoryPoolConfidence),
+		EmbeddingProvider:       searchMeta.ProviderName,
+		EmbeddingModel:          searchMeta.ModelName,
+		EmbeddingDim:            int32(searchMeta.VectorDim),
+		CandidateCount:          int32(searchMeta.CandidateCount),
+		QueryEmbeddingLatencyMs: searchMeta.LatencyMs,
 	}, nil
 }
 
@@ -738,7 +738,18 @@ func (s *AgentSkillService) publishEmbeddingEvent(ctx context.Context, skillID u
 		}
 	}
 
-	text := BuildAgentSkillEmbeddingText(skill.Name, skill.Description, bodyMarkdown, semanticTags)
+	text := BuildAgentSkillEmbeddingTextWithMetadata(AgentSkillEmbeddingTextInput{
+		SkillName:          skill.Name,
+		Description:        skill.Description,
+		BodyMarkdown:       bodyMarkdown,
+		Category:           skill.Category,
+		Scenario:           skill.Scenario,
+		RiskLevel:          skill.RiskLevel,
+		TriggerKeywords:    unmarshalStringList(skill.TriggerKeywords),
+		SemanticTags:       semanticTags,
+		EvaluationCriteria: skill.EvaluationCriteria,
+		OutputSchema:       skill.OutputSchema,
+	})
 	if strings.TrimSpace(text) == "" {
 		return
 	}

@@ -406,12 +406,47 @@ func TestRankSkillCandidatesAllModes(t *testing.T) {
 	})
 
 	t.Run("mixed_signals_keep_separation", func(t *testing.T) {
-		out := RankSkillCandidates("candidate", skills, map[int64]float64{1: 0.5, 2: 0.95, 3: 0.99}, true)
-		// skill 3 (薪资/沟通) 与 "candidate" 不匹配，应当被过滤掉
+		out := RankSkillCandidates("candidate", skills, map[int64]float64{1: 0.5, 2: 0.95, 3: 0.1}, true)
+		// skill 3 (薪资/沟通) 与 "candidate" 不匹配，且 vector 低于 semantic-only 阈值，应当被过滤掉
 		for _, s := range out {
 			if s.ID == 3 {
 				t.Fatalf("non-matching skill 3 should be filtered, got %+v", s)
 			}
+		}
+	})
+
+	t.Run("semantic_only_candidate_kept_when_vector_is_strong", func(t *testing.T) {
+		semanticOnly := repository.AgentSkillRuntimeRecord{
+			ID:                4,
+			Name:              "interview-plan",
+			DisplayName:       "Interview Plan",
+			Description:       "structured interview workflow",
+			Category:          "workflow",
+			Priority:          10,
+			IsManualInvocable: 1,
+		}
+		out := RankSkillCandidates("salary benchmark", []repository.AgentSkillRuntimeRecord{semanticOnly}, map[int64]float64{4: 0.8}, true)
+		if len(out) != 1 {
+			t.Fatalf("expected strong vector candidate without lexical hit to be kept, got %d", len(out))
+		}
+		if out[0].ID != 4 || out[0].LexicalScore != 0 || out[0].VectorScore < skillSemanticOnlyVectorGate {
+			t.Fatalf("unexpected semantic-only result: %+v", out[0])
+		}
+	})
+
+	t.Run("semantic_only_candidate_dropped_when_vector_is_weak", func(t *testing.T) {
+		semanticOnly := repository.AgentSkillRuntimeRecord{
+			ID:                5,
+			Name:              "interview-plan",
+			DisplayName:       "Interview Plan",
+			Description:       "structured interview workflow",
+			Category:          "workflow",
+			Priority:          10,
+			IsManualInvocable: 1,
+		}
+		out := RankSkillCandidates("salary benchmark", []repository.AgentSkillRuntimeRecord{semanticOnly}, map[int64]float64{5: 0.1}, true)
+		if len(out) != 0 {
+			t.Fatalf("expected weak semantic-only candidate to be dropped, got %+v", out)
 		}
 	})
 

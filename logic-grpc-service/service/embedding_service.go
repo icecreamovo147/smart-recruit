@@ -73,11 +73,11 @@ type EmbeddingService struct {
 // SearchMeta 记录一次 embedding 搜索的元数据。
 // 由 EmbeddingService 在 Search / SearchObjects 末尾写入。
 type SearchMeta struct {
-	ProviderName  string
-	ModelName     string
-	VectorDim     int
+	ProviderName   string
+	ModelName      string
+	VectorDim      int
 	CandidateCount int
-	LatencyMs     int64
+	LatencyMs      int64
 }
 
 func NewEmbeddingService(repo *repository.AIEmbeddingRepo, factory *EmbeddingProviderFactory, encKey crypto.EncryptionKey) *EmbeddingService {
@@ -488,6 +488,7 @@ func (s *EmbeddingService) resolveQueryVector(ctx context.Context, text string, 
 
 func rankEmbeddingRows(queryVector []float64, rows []model.AIEmbedding) []EmbeddingSearchResult {
 	results := make([]EmbeddingSearchResult, 0, len(rows))
+	resultIndexes := make(map[string]int, len(rows))
 	for _, row := range rows {
 		vector, err := unmarshalEmbeddingVector(row.VectorJSON)
 		if err != nil || len(vector) != len(queryVector) {
@@ -497,6 +498,15 @@ func rankEmbeddingRows(queryVector []float64, rows []model.AIEmbedding) []Embedd
 		if math.IsNaN(score) || math.IsInf(score, 0) {
 			continue
 		}
+		key := embeddingObjectResultKey(row)
+		if existingIndex, ok := resultIndexes[key]; ok {
+			existing := results[existingIndex]
+			if score > existing.Score || (score == existing.Score && row.UpdatedAt.After(existing.Embedding.UpdatedAt)) {
+				results[existingIndex] = EmbeddingSearchResult{Embedding: row, Score: score}
+			}
+			continue
+		}
+		resultIndexes[key] = len(results)
 		results = append(results, EmbeddingSearchResult{Embedding: row, Score: score})
 	}
 	sort.SliceStable(results, func(i, j int) bool {
@@ -506,6 +516,10 @@ func rankEmbeddingRows(queryVector []float64, rows []model.AIEmbedding) []Embedd
 		return results[i].Score > results[j].Score
 	})
 	return results
+}
+
+func embeddingObjectResultKey(row model.AIEmbedding) string {
+	return fmt.Sprintf("%s:%d:%s", row.ObjectType, row.ObjectID, row.EmbeddingModel)
 }
 
 func marshalEmbeddingVector(vector []float64) (string, error) {
@@ -553,10 +567,11 @@ func cosineSimilarity(a, b []float64) float64 {
 
 func candidateLimit(limit int) int {
 	if limit <= 0 {
-		return 100
+		return 1000
 	}
-	if limit < 20 {
-		return 20
+	expanded := limit * 20
+	if expanded < 200 {
+		return 200
 	}
-	return limit * 4
+	return expanded
 }

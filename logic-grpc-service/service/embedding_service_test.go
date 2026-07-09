@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"testing"
+	"time"
 
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
@@ -109,6 +110,47 @@ func TestEmbeddingServiceStoresExplicitVectorAndSearchesByCosineSimilarity(t *te
 	}
 	if results[0].Score <= results[1].Score {
 		t.Fatalf("expected descending scores, got %.4f then %.4f", results[0].Score, results[1].Score)
+	}
+}
+
+func TestRankEmbeddingRowsDeduplicatesObjectByHighestScore(t *testing.T) {
+	now := time.Now()
+	rows := []model.AIEmbedding{
+		{
+			ID:             1,
+			ObjectType:     "agent_skill",
+			ObjectID:       42,
+			EmbeddingModel: "local-test",
+			VectorJSON:     jsonStringPtr(`[0,1,0]`),
+			UpdatedAt:      now.Add(time.Minute),
+		},
+		{
+			ID:             2,
+			ObjectType:     "agent_skill",
+			ObjectID:       42,
+			EmbeddingModel: "local-test",
+			VectorJSON:     jsonStringPtr(`[1,0,0]`),
+			UpdatedAt:      now,
+		},
+		{
+			ID:             3,
+			ObjectType:     "agent_skill",
+			ObjectID:       7,
+			EmbeddingModel: "local-test",
+			VectorJSON:     jsonStringPtr(`[0.8,0.2,0]`),
+			UpdatedAt:      now,
+		},
+	}
+
+	results := rankEmbeddingRows([]float64{1, 0, 0}, rows)
+	if len(results) != 2 {
+		t.Fatalf("expected duplicate object rows to collapse to 2 results, got %d", len(results))
+	}
+	if results[0].Embedding.ObjectID != 42 || results[0].Embedding.ID != 2 {
+		t.Fatalf("expected object 42 to keep highest score row ID 2, got %#v", results[0])
+	}
+	if results[0].Score != 1 {
+		t.Fatalf("expected highest duplicate score 1.0, got %v", results[0].Score)
 	}
 }
 

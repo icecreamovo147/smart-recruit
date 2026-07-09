@@ -3549,6 +3549,7 @@ message BackfillEmbeddingsRequest {
   bool force = 4;
   bool dry_run = 5;
   int64 model_id = 6;
+  int64 object_id = 7;
 }
 
 message BackfillEmbeddingsResponse {

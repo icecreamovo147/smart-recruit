@@ -438,6 +438,7 @@ func Setup(cfg config.Config, clients *rpc.Clients, rdb *redis.Client) (*gin.Eng
 	adminGroup.GET("/agent-skills/:id", normalTimeout, middleware.RequirePermission(authz.PermAIAgentSkillManage), agentSkillHandler.Get)
 	adminGroup.PUT("/agent-skills/:id", normalTimeout, bodyAdmin, middleware.RequirePermission(authz.PermAIAgentSkillManage), agentSkillHandler.Update)
 	adminGroup.PATCH("/agent-skills/:id/status", normalTimeout, bodyAuth, middleware.RequirePermission(authz.PermAIAgentSkillManage), agentSkillHandler.UpdateStatus)
+	adminGroup.POST("/agent-skills/:id/embedding/regenerate", normalTimeout, middleware.RequirePermission(authz.PermAIAgentSkillManage), agentSkillHandler.RegenerateEmbedding)
 	adminGroup.GET("/agent-skills/:id/versions", normalTimeout, middleware.RequirePermission(authz.PermAIAgentSkillManage), agentSkillHandler.ListVersions)
 	adminGroup.POST("/agent-skills/:id/versions", normalTimeout, bodyAdmin, middleware.RequirePermission(authz.PermAIAgentSkillManage), agentSkillHandler.CreateVersion)
 	adminGroup.POST("/agent-skills/:id/versions/:version_id/activate", normalTimeout, middleware.RequirePermission(authz.PermAIAgentSkillManage), agentSkillHandler.ActivateVersion)

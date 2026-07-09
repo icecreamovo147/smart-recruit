@@ -160,6 +160,31 @@ func (h *AgentSkillHandler) DebugSemanticRetrieval(c *gin.Context) {
 	base.ProtoResponse(c, resp)
 }
 
+func (h *AgentSkillHandler) RegenerateEmbedding(c *gin.Context) {
+	id, err := parseIDParam(c, "id")
+	if err != nil {
+		base.BadRequest(c, "invalid id")
+		return
+	}
+
+	resp, err := h.clients.EmbeddingConfig.BackfillEmbeddings(c.Request.Context(), &pb.BackfillEmbeddingsRequest{
+		ObjectType: "agent_skill",
+		ObjectId:   id,
+		Force:      true,
+		BatchSize:  1,
+	})
+	if err != nil {
+		logger.L().Error("RegenerateAgentSkillEmbedding failed", zap.Int64("skill_id", id), zap.Error(err))
+		base.Internal(c, err)
+		return
+	}
+	base.From(c, resp.Code, resp.Msg, gin.H{
+		"success_count": resp.SuccessCount,
+		"failed_count":  resp.FailedCount,
+		"skipped_count": resp.SkippedCount,
+	})
+}
+
 func (h *AgentSkillHandler) Get(c *gin.Context) {
 	id, err := parseIDParam(c, "id")
 	if err != nil {

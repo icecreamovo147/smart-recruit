@@ -3124,6 +3124,14 @@ message SemanticSkillDebugItem {
   double score = 7;
   string reason = 8;
   repeated string semantic_tags = 9;
+  double vector_score = 10;
+  double lexical_score = 11;
+  double metadata_score = 12;
+  double relevance_score = 13;
+  double business_boost = 14;
+  double final_rank_score = 15;
+  string relevance_mode = 16;
+  int32 pool_rank = 17;
 }
 
 message SemanticMemoryDebugItem {
@@ -3138,6 +3146,14 @@ message SemanticMemoryDebugItem {
   double score = 9;
   string reason = 10;
   string created_at = 11;
+  double vector_score = 12;
+  double lexical_score = 13;
+  double metadata_score = 14;
+  double relevance_score = 15;
+  double business_boost = 16;
+  double final_rank_score = 17;
+  string relevance_mode = 18;
+  int32 pool_rank = 19;
 }
 
 message DebugSemanticRetrievalResponse {
@@ -3147,6 +3163,15 @@ message DebugSemanticRetrievalResponse {
   string fallback_reason = 4;
   repeated SemanticSkillDebugItem skills = 5;
   repeated SemanticMemoryDebugItem memories = 6;
+  string skill_pool_confidence = 7;
+  string memory_pool_confidence = 8;
+  // 修复：debug 端点补全 5 个 Provider / Model / Dim / Count / Latency 字段。
+  // 这些字段之前从未在 proto 中声明，所以一直显示 "-"；本次新增。
+  string embedding_provider = 9;
+  string embedding_model = 10;
+  int32 embedding_dim = 11;
+  int32 candidate_count = 12;
+  int64 query_embedding_latency_ms = 13;
 }
 
 message GetResumeProfileRequest {
@@ -3343,4 +3368,194 @@ message CompareCandidatesForJobResponse {
   int64 job_id = 3;
   repeated CandidateComparisonItem candidates = 4;
   repeated int64 missing_application_ids = 5;
+}
+
+// ══════════════════════════════════════════════════════════════════════
+// Phase P1-XX: Embedding Provider & Model Configuration
+// ══════════════════════════════════════════════════════════════════════
+
+service EmbeddingConfigService {
+  rpc ListEmbeddingProviders(ListEmbeddingProvidersRequest) returns (ListEmbeddingProvidersResponse);
+  rpc CreateEmbeddingProvider(CreateEmbeddingProviderRequest) returns (EmbeddingProviderResponse);
+  rpc UpdateEmbeddingProvider(UpdateEmbeddingProviderRequest) returns (EmbeddingProviderResponse);
+  rpc DeleteEmbeddingProvider(DeleteEmbeddingProviderRequest) returns (CommonResponse);
+
+  rpc ListEmbeddingModels(ListEmbeddingModelsRequest) returns (ListEmbeddingModelsResponse);
+  rpc CreateEmbeddingModel(CreateEmbeddingModelRequest) returns (EmbeddingModelResponse);
+  rpc UpdateEmbeddingModel(UpdateEmbeddingModelRequest) returns (EmbeddingModelResponse);
+  rpc SetDefaultEmbeddingModel(SetDefaultEmbeddingModelRequest) returns (CommonResponse);
+
+  rpc TestEmbeddingModel(TestEmbeddingModelRequest) returns (TestEmbeddingModelResponse);
+  rpc BackfillEmbeddings(BackfillEmbeddingsRequest) returns (BackfillEmbeddingsResponse);
+}
+
+// ── Embedding Provider messages ─────────────────────────────────────
+
+message EmbeddingProviderInfo {
+  int64 id = 1;
+  string name = 2;
+  string provider_type = 3;
+  string endpoint = 4;
+  string api_key_masked = 5;
+  string extra_headers_json = 6;
+  bool is_enabled = 7;
+  string created_at = 8;
+  string updated_at = 9;
+}
+
+message ListEmbeddingProvidersRequest {
+  int32 page = 1;
+  int32 page_size = 2;
+}
+
+message ListEmbeddingProvidersResponse {
+  int32 code = 1;
+  string msg = 2;
+  int64 total = 3;
+  repeated EmbeddingProviderInfo list = 4;
+}
+
+message CreateEmbeddingProviderRequest {
+  string name = 1;
+  string provider_type = 2;
+  string endpoint = 3;
+  string api_key = 4;
+  string extra_headers_json = 5;
+}
+
+message UpdateEmbeddingProviderRequest {
+  int64 id = 1;
+  string name = 2;
+  string provider_type = 3;
+  string endpoint = 4;
+  string api_key = 5;
+  string extra_headers_json = 6;
+  bool is_enabled = 7;
+  bool is_enabled_set = 8;
+  bool extra_headers_set = 9;
+}
+
+message EmbeddingProviderResponse {
+  int32 code = 1;
+  string msg = 2;
+  EmbeddingProviderInfo provider = 3;
+}
+
+message DeleteEmbeddingProviderRequest {
+  int64 id = 1;
+}
+
+// ── Embedding Model messages ────────────────────────────────────────
+
+message EmbeddingModelInfo {
+  int64 id = 1;
+  int64 provider_id = 2;
+  string model_name = 3;
+  string display_name = 4;
+  int32 embedding_dim = 5;
+  int32 input_token_limit = 6;
+  int32 batch_size = 7;
+  int32 timeout_seconds = 8;
+  int32 max_retries = 9;
+  bool is_enabled = 10;
+  bool is_default = 11;
+  string last_test_status = 12;
+  string last_test_error = 13;
+  string last_test_at = 14;
+  string created_at = 15;
+  string updated_at = 16;
+  string provider_name = 17;
+}
+
+message ListEmbeddingModelsRequest {
+  int32 page = 1;
+  int32 page_size = 2;
+  int64 provider_id = 3;
+}
+
+message ListEmbeddingModelsResponse {
+  int32 code = 1;
+  string msg = 2;
+  int64 total = 3;
+  repeated EmbeddingModelInfo list = 4;
+}
+
+message CreateEmbeddingModelRequest {
+  int64 provider_id = 1;
+  string model_name = 2;
+  string display_name = 3;
+  int32 embedding_dim = 4;
+  int32 input_token_limit = 5;
+  int32 batch_size = 6;
+  int32 timeout_seconds = 7;
+  int32 max_retries = 8;
+  bool is_default = 9;
+}
+
+message UpdateEmbeddingModelRequest {
+  int64 id = 1;
+  string model_name = 2;
+  string display_name = 3;
+  int32 embedding_dim = 4;
+  bool embedding_dim_set = 5;
+  int32 input_token_limit = 6;
+  bool input_token_limit_set = 7;
+  int32 batch_size = 8;
+  bool batch_size_set = 9;
+  int32 timeout_seconds = 10;
+  bool timeout_seconds_set = 11;
+  int32 max_retries = 12;
+  bool max_retries_set = 13;
+  bool is_enabled = 14;
+  bool is_enabled_set = 15;
+  bool is_default = 16;
+  bool is_default_set = 17;
+}
+
+message EmbeddingModelResponse {
+  int32 code = 1;
+  string msg = 2;
+  EmbeddingModelInfo model = 3;
+}
+
+message DeleteEmbeddingModelRequest {
+  int64 id = 1;
+}
+
+message SetDefaultEmbeddingModelRequest {
+  int64 id = 1;
+}
+
+message TestEmbeddingModelRequest {
+  int64 provider_id = 1;
+  int64 model_id = 2;
+  string test_text = 3;
+}
+
+message TestEmbeddingModelResponse {
+  int32 code = 1;
+  string msg = 2;
+  bool success = 3;
+  int32 dimension = 4;
+  int64 latency_ms = 5;
+  string request_id = 6;
+  string detail = 7;
+}
+
+message BackfillEmbeddingsRequest {
+  string object_type = 1;
+  int32 limit = 2;
+  int32 batch_size = 3;
+  bool force = 4;
+  bool dry_run = 5;
+  int64 model_id = 6;
+  int64 object_id = 7;
+}
+
+message BackfillEmbeddingsResponse {
+  int32 code = 1;
+  string msg = 2;
+  int32 success_count = 3;
+  int32 failed_count = 4;
+  int32 skipped_count = 5;
 }

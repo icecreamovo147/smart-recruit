@@ -91,7 +91,7 @@ func TestSelectAgentSkillsFiltersByAgentType(t *testing.T) {
 	}
 }
 
-func TestSelectAgentSkillsUsesSemanticScoresOnlyToRerankRuleCandidates(t *testing.T) {
+func TestSelectAgentSkillsAllowsStrongSemanticOnlyCandidates(t *testing.T) {
 	repo := fakeAgentSkillLister{rows: []repository.AgentSkillRuntimeRecord{
 		{ID: 1, Name: "screening", DisplayName: "Screening", Description: "candidate screening", BodyMarkdown: "review candidate", IsManualInvocable: 1},
 		{ID: 2, Name: "offer", DisplayName: "Offer", Description: "candidate offer", BodyMarkdown: "prepare candidate offer", IsManualInvocable: 1},
@@ -102,15 +102,36 @@ func TestSelectAgentSkillsUsesSemanticScoresOnlyToRerankRuleCandidates(t *testin
 	if err != nil {
 		t.Fatalf("selectAgentSkillsWithSemantic returned error: %v", err)
 	}
-	if len(selected) != 2 {
-		t.Fatalf("selected = %+v, want only rule-matched candidates", selected)
+	if len(selected) != 3 {
+		t.Fatalf("selected = %+v, want rule matches plus strong semantic-only candidate", selected)
 	}
 	if selected[0].ID != 2 || !strings.Contains(selected[0].Reason, "semantic") {
 		t.Fatalf("selected = %+v, want semantic reranked rule candidate 2 first", selected)
 	}
+	foundSemanticOnly := false
 	for _, skill := range selected {
-		if skill.ID == 3 {
-			t.Fatalf("semantic-only skill was selected: %+v", selected)
+		if skill.ID == 3 && strings.Contains(skill.Reason, "semantic-only") {
+			foundSemanticOnly = true
+		}
+	}
+	if !foundSemanticOnly {
+		t.Fatalf("selected = %+v, want strong semantic-only candidate 3 included", selected)
+	}
+}
+
+func TestSelectAgentSkillsFiltersWeakSemanticOnlyCandidates(t *testing.T) {
+	repo := fakeAgentSkillLister{rows: []repository.AgentSkillRuntimeRecord{
+		{ID: 1, Name: "screening", DisplayName: "Screening", Description: "candidate screening", BodyMarkdown: "review candidate", IsManualInvocable: 1},
+		{ID: 2, Name: "unrelated", DisplayName: "Unrelated", Description: "薪资", BodyMarkdown: "沟通", IsManualInvocable: 1},
+	}}
+
+	selected, err := selectAgentSkillsWithSemantic(context.Background(), repo, "hr_recruiting_agent", "candidate", nil, nil, map[int64]float64{2: 0.1})
+	if err != nil {
+		t.Fatalf("selectAgentSkillsWithSemantic returned error: %v", err)
+	}
+	for _, skill := range selected {
+		if skill.ID == 2 {
+			t.Fatalf("weak semantic-only skill should be filtered: %+v", selected)
 		}
 	}
 }

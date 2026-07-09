@@ -137,6 +137,7 @@ const savedPreviewLoading = ref(false)
 const versionsLoading = ref(false)
 const statusChangingId = ref<number | null>(null)
 const activatingVersionId = ref<number | null>(null)
+const regeneratingEmbeddingId = ref<number | null>(null)
 const keyword = ref('')
 const statusFilter = ref('')
 const previewMarkdown = ref('')
@@ -855,6 +856,44 @@ const toggleStatus = async (row: AgentSkillInfo) => {
   }
 }
 
+const regenerateEmbedding = async (row: AgentSkillInfo) => {
+  debugLog.skill.info('regenerateEmbedding_started', { skill_id: row.id })
+  if (regeneratingEmbeddingId.value) return
+  try {
+    await ElMessageBox.confirm(
+      `确认重新生成「${row.display_name || row.name}」的 Embedding？该操作会覆盖当前默认模型下用于语义召回的向量。`,
+      '重新生成 Embedding',
+      {
+        confirmButtonText: '重新生成',
+        cancelButtonText: '取消',
+        type: 'warning',
+      },
+    )
+  } catch {
+    debugLog.skill.info('regenerateEmbedding_cancelled', { skill_id: row.id })
+    return
+  }
+  regeneratingEmbeddingId.value = row.id
+  try {
+    const result = await api.regenerateAgentSkillEmbedding(row.id)
+    if (result.failed_count > 0) {
+      ElMessage.error('Embedding 重新生成失败，请检查模型配置或服务日志')
+      return
+    }
+    if (result.skipped_count > 0) {
+      ElMessage.warning('当前 Agent Skill 未发布、未启用或无可生成内容，已跳过')
+      return
+    }
+    ElMessage.success('Embedding 已重新生成')
+    debugLog.skill.info('regenerateEmbedding_succeeded', { skill_id: row.id, success_count: result.success_count })
+  } catch (e: unknown) {
+    debugLog.skill.error('regenerateEmbedding_failed', { skill_id: row.id, error: getErrorMessage(e, '') })
+    ElMessage.error(getErrorMessage(e, 'Embedding 重新生成失败'))
+  } finally {
+    regeneratingEmbeddingId.value = null
+  }
+}
+
 const openEdit = async (row: AgentSkillInfo) => {
   debugLog.skill.info('openEdit_started', { skill_id: row.id, name: row.name })
   if (editLoading.value) return
@@ -1097,12 +1136,15 @@ onMounted(() => {
             <el-table-column label="操作" width="200" fixed="right">
               <template #default="{ row }">
                 <el-button size="small" :icon="Edit" @click="openEdit(row)">编辑</el-button>
-                <el-dropdown trigger="click" @command="(cmd: string) => { if (cmd === 'preview') openSavedPreview(row); if (cmd === 'versions') openVersions(row); if (cmd === 'toggle') toggleStatus(row) }">
-                  <el-button size="small">更多<el-icon class="el-icon--right"><ArrowDown /></el-icon></el-button>
+                <el-dropdown trigger="click" @command="(cmd: string) => { if (cmd === 'preview') openSavedPreview(row); if (cmd === 'versions') openVersions(row); if (cmd === 'embedding') regenerateEmbedding(row); if (cmd === 'toggle') toggleStatus(row) }">
+                  <el-button size="small" :loading="regeneratingEmbeddingId === row.id">更多<el-icon class="el-icon--right"><ArrowDown /></el-icon></el-button>
                   <template #dropdown>
                     <el-dropdown-menu>
                       <el-dropdown-item command="preview" :icon="View">预览</el-dropdown-item>
                       <el-dropdown-item command="versions" :icon="Tickets">版本</el-dropdown-item>
+                      <el-dropdown-item command="embedding" divided :disabled="!row.current_version_id || regeneratingEmbeddingId === row.id">
+                        重新生成 Embedding
+                      </el-dropdown-item>
                       <el-dropdown-item v-if="row.is_enabled" command="toggle" divided style="color: var(--el-color-danger)">停用</el-dropdown-item>
                       <el-dropdown-item v-else command="toggle" divided>启用</el-dropdown-item>
                     </el-dropdown-menu>

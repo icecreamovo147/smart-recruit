@@ -24,12 +24,12 @@ func TestBuildAgentSkillEmbeddingText(t *testing.T) {
 			wantPrefix: "Skill Name: TestSkill",
 		},
 		{
-			name:       "empty name and description",
-			skillName:  "",
-			desc:       "",
-			bodyMD:     "",
-			tags:       nil,
-			wantEmpty:  true,
+			name:      "empty name and description",
+			skillName: "",
+			desc:      "",
+			bodyMD:    "",
+			tags:      nil,
+			wantEmpty: true,
 		},
 		{
 			name:       "only tags",
@@ -65,6 +65,40 @@ func TestBuildAgentSkillEmbeddingText(t *testing.T) {
 	}
 }
 
+func TestBuildAgentSkillEmbeddingTextWithMetadata(t *testing.T) {
+	got := BuildAgentSkillEmbeddingTextWithMetadata(AgentSkillEmbeddingTextInput{
+		SkillName:          "CandidateMatch",
+		Description:        "Evaluate candidate fit",
+		Category:           "assessment",
+		Scenario:           "candidate_match",
+		RiskLevel:          "medium",
+		TriggerKeywords:    []string{"匹配度", "岗位适配"},
+		SemanticTags:       []string{"candidate", "evaluation"},
+		EvaluationCriteria: `{"fit":"evidence"}`,
+		OutputSchema:       `{"score":"number"}`,
+		BodyMarkdown:       "## Steps\ncompare resume with job requirements",
+	})
+
+	for _, want := range []string{
+		"Skill Name: CandidateMatch",
+		"Category: assessment",
+		"Scenario: candidate_match",
+		"Risk Level: medium",
+		"Trigger Keywords: 匹配度, 岗位适配",
+		"Tags: candidate, evaluation",
+		"Evaluation Criteria:",
+		"Output Schema:",
+		"Content: Steps",
+	} {
+		if !strings.Contains(got, want) {
+			t.Fatalf("expected embedding text to contain %q, got %q", want, got)
+		}
+	}
+	if len(got) > maxEmbeddingTextLen {
+		t.Fatalf("text too long: %d > %d", len(got), maxEmbeddingTextLen)
+	}
+}
+
 func TestBuildMemoryEmbeddingText(t *testing.T) {
 	tests := []struct {
 		name             string
@@ -82,8 +116,8 @@ func TestBuildMemoryEmbeddingText(t *testing.T) {
 			wantPrefix:       "Type: conclusion",
 		},
 		{
-			name:      "empty content",
-			content:   "",
+			name:       "empty content",
+			content:    "",
 			memoryType: "conclusion",
 			wantPrefix: "Type: conclusion",
 		},

@@ -15,6 +15,7 @@ import (
 
 type BackfillInput struct {
 	ObjectType string
+	ObjectID   int64
 	Limit      int
 	BatchSize  int
 	Force      bool
@@ -30,17 +31,17 @@ type BackfillResult struct {
 }
 
 type EmbeddingBackfillService struct {
-	db        *gorm.DB
-	embedding *EmbeddingService
-	skillRepo *repository.AgentSkillRepo
+	db         *gorm.DB
+	embedding  *EmbeddingService
+	skillRepo  *repository.AgentSkillRepo
 	memoryRepo *repository.MemoryRepo
 }
 
 func NewEmbeddingBackfillService(db *gorm.DB, embedding *EmbeddingService, skillRepo *repository.AgentSkillRepo, memoryRepo *repository.MemoryRepo) *EmbeddingBackfillService {
 	return &EmbeddingBackfillService{
-		db:        db,
-		embedding: embedding,
-		skillRepo: skillRepo,
+		db:         db,
+		embedding:  embedding,
+		skillRepo:  skillRepo,
 		memoryRepo: memoryRepo,
 	}
 }
@@ -83,6 +84,9 @@ func (s *EmbeddingBackfillService) backfillSkills(ctx context.Context, input Bac
 		Where("is_enabled = 1 AND current_version_id IS NOT NULL").
 		Order("id ASC")
 
+	if input.ObjectID > 0 {
+		query = query.Where("id = ?", input.ObjectID)
+	}
 	if input.Limit > 0 {
 		query = query.Limit(input.Limit)
 	}
@@ -107,7 +111,18 @@ func (s *EmbeddingBackfillService) backfillSkills(ctx context.Context, input Bac
 			}
 		}
 
-		text := BuildAgentSkillEmbeddingText(skill.Name, skill.Description, bodyMarkdown, semanticTags)
+		text := BuildAgentSkillEmbeddingTextWithMetadata(AgentSkillEmbeddingTextInput{
+			SkillName:          skill.Name,
+			Description:        skill.Description,
+			BodyMarkdown:       bodyMarkdown,
+			Category:           skill.Category,
+			Scenario:           skill.Scenario,
+			RiskLevel:          skill.RiskLevel,
+			TriggerKeywords:    unmarshalStringList(skill.TriggerKeywords),
+			SemanticTags:       semanticTags,
+			EvaluationCriteria: skill.EvaluationCriteria,
+			OutputSchema:       skill.OutputSchema,
+		})
 		if text == "" {
 			result.SkippedCount++
 			continue
@@ -156,6 +171,9 @@ func (s *EmbeddingBackfillService) backfillMemories(ctx context.Context, input B
 	query := s.db.WithContext(ctx).Model(&model.AIMemory{}).
 		Order("id ASC")
 
+	if input.ObjectID > 0 {
+		query = query.Where("id = ?", input.ObjectID)
+	}
 	if input.Limit > 0 {
 		query = query.Limit(input.Limit)
 	}

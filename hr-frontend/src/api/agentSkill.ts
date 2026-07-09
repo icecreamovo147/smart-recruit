@@ -82,6 +82,20 @@ export const updateAgentSkillStatus = async (
   return res
 }
 
+export const regenerateAgentSkillEmbedding = async (
+  id: number,
+): Promise<{ success_count: number; failed_count: number; skipped_count: number }> => {
+  debugLog.skill.info('regenerateAgentSkillEmbedding_started', { skill_id: id })
+  const res: any = await request.post(`/api/v1/hr/admin/agent-skills/${id}/embedding/regenerate`)
+  debugLog.skill.info('regenerateAgentSkillEmbedding_succeeded', {
+    skill_id: id,
+    success_count: res?.success_count || 0,
+    failed_count: res?.failed_count || 0,
+    skipped_count: res?.skipped_count || 0,
+  })
+  return res
+}
+
 export const listAgentSkillVersions = async (
   id: number,
 ): Promise<AgentSkillVersionListResponse> => {

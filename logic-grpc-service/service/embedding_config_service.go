@@ -460,6 +460,7 @@ func (s *EmbeddingConfigService) BackfillEmbeddings(ctx context.Context, req *pb
 
 	result, err := s.backfillSvc.Run(ctx, BackfillInput{
 		ObjectType: req.GetObjectType(),
+		ObjectID:   req.GetObjectId(),
 		Limit:      int(req.GetLimit()),
 		BatchSize:  int(req.GetBatchSize()),
 		Force:      req.GetForce(),

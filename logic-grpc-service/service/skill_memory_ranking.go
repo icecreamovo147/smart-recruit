@@ -79,6 +79,7 @@ var (
 )
 
 const rankingFloatEpsilon = 1e-9
+const skillSemanticOnlyVectorGate = 0.25
 
 // rankingFloatAlmostEqual 在稳定排序 tie-breaking 时使用的浮点近似比较。
 func rankingFloatAlmostEqual(a, b float64) bool {
@@ -442,7 +443,7 @@ func rankSkillCandidatesWithReason(signals RankingSignals, hasVector bool) strin
 // RankSkillCandidates 对一组 Skill 候选进行混合打分、自动排序、过滤 zero-score，
 // 返回按 `final_rank_score desc, priority desc, id asc` 排序的 `selectedAgentSkill` 列表。
 //
-// 过滤规则：rawRuleScore <= 0 的候选直接丢弃（保留旧实现中"语义单独命中不入选"的行为）。
+// 过滤规则：保留规则命中候选；当规则未命中但 vector_score 达到阈值时，也允许语义候选进入。
 // selectedAgentSkill.Score（int 旧字段）= int(round(FinalRankScore * 100))，仅用于兼容旧调试 API。
 func RankSkillCandidates(
 	question string,
@@ -454,6 +455,24 @@ func RankSkillCandidates(
 	for _, skill := range candidates {
 		rawRuleScore := scoreAgentSkillMatch(question, skill)
 		if rawRuleScore <= 0 {
+			var semScore float64
+			if semanticScores != nil {
+				semScore = semanticScores[skill.ID]
+			}
+			signals := scoreSkillRankingSignals(question, skill, semScore, embeddingAvailable)
+			if signals.VectorScore < skillSemanticOnlyVectorGate || signals.FinalRankScore <= 0 {
+				continue
+			}
+			reason := "semantic-only hybrid score, priority boost"
+			s := toSelectedAgentSkill(skill, false, int(math.Round(signals.FinalRankScore*100)), reason)
+			s.VectorScore = signals.VectorScore
+			s.LexicalScore = signals.LexicalScore
+			s.MetadataScore = signals.MetadataScore
+			s.RelevanceScore = signals.RelevanceScore
+			s.BusinessBoost = signals.BusinessBoost
+			s.FinalRankScore = signals.FinalRankScore
+			s.RelevanceMode = signals.RelevanceMode
+			result = append(result, s)
 			continue
 		}
 

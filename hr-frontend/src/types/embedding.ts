@@ -96,6 +96,7 @@ export interface TestEmbeddingModelResult {
 
 export interface BackfillEmbeddingsPayload {
   object_type?: string
+  object_id?: number
   limit?: number
   batch_size?: number
   force?: boolean
