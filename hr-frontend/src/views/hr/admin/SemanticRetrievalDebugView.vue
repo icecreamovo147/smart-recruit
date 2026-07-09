@@ -15,6 +15,29 @@ const AGENT_TYPE_OPTIONS = [
   { value: 'custom', label: '自定义 Agent' },
 ]
 
+// TASK-FU-003：pool_confidence 枚举色彩 / 文案映射
+const POOL_CONFIDENCE_META: Record<string, { type: 'success' | 'info' | 'warning' | 'danger'; label: string }> = {
+  high: { type: 'success', label: '高' },
+  medium: { type: 'info', label: '中' },
+  low: { type: 'warning', label: '低' },
+  none: { type: 'info', label: '无' },
+}
+
+const RELEVANCE_MODE_META: Record<string, { type: 'success' | 'warning'; label: string }> = {
+  vector_lexical_metadata: { type: 'success', label: '向量+规则' },
+  lexical_metadata: { type: 'warning', label: '仅规则' },
+}
+
+// TASK-FU-006：breakdown 字段 tooltip 文案
+const BREAKDOWN_TOOLTIPS: Record<string, string> = {
+  vector: 'embedding cosine ∈ [0, 1]',
+  lexical: 'keyword hit ratio ∈ [0, 1]',
+  metadata: 'scope / category hit ∈ [0, 1]',
+  relevance: 'weighted sum ∈ [0, 1]',
+  'business boost': 'relevance × boost ∈ [0, 1.5]',
+  'final rank': 'final_rank_score ∈ [0, 1.5]',
+}
+
 const QUERY_EXAMPLES = [
   '候选人有 5 年 Vue 和 TypeScript 经验，最近负责招聘系统前端架构。请判断他和高级前端工程师岗位是否匹配。',
   '帮我生成这位候选人的面试关注点，重点验证项目复杂度、协作能力和岗位匹配风险。',
@@ -38,6 +61,21 @@ const form = reactive({
 const skillRows = computed<SemanticSkillDebugItem[]>(() => result.value?.skills || [])
 const memoryRows = computed<SemanticMemoryDebugItem[]>(() => result.value?.memories || [])
 const hasResult = computed(() => Boolean(result.value))
+
+// TASK-FU-003：pool_confidence 渲染辅助
+const skillPoolConfidence = computed(() => result.value?.skill_pool_confidence || '')
+const memoryPoolConfidence = computed(() => result.value?.memory_pool_confidence || '')
+const skillPoolConfidenceMeta = computed(() => POOL_CONFIDENCE_META[skillPoolConfidence.value] || null)
+const memoryPoolConfidenceMeta = computed(() => POOL_CONFIDENCE_META[memoryPoolConfidence.value] || null)
+
+function relevanceModeMeta(mode: string | undefined) {
+  if (!mode) return null
+  return RELEVANCE_MODE_META[mode] || { type: 'info' as const, label: mode }
+}
+
+function formatBreakdownScore(value: number | undefined, digits = 2): string {
+  return typeof value === 'number' ? value.toFixed(digits) : '-'
+}
 const selectedAgentLabel = computed(() => AGENT_TYPE_OPTIONS.find((item) => item.value === form.agent_type)?.label || form.agent_type)
 const runStatusText = computed(() => {
   if (loading.value) return '运行中'
@@ -251,6 +289,33 @@ const reset = () => {
               <el-tag :type="embeddingStatusType" effect="plain">{{ embeddingStatusText }}</el-tag>
             </div>
           </div>
+          <!-- TASK-FU-003：pool_confidence 顶部指标 -->
+          <div v-if="hasResult" class="console-stat">
+            <div class="console-stat__label">Skill 池置信度</div>
+            <div class="console-stat__value">
+              <el-tag
+                v-if="skillPoolConfidenceMeta"
+                :type="skillPoolConfidenceMeta.type"
+                effect="plain"
+              >
+                {{ skillPoolConfidenceMeta.label }}（{{ skillPoolConfidence }}）
+              </el-tag>
+              <span v-else>-</span>
+            </div>
+          </div>
+          <div v-if="hasResult" class="console-stat">
+            <div class="console-stat__label">Memory 池置信度</div>
+            <div class="console-stat__value">
+              <el-tag
+                v-if="memoryPoolConfidenceMeta"
+                :type="memoryPoolConfidenceMeta.type"
+                effect="plain"
+              >
+                {{ memoryPoolConfidenceMeta.label }}（{{ memoryPoolConfidence }}）
+              </el-tag>
+              <span v-else>-</span>
+            </div>
+          </div>
           <template v-if="hasResult">
             <div class="console-stat">
               <div class="console-stat__label">Embedding Provider</div>
@@ -301,12 +366,22 @@ const reset = () => {
                       <h4>{{ skillTitle(item) }}</h4>
                       <p>#{{ item.id }} · {{ item.name }}</p>
                     </div>
-                    <div class="debug-score-pill">{{ formatScore(item.score) }}</div>
+                    <div class="debug-score-pill-group">
+                      <span
+                        v-if="relevanceModeMeta(item.relevance_mode)"
+                        class="debug-mode-tag"
+                        :class="`debug-mode-tag--${relevanceModeMeta(item.relevance_mode)?.type}`"
+                      >
+                        {{ relevanceModeMeta(item.relevance_mode)?.label }}
+                      </span>
+                      <span class="debug-score-pill">{{ formatScore(item.score) }}</span>
+                    </div>
                   </div>
                   <div class="debug-result-item__meta">
                     <span>{{ item.category || 'general' }}</span>
                     <span v-if="item.scenario">{{ item.scenario }}</span>
                     <span>P{{ item.priority ?? 0 }}</span>
+                    <span v-if="item.pool_rank != null">排名 {{ item.pool_rank }}</span>
                   </div>
                   <p class="debug-result-item__summary">{{ item.reason || 'metadata and content match' }}</p>
                   <div v-if="item.semantic_tags?.length" class="debug-tag-row">
@@ -319,6 +394,48 @@ const reset = () => {
                     <div><span>Skill ID</span><strong>{{ item.id }}</strong></div>
                     <div><span>匹配分数</span><strong>{{ formatScore(item.score) }}</strong></div>
                     <div><span>召回原因</span><strong>{{ item.reason || '-' }}</strong></div>
+                  </div>
+                  <!-- TASK-FU-003：breakdown 展开区 -->
+                  <div v-if="isSkillExpanded(item.id)" class="debug-breakdown">
+                    <h5 class="debug-breakdown__title">混合打分 breakdown</h5>
+                    <div class="debug-breakdown__grid">
+                      <div>
+                        <el-tooltip :content="BREAKDOWN_TOOLTIPS['vector']" placement="top">
+                          <span>vector</span>
+                        </el-tooltip>
+                        <strong>{{ formatBreakdownScore(item.vector_score) }}</strong>
+                      </div>
+                      <div>
+                        <el-tooltip :content="BREAKDOWN_TOOLTIPS['lexical']" placement="top">
+                          <span>lexical</span>
+                        </el-tooltip>
+                        <strong>{{ formatBreakdownScore(item.lexical_score) }}</strong>
+                      </div>
+                      <div>
+                        <el-tooltip :content="BREAKDOWN_TOOLTIPS['metadata']" placement="top">
+                          <span>metadata</span>
+                        </el-tooltip>
+                        <strong>{{ formatBreakdownScore(item.metadata_score) }}</strong>
+                      </div>
+                      <div>
+                        <el-tooltip :content="BREAKDOWN_TOOLTIPS['relevance']" placement="top">
+                          <span>relevance</span>
+                        </el-tooltip>
+                        <strong>{{ formatBreakdownScore(item.relevance_score) }}</strong>
+                      </div>
+                      <div>
+                        <el-tooltip :content="BREAKDOWN_TOOLTIPS['business boost']" placement="top">
+                          <span>business boost</span>
+                        </el-tooltip>
+                        <strong>{{ formatBreakdownScore(item.business_boost) }}</strong>
+                      </div>
+                      <div>
+                        <el-tooltip :content="BREAKDOWN_TOOLTIPS['final rank']" placement="top">
+                          <span>final rank</span>
+                        </el-tooltip>
+                        <strong>{{ formatBreakdownScore(item.final_rank_score) }}</strong>
+                      </div>
+                    </div>
                   </div>
                 </article>
               </div>
@@ -345,11 +462,21 @@ const reset = () => {
                       <h4>{{ memoryScopeText(item) }}</h4>
                       <p>{{ item.memory_type || '-' }} · {{ item.source || '-' }}</p>
                     </div>
-                    <div class="debug-score-pill">{{ formatScore(item.score) }}</div>
+                    <div class="debug-score-pill-group">
+                      <span
+                        v-if="relevanceModeMeta(item.relevance_mode)"
+                        class="debug-mode-tag"
+                        :class="`debug-mode-tag--${relevanceModeMeta(item.relevance_mode)?.type}`"
+                      >
+                        {{ relevanceModeMeta(item.relevance_mode)?.label }}
+                      </span>
+                      <span class="debug-score-pill">{{ formatScore(item.score) }}</span>
+                    </div>
                   </div>
                   <div class="debug-result-item__meta">
                     <span>重要度 {{ formatScore(item.importance) }}</span>
                     <span>置信度 {{ formatScore(item.confidence) }}</span>
+                    <span v-if="item.pool_rank != null">排名 {{ item.pool_rank }}</span>
                     <span v-if="item.created_at">{{ item.created_at }}</span>
                   </div>
                   <p class="debug-result-item__summary">{{ item.content }}</p>
@@ -360,6 +487,48 @@ const reset = () => {
                     <div><span>Memory ID</span><strong>{{ item.id }}</strong></div>
                     <div><span>Scope</span><strong>{{ item.scope_type }} #{{ item.scope_id }}</strong></div>
                     <div><span>召回原因</span><strong>{{ item.reason || '-' }}</strong></div>
+                  </div>
+                  <!-- TASK-FU-003：breakdown 展开区 -->
+                  <div v-if="isMemoryExpanded(item.id)" class="debug-breakdown">
+                    <h5 class="debug-breakdown__title">混合打分 breakdown</h5>
+                    <div class="debug-breakdown__grid">
+                      <div>
+                        <el-tooltip :content="BREAKDOWN_TOOLTIPS['vector']" placement="top">
+                          <span>vector</span>
+                        </el-tooltip>
+                        <strong>{{ formatBreakdownScore(item.vector_score) }}</strong>
+                      </div>
+                      <div>
+                        <el-tooltip :content="BREAKDOWN_TOOLTIPS['lexical']" placement="top">
+                          <span>lexical</span>
+                        </el-tooltip>
+                        <strong>{{ formatBreakdownScore(item.lexical_score) }}</strong>
+                      </div>
+                      <div>
+                        <el-tooltip :content="BREAKDOWN_TOOLTIPS['metadata']" placement="top">
+                          <span>metadata</span>
+                        </el-tooltip>
+                        <strong>{{ formatBreakdownScore(item.metadata_score) }}</strong>
+                      </div>
+                      <div>
+                        <el-tooltip :content="BREAKDOWN_TOOLTIPS['relevance']" placement="top">
+                          <span>relevance</span>
+                        </el-tooltip>
+                        <strong>{{ formatBreakdownScore(item.relevance_score) }}</strong>
+                      </div>
+                      <div>
+                        <el-tooltip :content="BREAKDOWN_TOOLTIPS['business boost']" placement="top">
+                          <span>business boost</span>
+                        </el-tooltip>
+                        <strong>{{ formatBreakdownScore(item.business_boost) }}</strong>
+                      </div>
+                      <div>
+                        <el-tooltip :content="BREAKDOWN_TOOLTIPS['final rank']" placement="top">
+                          <span>final rank</span>
+                        </el-tooltip>
+                        <strong>{{ formatBreakdownScore(item.final_rank_score) }}</strong>
+                      </div>
+                    </div>
                   </div>
                 </article>
               </div>
@@ -578,6 +747,86 @@ const reset = () => {
   color: var(--text-primary);
   font-size: 12px;
   font-weight: 600;
+}
+
+/* TASK-FU-003：breakdown / mode tag 样式 */
+.debug-score-pill-group {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.debug-mode-tag {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 600;
+  border: 1px solid transparent;
+  letter-spacing: 0.02em;
+}
+
+.debug-mode-tag--success {
+  background: var(--el-color-success-light-9);
+  color: var(--el-color-success);
+  border-color: var(--el-color-success-light-7);
+}
+
+.debug-mode-tag--warning {
+  background: var(--el-color-warning-light-9);
+  color: var(--el-color-warning);
+  border-color: var(--el-color-warning-light-7);
+}
+
+.debug-mode-tag--info {
+  background: var(--el-color-info-light-9);
+  color: var(--el-color-info);
+  border-color: var(--el-color-info-light-7);
+}
+
+.debug-breakdown {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 10px 12px;
+  border: 1px dashed var(--border);
+  border-radius: 8px;
+  background: var(--surface-muted);
+}
+
+.debug-breakdown__title {
+  margin: 0;
+  color: var(--text-secondary);
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+
+.debug-breakdown__grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(110px, 1fr));
+  gap: 6px 12px;
+}
+
+.debug-breakdown__grid > div {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
+
+.debug-breakdown__grid span {
+  color: var(--text-muted);
+  font-size: 11px;
+  letter-spacing: 0.02em;
+}
+
+.debug-breakdown__grid strong {
+  color: var(--text-primary);
+  font-size: 12px;
+  font-weight: 700;
 }
 
 .debug-empty {
