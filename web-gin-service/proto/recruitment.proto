@@ -562,6 +562,7 @@ message ChatRequest {
   int64 model_id = 5;               // Optional: user-selected model override
   repeated string skill_capability_keys = 6; // Optional: per-message SKILL capabilities selected by the user
   repeated int64 agent_skill_ids = 7; // Optional: database-backed Agent Skills selected by the user
+  bool agent_skill_selection_confirmed = 8; // Optional: user confirmed automatic Agent Skill selection, including selecting none
 }
 
 message ContextUsageBreakdown {
@@ -606,6 +607,35 @@ message ChatResponse {
   ContextUsageInfo context_usage = 12;
 }
 
+message AgentSkillSelectionCandidate {
+  int64 id = 1;
+  string name = 2;
+  string display_name = 3;
+  string reason = 4;
+  int32 score = 5;
+  int32 priority = 6;
+  string category = 7;
+  string scenario = 8;
+  string risk_level = 9;
+  bool recommended = 10;
+  double vector_score = 11;
+  double lexical_score = 12;
+  double metadata_score = 13;
+  double relevance_score = 14;
+  double business_boost = 15;
+  double final_rank_score = 16;
+  string relevance_mode = 17;
+  int32 pool_rank = 18;
+  string ranking_confidence = 19;
+}
+
+message AgentSkillSelection {
+  bool required = 1;
+  string reason = 2;
+  repeated AgentSkillSelectionCandidate candidates = 3;
+  repeated int64 recommended_agent_skill_ids = 4;
+}
+
 message ChatStreamResponse {
   int32 code = 1;
   string msg = 2;
@@ -631,6 +661,8 @@ message ChatStreamResponse {
   string tool_name = 18;
   // context_usage carries estimated/actual context usage information when event_type == "context_usage".
   ContextUsageInfo context_usage = 19;
+  // agent_skill_selection carries candidate metadata when event_type == "agent_skill_selection_required".
+  AgentSkillSelection agent_skill_selection = 20;
 }
 
 message ChatHistoryRequest {

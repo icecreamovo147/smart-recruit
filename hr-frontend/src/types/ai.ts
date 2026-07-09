@@ -104,7 +104,37 @@ export interface StreamPayload {
   tool_name?: string
   model_name?: string
   agent_skill_ids?: number[]
+  agent_skill_selection?: AgentSkillSelectionPayload
   context_usage?: ContextUsageInfo
+}
+
+export interface AgentSkillSelectionCandidate {
+  id: number
+  name: string
+  display_name: string
+  reason: string
+  score: number
+  priority: number
+  category: string
+  scenario: string
+  risk_level: string
+  recommended: boolean
+  vector_score: number
+  lexical_score: number
+  metadata_score: number
+  relevance_score: number
+  business_boost: number
+  final_rank_score: number
+  relevance_mode: string
+  pool_rank: number
+  ranking_confidence: string
+}
+
+export interface AgentSkillSelectionPayload {
+  required: boolean
+  reason: string
+  candidates: AgentSkillSelectionCandidate[]
+  recommended_agent_skill_ids: number[]
 }
 
 export interface StreamHandlers {

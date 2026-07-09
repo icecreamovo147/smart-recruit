@@ -15,6 +15,7 @@ export interface ChatRequestPayload {
   model_id?: number
   skill_capability_keys?: string[]
   agent_skill_ids?: number[]
+  agent_skill_selection_confirmed?: boolean
 }
 
 export const sendMessage = (data: ChatRequestPayload): Promise<{

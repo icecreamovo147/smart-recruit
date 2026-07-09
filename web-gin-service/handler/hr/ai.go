@@ -24,18 +24,19 @@ func NewAIHandler(clients *rpc.Clients) *AIHandler {
 
 func (h *AIHandler) Chat(c *gin.Context) {
 	var req struct {
-		Message             string         `json:"message" binding:"required"`
-		ApplicationID       base.FlexInt64 `json:"application_id"`
-		SessionID           base.FlexInt64 `json:"session_id"`
-		ModelID             base.FlexInt64 `json:"model_id"`
-		SkillCapabilityKeys []string       `json:"skill_capability_keys"`
-		AgentSkillIDs       []int64        `json:"agent_skill_ids"`
+		Message                      string         `json:"message" binding:"required"`
+		ApplicationID                base.FlexInt64 `json:"application_id"`
+		SessionID                    base.FlexInt64 `json:"session_id"`
+		ModelID                      base.FlexInt64 `json:"model_id"`
+		SkillCapabilityKeys          []string       `json:"skill_capability_keys"`
+		AgentSkillIDs                []int64        `json:"agent_skill_ids"`
+		AgentSkillSelectionConfirmed bool           `json:"agent_skill_selection_confirmed"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
 		base.BadRequest(c, "消息不能为空")
 		return
 	}
-	resp, err := h.clients.AI.Chat(c.Request.Context(), &pb.ChatRequest{HrId: middleware.UserID(c), Message: req.Message, ApplicationId: int64(req.ApplicationID), SessionId: int64(req.SessionID), ModelId: int64(req.ModelID), SkillCapabilityKeys: req.SkillCapabilityKeys, AgentSkillIds: req.AgentSkillIDs})
+	resp, err := h.clients.AI.Chat(c.Request.Context(), &pb.ChatRequest{HrId: middleware.UserID(c), Message: req.Message, ApplicationId: int64(req.ApplicationID), SessionId: int64(req.SessionID), ModelId: int64(req.ModelID), SkillCapabilityKeys: req.SkillCapabilityKeys, AgentSkillIds: req.AgentSkillIDs, AgentSkillSelectionConfirmed: req.AgentSkillSelectionConfirmed})
 	if err != nil {
 		base.Internal(c, err)
 		return
@@ -87,19 +88,20 @@ func (h *AIHandler) Chat(c *gin.Context) {
 
 func (h *AIHandler) ChatStream(c *gin.Context) {
 	var req struct {
-		Message             string         `json:"message" binding:"required"`
-		ApplicationID       base.FlexInt64 `json:"application_id"`
-		SessionID           base.FlexInt64 `json:"session_id"`
-		ModelID             base.FlexInt64 `json:"model_id"`
-		SkillCapabilityKeys []string       `json:"skill_capability_keys"`
-		AgentSkillIDs       []int64        `json:"agent_skill_ids"`
+		Message                      string         `json:"message" binding:"required"`
+		ApplicationID                base.FlexInt64 `json:"application_id"`
+		SessionID                    base.FlexInt64 `json:"session_id"`
+		ModelID                      base.FlexInt64 `json:"model_id"`
+		SkillCapabilityKeys          []string       `json:"skill_capability_keys"`
+		AgentSkillIDs                []int64        `json:"agent_skill_ids"`
+		AgentSkillSelectionConfirmed bool           `json:"agent_skill_selection_confirmed"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
 		base.BadRequest(c, "消息不能为空")
 		return
 	}
 	ctx := c.Request.Context()
-	stream, err := h.clients.AI.ChatStream(ctx, &pb.ChatRequest{HrId: middleware.UserID(c), Message: req.Message, ApplicationId: int64(req.ApplicationID), SessionId: int64(req.SessionID), ModelId: int64(req.ModelID), SkillCapabilityKeys: req.SkillCapabilityKeys, AgentSkillIds: req.AgentSkillIDs})
+	stream, err := h.clients.AI.ChatStream(ctx, &pb.ChatRequest{HrId: middleware.UserID(c), Message: req.Message, ApplicationId: int64(req.ApplicationID), SessionId: int64(req.SessionID), ModelId: int64(req.ModelID), SkillCapabilityKeys: req.SkillCapabilityKeys, AgentSkillIds: req.AgentSkillIDs, AgentSkillSelectionConfirmed: req.AgentSkillSelectionConfirmed})
 	if err != nil {
 		base.Internal(c, err)
 		return
@@ -188,25 +190,26 @@ func (h *AIHandler) ChatStream(c *gin.Context) {
 				}
 			}
 			payload := gin.H{
-				"code":              result.chunk.Code,
-				"msg":               result.chunk.Msg,
-				"delta":             result.chunk.Delta,
-				"done":              result.chunk.Done,
-				"action":            result.chunk.Action,
-				"application_id":    result.chunk.ApplicationId,
-				"action_status":     result.chunk.ActionStatus,
-				"candidate_name":    result.chunk.CandidateName,
-				"job_title":         result.chunk.JobTitle,
-				"status":            result.chunk.Status,
-				"session_id":        result.chunk.SessionId,
-				"created_at":        result.chunk.CreatedAt,
-				"candidate_options": result.chunk.CandidateOptions,
-				"event_type":        result.chunk.EventType,
-				"event_message":     result.chunk.EventMessage,
-				"error_type":        result.chunk.ErrorType,
-				"tool_name":         result.chunk.ToolName,
-				"context_usage":     contextUsage,
-				"request_id":        base.RequestID(c),
+				"code":                  result.chunk.Code,
+				"msg":                   result.chunk.Msg,
+				"delta":                 result.chunk.Delta,
+				"done":                  result.chunk.Done,
+				"action":                result.chunk.Action,
+				"application_id":        result.chunk.ApplicationId,
+				"action_status":         result.chunk.ActionStatus,
+				"candidate_name":        result.chunk.CandidateName,
+				"job_title":             result.chunk.JobTitle,
+				"status":                result.chunk.Status,
+				"session_id":            result.chunk.SessionId,
+				"created_at":            result.chunk.CreatedAt,
+				"candidate_options":     result.chunk.CandidateOptions,
+				"event_type":            result.chunk.EventType,
+				"event_message":         result.chunk.EventMessage,
+				"error_type":            result.chunk.ErrorType,
+				"tool_name":             result.chunk.ToolName,
+				"context_usage":         contextUsage,
+				"agent_skill_selection": agentSkillSelectionPayload(result.chunk.GetAgentSkillSelection()),
+				"request_id":            base.RequestID(c),
 			}
 			line := fmt.Sprintf("event: message\ndata: %s\n\n", mustMarshalHR(payload))
 			if n, err := c.Writer.Write([]byte(line)); err != nil || n == 0 {
@@ -219,6 +222,42 @@ func (h *AIHandler) ChatStream(c *gin.Context) {
 				return
 			}
 		}
+	}
+}
+
+func agentSkillSelectionPayload(selection *pb.AgentSkillSelection) map[string]any {
+	if selection == nil {
+		return nil
+	}
+	candidates := make([]gin.H, 0, len(selection.GetCandidates()))
+	for _, candidate := range selection.GetCandidates() {
+		candidates = append(candidates, gin.H{
+			"id":                 candidate.GetId(),
+			"name":               candidate.GetName(),
+			"display_name":       candidate.GetDisplayName(),
+			"reason":             candidate.GetReason(),
+			"score":              candidate.GetScore(),
+			"priority":           candidate.GetPriority(),
+			"category":           candidate.GetCategory(),
+			"scenario":           candidate.GetScenario(),
+			"risk_level":         candidate.GetRiskLevel(),
+			"recommended":        candidate.GetRecommended(),
+			"vector_score":       candidate.GetVectorScore(),
+			"lexical_score":      candidate.GetLexicalScore(),
+			"metadata_score":     candidate.GetMetadataScore(),
+			"relevance_score":    candidate.GetRelevanceScore(),
+			"business_boost":     candidate.GetBusinessBoost(),
+			"final_rank_score":   candidate.GetFinalRankScore(),
+			"relevance_mode":     candidate.GetRelevanceMode(),
+			"pool_rank":          candidate.GetPoolRank(),
+			"ranking_confidence": candidate.GetRankingConfidence(),
+		})
+	}
+	return gin.H{
+		"required":                    selection.GetRequired(),
+		"reason":                      selection.GetReason(),
+		"candidates":                  candidates,
+		"recommended_agent_skill_ids": selection.GetRecommendedAgentSkillIds(),
 	}
 }
 
