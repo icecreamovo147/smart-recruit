@@ -133,6 +133,26 @@ type Config struct {
 		MaxConcurrency          int      `yaml:"max_concurrency"`
 		SlowRequestThreshold    Duration `yaml:"slow_request_threshold"`
 	} `yaml:"embedding"`
+	// TASK-FU-004：Skill / Memory 混合打分权重与阈值。
+	// 默认值与 SDD §3.3 完全一致；空值时回退到 hardcode。
+	Ranking Ranking `yaml:"ranking"`
+}
+
+// Ranking 描述 Skill / Memory 召回排序的可调权重与阈值。
+// TASK-FU-004 引入；所有字段都是 additive，空值不覆盖。
+// 通过 env 变量 RANKING_<NAME> 启动时覆盖；通过 yaml 段 ranking.<field> 配置。
+type Ranking struct {
+	WeightVector     float64 `yaml:"weight_vector"`
+	WeightLexical    float64 `yaml:"weight_lexical"`
+	WeightMetadata   float64 `yaml:"weight_metadata"`
+	BusinessBoostMax float64 `yaml:"business_boost_max"`
+	PriorityNorm     float64 `yaml:"priority_norm"`
+	BoostAlpha       float64 `yaml:"boost_alpha"`
+	BoostBeta        float64 `yaml:"boost_beta"`
+	BoostGamma       float64 `yaml:"boost_gamma"`
+	RelevanceGate    float64 `yaml:"relevance_gate"`
+	GapHigh          float64 `yaml:"gap_high"`
+	GapMedium        float64 `yaml:"gap_medium"`
 }
 
 func Load() (Config, error) {
@@ -468,6 +488,19 @@ func applyEnvOverrides(cfg *Config) {
 	setDuration(&cfg.Embedding.RequestTimeout, "EMBEDDING_REQUEST_TIMEOUT")
 	setInt(&cfg.Embedding.MaxConcurrency, "EMBEDDING_MAX_CONCURRENCY")
 	setDuration(&cfg.Embedding.SlowRequestThreshold, "EMBEDDING_SLOW_REQUEST_THRESHOLD")
+
+	// TASK-FU-004：ranking 权重 / 阈值 env 覆盖
+	setFloat64(&cfg.Ranking.WeightVector, "RANKING_WEIGHT_VECTOR")
+	setFloat64(&cfg.Ranking.WeightLexical, "RANKING_WEIGHT_LEXICAL")
+	setFloat64(&cfg.Ranking.WeightMetadata, "RANKING_WEIGHT_METADATA")
+	setFloat64(&cfg.Ranking.BusinessBoostMax, "RANKING_BUSINESS_BOOST_MAX")
+	setFloat64(&cfg.Ranking.PriorityNorm, "RANKING_PRIORITY_NORM")
+	setFloat64(&cfg.Ranking.BoostAlpha, "RANKING_BOOST_ALPHA")
+	setFloat64(&cfg.Ranking.BoostBeta, "RANKING_BOOST_BETA")
+	setFloat64(&cfg.Ranking.BoostGamma, "RANKING_BOOST_GAMMA")
+	setFloat64(&cfg.Ranking.RelevanceGate, "RANKING_RELEVANCE_GATE")
+	setFloat64(&cfg.Ranking.GapHigh, "RANKING_GAP_HIGH")
+	setFloat64(&cfg.Ranking.GapMedium, "RANKING_GAP_MEDIUM")
 }
 
 func setString(target *string, key string) {
@@ -479,6 +512,16 @@ func setString(target *string, key string) {
 func setInt(target *int, key string) {
 	if value := os.Getenv(key); value != "" {
 		if parsed, err := strconv.Atoi(value); err == nil {
+			*target = parsed
+		}
+	}
+}
+
+// setFloat64 TASK-FU-004 引入：用于 RANKING_* 权重覆盖。
+// 非数字 env 值不修改 target（保持空值，由调用方用 hardcode 默认填充）。
+func setFloat64(target *float64, key string) {
+	if value := os.Getenv(key); value != "" {
+		if parsed, err := strconv.ParseFloat(value, 64); err == nil {
 			*target = parsed
 		}
 	}
