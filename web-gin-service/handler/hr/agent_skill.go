@@ -151,12 +151,13 @@ func (h *AgentSkillHandler) DebugSemanticRetrieval(c *gin.Context) {
 		base.Internal(c, err)
 		return
 	}
-	base.From(c, resp.Code, resp.Msg, gin.H{
-		"embedding_available": resp.EmbeddingAvailable,
-		"fallback_reason":     resp.FallbackReason,
-		"skills":              resp.Skills,
-		"memories":            resp.Memories,
-	})
+	// 修复：改用 base.ProtoResponse 自动透传 gRPC 响应所有字段。
+	// 之前用 gin.H 白名单 4 个字段，导致 skill_pool_confidence / memory_pool_confidence
+	// / embedding_provider / embedding_model / embedding_dim / candidate_count /
+	// query_embedding_latency_ms 等 7 个字段被丢弃；前端用 `|| '-'` 兜底导致这些卡片
+	// 一直显示 "-" 或空白。ProtoResponse 通过 protojson.Marshal 序列化整个 proto
+	// message，所有声明字段都会出现在 JSON 中；未来新增字段无需再改 web-gin handler。
+	base.ProtoResponse(c, resp)
 }
 
 func (h *AgentSkillHandler) Get(c *gin.Context) {
