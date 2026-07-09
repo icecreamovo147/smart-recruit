@@ -52,6 +52,35 @@ type selectedAgentSkill struct {
 	RankingConfidence string
 }
 
+type agentSkillSelectionCandidate struct {
+	ID                int64
+	Name              string
+	DisplayName       string
+	Reason            string
+	Score             int
+	Priority          int32
+	Category          string
+	Scenario          string
+	RiskLevel         string
+	Recommended       bool
+	VectorScore       float64
+	LexicalScore      float64
+	MetadataScore     float64
+	RelevanceScore    float64
+	BusinessBoost     float64
+	FinalRankScore    float64
+	RelevanceMode     string
+	PoolRank          int
+	RankingConfidence string
+}
+
+type agentSkillSelectionConfirmationDecision struct {
+	Required       bool
+	Reason         string
+	Candidates     []agentSkillSelectionCandidate
+	RecommendedIDs []int64
+}
+
 func selectAgentSkills(ctx context.Context, repo agentSkillLister, agentType, question string, manualIDs []int64, availableCapabilities map[string]bool) ([]selectedAgentSkill, error) {
 	return selectAgentSkillsWithSemantic(ctx, repo, agentType, question, manualIDs, availableCapabilities, nil)
 }
@@ -620,6 +649,116 @@ func selectedAgentSkillTraceItems(skills []selectedAgentSkill) []map[string]any 
 		})
 	}
 	return items
+}
+
+func decideAgentSkillSelectionConfirmation(skills []selectedAgentSkill, manualIDs []int64) agentSkillSelectionConfirmationDecision {
+	candidates := agentSkillSelectionCandidates(skills)
+	if hasPositiveAgentSkillID(manualIDs) {
+		return agentSkillSelectionConfirmationDecision{
+			Required:   false,
+			Reason:     "manual_selection",
+			Candidates: candidates,
+		}
+	}
+
+	autoCount := 0
+	for _, skill := range skills {
+		if !skill.Manual {
+			autoCount++
+		}
+	}
+	if autoCount == 0 {
+		return agentSkillSelectionConfirmationDecision{
+			Required:   false,
+			Reason:     "no_auto_candidates",
+			Candidates: candidates,
+		}
+	}
+	if autoCount == 1 {
+		return agentSkillSelectionConfirmationDecision{
+			Required:   false,
+			Reason:     "single_auto_candidate",
+			Candidates: candidates,
+		}
+	}
+
+	recommendedIDs := recommendedAgentSkillIDs(skills, 1)
+	candidates = markRecommendedAgentSkillCandidates(candidates, recommendedIDs)
+	return agentSkillSelectionConfirmationDecision{
+		Required:       true,
+		Reason:         "multiple_auto_candidates",
+		Candidates:     candidates,
+		RecommendedIDs: recommendedIDs,
+	}
+}
+
+func agentSkillSelectionCandidates(skills []selectedAgentSkill) []agentSkillSelectionCandidate {
+	candidates := make([]agentSkillSelectionCandidate, 0, len(skills))
+	for _, skill := range skills {
+		candidates = append(candidates, agentSkillSelectionCandidate{
+			ID:                skill.ID,
+			Name:              skill.Name,
+			DisplayName:       skill.DisplayName,
+			Reason:            skill.Reason,
+			Score:             skill.Score,
+			Priority:          skill.Priority,
+			Category:          skill.Category,
+			Scenario:          skill.Scenario,
+			RiskLevel:         skill.RiskLevel,
+			VectorScore:       skill.VectorScore,
+			LexicalScore:      skill.LexicalScore,
+			MetadataScore:     skill.MetadataScore,
+			RelevanceScore:    skill.RelevanceScore,
+			BusinessBoost:     skill.BusinessBoost,
+			FinalRankScore:    skill.FinalRankScore,
+			RelevanceMode:     skill.RelevanceMode,
+			PoolRank:          skill.PoolRank,
+			RankingConfidence: skill.RankingConfidence,
+		})
+	}
+	return candidates
+}
+
+func recommendedAgentSkillIDs(skills []selectedAgentSkill, limit int) []int64 {
+	if limit <= 0 {
+		return nil
+	}
+	ids := make([]int64, 0, limit)
+	for _, skill := range skills {
+		if skill.Manual {
+			continue
+		}
+		ids = append(ids, skill.ID)
+		if len(ids) >= limit {
+			break
+		}
+	}
+	return ids
+}
+
+func markRecommendedAgentSkillCandidates(candidates []agentSkillSelectionCandidate, recommendedIDs []int64) []agentSkillSelectionCandidate {
+	if len(candidates) == 0 || len(recommendedIDs) == 0 {
+		return candidates
+	}
+	recommended := make(map[int64]bool, len(recommendedIDs))
+	for _, id := range recommendedIDs {
+		recommended[id] = true
+	}
+	next := make([]agentSkillSelectionCandidate, len(candidates))
+	copy(next, candidates)
+	for i := range next {
+		next[i].Recommended = recommended[next[i].ID]
+	}
+	return next
+}
+
+func hasPositiveAgentSkillID(ids []int64) bool {
+	for _, id := range ids {
+		if id > 0 {
+			return true
+		}
+	}
+	return false
 }
 
 func manualAgentSkills(skills []selectedAgentSkill) []selectedAgentSkill {

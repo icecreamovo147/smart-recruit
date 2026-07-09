@@ -136,6 +136,97 @@ func TestSelectAgentSkillsFiltersWeakSemanticOnlyCandidates(t *testing.T) {
 	}
 }
 
+func TestDecideAgentSkillSelectionConfirmation(t *testing.T) {
+	tests := []struct {
+		name            string
+		skills          []selectedAgentSkill
+		manualIDs       []int64
+		wantRequired    bool
+		wantReason      string
+		wantRecommended []int64
+	}{
+		{
+			name:       "zero candidates bypass confirmation",
+			wantReason: "no_auto_candidates",
+		},
+		{
+			name: "single automatic candidate bypasses confirmation",
+			skills: []selectedAgentSkill{{
+				ID:          1,
+				Name:        "match",
+				DisplayName: "Match",
+				Reason:      "hybrid score",
+			}},
+			wantReason: "single_auto_candidate",
+		},
+		{
+			name: "multiple automatic candidates require confirmation",
+			skills: []selectedAgentSkill{
+				{ID: 2, Name: "match", DisplayName: "Match", Reason: "hybrid score", FinalRankScore: 0.8},
+				{ID: 3, Name: "offer", DisplayName: "Offer", Reason: "hybrid score", FinalRankScore: 0.6},
+			},
+			wantRequired:    true,
+			wantReason:      "multiple_auto_candidates",
+			wantRecommended: []int64{2},
+		},
+		{
+			name: "manual ids bypass confirmation",
+			skills: []selectedAgentSkill{
+				{ID: 4, Name: "manual", DisplayName: "Manual", Manual: true},
+				{ID: 5, Name: "auto", DisplayName: "Auto"},
+			},
+			manualIDs:    []int64{4},
+			wantReason:   "manual_selection",
+			wantRequired: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			decision := decideAgentSkillSelectionConfirmation(tt.skills, tt.manualIDs)
+			if decision.Required != tt.wantRequired {
+				t.Fatalf("Required = %v, want %v", decision.Required, tt.wantRequired)
+			}
+			if decision.Reason != tt.wantReason {
+				t.Fatalf("Reason = %q, want %q", decision.Reason, tt.wantReason)
+			}
+			if got := decision.RecommendedIDs; !equalInt64Slices(got, tt.wantRecommended) {
+				t.Fatalf("RecommendedIDs = %#v, want %#v", got, tt.wantRecommended)
+			}
+		})
+	}
+}
+
+func TestAgentSkillSelectionCandidatesOmitInstructionContent(t *testing.T) {
+	skills := []selectedAgentSkill{{
+		ID:             9,
+		Name:           "match",
+		DisplayName:    "Match",
+		Content:        "hidden instruction body",
+		Reason:         "hybrid score",
+		Score:          88,
+		Priority:       10,
+		Category:       "recruiting",
+		Scenario:       "candidate_match",
+		FinalRankScore: 0.88,
+	}}
+
+	candidates := agentSkillSelectionCandidates(skills)
+	if len(candidates) != 1 {
+		t.Fatalf("len(candidates) = %d, want 1", len(candidates))
+	}
+	if candidates[0].ID != 9 || candidates[0].DisplayName != "Match" || candidates[0].FinalRankScore != 0.88 {
+		t.Fatalf("candidate metadata not preserved: %+v", candidates[0])
+	}
+	payload, err := json.Marshal(candidates[0])
+	if err != nil {
+		t.Fatalf("marshal candidate: %v", err)
+	}
+	if strings.Contains(string(payload), "hidden instruction body") || strings.Contains(string(payload), "Content") {
+		t.Fatalf("candidate payload exposed instruction content: %s", string(payload))
+	}
+}
+
 func TestAgentSkillAvailableCapabilitiesRequiresCollectedRuntimeCapabilities(t *testing.T) {
 	runtimeCfg := &agentRuntimeConfig{
 		MCPCapabilityKeys:   map[string]bool{"1:lookup": true},
@@ -199,4 +290,16 @@ func mustJSONList(t *testing.T, values []string) string {
 		t.Fatalf("marshal JSON list: %v", err)
 	}
 	return string(b)
+}
+
+func equalInt64Slices(a, b []int64) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	for i := range a {
+		if a[i] != b[i] {
+			return false
+		}
+	}
+	return true
 }
