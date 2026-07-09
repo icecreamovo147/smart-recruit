@@ -76,6 +76,68 @@ jobs:
         run: pnpm test
         working-directory: ${{ matrix.app }}
 
+  # ── Proto Lint (TASK-FU-002) ──────────────────────────────────────
+  # 重生成两侧 recruitment.pb.go 并与 committed diff 必须为空。
+  # 防止 proto 字段被无意修改；protoc 版本与本地 TASK-005 一致（25.x）。
+  proto-lint:
+    name: Proto Lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.25"
+          cache-dependency-path: |
+            logic-grpc-service/go.sum
+            web-gin-service/go.sum
+      - name: Install protoc 25.3
+        run: |
+          set -euo pipefail
+          sudo apt-get update
+          sudo apt-get install -y wget unzip
+          PROTOC_VERSION=25.3
+          wget -q "https://github.com/protocolbuffers/protobuf/releases/download/v${PROTOC_VERSION}/protoc-${PROTOC_VERSION}-linux-x86_64.zip" -O /tmp/protoc.zip
+          unzip -q -o /tmp/protoc.zip -d /usr/local
+          protoc --version
+      - name: Install protoc-gen-go
+        run: go install google.golang.org/protobuf/cmd/protoc-gen-go@v1.36.11
+      - name: Regenerate recruitment.pb.go
+        run: |
+          set -euo pipefail
+          export PATH="$PATH:$(go env GOPATH)/bin"
+          cd logic-grpc-service
+          protoc \
+            --proto_path=proto \
+            --go_out=recruitment/pb \
+            --go_opt=paths=source_relative \
+            --go_opt=Mrecruitment.proto=recruitment/pb \
+            recruitment.proto
+          cp recruitment/pb/recruitment.pb.go ../web-gin-service/recruitment/pb/recruitment.pb.go
+      - name: Verify pb diff is empty
+        run: |
+          set -euo pipefail
+          if ! git diff --quiet \
+              logic-grpc-service/recruitment/pb/recruitment.pb.go \
+              web-gin-service/recruitment/pb/recruitment.pb.go; then
+            echo "ERROR: proto regeneration produced changes."
+            echo ""
+            echo "This means the committed .pb.go is out of sync with .proto."
+            echo "To fix locally:"
+            echo "  1. cd logic-grpc-service"
+            echo "  2. protoc --proto_path=proto --go_out=recruitment/pb --go_opt=paths=source_relative --go_opt=Mrecruitment.proto=recruitment/pb recruitment.proto"
+            echo "  3. cp recruitment/pb/recruitment.pb.go ../web-gin-service/recruitment/pb/recruitment.pb.go"
+            echo "  4. Commit both .pb.go files"
+            echo ""
+            echo "Diff summary:"
+            git diff --stat \
+              logic-grpc-service/recruitment/pb/recruitment.pb.go \
+              web-gin-service/recruitment/pb/recruitment.pb.go
+            exit 1
+          fi
+          echo "OK: protoc regeneration matches committed pb"
+
   # ── Secret Scanning ──────────────────────────────────────────────
   secret-scan:
     name: Secret Scan
