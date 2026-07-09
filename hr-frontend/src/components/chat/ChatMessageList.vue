@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref } from 'vue'
-import type { CandidateOption, ChatMessageSkill } from '@/types/ai'
+import type { AgentSkillSelectionPayload, CandidateOption, ChatMessageSkill } from '@/types/ai'
 
 interface MessageItem {
   role: string
@@ -20,6 +20,7 @@ interface MessageItem {
   process_content?: string
   processContent?: string
   candidateOptions?: CandidateOption[]
+  agentSkillSelection?: AgentSkillSelectionPayload
 }
 
 const props = defineProps<{
@@ -35,6 +36,7 @@ const props = defineProps<{
 
 const emit = defineEmits<{
   (e: 'retry', index: number): void
+  (e: 'confirm-skill-selection', index: number, skillIds: number[]): void
 }>()
 
 defineExpose({ scrollToBottom })
@@ -92,6 +94,40 @@ const loadingDescription = (message: MessageItem): string => {
   return `${text}，请稍候...`
 }
 
+const selectedSkillIds = ref<Record<number, number[]>>({})
+
+const skillSelectionLabel = (candidate: AgentSkillSelectionPayload['candidates'][number]): string =>
+  candidate.display_name || candidate.name || `Skill #${candidate.id}`
+
+const skillSelectionReason = (candidate: AgentSkillSelectionPayload['candidates'][number]): string => {
+  if (candidate.reason) return candidate.reason
+  if (candidate.category || candidate.scenario) return [candidate.category, candidate.scenario].filter(Boolean).join(' · ')
+  return '系统推荐候选 Skill'
+}
+
+const defaultSelectionIds = (selection: AgentSkillSelectionPayload): number[] =>
+  selection.recommended_agent_skill_ids?.length
+    ? selection.recommended_agent_skill_ids
+    : selection.candidates.filter((candidate) => candidate.recommended).map((candidate) => candidate.id)
+
+const selectionIds = (index: number, selection: AgentSkillSelectionPayload): number[] =>
+  selectedSkillIds.value[index] ?? defaultSelectionIds(selection)
+
+const toggleSkillSelection = (index: number, selection: AgentSkillSelectionPayload, id: number) => {
+  const current = selectionIds(index, selection)
+  const next = current.includes(id) ? current.filter((item) => item !== id) : [...current, id]
+  selectedSkillIds.value = { ...selectedSkillIds.value, [index]: next }
+}
+
+const confirmSkillSelection = (index: number, selection: AgentSkillSelectionPayload) => {
+  emit('confirm-skill-selection', index, selectionIds(index, selection))
+}
+
+const skipSkillSelection = (index: number) => {
+  selectedSkillIds.value = { ...selectedSkillIds.value, [index]: [] }
+  emit('confirm-skill-selection', index, [])
+}
+
 const quickHints = [
   '今天后端岗位投递了多少人？',
   '最近一周的面试通过率是多少？',
@@ -146,6 +182,41 @@ const quickHints = [
         }"
       >
         <template v-if="message.role === 'assistant'">
+          <div v-if="message.agentSkillSelection" class="skill-confirmation">
+            <div class="skill-confirmation__header">
+              <div>
+                <div class="skill-confirmation__title">确认本次要调用的 Skill</div>
+                <div class="skill-confirmation__desc">系统匹配到多个候选，请选择后继续生成回答。</div>
+              </div>
+              <el-tag size="small" effect="plain">待确认</el-tag>
+            </div>
+            <div class="skill-confirmation__list">
+              <button
+                v-for="candidate in message.agentSkillSelection.candidates"
+                :key="candidate.id"
+                class="skill-confirmation__option"
+                :class="{ 'skill-confirmation__option--selected': selectionIds(index, message.agentSkillSelection).includes(candidate.id) }"
+                type="button"
+                @click="toggleSkillSelection(index, message.agentSkillSelection, candidate.id)"
+              >
+                <span class="skill-confirmation__check">
+                  {{ selectionIds(index, message.agentSkillSelection).includes(candidate.id) ? '✓' : '' }}
+                </span>
+                <span class="skill-confirmation__body">
+                  <span class="skill-confirmation__name">
+                    {{ skillSelectionLabel(candidate) }}
+                    <em v-if="candidate.recommended">推荐</em>
+                  </span>
+                  <span class="skill-confirmation__reason">{{ skillSelectionReason(candidate) }}</span>
+                </span>
+              </button>
+            </div>
+            <div class="skill-confirmation__actions">
+              <el-button size="small" @click="skipSkillSelection(index)">不使用 Skill</el-button>
+              <el-button type="primary" size="small" @click="confirmSkillSelection(index, message.agentSkillSelection)">继续</el-button>
+            </div>
+          </div>
+
           <div v-if="message.processContent" class="assistant-process">
             <div class="assistant-process__label">执行过程</div>
             <div class="assistant-process__content md-content" v-html="renderMarkdown(message.processContent)"></div>
@@ -339,6 +410,118 @@ const quickHints = [
 
 .bubble__retry {
   margin-top: 10px;
+}
+
+.skill-confirmation {
+  width: min(560px, 100%);
+  display: grid;
+  gap: 12px;
+}
+
+.skill-confirmation__header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.skill-confirmation__title {
+  color: var(--text-primary);
+  font-size: 14px;
+  font-weight: 700;
+  line-height: 1.45;
+}
+
+.skill-confirmation__desc {
+  margin-top: 3px;
+  color: var(--text-muted);
+  font-size: 12.5px;
+  line-height: 1.5;
+}
+
+.skill-confirmation__list {
+  display: grid;
+  gap: 8px;
+}
+
+.skill-confirmation__option {
+  width: 100%;
+  min-width: 0;
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface);
+  color: var(--text-secondary);
+  cursor: pointer;
+  text-align: left;
+  transition: border-color 0.15s ease, background-color 0.15s ease;
+}
+
+.skill-confirmation__option:hover,
+.skill-confirmation__option--selected {
+  border-color: color-mix(in srgb, var(--brand) 52%, var(--border));
+  background: var(--brand-soft);
+}
+
+.skill-confirmation__check {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  margin-top: 1px;
+  border: 1px solid color-mix(in srgb, var(--brand) 36%, var(--border));
+  border-radius: 4px;
+  color: var(--brand);
+  font-size: 12px;
+  font-weight: 800;
+  line-height: 1;
+}
+
+.skill-confirmation__body {
+  min-width: 0;
+  display: grid;
+  gap: 3px;
+}
+
+.skill-confirmation__name {
+  min-width: 0;
+  color: var(--text-primary);
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 1.35;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.skill-confirmation__name em {
+  margin-left: 6px;
+  color: var(--brand);
+  font-size: 11px;
+  font-style: normal;
+  font-weight: 700;
+}
+
+.skill-confirmation__reason {
+  min-width: 0;
+  color: var(--text-muted);
+  font-size: 12px;
+  line-height: 1.45;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.skill-confirmation__actions {
+  display: flex;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 8px;
 }
 
 .assistant-process {

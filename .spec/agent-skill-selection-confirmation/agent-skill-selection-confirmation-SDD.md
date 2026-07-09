@@ -152,6 +152,7 @@ Initial implementation can avoid new global config. If thresholds are introduced
 
 - Keep Skill selection confirmation policy in backend service layer near Agent Skill selection and AI execution orchestration.
 - Keep frontend UI inside HR chat components.
+- Backend emission of `agent_skill_selection_required` is owned by TASK-ASC-004, because it must modify AI service orchestration after the API contract and frontend UI exist.
 - Do not modify ranking weights, embedding provider, database schema, package manifests, or unrelated Agent Skill admin pages.
 - Do not refactor AI chat streaming beyond the narrow event handling required.
 

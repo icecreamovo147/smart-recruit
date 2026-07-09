@@ -7,7 +7,7 @@
 | TASK-ASC-001 | Backend selection confirmation policy | pending | logic service only | acceptance/TASK-ASC-001.md |
 | TASK-ASC-002 | Stream/API payload contract | pending | proto + HTTP gateway + frontend types | acceptance/TASK-ASC-002.md |
 | TASK-ASC-003 | HR chat confirmation UI | pending | HR frontend chat flow | acceptance/TASK-ASC-003.md |
-| TASK-ASC-004 | Trace and retry consistency | pending | trace/recorder/frontend retry | acceptance/TASK-ASC-004.md |
+| TASK-ASC-004 | Backend emission, trace, and retry consistency | pending | backend emission + trace/recorder/frontend retry | acceptance/TASK-ASC-004.md |
 | TASK-ASC-005 | End-to-end validation and cleanup | pending | tests and harness verification | acceptance/TASK-ASC-005.md |
 
 ## TASK-ASC-001 - Backend selection confirmation policy
@@ -166,18 +166,20 @@ HR frontend chat components and tests.
 
 Prefer reusing existing chat visual patterns over adding a modal.
 
-## TASK-ASC-004 - Trace and retry consistency
+## TASK-ASC-004 - Backend emission, trace, and retry consistency
 
 ### Goal
 
-Ensure confirmed selections appear correctly in execution trace and retry flow.
+Wire the backend confirmation decision into AI execution, then ensure confirmed selections appear correctly in execution trace and retry flow.
 
 ### Scope
 
-Agent run recorder and HR retry/message metadata behavior.
+AI service orchestration, Agent run recorder, and HR retry/message metadata behavior.
 
 ### Allowed Files
 
+- `logic-grpc-service/service/ai_service.go`
+- `logic-grpc-service/service/ai_service_test.go`
 - `logic-grpc-service/service/agent_run_recorder.go`
 - `logic-grpc-service/service/agent_run_recorder_test.go`
 - `logic-grpc-service/service/agent_skill_selector.go`
@@ -199,6 +201,8 @@ Agent run recorder and HR retry/message metadata behavior.
 
 ### Acceptance Criteria
 
+- Backend emits `agent_skill_selection_required` before prompt injection when the policy requires confirmation.
+- Confirmed resubmissions bypass confirmation, including an explicitly empty Skill selection.
 - Execution trace identifies confirmed Skill IDs/details after final execution.
 - Selection-required pre-execution state does not appear as a completed AI answer.
 - Retry preserves confirmed Skill choices.
@@ -211,6 +215,7 @@ Agent run recorder and HR retry/message metadata behavior.
 
 ### Risks
 
+- AI execution must stop cleanly after emitting selection-required, without persisting a completed assistant answer.
 - Trace records may be confusing if a run is started before confirmation.
 
 ### Notes

@@ -78,9 +78,11 @@
       "notes": ["Prefer assistant-message inline confirmation UI."]
     },
     "TASK-ASC-004": {
-      "title": "Trace and retry consistency",
+      "title": "Backend emission, trace, and retry consistency",
       "status": "pending",
       "allowedFiles": [
+        "logic-grpc-service/service/ai_service.go",
+        "logic-grpc-service/service/ai_service_test.go",
         "logic-grpc-service/service/agent_run_recorder.go",
         "logic-grpc-service/service/agent_run_recorder_test.go",
         "logic-grpc-service/service/agent_skill_selector.go",
