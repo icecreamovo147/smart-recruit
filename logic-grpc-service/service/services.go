@@ -56,6 +56,7 @@ type Services struct {
 	CandidateMatch         *CandidateMatchService
 	RecruitingIntelligence *RecruitingIntelligenceService
 	Embedding              *EmbeddingService
+	EmbeddingConfig        *EmbeddingConfigService
 
 	// Phase 6: Audit context repo for AI usage audit writes
 	UsageAuditCtxRepo *repository.UsageAuditContextRepo
@@ -67,6 +68,7 @@ type Services struct {
 	NotificationConsumer *NotificationConsumer
 	ResumeParseConsumer  *ResumeParseConsumer
 	EmailConsumer        *EmailConsumer
+	EmbeddingConsumer    *EmbeddingConsumer
 }
 
 func NewServices(
@@ -109,7 +111,17 @@ func NewServices(
 	runtimePolicy := NewAgentRuntimePolicy(cfg)
 	toolExecutor := ai.NewToolExecutor(applications, jobs, resumes, ossClient, authzRepo, profiles, resumeProfileRepo, candidateMatchRepo)
 	candidateToolExecutor := ai.NewCandidateToolExecutor(applications, jobs, resumes)
-	embeddingSvc := NewEmbeddingService(repository.NewAIEmbeddingRepo(db), UnavailableEmbeddingProvider{}).WithRuntimePolicy(runtimePolicy)
+	embeddingModelRepo := repository.NewEmbeddingModelRepo(db)
+	embeddingProviderRepo := repository.NewEmbeddingProviderRepo(db)
+
+	var embeddingProviderFactory *EmbeddingProviderFactory
+	encKey, encErr := crypto.LoadEncryptionKey()
+	if encErr == nil {
+		embeddingProviderFactory = NewEmbeddingProviderFactory(cfg, embeddingModelRepo, embeddingProviderRepo)
+	} else {
+		logger.L().Warn("[embedding] encryption key not set, using unavailable provider", zap.Error(encErr))
+	}
+	embeddingSvc := NewEmbeddingService(repository.NewAIEmbeddingRepo(db), embeddingProviderFactory, encKey).WithRuntimePolicy(runtimePolicy)
 	contextBuilder := NewAgentContextBuilder(chats, summaries, memories, aiClient, cfg, repository.NewPromptTemplateRepo(db)).WithEmbeddingService(embeddingSvc)
 	agentRuntime := cfg.AI.AgentRuntime
 	analyticsRepo := repository.NewAnalyticsRepo(db)
@@ -120,6 +132,7 @@ func NewServices(
 	notificationConsumer := NewNotificationConsumer(notifications, notifCache)
 	resumeParseConsumer := NewResumeParseConsumer(resumes, ossClient)
 	emailConsumer := NewEmailConsumer(users, emailLogRepo, emailRenderer, emailSender)
+	embeddingConsumer := NewEmbeddingConsumer(embeddingSvc)
 	scopeEval := &scopeEvaluator{authzRepo: authzRepo}
 	serviceAuth := NewServiceAuthorizer(authzRepo, scopeEval)
 
@@ -132,8 +145,16 @@ func NewServices(
 	// Initialize MCP service before AI service for MCP tool injection
 	mcpSvc := NewMCPService(repository.NewMCPRepo(db), cfg).WithRuntimePolicy(runtimePolicy)
 	skillSvc := NewSkillService(repository.NewSkillRepo(db))
-	agentSkillSvc := NewAgentSkillServiceWithAgentConfigRepo(repository.NewAgentSkillRepo(db), agentCfgRepo).WithSemanticDebugDependencies(memories, embeddingSvc)
+	embeddingEventPublisher := NewEmbeddingEventPublisher(mqConn)
+	agentSkillSvc := NewAgentSkillServiceWithAgentConfigRepo(repository.NewAgentSkillRepo(db), agentCfgRepo).
+		WithSemanticDebugDependencies(memories, embeddingSvc).
+		WithEmbeddingEventPublisher(embeddingEventPublisher)
 	agentSkillRepo := repository.NewAgentSkillRepo(db)
+	backfillSvc := NewEmbeddingBackfillService(db, embeddingSvc, agentSkillRepo, memories)
+	var embeddingConfigSvc *EmbeddingConfigService
+	if encErr == nil {
+		embeddingConfigSvc = NewEmbeddingConfigService(embeddingProviderRepo, embeddingModelRepo, encKey, backfillSvc, embeddingSvc)
+	}
 	heuristicExtractor := NewHeuristicResumeProfileExtractor()
 	llmExtractor := NewLLMResumeProfileExtractor(llmConfigSvc, promptTmplRepo)
 	resumeProfileExtractor := NewFallbackResumeProfileExtractor(llmExtractor, heuristicExtractor,
@@ -176,7 +197,7 @@ func NewServices(
 		Application:            NewApplicationService(authzRepo, applications, profiles, resumes, jobs, interviews, notifications, outboxPublisher, ossClient, jobCache, scopeEval),
 		Interview:              NewInterviewService(authzRepo, interviews, users, applications, jobs, notifications, outboxPublisher, ossClient, scopeEval, serviceAuth),
 		Offer:                  NewOfferService(authzRepo, offers, applications, jobs, notifications, outboxPublisher, scopeEval, serviceAuth),
-		AI:                     NewAIService(chats, applications, jobs, resumes, summaries, toolTraces, agentRuns, memories, ossClient, aiClient, toolExecutor, contextBuilder, candidateAI, usageLogs, usageAuditCtxRepo, authzRepo, agentRuntime, serviceAuth, llmConfigSvc, agentCfgRepo, promptTmplRepo, mcpSvc, skillSvc, agentSkillRepo).WithEmbeddingService(embeddingSvc).WithRuntimePolicy(runtimePolicy),
+		AI:                     NewAIService(chats, applications, jobs, resumes, summaries, toolTraces, agentRuns, memories, ossClient, aiClient, toolExecutor, contextBuilder, candidateAI, usageLogs, usageAuditCtxRepo, authzRepo, agentRuntime, serviceAuth, llmConfigSvc, agentCfgRepo, promptTmplRepo, mcpSvc, skillSvc, agentSkillRepo).WithEmbeddingService(embeddingSvc).WithEmbeddingEventPublisher(embeddingEventPublisher).WithRuntimePolicy(runtimePolicy),
 		CandidateAI:            candidateAI,
 		Notification:           NewNotificationService(notifications, notifCache, serviceAuth),
 		LlmConfig:              llmConfigSvc,
@@ -189,6 +210,7 @@ func NewServices(
 		CandidateMatch:         candidateMatchSvc,
 		RecruitingIntelligence: recruitingIntelligenceSvc,
 		Embedding:              embeddingSvc,
+		EmbeddingConfig:        embeddingConfigSvc,
 
 		Collaboration: NewCollaborationService(
 			authzRepo,
@@ -209,6 +231,7 @@ func NewServices(
 		NotificationConsumer: notificationConsumer,
 		ResumeParseConsumer:  resumeParseConsumer,
 		EmailConsumer:        emailConsumer,
+		EmbeddingConsumer:    embeddingConsumer,
 	}
 }
 

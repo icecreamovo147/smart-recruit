@@ -10,11 +10,13 @@ import (
 	"math"
 	"sort"
 	"strings"
+	"sync/atomic"
 	"time"
 
 	"go.uber.org/zap"
 
 	"logic-grpc-service/model"
+	"logic-grpc-service/pkg/crypto"
 	"logic-grpc-service/pkg/logger"
 	"logic-grpc-service/repository"
 )
@@ -48,15 +50,22 @@ func (UnavailableEmbeddingProvider) EmbedText(context.Context, string) (Embeddin
 
 type EmbeddingService struct {
 	repo     *repository.AIEmbeddingRepo
-	provider EmbeddingProvider
+	provider atomic.Pointer[EmbeddingProvider]
 	policy   AgentRuntimePolicy
+	factory  *EmbeddingProviderFactory
+	encKey   crypto.EncryptionKey
 }
 
-func NewEmbeddingService(repo *repository.AIEmbeddingRepo, provider EmbeddingProvider) *EmbeddingService {
-	if provider == nil {
-		provider = UnavailableEmbeddingProvider{}
+func NewEmbeddingService(repo *repository.AIEmbeddingRepo, factory *EmbeddingProviderFactory, encKey crypto.EncryptionKey) *EmbeddingService {
+	s := &EmbeddingService{
+		repo:    repo,
+		factory: factory,
+		encKey:  encKey,
+		policy:  DefaultAgentRuntimePolicy(),
 	}
-	return &EmbeddingService{repo: repo, provider: provider, policy: DefaultAgentRuntimePolicy()}
+	initial := s.buildProvider(context.Background())
+	s.provider.Store(&initial)
+	return s
 }
 
 func (s *EmbeddingService) WithRuntimePolicy(policy AgentRuntimePolicy) *EmbeddingService {
@@ -64,6 +73,49 @@ func (s *EmbeddingService) WithRuntimePolicy(policy AgentRuntimePolicy) *Embeddi
 		s.policy = policy.withDefaults()
 	}
 	return s
+}
+
+func (s *EmbeddingService) currentProvider() EmbeddingProvider {
+	if s == nil {
+		return UnavailableEmbeddingProvider{}
+	}
+	p := s.provider.Load()
+	if p == nil {
+		return UnavailableEmbeddingProvider{}
+	}
+	return *p
+}
+
+func (s *EmbeddingService) buildProvider(ctx context.Context) EmbeddingProvider {
+	if s == nil || s.factory == nil {
+		return UnavailableEmbeddingProvider{}
+	}
+	return s.factory.Build(ctx, s.encKey)
+}
+
+func (s *EmbeddingService) RebuildProvider(ctx context.Context) {
+	if s == nil {
+		return
+	}
+	next := s.buildProvider(ctx)
+	s.provider.Store(&next)
+	if _, ok := next.(UnavailableEmbeddingProvider); ok {
+		logger.L().Warn("[logic][embedding] provider rebuilt: unavailable (check provider/model config)")
+		return
+	}
+	logger.L().Info("[logic][embedding] provider rebuilt successfully")
+}
+
+// SetProviderForTest injects a custom provider, bypassing the factory.
+// Intended for unit tests that need a deterministic fake provider.
+func (s *EmbeddingService) SetProviderForTest(p EmbeddingProvider) {
+	if s == nil {
+		return
+	}
+	if p == nil {
+		p = UnavailableEmbeddingProvider{}
+	}
+	s.provider.Store(&p)
 }
 
 type EmbedObjectInput struct {
@@ -131,7 +183,7 @@ func (s *EmbeddingService) EmbedObject(ctx context.Context, input EmbedObjectInp
 	vector := append([]float64(nil), input.Vector...)
 	modelName := strings.TrimSpace(input.Model)
 	if len(vector) == 0 {
-		result, err := s.provider.EmbedText(ctx, input.Text)
+		result, err := s.currentProvider().EmbedText(ctx, input.Text)
 		if err != nil {
 			log.Warn("[logic][embedding] provider call failed, falling back to unavailable",
 				zap.String("object_type", objectType),
@@ -360,7 +412,7 @@ func (s *EmbeddingService) resolveQueryVector(ctx context.Context, text string, 
 	queryVector := append([]float64(nil), vector...)
 	normalizedModel := normalizeEmbeddingModel(modelName)
 	if len(queryVector) == 0 {
-		result, err := s.provider.EmbedText(ctx, text)
+		result, err := s.currentProvider().EmbedText(ctx, text)
 		if err != nil {
 			return nil, "", err
 		}

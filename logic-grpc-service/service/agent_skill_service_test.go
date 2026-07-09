@@ -12,6 +12,7 @@ import (
 	"gorm.io/gorm"
 
 	"logic-grpc-service/model"
+	"logic-grpc-service/pkg/crypto"
 	"logic-grpc-service/recruitment/pb"
 	"logic-grpc-service/repository"
 )
@@ -115,7 +116,7 @@ func TestAgentSkillServiceDebugSemanticRetrievalFallback(t *testing.T) {
 	if err := db.AutoMigrate(&model.AIMemory{}, &model.AIEmbedding{}); err != nil {
 		t.Fatalf("auto migrate semantic debug tables: %v", err)
 	}
-	svc.WithSemanticDebugDependencies(repository.NewMemoryRepo(db), NewEmbeddingService(repository.NewAIEmbeddingRepo(db), UnavailableEmbeddingProvider{}))
+	svc.WithSemanticDebugDependencies(repository.NewMemoryRepo(db), NewEmbeddingService(repository.NewAIEmbeddingRepo(db), nil, crypto.EncryptionKey{}))
 	ctx := context.Background()
 	skill := &model.AgentSkill{
 		Name:              "candidate_match_debug",
@@ -153,6 +154,52 @@ func TestAgentSkillServiceDebugSemanticRetrievalFallback(t *testing.T) {
 	}
 	if resp.GetFallbackReason() == "" || len(resp.GetSkills()) != 1 || len(resp.GetMemories()) != 1 {
 		t.Fatalf("fallback debug payload incomplete: %#v", resp)
+	}
+}
+
+func TestAgentSkillServiceDebugSemanticRetrievalEmbeddingAvailableWhenServiceHealthy(t *testing.T) {
+	svc, db := newAgentSkillTestService(t)
+	if err := db.AutoMigrate(&model.AIMemory{}, &model.AIEmbedding{}); err != nil {
+		t.Fatalf("auto migrate semantic debug tables: %v", err)
+	}
+	// Use a fake provider that returns a real vector (service is healthy),
+	// but the ai_embeddings table is empty so Search returns 0 candidates.
+	embeddingSvc := NewEmbeddingService(repository.NewAIEmbeddingRepo(db), nil, crypto.EncryptionKey{})
+	embeddingSvc.SetProviderForTest(fakeEmbeddingProvider{
+		vector: EmbeddingVector{Model: "fake-test", Vector: []float64{0.1, 0.2, 0.3}},
+	})
+	svc.WithSemanticDebugDependencies(repository.NewMemoryRepo(db), embeddingSvc)
+	ctx := context.Background()
+	skill := &model.AgentSkill{
+		Name:              "candidate_match_debug",
+		DisplayName:       "Candidate Match Debug",
+		Description:       "candidate match",
+		IsEnabled:         1,
+		IsManualInvocable: 1,
+		AgentType:         defaultAgentSkillAgentType,
+		Category:          "candidate_match",
+		SemanticTags:      `["candidate","match"]`,
+	}
+	version := &model.AgentSkillVersion{Version: "1.0.0", SkillMD: "candidate match", BodyMarkdown: "candidate match"}
+	if err := repository.NewAgentSkillRepo(db).CreateSkillWithVersion(ctx, skill, version, true); err != nil {
+		t.Fatalf("CreateSkillWithVersion: %v", err)
+	}
+
+	resp, err := svc.DebugSemanticRetrieval(ctx, &pb.DebugSemanticRetrievalRequest{HrId: 20, Query: "candidate match", Limit: 5})
+	if err != nil {
+		t.Fatalf("DebugSemanticRetrieval: %v", err)
+	}
+	if resp.GetCode() != 0 {
+		t.Fatalf("unexpected response code: %#v", resp)
+	}
+	// The embedding service is healthy and the query vector was resolved
+	// successfully, so embeddingAvailable should be true even though no
+	// candidates exist in the ai_embeddings table yet (e.g. before backfill).
+	if !resp.GetEmbeddingAvailable() {
+		t.Fatalf("expected embedding_available=true when service is healthy, got false; fallback_reason=%q", resp.GetFallbackReason())
+	}
+	if resp.GetFallbackReason() != "" {
+		t.Fatalf("expected empty fallback_reason when service is healthy, got %q", resp.GetFallbackReason())
 	}
 }
 

@@ -99,6 +99,7 @@ type Config struct {
 		NotificationQueue string   `yaml:"notification_queue"`
 		ResumeParseQueue  string   `yaml:"resume_parse_queue"`
 		EmailQueue        string   `yaml:"email_queue"`
+		EmbeddingQueue    string   `yaml:"embedding_queue"`
 		PrefetchCount     int      `yaml:"prefetch_count"`
 		MaxRetries        int      `yaml:"max_retries"`
 		RetryDelay        Duration `yaml:"retry_delay"`
@@ -124,6 +125,14 @@ type Config struct {
 		BlockPrivateNetwork   *bool    `yaml:"block_private_network"`
 		MaxTimeoutSeconds     int      `yaml:"max_timeout_seconds"`
 	} `yaml:"mcp"`
+	Embedding struct {
+		Enabled                 *bool    `yaml:"enabled"`
+		DefaultModelID          int64    `yaml:"default_model_id"`
+		FallbackToRuleRetrieval *bool    `yaml:"fallback_to_rule_retrieval"`
+		RequestTimeout          Duration `yaml:"request_timeout"`
+		MaxConcurrency          int      `yaml:"max_concurrency"`
+		SlowRequestThreshold    Duration `yaml:"slow_request_threshold"`
+	} `yaml:"embedding"`
 }
 
 func Load() (Config, error) {
@@ -293,6 +302,9 @@ func Load() (Config, error) {
 	if cfg.RabbitMQ.ResumeParseQueue == "" {
 		cfg.RabbitMQ.ResumeParseQueue = "recruitment.resume.parse"
 	}
+	if cfg.RabbitMQ.EmbeddingQueue == "" {
+		cfg.RabbitMQ.EmbeddingQueue = "recruitment.embedding.upsert"
+	}
 	if cfg.RabbitMQ.PrefetchCount <= 0 {
 		cfg.RabbitMQ.PrefetchCount = 10
 	}
@@ -335,6 +347,17 @@ func Load() (Config, error) {
 	if cfg.MCP.BlockPrivateNetwork == nil {
 		v := true
 		cfg.MCP.BlockPrivateNetwork = &v
+	}
+	defaultBool(&cfg.Embedding.Enabled, true)
+	defaultBool(&cfg.Embedding.FallbackToRuleRetrieval, true)
+	if cfg.Embedding.MaxConcurrency <= 0 {
+		cfg.Embedding.MaxConcurrency = 8
+	}
+	if cfg.Embedding.RequestTimeout.Duration <= 0 {
+		cfg.Embedding.RequestTimeout.Duration = 30 * time.Second
+	}
+	if cfg.Embedding.SlowRequestThreshold.Duration <= 0 {
+		cfg.Embedding.SlowRequestThreshold.Duration = 2 * time.Second
 	}
 	return cfg, nil
 }
@@ -433,10 +456,18 @@ func applyEnvOverrides(cfg *Config) {
 	setString(&cfg.RabbitMQ.NotificationQueue, "RABBITMQ_NOTIFICATION_QUEUE")
 	setString(&cfg.RabbitMQ.ResumeParseQueue, "RABBITMQ_RESUME_PARSE_QUEUE")
 	setString(&cfg.RabbitMQ.EmailQueue, "RABBITMQ_EMAIL_QUEUE")
+	setString(&cfg.RabbitMQ.EmbeddingQueue, "RABBITMQ_EMBEDDING_QUEUE")
 	setInt(&cfg.RabbitMQ.PrefetchCount, "RABBITMQ_PREFETCH_COUNT")
 	setInt(&cfg.RabbitMQ.MaxRetries, "RABBITMQ_MAX_RETRIES")
 	setDuration(&cfg.RabbitMQ.RetryDelay, "RABBITMQ_RETRY_DELAY")
 	setDuration(&cfg.RabbitMQ.ReconnectInterval, "RABBITMQ_RECONNECT_INTERVAL")
+
+	setBoolPtr(&cfg.Embedding.Enabled, "EMBEDDING_ENABLED")
+	setInt64(&cfg.Embedding.DefaultModelID, "EMBEDDING_DEFAULT_MODEL_ID")
+	setBoolPtr(&cfg.Embedding.FallbackToRuleRetrieval, "EMBEDDING_FALLBACK_TO_RULE_RETRIEVAL")
+	setDuration(&cfg.Embedding.RequestTimeout, "EMBEDDING_REQUEST_TIMEOUT")
+	setInt(&cfg.Embedding.MaxConcurrency, "EMBEDDING_MAX_CONCURRENCY")
+	setDuration(&cfg.Embedding.SlowRequestThreshold, "EMBEDDING_SLOW_REQUEST_THRESHOLD")
 }
 
 func setString(target *string, key string) {
@@ -448,6 +479,14 @@ func setString(target *string, key string) {
 func setInt(target *int, key string) {
 	if value := os.Getenv(key); value != "" {
 		if parsed, err := strconv.Atoi(value); err == nil {
+			*target = parsed
+		}
+	}
+}
+
+func setInt64(target *int64, key string) {
+	if value := os.Getenv(key); value != "" {
+		if parsed, err := strconv.ParseInt(value, 10, 64); err == nil {
 			*target = parsed
 		}
 	}

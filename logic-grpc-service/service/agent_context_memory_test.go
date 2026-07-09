@@ -9,6 +9,7 @@ import (
 	"gorm.io/gorm"
 
 	"logic-grpc-service/model"
+	"logic-grpc-service/pkg/crypto"
 	"logic-grpc-service/repository"
 )
 
@@ -22,7 +23,8 @@ func TestAgentContextBuilderMemoryRecallOrdersByScopeImportanceAndExpiry(t *test
 	}
 	ctx := context.Background()
 	memories := repository.NewMemoryRepo(db)
-	embeddingSvc := NewEmbeddingService(repository.NewAIEmbeddingRepo(db), fakeEmbeddingProvider{
+	embeddingSvc := NewEmbeddingService(repository.NewAIEmbeddingRepo(db), nil, crypto.EncryptionKey{})
+	embeddingSvc.SetProviderForTest(fakeEmbeddingProvider{
 		vector: EmbeddingVector{Model: "local-test", Vector: []float64{1, 0, 0}},
 	})
 	builder := (&AgentContextBuilder{memories: memories}).WithEmbeddingService(embeddingSvc)

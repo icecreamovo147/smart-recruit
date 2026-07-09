@@ -9,6 +9,7 @@ import (
 	"gorm.io/gorm"
 
 	"logic-grpc-service/model"
+	"logic-grpc-service/pkg/crypto"
 	"logic-grpc-service/repository"
 )
 
@@ -31,7 +32,11 @@ func newEmbeddingTestService(t *testing.T, provider EmbeddingProvider) (*Embeddi
 		t.Fatalf("auto migrate: %v", err)
 	}
 	repo := repository.NewAIEmbeddingRepo(db)
-	return NewEmbeddingService(repo, provider), repo
+	svc := NewEmbeddingService(repo, nil, crypto.EncryptionKey{})
+	if provider != nil {
+		svc.SetProviderForTest(provider)
+	}
+	return svc, repo
 }
 
 func TestEmbeddingServiceUnavailableProviderRecordsFallbackState(t *testing.T) {

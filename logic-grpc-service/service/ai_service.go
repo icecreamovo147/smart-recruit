@@ -2,6 +2,8 @@ package service
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -52,6 +54,7 @@ type AIService struct {
 	skillSvc        *SkillService
 	agentSkillRepo  agentSkillLister
 	embeddings      *EmbeddingService
+	eventPublisher  *EmbeddingEventPublisher
 	cachedADKTools  []tool.BaseTool // lazy-initialized, shared across requests
 	cachedToolsMu   sync.Mutex      // guards cachedADKTools init and invalidation
 	usageBuilder    *ContextUsageBuilder
@@ -115,6 +118,13 @@ func NewAIService(
 func (s *AIService) WithEmbeddingService(embeddings *EmbeddingService) *AIService {
 	if s != nil {
 		s.embeddings = embeddings
+	}
+	return s
+}
+
+func (s *AIService) WithEmbeddingEventPublisher(publisher *EmbeddingEventPublisher) *AIService {
+	if s != nil {
+		s.eventPublisher = publisher
 	}
 	return s
 }
@@ -1325,7 +1335,35 @@ func (s *AIService) writeMemory(ctx context.Context, hrID int64, scopeType strin
 			zap.String("memory_type", memoryType),
 			zap.Int("content_chars", len([]rune(content))),
 		)
+		s.publishMemoryEmbeddingEvent(ctx, memory)
 	}
+}
+
+func (s *AIService) publishMemoryEmbeddingEvent(ctx context.Context, memory *model.AIMemory) {
+	if s.eventPublisher == nil {
+		return
+	}
+
+	scopeDescription := memory.ScopeType + ":" + formatScopeID(memory.ScopeID)
+	text := BuildMemoryEmbeddingText(memory.Content, memory.MemoryType, scopeDescription)
+	if strings.TrimSpace(text) == "" {
+		return
+	}
+
+	hash := sha256.Sum256([]byte(text))
+	textHash := hex.EncodeToString(hash[:])
+
+	s.eventPublisher.PublishUpsertBestEffort(ctx, EmbeddingUpsertEvent{
+		ObjectType: "ai_memory",
+		ObjectID:   memory.ID,
+		ModelID:    0,
+		Text:       text,
+		TextHash:   textHash,
+	})
+}
+
+func formatScopeID(id uint64) string {
+	return fmt.Sprintf("%d", id)
 }
 
 // buildAnalysisConclusion creates a concise conclusion from application analysis results.

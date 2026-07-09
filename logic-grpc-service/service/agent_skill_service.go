@@ -2,6 +2,8 @@ package service
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -26,6 +28,7 @@ type AgentSkillService struct {
 	agentConfigRepo *repository.AgentConfigRepo
 	memoryRepo      *repository.MemoryRepo
 	embeddings      *EmbeddingService
+	eventPublisher  *EmbeddingEventPublisher
 }
 
 const (
@@ -49,6 +52,13 @@ func (s *AgentSkillService) WithSemanticDebugDependencies(memoryRepo *repository
 	if s != nil {
 		s.memoryRepo = memoryRepo
 		s.embeddings = embeddings
+	}
+	return s
+}
+
+func (s *AgentSkillService) WithEmbeddingEventPublisher(publisher *EmbeddingEventPublisher) *AgentSkillService {
+	if s != nil {
+		s.eventPublisher = publisher
 	}
 	return s
 }
@@ -88,7 +98,8 @@ func (s *AgentSkillService) DebugSemanticRetrieval(ctx context.Context, req *pb.
 		limit = 20
 	}
 
-	skillScores, embeddingAvailable := s.semanticDebugSkillScores(ctx, query, limit)
+	skillScores, skillSearchErr := s.semanticDebugSkillScores(ctx, query, limit)
+	embeddingAvailable := skillSearchErr == nil
 	selected, err := selectAgentSkillsWithSemantic(ctx, s.repo, agentType, query, nil, nil, skillScores)
 	if err != nil {
 		return nil, status.Error(codes.Internal, "debug semantic skill retrieval failed")
@@ -122,9 +133,9 @@ func (s *AgentSkillService) GetAgentSkill(ctx context.Context, req *pb.GetAgentS
 	return &pb.AgentSkillResponse{Code: 0, Msg: "success", Skill: s.agentSkillToPB(ctx, skill)}, nil
 }
 
-func (s *AgentSkillService) semanticDebugSkillScores(ctx context.Context, query string, limit int) (map[int64]float64, bool) {
+func (s *AgentSkillService) semanticDebugSkillScores(ctx context.Context, query string, limit int) (map[int64]float64, error) {
 	if s == nil || s.embeddings == nil {
-		return nil, false
+		return nil, fmt.Errorf("embedding service not configured")
 	}
 	results, err := s.embeddings.Search(ctx, EmbeddingSearchInput{
 		QueryText:   query,
@@ -132,7 +143,7 @@ func (s *AgentSkillService) semanticDebugSkillScores(ctx context.Context, query 
 		Limit:       limit * 4,
 	})
 	if err != nil {
-		return nil, false
+		return nil, err
 	}
 	scores := make(map[int64]float64, len(results))
 	for _, result := range results {
@@ -140,7 +151,7 @@ func (s *AgentSkillService) semanticDebugSkillScores(ctx context.Context, query 
 			scores[int64(result.Embedding.ObjectID)] = result.Score
 		}
 	}
-	return scores, len(scores) > 0
+	return scores, nil
 }
 
 func (s *AgentSkillService) semanticDebugMemories(ctx context.Context, req *pb.DebugSemanticRetrievalRequest, limit int, embeddingAvailable *bool) []*pb.SemanticMemoryDebugItem {
@@ -160,9 +171,8 @@ func (s *AgentSkillService) semanticDebugMemories(ctx context.Context, req *pb.D
 		return nil
 	}
 	semanticScores := builder.semanticMemoryScores(ctx, input, rows)
-	if len(semanticScores) > 0 && embeddingAvailable != nil {
-		*embeddingAvailable = true
-	}
+	// embeddingAvailable was determined by semanticDebugSkillScores from the
+	// embedding service's health, not from hit count. Don't override it here.
 	ranked := builder.rankMemories(ctx, input, rows)
 	if len(ranked) > limit {
 		ranked = ranked[:limit]
@@ -326,6 +336,7 @@ func (s *AgentSkillService) CreateAgentSkill(ctx context.Context, req *pb.Create
 		return nil, status.Error(codes.Internal, "create agent skill failed")
 	}
 	log.Info("[logic][agent_skill] CreateAgentSkill succeeded", zap.Int64("skill_id", skill.ID))
+	s.publishEmbeddingEvent(ctx, uint64(skill.ID))
 	return &pb.AgentSkillResponse{Code: 0, Msg: "success", Skill: s.agentSkillToPB(ctx, skill)}, nil
 }
 
@@ -434,6 +445,9 @@ func (s *AgentSkillService) UpdateAgentSkill(ctx context.Context, req *pb.Update
 	if err != nil {
 		return nil, status.Error(codes.NotFound, "agent skill not found")
 	}
+	if len(updates) > 0 {
+		s.publishEmbeddingEvent(ctx, uint64(skill.ID))
+	}
 	return &pb.AgentSkillResponse{Code: 0, Msg: "success", Skill: s.agentSkillToPB(ctx, skill)}, nil
 }
 
@@ -524,6 +538,7 @@ func (s *AgentSkillService) ActivateAgentSkillVersion(ctx context.Context, req *
 	log.Info("[logic][agent_skill] ActivateAgentSkillVersion succeeded",
 		zap.Int64("skill_id", req.GetSkillId()),
 		zap.Int64("version_id", req.GetVersionId()))
+	s.publishEmbeddingEvent(ctx, uint64(skill.ID))
 	return &pb.AgentSkillResponse{Code: 0, Msg: "success", Skill: s.agentSkillToPB(ctx, skill)}, nil
 }
 
@@ -551,6 +566,45 @@ func (s *AgentSkillService) UpdateAgentSkillStatus(ctx context.Context, req *pb.
 	}
 	log.Info("[logic][agent_skill] UpdateAgentSkillStatus succeeded", zap.Int64("skill_id", req.GetId()))
 	return &pb.AgentSkillResponse{Code: 0, Msg: "success", Skill: s.agentSkillToPB(ctx, skill)}, nil
+}
+
+func (s *AgentSkillService) publishEmbeddingEvent(ctx context.Context, skillID uint64) {
+	if s.eventPublisher == nil {
+		return
+	}
+
+	skill, err := s.repo.GetSkillByID(ctx, int64(skillID))
+	if err != nil || skill == nil || skill.IsEnabled == 0 {
+		return
+	}
+
+	semanticTags := unmarshalStringList(skill.SemanticTags)
+
+	bodyMarkdown := ""
+	if skill.CurrentVersionID != nil {
+		version, verErr := s.repo.GetVersionByID(ctx, *skill.CurrentVersionID)
+		if verErr == nil && version != nil {
+			bodyMarkdown = version.BodyMarkdown
+		}
+	}
+
+	text := BuildAgentSkillEmbeddingText(skill.Name, skill.Description, bodyMarkdown, semanticTags)
+	if strings.TrimSpace(text) == "" {
+		return
+	}
+
+	hash := sha256.Sum256([]byte(text))
+	textHash := hex.EncodeToString(hash[:])
+
+	defaultModelID := int64(0)
+
+	s.eventPublisher.PublishUpsertBestEffort(ctx, EmbeddingUpsertEvent{
+		ObjectType: "agent_skill",
+		ObjectID:   skillID,
+		ModelID:    defaultModelID,
+		Text:       text,
+		TextHash:   textHash,
+	})
 }
 
 func (s *AgentSkillService) PreviewAgentSkill(ctx context.Context, req *pb.PreviewAgentSkillRequest) (*pb.PreviewAgentSkillResponse, error) {

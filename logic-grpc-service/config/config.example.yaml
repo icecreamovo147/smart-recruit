@@ -117,4 +117,12 @@ mcp:
   block_private_network: true
   max_timeout_seconds: 120
 
+embedding:
+  enabled: true                              # EMBEDDING_ENABLED: 启用 Embedding Provider
+  default_model_id: 0                        # EMBEDDING_DEFAULT_MODEL_ID: 默认 Embedding 模型 ID
+  fallback_to_rule_retrieval: true           # EMBEDDING_FALLBACK_TO_RULE_RETRIEVAL: Provider 不可用时降级为规则召回
+  request_timeout: "30s"                     # EMBEDDING_REQUEST_TIMEOUT: Embedding API 请求超时
+  max_concurrency: 8                         # EMBEDDING_MAX_CONCURRENCY: 最大并发请求数
+  slow_request_threshold: "2s"               # EMBEDDING_SLOW_REQUEST_THRESHOLD: 慢请求阈值
+
 frontend_base_url: "http://localhost:5173"  # FRONTEND_BASE_URL: 前端地址基础 URL

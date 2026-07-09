@@ -305,6 +305,9 @@ func main() {
 		if err := services.EmailConsumer.Start(bgCtx, mqConn); err != nil {
 			log.Warn("email consumer start failed", zap.Error(err))
 		}
+		if err := services.EmbeddingConsumer.Start(bgCtx, mqConn); err != nil {
+			log.Warn("embedding consumer start failed", zap.Error(err))
+		}
 		go mqConn.KeepAlive(bgCtx, cfg.RabbitMQ.ReconnectInterval.Duration)
 	} else {
 		log.Info("background workers disabled")
@@ -370,6 +373,7 @@ func main() {
 	pb.RegisterSkillServiceServer(grpcServer, recruitmentServer)
 	pb.RegisterAgentSkillServiceServer(grpcServer, recruitmentServer)
 	pb.RegisterRecruitingIntelligenceServiceServer(grpcServer, recruitmentServer)
+	pb.RegisterEmbeddingConfigServiceServer(grpcServer, recruitmentServer)
 	healthpb.RegisterHealthServer(grpcServer, server.NewHealthServer(sqlDB, healthRedis, mqConn))
 
 	// Graceful shutdown
