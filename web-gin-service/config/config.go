@@ -8,17 +8,39 @@ import (
 )
 
 type Config struct {
-	HTTPPort         string
-	GRPCAddr         string
-	JWTSecret        string
-	AuthCookieName   string
-	CandidateCookie  string
-	HRCookie           string
-	InterviewerCookie  string
-	AuthCookieSecure   bool
-	ShutdownTimeout  time.Duration
-	Redis            RedisConfig
-	RateLimit        RateLimitConfig
+	HTTPPort          string
+	GRPCAddr          string
+	JWTSecret         string
+	AuthCookieName    string
+	CandidateCookie   string
+	HRCookie          string
+	InterviewerCookie string
+	AuthCookieSecure  bool
+	ShutdownTimeout   time.Duration
+	Redis             RedisConfig
+	RateLimit         RateLimitConfig
+	// TASK-FU-009：与 logic-grpc-service 同步的 ranking 权重 / 阈值。
+	// web-gin 当前不直接使用这些值；保留是为未来扩展做准备，
+	// 并保证两端的 env 变量读取行为一致。
+	Ranking Ranking
+}
+
+// Ranking 描述 Skill / Memory 召回排序的可调权重与阈值。
+// TASK-FU-009 引入：与 logic-grpc-service/config.Ranking 同形；
+// web-gin 不直接 import logic-grpc-service，故在本地复制 struct 定义。
+// 字段语义与 SDD §3.3 完全对齐；默认值与 logic-grpc-service 一致。
+type Ranking struct {
+	WeightVector     float64
+	WeightLexical    float64
+	WeightMetadata   float64
+	BusinessBoostMax float64
+	PriorityNorm     float64
+	BoostAlpha       float64
+	BoostBeta        float64
+	BoostGamma       float64
+	RelevanceGate    float64
+	GapHigh          float64
+	GapMedium        float64
 }
 
 type RedisConfig struct {
@@ -53,15 +75,15 @@ func Load() (Config, error) {
 		return Config{}, err
 	}
 	return Config{
-		HTTPPort:         env("HTTP_PORT", "8080"),
-		GRPCAddr:         env("GRPC_ADDR", "127.0.0.1:50051"),
-		JWTSecret:        secret,
-		AuthCookieName:   env("AUTH_COOKIE_NAME", "recruitment_token"),
-		CandidateCookie:  env("CANDIDATE_AUTH_COOKIE_NAME", "recruitment_candidate_token"),
+		HTTPPort:          env("HTTP_PORT", "8080"),
+		GRPCAddr:          env("GRPC_ADDR", "127.0.0.1:50051"),
+		JWTSecret:         secret,
+		AuthCookieName:    env("AUTH_COOKIE_NAME", "recruitment_token"),
+		CandidateCookie:   env("CANDIDATE_AUTH_COOKIE_NAME", "recruitment_candidate_token"),
 		HRCookie:          env("HR_AUTH_COOKIE_NAME", "recruitment_hr_token"),
 		InterviewerCookie: env("INTERVIEWER_AUTH_COOKIE_NAME", "recruitment_interviewer_token"),
-		AuthCookieSecure: envBool("AUTH_COOKIE_SECURE", false),
-		ShutdownTimeout:  envDuration("SHUTDOWN_TIMEOUT", 15*time.Second),
+		AuthCookieSecure:  envBool("AUTH_COOKIE_SECURE", false),
+		ShutdownTimeout:   envDuration("SHUTDOWN_TIMEOUT", 15*time.Second),
 		Redis: RedisConfig{
 			Addr:         env("REDIS_ADDR", "127.0.0.1:6379"),
 			Password:     env("REDIS_PASSWORD", ""),
@@ -85,6 +107,21 @@ func Load() (Config, error) {
 			ResumePresignDailyLimit:  envInt("RESUME_PRESIGN_DAILY_LIMIT", 20),
 			ResumeConfirmHourlyLimit: envInt("RESUME_CONFIRM_HOURLY_LIMIT", 5),
 			ResumeConfirmDailyLimit:  envInt("RESUME_CONFIRM_DAILY_LIMIT", 20),
+		},
+		// TASK-FU-009：与 logic-grpc-service 同步的 ranking 段。
+		// web-gin 不直接 import logic-grpc；本地复制 struct 定义 + 独立 env 解析。
+		Ranking: Ranking{
+			WeightVector:     envFloat64("RANKING_WEIGHT_VECTOR"),
+			WeightLexical:    envFloat64("RANKING_WEIGHT_LEXICAL"),
+			WeightMetadata:   envFloat64("RANKING_WEIGHT_METADATA"),
+			BusinessBoostMax: envFloat64("RANKING_BUSINESS_BOOST_MAX"),
+			PriorityNorm:     envFloat64("RANKING_PRIORITY_NORM"),
+			BoostAlpha:       envFloat64("RANKING_BOOST_ALPHA"),
+			BoostBeta:        envFloat64("RANKING_BOOST_BETA"),
+			BoostGamma:       envFloat64("RANKING_BOOST_GAMMA"),
+			RelevanceGate:    envFloat64("RANKING_RELEVANCE_GATE"),
+			GapHigh:          envFloat64("RANKING_GAP_HIGH"),
+			GapMedium:        envFloat64("RANKING_GAP_MEDIUM"),
 		},
 	}, nil
 }
@@ -124,6 +161,17 @@ func envDuration(key string, fallback time.Duration) time.Duration {
 		}
 	}
 	return fallback
+}
+
+// envFloat64 TASK-FU-009 引入：解析 float64 env 值，失败时返回 0。
+// 与 logic-grpc-service/config.setFloat64 行为一致。
+func envFloat64(key string) float64 {
+	if value := os.Getenv(key); value != "" {
+		if parsed, err := strconv.ParseFloat(value, 64); err == nil {
+			return parsed
+		}
+	}
+	return 0
 }
 
 // validateJWTSecret rejects weak JWT secrets in non-dev environments.
