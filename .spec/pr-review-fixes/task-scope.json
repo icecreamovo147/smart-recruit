@@ -1,0 +1,178 @@
+{
+  "feature_name": "pr-review-fixes",
+  "tasks": {
+    "TASK-001": {
+      "title": "Enable CI for PRs targeting dev",
+      "status": "completed",
+      "allowedFiles": [
+        ".github/workflows/ci.yml"
+      ],
+      "forbiddenFiles": [
+        "logic-grpc-service/**",
+        "web-gin-service/**",
+        "hr-frontend/**",
+        "user-frontend/**",
+        "interviewer-frontend/**",
+        "package.json",
+        "pnpm-lock.yaml",
+        "**/package.json",
+        "**/pnpm-lock.yaml"
+      ],
+      "requiresHumanConfirmation": false,
+      "allowedActions": [
+        "modify",
+        "test"
+      ],
+      "acceptance": ".spec/pr-review-fixes/acceptance/TASK-001.md",
+      "report": ".spec/pr-review-fixes/reports/TASK-001-report.md",
+      "notes": [
+        "Only CI branch filters may change."
+      ]
+    },
+    "TASK-002": {
+      "title": "Enforce globally unique LLM default model",
+      "status": "completed",
+      "allowedFiles": [
+        "logic-grpc-service/service/llm_config_service.go",
+        "logic-grpc-service/service/llm_config_service_test.go",
+        "logic-grpc-service/repository/model_config_repo.go",
+        "logic-grpc-service/repository/model_config_repo_test.go",
+        "logic-grpc-service/migrations/*llm*default*.sql",
+        "logic-grpc-service/migrations/*llm*default*.down.sql",
+        "db.sql"
+      ],
+      "forbiddenFiles": [
+        "hr-frontend/**",
+        "user-frontend/**",
+        "interviewer-frontend/**",
+        "web-gin-service/**",
+        "logic-grpc-service/proto/**",
+        "logic-grpc-service/recruitment/pb/**",
+        "package.json",
+        "pnpm-lock.yaml",
+        "**/package.json",
+        "**/pnpm-lock.yaml"
+      ],
+      "requiresHumanConfirmation": false,
+      "allowedActions": [
+        "modify",
+        "create",
+        "test"
+      ],
+      "acceptance": ".spec/pr-review-fixes/acceptance/TASK-002.md",
+      "report": ".spec/pr-review-fixes/reports/TASK-002-report.md",
+      "notes": [
+        "Migration and db.sql changes are explicitly allowed for this task."
+      ]
+    },
+    "TASK-003": {
+      "title": "Synchronize Agent SKILL status with embeddings",
+      "status": "completed",
+      "allowedFiles": [
+        "logic-grpc-service/service/agent_skill_service.go",
+        "logic-grpc-service/service/agent_skill_service_test.go",
+        "logic-grpc-service/service/embedding_service.go",
+        "logic-grpc-service/service/embedding_service_test.go",
+        "logic-grpc-service/repository/ai_embedding_repo.go",
+        "logic-grpc-service/repository/ai_embedding_repo_test.go"
+      ],
+      "forbiddenFiles": [
+        "logic-grpc-service/migrations/**",
+        "logic-grpc-service/proto/**",
+        "logic-grpc-service/recruitment/pb/**",
+        "hr-frontend/**",
+        "user-frontend/**",
+        "interviewer-frontend/**",
+        "web-gin-service/**",
+        "package.json",
+        "pnpm-lock.yaml",
+        "**/package.json",
+        "**/pnpm-lock.yaml"
+      ],
+      "requiresHumanConfirmation": true,
+      "allowedActions": [
+        "modify",
+        "test"
+      ],
+      "acceptance": ".spec/pr-review-fixes/acceptance/TASK-003.md",
+      "report": ".spec/pr-review-fixes/reports/TASK-003-report.md",
+      "notes": [
+        "If a migration is truly required, stop and request confirmation."
+      ]
+    },
+    "TASK-004": {
+      "title": "Validate and mask provider extra headers",
+      "status": "completed",
+      "allowedFiles": [
+        "logic-grpc-service/service/llm_config_service.go",
+        "logic-grpc-service/service/embedding_config_service.go",
+        "logic-grpc-service/service/provider_headers.go",
+        "logic-grpc-service/service/provider_headers_test.go",
+        "logic-grpc-service/service/llm_config_service_test.go",
+        "logic-grpc-service/service/embedding_config_service_test.go"
+      ],
+      "forbiddenFiles": [
+        "logic-grpc-service/proto/**",
+        "logic-grpc-service/recruitment/pb/**",
+        "hr-frontend/**",
+        "user-frontend/**",
+        "interviewer-frontend/**",
+        "web-gin-service/**",
+        "package.json",
+        "pnpm-lock.yaml",
+        "**/package.json",
+        "**/pnpm-lock.yaml"
+      ],
+      "requiresHumanConfirmation": false,
+      "allowedActions": [
+        "modify",
+        "create",
+        "test"
+      ],
+      "acceptance": ".spec/pr-review-fixes/acceptance/TASK-004.md",
+      "report": ".spec/pr-review-fixes/reports/TASK-004-report.md",
+      "notes": [
+        "Raw header values must never be returned."
+      ]
+    },
+    "TASK-005": {
+      "title": "Clamp management list page size to 100",
+      "status": "completed",
+      "allowedFiles": [
+        "logic-grpc-service/service/helpers.go",
+        "logic-grpc-service/service/llm_config_service.go",
+        "logic-grpc-service/service/embedding_config_service.go",
+        "logic-grpc-service/service/mcp_service.go",
+        "logic-grpc-service/service/mcp_policy_api.go",
+        "logic-grpc-service/service/mcp_log_api.go",
+        "logic-grpc-service/service/prompt_service.go",
+        "logic-grpc-service/service/skill_service.go",
+        "logic-grpc-service/service/agent_service.go",
+        "logic-grpc-service/service/*_test.go"
+      ],
+      "forbiddenFiles": [
+        "logic-grpc-service/proto/**",
+        "logic-grpc-service/recruitment/pb/**",
+        "logic-grpc-service/migrations/**",
+        "hr-frontend/**",
+        "user-frontend/**",
+        "interviewer-frontend/**",
+        "web-gin-service/**",
+        "package.json",
+        "pnpm-lock.yaml",
+        "**/package.json",
+        "**/pnpm-lock.yaml"
+      ],
+      "requiresHumanConfirmation": false,
+      "allowedActions": [
+        "modify",
+        "test"
+      ],
+      "acceptance": ".spec/pr-review-fixes/acceptance/TASK-005.md",
+      "report": ".spec/pr-review-fixes/reports/TASK-005-report.md",
+      "notes": [
+        "Do not alter public candidate/job pagination behavior."
+      ]
+    }
+  }
+}

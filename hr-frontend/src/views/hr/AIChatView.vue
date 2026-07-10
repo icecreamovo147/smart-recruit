@@ -13,7 +13,7 @@ import ConversationSidebar from '@/components/chat/ConversationSidebar.vue'
 import ConversationHeader from '@/components/chat/ConversationHeader.vue'
 import ChatMessageList from '@/components/chat/ChatMessageList.vue'
 import ChatComposer from '@/components/chat/ChatComposer.vue'
-import type { ChatMessageSkill, ChatSessionListItem, Session, CandidateOption, StreamPayload, ContextUsageInfo } from '@/types/ai'
+import type { AgentSkillSelectionPayload, ChatMessageSkill, ChatSessionListItem, Session, CandidateOption, StreamPayload, ContextUsageInfo } from '@/types/ai'
 import type { LlmModel } from '@/types/llm'
 import type { AvailableAgentSkill } from '@/types/agentSkill'
 import { BusinessError } from '@/types/api'
@@ -42,6 +42,16 @@ interface MessageItem {
   context_usage?: ContextUsageInfo
   contextUsage?: ContextUsageInfo
   candidateOptions?: CandidateOption[]
+  agentSkillSelection?: AgentSkillSelectionPayload
+  skillSelectionRequest?: SkillSelectionRequest
+  skillSelectionConfirmed?: boolean
+}
+
+interface SkillSelectionRequest {
+  message: string
+  sessionId: number
+  modelId: number | null
+  messageId?: number
 }
 
 const route = useRoute()
@@ -765,6 +775,150 @@ const stopStreaming = () => {
   streaming.value = false
 }
 
+const applyUserMessageSkillsBefore = (assistantIndex: number, skillIds: number[]) => {
+  for (let i = assistantIndex - 1; i >= 0; i--) {
+    if (messages.value[i]?.role !== 'user') continue
+    const skills = buildMessageSkills(skillIds)
+    messages.value[i] = {
+      ...messages.value[i],
+      skill: skills[0],
+      skills,
+      skillSelectionConfirmed: true,
+    }
+    return
+  }
+}
+
+const setSkillSelectionMessage = (
+  assistantIndex: number,
+  text: string,
+  session: Session,
+  selection: AgentSkillSelectionPayload,
+) => {
+  messages.value[assistantIndex] = {
+    role: 'assistant',
+    content: '',
+    pending: false,
+    agentSkillSelection: selection,
+    skillSelectionRequest: {
+      message: text,
+      sessionId: session.id,
+      modelId: selectedModelId.value,
+      messageId: selection.user_message_id,
+    },
+  }
+  loading.value = false
+  streaming.value = false
+  scrollBottom()
+}
+
+const submitConfirmedSkillSelection = async (assistantIndex: number, skillIds: number[]) => {
+  const current = messages.value[assistantIndex]
+  const request = current?.skillSelectionRequest
+  const session = currentSession.value
+  if (!request || !session) return
+
+  applyUserMessageSkillsBefore(assistantIndex, skillIds)
+  messages.value[assistantIndex] = {
+    role: 'assistant',
+    content: '',
+    pending: true,
+    waitingText: session.application_id ? '分析中' : '响应中',
+  }
+  loading.value = true
+  streaming.value = true
+  scrollBottom()
+
+  const controller = new AbortController()
+  activeController.value = controller
+  userAborted.value = false
+
+  try {
+    let finalPayload: StreamPayload | null = null
+    let streamFailed = false
+    await sendMessageStream(
+      {
+        message: request.message,
+        session_id: request.sessionId,
+        ...(request.modelId != null ? { model_id: request.modelId } : {}),
+        ...(skillIds.length > 0 ? { agent_skill_ids: skillIds } : {}),
+        agent_skill_selection_confirmed: true,
+        ...(request.messageId ? { agent_skill_selection_message_id: request.messageId } : {}),
+      },
+      {
+        onDelta: (delta) => {
+          appendAssistantDelta(assistantIndex, delta)
+        },
+        onStatus: (_eventType, eventMessage, payload) => {
+          if (_eventType === 'context_usage') { handleContextUsage(payload); return }
+          if (_eventType === 'model_info') { modelName.value = eventMessage; messages.value[assistantIndex] = { ...(messages.value[assistantIndex] || {}), model_name: eventMessage }; return }
+          if (_eventType === 'process_delta') { appendAssistantProcess(assistantIndex, eventMessage); return }
+          if (_eventType === 'process_clear') { clearAssistantProcess(assistantIndex); return }
+          if (_eventType === 'agent_skill_selection_required' && payload.agent_skill_selection) {
+            setSkillSelectionMessage(assistantIndex, request.message, session, payload.agent_skill_selection)
+            return
+          }
+          const msg = messages.value[assistantIndex]
+          if (msg) {
+            messages.value[assistantIndex] = { ...msg, waitingText: eventMessage }
+          }
+        },
+        onDone: (payload) => {
+          finalPayload = payload
+          const options = parseCandidateOptions(payload.candidate_options)
+          if (options.length > 0) {
+            const msg = messages.value[assistantIndex]
+            if (msg) messages.value[assistantIndex] = { ...msg, candidateOptions: options, pending: false }
+          }
+        },
+        onError: (_errorType, errorMessage) => {
+          clearAssistantTextQueue()
+          streamFailed = true
+          markAssistantError(assistantIndex, new Error(errorMessage))
+        },
+      },
+      { signal: controller.signal, silentAbort: true },
+    )
+    scrollBottom()
+    if (streamFailed) return
+    if (!userAborted.value) {
+      await waitForAssistantTextQueue(assistantIndex)
+    }
+    if (finalPayload) {
+      if ((finalPayload as StreamPayload).session_id && currentSession.value) {
+        currentSession.value = { ...currentSession.value, id: (finalPayload as StreamPayload).session_id! }
+      }
+      if (!userAborted.value) {
+        await confirmAction(finalPayload)
+      }
+      if (!messages.value[assistantIndex]?.content && !messages.value[assistantIndex]?.agentSkillSelection) {
+        const sid = (finalPayload as StreamPayload).session_id || request.sessionId
+        const data = await getSessionMessages(sid, { page: 1, page_size: 100 })
+        messages.value = normalizeMessages(data.list || [], messages.value)
+      }
+    }
+    if (!userAborted.value) {
+      await refreshSessions()
+    }
+  } catch (error: unknown) {
+    if (userAborted.value) return
+    markAssistantError(assistantIndex, error instanceof Error ? error : new Error('AI 流式响应失败'))
+    const err = error as { code?: string; message?: string }
+    if (err.code === 'ECONNABORTED') {
+      ElMessage.warning('AI 分析耗时较长，请稍后重新发送')
+    } else {
+      ElMessage.error(err.message || 'AI 流式响应失败')
+    }
+  } finally {
+    if (activeController.value === controller) {
+      loading.value = false
+      streaming.value = false
+      activeController.value = null
+      userAborted.value = false
+    }
+  }
+}
+
 const submit = async () => {
   const text = input.value.trim()
   if (!text) return
@@ -793,6 +947,7 @@ const submit = async () => {
     messages.value.push({ role: 'assistant', content: '', pending: true, waitingText: session.application_id ? '分析中' : '响应中' })
     let finalPayload: StreamPayload | null = null
     let streamFailed = false
+    let skillSelectionRequired = false
     await sendMessageStream(
       {
         message: text,
@@ -809,6 +964,11 @@ const submit = async () => {
           if (_eventType === 'model_info') { modelName.value = eventMessage; messages.value[assistantIndex] = { ...(messages.value[assistantIndex] || {}), model_name: eventMessage }; return }
           if (_eventType === 'process_delta') { appendAssistantProcess(assistantIndex, eventMessage); return }
           if (_eventType === 'process_clear') { clearAssistantProcess(assistantIndex); return }
+          if (_eventType === 'agent_skill_selection_required' && payload.agent_skill_selection) {
+            skillSelectionRequired = true
+            setSkillSelectionMessage(assistantIndex, text, session, payload.agent_skill_selection)
+            return
+          }
           const msg = messages.value[assistantIndex]
           if (msg) {
             messages.value[assistantIndex] = { ...msg, waitingText: eventMessage }
@@ -835,6 +995,7 @@ const submit = async () => {
       selectedAgentSkillIds.value = agentSkillIdsForMessage
       return
     }
+    if (skillSelectionRequired) return
     if (!userAborted.value) {
       await waitForAssistantTextQueue(assistantIndex)
     }
@@ -882,9 +1043,11 @@ const retry = async (failedIndex: number) => {
 
   let lastUserContent = ''
   let lastUserSkillIds: number[] = []
+  let lastUserSkillSelectionConfirmed = false
   for (let i = failedIndex - 1; i >= 0; i--) {
     if (messages.value[i]?.role === 'user') {
       lastUserContent = messages.value[i].content
+      lastUserSkillSelectionConfirmed = Boolean(messages.value[i].skillSelectionConfirmed)
       const skillsForRetry = (messages.value[i].skills || (messages.value[i].skill ? [messages.value[i].skill] : []))
         .filter((skill): skill is ChatMessageSkill => Boolean(skill))
       lastUserSkillIds = skillsForRetry
@@ -913,12 +1076,14 @@ const retry = async (failedIndex: number) => {
   try {
     let finalPayload: StreamPayload | null = null
     let streamFailed = false
+    let skillSelectionRequired = false
     await sendMessageStream(
       {
         message: lastUserContent,
         session_id: session.id,
         ...(selectedModelId.value != null ? { model_id: selectedModelId.value } : {}),
         ...(lastUserSkillIds.length > 0 ? { agent_skill_ids: lastUserSkillIds } : {}),
+        ...(lastUserSkillSelectionConfirmed ? { agent_skill_selection_confirmed: true } : {}),
       },
       {
         onDelta: (delta) => {
@@ -929,6 +1094,11 @@ const retry = async (failedIndex: number) => {
           if (_eventType === 'model_info') { modelName.value = eventMessage; messages.value[assistantIndex] = { ...(messages.value[assistantIndex] || {}), model_name: eventMessage }; return }
           if (_eventType === 'process_delta') { appendAssistantProcess(assistantIndex, eventMessage); return }
           if (_eventType === 'process_clear') { clearAssistantProcess(assistantIndex); return }
+          if (_eventType === 'agent_skill_selection_required' && payload.agent_skill_selection) {
+            skillSelectionRequired = true
+            setSkillSelectionMessage(assistantIndex, lastUserContent, session, payload.agent_skill_selection)
+            return
+          }
           const msg = messages.value[assistantIndex]
           if (msg) {
             messages.value[assistantIndex] = { ...msg, waitingText: eventMessage }
@@ -952,6 +1122,7 @@ const retry = async (failedIndex: number) => {
     )
     scrollBottom()
     if (streamFailed) return
+    if (skillSelectionRequired) return
     if (!userAborted.value) {
       await waitForAssistantTextQueue(assistantIndex)
     }
@@ -1115,6 +1286,7 @@ onBeforeUnmount(() => {
           :render-markdown="renderMarkdown"
           :waiting-text="waitingText"
           @retry="retry"
+          @confirm-skill-selection="submitConfirmedSkillSelection"
         />
 
         <ChatComposer

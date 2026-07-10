@@ -253,6 +253,14 @@ func (r *AgentConfigRepo) ListCapabilityBindings(ctx context.Context, agentID in
 	return list, nil
 }
 
+func (r *AgentConfigRepo) ListEnabledCapabilityBindingsByAgentType(ctx context.Context, agentType string) ([]model.AgentCapabilityBinding, error) {
+	cfg, err := r.GetByAgentType(ctx, agentType)
+	if err != nil {
+		return nil, err
+	}
+	return r.ListCapabilityBindings(ctx, cfg.ID)
+}
+
 func (r *AgentConfigRepo) ReplaceCapabilityBindings(ctx context.Context, agentID int64, bindings []model.AgentCapabilityBinding) error {
 	return r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		if err := tx.Where("agent_id = ?", agentID).Delete(&model.AgentCapabilityBinding{}).Error; err != nil {

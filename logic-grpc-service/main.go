@@ -53,6 +53,21 @@ func main() {
 		panic("load config: " + err.Error())
 	}
 
+	// TASK-FU-004：把 config.Ranking 段映射到 service.RankingConfig 并启动时加载。
+	service.LoadRankingConfig(service.RankingConfig{
+		WeightVector:     cfg.Ranking.WeightVector,
+		WeightLexical:    cfg.Ranking.WeightLexical,
+		WeightMetadata:   cfg.Ranking.WeightMetadata,
+		BusinessBoostMax: cfg.Ranking.BusinessBoostMax,
+		PriorityNorm:     cfg.Ranking.PriorityNorm,
+		BoostAlpha:       cfg.Ranking.BoostAlpha,
+		BoostBeta:        cfg.Ranking.BoostBeta,
+		BoostGamma:       cfg.Ranking.BoostGamma,
+		RelevanceGate:    cfg.Ranking.RelevanceGate,
+		GapHigh:          cfg.Ranking.GapHigh,
+		GapMedium:        cfg.Ranking.GapMedium,
+	})
+
 	if err := server.ValidateInternalToken(); err != nil {
 		fmt.Printf("gRPC internal token validation failed: %v\n", err)
 		panic("gRPC internal token validation: " + err.Error())
@@ -305,6 +320,9 @@ func main() {
 		if err := services.EmailConsumer.Start(bgCtx, mqConn); err != nil {
 			log.Warn("email consumer start failed", zap.Error(err))
 		}
+		if err := services.EmbeddingConsumer.Start(bgCtx, mqConn); err != nil {
+			log.Warn("embedding consumer start failed", zap.Error(err))
+		}
 		go mqConn.KeepAlive(bgCtx, cfg.RabbitMQ.ReconnectInterval.Duration)
 	} else {
 		log.Info("background workers disabled")
@@ -369,6 +387,8 @@ func main() {
 	pb.RegisterMCPServiceServer(grpcServer, recruitmentServer)
 	pb.RegisterSkillServiceServer(grpcServer, recruitmentServer)
 	pb.RegisterAgentSkillServiceServer(grpcServer, recruitmentServer)
+	pb.RegisterRecruitingIntelligenceServiceServer(grpcServer, recruitmentServer)
+	pb.RegisterEmbeddingConfigServiceServer(grpcServer, recruitmentServer)
 	healthpb.RegisterHealthServer(grpcServer, server.NewHealthServer(sqlDB, healthRedis, mqConn))
 
 	// Graceful shutdown

@@ -48,3 +48,58 @@ Use concise commit subjects with `feat`, `fix`, `refactor`, `test`, or `docs`; i
 ## Security & Configuration Tips
 
 Do not commit secrets, tokens, or local credentials. Keep environment-specific settings in ignored local config files. When changing auth, AI, MCP, or recruitment data flows, document risks and add focused regression tests.
+
+## SPEC + SDD + Harness Workflow
+
+For every non-trivial feature, create a feature directory first:
+
+`.spec/<feature-name>/`
+
+The feature directory should contain:
+
+- `<feature-name>-SPEC.md`
+- `<feature-name>-SDD.md`
+- `TASKS.md`
+- `AGENT_RULES.md`
+- `task-scope.json`
+- `acceptance/`
+- `prompts/`
+- `scripts/`
+- `reports/`
+
+Required development order:
+
+SPEC -> SDD -> TASKS -> Harness -> single TASK implementation -> Harness checks -> TASK completion report -> user confirmation -> next TASK.
+
+Hard rules:
+
+- Do not implement without SPEC and SDD.
+- Do not implement without `TASKS.md`.
+- Execute only one TASK at a time.
+- Do not modify files outside the current TASK scope.
+- Do not refactor unrelated code opportunistically.
+- Do not mass-format unrelated files.
+- Do not modify `package.json`, lockfiles, or global config unless the current TASK explicitly allows it.
+- Do not use `any` casually to pass type checks.
+- Do not swallow exceptions.
+- Do not delete existing tests.
+- If a change requires modifying shared modules, shared types, global config, or public API behavior, stop and request confirmation.
+
+After each TASK, run or explain why unable to run:
+
+- `git diff --name-only`
+- `bash .spec/<feature-name>/scripts/check-task-scope.sh <TASK-ID>`
+- `bash .spec/<feature-name>/scripts/agent-check.sh`
+
+After each TASK, output a report with:
+
+- TASK ID
+- Modified file list
+- Change summary for each file
+- Whether the changes exceed task scope
+- SPEC comparison result
+- SDD comparison result
+- Acceptance comparison result
+- Test commands and results
+- Risks
+- Whether the next TASK can start

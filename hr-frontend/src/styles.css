@@ -540,6 +540,66 @@ a {
   display: none;
 }
 
+.sidebar-group-toggle--active {
+  color: var(--brand);
+  background: var(--brand-soft);
+  border-left-color: var(--brand);
+  font-weight: 500;
+}
+
+.sidebar-nav-group {
+  width: 100%;
+}
+
+.sidebar-flyout-popover.el-popover.el-popper {
+  padding: 8px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--surface);
+  backdrop-filter: none;
+  box-shadow: 0 12px 32px rgba(15, 23, 42, 0.12);
+}
+
+.sidebar-flyout-popover.el-fade-in-linear-leave-active {
+  transition: opacity 150ms linear !important;
+}
+
+.sidebar-flyout {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.sidebar-flyout__title {
+  padding: 6px 10px 8px;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-primary);
+  line-height: 1.2;
+}
+
+.sidebar-flyout__link {
+  display: block;
+  padding: 10px 12px;
+  border-radius: 8px;
+  color: var(--text-secondary);
+  text-decoration: none;
+  font-size: 13px;
+  line-height: 1.2;
+  transition: background-color 120ms ease, color 120ms ease;
+}
+
+.sidebar-flyout__link:hover {
+  background: var(--surface-muted);
+  color: var(--text-primary);
+}
+
+.sidebar-flyout__link--active {
+  color: var(--brand);
+  background: var(--brand-soft);
+  font-weight: 500;
+}
+
 .workspace {
   flex: 1;
   min-width: 0;

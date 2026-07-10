@@ -31,14 +31,7 @@ func NewPromptService(repo *repository.PromptTemplateRepo) *PromptService {
 
 // ListPromptTemplates returns a paginated list of prompt templates.
 func (s *PromptService) ListPromptTemplates(ctx context.Context, req *pb.ListPromptTemplatesRequest) (*pb.ListPromptTemplatesResponse, error) {
-	page := req.GetPage()
-	if page <= 0 {
-		page = 1
-	}
-	pageSize := req.GetPageSize()
-	if pageSize <= 0 {
-		pageSize = 20
-	}
+	page, pageSize := normalizeManagementPage(req.GetPage(), req.GetPageSize())
 
 	templates, total, err := s.repo.List(ctx, page, pageSize, req.GetAgentType())
 	if err != nil {
@@ -238,14 +231,7 @@ func (s *PromptService) GetPromptVersionHistory(ctx context.Context, req *pb.Get
 		return nil, status.Error(codes.InvalidArgument, "template_id is required")
 	}
 
-	page := req.GetPage()
-	if page <= 0 {
-		page = 1
-	}
-	pageSize := req.GetPageSize()
-	if pageSize <= 0 {
-		pageSize = 20
-	}
+	page, pageSize := normalizeManagementPage(req.GetPage(), req.GetPageSize())
 
 	versions, total, err := s.repo.ListVersions(ctx, req.GetTemplateId(), page, pageSize)
 	if err != nil {
@@ -450,7 +436,7 @@ func versionToPB(v *model.PromptVersion) *pb.PromptVersionInfo {
 
 // ── Seed Functions ───────────────────────────────────────────────────────
 
-// SeedDefaultPrompts creates initial prompt templates from hardcoded prompts.
+// SeedDefaultPrompts creates initial chat assistant prompt templates.
 // This is idempotent: it only inserts if no templates exist for the agent_type.
 func SeedDefaultPrompts(ctx context.Context, repo *repository.PromptTemplateRepo) error {
 	// Check if HR agent prompt already seeded.

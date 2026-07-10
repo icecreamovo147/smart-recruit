@@ -141,19 +141,20 @@ func (m *RecruitingAgentMiddleware) WrapInvokableToolCall(
 
 		resultContent := output
 		if execErr != nil {
-			resultContent = marshalToolError(execErr)
+			resultContent = structuredToolErrorOutput(output, execErr)
 		}
+		traceArgsJSON := traceArgumentsJSON(argumentsInJSON, resultContent)
 
 		m.State.RecordTrace(ToolTrace{
 			ToolName:  tCtx.Name,
-			Arguments: parseArgsForTrace(argumentsInJSON),
+			Arguments: parseArgsForTrace(traceArgsJSON),
 			Result:    resultContent,
 			Cost:      cost,
 			Error:     execErr,
 		})
 
 		if m.OnToolExecuted != nil {
-			m.OnToolExecuted(tCtx.CallID, tCtx.Name, argumentsInJSON, resultContent, cost, execErr)
+			m.OnToolExecuted(tCtx.CallID, tCtx.Name, traceArgsJSON, resultContent, cost, execErr)
 		}
 		if m.OnMessagesUpdated != nil {
 			_ = adk.SetRunLocalValue(ctx, adkContextUsageToolSeenKey, true)
@@ -172,6 +173,24 @@ func (m *RecruitingAgentMiddleware) WrapInvokableToolCall(
 		}
 		return output, nil
 	}, nil
+}
+
+func structuredToolErrorOutput(output string, err error) string {
+	if output != "" && json.Valid([]byte(output)) {
+		return output
+	}
+	return marshalToolError(err)
+}
+
+func traceArgumentsJSON(originalArgsJSON, resultContent string) string {
+	var payload map[string]any
+	if err := json.Unmarshal([]byte(resultContent), &payload); err != nil {
+		return originalArgsJSON
+	}
+	if args, ok := payload["arguments_json"].(string); ok && args != "" && json.Valid([]byte(args)) {
+		return args
+	}
+	return originalArgsJSON
 }
 
 // marshalToolError converts a tool execution error into a JSON error object

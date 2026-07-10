@@ -40,19 +40,46 @@ type agentSkillCreateRequest struct {
 	TriggerKeywords      []string                `json:"trigger_keywords"`
 	ChangeNote           string                  `json:"change_note"`
 	Activate             *bool                   `json:"activate"`
+	AgentType            string                  `json:"agent_type"`
+	Category             string                  `json:"category"`
+	Scenario             string                  `json:"scenario"`
+	Priority             int32                   `json:"priority"`
+	RiskLevel            string                  `json:"risk_level"`
+	RequiredCapabilities []string                `json:"required_capabilities"`
+	OutputSchema         string                  `json:"output_schema"`
+	EvaluationCriteria   []string                `json:"evaluation_criteria"`
+	SemanticTags         []string                `json:"semantic_tags"`
 }
 
 type agentSkillUpdateRequest struct {
-	DisplayName          *string  `json:"display_name"`
-	DisplayNameSet       bool     `json:"display_name_set"`
-	Description          *string  `json:"description"`
-	DescriptionSet       bool     `json:"description_set"`
-	IsEnabled            *bool    `json:"is_enabled"`
-	IsEnabledSet         bool     `json:"is_enabled_set"`
-	IsManualInvocable    *bool    `json:"is_manual_invocable"`
-	IsManualInvocableSet bool     `json:"is_manual_invocable_set"`
-	TriggerKeywords      []string `json:"trigger_keywords"`
-	TriggerKeywordsSet   bool     `json:"trigger_keywords_set"`
+	DisplayName             *string  `json:"display_name"`
+	DisplayNameSet          bool     `json:"display_name_set"`
+	Description             *string  `json:"description"`
+	DescriptionSet          bool     `json:"description_set"`
+	IsEnabled               *bool    `json:"is_enabled"`
+	IsEnabledSet            bool     `json:"is_enabled_set"`
+	IsManualInvocable       *bool    `json:"is_manual_invocable"`
+	IsManualInvocableSet    bool     `json:"is_manual_invocable_set"`
+	TriggerKeywords         []string `json:"trigger_keywords"`
+	TriggerKeywordsSet      bool     `json:"trigger_keywords_set"`
+	AgentType               *string  `json:"agent_type"`
+	AgentTypeSet            bool     `json:"agent_type_set"`
+	Category                *string  `json:"category"`
+	CategorySet             bool     `json:"category_set"`
+	Scenario                *string  `json:"scenario"`
+	ScenarioSet             bool     `json:"scenario_set"`
+	Priority                *int32   `json:"priority"`
+	PrioritySet             bool     `json:"priority_set"`
+	RiskLevel               *string  `json:"risk_level"`
+	RiskLevelSet            bool     `json:"risk_level_set"`
+	RequiredCapabilities    []string `json:"required_capabilities"`
+	RequiredCapabilitiesSet bool     `json:"required_capabilities_set"`
+	OutputSchema            *string  `json:"output_schema"`
+	OutputSchemaSet         bool     `json:"output_schema_set"`
+	EvaluationCriteria      []string `json:"evaluation_criteria"`
+	EvaluationCriteriaSet   bool     `json:"evaluation_criteria_set"`
+	SemanticTags            []string `json:"semantic_tags"`
+	SemanticTagsSet         bool     `json:"semantic_tags_set"`
 }
 
 type agentSkillCreateVersionRequest struct {
@@ -107,6 +134,57 @@ func (h *AgentSkillHandler) ListAvailable(c *gin.Context) {
 	base.From(c, resp.Code, resp.Msg, gin.H{"total": resp.Total, "list": resp.List})
 }
 
+func (h *AgentSkillHandler) DebugSemanticRetrieval(c *gin.Context) {
+	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "5"))
+	jobID, _ := strconv.ParseInt(c.DefaultQuery("job_id", "0"), 10, 64)
+	applicationID, _ := strconv.ParseInt(c.DefaultQuery("application_id", "0"), 10, 64)
+	resp, err := h.clients.AgentSkill.DebugSemanticRetrieval(c.Request.Context(), &pb.DebugSemanticRetrievalRequest{
+		HrId:          currentUserID(c),
+		Query:         strings.TrimSpace(c.Query("query")),
+		AgentType:     strings.TrimSpace(c.DefaultQuery("agent_type", "hr_recruiting_agent")),
+		JobId:         jobID,
+		ApplicationId: applicationID,
+		Limit:         int32(limit),
+	})
+	if err != nil {
+		logger.L().Error("DebugSemanticRetrieval failed", zap.Error(err))
+		base.Internal(c, err)
+		return
+	}
+	// 修复：改用 base.ProtoResponse 自动透传 gRPC 响应所有字段。
+	// 之前用 gin.H 白名单 4 个字段，导致 skill_pool_confidence / memory_pool_confidence
+	// / embedding_provider / embedding_model / embedding_dim / candidate_count /
+	// query_embedding_latency_ms 等 7 个字段被丢弃；前端用 `|| '-'` 兜底导致这些卡片
+	// 一直显示 "-" 或空白。ProtoResponse 通过 protojson.Marshal 序列化整个 proto
+	// message，所有声明字段都会出现在 JSON 中；未来新增字段无需再改 web-gin handler。
+	base.ProtoResponse(c, resp)
+}
+
+func (h *AgentSkillHandler) RegenerateEmbedding(c *gin.Context) {
+	id, err := parseIDParam(c, "id")
+	if err != nil {
+		base.BadRequest(c, "invalid id")
+		return
+	}
+
+	resp, err := h.clients.EmbeddingConfig.BackfillEmbeddings(c.Request.Context(), &pb.BackfillEmbeddingsRequest{
+		ObjectType: "agent_skill",
+		ObjectId:   id,
+		Force:      true,
+		BatchSize:  1,
+	})
+	if err != nil {
+		logger.L().Error("RegenerateAgentSkillEmbedding failed", zap.Int64("skill_id", id), zap.Error(err))
+		base.Internal(c, err)
+		return
+	}
+	base.From(c, resp.Code, resp.Msg, gin.H{
+		"success_count": resp.SuccessCount,
+		"failed_count":  resp.FailedCount,
+		"skipped_count": resp.SkippedCount,
+	})
+}
+
 func (h *AgentSkillHandler) Get(c *gin.Context) {
 	id, err := parseIDParam(c, "id")
 	if err != nil {
@@ -145,6 +223,15 @@ func (h *AgentSkillHandler) Create(c *gin.Context) {
 		IsManualInvocable:    true,
 		IsManualInvocableSet: true,
 		TriggerKeywords:      body.TriggerKeywords,
+		AgentType:            strings.TrimSpace(body.AgentType),
+		Category:             strings.TrimSpace(body.Category),
+		Scenario:             strings.TrimSpace(body.Scenario),
+		Priority:             body.Priority,
+		RiskLevel:            strings.TrimSpace(body.RiskLevel),
+		RequiredCapabilities: body.RequiredCapabilities,
+		OutputSchema:         strings.TrimSpace(body.OutputSchema),
+		EvaluationCriteria:   body.EvaluationCriteria,
+		SemanticTags:         body.SemanticTags,
 	}
 	req.Activate = true
 	if body.Activate != nil {
@@ -204,6 +291,54 @@ func (h *AgentSkillHandler) Update(c *gin.Context) {
 	if body.IsManualInvocable != nil {
 		req.IsManualInvocable = *body.IsManualInvocable
 		req.IsManualInvocableSet = true
+	}
+	if body.AgentType != nil || body.AgentTypeSet {
+		if body.AgentType != nil {
+			req.AgentType = strings.TrimSpace(*body.AgentType)
+		}
+		req.AgentTypeSet = true
+	}
+	if body.Category != nil || body.CategorySet {
+		if body.Category != nil {
+			req.Category = strings.TrimSpace(*body.Category)
+		}
+		req.CategorySet = true
+	}
+	if body.Scenario != nil || body.ScenarioSet {
+		if body.Scenario != nil {
+			req.Scenario = strings.TrimSpace(*body.Scenario)
+		}
+		req.ScenarioSet = true
+	}
+	if body.Priority != nil || body.PrioritySet {
+		if body.Priority != nil {
+			req.Priority = *body.Priority
+		}
+		req.PrioritySet = true
+	}
+	if body.RiskLevel != nil || body.RiskLevelSet {
+		if body.RiskLevel != nil {
+			req.RiskLevel = strings.TrimSpace(*body.RiskLevel)
+		}
+		req.RiskLevelSet = true
+	}
+	if body.RequiredCapabilitiesSet {
+		req.RequiredCapabilities = body.RequiredCapabilities
+		req.RequiredCapabilitiesSet = true
+	}
+	if body.OutputSchema != nil || body.OutputSchemaSet {
+		if body.OutputSchema != nil {
+			req.OutputSchema = strings.TrimSpace(*body.OutputSchema)
+		}
+		req.OutputSchemaSet = true
+	}
+	if body.EvaluationCriteriaSet {
+		req.EvaluationCriteria = body.EvaluationCriteria
+		req.EvaluationCriteriaSet = true
+	}
+	if body.SemanticTagsSet {
+		req.SemanticTags = body.SemanticTags
+		req.SemanticTagsSet = true
 	}
 	resp, err := h.clients.AgentSkill.UpdateAgentSkill(c.Request.Context(), &req)
 	if err != nil {

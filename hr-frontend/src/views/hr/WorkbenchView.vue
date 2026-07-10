@@ -14,6 +14,7 @@ import {
 import { getDashboardSummary } from '@/api/dashboard'
 import type { DashboardSummary } from '@/types/dashboard'
 import { useAuthStore } from '@/stores/auth'
+import { useTheme } from '@/composables/useTheme'
 import { PERM } from '@/types/domain'
 
 use([CanvasRenderer, LineChart, PieChart, BarChart, TitleComponent, TooltipComponent, LegendComponent, GridComponent])
@@ -49,6 +50,7 @@ function useCountUp(getTarget: () => number) {
 
 const router = useRouter()
 const auth = useAuthStore()
+const { isDark } = useTheme()
 const loading = ref(true)
 const error = ref('')
 const data = ref<DashboardSummary | null>(null)
@@ -107,14 +109,58 @@ const emptyStageData = computed(() => {
   return !d || d.values.reduce((a, b) => a + b, 0) === 0
 })
 
+const chartPalette = computed(() => {
+  if (isDark.value) {
+    return {
+      text: '#cbd5e1',
+      textMuted: '#94a3b8',
+      axis: '#334155',
+      splitLine: '#1e293b',
+      tooltipBg: '#1e293b',
+      tooltipBorder: '#334155',
+      bar: '#3b82f6',
+    }
+  }
+  return {
+    text: '#334155',
+    textMuted: '#64748b',
+    axis: '#e2e8f0',
+    splitLine: '#e5e7eb',
+    tooltipBg: '#ffffff',
+    tooltipBorder: '#e2e8f0',
+    bar: '#2563eb',
+  }
+})
+
 const jobDistOption = computed(() => {
   const d = data.value?.job_distribution
+  const colors = chartPalette.value
   return {
-    tooltip: { trigger: 'axis' },
+    tooltip: {
+      trigger: 'axis',
+      backgroundColor: colors.tooltipBg,
+      borderColor: colors.tooltipBorder,
+      textStyle: { color: colors.text },
+    },
     grid: { left: '3%', right: '4%', top: '10%', bottom: '3%', containLabel: true },
-    xAxis: { type: 'category', data: d?.labels || [] },
-    yAxis: { type: 'value', minInterval: 1, splitLine: { lineStyle: { color: '#e5e7eb' } } },
-    series: [{ type: 'bar', data: d?.values || [], barMaxWidth: 52, itemStyle: { color: '#2563eb', borderRadius: [6, 6, 0, 0] } }],
+    xAxis: {
+      type: 'category',
+      data: d?.labels || [],
+      axisLabel: { color: colors.textMuted },
+      axisLine: { lineStyle: { color: colors.axis } },
+    },
+    yAxis: {
+      type: 'value',
+      minInterval: 1,
+      axisLabel: { color: colors.textMuted },
+      splitLine: { lineStyle: { color: colors.splitLine } },
+    },
+    series: [{
+      type: 'bar',
+      data: d?.values || [],
+      barMaxWidth: 52,
+      itemStyle: { color: colors.bar, borderRadius: [6, 6, 0, 0] },
+    }],
   }
 })
 
@@ -122,22 +168,37 @@ const stageDistOption = computed(() => {
   const d = data.value?.stage_distribution
   const values = d?.values || []
   const total = values.reduce((a, b) => a + b, 0)
+  const colors = chartPalette.value
   // Filter out zero-value labels.
   const pieData = (d?.labels || [])
     .map((label, i) => ({ name: label, value: values[i] || 0 }))
     .filter((item) => item.value > 0)
   return {
-    tooltip: { trigger: 'item' },
-    legend: { bottom: '0%', itemWidth: 8, itemHeight: 8 },
+    tooltip: {
+      trigger: 'item',
+      backgroundColor: colors.tooltipBg,
+      borderColor: colors.tooltipBorder,
+      textStyle: { color: colors.text },
+    },
+    legend: {
+      bottom: '0%',
+      itemWidth: 8,
+      itemHeight: 8,
+      textStyle: { color: colors.textMuted },
+    },
     series: [{
       type: 'pie',
       center: ['50%', '46%'],
       radius: total > 0 ? ['40%', '65%'] : ['40%', '65%'],
       avoidLabelOverlap: false,
-      label: { show: true, formatter: '{b}: {c}' },
+      label: {
+        show: true,
+        formatter: '{b}: {c}',
+        color: colors.text,
+      },
       data: pieData,
       itemStyle: {
-        color: (params: any) => ['#409EFF', '#67C23A', '#E6A23C', '#F56C6C'][params.dataIndex] || '#409EFF',
+        color: (params: { dataIndex: number }) => ['#409EFF', '#67C23A', '#E6A23C', '#F56C6C'][params.dataIndex] || '#409EFF',
       },
     }],
   }
@@ -352,7 +413,7 @@ const goTo = (path: string) => router.push(path)
   height: 100%;
   overflow-y: auto;
   padding: 24px;
-  background: #F3F6FA;
+  background: var(--bg);
   color: var(--text-primary);
 }
 .workbench-error {
@@ -361,11 +422,11 @@ const goTo = (path: string) => router.push(path)
 
 /* ── Main Container ── */
 .dashboard-shell {
-  background: #ffffff;
+  background: var(--surface);
   border-radius: 20px;
   padding: 28px;
-  border: 1px solid #EEF2F6;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04), 0 1px 2px rgba(0, 0, 0, 0.03);
+  border: 1px solid var(--border);
+  box-shadow: var(--admin-console-card-shadow);
 }
 
 /* ── Dashboard Header ── */
@@ -414,9 +475,9 @@ const goTo = (path: string) => router.push(path)
   gap: 12px;
   margin-bottom: 24px;
   padding: 12px 16px;
-  background: #F8FAFB;
+  background: var(--surface-muted);
   border-radius: 10px;
-  border: 1px solid #EEF2F6;
+  border: 1px solid var(--border);
 }
 .quick-actions__label {
   font-size: 12px;
@@ -451,9 +512,9 @@ const goTo = (path: string) => router.push(path)
   display: flex;
   align-items: stretch;
   margin-bottom: 24px;
-  border: 1px solid #EEF2F6;
+  border: 1px solid var(--border);
   border-radius: 12px;
-  background: #ffffff;
+  background: var(--surface);
   overflow: hidden;
 }
 .kpi-item {
@@ -465,13 +526,13 @@ const goTo = (path: string) => router.push(path)
   padding: 18px 20px;
 }
 .kpi-item + .kpi-item {
-  border-left: 1px solid #EEF2F6;
+  border-left: 1px solid var(--border);
 }
 .kpi-strip__group-divider {
   width: 2px;
   min-height: 40px;
   align-self: center;
-  background: #E2E8F0;
+  background: var(--border);
   border-radius: 1px;
   flex-shrink: 0;
 }
@@ -526,9 +587,9 @@ const goTo = (path: string) => router.push(path)
 .overview-panel,
 .activity-panel {
   padding: 20px;
-  border: 1px solid #EEF2F6;
+  border: 1px solid var(--border);
   border-radius: 12px;
-  background: #FAFBFC;
+  background: var(--surface-muted);
 }
 
 .panel-header {
@@ -573,8 +634,8 @@ const goTo = (path: string) => router.push(path)
   gap: 8px;
   padding: 6px 10px;
   border-radius: 6px;
-  background: #ffffff;
-  border: 1px solid #EEF2F6;
+  background: var(--surface);
+  border: 1px solid var(--border);
   color: var(--text-secondary);
   font-size: 12px;
 }
@@ -608,7 +669,7 @@ const goTo = (path: string) => router.push(path)
   gap: 8px;
   margin-top: 16px;
   padding-top: 16px;
-  border-top: 1px solid #EEF2F6;
+  border-top: 1px solid var(--border);
 }
 .todo-item {
   width: 100%;
@@ -617,17 +678,17 @@ const goTo = (path: string) => router.push(path)
   align-items: center;
   gap: 10px;
   padding: 12px;
-  border: 1px solid #EEF2F6;
+  border: 1px solid var(--border);
   border-radius: 8px;
-  background: #ffffff;
+  background: var(--surface);
   color: inherit;
   cursor: pointer;
   text-align: left;
   transition: border-color var(--motion-normal), background-color var(--motion-normal);
 }
 .todo-item:hover {
-  border-color: var(--el-color-primary-light-5);
-  background: var(--el-color-primary-light-9);
+  border-color: color-mix(in srgb, var(--brand) 40%, var(--border));
+  background: color-mix(in srgb, var(--brand-soft) 70%, var(--surface));
 }
 .todo-item__icon {
   width: 32px;
@@ -681,7 +742,7 @@ const goTo = (path: string) => router.push(path)
   .kpi-item {
     flex: 1 1 calc(33.33% - 1px);
     border-left: none !important;
-    border-bottom: 1px solid #EEF2F6;
+    border-bottom: 1px solid var(--border);
   }
   .kpi-item:nth-child(3n) {
     border-right: none;
@@ -723,7 +784,7 @@ const goTo = (path: string) => router.push(path)
 
   .kpi-item {
     flex: 1 1 calc(50% - 1px);
-    border-right: 1px solid #EEF2F6;
+    border-right: 1px solid var(--border);
   }
   .kpi-item:nth-child(2n) {
     border-right: none;
@@ -732,7 +793,7 @@ const goTo = (path: string) => router.push(path)
     border-bottom: none;
   }
   .kpi-item:nth-child(3n) {
-    border-right: 1px solid #EEF2F6;
+    border-right: 1px solid var(--border);
   }
 
   .overview-chart {
@@ -751,7 +812,7 @@ const goTo = (path: string) => router.push(path)
   }
   .kpi-item {
     border-right: none !important;
-    border-bottom: 1px solid #EEF2F6;
+    border-bottom: 1px solid var(--border);
   }
   .kpi-item:last-child {
     border-bottom: none;

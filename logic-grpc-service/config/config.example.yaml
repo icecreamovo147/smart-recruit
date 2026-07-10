@@ -72,6 +72,17 @@ agent:
   max_memory_chars: 1500
   max_prompt_chars: 20000
   max_memories: 10
+  features:
+    planner: true                       # AGENT_FEATURE_PLANNER
+    structured_resume_parse: true       # AGENT_FEATURE_STRUCTURED_RESUME_PARSE
+    candidate_match: true               # AGENT_FEATURE_CANDIDATE_MATCH
+    skill_governance: true              # AGENT_FEATURE_SKILL_GOVERNANCE
+    semantic_retrieval: true            # AGENT_FEATURE_SEMANTIC_RETRIEVAL
+    mcp_policy: true                    # AGENT_FEATURE_MCP_POLICY
+    fallbacks: true                     # AGENT_FEATURE_FALLBACKS
+    resume_parse_timeout: "30s"         # AGENT_RESUME_PARSE_TIMEOUT
+    candidate_match_timeout: "15s"      # AGENT_CANDIDATE_MATCH_TIMEOUT
+    semantic_retrieval_timeout: "5s"    # AGENT_SEMANTIC_RETRIEVAL_TIMEOUT
 
 rabbitmq:
   url: "amqp://guest:guest@127.0.0.1:5672/"
@@ -105,5 +116,29 @@ mcp:
   allowed_url_hosts: []
   block_private_network: true
   max_timeout_seconds: 120
+
+embedding:
+  enabled: true                              # EMBEDDING_ENABLED: 启用 Embedding Provider
+  default_model_id: 0                        # EMBEDDING_DEFAULT_MODEL_ID: 默认 Embedding 模型 ID
+  fallback_to_rule_retrieval: true           # EMBEDDING_FALLBACK_TO_RULE_RETRIEVAL: Provider 不可用时降级为规则召回
+  request_timeout: "30s"                     # EMBEDDING_REQUEST_TIMEOUT: Embedding API 请求超时
+  max_concurrency: 8                         # EMBEDDING_MAX_CONCURRENCY: 最大并发请求数
+  slow_request_threshold: "2s"               # EMBEDDING_SLOW_REQUEST_THRESHOLD: 慢请求阈值
+
+# TASK-FU-004：Skill / Memory 召回排序权重与阈值
+# 默认值与 SDD §3.3 一致；空值 / 0 走 hardcode 默认；越界 clamp 到合法范围。
+# env 覆盖：RANKING_WEIGHT_VECTOR / RANKING_BUSINESS_BOOST_MAX 等
+ranking:
+  weight_vector: 0.6       # RANKING_WEIGHT_VECTOR:   向量相似度权重（0..1）
+  weight_lexical: 0.3      # RANKING_WEIGHT_LEXICAL:  关键词命中权重（0..1）
+  weight_metadata: 0.1     # RANKING_WEIGHT_METADATA: 元数据命中权重（0..1）
+  business_boost_max: 1.5  # RANKING_BUSINESS_BOOST_MAX: business_boost 上界（1.0..1.5）
+  priority_norm: 50.0     # RANKING_PRIORITY_NORM:    priority 归一化分母（0.0001..10000）
+  boost_alpha: 0.2        # RANKING_BOOST_ALPHA:      priority_normalized 系数（0..1）
+  boost_beta: 0.2         # RANKING_BOOST_BETA:       importance_signal 系数（0..1）
+  boost_gamma: 0.1        # RANKING_BOOST_GAMMA:      confidence_signal 系数（0..1）
+  relevance_gate: 0.15    # RANKING_RELEVANCE_GATE:   Memory 相关性 gating 阈值（0..1）
+  gap_high: 0.10          # RANKING_GAP_HIGH:        top1/top2 gap → high 阈值（0..1）
+  gap_medium: 0.03        # RANKING_GAP_MEDIUM:      top1/top2 gap → medium 阈值（0..1）
 
 frontend_base_url: "http://localhost:5173"  # FRONTEND_BASE_URL: 前端地址基础 URL

@@ -3,6 +3,7 @@ package repository
 import (
 	"context"
 	"testing"
+	"time"
 
 	"logic-grpc-service/model"
 )
@@ -14,13 +15,13 @@ func TestMCPServerCreateAndGet(t *testing.T) {
 
 	envVars := `{"API_KEY":"sk-test"}`
 	server := &model.MCPServer{
-		Name:          "test-server",
-		Transport:     "stdio",
-		CommandOrURL:  "/usr/bin/test",
-		Args:          strPtr(`["--flag"]`),
-		EnvVars:       &envVars,
+		Name:           "test-server",
+		Transport:      "stdio",
+		CommandOrURL:   "/usr/bin/test",
+		Args:           strPtr(`["--flag"]`),
+		EnvVars:        &envVars,
 		TimeoutSeconds: 30,
-		IsEnabled:     0,
+		IsEnabled:      0,
 	}
 	if err := repo.CreateServer(ctx, server); err != nil {
 		t.Fatalf("CreateServer failed: %v", err)
@@ -54,11 +55,11 @@ func TestMCPServerUpdatePartial(t *testing.T) {
 	ctx := context.Background()
 
 	server := &model.MCPServer{
-		Name:          "initial",
-		Transport:     "stdio",
-		CommandOrURL:  "/usr/bin/initial",
+		Name:           "initial",
+		Transport:      "stdio",
+		CommandOrURL:   "/usr/bin/initial",
 		TimeoutSeconds: 30,
-		IsEnabled:     0,
+		IsEnabled:      0,
 	}
 	if err := repo.CreateServer(ctx, server); err != nil {
 		t.Fatalf("CreateServer failed: %v", err)
@@ -91,9 +92,9 @@ func TestMCPServerDelete(t *testing.T) {
 	ctx := context.Background()
 
 	server := &model.MCPServer{
-		Name:          "to-delete",
-		Transport:     "stdio",
-		CommandOrURL:  "/usr/bin/delete",
+		Name:           "to-delete",
+		Transport:      "stdio",
+		CommandOrURL:   "/usr/bin/delete",
 		TimeoutSeconds: 30,
 	}
 	if err := repo.CreateServer(ctx, server); err != nil {
@@ -127,9 +128,9 @@ func TestMCPServerListPagination(t *testing.T) {
 			name = "gamma"
 		}
 		server := &model.MCPServer{
-			Name:          name,
-			Transport:     "stdio",
-			CommandOrURL:  "/usr/bin/" + name,
+			Name:           name,
+			Transport:      "stdio",
+			CommandOrURL:   "/usr/bin/" + name,
 			TimeoutSeconds: 30,
 		}
 		if err := repo.CreateServer(ctx, server); err != nil {
@@ -169,22 +170,22 @@ func TestMCPServerListEnabled(t *testing.T) {
 
 	// Create one enabled and one disabled server
 	enabled := &model.MCPServer{
-		Name:          "enabled-server",
-		Transport:     "stdio",
-		CommandOrURL:  "/usr/bin/enabled",
+		Name:           "enabled-server",
+		Transport:      "stdio",
+		CommandOrURL:   "/usr/bin/enabled",
 		TimeoutSeconds: 30,
-		IsEnabled:     1,
+		IsEnabled:      1,
 	}
 	if err := repo.CreateServer(ctx, enabled); err != nil {
 		t.Fatalf("CreateServer failed: %v", err)
 	}
 
 	disabled := &model.MCPServer{
-		Name:          "disabled-server",
-		Transport:     "stdio",
-		CommandOrURL:  "/usr/bin/disabled",
+		Name:           "disabled-server",
+		Transport:      "stdio",
+		CommandOrURL:   "/usr/bin/disabled",
 		TimeoutSeconds: 30,
-		IsEnabled:     0,
+		IsEnabled:      0,
 	}
 	if err := repo.CreateServer(ctx, disabled); err != nil {
 		t.Fatalf("CreateServer failed: %v", err)
@@ -209,9 +210,9 @@ func TestMCPToolLogCreate(t *testing.T) {
 
 	// Create a server first
 	server := &model.MCPServer{
-		Name:          "log-test-server",
-		Transport:     "stdio",
-		CommandOrURL:  "/usr/bin/test",
+		Name:           "log-test-server",
+		Transport:      "stdio",
+		CommandOrURL:   "/usr/bin/test",
 		TimeoutSeconds: 30,
 	}
 	if err := repo.CreateServer(ctx, server); err != nil {
@@ -260,9 +261,9 @@ func TestMCPToolLogListBySession(t *testing.T) {
 	ctx := context.Background()
 
 	server := &model.MCPServer{
-		Name:          "session-log-server",
-		Transport:     "stdio",
-		CommandOrURL:  "/usr/bin/test",
+		Name:           "session-log-server",
+		Transport:      "stdio",
+		CommandOrURL:   "/usr/bin/test",
 		TimeoutSeconds: 30,
 	}
 	if err := repo.CreateServer(ctx, server); err != nil {
@@ -303,6 +304,95 @@ func TestMCPToolLogListBySession(t *testing.T) {
 	if len(logs) != 3 {
 		t.Fatalf("expected 3 logs, got %d", len(logs))
 	}
+}
+
+func TestMCPToolPolicyCRUDAndLookup(t *testing.T) {
+	db := setupTestDB(t)
+	repo := NewMCPRepo(db)
+	ctx := context.Background()
+
+	server := &model.MCPServer{Name: "policy-server", Transport: "stdio", CommandOrURL: "/usr/bin/test"}
+	if err := repo.CreateServer(ctx, server); err != nil {
+		t.Fatalf("CreateServer failed: %v", err)
+	}
+
+	required := `["query"]`
+	policy := &model.MCPToolPolicy{
+		ServerID:         server.ID,
+		ToolName:         "search",
+		Effect:           "allow",
+		RiskLevel:        "high",
+		RequiredArgsJSON: &required,
+		IsEnabled:        1,
+	}
+	if err := repo.CreateToolPolicy(ctx, policy); err != nil {
+		t.Fatalf("CreateToolPolicy failed: %v", err)
+	}
+	if policy.ID <= 0 {
+		t.Fatal("expected policy ID")
+	}
+
+	loaded, err := repo.GetEnabledToolPolicy(ctx, server.ID, "search")
+	if err != nil {
+		t.Fatalf("GetEnabledToolPolicy failed: %v", err)
+	}
+	if loaded.RiskLevel != "high" {
+		t.Fatalf("expected risk high, got %q", loaded.RiskLevel)
+	}
+
+	loaded.Effect = "deny"
+	if err := repo.UpdateToolPolicy(ctx, loaded); err != nil {
+		t.Fatalf("UpdateToolPolicy failed: %v", err)
+	}
+	updated, err := repo.GetToolPolicyByID(ctx, policy.ID)
+	if err != nil {
+		t.Fatalf("GetToolPolicyByID failed: %v", err)
+	}
+	if updated.Effect != "deny" {
+		t.Fatalf("expected effect deny, got %q", updated.Effect)
+	}
+
+	list, total, err := repo.ListToolPolicies(ctx, server.ID, 1, 10)
+	if err != nil {
+		t.Fatalf("ListToolPolicies failed: %v", err)
+	}
+	if total != 1 || len(list) != 1 {
+		t.Fatalf("expected one policy, total=%d len=%d", total, len(list))
+	}
+
+	if err := repo.DeleteToolPolicy(ctx, policy.ID); err != nil {
+		t.Fatalf("DeleteToolPolicy failed: %v", err)
+	}
+	if _, err := repo.GetToolPolicyByID(ctx, policy.ID); err == nil {
+		t.Fatal("expected deleted policy lookup to fail")
+	}
+}
+
+func TestMCPRepoCountToolLogsSince(t *testing.T) {
+	db := setupTestDB(t)
+	repo := NewMCPRepo(db)
+	ctx := context.Background()
+
+	server := &model.MCPServer{Name: "rate-server", Transport: "stdio", CommandOrURL: "/usr/bin/test"}
+	if err := repo.CreateServer(ctx, server); err != nil {
+		t.Fatalf("CreateServer failed: %v", err)
+	}
+	for i := 0; i < 2; i++ {
+		if err := repo.CreateToolLog(ctx, &model.MCPToolLog{ServerID: server.ID, ToolName: "search", PolicyDecision: "allow"}); err != nil {
+			t.Fatalf("CreateToolLog failed: %v", err)
+		}
+	}
+	count, err := repo.CountToolLogsSince(ctx, server.ID, "search", logsSincePast())
+	if err != nil {
+		t.Fatalf("CountToolLogsSince failed: %v", err)
+	}
+	if count != 2 {
+		t.Fatalf("expected 2 logs, got %d", count)
+	}
+}
+
+func logsSincePast() time.Time {
+	return time.Now().Add(-time.Hour)
 }
 
 // strPtr is a helper to create a *string.

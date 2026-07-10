@@ -37,6 +37,7 @@ type JobApplicationRow struct {
 	School        string
 	Skills        string
 	AppliedAt     time.Time
+	ResumeID      int64
 	OSSKey        string
 	FileName      string
 	FileType      string
@@ -198,6 +199,33 @@ func (r *ApplicationRepo) Create(ctx context.Context, application *model.Applica
 	return err
 }
 
+func (r *ApplicationRepo) GetByID(ctx context.Context, applicationID int64) (*model.Application, error) {
+	var application model.Application
+	err := r.db.WithContext(ctx).First(&application, applicationID).Error
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	return &application, nil
+}
+
+func (r *ApplicationRepo) GetLatestByResumeID(ctx context.Context, resumeID int64) (*model.Application, error) {
+	var application model.Application
+	err := r.db.WithContext(ctx).
+		Where("resume_id = ?", resumeID).
+		Order("applied_at DESC, id DESC").
+		First(&application).Error
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	return &application, nil
+}
+
 func (r *ApplicationRepo) ListMy(ctx context.Context, userID int64, page, pageSize int32) ([]MyApplicationRow, int64, error) {
 	var total int64
 	base := r.db.WithContext(ctx).Table("applications").Where("applications.user_id = ?", userID)
@@ -265,6 +293,24 @@ func (r *ApplicationRepo) ListByJob(ctx context.Context, jobID int64, page, page
 		Limit(int(pageSize)).
 		Scan(&rows).Error
 	return rows, total, err
+}
+
+func (r *ApplicationRepo) ListCurrentByJob(ctx context.Context, jobID int64) ([]JobApplicationRow, error) {
+	latestRound := r.db.WithContext(ctx).Table("applications AS a2").
+		Select("MAX(a2.round_no)").
+		Where("a2.user_id = applications.user_id AND a2.job_id = applications.job_id")
+	var rows []JobApplicationRow
+	err := r.db.WithContext(ctx).Table("applications").
+		Where("applications.job_id = ? AND applications.round_no = (?)", jobID, latestRound).
+		Select(`applications.id AS application_id, applications.user_id, jobs.id AS job_id, jobs.title AS job_title, candidate_profiles.real_name,
+		candidate_profiles.phone, candidate_profiles.education, candidate_profiles.school, candidate_profiles.skills,
+		applications.applied_at, resumes.id AS resume_id, resumes.oss_key, resumes.file_name, resumes.file_type, applications.status, applications.status_key, applications.round_no, applications.is_current`).
+		Joins("JOIN jobs ON jobs.id = applications.job_id").
+		Joins("LEFT JOIN candidate_profiles ON candidate_profiles.user_id = applications.user_id").
+		Joins("LEFT JOIN resumes ON resumes.id = applications.resume_id").
+		Order("applications.applied_at DESC, applications.id ASC").
+		Scan(&rows).Error
+	return rows, err
 }
 
 func (r *ApplicationRepo) UpdateStatusOwned(ctx context.Context, hrID, applicationID int64, status int32) (int64, error) {

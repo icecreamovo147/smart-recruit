@@ -2,6 +2,7 @@ package repository
 
 import (
 	"context"
+	"strings"
 	"testing"
 	"time"
 
@@ -79,6 +80,50 @@ func TestAgentRunRepoCreateStepAndUpdate(t *testing.T) {
 	}
 	if len(steps) != 1 || steps[0].ToolName != "search_candidates" || steps[0].Status != "succeeded" {
 		t.Fatalf("unexpected steps: %+v", steps)
+	}
+}
+
+func TestAgentRunRepoTraceRetrievalIncludesPlanAndEvidenceSteps(t *testing.T) {
+	db := setupTestDB(t)
+	repo := NewAgentRunRepo(db)
+	ctx := context.Background()
+
+	run := &model.AgentRun{
+		SessionID: 11,
+		HrID:      22,
+		AgentType: "hr",
+		AgentName: "hr_recruiting_agent",
+		ModelName: "test-model",
+		Status:    "succeeded",
+		PlanJSON:  `{"recruiting_plan":{"intent":"candidate_match_evaluation"},"selected_agent_skill_ids":[7],"selected_memory_ids":[9],"risk_flags":["cite_tool_returned_evidence"],"decision":{"status":"succeeded"}}`,
+		StartedAt: time.Now(),
+	}
+	if err := repo.CreateRun(ctx, run); err != nil {
+		t.Fatalf("CreateRun failed: %v", err)
+	}
+	steps := []model.AgentRunStep{
+		{RunID: run.ID, StepIndex: 0, StepType: "plan", OutputJSON: `{"recruiting_plan":{"intent":"candidate_match_evaluation"}}`, Status: "succeeded", StartedAt: time.Now(), CompletedAt: ptrTime(time.Now())},
+		{RunID: run.ID, StepIndex: 1, StepType: "evidence", ToolName: "evaluate_candidate_match", OutputJSON: `{"evidence":[{"snippet":"Go"}]}`, Status: "succeeded", StartedAt: time.Now(), CompletedAt: ptrTime(time.Now())},
+	}
+	for i := range steps {
+		if err := repo.CreateStep(ctx, &steps[i]); err != nil {
+			t.Fatalf("CreateStep %d failed: %v", i, err)
+		}
+	}
+
+	runs, err := repo.ListRunsBySession(ctx, 22, 11, 10)
+	if err != nil {
+		t.Fatalf("ListRunsBySession failed: %v", err)
+	}
+	if len(runs) != 1 || !strings.Contains(runs[0].PlanJSON, `"selected_memory_ids":[9]`) {
+		t.Fatalf("expected enriched plan json in trace retrieval, got %+v", runs)
+	}
+	loadedSteps, err := repo.ListStepsByRunIDs(ctx, []uint64{run.ID})
+	if err != nil {
+		t.Fatalf("ListStepsByRunIDs failed: %v", err)
+	}
+	if len(loadedSteps) != 2 || loadedSteps[0].StepType != "plan" || loadedSteps[1].StepType != "evidence" {
+		t.Fatalf("expected plan then evidence steps, got %+v", loadedSteps)
 	}
 }
 

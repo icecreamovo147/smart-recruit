@@ -190,6 +190,152 @@ type Resume struct {
 	UploadedAt time.Time
 }
 
+type ResumeParseRun struct {
+	ID            uint64     `gorm:"primaryKey"`
+	ResumeID      int64      `gorm:"column:resume_id;not null;index:idx_resume_parse_runs_resume"`
+	UserID        int64      `gorm:"column:user_id;not null;index:idx_resume_parse_runs_user"`
+	AgentRunID    *uint64    `gorm:"column:agent_run_id;index:idx_resume_parse_runs_agent_run"`
+	Status        string     `gorm:"column:status;size:32;not null;default:running;index:idx_resume_parse_runs_status"`
+	ParserVersion string     `gorm:"column:parser_version;size:64"`
+	InputHash     string     `gorm:"column:input_hash;size:128"`
+	ErrorMessage  string     `gorm:"column:error_message;type:text"`
+	StartedAt     time.Time  `gorm:"column:started_at"`
+	CompletedAt   *time.Time `gorm:"column:completed_at"`
+	CreatedAt     time.Time  `gorm:"column:created_at"`
+	UpdatedAt     time.Time  `gorm:"column:updated_at"`
+}
+
+func (ResumeParseRun) TableName() string { return "resume_parse_runs" }
+
+type ResumeProfile struct {
+	ID              uint64    `gorm:"primaryKey"`
+	ResumeID        int64     `gorm:"column:resume_id;not null;index:idx_resume_profiles_resume;uniqueIndex:uk_resume_profile_version,priority:1"`
+	UserID          int64     `gorm:"column:user_id;not null;index:idx_resume_profiles_user"`
+	ParseRunID      uint64    `gorm:"column:parse_run_id;not null;uniqueIndex:uk_resume_profiles_parse_run"`
+	Version         int32     `gorm:"column:version;not null;default:1;uniqueIndex:uk_resume_profile_version,priority:2"`
+	IsCurrent       int32     `gorm:"column:is_current;not null;default:1;index:idx_resume_profiles_current"`
+	CurrentKey      *int32    `gorm:"column:current_key;->"`
+	FullName        string    `gorm:"column:full_name;size:128"`
+	Email           string    `gorm:"column:email;size:128"`
+	Phone           string    `gorm:"column:phone;size:64"`
+	Location        string    `gorm:"column:location;size:128"`
+	Headline        string    `gorm:"column:headline;size:256"`
+	Summary         string    `gorm:"column:summary;type:text"`
+	TotalExperience float64   `gorm:"column:total_experience_years"`
+	HighestDegree   string    `gorm:"column:highest_degree;size:64"`
+	RawJSON         string    `gorm:"column:raw_json;type:text"`
+	CreatedAt       time.Time `gorm:"column:created_at"`
+	UpdatedAt       time.Time `gorm:"column:updated_at"`
+}
+
+func (ResumeProfile) TableName() string { return "resume_profiles" }
+
+type ResumeEducation struct {
+	ID              uint64     `gorm:"primaryKey"`
+	ResumeProfileID uint64     `gorm:"column:resume_profile_id;not null;index:idx_resume_educations_profile"`
+	School          string     `gorm:"column:school;size:128;not null"`
+	Degree          string     `gorm:"column:degree;size:64"`
+	Major           string     `gorm:"column:major;size:128"`
+	StartDate       *time.Time `gorm:"column:start_date"`
+	EndDate         *time.Time `gorm:"column:end_date"`
+	Description     string     `gorm:"column:description;type:text"`
+	SortOrder       int32      `gorm:"column:sort_order;not null;default:0"`
+	CreatedAt       time.Time  `gorm:"column:created_at"`
+	UpdatedAt       time.Time  `gorm:"column:updated_at"`
+}
+
+func (ResumeEducation) TableName() string { return "resume_educations" }
+
+type ResumeExperience struct {
+	ID               uint64     `gorm:"primaryKey"`
+	ResumeProfileID  uint64     `gorm:"column:resume_profile_id;not null;index:idx_resume_experiences_profile"`
+	Company          string     `gorm:"column:company;size:128;not null"`
+	Title            string     `gorm:"column:title;size:128"`
+	Location         string     `gorm:"column:location;size:128"`
+	StartDate        *time.Time `gorm:"column:start_date"`
+	EndDate          *time.Time `gorm:"column:end_date"`
+	IsCurrent        int32      `gorm:"column:is_current;not null;default:0"`
+	Description      string     `gorm:"column:description;type:text"`
+	AchievementsJSON string     `gorm:"column:achievements_json;type:text"`
+	SortOrder        int32      `gorm:"column:sort_order;not null;default:0"`
+	CreatedAt        time.Time  `gorm:"column:created_at"`
+	UpdatedAt        time.Time  `gorm:"column:updated_at"`
+}
+
+func (ResumeExperience) TableName() string { return "resume_experiences" }
+
+type ResumeProject struct {
+	ID               uint64     `gorm:"primaryKey"`
+	ResumeProfileID  uint64     `gorm:"column:resume_profile_id;not null;index:idx_resume_projects_profile"`
+	Name             string     `gorm:"column:name;size:128;not null"`
+	Role             string     `gorm:"column:role;size:128"`
+	StartDate        *time.Time `gorm:"column:start_date"`
+	EndDate          *time.Time `gorm:"column:end_date"`
+	Description      string     `gorm:"column:description;type:text"`
+	TechnologiesJSON string     `gorm:"column:technologies_json;type:text"`
+	HighlightsJSON   string     `gorm:"column:highlights_json;type:text"`
+	SortOrder        int32      `gorm:"column:sort_order;not null;default:0"`
+	CreatedAt        time.Time  `gorm:"column:created_at"`
+	UpdatedAt        time.Time  `gorm:"column:updated_at"`
+}
+
+func (ResumeProject) TableName() string { return "resume_projects" }
+
+type ResumeSkill struct {
+	ID              uint64    `gorm:"primaryKey"`
+	ResumeProfileID uint64    `gorm:"column:resume_profile_id;not null;index:idx_resume_skills_profile;uniqueIndex:uk_resume_skill_name,priority:1"`
+	Name            string    `gorm:"column:name;size:128;not null;uniqueIndex:uk_resume_skill_name,priority:2"`
+	Category        string    `gorm:"column:category;size:64;index:idx_resume_skills_category"`
+	Level           string    `gorm:"column:level;size:32"`
+	Years           float64   `gorm:"column:years"`
+	Evidence        string    `gorm:"column:evidence;type:text"`
+	SortOrder       int32     `gorm:"column:sort_order;not null;default:0"`
+	CreatedAt       time.Time `gorm:"column:created_at"`
+	UpdatedAt       time.Time `gorm:"column:updated_at"`
+}
+
+func (ResumeSkill) TableName() string { return "resume_skills" }
+
+type CandidateMatchEvaluation struct {
+	ID                 uint64    `gorm:"primaryKey"`
+	ApplicationID      int64     `gorm:"column:application_id;not null;index:idx_candidate_match_application;uniqueIndex:uk_candidate_match_version,priority:1"`
+	JobID              int64     `gorm:"column:job_id;not null;index:idx_candidate_match_job"`
+	CandidateUserID    int64     `gorm:"column:candidate_user_id;not null;index:idx_candidate_match_candidate"`
+	ResumeProfileID    uint64    `gorm:"column:resume_profile_id;not null;index:idx_candidate_match_resume_profile"`
+	AgentRunID         *uint64   `gorm:"column:agent_run_id;index:idx_candidate_match_agent_run"`
+	EvaluationVersion  int32     `gorm:"column:evaluation_version;not null;default:1;uniqueIndex:uk_candidate_match_version,priority:2"`
+	IsLatest           int32     `gorm:"column:is_latest;not null;default:1;index:idx_candidate_match_latest"`
+	LatestKey          *int32    `gorm:"column:latest_key;->"`
+	OverallScore       float64   `gorm:"column:overall_score"`
+	Recommendation     string    `gorm:"column:recommendation;size:32"`
+	Summary            string    `gorm:"column:summary;type:text"`
+	StrengthsJSON      string    `gorm:"column:strengths_json;type:text"`
+	RisksJSON          string    `gorm:"column:risks_json;type:text"`
+	ScoreBreakdownJSON string    `gorm:"column:score_breakdown_json;type:text"`
+	ModelName          string    `gorm:"column:model_name;size:128"`
+	EvaluatedAt        time.Time `gorm:"column:evaluated_at"`
+	CreatedAt          time.Time `gorm:"column:created_at"`
+	UpdatedAt          time.Time `gorm:"column:updated_at"`
+}
+
+func (CandidateMatchEvaluation) TableName() string { return "candidate_match_evaluations" }
+
+type CandidateMatchEvidence struct {
+	ID           uint64    `gorm:"primaryKey"`
+	EvaluationID uint64    `gorm:"column:evaluation_id;not null;index:idx_candidate_match_evidence_eval"`
+	EvidenceType string    `gorm:"column:evidence_type;size:64;not null;index:idx_candidate_match_evidence_type"`
+	Dimension    string    `gorm:"column:dimension;size:64"`
+	SourceTable  string    `gorm:"column:source_table;size:64"`
+	SourceID     *uint64   `gorm:"column:source_id"`
+	Snippet      string    `gorm:"column:snippet;type:text"`
+	Weight       float64   `gorm:"column:weight"`
+	ScoreImpact  float64   `gorm:"column:score_impact"`
+	MetadataJSON string    `gorm:"column:metadata_json;type:text"`
+	CreatedAt    time.Time `gorm:"column:created_at"`
+}
+
+func (CandidateMatchEvidence) TableName() string { return "candidate_match_evidence" }
+
 type Application struct {
 	ID        int64     `gorm:"primaryKey"`
 	JobID     int64     `gorm:"column:job_id"`
@@ -328,9 +474,27 @@ type AIMemory struct {
 	Content    string     `gorm:"column:content"`
 	Source     string     `gorm:"column:source"`
 	Confidence float64    `gorm:"column:confidence"`
+	Importance float64    `gorm:"column:importance"`
 	ExpiresAt  *time.Time `gorm:"column:expires_at"`
 	CreatedAt  time.Time
 	UpdatedAt  time.Time
+}
+
+type AIEmbedding struct {
+	ID             uint64    `gorm:"primaryKey"`
+	ObjectType     string    `gorm:"column:object_type;uniqueIndex:uk_ai_embeddings_object_model_hash,priority:1;index:idx_ai_embeddings_object;index:idx_ai_embeddings_query,priority:1"`
+	ObjectID       uint64    `gorm:"column:object_id;uniqueIndex:uk_ai_embeddings_object_model_hash,priority:2;index:idx_ai_embeddings_object"`
+	ScopeType      string    `gorm:"column:scope_type;index:idx_ai_embeddings_scope,priority:1"`
+	ScopeID        uint64    `gorm:"column:scope_id;index:idx_ai_embeddings_scope,priority:2"`
+	TextHash       string    `gorm:"column:text_hash;uniqueIndex:uk_ai_embeddings_object_model_hash,priority:4"`
+	EmbeddingModel string    `gorm:"column:embedding_model;uniqueIndex:uk_ai_embeddings_object_model_hash,priority:3;index:idx_ai_embeddings_query,priority:2"`
+	EmbeddingDim   int       `gorm:"column:embedding_dim"`
+	VectorJSON     *string   `gorm:"column:vector_json;type:json"`
+	MetadataJSON   *string   `gorm:"column:metadata_json;type:json"`
+	Status         string    `gorm:"column:status;index:idx_ai_embeddings_query,priority:3"`
+	LastError      string    `gorm:"column:last_error"`
+	CreatedAt      time.Time `gorm:"column:created_at"`
+	UpdatedAt      time.Time `gorm:"column:updated_at"`
 }
 
 func (CandidateProfile) TableName() string { return "candidate_profiles" }
@@ -341,6 +505,7 @@ func (AIToolTrace) TableName() string      { return "ai_tool_traces" }
 func (AgentRun) TableName() string         { return "agent_runs" }
 func (AgentRunStep) TableName() string     { return "agent_run_steps" }
 func (AIMemory) TableName() string         { return "ai_memories" }
+func (AIEmbedding) TableName() string      { return "ai_embeddings" }
 func (Notification) TableName() string     { return "notifications" }
 
 type Notification struct {
@@ -752,18 +917,27 @@ type SkillTool struct {
 func (SkillTool) TableName() string { return "ai_skill_tools" }
 
 type AgentSkill struct {
-	ID                int64     `gorm:"primaryKey"`
-	Name              string    `gorm:"column:name;size:128;not null;uniqueIndex:uk_agent_skills_name"`
-	DisplayName       string    `gorm:"column:display_name;size:128;not null"`
-	Description       string    `gorm:"column:description;type:text"`
-	CurrentVersionID  *int64    `gorm:"column:current_version_id"`
-	IsEnabled         int32     `gorm:"column:is_enabled;default:1"`
-	IsManualInvocable int32     `gorm:"column:is_manual_invocable;default:1"`
-	TriggerKeywords   string    `gorm:"column:trigger_keywords;type:json"`
-	CreatedBy         *int64    `gorm:"column:created_by"`
-	UpdatedBy         *int64    `gorm:"column:updated_by"`
-	CreatedAt         time.Time `gorm:"column:created_at"`
-	UpdatedAt         time.Time `gorm:"column:updated_at"`
+	ID                   int64     `gorm:"primaryKey"`
+	Name                 string    `gorm:"column:name;size:128;not null;uniqueIndex:uk_agent_skills_name"`
+	DisplayName          string    `gorm:"column:display_name;size:128;not null"`
+	Description          string    `gorm:"column:description;type:text"`
+	CurrentVersionID     *int64    `gorm:"column:current_version_id"`
+	IsEnabled            int32     `gorm:"column:is_enabled;default:1"`
+	IsManualInvocable    int32     `gorm:"column:is_manual_invocable;default:1"`
+	TriggerKeywords      string    `gorm:"column:trigger_keywords;type:json"`
+	AgentType            string    `gorm:"column:agent_type;size:64;not null;default:'hr_recruiting_agent'"`
+	Category             string    `gorm:"column:category;size:64;not null;default:'general'"`
+	Scenario             string    `gorm:"column:scenario;size:128;not null;default:''"`
+	Priority             int32     `gorm:"column:priority;not null;default:0"`
+	RiskLevel            string    `gorm:"column:risk_level;size:32;not null;default:'medium'"`
+	RequiredCapabilities string    `gorm:"column:required_capabilities;type:json"`
+	OutputSchema         string    `gorm:"column:output_schema;type:json"`
+	EvaluationCriteria   string    `gorm:"column:evaluation_criteria;type:json"`
+	SemanticTags         string    `gorm:"column:semantic_tags;type:json"`
+	CreatedBy            *int64    `gorm:"column:created_by"`
+	UpdatedBy            *int64    `gorm:"column:updated_by"`
+	CreatedAt            time.Time `gorm:"column:created_at"`
+	UpdatedAt            time.Time `gorm:"column:updated_at"`
 }
 
 func (AgentSkill) TableName() string { return "agent_skills" }
@@ -807,16 +981,45 @@ func (MCPServer) TableName() string { return "mcp_servers" }
 
 // MCPToolLog records a single MCP tool call for audit purposes.
 type MCPToolLog struct {
-	ID            int64     `gorm:"primaryKey"`
-	ServerID      int64     `gorm:"column:server_id;not null"`
-	ToolName      string    `gorm:"column:tool_name;size:128;not null"`
-	ArgsJSON      *string   `gorm:"column:args_json;type:json"`
-	ResultContent *string   `gorm:"column:result_content;type:text"`
-	DurationMs    int32     `gorm:"column:duration_ms;default:0"`
-	ErrorMsg      *string   `gorm:"column:error_msg;size:512"`
-	CalledByHRID  *int64    `gorm:"column:called_by_hr_id"`
-	SessionID     *int64    `gorm:"column:session_id"`
-	CreatedAt     time.Time `gorm:"column:created_at"`
+	ID                 int64     `gorm:"primaryKey"`
+	ServerID           int64     `gorm:"column:server_id;not null;index:idx_mcp_tool_logs_server_tool_created,priority:1"`
+	ToolName           string    `gorm:"column:tool_name;size:128;not null;index:idx_mcp_tool_logs_server_tool_created,priority:2"`
+	ArgsJSON           *string   `gorm:"column:args_json;type:json"`
+	ResultContent      *string   `gorm:"column:result_content;type:text"`
+	DurationMs         int32     `gorm:"column:duration_ms;default:0"`
+	ErrorMsg           *string   `gorm:"column:error_msg;size:512"`
+	CalledByHRID       *int64    `gorm:"column:called_by_hr_id"`
+	SessionID          *int64    `gorm:"column:session_id"`
+	PolicyID           *int64    `gorm:"column:policy_id"`
+	PolicyDecision     string    `gorm:"column:policy_decision;size:32;default:allow"`
+	PolicyReason       *string   `gorm:"column:policy_reason;size:512"`
+	PolicySnapshotJSON *string   `gorm:"column:policy_snapshot_json;type:json"`
+	CreatedAt          time.Time `gorm:"column:created_at;index:idx_mcp_tool_logs_server_tool_created,priority:3"`
 }
 
 func (MCPToolLog) TableName() string { return "mcp_tool_logs" }
+
+// MCPToolPolicy stores governable execution rules for one MCP server/tool pair.
+type MCPToolPolicy struct {
+	ID                     int64     `gorm:"primaryKey"`
+	ServerID               int64     `gorm:"column:server_id;not null;uniqueIndex:uk_mcp_tool_policy_server_tool,priority:1"`
+	ToolName               string    `gorm:"column:tool_name;size:128;not null;uniqueIndex:uk_mcp_tool_policy_server_tool,priority:2"`
+	Effect                 string    `gorm:"column:effect;size:32;not null;default:allow"`
+	RiskLevel              string    `gorm:"column:risk_level;size:32;default:medium"`
+	RequireConfirmation    int32     `gorm:"column:require_confirmation;default:0"`
+	AllowedRolesJSON       *string   `gorm:"column:allowed_roles_json;type:json"`
+	AllowedScopesJSON      *string   `gorm:"column:allowed_scopes_json;type:json"`
+	RequiredArgsJSON       *string   `gorm:"column:required_args_json;type:json"`
+	DeniedArgsJSON         *string   `gorm:"column:denied_args_json;type:json"`
+	ArgRulesJSON           *string   `gorm:"column:arg_rules_json;type:json"`
+	RedactFieldsJSON       *string   `gorm:"column:redact_fields_json;type:json"`
+	RateLimitWindowSeconds int32     `gorm:"column:rate_limit_window_seconds;default:0"`
+	RateLimitMaxCalls      int32     `gorm:"column:rate_limit_max_calls;default:0"`
+	IsEnabled              int32     `gorm:"column:is_enabled;default:1"`
+	CreatedByHRID          *int64    `gorm:"column:created_by_hr_id"`
+	UpdatedByHRID          *int64    `gorm:"column:updated_by_hr_id"`
+	CreatedAt              time.Time `gorm:"column:created_at"`
+	UpdatedAt              time.Time `gorm:"column:updated_at"`
+}
+
+func (MCPToolPolicy) TableName() string { return "mcp_tool_policies" }

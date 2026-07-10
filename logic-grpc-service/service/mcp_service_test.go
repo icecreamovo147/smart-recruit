@@ -7,6 +7,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/cloudwego/eino/components/tool"
 	"github.com/cloudwego/eino/schema"
 	"github.com/mark3labs/mcp-go/mcp"
 	mcpserver "github.com/mark3labs/mcp-go/server"
@@ -36,7 +37,7 @@ func TestDesensitizeJSON_NonJSON(t *testing.T) {
 }
 
 func TestDesensitizeJSON_JSONWithSensitiveFields(t *testing.T) {
-	input := `{"name":"John","phone":"13800138000","email":"john@example.com","api_key":"sk-123456"}`
+	input := `{"name":"John","phone":"13800138000","email":"john@example.com","api_key":"test-api-key-value"}`
 	got := desensitizeJSON(input)
 	if strings.Contains(got, "13800138000") {
 		t.Fatalf("expected phone to be masked, got %q", got)
@@ -44,7 +45,7 @@ func TestDesensitizeJSON_JSONWithSensitiveFields(t *testing.T) {
 	if strings.Contains(got, "john@example.com") {
 		t.Fatalf("expected email to be masked, got %q", got)
 	}
-	if strings.Contains(got, "sk-123456") {
+	if strings.Contains(got, "test-api-key-value") {
 		t.Fatalf("expected api_key to be masked, got %q", got)
 	}
 	if !strings.Contains(got, "John") {
@@ -56,15 +57,15 @@ func TestDesensitizeJSON_JSONWithSensitiveFields(t *testing.T) {
 }
 
 func TestDesensitizeJSON_NestedJSON(t *testing.T) {
-	input := `{"user":{"phone":"13912345678","name":"Alice"},"credentials":{"access_token":"tok_abc","password":"p@ss"}}`
+	input := `{"user":{"phone":"13912345678","name":"Alice"},"credentials":{"access_token":"test-token-value","password":"test-password-value"}}`
 	got := desensitizeJSON(input)
 	if strings.Contains(got, "13912345678") {
 		t.Fatalf("expected phone in nested JSON to be masked, got %q", got)
 	}
-	if strings.Contains(got, "tok_abc") {
+	if strings.Contains(got, "test-token-value") {
 		t.Fatalf("expected access_token to be masked, got %q", got)
 	}
-	if strings.Contains(got, "p@ss") {
+	if strings.Contains(got, "test-password-value") {
 		t.Fatalf("expected password to be masked, got %q", got)
 	}
 	if !strings.Contains(got, "Alice") {
@@ -100,7 +101,7 @@ func TestDesensitizeEnvVars_Empty(t *testing.T) {
 }
 
 func TestDesensitizeEnvVars_AllValuesMasked(t *testing.T) {
-	input := `{"API_KEY":"sk-xxx","DB_PASSWORD":"secret123","HOST":"localhost"}`
+	input := `{"API_KEY":"test-api-key-value","DB_PASSWORD":"test-password-value","HOST":"localhost"}`
 	got := desensitizeEnvVars(input)
 	var parsed map[string]string
 	if err := json.Unmarshal([]byte(got), &parsed); err != nil {
@@ -131,7 +132,7 @@ func TestDesensitizeEnvVars_InvalidJSON(t *testing.T) {
 // ── serverToInfo tests ────────────────────────────────────────────────
 
 func TestServerToInfo_DesensitizesEnvVars(t *testing.T) {
-	envVars := `{"API_KEY":"sk-xxx","SECRET":"s3cr3t"}`
+	envVars := `{"API_KEY":"test-api-key-value","SECRET":"test-sensitive-value"}`
 	srv := &model.MCPServer{
 		ID:             1,
 		Name:           "test",
@@ -148,7 +149,7 @@ func TestServerToInfo_DesensitizesEnvVars(t *testing.T) {
 	if !strings.Contains(info.EnvVars, "***") {
 		t.Fatalf("expected env_vars to contain masked values '***', got %q", info.EnvVars)
 	}
-	if strings.Contains(info.EnvVars, "sk-xxx") || strings.Contains(info.EnvVars, "s3cr3t") {
+	if strings.Contains(info.EnvVars, "test-api-key-value") || strings.Contains(info.EnvVars, "test-sensitive-value") {
 		t.Fatalf("expected env_vars original values to be masked, got %q", info.EnvVars)
 	}
 	if info.Name != "test" || info.Transport != "stdio" {
@@ -365,6 +366,363 @@ func TestCollectBoundMCPToolsFiltersByCapabilityKey(t *testing.T) {
 		callableNames = append(callableNames, info.Name)
 	}
 	assertToolNames(t, callableNames, []string{"mcp_alpha_search"})
+}
+
+func TestCallMCPToolPolicyAllowAndAudit(t *testing.T) {
+	ctx := context.Background()
+	db := setupServiceTestDB(t)
+	repo := repository.NewMCPRepo(db)
+	svc := NewMCPService(repo, testMCPConfig())
+	upstream := newTestMCPHTTPServer(t, "policy-upstream", []string{"search"})
+	defer upstream.Close()
+	server := createEnabledHTTPMCPServer(t, ctx, repo, upstream.URL)
+
+	resp, err := svc.CallMCPTool(ctx, &pb.CallMCPToolRequest{
+		ServerId:    server.ID,
+		ToolName:    "search",
+		ArgsJson:    `{"query":"golang","api_key":"test-sensitive-value"}`,
+		CallerRole:  "hr_agent",
+		CallerScope: "agent_runtime",
+	})
+	if err != nil {
+		t.Fatalf("CallMCPTool failed: %v", err)
+	}
+	if resp.Code != 0 || resp.PolicyDecision != "allow" {
+		t.Fatalf("expected allow response, got code=%d decision=%q err=%q", resp.Code, resp.PolicyDecision, resp.ErrorMsg)
+	}
+	logs, total, err := repo.ListToolLogsByServer(ctx, server.ID, 1, 10)
+	if err != nil {
+		t.Fatalf("ListToolLogsByServer failed: %v", err)
+	}
+	if total != 1 || logs[0].PolicyDecision != "allow" {
+		t.Fatalf("expected allow audit log, total=%d log=%#v", total, logs[0])
+	}
+	if logs[0].ArgsJSON == nil || strings.Contains(*logs[0].ArgsJSON, "secret") {
+		t.Fatalf("expected sensitive args to be redacted, got %#v", logs[0].ArgsJSON)
+	}
+}
+
+func TestCallMCPToolPolicyDenyConfirmationPermissionScopeRateLimit(t *testing.T) {
+	tests := []struct {
+		name     string
+		policy   model.MCPToolPolicy
+		req      pb.CallMCPToolRequest
+		seedLogs int
+		want     string
+	}{
+		{
+			name: "deny effect",
+			policy: model.MCPToolPolicy{
+				Effect:    "deny",
+				RiskLevel: "critical",
+			},
+			req:  pb.CallMCPToolRequest{CallerRole: "hr_agent", CallerScope: "agent_runtime"},
+			want: "deny",
+		},
+		{
+			name: "confirmation required",
+			policy: model.MCPToolPolicy{
+				Effect:              "allow",
+				RequireConfirmation: 1,
+			},
+			req:  pb.CallMCPToolRequest{CallerRole: "hr_agent", CallerScope: "agent_runtime"},
+			want: "confirmation_required",
+		},
+		{
+			name: "role denied",
+			policy: model.MCPToolPolicy{
+				Effect:           "allow",
+				AllowedRolesJSON: strPtr(`["hr_admin"]`),
+			},
+			req:  pb.CallMCPToolRequest{CallerRole: "hr_agent", CallerScope: "agent_runtime"},
+			want: "deny",
+		},
+		{
+			name: "scope denied",
+			policy: model.MCPToolPolicy{
+				Effect:            "allow",
+				AllowedScopesJSON: strPtr(`["admin_console"]`),
+			},
+			req:  pb.CallMCPToolRequest{CallerRole: "hr_agent", CallerScope: "agent_runtime"},
+			want: "deny",
+		},
+		{
+			name: "rate limited",
+			policy: model.MCPToolPolicy{
+				Effect:                 "allow",
+				RateLimitWindowSeconds: 60,
+				RateLimitMaxCalls:      1,
+			},
+			req:      pb.CallMCPToolRequest{CallerRole: "hr_agent", CallerScope: "agent_runtime"},
+			seedLogs: 1,
+			want:     "rate_limited",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ctx := context.Background()
+			db := setupServiceTestDB(t)
+			repo := repository.NewMCPRepo(db)
+			svc := NewMCPService(repo, testMCPConfig())
+			upstream := newTestMCPHTTPServer(t, "policy-upstream", []string{"search"})
+			defer upstream.Close()
+			server := createEnabledHTTPMCPServer(t, ctx, repo, upstream.URL)
+			tt.policy.ServerID = server.ID
+			tt.policy.ToolName = "search"
+			if tt.policy.Effect == "" {
+				tt.policy.Effect = "allow"
+			}
+			tt.policy.IsEnabled = 1
+			if err := repo.CreateToolPolicy(ctx, &tt.policy); err != nil {
+				t.Fatalf("CreateToolPolicy failed: %v", err)
+			}
+			for i := 0; i < tt.seedLogs; i++ {
+				if err := repo.CreateToolLog(ctx, &model.MCPToolLog{ServerID: server.ID, ToolName: "search", PolicyDecision: "allow"}); err != nil {
+					t.Fatalf("CreateToolLog failed: %v", err)
+				}
+			}
+			tt.req.ServerId = server.ID
+			tt.req.ToolName = "search"
+			tt.req.ArgsJson = `{"query":"golang"}`
+			resp, err := svc.CallMCPTool(ctx, &tt.req)
+			if err != nil {
+				t.Fatalf("CallMCPTool failed: %v", err)
+			}
+			if resp.Code != 1 || resp.PolicyDecision != tt.want {
+				t.Fatalf("expected decision %q, got code=%d decision=%q reason=%q", tt.want, resp.Code, resp.PolicyDecision, resp.PolicyReason)
+			}
+			logs, _, err := repo.ListToolLogsByServer(ctx, server.ID, 1, 10)
+			if err != nil {
+				t.Fatalf("ListToolLogsByServer failed: %v", err)
+			}
+			if logs[0].PolicyDecision != tt.want {
+				t.Fatalf("expected latest log decision %q, got %q", tt.want, logs[0].PolicyDecision)
+			}
+		})
+	}
+}
+
+func TestCallMCPToolPolicyConfirmationApprovedAllows(t *testing.T) {
+	ctx := context.Background()
+	db := setupServiceTestDB(t)
+	repo := repository.NewMCPRepo(db)
+	svc := NewMCPService(repo, testMCPConfig())
+	upstream := newTestMCPHTTPServer(t, "policy-upstream", []string{"search"})
+	defer upstream.Close()
+	server := createEnabledHTTPMCPServer(t, ctx, repo, upstream.URL)
+	if err := repo.CreateToolPolicy(ctx, &model.MCPToolPolicy{
+		ServerID:            server.ID,
+		ToolName:            "search",
+		Effect:              "allow",
+		RequireConfirmation: 1,
+		IsEnabled:           1,
+	}); err != nil {
+		t.Fatalf("CreateToolPolicy failed: %v", err)
+	}
+	resp, err := svc.CallMCPTool(ctx, &pb.CallMCPToolRequest{
+		ServerId:             server.ID,
+		ToolName:             "search",
+		ArgsJson:             `{"query":"golang"}`,
+		CallerRole:           "hr_agent",
+		CallerScope:          "agent_runtime",
+		ConfirmationApproved: true,
+	})
+	if err != nil {
+		t.Fatalf("CallMCPTool failed: %v", err)
+	}
+	if resp.Code != 0 || resp.PolicyDecision != "allow" {
+		t.Fatalf("expected approved confirmation to allow, got code=%d decision=%q", resp.Code, resp.PolicyDecision)
+	}
+}
+
+func TestCallMCPToolPolicyDisabledAllowsWithAuditReason(t *testing.T) {
+	ctx := context.Background()
+	db := setupServiceTestDB(t)
+	repo := repository.NewMCPRepo(db)
+	svc := NewMCPService(repo, testMCPConfig()).WithRuntimePolicy(AgentRuntimePolicy{
+		StructuredResumeParse: true,
+		CandidateMatch:        true,
+		SemanticRetrieval:     true,
+		MCPPolicy:             false,
+		Planner:               true,
+		SkillGovernance:       true,
+		Fallbacks:             true,
+	})
+	upstream := newTestMCPHTTPServer(t, "policy-upstream", []string{"search"})
+	defer upstream.Close()
+	server := createEnabledHTTPMCPServer(t, ctx, repo, upstream.URL)
+	if err := repo.CreateToolPolicy(ctx, &model.MCPToolPolicy{
+		ServerID:  server.ID,
+		ToolName:  "search",
+		Effect:    "deny",
+		IsEnabled: 1,
+	}); err != nil {
+		t.Fatalf("CreateToolPolicy failed: %v", err)
+	}
+
+	resp, err := svc.CallMCPTool(ctx, &pb.CallMCPToolRequest{
+		ServerId:    server.ID,
+		ToolName:    "search",
+		ArgsJson:    `{"query":"golang"}`,
+		CallerRole:  "hr_agent",
+		CallerScope: "agent_runtime",
+	})
+	if err != nil {
+		t.Fatalf("CallMCPTool failed: %v", err)
+	}
+	if resp.Code != 0 || resp.PolicyDecision != "allow" || resp.PolicyReason != "policy_disabled" {
+		t.Fatalf("expected disabled policy to allow with audit reason, got code=%d decision=%q reason=%q", resp.Code, resp.PolicyDecision, resp.PolicyReason)
+	}
+	logs, _, err := repo.ListToolLogsByServer(ctx, server.ID, 1, 10)
+	if err != nil {
+		t.Fatalf("ListToolLogsByServer failed: %v", err)
+	}
+	if len(logs) == 0 || logs[0].PolicyDecision != "allow" || logs[0].PolicyReason == nil || *logs[0].PolicyReason != "policy_disabled" {
+		t.Fatalf("expected policy_disabled audit log, got %+v", logs)
+	}
+}
+
+func TestMCPADKToolReturnsRedactedPolicyTracePayload(t *testing.T) {
+	ctx := context.Background()
+	db := setupServiceTestDB(t)
+	repo := repository.NewMCPRepo(db)
+	svc := NewMCPService(repo, testMCPConfig())
+	upstream := newTestMCPHTTPServerWithResult(t, "policy-upstream", "search", `{"candidate_name":"Alice","token":"test-token-value","score":92}`)
+	defer upstream.Close()
+	server := createEnabledHTTPMCPServer(t, ctx, repo, upstream.URL)
+	if err := repo.CreateToolPolicy(ctx, &model.MCPToolPolicy{
+		ServerID:         server.ID,
+		ToolName:         "search",
+		Effect:           "allow",
+		RedactFieldsJSON: strPtr(`["candidate_name"]`),
+		IsEnabled:        1,
+	}); err != nil {
+		t.Fatalf("CreateToolPolicy failed: %v", err)
+	}
+
+	tools, err := svc.CollectBoundMCPCallableTools(ctx, map[string]bool{MCPCapabilityKey(server.ID, "search"): true})
+	if err != nil {
+		t.Fatalf("CollectBoundMCPCallableTools failed: %v", err)
+	}
+	result, err := tools[0].(tool.InvokableTool).InvokableRun(ctx, `{"query":"golang","candidate_name":"Alice","api_key":"test-api-key-value"}`)
+	if err != nil {
+		t.Fatalf("InvokableRun failed: %v", err)
+	}
+	if strings.Contains(result, "Alice") || strings.Contains(result, "test-api-key-value") || strings.Contains(result, "test-token-value") {
+		t.Fatalf("expected ADK trace payload to be redacted, got %s", result)
+	}
+	var payload map[string]any
+	if err := json.Unmarshal([]byte(result), &payload); err != nil {
+		t.Fatalf("unmarshal payload failed: %v", err)
+	}
+	if payload["policy_decision"] != "allow" || payload["policy_reason"] == "" {
+		t.Fatalf("expected structured allow policy fields, got %#v", payload)
+	}
+	argsJSON, ok := payload["arguments_json"].(string)
+	if !ok || !strings.Contains(argsJSON, `"candidate_name":"***"`) || !strings.Contains(argsJSON, `"api_key":"***"`) {
+		t.Fatalf("expected redacted arguments_json, got %#v", payload["arguments_json"])
+	}
+	resultContent, ok := payload["result_content"].(string)
+	if !ok || !strings.Contains(resultContent, `"candidate_name":"***"`) || !strings.Contains(resultContent, `"token":"***"`) {
+		t.Fatalf("expected redacted result_content, got %#v", payload["result_content"])
+	}
+}
+
+func TestMCPADKToolRejectedPolicyReturnsStructuredDecision(t *testing.T) {
+	ctx := context.Background()
+	db := setupServiceTestDB(t)
+	repo := repository.NewMCPRepo(db)
+	svc := NewMCPService(repo, testMCPConfig())
+	upstream := newTestMCPHTTPServer(t, "policy-upstream", []string{"search"})
+	defer upstream.Close()
+	server := createEnabledHTTPMCPServer(t, ctx, repo, upstream.URL)
+	if err := repo.CreateToolPolicy(ctx, &model.MCPToolPolicy{
+		ServerID:            server.ID,
+		ToolName:            "search",
+		Effect:              "allow",
+		RequireConfirmation: 1,
+		RedactFieldsJSON:    strPtr(`["candidate_name"]`),
+		IsEnabled:           1,
+	}); err != nil {
+		t.Fatalf("CreateToolPolicy failed: %v", err)
+	}
+
+	tools, err := svc.CollectBoundMCPCallableTools(ctx, map[string]bool{MCPCapabilityKey(server.ID, "search"): true})
+	if err != nil {
+		t.Fatalf("CollectBoundMCPCallableTools failed: %v", err)
+	}
+	result, err := tools[0].(tool.InvokableTool).InvokableRun(ctx, `{"query":"golang","candidate_name":"Alice","api_key":"test-api-key-value"}`)
+	if err != nil {
+		t.Fatalf("InvokableRun should return structured policy content without transport error, got %v", err)
+	}
+	if strings.Contains(result, "Alice") || strings.Contains(result, "test-api-key-value") {
+		t.Fatalf("expected rejected ADK payload to be redacted, got %s", result)
+	}
+	var payload map[string]any
+	if err := json.Unmarshal([]byte(result), &payload); err != nil {
+		t.Fatalf("unmarshal payload failed: %v", err)
+	}
+	if payload["policy_decision"] != "confirmation_required" || payload["policy_reason"] == "" {
+		t.Fatalf("expected structured rejected policy fields, got %#v", payload)
+	}
+}
+
+func TestCallMCPToolPolicyParameterValidationAndRedaction(t *testing.T) {
+	ctx := context.Background()
+	db := setupServiceTestDB(t)
+	repo := repository.NewMCPRepo(db)
+	svc := NewMCPService(repo, testMCPConfig())
+	upstream := newTestMCPHTTPServer(t, "policy-upstream", []string{"search"})
+	defer upstream.Close()
+	server := createEnabledHTTPMCPServer(t, ctx, repo, upstream.URL)
+	if err := repo.CreateToolPolicy(ctx, &model.MCPToolPolicy{
+		ServerID:         server.ID,
+		ToolName:         "search",
+		Effect:           "allow",
+		RequiredArgsJSON: strPtr(`["query"]`),
+		DeniedArgsJSON:   strPtr(`["unsafe"]`),
+		ArgRulesJSON:     strPtr(`{"limit":{"min":1,"max":10},"mode":{"enum":["basic","advanced"]},"query":{"regex":"^[a-z]+$"}}`),
+		RedactFieldsJSON: strPtr(`["candidate_name"]`),
+		IsEnabled:        1,
+	}); err != nil {
+		t.Fatalf("CreateToolPolicy failed: %v", err)
+	}
+
+	denied, err := svc.CallMCPTool(ctx, &pb.CallMCPToolRequest{
+		ServerId:    server.ID,
+		ToolName:    "search",
+		ArgsJson:    `{"query":"GoLang","limit":20,"mode":"basic","unsafe":true,"candidate_name":"Alice"}`,
+		CallerRole:  "hr_agent",
+		CallerScope: "agent_runtime",
+	})
+	if err != nil {
+		t.Fatalf("CallMCPTool denied path failed: %v", err)
+	}
+	if denied.Code != 1 || denied.PolicyDecision != "deny" {
+		t.Fatalf("expected deny for invalid args, got code=%d decision=%q reason=%q", denied.Code, denied.PolicyDecision, denied.PolicyReason)
+	}
+	logs, _, err := repo.ListToolLogsByServer(ctx, server.ID, 1, 10)
+	if err != nil {
+		t.Fatalf("ListToolLogsByServer failed: %v", err)
+	}
+	if logs[0].ArgsJSON == nil || strings.Contains(*logs[0].ArgsJSON, "Alice") {
+		t.Fatalf("expected configured field redaction in args log, got %#v", logs[0].ArgsJSON)
+	}
+
+	allowed, err := svc.CallMCPTool(ctx, &pb.CallMCPToolRequest{
+		ServerId:    server.ID,
+		ToolName:    "search",
+		ArgsJson:    `{"query":"golang","limit":5,"mode":"basic","candidate_name":"Bob"}`,
+		CallerRole:  "hr_agent",
+		CallerScope: "agent_runtime",
+	})
+	if err != nil {
+		t.Fatalf("CallMCPTool allowed path failed: %v", err)
+	}
+	if allowed.Code != 0 || allowed.PolicyDecision != "allow" {
+		t.Fatalf("expected valid args to allow, got code=%d decision=%q reason=%q", allowed.Code, allowed.PolicyDecision, allowed.PolicyReason)
+	}
 }
 
 // ── isSensitiveField tests ────────────────────────────────────────────
@@ -587,10 +945,37 @@ func setupServiceTestDB(t *testing.T) *gorm.DB {
 	if err != nil {
 		t.Fatalf("failed to open in-memory SQLite: %v", err)
 	}
-	if err := db.AutoMigrate(&model.MCPServer{}, &model.MCPToolLog{}); err != nil {
+	if err := db.AutoMigrate(&model.MCPServer{}, &model.MCPToolLog{}, &model.MCPToolPolicy{}); err != nil {
 		t.Fatalf("auto-migrate failed: %v", err)
 	}
 	return db
+}
+
+func testMCPConfig() config.Config {
+	cfg := config.Config{}
+	cfg.MCP.DefaultTimeoutSeconds = 2
+	cfg.MCP.MaxTimeoutSeconds = 120
+	cfg.MCP.BlockPrivateNetwork = ptrBool(false)
+	return cfg
+}
+
+func createEnabledHTTPMCPServer(t *testing.T, ctx context.Context, repo *repository.MCPRepo, url string) *model.MCPServer {
+	t.Helper()
+	server := &model.MCPServer{
+		Name:           "policy-server",
+		Transport:      "http",
+		CommandOrURL:   url,
+		TimeoutSeconds: 2,
+		IsEnabled:      1,
+	}
+	if err := repo.CreateServer(ctx, server); err != nil {
+		t.Fatalf("CreateServer failed: %v", err)
+	}
+	return server
+}
+
+func strPtr(s string) *string {
+	return &s
 }
 
 func newTestMCPHTTPServer(t *testing.T, name string, toolNames []string) *httptest.Server {
@@ -599,12 +984,34 @@ func newTestMCPHTTPServer(t *testing.T, name string, toolNames []string) *httpte
 	for _, toolName := range toolNames {
 		name := toolName
 		srv.AddTool(
-			mcp.NewTool(name, mcp.WithDescription("test tool "+name)),
+			mcp.NewTool(name,
+				mcp.WithDescription("test tool "+name),
+				mcp.WithString("query"),
+				mcp.WithString("candidate_name"),
+				mcp.WithString("api_key"),
+			),
 			func(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 				return mcp.NewToolResultText(name + " ok"), nil
 			},
 		)
 	}
+	return mcpserver.NewTestStreamableHTTPServer(srv)
+}
+
+func newTestMCPHTTPServerWithResult(t *testing.T, serverName, toolName, resultText string) *httptest.Server {
+	t.Helper()
+	srv := mcpserver.NewMCPServer(serverName, "1.0.0")
+	srv.AddTool(
+		mcp.NewTool(toolName,
+			mcp.WithDescription("test tool "+toolName),
+			mcp.WithString("query"),
+			mcp.WithString("candidate_name"),
+			mcp.WithString("api_key"),
+		),
+		func(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+			return mcp.NewToolResultText(resultText), nil
+		},
+	)
 	return mcpserver.NewTestStreamableHTTPServer(srv)
 }
 

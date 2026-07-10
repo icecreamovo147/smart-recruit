@@ -115,3 +115,39 @@ func TestConfirmUpload_UniqueConstraintEnforced(t *testing.T) {
 		t.Errorf("expected 5 total resumes, got %d", total)
 	}
 }
+
+func TestResumeRepoGetByID(t *testing.T) {
+	db := setupTestDB(t)
+	repo := NewResumeRepo(db)
+	ctx := context.Background()
+
+	resume := &model.Resume{
+		UserID:     2,
+		OSSKey:     "resumes/2/test.pdf",
+		FileName:   "test.pdf",
+		FileType:   "pdf",
+		FileSize:   1000,
+		ParsedText: "parsed resume text",
+		IsValid:    1,
+		UploadedAt: time.Now(),
+	}
+	if err := repo.ConfirmUpload(ctx, resume); err != nil {
+		t.Fatalf("ConfirmUpload failed: %v", err)
+	}
+
+	got, err := repo.GetByID(ctx, resume.ID)
+	if err != nil {
+		t.Fatalf("GetByID failed: %v", err)
+	}
+	if got == nil || got.ID != resume.ID || got.ParsedText != "parsed resume text" {
+		t.Fatalf("unexpected resume: %+v", got)
+	}
+
+	missing, err := repo.GetByID(ctx, 404)
+	if err != nil {
+		t.Fatalf("GetByID missing failed: %v", err)
+	}
+	if missing != nil {
+		t.Fatalf("expected nil missing resume, got %+v", missing)
+	}
+}

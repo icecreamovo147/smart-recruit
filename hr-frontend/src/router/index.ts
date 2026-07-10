@@ -10,6 +10,7 @@ const RegisterView = () => import('@/views/RegisterView.vue')
 const WorkbenchView = () => import('@/views/hr/WorkbenchView.vue')
 const JobManageView = () => import('@/views/hr/JobManageView.vue')
 const ApplicationListView = () => import('@/views/hr/ApplicationListView.vue')
+const ApplicationIntelligenceView = () => import('@/views/hr/ApplicationIntelligenceView.vue')
 const InterviewScheduleView = () => import('@/views/hr/InterviewScheduleView.vue')
 const OfferManageView = () => import('@/views/hr/OfferManageView.vue')
 const AIChatView = () => import('@/views/hr/AIChatView.vue')
@@ -24,11 +25,14 @@ const AnalyticsView = () => import('@/views/hr/AnalyticsView.vue')
 const StaffUserManageView = () => import('@/views/hr/StaffUserManageView.vue')
 const LlmProviderConfigView = () => import('@/views/hr/LlmProviderConfigView.vue')
 const LlmModelConfigView = () => import('@/views/hr/LlmModelConfigView.vue')
+const EmbeddingProviderConfigView = () => import('@/views/hr/EmbeddingProviderConfigView.vue')
+const EmbeddingModelConfigView = () => import('@/views/hr/EmbeddingModelConfigView.vue')
 const PromptManageView = () => import('@/views/hr/PromptManageView.vue')
 const AgentManageView = () => import('@/views/hr/admin/AgentManageView.vue')
 const McpManageView = () => import('@/views/hr/admin/McpManageView.vue')
 const SkillManageView = () => import('@/views/hr/admin/SkillManageView.vue')
 const AgentSkillManageView = () => import('@/views/hr/admin/AgentSkillManageView.vue')
+const SemanticRetrievalDebugView = () => import('@/views/hr/admin/SemanticRetrievalDebugView.vue')
 const ForbiddenView = () => import('@/views/ForbiddenView.vue')
 const NotFoundView = () => import('@/views/NotFoundView.vue')
 const CandidateDetailView = () => import('@/views/hr/CandidateDetailView.vue')
@@ -60,6 +64,11 @@ const routes: RouteRecordRaw[] = [
     path: '/hr/jobs/:jobId/applications',
     component: ApplicationListView,
     meta: { requiresAuth: true, requiresPermission: PERM.APPLICATION_READ, title: '候选人台账' },
+  },
+  {
+    path: '/hr/applications/:applicationId/intelligence',
+    component: ApplicationIntelligenceView,
+    meta: { requiresAuth: true, requiresPermission: PERM.APPLICATION_READ, title: '简历画像与匹配评估' },
   },
   // Candidate detail — requires application.read permission
   {
@@ -146,6 +155,17 @@ const routes: RouteRecordRaw[] = [
     component: LlmModelConfigView,
     meta: { requiresAuth: true, requiresPermission: PERM.SYSTEM_CONFIG_MANAGE, title: 'Model 配置' },
   },
+  { path: '/hr/admin/embedding-config', redirect: '/hr/admin/embedding-config/providers' },
+  {
+    path: '/hr/admin/embedding-config/providers',
+    component: EmbeddingProviderConfigView,
+    meta: { requiresAuth: true, requiresPermission: PERM.SYSTEM_CONFIG_MANAGE, title: 'Embedding Provider 配置' },
+  },
+  {
+    path: '/hr/admin/embedding-config/models',
+    component: EmbeddingModelConfigView,
+    meta: { requiresAuth: true, requiresPermission: PERM.SYSTEM_CONFIG_MANAGE, title: 'Embedding Model 配置' },
+  },
   {
     path: '/hr/admin/prompts',
     component: PromptManageView,
@@ -165,6 +185,11 @@ const routes: RouteRecordRaw[] = [
     path: '/hr/admin/agent-skills',
     component: AgentSkillManageView,
     meta: { requiresAuth: true, requiresPermission: PERM.AI_AGENT_SKILL_MANAGE, title: 'Agent Skill 管理' },
+  },
+  {
+    path: '/hr/admin/semantic-retrieval',
+    component: SemanticRetrievalDebugView,
+    meta: { requiresAuth: true, requiresPermission: PERM.AI_AGENT_SKILL_MANAGE, title: '语义召回调试' },
   },
   {
     path: '/hr/admin/mcp-tools',

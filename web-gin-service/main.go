@@ -30,6 +30,23 @@ func main() {
 		log.Fatal("config validation failed", zap.Error(err))
 	}
 
+	// TASK-FU-009：与 logic-grpc-service 同步加载 ranking 段。
+	// web-gin 当前不直接使用 cfg.Ranking；保留是为未来扩展做准备。
+	// 输出结构化日志便于运维 / 排查时确认两端配置一致。
+	log.Info("[ranking] config loaded (mirror of logic-grpc-service/config.Ranking)",
+		zap.Float64("weight_vector", cfg.Ranking.WeightVector),
+		zap.Float64("weight_lexical", cfg.Ranking.WeightLexical),
+		zap.Float64("weight_metadata", cfg.Ranking.WeightMetadata),
+		zap.Float64("business_boost_max", cfg.Ranking.BusinessBoostMax),
+		zap.Float64("priority_norm", cfg.Ranking.PriorityNorm),
+		zap.Float64("boost_alpha", cfg.Ranking.BoostAlpha),
+		zap.Float64("boost_beta", cfg.Ranking.BoostBeta),
+		zap.Float64("boost_gamma", cfg.Ranking.BoostGamma),
+		zap.Float64("relevance_gate", cfg.Ranking.RelevanceGate),
+		zap.Float64("gap_high", cfg.Ranking.GapHigh),
+		zap.Float64("gap_medium", cfg.Ranking.GapMedium),
+	)
+
 	clients, err := rpc.NewClients(cfg.GRPCAddr)
 	if err != nil {
 		log.Fatal("connect logic grpc service failed", zap.String("addr", cfg.GRPCAddr), zap.Error(err))

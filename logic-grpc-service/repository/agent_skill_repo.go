@@ -102,23 +102,32 @@ func (r *AgentSkillRepo) ListAvailable(ctx context.Context, page, pageSize int32
 }
 
 type AgentSkillRuntimeRecord struct {
-	ID                int64
-	Name              string
-	DisplayName       string
-	Description       string
-	TriggerKeywords   string
-	IsManualInvocable int32
-	VersionID         int64
-	Version           string
-	SkillMD           string
-	BodyMarkdown      string
+	ID                   int64
+	Name                 string
+	DisplayName          string
+	Description          string
+	TriggerKeywords      string
+	AgentType            string
+	Category             string
+	Scenario             string
+	Priority             int32
+	RiskLevel            string
+	RequiredCapabilities string
+	OutputSchema         string
+	EvaluationCriteria   string
+	SemanticTags         string
+	IsManualInvocable    int32
+	VersionID            int64
+	Version              string
+	SkillMD              string
+	BodyMarkdown         string
 }
 
 func (r *AgentSkillRepo) ListEnabled(ctx context.Context) ([]AgentSkillRuntimeRecord, error) {
 	var rows []AgentSkillRuntimeRecord
 	err := r.db.WithContext(ctx).
 		Table("agent_skills AS s").
-		Select("s.id AS id, s.name AS name, s.display_name AS display_name, s.description AS description, s.trigger_keywords AS trigger_keywords, s.is_manual_invocable AS is_manual_invocable, v.id AS version_id, v.version AS version, v.skill_md AS skill_md, v.body_markdown AS body_markdown").
+		Select("s.id AS id, s.name AS name, s.display_name AS display_name, s.description AS description, s.trigger_keywords AS trigger_keywords, s.agent_type AS agent_type, s.category AS category, s.scenario AS scenario, s.priority AS priority, s.risk_level AS risk_level, s.required_capabilities AS required_capabilities, s.output_schema AS output_schema, s.evaluation_criteria AS evaluation_criteria, s.semantic_tags AS semantic_tags, s.is_manual_invocable AS is_manual_invocable, v.id AS version_id, v.version AS version, v.skill_md AS skill_md, v.body_markdown AS body_markdown").
 		Joins("JOIN agent_skill_versions AS v ON v.id = s.current_version_id").
 		Where("s.is_enabled = 1").
 		Order("s.id ASC").

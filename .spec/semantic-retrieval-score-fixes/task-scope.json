@@ -1,0 +1,15 @@
+{
+  "feature": "semantic-retrieval-score-fixes",
+  "allowedFiles": [
+    "hr-frontend/src/views/hr/admin/SemanticRetrievalDebugView.vue",
+    "logic-grpc-service/service/embedding_service.go",
+    "logic-grpc-service/service/embedding_service_test.go",
+    "logic-grpc-service/service/skill_memory_ranking.go",
+    "logic-grpc-service/service/skill_memory_ranking_test.go",
+    "logic-grpc-service/service/embedding_text_builder.go",
+    "logic-grpc-service/service/embedding_text_builder_test.go",
+    "logic-grpc-service/service/agent_skill_service.go",
+    "logic-grpc-service/service/embedding_backfill_service.go",
+    "web-gin-service/proto/recruitment.proto"
+  ]
+}

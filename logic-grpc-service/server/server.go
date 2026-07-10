@@ -27,6 +27,8 @@ type Server struct {
 	pb.UnimplementedMCPServiceServer
 	pb.UnimplementedSkillServiceServer
 	pb.UnimplementedAgentSkillServiceServer
+	pb.UnimplementedRecruitingIntelligenceServiceServer
+	pb.UnimplementedEmbeddingConfigServiceServer
 	svc *service.Services
 }
 
@@ -516,6 +518,28 @@ func (s *Server) ListCandidateTags(ctx context.Context, req *pb.ListCandidateTag
 	return s.svc.Collaboration.ListCandidateTags(ctx, req)
 }
 
+// Recruiting Intelligence
+
+func (s *Server) GetResumeProfile(ctx context.Context, req *pb.GetResumeProfileRequest) (*pb.GetResumeProfileResponse, error) {
+	return s.svc.RecruitingIntelligence.GetResumeProfile(ctx, req)
+}
+
+func (s *Server) ParseResumeProfile(ctx context.Context, req *pb.ParseResumeProfileRequest) (*pb.GetResumeProfileResponse, error) {
+	return s.svc.RecruitingIntelligence.ParseResumeProfile(ctx, req)
+}
+
+func (s *Server) EvaluateCandidateMatch(ctx context.Context, req *pb.EvaluateCandidateMatchRequest) (*pb.GetCandidateMatchEvaluationResponse, error) {
+	return s.svc.RecruitingIntelligence.EvaluateCandidateMatch(ctx, req)
+}
+
+func (s *Server) GetCandidateMatchEvaluation(ctx context.Context, req *pb.GetCandidateMatchEvaluationRequest) (*pb.GetCandidateMatchEvaluationResponse, error) {
+	return s.svc.RecruitingIntelligence.GetCandidateMatchEvaluation(ctx, req)
+}
+
+func (s *Server) CompareCandidatesForJob(ctx context.Context, req *pb.CompareCandidatesForJobRequest) (*pb.CompareCandidatesForJobResponse, error) {
+	return s.svc.RecruitingIntelligence.CompareCandidatesForJob(ctx, req)
+}
+
 func (s *Server) CreateFollowUpTask(ctx context.Context, req *pb.CreateFollowUpTaskRequest) (*pb.CreateFollowUpTaskResponse, error) {
 	return s.svc.Collaboration.CreateFollowUpTask(ctx, req)
 }
@@ -735,6 +759,26 @@ func (s *Server) DeleteMCPServer(ctx context.Context, req *pb.DeleteMCPServerReq
 	return s.svc.MCP.DeleteMCPServer(ctx, req)
 }
 
+func (s *Server) ListMCPToolPolicies(ctx context.Context, req *pb.ListMCPToolPoliciesRequest) (*pb.ListMCPToolPoliciesResponse, error) {
+	return s.svc.MCP.ListMCPToolPolicies(ctx, req)
+}
+
+func (s *Server) CreateMCPToolPolicy(ctx context.Context, req *pb.CreateMCPToolPolicyRequest) (*pb.MCPToolPolicyResponse, error) {
+	return s.svc.MCP.CreateMCPToolPolicy(ctx, req)
+}
+
+func (s *Server) UpdateMCPToolPolicy(ctx context.Context, req *pb.UpdateMCPToolPolicyRequest) (*pb.MCPToolPolicyResponse, error) {
+	return s.svc.MCP.UpdateMCPToolPolicy(ctx, req)
+}
+
+func (s *Server) DeleteMCPToolPolicy(ctx context.Context, req *pb.DeleteMCPToolPolicyRequest) (*pb.CommonResponse, error) {
+	return s.svc.MCP.DeleteMCPToolPolicy(ctx, req)
+}
+
+func (s *Server) ListMCPToolLogs(ctx context.Context, req *pb.ListMCPToolLogsRequest) (*pb.ListMCPToolLogsResponse, error) {
+	return s.svc.MCP.ListMCPToolLogs(ctx, req)
+}
+
 func (s *Server) TestMCPConnection(ctx context.Context, req *pb.TestMCPConnectionRequest) (*pb.TestMCPConnectionResponse, error) {
 	return s.svc.MCP.TestMCPConnection(ctx, req)
 }
@@ -821,4 +865,80 @@ func (s *Server) PreviewAgentSkill(ctx context.Context, req *pb.PreviewAgentSkil
 
 func (s *Server) ListAvailableAgentSkills(ctx context.Context, req *pb.ListAvailableAgentSkillsRequest) (*pb.ListAgentSkillsResponse, error) {
 	return s.svc.AgentSkill.ListAvailableAgentSkills(ctx, req)
+}
+
+func (s *Server) DebugSemanticRetrieval(ctx context.Context, req *pb.DebugSemanticRetrievalRequest) (*pb.DebugSemanticRetrievalResponse, error) {
+	return s.svc.AgentSkill.DebugSemanticRetrieval(ctx, req)
+}
+
+// ── EmbeddingConfigService ─────────────────────────────────────────────
+
+func (s *Server) ListEmbeddingProviders(ctx context.Context, req *pb.ListEmbeddingProvidersRequest) (*pb.ListEmbeddingProvidersResponse, error) {
+	if s.svc.EmbeddingConfig == nil {
+		return nil, status.Error(codes.Unavailable, "embedding config service not available (ENCRYPTION_KEY not set)")
+	}
+	return s.svc.EmbeddingConfig.ListEmbeddingProviders(ctx, req)
+}
+
+func (s *Server) CreateEmbeddingProvider(ctx context.Context, req *pb.CreateEmbeddingProviderRequest) (*pb.EmbeddingProviderResponse, error) {
+	if s.svc.EmbeddingConfig == nil {
+		return nil, status.Error(codes.Unavailable, "embedding config service not available (ENCRYPTION_KEY not set)")
+	}
+	return s.svc.EmbeddingConfig.CreateEmbeddingProvider(ctx, req)
+}
+
+func (s *Server) UpdateEmbeddingProvider(ctx context.Context, req *pb.UpdateEmbeddingProviderRequest) (*pb.EmbeddingProviderResponse, error) {
+	if s.svc.EmbeddingConfig == nil {
+		return nil, status.Error(codes.Unavailable, "embedding config service not available (ENCRYPTION_KEY not set)")
+	}
+	return s.svc.EmbeddingConfig.UpdateEmbeddingProvider(ctx, req)
+}
+
+func (s *Server) DeleteEmbeddingProvider(ctx context.Context, req *pb.DeleteEmbeddingProviderRequest) (*pb.CommonResponse, error) {
+	if s.svc.EmbeddingConfig == nil {
+		return nil, status.Error(codes.Unavailable, "embedding config service not available (ENCRYPTION_KEY not set)")
+	}
+	return s.svc.EmbeddingConfig.DeleteEmbeddingProvider(ctx, req)
+}
+
+func (s *Server) ListEmbeddingModels(ctx context.Context, req *pb.ListEmbeddingModelsRequest) (*pb.ListEmbeddingModelsResponse, error) {
+	if s.svc.EmbeddingConfig == nil {
+		return nil, status.Error(codes.Unavailable, "embedding config service not available (ENCRYPTION_KEY not set)")
+	}
+	return s.svc.EmbeddingConfig.ListEmbeddingModels(ctx, req)
+}
+
+func (s *Server) CreateEmbeddingModel(ctx context.Context, req *pb.CreateEmbeddingModelRequest) (*pb.EmbeddingModelResponse, error) {
+	if s.svc.EmbeddingConfig == nil {
+		return nil, status.Error(codes.Unavailable, "embedding config service not available (ENCRYPTION_KEY not set)")
+	}
+	return s.svc.EmbeddingConfig.CreateEmbeddingModel(ctx, req)
+}
+
+func (s *Server) UpdateEmbeddingModel(ctx context.Context, req *pb.UpdateEmbeddingModelRequest) (*pb.EmbeddingModelResponse, error) {
+	if s.svc.EmbeddingConfig == nil {
+		return nil, status.Error(codes.Unavailable, "embedding config service not available (ENCRYPTION_KEY not set)")
+	}
+	return s.svc.EmbeddingConfig.UpdateEmbeddingModel(ctx, req)
+}
+
+func (s *Server) SetDefaultEmbeddingModel(ctx context.Context, req *pb.SetDefaultEmbeddingModelRequest) (*pb.CommonResponse, error) {
+	if s.svc.EmbeddingConfig == nil {
+		return nil, status.Error(codes.Unavailable, "embedding config service not available (ENCRYPTION_KEY not set)")
+	}
+	return s.svc.EmbeddingConfig.SetDefaultEmbeddingModel(ctx, req)
+}
+
+func (s *Server) TestEmbeddingModel(ctx context.Context, req *pb.TestEmbeddingModelRequest) (*pb.TestEmbeddingModelResponse, error) {
+	if s.svc.EmbeddingConfig == nil {
+		return nil, status.Error(codes.Unavailable, "embedding config service not available (ENCRYPTION_KEY not set)")
+	}
+	return s.svc.EmbeddingConfig.TestEmbeddingModel(ctx, req)
+}
+
+func (s *Server) BackfillEmbeddings(ctx context.Context, req *pb.BackfillEmbeddingsRequest) (*pb.BackfillEmbeddingsResponse, error) {
+	if s.svc.EmbeddingConfig == nil {
+		return nil, status.Error(codes.Unavailable, "embedding config service not available (ENCRYPTION_KEY not set)")
+	}
+	return s.svc.EmbeddingConfig.BackfillEmbeddings(ctx, req)
 }

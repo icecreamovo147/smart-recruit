@@ -30,6 +30,34 @@ export interface McpToolInfo {
   server_name: string
 }
 
+// ── Tool Policy ───────────────────────────────────────────────────────────
+
+export type McpPolicyEffect = 'allow' | 'deny'
+export type McpPolicyRiskLevel = 'low' | 'medium' | 'high' | 'critical'
+
+export interface McpToolPolicy {
+  id: number
+  server_id: number
+  server_name?: string
+  tool_name: string
+  effect: McpPolicyEffect
+  risk_level: McpPolicyRiskLevel
+  require_confirmation: boolean
+  allowed_roles: string[]
+  allowed_scopes: string[]
+  required_args: string[]
+  denied_args: string[]
+  arg_rules: Record<string, unknown>
+  redact_fields: string[]
+  rate_limit_window_seconds: number
+  rate_limit_max_calls: number
+  is_enabled: boolean
+  created_by_hr_id: number
+  updated_by_hr_id: number
+  created_at: string
+  updated_at: string
+}
+
 // ── Tool Call Log ──────────────────────────────────────────────────────────
 
 export interface McpCallLog {
@@ -43,6 +71,9 @@ export interface McpCallLog {
   status: string              // success / error
   error_message: string
   called_by: string
+  policy_id: number
+  policy_decision: string
+  policy_reason: string
   created_at: string
 }
 
@@ -69,6 +100,31 @@ export interface UpdateMcpServerPayload {
   env?: Record<string, string>
   timeout_seconds?: number
   is_enabled?: boolean
+}
+
+export interface CreateMcpToolPolicyPayload {
+  server_id: number
+  tool_name: string
+  effect: McpPolicyEffect
+  risk_level: McpPolicyRiskLevel
+  require_confirmation: boolean
+  allowed_roles?: string[]
+  allowed_scopes?: string[]
+  required_args?: string[]
+  denied_args?: string[]
+  arg_rules?: Record<string, unknown>
+  redact_fields?: string[]
+  rate_limit_window_seconds?: number
+  rate_limit_max_calls?: number
+  is_enabled?: boolean
+}
+
+export interface UpdateMcpToolPolicyPayload extends Partial<CreateMcpToolPolicyPayload> {}
+
+export interface McpPolicyQuery {
+  page?: number
+  page_size?: number
+  server_id?: number
 }
 
 // ── Log query params ──────────────────────────────────────────────────────

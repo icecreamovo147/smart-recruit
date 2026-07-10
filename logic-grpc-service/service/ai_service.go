@@ -2,6 +2,8 @@ package service
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -13,6 +15,7 @@ import (
 	"go.uber.org/zap"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
+	"gorm.io/gorm"
 
 	"github.com/cloudwego/eino/components/tool"
 	"github.com/cloudwego/eino/schema"
@@ -51,10 +54,15 @@ type AIService struct {
 	mcpSvc          *MCPService
 	skillSvc        *SkillService
 	agentSkillRepo  agentSkillLister
+	embeddings      *EmbeddingService
+	eventPublisher  *EmbeddingEventPublisher
 	cachedADKTools  []tool.BaseTool // lazy-initialized, shared across requests
 	cachedToolsMu   sync.Mutex      // guards cachedADKTools init and invalidation
 	usageBuilder    *ContextUsageBuilder
+	runtimePolicy   AgentRuntimePolicy
 }
+
+var errAgentSkillSelectionRequired = errors.New("agent skill selection confirmation required")
 
 type runtimeAIClient struct {
 	client        *ai.Client
@@ -106,7 +114,29 @@ func NewAIService(
 		skillSvc:        skillSvc,
 		agentSkillRepo:  agentSkillRepo,
 		usageBuilder:    NewContextUsageBuilder(),
+		runtimePolicy:   DefaultAgentRuntimePolicy(),
 	}
+}
+
+func (s *AIService) WithEmbeddingService(embeddings *EmbeddingService) *AIService {
+	if s != nil {
+		s.embeddings = embeddings
+	}
+	return s
+}
+
+func (s *AIService) WithEmbeddingEventPublisher(publisher *EmbeddingEventPublisher) *AIService {
+	if s != nil {
+		s.eventPublisher = publisher
+	}
+	return s
+}
+
+func (s *AIService) WithRuntimePolicy(policy AgentRuntimePolicy) *AIService {
+	if s != nil {
+		s.runtimePolicy = policy.withDefaults()
+	}
+	return s
 }
 
 // writeHRUsageAudit writes both the usage log and the RBAC auth context for an HR AI operation.
@@ -176,7 +206,7 @@ func (s *AIService) Chat(ctx context.Context, req *pb.ChatRequest) (*pb.ChatResp
 	}, nil, func(usage *pb.ContextUsageInfo) error {
 		contextUsage = usage
 		return nil
-	}, runtimeClient.client)
+	}, nil, runtimeClient.client)
 	if err != nil {
 		if isCanceledError(err) {
 			partial := strings.TrimSpace(replyBuilder.String())
@@ -276,10 +306,23 @@ func (s *AIService) ChatStream(req *pb.ChatRequest, stream pb.AIService_ChatStre
 			SessionId:    session.ID,
 		})
 	}
+	agentSkillSelectionSender := func(selection *pb.AgentSkillSelection) error {
+		return stream.Send(&pb.ChatStreamResponse{
+			Code:                errs.OK,
+			Msg:                 "success",
+			EventType:           "agent_skill_selection_required",
+			EventMessage:        "请确认本次要调用的 Skill",
+			AgentSkillSelection: selection,
+			SessionId:           session.ID,
+		})
+	}
 	reply, metadata, err := s.runToolCallingChatWithUsage(ctx, req, session, runtimeClient.modelID, runtimeClient.modelName, runtimeCfg, func(delta string) error {
 		return stream.Send(&pb.ChatStreamResponse{Code: errs.OK, Msg: "success", Delta: delta, SessionId: session.ID})
-	}, statusSender, contextUsageSender, runtimeClient.client)
+	}, statusSender, contextUsageSender, agentSkillSelectionSender, runtimeClient.client)
 	if err != nil {
+		if errors.Is(err, errAgentSkillSelectionRequired) {
+			return stream.Send(&pb.ChatStreamResponse{Code: errs.OK, Msg: "success", Done: true, CreatedAt: formatTime(now), SessionId: session.ID})
+		}
 		s.writeHRUsageAudit(ctx, AuditLogEntry{
 			UserID: req.HrId, Role: 2, ServiceType: "ai_chat",
 			Endpoint: "/hr/ai/chat/stream", Provider: runtimeClient.auditProvider, Model: runtimeClient.modelName,
@@ -319,12 +362,12 @@ func (s *AIService) ChatStream(req *pb.ChatRequest, stream pb.AIService_ChatStre
 // non-streaming callers it accumulates the full reply, for streaming callers it
 // writes SSE deltas.
 func (s *AIService) runToolCallingChat(ctx context.Context, req *pb.ChatRequest, session *model.AIChatSession, modelID *int64, modelName string, runtimeCfg *agentRuntimeConfig, onDelta func(string) error, onStatus func(eventType, eventMessage, errorType, toolName string) error, aiClient *ai.Client) (reply string, metadata ai.ToolMetadata, err error) {
-	return s.runToolCallingChatWithUsage(ctx, req, session, modelID, modelName, runtimeCfg, onDelta, onStatus, nil, aiClient)
+	return s.runToolCallingChatWithUsage(ctx, req, session, modelID, modelName, runtimeCfg, onDelta, onStatus, nil, nil, aiClient)
 }
 
 // runToolCallingChatWithUsage is like runToolCallingChat but additionally
 // accepts an onContextUsage callback to emit context usage info events.
-func (s *AIService) runToolCallingChatWithUsage(ctx context.Context, req *pb.ChatRequest, session *model.AIChatSession, modelID *int64, modelName string, runtimeCfg *agentRuntimeConfig, onDelta func(string) error, onStatus func(eventType, eventMessage, errorType, toolName string) error, onContextUsage func(*pb.ContextUsageInfo) error, aiClient *ai.Client) (reply string, metadata ai.ToolMetadata, err error) {
+func (s *AIService) runToolCallingChatWithUsage(ctx context.Context, req *pb.ChatRequest, session *model.AIChatSession, modelID *int64, modelName string, runtimeCfg *agentRuntimeConfig, onDelta func(string) error, onStatus func(eventType, eventMessage, errorType, toolName string) error, onContextUsage func(*pb.ContextUsageInfo) error, onAgentSkillSelection func(*pb.AgentSkillSelection) error, aiClient *ai.Client) (reply string, metadata ai.ToolMetadata, err error) {
 	recorder := s.startAgentRun(ctx, req, session, modelID, modelName, runtimeCfg)
 	fallbackObserved := false
 	var processContent strings.Builder
@@ -361,6 +404,9 @@ func (s *AIService) runToolCallingChatWithUsage(ctx context.Context, req *pb.Cha
 		}
 		return "", metadata, err
 	}
+	if recorder != nil {
+		recorder.setSelectedMemoryIDs(ctx, selectedMemoryIDs(actx.LongTermMemories))
+	}
 
 	// If agent config has a bound prompt template, it takes priority.
 	if runtimeCfg == nil {
@@ -376,13 +422,32 @@ func (s *AIService) runToolCallingChatWithUsage(ctx context.Context, req *pb.Cha
 		zap.Int64("session_id", session.ID),
 	)
 
-	selectedSkillsForHistory, err := selectAgentSkills(ctx, s.agentSkillRepo, req.GetMessage(), req.GetAgentSkillIds())
-	if err != nil {
-		logger.L().Warn("select Agent Skills for history failed", zap.Error(err))
-		selectedSkillsForHistory = nil
+	var historyToolNames []string
+	if runtimeCfg != nil && runtimeCfg.HasConfig {
+		historyToolNames = runtimeCfg.ToolNames
+	} else {
+		historyToolNames = agentRunToolInfoNames(ai.RecruitingTools())
 	}
-	selectedSkillsForHistory = manualAgentSkills(selectedSkillsForHistory)
+	var selectedSkillsForHistory []selectedAgentSkill
+	if !requestConfirmedNoAgentSkills(req) {
+		selectedSkillsForHistory, err = s.selectAgentSkills(ctx, "hr_recruiting_agent", req.GetMessage(), req.GetAgentSkillIds(), agentSkillAvailableCapabilities(runtimeCfg, historyToolNames))
+		if err != nil {
+			logger.L().Warn("select Agent Skills for history failed", zap.Error(err))
+			selectedSkillsForHistory = nil
+		}
+		selectedSkillsForHistory = manualAgentSkills(selectedSkillsForHistory)
+	}
 	userAlreadyPersisted := currentMessageAlreadyPersisted(actx, req.Message)
+	userMessageID := req.GetAgentSkillSelectionMessageId()
+	if updated, err := s.updateConfirmedUserMessageAgentSkills(ctx, req, session, selectedSkillsForHistory); err != nil {
+		if recorder != nil {
+			recorder.finish(ctx, agentRunStatusFailed, "", "persist_failed", err.Error())
+			sendAgentRunStatus(effectiveOnStatus, "agent_run_done", "Agent run 保存失败", "persist_failed", "")
+		}
+		return "", metadata, err
+	} else if updated {
+		userAlreadyPersisted = true
+	}
 	messages := buildToolCallingMessages(actx, req.Message)
 	var contextUsage *pb.ContextUsageInfo
 
@@ -418,6 +483,7 @@ func (s *AIService) runToolCallingChatWithUsage(ctx context.Context, req *pb.Cha
 		if recorder != nil && userHistory.ID > 0 {
 			_ = s.agentRuns.UpdateRunMessageID(ctx, recorder.runID, uint64(userHistory.ID))
 		}
+		userMessageID = userHistory.ID
 	}
 
 	// Accumulate partial assistant reply for cancel-save.
@@ -448,11 +514,18 @@ func (s *AIService) runToolCallingChatWithUsage(ctx context.Context, req *pb.Cha
 		return nil
 	}
 	if s.agentRuntime == "adk" {
-		reply, metadata, err = s.runADKChat(ctx, req, session, messages, modelID, modelName, runtimeCfg, wrappedDelta, effectiveOnStatus, usageUpdater, aiClient, recorder)
+		reply, metadata, err = s.runADKChat(ctx, req, session, messages, modelID, modelName, runtimeCfg, wrappedDelta, effectiveOnStatus, usageUpdater, onAgentSkillSelection, userMessageID, aiClient, recorder)
 	} else {
-		reply, metadata, err = s.runLegacyChat(ctx, req, session, messages, modelID, modelName, runtimeCfg, wrappedDelta, effectiveOnStatus, usageUpdater, aiClient, recorder)
+		reply, metadata, err = s.runLegacyChat(ctx, req, session, messages, modelID, modelName, runtimeCfg, wrappedDelta, effectiveOnStatus, usageUpdater, onAgentSkillSelection, userMessageID, aiClient, recorder)
 	}
 	if err != nil {
+		if errors.Is(err, errAgentSkillSelectionRequired) {
+			if recorder != nil {
+				recorder.finish(ctx, agentRunStatusCanceled, "", "agent_skill_selection_required", "")
+				sendAgentRunStatus(effectiveOnStatus, "agent_run_done", "等待用户确认 Skill", "agent_skill_selection_required", "")
+			}
+			return reply, metadata, err
+		}
 		if isCanceledError(err) {
 			partial := strings.TrimSpace(partialReply.String())
 			if partial != "" {
@@ -560,18 +633,27 @@ func (s *AIService) runADKChat(
 	onDelta func(string) error,
 	onStatus func(string, string, string, string) error,
 	onMessagesUpdated ai.MessageUpdateCallback,
+	onAgentSkillSelection func(*pb.AgentSkillSelection) error,
+	userMessageID int64,
 	aiClient *ai.Client,
 	recorder *agentRunRecorder,
 ) (string, ai.ToolMetadata, error) {
 	if req.HrId <= 0 {
 		return "", ai.ToolMetadata{}, fmt.Errorf("hrID must be positive, got %d", req.HrId)
 	}
+	policy := s.runtimePolicy.withDefaults()
 
 	// Thread-safe lazy-init of cached tools via getOrInitADKTools.
 	adkTools, err := s.getOrInitADKTools()
 	if err != nil {
-		logger.L().Warn("[ADK降级] 工具创建失败，自动切换到 Legacy 路径", zap.Error(err))
-		return s.runLegacyChat(ctx, req, session, messages, modelID, modelName, runtimeCfg, onDelta, onStatus, onMessagesUpdated, aiClient, recorder)
+		logger.L().Warn("[ADK降级] 工具创建失败",
+			zap.String("event", "agent.fallback.adk_to_legacy"),
+			zap.Bool("enabled", policy.Fallbacks),
+			zap.Error(err))
+		if !policy.Fallbacks {
+			return "", ai.ToolMetadata{}, fmt.Errorf("ADK tool initialization failed and fallback is disabled: %w", err)
+		}
+		return s.runLegacyChat(ctx, req, session, messages, modelID, modelName, runtimeCfg, onDelta, onStatus, onMessagesUpdated, onAgentSkillSelection, userMessageID, aiClient, recorder)
 	}
 
 	state := &ai.AgentRunState{}
@@ -600,6 +682,7 @@ func (s *AIService) runADKChat(
 			adkTools = nil // agent config exists but all tools disabled
 		}
 	}
+	availableCapabilities := agentSkillAvailableCapabilities(runtimeCfg, adkToolNames(ctx, adkTools))
 	maxIterations := 0
 	if runtimeCfg.MaxIterations > 0 {
 		maxIterations = runtimeCfg.MaxIterations
@@ -611,20 +694,11 @@ func (s *AIService) runADKChat(
 			merged = append(merged, adkTools...)
 			merged = append(merged, mcpTools...)
 			adkTools = merged
+			availableCapabilities = addRuntimeCapabilityRefs(availableCapabilities, "mcp", runtimeCfg.MCPCapabilityKeys)
 		}
 	}
 
 	instruction := extractSystemInstruction(messages)
-	agentSkills, err := selectAgentSkills(ctx, s.agentSkillRepo, req.GetMessage(), req.GetAgentSkillIds())
-	if err != nil {
-		logger.L().Warn("select Agent Skills failed", zap.Error(err))
-	} else if len(agentSkills) > 0 {
-		instruction = appendAgentSkillInstructionBlock(instruction, renderAgentSkillInstructionBlock(agentSkills))
-		if recorder != nil {
-			recorder.setSelectedAgentSkillIDs(selectedAgentSkillIDs(agentSkills))
-		}
-		logSelectedAgentSkills(agentSkills)
-	}
 	if s.skillSvc != nil && len(runtimeCfg.SkillCapabilityKeys) > 0 {
 		if skillTools, skillInstructions, err := s.skillSvc.CollectBoundSkillCallableTools(ctx, runtimeCfg.SkillCapabilityKeys); err == nil {
 			if len(skillTools) > 0 {
@@ -632,11 +706,61 @@ func (s *AIService) runADKChat(
 				merged = append(merged, adkTools...)
 				merged = append(merged, skillTools...)
 				adkTools = merged
+				availableCapabilities = addRuntimeCapabilityRefs(availableCapabilities, "skill", runtimeCfg.SkillCapabilityKeys)
 			}
 			instruction = appendSkillInstructions(instruction, skillInstructions)
 		} else {
 			logger.L().Warn("collect bound SKILL callable tools failed", zap.Error(err))
 		}
+	}
+	availableToolNames := adkToolNames(ctx, adkTools)
+	availableCapabilities = addRuntimeToolCapabilities(availableCapabilities, availableToolNames)
+	agentSkills := []selectedAgentSkill{}
+	if policy.SkillGovernance && !requestConfirmedNoAgentSkills(req) {
+		var err error
+		agentSkills, err = s.selectAgentSkills(ctx, "hr_recruiting_agent", req.GetMessage(), req.GetAgentSkillIds(), availableCapabilities)
+		if err != nil {
+			logger.L().Warn("select Agent Skills failed",
+				zap.String("event", "agent.skill_governance.select"),
+				zap.String("status", "fallback"),
+				zap.Error(err))
+		} else if len(agentSkills) > 0 {
+			if err := maybeRequestAgentSkillSelection(ctx, req, agentSkills, userMessageID, onAgentSkillSelection); err != nil {
+				return "", ai.ToolMetadata{}, err
+			}
+			instruction = appendAgentSkillInstructionBlock(instruction, renderAgentSkillInstructionBlock(agentSkills))
+			if recorder != nil {
+				recorder.setSelectedAgentSkills(ctx, agentSkills)
+			}
+			logSelectedAgentSkills(agentSkills)
+		}
+	} else {
+		logger.L().Info("Agent Skill governance skipped",
+			zap.String("event", "agent.skill_governance.select"),
+			zap.String("status", agentSkillGovernanceSkipStatus(policy.SkillGovernance, req)))
+	}
+	if policy.Planner {
+		planner := ai.NewRecruitingPlanner()
+		availableToolNames = adkToolNames(ctx, adkTools)
+		plan := planner.Plan(ai.RecruitingPlannerInput{
+			Message:        req.GetMessage(),
+			AvailableTools: availableToolNames,
+			ApplicationID:  req.GetApplicationId(),
+		})
+		plan = applyAgentSkillPlannerConstraints(plan, agentSkills, availableToolNames)
+		if recorder != nil {
+			recorder.recordRecruitingPlan(ctx, plan)
+		}
+		instruction = appendRecruitingPlannerInstructionBlock(instruction, plan.InstructionBlock())
+		logger.L().Info("[Planner] HR Agent structured plan selected",
+			zap.String("event", "agent.planner.plan"),
+			zap.String("intent", plan.Intent),
+			zap.Strings("required_tools", plan.RequiredTools),
+		)
+	} else {
+		logger.L().Info("HR Agent structured planner skipped",
+			zap.String("event", "agent.planner.plan"),
+			zap.String("status", "disabled"))
 	}
 	logger.L().Info("[提示词诊断] HR Agent 当前使用的 System Prompt",
 		zap.Int("总字符数", len([]rune(instruction))),
@@ -669,6 +793,8 @@ func (s *AIService) runLegacyChat(
 	onDelta func(string) error,
 	onStatus func(string, string, string, string) error,
 	onMessagesUpdated ai.MessageUpdateCallback,
+	onAgentSkillSelection func(*pb.AgentSkillSelection) error,
+	userMessageID int64,
 	aiClient *ai.Client,
 	recorder *agentRunRecorder,
 ) (string, ai.ToolMetadata, error) {
@@ -683,21 +809,13 @@ func (s *AIService) runLegacyChat(
 			tools = nil // agent config exists but all tools disabled
 		}
 	}
+	availableCapabilities := agentSkillAvailableCapabilities(runtimeCfg, agentRunToolInfoNames(tools))
 
 	if s.mcpSvc != nil && len(runtimeCfg.MCPCapabilityKeys) > 0 {
 		if mcpTools, err := s.mcpSvc.CollectBoundMCPToolInfos(ctx, runtimeCfg.MCPCapabilityKeys); err == nil && len(mcpTools) > 0 {
 			tools = append(tools, mcpTools...)
+			availableCapabilities = addRuntimeCapabilityRefs(availableCapabilities, "mcp", runtimeCfg.MCPCapabilityKeys)
 		}
-	}
-	agentSkills, err := selectAgentSkills(ctx, s.agentSkillRepo, req.GetMessage(), req.GetAgentSkillIds())
-	if err != nil {
-		logger.L().Warn("select Agent Skills failed", zap.Error(err))
-	} else if len(agentSkills) > 0 {
-		messages = appendAgentSkillInstructionBlockToMessages(messages, renderAgentSkillInstructionBlock(agentSkills))
-		if recorder != nil {
-			recorder.setSelectedAgentSkillIDs(selectedAgentSkillIDs(agentSkills))
-		}
-		logSelectedAgentSkills(agentSkills)
 	}
 	var executor ai.ToolRunner = s.toolExecutor
 	if s.skillSvc != nil && len(runtimeCfg.SkillCapabilityKeys) > 0 {
@@ -713,11 +831,62 @@ func (s *AIService) runLegacyChat(
 					primary:    executor,
 					skillTools: skillInvokableToolsByName(ctx, skillCallableTools),
 				}
+				availableCapabilities = addRuntimeCapabilityRefs(availableCapabilities, "skill", runtimeCfg.SkillCapabilityKeys)
 			}
 			messages = appendSkillInstructionsToMessages(messages, skillInstructions)
 		} else {
 			logger.L().Warn("collect bound SKILL tool infos failed", zap.Error(err))
 		}
+	}
+	availableToolNames := agentRunToolInfoNames(tools)
+	availableCapabilities = addRuntimeToolCapabilities(availableCapabilities, availableToolNames)
+	policy := s.runtimePolicy.withDefaults()
+	agentSkills := []selectedAgentSkill{}
+	if policy.SkillGovernance && !requestConfirmedNoAgentSkills(req) {
+		var err error
+		agentSkills, err = s.selectAgentSkills(ctx, "hr_recruiting_agent", req.GetMessage(), req.GetAgentSkillIds(), availableCapabilities)
+		if err != nil {
+			logger.L().Warn("select Agent Skills failed",
+				zap.String("event", "agent.skill_governance.select"),
+				zap.String("status", "fallback"),
+				zap.Error(err))
+		} else if len(agentSkills) > 0 {
+			if err := maybeRequestAgentSkillSelection(ctx, req, agentSkills, userMessageID, onAgentSkillSelection); err != nil {
+				return "", ai.ToolMetadata{}, err
+			}
+			messages = appendAgentSkillInstructionBlockToMessages(messages, renderAgentSkillInstructionBlock(agentSkills))
+			if recorder != nil {
+				recorder.setSelectedAgentSkills(ctx, agentSkills)
+			}
+			logSelectedAgentSkills(agentSkills)
+		}
+	} else {
+		logger.L().Info("Agent Skill governance skipped",
+			zap.String("event", "agent.skill_governance.select"),
+			zap.String("status", agentSkillGovernanceSkipStatus(policy.SkillGovernance, req)))
+	}
+	if policy.Planner {
+		planner := ai.NewRecruitingPlanner()
+		availableToolNames = agentRunToolInfoNames(tools)
+		plan := planner.Plan(ai.RecruitingPlannerInput{
+			Message:        req.GetMessage(),
+			AvailableTools: availableToolNames,
+			ApplicationID:  req.GetApplicationId(),
+		})
+		plan = applyAgentSkillPlannerConstraints(plan, agentSkills, availableToolNames)
+		if recorder != nil {
+			recorder.recordRecruitingPlan(ctx, plan)
+		}
+		messages = appendRecruitingPlannerInstructionBlockToMessages(messages, plan.InstructionBlock())
+		logger.L().Info("[Planner] HR Agent structured plan selected",
+			zap.String("event", "agent.planner.plan"),
+			zap.String("intent", plan.Intent),
+			zap.Strings("required_tools", plan.RequiredTools),
+		)
+	} else {
+		logger.L().Info("HR Agent structured planner skipped",
+			zap.String("event", "agent.planner.plan"),
+			zap.String("status", "disabled"))
 	}
 
 	traceFn := func(toolCallID, toolName, argsJSON, resultContent string, duration time.Duration, execErr error) {
@@ -744,6 +913,101 @@ func extractSystemInstruction(messages []*schema.Message) string {
 	return ""
 }
 
+func maybeRequestAgentSkillSelection(ctx context.Context, req *pb.ChatRequest, skills []selectedAgentSkill, userMessageID int64, onAgentSkillSelection func(*pb.AgentSkillSelection) error) error {
+	if onAgentSkillSelection == nil || req.GetAgentSkillSelectionConfirmed() {
+		return nil
+	}
+	decision := decideAgentSkillSelectionConfirmation(skills, req.GetAgentSkillIds())
+	if !decision.Required {
+		return nil
+	}
+	selection := agentSkillSelectionDecisionPB(decision, userMessageID)
+	logger.GetRequestLogger(ctx).Info("agent skill selection confirmation required",
+		zap.Int("candidate_count", len(decision.Candidates)),
+		zap.Int64s("recommended_agent_skill_ids", decision.RecommendedIDs),
+		zap.String("reason", decision.Reason),
+	)
+	if err := onAgentSkillSelection(selection); err != nil {
+		return err
+	}
+	return errAgentSkillSelectionRequired
+}
+
+func requestConfirmedNoAgentSkills(req *pb.ChatRequest) bool {
+	return req.GetAgentSkillSelectionConfirmed() && !hasPositiveAgentSkillID(req.GetAgentSkillIds())
+}
+
+func (s *AIService) updateConfirmedUserMessageAgentSkills(ctx context.Context, req *pb.ChatRequest, session *model.AIChatSession, skills []selectedAgentSkill) (bool, error) {
+	if s == nil || s.chats == nil || session == nil || !req.GetAgentSkillSelectionConfirmed() || req.GetAgentSkillSelectionMessageId() <= 0 {
+		return false, nil
+	}
+	err := s.chats.UpdateUserMessageAgentSkills(
+		ctx,
+		req.HrId,
+		session.ID,
+		req.GetAgentSkillSelectionMessageId(),
+		marshalInt64Slice(selectedAgentSkillIDs(skills)),
+		marshalStringSlice(selectedAgentSkillNames(skills)),
+	)
+	if err == nil {
+		return true, nil
+	}
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		logger.GetRequestLogger(ctx).Warn("confirmed agent skill selection message not found; continuing without metadata backfill",
+			zap.Int64("session_id", session.ID),
+			zap.Int64("user_message_id", req.GetAgentSkillSelectionMessageId()),
+			zap.Bool("confirmed_without_agent_skills", requestConfirmedNoAgentSkills(req)),
+			zap.Int("selected_agent_skill_count", len(selectedAgentSkillIDs(skills))),
+		)
+		return false, nil
+	}
+	return false, err
+}
+
+func agentSkillGovernanceSkipStatus(enabled bool, req *pb.ChatRequest) string {
+	if !enabled {
+		return "disabled"
+	}
+	if requestConfirmedNoAgentSkills(req) {
+		return "confirmed_without_agent_skills"
+	}
+	return "skipped"
+}
+
+func agentSkillSelectionDecisionPB(decision agentSkillSelectionConfirmationDecision, userMessageID int64) *pb.AgentSkillSelection {
+	candidates := make([]*pb.AgentSkillSelectionCandidate, 0, len(decision.Candidates))
+	for _, candidate := range decision.Candidates {
+		candidates = append(candidates, &pb.AgentSkillSelectionCandidate{
+			Id:                candidate.ID,
+			Name:              candidate.Name,
+			DisplayName:       candidate.DisplayName,
+			Reason:            candidate.Reason,
+			Score:             int32(candidate.Score),
+			Priority:          candidate.Priority,
+			Category:          candidate.Category,
+			Scenario:          candidate.Scenario,
+			RiskLevel:         candidate.RiskLevel,
+			Recommended:       candidate.Recommended,
+			VectorScore:       candidate.VectorScore,
+			LexicalScore:      candidate.LexicalScore,
+			MetadataScore:     candidate.MetadataScore,
+			RelevanceScore:    candidate.RelevanceScore,
+			BusinessBoost:     candidate.BusinessBoost,
+			FinalRankScore:    candidate.FinalRankScore,
+			RelevanceMode:     candidate.RelevanceMode,
+			PoolRank:          int32(candidate.PoolRank),
+			RankingConfidence: candidate.RankingConfidence,
+		})
+	}
+	return &pb.AgentSkillSelection{
+		Required:                 decision.Required,
+		Reason:                   decision.Reason,
+		Candidates:               candidates,
+		RecommendedAgentSkillIds: append([]int64(nil), decision.RecommendedIDs...),
+		UserMessageId:            userMessageID,
+	}
+}
+
 func appendSkillInstructions(base string, skillInstructions []string) string {
 	if len(skillInstructions) == 0 {
 		return base
@@ -768,6 +1032,31 @@ func appendSkillInstructionsToMessages(messages []*schema.Message, skillInstruct
 		}
 	}
 	return append([]*schema.Message{schema.SystemMessage(addition)}, copied...)
+}
+
+func appendRecruitingPlannerInstructionBlockToMessages(messages []*schema.Message, block string) []*schema.Message {
+	block = strings.TrimSpace(block)
+	if block == "" {
+		return messages
+	}
+	copied := append([]*schema.Message(nil), messages...)
+	for _, m := range copied {
+		if m.Role == schema.System {
+			m.Content = appendRecruitingPlannerInstructionBlock(m.Content, block)
+			return copied
+		}
+	}
+	return append([]*schema.Message{schema.SystemMessage(block)}, copied...)
+}
+
+func agentRunToolInfoNames(tools []*schema.ToolInfo) []string {
+	names := make([]string, 0, len(tools))
+	for _, t := range tools {
+		if t != nil && strings.TrimSpace(t.Name) != "" {
+			names = append(names, t.Name)
+		}
+	}
+	return names
 }
 
 type compositeToolRunner struct {
@@ -1174,6 +1463,7 @@ func (s *AIService) writeMemory(ctx context.Context, hrID int64, scopeType strin
 		Content:    content,
 		Source:     source,
 		Confidence: confidence,
+		Importance: confidence,
 	}
 	if err := s.memories.Create(ctx, memory); err != nil {
 		logger.L().Warn("[长期记忆] 写入失败",
@@ -1187,7 +1477,35 @@ func (s *AIService) writeMemory(ctx context.Context, hrID int64, scopeType strin
 			zap.String("memory_type", memoryType),
 			zap.Int("content_chars", len([]rune(content))),
 		)
+		s.publishMemoryEmbeddingEvent(ctx, memory)
 	}
+}
+
+func (s *AIService) publishMemoryEmbeddingEvent(ctx context.Context, memory *model.AIMemory) {
+	if s.eventPublisher == nil {
+		return
+	}
+
+	scopeDescription := memory.ScopeType + ":" + formatScopeID(memory.ScopeID)
+	text := BuildMemoryEmbeddingText(memory.Content, memory.MemoryType, scopeDescription)
+	if strings.TrimSpace(text) == "" {
+		return
+	}
+
+	hash := sha256.Sum256([]byte(text))
+	textHash := hex.EncodeToString(hash[:])
+
+	s.eventPublisher.PublishUpsertBestEffort(ctx, EmbeddingUpsertEvent{
+		ObjectType: "ai_memory",
+		ObjectID:   memory.ID,
+		ModelID:    0,
+		Text:       text,
+		TextHash:   textHash,
+	})
+}
+
+func formatScopeID(id uint64) string {
+	return fmt.Sprintf("%d", id)
 }
 
 // buildAnalysisConclusion creates a concise conclusion from application analysis results.

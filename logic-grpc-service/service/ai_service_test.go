@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"errors"
 	"strings"
 	"testing"
 	"time"
@@ -36,6 +37,139 @@ func TestBuildToolCallingMessagesNoToolsForGreeting(t *testing.T) {
 	}
 	if !strings.Contains(sys, "Markdown 输出硬性规范") || !strings.Contains(sys, "禁止写成 \"-内容\"") {
 		t.Error("system prompt should include strict standard markdown formatting rules")
+	}
+}
+
+func TestMaybeRequestAgentSkillSelectionEmitsPayload(t *testing.T) {
+	skills := []selectedAgentSkill{
+		{ID: 11, Name: "match", DisplayName: "Match", Reason: "hybrid score", FinalRankScore: 0.9},
+		{ID: 12, Name: "risk", DisplayName: "Risk", Reason: "hybrid score", FinalRankScore: 0.7},
+	}
+	var got *pb.AgentSkillSelection
+	err := maybeRequestAgentSkillSelection(context.Background(), &pb.ChatRequest{Message: "candidate match"}, skills, 99, func(selection *pb.AgentSkillSelection) error {
+		got = selection
+		return nil
+	})
+	if !errors.Is(err, errAgentSkillSelectionRequired) {
+		t.Fatalf("err = %v, want errAgentSkillSelectionRequired", err)
+	}
+	if got == nil || !got.Required || got.Reason != "multiple_auto_candidates" {
+		t.Fatalf("selection payload = %+v, want required multiple_auto_candidates", got)
+	}
+	if len(got.Candidates) != 2 || len(got.RecommendedAgentSkillIds) != 1 || got.RecommendedAgentSkillIds[0] != 11 {
+		t.Fatalf("selection payload candidates/recommended = %+v", got)
+	}
+	if !got.Candidates[0].Recommended {
+		t.Fatalf("first candidate should be recommended: %+v", got.Candidates[0])
+	}
+	if got.UserMessageId != 99 {
+		t.Fatalf("UserMessageId = %d, want 99", got.UserMessageId)
+	}
+}
+
+func TestMaybeRequestAgentSkillSelectionBypassesConfirmedRequest(t *testing.T) {
+	called := false
+	err := maybeRequestAgentSkillSelection(
+		context.Background(),
+		&pb.ChatRequest{Message: "candidate match", AgentSkillSelectionConfirmed: true},
+		[]selectedAgentSkill{{ID: 1}, {ID: 2}},
+		99,
+		func(selection *pb.AgentSkillSelection) error {
+			called = true
+			return nil
+		},
+	)
+	if err != nil {
+		t.Fatalf("err = %v, want nil", err)
+	}
+	if called {
+		t.Fatalf("selection callback should not be called for confirmed requests")
+	}
+}
+
+func TestRequestConfirmedNoAgentSkills(t *testing.T) {
+	if !requestConfirmedNoAgentSkills(&pb.ChatRequest{AgentSkillSelectionConfirmed: true}) {
+		t.Fatalf("confirmed empty selection should skip automatic Agent Skill selection")
+	}
+	if requestConfirmedNoAgentSkills(&pb.ChatRequest{AgentSkillSelectionConfirmed: true, AgentSkillIds: []int64{1}}) {
+		t.Fatalf("confirmed explicit Skill IDs should not be treated as selecting none")
+	}
+	if requestConfirmedNoAgentSkills(&pb.ChatRequest{}) {
+		t.Fatalf("unconfirmed request should allow automatic Agent Skill selection")
+	}
+}
+
+func TestUpdateConfirmedUserMessageAgentSkillsIgnoresStaleMessageID(t *testing.T) {
+	db := setupAgentRunServiceTestDB(t)
+	chats := repository.NewChatRepo(db)
+	svc := &AIService{chats: chats}
+	ctx := context.Background()
+	session := &model.AIChatSession{HrID: 42, Title: "stale confirmation"}
+	if err := chats.CreateSession(ctx, session); err != nil {
+		t.Fatalf("CreateSession failed: %v", err)
+	}
+
+	updated, err := svc.updateConfirmedUserMessageAgentSkills(ctx,
+		&pb.ChatRequest{
+			HrId:                         42,
+			SessionId:                    session.ID,
+			Message:                      "有哪些岗位是我所发布的",
+			AgentSkillSelectionConfirmed: true,
+			AgentSkillSelectionMessageId: 999,
+			AgentSkillIds:                nil,
+		},
+		session,
+		nil,
+	)
+	if err != nil {
+		t.Fatalf("updateConfirmedUserMessageAgentSkills returned error: %v", err)
+	}
+	if updated {
+		t.Fatalf("updated = true, want false for stale message ID")
+	}
+}
+
+func TestUpdateConfirmedUserMessageAgentSkillsUpdatesExistingMessage(t *testing.T) {
+	db := setupAgentRunServiceTestDB(t)
+	chats := repository.NewChatRepo(db)
+	svc := &AIService{chats: chats}
+	ctx := context.Background()
+	session := &model.AIChatSession{HrID: 42, Title: "confirmation"}
+	if err := chats.CreateSession(ctx, session); err != nil {
+		t.Fatalf("CreateSession failed: %v", err)
+	}
+	msg := &model.AIChatHistory{SessionID: session.ID, HrID: 42, Role: "user", Content: "有哪些岗位是我所发布的"}
+	if err := chats.Add(ctx, msg); err != nil {
+		t.Fatalf("Add message failed: %v", err)
+	}
+
+	updated, err := svc.updateConfirmedUserMessageAgentSkills(ctx,
+		&pb.ChatRequest{
+			HrId:                         42,
+			SessionId:                    session.ID,
+			Message:                      msg.Content,
+			AgentSkillSelectionConfirmed: true,
+			AgentSkillSelectionMessageId: msg.ID,
+			AgentSkillIds:                []int64{11},
+		},
+		session,
+		[]selectedAgentSkill{{ID: 11, Name: "published_jobs", DisplayName: "我发布的岗位"}},
+	)
+	if err != nil {
+		t.Fatalf("updateConfirmedUserMessageAgentSkills returned error: %v", err)
+	}
+	if !updated {
+		t.Fatalf("updated = false, want true")
+	}
+	var stored model.AIChatHistory
+	if err := db.First(&stored, msg.ID).Error; err != nil {
+		t.Fatalf("load message failed: %v", err)
+	}
+	if stored.AgentSkillIDsJSON != `[11]` {
+		t.Fatalf("AgentSkillIDsJSON = %q, want [11]", stored.AgentSkillIDsJSON)
+	}
+	if stored.AgentSkillNamesJSON != `["我发布的岗位"]` {
+		t.Fatalf("AgentSkillNamesJSON = %q", stored.AgentSkillNamesJSON)
 	}
 }
 
@@ -230,6 +364,11 @@ func TestRecruitingToolsAllRequiredToolsPresent(t *testing.T) {
 		"get_application_status_summary",
 		"get_application_trend",
 		"get_job_list",
+		"parse_resume_profile",
+		"get_resume_profile",
+		"evaluate_candidate_match",
+		"get_candidate_match_evaluation",
+		"compare_candidates_for_job",
 	}
 	for _, name := range required {
 		if !toolNames[name] {

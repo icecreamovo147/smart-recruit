@@ -82,8 +82,8 @@ func TestInferToolType(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewRecruitingADKTools: %v", err)
 	}
-	if len(tools) != 14 {
-		t.Errorf("expected 14 tools, got %d", len(tools))
+	if len(tools) != 19 {
+		t.Errorf("expected 19 tools, got %d", len(tools))
 	}
 	for _, bt := range tools {
 		if _, ok := bt.(tool.InvokableTool); !ok {

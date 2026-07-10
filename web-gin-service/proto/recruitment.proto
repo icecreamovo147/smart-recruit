@@ -183,6 +183,14 @@ service CollaborationService {
   rpc ListTimelineEvents(ListTimelineEventsRequest) returns (ListTimelineEventsResponse);
 }
 
+service RecruitingIntelligenceService {
+  rpc GetResumeProfile(GetResumeProfileRequest) returns (GetResumeProfileResponse);
+  rpc ParseResumeProfile(ParseResumeProfileRequest) returns (GetResumeProfileResponse);
+  rpc EvaluateCandidateMatch(EvaluateCandidateMatchRequest) returns (GetCandidateMatchEvaluationResponse);
+  rpc GetCandidateMatchEvaluation(GetCandidateMatchEvaluationRequest) returns (GetCandidateMatchEvaluationResponse);
+  rpc CompareCandidatesForJob(CompareCandidatesForJobRequest) returns (CompareCandidatesForJobResponse);
+}
+
 message CommonResponse {
   int32 code = 1;
   string msg = 2;
@@ -554,6 +562,8 @@ message ChatRequest {
   int64 model_id = 5;               // Optional: user-selected model override
   repeated string skill_capability_keys = 6; // Optional: per-message SKILL capabilities selected by the user
   repeated int64 agent_skill_ids = 7; // Optional: database-backed Agent Skills selected by the user
+  bool agent_skill_selection_confirmed = 8; // Optional: user confirmed automatic Agent Skill selection, including selecting none
+  int64 agent_skill_selection_message_id = 9; // Optional: user message ID associated with the confirmed Agent Skill selection
 }
 
 message ContextUsageBreakdown {
@@ -598,6 +608,36 @@ message ChatResponse {
   ContextUsageInfo context_usage = 12;
 }
 
+message AgentSkillSelectionCandidate {
+  int64 id = 1;
+  string name = 2;
+  string display_name = 3;
+  string reason = 4;
+  int32 score = 5;
+  int32 priority = 6;
+  string category = 7;
+  string scenario = 8;
+  string risk_level = 9;
+  bool recommended = 10;
+  double vector_score = 11;
+  double lexical_score = 12;
+  double metadata_score = 13;
+  double relevance_score = 14;
+  double business_boost = 15;
+  double final_rank_score = 16;
+  string relevance_mode = 17;
+  int32 pool_rank = 18;
+  string ranking_confidence = 19;
+}
+
+message AgentSkillSelection {
+  bool required = 1;
+  string reason = 2;
+  repeated AgentSkillSelectionCandidate candidates = 3;
+  repeated int64 recommended_agent_skill_ids = 4;
+  int64 user_message_id = 5;
+}
+
 message ChatStreamResponse {
   int32 code = 1;
   string msg = 2;
@@ -623,6 +663,8 @@ message ChatStreamResponse {
   string tool_name = 18;
   // context_usage carries estimated/actual context usage information when event_type == "context_usage".
   ContextUsageInfo context_usage = 19;
+  // agent_skill_selection carries candidate metadata when event_type == "agent_skill_selection_required".
+  AgentSkillSelection agent_skill_selection = 20;
 }
 
 message ChatHistoryRequest {
@@ -2071,6 +2113,11 @@ service MCPService {
   rpc CreateMCPServer(CreateMCPServerRequest) returns (MCPServerResponse);
   rpc UpdateMCPServer(UpdateMCPServerRequest) returns (MCPServerResponse);
   rpc DeleteMCPServer(DeleteMCPServerRequest) returns (CommonResponse);
+  rpc ListMCPToolPolicies(ListMCPToolPoliciesRequest) returns (ListMCPToolPoliciesResponse);
+  rpc CreateMCPToolPolicy(CreateMCPToolPolicyRequest) returns (MCPToolPolicyResponse);
+  rpc UpdateMCPToolPolicy(UpdateMCPToolPolicyRequest) returns (MCPToolPolicyResponse);
+  rpc DeleteMCPToolPolicy(DeleteMCPToolPolicyRequest) returns (CommonResponse);
+  rpc ListMCPToolLogs(ListMCPToolLogsRequest) returns (ListMCPToolLogsResponse);
   rpc TestMCPConnection(TestMCPConnectionRequest) returns (TestMCPConnectionResponse);
   rpc ListMCPTools(ListMCPToolsRequest) returns (ListMCPToolsResponse);
   rpc CallMCPTool(CallMCPToolRequest) returns (CallMCPToolResponse);
@@ -2139,6 +2186,122 @@ message MCPServerResponse {
   MCPServerInfo server = 3;
 }
 
+message MCPToolPolicyInfo {
+  int64 id = 1;
+  int64 server_id = 2;
+  string tool_name = 3;
+  string effect = 4;                    // allow / deny
+  string risk_level = 5;
+  bool require_confirmation = 6;
+  string allowed_roles_json = 7;         // JSON array string
+  string allowed_scopes_json = 8;        // JSON array string
+  string required_args_json = 9;         // JSON array string
+  string denied_args_json = 10;          // JSON array string
+  string arg_rules_json = 11;            // JSON object string
+  string redact_fields_json = 12;        // JSON array string
+  int32 rate_limit_window_seconds = 13;
+  int32 rate_limit_max_calls = 14;
+  bool is_enabled = 15;
+  int64 created_by_hr_id = 16;
+  int64 updated_by_hr_id = 17;
+  string created_at = 18;
+  string updated_at = 19;
+}
+
+message ListMCPToolPoliciesRequest {
+  int64 server_id = 1;                   // 0 = all servers
+  int32 page = 2;
+  int32 page_size = 3;
+}
+
+message ListMCPToolPoliciesResponse {
+  int32 code = 1;
+  string msg = 2;
+  int64 total = 3;
+  repeated MCPToolPolicyInfo list = 4;
+}
+
+message CreateMCPToolPolicyRequest {
+  int64 server_id = 1;
+  string tool_name = 2;
+  string effect = 3;
+  string risk_level = 4;
+  bool require_confirmation = 5;
+  string allowed_roles_json = 6;
+  string allowed_scopes_json = 7;
+  string required_args_json = 8;
+  string denied_args_json = 9;
+  string arg_rules_json = 10;
+  string redact_fields_json = 11;
+  int32 rate_limit_window_seconds = 12;
+  int32 rate_limit_max_calls = 13;
+  bool is_enabled = 14;
+  bool is_enabled_set = 15;
+  int64 operator_hr_id = 16;
+}
+
+message UpdateMCPToolPolicyRequest {
+  int64 id = 1;
+  int64 server_id = 2;
+  string tool_name = 3;
+  string effect = 4;
+  string risk_level = 5;
+  bool require_confirmation = 6;
+  bool require_confirmation_set = 7;
+  string allowed_roles_json = 8;
+  string allowed_scopes_json = 9;
+  string required_args_json = 10;
+  string denied_args_json = 11;
+  string arg_rules_json = 12;
+  string redact_fields_json = 13;
+  int32 rate_limit_window_seconds = 14;
+  bool rate_limit_window_seconds_set = 15;
+  int32 rate_limit_max_calls = 16;
+  bool rate_limit_max_calls_set = 17;
+  bool is_enabled = 18;
+  bool is_enabled_set = 19;
+  int64 operator_hr_id = 20;
+}
+
+message DeleteMCPToolPolicyRequest {
+  int64 id = 1;
+}
+
+message MCPToolPolicyResponse {
+  int32 code = 1;
+  string msg = 2;
+  MCPToolPolicyInfo policy = 3;
+}
+
+message MCPToolLogInfo {
+  int64 id = 1;
+  int64 server_id = 2;
+  string tool_name = 3;
+  string args_json = 4;
+  string result_content = 5;
+  int32 duration_ms = 6;
+  string error_msg = 7;
+  int64 called_by_hr_id = 8;
+  int64 session_id = 9;
+  int64 policy_id = 10;
+  string policy_decision = 11;
+  string policy_reason = 12;
+  string created_at = 13;
+}
+
+message ListMCPToolLogsRequest {
+  int64 server_id = 1;
+  int32 page = 2;
+  int32 page_size = 3;
+}
+
+message ListMCPToolLogsResponse {
+  int32 code = 1;
+  string msg = 2;
+  int64 total = 3;
+  repeated MCPToolLogInfo list = 4;
+}
+
 message TestMCPConnectionRequest {
   int64 server_id = 1;
 }
@@ -2172,6 +2335,9 @@ message CallMCPToolRequest {
   string args_json = 3;           // Tool arguments as JSON
   int64 called_by_hr_id = 4;
   int64 session_id = 5;
+  string caller_role = 6;
+  string caller_scope = 7;
+  bool confirmation_approved = 8;
 }
 
 message CallMCPToolResponse {
@@ -2180,6 +2346,9 @@ message CallMCPToolResponse {
   string result_content = 3;
   string error_msg = 4;           // Non-empty if tool execution failed but returned
   int64 duration_ms = 5;
+  string policy_decision = 6;
+  string policy_reason = 7;
+  int64 policy_id = 8;
 }
 
 // ══════════════════════════════════════════════════════════════════════
@@ -2791,6 +2960,7 @@ service AgentSkillService {
   rpc UpdateAgentSkillStatus(UpdateAgentSkillStatusRequest) returns (AgentSkillResponse);
   rpc PreviewAgentSkill(PreviewAgentSkillRequest) returns (PreviewAgentSkillResponse);
   rpc ListAvailableAgentSkills(ListAvailableAgentSkillsRequest) returns (ListAgentSkillsResponse);
+  rpc DebugSemanticRetrieval(DebugSemanticRetrievalRequest) returns (DebugSemanticRetrievalResponse);
 }
 
 message AgentSkillInfo {
@@ -2804,6 +2974,17 @@ message AgentSkillInfo {
   repeated string trigger_keywords = 8;
   string created_at = 9;
   string updated_at = 10;
+  string agent_type = 11;
+  string category = 12;
+  string scenario = 13;
+  int32 priority = 14;
+  string risk_level = 15;
+  repeated string required_capabilities = 16;
+  string output_schema = 17;
+  repeated string evaluation_criteria = 18;
+  repeated string semantic_tags = 19;
+  repeated string unavailable_capabilities = 20;
+  repeated string validation_warnings = 21;
 }
 
 message AgentSkillVersionInfo {
@@ -2856,6 +3037,15 @@ message CreateAgentSkillRequest {
   string change_note = 12;
   bool activate = 13;
   string skill_md = 14;
+  string agent_type = 15;
+  string category = 16;
+  string scenario = 17;
+  int32 priority = 18;
+  string risk_level = 19;
+  repeated string required_capabilities = 20;
+  string output_schema = 21;
+  repeated string evaluation_criteria = 22;
+  repeated string semantic_tags = 23;
 }
 
 message UpdateAgentSkillRequest {
@@ -2871,6 +3061,24 @@ message UpdateAgentSkillRequest {
   int64 actor_user_id = 10;
   bool display_name_set = 11;
   bool description_set = 12;
+  string agent_type = 13;
+  bool agent_type_set = 14;
+  string category = 15;
+  bool category_set = 16;
+  string scenario = 17;
+  bool scenario_set = 18;
+  int32 priority = 19;
+  bool priority_set = 20;
+  string risk_level = 21;
+  bool risk_level_set = 22;
+  repeated string required_capabilities = 23;
+  bool required_capabilities_set = 24;
+  string output_schema = 25;
+  bool output_schema_set = 26;
+  repeated string evaluation_criteria = 27;
+  bool evaluation_criteria_set = 28;
+  repeated string semantic_tags = 29;
+  bool semantic_tags_set = 30;
 }
 
 message AgentSkillResponse {
@@ -2929,4 +3137,459 @@ message PreviewAgentSkillResponse {
   string skill_md = 3;
   string frontmatter_json = 4;
   string body_markdown = 5;
+}
+
+message DebugSemanticRetrievalRequest {
+  int64 hr_id = 1;
+  string query = 2;
+  string agent_type = 3;
+  int64 job_id = 4;
+  int64 application_id = 5;
+  int32 limit = 6;
+}
+
+message SemanticSkillDebugItem {
+  int64 id = 1;
+  string name = 2;
+  string display_name = 3;
+  string category = 4;
+  string scenario = 5;
+  int32 priority = 6;
+  double score = 7;
+  string reason = 8;
+  repeated string semantic_tags = 9;
+  double vector_score = 10;
+  double lexical_score = 11;
+  double metadata_score = 12;
+  double relevance_score = 13;
+  double business_boost = 14;
+  double final_rank_score = 15;
+  string relevance_mode = 16;
+  int32 pool_rank = 17;
+}
+
+message SemanticMemoryDebugItem {
+  uint64 id = 1;
+  string scope_type = 2;
+  uint64 scope_id = 3;
+  string memory_type = 4;
+  string content = 5;
+  string source = 6;
+  double confidence = 7;
+  double importance = 8;
+  double score = 9;
+  string reason = 10;
+  string created_at = 11;
+  double vector_score = 12;
+  double lexical_score = 13;
+  double metadata_score = 14;
+  double relevance_score = 15;
+  double business_boost = 16;
+  double final_rank_score = 17;
+  string relevance_mode = 18;
+  int32 pool_rank = 19;
+}
+
+message DebugSemanticRetrievalResponse {
+  int32 code = 1;
+  string msg = 2;
+  bool embedding_available = 3;
+  string fallback_reason = 4;
+  repeated SemanticSkillDebugItem skills = 5;
+  repeated SemanticMemoryDebugItem memories = 6;
+  string skill_pool_confidence = 7;
+  string memory_pool_confidence = 8;
+  // 修复：debug 端点补全 5 个 Provider / Model / Dim / Count / Latency 字段。
+  // 这些字段之前从未在 proto 中声明，所以一直显示 "-"；本次新增。
+  string embedding_provider = 9;
+  string embedding_model = 10;
+  int32 embedding_dim = 11;
+  int32 candidate_count = 12;
+  int64 query_embedding_latency_ms = 13;
+}
+
+message GetResumeProfileRequest {
+  int64 staff_user_id = 1;
+  int64 resume_id = 2;
+  uint64 profile_id = 3;
+  int64 application_id = 4;
+}
+
+message ParseResumeProfileRequest {
+  int64 staff_user_id = 1;
+  int64 resume_id = 2;
+  int64 application_id = 3;
+}
+
+message ResumeParseRunInfo {
+  uint64 id = 1;
+  int64 resume_id = 2;
+  int64 user_id = 3;
+  uint64 agent_run_id = 4;
+  string status = 5;
+  string parser_version = 6;
+  string input_hash = 7;
+  string error_message = 8;
+  string started_at = 9;
+  string completed_at = 10;
+  string created_at = 11;
+  string updated_at = 12;
+}
+
+message ResumeProfileInfo {
+  uint64 id = 1;
+  int64 resume_id = 2;
+  int64 user_id = 3;
+  uint64 parse_run_id = 4;
+  int32 version = 5;
+  int32 is_current = 6;
+  string full_name = 7;
+  string email = 8;
+  string phone = 9;
+  string location = 10;
+  string headline = 11;
+  string summary = 12;
+  double total_experience_years = 13;
+  string highest_degree = 14;
+  string raw_json = 15;
+  string created_at = 16;
+  string updated_at = 17;
+}
+
+message ResumeEducationInfo {
+  uint64 id = 1;
+  string school = 2;
+  string degree = 3;
+  string major = 4;
+  string start_date = 5;
+  string end_date = 6;
+  string description = 7;
+  int32 sort_order = 8;
+}
+
+message ResumeExperienceInfo {
+  uint64 id = 1;
+  string company = 2;
+  string title = 3;
+  string location = 4;
+  string start_date = 5;
+  string end_date = 6;
+  int32 is_current = 7;
+  string description = 8;
+  string achievements_json = 9;
+  int32 sort_order = 10;
+}
+
+message ResumeProjectInfo {
+  uint64 id = 1;
+  string name = 2;
+  string role = 3;
+  string start_date = 4;
+  string end_date = 5;
+  string description = 6;
+  string technologies_json = 7;
+  string highlights_json = 8;
+  int32 sort_order = 9;
+}
+
+message ResumeSkillInfo {
+  uint64 id = 1;
+  string name = 2;
+  string category = 3;
+  string level = 4;
+  double years = 5;
+  string evidence = 6;
+  int32 sort_order = 7;
+}
+
+message ResumeProfileSnapshotInfo {
+  ResumeParseRunInfo parse_run = 1;
+  ResumeProfileInfo profile = 2;
+  repeated ResumeEducationInfo educations = 3;
+  repeated ResumeExperienceInfo experiences = 4;
+  repeated ResumeProjectInfo projects = 5;
+  repeated ResumeSkillInfo skills = 6;
+}
+
+message GetResumeProfileResponse {
+  int32 code = 1;
+  string msg = 2;
+  ResumeProfileSnapshotInfo profile = 3;
+}
+
+message EvaluateCandidateMatchRequest {
+  int64 staff_user_id = 1;
+  int64 application_id = 2;
+  uint64 agent_run_id = 3;
+}
+
+message GetCandidateMatchEvaluationRequest {
+  int64 staff_user_id = 1;
+  int64 application_id = 2;
+  uint64 evaluation_id = 3;
+  int32 evaluation_version = 4;
+}
+
+message CandidateMatchEvaluationInfo {
+  uint64 id = 1;
+  int64 application_id = 2;
+  int64 job_id = 3;
+  int64 candidate_user_id = 4;
+  uint64 resume_profile_id = 5;
+  uint64 agent_run_id = 6;
+  int32 evaluation_version = 7;
+  int32 is_latest = 8;
+  double overall_score = 9;
+  string recommendation = 10;
+  string summary = 11;
+  string strengths_json = 12;
+  string risks_json = 13;
+  string missing_requirements_json = 14;
+  string score_breakdown_json = 15;
+  string model_name = 16;
+  string evaluated_at = 17;
+  string created_at = 18;
+  string updated_at = 19;
+  string dimensions_json = 20;
+}
+
+message CandidateMatchEvidenceInfo {
+  uint64 id = 1;
+  string evidence_type = 2;
+  string dimension = 3;
+  string source_table = 4;
+  uint64 source_id = 5;
+  string snippet = 6;
+  double weight = 7;
+  double score_impact = 8;
+  string metadata_json = 9;
+  string created_at = 10;
+}
+
+message CandidateMatchEvaluationSnapshotInfo {
+  CandidateMatchEvaluationInfo evaluation = 1;
+  repeated CandidateMatchEvidenceInfo evidence = 2;
+}
+
+message GetCandidateMatchEvaluationResponse {
+  int32 code = 1;
+  string msg = 2;
+  CandidateMatchEvaluationSnapshotInfo evaluation = 3;
+}
+
+message CompareCandidatesForJobRequest {
+  int64 staff_user_id = 1;
+  int64 job_id = 2;
+}
+
+message CandidateComparisonItem {
+  int64 application_id = 1;
+  int64 candidate_user_id = 2;
+  string candidate_name = 3;
+  int64 resume_id = 4;
+  uint64 evaluation_id = 5;
+  int32 evaluation_version = 6;
+  double overall_score = 7;
+  string recommendation = 8;
+  string summary = 9;
+  string evaluated_at = 10;
+  bool has_evaluation = 11;
+}
+
+message CompareCandidatesForJobResponse {
+  int32 code = 1;
+  string msg = 2;
+  int64 job_id = 3;
+  repeated CandidateComparisonItem candidates = 4;
+  repeated int64 missing_application_ids = 5;
+}
+
+// ══════════════════════════════════════════════════════════════════════
+// Phase P1-XX: Embedding Provider & Model Configuration
+// ══════════════════════════════════════════════════════════════════════
+
+service EmbeddingConfigService {
+  rpc ListEmbeddingProviders(ListEmbeddingProvidersRequest) returns (ListEmbeddingProvidersResponse);
+  rpc CreateEmbeddingProvider(CreateEmbeddingProviderRequest) returns (EmbeddingProviderResponse);
+  rpc UpdateEmbeddingProvider(UpdateEmbeddingProviderRequest) returns (EmbeddingProviderResponse);
+  rpc DeleteEmbeddingProvider(DeleteEmbeddingProviderRequest) returns (CommonResponse);
+
+  rpc ListEmbeddingModels(ListEmbeddingModelsRequest) returns (ListEmbeddingModelsResponse);
+  rpc CreateEmbeddingModel(CreateEmbeddingModelRequest) returns (EmbeddingModelResponse);
+  rpc UpdateEmbeddingModel(UpdateEmbeddingModelRequest) returns (EmbeddingModelResponse);
+  rpc SetDefaultEmbeddingModel(SetDefaultEmbeddingModelRequest) returns (CommonResponse);
+
+  rpc TestEmbeddingModel(TestEmbeddingModelRequest) returns (TestEmbeddingModelResponse);
+  rpc BackfillEmbeddings(BackfillEmbeddingsRequest) returns (BackfillEmbeddingsResponse);
+}
+
+// ── Embedding Provider messages ─────────────────────────────────────
+
+message EmbeddingProviderInfo {
+  int64 id = 1;
+  string name = 2;
+  string provider_type = 3;
+  string endpoint = 4;
+  string api_key_masked = 5;
+  string extra_headers_json = 6;
+  bool is_enabled = 7;
+  string created_at = 8;
+  string updated_at = 9;
+}
+
+message ListEmbeddingProvidersRequest {
+  int32 page = 1;
+  int32 page_size = 2;
+}
+
+message ListEmbeddingProvidersResponse {
+  int32 code = 1;
+  string msg = 2;
+  int64 total = 3;
+  repeated EmbeddingProviderInfo list = 4;
+}
+
+message CreateEmbeddingProviderRequest {
+  string name = 1;
+  string provider_type = 2;
+  string endpoint = 3;
+  string api_key = 4;
+  string extra_headers_json = 5;
+}
+
+message UpdateEmbeddingProviderRequest {
+  int64 id = 1;
+  string name = 2;
+  string provider_type = 3;
+  string endpoint = 4;
+  string api_key = 5;
+  string extra_headers_json = 6;
+  bool is_enabled = 7;
+  bool is_enabled_set = 8;
+  bool extra_headers_set = 9;
+}
+
+message EmbeddingProviderResponse {
+  int32 code = 1;
+  string msg = 2;
+  EmbeddingProviderInfo provider = 3;
+}
+
+message DeleteEmbeddingProviderRequest {
+  int64 id = 1;
+}
+
+// ── Embedding Model messages ────────────────────────────────────────
+
+message EmbeddingModelInfo {
+  int64 id = 1;
+  int64 provider_id = 2;
+  string model_name = 3;
+  string display_name = 4;
+  int32 embedding_dim = 5;
+  int32 input_token_limit = 6;
+  int32 batch_size = 7;
+  int32 timeout_seconds = 8;
+  int32 max_retries = 9;
+  bool is_enabled = 10;
+  bool is_default = 11;
+  string last_test_status = 12;
+  string last_test_error = 13;
+  string last_test_at = 14;
+  string created_at = 15;
+  string updated_at = 16;
+  string provider_name = 17;
+}
+
+message ListEmbeddingModelsRequest {
+  int32 page = 1;
+  int32 page_size = 2;
+  int64 provider_id = 3;
+}
+
+message ListEmbeddingModelsResponse {
+  int32 code = 1;
+  string msg = 2;
+  int64 total = 3;
+  repeated EmbeddingModelInfo list = 4;
+}
+
+message CreateEmbeddingModelRequest {
+  int64 provider_id = 1;
+  string model_name = 2;
+  string display_name = 3;
+  int32 embedding_dim = 4;
+  int32 input_token_limit = 5;
+  int32 batch_size = 6;
+  int32 timeout_seconds = 7;
+  int32 max_retries = 8;
+  bool is_default = 9;
+}
+
+message UpdateEmbeddingModelRequest {
+  int64 id = 1;
+  string model_name = 2;
+  string display_name = 3;
+  int32 embedding_dim = 4;
+  bool embedding_dim_set = 5;
+  int32 input_token_limit = 6;
+  bool input_token_limit_set = 7;
+  int32 batch_size = 8;
+  bool batch_size_set = 9;
+  int32 timeout_seconds = 10;
+  bool timeout_seconds_set = 11;
+  int32 max_retries = 12;
+  bool max_retries_set = 13;
+  bool is_enabled = 14;
+  bool is_enabled_set = 15;
+  bool is_default = 16;
+  bool is_default_set = 17;
+}
+
+message EmbeddingModelResponse {
+  int32 code = 1;
+  string msg = 2;
+  EmbeddingModelInfo model = 3;
+}
+
+message DeleteEmbeddingModelRequest {
+  int64 id = 1;
+}
+
+message SetDefaultEmbeddingModelRequest {
+  int64 id = 1;
+}
+
+message TestEmbeddingModelRequest {
+  int64 provider_id = 1;
+  int64 model_id = 2;
+  string test_text = 3;
+}
+
+message TestEmbeddingModelResponse {
+  int32 code = 1;
+  string msg = 2;
+  bool success = 3;
+  int32 dimension = 4;
+  int64 latency_ms = 5;
+  string request_id = 6;
+  string detail = 7;
+}
+
+message BackfillEmbeddingsRequest {
+  string object_type = 1;
+  int32 limit = 2;
+  int32 batch_size = 3;
+  bool force = 4;
+  bool dry_run = 5;
+  int64 model_id = 6;
+  int64 object_id = 7;
+}
+
+message BackfillEmbeddingsResponse {
+  int32 code = 1;
+  string msg = 2;
+  int32 success_count = 3;
+  int32 failed_count = 4;
+  int32 skipped_count = 5;
 }

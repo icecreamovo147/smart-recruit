@@ -40,14 +40,7 @@ func NewSkillService(repo *repository.SkillRepo) *SkillService {
 }
 
 func (s *SkillService) ListSkills(ctx context.Context, req *pb.ListSkillsRequest) (*pb.ListSkillsResponse, error) {
-	page := req.GetPage()
-	if page <= 0 {
-		page = 1
-	}
-	pageSize := req.GetPageSize()
-	if pageSize <= 0 {
-		pageSize = 20
-	}
+	page, pageSize := normalizeManagementPage(req.GetPage(), req.GetPageSize())
 	skills, total, err := s.repo.ListSkills(ctx, page, pageSize)
 	if err != nil {
 		return nil, status.Error(codes.Internal, "list skills failed")

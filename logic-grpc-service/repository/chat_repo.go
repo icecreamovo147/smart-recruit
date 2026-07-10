@@ -103,6 +103,33 @@ func (r *ChatRepo) ListAllBySession(ctx context.Context, hrID, sessionID int64) 
 	return rows, err
 }
 
+func (r *ChatRepo) UpdateUserMessageAgentSkills(ctx context.Context, hrID, sessionID, messageID int64, skillIDsJSON, skillNamesJSON string) error {
+	result := r.db.WithContext(ctx).Model(&model.AIChatHistory{}).
+		Where("id = ? AND hr_id = ? AND session_id = ? AND role = ?", messageID, hrID, sessionID, "user").
+		Where("EXISTS (SELECT 1 FROM ai_chat_sessions s WHERE s.id = ? AND s.hr_id = ? AND s.deleted_at IS NULL)", sessionID, hrID).
+		Updates(map[string]any{
+			"agent_skill_ids_json":   skillIDsJSON,
+			"agent_skill_names_json": skillNamesJSON,
+		})
+	if result.Error != nil {
+		return result.Error
+	}
+	if result.RowsAffected == 0 {
+		var cnt int64
+		if err := r.db.WithContext(ctx).Model(&model.AIChatHistory{}).
+			Where("id = ? AND hr_id = ? AND session_id = ? AND role = ?", messageID, hrID, sessionID, "user").
+			Where("EXISTS (SELECT 1 FROM ai_chat_sessions s WHERE s.id = ? AND s.hr_id = ? AND s.deleted_at IS NULL)", sessionID, hrID).
+			Count(&cnt).Error; err != nil {
+			return err
+		}
+		if cnt > 0 {
+			return nil
+		}
+		return gorm.ErrRecordNotFound
+	}
+	return nil
+}
+
 func (r *ChatRepo) UpdateSessionTitle(ctx context.Context, hrID, sessionID int64, title string) (int64, error) {
 	result := r.db.WithContext(ctx).Model(&model.AIChatSession{}).
 		Where("id = ? AND hr_id = ? AND deleted_at IS NULL", sessionID, hrID).

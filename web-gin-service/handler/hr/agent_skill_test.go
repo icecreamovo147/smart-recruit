@@ -16,6 +16,7 @@ import (
 )
 
 type mockAgentSkillClient struct {
+	createFn        func(context.Context, *pb.CreateAgentSkillRequest, ...grpc.CallOption) (*pb.AgentSkillResponse, error)
 	createVersionFn func(context.Context, *pb.CreateAgentSkillVersionRequest, ...grpc.CallOption) (*pb.AgentSkillVersionResponse, error)
 	updateFn        func(context.Context, *pb.UpdateAgentSkillRequest, ...grpc.CallOption) (*pb.AgentSkillResponse, error)
 }
@@ -28,7 +29,10 @@ func (m *mockAgentSkillClient) GetAgentSkill(context.Context, *pb.GetAgentSkillR
 	return &pb.AgentSkillResponse{Code: 0, Msg: "ok"}, nil
 }
 
-func (m *mockAgentSkillClient) CreateAgentSkill(context.Context, *pb.CreateAgentSkillRequest, ...grpc.CallOption) (*pb.AgentSkillResponse, error) {
+func (m *mockAgentSkillClient) CreateAgentSkill(ctx context.Context, req *pb.CreateAgentSkillRequest, opts ...grpc.CallOption) (*pb.AgentSkillResponse, error) {
+	if m.createFn != nil {
+		return m.createFn(ctx, req, opts...)
+	}
 	return &pb.AgentSkillResponse{Code: 0, Msg: "ok"}, nil
 }
 
@@ -64,6 +68,10 @@ func (m *mockAgentSkillClient) PreviewAgentSkill(context.Context, *pb.PreviewAge
 
 func (m *mockAgentSkillClient) ListAvailableAgentSkills(context.Context, *pb.ListAvailableAgentSkillsRequest, ...grpc.CallOption) (*pb.ListAgentSkillsResponse, error) {
 	return &pb.ListAgentSkillsResponse{Code: 0, Msg: "ok"}, nil
+}
+
+func (m *mockAgentSkillClient) DebugSemanticRetrieval(context.Context, *pb.DebugSemanticRetrievalRequest, ...grpc.CallOption) (*pb.DebugSemanticRetrievalResponse, error) {
+	return &pb.DebugSemanticRetrievalResponse{Code: 0, Msg: "ok"}, nil
 }
 
 func TestAgentSkillHandlerCreateVersionConvertsNodesToFlowJSON(t *testing.T) {
@@ -112,6 +120,45 @@ func TestAgentSkillHandlerCreateVersionConvertsNodesToFlowJSON(t *testing.T) {
 	}
 }
 
+func TestAgentSkillHandlerCreateMapsGovernanceMetadata(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	var captured *pb.CreateAgentSkillRequest
+	handler := NewAgentSkillHandler(&rpc.Clients{AgentSkill: &mockAgentSkillClient{
+		createFn: func(_ context.Context, req *pb.CreateAgentSkillRequest, _ ...grpc.CallOption) (*pb.AgentSkillResponse, error) {
+			captured = req
+			return &pb.AgentSkillResponse{Code: 0, Msg: "ok", Skill: &pb.AgentSkillInfo{Id: 3}}, nil
+		},
+	}})
+	router := gin.New()
+	router.POST("/hr/agent-skills", handler.Create)
+
+	body := `{"name":"match_governance","display_name":"Match Governance","agent_type":"hr_recruiting_agent","category":"candidate_match","scenario":"screening","priority":30,"risk_level":"high","required_capabilities":["builtin:evaluate_candidate_match"],"output_schema":"{\"type\":\"object\"}","evaluation_criteria":["cite evidence"],"semantic_tags":["resume"]}`
+	req := httptest.NewRequest(http.MethodPost, "/hr/agent-skills", strings.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+	router.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected 200 OK, got %d: %s", w.Code, w.Body.String())
+	}
+	if captured == nil {
+		t.Fatal("CreateAgentSkill was not called")
+	}
+	if captured.AgentType != "hr_recruiting_agent" || captured.Category != "candidate_match" || captured.Scenario != "screening" {
+		t.Fatalf("metadata was not mapped: %+v", captured)
+	}
+	if captured.Priority != 30 || captured.RiskLevel != "high" {
+		t.Fatalf("priority/risk was not mapped: %+v", captured)
+	}
+	if len(captured.RequiredCapabilities) != 1 || captured.RequiredCapabilities[0] != "builtin:evaluate_candidate_match" {
+		t.Fatalf("required capabilities not mapped: %#v", captured.RequiredCapabilities)
+	}
+	if captured.OutputSchema != `{"type":"object"}` || len(captured.EvaluationCriteria) != 1 || len(captured.SemanticTags) != 1 {
+		t.Fatalf("schema/criteria/tags not mapped: %+v", captured)
+	}
+}
+
 func TestAgentSkillHandlerUpdateSetsEmptyStringFields(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 
@@ -141,5 +188,44 @@ func TestAgentSkillHandlerUpdateSetsEmptyStringFields(t *testing.T) {
 	}
 	if captured.DisplayName != "" || captured.Description != "" {
 		t.Fatalf("expected empty string values, got display=%q description=%q", captured.DisplayName, captured.Description)
+	}
+}
+
+func TestAgentSkillHandlerUpdateMapsGovernanceMetadata(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	var captured *pb.UpdateAgentSkillRequest
+	handler := NewAgentSkillHandler(&rpc.Clients{AgentSkill: &mockAgentSkillClient{
+		updateFn: func(_ context.Context, req *pb.UpdateAgentSkillRequest, _ ...grpc.CallOption) (*pb.AgentSkillResponse, error) {
+			captured = req
+			return &pb.AgentSkillResponse{Code: 0, Msg: "ok", Skill: &pb.AgentSkillInfo{Id: req.Id}}, nil
+		},
+	}})
+	router := gin.New()
+	router.PUT("/hr/agent-skills/:id", handler.Update)
+
+	body := `{"agent_type":"candidate_assistant","category":"candidate","scenario":"","priority":-5,"risk_level":"low","required_capabilities":[],"required_capabilities_set":true,"output_schema":"","evaluation_criteria":["clear"],"evaluation_criteria_set":true,"semantic_tags":["candidate"],"semantic_tags_set":true}`
+	req := httptest.NewRequest(http.MethodPut, "/hr/agent-skills/7", strings.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+	router.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected 200 OK, got %d: %s", w.Code, w.Body.String())
+	}
+	if captured == nil {
+		t.Fatal("UpdateAgentSkill was not called")
+	}
+	if !captured.AgentTypeSet || captured.AgentType != "candidate_assistant" || !captured.CategorySet || captured.Category != "candidate" {
+		t.Fatalf("agent/category metadata not mapped: %+v", captured)
+	}
+	if !captured.ScenarioSet || captured.Scenario != "" || !captured.PrioritySet || captured.Priority != -5 {
+		t.Fatalf("scenario/priority metadata not mapped: %+v", captured)
+	}
+	if !captured.RiskLevelSet || captured.RiskLevel != "low" || !captured.RequiredCapabilitiesSet || !captured.OutputSchemaSet {
+		t.Fatalf("risk/capability/schema flags not mapped: %+v", captured)
+	}
+	if !captured.EvaluationCriteriaSet || len(captured.EvaluationCriteria) != 1 || !captured.SemanticTagsSet || len(captured.SemanticTags) != 1 {
+		t.Fatalf("criteria/tags not mapped: %+v", captured)
 	}
 }

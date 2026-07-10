@@ -2,7 +2,7 @@
 import { computed, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
-import { ArrowLeft, Briefcase, Clock, Document, Plus, TrendCharts, User } from '@element-plus/icons-vue'
+import { ArrowLeft, Briefcase, Clock, Cpu, Document, Plus, TrendCharts, User } from '@element-plus/icons-vue'
 import { getCandidateWorkspace, createNote, listNotes, createTag, listTags, assignTag, unassignTag, createFollowUpTask, listFollowUpTasks, completeFollowUpTask } from '@/api/collaboration'
 import { getHRStatusLabel, getStatusType, RECOMMENDATION_LABEL, RECOMMENDATION_TYPE, DIMENSION_LABELS } from '@/types/domain'
 import type { CandidateWorkspace, CandidateNoteInfo, CandidateTagInfo, FollowUpTaskInfo, StaffUserInfo } from '@/types/domain'
@@ -268,6 +268,21 @@ const openResume = () => {
   window.open(url, '_blank', 'noopener')
 }
 
+const openApplicationIntelligence = (app = currentApplication.value) => {
+  if (!app?.application_id) {
+    ElMessage.warning('暂无可评估的投递记录')
+    return
+  }
+  router.push({
+    path: `/hr/applications/${app.application_id}/intelligence`,
+    query: {
+      job_id: String(app.job_id || ''),
+      job_title: app.job_title || '',
+      candidate_name: workspace.value?.real_name || '',
+    },
+  })
+}
+
 const submitTask = async () => {
   if (!newTask.value.title.trim()) {
     ElMessage.warning('请输入任务标题')
@@ -340,6 +355,7 @@ watch(activeSection, (section) => {
             <el-button class="back-button" text :icon="ArrowLeft" @click="goBackToLedger">返回</el-button>
             <div class="candidate-hero__actions">
               <el-button :icon="Document" :disabled="!workspace.resume_url" @click="openResume">查看简历</el-button>
+              <el-button :icon="Cpu" :disabled="!currentApplication" @click="openApplicationIntelligence()">智能评估</el-button>
               <el-button type="primary" :icon="Plus" @click="navigateSection('collaboration')">新增跟进</el-button>
             </div>
           </div>
@@ -440,6 +456,9 @@ watch(activeSection, (section) => {
                     <span v-if="currentApplication.department">{{ currentApplication.department }}</span>
                     <span v-if="currentApplication.location">{{ currentApplication.location }}</span>
                   </div>
+                  <div class="current-flow__actions">
+                    <el-button size="small" type="success" plain :icon="Cpu" @click="openApplicationIntelligence(currentApplication)">查看画像与匹配评估</el-button>
+                  </div>
                 </div>
                 <div v-else class="no-data">暂无当前投递</div>
               </el-card>
@@ -497,6 +516,9 @@ watch(activeSection, (section) => {
                   <span>第 {{ app.round_no || 1 }} 轮</span>
                   <span v-if="app.department">{{ app.department }}</span>
                   <span v-if="app.location">{{ app.location }}</span>
+                </div>
+                <div class="app-actions">
+                  <el-button size="small" type="success" plain :icon="Cpu" @click="openApplicationIntelligence(app)">画像与匹配评估</el-button>
                 </div>
               </div>
               <div v-if="!workspace.applications || workspace.applications.length === 0" class="no-data">暂无投递记录</div>
@@ -1126,6 +1148,17 @@ watch(activeSection, (section) => {
   display: flex;
   flex-direction: column;
   gap: 10px;
+}
+
+.current-flow__actions,
+.app-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.app-actions {
+  margin-top: 10px;
 }
 
 .current-flow__title {

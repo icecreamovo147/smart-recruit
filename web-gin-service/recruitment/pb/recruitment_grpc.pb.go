@@ -5213,13 +5213,273 @@ var CollaborationService_ServiceDesc = grpc.ServiceDesc{
 }
 
 const (
-	MCPService_ListMCPServers_FullMethodName    = "/recruitment.MCPService/ListMCPServers"
-	MCPService_CreateMCPServer_FullMethodName   = "/recruitment.MCPService/CreateMCPServer"
-	MCPService_UpdateMCPServer_FullMethodName   = "/recruitment.MCPService/UpdateMCPServer"
-	MCPService_DeleteMCPServer_FullMethodName   = "/recruitment.MCPService/DeleteMCPServer"
-	MCPService_TestMCPConnection_FullMethodName = "/recruitment.MCPService/TestMCPConnection"
-	MCPService_ListMCPTools_FullMethodName      = "/recruitment.MCPService/ListMCPTools"
-	MCPService_CallMCPTool_FullMethodName       = "/recruitment.MCPService/CallMCPTool"
+	RecruitingIntelligenceService_GetResumeProfile_FullMethodName            = "/recruitment.RecruitingIntelligenceService/GetResumeProfile"
+	RecruitingIntelligenceService_ParseResumeProfile_FullMethodName          = "/recruitment.RecruitingIntelligenceService/ParseResumeProfile"
+	RecruitingIntelligenceService_EvaluateCandidateMatch_FullMethodName      = "/recruitment.RecruitingIntelligenceService/EvaluateCandidateMatch"
+	RecruitingIntelligenceService_GetCandidateMatchEvaluation_FullMethodName = "/recruitment.RecruitingIntelligenceService/GetCandidateMatchEvaluation"
+	RecruitingIntelligenceService_CompareCandidatesForJob_FullMethodName     = "/recruitment.RecruitingIntelligenceService/CompareCandidatesForJob"
+)
+
+// RecruitingIntelligenceServiceClient is the client API for RecruitingIntelligenceService service.
+//
+// For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
+type RecruitingIntelligenceServiceClient interface {
+	GetResumeProfile(ctx context.Context, in *GetResumeProfileRequest, opts ...grpc.CallOption) (*GetResumeProfileResponse, error)
+	ParseResumeProfile(ctx context.Context, in *ParseResumeProfileRequest, opts ...grpc.CallOption) (*GetResumeProfileResponse, error)
+	EvaluateCandidateMatch(ctx context.Context, in *EvaluateCandidateMatchRequest, opts ...grpc.CallOption) (*GetCandidateMatchEvaluationResponse, error)
+	GetCandidateMatchEvaluation(ctx context.Context, in *GetCandidateMatchEvaluationRequest, opts ...grpc.CallOption) (*GetCandidateMatchEvaluationResponse, error)
+	CompareCandidatesForJob(ctx context.Context, in *CompareCandidatesForJobRequest, opts ...grpc.CallOption) (*CompareCandidatesForJobResponse, error)
+}
+
+type recruitingIntelligenceServiceClient struct {
+	cc grpc.ClientConnInterface
+}
+
+func NewRecruitingIntelligenceServiceClient(cc grpc.ClientConnInterface) RecruitingIntelligenceServiceClient {
+	return &recruitingIntelligenceServiceClient{cc}
+}
+
+func (c *recruitingIntelligenceServiceClient) GetResumeProfile(ctx context.Context, in *GetResumeProfileRequest, opts ...grpc.CallOption) (*GetResumeProfileResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(GetResumeProfileResponse)
+	err := c.cc.Invoke(ctx, RecruitingIntelligenceService_GetResumeProfile_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *recruitingIntelligenceServiceClient) ParseResumeProfile(ctx context.Context, in *ParseResumeProfileRequest, opts ...grpc.CallOption) (*GetResumeProfileResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(GetResumeProfileResponse)
+	err := c.cc.Invoke(ctx, RecruitingIntelligenceService_ParseResumeProfile_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *recruitingIntelligenceServiceClient) EvaluateCandidateMatch(ctx context.Context, in *EvaluateCandidateMatchRequest, opts ...grpc.CallOption) (*GetCandidateMatchEvaluationResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(GetCandidateMatchEvaluationResponse)
+	err := c.cc.Invoke(ctx, RecruitingIntelligenceService_EvaluateCandidateMatch_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *recruitingIntelligenceServiceClient) GetCandidateMatchEvaluation(ctx context.Context, in *GetCandidateMatchEvaluationRequest, opts ...grpc.CallOption) (*GetCandidateMatchEvaluationResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(GetCandidateMatchEvaluationResponse)
+	err := c.cc.Invoke(ctx, RecruitingIntelligenceService_GetCandidateMatchEvaluation_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *recruitingIntelligenceServiceClient) CompareCandidatesForJob(ctx context.Context, in *CompareCandidatesForJobRequest, opts ...grpc.CallOption) (*CompareCandidatesForJobResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(CompareCandidatesForJobResponse)
+	err := c.cc.Invoke(ctx, RecruitingIntelligenceService_CompareCandidatesForJob_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+// RecruitingIntelligenceServiceServer is the server API for RecruitingIntelligenceService service.
+// All implementations must embed UnimplementedRecruitingIntelligenceServiceServer
+// for forward compatibility.
+type RecruitingIntelligenceServiceServer interface {
+	GetResumeProfile(context.Context, *GetResumeProfileRequest) (*GetResumeProfileResponse, error)
+	ParseResumeProfile(context.Context, *ParseResumeProfileRequest) (*GetResumeProfileResponse, error)
+	EvaluateCandidateMatch(context.Context, *EvaluateCandidateMatchRequest) (*GetCandidateMatchEvaluationResponse, error)
+	GetCandidateMatchEvaluation(context.Context, *GetCandidateMatchEvaluationRequest) (*GetCandidateMatchEvaluationResponse, error)
+	CompareCandidatesForJob(context.Context, *CompareCandidatesForJobRequest) (*CompareCandidatesForJobResponse, error)
+	mustEmbedUnimplementedRecruitingIntelligenceServiceServer()
+}
+
+// UnimplementedRecruitingIntelligenceServiceServer must be embedded to have
+// forward compatible implementations.
+//
+// NOTE: this should be embedded by value instead of pointer to avoid a nil
+// pointer dereference when methods are called.
+type UnimplementedRecruitingIntelligenceServiceServer struct{}
+
+func (UnimplementedRecruitingIntelligenceServiceServer) GetResumeProfile(context.Context, *GetResumeProfileRequest) (*GetResumeProfileResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method GetResumeProfile not implemented")
+}
+func (UnimplementedRecruitingIntelligenceServiceServer) ParseResumeProfile(context.Context, *ParseResumeProfileRequest) (*GetResumeProfileResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method ParseResumeProfile not implemented")
+}
+func (UnimplementedRecruitingIntelligenceServiceServer) EvaluateCandidateMatch(context.Context, *EvaluateCandidateMatchRequest) (*GetCandidateMatchEvaluationResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method EvaluateCandidateMatch not implemented")
+}
+func (UnimplementedRecruitingIntelligenceServiceServer) GetCandidateMatchEvaluation(context.Context, *GetCandidateMatchEvaluationRequest) (*GetCandidateMatchEvaluationResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method GetCandidateMatchEvaluation not implemented")
+}
+func (UnimplementedRecruitingIntelligenceServiceServer) CompareCandidatesForJob(context.Context, *CompareCandidatesForJobRequest) (*CompareCandidatesForJobResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method CompareCandidatesForJob not implemented")
+}
+func (UnimplementedRecruitingIntelligenceServiceServer) mustEmbedUnimplementedRecruitingIntelligenceServiceServer() {
+}
+func (UnimplementedRecruitingIntelligenceServiceServer) testEmbeddedByValue() {}
+
+// UnsafeRecruitingIntelligenceServiceServer may be embedded to opt out of forward compatibility for this service.
+// Use of this interface is not recommended, as added methods to RecruitingIntelligenceServiceServer will
+// result in compilation errors.
+type UnsafeRecruitingIntelligenceServiceServer interface {
+	mustEmbedUnimplementedRecruitingIntelligenceServiceServer()
+}
+
+func RegisterRecruitingIntelligenceServiceServer(s grpc.ServiceRegistrar, srv RecruitingIntelligenceServiceServer) {
+	// If the following call panics, it indicates UnimplementedRecruitingIntelligenceServiceServer was
+	// embedded by pointer and is nil.  This will cause panics if an
+	// unimplemented method is ever invoked, so we test this at initialization
+	// time to prevent it from happening at runtime later due to I/O.
+	if t, ok := srv.(interface{ testEmbeddedByValue() }); ok {
+		t.testEmbeddedByValue()
+	}
+	s.RegisterService(&RecruitingIntelligenceService_ServiceDesc, srv)
+}
+
+func _RecruitingIntelligenceService_GetResumeProfile_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetResumeProfileRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(RecruitingIntelligenceServiceServer).GetResumeProfile(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: RecruitingIntelligenceService_GetResumeProfile_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(RecruitingIntelligenceServiceServer).GetResumeProfile(ctx, req.(*GetResumeProfileRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _RecruitingIntelligenceService_ParseResumeProfile_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ParseResumeProfileRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(RecruitingIntelligenceServiceServer).ParseResumeProfile(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: RecruitingIntelligenceService_ParseResumeProfile_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(RecruitingIntelligenceServiceServer).ParseResumeProfile(ctx, req.(*ParseResumeProfileRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _RecruitingIntelligenceService_EvaluateCandidateMatch_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(EvaluateCandidateMatchRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(RecruitingIntelligenceServiceServer).EvaluateCandidateMatch(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: RecruitingIntelligenceService_EvaluateCandidateMatch_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(RecruitingIntelligenceServiceServer).EvaluateCandidateMatch(ctx, req.(*EvaluateCandidateMatchRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _RecruitingIntelligenceService_GetCandidateMatchEvaluation_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetCandidateMatchEvaluationRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(RecruitingIntelligenceServiceServer).GetCandidateMatchEvaluation(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: RecruitingIntelligenceService_GetCandidateMatchEvaluation_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(RecruitingIntelligenceServiceServer).GetCandidateMatchEvaluation(ctx, req.(*GetCandidateMatchEvaluationRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _RecruitingIntelligenceService_CompareCandidatesForJob_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(CompareCandidatesForJobRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(RecruitingIntelligenceServiceServer).CompareCandidatesForJob(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: RecruitingIntelligenceService_CompareCandidatesForJob_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(RecruitingIntelligenceServiceServer).CompareCandidatesForJob(ctx, req.(*CompareCandidatesForJobRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+// RecruitingIntelligenceService_ServiceDesc is the grpc.ServiceDesc for RecruitingIntelligenceService service.
+// It's only intended for direct use with grpc.RegisterService,
+// and not to be introspected or modified (even as a copy)
+var RecruitingIntelligenceService_ServiceDesc = grpc.ServiceDesc{
+	ServiceName: "recruitment.RecruitingIntelligenceService",
+	HandlerType: (*RecruitingIntelligenceServiceServer)(nil),
+	Methods: []grpc.MethodDesc{
+		{
+			MethodName: "GetResumeProfile",
+			Handler:    _RecruitingIntelligenceService_GetResumeProfile_Handler,
+		},
+		{
+			MethodName: "ParseResumeProfile",
+			Handler:    _RecruitingIntelligenceService_ParseResumeProfile_Handler,
+		},
+		{
+			MethodName: "EvaluateCandidateMatch",
+			Handler:    _RecruitingIntelligenceService_EvaluateCandidateMatch_Handler,
+		},
+		{
+			MethodName: "GetCandidateMatchEvaluation",
+			Handler:    _RecruitingIntelligenceService_GetCandidateMatchEvaluation_Handler,
+		},
+		{
+			MethodName: "CompareCandidatesForJob",
+			Handler:    _RecruitingIntelligenceService_CompareCandidatesForJob_Handler,
+		},
+	},
+	Streams:  []grpc.StreamDesc{},
+	Metadata: "proto/recruitment.proto",
+}
+
+const (
+	MCPService_ListMCPServers_FullMethodName      = "/recruitment.MCPService/ListMCPServers"
+	MCPService_CreateMCPServer_FullMethodName     = "/recruitment.MCPService/CreateMCPServer"
+	MCPService_UpdateMCPServer_FullMethodName     = "/recruitment.MCPService/UpdateMCPServer"
+	MCPService_DeleteMCPServer_FullMethodName     = "/recruitment.MCPService/DeleteMCPServer"
+	MCPService_ListMCPToolPolicies_FullMethodName = "/recruitment.MCPService/ListMCPToolPolicies"
+	MCPService_CreateMCPToolPolicy_FullMethodName = "/recruitment.MCPService/CreateMCPToolPolicy"
+	MCPService_UpdateMCPToolPolicy_FullMethodName = "/recruitment.MCPService/UpdateMCPToolPolicy"
+	MCPService_DeleteMCPToolPolicy_FullMethodName = "/recruitment.MCPService/DeleteMCPToolPolicy"
+	MCPService_ListMCPToolLogs_FullMethodName     = "/recruitment.MCPService/ListMCPToolLogs"
+	MCPService_TestMCPConnection_FullMethodName   = "/recruitment.MCPService/TestMCPConnection"
+	MCPService_ListMCPTools_FullMethodName        = "/recruitment.MCPService/ListMCPTools"
+	MCPService_CallMCPTool_FullMethodName         = "/recruitment.MCPService/CallMCPTool"
 )
 
 // MCPServiceClient is the client API for MCPService service.
@@ -5230,6 +5490,11 @@ type MCPServiceClient interface {
 	CreateMCPServer(ctx context.Context, in *CreateMCPServerRequest, opts ...grpc.CallOption) (*MCPServerResponse, error)
 	UpdateMCPServer(ctx context.Context, in *UpdateMCPServerRequest, opts ...grpc.CallOption) (*MCPServerResponse, error)
 	DeleteMCPServer(ctx context.Context, in *DeleteMCPServerRequest, opts ...grpc.CallOption) (*CommonResponse, error)
+	ListMCPToolPolicies(ctx context.Context, in *ListMCPToolPoliciesRequest, opts ...grpc.CallOption) (*ListMCPToolPoliciesResponse, error)
+	CreateMCPToolPolicy(ctx context.Context, in *CreateMCPToolPolicyRequest, opts ...grpc.CallOption) (*MCPToolPolicyResponse, error)
+	UpdateMCPToolPolicy(ctx context.Context, in *UpdateMCPToolPolicyRequest, opts ...grpc.CallOption) (*MCPToolPolicyResponse, error)
+	DeleteMCPToolPolicy(ctx context.Context, in *DeleteMCPToolPolicyRequest, opts ...grpc.CallOption) (*CommonResponse, error)
+	ListMCPToolLogs(ctx context.Context, in *ListMCPToolLogsRequest, opts ...grpc.CallOption) (*ListMCPToolLogsResponse, error)
 	TestMCPConnection(ctx context.Context, in *TestMCPConnectionRequest, opts ...grpc.CallOption) (*TestMCPConnectionResponse, error)
 	ListMCPTools(ctx context.Context, in *ListMCPToolsRequest, opts ...grpc.CallOption) (*ListMCPToolsResponse, error)
 	CallMCPTool(ctx context.Context, in *CallMCPToolRequest, opts ...grpc.CallOption) (*CallMCPToolResponse, error)
@@ -5283,6 +5548,56 @@ func (c *mCPServiceClient) DeleteMCPServer(ctx context.Context, in *DeleteMCPSer
 	return out, nil
 }
 
+func (c *mCPServiceClient) ListMCPToolPolicies(ctx context.Context, in *ListMCPToolPoliciesRequest, opts ...grpc.CallOption) (*ListMCPToolPoliciesResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ListMCPToolPoliciesResponse)
+	err := c.cc.Invoke(ctx, MCPService_ListMCPToolPolicies_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *mCPServiceClient) CreateMCPToolPolicy(ctx context.Context, in *CreateMCPToolPolicyRequest, opts ...grpc.CallOption) (*MCPToolPolicyResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(MCPToolPolicyResponse)
+	err := c.cc.Invoke(ctx, MCPService_CreateMCPToolPolicy_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *mCPServiceClient) UpdateMCPToolPolicy(ctx context.Context, in *UpdateMCPToolPolicyRequest, opts ...grpc.CallOption) (*MCPToolPolicyResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(MCPToolPolicyResponse)
+	err := c.cc.Invoke(ctx, MCPService_UpdateMCPToolPolicy_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *mCPServiceClient) DeleteMCPToolPolicy(ctx context.Context, in *DeleteMCPToolPolicyRequest, opts ...grpc.CallOption) (*CommonResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(CommonResponse)
+	err := c.cc.Invoke(ctx, MCPService_DeleteMCPToolPolicy_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *mCPServiceClient) ListMCPToolLogs(ctx context.Context, in *ListMCPToolLogsRequest, opts ...grpc.CallOption) (*ListMCPToolLogsResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ListMCPToolLogsResponse)
+	err := c.cc.Invoke(ctx, MCPService_ListMCPToolLogs_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 func (c *mCPServiceClient) TestMCPConnection(ctx context.Context, in *TestMCPConnectionRequest, opts ...grpc.CallOption) (*TestMCPConnectionResponse, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(TestMCPConnectionResponse)
@@ -5321,6 +5636,11 @@ type MCPServiceServer interface {
 	CreateMCPServer(context.Context, *CreateMCPServerRequest) (*MCPServerResponse, error)
 	UpdateMCPServer(context.Context, *UpdateMCPServerRequest) (*MCPServerResponse, error)
 	DeleteMCPServer(context.Context, *DeleteMCPServerRequest) (*CommonResponse, error)
+	ListMCPToolPolicies(context.Context, *ListMCPToolPoliciesRequest) (*ListMCPToolPoliciesResponse, error)
+	CreateMCPToolPolicy(context.Context, *CreateMCPToolPolicyRequest) (*MCPToolPolicyResponse, error)
+	UpdateMCPToolPolicy(context.Context, *UpdateMCPToolPolicyRequest) (*MCPToolPolicyResponse, error)
+	DeleteMCPToolPolicy(context.Context, *DeleteMCPToolPolicyRequest) (*CommonResponse, error)
+	ListMCPToolLogs(context.Context, *ListMCPToolLogsRequest) (*ListMCPToolLogsResponse, error)
 	TestMCPConnection(context.Context, *TestMCPConnectionRequest) (*TestMCPConnectionResponse, error)
 	ListMCPTools(context.Context, *ListMCPToolsRequest) (*ListMCPToolsResponse, error)
 	CallMCPTool(context.Context, *CallMCPToolRequest) (*CallMCPToolResponse, error)
@@ -5345,6 +5665,21 @@ func (UnimplementedMCPServiceServer) UpdateMCPServer(context.Context, *UpdateMCP
 }
 func (UnimplementedMCPServiceServer) DeleteMCPServer(context.Context, *DeleteMCPServerRequest) (*CommonResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method DeleteMCPServer not implemented")
+}
+func (UnimplementedMCPServiceServer) ListMCPToolPolicies(context.Context, *ListMCPToolPoliciesRequest) (*ListMCPToolPoliciesResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method ListMCPToolPolicies not implemented")
+}
+func (UnimplementedMCPServiceServer) CreateMCPToolPolicy(context.Context, *CreateMCPToolPolicyRequest) (*MCPToolPolicyResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method CreateMCPToolPolicy not implemented")
+}
+func (UnimplementedMCPServiceServer) UpdateMCPToolPolicy(context.Context, *UpdateMCPToolPolicyRequest) (*MCPToolPolicyResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method UpdateMCPToolPolicy not implemented")
+}
+func (UnimplementedMCPServiceServer) DeleteMCPToolPolicy(context.Context, *DeleteMCPToolPolicyRequest) (*CommonResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method DeleteMCPToolPolicy not implemented")
+}
+func (UnimplementedMCPServiceServer) ListMCPToolLogs(context.Context, *ListMCPToolLogsRequest) (*ListMCPToolLogsResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method ListMCPToolLogs not implemented")
 }
 func (UnimplementedMCPServiceServer) TestMCPConnection(context.Context, *TestMCPConnectionRequest) (*TestMCPConnectionResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method TestMCPConnection not implemented")
@@ -5448,6 +5783,96 @@ func _MCPService_DeleteMCPServer_Handler(srv interface{}, ctx context.Context, d
 	return interceptor(ctx, in, info, handler)
 }
 
+func _MCPService_ListMCPToolPolicies_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ListMCPToolPoliciesRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(MCPServiceServer).ListMCPToolPolicies(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: MCPService_ListMCPToolPolicies_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(MCPServiceServer).ListMCPToolPolicies(ctx, req.(*ListMCPToolPoliciesRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _MCPService_CreateMCPToolPolicy_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(CreateMCPToolPolicyRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(MCPServiceServer).CreateMCPToolPolicy(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: MCPService_CreateMCPToolPolicy_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(MCPServiceServer).CreateMCPToolPolicy(ctx, req.(*CreateMCPToolPolicyRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _MCPService_UpdateMCPToolPolicy_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(UpdateMCPToolPolicyRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(MCPServiceServer).UpdateMCPToolPolicy(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: MCPService_UpdateMCPToolPolicy_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(MCPServiceServer).UpdateMCPToolPolicy(ctx, req.(*UpdateMCPToolPolicyRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _MCPService_DeleteMCPToolPolicy_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(DeleteMCPToolPolicyRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(MCPServiceServer).DeleteMCPToolPolicy(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: MCPService_DeleteMCPToolPolicy_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(MCPServiceServer).DeleteMCPToolPolicy(ctx, req.(*DeleteMCPToolPolicyRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _MCPService_ListMCPToolLogs_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ListMCPToolLogsRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(MCPServiceServer).ListMCPToolLogs(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: MCPService_ListMCPToolLogs_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(MCPServiceServer).ListMCPToolLogs(ctx, req.(*ListMCPToolLogsRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 func _MCPService_TestMCPConnection_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(TestMCPConnectionRequest)
 	if err := dec(in); err != nil {
@@ -5524,6 +5949,26 @@ var MCPService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "DeleteMCPServer",
 			Handler:    _MCPService_DeleteMCPServer_Handler,
+		},
+		{
+			MethodName: "ListMCPToolPolicies",
+			Handler:    _MCPService_ListMCPToolPolicies_Handler,
+		},
+		{
+			MethodName: "CreateMCPToolPolicy",
+			Handler:    _MCPService_CreateMCPToolPolicy_Handler,
+		},
+		{
+			MethodName: "UpdateMCPToolPolicy",
+			Handler:    _MCPService_UpdateMCPToolPolicy_Handler,
+		},
+		{
+			MethodName: "DeleteMCPToolPolicy",
+			Handler:    _MCPService_DeleteMCPToolPolicy_Handler,
+		},
+		{
+			MethodName: "ListMCPToolLogs",
+			Handler:    _MCPService_ListMCPToolLogs_Handler,
 		},
 		{
 			MethodName: "TestMCPConnection",
@@ -6991,6 +7436,7 @@ const (
 	AgentSkillService_UpdateAgentSkillStatus_FullMethodName    = "/recruitment.AgentSkillService/UpdateAgentSkillStatus"
 	AgentSkillService_PreviewAgentSkill_FullMethodName         = "/recruitment.AgentSkillService/PreviewAgentSkill"
 	AgentSkillService_ListAvailableAgentSkills_FullMethodName  = "/recruitment.AgentSkillService/ListAvailableAgentSkills"
+	AgentSkillService_DebugSemanticRetrieval_FullMethodName    = "/recruitment.AgentSkillService/DebugSemanticRetrieval"
 )
 
 // AgentSkillServiceClient is the client API for AgentSkillService service.
@@ -7007,6 +7453,7 @@ type AgentSkillServiceClient interface {
 	UpdateAgentSkillStatus(ctx context.Context, in *UpdateAgentSkillStatusRequest, opts ...grpc.CallOption) (*AgentSkillResponse, error)
 	PreviewAgentSkill(ctx context.Context, in *PreviewAgentSkillRequest, opts ...grpc.CallOption) (*PreviewAgentSkillResponse, error)
 	ListAvailableAgentSkills(ctx context.Context, in *ListAvailableAgentSkillsRequest, opts ...grpc.CallOption) (*ListAgentSkillsResponse, error)
+	DebugSemanticRetrieval(ctx context.Context, in *DebugSemanticRetrievalRequest, opts ...grpc.CallOption) (*DebugSemanticRetrievalResponse, error)
 }
 
 type agentSkillServiceClient struct {
@@ -7117,6 +7564,16 @@ func (c *agentSkillServiceClient) ListAvailableAgentSkills(ctx context.Context, 
 	return out, nil
 }
 
+func (c *agentSkillServiceClient) DebugSemanticRetrieval(ctx context.Context, in *DebugSemanticRetrievalRequest, opts ...grpc.CallOption) (*DebugSemanticRetrievalResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(DebugSemanticRetrievalResponse)
+	err := c.cc.Invoke(ctx, AgentSkillService_DebugSemanticRetrieval_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // AgentSkillServiceServer is the server API for AgentSkillService service.
 // All implementations must embed UnimplementedAgentSkillServiceServer
 // for forward compatibility.
@@ -7131,6 +7588,7 @@ type AgentSkillServiceServer interface {
 	UpdateAgentSkillStatus(context.Context, *UpdateAgentSkillStatusRequest) (*AgentSkillResponse, error)
 	PreviewAgentSkill(context.Context, *PreviewAgentSkillRequest) (*PreviewAgentSkillResponse, error)
 	ListAvailableAgentSkills(context.Context, *ListAvailableAgentSkillsRequest) (*ListAgentSkillsResponse, error)
+	DebugSemanticRetrieval(context.Context, *DebugSemanticRetrievalRequest) (*DebugSemanticRetrievalResponse, error)
 	mustEmbedUnimplementedAgentSkillServiceServer()
 }
 
@@ -7170,6 +7628,9 @@ func (UnimplementedAgentSkillServiceServer) PreviewAgentSkill(context.Context, *
 }
 func (UnimplementedAgentSkillServiceServer) ListAvailableAgentSkills(context.Context, *ListAvailableAgentSkillsRequest) (*ListAgentSkillsResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method ListAvailableAgentSkills not implemented")
+}
+func (UnimplementedAgentSkillServiceServer) DebugSemanticRetrieval(context.Context, *DebugSemanticRetrievalRequest) (*DebugSemanticRetrievalResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method DebugSemanticRetrieval not implemented")
 }
 func (UnimplementedAgentSkillServiceServer) mustEmbedUnimplementedAgentSkillServiceServer() {}
 func (UnimplementedAgentSkillServiceServer) testEmbeddedByValue()                           {}
@@ -7372,6 +7833,24 @@ func _AgentSkillService_ListAvailableAgentSkills_Handler(srv interface{}, ctx co
 	return interceptor(ctx, in, info, handler)
 }
 
+func _AgentSkillService_DebugSemanticRetrieval_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(DebugSemanticRetrievalRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(AgentSkillServiceServer).DebugSemanticRetrieval(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: AgentSkillService_DebugSemanticRetrieval_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(AgentSkillServiceServer).DebugSemanticRetrieval(ctx, req.(*DebugSemanticRetrievalRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // AgentSkillService_ServiceDesc is the grpc.ServiceDesc for AgentSkillService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -7418,6 +7897,455 @@ var AgentSkillService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "ListAvailableAgentSkills",
 			Handler:    _AgentSkillService_ListAvailableAgentSkills_Handler,
+		},
+		{
+			MethodName: "DebugSemanticRetrieval",
+			Handler:    _AgentSkillService_DebugSemanticRetrieval_Handler,
+		},
+	},
+	Streams:  []grpc.StreamDesc{},
+	Metadata: "proto/recruitment.proto",
+}
+
+const (
+	EmbeddingConfigService_ListEmbeddingProviders_FullMethodName   = "/recruitment.EmbeddingConfigService/ListEmbeddingProviders"
+	EmbeddingConfigService_CreateEmbeddingProvider_FullMethodName  = "/recruitment.EmbeddingConfigService/CreateEmbeddingProvider"
+	EmbeddingConfigService_UpdateEmbeddingProvider_FullMethodName  = "/recruitment.EmbeddingConfigService/UpdateEmbeddingProvider"
+	EmbeddingConfigService_DeleteEmbeddingProvider_FullMethodName  = "/recruitment.EmbeddingConfigService/DeleteEmbeddingProvider"
+	EmbeddingConfigService_ListEmbeddingModels_FullMethodName      = "/recruitment.EmbeddingConfigService/ListEmbeddingModels"
+	EmbeddingConfigService_CreateEmbeddingModel_FullMethodName     = "/recruitment.EmbeddingConfigService/CreateEmbeddingModel"
+	EmbeddingConfigService_UpdateEmbeddingModel_FullMethodName     = "/recruitment.EmbeddingConfigService/UpdateEmbeddingModel"
+	EmbeddingConfigService_SetDefaultEmbeddingModel_FullMethodName = "/recruitment.EmbeddingConfigService/SetDefaultEmbeddingModel"
+	EmbeddingConfigService_TestEmbeddingModel_FullMethodName       = "/recruitment.EmbeddingConfigService/TestEmbeddingModel"
+	EmbeddingConfigService_BackfillEmbeddings_FullMethodName       = "/recruitment.EmbeddingConfigService/BackfillEmbeddings"
+)
+
+// EmbeddingConfigServiceClient is the client API for EmbeddingConfigService service.
+//
+// For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
+type EmbeddingConfigServiceClient interface {
+	ListEmbeddingProviders(ctx context.Context, in *ListEmbeddingProvidersRequest, opts ...grpc.CallOption) (*ListEmbeddingProvidersResponse, error)
+	CreateEmbeddingProvider(ctx context.Context, in *CreateEmbeddingProviderRequest, opts ...grpc.CallOption) (*EmbeddingProviderResponse, error)
+	UpdateEmbeddingProvider(ctx context.Context, in *UpdateEmbeddingProviderRequest, opts ...grpc.CallOption) (*EmbeddingProviderResponse, error)
+	DeleteEmbeddingProvider(ctx context.Context, in *DeleteEmbeddingProviderRequest, opts ...grpc.CallOption) (*CommonResponse, error)
+	ListEmbeddingModels(ctx context.Context, in *ListEmbeddingModelsRequest, opts ...grpc.CallOption) (*ListEmbeddingModelsResponse, error)
+	CreateEmbeddingModel(ctx context.Context, in *CreateEmbeddingModelRequest, opts ...grpc.CallOption) (*EmbeddingModelResponse, error)
+	UpdateEmbeddingModel(ctx context.Context, in *UpdateEmbeddingModelRequest, opts ...grpc.CallOption) (*EmbeddingModelResponse, error)
+	SetDefaultEmbeddingModel(ctx context.Context, in *SetDefaultEmbeddingModelRequest, opts ...grpc.CallOption) (*CommonResponse, error)
+	TestEmbeddingModel(ctx context.Context, in *TestEmbeddingModelRequest, opts ...grpc.CallOption) (*TestEmbeddingModelResponse, error)
+	BackfillEmbeddings(ctx context.Context, in *BackfillEmbeddingsRequest, opts ...grpc.CallOption) (*BackfillEmbeddingsResponse, error)
+}
+
+type embeddingConfigServiceClient struct {
+	cc grpc.ClientConnInterface
+}
+
+func NewEmbeddingConfigServiceClient(cc grpc.ClientConnInterface) EmbeddingConfigServiceClient {
+	return &embeddingConfigServiceClient{cc}
+}
+
+func (c *embeddingConfigServiceClient) ListEmbeddingProviders(ctx context.Context, in *ListEmbeddingProvidersRequest, opts ...grpc.CallOption) (*ListEmbeddingProvidersResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ListEmbeddingProvidersResponse)
+	err := c.cc.Invoke(ctx, EmbeddingConfigService_ListEmbeddingProviders_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *embeddingConfigServiceClient) CreateEmbeddingProvider(ctx context.Context, in *CreateEmbeddingProviderRequest, opts ...grpc.CallOption) (*EmbeddingProviderResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(EmbeddingProviderResponse)
+	err := c.cc.Invoke(ctx, EmbeddingConfigService_CreateEmbeddingProvider_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *embeddingConfigServiceClient) UpdateEmbeddingProvider(ctx context.Context, in *UpdateEmbeddingProviderRequest, opts ...grpc.CallOption) (*EmbeddingProviderResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(EmbeddingProviderResponse)
+	err := c.cc.Invoke(ctx, EmbeddingConfigService_UpdateEmbeddingProvider_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *embeddingConfigServiceClient) DeleteEmbeddingProvider(ctx context.Context, in *DeleteEmbeddingProviderRequest, opts ...grpc.CallOption) (*CommonResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(CommonResponse)
+	err := c.cc.Invoke(ctx, EmbeddingConfigService_DeleteEmbeddingProvider_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *embeddingConfigServiceClient) ListEmbeddingModels(ctx context.Context, in *ListEmbeddingModelsRequest, opts ...grpc.CallOption) (*ListEmbeddingModelsResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ListEmbeddingModelsResponse)
+	err := c.cc.Invoke(ctx, EmbeddingConfigService_ListEmbeddingModels_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *embeddingConfigServiceClient) CreateEmbeddingModel(ctx context.Context, in *CreateEmbeddingModelRequest, opts ...grpc.CallOption) (*EmbeddingModelResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(EmbeddingModelResponse)
+	err := c.cc.Invoke(ctx, EmbeddingConfigService_CreateEmbeddingModel_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *embeddingConfigServiceClient) UpdateEmbeddingModel(ctx context.Context, in *UpdateEmbeddingModelRequest, opts ...grpc.CallOption) (*EmbeddingModelResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(EmbeddingModelResponse)
+	err := c.cc.Invoke(ctx, EmbeddingConfigService_UpdateEmbeddingModel_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *embeddingConfigServiceClient) SetDefaultEmbeddingModel(ctx context.Context, in *SetDefaultEmbeddingModelRequest, opts ...grpc.CallOption) (*CommonResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(CommonResponse)
+	err := c.cc.Invoke(ctx, EmbeddingConfigService_SetDefaultEmbeddingModel_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *embeddingConfigServiceClient) TestEmbeddingModel(ctx context.Context, in *TestEmbeddingModelRequest, opts ...grpc.CallOption) (*TestEmbeddingModelResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(TestEmbeddingModelResponse)
+	err := c.cc.Invoke(ctx, EmbeddingConfigService_TestEmbeddingModel_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *embeddingConfigServiceClient) BackfillEmbeddings(ctx context.Context, in *BackfillEmbeddingsRequest, opts ...grpc.CallOption) (*BackfillEmbeddingsResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(BackfillEmbeddingsResponse)
+	err := c.cc.Invoke(ctx, EmbeddingConfigService_BackfillEmbeddings_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+// EmbeddingConfigServiceServer is the server API for EmbeddingConfigService service.
+// All implementations must embed UnimplementedEmbeddingConfigServiceServer
+// for forward compatibility.
+type EmbeddingConfigServiceServer interface {
+	ListEmbeddingProviders(context.Context, *ListEmbeddingProvidersRequest) (*ListEmbeddingProvidersResponse, error)
+	CreateEmbeddingProvider(context.Context, *CreateEmbeddingProviderRequest) (*EmbeddingProviderResponse, error)
+	UpdateEmbeddingProvider(context.Context, *UpdateEmbeddingProviderRequest) (*EmbeddingProviderResponse, error)
+	DeleteEmbeddingProvider(context.Context, *DeleteEmbeddingProviderRequest) (*CommonResponse, error)
+	ListEmbeddingModels(context.Context, *ListEmbeddingModelsRequest) (*ListEmbeddingModelsResponse, error)
+	CreateEmbeddingModel(context.Context, *CreateEmbeddingModelRequest) (*EmbeddingModelResponse, error)
+	UpdateEmbeddingModel(context.Context, *UpdateEmbeddingModelRequest) (*EmbeddingModelResponse, error)
+	SetDefaultEmbeddingModel(context.Context, *SetDefaultEmbeddingModelRequest) (*CommonResponse, error)
+	TestEmbeddingModel(context.Context, *TestEmbeddingModelRequest) (*TestEmbeddingModelResponse, error)
+	BackfillEmbeddings(context.Context, *BackfillEmbeddingsRequest) (*BackfillEmbeddingsResponse, error)
+	mustEmbedUnimplementedEmbeddingConfigServiceServer()
+}
+
+// UnimplementedEmbeddingConfigServiceServer must be embedded to have
+// forward compatible implementations.
+//
+// NOTE: this should be embedded by value instead of pointer to avoid a nil
+// pointer dereference when methods are called.
+type UnimplementedEmbeddingConfigServiceServer struct{}
+
+func (UnimplementedEmbeddingConfigServiceServer) ListEmbeddingProviders(context.Context, *ListEmbeddingProvidersRequest) (*ListEmbeddingProvidersResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method ListEmbeddingProviders not implemented")
+}
+func (UnimplementedEmbeddingConfigServiceServer) CreateEmbeddingProvider(context.Context, *CreateEmbeddingProviderRequest) (*EmbeddingProviderResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method CreateEmbeddingProvider not implemented")
+}
+func (UnimplementedEmbeddingConfigServiceServer) UpdateEmbeddingProvider(context.Context, *UpdateEmbeddingProviderRequest) (*EmbeddingProviderResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method UpdateEmbeddingProvider not implemented")
+}
+func (UnimplementedEmbeddingConfigServiceServer) DeleteEmbeddingProvider(context.Context, *DeleteEmbeddingProviderRequest) (*CommonResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method DeleteEmbeddingProvider not implemented")
+}
+func (UnimplementedEmbeddingConfigServiceServer) ListEmbeddingModels(context.Context, *ListEmbeddingModelsRequest) (*ListEmbeddingModelsResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method ListEmbeddingModels not implemented")
+}
+func (UnimplementedEmbeddingConfigServiceServer) CreateEmbeddingModel(context.Context, *CreateEmbeddingModelRequest) (*EmbeddingModelResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method CreateEmbeddingModel not implemented")
+}
+func (UnimplementedEmbeddingConfigServiceServer) UpdateEmbeddingModel(context.Context, *UpdateEmbeddingModelRequest) (*EmbeddingModelResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method UpdateEmbeddingModel not implemented")
+}
+func (UnimplementedEmbeddingConfigServiceServer) SetDefaultEmbeddingModel(context.Context, *SetDefaultEmbeddingModelRequest) (*CommonResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method SetDefaultEmbeddingModel not implemented")
+}
+func (UnimplementedEmbeddingConfigServiceServer) TestEmbeddingModel(context.Context, *TestEmbeddingModelRequest) (*TestEmbeddingModelResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method TestEmbeddingModel not implemented")
+}
+func (UnimplementedEmbeddingConfigServiceServer) BackfillEmbeddings(context.Context, *BackfillEmbeddingsRequest) (*BackfillEmbeddingsResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method BackfillEmbeddings not implemented")
+}
+func (UnimplementedEmbeddingConfigServiceServer) mustEmbedUnimplementedEmbeddingConfigServiceServer() {
+}
+func (UnimplementedEmbeddingConfigServiceServer) testEmbeddedByValue() {}
+
+// UnsafeEmbeddingConfigServiceServer may be embedded to opt out of forward compatibility for this service.
+// Use of this interface is not recommended, as added methods to EmbeddingConfigServiceServer will
+// result in compilation errors.
+type UnsafeEmbeddingConfigServiceServer interface {
+	mustEmbedUnimplementedEmbeddingConfigServiceServer()
+}
+
+func RegisterEmbeddingConfigServiceServer(s grpc.ServiceRegistrar, srv EmbeddingConfigServiceServer) {
+	// If the following call panics, it indicates UnimplementedEmbeddingConfigServiceServer was
+	// embedded by pointer and is nil.  This will cause panics if an
+	// unimplemented method is ever invoked, so we test this at initialization
+	// time to prevent it from happening at runtime later due to I/O.
+	if t, ok := srv.(interface{ testEmbeddedByValue() }); ok {
+		t.testEmbeddedByValue()
+	}
+	s.RegisterService(&EmbeddingConfigService_ServiceDesc, srv)
+}
+
+func _EmbeddingConfigService_ListEmbeddingProviders_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ListEmbeddingProvidersRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(EmbeddingConfigServiceServer).ListEmbeddingProviders(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: EmbeddingConfigService_ListEmbeddingProviders_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(EmbeddingConfigServiceServer).ListEmbeddingProviders(ctx, req.(*ListEmbeddingProvidersRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _EmbeddingConfigService_CreateEmbeddingProvider_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(CreateEmbeddingProviderRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(EmbeddingConfigServiceServer).CreateEmbeddingProvider(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: EmbeddingConfigService_CreateEmbeddingProvider_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(EmbeddingConfigServiceServer).CreateEmbeddingProvider(ctx, req.(*CreateEmbeddingProviderRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _EmbeddingConfigService_UpdateEmbeddingProvider_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(UpdateEmbeddingProviderRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(EmbeddingConfigServiceServer).UpdateEmbeddingProvider(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: EmbeddingConfigService_UpdateEmbeddingProvider_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(EmbeddingConfigServiceServer).UpdateEmbeddingProvider(ctx, req.(*UpdateEmbeddingProviderRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _EmbeddingConfigService_DeleteEmbeddingProvider_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(DeleteEmbeddingProviderRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(EmbeddingConfigServiceServer).DeleteEmbeddingProvider(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: EmbeddingConfigService_DeleteEmbeddingProvider_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(EmbeddingConfigServiceServer).DeleteEmbeddingProvider(ctx, req.(*DeleteEmbeddingProviderRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _EmbeddingConfigService_ListEmbeddingModels_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ListEmbeddingModelsRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(EmbeddingConfigServiceServer).ListEmbeddingModels(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: EmbeddingConfigService_ListEmbeddingModels_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(EmbeddingConfigServiceServer).ListEmbeddingModels(ctx, req.(*ListEmbeddingModelsRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _EmbeddingConfigService_CreateEmbeddingModel_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(CreateEmbeddingModelRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(EmbeddingConfigServiceServer).CreateEmbeddingModel(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: EmbeddingConfigService_CreateEmbeddingModel_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(EmbeddingConfigServiceServer).CreateEmbeddingModel(ctx, req.(*CreateEmbeddingModelRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _EmbeddingConfigService_UpdateEmbeddingModel_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(UpdateEmbeddingModelRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(EmbeddingConfigServiceServer).UpdateEmbeddingModel(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: EmbeddingConfigService_UpdateEmbeddingModel_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(EmbeddingConfigServiceServer).UpdateEmbeddingModel(ctx, req.(*UpdateEmbeddingModelRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _EmbeddingConfigService_SetDefaultEmbeddingModel_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(SetDefaultEmbeddingModelRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(EmbeddingConfigServiceServer).SetDefaultEmbeddingModel(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: EmbeddingConfigService_SetDefaultEmbeddingModel_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(EmbeddingConfigServiceServer).SetDefaultEmbeddingModel(ctx, req.(*SetDefaultEmbeddingModelRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _EmbeddingConfigService_TestEmbeddingModel_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(TestEmbeddingModelRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(EmbeddingConfigServiceServer).TestEmbeddingModel(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: EmbeddingConfigService_TestEmbeddingModel_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(EmbeddingConfigServiceServer).TestEmbeddingModel(ctx, req.(*TestEmbeddingModelRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _EmbeddingConfigService_BackfillEmbeddings_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(BackfillEmbeddingsRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(EmbeddingConfigServiceServer).BackfillEmbeddings(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: EmbeddingConfigService_BackfillEmbeddings_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(EmbeddingConfigServiceServer).BackfillEmbeddings(ctx, req.(*BackfillEmbeddingsRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+// EmbeddingConfigService_ServiceDesc is the grpc.ServiceDesc for EmbeddingConfigService service.
+// It's only intended for direct use with grpc.RegisterService,
+// and not to be introspected or modified (even as a copy)
+var EmbeddingConfigService_ServiceDesc = grpc.ServiceDesc{
+	ServiceName: "recruitment.EmbeddingConfigService",
+	HandlerType: (*EmbeddingConfigServiceServer)(nil),
+	Methods: []grpc.MethodDesc{
+		{
+			MethodName: "ListEmbeddingProviders",
+			Handler:    _EmbeddingConfigService_ListEmbeddingProviders_Handler,
+		},
+		{
+			MethodName: "CreateEmbeddingProvider",
+			Handler:    _EmbeddingConfigService_CreateEmbeddingProvider_Handler,
+		},
+		{
+			MethodName: "UpdateEmbeddingProvider",
+			Handler:    _EmbeddingConfigService_UpdateEmbeddingProvider_Handler,
+		},
+		{
+			MethodName: "DeleteEmbeddingProvider",
+			Handler:    _EmbeddingConfigService_DeleteEmbeddingProvider_Handler,
+		},
+		{
+			MethodName: "ListEmbeddingModels",
+			Handler:    _EmbeddingConfigService_ListEmbeddingModels_Handler,
+		},
+		{
+			MethodName: "CreateEmbeddingModel",
+			Handler:    _EmbeddingConfigService_CreateEmbeddingModel_Handler,
+		},
+		{
+			MethodName: "UpdateEmbeddingModel",
+			Handler:    _EmbeddingConfigService_UpdateEmbeddingModel_Handler,
+		},
+		{
+			MethodName: "SetDefaultEmbeddingModel",
+			Handler:    _EmbeddingConfigService_SetDefaultEmbeddingModel_Handler,
+		},
+		{
+			MethodName: "TestEmbeddingModel",
+			Handler:    _EmbeddingConfigService_TestEmbeddingModel_Handler,
+		},
+		{
+			MethodName: "BackfillEmbeddings",
+			Handler:    _EmbeddingConfigService_BackfillEmbeddings_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

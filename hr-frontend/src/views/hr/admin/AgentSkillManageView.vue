@@ -3,8 +3,10 @@ import { computed, onMounted, reactive, ref, watch } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { ArrowDown, CircleCheck, Document, Edit, MoreFilled, Plus, Refresh, Search, Tickets, TurnOff, WarningFilled, View } from '@element-plus/icons-vue'
 import * as agentSkillApi from '@/api/agentSkill'
+import { listAgentCapabilities } from '@/api/agent'
 import { DataTableCard, EmptyGuide, FilterToolbar, PageHeader } from '@/components/admin-console'
 import AgentSkillCanvasEditor from '@/components/agent-skill/AgentSkillCanvasEditor.vue'
+import type { CapabilityInfo } from '@/types/agent'
 import type {
   AgentSkillCanvasEdge,
   AgentSkillCanvasFlow,
@@ -18,6 +20,7 @@ import type {
   CreateAgentSkillPayload,
   UpdateAgentSkillPayload,
 } from '@/types/agentSkill'
+import { debugLog } from '@/utils/debugLog'
 
 const api = agentSkillApi
 
@@ -35,6 +38,93 @@ const NODE_TYPE_LABEL = NODE_TYPES.reduce<Record<AgentSkillNodeType, string>>((a
   return acc
 }, {} as Record<AgentSkillNodeType, string>)
 
+const AGENT_TYPE_OPTIONS = [
+  { value: 'hr_recruiting_agent', label: 'HR 招聘助手' },
+  { value: 'candidate_assistant', label: '候选人 AI 助手' },
+  { value: 'custom', label: '自定义 Agent' },
+]
+
+const SCENARIO_OPTIONS = [
+  {
+    value: 'candidate_job_match',
+    label: '候选人与岗位匹配',
+    category: 'candidate_match',
+    riskLevel: 'medium',
+    tags: ['招聘', '简历筛选', '岗位匹配', '候选人评估'],
+    criteria: ['是否逐项对齐 JD 要求', '是否引用简历证据', '是否说明不确定性', '是否避免敏感因素判断'],
+  },
+  {
+    value: 'resume_risk_review',
+    label: '简历风险识别',
+    category: 'resume_screening',
+    riskLevel: 'high',
+    tags: ['招聘', '简历筛选', '风险识别'],
+    criteria: ['是否标明证据来源', '是否区分事实和推断', '是否避免敏感因素判断'],
+  },
+  {
+    value: 'interview_question_generation',
+    label: '面试题生成',
+    category: 'interview',
+    riskLevel: 'medium',
+    tags: ['招聘', '面试准备', '问题生成'],
+    criteria: ['问题是否围绕岗位要求', '是否覆盖关键能力', '是否可用于面试验证'],
+  },
+  {
+    value: 'interview_feedback_summary',
+    label: '面评总结',
+    category: 'interview',
+    riskLevel: 'high',
+    tags: ['招聘', '面试评估', '面评总结'],
+    criteria: ['是否基于面试记录', '是否列出优势和风险', '是否避免绝对化录用结论'],
+  },
+  {
+    value: 'job_requirement_extraction',
+    label: 'JD 要求提取',
+    category: 'job_analysis',
+    riskLevel: 'low',
+    tags: ['招聘', '岗位分析', 'JD 解析'],
+    criteria: ['是否区分硬性要求和加分项', '是否提取岗位职责', '是否保留不确定信息'],
+  },
+  {
+    value: 'recruiting_analytics',
+    label: '招聘数据分析',
+    category: 'recruiting_analytics',
+    riskLevel: 'low',
+    tags: ['招聘', '数据分析', '投递分析'],
+    criteria: ['是否引用指标口径', '是否说明时间范围', '是否给出可执行建议'],
+  },
+]
+
+const CATEGORY_OPTIONS = [
+  { value: 'general', label: '通用' },
+  { value: 'resume_screening', label: '简历筛选' },
+  { value: 'candidate_match', label: '候选人匹配' },
+  { value: 'interview', label: '面试' },
+  { value: 'job_analysis', label: '岗位分析' },
+  { value: 'recruiting_analytics', label: '招聘数据分析' },
+  { value: 'candidate_communication', label: '候选人沟通' },
+]
+
+const OUTPUT_SCHEMA_OPTIONS = [
+  { value: '', label: '普通文本', schema: '' },
+  {
+    value: 'analysis_report',
+    label: '结构化分析报告',
+    schema: '{"type":"object","properties":{"conclusion":{"type":"string"},"evidence":{"type":"array","items":{"type":"string"}},"risks":{"type":"array","items":{"type":"string"}},"next_steps":{"type":"array","items":{"type":"string"}}}}',
+  },
+  {
+    value: 'match_result',
+    label: '匹配评分结果',
+    schema: '{"type":"object","properties":{"match_level":{"type":"string"},"score":{"type":"number"},"matched_requirements":{"type":"array","items":{"type":"string"}},"gaps":{"type":"array","items":{"type":"string"}}}}',
+  },
+  {
+    value: 'risk_list',
+    label: '风险清单',
+    schema: '{"type":"object","properties":{"risks":{"type":"array","items":{"type":"object","properties":{"level":{"type":"string"},"description":{"type":"string"},"evidence":{"type":"string"}}}}}}',
+  },
+  { value: 'custom', label: '自定义 JSON Schema', schema: '' },
+]
+
 const list = ref<AgentSkillInfo[]>([])
 const total = ref(0)
 const page = ref(1)
@@ -47,6 +137,7 @@ const savedPreviewLoading = ref(false)
 const versionsLoading = ref(false)
 const statusChangingId = ref<number | null>(null)
 const activatingVersionId = ref<number | null>(null)
+const regeneratingEmbeddingId = ref<number | null>(null)
 const keyword = ref('')
 const statusFilter = ref('')
 const previewMarkdown = ref('')
@@ -64,12 +155,23 @@ const versions = ref<AgentSkillVersionInfo[]>([])
 const selectedVersion = ref<AgentSkillVersionInfo | null>(null)
 const changeNote = ref('')
 const flowIntegrityWarning = ref('')
-
+const advancedConfigVisible = ref(false)
+const capabilitiesLoading = ref(false)
+const capabilityList = ref<CapabilityInfo[]>([])
+const outputSchemaMode = ref('')
 const form = reactive({
   name: '',
   display_name: '',
   description: '',
-  category: 'recruiting',
+  agent_type: 'hr_recruiting_agent',
+  category: 'general',
+  scenario: '',
+  priority: 0,
+  risk_level: 'medium',
+  required_capabilities: [] as string[],
+  output_schema: '',
+  evaluation_criteria: [] as string[],
+  semantic_tags: [] as string[],
   version: '1.0.0',
   is_enabled: true,
 })
@@ -151,6 +253,7 @@ const currentVersion = computed(() => (
 ))
 
 const loadList = async () => {
+  debugLog.skill.info('loadList_started', { page: page.value, keyword: keyword.value, status_filter: statusFilter.value })
   loading.value = true
   try {
     const data = await api.listAgentSkills({
@@ -164,7 +267,9 @@ const loadList = async () => {
       ? rawList.filter((item) => !item.is_enabled)
       : rawList
     total.value = data.total || list.value.length
+    debugLog.skill.info('loadList_finished', { total: total.value, returned: list.value.length })
   } catch (e: unknown) {
+    debugLog.skill.error('loadList_failed', { error: getErrorMessage(e, '') })
     ElMessage.error(getErrorMessage(e, 'Agent Skill 列表加载失败'))
   } finally {
     loading.value = false
@@ -176,19 +281,31 @@ const resetBuilder = () => {
   form.name = ''
   form.display_name = ''
   form.description = ''
-  form.category = 'recruiting'
+  form.agent_type = 'hr_recruiting_agent'
+  form.category = 'general'
+  form.scenario = 'candidate_job_match'
+  form.priority = 0
+  form.risk_level = 'medium'
+  form.required_capabilities = []
+  form.output_schema = ''
+  form.evaluation_criteria = []
+  form.semantic_tags = []
   form.version = '1.0.0'
   form.is_enabled = true
+  outputSchemaMode.value = ''
+  advancedConfigVisible.value = false
   changeNote.value = ''
   flowIntegrityWarning.value = ''
   flow.value = createDefaultFlow()
   selectedNodeId.value = flow.value.nodes[0]?.id || ''
   previewMarkdown.value = ''
+  applyScenarioPreset(form.scenario)
   validation.value = { valid: false, errors: [], warnings: [] }
 }
 
 const openCreate = () => {
   resetBuilder()
+  loadCapabilities()
   builderDialogVisible.value = true
 }
 
@@ -224,6 +341,18 @@ const buildLocalValidation = (): AgentSkillValidation => {
   if (!/^[a-z][a-z0-9_-]{1,127}$/.test(form.name.trim())) errors.push('唯一标识只能使用小写字母开头，包含小写字母、数字、下划线或短横线，长度 2-128')
   if (!form.display_name.trim()) errors.push('请填写显示名称')
   if (!form.description.trim()) errors.push('请填写技能描述，描述会写入 SKILL.md frontmatter')
+  if (!form.agent_type.trim()) errors.push('请填写适用 Agent 类型')
+  if (!form.category.trim()) errors.push('请填写治理分类')
+  if (!['low', 'medium', 'high', 'critical'].includes(form.risk_level)) errors.push('风险等级只能是 low / medium / high / critical')
+  if (form.priority < -1000 || form.priority > 1000) errors.push('优先级范围为 -1000 到 1000')
+  if (form.output_schema.trim()) {
+    try {
+      JSON.parse(form.output_schema)
+    } catch {
+      errors.push('输出 Schema 必须是合法 JSON')
+    }
+  }
+  warnings.push(...skillGovernanceWarnings(editingSkill.value))
   if (!canvasNodes.value.some((node) => node.type === 'trigger' && node.content.trim())) errors.push('至少需要一个有内容的触发场景节点')
   if (!canvasNodes.value.some((node) => node.type === 'instruction' && node.content.trim())) errors.push('至少需要一个有内容的执行指令节点')
   if (!canvasNodes.value.some((node) => node.type === 'output' && node.content.trim())) errors.push('至少需要一个有内容的输出格式节点')
@@ -328,11 +457,115 @@ const flowJson = computed(() => JSON.stringify({
   viewport: flow.value.viewport || { x: 0, y: 0, zoom: 1 },
 }))
 
+const uniqueList = (values: string[]) => Array.from(new Set(values.map((item) => item.trim()).filter(Boolean)))
+
+const slugifySkillName = (value: string) => value
+  .trim()
+  .toLowerCase()
+  .replace(/[^a-z0-9_-]+/g, '_')
+  .replace(/^_+|_+$/g, '')
+  .replace(/_{2,}/g, '_')
+
+
+const riskLevelLabel = (value?: string) => {
+  const labels: Record<string, string> = {
+    low: '低',
+    medium: '中',
+    high: '高',
+    critical: '关键',
+  }
+  return labels[value || ''] || value || '-'
+}
+
+const riskLevelTagType = (value?: string) => {
+  if (value === 'critical' || value === 'high') return 'danger'
+  if (value === 'medium') return 'warning'
+  return 'info'
+}
+
+const skillGovernanceWarnings = (skill?: AgentSkillInfo | null) => [
+  ...(skill?.unavailable_capabilities || []).map((item) => `不可用能力：${item}`),
+  ...(skill?.validation_warnings || []),
+]
+
+const selectedScenario = computed(() => SCENARIO_OPTIONS.find((item) => item.value === form.scenario) || null)
+
+const capabilitySelectOptions = computed(() => capabilityList.value
+  .filter((item) => item.source !== 'skill')
+  .map((item) => ({
+    value: `${item.source}:${item.key}`,
+    label: capabilityDisplayLabel(item),
+    disabled: !item.is_available,
+  })))
+
+const capabilityDisplayLabel = (capability: CapabilityInfo) => {
+  const sourceLabel: Record<string, string> = { builtin: '内置', mcp: 'MCP', skill: 'Skill' }
+  const title = capability.display_name || capability.name || capability.key
+  return `${sourceLabel[capability.source] || capability.source} / ${title}`
+}
+
+const applyScenarioPreset = (scenarioValue: string) => {
+  const preset = SCENARIO_OPTIONS.find((item) => item.value === scenarioValue)
+  if (!preset) return
+  form.category = preset.category
+  form.risk_level = preset.riskLevel
+  form.semantic_tags = uniqueList([...form.semantic_tags, ...preset.tags])
+  form.evaluation_criteria = uniqueList([...form.evaluation_criteria, ...preset.criteria])
+  if (!form.name.trim()) {
+    const slug = slugifySkillName(preset.value)
+    form.name = slug || `agent_skill_${Date.now().toString(36)}`
+  }
+}
+
+const handleScenarioChange = (value: string) => {
+  applyScenarioPreset(value)
+}
+
+const ensureGeneratedSkillName = () => {
+  if (form.name.trim() || isEditing.value) return
+  const scenarioSlug = slugifySkillName(form.scenario)
+  const displaySlug = slugifySkillName(form.display_name)
+  form.name = scenarioSlug || displaySlug || `agent_skill_${Date.now().toString(36)}`
+}
+
+const handleOutputSchemaModeChange = (value: string) => {
+  const option = OUTPUT_SCHEMA_OPTIONS.find((item) => item.value === value)
+  if (!option) return
+  if (value !== 'custom') {
+    form.output_schema = option.schema
+  }
+}
+
+const loadCapabilities = async (agentType = form.agent_type) => {
+  capabilitiesLoading.value = true
+  try {
+    const data = await listAgentCapabilities(agentType)
+    capabilityList.value = data.list || []
+  } catch {
+    capabilityList.value = []
+  } finally {
+    capabilitiesLoading.value = false
+  }
+}
+
+const handleAgentTypeChange = async () => {
+  form.required_capabilities = []
+  await loadCapabilities(form.agent_type)
+}
+
 const payload = (): CreateAgentSkillPayload => ({
   name: form.name.trim(),
   display_name: form.display_name.trim(),
   description: form.description.trim(),
+  agent_type: form.agent_type.trim(),
   category: form.category.trim(),
+  scenario: form.scenario.trim(),
+  priority: Number(form.priority) || 0,
+  risk_level: form.risk_level,
+  required_capabilities: form.required_capabilities,
+  output_schema: form.output_schema.trim(),
+  evaluation_criteria: form.evaluation_criteria,
+  semantic_tags: form.semantic_tags,
   version: form.version.trim(),
   is_enabled: form.is_enabled,
   is_enabled_set: true,
@@ -354,6 +587,24 @@ const updatePayload = (): UpdateAgentSkillPayload => ({
   display_name_set: true,
   description: form.description.trim(),
   description_set: true,
+  agent_type: form.agent_type.trim(),
+  agent_type_set: true,
+  category: form.category.trim(),
+  category_set: true,
+  scenario: form.scenario.trim(),
+  scenario_set: true,
+  priority: Number(form.priority) || 0,
+  priority_set: true,
+  risk_level: form.risk_level,
+  risk_level_set: true,
+  required_capabilities: form.required_capabilities,
+  required_capabilities_set: true,
+  output_schema: form.output_schema.trim(),
+  output_schema_set: true,
+  evaluation_criteria: form.evaluation_criteria,
+  evaluation_criteria_set: true,
+  semantic_tags: form.semantic_tags,
+  semantic_tags_set: true,
   is_enabled: form.is_enabled,
   is_enabled_set: true,
   is_manual_invocable: true,
@@ -515,17 +766,24 @@ const findCurrentVersion = (skill: AgentSkillInfo, versionList: AgentSkillVersio
 )
 
 const refreshPreview = async () => {
+  debugLog.skill.info('refreshPreview_started', {})
+  ensureGeneratedSkillName()
   const localValidation = buildLocalValidation()
   validation.value = localValidation
   previewMarkdown.value = localMarkdown.value
-  if (!localValidation.valid) return
+  if (!localValidation.valid) {
+    debugLog.skill.warn('refreshPreview_skipped', { reason: 'local_validation_failed', errors: localValidation.errors.length })
+    return
+  }
   previewLoading.value = true
   try {
     const data = await api.previewAgentSkill(payload())
     const serverValidation = (data as { validation?: AgentSkillValidation }).validation
     previewMarkdown.value = data.skill_md || localMarkdown.value
     validation.value = serverValidation || { ...localValidation, valid: localValidation.errors.length === 0 }
+    debugLog.skill.info('refreshPreview_finished', { valid: validation.value.valid })
   } catch (e: unknown) {
+    debugLog.skill.error('refreshPreview_failed', { error: getErrorMessage(e, '') })
     ElMessage.error(getErrorMessage(e, 'SKILL.md 预览生成失败'))
   } finally {
     previewLoading.value = false
@@ -538,6 +796,7 @@ const openPreviewDrawer = async () => {
 }
 
 const saveSkill = async () => {
+  debugLog.skill.info('saveSkill_started', { is_edit: !!editingSkill.value, skill_id: editingSkill.value?.id, name: form.name })
   if (saving.value) return
   if (editingSkill.value) {
     try {
@@ -547,11 +806,13 @@ const saveSkill = async () => {
         { confirmButtonText: '确定', cancelButtonText: '取消', type: 'warning' },
       )
     } catch {
+      debugLog.skill.info('saveSkill_cancelled', { skill_id: editingSkill.value.id })
       return
     }
   }
   await refreshPreview()
   if (!validation.value.valid) {
+    debugLog.skill.warn('saveSkill_skipped', { reason: 'validation_failed' })
     ElMessage.warning('请先修复校验错误')
     return
   }
@@ -562,13 +823,16 @@ const saveSkill = async () => {
       await api.updateAgentSkill(skillId, updatePayload())
       await api.createAgentSkillVersion(skillId, versionPayload())
       ElMessage.success('Agent Skill 已保存并激活新版本')
+      debugLog.skill.info('saveSkill_succeeded', { skill_id: skillId, action: 'update' })
     } else {
       await api.createAgentSkill(payload())
       ElMessage.success('Agent Skill 已创建')
+      debugLog.skill.info('saveSkill_succeeded', { action: 'create', name: form.name })
     }
     builderDialogVisible.value = false
     await loadList()
   } catch (e: unknown) {
+    debugLog.skill.error('saveSkill_failed', { error: getErrorMessage(e, '') })
     ElMessage.error(getErrorMessage(e, 'Agent Skill 保存失败'))
   } finally {
     saving.value = false
@@ -576,20 +840,66 @@ const saveSkill = async () => {
 }
 
 const toggleStatus = async (row: AgentSkillInfo) => {
+  debugLog.skill.info('toggleStatus_started', { skill_id: row.id, new_enabled: !row.is_enabled })
   if (statusChangingId.value) return
   statusChangingId.value = row.id
   try {
     await api.updateAgentSkillStatus(row.id, { is_enabled: !row.is_enabled })
     ElMessage.success(row.is_enabled ? 'Agent Skill 已停用' : 'Agent Skill 已启用')
+    debugLog.skill.info('toggleStatus_finished', { skill_id: row.id, is_enabled: !row.is_enabled })
     await loadList()
   } catch (e: unknown) {
+    debugLog.skill.error('toggleStatus_failed', { skill_id: row.id, error: getErrorMessage(e, '') })
     ElMessage.error(getErrorMessage(e, '状态更新失败'))
   } finally {
     statusChangingId.value = null
   }
 }
 
+const regenerateEmbedding = async (row: AgentSkillInfo) => {
+  debugLog.skill.info('regenerateEmbedding_started', { skill_id: row.id })
+  if (regeneratingEmbeddingId.value) return
+  try {
+    await ElMessageBox.confirm(
+      `确认重新生成「${row.display_name || row.name}」的 Embedding？该操作会覆盖当前默认模型下用于语义召回的向量。`,
+      '重新生成 Embedding',
+      {
+        confirmButtonText: '重新生成',
+        cancelButtonText: '取消',
+        type: 'warning',
+      },
+    )
+  } catch {
+    debugLog.skill.info('regenerateEmbedding_cancelled', { skill_id: row.id })
+    return
+  }
+  regeneratingEmbeddingId.value = row.id
+  try {
+    const result = await api.regenerateAgentSkillEmbedding(row.id)
+    if (result.failed_count > 0) {
+      ElMessage.error('Embedding 重新生成失败，请检查模型配置或服务日志')
+      return
+    }
+    if (result.skipped_count > 0) {
+      ElMessage.warning('当前 Agent Skill 未发布、未启用或无可生成内容，已跳过')
+      return
+    }
+    if (result.success_count <= 0) {
+      ElMessage.warning('未生成任何 Embedding，请检查 Agent Skill 状态')
+      return
+    }
+    ElMessage.success('Embedding 已重新生成')
+    debugLog.skill.info('regenerateEmbedding_succeeded', { skill_id: row.id, success_count: result.success_count })
+  } catch (e: unknown) {
+    debugLog.skill.error('regenerateEmbedding_failed', { skill_id: row.id, error: getErrorMessage(e, '') })
+    ElMessage.error(getErrorMessage(e, 'Embedding 重新生成失败'))
+  } finally {
+    regeneratingEmbeddingId.value = null
+  }
+}
+
 const openEdit = async (row: AgentSkillInfo) => {
+  debugLog.skill.info('openEdit_started', { skill_id: row.id, name: row.name })
   if (editLoading.value) return
   editLoading.value = true
   try {
@@ -600,9 +910,20 @@ const openEdit = async (row: AgentSkillInfo) => {
     form.name = detail.name
     form.display_name = detail.display_name || detail.name
     form.description = detail.description || ''
-    form.category = detail.category || 'recruiting'
+    form.agent_type = detail.agent_type || 'hr_recruiting_agent'
+    form.category = detail.category || 'general'
+    form.scenario = detail.scenario || ''
+    form.priority = detail.priority || 0
+    form.risk_level = detail.risk_level || 'medium'
+    form.required_capabilities = [...(detail.required_capabilities || [])]
+    form.output_schema = detail.output_schema || ''
+    outputSchemaMode.value = detail.output_schema ? 'custom' : ''
+    form.evaluation_criteria = [...(detail.evaluation_criteria || [])]
+    form.semantic_tags = [...(detail.semantic_tags || [])]
     form.version = nextVersionText(current?.version)
     form.is_enabled = detail.is_enabled
+    advancedConfigVisible.value = true
+    await loadCapabilities(form.agent_type)
     changeNote.value = ''
     const rawFlowJson = current?.flow_json || detail.flow_json
     flow.value = parseFlowJson(rawFlowJson) || flowFromNodes(detail.node_schema)
@@ -610,8 +931,10 @@ const openEdit = async (row: AgentSkillInfo) => {
     selectedNodeId.value = flow.value.nodes[0]?.id || ''
     previewMarkdown.value = current?.skill_md || detail.skill_md || localMarkdown.value
     validation.value = buildLocalValidation()
+    debugLog.skill.info('openEdit_finished', { skill_id: row.id, version: form.version, node_count: flow.value.nodes.length, edge_count: flow.value.edges.length })
     builderDialogVisible.value = true
   } catch (e: unknown) {
+    debugLog.skill.error('openEdit_failed', { skill_id: row.id, error: getErrorMessage(e, '') })
     ElMessage.error(getErrorMessage(e, '加载 Agent Skill 详情失败'))
   } finally {
     editLoading.value = false
@@ -619,6 +942,7 @@ const openEdit = async (row: AgentSkillInfo) => {
 }
 
 const openSavedPreview = async (row: AgentSkillInfo) => {
+  debugLog.skill.info('openSavedPreview_started', { skill_id: row.id })
   savedPreviewDrawerVisible.value = true
   savedPreviewLoading.value = true
   savedPreviewSkill.value = row
@@ -628,7 +952,9 @@ const openSavedPreview = async (row: AgentSkillInfo) => {
     const versionList = await loadVersions(row.id)
     savedPreviewSkill.value = detail
     savedPreviewVersion.value = findCurrentVersion(detail, versionList)
+    debugLog.skill.info('openSavedPreview_finished', { skill_id: row.id, has_current_version: !!savedPreviewVersion.value })
   } catch (e: unknown) {
+    debugLog.skill.error('openSavedPreview_failed', { skill_id: row.id, error: getErrorMessage(e, '') })
     ElMessage.error(getErrorMessage(e, '加载当前版本预览失败'))
   } finally {
     savedPreviewLoading.value = false
@@ -636,6 +962,7 @@ const openSavedPreview = async (row: AgentSkillInfo) => {
 }
 
 const openVersions = async (row: AgentSkillInfo) => {
+  debugLog.skill.info('openVersions_started', { skill_id: row.id })
   versionsDrawerVisible.value = true
   versionsLoading.value = true
   versionSkill.value = row
@@ -647,7 +974,9 @@ const openVersions = async (row: AgentSkillInfo) => {
     versionSkill.value = detail
     versions.value = versionList
     selectedVersion.value = findCurrentVersion(detail, versionList) || versionList[0] || null
+    debugLog.skill.info('openVersions_finished', { skill_id: row.id, version_count: versionList.length })
   } catch (e: unknown) {
+    debugLog.skill.error('openVersions_failed', { skill_id: row.id, error: getErrorMessage(e, '') })
     ElMessage.error(getErrorMessage(e, '加载版本列表失败'))
   } finally {
     versionsLoading.value = false
@@ -659,6 +988,7 @@ const selectVersion = (version: AgentSkillVersionInfo) => {
 }
 
 const activateVersion = async (version: AgentSkillVersionInfo) => {
+  debugLog.skill.info('activateVersion_started', { skill_id: versionSkill.value?.id, version_id: version.id, version_label: version.version })
   if (!versionSkill.value || activatingVersionId.value) return
   try {
     await ElMessageBox.confirm(
@@ -671,12 +1001,14 @@ const activateVersion = async (version: AgentSkillVersionInfo) => {
       },
     )
   } catch {
+    debugLog.skill.info('activateVersion_cancelled', { version_id: version.id })
     return
   }
   activatingVersionId.value = version.id
   try {
     await api.activateAgentSkillVersion(versionSkill.value.id, version.id)
     ElMessage.success('已设为当前版本')
+    debugLog.skill.info('activateVersion_succeeded', { skill_id: versionSkill.value.id, version_id: version.id })
     await loadList()
     if (versionSkill.value) {
       const nextSkill = { ...versionSkill.value, current_version_id: version.id }
@@ -688,6 +1020,7 @@ const activateVersion = async (version: AgentSkillVersionInfo) => {
       selectedVersion.value = versions.value.find((item) => item.id === version.id) || version
     }
   } catch (e: unknown) {
+    debugLog.skill.error('activateVersion_failed', { version_id: version.id, error: getErrorMessage(e, '') })
     ElMessage.error(getErrorMessage(e, '设为当前版本失败'))
   } finally {
     activatingVersionId.value = null
@@ -699,7 +1032,22 @@ const formatTime = (value?: string) => {
   return new Date(value).toLocaleString('zh-CN')
 }
 
-watch([() => form.name, () => form.display_name, () => form.description, () => form.category, () => form.version, flow], () => {
+watch([
+  () => form.name,
+  () => form.display_name,
+  () => form.description,
+  () => form.agent_type,
+  () => form.category,
+  () => form.scenario,
+  () => form.priority,
+  () => form.risk_level,
+  () => form.required_capabilities,
+  () => form.output_schema,
+  () => form.evaluation_criteria,
+  () => form.semantic_tags,
+  () => form.version,
+  flow,
+], () => {
   validation.value = buildLocalValidation()
   previewMarkdown.value = localMarkdown.value
 }, { deep: true, immediate: true })
@@ -707,6 +1055,7 @@ watch([() => form.name, () => form.display_name, () => form.description, () => f
 onMounted(() => {
   selectedNodeId.value = flow.value.nodes[0]?.id || ''
   loadList()
+  loadCapabilities()
 })
 </script>
 
@@ -757,6 +1106,21 @@ onMounted(() => {
               </template>
             </el-table-column>
             <el-table-column prop="description" label="描述" min-width="240" show-overflow-tooltip />
+            <el-table-column label="治理" min-width="220">
+              <template #default="{ row }">
+                <div class="governance-cell">
+                  <div>
+                    <el-tag size="small" type="info">{{ row.agent_type || 'hr_recruiting_agent' }}</el-tag>
+                    <el-tag size="small" :type="riskLevelTagType(row.risk_level)">{{ riskLevelLabel(row.risk_level) }}</el-tag>
+                    <el-tag size="small">P{{ row.priority ?? 0 }}</el-tag>
+                  </div>
+                  <div class="skill-key">{{ row.category || 'general' }}<span v-if="row.scenario"> · {{ row.scenario }}</span></div>
+                  <div v-if="skillGovernanceWarnings(row).length" class="capability-warning">
+                    {{ skillGovernanceWarnings(row).join('；') }}
+                  </div>
+                </div>
+              </template>
+            </el-table-column>
             <el-table-column label="当前版本" width="110">
               <template #default="{ row }">
                 <el-tag v-if="row.current_version_id" size="small" type="success">#{{ row.current_version_id }}</el-tag>
@@ -776,12 +1140,15 @@ onMounted(() => {
             <el-table-column label="操作" width="200" fixed="right">
               <template #default="{ row }">
                 <el-button size="small" :icon="Edit" @click="openEdit(row)">编辑</el-button>
-                <el-dropdown trigger="click" @command="(cmd: string) => { if (cmd === 'preview') openSavedPreview(row); if (cmd === 'versions') openVersions(row); if (cmd === 'toggle') toggleStatus(row) }">
-                  <el-button size="small">更多<el-icon class="el-icon--right"><ArrowDown /></el-icon></el-button>
+                <el-dropdown trigger="click" @command="(cmd: string) => { if (cmd === 'preview') openSavedPreview(row); if (cmd === 'versions') openVersions(row); if (cmd === 'embedding') regenerateEmbedding(row); if (cmd === 'toggle') toggleStatus(row) }">
+                  <el-button size="small" :loading="regeneratingEmbeddingId === row.id">更多<el-icon class="el-icon--right"><ArrowDown /></el-icon></el-button>
                   <template #dropdown>
                     <el-dropdown-menu>
                       <el-dropdown-item command="preview" :icon="View">预览</el-dropdown-item>
                       <el-dropdown-item command="versions" :icon="Tickets">版本</el-dropdown-item>
+                      <el-dropdown-item command="embedding" divided :disabled="!row.current_version_id || regeneratingEmbeddingId === row.id">
+                        重新生成 Embedding
+                      </el-dropdown-item>
                       <el-dropdown-item v-if="row.is_enabled" command="toggle" divided style="color: var(--el-color-danger)">停用</el-dropdown-item>
                       <el-dropdown-item v-else command="toggle" divided>启用</el-dropdown-item>
                     </el-dropdown-menu>
@@ -830,33 +1197,147 @@ onMounted(() => {
           <el-button :icon="Document" :loading="previewLoading" @click="openPreviewDrawer">预览 SKILL.md</el-button>
         </div>
 
-        <div class="meta-grid">
-          <el-input v-model="form.name" placeholder="唯一标识，例如 resume_matching" clearable :disabled="isEditing">
-            <template #prepend>标识</template>
-          </el-input>
-          <el-input v-model="form.display_name" placeholder="显示名称，例如 简历匹配分析" clearable>
-            <template #prepend>名称</template>
-          </el-input>
-          <el-input v-model="form.category" placeholder="分类" clearable>
-            <template #prepend>分类</template>
-          </el-input>
-          <el-input v-model="form.version" placeholder="版本" clearable>
-            <template #prepend>版本</template>
-          </el-input>
+        <div class="meta-grid meta-grid--primary">
+          <label class="form-field">
+            <span class="form-label">显示名称</span>
+            <el-input v-model="form.display_name" placeholder="例如 简历匹配分析" clearable />
+          </label>
+          <label class="form-field">
+            <span class="form-label">适用 Agent</span>
+            <el-select v-model="form.agent_type" placeholder="选择适用 Agent" filterable @change="handleAgentTypeChange">
+              <el-option v-for="item in AGENT_TYPE_OPTIONS" :key="item.value" :label="item.label" :value="item.value" />
+            </el-select>
+          </label>
+          <label class="form-field">
+            <span class="form-label">业务场景</span>
+            <el-select v-model="form.scenario" placeholder="选择业务场景" filterable @change="handleScenarioChange">
+              <el-option v-for="item in SCENARIO_OPTIONS" :key="item.value" :label="item.label" :value="item.value" />
+            </el-select>
+          </label>
+          <label class="form-field">
+            <span class="form-label">风险等级</span>
+            <el-select v-model="form.risk_level" placeholder="风险等级">
+              <el-option label="低风险" value="low" />
+              <el-option label="中风险" value="medium" />
+              <el-option label="高风险" value="high" />
+              <el-option label="关键风险" value="critical" />
+            </el-select>
+          </label>
         </div>
-        <el-input
-          v-model="form.description"
-          type="textarea"
-          :rows="2"
-          placeholder="简要描述这个 Agent Skill 的招聘业务用途"
-        />
-        <el-input
-          v-if="isEditing"
-          v-model="changeNote"
-          type="textarea"
-          :rows="2"
-          placeholder="版本变更说明，例如：补充候选人风险提示输出要求"
-        />
+        <p v-if="selectedScenario" class="form-hint">
+          已按“{{ selectedScenario.label }}”预设分类、风险等级、语义标签和评估标准，可在高级配置中调整。
+        </p>
+        <label class="form-field">
+          <span class="form-label">业务用途描述</span>
+          <el-input
+            v-model="form.description"
+            type="textarea"
+            :rows="2"
+            placeholder="简要描述这个 Agent Skill 的招聘业务用途"
+          />
+        </label>
+        <div class="advanced-config-toggle">
+          <el-button text type="primary" @click="advancedConfigVisible = !advancedConfigVisible">
+            {{ advancedConfigVisible ? '收起高级配置' : '展开高级配置' }}
+          </el-button>
+        </div>
+        <div v-if="advancedConfigVisible" class="advanced-config-panel">
+          <div class="meta-grid">
+            <label class="form-field">
+              <span class="form-label">唯一标识</span>
+              <el-input v-model="form.name" placeholder="例如 candidate_job_match" clearable :disabled="isEditing" />
+            </label>
+            <label class="form-field">
+              <span class="form-label">版本号</span>
+              <el-input v-model="form.version" placeholder="例如 1.0.0" clearable />
+            </label>
+            <label class="form-field">
+              <span class="form-label">治理分类</span>
+              <el-select v-model="form.category" placeholder="治理分类" filterable>
+                <el-option v-for="item in CATEGORY_OPTIONS" :key="item.value" :label="item.label" :value="item.value" />
+              </el-select>
+            </label>
+            <label class="form-field">
+              <span class="form-label">自动选择优先级</span>
+              <el-input-number v-model="form.priority" :min="-1000" :max="1000" controls-position="right" />
+            </label>
+          </div>
+          <div class="governance-text-grid">
+            <label class="form-field">
+              <span class="form-label">依赖能力</span>
+              <el-select
+                v-model="form.required_capabilities"
+                multiple
+                filterable
+                clearable
+                collapse-tags
+                collapse-tags-tooltip
+                :loading="capabilitiesLoading"
+                placeholder="选择依赖能力"
+              >
+                <el-option
+                  v-for="item in capabilitySelectOptions"
+                  :key="item.value"
+                  :label="item.label"
+                  :value="item.value"
+                  :disabled="item.disabled"
+                />
+              </el-select>
+            </label>
+            <label class="form-field">
+              <span class="form-label">语义标签</span>
+              <el-select
+                v-model="form.semantic_tags"
+                multiple
+                filterable
+                allow-create
+                default-first-option
+                clearable
+                placeholder="选择或输入语义标签"
+              >
+                <el-option v-for="item in selectedScenario?.tags || []" :key="item" :label="item" :value="item" />
+              </el-select>
+            </label>
+            <label class="form-field">
+              <span class="form-label">评估标准</span>
+              <el-select
+                v-model="form.evaluation_criteria"
+                multiple
+                filterable
+                allow-create
+                default-first-option
+                clearable
+                placeholder="选择或输入评估标准"
+              >
+                <el-option v-for="item in selectedScenario?.criteria || []" :key="item" :label="item" :value="item" />
+              </el-select>
+            </label>
+            <label class="form-field">
+              <span class="form-label">输出模板</span>
+              <el-select v-model="outputSchemaMode" placeholder="输出模板" @change="handleOutputSchemaModeChange">
+                <el-option v-for="item in OUTPUT_SCHEMA_OPTIONS" :key="item.value || 'text'" :label="item.label" :value="item.value" />
+              </el-select>
+            </label>
+          </div>
+          <label v-if="outputSchemaMode === 'custom' || form.output_schema" class="form-field">
+            <span class="form-label">输出 Schema JSON</span>
+            <el-input
+              v-model="form.output_schema"
+              type="textarea"
+              :rows="3"
+              placeholder='例如 {"type":"object"}'
+            />
+          </label>
+        </div>
+        <label v-if="isEditing" class="form-field">
+          <span class="form-label">版本变更说明</span>
+          <el-input
+            v-model="changeNote"
+            type="textarea"
+            :rows="2"
+            placeholder="例如：补充候选人风险提示输出要求"
+          />
+        </label>
         <el-alert
           v-if="flowIntegrityWarning"
           class="flow-integrity-alert"
@@ -1152,6 +1633,80 @@ onMounted(() => {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 10px;
+}
+
+.meta-grid--primary {
+  grid-template-columns: 1.2fr 1fr 1fr 150px;
+}
+
+.form-field {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.form-label {
+  color: var(--text-secondary);
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1.3;
+}
+
+.form-field :deep(.el-select),
+.form-field :deep(.el-input-number) {
+  width: 100%;
+}
+
+.form-hint {
+  margin: -2px 0 2px;
+  color: var(--text-faint);
+  font-size: 12px;
+}
+
+.advanced-config-toggle {
+  display: flex;
+  justify-content: flex-start;
+}
+
+.advanced-config-panel {
+  display: grid;
+  gap: 10px;
+  padding: 12px;
+  border: 1px solid var(--border-subtle);
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--surface-muted) 62%, transparent);
+}
+
+.governance-grid {
+  display: grid;
+  grid-template-columns: 1.3fr 1fr 1fr 150px 150px;
+  gap: 10px;
+}
+
+.governance-text-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.governance-cell {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.governance-cell > div:first-child {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.capability-warning {
+  color: var(--el-color-danger);
+  font-size: 12px;
+  line-height: 1.4;
 }
 
 .canvas-frame {
@@ -1561,9 +2116,13 @@ onMounted(() => {
 
 @media (max-width: 860px) {
   .meta-grid,
+  .meta-grid--primary,
+  .governance-grid,
+  .governance-text-grid,
   .version-layout {
     grid-template-columns: 1fr;
   }
+
 
   .version-drawer-body {
     height: 84vh;

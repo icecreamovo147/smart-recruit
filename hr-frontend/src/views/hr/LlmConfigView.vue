@@ -573,6 +573,7 @@ onMounted(() => {
 
         <div class="workspace-surface__body">
           <el-table
+            height="100%"
             v-loading="providerLoading"
             :data="filteredProviders"
             class="console-table"
@@ -690,6 +691,7 @@ onMounted(() => {
 
         <div class="workspace-surface__body">
           <el-table
+            height="100%"
             v-loading="modelLoading"
             :data="filteredModels"
             class="console-table"
@@ -903,10 +905,11 @@ onMounted(() => {
 
 <style scoped>
 .llm-config-view {
-  height: 100%;
+  flex: 1;
   min-height: 0;
+  display: flex;
+  flex-direction: column;
   padding-bottom: 24px;
-  overflow-y: auto;
   color: var(--el-text-color-primary);
 }
 

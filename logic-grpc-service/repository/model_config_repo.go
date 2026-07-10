@@ -2,6 +2,7 @@ package repository
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	"gorm.io/gorm"
@@ -71,15 +72,29 @@ func (r *ModelConfigRepo) List(ctx context.Context, page, pageSize int32, provid
 	return list, total, nil
 }
 
-// GetDefaultModel returns the default enabled model, or the first enabled model if no default is set.
+// GetDefaultModel returns the default enabled model with an enabled provider,
+// or the first enabled model on an enabled provider if no default is set.
 func (r *ModelConfigRepo) GetDefaultModel(ctx context.Context) (*model.LlmModel, error) {
 	var m model.LlmModel
-	err := r.db.WithContext(ctx).Where("is_enabled = 1 AND is_default = 1").Order("id ASC").First(&m).Error
+	baseQuery := func() *gorm.DB {
+		return r.db.WithContext(ctx).
+			Model(&model.LlmModel{}).
+			Joins("JOIN llm_providers ON llm_providers.id = llm_models.provider_id").
+			Where("llm_models.is_enabled = 1 AND llm_providers.is_enabled = 1")
+	}
+
+	err := baseQuery().
+		Where("llm_models.is_default = 1").
+		Order("llm_models.updated_at DESC, llm_models.id DESC").
+		First(&m).Error
 	if err == nil {
 		return &m, nil
 	}
-	// Fall back to first enabled model
-	err = r.db.WithContext(ctx).Where("is_enabled = 1").Order("id ASC").First(&m).Error
+	if !errors.Is(err, gorm.ErrRecordNotFound) {
+		return nil, err
+	}
+
+	err = baseQuery().Order("llm_models.id ASC").First(&m).Error
 	if err != nil {
 		return nil, err
 	}
@@ -96,9 +111,35 @@ func (r *ModelConfigRepo) GetEnabledModelsByProvider(ctx context.Context, provid
 	return list, nil
 }
 
-// ClearDefault clears the is_default flag for all models of a provider.
-func (r *ModelConfigRepo) ClearDefault(ctx context.Context, providerID int64) error {
+// ClearDefault clears the is_default flag for all models globally.
+func (r *ModelConfigRepo) ClearDefault(ctx context.Context) error {
 	return r.db.WithContext(ctx).Model(&model.LlmModel{}).
-		Where("provider_id = ?", providerID).
+		Where("is_default = 1").
 		Update("is_default", 0).Error
+}
+
+// CreateWithDefault creates a model and clears any existing global default atomically.
+func (r *ModelConfigRepo) CreateWithDefault(ctx context.Context, m *model.LlmModel) error {
+	return r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		if m.IsDefault == 1 {
+			if err := tx.Model(&model.LlmModel{}).Where("is_default = 1").Update("is_default", 0).Error; err != nil {
+				return fmt.Errorf("clear existing defaults: %w", err)
+			}
+		}
+		return tx.Create(m).Error
+	})
+}
+
+// UpdatePartialWithDefault updates a model and clears any existing global default atomically when setting default.
+func (r *ModelConfigRepo) UpdatePartialWithDefault(ctx context.Context, id int64, updates map[string]any) error {
+	return r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		if v, ok := updates["is_default"]; ok {
+			if vi, ok2 := v.(int32); ok2 && vi == 1 {
+				if err := tx.Model(&model.LlmModel{}).Where("is_default = 1").Update("is_default", 0).Error; err != nil {
+					return fmt.Errorf("clear existing defaults: %w", err)
+				}
+			}
+		}
+		return tx.Model(&model.LlmModel{}).Where("id = ?", id).Updates(updates).Error
+	})
 }

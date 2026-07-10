@@ -78,6 +78,20 @@ func pageSize(value int32) int32 {
 	return value
 }
 
+// normalizeManagementPage normalizes pagination for management list APIs.
+func normalizeManagementPage(page, pageSize int32) (int32, int32) {
+	if page <= 0 {
+		page = 1
+	}
+	if pageSize <= 0 {
+		pageSize = 20
+	}
+	if pageSize > 100 {
+		pageSize = 100
+	}
+	return page, pageSize
+}
+
 // ---- Time ----
 
 func formatTime(t time.Time) string {
@@ -645,4 +659,26 @@ func filterToolInfosByName(tools []*schema.ToolInfo, allowlist []string) []*sche
 		}
 	}
 	return filtered
+}
+
+func adkToolNames(ctx context.Context, tools []tool.BaseTool) []string {
+	names := make([]string, 0, len(tools))
+	for _, t := range tools {
+		info, err := t.Info(ctx)
+		if err == nil && strings.TrimSpace(info.Name) != "" {
+			names = append(names, info.Name)
+		}
+	}
+	return names
+}
+
+func appendRecruitingPlannerInstructionBlock(base string, block string) string {
+	block = strings.TrimSpace(block)
+	if block == "" {
+		return base
+	}
+	if strings.TrimSpace(base) == "" {
+		return block
+	}
+	return base + "\n\n" + block
 }

@@ -69,6 +69,15 @@ func (r *ResumeRepo) GetValidByUserID(ctx context.Context, userID int64) (*model
 	return &resume, err
 }
 
+func (r *ResumeRepo) GetByID(ctx context.Context, resumeID int64) (*model.Resume, error) {
+	var resume model.Resume
+	err := r.db.WithContext(ctx).First(&resume, resumeID).Error
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return nil, nil
+	}
+	return &resume, err
+}
+
 func (r *ResumeRepo) UpdateParsedText(ctx context.Context, resumeID int64, text string) error {
 	now := time.Now()
 	return r.db.WithContext(ctx).Model(&model.Resume{}).

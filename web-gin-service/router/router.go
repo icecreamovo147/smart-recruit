@@ -113,6 +113,7 @@ func Setup(cfg config.Config, clients *rpc.Clients, rdb *redis.Client) (*gin.Eng
 	hrInterviewHandler := hr.NewInterviewHandler(clients)
 	hrOfferHandler := hr.NewOfferHandler(clients)
 	hrCapabilityHandler := hr.NewCapabilityHandler(clients)
+	embeddingConfigHandler := hr.NewEmbeddingConfigHandler(clients)
 	agentSkillHandler := hr.NewAgentSkillHandler(clients)
 	candidateOfferHandler := candidate.NewOfferHandler(clients)
 	candidateInterviewHandler := candidate.NewInterviewHandler(clients)
@@ -124,6 +125,7 @@ func Setup(cfg config.Config, clients *rpc.Clients, rdb *redis.Client) (*gin.Eng
 	dashboardHandler := hr.NewDashboardHandler(clients)
 	analyticsHandler := hr.NewAnalyticsHandler(clients)
 	collaborationHandler := hr.NewCollaborationHandler(clients)
+	recruitingIntelligenceHandler := hr.NewRecruitingIntelligenceHandler(clients)
 
 	normalTimeout := middleware.Timeout(10 * time.Second)
 	uploadTimeout := middleware.Timeout(20 * time.Second)
@@ -226,6 +228,12 @@ func Setup(cfg config.Config, clients *rpc.Clients, rdb *redis.Client) (*gin.Eng
 	staffGroup.GET("/jobs/:job_id/applications", normalTimeout, middleware.RequirePermission(authz.PermApplicationRead), hrApplicationHandler.ListByJob)
 	staffGroup.PATCH("/applications/:application_id/status", normalTimeout, middleware.RequirePermission(authz.PermApplicationStatusUpdate), hrApplicationHandler.UpdateStatus)
 	staffGroup.GET("/applications/:id/transitions", normalTimeout, middleware.RequirePermission(authz.PermApplicationRead), hrApplicationHandler.ListTransitions)
+	staffGroup.GET("/applications/:id/resume-profile", normalTimeout, middleware.RequirePermission(authz.PermApplicationRead), recruitingIntelligenceHandler.GetResumeProfileByApplication)
+	staffGroup.GET("/resume-profiles", normalTimeout, middleware.RequirePermission(authz.PermApplicationRead), recruitingIntelligenceHandler.GetResumeProfile)
+	staffGroup.POST("/resume-profiles/parse", riskBlock, aiLimit, hrAIQuota, aiTimeout, bodyAuth, middleware.RequirePermission(authz.PermAIHRUse), recruitingIntelligenceHandler.ParseResumeProfile)
+	staffGroup.POST("/applications/:application_id/match-evaluations", riskBlock, aiLimit, hrAIQuota, aiTimeout, bodyAuth, middleware.RequirePermission(authz.PermAIHRUse), recruitingIntelligenceHandler.EvaluateCandidateMatch)
+	staffGroup.GET("/applications/:id/match-evaluation", normalTimeout, middleware.RequirePermission(authz.PermApplicationRead), recruitingIntelligenceHandler.GetCandidateMatchEvaluation)
+	staffGroup.GET("/jobs/:job_id/candidate-comparison", normalTimeout, middleware.RequirePermission(authz.PermApplicationRead), recruitingIntelligenceHandler.CompareCandidatesForJob)
 
 	// Interview management — requires interview permissions
 	staffGroup.GET("/applications/:id/interviews", normalTimeout, middleware.RequirePermission(authz.PermInterviewRead), hrInterviewHandler.ListByApplication)
@@ -402,8 +410,13 @@ func Setup(cfg config.Config, clients *rpc.Clients, rdb *redis.Client) (*gin.Eng
 	adminGroup.POST("/mcp-servers", normalTimeout, bodyAdmin, middleware.RequirePermission(authz.PermSystemConfigManage), mcpHandler.CreateMCPServer)
 	adminGroup.PUT("/mcp-servers/:id", normalTimeout, bodyAdmin, middleware.RequirePermission(authz.PermSystemConfigManage), mcpHandler.UpdateMCPServer)
 	adminGroup.DELETE("/mcp-servers/:id", normalTimeout, middleware.RequirePermission(authz.PermSystemConfigManage), mcpHandler.DeleteMCPServer)
+	adminGroup.GET("/mcp-tool-policies", normalTimeout, middleware.RequirePermission(authz.PermSystemConfigManage), mcpHandler.ListMCPToolPolicies)
+	adminGroup.POST("/mcp-tool-policies", normalTimeout, bodyAdmin, middleware.RequirePermission(authz.PermSystemConfigManage), mcpHandler.CreateMCPToolPolicy)
+	adminGroup.PUT("/mcp-tool-policies/:id", normalTimeout, bodyAdmin, middleware.RequirePermission(authz.PermSystemConfigManage), mcpHandler.UpdateMCPToolPolicy)
+	adminGroup.DELETE("/mcp-tool-policies/:id", normalTimeout, middleware.RequirePermission(authz.PermSystemConfigManage), mcpHandler.DeleteMCPToolPolicy)
 	adminGroup.POST("/mcp-servers/:id/test", mcpTimeout, middleware.RequirePermission(authz.PermSystemConfigManage), mcpHandler.TestMCPConnection)
 	adminGroup.GET("/mcp-servers/:id/tools", mcpTimeout, middleware.RequirePermission(authz.PermSystemConfigManage), mcpHandler.ListMCPTools)
+	adminGroup.GET("/mcp-servers/:id/logs", normalTimeout, middleware.RequirePermission(authz.PermSystemConfigManage), mcpHandler.ListMCPToolLogs)
 	adminGroup.POST("/mcp-servers/:id/call-tool", mcpTimeout, bodyAdmin, middleware.RequirePermission(authz.PermSystemConfigManage), mcpHandler.CallMCPTool)
 
 	// SKILL registry management
@@ -419,14 +432,30 @@ func Setup(cfg config.Config, clients *rpc.Clients, rdb *redis.Client) (*gin.Eng
 
 	// Agent SKILL.md management — requires AI business permission
 	adminGroup.GET("/agent-skills", normalTimeout, middleware.RequirePermission(authz.PermAIAgentSkillManage), agentSkillHandler.List)
+	adminGroup.GET("/agent-skills/semantic-debug", normalTimeout, middleware.RequirePermission(authz.PermAIAgentSkillManage), agentSkillHandler.DebugSemanticRetrieval)
 	adminGroup.POST("/agent-skills", normalTimeout, bodyAdmin, middleware.RequirePermission(authz.PermAIAgentSkillManage), agentSkillHandler.Create)
 	adminGroup.POST("/agent-skills/preview", normalTimeout, bodyAdmin, middleware.RequirePermission(authz.PermAIAgentSkillManage), agentSkillHandler.Preview)
 	adminGroup.GET("/agent-skills/:id", normalTimeout, middleware.RequirePermission(authz.PermAIAgentSkillManage), agentSkillHandler.Get)
 	adminGroup.PUT("/agent-skills/:id", normalTimeout, bodyAdmin, middleware.RequirePermission(authz.PermAIAgentSkillManage), agentSkillHandler.Update)
 	adminGroup.PATCH("/agent-skills/:id/status", normalTimeout, bodyAuth, middleware.RequirePermission(authz.PermAIAgentSkillManage), agentSkillHandler.UpdateStatus)
+	adminGroup.POST("/agent-skills/:id/embedding/regenerate", normalTimeout, middleware.RequirePermission(authz.PermAIAgentSkillManage), agentSkillHandler.RegenerateEmbedding)
 	adminGroup.GET("/agent-skills/:id/versions", normalTimeout, middleware.RequirePermission(authz.PermAIAgentSkillManage), agentSkillHandler.ListVersions)
 	adminGroup.POST("/agent-skills/:id/versions", normalTimeout, bodyAdmin, middleware.RequirePermission(authz.PermAIAgentSkillManage), agentSkillHandler.CreateVersion)
 	adminGroup.POST("/agent-skills/:id/versions/:version_id/activate", normalTimeout, middleware.RequirePermission(authz.PermAIAgentSkillManage), agentSkillHandler.ActivateVersion)
+
+	// Embedding Provider & Model configuration — requires SYSTEM_CONFIG_MANAGE
+	adminGroup.GET("/embedding-providers", normalTimeout, middleware.RequirePermission(authz.PermSystemConfigManage), embeddingConfigHandler.ListProviders)
+	adminGroup.POST("/embedding-providers", normalTimeout, bodyAuth, middleware.RequirePermission(authz.PermSystemConfigManage), embeddingConfigHandler.CreateProvider)
+	adminGroup.PUT("/embedding-providers/:id", normalTimeout, bodyAuth, middleware.RequirePermission(authz.PermSystemConfigManage), embeddingConfigHandler.UpdateProvider)
+	adminGroup.DELETE("/embedding-providers/:id", normalTimeout, middleware.RequirePermission(authz.PermSystemConfigManage), embeddingConfigHandler.DeleteProvider)
+
+	adminGroup.GET("/embedding-models", normalTimeout, middleware.RequirePermission(authz.PermSystemConfigManage), embeddingConfigHandler.ListModels)
+	adminGroup.POST("/embedding-models", normalTimeout, bodyAuth, middleware.RequirePermission(authz.PermSystemConfigManage), embeddingConfigHandler.CreateModel)
+	adminGroup.PUT("/embedding-models/:id", normalTimeout, bodyAuth, middleware.RequirePermission(authz.PermSystemConfigManage), embeddingConfigHandler.UpdateModel)
+	adminGroup.POST("/embedding-models/:id/set-default", normalTimeout, middleware.RequirePermission(authz.PermSystemConfigManage), embeddingConfigHandler.SetDefaultModel)
+	adminGroup.POST("/embedding-models/test", normalTimeout, bodyAuth, middleware.RequirePermission(authz.PermSystemConfigManage), embeddingConfigHandler.TestModel)
+
+	adminGroup.POST("/embedding-backfill", normalTimeout, bodyAuth, middleware.RequirePermission(authz.PermSystemConfigManage), embeddingConfigHandler.BackfillEmbeddings)
 
 	return r, limiters
 }
