@@ -36,6 +36,8 @@ const loadTraces = async () => {
     runs.value = runData.list || []
     traces.value = traceData.list || []
   } catch (e) {
+    // Clear both lists so a failed refresh cannot leave stale runs from a prior session.
+    runs.value = []
     traces.value = []
     ElMessage.error('加载执行轨迹失败，请稍后重试')
   } finally {
@@ -117,9 +119,10 @@ watch(() => props.visible, (val) => {
   }
 })
 
-// Reload when session changes (panel already open)
+// Reload (or clear) when session changes while the panel is open.
+// loadTraces() already clears runs/traces when sessionId is null.
 watch(() => props.sessionId, () => {
-  if (props.visible && props.sessionId) {
+  if (props.visible) {
     loadTraces()
   }
 })
