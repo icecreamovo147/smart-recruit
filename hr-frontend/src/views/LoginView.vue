@@ -6,6 +6,7 @@ import { ElMessage } from 'element-plus'
 import { useAuthStore } from '@/stores/auth'
 import { useTheme } from '@/composables/useTheme'
 import request from '@/api/request'
+import { resolveStaffHomePath } from '@/utils/navigation'
 
 const router = useRouter()
 const auth = useAuthStore()
@@ -38,7 +39,7 @@ const submit = async () => {
       ElMessage.error('请使用 HR 账号登录')
       return
     }
-    router.push('/hr/workbench')
+    router.push(resolveStaffHomePath(auth))
   } finally {
     loading.value = false
   }

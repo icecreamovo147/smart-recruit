@@ -7,6 +7,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/cloudwego/eino/schema"
+
 	"logic-grpc-service/model"
 	"logic-grpc-service/oss"
 	"logic-grpc-service/pkg/authz"
@@ -31,6 +33,14 @@ type ToolResult struct {
 type ToolMetadata struct {
 	CandidateOptions []ToolCandidateOption
 	Action           *ToolAction
+
+	// BillingTokenUsage accumulates every model call's token usage in a single
+	// user action. Used for audit/cost tracking.
+	BillingTokenUsage *schema.TokenUsage
+	// ContextTokenUsage is overwritten by each model call and holds the latest
+	// model call's token usage. Used for context window occupancy display.
+	ContextTokenUsage *schema.TokenUsage
+
 	// ToolTraces accumulates one entry per executed tool call within a single
 	// ChatWithTools invocation. Populated by ChatWithTools in eino_client.go.
 	// Used by fallback-reply builders when the LLM fails after tools succeeded.
@@ -78,11 +88,49 @@ func (m *ToolMetadata) merge(other ToolMetadata) {
 	if other.Action != nil {
 		m.Action = other.Action
 	}
+	m.addBillingTokenUsage(other.BillingTokenUsage)
+	if other.ContextTokenUsage != nil {
+		m.setContextTokenUsage(other.ContextTokenUsage)
+	}
 }
 
 // recordTrace appends a single tool execution to the metadata trace log.
 func (m *ToolMetadata) recordTrace(t ToolTrace) {
 	m.ToolTraces = append(m.ToolTraces, t)
+}
+
+// addBillingTokenUsage accumulates usage into BillingTokenUsage.
+func (m *ToolMetadata) addBillingTokenUsage(usage *schema.TokenUsage) {
+	if usage == nil {
+		return
+	}
+	if m.BillingTokenUsage == nil {
+		m.BillingTokenUsage = &schema.TokenUsage{}
+	}
+	m.BillingTokenUsage.PromptTokens += usage.PromptTokens
+	m.BillingTokenUsage.PromptTokenDetails.CachedTokens += usage.PromptTokenDetails.CachedTokens
+	m.BillingTokenUsage.CompletionTokens += usage.CompletionTokens
+	m.BillingTokenUsage.CompletionTokensDetails.ReasoningTokens += usage.CompletionTokensDetails.ReasoningTokens
+	m.BillingTokenUsage.TotalTokens += usage.TotalTokens
+}
+
+// setContextTokenUsage overwrites ContextTokenUsage with the given usage.
+// This represents the latest model call's token usage for context window display.
+func (m *ToolMetadata) setContextTokenUsage(usage *schema.TokenUsage) {
+	if usage == nil {
+		return
+	}
+	if m.ContextTokenUsage == nil {
+		m.ContextTokenUsage = &schema.TokenUsage{}
+	}
+	*m.ContextTokenUsage = *usage
+}
+
+// recordModelUsage records a model call's token usage for both billing
+// (cumulative) and context (latest-call) semantics.
+func (m *ToolMetadata) recordModelUsage(usage *schema.TokenUsage) {
+	m.addBillingTokenUsage(usage)
+	m.setContextTokenUsage(usage)
 }
 
 func NewToolExecutor(apps *repository.ApplicationRepo, jobs *repository.JobRepo, resumes *repository.ResumeRepo, ossClient oss.Storage, authzRepo *repository.AuthzRepo) *ToolExecutor {

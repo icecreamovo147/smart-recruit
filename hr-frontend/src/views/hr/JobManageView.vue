@@ -2,6 +2,7 @@
 import { computed, onMounted, reactive, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
+import { ArrowDown, MoreFilled, Plus, Refresh, Search } from '@element-plus/icons-vue'
 import { createJob, getJobOptions, listHRJobs, offlineJob, onlineJob, updateJob } from '@/api/job'
 import RichTextEditor from '@/components/RichTextEditor.vue'
 import type { DepartmentLocationMapItem, DepartmentNode, Job, JobCreatePayload, JobQuery, LocationOption } from '@/types/domain'
@@ -15,6 +16,8 @@ const editingId = ref<number | null>(null)
 const jobs = ref<Job[]>([])
 const total = ref(0)
 const query = reactive<JobQuery>({ page: 1, page_size: 10 })
+const keyword = ref('')
+const statusFilter = ref('')
 
 // Taxonomy options loaded from API
 const departmentTree = ref<DepartmentNode[]>([])
@@ -255,6 +258,19 @@ const online = async (row: Job) => {
   }
 }
 
+const filteredJobs = computed(() => {
+  const q = keyword.value.trim().toLowerCase()
+  return jobs.value.filter((item) => {
+    const matchesKeyword = !q
+      || item.title.toLowerCase().includes(q)
+      || (item.department || '').toLowerCase().includes(q)
+      || (item.location || '').toLowerCase().includes(q)
+    const matchesStatus = !statusFilter.value
+      || (statusFilter.value === 'online' ? item.status === 1 : item.status !== 1)
+    return matchesKeyword && matchesStatus
+  })
+})
+
 onMounted(() => {
   load()
   loadOptions()
@@ -262,26 +278,49 @@ onMounted(() => {
 </script>
 
 <template>
-  <section class="job-management-page">
-    <div class="page-header">
-      <h1 class="page-title">岗位管理</h1>
-      <div class="toolbar">
-        <el-button type="primary" @click="openCreate">新增岗位</el-button>
+  <section class="console-page console-page--fill job-management-page">
+    <div class="job-management-workspace">
+      <div class="workspace-header">
+        <div class="workspace-header__copy">
+          <p class="console-eyebrow">RECRUITING OPS</p>
+          <h1 class="console-title">岗位管理</h1>
+          <p class="console-description">管理招聘岗位的发布状态、部门地点、薪资信息和候选人台账入口，让岗位运营状态一眼可见。</p>
+        </div>
       </div>
-    </div>
 
-    <div class="content-surface job-management-surface">
-      <el-alert v-if="errorMessage" class="page-error" type="error" :title="errorMessage" show-icon :closable="false">
+      <div class="workspace-divider"></div>
+
+      <div class="workspace-toolbar">
+        <div class="workspace-toolbar__filters">
+          <el-input v-model="keyword" :prefix-icon="Search" clearable placeholder="搜索岗位 / 部门 / 地点" style="width: 260px" />
+          <el-select v-model="statusFilter" clearable placeholder="全部状态" style="width: 140px">
+            <el-option label="招募中" value="online" />
+            <el-option label="已下架" value="offline" />
+          </el-select>
+        </div>
+        <div class="workspace-toolbar__actions">
+          <el-button :icon="Refresh" @click="load">刷新</el-button>
+          <el-button type="primary" :icon="Plus" @click="openCreate">新增岗位</el-button>
+        </div>
+      </div>
+
+      <el-alert v-if="errorMessage" class="workspace-error" type="error" :title="errorMessage" show-icon :closable="false">
         <template #default>
           <el-button size="small" type="danger" plain @click="load">重试</el-button>
         </template>
       </el-alert>
-      <div class="job-table-area desktop-only">
-        <el-table class="job-table" height="100%" v-loading="loading" :data="jobs" empty-text="暂无岗位">
-          <el-table-column prop="title" label="岗位" min-width="160" align="center" />
-          <el-table-column prop="department" label="部门" width="120" align="center" />
-          <el-table-column prop="location" label="地点" width="140" align="center" />
-          <el-table-column prop="salary_range" label="薪资" width="130" align="center" />
+
+      <div class="workspace-table-area desktop-only">
+        <el-table class="workspace-table" height="100%" v-loading="loading" :data="filteredJobs" empty-text="暂无岗位">
+          <el-table-column label="岗位信息" min-width="240">
+            <template #default="{ row }">
+              <div class="console-entity">
+                <div class="console-entity__name">{{ row.title }}</div>
+                <div class="console-entity__meta">{{ row.department || '未填写部门' }} / {{ row.location || '地点待定' }}</div>
+              </div>
+            </template>
+          </el-table-column>
+          <el-table-column prop="salary_range" label="薪资" width="140" align="center" />
           <el-table-column label="投递数" width="90" align="center">
             <template #default="{ row }">
               {{ row.application_count ?? 0 }}
@@ -292,21 +331,32 @@ onMounted(() => {
               <el-tag :type="row.status === 1 ? 'success' : 'info'">{{ row.status === 1 ? '招募中' : '已下架' }}</el-tag>
             </template>
           </el-table-column>
-          <el-table-column label="操作" width="340" fixed="right" align="center">
+          <el-table-column label="操作" width="200" fixed="right" align="center">
             <template #default="{ row }">
-              <el-button text type="primary" @click="openEdit(row)">编辑</el-button>
-              <el-button text type="primary" @click="openCopy(row)">复制</el-button>
-              <el-button text type="primary" @click="router.push(`/hr/jobs/${row.job_id}/applications`)">台账</el-button>
-              <el-button v-if="row.status === 1" text type="danger" @click="offline(row)">下架</el-button>
-              <el-button v-else text type="success" @click="online(row)">上线</el-button>
+              <el-button size="small" @click="openEdit(row)">编辑</el-button>
+              <el-dropdown trigger="click" @command="(cmd: string) => { if (cmd === 'copy') openCopy(row); if (cmd === 'apps') router.push(`/hr/jobs/${row.job_id}/applications`); if (cmd === 'offline') offline(row); if (cmd === 'online') online(row) }">
+                <el-button size="small">更多<el-icon class="el-icon--right"><ArrowDown /></el-icon></el-button>
+                <template #dropdown>
+                  <el-dropdown-menu>
+                    <el-dropdown-item command="copy">复制</el-dropdown-item>
+                    <el-dropdown-item command="apps">台账</el-dropdown-item>
+                    <el-dropdown-item v-if="row.status === 1" command="offline" divided style="color: var(--el-color-danger)">下架</el-dropdown-item>
+                    <el-dropdown-item v-else command="online" divided>上线</el-dropdown-item>
+                  </el-dropdown-menu>
+                </template>
+              </el-dropdown>
             </template>
           </el-table-column>
         </el-table>
       </div>
-      <!-- Mobile job cards -->
+
+      <div class="workspace-pagination desktop-only">
+        <el-pagination v-model:current-page="query.page" v-model:page-size="query.page_size" layout="total, prev, pager, next, sizes" :total="total" @current-change="load" @size-change="load" />
+      </div>
+
       <div class="mobile-card-list mobile-only">
-        <el-empty v-if="!loading && jobs.length === 0" description="暂无岗位" />
-        <div v-for="job in jobs" :key="job.job_id" class="mobile-job-card">
+        <el-empty v-if="!loading && filteredJobs.length === 0" description="暂无岗位" />
+        <div v-for="job in filteredJobs" :key="job.job_id" class="mobile-job-card">
           <div class="mobile-card__header">
             <h3 class="mobile-card__title">{{ job.title }}</h3>
             <el-tag :type="job.status === 1 ? 'success' : 'info'" size="small">{{ job.status === 1 ? '招募中' : '已下架' }}</el-tag>
@@ -326,10 +376,9 @@ onMounted(() => {
           </div>
         </div>
       </div>
-      <el-pagination class="job-pagination" v-model:current-page="query.page" v-model:page-size="query.page_size" layout="total, prev, pager, next, sizes" :total="total" @current-change="load" @size-change="load" />
     </div>
 
-    <el-dialog v-model="dialogVisible" :title="editingId ? '编辑岗位' : '新增岗位'" width="860px" @closed="resetForm">
+    <el-drawer v-model="dialogVisible" :title="editingId ? '编辑岗位' : '新增岗位'" size="860px" @closed="resetForm">
       <el-form label-width="80px">
         <el-form-item label="岗位名称">
           <el-input v-model="form.title" />
@@ -376,6 +425,101 @@ onMounted(() => {
         <el-button @click="dialogVisible = false">取消</el-button>
         <el-button type="primary" :loading="saving" @click="save">保存</el-button>
       </template>
-    </el-dialog>
+    </el-drawer>
   </section>
 </template>
+
+<style scoped>
+.job-management-workspace {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  box-shadow: var(--admin-console-card-shadow);
+  overflow: hidden;
+}
+
+.workspace-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 20px;
+  padding: 22px 24px;
+  background: var(--admin-console-header-bg);
+  flex-shrink: 0;
+}
+
+.workspace-header__copy {
+  min-width: 0;
+}
+
+.workspace-divider {
+  height: 1px;
+  background: var(--border);
+  flex-shrink: 0;
+}
+
+.workspace-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 24px;
+  flex-shrink: 0;
+}
+
+.workspace-toolbar__filters {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.workspace-toolbar__actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.workspace-error {
+  margin: 0 24px 12px;
+  flex-shrink: 0;
+}
+
+.workspace-table-area {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  padding: 0 10px;
+}
+
+.workspace-table-area > .el-table {
+  height: 100%;
+  min-height: 320px;
+}
+
+.workspace-pagination {
+  display: flex;
+  justify-content: flex-end;
+  padding: 12px 24px 14px;
+  border-top: 1px solid var(--border);
+  flex-shrink: 0;
+}
+
+@media (max-width: 720px) {
+  .workspace-header {
+    flex-direction: column;
+  }
+  .workspace-toolbar {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .workspace-toolbar__actions {
+    justify-content: flex-start;
+  }
+}
+</style>

@@ -33,10 +33,15 @@ func (r *ChatRepo) Add(ctx context.Context, history *model.AIChatHistory) error 
 			if cnt == 0 {
 				return gorm.ErrRecordNotFound
 			}
-			// Touch updated_at (best-effort; ignore rows affected).
+			// Touch updated_at (best-effort; ignore rows affected) and keep
+			// the latest context usage snapshot on the session when available.
+			sessionUpdates := map[string]any{"updated_at": time.Now()}
+			if history.ContextUsageJSON != "" {
+				sessionUpdates["latest_context_usage_json"] = history.ContextUsageJSON
+			}
 			tx.Model(&model.AIChatSession{}).
 				Where("id = ? AND hr_id = ? AND deleted_at IS NULL", history.SessionID, history.HrID).
-				Update("updated_at", time.Now())
+				Updates(sessionUpdates)
 		}
 		return tx.Create(history).Error
 	})
@@ -85,6 +90,15 @@ func (r *ChatRepo) ListBySession(ctx context.Context, hrID, sessionID int64, pag
 		Order("created_at ASC, id ASC").
 		Offset(offset(page, pageSize)).
 		Limit(int(pageSize)).
+		Find(&rows).Error
+	return rows, err
+}
+
+func (r *ChatRepo) ListAllBySession(ctx context.Context, hrID, sessionID int64) ([]model.AIChatHistory, error) {
+	var rows []model.AIChatHistory
+	err := r.db.WithContext(ctx).Where("hr_id = ? AND session_id = ?", hrID, sessionID).
+		Where("EXISTS (SELECT 1 FROM ai_chat_sessions s WHERE s.id = ? AND s.hr_id = ? AND s.deleted_at IS NULL)", sessionID, hrID).
+		Order("created_at ASC, id ASC").
 		Find(&rows).Error
 	return rows, err
 }
@@ -153,10 +167,15 @@ func (r *ChatRepo) AddOwned(ctx context.Context, ownerRole int32, ownerID int64,
 			if cnt == 0 {
 				return gorm.ErrRecordNotFound
 			}
-			// Touch updated_at (best-effort; ignore rows affected).
+			// Touch updated_at (best-effort; ignore rows affected) and keep
+			// the latest context usage snapshot on the session when available.
+			sessionUpdates := map[string]any{"updated_at": time.Now()}
+			if history.ContextUsageJSON != "" {
+				sessionUpdates["latest_context_usage_json"] = history.ContextUsageJSON
+			}
 			tx.Model(&model.AIChatSession{}).
 				Where("id = ? AND owner_role = ? AND owner_id = ? AND deleted_at IS NULL", history.SessionID, ownerRole, ownerID).
-				Update("updated_at", time.Now())
+				Updates(sessionUpdates)
 		}
 		return tx.Create(history).Error
 	})

@@ -37,6 +37,11 @@ const (
 	PermAIHRUse       = "ai.hr.use"       // use HR AI assistant
 	PermAICandidateUse = "ai.candidate.use" // use candidate AI assistant
 
+	// AI business management (recruiting-facing)
+	PermAIPromptManage    = "ai.prompt.manage"     // manage recruiting prompt templates
+	PermAIAgentManage     = "ai.agent.manage"      // manage recruiting Agent definitions
+	PermAIAgentSkillManage = "ai.agent_skill.manage" // manage Agent Skill composition
+
 	// Admin — recruiting
 	PermAdminInviteManage     = "admin.invite.manage"      // create/list/revoke/reactivate invite codes
 	PermAdminDepartmentManage = "admin.department.manage"  // manage departments and department-location relations
@@ -82,6 +87,9 @@ var PermissionDisplayNames = map[string]string{
 	PermNotificationRead:             "查看通知",
 	PermAIHRUse:                      "使用HR AI助手",
 	PermAICandidateUse:               "使用求职者AI助手",
+	PermAIPromptManage:               "管理 Prompt 模板",
+	PermAIAgentManage:                "管理 Agent",
+	PermAIAgentSkillManage:           "管理 Agent Skill",
 	PermAdminInviteManage:            "管理邀请码",
 	PermAdminDepartmentManage:        "管理部门",
 	PermAdminLocationManage:          "管理工作地点",

@@ -1,8 +1,8 @@
 <script setup lang="ts">
-import { onMounted, reactive, ref } from 'vue'
+import { computed, onMounted, reactive, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { ArrowDown } from '@element-plus/icons-vue'
+import { ArrowDown, Back, Refresh, Search } from '@element-plus/icons-vue'
 import { listJobApplications, updateApplicationStatus } from '@/api/application'
 import { listApplicationInterviews, batchCancelInterviews } from '@/api/interview'
 import type { Application, InterviewSchedule, JobQuery } from '@/types/domain'
@@ -16,6 +16,8 @@ const errorMessage = ref('')
 const list = ref<Application[]>([])
 const total = ref(0)
 const query = reactive<JobQuery>({ page: 1, page_size: 10 })
+const keyword = ref('')
+const statusFilter = ref('')
 
 const formatDateTime = (value: string): string => {
   if (!value) return '-'
@@ -231,27 +233,75 @@ const handleDropdownCommand = (command: string, row: Application) => {
   }
 }
 
+const filteredList = computed(() => {
+  const q = keyword.value.trim().toLowerCase()
+  return list.value.filter((item) => {
+    const matchesKeyword = !q
+      || (item.real_name || '').toLowerCase().includes(q)
+      || (item.phone || '').toLowerCase().includes(q)
+      || (item.school || '').toLowerCase().includes(q)
+      || (item.skills || []).some((skill: string) => skill.toLowerCase().includes(q))
+    const matchesStatus = !statusFilter.value || getStatusKey(item) === statusFilter.value
+    return matchesKeyword && matchesStatus
+  })
+})
+
+const ledgerStats = computed(() => [
+  { label: '投递总数', value: total.value || list.value.length, hint: '当前岗位候选人池' },
+  { label: '待查看', value: list.value.filter((item) => getStatusKey(item) === APP_STATUS_KEY.APPLIED || Number(item.status) === 0).length, hint: '需要初筛处理' },
+  { label: '面试中', value: list.value.filter((item) => new Set<string>([APP_STATUS_KEY.INTERVIEW_PENDING, APP_STATUS_KEY.INTERVIEW_PASSED]).has(getStatusKey(item))).length, hint: '已进入面试流程' },
+  { label: '已终态', value: list.value.filter((item) => TERMINAL_STATUS_KEYS.has(getStatusKey(item))).length, hint: 'Offer 或淘汰完成' },
+])
+
 onMounted(load)
 </script>
 
 <template>
-  <section class="application-ledger-page">
-    <div class="page-header">
-      <h1 class="page-title">候选人台账</h1>
-      <el-button @click="$router.push('/hr/jobs')">返回岗位</el-button>
-    </div>
-    <div class="content-surface application-ledger-surface">
-      <el-alert v-if="errorMessage" class="page-error" type="error" :title="errorMessage" show-icon :closable="false">
+  <section class="console-page console-page--fill application-ledger-page">
+    <div class="workspace-surface">
+      <div class="workspace-surface__header">
+        <div class="workspace-surface__header-copy">
+          <p class="console-eyebrow">CANDIDATE LEDGER</p>
+          <h1 class="console-title">候选人台账</h1>
+          <p class="console-description">围绕当前岗位跟进候选人投递、简历查看、AI 分析、面试安排和 Offer 推进。</p>
+        </div>
+        <div class="workspace-surface__header-actions">
+          <el-button :icon="Back" @click="$router.push('/hr/jobs')">返回岗位</el-button>
+          <el-button :icon="Refresh" @click="load">刷新</el-button>
+        </div>
+      </div>
+
+      <div class="workspace-surface__divider"></div>
+
+      <div class="workspace-surface__toolbar">
+        <div class="workspace-surface__filters">
+          <el-input v-model="keyword" :prefix-icon="Search" clearable placeholder="搜索姓名 / 电话 / 学校 / 技能" style="width: 300px" />
+          <el-select v-model="statusFilter" clearable placeholder="全部状态" style="width: 160px">
+            <el-option label="已投递" :value="APP_STATUS_KEY.APPLIED" />
+            <el-option label="已查看" :value="APP_STATUS_KEY.VIEWED" />
+            <el-option label="初筛通过" :value="APP_STATUS_KEY.SCREEN_PASSED" />
+            <el-option label="待面试" :value="APP_STATUS_KEY.INTERVIEW_PENDING" />
+            <el-option label="面试通过" :value="APP_STATUS_KEY.INTERVIEW_PASSED" />
+            <el-option label="待发 Offer" :value="APP_STATUS_KEY.OFFER_PENDING" />
+            <el-option label="已淘汰" :value="APP_STATUS_KEY.REJECTED" />
+          </el-select>
+        </div>
+      </div>
+      <el-alert v-if="errorMessage" class="workspace-surface__error" type="error" :title="errorMessage" show-icon :closable="false">
         <template #default>
           <el-button size="small" type="danger" plain @click="load">重试</el-button>
         </template>
       </el-alert>
-      <div class="application-ledger-table-area desktop-only">
-        <el-table class="application-ledger-table" height="100%" v-loading="loading" :data="list" empty-text="暂无投递">
-          <el-table-column prop="real_name" label="姓名" width="110" />
-          <el-table-column prop="phone" label="电话" width="140" />
-          <el-table-column prop="education" label="学历" width="100" />
-          <el-table-column prop="school" label="学校" min-width="150" />
+      <div class="workspace-surface__body desktop-only">
+        <el-table class="console-table" height="100%" v-loading="loading" :data="filteredList" empty-text="暂无投递">
+          <el-table-column label="候选人" min-width="220">
+            <template #default="{ row }">
+              <div class="console-entity">
+                <div class="console-entity__name">{{ row.real_name || '未知姓名' }}</div>
+                <div class="console-entity__meta">{{ row.phone || '未填写电话' }} / {{ row.education || '-' }} / {{ row.school || '-' }}</div>
+              </div>
+            </template>
+          </el-table-column>
           <el-table-column label="技能" min-width="220">
             <template #default="{ row }">
               <el-tag v-for="skill in row.skills" :key="skill" style="margin-right: 6px">{{ skill }}</el-tag>
@@ -292,10 +342,14 @@ onMounted(load)
           </el-table-column>
         </el-table>
       </div>
-      <!-- Mobile candidate cards -->
+
+      <div class="workspace-surface__pagination desktop-only">
+        <el-pagination v-model:current-page="query.page" v-model:page-size="query.page_size" layout="total, prev, pager, next, sizes" :total="total" @current-change="load" @size-change="load" />
+      </div>
+
       <div class="mobile-card-list mobile-only">
-        <el-empty v-if="!loading && list.length === 0" description="暂无投递" />
-        <div v-for="row in list" :key="row.application_id" class="mobile-application-card">
+        <el-empty v-if="!loading && filteredList.length === 0" description="暂无投递" />
+        <div v-for="row in filteredList" :key="row.application_id" class="mobile-application-card">
           <div class="mobile-card__header">
             <h3 class="mobile-card__title">{{ row.real_name || '未知姓名' }}</h3>
             <el-tag :type="statusType(row)" size="small">{{ statusLabel(row) }}</el-tag>
@@ -331,7 +385,6 @@ onMounted(load)
           </div>
         </div>
       </div>
-      <el-pagination class="application-ledger-pagination" v-model:current-page="query.page" v-model:page-size="query.page_size" layout="total, prev, pager, next, sizes" :total="total" @current-change="load" @size-change="load" />
     </div>
 
     <!-- Interview scheduling dialog -->

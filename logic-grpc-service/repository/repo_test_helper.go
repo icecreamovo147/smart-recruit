@@ -26,6 +26,8 @@ func setupTestDB(t *testing.T) *gorm.DB {
 		&model.AIChatHistory{},
 		&model.AISessionSummary{},
 		&model.AIToolTrace{},
+		&model.AgentRun{},
+		&model.AgentRunStep{},
 		&model.AIMemory{},
 		&model.Notification{},
 		&model.EventOutbox{},
@@ -33,6 +35,14 @@ func setupTestDB(t *testing.T) *gorm.DB {
 		&model.ApplicationStatusTransition{},
 		&model.InterviewSchedule{},
 		&model.InterviewFeedback{},
+		&model.MCPServer{},
+		&model.MCPToolLog{},
+		&model.AgentConfig{},
+		&model.AgentToolBinding{},
+		&model.AgentCapabilityBinding{},
+		&model.Skill{},
+		&model.SkillVersion{},
+		&model.SkillTool{},
 	)
 	if err != nil {
 		t.Fatalf("auto-migrate failed: %v", err)

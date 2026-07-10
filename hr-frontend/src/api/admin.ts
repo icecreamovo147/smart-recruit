@@ -153,3 +153,39 @@ export const assignDataScope = (userId: number, scopeKey: string, resourceType?:
 
 export const revokeDataScope = (scopeId: number): Promise<void> =>
   request.delete(`/api/v1/hr/admin/data-scopes/${scopeId}`)
+
+// ── Usage Stats (P1-003) ─────────────────────────────────────────────────
+
+export interface UsageStatsQuery {
+  start_time?: string
+  end_time?: string
+  dimension?: 'user' | 'model' | 'session'
+}
+
+export interface UsageStatsItem {
+  name: string
+  total_tokens: number
+  call_count: number
+  avg_cost_ms: number
+  estimated_cost: number
+}
+
+export interface UsageTrendQuery {
+  start_time?: string
+  end_time?: string
+  granularity?: 'day' | 'week' | 'month'
+}
+
+export interface UsageTrendPoint {
+  date: string
+  total_tokens: number
+  call_count: number
+  avg_cost_ms: number
+  estimated_cost: number
+}
+
+export const getUsageStats = (params: UsageStatsQuery): Promise<{ list: UsageStatsItem[] }> =>
+  request.get('/api/v1/hr/admin/usage-stats', { params })
+
+export const getUsageTrend = (params: UsageTrendQuery): Promise<{ list: UsageTrendPoint[] }> =>
+  request.get('/api/v1/hr/admin/usage-trend', { params })

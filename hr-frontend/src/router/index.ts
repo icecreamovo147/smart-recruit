@@ -3,6 +3,7 @@ import type { RouteRecordRaw } from 'vue-router'
 import { getUser } from '@/utils/token'
 import { useAuthStore } from '@/stores/auth'
 import { PERM } from '@/types/domain'
+import { resolveStaffHomePathFromPermissions } from '@/utils/navigation'
 
 const LoginView = () => import('@/views/LoginView.vue')
 const RegisterView = () => import('@/views/RegisterView.vue')
@@ -17,14 +18,27 @@ const InviteCodeManageView = () => import('@/views/hr/InviteCodeManageView.vue')
 const DepartmentManageView = () => import('@/views/hr/DepartmentManageView.vue')
 const LocationManageView = () => import('@/views/hr/LocationManageView.vue')
 const UsageAuditView = () => import('@/views/hr/UsageAuditView.vue')
+const UsageStatsView = () => import('@/views/hr/UsageStatsView.vue')
 const SecurityAuditView = () => import('@/views/hr/SecurityAuditView.vue')
 const AnalyticsView = () => import('@/views/hr/AnalyticsView.vue')
 const StaffUserManageView = () => import('@/views/hr/StaffUserManageView.vue')
+const LlmProviderConfigView = () => import('@/views/hr/LlmProviderConfigView.vue')
+const LlmModelConfigView = () => import('@/views/hr/LlmModelConfigView.vue')
+const PromptManageView = () => import('@/views/hr/PromptManageView.vue')
+const AgentManageView = () => import('@/views/hr/admin/AgentManageView.vue')
+const McpManageView = () => import('@/views/hr/admin/McpManageView.vue')
+const SkillManageView = () => import('@/views/hr/admin/SkillManageView.vue')
+const AgentSkillManageView = () => import('@/views/hr/admin/AgentSkillManageView.vue')
 const ForbiddenView = () => import('@/views/ForbiddenView.vue')
+const NotFoundView = () => import('@/views/NotFoundView.vue')
 const CandidateDetailView = () => import('@/views/hr/CandidateDetailView.vue')
 
 const routes: RouteRecordRaw[] = [
-  { path: '/', redirect: '/hr/workbench' },
+  { path: '/', redirect: () => {
+    const user = getUser()
+    if (!user) return '/login'
+    return resolveStaffHomePathFromPermissions(user.permissions || [])
+  }},
   { path: '/login', component: LoginView },
   { path: '/register', component: RegisterView },
   { path: '/403', component: ForbiddenView },
@@ -102,9 +116,14 @@ const routes: RouteRecordRaw[] = [
     meta: { requiresAuth: true, requiresPermission: PERM.APPLICATION_READ, title: '数据分析' },
   },
   {
+    path: '/hr/admin/usage-stats',
+    component: UsageStatsView,
+    meta: { requiresAuth: true, requiresPermission: PERM.AUDIT_USAGE_READ, title: '使用统计' },
+  },
+  {
     path: '/hr/admin/usage-audit',
     component: UsageAuditView,
-    meta: { requiresAuth: true, requiresPermission: PERM.AUDIT_USAGE_READ, title: '第三方服务审计' },
+    meta: { requiresAuth: true, requiresPermission: PERM.AUDIT_USAGE_READ, title: '审计日志' },
   },
   {
     path: '/hr/admin/security-audit',
@@ -116,6 +135,43 @@ const routes: RouteRecordRaw[] = [
     component: StaffUserManageView,
     meta: { requiresAuth: true, requiresPermission: PERM.ADMIN_USER_MANAGE, title: '员工账号管理' },
   },
+  { path: '/hr/admin/llm-config', redirect: '/hr/admin/llm-config/providers' },
+  {
+    path: '/hr/admin/llm-config/providers',
+    component: LlmProviderConfigView,
+    meta: { requiresAuth: true, requiresPermission: PERM.SYSTEM_CONFIG_MANAGE, title: 'Provider 配置' },
+  },
+  {
+    path: '/hr/admin/llm-config/models',
+    component: LlmModelConfigView,
+    meta: { requiresAuth: true, requiresPermission: PERM.SYSTEM_CONFIG_MANAGE, title: 'Model 配置' },
+  },
+  {
+    path: '/hr/admin/prompts',
+    component: PromptManageView,
+    meta: { requiresAuth: true, requiresPermission: PERM.AI_PROMPT_MANAGE, title: 'Prompt 管理' },
+  },
+  {
+    path: '/hr/admin/agents',
+    component: AgentManageView,
+    meta: { requiresAuth: true, requiresPermission: PERM.AI_AGENT_MANAGE, title: 'Agent 管理' },
+  },
+  {
+    path: '/hr/admin/skills',
+    component: SkillManageView,
+    meta: { requiresAuth: true, requiresPermission: PERM.SYSTEM_CONFIG_MANAGE, title: '高级 SKILL 配置' },
+  },
+  {
+    path: '/hr/admin/agent-skills',
+    component: AgentSkillManageView,
+    meta: { requiresAuth: true, requiresPermission: PERM.AI_AGENT_SKILL_MANAGE, title: 'Agent Skill 管理' },
+  },
+  {
+    path: '/hr/admin/mcp-tools',
+    component: McpManageView,
+    meta: { requiresAuth: true, requiresPermission: PERM.SYSTEM_CONFIG_MANAGE, title: '工具中心' },
+  },
+  { path: '/:pathMatch(.*)*', component: NotFoundView },
 ]
 
 const router = createRouter({
@@ -141,6 +197,14 @@ router.beforeEach(async (to, _from, next) => {
   const requiredPerm = to.meta.requiresPermission as string | undefined
   if (requiredPerm && user) {
     if (!auth.hasPermission(requiredPerm)) {
+      next('/403')
+      return
+    }
+  }
+
+  const requiredRoles = to.meta.requiresAnyRole as string[] | undefined
+  if (requiredRoles?.length && user) {
+    if (!requiredRoles.some((role) => auth.hasRole(role))) {
       next('/403')
       return
     }

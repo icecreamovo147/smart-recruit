@@ -1,3 +1,18 @@
+logging:
+  level: "info"                      # LOG_LEVEL: debug / info / warn / error
+  format: "json"                     # LOG_FORMAT: console (colored) / json (machine-readable)
+  enable_file: false                 # LOG_ENABLE_FILE: enable JSON file rotation
+  file_path: "logs/logic-grpc-service.log"  # LOG_FILE_PATH: log file path
+  max_size_mb: 100                   # LOG_MAX_SIZE_MB: max size per log file before rotation
+  max_backups: 3                     # LOG_MAX_BACKUPS: rotated files to keep
+  max_age_days: 28                   # LOG_MAX_AGE_DAYS: days to retain logs
+  compress: true                     # LOG_COMPRESS: gzip rotated log files
+  enable_console: true               # LOG_ENABLE_CONSOLE: colored stdout output
+  gorm:
+    enable_sql_log: false            # GORM_ENABLE_SQL_LOG: log all SQL statements at DEBUG level
+    slow_threshold_ms: 200           # GORM_SLOW_THRESHOLD_MS: WARN on queries slower than this
+    ignore_record_not_found: true    # GORM_IGNORE_NOT_FOUND: suppress gorm.ErrRecordNotFound
+
 mysql:
   dsn: "root:your_password@tcp(127.0.0.1:3306)/recruitment?charset=utf8mb4&parseTime=True&loc=Local"
   max_open_conns: 50
@@ -79,5 +94,16 @@ smtp:
   from_address: "noreply@example.com"  # SMTP_FROM_ADDRESS
   from_name: "Smart Recruit"           # SMTP_FROM_NAME
   tls: true                 # 是否使用 TLS
+
+mcp:
+  default_timeout_seconds: 30
+  default_max_retries: 1
+  allow_stdio: false
+  allowed_stdio_commands:
+    - npx
+    - node
+  allowed_url_hosts: []
+  block_private_network: true
+  max_timeout_seconds: 120
 
 frontend_base_url: "http://localhost:5173"  # FRONTEND_BASE_URL: 前端地址基础 URL

@@ -109,8 +109,11 @@ func Setup(cfg config.Config, clients *rpc.Clients, rdb *redis.Client) (*gin.Eng
 	hrJobHandler := hr.NewJobHandler(clients)
 	hrApplicationHandler := hr.NewApplicationHandler(clients)
 	hrAIHandler := hr.NewAIHandler(clients)
+	llmConfigHandler := hr.NewLlmConfigHandler(clients)
 	hrInterviewHandler := hr.NewInterviewHandler(clients)
 	hrOfferHandler := hr.NewOfferHandler(clients)
+	hrCapabilityHandler := hr.NewCapabilityHandler(clients)
+	agentSkillHandler := hr.NewAgentSkillHandler(clients)
 	candidateOfferHandler := candidate.NewOfferHandler(clients)
 	candidateInterviewHandler := candidate.NewInterviewHandler(clients)
 	profileHandler := candidate.NewProfileHandler(clients)
@@ -125,6 +128,7 @@ func Setup(cfg config.Config, clients *rpc.Clients, rdb *redis.Client) (*gin.Eng
 	normalTimeout := middleware.Timeout(10 * time.Second)
 	uploadTimeout := middleware.Timeout(20 * time.Second)
 	aiTimeout := middleware.Timeout(45 * time.Second)
+	mcpTimeout := middleware.Timeout(120 * time.Second)
 
 	limiters := middleware.NewLimiterRegistry(
 		cfg.RateLimit.AuthRPS, cfg.RateLimit.AuthBurst,
@@ -146,6 +150,7 @@ func Setup(cfg config.Config, clients *rpc.Clients, rdb *redis.Client) (*gin.Eng
 	bodyProfile := middleware.MaxBodyBytes(16 << 10)
 	bodyAI := middleware.MaxBodyBytes(64 << 10)
 	bodyJob := middleware.MaxBodyBytes(64 << 10)
+	bodyAdmin := middleware.MaxBodyBytes(128 << 10) // 128KB for admin config (prompts, agents, etc.)
 
 	// ── Public auth endpoints ──────────────────────────────────────────
 	v1.POST("/auth/register", normalTimeout, authLimit, bodyAuth, authHandler.Register)
@@ -227,7 +232,7 @@ func Setup(cfg config.Config, clients *rpc.Clients, rdb *redis.Client) (*gin.Eng
 	staffGroup.POST("/interviews", normalTimeout, bodyAuth, middleware.RequirePermission(authz.PermInterviewSchedule), hrInterviewHandler.Schedule)
 	staffGroup.PUT("/interviews/:interview_id", normalTimeout, bodyAuth, middleware.RequirePermission(authz.PermInterviewSchedule), hrInterviewHandler.Update)
 	staffGroup.PATCH("/interviews/:interview_id/cancel", normalTimeout, bodyAuth, middleware.RequirePermission(authz.PermInterviewSchedule), hrInterviewHandler.Cancel)
-		staffGroup.POST("/applications/:application_id/cancel-interviews", normalTimeout, bodyAuth, middleware.RequirePermission(authz.PermInterviewSchedule), hrInterviewHandler.BatchCancelInterviews)
+	staffGroup.POST("/applications/:application_id/cancel-interviews", normalTimeout, bodyAuth, middleware.RequirePermission(authz.PermInterviewSchedule), hrInterviewHandler.BatchCancelInterviews)
 	staffGroup.GET("/interviews/:interview_id", normalTimeout, middleware.RequireAnyPermission(authz.PermInterviewRead, authz.PermInterviewSchedule), hrInterviewHandler.Get)
 	staffGroup.GET("/interviewers", normalTimeout, middleware.RequirePermission(authz.PermInterviewSchedule), hrInterviewHandler.ListInterviewers)
 
@@ -249,8 +254,16 @@ func Setup(cfg config.Config, clients *rpc.Clients, rdb *redis.Client) (*gin.Eng
 	staffGroup.GET("/ai/sessions", normalTimeout, middleware.RequirePermission(authz.PermAIHRUse), hrAIHandler.ListSessions)
 	staffGroup.POST("/ai/sessions", normalTimeout, middleware.RequirePermission(authz.PermAIHRUse), hrAIHandler.CreateSession)
 	staffGroup.GET("/ai/sessions/:session_id/messages", normalTimeout, middleware.RequirePermission(authz.PermAIHRUse), hrAIHandler.SessionMessages)
+	staffGroup.GET("/ai/sessions/:session_id/tool-traces", normalTimeout, middleware.RequirePermission(authz.PermAIHRUse), hrAIHandler.GetToolTraces)
+	staffGroup.GET("/ai/sessions/:session_id/agent-runs", normalTimeout, middleware.RequirePermission(authz.PermAIHRUse), hrAIHandler.GetAgentRuns)
 	staffGroup.PUT("/ai/sessions/:session_id", normalTimeout, middleware.RequirePermission(authz.PermAIHRUse), hrAIHandler.UpdateSession)
 	staffGroup.DELETE("/ai/sessions/:session_id", normalTimeout, middleware.RequirePermission(authz.PermAIHRUse), hrAIHandler.DeleteSession)
+	staffGroup.GET("/ai/models", normalTimeout, middleware.RequirePermission(authz.PermAIHRUse), llmConfigHandler.ListAvailableModels)
+	staffGroup.GET("/ai/skill-capabilities", normalTimeout, middleware.RequirePermission(authz.PermAIHRUse), hrAIHandler.ListSkillCapabilities)
+	staffGroup.GET("/agent-skills/available", normalTimeout, middleware.RequirePermission(authz.PermAIHRUse), agentSkillHandler.ListAvailable)
+	staffGroup.GET("/capabilities", normalTimeout, middleware.RequirePermission(authz.PermAIHRUse), hrCapabilityHandler.List)
+	staffGroup.GET("/capabilities/:id", normalTimeout, middleware.RequirePermission(authz.PermAIHRUse), hrCapabilityHandler.Get)
+	staffGroup.POST("/capabilities/from-template", normalTimeout, bodyAdmin, middleware.RequireAnyRole(authz.RoleRecruitingAdmin, authz.RoleSystemAdmin), hrCapabilityHandler.CreateFromTemplate)
 	staffGroup.POST("/ai/application-analysis-sessions", riskBlock, aiLimit, hrAIQuota, aiTimeout, middleware.RequirePermission(authz.PermAIHRUse), hrAIHandler.CreateApplicationAnalysisSession)
 	staffGroup.POST("/ai/chat", riskBlock, aiLimit, hrAIQuota, aiTimeout, middleware.RequirePermission(authz.PermAIHRUse), hrAIHandler.Chat)
 	staffGroup.POST("/ai/chat/stream", riskBlock, aiLimit, hrAIQuota, middleware.RequirePermission(authz.PermAIHRUse), hrAIHandler.ChatStream)
@@ -309,6 +322,7 @@ func Setup(cfg config.Config, clients *rpc.Clients, rdb *redis.Client) (*gin.Eng
 	// ── Admin routes (/hr/admin) ───────────────────────────────────────
 	// Admin routes require explicit admin permissions (not role hierarchy).
 	adminHandler := hr.NewAdminHandler(clients)
+	promptHandler := hr.NewPromptHandler(clients)
 	adminGroup := staffGroup.Group("/admin")
 
 	// Invite codes
@@ -340,6 +354,9 @@ func Setup(cfg config.Config, clients *rpc.Clients, rdb *redis.Client) (*gin.Eng
 	// Usage audit
 	adminGroup.GET("/third-party-usage-logs", normalTimeout, middleware.RequirePermission(authz.PermAuditUsageRead), adminHandler.ListUsageLogs)
 
+	// P1-003: AI usage statistics & trend
+	adminGroup.GET("/usage-stats", normalTimeout, middleware.RequirePermission(authz.PermAuditUsageRead), adminHandler.GetUsageStats)
+	adminGroup.GET("/usage-trend", normalTimeout, middleware.RequirePermission(authz.PermAuditUsageRead), adminHandler.GetUsageTrend)
 	// RBAC role & permission management
 	adminGroup.GET("/roles", normalTimeout, middleware.RequirePermission(authz.PermAdminRoleManage), adminHandler.ListRoles)
 	adminGroup.GET("/permissions", normalTimeout, middleware.RequirePermission(authz.PermAdminRoleManage), adminHandler.ListPermissions)
@@ -350,6 +367,66 @@ func Setup(cfg config.Config, clients *rpc.Clients, rdb *redis.Client) (*gin.Eng
 	adminGroup.DELETE("/data-scopes/:scope_id", normalTimeout, middleware.RequirePermission(authz.PermAdminUserManage), adminHandler.RevokeDataScope)
 	adminGroup.GET("/staff-users", normalTimeout, middleware.RequirePermission(authz.PermAdminUserManage), adminHandler.ListStaffUsers)
 	adminGroup.POST("/staff-users", normalTimeout, bodyProfile, middleware.RequirePermission(authz.PermAdminUserManage), adminHandler.CreateStaffUser)
+
+	// LLM Provider & Model configuration — requires SYSTEM_CONFIG_MANAGE
+	adminGroup.GET("/llm-providers", normalTimeout, middleware.RequirePermission(authz.PermSystemConfigManage), llmConfigHandler.ListProviders)
+	adminGroup.POST("/llm-providers", normalTimeout, bodyAuth, middleware.RequirePermission(authz.PermSystemConfigManage), llmConfigHandler.CreateProvider)
+	adminGroup.PUT("/llm-providers/:id", normalTimeout, bodyAuth, middleware.RequirePermission(authz.PermSystemConfigManage), llmConfigHandler.UpdateProvider)
+	adminGroup.DELETE("/llm-providers/:id", normalTimeout, middleware.RequirePermission(authz.PermSystemConfigManage), llmConfigHandler.DeleteProvider)
+	adminGroup.POST("/llm-providers/:id/test", normalTimeout, middleware.RequirePermission(authz.PermSystemConfigManage), llmConfigHandler.TestProviderConnection)
+
+	adminGroup.GET("/llm-models", normalTimeout, middleware.RequirePermission(authz.PermSystemConfigManage), llmConfigHandler.ListModels)
+	adminGroup.POST("/llm-models", normalTimeout, bodyAuth, middleware.RequirePermission(authz.PermSystemConfigManage), llmConfigHandler.CreateModel)
+	adminGroup.PUT("/llm-models/:id", normalTimeout, bodyAuth, middleware.RequirePermission(authz.PermSystemConfigManage), llmConfigHandler.UpdateModel)
+	adminGroup.DELETE("/llm-models/:id", normalTimeout, middleware.RequirePermission(authz.PermSystemConfigManage), llmConfigHandler.DeleteModel)
+
+	// Prompt template management — requires AI business permission
+	adminGroup.GET("/prompt-templates", normalTimeout, middleware.RequirePermission(authz.PermAIPromptManage), promptHandler.List)
+	adminGroup.POST("/prompt-templates", normalTimeout, bodyAdmin, middleware.RequirePermission(authz.PermAIPromptManage), promptHandler.Create)
+	adminGroup.PUT("/prompt-templates/:id", normalTimeout, bodyAdmin, middleware.RequirePermission(authz.PermAIPromptManage), promptHandler.Update)
+	adminGroup.DELETE("/prompt-templates/:id", normalTimeout, middleware.RequirePermission(authz.PermAIPromptManage), promptHandler.Delete)
+	adminGroup.GET("/prompt-templates/:id/versions", normalTimeout, middleware.RequirePermission(authz.PermAIPromptManage), promptHandler.ListVersions)
+	adminGroup.POST("/prompt-templates/:id/rollback", normalTimeout, bodyAdmin, middleware.RequirePermission(authz.PermAIPromptManage), promptHandler.Rollback)
+
+	// Agent configuration management — requires AI business permission
+	agentConfigHandler := hr.NewAgentConfigHandler(clients)
+	adminGroup.GET("/agent-configs", normalTimeout, middleware.RequirePermission(authz.PermAIAgentManage), agentConfigHandler.ListAgents)
+	adminGroup.GET("/agent-configs/capabilities", mcpTimeout, middleware.RequirePermission(authz.PermAIAgentManage), agentConfigHandler.ListCapabilities)
+	adminGroup.POST("/agent-configs", normalTimeout, bodyAdmin, middleware.RequirePermission(authz.PermAIAgentManage), agentConfigHandler.CreateAgent)
+	adminGroup.PUT("/agent-configs/:id", normalTimeout, bodyAdmin, middleware.RequirePermission(authz.PermAIAgentManage), agentConfigHandler.UpdateAgent)
+	adminGroup.DELETE("/agent-configs/:id", normalTimeout, middleware.RequirePermission(authz.PermAIAgentManage), agentConfigHandler.DeleteAgent)
+
+	// MCP server management
+	mcpHandler := hr.NewMCPHandler(clients)
+	adminGroup.GET("/mcp-servers", normalTimeout, middleware.RequirePermission(authz.PermSystemConfigManage), mcpHandler.ListMCPServers)
+	adminGroup.POST("/mcp-servers", normalTimeout, bodyAdmin, middleware.RequirePermission(authz.PermSystemConfigManage), mcpHandler.CreateMCPServer)
+	adminGroup.PUT("/mcp-servers/:id", normalTimeout, bodyAdmin, middleware.RequirePermission(authz.PermSystemConfigManage), mcpHandler.UpdateMCPServer)
+	adminGroup.DELETE("/mcp-servers/:id", normalTimeout, middleware.RequirePermission(authz.PermSystemConfigManage), mcpHandler.DeleteMCPServer)
+	adminGroup.POST("/mcp-servers/:id/test", mcpTimeout, middleware.RequirePermission(authz.PermSystemConfigManage), mcpHandler.TestMCPConnection)
+	adminGroup.GET("/mcp-servers/:id/tools", mcpTimeout, middleware.RequirePermission(authz.PermSystemConfigManage), mcpHandler.ListMCPTools)
+	adminGroup.POST("/mcp-servers/:id/call-tool", mcpTimeout, bodyAdmin, middleware.RequirePermission(authz.PermSystemConfigManage), mcpHandler.CallMCPTool)
+
+	// SKILL registry management
+	skillHandler := hr.NewSkillHandler(clients)
+	adminGroup.GET("/skills", normalTimeout, middleware.RequirePermission(authz.PermSystemConfigManage), skillHandler.ListSkills)
+	adminGroup.POST("/skills", normalTimeout, bodyAdmin, middleware.RequirePermission(authz.PermSystemConfigManage), skillHandler.CreateSkill)
+	adminGroup.PUT("/skills/:id", normalTimeout, bodyAdmin, middleware.RequirePermission(authz.PermSystemConfigManage), skillHandler.UpdateSkill)
+	adminGroup.GET("/skills/:id/versions", normalTimeout, middleware.RequirePermission(authz.PermSystemConfigManage), skillHandler.ListSkillVersions)
+	adminGroup.POST("/skills/:id/versions", normalTimeout, bodyAdmin, middleware.RequirePermission(authz.PermSystemConfigManage), skillHandler.CreateSkillVersion)
+	adminGroup.POST("/skills/:id/versions/:version_id/activate", normalTimeout, middleware.RequirePermission(authz.PermSystemConfigManage), skillHandler.ActivateSkillVersion)
+	adminGroup.GET("/skills/:id/tools", normalTimeout, middleware.RequirePermission(authz.PermSystemConfigManage), skillHandler.ListSkillTools)
+	adminGroup.PUT("/skills/:id/tools/:tool_id", normalTimeout, bodyAdmin, middleware.RequirePermission(authz.PermSystemConfigManage), skillHandler.UpdateSkillTool)
+
+	// Agent SKILL.md management — requires AI business permission
+	adminGroup.GET("/agent-skills", normalTimeout, middleware.RequirePermission(authz.PermAIAgentSkillManage), agentSkillHandler.List)
+	adminGroup.POST("/agent-skills", normalTimeout, bodyAdmin, middleware.RequirePermission(authz.PermAIAgentSkillManage), agentSkillHandler.Create)
+	adminGroup.POST("/agent-skills/preview", normalTimeout, bodyAdmin, middleware.RequirePermission(authz.PermAIAgentSkillManage), agentSkillHandler.Preview)
+	adminGroup.GET("/agent-skills/:id", normalTimeout, middleware.RequirePermission(authz.PermAIAgentSkillManage), agentSkillHandler.Get)
+	adminGroup.PUT("/agent-skills/:id", normalTimeout, bodyAdmin, middleware.RequirePermission(authz.PermAIAgentSkillManage), agentSkillHandler.Update)
+	adminGroup.PATCH("/agent-skills/:id/status", normalTimeout, bodyAuth, middleware.RequirePermission(authz.PermAIAgentSkillManage), agentSkillHandler.UpdateStatus)
+	adminGroup.GET("/agent-skills/:id/versions", normalTimeout, middleware.RequirePermission(authz.PermAIAgentSkillManage), agentSkillHandler.ListVersions)
+	adminGroup.POST("/agent-skills/:id/versions", normalTimeout, bodyAdmin, middleware.RequirePermission(authz.PermAIAgentSkillManage), agentSkillHandler.CreateVersion)
+	adminGroup.POST("/agent-skills/:id/versions/:version_id/activate", normalTimeout, middleware.RequirePermission(authz.PermAIAgentSkillManage), agentSkillHandler.ActivateVersion)
 
 	return r, limiters
 }

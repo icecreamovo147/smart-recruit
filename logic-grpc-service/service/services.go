@@ -2,6 +2,7 @@ package service
 
 import (
 	"github.com/redis/go-redis/v9"
+	"go.uber.org/zap"
 	"gorm.io/gorm"
 
 	"logic-grpc-service/ai"
@@ -10,6 +11,8 @@ import (
 	"logic-grpc-service/mq"
 	"logic-grpc-service/oss"
 	"logic-grpc-service/pkg/cache"
+	"logic-grpc-service/pkg/crypto"
+	"logic-grpc-service/pkg/logger"
 	"logic-grpc-service/repository"
 )
 
@@ -43,10 +46,18 @@ type Services struct {
 	Taxonomy      *JobTaxonomyService
 	Collaboration *CollaborationService
 	Analytics     *AnalyticsService
+	LlmConfig     *LlmConfigService
+	Prompt        *PromptService
+	AgentConfig   *AgentConfigService
+	MCP           *MCPService
+	Skill         *SkillService
+	AgentSkill    *AgentSkillService
 
 	// Phase 6: Audit context repo for AI usage audit writes
 	UsageAuditCtxRepo *repository.UsageAuditContextRepo
 
+	// P1-003: AI usage statistics
+	UsageStats *UsageStatsService
 	// Background workers (caller must Start/Stop)
 	OutboxPublisher      *OutboxPublisher
 	NotificationConsumer *NotificationConsumer
@@ -68,6 +79,7 @@ func NewServices(
 	chats *repository.ChatRepo,
 	summaries *repository.SessionSummaryRepo,
 	toolTraces *repository.ToolTraceRepo,
+	agentRuns *repository.AgentRunRepo,
 	memories *repository.MemoryRepo,
 	notifications *repository.NotificationRepo,
 	outbox *repository.OutboxRepo,
@@ -90,11 +102,10 @@ func NewServices(
 ) *Services {
 	toolExecutor := ai.NewToolExecutor(applications, jobs, resumes, ossClient, authzRepo)
 	candidateToolExecutor := ai.NewCandidateToolExecutor(applications, jobs, resumes)
-	contextBuilder := NewAgentContextBuilder(chats, summaries, memories, aiClient, cfg)
+	contextBuilder := NewAgentContextBuilder(chats, summaries, memories, aiClient, cfg, repository.NewPromptTemplateRepo(db))
 	agentRuntime := cfg.AI.AgentRuntime
 	analyticsRepo := repository.NewAnalyticsRepo(db)
 	usageAuditCtxRepo := repository.NewUsageAuditContextRepo(db)
-	candidateAI := NewCandidateAIService(usageLogs, usageAuditCtxRepo, authzRepo, chats, applications, jobs, resumes, aiClient, candidateToolExecutor, agentRuntime, toolTraces, summaries)
 	taxonomy := NewJobTaxonomyService(departments, locations, jobs, deptLocs)
 
 	outboxPublisher := NewOutboxPublisher(outbox, mqConn)
@@ -105,21 +116,42 @@ func NewServices(
 	serviceAuth := NewServiceAuthorizer(authzRepo, scopeEval)
 
 	collaborationRepo := repository.NewCollaborationRepo(db)
+	llmConfigSvc := newLlmConfigServiceWithFallback(db)
+	agentCfgRepo := repository.NewAgentConfigRepo(db)
+	promptTmplRepo := repository.NewPromptTemplateRepo(db)
+	candidateAI := NewCandidateAIService(usageLogs, usageAuditCtxRepo, authzRepo, chats, applications, jobs, resumes, aiClient, candidateToolExecutor, agentRuntime, toolTraces, summaries, promptTmplRepo, agentCfgRepo)
+
+	// Initialize MCP service before AI service for MCP tool injection
+	mcpSvc := NewMCPService(repository.NewMCPRepo(db), cfg)
+	skillSvc := NewSkillService(repository.NewSkillRepo(db))
+	agentSkillSvc := NewAgentSkillService(repository.NewAgentSkillRepo(db))
+	agentSkillRepo := repository.NewAgentSkillRepo(db)
 
 	return &Services{
 		Auth:              NewAuthService(users, tokens, authzRepo, inviteCodes, jwtSecret),
 		Analytics:         NewAnalyticsService(analyticsRepo, authzRepo, serviceAuth),
 		Admin:             NewAdminService(inviteCodes, usageLogs, users, authzRepo, tokenCache, serviceAuth),
 		UsageAuditCtxRepo: usageAuditCtxRepo,
-		Job:               NewJobService(jobs, jobCache, authzRepo, taxonomy, scopeEval),
-		Taxonomy:          taxonomy,
-		Candidate:         NewCandidateService(profiles, resumes, ossClient, outboxPublisher, usageLogs, serviceAuth),
-		Application:       NewApplicationService(authzRepo, applications, profiles, resumes, jobs, interviews, notifications, outboxPublisher, ossClient, jobCache, scopeEval),
-		Interview:         NewInterviewService(authzRepo, interviews, users, applications, jobs, notifications, outboxPublisher, ossClient, scopeEval, serviceAuth),
-		Offer:             NewOfferService(authzRepo, offers, applications, jobs, notifications, outboxPublisher, scopeEval, serviceAuth),
-		AI:                NewAIService(chats, applications, jobs, resumes, summaries, toolTraces, memories, ossClient, aiClient, toolExecutor, contextBuilder, candidateAI, usageLogs, usageAuditCtxRepo, authzRepo, agentRuntime, serviceAuth),
-		CandidateAI:       candidateAI,
-		Notification:      NewNotificationService(notifications, notifCache, serviceAuth),
+
+		// P1-003: AI usage statistics
+		UsageStats: NewUsageStatsService(repository.NewUsageStatsRepo(db), serviceAuth),
+
+		Job:          NewJobService(jobs, jobCache, authzRepo, taxonomy, scopeEval),
+		Taxonomy:     taxonomy,
+		Candidate:    NewCandidateService(profiles, resumes, ossClient, outboxPublisher, usageLogs, serviceAuth),
+		Application:  NewApplicationService(authzRepo, applications, profiles, resumes, jobs, interviews, notifications, outboxPublisher, ossClient, jobCache, scopeEval),
+		Interview:    NewInterviewService(authzRepo, interviews, users, applications, jobs, notifications, outboxPublisher, ossClient, scopeEval, serviceAuth),
+		Offer:        NewOfferService(authzRepo, offers, applications, jobs, notifications, outboxPublisher, scopeEval, serviceAuth),
+		AI:           NewAIService(chats, applications, jobs, resumes, summaries, toolTraces, agentRuns, memories, ossClient, aiClient, toolExecutor, contextBuilder, candidateAI, usageLogs, usageAuditCtxRepo, authzRepo, agentRuntime, serviceAuth, llmConfigSvc, agentCfgRepo, promptTmplRepo, mcpSvc, skillSvc, agentSkillRepo),
+		CandidateAI:  candidateAI,
+		Notification: NewNotificationService(notifications, notifCache, serviceAuth),
+		LlmConfig:    llmConfigSvc,
+		Prompt:       NewPromptService(promptTmplRepo),
+		AgentConfig:  NewAgentConfigService(agentCfgRepo, promptTmplRepo, mcpSvc, skillSvc),
+		MCP:          mcpSvc,
+		Skill:        skillSvc,
+		AgentSkill:   agentSkillSvc,
+
 		Collaboration: NewCollaborationService(
 			authzRepo,
 			collaborationRepo,
@@ -140,4 +172,16 @@ func NewServices(
 		ResumeParseConsumer:  resumeParseConsumer,
 		EmailConsumer:        emailConsumer,
 	}
+}
+
+// newLlmConfigServiceWithFallback creates a LlmConfigService if ENCRYPTION_KEY is available,
+// or returns nil if not set, allowing the rest of the app to function without the encryption key.
+func newLlmConfigServiceWithFallback(db *gorm.DB) *LlmConfigService {
+	encKey, err := crypto.LoadEncryptionKey()
+	if err != nil {
+		logger.L().Warn("llm config service disabled: ENCRYPTION_KEY not set, "+
+			"provider config and model config APIs will return errors", zap.Error(err))
+		return nil
+	}
+	return NewLlmConfigService(repository.NewProviderRepo(db), repository.NewModelConfigRepo(db), encKey)
 }

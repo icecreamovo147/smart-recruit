@@ -3,11 +3,21 @@ import router from '@/router'
 import { clearLocalAuthCache } from '@/utils/token'
 import { useAuthStore } from '@/stores/auth'
 import { BusinessError } from '@/types/api'
-import type { StreamHandlers, StreamPayload, ChatSessionListItem } from '@/types/ai'
+import type { StreamHandlers, StreamPayload, ChatSessionListItem, ToolTraceItem, AgentRunItem, ChatMessage } from '@/types/ai'
+import type { CapabilityInfo } from '@/types/agent'
 import request from './request'
 import { silentRefresh } from './authRefresh'
 
-export const sendMessage = (data: { message: string; application_id?: number; session_id?: number }): Promise<{
+export interface ChatRequestPayload {
+  message: string
+  application_id?: number
+  session_id?: number
+  model_id?: number
+  skill_capability_keys?: string[]
+  agent_skill_ids?: number[]
+}
+
+export const sendMessage = (data: ChatRequestPayload): Promise<{
   reply: string
   created_at: string
   action?: string
@@ -20,10 +30,10 @@ export const sendMessage = (data: { message: string; application_id?: number; se
 }> => request.post('/api/v1/hr/ai/chat', data)
 
 export const getHistory = (params: { page: number; page_size: number }): Promise<{
-  list: { role: string; content: string; created_at: string }[]
+  list: ChatMessage[]
 }> => request.get('/api/v1/hr/ai/history', { params })
 
-export const analyzeApplication = (data: { application_id: number }): Promise<{
+export const analyzeApplication = (data: { application_id: number; model_id?: number }): Promise<{
   reply: string
   candidate_name: string
   job_title: string
@@ -34,6 +44,7 @@ export const analyzeApplication = (data: { application_id: number }): Promise<{
 export const listSessions = (params: { page: number; page_size: number }): Promise<{
   total: number
   list: ChatSessionListItem[]
+  model_name?: string
 }> => request.get('/api/v1/hr/ai/sessions', { params })
 
 export const createSession = (data: { title?: string }): Promise<{
@@ -41,12 +52,12 @@ export const createSession = (data: { title?: string }): Promise<{
 }> => request.post('/api/v1/hr/ai/sessions', data)
 
 export const getSessionMessages = (sessionId: number, params: { page: number; page_size: number }): Promise<{
-  list: { role: string; content: string; created_at: string }[]
+  list: ChatMessage[]
 }> => request.get(`/api/v1/hr/ai/sessions/${sessionId}/messages`, { params })
 
-export const createApplicationAnalysisSession = (data: { application_id: number }): Promise<{
+export const createApplicationAnalysisSession = (data: { application_id: number; model_id?: number }): Promise<{
   session: ChatSessionListItem
-  messages: { role: string; content: string; created_at: string }[]
+  messages: ChatMessage[]
 }> => request.post('/api/v1/hr/ai/application-analysis-sessions', data)
 
 export const updateSession = (sessionId: number, data: { title: string }): Promise<void> =>
@@ -54,6 +65,18 @@ export const updateSession = (sessionId: number, data: { title: string }): Promi
 
 export const deleteSession = (sessionId: number): Promise<void> =>
   request.delete(`/api/v1/hr/ai/sessions/${sessionId}`)
+
+export const getToolTraces = (sessionId: number): Promise<{
+  list: ToolTraceItem[]
+}> => request.get(`/api/v1/hr/ai/sessions/${sessionId}/tool-traces`)
+
+export const getAgentRuns = (sessionId: number): Promise<{
+  list: AgentRunItem[]
+}> => request.get(`/api/v1/hr/ai/sessions/${sessionId}/agent-runs`)
+
+export const listSkillCapabilities = (): Promise<{
+  list: CapabilityInfo[]
+}> => request.get('/api/v1/hr/ai/skill-capabilities')
 
 const friendlyStreamMsg = (code: number, msg: string): string => {
   if (code === 42901) return msg || '今日 AI 使用次数已达上限，请明天再试'
@@ -91,8 +114,8 @@ const handleStreamPayload = (text: string, handlers: StreamHandlers): boolean =>
     if (payload.event_type && payload.event_type === 'error') {
       handlers.onError?.(payload.error_type || '', payload.event_message || payload.msg || '', payload)
     }
-    if (payload.event_type && payload.event_message && !payload.delta) {
-      handlers.onStatus?.(payload.event_type, payload.event_message, payload)
+    if (payload.event_type && !payload.delta) {
+      handlers.onStatus?.(payload.event_type, payload.event_message || '', payload)
     }
     if (payload.delta) {
       handlers.onDelta?.(payload.delta, payload)
@@ -108,7 +131,7 @@ const handleStreamPayload = (text: string, handlers: StreamHandlers): boolean =>
 }
 
 export const sendMessageStream = async (
-  data: { message: string; application_id?: number; session_id?: number },
+  data: ChatRequestPayload,
   handlers: StreamHandlers = {},
   options: { signal?: AbortSignal; silentAbort?: boolean } = {},
 ): Promise<void> => {

@@ -36,6 +36,9 @@ export const PERM = {
   ADMIN_ROLE_MANAGE: 'admin.role.manage',
   AUDIT_USAGE_READ: 'audit.usage.read',
   AUDIT_SECURITY_READ: 'audit.security.read',
+  AI_PROMPT_MANAGE: 'ai.prompt.manage',
+  AI_AGENT_MANAGE: 'ai.agent.manage',
+  AI_AGENT_SKILL_MANAGE: 'ai.agent_skill.manage',
   SYSTEM_CONFIG_MANAGE: 'system.config.manage',
 
   // Offer management

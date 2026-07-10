@@ -1,8 +1,11 @@
 <script setup lang="ts">
 import { ref, reactive, onMounted } from "vue";
 import { ElMessage } from "element-plus";
+import { Refresh, Search } from "@element-plus/icons-vue";
 import { listUsageLogs } from "@/api/admin";
 import type { UsageLogQuery, UsageLogItem } from "@/api/admin";
+
+// ── Constants ────────────────────────────────────────────────────────────
 
 const SERVICE_TYPE_MAP: Record<string, string> = {
     ai_chat: "AI 对话",
@@ -19,6 +22,8 @@ const STATUS_TAG_TYPE: Record<string, string> = {
 };
 
 const ROLE_MAP: Record<number, string> = { 1: "候选人", 2: "HR", 3: "管理员" };
+
+// ── Log list state ───────────────────────────────────────────────────────
 
 const loading = ref(false);
 const errorMessage = ref("");
@@ -100,16 +105,35 @@ const formatSize = (bytes: number): string => {
     return `${(bytes / 1024 / 1024).toFixed(1)} MB`;
 };
 
-onMounted(load);
+// ── Lifecycle ────────────────────────────────────────────────────────────
+
+onMounted(() => {
+    load();
+});
 </script>
 
 <template>
-    <div class="usage-audit">
+    <div class="console-page console-page--fill usage-audit">
+    <div class="workspace-surface">
+        <div class="workspace-surface__header">
+            <div class="workspace-surface__header-copy">
+                <p class="console-eyebrow">USAGE AUDIT</p>
+                <h1 class="console-title">第三方服务审计日志</h1>
+                <p class="console-description">追踪 AI、对象存储等外部服务的调用状态、耗时、Token 和 Request ID，支撑成本与稳定性审计。</p>
+            </div>
+            <div class="workspace-surface__header-actions">
+                <el-button :icon="Refresh" @click="load">刷新</el-button>
+            </div>
+        </div>
+
+        <div class="workspace-surface__divider"></div>
+
         <el-form
             :inline="true"
-            class="filter-form"
+            class="workspace-surface__toolbar filter-form"
             @submit.prevent="handleSearch"
         >
+            <div class="workspace-surface__filters">
             <el-form-item label="服务类型">
                 <el-select
                     v-model="query.service_type"
@@ -176,189 +200,72 @@ onMounted(load);
                     @change="handleDateChange"
                 />
             </el-form-item>
-            <el-form-item>
-                <el-button type="primary" @click="handleSearch">查询</el-button>
+            </div>
+            <div class="workspace-surface__actions">
+                <el-button type="primary" :icon="Search" @click="handleSearch">查询</el-button>
                 <el-button @click="handleReset">重置</el-button>
-            </el-form-item>
+            </div>
         </el-form>
 
         <el-alert
             v-if="errorMessage"
-            class="page-error"
+            class="workspace-surface__error"
             type="error"
             :title="errorMessage"
             show-icon
             :closable="false"
         >
             <template #default>
-                <el-button size="small" type="danger" plain @click="load"
-                    >重试</el-button
-                >
+                <el-button size="small" type="danger" plain @click="load">重试</el-button>
             </template>
         </el-alert>
 
-        <div class="table-wrapper">
+        <div class="workspace-surface__body">
             <el-table
                 v-loading="loading"
                 :data="logs"
+                class="console-table"
                 empty-text="暂无审计日志"
                 stripe
                 height="100%"
             >
-                <el-table-column
-                    prop="created_at"
-                    label="时间"
-                    min-width="170"
-                    align="center"
-                >
+                <el-table-column prop="created_at" label="时间" min-width="170" align="center">
                     <template #default="{ row }">
-                        {{
-                            row.created_at?.replace("T", " ").slice(0, 19) ||
-                            "-"
-                        }}
+                        {{ row.created_at?.replace("T", " ").slice(0, 19) || "-" }}
                     </template>
                 </el-table-column>
-                <el-table-column
-                    prop="user_id"
-                    label="用户ID"
-                    width="90"
-                    align="center"
-                />
-                <el-table-column
-                    prop="role"
-                    label="角色"
-                    width="80"
-                    align="center"
-                >
-                    <template #default="{ row }">{{
-                        ROLE_MAP[row.role] || row.role
-                    }}</template>
+                <el-table-column prop="user_id" label="用户ID" width="90" align="center" />
+                <el-table-column prop="role" label="角色" width="80" align="center">
+                    <template #default="{ row }">{{ ROLE_MAP[row.role] || row.role }}</template>
                 </el-table-column>
-                <el-table-column
-                    prop="service_type"
-                    label="服务类型"
-                    width="100"
-                    align="center"
-                >
-                    <template #default="{ row }">{{
-                        SERVICE_TYPE_MAP[row.service_type] || row.service_type
-                    }}</template>
+                <el-table-column prop="service_type" label="服务类型" width="100" align="center">
+                    <template #default="{ row }">{{ SERVICE_TYPE_MAP[row.service_type] || row.service_type }}</template>
                 </el-table-column>
-                <el-table-column
-                    prop="provider"
-                    label="供应商"
-                    width="110"
-                    align="center"
-                />
-                <el-table-column
-                    prop="model"
-                    label="模型"
-                    min-width="130"
-                    show-overflow-tooltip
-                />
-                <el-table-column
-                    prop="status"
-                    label="状态"
-                    width="80"
-                    align="center"
-                >
+                <el-table-column prop="provider" label="供应商" width="110" align="center" />
+                <el-table-column prop="model" label="模型" min-width="130" show-overflow-tooltip />
+                <el-table-column prop="status" label="状态" width="80" align="center">
                     <template #default="{ row }">
-                        <el-tag
-                            :type="
-                                (STATUS_TAG_TYPE[row.status] as any) || 'info'
-                            "
-                            size="small"
-                        >
+                        <el-tag :type="(STATUS_TAG_TYPE[row.status] as any) || 'info'" size="small">
                             {{ row.status }}
                         </el-tag>
                     </template>
                 </el-table-column>
-                <el-table-column
-                    prop="estimated_tokens"
-                    label="估算 Token"
-                    width="100"
-                    align="center"
-                />
-                <el-table-column
-                    prop="object_size"
-                    label="对象大小"
-                    width="100"
-                    align="center"
-                >
-                    <template #default="{ row }">{{
-                        formatSize(row.object_size)
-                    }}</template>
+                <el-table-column prop="cost_ms" label="耗时(ms)" width="100" align="center" />
+                <el-table-column prop="estimated_tokens" label="Token" width="100" align="center" />
+                <el-table-column prop="object_size" label="大小" width="100" align="center">
+                    <template #default="{ row }">{{ formatSize(row.object_size) }}</template>
                 </el-table-column>
-                <el-table-column
-                    prop="cost_ms"
-                    label="耗时(ms)"
-                    width="90"
-                    align="center"
-                />
-                <el-table-column
-                    prop="ip"
-                    label="IP"
-                    width="130"
-                    align="center"
-                    show-overflow-tooltip
-                />
-                <el-table-column
-                    prop="request_id"
-                    label="Request ID"
-                    min-width="120"
-                    align="center"
-                >
+                <el-table-column prop="request_id" label="Request ID" width="130" align="center">
                     <template #default="{ row }">
-                        <el-tooltip
-                            v-if="row.request_id"
-                            :content="row.request_id"
-                            placement="top"
-                        >
-                            <span
-                                class="copyable"
-                                @click="copyText(row.request_id)"
-                            >
-                                {{ row.request_id.slice(0, 8) }}...
-                            </span>
+                        <el-tooltip :content="row.request_id" placement="top">
+                            <span class="copyable" @click="copyText(row.request_id)">{{ row.request_id?.slice(0, 8) }}...</span>
                         </el-tooltip>
-                        <span v-else>-</span>
-                    </template>
-                </el-table-column>
-                <el-table-column
-                    prop="endpoint"
-                    label="接口"
-                    min-width="160"
-                    show-overflow-tooltip
-                />
-                <el-table-column
-                    prop="object_key"
-                    label="Object Key"
-                    min-width="160"
-                >
-                    <template #default="{ row }">
-                        <el-tooltip
-                            v-if="row.object_key"
-                            :content="row.object_key"
-                            placement="top"
-                        >
-                            <span
-                                class="copyable"
-                                @click="copyText(row.object_key)"
-                            >
-                                {{
-                                    row.object_key.length > 20
-                                        ? row.object_key.slice(0, 20) + "..."
-                                        : row.object_key
-                                }}
-                            </span>
-                        </el-tooltip>
-                        <span v-else>-</span>
                     </template>
                 </el-table-column>
             </el-table>
         </div>
 
-        <div class="pagination-wrapper">
+        <div class="workspace-surface__pagination">
             <el-pagination
                 v-model:current-page="query.page"
                 v-model:page-size="query.page_size"
@@ -370,6 +277,7 @@ onMounted(load);
             />
         </div>
     </div>
+    </div>
 </template>
 
 <style scoped>
@@ -377,7 +285,7 @@ onMounted(load);
     height: 100%;
     display: flex;
     flex-direction: column;
-    overflow: hidden;
+    overflow-y: auto;
     padding: 16px;
 }
 
@@ -395,7 +303,7 @@ onMounted(load);
 
 .table-wrapper {
     flex: 1;
-    min-height: 0;
+    min-height: 200px;
     overflow: hidden;
 }
 

@@ -33,6 +33,11 @@ const (
 	PermAIHRUse       = "ai.hr.use"
 	PermAICandidateUse = "ai.candidate.use"
 
+	// AI business management (recruiting-facing)
+	PermAIPromptManage    = "ai.prompt.manage"
+	PermAIAgentManage     = "ai.agent.manage"
+	PermAIAgentSkillManage = "ai.agent_skill.manage"
+
 	// Admin — recruiting
 	PermAdminInviteManage     = "admin.invite.manage"
 	PermAdminDepartmentManage = "admin.department.manage"

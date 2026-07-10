@@ -1,6 +1,7 @@
 <script setup lang="ts">
-import { onMounted, reactive, ref } from 'vue'
+import { computed, onMounted, reactive, ref } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
+import { ArrowDown, MoreFilled, Plus, Refresh, Search } from '@element-plus/icons-vue'
 import { listLocations, createLocation, updateLocation, updateLocationStatus, deleteLocation } from '@/api/admin'
 import type { LocationOption } from '@/types/domain'
 
@@ -8,6 +9,8 @@ const toNum = (v: unknown): number => (v != null ? Number(v) : 0)
 
 const loading = ref(false)
 const list = ref<LocationOption[]>([])
+const keyword = ref('')
+const statusFilter = ref('')
 
 const dialogVisible = ref(false)
 const editing = ref<LocationOption | null>(null)
@@ -91,39 +94,84 @@ const remove = async (row: LocationOption) => {
   load()
 }
 
+const filteredList = computed(() => {
+  const q = keyword.value.trim().toLowerCase()
+  return list.value.filter((item) => {
+    const matchesKeyword = !q
+      || item.name.toLowerCase().includes(q)
+      || (item.code || '').toLowerCase().includes(q)
+    const matchesStatus = !statusFilter.value
+      || (statusFilter.value === 'active' ? item.is_active === 1 : item.is_active !== 1)
+    return matchesKeyword && matchesStatus
+  })
+})
+
 onMounted(load)
 </script>
 
 <template>
-  <section class="taxonomy-page">
-    <div class="page-header">
-      <h1 class="page-title">地点管理</h1>
-      <el-button type="primary" @click="openCreate()">新增地点</el-button>
-    </div>
-    <div class="content-surface">
-      <el-table v-loading="loading" :data="list" border>
-        <el-table-column prop="name" label="地点名称" min-width="160" />
-        <el-table-column prop="code" label="编码" width="120" />
-        <el-table-column label="状态" width="80" align="center">
-          <template #default="{ row }">
-            <el-tag :type="row.is_active === 1 ? 'success' : 'info'" size="small">
-              {{ row.is_active === 1 ? '启用' : '停用' }}
-            </el-tag>
-          </template>
-        </el-table-column>
-        <el-table-column label="操作" width="200" fixed="right" align="center">
-          <template #default="{ row }">
-            <el-button text type="primary" size="small" @click="openEdit(row)">编辑</el-button>
-            <el-button text :type="row.is_active === 1 ? 'warning' : 'success'" size="small" @click="toggleStatus(row)">
-              {{ row.is_active === 1 ? '停用' : '启用' }}
-            </el-button>
-            <el-button text type="danger" size="small" @click="remove(row)">删除</el-button>
-          </template>
-        </el-table-column>
-      </el-table>
+  <section class="console-page console-page--fill taxonomy-page">
+    <div class="workspace-surface">
+      <div class="workspace-surface__header">
+        <div class="workspace-surface__header-copy">
+          <p class="console-eyebrow">BASIC DATA</p>
+          <h1 class="console-title">地点管理</h1>
+          <p class="console-description">维护招聘业务中可使用的城市、园区或办公地点，供岗位发布、部门地点配置和权限数据范围复用。</p>
+        </div>
+        <div class="workspace-surface__header-actions">
+          <el-button :icon="Refresh" @click="load">刷新</el-button>
+          <el-button type="primary" :icon="Plus" @click="openCreate()">新增地点</el-button>
+        </div>
+      </div>
+
+      <div class="workspace-surface__divider"></div>
+
+      <div class="workspace-surface__toolbar">
+        <div class="workspace-surface__filters">
+          <el-input v-model="keyword" :prefix-icon="Search" clearable placeholder="搜索地点名称 / 编码" style="width: 240px" />
+          <el-select v-model="statusFilter" clearable placeholder="全部状态" style="width: 140px">
+            <el-option label="启用" value="active" />
+            <el-option label="停用" value="inactive" />
+          </el-select>
+        </div>
+      </div>
+
+      <div class="workspace-surface__body">
+        <el-table v-loading="loading" :data="filteredList" class="console-table" stripe>
+          <el-table-column label="地点信息" min-width="220">
+            <template #default="{ row }">
+              <div class="console-entity">
+                <div class="console-entity__name">{{ row.name }}</div>
+                <div class="console-entity__meta">编码：<span class="console-code">{{ row.code || '-' }}</span></div>
+              </div>
+            </template>
+          </el-table-column>
+          <el-table-column label="状态" width="80" align="center">
+            <template #default="{ row }">
+              <el-tag :type="row.is_active === 1 ? 'success' : 'info'" size="small">
+                {{ row.is_active === 1 ? '启用' : '停用' }}
+              </el-tag>
+            </template>
+          </el-table-column>
+          <el-table-column label="操作" width="200" fixed="right" align="center">
+            <template #default="{ row }">
+              <el-button size="small" @click="openEdit(row)">编辑</el-button>
+              <el-dropdown trigger="click" @command="(cmd: string) => { if (cmd === 'toggle') toggleStatus(row); if (cmd === 'delete') remove(row) }">
+                <el-button size="small">更多<el-icon class="el-icon--right"><ArrowDown /></el-icon></el-button>
+                <template #dropdown>
+                  <el-dropdown-menu>
+                    <el-dropdown-item command="toggle">{{ row.is_active === 1 ? '停用' : '启用' }}</el-dropdown-item>
+                    <el-dropdown-item command="delete" divided style="color: var(--el-color-danger)">删除</el-dropdown-item>
+                  </el-dropdown-menu>
+                </template>
+              </el-dropdown>
+            </template>
+          </el-table-column>
+        </el-table>
+      </div>
     </div>
 
-    <el-dialog v-model="dialogVisible" :title="editing ? '编辑地点' : '新增地点'" width="480px">
+    <el-drawer v-model="dialogVisible" :title="editing ? '编辑地点' : '新增地点'" size="480px">
       <el-form label-width="80px">
         <el-form-item label="地点名称">
           <el-input v-model="form.name" placeholder="请输入地点名称" />
@@ -139,6 +187,6 @@ onMounted(load)
         <el-button @click="dialogVisible = false">取消</el-button>
         <el-button type="primary" @click="saveLoc">保存</el-button>
       </template>
-    </el-dialog>
+    </el-drawer>
   </section>
 </template>

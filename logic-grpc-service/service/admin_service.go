@@ -579,14 +579,14 @@ func (s *AdminService) ListStaffUsers(ctx context.Context, req *pb.ListStaffUser
 			roleKeys = []string{}
 		}
 		list[i] = &pb.StaffUserInfo{
-			UserId:      int64(u.ID),
-			Username:    u.Username,
-			Email:       u.Email,
-			Status:      u.Status,
-			AccountType: u.AccountType,
-			Roles:       roleKeys,
+			UserId:       int64(u.ID),
+			Username:     u.Username,
+			Email:        u.Email,
+			Status:       u.Status,
+			AccountType:  u.AccountType,
+			Roles:        roleKeys,
 			TokenVersion: u.TokenVersion,
-			CreatedAt:   u.CreatedAt.Format(time.RFC3339),
+			CreatedAt:    u.CreatedAt.Format(time.RFC3339),
 		}
 	}
 	return &pb.ListStaffUsersResponse{Code: errs.OK, Msg: "success", Total: total, List: list}, nil
@@ -613,12 +613,12 @@ func (s *AdminService) CreateStaffUser(ctx context.Context, req *pb.CreateStaffU
 		return nil, err
 	}
 	user := &model.User{
-		Username:    req.Username,
-		Password:    string(hashedBytes),
-		Email:       req.Email,
-		Role:        3, // deprecated legacy role
-		AccountType: "staff",
-		Status:      "active",
+		Username:     req.Username,
+		Password:     string(hashedBytes),
+		Email:        req.Email,
+		Role:         3, // deprecated legacy role
+		AccountType:  "staff",
+		Status:       "active",
 		TokenVersion: 1,
 	}
 	if err := s.users.Create(ctx, user); err != nil {
@@ -638,6 +638,12 @@ func (s *AdminService) CreateStaffUser(ctx context.Context, req *pb.CreateStaffU
 					zap.Error(err), zap.String("role_key", rk))
 			}
 		}
+		if containsRoleKey(req.RoleKeys, authz.RoleRecruiter) {
+			if err := s.authz.AssignDataScope(ctx, uint64(user.ID), authz.ScopeOwnJobs, "", 0, &adminID); err != nil {
+				logger.L().Error("assign own_jobs scope failed during staff creation", zap.Error(err))
+				return &pb.CreateStaffUserResponse{Code: errs.ErrInternal, Msg: "账号创建失败，请稍后重试"}, nil
+			}
+		}
 	}
 	s.auditAdminAction(ctx, uint64(req.AdminId), "create_staff", uint64(user.ID), "allowed",
 		"created staff user "+req.Username, "", "")
@@ -646,6 +652,15 @@ func (s *AdminService) CreateStaffUser(ctx context.Context, req *pb.CreateStaffU
 		zap.String("username", req.Username),
 	)
 	return &pb.CreateStaffUserResponse{Code: errs.OK, Msg: "success", UserId: int64(user.ID)}, nil
+}
+
+func containsRoleKey(roleKeys []string, target string) bool {
+	for _, roleKey := range roleKeys {
+		if roleKey == target {
+			return true
+		}
+	}
+	return false
 }
 
 func formatUint(v uint64) string {

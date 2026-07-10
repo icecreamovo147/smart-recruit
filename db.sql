@@ -147,6 +147,7 @@ CREATE TABLE IF NOT EXISTS `ai_chat_sessions` (
   `owner_id` BIGINT UNSIGNED NOT NULL DEFAULT 0 COMMENT '归属用户ID',
   `title` VARCHAR(255) NOT NULL COMMENT '会话标题',
   `application_id` BIGINT UNSIGNED NOT NULL DEFAULT 0 COMMENT '绑定的投递记录ID，0表示普通数据问答',
+  `latest_context_usage_json` TEXT NULL COMMENT '当前会话最近一次上下文占用快照(JSON)',
   `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   `updated_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   `deleted_at` DATETIME NULL COMMENT '软删除时间',
@@ -165,6 +166,12 @@ CREATE TABLE IF NOT EXISTS `ai_chat_history` (
   `owner_id` BIGINT UNSIGNED NOT NULL DEFAULT 0 COMMENT '归属用户ID',
   `role` VARCHAR(16) NOT NULL COMMENT '消息角色：user / assistant',
   `content` TEXT NOT NULL COMMENT '消息内容',
+  `process_content` TEXT NULL COMMENT 'assistant 前置执行过程说明',
+  `context_usage_json` TEXT NULL COMMENT '本条消息对应的上下文占用快照(JSON)',
+  `model_id` BIGINT NULL COMMENT 'assistant 实际使用的模型ID',
+  `model_name` VARCHAR(128) NULL COMMENT 'assistant 实际使用的模型名称',
+  `agent_skill_ids_json` TEXT NULL COMMENT '本条用户消息选择的 Agent Skill ID 快照(JSON数组)',
+  `agent_skill_names_json` TEXT NULL COMMENT '本条用户消息选择的 Agent Skill 名称快照(JSON数组)',
   `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`),
   KEY `idx_session_id` (`session_id`),
@@ -191,18 +198,73 @@ CREATE TABLE IF NOT EXISTS `ai_tool_traces` (
   `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
   `session_id` BIGINT UNSIGNED NOT NULL DEFAULT 0,
   `hr_id` BIGINT UNSIGNED NOT NULL,
+  `agent_run_id` BIGINT NULL,
+  `agent_run_step_id` BIGINT NULL,
   `tool_call_id` VARCHAR(128) NOT NULL DEFAULT '',
   `tool_name` VARCHAR(128) NOT NULL,
   `arguments_json` JSON NULL,
   `result_json` JSON NULL,
   `result_summary` TEXT NULL,
   `status` VARCHAR(32) NOT NULL DEFAULT 'success' COMMENT 'success / error',
+  `duration_ms` BIGINT NOT NULL DEFAULT 0,
   `error_message` TEXT NULL,
   `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`),
   KEY `idx_session_created` (`session_id`, `created_at`),
-  KEY `idx_hr_tool_created` (`hr_id`, `tool_name`, `created_at`)
+  KEY `idx_hr_tool_created` (`hr_id`, `tool_name`, `created_at`),
+  KEY `idx_ai_tool_traces_agent_run` (`agent_run_id`),
+  KEY `idx_ai_tool_traces_agent_run_step` (`agent_run_step_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='AI 工具调用轨迹表';
+
+CREATE TABLE IF NOT EXISTS `agent_runs` (
+  `id` BIGINT NOT NULL AUTO_INCREMENT,
+  `session_id` BIGINT NOT NULL,
+  `message_id` BIGINT NULL,
+  `history_id` BIGINT NULL,
+  `hr_id` BIGINT NOT NULL,
+  `agent_type` VARCHAR(64) NOT NULL DEFAULT 'hr',
+  `agent_id` BIGINT NULL,
+  `agent_name` VARCHAR(128) NOT NULL,
+  `model_id` BIGINT NULL,
+  `model_name` VARCHAR(128) NOT NULL,
+  `status` VARCHAR(32) NOT NULL DEFAULT 'planning',
+  `plan_json` JSON NULL,
+  `final_answer` MEDIUMTEXT NULL,
+  `error_type` VARCHAR(64) NULL,
+  `error_message` TEXT NULL,
+  `started_at` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `completed_at` TIMESTAMP NULL,
+  `created_at` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  KEY `idx_agent_runs_session_created` (`hr_id`, `session_id`, `created_at`),
+  KEY `idx_agent_runs_status` (`status`),
+  KEY `idx_agent_runs_message` (`message_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='One observable run per HR AI user message';
+
+CREATE TABLE IF NOT EXISTS `agent_run_steps` (
+  `id` BIGINT NOT NULL AUTO_INCREMENT,
+  `run_id` BIGINT NOT NULL,
+  `step_index` INT NOT NULL,
+  `step_type` VARCHAR(32) NOT NULL,
+  `capability_source` VARCHAR(64) NULL,
+  `capability_key` VARCHAR(128) NULL,
+  `tool_name` VARCHAR(128) NULL,
+  `input_json` JSON NULL,
+  `output_json` JSON NULL,
+  `status` VARCHAR(32) NOT NULL DEFAULT 'running',
+  `duration_ms` BIGINT NOT NULL DEFAULT 0,
+  `error_message` TEXT NULL,
+  `started_at` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `completed_at` TIMESTAMP NULL,
+  `created_at` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_agent_run_steps_run_index` (`run_id`, `step_index`),
+  KEY `idx_agent_run_steps_run` (`run_id`),
+  KEY `idx_agent_run_steps_type` (`step_type`),
+  CONSTRAINT `fk_agent_run_steps_run` FOREIGN KEY (`run_id`) REFERENCES `agent_runs` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='Observable steps within an agent run';
 
 CREATE TABLE IF NOT EXISTS `ai_memories` (
   `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
@@ -538,6 +600,9 @@ INSERT INTO `permissions` (`permission_key`, `resource`, `action`, `description`
   ('notification.read',              'notification','read',   '查看自己的通知'),
   ('ai.hr.use',                      'ai',          'use',    '使用HR AI助手'),
   ('ai.candidate.use',               'ai',          'use',    '使用候选人AI助手'),
+  ('ai.prompt.manage',               'ai',          'manage', '管理招聘 Prompt 模板'),
+  ('ai.agent.manage',                'ai',          'manage', '管理招聘 Agent 配置'),
+  ('ai.agent_skill.manage',          'ai',          'manage', '管理招聘 Agent Skill'),
   ('admin.invite.manage',            'admin',       'manage', '管理邀请码'),
   ('admin.department.manage',        'admin',       'manage', '管理部门及部门地点关联'),
   ('admin.location.manage',          'admin',       'manage', '管理工作地点'),
@@ -589,7 +654,8 @@ INSERT IGNORE INTO `role_permissions` (`role_id`, `permission_id`)
     'admin.invite.manage', 'admin.department.manage', 'admin.location.manage',
     'admin.user.manage', 'admin.role.manage', 'audit.usage.read',
     'collaboration.note.read', 'collaboration.note.create',
-    'collaboration.tag.manage', 'collaboration.task.manage'
+    'collaboration.tag.manage', 'collaboration.task.manage',
+    'ai.prompt.manage', 'ai.agent.manage', 'ai.agent_skill.manage'
   );
 
 -- System Admin (platform-level only, no recruiting workflow)
@@ -597,7 +663,8 @@ INSERT IGNORE INTO `role_permissions` (`role_id`, `permission_id`)
   SELECT r.id, p.id FROM `roles` r, `permissions` p
   WHERE r.role_key = 'system_admin' AND p.permission_key IN (
     'auth.session.read', 'admin.user.manage', 'admin.role.manage',
-    'audit.usage.read', 'audit.security.read', 'system.config.manage'
+    'audit.usage.read', 'audit.security.read', 'system.config.manage',
+    'ai.prompt.manage', 'ai.agent.manage', 'ai.agent_skill.manage'
   );
 
 -- Interviewer
@@ -859,3 +926,219 @@ CREATE TABLE IF NOT EXISTS `ai_usage_auth_contexts` (
   KEY `idx_audit_context_usage_log` (`usage_log_id`),
   KEY `idx_audit_context_request` (`request_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='AI使用审计RBAC上下文表';
+
+-- ══════════════════════════════════════════════════════════════════════
+-- Phase 7: LLM, Prompt, Agent, and MCP Configuration
+-- ══════════════════════════════════════════════════════════════════════
+
+CREATE TABLE IF NOT EXISTS `llm_providers` (
+  `id` BIGINT NOT NULL AUTO_INCREMENT,
+  `name` VARCHAR(128) NOT NULL COMMENT 'Provider display name',
+  `base_url` VARCHAR(512) NOT NULL COMMENT 'API base URL',
+  `api_key_encrypted` VARCHAR(512) NOT NULL COMMENT 'AES-256-GCM encrypted API key',
+  `provider_type` VARCHAR(64) NOT NULL COMMENT 'openai_compatible/anthropic/deepseek/ollama',
+  `extra_headers` JSON COMMENT 'Extra HTTP headers as JSON object',
+  `is_enabled` TINYINT(1) NOT NULL DEFAULT 1 COMMENT 'Whether provider is enabled',
+  `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  KEY `idx_provider_type` (`provider_type`),
+  KEY `idx_is_enabled` (`is_enabled`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='LLM provider configurations';
+
+CREATE TABLE IF NOT EXISTS `llm_models` (
+  `id` BIGINT NOT NULL AUTO_INCREMENT,
+  `provider_id` BIGINT NOT NULL COMMENT 'FK to llm_providers.id',
+  `model_name` VARCHAR(128) NOT NULL COMMENT 'Model name used in API calls',
+  `display_name` VARCHAR(128) COMMENT 'Human-readable display name',
+  `temperature` DOUBLE NOT NULL DEFAULT 0.7 COMMENT 'LLM temperature parameter',
+  `top_p` DOUBLE NOT NULL DEFAULT 1.0 COMMENT 'LLM top_p parameter',
+  `max_tokens` INT NOT NULL DEFAULT 4096 COMMENT 'Max tokens for generation (output budget)',
+  `context_window_tokens` INT NOT NULL DEFAULT 0 COMMENT 'Total model context window tokens (input + output); 0 = unknown',
+  `max_concurrency` INT NOT NULL DEFAULT 10 COMMENT 'Max concurrent LLM calls',
+  `timeout_seconds` INT NOT NULL DEFAULT 90 COMMENT 'Request timeout in seconds',
+  `is_enabled` TINYINT(1) NOT NULL DEFAULT 1 COMMENT 'Whether model is enabled',
+  `is_default` TINYINT(1) NOT NULL DEFAULT 0 COMMENT 'Whether this is the default model',
+  `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  KEY `idx_provider_id` (`provider_id`),
+  KEY `idx_model_enabled` (`is_enabled`),
+  KEY `idx_model_default` (`is_default`),
+  CONSTRAINT `fk_llm_models_provider` FOREIGN KEY (`provider_id`) REFERENCES `llm_providers` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='LLM model configurations';
+
+CREATE TABLE IF NOT EXISTS `prompt_templates` (
+  `id` BIGINT NOT NULL AUTO_INCREMENT,
+  `name` VARCHAR(256) NOT NULL COMMENT 'Template name',
+  `content` TEXT NOT NULL COMMENT 'Prompt template content with {{variable}} placeholders',
+  `variables` JSON COMMENT 'JSON array of variable names, e.g. ["hr_id","session_id"]',
+  `version` INT NOT NULL DEFAULT 1 COMMENT 'Current version number',
+  `is_active` TINYINT(1) NOT NULL DEFAULT 1 COMMENT 'Whether template is active',
+  `agent_type` VARCHAR(64) NOT NULL COMMENT 'hr_agent / candidate_assistant',
+  `prompt_role` VARCHAR(32) NOT NULL DEFAULT 'system' COMMENT 'system / user',
+  `created_by` BIGINT COMMENT 'Creator user ID',
+  `updated_by` BIGINT COMMENT 'Last updater user ID',
+  `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  KEY `idx_agent_type` (`agent_type`),
+  KEY `idx_is_active` (`is_active`),
+  KEY `idx_agent_type_active` (`agent_type`, `is_active`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='Prompt template definitions';
+
+CREATE TABLE IF NOT EXISTS `prompt_versions` (
+  `id` BIGINT NOT NULL AUTO_INCREMENT,
+  `template_id` BIGINT NOT NULL COMMENT 'FK to prompt_templates.id',
+  `version` INT NOT NULL COMMENT 'Version number',
+  `content` TEXT NOT NULL COMMENT 'Snapshot of prompt content at this version',
+  `changed_by` BIGINT COMMENT 'User ID who made the change',
+  `change_note` VARCHAR(512) COMMENT 'Description of what changed',
+  `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  KEY `idx_template_version` (`template_id`, `version`),
+  CONSTRAINT `fk_prompt_versions_template` FOREIGN KEY (`template_id`) REFERENCES `prompt_templates` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='Prompt version history for audit and rollback';
+
+CREATE TABLE IF NOT EXISTS `agent_configs` (
+  `id` BIGINT NOT NULL AUTO_INCREMENT,
+  `name` VARCHAR(128) NOT NULL COMMENT 'Agent internal name (unique)',
+  `display_name` VARCHAR(256) NOT NULL COMMENT 'Agent display name for UI',
+  `description` TEXT COMMENT 'Agent description',
+  `agent_type` VARCHAR(64) NOT NULL COMMENT 'hr_recruiting_agent / candidate_assistant / custom',
+  `prompt_template_id` BIGINT COMMENT 'FK to prompt_templates.id, NULL = use system default',
+  `instruction` TEXT COMMENT 'Extra instruction appended after Prompt',
+  `max_iterations` INT NOT NULL DEFAULT 5 COMMENT 'Max tool call iterations',
+  `temperature_override` DOUBLE COMMENT 'Overrides model default temperature, NULL = use model default',
+  `is_default` TINYINT(1) NOT NULL DEFAULT 0 COMMENT 'Whether this is the default agent for its agent_type',
+  `is_enabled` TINYINT(1) NOT NULL DEFAULT 1 COMMENT 'Whether this agent is enabled',
+  `default_key` VARCHAR(64) GENERATED ALWAYS AS (
+    CASE WHEN `is_default` = 1 AND `is_enabled` = 1 THEN `agent_type` ELSE NULL END
+  ) STORED COMMENT 'Enforces one enabled default per agent_type via unique index',
+  `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_name` (`name`),
+  UNIQUE KEY `uk_agent_default_type` (`default_key`),
+  KEY `idx_agent_type` (`agent_type`),
+  KEY `idx_prompt_template_id` (`prompt_template_id`),
+  CONSTRAINT `fk_agent_configs_prompt` FOREIGN KEY (`prompt_template_id`) REFERENCES `prompt_templates` (`id`) ON DELETE SET NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='Agent configuration definitions';
+
+CREATE TABLE IF NOT EXISTS `agent_tool_bindings` (
+  `id` BIGINT NOT NULL AUTO_INCREMENT,
+  `agent_id` BIGINT NOT NULL COMMENT 'FK to agent_configs.id',
+  `tool_name` VARCHAR(128) NOT NULL COMMENT 'Tool name identifier',
+  `is_enabled` TINYINT(1) NOT NULL DEFAULT 1 COMMENT 'Whether the tool is enabled for this agent',
+  `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_agent_tool` (`agent_id`, `tool_name`),
+  KEY `idx_tool_name` (`tool_name`),
+  CONSTRAINT `fk_agent_tool_bindings_agent` FOREIGN KEY (`agent_id`) REFERENCES `agent_configs` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='Agent to tool binding assignments';
+
+CREATE TABLE IF NOT EXISTS `mcp_servers` (
+  `id` BIGINT NOT NULL AUTO_INCREMENT,
+  `name` VARCHAR(128) NOT NULL COMMENT 'MCP server display name',
+  `description` TEXT NULL COMMENT 'Human-readable server description',
+  `transport` VARCHAR(16) NOT NULL COMMENT 'Transport type: stdio / sse / http',
+  `command_or_url` TEXT NOT NULL COMMENT 'Command (stdio) or URL (sse/http)',
+  `args` JSON COMMENT 'Command arguments (JSON array string)',
+  `env_vars` JSON COMMENT 'Environment variables (JSON object)',
+  `timeout_seconds` INT NOT NULL DEFAULT 30 COMMENT 'Connection timeout',
+  `is_enabled` TINYINT(1) NOT NULL DEFAULT 0 COMMENT 'Default disabled for safety',
+  `status` VARCHAR(32) NOT NULL DEFAULT 'disconnected' COMMENT 'connected / disconnected / error',
+  `tool_count` INT NOT NULL DEFAULT 0 COMMENT 'Number of tools discovered',
+  `last_error` VARCHAR(512) NULL COMMENT 'Last connection or operation error message',
+  `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  KEY `idx_mcp_servers_enabled` (`is_enabled`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='MCP server registry';
+
+CREATE TABLE IF NOT EXISTS `mcp_tool_logs` (
+  `id` BIGINT NOT NULL AUTO_INCREMENT,
+  `server_id` BIGINT NOT NULL COMMENT 'FK to mcp_servers.id',
+  `tool_name` VARCHAR(128) NOT NULL COMMENT 'Called tool name',
+  `args_json` JSON COMMENT 'Desensitized tool arguments',
+  `result_content` TEXT COMMENT 'Desensitized/truncated tool result',
+  `duration_ms` INT NOT NULL DEFAULT 0 COMMENT 'Execution time in ms',
+  `error_msg` VARCHAR(512) COMMENT 'Error message if any',
+  `called_by_hr_id` BIGINT COMMENT 'HR user who triggered the call',
+  `session_id` BIGINT COMMENT 'AI chat session ID',
+  `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  KEY `idx_mcp_tool_logs_server` (`server_id`),
+  KEY `idx_mcp_tool_logs_session` (`session_id`),
+  CONSTRAINT `fk_mcp_tool_logs_server` FOREIGN KEY (`server_id`) REFERENCES `mcp_servers` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='MCP tool call audit logs';
+
+CREATE TABLE IF NOT EXISTS `agent_capability_bindings` (
+  `id` BIGINT NOT NULL AUTO_INCREMENT,
+  `agent_id` BIGINT NOT NULL COMMENT 'FK to agent_configs.id',
+  `capability_source` VARCHAR(32) NOT NULL COMMENT 'builtin / mcp / skill',
+  `capability_key` VARCHAR(256) NOT NULL COMMENT 'builtin: tool_name; mcp: server_id:tool_name',
+  `is_enabled` TINYINT(1) NOT NULL DEFAULT 1 COMMENT 'Whether the capability is enabled for this agent',
+  `priority` INT NOT NULL DEFAULT 0 COMMENT 'Capability ordering hint',
+  `policy_json` JSON COMMENT 'Optional capability policy payload',
+  `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_agent_capability` (`agent_id`, `capability_source`, `capability_key`),
+  KEY `idx_agent_capability_source` (`capability_source`),
+  KEY `idx_agent_capability_key` (`capability_key`),
+  CONSTRAINT `fk_agent_capability_bindings_agent` FOREIGN KEY (`agent_id`) REFERENCES `agent_configs` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='Agent to unified capability binding assignments';
+
+CREATE TABLE IF NOT EXISTS `ai_skills` (
+  `id` BIGINT NOT NULL AUTO_INCREMENT,
+  `name` VARCHAR(128) NOT NULL COMMENT 'Stable skill key used in capability keys',
+  `display_name` VARCHAR(256) NOT NULL,
+  `description` TEXT,
+  `source_type` VARCHAR(32) NOT NULL DEFAULT 'local' COMMENT 'local / git / http / mcp / builtin',
+  `source_uri` TEXT,
+  `current_version_id` BIGINT NULL COMMENT 'FK to ai_skill_versions.id, nullable until first version',
+  `is_enabled` TINYINT(1) NOT NULL DEFAULT 1,
+  `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_ai_skills_name` (`name`),
+  KEY `idx_ai_skills_enabled` (`is_enabled`),
+  KEY `idx_ai_skills_current_version` (`current_version_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='Versioned SKILL registry';
+
+CREATE TABLE IF NOT EXISTS `ai_skill_versions` (
+  `id` BIGINT NOT NULL AUTO_INCREMENT,
+  `skill_id` BIGINT NOT NULL,
+  `version` VARCHAR(64) NOT NULL,
+  `manifest_json` JSON NOT NULL,
+  `instruction` TEXT,
+  `input_schema_json` JSON NULL,
+  `output_schema_json` JSON NULL,
+  `runtime_type` VARCHAR(32) NOT NULL DEFAULT 'prompt' COMMENT 'prompt / tool / workflow / http',
+  `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_ai_skill_versions_skill_version` (`skill_id`, `version`),
+  KEY `idx_ai_skill_versions_skill` (`skill_id`),
+  CONSTRAINT `fk_ai_skill_versions_skill` FOREIGN KEY (`skill_id`) REFERENCES `ai_skills` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='Immutable SKILL versions';
+
+CREATE TABLE IF NOT EXISTS `ai_skill_tools` (
+  `id` BIGINT NOT NULL AUTO_INCREMENT,
+  `skill_version_id` BIGINT NOT NULL,
+  `tool_name` VARCHAR(128) NOT NULL,
+  `description` TEXT,
+  `input_schema_json` JSON NULL,
+  `runtime_config_json` JSON NULL,
+  `is_enabled` TINYINT(1) NOT NULL DEFAULT 1,
+  `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_ai_skill_tools_version_tool` (`skill_version_id`, `tool_name`),
+  KEY `idx_ai_skill_tools_enabled` (`is_enabled`),
+  CONSTRAINT `fk_ai_skill_tools_version` FOREIGN KEY (`skill_version_id`) REFERENCES `ai_skill_versions` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='Executable tools declared by SKILL versions';
+
+ALTER TABLE `ai_skills`
+  ADD CONSTRAINT `fk_ai_skills_current_version`
+  FOREIGN KEY (`current_version_id`) REFERENCES `ai_skill_versions` (`id`) ON DELETE SET NULL;

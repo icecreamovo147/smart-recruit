@@ -1428,4 +1428,87 @@ watch(activeSection, (section) => {
     grid-template-columns: 1fr;
   }
 }
+
+:global(:root[data-theme='dark']) .candidate-detail {
+  color: var(--text-primary);
+}
+
+:global(:root[data-theme='dark']) .candidate-hero {
+  border-color: var(--border);
+  background:
+    linear-gradient(135deg, rgba(15, 23, 42, 0.96), rgba(17, 24, 39, 0.96) 48%, rgba(30, 41, 59, 0.92)),
+    var(--surface);
+  box-shadow: var(--admin-console-card-shadow);
+}
+
+:global(:root[data-theme='dark']) .back-button,
+:global(:root[data-theme='dark']) .candidate-identity p,
+:global(:root[data-theme='dark']) .candidate-contact,
+:global(:root[data-theme='dark']) .kpi-tile,
+:global(:root[data-theme='dark']) .work-experience,
+:global(:root[data-theme='dark']) .feedback-label,
+:global(:root[data-theme='dark']) .feedback-comments,
+:global(:root[data-theme='dark']) .task-desc,
+:global(:root[data-theme='dark']) .note-content {
+  color: var(--text-secondary);
+}
+
+:global(:root[data-theme='dark']) .candidate-identity h2,
+:global(:root[data-theme='dark']) .kpi-tile strong,
+:global(:root[data-theme='dark']) .card-title,
+:global(:root[data-theme='dark']) .profile-field strong,
+:global(:root[data-theme='dark']) .work-experience :deep(strong),
+:global(:root[data-theme='dark']) .work-experience :deep(b),
+:global(:root[data-theme='dark']) .dimension-item strong,
+:global(:root[data-theme='dark']) .compact-row span:first-child,
+:global(:root[data-theme='dark']) .detail-item-round,
+:global(:root[data-theme='dark']) .task-title,
+:global(:root[data-theme='dark']) .note-author {
+  color: var(--text-primary);
+}
+
+:global(:root[data-theme='dark']) .candidate-contact span,
+:global(:root[data-theme='dark']) .kpi-tile,
+:global(:root[data-theme='dark']) .candidate-tabs,
+:global(:root[data-theme='dark']) .profile-field,
+:global(:root[data-theme='dark']) .interview-feedback {
+  border-color: var(--border);
+  background: var(--surface-muted);
+}
+
+:global(:root[data-theme='dark']) .detail-card {
+  border-color: var(--border);
+  background: var(--surface);
+}
+
+:global(:root[data-theme='dark']) .detail-card :deep(.el-card__header) {
+  background: var(--surface-muted);
+  border-bottom-color: var(--border);
+}
+
+:global(:root[data-theme='dark']) .profile-field span,
+:global(:root[data-theme='dark']) .section-block__label,
+:global(:root[data-theme='dark']) .current-flow__meta span,
+:global(:root[data-theme='dark']) .app-meta span,
+:global(:root[data-theme='dark']) .detail-item-meta span,
+:global(:root[data-theme='dark']) .task-meta span,
+:global(:root[data-theme='dark']) .dimension-item,
+:global(:root[data-theme='dark']) .compact-row em,
+:global(:root[data-theme='dark']) .no-data,
+:global(:root[data-theme='dark']) .tag-control__hint,
+:global(:root[data-theme='dark']) .note-time {
+  color: var(--text-muted);
+}
+
+:global(:root[data-theme='dark']) .application-item,
+:global(:root[data-theme='dark']) .detail-item,
+:global(:root[data-theme='dark']) .task-item,
+:global(:root[data-theme='dark']) .note-item,
+:global(:root[data-theme='dark']) .compact-row {
+  border-bottom-color: var(--border);
+}
+
+:global(:root[data-theme='dark']) .kpi-tile .el-icon {
+  background: rgba(37, 99, 235, 0.18);
+}
 </style>
