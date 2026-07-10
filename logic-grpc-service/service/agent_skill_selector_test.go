@@ -18,7 +18,7 @@ func (f fakeAgentSkillLister) ListEnabled(context.Context) ([]repository.AgentSk
 	return f.rows, nil
 }
 
-func TestSelectAgentSkillsManualPriorityAndAutoMatch(t *testing.T) {
+func TestSelectAgentSkillsManualSelectionDoesNotAutoBackfill(t *testing.T) {
 	repo := fakeAgentSkillLister{rows: []repository.AgentSkillRuntimeRecord{
 		{ID: 1, Name: "screening", DisplayName: "Screening", Description: "简历筛选", BodyMarkdown: "筛选候选人", IsManualInvocable: 1},
 		{ID: 2, Name: "offer", DisplayName: "Offer", Description: "offer negotiation", BodyMarkdown: "薪资 沟通 offer", IsManualInvocable: 1},
@@ -30,18 +30,15 @@ func TestSelectAgentSkillsManualPriorityAndAutoMatch(t *testing.T) {
 	if err != nil {
 		t.Fatalf("selectAgentSkills returned error: %v", err)
 	}
-	if len(selected) != 2 {
-		t.Fatalf("len(selected) = %d, want 2", len(selected))
+	if len(selected) != 1 {
+		t.Fatalf("len(selected) = %d, want only the explicit manual skill", len(selected))
 	}
 	if selected[0].ID != 3 || !selected[0].Manual {
 		t.Fatalf("first selected = %+v, want manual skill 3 first", selected[0])
 	}
-	if selected[1].ID != 2 || selected[1].Manual {
-		t.Fatalf("second selected = %+v, want auto skill 2", selected[1])
-	}
 }
 
-func TestSelectAgentSkillsSkipsNonManualSkillForManualIDs(t *testing.T) {
+func TestSelectAgentSkillsDoesNotAutoBackfillUnavailableManualIDs(t *testing.T) {
 	repo := fakeAgentSkillLister{rows: []repository.AgentSkillRuntimeRecord{
 		{ID: 7, Name: "internal", DisplayName: "Internal", Description: "内部流程", BodyMarkdown: "内部流程", IsManualInvocable: 0},
 	}}
@@ -50,8 +47,8 @@ func TestSelectAgentSkillsSkipsNonManualSkillForManualIDs(t *testing.T) {
 	if err != nil {
 		t.Fatalf("selectAgentSkills returned error: %v", err)
 	}
-	if len(selected) != 1 || selected[0].Manual {
-		t.Fatalf("selected = %+v, want only auto-selected non-manual skill", selected)
+	if len(selected) != 0 {
+		t.Fatalf("selected = %+v, want no auto backfill for explicit unavailable manual ID", selected)
 	}
 }
 

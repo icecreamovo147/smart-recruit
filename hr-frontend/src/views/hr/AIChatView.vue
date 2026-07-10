@@ -51,6 +51,7 @@ interface SkillSelectionRequest {
   message: string
   sessionId: number
   modelId: number | null
+  messageId?: number
 }
 
 const route = useRoute()
@@ -803,6 +804,7 @@ const setSkillSelectionMessage = (
       message: text,
       sessionId: session.id,
       modelId: selectedModelId.value,
+      messageId: selection.user_message_id,
     },
   }
   loading.value = false
@@ -841,6 +843,7 @@ const submitConfirmedSkillSelection = async (assistantIndex: number, skillIds: n
         ...(request.modelId != null ? { model_id: request.modelId } : {}),
         ...(skillIds.length > 0 ? { agent_skill_ids: skillIds } : {}),
         agent_skill_selection_confirmed: true,
+        ...(request.messageId ? { agent_skill_selection_message_id: request.messageId } : {}),
       },
       {
         onDelta: (delta) => {

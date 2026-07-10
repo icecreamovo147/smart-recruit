@@ -138,6 +138,13 @@ func selectAgentSkillsWithSemantic(ctx context.Context, repo agentSkillLister, a
 			return selected, nil
 		}
 	}
+	if len(manualSet) > 0 {
+		log.Debug("[logic][agent_skill] selectAgentSkillsWithSemantic returning explicit manual selection without auto backfill",
+			zap.Int("selected_count", len(selected)),
+			zap.Int("manual_requested_count", len(manualSet)))
+		refreshAgentSkillPoolMetadata(selected)
+		return selected, nil
+	}
 
 	candidates := rankSkillCandidatesForAutoPool(question, all, semanticScores, seen, availableCapabilities, agentType)
 

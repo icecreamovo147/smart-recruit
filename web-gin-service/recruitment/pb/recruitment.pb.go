@@ -3474,10 +3474,11 @@ type ChatRequest struct {
 	Message                      string                 `protobuf:"bytes,2,opt,name=message,proto3" json:"message,omitempty"`
 	ApplicationId                int64                  `protobuf:"varint,3,opt,name=application_id,json=applicationId,proto3" json:"application_id,omitempty"`
 	SessionId                    int64                  `protobuf:"varint,4,opt,name=session_id,json=sessionId,proto3" json:"session_id,omitempty"`
-	ModelId                      int64                  `protobuf:"varint,5,opt,name=model_id,json=modelId,proto3" json:"model_id,omitempty"`                                                                    // Optional: user-selected model override
-	SkillCapabilityKeys          []string               `protobuf:"bytes,6,rep,name=skill_capability_keys,json=skillCapabilityKeys,proto3" json:"skill_capability_keys,omitempty"`                               // Optional: per-message SKILL capabilities selected by the user
-	AgentSkillIds                []int64                `protobuf:"varint,7,rep,packed,name=agent_skill_ids,json=agentSkillIds,proto3" json:"agent_skill_ids,omitempty"`                                         // Optional: database-backed Agent Skills selected by the user
-	AgentSkillSelectionConfirmed bool                   `protobuf:"varint,8,opt,name=agent_skill_selection_confirmed,json=agentSkillSelectionConfirmed,proto3" json:"agent_skill_selection_confirmed,omitempty"` // Optional: user confirmed automatic Agent Skill selection, including selecting none
+	ModelId                      int64                  `protobuf:"varint,5,opt,name=model_id,json=modelId,proto3" json:"model_id,omitempty"`                                                                      // Optional: user-selected model override
+	SkillCapabilityKeys          []string               `protobuf:"bytes,6,rep,name=skill_capability_keys,json=skillCapabilityKeys,proto3" json:"skill_capability_keys,omitempty"`                                 // Optional: per-message SKILL capabilities selected by the user
+	AgentSkillIds                []int64                `protobuf:"varint,7,rep,packed,name=agent_skill_ids,json=agentSkillIds,proto3" json:"agent_skill_ids,omitempty"`                                           // Optional: database-backed Agent Skills selected by the user
+	AgentSkillSelectionConfirmed bool                   `protobuf:"varint,8,opt,name=agent_skill_selection_confirmed,json=agentSkillSelectionConfirmed,proto3" json:"agent_skill_selection_confirmed,omitempty"`   // Optional: user confirmed automatic Agent Skill selection, including selecting none
+	AgentSkillSelectionMessageId int64                  `protobuf:"varint,9,opt,name=agent_skill_selection_message_id,json=agentSkillSelectionMessageId,proto3" json:"agent_skill_selection_message_id,omitempty"` // Optional: user message ID associated with the confirmed Agent Skill selection
 	unknownFields                protoimpl.UnknownFields
 	sizeCache                    protoimpl.SizeCache
 }
@@ -3566,6 +3567,13 @@ func (x *ChatRequest) GetAgentSkillSelectionConfirmed() bool {
 		return x.AgentSkillSelectionConfirmed
 	}
 	return false
+}
+
+func (x *ChatRequest) GetAgentSkillSelectionMessageId() int64 {
+	if x != nil {
+		return x.AgentSkillSelectionMessageId
+	}
+	return 0
 }
 
 type ContextUsageBreakdown struct {
@@ -4134,6 +4142,7 @@ type AgentSkillSelection struct {
 	Reason                   string                          `protobuf:"bytes,2,opt,name=reason,proto3" json:"reason,omitempty"`
 	Candidates               []*AgentSkillSelectionCandidate `protobuf:"bytes,3,rep,name=candidates,proto3" json:"candidates,omitempty"`
 	RecommendedAgentSkillIds []int64                         `protobuf:"varint,4,rep,packed,name=recommended_agent_skill_ids,json=recommendedAgentSkillIds,proto3" json:"recommended_agent_skill_ids,omitempty"`
+	UserMessageId            int64                           `protobuf:"varint,5,opt,name=user_message_id,json=userMessageId,proto3" json:"user_message_id,omitempty"`
 	unknownFields            protoimpl.UnknownFields
 	sizeCache                protoimpl.SizeCache
 }
@@ -4194,6 +4203,13 @@ func (x *AgentSkillSelection) GetRecommendedAgentSkillIds() []int64 {
 		return x.RecommendedAgentSkillIds
 	}
 	return nil
+}
+
+func (x *AgentSkillSelection) GetUserMessageId() int64 {
+	if x != nil {
+		return x.UserMessageId
+	}
+	return 0
 }
 
 type ChatStreamResponse struct {
@@ -30391,7 +30407,7 @@ const file_proto_recruitment_proto_rawDesc = "" +
 	"(ListApplicationStatusTransitionsResponse\x12\x12\n" +
 	"\x04code\x18\x01 \x01(\x05R\x04code\x12\x10\n" +
 	"\x03msg\x18\x02 \x01(\tR\x03msg\x12<\n" +
-	"\x04list\x18\x03 \x03(\v2(.recruitment.ApplicationStatusTransitionR\x04list\"\xc0\x02\n" +
+	"\x04list\x18\x03 \x03(\v2(.recruitment.ApplicationStatusTransitionR\x04list\"\x88\x03\n" +
 	"\vChatRequest\x12\x13\n" +
 	"\x05hr_id\x18\x01 \x01(\x03R\x04hrId\x12\x18\n" +
 	"\amessage\x18\x02 \x01(\tR\amessage\x12%\n" +
@@ -30401,7 +30417,8 @@ const file_proto_recruitment_proto_rawDesc = "" +
 	"\bmodel_id\x18\x05 \x01(\x03R\amodelId\x122\n" +
 	"\x15skill_capability_keys\x18\x06 \x03(\tR\x13skillCapabilityKeys\x12&\n" +
 	"\x0fagent_skill_ids\x18\a \x03(\x03R\ragentSkillIds\x12E\n" +
-	"\x1fagent_skill_selection_confirmed\x18\b \x01(\bR\x1cagentSkillSelectionConfirmed\"\xd0\x02\n" +
+	"\x1fagent_skill_selection_confirmed\x18\b \x01(\bR\x1cagentSkillSelectionConfirmed\x12F\n" +
+	" agent_skill_selection_message_id\x18\t \x01(\x03R\x1cagentSkillSelectionMessageId\"\xd0\x02\n" +
 	"\x15ContextUsageBreakdown\x120\n" +
 	"\x14system_prompt_tokens\x18\x01 \x01(\x05R\x12systemPromptTokens\x122\n" +
 	"\x15recent_message_tokens\x18\x02 \x01(\x05R\x13recentMessageTokens\x12%\n" +
@@ -30465,14 +30482,15 @@ const file_proto_recruitment_proto_rawDesc = "" +
 	"\x10final_rank_score\x18\x10 \x01(\x01R\x0efinalRankScore\x12%\n" +
 	"\x0erelevance_mode\x18\x11 \x01(\tR\rrelevanceMode\x12\x1b\n" +
 	"\tpool_rank\x18\x12 \x01(\x05R\bpoolRank\x12-\n" +
-	"\x12ranking_confidence\x18\x13 \x01(\tR\x11rankingConfidence\"\xd3\x01\n" +
+	"\x12ranking_confidence\x18\x13 \x01(\tR\x11rankingConfidence\"\xfb\x01\n" +
 	"\x13AgentSkillSelection\x12\x1a\n" +
 	"\brequired\x18\x01 \x01(\bR\brequired\x12\x16\n" +
 	"\x06reason\x18\x02 \x01(\tR\x06reason\x12I\n" +
 	"\n" +
 	"candidates\x18\x03 \x03(\v2).recruitment.AgentSkillSelectionCandidateR\n" +
 	"candidates\x12=\n" +
-	"\x1brecommended_agent_skill_ids\x18\x04 \x03(\x03R\x18recommendedAgentSkillIds\"\xda\x05\n" +
+	"\x1brecommended_agent_skill_ids\x18\x04 \x03(\x03R\x18recommendedAgentSkillIds\x12&\n" +
+	"\x0fuser_message_id\x18\x05 \x01(\x03R\ruserMessageId\"\xda\x05\n" +
 	"\x12ChatStreamResponse\x12\x12\n" +
 	"\x04code\x18\x01 \x01(\x05R\x04code\x12\x10\n" +
 	"\x03msg\x18\x02 \x01(\tR\x03msg\x12\x14\n" +

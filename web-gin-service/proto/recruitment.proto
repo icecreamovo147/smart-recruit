@@ -563,6 +563,7 @@ message ChatRequest {
   repeated string skill_capability_keys = 6; // Optional: per-message SKILL capabilities selected by the user
   repeated int64 agent_skill_ids = 7; // Optional: database-backed Agent Skills selected by the user
   bool agent_skill_selection_confirmed = 8; // Optional: user confirmed automatic Agent Skill selection, including selecting none
+  int64 agent_skill_selection_message_id = 9; // Optional: user message ID associated with the confirmed Agent Skill selection
 }
 
 message ContextUsageBreakdown {
@@ -634,6 +635,7 @@ message AgentSkillSelection {
   string reason = 2;
   repeated AgentSkillSelectionCandidate candidates = 3;
   repeated int64 recommended_agent_skill_ids = 4;
+  int64 user_message_id = 5;
 }
 
 message ChatStreamResponse {

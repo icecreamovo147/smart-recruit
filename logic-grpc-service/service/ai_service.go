@@ -15,6 +15,7 @@ import (
 	"go.uber.org/zap"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
+	"gorm.io/gorm"
 
 	"github.com/cloudwego/eino/components/tool"
 	"github.com/cloudwego/eino/schema"
@@ -427,13 +428,26 @@ func (s *AIService) runToolCallingChatWithUsage(ctx context.Context, req *pb.Cha
 	} else {
 		historyToolNames = agentRunToolInfoNames(ai.RecruitingTools())
 	}
-	selectedSkillsForHistory, err := s.selectAgentSkills(ctx, "hr_recruiting_agent", req.GetMessage(), req.GetAgentSkillIds(), agentSkillAvailableCapabilities(runtimeCfg, historyToolNames))
-	if err != nil {
-		logger.L().Warn("select Agent Skills for history failed", zap.Error(err))
-		selectedSkillsForHistory = nil
+	var selectedSkillsForHistory []selectedAgentSkill
+	if !requestConfirmedNoAgentSkills(req) {
+		selectedSkillsForHistory, err = s.selectAgentSkills(ctx, "hr_recruiting_agent", req.GetMessage(), req.GetAgentSkillIds(), agentSkillAvailableCapabilities(runtimeCfg, historyToolNames))
+		if err != nil {
+			logger.L().Warn("select Agent Skills for history failed", zap.Error(err))
+			selectedSkillsForHistory = nil
+		}
+		selectedSkillsForHistory = manualAgentSkills(selectedSkillsForHistory)
 	}
-	selectedSkillsForHistory = manualAgentSkills(selectedSkillsForHistory)
 	userAlreadyPersisted := currentMessageAlreadyPersisted(actx, req.Message)
+	userMessageID := req.GetAgentSkillSelectionMessageId()
+	if updated, err := s.updateConfirmedUserMessageAgentSkills(ctx, req, session, selectedSkillsForHistory); err != nil {
+		if recorder != nil {
+			recorder.finish(ctx, agentRunStatusFailed, "", "persist_failed", err.Error())
+			sendAgentRunStatus(effectiveOnStatus, "agent_run_done", "Agent run 保存失败", "persist_failed", "")
+		}
+		return "", metadata, err
+	} else if updated {
+		userAlreadyPersisted = true
+	}
 	messages := buildToolCallingMessages(actx, req.Message)
 	var contextUsage *pb.ContextUsageInfo
 
@@ -469,6 +483,7 @@ func (s *AIService) runToolCallingChatWithUsage(ctx context.Context, req *pb.Cha
 		if recorder != nil && userHistory.ID > 0 {
 			_ = s.agentRuns.UpdateRunMessageID(ctx, recorder.runID, uint64(userHistory.ID))
 		}
+		userMessageID = userHistory.ID
 	}
 
 	// Accumulate partial assistant reply for cancel-save.
@@ -499,9 +514,9 @@ func (s *AIService) runToolCallingChatWithUsage(ctx context.Context, req *pb.Cha
 		return nil
 	}
 	if s.agentRuntime == "adk" {
-		reply, metadata, err = s.runADKChat(ctx, req, session, messages, modelID, modelName, runtimeCfg, wrappedDelta, effectiveOnStatus, usageUpdater, onAgentSkillSelection, aiClient, recorder)
+		reply, metadata, err = s.runADKChat(ctx, req, session, messages, modelID, modelName, runtimeCfg, wrappedDelta, effectiveOnStatus, usageUpdater, onAgentSkillSelection, userMessageID, aiClient, recorder)
 	} else {
-		reply, metadata, err = s.runLegacyChat(ctx, req, session, messages, modelID, modelName, runtimeCfg, wrappedDelta, effectiveOnStatus, usageUpdater, onAgentSkillSelection, aiClient, recorder)
+		reply, metadata, err = s.runLegacyChat(ctx, req, session, messages, modelID, modelName, runtimeCfg, wrappedDelta, effectiveOnStatus, usageUpdater, onAgentSkillSelection, userMessageID, aiClient, recorder)
 	}
 	if err != nil {
 		if errors.Is(err, errAgentSkillSelectionRequired) {
@@ -619,6 +634,7 @@ func (s *AIService) runADKChat(
 	onStatus func(string, string, string, string) error,
 	onMessagesUpdated ai.MessageUpdateCallback,
 	onAgentSkillSelection func(*pb.AgentSkillSelection) error,
+	userMessageID int64,
 	aiClient *ai.Client,
 	recorder *agentRunRecorder,
 ) (string, ai.ToolMetadata, error) {
@@ -637,7 +653,7 @@ func (s *AIService) runADKChat(
 		if !policy.Fallbacks {
 			return "", ai.ToolMetadata{}, fmt.Errorf("ADK tool initialization failed and fallback is disabled: %w", err)
 		}
-		return s.runLegacyChat(ctx, req, session, messages, modelID, modelName, runtimeCfg, onDelta, onStatus, onMessagesUpdated, onAgentSkillSelection, aiClient, recorder)
+		return s.runLegacyChat(ctx, req, session, messages, modelID, modelName, runtimeCfg, onDelta, onStatus, onMessagesUpdated, onAgentSkillSelection, userMessageID, aiClient, recorder)
 	}
 
 	state := &ai.AgentRunState{}
@@ -700,7 +716,7 @@ func (s *AIService) runADKChat(
 	availableToolNames := adkToolNames(ctx, adkTools)
 	availableCapabilities = addRuntimeToolCapabilities(availableCapabilities, availableToolNames)
 	agentSkills := []selectedAgentSkill{}
-	if policy.SkillGovernance {
+	if policy.SkillGovernance && !requestConfirmedNoAgentSkills(req) {
 		var err error
 		agentSkills, err = s.selectAgentSkills(ctx, "hr_recruiting_agent", req.GetMessage(), req.GetAgentSkillIds(), availableCapabilities)
 		if err != nil {
@@ -709,7 +725,7 @@ func (s *AIService) runADKChat(
 				zap.String("status", "fallback"),
 				zap.Error(err))
 		} else if len(agentSkills) > 0 {
-			if err := maybeRequestAgentSkillSelection(ctx, req, agentSkills, onAgentSkillSelection); err != nil {
+			if err := maybeRequestAgentSkillSelection(ctx, req, agentSkills, userMessageID, onAgentSkillSelection); err != nil {
 				return "", ai.ToolMetadata{}, err
 			}
 			instruction = appendAgentSkillInstructionBlock(instruction, renderAgentSkillInstructionBlock(agentSkills))
@@ -721,7 +737,7 @@ func (s *AIService) runADKChat(
 	} else {
 		logger.L().Info("Agent Skill governance skipped",
 			zap.String("event", "agent.skill_governance.select"),
-			zap.String("status", "disabled"))
+			zap.String("status", agentSkillGovernanceSkipStatus(policy.SkillGovernance, req)))
 	}
 	if policy.Planner {
 		planner := ai.NewRecruitingPlanner()
@@ -778,6 +794,7 @@ func (s *AIService) runLegacyChat(
 	onStatus func(string, string, string, string) error,
 	onMessagesUpdated ai.MessageUpdateCallback,
 	onAgentSkillSelection func(*pb.AgentSkillSelection) error,
+	userMessageID int64,
 	aiClient *ai.Client,
 	recorder *agentRunRecorder,
 ) (string, ai.ToolMetadata, error) {
@@ -825,7 +842,7 @@ func (s *AIService) runLegacyChat(
 	availableCapabilities = addRuntimeToolCapabilities(availableCapabilities, availableToolNames)
 	policy := s.runtimePolicy.withDefaults()
 	agentSkills := []selectedAgentSkill{}
-	if policy.SkillGovernance {
+	if policy.SkillGovernance && !requestConfirmedNoAgentSkills(req) {
 		var err error
 		agentSkills, err = s.selectAgentSkills(ctx, "hr_recruiting_agent", req.GetMessage(), req.GetAgentSkillIds(), availableCapabilities)
 		if err != nil {
@@ -834,7 +851,7 @@ func (s *AIService) runLegacyChat(
 				zap.String("status", "fallback"),
 				zap.Error(err))
 		} else if len(agentSkills) > 0 {
-			if err := maybeRequestAgentSkillSelection(ctx, req, agentSkills, onAgentSkillSelection); err != nil {
+			if err := maybeRequestAgentSkillSelection(ctx, req, agentSkills, userMessageID, onAgentSkillSelection); err != nil {
 				return "", ai.ToolMetadata{}, err
 			}
 			messages = appendAgentSkillInstructionBlockToMessages(messages, renderAgentSkillInstructionBlock(agentSkills))
@@ -846,7 +863,7 @@ func (s *AIService) runLegacyChat(
 	} else {
 		logger.L().Info("Agent Skill governance skipped",
 			zap.String("event", "agent.skill_governance.select"),
-			zap.String("status", "disabled"))
+			zap.String("status", agentSkillGovernanceSkipStatus(policy.SkillGovernance, req)))
 	}
 	if policy.Planner {
 		planner := ai.NewRecruitingPlanner()
@@ -896,7 +913,7 @@ func extractSystemInstruction(messages []*schema.Message) string {
 	return ""
 }
 
-func maybeRequestAgentSkillSelection(ctx context.Context, req *pb.ChatRequest, skills []selectedAgentSkill, onAgentSkillSelection func(*pb.AgentSkillSelection) error) error {
+func maybeRequestAgentSkillSelection(ctx context.Context, req *pb.ChatRequest, skills []selectedAgentSkill, userMessageID int64, onAgentSkillSelection func(*pb.AgentSkillSelection) error) error {
 	if onAgentSkillSelection == nil || req.GetAgentSkillSelectionConfirmed() {
 		return nil
 	}
@@ -904,7 +921,7 @@ func maybeRequestAgentSkillSelection(ctx context.Context, req *pb.ChatRequest, s
 	if !decision.Required {
 		return nil
 	}
-	selection := agentSkillSelectionDecisionPB(decision)
+	selection := agentSkillSelectionDecisionPB(decision, userMessageID)
 	logger.GetRequestLogger(ctx).Info("agent skill selection confirmation required",
 		zap.Int("candidate_count", len(decision.Candidates)),
 		zap.Int64s("recommended_agent_skill_ids", decision.RecommendedIDs),
@@ -916,7 +933,48 @@ func maybeRequestAgentSkillSelection(ctx context.Context, req *pb.ChatRequest, s
 	return errAgentSkillSelectionRequired
 }
 
-func agentSkillSelectionDecisionPB(decision agentSkillSelectionConfirmationDecision) *pb.AgentSkillSelection {
+func requestConfirmedNoAgentSkills(req *pb.ChatRequest) bool {
+	return req.GetAgentSkillSelectionConfirmed() && !hasPositiveAgentSkillID(req.GetAgentSkillIds())
+}
+
+func (s *AIService) updateConfirmedUserMessageAgentSkills(ctx context.Context, req *pb.ChatRequest, session *model.AIChatSession, skills []selectedAgentSkill) (bool, error) {
+	if s == nil || s.chats == nil || session == nil || !req.GetAgentSkillSelectionConfirmed() || req.GetAgentSkillSelectionMessageId() <= 0 {
+		return false, nil
+	}
+	err := s.chats.UpdateUserMessageAgentSkills(
+		ctx,
+		req.HrId,
+		session.ID,
+		req.GetAgentSkillSelectionMessageId(),
+		marshalInt64Slice(selectedAgentSkillIDs(skills)),
+		marshalStringSlice(selectedAgentSkillNames(skills)),
+	)
+	if err == nil {
+		return true, nil
+	}
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		logger.GetRequestLogger(ctx).Warn("confirmed agent skill selection message not found; continuing without metadata backfill",
+			zap.Int64("session_id", session.ID),
+			zap.Int64("user_message_id", req.GetAgentSkillSelectionMessageId()),
+			zap.Bool("confirmed_without_agent_skills", requestConfirmedNoAgentSkills(req)),
+			zap.Int("selected_agent_skill_count", len(selectedAgentSkillIDs(skills))),
+		)
+		return false, nil
+	}
+	return false, err
+}
+
+func agentSkillGovernanceSkipStatus(enabled bool, req *pb.ChatRequest) string {
+	if !enabled {
+		return "disabled"
+	}
+	if requestConfirmedNoAgentSkills(req) {
+		return "confirmed_without_agent_skills"
+	}
+	return "skipped"
+}
+
+func agentSkillSelectionDecisionPB(decision agentSkillSelectionConfirmationDecision, userMessageID int64) *pb.AgentSkillSelection {
 	candidates := make([]*pb.AgentSkillSelectionCandidate, 0, len(decision.Candidates))
 	for _, candidate := range decision.Candidates {
 		candidates = append(candidates, &pb.AgentSkillSelectionCandidate{
@@ -946,6 +1004,7 @@ func agentSkillSelectionDecisionPB(decision agentSkillSelectionConfirmationDecis
 		Reason:                   decision.Reason,
 		Candidates:               candidates,
 		RecommendedAgentSkillIds: append([]int64(nil), decision.RecommendedIDs...),
+		UserMessageId:            userMessageID,
 	}
 }
 

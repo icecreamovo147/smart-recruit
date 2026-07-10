@@ -135,6 +135,7 @@ export interface AgentSkillSelectionPayload {
   reason: string
   candidates: AgentSkillSelectionCandidate[]
   recommended_agent_skill_ids: number[]
+  user_message_id?: number
 }
 
 export interface StreamHandlers {
