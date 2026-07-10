@@ -214,3 +214,51 @@ func TestEmbeddingServiceProviderVectorUpsertsByObjectModelAndHash(t *testing.T)
 		t.Fatalf("unexpected stored row: %#v", stored)
 	}
 }
+
+func TestEmbeddingServiceSearchWithMetaIsRequestLocal(t *testing.T) {
+	svc, _ := newEmbeddingTestService(t, fakeEmbeddingProvider{
+		vector: EmbeddingVector{Model: "skill-phase-model", Vector: []float64{1, 0, 0}},
+	})
+	ctx := context.Background()
+
+	if _, err := svc.EmbedObject(ctx, EmbedObjectInput{
+		ObjectType: "ai_memory",
+		ObjectID:   1,
+		Text:       "memory content",
+	}); err != nil {
+		t.Fatalf("EmbedObject memory: %v", err)
+	}
+
+	_, skillMeta, err := svc.SearchWithMeta(ctx, EmbeddingSearchInput{
+		QueryText:   "skill query",
+		ObjectTypes: []string{"agent_skill"},
+		Limit:       5,
+	})
+	if err != nil {
+		t.Fatalf("SearchWithMeta: %v", err)
+	}
+	if skillMeta.ModelName != "skill-phase-model" {
+		t.Fatalf("skill meta model = %q, want skill-phase-model", skillMeta.ModelName)
+	}
+	if skillMeta.ProviderName != "fake" {
+		t.Fatalf("skill meta provider = %q, want fake", skillMeta.ProviderName)
+	}
+	if skillMeta.CandidateCount != 0 {
+		t.Fatalf("skill meta candidate_count = %d, want 0", skillMeta.CandidateCount)
+	}
+
+	if _, err := svc.SearchObjects(ctx, EmbeddingObjectSearchInput{
+		QueryText:  "memory content",
+		ObjectType: "ai_memory",
+		ObjectIDs:  []uint64{1},
+		Limit:      5,
+	}); err != nil {
+		t.Fatalf("SearchObjects: %v", err)
+	}
+	if svc.LastSearchMeta().CandidateCount == 0 {
+		t.Fatalf("expected LastSearchMeta to reflect memory search")
+	}
+	if skillMeta.CandidateCount != 0 || skillMeta.ModelName != "skill-phase-model" {
+		t.Fatalf("request-local meta was polluted by later search: %+v", skillMeta)
+	}
+}

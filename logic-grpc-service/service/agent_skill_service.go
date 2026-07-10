@@ -99,7 +99,7 @@ func (s *AgentSkillService) DebugSemanticRetrieval(ctx context.Context, req *pb.
 		limit = 20
 	}
 
-	skillScores, skillSearchErr := s.semanticDebugSkillScores(ctx, query, limit)
+	skillScores, skillSearchMeta, skillSearchErr := s.semanticDebugSkillScores(ctx, query, limit)
 	embeddingAvailable := skillSearchErr == nil
 	selected, err := selectAgentSkillsWithSemantic(ctx, s.repo, agentType, query, nil, nil, skillScores)
 	if err != nil {
@@ -124,10 +124,8 @@ func (s *AgentSkillService) DebugSemanticRetrieval(ctx context.Context, req *pb.
 		zap.String("memory_pool_confidence", string(poolView.MemoryPoolConfidence)),
 	)
 
-	// 修复：从最近一次 embedding 搜索读取 5 个 debug 字段。
-	// 这些字段之前在 proto 中未声明，本次补全；EmbeddingService.LastSearchMeta()
-	// 在 semanticDebugSkillScores 末尾写入（包含 nil 服务的 fallback）。
-	searchMeta := embeddingMetaSnapshot(s.embeddings)
+	// 使用 Skill 检索阶段捕获的元数据，避免后续 Memory 检索覆盖 LastSearchMeta。
+	searchMeta := skillSearchMeta
 
 	return &pb.DebugSemanticRetrievalResponse{
 		Code:                    0,
@@ -242,17 +240,17 @@ func (s *AgentSkillService) GetAgentSkill(ctx context.Context, req *pb.GetAgentS
 	return &pb.AgentSkillResponse{Code: 0, Msg: "success", Skill: s.agentSkillToPB(ctx, skill)}, nil
 }
 
-func (s *AgentSkillService) semanticDebugSkillScores(ctx context.Context, query string, limit int) (map[int64]float64, error) {
+func (s *AgentSkillService) semanticDebugSkillScores(ctx context.Context, query string, limit int) (map[int64]float64, SearchMeta, error) {
 	if s == nil || s.embeddings == nil {
-		return nil, fmt.Errorf("embedding service not configured")
+		return nil, SearchMeta{ProviderName: "unavailable"}, fmt.Errorf("embedding service not configured")
 	}
-	results, err := s.embeddings.Search(ctx, EmbeddingSearchInput{
+	results, searchMeta, err := s.embeddings.SearchWithMeta(ctx, EmbeddingSearchInput{
 		QueryText:   query,
 		ObjectTypes: []string{"agent_skill"},
 		Limit:       limit * 4,
 	})
 	if err != nil {
-		return nil, err
+		return nil, searchMeta, err
 	}
 	scores := make(map[int64]float64, len(results))
 	for _, result := range results {
@@ -260,7 +258,7 @@ func (s *AgentSkillService) semanticDebugSkillScores(ctx context.Context, query 
 			scores[int64(result.Embedding.ObjectID)] = result.Score
 		}
 	}
-	return scores, nil
+	return scores, searchMeta, nil
 }
 
 func (s *AgentSkillService) semanticDebugMemories(ctx context.Context, req *pb.DebugSemanticRetrievalRequest, limit int, embeddingAvailable *bool) ([]*pb.SemanticMemoryDebugItem, context.Context) {

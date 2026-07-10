@@ -95,6 +95,11 @@ func (s *EmbeddingBackfillService) backfillSkills(ctx context.Context, input Bac
 		result.Errors = append(result.Errors, fmt.Sprintf("query skills: %v", err))
 		return result
 	}
+	if input.ObjectID > 0 && len(skills) == 0 {
+		result.SkippedCount = 1
+		result.Errors = append(result.Errors, fmt.Sprintf("agent skill %d not found or not eligible for embedding backfill", input.ObjectID))
+		return result
+	}
 
 	for _, skill := range skills {
 		if ctx.Err() != nil {

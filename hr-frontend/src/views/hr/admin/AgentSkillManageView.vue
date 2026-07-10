@@ -884,6 +884,10 @@ const regenerateEmbedding = async (row: AgentSkillInfo) => {
       ElMessage.warning('当前 Agent Skill 未发布、未启用或无可生成内容，已跳过')
       return
     }
+    if (result.success_count <= 0) {
+      ElMessage.warning('未生成任何 Embedding，请检查 Agent Skill 状态')
+      return
+    }
     ElMessage.success('Embedding 已重新生成')
     debugLog.skill.info('regenerateEmbedding_succeeded', { skill_id: row.id, success_count: result.success_count })
   } catch (e: unknown) {

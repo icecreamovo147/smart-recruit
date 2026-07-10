@@ -1076,6 +1076,7 @@ const retry = async (failedIndex: number) => {
   try {
     let finalPayload: StreamPayload | null = null
     let streamFailed = false
+    let skillSelectionRequired = false
     await sendMessageStream(
       {
         message: lastUserContent,
@@ -1093,6 +1094,11 @@ const retry = async (failedIndex: number) => {
           if (_eventType === 'model_info') { modelName.value = eventMessage; messages.value[assistantIndex] = { ...(messages.value[assistantIndex] || {}), model_name: eventMessage }; return }
           if (_eventType === 'process_delta') { appendAssistantProcess(assistantIndex, eventMessage); return }
           if (_eventType === 'process_clear') { clearAssistantProcess(assistantIndex); return }
+          if (_eventType === 'agent_skill_selection_required' && payload.agent_skill_selection) {
+            skillSelectionRequired = true
+            setSkillSelectionMessage(assistantIndex, lastUserContent, session, payload.agent_skill_selection)
+            return
+          }
           const msg = messages.value[assistantIndex]
           if (msg) {
             messages.value[assistantIndex] = { ...msg, waitingText: eventMessage }
@@ -1116,6 +1122,7 @@ const retry = async (failedIndex: number) => {
     )
     scrollBottom()
     if (streamFailed) return
+    if (skillSelectionRequired) return
     if (!userAborted.value) {
       await waitForAssistantTextQueue(assistantIndex)
     }

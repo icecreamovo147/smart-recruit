@@ -253,9 +253,22 @@ func (s *EmbeddingService) EmbedObject(ctx context.Context, input EmbedObjectInp
 }
 
 func (s *EmbeddingService) Search(ctx context.Context, input EmbeddingSearchInput) ([]EmbeddingSearchResult, error) {
+	results, meta, err := s.searchWithMeta(ctx, input)
+	s.persistSearchMeta(meta)
+	return results, err
+}
+
+// SearchWithMeta runs Search and returns request-local metadata for the same call.
+func (s *EmbeddingService) SearchWithMeta(ctx context.Context, input EmbeddingSearchInput) ([]EmbeddingSearchResult, SearchMeta, error) {
+	results, meta, err := s.searchWithMeta(ctx, input)
+	s.persistSearchMeta(meta)
+	return results, meta, err
+}
+
+func (s *EmbeddingService) searchWithMeta(ctx context.Context, input EmbeddingSearchInput) ([]EmbeddingSearchResult, SearchMeta, error) {
 	log := logger.GetRequestLogger(ctx)
 	if s == nil || s.repo == nil {
-		return nil, fmt.Errorf("embedding repository is not configured")
+		return nil, SearchMeta{ProviderName: "unavailable"}, fmt.Errorf("embedding repository is not configured")
 	}
 	policy := s.policy.withDefaults()
 	if !policy.SemanticRetrieval {
@@ -263,7 +276,7 @@ func (s *EmbeddingService) Search(ctx context.Context, input EmbeddingSearchInpu
 			zap.String("event", "agent.semantic_retrieval.search"),
 			zap.String("status", "disabled"),
 			zap.Strings("object_types", input.ObjectTypes))
-		return nil, ErrAgentCapabilityDisabled
+		return nil, s.buildSearchMeta(s.currentProvider().Name(), "", 0, 0, 0), ErrAgentCapabilityDisabled
 	}
 	started := time.Now()
 	ctx, cancel := contextWithPolicyTimeout(ctx, policy.SemanticRetrievalTimeout)
@@ -279,11 +292,11 @@ func (s *EmbeddingService) Search(ctx context.Context, input EmbeddingSearchInpu
 		zap.Strings("object_types", input.ObjectTypes),
 		zap.Int("limit", input.Limit))
 
-	queryVector, modelName, err := s.resolveQueryVector(ctx, input.QueryText, input.QueryVector, input.Model)
+	queryVector, modelName, providerName, err := s.resolveQueryVector(ctx, input.QueryText, input.QueryVector, input.Model)
 	if err != nil {
-		s.recordSearchMeta(modelName, 0, 0, time.Since(started).Milliseconds())
+		meta := s.buildSearchMeta(providerName, modelName, 0, 0, time.Since(started).Milliseconds())
 		s.logSearchFinished("agent.semantic_retrieval.search", started, "fallback", input.ObjectTypes, 0, err)
-		return nil, err
+		return nil, meta, err
 	}
 	log.Info("[logic][embedding] query vector resolved",
 		zap.String("model", modelName),
@@ -298,9 +311,9 @@ func (s *EmbeddingService) Search(ctx context.Context, input EmbeddingSearchInpu
 		Limit:          candidateLimit(input.Limit),
 	})
 	if err != nil {
-		s.recordSearchMeta(modelName, len(queryVector), 0, time.Since(started).Milliseconds())
+		meta := s.buildSearchMeta(providerName, modelName, len(queryVector), 0, time.Since(started).Milliseconds())
 		s.logSearchFinished("agent.semantic_retrieval.search", started, "failed", input.ObjectTypes, 0, err)
-		return nil, err
+		return nil, meta, err
 	}
 	log.Info("[logic][embedding] candidates loaded",
 		zap.Int("candidate_count", len(rows)))
@@ -323,27 +336,39 @@ func (s *EmbeddingService) Search(ctx context.Context, input EmbeddingSearchInpu
 				zap.Float64("score", r.Score))
 		}
 	}
-	s.recordSearchMeta(modelName, len(queryVector), len(finalResults), time.Since(started).Milliseconds())
+	meta := s.buildSearchMeta(providerName, modelName, len(queryVector), len(finalResults), time.Since(started).Milliseconds())
 	s.logSearchFinished("agent.semantic_retrieval.search", started, "succeeded", input.ObjectTypes, limit, nil)
-	return finalResults, nil
+	return finalResults, meta, nil
+}
+
+// buildSearchMeta constructs request-local metadata for one search call.
+func (s *EmbeddingService) buildSearchMeta(providerName, modelName string, vectorDim, candidateCount int, latencyMs int64) SearchMeta {
+	if providerName == "" {
+		providerName = "unavailable"
+	}
+	return SearchMeta{
+		ProviderName:   providerName,
+		ModelName:      modelName,
+		VectorDim:      vectorDim,
+		CandidateCount: candidateCount,
+		LatencyMs:      latencyMs,
+	}
+}
+
+func (s *EmbeddingService) persistSearchMeta(meta SearchMeta) {
+	if s == nil {
+		return
+	}
+	stored := meta
+	s.lastSearchMeta.Store(&stored)
 }
 
 // recordSearchMeta 写入最近一次搜索的元数据。
 // modelName / vectorDim / candidateCount / latencyMs 由 Search 末尾填入；
 // 即便 err 也会写入（带 candidateCount=0 / latencyMs 部分时长），
 // 让 debug 端点能区分"未搜索"与"搜索失败"两种状态。
-func (s *EmbeddingService) recordSearchMeta(modelName string, vectorDim, candidateCount int, latencyMs int64) {
-	if s == nil {
-		return
-	}
-	meta := &SearchMeta{
-		ProviderName:   s.currentProvider().Name(),
-		ModelName:      modelName,
-		VectorDim:      vectorDim,
-		CandidateCount: candidateCount,
-		LatencyMs:      latencyMs,
-	}
-	s.lastSearchMeta.Store(meta)
+func (s *EmbeddingService) recordSearchMeta(providerName, modelName string, vectorDim, candidateCount int, latencyMs int64) {
+	s.persistSearchMeta(s.buildSearchMeta(providerName, modelName, vectorDim, candidateCount, latencyMs))
 }
 
 // LastSearchMeta 返回最近一次 Search / SearchObjects 调用的元数据。
@@ -390,15 +415,15 @@ func (s *EmbeddingService) SearchObjects(ctx context.Context, input EmbeddingObj
 		zap.String("query_source", querySource),
 		zap.Int("limit", input.Limit))
 
-	queryVector, modelName, err := s.resolveQueryVector(ctx, input.QueryText, input.QueryVector, input.Model)
+	queryVector, modelName, providerName, err := s.resolveQueryVector(ctx, input.QueryText, input.QueryVector, input.Model)
 	if err != nil {
-		s.recordSearchMeta(modelName, 0, 0, time.Since(started).Milliseconds())
+		s.recordSearchMeta(providerName, modelName, 0, 0, time.Since(started).Milliseconds())
 		s.logSearchFinished("agent.semantic_retrieval.search_objects", started, "fallback", []string{objectType}, 0, err)
 		return nil, err
 	}
 	rows, err := s.repo.ListByObjectIDs(ctx, objectType, input.ObjectIDs, modelName, EmbeddingStatusReady)
 	if err != nil {
-		s.recordSearchMeta(modelName, len(queryVector), 0, time.Since(started).Milliseconds())
+		s.recordSearchMeta(providerName, modelName, len(queryVector), 0, time.Since(started).Milliseconds())
 		s.logSearchFinished("agent.semantic_retrieval.search_objects", started, "failed", []string{objectType}, 0, err)
 		return nil, err
 	}
@@ -412,7 +437,7 @@ func (s *EmbeddingService) SearchObjects(ctx context.Context, input EmbeddingObj
 		zap.Int("candidate_count", len(rows)),
 		zap.Int("returned_count", len(finalResults)),
 		zap.Int64("duration_ms", time.Since(started).Milliseconds()))
-	s.recordSearchMeta(modelName, len(queryVector), len(finalResults), time.Since(started).Milliseconds())
+	s.recordSearchMeta(providerName, modelName, len(queryVector), len(finalResults), time.Since(started).Milliseconds())
 	s.logSearchFinished("agent.semantic_retrieval.search_objects", started, "succeeded", []string{objectType}, limit, nil)
 	return finalResults, nil
 }
@@ -469,21 +494,23 @@ func validateEmbeddingVector(vector []float64) error {
 	return nil
 }
 
-func (s *EmbeddingService) resolveQueryVector(ctx context.Context, text string, vector []float64, modelName string) ([]float64, string, error) {
+func (s *EmbeddingService) resolveQueryVector(ctx context.Context, text string, vector []float64, modelName string) ([]float64, string, string, error) {
 	queryVector := append([]float64(nil), vector...)
 	normalizedModel := normalizeEmbeddingModel(modelName)
+	provider := s.currentProvider()
+	providerName := provider.Name()
 	if len(queryVector) == 0 {
-		result, err := s.currentProvider().EmbedText(ctx, text)
+		result, err := provider.EmbedText(ctx, text)
 		if err != nil {
-			return nil, "", err
+			return nil, "", providerName, err
 		}
 		queryVector = append([]float64(nil), result.Vector...)
 		normalizedModel = normalizeEmbeddingModel(result.Model)
 	}
 	if err := validateEmbeddingVector(queryVector); err != nil {
-		return nil, "", err
+		return nil, "", providerName, err
 	}
-	return queryVector, normalizedModel, nil
+	return queryVector, normalizedModel, providerName, nil
 }
 
 func rankEmbeddingRows(queryVector []float64, rows []model.AIEmbedding) []EmbeddingSearchResult {

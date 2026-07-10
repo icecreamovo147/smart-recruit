@@ -204,6 +204,70 @@ func TestAgentSkillServiceDebugSemanticRetrievalEmbeddingAvailableWhenServiceHea
 	}
 }
 
+func TestAgentSkillServiceDebugSemanticRetrievalUsesSkillSearchMetadata(t *testing.T) {
+	svc, db := newAgentSkillTestService(t)
+	if err := db.AutoMigrate(&model.AIMemory{}, &model.AIEmbedding{}); err != nil {
+		t.Fatalf("auto migrate semantic debug tables: %v", err)
+	}
+	embeddingSvc := NewEmbeddingService(repository.NewAIEmbeddingRepo(db), nil, crypto.EncryptionKey{})
+	embeddingSvc.SetProviderForTest(fakeEmbeddingProvider{
+		vector: EmbeddingVector{Model: "skill-phase-model", Vector: []float64{0.1, 0.2, 0.3}},
+	})
+	svc.WithSemanticDebugDependencies(repository.NewMemoryRepo(db), embeddingSvc)
+	ctx := context.Background()
+
+	skill := &model.AgentSkill{
+		Name:              "candidate_match_debug",
+		DisplayName:       "Candidate Match Debug",
+		Description:       "candidate match",
+		IsEnabled:         1,
+		IsManualInvocable: 1,
+		AgentType:         defaultAgentSkillAgentType,
+		Category:          "candidate_match",
+		SemanticTags:      `["candidate","match"]`,
+	}
+	version := &model.AgentSkillVersion{Version: "1.0.0", SkillMD: "candidate match", BodyMarkdown: "candidate match"}
+	if err := repository.NewAgentSkillRepo(db).CreateSkillWithVersion(ctx, skill, version, true); err != nil {
+		t.Fatalf("CreateSkillWithVersion: %v", err)
+	}
+	memory := &model.AIMemory{
+		HrID:       20,
+		ScopeType:  "hr",
+		ScopeID:    0,
+		MemoryType: "preference",
+		Content:    "candidate match summaries should cite risks",
+		Source:     "user",
+		Confidence: 0.8,
+		Importance: 0.9,
+	}
+	if err := repository.NewMemoryRepo(db).Create(ctx, memory); err != nil {
+		t.Fatalf("Create memory: %v", err)
+	}
+	if _, err := embeddingSvc.EmbedObject(ctx, EmbedObjectInput{
+		ObjectType: "ai_memory",
+		ObjectID:   memory.ID,
+		ScopeType:  memory.ScopeType,
+		ScopeID:    memory.ScopeID,
+		Text:       memory.Content,
+	}); err != nil {
+		t.Fatalf("EmbedObject memory: %v", err)
+	}
+
+	resp, err := svc.DebugSemanticRetrieval(ctx, &pb.DebugSemanticRetrievalRequest{HrId: 20, Query: "candidate match", Limit: 5})
+	if err != nil {
+		t.Fatalf("DebugSemanticRetrieval: %v", err)
+	}
+	if resp.GetCode() != 0 {
+		t.Fatalf("unexpected response code: %#v", resp)
+	}
+	if resp.GetCandidateCount() != 0 {
+		t.Fatalf("candidate_count = %d, want 0 from skill search metadata (memory search must not overwrite)", resp.GetCandidateCount())
+	}
+	if resp.GetEmbeddingModel() != "skill-phase-model" {
+		t.Fatalf("embedding_model = %q, want skill-phase-model", resp.GetEmbeddingModel())
+	}
+}
+
 func TestAgentSkillServiceRejectsUnavailableRequiredCapability(t *testing.T) {
 	svc, _ := newAgentSkillTestService(t)
 
