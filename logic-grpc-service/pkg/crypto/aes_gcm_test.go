@@ -1,6 +1,7 @@
 package crypto
 
 import (
+	"encoding/hex"
 	"os"
 	"testing"
 )
@@ -117,9 +118,11 @@ func TestMaskAPIKey(t *testing.T) {
 }
 
 func TestLoadEncryptionKey(t *testing.T) {
-	keyHex := "abcdef0123456789abcdef0123456789" +
-		"abcdef0123456789abcdef0123456789"
-	t.Setenv("ENCRYPTION_KEY", keyHex)
+	keyBytes := make([]byte, 32)
+	for i := range keyBytes {
+		keyBytes[i] = byte(i)
+	}
+	t.Setenv("ENCRYPTION_KEY", hex.EncodeToString(keyBytes))
 	key, err := LoadEncryptionKey()
 	if err != nil {
 		t.Fatalf("LoadEncryptionKey failed with valid key: %v", err)
