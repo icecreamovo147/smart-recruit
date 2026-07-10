@@ -1,0 +1,147 @@
+schema_version: 1
+
+policies:
+  default_review_days: 90
+  allowed_statuses:
+    - draft
+    - active
+    - stale
+    - deprecated
+    - archived
+  direct_update_kinds:
+    - runbook
+    - pitfall
+    - navigation
+  approval_required_kinds:
+    - decision
+    - security
+    - public-contract
+
+routes:
+  - match:
+      - AGENTS.md
+      - CLAUDE.md
+      - .claude/CLAUDE.md
+      - .spec/**
+      - .agents/skills/spec-harness/**
+    documents:
+      - system-overview
+      - local-development
+    triggers:
+      - covered-path-changed
+      - configuration-changed
+
+  - match:
+      - README.md
+      - pnpm-workspace.yaml
+      - hr-frontend/**
+      - user-frontend/**
+      - interviewer-frontend/**
+      - web-gin-service/**
+      - logic-grpc-service/**
+    documents:
+      - system-overview
+      - service-boundaries
+    triggers:
+      - covered-path-changed
+      - service-boundary-changed
+
+  - match:
+      - logic-grpc-service/service/ai_service.go
+      - logic-grpc-service/service/agent_context.go
+      - logic-grpc-service/service/agent_run_recorder.go
+      - logic-grpc-service/ai/**
+      - hr-frontend/src/views/hr/AIChatView.vue
+      - hr-frontend/src/views/hr/admin/SemanticRetrievalDebugView.vue
+    documents:
+      - agent-runtime
+      - semantic-retrieval
+      - memory-and-context
+      - debug-agent-retrieval
+    triggers:
+      - covered-path-changed
+      - retrieval-behavior-changed
+      - memory-behavior-changed
+
+  - match:
+      - logic-grpc-service/service/agent_skill_*.go
+      - logic-grpc-service/service/embedding_*.go
+    documents:
+      - agent-skill
+      - semantic-retrieval
+      - embedding-fallback
+    triggers:
+      - covered-path-changed
+      - retrieval-behavior-changed
+      - fallback-behavior-changed
+
+  - match:
+      - logic-grpc-service/service/agent_context.go
+      - logic-grpc-service/service/*memory*.go
+      - logic-grpc-service/model/*memory*.go
+    documents:
+      - memory-and-context
+      - semantic-retrieval
+      - debug-agent-retrieval
+    triggers:
+      - covered-path-changed
+      - memory-behavior-changed
+
+  - match:
+      - logic-grpc-service/service/job_service.go
+      - logic-grpc-service/service/application_service.go
+      - logic-grpc-service/service/interview_service.go
+      - logic-grpc-service/service/offer_service.go
+      - logic-grpc-service/proto/recruitment.proto
+      - db.sql
+      - hr-frontend/src/views/hr/**
+      - user-frontend/src/views/candidate/**
+      - interviewer-frontend/src/views/**
+    documents:
+      - recruitment
+      - service-boundaries
+    triggers:
+      - covered-path-changed
+      - public-api-changed
+      - database-schema-changed
+
+  - match:
+      - logic-grpc-service/proto/**
+      - web-gin-service/proto/**
+      - logic-grpc-service/recruitment/pb/**
+      - web-gin-service/recruitment/pb/**
+    documents:
+      - protobuf-synchronization
+    triggers:
+      - public-contract-changed
+      - generated-code-changed
+
+  - match:
+      - README.md
+      - start-dev.sh
+      - stop-dev.sh
+      - docker/**
+    documents:
+      - local-development
+    triggers:
+      - covered-path-changed
+      - configuration-changed
+
+  - match:
+      - hr-frontend/src/views/hr/admin/**
+      - hr-frontend/src/router/**
+    documents:
+      - frontend-menu-consistency
+    triggers:
+      - admin-page-changed
+      - route-changed
+
+global_triggers:
+  - new-top-level-module
+  - database-schema-changed
+  - public-api-changed
+  - service-boundary-changed
+  - authorization-changed
+  - sensitive-data-flow-changed
+  - configuration-changed
+  - recurring-defect-fixed

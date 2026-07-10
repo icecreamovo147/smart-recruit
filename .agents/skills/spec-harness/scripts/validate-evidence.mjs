@@ -5,6 +5,8 @@ import process from "node:process";
 
 export function validateEvidence(evidence, options = {}) {
   const issues = [];
+  const allowedKnowledgeResults = new Set(["none", "update_required", "candidate_required", "stale_detected", "conflict_detected", "coverage_gap"]);
+  const allowedDocumentVerdicts = new Set(["UNCHANGED", "UPDATED", "STALE", "CANDIDATE", "CONFLICT"]);
   for (const field of ["schemaVersion", "feature_name", "task_id", "base_sha", "head_sha", "changed_files", "scope", "checks", "review", "human_confirmation", "exceptions"]) {
     if (!(field in evidence)) issues.push(`missing field: ${field}`);
   }
@@ -27,15 +29,45 @@ export function validateEvidence(evidence, options = {}) {
   if (evidence.review?.verdict === "通过" && (evidence.checks || []).some((check) => check.exit_code !== 0)) issues.push("passing review contains failed checks");
   if (!evidence.human_confirmation?.confirmed && !options.allowMissingConfirmation) issues.push("required human confirmation is missing");
   if (!Array.isArray(evidence.exceptions)) issues.push("exceptions must be an array");
+  if (options.requireKnowledgeImpact || "knowledgeImpact" in evidence) {
+    const impact = evidence.knowledgeImpact;
+    if (!impact || typeof impact !== "object" || Array.isArray(impact)) {
+      issues.push("knowledgeImpact must be an object");
+    } else {
+      if (!allowedKnowledgeResults.has(impact.result)) issues.push(`knowledgeImpact.result is invalid: ${impact.result}`);
+      if (!Array.isArray(impact.triggeredBy)) issues.push("knowledgeImpact.triggeredBy must be an array");
+      if (!Array.isArray(impact.reviewResults)) issues.push("knowledgeImpact.reviewResults must be an array");
+      if (typeof impact.coverageGap !== "boolean") issues.push("knowledgeImpact.coverageGap must be boolean");
+      if (!Number.isInteger(impact.validationExitCode)) issues.push("knowledgeImpact.validationExitCode must be an integer");
+      for (const [index, review] of (impact.reviewResults || []).entries()) {
+        if (!review || typeof review !== "object" || Array.isArray(review)) {
+          issues.push(`knowledgeImpact.reviewResults[${index}] must be an object`);
+          continue;
+        }
+        if (typeof review.document !== "string" || review.document.length === 0) issues.push(`knowledgeImpact.reviewResults[${index}].document is required`);
+        if (!allowedDocumentVerdicts.has(review.verdict)) issues.push(`knowledgeImpact.reviewResults[${index}].verdict is invalid`);
+        if (!Array.isArray(review.evidence) || review.evidence.length === 0) issues.push(`knowledgeImpact.reviewResults[${index}].evidence must be a non-empty array`);
+      }
+      if (impact.result === "none" && impact.coverageGap) issues.push("knowledgeImpact cannot be none when coverageGap is true");
+      if (evidence.review?.verdict === "通过") {
+        const blocking = new Set(["stale_detected", "conflict_detected"]);
+        if (blocking.has(impact.result)) issues.push("passing review cannot contain stale_detected or conflict_detected knowledgeImpact");
+        if ((impact.reviewResults || []).some((review) => ["STALE", "CONFLICT"].includes(review.verdict))) {
+          issues.push("passing review cannot contain STALE or CONFLICT knowledge document verdicts");
+        }
+      }
+    }
+  }
   return { valid: issues.length === 0, issues };
 }
 
 function parseArgs(argv) {
-  const args = { file: null, allowPendingReview: false, allowMissingConfirmation: false, json: false };
+  const args = { file: null, allowPendingReview: false, allowMissingConfirmation: false, requireKnowledgeImpact: false, json: false };
   for (let index = 0; index < argv.length; index += 1) {
     if (argv[index] === "--file") args.file = argv[++index];
     else if (argv[index] === "--allow-pending-review") args.allowPendingReview = true;
     else if (argv[index] === "--allow-missing-confirmation") args.allowMissingConfirmation = true;
+    else if (argv[index] === "--require-knowledge-impact") args.requireKnowledgeImpact = true;
     else if (argv[index] === "--json") args.json = true;
     else throw new Error(`unknown argument: ${argv[index]}`);
   }

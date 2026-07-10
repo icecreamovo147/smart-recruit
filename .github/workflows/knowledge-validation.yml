@@ -1,0 +1,56 @@
+name: Knowledge Validation
+
+on:
+  pull_request:
+    paths:
+      - ".knowledge/**"
+      - ".spec/**"
+      - ".agents/skills/spec-harness/**"
+      - "AGENTS.md"
+      - ".github/workflows/knowledge-validation.yml"
+  push:
+    branches:
+      - main
+      - master
+    paths:
+      - ".knowledge/**"
+      - ".spec/**"
+      - ".agents/skills/spec-harness/**"
+      - "AGENTS.md"
+      - ".github/workflows/knowledge-validation.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  knowledge-validation:
+    name: Knowledge validation
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Validate knowledge tools
+        run: node .knowledge/scripts/knowledge-validator.test.mjs
+
+      - name: Validate knowledge structure
+        run: node .knowledge/scripts/validate-knowledge.mjs --root .
+
+      - name: Validate knowledge references
+        run: node .knowledge/scripts/check-references.mjs --root .
+
+      - name: Validate development-agent-knowledge-base feature
+        run: node .agents/skills/spec-harness/scripts/validate-feature.mjs --feature .spec/development-agent-knowledge-base
+
+      - name: Validate spec-harness regression tests
+        run: node .agents/skills/spec-harness/scripts/validator.test.mjs
+
+      - name: Check whitespace
+        run: git diff --check

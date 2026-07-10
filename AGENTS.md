@@ -64,6 +64,20 @@ Provider-specific files for Codex, Claude Code, or other agents may adapt to thi
 
 `pipeline-state.json` is the runtime status source for a feature. A `status` value in `task-scope.json` is only its generated initial state and must not override pipeline evidence.
 
+### Development knowledge protocol
+
+`.knowledge/` is the canonical control plane's downstream project knowledge layer for coding Agents, developers, and reviewers. It may guide navigation, impact review, runbooks, and recurring pitfalls, but ordinary knowledge cannot override `AGENTS.md`, active SPEC/SDD/TASK/acceptance files, source code, tests, schema, protobuf definitions, or runtime evidence.
+
+For every non-trivial TASK:
+
+1. Read `AGENTS.md`, the active `.spec/<feature-name>/` contract, and `.knowledge/README.md`.
+2. Use `.knowledge/manifest.yaml` routes and `.knowledge/INDEX.md` to select only relevant active knowledge.
+3. Verify critical knowledge claims against each document's `source_refs`.
+4. Run knowledge impact detection when `.knowledge/scripts/detect-impact.mjs` is available and a reliable TASK base tree exists.
+5. Report `knowledge_impact` in TASK reports/evidence with one of the documented results and per-document verdicts.
+
+If TASK scope does not allow updating affected knowledge, record `STALE`, `CANDIDATE`, or `coverage_gap` debt in the report instead of editing scope-out files. Do not read `inbox/`, `archive/`, stale, deprecated, or archived knowledge by default. Do not create provider-specific knowledge copies; adapters such as `CLAUDE.md` must keep pointing at this canonical entry.
+
 For every non-trivial feature, create a feature directory first:
 
 `.spec/<feature-name>/`

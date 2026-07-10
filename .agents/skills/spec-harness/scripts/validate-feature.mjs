@@ -19,6 +19,16 @@ function readJson(file, issues, label) {
   }
 }
 
+function validateStringList(values, label, issues) {
+  if (!Array.isArray(values)) {
+    issues.push(`${label} must be an array`);
+    return;
+  }
+  for (const value of values) {
+    if (typeof value !== "string" || value.length === 0) issues.push(`${label} items must be non-empty strings`);
+  }
+}
+
 export function compileGlob(pattern) {
   if (typeof pattern !== "string" || pattern.length === 0) {
     throw new Error("glob pattern must be a non-empty string");
@@ -116,6 +126,30 @@ export function validateFeature(featureDir, options = {}) {
             compileGlob(pattern);
           } catch (error) {
             issues.push(`${taskId} has invalid glob: ${error.message}`);
+          }
+        }
+        if ("requiredKnowledgeImpact" in task && typeof task.requiredKnowledgeImpact !== "boolean") {
+          issues.push(`${taskId} requiredKnowledgeImpact must be boolean when present`);
+        }
+        if ("knowledge" in task) {
+          if (!task.knowledge || typeof task.knowledge !== "object" || Array.isArray(task.knowledge)) {
+            issues.push(`${taskId} knowledge must be an object when present`);
+          } else {
+            for (const key of Object.keys(task.knowledge)) {
+              if (!["review", "modify", "candidate"].includes(key)) issues.push(`${taskId} knowledge has unknown key ${key}`);
+            }
+            for (const key of ["review", "modify", "candidate"]) {
+              if (key in task.knowledge) {
+                validateStringList(task.knowledge[key], `${taskId} knowledge.${key}`, issues);
+                for (const pattern of task.knowledge[key] || []) {
+                  try {
+                    compileGlob(pattern);
+                  } catch (error) {
+                    issues.push(`${taskId} knowledge.${key} has invalid glob: ${error.message}`);
+                  }
+                }
+              }
+            }
           }
         }
         const expectedAcceptance = `.spec/${featureName}/acceptance/${taskId}.md`;

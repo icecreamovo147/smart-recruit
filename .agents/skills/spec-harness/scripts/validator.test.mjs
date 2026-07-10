@@ -51,7 +51,27 @@ try {
     report: ".spec/current/reports/TASK-001-report.md",
     notes: [],
   };
+  const knowledgeTask = {
+    ...task,
+    acceptance: ".spec/knowledge-feature/acceptance/TASK-001.md",
+    report: ".spec/knowledge-feature/reports/TASK-001-report.md",
+    allowedFiles: ["allowed.txt", ".spec/knowledge-feature/**"],
+    requiredKnowledgeImpact: true,
+    knowledge: {
+      review: [".knowledge/architecture/**"],
+      modify: [".knowledge/runbooks/*.md"],
+      candidate: [".knowledge/inbox/**"],
+    },
+  };
   const currentDir = createFeature(temp, "current", { schemaVersion: 1, feature_name: "current", tasks: { "TASK-001": task } });
+  const knowledgeDir = createFeature(temp, "knowledge-feature", { schemaVersion: 1, feature_name: "knowledge-feature", tasks: { "TASK-001": knowledgeTask } });
+  const invalidKnowledgeTask = {
+    ...knowledgeTask,
+    acceptance: ".spec/invalid-knowledge/acceptance/TASK-001.md",
+    report: ".spec/invalid-knowledge/reports/TASK-001-report.md",
+    knowledge: { review: ["bad[glob"], extra: [] },
+  };
+  const invalidKnowledgeDir = createFeature(temp, "invalid-knowledge", { schemaVersion: 1, feature_name: "invalid-knowledge", tasks: { "TASK-001": invalidKnowledgeTask } });
   const legacyTask = { ...task, acceptance: ".spec/legacy/acceptance/TASK-001.md", report: ".spec/legacy/reports/TASK-001-report.md", allowedFiles: ["allowed.txt", ".spec/legacy/**"] };
   const legacyDir = createFeature(temp, "legacy", { feature_name: "legacy", tasks: { "TASK-001": legacyTask } });
   const unsupportedDir = createFeature(temp, "unsupported", { feature: "unsupported", allowedFiles: ["allowed.txt"] });
@@ -68,6 +88,9 @@ try {
   const baseTree = git(temp, ["rev-parse", "HEAD^{tree}"]);
 
   assert.equal(validateFeature(currentDir).classification, "current");
+  assert.equal(validateFeature(knowledgeDir).classification, "current");
+  assert.equal(validateFeature(invalidKnowledgeDir).classification, "unsupported");
+  assert(validateFeature(invalidKnowledgeDir).issues.some((issue) => issue.includes("knowledge.review has invalid glob")));
   assert.equal(validateFeature(legacyDir).classification, "legacy-compatible");
   assert.equal(validateFeature(unsupportedDir).classification, "unsupported");
   assert.equal(validateFeature(invalidPatternDir).classification, "unsupported");
@@ -125,6 +148,21 @@ try {
     exceptions: [],
   };
   assert.equal(validateEvidence(evidence).valid, true);
+  assert.equal(validateEvidence({ ...evidence, knowledgeImpact: {
+    result: "update_required",
+    triggeredBy: ["covered-path-changed"],
+    reviewResults: [{ document: ".knowledge/runbooks/local-development.md", verdict: "UNCHANGED", evidence: ["README.md"] }],
+    coverageGap: false,
+    validationExitCode: 0,
+  } }).valid, true);
+  assert.equal(validateEvidence(evidence, { requireKnowledgeImpact: true }).valid, false);
+  assert.equal(validateEvidence({ ...evidence, knowledgeImpact: {
+    result: "conflict_detected",
+    triggeredBy: ["covered-path-changed"],
+    reviewResults: [{ document: ".knowledge/architecture/system-overview.md", verdict: "CONFLICT", evidence: ["AGENTS.md"] }],
+    coverageGap: false,
+    validationExitCode: 0,
+  } }).valid, false);
   evidence.checks[0].exit_code = 1;
   assert.equal(validateEvidence(evidence).valid, false);
 

@@ -182,6 +182,23 @@ Completed historical features may remain readable in their original format. Pend
 
 Runtime state must never report ordinary completion when required scope checks, validation commands, review, evidence, or human confirmation failed or are missing. Pipeline-specific transitions and exception semantics are owned by `harness-pipeline`.
 
+### Knowledge impact extension
+
+Features may optionally declare knowledge review semantics without affecting historical feature compatibility. A TASK entry may include:
+
+```json
+{
+  "requiredKnowledgeImpact": true,
+  "knowledge": {
+    "review": [".knowledge/architecture/**"],
+    "modify": [".knowledge/runbooks/*.md"],
+    "candidate": [".knowledge/inbox/**"]
+  }
+}
+```
+
+`knowledge.review`, `knowledge.modify`, and `knowledge.candidate` are repository-relative glob scopes for knowledge impact review, direct knowledge edits, and candidate/inbox updates. Existing features that omit these fields remain `current` or `legacy-compatible` according to the original schema rules.
+
 ### TASK evidence
 
 Every implemented TASK must create or update:
@@ -200,8 +217,11 @@ Evidence must be machine-readable and include at least:
 * review type, round, and verdict;
 * required human confirmation or approved exception metadata;
 * skipped checks and their reasons.
+* optional `knowledgeImpact` when the feature or TASK requires it.
 
 Markdown reports and evidence must agree. A failed command, failed scope check, missing confirmation, or failed review must not be described as passing or complete.
+
+When present, `knowledgeImpact` records `result`, `triggeredBy`, per-document `reviewResults` with fixed verdicts, `coverageGap`, and the validation exit code. Passing review must not contain `stale_detected`, `conflict_detected`, `STALE`, or `CONFLICT`; those must remain failing, blocked, or explicitly exception-approved outcomes.
 
 ### Review independence
 
@@ -800,6 +820,8 @@ The report must include:
 
 ## 11. Whether the Next TASK Can Start
 ```
+
+If the feature or TASK requires knowledge impact, include a `Knowledge Impact` section in the Markdown report and the matching `knowledgeImpact` object in evidence.
 
 ## Output Must Include
 
