@@ -1,0 +1,55 @@
+---
+schema_version: 1
+id: persistence-and-migrations
+title: Persistence and migration architecture
+kind: architecture
+status: active
+owners:
+  - engineering-platform
+tags:
+  - database
+  - migrations
+  - model
+  - repository
+applies_to:
+  - logic-grpc-service/migration/**
+  - logic-grpc-service/migrations/**
+  - logic-grpc-service/model/**
+  - logic-grpc-service/repository/**
+  - db.sql
+source_refs:
+  - logic-grpc-service/main.go
+  - logic-grpc-service/migration/runner.go
+  - logic-grpc-service/migration/runner_test.go
+  - logic-grpc-service/migration/mysql_consistency_test.go
+  - logic-grpc-service/model/model.go
+  - logic-grpc-service/repository/application_repo.go
+  - db.sql
+last_verified: 2026-07-10
+review_after: 2026-10-08
+---
+
+# Persistence and Migration Architecture
+
+The logic service owns persistence. Database structure is represented by SQL migrations, `db.sql`, GORM models, repositories, and service-level transactions. The HTTP gateway should not encode persistence rules.
+
+## Persistence Layers
+
+- `logic-grpc-service/migrations/` contains ordered SQL migration pairs.
+- `logic-grpc-service/migration/runner.go` loads, applies, tracks, baselines, and rolls back migrations.
+- `logic-grpc-service/main.go` embeds migrations and applies pending migrations before starting service registration.
+- `logic-grpc-service/model/` contains GORM models for users, RBAC, recruitment, notification/outbox, AI, resume intelligence, MCP, and configuration tables.
+- `logic-grpc-service/repository/` owns database access, transactions, pagination, and query shapes.
+- `logic-grpc-service/service/` owns business invariants and orchestrates repository calls.
+
+## Impact Guidance
+
+- Schema changes require migration files, model alignment, repository review, and MySQL consistency tests.
+- Transactional workflow changes should be made in services and repositories, not handlers.
+- Cursor or pagination changes should check affected repository queries and gateway handler parsing.
+- `db.sql` must remain aligned with migrations when it represents the current baseline.
+- Test helpers using `AutoMigrate` are not a replacement for production migrations.
+
+## Verification
+
+Verified against migration runner, migration tests, MySQL consistency test, `model.go`, representative repositories, and `db.sql` on 2026-07-10.

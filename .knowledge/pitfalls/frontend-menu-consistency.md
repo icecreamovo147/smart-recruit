@@ -21,6 +21,9 @@ source_refs:
   - hr-frontend/src/router/index.ts
   - hr-frontend/src/views/hr/admin/AgentManageView.vue
   - hr-frontend/src/views/hr/PromptManageView.vue
+  - hr-frontend/src/components/admin-console/PageHeader.vue
+  - hr-frontend/src/components/admin-console/FilterToolbar.vue
+  - hr-frontend/src/components/admin-console/DataTableCard.vue
 last_verified: 2026-07-10
 review_after: 2026-10-08
 ---
@@ -43,9 +46,11 @@ Users see inconsistent spacing, title/description treatment, action placement, o
 ## Prevention
 
 - Reuse `admin-console` components and existing page-header layout before introducing page-specific variants.
-- Check route metadata, menu grouping, permissions, and actual page component together.
+- Check route metadata, menu grouping, permissions, gateway route permission, and actual page component together.
+- For AI/admin pages, compare HR router meta with `web-gin-service/router/router.go` permissions and frontend API helper paths.
 - Verify responsive text fit and avoid introducing marketing-style hero/card layouts into operational admin pages.
 - Keep visual consistency work scoped to the page family being changed.
+- Run the frontend validation runbook for the touched app before reporting completion.
 
 ## Verification
 

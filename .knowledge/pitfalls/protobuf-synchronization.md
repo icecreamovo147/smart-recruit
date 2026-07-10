@@ -46,7 +46,8 @@ The HTTP gateway may marshal, forward, or stream a different contract than the l
 - Check both `logic-grpc-service/recruitment/pb/` and `web-gin-service/recruitment/pb/`.
 - Run targeted Go tests in both services after protobuf-related changes.
 - Update frontend API/types only after the server contract is known.
+- If the proto change is coupled to persistence, also review migration, model, and repository alignment.
 
 ## Verification
 
-This pitfall was verified from current proto locations and historical Agent Skill selection contract work on 2026-07-10.
+This pitfall was verified from current proto locations, generated Go code locations, gateway client construction, and persistence-change routing on 2026-07-10.

@@ -33,6 +33,8 @@ Semantic retrieval is used as an input to Agent Skill ranking and memory recall.
 
 `EmbeddingService` owns embedding object storage, provider selection, fallback status, vector validation, and search metadata. When embedding calls fail or are unavailable, callers must handle the unavailable state explicitly instead of pretending semantic scoring succeeded.
 
+Embedding provider and model configuration is managed separately by `EmbeddingConfigService`. Configuration changes can rebuild the embedding provider, alter the default model, or trigger backfill. Retrieval callers should treat embedding availability, vector dimension, model name, and fallback reason as observable runtime state rather than static assumptions.
+
 ## Agent Skill Retrieval
 
 - Manual `agent_skill_ids` are handled before automatic selection and do not receive automatic backfill.
@@ -49,6 +51,7 @@ Semantic retrieval is used as an input to Agent Skill ranking and memory recall.
 ## Impact Guidance
 
 - If `EmbeddingService.Search`, Agent Skill ranking, memory ranking, or debug retrieval changes, run knowledge impact detection for Skill and Memory routes.
+- If embedding provider/model admin behavior changes, review `ai-configuration-governance` and `debug-ai-configuration`.
 - If embedding fallback behavior changes, also review `pitfalls/embedding-fallback.md` after TASK-004 exists.
 - If protobuf debug response fields change, treat it as a public contract change.
 

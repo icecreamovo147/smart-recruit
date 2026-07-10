@@ -49,7 +49,9 @@ Application state transitions and offer/interview lifecycle behavior are busines
 - Resume and candidate intelligence changes may touch AI quota, parsing, storage, and evaluation flows.
 - Offer and interview changes usually affect both HR and candidate/interviewer surfaces.
 - Permission changes belong to route/RBAC review and should not be inferred only from UI visibility.
+- Notification, outbox, and timeline effects should be reviewed together with application, interview, offer, and collaboration workflows.
+- Candidate-facing status labels are intentionally safer than HR-facing labels; avoid leaking internal rejection or screening detail to candidate surfaces.
 
 ## Verification
 
-This domain summary was verified against `README.md`, protobuf definitions, application service code, and database schema on 2026-07-10.
+This domain summary was verified against `README.md`, protobuf definitions, application/interview/offer/collaboration/notification service code, status model code, and database schema on 2026-07-10.

@@ -41,6 +41,12 @@ Agent runtime behavior belongs in `logic-grpc-service/service/` and `logic-grpc-
 - Available Agent Skills and runtime capabilities.
 - Embedding-backed semantic scores when the embedding provider is available.
 
+## Configuration Boundary
+
+Runtime selection and request assembly are downstream of admin configuration. LLM providers and models are managed by `LlmConfigService`; prompt templates are managed by `PromptService`; agent configs and capability bindings are managed by `AgentConfigService`; feature gates and timeouts are represented by `AgentRuntimePolicy`.
+
+Runtime code should consume the active, enabled configuration and handle missing or unavailable dependencies explicitly. Admin configuration code should validate, persist, test, and expose configuration state, but it should not embed request-time orchestration decisions in the HR frontend or gateway handlers.
+
 ## Runtime Outputs
 
 - Streamed chat events for frontend clients.
@@ -51,6 +57,7 @@ Agent runtime behavior belongs in `logic-grpc-service/service/` and `logic-grpc-
 
 - Changes to context assembly should check memory and prompt budget tests.
 - Changes to runtime path selection should check config defaults and both ADK and legacy behavior when present.
+- Changes to LLM provider/model, prompt template, agent config, capability binding, or runtime policy defaults should review `ai-configuration-governance`.
 - Changes to trace recording should check agent run recorder tests and HR trace UI expectations.
 - Changes to Agent Skill selection or semantic retrieval should also review `semantic-retrieval` and domain knowledge for Skill and Memory.
 
