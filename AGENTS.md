@@ -51,6 +51,19 @@ Do not commit secrets, tokens, or local credentials. Keep environment-specific s
 
 ## SPEC + SDD + Harness Workflow
 
+### Authority and source of truth
+
+Agent-driven development uses one canonical control plane:
+
+1. `AGENTS.md` defines durable repository-wide rules.
+2. `.agents/skills/spec-harness/SKILL.md` defines the feature and single-TASK lifecycle.
+3. `.agents/skills/harness-pipeline/SKILL.md` defines serial multi-TASK orchestration when the user explicitly invokes the pipeline.
+4. `.spec/<feature-name>/` is the only executable feature contract and runtime evidence location.
+
+Provider-specific files for Codex, Claude Code, or other agents may adapt to this control plane, but must not redefine TASK sources, review verdicts, state transitions, or completion rules. Historical plans and execution logs are reference material unless they have been migrated into a current `.spec/<feature-name>/` contract.
+
+`pipeline-state.json` is the runtime status source for a feature. A `status` value in `task-scope.json` is only its generated initial state and must not override pipeline evidence.
+
 For every non-trivial feature, create a feature directory first:
 
 `.spec/<feature-name>/`

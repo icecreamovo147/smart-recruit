@@ -1,0 +1,106 @@
+{
+  "schemaVersion": 1,
+  "feature_name": "agent-harness-unification",
+  "task_id": "TASK-AHU-002",
+  "base_sha": "7587e238855bb8159377f99cb1f53b9358ae67b2",
+  "base_tree": "c1b4d59afb63a600abd8834324e5c6b9ff73acc3",
+  "head_sha": "7587e238855bb8159377f99cb1f53b9358ae67b2",
+  "head_tree": "337682f0bb2e5402e4026caf6cc33b1b338e856f",
+  "changed_files": [
+    ".agents/skills/spec-harness/scripts/audit-specs.mjs",
+    ".agents/skills/spec-harness/scripts/check-task-scope.mjs",
+    ".agents/skills/spec-harness/scripts/validate-evidence.mjs",
+    ".agents/skills/spec-harness/scripts/validate-feature.mjs",
+    ".agents/skills/spec-harness/scripts/validator.test.mjs",
+    ".spec/agent-harness-unification/AGENT_RULES.md",
+    ".spec/agent-harness-unification/TASKS.md",
+    ".spec/agent-harness-unification/acceptance/TASK-AHU-001.md",
+    ".spec/agent-harness-unification/acceptance/TASK-AHU-002.md",
+    ".spec/agent-harness-unification/acceptance/TASK-AHU-003.md",
+    ".spec/agent-harness-unification/acceptance/TASK-AHU-004.md",
+    ".spec/agent-harness-unification/acceptance/TASK-AHU-005.md",
+    ".spec/agent-harness-unification/acceptance/TASK-AHU-006.md",
+    ".spec/agent-harness-unification/acceptance/TASK-AHU-007.md",
+    ".spec/agent-harness-unification/agent-harness-unification-SDD.md",
+    ".spec/agent-harness-unification/agent-harness-unification-SPEC.md",
+    ".spec/agent-harness-unification/pipeline-state.json",
+    ".spec/agent-harness-unification/prompts/fix-check-failures.md",
+    ".spec/agent-harness-unification/prompts/implement-task.md",
+    ".spec/agent-harness-unification/prompts/self-review.md",
+    ".spec/agent-harness-unification/reports/.gitkeep",
+    ".spec/agent-harness-unification/reports/TASK-AHU-001-evidence.json",
+    ".spec/agent-harness-unification/reports/TASK-AHU-001-report.md",
+    ".spec/agent-harness-unification/reports/TASK-AHU-002-evidence.json",
+    ".spec/agent-harness-unification/reports/TASK-AHU-002-report.md",
+    ".spec/agent-harness-unification/scripts/agent-check.sh",
+    ".spec/agent-harness-unification/scripts/check-task-scope.sh",
+    ".spec/agent-harness-unification/task-scope.json"
+  ],
+  "scope": {
+    "status": "passed",
+    "command": "bash .spec/agent-harness-unification/scripts/check-task-scope.sh TASK-AHU-002",
+    "classification": "current",
+    "out_of_scope": [],
+    "forbidden": [],
+    "allowed_patterns": [
+      ".agents/skills/spec-harness/scripts/**",
+      ".spec/agent-harness-unification/**"
+    ]
+  },
+  "checks": [
+    {
+      "command": "git diff --name-only",
+      "exit_code": 0,
+      "status": "passed",
+      "started_at": "2026-07-10T09:45:50Z",
+      "duration_ms": 1
+    },
+    {
+      "command": "bash .spec/agent-harness-unification/scripts/check-task-scope.sh TASK-AHU-002",
+      "exit_code": 0,
+      "status": "passed",
+      "started_at": "2026-07-10T09:45:51Z",
+      "duration_ms": 716
+    },
+    {
+      "command": "bash .spec/agent-harness-unification/scripts/agent-check.sh",
+      "exit_code": 0,
+      "status": "passed",
+      "started_at": "2026-07-10T09:45:52Z",
+      "duration_ms": 161
+    },
+    {
+      "command": "node .agents/skills/spec-harness/scripts/validator.test.mjs",
+      "exit_code": 0,
+      "status": "passed",
+      "started_at": "2026-07-10T09:45:53Z",
+      "duration_ms": 350
+    },
+    {
+      "command": "node .agents/skills/spec-harness/scripts/audit-specs.mjs --root .spec",
+      "exit_code": 0,
+      "status": "passed",
+      "started_at": "2026-07-10T09:45:54Z",
+      "duration_ms": 94
+    }
+  ],
+  "review": {
+    "reviewer_type": "self-review",
+    "round": 1,
+    "verdict": "通过",
+    "findings": []
+  },
+  "human_confirmation": {
+    "required": true,
+    "confirmed": true,
+    "confirmed_at": "2026-07-10T17:36:09+08:00",
+    "source": "user requested pipeline continuation without manual gates"
+  },
+  "exceptions": [],
+  "skipped_checks": [
+    {
+      "check": "Go/Vue business test suites",
+      "reason": "TASK-AHU-002 modifies only agent Harness scripts and feature evidence; business code is out of scope."
+    }
+  ]
+}

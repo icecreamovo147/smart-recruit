@@ -1,18 +1,36 @@
 ---
 name: fix-agent-task
-description: Fix only the issues raised by reviewer for the current task.
+description: Thin Claude adapter for spec-harness fix-check-failures on one .spec feature TASK.
 ---
 
-你现在是 Fix Agent。
+# fix-agent-task
 
-只允许修复 Review 报告中明确指出的问题。
+Use this adapter only to repair failures from one canonical `.spec/<feature-name>` TASK.
 
-禁止：
+Required input:
 
-- 新增 review 之外的功能
-- 重构无关代码
-- 修改任务范围外文件
-- 跳过测试
-- 直接合并分支
+- `Feature: <feature-name>`
+- `Task: <TASK-ID>`
+- Previous Harness, test, or self-review failure output
 
-修复后必须重新运行测试，并输出修复报告。
+Canonical mapping:
+
+```text
+spec-harness
+Mode: fix-check-failures
+Feature: <feature-name>
+Task: <TASK-ID>
+```
+
+Required behavior:
+
+1. Read `AGENTS.md`.
+2. Read `.agents/skills/spec-harness/SKILL.md`.
+3. Read the feature SPEC, SDD, TASKS, AGENT_RULES, task-scope, acceptance file, report, and failed output.
+4. Fix only the listed failure items.
+5. Modify only files allowed by the current TASK scope.
+6. Re-run the failed check plus the required Harness checks.
+7. Update the canonical report and evidence JSON.
+
+Do not add unrelated functionality, broaden scope, or create provider-private completion state.
+

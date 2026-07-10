@@ -1,0 +1,89 @@
+{
+  "schemaVersion": 1,
+  "feature_name": "agent-harness-unification",
+  "task_id": "TASK-AHU-006",
+  "base_sha": "7587e238855bb8159377f99cb1f53b9358ae67b2",
+  "base_tree": "3653415525c217bdbb41d902858f7d6f3ae7ff29",
+  "head_sha": "7587e238855bb8159377f99cb1f53b9358ae67b2",
+  "head_tree": "337682f0bb2e5402e4026caf6cc33b1b338e856f",
+  "changed_files": [
+    ".ai-guides/README.md",
+    ".spec/agent-harness-unification/pipeline-state.json",
+    ".spec/agent-harness-unification/reports/TASK-AHU-005-evidence.json",
+    ".spec/agent-harness-unification/reports/TASK-AHU-005-report.md",
+    ".spec/agent-harness-unification/reports/TASK-AHU-006-evidence.json",
+    ".spec/agent-harness-unification/reports/TASK-AHU-006-report.md",
+    ".spec/agent-harness-unification/reports/legacy-inventory.md",
+    "docs/agent-harness/00-HARNESS.md",
+    "docs/agent-harness/README.md"
+  ],
+  "scope": {
+    "status": "passed",
+    "command": "bash .spec/agent-harness-unification/scripts/check-task-scope.sh TASK-AHU-006",
+    "classification": "current",
+    "out_of_scope": [],
+    "forbidden": [],
+    "allowed_patterns": [
+      "docs/agent-harness/README.md",
+      "docs/agent-harness/00-HARNESS.md",
+      ".ai-guides/README.md",
+      ".spec/agent-harness-unification/**"
+    ]
+  },
+  "checks": [
+    {
+      "command": "git diff --name-only",
+      "exit_code": 0,
+      "status": "passed",
+      "started_at": "2026-07-10T10:04:48Z",
+      "duration_ms": 1
+    },
+    {
+      "command": "bash .spec/agent-harness-unification/scripts/check-task-scope.sh TASK-AHU-006",
+      "exit_code": 0,
+      "status": "passed",
+      "started_at": "2026-07-10T10:04:49Z",
+      "duration_ms": 916
+    },
+    {
+      "command": "bash .spec/agent-harness-unification/scripts/agent-check.sh",
+      "exit_code": 0,
+      "status": "passed",
+      "started_at": "2026-07-10T10:04:50Z",
+      "duration_ms": 8
+    },
+    {
+      "command": "node inventory alignment script",
+      "exit_code": 0,
+      "status": "passed",
+      "started_at": "2026-07-10T10:04:51Z",
+      "duration_ms": 60
+    },
+    {
+      "command": "git diff --name-only -- docs/agent-harness .ai-guides .spec/agent-harness-unification/reports/legacy-inventory.md",
+      "exit_code": 0,
+      "status": "passed",
+      "started_at": "2026-07-10T10:04:52Z",
+      "duration_ms": 1
+    }
+  ],
+  "review": {
+    "reviewer_type": "self-review",
+    "round": 1,
+    "verdict": "通过",
+    "findings": []
+  },
+  "human_confirmation": {
+    "required": true,
+    "confirmed": true,
+    "confirmed_at": "2026-07-10T18:02:02+08:00",
+    "source": "user requested pipeline continuation without manual gates"
+  },
+  "exceptions": [],
+  "skipped_checks": [
+    {
+      "check": "Go/Vue business test suites",
+      "reason": "TASK-AHU-006 modifies only legacy documentation entries and feature evidence; business code is out of scope."
+    }
+  ]
+}

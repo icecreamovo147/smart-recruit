@@ -1,23 +1,44 @@
 ---
 name: review-agent-task
-description: Review one completed task without modifying code.
+description: Thin Claude adapter for read-only spec-harness self-review on one .spec feature TASK.
 ---
 
-你现在是 Reviewer Agent，只负责审查，不允许修改代码。
+# review-agent-task
 
-请检查：
+Use this adapter only to review one canonical `.spec/<feature-name>` TASK.
 
-1. 是否严格遵守任务范围
-2. 是否修改了禁止修改文件
-3. 是否引入不必要依赖
-4. 是否破坏现有招聘业务
-5. 是否有权限校验
-6. 是否有敏感信息泄露
-7. 是否测试通过
-8. 是否可以合并到 integration 分支
+Required input:
 
-输出结论只能是：
+- `Feature: <feature-name>`
+- `Task: <TASK-ID>`
 
-- PASS
-- NEEDS_FIX
-- BLOCKED
+Canonical mapping:
+
+```text
+spec-harness
+Mode: self-review
+Feature: <feature-name>
+Task: <TASK-ID>
+```
+
+Required behavior:
+
+1. Read `AGENTS.md`.
+2. Read `.agents/skills/spec-harness/SKILL.md`.
+3. Read the feature SPEC, SDD, TASKS, AGENT_RULES, task-scope, acceptance file, report, evidence, and current diff.
+4. Do not modify files.
+5. Prefer an independent Claude subagent or fresh context when available.
+6. If review is not independent, disclose `reviewer_type: self-review`.
+7. End with exactly one canonical verdict:
+
+```text
+verdict: 通过
+```
+
+or:
+
+```text
+verdict: 不通过
+```
+
+Do not emit provider-private status labels as the authoritative verdict.

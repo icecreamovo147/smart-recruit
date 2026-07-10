@@ -21,7 +21,8 @@ dist/
 .dev/
 
 # Local AI/editor/tool state that should not be shared.
-.ai-guides/
+.ai-guides/*
+!.ai-guides/README.md
 .codex/
 .codegraph/
 .reasonix/
@@ -39,6 +40,8 @@ deploy/k8s/secret.yaml
 *.crt
 
 # Agent harness scratch directories that are not part of the current .spec flow.
-docs/agent-harness/
+docs/agent-harness/*
+!docs/agent-harness/README.md
+!docs/agent-harness/00-HARNESS.md
 docs/superpowers/
 tools/
