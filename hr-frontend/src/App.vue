@@ -8,6 +8,7 @@ import { useTheme } from '@/composables/useTheme'
 import request from '@/api/request'
 import { updateEmail } from '@/api/auth'
 import NotificationBell from '@/components/NotificationBell.vue'
+import SidebarNavGroup from '@/components/SidebarNavGroup.vue'
 import EmailSetupDialog from '@shared/components/EmailSetupDialog.vue'
 import { PERM } from '@/types/domain'
 import { resolveStaffHomePath } from '@/utils/navigation'
@@ -152,24 +153,20 @@ const routeViewKey = (viewRoute: { fullPath: string; path: string; params: Recor
             <el-icon><Monitor /></el-icon>
             <span>工作台</span>
           </RouterLink>
-          <!-- 基础数据 (department/location admin permissions) -->
-          <template v-if="auth.hasAnyPermission(PERM.ADMIN_DEPARTMENT_MANAGE, PERM.ADMIN_LOCATION_MANAGE)">
-            <button class="sidebar-link sidebar-group-toggle" type="button" :aria-expanded="taxonomyOpen && !sidebarCollapsed" @click="toggleTaxonomy">
-              <el-icon><Operation /></el-icon>
-              <span>基础数据</span>
-              <el-icon class="group-arrow" :class="{ 'group-arrow--open': taxonomyOpen }"><ArrowDown /></el-icon>
-            </button>
-            <div class="sidebar-sub-wrap" :class="{ 'sidebar-sub-wrap--open': taxonomyOpen && !sidebarCollapsed }">
-              <div class="sidebar-sub-group">
-                <RouterLink v-if="auth.hasPermission(PERM.ADMIN_DEPARTMENT_MANAGE)" class="sidebar-link sidebar-sub-link" to="/hr/admin/departments" @click="closeMobileSidebar">
-                  <span>部门管理</span>
-                </RouterLink>
-                <RouterLink v-if="auth.hasPermission(PERM.ADMIN_LOCATION_MANAGE)" class="sidebar-link sidebar-sub-link" to="/hr/admin/locations" @click="closeMobileSidebar">
-                  <span>地点管理</span>
-                </RouterLink>
-              </div>
-            </div>
-          </template>
+          <SidebarNavGroup
+            v-if="auth.hasAnyPermission(PERM.ADMIN_DEPARTMENT_MANAGE, PERM.ADMIN_LOCATION_MANAGE)"
+            :icon="Operation"
+            label="基础数据"
+            :open="taxonomyOpen"
+            :collapsed="sidebarCollapsed"
+            :mobile-open="mobileSidebarOpen"
+            :items="[
+              { to: '/hr/admin/departments', label: '部门管理', visible: auth.hasPermission(PERM.ADMIN_DEPARTMENT_MANAGE) },
+              { to: '/hr/admin/locations', label: '地点管理', visible: auth.hasPermission(PERM.ADMIN_LOCATION_MANAGE) },
+            ]"
+            @toggle="toggleTaxonomy"
+            @close-mobile="closeMobileSidebar"
+          />
           <RouterLink v-if="auth.hasPermission(PERM.JOB_READ)" class="sidebar-link" to="/hr/jobs" @click="closeMobileSidebar">
             <el-icon><Briefcase /></el-icon>
             <span>岗位管理</span>
@@ -186,40 +183,34 @@ const routeViewKey = (viewRoute: { fullPath: string; path: string; params: Recor
             <el-icon><UserFilled /></el-icon>
             <span>员工账号</span>
           </RouterLink>
-          <template v-if="auth.hasPermission(PERM.SYSTEM_CONFIG_MANAGE)">
-            <button class="sidebar-link sidebar-group-toggle" type="button" :aria-expanded="llmConfigOpen && !sidebarCollapsed" @click="toggleLlmConfig">
-              <el-icon><Tools /></el-icon>
-              <span>LLM 模型配置</span>
-              <el-icon class="group-arrow" :class="{ 'group-arrow--open': llmConfigOpen }"><ArrowDown /></el-icon>
-            </button>
-            <div class="sidebar-sub-wrap" :class="{ 'sidebar-sub-wrap--open': llmConfigOpen && !sidebarCollapsed }">
-              <div class="sidebar-sub-group">
-                <RouterLink class="sidebar-link sidebar-sub-link" to="/hr/admin/llm-config/providers" @click="closeMobileSidebar">
-                  <span>Provider 配置</span>
-                </RouterLink>
-                <RouterLink class="sidebar-link sidebar-sub-link" to="/hr/admin/llm-config/models" @click="closeMobileSidebar">
-                  <span>Model 配置</span>
-                </RouterLink>
-              </div>
-            </div>
-          </template>
-          <template v-if="auth.hasPermission(PERM.SYSTEM_CONFIG_MANAGE)">
-            <button class="sidebar-link sidebar-group-toggle" type="button" :aria-expanded="embeddingConfigOpen && !sidebarCollapsed" @click="toggleEmbeddingConfig">
-              <el-icon><Link /></el-icon>
-              <span>Embedding 模型配置</span>
-              <el-icon class="group-arrow" :class="{ 'group-arrow--open': embeddingConfigOpen }"><ArrowDown /></el-icon>
-            </button>
-            <div class="sidebar-sub-wrap" :class="{ 'sidebar-sub-wrap--open': embeddingConfigOpen && !sidebarCollapsed }">
-              <div class="sidebar-sub-group">
-                <RouterLink class="sidebar-link sidebar-sub-link" to="/hr/admin/embedding-config/providers" @click="closeMobileSidebar">
-                  <span>Provider 配置</span>
-                </RouterLink>
-                <RouterLink class="sidebar-link sidebar-sub-link" to="/hr/admin/embedding-config/models" @click="closeMobileSidebar">
-                  <span>Model 配置</span>
-                </RouterLink>
-              </div>
-            </div>
-          </template>
+          <SidebarNavGroup
+            v-if="auth.hasPermission(PERM.SYSTEM_CONFIG_MANAGE)"
+            :icon="Tools"
+            label="LLM 模型配置"
+            :open="llmConfigOpen"
+            :collapsed="sidebarCollapsed"
+            :mobile-open="mobileSidebarOpen"
+            :items="[
+              { to: '/hr/admin/llm-config/providers', label: 'Provider 配置' },
+              { to: '/hr/admin/llm-config/models', label: 'Model 配置' },
+            ]"
+            @toggle="toggleLlmConfig"
+            @close-mobile="closeMobileSidebar"
+          />
+          <SidebarNavGroup
+            v-if="auth.hasPermission(PERM.SYSTEM_CONFIG_MANAGE)"
+            :icon="Link"
+            label="Embedding 模型配置"
+            :open="embeddingConfigOpen"
+            :collapsed="sidebarCollapsed"
+            :mobile-open="mobileSidebarOpen"
+            :items="[
+              { to: '/hr/admin/embedding-config/providers', label: 'Provider 配置' },
+              { to: '/hr/admin/embedding-config/models', label: 'Model 配置' },
+            ]"
+            @toggle="toggleEmbeddingConfig"
+            @close-mobile="closeMobileSidebar"
+          />
           <RouterLink v-if="auth.hasPermission(PERM.AI_PROMPT_MANAGE)" class="sidebar-link" to="/hr/admin/prompts" @click="closeMobileSidebar">
             <el-icon><Edit /></el-icon>
             <span>Prompt 管理</span>
@@ -240,24 +231,20 @@ const routeViewKey = (viewRoute: { fullPath: string; path: string; params: Recor
             <el-icon><Connection /></el-icon>
             <span>工具中心</span>
           </RouterLink>
-          <!-- 第三方服务审计 -->
-          <template v-if="auth.hasPermission(PERM.AUDIT_USAGE_READ)">
-            <button class="sidebar-link sidebar-group-toggle" type="button" :aria-expanded="usageAuditOpen && !sidebarCollapsed" @click="toggleUsageAudit">
-              <el-icon><DataAnalysis /></el-icon>
-              <span>第三方服务审计</span>
-              <el-icon class="group-arrow" :class="{ 'group-arrow--open': usageAuditOpen }"><ArrowDown /></el-icon>
-            </button>
-            <div class="sidebar-sub-wrap" :class="{ 'sidebar-sub-wrap--open': usageAuditOpen && !sidebarCollapsed }">
-              <div class="sidebar-sub-group">
-                <RouterLink class="sidebar-link sidebar-sub-link" to="/hr/admin/usage-stats" @click="closeMobileSidebar">
-                  <span>使用统计</span>
-                </RouterLink>
-                <RouterLink class="sidebar-link sidebar-sub-link" to="/hr/admin/usage-audit" @click="closeMobileSidebar">
-                  <span>审计日志</span>
-                </RouterLink>
-              </div>
-            </div>
-          </template>
+          <SidebarNavGroup
+            v-if="auth.hasPermission(PERM.AUDIT_USAGE_READ)"
+            :icon="DataAnalysis"
+            label="第三方服务审计"
+            :open="usageAuditOpen"
+            :collapsed="sidebarCollapsed"
+            :mobile-open="mobileSidebarOpen"
+            :items="[
+              { to: '/hr/admin/usage-stats', label: '使用统计' },
+              { to: '/hr/admin/usage-audit', label: '审计日志' },
+            ]"
+            @toggle="toggleUsageAudit"
+            @close-mobile="closeMobileSidebar"
+          />
         </el-scrollbar>
       </div>
       <div class="sidebar-footer">
