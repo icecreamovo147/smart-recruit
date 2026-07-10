@@ -117,7 +117,9 @@ func TestMaskAPIKey(t *testing.T) {
 }
 
 func TestLoadEncryptionKey(t *testing.T) {
-	t.Setenv("ENCRYPTION_KEY", "abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789")
+	keyHex := "abcdef0123456789abcdef0123456789" +
+		"abcdef0123456789abcdef0123456789"
+	t.Setenv("ENCRYPTION_KEY", keyHex)
 	key, err := LoadEncryptionKey()
 	if err != nil {
 		t.Fatalf("LoadEncryptionKey failed with valid key: %v", err)
