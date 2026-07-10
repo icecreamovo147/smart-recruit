@@ -78,6 +78,47 @@ func TestAIEmbeddingRepoUpsertGetAndQuery(t *testing.T) {
 	}
 }
 
-func testStringPtr(value string) *string {
-	return &value
+func TestAIEmbeddingRepoMarkStatusByObject(t *testing.T) {
+	db := setupTestDB(t)
+	repo := NewAIEmbeddingRepo(db)
+	ctx := context.Background()
+
+	for i, status := range []string{"ready", "ready"} {
+		if err := repo.Upsert(ctx, &model.AIEmbedding{
+			ObjectType:     "agent_skill",
+			ObjectID:       42,
+			TextHash:       "hash-" + string(rune('a'+i)),
+			EmbeddingModel: "test-model",
+			EmbeddingDim:   3,
+			VectorJSON:     testStringPtr(`[1,0,0]`),
+			Status:         status,
+		}); err != nil {
+			t.Fatalf("Upsert %d: %v", i, err)
+		}
+	}
+
+	count, err := repo.MarkStatusByObject(ctx, "agent_skill", 42, "inactive")
+	if err != nil {
+		t.Fatalf("MarkStatusByObject: %v", err)
+	}
+	if count != 2 {
+		t.Fatalf("expected 2 rows updated, got %d", count)
+	}
+
+	rows, err := repo.ListCandidates(ctx, AIEmbeddingQuery{
+		ObjectTypes:    []string{"agent_skill"},
+		EmbeddingModel: "test-model",
+		Status:         "ready",
+		Limit:          10,
+	})
+	if err != nil {
+		t.Fatalf("ListCandidates ready: %v", err)
+	}
+	if len(rows) != 0 {
+		t.Fatalf("expected inactive rows excluded from ready search, got %#v", rows)
+	}
+}
+
+func testStringPtr(s string) *string {
+	return &s
 }

@@ -1165,12 +1165,14 @@ CREATE TABLE IF NOT EXISTS `llm_models` (
   `timeout_seconds` INT NOT NULL DEFAULT 90 COMMENT 'Request timeout in seconds',
   `is_enabled` TINYINT(1) NOT NULL DEFAULT 1 COMMENT 'Whether model is enabled',
   `is_default` TINYINT(1) NOT NULL DEFAULT 0 COMMENT 'Whether this is the default model',
+  `global_default_key` VARCHAR(16) GENERATED ALWAYS AS (CASE WHEN `is_default` = 1 AND `is_enabled` = 1 THEN 'global' ELSE NULL END) STORED,
   `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   `updated_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`),
   KEY `idx_provider_id` (`provider_id`),
   KEY `idx_model_enabled` (`is_enabled`),
   KEY `idx_model_default` (`is_default`),
+  UNIQUE KEY `uk_llm_global_default` (`global_default_key`),
   CONSTRAINT `fk_llm_models_provider` FOREIGN KEY (`provider_id`) REFERENCES `llm_providers` (`id`) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='LLM model configurations';
 

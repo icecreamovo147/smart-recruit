@@ -262,3 +262,34 @@ func TestEmbeddingServiceSearchWithMetaIsRequestLocal(t *testing.T) {
 		t.Fatalf("request-local meta was polluted by later search: %+v", skillMeta)
 	}
 }
+
+func TestEmbeddingServiceSearchExcludesInactiveEmbeddings(t *testing.T) {
+	svc, repo := newEmbeddingTestService(t, fakeEmbeddingProvider{
+		vector: EmbeddingVector{Model: "fake-model", Vector: []float64{1, 0, 0}},
+	})
+	ctx := context.Background()
+
+	if err := repo.Upsert(ctx, &model.AIEmbedding{
+		ObjectType:     "agent_skill",
+		ObjectID:       7,
+		TextHash:       "inactive-hash",
+		EmbeddingModel: "fake-model",
+		EmbeddingDim:   3,
+		VectorJSON:     strPtr(`[1,0,0]`),
+		Status:         EmbeddingStatusInactive,
+	}); err != nil {
+		t.Fatalf("Upsert inactive: %v", err)
+	}
+
+	results, err := svc.Search(ctx, EmbeddingSearchInput{
+		ObjectTypes: []string{"agent_skill"},
+		QueryText:   "screening",
+		Limit:       5,
+	})
+	if err != nil {
+		t.Fatalf("Search: %v", err)
+	}
+	if len(results) != 0 {
+		t.Fatalf("expected inactive embeddings excluded, got %#v", results)
+	}
+}

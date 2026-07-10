@@ -43,14 +43,7 @@ func (s *EmbeddingConfigService) rebuildProvider(ctx context.Context) {
 }
 
 func (s *EmbeddingConfigService) ListEmbeddingProviders(ctx context.Context, req *pb.ListEmbeddingProvidersRequest) (*pb.ListEmbeddingProvidersResponse, error) {
-	page := req.GetPage()
-	if page <= 0 {
-		page = 1
-	}
-	pageSize := req.GetPageSize()
-	if pageSize <= 0 {
-		pageSize = 20
-	}
+	page, pageSize := normalizeManagementPage(req.GetPage(), req.GetPageSize())
 
 	providers, total, err := s.providerRepo.List(ctx, page, pageSize)
 	if err != nil {
@@ -92,8 +85,11 @@ func (s *EmbeddingConfigService) CreateEmbeddingProvider(ctx context.Context, re
 
 	var extraHeaders *string
 	if req.GetExtraHeadersJson() != "" {
-		eh := req.GetExtraHeadersJson()
-		extraHeaders = &eh
+		eh, err := extraHeadersPtrFromRequest(req.GetExtraHeadersJson())
+		if err != nil {
+			return nil, status.Error(codes.InvalidArgument, err.Error())
+		}
+		extraHeaders = eh
 	}
 
 	provider := &model.EmbeddingProviderConfig{
@@ -147,8 +143,11 @@ func (s *EmbeddingConfigService) UpdateEmbeddingProvider(ctx context.Context, re
 	}
 	if req.GetExtraHeadersSet() {
 		if req.GetExtraHeadersJson() != "" {
-			eh := req.GetExtraHeadersJson()
-			provider.ExtraHeaders = &eh
+			eh, err := extraHeadersPtrFromRequest(req.GetExtraHeadersJson())
+			if err != nil {
+				return nil, status.Error(codes.InvalidArgument, err.Error())
+			}
+			provider.ExtraHeaders = eh
 		} else {
 			provider.ExtraHeaders = nil
 		}
@@ -188,14 +187,7 @@ func (s *EmbeddingConfigService) DeleteEmbeddingProvider(ctx context.Context, re
 }
 
 func (s *EmbeddingConfigService) ListEmbeddingModels(ctx context.Context, req *pb.ListEmbeddingModelsRequest) (*pb.ListEmbeddingModelsResponse, error) {
-	page := req.GetPage()
-	if page <= 0 {
-		page = 1
-	}
-	pageSize := req.GetPageSize()
-	if pageSize <= 0 {
-		pageSize = 20
-	}
+	page, pageSize := normalizeManagementPage(req.GetPage(), req.GetPageSize())
 
 	models, total, err := s.modelRepo.List(ctx, page, pageSize, req.GetProviderId())
 	if err != nil {
@@ -385,6 +377,17 @@ func (s *EmbeddingConfigService) TestEmbeddingModel(ctx context.Context, req *pb
 	}
 	apiKey := string(apiKeyBytes)
 
+	if provider.ExtraHeaders != nil && strings.TrimSpace(*provider.ExtraHeaders) != "" {
+		if _, err := parseExtraHeadersForUse(*provider.ExtraHeaders); err != nil {
+			return &pb.TestEmbeddingModelResponse{
+				Code:    1,
+				Msg:     "invalid stored extra headers",
+				Success: false,
+				Detail:  err.Error(),
+			}, nil
+		}
+	}
+
 	timeout := time.Duration(modelConfig.TimeoutSeconds) * time.Second
 	if timeout <= 0 {
 		timeout = DefaultBailianTimeout
@@ -486,6 +489,10 @@ func (s *EmbeddingConfigService) providerToInfo(p *model.EmbeddingProviderConfig
 	if keyBytes, err := crypto.Decrypt(s.encKey, p.APIKeyEncrypted); err == nil {
 		apiKeyMasked = crypto.MaskAPIKey(string(keyBytes))
 	}
+	extraHeaders := ""
+	if p.ExtraHeaders != nil {
+		extraHeaders = maskExtraHeadersForResponse(*p.ExtraHeaders)
+	}
 
 	return &pb.EmbeddingProviderInfo{
 		Id:               p.ID,
@@ -493,7 +500,7 @@ func (s *EmbeddingConfigService) providerToInfo(p *model.EmbeddingProviderConfig
 		ProviderType:     p.ProviderType,
 		Endpoint:         p.Endpoint,
 		ApiKeyMasked:     apiKeyMasked,
-		ExtraHeadersJson: "",
+		ExtraHeadersJson: extraHeaders,
 		IsEnabled:        p.IsEnabled == 1,
 		CreatedAt:        p.CreatedAt.Format(time.RFC3339),
 		UpdatedAt:        p.UpdatedAt.Format(time.RFC3339),

@@ -21,14 +21,7 @@ func (s *MCPService) ListMCPToolLogs(ctx context.Context, req *pb.ListMCPToolLog
 		log.Warn("[logic][mcp] ListMCPToolLogs invalid server_id")
 		return nil, status.Error(codes.InvalidArgument, "server_id is required")
 	}
-	page := req.GetPage()
-	if page <= 0 {
-		page = 1
-	}
-	pageSize := req.GetPageSize()
-	if pageSize <= 0 {
-		pageSize = 20
-	}
+	page, pageSize := normalizeManagementPage(req.GetPage(), req.GetPageSize())
 	logs, total, err := s.mcpRepo.ListToolLogsByServer(ctx, serverID, page, pageSize)
 	if err != nil {
 		log.Error("[logic][mcp] list MCP tool logs failed", zap.Error(err))

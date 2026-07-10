@@ -55,14 +55,7 @@ func (s *MCPService) WithRuntimePolicy(policy AgentRuntimePolicy) *MCPService {
 // ── Server CRUD ─────────────────────────────────────────────────────
 
 func (s *MCPService) ListMCPServers(ctx context.Context, req *pb.ListMCPServersRequest) (*pb.ListMCPServersResponse, error) {
-	page := req.GetPage()
-	if page <= 0 {
-		page = 1
-	}
-	pageSize := req.GetPageSize()
-	if pageSize <= 0 {
-		pageSize = 20
-	}
+	page, pageSize := normalizeManagementPage(req.GetPage(), req.GetPageSize())
 
 	servers, total, err := s.mcpRepo.ListServers(ctx, page, pageSize)
 	if err != nil {

@@ -22,13 +22,17 @@ import (
 	"logic-grpc-service/repository"
 )
 
+type embeddingUpsertPublisher interface {
+	PublishUpsertBestEffort(ctx context.Context, event EmbeddingUpsertEvent)
+}
+
 type AgentSkillService struct {
 	pb.UnimplementedAgentSkillServiceServer
 	repo            *repository.AgentSkillRepo
 	agentConfigRepo *repository.AgentConfigRepo
 	memoryRepo      *repository.MemoryRepo
 	embeddings      *EmbeddingService
-	eventPublisher  *EmbeddingEventPublisher
+	eventPublisher  embeddingUpsertPublisher
 }
 
 const (
@@ -56,7 +60,7 @@ func (s *AgentSkillService) WithSemanticDebugDependencies(memoryRepo *repository
 	return s
 }
 
-func (s *AgentSkillService) WithEmbeddingEventPublisher(publisher *EmbeddingEventPublisher) *AgentSkillService {
+func (s *AgentSkillService) WithEmbeddingEventPublisher(publisher embeddingUpsertPublisher) *AgentSkillService {
 	if s != nil {
 		s.eventPublisher = publisher
 	}
@@ -594,9 +598,27 @@ func (s *AgentSkillService) UpdateAgentSkill(ctx context.Context, req *pb.Update
 		return nil, status.Error(codes.NotFound, "agent skill not found")
 	}
 	if len(updates) > 0 {
-		s.publishEmbeddingEvent(ctx, uint64(skill.ID))
+		if req.GetIsEnabledSet() {
+			if err := s.syncSkillEmbeddingsAfterStatusChange(ctx, req.GetId(), req.GetIsEnabled()); err != nil {
+				return nil, status.Error(codes.Internal, "sync agent skill embeddings failed")
+			}
+		} else if skill.IsEnabled == 1 {
+			s.publishEmbeddingEvent(ctx, uint64(skill.ID))
+		}
 	}
 	return &pb.AgentSkillResponse{Code: 0, Msg: "success", Skill: s.agentSkillToPB(ctx, skill)}, nil
+}
+
+func (s *AgentSkillService) syncSkillEmbeddingsAfterStatusChange(ctx context.Context, skillID int64, enabled bool) error {
+	if enabled {
+		s.publishEmbeddingEvent(ctx, uint64(skillID))
+		return nil
+	}
+	if s.embeddings == nil {
+		return nil
+	}
+	_, err := s.embeddings.InvalidateObjectEmbeddings(ctx, "agent_skill", uint64(skillID))
+	return err
 }
 
 func (s *AgentSkillService) CreateAgentSkillVersion(ctx context.Context, req *pb.CreateAgentSkillVersionRequest) (*pb.AgentSkillVersionResponse, error) {
@@ -706,6 +728,10 @@ func (s *AgentSkillService) UpdateAgentSkillStatus(ctx context.Context, req *pb.
 	if err := s.repo.UpdateSkillPartial(ctx, req.GetId(), updates); err != nil {
 		log.Error("[logic][agent_skill] UpdateAgentSkillStatus repo failed", zap.Error(err))
 		return nil, status.Error(codes.Internal, "update agent skill status failed")
+	}
+	if err := s.syncSkillEmbeddingsAfterStatusChange(ctx, req.GetId(), req.GetIsEnabled()); err != nil {
+		log.Error("[logic][agent_skill] UpdateAgentSkillStatus embedding sync failed", zap.Error(err))
+		return nil, status.Error(codes.Internal, "sync agent skill embeddings failed")
 	}
 	skill, err := s.repo.GetSkillByID(ctx, req.GetId())
 	if err != nil {

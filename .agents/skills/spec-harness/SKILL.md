@@ -1,8 +1,7 @@
 ---
-
 name: spec-harness
 description: Use this skill to create SPEC + SDD documents from a feature prompt, generate TASK + Harness files, and then verify, execute, review, and repair one TASK at a time under .spec/<feature-name>.
-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+---
 
 # spec-harness
 

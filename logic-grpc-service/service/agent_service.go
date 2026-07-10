@@ -46,14 +46,7 @@ func NewAgentConfigService(
 
 // ListAgents returns a paginated list of agent configurations.
 func (s *AgentConfigService) ListAgents(ctx context.Context, req *pb.ListAgentsRequest) (*pb.ListAgentsResponse, error) {
-	page := req.GetPage()
-	if page <= 0 {
-		page = 1
-	}
-	pageSize := req.GetPageSize()
-	if pageSize <= 0 {
-		pageSize = 20
-	}
+	page, pageSize := normalizeManagementPage(req.GetPage(), req.GetPageSize())
 
 	agents, total, err := s.repo.List(ctx, page, pageSize, req.GetAgentType())
 	if err != nil {

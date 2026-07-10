@@ -105,3 +105,11 @@ func (r *AIEmbeddingRepo) ListCandidates(ctx context.Context, query AIEmbeddingQ
 	err := db.Order("updated_at DESC, id DESC").Limit(limit).Find(&rows).Error
 	return rows, err
 }
+
+// MarkStatusByObject updates embedding status for all rows of an object.
+func (r *AIEmbeddingRepo) MarkStatusByObject(ctx context.Context, objectType string, objectID uint64, status string) (int64, error) {
+	result := r.db.WithContext(ctx).Model(&model.AIEmbedding{}).
+		Where("object_type = ? AND object_id = ?", objectType, objectID).
+		Update("status", status)
+	return result.RowsAffected, result.Error
+}

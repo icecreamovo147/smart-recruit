@@ -810,3 +810,123 @@ func TestDebugContextStateEmptyDefaults(t *testing.T) {
 		}
 	})
 }
+
+func TestAgentSkillServiceDisableMarksEmbeddingsInactive(t *testing.T) {
+	db, err := gorm.Open(sqlite.Open(":memory:"), &gorm.Config{TranslateError: true})
+	if err != nil {
+		t.Fatalf("open sqlite: %v", err)
+	}
+	if err := db.AutoMigrate(&model.AgentSkill{}, &model.AgentSkillVersion{}, &model.AgentConfig{}, &model.AgentCapabilityBinding{}, &model.AgentToolBinding{}, &model.AIEmbedding{}); err != nil {
+		t.Fatalf("auto migrate: %v", err)
+	}
+	embedRepo := repository.NewAIEmbeddingRepo(db)
+	embedSvc := NewEmbeddingService(embedRepo, nil, crypto.EncryptionKey{})
+	skillRepo := repository.NewAgentSkillRepo(db)
+	svc := NewAgentSkillServiceWithAgentConfigRepo(skillRepo, repository.NewAgentConfigRepo(db)).
+		WithSemanticDebugDependencies(nil, embedSvc)
+	ctx := context.Background()
+
+	skill := &model.AgentSkill{
+		Name:              "candidate_summary",
+		DisplayName:       "Candidate Summary",
+		Description:       "Summarize candidate",
+		IsEnabled:         1,
+		IsManualInvocable: 1,
+		TriggerKeywords:   "[]",
+		SemanticTags:      "[]",
+	}
+	if err := skillRepo.CreateSkill(ctx, skill); err != nil {
+		t.Fatalf("CreateSkill: %v", err)
+	}
+	hash := "hash-ready"
+	if err := embedRepo.Upsert(ctx, &model.AIEmbedding{
+		ObjectType:     "agent_skill",
+		ObjectID:       uint64(skill.ID),
+		TextHash:       hash,
+		EmbeddingModel: "test-model",
+		EmbeddingDim:   3,
+		VectorJSON:     testStringPtr(`[1,0,0]`),
+		Status:         EmbeddingStatusReady,
+	}); err != nil {
+		t.Fatalf("Upsert embedding: %v", err)
+	}
+
+	_, err = svc.UpdateAgentSkillStatus(ctx, &pb.UpdateAgentSkillStatusRequest{
+		Id:        skill.ID,
+		IsEnabled: false,
+	})
+	if err != nil {
+		t.Fatalf("UpdateAgentSkillStatus disable: %v", err)
+	}
+
+	rows, err := embedRepo.ListCandidates(ctx, repository.AIEmbeddingQuery{
+		ObjectTypes:    []string{"agent_skill"},
+		EmbeddingModel: "test-model",
+		Status:         EmbeddingStatusReady,
+		Limit:          10,
+	})
+	if err != nil {
+		t.Fatalf("ListCandidates: %v", err)
+	}
+	if len(rows) != 0 {
+		t.Fatalf("expected disabled skill embeddings inactive, got %#v", rows)
+	}
+}
+
+type recordingEmbeddingUpsertPublisher struct {
+	events []EmbeddingUpsertEvent
+}
+
+func (p *recordingEmbeddingUpsertPublisher) PublishUpsertBestEffort(_ context.Context, event EmbeddingUpsertEvent) {
+	p.events = append(p.events, event)
+}
+
+func TestAgentSkillServiceEnablePublishesEmbeddingUpsert(t *testing.T) {
+	db, err := gorm.Open(sqlite.Open(":memory:"), &gorm.Config{TranslateError: true})
+	if err != nil {
+		t.Fatalf("open sqlite: %v", err)
+	}
+	if err := db.AutoMigrate(&model.AgentSkill{}, &model.AgentSkillVersion{}, &model.AgentConfig{}, &model.AgentCapabilityBinding{}, &model.AgentToolBinding{}, &model.AIEmbedding{}); err != nil {
+		t.Fatalf("auto migrate: %v", err)
+	}
+	skillRepo := repository.NewAgentSkillRepo(db)
+	publisher := &recordingEmbeddingUpsertPublisher{}
+	svc := NewAgentSkillServiceWithAgentConfigRepo(skillRepo, repository.NewAgentConfigRepo(db)).
+		WithEmbeddingEventPublisher(publisher)
+	ctx := context.Background()
+
+	skill := &model.AgentSkill{
+		Name:              "candidate_summary",
+		DisplayName:       "Candidate Summary",
+		Description:       "Summarize candidate profiles for recruiters",
+		IsEnabled:         0,
+		IsManualInvocable: 1,
+		TriggerKeywords:   "[]",
+		SemanticTags:      "[]",
+	}
+	if err := skillRepo.CreateSkill(ctx, skill); err != nil {
+		t.Fatalf("CreateSkill: %v", err)
+	}
+
+	_, err = svc.UpdateAgentSkillStatus(ctx, &pb.UpdateAgentSkillStatusRequest{
+		Id:        skill.ID,
+		IsEnabled: true,
+	})
+	if err != nil {
+		t.Fatalf("UpdateAgentSkillStatus enable: %v", err)
+	}
+	if len(publisher.events) != 1 {
+		t.Fatalf("expected one embedding upsert event, got %d", len(publisher.events))
+	}
+	event := publisher.events[0]
+	if event.ObjectType != "agent_skill" || event.ObjectID != uint64(skill.ID) {
+		t.Fatalf("unexpected upsert event: %+v", event)
+	}
+	if event.Text == "" || event.TextHash == "" {
+		t.Fatalf("expected indexable embedding payload, got %+v", event)
+	}
+}
+
+func testStringPtr(s string) *string {
+	return &s
+}

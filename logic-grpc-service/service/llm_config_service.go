@@ -2,7 +2,6 @@ package service
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
@@ -63,14 +62,7 @@ func NewLlmConfigService(providerRepo *repository.ProviderRepo, modelRepo *repos
 // ── Provider CRUD ───────────────────────────────────────────────────────
 
 func (s *LlmConfigService) ListProviders(ctx context.Context, req *pb.ListProvidersRequest) (*pb.ListProvidersResponse, error) {
-	page := req.GetPage()
-	if page <= 0 {
-		page = 1
-	}
-	pageSize := req.GetPageSize()
-	if pageSize <= 0 {
-		pageSize = 20
-	}
+	page, pageSize := normalizeManagementPage(req.GetPage(), req.GetPageSize())
 
 	providers, total, err := s.providerRepo.List(ctx, page, pageSize)
 	if err != nil {
@@ -113,8 +105,11 @@ func (s *LlmConfigService) CreateProvider(ctx context.Context, req *pb.CreatePro
 
 	var extraHeaders *string
 	if req.GetExtraHeadersJson() != "" {
-		eh := req.GetExtraHeadersJson()
-		extraHeaders = &eh
+		eh, err := extraHeadersPtrFromRequest(req.GetExtraHeadersJson())
+		if err != nil {
+			return nil, status.Error(codes.InvalidArgument, err.Error())
+		}
+		extraHeaders = eh
 	}
 
 	provider := &model.LlmProvider{
@@ -173,8 +168,11 @@ func (s *LlmConfigService) UpdateProvider(ctx context.Context, req *pb.UpdatePro
 	}
 	if req.GetExtraHeadersJson() != "" || req.GetExtraHeadersSet() {
 		if req.GetExtraHeadersJson() != "" {
-			eh := req.GetExtraHeadersJson()
-			updates["extra_headers"] = &eh
+			eh, err := extraHeadersPtrFromRequest(req.GetExtraHeadersJson())
+			if err != nil {
+				return nil, status.Error(codes.InvalidArgument, err.Error())
+			}
+			updates["extra_headers"] = eh
 		} else {
 			updates["extra_headers"] = nil
 		}
@@ -309,11 +307,17 @@ func (s *LlmConfigService) TestProviderConnection(ctx context.Context, req *pb.T
 
 	// Add extra headers if present (may override the default auth header)
 	if provider.ExtraHeaders != nil && *provider.ExtraHeaders != "" {
-		var extra map[string]string
-		if err := json.Unmarshal([]byte(*provider.ExtraHeaders), &extra); err == nil {
-			for k, v := range extra {
-				httpReq.Header.Set(k, v)
-			}
+		extra, err := parseExtraHeadersForUse(*provider.ExtraHeaders)
+		if err != nil {
+			return &pb.TestProviderConnectionResponse{
+				Code:    1,
+				Msg:     "invalid stored extra headers",
+				Success: false,
+				Detail:  err.Error(),
+			}, nil
+		}
+		for k, v := range extra {
+			httpReq.Header.Set(k, v)
 		}
 	}
 
@@ -350,14 +354,7 @@ func (s *LlmConfigService) TestProviderConnection(ctx context.Context, req *pb.T
 // ── Model CRUD ──────────────────────────────────────────────────────────
 
 func (s *LlmConfigService) ListModels(ctx context.Context, req *pb.ListModelsRequest) (*pb.ListModelsResponse, error) {
-	page := req.GetPage()
-	if page <= 0 {
-		page = 1
-	}
-	pageSize := req.GetPageSize()
-	if pageSize <= 0 {
-		pageSize = 20
-	}
+	page, pageSize := normalizeManagementPage(req.GetPage(), req.GetPageSize())
 
 	models, total, err := s.modelRepo.List(ctx, page, pageSize, req.GetProviderId())
 	if err != nil {
@@ -406,13 +403,18 @@ func (s *LlmConfigService) CreateModel(ctx context.Context, req *pb.CreateModelR
 
 	// Verify provider exists and get provider name
 	providerName := ""
-	if provider, err := s.providerRepo.GetByID(ctx, req.GetProviderId()); err != nil {
+	provider, err := s.providerRepo.GetByID(ctx, req.GetProviderId())
+	if err != nil {
 		if err == gorm.ErrRecordNotFound {
 			return nil, status.Error(codes.NotFound, "provider not found")
 		}
 		return nil, status.Error(codes.Internal, "get provider failed")
-	} else {
-		providerName = provider.Name
+	}
+	providerName = provider.Name
+	if req.GetIsDefault() {
+		if err := validateRunnableDefaultModel(provider, 1); err != nil {
+			return nil, err
+		}
 	}
 
 	temperature := req.GetTemperature()
@@ -460,12 +462,14 @@ func (s *LlmConfigService) CreateModel(ctx context.Context, req *pb.CreateModelR
 	}
 
 	if req.GetIsDefault() {
-		// Clear existing default for this provider
-		_ = s.modelRepo.ClearDefault(ctx, req.GetProviderId())
 		model.IsDefault = 1
 	}
 
-	if err := s.modelRepo.Create(ctx, model); err != nil {
+	createFn := s.modelRepo.Create
+	if req.GetIsDefault() {
+		createFn = s.modelRepo.CreateWithDefault
+	}
+	if err := createFn(ctx, model); err != nil {
 		logger.L().Error("create model failed", zap.Error(err))
 		return nil, status.Error(codes.Internal, "create model failed")
 	}
@@ -536,8 +540,24 @@ func (s *LlmConfigService) UpdateModel(ctx context.Context, req *pb.UpdateModelR
 		updates["is_enabled"] = v
 	}
 	if req.GetIsDefaultSet() && req.GetIsDefault() {
-		// Clear existing default first
-		_ = s.modelRepo.ClearDefault(ctx, existing.ProviderID)
+		finalIsEnabled := existing.IsEnabled
+		if req.GetIsEnabledSet() {
+			if req.GetIsEnabled() {
+				finalIsEnabled = 1
+			} else {
+				finalIsEnabled = 0
+			}
+		}
+		provider, err := s.providerRepo.GetByID(ctx, existing.ProviderID)
+		if err != nil {
+			if err == gorm.ErrRecordNotFound {
+				return nil, status.Error(codes.NotFound, "provider not found")
+			}
+			return nil, status.Error(codes.Internal, "get provider failed")
+		}
+		if err := validateRunnableDefaultModel(provider, finalIsEnabled); err != nil {
+			return nil, err
+		}
 		updates["is_default"] = 1
 	} else if req.GetIsDefaultSet() && !req.GetIsDefault() {
 		updates["is_default"] = 0
@@ -548,7 +568,11 @@ func (s *LlmConfigService) UpdateModel(ctx context.Context, req *pb.UpdateModelR
 	}
 
 	if len(updates) > 0 {
-		if err := s.modelRepo.UpdatePartial(ctx, id, updates); err != nil {
+		updateFn := s.modelRepo.UpdatePartial
+		if req.GetIsDefaultSet() && req.GetIsDefault() {
+			updateFn = s.modelRepo.UpdatePartialWithDefault
+		}
+		if err := updateFn(ctx, id, updates); err != nil {
 			logger.L().Error("update model failed", zap.Error(err))
 			return nil, status.Error(codes.Internal, "update model failed")
 		}
@@ -598,7 +622,7 @@ func (s *LlmConfigService) providerToInfo(p *model.LlmProvider) *pb.LlmProviderI
 	// Mask extra_headers values
 	extraHeaders := ""
 	if p.ExtraHeaders != nil {
-		extraHeaders = maskExtraHeaders(*p.ExtraHeaders)
+		extraHeaders = maskExtraHeadersForResponse(*p.ExtraHeaders)
 	}
 
 	return &pb.LlmProviderInfo{
@@ -634,17 +658,14 @@ func (s *LlmConfigService) modelToInfo(m *model.LlmModel, providerName string) *
 	}
 }
 
-// maskExtraHeaders masks the values in extra_headers JSON.
-func maskExtraHeaders(jsonStr string) string {
-	var headers map[string]string
-	if err := json.Unmarshal([]byte(jsonStr), &headers); err != nil {
-		return jsonStr
+func validateRunnableDefaultModel(provider *model.LlmProvider, modelEnabled int32) error {
+	if modelEnabled != 1 {
+		return status.Error(codes.FailedPrecondition, "default model must be enabled")
 	}
-	for k, v := range headers {
-		headers[k] = crypto.MaskAPIKey(v)
+	if provider == nil || provider.IsEnabled != 1 {
+		return status.Error(codes.FailedPrecondition, "default model provider must be enabled")
 	}
-	masked, _ := json.Marshal(headers)
-	return string(masked)
+	return nil
 }
 
 // GetModelRuntimeConfig looks up the complete model config for runtime model

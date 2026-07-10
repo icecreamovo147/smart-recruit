@@ -19,14 +19,7 @@ import (
 func (s *MCPService) ListMCPToolPolicies(ctx context.Context, req *pb.ListMCPToolPoliciesRequest) (*pb.ListMCPToolPoliciesResponse, error) {
 	log := logger.GetRequestLogger(ctx)
 	log.Info("[logic][mcp_policy] ListMCPToolPolicies started", zap.Int64("server_id", req.GetServerId()))
-	page := req.GetPage()
-	if page <= 0 {
-		page = 1
-	}
-	pageSize := req.GetPageSize()
-	if pageSize <= 0 {
-		pageSize = 20
-	}
+	page, pageSize := normalizeManagementPage(req.GetPage(), req.GetPageSize())
 	policies, total, err := s.mcpRepo.ListToolPolicies(ctx, req.GetServerId(), page, pageSize)
 	if err != nil {
 		log.Error("[logic][mcp_policy] list MCP tool policies failed", zap.Error(err))

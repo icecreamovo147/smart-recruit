@@ -78,6 +78,20 @@ func pageSize(value int32) int32 {
 	return value
 }
 
+// normalizeManagementPage normalizes pagination for management list APIs.
+func normalizeManagementPage(page, pageSize int32) (int32, int32) {
+	if page <= 0 {
+		page = 1
+	}
+	if pageSize <= 0 {
+		pageSize = 20
+	}
+	if pageSize > 100 {
+		pageSize = 100
+	}
+	return page, pageSize
+}
+
 // ---- Time ----
 
 func formatTime(t time.Time) string {

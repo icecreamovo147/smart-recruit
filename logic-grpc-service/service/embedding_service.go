@@ -24,6 +24,7 @@ import (
 const (
 	EmbeddingStatusReady       = "ready"
 	EmbeddingStatusUnavailable = "unavailable"
+	EmbeddingStatusInactive    = "inactive"
 
 	DefaultEmbeddingModel = "unavailable"
 )
@@ -128,6 +129,23 @@ func (s *EmbeddingService) RebuildProvider(ctx context.Context) {
 		return
 	}
 	logger.L().Info("[logic][embedding] provider rebuilt successfully")
+}
+
+// InvalidateObjectEmbeddings marks all embeddings for an object inactive.
+func (s *EmbeddingService) InvalidateObjectEmbeddings(ctx context.Context, objectType string, objectID uint64) (int64, error) {
+	if s == nil || s.repo == nil {
+		return 0, nil
+	}
+	count, err := s.repo.MarkStatusByObject(ctx, objectType, objectID, EmbeddingStatusInactive)
+	if err != nil {
+		return 0, err
+	}
+	logger.L().Info("embedding object invalidated",
+		zap.String("object_type", objectType),
+		zap.Uint64("object_id", objectID),
+		zap.Int64("rows_affected", count),
+	)
+	return count, nil
 }
 
 // SetProviderForTest injects a custom provider, bypassing the factory.
