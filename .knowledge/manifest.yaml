@@ -1,0 +1,381 @@
+schema_version: 1
+
+policies:
+  default_review_days: 90
+  allowed_statuses:
+    - draft
+    - active
+    - stale
+    - deprecated
+    - archived
+  direct_update_kinds:
+    - runbook
+    - pitfall
+    - navigation
+  approval_required_kinds:
+    - decision
+    - security
+    - public-contract
+
+routes:
+  - match:
+      - .knowledge/**
+    documents:
+      - knowledge-coverage-audit
+    triggers:
+      - covered-path-changed
+      - configuration-changed
+
+  - match:
+      - AGENTS.md
+      - CLAUDE.md
+      - .claude/CLAUDE.md
+      - .spec/**
+      - .agents/skills/spec-harness/**
+    documents:
+      - system-overview
+      - local-development
+    triggers:
+      - covered-path-changed
+      - configuration-changed
+
+  - match:
+      - README.md
+      - pnpm-workspace.yaml
+      - hr-frontend/**
+      - user-frontend/**
+      - interviewer-frontend/**
+      - web-gin-service/**
+      - logic-grpc-service/**
+    documents:
+      - system-overview
+      - service-boundaries
+    triggers:
+      - covered-path-changed
+      - service-boundary-changed
+
+  - match:
+      - web-gin-service/middleware/jwt.go
+      - web-gin-service/middleware/role.go
+      - web-gin-service/router/router.go
+      - web-gin-service/handler/auth.go
+      - web-gin-service/pkg/authz/**
+      - logic-grpc-service/service/auth_service.go
+      - logic-grpc-service/service/admin_service.go
+      - logic-grpc-service/service/authorizer.go
+      - logic-grpc-service/service/audit.go
+      - logic-grpc-service/repository/authz_repo.go
+      - logic-grpc-service/repository/refresh_token_repo.go
+      - logic-grpc-service/repository/user_repo.go
+      - logic-grpc-service/pkg/authz/**
+      - logic-grpc-service/pkg/jwt/**
+      - logic-grpc-service/migrations/000011_add_refresh_tokens.sql
+      - logic-grpc-service/migrations/000012_add_rbac_schema.sql
+      - logic-grpc-service/migrations/000013_seed_rbac_catalog.sql
+      - logic-grpc-service/migrations/000021_add_ai_usage_auth_context.sql
+      - hr-frontend/src/router/index.ts
+      - hr-frontend/src/stores/auth.ts
+      - hr-frontend/src/views/hr/StaffUserManageView.vue
+      - hr-frontend/src/views/hr/SecurityAuditView.vue
+      - user-frontend/src/stores/auth.ts
+      - interviewer-frontend/src/stores/auth.ts
+    documents:
+      - auth-rbac-security
+      - debug-auth-permissions
+      - auth-permission-alignment
+    triggers:
+      - covered-path-changed
+      - authorization-changed
+      - sensitive-data-flow-changed
+
+  - match:
+      - logic-grpc-service/service/ai_service.go
+      - logic-grpc-service/service/agent_context.go
+      - logic-grpc-service/service/agent_run_recorder.go
+      - logic-grpc-service/service/agent_runtime_policy.go
+      - logic-grpc-service/ai/**
+      - hr-frontend/src/views/hr/AIChatView.vue
+      - hr-frontend/src/views/hr/admin/SemanticRetrievalDebugView.vue
+    documents:
+      - agent-runtime
+      - semantic-retrieval
+      - memory-and-context
+      - debug-agent-retrieval
+      - ai-configuration-governance
+    triggers:
+      - covered-path-changed
+      - retrieval-behavior-changed
+      - memory-behavior-changed
+
+  - match:
+      - logic-grpc-service/service/agent_skill_*.go
+      - logic-grpc-service/service/embedding_*.go
+    documents:
+      - agent-skill
+      - semantic-retrieval
+      - embedding-fallback
+      - ai-configuration-governance
+    triggers:
+      - covered-path-changed
+      - retrieval-behavior-changed
+      - fallback-behavior-changed
+
+  - match:
+      - logic-grpc-service/service/llm_config_service.go
+      - logic-grpc-service/service/embedding_config_service.go
+      - logic-grpc-service/service/prompt_service.go
+      - logic-grpc-service/service/agent_service.go
+      - logic-grpc-service/service/agent_runtime_policy.go
+      - logic-grpc-service/service/mcp_service.go
+      - logic-grpc-service/service/mcp_policy.go
+      - logic-grpc-service/service/mcp_policy_api.go
+      - logic-grpc-service/service/mcp_log_api.go
+      - logic-grpc-service/service/skill_service.go
+      - logic-grpc-service/service/skill_manifest.go
+      - logic-grpc-service/service/agent_skill_service.go
+      - logic-grpc-service/repository/agent_config_repo.go
+      - logic-grpc-service/repository/prompt_template_repo.go
+      - logic-grpc-service/repository/mcp_repo.go
+      - logic-grpc-service/repository/skill_repo.go
+      - logic-grpc-service/repository/agent_skill_repo.go
+      - logic-grpc-service/repository/embedding_provider_repo.go
+      - logic-grpc-service/repository/embedding_model_repo.go
+      - logic-grpc-service/model/model.go
+      - web-gin-service/handler/hr/llm_config.go
+      - web-gin-service/handler/hr/embedding_config.go
+      - web-gin-service/handler/hr/prompt.go
+      - web-gin-service/handler/hr/agent_config.go
+      - web-gin-service/handler/hr/mcp.go
+      - web-gin-service/handler/hr/skill.go
+      - web-gin-service/handler/hr/agent_skill.go
+      - web-gin-service/router/router.go
+      - hr-frontend/src/api/llm.ts
+      - hr-frontend/src/api/embedding.ts
+      - hr-frontend/src/api/prompt.ts
+      - hr-frontend/src/api/agent.ts
+      - hr-frontend/src/api/mcp.ts
+      - hr-frontend/src/api/skill.ts
+      - hr-frontend/src/api/agentSkill.ts
+      - hr-frontend/src/views/hr/LlmConfigView.vue
+      - hr-frontend/src/views/hr/EmbeddingConfigView.vue
+      - hr-frontend/src/views/hr/PromptManageView.vue
+      - hr-frontend/src/views/hr/admin/AgentManageView.vue
+      - hr-frontend/src/views/hr/admin/McpManageView.vue
+      - hr-frontend/src/views/hr/admin/SkillManageView.vue
+      - hr-frontend/src/views/hr/admin/AgentSkillManageView.vue
+      - hr-frontend/src/views/hr/admin/SemanticRetrievalDebugView.vue
+    documents:
+      - ai-configuration-governance
+      - mcp-tool-governance
+      - debug-ai-configuration
+      - mcp-policy-audit
+      - agent-runtime
+      - semantic-retrieval
+      - agent-skill
+      - embedding-fallback
+    triggers:
+      - covered-path-changed
+      - configuration-changed
+      - retrieval-behavior-changed
+      - authorization-changed
+      - sensitive-data-flow-changed
+
+  - match:
+      - logic-grpc-service/service/agent_context.go
+      - logic-grpc-service/service/*memory*.go
+      - logic-grpc-service/model/*memory*.go
+    documents:
+      - memory-and-context
+      - semantic-retrieval
+      - debug-agent-retrieval
+    triggers:
+      - covered-path-changed
+      - memory-behavior-changed
+
+  - match:
+      - logic-grpc-service/service/job_service.go
+      - logic-grpc-service/service/application_service.go
+      - logic-grpc-service/service/interview_service.go
+      - logic-grpc-service/service/offer_service.go
+      - logic-grpc-service/service/collaboration_service.go
+      - logic-grpc-service/service/notification_service.go
+      - logic-grpc-service/service/notification_worker.go
+      - logic-grpc-service/service/outbox_publisher.go
+      - logic-grpc-service/service/analytics_service.go
+      - logic-grpc-service/proto/recruitment.proto
+      - db.sql
+      - hr-frontend/src/views/hr/**
+      - user-frontend/src/views/candidate/**
+      - interviewer-frontend/src/views/**
+    documents:
+      - recruitment
+      - recruitment-lifecycle
+      - notification-outbox
+      - debug-recruitment-lifecycle
+      - status-notification-drift
+      - service-boundaries
+    triggers:
+      - covered-path-changed
+      - public-api-changed
+      - database-schema-changed
+
+  - match:
+      - logic-grpc-service/model/status.go
+      - logic-grpc-service/repository/application_repo.go
+      - logic-grpc-service/repository/interview_repo.go
+      - logic-grpc-service/repository/offer_repo.go
+      - logic-grpc-service/repository/collaboration_repo.go
+      - logic-grpc-service/repository/notification_repo.go
+      - logic-grpc-service/model/model.go
+    documents:
+      - recruitment-lifecycle
+      - notification-outbox
+      - status-notification-drift
+      - persistence-and-migrations
+    triggers:
+      - covered-path-changed
+      - database-schema-changed
+      - service-boundary-changed
+
+  - match:
+      - logic-grpc-service/oss/**
+      - logic-grpc-service/resumeparser/**
+      - logic-grpc-service/service/resume_profile_service.go
+      - logic-grpc-service/service/resume_profile_extractor_*.go
+      - logic-grpc-service/service/resume_parse_consumer.go
+      - logic-grpc-service/service/recruiting_intelligence_service.go
+      - logic-grpc-service/service/candidate_match_*.go
+      - logic-grpc-service/repository/resume_repo.go
+      - logic-grpc-service/repository/resume_profile_repo.go
+      - logic-grpc-service/repository/candidate_match_repo.go
+      - logic-grpc-service/migrations/000042_add_structured_resume_and_match_tables.sql
+      - logic-grpc-service/migrations/000047_add_chinese_recruiting_intelligence_prompts.sql
+      - web-gin-service/handler/candidate/resume.go
+      - web-gin-service/handler/hr/recruiting_intelligence.go
+      - web-gin-service/middleware/resume_quota.go
+      - web-gin-service/router/router.go
+      - user-frontend/src/api/resume.ts
+      - user-frontend/src/views/candidate/ResumeUploadView.vue
+      - hr-frontend/src/api/recruitingIntelligence.ts
+      - hr-frontend/src/types/recruitingIntelligence.ts
+      - hr-frontend/src/views/hr/ApplicationIntelligenceView.vue
+    documents:
+      - resume-intelligence
+      - debug-resume-intelligence
+      - resume-sensitive-data
+      - ai-configuration-governance
+      - auth-rbac-security
+      - persistence-and-migrations
+    triggers:
+      - covered-path-changed
+      - sensitive-data-flow-changed
+      - configuration-changed
+      - database-schema-changed
+      - authorization-changed
+
+  - match:
+      - logic-grpc-service/proto/**
+      - web-gin-service/proto/**
+      - logic-grpc-service/recruitment/pb/**
+      - web-gin-service/recruitment/pb/**
+    documents:
+      - protobuf-synchronization
+      - api-contracts-and-gateway
+      - protobuf-and-migration-change
+    triggers:
+      - public-contract-changed
+      - generated-code-changed
+
+  - match:
+      - web-gin-service/router/**
+      - web-gin-service/handler/**
+      - web-gin-service/middleware/**
+      - web-gin-service/rpc/**
+      - web-gin-service/config/**
+    documents:
+      - api-contracts-and-gateway
+      - service-boundaries
+    triggers:
+      - covered-path-changed
+      - public-api-changed
+      - service-boundary-changed
+
+  - match:
+      - logic-grpc-service/migration/**
+      - logic-grpc-service/migrations/**
+      - logic-grpc-service/model/**
+      - logic-grpc-service/repository/**
+      - db.sql
+    documents:
+      - persistence-and-migrations
+      - migration-model-drift
+      - protobuf-and-migration-change
+    triggers:
+      - covered-path-changed
+      - database-schema-changed
+      - service-boundary-changed
+
+  - match:
+      - README.md
+      - start-dev.sh
+      - stop-dev.sh
+      - docker/**
+    documents:
+      - local-development
+    triggers:
+      - covered-path-changed
+      - configuration-changed
+
+  - match:
+      - hr-frontend/src/views/hr/admin/**
+      - hr-frontend/src/router/**
+    documents:
+      - frontend-menu-consistency
+      - frontend-apps
+      - frontend-validation
+    triggers:
+      - admin-page-changed
+      - route-changed
+
+  - match:
+      - hr-frontend/src/router/**
+      - hr-frontend/src/stores/**
+      - hr-frontend/src/api/**
+      - hr-frontend/src/types/**
+      - hr-frontend/src/components/NotificationBell.vue
+      - hr-frontend/src/components/admin-console/**
+      - hr-frontend/src/views/**
+      - user-frontend/src/router/**
+      - user-frontend/src/stores/**
+      - user-frontend/src/api/**
+      - user-frontend/src/types/**
+      - user-frontend/src/components/NotificationBell.vue
+      - user-frontend/src/views/**
+      - interviewer-frontend/src/router/**
+      - interviewer-frontend/src/stores/**
+      - interviewer-frontend/src/api/**
+      - interviewer-frontend/src/types/**
+      - interviewer-frontend/src/components/NotificationBell.vue
+      - interviewer-frontend/src/views/**
+    documents:
+      - frontend-apps
+      - frontend-validation
+      - frontend-menu-consistency
+      - auth-rbac-security
+      - api-contracts-and-gateway
+    triggers:
+      - covered-path-changed
+      - route-changed
+      - admin-page-changed
+      - authorization-changed
+      - public-api-changed
+
+global_triggers:
+  - new-top-level-module
+  - database-schema-changed
+  - public-api-changed
+  - service-boundary-changed
+  - authorization-changed
+  - sensitive-data-flow-changed
+  - configuration-changed
+  - recurring-defect-fixed

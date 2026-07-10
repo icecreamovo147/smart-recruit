@@ -1,0 +1,73 @@
+{
+  "schemaVersion": 1,
+  "feature_name": "development-agent-knowledge-base",
+  "task_id": "TASK-006",
+  "base_sha": "d26c51e75a1be350716dfe5c692dc17f32a98606",
+  "base_tree": "56a55280b1cbe6359b5908dcbee0b5cfb99f2f64",
+  "head_sha": "d26c51e75a1be350716dfe5c692dc17f32a98606",
+  "head_tree": "pending-next-baseline",
+  "changed_files": [
+    ".agents/skills/spec-harness/SKILL.md",
+    ".agents/skills/spec-harness/scripts/validate-evidence.mjs",
+    ".agents/skills/spec-harness/scripts/validate-feature.mjs",
+    ".agents/skills/spec-harness/scripts/validator.test.mjs",
+    ".spec/development-agent-knowledge-base/pipeline-state.json",
+    ".spec/development-agent-knowledge-base/reports/TASK-006-evidence.json",
+    ".spec/development-agent-knowledge-base/reports/TASK-006-report.md"
+  ],
+  "scope": {
+    "status": "passed",
+    "command": "bash .spec/development-agent-knowledge-base/scripts/check-task-scope.sh TASK-006",
+    "classification": "current",
+    "out_of_scope": [],
+    "forbidden": [],
+    "allowed_patterns": [
+      ".agents/skills/spec-harness/SKILL.md",
+      ".agents/skills/spec-harness/scripts/validate-feature.mjs",
+      ".agents/skills/spec-harness/scripts/check-task-scope.mjs",
+      ".agents/skills/spec-harness/scripts/validate-evidence.mjs",
+      ".agents/skills/spec-harness/scripts/validator.test.mjs",
+      ".knowledge/README.md",
+      ".knowledge/schemas/**",
+      ".spec/development-agent-knowledge-base/**"
+    ]
+  },
+  "checks": [
+    { "command": "node .agents/skills/spec-harness/scripts/validator.test.mjs", "exit_code": 0, "status": "passed", "started_at": "2026-07-10T20:32:00+08:00", "duration_ms": 625 },
+    { "command": "node .agents/skills/spec-harness/scripts/validate-feature.mjs --feature .spec/development-agent-knowledge-base", "exit_code": 0, "status": "passed", "started_at": "2026-07-10T20:32:01+08:00", "duration_ms": 120 },
+    { "command": "scan .spec current and legacy-compatible features", "exit_code": 0, "status": "passed", "started_at": "2026-07-10T20:32:01+08:00", "duration_ms": 325 },
+    { "command": "node .knowledge/scripts/knowledge-validator.test.mjs", "exit_code": 0, "status": "passed", "started_at": "2026-07-10T20:32:02+08:00", "duration_ms": 1107 },
+    { "command": "node .knowledge/scripts/validate-knowledge.mjs --root .", "exit_code": 0, "status": "passed", "started_at": "2026-07-10T20:32:03+08:00", "duration_ms": 1 },
+    { "command": "node .knowledge/scripts/check-references.mjs --root .", "exit_code": 0, "status": "passed", "started_at": "2026-07-10T20:32:03+08:00", "duration_ms": 1 },
+    { "command": "node .knowledge/scripts/detect-impact.mjs --root . --base-tree 56a55280b1cbe6359b5908dcbee0b5cfb99f2f64 --json", "exit_code": 0, "status": "passed", "started_at": "2026-07-10T20:32:04+08:00", "duration_ms": 1363 },
+    { "command": "bash .spec/development-agent-knowledge-base/scripts/check-task-scope.sh TASK-006", "exit_code": 0, "status": "passed", "started_at": "2026-07-10T20:32:05+08:00", "duration_ms": 1524 },
+    { "command": "bash .spec/development-agent-knowledge-base/scripts/agent-check.sh", "exit_code": 0, "status": "passed", "started_at": "2026-07-10T20:32:06+08:00", "duration_ms": 1094 },
+    { "command": "git diff --check", "exit_code": 0, "status": "passed", "started_at": "2026-07-10T20:32:07+08:00", "duration_ms": 1 }
+  ],
+  "review": {
+    "reviewer_type": "self-review",
+    "round": 1,
+    "verdict": "通过",
+    "findings": []
+  },
+  "human_confirmation": {
+    "required": true,
+    "confirmed": true,
+    "confirmed_at": "2026-07-10T19:48:00+08:00",
+    "source": "User requested the full harness-pipeline and said no human gate is needed"
+  },
+  "exceptions": [],
+  "skipped_checks": [
+    { "check": "harness-pipeline tests", "reason": "TASK-006 explicitly forbids harness-pipeline changes and preserves its authority." }
+  ],
+  "knowledgeImpact": {
+    "result": "update_required",
+    "triggeredBy": ["configuration-changed", "covered-path-changed"],
+    "reviewResults": [
+      { "document": ".knowledge/runbooks/local-development.md", "verdict": "UNCHANGED", "evidence": [".agents/skills/spec-harness/SKILL.md"] },
+      { "document": ".knowledge/architecture/system-overview.md", "verdict": "UNCHANGED", "evidence": [".agents/skills/spec-harness/scripts/validate-evidence.mjs"] }
+    ],
+    "coverageGap": false,
+    "validationExitCode": 0
+  }
+}

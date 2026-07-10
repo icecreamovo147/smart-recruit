@@ -1,0 +1,46 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "knowledge-manifest.schema.json",
+  "title": "Development Agent Knowledge Manifest",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "policies", "routes", "global_triggers"],
+  "properties": {
+    "schema_version": { "const": 1 },
+    "policies": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "default_review_days",
+        "allowed_statuses",
+        "direct_update_kinds",
+        "approval_required_kinds"
+      ],
+      "properties": {
+        "default_review_days": { "type": "integer", "minimum": 1 },
+        "allowed_statuses": { "type": "array", "minItems": 1, "uniqueItems": true, "items": { "type": "string" } },
+        "direct_update_kinds": { "type": "array", "uniqueItems": true, "items": { "type": "string" } },
+        "approval_required_kinds": { "type": "array", "uniqueItems": true, "items": { "type": "string" } }
+      }
+    },
+    "routes": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["match", "documents", "triggers"],
+        "properties": {
+          "match": { "type": "array", "minItems": 1, "uniqueItems": true, "items": { "type": "string", "minLength": 1 } },
+          "documents": { "type": "array", "minItems": 1, "uniqueItems": true, "items": { "type": "string", "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$" } },
+          "triggers": { "type": "array", "minItems": 1, "uniqueItems": true, "items": { "type": "string", "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$" } }
+        }
+      }
+    },
+    "global_triggers": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": { "type": "string", "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$" }
+    }
+  }
+}

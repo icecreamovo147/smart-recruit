@@ -1,35 +1,47 @@
-logic-grpc-service/config/config.yaml
-
+# Local application configuration and environment files.
+# Example config files should use *.example.* names and remain tracked.
 .env
-node_modules/
-.pnpm-store/
-dist/
-.dev/
-.claude/
-.ai-guides/
-.codegraph
-*.pdf
-.env.production
-.env.development
 .env.local
-
-*.exe
-*.test
-.DS_Store
-
-# Docker Compose 环境变量（含敏感密钥）
+.env.development
+.env.production
+logic-grpc-service/config/config.yaml
 docker/.env
 
-# Kubernetes / certificate secrets
+# Dependency caches and installed packages.
+node_modules/
+.pnpm-store/
+.opencode/node_modules/
+
+# Build outputs, local binaries, and test artifacts.
+dist/
+*.exe
+*.test
+
+# Local development stack outputs.
+.dev/
+
+# Local AI/editor/tool state that should not be shared.
+.ai-guides/*
+!.ai-guides/README.md
+.codex/
+.codegraph/
+.reasonix/
+
+# OS/editor noise.
+.DS_Store
+
+# Local documents or binary attachments.
+*.pdf
+
+# Kubernetes manifests and certificate/private-key material containing secrets.
 deploy/k8s/secret.yaml
 *.pem
 *.key
 *.crt
 
-# Agent harness — do not commit
-docs/agent-harness/
+# Agent harness scratch directories that are not part of the current .spec flow.
+docs/agent-harness/*
+!docs/agent-harness/README.md
+!docs/agent-harness/00-HARNESS.md
 docs/superpowers/
 tools/
-
-# Reasonix agent metadata — do not commit
-.reasonix/

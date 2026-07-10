@@ -1,0 +1,85 @@
+{
+  "schemaVersion": 1,
+  "feature_name": "agent-harness-unification",
+  "task_id": "TASK-AHU-003",
+  "base_sha": "7587e238855bb8159377f99cb1f53b9358ae67b2",
+  "base_tree": "ea6ba78b7e5210d3db4071cc007dca64d8e06875",
+  "head_sha": "7587e238855bb8159377f99cb1f53b9358ae67b2",
+  "head_tree": "337682f0bb2e5402e4026caf6cc33b1b338e856f",
+  "changed_files": [
+    ".agents/skills/harness-pipeline/SKILL.md",
+    ".agents/skills/harness-pipeline/scripts/pipeline-state.test.mjs",
+    ".agents/skills/harness-pipeline/scripts/validate-pipeline-state.mjs",
+    ".spec/agent-harness-unification/pipeline-state.json",
+    ".spec/agent-harness-unification/reports/TASK-AHU-003-evidence.json",
+    ".spec/agent-harness-unification/reports/TASK-AHU-003-report.md"
+  ],
+  "scope": {
+    "status": "passed",
+    "command": "bash .spec/agent-harness-unification/scripts/check-task-scope.sh TASK-AHU-003",
+    "classification": "current",
+    "out_of_scope": [],
+    "forbidden": [],
+    "allowed_patterns": [
+      ".agents/skills/harness-pipeline/SKILL.md",
+      ".agents/skills/harness-pipeline/scripts/**",
+      ".spec/agent-harness-unification/**"
+    ]
+  },
+  "checks": [
+    {
+      "command": "git diff --name-only",
+      "exit_code": 0,
+      "status": "passed",
+      "started_at": "2026-07-10T09:53:38Z",
+      "duration_ms": 1
+    },
+    {
+      "command": "bash .spec/agent-harness-unification/scripts/check-task-scope.sh TASK-AHU-003",
+      "exit_code": 0,
+      "status": "passed",
+      "started_at": "2026-07-10T09:53:39Z",
+      "duration_ms": 674
+    },
+    {
+      "command": "bash .spec/agent-harness-unification/scripts/agent-check.sh",
+      "exit_code": 0,
+      "status": "passed",
+      "started_at": "2026-07-10T09:53:40Z",
+      "duration_ms": 7
+    },
+    {
+      "command": "node .agents/skills/harness-pipeline/scripts/pipeline-state.test.mjs",
+      "exit_code": 0,
+      "status": "passed",
+      "started_at": "2026-07-10T09:53:41Z",
+      "duration_ms": 65
+    },
+    {
+      "command": "node .agents/skills/harness-pipeline/scripts/validate-pipeline-state.mjs --feature-dir .spec/agent-harness-unification",
+      "exit_code": 0,
+      "status": "passed",
+      "started_at": "2026-07-10T09:53:42Z",
+      "duration_ms": 14
+    }
+  ],
+  "review": {
+    "reviewer_type": "self-review",
+    "round": 1,
+    "verdict": "通过",
+    "findings": []
+  },
+  "human_confirmation": {
+    "required": true,
+    "confirmed": true,
+    "confirmed_at": "2026-07-10T17:48:10+08:00",
+    "source": "user requested pipeline continuation without manual gates"
+  },
+  "exceptions": [],
+  "skipped_checks": [
+    {
+      "check": "Go/Vue business test suites",
+      "reason": "TASK-AHU-003 modifies only agent Harness pipeline governance files; business code is out of scope."
+    }
+  ]
+}

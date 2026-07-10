@@ -1,0 +1,90 @@
+{
+  "schemaVersion": 1,
+  "feature_name": "agent-harness-unification",
+  "task_id": "TASK-AHU-005",
+  "base_sha": "7587e238855bb8159377f99cb1f53b9358ae67b2",
+  "base_tree": "7031886fc69493857ff8dc771be86e86397259d2",
+  "head_sha": "7587e238855bb8159377f99cb1f53b9358ae67b2",
+  "head_tree": "337682f0bb2e5402e4026caf6cc33b1b338e856f",
+  "changed_files": [
+    ".claude/agents/phase-implementer.md",
+    ".claude/agents/phase-reviewer.md",
+    ".claude/commands/run-phase.md",
+    ".claude/skills/batch-agent-coordinator/SKILL.md",
+    ".spec/agent-harness-unification/pipeline-state.json",
+    ".spec/agent-harness-unification/reports/TASK-AHU-004-evidence.json",
+    ".spec/agent-harness-unification/reports/TASK-AHU-004-report.md",
+    ".spec/agent-harness-unification/reports/TASK-AHU-005-evidence.json",
+    ".spec/agent-harness-unification/reports/TASK-AHU-005-report.md"
+  ],
+  "scope": {
+    "status": "passed",
+    "command": "bash .spec/agent-harness-unification/scripts/check-task-scope.sh TASK-AHU-005",
+    "classification": "current",
+    "out_of_scope": [],
+    "forbidden": [],
+    "allowed_patterns": [
+      ".claude/skills/batch-agent-coordinator/SKILL.md",
+      ".claude/commands/run-phase.md",
+      ".claude/agents/phase-implementer.md",
+      ".claude/agents/phase-reviewer.md",
+      ".spec/agent-harness-unification/**"
+    ]
+  },
+  "checks": [
+    {
+      "command": "git diff --name-only",
+      "exit_code": 0,
+      "status": "passed",
+      "started_at": "2026-07-10T10:00:51Z",
+      "duration_ms": 1
+    },
+    {
+      "command": "bash .spec/agent-harness-unification/scripts/check-task-scope.sh TASK-AHU-005",
+      "exit_code": 0,
+      "status": "passed",
+      "started_at": "2026-07-10T10:00:52Z",
+      "duration_ms": 1082
+    },
+    {
+      "command": "bash .spec/agent-harness-unification/scripts/agent-check.sh",
+      "exit_code": 0,
+      "status": "passed",
+      "started_at": "2026-07-10T10:00:53Z",
+      "duration_ms": 259
+    },
+    {
+      "command": "rg -n \"harness-pipeline|spec-harness|\\\\.spec/\" .claude/skills/batch-agent-coordinator/SKILL.md .claude/commands/run-phase.md .claude/agents/phase-*.md",
+      "exit_code": 0,
+      "status": "passed",
+      "started_at": "2026-07-10T10:00:54Z",
+      "duration_ms": 1
+    },
+    {
+      "command": "rg -n \"/Users/|integration/agent-platform|squash|2 轮|两轮|PASS|NEEDS_WORK|DECISION|EXECUTION_LOG\\\\.md|docs/agent-harness\" .claude/skills/batch-agent-coordinator/SKILL.md .claude/commands/run-phase.md .claude/agents/phase-*.md || true",
+      "exit_code": 0,
+      "status": "passed",
+      "started_at": "2026-07-10T10:00:55Z",
+      "duration_ms": 1
+    }
+  ],
+  "review": {
+    "reviewer_type": "self-review",
+    "round": 1,
+    "verdict": "通过",
+    "findings": []
+  },
+  "human_confirmation": {
+    "required": true,
+    "confirmed": true,
+    "confirmed_at": "2026-07-10T17:59:14+08:00",
+    "source": "user requested pipeline continuation without manual gates"
+  },
+  "exceptions": [],
+  "skipped_checks": [
+    {
+      "check": "Go/Vue business test suites",
+      "reason": "TASK-AHU-005 modifies only Claude adapter documentation and feature evidence; business code is out of scope."
+    }
+  ]
+}

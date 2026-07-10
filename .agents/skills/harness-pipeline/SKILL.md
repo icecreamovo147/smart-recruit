@@ -45,17 +45,62 @@ for each TASK:
 
 ```json
 {
+  "schemaVersion": 1,
   "feature_name": "...",
   "current_task": "TASK-003",
+  "current_phase": "implement",
   "completed_tasks": ["TASK-001", "TASK-002"],
+  "blocked_tasks": [],
   "failed_tasks": [],
   "review_round": 2,
-  "status": "in_progress"
+  "status": "in_progress",
+  "task_runs": {
+    "TASK-002": {
+      "base_sha": "...",
+      "base_tree": "...",
+      "head_sha": "...",
+      "scope_status": "passed",
+      "checks_status": "passed",
+      "review_verdict": "通过",
+      "human_confirmation": {
+        "confirmed": true,
+        "confirmed_at": "..."
+      },
+      "evidence": ".spec/<feature_name>/reports/TASK-002-evidence.json"
+    }
+  }
 }
 ```
 
 - 每个 TASK 实现完成后立即更新状态文件
 - 支持中断续跑：读取 state → 从 `current_task` 继续
+- `status` 只能是 `pending`、`in_progress`、`blocked`、`completed` 或 `completed_with_exceptions`
+- `current_phase` 只能是 `pending`、`implement`、`review`、`fix`、`finalize`、`completed` 或 `blocked`
+- `task_runs` 是每个 TASK 的运行证据索引；`task-scope.json.tasks[*].status` 不参与运行时完成判定
+
+## 状态完成不变量
+
+Pipeline 写入普通 `completed` 前必须通过：
+
+```bash
+node .agents/skills/harness-pipeline/scripts/validate-pipeline-state.mjs \
+  --feature-dir .spec/<feature_name>
+```
+
+普通 `completed` 必须同时满足：
+
+- 所有 TASK 均在 `completed_tasks` 中；
+- `failed_tasks` 和 `blocked_tasks` 为空；
+- 每个 completed TASK 都有 `task_runs[TASK-ID].evidence`；
+- evidence 文件存在且通过 canonical evidence validator；
+- `scope_status`、`checks_status` 均为 `passed`；
+- `review_verdict` 为 `通过`；
+- 需要人工确认的 TASK 已记录明确确认；
+- 没有未批准 exception。
+
+`completed_with_exceptions` 只允许在存在人工批准例外时使用，且每个例外必须记录 `approved_object`、`approved_by`、`approved_at` 和 `reason`。存在未批准失败、缺失 evidence、Review 不通过、scope/check 失败或缺失确认时，状态必须保持 `blocked` 或失败结果，不能写成普通完成。
+
+当 `skip_human_confirm=true` 且遇到 `requiresHumanConfirmation=true` 的 TASK 时，该 TASK 必须记录为 skipped/blocked/failed，不得加入 `completed_tasks`，最终状态不得是普通 `completed`。
 
 ## 执行流程
 

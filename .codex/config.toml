@@ -1,4 +1,0 @@
-# Conservative local Codex defaults for this repository.
-# Additional config keys are intentionally omitted unless confirmed supported.
-sandbox_mode = "workspace-write"
-approval_policy = "on-request"

@@ -1,0 +1,55 @@
+---
+schema_version: 1
+id: api-contracts-and-gateway
+title: API contracts and gateway architecture
+kind: architecture
+status: active
+owners:
+  - engineering-platform
+tags:
+  - gateway
+  - api
+  - grpc
+  - contract
+applies_to:
+  - web-gin-service/router/**
+  - web-gin-service/handler/**
+  - web-gin-service/middleware/**
+  - web-gin-service/rpc/**
+  - logic-grpc-service/proto/**
+source_refs:
+  - web-gin-service/router/router.go
+  - web-gin-service/rpc/client.go
+  - web-gin-service/middleware/body_limit.go
+  - web-gin-service/middleware/ratelimit.go
+  - web-gin-service/middleware/observability.go
+  - logic-grpc-service/proto/recruitment.proto
+  - logic-grpc-service/main.go
+last_verified: 2026-07-10
+review_after: 2026-10-08
+---
+
+# API Contracts and Gateway Architecture
+
+The Gin gateway is the HTTP policy and transport boundary. It exposes `/api/v1` routes, applies timeout/body/rate/quota/risk middleware, performs auth and RBAC checks, and calls generated gRPC clients. It should not own core recruitment state transitions, persistence rules, or AI runtime selection.
+
+## Contract Layers
+
+- `web-gin-service/router/router.go` wires public, candidate, staff, admin, AI, notification, analytics, collaboration, and configuration routes.
+- `web-gin-service/handler/**` translates HTTP payloads, path/query parameters, and streaming responses to protobuf-backed gRPC calls.
+- `web-gin-service/middleware/**` owns HTTP concerns such as JWT, role/permission checks, body limits, rate limits, quotas, risk blocking, CSP, request IDs, and timeouts.
+- `web-gin-service/rpc/client.go` creates generated gRPC clients, forwards internal auth/request metadata, and restricts retry policy to known read-only methods.
+- `logic-grpc-service/proto/recruitment.proto` is the source contract for gateway and logic generated clients/servers.
+- `logic-grpc-service/main.go` registers gRPC service implementations and health checks.
+
+## Impact Guidance
+
+- Adding an HTTP endpoint usually requires handler, route, permission, frontend API/types, and a matching gRPC or existing handler contract.
+- Changing a protobuf message or service method is a public-contract change and must update generated Go code in both service trees.
+- Adding request bodies should check `MaxBodyBytes` limits and timeout category.
+- Adding streaming endpoints should check gateway response flushing and frontend event parsing.
+- Retrying write RPCs is unsafe unless idempotency is explicitly designed.
+
+## Verification
+
+Verified against gateway route setup, gRPC client construction, middleware categories, protobuf definitions, and logic service registration on 2026-07-10.

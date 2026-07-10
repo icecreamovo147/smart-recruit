@@ -1,0 +1,183 @@
+{
+  "schemaVersion": 1,
+  "feature_name": "development-agent-knowledge-base",
+  "tasks": {
+    "TASK-001": {
+      "title": "建立知识库基础契约",
+      "status": "pending",
+      "allowedFiles": [
+        ".knowledge/README.md",
+        ".knowledge/INDEX.md",
+        ".knowledge/manifest.yaml",
+        ".knowledge/.gitignore",
+        ".knowledge/.gitattributes",
+        ".knowledge/decisions/README.md",
+        ".knowledge/inbox/README.md",
+        ".knowledge/archive/README.md",
+        ".knowledge/templates/knowledge-entry.md",
+        ".knowledge/templates/adr.md",
+        ".knowledge/templates/inbox-candidate.md",
+        ".knowledge/schemas/frontmatter.schema.json",
+        ".knowledge/schemas/manifest.schema.json",
+        ".spec/development-agent-knowledge-base/**"
+      ],
+      "forbiddenFiles": [
+        "AGENTS.md", ".agents/**", ".github/**", ".ai-guides/**", "CLAUDE.md", ".claude/**",
+        "hr-frontend/**", "user-frontend/**", "interviewer-frontend/**", "logic-grpc-service/**", "web-gin-service/**",
+        "deploy/**", "docker/**", "db.sql", "pnpm-workspace.yaml", "pnpm-lock.yaml", "**/package.json", "**/go.mod", "**/go.sum"
+      ],
+      "requiresHumanConfirmation": false,
+      "allowedActions": ["create", "modify", "test"],
+      "acceptance": ".spec/development-agent-knowledge-base/acceptance/TASK-001.md",
+      "report": ".spec/development-agent-knowledge-base/reports/TASK-001-report.md",
+      "notes": ["Create governance only; do not seed architecture/domain content."]
+    },
+    "TASK-002": {
+      "title": "实现知识校验与影响检测工具",
+      "status": "pending",
+      "allowedFiles": [
+        ".knowledge/scripts/validate-knowledge.mjs",
+        ".knowledge/scripts/check-references.mjs",
+        ".knowledge/scripts/detect-impact.mjs",
+        ".knowledge/scripts/generate-catalog.mjs",
+        ".knowledge/scripts/knowledge-validator.test.mjs",
+        ".spec/development-agent-knowledge-base/**"
+      ],
+      "forbiddenFiles": [
+        "AGENTS.md", ".agents/**", ".github/**", ".knowledge/README.md", ".knowledge/INDEX.md", ".knowledge/manifest.yaml",
+        ".knowledge/schemas/**", ".knowledge/templates/**", ".ai-guides/**", "CLAUDE.md", ".claude/**",
+        "hr-frontend/**", "user-frontend/**", "interviewer-frontend/**", "logic-grpc-service/**", "web-gin-service/**",
+        "deploy/**", "docker/**", "db.sql", "pnpm-workspace.yaml", "pnpm-lock.yaml", "**/package.json", "**/go.mod", "**/go.sum"
+      ],
+      "requiresHumanConfirmation": false,
+      "allowedActions": ["create", "modify", "test"],
+      "acceptance": ".spec/development-agent-knowledge-base/acceptance/TASK-002.md",
+      "report": ".spec/development-agent-knowledge-base/reports/TASK-002-report.md",
+      "notes": ["Use Node.js standard library only; stop if schema changes are required."]
+    },
+    "TASK-003": {
+      "title": "建立首批架构与领域知识",
+      "status": "pending",
+      "allowedFiles": [
+        ".knowledge/architecture/system-overview.md",
+        ".knowledge/architecture/service-boundaries.md",
+        ".knowledge/architecture/agent-runtime.md",
+        ".knowledge/architecture/semantic-retrieval.md",
+        ".knowledge/domains/recruitment.md",
+        ".knowledge/domains/agent-skill.md",
+        ".knowledge/domains/memory-and-context.md",
+        ".knowledge/INDEX.md", ".knowledge/manifest.yaml",
+        ".spec/development-agent-knowledge-base/**"
+      ],
+      "forbiddenFiles": [
+        "AGENTS.md", ".agents/**", ".github/**", ".ai-guides/**", "CLAUDE.md", ".claude/**",
+        "hr-frontend/**", "user-frontend/**", "interviewer-frontend/**", "logic-grpc-service/**", "web-gin-service/**",
+        "deploy/**", "docker/**", "db.sql", "pnpm-workspace.yaml", "pnpm-lock.yaml", "**/package.json", "**/go.mod", "**/go.sum"
+      ],
+      "requiresHumanConfirmation": false,
+      "allowedActions": ["create", "modify", "test"],
+      "acceptance": ".spec/development-agent-knowledge-base/acceptance/TASK-003.md",
+      "report": ".spec/development-agent-knowledge-base/reports/TASK-003-report.md",
+      "notes": ["Re-verify all claims against current code and valid specs; historical guides are leads only."]
+    },
+    "TASK-004": {
+      "title": "建立首批 Runbook 与 Pitfall",
+      "status": "pending",
+      "allowedFiles": [
+        ".knowledge/runbooks/local-development.md",
+        ".knowledge/runbooks/debug-agent-retrieval.md",
+        ".knowledge/pitfalls/protobuf-synchronization.md",
+        ".knowledge/pitfalls/embedding-fallback.md",
+        ".knowledge/pitfalls/frontend-menu-consistency.md",
+        ".knowledge/INDEX.md", ".knowledge/manifest.yaml",
+        ".spec/development-agent-knowledge-base/**"
+      ],
+      "forbiddenFiles": [
+        "AGENTS.md", ".agents/**", ".github/**", ".ai-guides/**", "CLAUDE.md", ".claude/**",
+        "hr-frontend/**", "user-frontend/**", "interviewer-frontend/**", "logic-grpc-service/**", "web-gin-service/**",
+        "deploy/**", "docker/**", "db.sql", "pnpm-workspace.yaml", "pnpm-lock.yaml", "**/package.json", "**/go.mod", "**/go.sum"
+      ],
+      "requiresHumanConfirmation": false,
+      "allowedActions": ["create", "modify", "test"],
+      "acceptance": ".spec/development-agent-knowledge-base/acceptance/TASK-004.md",
+      "report": ".spec/development-agent-knowledge-base/reports/TASK-004-report.md",
+      "notes": ["Verify commands and paths; never include real credentials or local absolute paths."]
+    },
+    "TASK-005": {
+      "title": "将知识协议接入 AGENTS",
+      "status": "pending",
+      "allowedFiles": [
+        "AGENTS.md", ".knowledge/README.md", ".knowledge/INDEX.md", ".knowledge/manifest.yaml",
+        ".spec/development-agent-knowledge-base/**"
+      ],
+      "forbiddenFiles": [
+        ".agents/**", ".github/**", ".ai-guides/**", "CLAUDE.md", ".claude/**",
+        "hr-frontend/**", "user-frontend/**", "interviewer-frontend/**", "logic-grpc-service/**", "web-gin-service/**",
+        "deploy/**", "docker/**", "db.sql", "pnpm-workspace.yaml", "pnpm-lock.yaml", "**/package.json", "**/go.mod", "**/go.sum"
+      ],
+      "requiresHumanConfirmation": true,
+      "allowedActions": ["modify", "test"],
+      "acceptance": ".spec/development-agent-knowledge-base/acceptance/TASK-005.md",
+      "report": ".spec/development-agent-knowledge-base/reports/TASK-005-report.md",
+      "notes": ["Shared AGENTS.md change requires explicit confirmation; do not create provider-specific knowledge copies."]
+    },
+    "TASK-006": {
+      "title": "将知识影响接入 Spec Harness",
+      "status": "pending",
+      "allowedFiles": [
+        ".agents/skills/spec-harness/SKILL.md",
+        ".agents/skills/spec-harness/scripts/validate-feature.mjs",
+        ".agents/skills/spec-harness/scripts/check-task-scope.mjs",
+        ".agents/skills/spec-harness/scripts/validate-evidence.mjs",
+        ".agents/skills/spec-harness/scripts/validator.test.mjs",
+        ".knowledge/README.md", ".knowledge/schemas/**",
+        ".spec/development-agent-knowledge-base/**"
+      ],
+      "forbiddenFiles": [
+        "AGENTS.md", ".agents/skills/harness-pipeline/**", ".github/**", ".ai-guides/**", "CLAUDE.md", ".claude/**",
+        "hr-frontend/**", "user-frontend/**", "interviewer-frontend/**", "logic-grpc-service/**", "web-gin-service/**",
+        "deploy/**", "docker/**", "db.sql", "pnpm-workspace.yaml", "pnpm-lock.yaml", "**/package.json", "**/go.mod", "**/go.sum"
+      ],
+      "requiresHumanConfirmation": true,
+      "allowedActions": ["modify", "test"],
+      "acceptance": ".spec/development-agent-knowledge-base/acceptance/TASK-006.md",
+      "report": ".spec/development-agent-knowledge-base/reports/TASK-006-report.md",
+      "notes": ["Preserve historical feature compatibility and pipeline-state authority; stop before harness-pipeline changes."]
+    },
+    "TASK-007": {
+      "title": "接入知识库 CI 校验",
+      "status": "pending",
+      "allowedFiles": [
+        ".github/workflows/knowledge-validation.yml", ".knowledge/README.md",
+        ".spec/development-agent-knowledge-base/**"
+      ],
+      "forbiddenFiles": [
+        "AGENTS.md", ".agents/**", ".ai-guides/**", "CLAUDE.md", ".claude/**",
+        "hr-frontend/**", "user-frontend/**", "interviewer-frontend/**", "logic-grpc-service/**", "web-gin-service/**",
+        "deploy/**", "docker/**", "db.sql", "pnpm-workspace.yaml", "pnpm-lock.yaml", "**/package.json", "**/go.mod", "**/go.sum"
+      ],
+      "requiresHumanConfirmation": true,
+      "allowedActions": ["create", "modify", "test"],
+      "acceptance": ".spec/development-agent-knowledge-base/acceptance/TASK-007.md",
+      "report": ".spec/development-agent-knowledge-base/reports/TASK-007-report.md",
+      "notes": ["Do not implement until the CI platform is confirmed; revise scope first if the selected platform is not GitHub Actions."]
+    },
+    "TASK-008": {
+      "title": "执行最终一致性与试运行审计",
+      "status": "pending",
+      "allowedFiles": [
+        ".spec/development-agent-knowledge-base/reports/**"
+      ],
+      "forbiddenFiles": [
+        "AGENTS.md", ".agents/**", ".github/**", ".knowledge/**", ".ai-guides/**", "CLAUDE.md", ".claude/**",
+        "hr-frontend/**", "user-frontend/**", "interviewer-frontend/**", "logic-grpc-service/**", "web-gin-service/**",
+        "deploy/**", "docker/**", "db.sql", "pnpm-workspace.yaml", "pnpm-lock.yaml", "**/package.json", "**/go.mod", "**/go.sum"
+      ],
+      "requiresHumanConfirmation": false,
+      "allowedActions": ["create", "modify", "test", "review"],
+      "acceptance": ".spec/development-agent-knowledge-base/acceptance/TASK-008.md",
+      "report": ".spec/development-agent-knowledge-base/reports/TASK-008-report.md",
+      "notes": ["Read-only audit of implementation files; route defects back to the owning TASK."]
+    }
+  }
+}

@@ -1,0 +1,62 @@
+{
+  "schemaVersion": 1,
+  "feature_name": "development-agent-knowledge-base",
+  "task_id": "TASK-007",
+  "base_sha": "d26c51e75a1be350716dfe5c692dc17f32a98606",
+  "base_tree": "eb1d17e4bb6b6125c2972550405fdb01e8ed0f47",
+  "head_sha": "d26c51e75a1be350716dfe5c692dc17f32a98606",
+  "head_tree": "pending-next-baseline",
+  "changed_files": [
+    ".github/workflows/knowledge-validation.yml",
+    ".knowledge/README.md",
+    ".spec/development-agent-knowledge-base/pipeline-state.json",
+    ".spec/development-agent-knowledge-base/reports/TASK-007-evidence.json",
+    ".spec/development-agent-knowledge-base/reports/TASK-007-report.md"
+  ],
+  "scope": {
+    "status": "passed",
+    "command": "bash .spec/development-agent-knowledge-base/scripts/check-task-scope.sh TASK-007",
+    "classification": "current",
+    "out_of_scope": [],
+    "forbidden": [],
+    "allowed_patterns": [
+      ".github/workflows/knowledge-validation.yml",
+      ".knowledge/README.md",
+      ".spec/development-agent-knowledge-base/**"
+    ]
+  },
+  "checks": [
+    { "command": "CI local equivalent command chain", "exit_code": 0, "status": "passed", "started_at": "2026-07-10T20:44:00+08:00", "duration_ms": 1748 },
+    { "command": "ruby -e 'require \"yaml\"; YAML.load_file(\".github/workflows/knowledge-validation.yml\")'", "exit_code": 0, "status": "passed", "started_at": "2026-07-10T20:44:02+08:00", "duration_ms": 46 },
+    { "command": "node .knowledge/scripts/detect-impact.mjs --root . --base-tree eb1d17e4bb6b6125c2972550405fdb01e8ed0f47 --json", "exit_code": 0, "status": "passed", "started_at": "2026-07-10T20:44:02+08:00", "duration_ms": 1805 },
+    { "command": "bash .spec/development-agent-knowledge-base/scripts/check-task-scope.sh TASK-007", "exit_code": 0, "status": "passed", "started_at": "2026-07-10T20:44:04+08:00", "duration_ms": 1758 },
+    { "command": "bash .spec/development-agent-knowledge-base/scripts/agent-check.sh", "exit_code": 0, "status": "passed", "started_at": "2026-07-10T20:44:05+08:00", "duration_ms": 993 },
+    { "command": "git diff --check", "exit_code": 0, "status": "passed", "started_at": "2026-07-10T20:44:06+08:00", "duration_ms": 1 }
+  ],
+  "review": {
+    "reviewer_type": "self-review",
+    "round": 1,
+    "verdict": "通过",
+    "findings": []
+  },
+  "human_confirmation": {
+    "required": true,
+    "confirmed": true,
+    "confirmed_at": "2026-07-10T19:48:00+08:00",
+    "source": "User requested the full harness-pipeline and said no human gate is needed; GitHub Actions default candidate accepted for TASK-007"
+  },
+  "exceptions": [],
+  "skipped_checks": [
+    { "check": "Remote CI run", "reason": "No remote push was requested; local equivalent and YAML syntax were verified." }
+  ],
+  "knowledgeImpact": {
+    "result": "update_required",
+    "triggeredBy": ["configuration-changed", "covered-path-changed"],
+    "reviewResults": [
+      { "document": ".knowledge/runbooks/local-development.md", "verdict": "UNCHANGED", "evidence": [".github/workflows/knowledge-validation.yml"] },
+      { "document": ".knowledge/architecture/system-overview.md", "verdict": "UNCHANGED", "evidence": [".github/workflows/knowledge-validation.yml"] }
+    ],
+    "coverageGap": false,
+    "validationExitCode": 0
+  }
+}

@@ -1,0 +1,86 @@
+{
+  "schemaVersion": 1,
+  "feature_name": "development-agent-knowledge-base",
+  "task_id": "TASK-002",
+  "base_sha": "d26c51e75a1be350716dfe5c692dc17f32a98606",
+  "base_tree": "2702392758b6b948c716624780fda63a7e3f9942",
+  "head_sha": "d26c51e75a1be350716dfe5c692dc17f32a98606",
+  "head_tree": "01a70ebe132d188afe30c6c9d8675675e0fb6c3d",
+  "changed_files": [
+    ".knowledge/scripts/check-references.mjs",
+    ".knowledge/scripts/detect-impact.mjs",
+    ".knowledge/scripts/generate-catalog.mjs",
+    ".knowledge/scripts/knowledge-validator.test.mjs",
+    ".knowledge/scripts/validate-knowledge.mjs",
+    ".spec/development-agent-knowledge-base/pipeline-state.json",
+    ".spec/development-agent-knowledge-base/reports/TASK-002-evidence.json",
+    ".spec/development-agent-knowledge-base/reports/TASK-002-report.md"
+  ],
+  "scope": {
+    "status": "passed",
+    "command": "TASK_BASE_TREE=2702392758b6b948c716624780fda63a7e3f9942 bash .spec/development-agent-knowledge-base/scripts/check-task-scope.sh TASK-002",
+    "classification": "current",
+    "out_of_scope": [],
+    "forbidden": [],
+    "allowed_patterns": [
+      ".knowledge/scripts/validate-knowledge.mjs",
+      ".knowledge/scripts/check-references.mjs",
+      ".knowledge/scripts/detect-impact.mjs",
+      ".knowledge/scripts/generate-catalog.mjs",
+      ".knowledge/scripts/knowledge-validator.test.mjs",
+      ".spec/development-agent-knowledge-base/**"
+    ]
+  },
+  "checks": [
+    { "command": "node --check .knowledge/scripts/*.mjs", "exit_code": 0, "status": "passed", "started_at": "2026-07-10T11:38:45Z", "duration_ms": 138 },
+    { "command": "node .knowledge/scripts/knowledge-validator.test.mjs", "exit_code": 0, "status": "passed", "started_at": "2026-07-10T11:38:45Z", "duration_ms": 618 },
+    { "command": "node .knowledge/scripts/validate-knowledge.mjs --root . --json", "exit_code": 0, "status": "passed", "started_at": "2026-07-10T11:38:46Z", "duration_ms": 55 },
+    { "command": "node .knowledge/scripts/check-references.mjs --root .", "exit_code": 0, "status": "passed", "started_at": "2026-07-10T11:38:46Z", "duration_ms": 55 },
+    { "command": "node .knowledge/scripts/detect-impact.mjs --root . --base-tree 2702392758b6b948c716624780fda63a7e3f9942 --json", "exit_code": 0, "status": "passed", "started_at": "2026-07-10T11:38:46Z", "duration_ms": 275 },
+    { "command": "bash .spec/development-agent-knowledge-base/scripts/check-task-scope.sh TASK-002", "exit_code": 0, "status": "passed", "started_at": "2026-07-10T11:38:47Z", "duration_ms": 475 },
+    { "command": "bash .spec/development-agent-knowledge-base/scripts/agent-check.sh", "exit_code": 0, "status": "passed", "started_at": "2026-07-10T11:38:47Z", "duration_ms": 963 },
+    { "command": "git diff --check", "exit_code": 0, "status": "passed", "started_at": "2026-07-10T11:38:49Z", "duration_ms": 9 }
+  ],
+  "review": {
+    "reviewer_type": "self-review",
+    "round": 4,
+    "verdict": "通过",
+    "findings": [
+      "Round 1: global triggers and allowed impact result were incomplete",
+      "Round 1: schema, ADR, strict reference, glob, date, CLI, and device-independent JSON checks were incomplete",
+      "Round 1: report overstated actual test coverage"
+      ,
+      "Round 2: Git existence, trigger-only result, manifest fail-closed validation, pre-impact validation, and evidence freshness were incomplete",
+      "Round 3: manifest route/global-trigger list contracts and detect-impact CLI exit classification were incomplete",
+      "Final self-review: all listed issues were repaired and the full TASK-002 acceptance command set passed"
+    ]
+  },
+  "human_confirmation": {
+    "required": false,
+    "confirmed": true,
+    "confirmed_at": "2026-07-10T19:26:23+08:00",
+    "source": "TASK-002 does not require human confirmation; pipeline was explicitly requested by the user"
+  },
+  "exceptions": [],
+  "skipped_checks": [
+    { "check": "Go and Vue business test suites", "reason": "TASK-002 modifies only knowledge tooling and feature evidence; business code is out of scope." }
+  ],
+  "implementation_attempts": [
+    { "result": "failed", "check": "initial case-conflict fixture", "reason": "macOS case-insensitive filesystem collapsed Case.md and case.md" },
+    { "result": "passed", "check": "pure path case-conflict test", "reason": "cross-platform path inputs are tested without filesystem dependence" },
+    { "result": "failed", "check": "independent self-review round 1", "reason": "tool contracts and tests were incomplete" },
+    { "result": "passed", "check": "round 1 repair checks", "reason": "15 tests and all Harness checks passed after the first scoped repair" },
+    { "result": "failed", "check": "independent self-review round 2", "reason": "edge cases and evidence freshness were still incomplete" },
+    { "result": "passed", "check": "round 2 repair checks", "reason": "16 tests and all Harness checks passed after the second scoped repair" },
+    { "result": "failed", "check": "independent self-review round 3", "reason": "route/global trigger list contracts and CLI exit classification were incomplete" },
+    { "result": "failed", "check": "first final agent-check", "reason": "usage test inherited TASK_BASE_TREE from the Harness wrapper" },
+    { "result": "passed", "check": "final repair checks", "reason": "17 tests and all Harness checks passed after explicit environment isolation" }
+  ],
+  "knowledgeImpact": {
+    "result": "none",
+    "triggeredBy": [],
+    "reviewResults": [],
+    "coverageGap": false,
+    "validationExitCode": 0
+  }
+}

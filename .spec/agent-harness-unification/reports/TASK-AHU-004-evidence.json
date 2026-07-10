@@ -1,0 +1,109 @@
+{
+  "schemaVersion": 1,
+  "feature_name": "agent-harness-unification",
+  "task_id": "TASK-AHU-004",
+  "base_sha": "7587e238855bb8159377f99cb1f53b9358ae67b2",
+  "base_tree": "ae277a1f0807d9c2ba7c714f70cbc007242f11d6",
+  "head_sha": "7587e238855bb8159377f99cb1f53b9358ae67b2",
+  "head_tree": "337682f0bb2e5402e4026caf6cc33b1b338e856f",
+  "changed_files": [
+    "CLAUDE.md",
+    ".claude/CLAUDE.md",
+    ".claude/agents/task-developer.md",
+    ".claude/agents/task-fixer.md",
+    ".claude/agents/task-reviewer.md",
+    ".claude/skills/fix-agent-task/SKILL.md",
+    ".claude/skills/review-agent-task/SKILL.md",
+    ".claude/skills/run-agent-task/SKILL.md",
+    ".spec/agent-harness-unification/pipeline-state.json",
+    ".spec/agent-harness-unification/reports/TASK-AHU-003-evidence.json",
+    ".spec/agent-harness-unification/reports/TASK-AHU-003-report.md",
+    ".spec/agent-harness-unification/reports/TASK-AHU-004-evidence.json",
+    ".spec/agent-harness-unification/reports/TASK-AHU-004-report.md"
+  ],
+  "scope": {
+    "status": "passed",
+    "command": "bash .spec/agent-harness-unification/scripts/check-task-scope.sh TASK-AHU-004",
+    "classification": "current",
+    "out_of_scope": [],
+    "forbidden": [],
+    "allowed_patterns": [
+      "CLAUDE.md",
+      ".claude/CLAUDE.md",
+      ".claude/skills/run-agent-task/SKILL.md",
+      ".claude/skills/review-agent-task/SKILL.md",
+      ".claude/skills/fix-agent-task/SKILL.md",
+      ".claude/agents/task-developer.md",
+      ".claude/agents/task-reviewer.md",
+      ".claude/agents/task-fixer.md",
+      ".spec/agent-harness-unification/**"
+    ]
+  },
+  "checks": [
+    {
+      "command": "git diff --name-only",
+      "exit_code": 0,
+      "status": "passed",
+      "started_at": "2026-07-10T09:57:45Z",
+      "duration_ms": 1
+    },
+    {
+      "command": "bash .spec/agent-harness-unification/scripts/check-task-scope.sh TASK-AHU-004",
+      "exit_code": 0,
+      "status": "passed",
+      "started_at": "2026-07-10T09:57:46Z",
+      "duration_ms": 802
+    },
+    {
+      "command": "bash .spec/agent-harness-unification/scripts/agent-check.sh",
+      "exit_code": 0,
+      "status": "passed",
+      "started_at": "2026-07-10T09:57:47Z",
+      "duration_ms": 38
+    },
+    {
+      "command": "rg -n \"spec-harness|implement-task|self-review|fix-check-failures|\\\\.spec/\" CLAUDE.md .claude/CLAUDE.md .claude/skills .claude/agents/task-*.md",
+      "exit_code": 0,
+      "status": "passed",
+      "started_at": "2026-07-10T09:57:48Z",
+      "duration_ms": 1
+    },
+    {
+      "command": "rg -n \"/Users/|EXECUTION_LOG\\\\.md|integration/agent-platform|PASS|NEEDS_FIX|BLOCKED|docs/agent-harness\" CLAUDE.md .claude/CLAUDE.md .claude/skills/run-agent-task/SKILL.md .claude/skills/review-agent-task/SKILL.md .claude/skills/fix-agent-task/SKILL.md .claude/agents/task-developer.md .claude/agents/task-reviewer.md .claude/agents/task-fixer.md || true",
+      "exit_code": 0,
+      "status": "passed",
+      "started_at": "2026-07-10T09:57:49Z",
+      "duration_ms": 1
+    },
+    {
+      "command": "git status --short .claude/settings.local.json .claude/agent-memory",
+      "exit_code": 0,
+      "status": "passed",
+      "started_at": "2026-07-10T09:57:50Z",
+      "duration_ms": 1
+    }
+  ],
+  "review": {
+    "reviewer_type": "self-review",
+    "round": 1,
+    "verdict": "通过",
+    "findings": []
+  },
+  "human_confirmation": {
+    "required": true,
+    "confirmed": true,
+    "confirmed_at": "2026-07-10T17:55:22+08:00",
+    "source": "user requested pipeline continuation without manual gates"
+  },
+  "exceptions": [],
+  "skipped_checks": [
+    {
+      "check": "Claude Code runtime discovery smoke test",
+      "reason": "No Claude Code CLI discovery command was available in the repository context; static adapter checks were run instead."
+    },
+    {
+      "check": "Go/Vue business test suites",
+      "reason": "TASK-AHU-004 modifies only Claude adapter documentation and feature evidence; business code is out of scope."
+    }
+  ]
+}

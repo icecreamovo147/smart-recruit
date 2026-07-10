@@ -5,6 +5,17 @@ description: Use this skill to create SPEC + SDD documents from a feature prompt
 
 # spec-harness
 
+## Canonical Authority
+
+For repositories that adopt this workflow, the canonical control plane is:
+
+1. the nearest applicable `AGENTS.md` for durable repository rules;
+2. this `spec-harness` skill for feature and single-TASK lifecycle semantics;
+3. `harness-pipeline` only when the user explicitly requests serial multi-TASK orchestration;
+4. `.spec/<feature-name>/` for executable feature requirements, scope, acceptance, runtime evidence, and reports.
+
+Provider-specific prompts, skills, agents, commands, memories, historical plans, and execution logs may adapt to or inform this workflow, but they must not redefine its TASK source, review verdict, runtime state, or completion semantics.
+
 Use this skill for feature-level SPEC + SDD + Harness workflows under:
 
 ```text
@@ -142,6 +153,83 @@ the directory structure must be:
   reports/
     TASK-001-report.md
 ```
+
+## Canonical Harness Contract
+
+### Schema version
+
+New Harness packages must use `schemaVersion: 1` in `task-scope.json`. The canonical top-level shape is:
+
+```json
+{
+  "schemaVersion": 1,
+  "feature_name": "<feature-name>",
+  "tasks": {}
+}
+```
+
+Classify an inspected feature without rewriting it:
+
+* `current`: `schemaVersion: 1`, `feature_name`, `tasks`, and all required Harness artifacts are present and internally consistent.
+* `legacy-compatible`: `schemaVersion` is absent, but the feature uses the `feature_name + tasks` shape and can be read safely. Report the missing version; do not silently rewrite it.
+* `unsupported`: the scope is flat or ambiguous, required Harness artifacts are missing, TASK IDs disagree, or the schema cannot be interpreted safely. Implementation and pipeline execution must stop.
+
+Completed historical features may remain readable in their original format. Pending or resumed work must pass preflight before implementation.
+
+### Runtime state ownership
+
+`pipeline-state.json` is the runtime status source for TASK and pipeline execution. `task-scope.json.tasks[*].status` is only the generated initial state and must not override runtime evidence or be independently advanced.
+
+Runtime state must never report ordinary completion when required scope checks, validation commands, review, evidence, or human confirmation failed or are missing. Pipeline-specific transitions and exception semantics are owned by `harness-pipeline`.
+
+### Knowledge impact extension
+
+Features may optionally declare knowledge review semantics without affecting historical feature compatibility. A TASK entry may include:
+
+```json
+{
+  "requiredKnowledgeImpact": true,
+  "knowledge": {
+    "review": [".knowledge/architecture/**"],
+    "modify": [".knowledge/runbooks/*.md"],
+    "candidate": [".knowledge/inbox/**"]
+  }
+}
+```
+
+`knowledge.review`, `knowledge.modify`, and `knowledge.candidate` are repository-relative glob scopes for knowledge impact review, direct knowledge edits, and candidate/inbox updates. Existing features that omit these fields remain `current` or `legacy-compatible` according to the original schema rules.
+
+### TASK evidence
+
+Every implemented TASK must create or update:
+
+```text
+.spec/<feature-name>/reports/<TASK-ID>-evidence.json
+```
+
+Evidence must be machine-readable and include at least:
+
+* `schemaVersion`, `feature_name`, and `task_id`;
+* TASK start and end Git identifiers;
+* the actual changed-file list;
+* scope status, including forbidden and out-of-scope files;
+* validation commands with real exit codes and timing information;
+* review type, round, and verdict;
+* required human confirmation or approved exception metadata;
+* skipped checks and their reasons.
+* optional `knowledgeImpact` when the feature or TASK requires it.
+
+Markdown reports and evidence must agree. A failed command, failed scope check, missing confirmation, or failed review must not be described as passing or complete.
+
+When present, `knowledgeImpact` records `result`, `triggeredBy`, per-document `reviewResults` with fixed verdicts, `coverageGap`, and the validation exit code. Passing review must not contain `stale_detected`, `conflict_detected`, `STALE`, or `CONFLICT`; those must remain failing, blocked, or explicitly exception-approved outcomes.
+
+### Review independence
+
+Use an independent read-only Agent or fresh context for `self-review` when the current environment supports it. If only the implementing Agent can review, continue with the canonical `self-review` format and disclose `reviewer_type: self-review` in the report and evidence. The verdict syntax does not change.
+
+### Legacy migration gate
+
+Historical task files, phase plans, execution logs, and agent memories are reference material, not executable feature contracts. If a requested legacy item has no explicit valid `.spec/<feature-name>/` equivalent, stop implementation and route it through `draft-spec-sdd` with current repository inspection. Never mechanically promote stale requirements or silently infer a mapping.
 
 ---
 
@@ -487,6 +575,7 @@ Suggested schema:
 
 ```json
 {
+  "schemaVersion": 1,
   "feature_name": "<feature-name>",
   "tasks": {
     "TASK-001": {
@@ -510,10 +599,12 @@ Suggested schema:
 
 Rules:
 
+* New Harness packages must set `schemaVersion: 1`.
 * `allowedFiles` must be explicit when possible.
 * If exact files are unknown, use the narrowest safe directory pattern.
 * Shared modules, shared types, package manifests, lockfiles, global configuration, and public APIs should default to forbidden unless explicitly required and confirmed.
 * Set `requiresHumanConfirmation: true` for high-risk TASKs.
+* Treat `tasks[*].status` as generated initial metadata; runtime status belongs to `pipeline-state.json`.
 
 ## acceptance/ Requirements
 
@@ -650,6 +741,17 @@ Execute exactly one specified TASK.
 .spec/<feature-name>/prompts/implement-task.md
 ```
 
+## Preflight
+
+Before modifying files:
+
+1. Classify the feature as `current`, `legacy-compatible`, or `unsupported` using the Canonical Harness Contract.
+2. Verify the requested TASK exists consistently in `TASKS.md`, `task-scope.json`, and its acceptance file.
+3. Verify required prompts, scripts, and report paths exist.
+4. Establish a reliable TASK-level Git baseline that can distinguish this TASK from earlier TASK changes.
+5. Check `requiresHumanConfirmation` and record explicit confirmation before editing when required.
+6. Stop on unsupported schema, missing artifacts, unreliable baseline, unrelated dirty changes, or conflicting requirements. Do not downgrade to manual visual comparison.
+
 ## Restrictions
 
 * Execute only the specified TASK.
@@ -685,6 +787,12 @@ Create or update:
 .spec/<feature-name>/reports/<TASK-ID>-report.md
 ```
 
+Create or update the matching machine-readable evidence file:
+
+```text
+.spec/<feature-name>/reports/<TASK-ID>-evidence.json
+```
+
 The report must include:
 
 ```markdown
@@ -713,6 +821,8 @@ The report must include:
 ## 11. Whether the Next TASK Can Start
 ```
 
+If the feature or TASK requires knowledge impact, include a `Knowledge Impact` section in the Markdown report and the matching `knowledgeImpact` object in evidence.
+
 ## Output Must Include
 
 * TASK ID
@@ -721,6 +831,8 @@ The report must include:
 * Scope check result
 * Test results
 * Report path
+* Evidence path
+* Reviewer type or planned review type
 * Whether the next TASK can start
 
 ---
@@ -758,6 +870,8 @@ Review the current TASK diff without modifying code.
 
 * Do not modify code.
 * Do not fix issues in this mode.
+* Prefer an independent read-only Agent or fresh context when available.
+* If review is performed by the implementing Agent, disclose `reviewer_type: self-review`.
 * Report findings ordered by severity.
 * Identify:
 
@@ -933,6 +1047,9 @@ Stop and request confirmation if any of the following occur:
 * Existing SPEC or SDD files would be overwritten without explicit confirmation.
 * Harness scripts cannot safely determine task scope.
 * The repository has unrelated dirty changes and the current mode may modify files.
+* The feature is classified as `unsupported` for implementation or pipeline execution.
+* A reliable TASK-level Git baseline cannot be established.
+* Required TASK evidence cannot be produced without falsifying or dropping failed checks.
 
 ---
 

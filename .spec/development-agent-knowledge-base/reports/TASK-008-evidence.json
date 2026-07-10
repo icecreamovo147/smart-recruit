@@ -1,0 +1,59 @@
+{
+  "schemaVersion": 1,
+  "feature_name": "development-agent-knowledge-base",
+  "task_id": "TASK-008",
+  "base_sha": "d26c51e75a1be350716dfe5c692dc17f32a98606",
+  "base_tree": "67a51fb0621cf10291b0f6f1a4d8f61a652fe523",
+  "head_sha": "d26c51e75a1be350716dfe5c692dc17f32a98606",
+  "head_tree": "pending-final-state",
+  "changed_files": [
+    ".spec/development-agent-knowledge-base/reports/TASK-008-evidence.json",
+    ".spec/development-agent-knowledge-base/reports/TASK-008-report.md",
+    ".spec/development-agent-knowledge-base/reports/pipeline-summary.md"
+  ],
+  "scope": {
+    "status": "passed",
+    "command": "TASK_BASE_TREE=67a51fb0621cf10291b0f6f1a4d8f61a652fe523 bash .spec/development-agent-knowledge-base/scripts/check-task-scope.sh TASK-008",
+    "classification": "current",
+    "out_of_scope": [],
+    "forbidden": [],
+    "allowed_patterns": [
+      ".spec/development-agent-knowledge-base/reports/**"
+    ]
+  },
+  "checks": [
+    { "command": "node .knowledge/scripts/knowledge-validator.test.mjs", "exit_code": 0, "status": "passed", "started_at": "2026-07-10T20:55:00+08:00", "duration_ms": 1431 },
+    { "command": "node .knowledge/scripts/validate-knowledge.mjs --root .", "exit_code": 0, "status": "passed", "started_at": "2026-07-10T20:55:01+08:00", "duration_ms": 1 },
+    { "command": "node .knowledge/scripts/check-references.mjs --root . --strict-routes", "exit_code": 0, "status": "passed", "started_at": "2026-07-10T20:55:01+08:00", "duration_ms": 1 },
+    { "command": "node .agents/skills/spec-harness/scripts/validator.test.mjs", "exit_code": 0, "status": "passed", "started_at": "2026-07-10T20:55:01+08:00", "duration_ms": 1 },
+    { "command": "node .agents/skills/spec-harness/scripts/validate-feature.mjs --feature .spec/development-agent-knowledge-base", "exit_code": 0, "status": "passed", "started_at": "2026-07-10T20:55:01+08:00", "duration_ms": 1 },
+    { "command": "ruby -e 'require \"yaml\"; YAML.load_file(\".github/workflows/knowledge-validation.yml\")'", "exit_code": 0, "status": "passed", "started_at": "2026-07-10T20:55:02+08:00", "duration_ms": 20 },
+    { "command": "git diff --check", "exit_code": 0, "status": "passed", "started_at": "2026-07-10T20:55:02+08:00", "duration_ms": 1 },
+    { "command": "TASK_BASE_TREE=67a51fb0621cf10291b0f6f1a4d8f61a652fe523 bash .spec/development-agent-knowledge-base/scripts/check-task-scope.sh TASK-008", "exit_code": 0, "status": "passed", "started_at": "2026-07-10T20:55:03+08:00", "duration_ms": 1 },
+    { "command": "bash .spec/development-agent-knowledge-base/scripts/agent-check.sh", "exit_code": 0, "status": "passed", "started_at": "2026-07-10T20:55:04+08:00", "duration_ms": 1 }
+  ],
+  "review": {
+    "reviewer_type": "self-review",
+    "round": 1,
+    "verdict": "通过",
+    "findings": []
+  },
+  "human_confirmation": {
+    "required": false,
+    "confirmed": true,
+    "confirmed_at": "2026-07-10T20:55:04+08:00",
+    "source": "TASK-008 does not require human confirmation; pipeline was explicitly requested by the user"
+  },
+  "exceptions": [],
+  "skipped_checks": [
+    { "check": "Remote CI run", "reason": "No remote push was requested; local equivalent and YAML syntax were verified." },
+    { "check": "Business Go and Vue test suites", "reason": "TASK-008 is a report-only audit and did not change business code." }
+  ],
+  "knowledgeImpact": {
+    "result": "none",
+    "triggeredBy": [],
+    "reviewResults": [],
+    "coverageGap": false,
+    "validationExitCode": 0
+  }
+}

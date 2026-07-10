@@ -1,0 +1,287 @@
+{
+  "schemaVersion": 1,
+  "feature_name": "agent-harness-unification",
+  "tasks": {
+    "TASK-AHU-001": {
+      "title": "固化唯一权威来源与 Canonical Harness 契约",
+      "status": "pending",
+      "allowedFiles": [
+        "AGENTS.md",
+        ".agents/skills/spec-harness/SKILL.md",
+        ".spec/agent-harness-unification/**"
+      ],
+      "forbiddenFiles": [
+        ".agents/skills/harness-pipeline/**",
+        ".claude/**",
+        "docs/agent-harness/**",
+        ".ai-guides/**",
+        "hr-frontend/**",
+        "user-frontend/**",
+        "interviewer-frontend/**",
+        "logic-grpc-service/**",
+        "web-gin-service/**",
+        "deploy/**",
+        "docker/**",
+        ".github/**",
+        "package.json",
+        "pnpm-lock.yaml",
+        "pnpm-workspace.yaml",
+        "**/go.mod",
+        "**/go.sum",
+        "db.sql"
+      ],
+      "requiresHumanConfirmation": true,
+      "allowedActions": ["modify", "create", "test"],
+      "acceptance": ".spec/agent-harness-unification/acceptance/TASK-AHU-001.md",
+      "report": ".spec/agent-harness-unification/reports/TASK-AHU-001-report.md",
+      "notes": [
+        "Shared authority and spec-harness changes require explicit confirmation.",
+        "Define contracts only; shared script implementation belongs to TASK-AHU-002."
+      ]
+    },
+    "TASK-AHU-002": {
+      "title": "实现共享结构、Scope 与 Evidence 校验器",
+      "status": "pending",
+      "allowedFiles": [
+        ".agents/skills/spec-harness/scripts/**",
+        ".spec/agent-harness-unification/**"
+      ],
+      "forbiddenFiles": [
+        "AGENTS.md",
+        ".agents/skills/spec-harness/SKILL.md",
+        ".agents/skills/harness-pipeline/**",
+        ".claude/**",
+        "docs/agent-harness/**",
+        ".ai-guides/**",
+        "hr-frontend/**",
+        "user-frontend/**",
+        "interviewer-frontend/**",
+        "logic-grpc-service/**",
+        "web-gin-service/**",
+        "deploy/**",
+        "docker/**",
+        ".github/**",
+        "package.json",
+        "pnpm-lock.yaml",
+        "pnpm-workspace.yaml",
+        "**/go.mod",
+        "**/go.sum",
+        "db.sql"
+      ],
+      "requiresHumanConfirmation": true,
+      "allowedActions": ["modify", "create", "test"],
+      "acceptance": ".spec/agent-harness-unification/acceptance/TASK-AHU-002.md",
+      "report": ".spec/agent-harness-unification/reports/TASK-AHU-002-report.md",
+      "notes": [
+        "The validator must be read-only for scanned features.",
+        "Do not rewrite legacy-compatible or unsupported feature artifacts."
+      ]
+    },
+    "TASK-AHU-003": {
+      "title": "强化 Pipeline 状态与完成不变量",
+      "status": "pending",
+      "allowedFiles": [
+        ".agents/skills/harness-pipeline/SKILL.md",
+        ".agents/skills/harness-pipeline/scripts/**",
+        ".spec/agent-harness-unification/**"
+      ],
+      "forbiddenFiles": [
+        "AGENTS.md",
+        ".agents/skills/spec-harness/**",
+        ".claude/**",
+        "docs/agent-harness/**",
+        ".ai-guides/**",
+        "hr-frontend/**",
+        "user-frontend/**",
+        "interviewer-frontend/**",
+        "logic-grpc-service/**",
+        "web-gin-service/**",
+        "deploy/**",
+        "docker/**",
+        ".github/**",
+        "package.json",
+        "pnpm-lock.yaml",
+        "pnpm-workspace.yaml",
+        "**/go.mod",
+        "**/go.sum",
+        "db.sql"
+      ],
+      "requiresHumanConfirmation": true,
+      "allowedActions": ["modify", "create", "test"],
+      "acceptance": ".spec/agent-harness-unification/acceptance/TASK-AHU-003.md",
+      "report": ".spec/agent-harness-unification/reports/TASK-AHU-003-report.md",
+      "notes": [
+        "Do not rewrite historical pipeline-state.json files.",
+        "completed_with_exceptions requires explicit human approval metadata."
+      ]
+    },
+    "TASK-AHU-004": {
+      "title": "收敛 Claude 根入口与单 TASK 适配器",
+      "status": "pending",
+      "allowedFiles": [
+        "CLAUDE.md",
+        ".claude/CLAUDE.md",
+        ".claude/skills/run-agent-task/SKILL.md",
+        ".claude/skills/review-agent-task/SKILL.md",
+        ".claude/skills/fix-agent-task/SKILL.md",
+        ".claude/agents/task-developer.md",
+        ".claude/agents/task-reviewer.md",
+        ".claude/agents/task-fixer.md",
+        ".spec/agent-harness-unification/**"
+      ],
+      "forbiddenFiles": [
+        ".claude/settings.local.json",
+        ".claude/agent-memory/**",
+        ".claude/skills/batch-agent-coordinator/**",
+        ".claude/commands/**",
+        ".claude/agents/phase-*.md",
+        ".agents/**",
+        "docs/agent-harness/**",
+        ".ai-guides/**",
+        "hr-frontend/**",
+        "user-frontend/**",
+        "interviewer-frontend/**",
+        "logic-grpc-service/**",
+        "web-gin-service/**",
+        "deploy/**",
+        "docker/**",
+        ".github/**",
+        "package.json",
+        "pnpm-lock.yaml",
+        "pnpm-workspace.yaml",
+        "**/go.mod",
+        "**/go.sum",
+        "db.sql"
+      ],
+      "requiresHumanConfirmation": true,
+      "allowedActions": ["modify", "create", "test"],
+      "acceptance": ".spec/agent-harness-unification/acceptance/TASK-AHU-004.md",
+      "report": ".spec/agent-harness-unification/reports/TASK-AHU-004-report.md",
+      "notes": [
+        "Keep common Claude adapter names for compatibility.",
+        "Do not edit local Claude permissions or agent memory."
+      ]
+    },
+    "TASK-AHU-005": {
+      "title": "收敛 Claude Coordinator 与 Phase 迁移门禁",
+      "status": "pending",
+      "allowedFiles": [
+        ".claude/skills/batch-agent-coordinator/SKILL.md",
+        ".claude/commands/run-phase.md",
+        ".claude/agents/phase-implementer.md",
+        ".claude/agents/phase-reviewer.md",
+        ".spec/agent-harness-unification/**"
+      ],
+      "forbiddenFiles": [
+        ".claude/settings.local.json",
+        ".claude/agent-memory/**",
+        ".claude/skills/run-agent-task/**",
+        ".claude/skills/review-agent-task/**",
+        ".claude/skills/fix-agent-task/**",
+        ".claude/agents/task-*.md",
+        ".agents/**",
+        "docs/agent-harness/**",
+        ".ai-guides/**",
+        "hr-frontend/**",
+        "user-frontend/**",
+        "interviewer-frontend/**",
+        "logic-grpc-service/**",
+        "web-gin-service/**",
+        "deploy/**",
+        "docker/**",
+        ".github/**",
+        "package.json",
+        "pnpm-lock.yaml",
+        "pnpm-workspace.yaml",
+        "**/go.mod",
+        "**/go.sum",
+        "db.sql"
+      ],
+      "requiresHumanConfirmation": true,
+      "allowedActions": ["modify", "create", "test"],
+      "acceptance": ".spec/agent-harness-unification/acceptance/TASK-AHU-005.md",
+      "report": ".spec/agent-harness-unification/reports/TASK-AHU-005-report.md",
+      "notes": [
+        "Retain run-phase as a migration gate only.",
+        "Do not auto-create or modify .spec features from legacy phase input."
+      ]
+    },
+    "TASK-AHU-006": {
+      "title": "冻结 Legacy 入口并生成迁移清单",
+      "status": "pending",
+      "allowedFiles": [
+        "docs/agent-harness/README.md",
+        "docs/agent-harness/00-HARNESS.md",
+        ".ai-guides/README.md",
+        ".spec/agent-harness-unification/**"
+      ],
+      "forbiddenFiles": [
+        "docs/agent-harness/tasks/**",
+        "docs/agent-harness/reviews/**",
+        "docs/agent-harness/decisions/**",
+        "docs/agent-harness/EXECUTION_LOG.md",
+        ".claude/**",
+        ".agents/**",
+        "hr-frontend/**",
+        "user-frontend/**",
+        "interviewer-frontend/**",
+        "logic-grpc-service/**",
+        "web-gin-service/**",
+        "deploy/**",
+        "docker/**",
+        ".github/**",
+        "package.json",
+        "pnpm-lock.yaml",
+        "pnpm-workspace.yaml",
+        "**/go.mod",
+        "**/go.sum",
+        "db.sql"
+      ],
+      "requiresHumanConfirmation": true,
+      "allowedActions": ["modify", "create", "test"],
+      "acceptance": ".spec/agent-harness-unification/acceptance/TASK-AHU-006.md",
+      "report": ".spec/agent-harness-unification/reports/TASK-AHU-006-report.md",
+      "notes": [
+        "Freeze does not mean cancellation.",
+        "Inventory only; do not implement or bulk-migrate legacy business tasks."
+      ]
+    },
+    "TASK-AHU-007": {
+      "title": "执行跨控制面最终一致性审计",
+      "status": "pending",
+      "allowedFiles": [
+        ".spec/agent-harness-unification/**"
+      ],
+      "forbiddenFiles": [
+        "AGENTS.md",
+        "CLAUDE.md",
+        ".agents/**",
+        ".claude/**",
+        "docs/agent-harness/**",
+        ".ai-guides/**",
+        "hr-frontend/**",
+        "user-frontend/**",
+        "interviewer-frontend/**",
+        "logic-grpc-service/**",
+        "web-gin-service/**",
+        "deploy/**",
+        "docker/**",
+        ".github/**",
+        "package.json",
+        "pnpm-lock.yaml",
+        "pnpm-workspace.yaml",
+        "**/go.mod",
+        "**/go.sum",
+        "db.sql"
+      ],
+      "requiresHumanConfirmation": false,
+      "allowedActions": ["create", "modify", "test", "review"],
+      "acceptance": ".spec/agent-harness-unification/acceptance/TASK-AHU-007.md",
+      "report": ".spec/agent-harness-unification/reports/TASK-AHU-007-report.md",
+      "notes": [
+        "Read-only audit of shared control-plane files.",
+        "If a shared-file fix is required, block and return to the owning TASK."
+      ]
+    }
+  }
+}
