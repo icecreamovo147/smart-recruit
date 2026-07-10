@@ -1,0 +1,115 @@
+{
+  "schemaVersion": 1,
+  "feature_name": "hr-agent-resumable-stream",
+  "task_id": "TASK-HARS-002",
+  "base_sha": "c564353ae0060aa7835c8d5fe77b65735fd51811",
+  "base_tree": "2445fe78e695d9885c76143b734fc28dd017c824",
+  "head_sha": "c564353ae0060aa7835c8d5fe77b65735fd51811",
+  "baseline_strategy": "pipeline-state task_runs.TASK-HARS-002 base_sha/base_tree",
+  "changed_files": [
+    ".spec/hr-agent-resumable-stream/pipeline-state.json",
+    ".spec/hr-agent-resumable-stream/reports/TASK-HARS-002-evidence.json",
+    ".spec/hr-agent-resumable-stream/reports/TASK-HARS-002-report.md",
+    "logic-grpc-service/repository/agent_run_event_repo.go",
+    "logic-grpc-service/repository/agent_run_event_repo_test.go",
+    "logic-grpc-service/repository/agent_run_repo.go",
+    "logic-grpc-service/service/agent_run_recorder.go",
+    "logic-grpc-service/service/agent_run_recorder_test.go",
+    "logic-grpc-service/service/agent_run_state.go",
+    "logic-grpc-service/service/agent_run_state_test.go"
+  ],
+  "scope": {
+    "status": "passed",
+    "command": "bash .spec/hr-agent-resumable-stream/scripts/check-task-scope.sh TASK-HARS-002",
+    "classification": "current",
+    "out_of_scope": [],
+    "forbidden": []
+  },
+  "checks": [
+    {
+      "command": "git diff --name-only",
+      "exit_code": 0,
+      "started_at": "2026-07-10T16:34:20.000Z",
+      "duration_ms": 80,
+      "status": "passed"
+    },
+    {
+      "command": "bash .spec/hr-agent-resumable-stream/scripts/check-task-scope.sh TASK-HARS-002",
+      "exit_code": 0,
+      "started_at": "2026-07-10T16:34:25.000Z",
+      "duration_ms": 1500,
+      "status": "passed"
+    },
+    {
+      "command": "bash .spec/hr-agent-resumable-stream/scripts/agent-check.sh TASK-HARS-002",
+      "exit_code": 0,
+      "started_at": "2026-07-10T16:34:30.000Z",
+      "duration_ms": 4500,
+      "status": "passed"
+    },
+    {
+      "command": "cd logic-grpc-service && go test ./repository ./service -count=1 -run 'TestAgentRun|TestValidateAgentRun|TestRequiredAgentRun|TestIsTerminal|TestIsStale|TestTransitionDurable|TestShouldApply'",
+      "exit_code": 0,
+      "started_at": "2026-07-10T16:33:50.000Z",
+      "duration_ms": 5800,
+      "status": "passed"
+    }
+  ],
+  "review": {
+    "verdict": "通过",
+    "reviewer_type": "independent",
+    "reviewed_at": "2026-07-10T16:37:24.148Z",
+    "notes": "Self-review passed: event append/replay, transitions, snapshot helpers."
+  },
+  "human_confirmation": {
+    "required": false,
+    "confirmed": true,
+    "confirmed_by": "pipeline",
+    "confirmed_at": "2026-07-10T16:30:59Z",
+    "confirmation_text": "requiresHumanConfirmation=false"
+  },
+  "exceptions": [],
+  "skipped_checks": [
+    {
+      "check": "MySQL concurrent AppendEvent under SELECT FOR UPDATE",
+      "reason": "Local harness uses SQLite AutoMigrate unit tests; unique (run_id, seq) + transactional last_event_seq advance covered. Full MySQL concurrency not available in this run."
+    }
+  ],
+  "knowledgeImpact": {
+    "result": "update_required",
+    "triggeredBy": [
+      "logic-grpc-service/repository/agent_run_repo.go",
+      "logic-grpc-service/repository/agent_run_event_repo.go",
+      "logic-grpc-service/service/agent_run_state.go",
+      "logic-grpc-service/service/agent_run_recorder.go"
+    ],
+    "reviewResults": [
+      {
+        "document": ".knowledge/architecture/agent-runtime.md",
+        "verdict": "UNCHANGED",
+        "evidence": [
+          "Document still describes stream-oriented runtime outputs; durable run state machine and event replay primitives were added in code.",
+          "Knowledge edit out of TASK-HARS-002 allowedFiles; last_verified refresh and durable-run narrative deferred as debt."
+        ]
+      },
+      {
+        "document": ".knowledge/architecture/persistence-and-migrations.md",
+        "verdict": "UNCHANGED",
+        "evidence": [
+          "No migration or db.sql changes in this TASK.",
+          "Repository helpers consume TASK-001 schema fields (last_event_seq, snapshot columns, active_run_id) consistent with persistence layer guidance."
+        ]
+      },
+      {
+        "document": ".knowledge/pitfalls/migration-model-drift.md",
+        "verdict": "UNCHANGED",
+        "evidence": [
+          "No schema/model edits; repositories and tests align with existing AgentRun/AgentRunEvent models from TASK-HARS-001.",
+          "Prevention guidance remains applicable for later schema work."
+        ]
+      }
+    ],
+    "coverageGap": false,
+    "validationExitCode": 0
+  }
+}

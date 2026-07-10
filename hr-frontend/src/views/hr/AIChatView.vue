@@ -4,19 +4,28 @@ import { useRoute, useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import DOMPurify from 'dompurify'
 import MarkdownIt from 'markdown-it'
-import { createApplicationAnalysisSession, createSession, deleteSession, getSessionMessages, listSessions, sendMessageStream, updateSession } from '@/api/ai'
+import { createApplicationAnalysisSession, createSession, deleteSession, getSessionMessages, listSessions, updateSession } from '@/api/ai'
 import { listAvailableAgentSkills } from '@/api/agentSkill'
 import { updateApplicationStatus } from '@/api/application'
 import { listAvailableModels } from '@/api/llm'
+import {
+  bindRunStateToChatUi,
+  createClientRequestId,
+  executeConfirmChatRun,
+  executeCreateChatRun,
+  toAgentSkillSelectionPayload,
+  type DurableChatUiBinder,
+} from '@/components/hr/ai/agentRunChatFlow'
 import AgentTracePanel from '@/components/AgentTracePanel.vue'
 import ConversationSidebar from '@/components/chat/ConversationSidebar.vue'
 import ConversationHeader from '@/components/chat/ConversationHeader.vue'
 import ChatMessageList from '@/components/chat/ChatMessageList.vue'
 import ChatComposer from '@/components/chat/ChatComposer.vue'
+import { useHrAgentRun } from '@/composables/useHrAgentRun'
+import type { AgentRunResultMetadata, CreateAgentRunRequest } from '@/types/agentRun'
 import type { AgentSkillSelectionPayload, ChatMessageSkill, ChatSessionListItem, Session, CandidateOption, StreamPayload, ContextUsageInfo } from '@/types/ai'
 import type { LlmModel } from '@/types/llm'
 import type { AvailableAgentSkill } from '@/types/agentSkill'
-import { BusinessError } from '@/types/api'
 
 interface MessageItem {
   role: string
@@ -52,6 +61,7 @@ interface SkillSelectionRequest {
   sessionId: number
   modelId: number | null
   messageId?: number
+  runId?: number
 }
 
 const route = useRoute()
@@ -67,8 +77,8 @@ const menuSessionId = ref(0)
 const sessionSidebarOpen = ref(false)
 const candidateName = ref('')
 const candidatePosition = ref('')
-const activeController = ref<AbortController | null>(null)
 const userAborted = ref(false)
+const activeRunToken = ref(0)
 const statusBarExpanded = ref(true)
 const modelName = ref('')
 const modelList = ref<LlmModel[]>([])
@@ -83,6 +93,9 @@ const listRef = ref<any>(null)
 let pollTimer: ReturnType<typeof setInterval> | null = null
 let streamTypewriterTimer: ReturnType<typeof setInterval> | null = null
 const contextUsageStoragePrefix = 'hr-ai-context-usage:'
+
+// Durable HR Agent runtime (TASK-HARS-007). Legacy sendMessageStream remains in api/ai.ts for rollout compatibility.
+const agentRun = useHrAgentRun()
 
 type StreamTextTarget = 'content' | 'process'
 
@@ -122,16 +135,6 @@ const renderMarkdown = (content: string): string => {
 const waitingText = (message: MessageItem): string => {
   if (message?.waitingText) return message.waitingText
   return currentSession.value?.application_id ? '分析中' : '响应中'
-}
-
-const parseCandidateOptions = (value: unknown): CandidateOption[] => {
-  if (!value) return []
-  if (Array.isArray(value)) return value as CandidateOption[]
-  try {
-    return JSON.parse(value as string) as CandidateOption[]
-  } catch {
-    return []
-  }
 }
 
 const normalizeSession = (item: ChatSessionListItem): Session => ({
@@ -399,22 +402,6 @@ const appendAssistantProcess = (index: number, delta: string) => {
   enqueueAssistantText(index, 'process', delta)
 }
 
-const clearAssistantProcess = (index: number) => {
-  for (let i = streamTextQueue.length - 1; i >= 0; i--) {
-    const item = streamTextQueue[i]
-    if (item.index === index && item.target === 'process') {
-      streamTextQueue.splice(i, 1)
-    }
-  }
-  const message = messages.value[index]
-  if (!message) return
-  messages.value[index] = {
-    ...message,
-    processContent: '',
-  }
-  scrollBottom()
-}
-
 const markAssistantError = (index: number, error: Error | null) => {
   clearAssistantTextQueue()
   const message = messages.value[index]
@@ -427,6 +414,109 @@ const markAssistantError = (index: number, error: Error | null) => {
   scrollBottom()
 }
 
+const beginAgentRun = (): number => {
+  activeRunToken.value += 1
+  userAborted.value = false
+  return activeRunToken.value
+}
+
+const isActiveAgentRun = (token: number): boolean => activeRunToken.value === token
+
+const resultMetaToStreamPayload = (
+  meta: AgentRunResultMetadata | null | undefined,
+  sessionId?: number | null,
+): StreamPayload => ({
+  action: meta?.action,
+  application_id: meta?.application_id,
+  action_status: meta?.action_status,
+  candidate_name: meta?.candidate_name,
+  job_title: meta?.job_title,
+  status: meta?.status,
+  candidate_options: meta?.candidate_options,
+  session_id: sessionId ?? undefined,
+  context_usage: (meta?.context_usage as ContextUsageInfo | undefined) || undefined,
+})
+
+const makeChatUiBinder = (assistantIndex: number): DurableChatUiBinder => ({
+  onAssistantDelta: (delta) => appendAssistantDelta(assistantIndex, delta),
+  onAssistantSnapshot: (text) => {
+    flushAssistantTextQueue(assistantIndex)
+    const msg = messages.value[assistantIndex]
+    if (!msg) return
+    messages.value[assistantIndex] = {
+      ...msg,
+      content: text,
+      pending: !text,
+    }
+    scrollBottom()
+  },
+  onProcessDelta: (delta) => appendAssistantProcess(assistantIndex, delta),
+  onProcessSnapshot: (text) => {
+    for (let i = streamTextQueue.length - 1; i >= 0; i--) {
+      const item = streamTextQueue[i]
+      if (item.index === assistantIndex && item.target === 'process') {
+        streamTextQueue.splice(i, 1)
+      }
+    }
+    const msg = messages.value[assistantIndex]
+    if (!msg) return
+    messages.value[assistantIndex] = {
+      ...msg,
+      processContent: text,
+    }
+    scrollBottom()
+  },
+  onModelName: (name) => {
+    modelName.value = name
+    const msg = messages.value[assistantIndex]
+    if (msg) {
+      messages.value[assistantIndex] = { ...msg, model_name: name }
+    }
+  },
+  onContextUsage: (usage, sessionId) => {
+    handleContextUsage({
+      context_usage: usage,
+      session_id: sessionId || currentSession.value?.id || undefined,
+    })
+  },
+  onCandidateOptions: (options) => {
+    const msg = messages.value[assistantIndex]
+    if (!msg) return
+    messages.value[assistantIndex] = {
+      ...msg,
+      candidateOptions: options,
+      pending: false,
+    }
+    scrollBottom()
+  },
+  onResultMetadata: (meta) => {
+    if (!meta?.context_usage) return
+    handleContextUsage({
+      context_usage: meta.context_usage as ContextUsageInfo,
+      session_id: currentSession.value?.id || undefined,
+    })
+  },
+})
+
+const finishAgentRunUi = (token: number) => {
+  if (!isActiveAgentRun(token)) return
+  loading.value = false
+  streaming.value = false
+  userAborted.value = false
+}
+
+const applySkillSelectionFromRun = (
+  assistantIndex: number,
+  text: string,
+  session: Session,
+  runId: number | null | undefined,
+) => {
+  const selection = toAgentSkillSelectionPayload(agentRun.state.value.confirmation)
+  if (!selection) return false
+  setSkillSelectionMessage(assistantIndex, text, session, selection, runId || undefined)
+  return true
+}
+
 const refreshSessions = async () => {
   const data = await listSessions({ page: 1, page_size: 50 })
   sessions.value = (data.list || []).map(normalizeSession)
@@ -435,12 +525,169 @@ const refreshSessions = async () => {
   }
 }
 
+/**
+ * Ensure an assistant message slot exists for a restored in-flight run and seed
+ * snapshot text (FR-015). Prefer reusing the last assistant bubble when it is
+ * empty/pending so history is not duplicated.
+ */
+const ensureRestoreAssistantSlot = (
+  session: Session,
+  run: { assistantText: string; processText: string; modelName: string; isTerminal: boolean },
+): number => {
+  const lastIndex = messages.value.length - 1
+  const last = lastIndex >= 0 ? messages.value[lastIndex] : null
+  if (
+    last?.role === 'assistant' &&
+    !last.agentSkillSelection &&
+    !last.failed &&
+    (
+      last.pending ||
+      !last.content ||
+      (run.assistantText && run.assistantText.startsWith(last.content || ''))
+    )
+  ) {
+    messages.value[lastIndex] = {
+      ...last,
+      content: run.assistantText || last.content || '',
+      processContent: run.processText || last.processContent || last.process_content || '',
+      pending: !run.isTerminal && !(run.assistantText && !last.pending && last.content === run.assistantText),
+      waitingText: last.waitingText || (session.application_id ? '分析中' : '响应中'),
+      model_name: run.modelName || last.model_name,
+    }
+    return lastIndex
+  }
+
+  messages.value.push({
+    role: 'assistant',
+    content: run.assistantText || '',
+    processContent: run.processText || '',
+    pending: true,
+    waitingText: session.application_id ? '分析中' : '响应中',
+    ...(run.modelName ? { model_name: run.modelName } : {}),
+  })
+  return messages.value.length - 1
+}
+
+const lastUserMessageText = (): string => {
+  for (let i = messages.value.length - 1; i >= 0; i--) {
+    if (messages.value[i]?.role === 'user') {
+      return messages.value[i].content || ''
+    }
+  }
+  return ''
+}
+
+/**
+ * Refresh / route remount recovery (TASK-HARS-008 / FR-015):
+ * query active run, hydrate reducer snapshot, subscribe after last_event_seq,
+ * and bind UI so cancel / confirm / complete still work.
+ */
+const restoreActiveRunForSession = async (session: Session) => {
+  if (!session?.id) return
+
+  const token = beginAgentRun()
+  let stopBinder: (() => void) | null = null
+  try {
+    const restored = await agentRun.hydrateFromActive(session.id, { autoSubscribe: true })
+    if (!isActiveAgentRun(token) || userAborted.value) return
+    if (currentSession.value?.id !== session.id) return
+    if (!restored?.runId || restored.isTerminal) return
+
+    const assistantIndex = ensureRestoreAssistantSlot(session, restored)
+    scrollBottom()
+
+    if (
+      restored.status === 'waiting_confirmation' ||
+      Boolean(restored.confirmation?.required)
+    ) {
+      const seeded = applySkillSelectionFromRun(
+        assistantIndex,
+        lastUserMessageText(),
+        session,
+        restored.runId,
+      )
+      if (!seeded) {
+        // Parked without full confirmation payload — still show non-streaming state.
+        loading.value = false
+        streaming.value = false
+        const msg = messages.value[assistantIndex]
+        if (msg) {
+          messages.value[assistantIndex] = { ...msg, pending: false }
+        }
+      }
+      return
+    }
+
+    loading.value = true
+    streaming.value = true
+    stopBinder = bindRunStateToChatUi(agentRun.state, makeChatUiBinder(assistantIndex))
+
+    const settlement = await agentRun.waitUntilSettled({
+      runId: restored.runId,
+      shouldAbort: () => userAborted.value || !isActiveAgentRun(token),
+    })
+
+    if (!isActiveAgentRun(token) || userAborted.value || settlement === 'aborted') return
+
+    if (settlement === 'waiting_confirmation') {
+      applySkillSelectionFromRun(
+        assistantIndex,
+        lastUserMessageText(),
+        session,
+        agentRun.state.value.runId || restored.runId,
+      )
+      return
+    }
+
+    await waitForAssistantTextQueue(assistantIndex)
+    const finalPayload = resultMetaToStreamPayload(
+      agentRun.state.value.resultMetadata,
+      agentRun.state.value.sessionId || session.id,
+    )
+    if (finalPayload.session_id && currentSession.value) {
+      currentSession.value = { ...currentSession.value, id: finalPayload.session_id }
+    }
+    await confirmAction(finalPayload)
+
+    // Reconcile transient bubble with persisted history after completion (AC completion).
+    const sid = finalPayload.session_id || session.id
+    const data = await getSessionMessages(sid, { page: 1, page_size: 100 })
+    messages.value = normalizeMessages(data.list || [], messages.value)
+    await refreshSessions()
+    scrollBottom()
+  } catch (error: unknown) {
+    if (userAborted.value || !isActiveAgentRun(token)) return
+    // Restore failure is recoverable — keep loaded chat history intact.
+    console.warn('[AIChatView] restoreActiveRunForSession failed', error)
+  } finally {
+    stopBinder?.()
+    if (isActiveAgentRun(token)) {
+      // Keep loading false when parked on skill selection; applySkillSelection already cleared flags.
+      if (
+        agentRun.state.value.status === 'waiting_confirmation' ||
+        Boolean(agentRun.state.value.confirmation?.required)
+      ) {
+        loading.value = false
+        streaming.value = false
+      } else {
+        finishAgentRunUi(token)
+      }
+    }
+  }
+}
+
 const selectSession = async (session: Session) => {
   if (!session) return
+  // Switching sessions: dispose local subscription only (backend run continues).
+  userAborted.value = true
+  activeRunToken.value += 1
+  agentRun.dispose()
   clearAssistantTextQueue()
   resetContextUsage()
   currentSession.value = session
   sessionLoading.value = true
+  loading.value = false
+  streaming.value = false
   try {
     const data = await getSessionMessages(session.id, { page: 1, page_size: 100 })
     messages.value = normalizeMessages(data.list || [])
@@ -449,7 +696,10 @@ const selectSession = async (session: Session) => {
     scrollBottom()
   } finally {
     sessionLoading.value = false
+    userAborted.value = false
   }
+  // After history load, re-attach any still-active durable run for this session.
+  await restoreActiveRunForSession(session)
 }
 
 let typewriterTimer: ReturnType<typeof setInterval> | null = null
@@ -601,44 +851,42 @@ const createAnalysisSessionFromRoute = async () => {
   await refreshSessions()
   scrollBottom()
 
-  // Show pending animation while the stream runs.
+  // Show pending animation while the durable run executes.
   messages.value.push({ role: 'assistant', content: '', pending: true, waitingText: '分析中' })
   const assistantIndex = messages.value.length - 1
   loading.value = true
   streaming.value = true
   scrollBottom()
 
-  // Phase 2: Stream the analysis reply into the already-created session.
-  const controller = new AbortController()
-  activeController.value = controller
-  userAborted.value = false
+  // Phase 2: Durable run for the analysis reply (observes events; does not own execution).
+  const token = beginAgentRun()
+  const userText = messages.value[0]?.content || ''
   try {
-    await sendMessageStream(
-      { message: messages.value[0].content, session_id: session.id, ...(selectedModelId.value != null ? { model_id: selectedModelId.value } : {}) },
-      {
-        onDelta: (delta) => {
-          appendAssistantDelta(assistantIndex, delta)
-        },
-        onStatus: (_eventType, eventMessage, payload) => {
-          if (_eventType === 'context_usage') { handleContextUsage(payload); return }
-          if (_eventType === 'model_info') { modelName.value = eventMessage; messages.value[assistantIndex] = { ...(messages.value[assistantIndex] || {}), model_name: eventMessage }; return }
-          if (_eventType === 'process_delta') { appendAssistantProcess(assistantIndex, eventMessage); return }
-          if (_eventType === 'process_clear') { clearAssistantProcess(assistantIndex); return }
-          const msg = messages.value[assistantIndex]
-          if (msg) {
-            messages.value[assistantIndex] = { ...msg, waitingText: eventMessage }
-          }
-        },
-        onDone: (_payload) => { /* wait for queued text after the stream closes */ },
-      },
-      { signal: controller.signal, silentAbort: true },
+    const createPayload: CreateAgentRunRequest = {
+      session_id: session.id,
+      message: userText,
+      client_request_id: createClientRequestId(),
+      ...(selectedModelId.value != null ? { model_id: selectedModelId.value } : {}),
+      ...(session.application_id ? { application_id: session.application_id } : {}),
+    }
+    const result = await executeCreateChatRun(
+      agentRun,
+      createPayload,
+      makeChatUiBinder(assistantIndex),
+      { isAborted: () => userAborted.value || !isActiveAgentRun(token) },
     )
-    // User aborted → just bail; the session + user message are already persisted.
-    if (userAborted.value) {
+    if (result.outcome === 'aborted' || userAborted.value) {
+      return true
+    }
+    if (result.outcome === 'waiting_confirmation') {
+      applySkillSelectionFromRun(assistantIndex, userText, session, result.state.runId)
+      return true
+    }
+    if (result.outcome === 'failed') {
+      markAssistantError(assistantIndex, result.error || new Error('AI 分析请求失败，请稍后重试'))
       return true
     }
     await waitForAssistantTextQueue(assistantIndex)
-    // Normal completion: re-fetch messages to get the full persisted history.
     const refreshed = await getSessionMessages(session.id, { page: 1, page_size: 100 })
     messages.value = normalizeMessages(refreshed.list || [], messages.value)
     scrollBottom()
@@ -650,12 +898,7 @@ const createAnalysisSessionFromRoute = async () => {
     markAssistantError(assistantIndex, new Error('AI 分析请求失败，请稍后重试'))
     return true
   } finally {
-    if (activeController.value === controller) {
-      loading.value = false
-      streaming.value = false
-      activeController.value = null
-      userAborted.value = false
-    }
+    finishAgentRunUi(token)
   }
 }
 
@@ -697,74 +940,89 @@ const analyzeCandidateOption = async (option: CandidateOption) => {
   candidateName.value = option.candidate_name || ''
   candidatePosition.value = option.job_title || ''
   const userMessage = `请帮我分析${option.candidate_name || '该候选人'}投递${option.job_title || '该岗位'}的简历。`
-  messages.value.push({ role: 'user', content: userMessage })
+
+  // Durable runs require session_id — create analysis session first (same as route entry).
+  let data: { session: ChatSessionListItem; messages: Partial<MessageItem>[] }
+  try {
+    data = await createApplicationAnalysisSession({
+      application_id: option.application_id,
+      ...(selectedModelId.value != null ? { model_id: selectedModelId.value } : {}),
+    })
+  } catch (error: unknown) {
+    ElMessage.error(error instanceof Error ? error.message : '创建分析会话失败')
+    return
+  }
+
+  const session = normalizeSession(data.session)
+  currentSession.value = session
+  messages.value = normalizeMessages(data.messages || [])
+  restorePersistedContextUsage(session, messages.value)
+  await router.replace({ path: '/hr/ai', query: { session_id: String(session.id) } })
+  await refreshSessions()
+
   messages.value.push({ role: 'assistant', content: '', pending: true, waitingText: '分析中' })
   const assistantIndex = messages.value.length - 1
   loading.value = true
   streaming.value = true
   scrollBottom()
-  userAborted.value = false
-  const controller = new AbortController()
-  activeController.value = controller
+
+  const token = beginAgentRun()
   try {
-    let finalPayload: StreamPayload | null = null
-    let streamFailed = false
-    await sendMessageStream(
-      { message: userMessage, application_id: option.application_id, ...(selectedModelId.value != null ? { model_id: selectedModelId.value } : {}) },
+    const result = await executeCreateChatRun(
+      agentRun,
       {
-        onDelta: (delta) => appendAssistantDelta(assistantIndex, delta),
-        onStatus: (_eventType, eventMessage, payload) => {
-          if (_eventType === 'context_usage') { handleContextUsage(payload); return }
-          if (_eventType === 'model_info') { modelName.value = eventMessage; messages.value[assistantIndex] = { ...(messages.value[assistantIndex] || {}), model_name: eventMessage }; return }
-          if (_eventType === 'process_delta') { appendAssistantProcess(assistantIndex, eventMessage); return }
-          if (_eventType === 'process_clear') { clearAssistantProcess(assistantIndex); return }
-          const msg = messages.value[assistantIndex]
-          if (msg) {
-            messages.value[assistantIndex] = { ...msg, waitingText: eventMessage }
-          }
-        },
-        onDone: (payload) => {
-          finalPayload = payload
-        },
-        onError: (_errorType, errorMessage) => {
-          streamFailed = true
-          markAssistantError(assistantIndex, new Error(errorMessage))
-        },
+        session_id: session.id,
+        message: userMessage,
+        application_id: option.application_id,
+        client_request_id: createClientRequestId(),
+        ...(selectedModelId.value != null ? { model_id: selectedModelId.value } : {}),
       },
-      { signal: controller.signal, silentAbort: true },
+      makeChatUiBinder(assistantIndex),
+      { isAborted: () => userAborted.value || !isActiveAgentRun(token) },
     )
-    if (userAborted.value) return
-    if (streamFailed) return
+    if (result.outcome === 'aborted' || userAborted.value) return
+    if (result.outcome === 'waiting_confirmation') {
+      applySkillSelectionFromRun(assistantIndex, userMessage, session, result.state.runId)
+      return
+    }
+    if (result.outcome === 'failed') {
+      markAssistantError(assistantIndex, result.error || new Error('AI 流式响应失败'))
+      ElMessage.error(result.error?.message || 'AI 流式响应失败')
+      return
+    }
     await waitForAssistantTextQueue(assistantIndex)
     await refreshSessions()
-    const session = sessions.value.find((item) => item.id === finalPayload?.session_id)
-    if (session) {
-      currentSession.value = session
-      router.replace({ path: '/hr/ai', query: { session_id: session.id } })
-    }
+    const sid = result.state.sessionId || session.id
+    const matched = sessions.value.find((item) => item.id === sid) || session
+    currentSession.value = matched
+    router.replace({ path: '/hr/ai', query: { session_id: matched.id } })
   } catch (error: unknown) {
     if (userAborted.value) return
     markAssistantError(assistantIndex, error instanceof Error ? error : new Error('AI 流式响应失败'))
     ElMessage.error(error instanceof Error ? error.message : 'AI 流式响应失败')
   } finally {
-    if (activeController.value === controller) {
-      loading.value = false
-      streaming.value = false
-      activeController.value = null
-      userAborted.value = false
-    }
+    finishAgentRunUi(token)
   }
 }
 
-const stopStreaming = () => {
-  const controller = activeController.value
-  if (!controller || !streaming.value) return
+const stopStreaming = async () => {
+  if (!streaming.value && !loading.value) return
   userAborted.value = true
-  controller.abort()
+  activeRunToken.value += 1
   flushAssistantTextQueue()
 
+  // Explicit stop is a cancel command — distinct from page-leave dispose.
+  try {
+    if (agentRun.state.value.runId && !agentRun.state.value.isTerminal) {
+      await agentRun.cancel({ client_request_id: createClientRequestId() })
+    }
+  } catch {
+    // Best-effort cancel; still tear down subscription and local UI.
+  }
+  agentRun.dispose()
+
   const msg = messages.value[messages.value.length - 1]
-  if (msg?.role === 'assistant') {
+  if (msg?.role === 'assistant' && !msg.agentSkillSelection) {
     messages.value[messages.value.length - 1] = {
       ...msg,
       pending: false,
@@ -794,6 +1052,7 @@ const setSkillSelectionMessage = (
   text: string,
   session: Session,
   selection: AgentSkillSelectionPayload,
+  runId?: number,
 ) => {
   messages.value[assistantIndex] = {
     role: 'assistant',
@@ -805,6 +1064,7 @@ const setSkillSelectionMessage = (
       sessionId: session.id,
       modelId: selectedModelId.value,
       messageId: selection.user_message_id,
+      runId: runId || agentRun.state.value.runId || undefined,
     },
   }
   loading.value = false
@@ -829,77 +1089,64 @@ const submitConfirmedSkillSelection = async (assistantIndex: number, skillIds: n
   streaming.value = true
   scrollBottom()
 
-  const controller = new AbortController()
-  activeController.value = controller
-  userAborted.value = false
-
+  const token = beginAgentRun()
   try {
-    let finalPayload: StreamPayload | null = null
-    let streamFailed = false
-    await sendMessageStream(
-      {
-        message: request.message,
-        session_id: request.sessionId,
-        ...(request.modelId != null ? { model_id: request.modelId } : {}),
-        ...(skillIds.length > 0 ? { agent_skill_ids: skillIds } : {}),
-        agent_skill_selection_confirmed: true,
-        ...(request.messageId ? { agent_skill_selection_message_id: request.messageId } : {}),
-      },
-      {
-        onDelta: (delta) => {
-          appendAssistantDelta(assistantIndex, delta)
+    // Prefer resuming the same durable run; fall back to create if run id was lost.
+    const hasActiveRun =
+      Boolean(request.runId && agentRun.state.value.runId === request.runId) ||
+      Boolean(agentRun.state.value.runId && agentRun.state.value.status === 'waiting_confirmation')
+
+    const result = hasActiveRun
+      ? await executeConfirmChatRun(
+        agentRun,
+        {
+          client_request_id: createClientRequestId(),
+          ...(skillIds.length > 0 ? { agent_skill_ids: skillIds } : {}),
+          agent_skill_selection_confirmed: true,
+          ...(request.messageId ? { agent_skill_selection_message_id: request.messageId } : {}),
         },
-        onStatus: (_eventType, eventMessage, payload) => {
-          if (_eventType === 'context_usage') { handleContextUsage(payload); return }
-          if (_eventType === 'model_info') { modelName.value = eventMessage; messages.value[assistantIndex] = { ...(messages.value[assistantIndex] || {}), model_name: eventMessage }; return }
-          if (_eventType === 'process_delta') { appendAssistantProcess(assistantIndex, eventMessage); return }
-          if (_eventType === 'process_clear') { clearAssistantProcess(assistantIndex); return }
-          if (_eventType === 'agent_skill_selection_required' && payload.agent_skill_selection) {
-            setSkillSelectionMessage(assistantIndex, request.message, session, payload.agent_skill_selection)
-            return
-          }
-          const msg = messages.value[assistantIndex]
-          if (msg) {
-            messages.value[assistantIndex] = { ...msg, waitingText: eventMessage }
-          }
+        makeChatUiBinder(assistantIndex),
+        { isAborted: () => userAborted.value || !isActiveAgentRun(token) },
+      )
+      : await executeCreateChatRun(
+        agentRun,
+        {
+          session_id: request.sessionId,
+          message: request.message,
+          client_request_id: createClientRequestId(),
+          ...(request.modelId != null ? { model_id: request.modelId } : {}),
+          ...(skillIds.length > 0 ? { agent_skill_ids: skillIds } : {}),
+          agent_skill_selection_confirmed: true,
+          ...(request.messageId ? { agent_skill_selection_message_id: request.messageId } : {}),
         },
-        onDone: (payload) => {
-          finalPayload = payload
-          const options = parseCandidateOptions(payload.candidate_options)
-          if (options.length > 0) {
-            const msg = messages.value[assistantIndex]
-            if (msg) messages.value[assistantIndex] = { ...msg, candidateOptions: options, pending: false }
-          }
-        },
-        onError: (_errorType, errorMessage) => {
-          clearAssistantTextQueue()
-          streamFailed = true
-          markAssistantError(assistantIndex, new Error(errorMessage))
-        },
-      },
-      { signal: controller.signal, silentAbort: true },
-    )
+        makeChatUiBinder(assistantIndex),
+        { isAborted: () => userAborted.value || !isActiveAgentRun(token) },
+      )
+
     scrollBottom()
-    if (streamFailed) return
-    if (!userAborted.value) {
-      await waitForAssistantTextQueue(assistantIndex)
+    if (result.outcome === 'aborted' || userAborted.value) return
+    if (result.outcome === 'waiting_confirmation') {
+      applySkillSelectionFromRun(assistantIndex, request.message, session, result.state.runId)
+      return
     }
-    if (finalPayload) {
-      if ((finalPayload as StreamPayload).session_id && currentSession.value) {
-        currentSession.value = { ...currentSession.value, id: (finalPayload as StreamPayload).session_id! }
-      }
-      if (!userAborted.value) {
-        await confirmAction(finalPayload)
-      }
-      if (!messages.value[assistantIndex]?.content && !messages.value[assistantIndex]?.agentSkillSelection) {
-        const sid = (finalPayload as StreamPayload).session_id || request.sessionId
-        const data = await getSessionMessages(sid, { page: 1, page_size: 100 })
-        messages.value = normalizeMessages(data.list || [], messages.value)
-      }
+    if (result.outcome === 'failed') {
+      markAssistantError(assistantIndex, result.error || new Error('AI 流式响应失败'))
+      ElMessage.error(result.error?.message || 'AI 流式响应失败')
+      return
     }
-    if (!userAborted.value) {
-      await refreshSessions()
+
+    await waitForAssistantTextQueue(assistantIndex)
+    const finalPayload = resultMetaToStreamPayload(result.state.resultMetadata, result.state.sessionId || request.sessionId)
+    if (finalPayload.session_id && currentSession.value) {
+      currentSession.value = { ...currentSession.value, id: finalPayload.session_id }
     }
+    await confirmAction(finalPayload)
+    if (!messages.value[assistantIndex]?.content && !messages.value[assistantIndex]?.agentSkillSelection) {
+      const sid = finalPayload.session_id || request.sessionId
+      const data = await getSessionMessages(sid, { page: 1, page_size: 100 })
+      messages.value = normalizeMessages(data.list || [], messages.value)
+    }
+    await refreshSessions()
   } catch (error: unknown) {
     if (userAborted.value) return
     markAssistantError(assistantIndex, error instanceof Error ? error : new Error('AI 流式响应失败'))
@@ -910,12 +1157,7 @@ const submitConfirmedSkillSelection = async (assistantIndex: number, skillIds: n
       ElMessage.error(err.message || 'AI 流式响应失败')
     }
   } finally {
-    if (activeController.value === controller) {
-      loading.value = false
-      streaming.value = false
-      activeController.value = null
-      userAborted.value = false
-    }
+    finishAgentRunUi(token)
   }
 }
 
@@ -939,82 +1181,47 @@ const submit = async () => {
   loading.value = true
   streaming.value = true
   scrollBottom()
-  const controller = new AbortController()
-  activeController.value = controller
-  userAborted.value = false
+  const token = beginAgentRun()
   const assistantIndex = messages.value.length
   try {
     messages.value.push({ role: 'assistant', content: '', pending: true, waitingText: session.application_id ? '分析中' : '响应中' })
-    let finalPayload: StreamPayload | null = null
-    let streamFailed = false
-    let skillSelectionRequired = false
-    await sendMessageStream(
+    const result = await executeCreateChatRun(
+      agentRun,
       {
-        message: text,
         session_id: session.id,
+        message: text,
+        client_request_id: createClientRequestId(),
         ...(selectedModelId.value != null ? { model_id: selectedModelId.value } : {}),
         ...(agentSkillIdsForMessage.length > 0 ? { agent_skill_ids: agentSkillIdsForMessage } : {}),
+        ...(session.application_id ? { application_id: session.application_id } : {}),
       },
-      {
-        onDelta: (delta) => {
-          appendAssistantDelta(assistantIndex, delta)
-        },
-        onStatus: (_eventType, eventMessage, payload) => {
-          if (_eventType === 'context_usage') { handleContextUsage(payload); return }
-          if (_eventType === 'model_info') { modelName.value = eventMessage; messages.value[assistantIndex] = { ...(messages.value[assistantIndex] || {}), model_name: eventMessage }; return }
-          if (_eventType === 'process_delta') { appendAssistantProcess(assistantIndex, eventMessage); return }
-          if (_eventType === 'process_clear') { clearAssistantProcess(assistantIndex); return }
-          if (_eventType === 'agent_skill_selection_required' && payload.agent_skill_selection) {
-            skillSelectionRequired = true
-            setSkillSelectionMessage(assistantIndex, text, session, payload.agent_skill_selection)
-            return
-          }
-          const msg = messages.value[assistantIndex]
-          if (msg) {
-            messages.value[assistantIndex] = { ...msg, waitingText: eventMessage }
-          }
-        },
-        onDone: (payload) => {
-          finalPayload = payload
-          const options = parseCandidateOptions(payload.candidate_options)
-          if (options.length > 0) {
-            const msg = messages.value[assistantIndex]
-            if (msg) messages.value[assistantIndex] = { ...msg, candidateOptions: options, pending: false }
-          }
-        },
-        onError: (_errorType, errorMessage) => {
-          clearAssistantTextQueue()
-          streamFailed = true
-          markAssistantError(assistantIndex, new Error(errorMessage))
-        },
-      },
-      { signal: controller.signal, silentAbort: true },
+      makeChatUiBinder(assistantIndex),
+      { isAborted: () => userAborted.value || !isActiveAgentRun(token) },
     )
     scrollBottom()
-    if (streamFailed) {
-      selectedAgentSkillIds.value = agentSkillIdsForMessage
+    if (result.outcome === 'aborted' || userAborted.value) return
+    if (result.outcome === 'waiting_confirmation') {
+      applySkillSelectionFromRun(assistantIndex, text, session, result.state.runId)
       return
     }
-    if (skillSelectionRequired) return
-    if (!userAborted.value) {
-      await waitForAssistantTextQueue(assistantIndex)
+    if (result.outcome === 'failed') {
+      selectedAgentSkillIds.value = agentSkillIdsForMessage
+      markAssistantError(assistantIndex, result.error || new Error('AI 流式响应失败'))
+      ElMessage.error(result.error?.message || 'AI 流式响应失败')
+      return
     }
-    if (finalPayload) {
-      if ((finalPayload as StreamPayload).session_id && currentSession.value) {
-        currentSession.value = { ...currentSession.value, id: (finalPayload as StreamPayload).session_id! }
-      }
-      if (!userAborted.value) {
-        await confirmAction(finalPayload)
-      }
-      if (!messages.value[assistantIndex]?.content) {
-        const sid = (finalPayload as StreamPayload).session_id || session.id
-        const data = await getSessionMessages(sid, { page: 1, page_size: 100 })
-        messages.value = normalizeMessages(data.list || [], messages.value)
-      }
+    await waitForAssistantTextQueue(assistantIndex)
+    const finalPayload = resultMetaToStreamPayload(result.state.resultMetadata, result.state.sessionId || session.id)
+    if (finalPayload.session_id && currentSession.value) {
+      currentSession.value = { ...currentSession.value, id: finalPayload.session_id }
     }
-    if (!userAborted.value) {
-      await refreshSessions()
+    await confirmAction(finalPayload)
+    if (!messages.value[assistantIndex]?.content) {
+      const sid = finalPayload.session_id || session.id
+      const data = await getSessionMessages(sid, { page: 1, page_size: 100 })
+      messages.value = normalizeMessages(data.list || [], messages.value)
     }
+    await refreshSessions()
   } catch (error: unknown) {
     if (userAborted.value) return
     markAssistantError(assistantIndex, error instanceof Error ? error : new Error('AI 流式响应失败'))
@@ -1027,13 +1234,7 @@ const submit = async () => {
       ElMessage.error(err.message || 'AI 流式响应失败')
     }
   } finally {
-    // Only clear state if we're still the active request (not a stale finally).
-    if (activeController.value === controller) {
-      loading.value = false
-      streaming.value = false
-      activeController.value = null
-      userAborted.value = false
-    }
+    finishAgentRunUi(token)
   }
 }
 
@@ -1069,79 +1270,45 @@ const retry = async (failedIndex: number) => {
   streaming.value = true
   scrollBottom()
 
-  const controller = new AbortController()
-  activeController.value = controller
-  userAborted.value = false
-
+  const token = beginAgentRun()
   try {
-    let finalPayload: StreamPayload | null = null
-    let streamFailed = false
-    let skillSelectionRequired = false
-    await sendMessageStream(
+    const result = await executeCreateChatRun(
+      agentRun,
       {
-        message: lastUserContent,
         session_id: session.id,
+        message: lastUserContent,
+        client_request_id: createClientRequestId(),
         ...(selectedModelId.value != null ? { model_id: selectedModelId.value } : {}),
         ...(lastUserSkillIds.length > 0 ? { agent_skill_ids: lastUserSkillIds } : {}),
         ...(lastUserSkillSelectionConfirmed ? { agent_skill_selection_confirmed: true } : {}),
+        ...(session.application_id ? { application_id: session.application_id } : {}),
       },
-      {
-        onDelta: (delta) => {
-          appendAssistantDelta(assistantIndex, delta)
-        },
-        onStatus: (_eventType, eventMessage, payload) => {
-          if (_eventType === 'context_usage') { handleContextUsage(payload); return }
-          if (_eventType === 'model_info') { modelName.value = eventMessage; messages.value[assistantIndex] = { ...(messages.value[assistantIndex] || {}), model_name: eventMessage }; return }
-          if (_eventType === 'process_delta') { appendAssistantProcess(assistantIndex, eventMessage); return }
-          if (_eventType === 'process_clear') { clearAssistantProcess(assistantIndex); return }
-          if (_eventType === 'agent_skill_selection_required' && payload.agent_skill_selection) {
-            skillSelectionRequired = true
-            setSkillSelectionMessage(assistantIndex, lastUserContent, session, payload.agent_skill_selection)
-            return
-          }
-          const msg = messages.value[assistantIndex]
-          if (msg) {
-            messages.value[assistantIndex] = { ...msg, waitingText: eventMessage }
-          }
-        },
-        onDone: (payload) => {
-          finalPayload = payload
-          const options = parseCandidateOptions(payload.candidate_options)
-          if (options.length > 0) {
-            const msg = messages.value[assistantIndex]
-            if (msg) messages.value[assistantIndex] = { ...msg, candidateOptions: options, pending: false }
-          }
-        },
-        onError: (_errorType, errorMessage) => {
-          clearAssistantTextQueue()
-          streamFailed = true
-          markAssistantError(assistantIndex, new Error(errorMessage))
-        },
-      },
-      { signal: controller.signal, silentAbort: true },
+      makeChatUiBinder(assistantIndex),
+      { isAborted: () => userAborted.value || !isActiveAgentRun(token) },
     )
     scrollBottom()
-    if (streamFailed) return
-    if (skillSelectionRequired) return
-    if (!userAborted.value) {
-      await waitForAssistantTextQueue(assistantIndex)
+    if (result.outcome === 'aborted' || userAborted.value) return
+    if (result.outcome === 'waiting_confirmation') {
+      applySkillSelectionFromRun(assistantIndex, lastUserContent, session, result.state.runId)
+      return
     }
-    if (finalPayload) {
-      if ((finalPayload as StreamPayload).session_id && currentSession.value) {
-        currentSession.value = { ...currentSession.value, id: (finalPayload as StreamPayload).session_id! }
-      }
-      if (!userAborted.value) {
-        await confirmAction(finalPayload)
-      }
-      if (!messages.value[assistantIndex]?.content) {
-        const sid = (finalPayload as StreamPayload).session_id || session.id
-        const data = await getSessionMessages(sid, { page: 1, page_size: 100 })
-        messages.value = normalizeMessages(data.list || [], messages.value)
-      }
+    if (result.outcome === 'failed') {
+      markAssistantError(assistantIndex, result.error || new Error('AI 流式响应失败'))
+      ElMessage.error(result.error?.message || 'AI 流式响应失败')
+      return
     }
-    if (!userAborted.value) {
-      await refreshSessions()
+    await waitForAssistantTextQueue(assistantIndex)
+    const finalPayload = resultMetaToStreamPayload(result.state.resultMetadata, result.state.sessionId || session.id)
+    if (finalPayload.session_id && currentSession.value) {
+      currentSession.value = { ...currentSession.value, id: finalPayload.session_id }
     }
+    await confirmAction(finalPayload)
+    if (!messages.value[assistantIndex]?.content) {
+      const sid = finalPayload.session_id || session.id
+      const data = await getSessionMessages(sid, { page: 1, page_size: 100 })
+      messages.value = normalizeMessages(data.list || [], messages.value)
+    }
+    await refreshSessions()
   } catch (error: unknown) {
     if (userAborted.value) return
     markAssistantError(assistantIndex, error instanceof Error ? error : new Error('AI 流式响应失败'))
@@ -1152,12 +1319,7 @@ const retry = async (failedIndex: number) => {
       ElMessage.error(err.message || 'AI 流式响应失败')
     }
   } finally {
-    if (activeController.value === controller) {
-      loading.value = false
-      streaming.value = false
-      activeController.value = null
-      userAborted.value = false
-    }
+    finishAgentRunUi(token)
   }
 }
 

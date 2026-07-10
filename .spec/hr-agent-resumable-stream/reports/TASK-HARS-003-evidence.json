@@ -1,0 +1,133 @@
+{
+  "schemaVersion": 1,
+  "feature_name": "hr-agent-resumable-stream",
+  "task_id": "TASK-HARS-003",
+  "base_sha": "c564353ae0060aa7835c8d5fe77b65735fd51811",
+  "base_tree": "84bc96e5aa261ff500d065fd9813c76f64ed206c",
+  "head_sha": "c564353ae0060aa7835c8d5fe77b65735fd51811",
+  "baseline_strategy": "pipeline-state task_runs.TASK-HARS-003 base_sha/base_tree",
+  "changed_files": [
+    ".spec/hr-agent-resumable-stream/pipeline-state.json",
+    ".spec/hr-agent-resumable-stream/reports/TASK-HARS-003-evidence.json",
+    ".spec/hr-agent-resumable-stream/reports/TASK-HARS-003-report.md",
+    "logic-grpc-service/proto/recruitment.proto",
+    "logic-grpc-service/recruitment/pb/recruitment.pb.go",
+    "logic-grpc-service/recruitment/pb/recruitment_grpc.pb.go",
+    "web-gin-service/proto/recruitment.proto",
+    "web-gin-service/recruitment/pb/recruitment.pb.go",
+    "web-gin-service/recruitment/pb/recruitment_grpc.pb.go"
+  ],
+  "scope": {
+    "status": "passed",
+    "command": "bash .spec/hr-agent-resumable-stream/scripts/check-task-scope.sh TASK-HARS-003",
+    "classification": "current",
+    "out_of_scope": [],
+    "forbidden": []
+  },
+  "checks": [
+    {
+      "command": "git diff --name-only",
+      "exit_code": 0,
+      "started_at": "2026-07-10T16:41:00.000Z",
+      "duration_ms": 100,
+      "status": "passed"
+    },
+    {
+      "command": "bash .spec/hr-agent-resumable-stream/scripts/check-task-scope.sh TASK-HARS-003",
+      "exit_code": 0,
+      "started_at": "2026-07-10T16:41:20.000Z",
+      "duration_ms": 1500,
+      "status": "passed"
+    },
+    {
+      "command": "bash .spec/hr-agent-resumable-stream/scripts/agent-check.sh TASK-HARS-003",
+      "exit_code": 0,
+      "started_at": "2026-07-10T16:41:25.000Z",
+      "duration_ms": 4500,
+      "status": "passed"
+    },
+    {
+      "command": "cd logic-grpc-service && go build ./...",
+      "exit_code": 0,
+      "started_at": "2026-07-10T16:44:00.000Z",
+      "duration_ms": 7000,
+      "status": "passed"
+    },
+    {
+      "command": "cd web-gin-service && go build ./...",
+      "exit_code": 0,
+      "started_at": "2026-07-10T16:44:10.000Z",
+      "duration_ms": 6500,
+      "status": "passed"
+    },
+    {
+      "command": "/tmp/protoc25/bin/protoc --version && protoc-gen-go --version && protoc-gen-go-grpc --version",
+      "exit_code": 0,
+      "started_at": "2026-07-10T16:40:00.000Z",
+      "duration_ms": 200,
+      "status": "passed"
+    }
+  ],
+  "review": {
+    "verdict": "通过",
+    "reviewer_type": "independent-reviewer",
+    "reviewed_at": "2026-07-10T16:52:13.189Z",
+    "notes": "Independent task-reviewer: scope/SPEC/SDD/acceptance/ChatStream/proto-mirror all pass; Low knowledge labeling nuance only."
+  },
+  "human_confirmation": {
+    "required": true,
+    "confirmed": true,
+    "confirmed_by": "user",
+    "confirmed_at": "2026-07-10T16:37:24Z",
+    "confirmation_text": "User requested harness-pipeline through all tasks without human confirmation gates; advance confirmation for proto contract TASK."
+  },
+  "exceptions": [],
+  "skipped_checks": [],
+  "proto_generation": {
+    "protoc": "25.3",
+    "protoc_gen_go": "v1.36.11",
+    "protoc_gen_go_grpc": "v1.6.2",
+    "command": "protoc --go_out=. --go-grpc_out=. proto/recruitment.proto",
+    "run_in": [
+      "logic-grpc-service",
+      "web-gin-service"
+    ]
+  },
+  "knowledgeImpact": {
+    "result": "update_required",
+    "triggeredBy": [
+      "logic-grpc-service/proto/recruitment.proto",
+      "web-gin-service/proto/recruitment.proto",
+      "logic-grpc-service/recruitment/pb/recruitment.pb.go",
+      "web-gin-service/recruitment/pb/recruitment.pb.go"
+    ],
+    "reviewResults": [
+      {
+        "document": ".knowledge/architecture/api-contracts-and-gateway.md",
+        "verdict": "UNCHANGED",
+        "evidence": [
+          "Document still correctly describes proto as shared contract and gateway as transport boundary.",
+          "Durable-run RPCs and planned REST/SSE routes are not yet documented; knowledge edit out of TASK-HARS-003 allowedFiles; deferred as debt."
+        ]
+      },
+      {
+        "document": ".knowledge/runbooks/protobuf-and-migration-change.md",
+        "verdict": "UNCHANGED",
+        "evidence": [
+          "TASK followed runbook: update both proto trees, regenerate both pb packages, compile both services.",
+          "Runbook steps remain accurate; no knowledge edit required for this TASK."
+        ]
+      },
+      {
+        "document": ".knowledge/pitfalls/protobuf-synchronization.md",
+        "verdict": "UNCHANGED",
+        "evidence": [
+          "Both logic and web proto/pb trees kept identical after regeneration.",
+          "Pitfall prevention guidance remains accurate and was applied."
+        ]
+      }
+    ],
+    "coverageGap": false,
+    "validationExitCode": 0
+  }
+}

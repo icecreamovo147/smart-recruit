@@ -100,6 +100,7 @@ type Config struct {
 		ResumeParseQueue  string   `yaml:"resume_parse_queue"`
 		EmailQueue        string   `yaml:"email_queue"`
 		EmbeddingQueue    string   `yaml:"embedding_queue"`
+		AgentRunQueue     string   `yaml:"agent_run_queue"`
 		PrefetchCount     int      `yaml:"prefetch_count"`
 		MaxRetries        int      `yaml:"max_retries"`
 		RetryDelay        Duration `yaml:"retry_delay"`
@@ -325,6 +326,9 @@ func Load() (Config, error) {
 	if cfg.RabbitMQ.EmbeddingQueue == "" {
 		cfg.RabbitMQ.EmbeddingQueue = "recruitment.embedding.upsert"
 	}
+	if cfg.RabbitMQ.AgentRunQueue == "" {
+		cfg.RabbitMQ.AgentRunQueue = "recruitment.agent.run.execute"
+	}
 	if cfg.RabbitMQ.PrefetchCount <= 0 {
 		cfg.RabbitMQ.PrefetchCount = 10
 	}
@@ -477,6 +481,7 @@ func applyEnvOverrides(cfg *Config) {
 	setString(&cfg.RabbitMQ.ResumeParseQueue, "RABBITMQ_RESUME_PARSE_QUEUE")
 	setString(&cfg.RabbitMQ.EmailQueue, "RABBITMQ_EMAIL_QUEUE")
 	setString(&cfg.RabbitMQ.EmbeddingQueue, "RABBITMQ_EMBEDDING_QUEUE")
+	setString(&cfg.RabbitMQ.AgentRunQueue, "RABBITMQ_AGENT_RUN_QUEUE")
 	setInt(&cfg.RabbitMQ.PrefetchCount, "RABBITMQ_PREFETCH_COUNT")
 	setInt(&cfg.RabbitMQ.MaxRetries, "RABBITMQ_MAX_RETRIES")
 	setDuration(&cfg.RabbitMQ.RetryDelay, "RABBITMQ_RETRY_DELAY")

@@ -30,36 +30,64 @@ import (
 )
 
 type AIService struct {
-	chats           *repository.ChatRepo
-	applications    *repository.ApplicationRepo
-	jobs            *repository.JobRepo
-	resumes         *repository.ResumeRepo
-	oss             oss.Storage
-	ai              *ai.Client
-	toolExecutor    *ai.ToolExecutor
-	summaries       *repository.SessionSummaryRepo
-	toolTraces      *repository.ToolTraceRepo
-	agentRuns       *repository.AgentRunRepo
-	memories        *repository.MemoryRepo
-	contextBuilder  *AgentContextBuilder
-	candidateAI     *CandidateAIService
-	usageLogs       *repository.UsageLogRepo
-	usageAuditCtx   *repository.UsageAuditContextRepo
-	authzRepo       *repository.AuthzRepo
-	agentRuntime    string
-	authz           *ServiceAuthorizer
-	llmConfigSvc    *LlmConfigService // for runtime model selection
-	agentConfigRepo *repository.AgentConfigRepo
-	promptRepo      *repository.PromptTemplateRepo
-	mcpSvc          *MCPService
-	skillSvc        *SkillService
-	agentSkillRepo  agentSkillLister
-	embeddings      *EmbeddingService
-	eventPublisher  *EmbeddingEventPublisher
-	cachedADKTools  []tool.BaseTool // lazy-initialized, shared across requests
-	cachedToolsMu   sync.Mutex      // guards cachedADKTools init and invalidation
-	usageBuilder    *ContextUsageBuilder
-	runtimePolicy   AgentRuntimePolicy
+	chats          *repository.ChatRepo
+	applications   *repository.ApplicationRepo
+	jobs           *repository.JobRepo
+	resumes        *repository.ResumeRepo
+	oss            oss.Storage
+	ai             *ai.Client
+	toolExecutor   *ai.ToolExecutor
+	summaries      *repository.SessionSummaryRepo
+	toolTraces     *repository.ToolTraceRepo
+	agentRuns      *repository.AgentRunRepo
+	agentRunEvents *repository.AgentRunEventRepo
+	agentRunOutbox *OutboxPublisher
+	eventHub       *agentRunEventHub
+	// durableRunExecutor optional test inject; production uses defaultDurableRunExecutor.
+	durableRunExecutor durableRunExecutor
+	memories           *repository.MemoryRepo
+	contextBuilder     *AgentContextBuilder
+	candidateAI        *CandidateAIService
+	usageLogs          *repository.UsageLogRepo
+	usageAuditCtx      *repository.UsageAuditContextRepo
+	authzRepo          *repository.AuthzRepo
+	agentRuntime       string
+	authz              *ServiceAuthorizer
+	llmConfigSvc       *LlmConfigService // for runtime model selection
+	agentConfigRepo    *repository.AgentConfigRepo
+	promptRepo         *repository.PromptTemplateRepo
+	mcpSvc             *MCPService
+	skillSvc           *SkillService
+	agentSkillRepo     agentSkillLister
+	embeddings         *EmbeddingService
+	eventPublisher     *EmbeddingEventPublisher
+	cachedADKTools     []tool.BaseTool // lazy-initialized, shared across requests
+	cachedToolsMu      sync.Mutex      // guards cachedADKTools init and invalidation
+	usageBuilder       *ContextUsageBuilder
+	runtimePolicy      AgentRuntimePolicy
+	durableRunGuardMu  sync.Mutex
+	durableRunGuard    map[uint64]struct{}
+}
+
+// durableChatHooks customizes runToolCallingChatWithUsage for backend-owned durable runs.
+type durableChatHooks struct {
+	recorder                  *agentRunRecorder
+	durable                   bool
+	skipFinalAssistantPersist bool
+}
+
+type toolCallingOptions struct {
+	durable *durableChatHooks
+}
+
+type toolCallingOption func(*toolCallingOptions)
+
+func withDurableChatHooks(h *durableChatHooks) toolCallingOption {
+	return func(o *toolCallingOptions) {
+		if o != nil {
+			o.durable = h
+		}
+	}
 }
 
 var errAgentSkillSelectionRequired = errors.New("agent skill selection confirmation required")
@@ -115,7 +143,29 @@ func NewAIService(
 		agentSkillRepo:  agentSkillRepo,
 		usageBuilder:    NewContextUsageBuilder(),
 		runtimePolicy:   DefaultAgentRuntimePolicy(),
+		eventHub:        newAgentRunEventHub(),
 	}
+}
+
+// WithAgentRunEventRepo wires the durable run event repository used by Create/Subscribe/worker.
+func (s *AIService) WithAgentRunEventRepo(repo *repository.AgentRunEventRepo) *AIService {
+	if s != nil {
+		s.agentRunEvents = repo
+		if s.eventHub == nil {
+			s.eventHub = newAgentRunEventHub()
+		}
+	}
+	return s
+}
+
+// WithAgentRunDispatcher wires durable Agent Run dispatch through the existing
+// outbox/RabbitMQ worker path. Tests that do not inject this keep the local
+// goroutine fallback in dispatchDurableAgentRun.
+func (s *AIService) WithAgentRunDispatcher(outbox *OutboxPublisher) *AIService {
+	if s != nil {
+		s.agentRunOutbox = outbox
+	}
+	return s
 }
 
 func (s *AIService) WithEmbeddingService(embeddings *EmbeddingService) *AIService {
@@ -367,8 +417,23 @@ func (s *AIService) runToolCallingChat(ctx context.Context, req *pb.ChatRequest,
 
 // runToolCallingChatWithUsage is like runToolCallingChat but additionally
 // accepts an onContextUsage callback to emit context usage info events.
-func (s *AIService) runToolCallingChatWithUsage(ctx context.Context, req *pb.ChatRequest, session *model.AIChatSession, modelID *int64, modelName string, runtimeCfg *agentRuntimeConfig, onDelta func(string) error, onStatus func(eventType, eventMessage, errorType, toolName string) error, onContextUsage func(*pb.ContextUsageInfo) error, onAgentSkillSelection func(*pb.AgentSkillSelection) error, aiClient *ai.Client) (reply string, metadata ai.ToolMetadata, err error) {
-	recorder := s.startAgentRun(ctx, req, session, modelID, modelName, runtimeCfg)
+// Optional toolCallingOption values enable durable-run reuse without changing legacy callers.
+func (s *AIService) runToolCallingChatWithUsage(ctx context.Context, req *pb.ChatRequest, session *model.AIChatSession, modelID *int64, modelName string, runtimeCfg *agentRuntimeConfig, onDelta func(string) error, onStatus func(eventType, eventMessage, errorType, toolName string) error, onContextUsage func(*pb.ContextUsageInfo) error, onAgentSkillSelection func(*pb.AgentSkillSelection) error, aiClient *ai.Client, opts ...toolCallingOption) (reply string, metadata ai.ToolMetadata, err error) {
+	callOpts := &toolCallingOptions{}
+	for _, opt := range opts {
+		if opt != nil {
+			opt(callOpts)
+		}
+	}
+	durableMode := callOpts.durable != nil && callOpts.durable.durable
+	skipFinalAssistant := callOpts.durable != nil && callOpts.durable.skipFinalAssistantPersist
+
+	var recorder *agentRunRecorder
+	if callOpts.durable != nil && callOpts.durable.recorder != nil {
+		recorder = callOpts.durable.recorder
+	} else {
+		recorder = s.startAgentRun(ctx, req, session, modelID, modelName, runtimeCfg)
+	}
 	fallbackObserved := false
 	var processContent strings.Builder
 	effectiveOnStatus := func(eventType, eventMessage, errorType, toolName string) error {
@@ -399,7 +464,7 @@ func (s *AIService) runToolCallingChatWithUsage(ctx context.Context, req *pb.Cha
 		CurrentMessage: req.Message,
 	})
 	if err != nil {
-		if recorder != nil {
+		if recorder != nil && !durableMode {
 			recorder.finish(ctx, agentRunStatusFailed, "", "context_build_failed", err.Error())
 		}
 		return "", metadata, err
@@ -440,7 +505,7 @@ func (s *AIService) runToolCallingChatWithUsage(ctx context.Context, req *pb.Cha
 	userAlreadyPersisted := currentMessageAlreadyPersisted(actx, req.Message)
 	userMessageID := req.GetAgentSkillSelectionMessageId()
 	if updated, err := s.updateConfirmedUserMessageAgentSkills(ctx, req, session, selectedSkillsForHistory); err != nil {
-		if recorder != nil {
+		if recorder != nil && !durableMode {
 			recorder.finish(ctx, agentRunStatusFailed, "", "persist_failed", err.Error())
 			sendAgentRunStatus(effectiveOnStatus, "agent_run_done", "Agent run 保存失败", "persist_failed", "")
 		}
@@ -474,7 +539,7 @@ func (s *AIService) runToolCallingChatWithUsage(ctx context.Context, req *pb.Cha
 			AgentSkillNamesJSON: marshalStringSlice(selectedAgentSkillNames(selectedSkillsForHistory)),
 		}
 		if err := s.chats.Add(ctx, userHistory); err != nil {
-			if recorder != nil {
+			if recorder != nil && !durableMode {
 				recorder.finish(ctx, agentRunStatusFailed, "", "persist_failed", err.Error())
 				sendAgentRunStatus(effectiveOnStatus, "agent_run_done", "Agent run 保存失败", "persist_failed", "")
 			}
@@ -520,6 +585,11 @@ func (s *AIService) runToolCallingChatWithUsage(ctx context.Context, req *pb.Cha
 	}
 	if err != nil {
 		if errors.Is(err, errAgentSkillSelectionRequired) {
+			// Durable runs park in waiting_confirmation; legacy path records canceled step status.
+			if durableMode {
+				sendAgentRunStatus(effectiveOnStatus, "agent_run_done", "等待用户确认 Skill", "agent_skill_selection_required", "")
+				return reply, metadata, err
+			}
 			if recorder != nil {
 				recorder.finish(ctx, agentRunStatusCanceled, "", "agent_skill_selection_required", "")
 				sendAgentRunStatus(effectiveOnStatus, "agent_run_done", "等待用户确认 Skill", "agent_skill_selection_required", "")
@@ -528,6 +598,11 @@ func (s *AIService) runToolCallingChatWithUsage(ctx context.Context, req *pb.Cha
 		}
 		if isCanceledError(err) {
 			partial := strings.TrimSpace(partialReply.String())
+			if durableMode {
+				// Durable worker owns terminal cancel persistence; do not treat as stream-owned cancel save.
+				sendAgentRunStatus(effectiveOnStatus, "agent_run_done", "Agent run 已取消", "canceled", "")
+				return partial, metadata, err
+			}
 			if partial != "" {
 				contextUsage = s.buildSessionContextUsage(ctx, req.HrId, session.ID, actx, messages, modelID, modelName, "final", "estimator", "", partial)
 				contextUsageJSON = marshalContextUsageJSON(contextUsage)
@@ -562,21 +637,26 @@ func (s *AIService) runToolCallingChatWithUsage(ctx context.Context, req *pb.Cha
 			if onDelta != nil {
 				_ = onDelta(fallback)
 			}
-			saveCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-			defer cancel()
-			contextUsage = s.buildSessionContextUsage(ctx, req.HrId, session.ID, actx, messages, modelID, modelName, "final", "estimator", "", fallback)
-			contextUsageJSON = marshalContextUsageJSON(contextUsage)
-			_ = s.chats.Add(saveCtx, &model.AIChatHistory{SessionID: session.ID, HrID: req.HrId, Role: "assistant", Content: fallback, ProcessContent: processContent.String(), ContextUsageJSON: contextUsageJSON, ModelID: modelID, ModelName: modelName})
-			if recorder != nil {
+			if !skipFinalAssistant {
+				saveCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+				defer cancel()
+				contextUsage = s.buildSessionContextUsage(ctx, req.HrId, session.ID, actx, messages, modelID, modelName, "final", "estimator", "", fallback)
+				contextUsageJSON = marshalContextUsageJSON(contextUsage)
+				_ = s.chats.Add(saveCtx, &model.AIChatHistory{SessionID: session.ID, HrID: req.HrId, Role: "assistant", Content: fallback, ProcessContent: processContent.String(), ContextUsageJSON: contextUsageJSON, ModelID: modelID, ModelName: modelName})
+			}
+			if recorder != nil && !durableMode {
 				recorder.finish(ctx, agentRunStatusPartial, fallback, string(aiErr.Type), err.Error())
 				sendAgentRunStatus(effectiveOnStatus, "agent_run_done", "Agent run 已部分完成", string(aiErr.Type), "")
 			}
 			return fallback, metadata, nil
 		}
-		if recorder != nil {
+		if recorder != nil && !durableMode {
 			aiErr := ai.ClassifyAIError(err)
 			recorder.finish(ctx, agentRunStatusFailed, reply, string(aiErr.Type), err.Error())
 			sendAgentRunStatus(effectiveOnStatus, "agent_run_done", "Agent run 失败", string(aiErr.Type), "")
+		}
+		if durableMode {
+			return reply, metadata, err
 		}
 		return reply, metadata, wrapAIError(err)
 	}
@@ -596,12 +676,14 @@ func (s *AIService) runToolCallingChatWithUsage(ctx context.Context, req *pb.Cha
 			return reply, metadata, err
 		}
 	}
-	if err := s.chats.Add(ctx, &model.AIChatHistory{SessionID: session.ID, HrID: req.HrId, Role: "assistant", Content: reply, ProcessContent: processContent.String(), ContextUsageJSON: contextUsageJSON, ModelID: modelID, ModelName: modelName}); err != nil {
-		if recorder != nil {
-			recorder.finish(ctx, agentRunStatusFailed, reply, "persist_failed", err.Error())
-			sendAgentRunStatus(effectiveOnStatus, "agent_run_done", "Agent run 保存失败", "persist_failed", "")
+	if !skipFinalAssistant {
+		if err := s.chats.Add(ctx, &model.AIChatHistory{SessionID: session.ID, HrID: req.HrId, Role: "assistant", Content: reply, ProcessContent: processContent.String(), ContextUsageJSON: contextUsageJSON, ModelID: modelID, ModelName: modelName}); err != nil {
+			if recorder != nil && !durableMode {
+				recorder.finish(ctx, agentRunStatusFailed, reply, "persist_failed", err.Error())
+				sendAgentRunStatus(effectiveOnStatus, "agent_run_done", "Agent run 保存失败", "persist_failed", "")
+			}
+			return reply, metadata, err
 		}
-		return reply, metadata, err
 	}
 
 	// Async refresh summary if needed.
@@ -609,12 +691,14 @@ func (s *AIService) runToolCallingChatWithUsage(ctx context.Context, req *pb.Cha
 
 	// Async write long-term memory if applicable.
 	go s.maybeWriteMemory(req.HrId, req.ApplicationId, reply, metadata)
-	if recorder != nil {
+	if recorder != nil && !durableMode {
 		status := agentRunStatusSucceeded
 		if fallbackObserved {
 			status = agentRunStatusPartial
 		}
 		recorder.finish(ctx, status, reply, "", "")
+		sendAgentRunStatus(effectiveOnStatus, "agent_run_done", "Agent run 已完成", "", "")
+	} else if durableMode {
 		sendAgentRunStatus(effectiveOnStatus, "agent_run_done", "Agent run 已完成", "", "")
 	}
 

@@ -13,6 +13,7 @@ func TestApplyEnvOverrides(t *testing.T) {
 	t.Setenv("AI_API_KEY", "sk-test")
 	t.Setenv("AI_MODEL", "qwen-plus")
 	t.Setenv("RABBITMQ_URL", "amqp://guest:guest@rabbitmq:5672/")
+	t.Setenv("RABBITMQ_AGENT_RUN_QUEUE", "recruitment.agent.run.execute.test")
 	t.Setenv("RABBITMQ_RETRY_DELAY", "9s")
 	t.Setenv("AGENT_FEATURE_PLANNER", "false")
 	t.Setenv("AGENT_FEATURE_CANDIDATE_MATCH_SEMANTIC", "false")
@@ -39,6 +40,9 @@ func TestApplyEnvOverrides(t *testing.T) {
 	}
 	if cfg.RabbitMQ.URL != "amqp://guest:guest@rabbitmq:5672/" {
 		t.Fatalf("unexpected rabbitmq url: %q", cfg.RabbitMQ.URL)
+	}
+	if cfg.RabbitMQ.AgentRunQueue != "recruitment.agent.run.execute.test" {
+		t.Fatalf("unexpected rabbitmq agent run queue: %q", cfg.RabbitMQ.AgentRunQueue)
 	}
 	if cfg.RabbitMQ.RetryDelay.Duration != 9*time.Second {
 		t.Fatalf("unexpected rabbitmq retry delay: %s", cfg.RabbitMQ.RetryDelay.Duration)

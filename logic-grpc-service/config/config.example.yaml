@@ -92,6 +92,8 @@ rabbitmq:
   notification_queue: "recruitment.notification.create"
   resume_parse_queue: "recruitment.resume.parse"
   email_queue: "recruitment.email.send"
+  embedding_queue: "recruitment.embedding.upsert"
+  agent_run_queue: "recruitment.agent.run.execute"
   prefetch_count: 10
   max_retries: 5
   retry_delay: "5s"

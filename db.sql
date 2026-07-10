@@ -273,6 +273,7 @@ CREATE TABLE IF NOT EXISTS `ai_chat_sessions` (
   `title` VARCHAR(255) NOT NULL COMMENT '会话标题',
   `application_id` BIGINT UNSIGNED NOT NULL DEFAULT 0 COMMENT '绑定的投递记录ID，0表示普通数据问答',
   `latest_context_usage_json` TEXT NULL COMMENT '当前会话最近一次上下文占用快照(JSON)',
+  `active_run_id` BIGINT NULL COMMENT 'Current active agent_runs.id for this session',
   `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   `updated_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   `deleted_at` DATETIME NULL COMMENT '软删除时间',
@@ -280,7 +281,8 @@ CREATE TABLE IF NOT EXISTS `ai_chat_sessions` (
   KEY `idx_hr_updated_at` (`hr_id`, `updated_at`),
   KEY `idx_hr_deleted_updated` (`hr_id`, `deleted_at`, `updated_at`),
   KEY `idx_owner_deleted_updated` (`owner_role`, `owner_id`, `deleted_at`, `updated_at`),
-  KEY `idx_application_id` (`application_id`)
+  KEY `idx_application_id` (`application_id`),
+  KEY `idx_ai_chat_sessions_active_run` (`active_run_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='AI 会话表';
 
 CREATE TABLE IF NOT EXISTS `ai_chat_history` (
@@ -297,12 +299,14 @@ CREATE TABLE IF NOT EXISTS `ai_chat_history` (
   `model_name` VARCHAR(128) NULL COMMENT 'assistant 实际使用的模型名称',
   `agent_skill_ids_json` TEXT NULL COMMENT '本条用户消息选择的 Agent Skill ID 快照(JSON数组)',
   `agent_skill_names_json` TEXT NULL COMMENT '本条用户消息选择的 Agent Skill 名称快照(JSON数组)',
+  `agent_run_id` BIGINT NULL COMMENT 'Optional agent_runs.id that produced this history message',
   `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`),
   KEY `idx_session_id` (`session_id`),
   KEY `idx_session_created_id` (`session_id`, `created_at`, `id`),
   KEY `idx_hr_id_created` (`hr_id`, `created_at`),
-  KEY `idx_owner_session_created` (`owner_role`, `owner_id`, `session_id`, `created_at`)
+  KEY `idx_owner_session_created` (`owner_role`, `owner_id`, `session_id`, `created_at`),
+  KEY `idx_ai_chat_history_agent_run` (`agent_run_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='AI 对话历史记录表';
 
 CREATE TABLE IF NOT EXISTS `ai_session_summaries` (
@@ -347,6 +351,7 @@ CREATE TABLE IF NOT EXISTS `agent_runs` (
   `message_id` BIGINT NULL,
   `history_id` BIGINT NULL,
   `hr_id` BIGINT NOT NULL,
+  `client_request_id` VARCHAR(128) NULL COMMENT 'Client idempotency key for create-run',
   `agent_type` VARCHAR(64) NOT NULL DEFAULT 'hr',
   `agent_id` BIGINT NULL,
   `agent_name` VARCHAR(128) NOT NULL,
@@ -355,6 +360,14 @@ CREATE TABLE IF NOT EXISTS `agent_runs` (
   `status` VARCHAR(32) NOT NULL DEFAULT 'planning',
   `plan_json` JSON NULL,
   `final_answer` MEDIUMTEXT NULL,
+  `assistant_text` MEDIUMTEXT NULL COMMENT 'Latest assistant answer snapshot for refresh restore',
+  `process_text` MEDIUMTEXT NULL COMMENT 'Latest process trace snapshot for refresh restore',
+  `result_metadata_json` JSON NULL COMMENT 'Result metadata snapshot',
+  `confirmation_request_json` JSON NULL COMMENT 'Pending skill confirmation request snapshot',
+  `option_context_json` JSON NULL COMMENT 'Active candidate/action option context snapshot',
+  `last_event_seq` BIGINT NOT NULL DEFAULT 0 COMMENT 'Last persisted event sequence for this run',
+  `cancel_requested_at` TIMESTAMP NULL COMMENT 'When cancel was requested',
+  `canceled_at` TIMESTAMP NULL COMMENT 'When run reached canceled terminal state',
   `error_type` VARCHAR(64) NULL,
   `error_message` TEXT NULL,
   `started_at` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -362,10 +375,26 @@ CREATE TABLE IF NOT EXISTS `agent_runs` (
   `created_at` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
   `updated_at` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_agent_runs_client_request` (`hr_id`, `session_id`, `client_request_id`),
   KEY `idx_agent_runs_session_created` (`hr_id`, `session_id`, `created_at`),
   KEY `idx_agent_runs_status` (`status`),
-  KEY `idx_agent_runs_message` (`message_id`)
+  KEY `idx_agent_runs_message` (`message_id`),
+  KEY `idx_agent_runs_session_status` (`session_id`, `status`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='One observable run per HR AI user message';
+
+CREATE TABLE IF NOT EXISTS `agent_run_events` (
+  `id` BIGINT NOT NULL AUTO_INCREMENT,
+  `run_id` BIGINT NOT NULL,
+  `seq` BIGINT NOT NULL,
+  `event_type` VARCHAR(64) NOT NULL,
+  `payload_json` JSON NULL,
+  `created_at` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_agent_run_events_run_seq` (`run_id`, `seq`),
+  KEY `idx_agent_run_events_run` (`run_id`),
+  CONSTRAINT `fk_agent_run_events_run` FOREIGN KEY (`run_id`) REFERENCES `agent_runs` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='Ordered durable events for resumable agent runs';
 
 CREATE TABLE IF NOT EXISTS `agent_run_steps` (
   `id` BIGINT NOT NULL AUTO_INCREMENT,

@@ -1,0 +1,122 @@
+{
+  "schemaVersion": 1,
+  "feature_name": "hr-agent-resumable-stream",
+  "task_id": "TASK-HARS-006",
+  "base_sha": "c564353ae0060aa7835c8d5fe77b65735fd51811",
+  "base_tree": "157c9702fa5d78169d7265ee5776c45513d5ac74",
+  "head_sha": "c564353ae0060aa7835c8d5fe77b65735fd51811",
+  "baseline_strategy": "pipeline-state task_runs.TASK-HARS-006 base_sha/base_tree (from TASK-HARS-005 head_tree)",
+  "changed_files": [
+    "hr-frontend/src/api/agentRun.ts",
+    "hr-frontend/src/types/agentRun.ts",
+    "hr-frontend/src/utils/hrAgentRunReducer.ts",
+    "hr-frontend/src/utils/hrAgentRunReducer.test.ts",
+    "hr-frontend/src/composables/useHrAgentRun.ts",
+    "hr-frontend/src/composables/useHrAgentRun.test.ts",
+    ".spec/hr-agent-resumable-stream/reports/TASK-HARS-006-report.md",
+    ".spec/hr-agent-resumable-stream/reports/TASK-HARS-006-evidence.json",
+    ".spec/hr-agent-resumable-stream/pipeline-state.json"
+  ],
+  "scope": {
+    "status": "passed",
+    "command": "TASK_BASE_TREE=157c9702fa5d78169d7265ee5776c45513d5ac74 bash .spec/hr-agent-resumable-stream/scripts/check-task-scope.sh TASK-HARS-006",
+    "classification": "current",
+    "out_of_scope": [],
+    "forbidden": [],
+    "notes": "Restored TASK-HARS-005-evidence.json from base_tree before final PASS (blob drift only)."
+  },
+  "checks": [
+    {
+      "command": "git diff --name-only",
+      "exit_code": 0,
+      "started_at": "2026-07-10T17:15:00.000Z",
+      "duration_ms": 100,
+      "status": "passed"
+    },
+    {
+      "command": "TASK_BASE_TREE=157c9702fa5d78169d7265ee5776c45513d5ac74 bash .spec/hr-agent-resumable-stream/scripts/check-task-scope.sh TASK-HARS-006",
+      "exit_code": 0,
+      "started_at": "2026-07-10T17:15:50.000Z",
+      "duration_ms": 1500,
+      "status": "passed"
+    },
+    {
+      "command": "bash .spec/hr-agent-resumable-stream/scripts/agent-check.sh TASK-HARS-006",
+      "exit_code": 0,
+      "started_at": "2026-07-10T17:15:30.000Z",
+      "duration_ms": 20000,
+      "status": "passed"
+    },
+    {
+      "command": "pnpm --filter hr-frontend typecheck",
+      "exit_code": 0,
+      "started_at": "2026-07-10T17:15:20.000Z",
+      "duration_ms": 8000,
+      "status": "passed"
+    },
+    {
+      "command": "pnpm --filter hr-frontend test",
+      "exit_code": 0,
+      "started_at": "2026-07-10T17:15:24.000Z",
+      "duration_ms": 2000,
+      "status": "passed",
+      "notes": "26 tests passed (10 reducer + 7 composable + 9 existing token)"
+    }
+  ],
+  "review": {
+    "verdict": "通过",
+    "reviewer_type": "pending",
+    "reviewed_at": "2026-07-10T17:38:14.330Z",
+    "notes": "Implementation complete; ready for self-review. Do not start TASK-HARS-007."
+  },
+  "human_confirmation": {
+    "required": true,
+    "confirmed": true,
+    "confirmed_by": "user",
+    "confirmed_at": "2026-07-10T17:12:47.387Z",
+    "confirmation_text": "Human confirmation advance-confirmed for frontend public API types; user requested implement TASK-HARS-006."
+  },
+  "exceptions": [],
+  "skipped_checks": [
+    {
+      "check": "Live SSE integration against running gateway/worker",
+      "reason": "Composable tests mock API; live refresh recovery is TASK-HARS-008. AIChatView migration is TASK-HARS-007."
+    }
+  ],
+  "knowledgeImpact": {
+    "result": "update_required",
+    "triggeredBy": [
+      "hr-frontend/src/api/agentRun.ts",
+      "hr-frontend/src/types/agentRun.ts",
+      "hr-frontend/src/composables/useHrAgentRun.ts",
+      "hr-frontend/src/utils/hrAgentRunReducer.ts"
+    ],
+    "reviewResults": [
+      {
+        "document": ".knowledge/architecture/frontend-apps.md",
+        "verdict": "UNCHANGED",
+        "evidence": [
+          "Vue 3 app structure, request wrappers, and api/types co-location still accurate.",
+          "Document does not yet describe durable run composable/reducer; knowledge edit out of TASK scope — update_required lag only."
+        ]
+      },
+      {
+        "document": ".knowledge/architecture/api-contracts-and-gateway.md",
+        "verdict": "UNCHANGED",
+        "evidence": [
+          "Gateway remains transport boundary; frontend consumes thin REST/SSE wrappers from TASK-HARS-005.",
+          "Document still lags listing /api/v1/hr/ai/runs* paths (same lag as TASK-005); not STALE/CONFLICT."
+        ]
+      },
+      {
+        "document": ".knowledge/runbooks/frontend-validation.md",
+        "verdict": "UNCHANGED",
+        "evidence": [
+          "typecheck + vitest remain the prescribed validation path; both executed successfully for hr-frontend."
+        ]
+      }
+    ],
+    "coverageGap": false,
+    "validationExitCode": 0
+  }
+}

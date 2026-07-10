@@ -264,6 +264,7 @@ func Setup(cfg config.Config, clients *rpc.Clients, rdb *redis.Client) (*gin.Eng
 	staffGroup.GET("/ai/sessions/:session_id/messages", normalTimeout, middleware.RequirePermission(authz.PermAIHRUse), hrAIHandler.SessionMessages)
 	staffGroup.GET("/ai/sessions/:session_id/tool-traces", normalTimeout, middleware.RequirePermission(authz.PermAIHRUse), hrAIHandler.GetToolTraces)
 	staffGroup.GET("/ai/sessions/:session_id/agent-runs", normalTimeout, middleware.RequirePermission(authz.PermAIHRUse), hrAIHandler.GetAgentRuns)
+	staffGroup.GET("/ai/sessions/:session_id/active-run", normalTimeout, middleware.RequirePermission(authz.PermAIHRUse), hrAIHandler.GetActiveAgentRun)
 	staffGroup.PUT("/ai/sessions/:session_id", normalTimeout, middleware.RequirePermission(authz.PermAIHRUse), hrAIHandler.UpdateSession)
 	staffGroup.DELETE("/ai/sessions/:session_id", normalTimeout, middleware.RequirePermission(authz.PermAIHRUse), hrAIHandler.DeleteSession)
 	staffGroup.GET("/ai/models", normalTimeout, middleware.RequirePermission(authz.PermAIHRUse), llmConfigHandler.ListAvailableModels)
@@ -275,6 +276,13 @@ func Setup(cfg config.Config, clients *rpc.Clients, rdb *redis.Client) (*gin.Eng
 	staffGroup.POST("/ai/application-analysis-sessions", riskBlock, aiLimit, hrAIQuota, aiTimeout, middleware.RequirePermission(authz.PermAIHRUse), hrAIHandler.CreateApplicationAnalysisSession)
 	staffGroup.POST("/ai/chat", riskBlock, aiLimit, hrAIQuota, aiTimeout, middleware.RequirePermission(authz.PermAIHRUse), hrAIHandler.Chat)
 	staffGroup.POST("/ai/chat/stream", riskBlock, aiLimit, hrAIQuota, middleware.RequirePermission(authz.PermAIHRUse), hrAIHandler.ChatStream)
+	// Durable resumable HR Agent runs — thin wrappers over logic-grpc lifecycle RPCs.
+	// Create/confirm use AI quota/risk middleware; SSE has no short timeout; cancel is explicit.
+	staffGroup.POST("/ai/runs", riskBlock, aiLimit, hrAIQuota, aiTimeout, middleware.RequirePermission(authz.PermAIHRUse), hrAIHandler.CreateAgentRun)
+	staffGroup.GET("/ai/runs/:run_id", normalTimeout, middleware.RequirePermission(authz.PermAIHRUse), hrAIHandler.GetAgentRun)
+	staffGroup.GET("/ai/runs/:run_id/events", middleware.RequirePermission(authz.PermAIHRUse), hrAIHandler.SubscribeAgentRunEvents)
+	staffGroup.POST("/ai/runs/:run_id/cancel", normalTimeout, middleware.RequirePermission(authz.PermAIHRUse), hrAIHandler.CancelAgentRun)
+	staffGroup.POST("/ai/runs/:run_id/confirm", riskBlock, aiLimit, hrAIQuota, aiTimeout, middleware.RequirePermission(authz.PermAIHRUse), hrAIHandler.ConfirmAgentRun)
 	staffGroup.POST("/ai/analyze-application", riskBlock, aiLimit, hrAIQuota, aiTimeout, middleware.RequirePermission(authz.PermAIHRUse), hrAIHandler.AnalyzeApplication)
 	staffGroup.GET("/ai/history", normalTimeout, middleware.RequirePermission(authz.PermAIHRUse), hrAIHandler.History)
 

@@ -69,6 +69,7 @@ type Services struct {
 	ResumeParseConsumer  *ResumeParseConsumer
 	EmailConsumer        *EmailConsumer
 	EmbeddingConsumer    *EmbeddingConsumer
+	AgentRunConsumer     *AgentRunConsumer
 }
 
 func NewServices(
@@ -181,6 +182,13 @@ func NewServices(
 		WithRequirementExtractor(reqExtractor).
 		WithPromptRepo(promptTmplRepo)
 	recruitingIntelligenceSvc := NewRecruitingIntelligenceService(applications, jobs, resumes, resumeProfileRepo, candidateMatchRepo, resumeProfileSvc, candidateMatchSvc, serviceAuth)
+	aiSvc := NewAIService(chats, applications, jobs, resumes, summaries, toolTraces, agentRuns, memories, ossClient, aiClient, toolExecutor, contextBuilder, candidateAI, usageLogs, usageAuditCtxRepo, authzRepo, agentRuntime, serviceAuth, llmConfigSvc, agentCfgRepo, promptTmplRepo, mcpSvc, skillSvc, agentSkillRepo).
+		WithAgentRunEventRepo(repository.NewAgentRunEventRepo(db)).
+		WithAgentRunDispatcher(outboxPublisher).
+		WithEmbeddingService(embeddingSvc).
+		WithEmbeddingEventPublisher(embeddingEventPublisher).
+		WithRuntimePolicy(runtimePolicy)
+	agentRunConsumer := NewAgentRunConsumer(aiSvc)
 
 	return &Services{
 		Auth:              NewAuthService(users, tokens, authzRepo, inviteCodes, jwtSecret),
@@ -197,7 +205,7 @@ func NewServices(
 		Application:            NewApplicationService(authzRepo, applications, profiles, resumes, jobs, interviews, notifications, outboxPublisher, ossClient, jobCache, scopeEval),
 		Interview:              NewInterviewService(authzRepo, interviews, users, applications, jobs, notifications, outboxPublisher, ossClient, scopeEval, serviceAuth),
 		Offer:                  NewOfferService(authzRepo, offers, applications, jobs, notifications, outboxPublisher, scopeEval, serviceAuth),
-		AI:                     NewAIService(chats, applications, jobs, resumes, summaries, toolTraces, agentRuns, memories, ossClient, aiClient, toolExecutor, contextBuilder, candidateAI, usageLogs, usageAuditCtxRepo, authzRepo, agentRuntime, serviceAuth, llmConfigSvc, agentCfgRepo, promptTmplRepo, mcpSvc, skillSvc, agentSkillRepo).WithEmbeddingService(embeddingSvc).WithEmbeddingEventPublisher(embeddingEventPublisher).WithRuntimePolicy(runtimePolicy),
+		AI:                     aiSvc,
 		CandidateAI:            candidateAI,
 		Notification:           NewNotificationService(notifications, notifCache, serviceAuth),
 		LlmConfig:              llmConfigSvc,
@@ -232,6 +240,7 @@ func NewServices(
 		ResumeParseConsumer:  resumeParseConsumer,
 		EmailConsumer:        emailConsumer,
 		EmbeddingConsumer:    embeddingConsumer,
+		AgentRunConsumer:     agentRunConsumer,
 	}
 }
 

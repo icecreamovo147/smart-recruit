@@ -1,0 +1,176 @@
+{
+  "schemaVersion": 1,
+  "feature_name": "hr-agent-resumable-stream",
+  "current_task": "TASK-HARS-008",
+  "current_phase": "completed",
+  "completed_tasks": [
+    "TASK-HARS-001",
+    "TASK-HARS-002",
+    "TASK-HARS-003",
+    "TASK-HARS-004",
+    "TASK-HARS-005",
+    "TASK-HARS-006",
+    "TASK-HARS-007",
+    "TASK-HARS-008"
+  ],
+  "blocked_tasks": [],
+  "failed_tasks": [],
+  "skipped_human_confirmation_tasks": [],
+  "approved_exceptions": [],
+  "review_round": 0,
+  "status": "completed",
+  "task_runs": {
+    "TASK-HARS-001": {
+      "base_sha": "c564353ae0060aa7835c8d5fe77b65735fd51811",
+      "base_tree": "dd2280e566fadae98b97ae5edeef6ef6572108bb",
+      "scope_status": "passed",
+      "checks_status": "passed",
+      "evidence": ".spec/hr-agent-resumable-stream/reports/TASK-HARS-001-evidence.json",
+      "report": ".spec/hr-agent-resumable-stream/reports/TASK-HARS-001-report.md",
+      "human_confirmation": {
+        "required": true,
+        "confirmed": true,
+        "confirmed_by": "user",
+        "confirmed_at": "2026-07-10T16:14:45Z",
+        "confirmation_text": "User requested harness-pipeline from TASK-HARS-001 through all tasks without human confirmation gates; treat as advance confirmation for requiresHumanConfirmation tasks."
+      },
+      "repair_notes": "F1 renamed down migration to *.down.sql; F2 allowlist verified; base_tree refreshed to absorb orchestrator allowlist correction only.",
+      "head_sha": "c564353ae0060aa7835c8d5fe77b65735fd51811",
+      "review_verdict": "通过"
+    },
+    "TASK-HARS-002": {
+      "base_sha": "c564353ae0060aa7835c8d5fe77b65735fd51811",
+      "base_tree": "2445fe78e695d9885c76143b734fc28dd017c824",
+      "scope_status": "passed",
+      "checks_status": "passed",
+      "evidence": ".spec/hr-agent-resumable-stream/reports/TASK-HARS-002-evidence.json",
+      "report": ".spec/hr-agent-resumable-stream/reports/TASK-HARS-002-report.md",
+      "human_confirmation": {
+        "required": false,
+        "confirmed": true,
+        "confirmed_by": "pipeline",
+        "confirmed_at": "2026-07-10T16:30:59Z",
+        "confirmation_text": "requiresHumanConfirmation=false"
+      },
+      "head_sha": "c564353ae0060aa7835c8d5fe77b65735fd51811",
+      "review_verdict": "通过"
+    },
+    "TASK-HARS-003": {
+      "base_sha": "c564353ae0060aa7835c8d5fe77b65735fd51811",
+      "base_tree": "84bc96e5aa261ff500d065fd9813c76f64ed206c",
+      "scope_status": "passed",
+      "checks_status": "passed",
+      "evidence": ".spec/hr-agent-resumable-stream/reports/TASK-HARS-003-evidence.json",
+      "report": ".spec/hr-agent-resumable-stream/reports/TASK-HARS-003-report.md",
+      "human_confirmation": {
+        "required": true,
+        "confirmed": true,
+        "confirmed_by": "user",
+        "confirmed_at": "2026-07-10T16:37:24Z",
+        "confirmation_text": "User requested harness-pipeline through all tasks without human confirmation gates; advance confirmation for proto contract TASK."
+      },
+      "head_sha": "c564353ae0060aa7835c8d5fe77b65735fd51811",
+      "proto_generation": "protoc 25.3 + protoc-gen-go v1.36.11 + protoc-gen-go-grpc v1.6.2",
+      "review_verdict": "通过",
+      "head_tree": "e52fdde754caca080ecb6b13df938d6bcb042745"
+    },
+    "TASK-HARS-004": {
+      "base_sha": "c564353ae0060aa7835c8d5fe77b65735fd51811",
+      "base_tree": "e52fdde754caca080ecb6b13df938d6bcb042745",
+      "scope_status": "passed",
+      "checks_status": "passed",
+      "evidence": ".spec/hr-agent-resumable-stream/reports/TASK-HARS-004-evidence.json",
+      "report": ".spec/hr-agent-resumable-stream/reports/TASK-HARS-004-report.md",
+      "human_confirmation": {
+        "required": true,
+        "confirmed": true,
+        "confirmed_by": "user",
+        "confirmed_at": "2026-07-10T16:52:21.105Z",
+        "confirmation_text": "User requested harness-pipeline from TASK-HARS-003 review through all remaining tasks; advance confirmation for worker/service TASK-HARS-004."
+      },
+      "head_sha": "c564353ae0060aa7835c8d5fe77b65735fd51811",
+      "scope_exception": "logic-grpc-service/server/server.go thin RPC forwards",
+      "notes": "Implementation complete; ready for self-review. agent-check and focused Go tests passed. Scope script fails only on server.go exception.",
+      "review_verdict": "通过",
+      "review_notes": "F1 history_id polluted by user message; F2 missing production-path test",
+      "head_tree": "55afd38e7d006c36c69cefea1a30e761603e00f7",
+      "repair_notes": "F1/F2/F4 fixed; allowlist added server.go"
+    },
+    "TASK-HARS-005": {
+      "base_sha": "c564353ae0060aa7835c8d5fe77b65735fd51811",
+      "base_tree": "55afd38e7d006c36c69cefea1a30e761603e00f7",
+      "scope_status": "passed",
+      "checks_status": "passed",
+      "evidence": ".spec/hr-agent-resumable-stream/reports/TASK-HARS-005-evidence.json",
+      "report": ".spec/hr-agent-resumable-stream/reports/TASK-HARS-005-report.md",
+      "human_confirmation": {
+        "required": true,
+        "confirmed": true,
+        "confirmed_by": "user",
+        "confirmed_at": "2026-07-10T17:05:15.467Z",
+        "confirmation_text": "User requested harness-pipeline through all remaining tasks; advance confirmation for public HTTP API TASK-HARS-005."
+      },
+      "head_sha": "c564353ae0060aa7835c8d5fe77b65735fd51811",
+      "notes": "Gateway REST+SSE endpoints implemented; scope and agent-check passed; ready for self-review. Do not start TASK-HARS-006.",
+      "review_verdict": "通过",
+      "head_tree": "157c9702fa5d78169d7265ee5776c45513d5ac74"
+    },
+    "TASK-HARS-006": {
+      "base_sha": "c564353ae0060aa7835c8d5fe77b65735fd51811",
+      "base_tree": "157c9702fa5d78169d7265ee5776c45513d5ac74",
+      "scope_status": "passed",
+      "checks_status": "passed",
+      "evidence": ".spec/hr-agent-resumable-stream/reports/TASK-HARS-006-evidence.json",
+      "report": ".spec/hr-agent-resumable-stream/reports/TASK-HARS-006-report.md",
+      "human_confirmation": {
+        "required": true,
+        "confirmed": true,
+        "confirmed_by": "user",
+        "confirmed_at": "2026-07-10T17:12:47.387Z",
+        "confirmation_text": "Human confirmation advance-confirmed for frontend public API types; user requested implement TASK-HARS-006."
+      },
+      "head_sha": "c564353ae0060aa7835c8d5fe77b65735fd51811",
+      "notes": "Frontend run API, pure reducer, and useHrAgentRun composable implemented; scope/typecheck/vitest/agent-check passed. Ready for self-review. Do not start TASK-HARS-007.",
+      "review_verdict": "通过",
+      "head_tree": "d3d2d1f7b929e4fbea03a0d0fec222f3817c7ad7"
+    },
+    "TASK-HARS-007": {
+      "base_sha": "c564353ae0060aa7835c8d5fe77b65735fd51811",
+      "base_tree": "d3d2d1f7b929e4fbea03a0d0fec222f3817c7ad7",
+      "human_confirmation": {
+        "required": false,
+        "confirmed": true,
+        "confirmed_by": "pipeline",
+        "confirmed_at": "2026-07-10T17:18:43.420Z",
+        "confirmation_text": "requiresHumanConfirmation=false"
+      },
+      "scope_status": "passed",
+      "checks_status": "passed",
+      "evidence": ".spec/hr-agent-resumable-stream/reports/TASK-HARS-007-evidence.json",
+      "report": ".spec/hr-agent-resumable-stream/reports/TASK-HARS-007-report.md",
+      "head_sha": "c564353ae0060aa7835c8d5fe77b65735fd51811",
+      "notes": "AIChatView entry points migrated to useHrAgentRun durable runtime; scope/typecheck/vitest/agent-check passed. Ready for self-review. Do not start TASK-HARS-008.",
+      "review_verdict": "通过",
+      "head_tree": "71e895a2c80023bba4c84b24d5e1a50023d40bc1"
+    },
+    "TASK-HARS-008": {
+      "base_sha": "c564353ae0060aa7835c8d5fe77b65735fd51811",
+      "base_tree": "71e895a2c80023bba4c84b24d5e1a50023d40bc1",
+      "human_confirmation": {
+        "required": true,
+        "confirmed": true,
+        "confirmed_by": "user",
+        "confirmed_at": "2026-07-10T17:29:48.473Z",
+        "confirmation_text": "User requested harness-pipeline through all remaining tasks; advance confirmation for cross-stack validation TASK-HARS-008."
+      },
+      "scope_status": "passed",
+      "checks_status": "passed",
+      "evidence": ".spec/hr-agent-resumable-stream/reports/TASK-HARS-008-evidence.json",
+      "report": ".spec/hr-agent-resumable-stream/reports/TASK-HARS-008-report.md",
+      "head_sha": "c564353ae0060aa7835c8d5fe77b65735fd51811",
+      "notes": "Refresh recovery + reconnect + validation complete; scope/typecheck/vitest/Go tests/agent-check passed. Ready for self-review. Do not mark pipeline completed.",
+      "head_tree": "eaf6c4651fced0de15040f811125cd9110bc1f59",
+      "review_verdict": "通过"
+    }
+  }
+}
