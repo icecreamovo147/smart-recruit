@@ -37,7 +37,7 @@ func TestDesensitizeJSON_NonJSON(t *testing.T) {
 }
 
 func TestDesensitizeJSON_JSONWithSensitiveFields(t *testing.T) {
-	input := `{"name":"John","phone":"13800138000","email":"john@example.com","api_key":"sk-123456"}`
+	input := `{"name":"John","phone":"13800138000","email":"john@example.com","api_key":"test-api-key-value"}`
 	got := desensitizeJSON(input)
 	if strings.Contains(got, "13800138000") {
 		t.Fatalf("expected phone to be masked, got %q", got)
@@ -45,7 +45,7 @@ func TestDesensitizeJSON_JSONWithSensitiveFields(t *testing.T) {
 	if strings.Contains(got, "john@example.com") {
 		t.Fatalf("expected email to be masked, got %q", got)
 	}
-	if strings.Contains(got, "sk-123456") {
+	if strings.Contains(got, "test-api-key-value") {
 		t.Fatalf("expected api_key to be masked, got %q", got)
 	}
 	if !strings.Contains(got, "John") {
@@ -57,15 +57,15 @@ func TestDesensitizeJSON_JSONWithSensitiveFields(t *testing.T) {
 }
 
 func TestDesensitizeJSON_NestedJSON(t *testing.T) {
-	input := `{"user":{"phone":"13912345678","name":"Alice"},"credentials":{"access_token":"tok_abc","password":"p@ss"}}`
+	input := `{"user":{"phone":"13912345678","name":"Alice"},"credentials":{"access_token":"test-token-value","password":"test-password-value"}}`
 	got := desensitizeJSON(input)
 	if strings.Contains(got, "13912345678") {
 		t.Fatalf("expected phone in nested JSON to be masked, got %q", got)
 	}
-	if strings.Contains(got, "tok_abc") {
+	if strings.Contains(got, "test-token-value") {
 		t.Fatalf("expected access_token to be masked, got %q", got)
 	}
-	if strings.Contains(got, "p@ss") {
+	if strings.Contains(got, "test-password-value") {
 		t.Fatalf("expected password to be masked, got %q", got)
 	}
 	if !strings.Contains(got, "Alice") {
@@ -101,7 +101,7 @@ func TestDesensitizeEnvVars_Empty(t *testing.T) {
 }
 
 func TestDesensitizeEnvVars_AllValuesMasked(t *testing.T) {
-	input := `{"API_KEY":"sk-xxx","DB_PASSWORD":"secret123","HOST":"localhost"}`
+	input := `{"API_KEY":"test-api-key-value","DB_PASSWORD":"test-password-value","HOST":"localhost"}`
 	got := desensitizeEnvVars(input)
 	var parsed map[string]string
 	if err := json.Unmarshal([]byte(got), &parsed); err != nil {
@@ -132,7 +132,7 @@ func TestDesensitizeEnvVars_InvalidJSON(t *testing.T) {
 // ── serverToInfo tests ────────────────────────────────────────────────
 
 func TestServerToInfo_DesensitizesEnvVars(t *testing.T) {
-	envVars := `{"API_KEY":"sk-xxx","SECRET":"s3cr3t"}`
+	envVars := `{"API_KEY":"test-api-key-value","SECRET":"test-sensitive-value"}`
 	srv := &model.MCPServer{
 		ID:             1,
 		Name:           "test",
@@ -149,7 +149,7 @@ func TestServerToInfo_DesensitizesEnvVars(t *testing.T) {
 	if !strings.Contains(info.EnvVars, "***") {
 		t.Fatalf("expected env_vars to contain masked values '***', got %q", info.EnvVars)
 	}
-	if strings.Contains(info.EnvVars, "sk-xxx") || strings.Contains(info.EnvVars, "s3cr3t") {
+	if strings.Contains(info.EnvVars, "test-api-key-value") || strings.Contains(info.EnvVars, "test-sensitive-value") {
 		t.Fatalf("expected env_vars original values to be masked, got %q", info.EnvVars)
 	}
 	if info.Name != "test" || info.Transport != "stdio" {
@@ -380,7 +380,7 @@ func TestCallMCPToolPolicyAllowAndAudit(t *testing.T) {
 	resp, err := svc.CallMCPTool(ctx, &pb.CallMCPToolRequest{
 		ServerId:    server.ID,
 		ToolName:    "search",
-		ArgsJson:    `{"query":"golang","api_key":"secret"}`,
+		ArgsJson:    `{"query":"golang","api_key":"test-sensitive-value"}`,
 		CallerRole:  "hr_agent",
 		CallerScope: "agent_runtime",
 	})
@@ -588,7 +588,7 @@ func TestMCPADKToolReturnsRedactedPolicyTracePayload(t *testing.T) {
 	db := setupServiceTestDB(t)
 	repo := repository.NewMCPRepo(db)
 	svc := NewMCPService(repo, testMCPConfig())
-	upstream := newTestMCPHTTPServerWithResult(t, "policy-upstream", "search", `{"candidate_name":"Alice","token":"tok_secret","score":92}`)
+	upstream := newTestMCPHTTPServerWithResult(t, "policy-upstream", "search", `{"candidate_name":"Alice","token":"test-token-value","score":92}`)
 	defer upstream.Close()
 	server := createEnabledHTTPMCPServer(t, ctx, repo, upstream.URL)
 	if err := repo.CreateToolPolicy(ctx, &model.MCPToolPolicy{
@@ -605,11 +605,11 @@ func TestMCPADKToolReturnsRedactedPolicyTracePayload(t *testing.T) {
 	if err != nil {
 		t.Fatalf("CollectBoundMCPCallableTools failed: %v", err)
 	}
-	result, err := tools[0].(tool.InvokableTool).InvokableRun(ctx, `{"query":"golang","candidate_name":"Alice","api_key":"sk_secret"}`)
+	result, err := tools[0].(tool.InvokableTool).InvokableRun(ctx, `{"query":"golang","candidate_name":"Alice","api_key":"test-api-key-value"}`)
 	if err != nil {
 		t.Fatalf("InvokableRun failed: %v", err)
 	}
-	if strings.Contains(result, "Alice") || strings.Contains(result, "sk_secret") || strings.Contains(result, "tok_secret") {
+	if strings.Contains(result, "Alice") || strings.Contains(result, "test-api-key-value") || strings.Contains(result, "test-token-value") {
 		t.Fatalf("expected ADK trace payload to be redacted, got %s", result)
 	}
 	var payload map[string]any
@@ -652,11 +652,11 @@ func TestMCPADKToolRejectedPolicyReturnsStructuredDecision(t *testing.T) {
 	if err != nil {
 		t.Fatalf("CollectBoundMCPCallableTools failed: %v", err)
 	}
-	result, err := tools[0].(tool.InvokableTool).InvokableRun(ctx, `{"query":"golang","candidate_name":"Alice","api_key":"sk_secret"}`)
+	result, err := tools[0].(tool.InvokableTool).InvokableRun(ctx, `{"query":"golang","candidate_name":"Alice","api_key":"test-api-key-value"}`)
 	if err != nil {
 		t.Fatalf("InvokableRun should return structured policy content without transport error, got %v", err)
 	}
-	if strings.Contains(result, "Alice") || strings.Contains(result, "sk_secret") {
+	if strings.Contains(result, "Alice") || strings.Contains(result, "test-api-key-value") {
 		t.Fatalf("expected rejected ADK payload to be redacted, got %s", result)
 	}
 	var payload map[string]any
