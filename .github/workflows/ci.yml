@@ -102,6 +102,7 @@ jobs:
           PROTOC_DIR="$HOME/.local/protoc"
           mkdir -p "$PROTOC_DIR"
           unzip -q -o /tmp/protoc.zip -d "$PROTOC_DIR"
+          export PATH="$PROTOC_DIR/bin:$PATH"
           echo "$PROTOC_DIR/bin" >> "$GITHUB_PATH"
           protoc --version
       - name: Install protoc-gen-go
