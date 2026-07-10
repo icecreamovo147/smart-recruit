@@ -113,11 +113,9 @@ jobs:
           export PATH="$PATH:$(go env GOPATH)/bin"
           cd logic-grpc-service
           protoc \
-            --proto_path=proto \
-            --go_out=recruitment/pb \
-            --go_opt=paths=source_relative \
-            --go_opt=Mrecruitment.proto=recruitment/pb \
-            recruitment.proto
+            --proto_path=. \
+            --go_out=. \
+            proto/recruitment.proto
           cp recruitment/pb/recruitment.pb.go ../web-gin-service/recruitment/pb/recruitment.pb.go
       - name: Verify pb diff is empty
         run: |
@@ -130,7 +128,7 @@ jobs:
             echo "This means the committed .pb.go is out of sync with .proto."
             echo "To fix locally:"
             echo "  1. cd logic-grpc-service"
-            echo "  2. protoc --proto_path=proto --go_out=recruitment/pb --go_opt=paths=source_relative --go_opt=Mrecruitment.proto=recruitment/pb recruitment.proto"
+            echo "  2. protoc --proto_path=. --go_out=. proto/recruitment.proto"
             echo "  3. cp recruitment/pb/recruitment.pb.go ../web-gin-service/recruitment/pb/recruitment.pb.go"
             echo "  4. Commit both .pb.go files"
             echo ""
