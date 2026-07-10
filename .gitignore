@@ -2,6 +2,7 @@ logic-grpc-service/config/config.yaml
 
 .env
 node_modules/
+.pnpm-store/
 dist/
 .dev/
 .claude/
@@ -24,6 +25,11 @@ deploy/k8s/secret.yaml
 *.pem
 *.key
 *.crt
+
+# Agent harness — do not commit
+docs/agent-harness/
+docs/superpowers/
+tools/
 
 # Reasonix agent metadata — do not commit
 .reasonix/

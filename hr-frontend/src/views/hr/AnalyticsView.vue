@@ -338,7 +338,7 @@ const handleRefresh = () => fetchAll()
 }
 .kpi-label {
   font-size: 13px;
-  color: #909399;
+  color: var(--el-text-color-secondary);
   margin-top: 4px;
 }
 .metrics-summary {

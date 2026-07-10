@@ -2,7 +2,7 @@
 import { computed, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
-import { ArrowLeft, Briefcase, Clock, Document, Plus, TrendCharts, User } from '@element-plus/icons-vue'
+import { ArrowLeft, Briefcase, Clock, Cpu, Document, Plus, TrendCharts, User } from '@element-plus/icons-vue'
 import { getCandidateWorkspace, createNote, listNotes, createTag, listTags, assignTag, unassignTag, createFollowUpTask, listFollowUpTasks, completeFollowUpTask } from '@/api/collaboration'
 import { getHRStatusLabel, getStatusType, RECOMMENDATION_LABEL, RECOMMENDATION_TYPE, DIMENSION_LABELS } from '@/types/domain'
 import type { CandidateWorkspace, CandidateNoteInfo, CandidateTagInfo, FollowUpTaskInfo, StaffUserInfo } from '@/types/domain'
@@ -268,6 +268,21 @@ const openResume = () => {
   window.open(url, '_blank', 'noopener')
 }
 
+const openApplicationIntelligence = (app = currentApplication.value) => {
+  if (!app?.application_id) {
+    ElMessage.warning('暂无可评估的投递记录')
+    return
+  }
+  router.push({
+    path: `/hr/applications/${app.application_id}/intelligence`,
+    query: {
+      job_id: String(app.job_id || ''),
+      job_title: app.job_title || '',
+      candidate_name: workspace.value?.real_name || '',
+    },
+  })
+}
+
 const submitTask = async () => {
   if (!newTask.value.title.trim()) {
     ElMessage.warning('请输入任务标题')
@@ -340,6 +355,7 @@ watch(activeSection, (section) => {
             <el-button class="back-button" text :icon="ArrowLeft" @click="goBackToLedger">返回</el-button>
             <div class="candidate-hero__actions">
               <el-button :icon="Document" :disabled="!workspace.resume_url" @click="openResume">查看简历</el-button>
+              <el-button :icon="Cpu" :disabled="!currentApplication" @click="openApplicationIntelligence()">智能评估</el-button>
               <el-button type="primary" :icon="Plus" @click="navigateSection('collaboration')">新增跟进</el-button>
             </div>
           </div>
@@ -440,6 +456,9 @@ watch(activeSection, (section) => {
                     <span v-if="currentApplication.department">{{ currentApplication.department }}</span>
                     <span v-if="currentApplication.location">{{ currentApplication.location }}</span>
                   </div>
+                  <div class="current-flow__actions">
+                    <el-button size="small" type="success" plain :icon="Cpu" @click="openApplicationIntelligence(currentApplication)">查看画像与匹配评估</el-button>
+                  </div>
                 </div>
                 <div v-else class="no-data">暂无当前投递</div>
               </el-card>
@@ -497,6 +516,9 @@ watch(activeSection, (section) => {
                   <span>第 {{ app.round_no || 1 }} 轮</span>
                   <span v-if="app.department">{{ app.department }}</span>
                   <span v-if="app.location">{{ app.location }}</span>
+                </div>
+                <div class="app-actions">
+                  <el-button size="small" type="success" plain :icon="Cpu" @click="openApplicationIntelligence(app)">画像与匹配评估</el-button>
                 </div>
               </div>
               <div v-if="!workspace.applications || workspace.applications.length === 0" class="no-data">暂无投递记录</div>
@@ -1128,6 +1150,17 @@ watch(activeSection, (section) => {
   gap: 10px;
 }
 
+.current-flow__actions,
+.app-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.app-actions {
+  margin-top: 10px;
+}
+
 .current-flow__title {
   color: #1d4ed8;
   font-size: 17px;
@@ -1427,5 +1460,88 @@ watch(activeSection, (section) => {
   .tag-control {
     grid-template-columns: 1fr;
   }
+}
+
+:global(:root[data-theme='dark']) .candidate-detail {
+  color: var(--text-primary);
+}
+
+:global(:root[data-theme='dark']) .candidate-hero {
+  border-color: var(--border);
+  background:
+    linear-gradient(135deg, rgba(15, 23, 42, 0.96), rgba(17, 24, 39, 0.96) 48%, rgba(30, 41, 59, 0.92)),
+    var(--surface);
+  box-shadow: var(--admin-console-card-shadow);
+}
+
+:global(:root[data-theme='dark']) .back-button,
+:global(:root[data-theme='dark']) .candidate-identity p,
+:global(:root[data-theme='dark']) .candidate-contact,
+:global(:root[data-theme='dark']) .kpi-tile,
+:global(:root[data-theme='dark']) .work-experience,
+:global(:root[data-theme='dark']) .feedback-label,
+:global(:root[data-theme='dark']) .feedback-comments,
+:global(:root[data-theme='dark']) .task-desc,
+:global(:root[data-theme='dark']) .note-content {
+  color: var(--text-secondary);
+}
+
+:global(:root[data-theme='dark']) .candidate-identity h2,
+:global(:root[data-theme='dark']) .kpi-tile strong,
+:global(:root[data-theme='dark']) .card-title,
+:global(:root[data-theme='dark']) .profile-field strong,
+:global(:root[data-theme='dark']) .work-experience :deep(strong),
+:global(:root[data-theme='dark']) .work-experience :deep(b),
+:global(:root[data-theme='dark']) .dimension-item strong,
+:global(:root[data-theme='dark']) .compact-row span:first-child,
+:global(:root[data-theme='dark']) .detail-item-round,
+:global(:root[data-theme='dark']) .task-title,
+:global(:root[data-theme='dark']) .note-author {
+  color: var(--text-primary);
+}
+
+:global(:root[data-theme='dark']) .candidate-contact span,
+:global(:root[data-theme='dark']) .kpi-tile,
+:global(:root[data-theme='dark']) .candidate-tabs,
+:global(:root[data-theme='dark']) .profile-field,
+:global(:root[data-theme='dark']) .interview-feedback {
+  border-color: var(--border);
+  background: var(--surface-muted);
+}
+
+:global(:root[data-theme='dark']) .detail-card {
+  border-color: var(--border);
+  background: var(--surface);
+}
+
+:global(:root[data-theme='dark']) .detail-card :deep(.el-card__header) {
+  background: var(--surface-muted);
+  border-bottom-color: var(--border);
+}
+
+:global(:root[data-theme='dark']) .profile-field span,
+:global(:root[data-theme='dark']) .section-block__label,
+:global(:root[data-theme='dark']) .current-flow__meta span,
+:global(:root[data-theme='dark']) .app-meta span,
+:global(:root[data-theme='dark']) .detail-item-meta span,
+:global(:root[data-theme='dark']) .task-meta span,
+:global(:root[data-theme='dark']) .dimension-item,
+:global(:root[data-theme='dark']) .compact-row em,
+:global(:root[data-theme='dark']) .no-data,
+:global(:root[data-theme='dark']) .tag-control__hint,
+:global(:root[data-theme='dark']) .note-time {
+  color: var(--text-muted);
+}
+
+:global(:root[data-theme='dark']) .application-item,
+:global(:root[data-theme='dark']) .detail-item,
+:global(:root[data-theme='dark']) .task-item,
+:global(:root[data-theme='dark']) .note-item,
+:global(:root[data-theme='dark']) .compact-row {
+  border-bottom-color: var(--border);
+}
+
+:global(:root[data-theme='dark']) .kpi-tile .el-icon {
+  background: rgba(37, 99, 235, 0.18);
 }
 </style>

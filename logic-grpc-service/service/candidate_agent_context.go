@@ -24,6 +24,7 @@ func (s *CandidateAIService) buildCandidateAgentMessages(
 	userID int64,
 	sessionID int64,
 	currentMessage string,
+	systemPrompt string,
 ) ([]*schema.Message, error) {
 	session, err := s.chats.GetSessionOwnedBy(ctx, ownerRoleCandidate, userID, sessionID)
 	if err != nil {
@@ -33,8 +34,12 @@ func (s *CandidateAIService) buildCandidateAgentMessages(
 		return nil, fmt.Errorf("会话不存在或无权限访问")
 	}
 
+	prompt := systemPrompt
+	if prompt == "" {
+		prompt = candidateSystemPrompt // 兜底：DB 无数据时使用硬编码
+	}
 	messages := []*schema.Message{
-		schema.SystemMessage(candidateSystemPrompt),
+		schema.SystemMessage(prompt),
 	}
 
 	history, err := s.chats.ListRecentBySessionOwned(ctx, ownerRoleCandidate, userID, sessionID, maxCandidateContextMessages)

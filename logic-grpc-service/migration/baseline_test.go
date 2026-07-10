@@ -70,17 +70,17 @@ func TestBaselineScenarios(t *testing.T) {
 		sqlDB, _ := db.DB()
 		defer sqlDB.Close()
 
-		// Import db.sql
 		importDBSQL(t, sqlDB, ctx)
 
 		runner, err := NewRunner(db, testMigrationsFS, ".")
 		if err != nil {
 			t.Fatal(err)
 		}
-		if err := runner.Baseline(ctx, 20); err != nil {
-			t.Fatalf("Baseline(20) on full snapshot should succeed: %v", err)
+		maxVersion := maxMigrationVersion(t, db)
+		if err := runner.Baseline(ctx, maxVersion); err != nil {
+			t.Fatalf("Baseline(%d) on full snapshot should succeed: %v", maxVersion, err)
 		}
-		t.Log("Baseline(20) succeeded on full db.sql snapshot")
+		t.Logf("Baseline(%d) succeeded on full db.sql snapshot", maxVersion)
 	})
 
 	t.Run("existing records rejects", func(t *testing.T) {
@@ -94,26 +94,53 @@ func TestBaselineScenarios(t *testing.T) {
 		sqlDB, _ := db.DB()
 		defer sqlDB.Close()
 
-		// Import db.sql
 		importDBSQL(t, sqlDB, ctx)
 
 		runner, err := NewRunner(db, testMigrationsFS, ".")
 		if err != nil {
 			t.Fatal(err)
 		}
-		// First baseline should succeed.
-		if err := runner.Baseline(ctx, 20); err != nil {
-			t.Fatalf("first Baseline(20) should succeed: %v", err)
+		maxVersion := maxMigrationVersion(t, db)
+		if err := runner.Baseline(ctx, maxVersion); err != nil {
+			t.Fatalf("first Baseline(%d) should succeed: %v", maxVersion, err)
 		}
-		// Second baseline must fail.
-		if err := runner.Baseline(ctx, 20); err == nil {
-			t.Fatal("second Baseline(20) should be rejected, got nil")
+		if err := runner.Baseline(ctx, maxVersion); err == nil {
+			t.Fatalf("second Baseline(%d) should be rejected, got nil", maxVersion)
 		} else {
 			t.Logf("correctly rejected second baseline: %v", err)
 		}
 	})
 
-	t.Run("full migrations up works after baseline", func(t *testing.T) {
+	t.Run("full snapshot baseline then up is no-op", func(t *testing.T) {
+		cleanup := setupTestDB(t, rootSQL, dbName+"_noop")
+		defer cleanup()
+		dsn := replaceDBName(baseDSN, dbName+"_noop")
+		db, err := gorm.Open(mysql.Open(dsn), &gorm.Config{TranslateError: true})
+		if err != nil {
+			t.Fatal(err)
+		}
+		sqlDB, _ := db.DB()
+		defer sqlDB.Close()
+
+		importDBSQL(t, sqlDB, ctx)
+
+		runner, err := NewRunner(db, testMigrationsFS, ".")
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		maxVersion := maxMigrationVersion(t, db)
+		if err := runner.Baseline(ctx, maxVersion); err != nil {
+			t.Fatalf("Baseline(%d) should succeed: %v", maxVersion, err)
+		}
+		if err := runner.Up(ctx); err != nil {
+			t.Fatalf("Up after full baseline should succeed: %v", err)
+		}
+		assertAllMigrationsApplied(t, runner, ctx)
+		t.Logf("Up after Baseline(%d) completed with no pending migrations", maxVersion)
+	})
+
+	t.Run("incremental migrations up after partial schema", func(t *testing.T) {
 		cleanup := setupTestDB(t, rootSQL, dbName+"_up_after")
 		defer cleanup()
 		dsn := replaceDBName(baseDSN, dbName+"_up_after")
@@ -124,42 +151,21 @@ func TestBaselineScenarios(t *testing.T) {
 		sqlDB, _ := db.DB()
 		defer sqlDB.Close()
 
-		// Import db.sql
-		importDBSQL(t, sqlDB, ctx)
+		const partialVersion = 21
+		applyMigrationSQLUpTo(t, db, ctx, partialVersion)
 
 		runner, err := NewRunner(db, testMigrationsFS, ".")
 		if err != nil {
 			t.Fatal(err)
 		}
-
-		// Baseline v1-v21 (leaves v22 pending).
-		if err := runner.Baseline(ctx, 21); err != nil {
-			t.Fatalf("Baseline(21) should succeed: %v", err)
+		if err := runner.Baseline(ctx, partialVersion); err != nil {
+			t.Fatalf("Baseline(%d) should succeed: %v", partialVersion, err)
 		}
-
-		// Up() should apply v22 only.
 		if err := runner.Up(ctx); err != nil {
-			t.Fatalf("Up after baseline should succeed: %v", err)
+			t.Fatalf("Up after partial baseline should succeed: %v", err)
 		}
-
-		// Verify v22 is applied.
-		entries, err := runner.Status(ctx)
-		if err != nil {
-			t.Fatal(err)
-		}
-		v22Found := false
-		for _, e := range entries {
-			if e.Version == 22 {
-				v22Found = true
-				if !e.Applied {
-					t.Error("v22 should be applied after Up()")
-				}
-			}
-		}
-		if !v22Found {
-			t.Error("v22 not found in migration status")
-		}
-		t.Log("Up after baseline completed successfully, v22 applied")
+		assertAllMigrationsApplied(t, runner, ctx)
+		t.Logf("Up after Baseline(%d) applied remaining migrations successfully", partialVersion)
 	})
 }
 
@@ -189,7 +195,6 @@ func importDBSQL(t *testing.T, sqlDB *sql.DB, ctx context.Context) {
 		if stmt == "" {
 			continue
 		}
-		// Skip USE and CREATE DATABASE — we connect directly to the test database.
 		if isIgnoredDBStatement(stmt) {
 			continue
 		}

@@ -1,0 +1,134 @@
+{
+  "feature_name": "agent-skill-selection-confirmation",
+  "tasks": {
+    "TASK-ASC-001": {
+      "title": "Backend selection confirmation policy",
+      "status": "pending",
+      "allowedFiles": [
+        "logic-grpc-service/service/agent_skill_selector.go",
+        "logic-grpc-service/service/agent_skill_selector_test.go",
+        "logic-grpc-service/service/ai_service.go",
+        "logic-grpc-service/service/ai_service_test.go",
+        ".spec/agent-skill-selection-confirmation/**"
+      ],
+      "forbiddenFiles": [
+        "package.json",
+        "pnpm-lock.yaml",
+        "logic-grpc-service/proto/**",
+        "web-gin-service/proto/**",
+        "logic-grpc-service/recruitment/pb/**",
+        "web-gin-service/recruitment/pb/**",
+        "hr-frontend/**"
+      ],
+      "requiresHumanConfirmation": false,
+      "allowedActions": ["modify", "create", "test"],
+      "acceptance": ".spec/agent-skill-selection-confirmation/acceptance/TASK-ASC-001.md",
+      "report": ".spec/agent-skill-selection-confirmation/reports/TASK-ASC-001-report.md",
+      "notes": ["Do not emit stream payloads in this task."]
+    },
+    "TASK-ASC-002": {
+      "title": "Stream/API payload contract",
+      "status": "pending",
+      "allowedFiles": [
+        "logic-grpc-service/proto/recruitment.proto",
+        "logic-grpc-service/recruitment/pb/recruitment.pb.go",
+        "logic-grpc-service/recruitment/pb/recruitment_grpc.pb.go",
+        "web-gin-service/proto/recruitment.proto",
+        "web-gin-service/recruitment/pb/recruitment.pb.go",
+        "web-gin-service/recruitment/pb/recruitment_grpc.pb.go",
+        "web-gin-service/handler/hr/ai.go",
+        "hr-frontend/src/api/ai.ts",
+        "hr-frontend/src/types/ai.ts",
+        ".spec/agent-skill-selection-confirmation/**"
+      ],
+      "forbiddenFiles": [
+        "package.json",
+        "pnpm-lock.yaml",
+        "**/go.mod",
+        "**/go.sum",
+        "**/migrations/**"
+      ],
+      "requiresHumanConfirmation": true,
+      "allowedActions": ["modify", "create", "test"],
+      "acceptance": ".spec/agent-skill-selection-confirmation/acceptance/TASK-ASC-002.md",
+      "report": ".spec/agent-skill-selection-confirmation/reports/TASK-ASC-002-report.md",
+      "notes": ["Public API/proto changes require explicit confirmation before implementation."]
+    },
+    "TASK-ASC-003": {
+      "title": "HR chat confirmation UI",
+      "status": "pending",
+      "allowedFiles": [
+        "hr-frontend/src/views/hr/AIChatView.vue",
+        "hr-frontend/src/components/chat/**",
+        "hr-frontend/src/types/ai.ts",
+        "hr-frontend/src/api/ai.ts",
+        "hr-frontend/src/**/*.test.ts",
+        ".spec/agent-skill-selection-confirmation/**"
+      ],
+      "forbiddenFiles": [
+        "logic-grpc-service/**",
+        "web-gin-service/**",
+        "package.json",
+        "pnpm-lock.yaml"
+      ],
+      "requiresHumanConfirmation": false,
+      "allowedActions": ["modify", "create", "test"],
+      "acceptance": ".spec/agent-skill-selection-confirmation/acceptance/TASK-ASC-003.md",
+      "report": ".spec/agent-skill-selection-confirmation/reports/TASK-ASC-003-report.md",
+      "notes": ["Prefer assistant-message inline confirmation UI."]
+    },
+    "TASK-ASC-004": {
+      "title": "Backend emission, trace, and retry consistency",
+      "status": "pending",
+      "allowedFiles": [
+        "logic-grpc-service/service/ai_service.go",
+        "logic-grpc-service/service/ai_service_test.go",
+        "logic-grpc-service/service/agent_run_recorder.go",
+        "logic-grpc-service/service/agent_run_recorder_test.go",
+        "logic-grpc-service/service/agent_skill_selector.go",
+        "hr-frontend/src/views/hr/AIChatView.vue",
+        "hr-frontend/src/components/AgentTracePanel.vue",
+        "hr-frontend/src/types/ai.ts",
+        ".spec/agent-skill-selection-confirmation/**"
+      ],
+      "forbiddenFiles": [
+        "logic-grpc-service/proto/**",
+        "web-gin-service/proto/**",
+        "package.json",
+        "pnpm-lock.yaml",
+        "**/migrations/**"
+      ],
+      "requiresHumanConfirmation": false,
+      "allowedActions": ["modify", "create", "test"],
+      "acceptance": ".spec/agent-skill-selection-confirmation/acceptance/TASK-ASC-004.md",
+      "report": ".spec/agent-skill-selection-confirmation/reports/TASK-ASC-004-report.md",
+      "notes": ["Do not redesign trace panel layout."]
+    },
+    "TASK-ASC-005": {
+      "title": "End-to-end validation and cleanup",
+      "status": "pending",
+      "allowedFiles": [
+        "logic-grpc-service/service/**",
+        "web-gin-service/handler/hr/ai.go",
+        "hr-frontend/src/views/hr/AIChatView.vue",
+        "hr-frontend/src/components/chat/**",
+        "hr-frontend/src/components/AgentTracePanel.vue",
+        "hr-frontend/src/types/ai.ts",
+        "hr-frontend/src/api/ai.ts",
+        ".spec/agent-skill-selection-confirmation/**"
+      ],
+      "forbiddenFiles": [
+        "package.json",
+        "pnpm-lock.yaml",
+        "**/go.mod",
+        "**/go.sum",
+        "**/migrations/**"
+      ],
+      "requiresHumanConfirmation": false,
+      "allowedActions": ["modify", "create", "test"],
+      "acceptance": ".spec/agent-skill-selection-confirmation/acceptance/TASK-ASC-005.md",
+      "report": ".spec/agent-skill-selection-confirmation/reports/TASK-ASC-005-report.md",
+      "notes": ["Do not fix unrelated pre-existing failures."]
+    }
+  }
+}

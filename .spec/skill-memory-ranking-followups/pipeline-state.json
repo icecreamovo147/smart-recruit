@@ -1,0 +1,15 @@
+{
+  "feature_name": "skill-memory-ranking-followups",
+  "current_task": "TASK-FU-009",
+  "completed_tasks": ["TASK-FU-005", "TASK-FU-006", "TASK-FU-007", "TASK-FU-008", "TASK-FU-009"],
+  "failed_tasks": [],
+  "review_round": 0,
+  "status": "completed",
+  "task_review_rounds": {
+    "TASK-FU-005": 1,
+    "TASK-FU-006": 1,
+    "TASK-FU-007": 1,
+    "TASK-FU-008": 1,
+    "TASK-FU-009": 1
+  }
+}

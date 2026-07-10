@@ -27,6 +27,7 @@ import (
 	"logic-grpc-service/mq"
 	"logic-grpc-service/oss"
 	"logic-grpc-service/pkg/cache"
+	"logic-grpc-service/pkg/crypto"
 	"logic-grpc-service/pkg/logger"
 	"logic-grpc-service/recruitment/pb"
 	"logic-grpc-service/repository"
@@ -52,16 +53,37 @@ func main() {
 		panic("load config: " + err.Error())
 	}
 
+	// TASK-FU-004：把 config.Ranking 段映射到 service.RankingConfig 并启动时加载。
+	service.LoadRankingConfig(service.RankingConfig{
+		WeightVector:     cfg.Ranking.WeightVector,
+		WeightLexical:    cfg.Ranking.WeightLexical,
+		WeightMetadata:   cfg.Ranking.WeightMetadata,
+		BusinessBoostMax: cfg.Ranking.BusinessBoostMax,
+		PriorityNorm:     cfg.Ranking.PriorityNorm,
+		BoostAlpha:       cfg.Ranking.BoostAlpha,
+		BoostBeta:        cfg.Ranking.BoostBeta,
+		BoostGamma:       cfg.Ranking.BoostGamma,
+		RelevanceGate:    cfg.Ranking.RelevanceGate,
+		GapHigh:          cfg.Ranking.GapHigh,
+		GapMedium:        cfg.Ranking.GapMedium,
+	})
+
 	if err := server.ValidateInternalToken(); err != nil {
 		fmt.Printf("gRPC internal token validation failed: %v\n", err)
 		panic("gRPC internal token validation: " + err.Error())
 	}
 
-	logger.Set(logger.New("info"))
+	if err := logger.Init(cfg.Logging); err != nil {
+		fmt.Printf("init logger: %v\n", err)
+		panic("init logger: " + err.Error())
+	}
 	log := logger.L()
 	log.Info("starting logic-grpc-service")
 
-	db, err := gorm.Open(mysql.Open(cfg.MySQL.DSN), &gorm.Config{TranslateError: true})
+	db, err := gorm.Open(mysql.Open(cfg.MySQL.DSN), &gorm.Config{
+		TranslateError: true,
+		Logger:         logger.NewGormLogger(&cfg.Logging.Gorm),
+	})
 	if err != nil {
 		log.Fatal("connect mysql failed", zap.Error(err))
 	}
@@ -118,6 +140,7 @@ func main() {
 	chatRepo := repository.NewChatRepo(db)
 	summaryRepo := repository.NewSessionSummaryRepo(db)
 	toolTraceRepo := repository.NewToolTraceRepo(db)
+	agentRunRepo := repository.NewAgentRunRepo(db)
 	memoryRepo := repository.NewMemoryRepo(db)
 	notificationRepo := repository.NewNotificationRepo(db)
 	outboxRepo := repository.NewOutboxRepo(db)
@@ -182,23 +205,17 @@ func main() {
 		log.Info("redis job cache enabled", zap.String("addr", cfg.Redis.Addr))
 	}
 
-	aiClient, err := ai.NewClient(ctx, cfg.AI.APIKey, cfg.AI.Model, cfg.AI.BaseURL, ai.Options{
-		Timeout:                 cfg.AI.Timeout.Duration,
-		TotalTimeout:            cfg.AI.TotalTimeout.Duration,
-		ToolMaxRounds:           cfg.AI.ToolMaxRounds,
-		ToolTotalTimeout:        cfg.AI.ToolTotalTimeout.Duration,
-		MaxConcurrency:          cfg.AI.MaxConcurrency,
-		CircuitFailureThreshold: cfg.AI.CircuitFailureThreshold,
-		CircuitOpenTimeout:      cfg.AI.CircuitOpenTimeout.Duration,
-		HalfOpenMaxRequests:     cfg.AI.CircuitHalfOpenMaxRequests,
-		RetryMaxAttempts:        cfg.AI.RetryMaxAttempts,
-		RetryBaseDelay:          cfg.AI.RetryBaseDelay.Duration,
-		SlowResponseThreshold:   cfg.AI.SlowResponseThreshold.Duration,
-	})
+	providerRepo := repository.NewProviderRepo(db)
+	modelRepo := repository.NewModelConfigRepo(db)
+	encKey, encKeyErr := crypto.LoadEncryptionKey()
+	if encKeyErr != nil {
+		log.Warn("ENCRYPTION_KEY not set, AI client will use env var config only; "+
+			"provider/model config APIs will be unavailable", zap.Error(encKeyErr))
+	}
+	aiClient, err := initAIClient(ctx, cfg, providerRepo, modelRepo, encKey)
 	if err != nil {
 		log.Fatal("init ai client failed", zap.Error(err))
 	}
-	log.Info("ai client initialized", zap.String("model", cfg.AI.Model))
 
 	// ── Email sender and renderer ───────────────────────────────────────
 	emailSender, err := email.NewSender(email.SMTPConfig{
@@ -224,7 +241,7 @@ func main() {
 		db,
 		userRepo, tokenRepo,
 		jobRepo, profileRepo, resumeRepo, applicationRepo, interviewRepo, offerRepo, chatRepo,
-		summaryRepo, toolTraceRepo, memoryRepo, notificationRepo, outboxRepo, inviteCodeRepo,
+		summaryRepo, toolTraceRepo, agentRunRepo, memoryRepo, notificationRepo, outboxRepo, inviteCodeRepo,
 		departmentRepo, locationRepo, deptLocationRepo,
 		usageLogRepo, authzRepo,
 		emailLogRepo,
@@ -233,6 +250,22 @@ func main() {
 		emailSender, emailRenderer,
 	)
 
+	// Seed default prompt templates from hardcoded prompts.
+	if services.Prompt != nil {
+		if err := service.SeedDefaultPrompts(ctx, repository.NewPromptTemplateRepo(db)); err != nil {
+			log.Warn("seed default prompts failed", zap.Error(err))
+		} else {
+			log.Info("default prompts seeded")
+		}
+	}
+	// Seed default agent configurations from hardcoded agents.
+	{
+		if err := service.SeedDefaultAgents(ctx, repository.NewAgentConfigRepo(db)); err != nil {
+			log.Warn("seed default agents failed", zap.Error(err))
+		} else {
+			log.Info("default agents seeded")
+		}
+	}
 	// Bootstrap initial admin: promote user specified by INITIAL_ADMIN_USERNAME
 	// to recruiting_admin + recruiter via the RBAC system, with legacy role=3
 	// for backward compatibility.
@@ -287,6 +320,9 @@ func main() {
 		if err := services.EmailConsumer.Start(bgCtx, mqConn); err != nil {
 			log.Warn("email consumer start failed", zap.Error(err))
 		}
+		if err := services.EmbeddingConsumer.Start(bgCtx, mqConn); err != nil {
+			log.Warn("embedding consumer start failed", zap.Error(err))
+		}
 		go mqConn.KeepAlive(bgCtx, cfg.RabbitMQ.ReconnectInterval.Duration)
 	} else {
 		log.Info("background workers disabled")
@@ -325,8 +361,14 @@ func main() {
 
 	grpcServer := grpc.NewServer(
 		grpc.MaxConcurrentStreams(1000),
-		grpc.UnaryInterceptor(server.UnaryAuthInterceptor()),
-		grpc.StreamInterceptor(server.StreamAuthInterceptor()),
+		grpc.ChainUnaryInterceptor(
+			server.UnaryAuthInterceptor(),
+			logger.UnaryServerInterceptor(),
+		),
+		grpc.ChainStreamInterceptor(
+			server.StreamAuthInterceptor(),
+			logger.StreamServerInterceptor(),
+		),
 	)
 	recruitmentServer := server.New(services)
 	pb.RegisterAuthServiceServer(grpcServer, recruitmentServer)
@@ -339,6 +381,14 @@ func main() {
 	pb.RegisterOfferServiceServer(grpcServer, recruitmentServer)
 	pb.RegisterAdminServiceServer(grpcServer, recruitmentServer)
 	pb.RegisterCollaborationServiceServer(grpcServer, recruitmentServer)
+	pb.RegisterLlmConfigServiceServer(grpcServer, recruitmentServer)
+	pb.RegisterPromptServiceServer(grpcServer, recruitmentServer)
+	pb.RegisterAgentConfigServiceServer(grpcServer, recruitmentServer)
+	pb.RegisterMCPServiceServer(grpcServer, recruitmentServer)
+	pb.RegisterSkillServiceServer(grpcServer, recruitmentServer)
+	pb.RegisterAgentSkillServiceServer(grpcServer, recruitmentServer)
+	pb.RegisterRecruitingIntelligenceServiceServer(grpcServer, recruitmentServer)
+	pb.RegisterEmbeddingConfigServiceServer(grpcServer, recruitmentServer)
 	healthpb.RegisterHealthServer(grpcServer, server.NewHealthServer(sqlDB, healthRedis, mqConn))
 
 	// Graceful shutdown
@@ -406,4 +456,61 @@ func envBool(key string) bool {
 	}
 	parsed, err := strconv.ParseBool(value)
 	return err == nil && parsed
+}
+
+// initAIClient initializes the AI client with DB-first config, falling back to env vars.
+func initAIClient(ctx context.Context, cfg config.Config, providerRepo *repository.ProviderRepo, modelRepo *repository.ModelConfigRepo, encKey crypto.EncryptionKey) (*ai.Client, error) {
+	// Try to get default model config from DB
+	dbBaseURL, dbAPIKey, dbModel, dbProviderType, dbModelParams, err := service.GetDefaultModelConfig(ctx, providerRepo, modelRepo, encKey, cfg)
+	if err == nil && dbAPIKey != "" && dbModel != "" {
+		logger.L().Info("ai client initialized from DB config",
+			zap.String("model", dbModel),
+			zap.String("base_url", dbBaseURL),
+			zap.String("provider_type", dbProviderType),
+		)
+		client, err := ai.NewClientFromConfig(ctx, ai.ClientConfig{
+			APIKey:                  dbAPIKey,
+			Model:                   dbModel,
+			BaseURL:                 dbBaseURL,
+			ProviderType:            dbProviderType,
+			ModelParams:             dbModelParams,
+			Timeout:                 cfg.AI.Timeout.Duration,
+			TotalTimeout:            cfg.AI.TotalTimeout.Duration,
+			ToolMaxRounds:           cfg.AI.ToolMaxRounds,
+			ToolTotalTimeout:        cfg.AI.ToolTotalTimeout.Duration,
+			MaxConcurrency:          cfg.AI.MaxConcurrency,
+			CircuitFailureThreshold: cfg.AI.CircuitFailureThreshold,
+			CircuitOpenTimeout:      cfg.AI.CircuitOpenTimeout.Duration,
+			HalfOpenMaxRequests:     cfg.AI.CircuitHalfOpenMaxRequests,
+			RetryMaxAttempts:        cfg.AI.RetryMaxAttempts,
+			RetryBaseDelay:          cfg.AI.RetryBaseDelay.Duration,
+			SlowResponseThreshold:   cfg.AI.SlowResponseThreshold.Duration,
+		})
+		if err == nil {
+			return client, nil
+		}
+		logger.L().Warn("ai client from DB config failed, falling back to env vars", zap.Error(err))
+	}
+
+	// Fall back to environment variable configuration
+	logger.L().Info("ai client initialized from env config",
+		zap.String("model", cfg.AI.Model),
+	)
+	client, err := ai.NewClient(ctx, cfg.AI.APIKey, cfg.AI.Model, cfg.AI.BaseURL, ai.Options{
+		Timeout:                 cfg.AI.Timeout.Duration,
+		TotalTimeout:            cfg.AI.TotalTimeout.Duration,
+		ToolMaxRounds:           cfg.AI.ToolMaxRounds,
+		ToolTotalTimeout:        cfg.AI.ToolTotalTimeout.Duration,
+		MaxConcurrency:          cfg.AI.MaxConcurrency,
+		CircuitFailureThreshold: cfg.AI.CircuitFailureThreshold,
+		CircuitOpenTimeout:      cfg.AI.CircuitOpenTimeout.Duration,
+		HalfOpenMaxRequests:     cfg.AI.CircuitHalfOpenMaxRequests,
+		RetryMaxAttempts:        cfg.AI.RetryMaxAttempts,
+		RetryBaseDelay:          cfg.AI.RetryBaseDelay.Duration,
+		SlowResponseThreshold:   cfg.AI.SlowResponseThreshold.Duration,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("init ai client from env: %w", err)
+	}
+	return client, nil
 }

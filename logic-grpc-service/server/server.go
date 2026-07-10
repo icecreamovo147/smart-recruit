@@ -3,6 +3,9 @@ package server
 import (
 	"context"
 
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
+
 	"logic-grpc-service/recruitment/pb"
 	"logic-grpc-service/service"
 )
@@ -18,6 +21,14 @@ type Server struct {
 	pb.UnimplementedOfferServiceServer
 	pb.UnimplementedAdminServiceServer
 	pb.UnimplementedCollaborationServiceServer
+	pb.UnimplementedLlmConfigServiceServer
+	pb.UnimplementedPromptServiceServer
+	pb.UnimplementedAgentConfigServiceServer
+	pb.UnimplementedMCPServiceServer
+	pb.UnimplementedSkillServiceServer
+	pb.UnimplementedAgentSkillServiceServer
+	pb.UnimplementedRecruitingIntelligenceServiceServer
+	pb.UnimplementedEmbeddingConfigServiceServer
 	svc *service.Services
 }
 
@@ -177,6 +188,14 @@ func (s *Server) UpdateSession(ctx context.Context, req *pb.UpdateSessionRequest
 
 func (s *Server) DeleteSession(ctx context.Context, req *pb.DeleteSessionRequest) (*pb.CommonResponse, error) {
 	return s.svc.AI.DeleteSession(ctx, req)
+}
+
+func (s *Server) GetToolTraces(ctx context.Context, req *pb.GetToolTracesRequest) (*pb.GetToolTracesResponse, error) {
+	return s.svc.AI.GetToolTraces(ctx, req)
+}
+
+func (s *Server) GetAgentRuns(ctx context.Context, req *pb.GetAgentRunsRequest) (*pb.GetAgentRunsResponse, error) {
+	return s.svc.AI.GetAgentRuns(ctx, req)
 }
 
 // Candidate AI
@@ -499,6 +518,28 @@ func (s *Server) ListCandidateTags(ctx context.Context, req *pb.ListCandidateTag
 	return s.svc.Collaboration.ListCandidateTags(ctx, req)
 }
 
+// Recruiting Intelligence
+
+func (s *Server) GetResumeProfile(ctx context.Context, req *pb.GetResumeProfileRequest) (*pb.GetResumeProfileResponse, error) {
+	return s.svc.RecruitingIntelligence.GetResumeProfile(ctx, req)
+}
+
+func (s *Server) ParseResumeProfile(ctx context.Context, req *pb.ParseResumeProfileRequest) (*pb.GetResumeProfileResponse, error) {
+	return s.svc.RecruitingIntelligence.ParseResumeProfile(ctx, req)
+}
+
+func (s *Server) EvaluateCandidateMatch(ctx context.Context, req *pb.EvaluateCandidateMatchRequest) (*pb.GetCandidateMatchEvaluationResponse, error) {
+	return s.svc.RecruitingIntelligence.EvaluateCandidateMatch(ctx, req)
+}
+
+func (s *Server) GetCandidateMatchEvaluation(ctx context.Context, req *pb.GetCandidateMatchEvaluationRequest) (*pb.GetCandidateMatchEvaluationResponse, error) {
+	return s.svc.RecruitingIntelligence.GetCandidateMatchEvaluation(ctx, req)
+}
+
+func (s *Server) CompareCandidatesForJob(ctx context.Context, req *pb.CompareCandidatesForJobRequest) (*pb.CompareCandidatesForJobResponse, error) {
+	return s.svc.RecruitingIntelligence.CompareCandidatesForJob(ctx, req)
+}
+
 func (s *Server) CreateFollowUpTask(ctx context.Context, req *pb.CreateFollowUpTaskRequest) (*pb.CreateFollowUpTaskResponse, error) {
 	return s.svc.Collaboration.CreateFollowUpTask(ctx, req)
 }
@@ -517,4 +558,387 @@ func (s *Server) GetFollowUpTask(ctx context.Context, req *pb.GetFollowUpTaskReq
 
 func (s *Server) ListTimelineEvents(ctx context.Context, req *pb.ListTimelineEventsRequest) (*pb.ListTimelineEventsResponse, error) {
 	return s.svc.Collaboration.ListTimelineEvents(ctx, req)
+}
+
+// ── LlmConfig ───────────────────────────────────────────────────────────
+
+func (s *Server) ListProviders(ctx context.Context, req *pb.ListProvidersRequest) (*pb.ListProvidersResponse, error) {
+	if s.svc.LlmConfig == nil {
+		return nil, status.Error(codes.Unavailable, "llm config service not available (ENCRYPTION_KEY not set)")
+	}
+	return s.svc.LlmConfig.ListProviders(ctx, req)
+}
+
+func (s *Server) CreateProvider(ctx context.Context, req *pb.CreateProviderRequest) (*pb.ProviderResponse, error) {
+	if s.svc.LlmConfig == nil {
+		return nil, status.Error(codes.Unavailable, "llm config service not available (ENCRYPTION_KEY not set)")
+	}
+	return s.svc.LlmConfig.CreateProvider(ctx, req)
+}
+
+func (s *Server) UpdateProvider(ctx context.Context, req *pb.UpdateProviderRequest) (*pb.ProviderResponse, error) {
+	if s.svc.LlmConfig == nil {
+		return nil, status.Error(codes.Unavailable, "llm config service not available (ENCRYPTION_KEY not set)")
+	}
+	return s.svc.LlmConfig.UpdateProvider(ctx, req)
+}
+
+func (s *Server) DeleteProvider(ctx context.Context, req *pb.DeleteProviderRequest) (*pb.CommonResponse, error) {
+	if s.svc.LlmConfig == nil {
+		return nil, status.Error(codes.Unavailable, "llm config service not available (ENCRYPTION_KEY not set)")
+	}
+	return s.svc.LlmConfig.DeleteProvider(ctx, req)
+}
+
+func (s *Server) TestProviderConnection(ctx context.Context, req *pb.TestProviderConnectionRequest) (*pb.TestProviderConnectionResponse, error) {
+	if s.svc.LlmConfig == nil {
+		return nil, status.Error(codes.Unavailable, "llm config service not available (ENCRYPTION_KEY not set)")
+	}
+	return s.svc.LlmConfig.TestProviderConnection(ctx, req)
+}
+
+func (s *Server) ListModels(ctx context.Context, req *pb.ListModelsRequest) (*pb.ListModelsResponse, error) {
+	if s.svc.LlmConfig == nil {
+		return nil, status.Error(codes.Unavailable, "llm config service not available (ENCRYPTION_KEY not set)")
+	}
+	return s.svc.LlmConfig.ListModels(ctx, req)
+}
+
+func (s *Server) CreateModel(ctx context.Context, req *pb.CreateModelRequest) (*pb.ModelResponse, error) {
+	if s.svc.LlmConfig == nil {
+		return nil, status.Error(codes.Unavailable, "llm config service not available (ENCRYPTION_KEY not set)")
+	}
+	return s.svc.LlmConfig.CreateModel(ctx, req)
+}
+
+func (s *Server) UpdateModel(ctx context.Context, req *pb.UpdateModelRequest) (*pb.ModelResponse, error) {
+	if s.svc.LlmConfig == nil {
+		return nil, status.Error(codes.Unavailable, "llm config service not available (ENCRYPTION_KEY not set)")
+	}
+	return s.svc.LlmConfig.UpdateModel(ctx, req)
+}
+
+func (s *Server) DeleteModel(ctx context.Context, req *pb.DeleteModelRequest) (*pb.CommonResponse, error) {
+	if s.svc.LlmConfig == nil {
+		return nil, status.Error(codes.Unavailable, "llm config service not available (ENCRYPTION_KEY not set)")
+	}
+	return s.svc.LlmConfig.DeleteModel(ctx, req)
+}
+
+// ── PromptService ─────────────────────────────────────────────────────────
+
+func (s *Server) ListPromptTemplates(ctx context.Context, req *pb.ListPromptTemplatesRequest) (*pb.ListPromptTemplatesResponse, error) {
+	if s.svc.Prompt == nil {
+		return nil, status.Error(codes.Unavailable, "prompt service not available")
+	}
+	return s.svc.Prompt.ListPromptTemplates(ctx, req)
+}
+
+func (s *Server) CreatePromptTemplate(ctx context.Context, req *pb.CreatePromptTemplateRequest) (*pb.PromptTemplateResponse, error) {
+	if s.svc.Prompt == nil {
+		return nil, status.Error(codes.Unavailable, "prompt service not available")
+	}
+	return s.svc.Prompt.CreatePromptTemplate(ctx, req)
+}
+
+func (s *Server) UpdatePromptTemplate(ctx context.Context, req *pb.UpdatePromptTemplateRequest) (*pb.PromptTemplateResponse, error) {
+	if s.svc.Prompt == nil {
+		return nil, status.Error(codes.Unavailable, "prompt service not available")
+	}
+	return s.svc.Prompt.UpdatePromptTemplate(ctx, req)
+}
+
+func (s *Server) DeletePromptTemplate(ctx context.Context, req *pb.DeletePromptTemplateRequest) (*pb.CommonResponse, error) {
+	if s.svc.Prompt == nil {
+		return nil, status.Error(codes.Unavailable, "prompt service not available")
+	}
+	return s.svc.Prompt.DeletePromptTemplate(ctx, req)
+}
+
+func (s *Server) GetPromptVersionHistory(ctx context.Context, req *pb.GetPromptVersionHistoryRequest) (*pb.GetPromptVersionHistoryResponse, error) {
+	if s.svc.Prompt == nil {
+		return nil, status.Error(codes.Unavailable, "prompt service not available")
+	}
+	return s.svc.Prompt.GetPromptVersionHistory(ctx, req)
+}
+
+func (s *Server) RollbackPromptVersion(ctx context.Context, req *pb.RollbackPromptVersionRequest) (*pb.PromptTemplateResponse, error) {
+	if s.svc.Prompt == nil {
+		return nil, status.Error(codes.Unavailable, "prompt service not available")
+	}
+	return s.svc.Prompt.RollbackPromptVersion(ctx, req)
+}
+
+func (s *Server) RenderPrompt(ctx context.Context, req *pb.RenderPromptRequest) (*pb.RenderPromptResponse, error) {
+	if s.svc.Prompt == nil {
+		return nil, status.Error(codes.Unavailable, "prompt service not available")
+	}
+	return s.svc.Prompt.RenderPrompt(ctx, req)
+}
+
+func (s *Server) GetActivePromptByAgentType(ctx context.Context, req *pb.GetActivePromptByAgentTypeRequest) (*pb.GetActivePromptByAgentTypeResponse, error) {
+	if s.svc.Prompt == nil {
+		return nil, status.Error(codes.Unavailable, "prompt service not available")
+	}
+	return s.svc.Prompt.GetActivePromptByAgentType(ctx, req)
+}
+
+func (s *Server) GetUsageStats(ctx context.Context, req *pb.GetUsageStatsRequest) (*pb.GetUsageStatsResponse, error) {
+	if s.svc.UsageStats == nil {
+		return nil, status.Error(codes.Unavailable, "usage stats service not available")
+	}
+	return s.svc.UsageStats.GetUsageStats(ctx, req)
+}
+
+func (s *Server) GetUsageTrend(ctx context.Context, req *pb.GetUsageTrendRequest) (*pb.GetUsageTrendResponse, error) {
+	if s.svc.UsageStats == nil {
+		return nil, status.Error(codes.Unavailable, "usage stats service not available")
+	}
+	return s.svc.UsageStats.GetUsageTrend(ctx, req)
+}
+
+// ── AgentConfigService ───────────────────────────────────────────────────
+
+func (s *Server) ListAgents(ctx context.Context, req *pb.ListAgentsRequest) (*pb.ListAgentsResponse, error) {
+	if s.svc.AgentConfig == nil {
+		return nil, status.Error(codes.Unavailable, "agent config service not available")
+	}
+	return s.svc.AgentConfig.ListAgents(ctx, req)
+}
+
+func (s *Server) ListCapabilities(ctx context.Context, req *pb.ListCapabilitiesRequest) (*pb.ListCapabilitiesResponse, error) {
+	if s.svc.AgentConfig == nil {
+		return nil, status.Error(codes.Unavailable, "agent config service not available")
+	}
+	return s.svc.AgentConfig.ListCapabilities(ctx, req)
+}
+
+func (s *Server) CreateAgent(ctx context.Context, req *pb.CreateAgentRequest) (*pb.AgentConfigResponse, error) {
+	if s.svc.AgentConfig == nil {
+		return nil, status.Error(codes.Unavailable, "agent config service not available")
+	}
+	return s.svc.AgentConfig.CreateAgent(ctx, req)
+}
+
+func (s *Server) UpdateAgent(ctx context.Context, req *pb.UpdateAgentRequest) (*pb.AgentConfigResponse, error) {
+	if s.svc.AgentConfig == nil {
+		return nil, status.Error(codes.Unavailable, "agent config service not available")
+	}
+	return s.svc.AgentConfig.UpdateAgent(ctx, req)
+}
+
+func (s *Server) DeleteAgent(ctx context.Context, req *pb.DeleteAgentRequest) (*pb.CommonResponse, error) {
+	if s.svc.AgentConfig == nil {
+		return nil, status.Error(codes.Unavailable, "agent config service not available")
+	}
+	return s.svc.AgentConfig.DeleteAgent(ctx, req)
+}
+
+func (s *Server) GetAgentConfig(ctx context.Context, req *pb.GetAgentConfigRequest) (*pb.GetAgentConfigResponse, error) {
+	if s.svc.AgentConfig == nil {
+		return nil, status.Error(codes.Unavailable, "agent config service not available")
+	}
+	return s.svc.AgentConfig.GetAgentConfig(ctx, req)
+}
+
+// --- MCPService ---------------------------------------------------------
+
+func (s *Server) ListMCPServers(ctx context.Context, req *pb.ListMCPServersRequest) (*pb.ListMCPServersResponse, error) {
+	return s.svc.MCP.ListMCPServers(ctx, req)
+}
+
+func (s *Server) CreateMCPServer(ctx context.Context, req *pb.CreateMCPServerRequest) (*pb.MCPServerResponse, error) {
+	return s.svc.MCP.CreateMCPServer(ctx, req)
+}
+
+func (s *Server) UpdateMCPServer(ctx context.Context, req *pb.UpdateMCPServerRequest) (*pb.MCPServerResponse, error) {
+	return s.svc.MCP.UpdateMCPServer(ctx, req)
+}
+
+func (s *Server) DeleteMCPServer(ctx context.Context, req *pb.DeleteMCPServerRequest) (*pb.CommonResponse, error) {
+	return s.svc.MCP.DeleteMCPServer(ctx, req)
+}
+
+func (s *Server) ListMCPToolPolicies(ctx context.Context, req *pb.ListMCPToolPoliciesRequest) (*pb.ListMCPToolPoliciesResponse, error) {
+	return s.svc.MCP.ListMCPToolPolicies(ctx, req)
+}
+
+func (s *Server) CreateMCPToolPolicy(ctx context.Context, req *pb.CreateMCPToolPolicyRequest) (*pb.MCPToolPolicyResponse, error) {
+	return s.svc.MCP.CreateMCPToolPolicy(ctx, req)
+}
+
+func (s *Server) UpdateMCPToolPolicy(ctx context.Context, req *pb.UpdateMCPToolPolicyRequest) (*pb.MCPToolPolicyResponse, error) {
+	return s.svc.MCP.UpdateMCPToolPolicy(ctx, req)
+}
+
+func (s *Server) DeleteMCPToolPolicy(ctx context.Context, req *pb.DeleteMCPToolPolicyRequest) (*pb.CommonResponse, error) {
+	return s.svc.MCP.DeleteMCPToolPolicy(ctx, req)
+}
+
+func (s *Server) ListMCPToolLogs(ctx context.Context, req *pb.ListMCPToolLogsRequest) (*pb.ListMCPToolLogsResponse, error) {
+	return s.svc.MCP.ListMCPToolLogs(ctx, req)
+}
+
+func (s *Server) TestMCPConnection(ctx context.Context, req *pb.TestMCPConnectionRequest) (*pb.TestMCPConnectionResponse, error) {
+	return s.svc.MCP.TestMCPConnection(ctx, req)
+}
+
+func (s *Server) ListMCPTools(ctx context.Context, req *pb.ListMCPToolsRequest) (*pb.ListMCPToolsResponse, error) {
+	return s.svc.MCP.ListMCPTools(ctx, req)
+}
+
+func (s *Server) CallMCPTool(ctx context.Context, req *pb.CallMCPToolRequest) (*pb.CallMCPToolResponse, error) {
+	return s.svc.MCP.CallMCPTool(ctx, req)
+}
+
+// --- SkillService --------------------------------------------------------
+
+func (s *Server) ListSkills(ctx context.Context, req *pb.ListSkillsRequest) (*pb.ListSkillsResponse, error) {
+	return s.svc.Skill.ListSkills(ctx, req)
+}
+
+func (s *Server) CreateSkill(ctx context.Context, req *pb.CreateSkillRequest) (*pb.SkillResponse, error) {
+	return s.svc.Skill.CreateSkill(ctx, req)
+}
+
+func (s *Server) UpdateSkill(ctx context.Context, req *pb.UpdateSkillRequest) (*pb.SkillResponse, error) {
+	return s.svc.Skill.UpdateSkill(ctx, req)
+}
+
+func (s *Server) CreateSkillVersion(ctx context.Context, req *pb.CreateSkillVersionRequest) (*pb.SkillVersionResponse, error) {
+	return s.svc.Skill.CreateSkillVersion(ctx, req)
+}
+
+func (s *Server) ListSkillVersions(ctx context.Context, req *pb.ListSkillVersionsRequest) (*pb.ListSkillVersionsResponse, error) {
+	return s.svc.Skill.ListSkillVersions(ctx, req)
+}
+
+func (s *Server) ActivateSkillVersion(ctx context.Context, req *pb.ActivateSkillVersionRequest) (*pb.SkillResponse, error) {
+	return s.svc.Skill.ActivateSkillVersion(ctx, req)
+}
+
+func (s *Server) ListSkillTools(ctx context.Context, req *pb.ListSkillToolsRequest) (*pb.ListSkillToolsResponse, error) {
+	return s.svc.Skill.ListSkillTools(ctx, req)
+}
+
+func (s *Server) UpdateSkillTool(ctx context.Context, req *pb.UpdateSkillToolRequest) (*pb.SkillToolResponse, error) {
+	return s.svc.Skill.UpdateSkillTool(ctx, req)
+}
+
+// --- AgentSkillService --------------------------------------------------
+
+func (s *Server) ListAgentSkills(ctx context.Context, req *pb.ListAgentSkillsRequest) (*pb.ListAgentSkillsResponse, error) {
+	return s.svc.AgentSkill.ListAgentSkills(ctx, req)
+}
+
+func (s *Server) GetAgentSkill(ctx context.Context, req *pb.GetAgentSkillRequest) (*pb.AgentSkillResponse, error) {
+	return s.svc.AgentSkill.GetAgentSkill(ctx, req)
+}
+
+func (s *Server) CreateAgentSkill(ctx context.Context, req *pb.CreateAgentSkillRequest) (*pb.AgentSkillResponse, error) {
+	return s.svc.AgentSkill.CreateAgentSkill(ctx, req)
+}
+
+func (s *Server) UpdateAgentSkill(ctx context.Context, req *pb.UpdateAgentSkillRequest) (*pb.AgentSkillResponse, error) {
+	return s.svc.AgentSkill.UpdateAgentSkill(ctx, req)
+}
+
+func (s *Server) CreateAgentSkillVersion(ctx context.Context, req *pb.CreateAgentSkillVersionRequest) (*pb.AgentSkillVersionResponse, error) {
+	return s.svc.AgentSkill.CreateAgentSkillVersion(ctx, req)
+}
+
+func (s *Server) ListAgentSkillVersions(ctx context.Context, req *pb.ListAgentSkillVersionsRequest) (*pb.ListAgentSkillVersionsResponse, error) {
+	return s.svc.AgentSkill.ListAgentSkillVersions(ctx, req)
+}
+
+func (s *Server) ActivateAgentSkillVersion(ctx context.Context, req *pb.ActivateAgentSkillVersionRequest) (*pb.AgentSkillResponse, error) {
+	return s.svc.AgentSkill.ActivateAgentSkillVersion(ctx, req)
+}
+
+func (s *Server) UpdateAgentSkillStatus(ctx context.Context, req *pb.UpdateAgentSkillStatusRequest) (*pb.AgentSkillResponse, error) {
+	return s.svc.AgentSkill.UpdateAgentSkillStatus(ctx, req)
+}
+
+func (s *Server) PreviewAgentSkill(ctx context.Context, req *pb.PreviewAgentSkillRequest) (*pb.PreviewAgentSkillResponse, error) {
+	return s.svc.AgentSkill.PreviewAgentSkill(ctx, req)
+}
+
+func (s *Server) ListAvailableAgentSkills(ctx context.Context, req *pb.ListAvailableAgentSkillsRequest) (*pb.ListAgentSkillsResponse, error) {
+	return s.svc.AgentSkill.ListAvailableAgentSkills(ctx, req)
+}
+
+func (s *Server) DebugSemanticRetrieval(ctx context.Context, req *pb.DebugSemanticRetrievalRequest) (*pb.DebugSemanticRetrievalResponse, error) {
+	return s.svc.AgentSkill.DebugSemanticRetrieval(ctx, req)
+}
+
+// ── EmbeddingConfigService ─────────────────────────────────────────────
+
+func (s *Server) ListEmbeddingProviders(ctx context.Context, req *pb.ListEmbeddingProvidersRequest) (*pb.ListEmbeddingProvidersResponse, error) {
+	if s.svc.EmbeddingConfig == nil {
+		return nil, status.Error(codes.Unavailable, "embedding config service not available (ENCRYPTION_KEY not set)")
+	}
+	return s.svc.EmbeddingConfig.ListEmbeddingProviders(ctx, req)
+}
+
+func (s *Server) CreateEmbeddingProvider(ctx context.Context, req *pb.CreateEmbeddingProviderRequest) (*pb.EmbeddingProviderResponse, error) {
+	if s.svc.EmbeddingConfig == nil {
+		return nil, status.Error(codes.Unavailable, "embedding config service not available (ENCRYPTION_KEY not set)")
+	}
+	return s.svc.EmbeddingConfig.CreateEmbeddingProvider(ctx, req)
+}
+
+func (s *Server) UpdateEmbeddingProvider(ctx context.Context, req *pb.UpdateEmbeddingProviderRequest) (*pb.EmbeddingProviderResponse, error) {
+	if s.svc.EmbeddingConfig == nil {
+		return nil, status.Error(codes.Unavailable, "embedding config service not available (ENCRYPTION_KEY not set)")
+	}
+	return s.svc.EmbeddingConfig.UpdateEmbeddingProvider(ctx, req)
+}
+
+func (s *Server) DeleteEmbeddingProvider(ctx context.Context, req *pb.DeleteEmbeddingProviderRequest) (*pb.CommonResponse, error) {
+	if s.svc.EmbeddingConfig == nil {
+		return nil, status.Error(codes.Unavailable, "embedding config service not available (ENCRYPTION_KEY not set)")
+	}
+	return s.svc.EmbeddingConfig.DeleteEmbeddingProvider(ctx, req)
+}
+
+func (s *Server) ListEmbeddingModels(ctx context.Context, req *pb.ListEmbeddingModelsRequest) (*pb.ListEmbeddingModelsResponse, error) {
+	if s.svc.EmbeddingConfig == nil {
+		return nil, status.Error(codes.Unavailable, "embedding config service not available (ENCRYPTION_KEY not set)")
+	}
+	return s.svc.EmbeddingConfig.ListEmbeddingModels(ctx, req)
+}
+
+func (s *Server) CreateEmbeddingModel(ctx context.Context, req *pb.CreateEmbeddingModelRequest) (*pb.EmbeddingModelResponse, error) {
+	if s.svc.EmbeddingConfig == nil {
+		return nil, status.Error(codes.Unavailable, "embedding config service not available (ENCRYPTION_KEY not set)")
+	}
+	return s.svc.EmbeddingConfig.CreateEmbeddingModel(ctx, req)
+}
+
+func (s *Server) UpdateEmbeddingModel(ctx context.Context, req *pb.UpdateEmbeddingModelRequest) (*pb.EmbeddingModelResponse, error) {
+	if s.svc.EmbeddingConfig == nil {
+		return nil, status.Error(codes.Unavailable, "embedding config service not available (ENCRYPTION_KEY not set)")
+	}
+	return s.svc.EmbeddingConfig.UpdateEmbeddingModel(ctx, req)
+}
+
+func (s *Server) SetDefaultEmbeddingModel(ctx context.Context, req *pb.SetDefaultEmbeddingModelRequest) (*pb.CommonResponse, error) {
+	if s.svc.EmbeddingConfig == nil {
+		return nil, status.Error(codes.Unavailable, "embedding config service not available (ENCRYPTION_KEY not set)")
+	}
+	return s.svc.EmbeddingConfig.SetDefaultEmbeddingModel(ctx, req)
+}
+
+func (s *Server) TestEmbeddingModel(ctx context.Context, req *pb.TestEmbeddingModelRequest) (*pb.TestEmbeddingModelResponse, error) {
+	if s.svc.EmbeddingConfig == nil {
+		return nil, status.Error(codes.Unavailable, "embedding config service not available (ENCRYPTION_KEY not set)")
+	}
+	return s.svc.EmbeddingConfig.TestEmbeddingModel(ctx, req)
+}
+
+func (s *Server) BackfillEmbeddings(ctx context.Context, req *pb.BackfillEmbeddingsRequest) (*pb.BackfillEmbeddingsResponse, error) {
+	if s.svc.EmbeddingConfig == nil {
+		return nil, status.Error(codes.Unavailable, "embedding config service not available (ENCRYPTION_KEY not set)")
+	}
+	return s.svc.EmbeddingConfig.BackfillEmbeddings(ctx, req)
 }

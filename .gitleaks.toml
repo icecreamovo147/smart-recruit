@@ -9,3 +9,7 @@ paths = [
   '''\.github/''',
   '''docs/''',
 ]
+regexes = [
+  '''abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789''',
+  '''abcdef0123456789abcdef0123456789''',
+]

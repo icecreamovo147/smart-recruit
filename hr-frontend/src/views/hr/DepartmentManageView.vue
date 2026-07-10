@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, nextTick, onMounted, reactive, ref, watch } from 'vue'
-import { ArrowDown } from '@element-plus/icons-vue'
+import { ArrowDown, MoreFilled, Plus, Refresh } from '@element-plus/icons-vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import {
   listDepartments, createDepartment, updateDepartment, updateDepartmentStatus, deleteDepartment,
@@ -101,6 +101,18 @@ const visibleDepartments = computed(() => {
 })
 
 const currentDeptName = computed(() => selectedDept.value?.name || '全部部门')
+
+const flattenDepartments = computed(() => {
+  const result: DepartmentNode[] = []
+  const walk = (nodes: DepartmentNode[]) => {
+    for (const node of nodes) {
+      result.push(node)
+      walk(node.children || [])
+    }
+  }
+  walk(tree.value)
+  return result
+})
 
 // ── Tree methods ──────────────────────────────────────────────
 const selectAllDepartments = () => {
@@ -273,12 +285,21 @@ onMounted(load)
 </script>
 
 <template>
-  <section class="taxonomy-page">
-    <div class="page-header">
-      <h1 class="page-title">部门管理</h1>
-      <el-button type="primary" @click="openCreate()">新增根部门</el-button>
-    </div>
-    <div class="content-surface department-layout">
+  <section class="console-page console-page--fill taxonomy-page">
+    <div class="workspace-surface">
+      <div class="workspace-surface__header">
+        <div class="workspace-surface__header-copy">
+          <p class="console-eyebrow">BASIC DATA</p>
+          <h1 class="console-title">部门管理</h1>
+          <p class="console-description">维护企业组织树，并配置部门可用地点。岗位、候选人台账和员工数据权限都会复用这里的组织结构。</p>
+        </div>
+        <div class="workspace-surface__header-actions">
+          <el-button :icon="Refresh" @click="load">刷新</el-button>
+          <el-button type="primary" :icon="Plus" @click="openCreate()">新增根部门</el-button>
+        </div>
+      </div>
+      <div class="workspace-surface__divider"></div>
+      <div class="workspace-surface__body department-layout">
       <aside class="department-tree-panel">
         
         <el-input
@@ -312,20 +333,26 @@ onMounted(load)
       <section class="department-table-panel">
         <div class="department-table-head">
           <div>
-            <h2>当前部门：{{ currentDeptName }}</h2>
-            <p>{{ visibleDepartments.length }} 个直接子部门</p>
+            <h2 class="department-table-head__title">{{ currentDeptName }}</h2>
+            <p class="department-table-head__meta">{{ visibleDepartments.length }} 个直接子部门</p>
           </div>
           <div class="department-table-actions">
-            <el-button v-if="selectedDept && selectedDept.depth < 2" type="primary" @click="openCreateUnderSelected">
+            <el-button v-if="selectedDept && selectedDept.depth < 2" type="primary" size="default" @click="openCreateUnderSelected">
               新增子部门
             </el-button>
-            <el-button @click="load">刷新</el-button>
           </div>
         </div>
 
         <div class="department-table-wrapper">
-          <el-table v-loading="loading" :data="visibleDepartments" row-key="id" border>
-            <el-table-column prop="name" label="部门名称" min-width="180" />
+          <el-table v-loading="loading" :data="visibleDepartments" row-key="id" class="console-table" stripe>
+            <el-table-column label="部门信息" min-width="220">
+              <template #default="{ row }">
+                <div class="console-entity">
+                  <div class="console-entity__name">{{ row.name }}</div>
+                  <div class="console-entity__meta">层级 {{ row.depth ?? 0 }} / 排序 {{ row.sort_order ?? 0 }}</div>
+                </div>
+              </template>
+            </el-table-column>
             <el-table-column label="部门地点" min-width="240">
               <template #default="{ row }">
                 <template v-if="deptLocationMap.get(row.id)?.length">
@@ -348,26 +375,17 @@ onMounted(load)
                 </el-tag>
               </template>
             </el-table-column>
-            <el-table-column label="排序" width="70" align="center">
-              <template #default="{ row }">{{ row.sort_order ?? 0 }}</template>
-            </el-table-column>
-            <el-table-column label="操作" width="240" fixed="right" align="center">
+            <el-table-column label="操作" width="200" fixed="right" align="center">
               <template #default="{ row }">
-                <el-button v-if="row.depth < 2" text type="primary" size="small" @click="openCreate(row)">添加子部门</el-button>
-                <el-button text type="primary" size="small" @click="openEdit(row)">编辑</el-button>
+                <el-button v-if="row.depth < 2" size="small" @click="openCreate(row)">添加子部门</el-button>
+                <el-button size="small" @click="openEdit(row)">编辑</el-button>
                 <el-dropdown trigger="click" popper-class="dropdown-menu-center" @command="(cmd: string) => handleRowCommand(cmd, row)">
-                  <el-button text type="primary" size="small">
-                    更多<el-icon class="el-icon--right"><ArrowDown /></el-icon>
-                  </el-button>
+                  <el-button size="small">更多<el-icon class="el-icon--right"><ArrowDown /></el-icon></el-button>
                   <template #dropdown>
                     <el-dropdown-menu>
                       <el-dropdown-item command="loc-config">地点配置</el-dropdown-item>
-                      <el-dropdown-item command="toggle-status">
-                        {{ row.is_active === 1 ? '停用' : '启用' }}
-                      </el-dropdown-item>
-                      <el-dropdown-item command="delete" divided style="color: var(--el-color-danger)">
-                        删除
-                      </el-dropdown-item>
+                      <el-dropdown-item command="toggle-status">{{ row.is_active === 1 ? '停用' : '启用' }}</el-dropdown-item>
+                      <el-dropdown-item command="delete" divided style="color: var(--el-color-danger)">删除</el-dropdown-item>
                     </el-dropdown-menu>
                   </template>
                 </el-dropdown>
@@ -377,8 +395,9 @@ onMounted(load)
         </div>
       </section>
     </div>
+    </div>
 
-    <el-dialog v-model="dialogVisible" :title="editing ? '编辑部门' : '新增部门'" width="480px">
+    <el-drawer v-model="dialogVisible" :title="editing ? '编辑部门' : '新增部门'" size="480px">
       <el-form label-width="80px">
         <el-form-item v-if="!editing && form.parent_id > 0" label="父部门">
           <el-input disabled :model-value="parentName" />
@@ -394,10 +413,10 @@ onMounted(load)
         <el-button @click="dialogVisible = false">取消</el-button>
         <el-button type="primary" @click="save">保存</el-button>
       </template>
-    </el-dialog>
+    </el-drawer>
 
     <!-- Location config dialog -->
-    <el-dialog v-model="locDialogVisible" :title="`地点配置 - ${locDept?.name || ''}`" width="540px">
+    <el-drawer v-model="locDialogVisible" :title="`地点配置 - ${locDept?.name || ''}`" size="540px">
       <el-form v-if="locConfig" label-width="120px">
         <el-form-item label="继承上级地点">
           <el-switch
@@ -440,12 +459,87 @@ onMounted(load)
         <el-button @click="locDialogVisible = false">取消</el-button>
         <el-button type="primary" :loading="locSaving" @click="saveLocConfig">保存</el-button>
       </template>
-    </el-dialog>
+    </el-drawer>
   </section>
 </template>
 
 <style>
 .dropdown-menu-center .el-dropdown-menu__item {
   text-align: center;
+}
+</style>
+
+<style scoped>
+.workspace-surface__body.department-layout {
+  padding: 0;
+}
+
+.department-tree-search {
+  padding: 0 2px;
+}
+
+.department-tree-search :deep(.el-input__wrapper) {
+  border-radius: 6px;
+}
+
+.department-tree-panel {
+  background: transparent;
+}
+
+.department-tree :deep(.el-tree-node__content) {
+  border-radius: 6px;
+  padding: 0 6px;
+  margin: 0 2px;
+  transition: background var(--motion-fast) var(--motion-ease);
+}
+
+.department-tree :deep(.el-tree-node__content:hover) {
+  background: var(--surface-muted);
+}
+
+.department-tree :deep(.el-tree-node.is-current > .el-tree-node__content) {
+  background: var(--brand-soft);
+  color: var(--brand-strong);
+  font-weight: 600;
+}
+
+.department-tree :deep(.el-tree-node__expand-icon) {
+  font-size: 14px;
+  color: var(--text-faint);
+}
+
+.department-tree :deep(.el-tree-node__label) {
+  font-size: 13px;
+}
+
+.department-table-wrapper {
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.department-table-wrapper :deep(.el-table) {
+  height: 100%;
+}
+
+.department-table-wrapper :deep(.el-table__body-wrapper) {
+  overflow-y: auto;
+}
+
+.department-table-actions {
+  flex-shrink: 0;
+}
+
+:deep(.console-table .el-table__header th) {
+  background: var(--surface-muted);
+}
+
+@media (max-width: 768px) {
+  .department-tree-panel {
+    padding: 14px 14px 14px 16px;
+  }
+  .department-table-panel {
+    padding: 14px 16px;
+  }
 }
 </style>

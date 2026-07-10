@@ -1,0 +1,21 @@
+CREATE TABLE IF NOT EXISTS ai_embeddings (
+  id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+  object_type VARCHAR(64) NOT NULL,
+  object_id BIGINT UNSIGNED NOT NULL,
+  scope_type VARCHAR(32) NOT NULL DEFAULT '',
+  scope_id BIGINT UNSIGNED NOT NULL DEFAULT 0,
+  text_hash CHAR(64) NOT NULL,
+  embedding_model VARCHAR(128) NOT NULL,
+  embedding_dim INT NOT NULL DEFAULT 0,
+  vector_json JSON NULL,
+  metadata_json JSON NULL,
+  status VARCHAR(32) NOT NULL DEFAULT 'ready',
+  last_error TEXT NULL,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (id),
+  UNIQUE KEY uk_ai_embeddings_object_model_hash (object_type, object_id, embedding_model, text_hash),
+  KEY idx_ai_embeddings_object (object_type, object_id),
+  KEY idx_ai_embeddings_scope (scope_type, scope_id),
+  KEY idx_ai_embeddings_query (object_type, embedding_model, status)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='AI object embeddings for semantic retrieval';

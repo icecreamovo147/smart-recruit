@@ -1,0 +1,207 @@
+tasks:
+  - id: P0-002
+    name: 聊天页状态栏
+    task_file: docs/agent-harness/tasks/P0-002-聊天页状态栏.md
+    branch: agent/P0-002-聊天页状态栏
+    commit_message: "feat(agent): P0-002 聊天页状态栏"
+    phase: P0
+    max_fix_rounds: 2
+    enabled: true
+
+  - id: P0-003
+    name: Agent 执行轨迹查询接口
+    task_file: docs/agent-harness/tasks/P0-003-Agent执行轨迹查询接口.md
+    branch: agent/P0-003-Agent执行轨迹查询接口
+    commit_message: "feat(agent): P0-003 Agent 执行轨迹查询接口"
+    phase: P0
+    max_fix_rounds: 2
+    enabled: true
+
+  - id: P0-004
+    name: Agent 执行轨迹前端面板
+    task_file: docs/agent-harness/tasks/P0-004-Agent执行轨迹前端面板.md
+    branch: agent/P0-004-Agent执行轨迹前端面板
+    commit_message: "feat(agent): P0-004 Agent 执行轨迹前端面板"
+    phase: P0
+    max_fix_rounds: 2
+    enabled: true
+
+  - id: P0-005
+    name: SSE 工具调用状态可视化
+    task_file: docs/agent-harness/tasks/P0-005-SSE工具调用状态可视化.md
+    branch: agent/P0-005-SSE工具调用状态可视化
+    commit_message: "feat(agent): P0-005 SSE 工具调用状态可视化"
+    phase: P0
+    max_fix_rounds: 2
+    enabled: true
+
+  - id: P0-006
+    name: 对话结构化结果卡片
+    task_file: docs/agent-harness/tasks/P0-006-对话结构化结果卡片.md
+    branch: agent/P0-006-对话结构化结果卡片
+    commit_message: "feat(agent): P0-006 对话结构化结果卡片"
+    phase: P0
+    max_fix_rounds: 2
+    enabled: true
+
+  - id: P0-007
+    name: 模型配置中心后端
+    task_file: docs/agent-harness/tasks/P0-007-模型配置中心后端.md
+    branch: agent/P0-007-模型配置中心后端
+    commit_message: "feat(agent): P0-007 模型配置中心后端"
+    phase: P0
+    max_fix_rounds: 2
+    enabled: true
+
+  - id: P0-008
+    name: 模型配置中心前端
+    task_file: docs/agent-harness/tasks/P0-008-模型配置中心前端.md
+    branch: agent/P0-008-模型配置中心前端
+    commit_message: "feat(agent): P0-008 模型配置中心前端"
+    phase: P0
+    max_fix_rounds: 2
+    enabled: true
+
+  - id: P0-009
+    name: API Key 加密与脱敏
+    task_file: docs/agent-harness/tasks/P0-009-API-Key加密与脱敏.md
+    branch: agent/P0-009-API-Key加密与脱敏
+    commit_message: "feat(agent): P0-009 API Key 加密与脱敏"
+    phase: P0
+    max_fix_rounds: 2
+    enabled: true
+
+  - id: P1-001
+    name: Prompt 管理后端
+    task_file: docs/agent-harness/tasks/P1-001-Prompt管理后端.md
+    branch: agent/P1-001-Prompt管理后端
+    commit_message: "feat(agent): P1-001 Prompt 管理后端"
+    phase: P1
+    max_fix_rounds: 2
+    enabled: true
+
+  - id: P1-002
+    name: Prompt 管理前端
+    task_file: docs/agent-harness/tasks/P1-002-Prompt管理前端.md
+    branch: agent/P1-002-Prompt管理前端
+    commit_message: "feat(agent): P1-002 Prompt 管理前端"
+    phase: P1
+    max_fix_rounds: 2
+    enabled: true
+
+  - id: P1-003
+    name: Agent 配置后端
+    task_file: docs/agent-harness/tasks/P1-003-Agent配置后端.md
+    branch: agent/P1-003-Agent配置后端
+    commit_message: "feat(agent): P1-003 Agent 配置后端"
+    phase: P1
+    max_fix_rounds: 2
+    enabled: true
+
+  - id: P1-004
+    name: Agent 配置前端
+    task_file: docs/agent-harness/tasks/P1-004-Agent配置前端.md
+    branch: agent/P1-004-Agent配置前端
+    commit_message: "feat(agent): P1-004 Agent 配置前端"
+    phase: P1
+    max_fix_rounds: 2
+    enabled: true
+
+  - id: P1-005
+    name: 输入区增强
+    task_file: docs/agent-harness/tasks/P1-005-输入区增强.md
+    branch: agent/P1-005-输入区增强
+    commit_message: "feat(agent): P1-005 输入区增强"
+    phase: P1
+    max_fix_rounds: 2
+    enabled: true
+
+  - id: P1-006
+    name: Token 成本统计后端
+    task_file: docs/agent-harness/tasks/P1-006-Token成本统计后端.md
+    branch: agent/P1-006-Token成本统计后端
+    commit_message: "feat(agent): P1-006 Token 成本统计后端"
+    phase: P1
+    max_fix_rounds: 2
+    enabled: true
+
+  - id: P1-007
+    name: Token 成本统计前端
+    task_file: docs/agent-harness/tasks/P1-007-Token成本统计前端.md
+    branch: agent/P1-007-Token成本统计前端
+    commit_message: "feat(agent): P1-007 Token 成本统计前端"
+    phase: P1
+    max_fix_rounds: 2
+    enabled: true
+
+  - id: P1-008
+    name: AI 调试面板第一版
+    task_file: docs/agent-harness/tasks/P1-008-AI调试面板第一版.md
+    branch: agent/P1-008-AI调试面板第一版
+    commit_message: "feat(agent): P1-008 AI 调试面板第一版"
+    phase: P1
+    max_fix_rounds: 2
+    enabled: true
+
+  - id: P1-009
+    name: MCP 工具中心后端
+    task_file: docs/agent-harness/tasks/P1-009-MCP工具中心后端.md
+    branch: agent/P1-009-MCP工具中心后端
+    commit_message: "feat(agent): P1-009 MCP 工具中心后端"
+    phase: P1
+    max_fix_rounds: 2
+    enabled: true
+
+  - id: P1-010
+    name: MCP 工具中心前端
+    task_file: docs/agent-harness/tasks/P1-010-MCP工具中心前端.md
+    branch: agent/P1-010-MCP工具中心前端
+    commit_message: "feat(agent): P1-010 MCP 工具中心前端"
+    phase: P1
+    max_fix_rounds: 2
+    enabled: true
+
+  - id: P1-011
+    name: MCP 工具权限与调用审计
+    task_file: docs/agent-harness/tasks/P1-011-MCP工具权限与调用审计.md
+    branch: agent/P1-011-MCP工具权限与调用审计
+    commit_message: "feat(agent): P1-011 MCP 工具权限与调用审计"
+    phase: P1
+    max_fix_rounds: 2
+    enabled: true
+
+  - id: P2-001
+    name: Skills 管理后端
+    task_file: docs/agent-harness/tasks/P2-001-Skills管理后端.md
+    branch: agent/P2-001-Skills管理后端
+    commit_message: "feat(agent): P2-001 Skills 管理后端"
+    phase: P2
+    max_fix_rounds: 2
+    enabled: true
+
+  - id: P2-002
+    name: Skills 管理前端
+    task_file: docs/agent-harness/tasks/P2-002-Skills管理前端.md
+    branch: agent/P2-002-Skills管理前端
+    commit_message: "feat(agent): P2-002 Skills 管理前端"
+    phase: P2
+    max_fix_rounds: 2
+    enabled: true
+
+  - id: P1-012
+    name: 数据源与字段语义配置
+    task_file: docs/agent-harness/tasks/P1-012-数据源与字段语义配置.md
+    branch: agent/P1-012-数据源与字段语义配置
+    commit_message: "feat(agent): P1-012 数据源与字段语义配置"
+    phase: P1
+    max_fix_rounds: 2
+    enabled: true
+
+  - id: P1-013
+    name: 知识库 RAG 与引用来源
+    task_file: docs/agent-harness/tasks/P1-013-知识库RAG与引用来源.md
+    branch: agent/P1-013-知识库RAG与引用来源
+    commit_message: "feat(agent): P1-013 知识库 RAG 与引用来源"
+    phase: P1
+    max_fix_rounds: 2
+    enabled: true

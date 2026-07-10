@@ -86,6 +86,10 @@ service AIService {
   rpc CandidateSessionMessages(CandidateSessionMessagesRequest) returns (ChatHistoryResponse);
   rpc CandidateUpdateSession(CandidateUpdateSessionRequest) returns (CommonResponse);
   rpc CandidateDeleteSession(CandidateDeleteSessionRequest) returns (CommonResponse);
+
+  // Agent tool call trace query
+  rpc GetToolTraces(GetToolTracesRequest) returns (GetToolTracesResponse);
+  rpc GetAgentRuns(GetAgentRunsRequest) returns (GetAgentRunsResponse);
 }
 
 service OfferService {
@@ -146,6 +150,10 @@ service AdminService {
   rpc GetFunnelReport(GetFunnelReportRequest) returns (GetFunnelReportResponse);
   rpc GetTimeInStageReport(GetTimeInStageReportRequest) returns (GetTimeInStageReportResponse);
   rpc GetInterviewOfferMetrics(GetInterviewOfferMetricsRequest) returns (GetInterviewOfferMetricsResponse);
+
+  // P1-003: AI usage statistics & trend
+  rpc GetUsageStats(GetUsageStatsRequest) returns (GetUsageStatsResponse);
+  rpc GetUsageTrend(GetUsageTrendRequest) returns (GetUsageTrendResponse);
 }
 
 // ── Phase 4: Candidate Collaboration ───────────────────────────────────
@@ -173,6 +181,14 @@ service CollaborationService {
 
   // Timeline
   rpc ListTimelineEvents(ListTimelineEventsRequest) returns (ListTimelineEventsResponse);
+}
+
+service RecruitingIntelligenceService {
+  rpc GetResumeProfile(GetResumeProfileRequest) returns (GetResumeProfileResponse);
+  rpc ParseResumeProfile(ParseResumeProfileRequest) returns (GetResumeProfileResponse);
+  rpc EvaluateCandidateMatch(EvaluateCandidateMatchRequest) returns (GetCandidateMatchEvaluationResponse);
+  rpc GetCandidateMatchEvaluation(GetCandidateMatchEvaluationRequest) returns (GetCandidateMatchEvaluationResponse);
+  rpc CompareCandidatesForJob(CompareCandidatesForJobRequest) returns (CompareCandidatesForJobResponse);
 }
 
 message CommonResponse {
@@ -543,6 +559,38 @@ message ChatRequest {
   string message = 2;
   int64 application_id = 3;
   int64 session_id = 4;
+  int64 model_id = 5;               // Optional: user-selected model override
+  repeated string skill_capability_keys = 6; // Optional: per-message SKILL capabilities selected by the user
+  repeated int64 agent_skill_ids = 7; // Optional: database-backed Agent Skills selected by the user
+  bool agent_skill_selection_confirmed = 8; // Optional: user confirmed automatic Agent Skill selection, including selecting none
+  int64 agent_skill_selection_message_id = 9; // Optional: user message ID associated with the confirmed Agent Skill selection
+}
+
+message ContextUsageBreakdown {
+  int32 system_prompt_tokens = 1;
+  int32 recent_message_tokens = 2;
+  int32 summary_tokens = 3;
+  int32 memory_tokens = 4;
+  int32 current_message_tokens = 5;
+  int32 skill_tokens = 6;
+  int32 tool_result_tokens = 7;
+}
+
+message ContextUsageInfo {
+  int64 model_id = 1;
+  string model_name = 2;
+  int32 context_window_tokens = 3;
+  int32 max_output_tokens = 4;
+  int32 prompt_tokens_estimated = 5;
+  int32 prompt_tokens_actual = 6;
+  int32 completion_tokens_actual = 7;
+  int32 total_tokens_actual = 8;
+  int32 remaining_tokens_estimated = 9;
+  double usage_ratio = 10;
+  bool estimated = 11;
+  string source = 12;
+  string stage = 13;
+  ContextUsageBreakdown breakdown = 14;
 }
 
 message ChatResponse {
@@ -557,6 +605,37 @@ message ChatResponse {
   string job_title = 9;
   int32 status = 10;
   int64 session_id = 11;
+  ContextUsageInfo context_usage = 12;
+}
+
+message AgentSkillSelectionCandidate {
+  int64 id = 1;
+  string name = 2;
+  string display_name = 3;
+  string reason = 4;
+  int32 score = 5;
+  int32 priority = 6;
+  string category = 7;
+  string scenario = 8;
+  string risk_level = 9;
+  bool recommended = 10;
+  double vector_score = 11;
+  double lexical_score = 12;
+  double metadata_score = 13;
+  double relevance_score = 14;
+  double business_boost = 15;
+  double final_rank_score = 16;
+  string relevance_mode = 17;
+  int32 pool_rank = 18;
+  string ranking_confidence = 19;
+}
+
+message AgentSkillSelection {
+  bool required = 1;
+  string reason = 2;
+  repeated AgentSkillSelectionCandidate candidates = 3;
+  repeated int64 recommended_agent_skill_ids = 4;
+  int64 user_message_id = 5;
 }
 
 message ChatStreamResponse {
@@ -582,6 +661,10 @@ message ChatStreamResponse {
   string error_type = 17;
   // tool_name carries the active tool when event_type == "tool_calling" or "tool_done".
   string tool_name = 18;
+  // context_usage carries estimated/actual context usage information when event_type == "context_usage".
+  ContextUsageInfo context_usage = 19;
+  // agent_skill_selection carries candidate metadata when event_type == "agent_skill_selection_required".
+  AgentSkillSelection agent_skill_selection = 20;
 }
 
 message ChatHistoryRequest {
@@ -594,6 +677,12 @@ message ChatMessage {
   string role = 1;
   string content = 2;
   string created_at = 3;
+  int64 model_id = 4;
+  string model_name = 5;
+  repeated int64 agent_skill_ids = 6;
+  repeated string agent_skill_names = 7;
+  string process_content = 8;
+  ContextUsageInfo context_usage = 9;
 }
 
 message ChatHistoryResponse {
@@ -605,6 +694,7 @@ message ChatHistoryResponse {
 message AnalyzeApplicationRequest {
   int64 hr_id = 1;
   int64 application_id = 2;
+  int64 model_id = 3;
 }
 
 message AnalyzeApplicationResponse {
@@ -629,6 +719,7 @@ message ChatSession {
   int64 application_id = 3;
   string created_at = 4;
   string updated_at = 5;
+  ContextUsageInfo latest_context_usage = 6;
 }
 
 message ChatSessionListResponse {
@@ -636,6 +727,7 @@ message ChatSessionListResponse {
   string msg = 2;
   int64 total = 3;
   repeated ChatSession list = 4;
+  string model_name = 5;
 }
 
 message CreateChatSessionRequest {
@@ -659,6 +751,7 @@ message SessionMessagesRequest {
 message CreateApplicationAnalysisSessionRequest {
   int64 hr_id = 1;
   int64 application_id = 2;
+  int64 model_id = 3;
 }
 
 message CreateApplicationAnalysisSessionResponse {
@@ -714,6 +807,81 @@ message CandidateUpdateSessionRequest {
 message CandidateDeleteSessionRequest {
   int64 user_id = 1;
   int64 session_id = 2;
+}
+
+// ---- Agent Tool Trace messages ----
+
+message GetToolTracesRequest {
+  int64 hr_id = 1;
+  int64 session_id = 2;
+}
+
+message ToolTraceItem {
+  int64 id = 1;
+  int64 session_id = 2;
+  string tool_name = 3;
+  string args_json = 4;       // 脱敏后的工具入参
+  string result_content = 5;  // 脱敏后的工具结果
+  int64 duration_ms = 6;      // 执行耗时(毫秒)
+  string error_msg = 7;       // 错误信息(如有)
+  string created_at = 8;
+}
+
+message GetToolTracesResponse {
+  int32 code = 1;
+  string msg = 2;
+  repeated ToolTraceItem list = 3;
+}
+
+message GetAgentRunsRequest {
+  int64 hr_id = 1;
+  int64 session_id = 2;
+}
+
+message AgentRunStepItem {
+  int64 id = 1;
+  int64 run_id = 2;
+  int32 step_index = 3;
+  string step_type = 4;
+  string capability_source = 5;
+  string capability_key = 6;
+  string tool_name = 7;
+  string input_json = 8;
+  string output_json = 9;
+  string status = 10;
+  int64 duration_ms = 11;
+  string error_message = 12;
+  string started_at = 13;
+  string completed_at = 14;
+  string created_at = 15;
+}
+
+message AgentRunItem {
+  int64 id = 1;
+  int64 session_id = 2;
+  int64 message_id = 3;
+  int64 history_id = 4;
+  int64 hr_id = 5;
+  string agent_type = 6;
+  int64 agent_id = 7;
+  string agent_name = 8;
+  int64 model_id = 9;
+  string model_name = 10;
+  string status = 11;
+  string plan_json = 12;
+  string final_answer = 13;
+  string error_type = 14;
+  string error_message = 15;
+  string started_at = 16;
+  string completed_at = 17;
+  string created_at = 18;
+  repeated AgentRunStepItem steps = 19;
+}
+
+message GetAgentRunsResponse {
+  int32 code = 1;
+  string msg = 2;
+  repeated AgentRunItem list = 3;
 }
 
 // ── Interview ─────────────────────────────────────────────────────────
@@ -1890,4 +2058,1538 @@ message GetInterviewOfferMetricsResponse {
   int64 accepted_offers = 8;
   int64 rejected_offers = 9;
   double acceptance_rate = 10; // 0-100
+}
+
+// ══════════════════════════════════════════════════════════════════════
+// P1-003: AI Usage Statistics & Trend
+// ══════════════════════════════════════════════════════════════════════
+
+message GetUsageStatsRequest {
+  string start_time = 1;   // RFC 3339
+  string end_time = 2;     // RFC 3339
+  string dimension = 3;    // user / model / session
+}
+
+message UsageStatsItem {
+  string name = 1;                // dimension value: user_id, model name, or session_id
+  int64 total_tokens = 2;         // total estimated tokens
+  int64 call_count = 3;           // total call count
+  double avg_cost_ms = 4;         // average cost in milliseconds
+  double estimated_cost = 5;      // estimated cost in USD
+}
+
+message GetUsageStatsResponse {
+  int32 code = 1;
+  string msg = 2;
+  repeated UsageStatsItem list = 3;
+}
+
+message GetUsageTrendRequest {
+  string start_time = 1;   // RFC 3339
+  string end_time = 2;     // RFC 3339
+  string granularity = 3;  // day / week / month
+}
+
+message UsageTrendPoint {
+  string date = 1;                // date label (e.g. "2026-06-01")
+  int64 total_tokens = 2;         // total estimated tokens
+  int64 call_count = 3;           // total call count
+  double avg_cost_ms = 4;         // average cost in milliseconds
+  double estimated_cost = 5;      // estimated cost in USD
+}
+
+message GetUsageTrendResponse {
+  int32 code = 1;
+  string msg = 2;
+  repeated UsageTrendPoint list = 3;
+}
+
+// ══════════════════════════════════════════════════════════════════════
+// P1-006: MCP Tool Center
+// ══════════════════════════════════════════════════════════════════════
+
+service MCPService {
+  rpc ListMCPServers(ListMCPServersRequest) returns (ListMCPServersResponse);
+  rpc CreateMCPServer(CreateMCPServerRequest) returns (MCPServerResponse);
+  rpc UpdateMCPServer(UpdateMCPServerRequest) returns (MCPServerResponse);
+  rpc DeleteMCPServer(DeleteMCPServerRequest) returns (CommonResponse);
+  rpc ListMCPToolPolicies(ListMCPToolPoliciesRequest) returns (ListMCPToolPoliciesResponse);
+  rpc CreateMCPToolPolicy(CreateMCPToolPolicyRequest) returns (MCPToolPolicyResponse);
+  rpc UpdateMCPToolPolicy(UpdateMCPToolPolicyRequest) returns (MCPToolPolicyResponse);
+  rpc DeleteMCPToolPolicy(DeleteMCPToolPolicyRequest) returns (CommonResponse);
+  rpc ListMCPToolLogs(ListMCPToolLogsRequest) returns (ListMCPToolLogsResponse);
+  rpc TestMCPConnection(TestMCPConnectionRequest) returns (TestMCPConnectionResponse);
+  rpc ListMCPTools(ListMCPToolsRequest) returns (ListMCPToolsResponse);
+  rpc CallMCPTool(CallMCPToolRequest) returns (CallMCPToolResponse);
+}
+
+message MCPServerInfo {
+  int64 id = 1;
+  string name = 2;
+  string description = 11;        // Human-readable server description
+  string transport = 3;           // stdio / sse / http
+  string command_or_url = 4;
+  string args = 5;                // JSON array string
+  string env_vars = 6;            // JSON object string
+  int32 timeout_seconds = 7;
+  bool is_enabled = 8;
+  string status = 12;             // connected / disconnected / error
+  int32 tool_count = 13;          // Number of tools discovered
+  string last_error = 14;         // Last connection error message
+  string created_at = 9;
+  string updated_at = 10;
+}
+
+message ListMCPServersRequest {
+  int32 page = 1;
+  int32 page_size = 2;
+}
+
+message ListMCPServersResponse {
+  int32 code = 1;
+  string msg = 2;
+  int64 total = 3;
+  repeated MCPServerInfo list = 4;
+}
+
+message CreateMCPServerRequest {
+  string name = 1;
+  string description = 7;         // Human-readable server description
+  string transport = 2;
+  string command_or_url = 3;
+  string args = 4;                // JSON array string
+  string env_vars = 5;            // JSON object string
+  int32 timeout_seconds = 6;
+}
+
+message UpdateMCPServerRequest {
+  int64 id = 1;
+  string name = 2;                // Empty = no update
+  string description = 11;        // Empty = no update
+  string transport = 3;           // Empty = no update
+  string command_or_url = 4;      // Empty = no update
+  string args = 5;                // Empty = no update
+  string env_vars = 6;            // Empty = no update
+  int32 timeout_seconds = 7;
+  bool timeout_seconds_set = 8;
+  bool is_enabled = 9;
+  bool is_enabled_set = 10;
+}
+
+message DeleteMCPServerRequest {
+  int64 id = 1;
+}
+
+message MCPServerResponse {
+  int32 code = 1;
+  string msg = 2;
+  MCPServerInfo server = 3;
+}
+
+message MCPToolPolicyInfo {
+  int64 id = 1;
+  int64 server_id = 2;
+  string tool_name = 3;
+  string effect = 4;                    // allow / deny
+  string risk_level = 5;
+  bool require_confirmation = 6;
+  string allowed_roles_json = 7;         // JSON array string
+  string allowed_scopes_json = 8;        // JSON array string
+  string required_args_json = 9;         // JSON array string
+  string denied_args_json = 10;          // JSON array string
+  string arg_rules_json = 11;            // JSON object string
+  string redact_fields_json = 12;        // JSON array string
+  int32 rate_limit_window_seconds = 13;
+  int32 rate_limit_max_calls = 14;
+  bool is_enabled = 15;
+  int64 created_by_hr_id = 16;
+  int64 updated_by_hr_id = 17;
+  string created_at = 18;
+  string updated_at = 19;
+}
+
+message ListMCPToolPoliciesRequest {
+  int64 server_id = 1;                   // 0 = all servers
+  int32 page = 2;
+  int32 page_size = 3;
+}
+
+message ListMCPToolPoliciesResponse {
+  int32 code = 1;
+  string msg = 2;
+  int64 total = 3;
+  repeated MCPToolPolicyInfo list = 4;
+}
+
+message CreateMCPToolPolicyRequest {
+  int64 server_id = 1;
+  string tool_name = 2;
+  string effect = 3;
+  string risk_level = 4;
+  bool require_confirmation = 5;
+  string allowed_roles_json = 6;
+  string allowed_scopes_json = 7;
+  string required_args_json = 8;
+  string denied_args_json = 9;
+  string arg_rules_json = 10;
+  string redact_fields_json = 11;
+  int32 rate_limit_window_seconds = 12;
+  int32 rate_limit_max_calls = 13;
+  bool is_enabled = 14;
+  bool is_enabled_set = 15;
+  int64 operator_hr_id = 16;
+}
+
+message UpdateMCPToolPolicyRequest {
+  int64 id = 1;
+  int64 server_id = 2;
+  string tool_name = 3;
+  string effect = 4;
+  string risk_level = 5;
+  bool require_confirmation = 6;
+  bool require_confirmation_set = 7;
+  string allowed_roles_json = 8;
+  string allowed_scopes_json = 9;
+  string required_args_json = 10;
+  string denied_args_json = 11;
+  string arg_rules_json = 12;
+  string redact_fields_json = 13;
+  int32 rate_limit_window_seconds = 14;
+  bool rate_limit_window_seconds_set = 15;
+  int32 rate_limit_max_calls = 16;
+  bool rate_limit_max_calls_set = 17;
+  bool is_enabled = 18;
+  bool is_enabled_set = 19;
+  int64 operator_hr_id = 20;
+}
+
+message DeleteMCPToolPolicyRequest {
+  int64 id = 1;
+}
+
+message MCPToolPolicyResponse {
+  int32 code = 1;
+  string msg = 2;
+  MCPToolPolicyInfo policy = 3;
+}
+
+message MCPToolLogInfo {
+  int64 id = 1;
+  int64 server_id = 2;
+  string tool_name = 3;
+  string args_json = 4;
+  string result_content = 5;
+  int32 duration_ms = 6;
+  string error_msg = 7;
+  int64 called_by_hr_id = 8;
+  int64 session_id = 9;
+  int64 policy_id = 10;
+  string policy_decision = 11;
+  string policy_reason = 12;
+  string created_at = 13;
+}
+
+message ListMCPToolLogsRequest {
+  int64 server_id = 1;
+  int32 page = 2;
+  int32 page_size = 3;
+}
+
+message ListMCPToolLogsResponse {
+  int32 code = 1;
+  string msg = 2;
+  int64 total = 3;
+  repeated MCPToolLogInfo list = 4;
+}
+
+message TestMCPConnectionRequest {
+  int64 server_id = 1;
+}
+
+message TestMCPConnectionResponse {
+  int32 code = 1;
+  string msg = 2;
+  bool success = 3;
+  string detail = 4;
+}
+
+message ListMCPToolsRequest {
+  int64 server_id = 1;
+}
+
+message MCPToolInfo {
+  string name = 1;
+  string description = 2;
+  string schema_json = 3;         // JSON Schema for the tool's input
+}
+
+message ListMCPToolsResponse {
+  int32 code = 1;
+  string msg = 2;
+  repeated MCPToolInfo list = 3;
+}
+
+message CallMCPToolRequest {
+  int64 server_id = 1;
+  string tool_name = 2;
+  string args_json = 3;           // Tool arguments as JSON
+  int64 called_by_hr_id = 4;
+  int64 session_id = 5;
+  string caller_role = 6;
+  string caller_scope = 7;
+  bool confirmation_approved = 8;
+}
+
+message CallMCPToolResponse {
+  int32 code = 1;
+  string msg = 2;
+  string result_content = 3;
+  string error_msg = 4;           // Non-empty if tool execution failed but returned
+  int64 duration_ms = 5;
+  string policy_decision = 6;
+  string policy_reason = 7;
+  int64 policy_id = 8;
+}
+
+// ══════════════════════════════════════════════════════════════════════
+// Phase M2: LLM Provider & Model Configuration
+// ══════════════════════════════════════════════════════════════════════
+
+service LlmConfigService {
+  rpc ListProviders(ListProvidersRequest) returns (ListProvidersResponse);
+  rpc CreateProvider(CreateProviderRequest) returns (ProviderResponse);
+  rpc UpdateProvider(UpdateProviderRequest) returns (ProviderResponse);
+  rpc DeleteProvider(DeleteProviderRequest) returns (CommonResponse);
+  rpc TestProviderConnection(TestProviderConnectionRequest) returns (TestProviderConnectionResponse);
+
+  rpc ListModels(ListModelsRequest) returns (ListModelsResponse);
+  rpc CreateModel(CreateModelRequest) returns (ModelResponse);
+  rpc UpdateModel(UpdateModelRequest) returns (ModelResponse);
+  rpc DeleteModel(DeleteModelRequest) returns (CommonResponse);
+}
+
+// ── LLM Provider messages ───────────────────────────────────────────
+
+message LlmProviderInfo {
+  int64 id = 1;
+  string name = 2;
+  string base_url = 3;
+  string api_key_masked = 4;       // 脱敏后的 key（前4+后4）
+  string provider_type = 5;
+  string extra_headers_json = 6;   // JSON 字符串，value 已脱敏
+  bool is_enabled = 7;
+  string created_at = 8;
+  string updated_at = 9;
+}
+
+message ListProvidersRequest {
+  int32 page = 1;
+  int32 page_size = 2;
+}
+
+message ListProvidersResponse {
+  int32 code = 1;
+  string msg = 2;
+  int64 total = 3;
+  repeated LlmProviderInfo list = 4;
+}
+
+message CreateProviderRequest {
+  string name = 1;
+  string base_url = 2;
+  string api_key = 3;              // 明文传入，服务端加密存储
+  string provider_type = 4;
+  string extra_headers_json = 5;   // JSON string
+}
+
+message UpdateProviderRequest {
+  int64 id = 1;
+  string name = 2;                 // 空 = 不更新
+  string base_url = 3;             // 空 = 不更新
+  string api_key = 4;              // 空 = 不更新
+  string provider_type = 5;        // 空 = 不更新
+  string extra_headers_json = 6;   // 空 = 不更新，extra_headers_set=true 时显式清空
+  bool is_enabled = 7;
+  bool is_enabled_set = 8;         // 是否设置了 is_enabled
+  bool extra_headers_set = 9;      // 是否显式设置了 extra_headers_json（支持清空）
+}
+
+message ProviderResponse {
+  int32 code = 1;
+  string msg = 2;
+  LlmProviderInfo provider = 3;
+}
+
+message DeleteProviderRequest {
+  int64 id = 1;
+}
+
+message TestProviderConnectionRequest {
+  int64 provider_id = 1;
+}
+
+message TestProviderConnectionResponse {
+  int32 code = 1;
+  string msg = 2;
+  bool success = 3;
+  string detail = 4;               // 连接详情或错误信息
+}
+
+// ── LLM Model messages ─────────────────────────────────────────────
+
+message LlmModelInfo {
+  int64 id = 1;
+  int64 provider_id = 2;
+  string model_name = 3;
+  string display_name = 4;
+  double temperature = 5;
+  double top_p = 6;
+  int32 max_tokens = 7;
+  int32 context_window_tokens = 15;
+  int32 max_concurrency = 8;
+  int32 timeout_seconds = 9;
+  bool is_enabled = 10;
+  bool is_default = 11;
+  string created_at = 12;
+  string updated_at = 13;
+  string provider_name = 14;       // Joined field
+}
+
+message ListModelsRequest {
+  int32 page = 1;
+  int32 page_size = 2;
+  int64 provider_id = 3;           // optional filter
+}
+
+message ListModelsResponse {
+  int32 code = 1;
+  string msg = 2;
+  int64 total = 3;
+  repeated LlmModelInfo list = 4;
+}
+
+message CreateModelRequest {
+  int64 provider_id = 1;
+  string model_name = 2;
+  string display_name = 3;
+  double temperature = 4;
+  double top_p = 5;
+  int32 max_tokens = 6;
+  int32 context_window_tokens = 10;
+  int32 max_concurrency = 7;
+  int32 timeout_seconds = 8;
+  bool is_default = 9;
+}
+
+message UpdateModelRequest {
+  int64 id = 1;
+  string model_name = 2;           // 空 = 不更新
+  string display_name = 3;         // 空 = 不更新
+  double temperature = 4;
+  bool temperature_set = 5;        // 是否设置了 temperature
+  double top_p = 6;
+  bool top_p_set = 7;
+  int32 max_tokens = 8;
+  bool max_tokens_set = 9;
+  int32 context_window_tokens = 18;
+  bool context_window_tokens_set = 19;
+  int32 max_concurrency = 10;
+  bool max_concurrency_set = 11;
+  int32 timeout_seconds = 12;
+  bool timeout_seconds_set = 13;
+  bool is_enabled = 14;
+  bool is_enabled_set = 15;
+  bool is_default = 16;
+  bool is_default_set = 17;
+}
+
+message ModelResponse {
+  int32 code = 1;
+  string msg = 2;
+  LlmModelInfo model = 3;
+}
+
+message DeleteModelRequest {
+  int64 id = 1;
+}
+
+// ══════════════════════════════════════════════════════════════════════
+// Phase M2: Prompt Template Management
+// ══════════════════════════════════════════════════════════════════════
+
+service PromptService {
+  rpc ListPromptTemplates(ListPromptTemplatesRequest) returns (ListPromptTemplatesResponse);
+  rpc CreatePromptTemplate(CreatePromptTemplateRequest) returns (PromptTemplateResponse);
+  rpc UpdatePromptTemplate(UpdatePromptTemplateRequest) returns (PromptTemplateResponse);
+  rpc DeletePromptTemplate(DeletePromptTemplateRequest) returns (CommonResponse);
+  rpc GetPromptVersionHistory(GetPromptVersionHistoryRequest) returns (GetPromptVersionHistoryResponse);
+  rpc RollbackPromptVersion(RollbackPromptVersionRequest) returns (PromptTemplateResponse);
+
+  // Internal gRPC (not exposed via HTTP gateway)
+  rpc RenderPrompt(RenderPromptRequest) returns (RenderPromptResponse);
+  rpc GetActivePromptByAgentType(GetActivePromptByAgentTypeRequest) returns (GetActivePromptByAgentTypeResponse);
+}
+
+// ── Prompt Template messages ─────────────────────────────────────────
+
+message PromptTemplateInfo {
+  int64 id = 1;
+  string name = 2;
+  string content = 3;
+  string variables_json = 4;     // JSON array string
+  int32 version = 5;
+  bool is_active = 6;
+  string agent_type = 7;
+  string prompt_role = 8;
+  int64 created_by = 9;
+  int64 updated_by = 10;
+  string created_at = 11;
+  string updated_at = 12;
+}
+
+message ListPromptTemplatesRequest {
+  int32 page = 1;
+  int32 page_size = 2;
+  string agent_type = 3;       // optional filter
+}
+
+message ListPromptTemplatesResponse {
+  int32 code = 1;
+  string msg = 2;
+  int64 total = 3;
+  repeated PromptTemplateInfo list = 4;
+}
+
+message CreatePromptTemplateRequest {
+  string name = 1;
+  string content = 2;
+  string variables_json = 3;   // JSON array string, optional
+  string agent_type = 4;
+  string prompt_role = 5;      // system / user, default system
+  int64 created_by = 6;
+}
+
+message UpdatePromptTemplateRequest {
+  int64 id = 1;
+  string name = 2;             // 空 = 不更新
+  string content = 3;          // 空 = 不更新
+  string variables_json = 4;   // 空 = 不更新
+  bool is_active = 5;
+  bool is_active_set = 6;      // 是否设置了 is_active
+  int64 updated_by = 7;
+  string change_note = 8;
+}
+
+message PromptTemplateResponse {
+  int32 code = 1;
+  string msg = 2;
+  PromptTemplateInfo template = 3;
+}
+
+message DeletePromptTemplateRequest {
+  int64 id = 1;
+}
+
+// ── Version history messages ─────────────────────────────────────────
+
+message PromptVersionInfo {
+  int64 id = 1;
+  int64 template_id = 2;
+  int32 version = 3;
+  string content = 4;
+  int64 changed_by = 5;
+  string change_note = 6;
+  string created_at = 7;
+}
+
+message GetPromptVersionHistoryRequest {
+  int64 template_id = 1;
+  int32 page = 2;
+  int32 page_size = 3;
+}
+
+message GetPromptVersionHistoryResponse {
+  int32 code = 1;
+  string msg = 2;
+  int64 total = 3;
+  repeated PromptVersionInfo list = 4;
+}
+
+message RollbackPromptVersionRequest {
+  int64 template_id = 1;
+  int32 version = 2;
+  int64 updated_by = 3;
+  string change_note = 4;
+}
+
+// ── Render & internal messages ──────────────────────────────────────
+
+message RenderPromptRequest {
+  int64 template_id = 1;
+  map<string, string> variables = 2;
+}
+
+message RenderPromptResponse {
+  int32 code = 1;
+  string msg = 2;
+  string rendered_content = 3;
+}
+
+message GetActivePromptByAgentTypeRequest {
+  string agent_type = 1;       // hr_agent / candidate_assistant
+  string prompt_role = 2;      // system / user, optional
+}
+
+message GetActivePromptByAgentTypeResponse {
+  int32 code = 1;
+  string msg = 2;
+  PromptTemplateInfo template = 3;
+}
+
+// ══════════════════════════════════════════════════════════════════════
+// P1-004: Agent Configuration Management
+// ══════════════════════════════════════════════════════════════════════
+
+service AgentConfigService {
+  rpc ListAgents(ListAgentsRequest) returns (ListAgentsResponse);
+  rpc ListCapabilities(ListCapabilitiesRequest) returns (ListCapabilitiesResponse);
+  rpc CreateAgent(CreateAgentRequest) returns (AgentConfigResponse);
+  rpc UpdateAgent(UpdateAgentRequest) returns (AgentConfigResponse);
+  rpc DeleteAgent(DeleteAgentRequest) returns (CommonResponse);
+
+  // Internal gRPC (not exposed via HTTP gateway)
+  rpc GetAgentConfig(GetAgentConfigRequest) returns (GetAgentConfigResponse);
+}
+
+// ── Agent Config messages ──────────────────────────────────────────
+
+message AgentConfigInfo {
+  int64 id = 1;
+  string name = 2;
+  string display_name = 3;
+  string description = 4;
+  string agent_type = 5;           // hr_recruiting_agent / candidate_assistant / custom
+  int64 prompt_template_id = 7;    // FK → prompt_templates.id
+  string instruction = 8;          // Extra instruction appended after Prompt
+  int32 max_iterations = 9;        // Default 5
+  double temperature_override = 10; // NULL = use model default
+  bool is_default = 11;
+  bool is_enabled = 12;
+  string created_at = 13;
+  string updated_at = 14;
+
+  // Joined fields (read-only)
+  string prompt_template_name = 16;
+  repeated AgentToolBindingInfo tool_bindings = 17;
+  repeated AgentCapabilityBindingInfo capability_bindings = 18;
+}
+
+message AgentToolBindingInfo {
+  int64 id = 1;
+  int64 agent_id = 2;
+  string tool_name = 3;
+  bool is_enabled = 4;
+  string created_at = 5;
+}
+
+message AgentCapabilityBindingInfo {
+  int64 id = 1;
+  int64 agent_id = 2;
+  string capability_source = 3; // builtin / mcp / skill
+  string capability_key = 4;    // builtin tool name or mcp server_id:tool_name
+  bool is_enabled = 5;
+  int32 priority = 6;
+  string policy_json = 7;
+  string created_at = 8;
+  string updated_at = 9;
+}
+
+message CapabilityInfo {
+  string source = 1;       // builtin / mcp / skill
+  string key = 2;          // stable capability key
+  string name = 3;         // runtime tool name
+  string display_name = 4;
+  string description = 5;
+  int64 mcp_server_id = 6;
+  string mcp_server_name = 7;
+  bool is_available = 8;
+  int64 skill_id = 9;
+  string skill_name = 10;
+  string skill_version = 11;
+  string runtime_type = 12;
+}
+
+message ListCapabilitiesRequest {
+  string agent_type = 1;
+}
+
+message ListCapabilitiesResponse {
+  int32 code = 1;
+  string msg = 2;
+  repeated CapabilityInfo list = 3;
+}
+
+message ListAgentsRequest {
+  int32 page = 1;
+  int32 page_size = 2;
+  string agent_type = 3;           // optional filter
+}
+
+message ListAgentsResponse {
+  int32 code = 1;
+  string msg = 2;
+  int64 total = 3;
+  repeated AgentConfigInfo list = 4;
+}
+
+message CreateAgentRequest {
+  string name = 1;
+  string display_name = 2;
+  string description = 3;
+  string agent_type = 4;
+  int64 prompt_template_id = 6;
+  string instruction = 7;
+  int32 max_iterations = 8;        // Default 5
+  double temperature_override = 9; // 0 = use model default (not set)
+  bool temperature_override_set = 10; // Whether temperature_override was set
+  bool is_default = 11;
+  repeated string tool_names = 12; // Tool names to bind
+  repeated AgentCapabilityBindingInfo capability_bindings = 13;
+}
+
+message UpdateAgentRequest {
+  int64 id = 1;
+  string name = 2;                 // 空 = 不更新
+  string display_name = 3;         // 空 = 不更新
+  string description = 4;          // 空 = 不更新
+  int64 prompt_template_id = 7;
+  bool prompt_template_id_set = 8;
+  string instruction = 9;          // 空 = 不更新
+  int32 max_iterations = 10;
+  bool max_iterations_set = 11;
+  double temperature_override = 12;
+  bool temperature_override_set = 13;
+  bool is_default = 14;
+  bool is_default_set = 15;
+  bool is_enabled = 16;
+  bool is_enabled_set = 17;
+  repeated string tool_names = 18; // Full replacement of tool bindings
+  bool tool_names_set = 19;        // Whether tool_names were explicitly set
+  repeated AgentCapabilityBindingInfo capability_bindings = 20;
+  bool capability_bindings_set = 21;
+}
+
+message AgentConfigResponse {
+  int32 code = 1;
+  string msg = 2;
+  AgentConfigInfo agent = 3;
+}
+
+message DeleteAgentRequest {
+  int64 id = 1;
+}
+
+message GetAgentConfigRequest {
+  string agent_type = 1;
+}
+
+message GetAgentConfigResponse {
+  int32 code = 1;
+  string msg = 2;
+  AgentConfigInfo agent = 3;
+}
+
+// ══════════════════════════════════════════════════════════════════════
+// SKILL Registry Management
+// ══════════════════════════════════════════════════════════════════════
+
+service SkillService {
+  rpc ListSkills(ListSkillsRequest) returns (ListSkillsResponse);
+  rpc CreateSkill(CreateSkillRequest) returns (SkillResponse);
+  rpc UpdateSkill(UpdateSkillRequest) returns (SkillResponse);
+  rpc CreateSkillVersion(CreateSkillVersionRequest) returns (SkillVersionResponse);
+  rpc ListSkillVersions(ListSkillVersionsRequest) returns (ListSkillVersionsResponse);
+  rpc ActivateSkillVersion(ActivateSkillVersionRequest) returns (SkillResponse);
+  rpc ListSkillTools(ListSkillToolsRequest) returns (ListSkillToolsResponse);
+  rpc UpdateSkillTool(UpdateSkillToolRequest) returns (SkillToolResponse);
+}
+
+message SkillInfo {
+  int64 id = 1;
+  string name = 2;
+  string display_name = 3;
+  string description = 4;
+  string source_type = 5;
+  string source_uri = 6;
+  int64 current_version_id = 7;
+  bool is_enabled = 8;
+  string created_at = 9;
+  string updated_at = 10;
+}
+
+message SkillVersionInfo {
+  int64 id = 1;
+  int64 skill_id = 2;
+  string version = 3;
+  string manifest_json = 4;
+  string instruction = 5;
+  string input_schema_json = 6;
+  string output_schema_json = 7;
+  string runtime_type = 8;
+  string created_at = 9;
+}
+
+message SkillToolInfo {
+  int64 id = 1;
+  int64 skill_version_id = 2;
+  string tool_name = 3;
+  string description = 4;
+  string input_schema_json = 5;
+  string runtime_config_json = 6;
+  bool is_enabled = 7;
+  string capability_key = 8; // <skill_name>:<tool_name>
+  string runtime_tool_name = 9; // skill_<skill_name>_<tool_name>
+  string created_at = 10;
+  string updated_at = 11;
+}
+
+message ListSkillsRequest {
+  int32 page = 1;
+  int32 page_size = 2;
+}
+
+message ListSkillsResponse {
+  int32 code = 1;
+  string msg = 2;
+  int64 total = 3;
+  repeated SkillInfo list = 4;
+}
+
+message CreateSkillRequest {
+  string name = 1;
+  string display_name = 2;
+  string description = 3;
+  string source_type = 4;
+  string source_uri = 5;
+  bool is_enabled = 6;
+  bool is_enabled_set = 7;
+}
+
+message UpdateSkillRequest {
+  int64 id = 1;
+  string display_name = 2;
+  string description = 3;
+  string source_type = 4;
+  string source_uri = 5;
+  bool is_enabled = 6;
+  bool is_enabled_set = 7;
+}
+
+message SkillResponse {
+  int32 code = 1;
+  string msg = 2;
+  SkillInfo skill = 3;
+}
+
+message CreateSkillVersionRequest {
+  int64 skill_id = 1;
+  string manifest_json = 2;
+  bool activate = 3;
+}
+
+message SkillVersionResponse {
+  int32 code = 1;
+  string msg = 2;
+  SkillVersionInfo version = 3;
+  repeated SkillToolInfo tools = 4;
+}
+
+message ListSkillVersionsRequest {
+  int64 skill_id = 1;
+}
+
+message ListSkillVersionsResponse {
+  int32 code = 1;
+  string msg = 2;
+  repeated SkillVersionInfo list = 3;
+}
+
+message ActivateSkillVersionRequest {
+  int64 skill_id = 1;
+  int64 version_id = 2;
+}
+
+message ListSkillToolsRequest {
+  int64 skill_id = 1;
+  int64 skill_version_id = 2;
+  bool enabled_only = 3;
+}
+
+message ListSkillToolsResponse {
+  int32 code = 1;
+  string msg = 2;
+  repeated SkillToolInfo list = 3;
+}
+
+message UpdateSkillToolRequest {
+  int64 tool_id = 1;
+  string description = 2;
+  string runtime_config_json = 3;
+  bool is_enabled = 4;
+  bool is_enabled_set = 5;
+}
+
+message SkillToolResponse {
+  int32 code = 1;
+  string msg = 2;
+  SkillToolInfo tool = 3;
+}
+
+// ══════════════════════════════════════════════════════════════════════
+// Agent SKILL.md Management
+// ══════════════════════════════════════════════════════════════════════
+
+service AgentSkillService {
+  rpc ListAgentSkills(ListAgentSkillsRequest) returns (ListAgentSkillsResponse);
+  rpc GetAgentSkill(GetAgentSkillRequest) returns (AgentSkillResponse);
+  rpc CreateAgentSkill(CreateAgentSkillRequest) returns (AgentSkillResponse);
+  rpc UpdateAgentSkill(UpdateAgentSkillRequest) returns (AgentSkillResponse);
+  rpc CreateAgentSkillVersion(CreateAgentSkillVersionRequest) returns (AgentSkillVersionResponse);
+  rpc ListAgentSkillVersions(ListAgentSkillVersionsRequest) returns (ListAgentSkillVersionsResponse);
+  rpc ActivateAgentSkillVersion(ActivateAgentSkillVersionRequest) returns (AgentSkillResponse);
+  rpc UpdateAgentSkillStatus(UpdateAgentSkillStatusRequest) returns (AgentSkillResponse);
+  rpc PreviewAgentSkill(PreviewAgentSkillRequest) returns (PreviewAgentSkillResponse);
+  rpc ListAvailableAgentSkills(ListAvailableAgentSkillsRequest) returns (ListAgentSkillsResponse);
+  rpc DebugSemanticRetrieval(DebugSemanticRetrievalRequest) returns (DebugSemanticRetrievalResponse);
+}
+
+message AgentSkillInfo {
+  int64 id = 1;
+  string name = 2;
+  string display_name = 3;
+  string description = 4;
+  int64 current_version_id = 5;
+  bool is_enabled = 6;
+  bool is_manual_invocable = 7;
+  repeated string trigger_keywords = 8;
+  string created_at = 9;
+  string updated_at = 10;
+  string agent_type = 11;
+  string category = 12;
+  string scenario = 13;
+  int32 priority = 14;
+  string risk_level = 15;
+  repeated string required_capabilities = 16;
+  string output_schema = 17;
+  repeated string evaluation_criteria = 18;
+  repeated string semantic_tags = 19;
+  repeated string unavailable_capabilities = 20;
+  repeated string validation_warnings = 21;
+}
+
+message AgentSkillVersionInfo {
+  int64 id = 1;
+  int64 skill_id = 2;
+  string version = 3;
+  string flow_json = 4;
+  string skill_md = 5;
+  string frontmatter_json = 6;
+  string body_markdown = 7;
+  string change_note = 8;
+  string created_at = 9;
+}
+
+message ListAgentSkillsRequest {
+  int32 page = 1;
+  int32 page_size = 2;
+  string keyword = 3;
+  bool enabled_only = 4;
+}
+
+message ListAvailableAgentSkillsRequest {
+  int32 page = 1;
+  int32 page_size = 2;
+}
+
+message ListAgentSkillsResponse {
+  int32 code = 1;
+  string msg = 2;
+  int64 total = 3;
+  repeated AgentSkillInfo list = 4;
+}
+
+message GetAgentSkillRequest {
+  int64 id = 1;
+}
+
+message CreateAgentSkillRequest {
+  string name = 1;
+  string display_name = 2;
+  string description = 3;
+  bool is_enabled = 4;
+  bool is_enabled_set = 5;
+  bool is_manual_invocable = 6;
+  bool is_manual_invocable_set = 7;
+  repeated string trigger_keywords = 8;
+  int64 actor_user_id = 9;
+  string version = 10;
+  string flow_json = 11;
+  string change_note = 12;
+  bool activate = 13;
+  string skill_md = 14;
+  string agent_type = 15;
+  string category = 16;
+  string scenario = 17;
+  int32 priority = 18;
+  string risk_level = 19;
+  repeated string required_capabilities = 20;
+  string output_schema = 21;
+  repeated string evaluation_criteria = 22;
+  repeated string semantic_tags = 23;
+}
+
+message UpdateAgentSkillRequest {
+  int64 id = 1;
+  string display_name = 2;
+  string description = 3;
+  bool is_enabled = 4;
+  bool is_enabled_set = 5;
+  bool is_manual_invocable = 6;
+  bool is_manual_invocable_set = 7;
+  repeated string trigger_keywords = 8;
+  bool trigger_keywords_set = 9;
+  int64 actor_user_id = 10;
+  bool display_name_set = 11;
+  bool description_set = 12;
+  string agent_type = 13;
+  bool agent_type_set = 14;
+  string category = 15;
+  bool category_set = 16;
+  string scenario = 17;
+  bool scenario_set = 18;
+  int32 priority = 19;
+  bool priority_set = 20;
+  string risk_level = 21;
+  bool risk_level_set = 22;
+  repeated string required_capabilities = 23;
+  bool required_capabilities_set = 24;
+  string output_schema = 25;
+  bool output_schema_set = 26;
+  repeated string evaluation_criteria = 27;
+  bool evaluation_criteria_set = 28;
+  repeated string semantic_tags = 29;
+  bool semantic_tags_set = 30;
+}
+
+message AgentSkillResponse {
+  int32 code = 1;
+  string msg = 2;
+  AgentSkillInfo skill = 3;
+}
+
+message CreateAgentSkillVersionRequest {
+  int64 skill_id = 1;
+  string version = 2;
+  string flow_json = 3;
+  string change_note = 4;
+  bool activate = 5;
+  int64 actor_user_id = 6;
+  string skill_md = 7;
+}
+
+message AgentSkillVersionResponse {
+  int32 code = 1;
+  string msg = 2;
+  AgentSkillVersionInfo version = 3;
+}
+
+message ListAgentSkillVersionsRequest {
+  int64 skill_id = 1;
+}
+
+message ListAgentSkillVersionsResponse {
+  int32 code = 1;
+  string msg = 2;
+  repeated AgentSkillVersionInfo list = 3;
+}
+
+message ActivateAgentSkillVersionRequest {
+  int64 skill_id = 1;
+  int64 version_id = 2;
+  int64 actor_user_id = 3;
+}
+
+message UpdateAgentSkillStatusRequest {
+  int64 id = 1;
+  bool is_enabled = 2;
+  int64 actor_user_id = 3;
+}
+
+message PreviewAgentSkillRequest {
+  string name = 1;
+  string description = 2;
+  string flow_json = 3;
+}
+
+message PreviewAgentSkillResponse {
+  int32 code = 1;
+  string msg = 2;
+  string skill_md = 3;
+  string frontmatter_json = 4;
+  string body_markdown = 5;
+}
+
+message DebugSemanticRetrievalRequest {
+  int64 hr_id = 1;
+  string query = 2;
+  string agent_type = 3;
+  int64 job_id = 4;
+  int64 application_id = 5;
+  int32 limit = 6;
+}
+
+message SemanticSkillDebugItem {
+  int64 id = 1;
+  string name = 2;
+  string display_name = 3;
+  string category = 4;
+  string scenario = 5;
+  int32 priority = 6;
+  double score = 7;
+  string reason = 8;
+  repeated string semantic_tags = 9;
+  double vector_score = 10;
+  double lexical_score = 11;
+  double metadata_score = 12;
+  double relevance_score = 13;
+  double business_boost = 14;
+  double final_rank_score = 15;
+  string relevance_mode = 16;
+  int32 pool_rank = 17;
+}
+
+message SemanticMemoryDebugItem {
+  uint64 id = 1;
+  string scope_type = 2;
+  uint64 scope_id = 3;
+  string memory_type = 4;
+  string content = 5;
+  string source = 6;
+  double confidence = 7;
+  double importance = 8;
+  double score = 9;
+  string reason = 10;
+  string created_at = 11;
+  double vector_score = 12;
+  double lexical_score = 13;
+  double metadata_score = 14;
+  double relevance_score = 15;
+  double business_boost = 16;
+  double final_rank_score = 17;
+  string relevance_mode = 18;
+  int32 pool_rank = 19;
+}
+
+message DebugSemanticRetrievalResponse {
+  int32 code = 1;
+  string msg = 2;
+  bool embedding_available = 3;
+  string fallback_reason = 4;
+  repeated SemanticSkillDebugItem skills = 5;
+  repeated SemanticMemoryDebugItem memories = 6;
+  string skill_pool_confidence = 7;
+  string memory_pool_confidence = 8;
+  // 修复：debug 端点补全 5 个 Provider / Model / Dim / Count / Latency 字段。
+  // 这些字段之前从未在 proto 中声明，所以一直显示 "-"；本次新增。
+  string embedding_provider = 9;
+  string embedding_model = 10;
+  int32 embedding_dim = 11;
+  int32 candidate_count = 12;
+  int64 query_embedding_latency_ms = 13;
+}
+
+message GetResumeProfileRequest {
+  int64 staff_user_id = 1;
+  int64 resume_id = 2;
+  uint64 profile_id = 3;
+  int64 application_id = 4;
+}
+
+message ParseResumeProfileRequest {
+  int64 staff_user_id = 1;
+  int64 resume_id = 2;
+  int64 application_id = 3;
+}
+
+message ResumeParseRunInfo {
+  uint64 id = 1;
+  int64 resume_id = 2;
+  int64 user_id = 3;
+  uint64 agent_run_id = 4;
+  string status = 5;
+  string parser_version = 6;
+  string input_hash = 7;
+  string error_message = 8;
+  string started_at = 9;
+  string completed_at = 10;
+  string created_at = 11;
+  string updated_at = 12;
+}
+
+message ResumeProfileInfo {
+  uint64 id = 1;
+  int64 resume_id = 2;
+  int64 user_id = 3;
+  uint64 parse_run_id = 4;
+  int32 version = 5;
+  int32 is_current = 6;
+  string full_name = 7;
+  string email = 8;
+  string phone = 9;
+  string location = 10;
+  string headline = 11;
+  string summary = 12;
+  double total_experience_years = 13;
+  string highest_degree = 14;
+  string raw_json = 15;
+  string created_at = 16;
+  string updated_at = 17;
+}
+
+message ResumeEducationInfo {
+  uint64 id = 1;
+  string school = 2;
+  string degree = 3;
+  string major = 4;
+  string start_date = 5;
+  string end_date = 6;
+  string description = 7;
+  int32 sort_order = 8;
+}
+
+message ResumeExperienceInfo {
+  uint64 id = 1;
+  string company = 2;
+  string title = 3;
+  string location = 4;
+  string start_date = 5;
+  string end_date = 6;
+  int32 is_current = 7;
+  string description = 8;
+  string achievements_json = 9;
+  int32 sort_order = 10;
+}
+
+message ResumeProjectInfo {
+  uint64 id = 1;
+  string name = 2;
+  string role = 3;
+  string start_date = 4;
+  string end_date = 5;
+  string description = 6;
+  string technologies_json = 7;
+  string highlights_json = 8;
+  int32 sort_order = 9;
+}
+
+message ResumeSkillInfo {
+  uint64 id = 1;
+  string name = 2;
+  string category = 3;
+  string level = 4;
+  double years = 5;
+  string evidence = 6;
+  int32 sort_order = 7;
+}
+
+message ResumeProfileSnapshotInfo {
+  ResumeParseRunInfo parse_run = 1;
+  ResumeProfileInfo profile = 2;
+  repeated ResumeEducationInfo educations = 3;
+  repeated ResumeExperienceInfo experiences = 4;
+  repeated ResumeProjectInfo projects = 5;
+  repeated ResumeSkillInfo skills = 6;
+}
+
+message GetResumeProfileResponse {
+  int32 code = 1;
+  string msg = 2;
+  ResumeProfileSnapshotInfo profile = 3;
+}
+
+message EvaluateCandidateMatchRequest {
+  int64 staff_user_id = 1;
+  int64 application_id = 2;
+  uint64 agent_run_id = 3;
+}
+
+message GetCandidateMatchEvaluationRequest {
+  int64 staff_user_id = 1;
+  int64 application_id = 2;
+  uint64 evaluation_id = 3;
+  int32 evaluation_version = 4;
+}
+
+message CandidateMatchEvaluationInfo {
+  uint64 id = 1;
+  int64 application_id = 2;
+  int64 job_id = 3;
+  int64 candidate_user_id = 4;
+  uint64 resume_profile_id = 5;
+  uint64 agent_run_id = 6;
+  int32 evaluation_version = 7;
+  int32 is_latest = 8;
+  double overall_score = 9;
+  string recommendation = 10;
+  string summary = 11;
+  string strengths_json = 12;
+  string risks_json = 13;
+  string missing_requirements_json = 14;
+  string score_breakdown_json = 15;
+  string model_name = 16;
+  string evaluated_at = 17;
+  string created_at = 18;
+  string updated_at = 19;
+  string dimensions_json = 20;
+}
+
+message CandidateMatchEvidenceInfo {
+  uint64 id = 1;
+  string evidence_type = 2;
+  string dimension = 3;
+  string source_table = 4;
+  uint64 source_id = 5;
+  string snippet = 6;
+  double weight = 7;
+  double score_impact = 8;
+  string metadata_json = 9;
+  string created_at = 10;
+}
+
+message CandidateMatchEvaluationSnapshotInfo {
+  CandidateMatchEvaluationInfo evaluation = 1;
+  repeated CandidateMatchEvidenceInfo evidence = 2;
+}
+
+message GetCandidateMatchEvaluationResponse {
+  int32 code = 1;
+  string msg = 2;
+  CandidateMatchEvaluationSnapshotInfo evaluation = 3;
+}
+
+message CompareCandidatesForJobRequest {
+  int64 staff_user_id = 1;
+  int64 job_id = 2;
+}
+
+message CandidateComparisonItem {
+  int64 application_id = 1;
+  int64 candidate_user_id = 2;
+  string candidate_name = 3;
+  int64 resume_id = 4;
+  uint64 evaluation_id = 5;
+  int32 evaluation_version = 6;
+  double overall_score = 7;
+  string recommendation = 8;
+  string summary = 9;
+  string evaluated_at = 10;
+  bool has_evaluation = 11;
+}
+
+message CompareCandidatesForJobResponse {
+  int32 code = 1;
+  string msg = 2;
+  int64 job_id = 3;
+  repeated CandidateComparisonItem candidates = 4;
+  repeated int64 missing_application_ids = 5;
+}
+
+// ══════════════════════════════════════════════════════════════════════
+// Phase P1-XX: Embedding Provider & Model Configuration
+// ══════════════════════════════════════════════════════════════════════
+
+service EmbeddingConfigService {
+  rpc ListEmbeddingProviders(ListEmbeddingProvidersRequest) returns (ListEmbeddingProvidersResponse);
+  rpc CreateEmbeddingProvider(CreateEmbeddingProviderRequest) returns (EmbeddingProviderResponse);
+  rpc UpdateEmbeddingProvider(UpdateEmbeddingProviderRequest) returns (EmbeddingProviderResponse);
+  rpc DeleteEmbeddingProvider(DeleteEmbeddingProviderRequest) returns (CommonResponse);
+
+  rpc ListEmbeddingModels(ListEmbeddingModelsRequest) returns (ListEmbeddingModelsResponse);
+  rpc CreateEmbeddingModel(CreateEmbeddingModelRequest) returns (EmbeddingModelResponse);
+  rpc UpdateEmbeddingModel(UpdateEmbeddingModelRequest) returns (EmbeddingModelResponse);
+  rpc SetDefaultEmbeddingModel(SetDefaultEmbeddingModelRequest) returns (CommonResponse);
+
+  rpc TestEmbeddingModel(TestEmbeddingModelRequest) returns (TestEmbeddingModelResponse);
+  rpc BackfillEmbeddings(BackfillEmbeddingsRequest) returns (BackfillEmbeddingsResponse);
+}
+
+// ── Embedding Provider messages ─────────────────────────────────────
+
+message EmbeddingProviderInfo {
+  int64 id = 1;
+  string name = 2;
+  string provider_type = 3;
+  string endpoint = 4;
+  string api_key_masked = 5;
+  string extra_headers_json = 6;
+  bool is_enabled = 7;
+  string created_at = 8;
+  string updated_at = 9;
+}
+
+message ListEmbeddingProvidersRequest {
+  int32 page = 1;
+  int32 page_size = 2;
+}
+
+message ListEmbeddingProvidersResponse {
+  int32 code = 1;
+  string msg = 2;
+  int64 total = 3;
+  repeated EmbeddingProviderInfo list = 4;
+}
+
+message CreateEmbeddingProviderRequest {
+  string name = 1;
+  string provider_type = 2;
+  string endpoint = 3;
+  string api_key = 4;
+  string extra_headers_json = 5;
+}
+
+message UpdateEmbeddingProviderRequest {
+  int64 id = 1;
+  string name = 2;
+  string provider_type = 3;
+  string endpoint = 4;
+  string api_key = 5;
+  string extra_headers_json = 6;
+  bool is_enabled = 7;
+  bool is_enabled_set = 8;
+  bool extra_headers_set = 9;
+}
+
+message EmbeddingProviderResponse {
+  int32 code = 1;
+  string msg = 2;
+  EmbeddingProviderInfo provider = 3;
+}
+
+message DeleteEmbeddingProviderRequest {
+  int64 id = 1;
+}
+
+// ── Embedding Model messages ────────────────────────────────────────
+
+message EmbeddingModelInfo {
+  int64 id = 1;
+  int64 provider_id = 2;
+  string model_name = 3;
+  string display_name = 4;
+  int32 embedding_dim = 5;
+  int32 input_token_limit = 6;
+  int32 batch_size = 7;
+  int32 timeout_seconds = 8;
+  int32 max_retries = 9;
+  bool is_enabled = 10;
+  bool is_default = 11;
+  string last_test_status = 12;
+  string last_test_error = 13;
+  string last_test_at = 14;
+  string created_at = 15;
+  string updated_at = 16;
+  string provider_name = 17;
+}
+
+message ListEmbeddingModelsRequest {
+  int32 page = 1;
+  int32 page_size = 2;
+  int64 provider_id = 3;
+}
+
+message ListEmbeddingModelsResponse {
+  int32 code = 1;
+  string msg = 2;
+  int64 total = 3;
+  repeated EmbeddingModelInfo list = 4;
+}
+
+message CreateEmbeddingModelRequest {
+  int64 provider_id = 1;
+  string model_name = 2;
+  string display_name = 3;
+  int32 embedding_dim = 4;
+  int32 input_token_limit = 5;
+  int32 batch_size = 6;
+  int32 timeout_seconds = 7;
+  int32 max_retries = 8;
+  bool is_default = 9;
+}
+
+message UpdateEmbeddingModelRequest {
+  int64 id = 1;
+  string model_name = 2;
+  string display_name = 3;
+  int32 embedding_dim = 4;
+  bool embedding_dim_set = 5;
+  int32 input_token_limit = 6;
+  bool input_token_limit_set = 7;
+  int32 batch_size = 8;
+  bool batch_size_set = 9;
+  int32 timeout_seconds = 10;
+  bool timeout_seconds_set = 11;
+  int32 max_retries = 12;
+  bool max_retries_set = 13;
+  bool is_enabled = 14;
+  bool is_enabled_set = 15;
+  bool is_default = 16;
+  bool is_default_set = 17;
+}
+
+message EmbeddingModelResponse {
+  int32 code = 1;
+  string msg = 2;
+  EmbeddingModelInfo model = 3;
+}
+
+message DeleteEmbeddingModelRequest {
+  int64 id = 1;
+}
+
+message SetDefaultEmbeddingModelRequest {
+  int64 id = 1;
+}
+
+message TestEmbeddingModelRequest {
+  int64 provider_id = 1;
+  int64 model_id = 2;
+  string test_text = 3;
+}
+
+message TestEmbeddingModelResponse {
+  int32 code = 1;
+  string msg = 2;
+  bool success = 3;
+  int32 dimension = 4;
+  int64 latency_ms = 5;
+  string request_id = 6;
+  string detail = 7;
+}
+
+message BackfillEmbeddingsRequest {
+  string object_type = 1;
+  int32 limit = 2;
+  int32 batch_size = 3;
+  bool force = 4;
+  bool dry_run = 5;
+  int64 model_id = 6;
+  int64 object_id = 7;
+}
+
+message BackfillEmbeddingsResponse {
+  int32 code = 1;
+  string msg = 2;
+  int32 success_count = 3;
+  int32 failed_count = 4;
+  int32 skipped_count = 5;
 }

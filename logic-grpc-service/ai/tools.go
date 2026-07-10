@@ -215,5 +215,85 @@ func RecruitingTools() []*schema.ToolInfo {
 			Name: "get_job_list",
 			Desc: "查询当前 HR 发布的所有在招岗位列表",
 		},
+		{
+			Name: "parse_resume_profile",
+			Desc: "基于已解析简历正文生成并保存结构化简历画像，可通过 application_id 或 resume_id 定位简历",
+			ParamsOneOf: schema.NewParamsOneOfByParams(map[string]*schema.ParameterInfo{
+				"application_id": {
+					Type:     schema.Integer,
+					Desc:     "投递记录 ID；与 resume_id 二选一",
+					Required: false,
+				},
+				"resume_id": {
+					Type:     schema.Integer,
+					Desc:     "简历 ID；与 application_id 二选一",
+					Required: false,
+				},
+			}),
+		},
+		{
+			Name: "get_resume_profile",
+			Desc: "查询结构化简历画像，可按 application_id、resume_id 或 profile_id 查询",
+			ParamsOneOf: schema.NewParamsOneOfByParams(map[string]*schema.ParameterInfo{
+				"application_id": {
+					Type:     schema.Integer,
+					Desc:     "投递记录 ID",
+					Required: false,
+				},
+				"resume_id": {
+					Type:     schema.Integer,
+					Desc:     "简历 ID",
+					Required: false,
+				},
+				"profile_id": {
+					Type:     schema.Integer,
+					Desc:     "简历画像 ID；不传则返回当前版本",
+					Required: false,
+				},
+			}),
+		},
+		{
+			Name: "evaluate_candidate_match",
+			Desc: "为指定投递生成并保存候选人与岗位的匹配评估；缺少简历画像时会先基于简历正文生成画像",
+			ParamsOneOf: schema.NewParamsOneOfByParams(map[string]*schema.ParameterInfo{
+				"application_id": {
+					Type:     schema.Integer,
+					Desc:     "投递记录 ID",
+					Required: true,
+				},
+			}),
+		},
+		{
+			Name: "get_candidate_match_evaluation",
+			Desc: "查询指定投递的候选人匹配评估，可按评估 ID、版本或最新版本查询",
+			ParamsOneOf: schema.NewParamsOneOfByParams(map[string]*schema.ParameterInfo{
+				"application_id": {
+					Type:     schema.Integer,
+					Desc:     "投递记录 ID",
+					Required: true,
+				},
+				"evaluation_id": {
+					Type:     schema.Integer,
+					Desc:     "匹配评估 ID；不传则按版本或最新版本查询",
+					Required: false,
+				},
+				"evaluation_version": {
+					Type:     schema.Integer,
+					Desc:     "评估版本；不传则查询最新版本",
+					Required: false,
+				},
+			}),
+		},
+		{
+			Name: "compare_candidates_for_job",
+			Desc: "对指定岗位的候选人进行匹配度排序比较；优先使用已存评估，缺失时生成本地评估",
+			ParamsOneOf: schema.NewParamsOneOfByParams(map[string]*schema.ParameterInfo{
+				"job_id": {
+					Type:     schema.Integer,
+					Desc:     "岗位 ID",
+					Required: true,
+				},
+			}),
+		},
 	}
 }

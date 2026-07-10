@@ -17,6 +17,84 @@ import (
 	"logic-grpc-service/pkg/logger"
 )
 
+// ModelParams contains generation parameters configured for a model.
+type ModelParams struct {
+	Temperature *float64
+	TopP        *float64
+	MaxTokens   *int
+}
+
+// WithTemperatureOverride returns params with the model default temperature
+// replaced by an agent/request-specific override when one is provided.
+func (p ModelParams) WithTemperatureOverride(temperatureOverride *float64) ModelParams {
+	if temperatureOverride != nil {
+		p.Temperature = temperatureOverride
+	}
+	return p
+}
+
+// newChatModel creates a ToolCallingChatModel based on the provider type.
+func newChatModel(ctx context.Context, providerType, apiKey, model, baseURL string, timeout time.Duration) (chatmodel.ToolCallingChatModel, error) {
+	return newChatModelWithParams(ctx, providerType, apiKey, model, baseURL, timeout, ModelParams{})
+}
+
+// newChatModelWithParams creates a ToolCallingChatModel with generation
+// parameters sourced from model configuration.
+func newChatModelWithParams(ctx context.Context, providerType, apiKey, model, baseURL string, timeout time.Duration, params ModelParams) (chatmodel.ToolCallingChatModel, error) {
+	switch providerType {
+	case "anthropic":
+		return newAnthropicChatModel(AnthropicChatModelConfig{
+			APIKey:      apiKey,
+			BaseURL:     baseURL,
+			Model:       model,
+			Timeout:     int(timeout.Seconds()),
+			MaxTokens:   params.MaxTokens,
+			Temperature: params.Temperature,
+		}), nil
+	default: // openai_compatible, deepseek, ""
+		cfg := &openai.ChatModelConfig{
+			APIKey:  apiKey,
+			Model:   model,
+			BaseURL: baseURL,
+			Timeout: timeout,
+		}
+		if params.Temperature != nil {
+			temperature := float32(*params.Temperature)
+			cfg.Temperature = &temperature
+		}
+		if params.TopP != nil {
+			topP := float32(*params.TopP)
+			cfg.TopP = &topP
+		}
+		if params.MaxTokens != nil && *params.MaxTokens > 0 {
+			maxTokens := *params.MaxTokens
+			cfg.MaxTokens = &maxTokens
+		}
+		cm, err := openai.NewChatModel(ctx, cfg)
+		if err != nil {
+			return nil, err
+		}
+		return cm, nil
+	}
+}
+
+// NewChatModel is the exported version of newChatModel, used by the service layer
+// for per-request runtime model selection.
+func NewChatModel(ctx context.Context, providerType, apiKey, model, baseURL string, timeout time.Duration) (chatmodel.ToolCallingChatModel, error) {
+	return newChatModel(ctx, providerType, apiKey, model, baseURL, timeout)
+}
+
+// NewChatModelWithParams is used by service-layer per-request model selection.
+func NewChatModelWithParams(ctx context.Context, providerType, apiKey, model, baseURL string, timeout time.Duration, params ModelParams) (chatmodel.ToolCallingChatModel, error) {
+	return newChatModelWithParams(ctx, providerType, apiKey, model, baseURL, timeout, params)
+}
+
+// NewChatModelWithTemperature is kept for callers that only need a temperature
+// override.
+func NewChatModelWithTemperature(ctx context.Context, providerType, apiKey, model, baseURL string, timeout time.Duration, temperatureOverride *float64) (chatmodel.ToolCallingChatModel, error) {
+	return newChatModelWithParams(ctx, providerType, apiKey, model, baseURL, timeout, ModelParams{Temperature: temperatureOverride})
+}
+
 // ToolRunner is the interface that both HR and candidate tool executors implement.
 type ToolRunner interface {
 	Execute(ctx context.Context, hrID int64, toolName string, args map[string]any) (ToolResult, error)
@@ -24,7 +102,7 @@ type ToolRunner interface {
 
 type Client struct {
 	model            string
-	cm               *openai.ChatModel
+	cm               chatmodel.ToolCallingChatModel
 	timeout          time.Duration
 	totalTimeout     time.Duration
 	toolMaxRounds    int
@@ -69,6 +147,27 @@ type ApplicationAnalysisInput struct {
 	ResumeFileName string
 	ResumeTextNote string
 	ResumeText     string
+}
+
+// ClientConfig holds model configuration parameters for creating an AI client.
+// This is used to pass config from the DB (llm_providers + llm_models) instead of env vars.
+type ClientConfig struct {
+	APIKey                  string
+	Model                   string
+	BaseURL                 string
+	ProviderType            string
+	ModelParams             ModelParams
+	Timeout                 time.Duration
+	TotalTimeout            time.Duration
+	ToolMaxRounds           int
+	ToolTotalTimeout        time.Duration
+	MaxConcurrency          int
+	CircuitFailureThreshold int
+	CircuitOpenTimeout      time.Duration
+	HalfOpenMaxRequests     int
+	RetryMaxAttempts        int
+	RetryBaseDelay          time.Duration
+	SlowResponseThreshold   time.Duration
 }
 
 func NewClient(ctx context.Context, apiKey, model, baseURL string, opts ...Options) (*Client, error) {
@@ -129,12 +228,7 @@ func NewClient(ctx context.Context, apiKey, model, baseURL string, opts ...Optio
 			opt.SlowResponseThreshold = opts[0].SlowResponseThreshold
 		}
 	}
-	cm, err := openai.NewChatModel(ctx, &openai.ChatModelConfig{
-		APIKey:  apiKey,
-		Model:   model,
-		BaseURL: baseURL,
-		Timeout: opt.Timeout,
-	})
+	cm, err := newChatModel(ctx, "", apiKey, model, baseURL, opt.Timeout)
 	if err != nil {
 		return nil, err
 	}
@@ -153,7 +247,144 @@ func NewClient(ctx context.Context, apiKey, model, baseURL string, opts ...Optio
 	}, nil
 }
 
-func (c *Client) ModelName() string { return c.model }
+// NewClientFromConfig creates an AI client using a ClientConfig struct.
+// This allows the caller to provide model configuration from DB tables
+// while falling back to env-var defaults for unspecified fields.
+func NewClientFromConfig(ctx context.Context, cfg ClientConfig, opts ...Options) (*Client, error) {
+	apiKey := cfg.APIKey
+	model := cfg.Model
+	baseURL := cfg.BaseURL
+
+	if strings.TrimSpace(baseURL) == "" {
+		baseURL = "https://dashscope.aliyuncs.com/compatible-mode/v1"
+	}
+
+	opt := Options{
+		Timeout:                 45 * time.Second,
+		TotalTimeout:            120 * time.Second,
+		ToolMaxRounds:           5,
+		ToolTotalTimeout:        30 * time.Second,
+		MaxConcurrency:          10,
+		CircuitFailureThreshold: 5,
+		CircuitOpenTimeout:      30 * time.Second,
+		HalfOpenMaxRequests:     2,
+		RetryMaxAttempts:        0,
+		RetryBaseDelay:          500 * time.Millisecond,
+		SlowResponseThreshold:   5 * time.Second,
+	}
+	if cfg.Timeout > 0 {
+		opt.Timeout = cfg.Timeout
+	}
+	if cfg.TotalTimeout > 0 {
+		opt.TotalTimeout = cfg.TotalTimeout
+	}
+	if cfg.ToolMaxRounds > 0 {
+		opt.ToolMaxRounds = cfg.ToolMaxRounds
+	}
+	if cfg.MaxConcurrency > 0 {
+		opt.MaxConcurrency = cfg.MaxConcurrency
+	}
+	if cfg.ToolTotalTimeout > 0 {
+		opt.ToolTotalTimeout = cfg.ToolTotalTimeout
+	}
+	if cfg.CircuitFailureThreshold > 0 {
+		opt.CircuitFailureThreshold = cfg.CircuitFailureThreshold
+	}
+	if cfg.CircuitOpenTimeout > 0 {
+		opt.CircuitOpenTimeout = cfg.CircuitOpenTimeout
+	}
+	if cfg.HalfOpenMaxRequests > 0 {
+		opt.HalfOpenMaxRequests = cfg.HalfOpenMaxRequests
+	}
+	if cfg.RetryMaxAttempts > 0 {
+		opt.RetryMaxAttempts = cfg.RetryMaxAttempts
+	}
+	if cfg.RetryBaseDelay > 0 {
+		opt.RetryBaseDelay = cfg.RetryBaseDelay
+	}
+	if cfg.SlowResponseThreshold > 0 {
+		opt.SlowResponseThreshold = cfg.SlowResponseThreshold
+	}
+	if len(opts) > 0 {
+		if opts[0].Timeout > 0 {
+			opt.Timeout = opts[0].Timeout
+		}
+		if opts[0].TotalTimeout > 0 {
+			opt.TotalTimeout = opts[0].TotalTimeout
+		}
+		if opts[0].ToolMaxRounds > 0 {
+			opt.ToolMaxRounds = opts[0].ToolMaxRounds
+		}
+		if opts[0].ToolTotalTimeout > 0 {
+			opt.ToolTotalTimeout = opts[0].ToolTotalTimeout
+		}
+		if opts[0].MaxConcurrency > 0 {
+			opt.MaxConcurrency = opts[0].MaxConcurrency
+		}
+		if opts[0].CircuitFailureThreshold > 0 {
+			opt.CircuitFailureThreshold = opts[0].CircuitFailureThreshold
+		}
+		if opts[0].CircuitOpenTimeout > 0 {
+			opt.CircuitOpenTimeout = opts[0].CircuitOpenTimeout
+		}
+		if opts[0].HalfOpenMaxRequests > 0 {
+			opt.HalfOpenMaxRequests = opts[0].HalfOpenMaxRequests
+		}
+		if opts[0].RetryMaxAttempts > 0 {
+			opt.RetryMaxAttempts = opts[0].RetryMaxAttempts
+		}
+		if opts[0].RetryBaseDelay > 0 {
+			opt.RetryBaseDelay = opts[0].RetryBaseDelay
+		}
+		if opts[0].SlowResponseThreshold > 0 {
+			opt.SlowResponseThreshold = opts[0].SlowResponseThreshold
+		}
+	}
+	cm, err := newChatModelWithParams(ctx, cfg.ProviderType, apiKey, model, baseURL, opt.Timeout, cfg.ModelParams)
+	if err != nil {
+		return nil, err
+	}
+	return &Client{
+		model:            model,
+		cm:               cm,
+		timeout:          opt.Timeout,
+		totalTimeout:     opt.TotalTimeout,
+		toolMaxRounds:    opt.ToolMaxRounds,
+		toolTotalTimeout: opt.ToolTotalTimeout,
+		retryMaxAttempts: opt.RetryMaxAttempts,
+		retryBaseDelay:   opt.RetryBaseDelay,
+		slowThreshold:    opt.SlowResponseThreshold,
+		sem:              make(chan struct{}, opt.MaxConcurrency),
+		breaker:          NewCircuitBreaker(opt.CircuitFailureThreshold, opt.CircuitOpenTimeout, opt.HalfOpenMaxRequests),
+	}, nil
+}
+
+func (c *Client) ModelName() string      { return c.model }
+func (c *Client) Timeout() time.Duration { return c.timeout }
+
+// CloneWithModel returns a shallow copy of the Client that uses a different ChatModel
+// and model name. Used for per-request runtime model selection.
+func (c *Client) CloneWithModel(model string, cm chatmodel.ToolCallingChatModel) *Client {
+	clone := *c
+	clone.model = model
+	clone.cm = cm
+	return &clone
+}
+
+// CloneWithRuntimeConfig returns a shallow copy of the Client that uses a
+// request-selected model plus model-level timeout/concurrency settings.
+func (c *Client) CloneWithRuntimeConfig(model string, cm chatmodel.ToolCallingChatModel, timeout time.Duration, maxConcurrency int32) *Client {
+	clone := *c
+	clone.model = model
+	clone.cm = cm
+	if timeout > 0 {
+		clone.timeout = timeout
+	}
+	if maxConcurrency > 0 {
+		clone.sem = make(chan struct{}, int(maxConcurrency))
+	}
+	return &clone
+}
 
 func (c *Client) call(ctx context.Context, fn func(context.Context) error) error {
 	return c.callWithRetry(ctx, fn, nil)
@@ -284,41 +515,58 @@ func (c *Client) GenerateRecruitingReply(ctx context.Context, question string, s
 		return "", NewAIError(AIEmptyReply, "", fmt.Errorf("ai returned empty reply"))
 	}
 	logger.L().Info("ai recruiting call done",
-		zap.String("model", c.model),
-		zap.Bool("stream", false),
-		zap.Int("prompt_chars", promptLen),
-		zap.Int("reply_chars", len([]rune(resp.Content))),
-		zap.Duration("cost", time.Since(start)),
+		append(TokenUsageLogFields(tokenUsageFromMessage(resp)),
+			zap.String("model", c.model),
+			zap.Bool("stream", false),
+			zap.Int("prompt_chars", promptLen),
+			zap.Int("reply_chars", len([]rune(resp.Content))),
+			zap.Duration("cost", time.Since(start)),
+		)...,
 	)
 	return resp.Content, nil
+}
+
+type GenerateResult struct {
+	Content    string
+	TokenUsage *schema.TokenUsage
 }
 
 // GenerateApplicationAnalysis analyzes a candidate's resume against a job posting.
 // When onDelta is non-nil, uses streaming mode and calls onDelta for each chunk.
 func (c *Client) GenerateApplicationAnalysis(ctx context.Context, input ApplicationAnalysisInput, onDelta func(string) error) (string, error) {
+	result, err := c.GenerateApplicationAnalysisWithUsage(ctx, input, onDelta)
+	if err != nil {
+		return "", err
+	}
+	return result.Content, nil
+}
+
+func (c *Client) GenerateApplicationAnalysisWithUsage(ctx context.Context, input ApplicationAnalysisInput, onDelta func(string) error) (GenerateResult, error) {
 	if c.cm == nil {
-		return "", fmt.Errorf("ai chat model is nil")
+		return GenerateResult{}, fmt.Errorf("ai chat model is nil")
 	}
 	start := time.Now()
 	msgs := buildApplicationAnalysisMessages(input)
 	promptLen := msgCharCount(msgs)
 
 	if onDelta != nil {
-		var reply string
+		var result GenerateResult
 		err := c.call(ctx, func(callCtx context.Context) error {
 			var streamErr error
-			reply, streamErr = c.stream(callCtx, msgs, onDelta)
+			result, streamErr = c.streamWithUsage(callCtx, msgs, onDelta)
 			return streamErr
 		})
 		logger.L().Info("ai analysis stream done",
-			zap.String("model", c.model),
-			zap.Bool("stream", true),
-			zap.Int("prompt_chars", promptLen),
-			zap.Int("reply_chars", len([]rune(reply))),
-			zap.Duration("cost", time.Since(start)),
-			zap.Error(err),
+			append(TokenUsageLogFields(result.TokenUsage),
+				zap.String("model", c.model),
+				zap.Bool("stream", true),
+				zap.Int("prompt_chars", promptLen),
+				zap.Int("reply_chars", len([]rune(result.Content))),
+				zap.Duration("cost", time.Since(start)),
+				zap.Error(err),
+			)...,
 		)
-		return reply, err
+		return result, err
 	}
 	var resp *schema.Message
 	err := c.call(ctx, func(callCtx context.Context) error {
@@ -333,19 +581,21 @@ func (c *Client) GenerateApplicationAnalysis(ctx context.Context, input Applicat
 			zap.Duration("cost", time.Since(start)),
 			zap.Error(err),
 		)
-		return "", err
+		return GenerateResult{}, err
 	}
 	if strings.TrimSpace(resp.Content) == "" {
-		return "", NewAIError(AIEmptyReply, "", fmt.Errorf("ai returned empty reply"))
+		return GenerateResult{}, NewAIError(AIEmptyReply, "", fmt.Errorf("ai returned empty reply"))
 	}
 	logger.L().Info("ai analysis call done",
-		zap.String("model", c.model),
-		zap.Bool("stream", false),
-		zap.Int("prompt_chars", promptLen),
-		zap.Int("reply_chars", len([]rune(resp.Content))),
-		zap.Duration("cost", time.Since(start)),
+		append(TokenUsageLogFields(tokenUsageFromMessage(resp)),
+			zap.String("model", c.model),
+			zap.Bool("stream", false),
+			zap.Int("prompt_chars", promptLen),
+			zap.Int("reply_chars", len([]rune(resp.Content))),
+			zap.Duration("cost", time.Since(start)),
+		)...,
 	)
-	return resp.Content, nil
+	return GenerateResult{Content: resp.Content, TokenUsage: tokenUsageFromMessage(resp)}, nil
 }
 
 // GenerateCandidateSuggestedQuestions proposes exactly three safe follow-up
@@ -424,8 +674,12 @@ func parseSuggestedQuestions(content string) []string {
 }
 
 // ToolTraceCallback is invoked after each tool execution for audit/logging.
-// Parameters: toolCallID, toolName, argumentsJSON, resultContent, execErr (nil on success).
-type ToolTraceCallback func(toolCallID, toolName, argsJSON, resultContent string, execErr error)
+// Parameters: toolCallID, toolName, argumentsJSON, resultContent, duration, execErr (nil on success).
+type ToolTraceCallback func(toolCallID, toolName, argsJSON, resultContent string, duration time.Duration, execErr error)
+
+// MessageUpdateCallback is invoked after the in-flight message list changes
+// during a tool-calling loop.
+type MessageUpdateCallback func(messages []*schema.Message, stage string) error
 
 // isContextCanceled returns true when the error is due to context cancellation
 // (user abort or connection drop) vs deadline exceeded (timeout).
@@ -457,6 +711,12 @@ func sendStatus(onStatus func(eventType, eventMessage, errorType, toolName strin
 // onStatus is an optional callback for Phase 4 streaming UX: event_type values are
 // thinking|tool_calling|tool_done|generating|timeout_warning|partial_done|done|error.
 func (c *Client) ChatWithTools(ctx context.Context, messages []*schema.Message, tools []*schema.ToolInfo, executor ToolRunner, hrID int64, onDelta func(string) error, onToolExecuted ToolTraceCallback, onStatus func(eventType, eventMessage, errorType, toolName string) error) (string, ToolMetadata, error) {
+	return c.ChatWithToolsWithMessageCallback(ctx, messages, tools, executor, hrID, onDelta, onToolExecuted, onStatus, nil)
+}
+
+// ChatWithToolsWithMessageCallback is ChatWithTools plus an optional callback
+// fired whenever tool results have been appended to the next LLM input.
+func (c *Client) ChatWithToolsWithMessageCallback(ctx context.Context, messages []*schema.Message, tools []*schema.ToolInfo, executor ToolRunner, hrID int64, onDelta func(string) error, onToolExecuted ToolTraceCallback, onStatus func(eventType, eventMessage, errorType, toolName string) error, onMessagesUpdated MessageUpdateCallback) (string, ToolMetadata, error) {
 	if c.cm == nil {
 		return "", ToolMetadata{}, NewAIError(AIUnavailable, "", fmt.Errorf("ai chat model is nil"))
 	}
@@ -556,6 +816,7 @@ func (c *Client) ChatWithTools(ctx context.Context, messages []*schema.Message, 
 			}
 			return "", metadata, err
 		}
+		metadata.recordModelUsage(tokenUsageFromMessage(resp))
 
 		// LLM decided to call one or more tools.
 		if len(resp.ToolCalls) > 0 {
@@ -607,7 +868,7 @@ func (c *Client) ChatWithTools(ctx context.Context, messages []*schema.Message, 
 					result = ToolResult{Content: string(data)}
 				}
 				if onToolExecuted != nil {
-					onToolExecuted(tc.ID, tc.Function.Name, tc.Function.Arguments, result.Content, execErr)
+					onToolExecuted(tc.ID, tc.Function.Name, tc.Function.Arguments, result.Content, toolCost, execErr)
 				}
 				metadata.merge(result.Metadata)
 				metadata.recordTrace(ToolTrace{
@@ -626,6 +887,11 @@ func (c *Client) ChatWithTools(ctx context.Context, messages []*schema.Message, 
 				)
 			}
 			sendStatus(onStatus, "tool_done", "数据查询完成", "", "")
+			if onMessagesUpdated != nil {
+				if err := onMessagesUpdated(messages, "tool_result"); err != nil {
+					return "", metadata, err
+				}
+			}
 			logger.L().Info("[AI意图] 将工具结果反馈给LLM，继续下一轮...")
 			continue
 		}
@@ -639,10 +905,12 @@ func (c *Client) ChatWithTools(ctx context.Context, messages []*schema.Message, 
 		}
 		sendStatus(onStatus, "done", "回答完成", "", "")
 		logger.L().Info("[AI意图] LLM决定直接回复（不再需要工具）",
-			zap.String("reply", reply),
-			zap.Int("total_rounds", round),
-			zap.Int("reply_chars", len([]rune(reply))),
-			zap.Duration("total_cost", time.Since(start)),
+			append(TokenUsageLogFields(tokenUsageFromMessage(resp)),
+				zap.String("reply", reply),
+				zap.Int("total_rounds", round),
+				zap.Int("reply_chars", len([]rune(reply))),
+				zap.Duration("total_cost", time.Since(start)),
+			)...,
 		)
 		return reply, metadata, nil
 	}
@@ -651,15 +919,17 @@ func (c *Client) ChatWithTools(ctx context.Context, messages []*schema.Message, 
 func (c *Client) finalAnswerWithoutTools(ctx context.Context, messages []*schema.Message, metadata ToolMetadata, onDelta func(string) error, hasOutput func() bool, start time.Time, round int) (string, ToolMetadata, error) {
 	messages = append(messages, schema.SystemMessage("工具调用轮次已达到上限。请停止调用工具，必须仅基于当前对话和已经返回的工具结果直接回答用户；如果信息仍不足，请说明已查询到的信息和需要用户补充的具体条件。"))
 
-	var reply string
+	var result GenerateResult
 	err := c.callStreaming(ctx, func(callCtx context.Context) error {
 		var streamErr error
-		reply, streamErr = c.stream(callCtx, messages, onDelta)
+		result, streamErr = c.streamWithUsage(callCtx, messages, onDelta)
 		return streamErr
 	}, hasOutput)
 	if err != nil {
 		return "", metadata, err
 	}
+	metadata.recordModelUsage(result.TokenUsage)
+	reply := result.Content
 	reply = strings.TrimSpace(reply)
 	if reply == "" {
 		return "", metadata, NewAIError(AIEmptyReply, "", fmt.Errorf("ai returned empty reply after tool round limit"))
@@ -735,6 +1005,28 @@ func (c *Client) streamToolModel(ctx context.Context, toolModel chatmodel.ToolCa
 	return msg, nil
 }
 
+func tokenUsageFromMessage(msg *schema.Message) *schema.TokenUsage {
+	if msg == nil || msg.ResponseMeta == nil || msg.ResponseMeta.Usage == nil {
+		return nil
+	}
+	usage := *msg.ResponseMeta.Usage
+	return &usage
+}
+
+func TokenUsageLogFields(usage *schema.TokenUsage) []zap.Field {
+	if usage == nil {
+		return []zap.Field{zap.Bool("provider_usage_available", false)}
+	}
+	return []zap.Field{
+		zap.Bool("provider_usage_available", true),
+		zap.Int("provider_usage_prompt_tokens", usage.PromptTokens),
+		zap.Int("provider_usage_completion_tokens", usage.CompletionTokens),
+		zap.Int("provider_usage_total_tokens", usage.TotalTokens),
+		zap.Int("provider_usage_cached_tokens", usage.PromptTokenDetails.CachedTokens),
+		zap.Int("provider_usage_reasoning_tokens", usage.CompletionTokensDetails.ReasoningTokens),
+	}
+}
+
 func partialToolStreamMessage(chunks []*schema.Message) (*schema.Message, bool) {
 	if len(chunks) == 0 {
 		return nil, false
@@ -796,14 +1088,23 @@ func (c *Client) GenerateSessionSummary(ctx context.Context, oldSummary string, 
 }
 
 func (c *Client) stream(ctx context.Context, messages []*schema.Message, onDelta func(string) error) (string, error) {
+	result, err := c.streamWithUsage(ctx, messages, onDelta)
+	if err != nil {
+		return result.Content, err
+	}
+	return result.Content, nil
+}
+
+func (c *Client) streamWithUsage(ctx context.Context, messages []*schema.Message, onDelta func(string) error) (GenerateResult, error) {
 	streamStart := time.Now()
 	stream, err := c.cm.Stream(ctx, messages)
 	if err != nil {
-		return "", err
+		return GenerateResult{}, err
 	}
 	defer stream.Close()
 
 	var builder strings.Builder
+	chunks := make([]*schema.Message, 0, 16)
 	chunkCount := 0
 	firstChunkAt := time.Time{}
 	for {
@@ -812,9 +1113,13 @@ func (c *Client) stream(ctx context.Context, messages []*schema.Message, onDelta
 			break
 		}
 		if err != nil {
-			return builder.String(), err
+			return GenerateResult{Content: builder.String()}, err
 		}
-		if chunk == nil || chunk.Content == "" {
+		if chunk == nil {
+			continue
+		}
+		chunks = append(chunks, chunk)
+		if chunk.Content == "" {
 			continue
 		}
 		if firstChunkAt.IsZero() {
@@ -824,24 +1129,30 @@ func (c *Client) stream(ctx context.Context, messages []*schema.Message, onDelta
 		builder.WriteString(chunk.Content)
 		if onDelta != nil {
 			if err := onDelta(chunk.Content); err != nil {
-				return builder.String(), err
+				return GenerateResult{Content: builder.String()}, err
 			}
 		}
 	}
 	reply := builder.String()
 	if strings.TrimSpace(reply) == "" {
-		return "", NewAIError(AIEmptyReply, "", fmt.Errorf("ai returned empty reply"))
+		return GenerateResult{}, NewAIError(AIEmptyReply, "", fmt.Errorf("ai returned empty reply"))
+	}
+	var usage *schema.TokenUsage
+	if msg, err := schema.ConcatMessages(chunks); err == nil {
+		usage = tokenUsageFromMessage(msg)
 	}
 	ttfb := time.Duration(0)
 	if !firstChunkAt.IsZero() {
 		ttfb = firstChunkAt.Sub(streamStart)
 	}
 	logger.L().Info("ai stream details",
-		zap.Duration("ttfb", ttfb),
-		zap.Int("chunks", chunkCount),
-		zap.Duration("total_stream_cost", time.Since(streamStart)),
+		append(TokenUsageLogFields(usage),
+			zap.Duration("ttfb", ttfb),
+			zap.Int("chunks", chunkCount),
+			zap.Duration("total_stream_cost", time.Since(streamStart)),
+		)...,
 	)
-	return reply, nil
+	return GenerateResult{Content: reply, TokenUsage: usage}, nil
 }
 
 // msgCharCount estimates total character count across all messages.

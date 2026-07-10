@@ -1,0 +1,8 @@
+{
+  "feature_name": "bailian-embedding-provider",
+  "current_task": "TASK-013",
+  "completed_tasks": ["TASK-001", "TASK-002", "TASK-003", "TASK-004", "TASK-005", "TASK-006", "TASK-007", "TASK-008", "TASK-009", "TASK-010", "TASK-011", "TASK-012", "TASK-013"],
+  "failed_tasks": [],
+  "review_round": 1,
+  "status": "completed"
+}

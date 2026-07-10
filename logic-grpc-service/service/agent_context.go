@@ -35,27 +35,40 @@ type AgentContextInput struct {
 
 // AgentContext holds the assembled context for a single AI request.
 type AgentContext struct {
-	HrID               int64
-	SessionID          int64
-	ApplicationID      int64
-	JobID              int64
-	SessionSummary     string
-	RecentMessages     []model.AIChatHistory
-	LongTermMemories   []model.AIMemory
-	PromptCharEstimate int
-	MemoryCount        int
-	MemoryCharCount    int
-	SummaryCharCount   int
-	MessageCount       int
+	HrID                 int64
+	SessionID            int64
+	ApplicationID        int64
+	JobID                int64
+	SessionSummary       string
+	RecentMessages       []model.AIChatHistory
+	LongTermMemories     []model.AIMemory
+	SystemPromptTemplate string // Raw template content with {{variable}} placeholders from DB
+	PromptCharEstimate   int
+	MemoryCount          int
+	MemoryCharCount      int
+	SummaryCharCount     int
+	MessageCount         int
+	// Category-level character counts for token estimation.
+	SystemPromptCharCount   int
+	RecentMessageCharCount  int
+	CurrentMessageCharCount int
+	MemoryCharCountTotal    int
+	SummaryCharTotal        int
 }
 
 // AgentContextBuilder assembles the prompt context from multiple memory layers.
 type AgentContextBuilder struct {
-	chats     *repository.ChatRepo
-	summaries *repository.SessionSummaryRepo
-	memories  *repository.MemoryRepo
-	ai        *ai.Client
-	cfg       config.Config
+	chats      *repository.ChatRepo
+	summaries  *repository.SessionSummaryRepo
+	memories   *repository.MemoryRepo
+	ai         *ai.Client
+	cfg        config.Config
+	promptRepo *repository.PromptTemplateRepo
+	embeddings *EmbeddingService
+
+	// lastMemoryRankings 记录最近一次 rankMemories 调用的完整打分 breakdown，
+	// 仅供 DebugSemanticRetrieval 路径读取。生产请求不依赖此字段。
+	lastMemoryRankings []RankedMemoryItem
 }
 
 // NewAgentContextBuilder creates a new AgentContextBuilder.
@@ -65,14 +78,23 @@ func NewAgentContextBuilder(
 	memories *repository.MemoryRepo,
 	aiClient *ai.Client,
 	cfg config.Config,
+	promptRepo *repository.PromptTemplateRepo,
 ) *AgentContextBuilder {
 	return &AgentContextBuilder{
-		chats:     chats,
-		summaries: summaries,
-		memories:  memories,
-		ai:        aiClient,
-		cfg:       cfg,
+		chats:      chats,
+		summaries:  summaries,
+		memories:   memories,
+		ai:         aiClient,
+		cfg:        cfg,
+		promptRepo: promptRepo,
 	}
+}
+
+func (b *AgentContextBuilder) WithEmbeddingService(embeddings *EmbeddingService) *AgentContextBuilder {
+	if b != nil {
+		b.embeddings = embeddings
+	}
+	return b
 }
 
 func (b *AgentContextBuilder) recentLimit() int {
@@ -138,15 +160,38 @@ func (b *AgentContextBuilder) Build(ctx context.Context, input AgentContextInput
 		actx.SummaryCharCount = utf8.RuneCountInString(summary.Summary)
 	}
 
+	// Phase 3: System prompt template from DB.
+	if b.promptRepo != nil {
+		tmpl, err := b.promptRepo.GetActiveByAgentType(ctx, "hr_agent", "system")
+		if err == nil && tmpl != nil {
+			actx.SystemPromptTemplate = tmpl.Content
+		}
+	}
+
 	// Phase 4: Long-term memories.
 	memories := b.retrieveMemories(ctx, input)
 	actx.LongTermMemories = memories
 	actx.MemoryCount = len(memories)
+	actx.MemoryCharCountTotal = 0
 	for _, m := range memories {
-		actx.MemoryCharCount += utf8.RuneCountInString(m.Content)
+		mc := utf8.RuneCountInString(m.Content)
+		actx.MemoryCharCount += mc
+		actx.MemoryCharCountTotal += mc
 	}
 
 	// Phase 5: Estimate prompt chars and trim if needed.
+	// Populate category-level character counts.
+	actx.SystemPromptCharCount = 0
+	if actx.SystemPromptTemplate != "" {
+		actx.SystemPromptCharCount = utf8.RuneCountInString(actx.SystemPromptTemplate)
+	}
+	actx.RecentMessageCharCount = 0
+	for _, m := range actx.RecentMessages {
+		actx.RecentMessageCharCount += utf8.RuneCountInString(m.Content)
+	}
+	actx.CurrentMessageCharCount = utf8.RuneCountInString(input.CurrentMessage)
+	actx.SummaryCharTotal = actx.SummaryCharCount
+
 	actx.PromptCharEstimate = b.estimatePromptChars(actx, input.CurrentMessage)
 
 	// Log context budget.
@@ -167,23 +212,13 @@ func (b *AgentContextBuilder) Build(ctx context.Context, input AgentContextInput
 func (b *AgentContextBuilder) retrieveMemories(ctx context.Context, input AgentContextInput) []model.AIMemory {
 	maxChars := b.maxMemoryChars()
 	maxCount := b.maxMemories()
-	var all []model.AIMemory
-
-	// HR-level preferences (scope_type = hr, scope_id = 0).
-	hrMemories, _ := b.memories.ListByHR(ctx, input.HrID, 5)
-	all = append(all, hrMemories...)
-
-	// Job-level memories.
-	if input.JobID > 0 {
-		jobMemories, _ := b.memories.ListRelevant(ctx, input.HrID, "job", input.JobID, nil, 3)
-		all = append(all, jobMemories...)
+	scopes := memoryRecallScopes(input)
+	all, err := b.memories.ListRecallCandidates(ctx, input.HrID, scopes, nil, maxCount*4)
+	if err != nil {
+		logger.L().Warn("retrieve memories failed", zap.Error(err), zap.Int64("hr_id", input.HrID))
+		return nil
 	}
-
-	// Application-level memories.
-	if input.ApplicationID > 0 {
-		appMemories, _ := b.memories.ListRelevant(ctx, input.HrID, "application", input.ApplicationID, nil, 3)
-		all = append(all, appMemories...)
-	}
+	all = b.rankMemories(ctx, input, all)
 
 	// Trim to budget: max count and max total chars.
 	result := make([]model.AIMemory, 0, maxCount)
@@ -202,9 +237,99 @@ func (b *AgentContextBuilder) retrieveMemories(ctx context.Context, input AgentC
 	return result
 }
 
+func memoryRecallScopes(input AgentContextInput) []repository.MemoryRecallScope {
+	scopes := []repository.MemoryRecallScope{{ScopeType: "hr", ScopeID: 0}}
+	if input.JobID > 0 {
+		scopes = append(scopes, repository.MemoryRecallScope{ScopeType: "job", ScopeID: uint64(input.JobID)})
+	}
+	if input.ApplicationID > 0 {
+		scopes = append(scopes, repository.MemoryRecallScope{ScopeType: "application", ScopeID: uint64(input.ApplicationID)})
+	}
+	return scopes
+}
+
+func (b *AgentContextBuilder) rankMemories(ctx context.Context, input AgentContextInput, memories []model.AIMemory) []model.AIMemory {
+	if len(memories) == 0 {
+		return memories
+	}
+	semanticScores := b.semanticMemoryScores(ctx, input, memories)
+	embeddingAvailable := b.embeddings != nil
+	items := RankMemoryCandidates(input.CurrentMessage, memories, input, semanticScores, embeddingAvailable)
+	b.lastMemoryRankings = items
+	out := make([]model.AIMemory, 0, len(items))
+	for _, item := range items {
+		out = append(out, item.Memory)
+	}
+	return out
+}
+
+func (b *AgentContextBuilder) semanticMemoryScores(ctx context.Context, input AgentContextInput, memories []model.AIMemory) map[uint64]float64 {
+	if b.embeddings == nil || strings.TrimSpace(input.CurrentMessage) == "" {
+		return nil
+	}
+	memoryIDs := make([]uint64, 0, len(memories))
+	for _, memory := range memories {
+		if memory.ID > 0 {
+			memoryIDs = append(memoryIDs, memory.ID)
+		}
+	}
+	results, err := b.embeddings.SearchObjects(ctx, EmbeddingObjectSearchInput{
+		QueryText:  input.CurrentMessage,
+		ObjectType: "ai_memory",
+		ObjectIDs:  memoryIDs,
+		Limit:      len(memories),
+	})
+	if err != nil {
+		return nil
+	}
+	allowed := make(map[uint64]bool, len(memories))
+	for _, memory := range memories {
+		allowed[memory.ID] = true
+	}
+	scores := make(map[uint64]float64, len(results))
+	for _, result := range results {
+		if result.Embedding.ObjectType != "ai_memory" || !allowed[result.Embedding.ObjectID] {
+			continue
+		}
+		scores[result.Embedding.ObjectID] = result.Score
+	}
+	return scores
+}
+
+func memoryBaseRecallScore(memory model.AIMemory, input AgentContextInput) float64 {
+	score := memory.Importance*20 + memory.Confidence*10
+	switch {
+	case memory.ScopeType == "application" && input.ApplicationID > 0 && memory.ScopeID == uint64(input.ApplicationID):
+		score += 12
+	case memory.ScopeType == "job" && input.JobID > 0 && memory.ScopeID == uint64(input.JobID):
+		score += 8
+	case memory.ScopeType == "hr":
+		score += 4
+	}
+	return score
+}
+
+func keywordMemoryScore(query, content string) float64 {
+	queryTokens := tokenizeAgentSkillText(query)
+	if len(queryTokens) == 0 {
+		return 0
+	}
+	contentTokens := tokenizeAgentSkillText(content)
+	var score float64
+	for token := range queryTokens {
+		if weight, ok := contentTokens[token]; ok {
+			score += float64(weight)
+		}
+	}
+	return score
+}
+
 // estimatePromptChars provides a rough estimate of the total prompt characters.
 func (b *AgentContextBuilder) estimatePromptChars(actx *AgentContext, currentMsg string) int {
 	n := 2000 // Base system prompt overhead (rules, identity, tool descriptions).
+	if actx.SystemPromptTemplate != "" {
+		n = utf8.RuneCountInString(actx.SystemPromptTemplate)
+	}
 	n += utf8.RuneCountInString(actx.SessionSummary)
 	n += utf8.RuneCountInString(currentMsg)
 	for _, m := range actx.RecentMessages {

@@ -1,0 +1,81 @@
+{
+  "feature_name": "agent-skill-review-fixes",
+  "tasks": {
+    "TASK-001": {
+      "title": "Fix retry Skill confirmation handling",
+      "status": "completed",
+      "allowedFiles": [
+        "hr-frontend/src/views/hr/AIChatView.vue",
+        "hr-frontend/src/views/hr/AIChatView.test.ts",
+        "hr-frontend/src/views/hr/__tests__/AIChatView.test.ts",
+        ".spec/agent-skill-review-fixes/reports/TASK-001-report.md"
+      ],
+      "forbiddenFiles": [
+        "logic-grpc-service/**",
+        "web-gin-service/**",
+        "**/proto/**",
+        "**/recruitment/pb/**",
+        "package.json",
+        "pnpm-lock.yaml"
+      ],
+      "requiresHumanConfirmation": false,
+      "allowedActions": ["modify", "create", "test"],
+      "acceptance": ".spec/agent-skill-review-fixes/acceptance/TASK-001.md",
+      "report": ".spec/agent-skill-review-fixes/reports/TASK-001-report.md",
+      "notes": ["Keep stream handling changes local to AIChatView.vue."]
+    },
+    "TASK-002": {
+      "title": "Make single Skill embedding regeneration deterministic",
+      "status": "completed",
+      "allowedFiles": [
+        "logic-grpc-service/service/embedding_backfill_service.go",
+        "logic-grpc-service/service/embedding_backfill_service_test.go",
+        "logic-grpc-service/service/embedding_service_test.go",
+        "hr-frontend/src/views/hr/admin/AgentSkillManageView.vue",
+        "hr-frontend/src/api/agentSkill.ts",
+        ".spec/agent-skill-review-fixes/reports/TASK-002-report.md"
+      ],
+      "forbiddenFiles": [
+        "logic-grpc-service/proto/**",
+        "logic-grpc-service/recruitment/pb/**",
+        "web-gin-service/proto/**",
+        "web-gin-service/recruitment/pb/**",
+        "db.sql",
+        "deploy/**",
+        "docker/**",
+        "package.json",
+        "pnpm-lock.yaml"
+      ],
+      "requiresHumanConfirmation": false,
+      "allowedActions": ["modify", "create", "test"],
+      "acceptance": ".spec/agent-skill-review-fixes/acceptance/TASK-002.md",
+      "report": ".spec/agent-skill-review-fixes/reports/TASK-002-report.md",
+      "notes": ["Prefer existing response fields; stop before protobuf changes."]
+    },
+    "TASK-003": {
+      "title": "Make semantic debug metadata request-local",
+      "status": "completed",
+      "allowedFiles": [
+        "logic-grpc-service/service/embedding_service.go",
+        "logic-grpc-service/service/embedding_service_test.go",
+        "logic-grpc-service/service/agent_skill_service.go",
+        "logic-grpc-service/service/agent_skill_service_test.go",
+        ".spec/agent-skill-review-fixes/reports/TASK-003-report.md"
+      ],
+      "forbiddenFiles": [
+        "logic-grpc-service/proto/**",
+        "logic-grpc-service/recruitment/pb/**",
+        "web-gin-service/**",
+        "hr-frontend/**",
+        "db.sql",
+        "package.json",
+        "pnpm-lock.yaml"
+      ],
+      "requiresHumanConfirmation": false,
+      "allowedActions": ["modify", "create", "test"],
+      "acceptance": ".spec/agent-skill-review-fixes/acceptance/TASK-003.md",
+      "report": ".spec/agent-skill-review-fixes/reports/TASK-003-report.md",
+      "notes": ["Use request-local metadata; do not rely on LastSearchMeta for response accuracy."]
+    }
+  }
+}

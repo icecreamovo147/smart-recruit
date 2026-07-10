@@ -7,6 +7,8 @@ import (
 	"time"
 
 	"gopkg.in/yaml.v3"
+
+	"logic-grpc-service/pkg/logger"
 )
 
 type Password string
@@ -57,7 +59,8 @@ type Config struct {
 	GRPC struct {
 		Port int `yaml:"port"`
 	} `yaml:"grpc"`
-	Redis struct {
+	Logging logger.LogConfig `yaml:"logging"`
+	Redis   struct {
 		Addr         string   `yaml:"addr"`
 		Password     string   `yaml:"password"`
 		DB           int      `yaml:"db"`
@@ -73,6 +76,20 @@ type Config struct {
 		MaxMemoryChars         int `yaml:"max_memory_chars"`
 		MaxPromptChars         int `yaml:"max_prompt_chars"`
 		MaxMemories            int `yaml:"max_memories"`
+		Features               struct {
+			Planner                  *bool    `yaml:"planner"`
+			StructuredResumeParse    *bool    `yaml:"structured_resume_parse"`
+			CandidateMatch           *bool    `yaml:"candidate_match"`
+			CandidateMatchSemantic   *bool    `yaml:"candidate_match_semantic"`
+			CandidateMatchShadow     *bool    `yaml:"candidate_match_shadow"`
+			SkillGovernance          *bool    `yaml:"skill_governance"`
+			SemanticRetrieval        *bool    `yaml:"semantic_retrieval"`
+			MCPPolicy                *bool    `yaml:"mcp_policy"`
+			Fallbacks                *bool    `yaml:"fallbacks"`
+			ResumeParseTimeout       Duration `yaml:"resume_parse_timeout"`
+			CandidateMatchTimeout    Duration `yaml:"candidate_match_timeout"`
+			SemanticRetrievalTimeout Duration `yaml:"semantic_retrieval_timeout"`
+		} `yaml:"features"`
 	} `yaml:"agent"`
 	RabbitMQ struct {
 		URL               string   `yaml:"url"`
@@ -82,6 +99,7 @@ type Config struct {
 		NotificationQueue string   `yaml:"notification_queue"`
 		ResumeParseQueue  string   `yaml:"resume_parse_queue"`
 		EmailQueue        string   `yaml:"email_queue"`
+		EmbeddingQueue    string   `yaml:"embedding_queue"`
 		PrefetchCount     int      `yaml:"prefetch_count"`
 		MaxRetries        int      `yaml:"max_retries"`
 		RetryDelay        Duration `yaml:"retry_delay"`
@@ -98,6 +116,43 @@ type Config struct {
 		Required    bool     `yaml:"required"`
 	} `yaml:"smtp"`
 	FrontendBaseURL string `yaml:"frontend_base_url"`
+	MCP             struct {
+		DefaultTimeoutSeconds int      `yaml:"default_timeout_seconds"`
+		DefaultMaxRetries     int      `yaml:"default_max_retries"`
+		AllowStdio            bool     `yaml:"allow_stdio"`
+		AllowedStdioCommands  []string `yaml:"allowed_stdio_commands"`
+		AllowedURLHosts       []string `yaml:"allowed_url_hosts"`
+		BlockPrivateNetwork   *bool    `yaml:"block_private_network"`
+		MaxTimeoutSeconds     int      `yaml:"max_timeout_seconds"`
+	} `yaml:"mcp"`
+	Embedding struct {
+		Enabled                 *bool    `yaml:"enabled"`
+		DefaultModelID          int64    `yaml:"default_model_id"`
+		FallbackToRuleRetrieval *bool    `yaml:"fallback_to_rule_retrieval"`
+		RequestTimeout          Duration `yaml:"request_timeout"`
+		MaxConcurrency          int      `yaml:"max_concurrency"`
+		SlowRequestThreshold    Duration `yaml:"slow_request_threshold"`
+	} `yaml:"embedding"`
+	// TASK-FU-004：Skill / Memory 混合打分权重与阈值。
+	// 默认值与 SDD §3.3 完全一致；空值时回退到 hardcode。
+	Ranking Ranking `yaml:"ranking"`
+}
+
+// Ranking 描述 Skill / Memory 召回排序的可调权重与阈值。
+// TASK-FU-004 引入；所有字段都是 additive，空值不覆盖。
+// 通过 env 变量 RANKING_<NAME> 启动时覆盖；通过 yaml 段 ranking.<field> 配置。
+type Ranking struct {
+	WeightVector     float64 `yaml:"weight_vector"`
+	WeightLexical    float64 `yaml:"weight_lexical"`
+	WeightMetadata   float64 `yaml:"weight_metadata"`
+	BusinessBoostMax float64 `yaml:"business_boost_max"`
+	PriorityNorm     float64 `yaml:"priority_norm"`
+	BoostAlpha       float64 `yaml:"boost_alpha"`
+	BoostBeta        float64 `yaml:"boost_beta"`
+	BoostGamma       float64 `yaml:"boost_gamma"`
+	RelevanceGate    float64 `yaml:"relevance_gate"`
+	GapHigh          float64 `yaml:"gap_high"`
+	GapMedium        float64 `yaml:"gap_medium"`
 }
 
 func Load() (Config, error) {
@@ -125,6 +180,24 @@ func Load() (Config, error) {
 	applyEnvOverrides(&cfg)
 	if cfg.GRPC.Port == 0 {
 		cfg.GRPC.Port = 50051
+	}
+	if cfg.Logging.Level == "" {
+		cfg.Logging.Level = "info"
+	}
+	if cfg.Logging.FilePath == "" {
+		cfg.Logging.FilePath = "logs/logic-grpc-service.log"
+	}
+	if cfg.Logging.MaxSizeMB <= 0 {
+		cfg.Logging.MaxSizeMB = 100
+	}
+	if cfg.Logging.MaxBackups <= 0 {
+		cfg.Logging.MaxBackups = 3
+	}
+	if cfg.Logging.MaxAgeDays <= 0 {
+		cfg.Logging.MaxAgeDays = 28
+	}
+	if cfg.Logging.Gorm.SlowThresholdMS <= 0 {
+		cfg.Logging.Gorm.SlowThresholdMS = 200
 	}
 	if cfg.JWT.Secret == "" {
 		cfg.JWT.Secret = os.Getenv("JWT_SECRET")
@@ -210,6 +283,24 @@ func Load() (Config, error) {
 	if cfg.Agent.MaxMemories <= 0 {
 		cfg.Agent.MaxMemories = 10
 	}
+	defaultBool(&cfg.Agent.Features.Planner, true)
+	defaultBool(&cfg.Agent.Features.StructuredResumeParse, true)
+	defaultBool(&cfg.Agent.Features.CandidateMatch, true)
+	defaultBool(&cfg.Agent.Features.CandidateMatchSemantic, true)
+	defaultBool(&cfg.Agent.Features.CandidateMatchShadow, false)
+	defaultBool(&cfg.Agent.Features.SkillGovernance, true)
+	defaultBool(&cfg.Agent.Features.SemanticRetrieval, true)
+	defaultBool(&cfg.Agent.Features.MCPPolicy, true)
+	defaultBool(&cfg.Agent.Features.Fallbacks, true)
+	if cfg.Agent.Features.ResumeParseTimeout.Duration <= 0 {
+		cfg.Agent.Features.ResumeParseTimeout.Duration = 30 * time.Second
+	}
+	if cfg.Agent.Features.CandidateMatchTimeout.Duration <= 0 {
+		cfg.Agent.Features.CandidateMatchTimeout.Duration = 15 * time.Second
+	}
+	if cfg.Agent.Features.SemanticRetrievalTimeout.Duration <= 0 {
+		cfg.Agent.Features.SemanticRetrievalTimeout.Duration = 5 * time.Second
+	}
 	if cfg.RabbitMQ.URL == "" {
 		cfg.RabbitMQ.URL = "amqp://guest:guest@127.0.0.1:5672/"
 	}
@@ -230,6 +321,9 @@ func Load() (Config, error) {
 	}
 	if cfg.RabbitMQ.ResumeParseQueue == "" {
 		cfg.RabbitMQ.ResumeParseQueue = "recruitment.resume.parse"
+	}
+	if cfg.RabbitMQ.EmbeddingQueue == "" {
+		cfg.RabbitMQ.EmbeddingQueue = "recruitment.embedding.upsert"
 	}
 	if cfg.RabbitMQ.PrefetchCount <= 0 {
 		cfg.RabbitMQ.PrefetchCount = 10
@@ -254,6 +348,36 @@ func Load() (Config, error) {
 	}
 	if cfg.RabbitMQ.ReconnectInterval.Duration <= 0 {
 		cfg.RabbitMQ.ReconnectInterval.Duration = 3 * time.Second
+	}
+	if cfg.MCP.DefaultTimeoutSeconds <= 0 {
+		cfg.MCP.DefaultTimeoutSeconds = 30
+	}
+	if cfg.MCP.DefaultMaxRetries <= 0 {
+		cfg.MCP.DefaultMaxRetries = 1
+	}
+	if cfg.MCP.MaxTimeoutSeconds <= 0 {
+		cfg.MCP.MaxTimeoutSeconds = 120
+	}
+	if cfg.MCP.AllowedStdioCommands == nil {
+		cfg.MCP.AllowedStdioCommands = []string{"npx", "node"}
+	}
+	if cfg.MCP.AllowedURLHosts == nil {
+		cfg.MCP.AllowedURLHosts = []string{}
+	}
+	if cfg.MCP.BlockPrivateNetwork == nil {
+		v := true
+		cfg.MCP.BlockPrivateNetwork = &v
+	}
+	defaultBool(&cfg.Embedding.Enabled, true)
+	defaultBool(&cfg.Embedding.FallbackToRuleRetrieval, true)
+	if cfg.Embedding.MaxConcurrency <= 0 {
+		cfg.Embedding.MaxConcurrency = 8
+	}
+	if cfg.Embedding.RequestTimeout.Duration <= 0 {
+		cfg.Embedding.RequestTimeout.Duration = 30 * time.Second
+	}
+	if cfg.Embedding.SlowRequestThreshold.Duration <= 0 {
+		cfg.Embedding.SlowRequestThreshold.Duration = 2 * time.Second
 	}
 	return cfg, nil
 }
@@ -291,6 +415,19 @@ func applyEnvOverrides(cfg *Config) {
 	setString(&cfg.JWT.Secret, "JWT_SECRET")
 	setInt(&cfg.GRPC.Port, "GRPC_PORT")
 
+	setString(&cfg.Logging.Level, "LOG_LEVEL")
+	setString(&cfg.Logging.Format, "LOG_FORMAT")
+	setBool(&cfg.Logging.EnableFile, "LOG_ENABLE_FILE")
+	setString(&cfg.Logging.FilePath, "LOG_FILE_PATH")
+	setInt(&cfg.Logging.MaxSizeMB, "LOG_MAX_SIZE_MB")
+	setInt(&cfg.Logging.MaxBackups, "LOG_MAX_BACKUPS")
+	setInt(&cfg.Logging.MaxAgeDays, "LOG_MAX_AGE_DAYS")
+	setBool(&cfg.Logging.Compress, "LOG_COMPRESS")
+	setBool(&cfg.Logging.EnableConsole, "LOG_ENABLE_CONSOLE")
+	setBool(&cfg.Logging.Gorm.EnableSQLLog, "GORM_ENABLE_SQL_LOG")
+	setInt(&cfg.Logging.Gorm.SlowThresholdMS, "GORM_SLOW_THRESHOLD_MS")
+	setBool(&cfg.Logging.Gorm.IgnoreRecordNotFoundError, "GORM_IGNORE_NOT_FOUND")
+
 	setString(&cfg.Redis.Addr, "REDIS_ADDR")
 	setString(&cfg.Redis.Password, "REDIS_PASSWORD")
 	setInt(&cfg.Redis.DB, "REDIS_DB")
@@ -305,6 +442,18 @@ func applyEnvOverrides(cfg *Config) {
 	setInt(&cfg.Agent.MaxMemoryChars, "AGENT_MAX_MEMORY_CHARS")
 	setInt(&cfg.Agent.MaxPromptChars, "AGENT_MAX_PROMPT_CHARS")
 	setInt(&cfg.Agent.MaxMemories, "AGENT_MAX_MEMORIES")
+	setBoolPtr(&cfg.Agent.Features.Planner, "AGENT_FEATURE_PLANNER")
+	setBoolPtr(&cfg.Agent.Features.StructuredResumeParse, "AGENT_FEATURE_STRUCTURED_RESUME_PARSE")
+	setBoolPtr(&cfg.Agent.Features.CandidateMatch, "AGENT_FEATURE_CANDIDATE_MATCH")
+	setBoolPtr(&cfg.Agent.Features.CandidateMatchSemantic, "AGENT_FEATURE_CANDIDATE_MATCH_SEMANTIC")
+	setBoolPtr(&cfg.Agent.Features.CandidateMatchShadow, "AGENT_FEATURE_CANDIDATE_MATCH_SHADOW")
+	setBoolPtr(&cfg.Agent.Features.SkillGovernance, "AGENT_FEATURE_SKILL_GOVERNANCE")
+	setBoolPtr(&cfg.Agent.Features.SemanticRetrieval, "AGENT_FEATURE_SEMANTIC_RETRIEVAL")
+	setBoolPtr(&cfg.Agent.Features.MCPPolicy, "AGENT_FEATURE_MCP_POLICY")
+	setBoolPtr(&cfg.Agent.Features.Fallbacks, "AGENT_FEATURE_FALLBACKS")
+	setDuration(&cfg.Agent.Features.ResumeParseTimeout, "AGENT_RESUME_PARSE_TIMEOUT")
+	setDuration(&cfg.Agent.Features.CandidateMatchTimeout, "AGENT_CANDIDATE_MATCH_TIMEOUT")
+	setDuration(&cfg.Agent.Features.SemanticRetrievalTimeout, "AGENT_SEMANTIC_RETRIEVAL_TIMEOUT")
 
 	setString(&cfg.SMTP.Host, "SMTP_HOST")
 	setInt(&cfg.SMTP.Port, "SMTP_PORT")
@@ -327,10 +476,31 @@ func applyEnvOverrides(cfg *Config) {
 	setString(&cfg.RabbitMQ.NotificationQueue, "RABBITMQ_NOTIFICATION_QUEUE")
 	setString(&cfg.RabbitMQ.ResumeParseQueue, "RABBITMQ_RESUME_PARSE_QUEUE")
 	setString(&cfg.RabbitMQ.EmailQueue, "RABBITMQ_EMAIL_QUEUE")
+	setString(&cfg.RabbitMQ.EmbeddingQueue, "RABBITMQ_EMBEDDING_QUEUE")
 	setInt(&cfg.RabbitMQ.PrefetchCount, "RABBITMQ_PREFETCH_COUNT")
 	setInt(&cfg.RabbitMQ.MaxRetries, "RABBITMQ_MAX_RETRIES")
 	setDuration(&cfg.RabbitMQ.RetryDelay, "RABBITMQ_RETRY_DELAY")
 	setDuration(&cfg.RabbitMQ.ReconnectInterval, "RABBITMQ_RECONNECT_INTERVAL")
+
+	setBoolPtr(&cfg.Embedding.Enabled, "EMBEDDING_ENABLED")
+	setInt64(&cfg.Embedding.DefaultModelID, "EMBEDDING_DEFAULT_MODEL_ID")
+	setBoolPtr(&cfg.Embedding.FallbackToRuleRetrieval, "EMBEDDING_FALLBACK_TO_RULE_RETRIEVAL")
+	setDuration(&cfg.Embedding.RequestTimeout, "EMBEDDING_REQUEST_TIMEOUT")
+	setInt(&cfg.Embedding.MaxConcurrency, "EMBEDDING_MAX_CONCURRENCY")
+	setDuration(&cfg.Embedding.SlowRequestThreshold, "EMBEDDING_SLOW_REQUEST_THRESHOLD")
+
+	// TASK-FU-004：ranking 权重 / 阈值 env 覆盖
+	setFloat64(&cfg.Ranking.WeightVector, "RANKING_WEIGHT_VECTOR")
+	setFloat64(&cfg.Ranking.WeightLexical, "RANKING_WEIGHT_LEXICAL")
+	setFloat64(&cfg.Ranking.WeightMetadata, "RANKING_WEIGHT_METADATA")
+	setFloat64(&cfg.Ranking.BusinessBoostMax, "RANKING_BUSINESS_BOOST_MAX")
+	setFloat64(&cfg.Ranking.PriorityNorm, "RANKING_PRIORITY_NORM")
+	setFloat64(&cfg.Ranking.BoostAlpha, "RANKING_BOOST_ALPHA")
+	setFloat64(&cfg.Ranking.BoostBeta, "RANKING_BOOST_BETA")
+	setFloat64(&cfg.Ranking.BoostGamma, "RANKING_BOOST_GAMMA")
+	setFloat64(&cfg.Ranking.RelevanceGate, "RANKING_RELEVANCE_GATE")
+	setFloat64(&cfg.Ranking.GapHigh, "RANKING_GAP_HIGH")
+	setFloat64(&cfg.Ranking.GapMedium, "RANKING_GAP_MEDIUM")
 }
 
 func setString(target *string, key string) {
@@ -347,11 +517,51 @@ func setInt(target *int, key string) {
 	}
 }
 
+// setFloat64 TASK-FU-004 引入：用于 RANKING_* 权重覆盖。
+// 非数字 env 值不修改 target（保持空值，由调用方用 hardcode 默认填充）。
+func setFloat64(target *float64, key string) {
+	if value := os.Getenv(key); value != "" {
+		if parsed, err := strconv.ParseFloat(value, 64); err == nil {
+			*target = parsed
+		}
+	}
+}
+
+func setInt64(target *int64, key string) {
+	if value := os.Getenv(key); value != "" {
+		if parsed, err := strconv.ParseInt(value, 10, 64); err == nil {
+			*target = parsed
+		}
+	}
+}
+
 func setDuration(target *Duration, key string) {
 	if value := os.Getenv(key); value != "" {
 		if parsed, err := time.ParseDuration(value); err == nil {
 			target.Duration = parsed
 		}
+	}
+}
+
+func setBool(target *bool, key string) {
+	if value := os.Getenv(key); value != "" {
+		if parsed, err := strconv.ParseBool(value); err == nil {
+			*target = parsed
+		}
+	}
+}
+
+func setBoolPtr(target **bool, key string) {
+	if value := os.Getenv(key); value != "" {
+		if parsed, err := strconv.ParseBool(value); err == nil {
+			*target = &parsed
+		}
+	}
+}
+
+func defaultBool(target **bool, value bool) {
+	if *target == nil {
+		*target = &value
 	}
 }
 

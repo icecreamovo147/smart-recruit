@@ -2018,6 +2018,8 @@ const (
 	AIService_CandidateSessionMessages_FullMethodName         = "/recruitment.AIService/CandidateSessionMessages"
 	AIService_CandidateUpdateSession_FullMethodName           = "/recruitment.AIService/CandidateUpdateSession"
 	AIService_CandidateDeleteSession_FullMethodName           = "/recruitment.AIService/CandidateDeleteSession"
+	AIService_GetToolTraces_FullMethodName                    = "/recruitment.AIService/GetToolTraces"
+	AIService_GetAgentRuns_FullMethodName                     = "/recruitment.AIService/GetAgentRuns"
 )
 
 // AIServiceClient is the client API for AIService service.
@@ -2041,6 +2043,9 @@ type AIServiceClient interface {
 	CandidateSessionMessages(ctx context.Context, in *CandidateSessionMessagesRequest, opts ...grpc.CallOption) (*ChatHistoryResponse, error)
 	CandidateUpdateSession(ctx context.Context, in *CandidateUpdateSessionRequest, opts ...grpc.CallOption) (*CommonResponse, error)
 	CandidateDeleteSession(ctx context.Context, in *CandidateDeleteSessionRequest, opts ...grpc.CallOption) (*CommonResponse, error)
+	// Agent tool call trace query
+	GetToolTraces(ctx context.Context, in *GetToolTracesRequest, opts ...grpc.CallOption) (*GetToolTracesResponse, error)
+	GetAgentRuns(ctx context.Context, in *GetAgentRunsRequest, opts ...grpc.CallOption) (*GetAgentRunsResponse, error)
 }
 
 type aIServiceClient struct {
@@ -2229,6 +2234,26 @@ func (c *aIServiceClient) CandidateDeleteSession(ctx context.Context, in *Candid
 	return out, nil
 }
 
+func (c *aIServiceClient) GetToolTraces(ctx context.Context, in *GetToolTracesRequest, opts ...grpc.CallOption) (*GetToolTracesResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(GetToolTracesResponse)
+	err := c.cc.Invoke(ctx, AIService_GetToolTraces_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *aIServiceClient) GetAgentRuns(ctx context.Context, in *GetAgentRunsRequest, opts ...grpc.CallOption) (*GetAgentRunsResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(GetAgentRunsResponse)
+	err := c.cc.Invoke(ctx, AIService_GetAgentRuns_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // AIServiceServer is the server API for AIService service.
 // All implementations must embed UnimplementedAIServiceServer
 // for forward compatibility.
@@ -2250,6 +2275,9 @@ type AIServiceServer interface {
 	CandidateSessionMessages(context.Context, *CandidateSessionMessagesRequest) (*ChatHistoryResponse, error)
 	CandidateUpdateSession(context.Context, *CandidateUpdateSessionRequest) (*CommonResponse, error)
 	CandidateDeleteSession(context.Context, *CandidateDeleteSessionRequest) (*CommonResponse, error)
+	// Agent tool call trace query
+	GetToolTraces(context.Context, *GetToolTracesRequest) (*GetToolTracesResponse, error)
+	GetAgentRuns(context.Context, *GetAgentRunsRequest) (*GetAgentRunsResponse, error)
 	mustEmbedUnimplementedAIServiceServer()
 }
 
@@ -2307,6 +2335,12 @@ func (UnimplementedAIServiceServer) CandidateUpdateSession(context.Context, *Can
 }
 func (UnimplementedAIServiceServer) CandidateDeleteSession(context.Context, *CandidateDeleteSessionRequest) (*CommonResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method CandidateDeleteSession not implemented")
+}
+func (UnimplementedAIServiceServer) GetToolTraces(context.Context, *GetToolTracesRequest) (*GetToolTracesResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method GetToolTraces not implemented")
+}
+func (UnimplementedAIServiceServer) GetAgentRuns(context.Context, *GetAgentRunsRequest) (*GetAgentRunsResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method GetAgentRuns not implemented")
 }
 func (UnimplementedAIServiceServer) mustEmbedUnimplementedAIServiceServer() {}
 func (UnimplementedAIServiceServer) testEmbeddedByValue()                   {}
@@ -2603,6 +2637,42 @@ func _AIService_CandidateDeleteSession_Handler(srv interface{}, ctx context.Cont
 	return interceptor(ctx, in, info, handler)
 }
 
+func _AIService_GetToolTraces_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetToolTracesRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(AIServiceServer).GetToolTraces(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: AIService_GetToolTraces_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(AIServiceServer).GetToolTraces(ctx, req.(*GetToolTracesRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _AIService_GetAgentRuns_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetAgentRunsRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(AIServiceServer).GetAgentRuns(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: AIService_GetAgentRuns_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(AIServiceServer).GetAgentRuns(ctx, req.(*GetAgentRunsRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // AIService_ServiceDesc is the grpc.ServiceDesc for AIService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -2665,6 +2735,14 @@ var AIService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "CandidateDeleteSession",
 			Handler:    _AIService_CandidateDeleteSession_Handler,
+		},
+		{
+			MethodName: "GetToolTraces",
+			Handler:    _AIService_GetToolTraces_Handler,
+		},
+		{
+			MethodName: "GetAgentRuns",
+			Handler:    _AIService_GetAgentRuns_Handler,
 		},
 	},
 	Streams: []grpc.StreamDesc{
@@ -3161,6 +3239,8 @@ const (
 	AdminService_GetFunnelReport_FullMethodName                = "/recruitment.AdminService/GetFunnelReport"
 	AdminService_GetTimeInStageReport_FullMethodName           = "/recruitment.AdminService/GetTimeInStageReport"
 	AdminService_GetInterviewOfferMetrics_FullMethodName       = "/recruitment.AdminService/GetInterviewOfferMetrics"
+	AdminService_GetUsageStats_FullMethodName                  = "/recruitment.AdminService/GetUsageStats"
+	AdminService_GetUsageTrend_FullMethodName                  = "/recruitment.AdminService/GetUsageTrend"
 )
 
 // AdminServiceClient is the client API for AdminService service.
@@ -3204,6 +3284,9 @@ type AdminServiceClient interface {
 	GetFunnelReport(ctx context.Context, in *GetFunnelReportRequest, opts ...grpc.CallOption) (*GetFunnelReportResponse, error)
 	GetTimeInStageReport(ctx context.Context, in *GetTimeInStageReportRequest, opts ...grpc.CallOption) (*GetTimeInStageReportResponse, error)
 	GetInterviewOfferMetrics(ctx context.Context, in *GetInterviewOfferMetricsRequest, opts ...grpc.CallOption) (*GetInterviewOfferMetricsResponse, error)
+	// P1-003: AI usage statistics & trend
+	GetUsageStats(ctx context.Context, in *GetUsageStatsRequest, opts ...grpc.CallOption) (*GetUsageStatsResponse, error)
+	GetUsageTrend(ctx context.Context, in *GetUsageTrendRequest, opts ...grpc.CallOption) (*GetUsageTrendResponse, error)
 }
 
 type adminServiceClient struct {
@@ -3554,6 +3637,26 @@ func (c *adminServiceClient) GetInterviewOfferMetrics(ctx context.Context, in *G
 	return out, nil
 }
 
+func (c *adminServiceClient) GetUsageStats(ctx context.Context, in *GetUsageStatsRequest, opts ...grpc.CallOption) (*GetUsageStatsResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(GetUsageStatsResponse)
+	err := c.cc.Invoke(ctx, AdminService_GetUsageStats_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *adminServiceClient) GetUsageTrend(ctx context.Context, in *GetUsageTrendRequest, opts ...grpc.CallOption) (*GetUsageTrendResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(GetUsageTrendResponse)
+	err := c.cc.Invoke(ctx, AdminService_GetUsageTrend_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // AdminServiceServer is the server API for AdminService service.
 // All implementations must embed UnimplementedAdminServiceServer
 // for forward compatibility.
@@ -3595,6 +3698,9 @@ type AdminServiceServer interface {
 	GetFunnelReport(context.Context, *GetFunnelReportRequest) (*GetFunnelReportResponse, error)
 	GetTimeInStageReport(context.Context, *GetTimeInStageReportRequest) (*GetTimeInStageReportResponse, error)
 	GetInterviewOfferMetrics(context.Context, *GetInterviewOfferMetricsRequest) (*GetInterviewOfferMetricsResponse, error)
+	// P1-003: AI usage statistics & trend
+	GetUsageStats(context.Context, *GetUsageStatsRequest) (*GetUsageStatsResponse, error)
+	GetUsageTrend(context.Context, *GetUsageTrendRequest) (*GetUsageTrendResponse, error)
 	mustEmbedUnimplementedAdminServiceServer()
 }
 
@@ -3706,6 +3812,12 @@ func (UnimplementedAdminServiceServer) GetTimeInStageReport(context.Context, *Ge
 }
 func (UnimplementedAdminServiceServer) GetInterviewOfferMetrics(context.Context, *GetInterviewOfferMetricsRequest) (*GetInterviewOfferMetricsResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method GetInterviewOfferMetrics not implemented")
+}
+func (UnimplementedAdminServiceServer) GetUsageStats(context.Context, *GetUsageStatsRequest) (*GetUsageStatsResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method GetUsageStats not implemented")
+}
+func (UnimplementedAdminServiceServer) GetUsageTrend(context.Context, *GetUsageTrendRequest) (*GetUsageTrendResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method GetUsageTrend not implemented")
 }
 func (UnimplementedAdminServiceServer) mustEmbedUnimplementedAdminServiceServer() {}
 func (UnimplementedAdminServiceServer) testEmbeddedByValue()                      {}
@@ -4340,6 +4452,42 @@ func _AdminService_GetInterviewOfferMetrics_Handler(srv interface{}, ctx context
 	return interceptor(ctx, in, info, handler)
 }
 
+func _AdminService_GetUsageStats_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetUsageStatsRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(AdminServiceServer).GetUsageStats(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: AdminService_GetUsageStats_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(AdminServiceServer).GetUsageStats(ctx, req.(*GetUsageStatsRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _AdminService_GetUsageTrend_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetUsageTrendRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(AdminServiceServer).GetUsageTrend(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: AdminService_GetUsageTrend_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(AdminServiceServer).GetUsageTrend(ctx, req.(*GetUsageTrendRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // AdminService_ServiceDesc is the grpc.ServiceDesc for AdminService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -4482,6 +4630,14 @@ var AdminService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "GetInterviewOfferMetrics",
 			Handler:    _AdminService_GetInterviewOfferMetrics_Handler,
+		},
+		{
+			MethodName: "GetUsageStats",
+			Handler:    _AdminService_GetUsageStats_Handler,
+		},
+		{
+			MethodName: "GetUsageTrend",
+			Handler:    _AdminService_GetUsageTrend_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},
@@ -5050,6 +5206,3146 @@ var CollaborationService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "ListTimelineEvents",
 			Handler:    _CollaborationService_ListTimelineEvents_Handler,
+		},
+	},
+	Streams:  []grpc.StreamDesc{},
+	Metadata: "proto/recruitment.proto",
+}
+
+const (
+	RecruitingIntelligenceService_GetResumeProfile_FullMethodName            = "/recruitment.RecruitingIntelligenceService/GetResumeProfile"
+	RecruitingIntelligenceService_ParseResumeProfile_FullMethodName          = "/recruitment.RecruitingIntelligenceService/ParseResumeProfile"
+	RecruitingIntelligenceService_EvaluateCandidateMatch_FullMethodName      = "/recruitment.RecruitingIntelligenceService/EvaluateCandidateMatch"
+	RecruitingIntelligenceService_GetCandidateMatchEvaluation_FullMethodName = "/recruitment.RecruitingIntelligenceService/GetCandidateMatchEvaluation"
+	RecruitingIntelligenceService_CompareCandidatesForJob_FullMethodName     = "/recruitment.RecruitingIntelligenceService/CompareCandidatesForJob"
+)
+
+// RecruitingIntelligenceServiceClient is the client API for RecruitingIntelligenceService service.
+//
+// For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
+type RecruitingIntelligenceServiceClient interface {
+	GetResumeProfile(ctx context.Context, in *GetResumeProfileRequest, opts ...grpc.CallOption) (*GetResumeProfileResponse, error)
+	ParseResumeProfile(ctx context.Context, in *ParseResumeProfileRequest, opts ...grpc.CallOption) (*GetResumeProfileResponse, error)
+	EvaluateCandidateMatch(ctx context.Context, in *EvaluateCandidateMatchRequest, opts ...grpc.CallOption) (*GetCandidateMatchEvaluationResponse, error)
+	GetCandidateMatchEvaluation(ctx context.Context, in *GetCandidateMatchEvaluationRequest, opts ...grpc.CallOption) (*GetCandidateMatchEvaluationResponse, error)
+	CompareCandidatesForJob(ctx context.Context, in *CompareCandidatesForJobRequest, opts ...grpc.CallOption) (*CompareCandidatesForJobResponse, error)
+}
+
+type recruitingIntelligenceServiceClient struct {
+	cc grpc.ClientConnInterface
+}
+
+func NewRecruitingIntelligenceServiceClient(cc grpc.ClientConnInterface) RecruitingIntelligenceServiceClient {
+	return &recruitingIntelligenceServiceClient{cc}
+}
+
+func (c *recruitingIntelligenceServiceClient) GetResumeProfile(ctx context.Context, in *GetResumeProfileRequest, opts ...grpc.CallOption) (*GetResumeProfileResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(GetResumeProfileResponse)
+	err := c.cc.Invoke(ctx, RecruitingIntelligenceService_GetResumeProfile_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *recruitingIntelligenceServiceClient) ParseResumeProfile(ctx context.Context, in *ParseResumeProfileRequest, opts ...grpc.CallOption) (*GetResumeProfileResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(GetResumeProfileResponse)
+	err := c.cc.Invoke(ctx, RecruitingIntelligenceService_ParseResumeProfile_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *recruitingIntelligenceServiceClient) EvaluateCandidateMatch(ctx context.Context, in *EvaluateCandidateMatchRequest, opts ...grpc.CallOption) (*GetCandidateMatchEvaluationResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(GetCandidateMatchEvaluationResponse)
+	err := c.cc.Invoke(ctx, RecruitingIntelligenceService_EvaluateCandidateMatch_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *recruitingIntelligenceServiceClient) GetCandidateMatchEvaluation(ctx context.Context, in *GetCandidateMatchEvaluationRequest, opts ...grpc.CallOption) (*GetCandidateMatchEvaluationResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(GetCandidateMatchEvaluationResponse)
+	err := c.cc.Invoke(ctx, RecruitingIntelligenceService_GetCandidateMatchEvaluation_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *recruitingIntelligenceServiceClient) CompareCandidatesForJob(ctx context.Context, in *CompareCandidatesForJobRequest, opts ...grpc.CallOption) (*CompareCandidatesForJobResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(CompareCandidatesForJobResponse)
+	err := c.cc.Invoke(ctx, RecruitingIntelligenceService_CompareCandidatesForJob_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+// RecruitingIntelligenceServiceServer is the server API for RecruitingIntelligenceService service.
+// All implementations must embed UnimplementedRecruitingIntelligenceServiceServer
+// for forward compatibility.
+type RecruitingIntelligenceServiceServer interface {
+	GetResumeProfile(context.Context, *GetResumeProfileRequest) (*GetResumeProfileResponse, error)
+	ParseResumeProfile(context.Context, *ParseResumeProfileRequest) (*GetResumeProfileResponse, error)
+	EvaluateCandidateMatch(context.Context, *EvaluateCandidateMatchRequest) (*GetCandidateMatchEvaluationResponse, error)
+	GetCandidateMatchEvaluation(context.Context, *GetCandidateMatchEvaluationRequest) (*GetCandidateMatchEvaluationResponse, error)
+	CompareCandidatesForJob(context.Context, *CompareCandidatesForJobRequest) (*CompareCandidatesForJobResponse, error)
+	mustEmbedUnimplementedRecruitingIntelligenceServiceServer()
+}
+
+// UnimplementedRecruitingIntelligenceServiceServer must be embedded to have
+// forward compatible implementations.
+//
+// NOTE: this should be embedded by value instead of pointer to avoid a nil
+// pointer dereference when methods are called.
+type UnimplementedRecruitingIntelligenceServiceServer struct{}
+
+func (UnimplementedRecruitingIntelligenceServiceServer) GetResumeProfile(context.Context, *GetResumeProfileRequest) (*GetResumeProfileResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method GetResumeProfile not implemented")
+}
+func (UnimplementedRecruitingIntelligenceServiceServer) ParseResumeProfile(context.Context, *ParseResumeProfileRequest) (*GetResumeProfileResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method ParseResumeProfile not implemented")
+}
+func (UnimplementedRecruitingIntelligenceServiceServer) EvaluateCandidateMatch(context.Context, *EvaluateCandidateMatchRequest) (*GetCandidateMatchEvaluationResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method EvaluateCandidateMatch not implemented")
+}
+func (UnimplementedRecruitingIntelligenceServiceServer) GetCandidateMatchEvaluation(context.Context, *GetCandidateMatchEvaluationRequest) (*GetCandidateMatchEvaluationResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method GetCandidateMatchEvaluation not implemented")
+}
+func (UnimplementedRecruitingIntelligenceServiceServer) CompareCandidatesForJob(context.Context, *CompareCandidatesForJobRequest) (*CompareCandidatesForJobResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method CompareCandidatesForJob not implemented")
+}
+func (UnimplementedRecruitingIntelligenceServiceServer) mustEmbedUnimplementedRecruitingIntelligenceServiceServer() {
+}
+func (UnimplementedRecruitingIntelligenceServiceServer) testEmbeddedByValue() {}
+
+// UnsafeRecruitingIntelligenceServiceServer may be embedded to opt out of forward compatibility for this service.
+// Use of this interface is not recommended, as added methods to RecruitingIntelligenceServiceServer will
+// result in compilation errors.
+type UnsafeRecruitingIntelligenceServiceServer interface {
+	mustEmbedUnimplementedRecruitingIntelligenceServiceServer()
+}
+
+func RegisterRecruitingIntelligenceServiceServer(s grpc.ServiceRegistrar, srv RecruitingIntelligenceServiceServer) {
+	// If the following call panics, it indicates UnimplementedRecruitingIntelligenceServiceServer was
+	// embedded by pointer and is nil.  This will cause panics if an
+	// unimplemented method is ever invoked, so we test this at initialization
+	// time to prevent it from happening at runtime later due to I/O.
+	if t, ok := srv.(interface{ testEmbeddedByValue() }); ok {
+		t.testEmbeddedByValue()
+	}
+	s.RegisterService(&RecruitingIntelligenceService_ServiceDesc, srv)
+}
+
+func _RecruitingIntelligenceService_GetResumeProfile_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetResumeProfileRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(RecruitingIntelligenceServiceServer).GetResumeProfile(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: RecruitingIntelligenceService_GetResumeProfile_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(RecruitingIntelligenceServiceServer).GetResumeProfile(ctx, req.(*GetResumeProfileRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _RecruitingIntelligenceService_ParseResumeProfile_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ParseResumeProfileRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(RecruitingIntelligenceServiceServer).ParseResumeProfile(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: RecruitingIntelligenceService_ParseResumeProfile_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(RecruitingIntelligenceServiceServer).ParseResumeProfile(ctx, req.(*ParseResumeProfileRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _RecruitingIntelligenceService_EvaluateCandidateMatch_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(EvaluateCandidateMatchRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(RecruitingIntelligenceServiceServer).EvaluateCandidateMatch(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: RecruitingIntelligenceService_EvaluateCandidateMatch_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(RecruitingIntelligenceServiceServer).EvaluateCandidateMatch(ctx, req.(*EvaluateCandidateMatchRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _RecruitingIntelligenceService_GetCandidateMatchEvaluation_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetCandidateMatchEvaluationRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(RecruitingIntelligenceServiceServer).GetCandidateMatchEvaluation(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: RecruitingIntelligenceService_GetCandidateMatchEvaluation_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(RecruitingIntelligenceServiceServer).GetCandidateMatchEvaluation(ctx, req.(*GetCandidateMatchEvaluationRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _RecruitingIntelligenceService_CompareCandidatesForJob_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(CompareCandidatesForJobRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(RecruitingIntelligenceServiceServer).CompareCandidatesForJob(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: RecruitingIntelligenceService_CompareCandidatesForJob_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(RecruitingIntelligenceServiceServer).CompareCandidatesForJob(ctx, req.(*CompareCandidatesForJobRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+// RecruitingIntelligenceService_ServiceDesc is the grpc.ServiceDesc for RecruitingIntelligenceService service.
+// It's only intended for direct use with grpc.RegisterService,
+// and not to be introspected or modified (even as a copy)
+var RecruitingIntelligenceService_ServiceDesc = grpc.ServiceDesc{
+	ServiceName: "recruitment.RecruitingIntelligenceService",
+	HandlerType: (*RecruitingIntelligenceServiceServer)(nil),
+	Methods: []grpc.MethodDesc{
+		{
+			MethodName: "GetResumeProfile",
+			Handler:    _RecruitingIntelligenceService_GetResumeProfile_Handler,
+		},
+		{
+			MethodName: "ParseResumeProfile",
+			Handler:    _RecruitingIntelligenceService_ParseResumeProfile_Handler,
+		},
+		{
+			MethodName: "EvaluateCandidateMatch",
+			Handler:    _RecruitingIntelligenceService_EvaluateCandidateMatch_Handler,
+		},
+		{
+			MethodName: "GetCandidateMatchEvaluation",
+			Handler:    _RecruitingIntelligenceService_GetCandidateMatchEvaluation_Handler,
+		},
+		{
+			MethodName: "CompareCandidatesForJob",
+			Handler:    _RecruitingIntelligenceService_CompareCandidatesForJob_Handler,
+		},
+	},
+	Streams:  []grpc.StreamDesc{},
+	Metadata: "proto/recruitment.proto",
+}
+
+const (
+	MCPService_ListMCPServers_FullMethodName      = "/recruitment.MCPService/ListMCPServers"
+	MCPService_CreateMCPServer_FullMethodName     = "/recruitment.MCPService/CreateMCPServer"
+	MCPService_UpdateMCPServer_FullMethodName     = "/recruitment.MCPService/UpdateMCPServer"
+	MCPService_DeleteMCPServer_FullMethodName     = "/recruitment.MCPService/DeleteMCPServer"
+	MCPService_ListMCPToolPolicies_FullMethodName = "/recruitment.MCPService/ListMCPToolPolicies"
+	MCPService_CreateMCPToolPolicy_FullMethodName = "/recruitment.MCPService/CreateMCPToolPolicy"
+	MCPService_UpdateMCPToolPolicy_FullMethodName = "/recruitment.MCPService/UpdateMCPToolPolicy"
+	MCPService_DeleteMCPToolPolicy_FullMethodName = "/recruitment.MCPService/DeleteMCPToolPolicy"
+	MCPService_ListMCPToolLogs_FullMethodName     = "/recruitment.MCPService/ListMCPToolLogs"
+	MCPService_TestMCPConnection_FullMethodName   = "/recruitment.MCPService/TestMCPConnection"
+	MCPService_ListMCPTools_FullMethodName        = "/recruitment.MCPService/ListMCPTools"
+	MCPService_CallMCPTool_FullMethodName         = "/recruitment.MCPService/CallMCPTool"
+)
+
+// MCPServiceClient is the client API for MCPService service.
+//
+// For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
+type MCPServiceClient interface {
+	ListMCPServers(ctx context.Context, in *ListMCPServersRequest, opts ...grpc.CallOption) (*ListMCPServersResponse, error)
+	CreateMCPServer(ctx context.Context, in *CreateMCPServerRequest, opts ...grpc.CallOption) (*MCPServerResponse, error)
+	UpdateMCPServer(ctx context.Context, in *UpdateMCPServerRequest, opts ...grpc.CallOption) (*MCPServerResponse, error)
+	DeleteMCPServer(ctx context.Context, in *DeleteMCPServerRequest, opts ...grpc.CallOption) (*CommonResponse, error)
+	ListMCPToolPolicies(ctx context.Context, in *ListMCPToolPoliciesRequest, opts ...grpc.CallOption) (*ListMCPToolPoliciesResponse, error)
+	CreateMCPToolPolicy(ctx context.Context, in *CreateMCPToolPolicyRequest, opts ...grpc.CallOption) (*MCPToolPolicyResponse, error)
+	UpdateMCPToolPolicy(ctx context.Context, in *UpdateMCPToolPolicyRequest, opts ...grpc.CallOption) (*MCPToolPolicyResponse, error)
+	DeleteMCPToolPolicy(ctx context.Context, in *DeleteMCPToolPolicyRequest, opts ...grpc.CallOption) (*CommonResponse, error)
+	ListMCPToolLogs(ctx context.Context, in *ListMCPToolLogsRequest, opts ...grpc.CallOption) (*ListMCPToolLogsResponse, error)
+	TestMCPConnection(ctx context.Context, in *TestMCPConnectionRequest, opts ...grpc.CallOption) (*TestMCPConnectionResponse, error)
+	ListMCPTools(ctx context.Context, in *ListMCPToolsRequest, opts ...grpc.CallOption) (*ListMCPToolsResponse, error)
+	CallMCPTool(ctx context.Context, in *CallMCPToolRequest, opts ...grpc.CallOption) (*CallMCPToolResponse, error)
+}
+
+type mCPServiceClient struct {
+	cc grpc.ClientConnInterface
+}
+
+func NewMCPServiceClient(cc grpc.ClientConnInterface) MCPServiceClient {
+	return &mCPServiceClient{cc}
+}
+
+func (c *mCPServiceClient) ListMCPServers(ctx context.Context, in *ListMCPServersRequest, opts ...grpc.CallOption) (*ListMCPServersResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ListMCPServersResponse)
+	err := c.cc.Invoke(ctx, MCPService_ListMCPServers_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *mCPServiceClient) CreateMCPServer(ctx context.Context, in *CreateMCPServerRequest, opts ...grpc.CallOption) (*MCPServerResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(MCPServerResponse)
+	err := c.cc.Invoke(ctx, MCPService_CreateMCPServer_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *mCPServiceClient) UpdateMCPServer(ctx context.Context, in *UpdateMCPServerRequest, opts ...grpc.CallOption) (*MCPServerResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(MCPServerResponse)
+	err := c.cc.Invoke(ctx, MCPService_UpdateMCPServer_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *mCPServiceClient) DeleteMCPServer(ctx context.Context, in *DeleteMCPServerRequest, opts ...grpc.CallOption) (*CommonResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(CommonResponse)
+	err := c.cc.Invoke(ctx, MCPService_DeleteMCPServer_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *mCPServiceClient) ListMCPToolPolicies(ctx context.Context, in *ListMCPToolPoliciesRequest, opts ...grpc.CallOption) (*ListMCPToolPoliciesResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ListMCPToolPoliciesResponse)
+	err := c.cc.Invoke(ctx, MCPService_ListMCPToolPolicies_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *mCPServiceClient) CreateMCPToolPolicy(ctx context.Context, in *CreateMCPToolPolicyRequest, opts ...grpc.CallOption) (*MCPToolPolicyResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(MCPToolPolicyResponse)
+	err := c.cc.Invoke(ctx, MCPService_CreateMCPToolPolicy_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *mCPServiceClient) UpdateMCPToolPolicy(ctx context.Context, in *UpdateMCPToolPolicyRequest, opts ...grpc.CallOption) (*MCPToolPolicyResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(MCPToolPolicyResponse)
+	err := c.cc.Invoke(ctx, MCPService_UpdateMCPToolPolicy_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *mCPServiceClient) DeleteMCPToolPolicy(ctx context.Context, in *DeleteMCPToolPolicyRequest, opts ...grpc.CallOption) (*CommonResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(CommonResponse)
+	err := c.cc.Invoke(ctx, MCPService_DeleteMCPToolPolicy_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *mCPServiceClient) ListMCPToolLogs(ctx context.Context, in *ListMCPToolLogsRequest, opts ...grpc.CallOption) (*ListMCPToolLogsResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ListMCPToolLogsResponse)
+	err := c.cc.Invoke(ctx, MCPService_ListMCPToolLogs_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *mCPServiceClient) TestMCPConnection(ctx context.Context, in *TestMCPConnectionRequest, opts ...grpc.CallOption) (*TestMCPConnectionResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(TestMCPConnectionResponse)
+	err := c.cc.Invoke(ctx, MCPService_TestMCPConnection_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *mCPServiceClient) ListMCPTools(ctx context.Context, in *ListMCPToolsRequest, opts ...grpc.CallOption) (*ListMCPToolsResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ListMCPToolsResponse)
+	err := c.cc.Invoke(ctx, MCPService_ListMCPTools_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *mCPServiceClient) CallMCPTool(ctx context.Context, in *CallMCPToolRequest, opts ...grpc.CallOption) (*CallMCPToolResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(CallMCPToolResponse)
+	err := c.cc.Invoke(ctx, MCPService_CallMCPTool_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+// MCPServiceServer is the server API for MCPService service.
+// All implementations must embed UnimplementedMCPServiceServer
+// for forward compatibility.
+type MCPServiceServer interface {
+	ListMCPServers(context.Context, *ListMCPServersRequest) (*ListMCPServersResponse, error)
+	CreateMCPServer(context.Context, *CreateMCPServerRequest) (*MCPServerResponse, error)
+	UpdateMCPServer(context.Context, *UpdateMCPServerRequest) (*MCPServerResponse, error)
+	DeleteMCPServer(context.Context, *DeleteMCPServerRequest) (*CommonResponse, error)
+	ListMCPToolPolicies(context.Context, *ListMCPToolPoliciesRequest) (*ListMCPToolPoliciesResponse, error)
+	CreateMCPToolPolicy(context.Context, *CreateMCPToolPolicyRequest) (*MCPToolPolicyResponse, error)
+	UpdateMCPToolPolicy(context.Context, *UpdateMCPToolPolicyRequest) (*MCPToolPolicyResponse, error)
+	DeleteMCPToolPolicy(context.Context, *DeleteMCPToolPolicyRequest) (*CommonResponse, error)
+	ListMCPToolLogs(context.Context, *ListMCPToolLogsRequest) (*ListMCPToolLogsResponse, error)
+	TestMCPConnection(context.Context, *TestMCPConnectionRequest) (*TestMCPConnectionResponse, error)
+	ListMCPTools(context.Context, *ListMCPToolsRequest) (*ListMCPToolsResponse, error)
+	CallMCPTool(context.Context, *CallMCPToolRequest) (*CallMCPToolResponse, error)
+	mustEmbedUnimplementedMCPServiceServer()
+}
+
+// UnimplementedMCPServiceServer must be embedded to have
+// forward compatible implementations.
+//
+// NOTE: this should be embedded by value instead of pointer to avoid a nil
+// pointer dereference when methods are called.
+type UnimplementedMCPServiceServer struct{}
+
+func (UnimplementedMCPServiceServer) ListMCPServers(context.Context, *ListMCPServersRequest) (*ListMCPServersResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method ListMCPServers not implemented")
+}
+func (UnimplementedMCPServiceServer) CreateMCPServer(context.Context, *CreateMCPServerRequest) (*MCPServerResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method CreateMCPServer not implemented")
+}
+func (UnimplementedMCPServiceServer) UpdateMCPServer(context.Context, *UpdateMCPServerRequest) (*MCPServerResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method UpdateMCPServer not implemented")
+}
+func (UnimplementedMCPServiceServer) DeleteMCPServer(context.Context, *DeleteMCPServerRequest) (*CommonResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method DeleteMCPServer not implemented")
+}
+func (UnimplementedMCPServiceServer) ListMCPToolPolicies(context.Context, *ListMCPToolPoliciesRequest) (*ListMCPToolPoliciesResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method ListMCPToolPolicies not implemented")
+}
+func (UnimplementedMCPServiceServer) CreateMCPToolPolicy(context.Context, *CreateMCPToolPolicyRequest) (*MCPToolPolicyResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method CreateMCPToolPolicy not implemented")
+}
+func (UnimplementedMCPServiceServer) UpdateMCPToolPolicy(context.Context, *UpdateMCPToolPolicyRequest) (*MCPToolPolicyResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method UpdateMCPToolPolicy not implemented")
+}
+func (UnimplementedMCPServiceServer) DeleteMCPToolPolicy(context.Context, *DeleteMCPToolPolicyRequest) (*CommonResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method DeleteMCPToolPolicy not implemented")
+}
+func (UnimplementedMCPServiceServer) ListMCPToolLogs(context.Context, *ListMCPToolLogsRequest) (*ListMCPToolLogsResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method ListMCPToolLogs not implemented")
+}
+func (UnimplementedMCPServiceServer) TestMCPConnection(context.Context, *TestMCPConnectionRequest) (*TestMCPConnectionResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method TestMCPConnection not implemented")
+}
+func (UnimplementedMCPServiceServer) ListMCPTools(context.Context, *ListMCPToolsRequest) (*ListMCPToolsResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method ListMCPTools not implemented")
+}
+func (UnimplementedMCPServiceServer) CallMCPTool(context.Context, *CallMCPToolRequest) (*CallMCPToolResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method CallMCPTool not implemented")
+}
+func (UnimplementedMCPServiceServer) mustEmbedUnimplementedMCPServiceServer() {}
+func (UnimplementedMCPServiceServer) testEmbeddedByValue()                    {}
+
+// UnsafeMCPServiceServer may be embedded to opt out of forward compatibility for this service.
+// Use of this interface is not recommended, as added methods to MCPServiceServer will
+// result in compilation errors.
+type UnsafeMCPServiceServer interface {
+	mustEmbedUnimplementedMCPServiceServer()
+}
+
+func RegisterMCPServiceServer(s grpc.ServiceRegistrar, srv MCPServiceServer) {
+	// If the following call panics, it indicates UnimplementedMCPServiceServer was
+	// embedded by pointer and is nil.  This will cause panics if an
+	// unimplemented method is ever invoked, so we test this at initialization
+	// time to prevent it from happening at runtime later due to I/O.
+	if t, ok := srv.(interface{ testEmbeddedByValue() }); ok {
+		t.testEmbeddedByValue()
+	}
+	s.RegisterService(&MCPService_ServiceDesc, srv)
+}
+
+func _MCPService_ListMCPServers_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ListMCPServersRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(MCPServiceServer).ListMCPServers(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: MCPService_ListMCPServers_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(MCPServiceServer).ListMCPServers(ctx, req.(*ListMCPServersRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _MCPService_CreateMCPServer_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(CreateMCPServerRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(MCPServiceServer).CreateMCPServer(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: MCPService_CreateMCPServer_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(MCPServiceServer).CreateMCPServer(ctx, req.(*CreateMCPServerRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _MCPService_UpdateMCPServer_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(UpdateMCPServerRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(MCPServiceServer).UpdateMCPServer(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: MCPService_UpdateMCPServer_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(MCPServiceServer).UpdateMCPServer(ctx, req.(*UpdateMCPServerRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _MCPService_DeleteMCPServer_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(DeleteMCPServerRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(MCPServiceServer).DeleteMCPServer(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: MCPService_DeleteMCPServer_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(MCPServiceServer).DeleteMCPServer(ctx, req.(*DeleteMCPServerRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _MCPService_ListMCPToolPolicies_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ListMCPToolPoliciesRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(MCPServiceServer).ListMCPToolPolicies(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: MCPService_ListMCPToolPolicies_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(MCPServiceServer).ListMCPToolPolicies(ctx, req.(*ListMCPToolPoliciesRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _MCPService_CreateMCPToolPolicy_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(CreateMCPToolPolicyRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(MCPServiceServer).CreateMCPToolPolicy(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: MCPService_CreateMCPToolPolicy_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(MCPServiceServer).CreateMCPToolPolicy(ctx, req.(*CreateMCPToolPolicyRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _MCPService_UpdateMCPToolPolicy_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(UpdateMCPToolPolicyRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(MCPServiceServer).UpdateMCPToolPolicy(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: MCPService_UpdateMCPToolPolicy_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(MCPServiceServer).UpdateMCPToolPolicy(ctx, req.(*UpdateMCPToolPolicyRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _MCPService_DeleteMCPToolPolicy_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(DeleteMCPToolPolicyRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(MCPServiceServer).DeleteMCPToolPolicy(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: MCPService_DeleteMCPToolPolicy_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(MCPServiceServer).DeleteMCPToolPolicy(ctx, req.(*DeleteMCPToolPolicyRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _MCPService_ListMCPToolLogs_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ListMCPToolLogsRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(MCPServiceServer).ListMCPToolLogs(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: MCPService_ListMCPToolLogs_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(MCPServiceServer).ListMCPToolLogs(ctx, req.(*ListMCPToolLogsRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _MCPService_TestMCPConnection_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(TestMCPConnectionRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(MCPServiceServer).TestMCPConnection(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: MCPService_TestMCPConnection_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(MCPServiceServer).TestMCPConnection(ctx, req.(*TestMCPConnectionRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _MCPService_ListMCPTools_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ListMCPToolsRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(MCPServiceServer).ListMCPTools(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: MCPService_ListMCPTools_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(MCPServiceServer).ListMCPTools(ctx, req.(*ListMCPToolsRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _MCPService_CallMCPTool_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(CallMCPToolRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(MCPServiceServer).CallMCPTool(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: MCPService_CallMCPTool_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(MCPServiceServer).CallMCPTool(ctx, req.(*CallMCPToolRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+// MCPService_ServiceDesc is the grpc.ServiceDesc for MCPService service.
+// It's only intended for direct use with grpc.RegisterService,
+// and not to be introspected or modified (even as a copy)
+var MCPService_ServiceDesc = grpc.ServiceDesc{
+	ServiceName: "recruitment.MCPService",
+	HandlerType: (*MCPServiceServer)(nil),
+	Methods: []grpc.MethodDesc{
+		{
+			MethodName: "ListMCPServers",
+			Handler:    _MCPService_ListMCPServers_Handler,
+		},
+		{
+			MethodName: "CreateMCPServer",
+			Handler:    _MCPService_CreateMCPServer_Handler,
+		},
+		{
+			MethodName: "UpdateMCPServer",
+			Handler:    _MCPService_UpdateMCPServer_Handler,
+		},
+		{
+			MethodName: "DeleteMCPServer",
+			Handler:    _MCPService_DeleteMCPServer_Handler,
+		},
+		{
+			MethodName: "ListMCPToolPolicies",
+			Handler:    _MCPService_ListMCPToolPolicies_Handler,
+		},
+		{
+			MethodName: "CreateMCPToolPolicy",
+			Handler:    _MCPService_CreateMCPToolPolicy_Handler,
+		},
+		{
+			MethodName: "UpdateMCPToolPolicy",
+			Handler:    _MCPService_UpdateMCPToolPolicy_Handler,
+		},
+		{
+			MethodName: "DeleteMCPToolPolicy",
+			Handler:    _MCPService_DeleteMCPToolPolicy_Handler,
+		},
+		{
+			MethodName: "ListMCPToolLogs",
+			Handler:    _MCPService_ListMCPToolLogs_Handler,
+		},
+		{
+			MethodName: "TestMCPConnection",
+			Handler:    _MCPService_TestMCPConnection_Handler,
+		},
+		{
+			MethodName: "ListMCPTools",
+			Handler:    _MCPService_ListMCPTools_Handler,
+		},
+		{
+			MethodName: "CallMCPTool",
+			Handler:    _MCPService_CallMCPTool_Handler,
+		},
+	},
+	Streams:  []grpc.StreamDesc{},
+	Metadata: "proto/recruitment.proto",
+}
+
+const (
+	LlmConfigService_ListProviders_FullMethodName          = "/recruitment.LlmConfigService/ListProviders"
+	LlmConfigService_CreateProvider_FullMethodName         = "/recruitment.LlmConfigService/CreateProvider"
+	LlmConfigService_UpdateProvider_FullMethodName         = "/recruitment.LlmConfigService/UpdateProvider"
+	LlmConfigService_DeleteProvider_FullMethodName         = "/recruitment.LlmConfigService/DeleteProvider"
+	LlmConfigService_TestProviderConnection_FullMethodName = "/recruitment.LlmConfigService/TestProviderConnection"
+	LlmConfigService_ListModels_FullMethodName             = "/recruitment.LlmConfigService/ListModels"
+	LlmConfigService_CreateModel_FullMethodName            = "/recruitment.LlmConfigService/CreateModel"
+	LlmConfigService_UpdateModel_FullMethodName            = "/recruitment.LlmConfigService/UpdateModel"
+	LlmConfigService_DeleteModel_FullMethodName            = "/recruitment.LlmConfigService/DeleteModel"
+)
+
+// LlmConfigServiceClient is the client API for LlmConfigService service.
+//
+// For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
+type LlmConfigServiceClient interface {
+	ListProviders(ctx context.Context, in *ListProvidersRequest, opts ...grpc.CallOption) (*ListProvidersResponse, error)
+	CreateProvider(ctx context.Context, in *CreateProviderRequest, opts ...grpc.CallOption) (*ProviderResponse, error)
+	UpdateProvider(ctx context.Context, in *UpdateProviderRequest, opts ...grpc.CallOption) (*ProviderResponse, error)
+	DeleteProvider(ctx context.Context, in *DeleteProviderRequest, opts ...grpc.CallOption) (*CommonResponse, error)
+	TestProviderConnection(ctx context.Context, in *TestProviderConnectionRequest, opts ...grpc.CallOption) (*TestProviderConnectionResponse, error)
+	ListModels(ctx context.Context, in *ListModelsRequest, opts ...grpc.CallOption) (*ListModelsResponse, error)
+	CreateModel(ctx context.Context, in *CreateModelRequest, opts ...grpc.CallOption) (*ModelResponse, error)
+	UpdateModel(ctx context.Context, in *UpdateModelRequest, opts ...grpc.CallOption) (*ModelResponse, error)
+	DeleteModel(ctx context.Context, in *DeleteModelRequest, opts ...grpc.CallOption) (*CommonResponse, error)
+}
+
+type llmConfigServiceClient struct {
+	cc grpc.ClientConnInterface
+}
+
+func NewLlmConfigServiceClient(cc grpc.ClientConnInterface) LlmConfigServiceClient {
+	return &llmConfigServiceClient{cc}
+}
+
+func (c *llmConfigServiceClient) ListProviders(ctx context.Context, in *ListProvidersRequest, opts ...grpc.CallOption) (*ListProvidersResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ListProvidersResponse)
+	err := c.cc.Invoke(ctx, LlmConfigService_ListProviders_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *llmConfigServiceClient) CreateProvider(ctx context.Context, in *CreateProviderRequest, opts ...grpc.CallOption) (*ProviderResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ProviderResponse)
+	err := c.cc.Invoke(ctx, LlmConfigService_CreateProvider_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *llmConfigServiceClient) UpdateProvider(ctx context.Context, in *UpdateProviderRequest, opts ...grpc.CallOption) (*ProviderResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ProviderResponse)
+	err := c.cc.Invoke(ctx, LlmConfigService_UpdateProvider_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *llmConfigServiceClient) DeleteProvider(ctx context.Context, in *DeleteProviderRequest, opts ...grpc.CallOption) (*CommonResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(CommonResponse)
+	err := c.cc.Invoke(ctx, LlmConfigService_DeleteProvider_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *llmConfigServiceClient) TestProviderConnection(ctx context.Context, in *TestProviderConnectionRequest, opts ...grpc.CallOption) (*TestProviderConnectionResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(TestProviderConnectionResponse)
+	err := c.cc.Invoke(ctx, LlmConfigService_TestProviderConnection_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *llmConfigServiceClient) ListModels(ctx context.Context, in *ListModelsRequest, opts ...grpc.CallOption) (*ListModelsResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ListModelsResponse)
+	err := c.cc.Invoke(ctx, LlmConfigService_ListModels_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *llmConfigServiceClient) CreateModel(ctx context.Context, in *CreateModelRequest, opts ...grpc.CallOption) (*ModelResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ModelResponse)
+	err := c.cc.Invoke(ctx, LlmConfigService_CreateModel_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *llmConfigServiceClient) UpdateModel(ctx context.Context, in *UpdateModelRequest, opts ...grpc.CallOption) (*ModelResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ModelResponse)
+	err := c.cc.Invoke(ctx, LlmConfigService_UpdateModel_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *llmConfigServiceClient) DeleteModel(ctx context.Context, in *DeleteModelRequest, opts ...grpc.CallOption) (*CommonResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(CommonResponse)
+	err := c.cc.Invoke(ctx, LlmConfigService_DeleteModel_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+// LlmConfigServiceServer is the server API for LlmConfigService service.
+// All implementations must embed UnimplementedLlmConfigServiceServer
+// for forward compatibility.
+type LlmConfigServiceServer interface {
+	ListProviders(context.Context, *ListProvidersRequest) (*ListProvidersResponse, error)
+	CreateProvider(context.Context, *CreateProviderRequest) (*ProviderResponse, error)
+	UpdateProvider(context.Context, *UpdateProviderRequest) (*ProviderResponse, error)
+	DeleteProvider(context.Context, *DeleteProviderRequest) (*CommonResponse, error)
+	TestProviderConnection(context.Context, *TestProviderConnectionRequest) (*TestProviderConnectionResponse, error)
+	ListModels(context.Context, *ListModelsRequest) (*ListModelsResponse, error)
+	CreateModel(context.Context, *CreateModelRequest) (*ModelResponse, error)
+	UpdateModel(context.Context, *UpdateModelRequest) (*ModelResponse, error)
+	DeleteModel(context.Context, *DeleteModelRequest) (*CommonResponse, error)
+	mustEmbedUnimplementedLlmConfigServiceServer()
+}
+
+// UnimplementedLlmConfigServiceServer must be embedded to have
+// forward compatible implementations.
+//
+// NOTE: this should be embedded by value instead of pointer to avoid a nil
+// pointer dereference when methods are called.
+type UnimplementedLlmConfigServiceServer struct{}
+
+func (UnimplementedLlmConfigServiceServer) ListProviders(context.Context, *ListProvidersRequest) (*ListProvidersResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method ListProviders not implemented")
+}
+func (UnimplementedLlmConfigServiceServer) CreateProvider(context.Context, *CreateProviderRequest) (*ProviderResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method CreateProvider not implemented")
+}
+func (UnimplementedLlmConfigServiceServer) UpdateProvider(context.Context, *UpdateProviderRequest) (*ProviderResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method UpdateProvider not implemented")
+}
+func (UnimplementedLlmConfigServiceServer) DeleteProvider(context.Context, *DeleteProviderRequest) (*CommonResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method DeleteProvider not implemented")
+}
+func (UnimplementedLlmConfigServiceServer) TestProviderConnection(context.Context, *TestProviderConnectionRequest) (*TestProviderConnectionResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method TestProviderConnection not implemented")
+}
+func (UnimplementedLlmConfigServiceServer) ListModels(context.Context, *ListModelsRequest) (*ListModelsResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method ListModels not implemented")
+}
+func (UnimplementedLlmConfigServiceServer) CreateModel(context.Context, *CreateModelRequest) (*ModelResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method CreateModel not implemented")
+}
+func (UnimplementedLlmConfigServiceServer) UpdateModel(context.Context, *UpdateModelRequest) (*ModelResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method UpdateModel not implemented")
+}
+func (UnimplementedLlmConfigServiceServer) DeleteModel(context.Context, *DeleteModelRequest) (*CommonResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method DeleteModel not implemented")
+}
+func (UnimplementedLlmConfigServiceServer) mustEmbedUnimplementedLlmConfigServiceServer() {}
+func (UnimplementedLlmConfigServiceServer) testEmbeddedByValue()                          {}
+
+// UnsafeLlmConfigServiceServer may be embedded to opt out of forward compatibility for this service.
+// Use of this interface is not recommended, as added methods to LlmConfigServiceServer will
+// result in compilation errors.
+type UnsafeLlmConfigServiceServer interface {
+	mustEmbedUnimplementedLlmConfigServiceServer()
+}
+
+func RegisterLlmConfigServiceServer(s grpc.ServiceRegistrar, srv LlmConfigServiceServer) {
+	// If the following call panics, it indicates UnimplementedLlmConfigServiceServer was
+	// embedded by pointer and is nil.  This will cause panics if an
+	// unimplemented method is ever invoked, so we test this at initialization
+	// time to prevent it from happening at runtime later due to I/O.
+	if t, ok := srv.(interface{ testEmbeddedByValue() }); ok {
+		t.testEmbeddedByValue()
+	}
+	s.RegisterService(&LlmConfigService_ServiceDesc, srv)
+}
+
+func _LlmConfigService_ListProviders_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ListProvidersRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(LlmConfigServiceServer).ListProviders(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: LlmConfigService_ListProviders_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(LlmConfigServiceServer).ListProviders(ctx, req.(*ListProvidersRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _LlmConfigService_CreateProvider_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(CreateProviderRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(LlmConfigServiceServer).CreateProvider(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: LlmConfigService_CreateProvider_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(LlmConfigServiceServer).CreateProvider(ctx, req.(*CreateProviderRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _LlmConfigService_UpdateProvider_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(UpdateProviderRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(LlmConfigServiceServer).UpdateProvider(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: LlmConfigService_UpdateProvider_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(LlmConfigServiceServer).UpdateProvider(ctx, req.(*UpdateProviderRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _LlmConfigService_DeleteProvider_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(DeleteProviderRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(LlmConfigServiceServer).DeleteProvider(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: LlmConfigService_DeleteProvider_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(LlmConfigServiceServer).DeleteProvider(ctx, req.(*DeleteProviderRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _LlmConfigService_TestProviderConnection_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(TestProviderConnectionRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(LlmConfigServiceServer).TestProviderConnection(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: LlmConfigService_TestProviderConnection_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(LlmConfigServiceServer).TestProviderConnection(ctx, req.(*TestProviderConnectionRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _LlmConfigService_ListModels_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ListModelsRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(LlmConfigServiceServer).ListModels(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: LlmConfigService_ListModels_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(LlmConfigServiceServer).ListModels(ctx, req.(*ListModelsRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _LlmConfigService_CreateModel_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(CreateModelRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(LlmConfigServiceServer).CreateModel(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: LlmConfigService_CreateModel_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(LlmConfigServiceServer).CreateModel(ctx, req.(*CreateModelRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _LlmConfigService_UpdateModel_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(UpdateModelRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(LlmConfigServiceServer).UpdateModel(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: LlmConfigService_UpdateModel_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(LlmConfigServiceServer).UpdateModel(ctx, req.(*UpdateModelRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _LlmConfigService_DeleteModel_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(DeleteModelRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(LlmConfigServiceServer).DeleteModel(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: LlmConfigService_DeleteModel_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(LlmConfigServiceServer).DeleteModel(ctx, req.(*DeleteModelRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+// LlmConfigService_ServiceDesc is the grpc.ServiceDesc for LlmConfigService service.
+// It's only intended for direct use with grpc.RegisterService,
+// and not to be introspected or modified (even as a copy)
+var LlmConfigService_ServiceDesc = grpc.ServiceDesc{
+	ServiceName: "recruitment.LlmConfigService",
+	HandlerType: (*LlmConfigServiceServer)(nil),
+	Methods: []grpc.MethodDesc{
+		{
+			MethodName: "ListProviders",
+			Handler:    _LlmConfigService_ListProviders_Handler,
+		},
+		{
+			MethodName: "CreateProvider",
+			Handler:    _LlmConfigService_CreateProvider_Handler,
+		},
+		{
+			MethodName: "UpdateProvider",
+			Handler:    _LlmConfigService_UpdateProvider_Handler,
+		},
+		{
+			MethodName: "DeleteProvider",
+			Handler:    _LlmConfigService_DeleteProvider_Handler,
+		},
+		{
+			MethodName: "TestProviderConnection",
+			Handler:    _LlmConfigService_TestProviderConnection_Handler,
+		},
+		{
+			MethodName: "ListModels",
+			Handler:    _LlmConfigService_ListModels_Handler,
+		},
+		{
+			MethodName: "CreateModel",
+			Handler:    _LlmConfigService_CreateModel_Handler,
+		},
+		{
+			MethodName: "UpdateModel",
+			Handler:    _LlmConfigService_UpdateModel_Handler,
+		},
+		{
+			MethodName: "DeleteModel",
+			Handler:    _LlmConfigService_DeleteModel_Handler,
+		},
+	},
+	Streams:  []grpc.StreamDesc{},
+	Metadata: "proto/recruitment.proto",
+}
+
+const (
+	PromptService_ListPromptTemplates_FullMethodName        = "/recruitment.PromptService/ListPromptTemplates"
+	PromptService_CreatePromptTemplate_FullMethodName       = "/recruitment.PromptService/CreatePromptTemplate"
+	PromptService_UpdatePromptTemplate_FullMethodName       = "/recruitment.PromptService/UpdatePromptTemplate"
+	PromptService_DeletePromptTemplate_FullMethodName       = "/recruitment.PromptService/DeletePromptTemplate"
+	PromptService_GetPromptVersionHistory_FullMethodName    = "/recruitment.PromptService/GetPromptVersionHistory"
+	PromptService_RollbackPromptVersion_FullMethodName      = "/recruitment.PromptService/RollbackPromptVersion"
+	PromptService_RenderPrompt_FullMethodName               = "/recruitment.PromptService/RenderPrompt"
+	PromptService_GetActivePromptByAgentType_FullMethodName = "/recruitment.PromptService/GetActivePromptByAgentType"
+)
+
+// PromptServiceClient is the client API for PromptService service.
+//
+// For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
+type PromptServiceClient interface {
+	ListPromptTemplates(ctx context.Context, in *ListPromptTemplatesRequest, opts ...grpc.CallOption) (*ListPromptTemplatesResponse, error)
+	CreatePromptTemplate(ctx context.Context, in *CreatePromptTemplateRequest, opts ...grpc.CallOption) (*PromptTemplateResponse, error)
+	UpdatePromptTemplate(ctx context.Context, in *UpdatePromptTemplateRequest, opts ...grpc.CallOption) (*PromptTemplateResponse, error)
+	DeletePromptTemplate(ctx context.Context, in *DeletePromptTemplateRequest, opts ...grpc.CallOption) (*CommonResponse, error)
+	GetPromptVersionHistory(ctx context.Context, in *GetPromptVersionHistoryRequest, opts ...grpc.CallOption) (*GetPromptVersionHistoryResponse, error)
+	RollbackPromptVersion(ctx context.Context, in *RollbackPromptVersionRequest, opts ...grpc.CallOption) (*PromptTemplateResponse, error)
+	// Internal gRPC (not exposed via HTTP gateway)
+	RenderPrompt(ctx context.Context, in *RenderPromptRequest, opts ...grpc.CallOption) (*RenderPromptResponse, error)
+	GetActivePromptByAgentType(ctx context.Context, in *GetActivePromptByAgentTypeRequest, opts ...grpc.CallOption) (*GetActivePromptByAgentTypeResponse, error)
+}
+
+type promptServiceClient struct {
+	cc grpc.ClientConnInterface
+}
+
+func NewPromptServiceClient(cc grpc.ClientConnInterface) PromptServiceClient {
+	return &promptServiceClient{cc}
+}
+
+func (c *promptServiceClient) ListPromptTemplates(ctx context.Context, in *ListPromptTemplatesRequest, opts ...grpc.CallOption) (*ListPromptTemplatesResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ListPromptTemplatesResponse)
+	err := c.cc.Invoke(ctx, PromptService_ListPromptTemplates_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *promptServiceClient) CreatePromptTemplate(ctx context.Context, in *CreatePromptTemplateRequest, opts ...grpc.CallOption) (*PromptTemplateResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(PromptTemplateResponse)
+	err := c.cc.Invoke(ctx, PromptService_CreatePromptTemplate_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *promptServiceClient) UpdatePromptTemplate(ctx context.Context, in *UpdatePromptTemplateRequest, opts ...grpc.CallOption) (*PromptTemplateResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(PromptTemplateResponse)
+	err := c.cc.Invoke(ctx, PromptService_UpdatePromptTemplate_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *promptServiceClient) DeletePromptTemplate(ctx context.Context, in *DeletePromptTemplateRequest, opts ...grpc.CallOption) (*CommonResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(CommonResponse)
+	err := c.cc.Invoke(ctx, PromptService_DeletePromptTemplate_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *promptServiceClient) GetPromptVersionHistory(ctx context.Context, in *GetPromptVersionHistoryRequest, opts ...grpc.CallOption) (*GetPromptVersionHistoryResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(GetPromptVersionHistoryResponse)
+	err := c.cc.Invoke(ctx, PromptService_GetPromptVersionHistory_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *promptServiceClient) RollbackPromptVersion(ctx context.Context, in *RollbackPromptVersionRequest, opts ...grpc.CallOption) (*PromptTemplateResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(PromptTemplateResponse)
+	err := c.cc.Invoke(ctx, PromptService_RollbackPromptVersion_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *promptServiceClient) RenderPrompt(ctx context.Context, in *RenderPromptRequest, opts ...grpc.CallOption) (*RenderPromptResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(RenderPromptResponse)
+	err := c.cc.Invoke(ctx, PromptService_RenderPrompt_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *promptServiceClient) GetActivePromptByAgentType(ctx context.Context, in *GetActivePromptByAgentTypeRequest, opts ...grpc.CallOption) (*GetActivePromptByAgentTypeResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(GetActivePromptByAgentTypeResponse)
+	err := c.cc.Invoke(ctx, PromptService_GetActivePromptByAgentType_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+// PromptServiceServer is the server API for PromptService service.
+// All implementations must embed UnimplementedPromptServiceServer
+// for forward compatibility.
+type PromptServiceServer interface {
+	ListPromptTemplates(context.Context, *ListPromptTemplatesRequest) (*ListPromptTemplatesResponse, error)
+	CreatePromptTemplate(context.Context, *CreatePromptTemplateRequest) (*PromptTemplateResponse, error)
+	UpdatePromptTemplate(context.Context, *UpdatePromptTemplateRequest) (*PromptTemplateResponse, error)
+	DeletePromptTemplate(context.Context, *DeletePromptTemplateRequest) (*CommonResponse, error)
+	GetPromptVersionHistory(context.Context, *GetPromptVersionHistoryRequest) (*GetPromptVersionHistoryResponse, error)
+	RollbackPromptVersion(context.Context, *RollbackPromptVersionRequest) (*PromptTemplateResponse, error)
+	// Internal gRPC (not exposed via HTTP gateway)
+	RenderPrompt(context.Context, *RenderPromptRequest) (*RenderPromptResponse, error)
+	GetActivePromptByAgentType(context.Context, *GetActivePromptByAgentTypeRequest) (*GetActivePromptByAgentTypeResponse, error)
+	mustEmbedUnimplementedPromptServiceServer()
+}
+
+// UnimplementedPromptServiceServer must be embedded to have
+// forward compatible implementations.
+//
+// NOTE: this should be embedded by value instead of pointer to avoid a nil
+// pointer dereference when methods are called.
+type UnimplementedPromptServiceServer struct{}
+
+func (UnimplementedPromptServiceServer) ListPromptTemplates(context.Context, *ListPromptTemplatesRequest) (*ListPromptTemplatesResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method ListPromptTemplates not implemented")
+}
+func (UnimplementedPromptServiceServer) CreatePromptTemplate(context.Context, *CreatePromptTemplateRequest) (*PromptTemplateResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method CreatePromptTemplate not implemented")
+}
+func (UnimplementedPromptServiceServer) UpdatePromptTemplate(context.Context, *UpdatePromptTemplateRequest) (*PromptTemplateResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method UpdatePromptTemplate not implemented")
+}
+func (UnimplementedPromptServiceServer) DeletePromptTemplate(context.Context, *DeletePromptTemplateRequest) (*CommonResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method DeletePromptTemplate not implemented")
+}
+func (UnimplementedPromptServiceServer) GetPromptVersionHistory(context.Context, *GetPromptVersionHistoryRequest) (*GetPromptVersionHistoryResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method GetPromptVersionHistory not implemented")
+}
+func (UnimplementedPromptServiceServer) RollbackPromptVersion(context.Context, *RollbackPromptVersionRequest) (*PromptTemplateResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method RollbackPromptVersion not implemented")
+}
+func (UnimplementedPromptServiceServer) RenderPrompt(context.Context, *RenderPromptRequest) (*RenderPromptResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method RenderPrompt not implemented")
+}
+func (UnimplementedPromptServiceServer) GetActivePromptByAgentType(context.Context, *GetActivePromptByAgentTypeRequest) (*GetActivePromptByAgentTypeResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method GetActivePromptByAgentType not implemented")
+}
+func (UnimplementedPromptServiceServer) mustEmbedUnimplementedPromptServiceServer() {}
+func (UnimplementedPromptServiceServer) testEmbeddedByValue()                       {}
+
+// UnsafePromptServiceServer may be embedded to opt out of forward compatibility for this service.
+// Use of this interface is not recommended, as added methods to PromptServiceServer will
+// result in compilation errors.
+type UnsafePromptServiceServer interface {
+	mustEmbedUnimplementedPromptServiceServer()
+}
+
+func RegisterPromptServiceServer(s grpc.ServiceRegistrar, srv PromptServiceServer) {
+	// If the following call panics, it indicates UnimplementedPromptServiceServer was
+	// embedded by pointer and is nil.  This will cause panics if an
+	// unimplemented method is ever invoked, so we test this at initialization
+	// time to prevent it from happening at runtime later due to I/O.
+	if t, ok := srv.(interface{ testEmbeddedByValue() }); ok {
+		t.testEmbeddedByValue()
+	}
+	s.RegisterService(&PromptService_ServiceDesc, srv)
+}
+
+func _PromptService_ListPromptTemplates_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ListPromptTemplatesRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(PromptServiceServer).ListPromptTemplates(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: PromptService_ListPromptTemplates_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(PromptServiceServer).ListPromptTemplates(ctx, req.(*ListPromptTemplatesRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _PromptService_CreatePromptTemplate_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(CreatePromptTemplateRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(PromptServiceServer).CreatePromptTemplate(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: PromptService_CreatePromptTemplate_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(PromptServiceServer).CreatePromptTemplate(ctx, req.(*CreatePromptTemplateRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _PromptService_UpdatePromptTemplate_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(UpdatePromptTemplateRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(PromptServiceServer).UpdatePromptTemplate(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: PromptService_UpdatePromptTemplate_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(PromptServiceServer).UpdatePromptTemplate(ctx, req.(*UpdatePromptTemplateRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _PromptService_DeletePromptTemplate_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(DeletePromptTemplateRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(PromptServiceServer).DeletePromptTemplate(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: PromptService_DeletePromptTemplate_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(PromptServiceServer).DeletePromptTemplate(ctx, req.(*DeletePromptTemplateRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _PromptService_GetPromptVersionHistory_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetPromptVersionHistoryRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(PromptServiceServer).GetPromptVersionHistory(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: PromptService_GetPromptVersionHistory_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(PromptServiceServer).GetPromptVersionHistory(ctx, req.(*GetPromptVersionHistoryRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _PromptService_RollbackPromptVersion_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(RollbackPromptVersionRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(PromptServiceServer).RollbackPromptVersion(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: PromptService_RollbackPromptVersion_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(PromptServiceServer).RollbackPromptVersion(ctx, req.(*RollbackPromptVersionRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _PromptService_RenderPrompt_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(RenderPromptRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(PromptServiceServer).RenderPrompt(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: PromptService_RenderPrompt_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(PromptServiceServer).RenderPrompt(ctx, req.(*RenderPromptRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _PromptService_GetActivePromptByAgentType_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetActivePromptByAgentTypeRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(PromptServiceServer).GetActivePromptByAgentType(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: PromptService_GetActivePromptByAgentType_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(PromptServiceServer).GetActivePromptByAgentType(ctx, req.(*GetActivePromptByAgentTypeRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+// PromptService_ServiceDesc is the grpc.ServiceDesc for PromptService service.
+// It's only intended for direct use with grpc.RegisterService,
+// and not to be introspected or modified (even as a copy)
+var PromptService_ServiceDesc = grpc.ServiceDesc{
+	ServiceName: "recruitment.PromptService",
+	HandlerType: (*PromptServiceServer)(nil),
+	Methods: []grpc.MethodDesc{
+		{
+			MethodName: "ListPromptTemplates",
+			Handler:    _PromptService_ListPromptTemplates_Handler,
+		},
+		{
+			MethodName: "CreatePromptTemplate",
+			Handler:    _PromptService_CreatePromptTemplate_Handler,
+		},
+		{
+			MethodName: "UpdatePromptTemplate",
+			Handler:    _PromptService_UpdatePromptTemplate_Handler,
+		},
+		{
+			MethodName: "DeletePromptTemplate",
+			Handler:    _PromptService_DeletePromptTemplate_Handler,
+		},
+		{
+			MethodName: "GetPromptVersionHistory",
+			Handler:    _PromptService_GetPromptVersionHistory_Handler,
+		},
+		{
+			MethodName: "RollbackPromptVersion",
+			Handler:    _PromptService_RollbackPromptVersion_Handler,
+		},
+		{
+			MethodName: "RenderPrompt",
+			Handler:    _PromptService_RenderPrompt_Handler,
+		},
+		{
+			MethodName: "GetActivePromptByAgentType",
+			Handler:    _PromptService_GetActivePromptByAgentType_Handler,
+		},
+	},
+	Streams:  []grpc.StreamDesc{},
+	Metadata: "proto/recruitment.proto",
+}
+
+const (
+	AgentConfigService_ListAgents_FullMethodName       = "/recruitment.AgentConfigService/ListAgents"
+	AgentConfigService_ListCapabilities_FullMethodName = "/recruitment.AgentConfigService/ListCapabilities"
+	AgentConfigService_CreateAgent_FullMethodName      = "/recruitment.AgentConfigService/CreateAgent"
+	AgentConfigService_UpdateAgent_FullMethodName      = "/recruitment.AgentConfigService/UpdateAgent"
+	AgentConfigService_DeleteAgent_FullMethodName      = "/recruitment.AgentConfigService/DeleteAgent"
+	AgentConfigService_GetAgentConfig_FullMethodName   = "/recruitment.AgentConfigService/GetAgentConfig"
+)
+
+// AgentConfigServiceClient is the client API for AgentConfigService service.
+//
+// For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
+type AgentConfigServiceClient interface {
+	ListAgents(ctx context.Context, in *ListAgentsRequest, opts ...grpc.CallOption) (*ListAgentsResponse, error)
+	ListCapabilities(ctx context.Context, in *ListCapabilitiesRequest, opts ...grpc.CallOption) (*ListCapabilitiesResponse, error)
+	CreateAgent(ctx context.Context, in *CreateAgentRequest, opts ...grpc.CallOption) (*AgentConfigResponse, error)
+	UpdateAgent(ctx context.Context, in *UpdateAgentRequest, opts ...grpc.CallOption) (*AgentConfigResponse, error)
+	DeleteAgent(ctx context.Context, in *DeleteAgentRequest, opts ...grpc.CallOption) (*CommonResponse, error)
+	// Internal gRPC (not exposed via HTTP gateway)
+	GetAgentConfig(ctx context.Context, in *GetAgentConfigRequest, opts ...grpc.CallOption) (*GetAgentConfigResponse, error)
+}
+
+type agentConfigServiceClient struct {
+	cc grpc.ClientConnInterface
+}
+
+func NewAgentConfigServiceClient(cc grpc.ClientConnInterface) AgentConfigServiceClient {
+	return &agentConfigServiceClient{cc}
+}
+
+func (c *agentConfigServiceClient) ListAgents(ctx context.Context, in *ListAgentsRequest, opts ...grpc.CallOption) (*ListAgentsResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ListAgentsResponse)
+	err := c.cc.Invoke(ctx, AgentConfigService_ListAgents_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *agentConfigServiceClient) ListCapabilities(ctx context.Context, in *ListCapabilitiesRequest, opts ...grpc.CallOption) (*ListCapabilitiesResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ListCapabilitiesResponse)
+	err := c.cc.Invoke(ctx, AgentConfigService_ListCapabilities_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *agentConfigServiceClient) CreateAgent(ctx context.Context, in *CreateAgentRequest, opts ...grpc.CallOption) (*AgentConfigResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(AgentConfigResponse)
+	err := c.cc.Invoke(ctx, AgentConfigService_CreateAgent_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *agentConfigServiceClient) UpdateAgent(ctx context.Context, in *UpdateAgentRequest, opts ...grpc.CallOption) (*AgentConfigResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(AgentConfigResponse)
+	err := c.cc.Invoke(ctx, AgentConfigService_UpdateAgent_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *agentConfigServiceClient) DeleteAgent(ctx context.Context, in *DeleteAgentRequest, opts ...grpc.CallOption) (*CommonResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(CommonResponse)
+	err := c.cc.Invoke(ctx, AgentConfigService_DeleteAgent_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *agentConfigServiceClient) GetAgentConfig(ctx context.Context, in *GetAgentConfigRequest, opts ...grpc.CallOption) (*GetAgentConfigResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(GetAgentConfigResponse)
+	err := c.cc.Invoke(ctx, AgentConfigService_GetAgentConfig_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+// AgentConfigServiceServer is the server API for AgentConfigService service.
+// All implementations must embed UnimplementedAgentConfigServiceServer
+// for forward compatibility.
+type AgentConfigServiceServer interface {
+	ListAgents(context.Context, *ListAgentsRequest) (*ListAgentsResponse, error)
+	ListCapabilities(context.Context, *ListCapabilitiesRequest) (*ListCapabilitiesResponse, error)
+	CreateAgent(context.Context, *CreateAgentRequest) (*AgentConfigResponse, error)
+	UpdateAgent(context.Context, *UpdateAgentRequest) (*AgentConfigResponse, error)
+	DeleteAgent(context.Context, *DeleteAgentRequest) (*CommonResponse, error)
+	// Internal gRPC (not exposed via HTTP gateway)
+	GetAgentConfig(context.Context, *GetAgentConfigRequest) (*GetAgentConfigResponse, error)
+	mustEmbedUnimplementedAgentConfigServiceServer()
+}
+
+// UnimplementedAgentConfigServiceServer must be embedded to have
+// forward compatible implementations.
+//
+// NOTE: this should be embedded by value instead of pointer to avoid a nil
+// pointer dereference when methods are called.
+type UnimplementedAgentConfigServiceServer struct{}
+
+func (UnimplementedAgentConfigServiceServer) ListAgents(context.Context, *ListAgentsRequest) (*ListAgentsResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method ListAgents not implemented")
+}
+func (UnimplementedAgentConfigServiceServer) ListCapabilities(context.Context, *ListCapabilitiesRequest) (*ListCapabilitiesResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method ListCapabilities not implemented")
+}
+func (UnimplementedAgentConfigServiceServer) CreateAgent(context.Context, *CreateAgentRequest) (*AgentConfigResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method CreateAgent not implemented")
+}
+func (UnimplementedAgentConfigServiceServer) UpdateAgent(context.Context, *UpdateAgentRequest) (*AgentConfigResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method UpdateAgent not implemented")
+}
+func (UnimplementedAgentConfigServiceServer) DeleteAgent(context.Context, *DeleteAgentRequest) (*CommonResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method DeleteAgent not implemented")
+}
+func (UnimplementedAgentConfigServiceServer) GetAgentConfig(context.Context, *GetAgentConfigRequest) (*GetAgentConfigResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method GetAgentConfig not implemented")
+}
+func (UnimplementedAgentConfigServiceServer) mustEmbedUnimplementedAgentConfigServiceServer() {}
+func (UnimplementedAgentConfigServiceServer) testEmbeddedByValue()                            {}
+
+// UnsafeAgentConfigServiceServer may be embedded to opt out of forward compatibility for this service.
+// Use of this interface is not recommended, as added methods to AgentConfigServiceServer will
+// result in compilation errors.
+type UnsafeAgentConfigServiceServer interface {
+	mustEmbedUnimplementedAgentConfigServiceServer()
+}
+
+func RegisterAgentConfigServiceServer(s grpc.ServiceRegistrar, srv AgentConfigServiceServer) {
+	// If the following call panics, it indicates UnimplementedAgentConfigServiceServer was
+	// embedded by pointer and is nil.  This will cause panics if an
+	// unimplemented method is ever invoked, so we test this at initialization
+	// time to prevent it from happening at runtime later due to I/O.
+	if t, ok := srv.(interface{ testEmbeddedByValue() }); ok {
+		t.testEmbeddedByValue()
+	}
+	s.RegisterService(&AgentConfigService_ServiceDesc, srv)
+}
+
+func _AgentConfigService_ListAgents_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ListAgentsRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(AgentConfigServiceServer).ListAgents(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: AgentConfigService_ListAgents_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(AgentConfigServiceServer).ListAgents(ctx, req.(*ListAgentsRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _AgentConfigService_ListCapabilities_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ListCapabilitiesRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(AgentConfigServiceServer).ListCapabilities(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: AgentConfigService_ListCapabilities_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(AgentConfigServiceServer).ListCapabilities(ctx, req.(*ListCapabilitiesRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _AgentConfigService_CreateAgent_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(CreateAgentRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(AgentConfigServiceServer).CreateAgent(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: AgentConfigService_CreateAgent_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(AgentConfigServiceServer).CreateAgent(ctx, req.(*CreateAgentRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _AgentConfigService_UpdateAgent_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(UpdateAgentRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(AgentConfigServiceServer).UpdateAgent(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: AgentConfigService_UpdateAgent_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(AgentConfigServiceServer).UpdateAgent(ctx, req.(*UpdateAgentRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _AgentConfigService_DeleteAgent_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(DeleteAgentRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(AgentConfigServiceServer).DeleteAgent(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: AgentConfigService_DeleteAgent_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(AgentConfigServiceServer).DeleteAgent(ctx, req.(*DeleteAgentRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _AgentConfigService_GetAgentConfig_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetAgentConfigRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(AgentConfigServiceServer).GetAgentConfig(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: AgentConfigService_GetAgentConfig_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(AgentConfigServiceServer).GetAgentConfig(ctx, req.(*GetAgentConfigRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+// AgentConfigService_ServiceDesc is the grpc.ServiceDesc for AgentConfigService service.
+// It's only intended for direct use with grpc.RegisterService,
+// and not to be introspected or modified (even as a copy)
+var AgentConfigService_ServiceDesc = grpc.ServiceDesc{
+	ServiceName: "recruitment.AgentConfigService",
+	HandlerType: (*AgentConfigServiceServer)(nil),
+	Methods: []grpc.MethodDesc{
+		{
+			MethodName: "ListAgents",
+			Handler:    _AgentConfigService_ListAgents_Handler,
+		},
+		{
+			MethodName: "ListCapabilities",
+			Handler:    _AgentConfigService_ListCapabilities_Handler,
+		},
+		{
+			MethodName: "CreateAgent",
+			Handler:    _AgentConfigService_CreateAgent_Handler,
+		},
+		{
+			MethodName: "UpdateAgent",
+			Handler:    _AgentConfigService_UpdateAgent_Handler,
+		},
+		{
+			MethodName: "DeleteAgent",
+			Handler:    _AgentConfigService_DeleteAgent_Handler,
+		},
+		{
+			MethodName: "GetAgentConfig",
+			Handler:    _AgentConfigService_GetAgentConfig_Handler,
+		},
+	},
+	Streams:  []grpc.StreamDesc{},
+	Metadata: "proto/recruitment.proto",
+}
+
+const (
+	SkillService_ListSkills_FullMethodName           = "/recruitment.SkillService/ListSkills"
+	SkillService_CreateSkill_FullMethodName          = "/recruitment.SkillService/CreateSkill"
+	SkillService_UpdateSkill_FullMethodName          = "/recruitment.SkillService/UpdateSkill"
+	SkillService_CreateSkillVersion_FullMethodName   = "/recruitment.SkillService/CreateSkillVersion"
+	SkillService_ListSkillVersions_FullMethodName    = "/recruitment.SkillService/ListSkillVersions"
+	SkillService_ActivateSkillVersion_FullMethodName = "/recruitment.SkillService/ActivateSkillVersion"
+	SkillService_ListSkillTools_FullMethodName       = "/recruitment.SkillService/ListSkillTools"
+	SkillService_UpdateSkillTool_FullMethodName      = "/recruitment.SkillService/UpdateSkillTool"
+)
+
+// SkillServiceClient is the client API for SkillService service.
+//
+// For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
+type SkillServiceClient interface {
+	ListSkills(ctx context.Context, in *ListSkillsRequest, opts ...grpc.CallOption) (*ListSkillsResponse, error)
+	CreateSkill(ctx context.Context, in *CreateSkillRequest, opts ...grpc.CallOption) (*SkillResponse, error)
+	UpdateSkill(ctx context.Context, in *UpdateSkillRequest, opts ...grpc.CallOption) (*SkillResponse, error)
+	CreateSkillVersion(ctx context.Context, in *CreateSkillVersionRequest, opts ...grpc.CallOption) (*SkillVersionResponse, error)
+	ListSkillVersions(ctx context.Context, in *ListSkillVersionsRequest, opts ...grpc.CallOption) (*ListSkillVersionsResponse, error)
+	ActivateSkillVersion(ctx context.Context, in *ActivateSkillVersionRequest, opts ...grpc.CallOption) (*SkillResponse, error)
+	ListSkillTools(ctx context.Context, in *ListSkillToolsRequest, opts ...grpc.CallOption) (*ListSkillToolsResponse, error)
+	UpdateSkillTool(ctx context.Context, in *UpdateSkillToolRequest, opts ...grpc.CallOption) (*SkillToolResponse, error)
+}
+
+type skillServiceClient struct {
+	cc grpc.ClientConnInterface
+}
+
+func NewSkillServiceClient(cc grpc.ClientConnInterface) SkillServiceClient {
+	return &skillServiceClient{cc}
+}
+
+func (c *skillServiceClient) ListSkills(ctx context.Context, in *ListSkillsRequest, opts ...grpc.CallOption) (*ListSkillsResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ListSkillsResponse)
+	err := c.cc.Invoke(ctx, SkillService_ListSkills_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *skillServiceClient) CreateSkill(ctx context.Context, in *CreateSkillRequest, opts ...grpc.CallOption) (*SkillResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(SkillResponse)
+	err := c.cc.Invoke(ctx, SkillService_CreateSkill_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *skillServiceClient) UpdateSkill(ctx context.Context, in *UpdateSkillRequest, opts ...grpc.CallOption) (*SkillResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(SkillResponse)
+	err := c.cc.Invoke(ctx, SkillService_UpdateSkill_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *skillServiceClient) CreateSkillVersion(ctx context.Context, in *CreateSkillVersionRequest, opts ...grpc.CallOption) (*SkillVersionResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(SkillVersionResponse)
+	err := c.cc.Invoke(ctx, SkillService_CreateSkillVersion_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *skillServiceClient) ListSkillVersions(ctx context.Context, in *ListSkillVersionsRequest, opts ...grpc.CallOption) (*ListSkillVersionsResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ListSkillVersionsResponse)
+	err := c.cc.Invoke(ctx, SkillService_ListSkillVersions_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *skillServiceClient) ActivateSkillVersion(ctx context.Context, in *ActivateSkillVersionRequest, opts ...grpc.CallOption) (*SkillResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(SkillResponse)
+	err := c.cc.Invoke(ctx, SkillService_ActivateSkillVersion_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *skillServiceClient) ListSkillTools(ctx context.Context, in *ListSkillToolsRequest, opts ...grpc.CallOption) (*ListSkillToolsResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ListSkillToolsResponse)
+	err := c.cc.Invoke(ctx, SkillService_ListSkillTools_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *skillServiceClient) UpdateSkillTool(ctx context.Context, in *UpdateSkillToolRequest, opts ...grpc.CallOption) (*SkillToolResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(SkillToolResponse)
+	err := c.cc.Invoke(ctx, SkillService_UpdateSkillTool_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+// SkillServiceServer is the server API for SkillService service.
+// All implementations must embed UnimplementedSkillServiceServer
+// for forward compatibility.
+type SkillServiceServer interface {
+	ListSkills(context.Context, *ListSkillsRequest) (*ListSkillsResponse, error)
+	CreateSkill(context.Context, *CreateSkillRequest) (*SkillResponse, error)
+	UpdateSkill(context.Context, *UpdateSkillRequest) (*SkillResponse, error)
+	CreateSkillVersion(context.Context, *CreateSkillVersionRequest) (*SkillVersionResponse, error)
+	ListSkillVersions(context.Context, *ListSkillVersionsRequest) (*ListSkillVersionsResponse, error)
+	ActivateSkillVersion(context.Context, *ActivateSkillVersionRequest) (*SkillResponse, error)
+	ListSkillTools(context.Context, *ListSkillToolsRequest) (*ListSkillToolsResponse, error)
+	UpdateSkillTool(context.Context, *UpdateSkillToolRequest) (*SkillToolResponse, error)
+	mustEmbedUnimplementedSkillServiceServer()
+}
+
+// UnimplementedSkillServiceServer must be embedded to have
+// forward compatible implementations.
+//
+// NOTE: this should be embedded by value instead of pointer to avoid a nil
+// pointer dereference when methods are called.
+type UnimplementedSkillServiceServer struct{}
+
+func (UnimplementedSkillServiceServer) ListSkills(context.Context, *ListSkillsRequest) (*ListSkillsResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method ListSkills not implemented")
+}
+func (UnimplementedSkillServiceServer) CreateSkill(context.Context, *CreateSkillRequest) (*SkillResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method CreateSkill not implemented")
+}
+func (UnimplementedSkillServiceServer) UpdateSkill(context.Context, *UpdateSkillRequest) (*SkillResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method UpdateSkill not implemented")
+}
+func (UnimplementedSkillServiceServer) CreateSkillVersion(context.Context, *CreateSkillVersionRequest) (*SkillVersionResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method CreateSkillVersion not implemented")
+}
+func (UnimplementedSkillServiceServer) ListSkillVersions(context.Context, *ListSkillVersionsRequest) (*ListSkillVersionsResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method ListSkillVersions not implemented")
+}
+func (UnimplementedSkillServiceServer) ActivateSkillVersion(context.Context, *ActivateSkillVersionRequest) (*SkillResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method ActivateSkillVersion not implemented")
+}
+func (UnimplementedSkillServiceServer) ListSkillTools(context.Context, *ListSkillToolsRequest) (*ListSkillToolsResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method ListSkillTools not implemented")
+}
+func (UnimplementedSkillServiceServer) UpdateSkillTool(context.Context, *UpdateSkillToolRequest) (*SkillToolResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method UpdateSkillTool not implemented")
+}
+func (UnimplementedSkillServiceServer) mustEmbedUnimplementedSkillServiceServer() {}
+func (UnimplementedSkillServiceServer) testEmbeddedByValue()                      {}
+
+// UnsafeSkillServiceServer may be embedded to opt out of forward compatibility for this service.
+// Use of this interface is not recommended, as added methods to SkillServiceServer will
+// result in compilation errors.
+type UnsafeSkillServiceServer interface {
+	mustEmbedUnimplementedSkillServiceServer()
+}
+
+func RegisterSkillServiceServer(s grpc.ServiceRegistrar, srv SkillServiceServer) {
+	// If the following call panics, it indicates UnimplementedSkillServiceServer was
+	// embedded by pointer and is nil.  This will cause panics if an
+	// unimplemented method is ever invoked, so we test this at initialization
+	// time to prevent it from happening at runtime later due to I/O.
+	if t, ok := srv.(interface{ testEmbeddedByValue() }); ok {
+		t.testEmbeddedByValue()
+	}
+	s.RegisterService(&SkillService_ServiceDesc, srv)
+}
+
+func _SkillService_ListSkills_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ListSkillsRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(SkillServiceServer).ListSkills(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: SkillService_ListSkills_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(SkillServiceServer).ListSkills(ctx, req.(*ListSkillsRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _SkillService_CreateSkill_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(CreateSkillRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(SkillServiceServer).CreateSkill(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: SkillService_CreateSkill_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(SkillServiceServer).CreateSkill(ctx, req.(*CreateSkillRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _SkillService_UpdateSkill_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(UpdateSkillRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(SkillServiceServer).UpdateSkill(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: SkillService_UpdateSkill_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(SkillServiceServer).UpdateSkill(ctx, req.(*UpdateSkillRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _SkillService_CreateSkillVersion_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(CreateSkillVersionRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(SkillServiceServer).CreateSkillVersion(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: SkillService_CreateSkillVersion_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(SkillServiceServer).CreateSkillVersion(ctx, req.(*CreateSkillVersionRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _SkillService_ListSkillVersions_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ListSkillVersionsRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(SkillServiceServer).ListSkillVersions(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: SkillService_ListSkillVersions_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(SkillServiceServer).ListSkillVersions(ctx, req.(*ListSkillVersionsRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _SkillService_ActivateSkillVersion_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ActivateSkillVersionRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(SkillServiceServer).ActivateSkillVersion(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: SkillService_ActivateSkillVersion_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(SkillServiceServer).ActivateSkillVersion(ctx, req.(*ActivateSkillVersionRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _SkillService_ListSkillTools_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ListSkillToolsRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(SkillServiceServer).ListSkillTools(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: SkillService_ListSkillTools_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(SkillServiceServer).ListSkillTools(ctx, req.(*ListSkillToolsRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _SkillService_UpdateSkillTool_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(UpdateSkillToolRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(SkillServiceServer).UpdateSkillTool(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: SkillService_UpdateSkillTool_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(SkillServiceServer).UpdateSkillTool(ctx, req.(*UpdateSkillToolRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+// SkillService_ServiceDesc is the grpc.ServiceDesc for SkillService service.
+// It's only intended for direct use with grpc.RegisterService,
+// and not to be introspected or modified (even as a copy)
+var SkillService_ServiceDesc = grpc.ServiceDesc{
+	ServiceName: "recruitment.SkillService",
+	HandlerType: (*SkillServiceServer)(nil),
+	Methods: []grpc.MethodDesc{
+		{
+			MethodName: "ListSkills",
+			Handler:    _SkillService_ListSkills_Handler,
+		},
+		{
+			MethodName: "CreateSkill",
+			Handler:    _SkillService_CreateSkill_Handler,
+		},
+		{
+			MethodName: "UpdateSkill",
+			Handler:    _SkillService_UpdateSkill_Handler,
+		},
+		{
+			MethodName: "CreateSkillVersion",
+			Handler:    _SkillService_CreateSkillVersion_Handler,
+		},
+		{
+			MethodName: "ListSkillVersions",
+			Handler:    _SkillService_ListSkillVersions_Handler,
+		},
+		{
+			MethodName: "ActivateSkillVersion",
+			Handler:    _SkillService_ActivateSkillVersion_Handler,
+		},
+		{
+			MethodName: "ListSkillTools",
+			Handler:    _SkillService_ListSkillTools_Handler,
+		},
+		{
+			MethodName: "UpdateSkillTool",
+			Handler:    _SkillService_UpdateSkillTool_Handler,
+		},
+	},
+	Streams:  []grpc.StreamDesc{},
+	Metadata: "proto/recruitment.proto",
+}
+
+const (
+	AgentSkillService_ListAgentSkills_FullMethodName           = "/recruitment.AgentSkillService/ListAgentSkills"
+	AgentSkillService_GetAgentSkill_FullMethodName             = "/recruitment.AgentSkillService/GetAgentSkill"
+	AgentSkillService_CreateAgentSkill_FullMethodName          = "/recruitment.AgentSkillService/CreateAgentSkill"
+	AgentSkillService_UpdateAgentSkill_FullMethodName          = "/recruitment.AgentSkillService/UpdateAgentSkill"
+	AgentSkillService_CreateAgentSkillVersion_FullMethodName   = "/recruitment.AgentSkillService/CreateAgentSkillVersion"
+	AgentSkillService_ListAgentSkillVersions_FullMethodName    = "/recruitment.AgentSkillService/ListAgentSkillVersions"
+	AgentSkillService_ActivateAgentSkillVersion_FullMethodName = "/recruitment.AgentSkillService/ActivateAgentSkillVersion"
+	AgentSkillService_UpdateAgentSkillStatus_FullMethodName    = "/recruitment.AgentSkillService/UpdateAgentSkillStatus"
+	AgentSkillService_PreviewAgentSkill_FullMethodName         = "/recruitment.AgentSkillService/PreviewAgentSkill"
+	AgentSkillService_ListAvailableAgentSkills_FullMethodName  = "/recruitment.AgentSkillService/ListAvailableAgentSkills"
+	AgentSkillService_DebugSemanticRetrieval_FullMethodName    = "/recruitment.AgentSkillService/DebugSemanticRetrieval"
+)
+
+// AgentSkillServiceClient is the client API for AgentSkillService service.
+//
+// For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
+type AgentSkillServiceClient interface {
+	ListAgentSkills(ctx context.Context, in *ListAgentSkillsRequest, opts ...grpc.CallOption) (*ListAgentSkillsResponse, error)
+	GetAgentSkill(ctx context.Context, in *GetAgentSkillRequest, opts ...grpc.CallOption) (*AgentSkillResponse, error)
+	CreateAgentSkill(ctx context.Context, in *CreateAgentSkillRequest, opts ...grpc.CallOption) (*AgentSkillResponse, error)
+	UpdateAgentSkill(ctx context.Context, in *UpdateAgentSkillRequest, opts ...grpc.CallOption) (*AgentSkillResponse, error)
+	CreateAgentSkillVersion(ctx context.Context, in *CreateAgentSkillVersionRequest, opts ...grpc.CallOption) (*AgentSkillVersionResponse, error)
+	ListAgentSkillVersions(ctx context.Context, in *ListAgentSkillVersionsRequest, opts ...grpc.CallOption) (*ListAgentSkillVersionsResponse, error)
+	ActivateAgentSkillVersion(ctx context.Context, in *ActivateAgentSkillVersionRequest, opts ...grpc.CallOption) (*AgentSkillResponse, error)
+	UpdateAgentSkillStatus(ctx context.Context, in *UpdateAgentSkillStatusRequest, opts ...grpc.CallOption) (*AgentSkillResponse, error)
+	PreviewAgentSkill(ctx context.Context, in *PreviewAgentSkillRequest, opts ...grpc.CallOption) (*PreviewAgentSkillResponse, error)
+	ListAvailableAgentSkills(ctx context.Context, in *ListAvailableAgentSkillsRequest, opts ...grpc.CallOption) (*ListAgentSkillsResponse, error)
+	DebugSemanticRetrieval(ctx context.Context, in *DebugSemanticRetrievalRequest, opts ...grpc.CallOption) (*DebugSemanticRetrievalResponse, error)
+}
+
+type agentSkillServiceClient struct {
+	cc grpc.ClientConnInterface
+}
+
+func NewAgentSkillServiceClient(cc grpc.ClientConnInterface) AgentSkillServiceClient {
+	return &agentSkillServiceClient{cc}
+}
+
+func (c *agentSkillServiceClient) ListAgentSkills(ctx context.Context, in *ListAgentSkillsRequest, opts ...grpc.CallOption) (*ListAgentSkillsResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ListAgentSkillsResponse)
+	err := c.cc.Invoke(ctx, AgentSkillService_ListAgentSkills_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *agentSkillServiceClient) GetAgentSkill(ctx context.Context, in *GetAgentSkillRequest, opts ...grpc.CallOption) (*AgentSkillResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(AgentSkillResponse)
+	err := c.cc.Invoke(ctx, AgentSkillService_GetAgentSkill_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *agentSkillServiceClient) CreateAgentSkill(ctx context.Context, in *CreateAgentSkillRequest, opts ...grpc.CallOption) (*AgentSkillResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(AgentSkillResponse)
+	err := c.cc.Invoke(ctx, AgentSkillService_CreateAgentSkill_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *agentSkillServiceClient) UpdateAgentSkill(ctx context.Context, in *UpdateAgentSkillRequest, opts ...grpc.CallOption) (*AgentSkillResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(AgentSkillResponse)
+	err := c.cc.Invoke(ctx, AgentSkillService_UpdateAgentSkill_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *agentSkillServiceClient) CreateAgentSkillVersion(ctx context.Context, in *CreateAgentSkillVersionRequest, opts ...grpc.CallOption) (*AgentSkillVersionResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(AgentSkillVersionResponse)
+	err := c.cc.Invoke(ctx, AgentSkillService_CreateAgentSkillVersion_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *agentSkillServiceClient) ListAgentSkillVersions(ctx context.Context, in *ListAgentSkillVersionsRequest, opts ...grpc.CallOption) (*ListAgentSkillVersionsResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ListAgentSkillVersionsResponse)
+	err := c.cc.Invoke(ctx, AgentSkillService_ListAgentSkillVersions_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *agentSkillServiceClient) ActivateAgentSkillVersion(ctx context.Context, in *ActivateAgentSkillVersionRequest, opts ...grpc.CallOption) (*AgentSkillResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(AgentSkillResponse)
+	err := c.cc.Invoke(ctx, AgentSkillService_ActivateAgentSkillVersion_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *agentSkillServiceClient) UpdateAgentSkillStatus(ctx context.Context, in *UpdateAgentSkillStatusRequest, opts ...grpc.CallOption) (*AgentSkillResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(AgentSkillResponse)
+	err := c.cc.Invoke(ctx, AgentSkillService_UpdateAgentSkillStatus_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *agentSkillServiceClient) PreviewAgentSkill(ctx context.Context, in *PreviewAgentSkillRequest, opts ...grpc.CallOption) (*PreviewAgentSkillResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(PreviewAgentSkillResponse)
+	err := c.cc.Invoke(ctx, AgentSkillService_PreviewAgentSkill_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *agentSkillServiceClient) ListAvailableAgentSkills(ctx context.Context, in *ListAvailableAgentSkillsRequest, opts ...grpc.CallOption) (*ListAgentSkillsResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ListAgentSkillsResponse)
+	err := c.cc.Invoke(ctx, AgentSkillService_ListAvailableAgentSkills_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *agentSkillServiceClient) DebugSemanticRetrieval(ctx context.Context, in *DebugSemanticRetrievalRequest, opts ...grpc.CallOption) (*DebugSemanticRetrievalResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(DebugSemanticRetrievalResponse)
+	err := c.cc.Invoke(ctx, AgentSkillService_DebugSemanticRetrieval_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+// AgentSkillServiceServer is the server API for AgentSkillService service.
+// All implementations must embed UnimplementedAgentSkillServiceServer
+// for forward compatibility.
+type AgentSkillServiceServer interface {
+	ListAgentSkills(context.Context, *ListAgentSkillsRequest) (*ListAgentSkillsResponse, error)
+	GetAgentSkill(context.Context, *GetAgentSkillRequest) (*AgentSkillResponse, error)
+	CreateAgentSkill(context.Context, *CreateAgentSkillRequest) (*AgentSkillResponse, error)
+	UpdateAgentSkill(context.Context, *UpdateAgentSkillRequest) (*AgentSkillResponse, error)
+	CreateAgentSkillVersion(context.Context, *CreateAgentSkillVersionRequest) (*AgentSkillVersionResponse, error)
+	ListAgentSkillVersions(context.Context, *ListAgentSkillVersionsRequest) (*ListAgentSkillVersionsResponse, error)
+	ActivateAgentSkillVersion(context.Context, *ActivateAgentSkillVersionRequest) (*AgentSkillResponse, error)
+	UpdateAgentSkillStatus(context.Context, *UpdateAgentSkillStatusRequest) (*AgentSkillResponse, error)
+	PreviewAgentSkill(context.Context, *PreviewAgentSkillRequest) (*PreviewAgentSkillResponse, error)
+	ListAvailableAgentSkills(context.Context, *ListAvailableAgentSkillsRequest) (*ListAgentSkillsResponse, error)
+	DebugSemanticRetrieval(context.Context, *DebugSemanticRetrievalRequest) (*DebugSemanticRetrievalResponse, error)
+	mustEmbedUnimplementedAgentSkillServiceServer()
+}
+
+// UnimplementedAgentSkillServiceServer must be embedded to have
+// forward compatible implementations.
+//
+// NOTE: this should be embedded by value instead of pointer to avoid a nil
+// pointer dereference when methods are called.
+type UnimplementedAgentSkillServiceServer struct{}
+
+func (UnimplementedAgentSkillServiceServer) ListAgentSkills(context.Context, *ListAgentSkillsRequest) (*ListAgentSkillsResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method ListAgentSkills not implemented")
+}
+func (UnimplementedAgentSkillServiceServer) GetAgentSkill(context.Context, *GetAgentSkillRequest) (*AgentSkillResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method GetAgentSkill not implemented")
+}
+func (UnimplementedAgentSkillServiceServer) CreateAgentSkill(context.Context, *CreateAgentSkillRequest) (*AgentSkillResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method CreateAgentSkill not implemented")
+}
+func (UnimplementedAgentSkillServiceServer) UpdateAgentSkill(context.Context, *UpdateAgentSkillRequest) (*AgentSkillResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method UpdateAgentSkill not implemented")
+}
+func (UnimplementedAgentSkillServiceServer) CreateAgentSkillVersion(context.Context, *CreateAgentSkillVersionRequest) (*AgentSkillVersionResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method CreateAgentSkillVersion not implemented")
+}
+func (UnimplementedAgentSkillServiceServer) ListAgentSkillVersions(context.Context, *ListAgentSkillVersionsRequest) (*ListAgentSkillVersionsResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method ListAgentSkillVersions not implemented")
+}
+func (UnimplementedAgentSkillServiceServer) ActivateAgentSkillVersion(context.Context, *ActivateAgentSkillVersionRequest) (*AgentSkillResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method ActivateAgentSkillVersion not implemented")
+}
+func (UnimplementedAgentSkillServiceServer) UpdateAgentSkillStatus(context.Context, *UpdateAgentSkillStatusRequest) (*AgentSkillResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method UpdateAgentSkillStatus not implemented")
+}
+func (UnimplementedAgentSkillServiceServer) PreviewAgentSkill(context.Context, *PreviewAgentSkillRequest) (*PreviewAgentSkillResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method PreviewAgentSkill not implemented")
+}
+func (UnimplementedAgentSkillServiceServer) ListAvailableAgentSkills(context.Context, *ListAvailableAgentSkillsRequest) (*ListAgentSkillsResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method ListAvailableAgentSkills not implemented")
+}
+func (UnimplementedAgentSkillServiceServer) DebugSemanticRetrieval(context.Context, *DebugSemanticRetrievalRequest) (*DebugSemanticRetrievalResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method DebugSemanticRetrieval not implemented")
+}
+func (UnimplementedAgentSkillServiceServer) mustEmbedUnimplementedAgentSkillServiceServer() {}
+func (UnimplementedAgentSkillServiceServer) testEmbeddedByValue()                           {}
+
+// UnsafeAgentSkillServiceServer may be embedded to opt out of forward compatibility for this service.
+// Use of this interface is not recommended, as added methods to AgentSkillServiceServer will
+// result in compilation errors.
+type UnsafeAgentSkillServiceServer interface {
+	mustEmbedUnimplementedAgentSkillServiceServer()
+}
+
+func RegisterAgentSkillServiceServer(s grpc.ServiceRegistrar, srv AgentSkillServiceServer) {
+	// If the following call panics, it indicates UnimplementedAgentSkillServiceServer was
+	// embedded by pointer and is nil.  This will cause panics if an
+	// unimplemented method is ever invoked, so we test this at initialization
+	// time to prevent it from happening at runtime later due to I/O.
+	if t, ok := srv.(interface{ testEmbeddedByValue() }); ok {
+		t.testEmbeddedByValue()
+	}
+	s.RegisterService(&AgentSkillService_ServiceDesc, srv)
+}
+
+func _AgentSkillService_ListAgentSkills_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ListAgentSkillsRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(AgentSkillServiceServer).ListAgentSkills(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: AgentSkillService_ListAgentSkills_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(AgentSkillServiceServer).ListAgentSkills(ctx, req.(*ListAgentSkillsRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _AgentSkillService_GetAgentSkill_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetAgentSkillRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(AgentSkillServiceServer).GetAgentSkill(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: AgentSkillService_GetAgentSkill_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(AgentSkillServiceServer).GetAgentSkill(ctx, req.(*GetAgentSkillRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _AgentSkillService_CreateAgentSkill_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(CreateAgentSkillRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(AgentSkillServiceServer).CreateAgentSkill(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: AgentSkillService_CreateAgentSkill_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(AgentSkillServiceServer).CreateAgentSkill(ctx, req.(*CreateAgentSkillRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _AgentSkillService_UpdateAgentSkill_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(UpdateAgentSkillRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(AgentSkillServiceServer).UpdateAgentSkill(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: AgentSkillService_UpdateAgentSkill_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(AgentSkillServiceServer).UpdateAgentSkill(ctx, req.(*UpdateAgentSkillRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _AgentSkillService_CreateAgentSkillVersion_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(CreateAgentSkillVersionRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(AgentSkillServiceServer).CreateAgentSkillVersion(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: AgentSkillService_CreateAgentSkillVersion_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(AgentSkillServiceServer).CreateAgentSkillVersion(ctx, req.(*CreateAgentSkillVersionRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _AgentSkillService_ListAgentSkillVersions_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ListAgentSkillVersionsRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(AgentSkillServiceServer).ListAgentSkillVersions(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: AgentSkillService_ListAgentSkillVersions_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(AgentSkillServiceServer).ListAgentSkillVersions(ctx, req.(*ListAgentSkillVersionsRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _AgentSkillService_ActivateAgentSkillVersion_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ActivateAgentSkillVersionRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(AgentSkillServiceServer).ActivateAgentSkillVersion(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: AgentSkillService_ActivateAgentSkillVersion_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(AgentSkillServiceServer).ActivateAgentSkillVersion(ctx, req.(*ActivateAgentSkillVersionRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _AgentSkillService_UpdateAgentSkillStatus_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(UpdateAgentSkillStatusRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(AgentSkillServiceServer).UpdateAgentSkillStatus(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: AgentSkillService_UpdateAgentSkillStatus_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(AgentSkillServiceServer).UpdateAgentSkillStatus(ctx, req.(*UpdateAgentSkillStatusRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _AgentSkillService_PreviewAgentSkill_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(PreviewAgentSkillRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(AgentSkillServiceServer).PreviewAgentSkill(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: AgentSkillService_PreviewAgentSkill_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(AgentSkillServiceServer).PreviewAgentSkill(ctx, req.(*PreviewAgentSkillRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _AgentSkillService_ListAvailableAgentSkills_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ListAvailableAgentSkillsRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(AgentSkillServiceServer).ListAvailableAgentSkills(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: AgentSkillService_ListAvailableAgentSkills_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(AgentSkillServiceServer).ListAvailableAgentSkills(ctx, req.(*ListAvailableAgentSkillsRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _AgentSkillService_DebugSemanticRetrieval_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(DebugSemanticRetrievalRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(AgentSkillServiceServer).DebugSemanticRetrieval(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: AgentSkillService_DebugSemanticRetrieval_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(AgentSkillServiceServer).DebugSemanticRetrieval(ctx, req.(*DebugSemanticRetrievalRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+// AgentSkillService_ServiceDesc is the grpc.ServiceDesc for AgentSkillService service.
+// It's only intended for direct use with grpc.RegisterService,
+// and not to be introspected or modified (even as a copy)
+var AgentSkillService_ServiceDesc = grpc.ServiceDesc{
+	ServiceName: "recruitment.AgentSkillService",
+	HandlerType: (*AgentSkillServiceServer)(nil),
+	Methods: []grpc.MethodDesc{
+		{
+			MethodName: "ListAgentSkills",
+			Handler:    _AgentSkillService_ListAgentSkills_Handler,
+		},
+		{
+			MethodName: "GetAgentSkill",
+			Handler:    _AgentSkillService_GetAgentSkill_Handler,
+		},
+		{
+			MethodName: "CreateAgentSkill",
+			Handler:    _AgentSkillService_CreateAgentSkill_Handler,
+		},
+		{
+			MethodName: "UpdateAgentSkill",
+			Handler:    _AgentSkillService_UpdateAgentSkill_Handler,
+		},
+		{
+			MethodName: "CreateAgentSkillVersion",
+			Handler:    _AgentSkillService_CreateAgentSkillVersion_Handler,
+		},
+		{
+			MethodName: "ListAgentSkillVersions",
+			Handler:    _AgentSkillService_ListAgentSkillVersions_Handler,
+		},
+		{
+			MethodName: "ActivateAgentSkillVersion",
+			Handler:    _AgentSkillService_ActivateAgentSkillVersion_Handler,
+		},
+		{
+			MethodName: "UpdateAgentSkillStatus",
+			Handler:    _AgentSkillService_UpdateAgentSkillStatus_Handler,
+		},
+		{
+			MethodName: "PreviewAgentSkill",
+			Handler:    _AgentSkillService_PreviewAgentSkill_Handler,
+		},
+		{
+			MethodName: "ListAvailableAgentSkills",
+			Handler:    _AgentSkillService_ListAvailableAgentSkills_Handler,
+		},
+		{
+			MethodName: "DebugSemanticRetrieval",
+			Handler:    _AgentSkillService_DebugSemanticRetrieval_Handler,
+		},
+	},
+	Streams:  []grpc.StreamDesc{},
+	Metadata: "proto/recruitment.proto",
+}
+
+const (
+	EmbeddingConfigService_ListEmbeddingProviders_FullMethodName   = "/recruitment.EmbeddingConfigService/ListEmbeddingProviders"
+	EmbeddingConfigService_CreateEmbeddingProvider_FullMethodName  = "/recruitment.EmbeddingConfigService/CreateEmbeddingProvider"
+	EmbeddingConfigService_UpdateEmbeddingProvider_FullMethodName  = "/recruitment.EmbeddingConfigService/UpdateEmbeddingProvider"
+	EmbeddingConfigService_DeleteEmbeddingProvider_FullMethodName  = "/recruitment.EmbeddingConfigService/DeleteEmbeddingProvider"
+	EmbeddingConfigService_ListEmbeddingModels_FullMethodName      = "/recruitment.EmbeddingConfigService/ListEmbeddingModels"
+	EmbeddingConfigService_CreateEmbeddingModel_FullMethodName     = "/recruitment.EmbeddingConfigService/CreateEmbeddingModel"
+	EmbeddingConfigService_UpdateEmbeddingModel_FullMethodName     = "/recruitment.EmbeddingConfigService/UpdateEmbeddingModel"
+	EmbeddingConfigService_SetDefaultEmbeddingModel_FullMethodName = "/recruitment.EmbeddingConfigService/SetDefaultEmbeddingModel"
+	EmbeddingConfigService_TestEmbeddingModel_FullMethodName       = "/recruitment.EmbeddingConfigService/TestEmbeddingModel"
+	EmbeddingConfigService_BackfillEmbeddings_FullMethodName       = "/recruitment.EmbeddingConfigService/BackfillEmbeddings"
+)
+
+// EmbeddingConfigServiceClient is the client API for EmbeddingConfigService service.
+//
+// For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
+type EmbeddingConfigServiceClient interface {
+	ListEmbeddingProviders(ctx context.Context, in *ListEmbeddingProvidersRequest, opts ...grpc.CallOption) (*ListEmbeddingProvidersResponse, error)
+	CreateEmbeddingProvider(ctx context.Context, in *CreateEmbeddingProviderRequest, opts ...grpc.CallOption) (*EmbeddingProviderResponse, error)
+	UpdateEmbeddingProvider(ctx context.Context, in *UpdateEmbeddingProviderRequest, opts ...grpc.CallOption) (*EmbeddingProviderResponse, error)
+	DeleteEmbeddingProvider(ctx context.Context, in *DeleteEmbeddingProviderRequest, opts ...grpc.CallOption) (*CommonResponse, error)
+	ListEmbeddingModels(ctx context.Context, in *ListEmbeddingModelsRequest, opts ...grpc.CallOption) (*ListEmbeddingModelsResponse, error)
+	CreateEmbeddingModel(ctx context.Context, in *CreateEmbeddingModelRequest, opts ...grpc.CallOption) (*EmbeddingModelResponse, error)
+	UpdateEmbeddingModel(ctx context.Context, in *UpdateEmbeddingModelRequest, opts ...grpc.CallOption) (*EmbeddingModelResponse, error)
+	SetDefaultEmbeddingModel(ctx context.Context, in *SetDefaultEmbeddingModelRequest, opts ...grpc.CallOption) (*CommonResponse, error)
+	TestEmbeddingModel(ctx context.Context, in *TestEmbeddingModelRequest, opts ...grpc.CallOption) (*TestEmbeddingModelResponse, error)
+	BackfillEmbeddings(ctx context.Context, in *BackfillEmbeddingsRequest, opts ...grpc.CallOption) (*BackfillEmbeddingsResponse, error)
+}
+
+type embeddingConfigServiceClient struct {
+	cc grpc.ClientConnInterface
+}
+
+func NewEmbeddingConfigServiceClient(cc grpc.ClientConnInterface) EmbeddingConfigServiceClient {
+	return &embeddingConfigServiceClient{cc}
+}
+
+func (c *embeddingConfigServiceClient) ListEmbeddingProviders(ctx context.Context, in *ListEmbeddingProvidersRequest, opts ...grpc.CallOption) (*ListEmbeddingProvidersResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ListEmbeddingProvidersResponse)
+	err := c.cc.Invoke(ctx, EmbeddingConfigService_ListEmbeddingProviders_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *embeddingConfigServiceClient) CreateEmbeddingProvider(ctx context.Context, in *CreateEmbeddingProviderRequest, opts ...grpc.CallOption) (*EmbeddingProviderResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(EmbeddingProviderResponse)
+	err := c.cc.Invoke(ctx, EmbeddingConfigService_CreateEmbeddingProvider_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *embeddingConfigServiceClient) UpdateEmbeddingProvider(ctx context.Context, in *UpdateEmbeddingProviderRequest, opts ...grpc.CallOption) (*EmbeddingProviderResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(EmbeddingProviderResponse)
+	err := c.cc.Invoke(ctx, EmbeddingConfigService_UpdateEmbeddingProvider_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *embeddingConfigServiceClient) DeleteEmbeddingProvider(ctx context.Context, in *DeleteEmbeddingProviderRequest, opts ...grpc.CallOption) (*CommonResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(CommonResponse)
+	err := c.cc.Invoke(ctx, EmbeddingConfigService_DeleteEmbeddingProvider_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *embeddingConfigServiceClient) ListEmbeddingModels(ctx context.Context, in *ListEmbeddingModelsRequest, opts ...grpc.CallOption) (*ListEmbeddingModelsResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ListEmbeddingModelsResponse)
+	err := c.cc.Invoke(ctx, EmbeddingConfigService_ListEmbeddingModels_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *embeddingConfigServiceClient) CreateEmbeddingModel(ctx context.Context, in *CreateEmbeddingModelRequest, opts ...grpc.CallOption) (*EmbeddingModelResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(EmbeddingModelResponse)
+	err := c.cc.Invoke(ctx, EmbeddingConfigService_CreateEmbeddingModel_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *embeddingConfigServiceClient) UpdateEmbeddingModel(ctx context.Context, in *UpdateEmbeddingModelRequest, opts ...grpc.CallOption) (*EmbeddingModelResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(EmbeddingModelResponse)
+	err := c.cc.Invoke(ctx, EmbeddingConfigService_UpdateEmbeddingModel_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *embeddingConfigServiceClient) SetDefaultEmbeddingModel(ctx context.Context, in *SetDefaultEmbeddingModelRequest, opts ...grpc.CallOption) (*CommonResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(CommonResponse)
+	err := c.cc.Invoke(ctx, EmbeddingConfigService_SetDefaultEmbeddingModel_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *embeddingConfigServiceClient) TestEmbeddingModel(ctx context.Context, in *TestEmbeddingModelRequest, opts ...grpc.CallOption) (*TestEmbeddingModelResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(TestEmbeddingModelResponse)
+	err := c.cc.Invoke(ctx, EmbeddingConfigService_TestEmbeddingModel_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *embeddingConfigServiceClient) BackfillEmbeddings(ctx context.Context, in *BackfillEmbeddingsRequest, opts ...grpc.CallOption) (*BackfillEmbeddingsResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(BackfillEmbeddingsResponse)
+	err := c.cc.Invoke(ctx, EmbeddingConfigService_BackfillEmbeddings_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+// EmbeddingConfigServiceServer is the server API for EmbeddingConfigService service.
+// All implementations must embed UnimplementedEmbeddingConfigServiceServer
+// for forward compatibility.
+type EmbeddingConfigServiceServer interface {
+	ListEmbeddingProviders(context.Context, *ListEmbeddingProvidersRequest) (*ListEmbeddingProvidersResponse, error)
+	CreateEmbeddingProvider(context.Context, *CreateEmbeddingProviderRequest) (*EmbeddingProviderResponse, error)
+	UpdateEmbeddingProvider(context.Context, *UpdateEmbeddingProviderRequest) (*EmbeddingProviderResponse, error)
+	DeleteEmbeddingProvider(context.Context, *DeleteEmbeddingProviderRequest) (*CommonResponse, error)
+	ListEmbeddingModels(context.Context, *ListEmbeddingModelsRequest) (*ListEmbeddingModelsResponse, error)
+	CreateEmbeddingModel(context.Context, *CreateEmbeddingModelRequest) (*EmbeddingModelResponse, error)
+	UpdateEmbeddingModel(context.Context, *UpdateEmbeddingModelRequest) (*EmbeddingModelResponse, error)
+	SetDefaultEmbeddingModel(context.Context, *SetDefaultEmbeddingModelRequest) (*CommonResponse, error)
+	TestEmbeddingModel(context.Context, *TestEmbeddingModelRequest) (*TestEmbeddingModelResponse, error)
+	BackfillEmbeddings(context.Context, *BackfillEmbeddingsRequest) (*BackfillEmbeddingsResponse, error)
+	mustEmbedUnimplementedEmbeddingConfigServiceServer()
+}
+
+// UnimplementedEmbeddingConfigServiceServer must be embedded to have
+// forward compatible implementations.
+//
+// NOTE: this should be embedded by value instead of pointer to avoid a nil
+// pointer dereference when methods are called.
+type UnimplementedEmbeddingConfigServiceServer struct{}
+
+func (UnimplementedEmbeddingConfigServiceServer) ListEmbeddingProviders(context.Context, *ListEmbeddingProvidersRequest) (*ListEmbeddingProvidersResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method ListEmbeddingProviders not implemented")
+}
+func (UnimplementedEmbeddingConfigServiceServer) CreateEmbeddingProvider(context.Context, *CreateEmbeddingProviderRequest) (*EmbeddingProviderResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method CreateEmbeddingProvider not implemented")
+}
+func (UnimplementedEmbeddingConfigServiceServer) UpdateEmbeddingProvider(context.Context, *UpdateEmbeddingProviderRequest) (*EmbeddingProviderResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method UpdateEmbeddingProvider not implemented")
+}
+func (UnimplementedEmbeddingConfigServiceServer) DeleteEmbeddingProvider(context.Context, *DeleteEmbeddingProviderRequest) (*CommonResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method DeleteEmbeddingProvider not implemented")
+}
+func (UnimplementedEmbeddingConfigServiceServer) ListEmbeddingModels(context.Context, *ListEmbeddingModelsRequest) (*ListEmbeddingModelsResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method ListEmbeddingModels not implemented")
+}
+func (UnimplementedEmbeddingConfigServiceServer) CreateEmbeddingModel(context.Context, *CreateEmbeddingModelRequest) (*EmbeddingModelResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method CreateEmbeddingModel not implemented")
+}
+func (UnimplementedEmbeddingConfigServiceServer) UpdateEmbeddingModel(context.Context, *UpdateEmbeddingModelRequest) (*EmbeddingModelResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method UpdateEmbeddingModel not implemented")
+}
+func (UnimplementedEmbeddingConfigServiceServer) SetDefaultEmbeddingModel(context.Context, *SetDefaultEmbeddingModelRequest) (*CommonResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method SetDefaultEmbeddingModel not implemented")
+}
+func (UnimplementedEmbeddingConfigServiceServer) TestEmbeddingModel(context.Context, *TestEmbeddingModelRequest) (*TestEmbeddingModelResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method TestEmbeddingModel not implemented")
+}
+func (UnimplementedEmbeddingConfigServiceServer) BackfillEmbeddings(context.Context, *BackfillEmbeddingsRequest) (*BackfillEmbeddingsResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method BackfillEmbeddings not implemented")
+}
+func (UnimplementedEmbeddingConfigServiceServer) mustEmbedUnimplementedEmbeddingConfigServiceServer() {
+}
+func (UnimplementedEmbeddingConfigServiceServer) testEmbeddedByValue() {}
+
+// UnsafeEmbeddingConfigServiceServer may be embedded to opt out of forward compatibility for this service.
+// Use of this interface is not recommended, as added methods to EmbeddingConfigServiceServer will
+// result in compilation errors.
+type UnsafeEmbeddingConfigServiceServer interface {
+	mustEmbedUnimplementedEmbeddingConfigServiceServer()
+}
+
+func RegisterEmbeddingConfigServiceServer(s grpc.ServiceRegistrar, srv EmbeddingConfigServiceServer) {
+	// If the following call panics, it indicates UnimplementedEmbeddingConfigServiceServer was
+	// embedded by pointer and is nil.  This will cause panics if an
+	// unimplemented method is ever invoked, so we test this at initialization
+	// time to prevent it from happening at runtime later due to I/O.
+	if t, ok := srv.(interface{ testEmbeddedByValue() }); ok {
+		t.testEmbeddedByValue()
+	}
+	s.RegisterService(&EmbeddingConfigService_ServiceDesc, srv)
+}
+
+func _EmbeddingConfigService_ListEmbeddingProviders_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ListEmbeddingProvidersRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(EmbeddingConfigServiceServer).ListEmbeddingProviders(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: EmbeddingConfigService_ListEmbeddingProviders_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(EmbeddingConfigServiceServer).ListEmbeddingProviders(ctx, req.(*ListEmbeddingProvidersRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _EmbeddingConfigService_CreateEmbeddingProvider_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(CreateEmbeddingProviderRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(EmbeddingConfigServiceServer).CreateEmbeddingProvider(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: EmbeddingConfigService_CreateEmbeddingProvider_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(EmbeddingConfigServiceServer).CreateEmbeddingProvider(ctx, req.(*CreateEmbeddingProviderRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _EmbeddingConfigService_UpdateEmbeddingProvider_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(UpdateEmbeddingProviderRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(EmbeddingConfigServiceServer).UpdateEmbeddingProvider(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: EmbeddingConfigService_UpdateEmbeddingProvider_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(EmbeddingConfigServiceServer).UpdateEmbeddingProvider(ctx, req.(*UpdateEmbeddingProviderRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _EmbeddingConfigService_DeleteEmbeddingProvider_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(DeleteEmbeddingProviderRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(EmbeddingConfigServiceServer).DeleteEmbeddingProvider(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: EmbeddingConfigService_DeleteEmbeddingProvider_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(EmbeddingConfigServiceServer).DeleteEmbeddingProvider(ctx, req.(*DeleteEmbeddingProviderRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _EmbeddingConfigService_ListEmbeddingModels_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ListEmbeddingModelsRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(EmbeddingConfigServiceServer).ListEmbeddingModels(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: EmbeddingConfigService_ListEmbeddingModels_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(EmbeddingConfigServiceServer).ListEmbeddingModels(ctx, req.(*ListEmbeddingModelsRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _EmbeddingConfigService_CreateEmbeddingModel_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(CreateEmbeddingModelRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(EmbeddingConfigServiceServer).CreateEmbeddingModel(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: EmbeddingConfigService_CreateEmbeddingModel_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(EmbeddingConfigServiceServer).CreateEmbeddingModel(ctx, req.(*CreateEmbeddingModelRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _EmbeddingConfigService_UpdateEmbeddingModel_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(UpdateEmbeddingModelRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(EmbeddingConfigServiceServer).UpdateEmbeddingModel(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: EmbeddingConfigService_UpdateEmbeddingModel_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(EmbeddingConfigServiceServer).UpdateEmbeddingModel(ctx, req.(*UpdateEmbeddingModelRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _EmbeddingConfigService_SetDefaultEmbeddingModel_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(SetDefaultEmbeddingModelRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(EmbeddingConfigServiceServer).SetDefaultEmbeddingModel(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: EmbeddingConfigService_SetDefaultEmbeddingModel_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(EmbeddingConfigServiceServer).SetDefaultEmbeddingModel(ctx, req.(*SetDefaultEmbeddingModelRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _EmbeddingConfigService_TestEmbeddingModel_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(TestEmbeddingModelRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(EmbeddingConfigServiceServer).TestEmbeddingModel(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: EmbeddingConfigService_TestEmbeddingModel_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(EmbeddingConfigServiceServer).TestEmbeddingModel(ctx, req.(*TestEmbeddingModelRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _EmbeddingConfigService_BackfillEmbeddings_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(BackfillEmbeddingsRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(EmbeddingConfigServiceServer).BackfillEmbeddings(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: EmbeddingConfigService_BackfillEmbeddings_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(EmbeddingConfigServiceServer).BackfillEmbeddings(ctx, req.(*BackfillEmbeddingsRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+// EmbeddingConfigService_ServiceDesc is the grpc.ServiceDesc for EmbeddingConfigService service.
+// It's only intended for direct use with grpc.RegisterService,
+// and not to be introspected or modified (even as a copy)
+var EmbeddingConfigService_ServiceDesc = grpc.ServiceDesc{
+	ServiceName: "recruitment.EmbeddingConfigService",
+	HandlerType: (*EmbeddingConfigServiceServer)(nil),
+	Methods: []grpc.MethodDesc{
+		{
+			MethodName: "ListEmbeddingProviders",
+			Handler:    _EmbeddingConfigService_ListEmbeddingProviders_Handler,
+		},
+		{
+			MethodName: "CreateEmbeddingProvider",
+			Handler:    _EmbeddingConfigService_CreateEmbeddingProvider_Handler,
+		},
+		{
+			MethodName: "UpdateEmbeddingProvider",
+			Handler:    _EmbeddingConfigService_UpdateEmbeddingProvider_Handler,
+		},
+		{
+			MethodName: "DeleteEmbeddingProvider",
+			Handler:    _EmbeddingConfigService_DeleteEmbeddingProvider_Handler,
+		},
+		{
+			MethodName: "ListEmbeddingModels",
+			Handler:    _EmbeddingConfigService_ListEmbeddingModels_Handler,
+		},
+		{
+			MethodName: "CreateEmbeddingModel",
+			Handler:    _EmbeddingConfigService_CreateEmbeddingModel_Handler,
+		},
+		{
+			MethodName: "UpdateEmbeddingModel",
+			Handler:    _EmbeddingConfigService_UpdateEmbeddingModel_Handler,
+		},
+		{
+			MethodName: "SetDefaultEmbeddingModel",
+			Handler:    _EmbeddingConfigService_SetDefaultEmbeddingModel_Handler,
+		},
+		{
+			MethodName: "TestEmbeddingModel",
+			Handler:    _EmbeddingConfigService_TestEmbeddingModel_Handler,
+		},
+		{
+			MethodName: "BackfillEmbeddings",
+			Handler:    _EmbeddingConfigService_BackfillEmbeddings_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

@@ -17,9 +17,11 @@ const (
 	defaultNotificationQueue = "recruitment.notification.create"
 	defaultResumeParseQueue  = "recruitment.resume.parse"
 	defaultEmailQueue        = "recruitment.email.send"
+	defaultEmbeddingQueue    = "recruitment.embedding.upsert"
 	notificationRoutingKey   = "notification.create"
 	resumeParseRoutingKey    = "resume.parse"
 	emailRoutingKey          = "email.send"
+	embeddingUpsertRoutingKey = "embedding.upsert"
 	retryHeader              = "x-retry-count"
 )
 
@@ -31,6 +33,7 @@ type Config struct {
 	NotificationQueue string
 	ResumeParseQueue  string
 	EmailQueue        string
+	EmbeddingQueue    string
 	PrefetchCount     int
 	MaxRetries        int
 	RetryDelay        time.Duration
@@ -94,6 +97,9 @@ func (cfg Config) withDefaults() Config {
 	if cfg.EmailQueue == "" {
 		cfg.EmailQueue = defaultEmailQueue
 	}
+	if cfg.EmbeddingQueue == "" {
+		cfg.EmbeddingQueue = defaultEmbeddingQueue
+	}
 	if cfg.PrefetchCount <= 0 {
 		cfg.PrefetchCount = 10
 	}
@@ -124,11 +130,18 @@ func (c *Conn) EmailQueue() string {
 	return c.cfg.EmailQueue
 }
 
+func (c *Conn) EmbeddingQueue() string {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	return c.cfg.EmbeddingQueue
+}
+
 func (c *Conn) bindings() []queueBinding {
 	return []queueBinding{
 		{name: c.cfg.NotificationQueue, routingKey: notificationRoutingKey},
 		{name: c.cfg.ResumeParseQueue, routingKey: resumeParseRoutingKey},
 		{name: c.cfg.EmailQueue, routingKey: emailRoutingKey},
+		{name: c.cfg.EmbeddingQueue, routingKey: embeddingUpsertRoutingKey},
 	}
 }
 

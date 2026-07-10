@@ -1,0 +1,426 @@
+{
+  "TASK-001": {
+    "description": "新增 Embedding 配置表数据库迁移",
+    "requiresHumanConfirmation": false,
+    "allowedFiles": [
+      "logic-grpc-service/migrations/*embedding*provider*.sql",
+      "logic-grpc-service/migrations/*embedding*model*.sql",
+      "logic-grpc-service/migrations/*embedding*.sql"
+    ],
+    "forbiddenFiles": [
+      "package.json",
+      "pnpm-lock.yaml",
+      "pnpm-workspace.yaml",
+      "hr-frontend/package.json",
+      "user-frontend/package.json",
+      "interviewer-frontend/package.json",
+      "**/node_modules/**",
+      "**/dist/**",
+      "**/.env*",
+      "deploy/**",
+      "docker/**",
+      "hr-frontend/**",
+      "web-gin-service/**",
+      "logic-grpc-service/service/**",
+      "logic-grpc-service/repository/**",
+      "logic-grpc-service/model/**"
+    ],
+    "requiredCommands": [
+      "cd logic-grpc-service && go test ./..."
+    ]
+  },
+  "TASK-002": {
+    "description": "新增 Embedding Provider/Model 的 Model 与 Repository",
+    "requiresHumanConfirmation": false,
+    "allowedFiles": [
+      "logic-grpc-service/model/model.go",
+      "logic-grpc-service/model/embedding_config.go",
+      "logic-grpc-service/repository/embedding_provider_repo.go",
+      "logic-grpc-service/repository/embedding_model_repo.go",
+      "logic-grpc-service/repository/*embedding*_test.go"
+    ],
+    "forbiddenFiles": [
+      "package.json",
+      "pnpm-lock.yaml",
+      "pnpm-workspace.yaml",
+      "hr-frontend/package.json",
+      "user-frontend/package.json",
+      "interviewer-frontend/package.json",
+      "**/node_modules/**",
+      "**/dist/**",
+      "**/.env*",
+      "deploy/**",
+      "docker/**",
+      "hr-frontend/**",
+      "web-gin-service/**",
+      "logic-grpc-service/service/services.go",
+      "logic-grpc-service/proto/**",
+      "logic-grpc-service/recruitment/pb/**"
+    ],
+    "requiredCommands": [
+      "cd logic-grpc-service && go test ./..."
+    ]
+  },
+  "TASK-003": {
+    "description": "新增 Embedding Config 配置段",
+    "requiresHumanConfirmation": true,
+    "allowedFiles": [
+      "logic-grpc-service/config/config.go",
+      "logic-grpc-service/config/*.go",
+      "logic-grpc-service/config*.yaml",
+      "logic-grpc-service/config/**/*.yaml",
+      "logic-grpc-service/**/*.example.yaml",
+      "logic-grpc-service/**/*config*.yaml"
+    ],
+    "forbiddenFiles": [
+      "package.json",
+      "pnpm-lock.yaml",
+      "pnpm-workspace.yaml",
+      "hr-frontend/package.json",
+      "user-frontend/package.json",
+      "interviewer-frontend/package.json",
+      "**/node_modules/**",
+      "**/dist/**",
+      "**/.env*",
+      "deploy/**",
+      "docker/**",
+      "hr-frontend/**",
+      "web-gin-service/**",
+      "logic-grpc-service/service/**",
+      "logic-grpc-service/repository/**",
+      "logic-grpc-service/model/**"
+    ],
+    "requiredCommands": [
+      "cd logic-grpc-service && go test ./..."
+    ]
+  },
+  "TASK-004": {
+    "description": "实现 Bailian Text Embedding Provider",
+    "requiresHumanConfirmation": false,
+    "allowedFiles": [
+      "logic-grpc-service/service/embedding_provider_bailian.go",
+      "logic-grpc-service/service/embedding_provider_bailian_test.go",
+      "logic-grpc-service/service/embedding_service.go"
+    ],
+    "forbiddenFiles": [
+      "package.json",
+      "pnpm-lock.yaml",
+      "pnpm-workspace.yaml",
+      "hr-frontend/package.json",
+      "user-frontend/package.json",
+      "interviewer-frontend/package.json",
+      "**/node_modules/**",
+      "**/dist/**",
+      "**/.env*",
+      "deploy/**",
+      "docker/**",
+      "hr-frontend/**",
+      "web-gin-service/**",
+      "logic-grpc-service/service/services.go",
+      "logic-grpc-service/proto/**",
+      "logic-grpc-service/recruitment/pb/**"
+    ],
+    "requiredCommands": [
+      "cd logic-grpc-service && go test ./..."
+    ]
+  },
+  "TASK-005": {
+    "description": "实现 Embedding Provider Factory",
+    "requiresHumanConfirmation": false,
+    "allowedFiles": [
+      "logic-grpc-service/service/embedding_provider_factory.go",
+      "logic-grpc-service/service/embedding_provider_factory_test.go",
+      "logic-grpc-service/service/embedding_config_service.go",
+      "logic-grpc-service/service/embedding_config_service_test.go"
+    ],
+    "forbiddenFiles": [
+      "package.json",
+      "pnpm-lock.yaml",
+      "pnpm-workspace.yaml",
+      "hr-frontend/package.json",
+      "user-frontend/package.json",
+      "interviewer-frontend/package.json",
+      "**/node_modules/**",
+      "**/dist/**",
+      "**/.env*",
+      "deploy/**",
+      "docker/**",
+      "hr-frontend/**",
+      "web-gin-service/**",
+      "logic-grpc-service/service/services.go",
+      "logic-grpc-service/proto/**",
+      "logic-grpc-service/recruitment/pb/**"
+    ],
+    "requiredCommands": [
+      "cd logic-grpc-service && go test ./..."
+    ]
+  },
+  "TASK-006": {
+    "description": "接入 Services 初始化流程",
+    "requiresHumanConfirmation": true,
+    "allowedFiles": [
+      "logic-grpc-service/service/services.go",
+      "logic-grpc-service/service/services_test.go",
+      "logic-grpc-service/service/embedding_provider_factory.go"
+    ],
+    "forbiddenFiles": [
+      "package.json",
+      "pnpm-lock.yaml",
+      "pnpm-workspace.yaml",
+      "hr-frontend/package.json",
+      "user-frontend/package.json",
+      "interviewer-frontend/package.json",
+      "**/node_modules/**",
+      "**/dist/**",
+      "**/.env*",
+      "deploy/**",
+      "docker/**",
+      "hr-frontend/**",
+      "web-gin-service/**",
+      "logic-grpc-service/proto/**",
+      "logic-grpc-service/recruitment/pb/**",
+      "logic-grpc-service/repository/ai_embedding_repo.go"
+    ],
+    "requiredCommands": [
+      "cd logic-grpc-service && go test ./..."
+    ]
+  },
+  "TASK-007": {
+    "description": "新增 Embedding 配置与测试连接接口",
+    "requiresHumanConfirmation": true,
+    "allowedFiles": [
+      "logic-grpc-service/proto/**",
+      "logic-grpc-service/recruitment/pb/**",
+      "logic-grpc-service/service/embedding_config_service.go",
+      "logic-grpc-service/service/*embedding*_test.go",
+      "logic-grpc-service/server/server.go",
+      "web-gin-service/handler/hr/**",
+      "web-gin-service/router/**",
+      "web-gin-service/rpc/**",
+      "hr-frontend/src/api/**",
+      "hr-frontend/src/types/**"
+    ],
+    "forbiddenFiles": [
+      "package.json",
+      "pnpm-lock.yaml",
+      "pnpm-workspace.yaml",
+      "hr-frontend/package.json",
+      "user-frontend/package.json",
+      "interviewer-frontend/package.json",
+      "**/node_modules/**",
+      "**/dist/**",
+      "**/.env*",
+      "deploy/**",
+      "docker/**",
+      "hr-frontend/src/views/**",
+      "user-frontend/**",
+      "interviewer-frontend/**"
+    ],
+    "requiredCommands": [
+      "cd logic-grpc-service && go test ./...",
+      "cd web-gin-service && go test ./...",
+      "pnpm --filter hr-frontend typecheck"
+    ]
+  },
+  "TASK-008": {
+    "description": "Agent Skill 写入链路发布 Embedding MQ 事件",
+    "requiresHumanConfirmation": true,
+    "allowedFiles": [
+      "logic-grpc-service/service/agent_skill_service.go",
+      "logic-grpc-service/service/embedding_event_publisher.go",
+      "logic-grpc-service/service/embedding_text_builder.go",
+      "logic-grpc-service/service/*agent_skill*_test.go",
+      "logic-grpc-service/service/*embedding_event*_test.go"
+    ],
+    "forbiddenFiles": [
+      "package.json",
+      "pnpm-lock.yaml",
+      "pnpm-workspace.yaml",
+      "hr-frontend/package.json",
+      "user-frontend/package.json",
+      "interviewer-frontend/package.json",
+      "**/node_modules/**",
+      "**/dist/**",
+      "**/.env*",
+      "deploy/**",
+      "docker/**",
+      "hr-frontend/**",
+      "web-gin-service/**",
+      "logic-grpc-service/repository/**",
+      "logic-grpc-service/proto/**",
+      "logic-grpc-service/recruitment/pb/**"
+    ],
+    "requiredCommands": [
+      "cd logic-grpc-service && go test ./..."
+    ]
+  },
+  "TASK-009": {
+    "description": "AI Memory 写入链路发布 Embedding MQ 事件",
+    "requiresHumanConfirmation": true,
+    "allowedFiles": [
+      "logic-grpc-service/service/**memory*.go",
+      "logic-grpc-service/service/**context*.go",
+      "logic-grpc-service/service/embedding_event_publisher.go",
+      "logic-grpc-service/service/embedding_text_builder.go",
+      "logic-grpc-service/service/*memory*_test.go",
+      "logic-grpc-service/service/*embedding_event*_test.go"
+    ],
+    "forbiddenFiles": [
+      "package.json",
+      "pnpm-lock.yaml",
+      "pnpm-workspace.yaml",
+      "hr-frontend/package.json",
+      "user-frontend/package.json",
+      "interviewer-frontend/package.json",
+      "**/node_modules/**",
+      "**/dist/**",
+      "**/.env*",
+      "deploy/**",
+      "docker/**",
+      "hr-frontend/**",
+      "web-gin-service/**",
+      "logic-grpc-service/repository/**",
+      "logic-grpc-service/proto/**",
+      "logic-grpc-service/recruitment/pb/**"
+    ],
+    "requiredCommands": [
+      "cd logic-grpc-service && go test ./..."
+    ]
+  },
+  "TASK-010": {
+    "description": "新增 Embedding MQ Consumer",
+    "requiresHumanConfirmation": true,
+    "allowedFiles": [
+      "logic-grpc-service/service/embedding_event_publisher.go",
+      "logic-grpc-service/service/embedding_event_consumer.go",
+      "logic-grpc-service/service/embedding_event*.go",
+      "logic-grpc-service/server/**",
+      "logic-grpc-service/config/**",
+      "logic-grpc-service/*rabbit*.go",
+      "logic-grpc-service/**/*mq*.go",
+      "logic-grpc-service/**/*rabbit*.go",
+      "logic-grpc-service/service/*embedding_event*_test.go"
+    ],
+    "forbiddenFiles": [
+      "package.json",
+      "pnpm-lock.yaml",
+      "pnpm-workspace.yaml",
+      "hr-frontend/package.json",
+      "user-frontend/package.json",
+      "interviewer-frontend/package.json",
+      "**/node_modules/**",
+      "**/dist/**",
+      "**/.env*",
+      "deploy/**",
+      "docker/**",
+      "hr-frontend/**",
+      "web-gin-service/**",
+      "logic-grpc-service/proto/**",
+      "logic-grpc-service/recruitment/pb/**"
+    ],
+    "requiredCommands": [
+      "cd logic-grpc-service && go test ./..."
+    ]
+  },
+  "TASK-011": {
+    "description": "新增 Embedding Backfill 命令",
+    "requiresHumanConfirmation": false,
+    "allowedFiles": [
+      "logic-grpc-service/cmd/backfill-embeddings/**",
+      "logic-grpc-service/service/embedding_backfill_service.go",
+      "logic-grpc-service/service/embedding_backfill_service_test.go",
+      "logic-grpc-service/service/embedding_text_builder.go"
+    ],
+    "forbiddenFiles": [
+      "package.json",
+      "pnpm-lock.yaml",
+      "pnpm-workspace.yaml",
+      "hr-frontend/package.json",
+      "user-frontend/package.json",
+      "interviewer-frontend/package.json",
+      "**/node_modules/**",
+      "**/dist/**",
+      "**/.env*",
+      "deploy/**",
+      "docker/**",
+      "hr-frontend/**",
+      "web-gin-service/**",
+      "logic-grpc-service/proto/**",
+      "logic-grpc-service/recruitment/pb/**"
+    ],
+    "requiredCommands": [
+      "cd logic-grpc-service && go test ./..."
+    ]
+  },
+  "TASK-012": {
+    "description": "增强语义召回调试页 Provider 状态展示",
+    "requiresHumanConfirmation": false,
+    "allowedFiles": [
+      "hr-frontend/src/views/hr/admin/SemanticRetrievalDebugView.vue",
+      "hr-frontend/src/api/agentSkill.ts",
+      "hr-frontend/src/types/agentSkill.ts",
+      "hr-frontend/src/views/hr/admin/__tests__/**",
+      "hr-frontend/src/**/*.test.ts"
+    ],
+    "forbiddenFiles": [
+      "package.json",
+      "pnpm-lock.yaml",
+      "pnpm-workspace.yaml",
+      "hr-frontend/package.json",
+      "user-frontend/package.json",
+      "interviewer-frontend/package.json",
+      "**/node_modules/**",
+      "**/dist/**",
+      "**/.env*",
+      "deploy/**",
+      "docker/**",
+      "logic-grpc-service/**",
+      "web-gin-service/**",
+      "user-frontend/**",
+      "interviewer-frontend/**",
+      "hr-frontend/src/router/**",
+      "hr-frontend/src/stores/**"
+    ],
+    "requiredCommands": [
+      "pnpm --filter hr-frontend typecheck",
+      "pnpm --filter hr-frontend test",
+      "pnpm --filter hr-frontend build"
+    ]
+  },
+  "TASK-013": {
+    "description": "补充跨层测试与回归检查",
+    "requiresHumanConfirmation": false,
+    "allowedFiles": [
+      "logic-grpc-service/**/*_test.go",
+      "web-gin-service/**/*_test.go",
+      "hr-frontend/src/**/*.test.ts",
+      "hr-frontend/src/**/__tests__/**",
+      ".spec/bailian-embedding-provider/scripts/**"
+    ],
+    "forbiddenFiles": [
+      "package.json",
+      "pnpm-lock.yaml",
+      "pnpm-workspace.yaml",
+      "hr-frontend/package.json",
+      "user-frontend/package.json",
+      "interviewer-frontend/package.json",
+      "**/node_modules/**",
+      "**/dist/**",
+      "**/.env*",
+      "deploy/**",
+      "docker/**",
+      "logic-grpc-service/**/*.go",
+      "web-gin-service/**/*.go",
+      "hr-frontend/src/**/*.vue",
+      "hr-frontend/src/api/**",
+      "hr-frontend/src/types/**"
+    ],
+    "requiredCommands": [
+      "cd logic-grpc-service && go test ./...",
+      "cd web-gin-service && go test ./...",
+      "pnpm --filter hr-frontend typecheck",
+      "pnpm --filter hr-frontend test",
+      "pnpm --filter hr-frontend build"
+    ]
+  }
+}

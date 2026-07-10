@@ -39,7 +39,7 @@ func From(c *gin.Context, code int32, msg string, data any) {
 // ProtoResponse converts a protobuf response with code/msg fields to the standard JSON envelope.
 // Fields other than code and msg become the "data" payload, using proto snake_case names.
 func ProtoResponse(c *gin.Context, msg proto.Message) {
-	mo := protojson.MarshalOptions{UseProtoNames: true}
+	mo := protojson.MarshalOptions{UseProtoNames: true, EmitUnpopulated: true}
 	jsonBytes, _ := mo.Marshal(msg)
 	var raw map[string]any
 	_ = json.Unmarshal(jsonBytes, &raw)
@@ -97,6 +97,8 @@ func PublicError(err error) ErrorInfo {
 			return ErrorInfo{Code: 400, Msg: "请求参数不合法，请检查后重试"}
 		case codes.NotFound:
 			return ErrorInfo{Code: 404, Msg: "请求的资源不存在或已失效"}
+		case codes.AlreadyExists:
+			return ErrorInfo{Code: 409, Msg: st.Message()}
 		case codes.Internal:
 			msg := st.Message()
 			if info, ok := classifyAIError(msg); ok {

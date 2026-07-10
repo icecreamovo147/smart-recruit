@@ -3,3 +3,7 @@ packages:
   - 'hr-frontend'
   - 'interviewer-frontend'
   - 'packages/*'
+allowBuilds:
+  es5-ext: true
+  esbuild: true
+  vue-demi: true
