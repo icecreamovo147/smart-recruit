@@ -99,7 +99,10 @@ jobs:
           sudo apt-get install -y wget unzip
           PROTOC_VERSION=25.3
           wget -q "https://github.com/protocolbuffers/protobuf/releases/download/v${PROTOC_VERSION}/protoc-${PROTOC_VERSION}-linux-x86_64.zip" -O /tmp/protoc.zip
-          unzip -q -o /tmp/protoc.zip -d /usr/local
+          PROTOC_DIR="$HOME/.local/protoc"
+          mkdir -p "$PROTOC_DIR"
+          unzip -q -o /tmp/protoc.zip -d "$PROTOC_DIR"
+          echo "$PROTOC_DIR/bin" >> "$GITHUB_PATH"
           protoc --version
       - name: Install protoc-gen-go
         run: go install google.golang.org/protobuf/cmd/protoc-gen-go@v1.36.11
