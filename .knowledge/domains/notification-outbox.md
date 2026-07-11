@@ -23,6 +23,8 @@ applies_to:
   - logic-grpc-service/repository/inbox_repo.go
   - logic-grpc-service/repository/notification_repo.go
   - logic-grpc-service/model/model.go
+  - web-gin-service/config/config.go
+  - web-gin-service/rpc/client.go
   - web-gin-service/handler/notification.go
 source_refs:
   - logic-grpc-service/service/application_service.go
@@ -40,8 +42,11 @@ source_refs:
   - logic-grpc-service/migrations/000051_standardize_event_outbox.sql
   - logic-grpc-service/migrations/000052_add_event_inbox.sql
   - web-gin-service/handler/notification.go
+  - web-gin-service/config/config.go
+  - web-gin-service/rpc/client.go
+  - docs/backend-ddd-microservices-evolution-notification-gateway-cutover.md
   - logic-grpc-service/model/model.go
-last_verified: 2026-07-11
+last_verified: 2026-07-12
 review_after: 2026-10-08
 ---
 
@@ -65,6 +70,8 @@ Notifications are produced by recruitment workflows and delivered through databa
 - `NotificationService` reads, summarizes, marks, and publishes notification-created events with account-type scoping.
 - `NotificationWorkerPool` throttles asynchronous notification writes and publishes created events through the cache layer.
 - `web-gin-service/handler/notification.go` exposes list, unread count, summary, mark-read, mark-all-read, and stream endpoints.
+- `web-gin-service/rpc/client.go` keeps Notification API routing on the main logic gRPC connection by default and can route only the generated Notification client to `NOTIFICATION_GRPC_ADDR` when `NOTIFICATION_ROUTE_MODE=notification`.
+- Notification realtime SSE delivery remains Redis-channel compatible across monolith and extracted runtime paths; rollback is `NOTIFICATION_ROUTE_MODE=logic`.
 - Frontend notification components subscribe to stream endpoints and display unread counts.
 
 ## Impact Guidance
@@ -79,7 +86,8 @@ Notifications are produced by recruitment workflows and delivered through databa
 - Replay, dead-letter repair, and retention operations should follow `docs/backend-ddd-microservices-evolution-event-replay-dead-letter-runbook.md` and generate SQL through `scripts/event-replay-dead-letter.sh` so mutation execution remains an explicit operational step.
 - Notification service skeleton changes should preserve the unrouted descriptor until a scoped cutover TASK adds shadow, dual-run, or routed behavior with rollback evidence.
 - Notification runtime extraction changes should keep `service.NewServices`, `logic-grpc-service/main.go`, consumer start order, Inbox idempotency, and existing queue/routing-key behavior compatible unless the current TASK is an approved cutover.
+- Gateway Notification cutover changes should preserve public HTTP/protobuf behavior and keep a configuration-only rollback path documented in `docs/backend-ddd-microservices-evolution-notification-gateway-cutover.md`.
 
 ## Verification
 
-Verified against application, interview, and offer notification-producing workflows, Analytics projection ingestion, Notification service skeleton/runtime, notification service, notification worker, outbox publisher, shared Inbox consumer helper, outbox/inbox repositories, event replay/dead-letter runbook, domain-event envelope contract, notification handler, migrations, `db.sql`, and model definitions on 2026-07-11.
+Verified against application, interview, and offer notification-producing workflows, Analytics projection ingestion, Notification service skeleton/runtime, Notification gateway cutover controls, notification service, notification worker, outbox publisher, shared Inbox consumer helper, outbox/inbox repositories, event replay/dead-letter runbook, domain-event envelope contract, notification handler, migrations, `db.sql`, and model definitions on 2026-07-12.

@@ -46,6 +46,9 @@ func streamClientInterceptor(token string) grpc.StreamClientInterceptor {
 
 type Clients struct {
 	conn                   *grpc.ClientConn
+	notificationConn       *grpc.ClientConn
+	NotificationRouteMode  string
+	NotificationTargetAddr string
 	Auth                   pb.AuthServiceClient
 	Job                    pb.JobServiceClient
 	Candidate              pb.CandidateServiceClient
@@ -65,14 +68,100 @@ type Clients struct {
 	RecruitingIntelligence pb.RecruitingIntelligenceServiceClient
 	EmbeddingConfig        pb.EmbeddingConfigServiceClient
 	Health                 healthpb.HealthClient
+	NotificationHealth     healthpb.HealthClient
+}
+
+type ClientOptions struct {
+	NotificationAddr      string
+	NotificationRouteMode string
 }
 
 // NewClients creates a gRPC client connection with round-robin load balancing.
 // Only read-only RPC methods get retry policies; write methods deliberately do
 // not retry because they are not globally idempotent.
 func NewClients(addr string) (*Clients, error) {
+	return NewClientsWithOptions(addr, ClientOptions{
+		NotificationAddr:      os.Getenv("NOTIFICATION_GRPC_ADDR"),
+		NotificationRouteMode: os.Getenv("NOTIFICATION_ROUTE_MODE"),
+	})
+}
+
+func NewClientsWithOptions(addr string, options ClientOptions) (*Clients, error) {
+	notificationMode := options.NotificationRouteMode
+	if notificationMode == "" {
+		notificationMode = "logic"
+	}
+	if notificationMode != "logic" && notificationMode != "notification" {
+		return nil, fmt.Errorf("unsupported notification route mode %q", notificationMode)
+	}
 	token := grpcInternalToken()
-	opts := []grpc.DialOption{
+	opts := dialOptions(token)
+	conn, err := grpc.NewClient(addr,
+		append(opts,
+			grpc.WithConnectParams(grpc.ConnectParams{
+				Backoff: backoff.Config{
+					MaxDelay: 5 * time.Second,
+				},
+				MinConnectTimeout: 3 * time.Second,
+			}),
+		)...,
+	)
+	if err != nil {
+		return nil, err
+	}
+	notificationConn := conn
+	notificationTarget := addr
+	if notificationMode == "notification" {
+		if options.NotificationAddr == "" {
+			_ = conn.Close()
+			return nil, fmt.Errorf("notification grpc addr is required when route mode is notification")
+		}
+		notificationConn, err = grpc.NewClient(options.NotificationAddr,
+			append(opts,
+				grpc.WithConnectParams(grpc.ConnectParams{
+					Backoff: backoff.Config{
+						MaxDelay: 5 * time.Second,
+					},
+					MinConnectTimeout: 3 * time.Second,
+				}),
+			)...,
+		)
+		if err != nil {
+			_ = conn.Close()
+			return nil, err
+		}
+		notificationTarget = options.NotificationAddr
+	}
+	return &Clients{
+		conn:                   conn,
+		notificationConn:       notificationConn,
+		NotificationRouteMode:  notificationMode,
+		NotificationTargetAddr: notificationTarget,
+		Auth:                   pb.NewAuthServiceClient(conn),
+		Job:                    pb.NewJobServiceClient(conn),
+		Candidate:              pb.NewCandidateServiceClient(conn),
+		Application:            pb.NewApplicationServiceClient(conn),
+		AI:                     pb.NewAIServiceClient(conn),
+		Notification:           pb.NewNotificationServiceClient(notificationConn),
+		Interview:              pb.NewInterviewServiceClient(conn),
+		Offer:                  pb.NewOfferServiceClient(conn),
+		Admin:                  pb.NewAdminServiceClient(conn),
+		Collaboration:          pb.NewCollaborationServiceClient(conn),
+		LlmConfig:              pb.NewLlmConfigServiceClient(conn),
+		Prompt:                 pb.NewPromptServiceClient(conn),
+		AgentConfig:            pb.NewAgentConfigServiceClient(conn),
+		MCP:                    pb.NewMCPServiceClient(conn),
+		Skill:                  pb.NewSkillServiceClient(conn),
+		AgentSkill:             pb.NewAgentSkillServiceClient(conn),
+		RecruitingIntelligence: pb.NewRecruitingIntelligenceServiceClient(conn),
+		EmbeddingConfig:        pb.NewEmbeddingConfigServiceClient(conn),
+		Health:                 healthpb.NewHealthClient(conn),
+		NotificationHealth:     healthpb.NewHealthClient(notificationConn),
+	}, nil
+}
+
+func dialOptions(token string) []grpc.DialOption {
+	return []grpc.DialOption{
 		grpc.WithTransportCredentials(insecure.NewCredentials()),
 		grpc.WithUnaryInterceptor(unaryClientInterceptor(token)),
 		grpc.WithStreamInterceptor(streamClientInterceptor(token)),
@@ -116,54 +205,37 @@ func NewClients(addr string) (*Clients, error) {
 			]
 		}`),
 	}
-	conn, err := grpc.NewClient(addr,
-		append(opts,
-			grpc.WithConnectParams(grpc.ConnectParams{
-				Backoff: backoff.Config{
-					MaxDelay: 5 * time.Second,
-				},
-				MinConnectTimeout: 3 * time.Second,
-			}),
-		)...,
-	)
-	if err != nil {
-		return nil, err
-	}
-	return &Clients{
-		conn:                   conn,
-		Auth:                   pb.NewAuthServiceClient(conn),
-		Job:                    pb.NewJobServiceClient(conn),
-		Candidate:              pb.NewCandidateServiceClient(conn),
-		Application:            pb.NewApplicationServiceClient(conn),
-		AI:                     pb.NewAIServiceClient(conn),
-		Notification:           pb.NewNotificationServiceClient(conn),
-		Interview:              pb.NewInterviewServiceClient(conn),
-		Offer:                  pb.NewOfferServiceClient(conn),
-		Admin:                  pb.NewAdminServiceClient(conn),
-		Collaboration:          pb.NewCollaborationServiceClient(conn),
-		LlmConfig:              pb.NewLlmConfigServiceClient(conn),
-		Prompt:                 pb.NewPromptServiceClient(conn),
-		AgentConfig:            pb.NewAgentConfigServiceClient(conn),
-		MCP:                    pb.NewMCPServiceClient(conn),
-		Skill:                  pb.NewSkillServiceClient(conn),
-		AgentSkill:             pb.NewAgentSkillServiceClient(conn),
-		RecruitingIntelligence: pb.NewRecruitingIntelligenceServiceClient(conn),
-		EmbeddingConfig:        pb.NewEmbeddingConfigServiceClient(conn),
-		Health:                 healthpb.NewHealthClient(conn),
-	}, nil
 }
 
 func (c *Clients) Close() error {
+	if c.notificationConn != nil && c.notificationConn != c.conn {
+		if err := c.notificationConn.Close(); err != nil {
+			_ = c.conn.Close()
+			return err
+		}
+	}
 	return c.conn.Close()
 }
 
 func (c *Clients) Ready(ctx context.Context) error {
-	resp, err := c.Health.Check(ctx, &healthpb.HealthCheckRequest{})
-	if err != nil {
+	if err := checkHealth(ctx, "logic", c.Health); err != nil {
 		return err
 	}
+	if c.notificationConn != nil && c.notificationConn != c.conn && c.NotificationHealth != nil {
+		if err := checkHealth(ctx, "notification", c.NotificationHealth); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func checkHealth(ctx context.Context, target string, client healthpb.HealthClient) error {
+	resp, err := client.Check(ctx, &healthpb.HealthCheckRequest{})
+	if err != nil {
+		return fmt.Errorf("%s grpc health check failed: %w", target, err)
+	}
 	if resp.GetStatus() != healthpb.HealthCheckResponse_SERVING {
-		return fmt.Errorf("grpc health status is %s", resp.GetStatus().String())
+		return fmt.Errorf("%s grpc health status is %s", target, resp.GetStatus().String())
 	}
 	return nil
 }

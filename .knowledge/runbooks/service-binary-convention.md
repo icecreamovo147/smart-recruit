@@ -20,6 +20,7 @@ source_refs:
   - docs/backend-ddd-microservices-evolution-service-binary-convention.md
   - docs/backend-ddd-microservices-evolution-notification-service-skeleton.md
   - docs/backend-ddd-microservices-evolution-notification-runtime-extraction.md
+  - docs/backend-ddd-microservices-evolution-notification-gateway-cutover.md
   - deploy/k8s/README-service-binaries.md
   - logic-grpc-service/internal/platform/servicebinary/convention.go
   - logic-grpc-service/internal/platform/servicebinary/convention_test.go
@@ -27,9 +28,11 @@ source_refs:
   - logic-grpc-service/internal/notification/runtime/skeleton.go
   - logic-grpc-service/service/notification_runtime.go
   - deploy/k8s/logic-deployment.yaml
+  - deploy/k8s/configmap.yaml
+  - docker/docker-compose.yml
   - deploy/k8s/worker-deployment.yaml
   - docker/logic-grpc-service.Dockerfile
-last_verified: 2026-07-11
+last_verified: 2026-07-12
 review_after: 2026-10-09
 ---
 
@@ -45,6 +48,7 @@ Use this runbook when adding or reviewing backend service binaries, worker binar
 - Current active deployments remain `logic-grpc-service` and `logic-worker`; extracted service entries are future command/image conventions until scoped TASKs create and cut them over.
 - `cmd/notification-service` is the first compile-safe extracted service skeleton. It supports `--describe` and `--check`, exits non-zero without flags, and keeps `TrafficEnabled=false` until a scoped cutover TASK changes that behavior.
 - `service.NotificationRuntime` is the current runtime composition seam for Notification persistence, unread counts, realtime cache publication, outbox dispatch, notification consumer startup, and email consumer startup. It is still started by the monolith worker block.
+- `web-gin-service` has a Notification gateway routing switch: default `NOTIFICATION_ROUTE_MODE=logic` keeps traffic on `GRPC_ADDR`; `NOTIFICATION_ROUTE_MODE=notification` routes only the generated Notification client to `NOTIFICATION_GRPC_ADDR` and fails fast when that address is missing.
 
 ## Review Checklist
 
@@ -55,6 +59,7 @@ Use this runbook when adding or reviewing backend service binaries, worker binar
 5. For service skeletons, confirm default execution does not bind a listener or start consumers unless explicitly scoped.
 6. For runtime extraction, confirm `main.go` preserves current worker start order and does not add gateway routing or deployment traffic.
 7. Run `cd logic-grpc-service && go test ./internal/platform/servicebinary ./...`.
+8. For gateway cutovers, confirm checked-in Docker and Kubernetes defaults still use rollback-safe route modes unless the TASK explicitly changes production traffic.
 
 ## Staleness Signals
 

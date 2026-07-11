@@ -47,11 +47,19 @@ func main() {
 		zap.Float64("gap_medium", cfg.Ranking.GapMedium),
 	)
 
-	clients, err := rpc.NewClients(cfg.GRPCAddr)
+	clients, err := rpc.NewClientsWithOptions(cfg.GRPCAddr, rpc.ClientOptions{
+		NotificationAddr:      cfg.NotificationGRPCAddr,
+		NotificationRouteMode: cfg.NotificationRouteMode,
+	})
 	if err != nil {
 		log.Fatal("connect logic grpc service failed", zap.String("addr", cfg.GRPCAddr), zap.Error(err))
 	}
 	defer clients.Close()
+	log.Info("grpc clients initialized",
+		zap.String("logic_addr", cfg.GRPCAddr),
+		zap.String("notification_route_mode", clients.NotificationRouteMode),
+		zap.String("notification_target_addr", clients.NotificationTargetAddr),
+	)
 
 	rdb := redisclient.New(cfg.Redis)
 	if err := redisclient.Ping(context.Background(), rdb); err != nil {

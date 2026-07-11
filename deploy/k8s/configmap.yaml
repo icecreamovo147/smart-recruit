@@ -56,6 +56,8 @@ metadata:
 data:
   HTTP_PORT: "8080"
   GRPC_ADDR: "dns:///logic-grpc-service.recruitment.svc.cluster.local:50051"
+  NOTIFICATION_ROUTE_MODE: "logic"
+  NOTIFICATION_GRPC_ADDR: ""
   AUTH_COOKIE_SECURE: "true"
   CANDIDATE_AUTH_COOKIE_NAME: "recruitment_candidate_token"
   HR_AUTH_COOKIE_NAME: "recruitment_hr_token"

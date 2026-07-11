@@ -9,17 +9,19 @@ import (
 )
 
 type Config struct {
-	HTTPPort          string
-	GRPCAddr          string
-	JWTSecret         string
-	AuthCookieName    string
-	CandidateCookie   string
-	HRCookie          string
-	InterviewerCookie string
-	AuthCookieSecure  bool
-	ShutdownTimeout   time.Duration
-	Redis             RedisConfig
-	RateLimit         RateLimitConfig
+	HTTPPort              string
+	GRPCAddr              string
+	NotificationGRPCAddr  string
+	NotificationRouteMode string
+	JWTSecret             string
+	AuthCookieName        string
+	CandidateCookie       string
+	HRCookie              string
+	InterviewerCookie     string
+	AuthCookieSecure      bool
+	ShutdownTimeout       time.Duration
+	Redis                 RedisConfig
+	RateLimit             RateLimitConfig
 	// TASK-FU-009：与 logic-grpc-service 同步的 ranking 权重 / 阈值。
 	// web-gin 当前不直接使用这些值；保留是为未来扩展做准备，
 	// 并保证两端的 env 变量读取行为一致。
@@ -78,16 +80,23 @@ func Load() (Config, error) {
 	if err := validateInternalAuthConfig(); err != nil {
 		return Config{}, err
 	}
+	notificationRouteMode := env("NOTIFICATION_ROUTE_MODE", "logic")
+	notificationGRPCAddr := env("NOTIFICATION_GRPC_ADDR", "")
+	if err := validateNotificationRoute(notificationRouteMode, notificationGRPCAddr); err != nil {
+		return Config{}, err
+	}
 	return Config{
-		HTTPPort:          env("HTTP_PORT", "8080"),
-		GRPCAddr:          env("GRPC_ADDR", "127.0.0.1:50051"),
-		JWTSecret:         secret,
-		AuthCookieName:    env("AUTH_COOKIE_NAME", "recruitment_token"),
-		CandidateCookie:   env("CANDIDATE_AUTH_COOKIE_NAME", "recruitment_candidate_token"),
-		HRCookie:          env("HR_AUTH_COOKIE_NAME", "recruitment_hr_token"),
-		InterviewerCookie: env("INTERVIEWER_AUTH_COOKIE_NAME", "recruitment_interviewer_token"),
-		AuthCookieSecure:  envBool("AUTH_COOKIE_SECURE", false),
-		ShutdownTimeout:   envDuration("SHUTDOWN_TIMEOUT", 15*time.Second),
+		HTTPPort:              env("HTTP_PORT", "8080"),
+		GRPCAddr:              env("GRPC_ADDR", "127.0.0.1:50051"),
+		NotificationGRPCAddr:  notificationGRPCAddr,
+		NotificationRouteMode: notificationRouteMode,
+		JWTSecret:             secret,
+		AuthCookieName:        env("AUTH_COOKIE_NAME", "recruitment_token"),
+		CandidateCookie:       env("CANDIDATE_AUTH_COOKIE_NAME", "recruitment_candidate_token"),
+		HRCookie:              env("HR_AUTH_COOKIE_NAME", "recruitment_hr_token"),
+		InterviewerCookie:     env("INTERVIEWER_AUTH_COOKIE_NAME", "recruitment_interviewer_token"),
+		AuthCookieSecure:      envBool("AUTH_COOKIE_SECURE", false),
+		ShutdownTimeout:       envDuration("SHUTDOWN_TIMEOUT", 15*time.Second),
 		Redis: RedisConfig{
 			Addr:         env("REDIS_ADDR", "127.0.0.1:6379"),
 			Password:     env("REDIS_PASSWORD", ""),
@@ -128,6 +137,20 @@ func Load() (Config, error) {
 			GapMedium:        envFloat64("RANKING_GAP_MEDIUM"),
 		},
 	}, nil
+}
+
+func validateNotificationRoute(mode, addr string) error {
+	switch mode {
+	case "", "logic":
+		return nil
+	case "notification":
+		if strings.TrimSpace(addr) == "" {
+			return fmt.Errorf("NOTIFICATION_GRPC_ADDR is required when NOTIFICATION_ROUTE_MODE=notification")
+		}
+		return nil
+	default:
+		return fmt.Errorf("NOTIFICATION_ROUTE_MODE must be logic or notification")
+	}
 }
 
 func env(key, fallback string) string {

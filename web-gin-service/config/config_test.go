@@ -56,6 +56,66 @@ func TestLoadRankingConfig(t *testing.T) {
 	}
 }
 
+func TestLoadNotificationRouteDefaultsToLogic(t *testing.T) {
+	t.Setenv("ALLOW_INSECURE_DEV_CONFIG", "false")
+	t.Setenv("JWT_SECRET", "test-secret-at-least-32-chars-long")
+	t.Setenv("GRPC_INTERNAL_TOKEN", strings.Repeat("t", 32))
+
+	cfg, err := Load()
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+	if cfg.NotificationRouteMode != "logic" {
+		t.Fatalf("NotificationRouteMode = %q, want logic", cfg.NotificationRouteMode)
+	}
+	if cfg.NotificationGRPCAddr != "" {
+		t.Fatalf("NotificationGRPCAddr = %q, want empty", cfg.NotificationGRPCAddr)
+	}
+}
+
+func TestLoadNotificationRouteToExtractedService(t *testing.T) {
+	t.Setenv("ALLOW_INSECURE_DEV_CONFIG", "false")
+	t.Setenv("JWT_SECRET", "test-secret-at-least-32-chars-long")
+	t.Setenv("GRPC_INTERNAL_TOKEN", strings.Repeat("t", 32))
+	t.Setenv("NOTIFICATION_ROUTE_MODE", "notification")
+	t.Setenv("NOTIFICATION_GRPC_ADDR", "dns:///notification-service:50051")
+
+	cfg, err := Load()
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+	if cfg.NotificationRouteMode != "notification" {
+		t.Fatalf("NotificationRouteMode = %q, want notification", cfg.NotificationRouteMode)
+	}
+	if cfg.NotificationGRPCAddr != "dns:///notification-service:50051" {
+		t.Fatalf("NotificationGRPCAddr = %q", cfg.NotificationGRPCAddr)
+	}
+}
+
+func TestLoadNotificationRouteRequiresAddress(t *testing.T) {
+	t.Setenv("ALLOW_INSECURE_DEV_CONFIG", "false")
+	t.Setenv("JWT_SECRET", "test-secret-at-least-32-chars-long")
+	t.Setenv("GRPC_INTERNAL_TOKEN", strings.Repeat("t", 32))
+	t.Setenv("NOTIFICATION_ROUTE_MODE", "notification")
+
+	_, err := Load()
+	if err == nil || !strings.Contains(err.Error(), "NOTIFICATION_GRPC_ADDR") {
+		t.Fatalf("expected notification addr error, got %v", err)
+	}
+}
+
+func TestLoadRejectsInvalidNotificationRouteMode(t *testing.T) {
+	t.Setenv("ALLOW_INSECURE_DEV_CONFIG", "false")
+	t.Setenv("JWT_SECRET", "test-secret-at-least-32-chars-long")
+	t.Setenv("GRPC_INTERNAL_TOKEN", strings.Repeat("t", 32))
+	t.Setenv("NOTIFICATION_ROUTE_MODE", "invalid")
+
+	_, err := Load()
+	if err == nil || !strings.Contains(err.Error(), "NOTIFICATION_ROUTE_MODE") {
+		t.Fatalf("expected notification route mode error, got %v", err)
+	}
+}
+
 func TestLoadRankingConfigDefaultsEmpty(t *testing.T) {
 	t.Setenv("ALLOW_INSECURE_DEV_CONFIG", "false")
 	t.Setenv("JWT_SECRET", "test-secret-at-least-32-chars-long")
