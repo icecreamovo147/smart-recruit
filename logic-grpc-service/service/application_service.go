@@ -104,7 +104,7 @@ func (s *ApplicationService) ApplyJob(ctx context.Context, req *pb.ApplyJobReque
 		if err := s.applications.CreateNewRoundWithTx(ctx, tx, app); err != nil {
 			return err
 		}
-		if err := s.outboxPublisher.WriteEventTx(tx, "notification.create", "application", uint64(app.ID), "notification.create", notificationPayload{
+		if err := s.outboxPublisher.WriteEventTx(tx, "application.notification_requested", "application", uint64(app.ID), "notification.create", notificationPayload{
 			ReceiverID:   job.HrID,
 			ReceiverRole: 2, ReceiverAccountType: "staff",
 			Type:    "new_application",
@@ -116,7 +116,7 @@ func (s *ApplicationService) ApplyJob(ctx context.Context, req *pb.ApplyJobReque
 		}); err != nil {
 			return err
 		}
-		return s.outboxPublisher.WriteEventTx(tx, "email.send", "application", uint64(app.ID), "email.send", emailPayload{
+		return s.outboxPublisher.WriteEventTx(tx, "application.email_requested", "application", uint64(app.ID), "email.send", emailPayload{
 			ReceiverID:          job.HrID,
 			ReceiverAccountType: "staff",
 			Type:                "new_application",
@@ -337,7 +337,7 @@ func (s *ApplicationService) UpdateApplicationStatus(ctx context.Context, req *p
 		if rows == 0 || notifyType == "" {
 			return nil
 		}
-		if err := s.outboxPublisher.WriteEventTx(tx, "notification.create", "application", uint64(req.ApplicationId), "notification.create", notificationPayload{
+		if err := s.outboxPublisher.WriteEventTx(tx, "application.notification_requested", "application", uint64(req.ApplicationId), "notification.create", notificationPayload{
 			ReceiverID:   detail.UserID,
 			ReceiverRole: 1, ReceiverAccountType: "candidate",
 			Type:    notifyType,
@@ -349,7 +349,7 @@ func (s *ApplicationService) UpdateApplicationStatus(ctx context.Context, req *p
 		}); err != nil {
 			return err
 		}
-		return s.outboxPublisher.WriteEventTx(tx, "email.send", "application", uint64(req.ApplicationId), "email.send", emailPayload{
+		return s.outboxPublisher.WriteEventTx(tx, "application.email_requested", "application", uint64(req.ApplicationId), "email.send", emailPayload{
 			ReceiverID:          detail.UserID,
 			ReceiverAccountType: "candidate",
 			Type:                notifyType,

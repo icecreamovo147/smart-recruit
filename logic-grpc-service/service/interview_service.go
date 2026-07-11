@@ -272,7 +272,7 @@ func (s *InterviewService) ScheduleInterview(ctx context.Context, req *pb.Schedu
 		}
 
 		// Notify the interviewer
-		if err := s.outboxPublisher.WriteEventTx(tx, "notification.create", "interview", uint64(interview.ID), "notification.create", notificationPayload{
+		if err := s.outboxPublisher.WriteEventTx(tx, "interview.notification_requested", "interview", uint64(interview.ID), "notification.create", notificationPayload{
 			ReceiverID:          req.InterviewerId,
 			ReceiverRole:        2,
 			ReceiverAccountType: "staff",
@@ -287,7 +287,7 @@ func (s *InterviewService) ScheduleInterview(ctx context.Context, req *pb.Schedu
 		}
 
 		// Email to interviewer
-		if err := s.outboxPublisher.WriteEventTx(tx, "email.send", "interview", uint64(interview.ID), "email.send", emailPayload{
+		if err := s.outboxPublisher.WriteEventTx(tx, "interview.email_requested", "interview", uint64(interview.ID), "email.send", emailPayload{
 			ReceiverID:          req.InterviewerId,
 			ReceiverAccountType: "staff",
 			Type:                "interview_assigned",
@@ -306,7 +306,7 @@ func (s *InterviewService) ScheduleInterview(ctx context.Context, req *pb.Schedu
 		}
 
 		// Notify the candidate
-		if err := s.outboxPublisher.WriteEventTx(tx, "notification.create", "interview", uint64(interview.ID), "notification.create", notificationPayload{
+		if err := s.outboxPublisher.WriteEventTx(tx, "interview.notification_requested", "interview", uint64(interview.ID), "notification.create", notificationPayload{
 			ReceiverID:          appDetail.UserID,
 			ReceiverRole:        1,
 			ReceiverAccountType: "candidate",
@@ -321,7 +321,7 @@ func (s *InterviewService) ScheduleInterview(ctx context.Context, req *pb.Schedu
 		}
 
 		// Email to candidate
-		if err := s.outboxPublisher.WriteEventTx(tx, "email.send", "interview", uint64(interview.ID), "email.send", emailPayload{
+		if err := s.outboxPublisher.WriteEventTx(tx, "interview.email_requested", "interview", uint64(interview.ID), "email.send", emailPayload{
 			ReceiverID:          appDetail.UserID,
 			ReceiverAccountType: "candidate",
 			Type:                "interview_scheduled",
@@ -469,7 +469,7 @@ func (s *InterviewService) UpdateInterview(ctx context.Context, req *pb.UpdateIn
 		}
 
 		// Notify interviewer
-		if err := s.outboxPublisher.WriteEventTx(tx, "notification.create", "interview", uint64(existing.ID), "notification.create", notificationPayload{
+		if err := s.outboxPublisher.WriteEventTx(tx, "interview.notification_requested", "interview", uint64(existing.ID), "notification.create", notificationPayload{
 			ReceiverID:          existing.InterviewerID,
 			ReceiverRole:        2,
 			ReceiverAccountType: "staff",
@@ -484,7 +484,7 @@ func (s *InterviewService) UpdateInterview(ctx context.Context, req *pb.UpdateIn
 		}
 
 		// Email to interviewer
-		if err := s.outboxPublisher.WriteEventTx(tx, "email.send", "interview", uint64(existing.ID), "email.send", emailPayload{
+		if err := s.outboxPublisher.WriteEventTx(tx, "interview.email_requested", "interview", uint64(existing.ID), "email.send", emailPayload{
 			ReceiverID:          existing.InterviewerID,
 			ReceiverAccountType: "staff",
 			Type:                "interview_updated",
@@ -503,7 +503,7 @@ func (s *InterviewService) UpdateInterview(ctx context.Context, req *pb.UpdateIn
 		}
 
 		// Notify candidate
-		if err := s.outboxPublisher.WriteEventTx(tx, "notification.create", "interview", uint64(existing.ID), "notification.create", notificationPayload{
+		if err := s.outboxPublisher.WriteEventTx(tx, "interview.notification_requested", "interview", uint64(existing.ID), "notification.create", notificationPayload{
 			ReceiverID:          appDetail.UserID,
 			ReceiverRole:        1,
 			ReceiverAccountType: "candidate",
@@ -518,7 +518,7 @@ func (s *InterviewService) UpdateInterview(ctx context.Context, req *pb.UpdateIn
 		}
 
 		// Email to candidate
-		if err := s.outboxPublisher.WriteEventTx(tx, "email.send", "interview", uint64(existing.ID), "email.send", emailPayload{
+		if err := s.outboxPublisher.WriteEventTx(tx, "interview.email_requested", "interview", uint64(existing.ID), "email.send", emailPayload{
 			ReceiverID:          appDetail.UserID,
 			ReceiverAccountType: "candidate",
 			Type:                "interview_updated",
@@ -625,7 +625,7 @@ func (s *InterviewService) CancelInterview(ctx context.Context, req *pb.CancelIn
 		// second caller sees rows == 0 and skips duplicate outbox writes.
 		if rows > 0 {
 			// Notify interviewer
-			if err := s.outboxPublisher.WriteEventTx(tx, "notification.create", "interview", uint64(existing.ID), "notification.create", notificationPayload{
+			if err := s.outboxPublisher.WriteEventTx(tx, "interview.notification_requested", "interview", uint64(existing.ID), "notification.create", notificationPayload{
 				ReceiverID:          existing.InterviewerID,
 				ReceiverRole:        2,
 				ReceiverAccountType: "staff",
@@ -640,7 +640,7 @@ func (s *InterviewService) CancelInterview(ctx context.Context, req *pb.CancelIn
 			}
 
 			// Email to interviewer
-			if err := s.outboxPublisher.WriteEventTx(tx, "email.send", "interview", uint64(existing.ID), "email.send", emailPayload{
+			if err := s.outboxPublisher.WriteEventTx(tx, "interview.email_requested", "interview", uint64(existing.ID), "email.send", emailPayload{
 				ReceiverID:          existing.InterviewerID,
 				ReceiverAccountType: "staff",
 				Type:                "interview_cancelled",
@@ -659,7 +659,7 @@ func (s *InterviewService) CancelInterview(ctx context.Context, req *pb.CancelIn
 			}
 
 			// Notify candidate
-			if err := s.outboxPublisher.WriteEventTx(tx, "notification.create", "interview", uint64(existing.ID), "notification.create", notificationPayload{
+			if err := s.outboxPublisher.WriteEventTx(tx, "interview.notification_requested", "interview", uint64(existing.ID), "notification.create", notificationPayload{
 				ReceiverID:          appDetail.UserID,
 				ReceiverRole:        1,
 				ReceiverAccountType: "candidate",
@@ -674,7 +674,7 @@ func (s *InterviewService) CancelInterview(ctx context.Context, req *pb.CancelIn
 			}
 
 			// Email to candidate
-			if err := s.outboxPublisher.WriteEventTx(tx, "email.send", "interview", uint64(existing.ID), "email.send", emailPayload{
+			if err := s.outboxPublisher.WriteEventTx(tx, "interview.email_requested", "interview", uint64(existing.ID), "email.send", emailPayload{
 				ReceiverID:          appDetail.UserID,
 				ReceiverAccountType: "candidate",
 				Type:                "interview_cancelled",
@@ -792,7 +792,7 @@ func (s *InterviewService) BatchCancelInterviews(ctx context.Context, req *pb.Ba
 		first := activeInterviews[0]
 
 		// Notify interviewer
-		if err := s.outboxPublisher.WriteEventTx(tx, "notification.create", "interview", uint64(first.ID), "notification.create", notificationPayload{
+		if err := s.outboxPublisher.WriteEventTx(tx, "interview.notification_requested", "interview", uint64(first.ID), "notification.create", notificationPayload{
 			ReceiverID:          first.InterviewerID,
 			ReceiverRole:        2,
 			ReceiverAccountType: "staff",
@@ -807,7 +807,7 @@ func (s *InterviewService) BatchCancelInterviews(ctx context.Context, req *pb.Ba
 		}
 
 		// Email to interviewer
-		if err := s.outboxPublisher.WriteEventTx(tx, "email.send", "interview", uint64(first.ID), "email.send", emailPayload{
+		if err := s.outboxPublisher.WriteEventTx(tx, "interview.email_requested", "interview", uint64(first.ID), "email.send", emailPayload{
 			ReceiverID:          first.InterviewerID,
 			ReceiverAccountType: "staff",
 			Type:                "interview_cancelled",
@@ -826,7 +826,7 @@ func (s *InterviewService) BatchCancelInterviews(ctx context.Context, req *pb.Ba
 		}
 
 		// Notify candidate
-		if err := s.outboxPublisher.WriteEventTx(tx, "notification.create", "interview", uint64(first.ID), "notification.create", notificationPayload{
+		if err := s.outboxPublisher.WriteEventTx(tx, "interview.notification_requested", "interview", uint64(first.ID), "notification.create", notificationPayload{
 			ReceiverID:          appDetail.UserID,
 			ReceiverRole:        1,
 			ReceiverAccountType: "candidate",
@@ -841,7 +841,7 @@ func (s *InterviewService) BatchCancelInterviews(ctx context.Context, req *pb.Ba
 		}
 
 		// Email to candidate
-		if err := s.outboxPublisher.WriteEventTx(tx, "email.send", "interview", uint64(first.ID), "email.send", emailPayload{
+		if err := s.outboxPublisher.WriteEventTx(tx, "interview.email_requested", "interview", uint64(first.ID), "email.send", emailPayload{
 			ReceiverID:          appDetail.UserID,
 			ReceiverAccountType: "candidate",
 			Type:                "interview_cancelled",

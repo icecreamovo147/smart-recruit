@@ -224,7 +224,7 @@ func (s *OfferService) CreateOffer(ctx context.Context, req *pb.CreateOfferReque
 
 		// Notify candidate
 		notifyContent := fmt.Sprintf("您投递的「%s」岗位已生成 Offer，请留意查看。", appDetail.JobTitle)
-		if err := s.outboxPublisher.WriteEventTx(tx, "notification.create", "offer", uint64(offer.ID), "notification.create", notificationPayload{
+		if err := s.outboxPublisher.WriteEventTx(tx, "offer.notification_requested", "offer", uint64(offer.ID), "notification.create", notificationPayload{
 			ReceiverID:          appDetail.UserID,
 			ReceiverRole:        1,
 			ReceiverAccountType: "candidate",
@@ -495,7 +495,7 @@ func (s *OfferService) SendOffer(ctx context.Context, req *pb.SendOfferRequest) 
 
 		// Notify candidate
 		notifyContent := fmt.Sprintf("您投递的「%s」岗位的 Offer 已发送，请及时查看并做出决定。", appDetail.JobTitle)
-		if err := s.outboxPublisher.WriteEventTx(tx, "notification.create", "offer", uint64(offer.ID), "notification.create", notificationPayload{
+		if err := s.outboxPublisher.WriteEventTx(tx, "offer.notification_requested", "offer", uint64(offer.ID), "notification.create", notificationPayload{
 			ReceiverID:          offer.CandidateUserID,
 			ReceiverRole:        1,
 			ReceiverAccountType: "candidate",
@@ -510,7 +510,7 @@ func (s *OfferService) SendOffer(ctx context.Context, req *pb.SendOfferRequest) 
 		}
 
 		// Email notification to candidate
-		if err := s.outboxPublisher.WriteEventTx(tx, "email.send", "offer", uint64(offer.ID), "email.send", emailPayload{
+		if err := s.outboxPublisher.WriteEventTx(tx, "offer.email_requested", "offer", uint64(offer.ID), "email.send", emailPayload{
 			ReceiverID:          offer.CandidateUserID,
 			ReceiverAccountType: "candidate",
 			Type:                "offer_sent",
@@ -641,7 +641,7 @@ func (s *OfferService) WithdrawOffer(ctx context.Context, req *pb.WithdrawOfferR
 			reasonText = "暂无说明"
 		}
 		notifyContent := fmt.Sprintf("您投递的「%s」岗位的 Offer 已被撤回。原因：%s", appDetail.JobTitle, reasonText)
-		if err := s.outboxPublisher.WriteEventTx(tx, "notification.create", "offer", uint64(offer.ID), "notification.create", notificationPayload{
+		if err := s.outboxPublisher.WriteEventTx(tx, "offer.notification_requested", "offer", uint64(offer.ID), "notification.create", notificationPayload{
 			ReceiverID:          offer.CandidateUserID,
 			ReceiverRole:        1,
 			ReceiverAccountType: "candidate",
@@ -656,7 +656,7 @@ func (s *OfferService) WithdrawOffer(ctx context.Context, req *pb.WithdrawOfferR
 		}
 
 		// Email notification to candidate
-		if err := s.outboxPublisher.WriteEventTx(tx, "email.send", "offer", uint64(offer.ID), "email.send", emailPayload{
+		if err := s.outboxPublisher.WriteEventTx(tx, "offer.email_requested", "offer", uint64(offer.ID), "email.send", emailPayload{
 			ReceiverID:          offer.CandidateUserID,
 			ReceiverAccountType: "candidate",
 			Type:                "offer_withdrawn",
@@ -783,7 +783,7 @@ func (s *OfferService) AcceptOffer(ctx context.Context, req *pb.AcceptOfferReque
 		// Notify HR who sent the offer
 		if offer.SentBy != nil {
 			notifyContent := fmt.Sprintf("候选人已接受「%s」岗位的 Offer。", appDetail.JobTitle)
-			if err := s.outboxPublisher.WriteEventTx(tx, "notification.create", "offer", uint64(offer.ID), "notification.create", notificationPayload{
+			if err := s.outboxPublisher.WriteEventTx(tx, "offer.notification_requested", "offer", uint64(offer.ID), "notification.create", notificationPayload{
 				ReceiverID:          *offer.SentBy,
 				ReceiverRole:        2,
 				ReceiverAccountType: "staff",
@@ -919,7 +919,7 @@ func (s *OfferService) RejectOffer(ctx context.Context, req *pb.RejectOfferReque
 		// Notify HR who sent the offer
 		if offer.SentBy != nil {
 			notifyContent := fmt.Sprintf("候选人已拒绝「%s」岗位的 Offer。原因：%s", appDetail.JobTitle, reasonText)
-			if err := s.outboxPublisher.WriteEventTx(tx, "notification.create", "offer", uint64(offer.ID), "notification.create", notificationPayload{
+			if err := s.outboxPublisher.WriteEventTx(tx, "offer.notification_requested", "offer", uint64(offer.ID), "notification.create", notificationPayload{
 				ReceiverID:          *offer.SentBy,
 				ReceiverRole:        2,
 				ReceiverAccountType: "staff",
