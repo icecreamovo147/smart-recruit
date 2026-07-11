@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"strings"
 	"testing"
@@ -64,6 +65,62 @@ func TestMaybeRequestAgentSkillSelectionEmitsPayload(t *testing.T) {
 	}
 	if got.UserMessageId != 99 {
 		t.Fatalf("UserMessageId = %d, want 99", got.UserMessageId)
+	}
+}
+
+func TestAgentSkillSelectionConfirmationJSONIsFlat(t *testing.T) {
+	selection := &pb.AgentSkillSelection{
+		Required: true,
+		Reason:   "multiple_auto_candidates",
+		Candidates: []*pb.AgentSkillSelectionCandidate{{
+			Id:          11,
+			Name:        "match",
+			DisplayName: "Match",
+			Recommended: true,
+		}},
+		RecommendedAgentSkillIds: []int64{11},
+		UserMessageId:            99,
+	}
+
+	raw := agentSkillSelectionConfirmationJSON(selection)
+	if strings.Contains(raw, "agent_skill_selection") {
+		t.Fatalf("confirmation JSON should be flat, got %s", raw)
+	}
+	var decoded pb.AgentRunConfirmationPayload
+	if err := json.Unmarshal([]byte(raw), &decoded); err != nil {
+		t.Fatalf("confirmation JSON should unmarshal into AgentRunConfirmationPayload: %v raw=%s", err, raw)
+	}
+	if !decoded.GetRequired() || decoded.GetReason() != "multiple_auto_candidates" {
+		t.Fatalf("decoded confirmation = %+v", decoded)
+	}
+	if len(decoded.GetCandidates()) != 1 || decoded.GetCandidates()[0].GetId() != 11 {
+		t.Fatalf("decoded candidates = %+v", decoded.GetCandidates())
+	}
+	if decoded.GetUserMessageId() != 99 || len(decoded.GetRecommendedAgentSkillIds()) != 1 {
+		t.Fatalf("decoded metadata = %+v", decoded)
+	}
+}
+
+func TestMaybeRequestAgentSkillSelectionBypassesApplicationScopedRequest(t *testing.T) {
+	called := false
+	err := maybeRequestAgentSkillSelection(
+		context.Background(),
+		&pb.ChatRequest{Message: "请帮我分析候选人简历", ApplicationId: 42},
+		[]selectedAgentSkill{
+			{ID: 11, Name: "match", DisplayName: "Match", Reason: "hybrid score", FinalRankScore: 0.9},
+			{ID: 12, Name: "risk", DisplayName: "Risk", Reason: "hybrid score", FinalRankScore: 0.7},
+		},
+		99,
+		func(selection *pb.AgentSkillSelection) error {
+			called = true
+			return nil
+		},
+	)
+	if err != nil {
+		t.Fatalf("err = %v, want nil for explicit application-scoped entry", err)
+	}
+	if called {
+		t.Fatalf("selection callback should not be called for application-scoped entry")
 	}
 }
 

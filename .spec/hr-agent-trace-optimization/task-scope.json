@@ -1,0 +1,290 @@
+{
+  "schemaVersion": 1,
+  "feature_name": "hr-agent-trace-optimization",
+  "tasks": {
+    "TASK-HATO-001": {
+      "title": "Trace View Model And Helper Tests",
+      "status": "pending",
+      "allowedFiles": [
+        "hr-frontend/src/components/agent-trace/agentTraceViewModel.ts",
+        "hr-frontend/src/components/agent-trace/agentTraceViewModel.test.ts",
+        ".spec/hr-agent-trace-optimization/reports/TASK-HATO-001-report.md",
+        ".spec/hr-agent-trace-optimization/reports/TASK-HATO-001-evidence.json"
+      ],
+      "forbiddenFiles": [
+        "package.json",
+        "pnpm-lock.yaml",
+        "*/package.json",
+        "*/pnpm-lock.yaml",
+        "**/*.proto",
+        "db.sql",
+        "logic-grpc-service/**",
+        "web-gin-service/**",
+        "user-frontend/**",
+        "interviewer-frontend/**"
+      ],
+      "requiresHumanConfirmation": false,
+      "allowedActions": [
+        "create",
+        "modify",
+        "test"
+      ],
+      "acceptance": ".spec/hr-agent-trace-optimization/acceptance/TASK-HATO-001.md",
+      "report": ".spec/hr-agent-trace-optimization/reports/TASK-HATO-001-report.md",
+      "requiredKnowledgeImpact": true,
+      "knowledge": {
+        "review": [
+          ".knowledge/architecture/frontend-apps.md",
+          ".knowledge/runbooks/frontend-validation.md",
+          ".knowledge/pitfalls/resume-sensitive-data.md"
+        ]
+      },
+      "notes": [
+        "Keep this task frontend-only and pure-helper focused."
+      ]
+    },
+    "TASK-HATO-002": {
+      "title": "Overview, Issue Summary, And Responsive Shell",
+      "status": "pending",
+      "allowedFiles": [
+        "hr-frontend/src/components/AgentTracePanel.vue",
+        "hr-frontend/src/components/AgentTracePanel.test.ts",
+        "hr-frontend/src/components/agent-trace/agentTraceViewModel.ts",
+        "hr-frontend/src/components/agent-trace/agentTraceViewModel.test.ts",
+        "hr-frontend/src/components/agent-trace/TraceOverview.vue",
+        "hr-frontend/src/components/agent-trace/TraceIssueSummary.vue",
+        ".spec/hr-agent-trace-optimization/reports/TASK-HATO-002-report.md",
+        ".spec/hr-agent-trace-optimization/reports/TASK-HATO-002-evidence.json"
+      ],
+      "forbiddenFiles": [
+        "package.json",
+        "pnpm-lock.yaml",
+        "*/package.json",
+        "*/pnpm-lock.yaml",
+        "**/*.proto",
+        "db.sql",
+        "logic-grpc-service/**",
+        "web-gin-service/**",
+        "user-frontend/**",
+        "interviewer-frontend/**"
+      ],
+      "requiresHumanConfirmation": false,
+      "allowedActions": [
+        "create",
+        "modify",
+        "test"
+      ],
+      "acceptance": ".spec/hr-agent-trace-optimization/acceptance/TASK-HATO-002.md",
+      "report": ".spec/hr-agent-trace-optimization/reports/TASK-HATO-002-report.md",
+      "requiredKnowledgeImpact": true,
+      "knowledge": {
+        "review": [
+          ".knowledge/architecture/frontend-apps.md",
+          ".knowledge/runbooks/frontend-validation.md",
+          ".knowledge/pitfalls/resume-sensitive-data.md"
+        ]
+      },
+      "notes": []
+    },
+    "TASK-HATO-003": {
+      "title": "Search, Filters, And Layered Navigation",
+      "status": "pending",
+      "allowedFiles": [
+        "hr-frontend/src/components/AgentTracePanel.vue",
+        "hr-frontend/src/components/AgentTracePanel.test.ts",
+        "hr-frontend/src/components/agent-trace/agentTraceViewModel.ts",
+        "hr-frontend/src/components/agent-trace/agentTraceViewModel.test.ts",
+        "hr-frontend/src/components/agent-trace/TraceFilterBar.vue",
+        "hr-frontend/src/components/agent-trace/TraceRunSection.vue",
+        "hr-frontend/src/components/agent-trace/TraceLegacySection.vue",
+        "hr-frontend/src/components/agent-trace/TraceOverview.vue",
+        "hr-frontend/src/components/agent-trace/TraceIssueSummary.vue",
+        ".spec/hr-agent-trace-optimization/reports/TASK-HATO-003-report.md",
+        ".spec/hr-agent-trace-optimization/reports/TASK-HATO-003-evidence.json"
+      ],
+      "forbiddenFiles": [
+        "package.json",
+        "pnpm-lock.yaml",
+        "*/package.json",
+        "*/pnpm-lock.yaml",
+        "**/*.proto",
+        "db.sql",
+        "logic-grpc-service/**",
+        "web-gin-service/**",
+        "user-frontend/**",
+        "interviewer-frontend/**"
+      ],
+      "requiresHumanConfirmation": false,
+      "allowedActions": [
+        "create",
+        "modify",
+        "test"
+      ],
+      "acceptance": ".spec/hr-agent-trace-optimization/acceptance/TASK-HATO-003.md",
+      "report": ".spec/hr-agent-trace-optimization/reports/TASK-HATO-003-report.md",
+      "requiredKnowledgeImpact": true,
+      "knowledge": {
+        "review": [
+          ".knowledge/architecture/frontend-apps.md",
+          ".knowledge/runbooks/frontend-validation.md"
+        ]
+      },
+      "notes": []
+    },
+    "TASK-HATO-004": {
+      "title": "JSON Raw Data Viewer",
+      "status": "pending",
+      "allowedFiles": [
+        "hr-frontend/src/components/AgentTracePanel.vue",
+        "hr-frontend/src/components/AgentTracePanel.test.ts",
+        "hr-frontend/src/components/agent-trace/TraceJsonBlock.vue",
+        "hr-frontend/src/components/agent-trace/TraceJsonBlock.test.ts",
+        "hr-frontend/src/components/agent-trace/agentTraceViewModel.ts",
+        "hr-frontend/src/components/agent-trace/agentTraceViewModel.test.ts",
+        "hr-frontend/src/components/agent-trace/TraceRunSection.vue",
+        "hr-frontend/src/components/agent-trace/TraceLegacySection.vue",
+        ".spec/hr-agent-trace-optimization/reports/TASK-HATO-004-report.md",
+        ".spec/hr-agent-trace-optimization/reports/TASK-HATO-004-evidence.json"
+      ],
+      "forbiddenFiles": [
+        "package.json",
+        "pnpm-lock.yaml",
+        "*/package.json",
+        "*/pnpm-lock.yaml",
+        "**/*.proto",
+        "db.sql",
+        "logic-grpc-service/**",
+        "web-gin-service/**",
+        "user-frontend/**",
+        "interviewer-frontend/**"
+      ],
+      "requiresHumanConfirmation": false,
+      "allowedActions": [
+        "create",
+        "modify",
+        "test"
+      ],
+      "acceptance": ".spec/hr-agent-trace-optimization/acceptance/TASK-HATO-004.md",
+      "report": ".spec/hr-agent-trace-optimization/reports/TASK-HATO-004-report.md",
+      "requiredKnowledgeImpact": true,
+      "knowledge": {
+        "review": [
+          ".knowledge/architecture/frontend-apps.md",
+          ".knowledge/runbooks/frontend-validation.md",
+          ".knowledge/pitfalls/resume-sensitive-data.md"
+        ]
+      },
+      "notes": [
+        "Do not add a JSON viewer dependency."
+      ]
+    },
+    "TASK-HATO-005": {
+      "title": "Read-Only Real-Time Trace Status",
+      "status": "pending",
+      "allowedFiles": [
+        "hr-frontend/src/components/AgentTracePanel.vue",
+        "hr-frontend/src/components/AgentTracePanel.test.ts",
+        "hr-frontend/src/components/agent-trace/agentTraceViewModel.ts",
+        "hr-frontend/src/components/agent-trace/agentTraceViewModel.test.ts",
+        "hr-frontend/src/components/agent-trace/TraceOverview.vue",
+        "hr-frontend/src/components/agent-trace/TraceIssueSummary.vue",
+        "hr-frontend/src/components/agent-trace/TraceRunSection.vue",
+        "hr-frontend/src/components/agent-trace/TraceFilterBar.vue",
+        ".spec/hr-agent-trace-optimization/reports/TASK-HATO-005-report.md",
+        ".spec/hr-agent-trace-optimization/reports/TASK-HATO-005-evidence.json"
+      ],
+      "forbiddenFiles": [
+        "package.json",
+        "pnpm-lock.yaml",
+        "*/package.json",
+        "*/pnpm-lock.yaml",
+        "**/*.proto",
+        "db.sql",
+        "logic-grpc-service/**",
+        "web-gin-service/**",
+        "hr-frontend/src/api/agentRun.ts",
+        "hr-frontend/src/composables/useHrAgentRun.ts",
+        "user-frontend/**",
+        "interviewer-frontend/**"
+      ],
+      "requiresHumanConfirmation": false,
+      "allowedActions": [
+        "create",
+        "modify",
+        "test"
+      ],
+      "acceptance": ".spec/hr-agent-trace-optimization/acceptance/TASK-HATO-005.md",
+      "report": ".spec/hr-agent-trace-optimization/reports/TASK-HATO-005-report.md",
+      "requiredKnowledgeImpact": true,
+      "knowledge": {
+        "review": [
+          ".knowledge/architecture/frontend-apps.md",
+          ".knowledge/architecture/agent-runtime.md",
+          ".knowledge/architecture/api-contracts-and-gateway.md",
+          ".knowledge/runbooks/frontend-validation.md"
+        ]
+      },
+      "notes": [
+        "The panel must stay read-only and must not cancel backend runs."
+      ]
+    },
+    "TASK-HATO-006": {
+      "title": "Optional Paginated Trace Retrieval",
+      "status": "pending",
+      "allowedFiles": [
+        "hr-frontend/src/api/ai.ts",
+        "hr-frontend/src/types/ai.ts",
+        "hr-frontend/src/components/AgentTracePanel.vue",
+        "hr-frontend/src/components/AgentTracePanel.test.ts",
+        "hr-frontend/src/components/agent-trace/**",
+        "logic-grpc-service/proto/recruitment.proto",
+        "logic-grpc-service/recruitment/pb/**",
+        "logic-grpc-service/service/ai_service.go",
+        "logic-grpc-service/service/*ai*test*.go",
+        "logic-grpc-service/repository/*tool*trace*.go",
+        "logic-grpc-service/repository/*agent_run*.go",
+        "logic-grpc-service/repository/*test*.go",
+        "web-gin-service/proto/recruitment.proto",
+        "web-gin-service/recruitment/pb/**",
+        "web-gin-service/handler/hr/ai.go",
+        "web-gin-service/handler/hr/*ai*test*.go",
+        "web-gin-service/router/**",
+        ".spec/hr-agent-trace-optimization/reports/TASK-HATO-006-report.md",
+        ".spec/hr-agent-trace-optimization/reports/TASK-HATO-006-evidence.json"
+      ],
+      "forbiddenFiles": [
+        "package.json",
+        "pnpm-lock.yaml",
+        "*/package.json",
+        "*/pnpm-lock.yaml",
+        "db.sql",
+        "logic-grpc-service/migrations/**",
+        "user-frontend/**",
+        "interviewer-frontend/**"
+      ],
+      "requiresHumanConfirmation": true,
+      "allowedActions": [
+        "create",
+        "modify",
+        "test",
+        "generate"
+      ],
+      "acceptance": ".spec/hr-agent-trace-optimization/acceptance/TASK-HATO-006.md",
+      "report": ".spec/hr-agent-trace-optimization/reports/TASK-HATO-006-report.md",
+      "requiredKnowledgeImpact": true,
+      "knowledge": {
+        "review": [
+          ".knowledge/architecture/api-contracts-and-gateway.md",
+          ".knowledge/architecture/service-boundaries.md",
+          ".knowledge/runbooks/protobuf-and-migration-change.md",
+          ".knowledge/pitfalls/protobuf-synchronization.md",
+          ".knowledge/runbooks/frontend-validation.md"
+        ]
+      },
+      "notes": [
+        "Public API/protobuf extension requires explicit user confirmation.",
+        "Do not implement backend pagination if frontend lazy rendering satisfies the need."
+      ]
+    }
+  }
+}

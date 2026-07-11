@@ -23,6 +23,7 @@ type AgentRunSnapshotPatch struct {
 	ResultMetadataJSON      *string
 	ConfirmationRequestJSON *string
 	OptionContextJSON       *string
+	ModelName               *string
 	LastEventSeq            *int64
 	FinalAnswer             *string
 	ErrorType               *string
@@ -33,7 +34,7 @@ func NewAgentRunRepo(db *gorm.DB) *AgentRunRepo {
 	return &AgentRunRepo{db: db}
 }
 
-// mysqlJSONValue maps empty strings to SQL NULL. MySQL rejects '' for JSON columns
+// mysqlJSONValue maps empty strings to SQL NULL. MySQL rejects ” for JSON columns
 // with Error 3140 ("The document is empty").
 func mysqlJSONValue(raw string) any {
 	if strings.TrimSpace(raw) == "" {
@@ -167,6 +168,9 @@ func (r *AgentRunRepo) UpdateRunSnapshot(ctx context.Context, runID uint64, patc
 	}
 	if patch.OptionContextJSON != nil {
 		updates["option_context_json"] = mysqlJSONValue(*patch.OptionContextJSON)
+	}
+	if patch.ModelName != nil {
+		updates["model_name"] = *patch.ModelName
 	}
 	if patch.LastEventSeq != nil {
 		updates["last_event_seq"] = *patch.LastEventSeq

@@ -44,6 +44,37 @@ func TestAgentRunRepoCreateWithEmptyJSONFields(t *testing.T) {
 	}
 }
 
+func TestAgentRunRepoUpdateRunSnapshotPersistsModelName(t *testing.T) {
+	db := setupTestDB(t)
+	repo := NewAgentRunRepo(db)
+	ctx := context.Background()
+
+	run := &model.AgentRun{
+		SessionID: 1,
+		HrID:      2,
+		AgentType: "hr",
+		AgentName: "hr_recruiting_agent",
+		Status:    "running",
+		PlanJSON:  `{"agent":"hr_recruiting_agent"}`,
+		StartedAt: time.Now(),
+	}
+	if err := repo.CreateRun(ctx, run); err != nil {
+		t.Fatalf("CreateRun failed: %v", err)
+	}
+
+	modelName := "qwen-plus"
+	if err := repo.UpdateRunSnapshot(ctx, run.ID, AgentRunSnapshotPatch{ModelName: &modelName}); err != nil {
+		t.Fatalf("UpdateRunSnapshot failed: %v", err)
+	}
+	got, err := repo.GetRunByID(ctx, run.ID)
+	if err != nil || got == nil {
+		t.Fatalf("GetRunByID: %v %#v", err, got)
+	}
+	if got.ModelName != modelName {
+		t.Fatalf("ModelName = %q, want %q", got.ModelName, modelName)
+	}
+}
+
 func TestAgentRunRepoCreateStepAndUpdate(t *testing.T) {
 	db := setupTestDB(t)
 	repo := NewAgentRunRepo(db)

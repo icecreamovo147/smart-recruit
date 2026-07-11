@@ -79,7 +79,7 @@ var (
 )
 
 const rankingFloatEpsilon = 1e-9
-const skillSemanticOnlyVectorGate = 0.25
+const skillSemanticOnlyVectorGate = 0.6
 
 // rankingFloatAlmostEqual 在稳定排序 tie-breaking 时使用的浮点近似比较。
 func rankingFloatAlmostEqual(a, b float64) bool {
@@ -460,7 +460,7 @@ func RankSkillCandidates(
 				semScore = semanticScores[skill.ID]
 			}
 			signals := scoreSkillRankingSignals(question, skill, semScore, embeddingAvailable)
-			if signals.VectorScore < skillSemanticOnlyVectorGate || signals.FinalRankScore <= 0 {
+			if !allowSemanticOnlyAgentSkillCandidate(question, signals.VectorScore) || signals.FinalRankScore <= 0 {
 				continue
 			}
 			reason := "semantic-only hybrid score, priority boost"

@@ -17,18 +17,18 @@ import (
 
 // durableRequestPayload is stored under plan_json so workers can rebuild ChatRequest.
 type durableRequestPayload struct {
-	Message                        string   `json:"message"`
-	ActionType                     string   `json:"action_type,omitempty"`
-	ActionPayloadJSON              string   `json:"action_payload_json,omitempty"`
-	ApplicationID                  int64    `json:"application_id,omitempty"`
-	ModelID                        int64    `json:"model_id,omitempty"`
-	SkillCapabilityKeys            []string `json:"skill_capability_keys,omitempty"`
-	AgentSkillIDs                  []int64  `json:"agent_skill_ids,omitempty"`
-	AgentSkillSelectionConfirmed   bool     `json:"agent_skill_selection_confirmed,omitempty"`
-	AgentSkillSelectionMessageID   int64    `json:"agent_skill_selection_message_id,omitempty"`
-	ConfirmationPayloadJSON        string   `json:"confirmation_payload_json,omitempty"`
-	ConfirmClientRequestID         string   `json:"confirm_client_request_id,omitempty"`
-	CancelClientRequestID          string   `json:"cancel_client_request_id,omitempty"`
+	Message                      string   `json:"message"`
+	ActionType                   string   `json:"action_type,omitempty"`
+	ActionPayloadJSON            string   `json:"action_payload_json,omitempty"`
+	ApplicationID                int64    `json:"application_id,omitempty"`
+	ModelID                      int64    `json:"model_id,omitempty"`
+	SkillCapabilityKeys          []string `json:"skill_capability_keys,omitempty"`
+	AgentSkillIDs                []int64  `json:"agent_skill_ids,omitempty"`
+	AgentSkillSelectionConfirmed bool     `json:"agent_skill_selection_confirmed,omitempty"`
+	AgentSkillSelectionMessageID int64    `json:"agent_skill_selection_message_id,omitempty"`
+	ConfirmationPayloadJSON      string   `json:"confirmation_payload_json,omitempty"`
+	ConfirmClientRequestID       string   `json:"confirm_client_request_id,omitempty"`
+	CancelClientRequestID        string   `json:"cancel_client_request_id,omitempty"`
 }
 
 // CreateAgentRun creates or returns an idempotent durable HR Agent run and dispatches work.
@@ -555,15 +555,15 @@ func loadDurableRequest(plan map[string]any) durableRequestPayload {
 
 func chatRequestFromDurable(hrID int64, sessionID int64, payload durableRequestPayload) *pb.ChatRequest {
 	req := &pb.ChatRequest{
-		HrId:                           hrID,
-		SessionId:                      sessionID,
-		Message:                        payload.Message,
-		ApplicationId:                  payload.ApplicationID,
-		ModelId:                        payload.ModelID,
-		SkillCapabilityKeys:            append([]string(nil), payload.SkillCapabilityKeys...),
-		AgentSkillIds:                  append([]int64(nil), payload.AgentSkillIDs...),
-		AgentSkillSelectionConfirmed:   payload.AgentSkillSelectionConfirmed,
-		AgentSkillSelectionMessageId:   payload.AgentSkillSelectionMessageID,
+		HrId:                         hrID,
+		SessionId:                    sessionID,
+		Message:                      payload.Message,
+		ApplicationId:                payload.ApplicationID,
+		ModelId:                      payload.ModelID,
+		SkillCapabilityKeys:          append([]string(nil), payload.SkillCapabilityKeys...),
+		AgentSkillIds:                append([]int64(nil), payload.AgentSkillIDs...),
+		AgentSkillSelectionConfirmed: payload.AgentSkillSelectionConfirmed,
+		AgentSkillSelectionMessageId: payload.AgentSkillSelectionMessageID,
 	}
 	return req
 }
@@ -573,22 +573,22 @@ func toPBAgentRunSnapshot(run *model.AgentRun) *pb.AgentRunSnapshot {
 		return nil
 	}
 	snap := &pb.AgentRunSnapshot{
-		RunId:            int64(run.ID),
-		SessionId:        int64(run.SessionID),
-		HrId:             int64(run.HrID),
-		Status:           run.Status,
-		AssistantText:    run.AssistantText,
-		ProcessText:      run.ProcessText,
+		RunId:             int64(run.ID),
+		SessionId:         int64(run.SessionID),
+		HrId:              int64(run.HrID),
+		Status:            run.Status,
+		AssistantText:     run.AssistantText,
+		ProcessText:       run.ProcessText,
 		OptionContextJson: run.OptionContextJSON,
-		LastEventSeq:     run.LastEventSeq,
-		ErrorType:        run.ErrorType,
-		ErrorMessage:     run.ErrorMessage,
-		ModelName:        run.ModelName,
-		AgentType:        run.AgentType,
-		AgentName:        run.AgentName,
-		StartedAt:        formatTime(run.StartedAt),
-		CreatedAt:        formatTime(run.CreatedAt),
-		UpdatedAt:        formatTime(run.UpdatedAt),
+		LastEventSeq:      run.LastEventSeq,
+		ErrorType:         run.ErrorType,
+		ErrorMessage:      run.ErrorMessage,
+		ModelName:         run.ModelName,
+		AgentType:         run.AgentType,
+		AgentName:         run.AgentName,
+		StartedAt:         formatTime(run.StartedAt),
+		CreatedAt:         formatTime(run.CreatedAt),
+		UpdatedAt:         formatTime(run.UpdatedAt),
 	}
 	if run.ClientRequestID != nil {
 		snap.ClientRequestId = *run.ClientRequestID
@@ -662,6 +662,14 @@ func toPBAgentRunEvent(ev *model.AgentRunEvent) *pb.AgentRunEvent {
 	}
 	if em, ok := payload["error_message"].(string); ok {
 		out.ErrorMessage = em
+	}
+	if ev.EventType == AgentRunEventConfirmationRequired {
+		var conf pb.AgentRunConfirmationPayload
+		if err := json.Unmarshal([]byte(ev.PayloadJSON), &conf); err == nil {
+			out.Confirmation = &conf
+		} else {
+			out.Confirmation = &pb.AgentRunConfirmationPayload{RawJson: ev.PayloadJSON}
+		}
 	}
 	return out
 }

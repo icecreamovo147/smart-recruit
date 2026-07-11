@@ -198,13 +198,7 @@ func (s *AIService) executeDurableAgentRun(runID uint64) error {
 			if selection == nil {
 				return nil
 			}
-			confJSON := safeJSON(map[string]any{
-				"required":                    true,
-				"reason":                      "请确认本次要调用的 Skill",
-				"agent_skill_selection":       selection,
-				"user_message_id":             selection.GetUserMessageId(),
-				"recommended_agent_skill_ids": selection.GetRecommendedAgentSkillIds(),
-			})
+			confJSON := agentSkillSelectionConfirmationJSON(selection)
 			// Capture for worker result via shared state on run snapshot.
 			_ = s.agentRuns.UpdateRunSnapshot(workCtx, runID, repository.AgentRunSnapshotPatch{
 				ConfirmationRequestJSON: &confJSON,
@@ -327,7 +321,9 @@ func (s *AIService) defaultDurableRunExecutor(ctx context.Context, input durable
 		input.Run.ModelName = runtimeClient.modelName
 	}
 	if runtimeClient.modelName != "" {
-		_ = s.agentRuns.UpdateRunSnapshot(ctx, input.Run.ID, repository.AgentRunSnapshotPatch{})
+		_ = s.agentRuns.UpdateRunSnapshot(ctx, input.Run.ID, repository.AgentRunSnapshotPatch{
+			ModelName: &runtimeClient.modelName,
+		})
 		// Keep model name on run via plan patch.
 		recorder.updatePlanPatch(ctx, map[string]any{"model": runtimeClient.modelName})
 	}
@@ -461,7 +457,7 @@ func (s *AIService) handleDurableStatusEvent(ctx context.Context, runID uint64, 
 	default:
 		// Other process/status events: store as process.delta when message present.
 		if strings.TrimSpace(eventMessage) != "" {
-			if processBuf != nil && (eventType == "status" || eventType == "planning" || strings.HasPrefix(eventType, "agent_")) {
+			if processBuf != nil && isVisibleDurableProcessEvent(eventType) {
 				line := eventMessage + "\n"
 				processBuf.WriteString(line)
 				text := processBuf.String()
@@ -474,6 +470,15 @@ func (s *AIService) handleDurableStatusEvent(ctx context.Context, runID uint64, 
 			}
 		}
 		return nil
+	}
+}
+
+func isVisibleDurableProcessEvent(eventType string) bool {
+	switch eventType {
+	case "planning", "status":
+		return true
+	default:
+		return false
 	}
 }
 

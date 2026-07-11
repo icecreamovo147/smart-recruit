@@ -95,7 +95,7 @@ func TestSelectAgentSkillsAllowsStrongSemanticOnlyCandidates(t *testing.T) {
 		{ID: 3, Name: "unrelated", DisplayName: "Unrelated", Description: "薪资", BodyMarkdown: "沟通", IsManualInvocable: 1},
 	}}
 
-	selected, err := selectAgentSkillsWithSemantic(context.Background(), repo, "hr_recruiting_agent", "candidate", nil, nil, map[int64]float64{2: 0.91, 3: 0.99})
+	selected, err := selectAgentSkillsWithSemantic(context.Background(), repo, "hr_recruiting_agent", "candidate match", nil, nil, map[int64]float64{2: 0.91, 3: 0.99})
 	if err != nil {
 		t.Fatalf("selectAgentSkillsWithSemantic returned error: %v", err)
 	}
@@ -116,6 +116,21 @@ func TestSelectAgentSkillsAllowsStrongSemanticOnlyCandidates(t *testing.T) {
 	}
 }
 
+func TestSelectAgentSkillsSkipsLowInformationAutoQuery(t *testing.T) {
+	repo := fakeAgentSkillLister{rows: []repository.AgentSkillRuntimeRecord{
+		{ID: 1, Name: "screening", DisplayName: "Screening", Description: "candidate screening", BodyMarkdown: "review candidate", IsManualInvocable: 1},
+		{ID: 2, Name: "offer", DisplayName: "Offer", Description: "candidate offer", BodyMarkdown: "prepare candidate offer", IsManualInvocable: 1},
+	}}
+
+	selected, err := selectAgentSkillsWithSemantic(context.Background(), repo, "hr_recruiting_agent", "hello", nil, nil, map[int64]float64{1: 0.99, 2: 0.98})
+	if err != nil {
+		t.Fatalf("selectAgentSkillsWithSemantic returned error: %v", err)
+	}
+	if len(selected) != 0 {
+		t.Fatalf("selected = %+v, want no automatic skills for low-information query", selected)
+	}
+}
+
 func TestSelectAgentSkillsFiltersWeakSemanticOnlyCandidates(t *testing.T) {
 	repo := fakeAgentSkillLister{rows: []repository.AgentSkillRuntimeRecord{
 		{ID: 1, Name: "screening", DisplayName: "Screening", Description: "candidate screening", BodyMarkdown: "review candidate", IsManualInvocable: 1},
@@ -130,6 +145,33 @@ func TestSelectAgentSkillsFiltersWeakSemanticOnlyCandidates(t *testing.T) {
 		if skill.ID == 2 {
 			t.Fatalf("weak semantic-only skill should be filtered: %+v", selected)
 		}
+	}
+}
+
+func TestAgentSkillAutoEligibility(t *testing.T) {
+	tests := []struct {
+		name    string
+		message string
+		want    bool
+		reason  string
+	}{
+		{name: "greeting", message: "hello", reason: "short_low_information"},
+		{name: "ambiguous continuation", message: "继续", reason: "short_low_information"},
+		{name: "business action", message: "帮我筛选简历", want: true, reason: "business_action"},
+		{name: "contextual action", message: "继续筛选", want: true, reason: "contextual_followup"},
+		{name: "out of domain", message: "今天晚上吃什么比较好", reason: "no_recruiting_intent"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := evaluateAgentSkillAutoEligibility(tt.message)
+			if got.Allowed != tt.want {
+				t.Fatalf("Allowed = %v, want %v (%+v)", got.Allowed, tt.want, got)
+			}
+			if got.Reason != tt.reason {
+				t.Fatalf("Reason = %q, want %q (%+v)", got.Reason, tt.reason, got)
+			}
+		})
 	}
 }
 

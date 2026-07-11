@@ -146,6 +146,15 @@ func selectAgentSkillsWithSemantic(ctx context.Context, repo agentSkillLister, a
 		return selected, nil
 	}
 
+	eligibility := evaluateAgentSkillAutoEligibility(question)
+	if !eligibility.Allowed {
+		log.Info("[logic][agent_skill] auto selection skipped by eligibility gate",
+			zap.String("reason", eligibility.Reason),
+			zap.String("query_class", eligibility.QueryClass),
+			zap.Int("message_chars", meaningfulRuneCount(question)))
+		return nil, nil
+	}
+
 	candidates := rankSkillCandidatesForAutoPool(question, all, semanticScores, seen, availableCapabilities, agentType)
 
 	for _, skill := range candidates {
@@ -176,7 +185,7 @@ func selectAgentSkillsWithSemantic(ctx context.Context, repo agentSkillLister, a
 
 // rankSkillCandidatesForAutoPool 在 selectAgentSkillsWithSemantic 内部负责：先按 agentType / 已见 / 能力
 // 过滤，再调用 skill_memory_ranking.go 中的 RankSkillCandidates 做混合打分与排序。
-// 保留旧实现"rawRuleScore <= 0 候选被丢弃"的过滤行为（语义单独命中不入选）。
+// 纯语义候选只在 RankSkillCandidates 的准入门控和向量阈值同时通过时入选。
 func rankSkillCandidatesForAutoPool(
 	question string,
 	all []repository.AgentSkillRuntimeRecord,

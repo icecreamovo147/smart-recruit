@@ -216,6 +216,25 @@ func TestWaitingConfirmationPersistsAndConfirmResumesSameRun(t *testing.T) {
 	}
 }
 
+func TestToPBAgentRunEventConfirmationRequiredIncludesCandidates(t *testing.T) {
+	payload := `{"required":true,"reason":"multiple_auto_candidates","candidates":[{"id":11,"name":"match","display_name":"Match"}],"recommended_agent_skill_ids":[11],"user_message_id":99}`
+	ev := toPBAgentRunEvent(&model.AgentRunEvent{
+		RunID:       7,
+		Seq:         3,
+		EventType:   AgentRunEventConfirmationRequired,
+		PayloadJSON: payload,
+	})
+	if ev.GetConfirmation() == nil {
+		t.Fatalf("expected structured confirmation on event")
+	}
+	if len(ev.GetConfirmation().GetCandidates()) != 1 || ev.GetConfirmation().GetCandidates()[0].GetId() != 11 {
+		t.Fatalf("unexpected candidates: %+v", ev.GetConfirmation().GetCandidates())
+	}
+	if ev.GetConfirmation().GetUserMessageId() != 99 {
+		t.Fatalf("UserMessageId = %d, want 99", ev.GetConfirmation().GetUserMessageId())
+	}
+}
+
 func TestDurableEventAppendOrderingAndReplayAfterSeq(t *testing.T) {
 	svc, _ := setupDurableAgentRunTest(t)
 	ctx := context.Background()
@@ -457,6 +476,59 @@ func TestProcessClearAppendsSnapshotEvent(t *testing.T) {
 	}
 	if payload["snapshot_text"] != "" {
 		t.Fatalf("expected empty snapshot_text, got %q", payload["snapshot_text"])
+	}
+}
+
+func TestDurableStatusEventFiltersLifecycleFromProcessText(t *testing.T) {
+	svc, _ := setupDurableAgentRunTest(t)
+	ctx := context.Background()
+	session := &model.AIChatSession{HrID: 32, OwnerRole: 2, OwnerID: 32, Title: "process-lifecycle"}
+	if err := svc.chats.CreateSession(ctx, session); err != nil {
+		t.Fatalf("CreateSession: %v", err)
+	}
+	run := &model.AgentRun{HrID: 32, SessionID: uint64(session.ID), Status: AgentRunStatusRunning}
+	if err := svc.agentRuns.CreateRun(ctx, run); err != nil {
+		t.Fatalf("CreateRun: %v", err)
+	}
+
+	var process strings.Builder
+	events := []struct {
+		eventType string
+		message   string
+	}{
+		{eventType: "agent_run_started", message: "Agent run 已开始"},
+		{eventType: "capability_selected", message: "已选择可用能力"},
+		{eventType: "planning", message: "正在规划本轮执行"},
+		{eventType: "agent_run_done", message: "Agent run 已完成"},
+	}
+	for _, event := range events {
+		if err := svc.handleDurableStatusEvent(ctx, run.ID, &process, event.eventType, event.message, "", ""); err != nil {
+			t.Fatalf("handle %s: %v", event.eventType, err)
+		}
+	}
+
+	if got, want := process.String(), "正在规划本轮执行\n"; got != want {
+		t.Fatalf("process = %q, want %q", got, want)
+	}
+	stored, err := svc.agentRuns.GetRunByID(ctx, run.ID)
+	if err != nil || stored == nil {
+		t.Fatalf("GetRunByID: %v %#v", err, stored)
+	}
+	if stored.ProcessText != "正在规划本轮执行\n" {
+		t.Fatalf("stored ProcessText = %q", stored.ProcessText)
+	}
+	persisted, err := svc.agentRunEvents.ListEventsAfter(ctx, run.ID, 0)
+	if err != nil {
+		t.Fatalf("ListAfterSeq: %v", err)
+	}
+	if len(persisted) != 1 {
+		t.Fatalf("expected only visible planning event, got %d events: %+v", len(persisted), persisted)
+	}
+	if persisted[0].EventType != AgentRunEventProcessDelta {
+		t.Fatalf("expected process.delta, got %s", persisted[0].EventType)
+	}
+	if strings.Contains(persisted[0].PayloadJSON, "Agent run") || strings.Contains(persisted[0].PayloadJSON, "已选择可用能力") {
+		t.Fatalf("lifecycle text leaked into process event: %s", persisted[0].PayloadJSON)
 	}
 }
 

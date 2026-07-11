@@ -237,6 +237,32 @@ const normalizeSkillMeta = (message: Partial<MessageItem>, fallback?: MessageIte
   return fallback?.skill
 }
 
+const hiddenAssistantProcessLines = new Set([
+  'Agent run 已开始',
+  'Agent run 已完成',
+  'Agent run 已取消',
+  'Agent run 已部分完成',
+  'Agent run 失败',
+  'Agent run 保存失败',
+  '已选择可用能力',
+])
+
+const isHiddenAssistantProcessLine = (line: string): boolean => {
+  const text = line.trim()
+  return hiddenAssistantProcessLines.has(text)
+}
+
+const sanitizeAssistantProcessText = (text = ''): string => {
+  if (!text) return ''
+  const lines = text.split(/\r?\n/)
+  const filtered = lines.filter((line) => !isHiddenAssistantProcessLine(line))
+  let result = filtered.join('\n')
+  if (text.endsWith('\n') && result && !result.endsWith('\n')) {
+    result += '\n'
+  }
+  return result
+}
+
 const normalizeSkillsMeta = (message: Partial<MessageItem>, fallback?: MessageItem): ChatMessageSkill[] | undefined => {
   if (Array.isArray(message.skills) && message.skills.length > 0) {
     return message.skills
@@ -265,10 +291,15 @@ const normalizeSkillsMeta = (message: Partial<MessageItem>, fallback?: MessageIt
 const normalizeMessage = (message: Partial<MessageItem>, fallback?: MessageItem): MessageItem => {
   const skill = normalizeSkillMeta(message, fallback)
   const skills = normalizeSkillsMeta(message, fallback)
-  const processContent = message.processContent || message.process_content || fallback?.processContent
+  const processContent = sanitizeAssistantProcessText(message.processContent || message.process_content || fallback?.processContent || '')
   const contextUsageSnapshot = message.context_usage || message.contextUsage || fallback?.context_usage || fallback?.contextUsage
+  const {
+    processContent: _processContent,
+    process_content: _processContentSnake,
+    ...messageWithoutProcessContent
+  } = message
   return {
-    ...(message as MessageItem),
+    ...(messageWithoutProcessContent as MessageItem),
     ...(skill ? { skill } : {}),
     ...(skills?.length ? { skills } : {}),
     ...(processContent ? { processContent } : {}),
@@ -368,9 +399,10 @@ const writeAssistantText = (index: number, target: StreamTextTarget, text: strin
   const message = messages.value[index]
   if (!message || !text) return
   if (target === 'process') {
+    const nextProcessContent = sanitizeAssistantProcessText(`${message.processContent || ''}${text}`)
     messages.value[index] = {
       ...message,
-      processContent: `${message.processContent || ''}${text}`,
+      processContent: nextProcessContent,
     }
   } else {
     messages.value[index] = { ...message, content: `${message.content || ''}${text}`, pending: false }
@@ -458,7 +490,9 @@ const appendAssistantDelta = (index: number, delta: string) => {
 }
 
 const appendAssistantProcess = (index: number, delta: string) => {
-  enqueueAssistantText(index, 'process', delta)
+  const text = sanitizeAssistantProcessText(delta)
+  if (!text) return
+  enqueueAssistantText(index, 'process', text)
 }
 
 const markAssistantError = (index: number, error: Error | null) => {
@@ -521,7 +555,7 @@ const makeChatUiBinder = (assistantIndex: number): DurableChatUiBinder => ({
     if (!msg) return
     messages.value[assistantIndex] = {
       ...msg,
-      processContent: text,
+      processContent: sanitizeAssistantProcessText(text),
     }
     scrollBottom()
   },
@@ -608,7 +642,7 @@ const ensureRestoreAssistantSlot = (
     messages.value[lastIndex] = {
       ...last,
       content: run.assistantText || last.content || '',
-      processContent: run.processText || last.processContent || last.process_content || '',
+      processContent: sanitizeAssistantProcessText(run.processText || last.processContent || last.process_content || ''),
       pending: !run.isTerminal && !(run.assistantText && !last.pending && last.content === run.assistantText),
       waitingText: last.waitingText || (session.application_id ? '分析中' : '响应中'),
       model_name: run.modelName || last.model_name,
@@ -619,7 +653,7 @@ const ensureRestoreAssistantSlot = (
   messages.value.push({
     role: 'assistant',
     content: run.assistantText || '',
-    processContent: run.processText || '',
+    processContent: sanitizeAssistantProcessText(run.processText || ''),
     pending: true,
     waitingText: session.application_id ? '分析中' : '响应中',
     ...(run.modelName ? { model_name: run.modelName } : {}),

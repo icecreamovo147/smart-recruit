@@ -1001,6 +1001,13 @@ func maybeRequestAgentSkillSelection(ctx context.Context, req *pb.ChatRequest, s
 	if onAgentSkillSelection == nil || req.GetAgentSkillSelectionConfirmed() {
 		return nil
 	}
+	if shouldBypassAgentSkillSelectionConfirmation(req) {
+		logger.GetRequestLogger(ctx).Info("agent skill selection confirmation bypassed for explicit business entry",
+			zap.Int64("application_id", req.GetApplicationId()),
+			zap.Int("candidate_count", len(skills)),
+		)
+		return nil
+	}
 	decision := decideAgentSkillSelectionConfirmation(skills, req.GetAgentSkillIds())
 	if !decision.Required {
 		return nil
@@ -1015,6 +1022,10 @@ func maybeRequestAgentSkillSelection(ctx context.Context, req *pb.ChatRequest, s
 		return err
 	}
 	return errAgentSkillSelectionRequired
+}
+
+func shouldBypassAgentSkillSelectionConfirmation(req *pb.ChatRequest) bool {
+	return req != nil && req.GetApplicationId() > 0
 }
 
 func requestConfirmedNoAgentSkills(req *pb.ChatRequest) bool {
@@ -1090,6 +1101,47 @@ func agentSkillSelectionDecisionPB(decision agentSkillSelectionConfirmationDecis
 		RecommendedAgentSkillIds: append([]int64(nil), decision.RecommendedIDs...),
 		UserMessageId:            userMessageID,
 	}
+}
+
+func agentSkillSelectionConfirmationJSON(selection *pb.AgentSkillSelection) string {
+	if selection == nil {
+		return `{"required":true}`
+	}
+	candidates := make([]map[string]any, 0, len(selection.GetCandidates()))
+	for _, candidate := range selection.GetCandidates() {
+		candidates = append(candidates, map[string]any{
+			"id":                 candidate.GetId(),
+			"name":               candidate.GetName(),
+			"display_name":       candidate.GetDisplayName(),
+			"reason":             candidate.GetReason(),
+			"score":              candidate.GetScore(),
+			"priority":           candidate.GetPriority(),
+			"category":           candidate.GetCategory(),
+			"scenario":           candidate.GetScenario(),
+			"risk_level":         candidate.GetRiskLevel(),
+			"recommended":        candidate.GetRecommended(),
+			"vector_score":       candidate.GetVectorScore(),
+			"lexical_score":      candidate.GetLexicalScore(),
+			"metadata_score":     candidate.GetMetadataScore(),
+			"relevance_score":    candidate.GetRelevanceScore(),
+			"business_boost":     candidate.GetBusinessBoost(),
+			"final_rank_score":   candidate.GetFinalRankScore(),
+			"relevance_mode":     candidate.GetRelevanceMode(),
+			"pool_rank":          candidate.GetPoolRank(),
+			"ranking_confidence": candidate.GetRankingConfidence(),
+		})
+	}
+	reason := selection.GetReason()
+	if reason == "" {
+		reason = "请确认本次要调用的 Skill"
+	}
+	return safeJSON(map[string]any{
+		"required":                    selection.GetRequired(),
+		"reason":                      reason,
+		"candidates":                  candidates,
+		"recommended_agent_skill_ids": selection.GetRecommendedAgentSkillIds(),
+		"user_message_id":             selection.GetUserMessageId(),
+	})
 }
 
 func appendSkillInstructions(base string, skillInstructions []string) string {
