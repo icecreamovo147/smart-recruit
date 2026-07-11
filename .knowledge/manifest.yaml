@@ -338,6 +338,9 @@ routes:
       - stop-dev.sh
       - docker/**
       - docs/backend-ddd-microservices-evolution-internal-service-security.md
+      - docs/backend-ddd-microservices-evolution-load-test-harness.md
+      - docs/backend-ddd-microservices-evolution-load-test-initial-evidence.json
+      - scripts/backend-load-test.mjs
     documents:
       - local-development
       - service-binary-convention

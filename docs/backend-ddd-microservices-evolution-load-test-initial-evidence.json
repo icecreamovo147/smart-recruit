@@ -1,0 +1,63 @@
+{
+  "status": "dry_run",
+  "started_at": "2026-07-11T19:17:48.996Z",
+  "finished_at": "2026-07-11T19:17:48.997Z",
+  "base_url": "http://127.0.0.1:8080",
+  "targets": {
+    "gateway_qps": 200,
+    "core_write_qps": 50,
+    "ai_embedding_concurrency": 20,
+    "ordinary_api_p95_ms": 300,
+    "complex_query_p95_ms": 1000,
+    "ai_submit_p95_ms": 1000
+  },
+  "scenarios": [
+    {
+      "name": "gateway-ordinary-read",
+      "kind": "ordinary-api",
+      "method": "GET",
+      "path": "/health",
+      "qps": 200,
+      "durationSeconds": 10,
+      "p95TargetMs": 300,
+      "enabled": true
+    },
+    {
+      "name": "gateway-complex-readiness",
+      "kind": "complex-query",
+      "method": "GET",
+      "path": "/readyz",
+      "qps": 50,
+      "durationSeconds": 10,
+      "p95TargetMs": 1000,
+      "enabled": true
+    },
+    {
+      "name": "core-write-configured",
+      "kind": "core-write",
+      "method": "POST",
+      "path": "",
+      "qps": 50,
+      "durationSeconds": 10,
+      "p95TargetMs": 300,
+      "enabled": false,
+      "disabledReason": "Set --write-path to run authenticated 50 QPS core writes.",
+      "body": "{}"
+    },
+    {
+      "name": "ai-async-submit-configured",
+      "kind": "ai-async-submit",
+      "method": "POST",
+      "path": "",
+      "concurrency": 20,
+      "p95TargetMs": 1000,
+      "enabled": false,
+      "disabledReason": "Set --ai-path to validate 10-20 concurrent AI/Embedding submissions.",
+      "body": "{}"
+    }
+  ],
+  "environment_limits": [
+    "Dry run does not require a running backend stack or authenticated test data.",
+    "Live core write and AI/Embedding checks require --write-path/--ai-path plus suitable auth/test fixtures."
+  ]
+}
