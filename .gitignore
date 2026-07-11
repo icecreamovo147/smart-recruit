@@ -25,6 +25,7 @@ dist/
 !.ai-guides/README.md
 .codex/
 .codegraph/
+.code-review-sdd/
 .reasonix/
 
 # OS/editor noise.
