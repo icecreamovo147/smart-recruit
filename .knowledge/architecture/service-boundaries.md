@@ -22,6 +22,7 @@ source_refs:
   - logic-grpc-service/service/recruitment_lifecycle_process_manager.go
   - logic-grpc-service/internal/analytics/application/event_ingestor.go
   - logic-grpc-service/internal/analytics/infrastructure/projection_repository.go
+  - logic-grpc-service/internal/platform/servicebinary/convention.go
   - logic-grpc-service/internal/platform/events/envelope.go
   - logic-grpc-service/repository/user_repo.go
 last_verified: 2026-07-11
@@ -40,6 +41,8 @@ The logic gRPC service is the business boundary. It owns domain services, reposi
 
 Analytics event projection ingestion lives under `logic-grpc-service/internal/analytics/`. The application ingestor consumes standard domain-event envelopes and writes Analytics-owned projection events/checkpoints through infrastructure adapters; it must not import source-domain services or introduce transitional service-read dependencies.
 
+`logic-grpc-service/internal/platform/servicebinary/` records the target backend service unit registry and deployment convention for extracted binaries. The registry is compile-checked but is not wired into startup or gateway routing by TASK-BDME-026.
+
 Generated protobuf files are contract artifacts. When proto definitions change, generated code in both Go services must stay aligned with the source `.proto` files.
 
 ## Boundary Checklist
@@ -49,6 +52,7 @@ Generated protobuf files are contract artifacts. When proto definitions change, 
 - Keep domain invariants in logic services and repositories.
 - Keep cross-context application lifecycle writes behind explicit events, adapters, or process-manager boundaries instead of scattering direct repository writes through Interview or Offer services.
 - Keep Analytics projections sourced from domain-event envelopes and Analytics-owned read-model repositories; avoid service-read adapters as a transition strategy.
+- Keep new service binaries aligned with `docs/backend-ddd-microservices-evolution-service-binary-convention.md`; do not route traffic to them outside scoped cutover TASKs.
 - Keep request deadlines and body limits in the gateway unless the logic service owns a deeper operation timeout.
 - Treat protobuf and database schema changes as public-contract or persistence changes that require explicit scope.
 
@@ -61,4 +65,4 @@ Generated protobuf files are contract artifacts. When proto definitions change, 
 
 ## Verification
 
-The boundary was verified from gateway route registration, protobuf service definitions, representative logic service/repository files, `logic-grpc-service/service/recruitment_lifecycle_process_manager.go`, Analytics projection ingestion files, and `logic-grpc-service/internal/platform/events/envelope.go` on 2026-07-11.
+The boundary was verified from gateway route registration, protobuf service definitions, representative logic service/repository files, `logic-grpc-service/service/recruitment_lifecycle_process_manager.go`, Analytics projection ingestion files, `logic-grpc-service/internal/platform/servicebinary/convention.go`, and `logic-grpc-service/internal/platform/events/envelope.go` on 2026-07-11.

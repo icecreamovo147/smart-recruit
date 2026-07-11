@@ -327,6 +327,19 @@ routes:
       - configuration-changed
 
   - match:
+      - docs/backend-ddd-microservices-evolution-service-binary-convention.md
+      - deploy/k8s/README-service-binaries.md
+      - logic-grpc-service/internal/platform/servicebinary/**
+    documents:
+      - service-binary-convention
+      - service-boundaries
+      - local-development
+    triggers:
+      - covered-path-changed
+      - service-boundary-changed
+      - configuration-changed
+
+  - match:
       - docs/backend-ddd-microservices-evolution-event-replay-dead-letter-runbook.md
       - scripts/event-replay-dead-letter.sh
     documents:

@@ -9,6 +9,7 @@ Read this file after `AGENTS.md`, the active feature contract, and `.knowledge/R
 | Task area | Recommended knowledge |
 |---|---|
 | Repository architecture | `architecture/system-overview.md`, `architecture/service-boundaries.md` |
+| Service binaries and deployment convention | `runbooks/service-binary-convention.md`, `architecture/service-boundaries.md`, `runbooks/local-development.md` |
 | Auth, RBAC, and security audit | `architecture/auth-rbac-security.md`, `runbooks/debug-auth-permissions.md`, `pitfalls/auth-permission-alignment.md` |
 | Gateway and API contracts | `architecture/api-contracts-and-gateway.md`, `pitfalls/protobuf-synchronization.md` |
 | Persistence and migrations | `architecture/persistence-and-migrations.md`, `runbooks/protobuf-and-migration-change.md`, `pitfalls/migration-model-drift.md` |

@@ -53,6 +53,7 @@ Use this runbook to orient local startup and validation. Always prefer checked-i
 ## Validation Commands
 
 - Logic service tests: run `go test ./...` from `logic-grpc-service/`.
+- Service binary convention tests: run `go test ./internal/platform/servicebinary` from `logic-grpc-service/`.
 - Gateway tests: run `go test ./...` from `web-gin-service/`.
 - HR frontend typecheck: `pnpm --filter hr-frontend typecheck`.
 - Candidate frontend typecheck: `pnpm --filter user-frontend typecheck`.
@@ -66,4 +67,4 @@ Use this runbook to orient local startup and validation. Always prefer checked-i
 
 ## When This Runbook Is Stale
 
-Mark this document stale if startup scripts, frontend package commands, Docker service names, or required service order changes.
+Mark this document stale if startup scripts, frontend package commands, Docker service names, service binary conventions, or required service order changes.
