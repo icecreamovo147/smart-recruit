@@ -59,6 +59,8 @@ Runtime selection and request assembly are downstream of admin configuration. LL
 
 Runtime code should consume the active, enabled configuration and handle missing or unavailable dependencies explicitly. Admin configuration code should validate, persist, test, and expose configuration state, but it should not embed request-time orchestration decisions in the HR frontend or gateway handlers.
 
+Runtime diagnostics must avoid logging raw system prompts, resume text, or tool payloads. Prompt diagnostics use character counts and SHA-256 fingerprints; user-facing trace queries apply desensitization before returning tool args/results.
+
 ## Runtime Outputs
 
 - Streamed chat events for frontend clients.

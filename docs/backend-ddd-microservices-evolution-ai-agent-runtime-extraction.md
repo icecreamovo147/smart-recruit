@@ -29,6 +29,8 @@ This TASK does not change:
 - frontend behavior;
 - AI runtime provider/model selection, prompt templates, memory ranking, embedding behavior, MCP governance, or Skill selection.
 
+Sensitive prompt diagnostics are logged as character count plus SHA-256 fingerprint only. Resume parsing and AI trace surfaces continue to use existing safe previews, truncation, and PII masking helpers rather than logging raw resume or prompt text.
+
 Normal monolith worker startup remains behaviorally equivalent:
 
 1. Start Notification runtime outbox dispatcher, notification consumer, and email consumer.

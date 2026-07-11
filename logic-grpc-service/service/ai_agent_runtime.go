@@ -14,7 +14,16 @@ type AIAgentRuntime struct {
 	AI                *AIService
 	CandidateAI       *CandidateAIService
 	LlmConfig         *LlmConfigService
+	Prompt            *PromptService
+	AgentConfig       *AgentConfigService
+	MCP               *MCPService
+	Skill             *SkillService
+	AgentSkill        *AgentSkillService
+	ResumeProfile     *ResumeProfileService
+	CandidateMatch    *CandidateMatchService
+	Intelligence      *RecruitingIntelligenceService
 	Embedding         *EmbeddingService
+	EmbeddingConfig   *EmbeddingConfigService
 	EmbeddingConsumer *EmbeddingConsumer
 	AgentRunConsumer  *AgentRunConsumer
 	RuntimePolicy     AgentRuntimePolicy
@@ -25,7 +34,16 @@ type AIAgentRuntimeDeps struct {
 	AI                *AIService
 	CandidateAI       *CandidateAIService
 	LlmConfig         *LlmConfigService
+	Prompt            *PromptService
+	AgentConfig       *AgentConfigService
+	MCP               *MCPService
+	Skill             *SkillService
+	AgentSkill        *AgentSkillService
+	ResumeProfile     *ResumeProfileService
+	CandidateMatch    *CandidateMatchService
+	Intelligence      *RecruitingIntelligenceService
 	Embedding         *EmbeddingService
+	EmbeddingConfig   *EmbeddingConfigService
 	EmbeddingConsumer *EmbeddingConsumer
 	AgentRunConsumer  *AgentRunConsumer
 	RuntimePolicy     AgentRuntimePolicy
@@ -42,7 +60,16 @@ func NewAIAgentRuntime(deps AIAgentRuntimeDeps) *AIAgentRuntime {
 		AI:                deps.AI,
 		CandidateAI:       deps.CandidateAI,
 		LlmConfig:         deps.LlmConfig,
+		Prompt:            deps.Prompt,
+		AgentConfig:       deps.AgentConfig,
+		MCP:               deps.MCP,
+		Skill:             deps.Skill,
+		AgentSkill:        deps.AgentSkill,
+		ResumeProfile:     deps.ResumeProfile,
+		CandidateMatch:    deps.CandidateMatch,
+		Intelligence:      deps.Intelligence,
 		Embedding:         deps.Embedding,
+		EmbeddingConfig:   deps.EmbeddingConfig,
 		EmbeddingConsumer: deps.EmbeddingConsumer,
 		AgentRunConsumer:  deps.AgentRunConsumer,
 		RuntimePolicy:     deps.RuntimePolicy,

@@ -30,6 +30,11 @@ func TestAIAgentAdaptersUseCurrentRepositoryTypes(t *testing.T) {
 		{"embedding_model", reflect.TypeOf((*EmbeddingModelRepository)(nil)), reflect.TypeOf((*repository.EmbeddingModelRepo)(nil))},
 		{"usage_log", reflect.TypeOf((*UsageLogRepository)(nil)), reflect.TypeOf((*repository.UsageLogRepo)(nil))},
 		{"usage_audit", reflect.TypeOf((*UsageAuditContextRepository)(nil)), reflect.TypeOf((*repository.UsageAuditContextRepo)(nil))},
+		{"recruitment_application_reader", reflect.TypeOf((*RecruitmentApplicationReader)(nil)), reflect.TypeOf((*repository.ApplicationRepo)(nil))},
+		{"recruitment_job_reader", reflect.TypeOf((*RecruitmentJobReader)(nil)), reflect.TypeOf((*repository.JobRepo)(nil))},
+		{"recruitment_resume_reader", reflect.TypeOf((*RecruitmentResumeReader)(nil)), reflect.TypeOf((*repository.ResumeRepo)(nil))},
+		{"recruitment_profile_reader", reflect.TypeOf((*RecruitmentProfileReader)(nil)), reflect.TypeOf((*repository.ProfileRepo)(nil))},
+		{"recruitment_resume_profile_reader", reflect.TypeOf((*RecruitmentResumeProfileReader)(nil)), reflect.TypeOf((*repository.ResumeProfileRepo)(nil))},
 	}
 	for _, tc := range cases {
 		if tc.got != tc.want {
