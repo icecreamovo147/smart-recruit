@@ -23,6 +23,7 @@ source_refs:
   - logic-grpc-service/service/application_service.go
   - logic-grpc-service/service/recruitment_lifecycle_process_manager.go
   - logic-grpc-service/internal/recruitment/runtime/skeleton.go
+  - logic-grpc-service/internal/recruitment/runtime/runtime.go
   - logic-grpc-service/service/interview_service.go
   - logic-grpc-service/service/offer_service.go
   - logic-grpc-service/service/collaboration_service.go
@@ -36,7 +37,7 @@ review_after: 2026-10-08
 
 The recruitment lifecycle is centered on application rounds. Jobs receive applications, applications move through status keys, interviews and offers mutate or depend on those statuses, and collaboration surfaces aggregate notes, tags, tasks, interviews, offers, and timeline events.
 
-The `recruitment-service` binary is currently an unrouted skeleton. It must not mutate application status or register ApplicationService until later scoped extraction/cutover TASKs preserve lifecycle compatibility.
+The `recruitment-service` binary is currently unrouted. Its runtime can explicitly register ApplicationService for controlled validation, but gateway traffic remains on the monolith until later scoped cutover TASKs preserve lifecycle compatibility.
 
 ## Core Flow
 
@@ -65,4 +66,4 @@ The `recruitment-service` binary is currently an unrouted skeleton. It must not 
 
 ## Verification
 
-Verified against status model, application service, recruitment lifecycle process manager, interview service, offer service, collaboration service, application repository, Recruitment skeleton descriptor, and protobuf messages on 2026-07-12.
+Verified against status model, application service, recruitment lifecycle process manager, interview service, offer service, collaboration service, application repository, Recruitment runtime descriptor, and protobuf messages on 2026-07-12.

@@ -24,8 +24,8 @@ func TestNewDescriptorIsUnroutedRecruitmentService(t *testing.T) {
 	if descriptor.CutoverMode != "none" {
 		t.Fatalf("cutover mode = %q, want none", descriptor.CutoverMode)
 	}
-	if len(descriptor.OwnedAPIs) == 0 {
-		t.Fatal("recruitment descriptor should list owned APIs")
+	if len(descriptor.ExtractedAPIs) == 0 {
+		t.Fatal("recruitment descriptor should list extracted APIs")
 	}
 }
 
@@ -36,11 +36,11 @@ func TestDescriptorDocumentsNoRuntimeSideEffects(t *testing.T) {
 	}
 	notes := strings.Join(descriptor.Notes, "\n")
 	for _, required := range []string{
-		"does not bind a network listener",
-		"does not register generated gRPC services",
+		"default execution does not bind a network listener",
+		"registered only through explicit runtime registration",
 		"does not start recruitment lifecycle workers or consumers",
 		"does not mutate jobs, candidates, resumes, applications, statuses, notifications, or analytics projections",
-		"does not receive gateway traffic",
+		"gateway traffic is not routed to recruitment-service",
 	} {
 		if !strings.Contains(notes, required) {
 			t.Fatalf("descriptor notes missing %q: %s", required, notes)
@@ -48,20 +48,22 @@ func TestDescriptorDocumentsNoRuntimeSideEffects(t *testing.T) {
 	}
 }
 
-func TestDescriptorListsRecruitmentOwnedAPIs(t *testing.T) {
+func TestDescriptorListsRecruitmentExtractedAPIs(t *testing.T) {
 	descriptor, err := NewDescriptor()
 	if err != nil {
 		t.Fatalf("NewDescriptor() error = %v", err)
 	}
-	apis := strings.Join(descriptor.OwnedAPIs, "\n")
+	apis := strings.Join(descriptor.ExtractedAPIs, "\n")
 	for _, required := range []string{
 		"JobService.CreateJob",
 		"CandidateService.GetProfile",
 		"ApplicationService.ApplyJob",
 		"ApplicationService.UpdateApplicationStatus",
+		"JobService.ListJobOptions",
+		"JobService.ListDepartmentLocations",
 	} {
 		if !strings.Contains(apis, required) {
-			t.Fatalf("descriptor owned APIs missing %q: %s", required, apis)
+			t.Fatalf("descriptor extracted APIs missing %q: %s", required, apis)
 		}
 	}
 }

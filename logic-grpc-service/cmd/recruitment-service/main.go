@@ -43,6 +43,6 @@ func printDescriptor(descriptor recruitmentruntime.Descriptor) {
 	fmt.Printf("cutover_mode: %s\n", descriptor.CutoverMode)
 	fmt.Printf("traffic_enabled: %t\n", descriptor.TrafficEnabled)
 	fmt.Printf("startup_mode: %s\n", descriptor.StartupMode)
-	fmt.Printf("owned_apis: %s\n", strings.Join(descriptor.OwnedAPIs, ", "))
+	fmt.Printf("extracted_apis: %s\n", strings.Join(descriptor.ExtractedAPIs, ", "))
 	fmt.Printf("notes: %s\n", strings.Join(descriptor.Notes, "; "))
 }

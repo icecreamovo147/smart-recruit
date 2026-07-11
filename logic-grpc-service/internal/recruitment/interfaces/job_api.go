@@ -16,3 +16,9 @@ type JobAPI interface {
 	ListPublicJobs(context.Context, *pb.ListPublicJobsRequest) (*pb.ListJobsResponse, error)
 	GetJobDetail(context.Context, *pb.GetJobDetailRequest) (*pb.GetJobDetailResponse, error)
 }
+
+// JobTaxonomyAPI is the Recruitment-owned job taxonomy read contract required by the generated JobService.
+type JobTaxonomyAPI interface {
+	ListJobOptions(context.Context, *pb.ListJobOptionsRequest) (*pb.ListJobOptionsResponse, error)
+	ListDepartmentLocations(context.Context, *pb.ListDepartmentLocationsRequest) (*pb.ListDepartmentLocationsResponse, error)
+}

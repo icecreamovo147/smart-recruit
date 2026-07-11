@@ -28,6 +28,7 @@ source_refs:
   - docs/backend-ddd-microservices-evolution-identity-api-extraction.md
   - docs/backend-ddd-microservices-evolution-identity-gateway-cutover.md
   - docs/backend-ddd-microservices-evolution-recruitment-service-skeleton.md
+  - docs/backend-ddd-microservices-evolution-recruitment-api-extraction.md
   - deploy/k8s/README-service-binaries.md
   - logic-grpc-service/internal/platform/servicebinary/convention.go
   - logic-grpc-service/internal/platform/servicebinary/convention_test.go
@@ -39,6 +40,7 @@ source_refs:
   - logic-grpc-service/internal/aiagent/runtime/skeleton.go
   - logic-grpc-service/internal/identity/runtime/skeleton.go
   - logic-grpc-service/internal/recruitment/runtime/skeleton.go
+  - logic-grpc-service/internal/recruitment/runtime/runtime.go
   - logic-grpc-service/service/notification_runtime.go
   - logic-grpc-service/service/ai_agent_runtime.go
   - deploy/k8s/logic-deployment.yaml
@@ -63,7 +65,7 @@ Use this runbook when adding or reviewing backend service binaries, worker binar
 - `cmd/notification-service` is the first compile-safe extracted service skeleton. It supports `--describe` and `--check`, exits non-zero without flags, and keeps `TrafficEnabled=false` until a scoped cutover TASK changes that behavior.
 - `cmd/ai-agent-service` is a compile-safe AI Agent service skeleton. It supports `--describe` and `--check`, exits non-zero without flags, and keeps `TrafficEnabled=false` until a scoped runtime extraction or gateway cutover TASK changes that behavior.
 - `cmd/identity-service` is a compile-safe Identity service runtime. It supports `--describe`, `--check`, and explicit `--serve`, exits non-zero without flags, registers AuthService plus the Identity-owned AdminService subset only in explicit serve mode, and keeps `TrafficEnabled=false` until the scoped Identity gateway cutover TASK changes routing.
-- `cmd/recruitment-service` is a compile-safe Recruitment service skeleton. It supports `--describe` and `--check`, exits non-zero without flags, does not register generated Job/Candidate/Application gRPC services, and keeps `TrafficEnabled=false` until a scoped Recruitment API extraction or gateway cutover TASK changes that behavior.
+- `cmd/recruitment-service` is a compile-safe Recruitment service skeleton. It supports `--describe` and `--check`, exits non-zero without flags, keeps `TrafficEnabled=false`, and has an explicit Recruitment runtime that can register JobService, CandidateService, and ApplicationService for controlled validation without gateway cutover.
 - `service.NotificationRuntime` is the current runtime composition seam for Notification persistence, unread counts, realtime cache publication, outbox dispatch, notification consumer startup, and email consumer startup. It is still started by the monolith worker block.
 - `service.AIAgentRuntime` is the current runtime composition boundary for HR AI chat, candidate AI chat, provider fallback/config surface, embedding service, embedding consumer, and durable agent-run consumer. It is still started by the monolith worker block.
 - `web-gin-service` has a Notification gateway routing switch: default `NOTIFICATION_ROUTE_MODE=logic` keeps traffic on `GRPC_ADDR`; `NOTIFICATION_ROUTE_MODE=notification` routes only the generated Notification client to `NOTIFICATION_GRPC_ADDR` and fails fast when that address is missing.

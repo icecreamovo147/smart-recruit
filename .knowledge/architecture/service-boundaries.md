@@ -27,6 +27,7 @@ source_refs:
   - logic-grpc-service/internal/identity/runtime/runtime.go
   - logic-grpc-service/internal/aiagent/runtime/skeleton.go
   - logic-grpc-service/internal/recruitment/runtime/skeleton.go
+  - logic-grpc-service/internal/recruitment/runtime/runtime.go
   - logic-grpc-service/service/ai_agent_runtime.go
   - logic-grpc-service/internal/platform/events/envelope.go
   - logic-grpc-service/repository/user_repo.go
@@ -52,7 +53,7 @@ Analytics event projection ingestion lives under `logic-grpc-service/internal/an
 
 `logic-grpc-service/cmd/ai-agent-service` is an unrouted service skeleton for the AI Agent boundary. It is compile-safe only and must not receive gateway traffic or start runtime workers until a scoped extraction/cutover TASK records rollback evidence.
 
-`logic-grpc-service/cmd/recruitment-service` is an unrouted service skeleton for the Recruitment boundary. It documents future JobService, CandidateService, and ApplicationService ownership, but it must not register generated gRPC services, mutate recruitment lifecycle state, start consumers, or receive gateway traffic until scoped extraction and cutover TASKs record compatibility and rollback evidence.
+`logic-grpc-service/cmd/recruitment-service` is an unrouted service skeleton for the Recruitment boundary. `logic-grpc-service/internal/recruitment/runtime` can explicitly register Recruitment-owned JobService, CandidateService, and ApplicationService adapters, but the command must not mutate recruitment lifecycle state, start consumers, or receive gateway traffic until scoped cutover TASKs record compatibility and rollback evidence.
 
 `logic-grpc-service/service/ai_agent_runtime.go` is the transitional AI Agent runtime boundary inside the monolith. It groups AI chat, candidate AI, provider fallback/config surface, embedding runtime, embedding workload execution, and durable agent-run execution without changing public API routing.
 

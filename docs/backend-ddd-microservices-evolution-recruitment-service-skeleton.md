@@ -17,27 +17,26 @@ The skeleton follows the service binary convention already registered as `recrui
 `cmd/recruitment-service` supports:
 
 - `--check`: validates the skeleton descriptor and exits 0.
-- `--describe`: prints the registered service unit, cutover mode, startup mode, owned API surface, and safety notes.
+- `--describe`: prints the registered service unit, cutover mode, startup mode, extracted API surface, and safety notes.
 
 Running without flags exits non-zero and prints that the skeleton is intentionally unrouted.
 
-Default execution does not:
+Default command execution does not:
 
 - bind a network listener;
-- register generated gRPC services;
 - start recruitment lifecycle workers or consumers;
 - mutate jobs, candidates, resumes, applications, statuses, notifications, or Analytics projections;
 - receive gateway traffic.
 
 ## Owned API Surface
 
-The descriptor documents the future Recruitment-owned generated service surface:
+The descriptor documents the Recruitment-owned generated service surface extracted by TASK-BDME-038:
 
-- `JobService`: job create/update, online/offline, HR list, public list, and detail.
+- `JobService`: job create/update, online/offline, HR list, public list, detail, job options, and department-location options.
 - `CandidateService`: profile, resume, presign upload, and confirm upload.
 - `ApplicationService`: apply, candidate application list, job application list, status update, and status transition list.
 
-This TASK does not register those generated services. Runtime registration and API extraction must happen in later scoped TASKs.
+`internal/recruitment/runtime` can explicitly register these generated services for controlled validation. Gateway traffic is still not routed to `recruitment-service` in this TASK.
 
 ## Compatibility
 
@@ -59,7 +58,7 @@ Run:
 
 ```bash
 cd logic-grpc-service && go run ./cmd/recruitment-service --check && go run ./cmd/recruitment-service --describe
-cd logic-grpc-service && go test ./internal/recruitment/runtime ./cmd/recruitment-service ./internal/platform/servicebinary
+cd logic-grpc-service && go test ./internal/recruitment/interfaces ./internal/recruitment/runtime ./cmd/recruitment-service ./internal/platform/servicebinary
 cd logic-grpc-service && go test ./...
 ```
 

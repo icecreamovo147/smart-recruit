@@ -16,7 +16,7 @@ type Descriptor struct {
 	CutoverMode    string
 	TrafficEnabled bool
 	StartupMode    string
-	OwnedAPIs      []string
+	ExtractedAPIs  []string
 	Notes          []string
 }
 
@@ -29,8 +29,8 @@ func NewDescriptor() (Descriptor, error) {
 		Unit:           unit,
 		CutoverMode:    CutoverMode,
 		TrafficEnabled: false,
-		StartupMode:    "skeleton-describe-only",
-		OwnedAPIs: []string{
+		StartupMode:    "explicit-runtime-registration-only",
+		ExtractedAPIs: []string{
 			"JobService.CreateJob",
 			"JobService.UpdateJob",
 			"JobService.OfflineJob",
@@ -48,13 +48,15 @@ func NewDescriptor() (Descriptor, error) {
 			"ApplicationService.ListJobApplications",
 			"ApplicationService.UpdateApplicationStatus",
 			"ApplicationService.ListApplicationStatusTransitions",
+			"JobService.ListJobOptions",
+			"JobService.ListDepartmentLocations",
 		},
 		Notes: []string{
-			"does not bind a network listener",
-			"does not register generated gRPC services",
+			"default execution does not bind a network listener",
+			"JobService, CandidateService, and ApplicationService are registered only through explicit runtime registration",
 			"does not start recruitment lifecycle workers or consumers",
 			"does not mutate jobs, candidates, resumes, applications, statuses, notifications, or analytics projections",
-			"does not receive gateway traffic",
+			"gateway traffic is not routed to recruitment-service in this TASK",
 			"ready for later recruitment API extraction and controlled gateway cutover tasks",
 		},
 	}
@@ -80,8 +82,8 @@ func Validate(descriptor Descriptor) error {
 	if descriptor.StartupMode == "" {
 		return fmt.Errorf("startup mode is required")
 	}
-	if len(descriptor.OwnedAPIs) == 0 {
-		return fmt.Errorf("owned APIs are required")
+	if len(descriptor.ExtractedAPIs) == 0 {
+		return fmt.Errorf("extracted APIs are required")
 	}
 	if len(descriptor.Notes) == 0 {
 		return fmt.Errorf("notes are required")
