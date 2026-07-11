@@ -1,7 +1,7 @@
 {
   "status": "dry_run",
-  "started_at": "2026-07-11T19:17:48.996Z",
-  "finished_at": "2026-07-11T19:17:48.997Z",
+  "started_at": "2026-07-11T19:20:06.127Z",
+  "finished_at": "2026-07-11T19:20:06.128Z",
   "base_url": "http://127.0.0.1:8080",
   "targets": {
     "gateway_qps": 200,

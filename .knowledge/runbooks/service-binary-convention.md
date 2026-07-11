@@ -39,6 +39,8 @@ source_refs:
   - docs/backend-ddd-microservices-evolution-internal-service-security.md
   - docs/backend-ddd-microservices-evolution-observability-baseline.md
   - docs/backend-ddd-microservices-evolution-deployment-readiness-baseline.md
+  - docs/backend-ddd-microservices-evolution-final-readiness-review.md
+  - docs/backend-ddd-microservices-evolution-final-readiness-audit.json
   - deploy/k8s/README-service-binaries.md
   - logic-grpc-service/internal/platform/servicebinary/convention.go
   - logic-grpc-service/internal/platform/servicebinary/convention_test.go
@@ -73,6 +75,7 @@ source_refs:
   - logic-grpc-service/server/metrics.go
   - logic-grpc-service/server/health.go
   - logic-grpc-service/pkg/observability/metrics.go
+  - scripts/backend-final-readiness-audit.mjs
 last_verified: 2026-07-12
 review_after: 2026-10-09
 ---
@@ -107,6 +110,7 @@ Use this runbook when adding or reviewing backend service binaries, worker binar
 - Internal service security is part of the service binary runtime contract. Service cutovers must keep `GRPC_INTERNAL_TOKEN` enabled, and non-local routed traffic should use `GRPC_INTERNAL_TLS=required` with server cert/key plus gateway CA configuration.
 - Observability is part of the active runtime contract. `logic-grpc-service` exposes Prometheus text metrics on `METRICS_ADDR` when configured; Kubernetes sets `METRICS_ADDR=:9091` and publishes a `metrics` service port. Extracted service binaries should use the same low-cardinality metric label policy before receiving routed traffic.
 - Request-serving logic readiness treats RabbitMQ as a degraded soft dependency so synchronous traffic can continue while Outbox accumulates; worker readiness treats RabbitMQ as hard because consumers cannot make progress without queue connectivity.
+- The final readiness review/audit records remaining transitional access and operational gaps; it is closure evidence for this feature, not authorization for unscoped production traffic or schema cutover.
 
 ## Review Checklist
 

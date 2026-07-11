@@ -43,7 +43,10 @@ source_refs:
   - docs/backend-ddd-microservices-evolution-internal-service-security.md
   - docs/backend-ddd-microservices-evolution-observability-baseline.md
   - docs/backend-ddd-microservices-evolution-deployment-readiness-baseline.md
+  - docs/backend-ddd-microservices-evolution-final-readiness-review.md
+  - docs/backend-ddd-microservices-evolution-final-readiness-audit.json
   - scripts/check-table-ownership.mjs
+  - scripts/backend-final-readiness-audit.mjs
 last_verified: 2026-07-12
 review_after: 2026-10-08
 ---
@@ -67,6 +70,8 @@ Analytics event projection ingestion lives under `logic-grpc-service/internal/an
 `docs/backend-ddd-microservices-evolution-table-ownership-manifest.json` records the table owner, allowed readers, allowed writers, and transitional shared access for the target backend contexts. Table ownership must be reviewed as a service-boundary change even when HTTP/gRPC contracts are unchanged.
 
 `docs/backend-ddd-microservices-evolution-schema-separation-plan.md` prepares schema-per-context or later physical database separation. It does not change runtime storage by itself; it requires ownership-manifest alignment, expand-contract sequencing, rollback, reconciliation, RTO/RPO evidence, and scoped approval before any actual schema or database split.
+
+`docs/backend-ddd-microservices-evolution-final-readiness-review.md` is the current final review for this feature. It approves the remaining transitional shared access entries only as explicit architecture debt with removal plans; it does not approve physical schema separation or production traffic cutover by itself.
 
 Internal service-to-service traffic is protected by the token/TLS controls in `docs/backend-ddd-microservices-evolution-internal-service-security.md`. Extracted service cutovers must keep `GRPC_INTERNAL_TOKEN` enabled and should require internal TLS before receiving non-local traffic.
 
@@ -115,4 +120,4 @@ Generated protobuf files are contract artifacts. When proto definitions change, 
 
 ## Verification
 
-The boundary was verified from gateway route registration and route-mode cutover controls, observability middleware/interceptors, protobuf service definitions, representative logic service/repository files, `logic-grpc-service/service/recruitment_lifecycle_process_manager.go`, Analytics projection ingestion/runtime files, Worker Services descriptor, Identity, Recruitment, Interview, Offer, and AI Agent skeleton/runtime files, `logic-grpc-service/internal/platform/servicebinary/convention.go`, `logic-grpc-service/internal/platform/events/envelope.go`, the internal service security plan, observability baseline, table ownership manifest/check script, and schema separation plan on 2026-07-12.
+The boundary was verified from gateway route registration and route-mode cutover controls, observability middleware/interceptors, protobuf service definitions, representative logic service/repository files, `logic-grpc-service/service/recruitment_lifecycle_process_manager.go`, Analytics projection ingestion/runtime files, Worker Services descriptor, Identity, Recruitment, Interview, Offer, and AI Agent skeleton/runtime files, `logic-grpc-service/internal/platform/servicebinary/convention.go`, `logic-grpc-service/internal/platform/events/envelope.go`, the internal service security plan, observability baseline, table ownership manifest/check script, schema separation plan, and final readiness review/audit on 2026-07-12.

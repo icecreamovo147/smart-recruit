@@ -340,7 +340,10 @@ routes:
       - docs/backend-ddd-microservices-evolution-internal-service-security.md
       - docs/backend-ddd-microservices-evolution-load-test-harness.md
       - docs/backend-ddd-microservices-evolution-load-test-initial-evidence.json
+      - docs/backend-ddd-microservices-evolution-final-readiness-review.md
+      - docs/backend-ddd-microservices-evolution-final-readiness-audit.json
       - scripts/backend-load-test.mjs
+      - scripts/backend-final-readiness-audit.mjs
     documents:
       - local-development
       - service-binary-convention
