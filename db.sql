@@ -545,23 +545,36 @@ CREATE TABLE IF NOT EXISTS `notifications` (
 CREATE TABLE IF NOT EXISTS `event_outbox` (
   `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
   `event_id` VARCHAR(64) NOT NULL COMMENT '全局唯一事件ID',
+  `schema_version` VARCHAR(16) NOT NULL DEFAULT '1.0' COMMENT '领域事件信封版本',
   `event_type` VARCHAR(64) NOT NULL COMMENT 'notification.create / resume.parse',
   `aggregate_type` VARCHAR(64) NOT NULL COMMENT 'application / resume / notification',
   `aggregate_id` BIGINT UNSIGNED NOT NULL DEFAULT 0,
   `routing_key` VARCHAR(128) NOT NULL,
+  `producer` VARCHAR(128) NOT NULL DEFAULT 'logic-grpc-service.outbox' COMMENT '事件生产者',
+  `idempotency_key` VARCHAR(255) NOT NULL DEFAULT '' COMMENT '消费者幂等键',
+  `correlation_id` VARCHAR(128) NOT NULL DEFAULT '' COMMENT '请求/流程关联ID',
+  `causation_id` VARCHAR(128) NOT NULL DEFAULT '' COMMENT '触发当前事件的命令或事件ID',
+  `trace_id` VARCHAR(128) NOT NULL DEFAULT '' COMMENT '链路追踪ID',
   `payload` JSON NOT NULL,
+  `metadata` JSON NULL COMMENT '安全诊断元数据',
   `status` TINYINT NOT NULL DEFAULT 0 COMMENT '0=pending 1=published 2=dead 3=processing',
   `retry_count` INT NOT NULL DEFAULT 0,
   `next_retry_at` DATETIME NULL,
   `last_error` TEXT NULL,
   `locked_at` DATETIME NULL,
   `locked_by` VARCHAR(128) NOT NULL DEFAULT '',
+  `published_at` DATETIME NULL COMMENT '成功发布到消息队列时间',
+  `dead_lettered_at` DATETIME NULL COMMENT '进入死信状态时间',
   `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   `updated_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`),
   UNIQUE KEY `uk_event_id` (`event_id`),
+  KEY `idx_outbox_idempotency_key` (`idempotency_key`),
   KEY `idx_status_next_retry` (`status`, `next_retry_at`, `locked_at`, `id`),
-  KEY `idx_aggregate` (`aggregate_type`, `aggregate_id`)
+  KEY `idx_aggregate` (`aggregate_type`, `aggregate_id`),
+  KEY `idx_outbox_published_at` (`status`, `published_at`),
+  KEY `idx_outbox_dead_lettered_at` (`status`, `dead_lettered_at`),
+  KEY `idx_outbox_status_created` (`status`, `created_at`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='事务消息 outbox 表';
 
 CREATE TABLE IF NOT EXISTS `email_logs` (

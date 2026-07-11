@@ -592,21 +592,30 @@ const (
 
 // EventOutbox table: event_outbox
 type EventOutbox struct {
-	ID            uint64     `gorm:"primaryKey"`
-	EventID       string     `gorm:"column:event_id"`
-	EventType     string     `gorm:"column:event_type"`
-	AggregateType string     `gorm:"column:aggregate_type"`
-	AggregateID   uint64     `gorm:"column:aggregate_id"`
-	RoutingKey    string     `gorm:"column:routing_key"`
-	Payload       string     `gorm:"column:payload;type:json"`
-	Status        int32      `gorm:"column:status;default:0"`
-	RetryCount    int32      `gorm:"column:retry_count;default:0"`
-	NextRetryAt   *time.Time `gorm:"column:next_retry_at"`
-	LastError     string     `gorm:"column:last_error"`
-	LockedAt      *time.Time `gorm:"column:locked_at"`
-	LockedBy      string     `gorm:"column:locked_by"`
-	CreatedAt     time.Time  `gorm:"column:created_at"`
-	UpdatedAt     time.Time  `gorm:"column:updated_at"`
+	ID             uint64     `gorm:"primaryKey"`
+	EventID        string     `gorm:"column:event_id"`
+	SchemaVersion  string     `gorm:"column:schema_version;size:16;default:1.0"`
+	EventType      string     `gorm:"column:event_type"`
+	AggregateType  string     `gorm:"column:aggregate_type"`
+	AggregateID    uint64     `gorm:"column:aggregate_id"`
+	RoutingKey     string     `gorm:"column:routing_key"`
+	Producer       string     `gorm:"column:producer;size:128;default:logic-grpc-service.outbox"`
+	IdempotencyKey string     `gorm:"column:idempotency_key;size:255;index:idx_outbox_idempotency_key"`
+	CorrelationID  string     `gorm:"column:correlation_id;size:128"`
+	CausationID    string     `gorm:"column:causation_id;size:128"`
+	TraceID        string     `gorm:"column:trace_id;size:128"`
+	Payload        string     `gorm:"column:payload;type:json"`
+	Metadata       string     `gorm:"column:metadata;type:json"`
+	Status         int32      `gorm:"column:status;default:0"`
+	RetryCount     int32      `gorm:"column:retry_count;default:0"`
+	NextRetryAt    *time.Time `gorm:"column:next_retry_at"`
+	LastError      string     `gorm:"column:last_error"`
+	LockedAt       *time.Time `gorm:"column:locked_at"`
+	LockedBy       string     `gorm:"column:locked_by"`
+	PublishedAt    *time.Time `gorm:"column:published_at"`
+	DeadLetteredAt *time.Time `gorm:"column:dead_lettered_at"`
+	CreatedAt      time.Time  `gorm:"column:created_at"`
+	UpdatedAt      time.Time  `gorm:"column:updated_at"`
 }
 
 func (EventOutbox) TableName() string { return "event_outbox" }

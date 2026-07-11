@@ -26,7 +26,7 @@ source_refs:
   - logic-grpc-service/migration/runner.go
   - logic-grpc-service/migration/mysql_consistency_test.go
   - logic-grpc-service/model/model.go
-last_verified: 2026-07-10
+last_verified: 2026-07-11
 review_after: 2026-10-08
 ---
 
@@ -49,6 +49,7 @@ Use this runbook when a TASK changes public contracts or persistence structure.
 3. Update repositories and services that own the new persistence behavior.
 4. Keep `db.sql` aligned when it serves as current schema reference.
 5. Run migration runner tests and MySQL consistency checks when available.
+6. For transactional outbox changes, also run outbox repository and publisher tests to verify retry/dead-letter, retention, and payload compatibility.
 
 ## Review Questions
 
@@ -56,6 +57,7 @@ Use this runbook when a TASK changes public contracts or persistence structure.
 - Are generated protobuf files synchronized in both service trees?
 - Are model fields, repository queries, indexes, and constraints aligned with SQL?
 - Does the gateway need new body limits, timeouts, route permissions, or frontend types?
+- For outbox changes, do existing consumers still accept the published payload shape?
 
 ## Safety
 

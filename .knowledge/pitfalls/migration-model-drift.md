@@ -20,9 +20,11 @@ source_refs:
   - logic-grpc-service/migration/mysql_consistency_test.go
   - logic-grpc-service/migration/runner_test.go
   - logic-grpc-service/model/model.go
+  - logic-grpc-service/migrations/000051_standardize_event_outbox.sql
+  - logic-grpc-service/repository/outbox_repo.go
   - logic-grpc-service/repository/repo_test_helper.go
   - db.sql
-last_verified: 2026-07-10
+last_verified: 2026-07-11
 review_after: 2026-10-08
 ---
 
@@ -37,6 +39,7 @@ Database changes can pass local unit tests while production migrations, `db.sql`
 - Updating a migration without checking repository query assumptions.
 - Relying on test-only `AutoMigrate` behavior for a production schema change.
 - Changing cursor, pagination, or uniqueness assumptions in repositories.
+- Changing outbox status, retry, retention, or metadata columns without updating publisher writes, repository stats, and `db.sql`.
 
 ## Risk
 
@@ -48,7 +51,8 @@ The logic service may compile while failing at runtime against a migrated databa
 - Prefer explicit SQL migrations for production schema changes.
 - Run migration runner and MySQL consistency tests for schema work.
 - Keep repository transactions and query filters aligned with service invariants.
+- For `event_outbox`, check that terminal timestamps, retention cutoffs, retry/dead-letter transitions, and indexes stay aligned with `OutboxRepo` and `OutboxPublisher`.
 
 ## Verification
 
-This pitfall was verified from migration consistency tests, migration runner tests, GORM models, repository test helpers, and `db.sql` on 2026-07-10.
+This pitfall was verified from migration consistency tests, migration runner tests, GORM models, outbox migrations/repository tests, repository test helpers, and `db.sql` on 2026-07-11.

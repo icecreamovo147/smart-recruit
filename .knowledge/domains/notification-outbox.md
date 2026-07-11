@@ -16,6 +16,7 @@ applies_to:
   - logic-grpc-service/service/notification_worker.go
   - logic-grpc-service/service/outbox_publisher.go
   - logic-grpc-service/internal/platform/events/envelope.go
+  - logic-grpc-service/repository/outbox_repo.go
   - logic-grpc-service/repository/notification_repo.go
   - logic-grpc-service/model/model.go
   - web-gin-service/handler/notification.go
@@ -26,6 +27,8 @@ source_refs:
   - logic-grpc-service/service/notification_worker.go
   - logic-grpc-service/service/outbox_publisher.go
   - logic-grpc-service/internal/platform/events/envelope.go
+  - logic-grpc-service/repository/outbox_repo.go
+  - logic-grpc-service/migrations/000051_standardize_event_outbox.sql
   - web-gin-service/handler/notification.go
   - logic-grpc-service/model/model.go
 last_verified: 2026-07-11
@@ -40,6 +43,9 @@ Notifications are produced by recruitment workflows and delivered through databa
 
 - Recruitment services write notification and email intents through `OutboxPublisher` inside workflow transactions.
 - `logic-grpc-service/internal/platform/events/` defines the target domain-event envelope fields used to standardize event identity, aggregate identity, producer, actor context, idempotency keys, correlation/causation IDs, payload, and diagnostics metadata across Outbox, future Inbox records, consumers, and projections.
+- `event_outbox` stores envelope metadata, retry diagnostics, publish/dead-letter timestamps, and retention-ready terminal state. Published events default to 30-day retention and dead-letter events to 90-day retention through repository retention helpers.
+- `OutboxPublisher` keeps legacy top-level payload fields for existing consumers while also writing the standard envelope fields and nested `payload` object.
+- Publish failures retry with bounded exponential backoff; after the retry budget is exhausted, events are marked dead-letter with `dead_lettered_at`.
 - `NotificationService` reads, summarizes, marks, and publishes notification-created events with account-type scoping.
 - `NotificationWorkerPool` throttles asynchronous notification writes and publishes created events through the cache layer.
 - `web-gin-service/handler/notification.go` exposes list, unread count, summary, mark-read, mark-all-read, and stream endpoints.
@@ -51,7 +57,8 @@ Notifications are produced by recruitment workflows and delivered through databa
 - Account type matters. Candidate, staff, and interviewer notifications should not share cache keys or cookie assumptions.
 - SSE changes should check gateway stream handling and frontend event parsing.
 - Email outbox changes should be reviewed with notification changes because some workflows emit both.
+- Outbox schema changes should keep migrations, `db.sql`, GORM model fields, repository stats/retention helpers, and publisher payload compatibility aligned.
 
 ## Verification
 
-Verified against application and offer services, notification service, notification worker, outbox publisher, domain-event envelope contract, notification handler, and model definitions on 2026-07-11.
+Verified against application and offer services, notification service, notification worker, outbox publisher, outbox repository, domain-event envelope contract, notification handler, migrations, `db.sql`, and model definitions on 2026-07-11.
