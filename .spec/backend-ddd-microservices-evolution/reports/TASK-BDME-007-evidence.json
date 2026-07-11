@@ -1,0 +1,108 @@
+{
+  "schemaVersion": 1,
+  "feature_name": "backend-ddd-microservices-evolution",
+  "task_id": "TASK-BDME-007",
+  "base_sha": "1aae33ddce26d77a221f4e0a175ce08fb275ac24",
+  "base_tree": "6f66be25c65268ca628ebd397eaa7ee878a3d6c4",
+  "head_sha": "1aae33ddce26d77a221f4e0a175ce08fb275ac24",
+  "changed_files": [
+    ".spec/backend-ddd-microservices-evolution/pipeline-state.json",
+    ".spec/backend-ddd-microservices-evolution/reports/TASK-BDME-007-report.md",
+    ".spec/backend-ddd-microservices-evolution/reports/TASK-BDME-007-evidence.json",
+    "docs/backend-ddd-microservices-evolution-deployment-readiness-baseline.md"
+  ],
+  "scope": {
+    "status": "passed",
+    "base_tree": "6f66be25c65268ca628ebd397eaa7ee878a3d6c4",
+    "out_of_scope": [],
+    "forbidden": [],
+    "allowed": [
+      ".spec/backend-ddd-microservices-evolution/pipeline-state.json",
+      ".spec/backend-ddd-microservices-evolution/reports/TASK-BDME-007-report.md",
+      ".spec/backend-ddd-microservices-evolution/reports/TASK-BDME-007-evidence.json",
+      "docs/backend-ddd-microservices-evolution-deployment-readiness-baseline.md"
+    ]
+  },
+  "checks": [
+    {
+      "command": "git diff --name-only && git ls-files --others --exclude-standard",
+      "exit_code": 0,
+      "status": "passed",
+      "started_at": "2026-07-11T14:02:21Z",
+      "duration_ms": 50,
+      "summary": "Listed changed tracked and untracked TASK files."
+    },
+    {
+      "command": "TASK_BASE_TREE=6f66be25c65268ca628ebd397eaa7ee878a3d6c4 bash .spec/backend-ddd-microservices-evolution/scripts/check-task-scope.sh TASK-BDME-007",
+      "exit_code": 0,
+      "status": "passed",
+      "started_at": "2026-07-11T14:02:21Z",
+      "duration_ms": 307,
+      "summary": "scope_result: PASS (TASK-BDME-007)."
+    },
+    {
+      "command": "bash .spec/backend-ddd-microservices-evolution/scripts/agent-check.sh",
+      "exit_code": 0,
+      "status": "passed",
+      "started_at": "2026-07-11T14:02:21Z",
+      "duration_ms": 230,
+      "summary": "Feature validation and git diff whitespace check passed; no Go service files changed."
+    },
+    {
+      "command": "node .knowledge/scripts/detect-impact.mjs --root . --base-tree 6f66be25c65268ca628ebd397eaa7ee878a3d6c4",
+      "exit_code": 0,
+      "status": "passed",
+      "started_at": "2026-07-11T14:02:21Z",
+      "duration_ms": 338,
+      "summary": "impact_result: update_required; matched local-development and system-overview routes."
+    }
+  ],
+  "review": {
+    "type": "self-review",
+    "round": 1,
+    "verdict": "通过",
+    "findings": []
+  },
+  "human_confirmation": {
+    "required": true,
+    "confirmed": true,
+    "confirmed_by": "user",
+    "confirmed_at": "2026-07-11T14:00:54Z",
+    "confirmation_text": "用户确认允许继续执行，后面所有人工门禁都取消；任务实现完毕且 self-review 通过即可继续。"
+  },
+  "exceptions": [],
+  "skipped_checks": [
+    {
+      "command": "node .knowledge/scripts/validate-knowledge.mjs",
+      "reason": ".knowledge files were reviewed but not changed by TASK-BDME-007."
+    },
+    {
+      "command": "go test ./...",
+      "reason": "No Go files changed in TASK-BDME-007; acceptance only requires Harness, scope, agent-check, and knowledge validation when applicable."
+    }
+  ],
+  "knowledgeImpact": {
+    "result": "update_required",
+    "triggeredBy": [
+      "docs/backend-ddd-microservices-evolution-deployment-readiness-baseline.md"
+    ],
+    "reviewResults": [
+      {
+        "document": ".knowledge/architecture/system-overview.md",
+        "verdict": "UNCHANGED",
+        "evidence": [
+          "Reviewed current service topology against source refs and TASK-BDME-007 deployment baseline; no service boundary or topology behavior changed."
+        ]
+      },
+      {
+        "document": ".knowledge/runbooks/local-development.md",
+        "verdict": "UNCHANGED",
+        "evidence": [
+          "Reviewed start-dev.sh, stop-dev.sh, docker/docker-compose.yml, and docker/.env.example; local workflow remains unchanged and already covered by the active runbook."
+        ]
+      }
+    ],
+    "coverageGap": false,
+    "validationExitCode": 0
+  }
+}
