@@ -5,6 +5,8 @@ defineProps<{
   currentSession: Session
   mobileContextTitle: string
   mobileContextSub: string
+  /** 桌面端会话列表是否已收起 */
+  sidebarCollapsed?: boolean
 }>()
 
 const emit = defineEmits<{
@@ -16,9 +18,30 @@ const emit = defineEmits<{
 <template>
   <header class="chat-header">
     <div class="chat-header__left">
-      <button class="chat-header__menu-btn mobile-only" @click="emit('toggle-sidebar')" aria-label="打开会话列表">
-        <svg width="18" height="18" viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round">
-          <path d="M2.5 4.5h13M2.5 9h13M2.5 13.5h13"/>
+      <button
+        class="chat-header__menu-btn"
+        :class="{ 'chat-header__menu-btn--collapsed': sidebarCollapsed }"
+        type="button"
+        :aria-label="sidebarCollapsed ? '展开会话列表' : '收起会话列表'"
+        :title="sidebarCollapsed ? '展开会话列表' : '收起会话列表'"
+        @click="emit('toggle-sidebar')"
+      >
+        <!-- 侧栏面板图标：收起态与展开态镜像，便于识别 -->
+        <svg
+          width="18"
+          height="18"
+          viewBox="0 0 18 18"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="1.6"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+          aria-hidden="true"
+        >
+          <rect x="2.5" y="3" width="13" height="12" rx="2" />
+          <path d="M7 3v12" />
+          <path v-if="sidebarCollapsed" d="M10 9h3.5M12 7l2 2-2 2" />
+          <path v-else d="M11.5 9H8M9.5 7L7.5 9l2 2" />
         </svg>
       </button>
       <div class="chat-header__info">
@@ -61,6 +84,7 @@ const emit = defineEmits<{
 }
 
 .chat-header__menu-btn {
+  flex-shrink: 0;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -72,11 +96,22 @@ const emit = defineEmits<{
   background: var(--surface);
   color: var(--text-secondary);
   cursor: pointer;
+  transition:
+    background-color 0.15s ease,
+    border-color 0.15s ease,
+    color 0.15s ease;
 }
 
 .chat-header__menu-btn:hover {
   background: var(--surface-muted);
   color: var(--text-primary);
+  border-color: color-mix(in srgb, var(--brand) 28%, var(--border));
+}
+
+.chat-header__menu-btn--collapsed {
+  color: var(--brand);
+  border-color: color-mix(in srgb, var(--brand) 36%, var(--border));
+  background: var(--brand-soft);
 }
 
 .chat-header__info {

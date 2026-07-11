@@ -27,6 +27,7 @@
   --brand: #2563eb;
   --brand-strong: #1d4ed8;
   --brand-soft: #dbeafe;
+  --chat-sidebar-peek-shadow: 12px 0 28px rgba(15, 23, 42, 0.14);
   --admin-console-surface: var(--surface);
   --admin-console-border: var(--border);
   --admin-console-card-shadow: 0 10px 28px rgba(15, 23, 42, 0.06);
@@ -64,6 +65,7 @@
   --shadow: 0 18px 48px rgba(0, 0, 0, 0.35);
   --shadow-hover: 0 18px 42px rgba(0, 0, 0, 0.38);
   --brand-soft: rgba(59, 130, 246, 0.18);
+  --chat-sidebar-peek-shadow: 12px 0 32px rgba(0, 0, 0, 0.45);
   --admin-console-card-shadow: 0 14px 32px rgba(0, 0, 0, 0.22);
   --admin-console-page-bg: transparent;
   --admin-console-header-bg: linear-gradient(135deg, rgba(15, 23, 42, 0.96) 0%, rgba(17, 24, 39, 0.96) 58%, rgba(30, 41, 59, 0.9) 100%);
@@ -87,6 +89,16 @@
   --el-color-primary-light-9: rgba(37, 99, 235, 0.18);
   --el-color-primary-light-8: rgba(37, 99, 235, 0.24);
   --el-color-primary-light-7: rgba(37, 99, 235, 0.3);
+  /* 未引入 element-plus dark/css-vars 时，success/warning/danger 浅色阶仍为亮色底，需手动对齐暗色 */
+  --el-color-success-light-9: rgba(103, 194, 58, 0.14);
+  --el-color-success-light-8: rgba(103, 194, 58, 0.2);
+  --el-color-success-light-7: rgba(103, 194, 58, 0.28);
+  --el-color-warning-light-9: rgba(230, 162, 60, 0.14);
+  --el-color-warning-light-8: rgba(230, 162, 60, 0.2);
+  --el-color-warning-light-7: rgba(230, 162, 60, 0.28);
+  --el-color-danger-light-9: rgba(245, 108, 108, 0.14);
+  --el-color-danger-light-8: rgba(245, 108, 108, 0.2);
+  --el-color-danger-light-7: rgba(245, 108, 108, 0.28);
   --el-table-bg-color: var(--surface);
   --el-table-tr-bg-color: var(--surface);
   --el-table-header-bg-color: var(--surface-muted);
@@ -1584,24 +1596,127 @@ a {
 .chat-page {
   height: 100%;
   min-height: 0;
-  display: grid;
-  grid-template-columns: 288px minmax(0, 1fr);
-  gap: 0;
+  display: flex;
+  flex-direction: column;
 }
 
-.chat-page > .chat-sidebar {
-  grid-column: 1;
-  grid-row: 1;
+/* 侧栏 + 主区统一为单一卡片容器，中间仅一条分隔线、无缝隙 */
+.chat-layout {
+  --chat-sidebar-width: 288px;
+  /* 按钮永久收起/展开 */
+  --chat-sidebar-toggle-duration: 0.48s;
+  --chat-sidebar-toggle-ease: cubic-bezier(0.33, 0, 0.2, 1);
+  /* 悬停临时浮出 */
+  --chat-sidebar-peek-duration: 0.28s;
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  min-width: 0;
+  display: flex;
+  flex-direction: row;
+  align-items: stretch;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  overflow: hidden;
 }
 
-.chat-page > .chat-main {
-  grid-column: 2;
-  grid-row: 1;
+/*
+ * 收起态侧栏始终保持完整 288px 盒模型（绝对定位 + 位移隐藏），
+ * 禁止 width:0 —— 否则内部列表在 0 宽下不完成布局，浮出时会间歇空白。
+ */
+.chat-sidebar-host {
+  position: relative;
+  flex: 0 0 var(--chat-sidebar-width);
+  width: var(--chat-sidebar-width);
+  max-width: var(--chat-sidebar-width);
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  z-index: 1;
+  background: var(--surface);
+  opacity: 1;
+  visibility: visible;
+  transform: translateX(0);
+  transition:
+    flex-basis var(--chat-sidebar-toggle-duration) var(--chat-sidebar-toggle-ease),
+    width var(--chat-sidebar-toggle-duration) var(--chat-sidebar-toggle-ease),
+    max-width var(--chat-sidebar-toggle-duration) var(--chat-sidebar-toggle-ease),
+    transform var(--chat-sidebar-peek-duration) var(--chat-sidebar-toggle-ease),
+    opacity var(--chat-sidebar-peek-duration) var(--chat-sidebar-toggle-ease),
+    visibility var(--chat-sidebar-peek-duration) var(--chat-sidebar-toggle-ease),
+    box-shadow var(--chat-sidebar-peek-duration) var(--chat-sidebar-toggle-ease);
 }
 
-.chat-page > .mobile-sidebar-backdrop {
-  grid-column: 1;
-  grid-row: 1;
+.chat-sidebar-host .chat-sidebar {
+  flex: 1 1 auto;
+  width: var(--chat-sidebar-width);
+  min-width: var(--chat-sidebar-width);
+  height: 100%;
+  min-height: 0;
+}
+
+/* 收起：脱离文档流并滑出左侧，但宽高仍完整，保证列表已布局 */
+.chat-layout--sidebar-collapsed .chat-sidebar-host {
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  flex: none;
+  width: var(--chat-sidebar-width);
+  max-width: var(--chat-sidebar-width);
+  z-index: 40;
+  transform: translateX(-100%);
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  box-shadow: none;
+}
+
+/* 悬停浮出：仅改位移/显隐，不再改宽度 */
+.chat-layout--sidebar-collapsed.chat-layout--sidebar-peek .chat-sidebar-host {
+  transform: translateX(0);
+  opacity: 1;
+  visibility: visible;
+  pointer-events: auto;
+  box-shadow: var(--chat-sidebar-peek-shadow);
+}
+
+.chat-layout > .chat-main {
+  flex: 1 1 0;
+  min-width: 0;
+  min-height: 0;
+}
+
+/* 收起态左侧热区：悬停即可触发浮层 */
+.chat-sidebar-rail {
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 18px;
+  z-index: 35;
+  cursor: pointer;
+}
+
+.chat-sidebar-rail::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 18%;
+  bottom: 18%;
+  width: 3px;
+  border-radius: 0 3px 3px 0;
+  background: transparent;
+  transition: background-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.chat-sidebar-rail:hover::after,
+.chat-layout--sidebar-peek .chat-sidebar-rail::after {
+  background: color-mix(in srgb, var(--brand) 55%, transparent);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--brand) 18%, transparent);
 }
 
 .chat-sidebar {
@@ -1612,8 +1727,8 @@ a {
   gap: 16px;
   padding: 16px;
   background: var(--surface);
-  border-right: 1px solid var(--bg);
-  border-radius: 16px 0 0 16px;
+  border-right: 1px solid var(--border);
+  overflow: hidden;
 }
 
 .chat-sidebar__head {
@@ -1752,9 +1867,7 @@ a {
   display: flex;
   flex-direction: column;
   background: var(--surface);
-  border-radius: 0 16px 16px 0;
   overflow: hidden;
-  border: 1px solid var(--border);
 }
 
 /* ── Conversation Header ──────────────────────────────── */
@@ -1923,13 +2036,13 @@ a {
 }
 
 .md-content a {
-  color: #3b82f6;
+  color: var(--brand);
   text-decoration: underline;
   word-break: break-all;
 }
 
 .md-content a:hover {
-  color: #1d4ed8;
+  color: var(--brand-strong);
 }
 
 .md-content br {
@@ -2351,20 +2464,57 @@ a {
 
 	  /* Chat page → single column, fixed height for internal scroll */
 	  .chat-page {
-	    grid-template-columns: 1fr;
-	    gap: 0;
 	    height: calc(100dvh - 96px);
 	    min-height: 0;
 	  }
 
-	  .chat-sidebar {
+	  .chat-layout,
+	  .chat-layout--sidebar-collapsed,
+	  .chat-layout--sidebar-collapsed.chat-layout--sidebar-peek {
+	    border-radius: 12px;
+	  }
+
+	  .chat-sidebar-rail {
+	    display: none;
+	  }
+
+	  /* 移动端：侧栏改为抽屉；host 不占宽，抽屉由 fixed 的 .chat-sidebar 负责 */
+	  .chat-sidebar-host,
+	  .chat-layout--sidebar-collapsed .chat-sidebar-host,
+	  .chat-layout--sidebar-collapsed.chat-layout--sidebar-peek .chat-sidebar-host {
+	    position: static;
+	    flex: 0 0 0;
+	    width: 0;
+	    max-width: 0;
+	    height: auto;
+	    overflow: visible;
+	    transform: none;
+	    opacity: 1;
+	    visibility: visible;
+	    pointer-events: auto;
+	    box-shadow: none;
+	    transition: none;
+	  }
+
+	  .chat-layout > .chat-main {
+	    flex: 1 1 auto;
+	    width: 100%;
+	  }
+
+	  .chat-sidebar,
+	  .chat-layout--sidebar-collapsed .chat-sidebar {
 	    display: block;
 	    position: fixed;
 	    inset: 0;
 	    z-index: 1100;
 	    width: min(320px, 86vw);
+	    height: 100%;
 	    border-radius: 0;
-	    border-right: none;
+	    border-right: 1px solid var(--border);
+	    box-shadow: var(--shadow);
+	    opacity: 1;
+	    padding: 16px;
+	    pointer-events: auto;
 	    transform: translateX(-100%);
 	    transition: transform 0.35s var(--motion-ease);
 	    overflow-y: auto;

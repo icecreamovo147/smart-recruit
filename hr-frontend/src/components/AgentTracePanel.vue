@@ -1168,21 +1168,62 @@ watch(() => props.sessionId, () => {
 
 .final-answer {
   border-left: 3px solid var(--el-color-success);
+  border-radius: 0 6px 6px 0;
   padding: 8px 10px;
   margin-bottom: 12px;
-  background: var(--el-color-success-light-9);
+  /* color-mix 随 surface 自适应，避免 success-light-9 在未加载 EP dark css-vars 时仍为浅底 */
+  background: color-mix(in srgb, var(--el-color-success) 12%, var(--surface));
+  color: var(--text-primary);
 }
 
 .final-answer__content {
   font-size: 13px;
   line-height: 1.6;
-  color: var(--el-text-color-primary);
+  color: var(--text-primary);
   white-space: pre-wrap;
   overflow-wrap: anywhere;
 }
 
 .final-answer__content.md-content {
   white-space: normal;
+  color: inherit;
+}
+
+.final-answer__content.md-content :deep(h1),
+.final-answer__content.md-content :deep(h2),
+.final-answer__content.md-content :deep(h3),
+.final-answer__content.md-content :deep(strong),
+.final-answer__content.md-content :deep(b) {
+  color: var(--text-primary);
+}
+
+.final-answer__content.md-content :deep(a) {
+  color: var(--brand);
+}
+
+.final-answer__content.md-content :deep(a:hover) {
+  color: var(--brand-strong);
+}
+
+.final-answer__content.md-content :deep(code) {
+  background: var(--surface-muted);
+  color: var(--text-primary);
+}
+
+.final-answer__content.md-content :deep(th),
+.final-answer__content.md-content :deep(td) {
+  border-color: var(--border);
+}
+
+.final-answer__content.md-content :deep(th) {
+  background: var(--surface-muted);
+  color: var(--text-primary);
+}
+
+.final-answer__content.md-content :deep(blockquote) {
+  background: var(--brand-soft);
+  color: var(--text-primary);
+  border-left-color: var(--brand);
 }
 
 .run-steps {
@@ -1205,10 +1246,21 @@ watch(() => props.sessionId, () => {
   line-height: 1.5;
 }
 
+/* Evidence：轻量 callout，避免黄色横向渐变在亮/暗色下都显脏 */
 .trace-item--evidence {
+  margin-top: 2px;
+  padding: 10px 12px;
+  border: 1px solid color-mix(in srgb, var(--el-color-warning) 22%, var(--border));
   border-left: 3px solid var(--el-color-warning);
-  padding-left: 8px;
-  background: linear-gradient(90deg, var(--el-color-warning-light-9), transparent 70%);
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--el-color-warning) 8%, var(--surface));
+  box-shadow: inset 0 1px 0 color-mix(in srgb, var(--el-color-warning) 10%, transparent);
+}
+
+.trace-item--evidence .trace-item__code,
+.trace-item--evidence .trace-item__result {
+  background: color-mix(in srgb, var(--surface-muted) 88%, var(--el-color-warning) 12%);
+  border: 1px solid color-mix(in srgb, var(--border) 80%, var(--el-color-warning) 20%);
 }
 
 .trace-item__header {

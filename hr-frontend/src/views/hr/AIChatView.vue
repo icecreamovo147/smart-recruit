@@ -74,7 +74,66 @@ const loading = ref(false)
 const streaming = ref(false)
 const sessionLoading = ref(false)
 const menuSessionId = ref(0)
+/** 移动端：会话列表抽屉是否打开 */
 const sessionSidebarOpen = ref(false)
+/** 桌面端：会话列表是否收起 */
+const sessionSidebarCollapsed = ref(false)
+/** 桌面端收起后，悬停左侧热区临时浮出列表 */
+const sessionSidebarPeek = ref(false)
+const CHAT_SIDEBAR_COLLAPSED_KEY = 'hr-ai-chat-sidebar-collapsed'
+let sidebarPeekLeaveTimer: ReturnType<typeof setTimeout> | null = null
+
+const readSidebarCollapsed = (): boolean => {
+  try {
+    return localStorage.getItem(CHAT_SIDEBAR_COLLAPSED_KEY) === '1'
+  } catch {
+    return false
+  }
+}
+
+const persistSidebarCollapsed = (collapsed: boolean): void => {
+  try {
+    localStorage.setItem(CHAT_SIDEBAR_COLLAPSED_KEY, collapsed ? '1' : '0')
+  } catch {
+    // localStorage unavailable
+  }
+}
+
+sessionSidebarCollapsed.value = readSidebarCollapsed()
+
+const isMobileChatViewport = (): boolean =>
+  typeof window !== 'undefined' && window.matchMedia('(max-width: 768px)').matches
+
+const clearSidebarPeekTimer = (): void => {
+  if (sidebarPeekLeaveTimer) {
+    clearTimeout(sidebarPeekLeaveTimer)
+    sidebarPeekLeaveTimer = null
+  }
+}
+
+const openSidebarPeek = (): void => {
+  if (!sessionSidebarCollapsed.value || isMobileChatViewport()) return
+  clearSidebarPeekTimer()
+  // 已打开时不要重复写 true，避免无意义重渲染打断 transition
+  if (!sessionSidebarPeek.value) {
+    sessionSidebarPeek.value = true
+  }
+}
+
+const scheduleCloseSidebarPeek = (): void => {
+  if (!sessionSidebarCollapsed.value) return
+  clearSidebarPeekTimer()
+  // 稍长延迟：从热区移入列表时不会闪关；也避免快速抖动手势导致半动画空白态
+  sidebarPeekLeaveTimer = setTimeout(() => {
+    sessionSidebarPeek.value = false
+    sidebarPeekLeaveTimer = null
+  }, 220)
+}
+
+const resetSidebarPeek = (): void => {
+  clearSidebarPeekTimer()
+  sessionSidebarPeek.value = false
+}
 const candidateName = ref('')
 const candidatePosition = ref('')
 const userAborted = ref(false)
@@ -688,6 +747,10 @@ const selectSession = async (session: Session) => {
   sessionLoading.value = true
   loading.value = false
   streaming.value = false
+  // 移动端选中会话后收起抽屉，避免遮挡对话区
+  if (isMobileChatViewport()) {
+    sessionSidebarOpen.value = false
+  }
   try {
     const data = await getSessionMessages(session.id, { page: 1, page_size: 100 })
     messages.value = normalizeMessages(data.list || [])
@@ -1375,7 +1438,16 @@ watch(selectedModelId, (id) => {
     }
   }
 })
-const toggleSessionSidebar = () => { sessionSidebarOpen.value = !sessionSidebarOpen.value }
+const toggleSessionSidebar = () => {
+  if (isMobileChatViewport()) {
+    sessionSidebarOpen.value = !sessionSidebarOpen.value
+    return
+  }
+  sessionSidebarCollapsed.value = !sessionSidebarCollapsed.value
+  persistSidebarCollapsed(sessionSidebarCollapsed.value)
+  // 永久展开/收起时清掉临时浮层状态，避免状态错乱
+  resetSidebarPeek()
+}
 const closeSessionSidebar = () => { sessionSidebarOpen.value = false }
 
 const mobileContextTitle = computed(() => {
@@ -1402,6 +1474,7 @@ const runningModeLabel = computed(() => {
 onBeforeUnmount(() => {
   if (pollTimer) clearInterval(pollTimer)
   if (typewriterTimer) clearInterval(typewriterTimer)
+  clearSidebarPeekTimer()
   document.removeEventListener('click', closeMenu)
 })
 </script>
@@ -1413,63 +1486,87 @@ onBeforeUnmount(() => {
       class="mobile-sidebar-backdrop"
       @click="closeSessionSidebar"
     ></div>
-    <ConversationSidebar
-      :sessions="sessions"
-      :current-session="currentSession"
-      :menu-session-id="menuSessionId"
-      :session-sidebar-open="sessionSidebarOpen"
-      @select-session="selectSession"
-      @create-session="createNewSession"
-      @rename-session="renameSession"
-      @remove-session="removeSession"
-      @menu-toggle="(id: number) => menuSessionId = id"
-      @close-sidebar="closeSessionSidebar"
-    />
-
-    <div class="chat-main">
-      <ConversationHeader
-        v-if="currentSession"
-        :current-session="currentSession"
-        :mobile-context-title="mobileContextTitle"
-        :mobile-context-sub="mobileContextSub"
-        @toggle-sidebar="toggleSessionSidebar"
-        @show-trace="tracePanelVisible = true"
+    <div
+      class="chat-layout"
+      :class="{
+        'chat-layout--sidebar-collapsed': sessionSidebarCollapsed,
+        'chat-layout--sidebar-peek': sessionSidebarCollapsed && sessionSidebarPeek,
+      }"
+    >
+      <!-- 收起后左侧热区：悬停临时浮出会话列表 -->
+      <div
+        v-if="sessionSidebarCollapsed"
+        class="chat-sidebar-rail"
+        aria-hidden="true"
+        @mouseenter="openSidebarPeek"
+        @mouseleave="scheduleCloseSidebarPeek"
       />
 
-      <div class="chat-content">
-        <ChatMessageList
-          ref="listRef"
-          :messages="messages"
-          :loading="loading"
-          :streaming="streaming"
-          :session-loading="sessionLoading"
-          :has-session="!!currentSession"
-          :running-mode-label="runningModeLabel"
-          :render-markdown="renderMarkdown"
-          :waiting-text="waitingText"
-          @retry="retry"
-          @confirm-skill-selection="submitConfirmedSkillSelection"
+      <div
+        class="chat-sidebar-host"
+        @mouseenter="openSidebarPeek"
+        @mouseleave="scheduleCloseSidebarPeek"
+      >
+        <ConversationSidebar
+          :sessions="sessions"
+          :current-session="currentSession"
+          :menu-session-id="menuSessionId"
+          :session-sidebar-open="sessionSidebarOpen"
+          @select-session="selectSession"
+          @create-session="createNewSession"
+          @rename-session="renameSession"
+          @remove-session="removeSession"
+          @menu-toggle="(id: number) => menuSessionId = id"
+          @close-sidebar="closeSessionSidebar"
+        />
+      </div>
+
+      <div class="chat-main">
+        <ConversationHeader
+          v-if="currentSession"
+          :current-session="currentSession"
+          :mobile-context-title="mobileContextTitle"
+          :mobile-context-sub="mobileContextSub"
+          :sidebar-collapsed="sessionSidebarCollapsed"
+          @toggle-sidebar="toggleSessionSidebar"
+          @show-trace="tracePanelVisible = true"
         />
 
-        <ChatComposer
-          :input="input"
-          :loading="loading"
-          :streaming="streaming"
-          :model-list="modelList"
-          :selected-model-id="selectedModelId"
-          :context-usage="contextUsage"
-          :data-source="dataSource"
-          :current-session="currentSession"
-          :skill-capabilities="[]"
-          :selected-skill-keys="[]"
-          :agent-skills="agentSkills"
-          :selected-agent-skill-ids="selectedAgentSkillIds"
-          @update:input="(val: string) => input = val"
-          @update:selected-model-id="(val: number | null) => selectedModelId = val"
-          @update:selected-agent-skill-ids="(val: number[]) => selectedAgentSkillIds = val"
-          @submit="submit"
-          @stop="stopStreaming"
-        />
+        <div class="chat-content">
+          <ChatMessageList
+            ref="listRef"
+            :messages="messages"
+            :loading="loading"
+            :streaming="streaming"
+            :session-loading="sessionLoading"
+            :has-session="!!currentSession"
+            :running-mode-label="runningModeLabel"
+            :render-markdown="renderMarkdown"
+            :waiting-text="waitingText"
+            @retry="retry"
+            @confirm-skill-selection="submitConfirmedSkillSelection"
+          />
+
+          <ChatComposer
+            :input="input"
+            :loading="loading"
+            :streaming="streaming"
+            :model-list="modelList"
+            :selected-model-id="selectedModelId"
+            :context-usage="contextUsage"
+            :data-source="dataSource"
+            :current-session="currentSession"
+            :skill-capabilities="[]"
+            :selected-skill-keys="[]"
+            :agent-skills="agentSkills"
+            :selected-agent-skill-ids="selectedAgentSkillIds"
+            @update:input="(val: string) => input = val"
+            @update:selected-model-id="(val: number | null) => selectedModelId = val"
+            @update:selected-agent-skill-ids="(val: number[]) => selectedAgentSkillIds = val"
+            @submit="submit"
+            @stop="stopStreaming"
+          />
+        </div>
       </div>
     </div>
 
