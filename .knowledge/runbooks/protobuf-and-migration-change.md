@@ -28,6 +28,7 @@ source_refs:
   - logic-grpc-service/model/model.go
   - logic-grpc-service/repository/analytics_projection_repo.go
   - docs/backend-ddd-microservices-evolution-table-ownership-manifest.json
+  - docs/backend-ddd-microservices-evolution-schema-separation-plan.md
   - scripts/check-table-ownership.mjs
 last_verified: 2026-07-12
 review_after: 2026-10-08
@@ -53,10 +54,11 @@ Use this runbook when a TASK changes public contracts or persistence structure.
 4. Keep `db.sql` aligned when it serves as current schema reference.
 5. Update `docs/backend-ddd-microservices-evolution-table-ownership-manifest.json` when a table is added, removed, renamed, or changes owner/readers/writers.
 6. Run `node scripts/check-table-ownership.mjs` to verify every `db.sql` table has owner, readers, writers, and explicit transitional shared access where needed.
-7. Run migration runner tests and MySQL consistency checks when available.
-8. For transactional outbox changes, also run outbox repository and publisher tests to verify retry/dead-letter, retention, and payload compatibility.
-9. For Inbox changes, run Inbox repository and consumer helper tests to verify duplicate skips, failed reclaims, dead-letter skips, retention, and payload identity extraction.
-10. For Analytics projection changes, run projection repository, event ingestor, infrastructure adapter, and boundary tests to verify event-id idempotency, checkpoint upsert, envelope ingestion, and absence of service-read adapters.
+7. For schema or physical database separation, follow `docs/backend-ddd-microservices-evolution-schema-separation-plan.md` and record expand-contract, rollback, reconciliation, RTO, and RPO evidence.
+8. Run migration runner tests and MySQL consistency checks when available.
+9. For transactional outbox changes, also run outbox repository and publisher tests to verify retry/dead-letter, retention, and payload compatibility.
+10. For Inbox changes, run Inbox repository and consumer helper tests to verify duplicate skips, failed reclaims, dead-letter skips, retention, and payload identity extraction.
+11. For Analytics projection changes, run projection repository, event ingestor, infrastructure adapter, and boundary tests to verify event-id idempotency, checkpoint upsert, envelope ingestion, and absence of service-read adapters.
 
 ## Review Questions
 
@@ -64,6 +66,7 @@ Use this runbook when a TASK changes public contracts or persistence structure.
 - Are generated protobuf files synchronized in both service trees?
 - Are model fields, repository queries, indexes, and constraints aligned with SQL?
 - Are table owners, readers, writers, and transitional shared access aligned with the ownership manifest?
+- Does schema separation use expand-contract sequencing with rollback, reconciliation, RTO, and RPO evidence?
 - Does the gateway need new body limits, timeouts, route permissions, or frontend types?
 - For outbox changes, do existing consumers still accept the published payload shape?
 - For Inbox changes, are all MQ consumer `Start` entrypoints using the shared idempotency helper?

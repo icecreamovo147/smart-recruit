@@ -1,0 +1,197 @@
+{
+  "schemaVersion": 1,
+  "feature_name": "backend-ddd-microservices-evolution",
+  "task_id": "TASK-BDME-047",
+  "base_sha": "c68a3512afcb404aed076035f2f4c9ea5a752eaf",
+  "base_tree": "ca89fa42179f8b63fbe7c843f0c2e6540b57592a",
+  "head_sha": "c68a3512afcb404aed076035f2f4c9ea5a752eaf",
+  "changed_files": [
+    ".knowledge/architecture/persistence-and-migrations.md",
+    ".knowledge/architecture/service-boundaries.md",
+    ".knowledge/manifest.yaml",
+    ".knowledge/pitfalls/migration-model-drift.md",
+    ".knowledge/runbooks/protobuf-and-migration-change.md",
+    ".spec/backend-ddd-microservices-evolution/pipeline-state.json",
+    ".spec/backend-ddd-microservices-evolution/reports/TASK-BDME-047-report.md",
+    ".spec/backend-ddd-microservices-evolution/reports/TASK-BDME-047-evidence.json",
+    "docs/backend-ddd-microservices-evolution-schema-separation-plan.md",
+    "docs/backend-ddd-microservices-evolution-table-ownership.md"
+  ],
+  "scope": {
+    "status": "passed",
+    "base_tree": "ca89fa42179f8b63fbe7c843f0c2e6540b57592a",
+    "out_of_scope": [],
+    "forbidden": [],
+    "allowed": [
+      ".knowledge/architecture/persistence-and-migrations.md",
+      ".knowledge/architecture/service-boundaries.md",
+      ".knowledge/manifest.yaml",
+      ".knowledge/pitfalls/migration-model-drift.md",
+      ".knowledge/runbooks/protobuf-and-migration-change.md",
+      ".spec/backend-ddd-microservices-evolution/pipeline-state.json",
+      ".spec/backend-ddd-microservices-evolution/reports/TASK-BDME-047-report.md",
+      ".spec/backend-ddd-microservices-evolution/reports/TASK-BDME-047-evidence.json",
+      "docs/backend-ddd-microservices-evolution-schema-separation-plan.md",
+      "docs/backend-ddd-microservices-evolution-table-ownership.md"
+    ]
+  },
+  "checks": [
+    {
+      "command": "git diff --name-only && git ls-files --others --exclude-standard",
+      "exit_code": 0,
+      "status": "passed",
+      "duration_ms": 0,
+      "started_at": "2026-07-11T18:47:00Z",
+      "summary": "Listed tracked and untracked TASK files."
+    },
+    {
+      "command": "node scripts/check-table-ownership.mjs",
+      "exit_code": 0,
+      "status": "passed",
+      "duration_ms": 20,
+      "started_at": "2026-07-11T18:47:00Z",
+      "summary": "table_ownership_result: PASS (67 tables, 6 transitional shared access entries)."
+    },
+    {
+      "command": "node .knowledge/scripts/detect-impact.mjs --root . --base-tree ca89fa42179f8b63fbe7c843f0c2e6540b57592a --json",
+      "exit_code": 0,
+      "status": "passed",
+      "duration_ms": 181,
+      "started_at": "2026-07-11T18:47:00Z",
+      "summary": "impact_result: update_required; no coverage gaps."
+    },
+    {
+      "command": "node .knowledge/scripts/validate-knowledge.mjs --root .",
+      "exit_code": 0,
+      "status": "passed",
+      "duration_ms": 59,
+      "started_at": "2026-07-11T18:47:00Z",
+      "summary": "knowledge_result: PASS (36 formal documents)."
+    },
+    {
+      "command": "cd logic-grpc-service && go test ./...",
+      "exit_code": 0,
+      "status": "passed",
+      "duration_ms": 1385,
+      "started_at": "2026-07-11T18:47:00Z",
+      "summary": "All logic-grpc-service packages passed."
+    },
+    {
+      "command": "TASK_BASE_TREE=ca89fa42179f8b63fbe7c843f0c2e6540b57592a bash .spec/backend-ddd-microservices-evolution/scripts/check-task-scope.sh TASK-BDME-047",
+      "exit_code": 0,
+      "status": "passed",
+      "duration_ms": 20,
+      "started_at": "2026-07-11T18:48:00Z",
+      "summary": "scope_result: PASS (TASK-BDME-047)."
+    },
+    {
+      "command": "bash .spec/backend-ddd-microservices-evolution/scripts/agent-check.sh",
+      "exit_code": 0,
+      "status": "passed",
+      "duration_ms": 95,
+      "started_at": "2026-07-11T18:48:00Z",
+      "summary": "Feature validation, git diff whitespace check, and knowledge validation passed."
+    },
+    {
+      "command": "git diff --check",
+      "exit_code": 0,
+      "status": "passed",
+      "duration_ms": 0,
+      "started_at": "2026-07-11T18:48:00Z",
+      "summary": "No whitespace errors."
+    }
+  ],
+  "review": {
+    "type": "self-review",
+    "round": 1,
+    "verdict": "通过",
+    "findings": []
+  },
+  "human_confirmation": {
+    "required": true,
+    "confirmed": true,
+    "confirmed_by": "user_global_gate_override",
+    "confirmed_at": "2026-07-11T17:56:00Z",
+    "confirmation_text": "User confirmed that all later human gates are cancelled once implementation and self-review pass."
+  },
+  "exceptions": [],
+  "skipped_checks": [],
+  "knowledgeImpact": {
+    "result": "update_required",
+    "triggeredBy": [
+      "configuration-changed",
+      "covered-path-changed",
+      "database-schema-changed",
+      "service-boundary-changed"
+    ],
+    "reviewResults": [
+      {
+        "document": ".knowledge/architecture/persistence-and-migrations.md",
+        "verdict": "UPDATED",
+        "evidence": [
+          "Documented schema separation plan and hard stop before migrations/models/db.sql changes."
+        ]
+      },
+      {
+        "document": ".knowledge/architecture/service-boundaries.md",
+        "verdict": "UPDATED",
+        "evidence": [
+          "Documented schema separation as a service-boundary concern with evidence requirements."
+        ]
+      },
+      {
+        "document": ".knowledge/pitfalls/migration-model-drift.md",
+        "verdict": "UPDATED",
+        "evidence": [
+          "Added ungoverned schema separation as a drift pitfall."
+        ]
+      },
+      {
+        "document": ".knowledge/runbooks/protobuf-and-migration-change.md",
+        "verdict": "UPDATED",
+        "evidence": [
+          "Added separation plan checks to migration flow and review questions."
+        ]
+      },
+      {
+        "document": ".knowledge/manifest.yaml",
+        "verdict": "UPDATED",
+        "evidence": [
+          "Routed schema separation plan to persistence, drift, migration, and boundary knowledge."
+        ]
+      },
+      {
+        "document": ".knowledge/runbooks/knowledge-coverage-audit.md",
+        "verdict": "UNCHANGED",
+        "evidence": [
+          "Reviewed due .knowledge route; audit procedure remains accurate."
+        ]
+      },
+      {
+        "document": ".knowledge/architecture/system-overview.md",
+        "verdict": "UNCHANGED",
+        "evidence": [
+          "Reviewed due .spec report/evidence route; runtime topology is unchanged."
+        ]
+      },
+      {
+        "document": ".knowledge/runbooks/local-development.md",
+        "verdict": "UNCHANGED",
+        "evidence": [
+          "Reviewed due .spec report/evidence route; local startup and validation commands are unchanged."
+        ]
+      }
+    ],
+    "coverageGap": false,
+    "validationExitCode": 0
+  },
+  "acceptance": {
+    "ownership_manifest_aligned": true,
+    "expand_contract_documented": true,
+    "rollback_documented": true,
+    "reconciliation_documented": true,
+    "rto": "30 minutes",
+    "rpo": "5 minutes",
+    "migration_model_db_sql_changes": "none"
+  }
+}

@@ -312,6 +312,7 @@ routes:
       - logic-grpc-service/repository/**
       - docs/backend-ddd-microservices-evolution-table-ownership-manifest.json
       - docs/backend-ddd-microservices-evolution-table-ownership.md
+      - docs/backend-ddd-microservices-evolution-schema-separation-plan.md
       - scripts/check-table-ownership.mjs
       - db.sql
     documents:

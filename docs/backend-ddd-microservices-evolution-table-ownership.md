@@ -40,4 +40,5 @@ The manifest treats transitional shared database access as explicit debt, not im
 - Any new table in `db.sql` must be added to the manifest with an owner, allowed readers, and allowed writers.
 - Any shared writer must be represented as transitional shared access with owner, accessor, reason, risk, and removal plan.
 - Schema, migration, repository, and model changes should run `node scripts/check-table-ownership.mjs` together with the migration checks for the affected backend service.
+- Schema or physical database separation must follow `docs/backend-ddd-microservices-evolution-schema-separation-plan.md`.
 - Gateway or public API changes must not infer ownership from transport routing. Table ownership follows the target domain context in the manifest.

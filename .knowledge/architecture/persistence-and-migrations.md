@@ -31,6 +31,7 @@ source_refs:
   - logic-grpc-service/repository/analytics_projection_repo.go
   - logic-grpc-service/repository/application_repo.go
   - docs/backend-ddd-microservices-evolution-table-ownership-manifest.json
+  - docs/backend-ddd-microservices-evolution-schema-separation-plan.md
   - scripts/check-table-ownership.mjs
   - db.sql
 last_verified: 2026-07-12
@@ -53,6 +54,7 @@ The logic service owns persistence. Database structure is represented by SQL mig
 - Inbox schema changes must align `event_inbox` migrations, `db.sql`, `model.EventInbox`, `repository.InboxRepo`, consumer entrypoint wiring, and tests because the table is used for consumer idempotency and duplicate-delivery diagnostics.
 - Analytics projection schema changes must align `analytics_projection_events`, `analytics_projection_checkpoints`, `db.sql`, GORM models, `repository.AnalyticsProjectionRepo`, projection infrastructure adapters, and ingestion tests because those tables are the Analytics-owned event-projection read-model input.
 - `docs/backend-ddd-microservices-evolution-table-ownership-manifest.json` is the current table ownership manifest for the DDD/microservices evolution. Every table in `db.sql` must have an owner, allowed readers, allowed writers, and explicit transitional shared access when a non-owner writer remains during extraction.
+- `docs/backend-ddd-microservices-evolution-schema-separation-plan.md` defines the non-executing schema separation plan. It requires expand-contract steps, rollback, reconciliation, 30-minute RTO, 5-minute RPO, and scoped migration/model/`db.sql` changes for any future separation TASK.
 
 ## Impact Guidance
 
@@ -61,8 +63,9 @@ The logic service owns persistence. Database structure is represented by SQL mig
 - Cursor or pagination changes should check affected repository queries and gateway handler parsing.
 - `db.sql` must remain aligned with migrations when it represents the current baseline.
 - Table additions or ownership changes must update the ownership manifest and pass `node scripts/check-table-ownership.mjs`.
+- Schema or physical database separation must follow the schema separation plan before changing migrations, models, repositories, or `db.sql`.
 - Test helpers using `AutoMigrate` are not a replacement for production migrations.
 
 ## Verification
 
-Verified against migration runner, migration tests, MySQL consistency test, `model.go`, `000051_standardize_event_outbox.sql`, `000052_add_event_inbox.sql`, `000053_add_analytics_projection_events.sql`, representative repositories, the table ownership manifest/check script, and `db.sql` on 2026-07-12.
+Verified against migration runner, migration tests, MySQL consistency test, `model.go`, `000051_standardize_event_outbox.sql`, `000052_add_event_inbox.sql`, `000053_add_analytics_projection_events.sql`, representative repositories, the table ownership manifest/check script, the schema separation plan, and `db.sql` on 2026-07-12.
