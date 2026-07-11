@@ -15,6 +15,7 @@ applies_to:
   - logic-grpc-service/service/notification_service.go
   - logic-grpc-service/service/notification_worker.go
   - logic-grpc-service/service/outbox_publisher.go
+  - logic-grpc-service/internal/platform/events/envelope.go
   - logic-grpc-service/repository/notification_repo.go
   - logic-grpc-service/model/model.go
   - web-gin-service/handler/notification.go
@@ -24,9 +25,10 @@ source_refs:
   - logic-grpc-service/service/notification_service.go
   - logic-grpc-service/service/notification_worker.go
   - logic-grpc-service/service/outbox_publisher.go
+  - logic-grpc-service/internal/platform/events/envelope.go
   - web-gin-service/handler/notification.go
   - logic-grpc-service/model/model.go
-last_verified: 2026-07-10
+last_verified: 2026-07-11
 review_after: 2026-10-08
 ---
 
@@ -37,6 +39,7 @@ Notifications are produced by recruitment workflows and delivered through databa
 ## Main Responsibilities
 
 - Recruitment services write notification and email intents through `OutboxPublisher` inside workflow transactions.
+- `logic-grpc-service/internal/platform/events/` defines the target domain-event envelope fields used to standardize event identity, aggregate identity, producer, actor context, idempotency keys, correlation/causation IDs, payload, and diagnostics metadata across Outbox, future Inbox records, consumers, and projections.
 - `NotificationService` reads, summarizes, marks, and publishes notification-created events with account-type scoping.
 - `NotificationWorkerPool` throttles asynchronous notification writes and publishes created events through the cache layer.
 - `web-gin-service/handler/notification.go` exposes list, unread count, summary, mark-read, mark-all-read, and stream endpoints.
@@ -51,4 +54,4 @@ Notifications are produced by recruitment workflows and delivered through databa
 
 ## Verification
 
-Verified against application and offer services, notification service, notification worker, outbox publisher, notification handler, and model definitions on 2026-07-10.
+Verified against application and offer services, notification service, notification worker, outbox publisher, domain-event envelope contract, notification handler, and model definitions on 2026-07-11.

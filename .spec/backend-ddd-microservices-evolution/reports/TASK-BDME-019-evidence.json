@@ -1,0 +1,153 @@
+{
+  "schemaVersion": 1,
+  "feature_name": "backend-ddd-microservices-evolution",
+  "task_id": "TASK-BDME-019",
+  "base_sha": "71f92bf5d4941d40ac5daa56b0fe42b1d94aa436",
+  "base_tree": "a2834527750d48cb28d151003a8f61addb17a64f",
+  "head_sha": "71f92bf5d4941d40ac5daa56b0fe42b1d94aa436",
+  "changed_files": [
+    ".knowledge/architecture/service-boundaries.md",
+    ".knowledge/architecture/system-overview.md",
+    ".knowledge/domains/notification-outbox.md",
+    ".spec/backend-ddd-microservices-evolution/pipeline-state.json",
+    ".spec/backend-ddd-microservices-evolution/reports/TASK-BDME-019-report.md",
+    ".spec/backend-ddd-microservices-evolution/reports/TASK-BDME-019-evidence.json",
+    "logic-grpc-service/internal/platform/events/envelope.go",
+    "logic-grpc-service/internal/platform/events/envelope_test.go"
+  ],
+  "scope": {
+    "status": "passed",
+    "base_tree": "a2834527750d48cb28d151003a8f61addb17a64f",
+    "out_of_scope": [],
+    "forbidden": [],
+    "allowed": [
+      ".knowledge/architecture/service-boundaries.md",
+      ".knowledge/architecture/system-overview.md",
+      ".knowledge/domains/notification-outbox.md",
+      ".spec/backend-ddd-microservices-evolution/pipeline-state.json",
+      ".spec/backend-ddd-microservices-evolution/reports/TASK-BDME-019-report.md",
+      ".spec/backend-ddd-microservices-evolution/reports/TASK-BDME-019-evidence.json",
+      "logic-grpc-service/internal/platform/events/envelope.go",
+      "logic-grpc-service/internal/platform/events/envelope_test.go"
+    ]
+  },
+  "checks": [
+    {
+      "command": "go test ./internal/platform/events",
+      "exit_code": 0,
+      "status": "passed",
+      "started_at": "2026-07-11T16:03:00Z",
+      "duration_ms": 1039,
+      "summary": "Domain event envelope package tests passed."
+    },
+    {
+      "command": "cd logic-grpc-service && go test ./...",
+      "exit_code": 0,
+      "status": "passed",
+      "started_at": "2026-07-11T16:04:00Z",
+      "duration_ms": 4090,
+      "summary": "All logic-grpc-service packages passed, including internal/platform/events."
+    },
+    {
+      "command": "git diff --name-only && git ls-files --others --exclude-standard",
+      "exit_code": 0,
+      "status": "passed",
+      "started_at": "2026-07-11T16:04:00Z",
+      "duration_ms": 50,
+      "summary": "Listed tracked and untracked TASK files."
+    },
+    {
+      "command": "TASK_BASE_TREE=a2834527750d48cb28d151003a8f61addb17a64f bash .spec/backend-ddd-microservices-evolution/scripts/check-task-scope.sh TASK-BDME-019",
+      "exit_code": 0,
+      "status": "passed",
+      "started_at": "2026-07-11T16:05:00Z",
+      "duration_ms": 524,
+      "summary": "scope_result: PASS (TASK-BDME-019)."
+    },
+    {
+      "command": "bash .spec/backend-ddd-microservices-evolution/scripts/agent-check.sh",
+      "exit_code": 0,
+      "status": "passed",
+      "started_at": "2026-07-11T16:05:00Z",
+      "duration_ms": 5343,
+      "summary": "Feature validation, git diff whitespace, gofmt check, logic-grpc-service go test, and knowledge validation passed."
+    },
+    {
+      "command": "node .knowledge/scripts/detect-impact.mjs --root . --base-tree a2834527750d48cb28d151003a8f61addb17a64f",
+      "exit_code": 0,
+      "status": "passed",
+      "started_at": "2026-07-11T16:05:00Z",
+      "duration_ms": 558,
+      "summary": "impact_result: update_required; matched knowledge-coverage-audit, local-development, service-boundaries, and system-overview routes."
+    },
+    {
+      "command": "node .knowledge/scripts/validate-knowledge.mjs --root .",
+      "exit_code": 0,
+      "status": "passed",
+      "started_at": "2026-07-11T16:05:00Z",
+      "duration_ms": 415,
+      "summary": "knowledge_result: PASS (33 formal documents)."
+    }
+  ],
+  "review": {
+    "type": "self-review",
+    "round": 1,
+    "verdict": "通过",
+    "findings": []
+  },
+  "human_confirmation": {
+    "required": false,
+    "confirmed": true,
+    "confirmed_by": "not_required",
+    "confirmed_at": "2026-07-11T16:08:00Z",
+    "confirmation_text": "TASK-BDME-019 does not require human confirmation."
+  },
+  "exceptions": [],
+  "skipped_checks": [],
+  "knowledgeImpact": {
+    "result": "update_required",
+    "triggeredBy": [
+      "logic-grpc-service/internal/platform/events/envelope.go",
+      "logic-grpc-service/internal/platform/events/envelope_test.go"
+    ],
+    "reviewResults": [
+      {
+        "document": ".knowledge/architecture/system-overview.md",
+        "verdict": "UPDATED",
+        "evidence": [
+          "Added internal platform domain-event contract to logic service overview after verifying envelope.go."
+        ]
+      },
+      {
+        "document": ".knowledge/architecture/service-boundaries.md",
+        "verdict": "UPDATED",
+        "evidence": [
+          "Recorded that internal/platform/events is a backend-internal contract and does not change HTTP, gRPC, protobuf, or database schemas."
+        ]
+      },
+      {
+        "document": ".knowledge/domains/notification-outbox.md",
+        "verdict": "UPDATED",
+        "evidence": [
+          "Recorded target envelope fields for Outbox, future Inbox records, consumers, and projections."
+        ]
+      },
+      {
+        "document": ".knowledge/runbooks/local-development.md",
+        "verdict": "UNCHANGED",
+        "evidence": [
+          "Reviewed validation commands; TASK-BDME-019 adds Go code and tests but does not change local startup or command flow."
+        ]
+      },
+      {
+        "document": ".knowledge/runbooks/knowledge-coverage-audit.md",
+        "verdict": "UNCHANGED",
+        "evidence": [
+          "Reviewed coverage guidance; generic logic-grpc-service routes already cover this TASK and no route policy change was needed."
+        ]
+      }
+    ],
+    "coverageGap": false,
+    "validationExitCode": 0
+  }
+}

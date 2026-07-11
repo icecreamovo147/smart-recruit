@@ -19,8 +19,9 @@ source_refs:
   - web-gin-service/router/router.go
   - logic-grpc-service/proto/recruitment.proto
   - logic-grpc-service/service/auth_service.go
+  - logic-grpc-service/internal/platform/events/envelope.go
   - logic-grpc-service/repository/user_repo.go
-last_verified: 2026-07-10
+last_verified: 2026-07-11
 review_after: 2026-10-08
 ---
 
@@ -28,7 +29,9 @@ review_after: 2026-10-08
 
 The HTTP gateway is a transport and policy boundary. It should translate HTTP requests to gRPC calls, enforce request-level middleware, require roles and permissions, apply quotas and limits, and stream responses where needed. It should not own domain state machines or persistence rules.
 
-The logic gRPC service is the business boundary. It owns domain services, repositories, model persistence, AI runtime composition, embedding and memory behavior, outbox and message queue behavior, and generated protobuf service implementations.
+The logic gRPC service is the business boundary. It owns domain services, repositories, model persistence, AI runtime composition, embedding and memory behavior, outbox and message queue behavior, generated protobuf service implementations, and internal platform contracts shared by backend contexts.
+
+`logic-grpc-service/internal/platform/events/` defines shared domain-event envelope contracts for Outbox, Inbox, asynchronous consumers, and Analytics projections. It is an internal backend contract and does not change HTTP, gRPC, protobuf, or database schemas by itself.
 
 Generated protobuf files are contract artifacts. When proto definitions change, generated code in both Go services must stay aligned with the source `.proto` files.
 
@@ -49,4 +52,4 @@ Generated protobuf files are contract artifacts. When proto definitions change, 
 
 ## Verification
 
-The boundary was verified from gateway route registration, protobuf service definitions, and representative logic service/repository files on 2026-07-10.
+The boundary was verified from gateway route registration, protobuf service definitions, representative logic service/repository files, and `logic-grpc-service/internal/platform/events/envelope.go` on 2026-07-11.
