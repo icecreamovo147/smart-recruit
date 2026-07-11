@@ -25,6 +25,7 @@ applies_to:
 source_refs:
   - logic-grpc-service/service/application_service.go
   - logic-grpc-service/service/offer_service.go
+  - logic-grpc-service/internal/analytics/application/event_ingestor.go
   - logic-grpc-service/service/notification_service.go
   - logic-grpc-service/service/notification_worker.go
   - logic-grpc-service/service/outbox_publisher.go
@@ -50,6 +51,7 @@ Notifications are produced by recruitment workflows and delivered through databa
 - `logic-grpc-service/internal/platform/events/` defines the target domain-event envelope fields used to standardize event identity, aggregate identity, producer, actor context, idempotency keys, correlation/causation IDs, payload, and diagnostics metadata across Outbox, future Inbox records, consumers, and projections.
 - `event_outbox` stores envelope metadata, retry diagnostics, publish/dead-letter timestamps, and retention-ready terminal state. Published events default to 30-day retention and dead-letter events to 90-day retention through repository retention helpers.
 - `event_inbox` records consumer-side event claims, attempts, processed/failed/dead statuses, and idempotency keys per consumer. Processed records default to 30-day retention and dead-letter records to 90-day retention through repository retention helpers.
+- Analytics projection ingestion consumes standard domain-event envelopes into Analytics-owned projection events and checkpoints; it is not wired as a production MQ consumer in the current task.
 - `OutboxPublisher` keeps legacy top-level payload fields for existing consumers while also writing the standard envelope fields and nested `payload` object.
 - Notification-producing application, interview, and offer workflows use source-domain event types such as `application.notification_requested`, `interview.email_requested`, and `offer.notification_requested` while preserving MQ routing keys such as `notification.create` and `email.send` for existing consumers.
 - MQ consumers call the shared Inbox helper from their `Start` entrypoints. Direct unit tests that invoke `handle` bypass the helper intentionally and test only business handling.
@@ -67,7 +69,8 @@ Notifications are produced by recruitment workflows and delivered through databa
 - SSE changes should check gateway stream handling and frontend event parsing.
 - Email outbox changes should be reviewed with notification changes because some workflows emit both.
 - Outbox or Inbox schema changes should keep migrations, `db.sql`, GORM model fields, repository stats/retention helpers, consumer idempotency, and publisher payload compatibility aligned.
+- Analytics projection ingestion changes should preserve envelope validation and idempotent event-id/checkpoint behavior.
 
 ## Verification
 
-Verified against application, interview, and offer notification-producing workflows, notification service, notification worker, outbox publisher, shared Inbox consumer helper, outbox/inbox repositories, domain-event envelope contract, notification handler, migrations, `db.sql`, and model definitions on 2026-07-11.
+Verified against application, interview, and offer notification-producing workflows, Analytics projection ingestion, notification service, notification worker, outbox publisher, shared Inbox consumer helper, outbox/inbox repositories, domain-event envelope contract, notification handler, migrations, `db.sql`, and model definitions on 2026-07-11.

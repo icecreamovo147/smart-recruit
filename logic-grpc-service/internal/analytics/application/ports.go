@@ -2,6 +2,7 @@ package application
 
 import (
 	"context"
+	"encoding/json"
 	"time"
 
 	"logic-grpc-service/repository"
@@ -24,4 +25,26 @@ type ReportingReadModelRepository interface {
 type ProjectionCheckpointStore interface {
 	GetCheckpoint(ctx context.Context, projectionName string) (string, error)
 	SaveCheckpoint(ctx context.Context, projectionName string, cursor string) error
+}
+
+type ProjectionEventRecord struct {
+	ProjectionName string
+	Source         string
+	EventID        string
+	EventType      string
+	AggregateType  string
+	AggregateID    string
+	Producer       string
+	IdempotencyKey string
+	CorrelationID  string
+	CausationID    string
+	TraceID        string
+	Payload        json.RawMessage
+	Metadata       map[string]string
+	OccurredAt     time.Time
+	ProjectedAt    time.Time
+}
+
+type ProjectionEventStore interface {
+	SaveProjectionEvent(ctx context.Context, event ProjectionEventRecord) (bool, error)
 }

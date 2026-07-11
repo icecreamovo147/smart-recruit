@@ -25,8 +25,10 @@ source_refs:
   - logic-grpc-service/model/model.go
   - logic-grpc-service/migrations/000051_standardize_event_outbox.sql
   - logic-grpc-service/migrations/000052_add_event_inbox.sql
+  - logic-grpc-service/migrations/000053_add_analytics_projection_events.sql
   - logic-grpc-service/repository/outbox_repo.go
   - logic-grpc-service/repository/inbox_repo.go
+  - logic-grpc-service/repository/analytics_projection_repo.go
   - logic-grpc-service/repository/application_repo.go
   - db.sql
 last_verified: 2026-07-11
@@ -47,6 +49,7 @@ The logic service owns persistence. Database structure is represented by SQL mig
 - `logic-grpc-service/service/` owns business invariants and orchestrates repository calls.
 - Outbox schema changes must align `event_outbox` migrations, `db.sql`, `model.EventOutbox`, `repository.OutboxRepo`, publisher payload compatibility, and tests because the table is used for transactional event delivery and retry diagnostics.
 - Inbox schema changes must align `event_inbox` migrations, `db.sql`, `model.EventInbox`, `repository.InboxRepo`, consumer entrypoint wiring, and tests because the table is used for consumer idempotency and duplicate-delivery diagnostics.
+- Analytics projection schema changes must align `analytics_projection_events`, `analytics_projection_checkpoints`, `db.sql`, GORM models, `repository.AnalyticsProjectionRepo`, projection infrastructure adapters, and ingestion tests because those tables are the Analytics-owned event-projection read-model input.
 
 ## Impact Guidance
 
@@ -58,4 +61,4 @@ The logic service owns persistence. Database structure is represented by SQL mig
 
 ## Verification
 
-Verified against migration runner, migration tests, MySQL consistency test, `model.go`, `000051_standardize_event_outbox.sql`, `000052_add_event_inbox.sql`, representative repositories, and `db.sql` on 2026-07-11.
+Verified against migration runner, migration tests, MySQL consistency test, `model.go`, `000051_standardize_event_outbox.sql`, `000052_add_event_inbox.sql`, `000053_add_analytics_projection_events.sql`, representative repositories, and `db.sql` on 2026-07-11.

@@ -1,5 +1,7 @@
 package domain
 
+import "strings"
+
 // ProjectionName identifies an Analytics-owned projection or read model.
 type ProjectionName string
 
@@ -29,3 +31,17 @@ const (
 	ProjectionSourceDomainEvent ProjectionSource = "domain_event"
 	ProjectionSourceReadModel   ProjectionSource = "read_model"
 )
+
+// ProjectionForEventType maps source-domain events into Analytics-owned projections.
+func ProjectionForEventType(eventType string) ProjectionName {
+	switch {
+	case strings.HasPrefix(eventType, "interview."), strings.HasPrefix(eventType, "offer."):
+		return ProjectionInterviewOffer
+	case strings.Contains(eventType, "status"), strings.HasPrefix(eventType, "application."):
+		return ProjectionFunnel
+	case strings.HasPrefix(eventType, "auth."), strings.Contains(eventType, "audit"):
+		return ProjectionAuthAudit
+	default:
+		return ProjectionDashboard
+	}
+}

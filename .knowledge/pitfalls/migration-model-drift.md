@@ -22,8 +22,10 @@ source_refs:
   - logic-grpc-service/model/model.go
   - logic-grpc-service/migrations/000051_standardize_event_outbox.sql
   - logic-grpc-service/migrations/000052_add_event_inbox.sql
+  - logic-grpc-service/migrations/000053_add_analytics_projection_events.sql
   - logic-grpc-service/repository/outbox_repo.go
   - logic-grpc-service/repository/inbox_repo.go
+  - logic-grpc-service/repository/analytics_projection_repo.go
   - logic-grpc-service/repository/repo_test_helper.go
   - db.sql
 last_verified: 2026-07-11
@@ -43,6 +45,7 @@ Database changes can pass local unit tests while production migrations, `db.sql`
 - Changing cursor, pagination, or uniqueness assumptions in repositories.
 - Changing outbox status, retry, retention, or metadata columns without updating publisher writes, repository stats, and `db.sql`.
 - Changing inbox status, idempotency, retention, or uniqueness columns without updating consumer wiring, repository claim semantics, and `db.sql`.
+- Changing Analytics projection event/checkpoint schema without updating models, `db.sql`, projection repository idempotency, infrastructure adapters, and ingestion tests.
 
 ## Risk
 
@@ -56,7 +59,8 @@ The logic service may compile while failing at runtime against a migrated databa
 - Keep repository transactions and query filters aligned with service invariants.
 - For `event_outbox`, check that terminal timestamps, retention cutoffs, retry/dead-letter transitions, and indexes stay aligned with `OutboxRepo` and `OutboxPublisher`.
 - For `event_inbox`, check that the unique consumer/event key, processed/dead duplicate handling, attempt counts, retention cutoffs, and indexes stay aligned with `InboxRepo` and MQ consumer `Start` methods.
+- For `analytics_projection_events` and `analytics_projection_checkpoints`, check that the event-id uniqueness, projection cursor upsert, JSON payload/metadata fields, and occurrence/projected timestamps stay aligned with `AnalyticsProjectionRepo` and the Analytics event ingestor.
 
 ## Verification
 
-This pitfall was verified from migration consistency tests, migration runner tests, GORM models, outbox/inbox migrations and repository tests, repository test helpers, and `db.sql` on 2026-07-11.
+This pitfall was verified from migration consistency tests, migration runner tests, GORM models, outbox/inbox/analytics projection migrations and repository tests, repository test helpers, and `db.sql` on 2026-07-11.

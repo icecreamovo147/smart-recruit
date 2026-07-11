@@ -647,6 +647,39 @@ type EventInbox struct {
 
 func (EventInbox) TableName() string { return "event_inbox" }
 
+// AnalyticsProjectionEvent stores Analytics-owned domain-event read-model input.
+type AnalyticsProjectionEvent struct {
+	ID             uint64    `gorm:"primaryKey"`
+	ProjectionName string    `gorm:"column:projection_name;size:64;index:idx_analytics_projection_name_occurred,priority:1"`
+	Source         string    `gorm:"column:source;size:32;default:domain_event"`
+	EventID        string    `gorm:"column:event_id;size:128;uniqueIndex:uk_analytics_projection_event"`
+	EventType      string    `gorm:"column:event_type;size:128;index:idx_analytics_projection_event_type"`
+	AggregateType  string    `gorm:"column:aggregate_type;size:64;index:idx_analytics_projection_aggregate,priority:1"`
+	AggregateID    string    `gorm:"column:aggregate_id;size:128;index:idx_analytics_projection_aggregate,priority:2"`
+	Producer       string    `gorm:"column:producer;size:128"`
+	IdempotencyKey string    `gorm:"column:idempotency_key;size:255;index:idx_analytics_projection_idempotency_key"`
+	CorrelationID  string    `gorm:"column:correlation_id;size:128"`
+	CausationID    string    `gorm:"column:causation_id;size:128"`
+	TraceID        string    `gorm:"column:trace_id;size:128"`
+	Payload        string    `gorm:"column:payload;type:json"`
+	Metadata       string    `gorm:"column:metadata;type:json"`
+	OccurredAt     time.Time `gorm:"column:occurred_at;index:idx_analytics_projection_name_occurred,priority:2"`
+	ProjectedAt    time.Time `gorm:"column:projected_at"`
+	CreatedAt      time.Time `gorm:"column:created_at"`
+	UpdatedAt      time.Time `gorm:"column:updated_at"`
+}
+
+func (AnalyticsProjectionEvent) TableName() string { return "analytics_projection_events" }
+
+// AnalyticsProjectionCheckpoint stores idempotent Analytics projection cursors.
+type AnalyticsProjectionCheckpoint struct {
+	ProjectionName string    `gorm:"column:projection_name;size:64;primaryKey"`
+	Cursor         string    `gorm:"column:cursor;size:255"`
+	UpdatedAt      time.Time `gorm:"column:updated_at"`
+}
+
+func (AnalyticsProjectionCheckpoint) TableName() string { return "analytics_projection_checkpoints" }
+
 // EmailLog records email send attempts for audit and idempotency.
 type EmailLog struct {
 	ID        int64     `gorm:"primaryKey"`
