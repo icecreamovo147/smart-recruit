@@ -22,6 +22,8 @@ source_refs:
   - logic-grpc-service/service/recruitment_lifecycle_process_manager.go
   - logic-grpc-service/internal/analytics/application/event_ingestor.go
   - logic-grpc-service/internal/analytics/infrastructure/projection_repository.go
+  - logic-grpc-service/internal/analytics/runtime/skeleton.go
+  - logic-grpc-service/internal/analytics/runtime/runtime.go
   - logic-grpc-service/internal/platform/servicebinary/convention.go
   - logic-grpc-service/internal/identity/runtime/skeleton.go
   - logic-grpc-service/internal/identity/runtime/runtime.go
@@ -63,6 +65,8 @@ Analytics event projection ingestion lives under `logic-grpc-service/internal/an
 
 `logic-grpc-service/cmd/offer-service` is a service skeleton for the Offer boundary. `logic-grpc-service/internal/offer/runtime` can explicitly register the OfferService adapter for controlled validation. Gateway traffic remains on the monolith by default and can route to `OFFER_GRPC_ADDR` only when `OFFER_ROUTE_MODE=offer` is explicitly configured with rollback evidence.
 
+`logic-grpc-service/cmd/analytics-service` is a service skeleton for the Analytics boundary. `logic-grpc-service/internal/analytics/runtime` can explicitly register the Analytics-owned AdminService reporting subset for controlled validation. The descriptor requires domain-event projection/read-model mode and rejects transitional service-read adapters; gateway traffic remains on the monolith until a scoped cutover TASK records compatibility and rollback evidence.
+
 `logic-grpc-service/service/ai_agent_runtime.go` is the transitional AI Agent runtime boundary inside the monolith. It groups AI chat, candidate AI, provider fallback/config surface, embedding runtime, embedding workload execution, and durable agent-run execution without changing public API routing.
 
 Generated protobuf files are contract artifacts. When proto definitions change, generated code in both Go services must stay aligned with the source `.proto` files.
@@ -87,4 +91,4 @@ Generated protobuf files are contract artifacts. When proto definitions change, 
 
 ## Verification
 
-The boundary was verified from gateway route registration and route-mode cutover controls, protobuf service definitions, representative logic service/repository files, `logic-grpc-service/service/recruitment_lifecycle_process_manager.go`, Analytics projection ingestion files, Identity, Recruitment, Interview, Offer, and AI Agent skeleton/runtime files, `logic-grpc-service/internal/platform/servicebinary/convention.go`, and `logic-grpc-service/internal/platform/events/envelope.go` on 2026-07-12.
+The boundary was verified from gateway route registration and route-mode cutover controls, protobuf service definitions, representative logic service/repository files, `logic-grpc-service/service/recruitment_lifecycle_process_manager.go`, Analytics projection ingestion/runtime files, Identity, Recruitment, Interview, Offer, and AI Agent skeleton/runtime files, `logic-grpc-service/internal/platform/servicebinary/convention.go`, and `logic-grpc-service/internal/platform/events/envelope.go` on 2026-07-12.
