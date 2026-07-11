@@ -1,0 +1,289 @@
+{
+  "schemaVersion": 1,
+  "feature_name": "backend-ddd-microservices-evolution",
+  "task_id": "TASK-BDME-001",
+  "base_sha": "1c61a06ff760ca7e510d0245c31723a6b5dd10d0",
+  "base_tree": "02a819f9ed522d4f8943d29378d86938e9c89900",
+  "head_sha": "1c61a06ff760ca7e510d0245c31723a6b5dd10d0",
+  "changed_files": [
+    ".spec/backend-ddd-microservices-evolution/pipeline-state.json",
+    ".spec/backend-ddd-microservices-evolution/reports/TASK-BDME-001-report.md",
+    ".spec/backend-ddd-microservices-evolution/reports/TASK-BDME-001-evidence.json",
+    "docs/backend-ddd-microservices-evolution-architecture-baseline.md"
+  ],
+  "scope": {
+    "status": "passed",
+    "base_tree": "02a819f9ed522d4f8943d29378d86938e9c89900",
+    "out_of_scope": [],
+    "forbidden": [],
+    "allowed": [
+      ".spec/backend-ddd-microservices-evolution/pipeline-state.json",
+      ".spec/backend-ddd-microservices-evolution/reports/TASK-BDME-001-report.md",
+      ".spec/backend-ddd-microservices-evolution/reports/TASK-BDME-001-evidence.json",
+      "docs/backend-ddd-microservices-evolution-architecture-baseline.md"
+    ]
+  },
+  "checks": [
+    {
+      "command": "git diff --name-only && git ls-files --others --exclude-standard",
+      "exit_code": 0,
+      "status": "passed",
+      "started_at": "2026-07-11T13:16:10Z",
+      "duration_ms": 50,
+      "summary": "Listed changed and untracked TASK files."
+    },
+    {
+      "command": "TASK_BASE_TREE=02a819f9ed522d4f8943d29378d86938e9c89900 bash .spec/backend-ddd-microservices-evolution/scripts/check-task-scope.sh TASK-BDME-001",
+      "exit_code": 0,
+      "status": "passed",
+      "started_at": "2026-07-11T13:16:10Z",
+      "duration_ms": 226,
+      "summary": "scope_result: PASS (TASK-BDME-001)."
+    },
+    {
+      "command": "bash .spec/backend-ddd-microservices-evolution/scripts/agent-check.sh",
+      "exit_code": 0,
+      "status": "passed",
+      "started_at": "2026-07-11T13:16:45Z",
+      "duration_ms": 500,
+      "summary": "Feature validation and git diff whitespace check passed."
+    },
+    {
+      "command": "node .knowledge/scripts/detect-impact.mjs --root . --base-tree 02a819f9ed522d4f8943d29378d86938e9c89900",
+      "exit_code": 0,
+      "status": "passed",
+      "started_at": "2026-07-11T13:16:11Z",
+      "duration_ms": 287,
+      "summary": "impact_result: update_required; reviewed routed knowledge documents."
+    },
+    {
+      "command": "node .agents/skills/spec-harness/scripts/validate-evidence.mjs --file .spec/backend-ddd-microservices-evolution/reports/TASK-BDME-001-evidence.json --require-knowledge-impact",
+      "exit_code": 0,
+      "status": "passed",
+      "started_at": "2026-07-11T13:19:00Z",
+      "duration_ms": 100,
+      "summary": "evidence_result: PASS."
+    }
+  ],
+  "review": {
+    "type": "self-review",
+    "round": 1,
+    "verdict": "通过",
+    "findings": []
+  },
+  "human_confirmation": {
+    "required": false,
+    "confirmed": true,
+    "confirmed_by": "not_required",
+    "confirmed_at": "2026-07-11T13:06:53Z",
+    "confirmation_text": "TASK-BDME-001 does not require human confirmation."
+  },
+  "exceptions": [],
+  "skipped_checks": [
+    {
+      "command": "node .knowledge/scripts/validate-knowledge.mjs",
+      "reason": ".knowledge files were reviewed but not changed by TASK-BDME-001."
+    },
+    {
+      "command": "go test ./...",
+      "reason": "No Go files changed in logic-grpc-service or web-gin-service."
+    },
+    {
+      "command": "pnpm frontend typecheck/test",
+      "reason": "No frontend files changed and frontend scope is forbidden for TASK-BDME-001."
+    }
+  ],
+  "knowledgeImpact": {
+    "result": "update_required",
+    "triggeredBy": [
+      ".spec/backend-ddd-microservices-evolution/pipeline-state.json",
+      "docs/backend-ddd-microservices-evolution-architecture-baseline.md"
+    ],
+    "reviewResults": [
+      {
+        "document": ".knowledge/architecture/system-overview.md",
+        "verdict": "UNCHANGED",
+        "evidence": [
+          "Reviewed against gateway and logic service source inventory; current overview remains accurate."
+        ]
+      },
+      {
+        "document": ".knowledge/architecture/service-boundaries.md",
+        "verdict": "UNCHANGED",
+        "evidence": [
+          "Reviewed against gateway, gRPC client, server registration, and service aggregate boundaries."
+        ]
+      },
+      {
+        "document": ".knowledge/architecture/api-contracts-and-gateway.md",
+        "verdict": "UNCHANGED",
+        "evidence": [
+          "Reviewed against router, middleware, and rpc client source anchors; no API behavior changed."
+        ]
+      },
+      {
+        "document": ".knowledge/architecture/persistence-and-migrations.md",
+        "verdict": "UNCHANGED",
+        "evidence": [
+          "Reviewed against migration startup, model inventory, repositories, and db.sql table inventory; no schema changed."
+        ]
+      },
+      {
+        "document": ".knowledge/architecture/auth-rbac-security.md",
+        "verdict": "UNCHANGED",
+        "evidence": [
+          "Reviewed identity/RBAC routing and logic-side authorization ownership; no auth behavior changed."
+        ]
+      },
+      {
+        "document": ".knowledge/architecture/agent-runtime.md",
+        "verdict": "UNCHANGED",
+        "evidence": [
+          "Reviewed AI service, agent run, context, and runtime ownership; inventory-only change."
+        ]
+      },
+      {
+        "document": ".knowledge/architecture/semantic-retrieval.md",
+        "verdict": "UNCHANGED",
+        "evidence": [
+          "Reviewed embedding and retrieval ownership as part of AI Agent mapping; no retrieval behavior changed."
+        ]
+      },
+      {
+        "document": ".knowledge/architecture/frontend-apps.md",
+        "verdict": "UNCHANGED",
+        "evidence": [
+          "Frontend files were forbidden and unchanged; frontend compatibility remains a later migration constraint."
+        ]
+      },
+      {
+        "document": ".knowledge/domains/recruitment.md",
+        "verdict": "UNCHANGED",
+        "evidence": [
+          "Reviewed recruitment domain mapping to current services, models, and routes."
+        ]
+      },
+      {
+        "document": ".knowledge/domains/recruitment-lifecycle.md",
+        "verdict": "UNCHANGED",
+        "evidence": [
+          "Reviewed application/interview/offer status coupling risks; no lifecycle behavior changed."
+        ]
+      },
+      {
+        "document": ".knowledge/domains/notification-outbox.md",
+        "verdict": "UNCHANGED",
+        "evidence": [
+          "Reviewed notification, email, outbox, RabbitMQ consumer, and SSE ownership."
+        ]
+      },
+      {
+        "document": ".knowledge/domains/resume-intelligence.md",
+        "verdict": "UNCHANGED",
+        "evidence": [
+          "Reviewed resume parse/profile/match ownership and sensitive-data boundary."
+        ]
+      },
+      {
+        "document": ".knowledge/domains/ai-configuration-governance.md",
+        "verdict": "UNCHANGED",
+        "evidence": [
+          "Reviewed LLM, embedding, prompt, agent config, MCP, and skill admin surfaces."
+        ]
+      },
+      {
+        "document": ".knowledge/domains/agent-skill.md",
+        "verdict": "UNCHANGED",
+        "evidence": [
+          "Reviewed Agent Skill ownership and distinction from SKILL registry in AI Agent mapping."
+        ]
+      },
+      {
+        "document": ".knowledge/domains/mcp-tool-governance.md",
+        "verdict": "UNCHANGED",
+        "evidence": [
+          "Reviewed MCP service/policy/audit ownership; no governance behavior changed."
+        ]
+      },
+      {
+        "document": ".knowledge/domains/memory-and-context.md",
+        "verdict": "UNCHANGED",
+        "evidence": [
+          "Reviewed memory/context ownership as part of AI Agent mapping."
+        ]
+      },
+      {
+        "document": ".knowledge/runbooks/local-development.md",
+        "verdict": "UNCHANGED",
+        "evidence": [
+          "Harness runtime files routed to local-development; no local development command or workflow changed."
+        ]
+      },
+      {
+        "document": ".knowledge/runbooks/knowledge-coverage-audit.md",
+        "verdict": "UNCHANGED",
+        "evidence": [
+          "Reviewed impact protocol and recorded knowledge impact in report/evidence."
+        ]
+      },
+      {
+        "document": ".knowledge/pitfalls/protobuf-synchronization.md",
+        "verdict": "UNCHANGED",
+        "evidence": [
+          "Proto and generated files were not changed; contract risk recorded for later tasks."
+        ]
+      },
+      {
+        "document": ".knowledge/pitfalls/migration-model-drift.md",
+        "verdict": "UNCHANGED",
+        "evidence": [
+          "Migrations, models, repositories, and db.sql were only inventoried, not modified."
+        ]
+      },
+      {
+        "document": ".knowledge/pitfalls/status-notification-drift.md",
+        "verdict": "UNCHANGED",
+        "evidence": [
+          "Status/notification coupling was recorded as current risk; no status or notification behavior changed."
+        ]
+      },
+      {
+        "document": ".knowledge/pitfalls/auth-permission-alignment.md",
+        "verdict": "UNCHANGED",
+        "evidence": [
+          "RBAC route/service alignment was inventoried; no permission key or route metadata changed."
+        ]
+      },
+      {
+        "document": ".knowledge/pitfalls/resume-sensitive-data.md",
+        "verdict": "UNCHANGED",
+        "evidence": [
+          "Report avoids raw candidate/resume content, credentials, and sensitive payloads."
+        ]
+      },
+      {
+        "document": ".knowledge/pitfalls/embedding-fallback.md",
+        "verdict": "UNCHANGED",
+        "evidence": [
+          "Embedding fallback is mentioned only as current architecture/risk, not changed."
+        ]
+      },
+      {
+        "document": ".knowledge/pitfalls/mcp-policy-audit.md",
+        "verdict": "UNCHANGED",
+        "evidence": [
+          "MCP policy/audit was mapped as an AI Agent subdomain; no MCP behavior changed."
+        ]
+      },
+      {
+        "document": ".knowledge/pitfalls/frontend-menu-consistency.md",
+        "verdict": "UNCHANGED",
+        "evidence": [
+          "Frontend/admin menu files were forbidden and unchanged."
+        ]
+      }
+    ],
+    "coverageGap": false,
+    "validationExitCode": 0
+  }
+}
