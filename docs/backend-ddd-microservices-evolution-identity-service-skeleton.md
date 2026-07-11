@@ -18,16 +18,16 @@ The skeleton follows the service binary convention already registered as `identi
 
 - `--check`: validates the skeleton descriptor and exits 0.
 - `--describe`: prints the registered service unit, cutover mode, startup mode, and safety notes.
+- `--serve`: explicitly starts the extracted Identity gRPC runtime for local or controlled validation without gateway cutover.
 
 Running without flags exits non-zero and prints that the skeleton is intentionally unrouted.
 
-The skeleton does not:
+Default execution does not:
 
 - bind a network listener;
-- register auth, principal, RBAC, or audit gRPC handlers;
-- rotate refresh tokens;
-- mutate token-version state;
 - receive gateway traffic.
+
+When `--serve` is explicitly provided, the runtime registers the existing `AuthService` and Identity-owned `AdminService` subset described in `docs/backend-ddd-microservices-evolution-identity-api-extraction.md`. It does not run migrations, seed RBAC data, start workers, or receive gateway traffic.
 
 ## Compatibility
 

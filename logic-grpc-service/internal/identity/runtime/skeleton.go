@@ -16,6 +16,7 @@ type Descriptor struct {
 	CutoverMode    string
 	TrafficEnabled bool
 	StartupMode    string
+	ExtractedAPIs  []string
 	Notes          []string
 }
 
@@ -28,13 +29,32 @@ func NewDescriptor() (Descriptor, error) {
 		Unit:           unit,
 		CutoverMode:    CutoverMode,
 		TrafficEnabled: false,
-		StartupMode:    "skeleton-describe-only",
+		StartupMode:    "explicit-serve-only",
+		ExtractedAPIs: []string{
+			"AuthService.Register",
+			"AuthService.Login",
+			"AuthService.RefreshToken",
+			"AuthService.RevokeRefreshToken",
+			"AuthService.RecordAuthDecision",
+			"AuthService.GetPrincipal",
+			"AuthService.UpdateEmail",
+			"AdminService.ListRoles",
+			"AdminService.ListPermissions",
+			"AdminService.GetUserRoles",
+			"AdminService.AssignUserRole",
+			"AdminService.RevokeUserRole",
+			"AdminService.AssignDataScope",
+			"AdminService.RevokeDataScope",
+			"AdminService.ListStaffUsers",
+			"AdminService.CreateStaffUser",
+			"AdminService.QueryAuthAuditLogs",
+		},
 		Notes: []string{
-			"does not bind a network listener",
-			"does not register auth, principal, RBAC, or audit gRPC handlers",
-			"does not rotate refresh tokens or mutate token-version state",
-			"does not receive gateway traffic",
-			"ready for later shadow or controlled identity API extraction tasks",
+			"default execution does not bind a network listener",
+			"auth, principal, RBAC, scope, staff identity, and security-audit APIs are registered only in explicit serve mode",
+			"gateway traffic is not routed to identity-service in this TASK",
+			"non-Identity AdminService methods remain on the monolith gateway target",
+			"ready for later controlled identity gateway cutover with rollback evidence",
 		},
 	}
 	if err := Validate(descriptor); err != nil {
@@ -58,6 +78,9 @@ func Validate(descriptor Descriptor) error {
 	}
 	if descriptor.StartupMode == "" {
 		return fmt.Errorf("startup mode is required")
+	}
+	if len(descriptor.ExtractedAPIs) == 0 {
+		return fmt.Errorf("extracted APIs are required")
 	}
 	if len(descriptor.Notes) == 0 {
 		return fmt.Errorf("notes are required")

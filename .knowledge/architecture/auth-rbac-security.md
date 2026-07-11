@@ -27,6 +27,9 @@ source_refs:
   - logic-grpc-service/service/auth_service.go
   - logic-grpc-service/cmd/identity-service/main.go
   - logic-grpc-service/internal/identity/runtime/skeleton.go
+  - logic-grpc-service/internal/identity/runtime/runtime.go
+  - logic-grpc-service/internal/identity/interfaces/auth_server.go
+  - logic-grpc-service/internal/identity/interfaces/admin_server.go
   - logic-grpc-service/service/admin_service.go
   - logic-grpc-service/repository/authz_repo.go
   - logic-grpc-service/migrations/000011_add_refresh_tokens.sql
@@ -49,7 +52,8 @@ Authentication is split between the HTTP gateway and the logic service. The gate
 - `logic-grpc-service/service/auth_service.go` owns registration, login, refresh-token rotation, revocation, and database-backed principal loading.
 - `logic-grpc-service/repository/authz_repo.go` owns roles, permissions, role assignment, data scopes, authorization audit logs, legacy role migration, and token-version increments.
 - `logic-grpc-service/service/admin_service.go` changes staff roles/data scopes and synchronizes token-version cache after permission mutations.
-- `logic-grpc-service/cmd/identity-service` is currently a compile-safe unrouted skeleton only; it must not bind listeners, register auth/RBAC/audit handlers, receive gateway traffic, rotate refresh tokens, or mutate token-version state until scoped extraction/cutover TASKs explicitly do so.
+- `logic-grpc-service/cmd/identity-service` is currently an unrouted Identity runtime. It registers AuthService plus Identity-owned AdminService methods only when explicitly started with `--serve`; default execution still binds no listener, and gateway traffic remains on the monolith until a scoped cutover TASK.
+- Identity-owned extracted AdminService methods are role/permission listing, user role assignment/revocation, data-scope assignment/revocation, staff identity list/create, and security audit log query. Invite-code, usage-log, department, location, and department-location configuration methods remain outside the Identity runtime in this TASK.
 
 ## Security-Relevant State
 

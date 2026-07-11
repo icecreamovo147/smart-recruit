@@ -24,6 +24,9 @@ func TestNewDescriptorIsUnroutedIdentityService(t *testing.T) {
 	if descriptor.CutoverMode != "none" {
 		t.Fatalf("cutover mode = %q, want none", descriptor.CutoverMode)
 	}
+	if len(descriptor.ExtractedAPIs) == 0 {
+		t.Fatal("identity descriptor should list extracted APIs")
+	}
 }
 
 func TestDescriptorDocumentsNoRuntimeSideEffects(t *testing.T) {
@@ -33,10 +36,10 @@ func TestDescriptorDocumentsNoRuntimeSideEffects(t *testing.T) {
 	}
 	notes := strings.Join(descriptor.Notes, "\n")
 	for _, required := range []string{
-		"does not bind a network listener",
-		"does not register auth, principal, RBAC, or audit gRPC handlers",
-		"does not rotate refresh tokens or mutate token-version state",
-		"does not receive gateway traffic",
+		"default execution does not bind a network listener",
+		"registered only in explicit serve mode",
+		"gateway traffic is not routed to identity-service",
+		"non-Identity AdminService methods remain on the monolith gateway target",
 	} {
 		if !strings.Contains(notes, required) {
 			t.Fatalf("descriptor notes missing %q: %s", required, notes)

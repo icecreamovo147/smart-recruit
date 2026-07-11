@@ -341,6 +341,7 @@ routes:
       - docs/backend-ddd-microservices-evolution-ai-agent-runtime-extraction.md
       - docs/backend-ddd-microservices-evolution-ai-agent-gateway-cutover.md
       - docs/backend-ddd-microservices-evolution-identity-service-skeleton.md
+      - docs/backend-ddd-microservices-evolution-identity-api-extraction.md
       - deploy/k8s/README-service-binaries.md
       - deploy/k8s/configmap.yaml
       - logic-grpc-service/internal/platform/servicebinary/**

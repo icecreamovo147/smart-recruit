@@ -24,6 +24,7 @@ source_refs:
   - logic-grpc-service/internal/analytics/infrastructure/projection_repository.go
   - logic-grpc-service/internal/platform/servicebinary/convention.go
   - logic-grpc-service/internal/identity/runtime/skeleton.go
+  - logic-grpc-service/internal/identity/runtime/runtime.go
   - logic-grpc-service/internal/aiagent/runtime/skeleton.go
   - logic-grpc-service/service/ai_agent_runtime.go
   - logic-grpc-service/internal/platform/events/envelope.go
@@ -46,7 +47,7 @@ Analytics event projection ingestion lives under `logic-grpc-service/internal/an
 
 `logic-grpc-service/internal/platform/servicebinary/` records the target backend service unit registry and deployment convention for extracted binaries. The registry is compile-checked but is not wired into startup or gateway routing by TASK-BDME-026.
 
-`logic-grpc-service/cmd/identity-service` is an unrouted service skeleton for the Identity boundary. It is compile-safe only and must not receive gateway traffic, register auth/RBAC handlers, rotate refresh tokens, or mutate token-version state until scoped extraction/cutover TASKs record compatibility and rollback evidence.
+`logic-grpc-service/cmd/identity-service` is an unrouted service runtime for the Identity boundary. It can explicitly register AuthService plus the Identity-owned AdminService subset for validation, but it must not receive gateway traffic until a scoped cutover TASK records compatibility and rollback evidence.
 
 `logic-grpc-service/cmd/ai-agent-service` is an unrouted service skeleton for the AI Agent boundary. It is compile-safe only and must not receive gateway traffic or start runtime workers until a scoped extraction/cutover TASK records rollback evidence.
 

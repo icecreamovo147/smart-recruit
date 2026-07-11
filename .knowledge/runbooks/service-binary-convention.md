@@ -25,6 +25,7 @@ source_refs:
   - docs/backend-ddd-microservices-evolution-ai-agent-runtime-extraction.md
   - docs/backend-ddd-microservices-evolution-ai-agent-gateway-cutover.md
   - docs/backend-ddd-microservices-evolution-identity-service-skeleton.md
+  - docs/backend-ddd-microservices-evolution-identity-api-extraction.md
   - deploy/k8s/README-service-binaries.md
   - logic-grpc-service/internal/platform/servicebinary/convention.go
   - logic-grpc-service/internal/platform/servicebinary/convention_test.go
@@ -57,7 +58,7 @@ Use this runbook when adding or reviewing backend service binaries, worker binar
 - Current active deployments remain `logic-grpc-service` and `logic-worker`; extracted service entries are future command/image conventions until scoped TASKs create and cut them over.
 - `cmd/notification-service` is the first compile-safe extracted service skeleton. It supports `--describe` and `--check`, exits non-zero without flags, and keeps `TrafficEnabled=false` until a scoped cutover TASK changes that behavior.
 - `cmd/ai-agent-service` is a compile-safe AI Agent service skeleton. It supports `--describe` and `--check`, exits non-zero without flags, and keeps `TrafficEnabled=false` until a scoped runtime extraction or gateway cutover TASK changes that behavior.
-- `cmd/identity-service` is a compile-safe Identity service skeleton. It supports `--describe` and `--check`, exits non-zero without flags, and keeps `TrafficEnabled=false` without registering auth, principal, RBAC, audit, refresh-token, or token-version runtime behavior until scoped extraction/cutover TASKs change that behavior.
+- `cmd/identity-service` is a compile-safe Identity service runtime. It supports `--describe`, `--check`, and explicit `--serve`, exits non-zero without flags, registers AuthService plus the Identity-owned AdminService subset only in explicit serve mode, and keeps `TrafficEnabled=false` until the scoped Identity gateway cutover TASK changes routing.
 - `service.NotificationRuntime` is the current runtime composition seam for Notification persistence, unread counts, realtime cache publication, outbox dispatch, notification consumer startup, and email consumer startup. It is still started by the monolith worker block.
 - `service.AIAgentRuntime` is the current runtime composition boundary for HR AI chat, candidate AI chat, provider fallback/config surface, embedding service, embedding consumer, and durable agent-run consumer. It is still started by the monolith worker block.
 - `web-gin-service` has a Notification gateway routing switch: default `NOTIFICATION_ROUTE_MODE=logic` keeps traffic on `GRPC_ADDR`; `NOTIFICATION_ROUTE_MODE=notification` routes only the generated Notification client to `NOTIFICATION_GRPC_ADDR` and fails fast when that address is missing.
