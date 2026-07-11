@@ -37,7 +37,7 @@ review_after: 2026-10-08
 
 The recruitment lifecycle is centered on application rounds. Jobs receive applications, applications move through status keys, interviews and offers mutate or depend on those statuses, and collaboration surfaces aggregate notes, tags, tasks, interviews, offers, and timeline events.
 
-The `recruitment-service` binary is currently unrouted. Its runtime can explicitly register ApplicationService for controlled validation, but gateway traffic remains on the monolith until later scoped cutover TASKs preserve lifecycle compatibility.
+The `recruitment-service` binary is not used by default. Its runtime can explicitly register ApplicationService for controlled validation, and `RECRUITMENT_ROUTE_MODE=recruitment` can route ApplicationService traffic to `RECRUITMENT_GRPC_ADDR`; rollback is `RECRUITMENT_ROUTE_MODE=logic`.
 
 ## Core Flow
 

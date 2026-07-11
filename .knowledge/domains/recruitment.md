@@ -34,7 +34,7 @@ review_after: 2026-10-08
 
 The recruitment domain centers on jobs, candidates, applications, interviews, offers, notifications, and analytics. HR users manage jobs and application flow. Candidates browse jobs, maintain profile/resume data, apply, track progress, attend interviews, and respond to offers. Interviewers use staff-facing interview task and feedback flows.
 
-`logic-grpc-service/cmd/recruitment-service` is currently a compile-safe, unrouted skeleton for Recruitment extraction. `internal/recruitment/runtime` can explicitly register JobService, CandidateService, and ApplicationService adapters; current production behavior remains in the monolith until a later scoped gateway cutover TASK.
+`logic-grpc-service/cmd/recruitment-service` is currently a compile-safe skeleton for Recruitment extraction. `internal/recruitment/runtime` can explicitly register JobService, CandidateService, and ApplicationService adapters. Gateway traffic remains on the monolith by default; `RECRUITMENT_ROUTE_MODE=recruitment` routes those generated clients to `RECRUITMENT_GRPC_ADDR` only when explicitly configured.
 
 Application state transitions and offer/interview lifecycle behavior are business rules. Verify them in service code, protobuf contracts, database schema, and tests before documenting or changing behavior.
 

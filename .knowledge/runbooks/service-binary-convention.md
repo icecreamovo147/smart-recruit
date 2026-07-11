@@ -29,6 +29,7 @@ source_refs:
   - docs/backend-ddd-microservices-evolution-identity-gateway-cutover.md
   - docs/backend-ddd-microservices-evolution-recruitment-service-skeleton.md
   - docs/backend-ddd-microservices-evolution-recruitment-api-extraction.md
+  - docs/backend-ddd-microservices-evolution-recruitment-gateway-cutover.md
   - deploy/k8s/README-service-binaries.md
   - logic-grpc-service/internal/platform/servicebinary/convention.go
   - logic-grpc-service/internal/platform/servicebinary/convention_test.go
@@ -71,6 +72,7 @@ Use this runbook when adding or reviewing backend service binaries, worker binar
 - `web-gin-service` has a Notification gateway routing switch: default `NOTIFICATION_ROUTE_MODE=logic` keeps traffic on `GRPC_ADDR`; `NOTIFICATION_ROUTE_MODE=notification` routes only the generated Notification client to `NOTIFICATION_GRPC_ADDR` and fails fast when that address is missing.
 - `web-gin-service` has an AI Agent gateway routing switch: default `AI_AGENT_ROUTE_MODE=logic` keeps AI Agent-owned generated clients on `GRPC_ADDR`; `AI_AGENT_ROUTE_MODE=ai-agent` routes them to `AI_AGENT_GRPC_ADDR` and fails fast when that address is missing.
 - `web-gin-service` has an Identity gateway routing switch: default `IDENTITY_ROUTE_MODE=logic` keeps Identity traffic on `GRPC_ADDR`; `IDENTITY_ROUTE_MODE=identity` routes AuthService plus the Identity-owned AdminService subset to `IDENTITY_GRPC_ADDR` and fails fast when that address is missing.
+- `web-gin-service` has a Recruitment gateway routing switch: default `RECRUITMENT_ROUTE_MODE=logic` keeps JobService, CandidateService, and ApplicationService traffic on `GRPC_ADDR`; `RECRUITMENT_ROUTE_MODE=recruitment` routes those generated clients to `RECRUITMENT_GRPC_ADDR` and fails fast when that address is missing.
 
 ## Review Checklist
 

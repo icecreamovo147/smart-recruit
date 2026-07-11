@@ -94,6 +94,45 @@ func TestNewClientsRoutesIdentityToExtractedService(t *testing.T) {
 	}
 }
 
+func TestNewClientsRoutesRecruitmentToExtractedService(t *testing.T) {
+	clients, err := NewClientsWithOptions("passthrough:///logic:50051", ClientOptions{
+		RecruitmentRouteMode: "recruitment",
+		RecruitmentAddr:      "passthrough:///recruitment:50051",
+	})
+	if err != nil {
+		t.Fatalf("NewClientsWithOptions: %v", err)
+	}
+	defer clients.Close()
+
+	if clients.RecruitmentRouteMode != "recruitment" {
+		t.Fatalf("RecruitmentRouteMode = %q, want recruitment", clients.RecruitmentRouteMode)
+	}
+	if clients.RecruitmentTargetAddr != "passthrough:///recruitment:50051" {
+		t.Fatalf("RecruitmentTargetAddr = %q", clients.RecruitmentTargetAddr)
+	}
+	if clients.recruitmentConn == clients.conn {
+		t.Fatal("Recruitment cutover should use a separate gRPC connection")
+	}
+}
+
+func TestNewClientsRecruitmentCutoverRequiresAddress(t *testing.T) {
+	_, err := NewClientsWithOptions("passthrough:///logic:50051", ClientOptions{
+		RecruitmentRouteMode: "recruitment",
+	})
+	if err == nil {
+		t.Fatal("expected missing recruitment address error")
+	}
+}
+
+func TestNewClientsRejectsInvalidRecruitmentRouteMode(t *testing.T) {
+	_, err := NewClientsWithOptions("passthrough:///logic:50051", ClientOptions{
+		RecruitmentRouteMode: "invalid",
+	})
+	if err == nil {
+		t.Fatal("expected invalid recruitment route mode error")
+	}
+}
+
 func TestNewClientsIdentityCutoverRequiresAddress(t *testing.T) {
 	_, err := NewClientsWithOptions("passthrough:///logic:50051", ClientOptions{
 		IdentityRouteMode: "identity",
@@ -201,6 +240,20 @@ func TestReadyChecksIdentityHealthWhenCutoverUsesSeparateConnection(t *testing.T
 	err := clients.Ready(context.Background())
 	if err == nil || !strings.Contains(err.Error(), "identity grpc health check failed") {
 		t.Fatalf("expected identity health failure, got %v", err)
+	}
+}
+
+func TestReadyChecksRecruitmentHealthWhenCutoverUsesSeparateConnection(t *testing.T) {
+	clients := &Clients{
+		conn:              &grpc.ClientConn{},
+		recruitmentConn:   &grpc.ClientConn{},
+		Health:            fakeHealthClient{status: healthpb.HealthCheckResponse_SERVING},
+		RecruitmentHealth: fakeHealthClient{err: errors.New("recruitment down")},
+	}
+
+	err := clients.Ready(context.Background())
+	if err == nil || !strings.Contains(err.Error(), "recruitment grpc health check failed") {
+		t.Fatalf("expected recruitment health failure, got %v", err)
 	}
 }
 

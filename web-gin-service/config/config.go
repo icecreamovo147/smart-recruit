@@ -17,6 +17,8 @@ type Config struct {
 	AIAgentRouteMode      string
 	IdentityGRPCAddr      string
 	IdentityRouteMode     string
+	RecruitmentGRPCAddr   string
+	RecruitmentRouteMode  string
 	JWTSecret             string
 	AuthCookieName        string
 	CandidateCookie       string
@@ -99,6 +101,11 @@ func Load() (Config, error) {
 	if err := validateIdentityRoute(identityRouteMode, identityGRPCAddr); err != nil {
 		return Config{}, err
 	}
+	recruitmentRouteMode := env("RECRUITMENT_ROUTE_MODE", "logic")
+	recruitmentGRPCAddr := env("RECRUITMENT_GRPC_ADDR", "")
+	if err := validateRecruitmentRoute(recruitmentRouteMode, recruitmentGRPCAddr); err != nil {
+		return Config{}, err
+	}
 	return Config{
 		HTTPPort:              env("HTTP_PORT", "8080"),
 		GRPCAddr:              env("GRPC_ADDR", "127.0.0.1:50051"),
@@ -108,6 +115,8 @@ func Load() (Config, error) {
 		AIAgentRouteMode:      aiAgentRouteMode,
 		IdentityGRPCAddr:      identityGRPCAddr,
 		IdentityRouteMode:     identityRouteMode,
+		RecruitmentGRPCAddr:   recruitmentGRPCAddr,
+		RecruitmentRouteMode:  recruitmentRouteMode,
 		JWTSecret:             secret,
 		AuthCookieName:        env("AUTH_COOKIE_NAME", "recruitment_token"),
 		CandidateCookie:       env("CANDIDATE_AUTH_COOKIE_NAME", "recruitment_candidate_token"),
@@ -155,6 +164,20 @@ func Load() (Config, error) {
 			GapMedium:        envFloat64("RANKING_GAP_MEDIUM"),
 		},
 	}, nil
+}
+
+func validateRecruitmentRoute(mode, addr string) error {
+	switch mode {
+	case "", "logic":
+		return nil
+	case "recruitment":
+		if strings.TrimSpace(addr) == "" {
+			return fmt.Errorf("RECRUITMENT_GRPC_ADDR is required when RECRUITMENT_ROUTE_MODE=recruitment")
+		}
+		return nil
+	default:
+		return fmt.Errorf("RECRUITMENT_ROUTE_MODE must be logic or recruitment")
+	}
 }
 
 func validateIdentityRoute(mode, addr string) error {

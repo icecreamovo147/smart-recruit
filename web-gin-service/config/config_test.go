@@ -107,6 +107,66 @@ func TestLoadIdentityRouteDefaultsToLogic(t *testing.T) {
 	}
 }
 
+func TestLoadRecruitmentRouteDefaultsToLogic(t *testing.T) {
+	t.Setenv("ALLOW_INSECURE_DEV_CONFIG", "false")
+	t.Setenv("JWT_SECRET", "test-secret-at-least-32-chars-long")
+	t.Setenv("GRPC_INTERNAL_TOKEN", strings.Repeat("t", 32))
+
+	cfg, err := Load()
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+	if cfg.RecruitmentRouteMode != "logic" {
+		t.Fatalf("RecruitmentRouteMode = %q, want logic", cfg.RecruitmentRouteMode)
+	}
+	if cfg.RecruitmentGRPCAddr != "" {
+		t.Fatalf("RecruitmentGRPCAddr = %q, want empty", cfg.RecruitmentGRPCAddr)
+	}
+}
+
+func TestLoadRecruitmentRouteToExtractedService(t *testing.T) {
+	t.Setenv("ALLOW_INSECURE_DEV_CONFIG", "false")
+	t.Setenv("JWT_SECRET", "test-secret-at-least-32-chars-long")
+	t.Setenv("GRPC_INTERNAL_TOKEN", strings.Repeat("t", 32))
+	t.Setenv("RECRUITMENT_ROUTE_MODE", "recruitment")
+	t.Setenv("RECRUITMENT_GRPC_ADDR", "dns:///recruitment-service:50051")
+
+	cfg, err := Load()
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+	if cfg.RecruitmentRouteMode != "recruitment" {
+		t.Fatalf("RecruitmentRouteMode = %q, want recruitment", cfg.RecruitmentRouteMode)
+	}
+	if cfg.RecruitmentGRPCAddr != "dns:///recruitment-service:50051" {
+		t.Fatalf("RecruitmentGRPCAddr = %q", cfg.RecruitmentGRPCAddr)
+	}
+}
+
+func TestLoadRecruitmentRouteRequiresAddress(t *testing.T) {
+	t.Setenv("ALLOW_INSECURE_DEV_CONFIG", "false")
+	t.Setenv("JWT_SECRET", "test-secret-at-least-32-chars-long")
+	t.Setenv("GRPC_INTERNAL_TOKEN", strings.Repeat("t", 32))
+	t.Setenv("RECRUITMENT_ROUTE_MODE", "recruitment")
+
+	_, err := Load()
+	if err == nil || !strings.Contains(err.Error(), "RECRUITMENT_GRPC_ADDR") {
+		t.Fatalf("expected recruitment addr error, got %v", err)
+	}
+}
+
+func TestLoadRejectsInvalidRecruitmentRouteMode(t *testing.T) {
+	t.Setenv("ALLOW_INSECURE_DEV_CONFIG", "false")
+	t.Setenv("JWT_SECRET", "test-secret-at-least-32-chars-long")
+	t.Setenv("GRPC_INTERNAL_TOKEN", strings.Repeat("t", 32))
+	t.Setenv("RECRUITMENT_ROUTE_MODE", "invalid")
+
+	_, err := Load()
+	if err == nil || !strings.Contains(err.Error(), "RECRUITMENT_ROUTE_MODE") {
+		t.Fatalf("expected recruitment route mode error, got %v", err)
+	}
+}
+
 func TestLoadIdentityRouteToExtractedService(t *testing.T) {
 	t.Setenv("ALLOW_INSECURE_DEV_CONFIG", "false")
 	t.Setenv("JWT_SECRET", "test-secret-at-least-32-chars-long")

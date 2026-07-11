@@ -62,6 +62,8 @@ data:
   AI_AGENT_GRPC_ADDR: ""
   IDENTITY_ROUTE_MODE: "logic"
   IDENTITY_GRPC_ADDR: ""
+  RECRUITMENT_ROUTE_MODE: "logic"
+  RECRUITMENT_GRPC_ADDR: ""
   AUTH_COOKIE_SECURE: "true"
   CANDIDATE_AUTH_COOKIE_NAME: "recruitment_candidate_token"
   HR_AUTH_COOKIE_NAME: "recruitment_hr_token"
