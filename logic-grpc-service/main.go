@@ -338,6 +338,14 @@ func main() {
 	}
 
 	if *workerOnly {
+		workerHealthServer, err := server.StartWorkerHealthServer(cfg.Observability.WorkerHealthAddr, server.ReadinessOptions{
+			DB:    sqlDB,
+			Redis: healthRedis,
+			MQ:    mqConn,
+		})
+		if err != nil {
+			log.Fatal("start worker health server failed", zap.String("addr", cfg.Observability.WorkerHealthAddr), zap.Error(err))
+		}
 		log.Info("logic worker started")
 		sigCh := make(chan os.Signal, 1)
 		signal.Notify(sigCh, syscall.SIGINT, syscall.SIGTERM)
@@ -346,6 +354,7 @@ func main() {
 		cancelBg()
 		mqConn.Close()
 		shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 5*time.Second)
+		server.ShutdownHealthServer(shutdownCtx, workerHealthServer)
 		server.ShutdownMetricsServer(shutdownCtx, metricsServer)
 		shutdownCancel()
 		if notifCache != nil {

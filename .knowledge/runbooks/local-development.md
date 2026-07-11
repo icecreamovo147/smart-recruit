@@ -29,6 +29,7 @@ source_refs:
   - docker/.env.example
   - docs/backend-ddd-microservices-evolution-internal-service-security.md
   - docs/backend-ddd-microservices-evolution-observability-baseline.md
+  - docs/backend-ddd-microservices-evolution-deployment-readiness-baseline.md
 last_verified: 2026-07-12
 review_after: 2026-10-08
 ---
@@ -43,6 +44,7 @@ Use this runbook to orient local startup and validation. Always prefer checked-i
 - Local service configuration copied from example files and filled with placeholders or local-only credentials.
 - Local Docker Compose requires `GRPC_INTERNAL_TOKEN`; internal gRPC TLS remains `GRPC_INTERNAL_TLS=optional` unless local certificates are mounted.
 - Gateway metrics are available at `http://localhost:<HTTP_PORT>/metrics`; logic gRPC metrics require setting `METRICS_ADDR` before starting `logic-grpc-service`.
+- Worker-only health requires setting `WORKER_HEALTH_ADDR` before starting `logic-grpc-service --worker-only`; `/readyz` fails when MySQL, configured Redis, or RabbitMQ is unavailable.
 - MySQL, Redis, and RabbitMQ available through Docker Compose or an equivalent local stack.
 
 ## Standard Flow
@@ -61,6 +63,7 @@ Use this runbook to orient local startup and validation. Always prefer checked-i
 - Service binary convention tests: run `go test ./internal/platform/servicebinary` from `logic-grpc-service/`.
 - Gateway tests: run `go test ./...` from `web-gin-service/`.
 - Observability smoke check: after starting the gateway, request `/metrics` and verify Prometheus text output contains `smart_recruit_http_requests_total`.
+- Worker health smoke check: start `logic-grpc-service --worker-only` with `WORKER_HEALTH_ADDR=:9092`, then request `http://localhost:9092/readyz`.
 - HR frontend typecheck: `pnpm --filter hr-frontend typecheck`.
 - Candidate frontend typecheck: `pnpm --filter user-frontend typecheck`.
 - Interviewer frontend typecheck: `pnpm --filter interviewer-frontend typecheck`.
@@ -74,4 +77,4 @@ Use this runbook to orient local startup and validation. Always prefer checked-i
 
 ## When This Runbook Is Stale
 
-Mark this document stale if startup scripts, frontend package commands, Docker service names, service binary conventions, internal gRPC security defaults, metrics endpoint conventions, or required service order changes.
+Mark this document stale if startup scripts, frontend package commands, Docker service names, service binary conventions, internal gRPC security defaults, metrics or worker health endpoint conventions, or required service order changes.

@@ -58,6 +58,10 @@ grpc:
   tls_cert_file: "" # GRPC_TLS_CERT_FILE: required when GRPC_INTERNAL_TLS=required
   tls_key_file: ""  # GRPC_TLS_KEY_FILE: required when GRPC_INTERNAL_TLS=required
 
+observability:
+  metrics_addr: ""        # METRICS_ADDR: optional Prometheus metrics HTTP listener, e.g. ":9091"
+  worker_health_addr: ""  # WORKER_HEALTH_ADDR: worker-only /livez and /readyz listener, e.g. ":9092"
+
 redis:
   addr: "127.0.0.1:6379"
   password: ""

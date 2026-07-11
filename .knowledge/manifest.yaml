@@ -366,6 +366,7 @@ routes:
       - docs/backend-ddd-microservices-evolution-offer-gateway-cutover.md
       - docs/backend-ddd-microservices-evolution-analytics-service-extraction.md
       - docs/backend-ddd-microservices-evolution-worker-service-decomposition.md
+      - docs/backend-ddd-microservices-evolution-deployment-readiness-baseline.md
       - deploy/k8s/README-service-binaries.md
       - deploy/k8s/configmap.yaml
       - logic-grpc-service/internal/platform/servicebinary/**

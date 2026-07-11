@@ -42,6 +42,7 @@ source_refs:
   - docs/backend-ddd-microservices-evolution-schema-separation-plan.md
   - docs/backend-ddd-microservices-evolution-internal-service-security.md
   - docs/backend-ddd-microservices-evolution-observability-baseline.md
+  - docs/backend-ddd-microservices-evolution-deployment-readiness-baseline.md
   - scripts/check-table-ownership.mjs
 last_verified: 2026-07-12
 review_after: 2026-10-08
@@ -71,6 +72,8 @@ Internal service-to-service traffic is protected by the token/TLS controls in `d
 
 Cross-service observability is a transport/platform concern, not a domain boundary. `web-gin-service` owns HTTP `/metrics`, request id, and inbound `traceparent` handling; `logic-grpc-service` owns gRPC server metrics and trace context extraction/generation. Metrics must use stable route/method/status or gRPC method/code labels rather than business payload fields.
 
+Readiness is also a platform boundary. Request-serving logic keeps RabbitMQ as a degraded soft dependency so synchronous API traffic can continue while Outbox accumulates; active worker readiness treats RabbitMQ as hard because queue consumers cannot make progress while disconnected.
+
 `logic-grpc-service/cmd/identity-service` is an unrouted service runtime for the Identity boundary. It can explicitly register AuthService plus the Identity-owned AdminService subset for validation, but it must not receive gateway traffic until a scoped cutover TASK records compatibility and rollback evidence.
 
 `logic-grpc-service/cmd/ai-agent-service` is an unrouted service skeleton for the AI Agent boundary. It is compile-safe only and must not receive gateway traffic or start runtime workers until a scoped extraction/cutover TASK records rollback evidence.
@@ -99,6 +102,7 @@ Generated protobuf files are contract artifacts. When proto definitions change, 
 - Keep schema or physical database separation behind the documented plan; do not bundle destructive contract steps with expand/backfill/cutover work.
 - Keep internal gRPC auth/TLS controls aligned across gateway clients, logic/extracted service servers, and deployment secret mounts.
 - Keep metrics and trace propagation in gateway/server middleware or interceptors; do not scatter telemetry label construction through domain services unless the domain event contract explicitly requires it.
+- Keep liveness/readiness semantics in platform health code and deployment probes; do not make domain handlers decide pod readiness.
 - Keep request deadlines and body limits in the gateway unless the logic service owns a deeper operation timeout.
 - Treat protobuf and database schema changes as public-contract or persistence changes that require explicit scope.
 

@@ -1,0 +1,231 @@
+{
+  "schemaVersion": 1,
+  "feature_name": "backend-ddd-microservices-evolution",
+  "task_id": "TASK-BDME-050",
+  "base_sha": "b6366a03f04e868932e8b8e9c93c557dc2e1d8b9",
+  "base_tree": "2f2e822ecf5a223757d3f21f117b10f4d34490d3",
+  "head_sha": "b6366a03f04e868932e8b8e9c93c557dc2e1d8b9",
+  "changed_files": [
+    ".knowledge/architecture/service-boundaries.md",
+    ".knowledge/manifest.yaml",
+    ".knowledge/runbooks/local-development.md",
+    ".knowledge/runbooks/service-binary-convention.md",
+    ".spec/backend-ddd-microservices-evolution/pipeline-state.json",
+    ".spec/backend-ddd-microservices-evolution/reports/TASK-BDME-050-report.md",
+    ".spec/backend-ddd-microservices-evolution/reports/TASK-BDME-050-evidence.json",
+    "deploy/k8s/README-service-binaries.md",
+    "deploy/k8s/configmap.yaml",
+    "deploy/k8s/worker-deployment.yaml",
+    "docs/backend-ddd-microservices-evolution-deployment-readiness-baseline.md",
+    "docs/backend-ddd-microservices-evolution-service-binary-convention.md",
+    "logic-grpc-service/config/config.example.yaml",
+    "logic-grpc-service/config/config.go",
+    "logic-grpc-service/main.go",
+    "logic-grpc-service/mq/rabbitmq.go",
+    "logic-grpc-service/server/health.go",
+    "logic-grpc-service/server/health_test.go"
+  ],
+  "scope": {
+    "status": "passed",
+    "base_tree": "2f2e822ecf5a223757d3f21f117b10f4d34490d3",
+    "out_of_scope": [],
+    "forbidden": [],
+    "allowed": [
+      ".knowledge/architecture/service-boundaries.md",
+      ".knowledge/manifest.yaml",
+      ".knowledge/runbooks/local-development.md",
+      ".knowledge/runbooks/service-binary-convention.md",
+      ".spec/backend-ddd-microservices-evolution/pipeline-state.json",
+      ".spec/backend-ddd-microservices-evolution/reports/TASK-BDME-050-report.md",
+      ".spec/backend-ddd-microservices-evolution/reports/TASK-BDME-050-evidence.json",
+      "deploy/k8s/README-service-binaries.md",
+      "deploy/k8s/configmap.yaml",
+      "deploy/k8s/worker-deployment.yaml",
+      "docs/backend-ddd-microservices-evolution-deployment-readiness-baseline.md",
+      "docs/backend-ddd-microservices-evolution-service-binary-convention.md",
+      "logic-grpc-service/config/config.example.yaml",
+      "logic-grpc-service/config/config.go",
+      "logic-grpc-service/main.go",
+      "logic-grpc-service/mq/rabbitmq.go",
+      "logic-grpc-service/server/health.go",
+      "logic-grpc-service/server/health_test.go"
+    ]
+  },
+  "checks": [
+    {
+      "command": "git diff --name-only && git ls-files --others --exclude-standard",
+      "exit_code": 0,
+      "status": "passed",
+      "duration_ms": 0,
+      "started_at": "2026-07-11T19:15:17Z",
+      "summary": "Listed tracked and untracked TASK files, including new health tests and report/evidence files."
+    },
+    {
+      "command": "cd logic-grpc-service && go test ./server ./mq ./config",
+      "exit_code": 0,
+      "status": "passed",
+      "duration_ms": 5855,
+      "started_at": "2026-07-11T19:15:17Z",
+      "summary": "Focused readiness, MQ state, and config tests passed."
+    },
+    {
+      "command": "cd logic-grpc-service && go test ./...",
+      "exit_code": 0,
+      "status": "passed",
+      "duration_ms": 13379,
+      "started_at": "2026-07-11T19:15:17Z",
+      "summary": "All logic-grpc-service packages passed."
+    },
+    {
+      "command": "cd web-gin-service && go test ./...",
+      "exit_code": 0,
+      "status": "passed",
+      "duration_ms": 680,
+      "started_at": "2026-07-11T19:15:17Z",
+      "summary": "All web-gin-service packages passed."
+    },
+    {
+      "command": "node .knowledge/scripts/detect-impact.mjs --root . --base-tree 2f2e822ecf5a223757d3f21f117b10f4d34490d3",
+      "exit_code": 0,
+      "status": "passed",
+      "duration_ms": 242,
+      "started_at": "2026-07-11T19:15:17Z",
+      "summary": "impact_result: update_required; readiness and service-boundary knowledge routes matched."
+    },
+    {
+      "command": "node .knowledge/scripts/validate-knowledge.mjs --root .",
+      "exit_code": 0,
+      "status": "passed",
+      "duration_ms": 25,
+      "started_at": "2026-07-11T19:15:17Z",
+      "summary": "knowledge_result: PASS (36 formal documents)."
+    },
+    {
+      "command": "TASK_BASE_TREE=2f2e822ecf5a223757d3f21f117b10f4d34490d3 bash .spec/backend-ddd-microservices-evolution/scripts/check-task-scope.sh TASK-BDME-050",
+      "exit_code": 0,
+      "status": "passed",
+      "duration_ms": 65,
+      "started_at": "2026-07-11T19:15:17Z",
+      "summary": "scope_result: PASS (TASK-BDME-050)."
+    },
+    {
+      "command": "bash .spec/backend-ddd-microservices-evolution/scripts/agent-check.sh",
+      "exit_code": 0,
+      "status": "passed",
+      "duration_ms": 5828,
+      "started_at": "2026-07-11T19:15:17Z",
+      "summary": "Feature validation, gofmt, logic go test, and knowledge validation passed."
+    },
+    {
+      "command": "git diff --check",
+      "exit_code": 0,
+      "status": "passed",
+      "duration_ms": 0,
+      "started_at": "2026-07-11T19:15:17Z",
+      "summary": "No whitespace errors."
+    }
+  ],
+  "review": {
+    "type": "self-review",
+    "round": 1,
+    "verdict": "通过",
+    "findings": []
+  },
+  "human_confirmation": {
+    "required": true,
+    "confirmed": true,
+    "confirmed_by": "user_global_gate_override",
+    "confirmed_at": "2026-07-11T19:15:17Z",
+    "confirmation_text": "用户确认允许继续执行，后面所有人工门禁都取消；任务实现完毕且 self-review 通过即可继续。"
+  },
+  "exceptions": [],
+  "skipped_checks": [],
+  "knowledgeImpact": {
+    "result": "update_required",
+    "triggeredBy": [
+      "configuration-changed",
+      "covered-path-changed",
+      "service-boundary-changed"
+    ],
+    "reviewResults": [
+      {
+        "document": ".knowledge/architecture/service-boundaries.md",
+        "verdict": "UPDATED",
+        "evidence": [
+          "Documented readiness as a platform boundary and RabbitMQ soft/hard semantics for service vs worker mode."
+        ]
+      },
+      {
+        "document": ".knowledge/runbooks/local-development.md",
+        "verdict": "UPDATED",
+        "evidence": [
+          "Documented WORKER_HEALTH_ADDR and worker /readyz smoke check."
+        ]
+      },
+      {
+        "document": ".knowledge/runbooks/service-binary-convention.md",
+        "verdict": "UPDATED",
+        "evidence": [
+          "Documented active worker dependency-aware health and readiness checklist."
+        ]
+      },
+      {
+        "document": ".knowledge/manifest.yaml",
+        "verdict": "UPDATED",
+        "evidence": [
+          "Routed deployment readiness baseline to service-binary knowledge for future impact detection."
+        ]
+      },
+      {
+        "document": ".knowledge/architecture/system-overview.md",
+        "verdict": "UNCHANGED",
+        "evidence": [
+          "Reviewed due backend route; topology remains gateway, logic service, and worker-only deployment."
+        ]
+      },
+      {
+        "document": ".knowledge/architecture/auth-rbac-security.md",
+        "verdict": "UNCHANGED",
+        "evidence": [
+          "Reviewed due backend/deploy route; auth and internal TLS/token policy unchanged."
+        ]
+      },
+      {
+        "document": ".knowledge/runbooks/debug-auth-permissions.md",
+        "verdict": "UNCHANGED",
+        "evidence": [
+          "Reviewed due auth route; permission debugging flow unchanged."
+        ]
+      },
+      {
+        "document": ".knowledge/pitfalls/auth-permission-alignment.md",
+        "verdict": "UNCHANGED",
+        "evidence": [
+          "Reviewed due auth route; permission catalog behavior unchanged."
+        ]
+      },
+      {
+        "document": ".knowledge/runbooks/knowledge-coverage-audit.md",
+        "verdict": "UNCHANGED",
+        "evidence": [
+          "Reviewed due manifest update; coverage procedure unchanged."
+        ]
+      },
+      {
+        "document": ".knowledge/domains/notification-outbox.md",
+        "verdict": "UNCHANGED",
+        "evidence": [
+          "Reviewed due worker/service-binary route; notification/outbox semantics unchanged beyond worker readiness dependency reporting."
+        ]
+      }
+    ],
+    "coverageGap": false,
+    "validationExitCode": 0
+  },
+  "acceptance": {
+    "readiness": "implemented dependency-aware readiness report for logic service and worker modes",
+    "worker_health": "implemented worker-only HTTP /livez and /readyz via WORKER_HEALTH_ADDR and Kubernetes probes",
+    "degradation": "RabbitMQ is degraded soft dependency for request-serving logic and hard dependency for worker readiness",
+    "compatibility": "public product APIs, protobufs, schemas, dependencies, auth policy, and frontend files unchanged"
+  }
+}

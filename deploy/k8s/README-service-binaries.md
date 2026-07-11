@@ -17,5 +17,4 @@ Use `backend.smart-recruit/cutover-mode: none` for compiled skeletons that must 
 The current active examples remain:
 
 - `deploy/k8s/logic-deployment.yaml`: gRPC backend with background workers disabled.
-- `deploy/k8s/worker-deployment.yaml`: worker-only process using `logic-grpc-service --worker-only`.
-
+- `deploy/k8s/worker-deployment.yaml`: worker-only process using `logic-grpc-service --worker-only`, with HTTP `/livez` and `/readyz` on the `health` port.

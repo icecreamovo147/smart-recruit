@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "feature_name": "backend-ddd-microservices-evolution",
-  "current_task": "TASK-BDME-050",
+  "current_task": "TASK-BDME-051",
   "current_phase": "pending",
   "completed_tasks": [
     "TASK-BDME-001",
@@ -52,7 +52,8 @@
     "TASK-BDME-046",
     "TASK-BDME-047",
     "TASK-BDME-048",
-    "TASK-BDME-049"
+    "TASK-BDME-049",
+    "TASK-BDME-050"
   ],
   "blocked_tasks": [],
   "failed_tasks": [],
@@ -844,6 +845,22 @@
         "confirmation_text": "TASK-BDME-049 does not require human confirmation."
       },
       "evidence": ".spec/backend-ddd-microservices-evolution/reports/TASK-BDME-049-evidence.json"
+    },
+    "TASK-BDME-050": {
+      "base_sha": "b6366a03f04e868932e8b8e9c93c557dc2e1d8b9",
+      "base_tree": "2f2e822ecf5a223757d3f21f117b10f4d34490d3",
+      "head_sha": "b6366a03f04e868932e8b8e9c93c557dc2e1d8b9",
+      "scope_status": "passed",
+      "checks_status": "passed",
+      "review_verdict": "通过",
+      "human_confirmation": {
+        "required": true,
+        "confirmed": true,
+        "confirmed_by": "user_global_gate_override",
+        "confirmed_at": "2026-07-11T19:15:17Z",
+        "confirmation_text": "用户确认允许继续执行，后面所有人工门禁都取消；任务实现完毕且 self-review 通过即可继续。"
+      },
+      "evidence": ".spec/backend-ddd-microservices-evolution/reports/TASK-BDME-050-evidence.json"
     }
   },
   "updated_at": "2026-07-11T18:28:00Z"

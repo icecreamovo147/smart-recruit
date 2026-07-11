@@ -1,6 +1,6 @@
 # Backend DDD Microservices Evolution Deployment Readiness Baseline
 
-Status: TASK-BDME-007 baseline
+Status: TASK-BDME-007 baseline, updated by TASK-BDME-050 runtime readiness implementation
 Last verified: 2026-07-11
 
 ## Purpose
@@ -51,14 +51,18 @@ Source: `deploy/k8s/logic-deployment.yaml`, `deploy/k8s/logic-service.yaml`,
 - Configuration source: `logic-config` ConfigMap plus `recruitment-secrets`.
 - Worker behavior: `DISABLE_BACKGROUND_WORKERS=true`, so request-serving pods
   do not start background consumers.
-- Readiness probe: Kubernetes gRPC probe on port `50051`.
-- Liveness probe: Kubernetes gRPC probe on port `50051`.
+- Readiness probe: TCP socket probe on the `grpc` port. The probe is TCP-based
+  because internal gRPC TLS is required in Kubernetes and the built-in gRPC probe
+  is plaintext.
+- Liveness probe: TCP socket probe on the `grpc` port.
+- Metrics port: `9091`, named `metrics`, when `METRICS_ADDR=:9091`.
 
-The logic gRPC health server returns `SERVING` only when MySQL can be pinged,
-configured Redis can be pinged, and a previously established RabbitMQ connection
-has not closed. If RabbitMQ is unavailable at process startup, startup logs a
-warning and continues with a reconnect-capable worker/outbox path; RabbitMQ is
-therefore treated as a soft startup dependency in that case.
+The logic gRPC health server returns `SERVING` when hard dependencies are ready
+and may still return `SERVING` in a degraded state when RabbitMQ is unavailable.
+MySQL and configured Redis are hard dependencies for request-serving readiness.
+RabbitMQ is a soft dependency for request-serving pods: Outbox can accumulate
+pending events and reconnect loops can recover without removing the HTTP/gRPC
+serving path from rotation.
 
 The logic service still performs startup side effects before serving traffic:
 configuration validation, internal token validation, MySQL connection and
@@ -77,13 +81,16 @@ Source: `deploy/k8s/worker-deployment.yaml` and `logic-grpc-service/main.go`.
 - Command: `/usr/local/bin/logic-grpc-service --worker-only`.
 - Configuration source: `logic-config` ConfigMap plus `recruitment-secrets`.
 - Pod disruption budget: `maxUnavailable: 1`.
-- Readiness probe: exec `kill -0 1`.
-- Liveness probe: exec `kill -0 1`.
+- Container ports: `9091` named `metrics` and `9092` named `health`.
+- Readiness probe: HTTP GET `/readyz` on the `health` port.
+- Liveness probe: HTTP GET `/livez` on the `health` port.
 
 Worker-only mode starts background workers and then waits for termination
-signals instead of starting the gRPC server. Current probes prove process
-existence only; they do not prove queue connectivity, consumer heartbeats,
-outbox lag, retry/dead-letter state, or per-worker semantic health.
+signals instead of starting the gRPC server. TASK-BDME-050 adds a worker health
+HTTP listener controlled by `WORKER_HEALTH_ADDR`. `/livez` reports process
+liveness. `/readyz` checks MySQL, configured Redis, and RabbitMQ as hard worker
+dependencies; if RabbitMQ is disconnected or reconnecting, worker readiness
+returns `503 not_ready` while the process remains live.
 
 ### Network Access
 
@@ -157,8 +164,10 @@ serving readiness.
 - Configuration and secrets are shared with `logic-grpc-service`.
 - MySQL is required because worker startup uses the same application assembly,
   repositories, migrations, and outbox state.
-- RabbitMQ is required for active consumer delivery and reconnect loops, even
-  though initial RabbitMQ startup failure is logged and treated as degraded.
+- RabbitMQ is required for active consumer delivery and reconnect loops. In
+  worker-only readiness it is a hard dependency; in request-serving logic
+  readiness it is degraded so synchronous traffic can continue while Outbox
+  accumulates and reconnect loops recover.
 - Redis is required when configured for the cache-backed workflows used by the
   shared service assembly.
 - Object storage, AI client, SMTP configuration, and frontend URL affect
@@ -166,8 +175,10 @@ serving readiness.
 
 ## Soft Dependencies and Degradation
 
-- RabbitMQ initial unavailability: logic startup logs a warning and continues;
-  background workers reconnect and Outbox can accumulate pending events.
+- RabbitMQ initial or runtime unavailability: request-serving logic startup logs
+  a warning and continues; Outbox can accumulate pending events. Worker-only
+  readiness fails until RabbitMQ is connected because consumers cannot make
+  progress without queue connectivity.
 - SMTP: when `SMTP_REQUIRED` is false and no SMTP host is configured, email uses
   non-sending/logging behavior instead of failing startup.
 - Redis runtime failures: some gateway middleware can fall back or fail closed
@@ -181,12 +192,13 @@ serving readiness.
 
 ## Readiness Gaps for Later Tasks
 
-- Worker readiness is process-level only and does not reflect queue health,
-  consumer heartbeat, outbox lag, dead-letter accumulation, or per-consumer
-  failure state.
-- Logic gRPC readiness checks MySQL, configured Redis, and closed RabbitMQ
-  connection state, but does not expose structured dependency details through a
-  diagnostic endpoint.
+- Worker readiness now reflects hard dependency availability for MySQL,
+  configured Redis, and RabbitMQ. It still does not expose queue backlog,
+  dead-letter accumulation, or per-consumer heartbeat state.
+- Logic gRPC readiness checks MySQL/configured Redis as hard dependencies and
+  treats RabbitMQ as degraded. gRPC health still only returns SERVING or
+  NOT_SERVING; structured dependency details are available in worker HTTP
+  readiness but not in the request-serving gRPC health response.
 - Gateway readiness returns dependency details, but those details are not yet
   connected to metrics or tracing.
 - Docker Compose lacks application-level health checks for the gateway and
@@ -194,8 +206,8 @@ serving readiness.
 - Startup side effects such as migrations, seeding, and legacy RBAC migration
   still run in request-serving logic pods and need review before larger
   multi-replica production rollouts.
-- Metrics, traces, queue backlog indicators, retry/dead-letter counters, and
-  worker semantic health are planned by later observability/readiness tasks.
+- Queue backlog indicators, retry/dead-letter counters, and per-worker semantic
+  heartbeat health are planned by later observability/readiness tasks.
 
 ## Migration Notes
 

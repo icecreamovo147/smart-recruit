@@ -22,6 +22,11 @@ spec:
           command:
             - /usr/local/bin/logic-grpc-service
             - --worker-only
+          ports:
+            - containerPort: 9091
+              name: metrics
+            - containerPort: 9092
+              name: health
           envFrom:
             - configMapRef:
                 name: logic-config
@@ -35,19 +40,15 @@ spec:
               cpu: 300m
               memory: 256Mi
           readinessProbe:
-            exec:
-              command:
-                - /bin/sh
-                - -c
-                - kill -0 1
+            httpGet:
+              path: /readyz
+              port: health
             initialDelaySeconds: 5
             periodSeconds: 10
           livenessProbe:
-            exec:
-              command:
-                - /bin/sh
-                - -c
-                - kill -0 1
+            httpGet:
+              path: /livez
+              port: health
             initialDelaySeconds: 15
             periodSeconds: 20
 ---

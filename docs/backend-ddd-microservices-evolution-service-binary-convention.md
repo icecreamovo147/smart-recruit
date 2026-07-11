@@ -60,6 +60,9 @@ Current transitional behavior:
 
 - `logic-grpc-service` serves gRPC health on port `50051`.
 - `logic-worker` uses the same image and command with `--worker-only`.
+- Worker-only health uses `WORKER_HEALTH_ADDR` to expose HTTP `/livez` and
+  `/readyz`; Kubernetes sets this to `:9092` and uses dependency-aware HTTP
+  probes instead of process-only `kill -0`.
 - Existing manifests in `deploy/k8s/logic-deployment.yaml` and `deploy/k8s/worker-deployment.yaml` remain the active deployment examples.
 
 ## Deployment Metadata Convention

@@ -326,6 +326,12 @@ func (c *Conn) IsClosed() bool {
 	return c.closed
 }
 
+func (c *Conn) IsReady() bool {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	return !c.closed && c.conn != nil && c.channel != nil
+}
+
 func (c *Conn) KeepAlive(ctx context.Context, reconnectInterval time.Duration) {
 	if reconnectInterval <= 0 {
 		reconnectInterval = 3 * time.Second
