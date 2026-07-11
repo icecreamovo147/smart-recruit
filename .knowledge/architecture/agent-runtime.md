@@ -16,14 +16,17 @@ applies_to:
   - logic-grpc-service/cmd/ai-agent-service/**
   - logic-grpc-service/internal/aiagent/**
   - logic-grpc-service/service/ai_service.go
+  - logic-grpc-service/service/ai_agent_runtime.go
   - logic-grpc-service/service/agent_context.go
   - logic-grpc-service/service/agent_run_recorder.go
   - hr-frontend/src/views/hr/AIChatView.vue
 source_refs:
   - README.md
   - logic-grpc-service/service/ai_service.go
+  - logic-grpc-service/service/ai_agent_runtime.go
   - logic-grpc-service/service/agent_context.go
   - logic-grpc-service/service/agent_run_recorder.go
+  - docs/backend-ddd-microservices-evolution-ai-agent-runtime-extraction.md
   - logic-grpc-service/internal/aiagent/runtime/skeleton.go
   - logic-grpc-service/cmd/ai-agent-service/main.go
   - docs/backend-ddd-microservices-evolution-ai-agent-service-skeleton.md
@@ -39,6 +42,8 @@ Smart Recruit has an HR AI assistant and candidate AI assistant backed by logic-
 Agent runtime behavior belongs in `logic-grpc-service/service/` and `logic-grpc-service/ai/`. Frontend chat views and gateway handlers should pass request state, render stream events, and expose trace or debug information, but they should not decide core runtime selection, memory ranking, or tool execution semantics.
 
 `cmd/ai-agent-service` is a compile-safe AI Agent service skeleton. Its runtime descriptor has `TrafficEnabled=false`, `CutoverMode=none`, no network listener, and no AI chat, agent-run, embedding, MCP, or memory runtime worker startup.
+
+`service.AIAgentRuntime` is the current AI Agent runtime composition boundary. It wires HR AI service, candidate AI service, LLM provider fallback/config surface, embedding service, embedding workload consumer, durable agent-run consumer, runtime policy, and current runtime name while keeping current monolith startup behavior.
 
 ## Runtime Inputs
 
@@ -68,7 +73,8 @@ Runtime code should consume the active, enabled configuration and handle missing
 - Changes to trace recording should check agent run recorder tests and HR trace UI expectations.
 - Changes to Agent Skill selection or semantic retrieval should also review `semantic-retrieval` and domain knowledge for Skill and Memory.
 - AI Agent service skeleton changes should preserve the unrouted descriptor until a scoped runtime extraction or gateway cutover TASK adds shadow, dual-run, or routed behavior with rollback evidence.
+- AI Agent runtime extraction changes should keep `service.NewServices`, `logic-grpc-service/main.go`, consumer start order, Inbox idempotency, provider fallback behavior, and existing queue/routing-key behavior compatible unless the current TASK is an approved cutover.
 
 ## Verification
 
-This document was verified against `logic-grpc-service/service/agent_context.go`, `logic-grpc-service/service/ai_service.go`, `logic-grpc-service/service/agent_run_recorder.go`, `logic-grpc-service/internal/aiagent/runtime/skeleton.go`, `logic-grpc-service/cmd/ai-agent-service/main.go`, and `logic-grpc-service/ai/adk_agent.go` on 2026-07-12.
+This document was verified against `logic-grpc-service/service/agent_context.go`, `logic-grpc-service/service/ai_service.go`, `logic-grpc-service/service/ai_agent_runtime.go`, `logic-grpc-service/service/agent_run_recorder.go`, `logic-grpc-service/internal/aiagent/runtime/skeleton.go`, `logic-grpc-service/cmd/ai-agent-service/main.go`, and `logic-grpc-service/ai/adk_agent.go` on 2026-07-12.

@@ -66,6 +66,9 @@ type Services struct {
 	// Notification runtime owns notification persistence, realtime delivery,
 	// email coordination, outbox dispatch, and notification consumers.
 	NotificationRuntime *NotificationRuntime
+	// AI Agent runtime owns AI chat, candidate chat, provider fallback,
+	// embedding workload execution, and durable agent-run execution.
+	AIAgentRuntime *AIAgentRuntime
 	// Background workers (caller must Start/Stop)
 	OutboxPublisher      *OutboxPublisher
 	NotificationConsumer *NotificationConsumer
@@ -202,6 +205,16 @@ func NewServices(
 		WithEmbeddingEventPublisher(embeddingEventPublisher).
 		WithRuntimePolicy(runtimePolicy)
 	agentRunConsumer := NewAgentRunConsumer(aiSvc).WithInbox(inboxRepo)
+	aiAgentRuntime := NewAIAgentRuntime(AIAgentRuntimeDeps{
+		AI:                aiSvc,
+		CandidateAI:       candidateAI,
+		LlmConfig:         llmConfigSvc,
+		Embedding:         embeddingSvc,
+		EmbeddingConsumer: embeddingConsumer,
+		AgentRunConsumer:  agentRunConsumer,
+		RuntimePolicy:     runtimePolicy,
+		RuntimeName:       agentRuntime,
+	})
 
 	return &Services{
 		Auth:              NewAuthService(users, tokens, authzRepo, inviteCodes, jwtSecret),
@@ -222,6 +235,7 @@ func NewServices(
 		CandidateAI:            candidateAI,
 		Notification:           notificationRuntime.Notification,
 		NotificationRuntime:    notificationRuntime,
+		AIAgentRuntime:         aiAgentRuntime,
 		LlmConfig:              llmConfigSvc,
 		Prompt:                 NewPromptService(promptTmplRepo),
 		AgentConfig:            NewAgentConfigService(agentCfgRepo, promptTmplRepo, mcpSvc, skillSvc),
@@ -253,8 +267,8 @@ func NewServices(
 		NotificationConsumer: notificationRuntime.NotificationConsumer,
 		ResumeParseConsumer:  resumeParseConsumer,
 		EmailConsumer:        notificationRuntime.EmailConsumer,
-		EmbeddingConsumer:    embeddingConsumer,
-		AgentRunConsumer:     agentRunConsumer,
+		EmbeddingConsumer:    aiAgentRuntime.EmbeddingConsumer,
+		AgentRunConsumer:     aiAgentRuntime.AgentRunConsumer,
 	}
 }
 

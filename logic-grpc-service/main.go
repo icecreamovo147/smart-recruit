@@ -322,11 +322,11 @@ func main() {
 		if err := services.ResumeParseConsumer.Start(bgCtx, mqConn); err != nil {
 			log.Warn("resume parse consumer start failed", zap.Error(err))
 		}
-		if err := services.EmbeddingConsumer.Start(bgCtx, mqConn); err != nil {
-			log.Warn("embedding consumer start failed", zap.Error(err))
-		}
-		if err := services.AgentRunConsumer.Start(bgCtx, mqConn); err != nil {
-			log.Warn("agent run consumer start failed", zap.Error(err))
+		for _, startErr := range services.AIAgentRuntime.Start(bgCtx, mqConn) {
+			log.Warn("ai agent runtime component start failed",
+				zap.String("component", startErr.Component),
+				zap.Error(startErr.Err),
+			)
 		}
 		go mqConn.KeepAlive(bgCtx, cfg.RabbitMQ.ReconnectInterval.Duration)
 	} else {

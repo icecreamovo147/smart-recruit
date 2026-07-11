@@ -32,6 +32,8 @@ Running the binary without flags exits with code `2` and explains that it is int
 
 ## Compatibility
 
+TASK-BDME-031 later extracted the current monolith AI Agent runtime composition into `logic-grpc-service/service/ai_agent_runtime.go`. The skeleton command remains unrouted and still does not start the runtime by default.
+
 This skeleton TASK does not change:
 
 - `logic-grpc-service/main.go`;

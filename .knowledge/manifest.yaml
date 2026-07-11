@@ -90,6 +90,7 @@ routes:
 
   - match:
       - logic-grpc-service/service/ai_service.go
+      - logic-grpc-service/service/ai_agent_runtime.go
       - logic-grpc-service/service/agent_context.go
       - logic-grpc-service/service/agent_run_recorder.go
       - logic-grpc-service/service/agent_runtime_policy.go
@@ -335,6 +336,7 @@ routes:
       - docs/backend-ddd-microservices-evolution-notification-runtime-extraction.md
       - docs/backend-ddd-microservices-evolution-notification-gateway-cutover.md
       - docs/backend-ddd-microservices-evolution-ai-agent-service-skeleton.md
+      - docs/backend-ddd-microservices-evolution-ai-agent-runtime-extraction.md
       - deploy/k8s/README-service-binaries.md
       - deploy/k8s/configmap.yaml
       - logic-grpc-service/internal/platform/servicebinary/**
@@ -343,6 +345,7 @@ routes:
       - logic-grpc-service/internal/notification/runtime/**
       - logic-grpc-service/internal/aiagent/runtime/**
       - logic-grpc-service/service/notification_runtime.go
+      - logic-grpc-service/service/ai_agent_runtime.go
       - web-gin-service/config/config.go
       - web-gin-service/rpc/client.go
     documents:

@@ -24,6 +24,7 @@ source_refs:
   - logic-grpc-service/internal/analytics/infrastructure/projection_repository.go
   - logic-grpc-service/internal/platform/servicebinary/convention.go
   - logic-grpc-service/internal/aiagent/runtime/skeleton.go
+  - logic-grpc-service/service/ai_agent_runtime.go
   - logic-grpc-service/internal/platform/events/envelope.go
   - logic-grpc-service/repository/user_repo.go
 last_verified: 2026-07-12
@@ -45,6 +46,8 @@ Analytics event projection ingestion lives under `logic-grpc-service/internal/an
 `logic-grpc-service/internal/platform/servicebinary/` records the target backend service unit registry and deployment convention for extracted binaries. The registry is compile-checked but is not wired into startup or gateway routing by TASK-BDME-026.
 
 `logic-grpc-service/cmd/ai-agent-service` is an unrouted service skeleton for the AI Agent boundary. It is compile-safe only and must not receive gateway traffic or start runtime workers until a scoped extraction/cutover TASK records rollback evidence.
+
+`logic-grpc-service/service/ai_agent_runtime.go` is the transitional AI Agent runtime boundary inside the monolith. It groups AI chat, candidate AI, provider fallback/config surface, embedding runtime, embedding workload execution, and durable agent-run execution without changing public API routing.
 
 Generated protobuf files are contract artifacts. When proto definitions change, generated code in both Go services must stay aligned with the source `.proto` files.
 
@@ -68,4 +71,4 @@ Generated protobuf files are contract artifacts. When proto definitions change, 
 
 ## Verification
 
-The boundary was verified from gateway route registration, protobuf service definitions, representative logic service/repository files, `logic-grpc-service/service/recruitment_lifecycle_process_manager.go`, Analytics projection ingestion files, AI Agent skeleton files, `logic-grpc-service/internal/platform/servicebinary/convention.go`, and `logic-grpc-service/internal/platform/events/envelope.go` on 2026-07-12.
+The boundary was verified from gateway route registration, protobuf service definitions, representative logic service/repository files, `logic-grpc-service/service/recruitment_lifecycle_process_manager.go`, Analytics projection ingestion files, AI Agent skeleton/runtime files, `logic-grpc-service/internal/platform/servicebinary/convention.go`, and `logic-grpc-service/internal/platform/events/envelope.go` on 2026-07-12.
