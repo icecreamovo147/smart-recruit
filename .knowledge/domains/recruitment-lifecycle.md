@@ -25,6 +25,7 @@ source_refs:
   - logic-grpc-service/internal/recruitment/runtime/skeleton.go
   - logic-grpc-service/internal/recruitment/runtime/runtime.go
   - logic-grpc-service/internal/interview/runtime/runtime.go
+  - logic-grpc-service/internal/offer/runtime/runtime.go
   - logic-grpc-service/service/interview_service.go
   - logic-grpc-service/service/offer_service.go
   - logic-grpc-service/service/collaboration_service.go
@@ -42,6 +43,8 @@ The `recruitment-service` binary is not used by default. Its runtime can explici
 
 The `interview-service` binary is also rollback-safe by default. `INTERVIEW_ROUTE_MODE=logic` keeps interview traffic on the monolith, while `INTERVIEW_ROUTE_MODE=interview` routes only InterviewService traffic to `INTERVIEW_GRPC_ADDR`; rollback is `INTERVIEW_ROUTE_MODE=logic`.
 
+The `offer-service` binary has an explicit runtime registration path for OfferService, but offer lifecycle traffic remains on the monolith until a later scoped gateway cutover.
+
 ## Core Flow
 
 - `ApplicationService.ApplyJob` requires a complete candidate profile, a valid resume, and an online job, then creates a new application round.
@@ -51,6 +54,7 @@ The `interview-service` binary is also rollback-safe by default. `INTERVIEW_ROUT
 - Interview scheduling and feedback use interview services/repositories and affect HR, candidate, and interviewer surfaces.
 - `interview-service` has an explicit runtime registration path for InterviewService and a gateway cutover switch. Current lifecycle side effects stay on the monolith path unless `INTERVIEW_ROUTE_MODE=interview` is explicitly configured.
 - Offer creation, send, withdraw, accept, and reject update offer state in Offer service transactions and route application lifecycle transitions through `RecruitmentLifecycleProcessManager`.
+- `offer-service` currently has an explicit runtime registration path for OfferService but remains unrouted; current lifecycle side effects stay on the monolith path.
 - Collaboration workspace composes applications, notes, tags, tasks, interviews, offers, and timeline events for staff workflows.
 
 ## Cross-Surface Impact
@@ -70,4 +74,4 @@ The `interview-service` binary is also rollback-safe by default. `INTERVIEW_ROUT
 
 ## Verification
 
-Verified against status model, application service, recruitment lifecycle process manager, interview service, offer service, collaboration service, application repository, Recruitment and Interview runtime descriptors, gateway route-mode controls, and protobuf messages on 2026-07-12.
+Verified against status model, application service, recruitment lifecycle process manager, interview service, offer service, collaboration service, application repository, Recruitment, Interview, and Offer runtime descriptors, gateway route-mode controls, and protobuf messages on 2026-07-12.
