@@ -346,6 +346,7 @@ routes:
       - docs/backend-ddd-microservices-evolution-recruitment-service-skeleton.md
       - docs/backend-ddd-microservices-evolution-recruitment-api-extraction.md
       - docs/backend-ddd-microservices-evolution-recruitment-gateway-cutover.md
+      - docs/backend-ddd-microservices-evolution-interview-service-api-extraction.md
       - deploy/k8s/README-service-binaries.md
       - deploy/k8s/configmap.yaml
       - logic-grpc-service/internal/platform/servicebinary/**
@@ -353,11 +354,14 @@ routes:
       - logic-grpc-service/cmd/ai-agent-service/**
       - logic-grpc-service/cmd/identity-service/**
       - logic-grpc-service/cmd/recruitment-service/**
+      - logic-grpc-service/cmd/interview-service/**
       - logic-grpc-service/internal/notification/runtime/**
       - logic-grpc-service/internal/aiagent/runtime/**
       - logic-grpc-service/internal/identity/runtime/**
       - logic-grpc-service/internal/recruitment/runtime/**
       - logic-grpc-service/internal/recruitment/interfaces/**
+      - logic-grpc-service/internal/interview/runtime/**
+      - logic-grpc-service/internal/interview/interfaces/**
       - logic-grpc-service/service/notification_runtime.go
       - logic-grpc-service/service/ai_agent_runtime.go
       - web-gin-service/config/config.go

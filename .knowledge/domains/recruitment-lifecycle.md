@@ -24,6 +24,7 @@ source_refs:
   - logic-grpc-service/service/recruitment_lifecycle_process_manager.go
   - logic-grpc-service/internal/recruitment/runtime/skeleton.go
   - logic-grpc-service/internal/recruitment/runtime/runtime.go
+  - logic-grpc-service/internal/interview/runtime/runtime.go
   - logic-grpc-service/service/interview_service.go
   - logic-grpc-service/service/offer_service.go
   - logic-grpc-service/service/collaboration_service.go
@@ -46,6 +47,7 @@ The `recruitment-service` binary is not used by default. Its runtime can explici
 - `ApplicationService.UpdateApplicationStatus` validates target status keys, allowed transitions, reason requirements for closeout states, scope access, and current-round constraints.
 - `RecruitmentLifecycleProcessManager` is the explicit process-manager boundary for Interview and Offer workflows that must advance application status or write application transition audit records inside an existing transaction.
 - Interview scheduling and feedback use interview services/repositories and affect HR, candidate, and interviewer surfaces.
+- `interview-service` currently has an explicit runtime registration path for InterviewService but remains unrouted; current lifecycle side effects stay on the monolith path.
 - Offer creation, send, withdraw, accept, and reject update offer state in Offer service transactions and route application lifecycle transitions through `RecruitmentLifecycleProcessManager`.
 - Collaboration workspace composes applications, notes, tags, tasks, interviews, offers, and timeline events for staff workflows.
 
@@ -66,4 +68,4 @@ The `recruitment-service` binary is not used by default. Its runtime can explici
 
 ## Verification
 
-Verified against status model, application service, recruitment lifecycle process manager, interview service, offer service, collaboration service, application repository, Recruitment runtime descriptor, and protobuf messages on 2026-07-12.
+Verified against status model, application service, recruitment lifecycle process manager, interview service, offer service, collaboration service, application repository, Recruitment and Interview runtime descriptors, and protobuf messages on 2026-07-12.

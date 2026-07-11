@@ -25,6 +25,7 @@ source_refs:
   - logic-grpc-service/service/application_service.go
   - logic-grpc-service/internal/recruitment/runtime/skeleton.go
   - logic-grpc-service/internal/recruitment/runtime/runtime.go
+  - logic-grpc-service/internal/interview/runtime/runtime.go
   - db.sql
 last_verified: 2026-07-10
 review_after: 2026-10-08
@@ -58,4 +59,4 @@ Application state transitions and offer/interview lifecycle behavior are busines
 
 ## Verification
 
-This domain summary was verified against `README.md`, protobuf definitions, application/interview/offer/collaboration/notification service code, the Recruitment runtime descriptor, status model code, and database schema on 2026-07-12.
+This domain summary was verified against `README.md`, protobuf definitions, application/interview/offer/collaboration/notification service code, the Recruitment and Interview runtime descriptors, status model code, and database schema on 2026-07-12.
