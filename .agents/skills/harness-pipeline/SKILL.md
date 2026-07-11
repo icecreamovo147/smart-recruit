@@ -52,6 +52,8 @@ for each TASK:
   "completed_tasks": ["TASK-001", "TASK-002"],
   "blocked_tasks": [],
   "failed_tasks": [],
+  "skipped_human_confirmation_tasks": [],
+  "approved_exceptions": [],
   "review_round": 2,
   "status": "in_progress",
   "task_runs": {
@@ -63,8 +65,11 @@ for each TASK:
       "checks_status": "passed",
       "review_verdict": "通过",
       "human_confirmation": {
+        "required": true,
         "confirmed": true,
-        "confirmed_at": "..."
+        "confirmed_by": "user",
+        "confirmed_at": "...",
+        "confirmation_text": "..."
       },
       "evidence": ".spec/<feature_name>/reports/TASK-002-evidence.json"
     }
@@ -100,7 +105,9 @@ node .agents/skills/harness-pipeline/scripts/validate-pipeline-state.mjs \
 
 `completed_with_exceptions` 只允许在存在人工批准例外时使用，且每个例外必须记录 `approved_object`、`approved_by`、`approved_at` 和 `reason`。存在未批准失败、缺失 evidence、Review 不通过、scope/check 失败或缺失确认时，状态必须保持 `blocked` 或失败结果，不能写成普通完成。
 
-当 `skip_human_confirm=true` 且遇到 `requiresHumanConfirmation=true` 的 TASK 时，该 TASK 必须记录为 skipped/blocked/failed，不得加入 `completed_tasks`，最终状态不得是普通 `completed`。
+每个批准例外还必须用 `task_id` 或 `task_ids` 明确覆盖对应 TASK；未完成、失败、阻塞或跳过的 TASK 不能靠泛泛的例外说明通过。
+
+当 `skip_human_confirm=true` 且遇到 `requiresHumanConfirmation=true` 的 TASK 时，该 TASK 必须记录到 `blocked_tasks` 和 `skipped_human_confirmation_tasks`，不得加入 `completed_tasks`，最终状态必须保持 `blocked`，除非用户之后明确批准例外并记录为 `completed_with_exceptions`。
 
 ## 执行流程
 
@@ -115,19 +122,49 @@ node .agents/skills/harness-pipeline/scripts/validate-pipeline-state.mjs \
 
 2. 从 `TASKS.md` 提取所有 TASK-ID 列表（按出现顺序）
 3. 如果 `start_task` 指定了值，定位到该 TASK；否则从第一个开始
-4. 运行 `git status --short`，确认无无关改动
-5. 如果 `pipeline-state.json` 已存在，恢复状态并确认续跑
+4. 运行 feature preflight：
+
+```bash
+node .agents/skills/spec-harness/scripts/validate-feature.mjs \
+  --feature .spec/<feature_name> \
+  --require-pipeline
+```
+
+5. 运行 `git status --short`，确认无与当前功能无关的未提交改动
+6. 如果 `pipeline-state.json` 已存在，恢复状态并确认续跑；如果状态为 `completed`，直接输出汇总报告
 
 ### Step 1：TASK 循环
 
 对每个未完成的 TASK（从起始 TASK 到最后一个）：
 
+#### Step 1.0：TASK 基线
+
+在修改任何文件前，为当前 TASK 建立可靠基线：
+
+- 记录 `base_sha`：`git rev-parse HEAD`
+- 记录 `base_tree`：能代表“当前工作区加上已完成 TASK 改动”的 git tree id
+- 将二者写入 `pipeline-state.json.task_runs[TASK-ID]`
+
+如果不能生成可靠 `base_tree`，必须停止并说明原因。后续 scope check、report 和 evidence 都必须使用同一个 TASK 基线，避免后续 TASK 被前一个 TASK 的文件变更污染。
+
 #### Step 1.1：人工确认检查
 
 如果 `task-scope.json` 中该 TASK 的 `requiresHumanConfirmation` 为 `true`：
 
-- 如果 `skip_human_confirm` 为 `true`：拒绝执行，将该 TASK 标记为 `failed`（原因：requiresHumanConfirmation），跳过
+- 如果 `skip_human_confirm` 为 `true`：拒绝执行，将该 TASK 记录到 `blocked_tasks` 和 `skipped_human_confirmation_tasks`，原因是 `requiresHumanConfirmation`，然后停止 pipeline
 - 否则：**停止并向用户发送确认请求**，等待用户回复后再继续
+
+确认后必须同时写入 state 和 evidence：
+
+```json
+{
+  "required": true,
+  "confirmed": true,
+  "confirmed_by": "user",
+  "confirmed_at": "<ISO-8601>",
+  "confirmation_text": "<原始确认摘要>"
+}
+```
 
 #### Step 1.2：implement-task
 
@@ -135,12 +172,20 @@ node .agents/skills/harness-pipeline/scripts/validate-pipeline-state.mjs \
 
 1. 读取 `.spec/<feature_name>/acceptance/<TASK-ID>.md`
 2. 读取 `.spec/<feature_name>/prompts/implement-task.md`
-3. 仅修改 `task-scope.json` 中该 TASK 的 `allowedFiles`
+3. 仅修改该 TASK 的 `allowedFiles` 所允许的文件；不要修改 `task-scope.json` 本身，除非当前 TASK 明确允许
 4. 完成后运行：
    - `git diff --name-only`
    - `bash .spec/<feature_name>/scripts/check-task-scope.sh <TASK-ID>`
    - `bash .spec/<feature_name>/scripts/agent-check.sh`
-5. 生成 `.spec/<feature_name>/reports/<TASK-ID>-report.md`
+5. 生成：
+   - `.spec/<feature_name>/reports/<TASK-ID>-report.md`
+   - `.spec/<feature_name>/reports/<TASK-ID>-evidence.json`
+6. evidence 必须通过 canonical validator：
+
+```bash
+node .agents/skills/spec-harness/scripts/validate-evidence.mjs \
+  --file .spec/<feature_name>/reports/<TASK-ID>-evidence.json
+```
 
 #### Step 1.3：self-review
 
@@ -151,7 +196,7 @@ node .agents/skills/harness-pipeline/scripts/validate-pipeline-state.mjs \
 3. 输出 verdict：**通过** 或 **不通过 + 问题列表**
 
 如果 verdict 为 **通过**：
-- 更新 pipeline-state：当前 TASK 加入 `completed_tasks`，`review_round` 重置为 0
+- 更新 pipeline-state：当前 TASK 加入 `completed_tasks`，记录 `head_sha`、`scope_status`、`checks_status`、`review_verdict`、`evidence`，`review_round` 重置为 0
 - 进入下一个 TASK
 
 如果 verdict 为 **不通过**：
@@ -173,8 +218,11 @@ node .agents/skills/harness-pipeline/scripts/validate-pipeline-state.mjs \
 
 所有 TASK 完成后：
 
-1. 更新 pipeline-state：`status` = `completed`
-2. 输出最终汇总报告：`.spec/<feature_name>/reports/pipeline-summary.md`
+1. 将 pipeline-state 更新到 `current_phase=finalize`
+2. 生成候选完成状态：`status=completed`、`current_phase=completed`
+3. 对候选状态运行 `validate-pipeline-state.mjs`
+4. 只有校验通过，才保留候选完成状态；否则改回 `status=blocked` 或对应失败状态并报告原因
+5. 输出最终汇总报告：`.spec/<feature_name>/reports/pipeline-summary.md`
 
 ### Step 3：异常与人工门禁
 

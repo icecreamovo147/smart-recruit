@@ -90,6 +90,15 @@ service AIService {
   // Agent tool call trace query
   rpc GetToolTraces(GetToolTracesRequest) returns (GetToolTracesResponse);
   rpc GetAgentRuns(GetAgentRunsRequest) returns (GetAgentRunsResponse);
+
+  // Durable resumable HR Agent runs (create/get/active/subscribe/cancel/confirm).
+  // ChatStream remains available for rollout compatibility.
+  rpc CreateAgentRun(CreateAgentRunRequest) returns (CreateAgentRunResponse);
+  rpc GetAgentRun(GetAgentRunRequest) returns (GetAgentRunResponse);
+  rpc GetActiveAgentRun(GetActiveAgentRunRequest) returns (GetActiveAgentRunResponse);
+  rpc SubscribeAgentRunEvents(SubscribeAgentRunEventsRequest) returns (stream AgentRunEvent);
+  rpc CancelAgentRun(CancelAgentRunRequest) returns (CancelAgentRunResponse);
+  rpc ConfirmAgentRun(ConfirmAgentRunRequest) returns (ConfirmAgentRunResponse);
 }
 
 service OfferService {
@@ -882,6 +891,162 @@ message GetAgentRunsResponse {
   int32 code = 1;
   string msg = 2;
   repeated AgentRunItem list = 3;
+}
+
+// ---- Durable resumable HR Agent run messages ----
+// Status values (string): queued | planning | running | waiting_confirmation |
+// cancel_requested | succeeded | partial | failed | canceled
+// Event types (string): run.created | run.status_changed | assistant.delta |
+// assistant.snapshot | process.delta | process.snapshot | tool.started |
+// tool.finished | confirmation.required | confirmation.accepted | run.result |
+// run.error | run.completed | run.canceled | run.heartbeat
+
+message AgentRunResultMetadata {
+  string action = 1;
+  int64 application_id = 2;
+  int32 action_status = 3;
+  string candidate_name = 4;
+  string job_title = 5;
+  int32 status = 6;
+  string candidate_options = 7;
+  repeated string suggested_questions = 8;
+  ContextUsageInfo context_usage = 9;
+  string error_type = 10;
+  string error_message = 11;
+  string raw_json = 12; // Optional opaque extension payload
+}
+
+message AgentRunConfirmationPayload {
+  bool required = 1;
+  string reason = 2;
+  repeated AgentSkillSelectionCandidate candidates = 3;
+  repeated int64 recommended_agent_skill_ids = 4;
+  int64 user_message_id = 5;
+  string raw_json = 6; // Optional opaque extension payload
+}
+
+message AgentRunSnapshot {
+  int64 run_id = 1;
+  int64 session_id = 2;
+  int64 hr_id = 3;
+  string client_request_id = 4;
+  int64 message_id = 5;
+  int64 history_id = 6;
+  string status = 7;
+  string assistant_text = 8;
+  string process_text = 9;
+  AgentRunResultMetadata result_metadata = 10;
+  AgentRunConfirmationPayload confirmation_request = 11;
+  string option_context_json = 12;
+  int64 last_event_seq = 13;
+  string error_type = 14;
+  string error_message = 15;
+  int64 model_id = 16;
+  string model_name = 17;
+  string agent_type = 18;
+  int64 agent_id = 19;
+  string agent_name = 20;
+  string started_at = 21;
+  string completed_at = 22;
+  string cancel_requested_at = 23;
+  string canceled_at = 24;
+  string created_at = 25;
+  string updated_at = 26;
+}
+
+message AgentRunEvent {
+  int64 run_id = 1;
+  int64 seq = 2;
+  string event_type = 3;
+  string payload_json = 4;
+  string status = 5;                 // Optional status hint for status_changed events
+  string delta = 6;                  // Optional assistant/process delta text
+  string snapshot_text = 7;          // Optional full assistant/process snapshot text
+  AgentRunResultMetadata result_metadata = 8;
+  AgentRunConfirmationPayload confirmation = 9;
+  string tool_name = 10;
+  string error_type = 11;
+  string error_message = 12;
+  string created_at = 13;
+}
+
+message CreateAgentRunRequest {
+  int64 hr_id = 1;
+  int64 session_id = 2;
+  string client_request_id = 3;
+  string message = 4;                // User input for normal submit / retry
+  string action_type = 5;            // Optional: submit | retry | analyze_application | option_action | confirm_resume
+  string action_payload_json = 6;    // Optional structured action payload
+  int64 application_id = 7;
+  int64 model_id = 8;
+  repeated string skill_capability_keys = 9;
+  repeated int64 agent_skill_ids = 10;
+  bool agent_skill_selection_confirmed = 11;
+  int64 agent_skill_selection_message_id = 12;
+}
+
+message CreateAgentRunResponse {
+  int32 code = 1;
+  string msg = 2;
+  AgentRunSnapshot run = 3;
+  bool idempotent_replay = 4; // true when an existing run was returned for client_request_id
+}
+
+message GetAgentRunRequest {
+  int64 hr_id = 1;
+  int64 run_id = 2;
+}
+
+message GetAgentRunResponse {
+  int32 code = 1;
+  string msg = 2;
+  AgentRunSnapshot run = 3;
+}
+
+message GetActiveAgentRunRequest {
+  int64 hr_id = 1;
+  int64 session_id = 2;
+}
+
+message GetActiveAgentRunResponse {
+  int32 code = 1;
+  string msg = 2;
+  AgentRunSnapshot run = 3; // empty/absent when no active run
+  bool has_active_run = 4;
+}
+
+message SubscribeAgentRunEventsRequest {
+  int64 hr_id = 1;
+  int64 run_id = 2;
+  int64 after_seq = 3; // Replay events with seq > after_seq, then stream live
+}
+
+message CancelAgentRunRequest {
+  int64 hr_id = 1;
+  int64 run_id = 2;
+  string client_request_id = 3; // Optional idempotency key for cancel
+}
+
+message CancelAgentRunResponse {
+  int32 code = 1;
+  string msg = 2;
+  AgentRunSnapshot run = 3;
+}
+
+message ConfirmAgentRunRequest {
+  int64 hr_id = 1;
+  int64 run_id = 2;
+  string client_request_id = 3; // Optional idempotency key for confirm
+  repeated int64 agent_skill_ids = 4;
+  bool agent_skill_selection_confirmed = 5;
+  int64 agent_skill_selection_message_id = 6;
+  string confirmation_payload_json = 7; // Optional opaque confirmation payload
+}
+
+message ConfirmAgentRunResponse {
+  int32 code = 1;
+  string msg = 2;
+  AgentRunSnapshot run = 3;
 }
 
 // ── Interview ─────────────────────────────────────────────────────────

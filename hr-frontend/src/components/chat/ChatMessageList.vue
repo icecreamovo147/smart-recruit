@@ -185,8 +185,12 @@ const quickHints = [
           <div v-if="message.agentSkillSelection" class="skill-confirmation">
             <div class="skill-confirmation__header">
               <div>
-                <div class="skill-confirmation__title">确认本次要调用的 Skill</div>
-                <div class="skill-confirmation__desc">系统匹配到多个候选，请选择后继续生成回答。</div>
+                <div class="skill-confirmation__title">
+                  {{ message.agentSkillSelection.candidates.length ? '确认本次要调用的 Skill' : 'Skill 候选加载异常' }}
+                </div>
+                <div class="skill-confirmation__desc">
+                  {{ message.agentSkillSelection.candidates.length ? '系统匹配到多个候选，请选择后继续生成回答。' : '未能读取到可选候选，可跳过 Skill 继续生成回答。' }}
+                </div>
               </div>
               <el-tag size="small" effect="plain">待确认</el-tag>
             </div>

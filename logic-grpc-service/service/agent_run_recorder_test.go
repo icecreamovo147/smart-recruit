@@ -77,6 +77,47 @@ func TestAgentRunRecorderPersistsPartialFailureDecision(t *testing.T) {
 	assertStepTypes(t, repo, rec.runID, "plan", "tool", "fallback")
 }
 
+func TestTransitionDurableRunStatusRejectsIllegalAndAllowsIdempotent(t *testing.T) {
+	db := setupAgentRunRecorderTestDB(t)
+	repo := repository.NewAgentRunRepo(db)
+	rec := newTestAgentRunRecorder(t, repo)
+	ctx := context.Background()
+
+	if err := TransitionDurableRunStatus(ctx, repo, rec.runID, agentRunStatusPlanning, agentRunStatusSucceeded, nil, nil, nil); err == nil {
+		t.Fatal("expected illegal planning -> succeeded to fail")
+	}
+	run, err := repo.GetRunByID(ctx, rec.runID)
+	if err != nil || run == nil {
+		t.Fatalf("GetRunByID failed: %v", err)
+	}
+	if run.Status != agentRunStatusPlanning {
+		t.Fatalf("status should remain planning after illegal transition, got %s", run.Status)
+	}
+
+	if err := TransitionDurableRunStatus(ctx, repo, rec.runID, agentRunStatusPlanning, agentRunStatusRunning, nil, nil, nil); err != nil {
+		t.Fatalf("legal transition failed: %v", err)
+	}
+	if err := TransitionDurableRunStatus(ctx, repo, rec.runID, agentRunStatusRunning, agentRunStatusRunning, nil, nil, nil); err != nil {
+		t.Fatalf("idempotent same-status should succeed: %v", err)
+	}
+	run, err = repo.GetRunByID(ctx, rec.runID)
+	if err != nil || run == nil || run.Status != agentRunStatusRunning {
+		t.Fatalf("expected running after transitions, got %+v err=%v", run, err)
+	}
+}
+
+func TestShouldApplyRunEventIgnoresStaleAndDuplicate(t *testing.T) {
+	if ShouldApplyRunEvent(3, 3) {
+		t.Fatal("duplicate seq should not apply")
+	}
+	if ShouldApplyRunEvent(3, 2) {
+		t.Fatal("stale seq should not apply")
+	}
+	if !ShouldApplyRunEvent(3, 4) {
+		t.Fatal("next seq should apply")
+	}
+}
+
 func TestAgentRunRecorderPersistsFailedRunDecision(t *testing.T) {
 	db := setupAgentRunRecorderTestDB(t)
 	repo := repository.NewAgentRunRepo(db)

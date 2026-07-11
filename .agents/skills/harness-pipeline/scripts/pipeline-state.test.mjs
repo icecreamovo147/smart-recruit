@@ -28,7 +28,7 @@ function makeEvidence(overrides = {}) {
   };
 }
 
-function makeFeature(root, state, evidence = makeEvidence()) {
+function makeFeature(root, state, evidence = makeEvidence(), taskOverrides = {}) {
   const dir = path.join(root, ".spec", "feature");
   write(path.join(dir, "task-scope.json"), `${JSON.stringify({
     schemaVersion: 1,
@@ -42,7 +42,9 @@ function makeFeature(root, state, evidence = makeEvidence()) {
         requiresHumanConfirmation: true,
         acceptance: ".spec/feature/acceptance/TASK-001.md",
         report: ".spec/feature/reports/TASK-001-report.md",
+        ...(taskOverrides["TASK-001"] || {}),
       },
+      ...(taskOverrides.extraTasks || {}),
     },
   }, null, 2)}\n`);
   write(path.join(dir, "reports/TASK-001-evidence.json"), `${JSON.stringify(evidence, null, 2)}\n`);
@@ -103,12 +105,41 @@ assertInvalid({}, { checks: [{ command: "test", exit_code: 1, started_at: "2026-
 assertInvalid({ task_runs: { "TASK-001": { ...validState().task_runs["TASK-001"], review_verdict: "不通过" } } }, {}, "review_verdict must be 通过");
 assertInvalid({}, { review: { reviewer_type: "self-review", round: 1, verdict: "不通过" } }, "review verdict must be 通过");
 assertInvalid({ task_runs: { "TASK-001": { ...validState().task_runs["TASK-001"], human_confirmation: { confirmed: false } } } }, {}, "requires human confirmation");
+assertInvalid({ task_runs: { "TASK-001": { ...validState().task_runs["TASK-001"], human_confirmation: { confirmed: true } } } }, {}, "no confirmed_at");
 assertInvalid({}, { human_confirmation: { required: true, confirmed: false } }, "human confirmation is missing");
 assertInvalid({ task_runs: { "TASK-001": { ...validState().task_runs["TASK-001"], evidence: null } } }, {}, "no evidence path");
 assertInvalid({ failed_tasks: ["TASK-001"] }, {}, "failed_tasks");
 assertInvalid({ blocked_tasks: ["TASK-001"] }, {}, "blocked_tasks");
+assertInvalid({ completed_tasks: ["TASK-001", "TASK-001"] }, {}, "completed_tasks contains duplicate task");
+assertInvalid({ failed_tasks: ["TASK-999"] }, {}, "failed_tasks contains unknown task");
 assertInvalid({ status: "completed_with_exceptions", approved_exceptions: [{}] }, {}, "approved_exceptions[0]");
+assertInvalid({
+  status: "completed_with_exceptions",
+  approved_exceptions: [{
+    approved_object: "generic exception",
+    approved_by: "user",
+    approved_at: "2026-07-10T00:00:00Z",
+    reason: "explicit approval fixture",
+  }],
+}, {}, "must include task_id or task_ids");
 assertInvalid({ status: "completed", skip_human_confirm: true, skipped_human_confirmation_tasks: ["TASK-001"] }, {}, "skip_human_confirm=true");
+assertInvalid({}, { task_id: "TASK-999" }, "evidence task_id does not match");
+assertInvalid({}, { feature_name: "other-feature" }, "evidence feature_name does not match");
+assertInvalid({ task_runs: { "TASK-001": { ...validState().task_runs["TASK-001"], base_sha: "state-base" } } }, { base_sha: "evidence-base" }, "base_sha does not match");
+
+{
+  const rootWithKnowledge = fs.mkdtempSync(path.join(os.tmpdir(), "pipeline-state-test-"));
+  try {
+    const dir = makeFeature(rootWithKnowledge, validState(), makeEvidence(), {
+      "TASK-001": { requiredKnowledgeImpact: true },
+    });
+    const result = validatePipelineState(dir);
+    assert.equal(result.valid, false);
+    assert(result.issues.some((issue) => issue.includes("knowledgeImpact must be an object")), result.issues.join("; "));
+  } finally {
+    fs.rmSync(rootWithKnowledge, { recursive: true, force: true });
+  }
+}
 
 {
   const rootWithException = fs.mkdtempSync(path.join(os.tmpdir(), "pipeline-state-test-"));
@@ -116,6 +147,7 @@ assertInvalid({ status: "completed", skip_human_confirm: true, skipped_human_con
     const state = validState({
       status: "completed_with_exceptions",
       approved_exceptions: [{
+        task_id: "TASK-001",
         approved_object: "TASK-001 check exception",
         approved_by: "user",
         approved_at: "2026-07-10T00:00:00Z",
@@ -126,6 +158,41 @@ assertInvalid({ status: "completed", skip_human_confirm: true, skipped_human_con
     assert.equal(validatePipelineState(dir).valid, true);
   } finally {
     fs.rmSync(rootWithException, { recursive: true, force: true });
+  }
+}
+
+{
+  const rootWithUncoveredTask = fs.mkdtempSync(path.join(os.tmpdir(), "pipeline-state-test-"));
+  try {
+    const state = validState({
+      status: "completed_with_exceptions",
+      completed_tasks: ["TASK-001"],
+      approved_exceptions: [{
+        task_id: "TASK-001",
+        approved_object: "TASK-001 exception",
+        approved_by: "user",
+        approved_at: "2026-07-10T00:00:00Z",
+        reason: "explicit approval fixture",
+      }],
+    });
+    const dir = makeFeature(rootWithUncoveredTask, state, makeEvidence(), {
+      extraTasks: {
+        "TASK-002": {
+          title: "Two",
+          status: "pending",
+          allowedFiles: ["two.txt"],
+          forbiddenFiles: [],
+          requiresHumanConfirmation: false,
+          acceptance: ".spec/feature/acceptance/TASK-002.md",
+          report: ".spec/feature/reports/TASK-002-report.md",
+        },
+      },
+    });
+    const result = validatePipelineState(dir);
+    assert.equal(result.valid, false);
+    assert(result.issues.some((issue) => issue.includes("unfinished task without approved exception: TASK-002")), result.issues.join("; "));
+  } finally {
+    fs.rmSync(rootWithUncoveredTask, { recursive: true, force: true });
   }
 }
 

@@ -1,6 +1,11 @@
 package model
 
-import "time"
+import (
+	"strings"
+	"time"
+
+	"gorm.io/gorm"
+)
 
 type User struct {
 	ID           int64 `gorm:"primaryKey"`
@@ -380,6 +385,7 @@ type AIChatHistory struct {
 	ModelName           string `gorm:"column:model_name;size:128"`
 	AgentSkillIDsJSON   string `gorm:"column:agent_skill_ids_json;type:text"`
 	AgentSkillNamesJSON string `gorm:"column:agent_skill_names_json;type:text"`
+	AgentRunID          *int64 `gorm:"column:agent_run_id;index:idx_ai_chat_history_agent_run"`
 	CreatedAt           time.Time
 }
 
@@ -391,6 +397,7 @@ type AIChatSession struct {
 	Title                  string
 	ApplicationID          int64  `gorm:"column:application_id"`
 	LatestContextUsageJSON string `gorm:"column:latest_context_usage_json;type:text"`
+	ActiveRunID            *int64 `gorm:"column:active_run_id;index:idx_ai_chat_sessions_active_run"`
 	CreatedAt              time.Time
 	UpdatedAt              time.Time
 	DeletedAt              *time.Time `gorm:"column:deleted_at"`
@@ -425,25 +432,75 @@ type AIToolTrace struct {
 }
 
 type AgentRun struct {
-	ID           uint64     `gorm:"primaryKey"`
-	SessionID    uint64     `gorm:"column:session_id"`
-	MessageID    *uint64    `gorm:"column:message_id"`
-	HistoryID    *uint64    `gorm:"column:history_id"`
-	HrID         uint64     `gorm:"column:hr_id"`
-	AgentType    string     `gorm:"column:agent_type"`
-	AgentID      *uint64    `gorm:"column:agent_id"`
-	AgentName    string     `gorm:"column:agent_name"`
-	ModelID      *uint64    `gorm:"column:model_id"`
-	ModelName    string     `gorm:"column:model_name"`
-	Status       string     `gorm:"column:status"`
-	PlanJSON     string     `gorm:"column:plan_json"`
-	FinalAnswer  string     `gorm:"column:final_answer"`
-	ErrorType    string     `gorm:"column:error_type"`
-	ErrorMessage string     `gorm:"column:error_message"`
-	StartedAt    time.Time  `gorm:"column:started_at"`
-	CompletedAt  *time.Time `gorm:"column:completed_at"`
-	CreatedAt    time.Time
-	UpdatedAt    time.Time
+	ID                       uint64     `gorm:"primaryKey"`
+	SessionID                uint64     `gorm:"column:session_id;uniqueIndex:uk_agent_runs_client_request,priority:2;index:idx_agent_runs_session_status,priority:1"`
+	MessageID                *uint64    `gorm:"column:message_id"`
+	HistoryID                *uint64    `gorm:"column:history_id"`
+	HrID                     uint64     `gorm:"column:hr_id;uniqueIndex:uk_agent_runs_client_request,priority:1"`
+	ClientRequestID          *string    `gorm:"column:client_request_id;size:128;uniqueIndex:uk_agent_runs_client_request,priority:3"`
+	AgentType                string     `gorm:"column:agent_type"`
+	AgentID                  *uint64    `gorm:"column:agent_id"`
+	AgentName                string     `gorm:"column:agent_name"`
+	ModelID                  *uint64    `gorm:"column:model_id"`
+	ModelName                string     `gorm:"column:model_name"`
+	Status                   string     `gorm:"column:status;index:idx_agent_runs_session_status,priority:2"`
+	PlanJSON                 string     `gorm:"column:plan_json"`
+	FinalAnswer              string     `gorm:"column:final_answer"`
+	AssistantText            string     `gorm:"column:assistant_text;type:mediumtext"`
+	ProcessText              string     `gorm:"column:process_text;type:mediumtext"`
+	ResultMetadataJSON       string     `gorm:"column:result_metadata_json;type:json"`
+	ConfirmationRequestJSON  string     `gorm:"column:confirmation_request_json;type:json"`
+	OptionContextJSON        string     `gorm:"column:option_context_json;type:json"`
+	LastEventSeq             int64      `gorm:"column:last_event_seq;default:0"`
+	CancelRequestedAt        *time.Time `gorm:"column:cancel_requested_at"`
+	CanceledAt               *time.Time `gorm:"column:canceled_at"`
+	ErrorType                string     `gorm:"column:error_type"`
+	ErrorMessage             string     `gorm:"column:error_message"`
+	StartedAt                time.Time  `gorm:"column:started_at"`
+	CompletedAt              *time.Time `gorm:"column:completed_at"`
+	CreatedAt                time.Time
+	UpdatedAt                time.Time
+}
+
+// BeforeCreate converts empty JSON string fields to SQL NULL.
+// MySQL JSON columns reject '' with Error 3140 ("The document is empty").
+func (a *AgentRun) BeforeCreate(tx *gorm.DB) error {
+	if a == nil || tx == nil {
+		return nil
+	}
+	nullEmptyJSONColumn(tx, "plan_json", a.PlanJSON)
+	nullEmptyJSONColumn(tx, "result_metadata_json", a.ResultMetadataJSON)
+	nullEmptyJSONColumn(tx, "confirmation_request_json", a.ConfirmationRequestJSON)
+	nullEmptyJSONColumn(tx, "option_context_json", a.OptionContextJSON)
+	return nil
+}
+
+func nullEmptyJSONColumn(tx *gorm.DB, column, value string) {
+	if strings.TrimSpace(value) == "" {
+		tx.Statement.SetColumn(column, nil)
+	}
+}
+
+type AgentRunEvent struct {
+	ID          uint64    `gorm:"primaryKey"`
+	RunID       uint64    `gorm:"column:run_id;uniqueIndex:uk_agent_run_events_run_seq,priority:1;index:idx_agent_run_events_run"`
+	Seq         int64     `gorm:"column:seq;uniqueIndex:uk_agent_run_events_run_seq,priority:2"`
+	EventType   string    `gorm:"column:event_type;size:64"`
+	PayloadJSON string    `gorm:"column:payload_json;type:json"`
+	CreatedAt   time.Time
+	UpdatedAt   time.Time
+}
+
+// BeforeCreate ensures payload_json is never written as an empty string.
+func (e *AgentRunEvent) BeforeCreate(tx *gorm.DB) error {
+	if e == nil || tx == nil {
+		return nil
+	}
+	if strings.TrimSpace(e.PayloadJSON) == "" {
+		e.PayloadJSON = "{}"
+		tx.Statement.SetColumn("payload_json", "{}")
+	}
+	return nil
 }
 
 type AgentRunStep struct {
@@ -503,6 +560,7 @@ func (AIChatSession) TableName() string    { return "ai_chat_sessions" }
 func (AISessionSummary) TableName() string { return "ai_session_summaries" }
 func (AIToolTrace) TableName() string      { return "ai_tool_traces" }
 func (AgentRun) TableName() string         { return "agent_runs" }
+func (AgentRunEvent) TableName() string    { return "agent_run_events" }
 func (AgentRunStep) TableName() string     { return "agent_run_steps" }
 func (AIMemory) TableName() string         { return "ai_memories" }
 func (AIEmbedding) TableName() string      { return "ai_embeddings" }

@@ -198,6 +198,32 @@ func (s *Server) GetAgentRuns(ctx context.Context, req *pb.GetAgentRunsRequest) 
 	return s.svc.AI.GetAgentRuns(ctx, req)
 }
 
+// Durable resumable HR Agent runs (thin forwards; logic-grpc owns lifecycle).
+
+func (s *Server) CreateAgentRun(ctx context.Context, req *pb.CreateAgentRunRequest) (*pb.CreateAgentRunResponse, error) {
+	return s.svc.AI.CreateAgentRun(ctx, req)
+}
+
+func (s *Server) GetAgentRun(ctx context.Context, req *pb.GetAgentRunRequest) (*pb.GetAgentRunResponse, error) {
+	return s.svc.AI.GetAgentRun(ctx, req)
+}
+
+func (s *Server) GetActiveAgentRun(ctx context.Context, req *pb.GetActiveAgentRunRequest) (*pb.GetActiveAgentRunResponse, error) {
+	return s.svc.AI.GetActiveAgentRun(ctx, req)
+}
+
+func (s *Server) SubscribeAgentRunEvents(req *pb.SubscribeAgentRunEventsRequest, stream pb.AIService_SubscribeAgentRunEventsServer) error {
+	return s.svc.AI.SubscribeAgentRunEvents(req, stream)
+}
+
+func (s *Server) CancelAgentRun(ctx context.Context, req *pb.CancelAgentRunRequest) (*pb.CancelAgentRunResponse, error) {
+	return s.svc.AI.CancelAgentRun(ctx, req)
+}
+
+func (s *Server) ConfirmAgentRun(ctx context.Context, req *pb.ConfirmAgentRunRequest) (*pb.ConfirmAgentRunResponse, error) {
+	return s.svc.AI.ConfirmAgentRun(ctx, req)
+}
+
 // Candidate AI
 
 func (s *Server) CandidateChatStream(req *pb.CandidateChatRequest, stream pb.AIService_CandidateChatStreamServer) error {

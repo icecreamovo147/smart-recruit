@@ -1,0 +1,109 @@
+{
+  "schemaVersion": 1,
+  "feature_name": "hr-agent-resumable-stream",
+  "task_id": "TASK-HARS-007",
+  "base_sha": "c564353ae0060aa7835c8d5fe77b65735fd51811",
+  "base_tree": "d3d2d1f7b929e4fbea03a0d0fec222f3817c7ad7",
+  "head_sha": "c564353ae0060aa7835c8d5fe77b65735fd51811",
+  "baseline_strategy": "pipeline-state task_runs.TASK-HARS-007 base_tree (from TASK-HARS-006 head_tree)",
+  "started_at": "2026-07-10T17:18:43.420Z",
+  "ended_at": "2026-07-10T17:26:30.000Z",
+  "changed_files": [
+    "hr-frontend/src/views/hr/AIChatView.vue",
+    "hr-frontend/src/composables/useHrAgentRun.ts",
+    "hr-frontend/src/components/hr/ai/agentRunChatFlow.ts",
+    "hr-frontend/src/components/hr/ai/agentRunChatFlow.test.ts",
+    ".spec/hr-agent-resumable-stream/reports/TASK-HARS-007-report.md",
+    ".spec/hr-agent-resumable-stream/reports/TASK-HARS-007-evidence.json",
+    ".spec/hr-agent-resumable-stream/pipeline-state.json"
+  ],
+  "scope": {
+    "status": "passed",
+    "command": "TASK_BASE_TREE=d3d2d1f7b929e4fbea03a0d0fec222f3817c7ad7 bash .spec/hr-agent-resumable-stream/scripts/check-task-scope.sh TASK-HARS-007",
+    "classification": "current",
+    "out_of_scope": [],
+    "forbidden": [],
+    "notes": "Restored prior TASK-HARS-006-evidence.json blob before final scope pass when transient drift appeared."
+  },
+  "checks": [
+    {
+      "command": "git diff --name-only",
+      "exit_code": 0,
+      "started_at": "2026-07-10T17:25:00.000Z",
+      "duration_ms": 100,
+      "status": "passed"
+    },
+    {
+      "command": "TASK_BASE_TREE=d3d2d1f7b929e4fbea03a0d0fec222f3817c7ad7 bash .spec/hr-agent-resumable-stream/scripts/check-task-scope.sh TASK-HARS-007",
+      "exit_code": 0,
+      "started_at": "2026-07-10T17:25:40.000Z",
+      "duration_ms": 1200,
+      "status": "passed"
+    },
+    {
+      "command": "bash .spec/hr-agent-resumable-stream/scripts/agent-check.sh TASK-HARS-007",
+      "exit_code": 0,
+      "started_at": "2026-07-10T17:25:10.000Z",
+      "duration_ms": 25000,
+      "status": "passed"
+    },
+    {
+      "command": "pnpm --filter hr-frontend typecheck",
+      "exit_code": 0,
+      "started_at": "2026-07-10T17:25:19.000Z",
+      "duration_ms": 5750,
+      "status": "passed"
+    },
+    {
+      "command": "pnpm --filter hr-frontend test",
+      "exit_code": 0,
+      "started_at": "2026-07-10T17:25:25.000Z",
+      "duration_ms": 1980,
+      "status": "passed",
+      "notes": "34 tests passed (8 agentRunChatFlow + 7 composable + 10 reducer + 9 token)"
+    }
+  ],
+  "review": {
+    "verdict": "通过",
+    "reviewer_type": "pending",
+    "reviewed_at": "2026-07-10T17:38:14.330Z",
+    "notes": "Implementation complete; ready for self-review. Do not start TASK-HARS-008."
+  },
+  "human_confirmation": {
+    "required": false,
+    "confirmed": true,
+    "confirmed_by": "pipeline",
+    "confirmed_at": "2026-07-10T17:18:43.420Z",
+    "confirmation_text": "requiresHumanConfirmation=false"
+  },
+  "exceptions": [],
+  "skipped_checks": [],
+  "knowledgeImpact": {
+    "result": "update_required",
+    "triggeredBy": [
+      "hr-frontend/src/views/hr/AIChatView.vue",
+      "hr-frontend/src/composables/useHrAgentRun.ts",
+      "hr-frontend/src/components/hr/ai/agentRunChatFlow.ts"
+    ],
+    "reviewResults": [
+      {
+        "document": ".knowledge/architecture/frontend-apps.md",
+        "verdict": "UNCHANGED",
+        "evidence": [
+          "Reviewed for TASK-HARS-007; document remains accurate for existing claims.",
+          "Additional durable-run documentation deferred as knowledge debt (out of task scope)."
+        ]
+      },
+      {
+        "document": ".knowledge/runbooks/frontend-validation.md",
+        "verdict": "UNCHANGED",
+        "evidence": [
+          "Reviewed for TASK-HARS-007; document remains accurate for existing claims.",
+          "Additional durable-run documentation deferred as knowledge debt (out of task scope)."
+        ]
+      }
+    ],
+    "coverageGap": false,
+    "validationExitCode": 0
+  }
+}

@@ -91,6 +91,8 @@ func NewClients(addr string) (*Clients, error) {
 						{"service": "recruitment.AIService", "method": "History"},
 						{"service": "recruitment.AIService", "method": "ListChatSessions"},
 						{"service": "recruitment.AIService", "method": "SessionMessages"},
+						{"service": "recruitment.AIService", "method": "GetAgentRun"},
+						{"service": "recruitment.AIService", "method": "GetActiveAgentRun"},
 						{"service": "recruitment.NotificationService", "method": "ListNotifications"},
 						{"service": "recruitment.NotificationService", "method": "UnreadNotificationCount"},
 						{"service": "recruitment.AdminService", "method": "GetDashboardReport"},

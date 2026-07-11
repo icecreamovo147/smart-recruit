@@ -19,15 +19,36 @@ import (
 )
 
 const (
-	agentRunStatusPlanning  = "planning"
-	agentRunStatusRunning   = "running"
-	agentRunStatusSucceeded = "succeeded"
-	agentRunStatusFailed    = "failed"
-	agentRunStatusPartial   = "partial"
-	agentRunStatusCanceled  = "canceled"
+	agentRunStatusPlanning  = AgentRunStatusPlanning
+	agentRunStatusRunning   = AgentRunStatusRunning
+	agentRunStatusSucceeded = AgentRunStatusSucceeded
+	agentRunStatusFailed    = AgentRunStatusFailed
+	agentRunStatusPartial   = AgentRunStatusPartial
+	agentRunStatusCanceled  = AgentRunStatusCanceled
 
 	agentRunFinalWriteTimeout = 5 * time.Second
 )
+
+// TransitionDurableRunStatus validates from->to then persists the status update.
+// Identical from/to is an idempotent no-op that still returns nil without writing.
+func TransitionDurableRunStatus(ctx context.Context, repo *repository.AgentRunRepo, runID uint64, from, to string, completedAt, cancelRequestedAt, canceledAt *time.Time) error {
+	if err := ValidateAgentRunTransition(from, to); err != nil {
+		return err
+	}
+	if from == to {
+		return nil
+	}
+	if repo == nil {
+		return fmt.Errorf("agent run repo is nil")
+	}
+	return repo.UpdateRunStatusFields(ctx, runID, to, completedAt, cancelRequestedAt, canceledAt)
+}
+
+// ShouldApplyRunEvent reports whether an incoming event sequence should be applied
+// given the last applied sequence. Duplicate and stale sequences return false.
+func ShouldApplyRunEvent(lastAppliedSeq, incomingSeq int64) bool {
+	return !IsStaleOrDuplicateEventSeq(lastAppliedSeq, incomingSeq)
+}
 
 type agentRunRecorder struct {
 	repo                  *repository.AgentRunRepo

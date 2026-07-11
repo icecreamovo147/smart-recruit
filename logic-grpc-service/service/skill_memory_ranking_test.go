@@ -450,6 +450,22 @@ func TestRankSkillCandidatesAllModes(t *testing.T) {
 		}
 	})
 
+	t.Run("semantic_only_candidate_dropped_for_low_information_query", func(t *testing.T) {
+		semanticOnly := repository.AgentSkillRuntimeRecord{
+			ID:                6,
+			Name:              "screening",
+			DisplayName:       "Screening",
+			Description:       "candidate screening workflow",
+			Category:          "workflow",
+			Priority:          10,
+			IsManualInvocable: 1,
+		}
+		out := RankSkillCandidates("hello", []repository.AgentSkillRuntimeRecord{semanticOnly}, map[int64]float64{6: 0.99}, true)
+		if len(out) != 0 {
+			t.Fatalf("expected low-information semantic-only candidate to be dropped, got %+v", out)
+		}
+	})
+
 	t.Run("zero_score_candidates_dropped", func(t *testing.T) {
 		// "abc" 与全部 skill 都不匹配
 		out := RankSkillCandidates("abc", skills, nil, false)

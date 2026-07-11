@@ -1,0 +1,6 @@
+interface:
+  display_name: "Code Review Leader"
+  short_description: "审查分支变更并生成中文HTML可视化报告"
+  default_prompt: "Use $code-review-leader to review the current branch changes and generate a Chinese HTML report."
+policy:
+  allow_implicit_invocation: true

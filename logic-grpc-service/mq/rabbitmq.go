@@ -11,18 +11,22 @@ import (
 )
 
 const (
-	defaultExchange          = "recruitment.events"
-	defaultDLXExchange       = "recruitment.events.dlx"
-	defaultRetryExchange     = "recruitment.events.retry"
-	defaultNotificationQueue = "recruitment.notification.create"
-	defaultResumeParseQueue  = "recruitment.resume.parse"
-	defaultEmailQueue        = "recruitment.email.send"
-	defaultEmbeddingQueue    = "recruitment.embedding.upsert"
-	notificationRoutingKey   = "notification.create"
-	resumeParseRoutingKey    = "resume.parse"
-	emailRoutingKey          = "email.send"
+	defaultExchange           = "recruitment.events"
+	defaultDLXExchange        = "recruitment.events.dlx"
+	defaultRetryExchange      = "recruitment.events.retry"
+	defaultNotificationQueue  = "recruitment.notification.create"
+	defaultResumeParseQueue   = "recruitment.resume.parse"
+	defaultEmailQueue         = "recruitment.email.send"
+	defaultEmbeddingQueue     = "recruitment.embedding.upsert"
+	defaultAgentRunQueue      = "recruitment.agent.run.execute"
+	notificationRoutingKey    = "notification.create"
+	resumeParseRoutingKey     = "resume.parse"
+	emailRoutingKey           = "email.send"
 	embeddingUpsertRoutingKey = "embedding.upsert"
-	retryHeader              = "x-retry-count"
+	// AgentRunExecuteRoutingKey is used by the service outbox dispatcher and the
+	// RabbitMQ topology for durable HR Agent Run execution.
+	AgentRunExecuteRoutingKey = "agent.run.execute"
+	retryHeader               = "x-retry-count"
 )
 
 type Config struct {
@@ -34,6 +38,7 @@ type Config struct {
 	ResumeParseQueue  string
 	EmailQueue        string
 	EmbeddingQueue    string
+	AgentRunQueue     string
 	PrefetchCount     int
 	MaxRetries        int
 	RetryDelay        time.Duration
@@ -100,6 +105,9 @@ func (cfg Config) withDefaults() Config {
 	if cfg.EmbeddingQueue == "" {
 		cfg.EmbeddingQueue = defaultEmbeddingQueue
 	}
+	if cfg.AgentRunQueue == "" {
+		cfg.AgentRunQueue = defaultAgentRunQueue
+	}
 	if cfg.PrefetchCount <= 0 {
 		cfg.PrefetchCount = 10
 	}
@@ -136,12 +144,19 @@ func (c *Conn) EmbeddingQueue() string {
 	return c.cfg.EmbeddingQueue
 }
 
+func (c *Conn) AgentRunQueue() string {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	return c.cfg.AgentRunQueue
+}
+
 func (c *Conn) bindings() []queueBinding {
 	return []queueBinding{
 		{name: c.cfg.NotificationQueue, routingKey: notificationRoutingKey},
 		{name: c.cfg.ResumeParseQueue, routingKey: resumeParseRoutingKey},
 		{name: c.cfg.EmailQueue, routingKey: emailRoutingKey},
 		{name: c.cfg.EmbeddingQueue, routingKey: embeddingUpsertRoutingKey},
+		{name: c.cfg.AgentRunQueue, routingKey: AgentRunExecuteRoutingKey},
 	}
 }
 

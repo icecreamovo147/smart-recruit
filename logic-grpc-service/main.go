@@ -159,6 +159,9 @@ func main() {
 		RetryExchange:     cfg.RabbitMQ.RetryExchange,
 		NotificationQueue: cfg.RabbitMQ.NotificationQueue,
 		ResumeParseQueue:  cfg.RabbitMQ.ResumeParseQueue,
+		EmailQueue:        cfg.RabbitMQ.EmailQueue,
+		EmbeddingQueue:    cfg.RabbitMQ.EmbeddingQueue,
+		AgentRunQueue:     cfg.RabbitMQ.AgentRunQueue,
 		PrefetchCount:     cfg.RabbitMQ.PrefetchCount,
 		MaxRetries:        cfg.RabbitMQ.MaxRetries,
 		RetryDelay:        cfg.RabbitMQ.RetryDelay.Duration,
@@ -322,6 +325,9 @@ func main() {
 		}
 		if err := services.EmbeddingConsumer.Start(bgCtx, mqConn); err != nil {
 			log.Warn("embedding consumer start failed", zap.Error(err))
+		}
+		if err := services.AgentRunConsumer.Start(bgCtx, mqConn); err != nil {
+			log.Warn("agent run consumer start failed", zap.Error(err))
 		}
 		go mqConn.KeepAlive(bgCtx, cfg.RabbitMQ.ReconnectInterval.Duration)
 	} else {

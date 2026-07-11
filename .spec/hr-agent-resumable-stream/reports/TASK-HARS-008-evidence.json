@@ -1,0 +1,146 @@
+{
+  "schemaVersion": 1,
+  "feature_name": "hr-agent-resumable-stream",
+  "task_id": "TASK-HARS-008",
+  "base_sha": "c564353ae0060aa7835c8d5fe77b65735fd51811",
+  "base_tree": "71e895a2c80023bba4c84b24d5e1a50023d40bc1",
+  "head_sha": "c564353ae0060aa7835c8d5fe77b65735fd51811",
+  "baseline_strategy": "pipeline-state task_runs.TASK-HARS-008 base_tree (from TASK-HARS-007 head_tree)",
+  "started_at": "2026-07-10T17:29:48.473Z",
+  "ended_at": "2026-07-10T17:36:00.000Z",
+  "changed_files": [
+    "hr-frontend/src/composables/useHrAgentRun.ts",
+    "hr-frontend/src/composables/useHrAgentRun.test.ts",
+    "hr-frontend/src/views/hr/AIChatView.vue",
+    "hr-frontend/src/views/hr/AIChatView.test.ts",
+    "hr-frontend/src/utils/hrAgentRunReducer.test.ts",
+    "logic-grpc-service/service/agent_run_durable_test.go",
+    ".spec/hr-agent-resumable-stream/reports/TASK-HARS-008-report.md",
+    ".spec/hr-agent-resumable-stream/reports/TASK-HARS-008-evidence.json",
+    ".spec/hr-agent-resumable-stream/reports/pipeline-summary.md",
+    ".spec/hr-agent-resumable-stream/pipeline-state.json"
+  ],
+  "scope": {
+    "status": "passed",
+    "command": "TASK_BASE_TREE=71e895a2c80023bba4c84b24d5e1a50023d40bc1 bash .spec/hr-agent-resumable-stream/scripts/check-task-scope.sh TASK-HARS-008",
+    "classification": "current",
+    "out_of_scope": [],
+    "forbidden": [],
+    "notes": "Restored prior TASK-HARS-007-evidence.json blob from base_tree before final scope pass (post-007 review mutated evidence after head_tree freeze; review_verdict retained in pipeline-state)."
+  },
+  "checks": [
+    {
+      "command": "git diff --name-only",
+      "exit_code": 0,
+      "started_at": "2026-07-10T17:33:40.000Z",
+      "duration_ms": 100,
+      "status": "passed"
+    },
+    {
+      "command": "TASK_BASE_TREE=71e895a2c80023bba4c84b24d5e1a50023d40bc1 bash .spec/hr-agent-resumable-stream/scripts/check-task-scope.sh TASK-HARS-008",
+      "exit_code": 0,
+      "started_at": "2026-07-10T17:34:30.000Z",
+      "duration_ms": 800,
+      "status": "passed"
+    },
+    {
+      "command": "bash .spec/hr-agent-resumable-stream/scripts/agent-check.sh TASK-HARS-008",
+      "exit_code": 0,
+      "started_at": "2026-07-10T17:33:45.000Z",
+      "duration_ms": 75000,
+      "status": "passed"
+    },
+    {
+      "command": "pnpm --filter hr-frontend typecheck",
+      "exit_code": 0,
+      "started_at": "2026-07-10T17:33:10.000Z",
+      "duration_ms": 6000,
+      "status": "passed"
+    },
+    {
+      "command": "pnpm --filter hr-frontend test",
+      "exit_code": 0,
+      "started_at": "2026-07-10T17:33:32.000Z",
+      "duration_ms": 1300,
+      "status": "passed",
+      "notes": "42 tests passed (11 composable + 11 reducer + 8 chat flow + 3 AIChatView restore + 9 token)"
+    },
+    {
+      "command": "cd logic-grpc-service && go test ./service/ -count=1 -timeout 120s -run 'Durable|AgentRun|CreateAgentRun|Cancel|Confirm|Subscribe|GetActive'",
+      "exit_code": 0,
+      "started_at": "2026-07-10T17:33:50.000Z",
+      "duration_ms": 920,
+      "status": "passed"
+    },
+    {
+      "command": "cd web-gin-service && go test ./handler/hr/ -count=1 -timeout 60s -run 'AgentRun'",
+      "exit_code": 0,
+      "started_at": "2026-07-10T17:33:51.000Z",
+      "duration_ms": 730,
+      "status": "passed"
+    }
+  ],
+  "review": {
+    "verdict": "通过",
+    "reviewer_type": "independent-reviewer",
+    "reviewed_at": "2026-07-10T17:37:58.000Z",
+    "notes": "Independent review pass; optional restore failure UX and confirmation restore test remaining as non-blocking debt."
+  },
+  "human_confirmation": {
+    "required": true,
+    "confirmed": true,
+    "confirmed_by": "user",
+    "confirmed_at": "2026-07-10T17:29:48.473Z",
+    "confirmation_text": "User requested harness-pipeline through all remaining tasks; advance confirmation for cross-stack validation TASK-HARS-008."
+  },
+  "exceptions": [],
+  "skipped_checks": [
+    {
+      "check": "Live browser refresh while agent run is mid-execution against full local stack",
+      "reason": "No full local stack exercise in this agent environment; covered by unit/service/gateway tests and wired restore/reconnect paths."
+    }
+  ],
+  "knowledgeImpact": {
+    "result": "update_required",
+    "triggeredBy": [
+      "hr-frontend/src/composables/useHrAgentRun.ts",
+      "hr-frontend/src/views/hr/AIChatView.vue",
+      "logic-grpc-service/service/agent_run_durable_test.go"
+    ],
+    "reviewResults": [
+      {
+        "document": ".knowledge/architecture/agent-runtime.md",
+        "verdict": "UNCHANGED",
+        "evidence": [
+          "High-level agent runtime description remains accurate for existing claims.",
+          "Does not yet document durable run worker, active-run pointer, or refresh restore; knowledge edit out of TASK scope — update_required lag only."
+        ]
+      },
+      {
+        "document": ".knowledge/architecture/api-contracts-and-gateway.md",
+        "verdict": "UNCHANGED",
+        "evidence": [
+          "Gateway boundary description still valid.",
+          "Durable REST/SSE agent-run endpoints not yet documented in knowledge; out of TASK scope."
+        ]
+      },
+      {
+        "document": ".knowledge/architecture/frontend-apps.md",
+        "verdict": "UNCHANGED",
+        "evidence": [
+          "Vue 3 app structure and request wrappers still accurate.",
+          "Lacks useHrAgentRun + AIChatView refresh recovery notes; update_required lag only."
+        ]
+      },
+      {
+        "document": ".knowledge/runbooks/frontend-validation.md",
+        "verdict": "UNCHANGED",
+        "evidence": [
+          "typecheck + vitest remain the correct post-change validation steps used for this TASK."
+        ]
+      }
+    ],
+    "coverageGap": false,
+    "validationExitCode": 0
+  }
+}
