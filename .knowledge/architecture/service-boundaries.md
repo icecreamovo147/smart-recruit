@@ -38,6 +38,8 @@ source_refs:
   - logic-grpc-service/service/ai_agent_runtime.go
   - logic-grpc-service/internal/platform/events/envelope.go
   - logic-grpc-service/repository/user_repo.go
+  - docs/backend-ddd-microservices-evolution-table-ownership-manifest.json
+  - scripts/check-table-ownership.mjs
 last_verified: 2026-07-12
 review_after: 2026-10-08
 ---
@@ -57,6 +59,8 @@ Analytics event projection ingestion lives under `logic-grpc-service/internal/an
 `logic-grpc-service/internal/platform/servicebinary/` records the target backend service unit registry and deployment convention for extracted binaries. The registry is compile-checked but is not wired into startup or gateway routing by TASK-BDME-026.
 
 `logic-grpc-service/cmd/worker-services` is a service skeleton for decomposed worker workloads. It names outbox, notification, email, resume parsing, embedding, agent-run, and analytics-projection workloads for future independent scaling, but default execution does not start consumers and the active worker deployment remains `logic-grpc-service --worker-only`.
+
+`docs/backend-ddd-microservices-evolution-table-ownership-manifest.json` records the table owner, allowed readers, allowed writers, and transitional shared access for the target backend contexts. Table ownership must be reviewed as a service-boundary change even when HTTP/gRPC contracts are unchanged.
 
 `logic-grpc-service/cmd/identity-service` is an unrouted service runtime for the Identity boundary. It can explicitly register AuthService plus the Identity-owned AdminService subset for validation, but it must not receive gateway traffic until a scoped cutover TASK records compatibility and rollback evidence.
 
@@ -82,6 +86,7 @@ Generated protobuf files are contract artifacts. When proto definitions change, 
 - Keep cross-context application lifecycle writes behind explicit events, adapters, or process-manager boundaries instead of scattering direct repository writes through Interview or Offer services.
 - Keep Analytics projections sourced from domain-event envelopes and Analytics-owned read-model repositories; avoid service-read adapters as a transition strategy.
 - Keep new service binaries aligned with `docs/backend-ddd-microservices-evolution-service-binary-convention.md`; do not route traffic to them outside scoped cutover TASKs.
+- Keep table ownership aligned with `docs/backend-ddd-microservices-evolution-table-ownership-manifest.json` and run `node scripts/check-table-ownership.mjs` when `db.sql` changes.
 - Keep request deadlines and body limits in the gateway unless the logic service owns a deeper operation timeout.
 - Treat protobuf and database schema changes as public-contract or persistence changes that require explicit scope.
 
@@ -94,4 +99,4 @@ Generated protobuf files are contract artifacts. When proto definitions change, 
 
 ## Verification
 
-The boundary was verified from gateway route registration and route-mode cutover controls, protobuf service definitions, representative logic service/repository files, `logic-grpc-service/service/recruitment_lifecycle_process_manager.go`, Analytics projection ingestion/runtime files, Worker Services descriptor, Identity, Recruitment, Interview, Offer, and AI Agent skeleton/runtime files, `logic-grpc-service/internal/platform/servicebinary/convention.go`, and `logic-grpc-service/internal/platform/events/envelope.go` on 2026-07-12.
+The boundary was verified from gateway route registration and route-mode cutover controls, protobuf service definitions, representative logic service/repository files, `logic-grpc-service/service/recruitment_lifecycle_process_manager.go`, Analytics projection ingestion/runtime files, Worker Services descriptor, Identity, Recruitment, Interview, Offer, and AI Agent skeleton/runtime files, `logic-grpc-service/internal/platform/servicebinary/convention.go`, `logic-grpc-service/internal/platform/events/envelope.go`, and the table ownership manifest/check script on 2026-07-12.

@@ -310,11 +310,15 @@ routes:
       - logic-grpc-service/migrations/**
       - logic-grpc-service/model/**
       - logic-grpc-service/repository/**
+      - docs/backend-ddd-microservices-evolution-table-ownership-manifest.json
+      - docs/backend-ddd-microservices-evolution-table-ownership.md
+      - scripts/check-table-ownership.mjs
       - db.sql
     documents:
       - persistence-and-migrations
       - migration-model-drift
       - protobuf-and-migration-change
+      - service-boundaries
     triggers:
       - covered-path-changed
       - database-schema-changed
