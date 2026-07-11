@@ -19,6 +19,7 @@ import (
 	"web-gin-service/middleware"
 	"web-gin-service/pkg/authz"
 	"web-gin-service/pkg/logger"
+	"web-gin-service/pkg/observability"
 	"web-gin-service/pkg/redisclient"
 	pb "web-gin-service/recruitment/pb"
 	"web-gin-service/rpc"
@@ -78,7 +79,7 @@ func Setup(cfg config.Config, clients *rpc.Clients, rdb *redis.Client) (*gin.Eng
 	}()
 
 	r := gin.New()
-	r.Use(middleware.RequestID(), middleware.AccessLog(), middleware.Recovery(), middleware.SecurityHeaders(), middleware.CSP(), middleware.CORSWrapper())
+	r.Use(middleware.RequestID(), middleware.Metrics(observability.DefaultMetrics), middleware.AccessLog(), middleware.Recovery(), middleware.SecurityHeaders(), middleware.CSP(), middleware.CORSWrapper())
 	r.GET("/health", func(c *gin.Context) { c.JSON(200, gin.H{"status": "ok"}) })
 	r.GET("/livez", func(c *gin.Context) { c.JSON(200, gin.H{"status": "ok"}) })
 	r.GET("/readyz", func(c *gin.Context) {
@@ -101,6 +102,10 @@ func Setup(cfg config.Config, clients *rpc.Clients, rdb *redis.Client) (*gin.Eng
 			code = 503
 		}
 		c.JSON(code, gin.H{"status": status, "dependencies": deps})
+	})
+	r.GET("/metrics", func(c *gin.Context) {
+		c.Header("Content-Type", "text/plain; version=0.0.4; charset=utf-8")
+		c.String(200, observability.DefaultMetrics.Prometheus())
 	})
 	r.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
 

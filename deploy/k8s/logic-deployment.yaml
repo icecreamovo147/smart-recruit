@@ -27,6 +27,8 @@ spec:
           ports:
             - containerPort: 50051
               name: grpc
+            - containerPort: 9091
+              name: metrics
           env:
             - name: DISABLE_BACKGROUND_WORKERS
               value: "true"

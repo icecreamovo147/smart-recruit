@@ -9,6 +9,7 @@ data:
   GRPC_INTERNAL_TLS: "required"
   GRPC_TLS_CERT_FILE: "/etc/recruitment/grpc-tls/tls.crt"
   GRPC_TLS_KEY_FILE: "/etc/recruitment/grpc-tls/tls.key"
+  METRICS_ADDR: ":9091"
   INITIAL_ADMIN_USERNAME: ""
   REDIS_ADDR: "redis:6379"
   REDIS_POOL_SIZE: "20"

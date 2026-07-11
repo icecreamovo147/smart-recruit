@@ -79,6 +79,10 @@ func main() {
 	}
 	log := logger.L()
 	log.Info("starting logic-grpc-service")
+	metricsServer, err := server.StartMetricsServer(cfg.Observability.MetricsAddr)
+	if err != nil {
+		log.Fatal("start metrics server failed", zap.String("addr", cfg.Observability.MetricsAddr), zap.Error(err))
+	}
 
 	db, err := gorm.Open(mysql.Open(cfg.MySQL.DSN), &gorm.Config{
 		TranslateError: true,
@@ -341,6 +345,9 @@ func main() {
 		log.Info("received signal, shutting down worker", zap.String("signal", sig.String()))
 		cancelBg()
 		mqConn.Close()
+		shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 5*time.Second)
+		server.ShutdownMetricsServer(shutdownCtx, metricsServer)
+		shutdownCancel()
 		if notifCache != nil {
 			_ = notifCache.Close()
 		}
@@ -428,6 +435,9 @@ func main() {
 			grpcServer.Stop()
 		}
 		mqConn.Close()
+		shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 5*time.Second)
+		server.ShutdownMetricsServer(shutdownCtx, metricsServer)
+		shutdownCancel()
 		if notifCache != nil {
 			_ = notifCache.Close()
 		}

@@ -37,6 +37,7 @@ source_refs:
   - docs/backend-ddd-microservices-evolution-analytics-service-extraction.md
   - docs/backend-ddd-microservices-evolution-worker-service-decomposition.md
   - docs/backend-ddd-microservices-evolution-internal-service-security.md
+  - docs/backend-ddd-microservices-evolution-observability-baseline.md
   - deploy/k8s/README-service-binaries.md
   - logic-grpc-service/internal/platform/servicebinary/convention.go
   - logic-grpc-service/internal/platform/servicebinary/convention_test.go
@@ -67,6 +68,9 @@ source_refs:
   - docker/docker-compose.yml
   - deploy/k8s/worker-deployment.yaml
   - docker/logic-grpc-service.Dockerfile
+  - logic-grpc-service/main.go
+  - logic-grpc-service/server/metrics.go
+  - logic-grpc-service/pkg/observability/metrics.go
 last_verified: 2026-07-12
 review_after: 2026-10-09
 ---
@@ -98,6 +102,7 @@ Use this runbook when adding or reviewing backend service binaries, worker binar
 - `web-gin-service` has an Interview gateway routing switch: default `INTERVIEW_ROUTE_MODE=logic` keeps InterviewService traffic on `GRPC_ADDR`; `INTERVIEW_ROUTE_MODE=interview` routes that generated client to `INTERVIEW_GRPC_ADDR` and fails fast when that address is missing.
 - `web-gin-service` has an Offer gateway routing switch: default `OFFER_ROUTE_MODE=logic` keeps OfferService traffic on `GRPC_ADDR`; `OFFER_ROUTE_MODE=offer` routes that generated client to `OFFER_GRPC_ADDR` and fails fast when that address is missing.
 - Internal service security is part of the service binary runtime contract. Service cutovers must keep `GRPC_INTERNAL_TOKEN` enabled, and non-local routed traffic should use `GRPC_INTERNAL_TLS=required` with server cert/key plus gateway CA configuration.
+- Observability is part of the active runtime contract. `logic-grpc-service` exposes Prometheus text metrics on `METRICS_ADDR` when configured; Kubernetes sets `METRICS_ADDR=:9091` and publishes a `metrics` service port. Extracted service binaries should use the same low-cardinality metric label policy before receiving routed traffic.
 
 ## Review Checklist
 
@@ -110,7 +115,8 @@ Use this runbook when adding or reviewing backend service binaries, worker binar
 7. Run `cd logic-grpc-service && go test ./internal/platform/servicebinary ./...`.
 8. For gateway cutovers, confirm checked-in Docker and Kubernetes defaults still use rollback-safe route modes unless the TASK explicitly changes production traffic.
 9. Confirm internal gRPC TLS/token configuration and secret mounts are present before a service receives non-local traffic.
+10. Confirm metrics endpoints are deployment-scoped and do not expose payloads, tokens, prompts, resume text, or raw URL paths as labels.
 
 ## Staleness Signals
 
-Mark this document stale if the monorepo service root changes, Docker image naming changes, active deployment manifests change service roles, internal gRPC security defaults change, or extracted services receive traffic through a new routing mechanism.
+Mark this document stale if the monorepo service root changes, Docker image naming changes, active deployment manifests change service roles, internal gRPC security defaults change, metrics endpoint conventions change, or extracted services receive traffic through a new routing mechanism.

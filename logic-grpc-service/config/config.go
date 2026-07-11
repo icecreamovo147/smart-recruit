@@ -62,6 +62,9 @@ type Config struct {
 		TLSCertFile string `yaml:"tls_cert_file"`
 		TLSKeyFile  string `yaml:"tls_key_file"`
 	} `yaml:"grpc"`
+	Observability struct {
+		MetricsAddr string `yaml:"metrics_addr"`
+	} `yaml:"observability"`
 	Logging logger.LogConfig `yaml:"logging"`
 	Redis   struct {
 		Addr         string   `yaml:"addr"`
@@ -426,6 +429,7 @@ func applyEnvOverrides(cfg *Config) {
 	setInt(&cfg.GRPC.Port, "GRPC_PORT")
 	setString(&cfg.GRPC.TLSCertFile, "GRPC_TLS_CERT_FILE")
 	setString(&cfg.GRPC.TLSKeyFile, "GRPC_TLS_KEY_FILE")
+	setString(&cfg.Observability.MetricsAddr, "METRICS_ADDR")
 
 	setString(&cfg.Logging.Level, "LOG_LEVEL")
 	setString(&cfg.Logging.Format, "LOG_FORMAT")

@@ -1,6 +1,6 @@
 # Backend Observability Baseline Design
 
-本文档记录 `backend-ddd-microservices-evolution` 的 TASK-BDME-006 观测性基线。它定义迁移期间需要保持一致的 telemetry contract，不改变当前运行时代码。
+本文档记录 `backend-ddd-microservices-evolution` 的观测性基线。TASK-BDME-006 定义 telemetry contract；TASK-BDME-049 在 HTTP gateway 与 logic gRPC 服务中落地第一批 Prometheus-compatible metrics、W3C `traceparent` propagation 和 structured log correlation。
 
 ## Telemetry Scope
 
@@ -26,6 +26,8 @@ The gateway remains the entry point for request identity.
 - `RequestID` middleware must create or preserve a request id for every HTTP request.
 - Gateway logs, auth audit entries, and gRPC calls must include `request_id`.
 - gRPC metadata must carry request id and safe actor context into logic service calls.
+- Gateway must preserve an incoming W3C `traceparent` trace id when valid, create a child span id, return `traceparent`/`X-Trace-ID`/`X-Span-ID` headers, and forward trace metadata to gRPC.
+- gRPC server interceptors must create a trace context when missing and include `trace_id`, `span_id`, `grpc_method`, and `grpc_code` in structured logs.
 - Domain events and Outbox records must carry request id, event id, event version, aggregate type, aggregate id, producer, occurred time, and actor id only when allowed.
 - Workers and consumers must log and emit metrics with the event/request id they received.
 - Future OpenTelemetry traces should map the existing request id to trace/span correlation rather than replacing it abruptly.
@@ -68,9 +70,18 @@ Every future cutover TASK must record:
 - rollback readiness and last known rollback point
 - residual risk and known blind spots
 
+## Runtime Metrics Implemented In TASK-BDME-049
+
+| Service | Endpoint | Metrics |
+| --- | --- | --- |
+| `web-gin-service` | `GET /metrics` on the existing HTTP port | `smart_recruit_http_requests_total`, `smart_recruit_http_request_duration_seconds`, `smart_recruit_http_panics_total`, `smart_recruit_grpc_client_requests_total`, `smart_recruit_grpc_client_request_duration_seconds` labelled by `service`, `method`, `route`, `status`, `grpc_method`, `grpc_code` as applicable |
+| `logic-grpc-service` | `GET /metrics` on `METRICS_ADDR` when configured; Kubernetes sets `:9091` | `smart_recruit_grpc_server_requests_total`, `smart_recruit_grpc_server_request_duration_seconds`, `smart_recruit_grpc_server_panics_total`, `smart_recruit_grpc_internal_auth_rejections_total` labelled by `service`, `grpc_method`, `grpc_code`, `reason` as applicable |
+
+Both endpoints emit Prometheus text format without adding runtime dependencies. High-cardinality labels such as raw URL path, user agent, token, prompt text, resume text, or payload snippets are intentionally excluded.
+
 ## Current Gaps
 
-- Metrics and traces are not yet standardized in code; current coverage is mainly structured logs, request id propagation, health checks, and targeted tests.
-- Outbox/Inbox metrics and event-age dashboards are design requirements for later implementation tasks.
+- Database, Redis, RabbitMQ, Outbox/Inbox, worker, and AI provider metrics remain design requirements for later implementation tasks.
+- OpenTelemetry SDK export is not wired yet; the implemented `traceparent` propagation keeps future SDK adoption compatible without adding dependencies in this TASK.
 - AI prompt/resume redaction should be validated by later log/event tests when telemetry sinks are introduced.
 - Worker semantic health currently needs stronger dependency-aware checks in later readiness tasks.

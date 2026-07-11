@@ -14,8 +14,10 @@ import (
 	"google.golang.org/grpc/credentials/insecure"
 	healthpb "google.golang.org/grpc/health/grpc_health_v1"
 	"google.golang.org/grpc/metadata"
+	"google.golang.org/grpc/status"
 
 	"web-gin-service/pkg/contextkeys"
+	"web-gin-service/pkg/observability"
 	"web-gin-service/recruitment/pb"
 )
 
@@ -32,7 +34,10 @@ func unaryClientInterceptor(token string) grpc.UnaryClientInterceptor {
 			ctx = metadata.AppendToOutgoingContext(ctx, internalTokenHeader, token)
 		}
 		ctx = forwardMetadata(ctx)
-		return invoker(ctx, method, req, reply, cc, opts...)
+		start := time.Now()
+		err := invoker(ctx, method, req, reply, cc, opts...)
+		observability.DefaultMetrics.ObserveGRPCClient(method, status.Code(err).String(), time.Since(start))
+		return err
 	}
 }
 
@@ -42,7 +47,10 @@ func streamClientInterceptor(token string) grpc.StreamClientInterceptor {
 			ctx = metadata.AppendToOutgoingContext(ctx, internalTokenHeader, token)
 		}
 		ctx = forwardMetadata(ctx)
-		return streamer(ctx, desc, cc, method, opts...)
+		start := time.Now()
+		stream, err := streamer(ctx, desc, cc, method, opts...)
+		observability.DefaultMetrics.ObserveGRPCClient(method, status.Code(err).String(), time.Since(start))
+		return stream, err
 	}
 }
 
@@ -578,6 +586,15 @@ func forwardMetadata(ctx context.Context) context.Context {
 	}
 	if at, ok := ctx.Value(contextkeys.AccountType).(string); ok && at != "" {
 		ctx = metadata.AppendToOutgoingContext(ctx, "x-authenticated-account-type", at)
+	}
+	if traceparent, ok := ctx.Value(contextkeys.Traceparent).(string); ok && traceparent != "" {
+		ctx = metadata.AppendToOutgoingContext(ctx, "traceparent", traceparent)
+	}
+	if traceID, ok := ctx.Value(contextkeys.TraceID).(string); ok && traceID != "" {
+		ctx = metadata.AppendToOutgoingContext(ctx, "x-trace-id", traceID)
+	}
+	if spanID, ok := ctx.Value(contextkeys.SpanID).(string); ok && spanID != "" {
+		ctx = metadata.AppendToOutgoingContext(ctx, "x-span-id", spanID)
 	}
 	return ctx
 }
