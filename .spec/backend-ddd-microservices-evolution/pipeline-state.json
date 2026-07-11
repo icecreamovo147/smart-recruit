@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "feature_name": "backend-ddd-microservices-evolution",
-  "current_task": "TASK-BDME-036",
+  "current_task": "TASK-BDME-037",
   "current_phase": "pending",
   "completed_tasks": [
     "TASK-BDME-001",
@@ -38,7 +38,8 @@
     "TASK-BDME-032",
     "TASK-BDME-033",
     "TASK-BDME-034",
-    "TASK-BDME-035"
+    "TASK-BDME-035",
+    "TASK-BDME-036"
   ],
   "blocked_tasks": [],
   "failed_tasks": [],
@@ -608,12 +609,12 @@
       "evidence": ".spec/backend-ddd-microservices-evolution/reports/TASK-BDME-035-evidence.json"
     },
     "TASK-BDME-036": {
-      "base_sha": null,
-      "base_tree": null,
-      "head_sha": null,
-      "scope_status": "pending",
-      "checks_status": "pending",
-      "review_verdict": "pending",
+      "base_sha": "1813702f82f561766865411021f2cf9e3df8df31",
+      "base_tree": "2c0a99eb9b1682bdfa221dec41101675d613380f",
+      "head_sha": "1813702f82f561766865411021f2cf9e3df8df31",
+      "scope_status": "passed",
+      "checks_status": "passed",
+      "review_verdict": "通过",
       "human_confirmation": {
         "required": true,
         "confirmed": true,
@@ -624,5 +625,5 @@
       "evidence": ".spec/backend-ddd-microservices-evolution/reports/TASK-BDME-036-evidence.json"
     }
   },
-  "updated_at": "2026-07-11T17:23:02Z"
+  "updated_at": "2026-07-11T17:33:00Z"
 }

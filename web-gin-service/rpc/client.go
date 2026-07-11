@@ -48,10 +48,13 @@ type Clients struct {
 	conn                   *grpc.ClientConn
 	notificationConn       *grpc.ClientConn
 	aiAgentConn            *grpc.ClientConn
+	identityConn           *grpc.ClientConn
 	NotificationRouteMode  string
 	NotificationTargetAddr string
 	AIAgentRouteMode       string
 	AIAgentTargetAddr      string
+	IdentityRouteMode      string
+	IdentityTargetAddr     string
 	Auth                   pb.AuthServiceClient
 	Job                    pb.JobServiceClient
 	Candidate              pb.CandidateServiceClient
@@ -73,6 +76,7 @@ type Clients struct {
 	Health                 healthpb.HealthClient
 	NotificationHealth     healthpb.HealthClient
 	AIAgentHealth          healthpb.HealthClient
+	IdentityHealth         healthpb.HealthClient
 }
 
 type ClientOptions struct {
@@ -80,6 +84,8 @@ type ClientOptions struct {
 	NotificationRouteMode string
 	AIAgentAddr           string
 	AIAgentRouteMode      string
+	IdentityAddr          string
+	IdentityRouteMode     string
 }
 
 // NewClients creates a gRPC client connection with round-robin load balancing.
@@ -91,6 +97,8 @@ func NewClients(addr string) (*Clients, error) {
 		NotificationRouteMode: os.Getenv("NOTIFICATION_ROUTE_MODE"),
 		AIAgentAddr:           os.Getenv("AI_AGENT_GRPC_ADDR"),
 		AIAgentRouteMode:      os.Getenv("AI_AGENT_ROUTE_MODE"),
+		IdentityAddr:          os.Getenv("IDENTITY_GRPC_ADDR"),
+		IdentityRouteMode:     os.Getenv("IDENTITY_ROUTE_MODE"),
 	})
 }
 
@@ -108,6 +116,13 @@ func NewClientsWithOptions(addr string, options ClientOptions) (*Clients, error)
 	}
 	if aiAgentMode != "logic" && aiAgentMode != "ai-agent" {
 		return nil, fmt.Errorf("unsupported ai agent route mode %q", aiAgentMode)
+	}
+	identityMode := options.IdentityRouteMode
+	if identityMode == "" {
+		identityMode = "logic"
+	}
+	if identityMode != "logic" && identityMode != "identity" {
+		return nil, fmt.Errorf("unsupported identity route mode %q", identityMode)
 	}
 	token := grpcInternalToken()
 	opts := dialOptions(token)
@@ -128,6 +143,8 @@ func NewClientsWithOptions(addr string, options ClientOptions) (*Clients, error)
 	notificationTarget := addr
 	aiAgentConn := conn
 	aiAgentTarget := addr
+	identityConn := conn
+	identityTarget := addr
 	if notificationMode == "notification" {
 		if options.NotificationAddr == "" {
 			_ = conn.Close()
@@ -170,15 +187,44 @@ func NewClientsWithOptions(addr string, options ClientOptions) (*Clients, error)
 		}
 		aiAgentTarget = options.AIAgentAddr
 	}
+	if identityMode == "identity" {
+		if options.IdentityAddr == "" {
+			closeClientConns(conn, notificationConn, aiAgentConn)
+			return nil, fmt.Errorf("identity grpc addr is required when route mode is identity")
+		}
+		identityConn, err = grpc.NewClient(options.IdentityAddr,
+			append(opts,
+				grpc.WithConnectParams(grpc.ConnectParams{
+					Backoff: backoff.Config{
+						MaxDelay: 5 * time.Second,
+					},
+					MinConnectTimeout: 3 * time.Second,
+				}),
+			)...,
+		)
+		if err != nil {
+			closeClientConns(conn, notificationConn, aiAgentConn)
+			return nil, err
+		}
+		identityTarget = options.IdentityAddr
+	}
+	logicAdminClient := pb.NewAdminServiceClient(conn)
+	identityAdminClient := logicAdminClient
+	if identityMode == "identity" {
+		identityAdminClient = newIdentityAdminClient(logicAdminClient, pb.NewAdminServiceClient(identityConn))
+	}
 	return &Clients{
 		conn:                   conn,
 		notificationConn:       notificationConn,
 		aiAgentConn:            aiAgentConn,
+		identityConn:           identityConn,
 		NotificationRouteMode:  notificationMode,
 		NotificationTargetAddr: notificationTarget,
 		AIAgentRouteMode:       aiAgentMode,
 		AIAgentTargetAddr:      aiAgentTarget,
-		Auth:                   pb.NewAuthServiceClient(conn),
+		IdentityRouteMode:      identityMode,
+		IdentityTargetAddr:     identityTarget,
+		Auth:                   pb.NewAuthServiceClient(identityConn),
 		Job:                    pb.NewJobServiceClient(conn),
 		Candidate:              pb.NewCandidateServiceClient(conn),
 		Application:            pb.NewApplicationServiceClient(conn),
@@ -186,7 +232,7 @@ func NewClientsWithOptions(addr string, options ClientOptions) (*Clients, error)
 		Notification:           pb.NewNotificationServiceClient(notificationConn),
 		Interview:              pb.NewInterviewServiceClient(conn),
 		Offer:                  pb.NewOfferServiceClient(conn),
-		Admin:                  pb.NewAdminServiceClient(conn),
+		Admin:                  identityAdminClient,
 		Collaboration:          pb.NewCollaborationServiceClient(conn),
 		LlmConfig:              pb.NewLlmConfigServiceClient(aiAgentConn),
 		Prompt:                 pb.NewPromptServiceClient(aiAgentConn),
@@ -199,6 +245,7 @@ func NewClientsWithOptions(addr string, options ClientOptions) (*Clients, error)
 		Health:                 healthpb.NewHealthClient(conn),
 		NotificationHealth:     healthpb.NewHealthClient(notificationConn),
 		AIAgentHealth:          healthpb.NewHealthClient(aiAgentConn),
+		IdentityHealth:         healthpb.NewHealthClient(identityConn),
 	}, nil
 }
 
@@ -250,6 +297,12 @@ func dialOptions(token string) []grpc.DialOption {
 }
 
 func (c *Clients) Close() error {
+	if c.identityConn != nil && c.identityConn != c.conn && c.identityConn != c.notificationConn && c.identityConn != c.aiAgentConn {
+		if err := c.identityConn.Close(); err != nil {
+			closeClientConns(c.conn, c.notificationConn, c.aiAgentConn)
+			return err
+		}
+	}
 	if c.aiAgentConn != nil && c.aiAgentConn != c.conn && c.aiAgentConn != c.notificationConn {
 		if err := c.aiAgentConn.Close(); err != nil {
 			closeClientConns(c.conn, c.notificationConn)
@@ -276,6 +329,11 @@ func (c *Clients) Ready(ctx context.Context) error {
 	}
 	if c.aiAgentConn != nil && c.aiAgentConn != c.conn && c.aiAgentConn != c.notificationConn && c.AIAgentHealth != nil {
 		if err := checkHealth(ctx, "ai-agent", c.AIAgentHealth); err != nil {
+			return err
+		}
+	}
+	if c.identityConn != nil && c.identityConn != c.conn && c.identityConn != c.notificationConn && c.identityConn != c.aiAgentConn && c.IdentityHealth != nil {
+		if err := checkHealth(ctx, "identity", c.IdentityHealth); err != nil {
 			return err
 		}
 	}

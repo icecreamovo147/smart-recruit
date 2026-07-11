@@ -90,6 +90,66 @@ func TestLoadAIAgentRouteDefaultsToLogic(t *testing.T) {
 	}
 }
 
+func TestLoadIdentityRouteDefaultsToLogic(t *testing.T) {
+	t.Setenv("ALLOW_INSECURE_DEV_CONFIG", "false")
+	t.Setenv("JWT_SECRET", "test-secret-at-least-32-chars-long")
+	t.Setenv("GRPC_INTERNAL_TOKEN", strings.Repeat("t", 32))
+
+	cfg, err := Load()
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+	if cfg.IdentityRouteMode != "logic" {
+		t.Fatalf("IdentityRouteMode = %q, want logic", cfg.IdentityRouteMode)
+	}
+	if cfg.IdentityGRPCAddr != "" {
+		t.Fatalf("IdentityGRPCAddr = %q, want empty", cfg.IdentityGRPCAddr)
+	}
+}
+
+func TestLoadIdentityRouteToExtractedService(t *testing.T) {
+	t.Setenv("ALLOW_INSECURE_DEV_CONFIG", "false")
+	t.Setenv("JWT_SECRET", "test-secret-at-least-32-chars-long")
+	t.Setenv("GRPC_INTERNAL_TOKEN", strings.Repeat("t", 32))
+	t.Setenv("IDENTITY_ROUTE_MODE", "identity")
+	t.Setenv("IDENTITY_GRPC_ADDR", "dns:///identity-service:50051")
+
+	cfg, err := Load()
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+	if cfg.IdentityRouteMode != "identity" {
+		t.Fatalf("IdentityRouteMode = %q, want identity", cfg.IdentityRouteMode)
+	}
+	if cfg.IdentityGRPCAddr != "dns:///identity-service:50051" {
+		t.Fatalf("IdentityGRPCAddr = %q", cfg.IdentityGRPCAddr)
+	}
+}
+
+func TestLoadIdentityRouteRequiresAddress(t *testing.T) {
+	t.Setenv("ALLOW_INSECURE_DEV_CONFIG", "false")
+	t.Setenv("JWT_SECRET", "test-secret-at-least-32-chars-long")
+	t.Setenv("GRPC_INTERNAL_TOKEN", strings.Repeat("t", 32))
+	t.Setenv("IDENTITY_ROUTE_MODE", "identity")
+
+	_, err := Load()
+	if err == nil || !strings.Contains(err.Error(), "IDENTITY_GRPC_ADDR") {
+		t.Fatalf("expected identity addr error, got %v", err)
+	}
+}
+
+func TestLoadRejectsInvalidIdentityRouteMode(t *testing.T) {
+	t.Setenv("ALLOW_INSECURE_DEV_CONFIG", "false")
+	t.Setenv("JWT_SECRET", "test-secret-at-least-32-chars-long")
+	t.Setenv("GRPC_INTERNAL_TOKEN", strings.Repeat("t", 32))
+	t.Setenv("IDENTITY_ROUTE_MODE", "invalid")
+
+	_, err := Load()
+	if err == nil || !strings.Contains(err.Error(), "IDENTITY_ROUTE_MODE") {
+		t.Fatalf("expected identity route mode error, got %v", err)
+	}
+}
+
 func TestLoadAIAgentRouteToExtractedService(t *testing.T) {
 	t.Setenv("ALLOW_INSECURE_DEV_CONFIG", "false")
 	t.Setenv("JWT_SECRET", "test-secret-at-least-32-chars-long")

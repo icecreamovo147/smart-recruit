@@ -52,6 +52,8 @@ func main() {
 		NotificationRouteMode: cfg.NotificationRouteMode,
 		AIAgentAddr:           cfg.AIAgentGRPCAddr,
 		AIAgentRouteMode:      cfg.AIAgentRouteMode,
+		IdentityAddr:          cfg.IdentityGRPCAddr,
+		IdentityRouteMode:     cfg.IdentityRouteMode,
 	})
 	if err != nil {
 		log.Fatal("connect logic grpc service failed", zap.String("addr", cfg.GRPCAddr), zap.Error(err))
@@ -63,6 +65,8 @@ func main() {
 		zap.String("notification_target_addr", clients.NotificationTargetAddr),
 		zap.String("ai_agent_route_mode", clients.AIAgentRouteMode),
 		zap.String("ai_agent_target_addr", clients.AIAgentTargetAddr),
+		zap.String("identity_route_mode", clients.IdentityRouteMode),
+		zap.String("identity_target_addr", clients.IdentityTargetAddr),
 	)
 
 	rdb := redisclient.New(cfg.Redis)

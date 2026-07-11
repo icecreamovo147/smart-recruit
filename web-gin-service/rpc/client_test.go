@@ -70,6 +70,48 @@ func TestNewClientsRoutesAIAgentToExtractedService(t *testing.T) {
 	}
 }
 
+func TestNewClientsRoutesIdentityToExtractedService(t *testing.T) {
+	clients, err := NewClientsWithOptions("passthrough:///logic:50051", ClientOptions{
+		IdentityRouteMode: "identity",
+		IdentityAddr:      "passthrough:///identity:50051",
+	})
+	if err != nil {
+		t.Fatalf("NewClientsWithOptions: %v", err)
+	}
+	defer clients.Close()
+
+	if clients.IdentityRouteMode != "identity" {
+		t.Fatalf("IdentityRouteMode = %q, want identity", clients.IdentityRouteMode)
+	}
+	if clients.IdentityTargetAddr != "passthrough:///identity:50051" {
+		t.Fatalf("IdentityTargetAddr = %q", clients.IdentityTargetAddr)
+	}
+	if clients.identityConn == clients.conn {
+		t.Fatal("Identity cutover should use a separate gRPC connection")
+	}
+	if _, ok := clients.Admin.(*identityAdminClient); !ok {
+		t.Fatalf("Admin client type = %T, want *identityAdminClient", clients.Admin)
+	}
+}
+
+func TestNewClientsIdentityCutoverRequiresAddress(t *testing.T) {
+	_, err := NewClientsWithOptions("passthrough:///logic:50051", ClientOptions{
+		IdentityRouteMode: "identity",
+	})
+	if err == nil {
+		t.Fatal("expected missing identity address error")
+	}
+}
+
+func TestNewClientsRejectsInvalidIdentityRouteMode(t *testing.T) {
+	_, err := NewClientsWithOptions("passthrough:///logic:50051", ClientOptions{
+		IdentityRouteMode: "invalid",
+	})
+	if err == nil {
+		t.Fatal("expected invalid identity route mode error")
+	}
+}
+
 func TestNewClientsAIAgentCutoverRequiresAddress(t *testing.T) {
 	_, err := NewClientsWithOptions("passthrough:///logic:50051", ClientOptions{
 		AIAgentRouteMode: "ai-agent",
@@ -145,6 +187,20 @@ func TestReadyChecksAIAgentHealthWhenCutoverUsesSeparateConnection(t *testing.T)
 	err := clients.Ready(context.Background())
 	if err == nil || !strings.Contains(err.Error(), "ai-agent grpc health check failed") {
 		t.Fatalf("expected ai agent health failure, got %v", err)
+	}
+}
+
+func TestReadyChecksIdentityHealthWhenCutoverUsesSeparateConnection(t *testing.T) {
+	clients := &Clients{
+		conn:           &grpc.ClientConn{},
+		identityConn:   &grpc.ClientConn{},
+		Health:         fakeHealthClient{status: healthpb.HealthCheckResponse_SERVING},
+		IdentityHealth: fakeHealthClient{err: errors.New("identity down")},
+	}
+
+	err := clients.Ready(context.Background())
+	if err == nil || !strings.Contains(err.Error(), "identity grpc health check failed") {
+		t.Fatalf("expected identity health failure, got %v", err)
 	}
 }
 

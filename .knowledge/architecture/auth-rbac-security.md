@@ -54,6 +54,7 @@ Authentication is split between the HTTP gateway and the logic service. The gate
 - `logic-grpc-service/service/admin_service.go` changes staff roles/data scopes and synchronizes token-version cache after permission mutations.
 - `logic-grpc-service/cmd/identity-service` is currently an unrouted Identity runtime. It registers AuthService plus Identity-owned AdminService methods only when explicitly started with `--serve`; default execution still binds no listener, and gateway traffic remains on the monolith until a scoped cutover TASK.
 - Identity-owned extracted AdminService methods are role/permission listing, user role assignment/revocation, data-scope assignment/revocation, staff identity list/create, and security audit log query. Invite-code, usage-log, department, location, and department-location configuration methods remain outside the Identity runtime in this TASK.
+- `web-gin-service/rpc/client.go` keeps Identity traffic on the logic gRPC connection by default. `IDENTITY_ROUTE_MODE=identity` routes AuthService plus the Identity-owned AdminService subset to `IDENTITY_GRPC_ADDR`; rollback is `IDENTITY_ROUTE_MODE=logic`.
 
 ## Security-Relevant State
 

@@ -60,6 +60,8 @@ data:
   NOTIFICATION_GRPC_ADDR: ""
   AI_AGENT_ROUTE_MODE: "logic"
   AI_AGENT_GRPC_ADDR: ""
+  IDENTITY_ROUTE_MODE: "logic"
+  IDENTITY_GRPC_ADDR: ""
   AUTH_COOKIE_SECURE: "true"
   CANDIDATE_AUTH_COOKIE_NAME: "recruitment_candidate_token"
   HR_AUTH_COOKIE_NAME: "recruitment_hr_token"

@@ -26,6 +26,7 @@ source_refs:
   - docs/backend-ddd-microservices-evolution-ai-agent-gateway-cutover.md
   - docs/backend-ddd-microservices-evolution-identity-service-skeleton.md
   - docs/backend-ddd-microservices-evolution-identity-api-extraction.md
+  - docs/backend-ddd-microservices-evolution-identity-gateway-cutover.md
   - deploy/k8s/README-service-binaries.md
   - logic-grpc-service/internal/platform/servicebinary/convention.go
   - logic-grpc-service/internal/platform/servicebinary/convention_test.go
@@ -63,6 +64,7 @@ Use this runbook when adding or reviewing backend service binaries, worker binar
 - `service.AIAgentRuntime` is the current runtime composition boundary for HR AI chat, candidate AI chat, provider fallback/config surface, embedding service, embedding consumer, and durable agent-run consumer. It is still started by the monolith worker block.
 - `web-gin-service` has a Notification gateway routing switch: default `NOTIFICATION_ROUTE_MODE=logic` keeps traffic on `GRPC_ADDR`; `NOTIFICATION_ROUTE_MODE=notification` routes only the generated Notification client to `NOTIFICATION_GRPC_ADDR` and fails fast when that address is missing.
 - `web-gin-service` has an AI Agent gateway routing switch: default `AI_AGENT_ROUTE_MODE=logic` keeps AI Agent-owned generated clients on `GRPC_ADDR`; `AI_AGENT_ROUTE_MODE=ai-agent` routes them to `AI_AGENT_GRPC_ADDR` and fails fast when that address is missing.
+- `web-gin-service` has an Identity gateway routing switch: default `IDENTITY_ROUTE_MODE=logic` keeps Identity traffic on `GRPC_ADDR`; `IDENTITY_ROUTE_MODE=identity` routes AuthService plus the Identity-owned AdminService subset to `IDENTITY_GRPC_ADDR` and fails fast when that address is missing.
 
 ## Review Checklist
 
