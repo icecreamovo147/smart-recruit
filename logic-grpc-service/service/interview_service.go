@@ -27,6 +27,7 @@ type InterviewService struct {
 	oss             oss.Storage
 	scopeEval       *scopeEvaluator
 	serviceAuth     *ServiceAuthorizer
+	lifecycle       *RecruitmentLifecycleProcessManager
 }
 
 func NewInterviewService(
@@ -52,6 +53,7 @@ func NewInterviewService(
 		oss:             ossClient,
 		scopeEval:       scopeEval,
 		serviceAuth:     serviceAuth,
+		lifecycle:       NewRecruitmentLifecycleProcessManager(applications),
 	}
 }
 
@@ -255,14 +257,11 @@ func (s *InterviewService) ScheduleInterview(ctx context.Context, req *pb.Schedu
 		// Auto-transition application status to interview_pending
 		currentKey := appDetail.StatusKey
 		if currentKey == model.StatusKeyViewed || currentKey == model.StatusKeyScreenPassed || currentKey == model.StatusKeyInterviewCancelled || currentKey == model.StatusKeyInterviewPassed {
-			legacyStatus := model.StatusKeyToLegacy[model.StatusKeyInterviewPending]
-			if _, err := s.applications.UpdateStatusAnyWithTx(ctx, tx, req.ApplicationId, currentKey, model.StatusKeyInterviewPending, legacyStatus); err != nil {
-				return err
-			}
-			if err := s.applications.CreateTransition(ctx, tx, &model.ApplicationStatusTransition{
+			if _, err := s.lifecycle.ApplyTransitionTx(ctx, tx, RecruitmentLifecycleTransition{
 				ApplicationID:    req.ApplicationId,
 				FromStatus:       currentKey,
 				ToStatus:         model.StatusKeyInterviewPending,
+				LegacyStatus:     model.StatusKeyToLegacy[model.StatusKeyInterviewPending],
 				ActorUserID:      req.HrId,
 				ActorAccountType: "staff",
 				Reason:           fmt.Sprintf("安排第 %d 轮面试自动推进", roundNo),
@@ -596,34 +595,26 @@ func (s *InterviewService) CancelInterview(ctx context.Context, req *pb.CancelIn
 
 		// Transition application status to interview_cancelled.
 		currentKey := appDetail.StatusKey
-		var rows int64
+		transitioned := false
 		if currentKey == model.StatusKeyInterviewPending || currentKey == model.StatusKeyInterviewing {
-			legacyStatus := model.StatusKeyToLegacy[model.StatusKeyInterviewCancelled]
-			var err error
-			rows, err = s.applications.UpdateStatusAnyWithTx(ctx, tx, existing.ApplicationID, currentKey, model.StatusKeyInterviewCancelled, legacyStatus)
+			transitioned, err = s.lifecycle.ApplyTransitionTx(ctx, tx, RecruitmentLifecycleTransition{
+				ApplicationID:    existing.ApplicationID,
+				FromStatus:       currentKey,
+				ToStatus:         model.StatusKeyInterviewCancelled,
+				LegacyStatus:     model.StatusKeyToLegacy[model.StatusKeyInterviewCancelled],
+				ActorUserID:      req.HrId,
+				ActorAccountType: "staff",
+				Reason:           fmt.Sprintf("取消面试（ID=%d）：%s", existing.ID, reasonText),
+			})
 			if err != nil {
 				return err
-			}
-			// Only write transition audit record if the status was actually changed.
-			// If rows == 0, another concurrent cancel already transitioned the application status.
-			if rows > 0 {
-				if err := s.applications.CreateTransition(ctx, tx, &model.ApplicationStatusTransition{
-					ApplicationID:    existing.ApplicationID,
-					FromStatus:       currentKey,
-					ToStatus:         model.StatusKeyInterviewCancelled,
-					ActorUserID:      req.HrId,
-					ActorAccountType: "staff",
-					Reason:           fmt.Sprintf("取消面试（ID=%d）：%s", existing.ID, reasonText),
-				}); err != nil {
-					return err
-				}
 			}
 		}
 
 		// Only emit notifications if the application status was actually
-		// transitioned (rows > 0). In a concurrent double-cancel, the
+		// transitioned. In a concurrent double-cancel, the
 		// second caller sees rows == 0 and skips duplicate outbox writes.
-		if rows > 0 {
+		if transitioned {
 			// Notify interviewer
 			if err := s.outboxPublisher.WriteEventTx(tx, "interview.notification_requested", "interview", uint64(existing.ID), "notification.create", notificationPayload{
 				ReceiverID:          existing.InterviewerID,
@@ -769,22 +760,17 @@ func (s *InterviewService) BatchCancelInterviews(ctx context.Context, req *pb.Ba
 		// Transition application status to interview_cancelled if applicable
 		currentKey := appDetail.StatusKey
 		if currentKey == model.StatusKeyInterviewPending || currentKey == model.StatusKeyInterviewing {
-			legacyStatus := model.StatusKeyToLegacy[model.StatusKeyInterviewCancelled]
-			rows, err := s.applications.UpdateStatusAnyWithTx(ctx, tx, req.ApplicationId, currentKey, model.StatusKeyInterviewCancelled, legacyStatus)
+			_, err := s.lifecycle.ApplyTransitionTx(ctx, tx, RecruitmentLifecycleTransition{
+				ApplicationID:    req.ApplicationId,
+				FromStatus:       currentKey,
+				ToStatus:         model.StatusKeyInterviewCancelled,
+				LegacyStatus:     model.StatusKeyToLegacy[model.StatusKeyInterviewCancelled],
+				ActorUserID:      req.HrId,
+				ActorAccountType: "staff",
+				Reason:           fmt.Sprintf("批量取消面试：%s", reasonText),
+			})
 			if err != nil {
 				return err
-			}
-			if rows > 0 {
-				if err := s.applications.CreateTransition(ctx, tx, &model.ApplicationStatusTransition{
-					ApplicationID:    req.ApplicationId,
-					FromStatus:       currentKey,
-					ToStatus:         model.StatusKeyInterviewCancelled,
-					ActorUserID:      req.HrId,
-					ActorAccountType: "staff",
-					Reason:           fmt.Sprintf("批量取消面试：%s", reasonText),
-				}); err != nil {
-					return err
-				}
 			}
 		}
 
@@ -1098,14 +1084,11 @@ func (s *InterviewService) SubmitFeedback(ctx context.Context, req *pb.SubmitFee
 
 		// Step 3: Auto-transition application status: interview_pending → interviewing
 		if interviewDetail.ApplicationStatusKey == model.StatusKeyInterviewPending {
-			legacyStatus := model.StatusKeyToLegacy[model.StatusKeyInterviewing]
-			if _, err := s.applications.UpdateStatusAnyWithTx(ctx, tx, req.ApplicationId, model.StatusKeyInterviewPending, model.StatusKeyInterviewing, legacyStatus); err != nil {
-				return err
-			}
-			if err := s.applications.CreateTransition(ctx, tx, &model.ApplicationStatusTransition{
+			if _, err := s.lifecycle.ApplyTransitionTx(ctx, tx, RecruitmentLifecycleTransition{
 				ApplicationID:    req.ApplicationId,
 				FromStatus:       model.StatusKeyInterviewPending,
 				ToStatus:         model.StatusKeyInterviewing,
+				LegacyStatus:     model.StatusKeyToLegacy[model.StatusKeyInterviewing],
 				ActorUserID:      req.InterviewerId,
 				ActorAccountType: "staff",
 				Reason:           "面试官提交反馈，自动推进至面试中",
@@ -1144,19 +1127,17 @@ func (s *InterviewService) advanceToInterviewing(ctx context.Context, applicatio
 	if appDetail.StatusKey != model.StatusKeyInterviewPending {
 		return nil // already past this stage or not yet there — idempotent skip
 	}
-	legacyStatus := model.StatusKeyToLegacy[model.StatusKeyInterviewing]
 	return s.applications.Transaction(ctx, func(tx *gorm.DB) error {
-		if _, err := s.applications.UpdateStatusAnyWithTx(ctx, tx, applicationID, model.StatusKeyInterviewPending, model.StatusKeyInterviewing, legacyStatus); err != nil {
-			return err
-		}
-		return s.applications.CreateTransition(ctx, tx, &model.ApplicationStatusTransition{
+		_, err := s.lifecycle.ApplyTransitionTx(ctx, tx, RecruitmentLifecycleTransition{
 			ApplicationID:    applicationID,
 			FromStatus:       model.StatusKeyInterviewPending,
 			ToStatus:         model.StatusKeyInterviewing,
+			LegacyStatus:     model.StatusKeyToLegacy[model.StatusKeyInterviewing],
 			ActorUserID:      actorUserID,
 			ActorAccountType: "staff",
 			Reason:           "面试官提交反馈，自动推进至面试中",
 		})
+		return err
 	})
 }
 

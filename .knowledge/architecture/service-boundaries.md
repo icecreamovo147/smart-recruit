@@ -19,6 +19,7 @@ source_refs:
   - web-gin-service/router/router.go
   - logic-grpc-service/proto/recruitment.proto
   - logic-grpc-service/service/auth_service.go
+  - logic-grpc-service/service/recruitment_lifecycle_process_manager.go
   - logic-grpc-service/internal/platform/events/envelope.go
   - logic-grpc-service/repository/user_repo.go
 last_verified: 2026-07-11
@@ -33,6 +34,8 @@ The logic gRPC service is the business boundary. It owns domain services, reposi
 
 `logic-grpc-service/internal/platform/events/` defines shared domain-event envelope contracts for Outbox, Inbox, asynchronous consumers, and Analytics projections. It is an internal backend contract and does not change HTTP, gRPC, protobuf, or database schemas by itself.
 
+`logic-grpc-service/service/recruitment_lifecycle_process_manager.go` is the transitional process-manager boundary for cross-context Interview and Offer workflows that still need synchronous application lifecycle updates during the modular-monolith phase. Interview and Offer services should not directly write application status or application transition audit rows; they should call this boundary until the workflow can move fully to asynchronous domain events or extracted service APIs.
+
 Generated protobuf files are contract artifacts. When proto definitions change, generated code in both Go services must stay aligned with the source `.proto` files.
 
 ## Boundary Checklist
@@ -40,6 +43,7 @@ Generated protobuf files are contract artifacts. When proto definitions change, 
 - Add or change HTTP endpoints in the gateway only when there is a matching gRPC or handler contract.
 - Keep RBAC declarations close to gateway routes and verify equivalent permissions exist in authz packages.
 - Keep domain invariants in logic services and repositories.
+- Keep cross-context application lifecycle writes behind explicit events, adapters, or process-manager boundaries instead of scattering direct repository writes through Interview or Offer services.
 - Keep request deadlines and body limits in the gateway unless the logic service owns a deeper operation timeout.
 - Treat protobuf and database schema changes as public-contract or persistence changes that require explicit scope.
 
@@ -52,4 +56,4 @@ Generated protobuf files are contract artifacts. When proto definitions change, 
 
 ## Verification
 
-The boundary was verified from gateway route registration, protobuf service definitions, representative logic service/repository files, and `logic-grpc-service/internal/platform/events/envelope.go` on 2026-07-11.
+The boundary was verified from gateway route registration, protobuf service definitions, representative logic service/repository files, `logic-grpc-service/service/recruitment_lifecycle_process_manager.go`, and `logic-grpc-service/internal/platform/events/envelope.go` on 2026-07-11.

@@ -26,6 +26,7 @@ type OfferService struct {
 	outboxPublisher *OutboxPublisher
 	scopeEval       *scopeEvaluator
 	serviceAuth     *ServiceAuthorizer
+	lifecycle       *RecruitmentLifecycleProcessManager
 }
 
 func NewOfferService(
@@ -47,6 +48,7 @@ func NewOfferService(
 		outboxPublisher: outboxPublisher,
 		scopeEval:       scopeEval,
 		serviceAuth:     serviceAuth,
+		lifecycle:       NewRecruitmentLifecycleProcessManager(applications),
 	}
 }
 
@@ -189,23 +191,18 @@ func (s *OfferService) CreateOffer(ctx context.Context, req *pb.CreateOfferReque
 
 		if needStatusUpdate {
 			// Update application status to offer_pending
-			rows, err := s.applications.UpdateStatusAnyWithTx(ctx, tx, req.ApplicationId, appDetail.StatusKey, model.StatusKeyOfferPending, 0)
-			if err != nil {
-				return err
-			}
-			if rows == 0 {
-				return fmt.Errorf("application status changed concurrently, expected %s", appDetail.StatusKey)
-			}
-
-			// Write application status transition audit record
-			if err := s.applications.CreateTransition(ctx, tx, &model.ApplicationStatusTransition{
+			changed, err := s.lifecycle.ApplyTransitionTx(ctx, tx, RecruitmentLifecycleTransition{
 				ApplicationID:    req.ApplicationId,
 				FromStatus:       appDetail.StatusKey,
 				ToStatus:         model.StatusKeyOfferPending,
 				ActorUserID:      req.HrId,
 				ActorAccountType: "staff",
-			}); err != nil {
+			})
+			if err != nil {
 				return err
+			}
+			if !changed {
+				return fmt.Errorf("application status changed concurrently, expected %s", appDetail.StatusKey)
 			}
 		}
 
@@ -461,23 +458,18 @@ func (s *OfferService) SendOffer(ctx context.Context, req *pb.SendOfferRequest) 
 		}
 
 		// Update application status to offer_sent
-		rows, err := s.applications.UpdateStatusAnyWithTx(ctx, tx, offer.ApplicationID, appDetail.StatusKey, model.StatusKeyOfferSent, 0)
-		if err != nil {
-			return err
-		}
-		if rows == 0 {
-			return fmt.Errorf("application status changed concurrently, expected %s", appDetail.StatusKey)
-		}
-
-		// Write application status transition audit record
-		if err := s.applications.CreateTransition(ctx, tx, &model.ApplicationStatusTransition{
+		changed, err := s.lifecycle.ApplyTransitionTx(ctx, tx, RecruitmentLifecycleTransition{
 			ApplicationID:    offer.ApplicationID,
 			FromStatus:       appDetail.StatusKey,
 			ToStatus:         model.StatusKeyOfferSent,
 			ActorUserID:      req.HrId,
 			ActorAccountType: "staff",
-		}); err != nil {
+		})
+		if err != nil {
 			return err
+		}
+		if !changed {
+			return fmt.Errorf("application status changed concurrently, expected %s", appDetail.StatusKey)
 		}
 
 		// Write offer event
@@ -602,24 +594,19 @@ func (s *OfferService) WithdrawOffer(ctx context.Context, req *pb.WithdrawOfferR
 
 		// Revert application status when withdrawing a sent offer
 		if needsAppRevert {
-			rows, err := s.applications.UpdateStatusAnyWithTx(ctx, tx, offer.ApplicationID, appDetail.StatusKey, model.StatusKeyOfferPending, 0)
-			if err != nil {
-				return err
-			}
-			if rows == 0 {
-				return fmt.Errorf("application status changed concurrently, expected %s", appDetail.StatusKey)
-			}
-
-			// Write application status transition audit record
-			if err := s.applications.CreateTransition(ctx, tx, &model.ApplicationStatusTransition{
+			changed, err := s.lifecycle.ApplyTransitionTx(ctx, tx, RecruitmentLifecycleTransition{
 				ApplicationID:    offer.ApplicationID,
 				FromStatus:       appDetail.StatusKey,
 				ToStatus:         model.StatusKeyOfferPending,
 				ActorUserID:      req.HrId,
 				ActorAccountType: "staff",
 				Reason:           req.Reason,
-			}); err != nil {
+			})
+			if err != nil {
 				return err
+			}
+			if !changed {
+				return fmt.Errorf("application status changed concurrently, expected %s", appDetail.StatusKey)
 			}
 		}
 
@@ -749,23 +736,18 @@ func (s *OfferService) AcceptOffer(ctx context.Context, req *pb.AcceptOfferReque
 		}
 
 		// Update application status to offer_accepted
-		rows, err := s.applications.UpdateStatusAnyWithTx(ctx, tx, offer.ApplicationID, appDetail.StatusKey, model.StatusKeyOfferAccepted, 0)
-		if err != nil {
-			return err
-		}
-		if rows == 0 {
-			return fmt.Errorf("application status changed concurrently, expected %s", appDetail.StatusKey)
-		}
-
-		// Write application status transition audit record
-		if err := s.applications.CreateTransition(ctx, tx, &model.ApplicationStatusTransition{
+		changed, err := s.lifecycle.ApplyTransitionTx(ctx, tx, RecruitmentLifecycleTransition{
 			ApplicationID:    offer.ApplicationID,
 			FromStatus:       appDetail.StatusKey,
 			ToStatus:         model.StatusKeyOfferAccepted,
 			ActorUserID:      req.UserId,
 			ActorAccountType: "candidate",
-		}); err != nil {
+		})
+		if err != nil {
 			return err
+		}
+		if !changed {
+			return fmt.Errorf("application status changed concurrently, expected %s", appDetail.StatusKey)
 		}
 
 		event := &model.OfferEvent{
@@ -872,31 +854,20 @@ func (s *OfferService) RejectOffer(ctx context.Context, req *pb.RejectOfferReque
 		}
 
 		// Update application status to offer_rejected
-		rows, err := s.applications.UpdateStatusAnyWithTx(ctx, tx, offer.ApplicationID, appDetail.StatusKey, model.StatusKeyOfferRejected, 0)
+		changed, err := s.lifecycle.ApplyTransitionTx(ctx, tx, RecruitmentLifecycleTransition{
+			ApplicationID:     offer.ApplicationID,
+			FromStatus:        appDetail.StatusKey,
+			ToStatus:          model.StatusKeyOfferRejected,
+			ActorUserID:       req.UserId,
+			ActorAccountType:  "candidate",
+			Reason:            req.Reason,
+			CloseCurrentRound: model.IsTerminalStatusKey(model.StatusKeyOfferRejected),
+		})
 		if err != nil {
 			return err
 		}
-		if rows == 0 {
+		if !changed {
 			return fmt.Errorf("application status changed concurrently, expected %s", appDetail.StatusKey)
-		}
-
-		// offer_rejected is terminal: close the current application round
-		if model.IsTerminalStatusKey(model.StatusKeyOfferRejected) {
-			if err := tx.Model(&model.Application{}).Where("id = ?", offer.ApplicationID).Update("is_current", 0).Error; err != nil {
-				return err
-			}
-		}
-
-		// Write application status transition audit record
-		if err := s.applications.CreateTransition(ctx, tx, &model.ApplicationStatusTransition{
-			ApplicationID:    offer.ApplicationID,
-			FromStatus:       appDetail.StatusKey,
-			ToStatus:         model.StatusKeyOfferRejected,
-			ActorUserID:      req.UserId,
-			ActorAccountType: "candidate",
-			Reason:           req.Reason,
-		}); err != nil {
-			return err
 		}
 
 		reasonText := req.Reason

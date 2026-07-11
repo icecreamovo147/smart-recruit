@@ -21,6 +21,7 @@ applies_to:
 source_refs:
   - logic-grpc-service/model/status.go
   - logic-grpc-service/service/application_service.go
+  - logic-grpc-service/service/recruitment_lifecycle_process_manager.go
   - logic-grpc-service/service/interview_service.go
   - logic-grpc-service/service/offer_service.go
   - logic-grpc-service/service/collaboration_service.go
@@ -39,8 +40,9 @@ The recruitment lifecycle is centered on application rounds. Jobs receive applic
 - `ApplicationService.ApplyJob` requires a complete candidate profile, a valid resume, and an online job, then creates a new application round.
 - `model/status.go` defines stable status keys, legacy numeric mappings, candidate-safe labels, HR labels, and terminal statuses.
 - `ApplicationService.UpdateApplicationStatus` validates target status keys, allowed transitions, reason requirements for closeout states, scope access, and current-round constraints.
+- `RecruitmentLifecycleProcessManager` is the explicit process-manager boundary for Interview and Offer workflows that must advance application status or write application transition audit records inside an existing transaction.
 - Interview scheduling and feedback use interview services/repositories and affect HR, candidate, and interviewer surfaces.
-- Offer creation, send, withdraw, accept, and reject update offer state and application status in transactions.
+- Offer creation, send, withdraw, accept, and reject update offer state in Offer service transactions and route application lifecycle transitions through `RecruitmentLifecycleProcessManager`.
 - Collaboration workspace composes applications, notes, tags, tasks, interviews, offers, and timeline events for staff workflows.
 
 ## Cross-Surface Impact
@@ -60,4 +62,4 @@ The recruitment lifecycle is centered on application rounds. Jobs receive applic
 
 ## Verification
 
-Verified against status model, application service, interview service, offer service, collaboration service, application repository, and protobuf messages on 2026-07-10.
+Verified against status model, application service, recruitment lifecycle process manager, interview service, offer service, collaboration service, application repository, and protobuf messages on 2026-07-11.
