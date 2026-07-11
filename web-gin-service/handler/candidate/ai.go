@@ -128,7 +128,6 @@ func (h *AIHandler) ChatStream(c *gin.Context) {
 	}
 }
 
-
 // ListSessions returns the candidate's AI chat sessions.
 func (h *AIHandler) ListSessions(c *gin.Context) {
 	page, pageSize := basePagination(c)

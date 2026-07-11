@@ -48,6 +48,7 @@ func emitAudit(entry AuthAuditEntry) {
 		fn(entry)
 	}
 }
+
 // ── RBAC middleware ────────────────────────────────────────────────────
 
 func forbiddenResponse(c *gin.Context, requiredPerm string, reason string) {

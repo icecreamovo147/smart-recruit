@@ -4,14 +4,14 @@ package authz
 // It is populated server-side from the JWT and database and must never be
 // derived from client-provided values.
 type Principal struct {
-	UserID       int64    `json:"user_id"`
-	Username     string   `json:"username"`
-	AccountType  string   `json:"account_type"`
-	Roles        []string `json:"roles"`
-	Permissions  []string `json:"permissions"`
+	UserID       int64             `json:"user_id"`
+	Username     string            `json:"username"`
+	AccountType  string            `json:"account_type"`
+	Roles        []string          `json:"roles"`
+	Permissions  []string          `json:"permissions"`
 	DataScopes   []ScopeAssignment `json:"data_scopes,omitempty"`
-	TokenVersion int32    `json:"token_version"`
-	Email        string   `json:"email"`
+	TokenVersion int32             `json:"token_version"`
+	Email        string            `json:"email"`
 	// Deprecated: kept for compatibility during migration window.
 	LegacyRole int32 `json:"role"`
 }

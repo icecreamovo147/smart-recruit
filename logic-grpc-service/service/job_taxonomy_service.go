@@ -68,10 +68,10 @@ func (s *JobTaxonomyService) ListJobOptions(ctx context.Context, _ *pb.ListJobOp
 	}
 
 	return &pb.ListJobOptionsResponse{
-		Code:                 errs.OK,
-		Msg:                  "success",
-		DepartmentTree:       tree,
-		Locations:            toPBLocationOptions(locs),
+		Code:                  errs.OK,
+		Msg:                   "success",
+		DepartmentTree:        tree,
+		Locations:             toPBLocationOptions(locs),
 		DepartmentLocationMap: pbMap,
 	}, nil
 }
@@ -588,10 +588,10 @@ func toPBLocationOption(loc *model.JobLocation) *pb.LocationOption {
 		code = *loc.Code
 	}
 	return &pb.LocationOption{
-		Id:       loc.ID,
-		Name:     loc.Name,
-		Code:     code,
-		IsActive: loc.IsActive,
+		Id:        loc.ID,
+		Name:      loc.Name,
+		Code:      code,
+		IsActive:  loc.IsActive,
 		SortOrder: int32(loc.SortOrder),
 	}
 }
@@ -755,10 +755,10 @@ func (s *JobTaxonomyService) ListDepartmentLocations(ctx context.Context, req *p
 		}
 	}
 	return &pb.ListDepartmentLocationsResponse{
-		Code:        errs.OK,
-		Msg:         "success",
+		Code:         errs.OK,
+		Msg:          "success",
 		DepartmentId: req.DepartmentId,
-		Locations:   filtered,
+		Locations:    filtered,
 	}, nil
 }
 

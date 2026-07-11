@@ -17,7 +17,7 @@ import (
 
 // UsageStatsService provides aggregated AI usage statistics and trends.
 type UsageStatsService struct {
-	repo       *repository.UsageStatsRepo
+	repo        *repository.UsageStatsRepo
 	serviceAuth *ServiceAuthorizer
 }
 
@@ -70,11 +70,11 @@ func (s *UsageStatsService) GetUsageStats(ctx context.Context, req *pb.GetUsageS
 	items := make([]*pb.UsageStatsItem, len(rows))
 	for i, r := range rows {
 		items[i] = &pb.UsageStatsItem{
-			Name:           r.Name,
-			TotalTokens:    r.TotalTokens,
-			CallCount:      r.CallCount,
-			AvgCostMs:      r.AvgCostMs,
-			EstimatedCost:  r.EstimatedCost,
+			Name:          r.Name,
+			TotalTokens:   r.TotalTokens,
+			CallCount:     r.CallCount,
+			AvgCostMs:     r.AvgCostMs,
+			EstimatedCost: r.EstimatedCost,
 		}
 	}
 	return &pb.GetUsageStatsResponse{Code: errs.OK, Msg: "success", List: items}, nil

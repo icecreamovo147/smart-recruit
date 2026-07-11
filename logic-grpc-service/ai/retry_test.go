@@ -13,8 +13,8 @@ func newTestClient(retryMaxAttempts int) *Client {
 		timeout:          30 * time.Second,
 		retryMaxAttempts: retryMaxAttempts,
 		retryBaseDelay:   1 * time.Millisecond,
-		sem:             make(chan struct{}, 1),
-		breaker:         NewCircuitBreaker(5, 30*time.Second, 2),
+		sem:              make(chan struct{}, 1),
+		breaker:          NewCircuitBreaker(5, 30*time.Second, 2),
 	}
 }
 

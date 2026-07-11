@@ -90,14 +90,14 @@ func TestInterviewEmailFlow(t *testing.T) {
 		InterviewLink string
 		InterviewLoc  string
 	}{
-		JobTitle:       "测试岗位 — 高级工程师",
-		Content:        "您好，您的「测试岗位 — 高级工程师」面试已安排好，请查看详情。",
-		Link:           "/applications",
-		RecipientName:  user.Username,
-		InterviewDate:  time.Now().Add(48 * time.Hour).Format("2006年01月02日 15:04"),
-		InterviewMode:  "视频面试",
-		InterviewLink:  "https://meeting.example.com/test123",
-		InterviewLoc:   "线上",
+		JobTitle:      "测试岗位 — 高级工程师",
+		Content:       "您好，您的「测试岗位 — 高级工程师」面试已安排好，请查看详情。",
+		Link:          "/applications",
+		RecipientName: user.Username,
+		InterviewDate: time.Now().Add(48 * time.Hour).Format("2006年01月02日 15:04"),
+		InterviewMode: "视频面试",
+		InterviewLink: "https://meeting.example.com/test123",
+		InterviewLoc:  "线上",
 	}
 
 	td := TemplateData{

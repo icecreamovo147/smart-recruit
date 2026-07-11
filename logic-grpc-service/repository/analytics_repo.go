@@ -126,7 +126,7 @@ type StageCount struct {
 }
 
 type TrendPoint struct {
-	Date        string
+	Date         string
 	Applications int64
 }
 
@@ -345,13 +345,13 @@ func (r *AnalyticsRepo) GetTimeInStage(ctx context.Context, userID uint64, scope
 // ---- Interview & Offer Metrics ----
 
 type InterviewMetrics struct {
-	TotalInterviews    int64
+	TotalInterviews     int64
 	CompletedInterviews int64
-	PositiveFeedbacks  int64
+	PositiveFeedbacks   int64
 }
 
 type OfferMetrics struct {
-	TotalOffers   int64
+	TotalOffers    int64
 	AcceptedOffers int64
 	RejectedOffers int64
 }

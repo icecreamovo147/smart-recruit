@@ -223,7 +223,6 @@ func (s *CandidateService) ConfirmResumeUpload(ctx context.Context, req *pb.Conf
 	return &pb.ConfirmResumeUploadResponse{Code: errs.OK, Msg: "success", ResumeId: resume.ID}, nil
 }
 
-
 func ossProviderName(s oss.Storage) string {
 	return s.ProviderName()
 }

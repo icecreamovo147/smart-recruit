@@ -154,12 +154,12 @@ func (s *AuthService) Register(ctx context.Context, req *pb.RegisterRequest) (*p
 	}
 
 	user := &model.User{
-		Username:    username,
-		Password:    string(hash),
-		Role:        role,
-		Email:       req.Email,
-		AccountType: accountType,
-		Status:      status,
+		Username:     username,
+		Password:     string(hash),
+		Role:         role,
+		Email:        req.Email,
+		AccountType:  accountType,
+		Status:       status,
 		TokenVersion: 1,
 	}
 	if err := s.users.Create(ctx, user); err != nil {

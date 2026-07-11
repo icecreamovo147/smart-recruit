@@ -15,9 +15,9 @@ import (
 )
 
 type NotificationService struct {
-	repo   *repository.NotificationRepo
-	cache  *cache.NotificationCache
-	authz  *ServiceAuthorizer
+	repo  *repository.NotificationRepo
+	cache *cache.NotificationCache
+	authz *ServiceAuthorizer
 }
 
 type notificationEvent struct {

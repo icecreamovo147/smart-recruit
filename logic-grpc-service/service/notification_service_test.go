@@ -57,7 +57,7 @@ func TestListNotificationsCursorIncludesBusinessFields(t *testing.T) {
 		UserId:      10,
 		AccountType: "candidate",
 		Page:        0,
-		PageSize: 1,
+		PageSize:    1,
 	})
 	if err != nil {
 		t.Fatalf("list notifications: %v", err)

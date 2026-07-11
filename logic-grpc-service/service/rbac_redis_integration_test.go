@@ -56,11 +56,11 @@ func loadRedisAddr() string {
 
 // TestIntegration_TokenVersionCacheFlow verifies the full token_version
 // lifecycle against a real Redis instance:
-//   1. SET token_version:{user_id} with TTL
-//   2. Verify protected request with matching version passes
-//   3. Simulate role/scope mutation → bump version → old token rejected
-//   4. Delete key → verify Redis miss causes rejection (fail-closed)
-//   5. Verify TTL is set correctly
+//  1. SET token_version:{user_id} with TTL
+//  2. Verify protected request with matching version passes
+//  3. Simulate role/scope mutation → bump version → old token rejected
+//  4. Delete key → verify Redis miss causes rejection (fail-closed)
+//  5. Verify TTL is set correctly
 func TestIntegration_TokenVersionCacheFlow(t *testing.T) {
 	addr := loadRedisAddr()
 	if addr == "" {

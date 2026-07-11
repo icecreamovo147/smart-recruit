@@ -8,9 +8,9 @@ import (
 	"go.uber.org/zap"
 
 	"logic-grpc-service/model"
+	"logic-grpc-service/mq"
 	"logic-grpc-service/pkg/cache"
 	"logic-grpc-service/pkg/logger"
-	"logic-grpc-service/mq"
 	"logic-grpc-service/repository"
 )
 

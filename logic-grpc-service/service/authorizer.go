@@ -18,8 +18,8 @@ import (
 //
 // All protected service methods should use this helper instead of ad-hoc checks.
 type ServiceAuthorizer struct {
-	authzRepo  *repository.AuthzRepo
-	scopeEval  *scopeEvaluator
+	authzRepo *repository.AuthzRepo
+	scopeEval *scopeEvaluator
 }
 
 // NewServiceAuthorizer creates an authorizer with the given dependencies.

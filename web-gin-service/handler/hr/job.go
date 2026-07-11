@@ -104,14 +104,14 @@ func (h *JobHandler) JobOptions(c *gin.Context) {
 }
 
 type jobRequest struct {
-	Title         string `json:"title" binding:"required"`
-	Department    string `json:"department"`
-	DepartmentID  int64  `json:"department_id"`
-	Location      string `json:"location"`
-	LocationID    int64  `json:"location_id"`
-	SalaryRange   string `json:"salary_range"`
-	Description   string `json:"description"`
-	Requirements  string `json:"requirements"`
+	Title        string `json:"title" binding:"required"`
+	Department   string `json:"department"`
+	DepartmentID int64  `json:"department_id"`
+	Location     string `json:"location"`
+	LocationID   int64  `json:"location_id"`
+	SalaryRange  string `json:"salary_range"`
+	Description  string `json:"description"`
+	Requirements string `json:"requirements"`
 }
 
 func basePagination(c *gin.Context) (int32, int32) {

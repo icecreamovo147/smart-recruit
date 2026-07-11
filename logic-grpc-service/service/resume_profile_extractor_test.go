@@ -624,8 +624,8 @@ func TestParseResumeProfileAPIMainlineWithApplicationID(t *testing.T) {
 	)
 
 	req := &pb.ParseResumeProfileRequest{
-		StaffUserId:    user.ID,
-		ApplicationId:  application.ID,
+		StaffUserId:   user.ID,
+		ApplicationId: application.ID,
 	}
 	resp, err := svc.ParseResumeProfile(ctx, req)
 	if err != nil {

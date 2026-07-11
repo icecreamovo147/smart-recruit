@@ -35,11 +35,11 @@ type OfferWithDetailsRow struct {
 	UpdatedAt        time.Time
 
 	// Joined fields
-	JobTitle            string
-	CandidateName       string
+	JobTitle             string
+	CandidateName        string
 	ApplicationStatusKey string
-	CreatedByName       string
-	SentByName          string
+	CreatedByName        string
+	SentByName           string
 }
 
 func NewOfferRepo(db *gorm.DB) *OfferRepo {

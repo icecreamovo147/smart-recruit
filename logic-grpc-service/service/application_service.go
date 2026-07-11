@@ -107,12 +107,12 @@ func (s *ApplicationService) ApplyJob(ctx context.Context, req *pb.ApplyJobReque
 		if err := s.outboxPublisher.WriteEventTx(tx, "notification.create", "application", uint64(app.ID), "notification.create", notificationPayload{
 			ReceiverID:   job.HrID,
 			ReceiverRole: 2, ReceiverAccountType: "staff",
-			Type:         "new_application",
-			Title:        "新的岗位投递",
-			Content:      fmt.Sprintf("%s 投递了「%s」岗位，请及时查看简历。", candidateDisplayName(profile.RealName, req.UserId), job.Title),
-			Link:         fmt.Sprintf("/hr/jobs/%d/applications", job.ID),
-			BizType:      "application",
-			BizID:        app.ID,
+			Type:    "new_application",
+			Title:   "新的岗位投递",
+			Content: fmt.Sprintf("%s 投递了「%s」岗位，请及时查看简历。", candidateDisplayName(profile.RealName, req.UserId), job.Title),
+			Link:    fmt.Sprintf("/hr/jobs/%d/applications", job.ID),
+			BizType: "application",
+			BizID:   app.ID,
 		}); err != nil {
 			return err
 		}
@@ -340,12 +340,12 @@ func (s *ApplicationService) UpdateApplicationStatus(ctx context.Context, req *p
 		if err := s.outboxPublisher.WriteEventTx(tx, "notification.create", "application", uint64(req.ApplicationId), "notification.create", notificationPayload{
 			ReceiverID:   detail.UserID,
 			ReceiverRole: 1, ReceiverAccountType: "candidate",
-			Type:         notifyType,
-			Title:        "投递进展更新",
-			Content:      notifyContent,
-			Link:         "/applications",
-			BizType:      "application",
-			BizID:        req.ApplicationId,
+			Type:    notifyType,
+			Title:   "投递进展更新",
+			Content: notifyContent,
+			Link:    "/applications",
+			BizType: "application",
+			BizID:   req.ApplicationId,
 		}); err != nil {
 			return err
 		}

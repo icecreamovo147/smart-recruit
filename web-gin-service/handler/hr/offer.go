@@ -23,12 +23,12 @@ func (h *OfferHandler) Create(c *gin.Context) {
 	var req struct {
 		ApplicationID base.FlexInt64 `json:"application_id" binding:"required"`
 		Title         string         `json:"title" binding:"required"`
-		SalaryRange   string `json:"salary_range"`
-		Level         string `json:"level"`
-		WorkLocation  string `json:"work_location"`
-		StartDate     string `json:"start_date"`
-		ExpiresAt     string `json:"expires_at"`
-		TermsJSON     string `json:"terms_json"`
+		SalaryRange   string         `json:"salary_range"`
+		Level         string         `json:"level"`
+		WorkLocation  string         `json:"work_location"`
+		StartDate     string         `json:"start_date"`
+		ExpiresAt     string         `json:"expires_at"`
+		TermsJSON     string         `json:"terms_json"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
 		base.BadRequest(c, "请求参数错误："+err.Error())

@@ -50,7 +50,7 @@ func (h *ProfileHandler) Update(c *gin.Context) {
 		return
 	}
 	resp, err := h.clients.Candidate.UpdateProfile(c.Request.Context(), &pb.UpdateProfileRequest{
-		UserId: middleware.UserID(c),
+		UserId:         middleware.UserID(c),
 		RealName:       html.EscapeString(strings.TrimSpace(req.RealName)),
 		Phone:          strings.TrimSpace(req.Phone),
 		Education:      strings.TrimSpace(req.Education),

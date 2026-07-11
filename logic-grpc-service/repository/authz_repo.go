@@ -18,10 +18,10 @@ import (
 // ── Sentinel errors ────────────────────────────────────────────────────
 
 var (
-	ErrRoleNotFound        = errors.New("role not found")
-	ErrPermissionNotFound  = errors.New("permission not found")
-	ErrUserRoleNotFound    = errors.New("user role assignment not found")
-	ErrLastAdmin           = errors.New("cannot remove the last active admin")
+	ErrRoleNotFound       = errors.New("role not found")
+	ErrPermissionNotFound = errors.New("permission not found")
+	ErrUserRoleNotFound   = errors.New("user role assignment not found")
+	ErrLastAdmin          = errors.New("cannot remove the last active admin")
 )
 
 // interviewSchedulesMissingOnce ensures we only warn once when the

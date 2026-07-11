@@ -579,4 +579,3 @@ func TestVerifyAdminPermissionRejectsInsufficientPermission(t *testing.T) {
 		t.Errorf("expected ErrForbidden (403) for user without admin.role.manage, got code=%d msg=%s", resp.Code, resp.Msg)
 	}
 }
-

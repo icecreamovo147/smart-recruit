@@ -66,9 +66,9 @@ func TestCircuitBreakerRecovery(t *testing.T) {
 func TestCircuitBreakerContextCanceled(t *testing.T) {
 	cb := NewCircuitBreaker(1, 100*time.Millisecond, 1)
 	cb.BeforeCall()
-	cb.AfterCall(errors.New("fail")) // circuit opens
+	cb.AfterCall(errors.New("fail"))   // circuit opens
 	time.Sleep(150 * time.Millisecond) // wait for open timeout
-	cb.BeforeCall() // half-open probe
+	cb.BeforeCall()                    // half-open probe
 	// context.Canceled should reset to closed, not count as failure
 	cb.AfterCall(context.Canceled)
 	if err := cb.BeforeCall(); err != nil {

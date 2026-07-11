@@ -13,11 +13,11 @@ import (
 type Claims struct {
 	UserID       int64    `json:"user_id"`
 	Username     string   `json:"username"`
-	Role         int32    `json:"role"`          // Deprecated: kept for compatibility
+	Role         int32    `json:"role"` // Deprecated: kept for compatibility
 	AccountType  string   `json:"account_type"`
-	Roles        []string `json:"roles"`          // RBAC role keys
-	Permissions  []string `json:"permissions"`    // RBAC permission keys
-	TokenVersion int32    `json:"token_version"`  // Incremented on permission change
+	Roles        []string `json:"roles"`         // RBAC role keys
+	Permissions  []string `json:"permissions"`   // RBAC permission keys
+	TokenVersion int32    `json:"token_version"` // Incremented on permission change
 	golangjwt.RegisteredClaims
 }
 

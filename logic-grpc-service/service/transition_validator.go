@@ -38,18 +38,18 @@ var allowedTransitions = map[string]map[string]bool{
 		model.StatusKeyWithdrawn:        true,
 	},
 	model.StatusKeyInterviewPending: {
-		model.StatusKeyInterviewing:        true,
-		model.StatusKeyInterviewCancelled:  true, // HR cancels before interview starts
-		model.StatusKeyInterviewPassed:     true, // HR can directly pass after all rounds complete
-		model.StatusKeyRejected:            true,
-		model.StatusKeyWithdrawn:           true,
+		model.StatusKeyInterviewing:       true,
+		model.StatusKeyInterviewCancelled: true, // HR cancels before interview starts
+		model.StatusKeyInterviewPassed:    true, // HR can directly pass after all rounds complete
+		model.StatusKeyRejected:           true,
+		model.StatusKeyWithdrawn:          true,
 	},
 	model.StatusKeyInterviewing: {
-		model.StatusKeyInterviewPending:    true, // reschedule after cancellation within same round
-		model.StatusKeyInterviewCancelled:  true, // HR cancels during interview
-		model.StatusKeyInterviewPassed:     true,
-		model.StatusKeyRejected:            true,
-		model.StatusKeyWithdrawn:           true,
+		model.StatusKeyInterviewPending:   true, // reschedule after cancellation within same round
+		model.StatusKeyInterviewCancelled: true, // HR cancels during interview
+		model.StatusKeyInterviewPassed:    true,
+		model.StatusKeyRejected:           true,
+		model.StatusKeyWithdrawn:          true,
 	},
 	model.StatusKeyInterviewCancelled: {
 		model.StatusKeyInterviewPending: true, // reschedule
@@ -77,7 +77,7 @@ var allowedTransitions = map[string]map[string]bool{
 		model.StatusKeyHired: true,
 	},
 	// Terminal states: no outgoing transitions (except Rejected → ScreenPassed for HR re-pass).
-	model.StatusKeyHired:         {},
+	model.StatusKeyHired: {},
 	model.StatusKeyRejected: {
 		model.StatusKeyScreenPassed: true, // HR re-pass creates a new application round.
 	},

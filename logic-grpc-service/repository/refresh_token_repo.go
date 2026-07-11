@@ -30,7 +30,7 @@ var ErrTokenReuseDetected = errors.New("refresh token reuse detected")
 type RefreshTokenResult struct {
 	UserID       int64
 	Username     string
-	Role         int32    // Deprecated: kept for compatibility
+	Role         int32 // Deprecated: kept for compatibility
 	AccountType  string
 	Roles        []string
 	Permissions  []string

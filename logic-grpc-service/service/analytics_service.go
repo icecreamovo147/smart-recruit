@@ -146,15 +146,15 @@ func (s *AnalyticsService) GetDashboardReport(ctx context.Context, req *pb.GetDa
 	}
 
 	return &pb.GetDashboardReportResponse{
-		Code:               errs.OK,
-		Msg:                "success",
-		OnlineJobs:         kpi.OnlineJobs,
-		OfflineJobs:        kpi.OfflineJobs,
-		TotalApplications:  kpi.TotalApplications,
-		TodayApplications:  kpi.TodayApplications,
+		Code:                errs.OK,
+		Msg:                 "success",
+		OnlineJobs:          kpi.OnlineJobs,
+		OfflineJobs:         kpi.OfflineJobs,
+		TotalApplications:   kpi.TotalApplications,
+		TodayApplications:   kpi.TodayApplications,
 		UnreadNotifications: unreadCount,
-		PendingActions:     kpi.PendingActions,
-		Trend:              trendPoints,
+		PendingActions:      kpi.PendingActions,
+		Trend:               trendPoints,
 		StageDistribution:   stageItems,
 	}, nil
 }

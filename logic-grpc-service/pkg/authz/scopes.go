@@ -13,7 +13,7 @@ const (
 	ScopeDepartment         = "department"          // jobs/applications in assigned departments
 	ScopeLocation           = "location"            // jobs/applications in assigned locations
 	ScopeRecruitingAll      = "recruiting_all"      // all recruiting data
-	ScopeSystemAll          = "system_all"           // platform-wide administrative scope
+	ScopeSystemAll          = "system_all"          // platform-wide administrative scope
 )
 
 // ScopeDisplayNames maps scope keys to human-readable names.

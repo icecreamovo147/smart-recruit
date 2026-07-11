@@ -18,14 +18,14 @@ import (
 )
 
 type AuthHandler struct {
-	clients          *rpc.Clients
-	defaultCookie    string
-	candidateCookie  string
-	hrCookie         string
+	clients           *rpc.Clients
+	defaultCookie     string
+	candidateCookie   string
+	hrCookie          string
 	interviewerCookie string
-	cookieSecure     bool
-	jwtSecret        string
-	rdb              *redis.Client // optional: for token_version cache
+	cookieSecure      bool
+	jwtSecret         string
+	rdb               *redis.Client // optional: for token_version cache
 }
 
 func NewAuthHandler(clients *rpc.Clients, defaultCookie, candidateCookie, hrCookie, interviewerCookie string, cookieSecure bool, jwtSecret string, rdb *redis.Client) *AuthHandler {
@@ -162,15 +162,15 @@ func (h *AuthHandler) Me(c *gin.Context) {
 		})
 	}
 	OK(c, "ok", gin.H{
-		"user_id":      resp.UserId,
-		"username":     resp.Username,
-		"role":         resp.Role,         // Deprecated: kept for compatibility
-		"account_type": resp.AccountType,
-		"roles":        resp.Roles,
-		"permissions":  resp.Permissions,
+		"user_id":       resp.UserId,
+		"username":      resp.Username,
+		"role":          resp.Role, // Deprecated: kept for compatibility
+		"account_type":  resp.AccountType,
+		"roles":         resp.Roles,
+		"permissions":   resp.Permissions,
 		"token_version": resp.TokenVersion,
 		"data_scopes":   dataScopes,
-		"email":        resp.Email,
+		"email":         resp.Email,
 	})
 }
 
