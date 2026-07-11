@@ -1,0 +1,143 @@
+{
+  "schemaVersion": 1,
+  "feature_name": "backend-ddd-microservices-evolution",
+  "task_id": "TASK-BDME-008",
+  "base_sha": "42dc340baea262dc9a0abad18c9e4752a04308b9",
+  "base_tree": "f78c57f0d46ef33a7acf77590ec9349da43f1a61",
+  "head_sha": "42dc340baea262dc9a0abad18c9e4752a04308b9",
+  "changed_files": [
+    ".spec/backend-ddd-microservices-evolution/pipeline-state.json",
+    ".spec/backend-ddd-microservices-evolution/reports/TASK-BDME-008-report.md",
+    ".spec/backend-ddd-microservices-evolution/reports/TASK-BDME-008-evidence.json",
+    "docs/backend-ddd-microservices-evolution-bounded-context-contract.md"
+  ],
+  "scope": {
+    "status": "passed",
+    "base_tree": "f78c57f0d46ef33a7acf77590ec9349da43f1a61",
+    "out_of_scope": [],
+    "forbidden": [],
+    "allowed": [
+      ".spec/backend-ddd-microservices-evolution/pipeline-state.json",
+      ".spec/backend-ddd-microservices-evolution/reports/TASK-BDME-008-report.md",
+      ".spec/backend-ddd-microservices-evolution/reports/TASK-BDME-008-evidence.json",
+      "docs/backend-ddd-microservices-evolution-bounded-context-contract.md"
+    ]
+  },
+  "checks": [
+    {
+      "command": "git diff --name-only && git ls-files --others --exclude-standard",
+      "exit_code": 0,
+      "status": "passed",
+      "started_at": "2026-07-11T14:10:32Z",
+      "duration_ms": 50,
+      "summary": "Listed changed tracked and untracked TASK files."
+    },
+    {
+      "command": "TASK_BASE_TREE=f78c57f0d46ef33a7acf77590ec9349da43f1a61 bash .spec/backend-ddd-microservices-evolution/scripts/check-task-scope.sh TASK-BDME-008",
+      "exit_code": 0,
+      "status": "passed",
+      "started_at": "2026-07-11T14:10:32Z",
+      "duration_ms": 150,
+      "summary": "scope_result: PASS (TASK-BDME-008)."
+    },
+    {
+      "command": "bash .spec/backend-ddd-microservices-evolution/scripts/agent-check.sh",
+      "exit_code": 0,
+      "status": "passed",
+      "started_at": "2026-07-11T14:10:32Z",
+      "duration_ms": 137,
+      "summary": "Feature validation and git diff whitespace check passed; no Go service files changed."
+    },
+    {
+      "command": "node .knowledge/scripts/detect-impact.mjs --root . --base-tree f78c57f0d46ef33a7acf77590ec9349da43f1a61",
+      "exit_code": 0,
+      "status": "passed",
+      "started_at": "2026-07-11T14:10:32Z",
+      "duration_ms": 285,
+      "summary": "impact_result: update_required; matched local-development and system-overview routes."
+    }
+  ],
+  "review": {
+    "type": "self-review",
+    "round": 1,
+    "verdict": "通过",
+    "findings": []
+  },
+  "human_confirmation": {
+    "required": false,
+    "confirmed": true,
+    "confirmed_by": "not_required",
+    "confirmed_at": "2026-07-11T14:08:12Z",
+    "confirmation_text": "TASK-BDME-008 does not require human confirmation."
+  },
+  "exceptions": [],
+  "skipped_checks": [
+    {
+      "command": "node .knowledge/scripts/validate-knowledge.mjs",
+      "reason": ".knowledge files were reviewed but not changed by TASK-BDME-008."
+    },
+    {
+      "command": "go test ./...",
+      "reason": "No Go files changed in TASK-BDME-008; acceptance only requires Harness, scope, agent-check, and knowledge validation when applicable."
+    }
+  ],
+  "knowledgeImpact": {
+    "result": "update_required",
+    "triggeredBy": [
+      "docs/backend-ddd-microservices-evolution-bounded-context-contract.md"
+    ],
+    "reviewResults": [
+      {
+        "document": ".knowledge/architecture/system-overview.md",
+        "verdict": "UNCHANGED",
+        "evidence": [
+          "Reviewed current service overview; TASK-BDME-008 documents target bounded-context ownership without changing current topology."
+        ]
+      },
+      {
+        "document": ".knowledge/architecture/service-boundaries.md",
+        "verdict": "UNCHANGED",
+        "evidence": [
+          "Reviewed gateway and logic boundary guidance; new contract expands the same rule set into target DDD ownership."
+        ]
+      },
+      {
+        "document": ".knowledge/domains/recruitment.md",
+        "verdict": "UNCHANGED",
+        "evidence": [
+          "Reviewed recruitment core concepts; contract preserves recruitment ownership for candidate profile, resumes, applications, and lifecycle state."
+        ]
+      },
+      {
+        "document": ".knowledge/domains/recruitment-lifecycle.md",
+        "verdict": "UNCHANGED",
+        "evidence": [
+          "Reviewed lifecycle status and collaboration responsibilities; contract keeps application state transitions in Recruitment with Interview/Offer integration via APIs/events."
+        ]
+      },
+      {
+        "document": ".knowledge/domains/notification-outbox.md",
+        "verdict": "UNCHANGED",
+        "evidence": [
+          "Reviewed notification and outbox responsibilities; contract separates notification delivery ownership from source-domain business decisions."
+        ]
+      },
+      {
+        "document": ".knowledge/architecture/agent-runtime.md",
+        "verdict": "UNCHANGED",
+        "evidence": [
+          "Reviewed AI runtime responsibilities; contract assigns AI-derived intelligence and runtime orchestration to AI Agent while keeping recruitment source facts in Recruitment."
+        ]
+      },
+      {
+        "document": ".knowledge/runbooks/local-development.md",
+        "verdict": "UNCHANGED",
+        "evidence": [
+          "Reviewed local-development route triggered by documentation changes; no startup commands or local workflow changed."
+        ]
+      }
+    ],
+    "coverageGap": false,
+    "validationExitCode": 0
+  }
+}
