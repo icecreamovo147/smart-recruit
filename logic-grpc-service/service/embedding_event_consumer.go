@@ -9,6 +9,7 @@ import (
 
 	"logic-grpc-service/mq"
 	"logic-grpc-service/pkg/logger"
+	"logic-grpc-service/repository"
 )
 
 type embeddingUpsertPayload struct {
@@ -24,15 +25,23 @@ type embeddingUpsertPayload struct {
 
 type EmbeddingConsumer struct {
 	embedding *EmbeddingService
+	inbox     *repository.InboxRepo
 }
 
 func NewEmbeddingConsumer(embedding *EmbeddingService) *EmbeddingConsumer {
 	return &EmbeddingConsumer{embedding: embedding}
 }
 
+func (c *EmbeddingConsumer) WithInbox(inbox *repository.InboxRepo) *EmbeddingConsumer {
+	c.inbox = inbox
+	return c
+}
+
 func (c *EmbeddingConsumer) Start(ctx context.Context, mqConn *mq.Conn) error {
 	return mqConn.Consume(ctx, mqConn.EmbeddingQueue(), func(ctx context.Context, body []byte) error {
-		return c.handle(ctx, body)
+		return consumeWithInbox(ctx, c.inbox, "embedding-consumer", body, func() error {
+			return c.handle(ctx, body)
+		})
 	})
 }
 

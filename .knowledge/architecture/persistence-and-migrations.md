@@ -24,7 +24,9 @@ source_refs:
   - logic-grpc-service/migration/mysql_consistency_test.go
   - logic-grpc-service/model/model.go
   - logic-grpc-service/migrations/000051_standardize_event_outbox.sql
+  - logic-grpc-service/migrations/000052_add_event_inbox.sql
   - logic-grpc-service/repository/outbox_repo.go
+  - logic-grpc-service/repository/inbox_repo.go
   - logic-grpc-service/repository/application_repo.go
   - db.sql
 last_verified: 2026-07-11
@@ -44,6 +46,7 @@ The logic service owns persistence. Database structure is represented by SQL mig
 - `logic-grpc-service/repository/` owns database access, transactions, pagination, and query shapes.
 - `logic-grpc-service/service/` owns business invariants and orchestrates repository calls.
 - Outbox schema changes must align `event_outbox` migrations, `db.sql`, `model.EventOutbox`, `repository.OutboxRepo`, publisher payload compatibility, and tests because the table is used for transactional event delivery and retry diagnostics.
+- Inbox schema changes must align `event_inbox` migrations, `db.sql`, `model.EventInbox`, `repository.InboxRepo`, consumer entrypoint wiring, and tests because the table is used for consumer idempotency and duplicate-delivery diagnostics.
 
 ## Impact Guidance
 
@@ -55,4 +58,4 @@ The logic service owns persistence. Database structure is represented by SQL mig
 
 ## Verification
 
-Verified against migration runner, migration tests, MySQL consistency test, `model.go`, `000051_standardize_event_outbox.sql`, representative repositories, and `db.sql` on 2026-07-11.
+Verified against migration runner, migration tests, MySQL consistency test, `model.go`, `000051_standardize_event_outbox.sql`, `000052_add_event_inbox.sql`, representative repositories, and `db.sql` on 2026-07-11.

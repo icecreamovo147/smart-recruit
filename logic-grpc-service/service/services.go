@@ -130,10 +130,11 @@ func NewServices(
 	taxonomy := NewJobTaxonomyService(departments, locations, jobs, deptLocs)
 
 	outboxPublisher := NewOutboxPublisher(outbox, mqConn)
-	notificationConsumer := NewNotificationConsumer(notifications, notifCache)
-	resumeParseConsumer := NewResumeParseConsumer(resumes, ossClient)
-	emailConsumer := NewEmailConsumer(users, emailLogRepo, emailRenderer, emailSender)
-	embeddingConsumer := NewEmbeddingConsumer(embeddingSvc)
+	inboxRepo := repository.NewInboxRepo(db)
+	notificationConsumer := NewNotificationConsumer(notifications, notifCache).WithInbox(inboxRepo)
+	resumeParseConsumer := NewResumeParseConsumer(resumes, ossClient).WithInbox(inboxRepo)
+	emailConsumer := NewEmailConsumer(users, emailLogRepo, emailRenderer, emailSender).WithInbox(inboxRepo)
+	embeddingConsumer := NewEmbeddingConsumer(embeddingSvc).WithInbox(inboxRepo)
 	scopeEval := &scopeEvaluator{authzRepo: authzRepo}
 	serviceAuth := NewServiceAuthorizer(authzRepo, scopeEval)
 
@@ -188,7 +189,7 @@ func NewServices(
 		WithEmbeddingService(embeddingSvc).
 		WithEmbeddingEventPublisher(embeddingEventPublisher).
 		WithRuntimePolicy(runtimePolicy)
-	agentRunConsumer := NewAgentRunConsumer(aiSvc)
+	agentRunConsumer := NewAgentRunConsumer(aiSvc).WithInbox(inboxRepo)
 
 	return &Services{
 		Auth:              NewAuthService(users, tokens, authzRepo, inviteCodes, jwtSecret),

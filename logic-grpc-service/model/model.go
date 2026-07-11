@@ -590,6 +590,13 @@ const (
 	EventOutboxStatusProcessing int32 = 3
 )
 
+const (
+	EventInboxStatusProcessing int32 = 0
+	EventInboxStatusProcessed  int32 = 1
+	EventInboxStatusFailed     int32 = 2
+	EventInboxStatusDead       int32 = 3
+)
+
 // EventOutbox table: event_outbox
 type EventOutbox struct {
 	ID             uint64     `gorm:"primaryKey"`
@@ -619,6 +626,26 @@ type EventOutbox struct {
 }
 
 func (EventOutbox) TableName() string { return "event_outbox" }
+
+// EventInbox table: event_inbox
+type EventInbox struct {
+	ID             uint64     `gorm:"primaryKey"`
+	EventID        string     `gorm:"column:event_id;size:128;uniqueIndex:uk_event_inbox_consumer_event,priority:2"`
+	EventType      string     `gorm:"column:event_type;size:128"`
+	ConsumerName   string     `gorm:"column:consumer_name;size:128;uniqueIndex:uk_event_inbox_consumer_event,priority:1;index:idx_event_inbox_consumer_status,priority:1"`
+	IdempotencyKey string     `gorm:"column:idempotency_key;size:255;index:idx_event_inbox_idempotency_key"`
+	Status         int32      `gorm:"column:status;default:0;index:idx_event_inbox_consumer_status,priority:2"`
+	AttemptCount   int32      `gorm:"column:attempt_count;default:0"`
+	LastError      string     `gorm:"column:last_error"`
+	ReceivedAt     time.Time  `gorm:"column:received_at"`
+	ProcessingAt   *time.Time `gorm:"column:processing_at"`
+	ProcessedAt    *time.Time `gorm:"column:processed_at"`
+	DeadLetteredAt *time.Time `gorm:"column:dead_lettered_at"`
+	CreatedAt      time.Time  `gorm:"column:created_at"`
+	UpdatedAt      time.Time  `gorm:"column:updated_at"`
+}
+
+func (EventInbox) TableName() string { return "event_inbox" }
 
 // EmailLog records email send attempts for audit and idempotency.
 type EmailLog struct {

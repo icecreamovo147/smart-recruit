@@ -50,6 +50,7 @@ Use this runbook when a TASK changes public contracts or persistence structure.
 4. Keep `db.sql` aligned when it serves as current schema reference.
 5. Run migration runner tests and MySQL consistency checks when available.
 6. For transactional outbox changes, also run outbox repository and publisher tests to verify retry/dead-letter, retention, and payload compatibility.
+7. For Inbox changes, run Inbox repository and consumer helper tests to verify duplicate skips, failed reclaims, dead-letter skips, retention, and payload identity extraction.
 
 ## Review Questions
 
@@ -58,6 +59,7 @@ Use this runbook when a TASK changes public contracts or persistence structure.
 - Are model fields, repository queries, indexes, and constraints aligned with SQL?
 - Does the gateway need new body limits, timeouts, route permissions, or frontend types?
 - For outbox changes, do existing consumers still accept the published payload shape?
+- For Inbox changes, are all MQ consumer `Start` entrypoints using the shared idempotency helper?
 
 ## Safety
 

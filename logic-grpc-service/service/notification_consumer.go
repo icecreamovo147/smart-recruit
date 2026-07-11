@@ -30,15 +30,23 @@ type notificationPayload struct {
 type NotificationConsumer struct {
 	repo  *repository.NotificationRepo
 	cache *cache.NotificationCache
+	inbox *repository.InboxRepo
 }
 
 func NewNotificationConsumer(repo *repository.NotificationRepo, c *cache.NotificationCache) *NotificationConsumer {
 	return &NotificationConsumer{repo: repo, cache: c}
 }
 
+func (c *NotificationConsumer) WithInbox(inbox *repository.InboxRepo) *NotificationConsumer {
+	c.inbox = inbox
+	return c
+}
+
 func (c *NotificationConsumer) Start(ctx context.Context, mqConn *mq.Conn) error {
 	return mqConn.Consume(ctx, mqConn.NotificationQueue(), func(ctx context.Context, body []byte) error {
-		return c.handle(ctx, body)
+		return consumeWithInbox(ctx, c.inbox, "notification-consumer", body, func() error {
+			return c.handle(ctx, body)
+		})
 	})
 }
 

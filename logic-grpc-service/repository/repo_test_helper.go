@@ -41,6 +41,7 @@ func setupTestDB(t *testing.T) *gorm.DB {
 		&model.AIEmbedding{},
 		&model.Notification{},
 		&model.EventOutbox{},
+		&model.EventInbox{},
 		&model.RefreshToken{},
 		&model.ApplicationStatusTransition{},
 		&model.InterviewSchedule{},
