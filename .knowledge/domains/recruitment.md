@@ -23,6 +23,7 @@ source_refs:
   - README.md
   - logic-grpc-service/proto/recruitment.proto
   - logic-grpc-service/service/application_service.go
+  - logic-grpc-service/internal/recruitment/runtime/skeleton.go
   - db.sql
 last_verified: 2026-07-10
 review_after: 2026-10-08
@@ -31,6 +32,8 @@ review_after: 2026-10-08
 # Recruitment Domain Model
 
 The recruitment domain centers on jobs, candidates, applications, interviews, offers, notifications, and analytics. HR users manage jobs and application flow. Candidates browse jobs, maintain profile/resume data, apply, track progress, attend interviews, and respond to offers. Interviewers use staff-facing interview task and feedback flows.
+
+`logic-grpc-service/cmd/recruitment-service` is currently a compile-safe, unrouted skeleton for future Recruitment extraction. It documents JobService, CandidateService, and ApplicationService ownership only; current production behavior remains in the monolith until later scoped API extraction and gateway cutover TASKs.
 
 Application state transitions and offer/interview lifecycle behavior are business rules. Verify them in service code, protobuf contracts, database schema, and tests before documenting or changing behavior.
 
@@ -54,4 +57,4 @@ Application state transitions and offer/interview lifecycle behavior are busines
 
 ## Verification
 
-This domain summary was verified against `README.md`, protobuf definitions, application/interview/offer/collaboration/notification service code, status model code, and database schema on 2026-07-10.
+This domain summary was verified against `README.md`, protobuf definitions, application/interview/offer/collaboration/notification service code, the Recruitment skeleton descriptor, status model code, and database schema on 2026-07-12.
