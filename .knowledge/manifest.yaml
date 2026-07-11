@@ -327,6 +327,16 @@ routes:
       - configuration-changed
 
   - match:
+      - docs/backend-ddd-microservices-evolution-event-replay-dead-letter-runbook.md
+      - scripts/event-replay-dead-letter.sh
+    documents:
+      - event-replay-dead-letter
+      - notification-outbox
+    triggers:
+      - covered-path-changed
+      - service-boundary-changed
+
+  - match:
       - hr-frontend/src/views/hr/admin/**
       - hr-frontend/src/router/**
     documents:

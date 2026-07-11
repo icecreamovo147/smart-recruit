@@ -70,7 +70,8 @@ Notifications are produced by recruitment workflows and delivered through databa
 - Email outbox changes should be reviewed with notification changes because some workflows emit both.
 - Outbox or Inbox schema changes should keep migrations, `db.sql`, GORM model fields, repository stats/retention helpers, consumer idempotency, and publisher payload compatibility aligned.
 - Analytics projection ingestion changes should preserve envelope validation and idempotent event-id/checkpoint behavior.
+- Replay, dead-letter repair, and retention operations should follow `docs/backend-ddd-microservices-evolution-event-replay-dead-letter-runbook.md` and generate SQL through `scripts/event-replay-dead-letter.sh` so mutation execution remains an explicit operational step.
 
 ## Verification
 
-Verified against application, interview, and offer notification-producing workflows, Analytics projection ingestion, notification service, notification worker, outbox publisher, shared Inbox consumer helper, outbox/inbox repositories, domain-event envelope contract, notification handler, migrations, `db.sql`, and model definitions on 2026-07-11.
+Verified against application, interview, and offer notification-producing workflows, Analytics projection ingestion, notification service, notification worker, outbox publisher, shared Inbox consumer helper, outbox/inbox repositories, event replay/dead-letter runbook, domain-event envelope contract, notification handler, migrations, `db.sql`, and model definitions on 2026-07-11.

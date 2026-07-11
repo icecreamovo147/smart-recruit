@@ -17,6 +17,7 @@ Read this file after `AGENTS.md`, the active feature contract, and `.knowledge/R
 | Skill, Memory, or Embedding | `architecture/semantic-retrieval.md`, `domains/agent-skill.md`, `domains/memory-and-context.md`, `domains/ai-configuration-governance.md` |
 | Recruitment workflows | `domains/recruitment.md`, `domains/recruitment-lifecycle.md`, `runbooks/debug-recruitment-lifecycle.md` |
 | Notification and outbox | `domains/notification-outbox.md`, `pitfalls/status-notification-drift.md` |
+| Event replay and dead-letter repair | `runbooks/event-replay-dead-letter.md`, `domains/notification-outbox.md` |
 | Resume intelligence and matching | `domains/resume-intelligence.md`, `runbooks/debug-resume-intelligence.md`, `pitfalls/resume-sensitive-data.md` |
 | Frontend apps and validation | `architecture/frontend-apps.md`, `runbooks/frontend-validation.md`, `pitfalls/frontend-menu-consistency.md` |
 | Local development | `runbooks/local-development.md` |
