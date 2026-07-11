@@ -56,6 +56,8 @@ func main() {
 		IdentityRouteMode:     cfg.IdentityRouteMode,
 		RecruitmentAddr:       cfg.RecruitmentGRPCAddr,
 		RecruitmentRouteMode:  cfg.RecruitmentRouteMode,
+		InterviewAddr:         cfg.InterviewGRPCAddr,
+		InterviewRouteMode:    cfg.InterviewRouteMode,
 	})
 	if err != nil {
 		log.Fatal("connect logic grpc service failed", zap.String("addr", cfg.GRPCAddr), zap.Error(err))
@@ -71,6 +73,8 @@ func main() {
 		zap.String("identity_target_addr", clients.IdentityTargetAddr),
 		zap.String("recruitment_route_mode", clients.RecruitmentRouteMode),
 		zap.String("recruitment_target_addr", clients.RecruitmentTargetAddr),
+		zap.String("interview_route_mode", clients.InterviewRouteMode),
+		zap.String("interview_target_addr", clients.InterviewTargetAddr),
 	)
 
 	rdb := redisclient.New(cfg.Redis)

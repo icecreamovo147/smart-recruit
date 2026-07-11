@@ -19,6 +19,8 @@ type Config struct {
 	IdentityRouteMode     string
 	RecruitmentGRPCAddr   string
 	RecruitmentRouteMode  string
+	InterviewGRPCAddr     string
+	InterviewRouteMode    string
 	JWTSecret             string
 	AuthCookieName        string
 	CandidateCookie       string
@@ -106,6 +108,11 @@ func Load() (Config, error) {
 	if err := validateRecruitmentRoute(recruitmentRouteMode, recruitmentGRPCAddr); err != nil {
 		return Config{}, err
 	}
+	interviewRouteMode := env("INTERVIEW_ROUTE_MODE", "logic")
+	interviewGRPCAddr := env("INTERVIEW_GRPC_ADDR", "")
+	if err := validateInterviewRoute(interviewRouteMode, interviewGRPCAddr); err != nil {
+		return Config{}, err
+	}
 	return Config{
 		HTTPPort:              env("HTTP_PORT", "8080"),
 		GRPCAddr:              env("GRPC_ADDR", "127.0.0.1:50051"),
@@ -117,6 +124,8 @@ func Load() (Config, error) {
 		IdentityRouteMode:     identityRouteMode,
 		RecruitmentGRPCAddr:   recruitmentGRPCAddr,
 		RecruitmentRouteMode:  recruitmentRouteMode,
+		InterviewGRPCAddr:     interviewGRPCAddr,
+		InterviewRouteMode:    interviewRouteMode,
 		JWTSecret:             secret,
 		AuthCookieName:        env("AUTH_COOKIE_NAME", "recruitment_token"),
 		CandidateCookie:       env("CANDIDATE_AUTH_COOKIE_NAME", "recruitment_candidate_token"),
@@ -164,6 +173,20 @@ func Load() (Config, error) {
 			GapMedium:        envFloat64("RANKING_GAP_MEDIUM"),
 		},
 	}, nil
+}
+
+func validateInterviewRoute(mode, addr string) error {
+	switch mode {
+	case "", "logic":
+		return nil
+	case "interview":
+		if strings.TrimSpace(addr) == "" {
+			return fmt.Errorf("INTERVIEW_GRPC_ADDR is required when INTERVIEW_ROUTE_MODE=interview")
+		}
+		return nil
+	default:
+		return fmt.Errorf("INTERVIEW_ROUTE_MODE must be logic or interview")
+	}
 }
 
 func validateRecruitmentRoute(mode, addr string) error {

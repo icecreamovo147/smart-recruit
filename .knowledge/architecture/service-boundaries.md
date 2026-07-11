@@ -57,7 +57,7 @@ Analytics event projection ingestion lives under `logic-grpc-service/internal/an
 
 `logic-grpc-service/cmd/recruitment-service` is a service skeleton for the Recruitment boundary. `logic-grpc-service/internal/recruitment/runtime` can explicitly register Recruitment-owned JobService, CandidateService, and ApplicationService adapters. Gateway traffic remains on the monolith by default and can route to `RECRUITMENT_GRPC_ADDR` only when `RECRUITMENT_ROUTE_MODE=recruitment` is explicitly configured with rollback evidence.
 
-`logic-grpc-service/cmd/interview-service` is a service skeleton for the Interview boundary. `logic-grpc-service/internal/interview/runtime` can explicitly register the InterviewService adapter for controlled validation, but gateway traffic remains on the monolith until a scoped cutover TASK records compatibility and rollback evidence.
+`logic-grpc-service/cmd/interview-service` is a service skeleton for the Interview boundary. `logic-grpc-service/internal/interview/runtime` can explicitly register the InterviewService adapter for controlled validation. Gateway traffic remains on the monolith by default and can route to `INTERVIEW_GRPC_ADDR` only when `INTERVIEW_ROUTE_MODE=interview` is explicitly configured with rollback evidence.
 
 `logic-grpc-service/service/ai_agent_runtime.go` is the transitional AI Agent runtime boundary inside the monolith. It groups AI chat, candidate AI, provider fallback/config surface, embedding runtime, embedding workload execution, and durable agent-run execution without changing public API routing.
 
@@ -83,4 +83,4 @@ Generated protobuf files are contract artifacts. When proto definitions change, 
 
 ## Verification
 
-The boundary was verified from gateway route registration, protobuf service definitions, representative logic service/repository files, `logic-grpc-service/service/recruitment_lifecycle_process_manager.go`, Analytics projection ingestion files, Identity, Recruitment, Interview, and AI Agent skeleton/runtime files, `logic-grpc-service/internal/platform/servicebinary/convention.go`, and `logic-grpc-service/internal/platform/events/envelope.go` on 2026-07-12.
+The boundary was verified from gateway route registration and route-mode cutover controls, protobuf service definitions, representative logic service/repository files, `logic-grpc-service/service/recruitment_lifecycle_process_manager.go`, Analytics projection ingestion files, Identity, Recruitment, Interview, and AI Agent skeleton/runtime files, `logic-grpc-service/internal/platform/servicebinary/convention.go`, and `logic-grpc-service/internal/platform/events/envelope.go` on 2026-07-12.

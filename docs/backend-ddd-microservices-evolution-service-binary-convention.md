@@ -80,7 +80,7 @@ Current compiled skeletons:
 - `notification-service`: compile-safe descriptor and command only; unrouted by default.
 - `ai-agent-service`: compile-safe descriptor and command only; unrouted by default.
 - `recruitment-service`: compile-safe descriptor and command only; unrouted by default.
-- `interview-service`: compile-safe descriptor and command only; unrouted by default.
+- `interview-service`: compile-safe descriptor and command only; unrouted by default; gateway routing can be explicitly enabled with `INTERVIEW_ROUTE_MODE=interview` and rolled back with `INTERVIEW_ROUTE_MODE=logic`.
 
 ## Cutover Guardrails
 

@@ -124,6 +124,23 @@ func TestLoadRecruitmentRouteDefaultsToLogic(t *testing.T) {
 	}
 }
 
+func TestLoadInterviewRouteDefaultsToLogic(t *testing.T) {
+	t.Setenv("ALLOW_INSECURE_DEV_CONFIG", "false")
+	t.Setenv("JWT_SECRET", "test-secret-at-least-32-chars-long")
+	t.Setenv("GRPC_INTERNAL_TOKEN", strings.Repeat("t", 32))
+
+	cfg, err := Load()
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+	if cfg.InterviewRouteMode != "logic" {
+		t.Fatalf("InterviewRouteMode = %q, want logic", cfg.InterviewRouteMode)
+	}
+	if cfg.InterviewGRPCAddr != "" {
+		t.Fatalf("InterviewGRPCAddr = %q, want empty", cfg.InterviewGRPCAddr)
+	}
+}
+
 func TestLoadRecruitmentRouteToExtractedService(t *testing.T) {
 	t.Setenv("ALLOW_INSECURE_DEV_CONFIG", "false")
 	t.Setenv("JWT_SECRET", "test-secret-at-least-32-chars-long")
@@ -143,6 +160,25 @@ func TestLoadRecruitmentRouteToExtractedService(t *testing.T) {
 	}
 }
 
+func TestLoadInterviewRouteToExtractedService(t *testing.T) {
+	t.Setenv("ALLOW_INSECURE_DEV_CONFIG", "false")
+	t.Setenv("JWT_SECRET", "test-secret-at-least-32-chars-long")
+	t.Setenv("GRPC_INTERNAL_TOKEN", strings.Repeat("t", 32))
+	t.Setenv("INTERVIEW_ROUTE_MODE", "interview")
+	t.Setenv("INTERVIEW_GRPC_ADDR", "dns:///interview-service:50051")
+
+	cfg, err := Load()
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+	if cfg.InterviewRouteMode != "interview" {
+		t.Fatalf("InterviewRouteMode = %q, want interview", cfg.InterviewRouteMode)
+	}
+	if cfg.InterviewGRPCAddr != "dns:///interview-service:50051" {
+		t.Fatalf("InterviewGRPCAddr = %q", cfg.InterviewGRPCAddr)
+	}
+}
+
 func TestLoadRecruitmentRouteRequiresAddress(t *testing.T) {
 	t.Setenv("ALLOW_INSECURE_DEV_CONFIG", "false")
 	t.Setenv("JWT_SECRET", "test-secret-at-least-32-chars-long")
@@ -155,6 +191,18 @@ func TestLoadRecruitmentRouteRequiresAddress(t *testing.T) {
 	}
 }
 
+func TestLoadInterviewRouteRequiresAddress(t *testing.T) {
+	t.Setenv("ALLOW_INSECURE_DEV_CONFIG", "false")
+	t.Setenv("JWT_SECRET", "test-secret-at-least-32-chars-long")
+	t.Setenv("GRPC_INTERNAL_TOKEN", strings.Repeat("t", 32))
+	t.Setenv("INTERVIEW_ROUTE_MODE", "interview")
+
+	_, err := Load()
+	if err == nil || !strings.Contains(err.Error(), "INTERVIEW_GRPC_ADDR") {
+		t.Fatalf("expected interview addr error, got %v", err)
+	}
+}
+
 func TestLoadRejectsInvalidRecruitmentRouteMode(t *testing.T) {
 	t.Setenv("ALLOW_INSECURE_DEV_CONFIG", "false")
 	t.Setenv("JWT_SECRET", "test-secret-at-least-32-chars-long")
@@ -164,6 +212,18 @@ func TestLoadRejectsInvalidRecruitmentRouteMode(t *testing.T) {
 	_, err := Load()
 	if err == nil || !strings.Contains(err.Error(), "RECRUITMENT_ROUTE_MODE") {
 		t.Fatalf("expected recruitment route mode error, got %v", err)
+	}
+}
+
+func TestLoadRejectsInvalidInterviewRouteMode(t *testing.T) {
+	t.Setenv("ALLOW_INSECURE_DEV_CONFIG", "false")
+	t.Setenv("JWT_SECRET", "test-secret-at-least-32-chars-long")
+	t.Setenv("GRPC_INTERNAL_TOKEN", strings.Repeat("t", 32))
+	t.Setenv("INTERVIEW_ROUTE_MODE", "invalid")
+
+	_, err := Load()
+	if err == nil || !strings.Contains(err.Error(), "INTERVIEW_ROUTE_MODE") {
+		t.Fatalf("expected interview route mode error, got %v", err)
 	}
 }
 

@@ -115,6 +115,27 @@ func TestNewClientsRoutesRecruitmentToExtractedService(t *testing.T) {
 	}
 }
 
+func TestNewClientsRoutesInterviewToExtractedService(t *testing.T) {
+	clients, err := NewClientsWithOptions("passthrough:///logic:50051", ClientOptions{
+		InterviewRouteMode: "interview",
+		InterviewAddr:      "passthrough:///interview:50051",
+	})
+	if err != nil {
+		t.Fatalf("NewClientsWithOptions: %v", err)
+	}
+	defer clients.Close()
+
+	if clients.InterviewRouteMode != "interview" {
+		t.Fatalf("InterviewRouteMode = %q, want interview", clients.InterviewRouteMode)
+	}
+	if clients.InterviewTargetAddr != "passthrough:///interview:50051" {
+		t.Fatalf("InterviewTargetAddr = %q", clients.InterviewTargetAddr)
+	}
+	if clients.interviewConn == clients.conn {
+		t.Fatal("Interview cutover should use a separate gRPC connection")
+	}
+}
+
 func TestNewClientsRecruitmentCutoverRequiresAddress(t *testing.T) {
 	_, err := NewClientsWithOptions("passthrough:///logic:50051", ClientOptions{
 		RecruitmentRouteMode: "recruitment",
@@ -124,12 +145,30 @@ func TestNewClientsRecruitmentCutoverRequiresAddress(t *testing.T) {
 	}
 }
 
+func TestNewClientsInterviewCutoverRequiresAddress(t *testing.T) {
+	_, err := NewClientsWithOptions("passthrough:///logic:50051", ClientOptions{
+		InterviewRouteMode: "interview",
+	})
+	if err == nil {
+		t.Fatal("expected missing interview address error")
+	}
+}
+
 func TestNewClientsRejectsInvalidRecruitmentRouteMode(t *testing.T) {
 	_, err := NewClientsWithOptions("passthrough:///logic:50051", ClientOptions{
 		RecruitmentRouteMode: "invalid",
 	})
 	if err == nil {
 		t.Fatal("expected invalid recruitment route mode error")
+	}
+}
+
+func TestNewClientsRejectsInvalidInterviewRouteMode(t *testing.T) {
+	_, err := NewClientsWithOptions("passthrough:///logic:50051", ClientOptions{
+		InterviewRouteMode: "invalid",
+	})
+	if err == nil {
+		t.Fatal("expected invalid interview route mode error")
 	}
 }
 
@@ -254,6 +293,20 @@ func TestReadyChecksRecruitmentHealthWhenCutoverUsesSeparateConnection(t *testin
 	err := clients.Ready(context.Background())
 	if err == nil || !strings.Contains(err.Error(), "recruitment grpc health check failed") {
 		t.Fatalf("expected recruitment health failure, got %v", err)
+	}
+}
+
+func TestReadyChecksInterviewHealthWhenCutoverUsesSeparateConnection(t *testing.T) {
+	clients := &Clients{
+		conn:            &grpc.ClientConn{},
+		interviewConn:   &grpc.ClientConn{},
+		Health:          fakeHealthClient{status: healthpb.HealthCheckResponse_SERVING},
+		InterviewHealth: fakeHealthClient{err: errors.New("interview down")},
+	}
+
+	err := clients.Ready(context.Background())
+	if err == nil || !strings.Contains(err.Error(), "interview grpc health check failed") {
+		t.Fatalf("expected interview health failure, got %v", err)
 	}
 }
 

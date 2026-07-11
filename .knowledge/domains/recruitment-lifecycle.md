@@ -40,6 +40,8 @@ The recruitment lifecycle is centered on application rounds. Jobs receive applic
 
 The `recruitment-service` binary is not used by default. Its runtime can explicitly register ApplicationService for controlled validation, and `RECRUITMENT_ROUTE_MODE=recruitment` can route ApplicationService traffic to `RECRUITMENT_GRPC_ADDR`; rollback is `RECRUITMENT_ROUTE_MODE=logic`.
 
+The `interview-service` binary is also rollback-safe by default. `INTERVIEW_ROUTE_MODE=logic` keeps interview traffic on the monolith, while `INTERVIEW_ROUTE_MODE=interview` routes only InterviewService traffic to `INTERVIEW_GRPC_ADDR`; rollback is `INTERVIEW_ROUTE_MODE=logic`.
+
 ## Core Flow
 
 - `ApplicationService.ApplyJob` requires a complete candidate profile, a valid resume, and an online job, then creates a new application round.
@@ -47,7 +49,7 @@ The `recruitment-service` binary is not used by default. Its runtime can explici
 - `ApplicationService.UpdateApplicationStatus` validates target status keys, allowed transitions, reason requirements for closeout states, scope access, and current-round constraints.
 - `RecruitmentLifecycleProcessManager` is the explicit process-manager boundary for Interview and Offer workflows that must advance application status or write application transition audit records inside an existing transaction.
 - Interview scheduling and feedback use interview services/repositories and affect HR, candidate, and interviewer surfaces.
-- `interview-service` currently has an explicit runtime registration path for InterviewService but remains unrouted; current lifecycle side effects stay on the monolith path.
+- `interview-service` has an explicit runtime registration path for InterviewService and a gateway cutover switch. Current lifecycle side effects stay on the monolith path unless `INTERVIEW_ROUTE_MODE=interview` is explicitly configured.
 - Offer creation, send, withdraw, accept, and reject update offer state in Offer service transactions and route application lifecycle transitions through `RecruitmentLifecycleProcessManager`.
 - Collaboration workspace composes applications, notes, tags, tasks, interviews, offers, and timeline events for staff workflows.
 
@@ -68,4 +70,4 @@ The `recruitment-service` binary is not used by default. Its runtime can explici
 
 ## Verification
 
-Verified against status model, application service, recruitment lifecycle process manager, interview service, offer service, collaboration service, application repository, Recruitment and Interview runtime descriptors, and protobuf messages on 2026-07-12.
+Verified against status model, application service, recruitment lifecycle process manager, interview service, offer service, collaboration service, application repository, Recruitment and Interview runtime descriptors, gateway route-mode controls, and protobuf messages on 2026-07-12.

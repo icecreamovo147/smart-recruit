@@ -37,6 +37,8 @@ The recruitment domain centers on jobs, candidates, applications, interviews, of
 
 `logic-grpc-service/cmd/recruitment-service` is currently a compile-safe skeleton for Recruitment extraction. `internal/recruitment/runtime` can explicitly register JobService, CandidateService, and ApplicationService adapters. Gateway traffic remains on the monolith by default; `RECRUITMENT_ROUTE_MODE=recruitment` routes those generated clients to `RECRUITMENT_GRPC_ADDR` only when explicitly configured.
 
+`logic-grpc-service/cmd/interview-service` remains a compile-safe Interview boundary runtime. Gateway traffic remains on the monolith by default; `INTERVIEW_ROUTE_MODE=interview` routes only the generated InterviewService client to `INTERVIEW_GRPC_ADDR` and can be rolled back with `INTERVIEW_ROUTE_MODE=logic`.
+
 Application state transitions and offer/interview lifecycle behavior are business rules. Verify them in service code, protobuf contracts, database schema, and tests before documenting or changing behavior.
 
 ## Core Concepts
@@ -59,4 +61,4 @@ Application state transitions and offer/interview lifecycle behavior are busines
 
 ## Verification
 
-This domain summary was verified against `README.md`, protobuf definitions, application/interview/offer/collaboration/notification service code, the Recruitment and Interview runtime descriptors, status model code, and database schema on 2026-07-12.
+This domain summary was verified against `README.md`, protobuf definitions, application/interview/offer/collaboration/notification service code, the Recruitment and Interview runtime descriptors, gateway route-mode controls, status model code, and database schema on 2026-07-12.

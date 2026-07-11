@@ -27,6 +27,7 @@ source_refs:
   - web-gin-service/middleware/observability.go
   - logic-grpc-service/proto/recruitment.proto
   - logic-grpc-service/main.go
+  - docs/backend-ddd-microservices-evolution-interview-gateway-cutover.md
 last_verified: 2026-07-12
 review_after: 2026-10-08
 ---
@@ -40,8 +41,8 @@ The Gin gateway is the HTTP policy and transport boundary. It exposes `/api/v1` 
 - `web-gin-service/router/router.go` wires public, candidate, staff, admin, AI, notification, analytics, collaboration, and configuration routes.
 - `web-gin-service/handler/**` translates HTTP payloads, path/query parameters, and streaming responses to protobuf-backed gRPC calls.
 - `web-gin-service/middleware/**` owns HTTP concerns such as JWT, role/permission checks, body limits, rate limits, quotas, risk blocking, CSP, request IDs, and timeouts.
-- `web-gin-service/config/config.go` owns gateway runtime configuration, including Notification, AI Agent, Identity, and Recruitment route mode rollback switches.
-- `web-gin-service/rpc/client.go` creates generated gRPC clients, forwards internal auth/request metadata, restricts retry policy to known read-only methods, and can route only the Notification generated client to `NOTIFICATION_GRPC_ADDR`, AI Agent-owned generated clients to `AI_AGENT_GRPC_ADDR`, Identity AuthService plus Identity-owned AdminService methods to `IDENTITY_GRPC_ADDR`, or Recruitment JobService/CandidateService/ApplicationService clients to `RECRUITMENT_GRPC_ADDR`.
+- `web-gin-service/config/config.go` owns gateway runtime configuration, including Notification, AI Agent, Identity, Recruitment, and Interview route mode rollback switches.
+- `web-gin-service/rpc/client.go` creates generated gRPC clients, forwards internal auth/request metadata, restricts retry policy to known read-only methods, and can route only the Notification generated client to `NOTIFICATION_GRPC_ADDR`, AI Agent-owned generated clients to `AI_AGENT_GRPC_ADDR`, Identity AuthService plus Identity-owned AdminService methods to `IDENTITY_GRPC_ADDR`, Recruitment JobService/CandidateService/ApplicationService clients to `RECRUITMENT_GRPC_ADDR`, or the InterviewService client to `INTERVIEW_GRPC_ADDR`.
 - `logic-grpc-service/proto/recruitment.proto` is the source contract for gateway and logic generated clients/servers.
 - `logic-grpc-service/main.go` registers gRPC service implementations and health checks.
 
@@ -56,7 +57,8 @@ The Gin gateway is the HTTP policy and transport boundary. It exposes `/api/v1` 
 - AI Agent gateway cutover must keep `AI_AGENT_ROUTE_MODE=logic` as the default rollback path and require `AI_AGENT_GRPC_ADDR` before routing AI Agent-owned generated clients to an extracted service.
 - Identity gateway cutover must keep `IDENTITY_ROUTE_MODE=logic` as the default rollback path, require `IDENTITY_GRPC_ADDR` before routing to an extracted service, and preserve non-Identity AdminService methods on the logic target until separately scoped.
 - Recruitment gateway cutover must keep `RECRUITMENT_ROUTE_MODE=logic` as the default rollback path and require `RECRUITMENT_GRPC_ADDR` before routing JobService, CandidateService, and ApplicationService to an extracted service.
+- Interview gateway cutover must keep `INTERVIEW_ROUTE_MODE=logic` as the default rollback path and require `INTERVIEW_GRPC_ADDR` before routing InterviewService to an extracted service.
 
 ## Verification
 
-Verified against gateway configuration loading, route setup, Notification, AI Agent, Identity, and Recruitment gRPC cutover controls, middleware categories, protobuf definitions, and logic service registration on 2026-07-12.
+Verified against gateway configuration loading, route setup, Notification, AI Agent, Identity, Recruitment, and Interview gRPC cutover controls, middleware categories, protobuf definitions, and logic service registration on 2026-07-12.
