@@ -1,0 +1,184 @@
+{
+  "schemaVersion": 1,
+  "feature_name": "backend-ddd-microservices-evolution",
+  "task_id": "TASK-BDME-015",
+  "base_sha": "b9ca0e23384f2df085989fc61859b7aba7ec7145",
+  "base_tree": "c3fc37156a9dce11d7652d1958bc204e7b448b63",
+  "head_sha": "b9ca0e23384f2df085989fc61859b7aba7ec7145",
+  "changed_files": [
+    ".spec/backend-ddd-microservices-evolution/pipeline-state.json",
+    ".spec/backend-ddd-microservices-evolution/reports/TASK-BDME-015-report.md",
+    ".spec/backend-ddd-microservices-evolution/reports/TASK-BDME-015-evidence.json",
+    "logic-grpc-service/internal/notification/application/ports.go",
+    "logic-grpc-service/internal/notification/application/ports_test.go",
+    "logic-grpc-service/internal/notification/domain/notification.go",
+    "logic-grpc-service/internal/notification/domain/notification_test.go",
+    "logic-grpc-service/internal/notification/infrastructure/repositories.go",
+    "logic-grpc-service/internal/notification/infrastructure/repositories_test.go",
+    "logic-grpc-service/internal/notification/interfaces/notification_api.go",
+    "logic-grpc-service/internal/notification/interfaces/notification_api_test.go",
+    "web-gin-service/internal/notification/interfaces/notification_http.go",
+    "web-gin-service/internal/notification/interfaces/notification_http_test.go"
+  ],
+  "scope": {
+    "status": "passed",
+    "base_tree": "c3fc37156a9dce11d7652d1958bc204e7b448b63",
+    "out_of_scope": [],
+    "forbidden": [],
+    "allowed": [
+      ".spec/backend-ddd-microservices-evolution/pipeline-state.json",
+      ".spec/backend-ddd-microservices-evolution/reports/TASK-BDME-015-report.md",
+      ".spec/backend-ddd-microservices-evolution/reports/TASK-BDME-015-evidence.json",
+      "logic-grpc-service/internal/notification/application/ports.go",
+      "logic-grpc-service/internal/notification/application/ports_test.go",
+      "logic-grpc-service/internal/notification/domain/notification.go",
+      "logic-grpc-service/internal/notification/domain/notification_test.go",
+      "logic-grpc-service/internal/notification/infrastructure/repositories.go",
+      "logic-grpc-service/internal/notification/infrastructure/repositories_test.go",
+      "logic-grpc-service/internal/notification/interfaces/notification_api.go",
+      "logic-grpc-service/internal/notification/interfaces/notification_api_test.go",
+      "web-gin-service/internal/notification/interfaces/notification_http.go",
+      "web-gin-service/internal/notification/interfaces/notification_http_test.go"
+    ]
+  },
+  "checks": [
+    {
+      "command": "git diff --name-only && git ls-files --others --exclude-standard",
+      "exit_code": 0,
+      "status": "passed",
+      "started_at": "2026-07-11T15:18:00Z",
+      "duration_ms": 92,
+      "summary": "Listed changed tracked and untracked TASK files."
+    },
+    {
+      "command": "TASK_BASE_TREE=c3fc37156a9dce11d7652d1958bc204e7b448b63 bash .spec/backend-ddd-microservices-evolution/scripts/check-task-scope.sh TASK-BDME-015",
+      "exit_code": 0,
+      "status": "passed",
+      "started_at": "2026-07-11T15:18:00Z",
+      "duration_ms": 615,
+      "summary": "scope_result: PASS (TASK-BDME-015)."
+    },
+    {
+      "command": "bash .spec/backend-ddd-microservices-evolution/scripts/agent-check.sh",
+      "exit_code": 0,
+      "status": "passed",
+      "started_at": "2026-07-11T15:18:00Z",
+      "duration_ms": 6417,
+      "summary": "Feature validation, git diff whitespace, gofmt checks, logic-grpc-service go test, and web-gin-service go test passed."
+    },
+    {
+      "command": "cd logic-grpc-service && go test ./...",
+      "exit_code": 0,
+      "status": "passed",
+      "started_at": "2026-07-11T15:18:00Z",
+      "duration_ms": 5393,
+      "summary": "All logic-grpc-service packages passed, including Notification boundary compatibility tests."
+    },
+    {
+      "command": "cd web-gin-service && go test ./...",
+      "exit_code": 0,
+      "status": "passed",
+      "started_at": "2026-07-11T15:18:00Z",
+      "duration_ms": 4077,
+      "summary": "All web-gin-service packages passed, including Notification HTTP/SSE adapter compatibility tests."
+    },
+    {
+      "command": "node .knowledge/scripts/detect-impact.mjs --root . --base-tree c3fc37156a9dce11d7652d1958bc204e7b448b63",
+      "exit_code": 0,
+      "status": "passed",
+      "started_at": "2026-07-11T15:18:00Z",
+      "duration_ms": 807,
+      "summary": "impact_result: update_required; matched local-development, service-boundaries, and system-overview routes."
+    }
+  ],
+  "review": {
+    "type": "self-review",
+    "round": 1,
+    "verdict": "通过",
+    "findings": []
+  },
+  "human_confirmation": {
+    "required": false,
+    "confirmed": true,
+    "confirmed_by": "not_required",
+    "confirmed_at": "2026-07-11T15:18:00Z",
+    "confirmation_text": "TASK-BDME-015 does not require human confirmation."
+  },
+  "exceptions": [],
+  "skipped_checks": [
+    {
+      "command": "node .knowledge/scripts/validate-knowledge.mjs",
+      "reason": ".knowledge files were reviewed but not changed by TASK-BDME-015."
+    }
+  ],
+  "knowledgeImpact": {
+    "result": "update_required",
+    "triggeredBy": [
+      "logic-grpc-service/internal/notification/application/ports.go",
+      "logic-grpc-service/internal/notification/domain/notification.go",
+      "logic-grpc-service/internal/notification/infrastructure/repositories.go",
+      "logic-grpc-service/internal/notification/interfaces/notification_api.go",
+      "web-gin-service/internal/notification/interfaces/notification_http.go"
+    ],
+    "reviewResults": [
+      {
+        "document": ".knowledge/architecture/system-overview.md",
+        "verdict": "UNCHANGED",
+        "evidence": [
+          "Reviewed current service topology; TASK-BDME-015 adds Notification boundary contracts and does not change runtime topology."
+        ]
+      },
+      {
+        "document": ".knowledge/architecture/service-boundaries.md",
+        "verdict": "UNCHANGED",
+        "evidence": [
+          "Reviewed service boundary guidance; Notification contracts preserve logic-service behavior and keep the gateway as transport/policy."
+        ]
+      },
+      {
+        "document": ".knowledge/architecture/api-contracts-and-gateway.md",
+        "verdict": "UNCHANGED",
+        "evidence": [
+          "Reviewed gateway contract guidance; TASK-BDME-015 adds only an HTTP/SSE adapter interface test and does not add routes or protobuf methods."
+        ]
+      },
+      {
+        "document": ".knowledge/domains/recruitment-lifecycle.md",
+        "verdict": "UNCHANGED",
+        "evidence": [
+          "Reviewed lifecycle guidance; no notification side effect, application status, offer, or interview behavior changed."
+        ]
+      },
+      {
+        "document": ".knowledge/domains/notification-outbox.md",
+        "verdict": "UNCHANGED",
+        "evidence": [
+          "Reviewed notification/outbox ownership; new ports make persistence, unread counts, realtime publication, async writes, and outbox coordination explicit without changing behavior."
+        ]
+      },
+      {
+        "document": ".knowledge/pitfalls/status-notification-drift.md",
+        "verdict": "UNCHANGED",
+        "evidence": [
+          "Reviewed drift pitfall; this TASK adds compile-time boundary contracts only and does not alter status, notification, cache, or outbox flows."
+        ]
+      },
+      {
+        "document": ".knowledge/runbooks/debug-recruitment-lifecycle.md",
+        "verdict": "UNCHANGED",
+        "evidence": [
+          "Reviewed diagnostic anchors; existing notification service and gateway files remain valid because runtime implementations were not moved."
+        ]
+      },
+      {
+        "document": ".knowledge/runbooks/local-development.md",
+        "verdict": "UNCHANGED",
+        "evidence": [
+          "Reviewed local-development route triggered by logic and web service changes; no startup command or local workflow changed."
+        ]
+      }
+    ],
+    "coverageGap": false,
+    "validationExitCode": 0
+  }
+}
