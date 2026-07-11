@@ -25,6 +25,8 @@ source_refs:
   - web-gin-service/router/router.go
   - web-gin-service/handler/auth.go
   - logic-grpc-service/service/auth_service.go
+  - logic-grpc-service/cmd/identity-service/main.go
+  - logic-grpc-service/internal/identity/runtime/skeleton.go
   - logic-grpc-service/service/admin_service.go
   - logic-grpc-service/repository/authz_repo.go
   - logic-grpc-service/migrations/000011_add_refresh_tokens.sql
@@ -47,6 +49,7 @@ Authentication is split between the HTTP gateway and the logic service. The gate
 - `logic-grpc-service/service/auth_service.go` owns registration, login, refresh-token rotation, revocation, and database-backed principal loading.
 - `logic-grpc-service/repository/authz_repo.go` owns roles, permissions, role assignment, data scopes, authorization audit logs, legacy role migration, and token-version increments.
 - `logic-grpc-service/service/admin_service.go` changes staff roles/data scopes and synchronizes token-version cache after permission mutations.
+- `logic-grpc-service/cmd/identity-service` is currently a compile-safe unrouted skeleton only; it must not bind listeners, register auth/RBAC/audit handlers, receive gateway traffic, rotate refresh tokens, or mutate token-version state until scoped extraction/cutover TASKs explicitly do so.
 
 ## Security-Relevant State
 
@@ -66,4 +69,4 @@ Authentication is split between the HTTP gateway and the logic service. The gate
 
 ## Verification
 
-Verified against gateway JWT and RBAC middleware, auth handler cookie logic, route declarations, logic auth/admin services, authz repository, and RBAC/refresh-token migrations on 2026-07-10.
+Verified against gateway JWT and RBAC middleware, auth handler cookie logic, route declarations, logic auth/admin services, the unrouted Identity service skeleton, authz repository, and RBAC/refresh-token migrations on 2026-07-12.

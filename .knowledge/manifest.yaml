@@ -64,6 +64,8 @@ routes:
       - logic-grpc-service/service/admin_service.go
       - logic-grpc-service/service/authorizer.go
       - logic-grpc-service/service/audit.go
+      - logic-grpc-service/cmd/identity-service/**
+      - logic-grpc-service/internal/identity/**
       - logic-grpc-service/repository/authz_repo.go
       - logic-grpc-service/repository/refresh_token_repo.go
       - logic-grpc-service/repository/user_repo.go
@@ -338,13 +340,16 @@ routes:
       - docs/backend-ddd-microservices-evolution-ai-agent-service-skeleton.md
       - docs/backend-ddd-microservices-evolution-ai-agent-runtime-extraction.md
       - docs/backend-ddd-microservices-evolution-ai-agent-gateway-cutover.md
+      - docs/backend-ddd-microservices-evolution-identity-service-skeleton.md
       - deploy/k8s/README-service-binaries.md
       - deploy/k8s/configmap.yaml
       - logic-grpc-service/internal/platform/servicebinary/**
       - logic-grpc-service/cmd/notification-service/**
       - logic-grpc-service/cmd/ai-agent-service/**
+      - logic-grpc-service/cmd/identity-service/**
       - logic-grpc-service/internal/notification/runtime/**
       - logic-grpc-service/internal/aiagent/runtime/**
+      - logic-grpc-service/internal/identity/runtime/**
       - logic-grpc-service/service/notification_runtime.go
       - logic-grpc-service/service/ai_agent_runtime.go
       - web-gin-service/config/config.go
