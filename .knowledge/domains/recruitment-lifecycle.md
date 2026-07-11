@@ -43,7 +43,7 @@ The `recruitment-service` binary is not used by default. Its runtime can explici
 
 The `interview-service` binary is also rollback-safe by default. `INTERVIEW_ROUTE_MODE=logic` keeps interview traffic on the monolith, while `INTERVIEW_ROUTE_MODE=interview` routes only InterviewService traffic to `INTERVIEW_GRPC_ADDR`; rollback is `INTERVIEW_ROUTE_MODE=logic`.
 
-The `offer-service` binary has an explicit runtime registration path for OfferService, but offer lifecycle traffic remains on the monolith until a later scoped gateway cutover.
+The `offer-service` binary is rollback-safe by default. `OFFER_ROUTE_MODE=logic` keeps offer lifecycle traffic on the monolith, while `OFFER_ROUTE_MODE=offer` routes only OfferService traffic to `OFFER_GRPC_ADDR`; rollback is `OFFER_ROUTE_MODE=logic`.
 
 ## Core Flow
 
@@ -54,7 +54,7 @@ The `offer-service` binary has an explicit runtime registration path for OfferSe
 - Interview scheduling and feedback use interview services/repositories and affect HR, candidate, and interviewer surfaces.
 - `interview-service` has an explicit runtime registration path for InterviewService and a gateway cutover switch. Current lifecycle side effects stay on the monolith path unless `INTERVIEW_ROUTE_MODE=interview` is explicitly configured.
 - Offer creation, send, withdraw, accept, and reject update offer state in Offer service transactions and route application lifecycle transitions through `RecruitmentLifecycleProcessManager`.
-- `offer-service` currently has an explicit runtime registration path for OfferService but remains unrouted; current lifecycle side effects stay on the monolith path.
+- `offer-service` has an explicit runtime registration path for OfferService and a gateway cutover switch. Current lifecycle side effects stay on the monolith path unless `OFFER_ROUTE_MODE=offer` is explicitly configured.
 - Collaboration workspace composes applications, notes, tags, tasks, interviews, offers, and timeline events for staff workflows.
 
 ## Cross-Surface Impact

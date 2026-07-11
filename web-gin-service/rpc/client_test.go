@@ -136,6 +136,27 @@ func TestNewClientsRoutesInterviewToExtractedService(t *testing.T) {
 	}
 }
 
+func TestNewClientsRoutesOfferToExtractedService(t *testing.T) {
+	clients, err := NewClientsWithOptions("passthrough:///logic:50051", ClientOptions{
+		OfferRouteMode: "offer",
+		OfferAddr:      "passthrough:///offer:50051",
+	})
+	if err != nil {
+		t.Fatalf("NewClientsWithOptions: %v", err)
+	}
+	defer clients.Close()
+
+	if clients.OfferRouteMode != "offer" {
+		t.Fatalf("OfferRouteMode = %q, want offer", clients.OfferRouteMode)
+	}
+	if clients.OfferTargetAddr != "passthrough:///offer:50051" {
+		t.Fatalf("OfferTargetAddr = %q", clients.OfferTargetAddr)
+	}
+	if clients.offerConn == clients.conn {
+		t.Fatal("Offer cutover should use a separate gRPC connection")
+	}
+}
+
 func TestNewClientsRecruitmentCutoverRequiresAddress(t *testing.T) {
 	_, err := NewClientsWithOptions("passthrough:///logic:50051", ClientOptions{
 		RecruitmentRouteMode: "recruitment",
@@ -154,6 +175,15 @@ func TestNewClientsInterviewCutoverRequiresAddress(t *testing.T) {
 	}
 }
 
+func TestNewClientsOfferCutoverRequiresAddress(t *testing.T) {
+	_, err := NewClientsWithOptions("passthrough:///logic:50051", ClientOptions{
+		OfferRouteMode: "offer",
+	})
+	if err == nil {
+		t.Fatal("expected missing offer address error")
+	}
+}
+
 func TestNewClientsRejectsInvalidRecruitmentRouteMode(t *testing.T) {
 	_, err := NewClientsWithOptions("passthrough:///logic:50051", ClientOptions{
 		RecruitmentRouteMode: "invalid",
@@ -169,6 +199,15 @@ func TestNewClientsRejectsInvalidInterviewRouteMode(t *testing.T) {
 	})
 	if err == nil {
 		t.Fatal("expected invalid interview route mode error")
+	}
+}
+
+func TestNewClientsRejectsInvalidOfferRouteMode(t *testing.T) {
+	_, err := NewClientsWithOptions("passthrough:///logic:50051", ClientOptions{
+		OfferRouteMode: "invalid",
+	})
+	if err == nil {
+		t.Fatal("expected invalid offer route mode error")
 	}
 }
 
@@ -307,6 +346,20 @@ func TestReadyChecksInterviewHealthWhenCutoverUsesSeparateConnection(t *testing.
 	err := clients.Ready(context.Background())
 	if err == nil || !strings.Contains(err.Error(), "interview grpc health check failed") {
 		t.Fatalf("expected interview health failure, got %v", err)
+	}
+}
+
+func TestReadyChecksOfferHealthWhenCutoverUsesSeparateConnection(t *testing.T) {
+	clients := &Clients{
+		conn:        &grpc.ClientConn{},
+		offerConn:   &grpc.ClientConn{},
+		Health:      fakeHealthClient{status: healthpb.HealthCheckResponse_SERVING},
+		OfferHealth: fakeHealthClient{err: errors.New("offer down")},
+	}
+
+	err := clients.Ready(context.Background())
+	if err == nil || !strings.Contains(err.Error(), "offer grpc health check failed") {
+		t.Fatalf("expected offer health failure, got %v", err)
 	}
 }
 

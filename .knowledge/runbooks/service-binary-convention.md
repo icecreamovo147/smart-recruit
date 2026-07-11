@@ -33,6 +33,7 @@ source_refs:
   - docs/backend-ddd-microservices-evolution-interview-service-api-extraction.md
   - docs/backend-ddd-microservices-evolution-interview-gateway-cutover.md
   - docs/backend-ddd-microservices-evolution-offer-service-api-extraction.md
+  - docs/backend-ddd-microservices-evolution-offer-gateway-cutover.md
   - deploy/k8s/README-service-binaries.md
   - logic-grpc-service/internal/platform/servicebinary/convention.go
   - logic-grpc-service/internal/platform/servicebinary/convention_test.go
@@ -85,6 +86,7 @@ Use this runbook when adding or reviewing backend service binaries, worker binar
 - `web-gin-service` has an Identity gateway routing switch: default `IDENTITY_ROUTE_MODE=logic` keeps Identity traffic on `GRPC_ADDR`; `IDENTITY_ROUTE_MODE=identity` routes AuthService plus the Identity-owned AdminService subset to `IDENTITY_GRPC_ADDR` and fails fast when that address is missing.
 - `web-gin-service` has a Recruitment gateway routing switch: default `RECRUITMENT_ROUTE_MODE=logic` keeps JobService, CandidateService, and ApplicationService traffic on `GRPC_ADDR`; `RECRUITMENT_ROUTE_MODE=recruitment` routes those generated clients to `RECRUITMENT_GRPC_ADDR` and fails fast when that address is missing.
 - `web-gin-service` has an Interview gateway routing switch: default `INTERVIEW_ROUTE_MODE=logic` keeps InterviewService traffic on `GRPC_ADDR`; `INTERVIEW_ROUTE_MODE=interview` routes that generated client to `INTERVIEW_GRPC_ADDR` and fails fast when that address is missing.
+- `web-gin-service` has an Offer gateway routing switch: default `OFFER_ROUTE_MODE=logic` keeps OfferService traffic on `GRPC_ADDR`; `OFFER_ROUTE_MODE=offer` routes that generated client to `OFFER_GRPC_ADDR` and fails fast when that address is missing.
 
 ## Review Checklist
 

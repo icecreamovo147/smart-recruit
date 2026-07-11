@@ -61,7 +61,7 @@ Analytics event projection ingestion lives under `logic-grpc-service/internal/an
 
 `logic-grpc-service/cmd/interview-service` is a service skeleton for the Interview boundary. `logic-grpc-service/internal/interview/runtime` can explicitly register the InterviewService adapter for controlled validation. Gateway traffic remains on the monolith by default and can route to `INTERVIEW_GRPC_ADDR` only when `INTERVIEW_ROUTE_MODE=interview` is explicitly configured with rollback evidence.
 
-`logic-grpc-service/cmd/offer-service` is a service skeleton for the Offer boundary. `logic-grpc-service/internal/offer/runtime` can explicitly register the OfferService adapter for controlled validation, but gateway traffic remains on the monolith until a scoped cutover TASK records compatibility and rollback evidence.
+`logic-grpc-service/cmd/offer-service` is a service skeleton for the Offer boundary. `logic-grpc-service/internal/offer/runtime` can explicitly register the OfferService adapter for controlled validation. Gateway traffic remains on the monolith by default and can route to `OFFER_GRPC_ADDR` only when `OFFER_ROUTE_MODE=offer` is explicitly configured with rollback evidence.
 
 `logic-grpc-service/service/ai_agent_runtime.go` is the transitional AI Agent runtime boundary inside the monolith. It groups AI chat, candidate AI, provider fallback/config surface, embedding runtime, embedding workload execution, and durable agent-run execution without changing public API routing.
 

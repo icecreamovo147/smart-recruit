@@ -40,7 +40,7 @@ The recruitment domain centers on jobs, candidates, applications, interviews, of
 
 `logic-grpc-service/cmd/interview-service` remains a compile-safe Interview boundary runtime. Gateway traffic remains on the monolith by default; `INTERVIEW_ROUTE_MODE=interview` routes only the generated InterviewService client to `INTERVIEW_GRPC_ADDR` and can be rolled back with `INTERVIEW_ROUTE_MODE=logic`.
 
-`logic-grpc-service/cmd/offer-service` is currently a compile-safe Offer boundary runtime. `internal/offer/runtime` can explicitly register OfferService for controlled validation without gateway cutover; offer lifecycle traffic remains on the monolith by default.
+`logic-grpc-service/cmd/offer-service` is currently a compile-safe Offer boundary runtime. Gateway traffic remains on the monolith by default; `OFFER_ROUTE_MODE=offer` routes only the generated OfferService client to `OFFER_GRPC_ADDR` and can be rolled back with `OFFER_ROUTE_MODE=logic`.
 
 Application state transitions and offer/interview lifecycle behavior are business rules. Verify them in service code, protobuf contracts, database schema, and tests before documenting or changing behavior.
 

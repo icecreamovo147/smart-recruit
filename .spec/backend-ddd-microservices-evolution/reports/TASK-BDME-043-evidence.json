@@ -1,0 +1,227 @@
+{
+  "schemaVersion": 1,
+  "feature_name": "backend-ddd-microservices-evolution",
+  "task_id": "TASK-BDME-043",
+  "base_sha": "ad514df5512b08dca4916d6f225acf9ef54b94f2",
+  "base_tree": "0736f8c5d4f74d15712bf03a912c05c2d2d7e921",
+  "head_sha": "ad514df5512b08dca4916d6f225acf9ef54b94f2",
+  "changed_files": [
+    ".knowledge/architecture/api-contracts-and-gateway.md",
+    ".knowledge/architecture/service-boundaries.md",
+    ".knowledge/domains/recruitment-lifecycle.md",
+    ".knowledge/domains/recruitment.md",
+    ".knowledge/manifest.yaml",
+    ".knowledge/runbooks/service-binary-convention.md",
+    ".spec/backend-ddd-microservices-evolution/pipeline-state.json",
+    ".spec/backend-ddd-microservices-evolution/reports/TASK-BDME-043-report.md",
+    ".spec/backend-ddd-microservices-evolution/reports/TASK-BDME-043-evidence.json",
+    "deploy/k8s/configmap.yaml",
+    "docker/docker-compose.yml",
+    "docs/backend-ddd-microservices-evolution-offer-gateway-cutover.md",
+    "docs/backend-ddd-microservices-evolution-service-binary-convention.md",
+    "web-gin-service/config/config.go",
+    "web-gin-service/config/config_test.go",
+    "web-gin-service/main.go",
+    "web-gin-service/rpc/client.go",
+    "web-gin-service/rpc/client_test.go"
+  ],
+  "scope": {
+    "status": "passed",
+    "base_tree": "0736f8c5d4f74d15712bf03a912c05c2d2d7e921",
+    "out_of_scope": [],
+    "forbidden": [],
+    "allowed": [
+      ".knowledge/architecture/api-contracts-and-gateway.md",
+      ".knowledge/architecture/service-boundaries.md",
+      ".knowledge/domains/recruitment-lifecycle.md",
+      ".knowledge/domains/recruitment.md",
+      ".knowledge/manifest.yaml",
+      ".knowledge/runbooks/service-binary-convention.md",
+      ".spec/backend-ddd-microservices-evolution/pipeline-state.json",
+      ".spec/backend-ddd-microservices-evolution/reports/TASK-BDME-043-report.md",
+      ".spec/backend-ddd-microservices-evolution/reports/TASK-BDME-043-evidence.json",
+      "deploy/k8s/configmap.yaml",
+      "docker/docker-compose.yml",
+      "docs/backend-ddd-microservices-evolution-offer-gateway-cutover.md",
+      "docs/backend-ddd-microservices-evolution-service-binary-convention.md",
+      "web-gin-service/config/config.go",
+      "web-gin-service/config/config_test.go",
+      "web-gin-service/main.go",
+      "web-gin-service/rpc/client.go",
+      "web-gin-service/rpc/client_test.go"
+    ]
+  },
+  "checks": [
+    {
+      "command": "git diff --name-only && git ls-files --others --exclude-standard",
+      "exit_code": 0,
+      "status": "passed",
+      "duration_ms": 0,
+      "started_at": "2026-07-11T18:15:00Z",
+      "summary": "Listed tracked and untracked TASK files."
+    },
+    {
+      "command": "cd web-gin-service && go test ./config ./rpc",
+      "exit_code": 0,
+      "status": "passed",
+      "duration_ms": 1807,
+      "started_at": "2026-07-11T18:16:00Z",
+      "summary": "Focused gateway config and RPC client cutover tests passed."
+    },
+    {
+      "command": "node .knowledge/scripts/validate-knowledge.mjs --root .",
+      "exit_code": 0,
+      "status": "passed",
+      "duration_ms": 66,
+      "started_at": "2026-07-11T18:16:00Z",
+      "summary": "knowledge_result: PASS (36 formal documents)."
+    },
+    {
+      "command": "node .knowledge/scripts/detect-impact.mjs --root . --base-tree 0736f8c5d4f74d15712bf03a912c05c2d2d7e921 --json",
+      "exit_code": 0,
+      "status": "passed",
+      "duration_ms": 257,
+      "started_at": "2026-07-11T18:16:00Z",
+      "summary": "impact_result: update_required; no coverage gaps."
+    },
+    {
+      "command": "cd web-gin-service && go test ./...",
+      "exit_code": 0,
+      "status": "passed",
+      "duration_ms": 5479,
+      "started_at": "2026-07-11T18:17:00Z",
+      "summary": "All web-gin-service packages passed."
+    },
+    {
+      "command": "cd logic-grpc-service && go test ./...",
+      "exit_code": 0,
+      "status": "passed",
+      "duration_ms": 1619,
+      "started_at": "2026-07-11T18:17:00Z",
+      "summary": "All logic-grpc-service packages passed."
+    },
+    {
+      "command": "TASK_BASE_TREE=0736f8c5d4f74d15712bf03a912c05c2d2d7e921 bash .spec/backend-ddd-microservices-evolution/scripts/check-task-scope.sh TASK-BDME-043",
+      "exit_code": 0,
+      "status": "passed",
+      "duration_ms": 204,
+      "started_at": "2026-07-11T18:17:00Z",
+      "summary": "scope_result: PASS (TASK-BDME-043)."
+    },
+    {
+      "command": "git diff --check",
+      "exit_code": 0,
+      "status": "passed",
+      "duration_ms": 0,
+      "started_at": "2026-07-11T18:17:00Z",
+      "summary": "No whitespace errors."
+    },
+    {
+      "command": "bash .spec/backend-ddd-microservices-evolution/scripts/agent-check.sh",
+      "exit_code": 0,
+      "status": "passed",
+      "duration_ms": 1841,
+      "started_at": "2026-07-11T18:18:00Z",
+      "summary": "Feature validation, git diff whitespace check, web-gin-service gofmt check, web-gin-service go test, and knowledge validation passed."
+    }
+  ],
+  "review": {
+    "type": "self-review",
+    "round": 1,
+    "verdict": "通过",
+    "findings": []
+  },
+  "human_confirmation": {
+    "required": true,
+    "confirmed": true,
+    "confirmed_by": "user_global_gate_override",
+    "confirmed_at": "2026-07-11T17:56:00Z",
+    "confirmation_text": "User confirmed that all later human gates are cancelled once implementation and self-review pass."
+  },
+  "exceptions": [],
+  "skipped_checks": [],
+  "knowledgeImpact": {
+    "result": "update_required",
+    "triggeredBy": [
+      "configuration-changed",
+      "covered-path-changed",
+      "public-api-changed",
+      "recurring-defect-fixed",
+      "service-boundary-changed"
+    ],
+    "reviewResults": [
+      {
+        "document": ".knowledge/architecture/api-contracts-and-gateway.md",
+        "verdict": "UPDATED",
+        "evidence": [
+          "Documented Offer route mode configuration, generated client target, and rollback guard."
+        ]
+      },
+      {
+        "document": ".knowledge/architecture/service-boundaries.md",
+        "verdict": "UPDATED",
+        "evidence": [
+          "Documented default monolith routing and explicit Offer gateway cutover behavior."
+        ]
+      },
+      {
+        "document": ".knowledge/domains/recruitment.md",
+        "verdict": "UPDATED",
+        "evidence": [
+          "Documented OfferService routing behavior and rollback mode."
+        ]
+      },
+      {
+        "document": ".knowledge/domains/recruitment-lifecycle.md",
+        "verdict": "UPDATED",
+        "evidence": [
+          "Documented Offer route mode behavior and lifecycle rollback expectations."
+        ]
+      },
+      {
+        "document": ".knowledge/runbooks/service-binary-convention.md",
+        "verdict": "UPDATED",
+        "evidence": [
+          "Documented the Offer gateway routing switch in the service-binary runbook."
+        ]
+      },
+      {
+        "document": ".knowledge/manifest.yaml",
+        "verdict": "UPDATED",
+        "evidence": [
+          "Added the Offer gateway cutover document to service-binary routing."
+        ]
+      },
+      {
+        "document": ".knowledge/architecture/system-overview.md",
+        "verdict": "UNCHANGED",
+        "evidence": [
+          "Reviewed due backend boundary route; high-level topology and source refs remain adequate."
+        ]
+      },
+      {
+        "document": ".knowledge/runbooks/local-development.md",
+        "verdict": "UNCHANGED",
+        "evidence": [
+          "Reviewed due Docker configuration route; local startup flow and service order are unchanged."
+        ]
+      },
+      {
+        "document": ".knowledge/domains/notification-outbox.md",
+        "verdict": "UNCHANGED",
+        "evidence": [
+          "Reviewed due service-binary routing; notification/outbox behavior is unchanged by Offer routing."
+        ]
+      },
+      {
+        "document": ".knowledge/runbooks/knowledge-coverage-audit.md",
+        "verdict": "UNCHANGED",
+        "evidence": [
+          "Reviewed due .knowledge changes; no coverage procedure update required and no coverage gaps were detected."
+        ]
+      }
+    ],
+    "coverageGap": false,
+    "validationExitCode": 0
+  }
+}

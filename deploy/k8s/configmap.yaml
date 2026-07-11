@@ -66,6 +66,8 @@ data:
   RECRUITMENT_GRPC_ADDR: ""
   INTERVIEW_ROUTE_MODE: "logic"
   INTERVIEW_GRPC_ADDR: ""
+  OFFER_ROUTE_MODE: "logic"
+  OFFER_GRPC_ADDR: ""
   AUTH_COOKIE_SECURE: "true"
   CANDIDATE_AUTH_COOKIE_NAME: "recruitment_candidate_token"
   HR_AUTH_COOKIE_NAME: "recruitment_hr_token"

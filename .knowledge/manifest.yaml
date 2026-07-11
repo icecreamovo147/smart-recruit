@@ -349,6 +349,7 @@ routes:
       - docs/backend-ddd-microservices-evolution-interview-service-api-extraction.md
       - docs/backend-ddd-microservices-evolution-interview-gateway-cutover.md
       - docs/backend-ddd-microservices-evolution-offer-service-api-extraction.md
+      - docs/backend-ddd-microservices-evolution-offer-gateway-cutover.md
       - deploy/k8s/README-service-binaries.md
       - deploy/k8s/configmap.yaml
       - logic-grpc-service/internal/platform/servicebinary/**
