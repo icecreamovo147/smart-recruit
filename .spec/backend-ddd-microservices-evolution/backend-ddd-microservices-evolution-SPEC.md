@@ -132,8 +132,9 @@ stable, reviewable, testable, and rollback-capable at every step.
 - FR-019: AI Agent must own chat sessions, agent runs, prompt/skill/memory
   orchestration, embedding coordination, MCP governance, and AI provider
   fallback behavior.
-- FR-020: Analytics must own reporting read models and must not write back into
-  transactional domain state.
+- FR-020: Analytics must own reporting read models built from domain-event
+  projections and must not write back into transactional domain state or depend
+  on transitional service read APIs as its final data source.
 - FR-021: Migration must include a documented shadow, dual-read, dual-write, or
   cutover strategy for every high-risk extraction.
 - FR-022: Migration must include rollback plans for service cutovers, schema
@@ -143,6 +144,9 @@ stable, reviewable, testable, and rollback-capable at every step.
 - FR-024: A final architecture readiness review must prove that forbidden
   cross-domain repository imports, table writes, and state ownership violations
   are absent or documented as approved exceptions.
+- FR-025: During service extraction, the gateway may call extracted services
+  directly; this feature does not require preserving the old
+  `logic-grpc-service` gRPC surface as an interim backend facade.
 
 ## 6. Non-Functional Requirements
 
@@ -165,16 +169,20 @@ stable, reviewable, testable, and rollback-capable at every step.
   dependency calls.
 - NFR-008: Production logs must be structured and must avoid secrets, tokens,
   raw credentials, and unnecessary candidate personal data.
-- NFR-009: The final system must define measurable concurrency and availability
-  thresholds before production readiness acceptance. Because the user has not
-  supplied numeric targets yet, final cutover cannot pass until those targets
-  are confirmed.
-- NFR-010: The final architecture must include load test evidence for agreed
+- NFR-009: The final system must validate at least the following initial
+  medium-production targets: gateway normal APIs at 200 QPS, core write
+  operations at 50 QPS, AI/Embedding workloads at 10-20 concurrent tasks,
+  ordinary API P95 latency below 300 ms, complex query P95 latency below 1 s,
+  and AI work kept asynchronous so it does not block the main transaction path.
+- NFR-010: The final system must target 99.5% monthly availability, RTO of 30
+  minutes, and RPO of 5 minutes unless a later confirmed production SLO changes
+  those values.
+- NFR-011: The final architecture must include load test evidence for agreed
   concurrency targets and regression evidence for core workflows.
-- NFR-011: The migration must not reduce existing test coverage for touched
+- NFR-012: The migration must not reduce existing test coverage for touched
   services and must add tests for newly introduced domain boundaries and
   integration contracts.
-- NFR-012: All production configuration must be environment-specific and must
+- NFR-013: All production configuration must be environment-specific and must
   not require committed secrets or local credential files.
 
 ## 7. Compatibility Requirements
@@ -242,9 +250,10 @@ stable, reviewable, testable, and rollback-capable at every step.
   requirement before production readiness.
 - SSR-003: Internal service authentication must be required in production
   environments.
-- SSR-004: Internal service transport security, such as TLS or mTLS, must be
-  evaluated and implemented or explicitly risk-accepted before final production
-  readiness.
+- SSR-004: The first production-hardening target is internal TLS plus required
+  `GRPC_INTERNAL_TOKEN` validation. mTLS must be evaluated before final
+  production readiness, but this SPEC does not require introducing a service
+  mesh.
 - SSR-005: RBAC, data scopes, token invalidation, and authorization audit
   behavior must remain correct across service boundaries.
 - SSR-006: Services must enforce ownership checks for candidate, HR, and
@@ -288,16 +297,20 @@ stable, reviewable, testable, and rollback-capable at every step.
   permissions, scopes, and audit behavior.
 - AC-013: Recruitment, Interview, and Offer extraction preserves all current
   lifecycle transitions and user-visible state.
-- AC-014: Analytics reads are served from owned read models or approved service
-  interfaces and do not mutate transactional domain state.
+- AC-014: Analytics reads are served from owned event-projection read models
+  and do not call transactional service read APIs as a transition strategy or
+  mutate transactional domain state.
 - AC-015: All asynchronous consumers are idempotent and expose retry/dead-letter
   evidence.
-- AC-016: Load tests pass user-confirmed concurrency, latency, error-rate, and
-  saturation thresholds before final production readiness.
+- AC-016: Load tests pass the confirmed initial targets: 200 QPS for gateway
+  normal APIs, 50 QPS for core writes, 10-20 concurrent AI/Embedding tasks,
+  ordinary API P95 below 300 ms, complex query P95 below 1 s, and no AI
+  workload blocking of main transaction paths.
 - AC-017: HA validation proves multiple gateway and service replicas can run,
   roll, and recover without data corruption for core flows.
-- AC-018: Failure drills or documented simulations cover Redis, RabbitMQ, MySQL,
-  OSS, SMTP, and AI/embedding provider degradation paths.
+- AC-018: Documented simulations cover Redis, RabbitMQ, MySQL, OSS, SMTP, and
+  AI/embedding provider degradation paths. Selecting a realistic load-test or
+  failure-drill deployment environment is deferred outside this SPEC draft.
 - AC-019: Security checks prove no committed live secrets, production gRPC
   internal auth is required, and sensitive logs/events are redacted.
 - AC-020: `go test ./...` succeeds in both backend service workspaces, or any
@@ -321,38 +334,50 @@ stable, reviewable, testable, and rollback-capable at every step.
 
 ## 13. Assumptions Requiring Confirmation
 
-- A-001: The final service boundary should include API gateway, Identity,
+The following decisions were confirmed by the user after the initial draft:
+
+- D-001: The final service boundary includes API gateway, Identity,
   Recruitment, Interview, Offer, Notification, AI Agent, Analytics, and worker
   deployment units.
-- A-002: The repository may remain a monorepo while services become
-  independently buildable and deployable.
-- A-003: MySQL, Redis, RabbitMQ, and Kubernetes remain the primary production
-  infrastructure unless a later confirmed decision changes them.
-- A-004: Physical database splitting may happen after code and service
-  boundaries are proven; interim shared database use is acceptable only with
-  explicit ownership rules.
-- A-005: Numeric concurrency, latency, error-rate, and availability thresholds
-  will be confirmed before final production readiness acceptance.
-- A-006: The first extraction candidates should be Notification and AI Agent
-  because they are more asynchronous and lower risk than core recruitment
-  transaction flows.
-- A-007: Existing frontend API behavior should be preserved unless migration of
-  a backend contract requires a coordinated frontend compatibility update.
+- D-002: The repository remains a monorepo while services become independently
+  buildable and deployable.
+- D-003: Go, Gin, gRPC, MySQL, Redis, RabbitMQ, and Kubernetes remain the
+  baseline stack for this migration.
+- D-004: Physical database splitting happens after code and service boundaries
+  are proven. Interim shared database use is acceptable only with explicit
+  ownership rules and removal plans.
+- D-005: Existing frontend API behavior is preserved unless a later TASK
+  explicitly scopes a coordinated frontend/backend contract change.
+- D-006: Notification and AI Agent are the first extraction candidates before
+  core Recruitment, Interview, and Offer service extraction.
+- D-007: Candidate/resume/application-related profile data belongs to
+  Recruitment. AI-generated profiles, matching artifacts, embeddings, memory,
+  and AI-derived intelligence belong to AI Agent and synchronize through events
+  or service APIs.
+- D-008: During extraction, this feature does not require an interim
+  `logic-grpc-service` facade. Gateway can call extracted services directly
+  when a TASK explicitly performs that routing change.
+- D-009: Initial performance targets are gateway normal APIs at 200 QPS, core
+  writes at 50 QPS, AI/Embedding at 10-20 concurrent tasks, ordinary API P95
+  below 300 ms, complex query P95 below 1 s, and AI workloads kept off the main
+  transaction path.
+- D-010: Initial HA targets are 99.5% monthly availability, RTO 30 minutes, and
+  RPO 5 minutes.
+- D-011: Internal service security starts with internal TLS plus required
+  `GRPC_INTERNAL_TOKEN`; mTLS is evaluated before final readiness, and service
+  mesh adoption is not required by this SPEC.
+- D-012: Observability target is Prometheus metrics, Grafana dashboards,
+  OpenTelemetry traces, and structured logs.
+- D-013: Retention defaults are successful Outbox/Inbox records for 30 days,
+  failed/dead-letter records for 90 days, authorization audit logs for 180
+  days, and desensitized AI traces for 30-90 days.
+- D-014: Analytics is implemented directly to the final standard using
+  domain-event projections/read models. Transitional service read APIs for
+  Analytics are not part of this migration.
 
 ## 14. Open Questions
 
-- OQ-001: What exact concurrency target should final validation use for public
-  job browsing, HR management APIs, candidate application APIs, and AI
-  streaming or background workloads?
-- OQ-002: What availability target should be used for final readiness, such as
-  monthly uptime, recovery time objective, and recovery point objective?
-- OQ-003: Should each service eventually have its own Go module and Dockerfile,
-  or is one monorepo build system with multiple service binaries acceptable?
-- OQ-004: Should service-to-service transport use mTLS directly, a service mesh,
-  or internal TLS plus token authentication?
-- OQ-005: What retention policy should apply to domain events, Outbox/Inbox
-  records, audit logs, AI traces, and dead-letter payloads?
-- OQ-006: Which deployment environment will be used for realistic load tests and
-  failure drills?
-- OQ-007: Should analytics be built from event projections only, or may it call
-  service read APIs during the transition?
+No open questions remain for the current SPEC/Harness preparation. The
+production-like load-test and failure-drill environment is intentionally out of
+scope for this draft and must be handled by a later confirmed feature or TASK if
+needed.

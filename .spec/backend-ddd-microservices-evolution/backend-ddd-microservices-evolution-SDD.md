@@ -93,8 +93,8 @@ The final backend should contain these independently deployable units:
   coordination, realtime delivery, and notification projections.
 - `ai-agent-service`: AI chat, agent runs, prompts, skills, memory, embedding,
   MCP governance, provider fallback, and AI usage audit.
-- `analytics-service`: read models, funnel metrics, time-in-stage metrics,
-  interview/offer metrics, and reporting APIs.
+- `analytics-service`: domain-event projection read models, funnel metrics,
+  time-in-stage metrics, interview/offer metrics, and reporting APIs.
 - `worker-services`: async processors for outbox dispatch, notifications,
   resume parsing, email, embeddings, agent runs, projections, and backfills.
 
@@ -171,7 +171,8 @@ Phase 3: Service extraction.
 - Extract Identity after auth/RBAC contracts are stable.
 - Extract Recruitment, Interview, and Offer after state ownership and events are
   proven.
-- Extract Analytics as read-model service.
+- Extract Analytics as an event-projection read-model service without a
+  transitional dependency on transactional service read APIs.
 
 Phase 4: Data ownership and HA.
 
@@ -181,6 +182,10 @@ Phase 4: Data ownership and HA.
 - Add real readiness checks, worker health, metrics, traces, alerts, and load
   tests.
 - Validate horizontal scaling and dependency failure drills.
+- Use the confirmed initial targets: gateway normal APIs at 200 QPS, core
+  writes at 50 QPS, AI/Embedding workloads at 10-20 concurrent tasks, ordinary
+  API P95 below 300 ms, complex query P95 below 1 s, 99.5% monthly availability,
+  RTO 30 minutes, and RPO 5 minutes.
 
 Phase 5: Final convergence.
 
@@ -201,7 +206,7 @@ Phase 5: Final convergence.
 | Offer | offer lifecycle and events | application state mutation except via events/API |
 | Notification | notification records, unread counts, delivery projections | source domain business decisions |
 | AI Agent | chat, agent run, skill/prompt/memory, embedding, MCP, AI audit | HR/candidate domain state ownership |
-| Analytics | reporting read models and queries | transactional writes |
+| Analytics | event-projection reporting read models and queries | transactional writes and transitional service read API dependency |
 
 ## 4. Data Structure Changes
 
@@ -217,8 +222,9 @@ Expected data design changes in later TASKs:
   producer domain, idempotency keys, retry state, and observability.
 - Add Inbox or consumer checkpoint tables for idempotent consumption by service
   and event id.
-- Add read-model or projection tables for analytics and cross-domain list/detail
-  use cases that should not rely on direct joins.
+- Add event-projection read-model tables for analytics and cross-domain
+  list/detail use cases that should not rely on direct joins or transitional
+  service read APIs.
 - Add ownership metadata or documentation for existing tables during transition.
 - Split schemas or physical databases only after domain boundaries and service
   APIs are stable.
@@ -236,6 +242,9 @@ Expected interface changes in later TASKs:
   Offer, Notification, AI Agent, and Analytics.
 - Keep gateway HTTP behavior stable while replacing the single logic-service
   client with service-specific clients or routing adapters.
+- Prefer direct gateway-to-extracted-service routing when a service is cut over.
+  This migration does not require preserving the old `logic-grpc-service` gRPC
+  surface as an interim backend facade.
 - Keep protobuf source files and generated code synchronized in all affected
   service trees.
 - Add versioning or compatibility adapters for any contract that must evolve.
@@ -260,7 +269,8 @@ Existing workflows must be characterized and protected before changes:
 - Notification: list, unread count, mark read, SSE stream.
 - AI: candidate chat, HR chat, agent runs, skill/prompt/memory, resume
   intelligence, embedding, provider fallback.
-- Analytics: dashboard and metrics queries.
+- Analytics: dashboard and metrics queries backed by event-projection read
+  models.
 
 ### 6.2 Domain Event Flow
 
@@ -330,11 +340,13 @@ Compatibility is maintained through staged adapters:
 
 - Keep existing gateway routes while backend target services are introduced.
 - Keep existing protobuf contracts until replacements are stable.
-- Use compatibility adapters inside gateway or a transitional backend facade to
-  route old contracts to new services.
+- Use gateway-level compatibility adapters when old public HTTP contracts need
+  to route to newly extracted services.
 - Avoid deleting legacy logic until shadow validation, parity tests, and
   rollback windows have passed.
-- Preserve old database columns and tables during expand-contract migrations.
+- Preserve old database columns and tables during expand-contract migrations
+  where schema compatibility is needed, but do not introduce an interim
+  `logic-grpc-service` facade solely to preserve internal service routing.
 - Document any behavior delta as a compatibility risk requiring confirmation.
 
 The migration should avoid mixing structural refactors with product behavior
@@ -439,7 +451,14 @@ Migration tests:
 
 HA and load tests:
 
-- Define user-confirmed QPS, latency, error-rate, and saturation targets.
+- Validate gateway normal APIs at 200 QPS and core write operations at 50 QPS.
+- Validate AI/Embedding workloads at 10-20 concurrent tasks.
+- Validate ordinary API P95 latency below 300 ms and complex query P95 latency
+  below 1 s.
+- Validate AI workloads are asynchronous and do not block main transaction
+  paths.
+- Validate 99.5% monthly availability assumptions through readiness, rollout,
+  and dependency failure evidence where practical in the available environment.
 - Validate multiple replicas, rolling updates, worker scaling, and dependency
   failure drills.
 - Record metrics evidence in TASK reports.
@@ -454,7 +473,8 @@ Security tests:
 ## 12. Migration Risks
 
 - Big-bang extraction may break core workflows. Mitigation: modularize first,
-  extract incrementally, and preserve compatibility adapters.
+  extract incrementally, and use direct gateway-to-service routing only inside
+  scoped cutover TASKs with rollback plans.
 - Proto drift may break gateway-service calls. Mitigation: synchronized proto
   changes, generated code updates, and contract tests.
 - Schema drift may corrupt data. Mitigation: expand-contract migration,
@@ -529,34 +549,45 @@ Default hard stops for later TASKs:
 
 ## 15. Assumptions Requiring Confirmation
 
-- A-001: The final service set listed in the SPEC is acceptable as the target
-  boundary.
-- A-002: The migration may keep the repository as a monorepo while creating
-  independently deployable service units.
-- A-003: MySQL, Redis, RabbitMQ, Kubernetes, Gin, gRPC, and Go remain the
-  baseline stack unless later confirmed otherwise.
-- A-004: Notification and AI Agent should be extracted before core transactional
+The following decisions were confirmed by the user after the initial draft:
+
+- D-001: The final service set listed in the SPEC is the target boundary.
+- D-002: The repository remains a monorepo while services become independently
+  buildable and deployable.
+- D-003: Go, Gin, gRPC, MySQL, Redis, RabbitMQ, and Kubernetes remain the
+  baseline stack.
+- D-004: Notification and AI Agent are extracted before core transactional
   services.
-- A-005: Final concurrency and availability thresholds will be supplied or
-  approved before final readiness validation.
-- A-006: Shared database use is acceptable only as a transitional state with
-  explicit table ownership and removal plan.
-- A-007: Service-to-service TLS or mTLS requirements will be decided before
-  production readiness.
+- D-005: Shared database use is acceptable only as a transitional state with
+  explicit table ownership and removal plans.
+- D-006: Existing frontend API behavior is preserved unless a later TASK scopes
+  a coordinated frontend/backend contract change.
+- D-007: Candidate/resume/application-related profile data belongs to
+  Recruitment. AI-generated profiles, matching artifacts, embeddings, memory,
+  and AI-derived intelligence belong to AI Agent.
+- D-008: This migration does not require an interim backend facade preserving
+  the old `logic-grpc-service` gRPC surface. Gateway can route directly to
+  extracted services as each cutover TASK allows.
+- D-009: Initial performance targets are gateway normal APIs at 200 QPS, core
+  writes at 50 QPS, AI/Embedding at 10-20 concurrent tasks, ordinary API P95
+  below 300 ms, complex query P95 below 1 s, and AI work kept asynchronous.
+- D-010: Initial HA targets are 99.5% monthly availability, RTO 30 minutes, and
+  RPO 5 minutes.
+- D-011: Service-to-service security starts with internal TLS plus required
+  `GRPC_INTERNAL_TOKEN`; mTLS is evaluated before final readiness, with no
+  service mesh requirement in this SPEC.
+- D-012: Observability target is Prometheus metrics, Grafana dashboards,
+  OpenTelemetry traces, and structured logs.
+- D-013: Retention defaults are successful Outbox/Inbox records for 30 days,
+  failed/dead-letter records for 90 days, authorization audit logs for 180
+  days, and desensitized AI traces for 30-90 days.
+- D-014: Analytics is implemented directly to the final standard using
+  domain-event projections/read models. Transitional service read APIs for
+  Analytics are not part of this migration.
 
 ## 16. Open Questions
 
-- OQ-001: What numeric concurrency targets should be used for gateway, core
-  transactional APIs, AI workloads, and worker throughput?
-- OQ-002: What exact SLO/SLA target should final HA validation use?
-- OQ-003: Should each extracted service have a separate `go.mod`, or should a
-  single workspace/build remain preferred?
-- OQ-004: What observability stack should be used for metrics and traces in the
-  target production environment?
-- OQ-005: Should event retention and audit retention follow a legal/compliance
-  requirement not yet documented in this repository?
-- OQ-006: Which service should own candidate profile data that is used both by
-  recruitment workflows and AI matching workflows?
-- OQ-007: During service extraction, should the gateway call each service
-  directly, or should an interim backend facade preserve the old gRPC surface
-  until all domains are extracted?
+No open questions remain for the current SPEC/Harness preparation. The
+retention defaults are confirmed for this feature, and the production-like
+load-test and failure-drill environment is intentionally out of scope for this
+draft.
