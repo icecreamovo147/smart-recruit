@@ -6,6 +6,9 @@ metadata:
 data:
   GRPC_PORT: "50051"
   GRPC_INTERNAL_AUTH: "required"
+  GRPC_INTERNAL_TLS: "required"
+  GRPC_TLS_CERT_FILE: "/etc/recruitment/grpc-tls/tls.crt"
+  GRPC_TLS_KEY_FILE: "/etc/recruitment/grpc-tls/tls.key"
   INITIAL_ADMIN_USERNAME: ""
   REDIS_ADDR: "redis:6379"
   REDIS_POOL_SIZE: "20"
@@ -56,6 +59,9 @@ metadata:
 data:
   HTTP_PORT: "8080"
   GRPC_ADDR: "dns:///logic-grpc-service.recruitment.svc.cluster.local:50051"
+  GRPC_INTERNAL_TLS: "required"
+  GRPC_TLS_CA_FILE: "/etc/recruitment/grpc-tls/ca.crt"
+  GRPC_TLS_SERVER_NAME: "logic-grpc-service.recruitment.svc.cluster.local"
   NOTIFICATION_ROUTE_MODE: "logic"
   NOTIFICATION_GRPC_ADDR: ""
   AI_AGENT_ROUTE_MODE: "logic"

@@ -55,6 +55,8 @@ jwt:
 
 grpc:
   port: 50051
+  tls_cert_file: "" # GRPC_TLS_CERT_FILE: required when GRPC_INTERNAL_TLS=required
+  tls_key_file: ""  # GRPC_TLS_KEY_FILE: required when GRPC_INTERNAL_TLS=required
 
 redis:
   addr: "127.0.0.1:6379"

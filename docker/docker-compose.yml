@@ -78,6 +78,9 @@ services:
       ALLOW_INSECURE_DEV_CONFIG: "true"
       INITIAL_ADMIN_USERNAME: ""
       GRPC_INTERNAL_AUTH: "required"
+      GRPC_INTERNAL_TLS: ${GRPC_INTERNAL_TLS:-optional}
+      GRPC_TLS_CERT_FILE: ${GRPC_TLS_CERT_FILE:-}
+      GRPC_TLS_KEY_FILE: ${GRPC_TLS_KEY_FILE:-}
       GRPC_INTERNAL_TOKEN: ${GRPC_INTERNAL_TOKEN:?GRPC_INTERNAL_TOKEN is required}
       REDIS_ADDR: redis:6379
       RABBITMQ_URL: amqp://guest:guest@rabbitmq:5672/
@@ -142,6 +145,9 @@ services:
       JWT_SECRET: ${JWT_SECRET:-dev-jwt-secret-at-least-32-chars-long!!}
       ALLOW_INSECURE_DEV_CONFIG: "true"
       GRPC_INTERNAL_AUTH: "required"
+      GRPC_INTERNAL_TLS: ${GRPC_INTERNAL_TLS:-optional}
+      GRPC_TLS_CA_FILE: ${GRPC_TLS_CA_FILE:-}
+      GRPC_TLS_SERVER_NAME: ${GRPC_TLS_SERVER_NAME:-logic-grpc-service}
       GRPC_INTERNAL_TOKEN: ${GRPC_INTERNAL_TOKEN:?GRPC_INTERNAL_TOKEN is required}
       REDIS_ADDR: redis:6379
       HTTP_PORT: "8080"

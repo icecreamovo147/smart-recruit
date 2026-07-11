@@ -40,6 +40,7 @@ source_refs:
   - logic-grpc-service/repository/user_repo.go
   - docs/backend-ddd-microservices-evolution-table-ownership-manifest.json
   - docs/backend-ddd-microservices-evolution-schema-separation-plan.md
+  - docs/backend-ddd-microservices-evolution-internal-service-security.md
   - scripts/check-table-ownership.mjs
 last_verified: 2026-07-12
 review_after: 2026-10-08
@@ -64,6 +65,8 @@ Analytics event projection ingestion lives under `logic-grpc-service/internal/an
 `docs/backend-ddd-microservices-evolution-table-ownership-manifest.json` records the table owner, allowed readers, allowed writers, and transitional shared access for the target backend contexts. Table ownership must be reviewed as a service-boundary change even when HTTP/gRPC contracts are unchanged.
 
 `docs/backend-ddd-microservices-evolution-schema-separation-plan.md` prepares schema-per-context or later physical database separation. It does not change runtime storage by itself; it requires ownership-manifest alignment, expand-contract sequencing, rollback, reconciliation, RTO/RPO evidence, and scoped approval before any actual schema or database split.
+
+Internal service-to-service traffic is protected by the token/TLS controls in `docs/backend-ddd-microservices-evolution-internal-service-security.md`. Extracted service cutovers must keep `GRPC_INTERNAL_TOKEN` enabled and should require internal TLS before receiving non-local traffic.
 
 `logic-grpc-service/cmd/identity-service` is an unrouted service runtime for the Identity boundary. It can explicitly register AuthService plus the Identity-owned AdminService subset for validation, but it must not receive gateway traffic until a scoped cutover TASK records compatibility and rollback evidence.
 
@@ -91,6 +94,7 @@ Generated protobuf files are contract artifacts. When proto definitions change, 
 - Keep new service binaries aligned with `docs/backend-ddd-microservices-evolution-service-binary-convention.md`; do not route traffic to them outside scoped cutover TASKs.
 - Keep table ownership aligned with `docs/backend-ddd-microservices-evolution-table-ownership-manifest.json` and run `node scripts/check-table-ownership.mjs` when `db.sql` changes.
 - Keep schema or physical database separation behind the documented plan; do not bundle destructive contract steps with expand/backfill/cutover work.
+- Keep internal gRPC auth/TLS controls aligned across gateway clients, logic/extracted service servers, and deployment secret mounts.
 - Keep request deadlines and body limits in the gateway unless the logic service owns a deeper operation timeout.
 - Treat protobuf and database schema changes as public-contract or persistence changes that require explicit scope.
 
@@ -103,4 +107,4 @@ Generated protobuf files are contract artifacts. When proto definitions change, 
 
 ## Verification
 
-The boundary was verified from gateway route registration and route-mode cutover controls, protobuf service definitions, representative logic service/repository files, `logic-grpc-service/service/recruitment_lifecycle_process_manager.go`, Analytics projection ingestion/runtime files, Worker Services descriptor, Identity, Recruitment, Interview, Offer, and AI Agent skeleton/runtime files, `logic-grpc-service/internal/platform/servicebinary/convention.go`, `logic-grpc-service/internal/platform/events/envelope.go`, the table ownership manifest/check script, and the schema separation plan on 2026-07-12.
+The boundary was verified from gateway route registration and route-mode cutover controls, protobuf service definitions, representative logic service/repository files, `logic-grpc-service/service/recruitment_lifecycle_process_manager.go`, Analytics projection ingestion/runtime files, Worker Services descriptor, Identity, Recruitment, Interview, Offer, and AI Agent skeleton/runtime files, `logic-grpc-service/internal/platform/servicebinary/convention.go`, `logic-grpc-service/internal/platform/events/envelope.go`, the internal service security plan, table ownership manifest/check script, and schema separation plan on 2026-07-12.

@@ -26,7 +26,9 @@ source_refs:
   - start-dev.sh
   - stop-dev.sh
   - docker/docker-compose.yml
-last_verified: 2026-07-10
+  - docker/.env.example
+  - docs/backend-ddd-microservices-evolution-internal-service-security.md
+last_verified: 2026-07-12
 review_after: 2026-10-08
 ---
 
@@ -38,6 +40,7 @@ Use this runbook to orient local startup and validation. Always prefer checked-i
 
 - Go, Node.js, pnpm, Docker, and Docker Compose compatible with the versions documented in `README.md`.
 - Local service configuration copied from example files and filled with placeholders or local-only credentials.
+- Local Docker Compose requires `GRPC_INTERNAL_TOKEN`; internal gRPC TLS remains `GRPC_INTERNAL_TLS=optional` unless local certificates are mounted.
 - MySQL, Redis, and RabbitMQ available through Docker Compose or an equivalent local stack.
 
 ## Standard Flow
@@ -63,8 +66,9 @@ Use this runbook to orient local startup and validation. Always prefer checked-i
 
 - Use repository-relative paths in docs and scripts.
 - Do not store local credentials, device paths, or generated catalogs in Git.
+- Do not copy production gRPC TLS private keys into local examples. Keep local cert paths empty unless testing TLS explicitly.
 - On Windows, prefer WSL2 for shell-heavy workflows; core knowledge tooling remains Node and Git based.
 
 ## When This Runbook Is Stale
 
-Mark this document stale if startup scripts, frontend package commands, Docker service names, service binary conventions, or required service order changes.
+Mark this document stale if startup scripts, frontend package commands, Docker service names, service binary conventions, internal gRPC security defaults, or required service order changes.

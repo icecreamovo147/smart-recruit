@@ -470,6 +470,41 @@ func TestLoadRejectsPlaceholderGRPCInternalToken(t *testing.T) {
 	}
 }
 
+func TestLoadRequiresGRPCCAFileWhenInternalTLSRequired(t *testing.T) {
+	t.Setenv("ALLOW_INSECURE_DEV_CONFIG", "false")
+	t.Setenv("JWT_SECRET", "test-secret-at-least-32-chars-long")
+	t.Setenv("GRPC_INTERNAL_TOKEN", strings.Repeat("t", 32))
+	t.Setenv("GRPC_INTERNAL_TLS", "required")
+
+	_, err := Load()
+	if err == nil || !strings.Contains(err.Error(), "GRPC_TLS_CA_FILE") {
+		t.Fatalf("expected GRPC_TLS_CA_FILE error, got %v", err)
+	}
+}
+
+func TestLoadInternalTLSConfig(t *testing.T) {
+	t.Setenv("ALLOW_INSECURE_DEV_CONFIG", "false")
+	t.Setenv("JWT_SECRET", "test-secret-at-least-32-chars-long")
+	t.Setenv("GRPC_INTERNAL_TOKEN", strings.Repeat("t", 32))
+	t.Setenv("GRPC_INTERNAL_TLS", "required")
+	t.Setenv("GRPC_TLS_CA_FILE", "/etc/recruitment/tls/ca.crt")
+	t.Setenv("GRPC_TLS_SERVER_NAME", "logic-grpc-service.recruitment.svc.cluster.local")
+
+	cfg, err := Load()
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+	if cfg.GRPCInternalTLS != "required" {
+		t.Fatalf("GRPCInternalTLS = %q, want required", cfg.GRPCInternalTLS)
+	}
+	if cfg.GRPCTLSCAFile != "/etc/recruitment/tls/ca.crt" {
+		t.Fatalf("GRPCTLSCAFile = %q", cfg.GRPCTLSCAFile)
+	}
+	if cfg.GRPCTLSServerName != "logic-grpc-service.recruitment.svc.cluster.local" {
+		t.Fatalf("GRPCTLSServerName = %q", cfg.GRPCTLSServerName)
+	}
+}
+
 func TestLoadAllowsInsecureDevConfig(t *testing.T) {
 	t.Setenv("ALLOW_INSECURE_DEV_CONFIG", "true")
 

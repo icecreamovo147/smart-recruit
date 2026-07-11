@@ -59,7 +59,12 @@ routes:
       - web-gin-service/middleware/role.go
       - web-gin-service/router/router.go
       - web-gin-service/handler/auth.go
+      - web-gin-service/config/config.go
+      - web-gin-service/rpc/client.go
       - web-gin-service/pkg/authz/**
+      - logic-grpc-service/config/config.go
+      - logic-grpc-service/server/interceptor.go
+      - logic-grpc-service/server/transport_security.go
       - logic-grpc-service/service/auth_service.go
       - logic-grpc-service/service/admin_service.go
       - logic-grpc-service/service/authorizer.go
@@ -75,6 +80,7 @@ routes:
       - logic-grpc-service/migrations/000012_add_rbac_schema.sql
       - logic-grpc-service/migrations/000013_seed_rbac_catalog.sql
       - logic-grpc-service/migrations/000021_add_ai_usage_auth_context.sql
+      - docs/backend-ddd-microservices-evolution-internal-service-security.md
       - hr-frontend/src/router/index.ts
       - hr-frontend/src/stores/auth.ts
       - hr-frontend/src/views/hr/StaffUserManageView.vue
@@ -313,6 +319,7 @@ routes:
       - docs/backend-ddd-microservices-evolution-table-ownership-manifest.json
       - docs/backend-ddd-microservices-evolution-table-ownership.md
       - docs/backend-ddd-microservices-evolution-schema-separation-plan.md
+      - docs/backend-ddd-microservices-evolution-internal-service-security.md
       - scripts/check-table-ownership.mjs
       - db.sql
     documents:
@@ -330,9 +337,11 @@ routes:
       - start-dev.sh
       - stop-dev.sh
       - docker/**
+      - docs/backend-ddd-microservices-evolution-internal-service-security.md
     documents:
       - local-development
       - service-binary-convention
+      - auth-rbac-security
     triggers:
       - covered-path-changed
       - configuration-changed

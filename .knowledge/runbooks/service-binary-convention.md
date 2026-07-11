@@ -36,6 +36,7 @@ source_refs:
   - docs/backend-ddd-microservices-evolution-offer-gateway-cutover.md
   - docs/backend-ddd-microservices-evolution-analytics-service-extraction.md
   - docs/backend-ddd-microservices-evolution-worker-service-decomposition.md
+  - docs/backend-ddd-microservices-evolution-internal-service-security.md
   - deploy/k8s/README-service-binaries.md
   - logic-grpc-service/internal/platform/servicebinary/convention.go
   - logic-grpc-service/internal/platform/servicebinary/convention_test.go
@@ -96,6 +97,7 @@ Use this runbook when adding or reviewing backend service binaries, worker binar
 - `web-gin-service` has a Recruitment gateway routing switch: default `RECRUITMENT_ROUTE_MODE=logic` keeps JobService, CandidateService, and ApplicationService traffic on `GRPC_ADDR`; `RECRUITMENT_ROUTE_MODE=recruitment` routes those generated clients to `RECRUITMENT_GRPC_ADDR` and fails fast when that address is missing.
 - `web-gin-service` has an Interview gateway routing switch: default `INTERVIEW_ROUTE_MODE=logic` keeps InterviewService traffic on `GRPC_ADDR`; `INTERVIEW_ROUTE_MODE=interview` routes that generated client to `INTERVIEW_GRPC_ADDR` and fails fast when that address is missing.
 - `web-gin-service` has an Offer gateway routing switch: default `OFFER_ROUTE_MODE=logic` keeps OfferService traffic on `GRPC_ADDR`; `OFFER_ROUTE_MODE=offer` routes that generated client to `OFFER_GRPC_ADDR` and fails fast when that address is missing.
+- Internal service security is part of the service binary runtime contract. Service cutovers must keep `GRPC_INTERNAL_TOKEN` enabled, and non-local routed traffic should use `GRPC_INTERNAL_TLS=required` with server cert/key plus gateway CA configuration.
 
 ## Review Checklist
 
@@ -107,7 +109,8 @@ Use this runbook when adding or reviewing backend service binaries, worker binar
 6. For runtime extraction, confirm `main.go` preserves current worker start order and does not add gateway routing or deployment traffic.
 7. Run `cd logic-grpc-service && go test ./internal/platform/servicebinary ./...`.
 8. For gateway cutovers, confirm checked-in Docker and Kubernetes defaults still use rollback-safe route modes unless the TASK explicitly changes production traffic.
+9. Confirm internal gRPC TLS/token configuration and secret mounts are present before a service receives non-local traffic.
 
 ## Staleness Signals
 
-Mark this document stale if the monorepo service root changes, Docker image naming changes, active deployment manifests change service roles, or extracted services receive traffic through a new routing mechanism.
+Mark this document stale if the monorepo service root changes, Docker image naming changes, active deployment manifests change service roles, internal gRPC security defaults change, or extracted services receive traffic through a new routing mechanism.

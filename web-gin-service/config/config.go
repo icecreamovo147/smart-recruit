@@ -23,6 +23,9 @@ type Config struct {
 	InterviewRouteMode    string
 	OfferGRPCAddr         string
 	OfferRouteMode        string
+	GRPCInternalTLS       string
+	GRPCTLSCAFile         string
+	GRPCTLSServerName     string
 	JWTSecret             string
 	AuthCookieName        string
 	CandidateCookie       string
@@ -120,6 +123,11 @@ func Load() (Config, error) {
 	if err := validateOfferRoute(offerRouteMode, offerGRPCAddr); err != nil {
 		return Config{}, err
 	}
+	grpcInternalTLS := env("GRPC_INTERNAL_TLS", "optional")
+	grpcTLSCAFile := env("GRPC_TLS_CA_FILE", "")
+	if err := validateInternalTLSConfig(grpcInternalTLS, grpcTLSCAFile); err != nil {
+		return Config{}, err
+	}
 	return Config{
 		HTTPPort:              env("HTTP_PORT", "8080"),
 		GRPCAddr:              env("GRPC_ADDR", "127.0.0.1:50051"),
@@ -135,6 +143,9 @@ func Load() (Config, error) {
 		InterviewRouteMode:    interviewRouteMode,
 		OfferGRPCAddr:         offerGRPCAddr,
 		OfferRouteMode:        offerRouteMode,
+		GRPCInternalTLS:       grpcInternalTLS,
+		GRPCTLSCAFile:         grpcTLSCAFile,
+		GRPCTLSServerName:     env("GRPC_TLS_SERVER_NAME", ""),
 		JWTSecret:             secret,
 		AuthCookieName:        env("AUTH_COOKIE_NAME", "recruitment_token"),
 		CandidateCookie:       env("CANDIDATE_AUTH_COOKIE_NAME", "recruitment_candidate_token"),
@@ -349,6 +360,21 @@ func validateInternalAuthConfig() error {
 		return fmt.Errorf("GRPC_INTERNAL_TOKEN is too short: production requires at least 16 chars, 32 recommended. Set ALLOW_INSECURE_DEV_CONFIG=true only for local development")
 	}
 	return nil
+}
+
+func validateInternalTLSConfig(mode, caFile string) error {
+	mode = strings.TrimSpace(strings.ToLower(mode))
+	switch mode {
+	case "", "optional":
+		return nil
+	case "required":
+		if strings.TrimSpace(caFile) == "" {
+			return fmt.Errorf("GRPC_TLS_CA_FILE is empty while GRPC_INTERNAL_TLS=required")
+		}
+		return nil
+	default:
+		return fmt.Errorf("GRPC_INTERNAL_TLS must be optional or required")
+	}
 }
 
 func jwtSecret() string {

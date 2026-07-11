@@ -5,10 +5,12 @@ import (
 	"fmt"
 	"os"
 	"strconv"
+	"strings"
 	"time"
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/backoff"
+	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/credentials/insecure"
 	healthpb "google.golang.org/grpc/health/grpc_health_v1"
 	"google.golang.org/grpc/metadata"
@@ -64,6 +66,7 @@ type Clients struct {
 	InterviewTargetAddr    string
 	OfferRouteMode         string
 	OfferTargetAddr        string
+	InternalTLSEnabled     bool
 	Auth                   pb.AuthServiceClient
 	Job                    pb.JobServiceClient
 	Candidate              pb.CandidateServiceClient
@@ -104,6 +107,9 @@ type ClientOptions struct {
 	InterviewRouteMode    string
 	OfferAddr             string
 	OfferRouteMode        string
+	GRPCInternalTLS       string
+	GRPCTLSCAFile         string
+	GRPCTLSServerName     string
 }
 
 // NewClients creates a gRPC client connection with round-robin load balancing.
@@ -123,6 +129,9 @@ func NewClients(addr string) (*Clients, error) {
 		InterviewRouteMode:    os.Getenv("INTERVIEW_ROUTE_MODE"),
 		OfferAddr:             os.Getenv("OFFER_GRPC_ADDR"),
 		OfferRouteMode:        os.Getenv("OFFER_ROUTE_MODE"),
+		GRPCInternalTLS:       os.Getenv("GRPC_INTERNAL_TLS"),
+		GRPCTLSCAFile:         os.Getenv("GRPC_TLS_CA_FILE"),
+		GRPCTLSServerName:     os.Getenv("GRPC_TLS_SERVER_NAME"),
 	})
 }
 
@@ -170,7 +179,10 @@ func NewClientsWithOptions(addr string, options ClientOptions) (*Clients, error)
 		return nil, fmt.Errorf("unsupported offer route mode %q", offerMode)
 	}
 	token := grpcInternalToken()
-	opts := dialOptions(token)
+	opts, tlsEnabled, err := dialOptions(token, options)
+	if err != nil {
+		return nil, err
+	}
 	conn, err := grpc.NewClient(addr,
 		append(opts,
 			grpc.WithConnectParams(grpc.ConnectParams{
@@ -347,6 +359,7 @@ func NewClientsWithOptions(addr string, options ClientOptions) (*Clients, error)
 		InterviewTargetAddr:    interviewTarget,
 		OfferRouteMode:         offerMode,
 		OfferTargetAddr:        offerTarget,
+		InternalTLSEnabled:     tlsEnabled,
 		Auth:                   pb.NewAuthServiceClient(identityConn),
 		Job:                    pb.NewJobServiceClient(recruitmentConn),
 		Candidate:              pb.NewCandidateServiceClient(recruitmentConn),
@@ -375,9 +388,13 @@ func NewClientsWithOptions(addr string, options ClientOptions) (*Clients, error)
 	}, nil
 }
 
-func dialOptions(token string) []grpc.DialOption {
+func dialOptions(token string, options ClientOptions) ([]grpc.DialOption, bool, error) {
+	transportCredentials, tlsEnabled, err := clientTransportCredentials(options)
+	if err != nil {
+		return nil, false, err
+	}
 	return []grpc.DialOption{
-		grpc.WithTransportCredentials(insecure.NewCredentials()),
+		grpc.WithTransportCredentials(transportCredentials),
 		grpc.WithUnaryInterceptor(unaryClientInterceptor(token)),
 		grpc.WithStreamInterceptor(streamClientInterceptor(token)),
 		grpc.WithDefaultServiceConfig(`{
@@ -419,7 +436,32 @@ func dialOptions(token string) []grpc.DialOption {
 				}
 			]
 		}`),
+	}, tlsEnabled, nil
+}
+
+func clientTransportCredentials(options ClientOptions) (credentials.TransportCredentials, bool, error) {
+	mode := strings.TrimSpace(strings.ToLower(options.GRPCInternalTLS))
+	if mode == "" {
+		mode = "optional"
 	}
+	caFile := strings.TrimSpace(options.GRPCTLSCAFile)
+	switch mode {
+	case "optional":
+		if caFile == "" {
+			return insecure.NewCredentials(), false, nil
+		}
+	case "required":
+		if caFile == "" {
+			return nil, false, fmt.Errorf("GRPC_TLS_CA_FILE is required when GRPC_INTERNAL_TLS=required")
+		}
+	default:
+		return nil, false, fmt.Errorf("GRPC_INTERNAL_TLS must be optional or required")
+	}
+	creds, err := credentials.NewClientTLSFromFile(caFile, strings.TrimSpace(options.GRPCTLSServerName))
+	if err != nil {
+		return nil, false, fmt.Errorf("load gRPC TLS CA: %w", err)
+	}
+	return creds, true, nil
 }
 
 func (c *Clients) Close() error {

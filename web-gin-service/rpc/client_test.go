@@ -3,6 +3,7 @@ package rpc
 import (
 	"context"
 	"errors"
+	"os"
 	"strings"
 	"testing"
 
@@ -265,6 +266,31 @@ func TestNewClientsRejectsInvalidNotificationRouteMode(t *testing.T) {
 	}
 }
 
+func TestNewClientsRequiresCAFileWhenInternalTLSRequired(t *testing.T) {
+	_, err := NewClientsWithOptions("passthrough:///logic:50051", ClientOptions{
+		GRPCInternalTLS: "required",
+	})
+	if err == nil || !strings.Contains(err.Error(), "GRPC_TLS_CA_FILE") {
+		t.Fatalf("expected GRPC_TLS_CA_FILE error, got %v", err)
+	}
+}
+
+func TestNewClientsLoadsInternalTLSCA(t *testing.T) {
+	caFile := writeTestCertificate(t)
+	clients, err := NewClientsWithOptions("passthrough:///logic:50051", ClientOptions{
+		GRPCInternalTLS:   "required",
+		GRPCTLSCAFile:     caFile,
+		GRPCTLSServerName: "logic-grpc-service.recruitment.svc.cluster.local",
+	})
+	if err != nil {
+		t.Fatalf("NewClientsWithOptions: %v", err)
+	}
+	defer clients.Close()
+	if !clients.InternalTLSEnabled {
+		t.Fatal("InternalTLSEnabled = false, want true")
+	}
+}
+
 func TestReadyChecksNotificationHealthWhenCutoverUsesSeparateConnection(t *testing.T) {
 	clients := &Clients{
 		conn:               &grpc.ClientConn{},
@@ -381,4 +407,29 @@ func (f fakeHealthClient) List(context.Context, *healthpb.HealthListRequest, ...
 
 func (f fakeHealthClient) Watch(context.Context, *healthpb.HealthCheckRequest, ...grpc.CallOption) (grpc.ServerStreamingClient[healthpb.HealthCheckResponse], error) {
 	return nil, nil
+}
+
+func writeTestCertificate(t *testing.T) string {
+	t.Helper()
+	const cert = `-----BEGIN CERTIFICATE-----
+MIIBODCB36ADAgECAhQ+r5/1OEvz/cAuCOpVBMNZBuT85TAKBggqhkjOPQQDAjAS
+MRAwDgYDVQQDDAd0ZXN0LWNhMB4XDTI2MDcxMDE4NTAxM1oXDTM2MDcwODE4NTAx
+M1owEjEQMA4GA1UEAwwHdGVzdC1jYTBZMBMGByqGSM49AgEGCCqGSM49AwEHA0IA
+BOGBDDutMrmJV/Ik3HMDqQHetQXJW+XX2wC7JIrR0Hmml+PhJqCHrmehIvI7tIc4
+gChWmTI8NhHX+YCH7QJCul2jEzARMA8GA1UdEwEB/wQFMAMBAf8wCgYIKoZIzj0E
+AwIDSAAwRQIgLJmnxdkKmii70e47ESLi1D0R/XzreLokhSmUepKgzCMCIQCz8rDI
+fGNwAACec8twMMOFx6oNlOD5U8qc2yUI2qK93g==
+-----END CERTIFICATE-----
+`
+	file, err := os.CreateTemp(t.TempDir(), "ca-*.crt")
+	if err != nil {
+		t.Fatalf("CreateTemp: %v", err)
+	}
+	if _, err := file.WriteString(cert); err != nil {
+		t.Fatalf("WriteString: %v", err)
+	}
+	if err := file.Close(); err != nil {
+		t.Fatalf("Close: %v", err)
+	}
+	return file.Name()
 }

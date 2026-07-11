@@ -52,6 +52,7 @@ Each deployable unit must define:
 - health and readiness behavior;
 - structured logging and request or trace correlation;
 - metrics and tracing expectations;
+- internal gRPC auth/TLS requirements;
 - owner table or projection model;
 - rollback plan and cutover guard.
 
@@ -91,6 +92,7 @@ Current compiled skeletons:
 - Identity cutover must preserve login, refresh, token invalidation, RBAC, scopes, and audit behavior.
 - Recruitment, Interview, and Offer cutovers must preserve all lifecycle transitions and user-visible state.
 - Analytics service reads must use owned projection read models and must not call transactional service read APIs as a transition path.
+- Non-local service-to-service gRPC traffic must keep `GRPC_INTERNAL_TOKEN` enabled and should require internal TLS as documented in `docs/backend-ddd-microservices-evolution-internal-service-security.md`.
 - Gateway routing to extracted services is allowed only in scoped cutover TASKs.
 
 ## Verification

@@ -364,7 +364,7 @@ func main() {
 		log.Fatal("listen failed", zap.String("addr", addr), zap.Error(err))
 	}
 
-	grpcServer := grpc.NewServer(
+	serverOptions := []grpc.ServerOption{
 		grpc.MaxConcurrentStreams(1000),
 		grpc.ChainUnaryInterceptor(
 			server.UnaryAuthInterceptor(),
@@ -374,7 +374,16 @@ func main() {
 			server.StreamAuthInterceptor(),
 			logger.StreamServerInterceptor(),
 		),
-	)
+	}
+	if tlsOption, enabled, err := server.TransportSecurityOption(cfg.GRPC.TLSCertFile, cfg.GRPC.TLSKeyFile); err != nil {
+		log.Fatal("init grpc tls failed", zap.Error(err))
+	} else if enabled {
+		serverOptions = append(serverOptions, tlsOption)
+		log.Info("grpc internal tls enabled")
+	} else {
+		log.Warn("grpc internal tls disabled")
+	}
+	grpcServer := grpc.NewServer(serverOptions...)
 	recruitmentServer := server.New(services)
 	pb.RegisterAuthServiceServer(grpcServer, recruitmentServer)
 	pb.RegisterJobServiceServer(grpcServer, recruitmentServer)

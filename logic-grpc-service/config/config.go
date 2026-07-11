@@ -58,7 +58,9 @@ type Config struct {
 		Secret string `yaml:"secret"`
 	} `yaml:"jwt"`
 	GRPC struct {
-		Port int `yaml:"port"`
+		Port        int    `yaml:"port"`
+		TLSCertFile string `yaml:"tls_cert_file"`
+		TLSKeyFile  string `yaml:"tls_key_file"`
 	} `yaml:"grpc"`
 	Logging logger.LogConfig `yaml:"logging"`
 	Redis   struct {
@@ -422,6 +424,8 @@ func applyEnvOverrides(cfg *Config) {
 
 	setString(&cfg.JWT.Secret, "JWT_SECRET")
 	setInt(&cfg.GRPC.Port, "GRPC_PORT")
+	setString(&cfg.GRPC.TLSCertFile, "GRPC_TLS_CERT_FILE")
+	setString(&cfg.GRPC.TLSKeyFile, "GRPC_TLS_KEY_FILE")
 
 	setString(&cfg.Logging.Level, "LOG_LEVEL")
 	setString(&cfg.Logging.Format, "LOG_FORMAT")
@@ -616,6 +620,9 @@ func validateProductionSecrets(cfg Config) error {
 	if strings.TrimSpace(strings.ToLower(os.Getenv("GRPC_INTERNAL_AUTH"))) != "required" {
 		return fmt.Errorf("GRPC_INTERNAL_AUTH must be required in production. Set ALLOW_INSECURE_DEV_CONFIG=true only for local development")
 	}
+	if err := validateInternalTLSConfig(cfg); err != nil {
+		return err
+	}
 	if len(strings.TrimSpace(os.Getenv("GRPC_INTERNAL_TOKEN"))) < 16 {
 		return fmt.Errorf("GRPC_INTERNAL_TOKEN is too short: production requires at least 16 chars, 32 recommended. Set ALLOW_INSECURE_DEV_CONFIG=true only for local development")
 	}
@@ -644,6 +651,24 @@ func validateProductionSecrets(cfg Config) error {
 		}
 	}
 	return nil
+}
+
+func validateInternalTLSConfig(cfg Config) error {
+	mode := strings.TrimSpace(strings.ToLower(os.Getenv("GRPC_INTERNAL_TLS")))
+	switch mode {
+	case "", "optional":
+		return nil
+	case "required":
+		if strings.TrimSpace(cfg.GRPC.TLSCertFile) == "" {
+			return fmt.Errorf("GRPC_TLS_CERT_FILE is empty while GRPC_INTERNAL_TLS=required")
+		}
+		if strings.TrimSpace(cfg.GRPC.TLSKeyFile) == "" {
+			return fmt.Errorf("GRPC_TLS_KEY_FILE is empty while GRPC_INTERNAL_TLS=required")
+		}
+		return nil
+	default:
+		return fmt.Errorf("GRPC_INTERNAL_TLS must be optional or required")
+	}
 }
 
 func requireProductionSecret(name, value string) error {

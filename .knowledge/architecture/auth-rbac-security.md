@@ -30,12 +30,16 @@ source_refs:
   - logic-grpc-service/internal/identity/runtime/runtime.go
   - logic-grpc-service/internal/identity/interfaces/auth_server.go
   - logic-grpc-service/internal/identity/interfaces/admin_server.go
+  - logic-grpc-service/server/interceptor.go
+  - logic-grpc-service/server/transport_security.go
+  - web-gin-service/rpc/client.go
+  - docs/backend-ddd-microservices-evolution-internal-service-security.md
   - logic-grpc-service/service/admin_service.go
   - logic-grpc-service/repository/authz_repo.go
   - logic-grpc-service/migrations/000011_add_refresh_tokens.sql
   - logic-grpc-service/migrations/000012_add_rbac_schema.sql
   - logic-grpc-service/migrations/000013_seed_rbac_catalog.sql
-last_verified: 2026-07-10
+last_verified: 2026-07-12
 review_after: 2026-10-08
 ---
 
@@ -55,6 +59,7 @@ Authentication is split between the HTTP gateway and the logic service. The gate
 - `logic-grpc-service/cmd/identity-service` is currently an unrouted Identity runtime. It registers AuthService plus Identity-owned AdminService methods only when explicitly started with `--serve`; default execution still binds no listener, and gateway traffic remains on the monolith until a scoped cutover TASK.
 - Identity-owned extracted AdminService methods are role/permission listing, user role assignment/revocation, data-scope assignment/revocation, staff identity list/create, and security audit log query. Invite-code, usage-log, department, location, and department-location configuration methods remain outside the Identity runtime in this TASK.
 - `web-gin-service/rpc/client.go` keeps Identity traffic on the logic gRPC connection by default. `IDENTITY_ROUTE_MODE=identity` routes AuthService plus the Identity-owned AdminService subset to `IDENTITY_GRPC_ADDR`; rollback is `IDENTITY_ROUTE_MODE=logic`.
+- Internal gRPC service-to-service calls require `GRPC_INTERNAL_TOKEN` when `GRPC_INTERNAL_AUTH=required`. `GRPC_INTERNAL_TLS=required` additionally fails fast unless the logic server has `GRPC_TLS_CERT_FILE`/`GRPC_TLS_KEY_FILE` and the gateway has `GRPC_TLS_CA_FILE`. Local development may keep TLS optional, but production and staged extracted services should use the TLS/token contract in `docs/backend-ddd-microservices-evolution-internal-service-security.md`.
 
 ## Security-Relevant State
 
@@ -71,7 +76,8 @@ Authentication is split between the HTTP gateway and the logic service. The gate
 - Staff role or data-scope changes must check token-version invalidation and Redis cache behavior.
 - Cookie namespace changes must check all three frontend apps and refresh/logout behavior.
 - Audit changes must check both gateway denied-decision logging and logic-side audit/query APIs.
+- Internal service security changes must check logic server interceptors/TLS credentials, gateway gRPC client credentials, deployment secret mounts, and config validation in both services.
 
 ## Verification
 
-Verified against gateway JWT and RBAC middleware, auth handler cookie logic, route declarations, logic auth/admin services, the unrouted Identity service skeleton, authz repository, and RBAC/refresh-token migrations on 2026-07-12.
+Verified against gateway JWT and RBAC middleware, auth handler cookie logic, route declarations, gRPC internal token/TLS security, logic auth/admin services, the unrouted Identity service skeleton, authz repository, and RBAC/refresh-token migrations on 2026-07-12.

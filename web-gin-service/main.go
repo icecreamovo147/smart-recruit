@@ -60,6 +60,9 @@ func main() {
 		InterviewRouteMode:    cfg.InterviewRouteMode,
 		OfferAddr:             cfg.OfferGRPCAddr,
 		OfferRouteMode:        cfg.OfferRouteMode,
+		GRPCInternalTLS:       cfg.GRPCInternalTLS,
+		GRPCTLSCAFile:         cfg.GRPCTLSCAFile,
+		GRPCTLSServerName:     cfg.GRPCTLSServerName,
 	})
 	if err != nil {
 		log.Fatal("connect logic grpc service failed", zap.String("addr", cfg.GRPCAddr), zap.Error(err))
@@ -79,6 +82,7 @@ func main() {
 		zap.String("interview_target_addr", clients.InterviewTargetAddr),
 		zap.String("offer_route_mode", clients.OfferRouteMode),
 		zap.String("offer_target_addr", clients.OfferTargetAddr),
+		zap.Bool("grpc_internal_tls_enabled", clients.InternalTLSEnabled),
 	)
 
 	rdb := redisclient.New(cfg.Redis)

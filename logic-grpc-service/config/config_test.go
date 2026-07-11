@@ -159,6 +159,9 @@ func TestValidateProductionSecretsPassesWithExternalSecrets(t *testing.T) {
 	t.Setenv("ALLOW_INSECURE_DEV_CONFIG", "false")
 	t.Setenv("GRPC_INTERNAL_AUTH", "required")
 	t.Setenv("GRPC_INTERNAL_TOKEN", strings.Repeat("t", 32))
+	t.Setenv("GRPC_INTERNAL_TLS", "required")
+	t.Setenv("GRPC_TLS_CERT_FILE", "/etc/recruitment/tls/tls.crt")
+	t.Setenv("GRPC_TLS_KEY_FILE", "/etc/recruitment/tls/tls.key")
 	t.Setenv("ENCRYPTION_KEY", strings.Repeat("a", 64))
 
 	cfg := productionReadyConfig()
@@ -171,6 +174,9 @@ func TestValidateProductionSecretsRequiresInternalAuth(t *testing.T) {
 	t.Setenv("ALLOW_INSECURE_DEV_CONFIG", "false")
 	t.Setenv("GRPC_INTERNAL_AUTH", "optional")
 	t.Setenv("GRPC_INTERNAL_TOKEN", strings.Repeat("t", 32))
+	t.Setenv("GRPC_INTERNAL_TLS", "required")
+	t.Setenv("GRPC_TLS_CERT_FILE", "/etc/recruitment/tls/tls.crt")
+	t.Setenv("GRPC_TLS_KEY_FILE", "/etc/recruitment/tls/tls.key")
 	t.Setenv("ENCRYPTION_KEY", strings.Repeat("a", 64))
 
 	err := validateProductionSecrets(productionReadyConfig())
@@ -183,6 +189,9 @@ func TestValidateProductionSecretsRejectsRabbitMQDefaultCredentials(t *testing.T
 	t.Setenv("ALLOW_INSECURE_DEV_CONFIG", "false")
 	t.Setenv("GRPC_INTERNAL_AUTH", "required")
 	t.Setenv("GRPC_INTERNAL_TOKEN", strings.Repeat("t", 32))
+	t.Setenv("GRPC_INTERNAL_TLS", "required")
+	t.Setenv("GRPC_TLS_CERT_FILE", "/etc/recruitment/tls/tls.crt")
+	t.Setenv("GRPC_TLS_KEY_FILE", "/etc/recruitment/tls/tls.key")
 	t.Setenv("ENCRYPTION_KEY", strings.Repeat("a", 64))
 
 	cfg := productionReadyConfig()
@@ -199,6 +208,35 @@ func TestValidateJWTSecretRejectsLongPlaceholder(t *testing.T) {
 	err := validateJWTSecret(secret)
 	if err == nil || !strings.Contains(err.Error(), "placeholder") {
 		t.Fatalf("expected placeholder JWT error, got %v", err)
+	}
+}
+
+func TestValidateProductionSecretsRequiresInternalTLSFilesWhenTLSRequired(t *testing.T) {
+	t.Setenv("ALLOW_INSECURE_DEV_CONFIG", "false")
+	t.Setenv("GRPC_INTERNAL_AUTH", "required")
+	t.Setenv("GRPC_INTERNAL_TLS", "required")
+	t.Setenv("GRPC_INTERNAL_TOKEN", strings.Repeat("t", 32))
+	t.Setenv("ENCRYPTION_KEY", strings.Repeat("a", 64))
+
+	cfg := productionReadyConfig()
+	cfg.GRPC.TLSCertFile = ""
+	cfg.GRPC.TLSKeyFile = ""
+	err := validateProductionSecrets(cfg)
+	if err == nil || !strings.Contains(err.Error(), "GRPC_TLS_CERT_FILE") {
+		t.Fatalf("expected GRPC_TLS_CERT_FILE error, got %v", err)
+	}
+}
+
+func TestValidateProductionSecretsRejectsInvalidInternalTLSMode(t *testing.T) {
+	t.Setenv("ALLOW_INSECURE_DEV_CONFIG", "false")
+	t.Setenv("GRPC_INTERNAL_AUTH", "required")
+	t.Setenv("GRPC_INTERNAL_TLS", "invalid")
+	t.Setenv("GRPC_INTERNAL_TOKEN", strings.Repeat("t", 32))
+	t.Setenv("ENCRYPTION_KEY", strings.Repeat("a", 64))
+
+	err := validateProductionSecrets(productionReadyConfig())
+	if err == nil || !strings.Contains(err.Error(), "GRPC_INTERNAL_TLS") {
+		t.Fatalf("expected GRPC_INTERNAL_TLS error, got %v", err)
 	}
 }
 
@@ -220,5 +258,7 @@ func productionReadyConfig() Config {
 	cfg.OSS.AccessKeyID = "AKIDEXTERNAL123456"
 	cfg.OSS.AccessKeySecret = "external-oss-secret-value"
 	cfg.OSS.BucketName = "recruitment-prod"
+	cfg.GRPC.TLSCertFile = "/etc/recruitment/tls/tls.crt"
+	cfg.GRPC.TLSKeyFile = "/etc/recruitment/tls/tls.key"
 	return cfg
 }
