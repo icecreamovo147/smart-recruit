@@ -1,0 +1,143 @@
+{
+  "schemaVersion": 1,
+  "feature_name": "backend-ddd-microservices-evolution",
+  "task_id": "TASK-BDME-017",
+  "base_sha": "f1ddb340265d2f7e19222725a9b6d5fb1dcc14c6",
+  "base_tree": "19cb2bb951af85935208a61fb6146d4f0deb4186",
+  "head_sha": "f1ddb340265d2f7e19222725a9b6d5fb1dcc14c6",
+  "changed_files": [
+    ".spec/backend-ddd-microservices-evolution/pipeline-state.json",
+    ".spec/backend-ddd-microservices-evolution/reports/TASK-BDME-017-report.md",
+    ".spec/backend-ddd-microservices-evolution/reports/TASK-BDME-017-evidence.json",
+    "logic-grpc-service/internal/analytics/application/ports.go",
+    "logic-grpc-service/internal/analytics/application/ports_test.go",
+    "logic-grpc-service/internal/analytics/domain/projection.go",
+    "logic-grpc-service/internal/analytics/domain/projection_test.go",
+    "logic-grpc-service/internal/analytics/infrastructure/repositories.go",
+    "logic-grpc-service/internal/analytics/infrastructure/repositories_test.go",
+    "logic-grpc-service/internal/analytics/interfaces/analytics_api.go",
+    "logic-grpc-service/internal/analytics/interfaces/analytics_api_test.go"
+  ],
+  "scope": {
+    "status": "passed",
+    "base_tree": "19cb2bb951af85935208a61fb6146d4f0deb4186",
+    "out_of_scope": [],
+    "forbidden": [],
+    "allowed": [
+      ".spec/backend-ddd-microservices-evolution/pipeline-state.json",
+      ".spec/backend-ddd-microservices-evolution/reports/TASK-BDME-017-report.md",
+      ".spec/backend-ddd-microservices-evolution/reports/TASK-BDME-017-evidence.json",
+      "logic-grpc-service/internal/analytics/application/ports.go",
+      "logic-grpc-service/internal/analytics/application/ports_test.go",
+      "logic-grpc-service/internal/analytics/domain/projection.go",
+      "logic-grpc-service/internal/analytics/domain/projection_test.go",
+      "logic-grpc-service/internal/analytics/infrastructure/repositories.go",
+      "logic-grpc-service/internal/analytics/infrastructure/repositories_test.go",
+      "logic-grpc-service/internal/analytics/interfaces/analytics_api.go",
+      "logic-grpc-service/internal/analytics/interfaces/analytics_api_test.go"
+    ]
+  },
+  "checks": [
+    {
+      "command": "git diff --name-only && git ls-files --others --exclude-standard",
+      "exit_code": 0,
+      "status": "passed",
+      "started_at": "2026-07-11T15:38:00Z",
+      "duration_ms": 50,
+      "summary": "Listed changed tracked and untracked TASK files."
+    },
+    {
+      "command": "TASK_BASE_TREE=19cb2bb951af85935208a61fb6146d4f0deb4186 bash .spec/backend-ddd-microservices-evolution/scripts/check-task-scope.sh TASK-BDME-017",
+      "exit_code": 0,
+      "status": "passed",
+      "started_at": "2026-07-11T15:38:00Z",
+      "duration_ms": 419,
+      "summary": "scope_result: PASS (TASK-BDME-017)."
+    },
+    {
+      "command": "bash .spec/backend-ddd-microservices-evolution/scripts/agent-check.sh",
+      "exit_code": 0,
+      "status": "passed",
+      "started_at": "2026-07-11T15:38:00Z",
+      "duration_ms": 4675,
+      "summary": "Feature validation, git diff whitespace, gofmt check, and logic-grpc-service go test passed."
+    },
+    {
+      "command": "cd logic-grpc-service && go test ./...",
+      "exit_code": 0,
+      "status": "passed",
+      "started_at": "2026-07-11T15:38:00Z",
+      "duration_ms": 4578,
+      "summary": "All logic-grpc-service packages passed, including Analytics boundary and service-read guard tests."
+    },
+    {
+      "command": "node .knowledge/scripts/detect-impact.mjs --root . --base-tree 19cb2bb951af85935208a61fb6146d4f0deb4186",
+      "exit_code": 0,
+      "status": "passed",
+      "started_at": "2026-07-11T15:38:00Z",
+      "duration_ms": 490,
+      "summary": "impact_result: update_required; matched local-development, service-boundaries, and system-overview routes."
+    }
+  ],
+  "review": {
+    "type": "self-review",
+    "round": 1,
+    "verdict": "通过",
+    "findings": []
+  },
+  "human_confirmation": {
+    "required": false,
+    "confirmed": true,
+    "confirmed_by": "not_required",
+    "confirmed_at": "2026-07-11T15:38:00Z",
+    "confirmation_text": "TASK-BDME-017 does not require human confirmation."
+  },
+  "exceptions": [],
+  "skipped_checks": [
+    {
+      "command": "node .knowledge/scripts/validate-knowledge.mjs",
+      "reason": ".knowledge files were reviewed but not changed by TASK-BDME-017."
+    }
+  ],
+  "knowledgeImpact": {
+    "result": "update_required",
+    "triggeredBy": [
+      "logic-grpc-service/internal/analytics/application/ports.go",
+      "logic-grpc-service/internal/analytics/domain/projection.go",
+      "logic-grpc-service/internal/analytics/infrastructure/repositories.go",
+      "logic-grpc-service/internal/analytics/interfaces/analytics_api.go"
+    ],
+    "reviewResults": [
+      {
+        "document": ".knowledge/architecture/system-overview.md",
+        "verdict": "UNCHANGED",
+        "evidence": [
+          "Reviewed current backend topology; TASK-BDME-017 adds Analytics boundary contracts and does not change runtime topology."
+        ]
+      },
+      {
+        "document": ".knowledge/architecture/service-boundaries.md",
+        "verdict": "UNCHANGED",
+        "evidence": [
+          "Reviewed service boundary guidance; Analytics contracts preserve logic-service behavior and do not introduce source service read APIs."
+        ]
+      },
+      {
+        "document": ".knowledge/domains/recruitment-lifecycle.md",
+        "verdict": "UNCHANGED",
+        "evidence": [
+          "Reviewed lifecycle guidance; Analytics depends on status history, but this TASK does not change lifecycle transitions or analytics query behavior."
+        ]
+      },
+      {
+        "document": ".knowledge/runbooks/local-development.md",
+        "verdict": "UNCHANGED",
+        "evidence": [
+          "Reviewed local-development route triggered by logic service changes; no startup command or local workflow changed."
+        ]
+      }
+    ],
+    "coverageGap": false,
+    "validationExitCode": 0
+  }
+}
