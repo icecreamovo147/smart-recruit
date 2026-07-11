@@ -1,0 +1,123 @@
+{
+  "schemaVersion": 1,
+  "feature_name": "backend-ddd-microservices-evolution",
+  "task_id": "TASK-BDME-005",
+  "base_sha": "2a187eea649370f2ebcf1e0dd15371024b1b85fd",
+  "base_tree": "d8ee3488faa83ac3a0ee9bd7052955a8f5d03620",
+  "head_sha": "2a187eea649370f2ebcf1e0dd15371024b1b85fd",
+  "changed_files": [
+    ".spec/backend-ddd-microservices-evolution/pipeline-state.json",
+    ".spec/backend-ddd-microservices-evolution/reports/TASK-BDME-005-report.md",
+    ".spec/backend-ddd-microservices-evolution/reports/TASK-BDME-005-evidence.json",
+    "docs/backend-ddd-microservices-evolution-harness-knowledge-baseline.md"
+  ],
+  "scope": {
+    "status": "passed",
+    "base_tree": "d8ee3488faa83ac3a0ee9bd7052955a8f5d03620",
+    "out_of_scope": [],
+    "forbidden": [],
+    "allowed": [
+      ".spec/backend-ddd-microservices-evolution/pipeline-state.json",
+      ".spec/backend-ddd-microservices-evolution/reports/TASK-BDME-005-report.md",
+      ".spec/backend-ddd-microservices-evolution/reports/TASK-BDME-005-evidence.json",
+      "docs/backend-ddd-microservices-evolution-harness-knowledge-baseline.md"
+    ]
+  },
+  "checks": [
+    {
+      "command": "git diff --name-only && git ls-files --others --exclude-standard",
+      "exit_code": 0,
+      "status": "passed",
+      "started_at": "2026-07-11T13:53:20Z",
+      "duration_ms": 50,
+      "summary": "Listed changed TASK files."
+    },
+    {
+      "command": "TASK_BASE_TREE=d8ee3488faa83ac3a0ee9bd7052955a8f5d03620 bash .spec/backend-ddd-microservices-evolution/scripts/check-task-scope.sh TASK-BDME-005",
+      "exit_code": 0,
+      "status": "passed",
+      "started_at": "2026-07-11T13:53:20Z",
+      "duration_ms": 79,
+      "summary": "scope_result: PASS (TASK-BDME-005)."
+    },
+    {
+      "command": "bash .spec/backend-ddd-microservices-evolution/scripts/agent-check.sh",
+      "exit_code": 0,
+      "status": "passed",
+      "started_at": "2026-07-11T13:53:20Z",
+      "duration_ms": 43,
+      "summary": "Feature validation and git diff whitespace check passed; no Go service files changed."
+    },
+    {
+      "command": "node .agents/skills/spec-harness/scripts/validate-feature.mjs --feature .spec/backend-ddd-microservices-evolution --json",
+      "exit_code": 0,
+      "status": "passed",
+      "started_at": "2026-07-11T13:53:20Z",
+      "duration_ms": 100,
+      "summary": "classification=current, issues=[], warnings=[], task_count=52."
+    },
+    {
+      "command": "node .knowledge/scripts/detect-impact.mjs --root . --base-tree d8ee3488faa83ac3a0ee9bd7052955a8f5d03620",
+      "exit_code": 0,
+      "status": "passed",
+      "started_at": "2026-07-11T13:53:50Z",
+      "duration_ms": 103,
+      "summary": "impact_result: update_required; matched local-development and system-overview routes."
+    }
+  ],
+  "review": {
+    "type": "self-review",
+    "round": 1,
+    "verdict": "通过",
+    "findings": []
+  },
+  "human_confirmation": {
+    "required": false,
+    "confirmed": true,
+    "confirmed_by": "not_required",
+    "confirmed_at": "2026-07-11T13:50:37Z",
+    "confirmation_text": "TASK-BDME-005 does not require human confirmation."
+  },
+  "exceptions": [],
+  "skipped_checks": [
+    {
+      "command": "node .knowledge/scripts/validate-knowledge.mjs",
+      "reason": ".knowledge files were reviewed but not changed by TASK-BDME-005."
+    },
+    {
+      "command": "go test ./...",
+      "reason": "No Go files changed in TASK-BDME-005; agent-check had no Go workspace test trigger."
+    }
+  ],
+  "knowledgeImpact": {
+    "result": "update_required",
+    "triggeredBy": [
+      "docs/backend-ddd-microservices-evolution-harness-knowledge-baseline.md"
+    ],
+    "reviewResults": [
+      {
+        "document": ".knowledge/architecture/system-overview.md",
+        "verdict": "UNCHANGED",
+        "evidence": [
+          "Reviewed repository and feature control-plane routing; TASK-BDME-005 documents existing Harness/knowledge flow without changing architecture."
+        ]
+      },
+      {
+        "document": ".knowledge/runbooks/local-development.md",
+        "verdict": "UNCHANGED",
+        "evidence": [
+          "Reviewed local validation and knowledge impact workflow; commands and workflow remain current."
+        ]
+      },
+      {
+        "document": ".knowledge/runbooks/knowledge-coverage-audit.md",
+        "verdict": "UNCHANGED",
+        "evidence": [
+          "Reviewed required knowledge impact reporting expectations; TASK-BDME-005 records the expected report/evidence fields."
+        ]
+      }
+    ],
+    "coverageGap": false,
+    "validationExitCode": 0
+  }
+}
