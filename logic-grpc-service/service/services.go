@@ -63,6 +63,9 @@ type Services struct {
 
 	// P1-003: AI usage statistics
 	UsageStats *UsageStatsService
+	// Notification runtime owns notification persistence, realtime delivery,
+	// email coordination, outbox dispatch, and notification consumers.
+	NotificationRuntime *NotificationRuntime
 	// Background workers (caller must Start/Stop)
 	OutboxPublisher      *OutboxPublisher
 	NotificationConsumer *NotificationConsumer
@@ -129,14 +132,23 @@ func NewServices(
 	usageAuditCtxRepo := repository.NewUsageAuditContextRepo(db)
 	taxonomy := NewJobTaxonomyService(departments, locations, jobs, deptLocs)
 
-	outboxPublisher := NewOutboxPublisher(outbox, mqConn)
 	inboxRepo := repository.NewInboxRepo(db)
-	notificationConsumer := NewNotificationConsumer(notifications, notifCache).WithInbox(inboxRepo)
 	resumeParseConsumer := NewResumeParseConsumer(resumes, ossClient).WithInbox(inboxRepo)
-	emailConsumer := NewEmailConsumer(users, emailLogRepo, emailRenderer, emailSender).WithInbox(inboxRepo)
 	embeddingConsumer := NewEmbeddingConsumer(embeddingSvc).WithInbox(inboxRepo)
 	scopeEval := &scopeEvaluator{authzRepo: authzRepo}
 	serviceAuth := NewServiceAuthorizer(authzRepo, scopeEval)
+	notificationRuntime := NewNotificationRuntime(NotificationRuntimeDeps{
+		Users:         users,
+		Notifications: notifications,
+		Outbox:        outbox,
+		Inbox:         inboxRepo,
+		EmailLog:      emailLogRepo,
+		Cache:         notifCache,
+		MQ:            mqConn,
+		Authz:         serviceAuth,
+		EmailRenderer: emailRenderer,
+		EmailSender:   emailSender,
+	})
 
 	collaborationRepo := repository.NewCollaborationRepo(db)
 	llmConfigSvc := newLlmConfigServiceWithFallback(db)
@@ -185,7 +197,7 @@ func NewServices(
 	recruitingIntelligenceSvc := NewRecruitingIntelligenceService(applications, jobs, resumes, resumeProfileRepo, candidateMatchRepo, resumeProfileSvc, candidateMatchSvc, serviceAuth)
 	aiSvc := NewAIService(chats, applications, jobs, resumes, summaries, toolTraces, agentRuns, memories, ossClient, aiClient, toolExecutor, contextBuilder, candidateAI, usageLogs, usageAuditCtxRepo, authzRepo, agentRuntime, serviceAuth, llmConfigSvc, agentCfgRepo, promptTmplRepo, mcpSvc, skillSvc, agentSkillRepo).
 		WithAgentRunEventRepo(repository.NewAgentRunEventRepo(db)).
-		WithAgentRunDispatcher(outboxPublisher).
+		WithAgentRunDispatcher(notificationRuntime.OutboxPublisher).
 		WithEmbeddingService(embeddingSvc).
 		WithEmbeddingEventPublisher(embeddingEventPublisher).
 		WithRuntimePolicy(runtimePolicy)
@@ -202,13 +214,14 @@ func NewServices(
 
 		Job:                    NewJobService(jobs, jobCache, authzRepo, taxonomy, scopeEval),
 		Taxonomy:               taxonomy,
-		Candidate:              NewCandidateService(profiles, resumes, ossClient, outboxPublisher, usageLogs, serviceAuth),
-		Application:            NewApplicationService(authzRepo, applications, profiles, resumes, jobs, interviews, notifications, outboxPublisher, ossClient, jobCache, scopeEval),
-		Interview:              NewInterviewService(authzRepo, interviews, users, applications, jobs, notifications, outboxPublisher, ossClient, scopeEval, serviceAuth),
-		Offer:                  NewOfferService(authzRepo, offers, applications, jobs, notifications, outboxPublisher, scopeEval, serviceAuth),
+		Candidate:              NewCandidateService(profiles, resumes, ossClient, notificationRuntime.OutboxPublisher, usageLogs, serviceAuth),
+		Application:            NewApplicationService(authzRepo, applications, profiles, resumes, jobs, interviews, notifications, notificationRuntime.OutboxPublisher, ossClient, jobCache, scopeEval),
+		Interview:              NewInterviewService(authzRepo, interviews, users, applications, jobs, notifications, notificationRuntime.OutboxPublisher, ossClient, scopeEval, serviceAuth),
+		Offer:                  NewOfferService(authzRepo, offers, applications, jobs, notifications, notificationRuntime.OutboxPublisher, scopeEval, serviceAuth),
 		AI:                     aiSvc,
 		CandidateAI:            candidateAI,
-		Notification:           NewNotificationService(notifications, notifCache, serviceAuth),
+		Notification:           notificationRuntime.Notification,
+		NotificationRuntime:    notificationRuntime,
 		LlmConfig:              llmConfigSvc,
 		Prompt:                 NewPromptService(promptTmplRepo),
 		AgentConfig:            NewAgentConfigService(agentCfgRepo, promptTmplRepo, mcpSvc, skillSvc),
@@ -236,10 +249,10 @@ func NewServices(
 			scopeEval,
 		),
 
-		OutboxPublisher:      outboxPublisher,
-		NotificationConsumer: notificationConsumer,
+		OutboxPublisher:      notificationRuntime.OutboxPublisher,
+		NotificationConsumer: notificationRuntime.NotificationConsumer,
 		ResumeParseConsumer:  resumeParseConsumer,
-		EmailConsumer:        emailConsumer,
+		EmailConsumer:        notificationRuntime.EmailConsumer,
 		EmbeddingConsumer:    embeddingConsumer,
 		AgentRunConsumer:     agentRunConsumer,
 	}

@@ -1,0 +1,187 @@
+{
+  "schemaVersion": 1,
+  "feature_name": "backend-ddd-microservices-evolution",
+  "task_id": "TASK-BDME-028",
+  "base_sha": "48fe11296be55bbfc921eadbc6b3b4f66d36c19f",
+  "base_tree": "4217b3a936dbfa44ca5c71d29de7bbd895119910",
+  "head_sha": "48fe11296be55bbfc921eadbc6b3b4f66d36c19f",
+  "changed_files": [
+    ".knowledge/domains/notification-outbox.md",
+    ".knowledge/manifest.yaml",
+    ".knowledge/runbooks/service-binary-convention.md",
+    ".spec/backend-ddd-microservices-evolution/pipeline-state.json",
+    ".spec/backend-ddd-microservices-evolution/reports/TASK-BDME-028-report.md",
+    ".spec/backend-ddd-microservices-evolution/reports/TASK-BDME-028-evidence.json",
+    "docs/backend-ddd-microservices-evolution-notification-runtime-extraction.md",
+    "docs/backend-ddd-microservices-evolution-notification-service-skeleton.md",
+    "logic-grpc-service/main.go",
+    "logic-grpc-service/service/notification_runtime.go",
+    "logic-grpc-service/service/notification_runtime_test.go",
+    "logic-grpc-service/service/services.go"
+  ],
+  "scope": {
+    "status": "passed",
+    "base_tree": "4217b3a936dbfa44ca5c71d29de7bbd895119910",
+    "out_of_scope": [],
+    "forbidden": [],
+    "allowed": [
+      ".knowledge/domains/notification-outbox.md",
+      ".knowledge/manifest.yaml",
+      ".knowledge/runbooks/service-binary-convention.md",
+      ".spec/backend-ddd-microservices-evolution/pipeline-state.json",
+      ".spec/backend-ddd-microservices-evolution/reports/TASK-BDME-028-report.md",
+      ".spec/backend-ddd-microservices-evolution/reports/TASK-BDME-028-evidence.json",
+      "docs/backend-ddd-microservices-evolution-notification-runtime-extraction.md",
+      "docs/backend-ddd-microservices-evolution-notification-service-skeleton.md",
+      "logic-grpc-service/main.go",
+      "logic-grpc-service/service/notification_runtime.go",
+      "logic-grpc-service/service/notification_runtime_test.go",
+      "logic-grpc-service/service/services.go"
+    ]
+  },
+  "checks": [
+    {
+      "command": "cd logic-grpc-service && go test ./service -run 'TestNewNotificationRuntime|TestNotificationRuntime'",
+      "exit_code": 0,
+      "status": "passed",
+      "started_at": "2026-07-11T16:31:00Z",
+      "duration_ms": 6212,
+      "summary": "Focused Notification runtime wiring and failure-path tests passed."
+    },
+    {
+      "command": "cd logic-grpc-service && go test ./cmd/notification-service ./internal/notification/runtime",
+      "exit_code": 0,
+      "status": "passed",
+      "started_at": "2026-07-11T16:31:00Z",
+      "duration_ms": 297,
+      "summary": "Notification skeleton command and descriptor packages passed."
+    },
+    {
+      "command": "node .knowledge/scripts/validate-knowledge.mjs --root .",
+      "exit_code": 0,
+      "status": "passed",
+      "started_at": "2026-07-11T16:32:00Z",
+      "duration_ms": 386,
+      "summary": "knowledge_result: PASS (36 formal documents)."
+    },
+    {
+      "command": "cd logic-grpc-service && go test ./...",
+      "exit_code": 0,
+      "status": "passed",
+      "started_at": "2026-07-11T16:32:00Z",
+      "duration_ms": 15452,
+      "summary": "All logic-grpc-service packages passed."
+    },
+    {
+      "command": "TASK_BASE_TREE=4217b3a936dbfa44ca5c71d29de7bbd895119910 bash .spec/backend-ddd-microservices-evolution/scripts/check-task-scope.sh TASK-BDME-028",
+      "exit_code": 0,
+      "status": "passed",
+      "started_at": "2026-07-11T16:32:00Z",
+      "duration_ms": 502,
+      "summary": "scope_result: PASS (TASK-BDME-028)."
+    },
+    {
+      "command": "bash .spec/backend-ddd-microservices-evolution/scripts/agent-check.sh",
+      "exit_code": 0,
+      "status": "passed",
+      "started_at": "2026-07-11T16:33:00Z",
+      "duration_ms": 1552,
+      "summary": "Feature validation, git diff whitespace check, gofmt check, logic-grpc-service go test, and knowledge validation passed."
+    },
+    {
+      "command": "node .knowledge/scripts/detect-impact.mjs --root . --base-tree 4217b3a936dbfa44ca5c71d29de7bbd895119910 --json",
+      "exit_code": 0,
+      "status": "passed",
+      "started_at": "2026-07-11T16:32:00Z",
+      "duration_ms": 561,
+      "summary": "impact_result: update_required; no coverage gaps."
+    },
+    {
+      "command": "git diff --name-only && git ls-files --others --exclude-standard",
+      "exit_code": 0,
+      "status": "passed",
+      "started_at": "2026-07-11T16:34:00Z",
+      "duration_ms": 20,
+      "summary": "Listed tracked and untracked TASK files."
+    }
+  ],
+  "review": {
+    "type": "self-review",
+    "round": 1,
+    "verdict": "通过",
+    "findings": []
+  },
+  "human_confirmation": {
+    "required": true,
+    "confirmed": true,
+    "confirmed_by": "user_global_gate_override",
+    "confirmed_at": "2026-07-11T16:27:15Z",
+    "confirmation_text": "User confirmed that all later human gates are cancelled once implementation and self-review pass."
+  },
+  "exceptions": [],
+  "skipped_checks": [],
+  "knowledgeImpact": {
+    "result": "update_required",
+    "triggeredBy": [
+      "logic-grpc-service/service/notification_runtime.go",
+      "logic-grpc-service/service/services.go",
+      "logic-grpc-service/main.go",
+      "docs/backend-ddd-microservices-evolution-notification-runtime-extraction.md",
+      ".knowledge/manifest.yaml"
+    ],
+    "reviewResults": [
+      {
+        "document": ".knowledge/domains/notification-outbox.md",
+        "verdict": "UPDATED",
+        "evidence": [
+          "Documented NotificationRuntime as the current Notification composition boundary and compatibility requirements."
+        ]
+      },
+      {
+        "document": ".knowledge/runbooks/service-binary-convention.md",
+        "verdict": "UPDATED",
+        "evidence": [
+          "Added runtime extraction guidance for preserving main.go startup and avoiding gateway/deployment routing."
+        ]
+      },
+      {
+        "document": ".knowledge/manifest.yaml",
+        "verdict": "UPDATED",
+        "evidence": [
+          "Routed notification runtime extraction docs and service/notification_runtime.go to relevant knowledge."
+        ]
+      },
+      {
+        "document": ".knowledge/runbooks/knowledge-coverage-audit.md",
+        "verdict": "UNCHANGED",
+        "evidence": [
+          "Reviewed due .knowledge route; no audit procedure changes were required."
+        ]
+      },
+      {
+        "document": ".knowledge/runbooks/local-development.md",
+        "verdict": "UNCHANGED",
+        "evidence": [
+          "Reviewed due runtime route; existing Go test guidance remains sufficient."
+        ]
+      },
+      {
+        "document": ".knowledge/architecture/service-boundaries.md",
+        "verdict": "UNCHANGED",
+        "evidence": [
+          "Reviewed due service boundary route; runtime extraction centralizes existing Notification startup without changing active public boundaries."
+        ]
+      },
+      {
+        "document": ".knowledge/architecture/system-overview.md",
+        "verdict": "UNCHANGED",
+        "evidence": [
+          "Reviewed due service boundary route; current deployment/runtime topology remains the monolith plus worker."
+        ]
+      }
+    ],
+    "coverageGap": false,
+    "validationExitCode": 0
+  }
+}
+

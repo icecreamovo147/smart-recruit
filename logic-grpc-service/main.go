@@ -313,15 +313,14 @@ func main() {
 	defer cancelBg()
 	workersEnabled := *workerOnly || !envBool("DISABLE_BACKGROUND_WORKERS")
 	if workersEnabled {
-		services.OutboxPublisher.Start(bgCtx)
-		if err := services.NotificationConsumer.Start(bgCtx, mqConn); err != nil {
-			log.Warn("notification consumer start failed", zap.Error(err))
+		for _, startErr := range services.NotificationRuntime.Start(bgCtx, mqConn) {
+			log.Warn("notification runtime component start failed",
+				zap.String("component", startErr.Component),
+				zap.Error(startErr.Err),
+			)
 		}
 		if err := services.ResumeParseConsumer.Start(bgCtx, mqConn); err != nil {
 			log.Warn("resume parse consumer start failed", zap.Error(err))
-		}
-		if err := services.EmailConsumer.Start(bgCtx, mqConn); err != nil {
-			log.Warn("email consumer start failed", zap.Error(err))
 		}
 		if err := services.EmbeddingConsumer.Start(bgCtx, mqConn); err != nil {
 			log.Warn("embedding consumer start failed", zap.Error(err))

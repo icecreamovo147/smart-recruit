@@ -32,7 +32,9 @@ Running the binary without flags exits with code `2` and explains that it is int
 
 ## Compatibility
 
-This TASK does not change:
+TASK-BDME-028 later extracted the current monolith Notification runtime composition into `logic-grpc-service/service/notification_runtime.go`. The skeleton command remains unrouted and still does not start the runtime by default.
+
+This skeleton TASK does not change:
 
 - `logic-grpc-service/main.go`;
 - existing notification handlers or workers;
@@ -44,5 +46,4 @@ This TASK does not change:
 
 ## Future Cutover Requirements
 
-A later Notification cutover TASK must add explicit shadow or dual-run wiring, readiness behavior, metrics, rollback evidence, and gateway or worker routing changes before the skeleton can receive production traffic.
-
+A later Notification cutover TASK must connect `cmd/notification-service` to the extracted runtime with explicit shadow or dual-run wiring, readiness behavior, metrics, rollback evidence, and gateway or worker routing changes before the skeleton can receive production traffic.

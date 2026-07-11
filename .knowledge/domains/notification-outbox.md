@@ -13,6 +13,7 @@ tags:
   - email
 applies_to:
   - logic-grpc-service/service/notification_service.go
+  - logic-grpc-service/service/notification_runtime.go
   - logic-grpc-service/service/notification_worker.go
   - logic-grpc-service/service/outbox_publisher.go
   - logic-grpc-service/service/inbox_consumer.go
@@ -28,6 +29,7 @@ source_refs:
   - logic-grpc-service/service/offer_service.go
   - logic-grpc-service/internal/analytics/application/event_ingestor.go
   - logic-grpc-service/service/notification_service.go
+  - logic-grpc-service/service/notification_runtime.go
   - logic-grpc-service/service/notification_worker.go
   - logic-grpc-service/service/outbox_publisher.go
   - logic-grpc-service/service/inbox_consumer.go
@@ -55,6 +57,7 @@ Notifications are produced by recruitment workflows and delivered through databa
 - `event_inbox` records consumer-side event claims, attempts, processed/failed/dead statuses, and idempotency keys per consumer. Processed records default to 30-day retention and dead-letter records to 90-day retention through repository retention helpers.
 - Analytics projection ingestion consumes standard domain-event envelopes into Analytics-owned projection events and checkpoints; it is not wired as a production MQ consumer in the current task.
 - `cmd/notification-service` is a compile-safe, unrouted Notification service skeleton. Its runtime descriptor has `TrafficEnabled=false`, `CutoverMode=none`, no network listener, and no notification consumer startup.
+- `service.NotificationRuntime` is the current Notification runtime composition boundary. It wires Notification persistence/unread behavior, async write worker, outbox dispatch, notification consumer, and email consumer while keeping current monolith startup behavior.
 - `OutboxPublisher` keeps legacy top-level payload fields for existing consumers while also writing the standard envelope fields and nested `payload` object.
 - Notification-producing application, interview, and offer workflows use source-domain event types such as `application.notification_requested`, `interview.email_requested`, and `offer.notification_requested` while preserving MQ routing keys such as `notification.create` and `email.send` for existing consumers.
 - MQ consumers call the shared Inbox helper from their `Start` entrypoints. Direct unit tests that invoke `handle` bypass the helper intentionally and test only business handling.
@@ -75,7 +78,8 @@ Notifications are produced by recruitment workflows and delivered through databa
 - Analytics projection ingestion changes should preserve envelope validation and idempotent event-id/checkpoint behavior.
 - Replay, dead-letter repair, and retention operations should follow `docs/backend-ddd-microservices-evolution-event-replay-dead-letter-runbook.md` and generate SQL through `scripts/event-replay-dead-letter.sh` so mutation execution remains an explicit operational step.
 - Notification service skeleton changes should preserve the unrouted descriptor until a scoped cutover TASK adds shadow, dual-run, or routed behavior with rollback evidence.
+- Notification runtime extraction changes should keep `service.NewServices`, `logic-grpc-service/main.go`, consumer start order, Inbox idempotency, and existing queue/routing-key behavior compatible unless the current TASK is an approved cutover.
 
 ## Verification
 
-Verified against application, interview, and offer notification-producing workflows, Analytics projection ingestion, Notification service skeleton, notification service, notification worker, outbox publisher, shared Inbox consumer helper, outbox/inbox repositories, event replay/dead-letter runbook, domain-event envelope contract, notification handler, migrations, `db.sql`, and model definitions on 2026-07-11.
+Verified against application, interview, and offer notification-producing workflows, Analytics projection ingestion, Notification service skeleton/runtime, notification service, notification worker, outbox publisher, shared Inbox consumer helper, outbox/inbox repositories, event replay/dead-letter runbook, domain-event envelope contract, notification handler, migrations, `db.sql`, and model definitions on 2026-07-11.

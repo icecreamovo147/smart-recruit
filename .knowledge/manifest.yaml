@@ -329,10 +329,12 @@ routes:
   - match:
       - docs/backend-ddd-microservices-evolution-service-binary-convention.md
       - docs/backend-ddd-microservices-evolution-notification-service-skeleton.md
+      - docs/backend-ddd-microservices-evolution-notification-runtime-extraction.md
       - deploy/k8s/README-service-binaries.md
       - logic-grpc-service/internal/platform/servicebinary/**
       - logic-grpc-service/cmd/notification-service/**
       - logic-grpc-service/internal/notification/runtime/**
+      - logic-grpc-service/service/notification_runtime.go
     documents:
       - service-binary-convention
       - service-boundaries
