@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"strconv"
+	"strings"
 	"time"
 )
 
@@ -72,6 +73,9 @@ type RateLimitConfig struct {
 func Load() (Config, error) {
 	secret := jwtSecret()
 	if err := validateJWTSecret(secret); err != nil {
+		return Config{}, err
+	}
+	if err := validateInternalAuthConfig(); err != nil {
 		return Config{}, err
 	}
 	return Config{
@@ -177,17 +181,34 @@ func envFloat64(key string) float64 {
 // validateJWTSecret rejects weak JWT secrets in non-dev environments.
 // Set ALLOW_INSECURE_DEV_CONFIG=true to bypass this check (local dev only).
 func validateJWTSecret(secret string) error {
-	if os.Getenv("ALLOW_INSECURE_DEV_CONFIG") == "true" {
+	if allowInsecureDevConfig() {
 		return nil
 	}
 	if secret == "" {
 		return fmt.Errorf("JWT_SECRET is empty: production requires a strong secret (>= 32 chars). Set ALLOW_INSECURE_DEV_CONFIG=true only for local development")
 	}
-	if secret == "please-change-me" || secret == "CHANGE_ME" {
+	if isPlaceholderSecret(secret) {
 		return fmt.Errorf("JWT_SECRET is still the default placeholder: production requires a strong secret (>= 32 chars). Set ALLOW_INSECURE_DEV_CONFIG=true only for local development")
 	}
 	if len(secret) < 16 {
 		return fmt.Errorf("JWT_SECRET is too short (%d chars): production requires at least 16 chars, 32 recommended. Set ALLOW_INSECURE_DEV_CONFIG=true only for local development", len(secret))
+	}
+	return nil
+}
+
+func validateInternalAuthConfig() error {
+	if allowInsecureDevConfig() {
+		return nil
+	}
+	token := strings.TrimSpace(os.Getenv("GRPC_INTERNAL_TOKEN"))
+	if token == "" {
+		return fmt.Errorf("GRPC_INTERNAL_TOKEN is empty: production gateway must send a shared internal token. Set ALLOW_INSECURE_DEV_CONFIG=true only for local development")
+	}
+	if isPlaceholderSecret(token) {
+		return fmt.Errorf("GRPC_INTERNAL_TOKEN is still a placeholder: production gateway must send a real shared internal token")
+	}
+	if len(token) < 16 {
+		return fmt.Errorf("GRPC_INTERNAL_TOKEN is too short: production requires at least 16 chars, 32 recommended. Set ALLOW_INSECURE_DEV_CONFIG=true only for local development")
 	}
 	return nil
 }
@@ -201,4 +222,36 @@ func jwtSecret() string {
 		return ""
 	}
 	return ""
+}
+
+func allowInsecureDevConfig() bool {
+	return os.Getenv("ALLOW_INSECURE_DEV_CONFIG") == "true"
+}
+
+func isPlaceholderSecret(value string) bool {
+	normalized := strings.TrimSpace(value)
+	if normalized == "" {
+		return false
+	}
+	upper := strings.ToUpper(normalized)
+	lower := strings.ToLower(normalized)
+	placeholderFragments := []string{
+		"CHANGE_ME",
+		"PLEASE_CHANGE_ME",
+		"your_password",
+		"your-secret",
+		"your-access-key",
+		"your-api-key",
+		"sk-your",
+		"bucket-name",
+		"dev-placeholder",
+		"dev-shared-token",
+		"dev-jwt-secret",
+	}
+	for _, fragment := range placeholderFragments {
+		if strings.Contains(upper, strings.ToUpper(fragment)) || strings.Contains(lower, fragment) {
+			return true
+		}
+	}
+	return false
 }

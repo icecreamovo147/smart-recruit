@@ -1,6 +1,7 @@
 package config
 
 import (
+	"strings"
 	"testing"
 	"time"
 )
@@ -152,4 +153,72 @@ func TestOSSProviderEnvOverride(t *testing.T) {
 	if cfg.OSS.Endpoint != "oss-cn-shanghai.aliyuncs.com" {
 		t.Fatalf("expected oss endpoint oss-cn-shanghai.aliyuncs.com, got %q", cfg.OSS.Endpoint)
 	}
+}
+
+func TestValidateProductionSecretsPassesWithExternalSecrets(t *testing.T) {
+	t.Setenv("ALLOW_INSECURE_DEV_CONFIG", "false")
+	t.Setenv("GRPC_INTERNAL_AUTH", "required")
+	t.Setenv("GRPC_INTERNAL_TOKEN", strings.Repeat("t", 32))
+	t.Setenv("ENCRYPTION_KEY", strings.Repeat("a", 64))
+
+	cfg := productionReadyConfig()
+	if err := validateProductionSecrets(cfg); err != nil {
+		t.Fatalf("validateProductionSecrets: %v", err)
+	}
+}
+
+func TestValidateProductionSecretsRequiresInternalAuth(t *testing.T) {
+	t.Setenv("ALLOW_INSECURE_DEV_CONFIG", "false")
+	t.Setenv("GRPC_INTERNAL_AUTH", "optional")
+	t.Setenv("GRPC_INTERNAL_TOKEN", strings.Repeat("t", 32))
+	t.Setenv("ENCRYPTION_KEY", strings.Repeat("a", 64))
+
+	err := validateProductionSecrets(productionReadyConfig())
+	if err == nil || !strings.Contains(err.Error(), "GRPC_INTERNAL_AUTH") {
+		t.Fatalf("expected GRPC_INTERNAL_AUTH error, got %v", err)
+	}
+}
+
+func TestValidateProductionSecretsRejectsRabbitMQDefaultCredentials(t *testing.T) {
+	t.Setenv("ALLOW_INSECURE_DEV_CONFIG", "false")
+	t.Setenv("GRPC_INTERNAL_AUTH", "required")
+	t.Setenv("GRPC_INTERNAL_TOKEN", strings.Repeat("t", 32))
+	t.Setenv("ENCRYPTION_KEY", strings.Repeat("a", 64))
+
+	cfg := productionReadyConfig()
+	cfg.RabbitMQ.URL = "amqp://guest:guest@rabbitmq:5672/"
+	err := validateProductionSecrets(cfg)
+	if err == nil || !strings.Contains(err.Error(), "RABBITMQ_URL") {
+		t.Fatalf("expected RABBITMQ_URL default credential error, got %v", err)
+	}
+}
+
+func TestValidateJWTSecretRejectsLongPlaceholder(t *testing.T) {
+	t.Setenv("ALLOW_INSECURE_DEV_CONFIG", "false")
+	secret := "CHANGE_ME_JWT_SECRET_AT_LEAST_32_CHARS"
+	err := validateJWTSecret(secret)
+	if err == nil || !strings.Contains(err.Error(), "placeholder") {
+		t.Fatalf("expected placeholder JWT error, got %v", err)
+	}
+}
+
+func TestInsecureDevConfigBypassesProductionSecretChecks(t *testing.T) {
+	t.Setenv("ALLOW_INSECURE_DEV_CONFIG", "true")
+
+	if err := validateProductionSecrets(Config{}); err != nil {
+		t.Fatalf("validateProductionSecrets with dev bypass: %v", err)
+	}
+	if err := validateJWTSecret("CHANGE_ME"); err != nil {
+		t.Fatalf("validateJWTSecret with dev bypass: %v", err)
+	}
+}
+
+func productionReadyConfig() Config {
+	var cfg Config
+	cfg.MySQL.DSN = "smart_recruit:strong-password@tcp(mysql:3306)/recruitment?charset=utf8mb4&parseTime=True&loc=Local"
+	cfg.RabbitMQ.URL = "amqp://recruitment:strong-password@rabbitmq:5672/"
+	cfg.OSS.AccessKeyID = "AKIDEXTERNAL123456"
+	cfg.OSS.AccessKeySecret = "external-oss-secret-value"
+	cfg.OSS.BucketName = "recruitment-prod"
+	return cfg
 }

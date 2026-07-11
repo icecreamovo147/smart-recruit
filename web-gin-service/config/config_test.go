@@ -1,9 +1,14 @@
 package config
 
-import "testing"
+import (
+	"strings"
+	"testing"
+)
 
 func TestLoadAuthCookieSecure(t *testing.T) {
+	t.Setenv("ALLOW_INSECURE_DEV_CONFIG", "false")
 	t.Setenv("JWT_SECRET", "test-secret-at-least-32-chars-long")
+	t.Setenv("GRPC_INTERNAL_TOKEN", strings.Repeat("t", 32))
 	t.Setenv("AUTH_COOKIE_SECURE", "true")
 	t.Setenv("CANDIDATE_AUTH_COOKIE_NAME", "candidate_session")
 	t.Setenv("HR_AUTH_COOKIE_NAME", "hr_session")
@@ -25,7 +30,9 @@ func TestLoadAuthCookieSecure(t *testing.T) {
 
 // TASK-FU-009：验证 web-gin 同步 logic-grpc 的 ranking 段 env 加载。
 func TestLoadRankingConfig(t *testing.T) {
+	t.Setenv("ALLOW_INSECURE_DEV_CONFIG", "false")
 	t.Setenv("JWT_SECRET", "test-secret-at-least-32-chars-long")
+	t.Setenv("GRPC_INTERNAL_TOKEN", strings.Repeat("t", 32))
 	t.Setenv("RANKING_WEIGHT_VECTOR", "0.7")
 	t.Setenv("RANKING_BUSINESS_BOOST_MAX", "1.3")
 	t.Setenv("RANKING_RELEVANCE_GATE", "0.2")
@@ -50,7 +57,9 @@ func TestLoadRankingConfig(t *testing.T) {
 }
 
 func TestLoadRankingConfigDefaultsEmpty(t *testing.T) {
+	t.Setenv("ALLOW_INSECURE_DEV_CONFIG", "false")
 	t.Setenv("JWT_SECRET", "test-secret-at-least-32-chars-long")
+	t.Setenv("GRPC_INTERNAL_TOKEN", strings.Repeat("t", 32))
 	// 不设任何 RANKING_* env
 	cfg, err := Load()
 	if err != nil {
@@ -65,7 +74,9 @@ func TestLoadRankingConfigDefaultsEmpty(t *testing.T) {
 }
 
 func TestLoadRankingConfigInvalidFloat(t *testing.T) {
+	t.Setenv("ALLOW_INSECURE_DEV_CONFIG", "false")
 	t.Setenv("JWT_SECRET", "test-secret-at-least-32-chars-long")
+	t.Setenv("GRPC_INTERNAL_TOKEN", strings.Repeat("t", 32))
 	t.Setenv("RANKING_WEIGHT_VECTOR", "not-a-number")
 	cfg, err := Load()
 	if err != nil {
@@ -74,5 +85,35 @@ func TestLoadRankingConfigInvalidFloat(t *testing.T) {
 	// 非法 env 值不修改 target，保持 0
 	if cfg.Ranking.WeightVector != 0 {
 		t.Fatalf("invalid env should keep default 0, got %v", cfg.Ranking.WeightVector)
+	}
+}
+
+func TestLoadRequiresGRPCInternalTokenInProduction(t *testing.T) {
+	t.Setenv("ALLOW_INSECURE_DEV_CONFIG", "false")
+	t.Setenv("JWT_SECRET", "test-secret-at-least-32-chars-long")
+	t.Setenv("GRPC_INTERNAL_TOKEN", "")
+
+	_, err := Load()
+	if err == nil || !strings.Contains(err.Error(), "GRPC_INTERNAL_TOKEN") {
+		t.Fatalf("expected GRPC_INTERNAL_TOKEN error, got %v", err)
+	}
+}
+
+func TestLoadRejectsPlaceholderGRPCInternalToken(t *testing.T) {
+	t.Setenv("ALLOW_INSECURE_DEV_CONFIG", "false")
+	t.Setenv("JWT_SECRET", "test-secret-at-least-32-chars-long")
+	t.Setenv("GRPC_INTERNAL_TOKEN", "CHANGE_ME_INTERNAL_TOKEN_32_CHARS_LONG")
+
+	_, err := Load()
+	if err == nil || !strings.Contains(err.Error(), "placeholder") {
+		t.Fatalf("expected placeholder token error, got %v", err)
+	}
+}
+
+func TestLoadAllowsInsecureDevConfig(t *testing.T) {
+	t.Setenv("ALLOW_INSECURE_DEV_CONFIG", "true")
+
+	if _, err := Load(); err != nil {
+		t.Fatalf("Load with dev bypass: %v", err)
 	}
 }

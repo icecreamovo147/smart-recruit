@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"strconv"
+	"strings"
 	"time"
 
 	"gopkg.in/yaml.v3"
@@ -383,6 +384,9 @@ func Load() (Config, error) {
 	if cfg.Embedding.SlowRequestThreshold.Duration <= 0 {
 		cfg.Embedding.SlowRequestThreshold.Duration = 2 * time.Second
 	}
+	if err := validateProductionSecrets(cfg); err != nil {
+		return Config{}, err
+	}
 	return cfg, nil
 }
 
@@ -573,17 +577,113 @@ func defaultBool(target **bool, value bool) {
 // validateJWTSecret rejects weak JWT secrets in non-dev environments.
 // Set ALLOW_INSECURE_DEV_CONFIG=true to bypass this check (local dev only).
 func validateJWTSecret(secret string) error {
-	if os.Getenv("ALLOW_INSECURE_DEV_CONFIG") == "true" {
+	if allowInsecureDevConfig() {
 		return nil
 	}
 	if secret == "" {
 		return fmt.Errorf("JWT_SECRET is empty: production requires a strong secret (>= 32 chars). Set ALLOW_INSECURE_DEV_CONFIG=true only for local development")
 	}
-	if secret == "please-change-me" || secret == "CHANGE_ME" {
+	if isPlaceholderSecret(secret) {
 		return fmt.Errorf("JWT_SECRET is still the default placeholder: production requires a strong secret (>= 32 chars). Set ALLOW_INSECURE_DEV_CONFIG=true only for local development")
 	}
 	if len(secret) < 16 {
 		return fmt.Errorf("JWT_SECRET is too short (%d chars): production requires at least 16 chars, 32 recommended. Set ALLOW_INSECURE_DEV_CONFIG=true only for local development", len(secret))
 	}
 	return nil
+}
+
+func validateProductionSecrets(cfg Config) error {
+	if allowInsecureDevConfig() {
+		return nil
+	}
+	required := []struct {
+		name  string
+		value string
+	}{
+		{"MYSQL_DSN", cfg.MySQL.DSN},
+		{"RABBITMQ_URL", cfg.RabbitMQ.URL},
+		{"OSS_ACCESS_KEY_ID", cfg.OSS.AccessKeyID},
+		{"OSS_ACCESS_KEY_SECRET", cfg.OSS.AccessKeySecret},
+		{"OSS_BUCKET_NAME", cfg.OSS.BucketName},
+		{"GRPC_INTERNAL_TOKEN", os.Getenv("GRPC_INTERNAL_TOKEN")},
+		{"ENCRYPTION_KEY", os.Getenv("ENCRYPTION_KEY")},
+	}
+	for _, item := range required {
+		if err := requireProductionSecret(item.name, item.value); err != nil {
+			return err
+		}
+	}
+	if strings.TrimSpace(strings.ToLower(os.Getenv("GRPC_INTERNAL_AUTH"))) != "required" {
+		return fmt.Errorf("GRPC_INTERNAL_AUTH must be required in production. Set ALLOW_INSECURE_DEV_CONFIG=true only for local development")
+	}
+	if len(strings.TrimSpace(os.Getenv("GRPC_INTERNAL_TOKEN"))) < 16 {
+		return fmt.Errorf("GRPC_INTERNAL_TOKEN is too short: production requires at least 16 chars, 32 recommended. Set ALLOW_INSECURE_DEV_CONFIG=true only for local development")
+	}
+	if strings.Contains(strings.ToLower(cfg.RabbitMQ.URL), "guest:guest") {
+		return fmt.Errorf("RABBITMQ_URL uses default guest credentials: production requires externally injected credentials. Set ALLOW_INSECURE_DEV_CONFIG=true only for local development")
+	}
+	if cfg.AI.APIKey != "" && isPlaceholderSecret(cfg.AI.APIKey) {
+		return fmt.Errorf("AI_API_KEY is still a placeholder: production requires an externally injected provider credential")
+	}
+	if cfg.Redis.Password != "" && isPlaceholderSecret(cfg.Redis.Password) {
+		return fmt.Errorf("REDIS_PASSWORD is still a placeholder: production requires a real password or an explicitly unauthenticated Redis profile")
+	}
+	if cfg.SMTP.Required {
+		for _, item := range []struct {
+			name  string
+			value string
+		}{
+			{"SMTP_HOST", cfg.SMTP.Host},
+			{"SMTP_USERNAME", cfg.SMTP.Username},
+			{"SMTP_PASSWORD", string(cfg.SMTP.Password)},
+			{"SMTP_FROM_ADDRESS", cfg.SMTP.FromAddress},
+		} {
+			if err := requireProductionSecret(item.name, item.value); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
+func requireProductionSecret(name, value string) error {
+	if strings.TrimSpace(value) == "" {
+		return fmt.Errorf("%s is empty: production requires external secret injection. Set ALLOW_INSECURE_DEV_CONFIG=true only for local development", name)
+	}
+	if isPlaceholderSecret(value) {
+		return fmt.Errorf("%s is still a placeholder: production requires external secret injection. Set ALLOW_INSECURE_DEV_CONFIG=true only for local development", name)
+	}
+	return nil
+}
+
+func allowInsecureDevConfig() bool {
+	return os.Getenv("ALLOW_INSECURE_DEV_CONFIG") == "true"
+}
+
+func isPlaceholderSecret(value string) bool {
+	normalized := strings.TrimSpace(value)
+	if normalized == "" {
+		return false
+	}
+	upper := strings.ToUpper(normalized)
+	lower := strings.ToLower(normalized)
+	placeholderFragments := []string{
+		"CHANGE_ME",
+		"PLEASE_CHANGE_ME",
+		"your_password",
+		"your-secret",
+		"your-access-key",
+		"your-api-key",
+		"sk-your",
+		"bucket-name",
+		"dev-placeholder",
+		"dev-shared-token",
+		"dev-jwt-secret",
+	}
+	for _, fragment := range placeholderFragments {
+		if strings.Contains(upper, strings.ToUpper(fragment)) || strings.Contains(lower, fragment) {
+			return true
+		}
+	}
+	return false
 }
