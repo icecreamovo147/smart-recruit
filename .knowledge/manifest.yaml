@@ -94,6 +94,8 @@ routes:
       - logic-grpc-service/service/agent_run_recorder.go
       - logic-grpc-service/service/agent_runtime_policy.go
       - logic-grpc-service/ai/**
+      - logic-grpc-service/cmd/ai-agent-service/**
+      - logic-grpc-service/internal/aiagent/runtime/**
       - hr-frontend/src/views/hr/AIChatView.vue
       - hr-frontend/src/views/hr/admin/SemanticRetrievalDebugView.vue
     documents:
@@ -332,11 +334,14 @@ routes:
       - docs/backend-ddd-microservices-evolution-notification-service-skeleton.md
       - docs/backend-ddd-microservices-evolution-notification-runtime-extraction.md
       - docs/backend-ddd-microservices-evolution-notification-gateway-cutover.md
+      - docs/backend-ddd-microservices-evolution-ai-agent-service-skeleton.md
       - deploy/k8s/README-service-binaries.md
       - deploy/k8s/configmap.yaml
       - logic-grpc-service/internal/platform/servicebinary/**
       - logic-grpc-service/cmd/notification-service/**
+      - logic-grpc-service/cmd/ai-agent-service/**
       - logic-grpc-service/internal/notification/runtime/**
+      - logic-grpc-service/internal/aiagent/runtime/**
       - logic-grpc-service/service/notification_runtime.go
       - web-gin-service/config/config.go
       - web-gin-service/rpc/client.go

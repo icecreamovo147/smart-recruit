@@ -1,6 +1,6 @@
 # Backend DDD Microservices Evolution Service Binary Convention
 
-Last verified: 2026-07-11
+Last verified: 2026-07-12
 
 This document establishes the monorepo convention for independently deployable backend service binaries. It does not route traffic, change public APIs, change database ownership, or alter the current Kubernetes deployments.
 
@@ -75,6 +75,11 @@ backend.smart-recruit/cutover-mode: shadow|dual-run|dual-read|routed|none
 
 Use `cutover-mode: none` for compiled but unrouted service skeletons.
 
+Current compiled skeletons:
+
+- `notification-service`: compile-safe descriptor and command only; unrouted by default.
+- `ai-agent-service`: compile-safe descriptor and command only; unrouted by default.
+
 ## Cutover Guardrails
 
 - Notification and AI Agent binaries start with shadow or dual-run validation.
@@ -92,4 +97,3 @@ cd logic-grpc-service && go test ./internal/platform/servicebinary ./...
 ```
 
 The focused package test verifies that the registry is complete, unique, and copy-safe. The broad test ensures the convention does not break existing backend packages.
-

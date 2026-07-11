@@ -23,9 +23,10 @@ source_refs:
   - logic-grpc-service/internal/analytics/application/event_ingestor.go
   - logic-grpc-service/internal/analytics/infrastructure/projection_repository.go
   - logic-grpc-service/internal/platform/servicebinary/convention.go
+  - logic-grpc-service/internal/aiagent/runtime/skeleton.go
   - logic-grpc-service/internal/platform/events/envelope.go
   - logic-grpc-service/repository/user_repo.go
-last_verified: 2026-07-11
+last_verified: 2026-07-12
 review_after: 2026-10-08
 ---
 
@@ -42,6 +43,8 @@ The logic gRPC service is the business boundary. It owns domain services, reposi
 Analytics event projection ingestion lives under `logic-grpc-service/internal/analytics/`. The application ingestor consumes standard domain-event envelopes and writes Analytics-owned projection events/checkpoints through infrastructure adapters; it must not import source-domain services or introduce transitional service-read dependencies.
 
 `logic-grpc-service/internal/platform/servicebinary/` records the target backend service unit registry and deployment convention for extracted binaries. The registry is compile-checked but is not wired into startup or gateway routing by TASK-BDME-026.
+
+`logic-grpc-service/cmd/ai-agent-service` is an unrouted service skeleton for the AI Agent boundary. It is compile-safe only and must not receive gateway traffic or start runtime workers until a scoped extraction/cutover TASK records rollback evidence.
 
 Generated protobuf files are contract artifacts. When proto definitions change, generated code in both Go services must stay aligned with the source `.proto` files.
 
@@ -65,4 +68,4 @@ Generated protobuf files are contract artifacts. When proto definitions change, 
 
 ## Verification
 
-The boundary was verified from gateway route registration, protobuf service definitions, representative logic service/repository files, `logic-grpc-service/service/recruitment_lifecycle_process_manager.go`, Analytics projection ingestion files, `logic-grpc-service/internal/platform/servicebinary/convention.go`, and `logic-grpc-service/internal/platform/events/envelope.go` on 2026-07-11.
+The boundary was verified from gateway route registration, protobuf service definitions, representative logic service/repository files, `logic-grpc-service/service/recruitment_lifecycle_process_manager.go`, Analytics projection ingestion files, AI Agent skeleton files, `logic-grpc-service/internal/platform/servicebinary/convention.go`, and `logic-grpc-service/internal/platform/events/envelope.go` on 2026-07-12.
