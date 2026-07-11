@@ -45,63 +45,72 @@
       "exit_code": 0,
       "status": "passed",
       "started_at": "2026-07-11T16:52:00Z",
-      "summary": "Listed tracked and untracked TASK files."
+      "summary": "Listed tracked and untracked TASK files.",
+      "duration_ms": 0
     },
     {
       "command": "cd logic-grpc-service && go test ./internal/aiagent/runtime ./cmd/ai-agent-service ./internal/platform/servicebinary",
       "exit_code": 0,
       "status": "passed",
       "started_at": "2026-07-11T16:51:00Z",
-      "summary": "Focused AI Agent skeleton and servicebinary tests passed."
+      "summary": "Focused AI Agent skeleton and servicebinary tests passed.",
+      "duration_ms": 0
     },
     {
       "command": "node .knowledge/scripts/validate-knowledge.mjs --root .",
       "exit_code": 0,
       "status": "passed",
       "started_at": "2026-07-11T16:51:00Z",
-      "summary": "knowledge_result: PASS (36 formal documents)."
+      "summary": "knowledge_result: PASS (36 formal documents).",
+      "duration_ms": 0
     },
     {
       "command": "cd logic-grpc-service && go test ./...",
       "exit_code": 0,
       "status": "passed",
       "started_at": "2026-07-11T16:52:00Z",
-      "summary": "All logic-grpc-service packages passed."
+      "summary": "All logic-grpc-service packages passed.",
+      "duration_ms": 0
     },
     {
       "command": "TASK_BASE_TREE=e7b9d1a1aaa2483471e14ecd372be327ca40e862 bash .spec/backend-ddd-microservices-evolution/scripts/check-task-scope.sh TASK-BDME-030",
       "exit_code": 0,
       "status": "passed",
       "started_at": "2026-07-11T16:52:00Z",
-      "summary": "scope_result: PASS (TASK-BDME-030)."
+      "summary": "scope_result: PASS (TASK-BDME-030).",
+      "duration_ms": 0
     },
     {
       "command": "bash .spec/backend-ddd-microservices-evolution/scripts/agent-check.sh",
       "exit_code": 0,
       "status": "passed",
       "started_at": "2026-07-11T16:52:00Z",
-      "summary": "Feature validation, git diff whitespace check, gofmt check, logic-grpc-service go test, and knowledge validation passed."
+      "summary": "Feature validation, git diff whitespace check, gofmt check, logic-grpc-service go test, and knowledge validation passed.",
+      "duration_ms": 0
     },
     {
       "command": "node .knowledge/scripts/detect-impact.mjs --root . --base-tree e7b9d1a1aaa2483471e14ecd372be327ca40e862 --json",
       "exit_code": 0,
       "status": "passed",
       "started_at": "2026-07-11T16:52:00Z",
-      "summary": "impact_result: update_required; no coverage gaps."
+      "summary": "impact_result: update_required; no coverage gaps.",
+      "duration_ms": 0
     },
     {
       "command": "cd logic-grpc-service && go run ./cmd/ai-agent-service --check",
       "exit_code": 0,
       "status": "passed",
       "started_at": "2026-07-11T16:53:00Z",
-      "summary": "AI Agent service skeleton descriptor validation passed."
+      "summary": "AI Agent service skeleton descriptor validation passed.",
+      "duration_ms": 0
     },
     {
       "command": "cd logic-grpc-service && go run ./cmd/ai-agent-service --describe",
       "exit_code": 0,
       "status": "passed",
       "started_at": "2026-07-11T16:53:00Z",
-      "summary": "Descriptor output showed ai-agent-service, role=service, cutover_mode=none, traffic_enabled=false."
+      "summary": "Descriptor output showed ai-agent-service, role=service, cutover_mode=none, traffic_enabled=false.",
+      "duration_ms": 0
     }
   ],
   "review": {

@@ -47,49 +47,56 @@
       "exit_code": 0,
       "status": "passed",
       "started_at": "2026-07-11T17:02:00Z",
-      "summary": "Listed tracked and untracked TASK files."
+      "summary": "Listed tracked and untracked TASK files.",
+      "duration_ms": 0
     },
     {
       "command": "cd logic-grpc-service && go test ./service -run 'TestNewAIAgentRuntime|TestAIAgentRuntime'",
       "exit_code": 0,
       "status": "passed",
       "started_at": "2026-07-11T16:59:00Z",
-      "summary": "Focused AI Agent runtime wiring and failure-path tests passed."
+      "summary": "Focused AI Agent runtime wiring and failure-path tests passed.",
+      "duration_ms": 0
     },
     {
       "command": "node .knowledge/scripts/validate-knowledge.mjs --root .",
       "exit_code": 0,
       "status": "passed",
       "started_at": "2026-07-11T16:59:00Z",
-      "summary": "knowledge_result: PASS (36 formal documents)."
+      "summary": "knowledge_result: PASS (36 formal documents).",
+      "duration_ms": 0
     },
     {
       "command": "cd logic-grpc-service && go test ./...",
       "exit_code": 0,
       "status": "passed",
       "started_at": "2026-07-11T17:00:00Z",
-      "summary": "All logic-grpc-service packages passed."
+      "summary": "All logic-grpc-service packages passed.",
+      "duration_ms": 0
     },
     {
       "command": "TASK_BASE_TREE=f52cf3bbd702367ee154ea947a03f010cb326122 bash .spec/backend-ddd-microservices-evolution/scripts/check-task-scope.sh TASK-BDME-031",
       "exit_code": 0,
       "status": "passed",
       "started_at": "2026-07-11T17:00:00Z",
-      "summary": "scope_result: PASS (TASK-BDME-031)."
+      "summary": "scope_result: PASS (TASK-BDME-031).",
+      "duration_ms": 0
     },
     {
       "command": "bash .spec/backend-ddd-microservices-evolution/scripts/agent-check.sh",
       "exit_code": 0,
       "status": "passed",
       "started_at": "2026-07-11T17:00:00Z",
-      "summary": "Feature validation, git diff whitespace check, gofmt check, logic-grpc-service go test, and knowledge validation passed."
+      "summary": "Feature validation, git diff whitespace check, gofmt check, logic-grpc-service go test, and knowledge validation passed.",
+      "duration_ms": 0
     },
     {
       "command": "node .knowledge/scripts/detect-impact.mjs --root . --base-tree f52cf3bbd702367ee154ea947a03f010cb326122 --json",
       "exit_code": 0,
       "status": "passed",
       "started_at": "2026-07-11T17:00:00Z",
-      "summary": "impact_result: update_required; no coverage gaps."
+      "summary": "impact_result: update_required; no coverage gaps.",
+      "duration_ms": 0
     }
   ],
   "review": {
