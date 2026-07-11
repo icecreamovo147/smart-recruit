@@ -47,8 +47,11 @@ func streamClientInterceptor(token string) grpc.StreamClientInterceptor {
 type Clients struct {
 	conn                   *grpc.ClientConn
 	notificationConn       *grpc.ClientConn
+	aiAgentConn            *grpc.ClientConn
 	NotificationRouteMode  string
 	NotificationTargetAddr string
+	AIAgentRouteMode       string
+	AIAgentTargetAddr      string
 	Auth                   pb.AuthServiceClient
 	Job                    pb.JobServiceClient
 	Candidate              pb.CandidateServiceClient
@@ -69,11 +72,14 @@ type Clients struct {
 	EmbeddingConfig        pb.EmbeddingConfigServiceClient
 	Health                 healthpb.HealthClient
 	NotificationHealth     healthpb.HealthClient
+	AIAgentHealth          healthpb.HealthClient
 }
 
 type ClientOptions struct {
 	NotificationAddr      string
 	NotificationRouteMode string
+	AIAgentAddr           string
+	AIAgentRouteMode      string
 }
 
 // NewClients creates a gRPC client connection with round-robin load balancing.
@@ -83,6 +89,8 @@ func NewClients(addr string) (*Clients, error) {
 	return NewClientsWithOptions(addr, ClientOptions{
 		NotificationAddr:      os.Getenv("NOTIFICATION_GRPC_ADDR"),
 		NotificationRouteMode: os.Getenv("NOTIFICATION_ROUTE_MODE"),
+		AIAgentAddr:           os.Getenv("AI_AGENT_GRPC_ADDR"),
+		AIAgentRouteMode:      os.Getenv("AI_AGENT_ROUTE_MODE"),
 	})
 }
 
@@ -93,6 +101,13 @@ func NewClientsWithOptions(addr string, options ClientOptions) (*Clients, error)
 	}
 	if notificationMode != "logic" && notificationMode != "notification" {
 		return nil, fmt.Errorf("unsupported notification route mode %q", notificationMode)
+	}
+	aiAgentMode := options.AIAgentRouteMode
+	if aiAgentMode == "" {
+		aiAgentMode = "logic"
+	}
+	if aiAgentMode != "logic" && aiAgentMode != "ai-agent" {
+		return nil, fmt.Errorf("unsupported ai agent route mode %q", aiAgentMode)
 	}
 	token := grpcInternalToken()
 	opts := dialOptions(token)
@@ -111,6 +126,8 @@ func NewClientsWithOptions(addr string, options ClientOptions) (*Clients, error)
 	}
 	notificationConn := conn
 	notificationTarget := addr
+	aiAgentConn := conn
+	aiAgentTarget := addr
 	if notificationMode == "notification" {
 		if options.NotificationAddr == "" {
 			_ = conn.Close()
@@ -132,31 +149,56 @@ func NewClientsWithOptions(addr string, options ClientOptions) (*Clients, error)
 		}
 		notificationTarget = options.NotificationAddr
 	}
+	if aiAgentMode == "ai-agent" {
+		if options.AIAgentAddr == "" {
+			closeClientConns(conn, notificationConn)
+			return nil, fmt.Errorf("ai agent grpc addr is required when route mode is ai-agent")
+		}
+		aiAgentConn, err = grpc.NewClient(options.AIAgentAddr,
+			append(opts,
+				grpc.WithConnectParams(grpc.ConnectParams{
+					Backoff: backoff.Config{
+						MaxDelay: 5 * time.Second,
+					},
+					MinConnectTimeout: 3 * time.Second,
+				}),
+			)...,
+		)
+		if err != nil {
+			closeClientConns(conn, notificationConn)
+			return nil, err
+		}
+		aiAgentTarget = options.AIAgentAddr
+	}
 	return &Clients{
 		conn:                   conn,
 		notificationConn:       notificationConn,
+		aiAgentConn:            aiAgentConn,
 		NotificationRouteMode:  notificationMode,
 		NotificationTargetAddr: notificationTarget,
+		AIAgentRouteMode:       aiAgentMode,
+		AIAgentTargetAddr:      aiAgentTarget,
 		Auth:                   pb.NewAuthServiceClient(conn),
 		Job:                    pb.NewJobServiceClient(conn),
 		Candidate:              pb.NewCandidateServiceClient(conn),
 		Application:            pb.NewApplicationServiceClient(conn),
-		AI:                     pb.NewAIServiceClient(conn),
+		AI:                     pb.NewAIServiceClient(aiAgentConn),
 		Notification:           pb.NewNotificationServiceClient(notificationConn),
 		Interview:              pb.NewInterviewServiceClient(conn),
 		Offer:                  pb.NewOfferServiceClient(conn),
 		Admin:                  pb.NewAdminServiceClient(conn),
 		Collaboration:          pb.NewCollaborationServiceClient(conn),
-		LlmConfig:              pb.NewLlmConfigServiceClient(conn),
-		Prompt:                 pb.NewPromptServiceClient(conn),
-		AgentConfig:            pb.NewAgentConfigServiceClient(conn),
-		MCP:                    pb.NewMCPServiceClient(conn),
-		Skill:                  pb.NewSkillServiceClient(conn),
-		AgentSkill:             pb.NewAgentSkillServiceClient(conn),
-		RecruitingIntelligence: pb.NewRecruitingIntelligenceServiceClient(conn),
-		EmbeddingConfig:        pb.NewEmbeddingConfigServiceClient(conn),
+		LlmConfig:              pb.NewLlmConfigServiceClient(aiAgentConn),
+		Prompt:                 pb.NewPromptServiceClient(aiAgentConn),
+		AgentConfig:            pb.NewAgentConfigServiceClient(aiAgentConn),
+		MCP:                    pb.NewMCPServiceClient(aiAgentConn),
+		Skill:                  pb.NewSkillServiceClient(aiAgentConn),
+		AgentSkill:             pb.NewAgentSkillServiceClient(aiAgentConn),
+		RecruitingIntelligence: pb.NewRecruitingIntelligenceServiceClient(aiAgentConn),
+		EmbeddingConfig:        pb.NewEmbeddingConfigServiceClient(aiAgentConn),
 		Health:                 healthpb.NewHealthClient(conn),
 		NotificationHealth:     healthpb.NewHealthClient(notificationConn),
+		AIAgentHealth:          healthpb.NewHealthClient(aiAgentConn),
 	}, nil
 }
 
@@ -208,6 +250,12 @@ func dialOptions(token string) []grpc.DialOption {
 }
 
 func (c *Clients) Close() error {
+	if c.aiAgentConn != nil && c.aiAgentConn != c.conn && c.aiAgentConn != c.notificationConn {
+		if err := c.aiAgentConn.Close(); err != nil {
+			closeClientConns(c.conn, c.notificationConn)
+			return err
+		}
+	}
 	if c.notificationConn != nil && c.notificationConn != c.conn {
 		if err := c.notificationConn.Close(); err != nil {
 			_ = c.conn.Close()
@@ -226,7 +274,26 @@ func (c *Clients) Ready(ctx context.Context) error {
 			return err
 		}
 	}
+	if c.aiAgentConn != nil && c.aiAgentConn != c.conn && c.aiAgentConn != c.notificationConn && c.AIAgentHealth != nil {
+		if err := checkHealth(ctx, "ai-agent", c.AIAgentHealth); err != nil {
+			return err
+		}
+	}
 	return nil
+}
+
+func closeClientConns(conn *grpc.ClientConn, extra ...*grpc.ClientConn) {
+	seen := map[*grpc.ClientConn]struct{}{}
+	for _, candidate := range append([]*grpc.ClientConn{conn}, extra...) {
+		if candidate == nil {
+			continue
+		}
+		if _, ok := seen[candidate]; ok {
+			continue
+		}
+		seen[candidate] = struct{}{}
+		_ = candidate.Close()
+	}
 }
 
 func checkHealth(ctx context.Context, target string, client healthpb.HealthClient) error {

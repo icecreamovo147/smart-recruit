@@ -73,6 +73,66 @@ func TestLoadNotificationRouteDefaultsToLogic(t *testing.T) {
 	}
 }
 
+func TestLoadAIAgentRouteDefaultsToLogic(t *testing.T) {
+	t.Setenv("ALLOW_INSECURE_DEV_CONFIG", "false")
+	t.Setenv("JWT_SECRET", "test-secret-at-least-32-chars-long")
+	t.Setenv("GRPC_INTERNAL_TOKEN", strings.Repeat("t", 32))
+
+	cfg, err := Load()
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+	if cfg.AIAgentRouteMode != "logic" {
+		t.Fatalf("AIAgentRouteMode = %q, want logic", cfg.AIAgentRouteMode)
+	}
+	if cfg.AIAgentGRPCAddr != "" {
+		t.Fatalf("AIAgentGRPCAddr = %q, want empty", cfg.AIAgentGRPCAddr)
+	}
+}
+
+func TestLoadAIAgentRouteToExtractedService(t *testing.T) {
+	t.Setenv("ALLOW_INSECURE_DEV_CONFIG", "false")
+	t.Setenv("JWT_SECRET", "test-secret-at-least-32-chars-long")
+	t.Setenv("GRPC_INTERNAL_TOKEN", strings.Repeat("t", 32))
+	t.Setenv("AI_AGENT_ROUTE_MODE", "ai-agent")
+	t.Setenv("AI_AGENT_GRPC_ADDR", "dns:///ai-agent-service:50051")
+
+	cfg, err := Load()
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+	if cfg.AIAgentRouteMode != "ai-agent" {
+		t.Fatalf("AIAgentRouteMode = %q, want ai-agent", cfg.AIAgentRouteMode)
+	}
+	if cfg.AIAgentGRPCAddr != "dns:///ai-agent-service:50051" {
+		t.Fatalf("AIAgentGRPCAddr = %q", cfg.AIAgentGRPCAddr)
+	}
+}
+
+func TestLoadAIAgentRouteRequiresAddress(t *testing.T) {
+	t.Setenv("ALLOW_INSECURE_DEV_CONFIG", "false")
+	t.Setenv("JWT_SECRET", "test-secret-at-least-32-chars-long")
+	t.Setenv("GRPC_INTERNAL_TOKEN", strings.Repeat("t", 32))
+	t.Setenv("AI_AGENT_ROUTE_MODE", "ai-agent")
+
+	_, err := Load()
+	if err == nil || !strings.Contains(err.Error(), "AI_AGENT_GRPC_ADDR") {
+		t.Fatalf("expected ai agent addr error, got %v", err)
+	}
+}
+
+func TestLoadRejectsInvalidAIAgentRouteMode(t *testing.T) {
+	t.Setenv("ALLOW_INSECURE_DEV_CONFIG", "false")
+	t.Setenv("JWT_SECRET", "test-secret-at-least-32-chars-long")
+	t.Setenv("GRPC_INTERNAL_TOKEN", strings.Repeat("t", 32))
+	t.Setenv("AI_AGENT_ROUTE_MODE", "invalid")
+
+	_, err := Load()
+	if err == nil || !strings.Contains(err.Error(), "AI_AGENT_ROUTE_MODE") {
+		t.Fatalf("expected ai agent route mode error, got %v", err)
+	}
+}
+
 func TestLoadNotificationRouteToExtractedService(t *testing.T) {
 	t.Setenv("ALLOW_INSECURE_DEV_CONFIG", "false")
 	t.Setenv("JWT_SECRET", "test-secret-at-least-32-chars-long")

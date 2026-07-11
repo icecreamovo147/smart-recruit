@@ -13,6 +13,8 @@ type Config struct {
 	GRPCAddr              string
 	NotificationGRPCAddr  string
 	NotificationRouteMode string
+	AIAgentGRPCAddr       string
+	AIAgentRouteMode      string
 	JWTSecret             string
 	AuthCookieName        string
 	CandidateCookie       string
@@ -85,11 +87,18 @@ func Load() (Config, error) {
 	if err := validateNotificationRoute(notificationRouteMode, notificationGRPCAddr); err != nil {
 		return Config{}, err
 	}
+	aiAgentRouteMode := env("AI_AGENT_ROUTE_MODE", "logic")
+	aiAgentGRPCAddr := env("AI_AGENT_GRPC_ADDR", "")
+	if err := validateAIAgentRoute(aiAgentRouteMode, aiAgentGRPCAddr); err != nil {
+		return Config{}, err
+	}
 	return Config{
 		HTTPPort:              env("HTTP_PORT", "8080"),
 		GRPCAddr:              env("GRPC_ADDR", "127.0.0.1:50051"),
 		NotificationGRPCAddr:  notificationGRPCAddr,
 		NotificationRouteMode: notificationRouteMode,
+		AIAgentGRPCAddr:       aiAgentGRPCAddr,
+		AIAgentRouteMode:      aiAgentRouteMode,
 		JWTSecret:             secret,
 		AuthCookieName:        env("AUTH_COOKIE_NAME", "recruitment_token"),
 		CandidateCookie:       env("CANDIDATE_AUTH_COOKIE_NAME", "recruitment_candidate_token"),
@@ -137,6 +146,20 @@ func Load() (Config, error) {
 			GapMedium:        envFloat64("RANKING_GAP_MEDIUM"),
 		},
 	}, nil
+}
+
+func validateAIAgentRoute(mode, addr string) error {
+	switch mode {
+	case "", "logic":
+		return nil
+	case "ai-agent":
+		if strings.TrimSpace(addr) == "" {
+			return fmt.Errorf("AI_AGENT_GRPC_ADDR is required when AI_AGENT_ROUTE_MODE=ai-agent")
+		}
+		return nil
+	default:
+		return fmt.Errorf("AI_AGENT_ROUTE_MODE must be logic or ai-agent")
+	}
 }
 
 func validateNotificationRoute(mode, addr string) error {

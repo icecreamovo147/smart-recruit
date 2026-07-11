@@ -129,6 +129,8 @@ services:
       GRPC_ADDR: dns:///logic-grpc-service:50051
       NOTIFICATION_ROUTE_MODE: ${NOTIFICATION_ROUTE_MODE:-logic}
       NOTIFICATION_GRPC_ADDR: ${NOTIFICATION_GRPC_ADDR:-}
+      AI_AGENT_ROUTE_MODE: ${AI_AGENT_ROUTE_MODE:-logic}
+      AI_AGENT_GRPC_ADDR: ${AI_AGENT_GRPC_ADDR:-}
       JWT_SECRET: ${JWT_SECRET:-dev-jwt-secret-at-least-32-chars-long!!}
       ALLOW_INSECURE_DEV_CONFIG: "true"
       GRPC_INTERNAL_AUTH: "required"

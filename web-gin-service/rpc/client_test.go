@@ -49,6 +49,45 @@ func TestNewClientsRoutesNotificationToExtractedService(t *testing.T) {
 	}
 }
 
+func TestNewClientsRoutesAIAgentToExtractedService(t *testing.T) {
+	clients, err := NewClientsWithOptions("passthrough:///logic:50051", ClientOptions{
+		AIAgentRouteMode: "ai-agent",
+		AIAgentAddr:      "passthrough:///ai-agent:50051",
+	})
+	if err != nil {
+		t.Fatalf("NewClientsWithOptions: %v", err)
+	}
+	defer clients.Close()
+
+	if clients.AIAgentRouteMode != "ai-agent" {
+		t.Fatalf("AIAgentRouteMode = %q, want ai-agent", clients.AIAgentRouteMode)
+	}
+	if clients.AIAgentTargetAddr != "passthrough:///ai-agent:50051" {
+		t.Fatalf("AIAgentTargetAddr = %q", clients.AIAgentTargetAddr)
+	}
+	if clients.aiAgentConn == clients.conn {
+		t.Fatal("AI Agent cutover should use a separate gRPC connection")
+	}
+}
+
+func TestNewClientsAIAgentCutoverRequiresAddress(t *testing.T) {
+	_, err := NewClientsWithOptions("passthrough:///logic:50051", ClientOptions{
+		AIAgentRouteMode: "ai-agent",
+	})
+	if err == nil {
+		t.Fatal("expected missing ai agent address error")
+	}
+}
+
+func TestNewClientsRejectsInvalidAIAgentRouteMode(t *testing.T) {
+	_, err := NewClientsWithOptions("passthrough:///logic:50051", ClientOptions{
+		AIAgentRouteMode: "invalid",
+	})
+	if err == nil {
+		t.Fatal("expected invalid ai agent route mode error")
+	}
+}
+
 func TestNewClientsNotificationCutoverRequiresAddress(t *testing.T) {
 	_, err := NewClientsWithOptions("passthrough:///logic:50051", ClientOptions{
 		NotificationRouteMode: "notification",
@@ -92,6 +131,20 @@ func TestReadySkipsNotificationHealthWhenRouteUsesLogicConnection(t *testing.T) 
 
 	if err := clients.Ready(context.Background()); err != nil {
 		t.Fatalf("Ready: %v", err)
+	}
+}
+
+func TestReadyChecksAIAgentHealthWhenCutoverUsesSeparateConnection(t *testing.T) {
+	clients := &Clients{
+		conn:          &grpc.ClientConn{},
+		aiAgentConn:   &grpc.ClientConn{},
+		Health:        fakeHealthClient{status: healthpb.HealthCheckResponse_SERVING},
+		AIAgentHealth: fakeHealthClient{err: errors.New("ai agent down")},
+	}
+
+	err := clients.Ready(context.Background())
+	if err == nil || !strings.Contains(err.Error(), "ai-agent grpc health check failed") {
+		t.Fatalf("expected ai agent health failure, got %v", err)
 	}
 }
 

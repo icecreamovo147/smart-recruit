@@ -45,6 +45,8 @@ Agent runtime behavior belongs in `logic-grpc-service/service/` and `logic-grpc-
 
 `service.AIAgentRuntime` is the current AI Agent runtime composition boundary. It wires HR AI service, candidate AI service, LLM provider fallback/config surface, embedding service, embedding workload consumer, durable agent-run consumer, runtime policy, and current runtime name while keeping current monolith startup behavior.
 
+`web-gin-service/rpc/client.go` keeps AI Agent-owned generated clients on the main logic gRPC connection by default and can route them to `AI_AGENT_GRPC_ADDR` when `AI_AGENT_ROUTE_MODE=ai-agent`.
+
 ## Runtime Inputs
 
 - Session and current message state from chat repositories.
@@ -76,6 +78,7 @@ Runtime diagnostics must avoid logging raw system prompts, resume text, or tool 
 - Changes to Agent Skill selection or semantic retrieval should also review `semantic-retrieval` and domain knowledge for Skill and Memory.
 - AI Agent service skeleton changes should preserve the unrouted descriptor until a scoped runtime extraction or gateway cutover TASK adds shadow, dual-run, or routed behavior with rollback evidence.
 - AI Agent runtime extraction changes should keep `service.NewServices`, `logic-grpc-service/main.go`, consumer start order, Inbox idempotency, provider fallback behavior, and existing queue/routing-key behavior compatible unless the current TASK is an approved cutover.
+- AI Agent gateway cutover changes should preserve public HTTP/protobuf behavior and keep a configuration-only rollback path documented in `docs/backend-ddd-microservices-evolution-ai-agent-gateway-cutover.md`.
 
 ## Verification
 
