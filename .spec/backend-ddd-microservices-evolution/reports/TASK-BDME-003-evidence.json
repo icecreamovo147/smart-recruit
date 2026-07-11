@@ -1,0 +1,154 @@
+{
+  "schemaVersion": 1,
+  "feature_name": "backend-ddd-microservices-evolution",
+  "task_id": "TASK-BDME-003",
+  "base_sha": "fa6e67228725aec11d8ced4ea17ff7837ae4e683",
+  "base_tree": "948e4f750c240c352e0c38401586ab361eb28796",
+  "head_sha": "fa6e67228725aec11d8ced4ea17ff7837ae4e683",
+  "changed_files": [
+    ".spec/backend-ddd-microservices-evolution/pipeline-state.json",
+    ".spec/backend-ddd-microservices-evolution/reports/TASK-BDME-003-report.md",
+    ".spec/backend-ddd-microservices-evolution/reports/TASK-BDME-003-evidence.json",
+    "docs/backend-ddd-microservices-evolution-http-grpc-contract-baseline.md",
+    "web-gin-service/recruitment/pb/proto_sync_test.go",
+    "web-gin-service/router/contract_baseline_test.go"
+  ],
+  "scope": {
+    "status": "passed",
+    "base_tree": "948e4f750c240c352e0c38401586ab361eb28796",
+    "out_of_scope": [],
+    "forbidden": [],
+    "allowed": [
+      ".spec/backend-ddd-microservices-evolution/pipeline-state.json",
+      ".spec/backend-ddd-microservices-evolution/reports/TASK-BDME-003-report.md",
+      ".spec/backend-ddd-microservices-evolution/reports/TASK-BDME-003-evidence.json",
+      "docs/backend-ddd-microservices-evolution-http-grpc-contract-baseline.md",
+      "web-gin-service/recruitment/pb/proto_sync_test.go",
+      "web-gin-service/router/contract_baseline_test.go"
+    ]
+  },
+  "checks": [
+    {
+      "command": "git diff --name-only && git ls-files --others --exclude-standard",
+      "exit_code": 0,
+      "status": "passed",
+      "started_at": "2026-07-11T13:44:30Z",
+      "duration_ms": 50,
+      "summary": "Listed changed and untracked TASK files."
+    },
+    {
+      "command": "TASK_BASE_TREE=948e4f750c240c352e0c38401586ab361eb28796 bash .spec/backend-ddd-microservices-evolution/scripts/check-task-scope.sh TASK-BDME-003",
+      "exit_code": 0,
+      "status": "passed",
+      "started_at": "2026-07-11T13:44:30Z",
+      "duration_ms": 350,
+      "summary": "scope_result: PASS (TASK-BDME-003)."
+    },
+    {
+      "command": "bash .spec/backend-ddd-microservices-evolution/scripts/agent-check.sh",
+      "exit_code": 0,
+      "status": "passed",
+      "started_at": "2026-07-11T13:44:30Z",
+      "duration_ms": 2734,
+      "summary": "Feature validation, whitespace check, web-gin-service gofmt, and web-gin-service go test ./... passed."
+    },
+    {
+      "command": "cd logic-grpc-service && go test ./...",
+      "exit_code": 0,
+      "status": "passed",
+      "started_at": "2026-07-11T13:44:30Z",
+      "duration_ms": 3972,
+      "summary": "logic-grpc-service full test suite passed."
+    },
+    {
+      "command": "cd web-gin-service && go test ./...",
+      "exit_code": 0,
+      "status": "passed",
+      "started_at": "2026-07-11T13:46:55Z",
+      "duration_ms": 2023,
+      "summary": "web-gin-service full test suite passed, including route contract baseline and generated proto copy synchronization tests."
+    },
+    {
+      "command": "node .knowledge/scripts/detect-impact.mjs --root . --base-tree 948e4f750c240c352e0c38401586ab361eb28796",
+      "exit_code": 0,
+      "status": "passed",
+      "started_at": "2026-07-11T13:46:55Z",
+      "duration_ms": 521,
+      "summary": "impact_result: update_required; matched API/gateway, service-boundary, proto synchronization, local-development, and system overview routes."
+    }
+  ],
+  "review": {
+    "type": "self-review",
+    "round": 1,
+    "verdict": "通过",
+    "findings": []
+  },
+  "human_confirmation": {
+    "required": false,
+    "confirmed": true,
+    "confirmed_by": "not_required",
+    "confirmed_at": "2026-07-11T13:41:09Z",
+    "confirmation_text": "TASK-BDME-003 does not require human confirmation."
+  },
+  "exceptions": [],
+  "skipped_checks": [
+    {
+      "command": "node .knowledge/scripts/validate-knowledge.mjs",
+      "reason": ".knowledge files were reviewed but not changed by TASK-BDME-003."
+    }
+  ],
+  "knowledgeImpact": {
+    "result": "update_required",
+    "triggeredBy": [
+      "docs/backend-ddd-microservices-evolution-http-grpc-contract-baseline.md",
+      "web-gin-service/recruitment/pb/proto_sync_test.go",
+      "web-gin-service/router/contract_baseline_test.go"
+    ],
+    "reviewResults": [
+      {
+        "document": ".knowledge/architecture/system-overview.md",
+        "verdict": "UNCHANGED",
+        "evidence": [
+          "Reviewed system topology impact; this TASK added route/proto baseline tests and documentation without changing runtime routing, services, or data flow."
+        ]
+      },
+      {
+        "document": ".knowledge/architecture/service-boundaries.md",
+        "verdict": "UNCHANGED",
+        "evidence": [
+          "Reviewed gateway-to-logic boundary; generated proto copy synchronization test documents current shared gRPC contract without changing ownership."
+        ]
+      },
+      {
+        "document": ".knowledge/architecture/api-contracts-and-gateway.md",
+        "verdict": "UNCHANGED",
+        "evidence": [
+          "Reviewed API/gateway contract knowledge; new baseline doc and route-table test reinforce existing contract descriptions without changing HTTP behavior."
+        ]
+      },
+      {
+        "document": ".knowledge/runbooks/local-development.md",
+        "verdict": "UNCHANGED",
+        "evidence": [
+          "Reviewed local test commands; no startup workflow changed, and Go test commands remain current."
+        ]
+      },
+      {
+        "document": ".knowledge/runbooks/protobuf-and-migration-change.md",
+        "verdict": "UNCHANGED",
+        "evidence": [
+          "Reviewed proto change runbook; no proto source or generated code was changed, and TASK-BDME-003 documents the source-to-generated regeneration gap."
+        ]
+      },
+      {
+        "document": ".knowledge/pitfalls/protobuf-synchronization.md",
+        "verdict": "UNCHANGED",
+        "evidence": [
+          "Reviewed proto synchronization pitfall; new generated-copy equality test directly addresses the current gateway/backend drift risk."
+        ]
+      }
+    ],
+    "coverageGap": false,
+    "validationExitCode": 0
+  }
+}
