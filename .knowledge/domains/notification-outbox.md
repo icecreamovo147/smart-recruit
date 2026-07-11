@@ -19,6 +19,7 @@ applies_to:
   - logic-grpc-service/service/inbox_consumer.go
   - logic-grpc-service/internal/platform/events/envelope.go
   - logic-grpc-service/internal/notification/runtime/skeleton.go
+  - logic-grpc-service/internal/platform/workers/runtime/skeleton.go
   - logic-grpc-service/repository/outbox_repo.go
   - logic-grpc-service/repository/inbox_repo.go
   - logic-grpc-service/repository/notification_repo.go
@@ -63,6 +64,7 @@ Notifications are produced by recruitment workflows and delivered through databa
 - Analytics projection ingestion consumes standard domain-event envelopes into Analytics-owned projection events and checkpoints; it is not wired as a production MQ consumer in the current task.
 - `cmd/notification-service` is a compile-safe, unrouted Notification service skeleton. Its runtime descriptor has `TrafficEnabled=false`, `CutoverMode=none`, no network listener, and no notification consumer startup.
 - `service.NotificationRuntime` is the current Notification runtime composition boundary. It wires Notification persistence/unread behavior, async write worker, outbox dispatch, notification consumer, and email consumer while keeping current monolith startup behavior.
+- `cmd/worker-services` is a compile-safe worker decomposition skeleton. It names future outbox, notification, email, resume, embedding, agent-run, and analytics-projection workloads, but does not start consumers; `logic-grpc-service --worker-only` remains the active worker path.
 - `OutboxPublisher` keeps legacy top-level payload fields for existing consumers while also writing the standard envelope fields and nested `payload` object.
 - Notification-producing application, interview, and offer workflows use source-domain event types such as `application.notification_requested`, `interview.email_requested`, and `offer.notification_requested` while preserving MQ routing keys such as `notification.create` and `email.send` for existing consumers.
 - MQ consumers call the shared Inbox helper from their `Start` entrypoints. Direct unit tests that invoke `handle` bypass the helper intentionally and test only business handling.
@@ -90,4 +92,4 @@ Notifications are produced by recruitment workflows and delivered through databa
 
 ## Verification
 
-Verified against application, interview, and offer notification-producing workflows, Analytics projection ingestion, Notification service skeleton/runtime, Notification gateway cutover controls, notification service, notification worker, outbox publisher, shared Inbox consumer helper, outbox/inbox repositories, event replay/dead-letter runbook, domain-event envelope contract, notification handler, migrations, `db.sql`, and model definitions on 2026-07-12.
+Verified against application, interview, and offer notification-producing workflows, Analytics projection ingestion, Notification service skeleton/runtime, Worker Services descriptor, Notification gateway cutover controls, notification service, notification worker, outbox publisher, shared Inbox consumer helper, outbox/inbox repositories, event replay/dead-letter runbook, domain-event envelope contract, notification handler, migrations, `db.sql`, and model definitions on 2026-07-12.

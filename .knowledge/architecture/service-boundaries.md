@@ -25,6 +25,7 @@ source_refs:
   - logic-grpc-service/internal/analytics/runtime/skeleton.go
   - logic-grpc-service/internal/analytics/runtime/runtime.go
   - logic-grpc-service/internal/platform/servicebinary/convention.go
+  - logic-grpc-service/internal/platform/workers/runtime/skeleton.go
   - logic-grpc-service/internal/identity/runtime/skeleton.go
   - logic-grpc-service/internal/identity/runtime/runtime.go
   - logic-grpc-service/internal/aiagent/runtime/skeleton.go
@@ -54,6 +55,8 @@ The logic gRPC service is the business boundary. It owns domain services, reposi
 Analytics event projection ingestion lives under `logic-grpc-service/internal/analytics/`. The application ingestor consumes standard domain-event envelopes and writes Analytics-owned projection events/checkpoints through infrastructure adapters; it must not import source-domain services or introduce transitional service-read dependencies.
 
 `logic-grpc-service/internal/platform/servicebinary/` records the target backend service unit registry and deployment convention for extracted binaries. The registry is compile-checked but is not wired into startup or gateway routing by TASK-BDME-026.
+
+`logic-grpc-service/cmd/worker-services` is a service skeleton for decomposed worker workloads. It names outbox, notification, email, resume parsing, embedding, agent-run, and analytics-projection workloads for future independent scaling, but default execution does not start consumers and the active worker deployment remains `logic-grpc-service --worker-only`.
 
 `logic-grpc-service/cmd/identity-service` is an unrouted service runtime for the Identity boundary. It can explicitly register AuthService plus the Identity-owned AdminService subset for validation, but it must not receive gateway traffic until a scoped cutover TASK records compatibility and rollback evidence.
 
@@ -91,4 +94,4 @@ Generated protobuf files are contract artifacts. When proto definitions change, 
 
 ## Verification
 
-The boundary was verified from gateway route registration and route-mode cutover controls, protobuf service definitions, representative logic service/repository files, `logic-grpc-service/service/recruitment_lifecycle_process_manager.go`, Analytics projection ingestion/runtime files, Identity, Recruitment, Interview, Offer, and AI Agent skeleton/runtime files, `logic-grpc-service/internal/platform/servicebinary/convention.go`, and `logic-grpc-service/internal/platform/events/envelope.go` on 2026-07-12.
+The boundary was verified from gateway route registration and route-mode cutover controls, protobuf service definitions, representative logic service/repository files, `logic-grpc-service/service/recruitment_lifecycle_process_manager.go`, Analytics projection ingestion/runtime files, Worker Services descriptor, Identity, Recruitment, Interview, Offer, and AI Agent skeleton/runtime files, `logic-grpc-service/internal/platform/servicebinary/convention.go`, and `logic-grpc-service/internal/platform/events/envelope.go` on 2026-07-12.

@@ -83,6 +83,7 @@ Current compiled skeletons:
 - `interview-service`: compile-safe descriptor and command only; unrouted by default; gateway routing can be explicitly enabled with `INTERVIEW_ROUTE_MODE=interview` and rolled back with `INTERVIEW_ROUTE_MODE=logic`.
 - `offer-service`: compile-safe descriptor and command only; unrouted by default; gateway routing can be explicitly enabled with `OFFER_ROUTE_MODE=offer` and rolled back with `OFFER_ROUTE_MODE=logic`.
 - `analytics-service`: compile-safe descriptor and command only; unrouted by default; extracted reporting APIs must use Analytics projection/read-model ports rather than service-read adapters.
+- `worker-services`: compile-safe descriptor and command only; current active worker remains `logic-grpc-service --worker-only` until a scoped worker cutover moves queue consumption.
 
 ## Cutover Guardrails
 
