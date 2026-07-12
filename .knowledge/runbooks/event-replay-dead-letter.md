@@ -13,14 +13,14 @@ tags:
   - dead-letter
   - retention
 applies_to:
-  - docs/backend-ddd-microservices-evolution-event-replay-dead-letter-runbook.md
+  - .spec/backend-ddd-microservices-evolution/docs/backend-ddd-microservices-evolution-event-replay-dead-letter-runbook.md
   - scripts/event-replay-dead-letter.sh
   - logic-grpc-service/repository/outbox_repo.go
   - logic-grpc-service/repository/inbox_repo.go
   - logic-grpc-service/model/model.go
   - db.sql
 source_refs:
-  - docs/backend-ddd-microservices-evolution-event-replay-dead-letter-runbook.md
+  - .spec/backend-ddd-microservices-evolution/docs/backend-ddd-microservices-evolution-event-replay-dead-letter-runbook.md
   - scripts/event-replay-dead-letter.sh
   - logic-grpc-service/repository/outbox_repo.go
   - logic-grpc-service/repository/inbox_repo.go
@@ -32,7 +32,7 @@ review_after: 2026-10-09
 
 # Event Replay And Dead Letter Runbook
 
-Use this runbook when a TASK or incident touches `event_outbox`, `event_inbox`, event replay, dead-letter inspection, consumer repair, or retention cleanup. The detailed operator checklist lives in `docs/backend-ddd-microservices-evolution-event-replay-dead-letter-runbook.md`; this knowledge document exists to route future Agents to the current source-backed procedure.
+Use this runbook when a TASK or incident touches `event_outbox`, `event_inbox`, event replay, dead-letter inspection, consumer repair, or retention cleanup. The detailed operator checklist lives in `.spec/backend-ddd-microservices-evolution/docs/backend-ddd-microservices-evolution-event-replay-dead-letter-runbook.md`; this knowledge document exists to route future Agents to the current source-backed procedure.
 
 ## Current Contract
 

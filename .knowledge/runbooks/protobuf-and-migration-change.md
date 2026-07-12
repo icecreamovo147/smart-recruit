@@ -27,8 +27,8 @@ source_refs:
   - logic-grpc-service/migration/mysql_consistency_test.go
   - logic-grpc-service/model/model.go
   - logic-grpc-service/repository/analytics_projection_repo.go
-  - docs/backend-ddd-microservices-evolution-table-ownership-manifest.json
-  - docs/backend-ddd-microservices-evolution-schema-separation-plan.md
+  - .spec/backend-ddd-microservices-evolution/docs/backend-ddd-microservices-evolution-table-ownership-manifest.json
+  - .spec/backend-ddd-microservices-evolution/docs/backend-ddd-microservices-evolution-schema-separation-plan.md
   - scripts/check-table-ownership.mjs
 last_verified: 2026-07-12
 review_after: 2026-10-08
@@ -52,9 +52,9 @@ Use this runbook when a TASK changes public contracts or persistence structure.
 2. Update GORM models only when the runtime model needs the changed columns or tables.
 3. Update repositories and services that own the new persistence behavior.
 4. Keep `db.sql` aligned when it serves as current schema reference.
-5. Update `docs/backend-ddd-microservices-evolution-table-ownership-manifest.json` when a table is added, removed, renamed, or changes owner/readers/writers.
+5. Update `.spec/backend-ddd-microservices-evolution/docs/backend-ddd-microservices-evolution-table-ownership-manifest.json` when a table is added, removed, renamed, or changes owner/readers/writers.
 6. Run `node scripts/check-table-ownership.mjs` to verify every `db.sql` table has owner, readers, writers, and explicit transitional shared access where needed.
-7. For schema or physical database separation, follow `docs/backend-ddd-microservices-evolution-schema-separation-plan.md` and record expand-contract, rollback, reconciliation, RTO, and RPO evidence.
+7. For schema or physical database separation, follow `.spec/backend-ddd-microservices-evolution/docs/backend-ddd-microservices-evolution-schema-separation-plan.md` and record expand-contract, rollback, reconciliation, RTO, and RPO evidence.
 8. Run migration runner tests and MySQL consistency checks when available.
 9. For transactional outbox changes, also run outbox repository and publisher tests to verify retry/dead-letter, retention, and payload compatibility.
 10. For Inbox changes, run Inbox repository and consumer helper tests to verify duplicate skips, failed reclaims, dead-letter skips, retention, and payload identity extraction.

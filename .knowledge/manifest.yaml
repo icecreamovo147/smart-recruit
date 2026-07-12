@@ -80,7 +80,7 @@ routes:
       - logic-grpc-service/migrations/000012_add_rbac_schema.sql
       - logic-grpc-service/migrations/000013_seed_rbac_catalog.sql
       - logic-grpc-service/migrations/000021_add_ai_usage_auth_context.sql
-      - docs/backend-ddd-microservices-evolution-internal-service-security.md
+      - .spec/backend-ddd-microservices-evolution/docs/backend-ddd-microservices-evolution-internal-service-security.md
       - hr-frontend/src/router/index.ts
       - hr-frontend/src/stores/auth.ts
       - hr-frontend/src/views/hr/StaffUserManageView.vue
@@ -316,10 +316,10 @@ routes:
       - logic-grpc-service/migrations/**
       - logic-grpc-service/model/**
       - logic-grpc-service/repository/**
-      - docs/backend-ddd-microservices-evolution-table-ownership-manifest.json
-      - docs/backend-ddd-microservices-evolution-table-ownership.md
-      - docs/backend-ddd-microservices-evolution-schema-separation-plan.md
-      - docs/backend-ddd-microservices-evolution-internal-service-security.md
+      - .spec/backend-ddd-microservices-evolution/docs/backend-ddd-microservices-evolution-table-ownership-manifest.json
+      - .spec/backend-ddd-microservices-evolution/docs/backend-ddd-microservices-evolution-table-ownership.md
+      - .spec/backend-ddd-microservices-evolution/docs/backend-ddd-microservices-evolution-schema-separation-plan.md
+      - .spec/backend-ddd-microservices-evolution/docs/backend-ddd-microservices-evolution-internal-service-security.md
       - scripts/check-table-ownership.mjs
       - db.sql
     documents:
@@ -337,11 +337,11 @@ routes:
       - start-dev.sh
       - stop-dev.sh
       - docker/**
-      - docs/backend-ddd-microservices-evolution-internal-service-security.md
-      - docs/backend-ddd-microservices-evolution-load-test-harness.md
-      - docs/backend-ddd-microservices-evolution-load-test-initial-evidence.json
-      - docs/backend-ddd-microservices-evolution-final-readiness-review.md
-      - docs/backend-ddd-microservices-evolution-final-readiness-audit.json
+      - .spec/backend-ddd-microservices-evolution/docs/backend-ddd-microservices-evolution-internal-service-security.md
+      - .spec/backend-ddd-microservices-evolution/docs/backend-ddd-microservices-evolution-load-test-harness.md
+      - .spec/backend-ddd-microservices-evolution/docs/backend-ddd-microservices-evolution-load-test-initial-evidence.json
+      - .spec/backend-ddd-microservices-evolution/docs/backend-ddd-microservices-evolution-final-readiness-review.md
+      - .spec/backend-ddd-microservices-evolution/docs/backend-ddd-microservices-evolution-final-readiness-audit.json
       - scripts/backend-load-test.mjs
       - scripts/backend-final-readiness-audit.mjs
     documents:
@@ -353,26 +353,26 @@ routes:
       - configuration-changed
 
   - match:
-      - docs/backend-ddd-microservices-evolution-service-binary-convention.md
-      - docs/backend-ddd-microservices-evolution-notification-service-skeleton.md
-      - docs/backend-ddd-microservices-evolution-notification-runtime-extraction.md
-      - docs/backend-ddd-microservices-evolution-notification-gateway-cutover.md
-      - docs/backend-ddd-microservices-evolution-ai-agent-service-skeleton.md
-      - docs/backend-ddd-microservices-evolution-ai-agent-runtime-extraction.md
-      - docs/backend-ddd-microservices-evolution-ai-agent-gateway-cutover.md
-      - docs/backend-ddd-microservices-evolution-identity-service-skeleton.md
-      - docs/backend-ddd-microservices-evolution-identity-api-extraction.md
-      - docs/backend-ddd-microservices-evolution-identity-gateway-cutover.md
-      - docs/backend-ddd-microservices-evolution-recruitment-service-skeleton.md
-      - docs/backend-ddd-microservices-evolution-recruitment-api-extraction.md
-      - docs/backend-ddd-microservices-evolution-recruitment-gateway-cutover.md
-      - docs/backend-ddd-microservices-evolution-interview-service-api-extraction.md
-      - docs/backend-ddd-microservices-evolution-interview-gateway-cutover.md
-      - docs/backend-ddd-microservices-evolution-offer-service-api-extraction.md
-      - docs/backend-ddd-microservices-evolution-offer-gateway-cutover.md
-      - docs/backend-ddd-microservices-evolution-analytics-service-extraction.md
-      - docs/backend-ddd-microservices-evolution-worker-service-decomposition.md
-      - docs/backend-ddd-microservices-evolution-deployment-readiness-baseline.md
+      - .spec/backend-ddd-microservices-evolution/docs/backend-ddd-microservices-evolution-service-binary-convention.md
+      - .spec/backend-ddd-microservices-evolution/docs/backend-ddd-microservices-evolution-notification-service-skeleton.md
+      - .spec/backend-ddd-microservices-evolution/docs/backend-ddd-microservices-evolution-notification-runtime-extraction.md
+      - .spec/backend-ddd-microservices-evolution/docs/backend-ddd-microservices-evolution-notification-gateway-cutover.md
+      - .spec/backend-ddd-microservices-evolution/docs/backend-ddd-microservices-evolution-ai-agent-service-skeleton.md
+      - .spec/backend-ddd-microservices-evolution/docs/backend-ddd-microservices-evolution-ai-agent-runtime-extraction.md
+      - .spec/backend-ddd-microservices-evolution/docs/backend-ddd-microservices-evolution-ai-agent-gateway-cutover.md
+      - .spec/backend-ddd-microservices-evolution/docs/backend-ddd-microservices-evolution-identity-service-skeleton.md
+      - .spec/backend-ddd-microservices-evolution/docs/backend-ddd-microservices-evolution-identity-api-extraction.md
+      - .spec/backend-ddd-microservices-evolution/docs/backend-ddd-microservices-evolution-identity-gateway-cutover.md
+      - .spec/backend-ddd-microservices-evolution/docs/backend-ddd-microservices-evolution-recruitment-service-skeleton.md
+      - .spec/backend-ddd-microservices-evolution/docs/backend-ddd-microservices-evolution-recruitment-api-extraction.md
+      - .spec/backend-ddd-microservices-evolution/docs/backend-ddd-microservices-evolution-recruitment-gateway-cutover.md
+      - .spec/backend-ddd-microservices-evolution/docs/backend-ddd-microservices-evolution-interview-service-api-extraction.md
+      - .spec/backend-ddd-microservices-evolution/docs/backend-ddd-microservices-evolution-interview-gateway-cutover.md
+      - .spec/backend-ddd-microservices-evolution/docs/backend-ddd-microservices-evolution-offer-service-api-extraction.md
+      - .spec/backend-ddd-microservices-evolution/docs/backend-ddd-microservices-evolution-offer-gateway-cutover.md
+      - .spec/backend-ddd-microservices-evolution/docs/backend-ddd-microservices-evolution-analytics-service-extraction.md
+      - .spec/backend-ddd-microservices-evolution/docs/backend-ddd-microservices-evolution-worker-service-decomposition.md
+      - .spec/backend-ddd-microservices-evolution/docs/backend-ddd-microservices-evolution-deployment-readiness-baseline.md
       - deploy/k8s/README-service-binaries.md
       - deploy/k8s/configmap.yaml
       - logic-grpc-service/internal/platform/servicebinary/**
@@ -411,7 +411,7 @@ routes:
       - configuration-changed
 
   - match:
-      - docs/backend-ddd-microservices-evolution-event-replay-dead-letter-runbook.md
+      - .spec/backend-ddd-microservices-evolution/docs/backend-ddd-microservices-evolution-event-replay-dead-letter-runbook.md
       - scripts/event-replay-dead-letter.sh
     documents:
       - event-replay-dead-letter

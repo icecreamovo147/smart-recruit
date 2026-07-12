@@ -30,8 +30,8 @@ source_refs:
   - logic-grpc-service/repository/inbox_repo.go
   - logic-grpc-service/repository/analytics_projection_repo.go
   - logic-grpc-service/repository/application_repo.go
-  - docs/backend-ddd-microservices-evolution-table-ownership-manifest.json
-  - docs/backend-ddd-microservices-evolution-schema-separation-plan.md
+  - .spec/backend-ddd-microservices-evolution/docs/backend-ddd-microservices-evolution-table-ownership-manifest.json
+  - .spec/backend-ddd-microservices-evolution/docs/backend-ddd-microservices-evolution-schema-separation-plan.md
   - scripts/check-table-ownership.mjs
   - db.sql
 last_verified: 2026-07-12
@@ -53,8 +53,8 @@ The logic service owns persistence. Database structure is represented by SQL mig
 - Outbox schema changes must align `event_outbox` migrations, `db.sql`, `model.EventOutbox`, `repository.OutboxRepo`, publisher payload compatibility, and tests because the table is used for transactional event delivery and retry diagnostics.
 - Inbox schema changes must align `event_inbox` migrations, `db.sql`, `model.EventInbox`, `repository.InboxRepo`, consumer entrypoint wiring, and tests because the table is used for consumer idempotency and duplicate-delivery diagnostics.
 - Analytics projection schema changes must align `analytics_projection_events`, `analytics_projection_checkpoints`, `db.sql`, GORM models, `repository.AnalyticsProjectionRepo`, projection infrastructure adapters, and ingestion tests because those tables are the Analytics-owned event-projection read-model input.
-- `docs/backend-ddd-microservices-evolution-table-ownership-manifest.json` is the current table ownership manifest for the DDD/microservices evolution. Every table in `db.sql` must have an owner, allowed readers, allowed writers, and explicit transitional shared access when a non-owner writer remains during extraction.
-- `docs/backend-ddd-microservices-evolution-schema-separation-plan.md` defines the non-executing schema separation plan. It requires expand-contract steps, rollback, reconciliation, 30-minute RTO, 5-minute RPO, and scoped migration/model/`db.sql` changes for any future separation TASK.
+- `.spec/backend-ddd-microservices-evolution/docs/backend-ddd-microservices-evolution-table-ownership-manifest.json` is the current table ownership manifest for the DDD/microservices evolution. Every table in `db.sql` must have an owner, allowed readers, allowed writers, and explicit transitional shared access when a non-owner writer remains during extraction.
+- `.spec/backend-ddd-microservices-evolution/docs/backend-ddd-microservices-evolution-schema-separation-plan.md` defines the non-executing schema separation plan. It requires expand-contract steps, rollback, reconciliation, 30-minute RTO, 5-minute RPO, and scoped migration/model/`db.sql` changes for any future separation TASK.
 
 ## Impact Guidance
 

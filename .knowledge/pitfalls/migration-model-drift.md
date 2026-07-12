@@ -27,8 +27,8 @@ source_refs:
   - logic-grpc-service/repository/inbox_repo.go
   - logic-grpc-service/repository/analytics_projection_repo.go
   - logic-grpc-service/repository/repo_test_helper.go
-  - docs/backend-ddd-microservices-evolution-table-ownership-manifest.json
-  - docs/backend-ddd-microservices-evolution-schema-separation-plan.md
+  - .spec/backend-ddd-microservices-evolution/docs/backend-ddd-microservices-evolution-table-ownership-manifest.json
+  - .spec/backend-ddd-microservices-evolution/docs/backend-ddd-microservices-evolution-schema-separation-plan.md
   - scripts/check-table-ownership.mjs
   - db.sql
 last_verified: 2026-07-12
@@ -63,7 +63,7 @@ The logic service may compile while failing at runtime against a migrated databa
 - Prefer explicit SQL migrations for production schema changes.
 - Run migration runner and MySQL consistency tests for schema work.
 - Run `node scripts/check-table-ownership.mjs` for schema work that changes `db.sql`.
-- Follow `docs/backend-ddd-microservices-evolution-schema-separation-plan.md` before separating schemas or physical databases.
+- Follow `.spec/backend-ddd-microservices-evolution/docs/backend-ddd-microservices-evolution-schema-separation-plan.md` before separating schemas or physical databases.
 - Keep repository transactions and query filters aligned with service invariants.
 - For `event_outbox`, check that terminal timestamps, retention cutoffs, retry/dead-letter transitions, and indexes stay aligned with `OutboxRepo` and `OutboxPublisher`.
 - For `event_inbox`, check that the unique consumer/event key, processed/dead duplicate handling, attempt counts, retention cutoffs, and indexes stay aligned with `InboxRepo` and MQ consumer `Start` methods.

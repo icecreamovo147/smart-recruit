@@ -26,10 +26,10 @@ source_refs:
   - logic-grpc-service/service/ai_agent_runtime.go
   - logic-grpc-service/service/agent_context.go
   - logic-grpc-service/service/agent_run_recorder.go
-  - docs/backend-ddd-microservices-evolution-ai-agent-runtime-extraction.md
+  - .spec/backend-ddd-microservices-evolution/docs/backend-ddd-microservices-evolution-ai-agent-runtime-extraction.md
   - logic-grpc-service/internal/aiagent/runtime/skeleton.go
   - logic-grpc-service/cmd/ai-agent-service/main.go
-  - docs/backend-ddd-microservices-evolution-ai-agent-service-skeleton.md
+  - .spec/backend-ddd-microservices-evolution/docs/backend-ddd-microservices-evolution-ai-agent-service-skeleton.md
   - logic-grpc-service/ai/adk_agent.go
 last_verified: 2026-07-12
 review_after: 2026-10-08
@@ -78,7 +78,7 @@ Runtime diagnostics must avoid logging raw system prompts, resume text, or tool 
 - Changes to Agent Skill selection or semantic retrieval should also review `semantic-retrieval` and domain knowledge for Skill and Memory.
 - AI Agent service skeleton changes should preserve the unrouted descriptor until a scoped runtime extraction or gateway cutover TASK adds shadow, dual-run, or routed behavior with rollback evidence.
 - AI Agent runtime extraction changes should keep `service.NewServices`, `logic-grpc-service/main.go`, consumer start order, Inbox idempotency, provider fallback behavior, and existing queue/routing-key behavior compatible unless the current TASK is an approved cutover.
-- AI Agent gateway cutover changes should preserve public HTTP/protobuf behavior and keep a configuration-only rollback path documented in `docs/backend-ddd-microservices-evolution-ai-agent-gateway-cutover.md`.
+- AI Agent gateway cutover changes should preserve public HTTP/protobuf behavior and keep a configuration-only rollback path documented in `.spec/backend-ddd-microservices-evolution/docs/backend-ddd-microservices-evolution-ai-agent-gateway-cutover.md`.
 
 ## Verification
 

@@ -12,35 +12,35 @@ tags:
   - binaries
   - cutover
 applies_to:
-  - docs/backend-ddd-microservices-evolution-service-binary-convention.md
+  - .spec/backend-ddd-microservices-evolution/docs/backend-ddd-microservices-evolution-service-binary-convention.md
   - deploy/k8s/README-service-binaries.md
   - logic-grpc-service/internal/platform/servicebinary/**
   - logic-grpc-service/cmd/**
 source_refs:
-  - docs/backend-ddd-microservices-evolution-service-binary-convention.md
-  - docs/backend-ddd-microservices-evolution-notification-service-skeleton.md
-  - docs/backend-ddd-microservices-evolution-notification-runtime-extraction.md
-  - docs/backend-ddd-microservices-evolution-notification-gateway-cutover.md
-  - docs/backend-ddd-microservices-evolution-ai-agent-service-skeleton.md
-  - docs/backend-ddd-microservices-evolution-ai-agent-runtime-extraction.md
-  - docs/backend-ddd-microservices-evolution-ai-agent-gateway-cutover.md
-  - docs/backend-ddd-microservices-evolution-identity-service-skeleton.md
-  - docs/backend-ddd-microservices-evolution-identity-api-extraction.md
-  - docs/backend-ddd-microservices-evolution-identity-gateway-cutover.md
-  - docs/backend-ddd-microservices-evolution-recruitment-service-skeleton.md
-  - docs/backend-ddd-microservices-evolution-recruitment-api-extraction.md
-  - docs/backend-ddd-microservices-evolution-recruitment-gateway-cutover.md
-  - docs/backend-ddd-microservices-evolution-interview-service-api-extraction.md
-  - docs/backend-ddd-microservices-evolution-interview-gateway-cutover.md
-  - docs/backend-ddd-microservices-evolution-offer-service-api-extraction.md
-  - docs/backend-ddd-microservices-evolution-offer-gateway-cutover.md
-  - docs/backend-ddd-microservices-evolution-analytics-service-extraction.md
-  - docs/backend-ddd-microservices-evolution-worker-service-decomposition.md
-  - docs/backend-ddd-microservices-evolution-internal-service-security.md
-  - docs/backend-ddd-microservices-evolution-observability-baseline.md
-  - docs/backend-ddd-microservices-evolution-deployment-readiness-baseline.md
-  - docs/backend-ddd-microservices-evolution-final-readiness-review.md
-  - docs/backend-ddd-microservices-evolution-final-readiness-audit.json
+  - .spec/backend-ddd-microservices-evolution/docs/backend-ddd-microservices-evolution-service-binary-convention.md
+  - .spec/backend-ddd-microservices-evolution/docs/backend-ddd-microservices-evolution-notification-service-skeleton.md
+  - .spec/backend-ddd-microservices-evolution/docs/backend-ddd-microservices-evolution-notification-runtime-extraction.md
+  - .spec/backend-ddd-microservices-evolution/docs/backend-ddd-microservices-evolution-notification-gateway-cutover.md
+  - .spec/backend-ddd-microservices-evolution/docs/backend-ddd-microservices-evolution-ai-agent-service-skeleton.md
+  - .spec/backend-ddd-microservices-evolution/docs/backend-ddd-microservices-evolution-ai-agent-runtime-extraction.md
+  - .spec/backend-ddd-microservices-evolution/docs/backend-ddd-microservices-evolution-ai-agent-gateway-cutover.md
+  - .spec/backend-ddd-microservices-evolution/docs/backend-ddd-microservices-evolution-identity-service-skeleton.md
+  - .spec/backend-ddd-microservices-evolution/docs/backend-ddd-microservices-evolution-identity-api-extraction.md
+  - .spec/backend-ddd-microservices-evolution/docs/backend-ddd-microservices-evolution-identity-gateway-cutover.md
+  - .spec/backend-ddd-microservices-evolution/docs/backend-ddd-microservices-evolution-recruitment-service-skeleton.md
+  - .spec/backend-ddd-microservices-evolution/docs/backend-ddd-microservices-evolution-recruitment-api-extraction.md
+  - .spec/backend-ddd-microservices-evolution/docs/backend-ddd-microservices-evolution-recruitment-gateway-cutover.md
+  - .spec/backend-ddd-microservices-evolution/docs/backend-ddd-microservices-evolution-interview-service-api-extraction.md
+  - .spec/backend-ddd-microservices-evolution/docs/backend-ddd-microservices-evolution-interview-gateway-cutover.md
+  - .spec/backend-ddd-microservices-evolution/docs/backend-ddd-microservices-evolution-offer-service-api-extraction.md
+  - .spec/backend-ddd-microservices-evolution/docs/backend-ddd-microservices-evolution-offer-gateway-cutover.md
+  - .spec/backend-ddd-microservices-evolution/docs/backend-ddd-microservices-evolution-analytics-service-extraction.md
+  - .spec/backend-ddd-microservices-evolution/docs/backend-ddd-microservices-evolution-worker-service-decomposition.md
+  - .spec/backend-ddd-microservices-evolution/docs/backend-ddd-microservices-evolution-internal-service-security.md
+  - .spec/backend-ddd-microservices-evolution/docs/backend-ddd-microservices-evolution-observability-baseline.md
+  - .spec/backend-ddd-microservices-evolution/docs/backend-ddd-microservices-evolution-deployment-readiness-baseline.md
+  - .spec/backend-ddd-microservices-evolution/docs/backend-ddd-microservices-evolution-final-readiness-review.md
+  - .spec/backend-ddd-microservices-evolution/docs/backend-ddd-microservices-evolution-final-readiness-audit.json
   - deploy/k8s/README-service-binaries.md
   - logic-grpc-service/internal/platform/servicebinary/convention.go
   - logic-grpc-service/internal/platform/servicebinary/convention_test.go
@@ -87,7 +87,7 @@ Use this runbook when adding or reviewing backend service binaries, worker binar
 ## Current Contract
 
 - `logic-grpc-service/internal/platform/servicebinary/` contains the compile-checked service unit registry.
-- `docs/backend-ddd-microservices-evolution-service-binary-convention.md` is the operator and implementation convention.
+- `.spec/backend-ddd-microservices-evolution/docs/backend-ddd-microservices-evolution-service-binary-convention.md` is the operator and implementation convention.
 - `deploy/k8s/README-service-binaries.md` records deployment label conventions without adding routed manifests.
 - Current active deployments remain `logic-grpc-service` and `logic-worker`; extracted service entries are future command/image conventions until scoped TASKs create and cut them over.
 - `cmd/notification-service` is the first compile-safe extracted service skeleton. It supports `--describe` and `--check`, exits non-zero without flags, and keeps `TrafficEnabled=false` until a scoped cutover TASK changes that behavior.

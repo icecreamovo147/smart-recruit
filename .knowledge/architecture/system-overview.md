@@ -35,7 +35,7 @@ Smart Recruit is split into three Vue frontends, a Gin HTTP gateway, and a Go gR
 
 The logic service owns core recruitment behavior, persistence orchestration, AI agent runtime, embedding services, message publishing, object storage integration, Analytics projection ingestion, and protobuf service implementations. Persistent data flows through `repository/` and `model/`, while business workflows live mostly under `logic-grpc-service/service/`. Shared internal platform contracts, such as the domain-event envelope in `logic-grpc-service/internal/platform/events/`, sit under the logic service and are intended for Outbox, Inbox, consumer, and projection code.
 
-Backend service extraction is staged through a service binary convention in `logic-grpc-service/internal/platform/servicebinary/` and `docs/backend-ddd-microservices-evolution-service-binary-convention.md`. TASK-BDME-026 documents target commands and deployment metadata without changing current runtime traffic.
+Backend service extraction is staged through a service binary convention in `logic-grpc-service/internal/platform/servicebinary/` and `.spec/backend-ddd-microservices-evolution/docs/backend-ddd-microservices-evolution-service-binary-convention.md`. TASK-BDME-026 documents target commands and deployment metadata without changing current runtime traffic.
 
 Use this document for orientation only. For concrete behavior, prefer the active `.spec` contract, source code, generated protobufs, migrations, and tests.
 

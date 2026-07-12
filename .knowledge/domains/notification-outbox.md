@@ -45,7 +45,7 @@ source_refs:
   - web-gin-service/handler/notification.go
   - web-gin-service/config/config.go
   - web-gin-service/rpc/client.go
-  - docs/backend-ddd-microservices-evolution-notification-gateway-cutover.md
+  - .spec/backend-ddd-microservices-evolution/docs/backend-ddd-microservices-evolution-notification-gateway-cutover.md
   - logic-grpc-service/model/model.go
 last_verified: 2026-07-12
 review_after: 2026-10-08
@@ -85,10 +85,10 @@ Notifications are produced by recruitment workflows and delivered through databa
 - Email outbox changes should be reviewed with notification changes because some workflows emit both.
 - Outbox or Inbox schema changes should keep migrations, `db.sql`, GORM model fields, repository stats/retention helpers, consumer idempotency, and publisher payload compatibility aligned.
 - Analytics projection ingestion changes should preserve envelope validation and idempotent event-id/checkpoint behavior.
-- Replay, dead-letter repair, and retention operations should follow `docs/backend-ddd-microservices-evolution-event-replay-dead-letter-runbook.md` and generate SQL through `scripts/event-replay-dead-letter.sh` so mutation execution remains an explicit operational step.
+- Replay, dead-letter repair, and retention operations should follow `.spec/backend-ddd-microservices-evolution/docs/backend-ddd-microservices-evolution-event-replay-dead-letter-runbook.md` and generate SQL through `scripts/event-replay-dead-letter.sh` so mutation execution remains an explicit operational step.
 - Notification service skeleton changes should preserve the unrouted descriptor until a scoped cutover TASK adds shadow, dual-run, or routed behavior with rollback evidence.
 - Notification runtime extraction changes should keep `service.NewServices`, `logic-grpc-service/main.go`, consumer start order, Inbox idempotency, and existing queue/routing-key behavior compatible unless the current TASK is an approved cutover.
-- Gateway Notification cutover changes should preserve public HTTP/protobuf behavior and keep a configuration-only rollback path documented in `docs/backend-ddd-microservices-evolution-notification-gateway-cutover.md`.
+- Gateway Notification cutover changes should preserve public HTTP/protobuf behavior and keep a configuration-only rollback path documented in `.spec/backend-ddd-microservices-evolution/docs/backend-ddd-microservices-evolution-notification-gateway-cutover.md`.
 
 ## Verification
 

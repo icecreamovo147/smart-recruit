@@ -5,9 +5,13 @@ import (
 	"testing"
 )
 
+func testJWTSecret() string {
+	return strings.Repeat("j", 32)
+}
+
 func TestLoadAuthCookieSecure(t *testing.T) {
 	t.Setenv("ALLOW_INSECURE_DEV_CONFIG", "false")
-	t.Setenv("JWT_SECRET", "test-secret-at-least-32-chars-long")
+	t.Setenv("JWT_SECRET", testJWTSecret())
 	t.Setenv("GRPC_INTERNAL_TOKEN", strings.Repeat("t", 32))
 	t.Setenv("AUTH_COOKIE_SECURE", "true")
 	t.Setenv("CANDIDATE_AUTH_COOKIE_NAME", "candidate_session")
@@ -31,7 +35,7 @@ func TestLoadAuthCookieSecure(t *testing.T) {
 // TASK-FU-009：验证 web-gin 同步 logic-grpc 的 ranking 段 env 加载。
 func TestLoadRankingConfig(t *testing.T) {
 	t.Setenv("ALLOW_INSECURE_DEV_CONFIG", "false")
-	t.Setenv("JWT_SECRET", "test-secret-at-least-32-chars-long")
+	t.Setenv("JWT_SECRET", testJWTSecret())
 	t.Setenv("GRPC_INTERNAL_TOKEN", strings.Repeat("t", 32))
 	t.Setenv("RANKING_WEIGHT_VECTOR", "0.7")
 	t.Setenv("RANKING_BUSINESS_BOOST_MAX", "1.3")
@@ -58,7 +62,7 @@ func TestLoadRankingConfig(t *testing.T) {
 
 func TestLoadNotificationRouteDefaultsToLogic(t *testing.T) {
 	t.Setenv("ALLOW_INSECURE_DEV_CONFIG", "false")
-	t.Setenv("JWT_SECRET", "test-secret-at-least-32-chars-long")
+	t.Setenv("JWT_SECRET", testJWTSecret())
 	t.Setenv("GRPC_INTERNAL_TOKEN", strings.Repeat("t", 32))
 
 	cfg, err := Load()
@@ -75,7 +79,7 @@ func TestLoadNotificationRouteDefaultsToLogic(t *testing.T) {
 
 func TestLoadAIAgentRouteDefaultsToLogic(t *testing.T) {
 	t.Setenv("ALLOW_INSECURE_DEV_CONFIG", "false")
-	t.Setenv("JWT_SECRET", "test-secret-at-least-32-chars-long")
+	t.Setenv("JWT_SECRET", testJWTSecret())
 	t.Setenv("GRPC_INTERNAL_TOKEN", strings.Repeat("t", 32))
 
 	cfg, err := Load()
@@ -92,7 +96,7 @@ func TestLoadAIAgentRouteDefaultsToLogic(t *testing.T) {
 
 func TestLoadIdentityRouteDefaultsToLogic(t *testing.T) {
 	t.Setenv("ALLOW_INSECURE_DEV_CONFIG", "false")
-	t.Setenv("JWT_SECRET", "test-secret-at-least-32-chars-long")
+	t.Setenv("JWT_SECRET", testJWTSecret())
 	t.Setenv("GRPC_INTERNAL_TOKEN", strings.Repeat("t", 32))
 
 	cfg, err := Load()
@@ -109,7 +113,7 @@ func TestLoadIdentityRouteDefaultsToLogic(t *testing.T) {
 
 func TestLoadRecruitmentRouteDefaultsToLogic(t *testing.T) {
 	t.Setenv("ALLOW_INSECURE_DEV_CONFIG", "false")
-	t.Setenv("JWT_SECRET", "test-secret-at-least-32-chars-long")
+	t.Setenv("JWT_SECRET", testJWTSecret())
 	t.Setenv("GRPC_INTERNAL_TOKEN", strings.Repeat("t", 32))
 
 	cfg, err := Load()
@@ -126,7 +130,7 @@ func TestLoadRecruitmentRouteDefaultsToLogic(t *testing.T) {
 
 func TestLoadInterviewRouteDefaultsToLogic(t *testing.T) {
 	t.Setenv("ALLOW_INSECURE_DEV_CONFIG", "false")
-	t.Setenv("JWT_SECRET", "test-secret-at-least-32-chars-long")
+	t.Setenv("JWT_SECRET", testJWTSecret())
 	t.Setenv("GRPC_INTERNAL_TOKEN", strings.Repeat("t", 32))
 
 	cfg, err := Load()
@@ -143,7 +147,7 @@ func TestLoadInterviewRouteDefaultsToLogic(t *testing.T) {
 
 func TestLoadOfferRouteDefaultsToLogic(t *testing.T) {
 	t.Setenv("ALLOW_INSECURE_DEV_CONFIG", "false")
-	t.Setenv("JWT_SECRET", "test-secret-at-least-32-chars-long")
+	t.Setenv("JWT_SECRET", testJWTSecret())
 	t.Setenv("GRPC_INTERNAL_TOKEN", strings.Repeat("t", 32))
 
 	cfg, err := Load()
@@ -160,7 +164,7 @@ func TestLoadOfferRouteDefaultsToLogic(t *testing.T) {
 
 func TestLoadRecruitmentRouteToExtractedService(t *testing.T) {
 	t.Setenv("ALLOW_INSECURE_DEV_CONFIG", "false")
-	t.Setenv("JWT_SECRET", "test-secret-at-least-32-chars-long")
+	t.Setenv("JWT_SECRET", testJWTSecret())
 	t.Setenv("GRPC_INTERNAL_TOKEN", strings.Repeat("t", 32))
 	t.Setenv("RECRUITMENT_ROUTE_MODE", "recruitment")
 	t.Setenv("RECRUITMENT_GRPC_ADDR", "dns:///recruitment-service:50051")
@@ -179,7 +183,7 @@ func TestLoadRecruitmentRouteToExtractedService(t *testing.T) {
 
 func TestLoadInterviewRouteToExtractedService(t *testing.T) {
 	t.Setenv("ALLOW_INSECURE_DEV_CONFIG", "false")
-	t.Setenv("JWT_SECRET", "test-secret-at-least-32-chars-long")
+	t.Setenv("JWT_SECRET", testJWTSecret())
 	t.Setenv("GRPC_INTERNAL_TOKEN", strings.Repeat("t", 32))
 	t.Setenv("INTERVIEW_ROUTE_MODE", "interview")
 	t.Setenv("INTERVIEW_GRPC_ADDR", "dns:///interview-service:50051")
@@ -198,7 +202,7 @@ func TestLoadInterviewRouteToExtractedService(t *testing.T) {
 
 func TestLoadOfferRouteToExtractedService(t *testing.T) {
 	t.Setenv("ALLOW_INSECURE_DEV_CONFIG", "false")
-	t.Setenv("JWT_SECRET", "test-secret-at-least-32-chars-long")
+	t.Setenv("JWT_SECRET", testJWTSecret())
 	t.Setenv("GRPC_INTERNAL_TOKEN", strings.Repeat("t", 32))
 	t.Setenv("OFFER_ROUTE_MODE", "offer")
 	t.Setenv("OFFER_GRPC_ADDR", "dns:///offer-service:50051")
@@ -217,7 +221,7 @@ func TestLoadOfferRouteToExtractedService(t *testing.T) {
 
 func TestLoadRecruitmentRouteRequiresAddress(t *testing.T) {
 	t.Setenv("ALLOW_INSECURE_DEV_CONFIG", "false")
-	t.Setenv("JWT_SECRET", "test-secret-at-least-32-chars-long")
+	t.Setenv("JWT_SECRET", testJWTSecret())
 	t.Setenv("GRPC_INTERNAL_TOKEN", strings.Repeat("t", 32))
 	t.Setenv("RECRUITMENT_ROUTE_MODE", "recruitment")
 
@@ -229,7 +233,7 @@ func TestLoadRecruitmentRouteRequiresAddress(t *testing.T) {
 
 func TestLoadInterviewRouteRequiresAddress(t *testing.T) {
 	t.Setenv("ALLOW_INSECURE_DEV_CONFIG", "false")
-	t.Setenv("JWT_SECRET", "test-secret-at-least-32-chars-long")
+	t.Setenv("JWT_SECRET", testJWTSecret())
 	t.Setenv("GRPC_INTERNAL_TOKEN", strings.Repeat("t", 32))
 	t.Setenv("INTERVIEW_ROUTE_MODE", "interview")
 
@@ -241,7 +245,7 @@ func TestLoadInterviewRouteRequiresAddress(t *testing.T) {
 
 func TestLoadOfferRouteRequiresAddress(t *testing.T) {
 	t.Setenv("ALLOW_INSECURE_DEV_CONFIG", "false")
-	t.Setenv("JWT_SECRET", "test-secret-at-least-32-chars-long")
+	t.Setenv("JWT_SECRET", testJWTSecret())
 	t.Setenv("GRPC_INTERNAL_TOKEN", strings.Repeat("t", 32))
 	t.Setenv("OFFER_ROUTE_MODE", "offer")
 
@@ -253,7 +257,7 @@ func TestLoadOfferRouteRequiresAddress(t *testing.T) {
 
 func TestLoadRejectsInvalidRecruitmentRouteMode(t *testing.T) {
 	t.Setenv("ALLOW_INSECURE_DEV_CONFIG", "false")
-	t.Setenv("JWT_SECRET", "test-secret-at-least-32-chars-long")
+	t.Setenv("JWT_SECRET", testJWTSecret())
 	t.Setenv("GRPC_INTERNAL_TOKEN", strings.Repeat("t", 32))
 	t.Setenv("RECRUITMENT_ROUTE_MODE", "invalid")
 
@@ -265,7 +269,7 @@ func TestLoadRejectsInvalidRecruitmentRouteMode(t *testing.T) {
 
 func TestLoadRejectsInvalidInterviewRouteMode(t *testing.T) {
 	t.Setenv("ALLOW_INSECURE_DEV_CONFIG", "false")
-	t.Setenv("JWT_SECRET", "test-secret-at-least-32-chars-long")
+	t.Setenv("JWT_SECRET", testJWTSecret())
 	t.Setenv("GRPC_INTERNAL_TOKEN", strings.Repeat("t", 32))
 	t.Setenv("INTERVIEW_ROUTE_MODE", "invalid")
 
@@ -277,7 +281,7 @@ func TestLoadRejectsInvalidInterviewRouteMode(t *testing.T) {
 
 func TestLoadRejectsInvalidOfferRouteMode(t *testing.T) {
 	t.Setenv("ALLOW_INSECURE_DEV_CONFIG", "false")
-	t.Setenv("JWT_SECRET", "test-secret-at-least-32-chars-long")
+	t.Setenv("JWT_SECRET", testJWTSecret())
 	t.Setenv("GRPC_INTERNAL_TOKEN", strings.Repeat("t", 32))
 	t.Setenv("OFFER_ROUTE_MODE", "invalid")
 
@@ -289,7 +293,7 @@ func TestLoadRejectsInvalidOfferRouteMode(t *testing.T) {
 
 func TestLoadIdentityRouteToExtractedService(t *testing.T) {
 	t.Setenv("ALLOW_INSECURE_DEV_CONFIG", "false")
-	t.Setenv("JWT_SECRET", "test-secret-at-least-32-chars-long")
+	t.Setenv("JWT_SECRET", testJWTSecret())
 	t.Setenv("GRPC_INTERNAL_TOKEN", strings.Repeat("t", 32))
 	t.Setenv("IDENTITY_ROUTE_MODE", "identity")
 	t.Setenv("IDENTITY_GRPC_ADDR", "dns:///identity-service:50051")
@@ -308,7 +312,7 @@ func TestLoadIdentityRouteToExtractedService(t *testing.T) {
 
 func TestLoadIdentityRouteRequiresAddress(t *testing.T) {
 	t.Setenv("ALLOW_INSECURE_DEV_CONFIG", "false")
-	t.Setenv("JWT_SECRET", "test-secret-at-least-32-chars-long")
+	t.Setenv("JWT_SECRET", testJWTSecret())
 	t.Setenv("GRPC_INTERNAL_TOKEN", strings.Repeat("t", 32))
 	t.Setenv("IDENTITY_ROUTE_MODE", "identity")
 
@@ -320,7 +324,7 @@ func TestLoadIdentityRouteRequiresAddress(t *testing.T) {
 
 func TestLoadRejectsInvalidIdentityRouteMode(t *testing.T) {
 	t.Setenv("ALLOW_INSECURE_DEV_CONFIG", "false")
-	t.Setenv("JWT_SECRET", "test-secret-at-least-32-chars-long")
+	t.Setenv("JWT_SECRET", testJWTSecret())
 	t.Setenv("GRPC_INTERNAL_TOKEN", strings.Repeat("t", 32))
 	t.Setenv("IDENTITY_ROUTE_MODE", "invalid")
 
@@ -332,7 +336,7 @@ func TestLoadRejectsInvalidIdentityRouteMode(t *testing.T) {
 
 func TestLoadAIAgentRouteToExtractedService(t *testing.T) {
 	t.Setenv("ALLOW_INSECURE_DEV_CONFIG", "false")
-	t.Setenv("JWT_SECRET", "test-secret-at-least-32-chars-long")
+	t.Setenv("JWT_SECRET", testJWTSecret())
 	t.Setenv("GRPC_INTERNAL_TOKEN", strings.Repeat("t", 32))
 	t.Setenv("AI_AGENT_ROUTE_MODE", "ai-agent")
 	t.Setenv("AI_AGENT_GRPC_ADDR", "dns:///ai-agent-service:50051")
@@ -351,7 +355,7 @@ func TestLoadAIAgentRouteToExtractedService(t *testing.T) {
 
 func TestLoadAIAgentRouteRequiresAddress(t *testing.T) {
 	t.Setenv("ALLOW_INSECURE_DEV_CONFIG", "false")
-	t.Setenv("JWT_SECRET", "test-secret-at-least-32-chars-long")
+	t.Setenv("JWT_SECRET", testJWTSecret())
 	t.Setenv("GRPC_INTERNAL_TOKEN", strings.Repeat("t", 32))
 	t.Setenv("AI_AGENT_ROUTE_MODE", "ai-agent")
 
@@ -363,7 +367,7 @@ func TestLoadAIAgentRouteRequiresAddress(t *testing.T) {
 
 func TestLoadRejectsInvalidAIAgentRouteMode(t *testing.T) {
 	t.Setenv("ALLOW_INSECURE_DEV_CONFIG", "false")
-	t.Setenv("JWT_SECRET", "test-secret-at-least-32-chars-long")
+	t.Setenv("JWT_SECRET", testJWTSecret())
 	t.Setenv("GRPC_INTERNAL_TOKEN", strings.Repeat("t", 32))
 	t.Setenv("AI_AGENT_ROUTE_MODE", "invalid")
 
@@ -375,7 +379,7 @@ func TestLoadRejectsInvalidAIAgentRouteMode(t *testing.T) {
 
 func TestLoadNotificationRouteToExtractedService(t *testing.T) {
 	t.Setenv("ALLOW_INSECURE_DEV_CONFIG", "false")
-	t.Setenv("JWT_SECRET", "test-secret-at-least-32-chars-long")
+	t.Setenv("JWT_SECRET", testJWTSecret())
 	t.Setenv("GRPC_INTERNAL_TOKEN", strings.Repeat("t", 32))
 	t.Setenv("NOTIFICATION_ROUTE_MODE", "notification")
 	t.Setenv("NOTIFICATION_GRPC_ADDR", "dns:///notification-service:50051")
@@ -394,7 +398,7 @@ func TestLoadNotificationRouteToExtractedService(t *testing.T) {
 
 func TestLoadNotificationRouteRequiresAddress(t *testing.T) {
 	t.Setenv("ALLOW_INSECURE_DEV_CONFIG", "false")
-	t.Setenv("JWT_SECRET", "test-secret-at-least-32-chars-long")
+	t.Setenv("JWT_SECRET", testJWTSecret())
 	t.Setenv("GRPC_INTERNAL_TOKEN", strings.Repeat("t", 32))
 	t.Setenv("NOTIFICATION_ROUTE_MODE", "notification")
 
@@ -406,7 +410,7 @@ func TestLoadNotificationRouteRequiresAddress(t *testing.T) {
 
 func TestLoadRejectsInvalidNotificationRouteMode(t *testing.T) {
 	t.Setenv("ALLOW_INSECURE_DEV_CONFIG", "false")
-	t.Setenv("JWT_SECRET", "test-secret-at-least-32-chars-long")
+	t.Setenv("JWT_SECRET", testJWTSecret())
 	t.Setenv("GRPC_INTERNAL_TOKEN", strings.Repeat("t", 32))
 	t.Setenv("NOTIFICATION_ROUTE_MODE", "invalid")
 
@@ -418,7 +422,7 @@ func TestLoadRejectsInvalidNotificationRouteMode(t *testing.T) {
 
 func TestLoadRankingConfigDefaultsEmpty(t *testing.T) {
 	t.Setenv("ALLOW_INSECURE_DEV_CONFIG", "false")
-	t.Setenv("JWT_SECRET", "test-secret-at-least-32-chars-long")
+	t.Setenv("JWT_SECRET", testJWTSecret())
 	t.Setenv("GRPC_INTERNAL_TOKEN", strings.Repeat("t", 32))
 	// 不设任何 RANKING_* env
 	cfg, err := Load()
@@ -435,7 +439,7 @@ func TestLoadRankingConfigDefaultsEmpty(t *testing.T) {
 
 func TestLoadRankingConfigInvalidFloat(t *testing.T) {
 	t.Setenv("ALLOW_INSECURE_DEV_CONFIG", "false")
-	t.Setenv("JWT_SECRET", "test-secret-at-least-32-chars-long")
+	t.Setenv("JWT_SECRET", testJWTSecret())
 	t.Setenv("GRPC_INTERNAL_TOKEN", strings.Repeat("t", 32))
 	t.Setenv("RANKING_WEIGHT_VECTOR", "not-a-number")
 	cfg, err := Load()
@@ -450,7 +454,7 @@ func TestLoadRankingConfigInvalidFloat(t *testing.T) {
 
 func TestLoadRequiresGRPCInternalTokenInProduction(t *testing.T) {
 	t.Setenv("ALLOW_INSECURE_DEV_CONFIG", "false")
-	t.Setenv("JWT_SECRET", "test-secret-at-least-32-chars-long")
+	t.Setenv("JWT_SECRET", testJWTSecret())
 	t.Setenv("GRPC_INTERNAL_TOKEN", "")
 
 	_, err := Load()
@@ -461,7 +465,7 @@ func TestLoadRequiresGRPCInternalTokenInProduction(t *testing.T) {
 
 func TestLoadRejectsPlaceholderGRPCInternalToken(t *testing.T) {
 	t.Setenv("ALLOW_INSECURE_DEV_CONFIG", "false")
-	t.Setenv("JWT_SECRET", "test-secret-at-least-32-chars-long")
+	t.Setenv("JWT_SECRET", testJWTSecret())
 	t.Setenv("GRPC_INTERNAL_TOKEN", "CHANGE_ME_INTERNAL_TOKEN_32_CHARS_LONG")
 
 	_, err := Load()
@@ -472,7 +476,7 @@ func TestLoadRejectsPlaceholderGRPCInternalToken(t *testing.T) {
 
 func TestLoadRequiresGRPCCAFileWhenInternalTLSRequired(t *testing.T) {
 	t.Setenv("ALLOW_INSECURE_DEV_CONFIG", "false")
-	t.Setenv("JWT_SECRET", "test-secret-at-least-32-chars-long")
+	t.Setenv("JWT_SECRET", testJWTSecret())
 	t.Setenv("GRPC_INTERNAL_TOKEN", strings.Repeat("t", 32))
 	t.Setenv("GRPC_INTERNAL_TLS", "required")
 
@@ -484,7 +488,7 @@ func TestLoadRequiresGRPCCAFileWhenInternalTLSRequired(t *testing.T) {
 
 func TestLoadInternalTLSConfig(t *testing.T) {
 	t.Setenv("ALLOW_INSECURE_DEV_CONFIG", "false")
-	t.Setenv("JWT_SECRET", "test-secret-at-least-32-chars-long")
+	t.Setenv("JWT_SECRET", testJWTSecret())
 	t.Setenv("GRPC_INTERNAL_TOKEN", strings.Repeat("t", 32))
 	t.Setenv("GRPC_INTERNAL_TLS", "required")
 	t.Setenv("GRPC_TLS_CA_FILE", "/etc/recruitment/tls/ca.crt")

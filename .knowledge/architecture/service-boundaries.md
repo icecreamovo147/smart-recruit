@@ -38,13 +38,13 @@ source_refs:
   - logic-grpc-service/service/ai_agent_runtime.go
   - logic-grpc-service/internal/platform/events/envelope.go
   - logic-grpc-service/repository/user_repo.go
-  - docs/backend-ddd-microservices-evolution-table-ownership-manifest.json
-  - docs/backend-ddd-microservices-evolution-schema-separation-plan.md
-  - docs/backend-ddd-microservices-evolution-internal-service-security.md
-  - docs/backend-ddd-microservices-evolution-observability-baseline.md
-  - docs/backend-ddd-microservices-evolution-deployment-readiness-baseline.md
-  - docs/backend-ddd-microservices-evolution-final-readiness-review.md
-  - docs/backend-ddd-microservices-evolution-final-readiness-audit.json
+  - .spec/backend-ddd-microservices-evolution/docs/backend-ddd-microservices-evolution-table-ownership-manifest.json
+  - .spec/backend-ddd-microservices-evolution/docs/backend-ddd-microservices-evolution-schema-separation-plan.md
+  - .spec/backend-ddd-microservices-evolution/docs/backend-ddd-microservices-evolution-internal-service-security.md
+  - .spec/backend-ddd-microservices-evolution/docs/backend-ddd-microservices-evolution-observability-baseline.md
+  - .spec/backend-ddd-microservices-evolution/docs/backend-ddd-microservices-evolution-deployment-readiness-baseline.md
+  - .spec/backend-ddd-microservices-evolution/docs/backend-ddd-microservices-evolution-final-readiness-review.md
+  - .spec/backend-ddd-microservices-evolution/docs/backend-ddd-microservices-evolution-final-readiness-audit.json
   - scripts/check-table-ownership.mjs
   - scripts/backend-final-readiness-audit.mjs
 last_verified: 2026-07-12
@@ -67,13 +67,13 @@ Analytics event projection ingestion lives under `logic-grpc-service/internal/an
 
 `logic-grpc-service/cmd/worker-services` is a service skeleton for decomposed worker workloads. It names outbox, notification, email, resume parsing, embedding, agent-run, and analytics-projection workloads for future independent scaling, but default execution does not start consumers and the active worker deployment remains `logic-grpc-service --worker-only`.
 
-`docs/backend-ddd-microservices-evolution-table-ownership-manifest.json` records the table owner, allowed readers, allowed writers, and transitional shared access for the target backend contexts. Table ownership must be reviewed as a service-boundary change even when HTTP/gRPC contracts are unchanged.
+`.spec/backend-ddd-microservices-evolution/docs/backend-ddd-microservices-evolution-table-ownership-manifest.json` records the table owner, allowed readers, allowed writers, and transitional shared access for the target backend contexts. Table ownership must be reviewed as a service-boundary change even when HTTP/gRPC contracts are unchanged.
 
-`docs/backend-ddd-microservices-evolution-schema-separation-plan.md` prepares schema-per-context or later physical database separation. It does not change runtime storage by itself; it requires ownership-manifest alignment, expand-contract sequencing, rollback, reconciliation, RTO/RPO evidence, and scoped approval before any actual schema or database split.
+`.spec/backend-ddd-microservices-evolution/docs/backend-ddd-microservices-evolution-schema-separation-plan.md` prepares schema-per-context or later physical database separation. It does not change runtime storage by itself; it requires ownership-manifest alignment, expand-contract sequencing, rollback, reconciliation, RTO/RPO evidence, and scoped approval before any actual schema or database split.
 
-`docs/backend-ddd-microservices-evolution-final-readiness-review.md` is the current final review for this feature. It approves the remaining transitional shared access entries only as explicit architecture debt with removal plans; it does not approve physical schema separation or production traffic cutover by itself.
+`.spec/backend-ddd-microservices-evolution/docs/backend-ddd-microservices-evolution-final-readiness-review.md` is the current final review for this feature. It approves the remaining transitional shared access entries only as explicit architecture debt with removal plans; it does not approve physical schema separation or production traffic cutover by itself.
 
-Internal service-to-service traffic is protected by the token/TLS controls in `docs/backend-ddd-microservices-evolution-internal-service-security.md`. Extracted service cutovers must keep `GRPC_INTERNAL_TOKEN` enabled and should require internal TLS before receiving non-local traffic.
+Internal service-to-service traffic is protected by the token/TLS controls in `.spec/backend-ddd-microservices-evolution/docs/backend-ddd-microservices-evolution-internal-service-security.md`. Extracted service cutovers must keep `GRPC_INTERNAL_TOKEN` enabled and should require internal TLS before receiving non-local traffic.
 
 Cross-service observability is a transport/platform concern, not a domain boundary. `web-gin-service` owns HTTP `/metrics`, request id, and inbound `traceparent` handling; `logic-grpc-service` owns gRPC server metrics and trace context extraction/generation. Metrics must use stable route/method/status or gRPC method/code labels rather than business payload fields.
 
@@ -102,8 +102,8 @@ Generated protobuf files are contract artifacts. When proto definitions change, 
 - Keep domain invariants in logic services and repositories.
 - Keep cross-context application lifecycle writes behind explicit events, adapters, or process-manager boundaries instead of scattering direct repository writes through Interview or Offer services.
 - Keep Analytics projections sourced from domain-event envelopes and Analytics-owned read-model repositories; avoid service-read adapters as a transition strategy.
-- Keep new service binaries aligned with `docs/backend-ddd-microservices-evolution-service-binary-convention.md`; do not route traffic to them outside scoped cutover TASKs.
-- Keep table ownership aligned with `docs/backend-ddd-microservices-evolution-table-ownership-manifest.json` and run `node scripts/check-table-ownership.mjs` when `db.sql` changes.
+- Keep new service binaries aligned with `.spec/backend-ddd-microservices-evolution/docs/backend-ddd-microservices-evolution-service-binary-convention.md`; do not route traffic to them outside scoped cutover TASKs.
+- Keep table ownership aligned with `.spec/backend-ddd-microservices-evolution/docs/backend-ddd-microservices-evolution-table-ownership-manifest.json` and run `node scripts/check-table-ownership.mjs` when `db.sql` changes.
 - Keep schema or physical database separation behind the documented plan; do not bundle destructive contract steps with expand/backfill/cutover work.
 - Keep internal gRPC auth/TLS controls aligned across gateway clients, logic/extracted service servers, and deployment secret mounts.
 - Keep metrics and trace propagation in gateway/server middleware or interceptors; do not scatter telemetry label construction through domain services unless the domain event contract explicitly requires it.

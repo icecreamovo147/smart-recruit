@@ -27,10 +27,10 @@ source_refs:
   - web-gin-service/middleware/observability.go
   - logic-grpc-service/proto/recruitment.proto
   - logic-grpc-service/main.go
-  - docs/backend-ddd-microservices-evolution-observability-baseline.md
-  - docs/backend-ddd-microservices-evolution-internal-service-security.md
-  - docs/backend-ddd-microservices-evolution-interview-gateway-cutover.md
-  - docs/backend-ddd-microservices-evolution-offer-gateway-cutover.md
+  - .spec/backend-ddd-microservices-evolution/docs/backend-ddd-microservices-evolution-observability-baseline.md
+  - .spec/backend-ddd-microservices-evolution/docs/backend-ddd-microservices-evolution-internal-service-security.md
+  - .spec/backend-ddd-microservices-evolution/docs/backend-ddd-microservices-evolution-interview-gateway-cutover.md
+  - .spec/backend-ddd-microservices-evolution/docs/backend-ddd-microservices-evolution-offer-gateway-cutover.md
 last_verified: 2026-07-12
 review_after: 2026-10-08
 ---
@@ -65,7 +65,7 @@ The Gin gateway is the HTTP policy and transport boundary. It exposes `/api/v1` 
 - Recruitment gateway cutover must keep `RECRUITMENT_ROUTE_MODE=logic` as the default rollback path and require `RECRUITMENT_GRPC_ADDR` before routing JobService, CandidateService, and ApplicationService to an extracted service.
 - Interview gateway cutover must keep `INTERVIEW_ROUTE_MODE=logic` as the default rollback path and require `INTERVIEW_GRPC_ADDR` before routing InterviewService to an extracted service.
 - Offer gateway cutover must keep `OFFER_ROUTE_MODE=logic` as the default rollback path and require `OFFER_GRPC_ADDR` before routing OfferService to an extracted service.
-- Extracted service cutovers should keep `GRPC_INTERNAL_TOKEN` and internal TLS aligned with `docs/backend-ddd-microservices-evolution-internal-service-security.md`; these controls do not change public HTTP/protobuf schemas.
+- Extracted service cutovers should keep `GRPC_INTERNAL_TOKEN` and internal TLS aligned with `.spec/backend-ddd-microservices-evolution/docs/backend-ddd-microservices-evolution-internal-service-security.md`; these controls do not change public HTTP/protobuf schemas.
 
 ## Verification
 
