@@ -37,3 +37,7 @@ cutoverExamples:
     routeMode: notification
     grpcAddr: smart-recruit-notification-service:50065
     rollbackRouteMode: logic
+  aiAgent:
+    routeMode: ai-agent
+    grpcAddr: smart-recruit-ai-agent-service:50066
+    rollbackRouteMode: logic
