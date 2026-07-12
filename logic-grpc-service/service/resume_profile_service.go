@@ -10,7 +10,9 @@ import (
 	"fmt"
 	"io"
 	"net/mail"
+	"regexp"
 	"sort"
+	"strconv"
 	"strings"
 	"time"
 
@@ -30,6 +32,10 @@ var (
 	ErrResumeProfileMissingResume = errors.New("resume not found")
 	ErrResumeProfileMissingText   = errors.New("resume parsed_text is empty")
 	ErrResumeProfileInvalidOutput = errors.New("resume profile extractor output is invalid")
+
+	resumeDateSinglePattern       = regexp.MustCompile(`^(19|20)\d{2}(?:[-/.年](\d{1,2}))?(?:[-/.月](\d{1,2}))?日?$`)
+	resumeDateDashRangePattern    = regexp.MustCompile(`^((?:19|20)\d{2}(?:-\d{1,2}(?:-\d{1,2})?)?)-((?:19|20)\d{2}(?:-\d{1,2}(?:-\d{1,2})?)?|present|current|now|至今|现在|目前)$`)
+	resumeDateGeneralRangePattern = regexp.MustCompile(`^((?:19|20)\d{2}(?:[./年]\d{1,2}(?:[./月]\d{1,2}日?)?)?)\s*(?:-|~|至|到|—|–)\s*((?:19|20)\d{2}(?:[./年]\d{1,2}(?:[./月]\d{1,2}日?)?)?|present|current|now|至今|现在|目前)$`)
 )
 
 type ResumeProfileExtractor interface {
@@ -405,7 +411,7 @@ func normalizeExtractedResumeProfile(extracted extractedResumeProfile) (normaliz
 		if err != nil {
 			return normalizedResumeProfile{}, fmt.Errorf("%w: educations[%d].start_date: %v", ErrResumeProfileInvalidOutput, i, err)
 		}
-		end, err := parseResumeDate(education.EndDate)
+		end, err := parseResumeEndDate(education.EndDate)
 		if err != nil {
 			return normalizedResumeProfile{}, fmt.Errorf("%w: educations[%d].end_date: %v", ErrResumeProfileInvalidOutput, i, err)
 		}
@@ -429,7 +435,7 @@ func normalizeExtractedResumeProfile(extracted extractedResumeProfile) (normaliz
 		if err != nil {
 			return normalizedResumeProfile{}, fmt.Errorf("%w: experiences[%d].start_date: %v", ErrResumeProfileInvalidOutput, i, err)
 		}
-		end, err := parseResumeDate(experience.EndDate)
+		end, err := parseResumeEndDate(experience.EndDate)
 		if err != nil {
 			return normalizedResumeProfile{}, fmt.Errorf("%w: experiences[%d].end_date: %v", ErrResumeProfileInvalidOutput, i, err)
 		}
@@ -464,7 +470,7 @@ func normalizeExtractedResumeProfile(extracted extractedResumeProfile) (normaliz
 		if err != nil {
 			return normalizedResumeProfile{}, fmt.Errorf("%w: projects[%d].start_date: %v", ErrResumeProfileInvalidOutput, i, err)
 		}
-		end, err := parseResumeDate(project.EndDate)
+		end, err := parseResumeEndDate(project.EndDate)
 		if err != nil {
 			return normalizedResumeProfile{}, fmt.Errorf("%w: projects[%d].end_date: %v", ErrResumeProfileInvalidOutput, i, err)
 		}
@@ -584,18 +590,116 @@ func normalizeWhitespace(value string) string {
 }
 
 func parseResumeDate(value string) (*time.Time, error) {
+	return parseResumeDateByRangeSide(value, false)
+}
+
+func parseResumeEndDate(value string) (*time.Time, error) {
+	return parseResumeDateByRangeSide(value, true)
+}
+
+func parseResumeDateByRangeSide(value string, preferRangeEnd bool) (*time.Time, error) {
 	value = normalizeWhitespace(value)
-	if value == "" || strings.EqualFold(value, "present") || strings.EqualFold(value, "current") {
+	if isOpenEndedResumeDate(value) {
 		return nil, nil
 	}
-	layouts := []string{"2006-01-02", "2006-01", "2006"}
-	for _, layout := range layouts {
-		parsed, err := time.Parse(layout, value)
-		if err == nil {
-			return &parsed, nil
+	if start, end, ok := splitResumeDateRange(value); ok {
+		if preferRangeEnd {
+			return parseResumeDateSingle(end)
+		}
+		return parseResumeDateSingle(start)
+	}
+	return parseResumeDateSingle(value)
+}
+
+func parseResumeDateSingle(value string) (*time.Time, error) {
+	value = normalizeResumeDateText(value)
+	if isOpenEndedResumeDate(value) {
+		return nil, nil
+	}
+	matches := resumeDateSinglePattern.FindStringSubmatch(value)
+	if matches == nil {
+		return nil, fmt.Errorf("expected YYYY, YYYY-MM, or YYYY-MM-DD")
+	}
+	year, _ := strconv.Atoi(value[:4])
+	month := 1
+	if matches[2] != "" {
+		parsedMonth, err := strconv.Atoi(matches[2])
+		if err != nil || parsedMonth < 1 || parsedMonth > 12 {
+			return nil, fmt.Errorf("expected YYYY, YYYY-MM, or YYYY-MM-DD")
+		}
+		month = parsedMonth
+	}
+	day := 1
+	if matches[3] != "" {
+		parsedDay, err := strconv.Atoi(matches[3])
+		if err != nil || parsedDay < 1 || parsedDay > 31 {
+			return nil, fmt.Errorf("expected YYYY, YYYY-MM, or YYYY-MM-DD")
+		}
+		day = parsedDay
+	}
+	parsed, err := time.Parse("2006-01-02", fmt.Sprintf("%04d-%02d-%02d", year, month, day))
+	if err != nil {
+		return nil, fmt.Errorf("expected YYYY, YYYY-MM, or YYYY-MM-DD")
+	}
+	return &parsed, nil
+}
+
+func splitResumeDateRange(value string) (string, string, bool) {
+	value = normalizeResumeDateRangeText(value)
+	for _, pattern := range []*regexp.Regexp{resumeDateDashRangePattern, resumeDateGeneralRangePattern} {
+		matches := pattern.FindStringSubmatch(value)
+		if matches != nil {
+			return matches[1], matches[2], true
 		}
 	}
-	return nil, fmt.Errorf("expected YYYY, YYYY-MM, or YYYY-MM-DD")
+	return "", "", false
+}
+
+func normalizeResumeDateText(value string) string {
+	value = strings.TrimSpace(strings.ToLower(value))
+	replacer := strings.NewReplacer(
+		"／", "/",
+		"．", ".",
+		"。", ".",
+		"－", "-",
+		"—", "-",
+		"–", "-",
+		"年", "-",
+		"月", "-",
+	)
+	value = replacer.Replace(value)
+	value = strings.TrimSuffix(value, "日")
+	value = strings.Trim(value, " .-/")
+	return strings.ReplaceAll(value, " ", "")
+}
+
+func normalizeResumeDateRangeText(value string) string {
+	value = strings.TrimSpace(strings.ToLower(value))
+	replacer := strings.NewReplacer(
+		"／", "/",
+		"．", ".",
+		"。", ".",
+		"－", "-",
+		"—", "-",
+		"–", "-",
+		"～", "~",
+		"至今", "present",
+		"现在", "present",
+		"目前", "present",
+	)
+	value = replacer.Replace(value)
+	value = strings.ReplaceAll(value, " ", "")
+	return value
+}
+
+func isOpenEndedResumeDate(value string) bool {
+	value = strings.TrimSpace(strings.ToLower(value))
+	switch value {
+	case "", "present", "current", "now", "ongoing", "至今", "现在", "目前":
+		return true
+	default:
+		return false
+	}
 }
 
 func marshalNormalizedStrings(values []string) (string, error) {
