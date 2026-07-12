@@ -10,7 +10,15 @@ Independent Interview service source root.
 
 ## Startup
 
-Later TASKs add service runtime, config, health, metrics, tracing, and Docker support. Until then, this root is a scaffolded Go module.
+This module now contains an independently buildable Interview gRPC runtime:
+
+```bash
+GOWORK=off go test ./...
+GOWORK=off go run ./cmd/interview-service --check
+GOWORK=off go run ./cmd/interview-service --serve --addr :50063
+```
+
+At runtime it reuses the shared Smart Recruit MySQL schema through existing repositories, registers `InterviewService`, exposes gRPC health, starts the shared metrics endpoint, initializes tracing, and registers the `interview` instance through Nacos discovery when configured.
 
 ## Monolith Relationship
 
