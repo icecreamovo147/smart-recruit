@@ -32,6 +32,32 @@ func main() {
 		log.Fatal("config validation failed", zap.Error(err))
 	}
 
+	routeTable, err := runtime.NewRouteTable(map[string]string{
+		"identity":     cfg.IdentityRouteMode,
+		"recruitment":  cfg.RecruitmentRouteMode,
+		"interview":    cfg.InterviewRouteMode,
+		"offer":        cfg.OfferRouteMode,
+		"notification": cfg.NotificationRouteMode,
+		"ai-agent":     cfg.AIAgentRouteMode,
+		"analytics":    os.Getenv("ANALYTICS_ROUTE_MODE"),
+	})
+	if err != nil {
+		log.Fatal("gateway route mode validation failed", zap.Error(err))
+	}
+	resolvedRoutes, err := routeTable.ResolveTargets(context.Background(), cfg.GRPCAddr, runtime.StaticTargetResolver{
+		"identity":     cfg.IdentityGRPCAddr,
+		"recruitment":  cfg.RecruitmentGRPCAddr,
+		"interview":    cfg.InterviewGRPCAddr,
+		"offer":        cfg.OfferGRPCAddr,
+		"notification": cfg.NotificationGRPCAddr,
+		"ai-agent":     cfg.AIAgentGRPCAddr,
+		"analytics":    os.Getenv("ANALYTICS_GRPC_ADDR"),
+	})
+	if err != nil {
+		log.Fatal("gateway route target validation failed", zap.Error(err))
+	}
+	log.Info("gateway route targets validated", zap.Int("ready_targets", len(resolvedRoutes.ReadyTargets(cfg.GRPCAddr))))
+
 	clients, err := rpc.NewClientsWithOptions(cfg.GRPCAddr, rpc.ClientOptions{
 		NotificationAddr:      cfg.NotificationGRPCAddr,
 		NotificationRouteMode: cfg.NotificationRouteMode,

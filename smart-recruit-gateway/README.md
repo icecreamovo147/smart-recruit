@@ -22,6 +22,10 @@ The entry point reuses the current `web-gin-service` router/config/rpc packages 
 
 `internal/runtime` includes Nacos config/discovery helpers. Local development can enable explicit static fallback; non-local environments fail fast when `NACOS_ADDR` is missing.
 
+## Route Modes
+
+Gateway route modes cover `identity`, `recruitment`, `interview`, `offer`, `notification`, `ai-agent`, and `analytics`. Each service defaults to `logic` for rollback; setting a service to its own mode requires a matching target address and makes that target part of the gateway readiness plan.
+
 ## Monolith Relationship
 
 `web-gin-service` remains the active gateway fallback until scoped gateway cutover TASKs provide compatibility and rollback evidence.
