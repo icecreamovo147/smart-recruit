@@ -14,6 +14,7 @@ Shared Go runtime platform for extracted Smart Recruit services.
 - `servicemeta`: defines service identity and common gRPC metadata headers.
 - `grpcx`: builds baseline gRPC server/client options, including internal-token propagation.
 - `nacos`: provides Nacos OpenAPI based config/discovery adapters with local static fallback and non-local fail-fast behavior.
+- `observability`: initializes zap logging, Prometheus metrics, OpenTelemetry tracing, and health/readiness helpers.
 
 ## Startup
 
