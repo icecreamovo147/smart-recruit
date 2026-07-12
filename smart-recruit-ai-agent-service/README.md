@@ -10,7 +10,15 @@ Independent AI Agent service source root.
 
 ## Startup
 
-Later TASKs add service runtime, config, health, metrics, tracing, and Docker support. Until then, this root is a scaffolded Go module.
+This module now contains an independently buildable AI Agent gRPC runtime:
+
+```bash
+GOWORK=off go test ./...
+GOWORK=off go run ./cmd/ai-agent-service --check
+GOWORK=off go run ./cmd/ai-agent-service --serve --addr :50066
+```
+
+At runtime it reuses the shared Smart Recruit MySQL schema, registers AI-owned gRPC services for AI, Prompt, AgentConfig, MCP, Skill, AgentSkill, RecruitingIntelligence, and EmbeddingConfig, exposes gRPC health, starts metrics and tracing, registers the `ai-agent` instance through Nacos discovery when configured, and starts RabbitMQ-controlled embedding and agent-run workers.
 
 ## Monolith Relationship
 

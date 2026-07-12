@@ -1,0 +1,128 @@
+package runtime
+
+import (
+	"fmt"
+
+	"google.golang.org/grpc"
+
+	"logic-grpc-service/recruitment/pb"
+	"logic-grpc-service/service"
+)
+
+const ServiceName = "ai-agent-service"
+
+type Deps struct {
+	AI                     pb.AIServiceServer
+	Prompt                 pb.PromptServiceServer
+	AgentConfig            pb.AgentConfigServiceServer
+	MCP                    pb.MCPServiceServer
+	Skill                  pb.SkillServiceServer
+	AgentSkill             pb.AgentSkillServiceServer
+	RecruitingIntelligence pb.RecruitingIntelligenceServiceServer
+	EmbeddingConfig        pb.EmbeddingConfigServiceServer
+	Runtime                *service.AIAgentRuntime
+}
+
+type Runtime struct {
+	AI                     pb.AIServiceServer
+	Prompt                 pb.PromptServiceServer
+	AgentConfig            pb.AgentConfigServiceServer
+	MCP                    pb.MCPServiceServer
+	Skill                  pb.SkillServiceServer
+	AgentSkill             pb.AgentSkillServiceServer
+	RecruitingIntelligence pb.RecruitingIntelligenceServiceServer
+	EmbeddingConfig        pb.EmbeddingConfigServiceServer
+	LongTasks              LongTaskControls
+}
+
+type LongTaskControls struct {
+	RabbitMQRequired bool
+	EmbeddingWorker  bool
+	AgentRunWorker   bool
+	RuntimeName      string
+}
+
+func New(deps Deps) (*Runtime, error) {
+	if deps.AI == nil {
+		return nil, fmt.Errorf("ai service is required")
+	}
+	if deps.Prompt == nil {
+		return nil, fmt.Errorf("prompt service is required")
+	}
+	if deps.AgentConfig == nil {
+		return nil, fmt.Errorf("agent config service is required")
+	}
+	if deps.MCP == nil {
+		return nil, fmt.Errorf("mcp service is required")
+	}
+	if deps.Skill == nil {
+		return nil, fmt.Errorf("skill service is required")
+	}
+	if deps.AgentSkill == nil {
+		return nil, fmt.Errorf("agent skill service is required")
+	}
+	if deps.RecruitingIntelligence == nil {
+		return nil, fmt.Errorf("recruiting intelligence service is required")
+	}
+	if deps.EmbeddingConfig == nil {
+		return nil, fmt.Errorf("embedding config service is required")
+	}
+	longTasks := LongTaskControls{RabbitMQRequired: true}
+	if deps.Runtime != nil {
+		longTasks = inspectLongTasks(deps.Runtime)
+		if err := longTasks.Validate(); err != nil {
+			return nil, err
+		}
+	}
+	return &Runtime{
+		AI:                     deps.AI,
+		Prompt:                 deps.Prompt,
+		AgentConfig:            deps.AgentConfig,
+		MCP:                    deps.MCP,
+		Skill:                  deps.Skill,
+		AgentSkill:             deps.AgentSkill,
+		RecruitingIntelligence: deps.RecruitingIntelligence,
+		EmbeddingConfig:        deps.EmbeddingConfig,
+		LongTasks:              longTasks,
+	}, nil
+}
+
+func inspectLongTasks(runtime *service.AIAgentRuntime) LongTaskControls {
+	return LongTaskControls{
+		RabbitMQRequired: true,
+		EmbeddingWorker:  runtime.EmbeddingConsumer != nil,
+		AgentRunWorker:   runtime.AgentRunConsumer != nil,
+		RuntimeName:      runtime.RuntimeName,
+	}
+}
+
+func (controls LongTaskControls) Validate() error {
+	if !controls.RabbitMQRequired {
+		return fmt.Errorf("ai agent long tasks must require RabbitMQ")
+	}
+	if !controls.EmbeddingWorker {
+		return fmt.Errorf("embedding worker control is required")
+	}
+	if !controls.AgentRunWorker {
+		return fmt.Errorf("agent run worker control is required")
+	}
+	return nil
+}
+
+func (r *Runtime) RegisterGRPC(registrar grpc.ServiceRegistrar) error {
+	if registrar == nil {
+		return fmt.Errorf("grpc service registrar is required")
+	}
+	if r == nil {
+		return fmt.Errorf("ai agent runtime is not initialized")
+	}
+	pb.RegisterAIServiceServer(registrar, r.AI)
+	pb.RegisterPromptServiceServer(registrar, r.Prompt)
+	pb.RegisterAgentConfigServiceServer(registrar, r.AgentConfig)
+	pb.RegisterMCPServiceServer(registrar, r.MCP)
+	pb.RegisterSkillServiceServer(registrar, r.Skill)
+	pb.RegisterAgentSkillServiceServer(registrar, r.AgentSkill)
+	pb.RegisterRecruitingIntelligenceServiceServer(registrar, r.RecruitingIntelligence)
+	pb.RegisterEmbeddingConfigServiceServer(registrar, r.EmbeddingConfig)
+	return nil
+}

@@ -1,0 +1,66 @@
+{
+  "schemaVersion": 1,
+  "feature_name": "microservice-runtime-implementation",
+  "task_id": "TASK-MRI-020",
+  "base_sha": "37104782dc7f412e53d1e0e50ca82dfa6877a2c1",
+  "base_tree": "c49c6e11623107ca7b5dc2136d9de7a0b332ffb7",
+  "head_sha": "37104782dc7f412e53d1e0e50ca82dfa6877a2c1",
+  "head_tree": "pending-local-commit",
+  "changed_files": [
+    ".spec/microservice-runtime-implementation/pipeline-state.json",
+    ".spec/microservice-runtime-implementation/reports/TASK-MRI-020-evidence.json",
+    ".spec/microservice-runtime-implementation/reports/TASK-MRI-020-report.md",
+    "smart-recruit-ai-agent-service/README.md",
+    "smart-recruit-ai-agent-service/cmd/ai-agent-service/adapters.go",
+    "smart-recruit-ai-agent-service/cmd/ai-agent-service/main.go",
+    "smart-recruit-ai-agent-service/cmd/ai-agent-service/main_test.go",
+    "smart-recruit-ai-agent-service/doc.go",
+    "smart-recruit-ai-agent-service/go.mod",
+    "smart-recruit-ai-agent-service/go.sum",
+    "smart-recruit-ai-agent-service/internal/runtime/runtime.go",
+    "smart-recruit-ai-agent-service/internal/runtime/runtime_test.go"
+  ],
+  "scope": {
+    "status": "passed",
+    "command": "TASK_BASE_TREE=c49c6e11623107ca7b5dc2136d9de7a0b332ffb7 bash .spec/microservice-runtime-implementation/scripts/check-task-scope.sh TASK-MRI-020",
+    "classification": "current",
+    "out_of_scope": [],
+    "forbidden": [],
+    "allowed_patterns": [
+      "smart-recruit-ai-agent-service/**",
+      "logic-grpc-service/internal/aiagent/**",
+      "logic-grpc-service/cmd/ai-agent-service/**",
+      "smart-recruit-proto/**",
+      "smart-recruit-platform-go/**",
+      "**/go.mod",
+      "**/go.sum",
+      ".spec/microservice-runtime-implementation/**"
+    ]
+  },
+  "checks": [
+    {"command": "cd smart-recruit-ai-agent-service && GOWORK=off go test ./...", "exit_code": 0, "status": "passed", "started_at": "2026-07-12T10:20:00.000Z", "duration_ms": 10900},
+    {"command": "cd smart-recruit-ai-agent-service && GOWORK=off go build ./cmd/ai-agent-service", "exit_code": 0, "status": "passed", "started_at": "2026-07-12T10:24:00.000Z", "duration_ms": 7343},
+    {"command": "cd smart-recruit-ai-agent-service && GOWORK=off go run ./cmd/ai-agent-service --check", "exit_code": 0, "status": "passed", "started_at": "2026-07-12T10:24:00.000Z", "duration_ms": 940},
+    {"command": "git diff --name-only", "exit_code": 0, "status": "passed", "started_at": "2026-07-12T10:23:00.000Z", "duration_ms": 57},
+    {"command": "node .knowledge/scripts/detect-impact.mjs --root . --base-tree c49c6e11623107ca7b5dc2136d9de7a0b332ffb7 --json", "exit_code": 0, "status": "passed", "started_at": "2026-07-12T10:24:00.000Z", "duration_ms": 384},
+    {"command": "TASK_BASE_TREE=c49c6e11623107ca7b5dc2136d9de7a0b332ffb7 bash .spec/microservice-runtime-implementation/scripts/check-task-scope.sh TASK-MRI-020", "exit_code": 0, "status": "passed", "started_at": "2026-07-12T10:23:00.000Z", "duration_ms": 185},
+    {"command": "bash .spec/microservice-runtime-implementation/scripts/agent-check.sh", "exit_code": 0, "status": "passed", "started_at": "2026-07-12T10:23:00.000Z", "duration_ms": 1001},
+    {"command": "node .agents/skills/spec-harness/scripts/validate-evidence.mjs --file .spec/microservice-runtime-implementation/reports/TASK-MRI-020-evidence.json", "exit_code": 0, "status": "passed", "started_at": "2026-07-12T10:27:00.000Z", "duration_ms": 60}
+  ],
+  "review": {"reviewer_type": "self-review", "round": 1, "verdict": "通过", "findings": []},
+  "human_confirmation": {"required": false, "confirmed": true, "confirmed_at": "2026-07-12T10:27:00Z", "source": "TASK-MRI-020 does not require human confirmation; harness-pipeline execution was explicitly requested by the user."},
+  "exceptions": [],
+  "skipped_checks": [
+    {"check": "Live --serve long-task worker smoke", "reason": "The AI Agent runtime validates RabbitMQ-backed worker controls and starts workers in serve mode; live broker and AI-provider smoke are deferred to later compose/smoke TASKs."}
+  ],
+  "knowledgeImpact": {
+    "result": "update_required",
+    "triggeredBy": ["configuration-changed", "covered-path-changed", "recurring-defect-fixed"],
+    "reviewResults": [
+      {"document": ".knowledge/architecture/system-overview.md", "verdict": "UNCHANGED", "evidence": ["Reviewed active source_refs; TASK-MRI-020 adds an extracted AI Agent service root with generated protobuf-compatible registrations and no public HTTP contract change."]},
+      {"document": ".knowledge/runbooks/local-development.md", "verdict": "UNCHANGED", "evidence": ["Reviewed active local startup guidance; AI Agent standalone build/check is documented in its service README while full compose runtime remains scoped to later TASKs."]}
+    ],
+    "coverageGap": false,
+    "validationExitCode": 0
+  }
+}
