@@ -41,6 +41,7 @@ RUN apk add --no-cache ca-certificates tzdata && \
 
 WORKDIR /app
 COPY --from=build "/out/${BINARY_NAME}" /app/service
+COPY --from=build /src/logic-grpc-service/config /app/config
 
 USER smartrecruit:smartrecruit
 ENTRYPOINT ["/app/service"]

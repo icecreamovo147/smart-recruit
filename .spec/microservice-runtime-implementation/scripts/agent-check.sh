@@ -29,6 +29,7 @@ run_cmd "task scope json parse" node -e 'JSON.parse(require("fs").readFileSync(p
 run_cmd "mysql table ownership check" node scripts/check-mysql-table-ownership.mjs
 run_cmd "redis prefix check" node scripts/check-redis-prefixes.mjs
 run_cmd "microservice image build target check" bash scripts/build-microservice-images.sh --check
+run_cmd "compose microservice smoke check" bash scripts/compose-microservice-smoke.sh --check
 
 CHANGED="$(git diff --name-only; git diff --cached --name-only; git ls-files --others --exclude-standard)"
 
