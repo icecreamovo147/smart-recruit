@@ -1,0 +1,379 @@
+package main
+
+import (
+	"context"
+	"database/sql"
+	"errors"
+	"flag"
+	"fmt"
+	"net"
+	"net/http"
+	"os"
+	"os/signal"
+	"path/filepath"
+	"strconv"
+	"strings"
+	"syscall"
+	"time"
+
+	"go.uber.org/zap"
+	"gorm.io/driver/mysql"
+	"gorm.io/gorm"
+
+	logicconfig "logic-grpc-service/config"
+	"logic-grpc-service/mq"
+	"logic-grpc-service/pkg/logger"
+	logicobservability "logic-grpc-service/pkg/observability"
+	"logic-grpc-service/server"
+	platformconfig "smart-recruit-platform-go/config"
+	"smart-recruit-platform-go/nacos"
+	platformobs "smart-recruit-platform-go/observability"
+	workerruntime "smart-recruit-worker-service/internal/runtime"
+)
+
+const nacosServiceName = "worker"
+
+func main() {
+	check := flag.Bool("check", false, "validate Worker service runtime wiring and exit")
+	serve := flag.Bool("serve", false, "start Worker runtime")
+	healthAddr := flag.String("health-addr", envOrDefault("WORKER_HEALTH_ADDR", ":50068"), "Worker health/readiness listen address")
+	flag.Parse()
+
+	if *check {
+		if err := checkRuntime(); err != nil {
+			fmt.Fprintf(os.Stderr, "worker-service check failed: %v\n", err)
+			os.Exit(1)
+		}
+		fmt.Fprintln(os.Stdout, "worker-service runtime check passed")
+		return
+	}
+	if *serve {
+		if err := serveWorker(*healthAddr); err != nil {
+			fmt.Fprintf(os.Stderr, "worker-service failed: %v\n", err)
+			os.Exit(1)
+		}
+		return
+	}
+	fmt.Fprintln(os.Stderr, "worker-service requires --check or --serve")
+	os.Exit(2)
+}
+
+func checkRuntime() error {
+	cfg, err := workerruntime.ParseWorkloadConfig("", "")
+	if err != nil {
+		return err
+	}
+	runtime, err := workerruntime.New(workerruntime.Deps{
+		Config:   cfg,
+		Starters: controlledStarters(cfg.Enabled, nil),
+		Status: func(context.Context) workerruntime.DependencyStatus {
+			return workerruntime.DependencyStatus{RabbitMQ: true, MySQL: true}
+		},
+	})
+	if err != nil {
+		return err
+	}
+	return runtime.Start(context.Background())
+}
+
+func serveWorker(healthAddr string) error {
+	if err := ensureLogicConfigPath(); err != nil {
+		return err
+	}
+	bootstrap, err := loadBootstrap(healthAddr)
+	if err != nil {
+		return fmt.Errorf("load platform bootstrap: %w", err)
+	}
+	traceRuntime, err := platformobs.NewTraceRuntime(context.Background(), platformobs.TraceConfig{
+		ServiceName:    bootstrap.ServiceName,
+		ServiceVersion: bootstrap.ServiceVersion,
+		Env:            bootstrap.ServiceEnv,
+	})
+	if err != nil {
+		return fmt.Errorf("init trace runtime: %w", err)
+	}
+	defer func() { _ = traceRuntime.Shutdown(context.Background()) }()
+
+	cfg, err := logicconfig.Load()
+	if err != nil {
+		return fmt.Errorf("load logic config: %w", err)
+	}
+	if err := logger.Init(cfg.Logging); err != nil {
+		return fmt.Errorf("init logger: %w", err)
+	}
+	log := logger.L()
+	logicobservability.DefaultMetrics = logicobservability.NewRegistry(workerruntime.ServiceName)
+
+	db, err := gorm.Open(mysql.Open(cfg.MySQL.DSN), &gorm.Config{
+		TranslateError: true,
+		Logger:         logger.NewGormLogger(&cfg.Logging.Gorm),
+	})
+	if err != nil {
+		return fmt.Errorf("connect mysql: %w", err)
+	}
+	sqlDB, err := db.DB()
+	if err != nil {
+		return fmt.Errorf("get sql db: %w", err)
+	}
+	defer sqlDB.Close()
+	sqlDB.SetMaxOpenConns(cfg.MySQL.MaxOpenConns)
+	sqlDB.SetMaxIdleConns(cfg.MySQL.MaxIdleConns)
+	sqlDB.SetConnMaxLifetime(cfg.MySQL.ConnMaxLifetime.Duration)
+	sqlDB.SetConnMaxIdleTime(cfg.MySQL.ConnMaxIdleTime.Duration)
+
+	mqConn, err := mq.New(mqConfig(cfg))
+	if err != nil {
+		return fmt.Errorf("connect rabbitmq: %w", err)
+	}
+	defer mqConn.Close()
+
+	workloadCfg, err := workerruntime.ParseWorkloadConfig(os.Getenv("WORKER_WORKLOADS"), os.Getenv("WORKER_DISABLED_WORKLOADS"))
+	if err != nil {
+		return err
+	}
+	runtime, err := workerruntime.New(workerruntime.Deps{
+		Config:   workloadCfg,
+		Starters: controlledStarters(workloadCfg.Enabled, log),
+		Status:   dependencyStatus(sqlDB, mqConn),
+	})
+	if err != nil {
+		return err
+	}
+
+	metricsServer, err := server.StartMetricsServer(cfg.Observability.MetricsAddr)
+	if err != nil {
+		return fmt.Errorf("start metrics server: %w", err)
+	}
+	defer server.ShutdownMetricsServer(context.Background(), metricsServer)
+
+	listener, err := net.Listen("tcp", healthAddr)
+	if err != nil {
+		return fmt.Errorf("listen health %s: %w", healthAddr, err)
+	}
+	instance, err := instanceFromAddr(listener.Addr().String(), bootstrap)
+	if err != nil {
+		_ = listener.Close()
+		return err
+	}
+	discovery, err := setupNacos(context.Background(), bootstrap, instance)
+	if err != nil {
+		_ = listener.Close()
+		return err
+	}
+	if discovery != nil {
+		defer func() { _ = discovery.Deregister(context.Background(), instance) }()
+	}
+
+	ctx, cancel := signalContext()
+	defer cancel()
+	if err := runtime.Start(ctx); err != nil {
+		_ = listener.Close()
+		return err
+	}
+
+	healthServer := &http.Server{Handler: healthMux(runtime)}
+	go func() {
+		if err := healthServer.Serve(listener); err != nil && !errors.Is(err, http.ErrServerClosed) {
+			log.Error("worker health server stopped unexpectedly", zap.Error(err))
+			cancel()
+		}
+	}()
+
+	log.Info("worker service runtime started",
+		zap.String("health_addr", listener.Addr().String()),
+		zap.String("nacos_service", instance.ServiceName),
+		zap.Strings("workloads", runtime.StartedWorkloads()),
+	)
+	<-ctx.Done()
+	shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer shutdownCancel()
+	return healthServer.Shutdown(shutdownCtx)
+}
+
+func controlledStarters(names []string, log *zap.Logger) map[string]workerruntime.Starter {
+	starters := make(map[string]workerruntime.Starter, len(names))
+	for _, name := range names {
+		workloadName := name
+		starters[workloadName] = workerruntime.StarterFunc(func(ctx context.Context) error {
+			if log != nil {
+				log.Info("worker workload supervisor started", zap.String("workload", workloadName))
+			}
+			go func() {
+				<-ctx.Done()
+				if log != nil {
+					log.Info("worker workload supervisor stopped", zap.String("workload", workloadName))
+				}
+			}()
+			return nil
+		})
+	}
+	return starters
+}
+
+func dependencyStatus(sqlDB *sql.DB, mqConn *mq.Conn) func(context.Context) workerruntime.DependencyStatus {
+	return func(ctx context.Context) workerruntime.DependencyStatus {
+		status := workerruntime.DependencyStatus{RabbitMQ: mqConn != nil}
+		if sqlDB != nil && sqlDB.PingContext(ctx) == nil {
+			status.MySQL = true
+		}
+		return status
+	}
+}
+
+func healthMux(runtime *workerruntime.Runtime) http.Handler {
+	mux := http.NewServeMux()
+	mux.HandleFunc("/livez", func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte("ok\n"))
+	})
+	mux.HandleFunc("/readyz", func(w http.ResponseWriter, r *http.Request) {
+		if err := runtime.Ready(r.Context()); err != nil {
+			http.Error(w, err.Error(), http.StatusServiceUnavailable)
+			return
+		}
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte("ok\n"))
+	})
+	return mux
+}
+
+func loadBootstrap(healthAddr string) (platformconfig.Bootstrap, error) {
+	return platformconfig.LoadWithLookup(func(key string) string {
+		switch key {
+		case "SERVICE_NAME":
+			return envOrDefault(key, workerruntime.ServiceName)
+		case "SERVICE_ENV":
+			return envOrDefault(key, "local")
+		case "SERVICE_VERSION":
+			return envOrDefault(key, "dev")
+		case "GRPC_ADDR":
+			return envOrDefault(key, healthAddr)
+		default:
+			return os.Getenv(key)
+		}
+	})
+}
+
+func setupNacos(ctx context.Context, bootstrap platformconfig.Bootstrap, instance nacos.Instance) (nacos.Discovery, error) {
+	if strings.TrimSpace(bootstrap.NacosAddr) == "" && !bootstrap.StaticFallback {
+		return nil, nil
+	}
+	configProvider, err := nacos.NewConfigProvider(nacos.ConfigOptions{
+		Addresses: bootstrap.NacosAddr,
+		Namespace: bootstrap.NacosNamespace,
+		Group:     bootstrap.NacosGroup,
+		Env:       bootstrap.ServiceEnv,
+		StaticFallback: map[string]string{
+			"worker-service.yaml": "service:\n  name: worker-service\nworker:\n  workloads: all\n",
+		},
+		AllowFallback: bootstrap.StaticFallback,
+		Username:      bootstrap.NacosUsername,
+		Password:      bootstrap.NacosPassword,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("init nacos config: %w", err)
+	}
+	if _, err := configProvider.Load(ctx, "worker-service.yaml"); err != nil {
+		return nil, fmt.Errorf("load worker nacos config: %w", err)
+	}
+	discovery, err := nacos.NewDiscovery(nacos.DiscoveryOptions{
+		Addresses: bootstrap.NacosAddr,
+		Namespace: bootstrap.NacosNamespace,
+		Group:     bootstrap.NacosGroup,
+		Env:       bootstrap.ServiceEnv,
+		StaticFallback: map[string][]nacos.Instance{
+			instance.ServiceName: []nacos.Instance{instance},
+		},
+		AllowFallback: bootstrap.StaticFallback,
+		Username:      bootstrap.NacosUsername,
+		Password:      bootstrap.NacosPassword,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("init nacos discovery: %w", err)
+	}
+	if err := discovery.Register(ctx, instance); err != nil {
+		return nil, fmt.Errorf("register worker in nacos: %w", err)
+	}
+	return discovery, nil
+}
+
+func instanceFromAddr(addr string, bootstrap platformconfig.Bootstrap) (nacos.Instance, error) {
+	host, portText, err := net.SplitHostPort(addr)
+	if err != nil {
+		return nacos.Instance{}, fmt.Errorf("parse worker addr %q: %w", addr, err)
+	}
+	if host == "" || host == "::" {
+		host = "127.0.0.1"
+	}
+	port, err := strconv.Atoi(portText)
+	if err != nil {
+		return nacos.Instance{}, fmt.Errorf("parse worker port %q: %w", portText, err)
+	}
+	instance := nacos.Instance{
+		ServiceName: nacosServiceName,
+		IP:          host,
+		Port:        port,
+		Healthy:     true,
+		Metadata: map[string]string{
+			"service": bootstrap.ServiceName,
+			"env":     bootstrap.ServiceEnv,
+			"version": bootstrap.ServiceVersion,
+		},
+	}
+	return instance, instance.Validate()
+}
+
+func signalContext() (context.Context, context.CancelFunc) {
+	ctx, cancel := context.WithCancel(context.Background())
+	shutdown := make(chan os.Signal, 1)
+	signal.Notify(shutdown, syscall.SIGINT, syscall.SIGTERM)
+	go func() {
+		select {
+		case <-shutdown:
+			cancel()
+		case <-ctx.Done():
+		}
+		signal.Stop(shutdown)
+	}()
+	return ctx, cancel
+}
+
+func ensureLogicConfigPath() error {
+	if os.Getenv("CONFIG_PATH") != "" {
+		return nil
+	}
+	for _, candidate := range []string{
+		filepath.Join("logic-grpc-service", "config", "config.yaml"),
+		filepath.Join("..", "logic-grpc-service", "config", "config.yaml"),
+	} {
+		if _, err := os.Stat(candidate); err == nil {
+			return os.Setenv("CONFIG_PATH", candidate)
+		}
+	}
+	return nil
+}
+
+func mqConfig(cfg logicconfig.Config) mq.Config {
+	return mq.Config{
+		URL:               cfg.RabbitMQ.URL,
+		Exchange:          cfg.RabbitMQ.Exchange,
+		DLXExchange:       cfg.RabbitMQ.DLXExchange,
+		RetryExchange:     cfg.RabbitMQ.RetryExchange,
+		NotificationQueue: cfg.RabbitMQ.NotificationQueue,
+		ResumeParseQueue:  cfg.RabbitMQ.ResumeParseQueue,
+		EmailQueue:        cfg.RabbitMQ.EmailQueue,
+		EmbeddingQueue:    cfg.RabbitMQ.EmbeddingQueue,
+		AgentRunQueue:     cfg.RabbitMQ.AgentRunQueue,
+		PrefetchCount:     cfg.RabbitMQ.PrefetchCount,
+		MaxRetries:        cfg.RabbitMQ.MaxRetries,
+		RetryDelay:        cfg.RabbitMQ.RetryDelay.Duration,
+	}
+}
+
+func envOrDefault(key string, fallback string) string {
+	value := strings.TrimSpace(os.Getenv(key))
+	if value == "" {
+		return fallback
+	}
+	return value
+}

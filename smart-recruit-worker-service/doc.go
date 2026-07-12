@@ -1,4 +1,4 @@
-// Package worker marks the extracted Smart Recruit Worker service module.
+// Package worker marks the extracted Smart Recruit worker-service module.
 package worker
 
-const ServiceName = "smart-recruit-worker-service"
+const ServiceName = "worker-service"

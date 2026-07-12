@@ -10,8 +10,14 @@ Independent Worker service source root.
 
 ## Startup
 
-Later TASKs add worker runtime, consumer toggles, health/readiness endpoints, metrics, tracing, and Docker support. Until then, this root is a scaffolded Go module.
+```bash
+GOWORK=off go test ./...
+GOWORK=off go run ./cmd/worker-service --check
+GOWORK=off go run ./cmd/worker-service --serve
+```
+
+`WORKER_WORKLOADS` enables a comma-separated subset of workloads. Empty means all known workloads. `WORKER_DISABLED_WORKLOADS` removes workloads from that set. Active workloads require RabbitMQ readiness and a configured starter with an idempotency policy.
 
 ## Monolith Relationship
 
-Current worker execution remains in `logic-grpc-service --worker-only` until worker extraction and smoke evidence is complete.
+Current worker execution remains rollback-safe because workload startup is controlled by explicit toggles and readiness checks. Full Outbox/Inbox/DLQ handler cutover is completed in later runtime TASKs.

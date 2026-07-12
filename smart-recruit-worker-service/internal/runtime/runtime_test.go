@@ -1,0 +1,107 @@
+package runtime
+
+import (
+	"context"
+	"reflect"
+	"testing"
+)
+
+func TestParseWorkloadConfigDefaultsAndDisables(t *testing.T) {
+	cfg, err := ParseWorkloadConfig("", "email-consumer,analytics-projection-consumer")
+	if err != nil {
+		t.Fatalf("ParseWorkloadConfig returned error: %v", err)
+	}
+	enabled := cfg.EnabledSet()
+	if _, ok := enabled["outbox-dispatcher"]; !ok {
+		t.Fatal("default config should enable outbox-dispatcher")
+	}
+	if _, ok := enabled["email-consumer"]; ok {
+		t.Fatal("disabled email-consumer should not be enabled")
+	}
+	if _, ok := enabled["analytics-projection-consumer"]; ok {
+		t.Fatal("disabled analytics-projection-consumer should not be enabled")
+	}
+}
+
+func TestRuntimeStartsEnabledWorkloadsInDescriptorOrder(t *testing.T) {
+	cfg, err := ParseWorkloadConfig("agent-run-consumer,outbox-dispatcher,embedding-consumer", "")
+	if err != nil {
+		t.Fatalf("ParseWorkloadConfig returned error: %v", err)
+	}
+	var started []string
+	runtime, err := New(Deps{
+		Config:   cfg,
+		Starters: recordingStarters(cfg.Enabled, &started),
+		Status:   func(context.Context) DependencyStatus { return DependencyStatus{RabbitMQ: true, MySQL: true} },
+	})
+	if err != nil {
+		t.Fatalf("New returned error: %v", err)
+	}
+	if err := runtime.Start(context.Background()); err != nil {
+		t.Fatalf("Start returned error: %v", err)
+	}
+	want := []string{"outbox-dispatcher", "embedding-consumer", "agent-run-consumer"}
+	if !reflect.DeepEqual(started, want) {
+		t.Fatalf("started workloads = %#v, want %#v", started, want)
+	}
+}
+
+func TestRuntimeReadinessRequiresRabbitMQAndMySQL(t *testing.T) {
+	cfg, err := ParseWorkloadConfig("notification-consumer", "")
+	if err != nil {
+		t.Fatalf("ParseWorkloadConfig returned error: %v", err)
+	}
+	runtime, err := New(Deps{
+		Config:   cfg,
+		Starters: recordingStarters(cfg.Enabled, nil),
+		Status:   func(context.Context) DependencyStatus { return DependencyStatus{RabbitMQ: false, MySQL: true} },
+	})
+	if err != nil {
+		t.Fatalf("New returned error: %v", err)
+	}
+	if err := runtime.Ready(context.Background()); err == nil {
+		t.Fatal("Ready accepted missing RabbitMQ")
+	}
+	runtime, err = New(Deps{
+		Config:   cfg,
+		Starters: recordingStarters(cfg.Enabled, nil),
+		Status:   func(context.Context) DependencyStatus { return DependencyStatus{RabbitMQ: true, MySQL: false} },
+	})
+	if err != nil {
+		t.Fatalf("New returned error: %v", err)
+	}
+	if err := runtime.Ready(context.Background()); err == nil {
+		t.Fatal("Ready accepted missing MySQL")
+	}
+}
+
+func TestRuntimeRejectsUnknownMissingStarterAndDuplicateUnsafeWork(t *testing.T) {
+	if _, err := ParseWorkloadConfig("unknown-worker", ""); err == nil {
+		t.Fatal("ParseWorkloadConfig accepted unknown worker")
+	}
+	cfg, err := ParseWorkloadConfig("resume-parse-consumer", "")
+	if err != nil {
+		t.Fatalf("ParseWorkloadConfig returned error: %v", err)
+	}
+	if _, err := New(Deps{
+		Config:   cfg,
+		Starters: map[string]Starter{},
+		Status:   func(context.Context) DependencyStatus { return DependencyStatus{RabbitMQ: true, MySQL: true} },
+	}); err == nil {
+		t.Fatal("New accepted missing starter")
+	}
+}
+
+func recordingStarters(names []string, started *[]string) map[string]Starter {
+	starters := make(map[string]Starter, len(names))
+	for _, name := range names {
+		workloadName := name
+		starters[workloadName] = StarterFunc(func(context.Context) error {
+			if started != nil {
+				*started = append(*started, workloadName)
+			}
+			return nil
+		})
+	}
+	return starters
+}
