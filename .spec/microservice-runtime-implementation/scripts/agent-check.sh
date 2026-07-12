@@ -27,6 +27,7 @@ run_cmd "feature validation" node .agents/skills/spec-harness/scripts/validate-f
 run_cmd "diff whitespace check" git diff --check -- "${FEATURE_DIR}" smart-recruit-proto smart-recruit-platform-go smart-recruit-gateway smart-recruit-identity-service smart-recruit-recruitment-service smart-recruit-interview-service smart-recruit-offer-service smart-recruit-notification-service smart-recruit-ai-agent-service smart-recruit-analytics-service smart-recruit-worker-service smart-recruit-deploy web-gin-service logic-grpc-service docker deploy scripts docs go.work
 run_cmd "task scope json parse" node -e 'JSON.parse(require("fs").readFileSync(process.argv[1], "utf8"))' "${FEATURE_DIR}/task-scope.json"
 run_cmd "mysql table ownership check" node scripts/check-mysql-table-ownership.mjs
+run_cmd "redis prefix check" node scripts/check-redis-prefixes.mjs
 
 CHANGED="$(git diff --name-only; git diff --cached --name-only; git ls-files --others --exclude-standard)"
 

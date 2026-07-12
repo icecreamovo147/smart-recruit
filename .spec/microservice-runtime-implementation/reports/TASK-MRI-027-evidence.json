@@ -1,0 +1,59 @@
+{
+  "schemaVersion": 1,
+  "feature_name": "microservice-runtime-implementation",
+  "task_id": "TASK-MRI-027",
+  "base_sha": "ff148a803fa480f78a11ce7c60cbc217567fb069",
+  "base_tree": "78541b3daf8860d1fe9aead9056a453faa5b98a7",
+  "head_sha": "ff148a803fa480f78a11ce7c60cbc217567fb069",
+  "head_tree": "pending-local-commit",
+  "changed_files": [
+    ".spec/microservice-runtime-implementation/pipeline-state.json",
+    ".spec/microservice-runtime-implementation/reports/TASK-MRI-027-evidence.json",
+    ".spec/microservice-runtime-implementation/reports/TASK-MRI-027-report.md",
+    ".spec/microservice-runtime-implementation/scripts/agent-check.sh",
+    "scripts/check-redis-prefixes.mjs",
+    "scripts/redis-prefix-exceptions.json",
+    "smart-recruit-platform-go/rediskey/builder.go",
+    "smart-recruit-platform-go/rediskey/builder_test.go"
+  ],
+  "scope": {
+    "status": "passed",
+    "command": "TASK_BASE_TREE=78541b3daf8860d1fe9aead9056a453faa5b98a7 bash .spec/microservice-runtime-implementation/scripts/check-task-scope.sh TASK-MRI-027",
+    "classification": "current",
+    "out_of_scope": [],
+    "forbidden": [],
+    "allowed_patterns": [
+      "smart-recruit-platform-go/**",
+      "smart-recruit-*/**",
+      "scripts/**",
+      ".spec/microservice-runtime-implementation/**"
+    ]
+  },
+  "checks": [
+    {"command": "cd smart-recruit-platform-go && go test ./rediskey", "exit_code": 0, "status": "passed", "started_at": "2026-07-12T12:18:00.000Z", "duration_ms": 587},
+    {"command": "cd smart-recruit-platform-go && go test ./...", "exit_code": 0, "status": "passed", "started_at": "2026-07-12T12:20:00.000Z", "duration_ms": 821},
+    {"command": "node scripts/check-redis-prefixes.mjs", "exit_code": 0, "status": "passed", "started_at": "2026-07-12T12:20:00.000Z", "duration_ms": 269},
+    {"command": "REDIS_PREFIX_EXTRA_ROOTS=/tmp/... node scripts/check-redis-prefixes.mjs (negative bare-key fixture)", "exit_code": 0, "status": "passed", "started_at": "2026-07-12T12:20:00.000Z", "duration_ms": 246},
+    {"command": "git diff --name-only", "exit_code": 0, "status": "passed", "started_at": "2026-07-12T12:22:00.000Z", "duration_ms": 4},
+    {"command": "node .knowledge/scripts/detect-impact.mjs --root . --base-tree 78541b3daf8860d1fe9aead9056a453faa5b98a7 --json", "exit_code": 0, "status": "passed", "started_at": "2026-07-12T12:23:00.000Z", "duration_ms": 354},
+    {"command": "TASK_BASE_TREE=78541b3daf8860d1fe9aead9056a453faa5b98a7 bash .spec/microservice-runtime-implementation/scripts/check-task-scope.sh TASK-MRI-027", "exit_code": 0, "status": "passed", "started_at": "2026-07-12T12:23:00.000Z", "duration_ms": 289},
+    {"command": "bash .spec/microservice-runtime-implementation/scripts/agent-check.sh", "exit_code": 0, "status": "passed", "started_at": "2026-07-12T12:22:00.000Z", "duration_ms": 1576},
+    {"command": "node .agents/skills/spec-harness/scripts/validate-evidence.mjs --file .spec/microservice-runtime-implementation/reports/TASK-MRI-027-evidence.json", "exit_code": 0, "status": "passed", "started_at": "2026-07-12T12:25:00.000Z", "duration_ms": 5}
+  ],
+  "review": {"reviewer_type": "self-review", "round": 1, "verdict": "通过", "findings": []},
+  "human_confirmation": {"required": false, "confirmed": true, "confirmed_at": "2026-07-12T12:24:00Z", "source": "TASK-MRI-027 does not require human confirmation; harness-pipeline execution was explicitly requested by the user."},
+  "exceptions": [
+    {"file": "scripts/redis-prefix-exceptions.json", "reason": "Current web-gin-service and logic-grpc-service Redis key producers are outside TASK-MRI-027 scope; exceptions are explicit and checked so new unprefixed keys still fail."}
+  ],
+  "skipped_checks": [],
+  "knowledgeImpact": {
+    "result": "update_required",
+    "triggeredBy": ["configuration-changed", "covered-path-changed", "recurring-defect-fixed"],
+    "reviewResults": [
+      {"document": ".knowledge/architecture/system-overview.md", "verdict": "UNCHANGED", "evidence": ["Reviewed source_refs; TASK-MRI-027 adds a shared Redis key helper and validation gate without changing service topology, public HTTP APIs, protobufs, or persistence ownership."]},
+      {"document": ".knowledge/runbooks/local-development.md", "verdict": "UNCHANGED", "evidence": ["Reviewed active local-development guidance; this TASK adds a validation command to agent-check but does not alter startup order, Docker prerequisites, or local service commands."]}
+    ],
+    "coverageGap": false,
+    "validationExitCode": 0
+  }
+}
