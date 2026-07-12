@@ -39,7 +39,7 @@ const nacosServiceName = "offer"
 func main() {
 	check := flag.Bool("check", false, "validate Offer service runtime wiring and exit")
 	serve := flag.Bool("serve", false, "start Offer gRPC runtime")
-	addr := flag.String("addr", envOrDefault("GRPC_ADDR", ":50063"), "Offer gRPC listen address")
+	addr := flag.String("addr", envOrDefault("GRPC_ADDR", ":50064"), "Offer gRPC listen address")
 	flag.Parse()
 
 	if *check {

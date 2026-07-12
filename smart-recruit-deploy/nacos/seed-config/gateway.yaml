@@ -25,3 +25,7 @@ cutoverExamples:
     routeMode: recruitment
     grpcAddr: smart-recruit-recruitment-service:50062
     rollbackRouteMode: logic
+  offer:
+    routeMode: offer
+    grpcAddr: smart-recruit-offer-service:50064
+    rollbackRouteMode: logic
