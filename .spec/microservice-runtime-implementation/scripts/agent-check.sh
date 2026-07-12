@@ -31,7 +31,7 @@ CHANGED="$(git diff --name-only; git diff --cached --name-only; git ls-files --o
 
 if printf "%s\n" "${CHANGED}" | grep -q "^logic-grpc-service/"; then
   run_cmd "logic-grpc-service gofmt check" bash -lc 'cd logic-grpc-service && files=$(gofmt -l $(find . -name "*.go" -not -path "./recruitment/pb/*")); if [ -n "$files" ]; then echo "$files"; exit 1; fi'
-  run_cmd "logic-grpc-service go test" bash -lc 'cd logic-grpc-service && go test ./...'
+  run_cmd "logic-grpc-service go test" bash -lc 'cd logic-grpc-service && GOWORK=off go test ./...'
 fi
 
 if printf "%s\n" "${CHANGED}" | grep -q "^web-gin-service/"; then
