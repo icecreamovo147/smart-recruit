@@ -10,7 +10,14 @@ Independent Recruitment service source root.
 
 ## Startup
 
-Later TASKs add service runtime, config, health, metrics, tracing, and Docker support. Until then, this root is a scaffolded Go module.
+This root now contains an explicit Recruitment gRPC runtime:
+
+```bash
+go run ./cmd/recruitment-service --check
+go run ./cmd/recruitment-service --serve --addr :50062
+```
+
+The runtime registers Job, Candidate, and Application services against the shared MySQL schema. Gateway traffic remains on `logic` until the scoped Recruitment cutover TASK records compatibility and rollback evidence.
 
 ## Monolith Relationship
 
