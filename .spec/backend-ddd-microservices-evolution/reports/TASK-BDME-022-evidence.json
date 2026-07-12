@@ -1,0 +1,192 @@
+{
+  "schemaVersion": 1,
+  "feature_name": "backend-ddd-microservices-evolution",
+  "task_id": "TASK-BDME-022",
+  "base_sha": "08e46c2df90eb3df921ae31b3cc606f7c719acb3",
+  "base_tree": "31b5ea1a845c2e690a7e2a210fa1a14ec03b3c75",
+  "head_sha": "08e46c2df90eb3df921ae31b3cc606f7c719acb3",
+  "changed_files": [
+    ".knowledge/domains/notification-outbox.md",
+    ".spec/backend-ddd-microservices-evolution/pipeline-state.json",
+    ".spec/backend-ddd-microservices-evolution/reports/TASK-BDME-022-report.md",
+    ".spec/backend-ddd-microservices-evolution/reports/TASK-BDME-022-evidence.json",
+    "logic-grpc-service/service/application_service.go",
+    "logic-grpc-service/service/interview_service.go",
+    "logic-grpc-service/service/notification_event_conversion_test.go",
+    "logic-grpc-service/service/offer_service.go"
+  ],
+  "scope": {
+    "status": "passed",
+    "base_tree": "31b5ea1a845c2e690a7e2a210fa1a14ec03b3c75",
+    "out_of_scope": [],
+    "forbidden": [],
+    "allowed": [
+      ".knowledge/domains/notification-outbox.md",
+      ".spec/backend-ddd-microservices-evolution/pipeline-state.json",
+      ".spec/backend-ddd-microservices-evolution/reports/TASK-BDME-022-report.md",
+      ".spec/backend-ddd-microservices-evolution/reports/TASK-BDME-022-evidence.json",
+      "logic-grpc-service/service/application_service.go",
+      "logic-grpc-service/service/interview_service.go",
+      "logic-grpc-service/service/notification_event_conversion_test.go",
+      "logic-grpc-service/service/offer_service.go"
+    ]
+  },
+  "checks": [
+    {
+      "command": "go test ./service -run 'TestNotificationOutboxWritesUseDomainEventTypes|TestBuildOutboxEvent|TestConsumeWithInbox'",
+      "exit_code": 0,
+      "status": "passed",
+      "started_at": "2026-07-11T15:18:00Z",
+      "duration_ms": 901,
+      "summary": "Notification conversion, Outbox envelope, and Inbox consumer focused service tests passed."
+    },
+    {
+      "command": "cd logic-grpc-service && go test ./...",
+      "exit_code": 0,
+      "status": "passed",
+      "started_at": "2026-07-11T15:25:00Z",
+      "duration_ms": 9342,
+      "summary": "All logic-grpc-service packages passed."
+    },
+    {
+      "command": "cd web-gin-service && go test ./...",
+      "exit_code": 0,
+      "status": "passed",
+      "started_at": "2026-07-11T15:25:00Z",
+      "duration_ms": 3905,
+      "summary": "All web-gin-service packages passed."
+    },
+    {
+      "command": "git diff --name-only && git ls-files --others --exclude-standard",
+      "exit_code": 0,
+      "status": "passed",
+      "started_at": "2026-07-11T15:25:00Z",
+      "duration_ms": 50,
+      "summary": "Listed tracked and untracked TASK files."
+    },
+    {
+      "command": "TASK_BASE_TREE=31b5ea1a845c2e690a7e2a210fa1a14ec03b3c75 bash .spec/backend-ddd-microservices-evolution/scripts/check-task-scope.sh TASK-BDME-022",
+      "exit_code": 0,
+      "status": "passed",
+      "started_at": "2026-07-11T15:25:00Z",
+      "duration_ms": 348,
+      "summary": "scope_result: PASS (TASK-BDME-022)."
+    },
+    {
+      "command": "bash .spec/backend-ddd-microservices-evolution/scripts/agent-check.sh",
+      "exit_code": 0,
+      "status": "passed",
+      "started_at": "2026-07-11T15:20:00Z",
+      "duration_ms": 29210,
+      "summary": "Feature validation, git diff whitespace, gofmt check, logic-grpc-service go test, and knowledge validation passed."
+    },
+    {
+      "command": "node .knowledge/scripts/detect-impact.mjs --root . --base-tree 31b5ea1a845c2e690a7e2a210fa1a14ec03b3c75",
+      "exit_code": 0,
+      "status": "passed",
+      "started_at": "2026-07-11T15:25:00Z",
+      "duration_ms": 441,
+      "summary": "impact_result: update_required; matched notification-outbox plus recruitment, lifecycle, service-boundaries, local-development, status drift, system-overview, and coverage audit routes."
+    },
+    {
+      "command": "node .knowledge/scripts/validate-knowledge.mjs --root .",
+      "exit_code": 0,
+      "status": "passed",
+      "started_at": "2026-07-11T15:25:00Z",
+      "duration_ms": 101,
+      "summary": "knowledge_result: PASS (33 formal documents)."
+    }
+  ],
+  "review": {
+    "type": "self-review",
+    "round": 1,
+    "verdict": "通过",
+    "findings": []
+  },
+  "human_confirmation": {
+    "required": false,
+    "confirmed": true,
+    "confirmed_by": "not_required",
+    "confirmed_at": "2026-07-11T15:25:59Z",
+    "confirmation_text": "TASK-BDME-022 does not require human confirmation."
+  },
+  "exceptions": [],
+  "skipped_checks": [],
+  "knowledgeImpact": {
+    "result": "update_required",
+    "triggeredBy": [
+      "logic-grpc-service/service/application_service.go",
+      "logic-grpc-service/service/interview_service.go",
+      "logic-grpc-service/service/offer_service.go",
+      "logic-grpc-service/service/notification_event_conversion_test.go",
+      ".knowledge/domains/notification-outbox.md"
+    ],
+    "reviewResults": [
+      {
+        "document": ".knowledge/domains/notification-outbox.md",
+        "verdict": "UPDATED",
+        "evidence": [
+          "Documented source-domain notification event types and routing-key compatibility requirements."
+        ]
+      },
+      {
+        "document": ".knowledge/runbooks/debug-recruitment-lifecycle.md",
+        "verdict": "UNCHANGED",
+        "evidence": [
+          "Reviewed because notification delivery troubleshooting is routed; TASK-BDME-022 preserves routing keys, payloads, consumer behavior, and diagnostics."
+        ]
+      },
+      {
+        "document": ".knowledge/runbooks/local-development.md",
+        "verdict": "UNCHANGED",
+        "evidence": [
+          "Reviewed because Go service checks were routed; no local startup or developer command changes were introduced."
+        ]
+      },
+      {
+        "document": ".knowledge/domains/recruitment.md",
+        "verdict": "UNCHANGED",
+        "evidence": [
+          "Reviewed for recruitment workflow impact; domain behavior and public workflow semantics remain unchanged."
+        ]
+      },
+      {
+        "document": ".knowledge/domains/recruitment-lifecycle.md",
+        "verdict": "UNCHANGED",
+        "evidence": [
+          "Reviewed for lifecycle event and notification drift; application, interview, and offer status transitions remain unchanged."
+        ]
+      },
+      {
+        "document": ".knowledge/architecture/service-boundaries.md",
+        "verdict": "UNCHANGED",
+        "evidence": [
+          "Reviewed for boundary ownership; existing boundary notes already cover event-based communication, and this task only renames Outbox event types."
+        ]
+      },
+      {
+        "document": ".knowledge/pitfalls/status-notification-drift.md",
+        "verdict": "UNCHANGED",
+        "evidence": [
+          "Reviewed for notification drift risk; status-to-notification timing and idempotency behavior remain unchanged."
+        ]
+      },
+      {
+        "document": ".knowledge/architecture/system-overview.md",
+        "verdict": "UNCHANGED",
+        "evidence": [
+          "Reviewed for topology impact; no service topology, transport, or deployment changes were introduced."
+        ]
+      },
+      {
+        "document": ".knowledge/architecture/knowledge-coverage-audit.md",
+        "verdict": "UNCHANGED",
+        "evidence": [
+          "Reviewed as a routed coverage document; this task has coverage in notification-outbox knowledge."
+        ]
+      }
+    ],
+    "coverageGap": false,
+    "validationExitCode": 0
+  }
+}

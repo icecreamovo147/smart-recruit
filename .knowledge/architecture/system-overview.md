@@ -22,8 +22,10 @@ source_refs:
   - README.md
   - web-gin-service/router/router.go
   - logic-grpc-service/main.go
+  - logic-grpc-service/internal/analytics/application/event_ingestor.go
+  - logic-grpc-service/internal/platform/events/envelope.go
   - pnpm-workspace.yaml
-last_verified: 2026-07-10
+last_verified: 2026-07-11
 review_after: 2026-10-08
 ---
 
@@ -31,7 +33,9 @@ review_after: 2026-10-08
 
 Smart Recruit is split into three Vue frontends, a Gin HTTP gateway, and a Go gRPC logic service. The frontends are workspace packages under `hr-frontend/`, `user-frontend/`, and `interviewer-frontend/`. The gateway owns HTTP routing, request middleware, RBAC checks, limits, body-size controls, SSE endpoints, and calls into the logic service through generated gRPC clients.
 
-The logic service owns core recruitment behavior, persistence orchestration, AI agent runtime, embedding services, message publishing, object storage integration, and protobuf service implementations. Persistent data flows through `repository/` and `model/`, while business workflows live mostly under `logic-grpc-service/service/`.
+The logic service owns core recruitment behavior, persistence orchestration, AI agent runtime, embedding services, message publishing, object storage integration, Analytics projection ingestion, and protobuf service implementations. Persistent data flows through `repository/` and `model/`, while business workflows live mostly under `logic-grpc-service/service/`. Shared internal platform contracts, such as the domain-event envelope in `logic-grpc-service/internal/platform/events/`, sit under the logic service and are intended for Outbox, Inbox, consumer, and projection code.
+
+Backend service extraction is staged through a service binary convention in `logic-grpc-service/internal/platform/servicebinary/` and `.spec/backend-ddd-microservices-evolution/docs/backend-ddd-microservices-evolution-service-binary-convention.md`. TASK-BDME-026 documents target commands and deployment metadata without changing current runtime traffic.
 
 Use this document for orientation only. For concrete behavior, prefer the active `.spec` contract, source code, generated protobufs, migrations, and tests.
 
@@ -41,7 +45,7 @@ Use this document for orientation only. For concrete behavior, prefer the active
 - `user-frontend/`: candidate job browsing, application tracking, resume, interview, offer, notification, and candidate AI flows.
 - `interviewer-frontend/`: interviewer-facing task and feedback flows.
 - `web-gin-service/`: HTTP API surface, auth middleware, staff/candidate route groups, rate limits, quotas, security headers, request body limits, Swagger, and gateway-to-gRPC calls.
-- `logic-grpc-service/`: domain services, AI orchestration, repositories, models, embedding and memory behavior, message queue integration, storage integration, and protobuf service servers.
+- `logic-grpc-service/`: domain services, AI orchestration, Analytics projection ingestion, service binary conventions, repositories, models, embedding and memory behavior, domain-event contracts, message queue integration, storage integration, and protobuf service servers.
 
 ## Change Impact Hints
 
@@ -52,4 +56,4 @@ Use this document for orientation only. For concrete behavior, prefer the active
 
 ## Verification
 
-The structure was verified from `README.md`, `web-gin-service/router/router.go`, `logic-grpc-service/main.go`, and current repository paths on 2026-07-10.
+The structure was verified from `README.md`, `web-gin-service/router/router.go`, `logic-grpc-service/main.go`, Analytics projection ingestion files, `logic-grpc-service/internal/platform/servicebinary/convention.go`, `logic-grpc-service/internal/platform/events/envelope.go`, and current repository paths on 2026-07-11.

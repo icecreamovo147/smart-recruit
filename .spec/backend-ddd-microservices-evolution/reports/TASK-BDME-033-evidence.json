@@ -1,0 +1,198 @@
+{
+  "schemaVersion": 1,
+  "feature_name": "backend-ddd-microservices-evolution",
+  "task_id": "TASK-BDME-033",
+  "base_sha": "e78ed35ee74b30e54d327a800d70a89f0bedfdf6",
+  "base_tree": "041eec41977ce2cbf78da0862035fb432a2de390",
+  "head_sha": "e78ed35ee74b30e54d327a800d70a89f0bedfdf6",
+  "changed_files": [
+    ".knowledge/architecture/agent-runtime.md",
+    ".knowledge/architecture/api-contracts-and-gateway.md",
+    ".knowledge/manifest.yaml",
+    ".knowledge/runbooks/service-binary-convention.md",
+    ".spec/backend-ddd-microservices-evolution/pipeline-state.json",
+    ".spec/backend-ddd-microservices-evolution/reports/TASK-BDME-033-report.md",
+    ".spec/backend-ddd-microservices-evolution/reports/TASK-BDME-033-evidence.json",
+    "deploy/k8s/configmap.yaml",
+    "docker/docker-compose.yml",
+    "docs/backend-ddd-microservices-evolution-ai-agent-gateway-cutover.md",
+    "web-gin-service/config/config.go",
+    "web-gin-service/config/config_test.go",
+    "web-gin-service/main.go",
+    "web-gin-service/rpc/client.go",
+    "web-gin-service/rpc/client_test.go"
+  ],
+  "scope": {
+    "status": "passed",
+    "base_tree": "041eec41977ce2cbf78da0862035fb432a2de390",
+    "out_of_scope": [],
+    "forbidden": [],
+    "allowed": [
+      ".knowledge/architecture/agent-runtime.md",
+      ".knowledge/architecture/api-contracts-and-gateway.md",
+      ".knowledge/manifest.yaml",
+      ".knowledge/runbooks/service-binary-convention.md",
+      ".spec/backend-ddd-microservices-evolution/pipeline-state.json",
+      ".spec/backend-ddd-microservices-evolution/reports/TASK-BDME-033-report.md",
+      ".spec/backend-ddd-microservices-evolution/reports/TASK-BDME-033-evidence.json",
+      "deploy/k8s/configmap.yaml",
+      "docker/docker-compose.yml",
+      "docs/backend-ddd-microservices-evolution-ai-agent-gateway-cutover.md",
+      "web-gin-service/config/config.go",
+      "web-gin-service/config/config_test.go",
+      "web-gin-service/main.go",
+      "web-gin-service/rpc/client.go",
+      "web-gin-service/rpc/client_test.go"
+    ]
+  },
+  "checks": [
+    {
+      "command": "git diff --name-only && git ls-files --others --exclude-standard",
+      "exit_code": 0,
+      "status": "passed",
+      "duration_ms": 29,
+      "started_at": "2026-07-11T17:03:00Z",
+      "summary": "Listed tracked and untracked TASK files."
+    },
+    {
+      "command": "TASK_BASE_TREE=041eec41977ce2cbf78da0862035fb432a2de390 bash .spec/backend-ddd-microservices-evolution/scripts/check-task-scope.sh TASK-BDME-033",
+      "exit_code": 0,
+      "status": "passed",
+      "duration_ms": 236,
+      "started_at": "2026-07-11T17:03:00Z",
+      "summary": "scope_result: PASS (TASK-BDME-033)."
+    },
+    {
+      "command": "bash .spec/backend-ddd-microservices-evolution/scripts/agent-check.sh",
+      "exit_code": 0,
+      "status": "passed",
+      "duration_ms": 2917,
+      "started_at": "2026-07-11T17:03:00Z",
+      "summary": "Feature validation, git diff whitespace check, gofmt check, web-gin-service go test, and knowledge validation passed."
+    },
+    {
+      "command": "cd logic-grpc-service && go test ./...",
+      "exit_code": 0,
+      "status": "passed",
+      "duration_ms": 1120,
+      "started_at": "2026-07-11T17:04:00Z",
+      "summary": "All logic-grpc-service packages passed."
+    },
+    {
+      "command": "cd web-gin-service && go test ./...",
+      "exit_code": 0,
+      "status": "passed",
+      "duration_ms": 2126,
+      "started_at": "2026-07-11T17:04:00Z",
+      "summary": "All web-gin-service packages passed."
+    },
+    {
+      "command": "node .knowledge/scripts/detect-impact.mjs --root . --base-tree 041eec41977ce2cbf78da0862035fb432a2de390 --json",
+      "exit_code": 0,
+      "status": "passed",
+      "duration_ms": 282,
+      "started_at": "2026-07-11T17:04:00Z",
+      "summary": "impact_result: update_required; no coverage gaps."
+    },
+    {
+      "command": "node .knowledge/scripts/validate-knowledge.mjs --root .",
+      "exit_code": 0,
+      "status": "passed",
+      "duration_ms": 0,
+      "started_at": "2026-07-11T17:04:00Z",
+      "summary": "knowledge_result: PASS (36 formal documents)."
+    }
+  ],
+  "review": {
+    "type": "self-review",
+    "round": 1,
+    "verdict": "通过",
+    "findings": []
+  },
+  "human_confirmation": {
+    "required": true,
+    "confirmed": true,
+    "confirmed_by": "user_global_gate_override",
+    "confirmed_at": "2026-07-11T17:02:20Z",
+    "confirmation_text": "User confirmed that all later human gates are cancelled once implementation and self-review pass."
+  },
+  "exceptions": [],
+  "skipped_checks": [],
+  "knowledgeImpact": {
+    "result": "update_required",
+    "triggeredBy": [
+      "configuration-changed",
+      "covered-path-changed",
+      "public-api-changed",
+      "recurring-defect-fixed",
+      "service-boundary-changed"
+    ],
+    "reviewResults": [
+      {
+        "document": ".knowledge/architecture/api-contracts-and-gateway.md",
+        "verdict": "UPDATED",
+        "evidence": [
+          "Documented AI Agent-owned generated-client routing to AI_AGENT_GRPC_ADDR and the default rollback path."
+        ]
+      },
+      {
+        "document": ".knowledge/architecture/agent-runtime.md",
+        "verdict": "UPDATED",
+        "evidence": [
+          "Documented gateway AI Agent routing and configuration-only rollback expectations."
+        ]
+      },
+      {
+        "document": ".knowledge/runbooks/service-binary-convention.md",
+        "verdict": "UPDATED",
+        "evidence": [
+          "Added the AI Agent gateway routing switch and fail-fast address requirement."
+        ]
+      },
+      {
+        "document": ".knowledge/manifest.yaml",
+        "verdict": "UPDATED",
+        "evidence": [
+          "Routed the AI Agent gateway cutover document into service-binary knowledge review."
+        ]
+      },
+      {
+        "document": ".knowledge/runbooks/local-development.md",
+        "verdict": "UNCHANGED",
+        "evidence": [
+          "Reviewed due configuration/local runtime routes; existing local development guidance remains accurate."
+        ]
+      },
+      {
+        "document": ".knowledge/architecture/service-boundaries.md",
+        "verdict": "UNCHANGED",
+        "evidence": [
+          "Reviewed due service-boundary route; AI Agent ownership remains consistent with existing boundary text."
+        ]
+      },
+      {
+        "document": ".knowledge/runbooks/notification-outbox.md",
+        "verdict": "UNCHANGED",
+        "evidence": [
+          "Reviewed due service-binary route; notification outbox behavior is not changed by AI Agent gateway routing."
+        ]
+      },
+      {
+        "document": ".knowledge/architecture/system-overview.md",
+        "verdict": "UNCHANGED",
+        "evidence": [
+          "Reviewed due broad backend/config route; public gateway topology remains compatible."
+        ]
+      },
+      {
+        "document": ".knowledge/runbooks/knowledge-coverage-audit.md",
+        "verdict": "UNCHANGED",
+        "evidence": [
+          "Reviewed due .knowledge route; no audit procedure changes were required."
+        ]
+      }
+    ],
+    "coverageGap": false,
+    "validationExitCode": 0
+  }
+}

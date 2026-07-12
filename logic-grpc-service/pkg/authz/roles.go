@@ -5,11 +5,11 @@ package authz
 // ── Role keys ──────────────────────────────────────────────────────────
 
 const (
-	RoleCandidate      = "candidate"
-	RoleRecruiter      = "recruiter"
+	RoleCandidate       = "candidate"
+	RoleRecruiter       = "recruiter"
 	RoleRecruitingAdmin = "recruiting_admin"
-	RoleSystemAdmin    = "system_admin"
-	RoleInterviewer    = "interviewer"
+	RoleSystemAdmin     = "system_admin"
+	RoleInterviewer     = "interviewer"
 )
 
 // StaffRoles returns all staff roles (non-candidate).

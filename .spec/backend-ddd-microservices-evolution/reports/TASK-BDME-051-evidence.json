@@ -1,0 +1,179 @@
+{
+  "schemaVersion": 1,
+  "feature_name": "backend-ddd-microservices-evolution",
+  "task_id": "TASK-BDME-051",
+  "base_sha": "0090d69193012ffef27f264a4982e014dde302ee",
+  "base_tree": "5a68861afcd94878a2352ecca3195e8fb67d46fe",
+  "head_sha": "0090d69193012ffef27f264a4982e014dde302ee",
+  "changed_files": [
+    ".knowledge/manifest.yaml",
+    ".knowledge/runbooks/local-development.md",
+    ".spec/backend-ddd-microservices-evolution/pipeline-state.json",
+    ".spec/backend-ddd-microservices-evolution/reports/TASK-BDME-051-report.md",
+    ".spec/backend-ddd-microservices-evolution/reports/TASK-BDME-051-evidence.json",
+    "docs/backend-ddd-microservices-evolution-load-test-harness.md",
+    "docs/backend-ddd-microservices-evolution-load-test-initial-evidence.json",
+    "scripts/backend-load-test.mjs"
+  ],
+  "scope": {
+    "status": "passed",
+    "base_tree": "5a68861afcd94878a2352ecca3195e8fb67d46fe",
+    "out_of_scope": [],
+    "forbidden": [],
+    "allowed": [
+      ".knowledge/manifest.yaml",
+      ".knowledge/runbooks/local-development.md",
+      ".spec/backend-ddd-microservices-evolution/pipeline-state.json",
+      ".spec/backend-ddd-microservices-evolution/reports/TASK-BDME-051-report.md",
+      ".spec/backend-ddd-microservices-evolution/reports/TASK-BDME-051-evidence.json",
+      "docs/backend-ddd-microservices-evolution-load-test-harness.md",
+      "docs/backend-ddd-microservices-evolution-load-test-initial-evidence.json",
+      "scripts/backend-load-test.mjs"
+    ]
+  },
+  "checks": [
+    {
+      "command": "git diff --name-only && git ls-files --others --exclude-standard",
+      "exit_code": 0,
+      "status": "passed",
+      "duration_ms": 0,
+      "started_at": "2026-07-11T19:19:16Z",
+      "summary": "Listed tracked and untracked TASK files."
+    },
+    {
+      "command": "node --check scripts/backend-load-test.mjs",
+      "exit_code": 0,
+      "status": "passed",
+      "duration_ms": 0,
+      "started_at": "2026-07-11T19:19:16Z",
+      "summary": "Load-test harness JavaScript syntax is valid."
+    },
+    {
+      "command": "node scripts/backend-load-test.mjs --dry-run --output docs/backend-ddd-microservices-evolution-load-test-initial-evidence.json",
+      "exit_code": 0,
+      "status": "passed",
+      "duration_ms": 0,
+      "started_at": "2026-07-11T19:19:16Z",
+      "summary": "Generated dry-run target matrix for 200 QPS gateway, 50 QPS writes, and 20 AI/Embedding submissions."
+    },
+    {
+      "command": "node .knowledge/scripts/detect-impact.mjs --root . --base-tree 5a68861afcd94878a2352ecca3195e8fb67d46fe",
+      "exit_code": 0,
+      "status": "passed",
+      "duration_ms": 221,
+      "started_at": "2026-07-11T19:19:16Z",
+      "summary": "impact_result: update_required; load-test docs/script routed to local-development knowledge."
+    },
+    {
+      "command": "node .knowledge/scripts/validate-knowledge.mjs --root .",
+      "exit_code": 0,
+      "status": "passed",
+      "duration_ms": 0,
+      "started_at": "2026-07-11T19:19:16Z",
+      "summary": "knowledge_result: PASS (36 formal documents)."
+    },
+    {
+      "command": "TASK_BASE_TREE=5a68861afcd94878a2352ecca3195e8fb67d46fe bash .spec/backend-ddd-microservices-evolution/scripts/check-task-scope.sh TASK-BDME-051",
+      "exit_code": 0,
+      "status": "passed",
+      "duration_ms": 159,
+      "started_at": "2026-07-11T19:19:16Z",
+      "summary": "scope_result: PASS (TASK-BDME-051)."
+    },
+    {
+      "command": "bash .spec/backend-ddd-microservices-evolution/scripts/agent-check.sh",
+      "exit_code": 0,
+      "status": "passed",
+      "duration_ms": 94,
+      "started_at": "2026-07-11T19:19:16Z",
+      "summary": "Feature validation, whitespace check, and knowledge validation passed."
+    },
+    {
+      "command": "git diff --check",
+      "exit_code": 0,
+      "status": "passed",
+      "duration_ms": 0,
+      "started_at": "2026-07-11T19:19:16Z",
+      "summary": "No whitespace errors."
+    }
+  ],
+  "review": {
+    "type": "self-review",
+    "round": 1,
+    "verdict": "通过",
+    "findings": []
+  },
+  "human_confirmation": {
+    "required": true,
+    "confirmed": true,
+    "confirmed_by": "user_global_gate_override",
+    "confirmed_at": "2026-07-11T19:19:16Z",
+    "confirmation_text": "用户确认允许继续执行，后面所有人工门禁都取消；任务实现完毕且 self-review 通过即可继续。"
+  },
+  "exceptions": [],
+  "skipped_checks": [
+    {
+      "command": "live 200 QPS / 50 QPS / AI concurrency run",
+      "reason": "No running isolated backend stack, authenticated test tokens, seeded write fixtures, or AI provider credentials are available in this workspace."
+    }
+  ],
+  "knowledgeImpact": {
+    "result": "update_required",
+    "triggeredBy": [
+      "configuration-changed",
+      "covered-path-changed"
+    ],
+    "reviewResults": [
+      {
+        "document": ".knowledge/runbooks/local-development.md",
+        "verdict": "UPDATED",
+        "evidence": [
+          "Documented backend load-test dry-run command and live-run prerequisites."
+        ]
+      },
+      {
+        "document": ".knowledge/manifest.yaml",
+        "verdict": "UPDATED",
+        "evidence": [
+          "Routed load-test harness script and evidence docs to local-development/service-binary/auth knowledge."
+        ]
+      },
+      {
+        "document": ".knowledge/architecture/system-overview.md",
+        "verdict": "UNCHANGED",
+        "evidence": [
+          "Reviewed due spec/report route; system topology unchanged."
+        ]
+      },
+      {
+        "document": ".knowledge/runbooks/service-binary-convention.md",
+        "verdict": "UNCHANGED",
+        "evidence": [
+          "Reviewed due route; service binary/deployment convention unchanged by script-only harness."
+        ]
+      },
+      {
+        "document": ".knowledge/architecture/auth-rbac-security.md",
+        "verdict": "UNCHANGED",
+        "evidence": [
+          "Reviewed because live load tests may need auth tokens; auth policy itself unchanged."
+        ]
+      },
+      {
+        "document": ".knowledge/runbooks/knowledge-coverage-audit.md",
+        "verdict": "UNCHANGED",
+        "evidence": [
+          "Reviewed due manifest update; no coverage procedure change required."
+        ]
+      }
+    ],
+    "coverageGap": false,
+    "validationExitCode": 0
+  },
+  "acceptance": {
+    "harness": "scripts/backend-load-test.mjs can exercise gateway read QPS, configured core write QPS, and configured AI/Embedding concurrent submissions",
+    "dry_run_evidence": "docs/backend-ddd-microservices-evolution-load-test-initial-evidence.json records the initial target matrix",
+    "latency_targets": "ordinary API P95 <300ms and complex query P95 <1s are encoded in the harness; live P95 not claimed because environment limits are documented",
+    "ai_async_validation": "AI/Embedding live scenario measures concurrent submission latency instead of provider completion time to validate non-blocking asynchronous submission behavior"
+  }
+}

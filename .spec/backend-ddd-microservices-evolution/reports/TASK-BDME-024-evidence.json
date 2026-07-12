@@ -1,0 +1,225 @@
+{
+  "schemaVersion": 1,
+  "feature_name": "backend-ddd-microservices-evolution",
+  "task_id": "TASK-BDME-024",
+  "base_sha": "0d0f64866661fd1b7140dccb16f7a06a3a099d4e",
+  "base_tree": "aa574fb4e8c3e771ca8c3c7b4a70dbf25b485b17",
+  "head_sha": "0d0f64866661fd1b7140dccb16f7a06a3a099d4e",
+  "changed_files": [
+    ".knowledge/architecture/persistence-and-migrations.md",
+    ".knowledge/architecture/service-boundaries.md",
+    ".knowledge/architecture/system-overview.md",
+    ".knowledge/domains/notification-outbox.md",
+    ".knowledge/inbox/analytics-projection-knowledge.md",
+    ".knowledge/pitfalls/migration-model-drift.md",
+    ".knowledge/runbooks/knowledge-coverage-audit.md",
+    ".knowledge/runbooks/protobuf-and-migration-change.md",
+    ".spec/backend-ddd-microservices-evolution/pipeline-state.json",
+    ".spec/backend-ddd-microservices-evolution/reports/TASK-BDME-024-report.md",
+    ".spec/backend-ddd-microservices-evolution/reports/TASK-BDME-024-evidence.json",
+    "db.sql",
+    "logic-grpc-service/internal/analytics/application/event_ingestor.go",
+    "logic-grpc-service/internal/analytics/application/event_ingestor_test.go",
+    "logic-grpc-service/internal/analytics/application/ports.go",
+    "logic-grpc-service/internal/analytics/domain/projection.go",
+    "logic-grpc-service/internal/analytics/domain/projection_test.go",
+    "logic-grpc-service/internal/analytics/infrastructure/projection_repository.go",
+    "logic-grpc-service/internal/analytics/infrastructure/repositories_test.go",
+    "logic-grpc-service/migrations/000053_add_analytics_projection_events.sql",
+    "logic-grpc-service/migrations/000053_add_analytics_projection_events.down.sql",
+    "logic-grpc-service/model/model.go",
+    "logic-grpc-service/repository/analytics_projection_repo.go",
+    "logic-grpc-service/repository/analytics_projection_repo_test.go",
+    "logic-grpc-service/repository/repo_test_helper.go"
+  ],
+  "scope": {
+    "status": "passed",
+    "base_tree": "aa574fb4e8c3e771ca8c3c7b4a70dbf25b485b17",
+    "out_of_scope": [],
+    "forbidden": [],
+    "allowed": [
+      ".knowledge/architecture/persistence-and-migrations.md",
+      ".knowledge/architecture/service-boundaries.md",
+      ".knowledge/architecture/system-overview.md",
+      ".knowledge/domains/notification-outbox.md",
+      ".knowledge/inbox/analytics-projection-knowledge.md",
+      ".knowledge/pitfalls/migration-model-drift.md",
+      ".knowledge/runbooks/knowledge-coverage-audit.md",
+      ".knowledge/runbooks/protobuf-and-migration-change.md",
+      ".spec/backend-ddd-microservices-evolution/pipeline-state.json",
+      ".spec/backend-ddd-microservices-evolution/reports/TASK-BDME-024-report.md",
+      ".spec/backend-ddd-microservices-evolution/reports/TASK-BDME-024-evidence.json",
+      "db.sql",
+      "logic-grpc-service/internal/analytics/application/event_ingestor.go",
+      "logic-grpc-service/internal/analytics/application/event_ingestor_test.go",
+      "logic-grpc-service/internal/analytics/application/ports.go",
+      "logic-grpc-service/internal/analytics/domain/projection.go",
+      "logic-grpc-service/internal/analytics/domain/projection_test.go",
+      "logic-grpc-service/internal/analytics/infrastructure/projection_repository.go",
+      "logic-grpc-service/internal/analytics/infrastructure/repositories_test.go",
+      "logic-grpc-service/migrations/000053_add_analytics_projection_events.sql",
+      "logic-grpc-service/migrations/000053_add_analytics_projection_events.down.sql",
+      "logic-grpc-service/model/model.go",
+      "logic-grpc-service/repository/analytics_projection_repo.go",
+      "logic-grpc-service/repository/analytics_projection_repo_test.go",
+      "logic-grpc-service/repository/repo_test_helper.go"
+    ]
+  },
+  "checks": [
+    {
+      "command": "cd logic-grpc-service && go test ./internal/analytics/... ./repository -run 'TestEventProjection|TestProjection|TestAnalyticsProjection|TestAnalyticsBoundary|TestCurrentAnalytics'",
+      "exit_code": 0,
+      "status": "passed",
+      "started_at": "2026-07-11T15:38:00Z",
+      "duration_ms": 5980,
+      "summary": "Focused Analytics projection, infrastructure adapter, boundary, and repository tests passed."
+    },
+    {
+      "command": "cd logic-grpc-service && go test ./...",
+      "exit_code": 0,
+      "status": "passed",
+      "started_at": "2026-07-11T15:39:00Z",
+      "duration_ms": 20971,
+      "summary": "All logic-grpc-service packages passed, including migration package validation."
+    },
+    {
+      "command": "git diff --name-only && git ls-files --others --exclude-standard",
+      "exit_code": 0,
+      "status": "passed",
+      "started_at": "2026-07-11T15:43:00Z",
+      "duration_ms": 221,
+      "summary": "Listed tracked and untracked TASK files."
+    },
+    {
+      "command": "TASK_BASE_TREE=aa574fb4e8c3e771ca8c3c7b4a70dbf25b485b17 bash .spec/backend-ddd-microservices-evolution/scripts/check-task-scope.sh TASK-BDME-024",
+      "exit_code": 0,
+      "status": "passed",
+      "started_at": "2026-07-11T15:43:00Z",
+      "duration_ms": 453,
+      "summary": "scope_result: PASS (TASK-BDME-024)."
+    },
+    {
+      "command": "bash .spec/backend-ddd-microservices-evolution/scripts/agent-check.sh",
+      "exit_code": 0,
+      "status": "passed",
+      "started_at": "2026-07-11T15:42:00Z",
+      "duration_ms": 5567,
+      "summary": "Feature validation, git diff whitespace, gofmt check, logic-grpc-service go test, and knowledge validation passed."
+    },
+    {
+      "command": "node .knowledge/scripts/detect-impact.mjs --root . --base-tree aa574fb4e8c3e771ca8c3c7b4a70dbf25b485b17",
+      "exit_code": 0,
+      "status": "passed",
+      "started_at": "2026-07-11T15:42:00Z",
+      "duration_ms": 531,
+      "summary": "impact_result: update_required; broad routes matched Analytics, persistence/migration, outbox, system overview, and AI/MCP/resume paths through model/repository changes."
+    },
+    {
+      "command": "node .knowledge/scripts/validate-knowledge.mjs --root .",
+      "exit_code": 0,
+      "status": "passed",
+      "started_at": "2026-07-11T15:42:00Z",
+      "duration_ms": 0,
+      "summary": "knowledge_result: PASS (34 formal documents)."
+    }
+  ],
+  "review": {
+    "type": "self-review",
+    "round": 1,
+    "verdict": "通过",
+    "findings": []
+  },
+  "human_confirmation": {
+    "required": true,
+    "confirmed": true,
+    "confirmed_by": "user_global_gate_override",
+    "confirmed_at": "2026-07-11T15:35:52Z",
+    "confirmation_text": "User confirmed that all later human gates are cancelled once implementation and self-review pass."
+  },
+  "exceptions": [],
+  "skipped_checks": [],
+  "knowledgeImpact": {
+    "result": "candidate_required",
+    "triggeredBy": [
+      "logic-grpc-service/internal/analytics/application/event_ingestor.go",
+      "logic-grpc-service/internal/analytics/infrastructure/projection_repository.go",
+      "logic-grpc-service/repository/analytics_projection_repo.go",
+      "logic-grpc-service/migrations/000053_add_analytics_projection_events.sql",
+      "db.sql"
+    ],
+    "reviewResults": [
+      {
+        "document": ".knowledge/architecture/service-boundaries.md",
+        "verdict": "UPDATED",
+        "evidence": [
+          "Documented Analytics envelope-based projection ingestion and the no service-read adapter boundary."
+        ]
+      },
+      {
+        "document": ".knowledge/architecture/persistence-and-migrations.md",
+        "verdict": "UPDATED",
+        "evidence": [
+          "Documented Analytics projection event/checkpoint schema alignment requirements."
+        ]
+      },
+      {
+        "document": ".knowledge/pitfalls/migration-model-drift.md",
+        "verdict": "UPDATED",
+        "evidence": [
+          "Added Analytics projection schema/model/repository drift prevention."
+        ]
+      },
+      {
+        "document": ".knowledge/runbooks/protobuf-and-migration-change.md",
+        "verdict": "UPDATED",
+        "evidence": [
+          "Added Analytics projection migration validation steps and review questions."
+        ]
+      },
+      {
+        "document": ".knowledge/architecture/system-overview.md",
+        "verdict": "UPDATED",
+        "evidence": [
+          "Recorded Analytics projection ingestion as part of the logic service architecture."
+        ]
+      },
+      {
+        "document": ".knowledge/domains/notification-outbox.md",
+        "verdict": "UPDATED",
+        "evidence": [
+          "Documented standard envelope ingestion into Analytics projections without production MQ wiring in this task."
+        ]
+      },
+      {
+        "document": ".knowledge/runbooks/knowledge-coverage-audit.md",
+        "verdict": "UPDATED",
+        "evidence": [
+          "Recorded Analytics projection coverage as partial with an inbox candidate pending promotion."
+        ]
+      },
+      {
+        "document": ".knowledge/inbox/analytics-projection-knowledge.md",
+        "verdict": "CANDIDATE",
+        "evidence": [
+          "Created draft candidate knowledge for future formal Analytics projection documentation."
+        ]
+      },
+      {
+        "document": "agent-runtime, agent-skill, ai-configuration-governance, debug-ai-configuration, embedding-fallback, mcp-policy-audit, mcp-tool-governance, semantic-retrieval",
+        "verdict": "UNCHANGED",
+        "evidence": [
+          "Reviewed due broad model/repository and internal service routes; TASK-BDME-024 does not change AI, MCP, embedding, retrieval, or agent runtime behavior."
+        ]
+      },
+      {
+        "document": "debug-recruitment-lifecycle, local-development, recruitment, recruitment-lifecycle, status-notification-drift",
+        "verdict": "UNCHANGED",
+        "evidence": [
+          "Reviewed as routed documents; no recruitment lifecycle behavior, status/notification timing, or local command flow changed."
+        ]
+      }
+    ],
+    "coverageGap": true,
+    "validationExitCode": 0
+  }
+}

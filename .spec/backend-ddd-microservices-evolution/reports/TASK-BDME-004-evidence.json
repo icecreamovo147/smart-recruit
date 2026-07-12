@@ -1,0 +1,151 @@
+{
+  "schemaVersion": 1,
+  "feature_name": "backend-ddd-microservices-evolution",
+  "task_id": "TASK-BDME-004",
+  "base_sha": "c02264e036f31d4c3a4bdc5ba6601627cc727fe0",
+  "base_tree": "5b76f65926adf539d7d317e95fcef2ba2327d651",
+  "head_sha": "c02264e036f31d4c3a4bdc5ba6601627cc727fe0",
+  "changed_files": [
+    ".spec/backend-ddd-microservices-evolution/pipeline-state.json",
+    ".spec/backend-ddd-microservices-evolution/reports/TASK-BDME-004-report.md",
+    ".spec/backend-ddd-microservices-evolution/reports/TASK-BDME-004-evidence.json",
+    "docs/backend-ddd-microservices-evolution-core-workflow-regression-baseline.md",
+    "logic-grpc-service/model/core_workflow_status_test.go"
+  ],
+  "scope": {
+    "status": "passed",
+    "base_tree": "5b76f65926adf539d7d317e95fcef2ba2327d651",
+    "out_of_scope": [],
+    "forbidden": [],
+    "allowed": [
+      ".spec/backend-ddd-microservices-evolution/pipeline-state.json",
+      ".spec/backend-ddd-microservices-evolution/reports/TASK-BDME-004-report.md",
+      ".spec/backend-ddd-microservices-evolution/reports/TASK-BDME-004-evidence.json",
+      "docs/backend-ddd-microservices-evolution-core-workflow-regression-baseline.md",
+      "logic-grpc-service/model/core_workflow_status_test.go"
+    ]
+  },
+  "checks": [
+    {
+      "command": "git diff --name-only && git ls-files --others --exclude-standard",
+      "exit_code": 0,
+      "status": "passed",
+      "started_at": "2026-07-11T13:49:10Z",
+      "duration_ms": 50,
+      "summary": "Listed changed and untracked TASK files."
+    },
+    {
+      "command": "TASK_BASE_TREE=5b76f65926adf539d7d317e95fcef2ba2327d651 bash .spec/backend-ddd-microservices-evolution/scripts/check-task-scope.sh TASK-BDME-004",
+      "exit_code": 0,
+      "status": "passed",
+      "started_at": "2026-07-11T13:49:10Z",
+      "duration_ms": 326,
+      "summary": "scope_result: PASS (TASK-BDME-004)."
+    },
+    {
+      "command": "bash .spec/backend-ddd-microservices-evolution/scripts/agent-check.sh",
+      "exit_code": 0,
+      "status": "passed",
+      "started_at": "2026-07-11T13:49:10Z",
+      "duration_ms": 4516,
+      "summary": "Feature validation, whitespace check, logic-grpc-service gofmt, and logic-grpc-service go test ./... passed."
+    },
+    {
+      "command": "cd logic-grpc-service && go test ./...",
+      "exit_code": 0,
+      "status": "passed",
+      "started_at": "2026-07-11T13:49:10Z",
+      "duration_ms": 4525,
+      "summary": "logic-grpc-service full test suite passed."
+    },
+    {
+      "command": "cd web-gin-service && go test ./...",
+      "exit_code": 0,
+      "status": "passed",
+      "started_at": "2026-07-11T13:50:37Z",
+      "duration_ms": 1604,
+      "summary": "web-gin-service full test suite passed."
+    },
+    {
+      "command": "node .knowledge/scripts/detect-impact.mjs --root . --base-tree 5b76f65926adf539d7d317e95fcef2ba2327d651",
+      "exit_code": 0,
+      "status": "passed",
+      "started_at": "2026-07-11T13:50:37Z",
+      "duration_ms": 535,
+      "summary": "impact_result: update_required; matched local development, persistence/migration, protobuf/migration, service boundaries, and system overview routes."
+    }
+  ],
+  "review": {
+    "type": "self-review",
+    "round": 1,
+    "verdict": "通过",
+    "findings": []
+  },
+  "human_confirmation": {
+    "required": false,
+    "confirmed": true,
+    "confirmed_by": "not_required",
+    "confirmed_at": "2026-07-11T13:46:55Z",
+    "confirmation_text": "TASK-BDME-004 does not require human confirmation."
+  },
+  "exceptions": [],
+  "skipped_checks": [
+    {
+      "command": "node .knowledge/scripts/validate-knowledge.mjs",
+      "reason": ".knowledge files were reviewed but not changed by TASK-BDME-004."
+    }
+  ],
+  "knowledgeImpact": {
+    "result": "update_required",
+    "triggeredBy": [
+      "docs/backend-ddd-microservices-evolution-core-workflow-regression-baseline.md",
+      "logic-grpc-service/model/core_workflow_status_test.go"
+    ],
+    "reviewResults": [
+      {
+        "document": ".knowledge/architecture/system-overview.md",
+        "verdict": "UNCHANGED",
+        "evidence": [
+          "Reviewed system overview; this TASK adds regression documentation and model tests only, with no service topology changes."
+        ]
+      },
+      {
+        "document": ".knowledge/architecture/service-boundaries.md",
+        "verdict": "UNCHANGED",
+        "evidence": [
+          "Reviewed service boundary knowledge; workflow mapping documents current cross-domain coupling but does not change ownership."
+        ]
+      },
+      {
+        "document": ".knowledge/architecture/persistence-and-migrations.md",
+        "verdict": "UNCHANGED",
+        "evidence": [
+          "Reviewed persistence/migration routing; no schema, migration, repository behavior, or persistence model changed."
+        ]
+      },
+      {
+        "document": ".knowledge/runbooks/local-development.md",
+        "verdict": "UNCHANGED",
+        "evidence": [
+          "Reviewed local validation guidance; Go test commands remain current."
+        ]
+      },
+      {
+        "document": ".knowledge/runbooks/protobuf-and-migration-change.md",
+        "verdict": "UNCHANGED",
+        "evidence": [
+          "Reviewed migration/proto runbook; no proto or generated code changed."
+        ]
+      },
+      {
+        "document": ".knowledge/pitfalls/migration-model-drift.md",
+        "verdict": "UNCHANGED",
+        "evidence": [
+          "Reviewed model drift pitfall; new status model regression test reinforces current behavior without changing model fields."
+        ]
+      }
+    ],
+    "coverageGap": false,
+    "validationExitCode": 0
+  }
+}

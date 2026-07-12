@@ -1,0 +1,194 @@
+{
+  "schemaVersion": 1,
+  "feature_name": "backend-ddd-microservices-evolution",
+  "task_id": "TASK-BDME-020",
+  "base_sha": "bdbb6694c88fdd9cb73b25fecfcc07b9bd3dcc05",
+  "base_tree": "6a7041dfd81973388c27b20e51803df490741e98",
+  "head_sha": "bdbb6694c88fdd9cb73b25fecfcc07b9bd3dcc05",
+  "changed_files": [
+    ".knowledge/architecture/persistence-and-migrations.md",
+    ".knowledge/domains/notification-outbox.md",
+    ".knowledge/pitfalls/migration-model-drift.md",
+    ".knowledge/runbooks/debug-recruitment-lifecycle.md",
+    ".knowledge/runbooks/protobuf-and-migration-change.md",
+    ".spec/backend-ddd-microservices-evolution/pipeline-state.json",
+    ".spec/backend-ddd-microservices-evolution/reports/TASK-BDME-020-report.md",
+    ".spec/backend-ddd-microservices-evolution/reports/TASK-BDME-020-evidence.json",
+    "db.sql",
+    "logic-grpc-service/migrations/000051_standardize_event_outbox.sql",
+    "logic-grpc-service/migrations/000051_standardize_event_outbox.down.sql",
+    "logic-grpc-service/model/model.go",
+    "logic-grpc-service/repository/outbox_repo.go",
+    "logic-grpc-service/repository/outbox_repo_test.go",
+    "logic-grpc-service/service/outbox_publisher.go",
+    "logic-grpc-service/service/outbox_publisher_test.go"
+  ],
+  "scope": {
+    "status": "passed",
+    "base_tree": "6a7041dfd81973388c27b20e51803df490741e98",
+    "out_of_scope": [],
+    "forbidden": [],
+    "allowed": [
+      ".knowledge/architecture/persistence-and-migrations.md",
+      ".knowledge/domains/notification-outbox.md",
+      ".knowledge/pitfalls/migration-model-drift.md",
+      ".knowledge/runbooks/debug-recruitment-lifecycle.md",
+      ".knowledge/runbooks/protobuf-and-migration-change.md",
+      ".spec/backend-ddd-microservices-evolution/pipeline-state.json",
+      ".spec/backend-ddd-microservices-evolution/reports/TASK-BDME-020-report.md",
+      ".spec/backend-ddd-microservices-evolution/reports/TASK-BDME-020-evidence.json",
+      "db.sql",
+      "logic-grpc-service/migrations/000051_standardize_event_outbox.sql",
+      "logic-grpc-service/migrations/000051_standardize_event_outbox.down.sql",
+      "logic-grpc-service/model/model.go",
+      "logic-grpc-service/repository/outbox_repo.go",
+      "logic-grpc-service/repository/outbox_repo_test.go",
+      "logic-grpc-service/service/outbox_publisher.go",
+      "logic-grpc-service/service/outbox_publisher_test.go"
+    ]
+  },
+  "checks": [
+    {
+      "command": "go test ./repository -run 'TestOutbox'",
+      "exit_code": 0,
+      "status": "passed",
+      "started_at": "2026-07-11T16:28:00Z",
+      "duration_ms": 3988,
+      "summary": "Outbox repository tests passed for claim/publish, dead-letter timestamp, stats, and retention."
+    },
+    {
+      "command": "go test ./service -run 'TestBuildOutboxEvent|TestOutbox'",
+      "exit_code": 0,
+      "status": "passed",
+      "started_at": "2026-07-11T16:28:00Z",
+      "duration_ms": 6486,
+      "summary": "Outbox publisher tests passed for envelope payload compatibility and retry-budget dead-letter handling."
+    },
+    {
+      "command": "cd logic-grpc-service && go test ./...",
+      "exit_code": 0,
+      "status": "passed",
+      "started_at": "2026-07-11T16:36:00Z",
+      "duration_ms": 19063,
+      "summary": "All logic-grpc-service packages passed."
+    },
+    {
+      "command": "git diff --name-only && git ls-files --others --exclude-standard",
+      "exit_code": 0,
+      "status": "passed",
+      "started_at": "2026-07-11T16:41:00Z",
+      "duration_ms": 50,
+      "summary": "Listed tracked and untracked TASK files."
+    },
+    {
+      "command": "TASK_BASE_TREE=6a7041dfd81973388c27b20e51803df490741e98 bash .spec/backend-ddd-microservices-evolution/scripts/check-task-scope.sh TASK-BDME-020",
+      "exit_code": 0,
+      "status": "passed",
+      "started_at": "2026-07-11T16:36:00Z",
+      "duration_ms": 158,
+      "summary": "scope_result: PASS (TASK-BDME-020)."
+    },
+    {
+      "command": "bash .spec/backend-ddd-microservices-evolution/scripts/agent-check.sh",
+      "exit_code": 0,
+      "status": "passed",
+      "started_at": "2026-07-11T16:39:00Z",
+      "duration_ms": 7314,
+      "summary": "Feature validation, git diff whitespace, gofmt check, logic-grpc-service go test, and knowledge validation passed."
+    },
+    {
+      "command": "node .knowledge/scripts/detect-impact.mjs --root . --base-tree 6a7041dfd81973388c27b20e51803df490741e98",
+      "exit_code": 0,
+      "status": "passed",
+      "started_at": "2026-07-11T16:41:00Z",
+      "duration_ms": 162,
+      "summary": "impact_result: update_required; matched outbox, persistence, recruitment, AI/MCP, local-development, service-boundaries, and system-overview routes."
+    },
+    {
+      "command": "node .knowledge/scripts/validate-knowledge.mjs --root .",
+      "exit_code": 0,
+      "status": "passed",
+      "started_at": "2026-07-11T16:36:00Z",
+      "duration_ms": 10,
+      "summary": "knowledge_result: PASS (33 formal documents)."
+    }
+  ],
+  "review": {
+    "type": "self-review",
+    "round": 1,
+    "verdict": "通过",
+    "findings": []
+  },
+  "human_confirmation": {
+    "required": true,
+    "confirmed": true,
+    "confirmed_by": "user_global_gate_override",
+    "confirmed_at": "2026-07-11T16:15:00Z",
+    "confirmation_text": "User confirmed that all later human gates are cancelled once implementation and self-review pass."
+  },
+  "exceptions": [],
+  "skipped_checks": [],
+  "knowledgeImpact": {
+    "result": "update_required",
+    "triggeredBy": [
+      "db.sql",
+      "logic-grpc-service/migrations/000051_standardize_event_outbox.sql",
+      "logic-grpc-service/model/model.go",
+      "logic-grpc-service/repository/outbox_repo.go",
+      "logic-grpc-service/service/outbox_publisher.go"
+    ],
+    "reviewResults": [
+      {
+        "document": ".knowledge/domains/notification-outbox.md",
+        "verdict": "UPDATED",
+        "evidence": [
+          "Documented standardized outbox envelope metadata, compatibility payload shape, bounded retry/dead-letter behavior, stats, and retention."
+        ]
+      },
+      {
+        "document": ".knowledge/architecture/persistence-and-migrations.md",
+        "verdict": "UPDATED",
+        "evidence": [
+          "Recorded outbox-specific migration/model/db.sql/repository alignment requirements."
+        ]
+      },
+      {
+        "document": ".knowledge/pitfalls/migration-model-drift.md",
+        "verdict": "UPDATED",
+        "evidence": [
+          "Added outbox status, retry, retention, and metadata drift prevention guidance."
+        ]
+      },
+      {
+        "document": ".knowledge/runbooks/debug-recruitment-lifecycle.md",
+        "verdict": "UPDATED",
+        "evidence": [
+          "Added retry/dead-letter status and outbox stats to notification diagnostics."
+        ]
+      },
+      {
+        "document": ".knowledge/runbooks/protobuf-and-migration-change.md",
+        "verdict": "UPDATED",
+        "evidence": [
+          "Added outbox migration review checks and payload compatibility question."
+        ]
+      },
+      {
+        "document": "agent-runtime, agent-skill, ai-configuration-governance, debug-ai-configuration, embedding-fallback, mcp-policy-audit, mcp-tool-governance, semantic-retrieval",
+        "verdict": "UNCHANGED",
+        "evidence": [
+          "Reviewed as broad model.go routes; TASK-BDME-020 changes outbox persistence and publisher behavior only, not AI, MCP, skill, embedding, or retrieval behavior."
+        ]
+      },
+      {
+        "document": "knowledge-coverage-audit, local-development, recruitment, recruitment-lifecycle, service-boundaries, status-notification-drift, system-overview",
+        "verdict": "UNCHANGED",
+        "evidence": [
+          "Reviewed as routed documents; no startup commands, service boundary ownership, status lifecycle rules, public API, or system topology changed."
+        ]
+      }
+    ],
+    "coverageGap": false,
+    "validationExitCode": 0
+  }
+}

@@ -125,6 +125,63 @@ func TestResumeProfileServiceParseResumeStoresNormalizedSnapshot(t *testing.T) {
 	}
 }
 
+func TestParseResumeDateNormalizesCommonLLMDateVariants(t *testing.T) {
+	tests := []struct {
+		name    string
+		value   string
+		endDate bool
+		want    string
+		wantNil bool
+		wantErr bool
+	}{
+		{name: "year", value: "2012", want: "2012-01-01"},
+		{name: "year month slash", value: "2012/9", want: "2012-09-01"},
+		{name: "year month dot", value: "2012.09", want: "2012-09-01"},
+		{name: "chinese year month", value: "2012年9月", want: "2012-09-01"},
+		{name: "chinese full date", value: "2012年9月3日", want: "2012-09-03"},
+		{name: "range start", value: "2012.09-2016.06", want: "2012-09-01"},
+		{name: "range end", value: "2012.09-2016.06", endDate: true, want: "2016-06-01"},
+		{name: "year range start", value: "2012-2016", want: "2012-01-01"},
+		{name: "year range end", value: "2012-2016", endDate: true, want: "2016-01-01"},
+		{name: "open ended english", value: "present", wantNil: true},
+		{name: "open ended chinese", value: "至今", endDate: true, wantNil: true},
+		{name: "month year remains invalid", value: "01-2020", wantErr: true},
+		{name: "invalid month", value: "2020-13", wantErr: true},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			var (
+				got *time.Time
+				err error
+			)
+			if tc.endDate {
+				got, err = parseResumeEndDate(tc.value)
+			} else {
+				got, err = parseResumeDate(tc.value)
+			}
+			if tc.wantErr {
+				if err == nil {
+					t.Fatalf("expected error, got nil")
+				}
+				return
+			}
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+			if tc.wantNil {
+				if got != nil {
+					t.Fatalf("expected nil date, got %s", got.Format("2006-01-02"))
+				}
+				return
+			}
+			if got == nil || got.Format("2006-01-02") != tc.want {
+				t.Fatalf("expected %s, got %+v", tc.want, got)
+			}
+		})
+	}
+}
+
 func TestResumeProfileServiceParseResumePersistsWhenRequestContextCanceledAfterExtraction(t *testing.T) {
 	db := setupResumeProfileServiceTestDB(t)
 	ctx, cancel := context.WithCancel(context.Background())

@@ -1,0 +1,221 @@
+{
+  "schemaVersion": 1,
+  "feature_name": "backend-ddd-microservices-evolution",
+  "task_id": "TASK-BDME-023",
+  "base_sha": "1ea54a6364b964a567633e12a4f4c1f4ef09ea98",
+  "base_tree": "30ae41f8e4b1aca30035404b683e310721b25af2",
+  "head_sha": "1ea54a6364b964a567633e12a4f4c1f4ef09ea98",
+  "changed_files": [
+    ".knowledge/architecture/service-boundaries.md",
+    ".knowledge/domains/recruitment-lifecycle.md",
+    ".knowledge/pitfalls/status-notification-drift.md",
+    ".knowledge/runbooks/debug-recruitment-lifecycle.md",
+    ".spec/backend-ddd-microservices-evolution/pipeline-state.json",
+    ".spec/backend-ddd-microservices-evolution/reports/TASK-BDME-023-report.md",
+    ".spec/backend-ddd-microservices-evolution/reports/TASK-BDME-023-evidence.json",
+    "logic-grpc-service/repository/application_repo.go",
+    "logic-grpc-service/service/interview_service.go",
+    "logic-grpc-service/service/offer_service.go",
+    "logic-grpc-service/service/recruitment_lifecycle_decoupling_test.go",
+    "logic-grpc-service/service/recruitment_lifecycle_process_manager.go"
+  ],
+  "scope": {
+    "status": "passed",
+    "base_tree": "30ae41f8e4b1aca30035404b683e310721b25af2",
+    "out_of_scope": [],
+    "forbidden": [],
+    "allowed": [
+      ".knowledge/architecture/service-boundaries.md",
+      ".knowledge/domains/recruitment-lifecycle.md",
+      ".knowledge/pitfalls/status-notification-drift.md",
+      ".knowledge/runbooks/debug-recruitment-lifecycle.md",
+      ".spec/backend-ddd-microservices-evolution/pipeline-state.json",
+      ".spec/backend-ddd-microservices-evolution/reports/TASK-BDME-023-report.md",
+      ".spec/backend-ddd-microservices-evolution/reports/TASK-BDME-023-evidence.json",
+      "logic-grpc-service/repository/application_repo.go",
+      "logic-grpc-service/service/interview_service.go",
+      "logic-grpc-service/service/offer_service.go",
+      "logic-grpc-service/service/recruitment_lifecycle_decoupling_test.go",
+      "logic-grpc-service/service/recruitment_lifecycle_process_manager.go"
+    ]
+  },
+  "checks": [
+    {
+      "command": "cd logic-grpc-service && go test ./service -run 'TestOfferService|TestInterviewService_SubmitFeedback|TestNotificationOutboxWritesUseDomainEventTypes'",
+      "exit_code": 0,
+      "status": "passed",
+      "started_at": "2026-07-11T15:30:00Z",
+      "duration_ms": 6564,
+      "summary": "Focused interview, offer, and notification service tests passed after process-manager routing."
+    },
+    {
+      "command": "cd logic-grpc-service && go test ./service -run 'TestInterviewAndOfferUseRecruitmentLifecycleProcessManager|TestOfferService|TestInterviewService_SubmitFeedback'",
+      "exit_code": 0,
+      "status": "passed",
+      "started_at": "2026-07-11T15:31:00Z",
+      "duration_ms": 6270,
+      "summary": "Static lifecycle decoupling regression plus focused interview/offer tests passed."
+    },
+    {
+      "command": "cd logic-grpc-service && go test ./...",
+      "exit_code": 0,
+      "status": "passed",
+      "started_at": "2026-07-11T15:32:00Z",
+      "duration_ms": 30084,
+      "summary": "All logic-grpc-service packages passed."
+    },
+    {
+      "command": "git diff --name-only && git ls-files --others --exclude-standard",
+      "exit_code": 0,
+      "status": "passed",
+      "started_at": "2026-07-11T15:33:00Z",
+      "duration_ms": 10,
+      "summary": "Listed tracked and untracked TASK files."
+    },
+    {
+      "command": "TASK_BASE_TREE=30ae41f8e4b1aca30035404b683e310721b25af2 bash .spec/backend-ddd-microservices-evolution/scripts/check-task-scope.sh TASK-BDME-023",
+      "exit_code": 0,
+      "status": "passed",
+      "started_at": "2026-07-11T15:32:00Z",
+      "duration_ms": 442,
+      "summary": "scope_result: PASS (TASK-BDME-023)."
+    },
+    {
+      "command": "bash .spec/backend-ddd-microservices-evolution/scripts/agent-check.sh",
+      "exit_code": 0,
+      "status": "passed",
+      "started_at": "2026-07-11T15:32:00Z",
+      "duration_ms": 30084,
+      "summary": "Feature validation, git diff whitespace, gofmt check, logic-grpc-service go test, and knowledge validation passed."
+    },
+    {
+      "command": "node .knowledge/scripts/detect-impact.mjs --root . --base-tree 30ae41f8e4b1aca30035404b683e310721b25af2",
+      "exit_code": 0,
+      "status": "passed",
+      "started_at": "2026-07-11T15:32:00Z",
+      "duration_ms": 514,
+      "summary": "impact_result: update_required; matched recruitment lifecycle, boundaries, drift, notification, persistence/migration, local-development, system-overview, and coverage routes."
+    },
+    {
+      "command": "node .knowledge/scripts/validate-knowledge.mjs --root .",
+      "exit_code": 0,
+      "status": "passed",
+      "started_at": "2026-07-11T15:32:00Z",
+      "duration_ms": 319,
+      "summary": "knowledge_result: PASS (33 formal documents)."
+    }
+  ],
+  "review": {
+    "type": "self-review",
+    "round": 1,
+    "verdict": "通过",
+    "findings": []
+  },
+  "human_confirmation": {
+    "required": false,
+    "confirmed": true,
+    "confirmed_by": "not_required",
+    "confirmed_at": "2026-07-11T15:33:27Z",
+    "confirmation_text": "TASK-BDME-023 does not require human confirmation."
+  },
+  "exceptions": [],
+  "skipped_checks": [],
+  "knowledgeImpact": {
+    "result": "update_required",
+    "triggeredBy": [
+      "logic-grpc-service/service/interview_service.go",
+      "logic-grpc-service/service/offer_service.go",
+      "logic-grpc-service/service/recruitment_lifecycle_process_manager.go",
+      "logic-grpc-service/service/recruitment_lifecycle_decoupling_test.go",
+      "logic-grpc-service/repository/application_repo.go"
+    ],
+    "reviewResults": [
+      {
+        "document": ".knowledge/domains/recruitment-lifecycle.md",
+        "verdict": "UPDATED",
+        "evidence": [
+          "Documented RecruitmentLifecycleProcessManager as the explicit process-manager boundary for Interview and Offer application status transitions."
+        ]
+      },
+      {
+        "document": ".knowledge/architecture/service-boundaries.md",
+        "verdict": "UPDATED",
+        "evidence": [
+          "Documented the transitional process-manager boundary and review checklist expectation for cross-context application lifecycle writes."
+        ]
+      },
+      {
+        "document": ".knowledge/pitfalls/status-notification-drift.md",
+        "verdict": "UPDATED",
+        "evidence": [
+          "Added prevention guidance that Interview and Offer side effects must go through the lifecycle process manager."
+        ]
+      },
+      {
+        "document": ".knowledge/runbooks/debug-recruitment-lifecycle.md",
+        "verdict": "UPDATED",
+        "evidence": [
+          "Added the process manager to status and offer troubleshooting anchors."
+        ]
+      },
+      {
+        "document": ".knowledge/domains/recruitment.md",
+        "verdict": "UNCHANGED",
+        "evidence": [
+          "Reviewed for core recruitment model impact; concepts and user-facing domain behavior remain unchanged."
+        ]
+      },
+      {
+        "document": ".knowledge/domains/notification-outbox.md",
+        "verdict": "UNCHANGED",
+        "evidence": [
+          "Reviewed because Interview/Offer workflows emit notifications; routing keys, payloads, and outbox semantics remain unchanged."
+        ]
+      },
+      {
+        "document": ".knowledge/architecture/persistence-and-migrations.md",
+        "verdict": "UNCHANGED",
+        "evidence": [
+          "Reviewed because repository code changed; no schema, migration, model, or db.sql changes were introduced."
+        ]
+      },
+      {
+        "document": ".knowledge/pitfalls/migration-model-drift.md",
+        "verdict": "UNCHANGED",
+        "evidence": [
+          "Reviewed because repository code changed; no migration/model drift surface changed."
+        ]
+      },
+      {
+        "document": ".knowledge/runbooks/protobuf-and-migration-change.md",
+        "verdict": "UNCHANGED",
+        "evidence": [
+          "Reviewed because broad persistence routes matched; no protobuf or migration actions changed."
+        ]
+      },
+      {
+        "document": ".knowledge/runbooks/local-development.md",
+        "verdict": "UNCHANGED",
+        "evidence": [
+          "Reviewed because logic service files changed; no local startup or validation command changes were introduced."
+        ]
+      },
+      {
+        "document": ".knowledge/architecture/system-overview.md",
+        "verdict": "UNCHANGED",
+        "evidence": [
+          "Reviewed for system topology impact; no service topology, deployment, or transport changes were introduced."
+        ]
+      },
+      {
+        "document": ".knowledge/runbooks/knowledge-coverage-audit.md",
+        "verdict": "UNCHANGED",
+        "evidence": [
+          "Reviewed as a routed coverage document; the task has coverage in lifecycle and service-boundary knowledge."
+        ]
+      }
+    ],
+    "coverageGap": false,
+    "validationExitCode": 0
+  }
+}

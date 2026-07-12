@@ -45,7 +45,7 @@ Use this runbook when expanding or reviewing the coding-Agent knowledge layer. T
 | Gin gateway, handlers, middleware, gRPC clients | Partially covered by service boundaries | TASK-003 |
 | Proto, generated code, migrations, model, repository | Partially covered by proto pitfall and recruitment domain | TASK-003 |
 | Jobs, applications, interviews, offers | Partially covered by recruitment domain | TASK-004 |
-| Collaboration, notification, outbox, SSE, analytics | High-risk uncovered | TASK-004 |
+| Collaboration, notification, outbox, SSE, analytics | Partially covered; Analytics projection has a draft Inbox candidate pending promotion | TASK-004 / TASK-BDME-024 |
 | LLM providers/models, prompt templates, Agent config, MCP tools | High-risk uncovered | TASK-005 |
 | Resume upload, parsing, structured profile, candidate matching | High-risk uncovered | TASK-006 |
 | Three Vue apps, route guards, auth stores, API wrappers, validation | Partially covered by system overview and HR admin pitfall | TASK-007 |

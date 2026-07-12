@@ -1,0 +1,150 @@
+{
+  "schemaVersion": 1,
+  "feature_name": "backend-ddd-microservices-evolution",
+  "task_id": "TASK-BDME-011",
+  "base_sha": "648baa10798a2873815ec12c63a3a1dcae2033bd",
+  "base_tree": "d3ed94699e8df093c43bd24c403e8cad1bf628be",
+  "head_sha": "648baa10798a2873815ec12c63a3a1dcae2033bd",
+  "changed_files": [
+    ".spec/backend-ddd-microservices-evolution/pipeline-state.json",
+    ".spec/backend-ddd-microservices-evolution/reports/TASK-BDME-011-report.md",
+    ".spec/backend-ddd-microservices-evolution/reports/TASK-BDME-011-evidence.json",
+    "logic-grpc-service/internal/recruitment/application/job_ports.go",
+    "logic-grpc-service/internal/recruitment/application/job_ports_test.go",
+    "logic-grpc-service/internal/recruitment/domain/job.go",
+    "logic-grpc-service/internal/recruitment/domain/job_test.go",
+    "logic-grpc-service/internal/recruitment/infrastructure/job_repositories.go",
+    "logic-grpc-service/internal/recruitment/infrastructure/job_repositories_test.go",
+    "logic-grpc-service/internal/recruitment/interfaces/job_api.go",
+    "logic-grpc-service/internal/recruitment/interfaces/job_api_test.go"
+  ],
+  "scope": {
+    "status": "passed",
+    "base_tree": "d3ed94699e8df093c43bd24c403e8cad1bf628be",
+    "out_of_scope": [],
+    "forbidden": [],
+    "allowed": [
+      ".spec/backend-ddd-microservices-evolution/pipeline-state.json",
+      ".spec/backend-ddd-microservices-evolution/reports/TASK-BDME-011-report.md",
+      ".spec/backend-ddd-microservices-evolution/reports/TASK-BDME-011-evidence.json",
+      "logic-grpc-service/internal/recruitment/application/job_ports.go",
+      "logic-grpc-service/internal/recruitment/application/job_ports_test.go",
+      "logic-grpc-service/internal/recruitment/domain/job.go",
+      "logic-grpc-service/internal/recruitment/domain/job_test.go",
+      "logic-grpc-service/internal/recruitment/infrastructure/job_repositories.go",
+      "logic-grpc-service/internal/recruitment/infrastructure/job_repositories_test.go",
+      "logic-grpc-service/internal/recruitment/interfaces/job_api.go",
+      "logic-grpc-service/internal/recruitment/interfaces/job_api_test.go"
+    ]
+  },
+  "checks": [
+    {
+      "command": "git diff --name-only && git ls-files --others --exclude-standard",
+      "exit_code": 0,
+      "status": "passed",
+      "started_at": "2026-07-11T14:45:39Z",
+      "duration_ms": 50,
+      "summary": "Listed changed tracked and untracked TASK files."
+    },
+    {
+      "command": "TASK_BASE_TREE=d3ed94699e8df093c43bd24c403e8cad1bf628be bash .spec/backend-ddd-microservices-evolution/scripts/check-task-scope.sh TASK-BDME-011",
+      "exit_code": 0,
+      "status": "passed",
+      "started_at": "2026-07-11T14:45:39Z",
+      "duration_ms": 954,
+      "summary": "scope_result: PASS (TASK-BDME-011)."
+    },
+    {
+      "command": "bash .spec/backend-ddd-microservices-evolution/scripts/agent-check.sh",
+      "exit_code": 0,
+      "status": "passed",
+      "started_at": "2026-07-11T14:45:39Z",
+      "duration_ms": 7305,
+      "summary": "Feature validation, git diff whitespace, gofmt check, and logic-grpc-service go test passed."
+    },
+    {
+      "command": "cd logic-grpc-service && go test ./...",
+      "exit_code": 0,
+      "status": "passed",
+      "started_at": "2026-07-11T14:45:39Z",
+      "duration_ms": 7524,
+      "summary": "All logic-grpc-service packages passed, including Recruitment job boundary compatibility tests."
+    },
+    {
+      "command": "node .knowledge/scripts/detect-impact.mjs --root . --base-tree d3ed94699e8df093c43bd24c403e8cad1bf628be",
+      "exit_code": 0,
+      "status": "passed",
+      "started_at": "2026-07-11T14:45:39Z",
+      "duration_ms": 1389,
+      "summary": "impact_result: update_required; matched local-development, service-boundaries, and system-overview routes."
+    }
+  ],
+  "review": {
+    "type": "self-review",
+    "round": 1,
+    "verdict": "通过",
+    "findings": []
+  },
+  "human_confirmation": {
+    "required": false,
+    "confirmed": true,
+    "confirmed_by": "not_required",
+    "confirmed_at": "2026-07-11T14:42:05Z",
+    "confirmation_text": "TASK-BDME-011 does not require human confirmation."
+  },
+  "exceptions": [],
+  "skipped_checks": [
+    {
+      "command": "node .knowledge/scripts/validate-knowledge.mjs",
+      "reason": ".knowledge files were reviewed but not changed by TASK-BDME-011."
+    }
+  ],
+  "knowledgeImpact": {
+    "result": "update_required",
+    "triggeredBy": [
+      "logic-grpc-service/internal/recruitment/application/job_ports.go",
+      "logic-grpc-service/internal/recruitment/domain/job.go",
+      "logic-grpc-service/internal/recruitment/infrastructure/job_repositories.go",
+      "logic-grpc-service/internal/recruitment/interfaces/job_api.go"
+    ],
+    "reviewResults": [
+      {
+        "document": ".knowledge/architecture/system-overview.md",
+        "verdict": "UNCHANGED",
+        "evidence": [
+          "Reviewed current backend topology; TASK-BDME-011 adds Recruitment job boundary contracts and does not change the current gateway/logic runtime topology."
+        ]
+      },
+      {
+        "document": ".knowledge/architecture/service-boundaries.md",
+        "verdict": "UNCHANGED",
+        "evidence": [
+          "Reviewed service boundary guidance; Recruitment job contracts keep business rules in logic-owned application/domain boundaries and do not change protobuf or HTTP contracts."
+        ]
+      },
+      {
+        "document": ".knowledge/domains/recruitment.md",
+        "verdict": "UNCHANGED",
+        "evidence": [
+          "Reviewed recruitment core concepts; TASK-BDME-011 isolates job aggregate, job status, department/location snapshots, and job API contracts under Recruitment."
+        ]
+      },
+      {
+        "document": ".knowledge/runbooks/debug-recruitment-lifecycle.md",
+        "verdict": "UNCHANGED",
+        "evidence": [
+          "Reviewed recruitment lifecycle debug guidance; job boundary contracts do not change application, interview, offer, notification, or analytics behavior."
+        ]
+      },
+      {
+        "document": ".knowledge/runbooks/local-development.md",
+        "verdict": "UNCHANGED",
+        "evidence": [
+          "Reviewed local-development route triggered by logic service changes; no startup command or local workflow changed."
+        ]
+      }
+    ],
+    "coverageGap": false,
+    "validationExitCode": 0
+  }
+}

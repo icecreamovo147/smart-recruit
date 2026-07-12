@@ -245,14 +245,14 @@ func TestInterviewRepo_ListByCandidate(t *testing.T) {
 	// Create a cancelled interview — should not appear in candidate list
 	now := time.Now()
 	cancelledInterview := &model.InterviewSchedule{
-		ApplicationID:   app.ID,
-		InterviewerID:   interviewer.ID,
-		RoundNo:         2,
-		Title:           "Cancelled Round",
-		Mode:            "video",
-		ScheduledAt:     &now,
-		Status:          "cancelled",
-		CreatedBy:       &interviewer.ID,
+		ApplicationID: app.ID,
+		InterviewerID: interviewer.ID,
+		RoundNo:       2,
+		Title:         "Cancelled Round",
+		Mode:          "video",
+		ScheduledAt:   &now,
+		Status:        "cancelled",
+		CreatedBy:     &interviewer.ID,
 	}
 	if err := db.Create(cancelledInterview).Error; err != nil {
 		t.Fatalf("create cancelled interview: %v", err)

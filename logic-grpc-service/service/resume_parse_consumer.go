@@ -23,15 +23,23 @@ type resumeParsePayload struct {
 type ResumeParseConsumer struct {
 	resumeRepo *repository.ResumeRepo
 	ossClient  oss.Storage
+	inbox      *repository.InboxRepo
 }
 
 func NewResumeParseConsumer(resumeRepo *repository.ResumeRepo, ossClient oss.Storage) *ResumeParseConsumer {
 	return &ResumeParseConsumer{resumeRepo: resumeRepo, ossClient: ossClient}
 }
 
+func (c *ResumeParseConsumer) WithInbox(inbox *repository.InboxRepo) *ResumeParseConsumer {
+	c.inbox = inbox
+	return c
+}
+
 func (c *ResumeParseConsumer) Start(ctx context.Context, mqConn *mq.Conn) error {
 	return mqConn.Consume(ctx, mqConn.ResumeParseQueue(), func(ctx context.Context, body []byte) error {
-		return c.handle(ctx, body)
+		return consumeWithInbox(ctx, c.inbox, "resume-parse-consumer", body, func() error {
+			return c.handle(ctx, body)
+		})
 	})
 }
 

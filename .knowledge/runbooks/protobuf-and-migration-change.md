@@ -26,7 +26,11 @@ source_refs:
   - logic-grpc-service/migration/runner.go
   - logic-grpc-service/migration/mysql_consistency_test.go
   - logic-grpc-service/model/model.go
-last_verified: 2026-07-10
+  - logic-grpc-service/repository/analytics_projection_repo.go
+  - .spec/backend-ddd-microservices-evolution/docs/backend-ddd-microservices-evolution-table-ownership-manifest.json
+  - .spec/backend-ddd-microservices-evolution/docs/backend-ddd-microservices-evolution-schema-separation-plan.md
+  - scripts/check-table-ownership.mjs
+last_verified: 2026-07-12
 review_after: 2026-10-08
 ---
 
@@ -48,14 +52,25 @@ Use this runbook when a TASK changes public contracts or persistence structure.
 2. Update GORM models only when the runtime model needs the changed columns or tables.
 3. Update repositories and services that own the new persistence behavior.
 4. Keep `db.sql` aligned when it serves as current schema reference.
-5. Run migration runner tests and MySQL consistency checks when available.
+5. Update `.spec/backend-ddd-microservices-evolution/docs/backend-ddd-microservices-evolution-table-ownership-manifest.json` when a table is added, removed, renamed, or changes owner/readers/writers.
+6. Run `node scripts/check-table-ownership.mjs` to verify every `db.sql` table has owner, readers, writers, and explicit transitional shared access where needed.
+7. For schema or physical database separation, follow `.spec/backend-ddd-microservices-evolution/docs/backend-ddd-microservices-evolution-schema-separation-plan.md` and record expand-contract, rollback, reconciliation, RTO, and RPO evidence.
+8. Run migration runner tests and MySQL consistency checks when available.
+9. For transactional outbox changes, also run outbox repository and publisher tests to verify retry/dead-letter, retention, and payload compatibility.
+10. For Inbox changes, run Inbox repository and consumer helper tests to verify duplicate skips, failed reclaims, dead-letter skips, retention, and payload identity extraction.
+11. For Analytics projection changes, run projection repository, event ingestor, infrastructure adapter, and boundary tests to verify event-id idempotency, checkpoint upsert, envelope ingestion, and absence of service-read adapters.
 
 ## Review Questions
 
 - Is this a public contract change, a database schema change, or both?
 - Are generated protobuf files synchronized in both service trees?
 - Are model fields, repository queries, indexes, and constraints aligned with SQL?
+- Are table owners, readers, writers, and transitional shared access aligned with the ownership manifest?
+- Does schema separation use expand-contract sequencing with rollback, reconciliation, RTO, and RPO evidence?
 - Does the gateway need new body limits, timeouts, route permissions, or frontend types?
+- For outbox changes, do existing consumers still accept the published payload shape?
+- For Inbox changes, are all MQ consumer `Start` entrypoints using the shared idempotency helper?
+- For Analytics projection changes, do read-model tables, checkpoints, models, repository adapters, and ingestion tests remain aligned without changing public reporting APIs?
 
 ## Safety
 

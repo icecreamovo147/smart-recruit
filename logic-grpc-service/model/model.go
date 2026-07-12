@@ -432,38 +432,38 @@ type AIToolTrace struct {
 }
 
 type AgentRun struct {
-	ID                       uint64     `gorm:"primaryKey"`
-	SessionID                uint64     `gorm:"column:session_id;uniqueIndex:uk_agent_runs_client_request,priority:2;index:idx_agent_runs_session_status,priority:1"`
-	MessageID                *uint64    `gorm:"column:message_id"`
-	HistoryID                *uint64    `gorm:"column:history_id"`
-	HrID                     uint64     `gorm:"column:hr_id;uniqueIndex:uk_agent_runs_client_request,priority:1"`
-	ClientRequestID          *string    `gorm:"column:client_request_id;size:128;uniqueIndex:uk_agent_runs_client_request,priority:3"`
-	AgentType                string     `gorm:"column:agent_type"`
-	AgentID                  *uint64    `gorm:"column:agent_id"`
-	AgentName                string     `gorm:"column:agent_name"`
-	ModelID                  *uint64    `gorm:"column:model_id"`
-	ModelName                string     `gorm:"column:model_name"`
-	Status                   string     `gorm:"column:status;index:idx_agent_runs_session_status,priority:2"`
-	PlanJSON                 string     `gorm:"column:plan_json"`
-	FinalAnswer              string     `gorm:"column:final_answer"`
-	AssistantText            string     `gorm:"column:assistant_text;type:mediumtext"`
-	ProcessText              string     `gorm:"column:process_text;type:mediumtext"`
-	ResultMetadataJSON       string     `gorm:"column:result_metadata_json;type:json"`
-	ConfirmationRequestJSON  string     `gorm:"column:confirmation_request_json;type:json"`
-	OptionContextJSON        string     `gorm:"column:option_context_json;type:json"`
-	LastEventSeq             int64      `gorm:"column:last_event_seq;default:0"`
-	CancelRequestedAt        *time.Time `gorm:"column:cancel_requested_at"`
-	CanceledAt               *time.Time `gorm:"column:canceled_at"`
-	ErrorType                string     `gorm:"column:error_type"`
-	ErrorMessage             string     `gorm:"column:error_message"`
-	StartedAt                time.Time  `gorm:"column:started_at"`
-	CompletedAt              *time.Time `gorm:"column:completed_at"`
-	CreatedAt                time.Time
-	UpdatedAt                time.Time
+	ID                      uint64     `gorm:"primaryKey"`
+	SessionID               uint64     `gorm:"column:session_id;uniqueIndex:uk_agent_runs_client_request,priority:2;index:idx_agent_runs_session_status,priority:1"`
+	MessageID               *uint64    `gorm:"column:message_id"`
+	HistoryID               *uint64    `gorm:"column:history_id"`
+	HrID                    uint64     `gorm:"column:hr_id;uniqueIndex:uk_agent_runs_client_request,priority:1"`
+	ClientRequestID         *string    `gorm:"column:client_request_id;size:128;uniqueIndex:uk_agent_runs_client_request,priority:3"`
+	AgentType               string     `gorm:"column:agent_type"`
+	AgentID                 *uint64    `gorm:"column:agent_id"`
+	AgentName               string     `gorm:"column:agent_name"`
+	ModelID                 *uint64    `gorm:"column:model_id"`
+	ModelName               string     `gorm:"column:model_name"`
+	Status                  string     `gorm:"column:status;index:idx_agent_runs_session_status,priority:2"`
+	PlanJSON                string     `gorm:"column:plan_json"`
+	FinalAnswer             string     `gorm:"column:final_answer"`
+	AssistantText           string     `gorm:"column:assistant_text;type:mediumtext"`
+	ProcessText             string     `gorm:"column:process_text;type:mediumtext"`
+	ResultMetadataJSON      string     `gorm:"column:result_metadata_json;type:json"`
+	ConfirmationRequestJSON string     `gorm:"column:confirmation_request_json;type:json"`
+	OptionContextJSON       string     `gorm:"column:option_context_json;type:json"`
+	LastEventSeq            int64      `gorm:"column:last_event_seq;default:0"`
+	CancelRequestedAt       *time.Time `gorm:"column:cancel_requested_at"`
+	CanceledAt              *time.Time `gorm:"column:canceled_at"`
+	ErrorType               string     `gorm:"column:error_type"`
+	ErrorMessage            string     `gorm:"column:error_message"`
+	StartedAt               time.Time  `gorm:"column:started_at"`
+	CompletedAt             *time.Time `gorm:"column:completed_at"`
+	CreatedAt               time.Time
+	UpdatedAt               time.Time
 }
 
 // BeforeCreate converts empty JSON string fields to SQL NULL.
-// MySQL JSON columns reject '' with Error 3140 ("The document is empty").
+// MySQL JSON columns reject ” with Error 3140 ("The document is empty").
 func (a *AgentRun) BeforeCreate(tx *gorm.DB) error {
 	if a == nil || tx == nil {
 		return nil
@@ -482,11 +482,11 @@ func nullEmptyJSONColumn(tx *gorm.DB, column, value string) {
 }
 
 type AgentRunEvent struct {
-	ID          uint64    `gorm:"primaryKey"`
-	RunID       uint64    `gorm:"column:run_id;uniqueIndex:uk_agent_run_events_run_seq,priority:1;index:idx_agent_run_events_run"`
-	Seq         int64     `gorm:"column:seq;uniqueIndex:uk_agent_run_events_run_seq,priority:2"`
-	EventType   string    `gorm:"column:event_type;size:64"`
-	PayloadJSON string    `gorm:"column:payload_json;type:json"`
+	ID          uint64 `gorm:"primaryKey"`
+	RunID       uint64 `gorm:"column:run_id;uniqueIndex:uk_agent_run_events_run_seq,priority:1;index:idx_agent_run_events_run"`
+	Seq         int64  `gorm:"column:seq;uniqueIndex:uk_agent_run_events_run_seq,priority:2"`
+	EventType   string `gorm:"column:event_type;size:64"`
+	PayloadJSON string `gorm:"column:payload_json;type:json"`
 	CreatedAt   time.Time
 	UpdatedAt   time.Time
 }
@@ -590,26 +590,95 @@ const (
 	EventOutboxStatusProcessing int32 = 3
 )
 
+const (
+	EventInboxStatusProcessing int32 = 0
+	EventInboxStatusProcessed  int32 = 1
+	EventInboxStatusFailed     int32 = 2
+	EventInboxStatusDead       int32 = 3
+)
+
 // EventOutbox table: event_outbox
 type EventOutbox struct {
-	ID            uint64     `gorm:"primaryKey"`
-	EventID       string     `gorm:"column:event_id"`
-	EventType     string     `gorm:"column:event_type"`
-	AggregateType string     `gorm:"column:aggregate_type"`
-	AggregateID   uint64     `gorm:"column:aggregate_id"`
-	RoutingKey    string     `gorm:"column:routing_key"`
-	Payload       string     `gorm:"column:payload;type:json"`
-	Status        int32      `gorm:"column:status;default:0"`
-	RetryCount    int32      `gorm:"column:retry_count;default:0"`
-	NextRetryAt   *time.Time `gorm:"column:next_retry_at"`
-	LastError     string     `gorm:"column:last_error"`
-	LockedAt      *time.Time `gorm:"column:locked_at"`
-	LockedBy      string     `gorm:"column:locked_by"`
-	CreatedAt     time.Time  `gorm:"column:created_at"`
-	UpdatedAt     time.Time  `gorm:"column:updated_at"`
+	ID             uint64     `gorm:"primaryKey"`
+	EventID        string     `gorm:"column:event_id"`
+	SchemaVersion  string     `gorm:"column:schema_version;size:16;default:1.0"`
+	EventType      string     `gorm:"column:event_type"`
+	AggregateType  string     `gorm:"column:aggregate_type"`
+	AggregateID    uint64     `gorm:"column:aggregate_id"`
+	RoutingKey     string     `gorm:"column:routing_key"`
+	Producer       string     `gorm:"column:producer;size:128;default:logic-grpc-service.outbox"`
+	IdempotencyKey string     `gorm:"column:idempotency_key;size:255;index:idx_outbox_idempotency_key"`
+	CorrelationID  string     `gorm:"column:correlation_id;size:128"`
+	CausationID    string     `gorm:"column:causation_id;size:128"`
+	TraceID        string     `gorm:"column:trace_id;size:128"`
+	Payload        string     `gorm:"column:payload;type:json"`
+	Metadata       string     `gorm:"column:metadata;type:json"`
+	Status         int32      `gorm:"column:status;default:0"`
+	RetryCount     int32      `gorm:"column:retry_count;default:0"`
+	NextRetryAt    *time.Time `gorm:"column:next_retry_at"`
+	LastError      string     `gorm:"column:last_error"`
+	LockedAt       *time.Time `gorm:"column:locked_at"`
+	LockedBy       string     `gorm:"column:locked_by"`
+	PublishedAt    *time.Time `gorm:"column:published_at"`
+	DeadLetteredAt *time.Time `gorm:"column:dead_lettered_at"`
+	CreatedAt      time.Time  `gorm:"column:created_at"`
+	UpdatedAt      time.Time  `gorm:"column:updated_at"`
 }
 
 func (EventOutbox) TableName() string { return "event_outbox" }
+
+// EventInbox table: event_inbox
+type EventInbox struct {
+	ID             uint64     `gorm:"primaryKey"`
+	EventID        string     `gorm:"column:event_id;size:128;uniqueIndex:uk_event_inbox_consumer_event,priority:2"`
+	EventType      string     `gorm:"column:event_type;size:128"`
+	ConsumerName   string     `gorm:"column:consumer_name;size:128;uniqueIndex:uk_event_inbox_consumer_event,priority:1;index:idx_event_inbox_consumer_status,priority:1"`
+	IdempotencyKey string     `gorm:"column:idempotency_key;size:255;index:idx_event_inbox_idempotency_key"`
+	Status         int32      `gorm:"column:status;default:0;index:idx_event_inbox_consumer_status,priority:2"`
+	AttemptCount   int32      `gorm:"column:attempt_count;default:0"`
+	LastError      string     `gorm:"column:last_error"`
+	ReceivedAt     time.Time  `gorm:"column:received_at"`
+	ProcessingAt   *time.Time `gorm:"column:processing_at"`
+	ProcessedAt    *time.Time `gorm:"column:processed_at"`
+	DeadLetteredAt *time.Time `gorm:"column:dead_lettered_at"`
+	CreatedAt      time.Time  `gorm:"column:created_at"`
+	UpdatedAt      time.Time  `gorm:"column:updated_at"`
+}
+
+func (EventInbox) TableName() string { return "event_inbox" }
+
+// AnalyticsProjectionEvent stores Analytics-owned domain-event read-model input.
+type AnalyticsProjectionEvent struct {
+	ID             uint64    `gorm:"primaryKey"`
+	ProjectionName string    `gorm:"column:projection_name;size:64;index:idx_analytics_projection_name_occurred,priority:1"`
+	Source         string    `gorm:"column:source;size:32;default:domain_event"`
+	EventID        string    `gorm:"column:event_id;size:128;uniqueIndex:uk_analytics_projection_event"`
+	EventType      string    `gorm:"column:event_type;size:128;index:idx_analytics_projection_event_type"`
+	AggregateType  string    `gorm:"column:aggregate_type;size:64;index:idx_analytics_projection_aggregate,priority:1"`
+	AggregateID    string    `gorm:"column:aggregate_id;size:128;index:idx_analytics_projection_aggregate,priority:2"`
+	Producer       string    `gorm:"column:producer;size:128"`
+	IdempotencyKey string    `gorm:"column:idempotency_key;size:255;index:idx_analytics_projection_idempotency_key"`
+	CorrelationID  string    `gorm:"column:correlation_id;size:128"`
+	CausationID    string    `gorm:"column:causation_id;size:128"`
+	TraceID        string    `gorm:"column:trace_id;size:128"`
+	Payload        string    `gorm:"column:payload;type:json"`
+	Metadata       string    `gorm:"column:metadata;type:json"`
+	OccurredAt     time.Time `gorm:"column:occurred_at;index:idx_analytics_projection_name_occurred,priority:2"`
+	ProjectedAt    time.Time `gorm:"column:projected_at"`
+	CreatedAt      time.Time `gorm:"column:created_at"`
+	UpdatedAt      time.Time `gorm:"column:updated_at"`
+}
+
+func (AnalyticsProjectionEvent) TableName() string { return "analytics_projection_events" }
+
+// AnalyticsProjectionCheckpoint stores idempotent Analytics projection cursors.
+type AnalyticsProjectionCheckpoint struct {
+	ProjectionName string    `gorm:"column:projection_name;size:64;primaryKey"`
+	Cursor         string    `gorm:"column:cursor;size:255"`
+	UpdatedAt      time.Time `gorm:"column:updated_at"`
+}
+
+func (AnalyticsProjectionCheckpoint) TableName() string { return "analytics_projection_checkpoints" }
 
 // EmailLog records email send attempts for audit and idempotency.
 type EmailLog struct {

@@ -79,6 +79,10 @@ func main() {
 	}
 	log := logger.L()
 	log.Info("starting logic-grpc-service")
+	metricsServer, err := server.StartMetricsServer(cfg.Observability.MetricsAddr)
+	if err != nil {
+		log.Fatal("start metrics server failed", zap.String("addr", cfg.Observability.MetricsAddr), zap.Error(err))
+	}
 
 	db, err := gorm.Open(mysql.Open(cfg.MySQL.DSN), &gorm.Config{
 		TranslateError: true,
@@ -313,21 +317,20 @@ func main() {
 	defer cancelBg()
 	workersEnabled := *workerOnly || !envBool("DISABLE_BACKGROUND_WORKERS")
 	if workersEnabled {
-		services.OutboxPublisher.Start(bgCtx)
-		if err := services.NotificationConsumer.Start(bgCtx, mqConn); err != nil {
-			log.Warn("notification consumer start failed", zap.Error(err))
+		for _, startErr := range services.NotificationRuntime.Start(bgCtx, mqConn) {
+			log.Warn("notification runtime component start failed",
+				zap.String("component", startErr.Component),
+				zap.Error(startErr.Err),
+			)
 		}
 		if err := services.ResumeParseConsumer.Start(bgCtx, mqConn); err != nil {
 			log.Warn("resume parse consumer start failed", zap.Error(err))
 		}
-		if err := services.EmailConsumer.Start(bgCtx, mqConn); err != nil {
-			log.Warn("email consumer start failed", zap.Error(err))
-		}
-		if err := services.EmbeddingConsumer.Start(bgCtx, mqConn); err != nil {
-			log.Warn("embedding consumer start failed", zap.Error(err))
-		}
-		if err := services.AgentRunConsumer.Start(bgCtx, mqConn); err != nil {
-			log.Warn("agent run consumer start failed", zap.Error(err))
+		for _, startErr := range services.AIAgentRuntime.Start(bgCtx, mqConn) {
+			log.Warn("ai agent runtime component start failed",
+				zap.String("component", startErr.Component),
+				zap.Error(startErr.Err),
+			)
 		}
 		go mqConn.KeepAlive(bgCtx, cfg.RabbitMQ.ReconnectInterval.Duration)
 	} else {
@@ -335,6 +338,14 @@ func main() {
 	}
 
 	if *workerOnly {
+		workerHealthServer, err := server.StartWorkerHealthServer(cfg.Observability.WorkerHealthAddr, server.ReadinessOptions{
+			DB:    sqlDB,
+			Redis: healthRedis,
+			MQ:    mqConn,
+		})
+		if err != nil {
+			log.Fatal("start worker health server failed", zap.String("addr", cfg.Observability.WorkerHealthAddr), zap.Error(err))
+		}
 		log.Info("logic worker started")
 		sigCh := make(chan os.Signal, 1)
 		signal.Notify(sigCh, syscall.SIGINT, syscall.SIGTERM)
@@ -342,6 +353,10 @@ func main() {
 		log.Info("received signal, shutting down worker", zap.String("signal", sig.String()))
 		cancelBg()
 		mqConn.Close()
+		shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 5*time.Second)
+		server.ShutdownHealthServer(shutdownCtx, workerHealthServer)
+		server.ShutdownMetricsServer(shutdownCtx, metricsServer)
+		shutdownCancel()
 		if notifCache != nil {
 			_ = notifCache.Close()
 		}
@@ -365,7 +380,7 @@ func main() {
 		log.Fatal("listen failed", zap.String("addr", addr), zap.Error(err))
 	}
 
-	grpcServer := grpc.NewServer(
+	serverOptions := []grpc.ServerOption{
 		grpc.MaxConcurrentStreams(1000),
 		grpc.ChainUnaryInterceptor(
 			server.UnaryAuthInterceptor(),
@@ -375,7 +390,16 @@ func main() {
 			server.StreamAuthInterceptor(),
 			logger.StreamServerInterceptor(),
 		),
-	)
+	}
+	if tlsOption, enabled, err := server.TransportSecurityOption(cfg.GRPC.TLSCertFile, cfg.GRPC.TLSKeyFile); err != nil {
+		log.Fatal("init grpc tls failed", zap.Error(err))
+	} else if enabled {
+		serverOptions = append(serverOptions, tlsOption)
+		log.Info("grpc internal tls enabled")
+	} else {
+		log.Warn("grpc internal tls disabled")
+	}
+	grpcServer := grpc.NewServer(serverOptions...)
 	recruitmentServer := server.New(services)
 	pb.RegisterAuthServiceServer(grpcServer, recruitmentServer)
 	pb.RegisterJobServiceServer(grpcServer, recruitmentServer)
@@ -420,6 +444,9 @@ func main() {
 			grpcServer.Stop()
 		}
 		mqConn.Close()
+		shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 5*time.Second)
+		server.ShutdownMetricsServer(shutdownCtx, metricsServer)
+		shutdownCancel()
 		if notifCache != nil {
 			_ = notifCache.Close()
 		}

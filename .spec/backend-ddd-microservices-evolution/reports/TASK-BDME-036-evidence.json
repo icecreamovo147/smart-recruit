@@ -1,0 +1,201 @@
+{
+  "schemaVersion": 1,
+  "feature_name": "backend-ddd-microservices-evolution",
+  "task_id": "TASK-BDME-036",
+  "base_sha": "1813702f82f561766865411021f2cf9e3df8df31",
+  "base_tree": "2c0a99eb9b1682bdfa221dec41101675d613380f",
+  "head_sha": "1813702f82f561766865411021f2cf9e3df8df31",
+  "changed_files": [
+    ".knowledge/architecture/api-contracts-and-gateway.md",
+    ".knowledge/architecture/auth-rbac-security.md",
+    ".knowledge/manifest.yaml",
+    ".knowledge/runbooks/service-binary-convention.md",
+    ".spec/backend-ddd-microservices-evolution/pipeline-state.json",
+    ".spec/backend-ddd-microservices-evolution/reports/TASK-BDME-036-report.md",
+    ".spec/backend-ddd-microservices-evolution/reports/TASK-BDME-036-evidence.json",
+    "deploy/k8s/configmap.yaml",
+    "docker/docker-compose.yml",
+    "docs/backend-ddd-microservices-evolution-identity-gateway-cutover.md",
+    "web-gin-service/config/config.go",
+    "web-gin-service/config/config_test.go",
+    "web-gin-service/main.go",
+    "web-gin-service/rpc/client.go",
+    "web-gin-service/rpc/client_test.go",
+    "web-gin-service/rpc/identity_admin_client.go"
+  ],
+  "scope": {
+    "status": "passed",
+    "base_tree": "2c0a99eb9b1682bdfa221dec41101675d613380f",
+    "out_of_scope": [],
+    "forbidden": [],
+    "allowed": [
+      ".knowledge/architecture/api-contracts-and-gateway.md",
+      ".knowledge/architecture/auth-rbac-security.md",
+      ".knowledge/manifest.yaml",
+      ".knowledge/runbooks/service-binary-convention.md",
+      ".spec/backend-ddd-microservices-evolution/pipeline-state.json",
+      ".spec/backend-ddd-microservices-evolution/reports/TASK-BDME-036-report.md",
+      ".spec/backend-ddd-microservices-evolution/reports/TASK-BDME-036-evidence.json",
+      "deploy/k8s/configmap.yaml",
+      "docker/docker-compose.yml",
+      "docs/backend-ddd-microservices-evolution-identity-gateway-cutover.md",
+      "web-gin-service/config/config.go",
+      "web-gin-service/config/config_test.go",
+      "web-gin-service/main.go",
+      "web-gin-service/rpc/client.go",
+      "web-gin-service/rpc/client_test.go",
+      "web-gin-service/rpc/identity_admin_client.go"
+    ]
+  },
+  "checks": [
+    {
+      "command": "git diff --name-only && git ls-files --others --exclude-standard",
+      "exit_code": 0,
+      "status": "passed",
+      "duration_ms": 0,
+      "started_at": "2026-07-11T17:32:34Z",
+      "summary": "Listed tracked and untracked TASK files."
+    },
+    {
+      "command": "TASK_BASE_TREE=2c0a99eb9b1682bdfa221dec41101675d613380f bash .spec/backend-ddd-microservices-evolution/scripts/check-task-scope.sh TASK-BDME-036",
+      "exit_code": 0,
+      "status": "passed",
+      "duration_ms": 238,
+      "started_at": "2026-07-11T17:29:00Z",
+      "summary": "scope_result: PASS (TASK-BDME-036)."
+    },
+    {
+      "command": "bash .spec/backend-ddd-microservices-evolution/scripts/agent-check.sh",
+      "exit_code": 0,
+      "status": "passed",
+      "duration_ms": 8852,
+      "started_at": "2026-07-11T17:29:00Z",
+      "summary": "Feature validation, git diff whitespace check, web-gin-service gofmt check, web-gin-service go test, and knowledge validation passed."
+    },
+    {
+      "command": "cd web-gin-service && go test ./...",
+      "exit_code": 0,
+      "status": "passed",
+      "duration_ms": 8265,
+      "started_at": "2026-07-11T17:29:00Z",
+      "summary": "All web-gin-service packages passed."
+    },
+    {
+      "command": "cd logic-grpc-service && go test ./...",
+      "exit_code": 0,
+      "status": "passed",
+      "duration_ms": 2170,
+      "started_at": "2026-07-11T17:29:00Z",
+      "summary": "All logic-grpc-service packages passed."
+    },
+    {
+      "command": "node .knowledge/scripts/detect-impact.mjs --root . --base-tree 2c0a99eb9b1682bdfa221dec41101675d613380f --json",
+      "exit_code": 0,
+      "status": "passed",
+      "duration_ms": 169,
+      "started_at": "2026-07-11T17:30:00Z",
+      "summary": "impact_result: update_required; no coverage gaps."
+    },
+    {
+      "command": "node .knowledge/scripts/validate-knowledge.mjs --root .",
+      "exit_code": 0,
+      "status": "passed",
+      "duration_ms": 0,
+      "started_at": "2026-07-11T17:30:00Z",
+      "summary": "knowledge_result: PASS (36 formal documents)."
+    }
+  ],
+  "review": {
+    "type": "self-review",
+    "round": 1,
+    "verdict": "通过",
+    "findings": []
+  },
+  "human_confirmation": {
+    "required": true,
+    "confirmed": true,
+    "confirmed_by": "user_global_gate_override",
+    "confirmed_at": "2026-07-11T17:23:02Z",
+    "confirmation_text": "User confirmed that all later human gates are cancelled once implementation and self-review pass."
+  },
+  "exceptions": [],
+  "skipped_checks": [],
+  "knowledgeImpact": {
+    "result": "update_required",
+    "triggeredBy": [
+      "configuration-changed",
+      "covered-path-changed",
+      "public-api-changed",
+      "recurring-defect-fixed",
+      "sensitive-data-flow-changed",
+      "service-boundary-changed"
+    ],
+    "reviewResults": [
+      {
+        "document": ".knowledge/architecture/api-contracts-and-gateway.md",
+        "verdict": "UPDATED",
+        "evidence": [
+          "Documented the Identity route switch, rollback default, target-address requirement, and hybrid AdminService routing."
+        ]
+      },
+      {
+        "document": ".knowledge/architecture/auth-rbac-security.md",
+        "verdict": "UPDATED",
+        "evidence": [
+          "Documented that gateway Identity traffic remains on logic by default and can route AuthService plus the Identity-owned AdminService subset to IDENTITY_GRPC_ADDR."
+        ]
+      },
+      {
+        "document": ".knowledge/runbooks/service-binary-convention.md",
+        "verdict": "UPDATED",
+        "evidence": [
+          "Documented the Identity gateway routing switch and missing-address fail-fast behavior."
+        ]
+      },
+      {
+        "document": ".knowledge/manifest.yaml",
+        "verdict": "UPDATED",
+        "evidence": [
+          "Added the Identity gateway cutover document to service-binary routing."
+        ]
+      },
+      {
+        "document": ".knowledge/architecture/service-boundaries.md",
+        "verdict": "UNCHANGED",
+        "evidence": [
+          "Reviewed due service-boundary route; existing service extraction boundaries remain accurate after gateway cutover controls."
+        ]
+      },
+      {
+        "document": ".knowledge/architecture/system-overview.md",
+        "verdict": "UNCHANGED",
+        "evidence": [
+          "Reviewed due broad backend route; topology guidance remains accurate because default routing stays on the monolith."
+        ]
+      },
+      {
+        "document": ".knowledge/runbooks/local-development.md",
+        "verdict": "UNCHANGED",
+        "evidence": [
+          "Reviewed due compose/config changes; local defaults remain rollback-safe and require no runbook procedure change."
+        ]
+      },
+      {
+        "document": ".knowledge/domains/notification-outbox.md",
+        "verdict": "UNCHANGED",
+        "evidence": [
+          "Reviewed due service-binary route; notification/outbox behavior is not affected by Identity gateway routing."
+        ]
+      },
+      {
+        "document": ".knowledge/runbooks/knowledge-coverage-audit.md",
+        "verdict": "UNCHANGED",
+        "evidence": [
+          "Reviewed due .knowledge route; no audit procedure changes were required."
+        ]
+      }
+    ],
+    "coverageGap": false,
+    "validationExitCode": 0
+  }
+}

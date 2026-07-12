@@ -846,10 +846,11 @@ func (s *AIService) runADKChat(
 			zap.String("event", "agent.planner.plan"),
 			zap.String("status", "disabled"))
 	}
+	promptChars, promptHash := redactedSensitiveTextFingerprint(instruction)
 	logger.L().Info("[提示词诊断] HR Agent 当前使用的 System Prompt",
-		zap.Int("总字符数", len([]rune(instruction))),
-		zap.String("前200字符", truncateString(instruction, 200)),
-		zap.String("后200字符", tailString(instruction, 200)),
+		zap.Int("总字符数", promptChars),
+		zap.String("sha256", promptHash),
+		zap.Bool("redacted", true),
 	)
 
 	return aiClient.ChatWithADKAgent(ctx, ai.AgentRunInput{
@@ -2196,6 +2197,11 @@ func desensitizeResultContent(content string) string {
 		return string(runes[:2000]) + fmt.Sprintf("... [已截断，总字符数: %d]", len(runes))
 	}
 	return content
+}
+
+func redactedSensitiveTextFingerprint(content string) (int, string) {
+	sum := sha256.Sum256([]byte(content))
+	return len([]rune(content)), hex.EncodeToString(sum[:])
 }
 
 // truncateString returns the first n runes of s.

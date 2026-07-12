@@ -1,0 +1,177 @@
+{
+  "schemaVersion": 1,
+  "feature_name": "backend-ddd-microservices-evolution",
+  "task_id": "TASK-BDME-002",
+  "base_sha": "67ae5848c9b834bf524fa1a7794d975064f8dc31",
+  "base_tree": "7ab1f5ac1b43f87aa1c4ac30ca2201a2252d640c",
+  "head_sha": "67ae5848c9b834bf524fa1a7794d975064f8dc31",
+  "changed_files": [
+    ".gitignore",
+    ".spec/backend-ddd-microservices-evolution/pipeline-state.json",
+    ".spec/backend-ddd-microservices-evolution/reports/TASK-BDME-002-report.md",
+    ".spec/backend-ddd-microservices-evolution/reports/TASK-BDME-002-evidence.json",
+    "deploy/k8s/secret.example.yaml",
+    "docker/.env.example",
+    "docs/backend-ddd-microservices-evolution-secret-config-safety.md",
+    "logic-grpc-service/config/config.example.yaml",
+    "logic-grpc-service/config/config.go",
+    "logic-grpc-service/config/config_test.go",
+    "web-gin-service/config/config.go",
+    "web-gin-service/config/config_test.go"
+  ],
+  "scope": {
+    "status": "passed",
+    "base_tree": "7ab1f5ac1b43f87aa1c4ac30ca2201a2252d640c",
+    "out_of_scope": [],
+    "forbidden": [],
+    "allowed": [
+      ".gitignore",
+      ".spec/backend-ddd-microservices-evolution/pipeline-state.json",
+      ".spec/backend-ddd-microservices-evolution/reports/TASK-BDME-002-report.md",
+      ".spec/backend-ddd-microservices-evolution/reports/TASK-BDME-002-evidence.json",
+      "deploy/k8s/secret.example.yaml",
+      "docker/.env.example",
+      "docs/backend-ddd-microservices-evolution-secret-config-safety.md",
+      "logic-grpc-service/config/config.example.yaml",
+      "logic-grpc-service/config/config.go",
+      "logic-grpc-service/config/config_test.go",
+      "web-gin-service/config/config.go",
+      "web-gin-service/config/config_test.go"
+    ]
+  },
+  "checks": [
+    {
+      "command": "git diff --name-only && git ls-files --others --exclude-standard",
+      "exit_code": 0,
+      "status": "passed",
+      "started_at": "2026-07-11T13:39:40Z",
+      "duration_ms": 50,
+      "summary": "Listed changed and untracked TASK files after approved pre-task gofmt maintenance commit."
+    },
+    {
+      "command": "TASK_BASE_TREE=7ab1f5ac1b43f87aa1c4ac30ca2201a2252d640c bash .spec/backend-ddd-microservices-evolution/scripts/check-task-scope.sh TASK-BDME-002",
+      "exit_code": 0,
+      "status": "passed",
+      "started_at": "2026-07-11T13:39:40Z",
+      "duration_ms": 274,
+      "summary": "scope_result: PASS (TASK-BDME-002)."
+    },
+    {
+      "command": "bash .spec/backend-ddd-microservices-evolution/scripts/agent-check.sh",
+      "exit_code": 0,
+      "status": "passed",
+      "started_at": "2026-07-11T13:39:40Z",
+      "duration_ms": 11842,
+      "summary": "Feature validation, whitespace check, full-service gofmt checks, and go test ./... in logic-grpc-service and web-gin-service passed."
+    },
+    {
+      "command": "node .knowledge/scripts/detect-impact.mjs --root . --base-tree 7ab1f5ac1b43f87aa1c4ac30ca2201a2252d640c",
+      "exit_code": 0,
+      "status": "passed",
+      "started_at": "2026-07-11T13:41:09Z",
+      "duration_ms": 304,
+      "summary": "impact_result: update_required; matched active knowledge routes for API gateway, local development, service boundaries, and system overview."
+    }
+  ],
+  "review": {
+    "type": "self-review",
+    "round": 2,
+    "verdict": "通过",
+    "findings": []
+  },
+  "human_confirmation": {
+    "required": true,
+    "confirmed": true,
+    "confirmed_by": "user",
+    "confirmed_at": "2026-07-11T13:27:17Z",
+    "confirmation_text": "用户确认允许继续执行，后面所有人工门禁都取消；任务实现完毕且 self-review 通过即可继续。用户随后明确允许扩展本 TASK scope，格式化 agent-check.sh 列出的 out-of-scope Go 文件，让 agent-check 真正通过。"
+  },
+  "exceptions": [],
+  "skipped_checks": [
+    {
+      "command": "node .knowledge/scripts/validate-knowledge.mjs",
+      "reason": ".knowledge files were reviewed but not changed by TASK-BDME-002."
+    }
+  ],
+  "knowledgeImpact": {
+    "result": "update_required",
+    "triggeredBy": [
+      ".gitignore",
+      "deploy/k8s/secret.example.yaml",
+      "docker/.env.example",
+      "docs/backend-ddd-microservices-evolution-secret-config-safety.md",
+      "logic-grpc-service/config/config.example.yaml",
+      "logic-grpc-service/config/config.go",
+      "logic-grpc-service/config/config_test.go",
+      "web-gin-service/config/config.go",
+      "web-gin-service/config/config_test.go"
+    ],
+    "reviewResults": [
+      {
+        "document": ".knowledge/architecture/system-overview.md",
+        "verdict": "UNCHANGED",
+        "evidence": [
+          "Reviewed service topology impact; TASK-BDME-002 changes configuration validation only and does not alter service topology or public API behavior."
+        ]
+      },
+      {
+        "document": ".knowledge/architecture/service-boundaries.md",
+        "verdict": "UNCHANGED",
+        "evidence": [
+          "Reviewed gateway-to-logic internal token boundary; the ownership split remains unchanged and only startup validation was added."
+        ]
+      },
+      {
+        "document": ".knowledge/architecture/api-contracts-and-gateway.md",
+        "verdict": "UNCHANGED",
+        "evidence": [
+          "Reviewed gateway config and gRPC client token usage; HTTP routes, request/response contracts, middleware behavior, and protobuf contracts were not changed."
+        ]
+      },
+      {
+        "document": ".knowledge/architecture/auth-rbac-security.md",
+        "verdict": "UNCHANGED",
+        "evidence": [
+          "Reviewed JWT/RBAC/security architecture; token validation rules are preserved, and this TASK only rejects unsafe production config at startup."
+        ]
+      },
+      {
+        "document": ".knowledge/domains/ai-configuration-governance.md",
+        "verdict": "UNCHANGED",
+        "evidence": [
+          "Reviewed AI provider credential governance; ENCRYPTION_KEY and optional AI_API_KEY placeholder checks support existing governance without changing provider APIs."
+        ]
+      },
+      {
+        "document": ".knowledge/runbooks/local-development.md",
+        "verdict": "UNCHANGED",
+        "evidence": [
+          "Reviewed Docker/local startup guidance; local development remains supported via ALLOW_INSECURE_DEV_CONFIG=true and ignored live config files."
+        ]
+      },
+      {
+        "document": ".knowledge/runbooks/debug-auth-permissions.md",
+        "verdict": "UNCHANGED",
+        "evidence": [
+          "Reviewed auth debugging guidance; route auth, RBAC, and token-version behavior were not changed."
+        ]
+      },
+      {
+        "document": ".knowledge/pitfalls/auth-permission-alignment.md",
+        "verdict": "UNCHANGED",
+        "evidence": [
+          "Reviewed auth alignment pitfalls; no permission keys, route metadata, or logic authorization decisions changed."
+        ]
+      },
+      {
+        "document": ".knowledge/pitfalls/resume-sensitive-data.md",
+        "verdict": "UNCHANGED",
+        "evidence": [
+          "Reviewed sensitive-data pitfall; no candidate payload or resume content handling changed, and new docs avoid live secret disclosure."
+        ]
+      }
+    ],
+    "coverageGap": false,
+    "validationExitCode": 0
+  }
+}

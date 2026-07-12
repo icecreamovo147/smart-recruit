@@ -50,12 +50,12 @@ func setupOfferServiceTestDB(t *testing.T) *gorm.DB {
 }
 
 type offerTestSeed struct {
-	HrUser       *model.User
-	OtherHrUser  *model.User // unprivileged staff for negative tests
-	Candidate    *model.User
+	HrUser         *model.User
+	OtherHrUser    *model.User // unprivileged staff for negative tests
+	Candidate      *model.User
 	OtherCandidate *model.User // another candidate for ownership tests
-	Job          *model.Job
-	Application  *model.Application
+	Job            *model.Job
+	Application    *model.Application
 }
 
 func seedOfferTestData(t *testing.T, db *gorm.DB) *offerTestSeed {
@@ -154,12 +154,12 @@ func seedOfferTestData(t *testing.T, db *gorm.DB) *offerTestSeed {
 	}
 
 	return &offerTestSeed{
-		HrUser:        hrUser,
-		OtherHrUser:   otherHr,
-		Candidate:     candidate,
+		HrUser:         hrUser,
+		OtherHrUser:    otherHr,
+		Candidate:      candidate,
 		OtherCandidate: otherCandidate,
-		Job:           job,
-		Application:   app,
+		Job:            job,
+		Application:    app,
 	}
 }
 

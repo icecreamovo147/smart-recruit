@@ -1,0 +1,294 @@
+{
+  "schemaVersion": 1,
+  "feature_name": "backend-ddd-microservices-evolution",
+  "task_id": "TASK-BDME-048",
+  "base_sha": "d98dea12a1094476ef356eb714a15113c223492c",
+  "base_tree": "8751e3c66c6cfbd0c94865527989ed6cafdbf16a",
+  "head_sha": "d98dea12a1094476ef356eb714a15113c223492c",
+  "changed_files": [
+    ".knowledge/architecture/api-contracts-and-gateway.md",
+    ".knowledge/architecture/auth-rbac-security.md",
+    ".knowledge/architecture/service-boundaries.md",
+    ".knowledge/manifest.yaml",
+    ".knowledge/runbooks/local-development.md",
+    ".knowledge/runbooks/service-binary-convention.md",
+    ".spec/backend-ddd-microservices-evolution/pipeline-state.json",
+    ".spec/backend-ddd-microservices-evolution/reports/TASK-BDME-048-report.md",
+    ".spec/backend-ddd-microservices-evolution/reports/TASK-BDME-048-evidence.json",
+    "deploy/k8s/configmap.yaml",
+    "deploy/k8s/logic-deployment.yaml",
+    "deploy/k8s/secret.example.yaml",
+    "deploy/k8s/web-deployment.yaml",
+    "docker/.env.example",
+    "docker/docker-compose.yml",
+    "docs/backend-ddd-microservices-evolution-internal-service-security.md",
+    "docs/backend-ddd-microservices-evolution-secret-config-safety.md",
+    "docs/backend-ddd-microservices-evolution-service-binary-convention.md",
+    "logic-grpc-service/config/config.example.yaml",
+    "logic-grpc-service/config/config.go",
+    "logic-grpc-service/config/config_test.go",
+    "logic-grpc-service/main.go",
+    "logic-grpc-service/server/transport_security.go",
+    "logic-grpc-service/server/transport_security_test.go",
+    "web-gin-service/config/config.go",
+    "web-gin-service/config/config_test.go",
+    "web-gin-service/main.go",
+    "web-gin-service/rpc/client.go",
+    "web-gin-service/rpc/client_test.go"
+  ],
+  "scope": {
+    "status": "passed",
+    "base_tree": "8751e3c66c6cfbd0c94865527989ed6cafdbf16a",
+    "out_of_scope": [],
+    "forbidden": [],
+    "allowed": [
+      ".knowledge/architecture/api-contracts-and-gateway.md",
+      ".knowledge/architecture/auth-rbac-security.md",
+      ".knowledge/architecture/service-boundaries.md",
+      ".knowledge/manifest.yaml",
+      ".knowledge/runbooks/local-development.md",
+      ".knowledge/runbooks/service-binary-convention.md",
+      ".spec/backend-ddd-microservices-evolution/pipeline-state.json",
+      ".spec/backend-ddd-microservices-evolution/reports/TASK-BDME-048-report.md",
+      ".spec/backend-ddd-microservices-evolution/reports/TASK-BDME-048-evidence.json",
+      "deploy/k8s/configmap.yaml",
+      "deploy/k8s/logic-deployment.yaml",
+      "deploy/k8s/secret.example.yaml",
+      "deploy/k8s/web-deployment.yaml",
+      "docker/.env.example",
+      "docker/docker-compose.yml",
+      "docs/backend-ddd-microservices-evolution-internal-service-security.md",
+      "docs/backend-ddd-microservices-evolution-secret-config-safety.md",
+      "docs/backend-ddd-microservices-evolution-service-binary-convention.md",
+      "logic-grpc-service/config/config.example.yaml",
+      "logic-grpc-service/config/config.go",
+      "logic-grpc-service/config/config_test.go",
+      "logic-grpc-service/main.go",
+      "logic-grpc-service/server/transport_security.go",
+      "logic-grpc-service/server/transport_security_test.go",
+      "web-gin-service/config/config.go",
+      "web-gin-service/config/config_test.go",
+      "web-gin-service/main.go",
+      "web-gin-service/rpc/client.go",
+      "web-gin-service/rpc/client_test.go"
+    ]
+  },
+  "checks": [
+    {
+      "command": "git diff --name-only && git ls-files --others --exclude-standard",
+      "exit_code": 0,
+      "status": "passed",
+      "duration_ms": 0,
+      "started_at": "2026-07-11T19:10:00Z",
+      "summary": "Listed tracked and untracked TASK files."
+    },
+    {
+      "command": "cd logic-grpc-service && go test ./config ./server",
+      "exit_code": 0,
+      "status": "passed",
+      "duration_ms": 2245,
+      "started_at": "2026-07-11T19:05:00Z",
+      "summary": "Focused logic config/server TLS tests passed."
+    },
+    {
+      "command": "cd web-gin-service && go test ./config ./rpc",
+      "exit_code": 0,
+      "status": "passed",
+      "duration_ms": 2342,
+      "started_at": "2026-07-11T19:05:00Z",
+      "summary": "Focused gateway config/rpc TLS tests passed."
+    },
+    {
+      "command": "cd logic-grpc-service && go test ./...",
+      "exit_code": 0,
+      "status": "passed",
+      "duration_ms": 9762,
+      "started_at": "2026-07-11T19:08:00Z",
+      "summary": "All logic-grpc-service packages passed."
+    },
+    {
+      "command": "cd web-gin-service && go test ./...",
+      "exit_code": 0,
+      "status": "passed",
+      "duration_ms": 796,
+      "started_at": "2026-07-11T19:08:00Z",
+      "summary": "All web-gin-service packages passed."
+    },
+    {
+      "command": "node .knowledge/scripts/detect-impact.mjs --root . --base-tree 8751e3c66c6cfbd0c94865527989ed6cafdbf16a --json",
+      "exit_code": 0,
+      "status": "passed",
+      "duration_ms": 359,
+      "started_at": "2026-07-11T19:07:00Z",
+      "summary": "impact_result: update_required; no coverage gaps."
+    },
+    {
+      "command": "node .knowledge/scripts/validate-knowledge.mjs --root .",
+      "exit_code": 0,
+      "status": "passed",
+      "duration_ms": 188,
+      "started_at": "2026-07-11T19:07:00Z",
+      "summary": "knowledge_result: PASS (36 formal documents)."
+    },
+    {
+      "command": "TASK_BASE_TREE=8751e3c66c6cfbd0c94865527989ed6cafdbf16a bash .spec/backend-ddd-microservices-evolution/scripts/check-task-scope.sh TASK-BDME-048",
+      "exit_code": 0,
+      "status": "passed",
+      "duration_ms": 249,
+      "started_at": "2026-07-11T19:08:00Z",
+      "summary": "scope_result: PASS (TASK-BDME-048)."
+    },
+    {
+      "command": "bash .spec/backend-ddd-microservices-evolution/scripts/agent-check.sh",
+      "exit_code": 0,
+      "status": "passed",
+      "duration_ms": 10797,
+      "started_at": "2026-07-11T19:08:00Z",
+      "summary": "Feature validation, gofmt, logic/web go test, and knowledge validation passed."
+    },
+    {
+      "command": "git diff --check",
+      "exit_code": 0,
+      "status": "passed",
+      "duration_ms": 0,
+      "started_at": "2026-07-11T19:07:00Z",
+      "summary": "No whitespace errors."
+    }
+  ],
+  "review": {
+    "type": "self-review",
+    "round": 1,
+    "verdict": "通过",
+    "findings": []
+  },
+  "human_confirmation": {
+    "required": true,
+    "confirmed": true,
+    "confirmed_by": "user_global_gate_override",
+    "confirmed_at": "2026-07-11T17:56:00Z",
+    "confirmation_text": "User confirmed that all later human gates are cancelled once implementation and self-review pass."
+  },
+  "exceptions": [],
+  "skipped_checks": [],
+  "knowledgeImpact": {
+    "result": "update_required",
+    "triggeredBy": [
+      "authorization-changed",
+      "configuration-changed",
+      "covered-path-changed",
+      "database-schema-changed",
+      "public-api-changed",
+      "recurring-defect-fixed",
+      "sensitive-data-flow-changed",
+      "service-boundary-changed"
+    ],
+    "reviewResults": [
+      {
+        "document": ".knowledge/architecture/api-contracts-and-gateway.md",
+        "verdict": "UPDATED",
+        "evidence": [
+          "Documented gateway gRPC internal TLS and public API compatibility."
+        ]
+      },
+      {
+        "document": ".knowledge/architecture/auth-rbac-security.md",
+        "verdict": "UPDATED",
+        "evidence": [
+          "Documented internal gRPC token/TLS contract and review guidance."
+        ]
+      },
+      {
+        "document": ".knowledge/architecture/service-boundaries.md",
+        "verdict": "UPDATED",
+        "evidence": [
+          "Documented service-to-service TLS/token controls for extracted cutovers."
+        ]
+      },
+      {
+        "document": ".knowledge/runbooks/local-development.md",
+        "verdict": "UPDATED",
+        "evidence": [
+          "Documented local Docker token requirement and optional internal TLS default."
+        ]
+      },
+      {
+        "document": ".knowledge/runbooks/service-binary-convention.md",
+        "verdict": "UPDATED",
+        "evidence": [
+          "Documented internal gRPC security as part of service binary runtime/cutover readiness."
+        ]
+      },
+      {
+        "document": ".knowledge/manifest.yaml",
+        "verdict": "UPDATED",
+        "evidence": [
+          "Routed internal service security paths to auth, local development, persistence, and service boundary knowledge."
+        ]
+      },
+      {
+        "document": ".knowledge/pitfalls/auth-permission-alignment.md",
+        "verdict": "UNCHANGED",
+        "evidence": [
+          "Reviewed due auth route; permission catalog behavior is unchanged."
+        ]
+      },
+      {
+        "document": ".knowledge/runbooks/debug-auth-permissions.md",
+        "verdict": "UNCHANGED",
+        "evidence": [
+          "Reviewed due auth route; end-user auth debugging flow is unchanged."
+        ]
+      },
+      {
+        "document": ".knowledge/runbooks/knowledge-coverage-audit.md",
+        "verdict": "UNCHANGED",
+        "evidence": [
+          "Reviewed due .knowledge route; no audit procedure change required."
+        ]
+      },
+      {
+        "document": ".knowledge/domains/notification-outbox.md",
+        "verdict": "UNCHANGED",
+        "evidence": [
+          "Reviewed due gateway/service-binary route; notification/outbox behavior is unchanged."
+        ]
+      },
+      {
+        "document": ".knowledge/architecture/persistence-and-migrations.md",
+        "verdict": "UNCHANGED",
+        "evidence": [
+          "Reviewed due mechanical docs route; no schema or migration behavior changed."
+        ]
+      },
+      {
+        "document": ".knowledge/runbooks/protobuf-and-migration-change.md",
+        "verdict": "UNCHANGED",
+        "evidence": [
+          "Reviewed due mechanical docs route; no protobuf or migration behavior changed."
+        ]
+      },
+      {
+        "document": ".knowledge/pitfalls/migration-model-drift.md",
+        "verdict": "UNCHANGED",
+        "evidence": [
+          "Reviewed due mechanical docs route; no database drift risk introduced."
+        ]
+      },
+      {
+        "document": ".knowledge/architecture/system-overview.md",
+        "verdict": "UNCHANGED",
+        "evidence": [
+          "Reviewed due backend route; system topology remains gateway plus logic service by default."
+        ]
+      }
+    ],
+    "coverageGap": false,
+    "validationExitCode": 0
+  },
+  "acceptance": {
+    "internal_tls": "implemented with GRPC_INTERNAL_TLS optional|required and cert/key/CA validation",
+    "internal_token": "GRPC_INTERNAL_TOKEN remains required in production and forwarded by gateway clients",
+    "compatibility": "local Docker defaults to GRPC_INTERNAL_TLS=optional; public APIs unchanged",
+    "deployment": "Kubernetes examples require TLS secret and use TCP probes for TLS-enabled gRPC port"
+  }
+}

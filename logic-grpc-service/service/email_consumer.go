@@ -43,6 +43,7 @@ type EmailConsumer struct {
 	emailLog *repository.EmailLogRepo
 	renderer *email.Renderer
 	sender   email.Sender
+	inbox    *repository.InboxRepo
 }
 
 // NewEmailConsumer creates a new EmailConsumer.
@@ -60,10 +61,17 @@ func NewEmailConsumer(
 	}
 }
 
+func (c *EmailConsumer) WithInbox(inbox *repository.InboxRepo) *EmailConsumer {
+	c.inbox = inbox
+	return c
+}
+
 // Start registers the consumer on the email queue.
 func (c *EmailConsumer) Start(ctx context.Context, mqConn *mq.Conn) error {
 	return mqConn.Consume(ctx, mqConn.EmailQueue(), func(ctx context.Context, body []byte) error {
-		return c.handle(ctx, body)
+		return consumeWithInbox(ctx, c.inbox, "email-consumer", body, func() error {
+			return c.handle(ctx, body)
+		})
 	})
 }
 

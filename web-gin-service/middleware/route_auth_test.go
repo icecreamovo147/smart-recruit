@@ -124,7 +124,7 @@ func TestCandidateCanAccessOwnRoutes(t *testing.T) {
 		{
 			name:   "candidate can access profile",
 			method: "GET", path: "/api/v1/candidate/profile",
-			roles: []string{authz.RoleCandidate},
+			roles:       []string{authz.RoleCandidate},
 			permissions: []string{authz.PermCandidateProfileManage},
 			middleware: []gin.HandlerFunc{
 				RequireAnyRole(authz.RoleCandidate),
@@ -135,7 +135,7 @@ func TestCandidateCanAccessOwnRoutes(t *testing.T) {
 		{
 			name:   "candidate can access own applications",
 			method: "GET", path: "/api/v1/candidate/applications",
-			roles: []string{authz.RoleCandidate},
+			roles:       []string{authz.RoleCandidate},
 			permissions: []string{authz.PermCandidateApplicationManage},
 			middleware: []gin.HandlerFunc{
 				RequireAnyRole(authz.RoleCandidate),
@@ -156,7 +156,7 @@ func TestRecruiterCanAccessJobRoutes(t *testing.T) {
 		{
 			name:   "recruiter can read jobs",
 			method: "GET", path: "/api/v1/hr/jobs",
-			roles: []string{authz.RoleRecruiter},
+			roles:       []string{authz.RoleRecruiter},
 			permissions: []string{authz.PermJobRead},
 			middleware: []gin.HandlerFunc{
 				RequireAnyRole(authz.StaffRoles()...),
@@ -167,7 +167,7 @@ func TestRecruiterCanAccessJobRoutes(t *testing.T) {
 		{
 			name:   "recruiter can create jobs",
 			method: "POST", path: "/api/v1/hr/jobs",
-			roles: []string{authz.RoleRecruiter},
+			roles:       []string{authz.RoleRecruiter},
 			permissions: []string{authz.PermJobCreate},
 			middleware: []gin.HandlerFunc{
 				RequireAnyRole(authz.StaffRoles()...),
@@ -178,7 +178,7 @@ func TestRecruiterCanAccessJobRoutes(t *testing.T) {
 		{
 			name:   "recruiter can update application status",
 			method: "PATCH", path: "/api/v1/hr/applications/1/status",
-			roles: []string{authz.RoleRecruiter},
+			roles:       []string{authz.RoleRecruiter},
 			permissions: []string{authz.PermApplicationStatusUpdate},
 			middleware: []gin.HandlerFunc{
 				RequireAnyRole(authz.StaffRoles()...),
@@ -197,7 +197,7 @@ func TestRecruiterCannotAccessAdminRoutes(t *testing.T) {
 		{
 			name:   "recruiter blocked from invite codes",
 			method: "GET", path: "/api/v1/hr/admin/invite-codes",
-			roles: []string{authz.RoleRecruiter},
+			roles:       []string{authz.RoleRecruiter},
 			permissions: []string{authz.PermJobRead}, // has job perms but not admin
 			middleware: []gin.HandlerFunc{
 				RequireAnyRole(authz.StaffRoles()...),
@@ -208,7 +208,7 @@ func TestRecruiterCannotAccessAdminRoutes(t *testing.T) {
 		{
 			name:   "recruiter blocked from role management",
 			method: "GET", path: "/api/v1/hr/admin/roles",
-			roles: []string{authz.RoleRecruiter},
+			roles:       []string{authz.RoleRecruiter},
 			permissions: []string{authz.PermJobRead},
 			middleware: []gin.HandlerFunc{
 				RequireAnyRole(authz.StaffRoles()...),
@@ -219,7 +219,7 @@ func TestRecruiterCannotAccessAdminRoutes(t *testing.T) {
 		{
 			name:   "recruiter blocked from staff user management",
 			method: "GET", path: "/api/v1/hr/admin/staff-users",
-			roles: []string{authz.RoleRecruiter},
+			roles:       []string{authz.RoleRecruiter},
 			permissions: []string{authz.PermJobRead},
 			middleware: []gin.HandlerFunc{
 				RequireAnyRole(authz.StaffRoles()...),
@@ -240,7 +240,7 @@ func TestRecruitingAdminCanAccessAdminRoutes(t *testing.T) {
 		{
 			name:   "recruiting_admin can manage invite codes",
 			method: "GET", path: "/api/v1/hr/admin/invite-codes",
-			roles: []string{authz.RoleRecruitingAdmin},
+			roles:       []string{authz.RoleRecruitingAdmin},
 			permissions: []string{authz.PermAdminInviteManage},
 			middleware: []gin.HandlerFunc{
 				RequireAnyRole(authz.StaffRoles()...),
@@ -251,7 +251,7 @@ func TestRecruitingAdminCanAccessAdminRoutes(t *testing.T) {
 		{
 			name:   "recruiting_admin can manage roles",
 			method: "GET", path: "/api/v1/hr/admin/roles",
-			roles: []string{authz.RoleRecruitingAdmin},
+			roles:       []string{authz.RoleRecruitingAdmin},
 			permissions: []string{authz.PermAdminRoleManage},
 			middleware: []gin.HandlerFunc{
 				RequireAnyRole(authz.StaffRoles()...),
@@ -262,7 +262,7 @@ func TestRecruitingAdminCanAccessAdminRoutes(t *testing.T) {
 		{
 			name:   "recruiting_admin without recruiter perm cannot update application status",
 			method: "PATCH", path: "/api/v1/hr/applications/1/status",
-			roles: []string{authz.RoleRecruitingAdmin},
+			roles:       []string{authz.RoleRecruitingAdmin},
 			permissions: []string{authz.PermAdminInviteManage, authz.PermAdminRoleManage}, // has admin perms but NOT app.status.update
 			middleware: []gin.HandlerFunc{
 				RequireAnyRole(authz.StaffRoles()...),
@@ -273,7 +273,7 @@ func TestRecruitingAdminCanAccessAdminRoutes(t *testing.T) {
 		{
 			name:   "recruiting_admin with recruiter perm can update application status",
 			method: "PATCH", path: "/api/v1/hr/applications/1/status",
-			roles: []string{authz.RoleRecruitingAdmin, authz.RoleRecruiter},
+			roles:       []string{authz.RoleRecruitingAdmin, authz.RoleRecruiter},
 			permissions: []string{authz.PermAdminInviteManage, authz.PermApplicationStatusUpdate},
 			middleware: []gin.HandlerFunc{
 				RequireAnyRole(authz.StaffRoles()...),
@@ -294,7 +294,7 @@ func TestSystemAdminCanAccessAdminRoutes(t *testing.T) {
 		{
 			name:   "system_admin can manage roles",
 			method: "GET", path: "/api/v1/hr/admin/roles",
-			roles: []string{authz.RoleSystemAdmin},
+			roles:       []string{authz.RoleSystemAdmin},
 			permissions: []string{authz.PermAdminRoleManage},
 			middleware: []gin.HandlerFunc{
 				RequireAnyRole(authz.StaffRoles()...),
@@ -305,7 +305,7 @@ func TestSystemAdminCanAccessAdminRoutes(t *testing.T) {
 		{
 			name:   "system_admin can manage users",
 			method: "GET", path: "/api/v1/hr/admin/staff-users",
-			roles: []string{authz.RoleSystemAdmin},
+			roles:       []string{authz.RoleSystemAdmin},
 			permissions: []string{authz.PermAdminUserManage},
 			middleware: []gin.HandlerFunc{
 				RequireAnyRole(authz.StaffRoles()...),
@@ -316,7 +316,7 @@ func TestSystemAdminCanAccessAdminRoutes(t *testing.T) {
 		{
 			name:   "system_admin can read audit logs",
 			method: "GET", path: "/api/v1/hr/admin/third-party-usage-logs",
-			roles: []string{authz.RoleSystemAdmin},
+			roles:       []string{authz.RoleSystemAdmin},
 			permissions: []string{authz.PermAuditUsageRead},
 			middleware: []gin.HandlerFunc{
 				RequireAnyRole(authz.StaffRoles()...),
@@ -335,7 +335,7 @@ func TestSystemAdminWithoutRecruiterPermCannotMutateRecruitingState(t *testing.T
 		{
 			name:   "system_admin without job.create cannot create jobs",
 			method: "POST", path: "/api/v1/hr/jobs",
-			roles: []string{authz.RoleSystemAdmin},
+			roles:       []string{authz.RoleSystemAdmin},
 			permissions: []string{authz.PermAdminRoleManage, authz.PermAdminUserManage}, // admin only, no job.create
 			middleware: []gin.HandlerFunc{
 				RequireAnyRole(authz.StaffRoles()...),
@@ -346,7 +346,7 @@ func TestSystemAdminWithoutRecruiterPermCannotMutateRecruitingState(t *testing.T
 		{
 			name:   "system_admin without app.status.update cannot update status",
 			method: "PATCH", path: "/api/v1/hr/applications/1/status",
-			roles: []string{authz.RoleSystemAdmin},
+			roles:       []string{authz.RoleSystemAdmin},
 			permissions: []string{authz.PermAdminRoleManage},
 			middleware: []gin.HandlerFunc{
 				RequireAnyRole(authz.StaffRoles()...),
@@ -366,7 +366,7 @@ func TestInterviewerCannotMutateApplicationStatus(t *testing.T) {
 	tc := routeAuthCase{
 		name:   "interviewer blocked from updating application status",
 		method: "PATCH", path: "/api/v1/hr/applications/1/status",
-		roles: []string{authz.RoleInterviewer},
+		roles:       []string{authz.RoleInterviewer},
 		permissions: []string{authz.PermInterviewRead, authz.PermInterviewFeedback},
 		middleware: []gin.HandlerFunc{
 			RequireAnyRole(authz.StaffRoles()...),
@@ -381,7 +381,7 @@ func TestInterviewerCanAccessNotificationRoutes(t *testing.T) {
 	tc := routeAuthCase{
 		name:   "interviewer can read notifications",
 		method: "GET", path: "/api/v1/hr/notifications",
-		roles: []string{authz.RoleInterviewer},
+		roles:       []string{authz.RoleInterviewer},
 		permissions: []string{authz.PermNotificationRead, authz.PermInterviewRead, authz.PermInterviewFeedback},
 		middleware: []gin.HandlerFunc{
 			RequireAnyRole(authz.StaffRoles()...),
@@ -397,7 +397,7 @@ func TestInterviewerCannotAccessRecruiterJobRoutes(t *testing.T) {
 		{
 			name:   "interviewer blocked from creating jobs",
 			method: "POST", path: "/api/v1/hr/jobs",
-			roles: []string{authz.RoleInterviewer},
+			roles:       []string{authz.RoleInterviewer},
 			permissions: []string{authz.PermInterviewRead},
 			middleware: []gin.HandlerFunc{
 				RequireAnyRole(authz.StaffRoles()...),
@@ -408,7 +408,7 @@ func TestInterviewerCannotAccessRecruiterJobRoutes(t *testing.T) {
 		{
 			name:   "interviewer blocked from admin routes",
 			method: "GET", path: "/api/v1/hr/admin/invite-codes",
-			roles: []string{authz.RoleInterviewer},
+			roles:       []string{authz.RoleInterviewer},
 			permissions: []string{authz.PermInterviewRead},
 			middleware: []gin.HandlerFunc{
 				RequireAnyRole(authz.StaffRoles()...),
@@ -429,7 +429,7 @@ func TestNoPermissionDeniesAccess(t *testing.T) {
 		{
 			name:   "staff role without job.read cannot access jobs",
 			method: "GET", path: "/api/v1/hr/jobs",
-			roles: []string{authz.RoleRecruiter},
+			roles:       []string{authz.RoleRecruiter},
 			permissions: []string{}, // no permissions at all
 			middleware: []gin.HandlerFunc{
 				RequireAnyRole(authz.StaffRoles()...),
@@ -440,7 +440,7 @@ func TestNoPermissionDeniesAccess(t *testing.T) {
 		{
 			name:   "staff with wrong perm cannot access",
 			method: "POST", path: "/api/v1/hr/jobs",
-			roles: []string{authz.RoleRecruiter},
+			roles:       []string{authz.RoleRecruiter},
 			permissions: []string{authz.PermJobRead}, // has job.read but NOT job.create
 			middleware: []gin.HandlerFunc{
 				RequireAnyRole(authz.StaffRoles()...),
@@ -462,7 +462,7 @@ func TestRequireAnyPermission_AllowsEither(t *testing.T) {
 		{
 			name:   "dashboard accessible with job.read",
 			method: "GET", path: "/api/v1/hr/dashboard/summary",
-			roles: []string{authz.RoleRecruiter},
+			roles:       []string{authz.RoleRecruiter},
 			permissions: []string{authz.PermJobRead},
 			middleware: []gin.HandlerFunc{
 				RequireAnyRole(authz.StaffRoles()...),
@@ -473,7 +473,7 @@ func TestRequireAnyPermission_AllowsEither(t *testing.T) {
 		{
 			name:   "dashboard accessible with application.read",
 			method: "GET", path: "/api/v1/hr/dashboard/summary",
-			roles: []string{authz.RoleRecruiter},
+			roles:       []string{authz.RoleRecruiter},
 			permissions: []string{authz.PermApplicationRead},
 			middleware: []gin.HandlerFunc{
 				RequireAnyRole(authz.StaffRoles()...),
@@ -484,7 +484,7 @@ func TestRequireAnyPermission_AllowsEither(t *testing.T) {
 		{
 			name:   "dashboard denied without either perm",
 			method: "GET", path: "/api/v1/hr/dashboard/summary",
-			roles: []string{authz.RoleRecruiter},
+			roles:       []string{authz.RoleRecruiter},
 			permissions: []string{authz.PermNotificationRead}, // unrelated
 			middleware: []gin.HandlerFunc{
 				RequireAnyRole(authz.StaffRoles()...),
@@ -505,18 +505,18 @@ func TestRequireRoleByKey_ExactMatch(t *testing.T) {
 		{
 			name:   "exact recruiter role match passes",
 			method: "GET", path: "/test",
-			roles: []string{authz.RoleRecruiter},
+			roles:       []string{authz.RoleRecruiter},
 			permissions: []string{},
-			middleware: []gin.HandlerFunc{RequireRoleByKey(authz.RoleRecruiter)},
-			wantStatus: http.StatusOK,
+			middleware:  []gin.HandlerFunc{RequireRoleByKey(authz.RoleRecruiter)},
+			wantStatus:  http.StatusOK,
 		},
 		{
 			name:   "wrong role fails",
 			method: "GET", path: "/test",
-			roles: []string{authz.RoleCandidate},
+			roles:       []string{authz.RoleCandidate},
 			permissions: []string{},
-			middleware: []gin.HandlerFunc{RequireRoleByKey(authz.RoleRecruiter)},
-			wantStatus: http.StatusForbidden,
+			middleware:  []gin.HandlerFunc{RequireRoleByKey(authz.RoleRecruiter)},
+			wantStatus:  http.StatusForbidden,
 		},
 	}
 	for _, tc := range cases {
@@ -529,34 +529,34 @@ func TestRequireAnyRole_MultipleRoles(t *testing.T) {
 		{
 			name:   "recruiter passes staff gate",
 			method: "GET", path: "/api/v1/hr/test",
-			roles: []string{authz.RoleRecruiter},
+			roles:       []string{authz.RoleRecruiter},
 			permissions: []string{},
-			middleware: []gin.HandlerFunc{RequireAnyRole(authz.StaffRoles()...)},
-			wantStatus: http.StatusOK,
+			middleware:  []gin.HandlerFunc{RequireAnyRole(authz.StaffRoles()...)},
+			wantStatus:  http.StatusOK,
 		},
 		{
 			name:   "interviewer passes staff gate",
 			method: "GET", path: "/api/v1/hr/test",
-			roles: []string{authz.RoleInterviewer},
+			roles:       []string{authz.RoleInterviewer},
 			permissions: []string{},
-			middleware: []gin.HandlerFunc{RequireAnyRole(authz.StaffRoles()...)},
-			wantStatus: http.StatusOK,
+			middleware:  []gin.HandlerFunc{RequireAnyRole(authz.StaffRoles()...)},
+			wantStatus:  http.StatusOK,
 		},
 		{
 			name:   "candidate fails staff gate",
 			method: "GET", path: "/api/v1/hr/test",
-			roles: []string{authz.RoleCandidate},
+			roles:       []string{authz.RoleCandidate},
 			permissions: []string{},
-			middleware: []gin.HandlerFunc{RequireAnyRole(authz.StaffRoles()...)},
-			wantStatus: http.StatusForbidden,
+			middleware:  []gin.HandlerFunc{RequireAnyRole(authz.StaffRoles()...)},
+			wantStatus:  http.StatusForbidden,
 		},
 		{
 			name:   "no roles fails staff gate",
 			method: "GET", path: "/api/v1/hr/test",
-			roles: []string{},
+			roles:       []string{},
 			permissions: []string{},
-			middleware: []gin.HandlerFunc{RequireAnyRole(authz.StaffRoles()...)},
-			wantStatus: http.StatusForbidden,
+			middleware:  []gin.HandlerFunc{RequireAnyRole(authz.StaffRoles()...)},
+			wantStatus:  http.StatusForbidden,
 		},
 	}
 	for _, tc := range cases {

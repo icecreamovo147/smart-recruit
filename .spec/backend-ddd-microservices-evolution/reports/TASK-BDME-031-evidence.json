@@ -1,0 +1,215 @@
+{
+  "schemaVersion": 1,
+  "feature_name": "backend-ddd-microservices-evolution",
+  "task_id": "TASK-BDME-031",
+  "base_sha": "b6c326d2b49fdf56a09a044ecf4cfc893bbdd791",
+  "base_tree": "f52cf3bbd702367ee154ea947a03f010cb326122",
+  "head_sha": "b6c326d2b49fdf56a09a044ecf4cfc893bbdd791",
+  "changed_files": [
+    ".knowledge/architecture/agent-runtime.md",
+    ".knowledge/architecture/service-boundaries.md",
+    ".knowledge/manifest.yaml",
+    ".knowledge/runbooks/service-binary-convention.md",
+    ".spec/backend-ddd-microservices-evolution/pipeline-state.json",
+    ".spec/backend-ddd-microservices-evolution/reports/TASK-BDME-031-report.md",
+    ".spec/backend-ddd-microservices-evolution/reports/TASK-BDME-031-evidence.json",
+    "docs/backend-ddd-microservices-evolution-ai-agent-runtime-extraction.md",
+    "docs/backend-ddd-microservices-evolution-ai-agent-service-skeleton.md",
+    "logic-grpc-service/main.go",
+    "logic-grpc-service/service/ai_agent_runtime.go",
+    "logic-grpc-service/service/ai_agent_runtime_test.go",
+    "logic-grpc-service/service/services.go"
+  ],
+  "scope": {
+    "status": "passed",
+    "base_tree": "f52cf3bbd702367ee154ea947a03f010cb326122",
+    "out_of_scope": [],
+    "forbidden": [],
+    "allowed": [
+      ".knowledge/architecture/agent-runtime.md",
+      ".knowledge/architecture/service-boundaries.md",
+      ".knowledge/manifest.yaml",
+      ".knowledge/runbooks/service-binary-convention.md",
+      ".spec/backend-ddd-microservices-evolution/pipeline-state.json",
+      ".spec/backend-ddd-microservices-evolution/reports/TASK-BDME-031-report.md",
+      ".spec/backend-ddd-microservices-evolution/reports/TASK-BDME-031-evidence.json",
+      "docs/backend-ddd-microservices-evolution-ai-agent-runtime-extraction.md",
+      "docs/backend-ddd-microservices-evolution-ai-agent-service-skeleton.md",
+      "logic-grpc-service/main.go",
+      "logic-grpc-service/service/ai_agent_runtime.go",
+      "logic-grpc-service/service/ai_agent_runtime_test.go",
+      "logic-grpc-service/service/services.go"
+    ]
+  },
+  "checks": [
+    {
+      "command": "git diff --name-only && git ls-files --others --exclude-standard",
+      "exit_code": 0,
+      "status": "passed",
+      "started_at": "2026-07-11T17:02:00Z",
+      "summary": "Listed tracked and untracked TASK files.",
+      "duration_ms": 0
+    },
+    {
+      "command": "cd logic-grpc-service && go test ./service -run 'TestNewAIAgentRuntime|TestAIAgentRuntime'",
+      "exit_code": 0,
+      "status": "passed",
+      "started_at": "2026-07-11T16:59:00Z",
+      "summary": "Focused AI Agent runtime wiring and failure-path tests passed.",
+      "duration_ms": 0
+    },
+    {
+      "command": "node .knowledge/scripts/validate-knowledge.mjs --root .",
+      "exit_code": 0,
+      "status": "passed",
+      "started_at": "2026-07-11T16:59:00Z",
+      "summary": "knowledge_result: PASS (36 formal documents).",
+      "duration_ms": 0
+    },
+    {
+      "command": "cd logic-grpc-service && go test ./...",
+      "exit_code": 0,
+      "status": "passed",
+      "started_at": "2026-07-11T17:00:00Z",
+      "summary": "All logic-grpc-service packages passed.",
+      "duration_ms": 0
+    },
+    {
+      "command": "TASK_BASE_TREE=f52cf3bbd702367ee154ea947a03f010cb326122 bash .spec/backend-ddd-microservices-evolution/scripts/check-task-scope.sh TASK-BDME-031",
+      "exit_code": 0,
+      "status": "passed",
+      "started_at": "2026-07-11T17:00:00Z",
+      "summary": "scope_result: PASS (TASK-BDME-031).",
+      "duration_ms": 0
+    },
+    {
+      "command": "bash .spec/backend-ddd-microservices-evolution/scripts/agent-check.sh",
+      "exit_code": 0,
+      "status": "passed",
+      "started_at": "2026-07-11T17:00:00Z",
+      "summary": "Feature validation, git diff whitespace check, gofmt check, logic-grpc-service go test, and knowledge validation passed.",
+      "duration_ms": 0
+    },
+    {
+      "command": "node .knowledge/scripts/detect-impact.mjs --root . --base-tree f52cf3bbd702367ee154ea947a03f010cb326122 --json",
+      "exit_code": 0,
+      "status": "passed",
+      "started_at": "2026-07-11T17:00:00Z",
+      "summary": "impact_result: update_required; no coverage gaps.",
+      "duration_ms": 0
+    }
+  ],
+  "review": {
+    "type": "self-review",
+    "round": 1,
+    "verdict": "通过",
+    "findings": []
+  },
+  "human_confirmation": {
+    "required": true,
+    "confirmed": true,
+    "confirmed_by": "user_global_gate_override",
+    "confirmed_at": "2026-07-11T16:51:53Z",
+    "confirmation_text": "User confirmed that all later human gates are cancelled once implementation and self-review pass."
+  },
+  "exceptions": [],
+  "skipped_checks": [],
+  "knowledgeImpact": {
+    "result": "update_required",
+    "triggeredBy": [
+      "configuration-changed",
+      "covered-path-changed",
+      "memory-behavior-changed",
+      "retrieval-behavior-changed",
+      "service-boundary-changed"
+    ],
+    "reviewResults": [
+      {
+        "document": ".knowledge/architecture/agent-runtime.md",
+        "verdict": "UPDATED",
+        "evidence": [
+          "Documented service.AIAgentRuntime as the current AI Agent composition boundary."
+        ]
+      },
+      {
+        "document": ".knowledge/architecture/service-boundaries.md",
+        "verdict": "UPDATED",
+        "evidence": [
+          "Documented the AI Agent runtime boundary inside the monolith."
+        ]
+      },
+      {
+        "document": ".knowledge/runbooks/service-binary-convention.md",
+        "verdict": "UPDATED",
+        "evidence": [
+          "Added AI Agent runtime extraction guidance for preserving startup and traffic behavior."
+        ]
+      },
+      {
+        "document": ".knowledge/manifest.yaml",
+        "verdict": "UPDATED",
+        "evidence": [
+          "Routed AI Agent runtime extraction docs and service/ai_agent_runtime.go to relevant knowledge."
+        ]
+      },
+      {
+        "document": ".knowledge/domains/ai-configuration-governance.md",
+        "verdict": "UNCHANGED",
+        "evidence": [
+          "Reviewed due AI route; provider/model configuration behavior is preserved."
+        ]
+      },
+      {
+        "document": ".knowledge/runbooks/debug-agent-retrieval.md",
+        "verdict": "UNCHANGED",
+        "evidence": [
+          "Reviewed due AI route; retrieval diagnostics are unchanged."
+        ]
+      },
+      {
+        "document": ".knowledge/domains/memory-and-context.md",
+        "verdict": "UNCHANGED",
+        "evidence": [
+          "Reviewed due AI route; memory ranking and context assembly behavior are unchanged."
+        ]
+      },
+      {
+        "document": ".knowledge/architecture/semantic-retrieval.md",
+        "verdict": "UNCHANGED",
+        "evidence": [
+          "Reviewed due AI route; semantic retrieval behavior is unchanged."
+        ]
+      },
+      {
+        "document": ".knowledge/domains/notification-outbox.md",
+        "verdict": "UNCHANGED",
+        "evidence": [
+          "Reviewed due service-binary route; Notification runtime behavior is unaffected."
+        ]
+      },
+      {
+        "document": ".knowledge/runbooks/local-development.md",
+        "verdict": "UNCHANGED",
+        "evidence": [
+          "Reviewed due service-binary route; existing Go test guidance remains sufficient."
+        ]
+      },
+      {
+        "document": ".knowledge/architecture/system-overview.md",
+        "verdict": "UNCHANGED",
+        "evidence": [
+          "Reviewed due broad backend route; current deployment topology remains the monolith plus worker."
+        ]
+      },
+      {
+        "document": ".knowledge/runbooks/knowledge-coverage-audit.md",
+        "verdict": "UNCHANGED",
+        "evidence": [
+          "Reviewed due .knowledge route; no audit procedure changes were required."
+        ]
+      }
+    ],
+    "coverageGap": false,
+    "validationExitCode": 0
+  }
+}

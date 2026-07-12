@@ -20,6 +20,7 @@ applies_to:
 source_refs:
   - logic-grpc-service/model/status.go
   - logic-grpc-service/service/application_service.go
+  - logic-grpc-service/service/recruitment_lifecycle_process_manager.go
   - logic-grpc-service/service/offer_service.go
   - logic-grpc-service/service/notification_service.go
   - logic-grpc-service/service/outbox_publisher.go
@@ -46,10 +47,11 @@ Candidates may miss a status update, HR may see timeline gaps, analytics may cou
 ## Prevention
 
 - Review status transition validation, transition audit rows, outbox writes, notification records, timeline composition, and analytics together.
+- Keep Interview and Offer application-status side effects behind `RecruitmentLifecycleProcessManager`; direct writes in those services risk missing transition rows, terminal round closure, or future event-projection behavior.
 - Keep candidate-facing labels intentionally less specific than HR labels.
 - Check offer and interview side effects when application states change.
 - Verify notification account type and link target for candidate, staff, and interviewer recipients.
 
 ## Verification
 
-This pitfall was verified from status model, application service, offer service, notification service, and outbox publisher on 2026-07-10.
+This pitfall was verified from status model, application service, recruitment lifecycle process manager, offer service, notification service, and outbox publisher on 2026-07-11.

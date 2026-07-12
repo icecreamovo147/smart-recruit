@@ -63,6 +63,12 @@ type Services struct {
 
 	// P1-003: AI usage statistics
 	UsageStats *UsageStatsService
+	// Notification runtime owns notification persistence, realtime delivery,
+	// email coordination, outbox dispatch, and notification consumers.
+	NotificationRuntime *NotificationRuntime
+	// AI Agent runtime owns AI chat, candidate chat, provider fallback,
+	// embedding workload execution, and durable agent-run execution.
+	AIAgentRuntime *AIAgentRuntime
 	// Background workers (caller must Start/Stop)
 	OutboxPublisher      *OutboxPublisher
 	NotificationConsumer *NotificationConsumer
@@ -129,13 +135,23 @@ func NewServices(
 	usageAuditCtxRepo := repository.NewUsageAuditContextRepo(db)
 	taxonomy := NewJobTaxonomyService(departments, locations, jobs, deptLocs)
 
-	outboxPublisher := NewOutboxPublisher(outbox, mqConn)
-	notificationConsumer := NewNotificationConsumer(notifications, notifCache)
-	resumeParseConsumer := NewResumeParseConsumer(resumes, ossClient)
-	emailConsumer := NewEmailConsumer(users, emailLogRepo, emailRenderer, emailSender)
-	embeddingConsumer := NewEmbeddingConsumer(embeddingSvc)
+	inboxRepo := repository.NewInboxRepo(db)
+	resumeParseConsumer := NewResumeParseConsumer(resumes, ossClient).WithInbox(inboxRepo)
+	embeddingConsumer := NewEmbeddingConsumer(embeddingSvc).WithInbox(inboxRepo)
 	scopeEval := &scopeEvaluator{authzRepo: authzRepo}
 	serviceAuth := NewServiceAuthorizer(authzRepo, scopeEval)
+	notificationRuntime := NewNotificationRuntime(NotificationRuntimeDeps{
+		Users:         users,
+		Notifications: notifications,
+		Outbox:        outbox,
+		Inbox:         inboxRepo,
+		EmailLog:      emailLogRepo,
+		Cache:         notifCache,
+		MQ:            mqConn,
+		Authz:         serviceAuth,
+		EmailRenderer: emailRenderer,
+		EmailSender:   emailSender,
+	})
 
 	collaborationRepo := repository.NewCollaborationRepo(db)
 	llmConfigSvc := newLlmConfigServiceWithFallback(db)
@@ -184,11 +200,30 @@ func NewServices(
 	recruitingIntelligenceSvc := NewRecruitingIntelligenceService(applications, jobs, resumes, resumeProfileRepo, candidateMatchRepo, resumeProfileSvc, candidateMatchSvc, serviceAuth)
 	aiSvc := NewAIService(chats, applications, jobs, resumes, summaries, toolTraces, agentRuns, memories, ossClient, aiClient, toolExecutor, contextBuilder, candidateAI, usageLogs, usageAuditCtxRepo, authzRepo, agentRuntime, serviceAuth, llmConfigSvc, agentCfgRepo, promptTmplRepo, mcpSvc, skillSvc, agentSkillRepo).
 		WithAgentRunEventRepo(repository.NewAgentRunEventRepo(db)).
-		WithAgentRunDispatcher(outboxPublisher).
+		WithAgentRunDispatcher(notificationRuntime.OutboxPublisher).
 		WithEmbeddingService(embeddingSvc).
 		WithEmbeddingEventPublisher(embeddingEventPublisher).
 		WithRuntimePolicy(runtimePolicy)
-	agentRunConsumer := NewAgentRunConsumer(aiSvc)
+	agentRunConsumer := NewAgentRunConsumer(aiSvc).WithInbox(inboxRepo)
+	aiAgentRuntime := NewAIAgentRuntime(AIAgentRuntimeDeps{
+		AI:                aiSvc,
+		CandidateAI:       candidateAI,
+		LlmConfig:         llmConfigSvc,
+		Prompt:            NewPromptService(promptTmplRepo),
+		AgentConfig:       NewAgentConfigService(agentCfgRepo, promptTmplRepo, mcpSvc, skillSvc),
+		MCP:               mcpSvc,
+		Skill:             skillSvc,
+		AgentSkill:        agentSkillSvc,
+		ResumeProfile:     resumeProfileSvc,
+		CandidateMatch:    candidateMatchSvc,
+		Intelligence:      recruitingIntelligenceSvc,
+		Embedding:         embeddingSvc,
+		EmbeddingConfig:   embeddingConfigSvc,
+		EmbeddingConsumer: embeddingConsumer,
+		AgentRunConsumer:  agentRunConsumer,
+		RuntimePolicy:     runtimePolicy,
+		RuntimeName:       agentRuntime,
+	})
 
 	return &Services{
 		Auth:              NewAuthService(users, tokens, authzRepo, inviteCodes, jwtSecret),
@@ -201,24 +236,26 @@ func NewServices(
 
 		Job:                    NewJobService(jobs, jobCache, authzRepo, taxonomy, scopeEval),
 		Taxonomy:               taxonomy,
-		Candidate:              NewCandidateService(profiles, resumes, ossClient, outboxPublisher, usageLogs, serviceAuth),
-		Application:            NewApplicationService(authzRepo, applications, profiles, resumes, jobs, interviews, notifications, outboxPublisher, ossClient, jobCache, scopeEval),
-		Interview:              NewInterviewService(authzRepo, interviews, users, applications, jobs, notifications, outboxPublisher, ossClient, scopeEval, serviceAuth),
-		Offer:                  NewOfferService(authzRepo, offers, applications, jobs, notifications, outboxPublisher, scopeEval, serviceAuth),
+		Candidate:              NewCandidateService(profiles, resumes, ossClient, notificationRuntime.OutboxPublisher, usageLogs, serviceAuth),
+		Application:            NewApplicationService(authzRepo, applications, profiles, resumes, jobs, interviews, notifications, notificationRuntime.OutboxPublisher, ossClient, jobCache, scopeEval),
+		Interview:              NewInterviewService(authzRepo, interviews, users, applications, jobs, notifications, notificationRuntime.OutboxPublisher, ossClient, scopeEval, serviceAuth),
+		Offer:                  NewOfferService(authzRepo, offers, applications, jobs, notifications, notificationRuntime.OutboxPublisher, scopeEval, serviceAuth),
 		AI:                     aiSvc,
 		CandidateAI:            candidateAI,
-		Notification:           NewNotificationService(notifications, notifCache, serviceAuth),
-		LlmConfig:              llmConfigSvc,
-		Prompt:                 NewPromptService(promptTmplRepo),
-		AgentConfig:            NewAgentConfigService(agentCfgRepo, promptTmplRepo, mcpSvc, skillSvc),
-		MCP:                    mcpSvc,
-		Skill:                  skillSvc,
-		AgentSkill:             agentSkillSvc,
-		ResumeProfile:          resumeProfileSvc,
-		CandidateMatch:         candidateMatchSvc,
-		RecruitingIntelligence: recruitingIntelligenceSvc,
-		Embedding:              embeddingSvc,
-		EmbeddingConfig:        embeddingConfigSvc,
+		Notification:           notificationRuntime.Notification,
+		NotificationRuntime:    notificationRuntime,
+		AIAgentRuntime:         aiAgentRuntime,
+		LlmConfig:              aiAgentRuntime.LlmConfig,
+		Prompt:                 aiAgentRuntime.Prompt,
+		AgentConfig:            aiAgentRuntime.AgentConfig,
+		MCP:                    aiAgentRuntime.MCP,
+		Skill:                  aiAgentRuntime.Skill,
+		AgentSkill:             aiAgentRuntime.AgentSkill,
+		ResumeProfile:          aiAgentRuntime.ResumeProfile,
+		CandidateMatch:         aiAgentRuntime.CandidateMatch,
+		RecruitingIntelligence: aiAgentRuntime.Intelligence,
+		Embedding:              aiAgentRuntime.Embedding,
+		EmbeddingConfig:        aiAgentRuntime.EmbeddingConfig,
 
 		Collaboration: NewCollaborationService(
 			authzRepo,
@@ -235,12 +272,12 @@ func NewServices(
 			scopeEval,
 		),
 
-		OutboxPublisher:      outboxPublisher,
-		NotificationConsumer: notificationConsumer,
+		OutboxPublisher:      notificationRuntime.OutboxPublisher,
+		NotificationConsumer: notificationRuntime.NotificationConsumer,
 		ResumeParseConsumer:  resumeParseConsumer,
-		EmailConsumer:        emailConsumer,
-		EmbeddingConsumer:    embeddingConsumer,
-		AgentRunConsumer:     agentRunConsumer,
+		EmailConsumer:        notificationRuntime.EmailConsumer,
+		EmbeddingConsumer:    aiAgentRuntime.EmbeddingConsumer,
+		AgentRunConsumer:     aiAgentRuntime.AgentRunConsumer,
 	}
 }
 

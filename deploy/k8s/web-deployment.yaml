@@ -32,6 +32,10 @@ spec:
                 name: web-config
             - secretRef:
                 name: recruitment-secrets
+          volumeMounts:
+            - name: grpc-tls
+              mountPath: /etc/recruitment/grpc-tls
+              readOnly: true
           resources:
             requests:
               cpu: 100m
@@ -51,6 +55,10 @@ spec:
               port: http
             initialDelaySeconds: 15
             periodSeconds: 20
+      volumes:
+        - name: grpc-tls
+          secret:
+            secretName: recruitment-grpc-tls
 ---
 apiVersion: policy/v1
 kind: PodDisruptionBudget

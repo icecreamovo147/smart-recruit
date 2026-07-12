@@ -1,0 +1,209 @@
+{
+  "schemaVersion": 1,
+  "feature_name": "backend-ddd-microservices-evolution",
+  "task_id": "TASK-BDME-037",
+  "base_sha": "4ca99d65b7827599ead1995ba016302a3745e2d2",
+  "base_tree": "ef5db7c2e361211d6801c755995580c8cc54abc8",
+  "head_sha": "4ca99d65b7827599ead1995ba016302a3745e2d2",
+  "changed_files": [
+    ".knowledge/architecture/service-boundaries.md",
+    ".knowledge/domains/recruitment-lifecycle.md",
+    ".knowledge/domains/recruitment.md",
+    ".knowledge/manifest.yaml",
+    ".knowledge/runbooks/service-binary-convention.md",
+    ".spec/backend-ddd-microservices-evolution/pipeline-state.json",
+    ".spec/backend-ddd-microservices-evolution/reports/TASK-BDME-037-report.md",
+    ".spec/backend-ddd-microservices-evolution/reports/TASK-BDME-037-evidence.json",
+    "docs/backend-ddd-microservices-evolution-recruitment-service-skeleton.md",
+    "docs/backend-ddd-microservices-evolution-service-binary-convention.md",
+    "logic-grpc-service/cmd/recruitment-service/main.go",
+    "logic-grpc-service/internal/recruitment/runtime/skeleton.go",
+    "logic-grpc-service/internal/recruitment/runtime/skeleton_test.go"
+  ],
+  "scope": {
+    "status": "passed",
+    "base_tree": "ef5db7c2e361211d6801c755995580c8cc54abc8",
+    "out_of_scope": [],
+    "forbidden": [],
+    "allowed": [
+      ".knowledge/architecture/service-boundaries.md",
+      ".knowledge/domains/recruitment-lifecycle.md",
+      ".knowledge/domains/recruitment.md",
+      ".knowledge/manifest.yaml",
+      ".knowledge/runbooks/service-binary-convention.md",
+      ".spec/backend-ddd-microservices-evolution/pipeline-state.json",
+      ".spec/backend-ddd-microservices-evolution/reports/TASK-BDME-037-report.md",
+      ".spec/backend-ddd-microservices-evolution/reports/TASK-BDME-037-evidence.json",
+      "docs/backend-ddd-microservices-evolution-recruitment-service-skeleton.md",
+      "docs/backend-ddd-microservices-evolution-service-binary-convention.md",
+      "logic-grpc-service/cmd/recruitment-service/main.go",
+      "logic-grpc-service/internal/recruitment/runtime/skeleton.go",
+      "logic-grpc-service/internal/recruitment/runtime/skeleton_test.go"
+    ]
+  },
+  "checks": [
+    {
+      "command": "git diff --name-only && git ls-files --others --exclude-standard",
+      "exit_code": 0,
+      "status": "passed",
+      "duration_ms": 0,
+      "started_at": "2026-07-11T17:38:00Z",
+      "summary": "Listed tracked and untracked TASK files."
+    },
+    {
+      "command": "cd logic-grpc-service && go run ./cmd/recruitment-service --check",
+      "exit_code": 0,
+      "status": "passed",
+      "duration_ms": 1167,
+      "started_at": "2026-07-11T17:37:00Z",
+      "summary": "Recruitment skeleton descriptor validated."
+    },
+    {
+      "command": "cd logic-grpc-service && go run ./cmd/recruitment-service --describe",
+      "exit_code": 0,
+      "status": "passed",
+      "duration_ms": 978,
+      "started_at": "2026-07-11T17:37:00Z",
+      "summary": "Descriptor printed traffic_enabled=false, cutover_mode=none, and no-runtime side-effect notes."
+    },
+    {
+      "command": "cd logic-grpc-service && go test ./internal/recruitment/runtime ./cmd/recruitment-service ./internal/platform/servicebinary",
+      "exit_code": 0,
+      "status": "passed",
+      "duration_ms": 1432,
+      "started_at": "2026-07-11T17:37:00Z",
+      "summary": "Focused runtime, command, and service binary registry tests passed."
+    },
+    {
+      "command": "TASK_BASE_TREE=ef5db7c2e361211d6801c755995580c8cc54abc8 bash .spec/backend-ddd-microservices-evolution/scripts/check-task-scope.sh TASK-BDME-037",
+      "exit_code": 0,
+      "status": "passed",
+      "duration_ms": 503,
+      "started_at": "2026-07-11T17:38:00Z",
+      "summary": "scope_result: PASS (TASK-BDME-037)."
+    },
+    {
+      "command": "bash .spec/backend-ddd-microservices-evolution/scripts/agent-check.sh",
+      "exit_code": 0,
+      "status": "passed",
+      "duration_ms": 2040,
+      "started_at": "2026-07-11T17:38:00Z",
+      "summary": "Feature validation, git diff whitespace check, logic-grpc-service gofmt check, logic-grpc-service go test, and knowledge validation passed."
+    },
+    {
+      "command": "cd logic-grpc-service && go test ./...",
+      "exit_code": 0,
+      "status": "passed",
+      "duration_ms": 1391,
+      "started_at": "2026-07-11T17:38:00Z",
+      "summary": "All logic-grpc-service packages passed."
+    },
+    {
+      "command": "node .knowledge/scripts/detect-impact.mjs --root . --base-tree ef5db7c2e361211d6801c755995580c8cc54abc8 --json",
+      "exit_code": 0,
+      "status": "passed",
+      "duration_ms": 292,
+      "started_at": "2026-07-11T17:38:00Z",
+      "summary": "impact_result: update_required; no coverage gaps."
+    },
+    {
+      "command": "node .knowledge/scripts/validate-knowledge.mjs --root .",
+      "exit_code": 0,
+      "status": "passed",
+      "duration_ms": 4,
+      "started_at": "2026-07-11T17:38:00Z",
+      "summary": "knowledge_result: PASS (36 formal documents)."
+    }
+  ],
+  "review": {
+    "type": "self-review",
+    "round": 1,
+    "verdict": "通过",
+    "findings": []
+  },
+  "human_confirmation": {
+    "required": false,
+    "confirmed": true,
+    "confirmed_by": "not_required",
+    "confirmed_at": "2026-07-11T17:36:00Z",
+    "confirmation_text": "TASK-BDME-037 does not require human confirmation."
+  },
+  "exceptions": [],
+  "skipped_checks": [],
+  "knowledgeImpact": {
+    "result": "update_required",
+    "triggeredBy": [
+      "configuration-changed",
+      "covered-path-changed",
+      "recurring-defect-fixed",
+      "service-boundary-changed"
+    ],
+    "reviewResults": [
+      {
+        "document": ".knowledge/runbooks/service-binary-convention.md",
+        "verdict": "UPDATED",
+        "evidence": [
+          "Documented cmd/recruitment-service as a compile-safe unrouted skeleton and added source references."
+        ]
+      },
+      {
+        "document": ".knowledge/architecture/service-boundaries.md",
+        "verdict": "UPDATED",
+        "evidence": [
+          "Documented the unrouted Recruitment service skeleton boundary and traffic restrictions."
+        ]
+      },
+      {
+        "document": ".knowledge/domains/recruitment.md",
+        "verdict": "UPDATED",
+        "evidence": [
+          "Documented that current Recruitment behavior remains in the monolith and the new binary only documents future ownership."
+        ]
+      },
+      {
+        "document": ".knowledge/domains/recruitment-lifecycle.md",
+        "verdict": "UPDATED",
+        "evidence": [
+          "Documented that the skeleton must not mutate application status or register ApplicationService."
+        ]
+      },
+      {
+        "document": ".knowledge/manifest.yaml",
+        "verdict": "UPDATED",
+        "evidence": [
+          "Added Recruitment skeleton doc, command, and runtime paths to service-binary knowledge routing."
+        ]
+      },
+      {
+        "document": ".knowledge/architecture/system-overview.md",
+        "verdict": "UNCHANGED",
+        "evidence": [
+          "Reviewed due backend boundary route; active topology remains unchanged because the skeleton is unrouted."
+        ]
+      },
+      {
+        "document": ".knowledge/runbooks/local-development.md",
+        "verdict": "UNCHANGED",
+        "evidence": [
+          "Reviewed due service-binary route; no local runbook change is required for an unrouted skeleton."
+        ]
+      },
+      {
+        "document": ".knowledge/domains/notification-outbox.md",
+        "verdict": "UNCHANGED",
+        "evidence": [
+          "Reviewed due service-binary route; notification/outbox behavior is not affected by the Recruitment skeleton."
+        ]
+      },
+      {
+        "document": ".knowledge/runbooks/knowledge-coverage-audit.md",
+        "verdict": "UNCHANGED",
+        "evidence": [
+          "Reviewed due .knowledge route; no audit procedure changes were required."
+        ]
+      }
+    ],
+    "coverageGap": false,
+    "validationExitCode": 0
+  }
+}

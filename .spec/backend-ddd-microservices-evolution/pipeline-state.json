@@ -1,0 +1,901 @@
+{
+  "schemaVersion": 1,
+  "feature_name": "backend-ddd-microservices-evolution",
+  "current_task": "TASK-BDME-052",
+  "current_phase": "completed",
+  "completed_tasks": [
+    "TASK-BDME-001",
+    "TASK-BDME-002",
+    "TASK-BDME-003",
+    "TASK-BDME-004",
+    "TASK-BDME-005",
+    "TASK-BDME-006",
+    "TASK-BDME-007",
+    "TASK-BDME-008",
+    "TASK-BDME-009",
+    "TASK-BDME-010",
+    "TASK-BDME-011",
+    "TASK-BDME-012",
+    "TASK-BDME-013",
+    "TASK-BDME-014",
+    "TASK-BDME-015",
+    "TASK-BDME-016",
+    "TASK-BDME-017",
+    "TASK-BDME-018",
+    "TASK-BDME-019",
+    "TASK-BDME-020",
+    "TASK-BDME-021",
+    "TASK-BDME-022",
+    "TASK-BDME-023",
+    "TASK-BDME-024",
+    "TASK-BDME-025",
+    "TASK-BDME-026",
+    "TASK-BDME-027",
+    "TASK-BDME-028",
+    "TASK-BDME-029",
+    "TASK-BDME-030",
+    "TASK-BDME-031",
+    "TASK-BDME-032",
+    "TASK-BDME-033",
+    "TASK-BDME-034",
+    "TASK-BDME-035",
+    "TASK-BDME-036",
+    "TASK-BDME-037",
+    "TASK-BDME-038",
+    "TASK-BDME-039",
+    "TASK-BDME-040",
+    "TASK-BDME-041",
+    "TASK-BDME-042",
+    "TASK-BDME-043",
+    "TASK-BDME-044",
+    "TASK-BDME-045",
+    "TASK-BDME-046",
+    "TASK-BDME-047",
+    "TASK-BDME-048",
+    "TASK-BDME-049",
+    "TASK-BDME-050",
+    "TASK-BDME-051",
+    "TASK-BDME-052"
+  ],
+  "blocked_tasks": [],
+  "failed_tasks": [],
+  "skipped_human_confirmation_tasks": [],
+  "approved_exceptions": [],
+  "review_round": 0,
+  "status": "completed",
+  "task_runs": {
+    "TASK-BDME-001": {
+      "base_sha": "1c61a06ff760ca7e510d0245c31723a6b5dd10d0",
+      "base_tree": "02a819f9ed522d4f8943d29378d86938e9c89900",
+      "head_sha": "1c61a06ff760ca7e510d0245c31723a6b5dd10d0",
+      "scope_status": "passed",
+      "checks_status": "passed",
+      "review_verdict": "通过",
+      "human_confirmation": {
+        "required": false,
+        "confirmed": true,
+        "confirmed_by": "not_required",
+        "confirmed_at": "2026-07-11T13:06:53Z",
+        "confirmation_text": "TASK-BDME-001 does not require human confirmation."
+      },
+      "evidence": ".spec/backend-ddd-microservices-evolution/reports/TASK-BDME-001-evidence.json"
+    },
+    "TASK-BDME-002": {
+      "base_sha": "67ae5848c9b834bf524fa1a7794d975064f8dc31",
+      "base_tree": "7ab1f5ac1b43f87aa1c4ac30ca2201a2252d640c",
+      "head_sha": "67ae5848c9b834bf524fa1a7794d975064f8dc31",
+      "scope_status": "passed",
+      "checks_status": "passed",
+      "review_verdict": "通过",
+      "human_confirmation": {
+        "required": true,
+        "confirmed": true,
+        "confirmed_by": "user",
+        "confirmed_at": "2026-07-11T13:27:17Z",
+        "confirmation_text": "用户确认允许继续执行，后面所有人工门禁都取消；任务实现完毕且 self-review 通过即可继续。"
+      },
+      "evidence": ".spec/backend-ddd-microservices-evolution/reports/TASK-BDME-002-evidence.json"
+    },
+    "TASK-BDME-003": {
+      "base_sha": "fa6e67228725aec11d8ced4ea17ff7837ae4e683",
+      "base_tree": "948e4f750c240c352e0c38401586ab361eb28796",
+      "head_sha": "fa6e67228725aec11d8ced4ea17ff7837ae4e683",
+      "scope_status": "passed",
+      "checks_status": "passed",
+      "review_verdict": "通过",
+      "human_confirmation": {
+        "required": false,
+        "confirmed": true,
+        "confirmed_by": "not_required",
+        "confirmed_at": "2026-07-11T13:41:09Z",
+        "confirmation_text": "TASK-BDME-003 does not require human confirmation."
+      },
+      "evidence": ".spec/backend-ddd-microservices-evolution/reports/TASK-BDME-003-evidence.json"
+    },
+    "TASK-BDME-004": {
+      "base_sha": "c02264e036f31d4c3a4bdc5ba6601627cc727fe0",
+      "base_tree": "5b76f65926adf539d7d317e95fcef2ba2327d651",
+      "head_sha": "c02264e036f31d4c3a4bdc5ba6601627cc727fe0",
+      "scope_status": "passed",
+      "checks_status": "passed",
+      "review_verdict": "通过",
+      "human_confirmation": {
+        "required": false,
+        "confirmed": true,
+        "confirmed_by": "not_required",
+        "confirmed_at": "2026-07-11T13:46:55Z",
+        "confirmation_text": "TASK-BDME-004 does not require human confirmation."
+      },
+      "evidence": ".spec/backend-ddd-microservices-evolution/reports/TASK-BDME-004-evidence.json"
+    },
+    "TASK-BDME-005": {
+      "base_sha": "2a187eea649370f2ebcf1e0dd15371024b1b85fd",
+      "base_tree": "d8ee3488faa83ac3a0ee9bd7052955a8f5d03620",
+      "head_sha": "2a187eea649370f2ebcf1e0dd15371024b1b85fd",
+      "scope_status": "passed",
+      "checks_status": "passed",
+      "review_verdict": "通过",
+      "human_confirmation": {
+        "required": false,
+        "confirmed": true,
+        "confirmed_by": "not_required",
+        "confirmed_at": "2026-07-11T13:50:37Z",
+        "confirmation_text": "TASK-BDME-005 does not require human confirmation."
+      },
+      "evidence": ".spec/backend-ddd-microservices-evolution/reports/TASK-BDME-005-evidence.json"
+    },
+    "TASK-BDME-006": {
+      "base_sha": "2ecda7b465e648950524d28d529ff4c4bc34bcd9",
+      "base_tree": "6e51e32899eed9ee89731ddf12b162a258723999",
+      "head_sha": "2ecda7b465e648950524d28d529ff4c4bc34bcd9",
+      "scope_status": "passed",
+      "checks_status": "passed",
+      "review_verdict": "通过",
+      "human_confirmation": {
+        "required": false,
+        "confirmed": true,
+        "confirmed_by": "not_required",
+        "confirmed_at": "2026-07-11T13:53:50Z",
+        "confirmation_text": "TASK-BDME-006 does not require human confirmation."
+      },
+      "evidence": ".spec/backend-ddd-microservices-evolution/reports/TASK-BDME-006-evidence.json"
+    },
+    "TASK-BDME-007": {
+      "base_sha": "1aae33ddce26d77a221f4e0a175ce08fb275ac24",
+      "base_tree": "6f66be25c65268ca628ebd397eaa7ee878a3d6c4",
+      "head_sha": "1aae33ddce26d77a221f4e0a175ce08fb275ac24",
+      "scope_status": "passed",
+      "checks_status": "passed",
+      "review_verdict": "通过",
+      "human_confirmation": {
+        "required": true,
+        "confirmed": true,
+        "confirmed_by": "user",
+        "confirmed_at": "2026-07-11T14:00:54Z",
+        "confirmation_text": "用户确认允许继续执行，后面所有人工门禁都取消；任务实现完毕且 self-review 通过即可继续。"
+      },
+      "evidence": ".spec/backend-ddd-microservices-evolution/reports/TASK-BDME-007-evidence.json"
+    },
+    "TASK-BDME-008": {
+      "base_sha": "42dc340baea262dc9a0abad18c9e4752a04308b9",
+      "base_tree": "f78c57f0d46ef33a7acf77590ec9349da43f1a61",
+      "head_sha": "42dc340baea262dc9a0abad18c9e4752a04308b9",
+      "scope_status": "passed",
+      "checks_status": "passed",
+      "review_verdict": "通过",
+      "human_confirmation": {
+        "required": false,
+        "confirmed": true,
+        "confirmed_by": "not_required",
+        "confirmed_at": "2026-07-11T14:08:12Z",
+        "confirmation_text": "TASK-BDME-008 does not require human confirmation."
+      },
+      "evidence": ".spec/backend-ddd-microservices-evolution/reports/TASK-BDME-008-evidence.json"
+    },
+    "TASK-BDME-009": {
+      "base_sha": "e5d6e57c915796e8069145b06c5577921e9a5014",
+      "base_tree": "3ec7d49fb787808bf2357c050f803e2ab9b3f63f",
+      "head_sha": "e5d6e57c915796e8069145b06c5577921e9a5014",
+      "scope_status": "passed",
+      "checks_status": "passed",
+      "review_verdict": "通过",
+      "human_confirmation": {
+        "required": false,
+        "confirmed": true,
+        "confirmed_by": "not_required",
+        "confirmed_at": "2026-07-11T14:16:12Z",
+        "confirmation_text": "TASK-BDME-009 does not require human confirmation."
+      },
+      "evidence": ".spec/backend-ddd-microservices-evolution/reports/TASK-BDME-009-evidence.json"
+    },
+    "TASK-BDME-010": {
+      "base_sha": "467563fe669406064089771949dc90e85cba1c2b",
+      "base_tree": "740827268e4675e103ba6f721eba286b176ccf48",
+      "head_sha": "467563fe669406064089771949dc90e85cba1c2b",
+      "scope_status": "passed",
+      "checks_status": "passed",
+      "review_verdict": "通过",
+      "human_confirmation": {
+        "required": true,
+        "confirmed": true,
+        "confirmed_by": "user",
+        "confirmed_at": "2026-07-11T14:27:30Z",
+        "confirmation_text": "用户确认允许继续执行，后面所有人工门禁都取消；任务实现完毕且 self-review 通过即可继续。"
+      },
+      "evidence": ".spec/backend-ddd-microservices-evolution/reports/TASK-BDME-010-evidence.json"
+    },
+    "TASK-BDME-011": {
+      "base_sha": "648baa10798a2873815ec12c63a3a1dcae2033bd",
+      "base_tree": "d3ed94699e8df093c43bd24c403e8cad1bf628be",
+      "head_sha": "648baa10798a2873815ec12c63a3a1dcae2033bd",
+      "scope_status": "passed",
+      "checks_status": "passed",
+      "review_verdict": "通过",
+      "human_confirmation": {
+        "required": false,
+        "confirmed": true,
+        "confirmed_by": "not_required",
+        "confirmed_at": "2026-07-11T14:42:05Z",
+        "confirmation_text": "TASK-BDME-011 does not require human confirmation."
+      },
+      "evidence": ".spec/backend-ddd-microservices-evolution/reports/TASK-BDME-011-evidence.json"
+    },
+    "TASK-BDME-012": {
+      "base_sha": "94e9504fb0b1dee401ccb78c826c5eb3bd9377d5",
+      "base_tree": "d60b73545cdc438720d6a44fa8d5da417a3a4f92",
+      "head_sha": "94e9504fb0b1dee401ccb78c826c5eb3bd9377d5",
+      "scope_status": "passed",
+      "checks_status": "passed",
+      "review_verdict": "通过",
+      "human_confirmation": {
+        "required": false,
+        "confirmed": true,
+        "confirmed_by": "not_required",
+        "confirmed_at": "2026-07-11T14:52:18Z",
+        "confirmation_text": "TASK-BDME-012 does not require human confirmation."
+      },
+      "evidence": ".spec/backend-ddd-microservices-evolution/reports/TASK-BDME-012-evidence.json"
+    },
+    "TASK-BDME-013": {
+      "base_sha": "0c9d36247c1859b597670655433267be6f7de419",
+      "base_tree": "df36fa059d965d799e171ce8f67df650a60324b3",
+      "head_sha": "0c9d36247c1859b597670655433267be6f7de419",
+      "scope_status": "passed",
+      "checks_status": "passed",
+      "review_verdict": "通过",
+      "human_confirmation": {
+        "required": false,
+        "confirmed": true,
+        "confirmed_by": "not_required",
+        "confirmed_at": "2026-07-11T15:01:24Z",
+        "confirmation_text": "TASK-BDME-013 does not require human confirmation."
+      },
+      "evidence": ".spec/backend-ddd-microservices-evolution/reports/TASK-BDME-013-evidence.json"
+    },
+    "TASK-BDME-014": {
+      "base_sha": "7ded96233d4d5959cf210db8573f2caf31fff6ca",
+      "base_tree": "8974214a5fbf2009eda362569d9104200c1b58aa",
+      "head_sha": "7ded96233d4d5959cf210db8573f2caf31fff6ca",
+      "scope_status": "passed",
+      "checks_status": "passed",
+      "review_verdict": "通过",
+      "human_confirmation": {
+        "required": false,
+        "confirmed": true,
+        "confirmed_by": "not_required",
+        "confirmed_at": "2026-07-11T15:08:00Z",
+        "confirmation_text": "TASK-BDME-014 does not require human confirmation."
+      },
+      "evidence": ".spec/backend-ddd-microservices-evolution/reports/TASK-BDME-014-evidence.json"
+    },
+    "TASK-BDME-015": {
+      "base_sha": "b9ca0e23384f2df085989fc61859b7aba7ec7145",
+      "base_tree": "c3fc37156a9dce11d7652d1958bc204e7b448b63",
+      "head_sha": "b9ca0e23384f2df085989fc61859b7aba7ec7145",
+      "scope_status": "passed",
+      "checks_status": "passed",
+      "review_verdict": "通过",
+      "human_confirmation": {
+        "required": false,
+        "confirmed": true,
+        "confirmed_by": "not_required",
+        "confirmed_at": "2026-07-11T15:18:00Z",
+        "confirmation_text": "TASK-BDME-015 does not require human confirmation."
+      },
+      "evidence": ".spec/backend-ddd-microservices-evolution/reports/TASK-BDME-015-evidence.json"
+    },
+    "TASK-BDME-016": {
+      "base_sha": "f7c98dc377931877e07917358e2baca764aac41c",
+      "base_tree": "3019b5cffca771db6364eaf1c4723dd2c21f051a",
+      "head_sha": "f7c98dc377931877e07917358e2baca764aac41c",
+      "scope_status": "passed",
+      "checks_status": "passed",
+      "review_verdict": "通过",
+      "human_confirmation": {
+        "required": false,
+        "confirmed": true,
+        "confirmed_by": "not_required",
+        "confirmed_at": "2026-07-11T15:28:00Z",
+        "confirmation_text": "TASK-BDME-016 does not require human confirmation."
+      },
+      "evidence": ".spec/backend-ddd-microservices-evolution/reports/TASK-BDME-016-evidence.json"
+    },
+    "TASK-BDME-017": {
+      "base_sha": "f1ddb340265d2f7e19222725a9b6d5fb1dcc14c6",
+      "base_tree": "19cb2bb951af85935208a61fb6146d4f0deb4186",
+      "head_sha": "f1ddb340265d2f7e19222725a9b6d5fb1dcc14c6",
+      "scope_status": "passed",
+      "checks_status": "passed",
+      "review_verdict": "通过",
+      "human_confirmation": {
+        "required": false,
+        "confirmed": true,
+        "confirmed_by": "not_required",
+        "confirmed_at": "2026-07-11T15:38:00Z",
+        "confirmation_text": "TASK-BDME-017 does not require human confirmation."
+      },
+      "evidence": ".spec/backend-ddd-microservices-evolution/reports/TASK-BDME-017-evidence.json"
+    },
+    "TASK-BDME-018": {
+      "base_sha": "3e1577efab442b314f60c51a58c82c266b1def75",
+      "base_tree": "d907a0e65742fd3891b70fc648f4777fd23e4cec",
+      "head_sha": "3e1577efab442b314f60c51a58c82c266b1def75",
+      "scope_status": "passed",
+      "checks_status": "passed",
+      "review_verdict": "通过",
+      "human_confirmation": {
+        "required": false,
+        "confirmed": true,
+        "confirmed_by": "not_required",
+        "confirmed_at": "2026-07-11T15:48:00Z",
+        "confirmation_text": "TASK-BDME-018 does not require human confirmation."
+      },
+      "evidence": ".spec/backend-ddd-microservices-evolution/reports/TASK-BDME-018-evidence.json"
+    },
+    "TASK-BDME-019": {
+      "base_sha": "71f92bf5d4941d40ac5daa56b0fe42b1d94aa436",
+      "base_tree": "a2834527750d48cb28d151003a8f61addb17a64f",
+      "head_sha": "71f92bf5d4941d40ac5daa56b0fe42b1d94aa436",
+      "scope_status": "passed",
+      "checks_status": "passed",
+      "review_verdict": "通过",
+      "human_confirmation": {
+        "required": false,
+        "confirmed": true,
+        "confirmed_by": "not_required",
+        "confirmed_at": "2026-07-11T16:08:00Z",
+        "confirmation_text": "TASK-BDME-019 does not require human confirmation."
+      },
+      "evidence": ".spec/backend-ddd-microservices-evolution/reports/TASK-BDME-019-evidence.json"
+    },
+    "TASK-BDME-020": {
+      "base_sha": "bdbb6694c88fdd9cb73b25fecfcc07b9bd3dcc05",
+      "base_tree": "6a7041dfd81973388c27b20e51803df490741e98",
+      "head_sha": "bdbb6694c88fdd9cb73b25fecfcc07b9bd3dcc05",
+      "scope_status": "passed",
+      "checks_status": "passed",
+      "review_verdict": "通过",
+      "human_confirmation": {
+        "required": true,
+        "confirmed": true,
+        "confirmed_by": "user_global_gate_override",
+        "confirmed_at": "2026-07-11T16:15:00Z",
+        "confirmation_text": "User confirmed that all later human gates are cancelled once implementation and self-review pass."
+      },
+      "evidence": ".spec/backend-ddd-microservices-evolution/reports/TASK-BDME-020-evidence.json"
+    },
+    "TASK-BDME-021": {
+      "base_sha": "47e580fc59d9355d2ab727b1b148d40db54f0013",
+      "base_tree": "1d2cb5c094b2d83b905fb1f6ff11a635bdcd616f",
+      "head_sha": "47e580fc59d9355d2ab727b1b148d40db54f0013",
+      "scope_status": "passed",
+      "checks_status": "passed",
+      "review_verdict": "通过",
+      "human_confirmation": {
+        "required": true,
+        "confirmed": true,
+        "confirmed_by": "user_global_gate_override",
+        "confirmed_at": "2026-07-11T16:50:00Z",
+        "confirmation_text": "User confirmed that all later human gates are cancelled once implementation and self-review pass."
+      },
+      "evidence": ".spec/backend-ddd-microservices-evolution/reports/TASK-BDME-021-evidence.json"
+    },
+    "TASK-BDME-022": {
+      "base_sha": "08e46c2df90eb3df921ae31b3cc606f7c719acb3",
+      "base_tree": "31b5ea1a845c2e690a7e2a210fa1a14ec03b3c75",
+      "head_sha": "08e46c2df90eb3df921ae31b3cc606f7c719acb3",
+      "scope_status": "passed",
+      "checks_status": "passed",
+      "review_verdict": "通过",
+      "human_confirmation": {
+        "required": false,
+        "confirmed": true,
+        "confirmed_by": "not_required",
+        "confirmed_at": "2026-07-11T15:25:59Z",
+        "confirmation_text": "TASK-BDME-022 does not require human confirmation."
+      },
+      "evidence": ".spec/backend-ddd-microservices-evolution/reports/TASK-BDME-022-evidence.json"
+    },
+    "TASK-BDME-023": {
+      "base_sha": "1ea54a6364b964a567633e12a4f4c1f4ef09ea98",
+      "base_tree": "30ae41f8e4b1aca30035404b683e310721b25af2",
+      "head_sha": "1ea54a6364b964a567633e12a4f4c1f4ef09ea98",
+      "scope_status": "passed",
+      "checks_status": "passed",
+      "review_verdict": "通过",
+      "human_confirmation": {
+        "required": false,
+        "confirmed": true,
+        "confirmed_by": "not_required",
+        "confirmed_at": "2026-07-11T15:28:27Z",
+        "confirmation_text": "TASK-BDME-023 does not require human confirmation."
+      },
+      "evidence": ".spec/backend-ddd-microservices-evolution/reports/TASK-BDME-023-evidence.json"
+    },
+    "TASK-BDME-024": {
+      "base_sha": "0d0f64866661fd1b7140dccb16f7a06a3a099d4e",
+      "base_tree": "aa574fb4e8c3e771ca8c3c7b4a70dbf25b485b17",
+      "head_sha": "0d0f64866661fd1b7140dccb16f7a06a3a099d4e",
+      "scope_status": "passed",
+      "checks_status": "passed",
+      "review_verdict": "通过",
+      "human_confirmation": {
+        "required": true,
+        "confirmed": true,
+        "confirmed_by": "user_global_gate_override",
+        "confirmed_at": "2026-07-11T15:35:52Z",
+        "confirmation_text": "User confirmed that all later human gates are cancelled once implementation and self-review pass."
+      },
+      "evidence": ".spec/backend-ddd-microservices-evolution/reports/TASK-BDME-024-evidence.json"
+    },
+    "TASK-BDME-025": {
+      "base_sha": "0c23190ef71529b321802892496e66debcddba90",
+      "base_tree": "20cffd8525006dfdff95feb8e36d14e907c71354",
+      "head_sha": "0c23190ef71529b321802892496e66debcddba90",
+      "scope_status": "passed",
+      "checks_status": "passed",
+      "review_verdict": "通过",
+      "human_confirmation": {
+        "required": false,
+        "confirmed": true,
+        "confirmed_by": "not_required",
+        "confirmed_at": "2026-07-11T15:43:05Z",
+        "confirmation_text": "TASK-BDME-025 does not require human confirmation."
+      },
+      "evidence": ".spec/backend-ddd-microservices-evolution/reports/TASK-BDME-025-evidence.json"
+    },
+    "TASK-BDME-026": {
+      "base_sha": "91027ae11b68323d5c7c8af84b91f80b9462aa5e",
+      "base_tree": "8497b8128a41540e00b6e0555a2caa635b319ebf",
+      "head_sha": "91027ae11b68323d5c7c8af84b91f80b9462aa5e",
+      "scope_status": "passed",
+      "checks_status": "passed",
+      "review_verdict": "通过",
+      "human_confirmation": {
+        "required": true,
+        "confirmed": true,
+        "confirmed_by": "user_global_gate_override",
+        "confirmed_at": "2026-07-11T15:52:01Z",
+        "confirmation_text": "User confirmed that all later human gates are cancelled once implementation and self-review pass."
+      },
+      "evidence": ".spec/backend-ddd-microservices-evolution/reports/TASK-BDME-026-evidence.json"
+    },
+    "TASK-BDME-027": {
+      "base_sha": "949b48f9ed8091322d6ecd0c96a5dce1b5edc396",
+      "base_tree": "038dcfb3884fee562031139d73b1fd381f13a9c6",
+      "head_sha": "949b48f9ed8091322d6ecd0c96a5dce1b5edc396",
+      "scope_status": "passed",
+      "checks_status": "passed",
+      "review_verdict": "通过",
+      "human_confirmation": {
+        "required": false,
+        "confirmed": true,
+        "confirmed_by": "not_required",
+        "confirmed_at": "2026-07-11T15:58:39Z",
+        "confirmation_text": "TASK-BDME-027 does not require human confirmation."
+      },
+      "evidence": ".spec/backend-ddd-microservices-evolution/reports/TASK-BDME-027-evidence.json"
+    },
+    "TASK-BDME-028": {
+      "base_sha": "48fe11296be55bbfc921eadbc6b3b4f66d36c19f",
+      "base_tree": "4217b3a936dbfa44ca5c71d29de7bbd895119910",
+      "head_sha": "48fe11296be55bbfc921eadbc6b3b4f66d36c19f",
+      "scope_status": "passed",
+      "checks_status": "passed",
+      "review_verdict": "通过",
+      "human_confirmation": {
+        "required": true,
+        "confirmed": true,
+        "confirmed_by": "user_global_gate_override",
+        "confirmed_at": "2026-07-11T16:27:15Z",
+        "confirmation_text": "User confirmed that all later human gates are cancelled once implementation and self-review pass."
+      },
+      "evidence": ".spec/backend-ddd-microservices-evolution/reports/TASK-BDME-028-evidence.json"
+    },
+    "TASK-BDME-029": {
+      "base_sha": "f1f8fbc91e0a1739493fc8d1decc5c2ce889fe5f",
+      "base_tree": "b7b905153ca53eea1cf3b7bf7618a4345fc82514",
+      "head_sha": "55de088eb2328a6ebc38dae66c515634328ca0ad",
+      "scope_status": "passed",
+      "checks_status": "passed",
+      "review_verdict": "通过",
+      "human_confirmation": {
+        "required": true,
+        "confirmed": true,
+        "confirmed_by": "user_global_gate_override",
+        "confirmed_at": "2026-07-11T16:34:14Z",
+        "confirmation_text": "User confirmed that all later human gates are cancelled once implementation and self-review pass."
+      },
+      "evidence": ".spec/backend-ddd-microservices-evolution/reports/TASK-BDME-029-evidence.json"
+    },
+    "TASK-BDME-030": {
+      "base_sha": "e8e2a4b71f81e3637a138331e8e3cae094a841df",
+      "base_tree": "e7b9d1a1aaa2483471e14ecd372be327ca40e862",
+      "head_sha": "e8e2a4b71f81e3637a138331e8e3cae094a841df",
+      "scope_status": "passed",
+      "checks_status": "passed",
+      "review_verdict": "通过",
+      "human_confirmation": {
+        "required": false,
+        "confirmed": true,
+        "confirmed_by": "not_required",
+        "confirmed_at": "2026-07-11T16:53:00Z",
+        "confirmation_text": "TASK-BDME-030 does not require human confirmation."
+      },
+      "evidence": ".spec/backend-ddd-microservices-evolution/reports/TASK-BDME-030-evidence.json"
+    },
+    "TASK-BDME-031": {
+      "base_sha": "b6c326d2b49fdf56a09a044ecf4cfc893bbdd791",
+      "base_tree": "f52cf3bbd702367ee154ea947a03f010cb326122",
+      "head_sha": "b6c326d2b49fdf56a09a044ecf4cfc893bbdd791",
+      "scope_status": "passed",
+      "checks_status": "passed",
+      "review_verdict": "通过",
+      "human_confirmation": {
+        "required": true,
+        "confirmed": true,
+        "confirmed_by": "user_global_gate_override",
+        "confirmed_at": "2026-07-11T16:51:53Z",
+        "confirmation_text": "User confirmed that all later human gates are cancelled once implementation and self-review pass."
+      },
+      "evidence": ".spec/backend-ddd-microservices-evolution/reports/TASK-BDME-031-evidence.json"
+    },
+    "TASK-BDME-032": {
+      "base_sha": "bfdbe3765948a3c07f8e2a71091ecd2639225c04",
+      "base_tree": "af9b730aa602a13dc5e12e5b1e3e76d077df7fc8",
+      "head_sha": "bfdbe3765948a3c07f8e2a71091ecd2639225c04",
+      "scope_status": "passed",
+      "checks_status": "passed",
+      "review_verdict": "通过",
+      "human_confirmation": {
+        "required": true,
+        "confirmed": true,
+        "confirmed_by": "user_global_gate_override",
+        "confirmed_at": "2026-07-11T16:56:48Z",
+        "confirmation_text": "User confirmed that all later human gates are cancelled once implementation and self-review pass."
+      },
+      "evidence": ".spec/backend-ddd-microservices-evolution/reports/TASK-BDME-032-evidence.json"
+    },
+    "TASK-BDME-033": {
+      "base_sha": "e78ed35ee74b30e54d327a800d70a89f0bedfdf6",
+      "base_tree": "041eec41977ce2cbf78da0862035fb432a2de390",
+      "head_sha": "e78ed35ee74b30e54d327a800d70a89f0bedfdf6",
+      "scope_status": "passed",
+      "checks_status": "passed",
+      "review_verdict": "通过",
+      "human_confirmation": {
+        "required": true,
+        "confirmed": true,
+        "confirmed_by": "user_global_gate_override",
+        "confirmed_at": "2026-07-11T17:02:20Z",
+        "confirmation_text": "User confirmed that all later human gates are cancelled once implementation and self-review pass."
+      },
+      "evidence": ".spec/backend-ddd-microservices-evolution/reports/TASK-BDME-033-evidence.json"
+    },
+    "TASK-BDME-034": {
+      "base_sha": "6fc5d539851b8f41774de3fb06daa3d3df4a6269",
+      "base_tree": "32099bef4e240a9979050188cbd00a43acdf48c1",
+      "head_sha": "6fc5d539851b8f41774de3fb06daa3d3df4a6269",
+      "scope_status": "passed",
+      "checks_status": "passed",
+      "review_verdict": "通过",
+      "human_confirmation": {
+        "required": true,
+        "confirmed": true,
+        "confirmed_by": "user_global_gate_override",
+        "confirmed_at": "2026-07-11T17:07:25Z",
+        "confirmation_text": "User confirmed that all later human gates are cancelled once implementation and self-review pass."
+      },
+      "evidence": ".spec/backend-ddd-microservices-evolution/reports/TASK-BDME-034-evidence.json"
+    },
+    "TASK-BDME-035": {
+      "base_sha": "4861cad724fcebbd7aa93803ca05d4f76d1b0710",
+      "base_tree": "29429418d841762a81d9d0002dc661529ea0bd83",
+      "head_sha": "4861cad724fcebbd7aa93803ca05d4f76d1b0710",
+      "scope_status": "passed",
+      "checks_status": "passed",
+      "review_verdict": "通过",
+      "human_confirmation": {
+        "required": true,
+        "confirmed": true,
+        "confirmed_by": "user_global_gate_override",
+        "confirmed_at": "2026-07-11T17:13:28Z",
+        "confirmation_text": "User confirmed that all later human gates are cancelled once implementation and self-review pass."
+      },
+      "evidence": ".spec/backend-ddd-microservices-evolution/reports/TASK-BDME-035-evidence.json"
+    },
+    "TASK-BDME-036": {
+      "base_sha": "1813702f82f561766865411021f2cf9e3df8df31",
+      "base_tree": "2c0a99eb9b1682bdfa221dec41101675d613380f",
+      "head_sha": "1813702f82f561766865411021f2cf9e3df8df31",
+      "scope_status": "passed",
+      "checks_status": "passed",
+      "review_verdict": "通过",
+      "human_confirmation": {
+        "required": true,
+        "confirmed": true,
+        "confirmed_by": "user_global_gate_override",
+        "confirmed_at": "2026-07-11T17:23:02Z",
+        "confirmation_text": "User confirmed that all later human gates are cancelled once implementation and self-review pass."
+      },
+      "evidence": ".spec/backend-ddd-microservices-evolution/reports/TASK-BDME-036-evidence.json"
+    },
+    "TASK-BDME-037": {
+      "base_sha": "4ca99d65b7827599ead1995ba016302a3745e2d2",
+      "base_tree": "ef5db7c2e361211d6801c755995580c8cc54abc8",
+      "head_sha": "4ca99d65b7827599ead1995ba016302a3745e2d2",
+      "scope_status": "passed",
+      "checks_status": "passed",
+      "review_verdict": "通过",
+      "human_confirmation": {
+        "required": false,
+        "confirmed": true,
+        "confirmed_by": "not_required",
+        "confirmed_at": "2026-07-11T17:36:00Z",
+        "confirmation_text": "TASK-BDME-037 does not require human confirmation."
+      },
+      "evidence": ".spec/backend-ddd-microservices-evolution/reports/TASK-BDME-037-evidence.json"
+    },
+    "TASK-BDME-038": {
+      "base_sha": "c70db61db71cd3adc0df997136948e1952924fbb",
+      "base_tree": "851ccb5f2509c98a9ba324e764033d8b6f656424",
+      "head_sha": "c70db61db71cd3adc0df997136948e1952924fbb",
+      "scope_status": "passed",
+      "checks_status": "passed",
+      "review_verdict": "通过",
+      "human_confirmation": {
+        "required": true,
+        "confirmed": true,
+        "confirmed_by": "user_global_gate_override",
+        "confirmed_at": "2026-07-11T17:42:00Z",
+        "confirmation_text": "User confirmed that all later human gates are cancelled once implementation and self-review pass."
+      },
+      "evidence": ".spec/backend-ddd-microservices-evolution/reports/TASK-BDME-038-evidence.json"
+    },
+    "TASK-BDME-039": {
+      "base_sha": "185f2137a027096b1facc151ac405cbcdce76b08",
+      "base_tree": "fdc6491610228ff62082e6d83dd3fc9ebbf7ec5a",
+      "head_sha": "185f2137a027096b1facc151ac405cbcdce76b08",
+      "scope_status": "passed",
+      "checks_status": "passed",
+      "review_verdict": "通过",
+      "human_confirmation": {
+        "required": true,
+        "confirmed": true,
+        "confirmed_by": "user_global_gate_override",
+        "confirmed_at": "2026-07-11T17:50:00Z",
+        "confirmation_text": "User confirmed that all later human gates are cancelled once implementation and self-review pass."
+      },
+      "evidence": ".spec/backend-ddd-microservices-evolution/reports/TASK-BDME-039-evidence.json"
+    },
+    "TASK-BDME-040": {
+      "base_sha": "328af5d16a77c4596d30c8b267e8fc31d0dceea5",
+      "base_tree": "2276ce512e9285eadde9342285eff376e749a57e",
+      "head_sha": "328af5d16a77c4596d30c8b267e8fc31d0dceea5",
+      "scope_status": "passed",
+      "checks_status": "passed",
+      "review_verdict": "通过",
+      "human_confirmation": {
+        "required": true,
+        "confirmed": true,
+        "confirmed_by": "user_global_gate_override",
+        "confirmed_at": "2026-07-11T17:56:00Z",
+        "confirmation_text": "User confirmed that all later human gates are cancelled once implementation and self-review pass."
+      },
+      "evidence": ".spec/backend-ddd-microservices-evolution/reports/TASK-BDME-040-evidence.json"
+    },
+    "TASK-BDME-041": {
+      "base_sha": "842a0b9a1d6e2d15ebb518dffeef2036eb722476",
+      "base_tree": "d82500e1abd33fe141ab16a62c32acf0899ea88a",
+      "head_sha": "842a0b9a1d6e2d15ebb518dffeef2036eb722476",
+      "scope_status": "passed",
+      "checks_status": "passed",
+      "review_verdict": "通过",
+      "human_confirmation": {
+        "required": true,
+        "confirmed": true,
+        "confirmed_by": "user_global_gate_override",
+        "confirmed_at": "2026-07-11T17:56:00Z",
+        "confirmation_text": "User confirmed that all later human gates are cancelled once implementation and self-review pass."
+      },
+      "evidence": ".spec/backend-ddd-microservices-evolution/reports/TASK-BDME-041-evidence.json"
+    },
+    "TASK-BDME-042": {
+      "base_sha": "b422690acec02249b15c67898787d7eb62c4c1e9",
+      "base_tree": "7142ef9cf3ecac82c58b696992854aa4e583ba7c",
+      "head_sha": "b422690acec02249b15c67898787d7eb62c4c1e9",
+      "scope_status": "passed",
+      "checks_status": "passed",
+      "review_verdict": "通过",
+      "human_confirmation": {
+        "required": true,
+        "confirmed": true,
+        "confirmed_by": "user_global_gate_override",
+        "confirmed_at": "2026-07-11T17:56:00Z",
+        "confirmation_text": "User confirmed that all later human gates are cancelled once implementation and self-review pass."
+      },
+      "evidence": ".spec/backend-ddd-microservices-evolution/reports/TASK-BDME-042-evidence.json"
+    },
+    "TASK-BDME-043": {
+      "base_sha": "ad514df5512b08dca4916d6f225acf9ef54b94f2",
+      "base_tree": "0736f8c5d4f74d15712bf03a912c05c2d2d7e921",
+      "head_sha": "ad514df5512b08dca4916d6f225acf9ef54b94f2",
+      "scope_status": "passed",
+      "checks_status": "passed",
+      "review_verdict": "通过",
+      "human_confirmation": {
+        "required": true,
+        "confirmed": true,
+        "confirmed_by": "user_global_gate_override",
+        "confirmed_at": "2026-07-11T17:56:00Z",
+        "confirmation_text": "User confirmed that all later human gates are cancelled once implementation and self-review pass."
+      },
+      "evidence": ".spec/backend-ddd-microservices-evolution/reports/TASK-BDME-043-evidence.json"
+    },
+    "TASK-BDME-044": {
+      "base_sha": "5c2d8dc83836c08b0cf9f0985c2523806ecb47bc",
+      "base_tree": "99789d836d5d6259ac4f516ef74dcbb45997689b",
+      "head_sha": "5c2d8dc83836c08b0cf9f0985c2523806ecb47bc",
+      "scope_status": "passed",
+      "checks_status": "passed",
+      "review_verdict": "通过",
+      "human_confirmation": {
+        "required": true,
+        "confirmed": true,
+        "confirmed_by": "user_global_gate_override",
+        "confirmed_at": "2026-07-11T17:56:00Z",
+        "confirmation_text": "User confirmed that all later human gates are cancelled once implementation and self-review pass."
+      },
+      "evidence": ".spec/backend-ddd-microservices-evolution/reports/TASK-BDME-044-evidence.json"
+    },
+    "TASK-BDME-045": {
+      "base_sha": "b45846df930f95e7901e17e41ccdbf6d92fd90b1",
+      "base_tree": "0ea6596bbaf6438fcabc19f8a00d7bf080f2c752",
+      "head_sha": "b45846df930f95e7901e17e41ccdbf6d92fd90b1",
+      "scope_status": "passed",
+      "checks_status": "passed",
+      "review_verdict": "通过",
+      "human_confirmation": {
+        "required": true,
+        "confirmed": true,
+        "confirmed_by": "user_global_gate_override",
+        "confirmed_at": "2026-07-11T17:56:00Z",
+        "confirmation_text": "User confirmed that all later human gates are cancelled once implementation and self-review pass."
+      },
+      "evidence": ".spec/backend-ddd-microservices-evolution/reports/TASK-BDME-045-evidence.json"
+    },
+    "TASK-BDME-046": {
+      "base_sha": "36eb8b50e791aca729c719ea3ebdd4689d9d5bad",
+      "base_tree": "da12f8e7f237f9eab9abebf80484d790fc3d5b02",
+      "head_sha": "36eb8b50e791aca729c719ea3ebdd4689d9d5bad",
+      "scope_status": "passed",
+      "checks_status": "passed",
+      "review_verdict": "通过",
+      "human_confirmation": {
+        "required": false,
+        "confirmed": true,
+        "confirmed_by": "not_required",
+        "confirmed_at": "2026-07-11T18:38:00Z",
+        "confirmation_text": "TASK-BDME-046 does not require human confirmation."
+      },
+      "evidence": ".spec/backend-ddd-microservices-evolution/reports/TASK-BDME-046-evidence.json"
+    },
+    "TASK-BDME-047": {
+      "base_sha": "c68a3512afcb404aed076035f2f4c9ea5a752eaf",
+      "base_tree": "ca89fa42179f8b63fbe7c843f0c2e6540b57592a",
+      "head_sha": "c68a3512afcb404aed076035f2f4c9ea5a752eaf",
+      "scope_status": "passed",
+      "checks_status": "passed",
+      "review_verdict": "通过",
+      "human_confirmation": {
+        "required": true,
+        "confirmed": true,
+        "confirmed_by": "user_global_gate_override",
+        "confirmed_at": "2026-07-11T17:56:00Z",
+        "confirmation_text": "User confirmed that all later human gates are cancelled once implementation and self-review pass."
+      },
+      "evidence": ".spec/backend-ddd-microservices-evolution/reports/TASK-BDME-047-evidence.json"
+    },
+    "TASK-BDME-048": {
+      "base_sha": "d98dea12a1094476ef356eb714a15113c223492c",
+      "base_tree": "8751e3c66c6cfbd0c94865527989ed6cafdbf16a",
+      "head_sha": "d98dea12a1094476ef356eb714a15113c223492c",
+      "scope_status": "passed",
+      "checks_status": "passed",
+      "review_verdict": "通过",
+      "human_confirmation": {
+        "required": true,
+        "confirmed": true,
+        "confirmed_by": "user_global_gate_override",
+        "confirmed_at": "2026-07-11T17:56:00Z",
+        "confirmation_text": "User confirmed that all later human gates are cancelled once implementation and self-review pass."
+      },
+      "evidence": ".spec/backend-ddd-microservices-evolution/reports/TASK-BDME-048-evidence.json"
+    },
+    "TASK-BDME-049": {
+      "base_sha": "d8241d87000d28d0ca59538a3ceed8c9ab3c20dd",
+      "base_tree": "323101d23cfa77d5b55e6b9b0c914e93d5759e62",
+      "head_sha": "d8241d87000d28d0ca59538a3ceed8c9ab3c20dd",
+      "scope_status": "passed",
+      "checks_status": "passed",
+      "review_verdict": "通过",
+      "human_confirmation": {
+        "required": false,
+        "confirmed": true,
+        "confirmed_by": "not_required",
+        "confirmed_at": "2026-07-11T19:08:02Z",
+        "confirmation_text": "TASK-BDME-049 does not require human confirmation."
+      },
+      "evidence": ".spec/backend-ddd-microservices-evolution/reports/TASK-BDME-049-evidence.json"
+    },
+    "TASK-BDME-050": {
+      "base_sha": "b6366a03f04e868932e8b8e9c93c557dc2e1d8b9",
+      "base_tree": "2f2e822ecf5a223757d3f21f117b10f4d34490d3",
+      "head_sha": "b6366a03f04e868932e8b8e9c93c557dc2e1d8b9",
+      "scope_status": "passed",
+      "checks_status": "passed",
+      "review_verdict": "通过",
+      "human_confirmation": {
+        "required": true,
+        "confirmed": true,
+        "confirmed_by": "user_global_gate_override",
+        "confirmed_at": "2026-07-11T19:15:17Z",
+        "confirmation_text": "用户确认允许继续执行，后面所有人工门禁都取消；任务实现完毕且 self-review 通过即可继续。"
+      },
+      "evidence": ".spec/backend-ddd-microservices-evolution/reports/TASK-BDME-050-evidence.json"
+    },
+    "TASK-BDME-051": {
+      "base_sha": "0090d69193012ffef27f264a4982e014dde302ee",
+      "base_tree": "5a68861afcd94878a2352ecca3195e8fb67d46fe",
+      "head_sha": "0090d69193012ffef27f264a4982e014dde302ee",
+      "scope_status": "passed",
+      "checks_status": "passed",
+      "review_verdict": "通过",
+      "human_confirmation": {
+        "required": true,
+        "confirmed": true,
+        "confirmed_by": "user_global_gate_override",
+        "confirmed_at": "2026-07-11T19:19:16Z",
+        "confirmation_text": "用户确认允许继续执行，后面所有人工门禁都取消；任务实现完毕且 self-review 通过即可继续。"
+      },
+      "evidence": ".spec/backend-ddd-microservices-evolution/reports/TASK-BDME-051-evidence.json"
+    },
+    "TASK-BDME-052": {
+      "base_sha": "3f5ed669660b14c829140b656f72d47888a0b261",
+      "base_tree": "8fd01c071a9bc01db215d41f72bb0a9682f7c93b",
+      "head_sha": "3f5ed669660b14c829140b656f72d47888a0b261",
+      "scope_status": "passed",
+      "checks_status": "passed",
+      "review_verdict": "通过",
+      "human_confirmation": {
+        "required": true,
+        "confirmed": true,
+        "confirmed_by": "user_global_gate_override",
+        "confirmed_at": "2026-07-11T19:23:29Z",
+        "confirmation_text": "用户确认允许继续执行，后面所有人工门禁都取消；任务实现完毕且 self-review 通过即可继续。"
+      },
+      "evidence": ".spec/backend-ddd-microservices-evolution/reports/TASK-BDME-052-evidence.json"
+    }
+  },
+  "updated_at": "2026-07-11T18:28:00Z"
+}

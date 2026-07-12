@@ -12,9 +12,9 @@ import (
 // --- typed input/output structs ---
 
 type listMyApplicationsOutput struct {
-	Total        int32            `json:"total"`
-	Applications []myAppEntry     `json:"applications"`
-	Message      string           `json:"message,omitempty"`
+	Total        int32        `json:"total"`
+	Applications []myAppEntry `json:"applications"`
+	Message      string       `json:"message,omitempty"`
 }
 
 type myAppEntry struct {
@@ -73,24 +73,24 @@ type getJobDetailForCandidateInput struct {
 }
 
 type jobDetailForCandidateOutput struct {
-	JobID       int64  `json:"job_id"`
-	Title       string `json:"title"`
-	Department  string `json:"department"`
-	Location    string `json:"location"`
-	SalaryRange string `json:"salary_range"`
-	Description string `json:"description"`
+	JobID        int64  `json:"job_id"`
+	Title        string `json:"title"`
+	Department   string `json:"department"`
+	Location     string `json:"location"`
+	SalaryRange  string `json:"salary_range"`
+	Description  string `json:"description"`
 	Requirements string `json:"requirements"`
-	Status      int32  `json:"status"`
-	StatusText  string `json:"status_text"`
-	HasApplied  bool   `json:"has_applied"`
+	Status       int32  `json:"status"`
+	StatusText   string `json:"status_text"`
+	HasApplied   bool   `json:"has_applied"`
 }
 
 type recommendJobsByResumeOutput struct {
-	ResumeText  string             `json:"resume_text"`
-	ResumeFile  string             `json:"resume_file"`
-	TotalJobs   int                `json:"total_jobs"`
+	ResumeText  string              `json:"resume_text"`
+	ResumeFile  string              `json:"resume_file"`
+	TotalJobs   int                 `json:"total_jobs"`
 	Jobs        []candidateJobEntry `json:"jobs"`
-	Instruction string             `json:"instruction"`
+	Instruction string              `json:"instruction"`
 }
 
 // NewCandidateADKTools creates all candidate tools as tool.BaseTool with

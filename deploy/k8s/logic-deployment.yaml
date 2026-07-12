@@ -27,6 +27,8 @@ spec:
           ports:
             - containerPort: 50051
               name: grpc
+            - containerPort: 9091
+              name: metrics
           env:
             - name: DISABLE_BACKGROUND_WORKERS
               value: "true"
@@ -35,6 +37,10 @@ spec:
                 name: logic-config
             - secretRef:
                 name: recruitment-secrets
+          volumeMounts:
+            - name: grpc-tls
+              mountPath: /etc/recruitment/grpc-tls
+              readOnly: true
           resources:
             requests:
               cpu: 200m
@@ -43,15 +49,19 @@ spec:
               cpu: 500m
               memory: 512Mi
           readinessProbe:
-            grpc:
-              port: 50051
+            tcpSocket:
+              port: grpc
             initialDelaySeconds: 5
             periodSeconds: 10
           livenessProbe:
-            grpc:
-              port: 50051
+            tcpSocket:
+              port: grpc
             initialDelaySeconds: 15
             periodSeconds: 20
+      volumes:
+        - name: grpc-tls
+          secret:
+            secretName: recruitment-grpc-tls
 ---
 apiVersion: policy/v1
 kind: PodDisruptionBudget

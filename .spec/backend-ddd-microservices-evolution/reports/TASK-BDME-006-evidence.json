@@ -1,0 +1,108 @@
+{
+  "schemaVersion": 1,
+  "feature_name": "backend-ddd-microservices-evolution",
+  "task_id": "TASK-BDME-006",
+  "base_sha": "2ecda7b465e648950524d28d529ff4c4bc34bcd9",
+  "base_tree": "6e51e32899eed9ee89731ddf12b162a258723999",
+  "head_sha": "2ecda7b465e648950524d28d529ff4c4bc34bcd9",
+  "changed_files": [
+    ".spec/backend-ddd-microservices-evolution/pipeline-state.json",
+    ".spec/backend-ddd-microservices-evolution/reports/TASK-BDME-006-report.md",
+    ".spec/backend-ddd-microservices-evolution/reports/TASK-BDME-006-evidence.json",
+    "docs/backend-ddd-microservices-evolution-observability-baseline.md"
+  ],
+  "scope": {
+    "status": "passed",
+    "base_tree": "6e51e32899eed9ee89731ddf12b162a258723999",
+    "out_of_scope": [],
+    "forbidden": [],
+    "allowed": [
+      ".spec/backend-ddd-microservices-evolution/pipeline-state.json",
+      ".spec/backend-ddd-microservices-evolution/reports/TASK-BDME-006-report.md",
+      ".spec/backend-ddd-microservices-evolution/reports/TASK-BDME-006-evidence.json",
+      "docs/backend-ddd-microservices-evolution-observability-baseline.md"
+    ]
+  },
+  "checks": [
+    {
+      "command": "git diff --name-only && git ls-files --others --exclude-standard",
+      "exit_code": 0,
+      "status": "passed",
+      "started_at": "2026-07-11T13:56:20Z",
+      "duration_ms": 50,
+      "summary": "Listed changed TASK files."
+    },
+    {
+      "command": "TASK_BASE_TREE=6e51e32899eed9ee89731ddf12b162a258723999 bash .spec/backend-ddd-microservices-evolution/scripts/check-task-scope.sh TASK-BDME-006",
+      "exit_code": 0,
+      "status": "passed",
+      "started_at": "2026-07-11T13:56:20Z",
+      "duration_ms": 424,
+      "summary": "scope_result: PASS (TASK-BDME-006)."
+    },
+    {
+      "command": "bash .spec/backend-ddd-microservices-evolution/scripts/agent-check.sh",
+      "exit_code": 0,
+      "status": "passed",
+      "started_at": "2026-07-11T13:56:20Z",
+      "duration_ms": 403,
+      "summary": "Feature validation and git diff whitespace check passed; no Go service files changed."
+    },
+    {
+      "command": "node .knowledge/scripts/detect-impact.mjs --root . --base-tree 6e51e32899eed9ee89731ddf12b162a258723999",
+      "exit_code": 0,
+      "status": "passed",
+      "started_at": "2026-07-11T13:56:20Z",
+      "duration_ms": 432,
+      "summary": "impact_result: update_required; matched local-development and system-overview routes."
+    }
+  ],
+  "review": {
+    "type": "self-review",
+    "round": 1,
+    "verdict": "通过",
+    "findings": []
+  },
+  "human_confirmation": {
+    "required": false,
+    "confirmed": true,
+    "confirmed_by": "not_required",
+    "confirmed_at": "2026-07-11T13:53:50Z",
+    "confirmation_text": "TASK-BDME-006 does not require human confirmation."
+  },
+  "exceptions": [],
+  "skipped_checks": [
+    {
+      "command": "node .knowledge/scripts/validate-knowledge.mjs",
+      "reason": ".knowledge files were reviewed but not changed by TASK-BDME-006."
+    },
+    {
+      "command": "go test ./...",
+      "reason": "No Go files changed in TASK-BDME-006; acceptance only requires Harness, scope, agent-check, and knowledge validation when applicable."
+    }
+  ],
+  "knowledgeImpact": {
+    "result": "update_required",
+    "triggeredBy": [
+      "docs/backend-ddd-microservices-evolution-observability-baseline.md"
+    ],
+    "reviewResults": [
+      {
+        "document": ".knowledge/architecture/system-overview.md",
+        "verdict": "UNCHANGED",
+        "evidence": [
+          "Reviewed current observability architecture summary; TASK-BDME-006 documents target telemetry without changing service topology or runtime behavior."
+        ]
+      },
+      {
+        "document": ".knowledge/runbooks/local-development.md",
+        "verdict": "UNCHANGED",
+        "evidence": [
+          "Reviewed validation workflow; no local development commands changed."
+        ]
+      }
+    ],
+    "coverageGap": false,
+    "validationExitCode": 0
+  }
+}

@@ -10,6 +10,7 @@ paths = [
   '''docs/''',
 ]
 regexes = [
+  '''test-secret-at-least-32-chars-long''',
   '''abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789''',
   '''abcdef0123456789abcdef0123456789''',
 ]

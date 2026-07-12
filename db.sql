@@ -545,23 +545,36 @@ CREATE TABLE IF NOT EXISTS `notifications` (
 CREATE TABLE IF NOT EXISTS `event_outbox` (
   `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
   `event_id` VARCHAR(64) NOT NULL COMMENT '全局唯一事件ID',
+  `schema_version` VARCHAR(16) NOT NULL DEFAULT '1.0' COMMENT '领域事件信封版本',
   `event_type` VARCHAR(64) NOT NULL COMMENT 'notification.create / resume.parse',
   `aggregate_type` VARCHAR(64) NOT NULL COMMENT 'application / resume / notification',
   `aggregate_id` BIGINT UNSIGNED NOT NULL DEFAULT 0,
   `routing_key` VARCHAR(128) NOT NULL,
+  `producer` VARCHAR(128) NOT NULL DEFAULT 'logic-grpc-service.outbox' COMMENT '事件生产者',
+  `idempotency_key` VARCHAR(255) NOT NULL DEFAULT '' COMMENT '消费者幂等键',
+  `correlation_id` VARCHAR(128) NOT NULL DEFAULT '' COMMENT '请求/流程关联ID',
+  `causation_id` VARCHAR(128) NOT NULL DEFAULT '' COMMENT '触发当前事件的命令或事件ID',
+  `trace_id` VARCHAR(128) NOT NULL DEFAULT '' COMMENT '链路追踪ID',
   `payload` JSON NOT NULL,
+  `metadata` JSON NULL COMMENT '安全诊断元数据',
   `status` TINYINT NOT NULL DEFAULT 0 COMMENT '0=pending 1=published 2=dead 3=processing',
   `retry_count` INT NOT NULL DEFAULT 0,
   `next_retry_at` DATETIME NULL,
   `last_error` TEXT NULL,
   `locked_at` DATETIME NULL,
   `locked_by` VARCHAR(128) NOT NULL DEFAULT '',
+  `published_at` DATETIME NULL COMMENT '成功发布到消息队列时间',
+  `dead_lettered_at` DATETIME NULL COMMENT '进入死信状态时间',
   `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   `updated_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`),
   UNIQUE KEY `uk_event_id` (`event_id`),
+  KEY `idx_outbox_idempotency_key` (`idempotency_key`),
   KEY `idx_status_next_retry` (`status`, `next_retry_at`, `locked_at`, `id`),
-  KEY `idx_aggregate` (`aggregate_type`, `aggregate_id`)
+  KEY `idx_aggregate` (`aggregate_type`, `aggregate_id`),
+  KEY `idx_outbox_published_at` (`status`, `published_at`),
+  KEY `idx_outbox_dead_lettered_at` (`status`, `dead_lettered_at`),
+  KEY `idx_outbox_status_created` (`status`, `created_at`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='事务消息 outbox 表';
 
 CREATE TABLE IF NOT EXISTS `email_logs` (
@@ -580,6 +593,63 @@ CREATE TABLE IF NOT EXISTS `email_logs` (
   INDEX `idx_email_user_id` (`user_id`),
   INDEX `idx_email_type_status` (`type`, `status`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='邮件发送记录表';
+
+CREATE TABLE IF NOT EXISTS `event_inbox` (
+  `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+  `event_id` VARCHAR(128) NOT NULL COMMENT '事件ID或无事件ID消息的稳定哈希',
+  `event_type` VARCHAR(128) NOT NULL DEFAULT '' COMMENT '事件类型',
+  `consumer_name` VARCHAR(128) NOT NULL COMMENT '消费者名称',
+  `idempotency_key` VARCHAR(255) NOT NULL DEFAULT '' COMMENT '消费者幂等键',
+  `status` TINYINT NOT NULL DEFAULT 0 COMMENT '0=processing 1=processed 2=failed 3=dead',
+  `attempt_count` INT NOT NULL DEFAULT 0,
+  `last_error` TEXT NULL,
+  `received_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `processing_at` DATETIME NULL,
+  `processed_at` DATETIME NULL,
+  `dead_lettered_at` DATETIME NULL,
+  `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_event_inbox_consumer_event` (`consumer_name`, `event_id`),
+  KEY `idx_event_inbox_consumer_status` (`consumer_name`, `status`),
+  KEY `idx_event_inbox_idempotency_key` (`idempotency_key`),
+  KEY `idx_event_inbox_processed_at` (`status`, `processed_at`),
+  KEY `idx_event_inbox_dead_lettered_at` (`status`, `dead_lettered_at`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='事件消费者 Inbox 幂等表';
+
+CREATE TABLE IF NOT EXISTS `analytics_projection_events` (
+  `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+  `projection_name` VARCHAR(64) NOT NULL COMMENT 'Analytics projection/read-model name',
+  `source` VARCHAR(32) NOT NULL DEFAULT 'domain_event' COMMENT 'domain_event / replay / backfill',
+  `event_id` VARCHAR(128) NOT NULL COMMENT 'Domain event id',
+  `event_type` VARCHAR(128) NOT NULL COMMENT 'Source-domain event type',
+  `aggregate_type` VARCHAR(64) NOT NULL COMMENT 'Source aggregate type',
+  `aggregate_id` VARCHAR(128) NOT NULL COMMENT 'Source aggregate id',
+  `producer` VARCHAR(128) NOT NULL DEFAULT '' COMMENT 'Event producer',
+  `idempotency_key` VARCHAR(255) NOT NULL DEFAULT '' COMMENT 'Projection idempotency key',
+  `correlation_id` VARCHAR(128) NOT NULL DEFAULT '',
+  `causation_id` VARCHAR(128) NOT NULL DEFAULT '',
+  `trace_id` VARCHAR(128) NOT NULL DEFAULT '',
+  `payload` JSON NOT NULL,
+  `metadata` JSON NULL,
+  `occurred_at` DATETIME NOT NULL COMMENT 'Source event occurrence time',
+  `projected_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT 'Projection write time',
+  `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_analytics_projection_event` (`event_id`),
+  KEY `idx_analytics_projection_name_occurred` (`projection_name`, `occurred_at`),
+  KEY `idx_analytics_projection_event_type` (`event_type`),
+  KEY `idx_analytics_projection_aggregate` (`aggregate_type`, `aggregate_id`),
+  KEY `idx_analytics_projection_idempotency_key` (`idempotency_key`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='Analytics event-projection read model input';
+
+CREATE TABLE IF NOT EXISTS `analytics_projection_checkpoints` (
+  `projection_name` VARCHAR(64) NOT NULL,
+  `cursor` VARCHAR(255) NOT NULL DEFAULT '' COMMENT 'Last processed event cursor',
+  `updated_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`projection_name`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='Analytics projection checkpoint store';
 
 CREATE TABLE IF NOT EXISTS `invite_codes` (
   `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,

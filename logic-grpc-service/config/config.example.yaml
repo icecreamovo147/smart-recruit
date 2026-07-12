@@ -14,7 +14,7 @@ logging:
     ignore_record_not_found: true    # GORM_IGNORE_NOT_FOUND: suppress gorm.ErrRecordNotFound
 
 mysql:
-  dsn: "root:your_password@tcp(127.0.0.1:3306)/recruitment?charset=utf8mb4&parseTime=True&loc=Local"
+  dsn: "root:CHANGE_ME_MYSQL_PASSWORD@tcp(127.0.0.1:3306)/recruitment?charset=utf8mb4&parseTime=True&loc=Local"
   max_open_conns: 50
   max_idle_conns: 10
   conn_max_lifetime: "1h"
@@ -49,12 +49,18 @@ ai:
 jwt:
   # 本地部署时必须填写，且必须与 Web 网关使用的 JWT_SECRET 完全一致。
   # Docker / K8s 部署时通过 JWT_SECRET 环境变量注入，会覆盖此处配置。
-  # 示例（请替换为实际密钥）:
-  #   secret: "dev-jwt-secret-at-least-32-chars-long!!"
+  # 示例（请替换为实际密钥，不要提交真实值）:
+  #   secret: "CHANGE_ME_JWT_SECRET_AT_LEAST_32_CHARS"
   secret: ""
 
 grpc:
   port: 50051
+  tls_cert_file: "" # GRPC_TLS_CERT_FILE: required when GRPC_INTERNAL_TLS=required
+  tls_key_file: ""  # GRPC_TLS_KEY_FILE: required when GRPC_INTERNAL_TLS=required
+
+observability:
+  metrics_addr: ""        # METRICS_ADDR: optional Prometheus metrics HTTP listener, e.g. ":9091"
+  worker_health_addr: ""  # WORKER_HEALTH_ADDR: worker-only /livez and /readyz listener, e.g. ":9092"
 
 redis:
   addr: "127.0.0.1:6379"
@@ -85,7 +91,7 @@ agent:
     semantic_retrieval_timeout: "5s"    # AGENT_SEMANTIC_RETRIEVAL_TIMEOUT
 
 rabbitmq:
-  url: "amqp://guest:guest@127.0.0.1:5672/"
+  url: "amqp://CHANGE_ME_RABBITMQ_USER:CHANGE_ME_RABBITMQ_PASSWORD@127.0.0.1:5672/"
   exchange: "recruitment.events"
   dlx_exchange: "recruitment.events.dlx"
   retry_exchange: "recruitment.events.retry"

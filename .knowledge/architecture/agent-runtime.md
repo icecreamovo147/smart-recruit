@@ -13,17 +13,25 @@ tags:
   - context
 applies_to:
   - logic-grpc-service/ai/**
+  - logic-grpc-service/cmd/ai-agent-service/**
+  - logic-grpc-service/internal/aiagent/**
   - logic-grpc-service/service/ai_service.go
+  - logic-grpc-service/service/ai_agent_runtime.go
   - logic-grpc-service/service/agent_context.go
   - logic-grpc-service/service/agent_run_recorder.go
   - hr-frontend/src/views/hr/AIChatView.vue
 source_refs:
   - README.md
   - logic-grpc-service/service/ai_service.go
+  - logic-grpc-service/service/ai_agent_runtime.go
   - logic-grpc-service/service/agent_context.go
   - logic-grpc-service/service/agent_run_recorder.go
+  - .spec/backend-ddd-microservices-evolution/docs/backend-ddd-microservices-evolution-ai-agent-runtime-extraction.md
+  - logic-grpc-service/internal/aiagent/runtime/skeleton.go
+  - logic-grpc-service/cmd/ai-agent-service/main.go
+  - .spec/backend-ddd-microservices-evolution/docs/backend-ddd-microservices-evolution-ai-agent-service-skeleton.md
   - logic-grpc-service/ai/adk_agent.go
-last_verified: 2026-07-10
+last_verified: 2026-07-12
 review_after: 2026-10-08
 ---
 
@@ -32,6 +40,12 @@ review_after: 2026-10-08
 Smart Recruit has an HR AI assistant and candidate AI assistant backed by logic-service AI orchestration. The runtime uses an ADK-style path and a legacy path controlled by configuration. The Agent context builder assembles recent messages, session summary, active system prompt template, long-term memories, and prompt budget estimates for a request.
 
 Agent runtime behavior belongs in `logic-grpc-service/service/` and `logic-grpc-service/ai/`. Frontend chat views and gateway handlers should pass request state, render stream events, and expose trace or debug information, but they should not decide core runtime selection, memory ranking, or tool execution semantics.
+
+`cmd/ai-agent-service` is a compile-safe AI Agent service skeleton. Its runtime descriptor has `TrafficEnabled=false`, `CutoverMode=none`, no network listener, and no AI chat, agent-run, embedding, MCP, or memory runtime worker startup.
+
+`service.AIAgentRuntime` is the current AI Agent runtime composition boundary. It wires HR AI service, candidate AI service, LLM provider fallback/config surface, embedding service, embedding workload consumer, durable agent-run consumer, runtime policy, and current runtime name while keeping current monolith startup behavior.
+
+`web-gin-service/rpc/client.go` keeps AI Agent-owned generated clients on the main logic gRPC connection by default and can route them to `AI_AGENT_GRPC_ADDR` when `AI_AGENT_ROUTE_MODE=ai-agent`.
 
 ## Runtime Inputs
 
@@ -47,6 +61,8 @@ Runtime selection and request assembly are downstream of admin configuration. LL
 
 Runtime code should consume the active, enabled configuration and handle missing or unavailable dependencies explicitly. Admin configuration code should validate, persist, test, and expose configuration state, but it should not embed request-time orchestration decisions in the HR frontend or gateway handlers.
 
+Runtime diagnostics must avoid logging raw system prompts, resume text, or tool payloads. Prompt diagnostics use character counts and SHA-256 fingerprints; user-facing trace queries apply desensitization before returning tool args/results.
+
 ## Runtime Outputs
 
 - Streamed chat events for frontend clients.
@@ -60,7 +76,10 @@ Runtime code should consume the active, enabled configuration and handle missing
 - Changes to LLM provider/model, prompt template, agent config, capability binding, or runtime policy defaults should review `ai-configuration-governance`.
 - Changes to trace recording should check agent run recorder tests and HR trace UI expectations.
 - Changes to Agent Skill selection or semantic retrieval should also review `semantic-retrieval` and domain knowledge for Skill and Memory.
+- AI Agent service skeleton changes should preserve the unrouted descriptor until a scoped runtime extraction or gateway cutover TASK adds shadow, dual-run, or routed behavior with rollback evidence.
+- AI Agent runtime extraction changes should keep `service.NewServices`, `logic-grpc-service/main.go`, consumer start order, Inbox idempotency, provider fallback behavior, and existing queue/routing-key behavior compatible unless the current TASK is an approved cutover.
+- AI Agent gateway cutover changes should preserve public HTTP/protobuf behavior and keep a configuration-only rollback path documented in `.spec/backend-ddd-microservices-evolution/docs/backend-ddd-microservices-evolution-ai-agent-gateway-cutover.md`.
 
 ## Verification
 
-This document was verified against `logic-grpc-service/service/agent_context.go`, `logic-grpc-service/service/ai_service.go`, `logic-grpc-service/service/agent_run_recorder.go`, and `logic-grpc-service/ai/adk_agent.go` on 2026-07-10.
+This document was verified against `logic-grpc-service/service/agent_context.go`, `logic-grpc-service/service/ai_service.go`, `logic-grpc-service/service/ai_agent_runtime.go`, `logic-grpc-service/service/agent_run_recorder.go`, `logic-grpc-service/internal/aiagent/runtime/skeleton.go`, `logic-grpc-service/cmd/ai-agent-service/main.go`, and `logic-grpc-service/ai/adk_agent.go` on 2026-07-12.

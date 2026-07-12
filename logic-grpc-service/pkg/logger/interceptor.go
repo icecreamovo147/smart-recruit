@@ -11,6 +11,7 @@ import (
 	"google.golang.org/grpc/status"
 
 	"logic-grpc-service/pkg/metadata"
+	"logic-grpc-service/pkg/observability"
 )
 
 // UnaryServerInterceptor logs every unary gRPC call and recovers panics.
@@ -18,6 +19,9 @@ func UnaryServerInterceptor() grpc.UnaryServerInterceptor {
 	return func(ctx context.Context, req any, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (resp any, err error) {
 		start := time.Now()
 
+		if metadata.GetTraceID(ctx) == "" {
+			ctx = metadata.WithTraceContext(ctx, "", "")
+		}
 		fields := extractLogFields(ctx)
 		if len(fields) > 0 {
 			ctx = WithRequestLogger(ctx, fields...)
@@ -25,6 +29,9 @@ func UnaryServerInterceptor() grpc.UnaryServerInterceptor {
 
 		defer func() {
 			if r := recover(); r != nil {
+				elapsed := time.Since(start)
+				observability.DefaultMetrics.RecordRPCPanic(info.FullMethod)
+				observability.DefaultMetrics.ObserveRPC(info.FullMethod, codes.Internal.String(), elapsed)
 				l := GetRequestLogger(ctx)
 				l.Error("panic recovered",
 					append(fields,
@@ -41,9 +48,11 @@ func UnaryServerInterceptor() grpc.UnaryServerInterceptor {
 		resp, err = handler(ctx, req)
 
 		elapsed := time.Since(start)
+		observability.DefaultMetrics.ObserveRPC(info.FullMethod, status.Code(err).String(), elapsed)
 		l := GetRequestLogger(ctx)
 		logFields := append(fields,
 			zap.String("method", info.FullMethod),
+			zap.String("grpc_code", status.Code(err).String()),
 			zap.Duration("elapsed", elapsed),
 		)
 		if err != nil {
@@ -62,6 +71,10 @@ func StreamServerInterceptor() grpc.StreamServerInterceptor {
 		start := time.Now()
 		ctx := ss.Context()
 
+		if metadata.GetTraceID(ctx) == "" {
+			ctx = metadata.WithTraceContext(ctx, "", "")
+			ss = &wrappedServerStream{ServerStream: ss, ctx: ctx}
+		}
 		fields := extractLogFields(ctx)
 		if len(fields) > 0 {
 			ctx = WithRequestLogger(ctx, fields...)
@@ -70,6 +83,9 @@ func StreamServerInterceptor() grpc.StreamServerInterceptor {
 
 		defer func() {
 			if r := recover(); r != nil {
+				elapsed := time.Since(start)
+				observability.DefaultMetrics.RecordRPCPanic(info.FullMethod)
+				observability.DefaultMetrics.ObserveRPC(info.FullMethod, codes.Internal.String(), elapsed)
 				l := GetRequestLogger(ctx)
 				l.Error("panic recovered",
 					append(fields,
@@ -85,9 +101,11 @@ func StreamServerInterceptor() grpc.StreamServerInterceptor {
 		err := handler(srv, ss)
 
 		elapsed := time.Since(start)
+		observability.DefaultMetrics.ObserveRPC(info.FullMethod, status.Code(err).String(), elapsed)
 		l := GetRequestLogger(ctx)
 		logFields := append(fields,
 			zap.String("method", info.FullMethod),
+			zap.String("grpc_code", status.Code(err).String()),
 			zap.Duration("elapsed", elapsed),
 		)
 		if err != nil {
@@ -113,6 +131,12 @@ func extractLogFields(ctx context.Context) []zap.Field {
 	}
 	if acct := metadata.GetAuthAccountType(ctx); acct != "" {
 		fields = append(fields, zap.String("account_type", acct))
+	}
+	if traceID := metadata.GetTraceID(ctx); traceID != "" {
+		fields = append(fields, zap.String("trace_id", traceID))
+	}
+	if spanID := metadata.GetSpanID(ctx); spanID != "" {
+		fields = append(fields, zap.String("span_id", spanID))
 	}
 	return fields
 }

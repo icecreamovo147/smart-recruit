@@ -376,6 +376,12 @@ func (r *ApplicationRepo) UpdateStatusAnyWithTx(ctx context.Context, tx *gorm.DB
 	return result.RowsAffected, result.Error
 }
 
+func (r *ApplicationRepo) CloseCurrentRoundWithTx(ctx context.Context, tx *gorm.DB, applicationID int64) error {
+	return tx.WithContext(ctx).Model(&model.Application{}).
+		Where("id = ?", applicationID).
+		Update("is_current", 0).Error
+}
+
 // RePassWithTx re-opens a rejected application as a new round, setting status to
 // screen_passed. It increments round_no by 1 and marks the record as is_current=1.
 // Scope enforcement mirrors the calling service's UpdateStatus*WithTx pattern:

@@ -1,0 +1,197 @@
+{
+  "schemaVersion": 1,
+  "feature_name": "backend-ddd-microservices-evolution",
+  "task_id": "TASK-BDME-046",
+  "base_sha": "36eb8b50e791aca729c719ea3ebdd4689d9d5bad",
+  "base_tree": "da12f8e7f237f9eab9abebf80484d790fc3d5b02",
+  "head_sha": "36eb8b50e791aca729c719ea3ebdd4689d9d5bad",
+  "changed_files": [
+    ".knowledge/architecture/persistence-and-migrations.md",
+    ".knowledge/architecture/service-boundaries.md",
+    ".knowledge/manifest.yaml",
+    ".knowledge/pitfalls/migration-model-drift.md",
+    ".knowledge/runbooks/protobuf-and-migration-change.md",
+    ".spec/backend-ddd-microservices-evolution/pipeline-state.json",
+    ".spec/backend-ddd-microservices-evolution/reports/TASK-BDME-046-report.md",
+    ".spec/backend-ddd-microservices-evolution/reports/TASK-BDME-046-evidence.json",
+    "docs/backend-ddd-microservices-evolution-table-ownership-manifest.json",
+    "docs/backend-ddd-microservices-evolution-table-ownership.md",
+    "scripts/check-table-ownership.mjs"
+  ],
+  "scope": {
+    "status": "passed",
+    "base_tree": "da12f8e7f237f9eab9abebf80484d790fc3d5b02",
+    "out_of_scope": [],
+    "forbidden": [],
+    "allowed": [
+      ".knowledge/architecture/persistence-and-migrations.md",
+      ".knowledge/architecture/service-boundaries.md",
+      ".knowledge/manifest.yaml",
+      ".knowledge/pitfalls/migration-model-drift.md",
+      ".knowledge/runbooks/protobuf-and-migration-change.md",
+      ".spec/backend-ddd-microservices-evolution/pipeline-state.json",
+      ".spec/backend-ddd-microservices-evolution/reports/TASK-BDME-046-report.md",
+      ".spec/backend-ddd-microservices-evolution/reports/TASK-BDME-046-evidence.json",
+      "docs/backend-ddd-microservices-evolution-table-ownership-manifest.json",
+      "docs/backend-ddd-microservices-evolution-table-ownership.md",
+      "scripts/check-table-ownership.mjs"
+    ]
+  },
+  "checks": [
+    {
+      "command": "git diff --name-only && git ls-files --others --exclude-standard",
+      "exit_code": 0,
+      "status": "passed",
+      "duration_ms": 0,
+      "started_at": "2026-07-11T18:34:00Z",
+      "summary": "Listed tracked and untracked TASK files."
+    },
+    {
+      "command": "node scripts/check-table-ownership.mjs",
+      "exit_code": 0,
+      "status": "passed",
+      "duration_ms": 42,
+      "started_at": "2026-07-11T18:34:00Z",
+      "summary": "table_ownership_result: PASS (67 tables, 6 transitional shared access entries)."
+    },
+    {
+      "command": "node .knowledge/scripts/detect-impact.mjs --root . --base-tree da12f8e7f237f9eab9abebf80484d790fc3d5b02 --json",
+      "exit_code": 0,
+      "status": "passed",
+      "duration_ms": 239,
+      "started_at": "2026-07-11T18:35:00Z",
+      "summary": "impact_result: update_required; no coverage gaps."
+    },
+    {
+      "command": "node .knowledge/scripts/validate-knowledge.mjs --root .",
+      "exit_code": 0,
+      "status": "passed",
+      "duration_ms": 35,
+      "started_at": "2026-07-11T18:35:00Z",
+      "summary": "knowledge_result: PASS (36 formal documents)."
+    },
+    {
+      "command": "TASK_BASE_TREE=da12f8e7f237f9eab9abebf80484d790fc3d5b02 bash .spec/backend-ddd-microservices-evolution/scripts/check-task-scope.sh TASK-BDME-046",
+      "exit_code": 0,
+      "status": "passed",
+      "duration_ms": 112,
+      "started_at": "2026-07-11T18:36:00Z",
+      "summary": "scope_result: PASS (TASK-BDME-046)."
+    },
+    {
+      "command": "bash .spec/backend-ddd-microservices-evolution/scripts/agent-check.sh",
+      "exit_code": 0,
+      "status": "passed",
+      "duration_ms": 42,
+      "started_at": "2026-07-11T18:36:00Z",
+      "summary": "Feature validation, git diff whitespace check, and knowledge validation passed."
+    },
+    {
+      "command": "git diff --check",
+      "exit_code": 0,
+      "status": "passed",
+      "duration_ms": 0,
+      "started_at": "2026-07-11T18:36:00Z",
+      "summary": "No whitespace errors."
+    }
+  ],
+  "review": {
+    "type": "self-review",
+    "round": 1,
+    "verdict": "通过",
+    "findings": []
+  },
+  "human_confirmation": {
+    "required": false,
+    "confirmed": true,
+    "confirmed_by": "not_required",
+    "confirmed_at": "2026-07-11T18:38:00Z",
+    "confirmation_text": "TASK-BDME-046 does not require human confirmation."
+  },
+  "exceptions": [],
+  "skipped_checks": [],
+  "knowledgeImpact": {
+    "result": "update_required",
+    "triggeredBy": [
+      "configuration-changed",
+      "covered-path-changed",
+      "database-schema-changed",
+      "service-boundary-changed"
+    ],
+    "reviewResults": [
+      {
+        "document": ".knowledge/architecture/persistence-and-migrations.md",
+        "verdict": "UPDATED",
+        "evidence": [
+          "Documented table ownership manifest and ownership drift check for schema work."
+        ]
+      },
+      {
+        "document": ".knowledge/architecture/service-boundaries.md",
+        "verdict": "UPDATED",
+        "evidence": [
+          "Documented table ownership as a service-boundary review input."
+        ]
+      },
+      {
+        "document": ".knowledge/pitfalls/migration-model-drift.md",
+        "verdict": "UPDATED",
+        "evidence": [
+          "Added table ownership manifest drift as a schema-change pitfall and prevention check."
+        ]
+      },
+      {
+        "document": ".knowledge/runbooks/protobuf-and-migration-change.md",
+        "verdict": "UPDATED",
+        "evidence": [
+          "Added ownership manifest update and validation steps for migration work."
+        ]
+      },
+      {
+        "document": ".knowledge/manifest.yaml",
+        "verdict": "UPDATED",
+        "evidence": [
+          "Routed ownership manifest, summary doc, and check script to persistence and boundary knowledge."
+        ]
+      },
+      {
+        "document": ".knowledge/runbooks/knowledge-coverage-audit.md",
+        "verdict": "UNCHANGED",
+        "evidence": [
+          "Reviewed due .knowledge route; current audit procedure remains accurate."
+        ]
+      },
+      {
+        "document": ".knowledge/architecture/system-overview.md",
+        "verdict": "UNCHANGED",
+        "evidence": [
+          "Reviewed due .spec report/evidence route; current topology and runtime traffic are unchanged."
+        ]
+      },
+      {
+        "document": ".knowledge/runbooks/local-development.md",
+        "verdict": "UNCHANGED",
+        "evidence": [
+          "Reviewed due .spec report/evidence route; local startup and validation commands are unchanged."
+        ]
+      }
+    ],
+    "coverageGap": false,
+    "validationExitCode": 0
+  },
+  "acceptance": {
+    "table_count": 67,
+    "transitional_shared_access_count": 6,
+    "owner_contexts": [
+      "ai-agent",
+      "analytics",
+      "identity",
+      "interview",
+      "notification",
+      "offer",
+      "platform-workers",
+      "recruitment"
+    ],
+    "verification_command": "node scripts/check-table-ownership.mjs"
+  }
+}

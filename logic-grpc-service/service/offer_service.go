@@ -26,6 +26,7 @@ type OfferService struct {
 	outboxPublisher *OutboxPublisher
 	scopeEval       *scopeEvaluator
 	serviceAuth     *ServiceAuthorizer
+	lifecycle       *RecruitmentLifecycleProcessManager
 }
 
 func NewOfferService(
@@ -47,6 +48,7 @@ func NewOfferService(
 		outboxPublisher: outboxPublisher,
 		scopeEval:       scopeEval,
 		serviceAuth:     serviceAuth,
+		lifecycle:       NewRecruitmentLifecycleProcessManager(applications),
 	}
 }
 
@@ -189,23 +191,18 @@ func (s *OfferService) CreateOffer(ctx context.Context, req *pb.CreateOfferReque
 
 		if needStatusUpdate {
 			// Update application status to offer_pending
-			rows, err := s.applications.UpdateStatusAnyWithTx(ctx, tx, req.ApplicationId, appDetail.StatusKey, model.StatusKeyOfferPending, 0)
-			if err != nil {
-				return err
-			}
-			if rows == 0 {
-				return fmt.Errorf("application status changed concurrently, expected %s", appDetail.StatusKey)
-			}
-
-			// Write application status transition audit record
-			if err := s.applications.CreateTransition(ctx, tx, &model.ApplicationStatusTransition{
+			changed, err := s.lifecycle.ApplyTransitionTx(ctx, tx, RecruitmentLifecycleTransition{
 				ApplicationID:    req.ApplicationId,
 				FromStatus:       appDetail.StatusKey,
 				ToStatus:         model.StatusKeyOfferPending,
 				ActorUserID:      req.HrId,
 				ActorAccountType: "staff",
-			}); err != nil {
+			})
+			if err != nil {
 				return err
+			}
+			if !changed {
+				return fmt.Errorf("application status changed concurrently, expected %s", appDetail.StatusKey)
 			}
 		}
 
@@ -224,7 +221,7 @@ func (s *OfferService) CreateOffer(ctx context.Context, req *pb.CreateOfferReque
 
 		// Notify candidate
 		notifyContent := fmt.Sprintf("您投递的「%s」岗位已生成 Offer，请留意查看。", appDetail.JobTitle)
-		if err := s.outboxPublisher.WriteEventTx(tx, "notification.create", "offer", uint64(offer.ID), "notification.create", notificationPayload{
+		if err := s.outboxPublisher.WriteEventTx(tx, "offer.notification_requested", "offer", uint64(offer.ID), "notification.create", notificationPayload{
 			ReceiverID:          appDetail.UserID,
 			ReceiverRole:        1,
 			ReceiverAccountType: "candidate",
@@ -453,31 +450,26 @@ func (s *OfferService) SendOffer(ctx context.Context, req *pb.SendOfferRequest) 
 	err = s.offers.Transaction(ctx, func(tx *gorm.DB) error {
 		// Update offer status to sent with snapshot
 		if err := s.offers.UpdateStatusWithTx(ctx, tx, offer.ID, map[string]any{
-			"status":              "sent",
-			"sent_snapshot_json":  string(snapshotJSON),
-			"sent_by":             req.HrId,
+			"status":             "sent",
+			"sent_snapshot_json": string(snapshotJSON),
+			"sent_by":            req.HrId,
 		}); err != nil {
 			return err
 		}
 
 		// Update application status to offer_sent
-		rows, err := s.applications.UpdateStatusAnyWithTx(ctx, tx, offer.ApplicationID, appDetail.StatusKey, model.StatusKeyOfferSent, 0)
-		if err != nil {
-			return err
-		}
-		if rows == 0 {
-			return fmt.Errorf("application status changed concurrently, expected %s", appDetail.StatusKey)
-		}
-
-		// Write application status transition audit record
-		if err := s.applications.CreateTransition(ctx, tx, &model.ApplicationStatusTransition{
+		changed, err := s.lifecycle.ApplyTransitionTx(ctx, tx, RecruitmentLifecycleTransition{
 			ApplicationID:    offer.ApplicationID,
 			FromStatus:       appDetail.StatusKey,
 			ToStatus:         model.StatusKeyOfferSent,
 			ActorUserID:      req.HrId,
 			ActorAccountType: "staff",
-		}); err != nil {
+		})
+		if err != nil {
 			return err
+		}
+		if !changed {
+			return fmt.Errorf("application status changed concurrently, expected %s", appDetail.StatusKey)
 		}
 
 		// Write offer event
@@ -495,7 +487,7 @@ func (s *OfferService) SendOffer(ctx context.Context, req *pb.SendOfferRequest) 
 
 		// Notify candidate
 		notifyContent := fmt.Sprintf("您投递的「%s」岗位的 Offer 已发送，请及时查看并做出决定。", appDetail.JobTitle)
-		if err := s.outboxPublisher.WriteEventTx(tx, "notification.create", "offer", uint64(offer.ID), "notification.create", notificationPayload{
+		if err := s.outboxPublisher.WriteEventTx(tx, "offer.notification_requested", "offer", uint64(offer.ID), "notification.create", notificationPayload{
 			ReceiverID:          offer.CandidateUserID,
 			ReceiverRole:        1,
 			ReceiverAccountType: "candidate",
@@ -510,7 +502,7 @@ func (s *OfferService) SendOffer(ctx context.Context, req *pb.SendOfferRequest) 
 		}
 
 		// Email notification to candidate
-		if err := s.outboxPublisher.WriteEventTx(tx, "email.send", "offer", uint64(offer.ID), "email.send", emailPayload{
+		if err := s.outboxPublisher.WriteEventTx(tx, "offer.email_requested", "offer", uint64(offer.ID), "email.send", emailPayload{
 			ReceiverID:          offer.CandidateUserID,
 			ReceiverAccountType: "candidate",
 			Type:                "offer_sent",
@@ -602,24 +594,19 @@ func (s *OfferService) WithdrawOffer(ctx context.Context, req *pb.WithdrawOfferR
 
 		// Revert application status when withdrawing a sent offer
 		if needsAppRevert {
-			rows, err := s.applications.UpdateStatusAnyWithTx(ctx, tx, offer.ApplicationID, appDetail.StatusKey, model.StatusKeyOfferPending, 0)
-			if err != nil {
-				return err
-			}
-			if rows == 0 {
-				return fmt.Errorf("application status changed concurrently, expected %s", appDetail.StatusKey)
-			}
-
-			// Write application status transition audit record
-			if err := s.applications.CreateTransition(ctx, tx, &model.ApplicationStatusTransition{
+			changed, err := s.lifecycle.ApplyTransitionTx(ctx, tx, RecruitmentLifecycleTransition{
 				ApplicationID:    offer.ApplicationID,
 				FromStatus:       appDetail.StatusKey,
 				ToStatus:         model.StatusKeyOfferPending,
 				ActorUserID:      req.HrId,
 				ActorAccountType: "staff",
 				Reason:           req.Reason,
-			}); err != nil {
+			})
+			if err != nil {
 				return err
+			}
+			if !changed {
+				return fmt.Errorf("application status changed concurrently, expected %s", appDetail.StatusKey)
 			}
 		}
 
@@ -641,7 +628,7 @@ func (s *OfferService) WithdrawOffer(ctx context.Context, req *pb.WithdrawOfferR
 			reasonText = "暂无说明"
 		}
 		notifyContent := fmt.Sprintf("您投递的「%s」岗位的 Offer 已被撤回。原因：%s", appDetail.JobTitle, reasonText)
-		if err := s.outboxPublisher.WriteEventTx(tx, "notification.create", "offer", uint64(offer.ID), "notification.create", notificationPayload{
+		if err := s.outboxPublisher.WriteEventTx(tx, "offer.notification_requested", "offer", uint64(offer.ID), "notification.create", notificationPayload{
 			ReceiverID:          offer.CandidateUserID,
 			ReceiverRole:        1,
 			ReceiverAccountType: "candidate",
@@ -656,7 +643,7 @@ func (s *OfferService) WithdrawOffer(ctx context.Context, req *pb.WithdrawOfferR
 		}
 
 		// Email notification to candidate
-		if err := s.outboxPublisher.WriteEventTx(tx, "email.send", "offer", uint64(offer.ID), "email.send", emailPayload{
+		if err := s.outboxPublisher.WriteEventTx(tx, "offer.email_requested", "offer", uint64(offer.ID), "email.send", emailPayload{
 			ReceiverID:          offer.CandidateUserID,
 			ReceiverAccountType: "candidate",
 			Type:                "offer_withdrawn",
@@ -749,23 +736,18 @@ func (s *OfferService) AcceptOffer(ctx context.Context, req *pb.AcceptOfferReque
 		}
 
 		// Update application status to offer_accepted
-		rows, err := s.applications.UpdateStatusAnyWithTx(ctx, tx, offer.ApplicationID, appDetail.StatusKey, model.StatusKeyOfferAccepted, 0)
-		if err != nil {
-			return err
-		}
-		if rows == 0 {
-			return fmt.Errorf("application status changed concurrently, expected %s", appDetail.StatusKey)
-		}
-
-		// Write application status transition audit record
-		if err := s.applications.CreateTransition(ctx, tx, &model.ApplicationStatusTransition{
+		changed, err := s.lifecycle.ApplyTransitionTx(ctx, tx, RecruitmentLifecycleTransition{
 			ApplicationID:    offer.ApplicationID,
 			FromStatus:       appDetail.StatusKey,
 			ToStatus:         model.StatusKeyOfferAccepted,
 			ActorUserID:      req.UserId,
 			ActorAccountType: "candidate",
-		}); err != nil {
+		})
+		if err != nil {
 			return err
+		}
+		if !changed {
+			return fmt.Errorf("application status changed concurrently, expected %s", appDetail.StatusKey)
 		}
 
 		event := &model.OfferEvent{
@@ -783,7 +765,7 @@ func (s *OfferService) AcceptOffer(ctx context.Context, req *pb.AcceptOfferReque
 		// Notify HR who sent the offer
 		if offer.SentBy != nil {
 			notifyContent := fmt.Sprintf("候选人已接受「%s」岗位的 Offer。", appDetail.JobTitle)
-			if err := s.outboxPublisher.WriteEventTx(tx, "notification.create", "offer", uint64(offer.ID), "notification.create", notificationPayload{
+			if err := s.outboxPublisher.WriteEventTx(tx, "offer.notification_requested", "offer", uint64(offer.ID), "notification.create", notificationPayload{
 				ReceiverID:          *offer.SentBy,
 				ReceiverRole:        2,
 				ReceiverAccountType: "staff",
@@ -872,31 +854,20 @@ func (s *OfferService) RejectOffer(ctx context.Context, req *pb.RejectOfferReque
 		}
 
 		// Update application status to offer_rejected
-		rows, err := s.applications.UpdateStatusAnyWithTx(ctx, tx, offer.ApplicationID, appDetail.StatusKey, model.StatusKeyOfferRejected, 0)
+		changed, err := s.lifecycle.ApplyTransitionTx(ctx, tx, RecruitmentLifecycleTransition{
+			ApplicationID:     offer.ApplicationID,
+			FromStatus:        appDetail.StatusKey,
+			ToStatus:          model.StatusKeyOfferRejected,
+			ActorUserID:       req.UserId,
+			ActorAccountType:  "candidate",
+			Reason:            req.Reason,
+			CloseCurrentRound: model.IsTerminalStatusKey(model.StatusKeyOfferRejected),
+		})
 		if err != nil {
 			return err
 		}
-		if rows == 0 {
+		if !changed {
 			return fmt.Errorf("application status changed concurrently, expected %s", appDetail.StatusKey)
-		}
-
-		// offer_rejected is terminal: close the current application round
-		if model.IsTerminalStatusKey(model.StatusKeyOfferRejected) {
-			if err := tx.Model(&model.Application{}).Where("id = ?", offer.ApplicationID).Update("is_current", 0).Error; err != nil {
-				return err
-			}
-		}
-
-		// Write application status transition audit record
-		if err := s.applications.CreateTransition(ctx, tx, &model.ApplicationStatusTransition{
-			ApplicationID:    offer.ApplicationID,
-			FromStatus:       appDetail.StatusKey,
-			ToStatus:         model.StatusKeyOfferRejected,
-			ActorUserID:      req.UserId,
-			ActorAccountType: "candidate",
-			Reason:           req.Reason,
-		}); err != nil {
-			return err
 		}
 
 		reasonText := req.Reason
@@ -919,7 +890,7 @@ func (s *OfferService) RejectOffer(ctx context.Context, req *pb.RejectOfferReque
 		// Notify HR who sent the offer
 		if offer.SentBy != nil {
 			notifyContent := fmt.Sprintf("候选人已拒绝「%s」岗位的 Offer。原因：%s", appDetail.JobTitle, reasonText)
-			if err := s.outboxPublisher.WriteEventTx(tx, "notification.create", "offer", uint64(offer.ID), "notification.create", notificationPayload{
+			if err := s.outboxPublisher.WriteEventTx(tx, "offer.notification_requested", "offer", uint64(offer.ID), "notification.create", notificationPayload{
 				ReceiverID:          *offer.SentBy,
 				ReceiverRole:        2,
 				ReceiverAccountType: "staff",
@@ -1056,26 +1027,26 @@ func toPBOffer(row *repository.OfferWithDetailsRow) *pb.Offer {
 		sentBy = *row.SentBy
 	}
 	return &pb.Offer{
-		Id:                  row.ID,
-		ApplicationId:       row.ApplicationID,
-		CandidateUserId:     row.CandidateUserID,
-		JobId:               row.JobID,
-		Status:              row.Status,
-		Title:               row.Title,
-		SalaryRange:         row.SalaryRange,
-		Level:               row.Level,
-		WorkLocation:        row.WorkLocation,
-		StartDate:           row.StartDate,
-		ExpiresAt:           expiresAt,
-		TermsJson:           row.TermsJSON,
-		SentSnapshotJson:    row.SentSnapshotJSON,
-		CreatedBy:           row.CreatedBy,
-		SentBy:              sentBy,
-		DecidedAt:           decidedAt,
-		CreatedAt:           formatTime(row.CreatedAt),
-		UpdatedAt:           formatTime(row.UpdatedAt),
-		JobTitle:            row.JobTitle,
-		CandidateName:       row.CandidateName,
+		Id:                   row.ID,
+		ApplicationId:        row.ApplicationID,
+		CandidateUserId:      row.CandidateUserID,
+		JobId:                row.JobID,
+		Status:               row.Status,
+		Title:                row.Title,
+		SalaryRange:          row.SalaryRange,
+		Level:                row.Level,
+		WorkLocation:         row.WorkLocation,
+		StartDate:            row.StartDate,
+		ExpiresAt:            expiresAt,
+		TermsJson:            row.TermsJSON,
+		SentSnapshotJson:     row.SentSnapshotJSON,
+		CreatedBy:            row.CreatedBy,
+		SentBy:               sentBy,
+		DecidedAt:            decidedAt,
+		CreatedAt:            formatTime(row.CreatedAt),
+		UpdatedAt:            formatTime(row.UpdatedAt),
+		JobTitle:             row.JobTitle,
+		CandidateName:        row.CandidateName,
 		ApplicationStatusKey: row.ApplicationStatusKey,
 		CreatedByName:        row.CreatedByName,
 		SentByName:           row.SentByName,

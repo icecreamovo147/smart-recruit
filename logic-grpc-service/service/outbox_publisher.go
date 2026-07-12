@@ -7,11 +7,13 @@ import (
 	"encoding/json"
 	"math"
 	"os"
+	"strconv"
 	"time"
 
 	"go.uber.org/zap"
 	"gorm.io/gorm"
 
+	"logic-grpc-service/internal/platform/events"
 	"logic-grpc-service/model"
 	"logic-grpc-service/mq"
 	"logic-grpc-service/pkg/logger"
@@ -25,6 +27,8 @@ const (
 	backoffBase         = 5 * time.Second
 	defaultLockTimeout  = 2 * time.Minute
 	publishTimeout      = 10 * time.Second
+	maxRetryCount       = 10
+	outboxProducer      = "logic-grpc-service.outbox"
 )
 
 type OutboxPublisher struct {
@@ -73,32 +77,69 @@ func (p *OutboxPublisher) WriteEventTx(tx *gorm.DB, eventType, aggregateType str
 
 func buildOutboxEvent(eventType, aggregateType string, aggregateID uint64, routingKey string, payload any) (*model.EventOutbox, error) {
 	eventID := NewUUID()
-	payloadJSON, err := marshalEventPayload(eventID, payload)
-	if err != nil {
-		return nil, err
-	}
-	return &model.EventOutbox{
-		EventID:       eventID,
-		EventType:     eventType,
-		AggregateType: aggregateType,
-		AggregateID:   aggregateID,
-		RoutingKey:    routingKey,
-		Payload:       string(payloadJSON),
-		Status:        model.EventOutboxStatusPending,
-	}, nil
-}
-
-func marshalEventPayload(eventID string, payload any) ([]byte, error) {
 	payloadJSON, err := json.Marshal(payload)
 	if err != nil {
 		return nil, err
 	}
-	var object map[string]any
-	if err := json.Unmarshal(payloadJSON, &object); err != nil {
-		return payloadJSON, nil
+	envelope, err := events.NewEnvelope(events.NewEnvelopeInput{
+		EventID:       eventID,
+		EventType:     eventType,
+		AggregateType: aggregateType,
+		AggregateID:   strconv.FormatUint(aggregateID, 10),
+		OccurredAt:    time.Now().UTC(),
+		Producer:      outboxProducer,
+		Payload:       payloadJSON,
+		Metadata: map[string]string{
+			"routing_key": routingKey,
+		},
+	})
+	if err != nil {
+		return nil, err
 	}
-	object["event_id"] = eventID
-	return json.Marshal(object)
+	outboxPayloadJSON, err := marshalEventPayload(*envelope, payloadJSON)
+	if err != nil {
+		return nil, err
+	}
+	metadataJSON, err := json.Marshal(envelope.Metadata)
+	if err != nil {
+		return nil, err
+	}
+	return &model.EventOutbox{
+		EventID:        eventID,
+		SchemaVersion:  envelope.SchemaVersion,
+		EventType:      eventType,
+		AggregateType:  aggregateType,
+		AggregateID:    aggregateID,
+		RoutingKey:     routingKey,
+		Producer:       envelope.Producer,
+		IdempotencyKey: envelope.IdempotencyKey,
+		Payload:        string(outboxPayloadJSON),
+		Metadata:       string(metadataJSON),
+		Status:         model.EventOutboxStatusPending,
+	}, nil
+}
+
+func marshalEventPayload(envelope events.Envelope, payloadJSON []byte) ([]byte, error) {
+	envelopeJSON, err := events.MarshalJSONEnvelope(envelope)
+	if err != nil {
+		return nil, err
+	}
+	var envelopeObject map[string]json.RawMessage
+	if err := json.Unmarshal(envelopeJSON, &envelopeObject); err != nil {
+		return nil, err
+	}
+	var payloadObject map[string]json.RawMessage
+	if err := json.Unmarshal(payloadJSON, &payloadObject); err != nil || payloadObject == nil {
+		return envelopeJSON, nil
+	}
+	merged := make(map[string]json.RawMessage, len(payloadObject)+len(envelopeObject))
+	for key, value := range payloadObject {
+		merged[key] = value
+	}
+	for key, value := range envelopeObject {
+		merged[key] = value
+	}
+	return json.Marshal(merged)
 }
 
 // Signal wakes the publish loop immediately so that events written to the
@@ -170,6 +211,12 @@ func (p *OutboxPublisher) publishOne(ctx context.Context, ev model.EventOutbox) 
 }
 
 func (p *OutboxPublisher) markRetry(ctx context.Context, ev model.EventOutbox, errMsg string) {
+	if ev.RetryCount+1 >= maxRetryCount {
+		if mErr := p.repo.MarkDead(ctx, ev.ID, errMsg); mErr != nil {
+			logger.L().Error("outbox mark dead-letter error", zap.Error(mErr))
+		}
+		return
+	}
 	backoff := time.Duration(math.Min(
 		float64(backoffBase)*math.Pow(2, float64(ev.RetryCount)),
 		float64(maxBackoff),

@@ -14,6 +14,7 @@ import (
 
 	"logic-grpc-service/pkg/logger"
 	"logic-grpc-service/pkg/metadata"
+	"logic-grpc-service/pkg/observability"
 )
 
 const internalTokenHeader = "x-internal-token"
@@ -36,6 +37,7 @@ func UnaryAuthInterceptor() grpc.UnaryServerInterceptor {
 	if internalToken == "" {
 		logger.L().Warn("GRPC_INTERNAL_TOKEN is empty — gRPC internal auth DISABLED. Set it in production.")
 		return func(ctx context.Context, req any, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (any, error) {
+			ctx = injectMetadataIntoContext(ctx)
 			return handler(ctx, req)
 		}
 	}
@@ -46,6 +48,8 @@ func UnaryAuthInterceptor() grpc.UnaryServerInterceptor {
 			return handler(ctx, req)
 		}
 		if !checkToken(ctx, internalToken, mode, info.FullMethod) {
+			observability.DefaultMetrics.RecordAuthRejection(info.FullMethod, "missing_or_invalid_token")
+			observability.DefaultMetrics.ObserveRPC(info.FullMethod, codes.Unauthenticated.String(), 0)
 			return nil, status.Error(codes.Unauthenticated, "missing or invalid internal token")
 		}
 		ctx = injectMetadataIntoContext(ctx)
@@ -60,7 +64,8 @@ func StreamAuthInterceptor() grpc.StreamServerInterceptor {
 	if internalToken == "" {
 		logger.L().Warn("GRPC_INTERNAL_TOKEN is empty — gRPC internal auth DISABLED. Set it in production.")
 		return func(srv any, ss grpc.ServerStream, info *grpc.StreamServerInfo, handler grpc.StreamHandler) error {
-			return handler(srv, ss)
+			ctx := injectMetadataIntoContext(ss.Context())
+			return handler(srv, &wrappedStream{ServerStream: ss, ctx: ctx})
 		}
 	}
 	mode := authMode()
@@ -70,6 +75,8 @@ func StreamAuthInterceptor() grpc.StreamServerInterceptor {
 			return handler(srv, ss)
 		}
 		if !checkToken(ss.Context(), internalToken, mode, info.FullMethod) {
+			observability.DefaultMetrics.RecordAuthRejection(info.FullMethod, "missing_or_invalid_token")
+			observability.DefaultMetrics.ObserveRPC(info.FullMethod, codes.Unauthenticated.String(), 0)
 			return status.Error(codes.Unauthenticated, "missing or invalid internal token")
 		}
 		ctx := injectMetadataIntoContext(ss.Context())
@@ -122,6 +129,17 @@ func injectMetadataIntoContext(ctx context.Context) context.Context {
 		if vals := md.Get("x-authenticated-account-type"); len(vals) > 0 {
 			ctx = context.WithValue(ctx, metadata.KeyAuthAccountType, vals[0])
 		}
+		traceparent := ""
+		if vals := md.Get("traceparent"); len(vals) > 0 {
+			traceparent = vals[0]
+		}
+		traceID := ""
+		if vals := md.Get("x-trace-id"); len(vals) > 0 {
+			traceID = vals[0]
+		}
+		ctx = metadata.WithTraceContext(ctx, traceparent, traceID)
+	} else {
+		ctx = metadata.WithTraceContext(ctx, "", "")
 	}
 	return ctx
 }

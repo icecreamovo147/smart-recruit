@@ -848,6 +848,20 @@ func TestDesensitizeResultContent_AtBoundary(t *testing.T) {
 	}
 }
 
+func TestRedactedSensitiveTextFingerprintDoesNotExposePrompt(t *testing.T) {
+	prompt := "system prompt with candidate resume secret 13812345678"
+	chars, hash := redactedSensitiveTextFingerprint(prompt)
+	if chars != len([]rune(prompt)) {
+		t.Fatalf("chars = %d, want %d", chars, len([]rune(prompt)))
+	}
+	if hash == "" {
+		t.Fatal("hash should not be empty")
+	}
+	if strings.Contains(hash, "candidate") || strings.Contains(hash, "13812345678") {
+		t.Fatalf("hash exposed prompt content: %s", hash)
+	}
+}
+
 func TestBuildProviderFinalContextUsage_ProviderAvailable(t *testing.T) {
 	svc := &AIService{usageBuilder: NewContextUsageBuilder()}
 

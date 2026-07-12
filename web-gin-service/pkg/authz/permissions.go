@@ -18,24 +18,24 @@ const (
 	PermJobPublish = "job.publish"
 
 	// Application management
-	PermApplicationRead        = "application.read"
+	PermApplicationRead         = "application.read"
 	PermApplicationStatusUpdate = "application.status.update"
 
 	// Interview management
 	PermInterviewRead     = "interview.read"
 	PermInterviewSchedule = "interview.schedule"
-	PermInterviewFeedback  = "interview.feedback.submit"
+	PermInterviewFeedback = "interview.feedback.submit"
 
 	// Notifications
 	PermNotificationRead = "notification.read"
 
 	// AI assistants
-	PermAIHRUse       = "ai.hr.use"
+	PermAIHRUse        = "ai.hr.use"
 	PermAICandidateUse = "ai.candidate.use"
 
 	// AI business management (recruiting-facing)
-	PermAIPromptManage    = "ai.prompt.manage"
-	PermAIAgentManage     = "ai.agent.manage"
+	PermAIPromptManage     = "ai.prompt.manage"
+	PermAIAgentManage      = "ai.agent.manage"
 	PermAIAgentSkillManage = "ai.agent_skill.manage"
 
 	// Admin — recruiting
@@ -53,9 +53,9 @@ const (
 	PermSystemConfigManage = "system.config.manage"
 
 	// Offer management
-	PermOfferRead    = "offer.read"
-	PermOfferManage  = "offer.manage"
-	PermOfferSend    = "offer.send"
+	PermOfferRead           = "offer.read"
+	PermOfferManage         = "offer.manage"
+	PermOfferSend           = "offer.send"
 	PermOfferDecisionManage = "offer.decision.manage"
 
 	// Phase 4: Candidate Collaboration

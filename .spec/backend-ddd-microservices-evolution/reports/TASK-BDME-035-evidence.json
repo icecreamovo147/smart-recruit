@@ -1,0 +1,220 @@
+{
+  "schemaVersion": 1,
+  "feature_name": "backend-ddd-microservices-evolution",
+  "task_id": "TASK-BDME-035",
+  "base_sha": "4861cad724fcebbd7aa93803ca05d4f76d1b0710",
+  "base_tree": "29429418d841762a81d9d0002dc661529ea0bd83",
+  "head_sha": "4861cad724fcebbd7aa93803ca05d4f76d1b0710",
+  "changed_files": [
+    ".knowledge/architecture/auth-rbac-security.md",
+    ".knowledge/architecture/service-boundaries.md",
+    ".knowledge/manifest.yaml",
+    ".knowledge/runbooks/service-binary-convention.md",
+    ".spec/backend-ddd-microservices-evolution/pipeline-state.json",
+    ".spec/backend-ddd-microservices-evolution/reports/TASK-BDME-035-report.md",
+    ".spec/backend-ddd-microservices-evolution/reports/TASK-BDME-035-evidence.json",
+    "docs/backend-ddd-microservices-evolution-identity-api-extraction.md",
+    "docs/backend-ddd-microservices-evolution-identity-service-skeleton.md",
+    "logic-grpc-service/cmd/identity-service/main.go",
+    "logic-grpc-service/internal/identity/interfaces/admin_api.go",
+    "logic-grpc-service/internal/identity/interfaces/admin_server.go",
+    "logic-grpc-service/internal/identity/interfaces/auth_server.go",
+    "logic-grpc-service/internal/identity/interfaces/auth_server_test.go",
+    "logic-grpc-service/internal/identity/runtime/runtime.go",
+    "logic-grpc-service/internal/identity/runtime/runtime_test.go",
+    "logic-grpc-service/internal/identity/runtime/skeleton.go",
+    "logic-grpc-service/internal/identity/runtime/skeleton_test.go"
+  ],
+  "scope": {
+    "status": "passed",
+    "base_tree": "29429418d841762a81d9d0002dc661529ea0bd83",
+    "out_of_scope": [],
+    "forbidden": [],
+    "allowed": [
+      ".knowledge/architecture/auth-rbac-security.md",
+      ".knowledge/architecture/service-boundaries.md",
+      ".knowledge/manifest.yaml",
+      ".knowledge/runbooks/service-binary-convention.md",
+      ".spec/backend-ddd-microservices-evolution/pipeline-state.json",
+      ".spec/backend-ddd-microservices-evolution/reports/TASK-BDME-035-report.md",
+      ".spec/backend-ddd-microservices-evolution/reports/TASK-BDME-035-evidence.json",
+      "docs/backend-ddd-microservices-evolution-identity-api-extraction.md",
+      "docs/backend-ddd-microservices-evolution-identity-service-skeleton.md",
+      "logic-grpc-service/cmd/identity-service/main.go",
+      "logic-grpc-service/internal/identity/interfaces/admin_api.go",
+      "logic-grpc-service/internal/identity/interfaces/admin_server.go",
+      "logic-grpc-service/internal/identity/interfaces/auth_server.go",
+      "logic-grpc-service/internal/identity/interfaces/auth_server_test.go",
+      "logic-grpc-service/internal/identity/runtime/runtime.go",
+      "logic-grpc-service/internal/identity/runtime/runtime_test.go",
+      "logic-grpc-service/internal/identity/runtime/skeleton.go",
+      "logic-grpc-service/internal/identity/runtime/skeleton_test.go"
+    ]
+  },
+  "checks": [
+    {
+      "command": "git diff --name-only && git ls-files --others --exclude-standard",
+      "exit_code": 0,
+      "status": "passed",
+      "duration_ms": 0,
+      "started_at": "2026-07-11T17:21:00Z",
+      "summary": "Listed tracked and untracked TASK files."
+    },
+    {
+      "command": "cd logic-grpc-service && go test ./internal/identity/interfaces ./internal/identity/runtime ./cmd/identity-service",
+      "exit_code": 0,
+      "status": "passed",
+      "duration_ms": 1140,
+      "started_at": "2026-07-11T17:20:00Z",
+      "summary": "Focused Identity interface, runtime, and command tests passed."
+    },
+    {
+      "command": "cd logic-grpc-service && go run ./cmd/identity-service --check && go run ./cmd/identity-service --describe",
+      "exit_code": 0,
+      "status": "passed",
+      "duration_ms": 4760,
+      "started_at": "2026-07-11T17:20:00Z",
+      "summary": "Identity descriptor validated and described extracted APIs with traffic_enabled=false."
+    },
+    {
+      "command": "TASK_BASE_TREE=29429418d841762a81d9d0002dc661529ea0bd83 bash .spec/backend-ddd-microservices-evolution/scripts/check-task-scope.sh TASK-BDME-035",
+      "exit_code": 0,
+      "status": "passed",
+      "duration_ms": 536,
+      "started_at": "2026-07-11T17:21:00Z",
+      "summary": "scope_result: PASS (TASK-BDME-035)."
+    },
+    {
+      "command": "bash .spec/backend-ddd-microservices-evolution/scripts/agent-check.sh",
+      "exit_code": 0,
+      "status": "passed",
+      "duration_ms": 1799,
+      "started_at": "2026-07-11T17:21:00Z",
+      "summary": "Feature validation, git diff whitespace check, gofmt check, logic-grpc-service go test, and knowledge validation passed."
+    },
+    {
+      "command": "cd logic-grpc-service && go test ./...",
+      "exit_code": 0,
+      "status": "passed",
+      "duration_ms": 1593,
+      "started_at": "2026-07-11T17:21:00Z",
+      "summary": "All logic-grpc-service packages passed."
+    },
+    {
+      "command": "node .knowledge/scripts/detect-impact.mjs --root . --base-tree 29429418d841762a81d9d0002dc661529ea0bd83 --json",
+      "exit_code": 0,
+      "status": "passed",
+      "duration_ms": 599,
+      "started_at": "2026-07-11T17:21:00Z",
+      "summary": "impact_result: update_required; no coverage gaps."
+    },
+    {
+      "command": "node .knowledge/scripts/validate-knowledge.mjs --root .",
+      "exit_code": 0,
+      "status": "passed",
+      "duration_ms": 192,
+      "started_at": "2026-07-11T17:21:00Z",
+      "summary": "knowledge_result: PASS (36 formal documents)."
+    }
+  ],
+  "review": {
+    "type": "self-review",
+    "round": 1,
+    "verdict": "通过",
+    "findings": []
+  },
+  "human_confirmation": {
+    "required": true,
+    "confirmed": true,
+    "confirmed_by": "user_global_gate_override",
+    "confirmed_at": "2026-07-11T17:13:28Z",
+    "confirmation_text": "User confirmed that all later human gates are cancelled once implementation and self-review pass."
+  },
+  "exceptions": [],
+  "skipped_checks": [],
+  "knowledgeImpact": {
+    "result": "update_required",
+    "triggeredBy": [
+      "authorization-changed",
+      "configuration-changed",
+      "covered-path-changed",
+      "recurring-defect-fixed",
+      "sensitive-data-flow-changed",
+      "service-boundary-changed"
+    ],
+    "reviewResults": [
+      {
+        "document": ".knowledge/architecture/auth-rbac-security.md",
+        "verdict": "UPDATED",
+        "evidence": [
+          "Documented explicit Identity runtime registration, extracted Identity-owned AdminService subset, and monolith-retained AdminService methods."
+        ]
+      },
+      {
+        "document": ".knowledge/architecture/service-boundaries.md",
+        "verdict": "UPDATED",
+        "evidence": [
+          "Documented identity-service as an unrouted runtime that can explicitly register Identity APIs for validation."
+        ]
+      },
+      {
+        "document": ".knowledge/runbooks/service-binary-convention.md",
+        "verdict": "UPDATED",
+        "evidence": [
+          "Documented identity-service --serve behavior and continued TrafficEnabled=false routing state."
+        ]
+      },
+      {
+        "document": ".knowledge/manifest.yaml",
+        "verdict": "UPDATED",
+        "evidence": [
+          "Added the Identity API extraction document to service-binary routing."
+        ]
+      },
+      {
+        "document": ".knowledge/runbooks/debug-auth-permissions.md",
+        "verdict": "UNCHANGED",
+        "evidence": [
+          "Reviewed due auth route; troubleshooting path is unchanged because gateway auth behavior remains on the monolith."
+        ]
+      },
+      {
+        "document": ".knowledge/pitfalls/auth-permission-alignment.md",
+        "verdict": "UNCHANGED",
+        "evidence": [
+          "Reviewed due authorization route; no permission keys, route guards, seed data, or frontend metadata changed."
+        ]
+      },
+      {
+        "document": ".knowledge/runbooks/local-development.md",
+        "verdict": "UNCHANGED",
+        "evidence": [
+          "Reviewed due service-binary/local route; existing Go validation guidance remains sufficient."
+        ]
+      },
+      {
+        "document": ".knowledge/architecture/system-overview.md",
+        "verdict": "UNCHANGED",
+        "evidence": [
+          "Reviewed due broad backend route; gateway routing and active topology remain unchanged."
+        ]
+      },
+      {
+        "document": ".knowledge/domains/notification-outbox.md",
+        "verdict": "UNCHANGED",
+        "evidence": [
+          "Reviewed due service-binary route; notification/outbox behavior is not affected by Identity API extraction."
+        ]
+      },
+      {
+        "document": ".knowledge/runbooks/knowledge-coverage-audit.md",
+        "verdict": "UNCHANGED",
+        "evidence": [
+          "Reviewed due .knowledge route; no audit procedure changes were required."
+        ]
+      }
+    ],
+    "coverageGap": false,
+    "validationExitCode": 0
+  }
+}

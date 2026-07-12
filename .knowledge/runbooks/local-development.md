@@ -26,7 +26,17 @@ source_refs:
   - start-dev.sh
   - stop-dev.sh
   - docker/docker-compose.yml
-last_verified: 2026-07-10
+  - docker/.env.example
+  - .spec/backend-ddd-microservices-evolution/docs/backend-ddd-microservices-evolution-internal-service-security.md
+  - .spec/backend-ddd-microservices-evolution/docs/backend-ddd-microservices-evolution-observability-baseline.md
+  - .spec/backend-ddd-microservices-evolution/docs/backend-ddd-microservices-evolution-deployment-readiness-baseline.md
+  - .spec/backend-ddd-microservices-evolution/docs/backend-ddd-microservices-evolution-load-test-harness.md
+  - .spec/backend-ddd-microservices-evolution/docs/backend-ddd-microservices-evolution-load-test-initial-evidence.json
+  - .spec/backend-ddd-microservices-evolution/docs/backend-ddd-microservices-evolution-final-readiness-review.md
+  - .spec/backend-ddd-microservices-evolution/docs/backend-ddd-microservices-evolution-final-readiness-audit.json
+  - scripts/backend-load-test.mjs
+  - scripts/backend-final-readiness-audit.mjs
+last_verified: 2026-07-12
 review_after: 2026-10-08
 ---
 
@@ -38,6 +48,11 @@ Use this runbook to orient local startup and validation. Always prefer checked-i
 
 - Go, Node.js, pnpm, Docker, and Docker Compose compatible with the versions documented in `README.md`.
 - Local service configuration copied from example files and filled with placeholders or local-only credentials.
+- Local Docker Compose requires `GRPC_INTERNAL_TOKEN`; internal gRPC TLS remains `GRPC_INTERNAL_TLS=optional` unless local certificates are mounted.
+- Gateway metrics are available at `http://localhost:<HTTP_PORT>/metrics`; logic gRPC metrics require setting `METRICS_ADDR` before starting `logic-grpc-service`.
+- Worker-only health requires setting `WORKER_HEALTH_ADDR` before starting `logic-grpc-service --worker-only`; `/readyz` fails when MySQL, configured Redis, or RabbitMQ is unavailable.
+- Backend load-test dry-run evidence is generated with `node scripts/backend-load-test.mjs --dry-run --output .spec/backend-ddd-microservices-evolution/docs/backend-ddd-microservices-evolution-load-test-initial-evidence.json`; live 200 QPS/50 QPS/AI concurrency runs require a running isolated stack and authenticated test fixtures.
+- Final readiness audit evidence is generated with `node scripts/backend-final-readiness-audit.mjs --feature-dir .spec/backend-ddd-microservices-evolution --allow-current-task TASK-BDME-052 --output .spec/backend-ddd-microservices-evolution/docs/backend-ddd-microservices-evolution-final-readiness-audit.json` during the closing TASK.
 - MySQL, Redis, and RabbitMQ available through Docker Compose or an equivalent local stack.
 
 ## Standard Flow
@@ -53,7 +68,12 @@ Use this runbook to orient local startup and validation. Always prefer checked-i
 ## Validation Commands
 
 - Logic service tests: run `go test ./...` from `logic-grpc-service/`.
+- Service binary convention tests: run `go test ./internal/platform/servicebinary` from `logic-grpc-service/`.
 - Gateway tests: run `go test ./...` from `web-gin-service/`.
+- Observability smoke check: after starting the gateway, request `/metrics` and verify Prometheus text output contains `smart_recruit_http_requests_total`.
+- Worker health smoke check: start `logic-grpc-service --worker-only` with `WORKER_HEALTH_ADDR=:9092`, then request `http://localhost:9092/readyz`.
+- Load-test harness dry run: `node scripts/backend-load-test.mjs --dry-run --output .spec/backend-ddd-microservices-evolution/docs/backend-ddd-microservices-evolution-load-test-initial-evidence.json`.
+- Final readiness audit: `node scripts/backend-final-readiness-audit.mjs --feature-dir .spec/backend-ddd-microservices-evolution --allow-current-task TASK-BDME-052 --output .spec/backend-ddd-microservices-evolution/docs/backend-ddd-microservices-evolution-final-readiness-audit.json`.
 - HR frontend typecheck: `pnpm --filter hr-frontend typecheck`.
 - Candidate frontend typecheck: `pnpm --filter user-frontend typecheck`.
 - Interviewer frontend typecheck: `pnpm --filter interviewer-frontend typecheck`.
@@ -62,8 +82,9 @@ Use this runbook to orient local startup and validation. Always prefer checked-i
 
 - Use repository-relative paths in docs and scripts.
 - Do not store local credentials, device paths, or generated catalogs in Git.
+- Do not copy production gRPC TLS private keys into local examples. Keep local cert paths empty unless testing TLS explicitly.
 - On Windows, prefer WSL2 for shell-heavy workflows; core knowledge tooling remains Node and Git based.
 
 ## When This Runbook Is Stale
 
-Mark this document stale if startup scripts, frontend package commands, Docker service names, or required service order changes.
+Mark this document stale if startup scripts, frontend package commands, Docker service names, service binary conventions, internal gRPC security defaults, metrics or worker health endpoint conventions, or required service order changes.

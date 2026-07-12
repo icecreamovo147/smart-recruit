@@ -21,6 +21,11 @@ applies_to:
 source_refs:
   - logic-grpc-service/model/status.go
   - logic-grpc-service/service/application_service.go
+  - logic-grpc-service/service/recruitment_lifecycle_process_manager.go
+  - logic-grpc-service/internal/recruitment/runtime/skeleton.go
+  - logic-grpc-service/internal/recruitment/runtime/runtime.go
+  - logic-grpc-service/internal/interview/runtime/runtime.go
+  - logic-grpc-service/internal/offer/runtime/runtime.go
   - logic-grpc-service/service/interview_service.go
   - logic-grpc-service/service/offer_service.go
   - logic-grpc-service/service/collaboration_service.go
@@ -34,13 +39,22 @@ review_after: 2026-10-08
 
 The recruitment lifecycle is centered on application rounds. Jobs receive applications, applications move through status keys, interviews and offers mutate or depend on those statuses, and collaboration surfaces aggregate notes, tags, tasks, interviews, offers, and timeline events.
 
+The `recruitment-service` binary is not used by default. Its runtime can explicitly register ApplicationService for controlled validation, and `RECRUITMENT_ROUTE_MODE=recruitment` can route ApplicationService traffic to `RECRUITMENT_GRPC_ADDR`; rollback is `RECRUITMENT_ROUTE_MODE=logic`.
+
+The `interview-service` binary is also rollback-safe by default. `INTERVIEW_ROUTE_MODE=logic` keeps interview traffic on the monolith, while `INTERVIEW_ROUTE_MODE=interview` routes only InterviewService traffic to `INTERVIEW_GRPC_ADDR`; rollback is `INTERVIEW_ROUTE_MODE=logic`.
+
+The `offer-service` binary is rollback-safe by default. `OFFER_ROUTE_MODE=logic` keeps offer lifecycle traffic on the monolith, while `OFFER_ROUTE_MODE=offer` routes only OfferService traffic to `OFFER_GRPC_ADDR`; rollback is `OFFER_ROUTE_MODE=logic`.
+
 ## Core Flow
 
 - `ApplicationService.ApplyJob` requires a complete candidate profile, a valid resume, and an online job, then creates a new application round.
 - `model/status.go` defines stable status keys, legacy numeric mappings, candidate-safe labels, HR labels, and terminal statuses.
 - `ApplicationService.UpdateApplicationStatus` validates target status keys, allowed transitions, reason requirements for closeout states, scope access, and current-round constraints.
+- `RecruitmentLifecycleProcessManager` is the explicit process-manager boundary for Interview and Offer workflows that must advance application status or write application transition audit records inside an existing transaction.
 - Interview scheduling and feedback use interview services/repositories and affect HR, candidate, and interviewer surfaces.
-- Offer creation, send, withdraw, accept, and reject update offer state and application status in transactions.
+- `interview-service` has an explicit runtime registration path for InterviewService and a gateway cutover switch. Current lifecycle side effects stay on the monolith path unless `INTERVIEW_ROUTE_MODE=interview` is explicitly configured.
+- Offer creation, send, withdraw, accept, and reject update offer state in Offer service transactions and route application lifecycle transitions through `RecruitmentLifecycleProcessManager`.
+- `offer-service` has an explicit runtime registration path for OfferService and a gateway cutover switch. Current lifecycle side effects stay on the monolith path unless `OFFER_ROUTE_MODE=offer` is explicitly configured.
 - Collaboration workspace composes applications, notes, tags, tasks, interviews, offers, and timeline events for staff workflows.
 
 ## Cross-Surface Impact
@@ -60,4 +74,4 @@ The recruitment lifecycle is centered on application rounds. Jobs receive applic
 
 ## Verification
 
-Verified against status model, application service, interview service, offer service, collaboration service, application repository, and protobuf messages on 2026-07-10.
+Verified against status model, application service, recruitment lifecycle process manager, interview service, offer service, collaboration service, application repository, Recruitment, Interview, and Offer runtime descriptors, gateway route-mode controls, and protobuf messages on 2026-07-12.

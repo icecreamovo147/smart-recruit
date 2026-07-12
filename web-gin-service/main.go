@@ -47,11 +47,43 @@ func main() {
 		zap.Float64("gap_medium", cfg.Ranking.GapMedium),
 	)
 
-	clients, err := rpc.NewClients(cfg.GRPCAddr)
+	clients, err := rpc.NewClientsWithOptions(cfg.GRPCAddr, rpc.ClientOptions{
+		NotificationAddr:      cfg.NotificationGRPCAddr,
+		NotificationRouteMode: cfg.NotificationRouteMode,
+		AIAgentAddr:           cfg.AIAgentGRPCAddr,
+		AIAgentRouteMode:      cfg.AIAgentRouteMode,
+		IdentityAddr:          cfg.IdentityGRPCAddr,
+		IdentityRouteMode:     cfg.IdentityRouteMode,
+		RecruitmentAddr:       cfg.RecruitmentGRPCAddr,
+		RecruitmentRouteMode:  cfg.RecruitmentRouteMode,
+		InterviewAddr:         cfg.InterviewGRPCAddr,
+		InterviewRouteMode:    cfg.InterviewRouteMode,
+		OfferAddr:             cfg.OfferGRPCAddr,
+		OfferRouteMode:        cfg.OfferRouteMode,
+		GRPCInternalTLS:       cfg.GRPCInternalTLS,
+		GRPCTLSCAFile:         cfg.GRPCTLSCAFile,
+		GRPCTLSServerName:     cfg.GRPCTLSServerName,
+	})
 	if err != nil {
 		log.Fatal("connect logic grpc service failed", zap.String("addr", cfg.GRPCAddr), zap.Error(err))
 	}
 	defer clients.Close()
+	log.Info("grpc clients initialized",
+		zap.String("logic_addr", cfg.GRPCAddr),
+		zap.String("notification_route_mode", clients.NotificationRouteMode),
+		zap.String("notification_target_addr", clients.NotificationTargetAddr),
+		zap.String("ai_agent_route_mode", clients.AIAgentRouteMode),
+		zap.String("ai_agent_target_addr", clients.AIAgentTargetAddr),
+		zap.String("identity_route_mode", clients.IdentityRouteMode),
+		zap.String("identity_target_addr", clients.IdentityTargetAddr),
+		zap.String("recruitment_route_mode", clients.RecruitmentRouteMode),
+		zap.String("recruitment_target_addr", clients.RecruitmentTargetAddr),
+		zap.String("interview_route_mode", clients.InterviewRouteMode),
+		zap.String("interview_target_addr", clients.InterviewTargetAddr),
+		zap.String("offer_route_mode", clients.OfferRouteMode),
+		zap.String("offer_target_addr", clients.OfferTargetAddr),
+		zap.Bool("grpc_internal_tls_enabled", clients.InternalTLSEnabled),
+	)
 
 	rdb := redisclient.New(cfg.Redis)
 	if err := redisclient.Ping(context.Background(), rdb); err != nil {

@@ -23,6 +23,10 @@ source_refs:
   - README.md
   - logic-grpc-service/proto/recruitment.proto
   - logic-grpc-service/service/application_service.go
+  - logic-grpc-service/internal/recruitment/runtime/skeleton.go
+  - logic-grpc-service/internal/recruitment/runtime/runtime.go
+  - logic-grpc-service/internal/interview/runtime/runtime.go
+  - logic-grpc-service/internal/offer/runtime/runtime.go
   - db.sql
 last_verified: 2026-07-10
 review_after: 2026-10-08
@@ -31,6 +35,12 @@ review_after: 2026-10-08
 # Recruitment Domain Model
 
 The recruitment domain centers on jobs, candidates, applications, interviews, offers, notifications, and analytics. HR users manage jobs and application flow. Candidates browse jobs, maintain profile/resume data, apply, track progress, attend interviews, and respond to offers. Interviewers use staff-facing interview task and feedback flows.
+
+`logic-grpc-service/cmd/recruitment-service` is currently a compile-safe skeleton for Recruitment extraction. `internal/recruitment/runtime` can explicitly register JobService, CandidateService, and ApplicationService adapters. Gateway traffic remains on the monolith by default; `RECRUITMENT_ROUTE_MODE=recruitment` routes those generated clients to `RECRUITMENT_GRPC_ADDR` only when explicitly configured.
+
+`logic-grpc-service/cmd/interview-service` remains a compile-safe Interview boundary runtime. Gateway traffic remains on the monolith by default; `INTERVIEW_ROUTE_MODE=interview` routes only the generated InterviewService client to `INTERVIEW_GRPC_ADDR` and can be rolled back with `INTERVIEW_ROUTE_MODE=logic`.
+
+`logic-grpc-service/cmd/offer-service` is currently a compile-safe Offer boundary runtime. Gateway traffic remains on the monolith by default; `OFFER_ROUTE_MODE=offer` routes only the generated OfferService client to `OFFER_GRPC_ADDR` and can be rolled back with `OFFER_ROUTE_MODE=logic`.
 
 Application state transitions and offer/interview lifecycle behavior are business rules. Verify them in service code, protobuf contracts, database schema, and tests before documenting or changing behavior.
 
@@ -54,4 +64,4 @@ Application state transitions and offer/interview lifecycle behavior are busines
 
 ## Verification
 
-This domain summary was verified against `README.md`, protobuf definitions, application/interview/offer/collaboration/notification service code, status model code, and database schema on 2026-07-10.
+This domain summary was verified against `README.md`, protobuf definitions, application/interview/offer/collaboration/notification service code, the Recruitment, Interview, and Offer runtime descriptors, gateway route-mode controls, status model code, and database schema on 2026-07-12.

@@ -1,0 +1,359 @@
+{
+  "schemaVersion": 1,
+  "feature_name": "backend-ddd-microservices-evolution",
+  "task_id": "TASK-BDME-049",
+  "base_sha": "d8241d87000d28d0ca59538a3ceed8c9ab3c20dd",
+  "base_tree": "323101d23cfa77d5b55e6b9b0c914e93d5759e62",
+  "head_sha": "d8241d87000d28d0ca59538a3ceed8c9ab3c20dd",
+  "changed_files": [
+    ".knowledge/architecture/api-contracts-and-gateway.md",
+    ".knowledge/architecture/service-boundaries.md",
+    ".knowledge/runbooks/local-development.md",
+    ".knowledge/runbooks/service-binary-convention.md",
+    ".spec/backend-ddd-microservices-evolution/pipeline-state.json",
+    ".spec/backend-ddd-microservices-evolution/reports/TASK-BDME-049-report.md",
+    ".spec/backend-ddd-microservices-evolution/reports/TASK-BDME-049-evidence.json",
+    "deploy/k8s/configmap.yaml",
+    "deploy/k8s/logic-deployment.yaml",
+    "deploy/k8s/logic-service.yaml",
+    "docs/backend-ddd-microservices-evolution-observability-baseline.md",
+    "logic-grpc-service/config/config.go",
+    "logic-grpc-service/main.go",
+    "logic-grpc-service/pkg/logger/interceptor.go",
+    "logic-grpc-service/pkg/metadata/metadata.go",
+    "logic-grpc-service/pkg/metadata/metadata_test.go",
+    "logic-grpc-service/pkg/observability/metrics.go",
+    "logic-grpc-service/pkg/observability/metrics_test.go",
+    "logic-grpc-service/server/interceptor.go",
+    "logic-grpc-service/server/metrics.go",
+    "web-gin-service/middleware/observability.go",
+    "web-gin-service/pkg/contextkeys/contextkeys.go",
+    "web-gin-service/pkg/observability/metrics.go",
+    "web-gin-service/pkg/observability/metrics_test.go",
+    "web-gin-service/pkg/observability/trace.go",
+    "web-gin-service/pkg/observability/trace_test.go",
+    "web-gin-service/router/router.go",
+    "web-gin-service/rpc/client.go"
+  ],
+  "scope": {
+    "status": "passed",
+    "base_tree": "323101d23cfa77d5b55e6b9b0c914e93d5759e62",
+    "out_of_scope": [],
+    "forbidden": [],
+    "allowed": [
+      ".knowledge/architecture/api-contracts-and-gateway.md",
+      ".knowledge/architecture/service-boundaries.md",
+      ".knowledge/runbooks/local-development.md",
+      ".knowledge/runbooks/service-binary-convention.md",
+      ".spec/backend-ddd-microservices-evolution/pipeline-state.json",
+      ".spec/backend-ddd-microservices-evolution/reports/TASK-BDME-049-report.md",
+      ".spec/backend-ddd-microservices-evolution/reports/TASK-BDME-049-evidence.json",
+      "deploy/k8s/configmap.yaml",
+      "deploy/k8s/logic-deployment.yaml",
+      "deploy/k8s/logic-service.yaml",
+      "docs/backend-ddd-microservices-evolution-observability-baseline.md",
+      "logic-grpc-service/config/config.go",
+      "logic-grpc-service/main.go",
+      "logic-grpc-service/pkg/logger/interceptor.go",
+      "logic-grpc-service/pkg/metadata/metadata.go",
+      "logic-grpc-service/pkg/metadata/metadata_test.go",
+      "logic-grpc-service/pkg/observability/metrics.go",
+      "logic-grpc-service/pkg/observability/metrics_test.go",
+      "logic-grpc-service/server/interceptor.go",
+      "logic-grpc-service/server/metrics.go",
+      "web-gin-service/middleware/observability.go",
+      "web-gin-service/pkg/contextkeys/contextkeys.go",
+      "web-gin-service/pkg/observability/metrics.go",
+      "web-gin-service/pkg/observability/metrics_test.go",
+      "web-gin-service/pkg/observability/trace.go",
+      "web-gin-service/pkg/observability/trace_test.go",
+      "web-gin-service/router/router.go",
+      "web-gin-service/rpc/client.go"
+    ]
+  },
+  "checks": [
+    {
+      "command": "git diff --name-only && git ls-files --others --exclude-standard",
+      "exit_code": 0,
+      "status": "passed",
+      "duration_ms": 0,
+      "started_at": "2026-07-11T19:08:02Z",
+      "summary": "Listed tracked and untracked TASK files; new observability package files are included in scope evidence."
+    },
+    {
+      "command": "cd logic-grpc-service && go test ./pkg/observability ./pkg/logger ./server ./pkg/metadata",
+      "exit_code": 0,
+      "status": "passed",
+      "duration_ms": 7405,
+      "started_at": "2026-07-11T19:08:02Z",
+      "summary": "Focused logic observability, metadata, logger, and server packages passed."
+    },
+    {
+      "command": "cd web-gin-service && go test ./pkg/observability ./middleware ./rpc ./router",
+      "exit_code": 0,
+      "status": "passed",
+      "duration_ms": 4281,
+      "started_at": "2026-07-11T19:08:02Z",
+      "summary": "Focused gateway observability, middleware, RPC, and router packages passed."
+    },
+    {
+      "command": "cd logic-grpc-service && go test ./...",
+      "exit_code": 0,
+      "status": "passed",
+      "duration_ms": 26272,
+      "started_at": "2026-07-11T19:08:02Z",
+      "summary": "All logic-grpc-service packages passed."
+    },
+    {
+      "command": "cd web-gin-service && go test ./...",
+      "exit_code": 0,
+      "status": "passed",
+      "duration_ms": 5992,
+      "started_at": "2026-07-11T19:08:02Z",
+      "summary": "All web-gin-service packages passed."
+    },
+    {
+      "command": "node .knowledge/scripts/detect-impact.mjs --root . --base-tree 323101d23cfa77d5b55e6b9b0c914e93d5759e62",
+      "exit_code": 0,
+      "status": "passed",
+      "duration_ms": 380,
+      "started_at": "2026-07-11T19:08:02Z",
+      "summary": "impact_result: update_required; matched observability/gateway/service-boundary knowledge routes."
+    },
+    {
+      "command": "node .knowledge/scripts/validate-knowledge.mjs --root .",
+      "exit_code": 0,
+      "status": "passed",
+      "duration_ms": 367,
+      "started_at": "2026-07-11T19:08:02Z",
+      "summary": "knowledge_result: PASS (36 formal documents)."
+    },
+    {
+      "command": "TASK_BASE_TREE=323101d23cfa77d5b55e6b9b0c914e93d5759e62 bash .spec/backend-ddd-microservices-evolution/scripts/check-task-scope.sh TASK-BDME-049",
+      "exit_code": 0,
+      "status": "passed",
+      "duration_ms": 406,
+      "started_at": "2026-07-11T19:08:02Z",
+      "summary": "scope_result: PASS (TASK-BDME-049)."
+    },
+    {
+      "command": "bash .spec/backend-ddd-microservices-evolution/scripts/agent-check.sh",
+      "exit_code": 0,
+      "status": "passed",
+      "duration_ms": 2747,
+      "started_at": "2026-07-11T19:08:02Z",
+      "summary": "Feature validation, gofmt, logic/web go test, and knowledge validation passed."
+    },
+    {
+      "command": "git diff --check",
+      "exit_code": 0,
+      "status": "passed",
+      "duration_ms": 0,
+      "started_at": "2026-07-11T19:08:02Z",
+      "summary": "Covered by agent-check whitespace step; no whitespace errors."
+    }
+  ],
+  "review": {
+    "type": "self-review",
+    "round": 1,
+    "verdict": "通过",
+    "findings": []
+  },
+  "human_confirmation": {
+    "required": false,
+    "confirmed": true,
+    "confirmed_by": "not_required",
+    "confirmed_at": "2026-07-11T19:08:02Z",
+    "confirmation_text": "TASK-BDME-049 does not require human confirmation."
+  },
+  "exceptions": [],
+  "skipped_checks": [],
+  "knowledgeImpact": {
+    "result": "update_required",
+    "triggeredBy": [
+      "configuration-changed",
+      "covered-path-changed",
+      "public-api-changed",
+      "service-boundary-changed",
+      "sensitive-data-flow-changed"
+    ],
+    "reviewResults": [
+      {
+        "document": ".knowledge/architecture/api-contracts-and-gateway.md",
+        "verdict": "UPDATED",
+        "evidence": [
+          "Documented gateway trace propagation, HTTP /metrics, gRPC client metrics, and panic metric boundaries."
+        ]
+      },
+      {
+        "document": ".knowledge/architecture/service-boundaries.md",
+        "verdict": "UPDATED",
+        "evidence": [
+          "Documented observability as a transport/platform boundary with safe low-cardinality labels."
+        ]
+      },
+      {
+        "document": ".knowledge/runbooks/local-development.md",
+        "verdict": "UPDATED",
+        "evidence": [
+          "Documented local /metrics smoke check and METRICS_ADDR behavior for logic service."
+        ]
+      },
+      {
+        "document": ".knowledge/runbooks/service-binary-convention.md",
+        "verdict": "UPDATED",
+        "evidence": [
+          "Documented METRICS_ADDR and metrics endpoint expectations for active/extracted service runtimes."
+        ]
+      },
+      {
+        "document": ".knowledge/architecture/system-overview.md",
+        "verdict": "UNCHANGED",
+        "evidence": [
+          "Reviewed due backend route; topology remains gateway plus logic service by default."
+        ]
+      },
+      {
+        "document": ".knowledge/architecture/auth-rbac-security.md",
+        "verdict": "UNCHANGED",
+        "evidence": [
+          "Reviewed due sensitive metadata route; auth/RBAC behavior and token/TLS rules are unchanged."
+        ]
+      },
+      {
+        "document": ".knowledge/runbooks/debug-auth-permissions.md",
+        "verdict": "UNCHANGED",
+        "evidence": [
+          "Reviewed due gateway/auth route; permission debugging procedure is unchanged."
+        ]
+      },
+      {
+        "document": ".knowledge/pitfalls/auth-permission-alignment.md",
+        "verdict": "UNCHANGED",
+        "evidence": [
+          "Reviewed due gateway route; permission catalog and enforcement behavior are unchanged."
+        ]
+      },
+      {
+        "document": ".knowledge/runbooks/knowledge-coverage-audit.md",
+        "verdict": "UNCHANGED",
+        "evidence": [
+          "Reviewed due .knowledge updates; no coverage procedure change required."
+        ]
+      },
+      {
+        "document": ".knowledge/domains/notification-outbox.md",
+        "verdict": "UNCHANGED",
+        "evidence": [
+          "Reviewed due service-binary route; notification/outbox behavior is unchanged."
+        ]
+      },
+      {
+        "document": ".knowledge/architecture/persistence-and-migrations.md",
+        "verdict": "UNCHANGED",
+        "evidence": [
+          "Reviewed due broad backend route; no schema, model, repository, or migration behavior changed."
+        ]
+      },
+      {
+        "document": ".knowledge/runbooks/protobuf-and-migration-change.md",
+        "verdict": "UNCHANGED",
+        "evidence": [
+          "Reviewed due backend route; no protobuf or migration change occurred."
+        ]
+      },
+      {
+        "document": ".knowledge/pitfalls/migration-model-drift.md",
+        "verdict": "UNCHANGED",
+        "evidence": [
+          "Reviewed due persistence route; no database/model drift introduced."
+        ]
+      },
+      {
+        "document": ".knowledge/architecture/agent-runtime.md",
+        "verdict": "UNCHANGED",
+        "evidence": [
+          "Reviewed due backend route; AI runtime and persisted agent trace behavior are unchanged."
+        ]
+      },
+      {
+        "document": ".knowledge/domains/agent-skill.md",
+        "verdict": "UNCHANGED",
+        "evidence": [
+          "Reviewed due broad backend route; skill domain behavior is unchanged."
+        ]
+      },
+      {
+        "document": ".knowledge/domains/ai-configuration-governance.md",
+        "verdict": "UNCHANGED",
+        "evidence": [
+          "Reviewed due backend route; AI configuration governance behavior is unchanged."
+        ]
+      },
+      {
+        "document": ".knowledge/runbooks/debug-ai-configuration.md",
+        "verdict": "UNCHANGED",
+        "evidence": [
+          "Reviewed due backend route; AI configuration diagnostic flow is unchanged."
+        ]
+      },
+      {
+        "document": ".knowledge/pitfalls/mcp-policy-audit.md",
+        "verdict": "UNCHANGED",
+        "evidence": [
+          "Reviewed due backend route; MCP audit/redaction behavior is unchanged."
+        ]
+      },
+      {
+        "document": ".knowledge/domains/mcp-tool-governance.md",
+        "verdict": "UNCHANGED",
+        "evidence": [
+          "Reviewed due backend route; MCP tool governance behavior is unchanged."
+        ]
+      },
+      {
+        "document": ".knowledge/pitfalls/embedding-fallback.md",
+        "verdict": "UNCHANGED",
+        "evidence": [
+          "Reviewed due backend route; embedding fallback behavior is unchanged."
+        ]
+      },
+      {
+        "document": ".knowledge/architecture/semantic-retrieval.md",
+        "verdict": "UNCHANGED",
+        "evidence": [
+          "Reviewed due backend route; retrieval behavior is unchanged."
+        ]
+      },
+      {
+        "document": ".knowledge/runbooks/debug-resume-intelligence.md",
+        "verdict": "UNCHANGED",
+        "evidence": [
+          "Reviewed due backend route; resume intelligence diagnostics are unchanged."
+        ]
+      },
+      {
+        "document": ".knowledge/domains/resume-intelligence.md",
+        "verdict": "UNCHANGED",
+        "evidence": [
+          "Reviewed due backend route; resume intelligence behavior is unchanged."
+        ]
+      },
+      {
+        "document": ".knowledge/pitfalls/resume-sensitive-data.md",
+        "verdict": "UNCHANGED",
+        "evidence": [
+          "Reviewed due sensitive telemetry route; no raw resume data is added to metric labels or logs."
+        ]
+      }
+    ],
+    "coverageGap": false,
+    "validationExitCode": 0
+  },
+  "acceptance": {
+    "prometheus_metrics": "implemented for gateway HTTP, gateway gRPC clients, logic gRPC server, panic recovery, and internal auth rejection counters using Prometheus text format",
+    "tracing": "implemented W3C traceparent-compatible generation/preservation at gateway and gRPC metadata propagation into logic service logs",
+    "structured_logs": "request_id, trace_id, span_id, grpc_method, and grpc_code are included where applicable",
+    "compatibility": "no dependency, package manifest, public /api/v1, protobuf, schema, auth policy, or frontend changes; logic metrics listener only starts when METRICS_ADDR is configured"
+  }
+}

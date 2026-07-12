@@ -9,6 +9,7 @@ import (
 
 	"logic-grpc-service/mq"
 	"logic-grpc-service/pkg/logger"
+	"logic-grpc-service/repository"
 )
 
 type agentRunExecuteEnvelope struct {
@@ -19,16 +20,24 @@ type agentRunExecuteEnvelope struct {
 // AgentRunConsumer executes durable HR Agent Runs from the shared
 // Outbox/RabbitMQ worker mechanism.
 type AgentRunConsumer struct {
-	ai *AIService
+	ai    *AIService
+	inbox *repository.InboxRepo
 }
 
 func NewAgentRunConsumer(ai *AIService) *AgentRunConsumer {
 	return &AgentRunConsumer{ai: ai}
 }
 
+func (c *AgentRunConsumer) WithInbox(inbox *repository.InboxRepo) *AgentRunConsumer {
+	c.inbox = inbox
+	return c
+}
+
 func (c *AgentRunConsumer) Start(ctx context.Context, mqConn *mq.Conn) error {
 	return mqConn.Consume(ctx, mqConn.AgentRunQueue(), func(ctx context.Context, body []byte) error {
-		return c.handle(ctx, body)
+		return consumeWithInbox(ctx, c.inbox, "agent-run-consumer", body, func() error {
+			return c.handle(ctx, body)
+		})
 	})
 }
 
