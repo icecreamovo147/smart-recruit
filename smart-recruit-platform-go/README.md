@@ -13,6 +13,7 @@ Shared Go runtime platform for extracted Smart Recruit services.
 - `config`: loads and validates bootstrap runtime settings from environment variables.
 - `servicemeta`: defines service identity and common gRPC metadata headers.
 - `grpcx`: builds baseline gRPC server/client options, including internal-token propagation.
+- `nacos`: provides Nacos OpenAPI based config/discovery adapters with local static fallback and non-local fail-fast behavior.
 
 ## Startup
 
