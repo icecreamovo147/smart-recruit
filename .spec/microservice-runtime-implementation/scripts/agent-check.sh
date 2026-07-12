@@ -28,6 +28,7 @@ run_cmd "diff whitespace check" git diff --check -- "${FEATURE_DIR}" smart-recru
 run_cmd "task scope json parse" node -e 'JSON.parse(require("fs").readFileSync(process.argv[1], "utf8"))' "${FEATURE_DIR}/task-scope.json"
 run_cmd "mysql table ownership check" node scripts/check-mysql-table-ownership.mjs
 run_cmd "redis prefix check" node scripts/check-redis-prefixes.mjs
+run_cmd "microservice image build target check" bash scripts/build-microservice-images.sh --check
 
 CHANGED="$(git diff --name-only; git diff --cached --name-only; git ls-files --others --exclude-standard)"
 

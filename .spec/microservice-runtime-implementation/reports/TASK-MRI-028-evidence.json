@@ -1,0 +1,58 @@
+{
+  "schemaVersion": 1,
+  "feature_name": "microservice-runtime-implementation",
+  "task_id": "TASK-MRI-028",
+  "base_sha": "547f43e85d448ee5e95355ce0a149eac4f182de4",
+  "base_tree": "0a694856f4e224c2fa82404b4f3448d8d8f8b62f",
+  "head_sha": "547f43e85d448ee5e95355ce0a149eac4f182de4",
+  "head_tree": "pending-local-commit",
+  "changed_files": [
+    ".spec/microservice-runtime-implementation/pipeline-state.json",
+    ".spec/microservice-runtime-implementation/reports/TASK-MRI-028-evidence.json",
+    ".spec/microservice-runtime-implementation/reports/TASK-MRI-028-report.md",
+    ".spec/microservice-runtime-implementation/scripts/agent-check.sh",
+    "scripts/build-microservice-images.sh",
+    "smart-recruit-deploy/docker-compose.microservices.yml",
+    "smart-recruit-deploy/docker/go-service.Dockerfile"
+  ],
+  "scope": {
+    "status": "passed",
+    "command": "TASK_BASE_TREE=0a694856f4e224c2fa82404b4f3448d8d8f8b62f bash .spec/microservice-runtime-implementation/scripts/check-task-scope.sh TASK-MRI-028",
+    "classification": "current",
+    "out_of_scope": [],
+    "forbidden": [],
+    "allowed_patterns": [
+      "smart-recruit-*/**",
+      "smart-recruit-deploy/**",
+      "docker/**",
+      "scripts/**",
+      ".spec/microservice-runtime-implementation/**"
+    ]
+  },
+  "checks": [
+    {"command": "bash scripts/build-microservice-images.sh --check", "exit_code": 0, "status": "passed", "started_at": "2026-07-12T12:34:00.000Z", "duration_ms": 8},
+    {"command": "bash scripts/build-microservice-images.sh --dry-run", "exit_code": 0, "status": "passed", "started_at": "2026-07-12T12:34:00.000Z", "duration_ms": 8},
+    {"command": "COMPOSE_PROFILES=services docker-compose -f smart-recruit-deploy/docker-compose.microservices.yml config", "exit_code": 0, "status": "passed", "started_at": "2026-07-12T12:34:00.000Z", "duration_ms": 15},
+    {"command": "git diff --name-only", "exit_code": 0, "status": "passed", "started_at": "2026-07-12T12:36:00.000Z", "duration_ms": 4},
+    {"command": "node .knowledge/scripts/detect-impact.mjs --root . --base-tree 0a694856f4e224c2fa82404b4f3448d8d8f8b62f --json", "exit_code": 0, "status": "passed", "started_at": "2026-07-12T12:36:00.000Z", "duration_ms": 289},
+    {"command": "TASK_BASE_TREE=0a694856f4e224c2fa82404b4f3448d8d8f8b62f bash .spec/microservice-runtime-implementation/scripts/check-task-scope.sh TASK-MRI-028", "exit_code": 0, "status": "passed", "started_at": "2026-07-12T12:36:00.000Z", "duration_ms": 293},
+    {"command": "bash .spec/microservice-runtime-implementation/scripts/agent-check.sh", "exit_code": 0, "status": "passed", "started_at": "2026-07-12T12:36:00.000Z", "duration_ms": 504},
+    {"command": "node .agents/skills/spec-harness/scripts/validate-evidence.mjs --file .spec/microservice-runtime-implementation/reports/TASK-MRI-028-evidence.json", "exit_code": 0, "status": "passed", "started_at": "2026-07-12T12:38:00.000Z", "duration_ms": 34}
+  ],
+  "review": {"reviewer_type": "self-review", "round": 1, "verdict": "通过", "findings": []},
+  "human_confirmation": {"required": false, "confirmed": true, "confirmed_at": "2026-07-12T12:37:00Z", "source": "TASK-MRI-028 does not require human confirmation; harness-pipeline execution was explicitly requested by the user."},
+  "exceptions": [],
+  "skipped_checks": [
+    {"check": "docker build --file smart-recruit-deploy/docker/go-service.Dockerfile --build-arg SERVICE_DIR=smart-recruit-gateway --build-arg CMD_PATH=./cmd/gateway --build-arg BINARY_NAME=smart-recruit-gateway --tag smart-recruit/smart-recruit-gateway:task-mri-028 .", "reason": "Docker daemon is not running in this environment; command failed before build with unix:///var/run/docker.sock unavailable. Build script, dry-run commands, Dockerfile, compose config, and target coverage checks passed."}
+  ],
+  "knowledgeImpact": {
+    "result": "update_required",
+    "triggeredBy": ["configuration-changed", "covered-path-changed"],
+    "reviewResults": [
+      {"document": ".knowledge/architecture/system-overview.md", "verdict": "UNCHANGED", "evidence": ["Reviewed source_refs; TASK-MRI-028 adds Docker build packaging for extracted service roots without changing public HTTP/protobuf contracts or runtime ownership."]},
+      {"document": ".knowledge/runbooks/local-development.md", "verdict": "UNCHANGED", "evidence": ["Reviewed active local-development guidance; TASK-MRI-028 adds image build targets, while full local compose startup remains covered by later smoke TASKs."]}
+    ],
+    "coverageGap": false,
+    "validationExitCode": 0
+  }
+}

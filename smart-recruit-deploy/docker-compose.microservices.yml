@@ -1,5 +1,9 @@
 name: smart-recruit-microservices
 
+x-go-service-build: &go-service-build
+  context: ..
+  dockerfile: smart-recruit-deploy/docker/go-service.Dockerfile
+
 services:
   nacos:
     image: nacos/nacos-server:v2.4.3
@@ -129,11 +133,97 @@ services:
       file: ../docker/docker-compose.yml
       service: web-gin-service
 
-  services-profile-placeholder:
-    image: busybox:1.37
-    container_name: smart-recruit-services-placeholder
+  smart-recruit-gateway:
+    image: smart-recruit/smart-recruit-gateway:${IMAGE_TAG:-local}
     profiles: ["services"]
-    command: ["sh", "-c", "echo services profile is populated by service runtime tasks; sleep 1"]
+    build:
+      <<: *go-service-build
+      args:
+        SERVICE_DIR: smart-recruit-gateway
+        CMD_PATH: ./cmd/gateway
+        BINARY_NAME: smart-recruit-gateway
+    ports:
+      - "8080:8080"
+
+  smart-recruit-identity-service:
+    image: smart-recruit/smart-recruit-identity-service:${IMAGE_TAG:-local}
+    profiles: ["services"]
+    build:
+      <<: *go-service-build
+      args:
+        SERVICE_DIR: smart-recruit-identity-service
+        CMD_PATH: ./cmd/identity-service
+        BINARY_NAME: identity-service
+
+  smart-recruit-recruitment-service:
+    image: smart-recruit/smart-recruit-recruitment-service:${IMAGE_TAG:-local}
+    profiles: ["services"]
+    build:
+      <<: *go-service-build
+      args:
+        SERVICE_DIR: smart-recruit-recruitment-service
+        CMD_PATH: ./cmd/recruitment-service
+        BINARY_NAME: recruitment-service
+
+  smart-recruit-interview-service:
+    image: smart-recruit/smart-recruit-interview-service:${IMAGE_TAG:-local}
+    profiles: ["services"]
+    build:
+      <<: *go-service-build
+      args:
+        SERVICE_DIR: smart-recruit-interview-service
+        CMD_PATH: ./cmd/interview-service
+        BINARY_NAME: interview-service
+
+  smart-recruit-offer-service:
+    image: smart-recruit/smart-recruit-offer-service:${IMAGE_TAG:-local}
+    profiles: ["services"]
+    build:
+      <<: *go-service-build
+      args:
+        SERVICE_DIR: smart-recruit-offer-service
+        CMD_PATH: ./cmd/offer-service
+        BINARY_NAME: offer-service
+
+  smart-recruit-notification-service:
+    image: smart-recruit/smart-recruit-notification-service:${IMAGE_TAG:-local}
+    profiles: ["services"]
+    build:
+      <<: *go-service-build
+      args:
+        SERVICE_DIR: smart-recruit-notification-service
+        CMD_PATH: ./cmd/notification-service
+        BINARY_NAME: notification-service
+
+  smart-recruit-ai-agent-service:
+    image: smart-recruit/smart-recruit-ai-agent-service:${IMAGE_TAG:-local}
+    profiles: ["services"]
+    build:
+      <<: *go-service-build
+      args:
+        SERVICE_DIR: smart-recruit-ai-agent-service
+        CMD_PATH: ./cmd/ai-agent-service
+        BINARY_NAME: ai-agent-service
+
+  smart-recruit-analytics-service:
+    image: smart-recruit/smart-recruit-analytics-service:${IMAGE_TAG:-local}
+    profiles: ["services"]
+    build:
+      <<: *go-service-build
+      args:
+        SERVICE_DIR: smart-recruit-analytics-service
+        CMD_PATH: ./cmd/analytics-service
+        BINARY_NAME: analytics-service
+
+  smart-recruit-worker-service:
+    image: smart-recruit/smart-recruit-worker-service:${IMAGE_TAG:-local}
+    profiles: ["services"]
+    build:
+      <<: *go-service-build
+      args:
+        SERVICE_DIR: smart-recruit-worker-service
+        CMD_PATH: ./cmd/worker-service
+        BINARY_NAME: worker-service
 
 volumes:
   mysql_data:
