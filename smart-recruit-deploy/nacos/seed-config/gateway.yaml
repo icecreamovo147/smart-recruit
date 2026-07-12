@@ -16,3 +16,8 @@ fallback:
   staticDiscovery: true
 readiness:
   includeEnabledRouteTargets: true
+cutoverExamples:
+  identity:
+    routeMode: identity
+    grpcAddr: smart-recruit-identity-service:50061
+    rollbackRouteMode: logic
