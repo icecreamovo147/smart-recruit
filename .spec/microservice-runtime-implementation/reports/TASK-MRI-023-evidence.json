@@ -1,0 +1,68 @@
+{
+  "schemaVersion": 1,
+  "feature_name": "microservice-runtime-implementation",
+  "task_id": "TASK-MRI-023",
+  "base_sha": "3174725246a093e20efbd9fb810176a01428cc50",
+  "base_tree": "5bb56677d9267523711b77f0cae9ded177eaf3f6",
+  "head_sha": "3174725246a093e20efbd9fb810176a01428cc50",
+  "head_tree": "pending-local-commit",
+  "changed_files": [
+    ".spec/microservice-runtime-implementation/pipeline-state.json",
+    ".spec/microservice-runtime-implementation/reports/TASK-MRI-023-evidence.json",
+    ".spec/microservice-runtime-implementation/reports/TASK-MRI-023-report.md",
+    "smart-recruit-deploy/nacos/seed-config/gateway.yaml",
+    "smart-recruit-gateway/internal/runtime/analytics_cutover.go",
+    "smart-recruit-gateway/internal/runtime/analytics_cutover_test.go",
+    "web-gin-service/rpc/analytics_admin_client.go",
+    "web-gin-service/rpc/analytics_admin_client_test.go",
+    "web-gin-service/rpc/client.go",
+    "web-gin-service/rpc/client_test.go"
+  ],
+  "scope": {
+    "status": "passed",
+    "command": "TASK_BASE_TREE=5bb56677d9267523711b77f0cae9ded177eaf3f6 bash .spec/microservice-runtime-implementation/scripts/check-task-scope.sh TASK-MRI-023",
+    "classification": "current",
+    "out_of_scope": [],
+    "forbidden": [],
+    "allowed_patterns": [
+      "smart-recruit-gateway/**",
+      "web-gin-service/**",
+      "smart-recruit-analytics-service/**",
+      "smart-recruit-deploy/**",
+      ".spec/microservice-runtime-implementation/**"
+    ]
+  },
+  "checks": [
+    {"command": "cd smart-recruit-gateway && GOWORK=off go test ./...", "exit_code": 0, "status": "passed", "started_at": "2026-07-12T11:14:00.000Z", "duration_ms": 3590},
+    {"command": "cd web-gin-service && GOWORK=off go test ./rpc ./config", "exit_code": 0, "status": "passed", "started_at": "2026-07-12T11:14:00.000Z", "duration_ms": 2975},
+    {"command": "cd smart-recruit-analytics-service && GOWORK=off go test ./... && GOWORK=off go run ./cmd/analytics-service --check", "exit_code": 0, "status": "passed", "started_at": "2026-07-12T11:14:00.000Z", "duration_ms": 2062},
+    {"command": "git diff --name-only", "exit_code": 0, "status": "passed", "started_at": "2026-07-12T11:15:00.000Z", "duration_ms": 9},
+    {"command": "node .knowledge/scripts/detect-impact.mjs --root . --base-tree 5bb56677d9267523711b77f0cae9ded177eaf3f6 --json", "exit_code": 0, "status": "passed", "started_at": "2026-07-12T11:15:01.000Z", "duration_ms": 352},
+    {"command": "TASK_BASE_TREE=5bb56677d9267523711b77f0cae9ded177eaf3f6 bash .spec/microservice-runtime-implementation/scripts/check-task-scope.sh TASK-MRI-023", "exit_code": 0, "status": "passed", "started_at": "2026-07-12T11:15:02.000Z", "duration_ms": 264},
+    {"command": "bash .spec/microservice-runtime-implementation/scripts/agent-check.sh", "exit_code": 0, "status": "passed", "started_at": "2026-07-12T11:16:00.000Z", "duration_ms": 6684},
+    {"command": "node .agents/skills/spec-harness/scripts/validate-evidence.mjs --file .spec/microservice-runtime-implementation/reports/TASK-MRI-023-evidence.json", "exit_code": 0, "status": "passed", "started_at": "2026-07-12T11:20:00.000Z", "duration_ms": 60}
+  ],
+  "review": {"reviewer_type": "self-review", "round": 1, "verdict": "通过", "findings": []},
+  "human_confirmation": {"required": false, "confirmed": true, "confirmed_at": "2026-07-12T11:20:00Z", "source": "TASK-MRI-023 does not require human confirmation; harness-pipeline execution was explicitly requested by the user."},
+  "exceptions": [],
+  "skipped_checks": [
+    {"check": "Live Analytics dashboard/funnel/time-in-stage/metrics HTTP smoke", "reason": "TASK-MRI-023 validates web-gin route mode wiring, Analytics reporting-only Admin client routing, gateway cutover plan, and rollback without starting shared MySQL/Gateway/Analytics stack; live compose smoke is deferred to later runtime TASKs."}
+  ],
+  "knowledgeImpact": {
+    "result": "update_required",
+    "triggeredBy": ["authorization-changed", "configuration-changed", "covered-path-changed", "public-api-changed", "recurring-defect-fixed", "sensitive-data-flow-changed", "service-boundary-changed"],
+    "reviewResults": [
+      {"document": ".knowledge/architecture/api-contracts-and-gateway.md", "verdict": "UNCHANGED", "evidence": ["Reviewed active source_refs; TASK-MRI-023 keeps HTTP route paths and protobuf methods unchanged while changing internal AdminService reporting target selection only when ANALYTICS_ROUTE_MODE=analytics."]},
+      {"document": ".knowledge/architecture/service-boundaries.md", "verdict": "UNCHANGED", "evidence": ["Reviewed active source_refs; Analytics receives reporting-only AdminService methods, while identity/audit calls continue through the existing base/identity Admin client."]},
+      {"document": ".knowledge/architecture/system-overview.md", "verdict": "UNCHANGED", "evidence": ["Reviewed active source_refs; TASK-MRI-023 adds analytics route mode rollback and Nacos seed example without changing default logic route mode."]},
+      {"document": ".knowledge/auth/auth-permission-alignment.md", "verdict": "UNCHANGED", "evidence": ["Reviewed active auth mapping; this TASK does not modify permissions, middleware, metadata forwarding, or public handler authorization."]},
+      {"document": ".knowledge/auth/auth-rbac-security.md", "verdict": "UNCHANGED", "evidence": ["Reviewed active RBAC guidance; QueryAuthAuditLogs remains routed to the base/identity Admin client and not to Analytics."]},
+      {"document": ".knowledge/auth/debug-auth-permissions.md", "verdict": "UNCHANGED", "evidence": ["Reviewed active debugging guidance; no permission key or token handling changes were made."]},
+      {"document": ".knowledge/runbooks/local-development.md", "verdict": "UNCHANGED", "evidence": ["Reviewed active local startup guidance; TASK-MRI-023 adds env-based route mode support but does not change start-dev or compose commands."]},
+      {"document": ".knowledge/architecture/notification-outbox.md", "verdict": "UNCHANGED", "evidence": ["Reviewed due route match; notification outbox behavior is untouched."]},
+      {"document": ".knowledge/architecture/service-binary-convention.md", "verdict": "UNCHANGED", "evidence": ["Reviewed active service binary convention; Analytics service port/name established in TASK-MRI-022 remains unchanged."]}
+    ],
+    "coverageGap": false,
+    "validationExitCode": 0
+  }
+}

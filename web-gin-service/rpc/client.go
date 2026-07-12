@@ -62,6 +62,7 @@ type Clients struct {
 	recruitmentConn        *grpc.ClientConn
 	interviewConn          *grpc.ClientConn
 	offerConn              *grpc.ClientConn
+	analyticsConn          *grpc.ClientConn
 	NotificationRouteMode  string
 	NotificationTargetAddr string
 	AIAgentRouteMode       string
@@ -74,6 +75,8 @@ type Clients struct {
 	InterviewTargetAddr    string
 	OfferRouteMode         string
 	OfferTargetAddr        string
+	AnalyticsRouteMode     string
+	AnalyticsTargetAddr    string
 	InternalTLSEnabled     bool
 	Auth                   pb.AuthServiceClient
 	Job                    pb.JobServiceClient
@@ -100,6 +103,7 @@ type Clients struct {
 	RecruitmentHealth      healthpb.HealthClient
 	InterviewHealth        healthpb.HealthClient
 	OfferHealth            healthpb.HealthClient
+	AnalyticsHealth        healthpb.HealthClient
 }
 
 type ClientOptions struct {
@@ -115,6 +119,8 @@ type ClientOptions struct {
 	InterviewRouteMode    string
 	OfferAddr             string
 	OfferRouteMode        string
+	AnalyticsAddr         string
+	AnalyticsRouteMode    string
 	GRPCInternalTLS       string
 	GRPCTLSCAFile         string
 	GRPCTLSServerName     string
@@ -137,6 +143,8 @@ func NewClients(addr string) (*Clients, error) {
 		InterviewRouteMode:    os.Getenv("INTERVIEW_ROUTE_MODE"),
 		OfferAddr:             os.Getenv("OFFER_GRPC_ADDR"),
 		OfferRouteMode:        os.Getenv("OFFER_ROUTE_MODE"),
+		AnalyticsAddr:         os.Getenv("ANALYTICS_GRPC_ADDR"),
+		AnalyticsRouteMode:    os.Getenv("ANALYTICS_ROUTE_MODE"),
 		GRPCInternalTLS:       os.Getenv("GRPC_INTERNAL_TLS"),
 		GRPCTLSCAFile:         os.Getenv("GRPC_TLS_CA_FILE"),
 		GRPCTLSServerName:     os.Getenv("GRPC_TLS_SERVER_NAME"),
@@ -186,6 +194,13 @@ func NewClientsWithOptions(addr string, options ClientOptions) (*Clients, error)
 	if offerMode != "logic" && offerMode != "offer" {
 		return nil, fmt.Errorf("unsupported offer route mode %q", offerMode)
 	}
+	analyticsMode := options.AnalyticsRouteMode
+	if analyticsMode == "" {
+		analyticsMode = "logic"
+	}
+	if analyticsMode != "logic" && analyticsMode != "analytics" {
+		return nil, fmt.Errorf("unsupported analytics route mode %q", analyticsMode)
+	}
 	token := grpcInternalToken()
 	opts, tlsEnabled, err := dialOptions(token, options)
 	if err != nil {
@@ -216,6 +231,8 @@ func NewClientsWithOptions(addr string, options ClientOptions) (*Clients, error)
 	interviewTarget := addr
 	offerConn := conn
 	offerTarget := addr
+	analyticsConn := conn
+	analyticsTarget := addr
 	if notificationMode == "notification" {
 		if options.NotificationAddr == "" {
 			_ = conn.Close()
@@ -342,10 +359,35 @@ func NewClientsWithOptions(addr string, options ClientOptions) (*Clients, error)
 		}
 		offerTarget = options.OfferAddr
 	}
+	if analyticsMode == "analytics" {
+		if options.AnalyticsAddr == "" {
+			closeClientConns(conn, notificationConn, aiAgentConn, identityConn, recruitmentConn, interviewConn, offerConn)
+			return nil, fmt.Errorf("analytics grpc addr is required when route mode is analytics")
+		}
+		analyticsConn, err = grpc.NewClient(options.AnalyticsAddr,
+			append(opts,
+				grpc.WithConnectParams(grpc.ConnectParams{
+					Backoff: backoff.Config{
+						MaxDelay: 5 * time.Second,
+					},
+					MinConnectTimeout: 3 * time.Second,
+				}),
+			)...,
+		)
+		if err != nil {
+			closeClientConns(conn, notificationConn, aiAgentConn, identityConn, recruitmentConn, interviewConn, offerConn)
+			return nil, err
+		}
+		analyticsTarget = options.AnalyticsAddr
+	}
 	logicAdminClient := pb.NewAdminServiceClient(conn)
 	identityAdminClient := logicAdminClient
 	if identityMode == "identity" {
 		identityAdminClient = newIdentityAdminClient(logicAdminClient, pb.NewAdminServiceClient(identityConn))
+	}
+	adminClient := identityAdminClient
+	if analyticsMode == "analytics" {
+		adminClient = newAnalyticsAdminClient(identityAdminClient, pb.NewAdminServiceClient(analyticsConn))
 	}
 	return &Clients{
 		conn:                   conn,
@@ -355,6 +397,7 @@ func NewClientsWithOptions(addr string, options ClientOptions) (*Clients, error)
 		recruitmentConn:        recruitmentConn,
 		interviewConn:          interviewConn,
 		offerConn:              offerConn,
+		analyticsConn:          analyticsConn,
 		NotificationRouteMode:  notificationMode,
 		NotificationTargetAddr: notificationTarget,
 		AIAgentRouteMode:       aiAgentMode,
@@ -367,6 +410,8 @@ func NewClientsWithOptions(addr string, options ClientOptions) (*Clients, error)
 		InterviewTargetAddr:    interviewTarget,
 		OfferRouteMode:         offerMode,
 		OfferTargetAddr:        offerTarget,
+		AnalyticsRouteMode:     analyticsMode,
+		AnalyticsTargetAddr:    analyticsTarget,
 		InternalTLSEnabled:     tlsEnabled,
 		Auth:                   pb.NewAuthServiceClient(identityConn),
 		Job:                    pb.NewJobServiceClient(recruitmentConn),
@@ -376,7 +421,7 @@ func NewClientsWithOptions(addr string, options ClientOptions) (*Clients, error)
 		Notification:           pb.NewNotificationServiceClient(notificationConn),
 		Interview:              pb.NewInterviewServiceClient(interviewConn),
 		Offer:                  pb.NewOfferServiceClient(offerConn),
-		Admin:                  identityAdminClient,
+		Admin:                  adminClient,
 		Collaboration:          pb.NewCollaborationServiceClient(conn),
 		LlmConfig:              pb.NewLlmConfigServiceClient(aiAgentConn),
 		Prompt:                 pb.NewPromptServiceClient(aiAgentConn),
@@ -393,6 +438,7 @@ func NewClientsWithOptions(addr string, options ClientOptions) (*Clients, error)
 		RecruitmentHealth:      healthpb.NewHealthClient(recruitmentConn),
 		InterviewHealth:        healthpb.NewHealthClient(interviewConn),
 		OfferHealth:            healthpb.NewHealthClient(offerConn),
+		AnalyticsHealth:        healthpb.NewHealthClient(analyticsConn),
 	}, nil
 }
 
@@ -473,6 +519,12 @@ func clientTransportCredentials(options ClientOptions) (credentials.TransportCre
 }
 
 func (c *Clients) Close() error {
+	if c.analyticsConn != nil && c.analyticsConn != c.conn && c.analyticsConn != c.notificationConn && c.analyticsConn != c.aiAgentConn && c.analyticsConn != c.identityConn && c.analyticsConn != c.recruitmentConn && c.analyticsConn != c.interviewConn && c.analyticsConn != c.offerConn {
+		if err := c.analyticsConn.Close(); err != nil {
+			closeClientConns(c.conn, c.notificationConn, c.aiAgentConn, c.identityConn, c.recruitmentConn, c.interviewConn, c.offerConn)
+			return err
+		}
+	}
 	if c.offerConn != nil && c.offerConn != c.conn && c.offerConn != c.notificationConn && c.offerConn != c.aiAgentConn && c.offerConn != c.identityConn && c.offerConn != c.recruitmentConn && c.offerConn != c.interviewConn {
 		if err := c.offerConn.Close(); err != nil {
 			closeClientConns(c.conn, c.notificationConn, c.aiAgentConn, c.identityConn, c.recruitmentConn, c.interviewConn)
@@ -543,6 +595,11 @@ func (c *Clients) Ready(ctx context.Context) error {
 	}
 	if c.offerConn != nil && c.offerConn != c.conn && c.offerConn != c.notificationConn && c.offerConn != c.aiAgentConn && c.offerConn != c.identityConn && c.offerConn != c.recruitmentConn && c.offerConn != c.interviewConn && c.OfferHealth != nil {
 		if err := checkHealth(ctx, "offer", c.OfferHealth); err != nil {
+			return err
+		}
+	}
+	if c.analyticsConn != nil && c.analyticsConn != c.conn && c.analyticsConn != c.notificationConn && c.analyticsConn != c.aiAgentConn && c.analyticsConn != c.identityConn && c.analyticsConn != c.recruitmentConn && c.analyticsConn != c.interviewConn && c.analyticsConn != c.offerConn && c.AnalyticsHealth != nil {
+		if err := checkHealth(ctx, "analytics", c.AnalyticsHealth); err != nil {
 			return err
 		}
 	}

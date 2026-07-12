@@ -41,3 +41,7 @@ cutoverExamples:
     routeMode: ai-agent
     grpcAddr: smart-recruit-ai-agent-service:50066
     rollbackRouteMode: logic
+  analytics:
+    routeMode: analytics
+    grpcAddr: smart-recruit-analytics-service:50067
+    rollbackRouteMode: logic
