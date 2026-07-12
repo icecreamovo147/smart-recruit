@@ -183,7 +183,7 @@ echo ""
 # ============================================================
 echo "  [接口定义]"
 
-# Proto 文件在 logic-grpc-service/proto/ 和 web-gin-service/proto/ 有相同副本
+# Proto 文件以 smart-recruit-proto 为唯一契约源
 # 两者都统计，因为属于不同服务
 count_group "Protobuf" "*.proto" \
   "${BASE_EXCLUDES[@]}"

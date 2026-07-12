@@ -4,9 +4,8 @@
 .env.local
 .env.development
 .env.production
-logic-grpc-service/config/config.yaml
-logic-grpc-service/config/*.local.yaml
-web-gin-service/config/*.local.yaml
+smart-recruit-domain-go/config/config.yaml
+smart-recruit-domain-go/config/*.local.yaml
 docker/.env
 
 # Dependency caches and installed packages.

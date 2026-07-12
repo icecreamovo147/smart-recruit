@@ -37,7 +37,7 @@ for (const table of declared) {
   }
 }
 
-const scanRoots = ["logic-grpc-service/repository", "logic-grpc-service/service", "smart-recruit-analytics-service", "smart-recruit-worker-service"];
+const scanRoots = ["smart-recruit-domain-go/repository", "smart-recruit-domain-go/service", "smart-recruit-analytics-service", "smart-recruit-worker-service"];
 for (const file of listFiles(scanRoots)) {
   const owner = inferOwner(file);
   if (!owner) continue;
@@ -90,9 +90,9 @@ function inferOwner(file) {
   if (file.includes("interview_repo")) return "interview";
   if (file.includes("offer_repo")) return "offer";
   if (file.includes("notification")) return "notification";
-  if (file.includes("ai") || file.includes("agent") || file.includes("embedding") || file.includes("prompt") || file.includes("mcp")) return "ai-agent";
   if (file.includes("smart-recruit-worker-service")) return "worker";
   if (file.includes("application_repo") || file.includes("job") || file.includes("resume") || file.includes("candidate") || file.includes("collaboration")) return "recruitment";
+  if (file.includes("ai") || file.includes("agent") || file.includes("embedding") || file.includes("prompt") || file.includes("mcp")) return "ai-agent";
   return null;
 }
 

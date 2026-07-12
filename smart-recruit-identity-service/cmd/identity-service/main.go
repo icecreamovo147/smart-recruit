@@ -25,15 +25,15 @@ import (
 	"smart-recruit-platform-go/nacos"
 	platformobs "smart-recruit-platform-go/observability"
 
-	logicconfig "logic-grpc-service/config"
-	"logic-grpc-service/pkg/errs"
-	"logic-grpc-service/pkg/logger"
-	logicobservability "logic-grpc-service/pkg/observability"
-	"logic-grpc-service/recruitment/pb"
-	"logic-grpc-service/repository"
-	"logic-grpc-service/server"
-	"logic-grpc-service/service"
+	"smart-recruit-domain-go/repository"
+	"smart-recruit-domain-go/service"
 	identityruntime "smart-recruit-identity-service/internal/runtime"
+	"smart-recruit-platform-go/errs"
+	"smart-recruit-platform-go/logger"
+	logicobservability "smart-recruit-platform-go/observability"
+	"smart-recruit-platform-go/server"
+	logicconfig "smart-recruit-platform-go/serviceconfig"
+	"smart-recruit-proto/recruitment/pb"
 )
 
 const nacosServiceName = "identity"
@@ -98,7 +98,7 @@ func serveIdentity(addr string) error {
 
 	cfg, err := logicconfig.Load()
 	if err != nil {
-		return fmt.Errorf("load logic config: %w", err)
+		return fmt.Errorf("load service config: %w", err)
 	}
 	if err := server.ValidateInternalToken(); err != nil {
 		return fmt.Errorf("gRPC internal token validation: %w", err)
@@ -318,8 +318,8 @@ func ensureLogicConfigPath() error {
 		return nil
 	}
 	for _, candidate := range []string{
-		filepath.Join("logic-grpc-service", "config", "config.yaml"),
-		filepath.Join("..", "logic-grpc-service", "config", "config.yaml"),
+		filepath.Join("smart-recruit-domain-go", "config", "config.yaml"),
+		filepath.Join("..", "smart-recruit-domain-go", "config", "config.yaml"),
 	} {
 		if _, err := os.Stat(candidate); err == nil {
 			return os.Setenv("CONFIG_PATH", candidate)

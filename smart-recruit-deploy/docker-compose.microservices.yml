@@ -4,6 +4,9 @@ x-go-service-build: &go-service-build
   context: ..
   dockerfile: smart-recruit-deploy/docker/go-service.Dockerfile
 
+x-runtime-env-file: &runtime-env-file
+  - ../docker/.env
+
 x-service-env: &service-env
   TZ: ${TZ:-Asia/Shanghai}
   CONFIG_PATH: /app/config/config.example.yaml
@@ -13,10 +16,8 @@ x-service-env: &service-env
   NACOS_ADDR: http://nacos:8848
   NACOS_GROUP: DEFAULT_GROUP
   GRPC_INTERNAL_AUTH: required
-  GRPC_INTERNAL_TLS: optional
-  GRPC_INTERNAL_TOKEN: ${GRPC_INTERNAL_TOKEN:-local-microservice-token}
   ALLOW_INSECURE_DEV_CONFIG: "true"
-  STATIC_FALLBACK: "true"
+  STATIC_FALLBACK: "false"
   METRICS_ADDR: :9091
 
 services:
@@ -32,7 +33,7 @@ services:
       - "8848:8848"
       - "9848:9848"
     healthcheck:
-      test: ["CMD-SHELL", "curl -fsS http://localhost:8848/nacos/v1/console/health/readiness | grep -q UP"]
+      test: ["CMD-SHELL", "curl -fsS http://localhost:8848/nacos/v1/console/health/readiness | grep -Eq 'OK|UP'"]
       interval: 10s
       timeout: 5s
       retries: 12
@@ -136,21 +137,10 @@ services:
       - ./observability/loki.yml:/etc/loki/local-config.yaml:ro
       - loki_data:/loki
 
-  logic-grpc-service:
-    profiles: ["compat"]
-    extends:
-      file: ../docker/docker-compose.yml
-      service: logic-grpc-service
-
-  web-gin-service:
-    profiles: ["compat"]
-    extends:
-      file: ../docker/docker-compose.yml
-      service: web-gin-service
-
   smart-recruit-gateway:
     image: smart-recruit/smart-recruit-gateway:${IMAGE_TAG:-local}
     profiles: ["services"]
+    env_file: *runtime-env-file
     build:
       <<: *go-service-build
       args:
@@ -164,11 +154,8 @@ services:
       HTTP_PORT: "8080"
       GRPC_ADDR: smart-recruit-identity-service:50061
       REDIS_ADDR: redis:6379
-      JWT_SECRET: ${JWT_SECRET:-dev-jwt-secret-at-least-32-chars-long!!}
       ALLOW_INSECURE_DEV_CONFIG: "true"
       GRPC_INTERNAL_AUTH: required
-      GRPC_INTERNAL_TLS: optional
-      GRPC_INTERNAL_TOKEN: ${GRPC_INTERNAL_TOKEN:-local-microservice-token}
       IDENTITY_ROUTE_MODE: identity
       IDENTITY_GRPC_ADDR: smart-recruit-identity-service:50061
       RECRUITMENT_ROUTE_MODE: recruitment
@@ -204,6 +191,7 @@ services:
   smart-recruit-identity-service:
     image: smart-recruit/smart-recruit-identity-service:${IMAGE_TAG:-local}
     profiles: ["services"]
+    env_file: *runtime-env-file
     build:
       <<: *go-service-build
       args:
@@ -226,6 +214,7 @@ services:
   smart-recruit-recruitment-service:
     image: smart-recruit/smart-recruit-recruitment-service:${IMAGE_TAG:-local}
     profiles: ["services"]
+    env_file: *runtime-env-file
     build:
       <<: *go-service-build
       args:
@@ -248,6 +237,7 @@ services:
   smart-recruit-interview-service:
     image: smart-recruit/smart-recruit-interview-service:${IMAGE_TAG:-local}
     profiles: ["services"]
+    env_file: *runtime-env-file
     build:
       <<: *go-service-build
       args:
@@ -270,6 +260,7 @@ services:
   smart-recruit-offer-service:
     image: smart-recruit/smart-recruit-offer-service:${IMAGE_TAG:-local}
     profiles: ["services"]
+    env_file: *runtime-env-file
     build:
       <<: *go-service-build
       args:
@@ -292,6 +283,7 @@ services:
   smart-recruit-notification-service:
     image: smart-recruit/smart-recruit-notification-service:${IMAGE_TAG:-local}
     profiles: ["services"]
+    env_file: *runtime-env-file
     build:
       <<: *go-service-build
       args:
@@ -316,6 +308,7 @@ services:
   smart-recruit-ai-agent-service:
     image: smart-recruit/smart-recruit-ai-agent-service:${IMAGE_TAG:-local}
     profiles: ["services"]
+    env_file: *runtime-env-file
     build:
       <<: *go-service-build
       args:
@@ -340,6 +333,7 @@ services:
   smart-recruit-analytics-service:
     image: smart-recruit/smart-recruit-analytics-service:${IMAGE_TAG:-local}
     profiles: ["services"]
+    env_file: *runtime-env-file
     build:
       <<: *go-service-build
       args:
@@ -362,6 +356,7 @@ services:
   smart-recruit-worker-service:
     image: smart-recruit/smart-recruit-worker-service:${IMAGE_TAG:-local}
     profiles: ["services"]
+    env_file: *runtime-env-file
     build:
       <<: *go-service-build
       args:

@@ -3,6 +3,7 @@ go 1.25.5
 use (
 	./smart-recruit-ai-agent-service
 	./smart-recruit-analytics-service
+	./smart-recruit-domain-go
 	./smart-recruit-gateway
 	./smart-recruit-identity-service
 	./smart-recruit-interview-service
@@ -12,5 +13,4 @@ use (
 	./smart-recruit-proto
 	./smart-recruit-recruitment-service
 	./smart-recruit-worker-service
-	./web-gin-service
 )

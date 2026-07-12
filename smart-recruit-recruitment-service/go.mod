@@ -7,8 +7,9 @@ require (
 	google.golang.org/grpc v1.73.0
 	gorm.io/driver/mysql v1.5.7
 	gorm.io/gorm v1.30.0
-	logic-grpc-service v0.0.0
+	smart-recruit-domain-go v0.0.0
 	smart-recruit-platform-go v0.0.0
+	smart-recruit-proto v0.0.0
 )
 
 require (
@@ -53,7 +54,7 @@ require (
 	github.com/mozillazg/go-httpheader v0.2.1 // indirect
 	github.com/munnerz/goautoneg v0.0.0-20191010083416-a7dc8b61c822 // indirect
 	github.com/nikolalohinski/gonja v1.5.3 // indirect
-	github.com/pelletier/go-toml/v2 v2.0.9 // indirect
+	github.com/pelletier/go-toml/v2 v2.2.4 // indirect
 	github.com/pkg/errors v0.9.1 // indirect
 	github.com/prometheus/client_golang v1.23.2 // indirect
 	github.com/prometheus/client_model v0.6.2 // indirect
@@ -78,7 +79,7 @@ require (
 	go.uber.org/multierr v1.10.0 // indirect
 	go.uber.org/zap v1.28.0 // indirect
 	go.yaml.in/yaml/v2 v2.4.2 // indirect
-	golang.org/x/arch v0.11.0 // indirect
+	golang.org/x/arch v0.18.0 // indirect
 	golang.org/x/crypto v0.41.0 // indirect
 	golang.org/x/exp v0.0.0-20230713183714-613f0c0eb8a1 // indirect
 	golang.org/x/net v0.43.0 // indirect
@@ -92,6 +93,8 @@ require (
 	gorm.io/driver/sqlite v1.6.0 // indirect
 )
 
-replace logic-grpc-service => ../logic-grpc-service
-
 replace smart-recruit-platform-go => ../smart-recruit-platform-go
+
+replace smart-recruit-domain-go => ../smart-recruit-domain-go
+
+replace smart-recruit-proto => ../smart-recruit-proto

@@ -18,6 +18,4 @@ GOWORK=off go run ./cmd/analytics-service --serve
 
 The service registers the Analytics reporting subset of `AdminService` and uses the shared MySQL instance for Analytics-owned projection/read-model queries. It loads bootstrap config from environment and Nacos Config, registers discovery in Nacos, and exposes gRPC health plus metrics/trace/logging wiring.
 
-## Monolith Relationship
-
-Analytics traffic remains on `logic-grpc-service` until Analytics gateway route-mode validation is complete. The standalone runtime preserves rollback by registering the same protobuf reporting methods without changing public HTTP behavior.
+Gateway traffic targets this service directly through discovery or `ANALYTICS_GRPC_ADDR`.

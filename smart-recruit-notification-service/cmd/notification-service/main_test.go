@@ -4,8 +4,8 @@ import (
 	"context"
 	"testing"
 
-	logicconfig "logic-grpc-service/config"
 	platformconfig "smart-recruit-platform-go/config"
+	logicconfig "smart-recruit-platform-go/serviceconfig"
 )
 
 func TestInstanceFromAddrUsesNotificationDiscoveryName(t *testing.T) {

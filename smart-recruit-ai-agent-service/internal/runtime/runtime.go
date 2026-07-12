@@ -5,14 +5,15 @@ import (
 
 	"google.golang.org/grpc"
 
-	"logic-grpc-service/recruitment/pb"
-	"logic-grpc-service/service"
+	"smart-recruit-domain-go/service"
+	"smart-recruit-proto/recruitment/pb"
 )
 
 const ServiceName = "ai-agent-service"
 
 type Deps struct {
 	AI                     pb.AIServiceServer
+	LlmConfig              pb.LlmConfigServiceServer
 	Prompt                 pb.PromptServiceServer
 	AgentConfig            pb.AgentConfigServiceServer
 	MCP                    pb.MCPServiceServer
@@ -25,6 +26,7 @@ type Deps struct {
 
 type Runtime struct {
 	AI                     pb.AIServiceServer
+	LlmConfig              pb.LlmConfigServiceServer
 	Prompt                 pb.PromptServiceServer
 	AgentConfig            pb.AgentConfigServiceServer
 	MCP                    pb.MCPServiceServer
@@ -45,6 +47,9 @@ type LongTaskControls struct {
 func New(deps Deps) (*Runtime, error) {
 	if deps.AI == nil {
 		return nil, fmt.Errorf("ai service is required")
+	}
+	if deps.LlmConfig == nil {
+		return nil, fmt.Errorf("llm config service is required")
 	}
 	if deps.Prompt == nil {
 		return nil, fmt.Errorf("prompt service is required")
@@ -76,6 +81,7 @@ func New(deps Deps) (*Runtime, error) {
 	}
 	return &Runtime{
 		AI:                     deps.AI,
+		LlmConfig:              deps.LlmConfig,
 		Prompt:                 deps.Prompt,
 		AgentConfig:            deps.AgentConfig,
 		MCP:                    deps.MCP,
@@ -117,6 +123,7 @@ func (r *Runtime) RegisterGRPC(registrar grpc.ServiceRegistrar) error {
 		return fmt.Errorf("ai agent runtime is not initialized")
 	}
 	pb.RegisterAIServiceServer(registrar, r.AI)
+	pb.RegisterLlmConfigServiceServer(registrar, r.LlmConfig)
 	pb.RegisterPromptServiceServer(registrar, r.Prompt)
 	pb.RegisterAgentConfigServiceServer(registrar, r.AgentConfig)
 	pb.RegisterMCPServiceServer(registrar, r.MCP)

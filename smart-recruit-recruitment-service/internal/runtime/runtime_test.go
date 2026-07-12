@@ -6,16 +6,20 @@ import (
 
 	"google.golang.org/grpc"
 
-	"logic-grpc-service/pkg/errs"
-	"logic-grpc-service/recruitment/pb"
+	"smart-recruit-platform-go/errs"
+	"smart-recruit-proto/recruitment/pb"
 )
 
 func TestRuntimeRegistersRecruitmentGRPCServices(t *testing.T) {
 	runtime, err := New(Deps{
-		Job:         fakeJobAPI{},
-		JobTaxonomy: fakeJobTaxonomyAPI{},
-		Candidate:   fakeCandidateAPI{},
-		Application: fakeApplicationAPI{},
+		Job:           fakeJobAPI{},
+		JobTaxonomy:   fakeJobTaxonomyAPI{},
+		TaxonomyAdmin: fakeTaxonomyAdminAPI{},
+		Admin:         fakeRecruitmentAdminAPI{},
+		UsageStats:    fakeUsageStatsAPI{},
+		Candidate:     fakeCandidateAPI{},
+		Application:   fakeApplicationAPI{},
+		Collaboration: fakeCollaborationService{},
 	})
 	if err != nil {
 		t.Fatalf("New returned error: %v", err)
@@ -28,8 +32,10 @@ func TestRuntimeRegistersRecruitmentGRPCServices(t *testing.T) {
 	services := server.GetServiceInfo()
 	for _, serviceName := range []string{
 		pb.JobService_ServiceDesc.ServiceName,
+		pb.AdminService_ServiceDesc.ServiceName,
 		pb.CandidateService_ServiceDesc.ServiceName,
 		pb.ApplicationService_ServiceDesc.ServiceName,
+		pb.CollaborationService_ServiceDesc.ServiceName,
 	} {
 		if _, ok := services[serviceName]; !ok {
 			t.Fatalf("missing registered service %s", serviceName)
@@ -83,6 +89,100 @@ func (fakeJobTaxonomyAPI) ListDepartmentLocations(context.Context, *pb.ListDepar
 	return &pb.ListDepartmentLocationsResponse{Code: errs.OK}, nil
 }
 
+type fakeTaxonomyAdminAPI struct{}
+
+func (fakeTaxonomyAdminAPI) ListDepartments(context.Context, *pb.ListDepartmentsRequest) (*pb.ListDepartmentsResponse, error) {
+	return &pb.ListDepartmentsResponse{Code: errs.OK}, nil
+}
+
+func (fakeTaxonomyAdminAPI) CreateDepartment(context.Context, *pb.CreateDepartmentRequest) (*pb.DepartmentResponse, error) {
+	return &pb.DepartmentResponse{Code: errs.OK}, nil
+}
+
+func (fakeTaxonomyAdminAPI) UpdateDepartment(context.Context, *pb.UpdateDepartmentRequest) (*pb.DepartmentResponse, error) {
+	return &pb.DepartmentResponse{Code: errs.OK}, nil
+}
+
+func (fakeTaxonomyAdminAPI) UpdateDepartmentStatus(context.Context, *pb.UpdateDepartmentStatusRequest) (*pb.CommonResponse, error) {
+	return &pb.CommonResponse{Code: errs.OK}, nil
+}
+
+func (fakeTaxonomyAdminAPI) DeleteDepartment(context.Context, *pb.DeleteDepartmentRequest) (*pb.CommonResponse, error) {
+	return &pb.CommonResponse{Code: errs.OK}, nil
+}
+
+func (fakeTaxonomyAdminAPI) ListJobLocations(context.Context, *pb.ListJobLocationsRequest) (*pb.ListJobLocationsResponse, error) {
+	return &pb.ListJobLocationsResponse{Code: errs.OK}, nil
+}
+
+func (fakeTaxonomyAdminAPI) CreateJobLocation(context.Context, *pb.CreateJobLocationRequest) (*pb.JobLocationResponse, error) {
+	return &pb.JobLocationResponse{Code: errs.OK}, nil
+}
+
+func (fakeTaxonomyAdminAPI) UpdateJobLocation(context.Context, *pb.UpdateJobLocationRequest) (*pb.JobLocationResponse, error) {
+	return &pb.JobLocationResponse{Code: errs.OK}, nil
+}
+
+func (fakeTaxonomyAdminAPI) UpdateJobLocationStatus(context.Context, *pb.UpdateJobLocationStatusRequest) (*pb.CommonResponse, error) {
+	return &pb.CommonResponse{Code: errs.OK}, nil
+}
+
+func (fakeTaxonomyAdminAPI) DeleteJobLocation(context.Context, *pb.DeleteJobLocationRequest) (*pb.CommonResponse, error) {
+	return &pb.CommonResponse{Code: errs.OK}, nil
+}
+
+func (fakeTaxonomyAdminAPI) GetDepartmentLocationConfig(context.Context, *pb.GetDepartmentLocationConfigRequest) (*pb.DepartmentLocationConfigResponse, error) {
+	return &pb.DepartmentLocationConfigResponse{Code: errs.OK}, nil
+}
+
+func (fakeTaxonomyAdminAPI) UpdateDepartmentLocationConfig(context.Context, *pb.UpdateDepartmentLocationConfigRequest) (*pb.DepartmentLocationConfigResponse, error) {
+	return &pb.DepartmentLocationConfigResponse{Code: errs.OK}, nil
+}
+
+func (fakeTaxonomyAdminAPI) ListDepartmentsLocationMap(context.Context, *pb.ListDepartmentsLocationMapRequest) (*pb.ListDepartmentsLocationMapResponse, error) {
+	return &pb.ListDepartmentsLocationMapResponse{Code: errs.OK}, nil
+}
+
+type fakeRecruitmentAdminAPI struct{}
+
+func (fakeRecruitmentAdminAPI) CreateInviteCode(context.Context, *pb.CreateInviteCodeRequest) (*pb.CreateInviteCodeResponse, error) {
+	return &pb.CreateInviteCodeResponse{Code: errs.OK}, nil
+}
+
+func (fakeRecruitmentAdminAPI) ListInviteCodes(context.Context, *pb.ListInviteCodesRequest) (*pb.ListInviteCodesResponse, error) {
+	return &pb.ListInviteCodesResponse{Code: errs.OK}, nil
+}
+
+func (fakeRecruitmentAdminAPI) ExtendInviteCode(context.Context, *pb.ExtendInviteCodeRequest) (*pb.CommonResponse, error) {
+	return &pb.CommonResponse{Code: errs.OK}, nil
+}
+
+func (fakeRecruitmentAdminAPI) RevokeInviteCode(context.Context, *pb.RevokeInviteCodeRequest) (*pb.CommonResponse, error) {
+	return &pb.CommonResponse{Code: errs.OK}, nil
+}
+
+func (fakeRecruitmentAdminAPI) ReactivateInviteCode(context.Context, *pb.ReactivateInviteCodeRequest) (*pb.CommonResponse, error) {
+	return &pb.CommonResponse{Code: errs.OK}, nil
+}
+
+func (fakeRecruitmentAdminAPI) ValidateInviteCode(context.Context, *pb.ValidateInviteCodeRequest) (*pb.ValidateInviteCodeResponse, error) {
+	return &pb.ValidateInviteCodeResponse{Code: errs.OK}, nil
+}
+
+func (fakeRecruitmentAdminAPI) QueryUsageLogs(context.Context, *pb.QueryUsageLogsRequest) (*pb.QueryUsageLogsResponse, error) {
+	return &pb.QueryUsageLogsResponse{Code: errs.OK}, nil
+}
+
+type fakeUsageStatsAPI struct{}
+
+func (fakeUsageStatsAPI) GetUsageStats(context.Context, *pb.GetUsageStatsRequest) (*pb.GetUsageStatsResponse, error) {
+	return &pb.GetUsageStatsResponse{Code: errs.OK}, nil
+}
+
+func (fakeUsageStatsAPI) GetUsageTrend(context.Context, *pb.GetUsageTrendRequest) (*pb.GetUsageTrendResponse, error) {
+	return &pb.GetUsageTrendResponse{Code: errs.OK}, nil
+}
+
 type fakeCandidateAPI struct{}
 
 func (fakeCandidateAPI) GetProfile(context.Context, *pb.GetProfileRequest) (*pb.GetProfileResponse, error) {
@@ -125,4 +225,8 @@ func (fakeApplicationAPI) UpdateApplicationStatus(context.Context, *pb.UpdateApp
 
 func (fakeApplicationAPI) ListApplicationStatusTransitions(context.Context, *pb.ListApplicationStatusTransitionsRequest) (*pb.ListApplicationStatusTransitionsResponse, error) {
 	return &pb.ListApplicationStatusTransitionsResponse{Code: errs.OK}, nil
+}
+
+type fakeCollaborationService struct {
+	pb.UnimplementedCollaborationServiceServer
 }

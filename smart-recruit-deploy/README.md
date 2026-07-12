@@ -23,9 +23,4 @@ Available profiles:
 
 - `infra`: Nacos, MySQL, Redis, RabbitMQ.
 - `observability`: Prometheus, Grafana, Jaeger, Loki.
-- `compat`: legacy logic/web fallback through the existing compose file.
-- `services`: placeholder profile reserved for later service runtime tasks.
-
-## Monolith Relationship
-
-Deployment assets must keep monolith fallback available until the monolith retirement gate passes.
+- `services`: gateway plus all backend microservices.

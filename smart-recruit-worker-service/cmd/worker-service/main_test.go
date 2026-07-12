@@ -6,8 +6,8 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	logicconfig "logic-grpc-service/config"
 	platformconfig "smart-recruit-platform-go/config"
+	logicconfig "smart-recruit-platform-go/serviceconfig"
 	workerruntime "smart-recruit-worker-service/internal/runtime"
 )
 

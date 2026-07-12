@@ -10,26 +10,17 @@ const fileSets = [
   {
     label: "proto source",
     canonical: "smart-recruit-proto/proto/recruitment.proto",
-    mirrors: [
-      "logic-grpc-service/proto/recruitment.proto",
-      "web-gin-service/proto/recruitment.proto",
-    ],
+    mirrors: [],
   },
   {
     label: "generated message code",
     canonical: "smart-recruit-proto/recruitment/pb/recruitment.pb.go",
-    mirrors: [
-      "logic-grpc-service/recruitment/pb/recruitment.pb.go",
-      "web-gin-service/recruitment/pb/recruitment.pb.go",
-    ],
+    mirrors: [],
   },
   {
     label: "generated grpc code",
     canonical: "smart-recruit-proto/recruitment/pb/recruitment_grpc.pb.go",
-    mirrors: [
-      "logic-grpc-service/recruitment/pb/recruitment_grpc.pb.go",
-      "web-gin-service/recruitment/pb/recruitment_grpc.pb.go",
-    ],
+    mirrors: [],
   },
 ];
 
@@ -58,6 +49,9 @@ function main() {
 
   for (const set of fileSets) {
     const canonicalBytes = read(set.canonical);
+    if (canonicalBytes.length === 0) {
+      drift.push({ label: set.label, canonical: set.canonical, mirror: "(empty canonical)" });
+    }
     for (const mirror of set.mirrors) {
       const mirrorBytes = read(mirror);
       if (Buffer.compare(canonicalBytes, mirrorBytes) !== 0) {

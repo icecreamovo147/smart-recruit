@@ -16,7 +16,7 @@ func (resolver fakeTargetResolver) ResolveTarget(_ context.Context, serviceName 
 	return target, nil
 }
 
-func TestRouteTableDefaultsEveryServiceToLogic(t *testing.T) {
+func TestRouteTableDefaultsEveryServiceToDirectMode(t *testing.T) {
 	table, err := NewRouteTable(nil)
 	if err != nil {
 		t.Fatalf("NewRouteTable returned error: %v", err)
@@ -26,22 +26,13 @@ func TestRouteTableDefaultsEveryServiceToLogic(t *testing.T) {
 		if !ok {
 			t.Fatalf("missing route entry for %s", service)
 		}
-		if entry.Mode != LogicService {
-			t.Fatalf("%s mode = %q, want logic", service, entry.Mode)
-		}
-	}
-	targets, err := table.ResolveTargets(context.Background(), "logic:50051", nil)
-	if err != nil {
-		t.Fatalf("ResolveTargets returned error: %v", err)
-	}
-	for _, entry := range targets.Entries() {
-		if entry.Target != "logic:50051" {
-			t.Fatalf("%s target = %q, want logic:50051", entry.Service, entry.Target)
+		if entry.Mode != service {
+			t.Fatalf("%s mode = %q, want %q", service, entry.Mode, service)
 		}
 	}
 }
 
-func TestParseRouteTableSupportsAllServiceModesAndRollback(t *testing.T) {
+func TestParseRouteTableResolvesAllDirectServiceTargets(t *testing.T) {
 	table, err := ParseRouteTable([]byte(`
 routeModes:
   identity: identity
@@ -55,7 +46,7 @@ routeModes:
 	if err != nil {
 		t.Fatalf("ParseRouteTable returned error: %v", err)
 	}
-	resolved, err := table.ResolveTargets(context.Background(), "logic:50051", fakeTargetResolver{
+	resolved, err := table.ResolveTargets(context.Background(), "recruitment:50062", fakeTargetResolver{
 		"identity":     "identity:50061",
 		"recruitment":  "recruitment:50062",
 		"interview":    "interview:50063",
@@ -75,35 +66,13 @@ routeModes:
 		if entry.Mode != service {
 			t.Fatalf("%s mode = %q, want %q", service, entry.Mode, service)
 		}
-		if entry.Target == "logic:50051" || entry.Target == "" {
-			t.Fatalf("%s target was not discovered: %q", service, entry.Target)
-		}
-	}
-
-	rollback, err := NewRouteTable(map[string]string{
-		"identity":     "logic",
-		"recruitment":  "logic",
-		"interview":    "logic",
-		"offer":        "logic",
-		"notification": "logic",
-		"aiAgent":      "logic",
-		"analytics":    "logic",
-	})
-	if err != nil {
-		t.Fatalf("rollback NewRouteTable returned error: %v", err)
-	}
-	targets, err := rollback.ResolveTargets(context.Background(), "logic:50051", nil)
-	if err != nil {
-		t.Fatalf("rollback ResolveTargets returned error: %v", err)
-	}
-	for _, entry := range targets.Entries() {
-		if entry.Target != "logic:50051" {
-			t.Fatalf("%s rollback target = %q, want logic", entry.Service, entry.Target)
+		if entry.Target == "" {
+			t.Fatalf("%s target was not discovered", service)
 		}
 	}
 }
 
-func TestReadyTargetsCoverEnabledTargets(t *testing.T) {
+func TestReadyTargetsCoversOnlyDirectTargetsByDefault(t *testing.T) {
 	table, err := NewRouteTable(map[string]string{
 		"identity":  "identity",
 		"analytics": "analytics",
@@ -111,29 +80,30 @@ func TestReadyTargetsCoverEnabledTargets(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewRouteTable returned error: %v", err)
 	}
-	resolved, err := table.ResolveTargets(context.Background(), "logic:50051", fakeTargetResolver{
-		"identity":  "identity:50061",
-		"analytics": "analytics:50067",
+	resolved, err := table.ResolveTargets(context.Background(), "recruitment:50062", fakeTargetResolver{
+		"identity":     "identity:50061",
+		"recruitment":  "recruitment:50062",
+		"interview":    "interview:50063",
+		"offer":        "offer:50064",
+		"notification": "notification:50065",
+		"ai-agent":     "ai-agent:50066",
+		"analytics":    "analytics:50067",
 	})
 	if err != nil {
 		t.Fatalf("ResolveTargets returned error: %v", err)
 	}
-	targets := resolved.ReadyTargets("logic:50051")
+	targets := resolved.ReadyTargets("recruitment:50062")
 	seen := map[string]string{}
 	for _, target := range targets {
 		seen[target.Service] = target.Target
 	}
-	if seen[LogicService] != "logic:50051" {
-		t.Fatalf("logic ready target = %q", seen[LogicService])
+	for _, service := range GatewayRouteServices {
+		if seen[service] == "" {
+			t.Fatalf("missing readiness target for %s", service)
+		}
 	}
-	if seen["identity"] != "identity:50061" {
-		t.Fatalf("identity ready target = %q", seen["identity"])
-	}
-	if seen["analytics"] != "analytics:50067" {
-		t.Fatalf("analytics ready target = %q", seen["analytics"])
-	}
-	if _, ok := seen["offer"]; ok {
-		t.Fatal("logic-mode offer should not add a separate ready target")
+	if len(seen) != len(GatewayRouteServices) {
+		t.Fatalf("ready target count = %d, want %d", len(seen), len(GatewayRouteServices))
 	}
 }
 
@@ -145,7 +115,7 @@ func TestRouteTableRejectsInvalidModeAndMissingResolver(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewRouteTable returned error: %v", err)
 	}
-	if _, err := table.ResolveTargets(context.Background(), "logic:50051", nil); err == nil {
+	if _, err := table.ResolveTargets(context.Background(), "recruitment:50062", nil); err == nil {
 		t.Fatal("expected missing resolver error")
 	}
 }

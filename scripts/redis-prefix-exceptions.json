@@ -1,18 +1,18 @@
 {
   "schemaVersion": 1,
-  "policy": "All new Redis keys must use smart-recruit-platform-go/rediskey service prefixes. Existing legacy exceptions are recorded until their owning service migration task can touch the file scope.",
+  "policy": "All Redis keys should use smart-recruit-platform-go/rediskey service prefixes. Remaining exceptions are recorded against their migrated owner paths.",
   "exceptions": [
-    {"file": "web-gin-service/middleware/jwt.go", "reason": "Gateway token_version cache is legacy web-gin scope; migration requires a web-gin scoped TASK.", "patterns": ["token_version"]},
-    {"file": "web-gin-service/middleware/ai_quota.go", "reason": "Gateway AI quota keys are legacy web-gin scope; migration requires a web-gin scoped TASK.", "patterns": ["quota:ai"]},
-    {"file": "web-gin-service/middleware/resume_quota.go", "reason": "Gateway resume quota keys are legacy web-gin scope; migration requires a web-gin scoped TASK.", "patterns": ["quota:", "key"]},
-    {"file": "web-gin-service/middleware/risk_block.go", "reason": "Gateway risk block keys are legacy web-gin scope; migration requires a web-gin scoped TASK.", "patterns": ["risk:block"]},
-    {"file": "web-gin-service/middleware/ratelimit.go", "reason": "Gateway distributed rate-limit keys are legacy web-gin scope; migration requires a web-gin scoped TASK.", "patterns": ["rateLimitKey", "key"]},
-    {"file": "web-gin-service/handler/notification.go", "reason": "Gateway notification SSE subscribes to the legacy notification channel during monolith fallback.", "patterns": ["notificationEventChannel"]},
-    {"file": "logic-grpc-service/pkg/cache/job_cache.go", "reason": "Monolith job cache key shape is retained until logic-grpc-service cache code is in TASK scope.", "patterns": ["jobs:public:first_page", "jobCacheKeyPrefix", "publicFirstPageKey", "keys"]},
-    {"file": "logic-grpc-service/pkg/cache/notification_cache.go", "reason": "Monolith notification cache/event key shape is retained until logic-grpc-service cache code is in TASK scope.", "patterns": ["notif:unread", "notif:event", "unreadKey", "NotificationEventChannel"]},
-    {"file": "logic-grpc-service/oss/cache.go", "reason": "Monolith OSS presign cache key shape is retained until logic-grpc-service OSS code is in TASK scope.", "patterns": ["oss:presign"]},
-    {"file": "logic-grpc-service/oss/presign_session.go", "reason": "Monolith OSS presign session key shape is retained until logic-grpc-service OSS code is in TASK scope.", "patterns": ["oss:presign_session", "presignSessionKey", "key"]},
-    {"file": "logic-grpc-service/service/admin_service.go", "reason": "Monolith admin token_version cache key shape is retained until logic-grpc-service service code is in TASK scope.", "patterns": ["token_version", "key"]},
-    {"file": "logic-grpc-service/service/rbac_redis_integration_test.go", "reason": "Integration test documents the legacy token_version key while fallback remains active.", "patterns": ["token_version"]}
+    {"file": "smart-recruit-gateway/middleware/jwt.go", "reason": "Gateway token_version cache retains the existing public auth behavior during source-root migration.", "patterns": ["token_version"]},
+    {"file": "smart-recruit-gateway/middleware/ai_quota.go", "reason": "Gateway AI quota keys retain the existing quota behavior during source-root migration.", "patterns": ["quota:ai"]},
+    {"file": "smart-recruit-gateway/middleware/resume_quota.go", "reason": "Gateway resume quota keys retain the existing quota behavior during source-root migration.", "patterns": ["quota:", "key"]},
+    {"file": "smart-recruit-gateway/middleware/risk_block.go", "reason": "Gateway risk block keys retain the existing risk-block behavior during source-root migration.", "patterns": ["risk:block"]},
+    {"file": "smart-recruit-gateway/middleware/ratelimit.go", "reason": "Gateway distributed rate-limit keys retain the existing behavior during source-root migration.", "patterns": ["rateLimitKey", "key"]},
+    {"file": "smart-recruit-gateway/handler/notification.go", "reason": "Gateway notification SSE keeps the existing notification channel contract.", "patterns": ["notificationEventChannel"]},
+    {"file": "smart-recruit-domain-go/pkg/cache/job_cache.go", "reason": "Domain job cache key shape is preserved during domain module migration.", "patterns": ["jobs:public:first_page", "jobCacheKeyPrefix", "publicFirstPageKey", "keys"]},
+    {"file": "smart-recruit-domain-go/pkg/cache/notification_cache.go", "reason": "Domain notification cache/event key shape is preserved during domain module migration.", "patterns": ["notif:unread", "notif:event", "unreadKey", "NotificationEventChannel"]},
+    {"file": "smart-recruit-domain-go/oss/cache.go", "reason": "Domain OSS presign cache key shape is preserved during domain module migration.", "patterns": ["oss:presign"]},
+    {"file": "smart-recruit-domain-go/oss/presign_session.go", "reason": "Domain OSS presign session key shape is preserved during domain module migration.", "patterns": ["oss:presign_session", "presignSessionKey", "key"]},
+    {"file": "smart-recruit-domain-go/service/admin_service.go", "reason": "Domain admin token_version cache key shape is preserved during domain module migration.", "patterns": ["token_version", "key"]},
+    {"file": "smart-recruit-domain-go/service/rbac_redis_integration_test.go", "reason": "Integration test documents the token_version key contract.", "patterns": ["token_version"]}
   ]
 }

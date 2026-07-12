@@ -2,46 +2,39 @@ service:
   name: smart-recruit-gateway
   env: local
 routeModes:
-  identity: logic
-  recruitment: logic
-  interview: logic
-  offer: logic
-  notification: logic
-  aiAgent: logic
-  analytics: logic
+  identity: identity
+  recruitment: recruitment
+  interview: interview
+  offer: offer
+  notification: notification
+  aiAgent: ai-agent
+  analytics: analytics
 timeouts:
   read: 10s
   write: 10s
-fallback:
+localStaticDiscovery:
   staticDiscovery: true
 readiness:
   includeEnabledRouteTargets: true
-cutoverExamples:
+serviceTargets:
   identity:
     routeMode: identity
     grpcAddr: smart-recruit-identity-service:50061
-    rollbackRouteMode: logic
   recruitment:
     routeMode: recruitment
     grpcAddr: smart-recruit-recruitment-service:50062
-    rollbackRouteMode: logic
   interview:
     routeMode: interview
     grpcAddr: smart-recruit-interview-service:50063
-    rollbackRouteMode: logic
   offer:
     routeMode: offer
     grpcAddr: smart-recruit-offer-service:50064
-    rollbackRouteMode: logic
   notification:
     routeMode: notification
     grpcAddr: smart-recruit-notification-service:50065
-    rollbackRouteMode: logic
   aiAgent:
     routeMode: ai-agent
     grpcAddr: smart-recruit-ai-agent-service:50066
-    rollbackRouteMode: logic
   analytics:
     routeMode: analytics
     grpcAddr: smart-recruit-analytics-service:50067
-    rollbackRouteMode: logic

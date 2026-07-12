@@ -17,8 +17,4 @@ go run ./cmd/recruitment-service --check
 go run ./cmd/recruitment-service --serve --addr :50062
 ```
 
-The runtime registers Job, Candidate, and Application services against the shared MySQL schema. Gateway traffic remains on `logic` until the scoped Recruitment cutover TASK records compatibility and rollback evidence.
-
-## Monolith Relationship
-
-Recruitment traffic remains on `logic-grpc-service` until extraction and route-mode cutover evidence is complete.
+The runtime registers Job, Candidate, Application, and Collaboration services against the shared MySQL schema. Gateway traffic should target this service directly through discovery or the configured `RECRUITMENT_GRPC_ADDR`.

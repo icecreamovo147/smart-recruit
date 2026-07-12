@@ -18,6 +18,4 @@ GOWORK=off go run ./cmd/worker-service --serve
 
 `WORKER_WORKLOADS` enables a comma-separated subset of workloads. Empty means all known workloads. `WORKER_DISABLED_WORKLOADS` removes workloads from that set. Active workloads require RabbitMQ readiness and a configured starter with an idempotency policy.
 
-## Monolith Relationship
-
-Current worker execution remains rollback-safe because workload startup is controlled by explicit toggles and readiness checks. Full Outbox/Inbox/DLQ handler cutover is completed in later runtime TASKs.
+Worker execution is controlled by explicit workload toggles and readiness checks. Outbox, Inbox, DLQ, notification, email, resume parsing, embedding, agent-run, and analytics projection workloads belong in this service root.

@@ -6,17 +6,17 @@ Independent HTTP gateway source root for Smart Recruit.
 
 - Own the public HTTP entry point and preserve existing frontend API behavior.
 - Route requests to backend services through gRPC using Nacos discovery when enabled.
-- Keep static fallback and route-mode rollback to the legacy `web-gin-service`/logic runtime during migration.
+- Own the migrated Gateway HTTP router, handlers, middleware, gRPC clients, Redis integration and observability in this source root.
 
 ## Startup
 
-This root now contains a compatibility gateway entry point:
+This root contains the Gateway entry point and all HTTP-facing packages:
 
 ```bash
 go run ./cmd/gateway
 ```
 
-The entry point reuses the current `web-gin-service` router/config/rpc packages during migration to preserve HTTP behavior, while the module also imports the unified `smart-recruit-proto` and `smart-recruit-platform-go` foundations for later Nacos discovery/config cutover.
+The entry point uses local `config`, `router`, `rpc`, `handler`, `middleware` and `pkg` packages. Protobuf contracts come from `smart-recruit-proto`; runtime foundations come from `smart-recruit-platform-go`.
 
 ## Nacos Runtime
 
@@ -24,8 +24,4 @@ The entry point reuses the current `web-gin-service` router/config/rpc packages 
 
 ## Route Modes
 
-Gateway route modes cover `identity`, `recruitment`, `interview`, `offer`, `notification`, `ai-agent`, and `analytics`. Each service defaults to `logic` for rollback; setting a service to its own mode requires a matching target address and makes that target part of the gateway readiness plan.
-
-## Monolith Relationship
-
-`web-gin-service` remains the active gateway fallback until scoped gateway cutover TASKs provide compatibility and rollback evidence.
+Gateway route modes cover `identity`, `recruitment`, `interview`, `offer`, `notification`, `ai-agent`, and `analytics`. Setting a service to its own mode requires a matching target address and makes that target part of the gateway readiness plan.

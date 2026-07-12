@@ -21,18 +21,19 @@ import (
 	"gorm.io/driver/mysql"
 	"gorm.io/gorm"
 
-	logicconfig "logic-grpc-service/config"
-	"logic-grpc-service/mq"
-	"logic-grpc-service/pkg/logger"
-	logicobservability "logic-grpc-service/pkg/observability"
-	"logic-grpc-service/recruitment/pb"
-	"logic-grpc-service/repository"
-	"logic-grpc-service/server"
-	"logic-grpc-service/service"
 	aiagentruntime "smart-recruit-ai-agent-service/internal/runtime"
+	"smart-recruit-domain-go/ai"
+	"smart-recruit-domain-go/mq"
+	"smart-recruit-domain-go/repository"
+	"smart-recruit-domain-go/service"
 	platformconfig "smart-recruit-platform-go/config"
+	"smart-recruit-platform-go/logger"
 	"smart-recruit-platform-go/nacos"
+	logicobservability "smart-recruit-platform-go/observability"
 	platformobs "smart-recruit-platform-go/observability"
+	"smart-recruit-platform-go/server"
+	logicconfig "smart-recruit-platform-go/serviceconfig"
+	"smart-recruit-proto/recruitment/pb"
 )
 
 const nacosServiceName = "ai-agent"
@@ -65,6 +66,7 @@ func main() {
 func checkRuntime() error {
 	runtime, err := aiagentruntime.New(aiagentruntime.Deps{
 		AI:                     noopAIService{},
+		LlmConfig:              noopLlmConfigService{},
 		Prompt:                 noopPromptService{},
 		AgentConfig:            noopAgentConfigService{},
 		MCP:                    noopMCPService{},
@@ -101,7 +103,7 @@ func serveAIAgent(addr string) error {
 
 	cfg, err := logicconfig.Load()
 	if err != nil {
-		return fmt.Errorf("load logic config: %w", err)
+		return fmt.Errorf("load service config: %w", err)
 	}
 	if err := server.ValidateInternalToken(); err != nil {
 		return fmt.Errorf("gRPC internal token validation: %w", err)
@@ -209,8 +211,13 @@ func depsFromAIAgentRuntime(runtime *service.AIAgentRuntime) aiagentruntime.Deps
 	if runtime.EmbeddingConfig != nil {
 		embeddingConfig = runtime.EmbeddingConfig
 	}
+	llmConfig := pb.LlmConfigServiceServer(unavailableLlmConfigService{})
+	if runtime.LlmConfig != nil {
+		llmConfig = runtime.LlmConfig
+	}
 	return aiagentruntime.Deps{
 		AI:                     aiServer{hr: runtime.AI, candidate: runtime.CandidateAI},
+		LlmConfig:              llmConfig,
 		Prompt:                 runtime.Prompt,
 		AgentConfig:            runtime.AgentConfig,
 		MCP:                    runtime.MCP,
@@ -224,6 +231,7 @@ func depsFromAIAgentRuntime(runtime *service.AIAgentRuntime) aiagentruntime.Deps
 
 func buildDomainServices(cfg logicconfig.Config, db *gorm.DB, redisClient *redis.Client, mqConn *mq.Conn) *service.Services {
 	authzRepo := repository.NewAuthzRepo(db)
+	aiClient := buildAIClient(cfg)
 	return service.NewServices(
 		redisClient,
 		db,
@@ -252,13 +260,41 @@ func buildDomainServices(cfg logicconfig.Config, db *gorm.DB, redisClient *redis
 		nil,
 		nil,
 		nil,
-		nil,
+		aiClient,
 		mqConn,
 		cfg,
 		cfg.JWT.Secret,
 		nil,
 		nil,
 	)
+}
+
+func buildAIClient(cfg logicconfig.Config) *ai.Client {
+	if strings.TrimSpace(cfg.AI.APIKey) == "" {
+		logger.L().Warn("ai client not configured: AI_API_KEY is empty")
+		return nil
+	}
+	client, err := ai.NewClientFromConfig(context.Background(), ai.ClientConfig{
+		APIKey:                  cfg.AI.APIKey,
+		Model:                   cfg.AI.Model,
+		BaseURL:                 cfg.AI.BaseURL,
+		Timeout:                 cfg.AI.Timeout.Duration,
+		TotalTimeout:            cfg.AI.TotalTimeout.Duration,
+		ToolMaxRounds:           cfg.AI.ToolMaxRounds,
+		ToolTotalTimeout:        cfg.AI.ToolTotalTimeout.Duration,
+		MaxConcurrency:          cfg.AI.MaxConcurrency,
+		CircuitFailureThreshold: cfg.AI.CircuitFailureThreshold,
+		CircuitOpenTimeout:      cfg.AI.CircuitOpenTimeout.Duration,
+		HalfOpenMaxRequests:     cfg.AI.CircuitHalfOpenMaxRequests,
+		RetryMaxAttempts:        cfg.AI.RetryMaxAttempts,
+		RetryBaseDelay:          cfg.AI.RetryBaseDelay.Duration,
+		SlowResponseThreshold:   cfg.AI.SlowResponseThreshold.Duration,
+	})
+	if err != nil {
+		logger.L().Warn("ai client init failed", zap.Error(err))
+		return nil
+	}
+	return client
 }
 
 func loadBootstrap(addr string) (platformconfig.Bootstrap, error) {
@@ -357,7 +393,7 @@ func ensureLogicConfigPath() error {
 	if os.Getenv("CONFIG_PATH") != "" {
 		return nil
 	}
-	for _, candidate := range []string{filepath.Join("logic-grpc-service", "config", "config.yaml"), filepath.Join("..", "logic-grpc-service", "config", "config.yaml")} {
+	for _, candidate := range []string{filepath.Join("smart-recruit-domain-go", "config", "config.yaml"), filepath.Join("..", "smart-recruit-domain-go", "config", "config.yaml")} {
 		if _, err := os.Stat(candidate); err == nil {
 			return os.Setenv("CONFIG_PATH", candidate)
 		}
@@ -384,8 +420,14 @@ func envOrDefault(key string, fallback string) string {
 type unavailableEmbeddingConfigService struct {
 	pb.UnimplementedEmbeddingConfigServiceServer
 }
+type unavailableLlmConfigService struct {
+	pb.UnimplementedLlmConfigServiceServer
+}
 type noopAIService struct {
 	pb.UnimplementedAIServiceServer
+}
+type noopLlmConfigService struct {
+	pb.UnimplementedLlmConfigServiceServer
 }
 type noopPromptService struct {
 	pb.UnimplementedPromptServiceServer

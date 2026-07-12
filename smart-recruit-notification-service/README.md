@@ -19,7 +19,3 @@ GOWORK=off go run ./cmd/notification-service --serve --addr :50065
 ```
 
 At runtime it reuses the shared Smart Recruit MySQL schema, registers `NotificationService`, exposes gRPC health, starts metrics and tracing, registers the `notification` instance through Nacos discovery when configured, and starts NotificationRuntime components for persistence, realtime cache publication, outbox dispatch, inbox-backed notification consumption, and email coordination.
-
-## Monolith Relationship
-
-Notification traffic and workers remain on the monolith until extraction and route-mode cutover evidence is complete.

@@ -6,7 +6,7 @@ import (
 
 	"google.golang.org/grpc"
 
-	"logic-grpc-service/recruitment/pb"
+	"smart-recruit-proto/recruitment/pb"
 )
 
 const ServiceName = "recruitment-service"
@@ -26,6 +26,37 @@ type JobTaxonomyAPI interface {
 	ListDepartmentLocations(context.Context, *pb.ListDepartmentLocationsRequest) (*pb.ListDepartmentLocationsResponse, error)
 }
 
+type TaxonomyAdminAPI interface {
+	ListDepartments(context.Context, *pb.ListDepartmentsRequest) (*pb.ListDepartmentsResponse, error)
+	CreateDepartment(context.Context, *pb.CreateDepartmentRequest) (*pb.DepartmentResponse, error)
+	UpdateDepartment(context.Context, *pb.UpdateDepartmentRequest) (*pb.DepartmentResponse, error)
+	UpdateDepartmentStatus(context.Context, *pb.UpdateDepartmentStatusRequest) (*pb.CommonResponse, error)
+	DeleteDepartment(context.Context, *pb.DeleteDepartmentRequest) (*pb.CommonResponse, error)
+	ListJobLocations(context.Context, *pb.ListJobLocationsRequest) (*pb.ListJobLocationsResponse, error)
+	CreateJobLocation(context.Context, *pb.CreateJobLocationRequest) (*pb.JobLocationResponse, error)
+	UpdateJobLocation(context.Context, *pb.UpdateJobLocationRequest) (*pb.JobLocationResponse, error)
+	UpdateJobLocationStatus(context.Context, *pb.UpdateJobLocationStatusRequest) (*pb.CommonResponse, error)
+	DeleteJobLocation(context.Context, *pb.DeleteJobLocationRequest) (*pb.CommonResponse, error)
+	GetDepartmentLocationConfig(context.Context, *pb.GetDepartmentLocationConfigRequest) (*pb.DepartmentLocationConfigResponse, error)
+	UpdateDepartmentLocationConfig(context.Context, *pb.UpdateDepartmentLocationConfigRequest) (*pb.DepartmentLocationConfigResponse, error)
+	ListDepartmentsLocationMap(context.Context, *pb.ListDepartmentsLocationMapRequest) (*pb.ListDepartmentsLocationMapResponse, error)
+}
+
+type RecruitmentAdminAPI interface {
+	CreateInviteCode(context.Context, *pb.CreateInviteCodeRequest) (*pb.CreateInviteCodeResponse, error)
+	ListInviteCodes(context.Context, *pb.ListInviteCodesRequest) (*pb.ListInviteCodesResponse, error)
+	ExtendInviteCode(context.Context, *pb.ExtendInviteCodeRequest) (*pb.CommonResponse, error)
+	RevokeInviteCode(context.Context, *pb.RevokeInviteCodeRequest) (*pb.CommonResponse, error)
+	ReactivateInviteCode(context.Context, *pb.ReactivateInviteCodeRequest) (*pb.CommonResponse, error)
+	ValidateInviteCode(context.Context, *pb.ValidateInviteCodeRequest) (*pb.ValidateInviteCodeResponse, error)
+	QueryUsageLogs(context.Context, *pb.QueryUsageLogsRequest) (*pb.QueryUsageLogsResponse, error)
+}
+
+type UsageStatsAPI interface {
+	GetUsageStats(context.Context, *pb.GetUsageStatsRequest) (*pb.GetUsageStatsResponse, error)
+	GetUsageTrend(context.Context, *pb.GetUsageTrendRequest) (*pb.GetUsageTrendResponse, error)
+}
+
 type CandidateAPI interface {
 	GetProfile(context.Context, *pb.GetProfileRequest) (*pb.GetProfileResponse, error)
 	UpdateProfile(context.Context, *pb.UpdateProfileRequest) (*pb.GetProfileResponse, error)
@@ -43,16 +74,22 @@ type ApplicationAPI interface {
 }
 
 type Deps struct {
-	Job         JobAPI
-	JobTaxonomy JobTaxonomyAPI
-	Candidate   CandidateAPI
-	Application ApplicationAPI
+	Job           JobAPI
+	JobTaxonomy   JobTaxonomyAPI
+	TaxonomyAdmin TaxonomyAdminAPI
+	Admin         RecruitmentAdminAPI
+	UsageStats    UsageStatsAPI
+	Candidate     CandidateAPI
+	Application   ApplicationAPI
+	Collaboration pb.CollaborationServiceServer
 }
 
 type Runtime struct {
-	Job         pb.JobServiceServer
-	Candidate   pb.CandidateServiceServer
-	Application pb.ApplicationServiceServer
+	Job           pb.JobServiceServer
+	Admin         pb.AdminServiceServer
+	Candidate     pb.CandidateServiceServer
+	Application   pb.ApplicationServiceServer
+	Collaboration pb.CollaborationServiceServer
 }
 
 func New(deps Deps) (*Runtime, error) {
@@ -62,16 +99,34 @@ func New(deps Deps) (*Runtime, error) {
 	if deps.JobTaxonomy == nil {
 		return nil, fmt.Errorf("recruitment job taxonomy api is required")
 	}
+	if deps.TaxonomyAdmin == nil {
+		return nil, fmt.Errorf("recruitment taxonomy admin api is required")
+	}
+	if deps.Admin == nil {
+		return nil, fmt.Errorf("recruitment admin api is required")
+	}
+	if deps.UsageStats == nil {
+		return nil, fmt.Errorf("recruitment usage stats api is required")
+	}
 	if deps.Candidate == nil {
 		return nil, fmt.Errorf("recruitment candidate api is required")
 	}
 	if deps.Application == nil {
 		return nil, fmt.Errorf("recruitment application api is required")
 	}
+	if deps.Collaboration == nil {
+		return nil, fmt.Errorf("recruitment collaboration api is required")
+	}
 	return &Runtime{
-		Job:         jobServer{api: deps.Job, taxonomy: deps.JobTaxonomy},
-		Candidate:   candidateServer{api: deps.Candidate},
-		Application: applicationServer{api: deps.Application},
+		Job: jobServer{api: deps.Job, taxonomy: deps.JobTaxonomy},
+		Admin: adminServer{
+			taxonomy:    deps.TaxonomyAdmin,
+			admin:       deps.Admin,
+			usageStats:  deps.UsageStats,
+		},
+		Candidate:     candidateServer{api: deps.Candidate},
+		Application:   applicationServer{api: deps.Application},
+		Collaboration: deps.Collaboration,
 	}, nil
 }
 
@@ -79,12 +134,14 @@ func (r *Runtime) RegisterGRPC(registrar grpc.ServiceRegistrar) error {
 	if registrar == nil {
 		return fmt.Errorf("grpc service registrar is required")
 	}
-	if r == nil || r.Job == nil || r.Candidate == nil || r.Application == nil {
+	if r == nil || r.Job == nil || r.Admin == nil || r.Candidate == nil || r.Application == nil || r.Collaboration == nil {
 		return fmt.Errorf("recruitment runtime is not initialized")
 	}
 	pb.RegisterJobServiceServer(registrar, r.Job)
+	pb.RegisterAdminServiceServer(registrar, r.Admin)
 	pb.RegisterCandidateServiceServer(registrar, r.Candidate)
 	pb.RegisterApplicationServiceServer(registrar, r.Application)
+	pb.RegisterCollaborationServiceServer(registrar, r.Collaboration)
 	return nil
 }
 
@@ -178,4 +235,99 @@ func (s applicationServer) UpdateApplicationStatus(ctx context.Context, req *pb.
 
 func (s applicationServer) ListApplicationStatusTransitions(ctx context.Context, req *pb.ListApplicationStatusTransitionsRequest) (*pb.ListApplicationStatusTransitionsResponse, error) {
 	return s.api.ListApplicationStatusTransitions(ctx, req)
+}
+
+type adminServer struct {
+	pb.UnimplementedAdminServiceServer
+	taxonomy   TaxonomyAdminAPI
+	admin      RecruitmentAdminAPI
+	usageStats UsageStatsAPI
+}
+
+func (s adminServer) CreateInviteCode(ctx context.Context, req *pb.CreateInviteCodeRequest) (*pb.CreateInviteCodeResponse, error) {
+	return s.admin.CreateInviteCode(ctx, req)
+}
+
+func (s adminServer) ListInviteCodes(ctx context.Context, req *pb.ListInviteCodesRequest) (*pb.ListInviteCodesResponse, error) {
+	return s.admin.ListInviteCodes(ctx, req)
+}
+
+func (s adminServer) ExtendInviteCode(ctx context.Context, req *pb.ExtendInviteCodeRequest) (*pb.CommonResponse, error) {
+	return s.admin.ExtendInviteCode(ctx, req)
+}
+
+func (s adminServer) RevokeInviteCode(ctx context.Context, req *pb.RevokeInviteCodeRequest) (*pb.CommonResponse, error) {
+	return s.admin.RevokeInviteCode(ctx, req)
+}
+
+func (s adminServer) ReactivateInviteCode(ctx context.Context, req *pb.ReactivateInviteCodeRequest) (*pb.CommonResponse, error) {
+	return s.admin.ReactivateInviteCode(ctx, req)
+}
+
+func (s adminServer) ValidateInviteCode(ctx context.Context, req *pb.ValidateInviteCodeRequest) (*pb.ValidateInviteCodeResponse, error) {
+	return s.admin.ValidateInviteCode(ctx, req)
+}
+
+func (s adminServer) ListDepartments(ctx context.Context, req *pb.ListDepartmentsRequest) (*pb.ListDepartmentsResponse, error) {
+	return s.taxonomy.ListDepartments(ctx, req)
+}
+
+func (s adminServer) CreateDepartment(ctx context.Context, req *pb.CreateDepartmentRequest) (*pb.DepartmentResponse, error) {
+	return s.taxonomy.CreateDepartment(ctx, req)
+}
+
+func (s adminServer) UpdateDepartment(ctx context.Context, req *pb.UpdateDepartmentRequest) (*pb.DepartmentResponse, error) {
+	return s.taxonomy.UpdateDepartment(ctx, req)
+}
+
+func (s adminServer) UpdateDepartmentStatus(ctx context.Context, req *pb.UpdateDepartmentStatusRequest) (*pb.CommonResponse, error) {
+	return s.taxonomy.UpdateDepartmentStatus(ctx, req)
+}
+
+func (s adminServer) DeleteDepartment(ctx context.Context, req *pb.DeleteDepartmentRequest) (*pb.CommonResponse, error) {
+	return s.taxonomy.DeleteDepartment(ctx, req)
+}
+
+func (s adminServer) ListJobLocations(ctx context.Context, req *pb.ListJobLocationsRequest) (*pb.ListJobLocationsResponse, error) {
+	return s.taxonomy.ListJobLocations(ctx, req)
+}
+
+func (s adminServer) CreateJobLocation(ctx context.Context, req *pb.CreateJobLocationRequest) (*pb.JobLocationResponse, error) {
+	return s.taxonomy.CreateJobLocation(ctx, req)
+}
+
+func (s adminServer) UpdateJobLocation(ctx context.Context, req *pb.UpdateJobLocationRequest) (*pb.JobLocationResponse, error) {
+	return s.taxonomy.UpdateJobLocation(ctx, req)
+}
+
+func (s adminServer) UpdateJobLocationStatus(ctx context.Context, req *pb.UpdateJobLocationStatusRequest) (*pb.CommonResponse, error) {
+	return s.taxonomy.UpdateJobLocationStatus(ctx, req)
+}
+
+func (s adminServer) DeleteJobLocation(ctx context.Context, req *pb.DeleteJobLocationRequest) (*pb.CommonResponse, error) {
+	return s.taxonomy.DeleteJobLocation(ctx, req)
+}
+
+func (s adminServer) GetDepartmentLocationConfig(ctx context.Context, req *pb.GetDepartmentLocationConfigRequest) (*pb.DepartmentLocationConfigResponse, error) {
+	return s.taxonomy.GetDepartmentLocationConfig(ctx, req)
+}
+
+func (s adminServer) UpdateDepartmentLocationConfig(ctx context.Context, req *pb.UpdateDepartmentLocationConfigRequest) (*pb.DepartmentLocationConfigResponse, error) {
+	return s.taxonomy.UpdateDepartmentLocationConfig(ctx, req)
+}
+
+func (s adminServer) ListDepartmentsLocationMap(ctx context.Context, req *pb.ListDepartmentsLocationMapRequest) (*pb.ListDepartmentsLocationMapResponse, error) {
+	return s.taxonomy.ListDepartmentsLocationMap(ctx, req)
+}
+
+func (s adminServer) QueryUsageLogs(ctx context.Context, req *pb.QueryUsageLogsRequest) (*pb.QueryUsageLogsResponse, error) {
+	return s.admin.QueryUsageLogs(ctx, req)
+}
+
+func (s adminServer) GetUsageStats(ctx context.Context, req *pb.GetUsageStatsRequest) (*pb.GetUsageStatsResponse, error) {
+	return s.usageStats.GetUsageStats(ctx, req)
+}
+
+func (s adminServer) GetUsageTrend(ctx context.Context, req *pb.GetUsageTrendRequest) (*pb.GetUsageTrendResponse, error) {
+	return s.usageStats.GetUsageTrend(ctx, req)
 }

@@ -7,8 +7,8 @@ import (
 
 	"google.golang.org/grpc"
 
-	"logic-grpc-service/pkg/errs"
-	"logic-grpc-service/recruitment/pb"
+	"smart-recruit-platform-go/errs"
+	"smart-recruit-proto/recruitment/pb"
 )
 
 func TestRuntimeRegistersReportingAdminService(t *testing.T) {

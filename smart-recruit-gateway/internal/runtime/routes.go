@@ -2,15 +2,12 @@ package runtime
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"sort"
 	"strings"
 
 	"gopkg.in/yaml.v3"
 )
-
-const LogicService = "logic"
 
 var GatewayRouteServices = []string{
 	"identity",
@@ -61,7 +58,7 @@ func ParseRouteTable(data []byte) (RouteTable, error) {
 func NewRouteTable(routeModes map[string]string) (RouteTable, error) {
 	entries := make(map[string]RouteEntry, len(GatewayRouteServices))
 	for _, service := range GatewayRouteServices {
-		mode := LogicService
+		mode := service
 		for key, value := range routeModes {
 			if normalizeRouteName(key) == service {
 				mode = strings.TrimSpace(value)
@@ -70,10 +67,10 @@ func NewRouteTable(routeModes map[string]string) (RouteTable, error) {
 		}
 		mode = normalizeRouteName(mode)
 		if mode == "" {
-			mode = LogicService
+			mode = service
 		}
-		if mode != LogicService && mode != service {
-			return RouteTable{}, fmt.Errorf("%s route mode must be %s or %s", service, LogicService, service)
+		if mode != service {
+			return RouteTable{}, fmt.Errorf("%s route mode must be %s", service, service)
 		}
 		entries[service] = RouteEntry{Service: service, Mode: mode}
 	}
@@ -96,23 +93,15 @@ func (table RouteTable) Entries() []RouteEntry {
 	return entries
 }
 
-func (table RouteTable) ResolveTargets(ctx context.Context, logicTarget string, resolver TargetResolver) (RouteTable, error) {
-	logicTarget = strings.TrimSpace(logicTarget)
-	if logicTarget == "" {
-		return RouteTable{}, errors.New("logic target is required")
-	}
+func (table RouteTable) ResolveTargets(ctx context.Context, _ string, resolver TargetResolver) (RouteTable, error) {
 	resolved := make(map[string]RouteEntry, len(table.entries))
 	for _, entry := range table.Entries() {
-		target := logicTarget
-		if entry.Mode != LogicService {
-			if resolver == nil {
-				return RouteTable{}, fmt.Errorf("%s route mode requires discovery resolver", entry.Service)
-			}
-			discovered, err := resolver.ResolveTarget(ctx, entry.Service)
-			if err != nil {
-				return RouteTable{}, fmt.Errorf("resolve %s target: %w", entry.Service, err)
-			}
-			target = discovered
+		if resolver == nil {
+			return RouteTable{}, fmt.Errorf("%s route mode requires discovery resolver", entry.Service)
+		}
+		target, err := resolver.ResolveTarget(ctx, entry.Service)
+		if err != nil {
+			return RouteTable{}, fmt.Errorf("resolve %s target: %w", entry.Service, err)
 		}
 		if strings.TrimSpace(target) == "" {
 			return RouteTable{}, fmt.Errorf("%s target is empty", entry.Service)
@@ -123,13 +112,10 @@ func (table RouteTable) ResolveTargets(ctx context.Context, logicTarget string, 
 	return RouteTable{entries: resolved}, nil
 }
 
-func (table RouteTable) ReadyTargets(logicTarget string) []RouteEntry {
-	logicTarget = strings.TrimSpace(logicTarget)
-	targets := []RouteEntry{{Service: LogicService, Mode: LogicService, Target: logicTarget}}
+func (table RouteTable) ReadyTargets(_ string) []RouteEntry {
+	targets := make([]RouteEntry, 0, len(table.entries)+1)
 	for _, entry := range table.Entries() {
-		if entry.Mode != LogicService {
-			targets = append(targets, entry)
-		}
+		targets = append(targets, entry)
 	}
 	sort.SliceStable(targets, func(i, j int) bool {
 		return targets[i].Service < targets[j].Service

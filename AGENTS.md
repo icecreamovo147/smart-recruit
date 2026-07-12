@@ -3,8 +3,11 @@
 ## Project Structure & Module Organization
 
 - `hr-frontend/`, `user-frontend/`, `interviewer-frontend/`: Vue 3 + Vite apps for HR, candidate, and interviewer users. Source lives in `src/` with `api/`, `components/`, `views/`, `stores/`, `types/`, and `assets/`.
-- `logic-grpc-service/`: core Go gRPC service. Business logic is mainly in `service/`, persistence in `repository/` and `model/`, protobufs in `proto/` and generated code in `recruitment/pb/`.
-- `web-gin-service/`: Go HTTP gateway. Routes live in `router/`, handlers in `handler/`, backend clients in `rpc/`, middleware in `middleware/`.
+- `smart-recruit-gateway/`: Go HTTP gateway. Routes live in `router/`, handlers in `handler/`, backend clients in `rpc/`, middleware in `middleware/`.
+- `smart-recruit-identity-service/`, `smart-recruit-recruitment-service/`, `smart-recruit-interview-service/`, `smart-recruit-offer-service/`, `smart-recruit-notification-service/`, `smart-recruit-ai-agent-service/`, `smart-recruit-analytics-service/`, `smart-recruit-worker-service/`: independently buildable Go service roots.
+- `smart-recruit-domain-go/`: shared domain services, repositories, models, migrations, MQ, OSS, AI, and email packages.
+- `smart-recruit-platform-go/`: shared runtime platform packages for config, Nacos, logging, health, metrics, trace, metadata, and gRPC helpers.
+- `smart-recruit-proto/`: canonical protobuf source and generated Go contracts.
 - `docs/`, `deploy/`, `docker/`, `db.sql`: documentation, deployment assets, local infrastructure, and database schema.
 
 ## Build, Test, and Development Commands
@@ -16,7 +19,7 @@
 - `pnpm --filter hr-frontend build`: build one frontend app; replace the filter as needed.
 - `pnpm --filter hr-frontend typecheck`: run Vue TypeScript checks.
 - `pnpm --filter hr-frontend test`: run Vitest.
-- `go test ./...`: run Go tests from either `logic-grpc-service/` or `web-gin-service/`.
+- `go test ./...`: run Go tests from any `smart-recruit-*` Go module.
 - `./start-dev.sh` / `./stop-dev.sh`: manage the local development stack.
 
 ## Coding Style & Naming Conventions

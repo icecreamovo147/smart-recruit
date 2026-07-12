@@ -48,7 +48,7 @@ func TestGatewayNacosRuntimeLocalFallback(t *testing.T) {
 		Env:              "local",
 		AllowLocalStatic: true,
 		StaticConfigs: map[string]string{
-			"gateway.yaml": "routeModes:\n  identity: logic\n",
+			"gateway.yaml": "routeModes:\n  identity: identity\n",
 		},
 		StaticTargets: map[string][]nacos.Instance{
 			"identity": {{ServiceName: "identity", IP: "127.0.0.1", Port: 50051, Healthy: true}},

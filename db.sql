@@ -550,7 +550,7 @@ CREATE TABLE IF NOT EXISTS `event_outbox` (
   `aggregate_type` VARCHAR(64) NOT NULL COMMENT 'application / resume / notification',
   `aggregate_id` BIGINT UNSIGNED NOT NULL DEFAULT 0,
   `routing_key` VARCHAR(128) NOT NULL,
-  `producer` VARCHAR(128) NOT NULL DEFAULT 'logic-grpc-service.outbox' COMMENT '事件生产者',
+  `producer` VARCHAR(128) NOT NULL DEFAULT 'smart-recruit-domain-go.outbox' COMMENT '事件生产者',
   `idempotency_key` VARCHAR(255) NOT NULL DEFAULT '' COMMENT '消费者幂等键',
   `correlation_id` VARCHAR(128) NOT NULL DEFAULT '' COMMENT '请求/流程关联ID',
   `causation_id` VARCHAR(128) NOT NULL DEFAULT '' COMMENT '触发当前事件的命令或事件ID',

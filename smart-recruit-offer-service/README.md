@@ -20,6 +20,4 @@ GOWORK=off go run ./cmd/offer-service --serve --addr :50064
 
 At runtime it reuses the shared Smart Recruit MySQL schema through existing repositories, registers `OfferService`, exposes gRPC health, starts the shared metrics endpoint, initializes tracing, and registers the `offer` instance through Nacos discovery when configured.
 
-## Monolith Relationship
-
-Offer traffic remains on `logic-grpc-service` until the Offer gateway cutover TASK provides compatibility and rollback evidence.
+Gateway traffic targets this service directly through discovery or `OFFER_GRPC_ADDR`.

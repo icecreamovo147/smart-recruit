@@ -5,8 +5,8 @@ import (
 
 	"google.golang.org/grpc"
 
-	"logic-grpc-service/recruitment/pb"
-	"logic-grpc-service/service"
+	"smart-recruit-domain-go/service"
+	"smart-recruit-proto/recruitment/pb"
 )
 
 func TestRuntimeRegistersAIAgentGRPCServices(t *testing.T) {
@@ -22,6 +22,7 @@ func TestRuntimeRegistersAIAgentGRPCServices(t *testing.T) {
 	services := server.GetServiceInfo()
 	for _, serviceName := range []string{
 		pb.AIService_ServiceDesc.ServiceName,
+		pb.LlmConfigService_ServiceDesc.ServiceName,
 		pb.PromptService_ServiceDesc.ServiceName,
 		pb.AgentConfigService_ServiceDesc.ServiceName,
 		pb.MCPService_ServiceDesc.ServiceName,
@@ -74,6 +75,7 @@ func TestRuntimeInspectsAIAgentRuntimeWorkers(t *testing.T) {
 func fakeDeps() Deps {
 	return Deps{
 		AI:                     fakeAIService{},
+		LlmConfig:              fakeLlmConfigService{},
 		Prompt:                 fakePromptService{},
 		AgentConfig:            fakeAgentConfigService{},
 		MCP:                    fakeMCPService{},
@@ -86,6 +88,9 @@ func fakeDeps() Deps {
 
 type fakeAIService struct {
 	pb.UnimplementedAIServiceServer
+}
+type fakeLlmConfigService struct {
+	pb.UnimplementedLlmConfigServiceServer
 }
 type fakePromptService struct {
 	pb.UnimplementedPromptServiceServer

@@ -7,9 +7,9 @@ import (
 
 	"google.golang.org/grpc"
 
-	"logic-grpc-service/pkg/errs"
-	"logic-grpc-service/recruitment/pb"
-	"logic-grpc-service/service"
+	"smart-recruit-domain-go/service"
+	"smart-recruit-platform-go/errs"
+	"smart-recruit-proto/recruitment/pb"
 )
 
 func TestRuntimeRegistersNotificationGRPCService(t *testing.T) {

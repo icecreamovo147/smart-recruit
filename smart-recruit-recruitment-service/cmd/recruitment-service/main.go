@@ -20,14 +20,16 @@ import (
 	"gorm.io/driver/mysql"
 	"gorm.io/gorm"
 
-	logicconfig "logic-grpc-service/config"
-	logicobservability "logic-grpc-service/pkg/observability"
-	"logic-grpc-service/repository"
-	"logic-grpc-service/server"
-	"logic-grpc-service/service"
+	"smart-recruit-domain-go/oss"
+	"smart-recruit-domain-go/repository"
+	"smart-recruit-domain-go/service"
 	"smart-recruit-platform-go/config"
 	"smart-recruit-platform-go/nacos"
+	logicobservability "smart-recruit-platform-go/observability"
 	platformobs "smart-recruit-platform-go/observability"
+	"smart-recruit-platform-go/server"
+	logicconfig "smart-recruit-platform-go/serviceconfig"
+	"smart-recruit-proto/recruitment/pb"
 	recruitmentruntime "smart-recruit-recruitment-service/internal/runtime"
 )
 
@@ -59,10 +61,14 @@ func main() {
 
 func checkRuntime() error {
 	runtime, err := recruitmentruntime.New(recruitmentruntime.Deps{
-		Job:         noopJobAPI{},
-		JobTaxonomy: noopJobTaxonomyAPI{},
-		Candidate:   noopCandidateAPI{},
-		Application: noopApplicationAPI{},
+		Job:           noopJobAPI{},
+		JobTaxonomy:   noopJobTaxonomyAPI{},
+		TaxonomyAdmin: noopTaxonomyAdminAPI{},
+		Admin:         noopRecruitmentAdminAPI{},
+		UsageStats:    noopUsageStatsAPI{},
+		Candidate:     noopCandidateAPI{},
+		Application:   noopApplicationAPI{},
+		Collaboration: noopCollaborationService{},
 	})
 	if err != nil {
 		return err
@@ -122,23 +128,60 @@ func serveRecruitment(addr string) error {
 	}
 	defer server.ShutdownMetricsServer(context.Background(), metricsServer)
 
+	ossClient, err := oss.NewStorage(oss.Config{
+		Provider:        cfg.OSS.Provider,
+		Endpoint:        cfg.OSS.Endpoint,
+		AccessKeyID:     cfg.OSS.AccessKeyID,
+		AccessKeySecret: cfg.OSS.AccessKeySecret,
+		BucketName:      cfg.OSS.BucketName,
+		PublicBaseURL:   cfg.OSS.PublicBaseURL,
+	})
+	if err != nil {
+		return err
+	}
+
 	jobRepo := repository.NewJobRepo(db)
+	userRepo := repository.NewUserRepo(db)
 	profileRepo := repository.NewProfileRepo(db)
 	resumeRepo := repository.NewResumeRepo(db)
 	applicationRepo := repository.NewApplicationRepo(db)
 	interviewRepo := repository.NewInterviewRepo(db)
+	offerRepo := repository.NewOfferRepo(db)
 	notificationRepo := repository.NewNotificationRepo(db)
 	authzRepo := repository.NewAuthzRepo(db)
+	collaborationRepo := repository.NewCollaborationRepo(db)
+	scopeEval := service.NewScopeEvaluator(authzRepo)
+	serviceAuth := service.NewServiceAuthorizer(authzRepo, scopeEval)
 	outboxPublisher := service.NewOutboxPublisher(repository.NewOutboxRepo(db), nil)
-	jobSvc := service.NewJobService(jobRepo, nil, authzRepo, nil, nil)
-	candidateSvc := service.NewCandidateService(profileRepo, resumeRepo, nil, outboxPublisher, repository.NewUsageLogRepo(db), nil)
-	applicationSvc := service.NewApplicationService(authzRepo, applicationRepo, profileRepo, resumeRepo, jobRepo, interviewRepo, notificationRepo, outboxPublisher, nil, nil, nil)
 	taxonomySvc := service.NewJobTaxonomyService(repository.NewDepartmentRepo(db), repository.NewJobLocationRepo(db), jobRepo, repository.NewDepartmentLocationRepo(db))
+	jobSvc := service.NewJobService(jobRepo, nil, authzRepo, taxonomySvc, scopeEval)
+	candidateSvc := service.NewCandidateService(profileRepo, resumeRepo, ossClient, outboxPublisher, repository.NewUsageLogRepo(db), serviceAuth)
+	applicationSvc := service.NewApplicationService(authzRepo, applicationRepo, profileRepo, resumeRepo, jobRepo, interviewRepo, notificationRepo, outboxPublisher, ossClient, nil, scopeEval)
+	adminSvc := service.NewAdminService(repository.NewInviteCodeRepo(db), repository.NewUsageLogRepo(db), userRepo, authzRepo, redisClient, serviceAuth)
+	usageStatsSvc := service.NewUsageStatsService(repository.NewUsageStatsRepo(db), serviceAuth)
+	collaborationSvc := service.NewCollaborationService(
+		authzRepo,
+		collaborationRepo,
+		applicationRepo,
+		profileRepo,
+		jobRepo,
+		userRepo,
+		interviewRepo,
+		offerRepo,
+		resumeRepo,
+		ossClient,
+		serviceAuth,
+		scopeEval,
+	)
 	runtime, err := recruitmentruntime.New(recruitmentruntime.Deps{
-		Job:         jobSvc,
-		JobTaxonomy: taxonomySvc,
-		Candidate:   candidateSvc,
-		Application: applicationSvc,
+		Job:           jobSvc,
+		JobTaxonomy:   taxonomySvc,
+		TaxonomyAdmin: taxonomySvc,
+		Admin:         adminSvc,
+		UsageStats:    usageStatsSvc,
+		Candidate:     candidateSvc,
+		Application:   applicationSvc,
+		Collaboration: collaborationSvc,
 	})
 	if err != nil {
 		return err
@@ -255,7 +298,7 @@ func ensureLogicConfigPath() error {
 	if os.Getenv("CONFIG_PATH") != "" {
 		return nil
 	}
-	for _, candidate := range []string{filepath.Join("logic-grpc-service", "config", "config.yaml"), filepath.Join("..", "logic-grpc-service", "config", "config.yaml")} {
+	for _, candidate := range []string{filepath.Join("smart-recruit-domain-go", "config", "config.yaml"), filepath.Join("..", "smart-recruit-domain-go", "config", "config.yaml")} {
 		if _, err := os.Stat(candidate); err == nil {
 			return os.Setenv("CONFIG_PATH", candidate)
 		}
@@ -279,9 +322,22 @@ type noopJobAPI struct{ recruitmentruntime.JobAPI }
 type noopJobTaxonomyAPI struct {
 	recruitmentruntime.JobTaxonomyAPI
 }
+type noopTaxonomyAdminAPI struct {
+	recruitmentruntime.TaxonomyAdminAPI
+}
+type noopRecruitmentAdminAPI struct {
+	recruitmentruntime.RecruitmentAdminAPI
+}
+type noopUsageStatsAPI struct {
+	recruitmentruntime.UsageStatsAPI
+}
 type noopCandidateAPI struct {
 	recruitmentruntime.CandidateAPI
 }
 type noopApplicationAPI struct {
 	recruitmentruntime.ApplicationAPI
+}
+
+type noopCollaborationService struct {
+	pb.UnimplementedCollaborationServiceServer
 }

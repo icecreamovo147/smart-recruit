@@ -11,7 +11,7 @@ const required = [
   "analytics-projection-consumer",
 ];
 
-const source = fs.readFileSync("logic-grpc-service/internal/platform/events/boundary.go", "utf8");
+const source = fs.readFileSync("smart-recruit-domain-go/internal/platform/events/boundary.go", "utf8");
 const missing = [];
 for (const name of required) {
   if (!source.includes(`Name: "${name}"`)) missing.push(`${name}: missing boundary`);

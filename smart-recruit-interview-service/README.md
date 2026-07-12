@@ -20,6 +20,4 @@ GOWORK=off go run ./cmd/interview-service --serve --addr :50063
 
 At runtime it reuses the shared Smart Recruit MySQL schema through existing repositories, registers `InterviewService`, exposes gRPC health, starts the shared metrics endpoint, initializes tracing, and registers the `interview` instance through Nacos discovery when configured.
 
-## Monolith Relationship
-
-Interview traffic remains on `logic-grpc-service` until the Interview service and gateway cutover TASKs pass validation with rollback evidence.
+Gateway traffic targets this service directly through discovery or `INTERVIEW_GRPC_ADDR`.

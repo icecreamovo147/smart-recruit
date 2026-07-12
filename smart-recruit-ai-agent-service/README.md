@@ -20,6 +20,4 @@ GOWORK=off go run ./cmd/ai-agent-service --serve --addr :50066
 
 At runtime it reuses the shared Smart Recruit MySQL schema, registers AI-owned gRPC services for AI, Prompt, AgentConfig, MCP, Skill, AgentSkill, RecruitingIntelligence, and EmbeddingConfig, exposes gRPC health, starts metrics and tracing, registers the `ai-agent` instance through Nacos discovery when configured, and starts RabbitMQ-controlled embedding and agent-run workers.
 
-## Monolith Relationship
-
-AI Agent traffic remains on `logic-grpc-service` until scoped extraction and gateway cutover TASKs pass validation and preserve rollback.
+Gateway traffic targets this service directly through discovery or `AI_AGENT_GRPC_ADDR`.

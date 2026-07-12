@@ -5,18 +5,19 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 	"time"
 
 	"go.uber.org/zap"
 
+	"smart-recruit-gateway/config"
+	_ "smart-recruit-gateway/docs"
 	"smart-recruit-gateway/internal/runtime"
-	"web-gin-service/config"
-	_ "web-gin-service/docs"
-	"web-gin-service/pkg/logger"
-	"web-gin-service/pkg/redisclient"
-	"web-gin-service/router"
-	"web-gin-service/rpc"
+	"smart-recruit-gateway/pkg/logger"
+	"smart-recruit-gateway/pkg/redisclient"
+	"smart-recruit-gateway/router"
+	"smart-recruit-gateway/rpc"
 )
 
 func main() {
@@ -39,7 +40,7 @@ func main() {
 		"offer":        cfg.OfferRouteMode,
 		"notification": cfg.NotificationRouteMode,
 		"ai-agent":     cfg.AIAgentRouteMode,
-		"analytics":    os.Getenv("ANALYTICS_ROUTE_MODE"),
+		"analytics":    envOrDefault("ANALYTICS_ROUTE_MODE", "analytics"),
 	})
 	if err != nil {
 		log.Fatal("gateway route mode validation failed", zap.Error(err))
@@ -51,7 +52,7 @@ func main() {
 		"offer":        cfg.OfferGRPCAddr,
 		"notification": cfg.NotificationGRPCAddr,
 		"ai-agent":     cfg.AIAgentGRPCAddr,
-		"analytics":    os.Getenv("ANALYTICS_GRPC_ADDR"),
+		"analytics":    envOrDefault("ANALYTICS_GRPC_ADDR", "127.0.0.1:50067"),
 	})
 	if err != nil {
 		log.Fatal("gateway route target validation failed", zap.Error(err))
@@ -71,6 +72,8 @@ func main() {
 		InterviewRouteMode:    cfg.InterviewRouteMode,
 		OfferAddr:             cfg.OfferGRPCAddr,
 		OfferRouteMode:        cfg.OfferRouteMode,
+		AnalyticsAddr:         envOrDefault("ANALYTICS_GRPC_ADDR", "127.0.0.1:50067"),
+		AnalyticsRouteMode:    envOrDefault("ANALYTICS_ROUTE_MODE", "analytics"),
 		GRPCInternalTLS:       cfg.GRPCInternalTLS,
 		GRPCTLSCAFile:         cfg.GRPCTLSCAFile,
 		GRPCTLSServerName:     cfg.GRPCTLSServerName,
@@ -120,4 +123,12 @@ func main() {
 		_ = rdb.Close()
 	}
 	log.Info("smart recruit gateway stopped")
+}
+
+func envOrDefault(key string, fallback string) string {
+	value := strings.TrimSpace(os.Getenv(key))
+	if value == "" {
+		return fallback
+	}
+	return value
 }

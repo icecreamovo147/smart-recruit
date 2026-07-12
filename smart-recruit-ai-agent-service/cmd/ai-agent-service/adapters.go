@@ -5,8 +5,8 @@ import (
 
 	"google.golang.org/grpc"
 
-	"logic-grpc-service/recruitment/pb"
-	"logic-grpc-service/service"
+	"smart-recruit-domain-go/service"
+	"smart-recruit-proto/recruitment/pb"
 )
 
 type aiServer struct {

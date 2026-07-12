@@ -25,7 +25,7 @@ func TestConfigProviderFailFastOutsideLocalFallback(t *testing.T) {
 		Env:           "prod",
 		AllowFallback: true,
 		StaticFallback: map[string]string{
-			"gateway.yaml": "routeMode: logic",
+			"gateway.yaml": "routeMode: identity",
 		},
 	})
 	if err == nil {
@@ -38,7 +38,7 @@ func TestStaticConfigProviderFallback(t *testing.T) {
 		Env:           "local",
 		AllowFallback: true,
 		StaticFallback: map[string]string{
-			"gateway.yaml": "routeMode: logic",
+			"gateway.yaml": "routeMode: identity",
 		},
 	})
 	if err != nil {
@@ -48,7 +48,7 @@ func TestStaticConfigProviderFallback(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Load returned error: %v", err)
 	}
-	if value != "routeMode: logic" {
+	if value != "routeMode: identity" {
 		t.Fatalf("unexpected fallback value: %q", value)
 	}
 }
@@ -61,7 +61,7 @@ func TestHTTPConfigProviderLoadsFromNacosAPI(t *testing.T) {
 		if r.URL.Query().Get("dataId") != "gateway.yaml" {
 			t.Fatalf("unexpected dataId: %s", r.URL.Query().Get("dataId"))
 		}
-		_, _ = w.Write([]byte("routeMode: logic"))
+		_, _ = w.Write([]byte("routeMode: identity"))
 	}))
 	defer server.Close()
 
@@ -73,7 +73,7 @@ func TestHTTPConfigProviderLoadsFromNacosAPI(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Load returned error: %v", err)
 	}
-	if value != "routeMode: logic" {
+	if value != "routeMode: identity" {
 		t.Fatalf("unexpected config value: %q", value)
 	}
 }

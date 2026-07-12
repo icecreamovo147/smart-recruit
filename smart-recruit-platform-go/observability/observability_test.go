@@ -23,12 +23,12 @@ func TestNewLoggerAndRedactSecrets(t *testing.T) {
 
 	redacted := RedactSecrets(map[string]string{
 		"grpc_internal_token": "secret",
-		"route_mode":          "logic",
+		"route_mode":          "identity",
 	})
 	if redacted["grpc_internal_token"] != "[REDACTED]" {
 		t.Fatalf("token was not redacted: %#v", redacted)
 	}
-	if redacted["route_mode"] != "logic" {
+	if redacted["route_mode"] != "identity" {
 		t.Fatalf("non-secret field changed: %#v", redacted)
 	}
 }

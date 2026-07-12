@@ -40,7 +40,7 @@ auto_install = true   # fetch the runtime when CodeGraph is enabled but missing
 # Rules are "ToolName" or "ToolName(glob)"; '*' matches any run, '?' one char.
 mode  = "ask"
 # deny = ["bash(rm -rf*)", "bash(git push*)"]   # hard-blocked in every mode
-allow = ["write_file=/Users/nabijia/Desktop/projects/smart-recruit/logic-grpc-service/migrations/000017_add_status_key_and_transitions.sql"]
+allow = ["write_file=/Users/nabijia/Desktop/projects/smart-recruit/smart-recruit-domain-go/migrations/000017_add_status_key_and_transitions.sql"]
 # ask = ["write_file"]   # force a prompt even if otherwise allowed
 
 [sandbox]

@@ -7,7 +7,6 @@ Central protobuf contract source for the extracted Smart Recruit services.
 - Own shared `.proto` definitions and Go generation strategy.
 - Keep generated service contracts aligned for gateway and backend services.
 - Preserve current protobuf compatibility unless a scoped TASK explicitly changes a contract.
-- Provide drift checks so `logic-grpc-service`, `web-gin-service`, and extracted services use the same proto contract.
 
 ## Startup
 
@@ -21,12 +20,12 @@ Install `protoc`, `protoc-gen-go`, and `protoc-gen-go-grpc`, then run:
 ./scripts/generate-go.sh
 ```
 
-Check that canonical proto files and legacy mirrors are aligned:
+Check that generated Go files are aligned with the canonical proto source:
 
 ```bash
 node ../scripts/check-proto-sync.mjs --check
 ```
 
-## Monolith Relationship
+## Ownership
 
-During migration, `logic-grpc-service` and `web-gin-service` remain the runtime fallback. This module becomes the shared contract source used by both legacy and extracted services.
+This module is the only protobuf source root for the Go backend runtime.

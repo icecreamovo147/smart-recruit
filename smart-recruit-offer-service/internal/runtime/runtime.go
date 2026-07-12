@@ -6,7 +6,7 @@ import (
 
 	"google.golang.org/grpc"
 
-	"logic-grpc-service/recruitment/pb"
+	"smart-recruit-proto/recruitment/pb"
 )
 
 const ServiceName = "offer-service"
