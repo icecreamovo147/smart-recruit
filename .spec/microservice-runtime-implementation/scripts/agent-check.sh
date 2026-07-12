@@ -31,6 +31,7 @@ run_cmd "redis prefix check" node scripts/check-redis-prefixes.mjs
 run_cmd "microservice image build target check" bash scripts/build-microservice-images.sh --check
 run_cmd "compose microservice smoke check" bash scripts/compose-microservice-smoke.sh --check
 run_cmd "microservice repo export dry-run" node scripts/export-microservice-repos.mjs --check
+run_cmd "monolith fallback retirement gate" node scripts/check-monolith-fallback-retirement.mjs --check
 
 CHANGED="$(git diff --name-only; git diff --cached --name-only; git ls-files --others --exclude-standard)"
 
