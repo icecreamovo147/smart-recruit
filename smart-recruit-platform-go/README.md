@@ -8,6 +8,12 @@ Shared Go runtime platform for extracted Smart Recruit services.
 - Host Nacos discovery/config, logging, metrics, tracing, health, Redis prefix, and RabbitMQ helpers as later TASKs land them.
 - Keep platform concerns outside domain service packages.
 
+## Packages
+
+- `config`: loads and validates bootstrap runtime settings from environment variables.
+- `servicemeta`: defines service identity and common gRPC metadata headers.
+- `grpcx`: builds baseline gRPC server/client options, including internal-token propagation.
+
 ## Startup
 
 This root is a library module and does not run a server directly. Service modules import it as runtime capabilities are implemented.

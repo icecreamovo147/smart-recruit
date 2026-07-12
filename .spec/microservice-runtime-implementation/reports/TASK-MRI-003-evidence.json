@@ -1,0 +1,134 @@
+{
+  "schemaVersion": 1,
+  "feature_name": "microservice-runtime-implementation",
+  "task_id": "TASK-MRI-003",
+  "base_sha": "2bc7bc91b1935f5e0a30c333a9a30e907613cd21",
+  "base_tree": "960b99e11630a02eed0fd3305ba809a09e9de756",
+  "head_sha": "2bc7bc91b1935f5e0a30c333a9a30e907613cd21",
+  "head_tree": "pending-local-commit",
+  "changed_files": [
+    ".spec/microservice-runtime-implementation/pipeline-state.json",
+    ".spec/microservice-runtime-implementation/reports/TASK-MRI-003-evidence.json",
+    ".spec/microservice-runtime-implementation/reports/TASK-MRI-003-report.md",
+    "smart-recruit-platform-go/README.md",
+    "smart-recruit-platform-go/config/config.go",
+    "smart-recruit-platform-go/config/config_test.go",
+    "smart-recruit-platform-go/go.mod",
+    "smart-recruit-platform-go/go.sum",
+    "smart-recruit-platform-go/grpcx/client.go",
+    "smart-recruit-platform-go/grpcx/grpcx_test.go",
+    "smart-recruit-platform-go/grpcx/server.go",
+    "smart-recruit-platform-go/servicemeta/metadata.go",
+    "smart-recruit-platform-go/servicemeta/metadata_test.go"
+  ],
+  "scope": {
+    "status": "passed",
+    "command": "TASK_BASE_TREE=960b99e11630a02eed0fd3305ba809a09e9de756 bash .spec/microservice-runtime-implementation/scripts/check-task-scope.sh TASK-MRI-003",
+    "classification": "current",
+    "out_of_scope": [],
+    "forbidden": [],
+    "allowed_patterns": [
+      "smart-recruit-platform-go/**",
+      "go.work",
+      ".spec/microservice-runtime-implementation/**"
+    ]
+  },
+  "checks": [
+    {
+      "command": "git diff --name-only",
+      "exit_code": 0,
+      "status": "passed",
+      "started_at": "2026-07-12T06:40:58.505Z",
+      "duration_ms": 34
+    },
+    {
+      "command": "cd smart-recruit-platform-go && GOWORK=off go test ./...",
+      "exit_code": 0,
+      "status": "passed",
+      "started_at": "2026-07-12T06:40:58.553Z",
+      "duration_ms": 809
+    },
+    {
+      "command": "node .knowledge/scripts/detect-impact.mjs --root . --base-tree 960b99e11630a02eed0fd3305ba809a09e9de756 --json",
+      "exit_code": 0,
+      "status": "passed",
+      "started_at": "2026-07-12T06:40:59.363Z",
+      "duration_ms": 2067
+    },
+    {
+      "command": "TASK_BASE_TREE=960b99e11630a02eed0fd3305ba809a09e9de756 bash .spec/microservice-runtime-implementation/scripts/check-task-scope.sh TASK-MRI-003",
+      "exit_code": 0,
+      "status": "passed",
+      "started_at": "2026-07-12T06:41:01.431Z",
+      "duration_ms": 351
+    },
+    {
+      "command": "bash .spec/microservice-runtime-implementation/scripts/agent-check.sh",
+      "exit_code": 0,
+      "status": "passed",
+      "started_at": "2026-07-12T06:41:01.783Z",
+      "duration_ms": 1123
+    },
+    {
+      "command": "node .agents/skills/spec-harness/scripts/validate-evidence.mjs --file .spec/microservice-runtime-implementation/reports/TASK-MRI-003-evidence.json",
+      "exit_code": 0,
+      "status": "passed",
+      "started_at": "2026-07-12T06:41:23.197Z",
+      "duration_ms": 95
+    }
+  ],
+  "review": {
+    "reviewer_type": "self-review",
+    "round": 1,
+    "verdict": "通过",
+    "findings": [
+      "Knowledge impact reported coverage_gap for smart-recruit-platform-go/config/**; TASK-MRI-003 scope does not allow .knowledge edits, so the debt is recorded for a later knowledge-scope task."
+    ]
+  },
+  "human_confirmation": {
+    "required": false,
+    "confirmed": true,
+    "confirmed_at": "2026-07-12T06:45:00Z",
+    "source": "TASK-MRI-003 does not require human confirmation; harness-pipeline execution was explicitly requested by the user."
+  },
+  "exceptions": [],
+  "skipped_checks": [
+    {
+      "check": "Live gRPC listener startup",
+      "reason": "TASK-MRI-003 provides reusable server/client construction APIs; service-specific startup is assigned to later TASKs."
+    }
+  ],
+  "knowledgeImpact": {
+    "result": "coverage_gap",
+    "triggeredBy": [
+      "configuration-changed",
+      "covered-path-changed",
+      "recurring-defect-fixed"
+    ],
+    "reviewResults": [
+      {
+        "document": ".knowledge/architecture/system-overview.md",
+        "verdict": "UNCHANGED",
+        "evidence": [
+          "Reviewed active source_refs; TASK-MRI-003 adds an extracted platform library without changing active monolith runtime traffic."
+        ]
+      },
+      {
+        "document": ".knowledge/runbooks/local-development.md",
+        "verdict": "UNCHANGED",
+        "evidence": [
+          "Reviewed active local startup guidance; TASK-MRI-003 does not alter current start-dev, docker, or frontend commands."
+        ]
+      },
+      {
+        "document": "smart-recruit-platform-go/config/** route",
+        "verdict": "CANDIDATE",
+        "evidence": [
+          "detect-impact reported coverage_gap for smart-recruit-platform-go/config/config.go and config_test.go."
+        ]
+      }
+    ],
+    "coverageGap": true,
+    "validationExitCode": 0
+  }
+}
