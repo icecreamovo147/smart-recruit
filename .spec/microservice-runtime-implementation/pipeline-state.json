@@ -1,0 +1,26 @@
+{
+  "schemaVersion": 1,
+  "feature_name": "microservice-runtime-implementation",
+  "current_task": "TASK-MRI-002",
+  "current_phase": "pending",
+  "completed_tasks": [
+    "TASK-MRI-001"
+  ],
+  "blocked_tasks": [],
+  "failed_tasks": [],
+  "skipped_human_confirmation_tasks": [],
+  "approved_exceptions": [],
+  "review_round": 0,
+  "status": "in_progress",
+  "task_runs": {
+    "TASK-MRI-001": {
+      "base_sha": "96ffcaf562ebb4e49176f589563068a14f0a9ab4",
+      "base_tree": "b8ffa2719d35cca0d0d0fbef835e0ca7e3b52bc0",
+      "head_sha": "96ffcaf562ebb4e49176f589563068a14f0a9ab4",
+      "scope_status": "passed",
+      "checks_status": "passed",
+      "review_verdict": "通过",
+      "evidence": ".spec/microservice-runtime-implementation/reports/TASK-MRI-001-evidence.json"
+    }
+  }
+}
