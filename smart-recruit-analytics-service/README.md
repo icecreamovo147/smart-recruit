@@ -10,8 +10,14 @@ Independent Analytics service source root.
 
 ## Startup
 
-Later TASKs add service runtime, config, health, metrics, tracing, and Docker support. Until then, this root is a scaffolded Go module.
+```bash
+GOWORK=off go test ./...
+GOWORK=off go run ./cmd/analytics-service --check
+GOWORK=off go run ./cmd/analytics-service --serve
+```
+
+The service registers the Analytics reporting subset of `AdminService` and uses the shared MySQL instance for Analytics-owned projection/read-model queries. It loads bootstrap config from environment and Nacos Config, registers discovery in Nacos, and exposes gRPC health plus metrics/trace/logging wiring.
 
 ## Monolith Relationship
 
-Analytics traffic remains on `logic-grpc-service` until Analytics extraction and gateway route-mode validation is complete.
+Analytics traffic remains on `logic-grpc-service` until Analytics gateway route-mode validation is complete. The standalone runtime preserves rollback by registering the same protobuf reporting methods without changing public HTTP behavior.

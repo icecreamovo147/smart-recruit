@@ -1,4 +1,4 @@
-// Package analytics marks the extracted Smart Recruit Analytics service module.
+// Package analytics marks the extracted Smart Recruit analytics-service module.
 package analytics
 
-const ServiceName = "smart-recruit-analytics-service"
+const ServiceName = "analytics-service"
