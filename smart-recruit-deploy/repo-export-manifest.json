@@ -1,0 +1,17 @@
+{
+  "schemaVersion": 1,
+  "defaultBranch": "main",
+  "repositories": [
+    {"repo": "smart-recruit-platform-go", "sourceDir": "smart-recruit-platform-go", "defaultBranch": "main", "buildCommands": ["go test ./..."]},
+    {"repo": "smart-recruit-proto", "sourceDir": "smart-recruit-proto", "defaultBranch": "main", "buildCommands": ["go test ./..."]},
+    {"repo": "smart-recruit-gateway", "sourceDir": "smart-recruit-gateway", "defaultBranch": "main", "buildCommands": ["go test ./...", "go build ./cmd/gateway"]},
+    {"repo": "smart-recruit-identity-service", "sourceDir": "smart-recruit-identity-service", "defaultBranch": "main", "buildCommands": ["go test ./...", "go build ./cmd/identity-service"]},
+    {"repo": "smart-recruit-recruitment-service", "sourceDir": "smart-recruit-recruitment-service", "defaultBranch": "main", "buildCommands": ["go test ./...", "go build ./cmd/recruitment-service"]},
+    {"repo": "smart-recruit-interview-service", "sourceDir": "smart-recruit-interview-service", "defaultBranch": "main", "buildCommands": ["go test ./...", "go build ./cmd/interview-service"]},
+    {"repo": "smart-recruit-offer-service", "sourceDir": "smart-recruit-offer-service", "defaultBranch": "main", "buildCommands": ["go test ./...", "go build ./cmd/offer-service"]},
+    {"repo": "smart-recruit-notification-service", "sourceDir": "smart-recruit-notification-service", "defaultBranch": "main", "buildCommands": ["go test ./...", "go build ./cmd/notification-service"]},
+    {"repo": "smart-recruit-ai-agent-service", "sourceDir": "smart-recruit-ai-agent-service", "defaultBranch": "main", "buildCommands": ["go test ./...", "go build ./cmd/ai-agent-service"]},
+    {"repo": "smart-recruit-analytics-service", "sourceDir": "smart-recruit-analytics-service", "defaultBranch": "main", "buildCommands": ["go test ./...", "go build ./cmd/analytics-service"]},
+    {"repo": "smart-recruit-worker-service", "sourceDir": "smart-recruit-worker-service", "defaultBranch": "main", "buildCommands": ["go test ./...", "go build ./cmd/worker-service"]}
+  ]
+}
