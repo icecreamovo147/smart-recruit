@@ -10,7 +10,14 @@ Independent Identity service source root.
 
 ## Startup
 
-Later TASKs add service runtime, config, health, metrics, tracing, and Docker support. Until then, this root is a scaffolded Go module.
+This root now contains an explicit Identity gRPC runtime:
+
+```bash
+go run ./cmd/identity-service --check
+go run ./cmd/identity-service --serve --addr :50061
+```
+
+The runtime reuses the existing repository/service implementation against the shared MySQL schema, registers `AuthService` plus the Identity-owned `AdminService` subset, and initializes Nacos discovery/config, gRPC health, metrics, trace, and structured logs. Gateway traffic still remains on `logic` until the scoped cutover TASK records rollback evidence.
 
 ## Monolith Relationship
 
