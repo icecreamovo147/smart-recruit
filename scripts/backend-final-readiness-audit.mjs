@@ -5,12 +5,14 @@ import path from "node:path";
 const args = parseArgs(process.argv.slice(2));
 const root = process.cwd();
 const featureDir = path.resolve(root, args["feature-dir"] || ".spec/backend-ddd-microservices-evolution");
+const featureDocsDir = path.join(featureDir, "docs");
+const featureDocsRel = path.relative(root, featureDocsDir);
 const allowCurrentTask = args["allow-current-task"] || "";
 const output = args.output || "";
 
 const taskScope = readJSON(path.join(featureDir, "task-scope.json"));
 const state = readJSON(path.join(featureDir, "pipeline-state.json"));
-const tableManifest = readJSON(path.join(root, "docs/backend-ddd-microservices-evolution-table-ownership-manifest.json"));
+const tableManifest = readJSON(path.join(featureDocsDir, "backend-ddd-microservices-evolution-table-ownership-manifest.json"));
 const taskIds = Object.keys(taskScope.tasks || {});
 const completed = new Set(state.completed_tasks || []);
 const missingEvidence = [];
@@ -23,15 +25,15 @@ for (const taskId of taskIds) {
 }
 
 const requiredArtifacts = [
-  "docs/backend-ddd-microservices-evolution-architecture-baseline.md",
-  "docs/backend-ddd-microservices-evolution-bounded-context-contract.md",
-  "docs/backend-ddd-microservices-evolution-table-ownership-manifest.json",
-  "docs/backend-ddd-microservices-evolution-schema-separation-plan.md",
-  "docs/backend-ddd-microservices-evolution-internal-service-security.md",
-  "docs/backend-ddd-microservices-evolution-observability-baseline.md",
-  "docs/backend-ddd-microservices-evolution-deployment-readiness-baseline.md",
-  "docs/backend-ddd-microservices-evolution-load-test-harness.md",
-  "docs/backend-ddd-microservices-evolution-load-test-initial-evidence.json",
+  path.join(featureDocsRel, "backend-ddd-microservices-evolution-architecture-baseline.md"),
+  path.join(featureDocsRel, "backend-ddd-microservices-evolution-bounded-context-contract.md"),
+  path.join(featureDocsRel, "backend-ddd-microservices-evolution-table-ownership-manifest.json"),
+  path.join(featureDocsRel, "backend-ddd-microservices-evolution-schema-separation-plan.md"),
+  path.join(featureDocsRel, "backend-ddd-microservices-evolution-internal-service-security.md"),
+  path.join(featureDocsRel, "backend-ddd-microservices-evolution-observability-baseline.md"),
+  path.join(featureDocsRel, "backend-ddd-microservices-evolution-deployment-readiness-baseline.md"),
+  path.join(featureDocsRel, "backend-ddd-microservices-evolution-load-test-harness.md"),
+  path.join(featureDocsRel, "backend-ddd-microservices-evolution-load-test-initial-evidence.json"),
   "scripts/check-backend-boundaries.mjs",
   "scripts/check-table-ownership.mjs",
   "scripts/backend-load-test.mjs",

@@ -6,7 +6,7 @@ import process from "node:process";
 
 const repoRoot = process.cwd();
 const schemaPath = path.join(repoRoot, "db.sql");
-const manifestPath = path.join(repoRoot, "docs/backend-ddd-microservices-evolution-table-ownership-manifest.json");
+const manifestPath = path.join(repoRoot, ".spec/backend-ddd-microservices-evolution/docs/backend-ddd-microservices-evolution-table-ownership-manifest.json");
 
 function loadJson(file) {
   try {

@@ -27,7 +27,7 @@ Default execution does not:
 - bind a network listener;
 - receive gateway traffic.
 
-When `--serve` is explicitly provided, the runtime registers the existing `AuthService` and Identity-owned `AdminService` subset described in `docs/backend-ddd-microservices-evolution-identity-api-extraction.md`. It does not run migrations, seed RBAC data, start workers, or receive gateway traffic.
+When `--serve` is explicitly provided, the runtime registers the existing `AuthService` and Identity-owned `AdminService` subset described in `.spec/backend-ddd-microservices-evolution/docs/backend-ddd-microservices-evolution-identity-api-extraction.md`. It does not run migrations, seed RBAC data, start workers, or receive gateway traffic.
 
 ## Compatibility
 

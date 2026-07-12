@@ -15,8 +15,8 @@ This review does not perform production schema separation, public API changes, f
 | --- | --- | --- |
 | Backend boundary imports | `node scripts/check-backend-boundaries.mjs` | PASS |
 | Table ownership manifest | `node scripts/check-table-ownership.mjs` | PASS: 67 tables, 6 transitional shared access entries |
-| Final readiness audit | `node scripts/backend-final-readiness-audit.mjs --feature-dir .spec/backend-ddd-microservices-evolution --allow-current-task TASK-BDME-052 --output docs/backend-ddd-microservices-evolution-final-readiness-audit.json` | PASS |
-| Load-test target matrix | `docs/backend-ddd-microservices-evolution-load-test-initial-evidence.json` | Dry-run evidence generated |
+| Final readiness audit | `node scripts/backend-final-readiness-audit.mjs --feature-dir .spec/backend-ddd-microservices-evolution --allow-current-task TASK-BDME-052 --output .spec/backend-ddd-microservices-evolution/docs/backend-ddd-microservices-evolution-final-readiness-audit.json` | PASS |
+| Load-test target matrix | `.spec/backend-ddd-microservices-evolution/docs/backend-ddd-microservices-evolution-load-test-initial-evidence.json` | Dry-run evidence generated |
 | Knowledge validation | `node .knowledge/scripts/validate-knowledge.mjs --root .` | PASS |
 | Harness agent check | `bash .spec/backend-ddd-microservices-evolution/scripts/agent-check.sh` | PASS |
 

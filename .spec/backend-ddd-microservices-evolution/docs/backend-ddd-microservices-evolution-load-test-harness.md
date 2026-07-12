@@ -26,7 +26,7 @@ Default dry run:
 ```bash
 node scripts/backend-load-test.mjs \
   --dry-run \
-  --output docs/backend-ddd-microservices-evolution-load-test-initial-evidence.json
+  --output .spec/backend-ddd-microservices-evolution/docs/backend-ddd-microservices-evolution-load-test-initial-evidence.json
 ```
 
 Example live smoke run against a local gateway:
@@ -50,7 +50,7 @@ node scripts/backend-load-test.mjs \
   --write-path /api/v1/<safe-test-write-endpoint> \
   --ai-concurrency 20 \
   --ai-path /api/v1/<safe-test-ai-submit-endpoint> \
-  --output docs/backend-ddd-microservices-evolution-load-test-live-evidence.json
+  --output .spec/backend-ddd-microservices-evolution/docs/backend-ddd-microservices-evolution-load-test-live-evidence.json
 ```
 
 Write and AI paths are intentionally caller-supplied. The repository does not contain production-safe credentials, disposable tenant data, or a dedicated write fixture endpoint, so the checked-in harness must not guess a mutating route.
@@ -59,7 +59,7 @@ Write and AI paths are intentionally caller-supplied. The repository does not co
 
 TASK-BDME-051 executed the dry-run command and wrote:
 
-`docs/backend-ddd-microservices-evolution-load-test-initial-evidence.json`
+`.spec/backend-ddd-microservices-evolution/docs/backend-ddd-microservices-evolution-load-test-initial-evidence.json`
 
 The dry run validates that the harness can generate the agreed target matrix. It does not claim live latency compliance because this environment does not provide a running backend stack, authenticated test users, seeded write fixtures, AI provider credentials, or isolated load-test infrastructure.
 
@@ -71,7 +71,7 @@ Current code evidence for asynchronous AI/Embedding work remains:
 
 - `logic-grpc-service/service/ai_agent_runtime.go` composes durable agent-run and embedding runtime workers.
 - `logic-grpc-service/cmd/worker-services` names agent-run and embedding worker workloads for later independent scaling.
-- `docs/backend-ddd-microservices-evolution-ai-agent-runtime-extraction.md` records the extracted AI Agent runtime boundary and remaining cutover controls.
+- `.spec/backend-ddd-microservices-evolution/docs/backend-ddd-microservices-evolution-ai-agent-runtime-extraction.md` records the extracted AI Agent runtime boundary and remaining cutover controls.
 
 ## Environment Limits
 

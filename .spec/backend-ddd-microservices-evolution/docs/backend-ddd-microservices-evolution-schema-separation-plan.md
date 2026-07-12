@@ -7,7 +7,7 @@ This plan prepares service-specific schema or physical database separation after
 ## Authority
 
 - Source schema: `db.sql`.
-- Ownership source: `docs/backend-ddd-microservices-evolution-table-ownership-manifest.json`.
+- Ownership source: `.spec/backend-ddd-microservices-evolution/docs/backend-ddd-microservices-evolution-table-ownership-manifest.json`.
 - Drift check: `node scripts/check-table-ownership.mjs`.
 - Target RTO: 30 minutes.
 - Target RPO: 5 minutes.
