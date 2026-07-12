@@ -33,3 +33,7 @@ cutoverExamples:
     routeMode: offer
     grpcAddr: smart-recruit-offer-service:50064
     rollbackRouteMode: logic
+  notification:
+    routeMode: notification
+    grpcAddr: smart-recruit-notification-service:50065
+    rollbackRouteMode: logic
