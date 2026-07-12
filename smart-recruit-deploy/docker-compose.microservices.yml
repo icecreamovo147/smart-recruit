@@ -1,0 +1,144 @@
+name: smart-recruit-microservices
+
+services:
+  nacos:
+    image: nacos/nacos-server:v2.4.3
+    container_name: smart-recruit-nacos
+    profiles: ["infra"]
+    environment:
+      MODE: standalone
+      PREFER_HOST_MODE: hostname
+      NACOS_AUTH_ENABLE: "false"
+    ports:
+      - "8848:8848"
+      - "9848:9848"
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://localhost:8848/nacos/v1/console/health/readiness | grep -q UP"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+
+  mysql:
+    image: mysql:8.0
+    container_name: smart-recruit-mysql
+    profiles: ["infra"]
+    command: --default-authentication-plugin=mysql_native_password
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-smart_recruit_local_root}
+      MYSQL_DATABASE: ${MYSQL_DATABASE:-recruitment}
+      TZ: ${TZ:-Asia/Shanghai}
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD-SHELL", "mysqladmin ping -h localhost -p$${MYSQL_ROOT_PASSWORD}"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+
+  redis:
+    image: redis:7-alpine
+    container_name: smart-recruit-redis
+    profiles: ["infra"]
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 12
+
+  rabbitmq:
+    image: rabbitmq:4.2.3-management-alpine
+    container_name: smart-recruit-rabbitmq
+    profiles: ["infra"]
+    environment:
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_DEFAULT_USER:-guest}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_DEFAULT_PASS:-guest}
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "check_port_connectivity"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+
+  prometheus:
+    image: prom/prometheus:v2.55.1
+    container_name: smart-recruit-prometheus
+    profiles: ["observability"]
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --storage.tsdb.path=/prometheus
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./observability/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus_data:/prometheus
+
+  grafana:
+    image: grafana/grafana:11.4.0
+    container_name: smart-recruit-grafana
+    profiles: ["observability"]
+    environment:
+      GF_SECURITY_ADMIN_USER: ${GRAFANA_ADMIN_USER:-admin}
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:-admin}
+    ports:
+      - "3000:3000"
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./observability/grafana/provisioning:/etc/grafana/provisioning:ro
+
+  jaeger:
+    image: jaegertracing/all-in-one:1.63.0
+    container_name: smart-recruit-jaeger
+    profiles: ["observability"]
+    environment:
+      COLLECTOR_OTLP_ENABLED: "true"
+    ports:
+      - "16686:16686"
+      - "4317:4317"
+      - "4318:4318"
+
+  loki:
+    image: grafana/loki:3.3.2
+    container_name: smart-recruit-loki
+    profiles: ["observability"]
+    command: -config.file=/etc/loki/local-config.yaml
+    ports:
+      - "3100:3100"
+    volumes:
+      - ./observability/loki.yml:/etc/loki/local-config.yaml:ro
+      - loki_data:/loki
+
+  logic-grpc-service:
+    profiles: ["compat"]
+    extends:
+      file: ../docker/docker-compose.yml
+      service: logic-grpc-service
+
+  web-gin-service:
+    profiles: ["compat"]
+    extends:
+      file: ../docker/docker-compose.yml
+      service: web-gin-service
+
+  services-profile-placeholder:
+    image: busybox:1.37
+    container_name: smart-recruit-services-placeholder
+    profiles: ["services"]
+    command: ["sh", "-c", "echo services profile is populated by service runtime tasks; sleep 1"]
+
+volumes:
+  mysql_data:
+  redis_data:
+  rabbitmq_data:
+  prometheus_data:
+  grafana_data:
+  loki_data:

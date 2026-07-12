@@ -1,0 +1,131 @@
+{
+  "schemaVersion": 1,
+  "feature_name": "microservice-runtime-implementation",
+  "task_id": "TASK-MRI-006",
+  "base_sha": "5d0272b93f62cf3c984f593cb76e299089776d65",
+  "base_tree": "95b71b2d76fdf3c9b76dd5ae7930df00c4f040c1",
+  "head_sha": "5d0272b93f62cf3c984f593cb76e299089776d65",
+  "head_tree": "pending-local-commit",
+  "changed_files": [
+    ".spec/microservice-runtime-implementation/pipeline-state.json",
+    ".spec/microservice-runtime-implementation/reports/TASK-MRI-006-evidence.json",
+    ".spec/microservice-runtime-implementation/reports/TASK-MRI-006-report.md",
+    "smart-recruit-deploy/README.md",
+    "smart-recruit-deploy/docker-compose.microservices.yml",
+    "smart-recruit-deploy/nacos/seed-config/README.md",
+    "smart-recruit-deploy/nacos/seed-config/gateway.yaml",
+    "smart-recruit-deploy/nacos/seed-config/services.yaml",
+    "smart-recruit-deploy/observability/grafana/provisioning/datasources/datasources.yml",
+    "smart-recruit-deploy/observability/loki.yml",
+    "smart-recruit-deploy/observability/prometheus.yml"
+  ],
+  "scope": {
+    "status": "passed",
+    "command": "TASK_BASE_TREE=95b71b2d76fdf3c9b76dd5ae7930df00c4f040c1 bash .spec/microservice-runtime-implementation/scripts/check-task-scope.sh TASK-MRI-006",
+    "classification": "current",
+    "out_of_scope": [],
+    "forbidden": [],
+    "allowed_patterns": [
+      "smart-recruit-deploy/**",
+      "docker/**",
+      "deploy/**",
+      "docs/**",
+      ".spec/microservice-runtime-implementation/**"
+    ]
+  },
+  "checks": [
+    {
+      "command": "git diff --name-only",
+      "exit_code": 0,
+      "status": "passed",
+      "started_at": "2026-07-12T06:55:29.128Z",
+      "duration_ms": 31
+    },
+    {
+      "command": "docker-compose -f smart-recruit-deploy/docker-compose.microservices.yml --profile infra --profile observability --profile services --profile compat config",
+      "exit_code": 0,
+      "status": "passed",
+      "started_at": "2026-07-12T06:55:29.172Z",
+      "duration_ms": 149
+    },
+    {
+      "command": "nacos seed yaml secret scan",
+      "exit_code": 0,
+      "status": "passed",
+      "started_at": "2026-07-12T06:55:29.322Z",
+      "duration_ms": 387
+    },
+    {
+      "command": "node .knowledge/scripts/detect-impact.mjs --root . --base-tree 95b71b2d76fdf3c9b76dd5ae7930df00c4f040c1 --json",
+      "exit_code": 0,
+      "status": "passed",
+      "started_at": "2026-07-12T06:55:29.710Z",
+      "duration_ms": 323
+    },
+    {
+      "command": "TASK_BASE_TREE=95b71b2d76fdf3c9b76dd5ae7930df00c4f040c1 bash .spec/microservice-runtime-implementation/scripts/check-task-scope.sh TASK-MRI-006",
+      "exit_code": 0,
+      "status": "passed",
+      "started_at": "2026-07-12T06:55:30.033Z",
+      "duration_ms": 103
+    },
+    {
+      "command": "bash .spec/microservice-runtime-implementation/scripts/agent-check.sh",
+      "exit_code": 0,
+      "status": "passed",
+      "started_at": "2026-07-12T06:55:30.137Z",
+      "duration_ms": 490
+    },
+    {
+      "command": "node .agents/skills/spec-harness/scripts/validate-evidence.mjs --file .spec/microservice-runtime-implementation/reports/TASK-MRI-006-evidence.json",
+      "exit_code": 0,
+      "status": "passed",
+      "started_at": "2026-07-12T06:55:54.489Z",
+      "duration_ms": 44
+    }
+  ],
+  "review": {
+    "reviewer_type": "self-review",
+    "round": 1,
+    "verdict": "通过",
+    "findings": []
+  },
+  "human_confirmation": {
+    "required": false,
+    "confirmed": true,
+    "confirmed_at": "2026-07-12T06:57:00Z",
+    "source": "TASK-MRI-006 does not require human confirmation; harness-pipeline execution was explicitly requested by the user."
+  },
+  "exceptions": [],
+  "skipped_checks": [
+    {
+      "check": "docker compose up",
+      "reason": "TASK-MRI-006 validates compose structure with docker-compose config; full runtime startup smoke is assigned to TASK-MRI-029."
+    }
+  ],
+  "knowledgeImpact": {
+    "result": "update_required",
+    "triggeredBy": [
+      "configuration-changed",
+      "covered-path-changed"
+    ],
+    "reviewResults": [
+      {
+        "document": ".knowledge/architecture/system-overview.md",
+        "verdict": "UNCHANGED",
+        "evidence": [
+          "Reviewed active source_refs; TASK-MRI-006 adds deploy assets without changing current active runtime traffic."
+        ]
+      },
+      {
+        "document": ".knowledge/runbooks/local-development.md",
+        "verdict": "UNCHANGED",
+        "evidence": [
+          "Reviewed active local startup guidance; TASK-MRI-006 adds a new compose file while preserving existing start-dev and docker compose paths."
+        ]
+      }
+    ],
+    "coverageGap": false,
+    "validationExitCode": 0
+  }
+}

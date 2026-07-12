@@ -1,0 +1,16 @@
+service:
+  name: smart-recruit-gateway
+  env: local
+routeModes:
+  identity: logic
+  recruitment: logic
+  interview: logic
+  offer: logic
+  notification: logic
+  aiAgent: logic
+  analytics: logic
+timeouts:
+  read: 10s
+  write: 10s
+fallback:
+  staticDiscovery: true
