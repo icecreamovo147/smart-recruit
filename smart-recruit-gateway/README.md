@@ -18,6 +18,10 @@ go run ./cmd/gateway
 
 The entry point reuses the current `web-gin-service` router/config/rpc packages during migration to preserve HTTP behavior, while the module also imports the unified `smart-recruit-proto` and `smart-recruit-platform-go` foundations for later Nacos discovery/config cutover.
 
+## Nacos Runtime
+
+`internal/runtime` includes Nacos config/discovery helpers. Local development can enable explicit static fallback; non-local environments fail fast when `NACOS_ADDR` is missing.
+
 ## Monolith Relationship
 
 `web-gin-service` remains the active gateway fallback until scoped gateway cutover TASKs provide compatibility and rollback evidence.
