@@ -12,4 +12,5 @@ use (
 	./smart-recruit-proto
 	./smart-recruit-recruitment-service
 	./smart-recruit-worker-service
+	./web-gin-service
 )

@@ -10,7 +10,13 @@ Independent HTTP gateway source root for Smart Recruit.
 
 ## Startup
 
-Later TASKs add `cmd/gateway/main.go`, config, Dockerfile, and route-mode wiring. Until then, this root is a scaffolded Go module.
+This root now contains a compatibility gateway entry point:
+
+```bash
+go run ./cmd/gateway
+```
+
+The entry point reuses the current `web-gin-service` router/config/rpc packages during migration to preserve HTTP behavior, while the module also imports the unified `smart-recruit-proto` and `smart-recruit-platform-go` foundations for later Nacos discovery/config cutover.
 
 ## Monolith Relationship
 
