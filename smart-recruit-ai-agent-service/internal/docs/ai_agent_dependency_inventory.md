@@ -86,6 +86,34 @@ local unit tests. The active gRPC runtime still delegates to the shared AI
 implementation until later TASKs add local infrastructure/interfaces adapters
 and cut over safely.
 
+## Local MCP, Skill, Embedding, And Intelligence Boundary
+
+TASK-024 localizes the second AI Agent domain/application surface without
+changing active runtime wiring, protobuf contracts, schema, provider behavior,
+or security policy.
+
+- `domain/model/capability.go` defines local MCP server/policy, Skill manifest
+  and version, Agent Skill selection, embedding provider/model/runtime state,
+  and candidate match aggregation value objects.
+- `domain/policy/capability.go` owns MCP transport safety validation,
+  private-network denial, command allowlist checks, MCP tool policy evaluation,
+  Skill manifest validation/versioning, Agent Skill selection gates, embedding
+  runtime availability/fallback, and candidate match score aggregation.
+- `domain/repository/capability.go` defines local ports for MCP policy lookup,
+  Skill/Agent Skill records, embedding default config lookup, and candidate
+  match persistence.
+- `application/service/capability_service.go` orchestrates MCP policy
+  evaluation, Skill version creation/activation, Agent Skill selection,
+  embedding runtime resolution, and candidate match aggregation through local
+  ports.
+
+Compatibility tests pin no-policy allow, deny/role/scope/args/rate/confirmation
+MCP decisions, private-network and stdio allowlist restrictions, Skill version
+creation, embedding unavailable fallback, and candidate knockout scoring. Active
+gRPC runtime still delegates to shared AI/MCP/embedding/intelligence
+implementations until TASK-025 adds local infrastructure/interfaces adapters and
+cuts over safely.
+
 ## Security And Safety Dependencies
 
 - Provider credentials and encryption keys must never be logged or committed.
