@@ -32,7 +32,9 @@ func TestRuntimeRequiresOfferDependency(t *testing.T) {
 	}
 }
 
-type fakeOfferAPI struct{}
+type fakeOfferAPI struct {
+	pb.UnimplementedOfferServiceServer
+}
 
 func (fakeOfferAPI) CreateOffer(context.Context, *pb.CreateOfferRequest) (*pb.CreateOfferResponse, error) {
 	return &pb.CreateOfferResponse{Code: errs.OK}, nil

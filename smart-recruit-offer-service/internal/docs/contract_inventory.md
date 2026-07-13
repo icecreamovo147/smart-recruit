@@ -2,13 +2,13 @@
 
 ## 1. Purpose
 
-This inventory is the TASK-003 baseline for the Offer pilot migration in `.spec/microservice-ddd-evolution`.
+This inventory tracks the Offer pilot migration state in `.spec/microservice-ddd-evolution`.
 
-It records the current public contract, runtime wiring, shared-domain dependencies, table access boundary, and test coverage before moving Offer business rules into local DDD layers.
+It records the current public contract, runtime wiring, shared-domain dependencies, table access boundary, and test coverage as Offer moves into local DDD layers.
 
 This document does not change protobuf, runtime registration, persistence behavior, schema, or user-visible behavior.
 
-## 2. Current Local DDD Skeleton
+## 2. Current Local DDD Layers
 
 The Offer service now has the target DDD package shape under `internal/`:
 
@@ -34,7 +34,9 @@ internal/
   runtime/
 ```
 
-Current skeleton packages contain only package-level documentation and no behavior. Runtime still uses the existing shared `smart-recruit-domain-go/service.OfferService` path.
+TASK-004 moved Offer domain model, lifecycle policy, domain events, repository port, command/query DTOs, application ports, and application service orchestration into these local packages.
+
+TASK-005 moves runtime registration to a local `interfaces/grpc` adapter backed by the local application service. The service no longer wires `smart-recruit-domain-go/service.OfferService` on the active runtime path.
 
 ## 3. Protobuf and Runtime Contract
 
@@ -44,7 +46,7 @@ Current runtime registration:
 - `pb.RegisterOfferServiceServer`
 - Service descriptor: `pb.OfferService_ServiceDesc.ServiceName`
 
-Current `OfferAPI` methods exposed by runtime:
+Current local `pb.OfferServiceServer` methods exposed by runtime:
 
 - `CreateOffer`
 - `UpdateOffer`
@@ -59,53 +61,41 @@ Current `OfferAPI` methods exposed by runtime:
 
 Compatibility rule:
 
-- TASK-003 does not change protobuf request/response types, rpc names, error mapping, route mode, gateway behavior, or runtime registration behavior.
+- TASK-005 does not change protobuf request/response types, rpc names, route mode, gateway behavior, or runtime registration behavior.
+- Error mapping remains compatible: actor metadata mismatch returns gRPC error, permission/scope errors map to forbidden responses, and Offer business/state errors map to bad request responses.
 
 ## 4. Current Shared Dependency Baseline
 
 Current direct imports in `cmd/offer-service/main.go`:
 
 - `smart-recruit-domain-go/repository`
-- `smart-recruit-domain-go/service`
+- local `internal/application/service`
+- local `internal/infrastructure/client`
+- local `internal/infrastructure/mq`
+- local `internal/infrastructure/persistence`
+- local `internal/interfaces/grpc`
 
 Current direct import in runtime:
 
 - `smart-recruit-proto/recruitment/pb`
 
-Current shared service construction:
+Current local service construction:
 
-- `buildDomainServices` returns `*service.Services`
-- runtime dependency uses `services.Offer`
+- `buildOfferServer` constructs only the Offer dependencies required by the local application service.
+- runtime dependency uses local `interfaces/grpc.Server`, not shared `service.OfferService`.
 
-Current repositories constructed for the Offer runtime:
+Current shared repository/model usage retained as temporary infrastructure debt:
 
-- `repository.NewUserRepo`
-- `repository.NewRefreshTokenRepo`
 - `repository.NewJobRepo`
-- `repository.NewProfileRepo`
-- `repository.NewResumeRepo`
 - `repository.NewApplicationRepo`
-- `repository.NewInterviewRepo`
 - `repository.NewOfferRepo`
-- `repository.NewNotificationRepo`
 - `repository.NewOutboxRepo`
 - `repository.NewAuthzRepo`
-- `repository.NewChatRepo`
-- `repository.NewSessionSummaryRepo`
-- `repository.NewToolTraceRepo`
-- `repository.NewAgentRunRepo`
-- `repository.NewMemoryRepo`
-- `repository.NewInviteCodeRepo`
-- `repository.NewDepartmentRepo`
-- `repository.NewJobLocationRepo`
-- `repository.NewDepartmentLocationRepo`
-- `repository.NewUsageLogRepo`
-- `repository.NewEmailLogRepo`
 
 Migration implication:
 
-- TASK-004 should replace Offer lifecycle rules, repository ports, and application orchestration locally while keeping the runtime path compatible.
-- TASK-005 should replace runtime/interface/infrastructure wiring so the service no longer directly depends on shared `service.OfferService`, or records any remaining dependency as temporary debt.
+- TASK-005 clears direct shared `service.OfferService` wiring.
+- Remaining shared `repository`/`model` imports are infrastructure-only adapters and must be revisited when shared business model cleanup tasks run.
 
 ## 5. Table Access Boundary
 
@@ -124,12 +114,12 @@ Allowed shared/platform write:
 
 - `event_outbox` (owner: platform)
 
-No TASK-003 change modifies these ownership rules.
+No TASK-005 change modifies these ownership rules.
 
 Risk to track in later TASKs:
 
-- Current shared service construction also builds repository dependencies for non-Offer owner tables. During TASK-004/TASK-005, Offer application ports must clearly separate required application snapshots from direct non-owner table writes.
-- Offer lifecycle changes that affect application status must go through a recruitment owner contract, domain event, or explicitly approved process-manager path.
+- Offer infrastructure now constructs only Offer-required shared repositories instead of the full shared service graph.
+- Offer lifecycle changes that affect application status currently use a local application lifecycle adapter over the existing shared MySQL transaction as transitional owner-contract debt. This must be revisited when Recruitment owner APIs/events are introduced.
 
 ## 6. Current Test Coverage
 
@@ -137,17 +127,22 @@ Existing Offer service tests:
 
 - `cmd/offer-service/main_test.go`
 - `internal/runtime/runtime_test.go`
+- `internal/domain/model/offer_test.go`
+- `internal/application/service/offer_service_test.go`
+- `internal/interfaces/grpc/offer_server_test.go`
 
 Current test focus:
 
 - CLI/runtime check behavior.
 - Runtime requires Offer dependency.
 - Runtime registers `OfferService` with gRPC.
+- Offer domain lifecycle/state rules.
+- Offer application command/query orchestration.
+- gRPC request parsing, response success mapping, business error mapping, and event DTO mapping.
 
 Current test gap:
 
-- No local Offer domain unit tests yet.
-- No local Offer application command/query tests yet.
+- Persistence adapters currently rely on shared repository tests and service-level `go test ./...`; direct DB adapter tests can be added after the next infrastructure cleanup task if this layer grows more logic.
 - No local Offer persistence adapter tests yet.
 - No local mapper tests yet.
 

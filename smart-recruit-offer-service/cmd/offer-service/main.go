@@ -22,7 +22,11 @@ import (
 	"gorm.io/gorm"
 
 	"smart-recruit-domain-go/repository"
-	"smart-recruit-domain-go/service"
+	offerapp "smart-recruit-offer-service/internal/application/service"
+	offerclient "smart-recruit-offer-service/internal/infrastructure/client"
+	offermq "smart-recruit-offer-service/internal/infrastructure/mq"
+	offerpersistence "smart-recruit-offer-service/internal/infrastructure/persistence"
+	offergrpc "smart-recruit-offer-service/internal/interfaces/grpc"
 	offerruntime "smart-recruit-offer-service/internal/runtime"
 	platformconfig "smart-recruit-platform-go/config"
 	"smart-recruit-platform-go/logger"
@@ -62,7 +66,7 @@ func main() {
 }
 
 func checkRuntime() error {
-	runtime, err := offerruntime.New(offerruntime.Deps{Offer: noopOfferAPI{}})
+	runtime, err := offerruntime.New(offerruntime.Deps{Offer: noopOfferServer{}})
 	if err != nil {
 		return err
 	}
@@ -131,8 +135,11 @@ func serveOffer(addr string) error {
 	}
 	defer server.ShutdownMetricsServer(context.Background(), metricsServer)
 
-	services := buildDomainServices(cfg, db, redisClient)
-	runtime, err := offerruntime.New(offerruntime.Deps{Offer: services.Offer})
+	offerServer, err := buildOfferServer(db)
+	if err != nil {
+		return err
+	}
+	runtime, err := offerruntime.New(offerruntime.Deps{Offer: offerServer})
 	if err != nil {
 		return err
 	}
@@ -191,53 +198,24 @@ func serveOffer(addr string) error {
 	return nil
 }
 
-func buildDomainServices(cfg logicconfig.Config, db *gorm.DB, redisClient *redis.Client) *service.Services {
-	userRepo := repository.NewUserRepo(db)
-	refreshTokenRepo := repository.NewRefreshTokenRepo(db)
-	jobRepo := repository.NewJobRepo(db)
-	profileRepo := repository.NewProfileRepo(db)
-	resumeRepo := repository.NewResumeRepo(db)
-	applicationRepo := repository.NewApplicationRepo(db)
-	interviewRepo := repository.NewInterviewRepo(db)
+func buildOfferServer(db *gorm.DB) (pb.OfferServiceServer, error) {
 	offerRepo := repository.NewOfferRepo(db)
-	notificationRepo := repository.NewNotificationRepo(db)
-	outboxRepo := repository.NewOutboxRepo(db)
+	applicationRepo := repository.NewApplicationRepo(db)
+	jobRepo := repository.NewJobRepo(db)
 	authzRepo := repository.NewAuthzRepo(db)
-	return service.NewServices(
-		redisClient,
-		db,
-		userRepo,
-		refreshTokenRepo,
-		jobRepo,
-		profileRepo,
-		resumeRepo,
-		applicationRepo,
-		interviewRepo,
-		offerRepo,
-		repository.NewChatRepo(db),
-		repository.NewSessionSummaryRepo(db),
-		repository.NewToolTraceRepo(db),
-		repository.NewAgentRunRepo(db),
-		repository.NewMemoryRepo(db),
-		notificationRepo,
-		outboxRepo,
-		repository.NewInviteCodeRepo(db),
-		repository.NewDepartmentRepo(db),
-		repository.NewJobLocationRepo(db),
-		repository.NewDepartmentLocationRepo(db),
-		repository.NewUsageLogRepo(db),
-		authzRepo,
-		repository.NewEmailLogRepo(db),
-		nil,
-		nil,
-		nil,
-		nil,
-		nil,
-		cfg,
-		cfg.JWT.Secret,
-		nil,
-		nil,
-	)
+	outboxRepo := repository.NewOutboxRepo(db)
+
+	offerService, err := offerapp.NewOfferService(offerapp.Deps{
+		Offers:       offerpersistence.NewOfferRepository(offerRepo),
+		Applications: offerclient.NewApplicationAdapter(applicationRepo),
+		Lifecycle:    offerclient.NewApplicationLifecycleAdapter(applicationRepo),
+		Outbox:       offermq.NewOutboxPublisher(outboxRepo),
+		Authorizer:   offerclient.NewAuthorizer(authzRepo, applicationRepo, jobRepo),
+	})
+	if err != nil {
+		return nil, err
+	}
+	return offergrpc.NewServer(offerService)
 }
 
 func loadBootstrap(addr string) (platformconfig.Bootstrap, error) {
@@ -378,12 +356,6 @@ func envOrDefault(key string, fallback string) string {
 	return value
 }
 
-type noopOfferAPI struct {
-	offerruntime.OfferAPI
-}
-
-var _ offerruntime.OfferAPI = noopOfferAPI{}
-
-func (noopOfferAPI) CreateOffer(context.Context, *pb.CreateOfferRequest) (*pb.CreateOfferResponse, error) {
-	return &pb.CreateOfferResponse{}, nil
+type noopOfferServer struct {
+	pb.UnimplementedOfferServiceServer
 }
