@@ -1,0 +1,69 @@
+{
+  "schemaVersion": 1,
+  "feature_name": "knowledge-base-current-state-refresh",
+  "tasks": {
+    "TASK-KBR-001": {
+      "title": "Refresh active knowledge to current microservice state",
+      "status": "pending",
+      "allowedFiles": [
+        ".knowledge/**",
+        ".spec/knowledge-base-current-state-refresh/**"
+      ],
+      "forbiddenFiles": [
+        "AGENTS.md",
+        ".agents/**",
+        ".github/**",
+        ".ai-guides/**",
+        "CLAUDE.md",
+        ".claude/**",
+        "hr-frontend/**",
+        "user-frontend/**",
+        "interviewer-frontend/**",
+        "smart-recruit-gateway/**",
+        "smart-recruit-commons/**",
+        "smart-recruit-platform-go/**",
+        "smart-recruit-proto/**",
+        "smart-recruit-identity-service/**",
+        "smart-recruit-recruitment-service/**",
+        "smart-recruit-interview-service/**",
+        "smart-recruit-offer-service/**",
+        "smart-recruit-notification-service/**",
+        "smart-recruit-ai-agent-service/**",
+        "smart-recruit-analytics-service/**",
+        "smart-recruit-worker-service/**",
+        "smart-recruit-deploy/**",
+        "deploy/**",
+        "docker/**",
+        "docs/**",
+        "db.sql",
+        "pnpm-workspace.yaml",
+        "pnpm-lock.yaml",
+        "**/package.json",
+        "**/go.mod",
+        "**/go.sum"
+      ],
+      "requiresHumanConfirmation": false,
+      "allowedActions": [
+        "create",
+        "modify",
+        "test",
+        "review"
+      ],
+      "acceptance": ".spec/knowledge-base-current-state-refresh/acceptance/TASK-KBR-001.md",
+      "report": ".spec/knowledge-base-current-state-refresh/reports/TASK-KBR-001-report.md",
+      "requiredKnowledgeImpact": true,
+      "knowledge": {
+        "review": [
+          ".knowledge/**"
+        ],
+        "modify": [
+          ".knowledge/**"
+        ],
+        "candidate": []
+      },
+      "notes": [
+        "Do not update .knowledge/inbox/** or .knowledge/archive/** content; report remaining legacy references as out of scope."
+      ]
+    }
+  }
+}

@@ -47,7 +47,7 @@ Validate only touched apps unless shared contract changes require broader checks
 ## 2. Route and Permission Checks
 
 - Compare route meta with auth store capability checks.
-- For HR pages, compare frontend `requiresPermission` with gateway route permission in `web-gin-service/router/router.go`.
+- For HR pages, compare frontend `requiresPermission` with gateway route permission in `smart-recruit-gateway/router/router.go`.
 - For candidate pages, confirm public vs `requiresCandidate` route intent.
 - For interviewer pages, confirm `isInterviewer` remains the guard for protected routes.
 - Confirm redirects preserve intended query or deep-link behavior.

@@ -1,0 +1,344 @@
+{
+  "schemaVersion": 1,
+  "feature_name": "knowledge-base-current-state-refresh",
+  "task_id": "TASK-KBR-001",
+  "task_start_git": {
+    "base_commit": "84bce9f6b93b8c4ce0bd1c2c955d336a31f7080d",
+    "base_tree": "4b63d9ee0180122715425c975571f8b0df43268a"
+  },
+  "task_end_git": {
+    "head_commit": "84bce9f6b93b8c4ce0bd1c2c955d336a31f7080d",
+    "worktree_dirty": true
+  },
+  "changed_files": [
+    ".knowledge/.gitignore",
+    ".knowledge/architecture/agent-runtime.md",
+    ".knowledge/architecture/api-contracts-and-gateway.md",
+    ".knowledge/architecture/auth-rbac-security.md",
+    ".knowledge/architecture/persistence-and-migrations.md",
+    ".knowledge/architecture/semantic-retrieval.md",
+    ".knowledge/architecture/service-boundaries.md",
+    ".knowledge/architecture/system-overview.md",
+    ".knowledge/domains/agent-skill.md",
+    ".knowledge/domains/ai-configuration-governance.md",
+    ".knowledge/domains/mcp-tool-governance.md",
+    ".knowledge/domains/memory-and-context.md",
+    ".knowledge/domains/notification-outbox.md",
+    ".knowledge/domains/recruitment-lifecycle.md",
+    ".knowledge/domains/recruitment.md",
+    ".knowledge/domains/resume-intelligence.md",
+    ".knowledge/manifest.yaml",
+    ".knowledge/pitfalls/auth-permission-alignment.md",
+    ".knowledge/pitfalls/embedding-fallback.md",
+    ".knowledge/pitfalls/frontend-menu-consistency.md",
+    ".knowledge/pitfalls/mcp-policy-audit.md",
+    ".knowledge/pitfalls/migration-model-drift.md",
+    ".knowledge/pitfalls/protobuf-synchronization.md",
+    ".knowledge/pitfalls/resume-sensitive-data.md",
+    ".knowledge/pitfalls/status-notification-drift.md",
+    ".knowledge/runbooks/debug-agent-retrieval.md",
+    ".knowledge/runbooks/debug-ai-configuration.md",
+    ".knowledge/runbooks/debug-auth-permissions.md",
+    ".knowledge/runbooks/debug-recruitment-lifecycle.md",
+    ".knowledge/runbooks/debug-resume-intelligence.md",
+    ".knowledge/runbooks/event-replay-dead-letter.md",
+    ".knowledge/runbooks/frontend-validation.md",
+    ".knowledge/runbooks/knowledge-coverage-audit.md",
+    ".knowledge/runbooks/local-development.md",
+    ".knowledge/runbooks/protobuf-and-migration-change.md",
+    ".knowledge/runbooks/service-binary-convention.md",
+    ".knowledge/scripts/knowledge-validator.test.mjs",
+    ".knowledge/scripts/validate-knowledge.mjs",
+    ".spec/knowledge-base-current-state-refresh/AGENT_RULES.md",
+    ".spec/knowledge-base-current-state-refresh/TASKS.md",
+    ".spec/knowledge-base-current-state-refresh/acceptance/TASK-KBR-001.md",
+    ".spec/knowledge-base-current-state-refresh/knowledge-base-current-state-refresh-SDD.md",
+    ".spec/knowledge-base-current-state-refresh/knowledge-base-current-state-refresh-SPEC.md",
+    ".spec/knowledge-base-current-state-refresh/pipeline-state.json",
+    ".spec/knowledge-base-current-state-refresh/prompts/fix-check-failures.md",
+    ".spec/knowledge-base-current-state-refresh/prompts/implement-task.md",
+    ".spec/knowledge-base-current-state-refresh/prompts/self-review.md",
+    ".spec/knowledge-base-current-state-refresh/reports/.gitkeep",
+    ".spec/knowledge-base-current-state-refresh/reports/TASK-KBR-001-evidence.json",
+    ".spec/knowledge-base-current-state-refresh/reports/TASK-KBR-001-report.md",
+    ".spec/knowledge-base-current-state-refresh/scripts/agent-check.sh",
+    ".spec/knowledge-base-current-state-refresh/scripts/check-task-scope.sh",
+    ".spec/knowledge-base-current-state-refresh/task-scope.json"
+  ],
+  "scope": {
+    "status": "PASS",
+    "forbidden_files": [],
+    "out_of_scope_files": []
+  },
+  "validation_commands": [
+    {
+      "command": "node .knowledge/scripts/knowledge-validator.test.mjs",
+      "exitCode": 0,
+      "durationMs": 968,
+      "ok": true,
+      "stdout": "ok - frontmatter parses required scalar and list fields\nok - manifest parser handles routes\nok - manifest parser rejects duplicate and unknown keys\nok - manifest validation rejects invalid and duplicate route or trigger items\nok - repository paths reject absolute and Windows forms\nok - glob matching is deterministic\nok - valid repository passes scan and reference checks\nok - duplicate IDs and missing sources fail\nok - metadata types, uniqueness, and calendar dates fail closed\nok - Inbox and archive status constraints fail closed\nok - case-conflicting knowledge paths are rejected\nok - catalog output is sorted\nok - ADR relationships require ADR targets and reciprocal links\nok - strict references reject missing and escaping INDEX targets\nok - impact detection requires a valid baseline and includes tracked and untracked files\nok - impact detection rejects a semantically invalid manifest\nok - catalog CLI supports JSON and usage errors return exit code 2\nknowledge-validator tests: PASS (17)",
+      "stderr": ""
+    },
+    {
+      "command": "node .knowledge/scripts/validate-knowledge.mjs --root .",
+      "exitCode": 0,
+      "durationMs": 50,
+      "ok": true,
+      "stdout": "knowledge_result: PASS (37 formal documents)",
+      "stderr": ""
+    },
+    {
+      "command": "node .knowledge/scripts/check-references.mjs --root .",
+      "exitCode": 0,
+      "durationMs": 49,
+      "ok": true,
+      "stdout": "reference_result: PASS",
+      "stderr": ""
+    },
+    {
+      "command": "rg -n \"web-gin-service|logic-grpc-service\" .knowledge --glob '!archive/**' --glob '!inbox/**'",
+      "exitCode": 1,
+      "durationMs": 408,
+      "ok": true,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "command": "git diff --name-only",
+      "exitCode": 0,
+      "durationMs": 25,
+      "ok": true,
+      "stdout": ".knowledge/.gitignore\n.knowledge/architecture/agent-runtime.md\n.knowledge/architecture/api-contracts-and-gateway.md\n.knowledge/architecture/auth-rbac-security.md\n.knowledge/architecture/persistence-and-migrations.md\n.knowledge/architecture/semantic-retrieval.md\n.knowledge/architecture/service-boundaries.md\n.knowledge/architecture/system-overview.md\n.knowledge/domains/agent-skill.md\n.knowledge/domains/ai-configuration-governance.md\n.knowledge/domains/mcp-tool-governance.md\n.knowledge/domains/memory-and-context.md\n.knowledge/domains/notification-outbox.md\n.knowledge/domains/recruitment-lifecycle.md\n.knowledge/domains/recruitment.md\n.knowledge/domains/resume-intelligence.md\n.knowledge/manifest.yaml\n.knowledge/pitfalls/auth-permission-alignment.md\n.knowledge/pitfalls/embedding-fallback.md\n.knowledge/pitfalls/frontend-menu-consistency.md\n.knowledge/pitfalls/mcp-policy-audit.md\n.knowledge/pitfalls/migration-model-drift.md\n.knowledge/pitfalls/protobuf-synchronization.md\n.knowledge/pitfalls/resume-sensitive-data.md\n.knowledge/pitfalls/status-notification-drift.md\n.knowledge/runbooks/debug-agent-retrieval.md\n.knowledge/runbooks/debug-ai-configuration.md\n.knowledge/runbooks/debug-auth-permissions.md\n.knowledge/runbooks/debug-recruitment-lifecycle.md\n.knowledge/runbooks/debug-resume-intelligence.md\n.knowledge/runbooks/event-replay-dead-letter.md\n.knowledge/runbooks/frontend-validation.md\n.knowledge/runbooks/knowledge-coverage-audit.md\n.knowledge/runbooks/local-development.md\n.knowledge/runbooks/protobuf-and-migration-change.md\n.knowledge/runbooks/service-binary-convention.md\n.knowledge/scripts/knowledge-validator.test.mjs\n.knowledge/scripts/validate-knowledge.mjs",
+      "stderr": ""
+    },
+    {
+      "command": "bash .spec/knowledge-base-current-state-refresh/scripts/check-task-scope.sh TASK-KBR-001",
+      "exitCode": 0,
+      "durationMs": 494,
+      "ok": true,
+      "stdout": "feature: knowledge-base-current-state-refresh\ntask: TASK-KBR-001\nbase_tree: 4b63d9ee0180122715425c975571f8b0df43268a\nclassification: current\nALLOWED\t.knowledge/.gitignore\t.knowledge/**\nALLOWED\t.knowledge/architecture/agent-runtime.md\t.knowledge/**\nALLOWED\t.knowledge/architecture/api-contracts-and-gateway.md\t.knowledge/**\nALLOWED\t.knowledge/architecture/auth-rbac-security.md\t.knowledge/**\nALLOWED\t.knowledge/architecture/persistence-and-migrations.md\t.knowledge/**\nALLOWED\t.knowledge/architecture/semantic-retrieval.md\t.knowledge/**\nALLOWED\t.knowledge/architecture/service-boundaries.md\t.knowledge/**\nALLOWED\t.knowledge/architecture/system-overview.md\t.knowledge/**\nALLOWED\t.knowledge/domains/agent-skill.md\t.knowledge/**\nALLOWED\t.knowledge/domains/ai-configuration-governance.md\t.knowledge/**\nALLOWED\t.knowledge/domains/mcp-tool-governance.md\t.knowledge/**\nALLOWED\t.knowledge/domains/memory-and-context.md\t.knowledge/**\nALLOWED\t.knowledge/domains/notification-outbox.md\t.knowledge/**\nALLOWED\t.knowledge/domains/recruitment-lifecycle.md\t.knowledge/**\nALLOWED\t.knowledge/domains/recruitment.md\t.knowledge/**\nALLOWED\t.knowledge/domains/resume-intelligence.md\t.knowledge/**\nALLOWED\t.knowledge/manifest.yaml\t.knowledge/**\nALLOWED\t.knowledge/pitfalls/auth-permission-alignment.md\t.knowledge/**\nALLOWED\t.knowledge/pitfalls/embedding-fallback.md\t.knowledge/**\nALLOWED\t.knowledge/pitfalls/frontend-menu-consistency.md\t.knowledge/**\nALLOWED\t.knowledge/pitfalls/mcp-policy-audit.md\t.knowledge/**\nALLOWED\t.knowledge/pitfalls/migration-model-drift.md\t.knowledge/**\nALLOWED\t.knowledge/pitfalls/protobuf-synchronization.md\t.knowledge/**\nALLOWED\t.knowledge/pitfalls/resume-sensitive-data.md\t.knowledge/**\nALLOWED\t.knowledge/pitfalls/status-notification-drift.md\t.knowledge/**\nALLOWED\t.knowledge/runbooks/debug-agent-retrieval.md\t.knowledge/**\nALLOWED\t.knowledge/runbooks/debug-ai-configuration.md\t.knowledge/**\nALLOWED\t.knowledge/runbooks/debug-auth-permissions.md\t.knowledge/**\nALLOWED\t.knowledge/runbooks/debug-recruitment-lifecycle.md\t.knowledge/**\nALLOWED\t.knowledge/runbooks/debug-resume-intelligence.md\t.knowledge/**\nALLOWED\t.knowledge/runbooks/event-replay-dead-letter.md\t.knowledge/**\nALLOWED\t.knowledge/runbooks/frontend-validation.md\t.knowledge/**\nALLOWED\t.knowledge/runbooks/knowledge-coverage-audit.md\t.knowledge/**\nALLOWED\t.knowledge/runbooks/local-development.md\t.knowledge/**\nALLOWED\t.knowledge/runbooks/protobuf-and-migration-change.md\t.knowledge/**\nALLOWED\t.knowledge/runbooks/service-binary-convention.md\t.knowledge/**\nALLOWED\t.knowledge/scripts/knowledge-validator.test.mjs\t.knowledge/**\nALLOWED\t.knowledge/scripts/validate-knowledge.mjs\t.knowledge/**\nALLOWED\t.spec/knowledge-base-current-state-refresh/AGENT_RULES.md\t.spec/knowledge-base-current-state-refresh/**\nALLOWED\t.spec/knowledge-base-current-state-refresh/TASKS.md\t.spec/knowledge-base-current-state-refresh/**\nALLOWED\t.spec/knowledge-base-current-state-refresh/acceptance/TASK-KBR-001.md\t.spec/knowledge-base-current-state-refresh/**\nALLOWED\t.spec/knowledge-base-current-state-refresh/knowledge-base-current-state-refresh-SDD.md\t.spec/knowledge-base-current-state-refresh/**\nALLOWED\t.spec/knowledge-base-current-state-refresh/knowledge-base-current-state-refresh-SPEC.md\t.spec/knowledge-base-current-state-refresh/**\nALLOWED\t.spec/knowledge-base-current-state-refresh/pipeline-state.json\t.spec/knowledge-base-current-state-refresh/**\nALLOWED\t.spec/knowledge-base-current-state-refresh/prompts/fix-check-failures.md\t.spec/knowledge-base-current-state-refresh/**\nALLOWED\t.spec/knowledge-base-current-state-refresh/prompts/implement-task.md\t.spec/knowledge-base-current-state-refresh/**\nALLOWED\t.spec/knowledge-base-current-state-refresh/prompts/self-review.md\t.spec/knowledge-base-current-state-refresh/**\nALLOWED\t.spec/knowledge-base-current-state-refresh/reports/.gitkeep\t.spec/knowledge-base-current-state-refresh/**\nALLOWED\t.spec/knowledge-base-current-state-refresh/reports/TASK-KBR-001-evidence.json\t.spec/knowledge-base-current-state-refresh/**\nALLOWED\t.spec/knowledge-base-current-state-refresh/reports/TASK-KBR-001-report.md\t.spec/knowledge-base-current-state-refresh/**\nALLOWED\t.spec/knowledge-base-current-state-refresh/scripts/agent-check.sh\t.spec/knowledge-base-current-state-refresh/**\nALLOWED\t.spec/knowledge-base-current-state-refresh/scripts/check-task-scope.sh\t.spec/knowledge-base-current-state-refresh/**\nALLOWED\t.spec/knowledge-base-current-state-refresh/task-scope.json\t.spec/knowledge-base-current-state-refresh/**\nscope_result: PASS (TASK-KBR-001)",
+      "stderr": ""
+    },
+    {
+      "command": "bash .spec/knowledge-base-current-state-refresh/scripts/agent-check.sh",
+      "exitCode": 0,
+      "durationMs": 1263,
+      "ok": true,
+      "stdout": "==> validate feature Harness structure\nfeature: knowledge-base-current-state-refresh\nclassification: current\n==> validate shell syntax\n==> validate patch whitespace\n==> validate knowledge script syntax\n==> run knowledge tool tests\nok - frontmatter parses required scalar and list fields\nok - manifest parser handles routes\nok - manifest parser rejects duplicate and unknown keys\nok - manifest validation rejects invalid and duplicate route or trigger items\nok - repository paths reject absolute and Windows forms\nok - glob matching is deterministic\nok - valid repository passes scan and reference checks\nok - duplicate IDs and missing sources fail\nok - metadata types, uniqueness, and calendar dates fail closed\nok - Inbox and archive status constraints fail closed\nok - case-conflicting knowledge paths are rejected\nok - catalog output is sorted\nok - ADR relationships require ADR targets and reciprocal links\nok - strict references reject missing and escaping INDEX targets\nok - impact detection requires a valid baseline and includes tracked and untracked files\nok - impact detection rejects a semantically invalid manifest\nok - catalog CLI supports JSON and usage errors return exit code 2\nknowledge-validator tests: PASS (17)\n==> validate knowledge repository\nknowledge_result: PASS (37 formal documents)\n==> validate knowledge references\nreference_result: PASS\n==> check active knowledge for deleted service paths\nagent-check: PASS",
+      "stderr": ""
+    }
+  ],
+  "review": {
+    "type": "self-review",
+    "round": 1,
+    "verdict": "PASS"
+  },
+  "human_confirmation": {
+    "required": false,
+    "received": false,
+    "reason": "TASK scope does not require post-implementation human confirmation."
+  },
+  "skipped_checks": [],
+  "knowledgeImpact": {
+    "result": "update_required",
+    "triggeredBy": [
+      "covered-path-changed",
+      "service-boundary-changed",
+      "configuration-changed"
+    ],
+    "coverageGap": false,
+    "reviewResults": [
+      {
+        "path": ".knowledge/architecture/agent-runtime.md",
+        "verdict": "UPDATED"
+      },
+      {
+        "path": ".knowledge/architecture/api-contracts-and-gateway.md",
+        "verdict": "UPDATED"
+      },
+      {
+        "path": ".knowledge/architecture/auth-rbac-security.md",
+        "verdict": "UPDATED"
+      },
+      {
+        "path": ".knowledge/architecture/persistence-and-migrations.md",
+        "verdict": "UPDATED"
+      },
+      {
+        "path": ".knowledge/architecture/semantic-retrieval.md",
+        "verdict": "UPDATED"
+      },
+      {
+        "path": ".knowledge/architecture/service-boundaries.md",
+        "verdict": "UPDATED"
+      },
+      {
+        "path": ".knowledge/architecture/system-overview.md",
+        "verdict": "UPDATED"
+      },
+      {
+        "path": ".knowledge/domains/agent-skill.md",
+        "verdict": "UPDATED"
+      },
+      {
+        "path": ".knowledge/domains/ai-configuration-governance.md",
+        "verdict": "UPDATED"
+      },
+      {
+        "path": ".knowledge/domains/mcp-tool-governance.md",
+        "verdict": "UPDATED"
+      },
+      {
+        "path": ".knowledge/domains/memory-and-context.md",
+        "verdict": "UPDATED"
+      },
+      {
+        "path": ".knowledge/domains/notification-outbox.md",
+        "verdict": "UPDATED"
+      },
+      {
+        "path": ".knowledge/domains/recruitment-lifecycle.md",
+        "verdict": "UPDATED"
+      },
+      {
+        "path": ".knowledge/domains/recruitment.md",
+        "verdict": "UPDATED"
+      },
+      {
+        "path": ".knowledge/domains/resume-intelligence.md",
+        "verdict": "UPDATED"
+      },
+      {
+        "path": ".knowledge/pitfalls/auth-permission-alignment.md",
+        "verdict": "UPDATED"
+      },
+      {
+        "path": ".knowledge/pitfalls/embedding-fallback.md",
+        "verdict": "UPDATED"
+      },
+      {
+        "path": ".knowledge/pitfalls/frontend-menu-consistency.md",
+        "verdict": "UPDATED"
+      },
+      {
+        "path": ".knowledge/pitfalls/mcp-policy-audit.md",
+        "verdict": "UPDATED"
+      },
+      {
+        "path": ".knowledge/pitfalls/migration-model-drift.md",
+        "verdict": "UPDATED"
+      },
+      {
+        "path": ".knowledge/pitfalls/protobuf-synchronization.md",
+        "verdict": "UPDATED"
+      },
+      {
+        "path": ".knowledge/pitfalls/resume-sensitive-data.md",
+        "verdict": "UPDATED"
+      },
+      {
+        "path": ".knowledge/pitfalls/status-notification-drift.md",
+        "verdict": "UPDATED"
+      },
+      {
+        "path": ".knowledge/runbooks/debug-agent-retrieval.md",
+        "verdict": "UPDATED"
+      },
+      {
+        "path": ".knowledge/runbooks/debug-ai-configuration.md",
+        "verdict": "UPDATED"
+      },
+      {
+        "path": ".knowledge/runbooks/debug-auth-permissions.md",
+        "verdict": "UPDATED"
+      },
+      {
+        "path": ".knowledge/runbooks/debug-recruitment-lifecycle.md",
+        "verdict": "UPDATED"
+      },
+      {
+        "path": ".knowledge/runbooks/debug-resume-intelligence.md",
+        "verdict": "UPDATED"
+      },
+      {
+        "path": ".knowledge/runbooks/event-replay-dead-letter.md",
+        "verdict": "UPDATED"
+      },
+      {
+        "path": ".knowledge/runbooks/frontend-validation.md",
+        "verdict": "UPDATED"
+      },
+      {
+        "path": ".knowledge/runbooks/knowledge-coverage-audit.md",
+        "verdict": "UPDATED"
+      },
+      {
+        "path": ".knowledge/runbooks/local-development.md",
+        "verdict": "UPDATED"
+      },
+      {
+        "path": ".knowledge/runbooks/protobuf-and-migration-change.md",
+        "verdict": "UPDATED"
+      },
+      {
+        "path": ".knowledge/runbooks/service-binary-convention.md",
+        "verdict": "UPDATED"
+      }
+    ],
+    "updatePaths": [
+      ".knowledge/.gitignore",
+      ".knowledge/architecture/agent-runtime.md",
+      ".knowledge/architecture/api-contracts-and-gateway.md",
+      ".knowledge/architecture/auth-rbac-security.md",
+      ".knowledge/architecture/persistence-and-migrations.md",
+      ".knowledge/architecture/semantic-retrieval.md",
+      ".knowledge/architecture/service-boundaries.md",
+      ".knowledge/architecture/system-overview.md",
+      ".knowledge/domains/agent-skill.md",
+      ".knowledge/domains/ai-configuration-governance.md",
+      ".knowledge/domains/mcp-tool-governance.md",
+      ".knowledge/domains/memory-and-context.md",
+      ".knowledge/domains/notification-outbox.md",
+      ".knowledge/domains/recruitment-lifecycle.md",
+      ".knowledge/domains/recruitment.md",
+      ".knowledge/domains/resume-intelligence.md",
+      ".knowledge/manifest.yaml",
+      ".knowledge/pitfalls/auth-permission-alignment.md",
+      ".knowledge/pitfalls/embedding-fallback.md",
+      ".knowledge/pitfalls/frontend-menu-consistency.md",
+      ".knowledge/pitfalls/mcp-policy-audit.md",
+      ".knowledge/pitfalls/migration-model-drift.md",
+      ".knowledge/pitfalls/protobuf-synchronization.md",
+      ".knowledge/pitfalls/resume-sensitive-data.md",
+      ".knowledge/pitfalls/status-notification-drift.md",
+      ".knowledge/runbooks/debug-agent-retrieval.md",
+      ".knowledge/runbooks/debug-ai-configuration.md",
+      ".knowledge/runbooks/debug-auth-permissions.md",
+      ".knowledge/runbooks/debug-recruitment-lifecycle.md",
+      ".knowledge/runbooks/debug-resume-intelligence.md",
+      ".knowledge/runbooks/event-replay-dead-letter.md",
+      ".knowledge/runbooks/frontend-validation.md",
+      ".knowledge/runbooks/knowledge-coverage-audit.md",
+      ".knowledge/runbooks/local-development.md",
+      ".knowledge/runbooks/protobuf-and-migration-change.md",
+      ".knowledge/runbooks/service-binary-convention.md",
+      ".knowledge/scripts/knowledge-validator.test.mjs",
+      ".knowledge/scripts/validate-knowledge.mjs"
+    ],
+    "evidence": [
+      "Active knowledge source_refs were re-grounded in current smart-recruit-* modules.",
+      "Draft inbox and archive content remains out of scope; remaining legacy references are reported only."
+    ]
+  },
+  "out_of_scope_legacy_references": [
+    ".knowledge/inbox/microservice-ddd-evolution-boundaries.md:37:The active knowledge base should be updated to describe the current backend service roots under `smart-recruit-*-service/` and the DDD migration path defined by `.spec/microservice-ddd-evolution`. Existing active documents still provide useful history, but several source references describe the older `logic-grpc-service` / `web-gin-service` layout and should be revised before they are treated as current navigation for this feature.",
+    ".knowledge/inbox/microservice-ddd-evolution-boundaries.md:53:Future service migration TASKs will route through knowledge documents that currently emphasize legacy monolith names. Without an active update, Agents may over-read historical `logic-grpc-service` guidance or miss the new `smart-recruit-*-service` boundaries.",
+    ".knowledge/inbox/analytics-projection-knowledge.md:15:  - logic-grpc-service/internal/analytics/**",
+    ".knowledge/inbox/analytics-projection-knowledge.md:16:  - logic-grpc-service/repository/analytics_projection_repo.go",
+    ".knowledge/inbox/analytics-projection-knowledge.md:17:  - logic-grpc-service/migrations/000053_add_analytics_projection_events.sql",
+    ".knowledge/inbox/analytics-projection-knowledge.md:22:  - logic-grpc-service/internal/analytics/application/event_ingestor.go",
+    ".knowledge/inbox/analytics-projection-knowledge.md:23:  - logic-grpc-service/internal/analytics/infrastructure/projection_repository.go",
+    ".knowledge/inbox/analytics-projection-knowledge.md:24:  - logic-grpc-service/repository/analytics_projection_repo.go",
+    ".knowledge/inbox/analytics-projection-knowledge.md:25:  - logic-grpc-service/migrations/000053_add_analytics_projection_events.sql"
+  ]
+}

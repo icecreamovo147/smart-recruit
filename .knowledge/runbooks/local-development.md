@@ -16,8 +16,11 @@ applies_to:
   - start-dev.sh
   - stop-dev.sh
   - docker/**
-  - logic-grpc-service/**
-  - web-gin-service/**
+  - smart-recruit-gateway/**
+  - smart-recruit-*-service/**
+  - smart-recruit-commons/**
+  - smart-recruit-platform-go/**
+  - smart-recruit-deploy/**
   - hr-frontend/**
   - user-frontend/**
   - interviewer-frontend/**
@@ -49,8 +52,8 @@ Use this runbook to orient local startup and validation. Always prefer checked-i
 - Go, Node.js, pnpm, Docker, and Docker Compose compatible with the versions documented in `README.md`.
 - Local service configuration copied from example files and filled with placeholders or local-only credentials.
 - Local Docker Compose requires `GRPC_INTERNAL_TOKEN`; internal gRPC TLS remains `GRPC_INTERNAL_TLS=optional` unless local certificates are mounted.
-- Gateway metrics are available at `http://localhost:<HTTP_PORT>/metrics`; logic gRPC metrics require setting `METRICS_ADDR` before starting `logic-grpc-service`.
-- Worker-only health requires setting `WORKER_HEALTH_ADDR` before starting `logic-grpc-service --worker-only`; `/readyz` fails when MySQL, configured Redis, or RabbitMQ is unavailable.
+- Gateway metrics are available at `http://localhost:<HTTP_PORT>/metrics`; service metrics use each service's configured observability address.
+- Worker health is owned by `smart-recruit-worker-service/`; readiness fails when required MySQL, configured Redis, or RabbitMQ dependencies are unavailable.
 - Backend load-test dry-run evidence is generated with `node scripts/backend-load-test.mjs --dry-run --output .spec/backend-ddd-microservices-evolution/docs/backend-ddd-microservices-evolution-load-test-initial-evidence.json`; live 200 QPS/50 QPS/AI concurrency runs require a running isolated stack and authenticated test fixtures.
 - Final readiness audit evidence is generated with `node scripts/backend-final-readiness-audit.mjs --feature-dir .spec/backend-ddd-microservices-evolution --allow-current-task TASK-BDME-052 --output .spec/backend-ddd-microservices-evolution/docs/backend-ddd-microservices-evolution-final-readiness-audit.json` during the closing TASK.
 - MySQL, Redis, and RabbitMQ available through Docker Compose or an equivalent local stack.
@@ -58,7 +61,7 @@ Use this runbook to orient local startup and validation. Always prefer checked-i
 ## Standard Flow
 
 1. Start infrastructure from `docker/` or use `./start-dev.sh` when the script matches the task.
-2. Start `logic-grpc-service` before `web-gin-service` because the gateway depends on gRPC clients.
+2. Start the independent backend services before `smart-recruit-gateway` because the gateway depends on generated gRPC clients.
 3. Start only the frontend package needed for the task:
    - HR app: `pnpm --filter hr-frontend dev`
    - candidate app: `pnpm --filter user-frontend dev`
@@ -67,11 +70,11 @@ Use this runbook to orient local startup and validation. Always prefer checked-i
 
 ## Validation Commands
 
-- Logic service tests: run `go test ./...` from `logic-grpc-service/`.
-- Service binary convention tests: run `go test ./internal/platform/servicebinary` from `logic-grpc-service/`.
-- Gateway tests: run `go test ./...` from `web-gin-service/`.
+- Service tests: run `go test ./...` from the touched `smart-recruit-*-service/` module.
+- Service binary convention tests: run `go test ./servicebinary` from `smart-recruit-platform-go/`.
+- Gateway tests: run `go test ./...` from `smart-recruit-gateway/`.
 - Observability smoke check: after starting the gateway, request `/metrics` and verify Prometheus text output contains `smart_recruit_http_requests_total`.
-- Worker health smoke check: start `logic-grpc-service --worker-only` with `WORKER_HEALTH_ADDR=:9092`, then request `http://localhost:9092/readyz`.
+- Worker health smoke check: start `smart-recruit-worker-service` with its worker health address configured, then request the configured `/readyz` endpoint.
 - Load-test harness dry run: `node scripts/backend-load-test.mjs --dry-run --output .spec/backend-ddd-microservices-evolution/docs/backend-ddd-microservices-evolution-load-test-initial-evidence.json`.
 - Final readiness audit: `node scripts/backend-final-readiness-audit.mjs --feature-dir .spec/backend-ddd-microservices-evolution --allow-current-task TASK-BDME-052 --output .spec/backend-ddd-microservices-evolution/docs/backend-ddd-microservices-evolution-final-readiness-audit.json`.
 - HR frontend typecheck: `pnpm --filter hr-frontend typecheck`.

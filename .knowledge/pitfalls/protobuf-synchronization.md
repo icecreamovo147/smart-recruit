@@ -10,44 +10,26 @@ tags:
   - protobuf
   - grpc
   - contract
-  - generated-code
 applies_to:
-  - logic-grpc-service/proto/**
-  - web-gin-service/proto/**
-  - logic-grpc-service/recruitment/pb/**
-  - web-gin-service/recruitment/pb/**
+  - smart-recruit-proto/proto/**
+  - smart-recruit-proto/recruitment/pb/**
+  - smart-recruit-gateway/rpc/**
+  - smart-recruit-*-service/internal/interfaces/grpc/**
 source_refs:
-  - logic-grpc-service/proto/recruitment.proto
-  - logic-grpc-service/recruitment/pb/recruitment.pb.go
-  - web-gin-service/recruitment/pb/recruitment.pb.go
-  - .spec/agent-skill-selection-confirmation/reports/TASK-ASC-002-report.md
-last_verified: 2026-07-10
-review_after: 2026-10-08
+  - smart-recruit-proto/proto/recruitment.proto
+  - smart-recruit-proto/recruitment/pb/recruitment.pb.go
+  - smart-recruit-proto/recruitment/pb/recruitment_grpc.pb.go
+  - smart-recruit-proto/scripts/generate-go.sh
+  - smart-recruit-proto/proto_contract_test.go
+  - smart-recruit-gateway/rpc/client.go
+last_verified: 2026-07-14
+review_after: 2026-10-14
 ---
 
 # Protobuf Synchronization Pitfall
 
-Proto changes are easy to under-scope because the source `.proto` file and generated Go code exist in more than one service tree. A change that updates only one side can compile in one package while leaving gateway and logic contracts inconsistent.
-
-## Trigger Conditions
-
-- Adding, renaming, or deleting fields in `recruitment.proto`.
-- Adding service methods, request messages, response messages, enum values, or stream event fields.
-- Changing generated Go files without the matching source proto.
-- Updating frontend payloads for a protobuf-backed API without checking generated gateway and logic structs.
-
-## Risk
-
-The HTTP gateway may marshal, forward, or stream a different contract than the logic service expects. Missing generated updates can also hide until a package-specific build or test runs.
-
-## Prevention
-
-- Treat proto source and generated files as one public-contract change.
-- Check both `logic-grpc-service/recruitment/pb/` and `web-gin-service/recruitment/pb/`.
-- Run targeted Go tests in both services after protobuf-related changes.
-- Update frontend API/types only after the server contract is known.
-- If the proto change is coupled to persistence, also review migration, model, and repository alignment.
+The canonical protobuf source is `smart-recruit-proto/proto/recruitment.proto`. Generated Go contracts under `smart-recruit-proto/recruitment/pb/` are shared by the gateway and services. Wire-shape changes are public-contract changes.
 
 ## Verification
 
-This pitfall was verified from current proto locations, generated Go code locations, gateway client construction, and persistence-change routing on 2026-07-10.
+Verified against current repository files on 2026-07-14.

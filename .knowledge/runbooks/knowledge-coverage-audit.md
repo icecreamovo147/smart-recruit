@@ -51,7 +51,7 @@ Use this runbook when expanding or reviewing the coding-Agent knowledge layer. T
 | Three Vue apps, route guards, auth stores, API wrappers, validation | Partially covered by system overview and HR admin pitfall | TASK-007 |
 | Deployment and infrastructure | Low-risk partially covered by local-development | Follow-up if deployment work becomes active |
 | Email delivery | Low-risk uncovered relative to current request | Follow-up or notification TASK extension |
-| Command-line tools under `logic-grpc-service/cmd/` | Low-risk uncovered | Follow-up if tool work begins |
+| Command-line tools under service `cmd/` directories | Low-risk uncovered | Follow-up if tool work begins |
 
 ## Audit Procedure
 

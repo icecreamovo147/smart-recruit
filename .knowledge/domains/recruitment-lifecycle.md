@@ -1,7 +1,7 @@
 ---
 schema_version: 1
 id: recruitment-lifecycle
-title: Recruitment lifecycle domain
+title: Recruitment lifecycle and status transitions
 kind: domain
 status: active
 owners:
@@ -9,69 +9,33 @@ owners:
 tags:
   - recruitment
   - lifecycle
-  - application
   - status
+  - notification
 applies_to:
-  - logic-grpc-service/service/job_service.go
-  - logic-grpc-service/service/application_service.go
-  - logic-grpc-service/service/interview_service.go
-  - logic-grpc-service/service/offer_service.go
-  - logic-grpc-service/service/collaboration_service.go
-  - logic-grpc-service/model/status.go
+  - smart-recruit-recruitment-service/**
+  - smart-recruit-interview-service/**
+  - smart-recruit-offer-service/**
+  - smart-recruit-notification-service/**
+  - smart-recruit-commons/internal/platform/events/**
 source_refs:
-  - logic-grpc-service/model/status.go
-  - logic-grpc-service/service/application_service.go
-  - logic-grpc-service/service/recruitment_lifecycle_process_manager.go
-  - logic-grpc-service/internal/recruitment/runtime/skeleton.go
-  - logic-grpc-service/internal/recruitment/runtime/runtime.go
-  - logic-grpc-service/internal/interview/runtime/runtime.go
-  - logic-grpc-service/internal/offer/runtime/runtime.go
-  - logic-grpc-service/service/interview_service.go
-  - logic-grpc-service/service/offer_service.go
-  - logic-grpc-service/service/collaboration_service.go
-  - logic-grpc-service/repository/application_repo.go
-  - logic-grpc-service/proto/recruitment.proto
-last_verified: 2026-07-10
-review_after: 2026-10-08
+  - smart-recruit-recruitment-service/internal/domain/model/recruitment.go
+  - smart-recruit-recruitment-service/internal/domain/policy/recruitment.go
+  - smart-recruit-recruitment-service/internal/application/service/application_collaboration_taxonomy_service.go
+  - smart-recruit-interview-service/internal/domain/service/interview_policy.go
+  - smart-recruit-interview-service/internal/application/service/interview_service.go
+  - smart-recruit-offer-service/internal/domain/model/status.go
+  - smart-recruit-offer-service/internal/application/service/offer_service.go
+  - smart-recruit-interview-service/internal/infrastructure/client/application_adapter.go
+  - smart-recruit-offer-service/internal/infrastructure/client/application_adapter.go
+  - smart-recruit-commons/internal/platform/events/envelope.go
+last_verified: 2026-07-14
+review_after: 2026-10-14
 ---
 
-# Recruitment Lifecycle Domain
+# Recruitment Lifecycle and Status Transitions
 
-The recruitment lifecycle is centered on application rounds. Jobs receive applications, applications move through status keys, interviews and offers mutate or depend on those statuses, and collaboration surfaces aggregate notes, tags, tasks, interviews, offers, and timeline events.
-
-The `recruitment-service` binary is not used by default. Its runtime can explicitly register ApplicationService for controlled validation, and `RECRUITMENT_ROUTE_MODE=recruitment` can route ApplicationService traffic to `RECRUITMENT_GRPC_ADDR`; rollback is `RECRUITMENT_ROUTE_MODE=logic`.
-
-The `interview-service` binary is also rollback-safe by default. `INTERVIEW_ROUTE_MODE=logic` keeps interview traffic on the monolith, while `INTERVIEW_ROUTE_MODE=interview` routes only InterviewService traffic to `INTERVIEW_GRPC_ADDR`; rollback is `INTERVIEW_ROUTE_MODE=logic`.
-
-The `offer-service` binary is rollback-safe by default. `OFFER_ROUTE_MODE=logic` keeps offer lifecycle traffic on the monolith, while `OFFER_ROUTE_MODE=offer` routes only OfferService traffic to `OFFER_GRPC_ADDR`; rollback is `OFFER_ROUTE_MODE=logic`.
-
-## Core Flow
-
-- `ApplicationService.ApplyJob` requires a complete candidate profile, a valid resume, and an online job, then creates a new application round.
-- `model/status.go` defines stable status keys, legacy numeric mappings, candidate-safe labels, HR labels, and terminal statuses.
-- `ApplicationService.UpdateApplicationStatus` validates target status keys, allowed transitions, reason requirements for closeout states, scope access, and current-round constraints.
-- `RecruitmentLifecycleProcessManager` is the explicit process-manager boundary for Interview and Offer workflows that must advance application status or write application transition audit records inside an existing transaction.
-- Interview scheduling and feedback use interview services/repositories and affect HR, candidate, and interviewer surfaces.
-- `interview-service` has an explicit runtime registration path for InterviewService and a gateway cutover switch. Current lifecycle side effects stay on the monolith path unless `INTERVIEW_ROUTE_MODE=interview` is explicitly configured.
-- Offer creation, send, withdraw, accept, and reject update offer state in Offer service transactions and route application lifecycle transitions through `RecruitmentLifecycleProcessManager`.
-- `offer-service` has an explicit runtime registration path for OfferService and a gateway cutover switch. Current lifecycle side effects stay on the monolith path unless `OFFER_ROUTE_MODE=offer` is explicitly configured.
-- Collaboration workspace composes applications, notes, tags, tasks, interviews, offers, and timeline events for staff workflows.
-
-## Cross-Surface Impact
-
-- HR surfaces include job management, application lists, candidate detail, interview scheduling, offer management, analytics, and collaboration workspace.
-- Candidate surfaces include application progress, interviews, offers, notifications, profile, and resume.
-- Interviewer surfaces include assigned interview tasks, details, feedback, notifications, and profile.
-- Analytics depends on status history and lifecycle timestamps; lifecycle changes can alter dashboard, funnel, and time-in-stage results.
-
-## Review Triggers
-
-- Adding, renaming, or reclassifying application status keys.
-- Changing transition rules, terminal statuses, reapplication rules, or required reasons.
-- Changing interview or offer behavior that updates application status.
-- Changing timeline, collaboration, analytics, or notification side effects.
-- Changing candidate-facing labels or HR-facing labels.
+Recruitment owns application records and status history. Interview and Offer own local lifecycle policies and coordinate application side effects through adapters and events. Status, notification, timeline, and analytics changes should be reviewed together.
 
 ## Verification
 
-Verified against status model, application service, recruitment lifecycle process manager, interview service, offer service, collaboration service, application repository, Recruitment, Interview, and Offer runtime descriptors, gateway route-mode controls, and protobuf messages on 2026-07-12.
+Verified against current repository files on 2026-07-14.
