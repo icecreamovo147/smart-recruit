@@ -1,0 +1,193 @@
+{
+  "schemaVersion": 1,
+  "feature_name": "microservice-ddd-evolution",
+  "task_id": "TASK-008",
+  "base_sha": "7eaada317ae0aa43b955fc396e4dc69d56474e54",
+  "base_tree": "d38e121d6e3656a55e70f789a287699b6881c574",
+  "head_sha": "7eaada317ae0aa43b955fc396e4dc69d56474e54",
+  "changed_files": [
+    "smart-recruit-interview-service/cmd/interview-service/main.go",
+    "smart-recruit-interview-service/internal/application/port/interview_ports.go",
+    "smart-recruit-interview-service/internal/application/query/queries.go",
+    "smart-recruit-interview-service/internal/application/service/interview_service.go",
+    "smart-recruit-interview-service/internal/application/service/interview_service_test.go",
+    "smart-recruit-interview-service/internal/docs/contract_inventory.md",
+    "smart-recruit-interview-service/internal/domain/model/feedback.go",
+    "smart-recruit-interview-service/internal/domain/model/feedback_test.go",
+    "smart-recruit-interview-service/internal/infrastructure/client/application_adapter.go",
+    "smart-recruit-interview-service/internal/infrastructure/client/authorizer.go",
+    "smart-recruit-interview-service/internal/infrastructure/client/staff_directory.go",
+    "smart-recruit-interview-service/internal/infrastructure/mq/outbox_publisher.go",
+    "smart-recruit-interview-service/internal/infrastructure/mq/outbox_publisher_test.go",
+    "smart-recruit-interview-service/internal/infrastructure/persistence/interview_repository.go",
+    "smart-recruit-interview-service/internal/interfaces/grpc/interview_server.go",
+    "smart-recruit-interview-service/internal/interfaces/grpc/interview_server_test.go",
+    "smart-recruit-interview-service/internal/interfaces/mapper/interview_mapper.go",
+    ".spec/microservice-ddd-evolution/reports/TASK-008-report.md",
+    ".spec/microservice-ddd-evolution/reports/TASK-008-evidence.json"
+  ],
+  "scope": {
+    "status": "passed",
+    "checked_by": "bash .spec/microservice-ddd-evolution/scripts/check-task-scope.sh TASK-008",
+    "out_of_scope": [],
+    "forbidden": []
+  },
+  "checks": [
+    {
+      "command": "git diff --name-only",
+      "exit_code": 0,
+      "started_at": "2026-07-13T07:00:00Z",
+      "duration_ms": 1,
+      "status": "passed",
+      "summary": "Tracked output listed 8 modified service files before report/evidence creation; untracked new service/report files are recorded in changed_files."
+    },
+    {
+      "command": "bash .spec/microservice-ddd-evolution/scripts/check-task-scope.sh TASK-008",
+      "exit_code": 0,
+      "started_at": "2026-07-13T07:01:00Z",
+      "duration_ms": 163,
+      "status": "passed",
+      "summary": "Scope check passed for TASK-008. Changed files: 19"
+    },
+    {
+      "command": "bash .spec/microservice-ddd-evolution/scripts/agent-check.sh",
+      "exit_code": 0,
+      "started_at": "2026-07-13T07:01:00Z",
+      "duration_ms": 5858,
+      "status": "passed",
+      "summary": "Harness JSON validation passed. Running go test ./... in smart-recruit-interview-service passed."
+    },
+    {
+      "command": "go test ./...",
+      "exit_code": 0,
+      "started_at": "2026-07-13T07:01:00Z",
+      "duration_ms": 5616,
+      "status": "passed",
+      "summary": "smart-recruit-interview-service package tests passed, including application list, gRPC list/mapping, outbox envelope, domain feedback, and runtime tests."
+    },
+    {
+      "command": "node scripts/check-mysql-table-ownership.mjs",
+      "exit_code": 0,
+      "started_at": "2026-07-13T07:01:00Z",
+      "duration_ms": 247,
+      "status": "passed",
+      "summary": "mysql_table_ownership: PASS (67 tables, single MySQL instance)"
+    },
+    {
+      "command": "node scripts/check-backend-boundaries.mjs",
+      "exit_code": 0,
+      "started_at": "2026-07-13T07:01:00Z",
+      "duration_ms": 391,
+      "status": "passed",
+      "summary": "backend_boundary_result: PASS"
+    }
+  ],
+  "non_blocking_checks": [
+    {
+      "command": "rg -n \"smart-recruit-domain-go/service|service\\\\.InterviewService|NewServices|services\\\\.Interview|buildDomainServices\" smart-recruit-interview-service -g'*.go'",
+      "exit_code": 1,
+      "started_at": "2026-07-13T06:58:00Z",
+      "duration_ms": 1,
+      "status": "failed_expected",
+      "summary": "Expected no-match exit 1. No Go code references remain for shared service.InterviewService, NewServices, services.Interview, or buildDomainServices."
+    },
+    {
+      "command": "node .knowledge/scripts/detect-impact.mjs --root . --base-tree d38e121d6e3656a55e70f789a287699b6881c574",
+      "exit_code": 1,
+      "started_at": "2026-07-13T06:58:00Z",
+      "duration_ms": 12,
+      "status": "failed",
+      "summary": "既有 active knowledge 中大量旧 logic-grpc-service/web-gin-service source_refs 缺失；本 TASK scope 不允许修改 .knowledge/**，记录为 candidate_required。"
+    }
+  ],
+  "review": {
+    "type": "independent-agent",
+    "round": 2,
+    "verdict": "通过",
+    "findings": [
+      {
+        "id": "M1",
+        "severity": "Medium",
+        "status": "fixed",
+        "summary": "Added TASK-008 report/evidence with checks, scope, repair, and knowledge impact records."
+      },
+      {
+        "id": "M2",
+        "severity": "Medium",
+        "status": "fixed",
+        "summary": "Added gRPC list mapping/forbidden/has_feedback/candidate-safe row tests and application list behavior tests."
+      },
+      {
+        "id": "L1",
+        "severity": "Low",
+        "status": "fixed",
+        "summary": "newEventID now returns crypto/rand.Read errors and buildEvent propagates them."
+      },
+      {
+        "id": "R2",
+        "severity": "Info",
+        "status": "passed",
+        "summary": "Second independent review confirmed all first-round findings fixed, runtime local wiring intact, and scope clean."
+      }
+    ]
+  },
+  "human_confirmation": {
+    "required": false,
+    "confirmed": true,
+    "confirmed_by": "not_required",
+    "confirmed_at": "2026-07-13T07:07:10Z",
+    "confirmation_text": "TASK-008 does not require human confirmation."
+  },
+  "exceptions": [],
+  "knowledgeImpact": {
+    "result": "candidate_required",
+    "triggeredBy": [
+      "smart-recruit-interview-service/cmd/interview-service/main.go",
+      "smart-recruit-interview-service/internal/infrastructure/**",
+      "smart-recruit-interview-service/internal/interfaces/**",
+      "smart-recruit-interview-service/internal/application/**",
+      "smart-recruit-interview-service/internal/docs/contract_inventory.md"
+    ],
+    "reviewResults": [
+      {
+        "document": ".knowledge/architecture/system-overview.md",
+        "verdict": "CANDIDATE",
+        "evidence": [
+          "TASK-008 switches Interview runtime in smart-recruit-interview-service to a local implementation, while the active document still describes the old logic-grpc-service topology."
+        ]
+      },
+      {
+        "document": ".knowledge/architecture/service-boundaries.md",
+        "verdict": "CANDIDATE",
+        "evidence": [
+          "Interview service now has local infrastructure/interfaces/runtime wiring and keeps shared repository/model as transitional infrastructure debt."
+        ]
+      },
+      {
+        "document": ".knowledge/domains/recruitment.md",
+        "verdict": "CANDIDATE",
+        "evidence": [
+          "Interview behavior remains part of recruitment workflows, but active runtime ownership moved to smart-recruit-interview-service local implementation."
+        ]
+      },
+      {
+        "document": ".knowledge/domains/recruitment-lifecycle.md",
+        "verdict": "CANDIDATE",
+        "evidence": [
+          "Interview schedule/cancel/feedback lifecycle side effects are now mediated by local Interview application service with transitional ApplicationRepo lifecycle adapter."
+        ]
+      },
+      {
+        "document": ".knowledge/domains/notification-outbox.md",
+        "verdict": "CANDIDATE",
+        "evidence": [
+          "Interview notification/email outbox envelope compatibility moved into smart-recruit-interview-service internal infrastructure mq adapter."
+        ]
+      }
+    ],
+    "coverageGap": false,
+    "validationExitCode": 1,
+    "reason": "Knowledge impact detection cannot complete until pre-existing source_ref debt is resolved; TASK-001 candidate remains the update path and TASK-008 scope does not allow editing .knowledge/**."
+  },
+  "skipped_checks": []
+}

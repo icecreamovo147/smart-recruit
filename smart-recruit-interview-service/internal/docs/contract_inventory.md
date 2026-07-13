@@ -36,7 +36,7 @@ internal/
 
 TASK-006 created package boundaries and recorded the legacy contract baseline.
 
-TASK-007 moves Interview domain/application behavior into local packages:
+TASK-007 moved Interview domain/application behavior into local packages:
 
 - `internal/domain/model`: Interview schedule, feedback, status, application status, terminal-status guard, and domain validation.
 - `internal/domain/service`: schedule/cancel/feedback lifecycle transition policy.
@@ -46,7 +46,14 @@ TASK-007 moves Interview domain/application behavior into local packages:
 - `internal/application/port`: authorizer, application snapshot, application lifecycle, outbox, and clock ports.
 - `internal/application/service`: Interview use-case orchestration for schedule/update/cancel/batch cancel/feedback and feedback retrieval.
 
-The active runtime path still uses `smart-recruit-domain-go/service.InterviewService` until TASK-008 wires local infrastructure and gRPC adapters.
+TASK-008 wires the active runtime path to local infrastructure, application, and gRPC adapters:
+
+- `internal/infrastructure/persistence`: shared repository backed Interview repository adapter and transaction context bridge.
+- `internal/infrastructure/client`: application snapshot/lifecycle, authorizer, and staff directory adapters.
+- `internal/infrastructure/mq`: legacy-compatible event_outbox publisher adapter.
+- `internal/interfaces/mapper`: proto mapping helpers.
+- `internal/interfaces/grpc`: local `pb.InterviewServiceServer` implementation.
+- `cmd/interview-service/main.go`: constructs local dependencies instead of shared `service.NewServices`.
 
 ## 3. Protobuf and Runtime Contract
 
@@ -73,14 +80,19 @@ Current `pb.InterviewServiceServer` methods exposed by runtime:
 Compatibility rule:
 
 - TASK-007 does not change protobuf request/response types, rpc names, route mode, gateway behavior, or runtime registration behavior.
-- Existing gRPC messages and response codes remain owned by the legacy implementation for the active runtime path. Local application errors are intentionally transport-neutral until TASK-008 maps them in `interfaces/grpc`.
+- Existing gRPC messages and response codes are mapped by `internal/interfaces/grpc` for the active runtime path.
+- TASK-008 does not change protobuf request/response types, rpc names, route mode, gateway behavior, or runtime registration behavior.
 
 ## 4. Current Shared Dependency Baseline
 
 Current direct imports in `cmd/interview-service/main.go`:
 
 - `smart-recruit-domain-go/repository`
-- `smart-recruit-domain-go/service`
+- local `internal/application/service`
+- local `internal/infrastructure/client`
+- local `internal/infrastructure/mq`
+- local `internal/infrastructure/persistence`
+- local `internal/interfaces/grpc`
 - `smart-recruit-proto/recruitment/pb`
 - `smart-recruit-platform-go/config`
 - `smart-recruit-platform-go/logger`
@@ -95,29 +107,23 @@ Current direct import in runtime:
 
 Current local service construction:
 
-- `buildDomainServices` constructs the shared `service.Services` graph and passes `services.Interview` into the Interview runtime.
-- The active gRPC implementation is therefore still `smart-recruit-domain-go/service.InterviewService`.
+- `buildInterviewServer` constructs only Interview-required repositories/adapters and returns local `interfaces/grpc.Server`.
+- The active gRPC implementation no longer uses `smart-recruit-domain-go/service.InterviewService`.
 
-Shared repositories constructed for the active runtime path:
+Shared repositories constructed as temporary infrastructure adapters:
 
 - `repository.NewUserRepo`
-- `repository.NewRefreshTokenRepo`
 - `repository.NewJobRepo`
-- `repository.NewProfileRepo`
-- `repository.NewResumeRepo`
 - `repository.NewApplicationRepo`
 - `repository.NewInterviewRepo`
-- `repository.NewOfferRepo`
-- `repository.NewNotificationRepo`
 - `repository.NewOutboxRepo`
 - `repository.NewAuthzRepo`
-- plus shared AI/chat/session/memory/invite/department/location/usage/email repositories required by `service.NewServices`.
 
 Migration implication:
 
 - TASK-007 moved Interview domain model, lifecycle policy, feedback rules, repository ports, command/query DTOs, and application ports into local packages.
-- TASK-008 should replace active runtime wiring with a local `interfaces/grpc` adapter backed by local application services, and remove the active direct dependency on shared `service.InterviewService`.
-- Remaining cross-context reads and lifecycle writes must be represented as explicit application ports or transitional infrastructure adapters.
+- TASK-008 replaces active runtime wiring with local `interfaces/grpc` backed by local application services, and removes active direct dependency on shared `service.InterviewService`.
+- Remaining shared `model`/`repository` imports are infrastructure-only transitional debt until shared cleanup.
 
 ## 5. Current Behavior Dependency Map
 
@@ -213,6 +219,8 @@ Existing Interview service tests:
 - `internal/domain/model/interview_test.go`
 - `internal/domain/model/feedback_test.go`
 - `internal/application/service/interview_service_test.go`
+- `internal/infrastructure/mq/outbox_publisher_test.go`
+- `internal/interfaces/grpc/interview_server_test.go`
 
 Current test focus:
 
@@ -221,6 +229,8 @@ Current test focus:
 - Runtime registers `InterviewService` with gRPC.
 - Domain schedule defaults, cancellation guard, feedback recommendation and score validation.
 - Application schedule/update/cancel/batch cancel/feedback state transitions and notification/outbox publication semantics.
+- Outbox legacy envelope, idempotency key, routing metadata, and interview email payload compatibility.
+- gRPC legacy response message and error-code compatibility for schedule, batch cancel, feedback, and get interview.
 
 Legacy shared tests still covering Interview behavior:
 
@@ -230,20 +240,17 @@ Legacy shared tests still covering Interview behavior:
 Current local test gaps:
 
 - No local application listing query tests yet.
-- No local persistence, mapper, or gRPC adapter tests yet.
-- No local contract compatibility tests beyond runtime registration yet.
+- No local DB-backed persistence adapter tests yet; adapters rely on shared repository tests plus service-level compile/tests.
 
 Expected next tests:
 
-- TASK-008: local infrastructure/interface/runtime tests for repository adapters, outbox/client adapters, gRPC compatibility, and runtime dependency replacement.
+- Later cleanup tasks should add DB-backed persistence tests if adapter logic grows beyond mapping/transaction bridging.
 
 ## 8. Out-of-Scope Confirmation
 
-TASK-007 intentionally does not:
+TASK-008 intentionally does not:
 
-- Replace active runtime wiring away from shared `service.InterviewService`.
 - Change protobuf or generated Go contracts.
 - Change database schema, migrations, or table ownership.
 - Change gateway routing or public HTTP behavior.
 - Delete or deprecate shared legacy implementation.
-- Start using the new skeleton packages from runtime.

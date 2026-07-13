@@ -8,6 +8,7 @@ import (
 
 	"smart-recruit-interview-service/internal/application/command"
 	"smart-recruit-interview-service/internal/application/port"
+	"smart-recruit-interview-service/internal/application/query"
 	"smart-recruit-interview-service/internal/domain/model"
 	"smart-recruit-interview-service/internal/domain/repository"
 )
@@ -194,6 +195,58 @@ func TestSubmitFeedbackRejectsDuplicateAndTerminalApplication(t *testing.T) {
 	}
 }
 
+func TestListMyInterviewsMarksFeedbackForRequester(t *testing.T) {
+	fixture := newInterviewFixture(t)
+	first := fixture.seedInterview(model.InterviewStatusCompleted, model.ApplicationStatusInterviewing)
+	second := fixture.seedInterview(model.InterviewStatusScheduled, model.ApplicationStatusInterviewing)
+	fixture.repo.feedbacks = append(fixture.repo.feedbacks, model.Feedback{
+		InterviewID:   first.ID,
+		InterviewerID: first.InterviewerID,
+	})
+	fixture.repo.feedbacks = append(fixture.repo.feedbacks, model.Feedback{
+		InterviewID:   second.ID,
+		InterviewerID: 999,
+	})
+
+	rows, err := fixture.service.ListMyInterviews(context.Background(), query.ListMyInterviews{InterviewerID: 200})
+	if err != nil {
+		t.Fatalf("ListMyInterviews returned error: %v", err)
+	}
+	if len(rows) != 2 {
+		t.Fatalf("rows=%d, want 2", len(rows))
+	}
+	feedbackByInterview := map[int64]bool{}
+	for _, row := range rows {
+		feedbackByInterview[row.Interview.ID] = row.HasFeedbackForRequest
+	}
+	if !feedbackByInterview[first.ID] {
+		t.Fatalf("first interview feedback flag=false, want true")
+	}
+	if feedbackByInterview[second.ID] {
+		t.Fatalf("second interview feedback flag=true, want false for another interviewer")
+	}
+}
+
+func TestListCandidateInterviewsFiltersInternalNotes(t *testing.T) {
+	fixture := newInterviewFixture(t)
+	interview := fixture.seedInterview(model.InterviewStatusScheduled, model.ApplicationStatusInterviewPending)
+	interview.InternalNote = "staff-only"
+	detail := fixture.repo.details[interview.ID]
+	detail.Interview.InternalNote = "staff-only"
+	fixture.repo.details[interview.ID] = detail
+
+	rows, err := fixture.service.ListCandidateInterviews(context.Background(), query.ListCandidateInterviews{UserID: 300})
+	if err != nil {
+		t.Fatalf("ListCandidateInterviews returned error: %v", err)
+	}
+	if len(rows) != 1 {
+		t.Fatalf("rows=%d, want 1", len(rows))
+	}
+	if rows[0].Interview.InternalNote != "" {
+		t.Fatalf("internal note=%q, want filtered", rows[0].Interview.InternalNote)
+	}
+}
+
 func newInterviewFixture(t *testing.T) *interviewFixture {
 	t.Helper()
 	repo := &fakeInterviewRepository{
@@ -217,6 +270,7 @@ func newInterviewFixture(t *testing.T) *interviewFixture {
 	service, err := NewInterviewService(Deps{
 		Interviews:   repo,
 		Applications: apps,
+		Staff:        fakeStaffDirectory{},
 		Lifecycle:    lifecycle,
 		Outbox:       outbox,
 		Authorizer:   authorizer,
@@ -349,16 +403,42 @@ func (r *fakeInterviewRepository) ListByApplication(_ context.Context, applicati
 	return rows, nil
 }
 
-func (r *fakeInterviewRepository) ListByInterviewer(context.Context, int64, model.InterviewStatus) ([]repository.InterviewDetails, error) {
-	return nil, nil
+func (r *fakeInterviewRepository) ListByInterviewer(_ context.Context, interviewerID int64, status model.InterviewStatus) ([]repository.InterviewDetails, error) {
+	rows := make([]repository.InterviewDetails, 0, len(r.details))
+	for _, detail := range r.details {
+		if detail.Interview.InterviewerID != interviewerID {
+			continue
+		}
+		if status != "" && detail.Interview.Status != status {
+			continue
+		}
+		rows = append(rows, detail)
+	}
+	return rows, nil
 }
 
-func (r *fakeInterviewRepository) ListByCandidate(context.Context, int64) ([]repository.InterviewDetails, error) {
-	return nil, nil
+func (r *fakeInterviewRepository) ListByCandidate(_ context.Context, candidateUserID int64) ([]repository.InterviewDetails, error) {
+	rows := make([]repository.InterviewDetails, 0, len(r.details))
+	for _, detail := range r.details {
+		if detail.CandidateUserID == candidateUserID {
+			rows = append(rows, detail)
+		}
+	}
+	return rows, nil
 }
 
-func (r *fakeInterviewRepository) ListFeedbackByInterviews(context.Context, []int64) ([]model.Feedback, error) {
-	return nil, nil
+func (r *fakeInterviewRepository) ListFeedbackByInterviews(_ context.Context, interviewIDs []int64) ([]model.Feedback, error) {
+	allowed := make(map[int64]bool, len(interviewIDs))
+	for _, id := range interviewIDs {
+		allowed[id] = true
+	}
+	feedbacks := make([]model.Feedback, 0, len(r.feedbacks))
+	for _, feedback := range r.feedbacks {
+		if allowed[feedback.InterviewID] {
+			feedbacks = append(feedbacks, feedback)
+		}
+	}
+	return feedbacks, nil
 }
 
 func (r *fakeInterviewRepository) FeedbackExistsByInterviewer(context.Context, int64, int64) (bool, error) {
@@ -379,6 +459,12 @@ type fakeApplicationSnapshots struct {
 
 func (a *fakeApplicationSnapshots) GetApplicationSnapshot(_ context.Context, applicationID int64) (*port.ApplicationSnapshot, error) {
 	return a.snapshots[applicationID], nil
+}
+
+type fakeStaffDirectory struct{}
+
+func (fakeStaffDirectory) ListInterviewers(context.Context, int32, int32, string) (port.StaffPage, error) {
+	return port.StaffPage{}, nil
 }
 
 type fakeLifecycle struct {

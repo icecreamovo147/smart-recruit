@@ -9,8 +9,8 @@ func TestNewFeedbackValidatesRecommendationAndScore(t *testing.T) {
 		InterviewerID:  3,
 		Recommendation: "not-a-real-value",
 		Score:          5,
-	}); err != ErrFeedbackInvalid {
-		t.Fatalf("invalid recommendation error=%v, want ErrFeedbackInvalid", err)
+	}); err != ErrFeedbackInvalidRecommendation {
+		t.Fatalf("invalid recommendation error=%v, want ErrFeedbackInvalidRecommendation", err)
 	}
 	if _, err := NewFeedback(FeedbackDetails{
 		InterviewID:    1,
@@ -18,7 +18,7 @@ func TestNewFeedbackValidatesRecommendationAndScore(t *testing.T) {
 		InterviewerID:  3,
 		Recommendation: "recommend",
 		Score:          11,
-	}); err != ErrFeedbackInvalid {
-		t.Fatalf("invalid score error=%v, want ErrFeedbackInvalid", err)
+	}); err != ErrFeedbackScoreOutOfRange {
+		t.Fatalf("invalid score error=%v, want ErrFeedbackScoreOutOfRange", err)
 	}
 }

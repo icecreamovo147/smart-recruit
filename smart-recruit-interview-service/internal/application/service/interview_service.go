@@ -22,6 +22,7 @@ var (
 type InterviewService struct {
 	interviews   repository.InterviewRepository
 	applications port.ApplicationSnapshotReader
+	staff        port.StaffDirectory
 	lifecycle    port.ApplicationLifecycle
 	outbox       port.OutboxPublisher
 	authorizer   port.Authorizer
@@ -31,6 +32,7 @@ type InterviewService struct {
 type Deps struct {
 	Interviews   repository.InterviewRepository
 	Applications port.ApplicationSnapshotReader
+	Staff        port.StaffDirectory
 	Lifecycle    port.ApplicationLifecycle
 	Outbox       port.OutboxPublisher
 	Authorizer   port.Authorizer
@@ -43,6 +45,9 @@ func NewInterviewService(deps Deps) (*InterviewService, error) {
 	}
 	if deps.Applications == nil {
 		return nil, errors.New("application snapshot reader is required")
+	}
+	if deps.Staff == nil {
+		return nil, errors.New("staff directory is required")
 	}
 	if deps.Lifecycle == nil {
 		return nil, errors.New("application lifecycle port is required")
@@ -60,6 +65,7 @@ func NewInterviewService(deps Deps) (*InterviewService, error) {
 	return &InterviewService{
 		interviews:   deps.Interviews,
 		applications: deps.Applications,
+		staff:        deps.Staff,
 		lifecycle:    deps.Lifecycle,
 		outbox:       deps.Outbox,
 		authorizer:   deps.Authorizer,
@@ -354,6 +360,111 @@ func (s *InterviewService) GetFeedback(ctx context.Context, qry query.GetFeedbac
 		return nil, err
 	}
 	return s.interviews.FindFeedbackByInterviewAndInterviewer(ctx, qry.InterviewID, qry.InterviewerID)
+}
+
+func (s *InterviewService) GetInterview(ctx context.Context, qry query.GetInterview) (*repository.InterviewDetails, error) {
+	if err := s.authorizer.VerifyActor(ctx, qry.UserID); err != nil {
+		return nil, err
+	}
+	details, err := s.interviewDetails(ctx, qry.InterviewID)
+	if err != nil {
+		return nil, err
+	}
+	candidateUserID := details.CandidateUserID
+	if candidateUserID == 0 {
+		if snapshot, err := s.applicationSnapshot(ctx, details.Interview.ApplicationID); err == nil && snapshot != nil {
+			candidateUserID = snapshot.CandidateUserID
+		} else if err != nil {
+			return nil, err
+		}
+	}
+	if candidateUserID == qry.UserID {
+		details.Interview.InternalNote = ""
+		return details, nil
+	}
+	if err := s.authorizer.Authorize(ctx, qry.UserID, port.PermissionInterviewRead); err != nil {
+		return nil, err
+	}
+	if err := s.authorizer.CanReadInterview(ctx, qry.UserID, qry.InterviewID); err != nil {
+		return nil, err
+	}
+	return details, nil
+}
+
+func (s *InterviewService) ListInterviewers(ctx context.Context, qry query.ListInterviewers) (port.StaffPage, error) {
+	if err := s.authorizer.VerifyActor(ctx, qry.HRID); err != nil {
+		return port.StaffPage{}, err
+	}
+	if err := s.authorizer.Authorize(ctx, qry.HRID, port.PermissionInterviewSchedule); err != nil {
+		return port.StaffPage{}, err
+	}
+	page := qry.Page
+	if page <= 0 {
+		page = 1
+	}
+	pageSize := qry.PageSize
+	if pageSize <= 0 || pageSize > 100 {
+		pageSize = 10
+	}
+	return s.staff.ListInterviewers(ctx, page, pageSize, qry.Keyword)
+}
+
+func (s *InterviewService) ListApplicationInterviews(ctx context.Context, qry query.ListApplicationInterviews) ([]repository.InterviewDetails, error) {
+	if err := s.authorizer.VerifyActor(ctx, qry.HRID); err != nil {
+		return nil, err
+	}
+	if err := s.authorizer.Authorize(ctx, qry.HRID, port.PermissionInterviewSchedule); err != nil {
+		return nil, err
+	}
+	if err := s.authorizer.CanScheduleApplication(ctx, qry.HRID, qry.ApplicationID); err != nil {
+		return nil, err
+	}
+	return s.interviews.ListByApplication(ctx, qry.ApplicationID)
+}
+
+func (s *InterviewService) ListMyInterviews(ctx context.Context, qry query.ListMyInterviews) ([]repository.InterviewDetails, error) {
+	if err := s.authorizer.VerifyActor(ctx, qry.InterviewerID); err != nil {
+		return nil, err
+	}
+	if err := s.authorizer.Authorize(ctx, qry.InterviewerID, port.PermissionInterviewRead); err != nil {
+		return nil, err
+	}
+	rows, err := s.interviews.ListByInterviewer(ctx, qry.InterviewerID, qry.Status)
+	if err != nil {
+		return nil, err
+	}
+	ids := make([]int64, 0, len(rows))
+	for _, row := range rows {
+		ids = append(ids, row.Interview.ID)
+	}
+	feedbacks, err := s.interviews.ListFeedbackByInterviews(ctx, ids)
+	if err != nil {
+		return nil, err
+	}
+	hasFeedback := make(map[int64]bool, len(feedbacks))
+	for _, feedback := range feedbacks {
+		if feedback.InterviewerID == qry.InterviewerID {
+			hasFeedback[feedback.InterviewID] = true
+		}
+	}
+	for i := range rows {
+		rows[i].HasFeedbackForRequest = hasFeedback[rows[i].Interview.ID]
+	}
+	return rows, nil
+}
+
+func (s *InterviewService) ListCandidateInterviews(ctx context.Context, qry query.ListCandidateInterviews) ([]repository.InterviewDetails, error) {
+	if err := s.authorizer.VerifyActor(ctx, qry.UserID); err != nil {
+		return nil, err
+	}
+	rows, err := s.interviews.ListByCandidate(ctx, qry.UserID)
+	if err != nil {
+		return nil, err
+	}
+	for i := range rows {
+		rows[i].Interview.InternalNote = ""
+	}
+	return rows, nil
 }
 
 func (s *InterviewService) applicationSnapshot(ctx context.Context, applicationID int64) (*port.ApplicationSnapshot, error) {

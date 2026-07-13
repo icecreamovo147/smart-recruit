@@ -37,6 +37,26 @@ type ApplicationSnapshotReader interface {
 	GetApplicationSnapshot(ctx context.Context, applicationID int64) (*ApplicationSnapshot, error)
 }
 
+type StaffUser struct {
+	UserID       int64
+	Username     string
+	Email        string
+	Status       string
+	AccountType  string
+	Roles        []string
+	TokenVersion int32
+	CreatedAt    time.Time
+}
+
+type StaffPage struct {
+	Total int64
+	List  []StaffUser
+}
+
+type StaffDirectory interface {
+	ListInterviewers(ctx context.Context, page int32, pageSize int32, keyword string) (StaffPage, error)
+}
+
 type LifecycleTransitionCommand struct {
 	ApplicationID    int64
 	FromStatus       model.ApplicationStatus

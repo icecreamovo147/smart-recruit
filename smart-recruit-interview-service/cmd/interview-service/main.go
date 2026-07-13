@@ -22,7 +22,11 @@ import (
 	"gorm.io/gorm"
 
 	"smart-recruit-domain-go/repository"
-	"smart-recruit-domain-go/service"
+	interviewapp "smart-recruit-interview-service/internal/application/service"
+	interviewclient "smart-recruit-interview-service/internal/infrastructure/client"
+	interviewmq "smart-recruit-interview-service/internal/infrastructure/mq"
+	interviewpersistence "smart-recruit-interview-service/internal/infrastructure/persistence"
+	interviewgrpc "smart-recruit-interview-service/internal/interfaces/grpc"
 	interviewruntime "smart-recruit-interview-service/internal/runtime"
 	platformconfig "smart-recruit-platform-go/config"
 	"smart-recruit-platform-go/logger"
@@ -131,8 +135,11 @@ func serveInterview(addr string) error {
 	}
 	defer server.ShutdownMetricsServer(context.Background(), metricsServer)
 
-	services := buildDomainServices(cfg, db, redisClient)
-	runtime, err := interviewruntime.New(interviewruntime.Deps{Interview: services.Interview})
+	interviewServer, err := buildInterviewServer(db)
+	if err != nil {
+		return err
+	}
+	runtime, err := interviewruntime.New(interviewruntime.Deps{Interview: interviewServer})
 	if err != nil {
 		return err
 	}
@@ -191,53 +198,26 @@ func serveInterview(addr string) error {
 	return nil
 }
 
-func buildDomainServices(cfg logicconfig.Config, db *gorm.DB, redisClient *redis.Client) *service.Services {
+func buildInterviewServer(db *gorm.DB) (pb.InterviewServiceServer, error) {
 	userRepo := repository.NewUserRepo(db)
-	refreshTokenRepo := repository.NewRefreshTokenRepo(db)
 	jobRepo := repository.NewJobRepo(db)
-	profileRepo := repository.NewProfileRepo(db)
-	resumeRepo := repository.NewResumeRepo(db)
 	applicationRepo := repository.NewApplicationRepo(db)
 	interviewRepo := repository.NewInterviewRepo(db)
-	offerRepo := repository.NewOfferRepo(db)
-	notificationRepo := repository.NewNotificationRepo(db)
 	outboxRepo := repository.NewOutboxRepo(db)
 	authzRepo := repository.NewAuthzRepo(db)
-	return service.NewServices(
-		redisClient,
-		db,
-		userRepo,
-		refreshTokenRepo,
-		jobRepo,
-		profileRepo,
-		resumeRepo,
-		applicationRepo,
-		interviewRepo,
-		offerRepo,
-		repository.NewChatRepo(db),
-		repository.NewSessionSummaryRepo(db),
-		repository.NewToolTraceRepo(db),
-		repository.NewAgentRunRepo(db),
-		repository.NewMemoryRepo(db),
-		notificationRepo,
-		outboxRepo,
-		repository.NewInviteCodeRepo(db),
-		repository.NewDepartmentRepo(db),
-		repository.NewJobLocationRepo(db),
-		repository.NewDepartmentLocationRepo(db),
-		repository.NewUsageLogRepo(db),
-		authzRepo,
-		repository.NewEmailLogRepo(db),
-		nil,
-		nil,
-		nil,
-		nil,
-		nil,
-		cfg,
-		cfg.JWT.Secret,
-		nil,
-		nil,
-	)
+
+	interviewService, err := interviewapp.NewInterviewService(interviewapp.Deps{
+		Interviews:   interviewpersistence.NewInterviewRepository(interviewRepo),
+		Applications: interviewclient.NewApplicationAdapter(applicationRepo),
+		Staff:        interviewclient.NewStaffDirectory(userRepo),
+		Lifecycle:    interviewclient.NewApplicationLifecycleAdapter(applicationRepo),
+		Outbox:       interviewmq.NewOutboxPublisher(outboxRepo),
+		Authorizer:   interviewclient.NewAuthorizer(authzRepo, applicationRepo, jobRepo, interviewRepo),
+	})
+	if err != nil {
+		return nil, err
+	}
+	return interviewgrpc.NewServer(interviewService)
 }
 
 func loadBootstrap(addr string) (platformconfig.Bootstrap, error) {
