@@ -1,0 +1,149 @@
+{
+  "schemaVersion": 1,
+  "feature_name": "microservice-ddd-evolution",
+  "task_id": "TASK-012",
+  "base_sha": "28dd9b36e30f129e6f2cf836486175b5559f8118",
+  "base_tree": "f4d91176d0e390eaf01ac1ca070ac0b6f0bc4179",
+  "head_sha": "28dd9b36e30f129e6f2cf836486175b5559f8118",
+  "changed_files": [
+    "smart-recruit-identity-service/internal/application/doc.go",
+    "smart-recruit-identity-service/internal/application/command/doc.go",
+    "smart-recruit-identity-service/internal/application/dto/doc.go",
+    "smart-recruit-identity-service/internal/application/port/doc.go",
+    "smart-recruit-identity-service/internal/application/query/doc.go",
+    "smart-recruit-identity-service/internal/application/service/doc.go",
+    "smart-recruit-identity-service/internal/domain/doc.go",
+    "smart-recruit-identity-service/internal/domain/event/doc.go",
+    "smart-recruit-identity-service/internal/domain/model/doc.go",
+    "smart-recruit-identity-service/internal/domain/policy/doc.go",
+    "smart-recruit-identity-service/internal/domain/repository/doc.go",
+    "smart-recruit-identity-service/internal/domain/service/doc.go",
+    "smart-recruit-identity-service/internal/infrastructure/doc.go",
+    "smart-recruit-identity-service/internal/infrastructure/cache/doc.go",
+    "smart-recruit-identity-service/internal/infrastructure/client/doc.go",
+    "smart-recruit-identity-service/internal/infrastructure/persistence/doc.go",
+    "smart-recruit-identity-service/internal/interfaces/doc.go",
+    "smart-recruit-identity-service/internal/interfaces/grpc/doc.go",
+    "smart-recruit-identity-service/internal/interfaces/mapper/doc.go",
+    "smart-recruit-identity-service/internal/docs/security_contract_inventory.md",
+    ".spec/microservice-ddd-evolution/reports/TASK-012-report.md",
+    ".spec/microservice-ddd-evolution/reports/TASK-012-evidence.json"
+  ],
+  "scope": {
+    "status": "passed",
+    "checked_by": "bash .spec/microservice-ddd-evolution/scripts/check-task-scope.sh TASK-012",
+    "out_of_scope": [],
+    "forbidden": []
+  },
+  "checks": [
+    {
+      "command": "go test ./...",
+      "exit_code": 0,
+      "started_at": "2026-07-13T08:18:00Z",
+      "duration_ms": 3683,
+      "status": "passed",
+      "summary": "smart-recruit-identity-service package tests passed after adding DDD package markers and the security contract inventory."
+    },
+    {
+      "command": "node scripts/check-mysql-table-ownership.mjs",
+      "exit_code": 0,
+      "started_at": "2026-07-13T08:18:00Z",
+      "duration_ms": 7,
+      "status": "passed",
+      "summary": "mysql_table_ownership: PASS (67 tables, single MySQL instance)"
+    },
+    {
+      "command": "node scripts/check-backend-boundaries.mjs",
+      "exit_code": 0,
+      "started_at": "2026-07-13T08:18:00Z",
+      "duration_ms": 206,
+      "status": "passed",
+      "summary": "backend_boundary_result: PASS"
+    },
+    {
+      "command": "git diff --name-only",
+      "exit_code": 0,
+      "started_at": "2026-07-13T08:18:00Z",
+      "duration_ms": 1,
+      "status": "passed",
+      "summary": "Tracked diff was empty because TASK-012 files were newly untracked at the time; changed_files and scope check list the complete added file set."
+    },
+    {
+      "command": "bash .spec/microservice-ddd-evolution/scripts/check-task-scope.sh TASK-012",
+      "exit_code": 0,
+      "started_at": "2026-07-13T08:20:00Z",
+      "duration_ms": 27,
+      "status": "passed",
+      "summary": "Scope check passed for TASK-012. Changed files: 22"
+    },
+    {
+      "command": "bash .spec/microservice-ddd-evolution/scripts/agent-check.sh",
+      "exit_code": 0,
+      "started_at": "2026-07-13T08:20:00Z",
+      "duration_ms": 3438,
+      "status": "passed",
+      "summary": "Harness JSON validation passed. Running go test ./... in smart-recruit-identity-service passed."
+    }
+  ],
+  "non_blocking_checks": [
+    {
+      "command": "node .knowledge/scripts/detect-impact.mjs --root . --base-tree f4d91176d0e390eaf01ac1ca070ac0b6f0bc4179",
+      "exit_code": 1,
+      "started_at": "2026-07-13T08:18:00Z",
+      "duration_ms": 39,
+      "status": "failed",
+      "summary": "Pre-existing active knowledge source_refs still point at removed logic-grpc-service/web-gin-service paths; TASK-012 scope does not allow .knowledge/** edits, so this is recorded as candidate_required."
+    }
+  ],
+  "review": {
+    "type": "self-review",
+    "round": 1,
+    "verdict": "通过",
+    "findings": []
+  },
+  "human_confirmation": {
+    "required": true,
+    "confirmed": true,
+    "confirmed_by": "user",
+    "confirmed_at": "2026-07-13T08:10:00Z",
+    "confirmation_text": "用户确认继续执行 TASK-012，并授权后续 requiresHumanConfirmation TASK 继续执行；除非遇到需要人工介入的阻塞性问题才停下。"
+  },
+  "exceptions": [],
+  "knowledgeImpact": {
+    "result": "candidate_required",
+    "triggeredBy": [
+      "smart-recruit-identity-service/internal/domain/**",
+      "smart-recruit-identity-service/internal/application/**",
+      "smart-recruit-identity-service/internal/infrastructure/**",
+      "smart-recruit-identity-service/internal/interfaces/**",
+      "smart-recruit-identity-service/internal/docs/security_contract_inventory.md"
+    ],
+    "reviewResults": [
+      {
+        "document": ".knowledge/architecture/auth-rbac-security.md",
+        "verdict": "CANDIDATE",
+        "evidence": [
+          "TASK-012 creates the Identity local DDD boundary and records current auth, refresh-token, principal, RBAC, data-scope, invite-code, staff-user, and audit contracts while active knowledge still points to legacy logic-grpc-service/web-gin-service paths."
+        ]
+      },
+      {
+        "document": ".knowledge/runbooks/debug-auth-permissions.md",
+        "verdict": "CANDIDATE",
+        "evidence": [
+          "TASK-012 documents the Identity-owned runtime and security contract anchors that should replace legacy runbook paths when knowledge scope is available."
+        ]
+      },
+      {
+        "document": ".knowledge/pitfalls/auth-permission-alignment.md",
+        "verdict": "CANDIDATE",
+        "evidence": [
+          "TASK-012 records token-version invalidation, Redis fail-safe sync, RBAC/data-scope mutation, last-admin protection, and audit contracts for later migration checks."
+        ]
+      }
+    ],
+    "coverageGap": false,
+    "validationExitCode": 1,
+    "reason": "Knowledge impact detection cannot complete until pre-existing source_ref debt is resolved; TASK-012 scope does not allow editing .knowledge/**."
+  },
+  "skipped_checks": []
+}
