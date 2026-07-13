@@ -2,6 +2,7 @@ package repository
 
 import (
 	"context"
+	"time"
 
 	"smart-recruit-recruitment-service/internal/domain/model"
 )
@@ -66,4 +67,42 @@ type OutboxPublisher interface {
 
 type UsageLogRepository interface {
 	CreateUsageLog(ctx context.Context, entry model.UsageLogEntry) error
+}
+
+type ApplicationRepository interface {
+	CreateNewRound(ctx context.Context, application *model.Application, afterCreate func(applicationID int64) error) error
+	GetDetail(ctx context.Context, applicationID int64) (*model.ApplicationDetail, error)
+	UpdateStatus(ctx context.Context, applicationID int64, currentKey, targetKey string, legacyStatus int32, actorUserID int64, scope JobScope, isRePass bool, reason string, afterUpdate func(rows int64) error) (int64, error)
+	ListTransitions(ctx context.Context, applicationID int64) ([]model.ApplicationStatusTransition, error)
+}
+
+type CollaborationRepository interface {
+	CreateNote(ctx context.Context, note *model.CandidateNote) error
+	ListNotes(ctx context.Context, candidateUserID uint64, applicationID *uint64) ([]model.CandidateNote, error)
+	CreateTag(ctx context.Context, tag *model.CandidateTag) error
+	AssignTag(ctx context.Context, assignment *model.CandidateTagAssignment) error
+	CreateTask(ctx context.Context, task *model.FollowUpTask) error
+}
+
+type CollaborationAuthorizer interface {
+	RequireCandidateAccess(ctx context.Context, staffUserID, candidateUserID uint64) error
+	AuthorizePermission(ctx context.Context, staffUserID uint64, permission string) error
+}
+
+type TaxonomyRepository interface {
+	GetDepartment(ctx context.Context, id int64) (*model.DepartmentNode, error)
+	FindDeletedDepartment(ctx context.Context, parentID int64, name string) (*model.DepartmentNode, error)
+	ReactivateDepartment(ctx context.Context, departmentID, adminID int64, name string, sortOrder int) error
+	CreateDepartment(ctx context.Context, department *model.DepartmentNode) error
+	ListActiveLocations(ctx context.Context) ([]model.JobLocation, error)
+	ReplaceDepartmentLocations(ctx context.Context, adminID, departmentID int64, locationIDs []int64) error
+	UpdateDepartmentFields(ctx context.Context, departmentID int64, fields map[string]any) error
+	BuildDepartmentFullName(ctx context.Context, departmentID int64) (string, error)
+}
+
+type UsageStatsRepository interface {
+	GetStatsByModel(ctx context.Context, startTime, endTime time.Time) ([]model.UsageStatsRow, error)
+	GetStatsByUser(ctx context.Context, startTime, endTime time.Time) ([]model.UsageStatsRow, error)
+	GetStatsBySession(ctx context.Context, startTime, endTime time.Time) ([]model.UsageStatsRow, error)
+	GetTrend(ctx context.Context, startTime, endTime time.Time, granularity string) ([]model.UsageTrendRow, error)
 }

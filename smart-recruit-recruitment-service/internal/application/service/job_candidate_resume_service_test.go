@@ -206,6 +206,7 @@ func assertUsageLog(t *testing.T, got model.UsageLogEntry, serviceType, endpoint
 type fakeJobRepository struct {
 	departments map[int64]*model.Department
 	locations   map[int64]*model.JobLocation
+	jobs        map[int64]*model.Job
 	created     model.Job
 	ownedStatus int32
 	anyStatus   int32
@@ -241,6 +242,10 @@ func (r *fakeJobRepository) LookupLocation(_ context.Context, locationID int64) 
 	return r.locations[locationID], nil
 }
 
+func (r *fakeJobRepository) GetByID(_ context.Context, jobID int64) (*model.Job, error) {
+	return r.jobs[jobID], nil
+}
+
 type fakeJobScopeChecker struct {
 	scope repository.JobScope
 }
@@ -259,11 +264,12 @@ func (v *fakeDepartmentLocationValidator) ValidateDepartmentLocation(_ context.C
 }
 
 type fakeProfileRepository struct {
-	saved model.CandidateProfile
+	saved   model.CandidateProfile
+	profile *model.CandidateProfile
 }
 
 func (r *fakeProfileRepository) GetByUserID(context.Context, int64) (*model.CandidateProfile, error) {
-	return nil, nil
+	return r.profile, nil
 }
 
 func (r *fakeProfileRepository) Upsert(_ context.Context, profile *model.CandidateProfile) error {
@@ -273,10 +279,11 @@ func (r *fakeProfileRepository) Upsert(_ context.Context, profile *model.Candida
 
 type fakeResumeRepository struct {
 	saved model.Resume
+	valid *model.Resume
 }
 
 func (r *fakeResumeRepository) GetValidByUserID(context.Context, int64) (*model.Resume, error) {
-	return nil, nil
+	return r.valid, nil
 }
 
 func (r *fakeResumeRepository) ConfirmUpload(_ context.Context, resume *model.Resume, afterCreate func(resumeID int64) error) error {
