@@ -19,3 +19,5 @@ GOWORK=off go run ./cmd/worker-service --serve
 `WORKER_WORKLOADS` enables a comma-separated subset of workloads. Empty means all known workloads. `WORKER_DISABLED_WORKLOADS` removes workloads from that set. Active workloads require RabbitMQ readiness and a configured starter with an idempotency policy.
 
 Worker execution is controlled by explicit workload toggles and readiness checks. Outbox, Inbox, DLQ, notification, email, resume parsing, embedding, agent-run, and analytics projection workloads belong in this service root.
+
+The workload profile and owner-contract inventory lives in `internal/docs/worker_workload_inventory.md`.
