@@ -35,7 +35,10 @@ internal/
   runtime/
 ```
 
-当前这些包只承载职责边界说明，不承载业务实现。现有 active runtime 仍使用 `smart-recruit-domain-go/service.NotificationRuntime`。
+TASK-011 将 active runtime 收敛到 service-local application、
+infrastructure、interfaces 和 runtime adapters。TASK-029 进一步移除了对
+`smart-recruit-domain-go/repository` 与 `smart-recruit-domain-go/service` 的
+active import。
 
 后续任务边界：
 
@@ -79,25 +82,23 @@ Compatibility rule:
 - TASK-009 不改变 protobuf request/response、rpc 名称、HTTP route、Gateway route mode、SSE event framing 或错误响应结构。
 - SSE event 仍由 Gateway 订阅 Redis channel 并输出 `event: notification`。
 
-## 4. Current Shared Dependency Baseline
+## 4. Current Compatibility Dependency Baseline
 
 当前 `cmd/notification-service/main.go` 直接依赖：
 
 - `smart-recruit-domain-go/email`
 - `smart-recruit-domain-go/mq`
 - `smart-recruit-domain-go/pkg/cache`
-- `smart-recruit-domain-go/repository`
-- `smart-recruit-domain-go/service`
 - `smart-recruit-platform-go/*`
 - `smart-recruit-proto/recruitment/pb`
 
-当前 shared runtime construction：
+当前 service-local runtime construction：
 
-- `buildNotificationRuntime` 构造 `service.NotificationRuntime`。
-- `service.NewNotificationRuntime` 构造：
-  - `NotificationService`
-  - `NotificationWorkerPool`
-  - `OutboxPublisher`
+- `buildNotificationRuntime` 构造本地 `notificationruntime.Runtime`。
+- `appservice.New` 构造本地 notification application service。
+- `notificationmq.NewOutboxPublisher` 负责 event_outbox claim/publish/retry。
+- `notificationmq.NewNotificationConsumer` 与 `NewEmailConsumer` 负责 Inbox
+  幂等消费。
   - `NotificationConsumer`
   - `EmailConsumer`
 
@@ -270,22 +271,15 @@ Current test focus:
 - Runtime component inspection requires persistence, realtime delivery, outbox, notification inbox, and email coordination.
 - Idempotency semantics are documented in `runtime.IdempotencySemantics`.
 
-Legacy shared tests covering Notification behavior:
+Local tests covering Notification behavior:
 
-- `smart-recruit-domain-go/service/notification_service_test.go`
-- `smart-recruit-domain-go/service/notification_consumer_test.go`
-- `smart-recruit-domain-go/service/email_consumer_test.go`
-- `smart-recruit-domain-go/service/inbox_consumer_test.go`
-- `smart-recruit-domain-go/service/outbox_publisher_test.go`
-- `smart-recruit-domain-go/repository/notification_repo_test.go`
-- `smart-recruit-domain-go/repository/outbox_repo_test.go`
-- `smart-recruit-domain-go/repository/inbox_repo_test.go`
-- `smart-recruit-domain-go/repository/email_log_repo_test.go`
+- `internal/application/service/*_test.go`
+- `internal/domain/model/*_test.go`
+- `internal/runtime/runtime_test.go`
+- `cmd/notification-service/main_test.go`
 
 Current local test gaps:
 
-- No local domain/application tests yet.
-- No local persistence adapter tests yet.
 - No local gRPC mapper/interface tests yet.
 - No local consumer replay/idempotency tests yet.
 

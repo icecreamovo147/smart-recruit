@@ -4,24 +4,25 @@ import (
 	"context"
 	"fmt"
 
+	"gorm.io/gorm"
 	"smart-recruit-analytics-service/internal/application/port"
 	"smart-recruit-analytics-service/internal/domain/model"
-	"smart-recruit-domain-go/repository"
+	sharedauthz "smart-recruit-domain-go/pkg/authz"
 )
 
 type AuthzAdapter struct {
-	repo *repository.AuthzRepo
+	db *gorm.DB
 }
 
-func NewAuthzAdapter(repo *repository.AuthzRepo) *AuthzAdapter {
-	return &AuthzAdapter{repo: repo}
+func NewAuthzAdapter(db *gorm.DB) *AuthzAdapter {
+	return &AuthzAdapter{db: db}
 }
 
 func (a *AuthzAdapter) AuthorizePermission(ctx context.Context, actorID uint64, permission string) error {
-	if a == nil || a.repo == nil {
+	if a == nil || a.db == nil {
 		return nil
 	}
-	perms, err := a.repo.GetUserPermissions(ctx, actorID)
+	perms, err := a.userPermissions(ctx, actorID)
 	if err != nil {
 		return fmt.Errorf("%w: permission lookup failed: %v", port.ErrPermissionDenied, err)
 	}
@@ -34,18 +35,18 @@ func (a *AuthzAdapter) AuthorizePermission(ctx context.Context, actorID uint64, 
 }
 
 func (a *AuthzAdapter) GetUserScopeData(ctx context.Context, actorID uint64) (model.ScopeData, error) {
-	if a == nil || a.repo == nil {
+	if a == nil || a.db == nil {
 		return model.ScopeData{ActorID: actorID}, nil
 	}
-	scopeKeys, err := a.repo.GetUserScopeKeys(ctx, actorID)
+	scopeKeys, err := a.userScopeKeys(ctx, actorID)
 	if err != nil {
 		return model.ScopeData{}, err
 	}
-	deptIDs, err := a.repo.GetUserDepartmentIDs(ctx, actorID)
+	deptIDs, err := a.userScopedResourceIDs(ctx, actorID, sharedauthz.ScopeDepartment, "department")
 	if err != nil {
 		return model.ScopeData{}, err
 	}
-	locIDs, err := a.repo.GetUserLocationIDs(ctx, actorID)
+	locIDs, err := a.userScopedResourceIDs(ctx, actorID, sharedauthz.ScopeLocation, "location")
 	if err != nil {
 		return model.ScopeData{}, err
 	}
@@ -55,4 +56,37 @@ func (a *AuthzAdapter) GetUserScopeData(ctx context.Context, actorID uint64) (mo
 		DepartmentIDs: deptIDs,
 		LocationIDs:   locIDs,
 	}, nil
+}
+
+func (a *AuthzAdapter) userPermissions(ctx context.Context, actorID uint64) ([]string, error) {
+	var permissions []string
+	err := a.db.WithContext(ctx).
+		Table("user_roles").
+		Select("DISTINCT p.permission_key").
+		Joins("JOIN role_permissions rp ON rp.role_id = user_roles.role_id").
+		Joins("JOIN permissions p ON p.id = rp.permission_id").
+		Where("user_roles.user_id = ? AND user_roles.revoked_at IS NULL", actorID).
+		Pluck("p.permission_key", &permissions).Error
+	return permissions, err
+}
+
+func (a *AuthzAdapter) userScopeKeys(ctx context.Context, actorID uint64) ([]string, error) {
+	var keys []string
+	err := a.db.WithContext(ctx).
+		Table("user_data_scopes").
+		Where("user_id = ? AND revoked_at IS NULL", actorID).
+		Distinct("scope_key").
+		Pluck("scope_key", &keys).Error
+	return keys, err
+}
+
+func (a *AuthzAdapter) userScopedResourceIDs(ctx context.Context, actorID uint64, scopeKey string, resourceType string) ([]uint64, error) {
+	var ids []uint64
+	err := a.db.WithContext(ctx).
+		Table("user_data_scopes").
+		Where("user_id = ? AND scope_key = ? AND revoked_at IS NULL AND resource_type = ? AND resource_id > 0",
+			actorID, scopeKey, resourceType).
+		Distinct("resource_id").
+		Pluck("resource_id", &ids).Error
+	return ids, err
 }

@@ -1,8 +1,9 @@
 # Recruitment Core Domain Inventory
 
 TASK-015 establishes the Recruitment DDD skeleton and records the current core
-domain contract. It does not change runtime wiring, protobuf contracts,
-database schema, recruitment API behavior, or shared implementation paths.
+domain contract. TASK-029 later localizes the remaining legacy implementation
+paths under `internal/legacydomain` without changing protobuf contracts,
+database schema, or recruitment API behavior.
 
 ## Current Runtime Boundary
 
@@ -11,10 +12,12 @@ database schema, recruitment API behavior, or shared implementation paths.
 - Runtime registration: `internal/runtime/runtime.go` registers `JobService`,
   `AdminService` subsets, `CandidateService`, `ApplicationService`, and
   `CollaborationService`.
-- Current implementation source: shared `smart-recruit-domain-go/service`,
-  `repository`, and `oss` packages still provide active job, taxonomy,
-  candidate, resume, application, collaboration, usage-stats, authz/scope, OSS,
-  and outbox behavior.
+- Current implementation source after TASK-029: service-local
+  `internal/legacydomain/service`, `repository`, `model`, and `ai`
+  compatibility packages provide active job, taxonomy, candidate, resume,
+  application, collaboration, usage-stats, authz/scope, AI helper, and outbox
+  behavior. `smart-recruit-domain-go/oss` remains a shared infrastructure
+  bridge/commons candidate.
 - Platform behavior retained by runtime: Nacos discovery, gRPC internal auth,
   health, metrics, trace, MySQL, optional Redis, and OSS configuration.
 
@@ -22,13 +25,13 @@ database schema, recruitment API behavior, or shared implementation paths.
 
 | Surface | Runtime provider | Current responsibility |
 | --- | --- | --- |
-| Job | shared `JobService` | Create/update/online/offline jobs, HR job listing, public listing, job detail, department/location validation, scope filtering. |
-| Job taxonomy | shared `JobTaxonomyService` | Department, location, department-location configuration, job option queries. |
-| Recruitment admin | shared `AdminService` subset | Invite-code and third-party usage log RPCs remain registered through Recruitment runtime, not Identity runtime. |
-| Usage stats | shared `UsageStatsService` | Usage stats and trends guarded by service authorizer. |
-| Candidate | shared `CandidateService` | Candidate profile, resume read/update, resume upload presign/confirm, OSS interactions, usage logs and outbox side effects. |
-| Application | shared `ApplicationService` | Apply job, candidate application list, HR application list, status mutation, status transition listing, outbox/notification side effects. |
-| Collaboration | shared `CollaborationService` | Candidate workspace aggregate, notes, tags, follow-up tasks, timeline, and cross-context interview/offer/resume reads. |
+| Job | local legacy `JobService` | Create/update/online/offline jobs, HR job listing, public listing, job detail, department/location validation, scope filtering. |
+| Job taxonomy | local legacy `JobTaxonomyService` | Department, location, department-location configuration, job option queries. |
+| Recruitment admin | local legacy `AdminService` subset | Invite-code and third-party usage log RPCs remain registered through Recruitment runtime, not Identity runtime. |
+| Usage stats | local legacy `UsageStatsService` | Usage stats and trends guarded by service authorizer. |
+| Candidate | local legacy `CandidateService` | Candidate profile, resume read/update, resume upload presign/confirm, OSS interactions, usage logs and outbox side effects. |
+| Application | local legacy `ApplicationService` | Apply job, candidate application list, HR application list, status mutation, status transition listing, outbox/notification side effects. |
+| Collaboration | local legacy `CollaborationService` | Candidate workspace aggregate, notes, tags, follow-up tasks, timeline, and cross-context interview/offer/resume reads. |
 
 ## Core Domain Areas
 

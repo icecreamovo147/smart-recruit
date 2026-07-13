@@ -26,7 +26,6 @@ import (
 	"smart-recruit-analytics-service/internal/infrastructure/persistence"
 	analyticsgrpc "smart-recruit-analytics-service/internal/interfaces/grpc"
 	analyticsruntime "smart-recruit-analytics-service/internal/runtime"
-	"smart-recruit-domain-go/repository"
 	platformconfig "smart-recruit-platform-go/config"
 	"smart-recruit-platform-go/logger"
 	"smart-recruit-platform-go/nacos"
@@ -203,8 +202,7 @@ func serveAnalytics(addr string) error {
 }
 
 func buildReportingService(db *gorm.DB) (analyticsruntime.ReportingAPI, error) {
-	authzRepo := repository.NewAuthzRepo(db)
-	authzAdapter := client.NewAuthzAdapter(authzRepo)
+	authzAdapter := client.NewAuthzAdapter(db)
 	reporting, err := service.NewReportingService(service.ReportingDeps{
 		Reports:    persistence.NewReportingRepository(db),
 		Authorizer: authzAdapter,

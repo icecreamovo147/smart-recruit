@@ -7,8 +7,8 @@ import (
 
 	"gorm.io/gorm"
 
-	sharedmodel "smart-recruit-domain-go/model"
 	"smart-recruit-interview-service/internal/application/port"
+	sharedmodel "smart-recruit-interview-service/internal/legacydomain/model"
 )
 
 func TestOutboxPublisherWritesLegacyCompatibleEnvelope(t *testing.T) {

@@ -5,7 +5,7 @@ import (
 
 	gogrpc "google.golang.org/grpc"
 
-	"smart-recruit-domain-go/service"
+	"smart-recruit-ai-agent-service/internal/legacydomain/service"
 	"smart-recruit-proto/recruitment/pb"
 )
 

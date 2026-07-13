@@ -20,10 +20,11 @@ API semantics.
   - `AgentSkillService`
   - `RecruitingIntelligenceService`
   - `EmbeddingConfigService`
-- Current implementation source: shared `smart-recruit-domain-go/service`
-  `AIAgentRuntime`, `AIService`, `CandidateAIService`, config services,
-  MCP/Skill services, recruiting intelligence service, embedding services, and
-  shared GORM repositories.
+- Current implementation source: service-local `internal/legacydomain/service`,
+  `internal/legacydomain/repository`, `internal/legacydomain/model`, and
+  `internal/legacydomain/ai` compatibility packages. These were localized by
+  TASK-029 so active AI Agent runtime no longer imports shared
+  `smart-recruit-domain-go/model`, `repository`, or `service`.
 - Runtime platform behavior retained: Nacos discovery/config, gRPC internal
   auth, optional TLS, health, metrics, trace, MySQL, Redis, RabbitMQ,
   structured logging, provider timeout/retry/circuit-breaker settings, and
@@ -122,10 +123,10 @@ preserving public protobuf behavior and provider credential handling.
 - `internal/runtime` no longer imports shared `smart-recruit-domain-go/service`
   types. It registers all AI-owned protobuf services from local `Deps` and
   validates local `LongTaskControls`.
-- `internal/interfaces/grpc/legacy_servers.go` contains the temporary shared
-  forwarding adapters for AI chat/agent-run and recruiting intelligence
+- `internal/interfaces/grpc/legacy_servers.go` contains temporary forwarding
+  adapters for local legacy AI chat/agent-run and recruiting intelligence
   protobuf services.
-- `cmd/ai-agent-service` converts the currently active shared
+- `cmd/ai-agent-service` converts the currently active local legacy
   `AIAgentRuntime` into local runtime dependencies and explicitly passes
   embedding/agent-run worker controls.
 
@@ -150,23 +151,27 @@ AI Agent infrastructure.
 
 ## Transitional Shared Dependencies
 
-The active runtime still uses shared `smart-recruit-domain-go/service`,
-`repository`, `ai`, and `mq` implementations. This is allowed only as migration
-debt while the AI Agent service moves through staged local adapter cutover.
+The active runtime still uses service-local legacy compatibility packages for
+AI chat, agent-run, MCP, skill, embedding, and recruiting intelligence behavior.
+This is allowed only as owner-local migration debt while the AI Agent service
+moves through native adapter cutover. Shared `smart-recruit-domain-go/ai`
+remaining usage is limited to generic AI provider/fallback metadata; RabbitMQ
+remains `smart-recruit-domain-go/mq` infrastructure bridge until the commons
+rename.
 
 Known shared dependencies to remove in later AI Agent TASKs:
 
-- Shared business services: `AIService`, `CandidateAIService`,
+- Service-local legacy business services: `AIService`, `CandidateAIService`,
   `AIAgentRuntime`, `LlmConfigService`, `PromptService`, `AgentConfigService`,
   `MCPService`, `SkillService`, `AgentSkillService`,
   `RecruitingIntelligenceService`, `EmbeddingConfigService`,
   `EmbeddingService`, `EmbeddingBackfillService`, `EmbeddingConsumer`, and
   `AgentRunConsumer`.
-- Shared repositories: chat, session summary, tool trace, agent run, memory,
+- Service-local legacy repositories: chat, session summary, tool trace, agent run, memory,
   provider/model config, MCP, skill, agent skill, embedding provider/model,
   usage log, recruitment/resume/application/job snapshot dependencies.
-- Shared infrastructure: AI provider client factory, RabbitMQ connection/config,
-  Redis cache behavior, encryption-key handling, Inbox/Outbox helpers.
+- Shared infrastructure bridges: RabbitMQ connection/config and selected generic
+  AI provider/fallback helpers remain commons candidates.
 
 ## Migration Notes For Later TASKs
 

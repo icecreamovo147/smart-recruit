@@ -12,7 +12,6 @@
     {"file": "smart-recruit-domain-go/pkg/cache/notification_cache.go", "reason": "Domain notification cache/event key shape is preserved during domain module migration.", "patterns": ["notif:unread", "notif:event", "unreadKey", "NotificationEventChannel"]},
     {"file": "smart-recruit-domain-go/oss/cache.go", "reason": "Domain OSS presign cache key shape is preserved during domain module migration.", "patterns": ["oss:presign"]},
     {"file": "smart-recruit-domain-go/oss/presign_session.go", "reason": "Domain OSS presign session key shape is preserved during domain module migration.", "patterns": ["oss:presign_session", "presignSessionKey", "key"]},
-    {"file": "smart-recruit-domain-go/service/admin_service.go", "reason": "Domain admin token_version cache key shape is preserved during domain module migration.", "patterns": ["token_version", "key"]},
-    {"file": "smart-recruit-domain-go/service/rbac_redis_integration_test.go", "reason": "Integration test documents the token_version key contract.", "patterns": ["token_version"]}
+    {"file": "smart-recruit-identity-service/internal/infrastructure/cache/token_version.go", "reason": "Identity-owned token_version cache key shape is preserved during domain module migration.", "patterns": ["token_version", "key"]}
   ]
 }

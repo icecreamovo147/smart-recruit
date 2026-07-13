@@ -37,7 +37,18 @@ for (const table of declared) {
   }
 }
 
-const scanRoots = ["smart-recruit-domain-go/repository", "smart-recruit-domain-go/service", "smart-recruit-analytics-service", "smart-recruit-worker-service"];
+const scanRoots = [
+  "smart-recruit-offer-service/internal/legacydomain/repository",
+  "smart-recruit-offer-service/internal/legacydomain/service",
+  "smart-recruit-interview-service/internal/legacydomain/repository",
+  "smart-recruit-interview-service/internal/legacydomain/service",
+  "smart-recruit-recruitment-service/internal/legacydomain/repository",
+  "smart-recruit-recruitment-service/internal/legacydomain/service",
+  "smart-recruit-ai-agent-service/internal/legacydomain/repository",
+  "smart-recruit-ai-agent-service/internal/legacydomain/service",
+  "smart-recruit-analytics-service",
+  "smart-recruit-worker-service",
+];
 for (const file of listFiles(scanRoots)) {
   const owner = inferOwner(file);
   if (!owner) continue;

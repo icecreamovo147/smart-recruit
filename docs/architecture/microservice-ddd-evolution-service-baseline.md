@@ -6,6 +6,14 @@
 
 本文只记录当前事实和迁移风险，不修改业务代码、表归属、schema、protobuf、部署配置或 package/lockfile。
 
+> TASK-029 update: 本文 4.x 章节保留 TASK-002 时点的历史基线。TASK-029
+> 已将 `smart-recruit-domain-go/model`、`repository`、`service` 的 active
+> 业务实现移出 shared module；Offer、Interview、Recruitment、AI Agent 的
+> 残余兼容实现位于各自服务的 `internal/legacydomain/**`，Notification 和
+> Analytics 已改用 service-local adapter。`smart-recruit-domain-go` 当前只保留
+> AI provider/fallback、OSS、email、MQ、migration、resumeparser、authz/cache/crypto/JWT/pagination
+> 等 commons-ready 或 platform-adjacent 候选能力。
+
 ## 2. 盘点依据
 
 - `.spec/microservice-ddd-evolution/microservice-ddd-evolution-SPEC.md`

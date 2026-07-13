@@ -3,8 +3,8 @@ package client
 import (
 	"context"
 
-	sharedrepo "smart-recruit-domain-go/repository"
 	"smart-recruit-interview-service/internal/application/port"
+	sharedrepo "smart-recruit-interview-service/internal/legacydomain/repository"
 )
 
 type StaffDirectory struct {

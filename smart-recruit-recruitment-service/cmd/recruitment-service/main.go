@@ -21,8 +21,6 @@ import (
 	"gorm.io/gorm"
 
 	"smart-recruit-domain-go/oss"
-	"smart-recruit-domain-go/repository"
-	"smart-recruit-domain-go/service"
 	"smart-recruit-platform-go/config"
 	"smart-recruit-platform-go/nacos"
 	logicobservability "smart-recruit-platform-go/observability"
@@ -31,6 +29,8 @@ import (
 	logicconfig "smart-recruit-platform-go/serviceconfig"
 	"smart-recruit-proto/recruitment/pb"
 	recruitmentgrpc "smart-recruit-recruitment-service/internal/interfaces/grpc"
+	"smart-recruit-recruitment-service/internal/legacydomain/repository"
+	"smart-recruit-recruitment-service/internal/legacydomain/service"
 	recruitmentruntime "smart-recruit-recruitment-service/internal/runtime"
 )
 

@@ -64,11 +64,11 @@ Compatibility rule:
 - TASK-005 does not change protobuf request/response types, rpc names, route mode, gateway behavior, or runtime registration behavior.
 - Error mapping remains compatible: actor metadata mismatch returns gRPC error, permission/scope errors map to forbidden responses, and Offer business/state errors map to bad request responses.
 
-## 4. Current Shared Dependency Baseline
+## 4. Current Compatibility Dependency Baseline
 
-Current direct imports in `cmd/offer-service/main.go`:
+Current direct imports in `cmd/offer-service/main.go` after TASK-029:
 
-- `smart-recruit-domain-go/repository`
+- `smart-recruit-offer-service/internal/legacydomain/repository`
 - local `internal/application/service`
 - local `internal/infrastructure/client`
 - local `internal/infrastructure/mq`
@@ -84,7 +84,7 @@ Current local service construction:
 - `buildOfferServer` constructs only the Offer dependencies required by the local application service.
 - runtime dependency uses local `interfaces/grpc.Server`, not shared `service.OfferService`.
 
-Current shared repository/model usage retained as temporary infrastructure debt:
+Current owner-local legacy repository/model usage retained as temporary infrastructure debt:
 
 - `repository.NewJobRepo`
 - `repository.NewApplicationRepo`

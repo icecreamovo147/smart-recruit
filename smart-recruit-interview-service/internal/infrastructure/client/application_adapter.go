@@ -6,11 +6,11 @@ import (
 
 	"gorm.io/gorm"
 
-	sharedmodel "smart-recruit-domain-go/model"
-	sharedrepo "smart-recruit-domain-go/repository"
 	"smart-recruit-interview-service/internal/application/port"
 	"smart-recruit-interview-service/internal/domain/model"
 	"smart-recruit-interview-service/internal/infrastructure/persistence"
+	sharedmodel "smart-recruit-interview-service/internal/legacydomain/model"
+	sharedrepo "smart-recruit-interview-service/internal/legacydomain/repository"
 )
 
 type ApplicationAdapter struct {

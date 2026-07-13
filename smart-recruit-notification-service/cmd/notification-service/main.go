@@ -24,8 +24,6 @@ import (
 	"smart-recruit-domain-go/email"
 	"smart-recruit-domain-go/mq"
 	sharedcache "smart-recruit-domain-go/pkg/cache"
-	"smart-recruit-domain-go/repository"
-	"smart-recruit-domain-go/service"
 	appservice "smart-recruit-notification-service/internal/application/service"
 	notificationcache "smart-recruit-notification-service/internal/infrastructure/cache"
 	notificationclient "smart-recruit-notification-service/internal/infrastructure/client"
@@ -252,7 +250,7 @@ func buildNotificationRuntime(cfg logicconfig.Config, db *gorm.DB, redisClient *
 	runtime, err := notificationruntime.New(notificationruntime.Deps{
 		Notification:         notificationgrpc.NewServer(notificationService),
 		MQ:                   mqConn,
-		OutboxPublisher:      service.NewOutboxPublisher(repository.NewOutboxRepo(db), mqConn),
+		OutboxPublisher:      notificationmq.NewOutboxPublisher(db, mqConn),
 		NotificationConsumer: notificationmq.NewNotificationConsumer(notificationService, inboxRepo),
 		EmailConsumer:        notificationmq.NewEmailConsumer(notificationService, inboxRepo),
 	})

@@ -21,12 +21,12 @@ import (
 	"gorm.io/driver/mysql"
 	"gorm.io/gorm"
 
-	"smart-recruit-domain-go/repository"
 	interviewapp "smart-recruit-interview-service/internal/application/service"
 	interviewclient "smart-recruit-interview-service/internal/infrastructure/client"
 	interviewmq "smart-recruit-interview-service/internal/infrastructure/mq"
 	interviewpersistence "smart-recruit-interview-service/internal/infrastructure/persistence"
 	interviewgrpc "smart-recruit-interview-service/internal/interfaces/grpc"
+	"smart-recruit-interview-service/internal/legacydomain/repository"
 	interviewruntime "smart-recruit-interview-service/internal/runtime"
 	platformconfig "smart-recruit-platform-go/config"
 	"smart-recruit-platform-go/logger"

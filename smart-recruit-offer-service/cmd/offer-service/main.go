@@ -21,12 +21,12 @@ import (
 	"gorm.io/driver/mysql"
 	"gorm.io/gorm"
 
-	"smart-recruit-domain-go/repository"
 	offerapp "smart-recruit-offer-service/internal/application/service"
 	offerclient "smart-recruit-offer-service/internal/infrastructure/client"
 	offermq "smart-recruit-offer-service/internal/infrastructure/mq"
 	offerpersistence "smart-recruit-offer-service/internal/infrastructure/persistence"
 	offergrpc "smart-recruit-offer-service/internal/interfaces/grpc"
+	"smart-recruit-offer-service/internal/legacydomain/repository"
 	offerruntime "smart-recruit-offer-service/internal/runtime"
 	platformconfig "smart-recruit-platform-go/config"
 	"smart-recruit-platform-go/logger"

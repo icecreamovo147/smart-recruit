@@ -5,10 +5,10 @@ import (
 
 	"gorm.io/gorm"
 
-	sharedmodel "smart-recruit-domain-go/model"
-	sharedrepo "smart-recruit-domain-go/repository"
 	"smart-recruit-interview-service/internal/domain/model"
 	"smart-recruit-interview-service/internal/domain/repository"
+	sharedmodel "smart-recruit-interview-service/internal/legacydomain/model"
+	sharedrepo "smart-recruit-interview-service/internal/legacydomain/repository"
 )
 
 type txContextKey struct{}

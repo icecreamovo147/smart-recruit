@@ -11,9 +11,9 @@ import (
 
 	"gorm.io/gorm"
 
-	sharedmodel "smart-recruit-domain-go/model"
 	"smart-recruit-offer-service/internal/application/port"
 	"smart-recruit-offer-service/internal/infrastructure/persistence"
+	sharedmodel "smart-recruit-offer-service/internal/legacydomain/model"
 )
 
 const (

@@ -1,0 +1,1226 @@
+package service
+
+import (
+	"context"
+	"fmt"
+	"time"
+
+	"go.uber.org/zap"
+	"gorm.io/gorm"
+
+	"smart-recruit-ai-agent-service/internal/legacydomain/model"
+	"smart-recruit-ai-agent-service/internal/legacydomain/repository"
+	"smart-recruit-domain-go/oss"
+	"smart-recruit-platform-go/errs"
+	"smart-recruit-platform-go/logger"
+	"smart-recruit-proto/recruitment/pb"
+)
+
+type InterviewService struct {
+	authzRepo       *repository.AuthzRepo
+	interviews      *repository.InterviewRepo
+	users           *repository.UserRepo
+	applications    *repository.ApplicationRepo
+	jobs            *repository.JobRepo
+	notifications   *repository.NotificationRepo
+	outboxPublisher *OutboxPublisher
+	oss             oss.Storage
+	scopeEval       *scopeEvaluator
+	serviceAuth     *ServiceAuthorizer
+	lifecycle       *RecruitmentLifecycleProcessManager
+}
+
+func NewInterviewService(
+	authzRepo *repository.AuthzRepo,
+	interviews *repository.InterviewRepo,
+	users *repository.UserRepo,
+	applications *repository.ApplicationRepo,
+	jobs *repository.JobRepo,
+	notifications *repository.NotificationRepo,
+	outboxPublisher *OutboxPublisher,
+	ossClient oss.Storage,
+	scopeEval *scopeEvaluator,
+	serviceAuth *ServiceAuthorizer,
+) *InterviewService {
+	return &InterviewService{
+		authzRepo:       authzRepo,
+		interviews:      interviews,
+		users:           users,
+		applications:    applications,
+		jobs:            jobs,
+		notifications:   notifications,
+		outboxPublisher: outboxPublisher,
+		oss:             ossClient,
+		scopeEval:       scopeEval,
+		serviceAuth:     serviceAuth,
+		lifecycle:       NewRecruitmentLifecycleProcessManager(applications),
+	}
+}
+
+// ── Authorization helpers ─────────────────────────────────────────────
+
+// checkInterviewScheduleScope verifies the user has interview.schedule permission
+// and scope access to the application's job.
+func (s *InterviewService) checkInterviewScheduleScope(ctx context.Context, userID int64, applicationID int64) error {
+	if err := s.serviceAuth.AuthorizePermission(ctx, uint64(userID), "interview.schedule"); err != nil {
+		return fmt.Errorf("permission denied: interview.schedule required: %w", err)
+	}
+
+	// Load the application to get the job ID for scope check.
+	detail, err := s.applications.GetDetail(ctx, applicationID)
+	if err != nil {
+		return err
+	}
+	if detail == nil {
+		return fmt.Errorf("application %d not found", applicationID)
+	}
+
+	// Evaluate scope against the application's job.
+	_, err = s.scopeEval.evalScope(ctx, uint64(userID), func() (*jobScopeTarget, error) {
+		job, err := s.jobs.GetByID(ctx, detail.JobID)
+		if err != nil {
+			return nil, err
+		}
+		if job == nil {
+			return nil, fmt.Errorf("job %d not found", detail.JobID)
+		}
+		return &jobScopeTarget{
+			ID:           job.ID,
+			HrID:         job.HrID,
+			DepartmentID: job.DepartmentID,
+			LocationID:   job.LocationID,
+		}, nil
+	})
+	if err != nil {
+		return fmt.Errorf("scope denied for application %d: %w", applicationID, err)
+	}
+	return nil
+}
+
+// checkInterviewReadScope verifies the user can view a specific interview.
+// For interviewers, this checks the assigned_interviews scope.
+// For recruiters/admins, this checks job scope.
+func (s *InterviewService) checkInterviewReadScope(ctx context.Context, userID int64, interviewID int64) error {
+	// First check if user has interview.read permission
+	if err := s.serviceAuth.AuthorizePermission(ctx, uint64(userID), "interview.read"); err != nil {
+		return fmt.Errorf("permission denied: interview.read required: %w", err)
+	}
+
+	// Get the interview with details to check scope
+	detail, err := s.interviews.GetByID(ctx, interviewID)
+	if err != nil {
+		return err
+	}
+	if detail == nil {
+		return fmt.Errorf("interview %d not found", interviewID)
+	}
+
+	// Check if the user is the assigned interviewer (assigned_interviews scope)
+	if detail.InterviewerID == userID {
+		return nil
+	}
+
+	// For non-interviewer access, check job-level scope via the application
+	scopeKeys, err := s.authzRepo.GetUserScopeKeys(ctx, uint64(userID))
+	if err != nil {
+		return err
+	}
+
+	for _, sk := range scopeKeys {
+		if sk == "recruiting_all" || sk == "system_all" {
+			return nil
+		}
+	}
+
+	// Check own_jobs, department, location scopes against the application's job
+	// Resolve the job from the application
+	appDetail, err := s.applications.GetDetail(ctx, detail.ApplicationID)
+	if err != nil {
+		return err
+	}
+	if appDetail == nil {
+		return fmt.Errorf("application %d not found", detail.ApplicationID)
+	}
+
+	hasOwnJobs := false
+	for _, sk := range scopeKeys {
+		if sk == "own_jobs" {
+			hasOwnJobs = true
+			break
+		}
+	}
+
+	if hasOwnJobs && appDetail.JobID > 0 {
+		// Verify the HR actually owns this job (jobs.hr_id == userID)
+		belongs, err := s.jobs.BelongsToHR(ctx, userID, appDetail.JobID)
+		if err != nil {
+			return err
+		}
+		if belongs {
+			return nil
+		}
+	}
+
+	return fmt.Errorf("access denied to interview %d", interviewID)
+}
+
+// checkInterviewerAssignment checks that the user is the assigned interviewer for an interview.
+func (s *InterviewService) checkInterviewerAssignment(ctx context.Context, userID int64, interviewID int64) error {
+	detail, err := s.interviews.GetByID(ctx, interviewID)
+	if err != nil {
+		return err
+	}
+	if detail == nil {
+		return fmt.Errorf("interview %d not found", interviewID)
+	}
+	if detail.InterviewerID != userID {
+		return fmt.Errorf("user %d is not the assigned interviewer for interview %d", userID, interviewID)
+	}
+	return nil
+}
+
+// ── Service methods ───────────────────────────────────────────────────
+
+func (s *InterviewService) ScheduleInterview(ctx context.Context, req *pb.ScheduleInterviewRequest) (*pb.ScheduleInterviewResponse, error) {
+	// Verify actor
+	if err := s.serviceAuth.VerifyActorMatch(ctx, req.HrId); err != nil {
+		return nil, err
+	}
+
+	// Permission + scope check
+	if err := s.checkInterviewScheduleScope(ctx, req.HrId, req.ApplicationId); err != nil {
+		return &pb.ScheduleInterviewResponse{Code: errs.ErrForbidden, Msg: err.Error()}, nil
+	}
+
+	// Parse scheduled_at
+	var scheduledAt *time.Time
+	if req.ScheduledAt != "" {
+		t, err := time.Parse(time.RFC3339, req.ScheduledAt)
+		if err != nil {
+			return &pb.ScheduleInterviewResponse{Code: errs.ErrBadRequest, Msg: "面试时间格式错误，请使用 RFC 3339 格式"}, nil
+		}
+		scheduledAt = &t
+	}
+
+	// Load application detail for job title / candidate name
+	appDetail, err := s.applications.GetDetail(ctx, req.ApplicationId)
+	if err != nil {
+		return nil, err
+	}
+	if appDetail == nil {
+		return &pb.ScheduleInterviewResponse{Code: errs.ErrBadRequest, Msg: "投递记录不存在"}, nil
+	}
+
+	// Auto-calculate round_no from existing interviews when not specified
+	roundNo := req.RoundNo
+	if roundNo <= 0 {
+		maxRound, err := s.interviews.GetMaxRoundNo(ctx, req.ApplicationId)
+		if err != nil {
+			return nil, err
+		}
+		roundNo = maxRound + 1
+	}
+
+	// Build defaults
+	title := req.Title
+	if title == "" {
+		title = fmt.Sprintf("第 %d 轮面试", roundNo)
+	}
+
+	mode := req.Mode
+	if mode == "" {
+		mode = "video"
+	}
+
+	interview := &model.InterviewSchedule{
+		ApplicationID:   req.ApplicationId,
+		InterviewerID:   req.InterviewerId,
+		RoundNo:         roundNo,
+		Title:           title,
+		Mode:            mode,
+		MeetingURL:      req.MeetingUrl,
+		Location:        req.Location,
+		DurationMinutes: req.DurationMinutes,
+		CandidateNote:   req.CandidateNote,
+		InternalNote:    req.InternalNote,
+		ScheduledAt:     scheduledAt,
+		Status:          model.InterviewStatusScheduled,
+		CreatedBy:       &req.HrId,
+	}
+
+	// Transaction: create interview + auto-transition application status + notification outbox
+	err = s.interviews.Transaction(ctx, func(tx *gorm.DB) error {
+		if err := s.interviews.CreateWithTx(ctx, tx, interview); err != nil {
+			return err
+		}
+
+		// Auto-transition application status to interview_pending
+		currentKey := appDetail.StatusKey
+		if currentKey == model.StatusKeyViewed || currentKey == model.StatusKeyScreenPassed || currentKey == model.StatusKeyInterviewCancelled || currentKey == model.StatusKeyInterviewPassed {
+			if _, err := s.lifecycle.ApplyTransitionTx(ctx, tx, RecruitmentLifecycleTransition{
+				ApplicationID:    req.ApplicationId,
+				FromStatus:       currentKey,
+				ToStatus:         model.StatusKeyInterviewPending,
+				LegacyStatus:     model.StatusKeyToLegacy[model.StatusKeyInterviewPending],
+				ActorUserID:      req.HrId,
+				ActorAccountType: "staff",
+				Reason:           fmt.Sprintf("安排第 %d 轮面试自动推进", roundNo),
+			}); err != nil {
+				return err
+			}
+		}
+
+		// Notify the interviewer
+		if err := s.outboxPublisher.WriteEventTx(tx, "interview.notification_requested", "interview", uint64(interview.ID), "notification.create", notificationPayload{
+			ReceiverID:          req.InterviewerId,
+			ReceiverRole:        2,
+			ReceiverAccountType: "staff",
+			Type:                "interview_assigned",
+			Title:               "新的面试安排",
+			Content:             fmt.Sprintf("您被安排为「%s」岗位的面试官：%s", appDetail.JobTitle, title),
+			Link:                fmt.Sprintf("/hr/interviews/%d", interview.ID),
+			BizType:             "interview",
+			BizID:               interview.ID,
+		}); err != nil {
+			return err
+		}
+
+		// Email to interviewer
+		if err := s.outboxPublisher.WriteEventTx(tx, "interview.email_requested", "interview", uint64(interview.ID), "email.send", emailPayload{
+			ReceiverID:          req.InterviewerId,
+			ReceiverAccountType: "staff",
+			Type:                "interview_assigned",
+			Title:               "新的面试安排",
+			Content:             fmt.Sprintf("您被安排为「%s」岗位的面试官：%s", appDetail.JobTitle, title),
+			Link:                fmt.Sprintf("/hr/interviews/%d", interview.ID),
+			BizType:             "interview",
+			BizID:               interview.ID,
+			JobTitle:            appDetail.JobTitle,
+			InterviewDate:       formatInterviewDate(interview.ScheduledAt),
+			InterviewMode:       formatInterviewMode(interview.Mode),
+			InterviewLink:       interview.MeetingURL,
+			InterviewLoc:        interview.Location,
+		}); err != nil {
+			return err
+		}
+
+		// Notify the candidate
+		if err := s.outboxPublisher.WriteEventTx(tx, "interview.notification_requested", "interview", uint64(interview.ID), "notification.create", notificationPayload{
+			ReceiverID:          appDetail.UserID,
+			ReceiverRole:        1,
+			ReceiverAccountType: "candidate",
+			Type:                "interview_scheduled",
+			Title:               "面试安排通知",
+			Content:             fmt.Sprintf("您的「%s」岗位面试已安排：%s", appDetail.JobTitle, title),
+			Link:                "/applications",
+			BizType:             "interview",
+			BizID:               interview.ID,
+		}); err != nil {
+			return err
+		}
+
+		// Email to candidate
+		if err := s.outboxPublisher.WriteEventTx(tx, "interview.email_requested", "interview", uint64(interview.ID), "email.send", emailPayload{
+			ReceiverID:          appDetail.UserID,
+			ReceiverAccountType: "candidate",
+			Type:                "interview_scheduled",
+			Title:               "面试安排通知",
+			Content:             fmt.Sprintf("您的「%s」岗位面试已安排：%s", appDetail.JobTitle, title),
+			Link:                "/applications",
+			BizType:             "interview",
+			BizID:               interview.ID,
+			JobTitle:            appDetail.JobTitle,
+			RecipientName:       appDetail.RealName,
+			InterviewDate:       formatInterviewDate(interview.ScheduledAt),
+			InterviewMode:       formatInterviewMode(interview.Mode),
+			InterviewLink:       interview.MeetingURL,
+			InterviewLoc:        interview.Location,
+		}); err != nil {
+			return err
+		}
+
+		return nil
+	})
+	if err != nil {
+		logger.L().Error("schedule interview failed",
+			zap.Int64("application_id", req.ApplicationId),
+			zap.Error(err),
+		)
+		return nil, err
+	}
+	s.outboxPublisher.Signal()
+
+	logger.L().Info("interview scheduled",
+		zap.Int64("interview_id", interview.ID),
+		zap.Int64("application_id", req.ApplicationId),
+		zap.Int64("interviewer_id", req.InterviewerId),
+	)
+
+	return &pb.ScheduleInterviewResponse{Code: errs.OK, Msg: "面试安排成功", InterviewId: interview.ID}, nil
+}
+
+func (s *InterviewService) ListInterviewers(ctx context.Context, req *pb.ListInterviewersRequest) (*pb.ListInterviewersResponse, error) {
+	if err := s.serviceAuth.VerifyActorMatch(ctx, req.HrId); err != nil {
+		return nil, err
+	}
+	if err := s.serviceAuth.AuthorizePermission(ctx, uint64(req.HrId), "interview.schedule"); err != nil {
+		return &pb.ListInterviewersResponse{Code: errs.ErrForbidden, Msg: err.Error()}, nil
+	}
+	if s.users == nil {
+		return &pb.ListInterviewersResponse{Code: errs.ErrInternal, Msg: "user repo not configured"}, nil
+	}
+
+	page := req.Page
+	if page <= 0 {
+		page = 1
+	}
+	pageSize := req.PageSize
+	if pageSize <= 0 || pageSize > 100 {
+		pageSize = 10
+	}
+
+	users, total, err := s.users.ListStaffByRole(ctx, "interviewer", "active", req.Keyword, page, pageSize)
+	if err != nil {
+		return nil, err
+	}
+
+	list := make([]*pb.StaffUserInfo, 0, len(users))
+	for _, u := range users {
+		list = append(list, &pb.StaffUserInfo{
+			UserId:       int64(u.ID),
+			Username:     u.Username,
+			Email:        u.Email,
+			Status:       u.Status,
+			AccountType:  u.AccountType,
+			Roles:        []string{"interviewer"},
+			TokenVersion: u.TokenVersion,
+			CreatedAt:    u.CreatedAt.Format(time.RFC3339),
+		})
+	}
+
+	return &pb.ListInterviewersResponse{Code: errs.OK, Msg: "success", Total: total, List: list}, nil
+}
+
+func (s *InterviewService) UpdateInterview(ctx context.Context, req *pb.UpdateInterviewRequest) (*pb.CommonResponse, error) {
+	if err := s.serviceAuth.VerifyActorMatch(ctx, req.HrId); err != nil {
+		return nil, err
+	}
+
+	// Load existing interview
+	existing, err := s.interviews.GetModelByID(ctx, req.InterviewId)
+	if err != nil {
+		return nil, err
+	}
+	if existing == nil {
+		return &pb.CommonResponse{Code: errs.ErrBadRequest, Msg: "面试记录不存在"}, nil
+	}
+
+	// Permission + scope check via the application
+	if err := s.checkInterviewScheduleScope(ctx, req.HrId, existing.ApplicationID); err != nil {
+		return &pb.CommonResponse{Code: errs.ErrForbidden, Msg: err.Error()}, nil
+	}
+
+	// Parse scheduled_at
+	if req.ScheduledAt != "" {
+		t, err := time.Parse(time.RFC3339, req.ScheduledAt)
+		if err != nil {
+			return &pb.CommonResponse{Code: errs.ErrBadRequest, Msg: "面试时间格式错误，请使用 RFC 3339 格式"}, nil
+		}
+		existing.ScheduledAt = &t
+	}
+
+	// Update fields
+	if req.Title != "" {
+		existing.Title = req.Title
+	}
+	if req.Mode != "" {
+		existing.Mode = req.Mode
+	}
+	if req.MeetingUrl != "" {
+		existing.MeetingURL = req.MeetingUrl
+	}
+	if req.Location != "" {
+		existing.Location = req.Location
+	}
+	if req.DurationMinutes > 0 {
+		existing.DurationMinutes = req.DurationMinutes
+	}
+	if req.CandidateNote != "" {
+		existing.CandidateNote = req.CandidateNote
+	}
+	if req.InternalNote != "" {
+		existing.InternalNote = req.InternalNote
+	}
+
+	// Transaction: update + notifications
+	err = s.interviews.Transaction(ctx, func(tx *gorm.DB) error {
+		if err := s.interviews.UpdateWithTx(ctx, tx, existing); err != nil {
+			return err
+		}
+
+		// Load application to get candidate info
+		appDetail, err := s.applications.GetDetail(ctx, existing.ApplicationID)
+		if err != nil {
+			return err
+		}
+		if appDetail == nil {
+			return fmt.Errorf("application %d not found", existing.ApplicationID)
+		}
+
+		// Notify interviewer
+		if err := s.outboxPublisher.WriteEventTx(tx, "interview.notification_requested", "interview", uint64(existing.ID), "notification.create", notificationPayload{
+			ReceiverID:          existing.InterviewerID,
+			ReceiverRole:        2,
+			ReceiverAccountType: "staff",
+			Type:                "interview_updated",
+			Title:               "面试信息已更新",
+			Content:             fmt.Sprintf("「%s」岗位的面试安排已更新：%s", appDetail.JobTitle, existing.Title),
+			Link:                fmt.Sprintf("/hr/interviews/%d", existing.ID),
+			BizType:             "interview",
+			BizID:               existing.ID,
+		}); err != nil {
+			return err
+		}
+
+		// Email to interviewer
+		if err := s.outboxPublisher.WriteEventTx(tx, "interview.email_requested", "interview", uint64(existing.ID), "email.send", emailPayload{
+			ReceiverID:          existing.InterviewerID,
+			ReceiverAccountType: "staff",
+			Type:                "interview_updated",
+			Title:               "面试信息已更新",
+			Content:             fmt.Sprintf("「%s」岗位的面试安排已更新：%s", appDetail.JobTitle, existing.Title),
+			Link:                fmt.Sprintf("/hr/interviews/%d", existing.ID),
+			BizType:             "interview",
+			BizID:               existing.ID,
+			JobTitle:            appDetail.JobTitle,
+			InterviewDate:       formatInterviewDate(existing.ScheduledAt),
+			InterviewMode:       formatInterviewMode(existing.Mode),
+			InterviewLink:       existing.MeetingURL,
+			InterviewLoc:        existing.Location,
+		}); err != nil {
+			return err
+		}
+
+		// Notify candidate
+		if err := s.outboxPublisher.WriteEventTx(tx, "interview.notification_requested", "interview", uint64(existing.ID), "notification.create", notificationPayload{
+			ReceiverID:          appDetail.UserID,
+			ReceiverRole:        1,
+			ReceiverAccountType: "candidate",
+			Type:                "interview_updated",
+			Title:               "面试时间变更通知",
+			Content:             fmt.Sprintf("您的「%s」岗位面试信息已更新，请查看最新安排", appDetail.JobTitle),
+			Link:                "/applications",
+			BizType:             "interview",
+			BizID:               existing.ID,
+		}); err != nil {
+			return err
+		}
+
+		// Email to candidate
+		if err := s.outboxPublisher.WriteEventTx(tx, "interview.email_requested", "interview", uint64(existing.ID), "email.send", emailPayload{
+			ReceiverID:          appDetail.UserID,
+			ReceiverAccountType: "candidate",
+			Type:                "interview_updated",
+			Title:               "面试时间变更通知",
+			Content:             fmt.Sprintf("您的「%s」岗位面试信息已更新，请查看最新安排", appDetail.JobTitle),
+			Link:                "/applications",
+			BizType:             "interview",
+			BizID:               existing.ID,
+			JobTitle:            appDetail.JobTitle,
+			RecipientName:       appDetail.RealName,
+			InterviewDate:       formatInterviewDate(existing.ScheduledAt),
+			InterviewMode:       formatInterviewMode(existing.Mode),
+			InterviewLink:       existing.MeetingURL,
+			InterviewLoc:        existing.Location,
+		}); err != nil {
+			return err
+		}
+
+		return nil
+	})
+	if err != nil {
+		logger.L().Error("update interview failed",
+			zap.Int64("interview_id", req.InterviewId),
+			zap.Error(err),
+		)
+		return nil, err
+	}
+	s.outboxPublisher.Signal()
+
+	return &pb.CommonResponse{Code: errs.OK, Msg: "面试信息已更新"}, nil
+}
+
+func (s *InterviewService) CancelInterview(ctx context.Context, req *pb.CancelInterviewRequest) (*pb.CommonResponse, error) {
+	if err := s.serviceAuth.VerifyActorMatch(ctx, req.HrId); err != nil {
+		return nil, err
+	}
+
+	existing, err := s.interviews.GetModelByID(ctx, req.InterviewId)
+	if err != nil {
+		return nil, err
+	}
+	if existing == nil {
+		return &pb.CommonResponse{Code: errs.ErrBadRequest, Msg: "面试记录不存在"}, nil
+	}
+
+	if existing.Status == model.InterviewStatusCancelled {
+		return &pb.CommonResponse{Code: errs.ErrBadRequest, Msg: "该面试已取消"}, nil
+	}
+
+	// Permission + scope check
+	if err := s.checkInterviewScheduleScope(ctx, req.HrId, existing.ApplicationID); err != nil {
+		return &pb.CommonResponse{Code: errs.ErrForbidden, Msg: err.Error()}, nil
+	}
+
+	existing.Status = model.InterviewStatusCancelled
+	existing.CancelReason = req.CancelReason
+
+	err = s.interviews.Transaction(ctx, func(tx *gorm.DB) error {
+		if err := s.interviews.UpdateWithTx(ctx, tx, existing); err != nil {
+			return err
+		}
+
+		appDetail, err := s.applications.GetDetail(ctx, existing.ApplicationID)
+		if err != nil {
+			return err
+		}
+		if appDetail == nil {
+			return fmt.Errorf("application %d not found", existing.ApplicationID)
+		}
+
+		reasonText := req.CancelReason
+		if reasonText == "" {
+			reasonText = "暂无说明"
+		}
+
+		// Transition application status to interview_cancelled.
+		currentKey := appDetail.StatusKey
+		transitioned := false
+		if currentKey == model.StatusKeyInterviewPending || currentKey == model.StatusKeyInterviewing {
+			transitioned, err = s.lifecycle.ApplyTransitionTx(ctx, tx, RecruitmentLifecycleTransition{
+				ApplicationID:    existing.ApplicationID,
+				FromStatus:       currentKey,
+				ToStatus:         model.StatusKeyInterviewCancelled,
+				LegacyStatus:     model.StatusKeyToLegacy[model.StatusKeyInterviewCancelled],
+				ActorUserID:      req.HrId,
+				ActorAccountType: "staff",
+				Reason:           fmt.Sprintf("取消面试（ID=%d）：%s", existing.ID, reasonText),
+			})
+			if err != nil {
+				return err
+			}
+		}
+
+		// Only emit notifications if the application status was actually
+		// transitioned. In a concurrent double-cancel, the
+		// second caller sees rows == 0 and skips duplicate outbox writes.
+		if transitioned {
+			// Notify interviewer
+			if err := s.outboxPublisher.WriteEventTx(tx, "interview.notification_requested", "interview", uint64(existing.ID), "notification.create", notificationPayload{
+				ReceiverID:          existing.InterviewerID,
+				ReceiverRole:        2,
+				ReceiverAccountType: "staff",
+				Type:                "interview_cancelled",
+				Title:               "面试已取消",
+				Content:             fmt.Sprintf("「%s」岗位的面试已取消。原因：%s", appDetail.JobTitle, reasonText),
+				Link:                fmt.Sprintf("/hr/interviews/%d", existing.ID),
+				BizType:             "interview",
+				BizID:               existing.ID,
+			}); err != nil {
+				return err
+			}
+
+			// Email to interviewer
+			if err := s.outboxPublisher.WriteEventTx(tx, "interview.email_requested", "interview", uint64(existing.ID), "email.send", emailPayload{
+				ReceiverID:          existing.InterviewerID,
+				ReceiverAccountType: "staff",
+				Type:                "interview_cancelled",
+				Title:               "面试已取消",
+				Content:             fmt.Sprintf("「%s」岗位的面试已取消。原因：%s", appDetail.JobTitle, reasonText),
+				Link:                fmt.Sprintf("/hr/interviews/%d", existing.ID),
+				BizType:             "interview",
+				BizID:               existing.ID,
+				JobTitle:            appDetail.JobTitle,
+				InterviewDate:       formatInterviewDate(existing.ScheduledAt),
+				InterviewMode:       formatInterviewMode(existing.Mode),
+				InterviewLink:       existing.MeetingURL,
+				InterviewLoc:        existing.Location,
+			}); err != nil {
+				return err
+			}
+
+			// Notify candidate
+			if err := s.outboxPublisher.WriteEventTx(tx, "interview.notification_requested", "interview", uint64(existing.ID), "notification.create", notificationPayload{
+				ReceiverID:          appDetail.UserID,
+				ReceiverRole:        1,
+				ReceiverAccountType: "candidate",
+				Type:                "interview_cancelled",
+				Title:               "面试已取消",
+				Content:             fmt.Sprintf("您的「%s」岗位面试已取消。原因：%s", appDetail.JobTitle, reasonText),
+				Link:                "/applications",
+				BizType:             "interview",
+				BizID:               existing.ID,
+			}); err != nil {
+				return err
+			}
+
+			// Email to candidate
+			if err := s.outboxPublisher.WriteEventTx(tx, "interview.email_requested", "interview", uint64(existing.ID), "email.send", emailPayload{
+				ReceiverID:          appDetail.UserID,
+				ReceiverAccountType: "candidate",
+				Type:                "interview_cancelled",
+				Title:               "面试已取消",
+				Content:             fmt.Sprintf("您的「%s」岗位面试已取消。原因：%s", appDetail.JobTitle, reasonText),
+				Link:                "/applications",
+				BizType:             "interview",
+				BizID:               existing.ID,
+				JobTitle:            appDetail.JobTitle,
+				RecipientName:       appDetail.RealName,
+				InterviewDate:       formatInterviewDate(existing.ScheduledAt),
+				InterviewMode:       formatInterviewMode(existing.Mode),
+				InterviewLink:       existing.MeetingURL,
+				InterviewLoc:        existing.Location,
+			}); err != nil {
+				return err
+			}
+		}
+
+		return nil
+	})
+	if err != nil {
+		logger.L().Error("cancel interview failed",
+			zap.Int64("interview_id", req.InterviewId),
+			zap.Error(err),
+		)
+		return nil, err
+	}
+	s.outboxPublisher.Signal()
+
+	logger.L().Info("interview cancelled",
+		zap.Int64("interview_id", existing.ID),
+		zap.Int64("application_id", existing.ApplicationID),
+	)
+
+	return &pb.CommonResponse{Code: errs.OK, Msg: "面试已取消"}, nil
+}
+
+func (s *InterviewService) BatchCancelInterviews(ctx context.Context, req *pb.BatchCancelInterviewsRequest) (*pb.BatchCancelInterviewsResponse, error) {
+	if err := s.serviceAuth.VerifyActorMatch(ctx, req.HrId); err != nil {
+		return nil, err
+	}
+
+	// Permission + scope check
+	if err := s.checkInterviewScheduleScope(ctx, req.HrId, req.ApplicationId); err != nil {
+		return &pb.BatchCancelInterviewsResponse{Code: errs.ErrForbidden, Msg: err.Error()}, nil
+	}
+
+	// Load application detail
+	appDetail, err := s.applications.GetDetail(ctx, req.ApplicationId)
+	if err != nil {
+		return nil, err
+	}
+	if appDetail == nil {
+		return &pb.BatchCancelInterviewsResponse{Code: errs.ErrBadRequest, Msg: "投递记录不存在"}, nil
+	}
+
+	// Load all interviews for the application
+	allInterviews, err := s.interviews.ListByApplication(ctx, req.ApplicationId)
+	if err != nil {
+		return nil, err
+	}
+
+	// Filter to active (pending/scheduled) interviews
+	var activeInterviews []repository.InterviewWithDetailsRow
+	for _, iv := range allInterviews {
+		if iv.Status == model.InterviewStatusPending || iv.Status == model.InterviewStatusScheduled {
+			activeInterviews = append(activeInterviews, iv)
+		}
+	}
+
+	if len(activeInterviews) == 0 {
+		return &pb.BatchCancelInterviewsResponse{
+			Code:     errs.OK,
+			Msg:      "没有需要取消的面试",
+			Affected: 0,
+		}, nil
+	}
+
+	reasonText := req.CancelReason
+	if reasonText == "" {
+		reasonText = "批量取消"
+	}
+
+	var cancelledCount int32
+	err = s.interviews.Transaction(ctx, func(tx *gorm.DB) error {
+		// Cancel all pending/scheduled interviews
+		if err := s.interviews.CancelPendingByApplication(ctx, tx, req.ApplicationId, reasonText); err != nil {
+			return err
+		}
+
+		// Transition application status to interview_cancelled if applicable
+		currentKey := appDetail.StatusKey
+		if currentKey == model.StatusKeyInterviewPending || currentKey == model.StatusKeyInterviewing {
+			_, err := s.lifecycle.ApplyTransitionTx(ctx, tx, RecruitmentLifecycleTransition{
+				ApplicationID:    req.ApplicationId,
+				FromStatus:       currentKey,
+				ToStatus:         model.StatusKeyInterviewCancelled,
+				LegacyStatus:     model.StatusKeyToLegacy[model.StatusKeyInterviewCancelled],
+				ActorUserID:      req.HrId,
+				ActorAccountType: "staff",
+				Reason:           fmt.Sprintf("批量取消面试：%s", reasonText),
+			})
+			if err != nil {
+				return err
+			}
+		}
+
+		// Write outbox events for the first cancelled interview only (to avoid spam)
+		first := activeInterviews[0]
+
+		// Notify interviewer
+		if err := s.outboxPublisher.WriteEventTx(tx, "interview.notification_requested", "interview", uint64(first.ID), "notification.create", notificationPayload{
+			ReceiverID:          first.InterviewerID,
+			ReceiverRole:        2,
+			ReceiverAccountType: "staff",
+			Type:                "interview_cancelled",
+			Title:               "面试已取消",
+			Content:             fmt.Sprintf("「%s」岗位的面试已取消。原因：%s", appDetail.JobTitle, reasonText),
+			Link:                fmt.Sprintf("/hr/interviews/%d", first.ID),
+			BizType:             "interview",
+			BizID:               first.ID,
+		}); err != nil {
+			return err
+		}
+
+		// Email to interviewer
+		if err := s.outboxPublisher.WriteEventTx(tx, "interview.email_requested", "interview", uint64(first.ID), "email.send", emailPayload{
+			ReceiverID:          first.InterviewerID,
+			ReceiverAccountType: "staff",
+			Type:                "interview_cancelled",
+			Title:               "面试已取消",
+			Content:             fmt.Sprintf("「%s」岗位的面试已取消。原因：%s", appDetail.JobTitle, reasonText),
+			Link:                fmt.Sprintf("/hr/interviews/%d", first.ID),
+			BizType:             "interview",
+			BizID:               first.ID,
+			JobTitle:            appDetail.JobTitle,
+			InterviewDate:       formatInterviewDate(first.ScheduledAt),
+			InterviewMode:       formatInterviewMode(first.Mode),
+			InterviewLink:       first.MeetingURL,
+			InterviewLoc:        first.Location,
+		}); err != nil {
+			return err
+		}
+
+		// Notify candidate
+		if err := s.outboxPublisher.WriteEventTx(tx, "interview.notification_requested", "interview", uint64(first.ID), "notification.create", notificationPayload{
+			ReceiverID:          appDetail.UserID,
+			ReceiverRole:        1,
+			ReceiverAccountType: "candidate",
+			Type:                "interview_cancelled",
+			Title:               "面试已取消",
+			Content:             fmt.Sprintf("您的「%s」岗位面试已取消。原因：%s", appDetail.JobTitle, reasonText),
+			Link:                "/applications",
+			BizType:             "interview",
+			BizID:               first.ID,
+		}); err != nil {
+			return err
+		}
+
+		// Email to candidate
+		if err := s.outboxPublisher.WriteEventTx(tx, "interview.email_requested", "interview", uint64(first.ID), "email.send", emailPayload{
+			ReceiverID:          appDetail.UserID,
+			ReceiverAccountType: "candidate",
+			Type:                "interview_cancelled",
+			Title:               "面试已取消",
+			Content:             fmt.Sprintf("您的「%s」岗位面试已取消。原因：%s", appDetail.JobTitle, reasonText),
+			Link:                "/applications",
+			BizType:             "interview",
+			BizID:               first.ID,
+			JobTitle:            appDetail.JobTitle,
+			RecipientName:       appDetail.RealName,
+			InterviewDate:       formatInterviewDate(first.ScheduledAt),
+			InterviewMode:       formatInterviewMode(first.Mode),
+			InterviewLink:       first.MeetingURL,
+			InterviewLoc:        first.Location,
+		}); err != nil {
+			return err
+		}
+
+		cancelledCount = int32(len(activeInterviews))
+		return nil
+	})
+	if err != nil {
+		logger.L().Error("batch cancel interviews failed",
+			zap.Int64("application_id", req.ApplicationId),
+			zap.Error(err),
+		)
+		return nil, err
+	}
+	s.outboxPublisher.Signal()
+
+	logger.L().Info("batch cancelled interviews",
+		zap.Int64("application_id", req.ApplicationId),
+		zap.Int32("count", cancelledCount),
+	)
+
+	return &pb.BatchCancelInterviewsResponse{
+		Code:     errs.OK,
+		Msg:      fmt.Sprintf("已取消 %d 个面试", cancelledCount),
+		Affected: cancelledCount,
+	}, nil
+}
+
+func (s *InterviewService) GetInterview(ctx context.Context, req *pb.GetInterviewRequest) (*pb.GetInterviewResponse, error) {
+	if err := s.serviceAuth.VerifyActorMatch(ctx, req.UserId); err != nil {
+		return nil, err
+	}
+
+	detail, err := s.interviews.GetByID(ctx, req.InterviewId)
+	if err != nil {
+		return nil, err
+	}
+	if detail == nil {
+		return &pb.GetInterviewResponse{Code: errs.ErrBadRequest, Msg: "面试记录不存在"}, nil
+	}
+
+	// Check if user is the candidate (candidate access is direct, no scope check)
+	appDetail, _ := s.applications.GetDetail(ctx, detail.ApplicationID)
+	if appDetail != nil && appDetail.UserID == req.UserId {
+		// Candidate — allowed to view their own interview; filter internal_note
+		detail.InternalNote = ""
+	} else {
+		// For all other users (interviewers not assigned to this interview, staff with
+		// interview.read but no scope, etc.), use checkInterviewReadScope which enforces:
+		//   - interview.read permission
+		//   - interviewer assignment (detail.InterviewerID == userID)
+		//   - recruiting_all / system_all scope
+		//   - own_jobs scope
+		if err := s.checkInterviewReadScope(ctx, req.UserId, req.InterviewId); err != nil {
+			return &pb.GetInterviewResponse{Code: errs.ErrForbidden, Msg: "无权限查看该面试"}, nil
+		}
+	}
+
+	return &pb.GetInterviewResponse{
+		Code:      errs.OK,
+		Msg:       "success",
+		Interview: toPBInterview(detail, s.signResumeURL(detail)),
+	}, nil
+}
+
+func (s *InterviewService) ListApplicationInterviews(ctx context.Context, req *pb.ListApplicationInterviewsRequest) (*pb.ListApplicationInterviewsResponse, error) {
+	if err := s.serviceAuth.VerifyActorMatch(ctx, req.HrId); err != nil {
+		return nil, err
+	}
+
+	// Check permission + scope
+	if err := s.checkInterviewScheduleScope(ctx, req.HrId, req.ApplicationId); err != nil {
+		return &pb.ListApplicationInterviewsResponse{Code: errs.ErrForbidden, Msg: err.Error()}, nil
+	}
+
+	rows, err := s.interviews.ListByApplication(ctx, req.ApplicationId)
+	if err != nil {
+		return nil, err
+	}
+
+	list := make([]*pb.InterviewSchedule, 0, len(rows))
+	for _, row := range rows {
+		list = append(list, toPBInterview(&row, s.signResumeURL(&row)))
+	}
+
+	return &pb.ListApplicationInterviewsResponse{Code: errs.OK, Msg: "success", List: list}, nil
+}
+
+func (s *InterviewService) ListMyInterviews(ctx context.Context, req *pb.ListMyInterviewsRequest) (*pb.ListMyInterviewsResponse, error) {
+	if err := s.serviceAuth.VerifyActorMatch(ctx, req.InterviewerId); err != nil {
+		return nil, err
+	}
+
+	// Check interview.read permission
+	if err := s.serviceAuth.AuthorizePermission(ctx, uint64(req.InterviewerId), "interview.read"); err != nil {
+		return &pb.ListMyInterviewsResponse{Code: errs.ErrForbidden, Msg: "无权限查看面试列表"}, nil
+	}
+
+	rows, err := s.interviews.ListByInterviewer(ctx, req.InterviewerId, req.Status)
+	if err != nil {
+		return nil, err
+	}
+
+	// Batch check feedback existence for this interviewer
+	interviewIDs := make([]int64, 0, len(rows))
+	for _, row := range rows {
+		interviewIDs = append(interviewIDs, row.ID)
+	}
+	feedbackMap := make(map[int64]bool)
+	if len(interviewIDs) > 0 {
+		feedbacks, err := s.interviews.ListFeedbackByInterviews(ctx, interviewIDs)
+		if err != nil {
+			return nil, err
+		}
+		for _, f := range feedbacks {
+			if f.InterviewerID == req.InterviewerId {
+				feedbackMap[f.InterviewID] = true
+			}
+		}
+	}
+
+	list := make([]*pb.InterviewSchedule, 0, len(rows))
+	for _, row := range rows {
+		pbInterview := toPBInterview(&row, s.signResumeURL(&row))
+		pbInterview.HasFeedback = feedbackMap[row.ID]
+		list = append(list, pbInterview)
+	}
+
+	return &pb.ListMyInterviewsResponse{Code: errs.OK, Msg: "success", List: list}, nil
+}
+
+func (s *InterviewService) ListCandidateInterviews(ctx context.Context, req *pb.ListCandidateInterviewsRequest) (*pb.ListCandidateInterviewsResponse, error) {
+	if err := s.serviceAuth.VerifyActorMatch(ctx, req.UserId); err != nil {
+		return nil, err
+	}
+
+	rows, err := s.interviews.ListByCandidate(ctx, req.UserId)
+	if err != nil {
+		return nil, err
+	}
+
+	list := make([]*pb.InterviewSchedule, 0, len(rows))
+	for _, row := range rows {
+		// Remove internal notes for candidate-facing display
+		row.InternalNote = ""
+		list = append(list, toPBInterview(&row, s.signResumeURL(&row)))
+	}
+
+	return &pb.ListCandidateInterviewsResponse{Code: errs.OK, Msg: "success", List: list}, nil
+}
+
+func (s *InterviewService) SubmitFeedback(ctx context.Context, req *pb.SubmitFeedbackRequest) (*pb.CommonResponse, error) {
+	if err := s.serviceAuth.VerifyActorMatch(ctx, req.InterviewerId); err != nil {
+		return nil, err
+	}
+
+	// Check feedback.submit permission
+	if err := s.serviceAuth.AuthorizePermission(ctx, uint64(req.InterviewerId), "interview.feedback.submit"); err != nil {
+		return &pb.CommonResponse{Code: errs.ErrForbidden, Msg: err.Error()}, nil
+	}
+
+	// Check interviewer assignment
+	if err := s.checkInterviewerAssignment(ctx, req.InterviewerId, req.InterviewId); err != nil {
+		return &pb.CommonResponse{Code: errs.ErrForbidden, Msg: "您不是该面试的面试官，无法提交反馈"}, nil
+	}
+
+	// Validate that the ApplicationId matches the interview's actual ApplicationID
+	interviewDetail, err := s.interviews.GetByID(ctx, req.InterviewId)
+	if err != nil {
+		return nil, err
+	}
+	if interviewDetail == nil {
+		return &pb.CommonResponse{Code: errs.ErrBadRequest, Msg: "面试记录不存在"}, nil
+	}
+	if req.ApplicationId != interviewDetail.ApplicationID {
+		return &pb.CommonResponse{Code: errs.ErrBadRequest, Msg: "ApplicationId 与面试记录不匹配"}, nil
+	}
+
+	// Check if the application is still active (not rejected/withdrawn/etc.)
+	if model.IsTerminalStatusKey(interviewDetail.ApplicationStatusKey) {
+		return &pb.CommonResponse{Code: errs.ErrForbidden, Msg: "该候选人已结束投递流程（已被淘汰或撤回），无法提交面试反馈"}, nil
+	}
+
+	// Check if feedback already exists (immutability)
+	exists, err := s.interviews.FeedbackExistsByInterviewer(ctx, req.InterviewId, req.InterviewerId)
+	if err != nil {
+		return nil, err
+	}
+	if exists {
+		return &pb.CommonResponse{Code: errs.ErrConflict, Msg: "您已提交过面试反馈，不可重复提交（如有更正需求请联系 HR）"}, nil
+	}
+
+	// Validate
+	if req.Recommendation == "" {
+		return &pb.CommonResponse{Code: errs.ErrBadRequest, Msg: "请选择面试推荐结论"}, nil
+	}
+	if req.Score < 0 || req.Score > 10 {
+		return &pb.CommonResponse{Code: errs.ErrBadRequest, Msg: "评分范围为 0-10"}, nil
+	}
+	validRecs := map[string]bool{
+		"positive": true, "negative": true, "pending": true,
+		"strong_recommend": true, "recommend": true, "neutral": true,
+		"not_recommend": true, "strong_not_recommend": true,
+	}
+	if !validRecs[req.Recommendation] {
+		return &pb.CommonResponse{Code: errs.ErrBadRequest, Msg: "推荐结论值不合法"}, nil
+	}
+
+	feedback := &model.InterviewFeedback{
+		InterviewID:         req.InterviewId,
+		ApplicationID:       req.ApplicationId,
+		InterviewerID:       req.InterviewerId,
+		Recommendation:      req.Recommendation,
+		Score:               req.Score,
+		DimensionScoresJSON: req.DimensionScoresJson,
+		Comments:            req.Comments,
+		SubmittedAt:         time.Now(),
+	}
+
+	// Read interview model before the single transaction
+	interviewModel, err := s.interviews.GetModelByID(ctx, req.InterviewId)
+	if err != nil {
+		return nil, err
+	}
+
+	// Single transaction: create feedback + update interview status + advance application status
+	err = s.interviews.Transaction(ctx, func(tx *gorm.DB) error {
+		// Step 1: Create feedback
+		if err := s.interviews.CreateFeedbackWithTx(ctx, tx, feedback); err != nil {
+			return err
+		}
+
+		// Step 2: Update interview status to completed
+		if interviewModel != nil && interviewModel.Status == model.InterviewStatusScheduled {
+			interviewModel.Status = model.InterviewStatusCompleted
+			if err := s.interviews.UpdateWithTx(ctx, tx, interviewModel); err != nil {
+				return err
+			}
+		}
+
+		// Step 3: Auto-transition application status: interview_pending → interviewing
+		if interviewDetail.ApplicationStatusKey == model.StatusKeyInterviewPending {
+			if _, err := s.lifecycle.ApplyTransitionTx(ctx, tx, RecruitmentLifecycleTransition{
+				ApplicationID:    req.ApplicationId,
+				FromStatus:       model.StatusKeyInterviewPending,
+				ToStatus:         model.StatusKeyInterviewing,
+				LegacyStatus:     model.StatusKeyToLegacy[model.StatusKeyInterviewing],
+				ActorUserID:      req.InterviewerId,
+				ActorAccountType: "staff",
+				Reason:           "面试官提交反馈，自动推进至面试中",
+			}); err != nil {
+				return err
+			}
+		}
+
+		return nil
+	})
+	if err != nil {
+		logger.L().Error("submit feedback transaction failed",
+			zap.Int64("interview_id", req.InterviewId),
+			zap.Error(err),
+		)
+		return nil, err
+	}
+
+	logger.L().Info("interview feedback submitted",
+		zap.Int64("feedback_id", feedback.ID),
+		zap.Int64("interview_id", req.InterviewId),
+		zap.Int64("interviewer_id", req.InterviewerId),
+	)
+
+	return &pb.CommonResponse{Code: errs.OK, Msg: "面试反馈已提交"}, nil
+}
+
+// advanceToInterviewing auto-transitions an application from interview_pending to
+// interviewing after an interviewer submits feedback. This is a non-fatal operation;
+// if it fails the feedback was still saved and HR can manually advance the status.
+func (s *InterviewService) advanceToInterviewing(ctx context.Context, applicationID, actorUserID int64) error {
+	appDetail, err := s.applications.GetDetail(ctx, applicationID)
+	if err != nil || appDetail == nil {
+		return err
+	}
+	if appDetail.StatusKey != model.StatusKeyInterviewPending {
+		return nil // already past this stage or not yet there — idempotent skip
+	}
+	return s.applications.Transaction(ctx, func(tx *gorm.DB) error {
+		_, err := s.lifecycle.ApplyTransitionTx(ctx, tx, RecruitmentLifecycleTransition{
+			ApplicationID:    applicationID,
+			FromStatus:       model.StatusKeyInterviewPending,
+			ToStatus:         model.StatusKeyInterviewing,
+			LegacyStatus:     model.StatusKeyToLegacy[model.StatusKeyInterviewing],
+			ActorUserID:      actorUserID,
+			ActorAccountType: "staff",
+			Reason:           "面试官提交反馈，自动推进至面试中",
+		})
+		return err
+	})
+}
+
+func (s *InterviewService) GetFeedback(ctx context.Context, req *pb.GetFeedbackRequest) (*pb.GetFeedbackResponse, error) {
+	if err := s.serviceAuth.VerifyActorMatch(ctx, req.InterviewerId); err != nil {
+		return nil, err
+	}
+
+	feedback, err := s.interviews.GetFeedbackByInterviewAndInterviewer(ctx, req.InterviewId, req.InterviewerId)
+	if err != nil {
+		return nil, err
+	}
+	if feedback == nil {
+		return &pb.GetFeedbackResponse{Code: errs.OK, Msg: "success", Feedback: nil}, nil
+	}
+
+	return &pb.GetFeedbackResponse{
+		Code: errs.OK,
+		Msg:  "success",
+		Feedback: &pb.InterviewFeedback{
+			FeedbackId:          feedback.ID,
+			InterviewId:         feedback.InterviewID,
+			ApplicationId:       feedback.ApplicationID,
+			InterviewerId:       feedback.InterviewerID,
+			Recommendation:      feedback.Recommendation,
+			Score:               feedback.Score,
+			DimensionScoresJson: feedback.DimensionScoresJSON,
+			Comments:            feedback.Comments,
+			SubmittedAt:         formatTime(feedback.SubmittedAt),
+			UpdatedAt:           formatTime(feedback.UpdatedAt),
+		},
+	}, nil
+}
+
+// ── PB Conversion helpers ─────────────────────────────────────────────
+
+func (s *InterviewService) signResumeURL(row *repository.InterviewWithDetailsRow) string {
+	if row.ResumeOssKey == "" || s.oss == nil {
+		return ""
+	}
+	url, err := s.oss.GeneratePresignedGetURL(row.ResumeOssKey)
+	if err != nil {
+		logger.L().Warn("presign resume url failed", zap.String("oss_key", row.ResumeOssKey), zap.Error(err))
+		return ""
+	}
+	return url
+}
+
+func toPBInterview(row *repository.InterviewWithDetailsRow, resumeURL string) *pb.InterviewSchedule {
+	var scheduledAt string
+	if row.ScheduledAt != nil {
+		scheduledAt = row.ScheduledAt.Format(time.RFC3339)
+	}
+	return &pb.InterviewSchedule{
+		InterviewId:          row.ID,
+		ApplicationId:        row.ApplicationID,
+		InterviewerId:        row.InterviewerID,
+		RoundNo:              row.RoundNo,
+		Title:                row.Title,
+		Mode:                 row.Mode,
+		MeetingUrl:           row.MeetingURL,
+		Location:             row.Location,
+		DurationMinutes:      row.DurationMinutes,
+		CandidateNote:        row.CandidateNote,
+		InternalNote:         row.InternalNote,
+		CancelReason:         row.CancelReason,
+		ScheduledAt:          scheduledAt,
+		Status:               row.Status,
+		CreatedBy:            int64PtrToInt64(row.CreatedBy),
+		CreatedAt:            formatTime(row.CreatedAt),
+		UpdatedAt:            formatTime(row.UpdatedAt),
+		InterviewerName:      row.InterviewerName,
+		ApplicationStatusKey: row.ApplicationStatusKey,
+		JobTitle:             row.JobTitle,
+		CandidateName:        row.CandidateName,
+		CandidatePhone:       row.CandidatePhone,
+		ResumeUrl:            resumeURL,
+	}
+}
+
+func int64PtrToInt64(p *int64) int64 {
+	if p == nil {
+		return 0
+	}
+	return *p
+}

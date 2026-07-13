@@ -18,10 +18,9 @@ preserving protobuf contracts, database schema, and reporting API behavior.
 - Current implementation source: service-local `internal/application/service`
   reporting orchestration, `internal/infrastructure/persistence` GORM reporting
   queries, and `internal/interfaces/grpc` proto mapping.
-- Remaining compatibility debt: Identity-owned permission/data-scope reads still
-  use shared `smart-recruit-domain-go/repository.AuthzRepo` through
-  `internal/infrastructure/client.AuthzAdapter` until Identity exposes a
-  service-local query port or signed scope snapshot contract.
+- Remaining compatibility debt: Identity-owned permission/data-scope reads use
+  service-local SQL in `internal/infrastructure/client.AuthzAdapter` until
+  Identity exposes a service query port or signed scope snapshot contract.
 - Runtime platform behavior retained: Nacos discovery/config, gRPC internal
   auth, optional TLS, health, metrics, trace, MySQL, optional Redis, and
   structured logging.
@@ -117,7 +116,7 @@ TASK-021 does not create new event schemas, projection tables, or protobuf APIs.
 - Keep permission and data-scope filtering aligned with Identity-owned RBAC.
 - Replace transitional source-domain reads with projection-backed read models
   only after replay/backfill behavior is covered by tests.
-- Replace shared `AuthzRepo` compatibility reads with Identity-owned query ports
-  when that cross-service contract is available.
+- Replace local RBAC compatibility reads with Identity-owned query ports when
+  that cross-service contract is available.
 - Do not add schema, protobuf, or new snapshot APIs without a separate scoped
   confirmation.

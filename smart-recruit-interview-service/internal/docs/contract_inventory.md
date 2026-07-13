@@ -83,11 +83,11 @@ Compatibility rule:
 - Existing gRPC messages and response codes are mapped by `internal/interfaces/grpc` for the active runtime path.
 - TASK-008 does not change protobuf request/response types, rpc names, route mode, gateway behavior, or runtime registration behavior.
 
-## 4. Current Shared Dependency Baseline
+## 4. Current Compatibility Dependency Baseline
 
-Current direct imports in `cmd/interview-service/main.go`:
+Current direct imports in `cmd/interview-service/main.go` after TASK-029:
 
-- `smart-recruit-domain-go/repository`
+- `smart-recruit-interview-service/internal/legacydomain/repository`
 - local `internal/application/service`
 - local `internal/infrastructure/client`
 - local `internal/infrastructure/mq`
@@ -110,7 +110,7 @@ Current local service construction:
 - `buildInterviewServer` constructs only Interview-required repositories/adapters and returns local `interfaces/grpc.Server`.
 - The active gRPC implementation no longer uses `smart-recruit-domain-go/service.InterviewService`.
 
-Shared repositories constructed as temporary infrastructure adapters:
+Owner-local legacy repositories constructed as temporary infrastructure adapters:
 
 - `repository.NewUserRepo`
 - `repository.NewJobRepo`

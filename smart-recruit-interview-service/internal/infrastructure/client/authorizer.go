@@ -5,8 +5,8 @@ import (
 	"fmt"
 
 	sharedauthz "smart-recruit-domain-go/pkg/authz"
-	sharedrepo "smart-recruit-domain-go/repository"
 	"smart-recruit-interview-service/internal/application/port"
+	sharedrepo "smart-recruit-interview-service/internal/legacydomain/repository"
 	"smart-recruit-platform-go/metadata"
 )
 
