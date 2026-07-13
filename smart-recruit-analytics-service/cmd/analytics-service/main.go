@@ -21,9 +21,12 @@ import (
 	"gorm.io/driver/mysql"
 	"gorm.io/gorm"
 
+	"smart-recruit-analytics-service/internal/application/service"
+	"smart-recruit-analytics-service/internal/infrastructure/client"
+	"smart-recruit-analytics-service/internal/infrastructure/persistence"
+	analyticsgrpc "smart-recruit-analytics-service/internal/interfaces/grpc"
 	analyticsruntime "smart-recruit-analytics-service/internal/runtime"
 	"smart-recruit-domain-go/repository"
-	"smart-recruit-domain-go/service"
 	platformconfig "smart-recruit-platform-go/config"
 	"smart-recruit-platform-go/logger"
 	"smart-recruit-platform-go/nacos"
@@ -133,7 +136,10 @@ func serveAnalytics(addr string) error {
 	}
 	defer server.ShutdownMetricsServer(context.Background(), metricsServer)
 
-	reporting := buildReportingService(db)
+	reporting, err := buildReportingService(db)
+	if err != nil {
+		return err
+	}
 	runtime, err := analyticsruntime.New(analyticsruntime.Deps{
 		Reporting: reporting,
 	})
@@ -196,13 +202,18 @@ func serveAnalytics(addr string) error {
 	return nil
 }
 
-func buildReportingService(db *gorm.DB) analyticsruntime.ReportingAPI {
+func buildReportingService(db *gorm.DB) (analyticsruntime.ReportingAPI, error) {
 	authzRepo := repository.NewAuthzRepo(db)
-	return service.NewAnalyticsService(
-		repository.NewAnalyticsRepo(db),
-		authzRepo,
-		service.NewServiceAuthorizer(authzRepo, nil),
-	)
+	authzAdapter := client.NewAuthzAdapter(authzRepo)
+	reporting, err := service.NewReportingService(service.ReportingDeps{
+		Reports:    persistence.NewReportingRepository(db),
+		Authorizer: authzAdapter,
+		Scopes:     authzAdapter,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("build analytics reporting service: %w", err)
+	}
+	return analyticsgrpc.NewReportingAPI(reporting), nil
 }
 
 func loadBootstrap(addr string) (platformconfig.Bootstrap, error) {

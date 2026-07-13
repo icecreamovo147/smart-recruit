@@ -1,9 +1,9 @@
 # Analytics Projection Strategy Inventory
 
-TASK-019 establishes the Analytics DDD skeleton and records the current
-reporting/projection contract. It does not change runtime wiring, protobuf
-contracts, database schema, reporting API behavior, or shared implementation
-paths.
+TASK-019 established the Analytics DDD skeleton and reporting/projection
+contract. TASK-020 localized the reporting/projection application layer.
+TASK-021 switches runtime reporting to the service-local implementation while
+preserving protobuf contracts, database schema, and reporting API behavior.
 
 ## Current Runtime Boundary
 
@@ -15,8 +15,13 @@ paths.
   - `GetFunnelReport`
   - `GetTimeInStageReport`
   - `GetInterviewOfferMetrics`
-- Current implementation source: shared `smart-recruit-domain-go/service`
-  `AnalyticsService` and shared `repository.AnalyticsRepo`.
+- Current implementation source: service-local `internal/application/service`
+  reporting orchestration, `internal/infrastructure/persistence` GORM reporting
+  queries, and `internal/interfaces/grpc` proto mapping.
+- Remaining compatibility debt: Identity-owned permission/data-scope reads still
+  use shared `smart-recruit-domain-go/repository.AuthzRepo` through
+  `internal/infrastructure/client.AuthzAdapter` until Identity exposes a
+  service-local query port or signed scope snapshot contract.
 - Runtime platform behavior retained: Nacos discovery/config, gRPC internal
   auth, optional TLS, health, metrics, trace, MySQL, optional Redis, and
   structured logging.
@@ -67,9 +72,9 @@ needs writes outside Analytics-owned projection tables is a Hard Stop.
 
 ## Transitional Read Debt
 
-Current reporting still reads source-domain tables through shared SQL queries.
-This is allowed only as migration debt until projection-backed read models are
-fully implemented.
+Current reporting still reads source-domain tables through service-local SQL
+queries. This is allowed only as migration debt until projection-backed read
+models are fully implemented.
 
 Known transitional read dependencies:
 
@@ -92,23 +97,27 @@ Future projection ingestion should consume stable domain-event envelopes for:
 - Notification read-state changes only when dashboard unread counts move to an
   Analytics-owned read model.
 
-TASK-019 does not create new event schemas, projection tables, or protobuf APIs.
+TASK-021 does not create new event schemas, projection tables, or protobuf APIs.
 
 ## Existing Test Anchors
 
 - `cmd/analytics-service/main_test.go` validates discovery/config fallback.
 - `internal/runtime/runtime_test.go` validates reporting runtime registration
   and projection descriptor behavior.
-- Shared tests currently cover `AnalyticsService`, `AnalyticsRepo`, and
-  `AnalyticsProjectionRepo` behavior.
+- `internal/application/service/reporting_service_test.go` covers local
+  reporting/projection application orchestration.
+- `internal/interfaces/grpc/reporting_api_test.go` covers AdminService reporting
+  response compatibility.
+- `internal/infrastructure/projection/gorm_store_test.go` covers local
+  projection event/checkpoint persistence.
 
 ## Migration Notes For Later TASKs
 
 - Keep dashboard/funnel/time-in-stage/interview-offer report semantics stable.
 - Keep permission and data-scope filtering aligned with Identity-owned RBAC.
-- Move query orchestration into Analytics local application services before
-  switching runtime wiring.
-- Introduce projection-backed reads only after local projection adapters and
-  replay/backfill behavior are covered by tests.
+- Replace transitional source-domain reads with projection-backed read models
+  only after replay/backfill behavior is covered by tests.
+- Replace shared `AuthzRepo` compatibility reads with Identity-owned query ports
+  when that cross-service contract is available.
 - Do not add schema, protobuf, or new snapshot APIs without a separate scoped
   confirmation.
