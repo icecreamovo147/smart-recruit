@@ -1,0 +1,196 @@
+{
+  "schemaVersion": 1,
+  "feature_name": "microservice-ddd-evolution",
+  "task_id": "TASK-025",
+  "base_sha": "dae63d46c361ff8a768919bb06de359db81998ac",
+  "base_tree": "44609c5e7f0ecfeec28d55d799c9310e1fee2c8d",
+  "head_sha": "dae63d46c361ff8a768919bb06de359db81998ac",
+  "changed_files": [
+    "smart-recruit-ai-agent-service/cmd/ai-agent-service/adapters.go",
+    "smart-recruit-ai-agent-service/cmd/ai-agent-service/main.go",
+    "smart-recruit-ai-agent-service/internal/docs/ai_agent_dependency_inventory.md",
+    "smart-recruit-ai-agent-service/internal/interfaces/grpc/legacy_servers.go",
+    "smart-recruit-ai-agent-service/internal/runtime/runtime.go",
+    "smart-recruit-ai-agent-service/internal/runtime/runtime_test.go",
+    ".spec/microservice-ddd-evolution/reports/TASK-025-report.md",
+    ".spec/microservice-ddd-evolution/reports/TASK-025-evidence.json"
+  ],
+  "scope": {
+    "status": "passed",
+    "checked_by": "bash .spec/microservice-ddd-evolution/scripts/check-task-scope.sh TASK-025",
+    "out_of_scope": [],
+    "forbidden": []
+  },
+  "checks": [
+    {
+      "command": "go test ./internal/runtime ./internal/interfaces/grpc ./cmd/ai-agent-service",
+      "exit_code": 0,
+      "started_at": "2026-07-13T10:02:00Z",
+      "duration_ms": 6273,
+      "status": "passed",
+      "summary": "Runtime registration, local long-task controls, local legacy gRPC adapter package, and cmd package tests passed."
+    },
+    {
+      "command": "go test ./...",
+      "exit_code": 0,
+      "started_at": "2026-07-13T10:02:00Z",
+      "duration_ms": 6731,
+      "status": "passed",
+      "summary": "smart-recruit-ai-agent-service package tests passed."
+    },
+    {
+      "command": "go run ./cmd/ai-agent-service --check",
+      "exit_code": 0,
+      "started_at": "2026-07-13T10:02:00Z",
+      "duration_ms": 7124,
+      "status": "passed",
+      "summary": "ai-agent-service runtime check passed"
+    },
+    {
+      "command": "rg -n \"smart-recruit-domain-go/(service|repository|model|ai|mq|pkg|oss|resumeparser)|service\\.AIAgentRuntime|service\\.NewServices\" smart-recruit-ai-agent-service/internal/runtime smart-recruit-ai-agent-service/internal/interfaces smart-recruit-ai-agent-service/cmd/ai-agent-service",
+      "exit_code": 0,
+      "started_at": "2026-07-13T10:03:00Z",
+      "duration_ms": 1,
+      "status": "passed",
+      "summary": "Shared dependency scan found remaining debt only in cmd bootstrap and internal/interfaces/grpc legacy bridge; internal/runtime has no shared service import."
+    },
+    {
+      "command": "git diff --name-only",
+      "exit_code": 0,
+      "started_at": "2026-07-13T10:03:00Z",
+      "duration_ms": 1,
+      "status": "passed",
+      "summary": "Tracked diff listed adapters.go deletion, main.go, dependency inventory, runtime.go, and runtime_test.go; git status also listed new legacy_servers.go."
+    },
+    {
+      "command": "bash .spec/microservice-ddd-evolution/scripts/check-task-scope.sh TASK-025",
+      "exit_code": 0,
+      "started_at": "2026-07-13T10:03:00Z",
+      "duration_ms": 203,
+      "status": "passed",
+      "summary": "Scope check passed for TASK-025. Changed files: 6 before report/evidence creation."
+    },
+    {
+      "command": "bash .spec/microservice-ddd-evolution/scripts/agent-check.sh",
+      "exit_code": 0,
+      "started_at": "2026-07-13T10:03:00Z",
+      "duration_ms": 774,
+      "status": "passed",
+      "summary": "Harness JSON validation passed. Running go test ./... in smart-recruit-ai-agent-service passed."
+    },
+    {
+      "command": "node scripts/check-mysql-table-ownership.mjs",
+      "exit_code": 0,
+      "started_at": "2026-07-13T10:04:00Z",
+      "duration_ms": 1,
+      "status": "passed",
+      "summary": "mysql_table_ownership: PASS (67 tables, single MySQL instance)"
+    },
+    {
+      "command": "node scripts/check-backend-boundaries.mjs",
+      "exit_code": 0,
+      "started_at": "2026-07-13T10:04:00Z",
+      "duration_ms": 114,
+      "status": "passed",
+      "summary": "backend_boundary_result: PASS"
+    },
+    {
+      "command": "node .agents/skills/spec-harness/scripts/validate-evidence.mjs --file .spec/microservice-ddd-evolution/reports/TASK-025-evidence.json",
+      "exit_code": 0,
+      "started_at": "2026-07-13T10:06:00Z",
+      "duration_ms": 1,
+      "status": "passed",
+      "summary": "evidence_result: PASS"
+    },
+    {
+      "command": "bash .spec/microservice-ddd-evolution/scripts/check-task-scope.sh TASK-025",
+      "exit_code": 0,
+      "started_at": "2026-07-13T10:06:00Z",
+      "duration_ms": 61,
+      "status": "passed",
+      "summary": "Scope check passed for TASK-025. Changed files: 8 after report/evidence creation."
+    },
+    {
+      "command": "bash .spec/microservice-ddd-evolution/scripts/agent-check.sh",
+      "exit_code": 0,
+      "started_at": "2026-07-13T10:06:00Z",
+      "duration_ms": 820,
+      "status": "passed",
+      "summary": "Harness JSON validation passed. Running go test ./... in smart-recruit-ai-agent-service passed."
+    }
+  ],
+  "non_blocking_checks": [
+    {
+      "command": "node .knowledge/scripts/detect-impact.mjs --root . --base-tree 44609c5e7f0ecfeec28d55d799c9310e1fee2c8d",
+      "exit_code": 1,
+      "started_at": "2026-07-13T10:04:00Z",
+      "duration_ms": 1,
+      "status": "failed",
+      "summary": "Pre-existing active knowledge source_refs still point at removed logic-grpc-service/web-gin-service paths; TASK-025 scope does not allow .knowledge/** edits, so this is recorded as candidate_required."
+    }
+  ],
+  "review": {
+    "type": "self-review",
+    "round": 1,
+    "verdict": "通过",
+    "findings": []
+  },
+  "human_confirmation": {
+    "required": true,
+    "confirmed": true,
+    "confirmed_by": "user",
+    "confirmed_at": "2026-07-13T11:22:00Z",
+    "confirmation_text": "User confirmed continuing TASK-012 and cancelled future human gates unless a blocking issue needs human intervention; applying that confirmation to TASK-025."
+  },
+  "exceptions": [],
+  "knowledgeImpact": {
+    "result": "candidate_required",
+    "triggeredBy": [
+      "smart-recruit-ai-agent-service/cmd/ai-agent-service/**",
+      "smart-recruit-ai-agent-service/internal/runtime/**",
+      "smart-recruit-ai-agent-service/internal/interfaces/grpc/**",
+      "smart-recruit-ai-agent-service/internal/docs/ai_agent_dependency_inventory.md"
+    ],
+    "reviewResults": [
+      {
+        "document": ".knowledge/architecture/agent-runtime.md",
+        "verdict": "CANDIDATE",
+        "evidence": [
+          "TASK-025 removes shared service dependency from internal/runtime and moves forwarding adapters into local internal/interfaces/grpc legacy bridge."
+        ]
+      },
+      {
+        "document": ".knowledge/runbooks/service-binary-convention.md",
+        "verdict": "CANDIDATE",
+        "evidence": [
+          "TASK-025 preserves cmd/ai-agent-service --check and service registration behavior while changing runtime dependency shape."
+        ]
+      },
+      {
+        "document": ".knowledge/domains/ai-configuration-governance.md",
+        "verdict": "UNCHANGED",
+        "evidence": [
+          "TASK-025 does not change provider/model/prompt/admin configuration behavior or credential storage."
+        ]
+      },
+      {
+        "document": ".knowledge/domains/mcp-tool-governance.md",
+        "verdict": "UNCHANGED",
+        "evidence": [
+          "TASK-025 does not change MCP policy semantics or public API behavior."
+        ]
+      },
+      {
+        "document": ".knowledge/architecture/semantic-retrieval.md",
+        "verdict": "UNCHANGED",
+        "evidence": [
+          "TASK-025 does not change embedding retrieval behavior; worker control remains compatible."
+        ]
+      }
+    ],
+    "coverageGap": false,
+    "validationExitCode": 1,
+    "reason": "Knowledge impact detection cannot complete until pre-existing source_ref debt is resolved; TASK-025 scope does not allow editing .knowledge/**."
+  },
+  "skipped_checks": []
+}

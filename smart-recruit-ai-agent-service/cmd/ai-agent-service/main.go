@@ -21,6 +21,7 @@ import (
 	"gorm.io/driver/mysql"
 	"gorm.io/gorm"
 
+	aiagentgrpc "smart-recruit-ai-agent-service/internal/interfaces/grpc"
 	aiagentruntime "smart-recruit-ai-agent-service/internal/runtime"
 	"smart-recruit-domain-go/ai"
 	"smart-recruit-domain-go/mq"
@@ -216,16 +217,21 @@ func depsFromAIAgentRuntime(runtime *service.AIAgentRuntime) aiagentruntime.Deps
 		llmConfig = runtime.LlmConfig
 	}
 	return aiagentruntime.Deps{
-		AI:                     aiServer{hr: runtime.AI, candidate: runtime.CandidateAI},
+		AI:                     aiagentgrpc.NewLegacyAIService(runtime.AI, runtime.CandidateAI),
 		LlmConfig:              llmConfig,
 		Prompt:                 runtime.Prompt,
 		AgentConfig:            runtime.AgentConfig,
 		MCP:                    runtime.MCP,
 		Skill:                  runtime.Skill,
 		AgentSkill:             runtime.AgentSkill,
-		RecruitingIntelligence: recruitingIntelligenceServer{service: runtime.Intelligence},
+		RecruitingIntelligence: aiagentgrpc.NewLegacyRecruitingIntelligenceService(runtime.Intelligence),
 		EmbeddingConfig:        embeddingConfig,
-		Runtime:                runtime,
+		LongTasks: aiagentruntime.LongTaskControls{
+			RabbitMQRequired: true,
+			EmbeddingWorker:  runtime.EmbeddingConsumer != nil,
+			AgentRunWorker:   runtime.AgentRunConsumer != nil,
+			RuntimeName:      runtime.RuntimeName,
+		},
 	}
 }
 

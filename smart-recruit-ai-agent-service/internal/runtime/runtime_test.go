@@ -5,7 +5,6 @@ import (
 
 	"google.golang.org/grpc"
 
-	"smart-recruit-domain-go/service"
 	"smart-recruit-proto/recruitment/pb"
 )
 
@@ -53,13 +52,9 @@ func TestLongTaskControlsRequireRabbitMQAndWorkers(t *testing.T) {
 	}
 }
 
-func TestRuntimeInspectsAIAgentRuntimeWorkers(t *testing.T) {
+func TestRuntimeUsesConfiguredLongTaskControls(t *testing.T) {
 	deps := fakeDeps()
-	deps.Runtime = &service.AIAgentRuntime{
-		EmbeddingConsumer: &service.EmbeddingConsumer{},
-		AgentRunConsumer:  &service.AgentRunConsumer{},
-		RuntimeName:       "ai-agent-service",
-	}
+	deps.LongTasks = LongTaskControls{RabbitMQRequired: true, EmbeddingWorker: true, AgentRunWorker: true, RuntimeName: "ai-agent-service"}
 	runtime, err := New(deps)
 	if err != nil {
 		t.Fatalf("New returned error: %v", err)

@@ -114,6 +114,27 @@ gRPC runtime still delegates to shared AI/MCP/embedding/intelligence
 implementations until TASK-025 adds local infrastructure/interfaces adapters and
 cuts over safely.
 
+## Local Runtime And Interface Convergence
+
+TASK-025 moves AI Agent runtime assembly closer to service-local ownership while
+preserving public protobuf behavior and provider credential handling.
+
+- `internal/runtime` no longer imports shared `smart-recruit-domain-go/service`
+  types. It registers all AI-owned protobuf services from local `Deps` and
+  validates local `LongTaskControls`.
+- `internal/interfaces/grpc/legacy_servers.go` contains the temporary shared
+  forwarding adapters for AI chat/agent-run and recruiting intelligence
+  protobuf services.
+- `cmd/ai-agent-service` converts the currently active shared
+  `AIAgentRuntime` into local runtime dependencies and explicitly passes
+  embedding/agent-run worker controls.
+
+Remaining shared implementation debt is now isolated to the command bootstrap
+and local legacy gRPC bridge: shared `service.NewServices`, repositories,
+provider factory, MCP/embedding workers, and intelligence implementation still
+serve active traffic until follow-up work replaces those adapters with native
+AI Agent infrastructure.
+
 ## Security And Safety Dependencies
 
 - Provider credentials and encryption keys must never be logged or committed.
@@ -131,7 +152,7 @@ cuts over safely.
 
 The active runtime still uses shared `smart-recruit-domain-go/service`,
 `repository`, `ai`, and `mq` implementations. This is allowed only as migration
-debt for TASK-022 because this TASK is limited to skeleton and inventory.
+debt while the AI Agent service moves through staged local adapter cutover.
 
 Known shared dependencies to remove in later AI Agent TASKs:
 

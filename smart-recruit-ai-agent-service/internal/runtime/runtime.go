@@ -5,7 +5,6 @@ import (
 
 	"google.golang.org/grpc"
 
-	"smart-recruit-domain-go/service"
 	"smart-recruit-proto/recruitment/pb"
 )
 
@@ -21,7 +20,7 @@ type Deps struct {
 	AgentSkill             pb.AgentSkillServiceServer
 	RecruitingIntelligence pb.RecruitingIntelligenceServiceServer
 	EmbeddingConfig        pb.EmbeddingConfigServiceServer
-	Runtime                *service.AIAgentRuntime
+	LongTasks              LongTaskControls
 }
 
 type Runtime struct {
@@ -72,9 +71,10 @@ func New(deps Deps) (*Runtime, error) {
 	if deps.EmbeddingConfig == nil {
 		return nil, fmt.Errorf("embedding config service is required")
 	}
-	longTasks := LongTaskControls{RabbitMQRequired: true}
-	if deps.Runtime != nil {
-		longTasks = inspectLongTasks(deps.Runtime)
+	longTasks := deps.LongTasks
+	if !longTasks.Configured() {
+		longTasks = LongTaskControls{RabbitMQRequired: true}
+	} else {
 		if err := longTasks.Validate(); err != nil {
 			return nil, err
 		}
@@ -93,13 +93,8 @@ func New(deps Deps) (*Runtime, error) {
 	}, nil
 }
 
-func inspectLongTasks(runtime *service.AIAgentRuntime) LongTaskControls {
-	return LongTaskControls{
-		RabbitMQRequired: true,
-		EmbeddingWorker:  runtime.EmbeddingConsumer != nil,
-		AgentRunWorker:   runtime.AgentRunConsumer != nil,
-		RuntimeName:      runtime.RuntimeName,
-	}
+func (controls LongTaskControls) Configured() bool {
+	return controls.RabbitMQRequired || controls.EmbeddingWorker || controls.AgentRunWorker || controls.RuntimeName != ""
 }
 
 func (controls LongTaskControls) Validate() error {
