@@ -35,8 +35,25 @@ func TestWorkloadProfilesRecordOwnerContracts(t *testing.T) {
 		if !profile.Toggle.DefaultOn || profile.Toggle.EnableEnv != "WORKER_WORKLOADS" || profile.Toggle.DisableEnv != "WORKER_DISABLED_WORKLOADS" {
 			t.Fatalf("unexpected toggle for %s: %+v", name, profile.Toggle)
 		}
-		if profile.Contract.OwnerContext == "" || profile.Contract.DLQ == "" || profile.Contract.Writes == "" {
+		if profile.Contract.OwnerContext == "" || profile.Contract.DLQ == "" || profile.Contract.Retry == "" || profile.Contract.Writes == "" {
 			t.Fatalf("incomplete owner contract for %s: %+v", name, profile.Contract)
+		}
+	}
+}
+
+func TestWorkloadProfilesCoverReadinessIdempotencyRetryAndDLQ(t *testing.T) {
+	for _, profile := range DefaultWorkloadProfiles {
+		if profile.Toggle.EnableEnv != "WORKER_WORKLOADS" || profile.Toggle.DisableEnv != "WORKER_DISABLED_WORKLOADS" {
+			t.Fatalf("%s has unexpected toggle envs: %+v", profile.Name, profile.Toggle)
+		}
+		if profile.Contract.Idempotency == "" {
+			t.Fatalf("%s missing idempotency contract", profile.Name)
+		}
+		if profile.Contract.Retry == "" {
+			t.Fatalf("%s missing retry contract", profile.Name)
+		}
+		if profile.Contract.DLQ == "" {
+			t.Fatalf("%s missing DLQ contract", profile.Name)
 		}
 	}
 }

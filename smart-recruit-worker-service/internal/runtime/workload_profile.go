@@ -26,6 +26,7 @@ type OwnerContract struct {
 	ReadTables   []string
 	Writes       string
 	Idempotency  string
+	Retry        string
 	DLQ          string
 	Notes        string
 }
@@ -51,6 +52,7 @@ var DefaultWorkloadProfiles = []WorkloadProfile{
 			OwnedTables:  []string{"event_outbox"},
 			Writes:       "Claims pending outbox rows and marks published/dead through outbox status transitions.",
 			Idempotency:  "outbox claim/mark-published status transition",
+			Retry:        "Outbox retry count and next_retry_at control bounded publish attempts.",
 			DLQ:          "event_outbox dead status with dead_lettered_at and retry diagnostics",
 			Notes:        "Must not mutate aggregate owner tables while publishing events.",
 		},
@@ -67,6 +69,7 @@ var DefaultWorkloadProfiles = []WorkloadProfile{
 			ReadTables:   []string{"users"},
 			Writes:       "Creates notification records and consumer inbox claims only.",
 			Idempotency:  "notification inbox business key",
+			Retry:        "RabbitMQ retry exchange plus event_inbox failed attempts.",
 			DLQ:          "notification queue DLQ plus event_inbox dead status",
 			Notes:        "Account type and actor scope must remain notification-owned.",
 		},
@@ -83,6 +86,7 @@ var DefaultWorkloadProfiles = []WorkloadProfile{
 			ReadTables:   []string{"users"},
 			Writes:       "Records email log status and inbox claims; sends email through configured sender.",
 			Idempotency:  "email inbox and email log uniqueness",
+			Retry:        "RabbitMQ retry exchange plus event_inbox failed attempts.",
 			DLQ:          "email queue DLQ plus event_inbox dead status",
 			Notes:        "Reports must never include raw email body or full recipient addresses.",
 		},
@@ -99,6 +103,7 @@ var DefaultWorkloadProfiles = []WorkloadProfile{
 			ReadTables:   []string{"users"},
 			Writes:       "Updates resume parse status/text only for the resume owner context.",
 			Idempotency:  "resume parse run and resume idempotency",
+			Retry:        "RabbitMQ retry exchange plus event_inbox failed attempts.",
 			DLQ:          "resume parse queue DLQ plus event_inbox dead status",
 			Notes:        "Do not log raw resume text, object keys, or parsed content.",
 		},
@@ -115,6 +120,7 @@ var DefaultWorkloadProfiles = []WorkloadProfile{
 			ReadTables:   []string{"agent_skills", "memories", "embedding_model_configs", "embedding_provider_configs"},
 			Writes:       "Upserts embedding rows and inbox claims only.",
 			Idempotency:  "embedding content hash and model key",
+			Retry:        "RabbitMQ retry exchange plus event_inbox failed attempts.",
 			DLQ:          "embedding queue DLQ plus event_inbox dead status",
 			Notes:        "Provider credentials must stay encrypted and out of logs.",
 		},
@@ -131,6 +137,7 @@ var DefaultWorkloadProfiles = []WorkloadProfile{
 			ReadTables:   []string{"ai_chat_sessions", "agent_configs", "prompt_templates"},
 			Writes:       "Transitions agent run status, appends run events, and persists final assistant message.",
 			Idempotency:  "agent run status transition guard",
+			Retry:        "RabbitMQ retry exchange plus event_inbox failed attempts; terminal run states remain guarded.",
 			DLQ:          "agent run queue DLQ plus event_inbox dead status",
 			Notes:        "Cancel/confirm state machine must remain AI Agent-owned.",
 		},
@@ -147,6 +154,7 @@ var DefaultWorkloadProfiles = []WorkloadProfile{
 			ReadTables:   []string{"event_outbox"},
 			Writes:       "Upserts projection event ledger and checkpoints only.",
 			Idempotency:  "analytics projection event id ledger",
+			Retry:        "Projection retry/dead-letter state is recorded in Analytics-owned projection metadata.",
 			DLQ:          "projection event status/dead-letter metadata",
 			Notes:        "Must not write recruitment owner tables while projecting.",
 		},
@@ -181,6 +189,9 @@ func ValidateWorkloadProfiles() error {
 		}
 		if strings.TrimSpace(profile.Contract.Idempotency) == "" {
 			return fmt.Errorf("worker workload %q idempotency contract is required", profile.Name)
+		}
+		if strings.TrimSpace(profile.Contract.Retry) == "" {
+			return fmt.Errorf("worker workload %q retry contract is required", profile.Name)
 		}
 		if strings.TrimSpace(profile.Contract.DLQ) == "" {
 			return fmt.Errorf("worker workload %q DLQ contract is required", profile.Name)

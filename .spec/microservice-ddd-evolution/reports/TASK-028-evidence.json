@@ -1,0 +1,168 @@
+{
+  "schemaVersion": 1,
+  "feature_name": "microservice-ddd-evolution",
+  "task_id": "TASK-028",
+  "base_sha": "21917d3dcc3be7776a8c65a244933b7f0829e555",
+  "base_tree": "00e48ea65b159a5550ed32fb57c95e2640da982a",
+  "head_sha": "21917d3dcc3be7776a8c65a244933b7f0829e555",
+  "changed_files": [
+    "smart-recruit-worker-service/internal/docs/worker_workload_inventory.md",
+    "smart-recruit-worker-service/internal/runtime/workload_profile.go",
+    "smart-recruit-worker-service/internal/runtime/workload_profile_test.go",
+    ".spec/microservice-ddd-evolution/reports/TASK-028-report.md",
+    ".spec/microservice-ddd-evolution/reports/TASK-028-evidence.json"
+  ],
+  "scope": {
+    "status": "passed",
+    "checked_by": "bash .spec/microservice-ddd-evolution/scripts/check-task-scope.sh TASK-028",
+    "out_of_scope": [],
+    "forbidden": []
+  },
+  "checks": [
+    {
+      "command": "bash -lc '! rg -n \"smart-recruit-domain-go/(service|repository|model|ai|oss|resumeparser)|service\\\\.NewServices|NotificationRuntime|AIAgentRuntime\" smart-recruit-worker-service'",
+      "exit_code": 0,
+      "started_at": "2026-07-13T10:14:00Z",
+      "duration_ms": 1,
+      "status": "passed",
+      "summary": "No shared business service orchestration imports found in smart-recruit-worker-service."
+    },
+    {
+      "command": "rg -n \"smart-recruit-domain-go/\" smart-recruit-worker-service",
+      "exit_code": 0,
+      "started_at": "2026-07-13T10:14:00Z",
+      "duration_ms": 1,
+      "status": "passed",
+      "summary": "Only smart-recruit-domain-go/mq remains as Worker infrastructure bridge."
+    },
+    {
+      "command": "go test ./internal/runtime",
+      "exit_code": 0,
+      "started_at": "2026-07-13T10:15:00Z",
+      "duration_ms": 1904,
+      "status": "passed",
+      "summary": "Worker targeted runtime/profile tests passed."
+    },
+    {
+      "command": "go test ./...",
+      "exit_code": 0,
+      "started_at": "2026-07-13T10:15:00Z",
+      "duration_ms": 3375,
+      "status": "passed",
+      "summary": "smart-recruit-worker-service package tests passed."
+    },
+    {
+      "command": "go run ./cmd/worker-service --check",
+      "exit_code": 0,
+      "started_at": "2026-07-13T10:15:00Z",
+      "duration_ms": 3710,
+      "status": "passed",
+      "summary": "worker-service runtime check passed"
+    },
+    {
+      "command": "git diff --name-only",
+      "exit_code": 0,
+      "started_at": "2026-07-13T10:15:00Z",
+      "duration_ms": 1,
+      "status": "passed",
+      "summary": "Diff listed worker workload inventory, workload_profile.go, and workload_profile_test.go."
+    },
+    {
+      "command": "bash .spec/microservice-ddd-evolution/scripts/check-task-scope.sh TASK-028",
+      "exit_code": 0,
+      "started_at": "2026-07-13T10:15:00Z",
+      "duration_ms": 328,
+      "status": "passed",
+      "summary": "Scope check passed for TASK-028. Changed files: 3 before report/evidence creation."
+    },
+    {
+      "command": "bash .spec/microservice-ddd-evolution/scripts/agent-check.sh",
+      "exit_code": 0,
+      "started_at": "2026-07-13T10:15:00Z",
+      "duration_ms": 1054,
+      "status": "passed",
+      "summary": "Harness JSON validation passed. Running go test ./... in smart-recruit-worker-service passed."
+    },
+    {
+      "command": "node scripts/check-mysql-table-ownership.mjs",
+      "exit_code": 0,
+      "started_at": "2026-07-13T10:15:00Z",
+      "duration_ms": 103,
+      "status": "passed",
+      "summary": "mysql_table_ownership: PASS (67 tables, single MySQL instance)"
+    },
+    {
+      "command": "node scripts/check-backend-boundaries.mjs",
+      "exit_code": 0,
+      "started_at": "2026-07-13T10:16:00Z",
+      "duration_ms": 108,
+      "status": "passed",
+      "summary": "backend_boundary_result: PASS"
+    }
+  ],
+  "non_blocking_checks": [
+    {
+      "command": "node .knowledge/scripts/detect-impact.mjs --root . --base-tree 00e48ea65b159a5550ed32fb57c95e2640da982a",
+      "exit_code": 1,
+      "started_at": "2026-07-13T10:16:00Z",
+      "duration_ms": 1,
+      "status": "failed",
+      "summary": "Pre-existing active knowledge source_refs still point at removed logic-grpc-service/web-gin-service paths; TASK-028 scope does not allow .knowledge/** edits, so this is recorded as candidate_required."
+    }
+  ],
+  "review": {
+    "type": "self-review",
+    "round": 1,
+    "verdict": "通过",
+    "findings": []
+  },
+  "human_confirmation": {
+    "required": false,
+    "confirmed": true,
+    "confirmed_by": "not_required",
+    "confirmed_at": "2026-07-13T10:14:00Z",
+    "confirmation_text": "TASK-028 does not require human confirmation."
+  },
+  "exceptions": [],
+  "knowledgeImpact": {
+    "result": "candidate_required",
+    "triggeredBy": [
+      "smart-recruit-worker-service/internal/runtime/**",
+      "smart-recruit-worker-service/internal/docs/worker_workload_inventory.md"
+    ],
+    "reviewResults": [
+      {
+        "document": ".knowledge/runbooks/service-binary-convention.md",
+        "verdict": "CANDIDATE",
+        "evidence": [
+          "TASK-028 confirms Worker has no shared business service orchestration imports and records mq as infrastructure bridge debt."
+        ]
+      },
+      {
+        "document": ".knowledge/domains/notification-outbox.md",
+        "verdict": "CANDIDATE",
+        "evidence": [
+          "TASK-028 extends Worker owner contracts with retry and DLQ requirements."
+        ]
+      },
+      {
+        "document": ".knowledge/runbooks/event-replay-dead-letter.md",
+        "verdict": "UNCHANGED",
+        "evidence": [
+          "TASK-028 does not change outbox/inbox repair procedures, status values, or retention."
+        ]
+      },
+      {
+        "document": ".knowledge/pitfalls/migration-model-drift.md",
+        "verdict": "UNCHANGED",
+        "evidence": [
+          "TASK-028 does not modify migrations, schema, repository status values, or table ownership."
+        ]
+      }
+    ],
+    "coverageGap": false,
+    "validationExitCode": 1,
+    "reason": "Knowledge impact detection cannot complete until pre-existing source_ref debt is resolved; TASK-028 scope does not allow editing .knowledge/**."
+  },
+  "skipped_checks": []
+}
