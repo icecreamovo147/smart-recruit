@@ -1,0 +1,138 @@
+{
+  "schemaVersion": 1,
+  "feature_name": "microservice-ddd-evolution",
+  "task_id": "TASK-011",
+  "base_sha": "0243fca0bc225428ee06c9e99414410ddfd897f7",
+  "base_tree": "a6db3411c2ca9ee244b52785150002695d350ae1",
+  "head_sha": "0243fca0bc225428ee06c9e99414410ddfd897f7",
+  "changed_files": [
+    "smart-recruit-notification-service/cmd/notification-service/main.go",
+    "smart-recruit-notification-service/internal/infrastructure/cache/notification_cache.go",
+    "smart-recruit-notification-service/internal/infrastructure/client/authorizer.go",
+    "smart-recruit-notification-service/internal/infrastructure/email/email.go",
+    "smart-recruit-notification-service/internal/infrastructure/mq/consumer.go",
+    "smart-recruit-notification-service/internal/infrastructure/persistence/notification_repository.go",
+    "smart-recruit-notification-service/internal/interfaces/grpc/notification_server.go",
+    "smart-recruit-notification-service/internal/interfaces/mapper/notification.go",
+    "smart-recruit-notification-service/internal/runtime/runtime.go",
+    "smart-recruit-notification-service/internal/runtime/runtime_test.go",
+    ".spec/microservice-ddd-evolution/reports/TASK-011-report.md",
+    ".spec/microservice-ddd-evolution/reports/TASK-011-evidence.json"
+  ],
+  "scope": {
+    "status": "passed",
+    "checked_by": "bash .spec/microservice-ddd-evolution/scripts/check-task-scope.sh TASK-011",
+    "out_of_scope": [],
+    "forbidden": []
+  },
+  "checks": [
+    {
+      "command": "go test ./...",
+      "exit_code": 0,
+      "started_at": "2026-07-13T07:52:00Z",
+      "duration_ms": 2249,
+      "status": "passed",
+      "summary": "smart-recruit-notification-service package tests passed after local runtime/interface/infrastructure wiring."
+    },
+    {
+      "command": "node scripts/check-mysql-table-ownership.mjs",
+      "exit_code": 0,
+      "started_at": "2026-07-13T07:53:00Z",
+      "duration_ms": 129,
+      "status": "passed",
+      "summary": "mysql_table_ownership: PASS (67 tables, single MySQL instance)"
+    },
+    {
+      "command": "node scripts/check-backend-boundaries.mjs",
+      "exit_code": 0,
+      "started_at": "2026-07-13T07:55:00Z",
+      "duration_ms": 91,
+      "status": "passed",
+      "summary": "backend_boundary_result: PASS"
+    },
+    {
+      "command": "git diff --name-only",
+      "exit_code": 0,
+      "started_at": "2026-07-13T07:53:00Z",
+      "duration_ms": 1,
+      "status": "passed",
+      "summary": "Tracked diff listed modified tracked files; untracked added files are listed in changed_files and git status output."
+    },
+    {
+      "command": "bash .spec/microservice-ddd-evolution/scripts/check-task-scope.sh TASK-011",
+      "exit_code": 0,
+      "started_at": "2026-07-13T07:55:00Z",
+      "duration_ms": 36,
+      "status": "passed",
+      "summary": "Scope check passed for TASK-011. Changed files: 12"
+    },
+    {
+      "command": "bash .spec/microservice-ddd-evolution/scripts/agent-check.sh",
+      "exit_code": 0,
+      "started_at": "2026-07-13T07:53:00Z",
+      "duration_ms": 696,
+      "status": "passed",
+      "summary": "Harness JSON validation passed. Running go test ./... in smart-recruit-notification-service passed."
+    }
+  ],
+  "non_blocking_checks": [
+    {
+      "command": "node .knowledge/scripts/detect-impact.mjs --root . --base-tree a6db3411c2ca9ee244b52785150002695d350ae1",
+      "exit_code": 1,
+      "started_at": "2026-07-13T07:53:00Z",
+      "duration_ms": 160,
+      "status": "failed",
+      "summary": "Pre-existing active knowledge source_refs still point at removed logic-grpc-service/web-gin-service paths; TASK-011 scope does not allow .knowledge/** edits, so this is recorded as candidate_required."
+    }
+  ],
+  "review": {
+    "type": "self-review",
+    "round": 1,
+    "verdict": "通过",
+    "findings": []
+  },
+  "human_confirmation": {
+    "required": false,
+    "confirmed": true,
+    "confirmed_by": "not_required",
+    "confirmed_at": "2026-07-13T07:45:00Z",
+    "confirmation_text": "TASK-011 does not require human confirmation."
+  },
+  "exceptions": [],
+  "knowledgeImpact": {
+    "result": "candidate_required",
+    "triggeredBy": [
+      "smart-recruit-notification-service/cmd/notification-service/main.go",
+      "smart-recruit-notification-service/internal/infrastructure/**",
+      "smart-recruit-notification-service/internal/interfaces/**",
+      "smart-recruit-notification-service/internal/runtime/**"
+    ],
+    "reviewResults": [
+      {
+        "document": ".knowledge/architecture/service-boundaries.md",
+        "verdict": "CANDIDATE",
+        "evidence": [
+          "TASK-011 switches the active Notification runtime wiring to smart-recruit-notification-service local infrastructure/interfaces/runtime while active knowledge still contains legacy logic-grpc-service source references."
+        ]
+      },
+      {
+        "document": ".knowledge/domains/notification-outbox.md",
+        "verdict": "CANDIDATE",
+        "evidence": [
+          "TASK-011 localizes Notification RabbitMQ consumers, Inbox idempotency wiring, GORM notification/email/inbox adapters, and realtime cache adapter."
+        ]
+      },
+      {
+        "document": ".knowledge/runbooks/event-replay-dead-letter.md",
+        "verdict": "CANDIDATE",
+        "evidence": [
+          "TASK-011 keeps MQ retry/DLQ behavior through existing mq.Conn.Consume while moving Notification consumer handlers into the local service runtime."
+        ]
+      }
+    ],
+    "coverageGap": false,
+    "validationExitCode": 1,
+    "reason": "Knowledge impact detection cannot complete until pre-existing source_ref debt is resolved; TASK-011 scope does not allow editing .knowledge/**."
+  },
+  "skipped_checks": []
+}

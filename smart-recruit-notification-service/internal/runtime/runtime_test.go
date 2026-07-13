@@ -6,8 +6,8 @@ import (
 	"testing"
 
 	"google.golang.org/grpc"
+	sharedmq "smart-recruit-domain-go/mq"
 
-	"smart-recruit-domain-go/service"
 	"smart-recruit-platform-go/errs"
 	"smart-recruit-proto/recruitment/pb"
 )
@@ -50,22 +50,34 @@ func TestComponentsRequirePersistenceRealtimeOutboxInboxAndEmail(t *testing.T) {
 	}
 }
 
-func TestRuntimeInspectsNotificationRuntimeComponents(t *testing.T) {
+func TestRuntimeAcceptsLocalRuntimeComponents(t *testing.T) {
 	runtime, err := New(Deps{
-		Notification: fakeNotificationAPI{},
-		Runtime: &service.NotificationRuntime{
-			Notification:         &service.NotificationService{},
-			Worker:               &service.NotificationWorkerPool{},
-			OutboxPublisher:      &service.OutboxPublisher{},
-			NotificationConsumer: &service.NotificationConsumer{},
-			EmailConsumer:        &service.EmailConsumer{},
-		},
+		Notification:         fakeNotificationAPI{},
+		OutboxPublisher:      fakeOutboxPublisher{},
+		NotificationConsumer: fakeConsumer{},
+		EmailConsumer:        fakeConsumer{},
 	})
 	if err != nil {
 		t.Fatalf("New returned error: %v", err)
 	}
 	if err := runtime.Components.Validate(); err != nil {
 		t.Fatalf("component validation failed: %v", err)
+	}
+}
+
+func TestRuntimeStartReportsMissingMQWhenConsumersAreConfigured(t *testing.T) {
+	runtime, err := New(Deps{
+		Notification:         fakeNotificationAPI{},
+		OutboxPublisher:      fakeOutboxPublisher{},
+		NotificationConsumer: fakeConsumer{},
+		EmailConsumer:        fakeConsumer{},
+	})
+	if err != nil {
+		t.Fatalf("New returned error: %v", err)
+	}
+	errs := runtime.Start(context.Background())
+	if len(errs) != 1 || errs[0].Component != "notification-runtime-mq" {
+		t.Fatalf("unexpected start errors: %#v", errs)
 	}
 }
 
@@ -99,3 +111,11 @@ func (fakeNotificationAPI) MarkNotificationRead(context.Context, *pb.MarkNotific
 func (fakeNotificationAPI) MarkAllNotificationsRead(context.Context, *pb.MarkAllNotificationsReadRequest) (*pb.CommonResponse, error) {
 	return &pb.CommonResponse{Code: errs.OK}, nil
 }
+
+type fakeOutboxPublisher struct{}
+
+func (fakeOutboxPublisher) Start(context.Context) {}
+
+type fakeConsumer struct{}
+
+func (fakeConsumer) Start(context.Context, *sharedmq.Conn) error { return nil }

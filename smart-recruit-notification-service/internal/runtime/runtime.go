@@ -5,8 +5,8 @@ import (
 	"fmt"
 
 	"google.golang.org/grpc"
+	sharedmq "smart-recruit-domain-go/mq"
 
-	"smart-recruit-domain-go/service"
 	"smart-recruit-proto/recruitment/pb"
 )
 
@@ -21,13 +21,20 @@ type NotificationAPI interface {
 }
 
 type Deps struct {
-	Notification NotificationAPI
-	Runtime      *service.NotificationRuntime
+	Notification         NotificationAPI
+	MQ                   *sharedmq.Conn
+	OutboxPublisher      OutboxPublisher
+	NotificationConsumer Consumer
+	EmailConsumer        Consumer
 }
 
 type Runtime struct {
-	Notification pb.NotificationServiceServer
-	Components   Components
+	Notification         pb.NotificationServiceServer
+	Components           Components
+	mq                   *sharedmq.Conn
+	outboxPublisher      OutboxPublisher
+	notificationConsumer Consumer
+	emailConsumer        Consumer
 }
 
 type Components struct {
@@ -46,31 +53,43 @@ var IdempotencySemantics = []string{
 	"realtime delivery invalidates unread cache and publishes Redis notification events after persistence writes",
 }
 
+type OutboxPublisher interface {
+	Start(context.Context)
+}
+
+type Consumer interface {
+	Start(context.Context, *sharedmq.Conn) error
+}
+
+type StartError struct {
+	Component string
+	Err       error
+}
+
 func New(deps Deps) (*Runtime, error) {
 	if deps.Notification == nil {
 		return nil, fmt.Errorf("notification api is required")
 	}
-	components := Components{Persistence: true}
-	if deps.Runtime != nil {
-		components = inspectComponents(deps.Runtime)
+	components := Components{
+		Persistence:       true,
+		RealtimeDelivery:  true,
+		OutboxPublisher:   deps.OutboxPublisher != nil,
+		NotificationInbox: deps.NotificationConsumer != nil,
+		EmailCoordination: deps.EmailConsumer != nil,
+	}
+	if deps.OutboxPublisher != nil || deps.NotificationConsumer != nil || deps.EmailConsumer != nil {
 		if err := components.Validate(); err != nil {
 			return nil, err
 		}
 	}
 	return &Runtime{
-		Notification: notificationServer{api: deps.Notification},
-		Components:   components,
+		Notification:         notificationServer{api: deps.Notification},
+		Components:           components,
+		mq:                   deps.MQ,
+		outboxPublisher:      deps.OutboxPublisher,
+		notificationConsumer: deps.NotificationConsumer,
+		emailConsumer:        deps.EmailConsumer,
 	}, nil
-}
-
-func inspectComponents(runtime *service.NotificationRuntime) Components {
-	return Components{
-		Persistence:       runtime.Notification != nil,
-		RealtimeDelivery:  runtime.Worker != nil,
-		OutboxPublisher:   runtime.OutboxPublisher != nil,
-		NotificationInbox: runtime.NotificationConsumer != nil,
-		EmailCoordination: runtime.EmailConsumer != nil,
-	}
 }
 
 func (c Components) Validate() error {
@@ -88,6 +107,30 @@ func (c Components) Validate() error {
 	default:
 		return nil
 	}
+}
+
+func (r *Runtime) Start(ctx context.Context) []StartError {
+	if r == nil {
+		return []StartError{{Component: "notification-runtime", Err: fmt.Errorf("notification runtime is nil")}}
+	}
+	if r.outboxPublisher != nil {
+		r.outboxPublisher.Start(ctx)
+	}
+	if r.mq == nil {
+		return []StartError{{Component: "notification-runtime-mq", Err: fmt.Errorf("notification runtime mq connection is nil")}}
+	}
+	var errs []StartError
+	if r.notificationConsumer != nil {
+		if err := r.notificationConsumer.Start(ctx, r.mq); err != nil {
+			errs = append(errs, StartError{Component: "notification-consumer", Err: err})
+		}
+	}
+	if r.emailConsumer != nil {
+		if err := r.emailConsumer.Start(ctx, r.mq); err != nil {
+			errs = append(errs, StartError{Component: "email-consumer", Err: err})
+		}
+	}
+	return errs
 }
 
 func (r *Runtime) RegisterGRPC(registrar grpc.ServiceRegistrar) error {

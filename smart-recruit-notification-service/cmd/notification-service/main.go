@@ -23,9 +23,16 @@ import (
 
 	"smart-recruit-domain-go/email"
 	"smart-recruit-domain-go/mq"
-	"smart-recruit-domain-go/pkg/cache"
+	sharedcache "smart-recruit-domain-go/pkg/cache"
 	"smart-recruit-domain-go/repository"
 	"smart-recruit-domain-go/service"
+	appservice "smart-recruit-notification-service/internal/application/service"
+	notificationcache "smart-recruit-notification-service/internal/infrastructure/cache"
+	notificationclient "smart-recruit-notification-service/internal/infrastructure/client"
+	notificationemail "smart-recruit-notification-service/internal/infrastructure/email"
+	notificationmq "smart-recruit-notification-service/internal/infrastructure/mq"
+	notificationpersistence "smart-recruit-notification-service/internal/infrastructure/persistence"
+	notificationgrpc "smart-recruit-notification-service/internal/interfaces/grpc"
 	notificationruntime "smart-recruit-notification-service/internal/runtime"
 	platformconfig "smart-recruit-platform-go/config"
 	"smart-recruit-platform-go/logger"
@@ -134,19 +141,12 @@ func serveNotification(addr string) error {
 	}
 	defer server.ShutdownMetricsServer(context.Background(), metricsServer)
 
-	notificationRuntime, mqConn, cleanup, err := buildNotificationRuntime(cfg, db, redisClient)
+	runtime, mqConn, cleanup, err := buildNotificationRuntime(cfg, db, redisClient)
 	if err != nil {
 		return err
 	}
 	defer cleanup()
-	runtime, err := notificationruntime.New(notificationruntime.Deps{
-		Notification: notificationRuntime.Notification,
-		Runtime:      notificationRuntime,
-	})
-	if err != nil {
-		return err
-	}
-	if runtimeErrors := notificationRuntime.Start(context.Background(), mqConn); len(runtimeErrors) > 0 {
+	if runtimeErrors := runtime.Start(context.Background()); len(runtimeErrors) > 0 {
 		return fmt.Errorf("start notification runtime: %s: %w", runtimeErrors[0].Component, runtimeErrors[0].Err)
 	}
 
@@ -204,11 +204,10 @@ func serveNotification(addr string) error {
 	return nil
 }
 
-func buildNotificationRuntime(cfg logicconfig.Config, db *gorm.DB, redisClient *redis.Client) (*service.NotificationRuntime, *mq.Conn, func(), error) {
-	authzRepo := repository.NewAuthzRepo(db)
-	var notificationCache *cache.NotificationCache
+func buildNotificationRuntime(cfg logicconfig.Config, db *gorm.DB, redisClient *redis.Client) (*notificationruntime.Runtime, *mq.Conn, func(), error) {
+	var notificationCache *sharedcache.NotificationCache
 	if redisClient != nil {
-		notificationCache = cache.NewNotificationCacheWithOptions(redisOptions(cfg))
+		notificationCache = sharedcache.NewNotificationCacheWithOptions(redisOptions(cfg))
 	}
 	renderer, err := email.NewRenderer(cfg.FrontendBaseURL)
 	if err != nil {
@@ -238,18 +237,33 @@ func buildNotificationRuntime(cfg logicconfig.Config, db *gorm.DB, redisClient *
 		}
 		return nil, nil, nil, fmt.Errorf("connect rabbitmq: %w", err)
 	}
-	runtime := service.NewNotificationRuntime(service.NotificationRuntimeDeps{
-		Users:         repository.NewUserRepo(db),
-		Notifications: repository.NewNotificationRepo(db),
-		Outbox:        repository.NewOutboxRepo(db),
-		Inbox:         repository.NewInboxRepo(db),
-		EmailLog:      repository.NewEmailLogRepo(db),
-		Cache:         notificationCache,
-		MQ:            mqConn,
-		Authz:         service.NewServiceAuthorizer(authzRepo, nil),
-		EmailRenderer: renderer,
-		EmailSender:   sender,
+	cacheAdapter := notificationcache.NewNotificationCache(notificationCache)
+	inboxRepo := notificationpersistence.NewInboxRepository(db)
+	notificationService := appservice.New(appservice.Deps{
+		Notifications: notificationpersistence.NewNotificationRepository(db),
+		EmailLogs:     notificationpersistence.NewEmailLogRepository(db),
+		UnreadCache:   cacheAdapter,
+		Realtime:      cacheAdapter,
+		ActorVerifier: notificationclient.NewActorVerifier(),
+		Users:         notificationpersistence.NewUserDirectory(db),
+		Renderer:      notificationemail.NewRenderer(renderer),
+		Sender:        notificationemail.NewSender(sender),
 	})
+	runtime, err := notificationruntime.New(notificationruntime.Deps{
+		Notification:         notificationgrpc.NewServer(notificationService),
+		MQ:                   mqConn,
+		OutboxPublisher:      service.NewOutboxPublisher(repository.NewOutboxRepo(db), mqConn),
+		NotificationConsumer: notificationmq.NewNotificationConsumer(notificationService, inboxRepo),
+		EmailConsumer:        notificationmq.NewEmailConsumer(notificationService, inboxRepo),
+	})
+	if err != nil {
+		_ = sender.Close()
+		mqConn.Close()
+		if notificationCache != nil {
+			_ = notificationCache.Close()
+		}
+		return nil, nil, nil, err
+	}
 	cleanup := func() {
 		mqConn.Close()
 		_ = sender.Close()
