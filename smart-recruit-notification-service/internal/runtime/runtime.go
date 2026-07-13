@@ -5,7 +5,7 @@ import (
 	"fmt"
 
 	"google.golang.org/grpc"
-	sharedmq "smart-recruit-domain-go/mq"
+	sharedmq "smart-recruit-commons/mq"
 
 	"smart-recruit-proto/recruitment/pb"
 )

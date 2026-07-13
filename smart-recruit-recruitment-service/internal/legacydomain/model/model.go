@@ -606,7 +606,7 @@ type EventOutbox struct {
 	AggregateType  string     `gorm:"column:aggregate_type"`
 	AggregateID    uint64     `gorm:"column:aggregate_id"`
 	RoutingKey     string     `gorm:"column:routing_key"`
-	Producer       string     `gorm:"column:producer;size:128;default:smart-recruit-domain-go.outbox"`
+	Producer       string     `gorm:"column:producer;size:128;default:smart-recruit-commons.outbox"`
 	IdempotencyKey string     `gorm:"column:idempotency_key;size:255;index:idx_outbox_idempotency_key"`
 	CorrelationID  string     `gorm:"column:correlation_id;size:128"`
 	CausationID    string     `gorm:"column:causation_id;size:128"`

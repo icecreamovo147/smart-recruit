@@ -8,7 +8,7 @@ import (
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 
-	"smart-recruit-domain-go/pkg/pagination"
+	"smart-recruit-commons/pkg/pagination"
 	"smart-recruit-notification-service/internal/domain/model"
 	"smart-recruit-notification-service/internal/domain/repository"
 )

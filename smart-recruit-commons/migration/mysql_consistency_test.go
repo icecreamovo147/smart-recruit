@@ -79,7 +79,7 @@ func TestMySQLMigrationConsistency(t *testing.T) {
 
 	// ── Database B: import db.sql ────────────────────────────────────
 	// Resolve db.sql relative to the project root (two levels up from
-	// smart-recruit-domain-go/migration/).
+	// smart-recruit-commons/migration/).
 	dbSQLPath := filepath.Join("..", "..", "db.sql")
 	dbSQLBytes, err := os.ReadFile(dbSQLPath)
 	if err != nil {

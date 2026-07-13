@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	sharedauthz "smart-recruit-domain-go/pkg/authz"
+	sharedauthz "smart-recruit-commons/pkg/authz"
 	"smart-recruit-offer-service/internal/application/port"
 	sharedrepo "smart-recruit-offer-service/internal/legacydomain/repository"
 	"smart-recruit-platform-go/metadata"

@@ -48,7 +48,7 @@ TASK-013 - Identity domain/application 迁移。
 
 变更均在 TASK-013 allowed files 内：`smart-recruit-identity-service/**` 与 `.spec/microservice-ddd-evolution/reports/**`。
 
-未修改 forbidden files：`smart-recruit-domain-go/**`、`smart-recruit-proto/**`、`db.sql`、migration、go workspace、package manifest 或 lockfile。
+未修改 forbidden files：`smart-recruit-commons/**`、`smart-recruit-proto/**`、`db.sql`、migration、go workspace、package manifest 或 lockfile。
 
 ## 5. SPEC Comparison Result
 

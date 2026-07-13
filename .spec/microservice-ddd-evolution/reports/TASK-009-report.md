@@ -48,7 +48,7 @@ TASK-009 - Notification DDD 骨架与契约盘点。
 
 变更均在 TASK-009 allowed files 内：`smart-recruit-notification-service/**` 与 `.spec/microservice-ddd-evolution/reports/**`。
 
-未修改 forbidden files：`smart-recruit-domain-go/**`、`smart-recruit-proto/**`、`db.sql`、migration、deployment、go workspace、package manifest 或 lockfile。
+未修改 forbidden files：`smart-recruit-commons/**`、`smart-recruit-proto/**`、`db.sql`、migration、deployment、go workspace、package manifest 或 lockfile。
 
 ## 5. SPEC Comparison Result
 

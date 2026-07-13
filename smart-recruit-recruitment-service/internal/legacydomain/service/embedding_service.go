@@ -15,7 +15,7 @@ import (
 
 	"go.uber.org/zap"
 
-	"smart-recruit-domain-go/pkg/crypto"
+	"smart-recruit-commons/pkg/crypto"
 	"smart-recruit-platform-go/logger"
 	"smart-recruit-recruitment-service/internal/legacydomain/model"
 	"smart-recruit-recruitment-service/internal/legacydomain/repository"

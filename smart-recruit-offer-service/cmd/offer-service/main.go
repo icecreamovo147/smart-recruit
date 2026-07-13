@@ -325,8 +325,8 @@ func ensureLogicConfigPath() error {
 		return nil
 	}
 	for _, candidate := range []string{
-		filepath.Join("smart-recruit-domain-go", "config", "config.yaml"),
-		filepath.Join("..", "smart-recruit-domain-go", "config", "config.yaml"),
+		filepath.Join("smart-recruit-commons", "config", "config.yaml"),
+		filepath.Join("..", "smart-recruit-commons", "config", "config.yaml"),
 	} {
 		if _, err := os.Stat(candidate); err == nil {
 			return os.Setenv("CONFIG_PATH", candidate)

@@ -4,7 +4,7 @@ import (
 	"context"
 	"errors"
 
-	"smart-recruit-domain-go/mq"
+	"smart-recruit-commons/mq"
 )
 
 var errNilAIAgentRuntime = errors.New("ai agent runtime is nil")

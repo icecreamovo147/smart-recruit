@@ -7,7 +7,7 @@ import (
 
 	"go.uber.org/zap"
 
-	"smart-recruit-domain-go/pkg/authz"
+	"smart-recruit-commons/pkg/authz"
 	"smart-recruit-platform-go/errs"
 	"smart-recruit-platform-go/logger"
 	"smart-recruit-platform-go/metadata"

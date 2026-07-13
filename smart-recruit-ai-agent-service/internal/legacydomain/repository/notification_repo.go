@@ -8,7 +8,7 @@ import (
 	"gorm.io/gorm"
 
 	"smart-recruit-ai-agent-service/internal/legacydomain/model"
-	"smart-recruit-domain-go/pkg/pagination"
+	"smart-recruit-commons/pkg/pagination"
 )
 
 type NotificationRepo struct {

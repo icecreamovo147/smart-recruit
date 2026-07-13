@@ -5,7 +5,7 @@ import (
 	"fmt"
 
 	"smart-recruit-ai-agent-service/internal/legacydomain/repository"
-	"smart-recruit-domain-go/pkg/authz"
+	"smart-recruit-commons/pkg/authz"
 )
 
 // scopeEvaluator extracts the common data-scope authorization logic shared by

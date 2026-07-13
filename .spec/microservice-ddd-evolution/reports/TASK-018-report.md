@@ -32,7 +32,7 @@ TASK-018 - Recruitment infrastructure/interfaces/runtime/tests 收敛。
 
 变更均在 TASK-018 allowed files 内：`smart-recruit-recruitment-service/**` 与 `.spec/microservice-ddd-evolution/reports/**`。
 
-未修改 forbidden files：`smart-recruit-domain-go/**`、`smart-recruit-proto/**`、`db.sql`、migration、go workspace、package manifest 或 lockfile。
+未修改 forbidden files：`smart-recruit-commons/**`、`smart-recruit-proto/**`、`db.sql`、migration、go workspace、package manifest 或 lockfile。
 
 ## 5. SPEC Comparison Result
 
@@ -102,7 +102,7 @@ Reviewer 核对结果：
 - 变更均在 `smart-recruit-recruitment-service/**` 与报告目录内。
 - 未修改 shared domain、proto、schema、workspace、package manifest、lockfile、gateway、deployment 或配置。
 - Runtime `Deps` 现在接收本地 adapter 实例，不再直接接收 shared service instances。
-- `rg "smart-recruit-domain-go/(repository|service|oss)" smart-recruit-recruitment-service -n` 仍显示 main 中 compatibility delegate construction；已记录为债务。
+- `rg "smart-recruit-commons/(repository|service|oss)" smart-recruit-recruitment-service -n` 仍显示 main 中 compatibility delegate construction；已记录为债务。
 - `go test ./...`、runtime `--check`、scope check、agent-check、backend boundary、table ownership 检查均通过。
 
 ## 11. Risks

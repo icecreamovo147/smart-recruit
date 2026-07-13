@@ -24,7 +24,7 @@ API semantics.
   `internal/legacydomain/repository`, `internal/legacydomain/model`, and
   `internal/legacydomain/ai` compatibility packages. These were localized by
   TASK-029 so active AI Agent runtime no longer imports shared
-  `smart-recruit-domain-go/model`, `repository`, or `service`.
+  `smart-recruit-commons/model`, `repository`, or `service`.
 - Runtime platform behavior retained: Nacos discovery/config, gRPC internal
   auth, optional TLS, health, metrics, trace, MySQL, Redis, RabbitMQ,
   structured logging, provider timeout/retry/circuit-breaker settings, and
@@ -42,7 +42,7 @@ API semantics.
 | Skill and agent skill | Skill catalog, agent-skill assignment, semantic retrieval support. | Skill repositories, agent config repository, embedding/retrieval dependencies. |
 | Embedding runtime | Embedding provider factory, embedding service, embedding backfill, embedding queue consumer. | Provider credentials, encryption key, embedding provider SDKs, RabbitMQ embedding queue, Inbox idempotency, vector rows. |
 | Recruiting intelligence | Resume profile extraction, candidate matching, compare candidates. | Recruitment/resume/application/job data, OSS/resume parser/LLM matchers, AI provider, usage audit. |
-| Provider fallback | AI and embedding provider retries, circuit breaker, timeout budgets, model selection. | `smart-recruit-domain-go/ai`, provider config tables, encrypted credentials, runtime config. |
+| Provider fallback | AI and embedding provider retries, circuit breaker, timeout budgets, model selection. | `smart-recruit-commons/ai`, provider config tables, encrypted credentials, runtime config. |
 | Usage and audit | AI usage logs, tool traces, MCP logs, authorization/audit context. | Usage log repository, tool trace repository, authz context, request/trace metadata. |
 
 ## Target DDD Ownership
@@ -120,7 +120,7 @@ cuts over safely.
 TASK-025 moves AI Agent runtime assembly closer to service-local ownership while
 preserving public protobuf behavior and provider credential handling.
 
-- `internal/runtime` no longer imports shared `smart-recruit-domain-go/service`
+- `internal/runtime` no longer imports shared `smart-recruit-commons/service`
   types. It registers all AI-owned protobuf services from local `Deps` and
   validates local `LongTaskControls`.
 - `internal/interfaces/grpc/legacy_servers.go` contains temporary forwarding
@@ -154,9 +154,9 @@ AI Agent infrastructure.
 The active runtime still uses service-local legacy compatibility packages for
 AI chat, agent-run, MCP, skill, embedding, and recruiting intelligence behavior.
 This is allowed only as owner-local migration debt while the AI Agent service
-moves through native adapter cutover. Shared `smart-recruit-domain-go/ai`
+moves through native adapter cutover. Shared `smart-recruit-commons/ai`
 remaining usage is limited to generic AI provider/fallback metadata; RabbitMQ
-remains `smart-recruit-domain-go/mq` infrastructure bridge until the commons
+remains `smart-recruit-commons/mq` infrastructure bridge until the commons
 rename.
 
 Known shared dependencies to remove in later AI Agent TASKs:

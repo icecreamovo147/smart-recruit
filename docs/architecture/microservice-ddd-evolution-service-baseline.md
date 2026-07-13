@@ -2,15 +2,15 @@
 
 ## 1. 目的
 
-本文是 `.spec/microservice-ddd-evolution` 的 TASK-002 基线盘点，记录当前微服务根对 `smart-recruit-domain-go` 的依赖、表归属、过渡只读关系和潜在违规写风险。
+本文是 `.spec/microservice-ddd-evolution` 的 TASK-002 基线盘点，记录当前微服务根对 `smart-recruit-commons` 的依赖、表归属、过渡只读关系和潜在违规写风险。
 
 本文只记录当前事实和迁移风险，不修改业务代码、表归属、schema、protobuf、部署配置或 package/lockfile。
 
 > TASK-029 update: 本文 4.x 章节保留 TASK-002 时点的历史基线。TASK-029
-> 已将 `smart-recruit-domain-go/model`、`repository`、`service` 的 active
+> 已将 `smart-recruit-commons/model`、`repository`、`service` 的 active
 > 业务实现移出 shared module；Offer、Interview、Recruitment、AI Agent 的
 > 残余兼容实现位于各自服务的 `internal/legacydomain/**`，Notification 和
-> Analytics 已改用 service-local adapter。`smart-recruit-domain-go` 当前只保留
+> Analytics 已改用 service-local adapter。`smart-recruit-commons` 当前只保留
 > AI provider/fallback、OSS、email、MQ、migration、resumeparser、authz/cache/crypto/JWT/pagination
 > 等 commons-ready 或 platform-adjacent 候选能力。
 
@@ -33,12 +33,12 @@ mysql_table_ownership: PASS (67 tables, single MySQL instance)
 
 ## 3. 全局基线结论
 
-- 8 个业务/后台服务根均仍直接依赖 `smart-recruit-domain-go` module。
-- 8 个服务根均保留 `smart-recruit-domain-go/config/config.yaml` 或 `../smart-recruit-domain-go/config/config.yaml` 的本地配置 fallback 路径。
+- 8 个业务/后台服务根均仍直接依赖 `smart-recruit-commons` module。
+- 8 个服务根均保留 `smart-recruit-commons/config/config.yaml` 或 `../smart-recruit-commons/config/config.yaml` 的本地配置 fallback 路径。
 - Offer、Interview、AI Agent 仍通过 `service.NewServices` 构造跨上下文聚合服务，迁移时风险最高。
 - Recruitment 已局部手动装配具体 shared service，但仍直接构造跨上下文 repository。
 - Identity、Analytics、Notification 已按服务职责更窄地装配 shared service，但仍依赖 shared repository/service。
-- Worker 当前主要依赖 `smart-recruit-domain-go/mq` 和 shared 配置，尚未拥有 owner 表。
+- Worker 当前主要依赖 `smart-recruit-commons/mq` 和 shared 配置，尚未拥有 owner 表。
 - `smart-recruit-deploy/mysql-table-ownership.json` 当前声明 67 张表，单 MySQL 过渡模式有效。
 - 当前所有非 owner write 都集中在平台型共享表：`event_outbox`、`event_inbox`、`third_party_usage_logs`。这些应视为授权 shared kernel/platform-adjacent 债务，不等同于业务 owner 表写入许可。
 
@@ -48,11 +48,11 @@ mysql_table_ownership: PASS (67 tables, single MySQL instance)
 
 服务根：`smart-recruit-offer-service`
 
-当前 `smart-recruit-domain-go` 依赖：
+当前 `smart-recruit-commons` 依赖：
 
-- `smart-recruit-domain-go`
-- `smart-recruit-domain-go/repository`
-- `smart-recruit-domain-go/service`
+- `smart-recruit-commons`
+- `smart-recruit-commons/repository`
+- `smart-recruit-commons/service`
 
 当前装配事实：
 
@@ -75,11 +75,11 @@ mysql_table_ownership: PASS (67 tables, single MySQL instance)
 
 服务根：`smart-recruit-interview-service`
 
-当前 `smart-recruit-domain-go` 依赖：
+当前 `smart-recruit-commons` 依赖：
 
-- `smart-recruit-domain-go`
-- `smart-recruit-domain-go/repository`
-- `smart-recruit-domain-go/service`
+- `smart-recruit-commons`
+- `smart-recruit-commons/repository`
+- `smart-recruit-commons/service`
 
 当前装配事实：
 
@@ -101,19 +101,19 @@ mysql_table_ownership: PASS (67 tables, single MySQL instance)
 
 服务根：`smart-recruit-notification-service`
 
-当前 `smart-recruit-domain-go` 依赖：
+当前 `smart-recruit-commons` 依赖：
 
-- `smart-recruit-domain-go`
-- `smart-recruit-domain-go/email`
-- `smart-recruit-domain-go/mq`
-- `smart-recruit-domain-go/pkg/cache`
-- `smart-recruit-domain-go/repository`
-- `smart-recruit-domain-go/service`
+- `smart-recruit-commons`
+- `smart-recruit-commons/email`
+- `smart-recruit-commons/mq`
+- `smart-recruit-commons/pkg/cache`
+- `smart-recruit-commons/repository`
+- `smart-recruit-commons/service`
 
 当前装配事实：
 
 - `cmd/notification-service/main.go` 构造 `NotificationRuntime`，依赖 User、Notification、Outbox、Inbox、EmailLog、Authz、EmailSender、MQ、cache。
-- `internal/runtime` 直接引用 `smart-recruit-domain-go/service` 注册 notification runtime。
+- `internal/runtime` 直接引用 `smart-recruit-commons/service` 注册 notification runtime。
 
 表边界：
 
@@ -130,11 +130,11 @@ mysql_table_ownership: PASS (67 tables, single MySQL instance)
 
 服务根：`smart-recruit-identity-service`
 
-当前 `smart-recruit-domain-go` 依赖：
+当前 `smart-recruit-commons` 依赖：
 
-- `smart-recruit-domain-go`
-- `smart-recruit-domain-go/repository`
-- `smart-recruit-domain-go/service`
+- `smart-recruit-commons`
+- `smart-recruit-commons/repository`
+- `smart-recruit-commons/service`
 
 当前装配事实：
 
@@ -156,12 +156,12 @@ mysql_table_ownership: PASS (67 tables, single MySQL instance)
 
 服务根：`smart-recruit-recruitment-service`
 
-当前 `smart-recruit-domain-go` 依赖：
+当前 `smart-recruit-commons` 依赖：
 
-- `smart-recruit-domain-go`
-- `smart-recruit-domain-go/oss`
-- `smart-recruit-domain-go/repository`
-- `smart-recruit-domain-go/service`
+- `smart-recruit-commons`
+- `smart-recruit-commons/oss`
+- `smart-recruit-commons/repository`
+- `smart-recruit-commons/service`
 
 当前装配事实：
 
@@ -183,11 +183,11 @@ mysql_table_ownership: PASS (67 tables, single MySQL instance)
 
 服务根：`smart-recruit-analytics-service`
 
-当前 `smart-recruit-domain-go` 依赖：
+当前 `smart-recruit-commons` 依赖：
 
-- `smart-recruit-domain-go`
-- `smart-recruit-domain-go/repository`
-- `smart-recruit-domain-go/service`
+- `smart-recruit-commons`
+- `smart-recruit-commons/repository`
+- `smart-recruit-commons/service`
 
 当前装配事实：
 
@@ -209,13 +209,13 @@ mysql_table_ownership: PASS (67 tables, single MySQL instance)
 
 服务根：`smart-recruit-ai-agent-service`
 
-当前 `smart-recruit-domain-go` 依赖：
+当前 `smart-recruit-commons` 依赖：
 
-- `smart-recruit-domain-go`
-- `smart-recruit-domain-go/ai`
-- `smart-recruit-domain-go/mq`
-- `smart-recruit-domain-go/repository`
-- `smart-recruit-domain-go/service`
+- `smart-recruit-commons`
+- `smart-recruit-commons/ai`
+- `smart-recruit-commons/mq`
+- `smart-recruit-commons/repository`
+- `smart-recruit-commons/service`
 
 当前装配事实：
 
@@ -237,10 +237,10 @@ mysql_table_ownership: PASS (67 tables, single MySQL instance)
 
 服务根：`smart-recruit-worker-service`
 
-当前 `smart-recruit-domain-go` 依赖：
+当前 `smart-recruit-commons` 依赖：
 
-- `smart-recruit-domain-go`
-- `smart-recruit-domain-go/mq`
+- `smart-recruit-commons`
+- `smart-recruit-commons/mq`
 
 当前装配事实：
 
@@ -273,7 +273,7 @@ mysql_table_ownership: PASS (67 tables, single MySQL instance)
 
 ## 6. 当前不处理项
 
-- 不删除或移动 `smart-recruit-domain-go` 中的业务代码。
+- 不删除或移动 `smart-recruit-commons` 中的业务代码。
 - 不改变 `smart-recruit-deploy/mysql-table-ownership.json`。
 - 不修改 `db.sql`、migration、protobuf 或服务 go.mod。
 - 不判断 shared repository 的每一处实际 SQL 写路径是否已完全符合 owner 规则；本 TASK 只建立后续可比较 baseline。

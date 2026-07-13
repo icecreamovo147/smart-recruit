@@ -9,7 +9,7 @@ import (
 	"gorm.io/gorm"
 
 	"smart-recruit-ai-agent-service/internal/legacydomain/model"
-	"smart-recruit-domain-go/pkg/authz"
+	"smart-recruit-commons/pkg/authz"
 )
 
 // AnalyticsRepo provides scope-aware analytics queries for dashboard and reports.

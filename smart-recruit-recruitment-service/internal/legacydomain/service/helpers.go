@@ -18,8 +18,8 @@ import (
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/encoding/protojson"
 
-	"smart-recruit-domain-go/oss"
-	"smart-recruit-domain-go/resumeparser"
+	"smart-recruit-commons/oss"
+	"smart-recruit-commons/resumeparser"
 	"smart-recruit-platform-go/logger"
 	"smart-recruit-proto/recruitment/pb"
 	"smart-recruit-recruitment-service/internal/legacydomain/ai"

@@ -8,7 +8,7 @@ import (
 	"go.uber.org/zap"
 
 	"smart-recruit-ai-agent-service/internal/legacydomain/repository"
-	"smart-recruit-domain-go/mq"
+	"smart-recruit-commons/mq"
 	"smart-recruit-platform-go/logger"
 )
 

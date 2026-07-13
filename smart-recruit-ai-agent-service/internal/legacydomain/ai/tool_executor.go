@@ -16,9 +16,9 @@ import (
 
 	"smart-recruit-ai-agent-service/internal/legacydomain/model"
 	"smart-recruit-ai-agent-service/internal/legacydomain/repository"
-	"smart-recruit-domain-go/oss"
-	"smart-recruit-domain-go/pkg/authz"
-	"smart-recruit-domain-go/resumeparser"
+	"smart-recruit-commons/oss"
+	"smart-recruit-commons/pkg/authz"
+	"smart-recruit-commons/resumeparser"
 	"smart-recruit-platform-go/logger"
 )
 

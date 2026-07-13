@@ -7,7 +7,7 @@ import (
 
 	"go.uber.org/zap"
 
-	sharedmq "smart-recruit-domain-go/mq"
+	sharedmq "smart-recruit-commons/mq"
 	"smart-recruit-notification-service/internal/application/command"
 	appservice "smart-recruit-notification-service/internal/application/service"
 	"smart-recruit-notification-service/internal/domain/repository"

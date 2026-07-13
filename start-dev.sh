@@ -193,7 +193,7 @@ install_frontend_dependencies "${ROOT}/hr-frontend" "HR frontend"
 install_frontend_dependencies "${ROOT}/user-frontend" "User frontend"
 install_frontend_dependencies "${ROOT}/interviewer-frontend" "Interviewer frontend"
 
-export CONFIG_PATH="${CONFIG_PATH:-${ROOT}/smart-recruit-domain-go/config/config.yaml}"
+export CONFIG_PATH="${CONFIG_PATH:-${ROOT}/smart-recruit-commons/config/config.yaml}"
 export MYSQL_DSN="${MYSQL_DSN:-root:Aa123456@tcp(127.0.0.1:3306)/recruitment?charset=utf8mb4&parseTime=True&loc=Local}"
 export REDIS_ADDR="${REDIS_ADDR:-127.0.0.1:6379}"
 export RABBITMQ_URL="${RABBITMQ_URL:-amqp://guest:guest@127.0.0.1:5672/}"

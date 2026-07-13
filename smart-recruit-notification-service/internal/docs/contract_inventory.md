@@ -37,7 +37,7 @@ internal/
 
 TASK-011 将 active runtime 收敛到 service-local application、
 infrastructure、interfaces 和 runtime adapters。TASK-029 进一步移除了对
-`smart-recruit-domain-go/repository` 与 `smart-recruit-domain-go/service` 的
+`smart-recruit-commons/repository` 与 `smart-recruit-commons/service` 的
 active import。
 
 后续任务边界：
@@ -86,9 +86,9 @@ Compatibility rule:
 
 当前 `cmd/notification-service/main.go` 直接依赖：
 
-- `smart-recruit-domain-go/email`
-- `smart-recruit-domain-go/mq`
-- `smart-recruit-domain-go/pkg/cache`
+- `smart-recruit-commons/email`
+- `smart-recruit-commons/mq`
+- `smart-recruit-commons/pkg/cache`
 - `smart-recruit-platform-go/*`
 - `smart-recruit-proto/recruitment/pb`
 
@@ -202,7 +202,7 @@ Migration implication:
 
 ## 6. Queue, Retry, and DLQ Contract
 
-RabbitMQ topology is declared by `smart-recruit-domain-go/mq`:
+RabbitMQ topology is declared by `smart-recruit-commons/mq`:
 
 - Exchange: default `recruitment.events`
 - Retry exchange: default `recruitment.events.retry`
@@ -292,7 +292,7 @@ Expected next tests:
 
 TASK-009 intentionally does not:
 
-- Move Notification business rules from `smart-recruit-domain-go`.
+- Move Notification business rules from `smart-recruit-commons`.
 - Change protobuf or generated Go contracts.
 - Change database schema, migrations, or table ownership.
 - Change Gateway routing, SSE framing, Redis channel naming, or public HTTP behavior.

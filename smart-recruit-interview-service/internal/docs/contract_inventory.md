@@ -108,7 +108,7 @@ Current direct import in runtime:
 Current local service construction:
 
 - `buildInterviewServer` constructs only Interview-required repositories/adapters and returns local `interfaces/grpc.Server`.
-- The active gRPC implementation no longer uses `smart-recruit-domain-go/service.InterviewService`.
+- The active gRPC implementation no longer uses `smart-recruit-commons/service.InterviewService`.
 
 Owner-local legacy repositories constructed as temporary infrastructure adapters:
 
@@ -234,8 +234,8 @@ Current test focus:
 
 Legacy shared tests still covering Interview behavior:
 
-- `smart-recruit-domain-go/service/interview_service_test.go`
-- `smart-recruit-domain-go/repository/interview_repo_test.go`
+- `smart-recruit-commons/service/interview_service_test.go`
+- `smart-recruit-commons/repository/interview_repo_test.go`
 
 Current local test gaps:
 

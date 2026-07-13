@@ -9,7 +9,7 @@ import (
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 
-	sharedmq "smart-recruit-domain-go/mq"
+	sharedmq "smart-recruit-commons/mq"
 	"smart-recruit-platform-go/logger"
 )
 

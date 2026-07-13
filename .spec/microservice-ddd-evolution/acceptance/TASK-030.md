@@ -2,7 +2,7 @@
 
 ## TASK Summary
 
-最终重命名 `smart-recruit-domain-go` 为 `smart-recruit-commons`。
+最终重命名 `smart-recruit-commons` 为 `smart-recruit-commons`。
 
 ## SPEC References
 
@@ -20,7 +20,7 @@
 ## Acceptance Criteria
 
 - 目录与 Go module path 重命名为 `smart-recruit-commons`。
-- 旧 `smart-recruit-domain-go` import/path 在业务代码、测试、构建、部署和文档中清零，除非报告中列出批准的历史引用。
+- 旧 `smart-recruit-commons` import/path 在业务代码、测试、构建、部署和文档中清零，除非报告中列出批准的历史引用。
 - `smart-recruit-commons` 只包含 shared kernel 和通用技术能力。
 - 全仓库验证通过或记录不可运行原因。
 
@@ -29,7 +29,7 @@
 - 所有 Go module 或 workspace-equivalent `go test ./...`
 - `node scripts/check-mysql-table-ownership.mjs`
 - backend boundary checks
-- `rg "smart-recruit-domain-go"`
+- `rg "smart-recruit-commons"`
 - scope check
 - agent-check
 

@@ -30,7 +30,7 @@ Offer -> Interview -> Notification -> Identity -> Recruitment -> Analytics -> AI
 - 不得在当前服务迁移完成前开始后续服务迁移。
 - Offer 是首个 DDD 试点，后续服务复用其分层范式和报告格式。
 - Identity、AI Agent、最终 commons rename 属于高风险阶段；在本 pipeline 中按用户授权继续执行，但报告必须记录原 `requiresHumanConfirmation` 状态和授权来源。
-- TASK-030 之前不得重命名 `smart-recruit-domain-go`。
+- TASK-030 之前不得重命名 `smart-recruit-commons`。
 
 ## 3. 目标 DDD 分层
 
@@ -69,7 +69,7 @@ internal/
 
 ## 4. Shared Kernel 和 legacy bridge
 
-`smart-recruit-domain-go` 在迁移期间是 legacy bridge 与 shared kernel 候选，不得新增具体业务上下文代码。
+`smart-recruit-commons` 在迁移期间是 legacy bridge 与 shared kernel 候选，不得新增具体业务上下文代码。
 
 长期允许保留的内容：
 
@@ -85,7 +85,7 @@ internal/
 - 服务 owner 的业务实体、状态机和跨上下文聚合服务。
 - 需要访问具体业务表的共享业务编排。
 
-所有业务迁出、shared kernel 范围确认和 Worker owner contract 收敛后，才允许执行最终 rename：`smart-recruit-domain-go -> smart-recruit-commons`。
+所有业务迁出、shared kernel 范围确认和 Worker owner contract 收敛后，才允许执行最终 rename：`smart-recruit-commons -> smart-recruit-commons`。
 
 ## 5. 数据和跨上下文边界
 

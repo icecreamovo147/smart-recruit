@@ -5,9 +5,9 @@ import (
 	"errors"
 
 	"smart-recruit-ai-agent-service/internal/legacydomain/repository"
-	"smart-recruit-domain-go/email"
-	"smart-recruit-domain-go/mq"
-	"smart-recruit-domain-go/pkg/cache"
+	"smart-recruit-commons/email"
+	"smart-recruit-commons/mq"
+	"smart-recruit-commons/pkg/cache"
 )
 
 const defaultNotificationWorkerConcurrency = 100

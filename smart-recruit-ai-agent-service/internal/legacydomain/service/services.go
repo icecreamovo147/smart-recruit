@@ -7,11 +7,11 @@ import (
 
 	"smart-recruit-ai-agent-service/internal/legacydomain/ai"
 	"smart-recruit-ai-agent-service/internal/legacydomain/repository"
-	"smart-recruit-domain-go/email"
-	"smart-recruit-domain-go/mq"
-	"smart-recruit-domain-go/oss"
-	"smart-recruit-domain-go/pkg/cache"
-	"smart-recruit-domain-go/pkg/crypto"
+	"smart-recruit-commons/email"
+	"smart-recruit-commons/mq"
+	"smart-recruit-commons/oss"
+	"smart-recruit-commons/pkg/cache"
+	"smart-recruit-commons/pkg/crypto"
 	"smart-recruit-platform-go/logger"
 	"smart-recruit-platform-go/serviceconfig"
 )

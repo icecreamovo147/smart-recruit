@@ -8,7 +8,7 @@ import (
 
 	"gorm.io/gorm"
 
-	"smart-recruit-domain-go/pkg/authz"
+	"smart-recruit-commons/pkg/authz"
 	"smart-recruit-recruitment-service/internal/legacydomain/model"
 )
 

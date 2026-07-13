@@ -35,7 +35,7 @@ RUN set -eux; \
 COPY go.work go.work.sum ./
 COPY smart-recruit-platform-go ./smart-recruit-platform-go
 COPY smart-recruit-proto ./smart-recruit-proto
-COPY smart-recruit-domain-go ./smart-recruit-domain-go
+COPY smart-recruit-commons ./smart-recruit-commons
 COPY smart-recruit-gateway ./smart-recruit-gateway
 COPY smart-recruit-identity-service ./smart-recruit-identity-service
 COPY smart-recruit-recruitment-service ./smart-recruit-recruitment-service
@@ -72,7 +72,7 @@ RUN set -eux; \
 
 WORKDIR /app
 COPY --from=build "/out/${BINARY_NAME}" /app/service
-COPY --from=build /src/smart-recruit-domain-go/config /app/config
+COPY --from=build /src/smart-recruit-commons/config /app/config
 
 USER smartrecruit:smartrecruit
 ENTRYPOINT ["/app/service"]

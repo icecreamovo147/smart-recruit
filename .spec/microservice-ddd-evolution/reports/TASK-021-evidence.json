@@ -42,7 +42,7 @@
       "summary": "analytics-service runtime check passed"
     },
     {
-      "command": "sh -c '! rg -n \"NewAnalyticsService|NewAnalyticsRepo|smart-recruit-domain-go/service\" smart-recruit-analytics-service'",
+      "command": "sh -c '! rg -n \"NewAnalyticsService|NewAnalyticsRepo|smart-recruit-commons/service\" smart-recruit-analytics-service'",
       "exit_code": 0,
       "started_at": "2026-07-13T10:56:00Z",
       "duration_ms": 1,

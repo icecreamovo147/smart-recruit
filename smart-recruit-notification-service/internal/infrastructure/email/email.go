@@ -3,7 +3,7 @@ package email
 import (
 	"context"
 
-	sharedemail "smart-recruit-domain-go/email"
+	sharedemail "smart-recruit-commons/email"
 	"smart-recruit-notification-service/internal/application/port"
 )
 

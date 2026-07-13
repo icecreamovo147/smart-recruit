@@ -8,7 +8,7 @@ import (
 	"strings"
 	"time"
 
-	"smart-recruit-domain-go/resumeparser"
+	"smart-recruit-commons/resumeparser"
 )
 
 func main() {

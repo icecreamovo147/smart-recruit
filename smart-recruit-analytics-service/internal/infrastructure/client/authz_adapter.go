@@ -7,7 +7,7 @@ import (
 	"gorm.io/gorm"
 	"smart-recruit-analytics-service/internal/application/port"
 	"smart-recruit-analytics-service/internal/domain/model"
-	sharedauthz "smart-recruit-domain-go/pkg/authz"
+	sharedauthz "smart-recruit-commons/pkg/authz"
 )
 
 type AuthzAdapter struct {

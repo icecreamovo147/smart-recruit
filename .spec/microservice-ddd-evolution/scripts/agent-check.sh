@@ -58,7 +58,7 @@ while IFS= read -r file; do
   case "$file" in
     smart-recruit-ai-agent-service/*) echo "smart-recruit-ai-agent-service" >> "$MODULES_FILE" ;;
     smart-recruit-analytics-service/*) echo "smart-recruit-analytics-service" >> "$MODULES_FILE" ;;
-    smart-recruit-domain-go/*) echo "smart-recruit-domain-go" >> "$MODULES_FILE" ;;
+    smart-recruit-commons/*) echo "smart-recruit-commons" >> "$MODULES_FILE" ;;
     smart-recruit-commons/*) echo "smart-recruit-commons" >> "$MODULES_FILE" ;;
     smart-recruit-gateway/*) echo "smart-recruit-gateway" >> "$MODULES_FILE" ;;
     smart-recruit-identity-service/*) echo "smart-recruit-identity-service" >> "$MODULES_FILE" ;;

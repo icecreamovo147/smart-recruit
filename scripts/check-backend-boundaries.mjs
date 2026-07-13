@@ -4,7 +4,7 @@ import path from "node:path";
 
 const root = process.argv[2] ? path.resolve(process.argv[2]) : process.cwd();
 const scanRoots = [
-  "smart-recruit-domain-go",
+  "smart-recruit-commons",
   "smart-recruit-platform-go",
   "smart-recruit-proto",
   "smart-recruit-gateway",
@@ -118,8 +118,8 @@ function isForbiddenDomainImport(importPath) {
     "database/sql",
     "smart-recruit-platform-go/",
     "smart-recruit-proto/",
-    "smart-recruit-domain-go/repository",
-    "smart-recruit-domain-go/service",
+    "smart-recruit-commons/repository",
+    "smart-recruit-commons/service",
   ]);
 }
 
@@ -132,12 +132,12 @@ function isForbiddenApplicationImport(importPath) {
     "github.com/gin-gonic/gin",
     "net/http",
     "database/sql",
-    "smart-recruit-domain-go/repository",
+    "smart-recruit-commons/repository",
   ]);
 }
 
 function isPersistenceImport(importPath) {
-  return matchesAny(importPath, ["gorm.io/", "smart-recruit-domain-go/repository"]);
+  return matchesAny(importPath, ["gorm.io/", "smart-recruit-commons/repository"]);
 }
 
 function isSameServiceOuterImport(relative, importPath) {

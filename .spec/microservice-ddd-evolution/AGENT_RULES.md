@@ -26,9 +26,9 @@
 
 ## 3. Shared Module Rules
 
-- `smart-recruit-domain-go` 在迁移期间是 legacy bridge/shared kernel 候选，不得新增具体业务上下文代码。
-- 服务完成迁移后，必须减少或消除对 `smart-recruit-domain-go/model`、`repository`、`service` 的依赖。
-- `smart-recruit-domain-go` 最终只保留 shared kernel 和通用技术能力。
+- `smart-recruit-commons` 在迁移期间是 legacy bridge/shared kernel 候选，不得新增具体业务上下文代码。
+- 服务完成迁移后，必须减少或消除对 `smart-recruit-commons/model`、`repository`、`service` 的依赖。
+- `smart-recruit-commons` 最终只保留 shared kernel 和通用技术能力。
 - 最终重命名为 `smart-recruit-commons` 只能在 TASK-030 执行。
 
 ## 4. Hard Stop Conditions
@@ -61,7 +61,7 @@ bash .spec/microservice-ddd-evolution/scripts/agent-check.sh
 go test ./...
 ```
 
-若修改 `smart-recruit-domain-go`、`smart-recruit-platform-go`、`smart-recruit-proto`、gateway 或最终 rename，必须运行所有受影响 Go module 的 `go test ./...`，或在报告中记录不可运行原因。
+若修改 `smart-recruit-commons`、`smart-recruit-platform-go`、`smart-recruit-proto`、gateway 或最终 rename，必须运行所有受影响 Go module 的 `go test ./...`，或在报告中记录不可运行原因。
 
 涉及表访问的 TASK 必须运行：
 
@@ -104,12 +104,12 @@ node scripts/check-mysql-table-ownership.mjs
 
 ## 9. Final Rename Rules
 
-TASK-030 之前不得重命名 `smart-recruit-domain-go`。
+TASK-030 之前不得重命名 `smart-recruit-commons`。
 
 TASK-030 必须满足：
 
 - 所有服务迁移完成。
-- `smart-recruit-domain-go` 已收缩为 commons-ready shared kernel。
+- `smart-recruit-commons` 已收缩为 commons-ready shared kernel。
 - 旧业务 `model/repository/service` 不再作为 active shared business code 存在。
 - 旧 import path 可清零。
 - 用户已确认执行高风险横切 rename。

@@ -7,7 +7,7 @@ import (
 
 	"gorm.io/gorm"
 
-	"smart-recruit-domain-go/pkg/pagination"
+	"smart-recruit-commons/pkg/pagination"
 	"smart-recruit-interview-service/internal/legacydomain/model"
 )
 

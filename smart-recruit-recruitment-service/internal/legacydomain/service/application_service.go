@@ -10,8 +10,8 @@ import (
 	"go.uber.org/zap"
 	"gorm.io/gorm"
 
-	"smart-recruit-domain-go/oss"
-	"smart-recruit-domain-go/pkg/cache"
+	"smart-recruit-commons/oss"
+	"smart-recruit-commons/pkg/cache"
 	"smart-recruit-platform-go/errs"
 	"smart-recruit-platform-go/logger"
 	"smart-recruit-proto/recruitment/pb"

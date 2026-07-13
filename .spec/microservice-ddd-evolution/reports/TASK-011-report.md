@@ -42,7 +42,7 @@ TASK-011 - Notification infrastructure/interfaces/runtime/tests 收敛。
 
 变更均在 TASK-011 allowed files 内：`smart-recruit-notification-service/**` 与 `.spec/microservice-ddd-evolution/reports/**`。
 
-未修改 forbidden files：`smart-recruit-domain-go/**`、`smart-recruit-proto/**`、`db.sql`、migration、go workspace、package manifest 或 lockfile。
+未修改 forbidden files：`smart-recruit-commons/**`、`smart-recruit-proto/**`、`db.sql`、migration、go workspace、package manifest 或 lockfile。
 
 ## 5. SPEC Comparison Result
 
@@ -120,7 +120,7 @@ Reviewer 核对结果：
 
 ## 11. Risks
 
-- `service.NewOutboxPublisher` 仍来自 `smart-recruit-domain-go/service`，本 TASK 记录为 shared generic outbox bridge；后续 TASK-029 shared-kernel 收敛时应迁出或确认其归属。
+- `service.NewOutboxPublisher` 仍来自 `smart-recruit-commons/service`，本 TASK 记录为 shared generic outbox bridge；后续 TASK-029 shared-kernel 收敛时应迁出或确认其归属。
 - Email renderer/sender 与 notification Redis cache 继续复用 shared infrastructure packages；这符合当前 transitional shared-kernel 策略，但最终 commons-ready 阶段需要分类。
 - 本 TASK 未执行真实 RabbitMQ/SMTP integration；`go test ./...` 覆盖编译与本地接口，真实外部依赖由现有 runtime config 和 MQ retry/DLQ 语义保持。
 - Active knowledge source_refs 有既有路径债务，knowledge impact detector 无法完成。

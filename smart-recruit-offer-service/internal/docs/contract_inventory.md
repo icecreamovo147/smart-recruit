@@ -36,7 +36,7 @@ internal/
 
 TASK-004 moved Offer domain model, lifecycle policy, domain events, repository port, command/query DTOs, application ports, and application service orchestration into these local packages.
 
-TASK-005 moves runtime registration to a local `interfaces/grpc` adapter backed by the local application service. The service no longer wires `smart-recruit-domain-go/service.OfferService` on the active runtime path.
+TASK-005 moves runtime registration to a local `interfaces/grpc` adapter backed by the local application service. The service no longer wires `smart-recruit-commons/service.OfferService` on the active runtime path.
 
 ## 3. Protobuf and Runtime Contract
 
@@ -155,7 +155,7 @@ Expected next tests:
 
 TASK-003 intentionally does not:
 
-- Move Offer business rules from `smart-recruit-domain-go`.
+- Move Offer business rules from `smart-recruit-commons`.
 - Change protobuf or generated Go contracts.
 - Change database schema, migrations, or table ownership.
 - Change gateway routing or public HTTP behavior.

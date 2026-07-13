@@ -40,7 +40,7 @@ TASK-014 - Identity infrastructure/interfaces/runtime/tests 收敛。
 
 变更均在 TASK-014 allowed files 内：`smart-recruit-identity-service/**` 与 `.spec/microservice-ddd-evolution/reports/**`。
 
-未修改 forbidden files：`smart-recruit-domain-go/**`、`smart-recruit-proto/**`、`db.sql`、migration、go workspace、package manifest 或 lockfile。
+未修改 forbidden files：`smart-recruit-commons/**`、`smart-recruit-proto/**`、`db.sql`、migration、go workspace、package manifest 或 lockfile。
 
 ## 5. SPEC Comparison Result
 
@@ -50,7 +50,7 @@ TASK-014 - Identity infrastructure/interfaces/runtime/tests 收敛。
 - FR-005：新增 local protobuf-facing interfaces/grpc adapter。
 - FR-006：runtime 继续负责平台装配、Nacos、health、metrics、trace、logging、DB/Redis 和 gRPC server lifecycle。
 - FR-011：Identity auth、refresh token、principal、RBAC、data scope、invite code、auth audit、staff user active runtime 已使用本地 implementation。
-- FR-016：active runtime 不再直接依赖 shared auth/admin/analytics implementation；剩余 `smart-recruit-domain-go` 引用仅为 module/config 兼容债务。
+- FR-016：active runtime 不再直接依赖 shared auth/admin/analytics implementation；剩余 `smart-recruit-commons` 引用仅为 module/config 兼容债务。
 - SSR-002 / CR-007：未修改 protobuf、schema、权限表、JWT/Refresh/RBAC/data scope/audit 外部语义。
 
 ## 6. SDD Comparison Result
@@ -66,7 +66,7 @@ TASK-014 - Identity infrastructure/interfaces/runtime/tests 收敛。
 
 - Identity runtime 使用本地 implementation：已完成，`cmd/identity-service/main.go` 构造本地 repositories/application services/interfaces server 并传入 runtime。
 - Auth/Admin 安全语义与 audit 行为兼容：已完成，local adapter 保留密码复杂度、invite validation、opaque refresh-token hash/rotation/reuse detection、token-version cache fail-safe、last-admin/self-revoke guard、admin permission gate 和 audit write/query 语义。
-- 对共享 auth/admin implementation 的直接依赖清除或记录债务：已完成，`rg "smart-recruit-domain-go/(repository|service)" smart-recruit-identity-service` 无命中；剩余 `smart-recruit-domain-go` module/config 引用记录为兼容债务。
+- 对共享 auth/admin implementation 的直接依赖清除或记录债务：已完成，`rg "smart-recruit-commons/(repository|service)" smart-recruit-identity-service` 无命中；剩余 `smart-recruit-commons` module/config 引用记录为兼容债务。
 
 ## 8. Test Commands and Results
 
@@ -123,7 +123,7 @@ Reviewer 核对结果：
 
 ## 12. Risks
 
-- `go.mod` 仍保留 `smart-recruit-domain-go` 依赖和 `CONFIG_PATH` fallback 仍指向 domain config template；这是 service module/config compatibility debt，后续 shared cleanup/commons rename TASK 处理。
+- `go.mod` 仍保留 `smart-recruit-commons` 依赖和 `CONFIG_PATH` fallback 仍指向 domain config template；这是 service module/config compatibility debt，后续 shared cleanup/commons rename TASK 处理。
 - Invite-code admin RPC 仍未在 Identity runtime facade 暴露；本 TASK 保持既有暴露面，未扩大 public auth/admin 行为。
 - 本 TASK 未执行真实 MySQL/Redis integration；GORM/Redis adapters 通过编译与 service tests 覆盖，真实连接仍由现有 runtime config 管理。
 - Active knowledge source_refs 有既有路径债务，knowledge impact detector 无法完成。

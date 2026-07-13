@@ -22,7 +22,7 @@ TASK-025 - AI Agent infrastructure/interfaces/runtime/tests 收敛。
 - `cmd/ai-agent-service/adapters.go`: 删除 cmd package 内的 shared gRPC forwarding adapter，避免 request adapter 留在 binary bootstrap 层。
 - `cmd/ai-agent-service/main.go`: 改为使用本地 `internal/interfaces/grpc` legacy adapter，并显式传入 `LongTaskControls`。
 - `internal/interfaces/grpc/legacy_servers.go`: 新增本地 legacy gRPC forwarding adapter，临时桥接 shared AI chat/agent-run 和 recruiting intelligence implementation。
-- `internal/runtime/runtime.go`: 移除对 shared `smart-recruit-domain-go/service` 的 import；runtime 只依赖 protobuf service deps 和本地 long-task controls。
+- `internal/runtime/runtime.go`: 移除对 shared `smart-recruit-commons/service` 的 import；runtime 只依赖 protobuf service deps 和本地 long-task controls。
 - `internal/runtime/runtime_test.go`: 更新 runtime long-task control 测试，不再构造 shared `service.AIAgentRuntime`。
 - `internal/docs/ai_agent_dependency_inventory.md`: 记录 TASK-025 runtime/interface 收敛结果与剩余 shared debt。
 - `.spec/.../TASK-025-report.md`: 新增 TASK 报告。
@@ -34,7 +34,7 @@ TASK-025 - AI Agent infrastructure/interfaces/runtime/tests 收敛。
 
 变更均在 TASK-025 allowed files 内：`smart-recruit-ai-agent-service/**` 与 `.spec/microservice-ddd-evolution/reports/**`。
 
-未修改 forbidden files：`smart-recruit-domain-go/**`、`smart-recruit-proto/**`、`db.sql`、migration、go workspace、package manifest 或 lockfile。
+未修改 forbidden files：`smart-recruit-commons/**`、`smart-recruit-proto/**`、`db.sql`、migration、go workspace、package manifest 或 lockfile。
 
 ## 5. SPEC Comparison Result
 
@@ -65,7 +65,7 @@ TASK-025 - AI Agent infrastructure/interfaces/runtime/tests 收敛。
 | `go test ./internal/runtime ./internal/interfaces/grpc ./cmd/ai-agent-service` in `smart-recruit-ai-agent-service` | 0 | passed | Runtime registration、local long-task control、cmd runtime check packages 通过。 |
 | `go test ./...` in `smart-recruit-ai-agent-service` | 0 | passed | AI Agent 全 package 测试通过。 |
 | `go run ./cmd/ai-agent-service --check` in `smart-recruit-ai-agent-service` | 0 | passed | `ai-agent-service runtime check passed`。 |
-| `rg -n "smart-recruit-domain-go/(service|repository|model|ai|mq|pkg|oss|resumeparser)|service\\.AIAgentRuntime|service\\.NewServices" ...` | 0 | passed | 剩余 shared imports 仅在 cmd bootstrap 和 local legacy gRPC bridge；`internal/runtime` 已无 shared dependency。 |
+| `rg -n "smart-recruit-commons/(service|repository|model|ai|mq|pkg|oss|resumeparser)|service\\.AIAgentRuntime|service\\.NewServices" ...` | 0 | passed | 剩余 shared imports 仅在 cmd bootstrap 和 local legacy gRPC bridge；`internal/runtime` 已无 shared dependency。 |
 | `git diff --name-only` | 0 | passed | 已记录 TASK-025 tracked diff；新增 legacy adapter 和 reports 由 `git status --short` / evidence 记录。 |
 | `bash .spec/microservice-ddd-evolution/scripts/check-task-scope.sh TASK-025` | 0 | passed | Scope check passed，变更文件均在 TASK-025 allowed files 内。 |
 | `bash .spec/microservice-ddd-evolution/scripts/agent-check.sh` | 0 | passed | Harness JSON validation passed；检测到 AI Agent module 变更并运行 `go test ./...` 通过。 |
@@ -100,7 +100,7 @@ self-review 第 1 轮 verdict: 通过。
 
 Reviewer 核对结果：
 
-- `internal/runtime` 不再 import shared `smart-recruit-domain-go/service`。
+- `internal/runtime` 不再 import shared `smart-recruit-commons/service`。
 - Runtime still registers all AI-owned protobuf services and keeps `--check` passing.
 - Long task controls are explicit and validated when cmd bootstraps active runtime.
 - Provider credential storage/handling is unchanged; no secrets are logged or copied.

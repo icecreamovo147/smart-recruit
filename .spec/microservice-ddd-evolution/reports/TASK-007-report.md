@@ -49,7 +49,7 @@ TASK-007 - Interview domain/application 迁移。
 
 变更均在 TASK-007 allowed files 内：`smart-recruit-interview-service/**` 与 `.spec/microservice-ddd-evolution/reports/**`。
 
-未修改 forbidden files：`smart-recruit-domain-go/**`、`smart-recruit-proto/**`、schema/migration、deployment、package/lockfile 或全局配置。
+未修改 forbidden files：`smart-recruit-commons/**`、`smart-recruit-proto/**`、schema/migration、deployment、package/lockfile 或全局配置。
 
 ## 5. SPEC Comparison Result
 

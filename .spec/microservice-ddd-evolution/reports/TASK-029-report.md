@@ -2,7 +2,7 @@
 
 ## 1. TASK ID
 
-TASK-029 - 收缩 smart-recruit-domain-go 至 commons-ready shared kernel。
+TASK-029 - 收缩 smart-recruit-commons 至 commons-ready shared kernel。
 
 ## 2. Modified File List
 
@@ -10,8 +10,8 @@ TASK-029 - 收缩 smart-recruit-domain-go 至 commons-ready shared kernel。
 
 主要变更分组：
 
-- `smart-recruit-domain-go/model/**`、`repository/**`、`service/**`：删除 active 业务 model/repository/service 实现。
-- `smart-recruit-domain-go/ai/**`：删除 HR/Candidate 业务 tool executor，仅保留 provider/fallback 与通用 tool metadata。
+- `smart-recruit-commons/model/**`、`repository/**`、`service/**`：删除 active 业务 model/repository/service 实现。
+- `smart-recruit-commons/ai/**`：删除 HR/Candidate 业务 tool executor，仅保留 provider/fallback 与通用 tool metadata。
 - `smart-recruit-offer-service/internal/legacydomain/**`、`smart-recruit-interview-service/internal/legacydomain/**`、`smart-recruit-recruitment-service/internal/legacydomain/**`、`smart-recruit-ai-agent-service/internal/legacydomain/**`：迁入仍被运行时使用的 owner-local compatibility 代码。
 - `smart-recruit-analytics-service/internal/infrastructure/client/authz_adapter.go`：改为 analytics-local SQL authz adapter。
 - `smart-recruit-notification-service/internal/infrastructure/mq/outbox_publisher.go`：新增 notification-local outbox publisher。
@@ -20,8 +20,8 @@ TASK-029 - 收缩 smart-recruit-domain-go 至 commons-ready shared kernel。
 
 ## 3. Change Summary by Area
 
-- Shared module cleanup: `smart-recruit-domain-go` 不再包含 active business `model`、`repository`、`service` 目录；剩余目录为 `ai` provider helpers、`config`、`email`、`internal/platform/events`、`migration`、`mq`、`oss`、`pkg/*`、`resumeparser`。
-- Service dependency cleanup: old `smart-recruit-domain-go/model|repository|service` imports 在 Go 代码中清零；需要继续运行的历史实现迁到服务私有 `internal/legacydomain`。
+- Shared module cleanup: `smart-recruit-commons` 不再包含 active business `model`、`repository`、`service` 目录；剩余目录为 `ai` provider helpers、`config`、`email`、`internal/platform/events`、`migration`、`mq`、`oss`、`pkg/*`、`resumeparser`。
+- Service dependency cleanup: old `smart-recruit-commons/model|repository|service` imports 在 Go 代码中清零；需要继续运行的历史实现迁到服务私有 `internal/legacydomain`。
 - Runtime adapter cleanup: analytics authz、notification outbox 不再依赖 shared business repository/service。
 - Guardrail cleanup: table ownership scanner 覆盖 service-local legacy repository/service roots；backend boundary checker 继续通过。
 
@@ -43,13 +43,13 @@ TASK-029 - 收缩 smart-recruit-domain-go 至 commons-ready shared kernel。
 
 符合 SDD：
 
-- 3.2 Shared Module Target：`smart-recruit-domain-go` 剩余内容已归类为 shared kernel、platform-adjacent、migration helper 或 generic infra helper。
+- 3.2 Shared Module Target：`smart-recruit-commons` 剩余内容已归类为 shared kernel、platform-adjacent、migration helper 或 generic infra helper。
 - 3.6 Final Commons Target：未改 module path，保留给 TASK-030。
 - 13. Implementation Boundaries：未修改 proto、schema SQL、go.work、package.json 或 lockfile。
 
 ## 7. Acceptance Comparison Result
 
-- `smart-recruit-domain-go` 不再包含 active 业务 `model/repository/service` 实现：已完成。
+- `smart-recruit-commons` 不再包含 active 业务 `model/repository/service` 实现：已完成。
 - 剩余内容分类为 shared kernel、platform-adjacent、testutil 或 migration helper：已完成并在 docs 中记录。
 - 所有服务对旧业务共享实现依赖清零或转为允许保留的 shared kernel 依赖：Go import 扫描通过，旧业务实现已转为 service-local compatibility。
 
@@ -62,8 +62,8 @@ TASK-029 - 收缩 smart-recruit-domain-go 至 commons-ready shared kernel。
 | `bash .spec/microservice-ddd-evolution/scripts/agent-check.sh` | 0 | passed | Harness validation passed；affected Go modules 的 `go test ./...` 全部通过。 |
 | `node scripts/check-mysql-table-ownership.mjs` | 0 | passed | `mysql_table_ownership: PASS (67 tables, single MySQL instance)` |
 | `node scripts/check-backend-boundaries.mjs` | 0 | passed | `backend_boundary_result: PASS` |
-| `bash -lc '! rg -n "smart-recruit-domain-go/(model|repository|service)" smart-recruit-*-service smart-recruit-gateway smart-recruit-domain-go -g "*.go"'` | 0 | passed | Go 代码中旧 shared business imports 清零。 |
-| `find smart-recruit-domain-go -maxdepth 2 -type d \| sort` | 0 | passed | 确认 `model`、`repository`、`service` 目录不存在。 |
+| `bash -lc '! rg -n "smart-recruit-commons/(model|repository|service)" smart-recruit-*-service smart-recruit-gateway smart-recruit-commons -g "*.go"'` | 0 | passed | Go 代码中旧 shared business imports 清零。 |
+| `find smart-recruit-commons -maxdepth 2 -type d \| sort` | 0 | passed | 确认 `model`、`repository`、`service` 目录不存在。 |
 | `node .agents/skills/spec-harness/scripts/validate-evidence.mjs --file .spec/microservice-ddd-evolution/reports/TASK-029-evidence.json` | 0 | passed | `evidence_result: PASS` |
 
 ## 9. Knowledge Impact
@@ -72,7 +72,7 @@ TASK-029 - 收缩 smart-recruit-domain-go 至 commons-ready shared kernel。
 knowledge_impact:
   result: candidate_required
   triggered_by:
-    - smart-recruit-domain-go/**
+    - smart-recruit-commons/**
     - smart-recruit-*-service/internal/legacydomain/**
     - scripts/check-mysql-table-ownership.mjs
   reviewed_documents:
@@ -90,8 +90,8 @@ self-review 第 1 轮 verdict: 通过。
 
 Reviewer 核对结果：
 
-- No Go imports remain for `smart-recruit-domain-go/model`, `repository`, or `service`.
-- `smart-recruit-domain-go` has no active business `model/repository/service` directories.
+- No Go imports remain for `smart-recruit-commons/model`, `repository`, or `service`.
+- `smart-recruit-commons` has no active business `model/repository/service` directories.
 - Affected Go modules compile and test through `agent-check.sh`.
 - No proto, schema SQL, module path, workspace, package manifest, or lockfile changes were included.
 
@@ -103,7 +103,7 @@ Reviewer 核对结果：
 
 ## 12. Follow-up Items
 
-- TASK-030 can perform the final `smart-recruit-domain-go` to `smart-recruit-commons` rename.
+- TASK-030 can perform the final `smart-recruit-commons` to `smart-recruit-commons` rename.
 
 ## 13. Whether the Next TASK Can Start
 

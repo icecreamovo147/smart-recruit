@@ -18,7 +18,7 @@ TASK-028 - Worker infrastructure/tests 与 owner contract 收敛。
 
 - `internal/runtime/workload_profile.go`: OwnerContract 新增 `Retry` 字段，并对所有 workload profile 增加 retry contract 与校验。
 - `internal/runtime/workload_profile_test.go`: 新增 readiness/toggle/idempotency/retry/DLQ contract 覆盖测试。
-- `internal/docs/worker_workload_inventory.md`: 增加 retry contract 列，记录 Worker 无 shared business service orchestration import，剩余 `smart-recruit-domain-go/mq` 是 infrastructure bridge debt。
+- `internal/docs/worker_workload_inventory.md`: 增加 retry contract 列，记录 Worker 无 shared business service orchestration import，剩余 `smart-recruit-commons/mq` 是 infrastructure bridge debt。
 - `.spec/.../TASK-028-report.md`: 新增 TASK 报告。
 - `.spec/.../TASK-028-evidence.json`: 新增机器可读 evidence。
 
@@ -28,7 +28,7 @@ TASK-028 - Worker infrastructure/tests 与 owner contract 收敛。
 
 变更均在 TASK-028 allowed files 内：`smart-recruit-worker-service/**` 与 `.spec/microservice-ddd-evolution/reports/**`。
 
-未修改 forbidden files：`smart-recruit-domain-go/**`、`smart-recruit-proto/**`、`db.sql`、migration、go workspace、package manifest 或 lockfile。
+未修改 forbidden files：`smart-recruit-commons/**`、`smart-recruit-proto/**`、`db.sql`、migration、go workspace、package manifest 或 lockfile。
 
 ## 5. SPEC Comparison Result
 
@@ -48,7 +48,7 @@ TASK-028 - Worker infrastructure/tests 与 owner contract 收敛。
 
 ## 7. Acceptance Comparison Result
 
-- Worker 不再依赖共享业务 service 编排，或剩余依赖记录为 shared cleanup 债务：已完成，扫描确认无 `smart-recruit-domain-go/service|repository|model` imports；`smart-recruit-domain-go/mq` infra bridge 已记录为 debt。
+- Worker 不再依赖共享业务 service 编排，或剩余依赖记录为 shared cleanup 债务：已完成，扫描确认无 `smart-recruit-commons/service|repository|model` imports；`smart-recruit-commons/mq` infra bridge 已记录为 debt。
 - Workload readiness、idempotency、retry/DLQ 测试覆盖：已完成，新增 profile contract test。
 - 默认 workload 行为兼容：已完成，profile/default tests 与 runtime check 通过。
 
@@ -56,8 +56,8 @@ TASK-028 - Worker infrastructure/tests 与 owner contract 收敛。
 
 | Command | Exit | Result | Summary |
 |---|---:|---|---|
-| `bash -lc '! rg -n "smart-recruit-domain-go/(service|repository|model|ai|oss|resumeparser)|service\\.NewServices|NotificationRuntime|AIAgentRuntime" smart-recruit-worker-service'` | 0 | passed | 无 shared business service orchestration import。 |
-| `rg -n "smart-recruit-domain-go/" smart-recruit-worker-service` | 0 | passed | 仅剩 `smart-recruit-domain-go/mq` infrastructure bridge。 |
+| `bash -lc '! rg -n "smart-recruit-commons/(service|repository|model|ai|oss|resumeparser)|service\\.NewServices|NotificationRuntime|AIAgentRuntime" smart-recruit-worker-service'` | 0 | passed | 无 shared business service orchestration import。 |
+| `rg -n "smart-recruit-commons/" smart-recruit-worker-service` | 0 | passed | 仅剩 `smart-recruit-commons/mq` infrastructure bridge。 |
 | `go test ./internal/runtime` in `smart-recruit-worker-service` | 0 | passed | Worker targeted runtime/profile tests 通过。 |
 | `go test ./...` in `smart-recruit-worker-service` | 0 | passed | Worker 全 package 测试通过。 |
 | `go run ./cmd/worker-service --check` in `smart-recruit-worker-service` | 0 | passed | `worker-service runtime check passed`。 |
@@ -93,7 +93,7 @@ self-review 第 1 轮 verdict: 通过。
 Reviewer 核对结果：
 
 - Worker service has no shared business service orchestration imports.
-- Remaining shared dependency is `smart-recruit-domain-go/mq`, recorded as infrastructure bridge debt for shared cleanup.
+- Remaining shared dependency is `smart-recruit-commons/mq`, recorded as infrastructure bridge debt for shared cleanup.
 - Readiness/toggle/idempotency/retry/DLQ owner contracts are test-covered.
 - No default workload, queue, schema, proto, or package manifest changes.
 
@@ -105,7 +105,7 @@ Reviewer 核对结果：
 
 ## 12. Follow-up Items
 
-- TASK-029 可开始收缩 `smart-recruit-domain-go` 至 commons-ready shared kernel。
+- TASK-029 可开始收缩 `smart-recruit-commons` 至 commons-ready shared kernel。
 
 ## 13. Whether the Next TASK Can Start
 

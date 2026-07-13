@@ -159,7 +159,7 @@ smart-recruit/
 ├── smart-recruit-ai-agent-service/
 ├── smart-recruit-analytics-service/
 ├── smart-recruit-worker-service/
-├── smart-recruit-domain-go/    # 领域服务、repository、model、migration、mq、oss、ai、email
+├── smart-recruit-commons/    # 领域服务、repository、model、migration、mq、oss、ai、email
 ├── smart-recruit-platform-go/  # Nacos、配置、日志、健康检查、metrics、trace、gRPC runtime helper
 ├── smart-recruit-proto/        # 唯一 protobuf 源码根与生成代码
 ├── packages/                   # 前端共享工具包
@@ -174,7 +174,7 @@ smart-recruit/
 
 | 配置文件 | 用途 |
 |----------|------|
-| `smart-recruit-domain-go/config/config.example.yaml` | 本地运行后端微服务的 MySQL / Redis / RabbitMQ / OSS / AI / JWT 配置模板 |
+| `smart-recruit-commons/config/config.example.yaml` | 本地运行后端微服务的 MySQL / Redis / RabbitMQ / OSS / AI / JWT 配置模板 |
 | `docker/.env` | Docker Compose 环境变量，包含内部 gRPC Token、JWT、AI 与对象存储密钥 |
 
 **对象存储配置要点**：Bucket 建议私有读写，关闭公开访问，CORS 配置允许前端直传。`OSS_PROVIDER` 可设置为 `tencent_cos` 或 `aliyun_oss`。

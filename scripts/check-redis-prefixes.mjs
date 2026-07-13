@@ -6,7 +6,7 @@ import process from "node:process";
 const exceptionPath = process.argv[2] || "scripts/redis-prefix-exceptions.json";
 const exceptions = loadExceptions(exceptionPath);
 const exceptionEntries = [...exceptions.entries()];
-const roots = ["smart-recruit-platform-go", "smart-recruit-domain-go", "smart-recruit-gateway", "smart-recruit-identity-service", "smart-recruit-recruitment-service", "smart-recruit-interview-service", "smart-recruit-offer-service", "smart-recruit-notification-service", "smart-recruit-ai-agent-service", "smart-recruit-analytics-service", "smart-recruit-worker-service"];
+const roots = ["smart-recruit-platform-go", "smart-recruit-commons", "smart-recruit-gateway", "smart-recruit-identity-service", "smart-recruit-recruitment-service", "smart-recruit-interview-service", "smart-recruit-offer-service", "smart-recruit-notification-service", "smart-recruit-ai-agent-service", "smart-recruit-analytics-service", "smart-recruit-worker-service"];
 const extraRoots = (process.env.REDIS_PREFIX_EXTRA_ROOTS || "").split(path.delimiter).map((root) => root.trim()).filter(Boolean);
 const issues = [];
 

@@ -47,7 +47,7 @@ TASK-012 - Identity DDD 骨架与安全契约盘点。
 
 变更均在 TASK-012 allowed files 内：`smart-recruit-identity-service/**` 与 `.spec/microservice-ddd-evolution/reports/**`。
 
-未修改 forbidden files：`smart-recruit-domain-go/**`、`smart-recruit-proto/**`、`db.sql`、migration、go workspace、package manifest 或 lockfile。
+未修改 forbidden files：`smart-recruit-commons/**`、`smart-recruit-proto/**`、`db.sql`、migration、go workspace、package manifest 或 lockfile。
 
 ## 5. SPEC Comparison Result
 
@@ -56,7 +56,7 @@ TASK-012 - Identity DDD 骨架与安全契约盘点。
 - FR-001：Identity 服务本地 `domain`、`application`、`infrastructure`、`interfaces`、`runtime` 目标职责边界已建立；本 TASK 只新增 package marker 和文档。
 - FR-011：Identity auth、refresh token、principal、RBAC、data scope、invite code、auth audit、staff user 能力已完成契约盘点。
 - SSR-002 / CR-007：未修改认证、授权、RBAC、data scope、JWT、Refresh Token、内部 gRPC 鉴权、TLS、protobuf、schema 或 Gateway 行为。
-- FR-016：记录当前仍由 `smart-recruit-domain-go/service`、`repository`、`pkg` 提供 active 行为，作为后续迁移债务。
+- FR-016：记录当前仍由 `smart-recruit-commons/service`、`repository`、`pkg` 提供 active 行为，作为后续迁移债务。
 
 ## 6. SDD Comparison Result
 

@@ -15,7 +15,7 @@ import (
 
 	"smart-recruit-ai-agent-service/internal/legacydomain/model"
 	"smart-recruit-ai-agent-service/internal/legacydomain/repository"
-	"smart-recruit-domain-go/mq"
+	"smart-recruit-commons/mq"
 	"smart-recruit-platform-go/logger"
 )
 
@@ -27,7 +27,7 @@ const (
 	defaultLockTimeout  = 2 * time.Minute
 	publishTimeout      = 10 * time.Second
 	maxRetryCount       = 10
-	outboxProducer      = "smart-recruit-domain-go.outbox"
+	outboxProducer      = "smart-recruit-commons.outbox"
 )
 
 type OutboxPublisher struct {

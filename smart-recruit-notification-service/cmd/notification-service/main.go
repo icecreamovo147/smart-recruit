@@ -21,9 +21,9 @@ import (
 	"gorm.io/driver/mysql"
 	"gorm.io/gorm"
 
-	"smart-recruit-domain-go/email"
-	"smart-recruit-domain-go/mq"
-	sharedcache "smart-recruit-domain-go/pkg/cache"
+	"smart-recruit-commons/email"
+	"smart-recruit-commons/mq"
+	sharedcache "smart-recruit-commons/pkg/cache"
 	appservice "smart-recruit-notification-service/internal/application/service"
 	notificationcache "smart-recruit-notification-service/internal/infrastructure/cache"
 	notificationclient "smart-recruit-notification-service/internal/infrastructure/client"
@@ -396,8 +396,8 @@ func ensureLogicConfigPath() error {
 		return nil
 	}
 	for _, candidate := range []string{
-		filepath.Join("smart-recruit-domain-go", "config", "config.yaml"),
-		filepath.Join("..", "smart-recruit-domain-go", "config", "config.yaml"),
+		filepath.Join("smart-recruit-commons", "config", "config.yaml"),
+		filepath.Join("..", "smart-recruit-commons", "config", "config.yaml"),
 	} {
 		if _, err := os.Stat(candidate); err == nil {
 			return os.Setenv("CONFIG_PATH", candidate)

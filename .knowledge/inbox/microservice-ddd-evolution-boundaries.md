@@ -13,7 +13,7 @@ tags:
   - ddd
 applies_to:
   - smart-recruit-*-service/**
-  - smart-recruit-domain-go/**
+  - smart-recruit-commons/**
   - smart-recruit-gateway/**
   - smart-recruit-platform-go/**
   - smart-recruit-proto/**
@@ -38,7 +38,7 @@ The active knowledge base should be updated to describe the current backend serv
 
 ## Discovery Context
 
-TASK-001 of `microservice-ddd-evolution` created the architecture guideline and strengthened backend boundary checks. The feature contract identifies the current state as independent Go service roots plus a shared `smart-recruit-domain-go` business kernel, with a target of service-local `domain/application/infrastructure/interfaces/runtime` boundaries.
+TASK-001 of `microservice-ddd-evolution` created the architecture guideline and strengthened backend boundary checks. The feature contract identifies the current state as independent Go service roots plus a shared `smart-recruit-commons` business kernel, with a target of service-local `domain/application/infrastructure/interfaces/runtime` boundaries.
 
 ## Evidence
 
@@ -67,7 +67,7 @@ Update or supersede:
 Add route coverage for:
 
 - `smart-recruit-*-service/**`
-- `smart-recruit-domain-go/**`
+- `smart-recruit-commons/**`
 - `smart-recruit-gateway/**`
 - `smart-recruit-platform-go/**`
 - `smart-recruit-proto/**`

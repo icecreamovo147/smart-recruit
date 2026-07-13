@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	"smart-recruit-domain-go/internal/platform/events"
+	"smart-recruit-commons/internal/platform/events"
 )
 
 func TestConsumeEnvelopeRejectsInvalidEnvelopeBeforeHandler(t *testing.T) {

@@ -11,7 +11,7 @@ func TestUnitsAreValid(t *testing.T) {
 func TestRequiredUnitsExist(t *testing.T) {
 	required := []string{
 		"api-gateway",
-		"smart-recruit-domain-go",
+		"smart-recruit-commons",
 		"worker-service",
 		"identity-service",
 		"recruitment-service",

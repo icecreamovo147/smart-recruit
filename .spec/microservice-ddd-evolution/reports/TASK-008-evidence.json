@@ -84,7 +84,7 @@
   ],
   "non_blocking_checks": [
     {
-      "command": "rg -n \"smart-recruit-domain-go/service|service\\\\.InterviewService|NewServices|services\\\\.Interview|buildDomainServices\" smart-recruit-interview-service -g'*.go'",
+      "command": "rg -n \"smart-recruit-commons/service|service\\\\.InterviewService|NewServices|services\\\\.Interview|buildDomainServices\" smart-recruit-interview-service -g'*.go'",
       "exit_code": 1,
       "started_at": "2026-07-13T06:58:00Z",
       "duration_ms": 1,

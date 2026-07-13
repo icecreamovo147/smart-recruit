@@ -18,7 +18,8 @@ fi
 cd "$ROOT"
 
 CHANGED_FILE="$(mktemp)"
-trap 'rm -f "$CHANGED_FILE"' EXIT
+STATUS_FILE="$(mktemp)"
+trap 'rm -f "$CHANGED_FILE" "$STATUS_FILE"' EXIT
 
 {
   git diff --name-only
@@ -26,11 +27,17 @@ trap 'rm -f "$CHANGED_FILE"' EXIT
   git ls-files --others --exclude-standard
 } | sort -u > "$CHANGED_FILE"
 
-node - "$TASK_ID" "$SCOPE_FILE" "$CHANGED_FILE" <<'NODE'
+{
+  git diff --name-status --find-renames
+  git diff --cached --name-status --find-renames
+} > "$STATUS_FILE"
+
+node - "$TASK_ID" "$SCOPE_FILE" "$CHANGED_FILE" "$STATUS_FILE" <<'NODE'
 const fs = require("fs");
-const [taskId, scopeFile, changedFile] = process.argv.slice(2);
+const [taskId, scopeFile, changedFile, statusFile] = process.argv.slice(2);
 const scope = JSON.parse(fs.readFileSync(scopeFile, "utf8"));
 const changed = fs.readFileSync(changedFile, "utf8").split(/\r?\n/).filter(Boolean);
+const statuses = fs.readFileSync(statusFile, "utf8").split(/\r?\n/).filter(Boolean);
 
 if (scope.schemaVersion !== 1 || scope.feature_name !== "microservice-ddd-evolution") {
   console.error("unsupported task-scope schema or feature_name");
@@ -49,6 +56,7 @@ const alwaysAllowed = [
 ];
 const allowed = [...(task.allowedFiles || []), ...alwaysAllowed];
 const forbidden = task.forbiddenFiles || [];
+const allowedActions = new Set(task.allowedActions || []);
 
 function escapeRegex(s) {
   return s.replace(/[|\\{}()[\]^$+?.]/g, "\\$&");
@@ -86,11 +94,23 @@ function matches(path, patterns) {
   });
 }
 
+const pureRenameTargets = new Set();
+for (const line of statuses) {
+  const parts = line.split(/\t/);
+  const status = parts[0] || "";
+  if (status !== "R100" || parts.length < 3) continue;
+  const [, from, to] = parts;
+  if (allowedActions.has("move") && matches(from, allowed) && matches(to, allowed) && matches(to, forbidden)) {
+    pureRenameTargets.add(to);
+  }
+}
+
 const relevant = changed.filter(Boolean);
 const violations = [];
 
 for (const file of relevant) {
   if (matches(file, forbidden)) {
+    if (pureRenameTargets.has(file)) continue;
     violations.push(`${file} (forbidden)`);
     continue;
   }

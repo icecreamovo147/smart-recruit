@@ -15,7 +15,7 @@ invite-code, or audit behavior.
 - Current implementation source after TASK-014: local Identity packages under
   `internal/domain`, `internal/application`, `internal/infrastructure`, and
   `internal/interfaces`.
-- `smart-recruit-domain-go` remains referenced by the service module/config
+- `smart-recruit-commons` remains referenced by the service module/config
   compatibility surface only; it is no longer the active auth/admin
   implementation provider.
 - Platform behavior retained by runtime: Nacos discovery/config, gRPC internal

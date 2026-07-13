@@ -10,8 +10,8 @@ import (
 
 	"smart-recruit-ai-agent-service/internal/legacydomain/model"
 	"smart-recruit-ai-agent-service/internal/legacydomain/repository"
-	"smart-recruit-domain-go/email"
-	"smart-recruit-domain-go/mq"
+	"smart-recruit-commons/email"
+	"smart-recruit-commons/mq"
 	"smart-recruit-platform-go/logger"
 )
 

@@ -40,7 +40,7 @@ TASK-021 - Analytics infrastructure/interfaces/runtime/tests 收敛。
 
 变更均在 TASK-021 allowed files 内：`smart-recruit-analytics-service/**` 与 `.spec/microservice-ddd-evolution/reports/**`。
 
-未修改 forbidden files：`smart-recruit-domain-go/**`、`smart-recruit-proto/**`、`db.sql`、migration、go workspace、package manifest 或 lockfile。
+未修改 forbidden files：`smart-recruit-commons/**`、`smart-recruit-proto/**`、`db.sql`、migration、go workspace、package manifest 或 lockfile。
 
 ## 5. SPEC Comparison Result
 
@@ -72,7 +72,7 @@ TASK-021 - Analytics infrastructure/interfaces/runtime/tests 收敛。
 |---|---:|---|---|
 | `go test ./...` in `smart-recruit-analytics-service` | 0 | passed | Analytics 全 package 测试通过，包含 local application、interfaces、projection 和 runtime tests。 |
 | `go run ./cmd/analytics-service --check` | 0 | passed | `analytics-service runtime check passed`，AdminService reporting subset 可注册。 |
-| `sh -c '! rg -n "NewAnalyticsService|NewAnalyticsRepo|smart-recruit-domain-go/service" smart-recruit-analytics-service'` | 0 | passed | 无匹配，active analytics service 不再引用 shared analytics service/repo 或 shared service package。 |
+| `sh -c '! rg -n "NewAnalyticsService|NewAnalyticsRepo|smart-recruit-commons/service" smart-recruit-analytics-service'` | 0 | passed | 无匹配，active analytics service 不再引用 shared analytics service/repo 或 shared service package。 |
 | `git diff --name-only` | 0 | passed | tracked diff 列出 `cmd/analytics-service/main.go`、`internal/application/port/reporting.go`、`internal/docs/projection_strategy_inventory.md`；untracked 新文件由 scope check 覆盖。 |
 | `bash .spec/microservice-ddd-evolution/scripts/check-task-scope.sh TASK-021` | 0 | passed | report/evidence 创建前 `Changed files: 9`，创建后复跑 `Changed files: 11`。 |
 | `bash .spec/microservice-ddd-evolution/scripts/agent-check.sh` | 0 | passed | Harness JSON validation passed；检测到 Analytics module 变更并运行 `go test ./...` 通过。 |
@@ -108,7 +108,7 @@ self-review 第 1 轮 verdict: 通过。
 
 Reviewer 核对结果：
 
-- Runtime no longer imports shared `smart-recruit-domain-go/service`.
+- Runtime no longer imports shared `smart-recruit-commons/service`.
 - Code search confirms no `NewAnalyticsService` or `NewAnalyticsRepo` usage in Analytics service.
 - Public protobuf contract and AdminService reporting registration are unchanged.
 - Local persistence adapter only reads transitional source-domain tables and writes Analytics-owned projection tables.

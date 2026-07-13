@@ -2,7 +2,7 @@
 
 ## TASK Summary
 
-收缩 `smart-recruit-domain-go` 至 commons-ready shared kernel。
+收缩 `smart-recruit-commons` 至 commons-ready shared kernel。
 
 ## SPEC References
 
@@ -20,7 +20,7 @@
 
 ## Acceptance Criteria
 
-- `smart-recruit-domain-go` 不再包含 active 业务 `model/repository/service` 实现。
+- `smart-recruit-commons` 不再包含 active 业务 `model/repository/service` 实现。
 - 剩余内容分类为 shared kernel、platform-adjacent、testutil 或 migration helper。
 - 所有服务对旧业务共享实现依赖清零或转为允许保留的 shared kernel 依赖。
 

@@ -49,7 +49,7 @@ TASK-015 - Recruitment DDD 骨架与核心域盘点。
 
 变更均在 TASK-015 allowed files 内：`smart-recruit-recruitment-service/**` 与 `.spec/microservice-ddd-evolution/reports/**`。
 
-未修改 forbidden files：`smart-recruit-domain-go/**`、`smart-recruit-proto/**`、`db.sql`、migration、go workspace、package manifest 或 lockfile。
+未修改 forbidden files：`smart-recruit-commons/**`、`smart-recruit-proto/**`、`db.sql`、migration、go workspace、package manifest 或 lockfile。
 
 ## 5. SPEC Comparison Result
 
@@ -125,7 +125,7 @@ Reviewer 核对结果：
 
 ## 11. Risks
 
-- Recruitment 当前 active implementation 仍在 shared `smart-recruit-domain-go`；本 TASK 只建立骨架和盘点，业务迁移由后续 TASK 执行。
+- Recruitment 当前 active implementation 仍在 shared `smart-recruit-commons`；本 TASK 只建立骨架和盘点，业务迁移由后续 TASK 执行。
 - Usage stats 当前依赖 platform-owned `third_party_usage_logs`，后续迁移需要在 Recruitment read model 与 Analytics/platform ownership 之间保持清晰边界。
 - Collaboration workspace 仍有 Interview/Offer transitional reads；后续迁移必须保持跨上下文只读兼容，不引入新写入。
 - Active knowledge source_refs 有既有路径债务，knowledge impact detector 无法完成。

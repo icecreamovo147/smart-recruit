@@ -20,7 +20,7 @@ import (
 	"gorm.io/driver/mysql"
 	"gorm.io/gorm"
 
-	"smart-recruit-domain-go/oss"
+	"smart-recruit-commons/oss"
 	"smart-recruit-platform-go/config"
 	"smart-recruit-platform-go/nacos"
 	logicobservability "smart-recruit-platform-go/observability"
@@ -331,7 +331,7 @@ func ensureLogicConfigPath() error {
 	if os.Getenv("CONFIG_PATH") != "" {
 		return nil
 	}
-	for _, candidate := range []string{filepath.Join("smart-recruit-domain-go", "config", "config.yaml"), filepath.Join("..", "smart-recruit-domain-go", "config", "config.yaml")} {
+	for _, candidate := range []string{filepath.Join("smart-recruit-commons", "config", "config.yaml"), filepath.Join("..", "smart-recruit-commons", "config", "config.yaml")} {
 		if _, err := os.Stat(candidate); err == nil {
 			return os.Setenv("CONFIG_PATH", candidate)
 		}

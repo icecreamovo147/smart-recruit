@@ -2,7 +2,7 @@ logging:
   level: "info"                      # LOG_LEVEL: debug / info / warn / error
   format: "json"                     # LOG_FORMAT: console (colored) / json (machine-readable)
   enable_file: false                 # LOG_ENABLE_FILE: enable JSON file rotation
-  file_path: "logs/smart-recruit-domain-go.log"  # LOG_FILE_PATH: log file path
+  file_path: "logs/smart-recruit-commons.log"  # LOG_FILE_PATH: log file path
   max_size_mb: 100                   # LOG_MAX_SIZE_MB: max size per log file before rotation
   max_backups: 3                     # LOG_MAX_BACKUPS: rotated files to keep
   max_age_days: 28                   # LOG_MAX_AGE_DAYS: days to retain logs

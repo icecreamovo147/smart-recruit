@@ -1,4 +1,4 @@
-module smart-recruit-domain-go
+module smart-recruit-commons
 
 go 1.25.5
 

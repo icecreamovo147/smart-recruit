@@ -18,7 +18,7 @@ import (
 
 const (
 	envelopeSchemaVersion = "1.0"
-	legacyOutboxProducer  = "smart-recruit-domain-go.outbox"
+	legacyOutboxProducer  = "smart-recruit-commons.outbox"
 )
 
 type outboxStore interface {

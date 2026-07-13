@@ -13,7 +13,7 @@ import (
 	"go.uber.org/zap"
 	"gorm.io/gorm"
 
-	"smart-recruit-domain-go/mq"
+	"smart-recruit-commons/mq"
 	"smart-recruit-platform-go/logger"
 	"smart-recruit-recruitment-service/internal/legacydomain/model"
 	"smart-recruit-recruitment-service/internal/legacydomain/repository"
@@ -27,7 +27,7 @@ const (
 	defaultLockTimeout  = 2 * time.Minute
 	publishTimeout      = 10 * time.Second
 	maxRetryCount       = 10
-	outboxProducer      = "smart-recruit-domain-go.outbox"
+	outboxProducer      = "smart-recruit-commons.outbox"
 )
 
 type OutboxPublisher struct {

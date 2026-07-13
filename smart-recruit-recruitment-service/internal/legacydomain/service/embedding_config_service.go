@@ -9,7 +9,7 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
-	"smart-recruit-domain-go/pkg/crypto"
+	"smart-recruit-commons/pkg/crypto"
 	"smart-recruit-platform-go/logger"
 	"smart-recruit-proto/recruitment/pb"
 	"smart-recruit-recruitment-service/internal/legacydomain/model"

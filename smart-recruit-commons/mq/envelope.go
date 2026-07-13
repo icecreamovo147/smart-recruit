@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	"smart-recruit-domain-go/internal/platform/events"
+	"smart-recruit-commons/internal/platform/events"
 )
 
 type EnvelopeHandler func(ctx context.Context, envelope *events.Envelope) error

@@ -40,7 +40,7 @@ TASK-024 - AI Agent MCP/skill/embedding/intelligence 迁移。
 
 变更均在 TASK-024 allowed files 内：`smart-recruit-ai-agent-service/**` 与 `.spec/microservice-ddd-evolution/reports/**`。
 
-未修改 forbidden files：`smart-recruit-domain-go/**`、`smart-recruit-proto/**`、`db.sql`、migration、go workspace、package manifest 或 lockfile。
+未修改 forbidden files：`smart-recruit-commons/**`、`smart-recruit-proto/**`、`db.sql`、migration、go workspace、package manifest 或 lockfile。
 
 ## 5. SPEC Comparison Result
 

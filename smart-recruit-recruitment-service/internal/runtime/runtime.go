@@ -120,9 +120,9 @@ func New(deps Deps) (*Runtime, error) {
 	return &Runtime{
 		Job: jobServer{api: deps.Job, taxonomy: deps.JobTaxonomy},
 		Admin: adminServer{
-			taxonomy:    deps.TaxonomyAdmin,
-			admin:       deps.Admin,
-			usageStats:  deps.UsageStats,
+			taxonomy:   deps.TaxonomyAdmin,
+			admin:      deps.Admin,
+			usageStats: deps.UsageStats,
 		},
 		Candidate:     candidateServer{api: deps.Candidate},
 		Application:   applicationServer{api: deps.Application},

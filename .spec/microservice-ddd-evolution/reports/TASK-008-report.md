@@ -56,7 +56,7 @@ TASK-008 - Interview infrastructure/interfaces/runtime/tests 收敛。
 
 变更均在 TASK-008 allowed files 内：`smart-recruit-interview-service/**` 与 `.spec/microservice-ddd-evolution/reports/**`。
 
-未修改 forbidden files：`smart-recruit-domain-go/**`、`smart-recruit-proto/**`、`db.sql`、migration、go workspace、package manifest 或 lockfile。
+未修改 forbidden files：`smart-recruit-commons/**`、`smart-recruit-proto/**`、`db.sql`、migration、go workspace、package manifest 或 lockfile。
 
 ## 5. SPEC Comparison Result
 
@@ -78,7 +78,7 @@ TASK-008 - Interview infrastructure/interfaces/runtime/tests 收敛。
 ## 7. Acceptance Comparison Result
 
 - Interview runtime 使用本地 implementation 注册 `InterviewService`：已完成，`cmd/interview-service/main.go` 构造 `interviewgrpc.NewServer(interviewService)` 并传入 `interviewruntime.New`。
-- 对共享 `service.InterviewService` 的直接依赖消除或记录债务：Go 代码搜索 `smart-recruit-domain-go/service|service.InterviewService|NewServices|services.Interview|buildDomainServices` 无命中；shared `model/repository` adapter debt 已记录在 `internal/docs/contract_inventory.md`。
+- 对共享 `service.InterviewService` 的直接依赖消除或记录债务：Go 代码搜索 `smart-recruit-commons/service|service.InterviewService|NewServices|services.Interview|buildDomainServices` 无命中；shared `model/repository` adapter debt 已记录在 `internal/docs/contract_inventory.md`。
 - gRPC 语义兼容：保持 schedule/update/cancel/batch/get/list/feedback response code/message 和候选人字段过滤；新增 tests 覆盖关键路径。
 - Out-of-Scope 遵守：未删除 shared 旧实现，未修改 Recruitment/Offer 行为。
 
@@ -95,7 +95,7 @@ TASK-008 - Interview infrastructure/interfaces/runtime/tests 收敛。
 
 额外核验：
 
-- `rg -n "smart-recruit-domain-go/service|service\\.InterviewService|NewServices|services\\.Interview|buildDomainServices" smart-recruit-interview-service -g'*.go'` exit 1，无 Go 代码命中，active runtime 直接 shared service 依赖已消除。
+- `rg -n "smart-recruit-commons/service|service\\.InterviewService|NewServices|services\\.Interview|buildDomainServices" smart-recruit-interview-service -g'*.go'` exit 1，无 Go 代码命中，active runtime 直接 shared service 依赖已消除。
 - `node .knowledge/scripts/detect-impact.mjs --root . --base-tree d38e121d6e3656a55e70f789a287699b6881c574` exit 1。
 - 失败原因是既有 active knowledge 中大量旧 `logic-grpc-service` / `web-gin-service` `source_refs` 缺失；本 TASK scope 不允许修改 `.knowledge/**`，因此记录为非阻塞 candidate debt。
 
@@ -150,7 +150,7 @@ knowledge_impact:
 
 ## 11. Risks
 
-- `smart-recruit-domain-go/model` 与 `repository` 仍作为 infrastructure transitional bridge 使用，后续 TASK-029 才能收缩 shared kernel。
+- `smart-recruit-commons/model` 与 `repository` 仍作为 infrastructure transitional bridge 使用，后续 TASK-029 才能收缩 shared kernel。
 - Interview lifecycle 仍同步写 ApplicationRepo；这是迁移期 adapter debt，未新增跨服务 API 或事件 schema。
 - Knowledge active 文档仍有旧路径 source_refs 债务；本 TASK 已记录 candidate_required，但不越界修改知识库。
 

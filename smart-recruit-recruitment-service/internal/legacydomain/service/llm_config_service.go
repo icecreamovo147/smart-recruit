@@ -13,7 +13,7 @@ import (
 	"google.golang.org/grpc/status"
 	"gorm.io/gorm"
 
-	"smart-recruit-domain-go/pkg/crypto"
+	"smart-recruit-commons/pkg/crypto"
 	"smart-recruit-platform-go/logger"
 	"smart-recruit-platform-go/serviceconfig"
 	"smart-recruit-proto/recruitment/pb"

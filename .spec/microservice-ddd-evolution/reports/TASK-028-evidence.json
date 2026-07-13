@@ -20,7 +20,7 @@
   },
   "checks": [
     {
-      "command": "bash -lc '! rg -n \"smart-recruit-domain-go/(service|repository|model|ai|oss|resumeparser)|service\\\\.NewServices|NotificationRuntime|AIAgentRuntime\" smart-recruit-worker-service'",
+      "command": "bash -lc '! rg -n \"smart-recruit-commons/(service|repository|model|ai|oss|resumeparser)|service\\\\.NewServices|NotificationRuntime|AIAgentRuntime\" smart-recruit-worker-service'",
       "exit_code": 0,
       "started_at": "2026-07-13T10:14:00Z",
       "duration_ms": 1,
@@ -28,12 +28,12 @@
       "summary": "No shared business service orchestration imports found in smart-recruit-worker-service."
     },
     {
-      "command": "rg -n \"smart-recruit-domain-go/\" smart-recruit-worker-service",
+      "command": "rg -n \"smart-recruit-commons/\" smart-recruit-worker-service",
       "exit_code": 0,
       "started_at": "2026-07-13T10:14:00Z",
       "duration_ms": 1,
       "status": "passed",
-      "summary": "Only smart-recruit-domain-go/mq remains as Worker infrastructure bridge."
+      "summary": "Only smart-recruit-commons/mq remains as Worker infrastructure bridge."
     },
     {
       "command": "go test ./internal/runtime",

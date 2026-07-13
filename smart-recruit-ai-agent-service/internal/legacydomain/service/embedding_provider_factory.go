@@ -8,7 +8,7 @@ import (
 
 	"smart-recruit-ai-agent-service/internal/legacydomain/model"
 	"smart-recruit-ai-agent-service/internal/legacydomain/repository"
-	"smart-recruit-domain-go/pkg/crypto"
+	"smart-recruit-commons/pkg/crypto"
 	"smart-recruit-platform-go/logger"
 	"smart-recruit-platform-go/serviceconfig"
 )

@@ -38,5 +38,5 @@ bindings, or change default workload enablement.
   cutover belongs to later Worker runtime tasks.
 - TASK-028 confirms there are no direct shared business service orchestration
   imports in `smart-recruit-worker-service`; the remaining
-  `smart-recruit-domain-go/mq` import is an infrastructure bridge until shared
+  `smart-recruit-commons/mq` import is an infrastructure bridge until shared
   cleanup decides whether RabbitMQ helpers become commons.

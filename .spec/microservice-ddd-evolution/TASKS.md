@@ -32,8 +32,8 @@
 | TASK-026 | Worker DDD/workload 骨架与边界盘点 | pending | worker service only | acceptance/TASK-026.md |
 | TASK-027 | Worker workload application/runtime 迁移 | pending | worker service only | acceptance/TASK-027.md |
 | TASK-028 | Worker infrastructure/tests 与 owner contract 收敛 | pending | worker service only | acceptance/TASK-028.md |
-| TASK-029 | 收缩 smart-recruit-domain-go 至 commons-ready shared kernel | pending | domain-go, docs, scripts | acceptance/TASK-029.md |
-| TASK-030 | 最终重命名 smart-recruit-domain-go 为 smart-recruit-commons | pending | cross-repo rename | acceptance/TASK-030.md |
+| TASK-029 | 收缩 smart-recruit-commons 至 commons-ready shared kernel | pending | domain-go, docs, scripts | acceptance/TASK-029.md |
+| TASK-030 | 最终重命名 smart-recruit-commons 为 smart-recruit-commons | pending | cross-repo rename | acceptance/TASK-030.md |
 
 ## TASK-001 - 建立迁移总则与边界检查基线
 
@@ -56,12 +56,12 @@
 ### Forbidden Files
 
 - `smart-recruit-*-service/**`
-- `smart-recruit-domain-go/**`
+- `smart-recruit-commons/**`
 - `smart-recruit-platform-go/**`
 - `smart-recruit-proto/**`
 - `go.mod`, `go.sum`, `go.work`, `go.work.sum`
 - `package.json`, `pnpm-lock.yaml`
-- `db.sql`, `smart-recruit-domain-go/migrations/**`
+- `db.sql`, `smart-recruit-commons/migrations/**`
 
 ### Dependencies
 
@@ -91,7 +91,7 @@
 
 ### Goal
 
-建立当前 `smart-recruit-domain-go` 业务依赖、服务 import、表访问和 owner 边界基线，为后续每个服务迁移提供可比较证据。
+建立当前 `smart-recruit-commons` 业务依赖、服务 import、表访问和 owner 边界基线，为后续每个服务迁移提供可比较证据。
 
 ### Scope
 
@@ -113,7 +113,7 @@ TASK-001。
 
 ### Acceptance Criteria
 
-- 记录每个服务当前对 `smart-recruit-domain-go/model`、`repository`、`service`、`ai`、`oss`、`email`、`mq` 的依赖。
+- 记录每个服务当前对 `smart-recruit-commons/model`、`repository`、`service`、`ai`、`oss`、`email`、`mq` 的依赖。
 - 记录每个服务当前 owner 表、transitional read 表和潜在违规写风险。
 - 明确各服务进入迁移前的剩余风险。
 
@@ -147,7 +147,7 @@ TASK-001。
 
 ### Forbidden Files
 
-- `smart-recruit-domain-go/**`
+- `smart-recruit-commons/**`
 - `smart-recruit-proto/**`
 - schema/migration/package/lockfile/global config。
 
@@ -233,7 +233,7 @@ Offer 当前可能依赖 Application/Profile/Job 读取；新增跨服务 API �
 
 ### Forbidden Files
 
-- `smart-recruit-domain-go/**` 删除或重构、protobuf、schema、deployment、package/lockfile。
+- `smart-recruit-commons/**` 删除或重构、protobuf、schema、deployment、package/lockfile。
 
 ### Dependencies
 
@@ -1217,19 +1217,19 @@ Worker 是最终服务迁移前最后一道跨上下文写入收敛点。
 
 完成后才能进入 shared cleanup。
 
-## TASK-029 - 收缩 smart-recruit-domain-go 至 commons-ready shared kernel
+## TASK-029 - 收缩 smart-recruit-commons 至 commons-ready shared kernel
 
 ### Goal
 
-清理或迁出 `smart-recruit-domain-go` 中残留的具体业务 `model/repository/service`，使其达到可安全重命名为 commons 的状态。
+清理或迁出 `smart-recruit-commons` 中残留的具体业务 `model/repository/service`，使其达到可安全重命名为 commons 的状态。
 
 ### Scope
 
-允许修改 `smart-recruit-domain-go`、相关 docs/scripts/knowledge 和各服务中残留 import 的最小修正。
+允许修改 `smart-recruit-commons`、相关 docs/scripts/knowledge 和各服务中残留 import 的最小修正。
 
 ### Allowed Files
 
-- `smart-recruit-domain-go/**`
+- `smart-recruit-commons/**`
 - `smart-recruit-*-service/**`
 - `smart-recruit-gateway/**`
 - `docs/architecture/**`
@@ -1249,7 +1249,7 @@ TASK-028。
 
 ### Acceptance Criteria
 
-- `smart-recruit-domain-go` 剩余内容分类为 shared kernel、platform-adjacent、testutil、migration helper 或明确删除。
+- `smart-recruit-commons` 剩余内容分类为 shared kernel、platform-adjacent、testutil、migration helper 或明确删除。
 - 不再包含具体业务上下文的 active `model/repository/service` 实现。
 - 所有服务对旧业务共享实现的依赖清零或转为允许保留的 shared kernel 依赖。
 
@@ -1267,11 +1267,11 @@ TASK-028。
 
 若需要修改 module path，留到 TASK-030。
 
-## TASK-030 - 最终重命名 smart-recruit-domain-go 为 smart-recruit-commons
+## TASK-030 - 最终重命名 smart-recruit-commons 为 smart-recruit-commons
 
 ### Goal
 
-执行最终重命名：`smart-recruit-domain-go -> smart-recruit-commons`，同步 Go module path、import path、workspace、构建、部署、文档、脚本和边界检查。
+执行最终重命名：`smart-recruit-commons -> smart-recruit-commons`，同步 Go module path、import path、workspace、构建、部署、文档、脚本和边界检查。
 
 ### Scope
 
@@ -1279,7 +1279,7 @@ TASK-028。
 
 ### Allowed Files
 
-- `smart-recruit-domain-go/**`
+- `smart-recruit-commons/**`
 - `smart-recruit-commons/**`
 - `smart-recruit-*-service/**`
 - `smart-recruit-gateway/**`
@@ -1320,7 +1320,7 @@ TASK-029。
 - `go test ./...` in all Go modules or workspace-equivalent checks.
 - `node scripts/check-mysql-table-ownership.mjs`
 - backend boundary checks.
-- `rg "smart-recruit-domain-go"` should only show approved historical references, if any.
+- `rg "smart-recruit-commons"` should only show approved historical references, if any.
 
 ### Risks
 

@@ -14,9 +14,9 @@ import (
 	"github.com/cloudwego/eino/schema"
 	"go.uber.org/zap"
 
-	"smart-recruit-domain-go/oss"
-	"smart-recruit-domain-go/pkg/authz"
-	"smart-recruit-domain-go/resumeparser"
+	"smart-recruit-commons/oss"
+	"smart-recruit-commons/pkg/authz"
+	"smart-recruit-commons/resumeparser"
 	"smart-recruit-platform-go/logger"
 	"smart-recruit-recruitment-service/internal/legacydomain/model"
 	"smart-recruit-recruitment-service/internal/legacydomain/repository"

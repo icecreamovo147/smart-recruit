@@ -8,7 +8,7 @@ require (
 	google.golang.org/grpc v1.73.0
 	gorm.io/driver/mysql v1.5.7
 	gorm.io/gorm v1.30.0
-	smart-recruit-domain-go v0.0.0
+	smart-recruit-commons v0.0.0
 	smart-recruit-platform-go v0.0.0
 	smart-recruit-proto v0.0.0
 )
@@ -95,6 +95,6 @@ require (
 
 replace smart-recruit-platform-go => ../smart-recruit-platform-go
 
-replace smart-recruit-domain-go => ../smart-recruit-domain-go
+replace smart-recruit-commons => ../smart-recruit-commons
 
 replace smart-recruit-proto => ../smart-recruit-proto

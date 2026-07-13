@@ -3,7 +3,7 @@ package cache
 import (
 	"context"
 
-	sharedcache "smart-recruit-domain-go/pkg/cache"
+	sharedcache "smart-recruit-commons/pkg/cache"
 )
 
 type NotificationCache struct {

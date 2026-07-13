@@ -16,7 +16,7 @@ database schema, or recruitment API behavior.
   `internal/legacydomain/service`, `repository`, `model`, and `ai`
   compatibility packages provide active job, taxonomy, candidate, resume,
   application, collaboration, usage-stats, authz/scope, AI helper, and outbox
-  behavior. `smart-recruit-domain-go/oss` remains a shared infrastructure
+  behavior. `smart-recruit-commons/oss` remains a shared infrastructure
   bridge/commons candidate.
 - Platform behavior retained by runtime: Nacos discovery, gRPC internal auth,
   health, metrics, trace, MySQL, optional Redis, and OSS configuration.

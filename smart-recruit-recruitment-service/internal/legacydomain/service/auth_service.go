@@ -13,8 +13,8 @@ import (
 	"go.uber.org/zap"
 	"golang.org/x/crypto/bcrypt"
 
-	"smart-recruit-domain-go/pkg/authz"
-	"smart-recruit-domain-go/pkg/jwt"
+	"smart-recruit-commons/pkg/authz"
+	"smart-recruit-commons/pkg/jwt"
 	"smart-recruit-platform-go/errs"
 	"smart-recruit-platform-go/logger"
 	"smart-recruit-proto/recruitment/pb"

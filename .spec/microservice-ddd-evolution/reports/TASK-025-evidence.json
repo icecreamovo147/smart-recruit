@@ -47,7 +47,7 @@
       "summary": "ai-agent-service runtime check passed"
     },
     {
-      "command": "rg -n \"smart-recruit-domain-go/(service|repository|model|ai|mq|pkg|oss|resumeparser)|service\\.AIAgentRuntime|service\\.NewServices\" smart-recruit-ai-agent-service/internal/runtime smart-recruit-ai-agent-service/internal/interfaces smart-recruit-ai-agent-service/cmd/ai-agent-service",
+      "command": "rg -n \"smart-recruit-commons/(service|repository|model|ai|mq|pkg|oss|resumeparser)|service\\.AIAgentRuntime|service\\.NewServices\" smart-recruit-ai-agent-service/internal/runtime smart-recruit-ai-agent-service/internal/interfaces smart-recruit-ai-agent-service/cmd/ai-agent-service",
       "exit_code": 0,
       "started_at": "2026-07-13T10:03:00Z",
       "duration_ms": 1,

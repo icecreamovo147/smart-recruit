@@ -4,9 +4,9 @@ import (
 	"context"
 	"errors"
 
-	"smart-recruit-domain-go/email"
-	"smart-recruit-domain-go/mq"
-	"smart-recruit-domain-go/pkg/cache"
+	"smart-recruit-commons/email"
+	"smart-recruit-commons/mq"
+	"smart-recruit-commons/pkg/cache"
 	"smart-recruit-recruitment-service/internal/legacydomain/repository"
 )
 

@@ -18,7 +18,7 @@
 
 ## Acceptance Criteria
 
-- 每个服务对 `smart-recruit-domain-go` 的依赖被记录。
+- 每个服务对 `smart-recruit-commons` 的依赖被记录。
 - 每个服务 owner 表、过渡只读表、潜在违规写风险被记录。
 - 输出可作为后续 TASK baseline。
 

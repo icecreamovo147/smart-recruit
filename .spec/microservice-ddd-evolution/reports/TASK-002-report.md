@@ -14,7 +14,7 @@ TASK-002 - 盘点共享依赖、表归属与服务迁移基线。
 
 ## 3. Change Summary by File
 
-- `docs/architecture/microservice-ddd-evolution-service-baseline.md`: 新增服务迁移基线，记录 8 个服务对 `smart-recruit-domain-go` 的依赖、表 owner/read/shared-write 边界、潜在违规写风险和后续迁移关注点。
+- `docs/architecture/microservice-ddd-evolution-service-baseline.md`: 新增服务迁移基线，记录 8 个服务对 `smart-recruit-commons` 的依赖、表 owner/read/shared-write 边界、潜在违规写风险和后续迁移关注点。
 - `.spec/microservice-ddd-evolution/reports/TASK-002-report.md`: 新增 TASK 报告。
 - `.spec/microservice-ddd-evolution/reports/TASK-002-evidence.json`: 新增机器可读证据。
 
@@ -28,7 +28,7 @@ TASK-002 - 盘点共享依赖、表归属与服务迁移基线。
 
 符合 SPEC：
 
-- FR-016：记录每个服务对 `smart-recruit-domain-go/model/repository/service` 及 AI/OSS/email/MQ 等共享包的剩余依赖。
+- FR-016：记录每个服务对 `smart-recruit-commons/model/repository/service` 及 AI/OSS/email/MQ 等共享包的剩余依赖。
 - FR-018 至 FR-020：记录单 MySQL 过渡模式下的 owner 表、过渡只读表、shared write 表和潜在跨 owner 写风险。
 - CR-005：执行并记录 `smart-recruit-deploy/mysql-table-ownership.json` 与 `db.sql` 的一致性校验。
 
@@ -44,7 +44,7 @@ TASK-002 - 盘点共享依赖、表归属与服务迁移基线。
 
 ## 7. Acceptance Comparison Result
 
-- 每个服务对 `smart-recruit-domain-go` 的依赖已记录。
+- 每个服务对 `smart-recruit-commons` 的依赖已记录。
 - 每个服务 owner 表、过渡只读表、授权 shared write 表和潜在违规写风险已记录。
 - 输出文档可作为 TASK-003 及后续服务 TASK 的 baseline。
 - 未把历史 `.spec/backend-ddd-microservices-evolution` 当作当前执行合同。

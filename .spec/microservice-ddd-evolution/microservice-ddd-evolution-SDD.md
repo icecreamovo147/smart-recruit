@@ -15,7 +15,7 @@
 - `smart-recruit-ai-agent-service`
 - `smart-recruit-analytics-service`
 - `smart-recruit-worker-service`
-- `smart-recruit-domain-go`
+- `smart-recruit-commons`
 - `smart-recruit-platform-go`
 - `smart-recruit-proto`
 
@@ -36,15 +36,15 @@
 - `analytics-service` 注册 analytics/reporting 相关 `AdminService` 子集。
 - `worker-service` 承载后台 workload。
 
-但业务代码仍明显集中在 `smart-recruit-domain-go`：
+但业务代码仍明显集中在 `smart-recruit-commons`：
 
-- `smart-recruit-domain-go/model`: 领域实体、状态、配置模型。
-- `smart-recruit-domain-go/repository`: GORM repository。
-- `smart-recruit-domain-go/service`: 大量业务服务、消费者、runtime helper、AI/Embedding/Notification/Offer/Interview/Application 等业务规则。
-- `smart-recruit-domain-go/mq`、`oss`、`email`、`ai`: 具体基础设施能力和外部系统适配。
-- `smart-recruit-domain-go/migrations`: 统一数据库迁移。
+- `smart-recruit-commons/model`: 领域实体、状态、配置模型。
+- `smart-recruit-commons/repository`: GORM repository。
+- `smart-recruit-commons/service`: 大量业务服务、消费者、runtime helper、AI/Embedding/Notification/Offer/Interview/Application 等业务规则。
+- `smart-recruit-commons/mq`、`oss`、`email`、`ai`: 具体基础设施能力和外部系统适配。
+- `smart-recruit-commons/migrations`: 统一数据库迁移。
 
-微服务 `cmd/*/main.go` 仍通过 `repository.New*Repo` 和 `service.New*Service` 或 `service.NewServices` 装配共享领域服务。例如 Offer、Interview、AI Agent 仍构造大量共享 repository 并调用 `service.NewServices`，Recruitment 虽然局部手动装配，但仍直接使用 `smart-recruit-domain-go/repository` 和 `smart-recruit-domain-go/service`。
+微服务 `cmd/*/main.go` 仍通过 `repository.New*Repo` 和 `service.New*Service` 或 `service.NewServices` 装配共享领域服务。例如 Offer、Interview、AI Agent 仍构造大量共享 repository 并调用 `service.NewServices`，Recruitment 虽然局部手动装配，但仍直接使用 `smart-recruit-commons/repository` 和 `smart-recruit-commons/service`。
 
 表归属已有基础约束：`smart-recruit-deploy/mysql-table-ownership.json` 定义单 MySQL 实例下的 logical owner，`docs/mysql-table-ownership.md` 要求每张表只有一个 owner，跨服务访问需声明，新直接跨服务写应避免并优先使用 RabbitMQ 事件和 Outbox/Inbox。
 
@@ -54,13 +54,13 @@
 
 关键问题：
 
-- 业务规则、状态机、repository、infrastructure adapter 仍在共享 `smart-recruit-domain-go` 中，服务本地只承担启动装配和 gRPC facade。
-- `smart-recruit-domain-go/service.Services` 是跨上下文大聚合，容易让一个服务为了使用一个能力而构造大量无关 repository 和 service。
+- 业务规则、状态机、repository、infrastructure adapter 仍在共享 `smart-recruit-commons` 中，服务本地只承担启动装配和 gRPC facade。
+- `smart-recruit-commons/service.Services` 是跨上下文大聚合，容易让一个服务为了使用一个能力而构造大量无关 repository 和 service。
 - domain 层、application 层、infrastructure 层、interfaces 层边界不清，许多 `service/*.go` 同时处理 proto、权限、事务、repository、外部依赖、业务规则和响应组装。
 - 仓储接口与 GORM 实现未按服务 owner 反转依赖，导致服务自治和单元测试隔离困难。
 - 跨上下文依赖仍通过直接 repository/table 读取大量存在，虽然表归属 manifest 已记录，但服务内部边界未完全收敛。
 - Analytics、AI Agent、Worker 与事务域存在较多读写/事件/后台协作，需要在后期阶段谨慎迁移。
-- 如果直接大规模移动 `smart-recruit-domain-go`，会产生 protobuf、schema、部署和测试的大面积风险。
+- 如果直接大规模移动 `smart-recruit-commons`，会产生 protobuf、schema、部署和测试的大面积风险。
 
 因此，本迁移应采用“先建立目标分层范式，再按服务顺序复制范式”的方式。
 
@@ -113,7 +113,7 @@ smart-recruit-<context>-service/
 
 ### 3.2 Shared Module Target
 
-`smart-recruit-domain-go` 应从“大共享业务域”收缩为 shared kernel / legacy migration bridge。长期允许保留：
+`smart-recruit-commons` 应从“大共享业务域”收缩为 shared kernel / legacy migration bridge。长期允许保留：
 
 - 通用分页、加密、JWT 辅助、authz 常量等稳定通用包。
 - 通用 event envelope、Outbox/Inbox 基础类型或 helper，前提是不包含具体业务状态机。
@@ -127,7 +127,7 @@ smart-recruit-<context>-service/
 - 服务 owner 的业务实体和状态机。
 - 需要访问具体业务表的跨上下文聚合服务。
 
-在所有服务迁移和 shared kernel 范围收敛后，`smart-recruit-domain-go` 必须作为本功能点最后阶段重命名为 `smart-recruit-commons`。该重命名不得提前执行，避免出现“commons 名称下仍包含大量业务 model/repository/service”的语义错位。重命名完成后，旧 module/import path 不应再出现在业务代码、测试、构建脚本、部署配置或文档中。
+在所有服务迁移和 shared kernel 范围收敛后，`smart-recruit-commons` 必须作为本功能点最后阶段重命名为 `smart-recruit-commons`。该重命名不得提前执行，避免出现“commons 名称下仍包含大量业务 model/repository/service”的语义错位。重命名完成后，旧 module/import path 不应再出现在业务代码、测试、构建脚本、部署配置或文档中。
 
 ### 3.3 Required Migration Order
 
@@ -165,14 +165,14 @@ smart-recruit-<context>-service/
 4. 迁出 application service 或 command/query handler，保留原有业务语义。
 5. 在 infrastructure 中实现 GORM repository、event publisher/consumer、cache/client adapter。
 6. 在 interfaces/grpc 中实现 proto 到 application DTO 的映射和 gRPC server。
-7. 在 runtime 中装配本地 application + infrastructure，替代对 `smart-recruit-domain-go/service` 的依赖。
+7. 在 runtime 中装配本地 application + infrastructure，替代对 `smart-recruit-commons/service` 的依赖。
 8. 迁移或新增测试。
 9. 删除或标记 shared domain 中对应业务实现为 deprecated，直到后续 TASK 安全移除。
 10. 更新边界检查、表访问声明、报告和 knowledge impact。
 
 所有服务完成上述步骤后，执行 shared cleanup 与最终 rename：
 
-1. 清点 `smart-recruit-domain-go` 剩余包并分类为 shared kernel、platform-adjacent、legacy debt 或应删除业务残留。
+1. 清点 `smart-recruit-commons` 剩余包并分类为 shared kernel、platform-adjacent、legacy debt 或应删除业务残留。
 2. 删除或迁出所有具体业务 `model/repository/service` 残留。
 3. 将允许保留的通用能力整理到 commons 命名和目录结构。
 4. 重命名目录和 Go module path 为 `smart-recruit-commons`。
@@ -250,7 +250,7 @@ smart-recruit-commons/
 - 新增表、修改 migration、修改 `db.sql`、修改 table ownership manifest 都是高风险 TASK，必须显式授权。
 - 如果服务需要本地只读 projection，应先在 SPEC/SDD/TASK 中说明事件来源、投影表 owner、重建策略、幂等策略和回滚策略。
 - 如果迁移需要按服务拆分 schema 或物理数据库，必须作为后续独立 feature 或 SPEC 修订，不在本次初始 SDD 中直接要求。
-- migrations 短期统一保留；当 `smart-recruit-domain-go` 收缩为 `smart-recruit-commons` 时，可将 migration runner 作为 commons/platform-adjacent 能力保留，但不得在该阶段顺带执行物理拆库。
+- migrations 短期统一保留；当 `smart-recruit-commons` 收缩为 `smart-recruit-commons` 时，可将 migration runner 作为 commons/platform-adjacent 能力保留，但不得在该阶段顺带执行物理拆库。
 
 ## 5. API and Interface Changes
 
@@ -388,7 +388,7 @@ interfaces/grpc request
 
 ## 12. Migration Risks
 
-- RISK-001: 大量业务代码共享在 `smart-recruit-domain-go`，迁移时容易产生循环依赖或重复业务规则。
+- RISK-001: 大量业务代码共享在 `smart-recruit-commons`，迁移时容易产生循环依赖或重复业务规则。
 - RISK-002: `smart-recruit-proto` 是单一大 proto 文件，按服务拆分接口时容易触发 public contract 风险。
 - RISK-003: 单 MySQL 实例下，跨服务读写边界容易被 GORM repository 直接访问绕过。
 - RISK-004: `service.NewServices` 聚合大量依赖，拆分时可能遗漏 AI/Notification/Outbox/Usage/Authz 等隐式依赖。
@@ -398,7 +398,7 @@ interfaces/grpc request
 - RISK-008: 若 TASK 过大，harness-pipeline 虽能串行执行，但 review 和 rollback 粒度会变差。
 - RISK-009: 历史 `.spec/backend-ddd-microservices-evolution` 是早期两服务阶段文档，若误当当前合同会与当前仓库事实冲突。
 - RISK-010: 配置和密钥曾出现真实 `config.yaml` 被提交的风险，后续 TASK 必须保持 secrets hygiene。
-- RISK-011: 最终重命名 `smart-recruit-domain-go -> smart-recruit-commons` 影响 Go module path、import path、`go.work`、Dockerfile、脚本、部署配置和文档，必须作为最后的独立高风险 TASK 执行。
+- RISK-011: 最终重命名 `smart-recruit-commons -> smart-recruit-commons` 影响 Go module path、import path、`go.work`、Dockerfile、脚本、部署配置和文档，必须作为最后的独立高风险 TASK 执行。
 - RISK-012: 如果过早重命名，`smart-recruit-commons` 可能变成新的业务垃圾桶；因此必须在业务代码迁出和 shared kernel 范围确认后执行。
 
 ## 13. Implementation Boundaries
@@ -441,11 +441,11 @@ interfaces/grpc request
 
 ## 14. Alternatives Considered
 
-### Alternative A: 一次性把 `smart-recruit-domain-go` 拆到所有服务
+### Alternative A: 一次性把 `smart-recruit-commons` 拆到所有服务
 
 拒绝。风险过高，容易造成大规模编译破坏、行为漂移、重复代码和难以 review 的巨型 diff。
 
-### Alternative B: 保持共享 `smart-recruit-domain-go`，只增加文档
+### Alternative B: 保持共享 `smart-recruit-commons`，只增加文档
 
 拒绝。它不能解决服务自治、仓储 owner、DDD 分层和跨上下文边界问题。
 
@@ -463,7 +463,7 @@ interfaces/grpc request
 
 ### Alternative F: 迁移开始时立即重命名为 `smart-recruit-commons`
 
-拒绝。当前 `smart-recruit-domain-go` 仍包含大量具体业务 model、repository、service 和基础设施编排。提前重命名会造成命名与内容不一致，并扩大所有后续 TASK 的 import path 变更噪音。重命名必须作为最后阶段执行。
+拒绝。当前 `smart-recruit-commons` 仍包含大量具体业务 model、repository、service 和基础设施编排。提前重命名会造成命名与内容不一致，并扩大所有后续 TASK 的 import path 变更噪音。重命名必须作为最后阶段执行。
 
 ## 15. Assumptions Requiring Confirmation
 
@@ -474,15 +474,15 @@ interfaces/grpc request
 - ARC-003: 用户确认后续可以拆出大量 TASK，由 `harness-pipeline` 和 goal 模式持续执行。
 - ARC-004: 用户确认迁移顺序不可被 pipeline 自动优化或重排。
 - ARC-005: 用户确认每个服务的标准 DDD 目录可以放在 `smart-recruit-*-service/internal/` 下。
-- ARC-006: 用户确认 `smart-recruit-domain-go` 最终保留 shared kernel 是允许的，而不是必须完全删除。
+- ARC-006: 用户确认 `smart-recruit-commons` 最终保留 shared kernel 是允许的，而不是必须完全删除。
 - ARC-007: 用户确认本阶段不主动修改 proto、schema、部署和 auth 行为。
 - ARC-008: 每个服务最终拥有自己的 `internal/domain/model`，不直接复用 proto 或 GORM model 作为 domain model。
 - ARC-009: 错误处理采用 shared lightweight error contract 加服务本地 typed errors。
 - ARC-010: 架构边界检查采用根脚本与服务本地 architecture tests 双层机制。
-- ARC-011: `smart-recruit-domain-go/ai`、`oss`、`email`、`mq` 按通用技术能力与业务编排语义拆分归属。
+- ARC-011: `smart-recruit-commons/ai`、`oss`、`email`、`mq` 按通用技术能力与业务编排语义拆分归属。
 - ARC-012: Analytics 最终完全事件投影化，短期只读跨表作为受控过渡债务。
 - ARC-013: Worker 短期保持单服务，通过 workload profile/toggle 拆分；是否拆 binary 后置。
-- ARC-014: `smart-recruit-domain-go` 在所有服务迁移、共享业务代码清理和 shared kernel 范围确认后，作为本功能点最后阶段重命名为 `smart-recruit-commons`。
+- ARC-014: `smart-recruit-commons` 在所有服务迁移、共享业务代码清理和 shared kernel 范围确认后，作为本功能点最后阶段重命名为 `smart-recruit-commons`。
 
 ## 16. Open Questions
 
