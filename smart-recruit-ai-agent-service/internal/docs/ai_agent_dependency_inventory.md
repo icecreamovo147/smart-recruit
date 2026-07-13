@@ -64,6 +64,28 @@ API semantics.
 - `interfaces/grpc`: protobuf mapping for all AI-owned service surfaces and
   stream responses.
 
+## Local Chat, Agent Run, And Prompt Application Boundary
+
+TASK-023 localizes the first AI Agent domain/application semantics without
+switching active runtime wiring.
+
+- `domain/model/agent.go` defines transport-neutral chat sessions/messages,
+  durable agent runs/events, prompt templates/versions, model/provider
+  candidates, and audit events.
+- `domain/policy/agent.go` owns the durable agent-run state machine,
+  stale/duplicate event sequence detection, create-run request validation,
+  prompt validation/versioning, and provider fallback selection.
+- `domain/repository/agent.go` defines local ports for chat sessions, agent
+  runs, prompts, and audit events.
+- `application/service/agent_service.go` orchestrates idempotent durable run
+  create/dispatch, cancel, confirm, prompt create/update, and audit intents
+  through local ports.
+
+Streaming, cancel, confirm, audit, and provider fallback semantics are pinned by
+local unit tests. The active gRPC runtime still delegates to the shared AI
+implementation until later TASKs add local infrastructure/interfaces adapters
+and cut over safely.
+
 ## Security And Safety Dependencies
 
 - Provider credentials and encryption keys must never be logged or committed.
