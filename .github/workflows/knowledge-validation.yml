@@ -49,6 +49,12 @@ jobs:
       - name: Validate development-agent-knowledge-base feature
         run: node .agents/skills/spec-harness/scripts/validate-feature.mjs --feature .spec/development-agent-knowledge-base
 
+      - name: Validate knowledge-base-current-state-refresh feature
+        run: node .agents/skills/spec-harness/scripts/validate-feature.mjs --feature .spec/knowledge-base-current-state-refresh
+
+      - name: Validate github-ci-current-state-refresh feature
+        run: node .agents/skills/spec-harness/scripts/validate-feature.mjs --feature .spec/github-ci-current-state-refresh
+
       - name: Validate spec-harness regression tests
         run: node .agents/skills/spec-harness/scripts/validator.test.mjs
 
