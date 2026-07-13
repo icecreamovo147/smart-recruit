@@ -44,6 +44,27 @@ Projection target:
 - Projection writes must not mutate transactional business state owned by
   Recruitment, Interview, Offer, Identity, Notification, or AI Agent contexts.
 
+## Local Reporting Application Boundary
+
+TASK-020 localizes reporting/projection application contracts under
+`internal/application` and `internal/domain` without switching runtime wiring.
+
+- `application/service.ReportingService` owns report query orchestration,
+  permission checks, scope lookup, fail-soft dashboard secondary reads, and
+  legacy-compatible result shaping.
+- `domain/policy` owns funnel ordering, stage labels, conversion rates,
+  time-in-stage hour conversion, interview pass rate, offer acceptance rate,
+  actor mismatch rules, and projection strategy validation.
+- `domain/repository.ReportingRepository` is the local read port for dashboard,
+  funnel, time-in-stage, interview, offer, trend, stage distribution, and unread
+  notification metrics.
+- `application/service.ProjectionService` writes only Analytics projection
+  events/checkpoints through `domain/repository.ProjectionStore`.
+
+The local application boundary does not write Recruitment, Interview, Offer,
+Notification, Identity, or AI Agent transactional state. Any future adapter that
+needs writes outside Analytics-owned projection tables is a Hard Stop.
+
 ## Transitional Read Debt
 
 Current reporting still reads source-domain tables through shared SQL queries.
