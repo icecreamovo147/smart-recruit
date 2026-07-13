@@ -78,7 +78,9 @@ function matches(path, patterns) {
   return patterns.some((pattern) => {
     if (pattern.endsWith("/**")) {
       const prefix = pattern.slice(0, -3);
-      return path === prefix || path.startsWith(prefix + "/");
+      if (!/[?*]/.test(prefix)) {
+        return path === prefix || path.startsWith(prefix + "/");
+      }
     }
     return globToRegExp(pattern).test(path);
   });
