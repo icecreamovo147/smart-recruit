@@ -30,6 +30,7 @@ import (
 	"smart-recruit-platform-go/server"
 	logicconfig "smart-recruit-platform-go/serviceconfig"
 	"smart-recruit-proto/recruitment/pb"
+	recruitmentgrpc "smart-recruit-recruitment-service/internal/interfaces/grpc"
 	recruitmentruntime "smart-recruit-recruitment-service/internal/runtime"
 )
 
@@ -173,15 +174,47 @@ func serveRecruitment(addr string) error {
 		serviceAuth,
 		scopeEval,
 	)
+	jobAPI, err := recruitmentgrpc.NewJobAdapter(jobSvc)
+	if err != nil {
+		return err
+	}
+	jobTaxonomyAPI, err := recruitmentgrpc.NewJobTaxonomyAdapter(taxonomySvc)
+	if err != nil {
+		return err
+	}
+	taxonomyAdminAPI, err := recruitmentgrpc.NewTaxonomyAdminAdapter(taxonomySvc)
+	if err != nil {
+		return err
+	}
+	adminAPI, err := recruitmentgrpc.NewRecruitmentAdminAdapter(adminSvc)
+	if err != nil {
+		return err
+	}
+	usageStatsAPI, err := recruitmentgrpc.NewUsageStatsAdapter(usageStatsSvc)
+	if err != nil {
+		return err
+	}
+	candidateAPI, err := recruitmentgrpc.NewCandidateAdapter(candidateSvc)
+	if err != nil {
+		return err
+	}
+	applicationAPI, err := recruitmentgrpc.NewApplicationAdapter(applicationSvc)
+	if err != nil {
+		return err
+	}
+	collaborationAPI, err := recruitmentgrpc.NewCollaborationAdapter(collaborationSvc)
+	if err != nil {
+		return err
+	}
 	runtime, err := recruitmentruntime.New(recruitmentruntime.Deps{
-		Job:           jobSvc,
-		JobTaxonomy:   taxonomySvc,
-		TaxonomyAdmin: taxonomySvc,
-		Admin:         adminSvc,
-		UsageStats:    usageStatsSvc,
-		Candidate:     candidateSvc,
-		Application:   applicationSvc,
-		Collaboration: collaborationSvc,
+		Job:           jobAPI,
+		JobTaxonomy:   jobTaxonomyAPI,
+		TaxonomyAdmin: taxonomyAdminAPI,
+		Admin:         adminAPI,
+		UsageStats:    usageStatsAPI,
+		Candidate:     candidateAPI,
+		Application:   applicationAPI,
+		Collaboration: collaborationAPI,
 	})
 	if err != nil {
 		return err

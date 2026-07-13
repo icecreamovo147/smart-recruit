@@ -1,0 +1,147 @@
+{
+  "schemaVersion": 1,
+  "feature_name": "microservice-ddd-evolution",
+  "task_id": "TASK-018",
+  "base_sha": "a36abf8d9091691ada9ab6d5eda0ce2dac2f7199",
+  "base_tree": "8700ea686db5e50c846bc5e40f6217e8f3962c2d",
+  "head_sha": "a36abf8d9091691ada9ab6d5eda0ce2dac2f7199",
+  "changed_files": [
+    "smart-recruit-recruitment-service/README.md",
+    "smart-recruit-recruitment-service/cmd/recruitment-service/main.go",
+    "smart-recruit-recruitment-service/internal/docs/runtime_convergence.md",
+    "smart-recruit-recruitment-service/internal/interfaces/grpc/adapters.go",
+    "smart-recruit-recruitment-service/internal/interfaces/grpc/adapters_test.go",
+    ".spec/microservice-ddd-evolution/reports/TASK-018-report.md",
+    ".spec/microservice-ddd-evolution/reports/TASK-018-evidence.json"
+  ],
+  "scope": {
+    "status": "passed",
+    "checked_by": "bash .spec/microservice-ddd-evolution/scripts/check-task-scope.sh TASK-018",
+    "out_of_scope": [],
+    "forbidden": []
+  },
+  "checks": [
+    {
+      "command": "go test ./...",
+      "exit_code": 0,
+      "started_at": "2026-07-13T10:00:00Z",
+      "duration_ms": 4158,
+      "status": "passed",
+      "summary": "smart-recruit-recruitment-service package tests passed after runtime adapter convergence."
+    },
+    {
+      "command": "go run ./cmd/recruitment-service --check",
+      "exit_code": 0,
+      "started_at": "2026-07-13T10:01:00Z",
+      "duration_ms": 4719,
+      "status": "passed",
+      "summary": "recruitment-service runtime check passed"
+    },
+    {
+      "command": "node scripts/check-mysql-table-ownership.mjs",
+      "exit_code": 0,
+      "started_at": "2026-07-13T10:01:00Z",
+      "duration_ms": 331,
+      "status": "passed",
+      "summary": "mysql_table_ownership: PASS (67 tables, single MySQL instance)"
+    },
+    {
+      "command": "node scripts/check-backend-boundaries.mjs",
+      "exit_code": 0,
+      "started_at": "2026-07-13T10:01:00Z",
+      "duration_ms": 738,
+      "status": "passed",
+      "summary": "backend_boundary_result: PASS"
+    },
+    {
+      "command": "git diff --name-only",
+      "exit_code": 0,
+      "started_at": "2026-07-13T10:01:00Z",
+      "duration_ms": 1,
+      "status": "passed",
+      "summary": "Tracked diff listed README.md and cmd/recruitment-service/main.go; new local adapter/doc/report files are listed in changed_files."
+    },
+    {
+      "command": "bash .spec/microservice-ddd-evolution/scripts/check-task-scope.sh TASK-018",
+      "exit_code": 0,
+      "started_at": "2026-07-13T10:01:00Z",
+      "duration_ms": 238,
+      "status": "passed",
+      "summary": "Scope check passed for TASK-018. Changed files: 7"
+    },
+    {
+      "command": "bash .spec/microservice-ddd-evolution/scripts/agent-check.sh",
+      "exit_code": 0,
+      "started_at": "2026-07-13T10:01:00Z",
+      "duration_ms": 1193,
+      "status": "passed",
+      "summary": "Harness JSON validation passed. Running go test ./... in smart-recruit-recruitment-service passed."
+    }
+  ],
+  "non_blocking_checks": [
+    {
+      "command": "node .knowledge/scripts/detect-impact.mjs --root . --base-tree 8700ea686db5e50c846bc5e40f6217e8f3962c2d",
+      "exit_code": 1,
+      "started_at": "2026-07-13T10:01:00Z",
+      "duration_ms": 87,
+      "status": "failed",
+      "summary": "Pre-existing active knowledge source_refs still point at removed logic-grpc-service/web-gin-service paths; TASK-018 scope does not allow .knowledge/** edits, so this is recorded as candidate_required."
+    }
+  ],
+  "review": {
+    "type": "self-review",
+    "round": 1,
+    "verdict": "通过",
+    "findings": []
+  },
+  "human_confirmation": {
+    "required": false,
+    "confirmed": true,
+    "confirmed_by": "not_required",
+    "confirmed_at": "2026-07-13T09:54:00Z",
+    "confirmation_text": "TASK-018 does not require human confirmation; user authorized continuing future TASKs unless a blocking issue needs intervention."
+  },
+  "exceptions": [],
+  "knowledgeImpact": {
+    "result": "candidate_required",
+    "triggeredBy": [
+      "smart-recruit-recruitment-service/cmd/recruitment-service/main.go",
+      "smart-recruit-recruitment-service/internal/interfaces/grpc/adapters.go",
+      "smart-recruit-recruitment-service/internal/docs/runtime_convergence.md"
+    ],
+    "reviewResults": [
+      {
+        "document": ".knowledge/architecture/service-boundaries.md",
+        "verdict": "CANDIDATE",
+        "evidence": [
+          "TASK-018 routes active Recruitment runtime dependencies through local interfaces/grpc adapters and records remaining shared delegate debt."
+        ]
+      },
+      {
+        "document": ".knowledge/domains/recruitment.md",
+        "verdict": "CANDIDATE",
+        "evidence": [
+          "TASK-018 establishes the active Recruitment protobuf-facing adapter boundary."
+        ]
+      },
+      {
+        "document": ".knowledge/domains/recruitment-lifecycle.md",
+        "verdict": "CANDIDATE",
+        "evidence": [
+          "TASK-018 keeps application lifecycle behavior compatible by preserving shared compatibility delegates behind local adapters."
+        ]
+      },
+      {
+        "document": ".knowledge/runbooks/service-binary-convention.md",
+        "verdict": "CANDIDATE",
+        "evidence": [
+          "TASK-018 changes Recruitment service runtime wiring and check path anchors."
+        ]
+      }
+    ],
+    "coverageGap": false,
+    "validationExitCode": 1,
+    "reason": "Knowledge impact detection cannot complete until pre-existing source_ref debt is resolved; TASK-018 scope does not allow editing .knowledge/**."
+  },
+  "skipped_checks": []
+}

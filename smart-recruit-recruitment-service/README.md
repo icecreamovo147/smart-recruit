@@ -18,3 +18,8 @@ go run ./cmd/recruitment-service --serve --addr :50062
 ```
 
 The runtime registers Job, Candidate, Application, and Collaboration services against the shared MySQL schema. Gateway traffic should target this service directly through discovery or the configured `RECRUITMENT_GRPC_ADDR`.
+
+TASK-018 routes runtime dependencies through local `internal/interfaces/grpc`
+adapters. Some adapters still delegate to shared compatibility implementations
+until local persistence, OSS, outbox, usage-log, and AdminService split adapters
+fully replace them.
