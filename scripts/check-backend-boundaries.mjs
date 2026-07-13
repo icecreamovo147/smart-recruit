@@ -22,11 +22,12 @@ const issues = [];
 
 for (const file of listFiles(scanRoots)) {
   const text = fs.readFileSync(file, "utf8");
-  for (const token of forbidden) {
-    if (text.includes(`"${token}`) || text.includes(`${token}/`)) {
-      issues.push(`${toPosix(path.relative(root, file))}: references ${token}`);
-    }
-  }
+  const relative = toPosix(path.relative(root, file));
+  checkLegacyReferences(relative, text);
+
+  if (!file.endsWith(".go")) continue;
+  const imports = parseGoImports(text);
+  checkLayerImports(relative, imports);
 }
 
 if (issues.length > 0) {
@@ -36,6 +37,132 @@ if (issues.length > 0) {
 }
 
 console.log("backend_boundary_result: PASS");
+
+function checkLegacyReferences(relative, text) {
+  for (const token of forbidden) {
+    if (text.includes(`"${token}`) || text.includes(`${token}/`)) {
+      issues.push(`${relative}: references legacy module ${token}`);
+    }
+  }
+}
+
+function checkLayerImports(relative, imports) {
+  if (isDomainLayer(relative)) {
+    for (const item of imports) {
+      if (isForbiddenDomainImport(item)) {
+        issues.push(`${relative}: domain layer imports forbidden outer dependency ${item}`);
+      }
+      if (isSameServiceOuterImport(relative, item)) {
+        issues.push(`${relative}: domain layer imports outer service layer ${item}`);
+      }
+    }
+  }
+
+  if (isApplicationLayer(relative)) {
+    for (const item of imports) {
+      if (isForbiddenApplicationImport(item)) {
+        issues.push(`${relative}: application layer imports forbidden infrastructure dependency ${item}`);
+      }
+      if (isSameServiceInfrastructureImport(relative, item)) {
+        issues.push(`${relative}: application layer imports local infrastructure ${item}`);
+      }
+    }
+  }
+
+  if (isInterfacesLayer(relative)) {
+    for (const item of imports) {
+      if (isPersistenceImport(item) || isSameServicePersistenceImport(relative, item)) {
+        issues.push(`${relative}: interfaces layer imports persistence dependency ${item}`);
+      }
+    }
+  }
+}
+
+function parseGoImports(text) {
+  const imports = [];
+  const blockPattern = /import\s*\(([\s\S]*?)\)/g;
+  let match;
+  while ((match = blockPattern.exec(text)) !== null) {
+    for (const item of match[1].matchAll(/"([^"]+)"/g)) {
+      imports.push(item[1]);
+    }
+  }
+
+  const singlePattern = /import\s+(?:[.\w]+\s+)?"([^"]+)"/g;
+  while ((match = singlePattern.exec(text)) !== null) {
+    imports.push(match[1]);
+  }
+  return imports;
+}
+
+function isDomainLayer(relative) {
+  return relative.includes("/internal/domain/");
+}
+
+function isApplicationLayer(relative) {
+  return relative.includes("/internal/application/");
+}
+
+function isInterfacesLayer(relative) {
+  return relative.includes("/internal/interfaces/");
+}
+
+function isForbiddenDomainImport(importPath) {
+  return matchesAny(importPath, [
+    "gorm.io/",
+    "github.com/redis/go-redis",
+    "github.com/rabbitmq/amqp091-go",
+    "google.golang.org/grpc",
+    "github.com/gin-gonic/gin",
+    "net/http",
+    "database/sql",
+    "smart-recruit-platform-go/",
+    "smart-recruit-proto/",
+    "smart-recruit-domain-go/repository",
+    "smart-recruit-domain-go/service",
+  ]);
+}
+
+function isForbiddenApplicationImport(importPath) {
+  return matchesAny(importPath, [
+    "gorm.io/",
+    "github.com/redis/go-redis",
+    "github.com/rabbitmq/amqp091-go",
+    "google.golang.org/grpc",
+    "github.com/gin-gonic/gin",
+    "net/http",
+    "database/sql",
+    "smart-recruit-domain-go/repository",
+  ]);
+}
+
+function isPersistenceImport(importPath) {
+  return matchesAny(importPath, ["gorm.io/", "smart-recruit-domain-go/repository"]);
+}
+
+function isSameServiceOuterImport(relative, importPath) {
+  const service = relative.split("/")[0];
+  return matchesAny(importPath, [
+    `${service}/internal/application/`,
+    `${service}/internal/infrastructure/`,
+    `${service}/internal/interfaces/`,
+    `${service}/internal/runtime/`,
+  ]);
+}
+
+function isSameServiceInfrastructureImport(relative, importPath) {
+  const service = relative.split("/")[0];
+  return importPath.startsWith(`${service}/internal/infrastructure/`);
+}
+
+function isSameServicePersistenceImport(relative, importPath) {
+  const service = relative.split("/")[0];
+  return importPath.startsWith(`${service}/internal/infrastructure/persistence/`);
+}
+
+function matchesAny(importPath, patterns) {
+  return patterns.some((pattern) => importPath === pattern || importPath.startsWith(pattern));
+}
 
 function listFiles(roots) {
   const files = [];
