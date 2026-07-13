@@ -44,6 +44,10 @@ func TestRuntimeStartsEnabledWorkloadsInDescriptorOrder(t *testing.T) {
 	if !reflect.DeepEqual(started, want) {
 		t.Fatalf("started workloads = %#v, want %#v", started, want)
 	}
+	profiles := runtime.EnabledProfiles()
+	if len(profiles) != len(want) || profiles[0].Name != "outbox-dispatcher" || profiles[0].Contract.OwnerContext == "" {
+		t.Fatalf("enabled profiles = %#v", profiles)
+	}
 }
 
 func TestRuntimeReadinessRequiresRabbitMQAndMySQL(t *testing.T) {
@@ -92,6 +96,41 @@ func TestRuntimeRejectsUnknownMissingStarterAndDuplicateUnsafeWork(t *testing.T)
 	}
 }
 
+func TestRuntimeGracefulStopCancelsWorkloadContextAndStopsInReverseOrder(t *testing.T) {
+	cfg, err := ParseWorkloadConfig("outbox-dispatcher,notification-consumer", "")
+	if err != nil {
+		t.Fatalf("ParseWorkloadConfig returned error: %v", err)
+	}
+	var stopped []string
+	starters := map[string]Starter{
+		"outbox-dispatcher":     &blockingStarter{name: "outbox-dispatcher", stopped: &stopped},
+		"notification-consumer": &blockingStarter{name: "notification-consumer", stopped: &stopped},
+	}
+	runtime, err := New(Deps{
+		Config:   cfg,
+		Starters: starters,
+		Status:   func(context.Context) DependencyStatus { return DependencyStatus{RabbitMQ: true, MySQL: true} },
+	})
+	if err != nil {
+		t.Fatalf("New returned error: %v", err)
+	}
+	if err := runtime.Start(context.Background()); err != nil {
+		t.Fatalf("Start returned error: %v", err)
+	}
+	if err := runtime.Stop(context.Background()); err != nil {
+		t.Fatalf("Stop returned error: %v", err)
+	}
+	want := []string{"notification-consumer", "outbox-dispatcher"}
+	if !reflect.DeepEqual(stopped, want) {
+		t.Fatalf("stopped workloads = %#v, want %#v", stopped, want)
+	}
+	for name, starter := range starters {
+		if !starter.(*blockingStarter).canceled {
+			t.Fatalf("%s did not observe canceled context", name)
+		}
+	}
+}
+
 func recordingStarters(names []string, started *[]string) map[string]Starter {
 	starters := make(map[string]Starter, len(names))
 	for _, name := range names {
@@ -104,4 +143,27 @@ func recordingStarters(names []string, started *[]string) map[string]Starter {
 		})
 	}
 	return starters
+}
+
+type blockingStarter struct {
+	name     string
+	stopped  *[]string
+	cancelCh chan struct{}
+	canceled bool
+}
+
+func (s *blockingStarter) Start(ctx context.Context) error {
+	s.cancelCh = make(chan struct{})
+	go func() {
+		<-ctx.Done()
+		s.canceled = true
+		close(s.cancelCh)
+	}()
+	return nil
+}
+
+func (s *blockingStarter) Stop(context.Context) error {
+	<-s.cancelCh
+	*s.stopped = append(*s.stopped, s.name)
+	return nil
 }

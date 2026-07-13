@@ -1,0 +1,167 @@
+{
+  "schemaVersion": 1,
+  "feature_name": "microservice-ddd-evolution",
+  "task_id": "TASK-027",
+  "base_sha": "b3758c03902c9572af50e62fdb977532db009c1f",
+  "base_tree": "c703a9602168549971ed339e9c8119b0416a58b8",
+  "head_sha": "b3758c03902c9572af50e62fdb977532db009c1f",
+  "changed_files": [
+    "smart-recruit-worker-service/internal/runtime/runtime.go",
+    "smart-recruit-worker-service/internal/runtime/runtime_test.go",
+    ".spec/microservice-ddd-evolution/reports/TASK-027-report.md",
+    ".spec/microservice-ddd-evolution/reports/TASK-027-evidence.json"
+  ],
+  "scope": {
+    "status": "passed",
+    "checked_by": "bash .spec/microservice-ddd-evolution/scripts/check-task-scope.sh TASK-027",
+    "out_of_scope": [],
+    "forbidden": []
+  },
+  "checks": [
+    {
+      "command": "go test ./internal/runtime",
+      "exit_code": 0,
+      "started_at": "2026-07-13T10:12:00Z",
+      "duration_ms": 2037,
+      "status": "passed",
+      "summary": "Worker runtime targeted tests passed, including profile/toggle/graceful stop coverage."
+    },
+    {
+      "command": "go test ./...",
+      "exit_code": 0,
+      "started_at": "2026-07-13T10:12:00Z",
+      "duration_ms": 3355,
+      "status": "passed",
+      "summary": "smart-recruit-worker-service package tests passed."
+    },
+    {
+      "command": "go run ./cmd/worker-service --check",
+      "exit_code": 0,
+      "started_at": "2026-07-13T10:12:00Z",
+      "duration_ms": 3619,
+      "status": "passed",
+      "summary": "worker-service runtime check passed"
+    },
+    {
+      "command": "git diff --name-only",
+      "exit_code": 0,
+      "started_at": "2026-07-13T10:12:00Z",
+      "duration_ms": 1,
+      "status": "passed",
+      "summary": "Diff listed runtime.go and runtime_test.go."
+    },
+    {
+      "command": "bash .spec/microservice-ddd-evolution/scripts/check-task-scope.sh TASK-027",
+      "exit_code": 0,
+      "started_at": "2026-07-13T10:12:00Z",
+      "duration_ms": 176,
+      "status": "passed",
+      "summary": "Scope check passed for TASK-027. Changed files: 2 before report/evidence creation."
+    },
+    {
+      "command": "bash .spec/microservice-ddd-evolution/scripts/agent-check.sh",
+      "exit_code": 0,
+      "started_at": "2026-07-13T10:12:00Z",
+      "duration_ms": 938,
+      "status": "passed",
+      "summary": "Harness JSON validation passed. Running go test ./... in smart-recruit-worker-service passed."
+    },
+    {
+      "command": "node scripts/check-mysql-table-ownership.mjs",
+      "exit_code": 0,
+      "started_at": "2026-07-13T10:12:00Z",
+      "duration_ms": 255,
+      "status": "passed",
+      "summary": "mysql_table_ownership: PASS (67 tables, single MySQL instance)"
+    },
+    {
+      "command": "node scripts/check-backend-boundaries.mjs",
+      "exit_code": 0,
+      "started_at": "2026-07-13T10:12:00Z",
+      "duration_ms": 99,
+      "status": "passed",
+      "summary": "backend_boundary_result: PASS"
+    },
+    {
+      "command": "node .agents/skills/spec-harness/scripts/validate-evidence.mjs --file .spec/microservice-ddd-evolution/reports/TASK-027-evidence.json",
+      "exit_code": 0,
+      "started_at": "2026-07-13T10:13:00Z",
+      "duration_ms": 1,
+      "status": "passed",
+      "summary": "evidence_result: PASS"
+    },
+    {
+      "command": "bash .spec/microservice-ddd-evolution/scripts/check-task-scope.sh TASK-027",
+      "exit_code": 0,
+      "started_at": "2026-07-13T10:13:00Z",
+      "duration_ms": 59,
+      "status": "passed",
+      "summary": "Scope check passed for TASK-027. Changed files: 4 after report/evidence creation."
+    },
+    {
+      "command": "bash .spec/microservice-ddd-evolution/scripts/agent-check.sh",
+      "exit_code": 0,
+      "started_at": "2026-07-13T10:13:00Z",
+      "duration_ms": 598,
+      "status": "passed",
+      "summary": "Harness JSON validation passed. Running go test ./... in smart-recruit-worker-service passed."
+    }
+  ],
+  "non_blocking_checks": [
+    {
+      "command": "node .knowledge/scripts/detect-impact.mjs --root . --base-tree c703a9602168549971ed339e9c8119b0416a58b8",
+      "exit_code": 1,
+      "started_at": "2026-07-13T10:12:00Z",
+      "duration_ms": 1,
+      "status": "failed",
+      "summary": "Pre-existing active knowledge source_refs still point at removed logic-grpc-service/web-gin-service paths; TASK-027 scope does not allow .knowledge/** edits, so this is recorded as candidate_required."
+    }
+  ],
+  "review": {
+    "type": "self-review",
+    "round": 1,
+    "verdict": "通过",
+    "findings": []
+  },
+  "human_confirmation": {
+    "required": false,
+    "confirmed": true,
+    "confirmed_by": "not_required",
+    "confirmed_at": "2026-07-13T10:11:00Z",
+    "confirmation_text": "TASK-027 does not require human confirmation."
+  },
+  "exceptions": [],
+  "knowledgeImpact": {
+    "result": "candidate_required",
+    "triggeredBy": [
+      "smart-recruit-worker-service/internal/runtime/**"
+    ],
+    "reviewResults": [
+      {
+        "document": ".knowledge/runbooks/service-binary-convention.md",
+        "verdict": "CANDIDATE",
+        "evidence": [
+          "TASK-027 adds Worker runtime graceful stop and profile-backed startup while preserving binary behavior."
+        ]
+      },
+      {
+        "document": ".knowledge/domains/notification-outbox.md",
+        "verdict": "CANDIDATE",
+        "evidence": [
+          "TASK-027 enforces enabled workload owner contract presence before startup."
+        ]
+      },
+      {
+        "document": ".knowledge/runbooks/event-replay-dead-letter.md",
+        "verdict": "UNCHANGED",
+        "evidence": [
+          "TASK-027 does not change outbox/inbox status values, retention, repair SQL, or DLQ procedures."
+        ]
+      }
+    ],
+    "coverageGap": false,
+    "validationExitCode": 1,
+    "reason": "Knowledge impact detection cannot complete until pre-existing source_ref debt is resolved; TASK-027 scope does not allow editing .knowledge/**."
+  },
+  "skipped_checks": []
+}

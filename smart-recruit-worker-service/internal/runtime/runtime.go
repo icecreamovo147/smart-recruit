@@ -89,14 +89,20 @@ type Deps struct {
 
 type Runtime struct {
 	workloads []Workload
+	profiles  map[string]WorkloadProfile
 	enabled   map[string]struct{}
 	starters  map[string]Starter
 	status    func(context.Context) DependencyStatus
 	mu        sync.Mutex
 	started   []string
+	cancel    context.CancelFunc
+	stopped   bool
 }
 
 func New(deps Deps) (*Runtime, error) {
+	if err := ValidateWorkloadProfiles(); err != nil {
+		return nil, err
+	}
 	enabled := deps.Config.EnabledSet()
 	if len(enabled) == 0 {
 		return nil, fmt.Errorf("at least one worker workload must be enabled")
@@ -110,8 +116,15 @@ func New(deps Deps) (*Runtime, error) {
 		if !ok {
 			return nil, fmt.Errorf("unknown worker workload %q", name)
 		}
+		profile, ok := ProfileByName(name)
+		if !ok {
+			return nil, fmt.Errorf("worker workload %q profile is required", name)
+		}
 		if strings.TrimSpace(workload.Idempotency) == "" {
 			return nil, fmt.Errorf("worker workload %q lacks idempotency policy", name)
+		}
+		if strings.TrimSpace(profile.Contract.OwnerContext) == "" || strings.TrimSpace(profile.Contract.Writes) == "" {
+			return nil, fmt.Errorf("worker workload %q owner contract is incomplete", name)
 		}
 		if deps.Starters[name] == nil {
 			return nil, fmt.Errorf("worker workload %q starter is required", name)
@@ -119,6 +132,7 @@ func New(deps Deps) (*Runtime, error) {
 	}
 	return &Runtime{
 		workloads: append([]Workload(nil), DefaultWorkloads...),
+		profiles:  workloadProfileSet(),
 		enabled:   enabled,
 		starters:  deps.Starters,
 		status:    deps.Status,
@@ -132,20 +146,71 @@ func (r *Runtime) Start(ctx context.Context) error {
 	if err := r.Ready(ctx); err != nil {
 		return err
 	}
+	runCtx, cancel := context.WithCancel(ctx)
+	r.mu.Lock()
+	if r.cancel != nil {
+		r.mu.Unlock()
+		return fmt.Errorf("worker runtime already started")
+	}
+	r.cancel = cancel
+	r.stopped = false
+	r.mu.Unlock()
 	for _, workload := range r.workloads {
 		if _, ok := r.enabled[workload.Name]; !ok {
 			continue
+		}
+		profile, ok := r.profiles[workload.Name]
+		if !ok {
+			return fmt.Errorf("worker workload %q profile is required", workload.Name)
+		}
+		if !profile.Toggle.DefaultOn {
+			return fmt.Errorf("worker workload %q default toggle must remain enabled", workload.Name)
+		}
+		if strings.TrimSpace(profile.Contract.OwnerContext) == "" {
+			return fmt.Errorf("worker workload %q owner context is required", workload.Name)
 		}
 		starter := r.starters[workload.Name]
 		if starter == nil {
 			return fmt.Errorf("worker workload %q starter is required", workload.Name)
 		}
-		if err := starter.Start(ctx); err != nil {
+		if err := starter.Start(runCtx); err != nil {
 			return fmt.Errorf("start worker workload %s: %w", workload.Name, err)
 		}
 		r.mu.Lock()
 		r.started = append(r.started, workload.Name)
 		r.mu.Unlock()
+	}
+	return nil
+}
+
+type Stopper interface {
+	Stop(context.Context) error
+}
+
+func (r *Runtime) Stop(ctx context.Context) error {
+	if r == nil {
+		return fmt.Errorf("worker runtime is required")
+	}
+	r.mu.Lock()
+	cancel := r.cancel
+	if r.stopped {
+		r.mu.Unlock()
+		return nil
+	}
+	r.stopped = true
+	r.mu.Unlock()
+	if cancel != nil {
+		cancel()
+	}
+	for i := len(r.started) - 1; i >= 0; i-- {
+		starter := r.starters[r.started[i]]
+		stopper, ok := starter.(Stopper)
+		if !ok {
+			continue
+		}
+		if err := stopper.Stop(ctx); err != nil {
+			return fmt.Errorf("stop worker workload %s: %w", r.started[i], err)
+		}
 	}
 	return nil
 }
@@ -182,10 +247,31 @@ func (r *Runtime) EnabledWorkloads() []Workload {
 	return workloads
 }
 
+func (r *Runtime) EnabledProfiles() []WorkloadProfile {
+	profiles := make([]WorkloadProfile, 0, len(r.enabled))
+	for _, workload := range r.workloads {
+		if _, ok := r.enabled[workload.Name]; !ok {
+			continue
+		}
+		if profile, ok := r.profiles[workload.Name]; ok {
+			profiles = append(profiles, profile)
+		}
+	}
+	return profiles
+}
+
 func knownWorkloadSet() map[string]Workload {
 	set := make(map[string]Workload, len(DefaultWorkloads))
 	for _, workload := range DefaultWorkloads {
 		set[workload.Name] = workload
+	}
+	return set
+}
+
+func workloadProfileSet() map[string]WorkloadProfile {
+	set := make(map[string]WorkloadProfile, len(DefaultWorkloadProfiles))
+	for _, profile := range DefaultWorkloadProfiles {
+		set[profile.Name] = profile
 	}
 	return set
 }
