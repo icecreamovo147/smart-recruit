@@ -6,7 +6,7 @@
       "title": "建立迁移总则与边界检查基线",
       "status": "pending",
       "allowedFiles": [
-        "docs/architecture/**",
+        ".spec/microservice-ddd-evolution/docs/architecture/**",
         "scripts/check-backend-boundaries.mjs",
         "scripts/backend-final-readiness-audit.mjs",
         ".knowledge/**",
@@ -42,7 +42,7 @@
       "title": "盘点共享依赖、表归属与服务迁移基线",
       "status": "pending",
       "allowedFiles": [
-        "docs/architecture/**",
+        ".spec/microservice-ddd-evolution/docs/architecture/**",
         ".knowledge/**",
         ".spec/microservice-ddd-evolution/reports/**"
       ],
@@ -833,7 +833,7 @@
         "smart-recruit-commons/**",
         "smart-recruit-*-service/**",
         "smart-recruit-gateway/**",
-        "docs/architecture/**",
+        ".spec/microservice-ddd-evolution/docs/architecture/**",
         "scripts/**",
         ".knowledge/**",
         ".spec/microservice-ddd-evolution/reports/**"
@@ -879,7 +879,6 @@
         "start-docker-all.sh",
         "stop-dev.sh",
         "README.md",
-        "docs/**",
         "scripts/**",
         ".knowledge/**",
         ".spec/microservice-ddd-evolution/**"

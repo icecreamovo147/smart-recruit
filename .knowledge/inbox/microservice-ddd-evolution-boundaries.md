@@ -17,13 +17,13 @@ applies_to:
   - smart-recruit-gateway/**
   - smart-recruit-platform-go/**
   - smart-recruit-proto/**
-  - docs/architecture/**
+  - .spec/microservice-ddd-evolution/docs/architecture/**
   - scripts/check-backend-boundaries.mjs
 source_refs:
   - .spec/microservice-ddd-evolution/microservice-ddd-evolution-SPEC.md
   - .spec/microservice-ddd-evolution/microservice-ddd-evolution-SDD.md
   - .spec/microservice-ddd-evolution/TASKS.md
-  - docs/architecture/microservice-ddd-evolution-guidelines.md
+  - .spec/microservice-ddd-evolution/docs/architecture/microservice-ddd-evolution-guidelines.md
   - scripts/check-backend-boundaries.mjs
   - go.work
 last_verified: 2026-07-13
@@ -45,7 +45,7 @@ TASK-001 of `microservice-ddd-evolution` created the architecture guideline and 
 - `go.work` includes independent backend modules such as `smart-recruit-offer-service`, `smart-recruit-interview-service`, `smart-recruit-notification-service`, `smart-recruit-identity-service`, `smart-recruit-recruitment-service`, `smart-recruit-analytics-service`, `smart-recruit-ai-agent-service`, and `smart-recruit-worker-service`.
 - `.spec/microservice-ddd-evolution/microservice-ddd-evolution-SPEC.md` fixes the migration order: Offer, Interview, Notification, Identity, Recruitment, Analytics, AI Agent, Worker, then final commons rename.
 - `.spec/microservice-ddd-evolution/microservice-ddd-evolution-SDD.md` defines the target service-local DDD shape.
-- `docs/architecture/microservice-ddd-evolution-guidelines.md` records the DDD layering, shared kernel rules, Hard Stop list, validation commands, and knowledge impact handling.
+- `.spec/microservice-ddd-evolution/docs/architecture/microservice-ddd-evolution-guidelines.md` records the DDD layering, shared kernel rules, Hard Stop list, validation commands, and knowledge impact handling.
 - `scripts/check-backend-boundaries.mjs` now checks DDD layer imports for service-local `internal/domain`, `internal/application`, and `internal/interfaces` paths.
 
 ## Potential Impact
@@ -71,7 +71,7 @@ Add route coverage for:
 - `smart-recruit-gateway/**`
 - `smart-recruit-platform-go/**`
 - `smart-recruit-proto/**`
-- `docs/architecture/**`
+- `.spec/microservice-ddd-evolution/docs/architecture/**`
 - `scripts/check-backend-boundaries.mjs`
 
 ## Required Approval

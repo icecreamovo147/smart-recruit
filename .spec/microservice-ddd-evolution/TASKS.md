@@ -47,7 +47,7 @@
 
 ### Allowed Files
 
-- `docs/architecture/**`
+- `.spec/microservice-ddd-evolution/docs/architecture/**`
 - `scripts/check-backend-boundaries.mjs`
 - `scripts/backend-final-readiness-audit.mjs`
 - `.knowledge/**`
@@ -99,7 +99,7 @@
 
 ### Allowed Files
 
-- `docs/architecture/**`
+- `.spec/microservice-ddd-evolution/docs/architecture/**`
 - `.knowledge/**`
 - `.spec/microservice-ddd-evolution/reports/**`
 
@@ -1232,7 +1232,7 @@ Worker 是最终服务迁移前最后一道跨上下文写入收敛点。
 - `smart-recruit-commons/**`
 - `smart-recruit-*-service/**`
 - `smart-recruit-gateway/**`
-- `docs/architecture/**`
+- `.spec/microservice-ddd-evolution/docs/architecture/**`
 - `scripts/**`
 - `.knowledge/**`
 - `.spec/microservice-ddd-evolution/reports/**`
@@ -1294,7 +1294,6 @@ TASK-028。
 - `start-docker-all.sh`
 - `stop-dev.sh`
 - `README.md`
-- `docs/**`
 - `scripts/**`
 - `.knowledge/**`
 - `.spec/microservice-ddd-evolution/**`

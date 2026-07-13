@@ -77,6 +77,8 @@ try {
   const unsupportedDir = createFeature(temp, "unsupported", { feature: "unsupported", allowedFiles: ["allowed.txt"] });
   const invalidPatternTask = { ...task, acceptance: ".spec/invalid-pattern/acceptance/TASK-001.md", report: ".spec/invalid-pattern/reports/TASK-001-report.md", allowedFiles: ["bad[pattern"] };
   const invalidPatternDir = createFeature(temp, "invalid-pattern", { schemaVersion: 1, feature_name: "invalid-pattern", tasks: { "TASK-001": invalidPatternTask } });
+  const invalidRootDocsTask = { ...task, acceptance: ".spec/invalid-root-docs/acceptance/TASK-001.md", report: ".spec/invalid-root-docs/reports/TASK-001-report.md", allowedFiles: ["docs/architecture/**"] };
+  const invalidRootDocsDir = createFeature(temp, "invalid-root-docs", { schemaVersion: 1, feature_name: "invalid-root-docs", tasks: { "TASK-001": invalidRootDocsTask } });
   const missingAcceptanceTask = { ...task, acceptance: ".spec/missing-acceptance/acceptance/TASK-001.md", report: ".spec/missing-acceptance/reports/TASK-001-report.md", allowedFiles: [".spec/missing-acceptance/**"] };
   const missingAcceptanceDir = createFeature(temp, "missing-acceptance", { schemaVersion: 1, feature_name: "missing-acceptance", tasks: { "TASK-001": missingAcceptanceTask } });
   fs.rmSync(path.join(missingAcceptanceDir, "acceptance/TASK-001.md"));
@@ -95,6 +97,8 @@ try {
   assert.equal(validateFeature(unsupportedDir).classification, "unsupported");
   assert.equal(validateFeature(invalidPatternDir).classification, "unsupported");
   assert(validateFeature(invalidPatternDir).issues.some((issue) => issue.includes("invalid glob")));
+  assert.equal(validateFeature(invalidRootDocsDir).classification, "unsupported");
+  assert(validateFeature(invalidRootDocsDir).issues.some((issue) => issue.includes("repository-root docs")));
   assert.equal(validateFeature(missingAcceptanceDir).classification, "unsupported");
   assert(validateFeature(missingAcceptanceDir).issues.some((issue) => issue.includes("missing acceptance file")));
 

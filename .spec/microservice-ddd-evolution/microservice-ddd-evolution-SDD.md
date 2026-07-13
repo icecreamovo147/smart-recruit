@@ -46,7 +46,7 @@
 
 微服务 `cmd/*/main.go` 仍通过 `repository.New*Repo` 和 `service.New*Service` 或 `service.NewServices` 装配共享领域服务。例如 Offer、Interview、AI Agent 仍构造大量共享 repository 并调用 `service.NewServices`，Recruitment 虽然局部手动装配，但仍直接使用 `smart-recruit-commons/repository` 和 `smart-recruit-commons/service`。
 
-表归属已有基础约束：`smart-recruit-deploy/mysql-table-ownership.json` 定义单 MySQL 实例下的 logical owner，`docs/mysql-table-ownership.md` 要求每张表只有一个 owner，跨服务访问需声明，新直接跨服务写应避免并优先使用 RabbitMQ 事件和 Outbox/Inbox。
+表归属已有基础约束：`smart-recruit-deploy/mysql-table-ownership.json` 定义单 MySQL 实例下的 logical owner，`.spec/microservice-ddd-evolution/docs/mysql-table-ownership.md` 要求每张表只有一个 owner，跨服务访问需声明，新直接跨服务写应避免并优先使用 RabbitMQ 事件和 Outbox/Inbox。
 
 ## 2. Problem Analysis
 

@@ -38,6 +38,7 @@ for each TASK:
 1. `.spec/<feature_name>/` 下已存在 SPEC.md、SDD.md、TASKS.md、task-scope.json、AGENT_RULES.md、acceptance/、prompts/、scripts/
 2. `scripts/check-task-scope.sh` 和 `scripts/agent-check.sh` 已就绪
 3. `git status` 干净（无与当前功能无关的未提交改动）
+4. 任何 feature-owned supporting documentation 必须位于 `.spec/<feature_name>/docs/`；TASK scope 不得允许写入 repository-root `docs/**`
 
 ## 状态管理
 
@@ -130,8 +131,9 @@ node .agents/skills/spec-harness/scripts/validate-feature.mjs \
   --require-pipeline
 ```
 
-5. 运行 `git status --short`，确认无与当前功能无关的未提交改动
-6. 如果 `pipeline-state.json` 已存在，恢复状态并确认续跑；如果状态为 `completed`，直接输出汇总报告
+5. 确认 feature validator 未报告 root docs scope 问题；如果 `task-scope.json` 的任一 TASK `allowedFiles` 包含 `docs/**`、`docs/<path>` 或 `./docs/**`，必须停止并要求将 feature 文档 scope 改为 `.spec/<feature_name>/docs/**`
+6. 运行 `git status --short`，确认无与当前功能无关的未提交改动
+7. 如果 `pipeline-state.json` 已存在，恢复状态并确认续跑；如果状态为 `completed`，直接输出汇总报告
 
 ### Step 1：TASK 循环
 
@@ -177,6 +179,7 @@ node .agents/skills/spec-harness/scripts/validate-feature.mjs \
    - `git diff --name-only`
    - `bash .spec/<feature_name>/scripts/check-task-scope.sh <TASK-ID>`
    - `bash .spec/<feature_name>/scripts/agent-check.sh`
+   - 确认没有新增或修改 repository-root `docs/` 下的 feature-owned documentation；如果出现，必须视为 scope failure 并修正到 `.spec/<feature_name>/docs/`
 5. 生成：
    - `.spec/<feature_name>/reports/<TASK-ID>-report.md`
    - `.spec/<feature_name>/reports/<TASK-ID>-evidence.json`
@@ -230,6 +233,7 @@ node .agents/skills/spec-harness/scripts/validate-evidence.mjs \
   - 需要修改 `package.json` 或 lockfile
   - 需要修改公共模块/共享类型/全局配置
   - 需要修改公共 API 行为
+  - 需要将 feature-owned documentation 写入 repository-root `docs/`，或 TASK scope 允许 root `docs/**`
   - 发现 SPEC/SDD/TASKS 冲突
 - **人工中断**：运行中用户可随时停止，pipeline-state 保留，后续可按续跑方式继续
 

@@ -1,6 +1,10 @@
 #!/usr/bin/env bash
-# Start the local Smart Recruit microservice dev stack without Docker.
-# Usage: ./start-dev.sh
+# Start the local Smart Recruit dev stack without Docker.
+# Usage:
+#   ./start-dev.sh                         # start the full dev stack
+#   ./start-dev.sh business                # start all business services
+#   ./start-dev.sh identity recruitment    # start selected business services
+#   ./start-dev.sh gateway frontends       # start gateway and all frontends
 
 set -euo pipefail
 
@@ -18,6 +22,40 @@ warn() { printf '[dev] WARN: %s\n' "$*" >&2; }
 die() {
     printf '[dev] ERROR: %s\n' "$*" >&2
     exit 1
+}
+
+usage() {
+    cat <<'EOF'
+Usage:
+  ./start-dev.sh [target ...]
+
+Targets:
+  all                 Full dev stack: business services, gateway, and frontends.
+  business            All business services only.
+  backend             Business services plus gateway.
+  gateway             HTTP gateway only.
+  frontends           HR, user, and interviewer frontends.
+
+Business service aliases:
+  identity            identity-service
+  recruitment         recruitment-service
+  interview           interview-service
+  offer               offer-service
+  notification        notification-service
+  ai-agent | ai       ai-agent-service
+  analytics           analytics-service
+  worker              worker-service
+
+Frontend aliases:
+  hr                  hr-frontend
+  user                user-frontend
+  interviewer         interviewer-frontend
+
+Examples:
+  ./start-dev.sh business
+  ./start-dev.sh identity recruitment notification
+  ./start-dev.sh backend hr
+EOF
 }
 
 install_with_package_manager() {
@@ -60,9 +98,13 @@ ensure_pnpm() {
 
 ensure_system_dependencies() {
     install_with_package_manager lsof lsof lsof
-    install_with_package_manager go go golang-go
-    install_with_package_manager node node nodejs
-    ensure_pnpm
+    if has_any_backend_target; then
+        install_with_package_manager go go golang-go
+    fi
+    if has_any_frontend_target; then
+        install_with_package_manager node node nodejs
+        ensure_pnpm
+    fi
 }
 
 port_in_use() {
@@ -142,6 +184,171 @@ is_running() {
     [ -n "${pid}" ] && kill -0 "${pid}" >/dev/null 2>&1
 }
 
+BUSINESS_SERVICES=(
+    identity-service
+    recruitment-service
+    interview-service
+    offer-service
+    notification-service
+    ai-agent-service
+    analytics-service
+    worker-service
+)
+
+FRONTEND_SERVICES=(
+    hr-frontend
+    user-frontend
+    interviewer-frontend
+)
+
+ALL_SERVICES=(
+    "${BUSINESS_SERVICES[@]}"
+    smart-recruit-gateway
+    "${FRONTEND_SERVICES[@]}"
+)
+
+TARGETS=()
+
+add_target() {
+    local target="$1"
+    local existing
+    for existing in "${TARGETS[@]-}"; do
+        if [ "${existing}" = "${target}" ]; then
+            return 0
+        fi
+    done
+    TARGETS+=("${target}")
+}
+
+add_many() {
+    local target
+    for target in "$@"; do
+        add_target "${target}"
+    done
+}
+
+expand_target() {
+    local raw="$1"
+    case "${raw}" in
+        -h|--help|help)
+            usage
+            exit 0
+            ;;
+        all)
+            add_many "${ALL_SERVICES[@]}"
+            ;;
+        business|business-services|services)
+            add_many "${BUSINESS_SERVICES[@]}"
+            ;;
+        backend|backends)
+            add_many "${BUSINESS_SERVICES[@]}" smart-recruit-gateway
+            ;;
+        gateway|smart-recruit-gateway)
+            add_target smart-recruit-gateway
+            ;;
+        frontends|frontend)
+            add_many "${FRONTEND_SERVICES[@]}"
+            ;;
+        identity|identity-service)
+            add_target identity-service
+            ;;
+        recruitment|recruitment-service)
+            add_target recruitment-service
+            ;;
+        interview|interview-service)
+            add_target interview-service
+            ;;
+        offer|offer-service)
+            add_target offer-service
+            ;;
+        notification|notification-service)
+            add_target notification-service
+            ;;
+        ai|ai-agent|ai-agent-service)
+            add_target ai-agent-service
+            ;;
+        analytics|analytics-service)
+            add_target analytics-service
+            ;;
+        worker|worker-service)
+            add_target worker-service
+            ;;
+        hr|hr-frontend)
+            add_target hr-frontend
+            ;;
+        user|user-frontend)
+            add_target user-frontend
+            ;;
+        interviewer|interviewer-frontend)
+            add_target interviewer-frontend
+            ;;
+        *)
+            die "Unknown target: ${raw}. Run ./start-dev.sh --help for supported targets."
+            ;;
+    esac
+}
+
+parse_targets() {
+    if [ "$#" -eq 0 ]; then
+        add_many "${ALL_SERVICES[@]}"
+        return 0
+    fi
+
+    local arg
+    for arg in "$@"; do
+        expand_target "${arg}"
+    done
+}
+
+target_selected() {
+    local target="$1"
+    local selected
+    for selected in "${TARGETS[@]-}"; do
+        if [ "${selected}" = "${target}" ]; then
+            return 0
+        fi
+    done
+    return 1
+}
+
+has_any_backend_target() {
+    local target
+    for target in "${BUSINESS_SERVICES[@]}" smart-recruit-gateway; do
+        if target_selected "${target}"; then
+            return 0
+        fi
+    done
+    return 1
+}
+
+has_any_frontend_target() {
+    local target
+    for target in "${FRONTEND_SERVICES[@]}"; do
+        if target_selected "${target}"; then
+            return 0
+        fi
+    done
+    return 1
+}
+
+build_selected_go_binaries() {
+    target_selected smart-recruit-gateway && build_go_binary "${ROOT}/smart-recruit-gateway" "smart-recruit-gateway" "./cmd/gateway"
+    target_selected identity-service && build_go_binary "${ROOT}/smart-recruit-identity-service" "identity-service" "./cmd/identity-service"
+    target_selected recruitment-service && build_go_binary "${ROOT}/smart-recruit-recruitment-service" "recruitment-service" "./cmd/recruitment-service"
+    target_selected interview-service && build_go_binary "${ROOT}/smart-recruit-interview-service" "interview-service" "./cmd/interview-service"
+    target_selected offer-service && build_go_binary "${ROOT}/smart-recruit-offer-service" "offer-service" "./cmd/offer-service"
+    target_selected notification-service && build_go_binary "${ROOT}/smart-recruit-notification-service" "notification-service" "./cmd/notification-service"
+    target_selected ai-agent-service && build_go_binary "${ROOT}/smart-recruit-ai-agent-service" "ai-agent-service" "./cmd/ai-agent-service"
+    target_selected analytics-service && build_go_binary "${ROOT}/smart-recruit-analytics-service" "analytics-service" "./cmd/analytics-service"
+    target_selected worker-service && build_go_binary "${ROOT}/smart-recruit-worker-service" "worker-service" "./cmd/worker-service"
+}
+
+install_selected_frontend_dependencies() {
+    target_selected hr-frontend && install_frontend_dependencies "${ROOT}/hr-frontend" "HR frontend"
+    target_selected user-frontend && install_frontend_dependencies "${ROOT}/user-frontend" "User frontend"
+    target_selected interviewer-frontend && install_frontend_dependencies "${ROOT}/interviewer-frontend" "Interviewer frontend"
+}
+
 start_service() {
     local name="$1"
     local dir="$2"
@@ -176,22 +383,16 @@ start_service() {
     fi
 }
 
+parse_targets "$@"
 ensure_system_dependencies
-ensure_runtime_services
+if has_any_backend_target; then
+    ensure_runtime_services
+fi
 
-build_go_binary "${ROOT}/smart-recruit-gateway" "smart-recruit-gateway" "./cmd/gateway"
-build_go_binary "${ROOT}/smart-recruit-identity-service" "identity-service" "./cmd/identity-service"
-build_go_binary "${ROOT}/smart-recruit-recruitment-service" "recruitment-service" "./cmd/recruitment-service"
-build_go_binary "${ROOT}/smart-recruit-interview-service" "interview-service" "./cmd/interview-service"
-build_go_binary "${ROOT}/smart-recruit-offer-service" "offer-service" "./cmd/offer-service"
-build_go_binary "${ROOT}/smart-recruit-notification-service" "notification-service" "./cmd/notification-service"
-build_go_binary "${ROOT}/smart-recruit-ai-agent-service" "ai-agent-service" "./cmd/ai-agent-service"
-build_go_binary "${ROOT}/smart-recruit-analytics-service" "analytics-service" "./cmd/analytics-service"
-build_go_binary "${ROOT}/smart-recruit-worker-service" "worker-service" "./cmd/worker-service"
-
-install_frontend_dependencies "${ROOT}/hr-frontend" "HR frontend"
-install_frontend_dependencies "${ROOT}/user-frontend" "User frontend"
-install_frontend_dependencies "${ROOT}/interviewer-frontend" "Interviewer frontend"
+build_selected_go_binaries
+if has_any_frontend_target; then
+    install_selected_frontend_dependencies
+fi
 
 export CONFIG_PATH="${CONFIG_PATH:-${ROOT}/smart-recruit-commons/config/config.yaml}"
 export MYSQL_DSN="${MYSQL_DSN:-root:Aa123456@tcp(127.0.0.1:3306)/recruitment?charset=utf8mb4&parseTime=True&loc=Local}"
@@ -205,16 +406,16 @@ export ALLOW_INSECURE_DEV_CONFIG="${ALLOW_INSECURE_DEV_CONFIG:-true}"
 export STATIC_FALLBACK="${STATIC_FALLBACK:-false}"
 export SERVICE_ENV="${SERVICE_ENV:-local}"
 
-start_service "identity-service" "${ROOT}/smart-recruit-identity-service" 50061 "${BIN_DIR}/identity-service" --serve --addr :50061
-start_service "recruitment-service" "${ROOT}/smart-recruit-recruitment-service" 50062 "${BIN_DIR}/recruitment-service" --serve --addr :50062
-start_service "interview-service" "${ROOT}/smart-recruit-interview-service" 50063 "${BIN_DIR}/interview-service" --serve --addr :50063
-start_service "offer-service" "${ROOT}/smart-recruit-offer-service" 50064 "${BIN_DIR}/offer-service" --serve --addr :50064
-start_service "notification-service" "${ROOT}/smart-recruit-notification-service" 50065 "${BIN_DIR}/notification-service" --serve --addr :50065
-start_service "ai-agent-service" "${ROOT}/smart-recruit-ai-agent-service" 50066 "${BIN_DIR}/ai-agent-service" --serve --addr :50066
-start_service "analytics-service" "${ROOT}/smart-recruit-analytics-service" 50067 "${BIN_DIR}/analytics-service" --serve --addr :50067
-start_service "worker-service" "${ROOT}/smart-recruit-worker-service" 50068 "${BIN_DIR}/worker-service" --serve --health-addr :50068
+target_selected identity-service && start_service "identity-service" "${ROOT}/smart-recruit-identity-service" 50061 "${BIN_DIR}/identity-service" --serve --addr :50061
+target_selected recruitment-service && start_service "recruitment-service" "${ROOT}/smart-recruit-recruitment-service" 50062 "${BIN_DIR}/recruitment-service" --serve --addr :50062
+target_selected interview-service && start_service "interview-service" "${ROOT}/smart-recruit-interview-service" 50063 "${BIN_DIR}/interview-service" --serve --addr :50063
+target_selected offer-service && start_service "offer-service" "${ROOT}/smart-recruit-offer-service" 50064 "${BIN_DIR}/offer-service" --serve --addr :50064
+target_selected notification-service && start_service "notification-service" "${ROOT}/smart-recruit-notification-service" 50065 "${BIN_DIR}/notification-service" --serve --addr :50065
+target_selected ai-agent-service && start_service "ai-agent-service" "${ROOT}/smart-recruit-ai-agent-service" 50066 "${BIN_DIR}/ai-agent-service" --serve --addr :50066
+target_selected analytics-service && start_service "analytics-service" "${ROOT}/smart-recruit-analytics-service" 50067 "${BIN_DIR}/analytics-service" --serve --addr :50067
+target_selected worker-service && start_service "worker-service" "${ROOT}/smart-recruit-worker-service" 50068 "${BIN_DIR}/worker-service" --serve --health-addr :50068
 
-start_service "smart-recruit-gateway" "${ROOT}/smart-recruit-gateway" 8080 \
+target_selected smart-recruit-gateway && start_service "smart-recruit-gateway" "${ROOT}/smart-recruit-gateway" 8080 \
     env HTTP_PORT=8080 \
     GRPC_ADDR=127.0.0.1:50062 \
     IDENTITY_ROUTE_MODE=identity IDENTITY_GRPC_ADDR=127.0.0.1:50061 \
@@ -226,13 +427,13 @@ start_service "smart-recruit-gateway" "${ROOT}/smart-recruit-gateway" 8080 \
     ANALYTICS_ROUTE_MODE=analytics ANALYTICS_GRPC_ADDR=127.0.0.1:50067 \
     "${BIN_DIR}/smart-recruit-gateway"
 
-start_service "hr-frontend" "${ROOT}/hr-frontend" 5173 pnpm run dev
-start_service "user-frontend" "${ROOT}/user-frontend" 5174 pnpm run dev
-start_service "interviewer-frontend" "${ROOT}/interviewer-frontend" 5175 pnpm run dev
+target_selected hr-frontend && start_service "hr-frontend" "${ROOT}/hr-frontend" 5173 pnpm run dev
+target_selected user-frontend && start_service "user-frontend" "${ROOT}/user-frontend" 5174 pnpm run dev
+target_selected interviewer-frontend && start_service "interviewer-frontend" "${ROOT}/interviewer-frontend" 5175 pnpm run dev
 
 cat <<EOF
 
-Done. Dev services are starting in the background.
+Done. Selected dev services are starting in the background.
   Gateway API: http://localhost:8080
   Identity:    localhost:50061
   Recruitment: localhost:50062
@@ -250,5 +451,5 @@ Logs:
   ${LOG_DIR}
 
 Stop:
-  ./stop-dev.sh
+  ./stop-dev.sh ${TARGETS[*]}
 EOF

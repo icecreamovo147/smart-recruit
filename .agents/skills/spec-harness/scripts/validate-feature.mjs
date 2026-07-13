@@ -29,6 +29,12 @@ function validateStringList(values, label, issues) {
   }
 }
 
+function isRepositoryRootDocsPattern(pattern) {
+  if (typeof pattern !== "string") return false;
+  const normalized = pattern.replace(/^\.\//, "").replace(/\/+$/, "");
+  return normalized === "docs" || normalized.startsWith("docs/");
+}
+
 export function compileGlob(pattern) {
   if (typeof pattern !== "string" || pattern.length === 0) {
     throw new Error("glob pattern must be a non-empty string");
@@ -121,6 +127,11 @@ export function validateFeature(featureDir, options = {}) {
         }
         if (!Array.isArray(task.allowedFiles) || task.allowedFiles.length === 0) issues.push(`${taskId} has no allowedFiles`);
         if (!Array.isArray(task.forbiddenFiles)) issues.push(`${taskId} forbiddenFiles must be an array`);
+        for (const pattern of task.allowedFiles || []) {
+          if (isRepositoryRootDocsPattern(pattern)) {
+            issues.push(`${taskId} allowedFiles must not target repository-root docs/: use .spec/${featureName}/docs/** for feature-owned documentation`);
+          }
+        }
         for (const pattern of [...(task.allowedFiles || []), ...(task.forbiddenFiles || [])]) {
           try {
             compileGlob(pattern);

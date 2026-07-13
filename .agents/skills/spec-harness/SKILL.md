@@ -12,7 +12,7 @@ For repositories that adopt this workflow, the canonical control plane is:
 1. the nearest applicable `AGENTS.md` for durable repository rules;
 2. this `spec-harness` skill for feature and single-TASK lifecycle semantics;
 3. `harness-pipeline` only when the user explicitly requests serial multi-TASK orchestration;
-4. `.spec/<feature-name>/` for executable feature requirements, scope, acceptance, runtime evidence, and reports.
+4. `.spec/<feature-name>/` for executable feature requirements, scope, acceptance, runtime evidence, reports, and feature-owned documentation.
 
 Provider-specific prompts, skills, agents, commands, memories, historical plans, and execution logs may adapt to or inform this workflow, but they must not redefine its TASK source, review verdict, runtime state, or completion semantics.
 
@@ -41,6 +41,7 @@ After SPEC and SDD are created, this skill can generate the Harness files:
 .spec/<feature-name>/prompts/
 .spec/<feature-name>/scripts/
 .spec/<feature-name>/reports/
+.spec/<feature-name>/docs/
 ```
 
 This skill supports six modes:
@@ -72,7 +73,9 @@ This skill supports six modes:
   * `skill-memory-ranking`
   * `voice-input-hotkey`
   * `e2e-cli-coverage`
-* Do not place feature SPEC, SDD, TASKS, acceptance files, prompts, scripts, or reports outside `.spec/<feature-name>/`.
+* Do not place feature SPEC, SDD, TASKS, acceptance files, prompts, scripts, reports, architecture notes, migration notes, baseline inventories, runbooks, or other feature-owned documentation outside `.spec/<feature-name>/`.
+* Do not create or modify feature-owned documents under repository-root `docs/`. Use `.spec/<feature-name>/docs/` for feature-specific supporting documentation.
+* Repository-root `docs/` is reserved for durable repository-wide documentation outside this feature Harness workflow. If a TASK appears to require root `docs/`, treat it as a Hard Stop and ask the user to confirm a separate non-feature documentation change.
 * Do not modify business code during:
 
   * `init-feature`
@@ -152,6 +155,7 @@ the directory structure must be:
     agent-check.sh
   reports/
     TASK-001-report.md
+  docs/
 ```
 
 ## Canonical Harness Contract
@@ -275,6 +279,7 @@ in one controlled flow.
 .spec/<feature-name>/prompts/
 .spec/<feature-name>/scripts/
 .spec/<feature-name>/reports/
+.spec/<feature-name>/docs/
 ```
 
 ## Forbidden
@@ -285,6 +290,7 @@ in one controlled flow.
 * Do not modify shared modules.
 * Do not modify shared types.
 * Do not modify global configuration.
+* Do not create or modify feature-owned documents under repository-root `docs/`; write them under `.spec/<feature-name>/docs/`.
 * Do not overwrite existing SPEC or SDD files without explicit user confirmation.
 * Do not invent requirements that are not present in the feature prompt or current repository.
 
@@ -313,6 +319,7 @@ acceptance/
 prompts/
 scripts/
 reports/
+docs/
 ```
 
 9. Output created files, risks, assumptions, open questions, and first TASK instructions.
@@ -369,6 +376,7 @@ Use this mode when the user wants to review SPEC and SDD before generating TASKS
 * Do not silently resolve unclear requirements.
 * Do not invent requirements that are not present in the user prompt or repository.
 * Do not modify existing SPEC or SDD files unless the user explicitly asks for revision or overwrite.
+* Do not create or modify feature-owned documents under repository-root `docs/`; write them under `.spec/<feature-name>/docs/`.
 
 ## SPEC Requirements
 
@@ -501,6 +509,7 @@ Use this after SPEC and SDD already exist.
 .spec/<feature-name>/prompts/
 .spec/<feature-name>/scripts/
 .spec/<feature-name>/reports/
+.spec/<feature-name>/docs/
 ```
 
 ## Forbidden
@@ -511,6 +520,7 @@ Use this after SPEC and SDD already exist.
 * Do not invent TASK requirements not supported by SPEC or SDD.
 * Do not create tasks that require behavior missing from SPEC or SDD.
 * Do not silently resolve SPEC / SDD conflicts.
+* Do not put feature-owned supporting documents under repository-root `docs/`; use `.spec/<feature-name>/docs/`.
 
 ## TASKS.md Requirements
 
@@ -601,6 +611,7 @@ Rules:
 
 * New Harness packages must set `schemaVersion: 1`.
 * `allowedFiles` must be explicit when possible.
+* `allowedFiles` must not include repository-root docs patterns such as `docs/**`, `docs/<path>`, or `./docs/**` for feature-owned documentation. Use `.spec/<feature-name>/docs/**` instead.
 * If exact files are unknown, use the narrowest safe directory pattern.
 * Shared modules, shared types, package manifests, lockfiles, global configuration, and public APIs should default to forbidden unless explicitly required and confirmed.
 * Set `requiresHumanConfirmation: true` for high-risk TASKs.
@@ -759,6 +770,7 @@ Before modifying files:
 * Do not modify files outside the TASK scope.
 * Do not modify SPEC or SDD.
 * Do not modify unrelated tests.
+* Do not create or modify feature-owned documents under repository-root `docs/`; if the TASK scope allows root `docs/**`, stop and request scope correction to `.spec/<feature-name>/docs/**` unless the user explicitly approved a separate repository-wide documentation change.
 * Do not refactor unrelated code.
 * Do not add new functionality beyond the current TASK.
 * If the TASK requires a wider scope, stop and request confirmation.
@@ -970,6 +982,7 @@ Also read the previous failed output from:
 * Do not refactor unrelated code.
 * Do not modify SPEC or SDD.
 * Do not modify unrelated tests.
+* Do not create or modify feature-owned documents under repository-root `docs/`; use `.spec/<feature-name>/docs/`.
 * If the fix requires a wider scope, stop and request confirmation.
 * If two consecutive repair attempts fail on the same issue, stop and explain the root cause.
 
@@ -1038,6 +1051,7 @@ Stop and request confirmation if any of the following occur:
 * Need to change database schema or migration files.
 * Need to change authentication, authorization, permission, or security behavior.
 * Need to change CI/CD configuration.
+* Need to create or modify feature-owned documentation under repository-root `docs/` instead of `.spec/<feature-name>/docs/`.
 * Need to modify files outside the current TASK scope.
 * TASK scope is unclear.
 * Feature prompt is too vague to produce SPEC or SDD.
