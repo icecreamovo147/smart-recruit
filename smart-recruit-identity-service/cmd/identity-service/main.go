@@ -25,8 +25,11 @@ import (
 	"smart-recruit-platform-go/nacos"
 	platformobs "smart-recruit-platform-go/observability"
 
-	"smart-recruit-domain-go/repository"
-	"smart-recruit-domain-go/service"
+	appservice "smart-recruit-identity-service/internal/application/service"
+	identitycache "smart-recruit-identity-service/internal/infrastructure/cache"
+	identityclient "smart-recruit-identity-service/internal/infrastructure/client"
+	identitypersistence "smart-recruit-identity-service/internal/infrastructure/persistence"
+	identitygrpc "smart-recruit-identity-service/internal/interfaces/grpc"
 	identityruntime "smart-recruit-identity-service/internal/runtime"
 	"smart-recruit-platform-go/errs"
 	"smart-recruit-platform-go/logger"
@@ -138,21 +141,41 @@ func serveIdentity(addr string) error {
 	}
 	defer server.ShutdownMetricsServer(context.Background(), metricsServer)
 
-	userRepo := repository.NewUserRepo(db)
-	tokenRepo := repository.NewRefreshTokenRepo(db)
-	authzRepo := repository.NewAuthzRepo(db)
-	inviteCodeRepo := repository.NewInviteCodeRepo(db)
-	usageLogRepo := repository.NewUsageLogRepo(db)
-	analyticsRepo := repository.NewAnalyticsRepo(db)
-	serviceAuth := service.NewServiceAuthorizer(authzRepo, nil)
-
-	authSvc := service.NewAuthService(userRepo, tokenRepo, authzRepo, inviteCodeRepo, cfg.JWT.Secret)
-	adminSvc := service.NewAdminService(inviteCodeRepo, usageLogRepo, userRepo, authzRepo, redisClient, serviceAuth)
-	analyticsSvc := service.NewAnalyticsService(analyticsRepo, authzRepo, serviceAuth)
+	repos := identitypersistence.NewRepositories(db)
+	passwords := identityclient.PasswordService{}
+	tokenFactory := identityclient.TokenGenerator{}
+	actorVerifier := identityclient.ActorVerifier{}
+	adminAuthorizer := identityclient.NewAdminAuthorizer(repos.Authz)
+	tokenVersionCache := identitycache.NewTokenVersionCache(redisClient)
+	authSvc, err := appservice.NewAuthService(appservice.AuthDeps{
+		Users:         repos.Users,
+		Tokens:        repos.Tokens,
+		Authz:         repos.Authz,
+		Invites:       repos.Invites,
+		Audit:         repos.Audit,
+		Passwords:     passwords,
+		TokenFactory:  tokenFactory,
+		ActorVerifier: actorVerifier,
+	})
+	if err != nil {
+		return fmt.Errorf("build identity auth service: %w", err)
+	}
+	adminSvc, err := appservice.NewAdminService(appservice.AdminDeps{
+		Users:      repos.Users,
+		Authz:      repos.Authz,
+		Audit:      repos.Audit,
+		Passwords:  passwords,
+		Authorizer: adminAuthorizer,
+		TokenCache: tokenVersionCache,
+	})
+	if err != nil {
+		return fmt.Errorf("build identity admin service: %w", err)
+	}
+	localIdentity := identitygrpc.NewServer(authSvc, adminSvc)
 	runtime, err := identityruntime.New(identityruntime.Deps{
-		Auth:  authSvc,
-		Admin: adminSvc,
-		Audit: analyticsSvc,
+		Auth:  localIdentity,
+		Admin: localIdentity,
+		Audit: localIdentity,
 	})
 	if err != nil {
 		return err

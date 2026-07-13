@@ -20,6 +20,7 @@ var (
 	ErrRoleNotHeld               = errors.New("该用户未持有此角色")
 	ErrPermissionChangeFailed    = errors.New("权限变更失败，请稍后重试")
 	ErrPermissionTokenSyncFailed = errors.New("权限变更成功但令牌同步失败，请重试")
+	ErrAuditQueryFailed          = errors.New("查询安全审计日志失败")
 )
 
 type AdminDeps struct {
@@ -301,7 +302,7 @@ func (s *AdminService) QueryAuthAuditLogs(ctx context.Context, req query.QueryAu
 	}
 	rows, total, err := s.audit.QueryAuthAuditLogs(ctx, req.ActorUserID, req.PermissionKey, req.Decision, int((page-1)*pageSize), int(pageSize))
 	if err != nil {
-		return dto.AuditLogsResult{}, err
+		return dto.AuditLogsResult{}, fmt.Errorf("%w: %v", ErrAuditQueryFailed, err)
 	}
 	return dto.AuditLogsResult{Total: total, List: rows}, nil
 }

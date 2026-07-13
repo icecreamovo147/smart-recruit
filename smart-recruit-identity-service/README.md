@@ -17,4 +17,4 @@ go run ./cmd/identity-service --check
 go run ./cmd/identity-service --serve --addr :50061
 ```
 
-The runtime uses the shared domain module against the shared MySQL schema, registers `AuthService` plus the Identity-owned `AdminService` subset, and initializes Nacos discovery/config, gRPC health, metrics, trace, and structured logs.
+The runtime uses local Identity domain/application/infrastructure/interface components against the shared MySQL schema, registers `AuthService` plus the Identity-owned `AdminService` subset, and initializes Nacos discovery/config, gRPC health, metrics, trace, and structured logs.

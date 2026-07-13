@@ -1,9 +1,10 @@
 # Identity Security Contract Inventory
 
-TASK-012 establishes the Identity DDD skeleton and records the current security
-contract. It intentionally does not change runtime wiring, protobuf contracts,
-database schema, JWT, refresh-token, RBAC, data-scope, invite-code, or audit
-behavior.
+TASK-012 established the Identity DDD skeleton and recorded the security
+contract. TASK-014 switches the active runtime to local Identity
+domain/application/infrastructure/interface components without changing
+protobuf contracts, database schema, JWT, refresh-token, RBAC, data-scope,
+invite-code, or audit behavior.
 
 ## Current Runtime Boundary
 
@@ -11,10 +12,12 @@ behavior.
 - Active runtime entrypoint: `cmd/identity-service/main.go`.
 - Runtime registration: `internal/runtime/runtime.go` registers
   `AuthService` and the Identity-owned subset of `AdminService`.
-- Current implementation source: `smart-recruit-domain-go/service`,
-  `smart-recruit-domain-go/repository`, and `smart-recruit-domain-go/pkg`
-  remain the active behavior providers until later TASKs migrate code into this
-  service.
+- Current implementation source after TASK-014: local Identity packages under
+  `internal/domain`, `internal/application`, `internal/infrastructure`, and
+  `internal/interfaces`.
+- `smart-recruit-domain-go` remains referenced by the service module/config
+  compatibility surface only; it is no longer the active auth/admin
+  implementation provider.
 - Platform behavior retained by runtime: Nacos discovery/config, gRPC internal
   auth interceptors, optional gRPC TLS, health service, metrics registry,
   tracing runtime, structured logging, MySQL, and optional Redis.
@@ -25,13 +28,13 @@ Current `AuthService` runtime methods:
 
 | Method | Current provider | Security contract |
 | --- | --- | --- |
-| `Register` | shared `AuthService` | Validates password complexity; candidate self-registration is allowed; staff registration requires a valid invite code and creates a staff recruiter account; users start with `token_version = 1`; RBAC role and default data scope assignment happen during registration. |
-| `Login` | shared `AuthService` | Checks username and bcrypt password; loads active RBAC role and permission keys; generates an opaque refresh token; stores only the refresh-token hash; returns current token version and account metadata. |
-| `RefreshToken` | shared `AuthService` | Generates a new opaque refresh token; rotates the old token through the refresh-token repository; reloads RBAC metadata; returns unauthorized responses for missing, expired, or reused tokens. |
-| `RevokeRefreshToken` | shared `AuthService` | Requires a non-empty refresh token and revokes that token by hash. |
-| `RecordAuthDecision` | shared `AuthService` | Persists gateway or service authorization audit decisions when an authz repository is configured; otherwise returns success with an audit-skipped message. |
-| `GetPrincipal` | shared `AuthService` | Loads the server-side principal from the database, including account type, legacy role, RBAC roles, permissions, data scopes, token version, and email. |
-| `UpdateEmail` | shared `AuthService` | Verifies the authenticated actor matches the target user, validates email length and syntax, and updates only the target user's email. |
+| `Register` | local Identity `AuthService` | Validates password complexity; candidate self-registration is allowed; staff registration requires a valid invite code and creates a staff recruiter account; users start with `token_version = 1`; RBAC role and default data scope assignment happen during registration. |
+| `Login` | local Identity `AuthService` | Checks username and bcrypt password; loads active RBAC role and permission keys; generates an opaque refresh token; stores only the refresh-token hash; returns current token version and account metadata. |
+| `RefreshToken` | local Identity `AuthService` | Generates a new opaque refresh token; rotates the old token through the refresh-token repository; reloads RBAC metadata; returns unauthorized responses for missing, expired, or reused tokens. |
+| `RevokeRefreshToken` | local Identity `AuthService` | Requires a non-empty refresh token and revokes that token by hash. |
+| `RecordAuthDecision` | local Identity `AuthService` | Persists gateway or service authorization audit decisions when an audit repository is configured. |
+| `GetPrincipal` | local Identity `AuthService` | Loads the server-side principal from the database, including account type, legacy role, RBAC roles, permissions, data scopes, token version, and email. |
+| `UpdateEmail` | local Identity `AuthService` | Verifies the authenticated actor matches the target user, validates email length and syntax, and updates only the target user's email. |
 
 ## Refresh-Token Contract
 
@@ -93,9 +96,8 @@ Current data-scope behavior:
 - Assigning or revoking a data scope increments the affected user's
   `token_version`, syncs the Redis token-version key when Redis is configured,
   and writes an authorization audit entry.
-- Scope evaluation helpers still live in the shared authz repository and read
-  recruitment/interview tables as transitional reads. Those helpers must not be
-  widened by Identity migration tasks.
+- TASK-014 localizes the active Identity authz repository surface used by
+  runtime. It does not introduce recruitment/interview scope-evaluation reads.
 
 ## Invite-Code Contract
 
@@ -106,12 +108,12 @@ Identity-owned invite table:
 Current invite behavior:
 
 - Staff self-registration must present a valid active, non-expired invite code.
-- The active Identity runtime currently injects `InviteCodeRepo` into the
-  shared auth service for registration validation.
-- Shared `AdminService` still implements invite-code management methods
-  (`CreateInviteCode`, `ListInviteCodes`, `ExtendInviteCode`,
-  `RevokeInviteCode`, `ReactivateInviteCode`, and `ValidateInviteCode`), but
-  the current Identity runtime `AdminAPI` facade does not expose those methods.
+- The active Identity runtime injects the local invite-code repository into the
+  local Auth application service for registration validation.
+- Invite-code management methods (`CreateInviteCode`, `ListInviteCodes`,
+  `ExtendInviteCode`, `RevokeInviteCode`, `ReactivateInviteCode`, and
+  `ValidateInviteCode`) are still not exposed by the current Identity runtime
+  `AdminAPI` facade.
 - Later TASKs must preserve the current routed behavior and explicitly decide
   where invite-code admin RPCs are exposed before changing routing or runtime
   registration.
@@ -138,11 +140,10 @@ Current audit behavior:
 - Gateway or service denial/decision paths call `AuthService.RecordAuthDecision`
   to persist authorization audit events.
 - Admin role, data-scope, and staff-user mutations write audit records through
-  the shared admin service.
-- Security audit log queries are currently wired into Identity runtime through
-  `AuditAPI.QueryAuthAuditLogs`, backed by the shared analytics service and the
-  authz repository.
-- `QueryAuthAuditLogs` requires `audit.security.read` through the shared service
+  the local Admin application service.
+- Security audit log queries are wired into Identity runtime through local
+  `AuditAPI.QueryAuthAuditLogs`, backed by the local audit repository.
+- `QueryAuthAuditLogs` requires `audit.security.read` through the local admin
   authorizer before returning paginated audit entries.
 
 ## Table Ownership And Transitional Reads
@@ -187,7 +188,6 @@ event/outbox contract in later TASKs; TASK-012 does not introduce event writes.
   protection, and audit writes exactly unless a later TASK receives explicit
   approval for a security behavior change.
 - Keep domain models separate from protobuf and GORM models.
-- Introduce local repository ports before moving concrete GORM implementations
-  into `internal/infrastructure/persistence`.
-- Record any remaining shared-domain dependency as temporary compatibility debt
-  until the final commons cleanup tasks.
+- Keep concrete GORM implementations in `internal/infrastructure/persistence`.
+- Record remaining shared-domain module/config compatibility debt until the
+  final commons cleanup tasks.
