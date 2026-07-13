@@ -4,7 +4,7 @@
 
 This inventory tracks the Interview migration baseline for `.spec/microservice-ddd-evolution`.
 
-It records the current public contract, runtime wiring, shared-domain dependencies, table access boundary, event side effects, and test coverage before Interview business behavior is moved into local DDD layers.
+It records the current public contract, runtime wiring, shared-domain dependencies, table access boundary, event side effects, and test coverage as Interview business behavior moves into local DDD layers.
 
 This document does not change protobuf, runtime registration, persistence behavior, schema, gateway routing, or user-visible behavior.
 
@@ -34,7 +34,19 @@ internal/
   runtime/
 ```
 
-TASK-006 only creates package boundaries and records the legacy contract baseline. Interview lifecycle rules remain in `smart-recruit-domain-go/service.InterviewService` until TASK-007 and TASK-008 migrate behavior and runtime wiring.
+TASK-006 created package boundaries and recorded the legacy contract baseline.
+
+TASK-007 moves Interview domain/application behavior into local packages:
+
+- `internal/domain/model`: Interview schedule, feedback, status, application status, terminal-status guard, and domain validation.
+- `internal/domain/service`: schedule/cancel/feedback lifecycle transition policy.
+- `internal/domain/repository`: Interview repository port and transactional writer port.
+- `internal/application/command`: schedule, update, cancel, batch cancel, and feedback command DTOs.
+- `internal/application/query`: listing/detail query DTOs for future interface wiring.
+- `internal/application/port`: authorizer, application snapshot, application lifecycle, outbox, and clock ports.
+- `internal/application/service`: Interview use-case orchestration for schedule/update/cancel/batch cancel/feedback and feedback retrieval.
+
+The active runtime path still uses `smart-recruit-domain-go/service.InterviewService` until TASK-008 wires local infrastructure and gRPC adapters.
 
 ## 3. Protobuf and Runtime Contract
 
@@ -60,8 +72,8 @@ Current `pb.InterviewServiceServer` methods exposed by runtime:
 
 Compatibility rule:
 
-- TASK-006 does not change protobuf request/response types, rpc names, route mode, gateway behavior, or runtime registration behavior.
-- Existing messages, response codes, actor metadata validation, permission checks, and candidate-facing note filtering remain owned by the legacy implementation for this TASK.
+- TASK-007 does not change protobuf request/response types, rpc names, route mode, gateway behavior, or runtime registration behavior.
+- Existing gRPC messages and response codes remain owned by the legacy implementation for the active runtime path. Local application errors are intentionally transport-neutral until TASK-008 maps them in `interfaces/grpc`.
 
 ## 4. Current Shared Dependency Baseline
 
@@ -103,7 +115,7 @@ Shared repositories constructed for the active runtime path:
 
 Migration implication:
 
-- TASK-007 should move Interview domain model, lifecycle policy, feedback rules, repository ports, command/query DTOs, and application ports into local packages.
+- TASK-007 moved Interview domain model, lifecycle policy, feedback rules, repository ports, command/query DTOs, and application ports into local packages.
 - TASK-008 should replace active runtime wiring with a local `interfaces/grpc` adapter backed by local application services, and remove the active direct dependency on shared `service.InterviewService`.
 - Remaining cross-context reads and lifecycle writes must be represented as explicit application ports or transitional infrastructure adapters.
 
@@ -113,35 +125,45 @@ Migration implication:
 
 - Protobuf: `ScheduleInterviewRequest` and `ScheduleInterviewResponse`.
 - Legacy method: `service.InterviewService.ScheduleInterview`.
+- Local application method: `internal/application/service.InterviewService.ScheduleInterview`.
 - Key dependencies: actor metadata match, `interview.schedule` permission, application/job scope, `ApplicationRepo.GetDetail`, `JobRepo.GetByID`, `JobRepo.BelongsToHR`, `InterviewRepo.GetMaxRoundNo`, `InterviewRepo.CreateWithTx`, `RecruitmentLifecycleProcessManager.ApplyTransitionTx`, and outbox notification/email writes.
+- Local ports: `Authorizer`, `ApplicationSnapshotReader`, `InterviewRepository`, `ApplicationLifecycle`, and `OutboxPublisher`.
 - Side effects: creates `interview_schedules`, may transition application status to `interview_pending`, writes notification/email outbox events for interviewer and candidate.
 
 ### Update interview
 
 - Protobuf: `UpdateInterviewRequest` and `CommonResponse`.
 - Legacy method: `service.InterviewService.UpdateInterview`.
+- Local application method: `internal/application/service.InterviewService.UpdateInterview`.
 - Key dependencies: actor metadata match, schedule permission/scope, `InterviewRepo.GetModelByID`, RFC3339 scheduled time parsing, `InterviewRepo.UpdateWithTx`, `ApplicationRepo.GetDetail`, and outbox notification/email writes.
+- Local ports: `Authorizer`, `ApplicationSnapshotReader`, `InterviewRepository`, and `OutboxPublisher`.
 - Side effects: updates `interview_schedules`, writes notification/email outbox events for interviewer and candidate.
 
 ### Cancel interview
 
 - Protobuf: `CancelInterviewRequest` and `CommonResponse`.
 - Legacy method: `service.InterviewService.CancelInterview`.
+- Local application method: `internal/application/service.InterviewService.CancelInterview`.
 - Key dependencies: actor metadata match, schedule permission/scope, `InterviewRepo.GetModelByID`, `InterviewRepo.UpdateWithTx`, `ApplicationRepo.GetDetail`, `RecruitmentLifecycleProcessManager.ApplyTransitionTx`, and outbox notification/email writes.
+- Local ports: `Authorizer`, `ApplicationSnapshotReader`, `InterviewRepository`, `ApplicationLifecycle`, and `OutboxPublisher`.
 - Side effects: marks one `interview_schedules` row as `cancelled`, may transition application status to `interview_cancelled`, writes notification/email outbox events when the lifecycle transition succeeds.
 
 ### Batch cancel interviews
 
 - Protobuf: `BatchCancelInterviewsRequest` and `BatchCancelInterviewsResponse`.
 - Legacy method: `service.InterviewService.BatchCancelInterviews`.
+- Local application method: `internal/application/service.InterviewService.BatchCancelInterviews`.
 - Key dependencies: actor metadata match, schedule permission/scope, `ApplicationRepo.GetDetail`, `InterviewRepo.ListByApplication`, `InterviewRepo.CancelPendingByApplication`, `RecruitmentLifecycleProcessManager.ApplyTransitionTx`, and outbox notification/email writes.
+- Local ports: `Authorizer`, `ApplicationSnapshotReader`, `InterviewRepository`, `ApplicationLifecycle`, and `OutboxPublisher`.
 - Side effects: marks active pending/scheduled interviews for one application as `cancelled`, may transition application status to `interview_cancelled`, and writes a single notification/email event group based on the first cancelled interview.
 
 ### Feedback submission and retrieval
 
 - Protobuf: `SubmitFeedbackRequest`, `GetFeedbackRequest`, `CommonResponse`, and `GetFeedbackResponse`.
 - Legacy methods: `service.InterviewService.SubmitFeedback` and `service.InterviewService.GetFeedback`.
+- Local application methods: `internal/application/service.InterviewService.SubmitFeedback` and `GetFeedback`.
 - Key dependencies: actor metadata match, `interview.feedback.submit` permission, assigned-interviewer check, application id validation, terminal application status guard, duplicate feedback guard, recommendation/score validation, `InterviewRepo.CreateFeedbackWithTx`, `InterviewRepo.UpdateWithTx`, and `RecruitmentLifecycleProcessManager.ApplyTransitionTx`.
+- Local ports: `Authorizer`, `InterviewRepository`, `ApplicationLifecycle`, and `Clock`.
 - Side effects: creates `interview_feedback`, may mark scheduled interview as `completed`, and may transition application status from `interview_pending` to `interviewing`.
 
 ### Listing and detail reads
@@ -180,7 +202,7 @@ Allowed shared/platform write:
 
 - `event_outbox` (owner: platform)
 
-No TASK-006 change modifies these ownership rules.
+No TASK-007 change modifies these ownership rules.
 
 ## 7. Current Test Coverage
 
@@ -188,12 +210,17 @@ Existing Interview service tests:
 
 - `cmd/interview-service/main_test.go`
 - `internal/runtime/runtime_test.go`
+- `internal/domain/model/interview_test.go`
+- `internal/domain/model/feedback_test.go`
+- `internal/application/service/interview_service_test.go`
 
 Current test focus:
 
 - CLI/discovery runtime behavior.
 - Runtime requires an Interview dependency.
 - Runtime registers `InterviewService` with gRPC.
+- Domain schedule defaults, cancellation guard, feedback recommendation and score validation.
+- Application schedule/update/cancel/batch cancel/feedback state transitions and notification/outbox publication semantics.
 
 Legacy shared tests still covering Interview behavior:
 
@@ -202,21 +229,18 @@ Legacy shared tests still covering Interview behavior:
 
 Current local test gaps:
 
-- No local Interview domain model/state tests yet.
-- No local application command/query tests yet.
+- No local application listing query tests yet.
 - No local persistence, mapper, or gRPC adapter tests yet.
 - No local contract compatibility tests beyond runtime registration yet.
 
 Expected next tests:
 
-- TASK-007: local domain/application unit tests for schedule, update, cancel, batch cancel, feedback submission, feedback retrieval, and listing rules.
 - TASK-008: local infrastructure/interface/runtime tests for repository adapters, outbox/client adapters, gRPC compatibility, and runtime dependency replacement.
 
 ## 8. Out-of-Scope Confirmation
 
-TASK-006 intentionally does not:
+TASK-007 intentionally does not:
 
-- Move Interview business rules from `smart-recruit-domain-go`.
 - Replace active runtime wiring away from shared `service.InterviewService`.
 - Change protobuf or generated Go contracts.
 - Change database schema, migrations, or table ownership.
