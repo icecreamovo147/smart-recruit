@@ -1314,6 +1314,7 @@ type recruitingReadStore interface {
 	GetRecruitingResumeProfileSnapshot(ctx context.Context, profileID uint64) (RecruitingResumeProfileSnapshot, bool, error)
 	GetRecruitingCandidateMatchEvaluationSnapshot(ctx context.Context, evaluationID uint64) (RecruitingCandidateMatchSnapshot, bool, error)
 	GetRecruitingCandidateMatchEvaluationSnapshotByApplicationVersion(ctx context.Context, applicationID int64, version int32) (RecruitingCandidateMatchSnapshot, bool, error)
+	GetRecruitingCandidateMatchEvaluationSnapshotByApplicationAgentRunID(ctx context.Context, applicationID int64, agentRunID uint64) (RecruitingCandidateMatchSnapshot, bool, error)
 	GetLatestRecruitingCandidateMatchEvaluationSnapshotByApplicationID(ctx context.Context, applicationID int64) (RecruitingCandidateMatchSnapshot, bool, error)
 	ListCurrentRecruitingApplicationsByJobID(ctx context.Context, jobID int64) ([]RecruitingApplicationContext, error)
 	ListLatestRecruitingCandidateMatchEvaluationsByApplicationIDs(ctx context.Context, applicationIDs []int64) ([]RecruitingCandidateMatchEvaluationRow, error)
@@ -1466,12 +1467,54 @@ func (s nativeRecruitingIntelligenceService) GetResumeProfile(ctx context.Contex
 	return &pb.GetResumeProfileResponse{Code: errs.OK, Msg: "success", Profile: recruitingResumeProfileSnapshotPB(snapshot)}, nil
 }
 
-func (nativeRecruitingIntelligenceService) ParseResumeProfile(context.Context, *pb.ParseResumeProfileRequest) (*pb.GetResumeProfileResponse, error) {
-	return &pb.GetResumeProfileResponse{Code: configCodeUnsupported, Msg: "resume profile parsing worker is not configured in native runtime"}, nil
+func (s nativeRecruitingIntelligenceService) ParseResumeProfile(ctx context.Context, req *pb.ParseResumeProfileRequest) (*pb.GetResumeProfileResponse, error) {
+	if req.GetApplicationId() <= 0 && req.GetResumeId() <= 0 {
+		return &pb.GetResumeProfileResponse{Code: errs.ErrBadRequest, Msg: "resume_id or application_id is required"}, nil
+	}
+	resp, err := s.GetResumeProfile(ctx, &pb.GetResumeProfileRequest{
+		StaffUserId:   req.GetStaffUserId(),
+		ResumeId:      req.GetResumeId(),
+		ApplicationId: req.GetApplicationId(),
+	})
+	if err != nil || resp == nil || resp.GetCode() == errs.OK {
+		return resp, err
+	}
+	if resp.GetCode() == 404 && resp.GetMsg() == "current resume profile not found" {
+		resp.Msg = "current resume profile not found and resume profile parser is not configured in native runtime"
+	}
+	return resp, nil
 }
 
-func (nativeRecruitingIntelligenceService) EvaluateCandidateMatch(context.Context, *pb.EvaluateCandidateMatchRequest) (*pb.GetCandidateMatchEvaluationResponse, error) {
-	return &pb.GetCandidateMatchEvaluationResponse{Code: configCodeUnsupported, Msg: "candidate match evaluation worker is not configured in native runtime"}, nil
+func (s nativeRecruitingIntelligenceService) EvaluateCandidateMatch(ctx context.Context, req *pb.EvaluateCandidateMatchRequest) (*pb.GetCandidateMatchEvaluationResponse, error) {
+	if req.GetApplicationId() <= 0 {
+		return &pb.GetCandidateMatchEvaluationResponse{Code: errs.ErrBadRequest, Msg: "application_id is required"}, nil
+	}
+	if s.store == nil {
+		return &pb.GetCandidateMatchEvaluationResponse{Code: errs.ErrInternal, Msg: "recruiting read store is not configured"}, nil
+	}
+	if _, authErr := s.authorizeRecruitingApplication(ctx, req.GetStaffUserId(), req.GetApplicationId()); authErr != nil {
+		return recruitingMatchAuthResponse(authErr), nil
+	}
+	var (
+		snapshot RecruitingCandidateMatchSnapshot
+		found    bool
+		err      error
+	)
+	if req.GetAgentRunId() > 0 {
+		snapshot, found, err = s.store.GetRecruitingCandidateMatchEvaluationSnapshotByApplicationAgentRunID(ctx, req.GetApplicationId(), req.GetAgentRunId())
+	} else {
+		snapshot, found, err = s.store.GetLatestRecruitingCandidateMatchEvaluationSnapshotByApplicationID(ctx, req.GetApplicationId())
+	}
+	if err != nil {
+		return &pb.GetCandidateMatchEvaluationResponse{Code: errs.ErrInternal, Msg: err.Error()}, nil
+	}
+	if !found {
+		if req.GetAgentRunId() > 0 {
+			return &pb.GetCandidateMatchEvaluationResponse{Code: 404, Msg: "candidate match evaluation not found for agent_run_id and matcher is not configured in native runtime"}, nil
+		}
+		return &pb.GetCandidateMatchEvaluationResponse{Code: configCodeUnsupported, Msg: "candidate match evaluation not found and matcher is not configured in native runtime"}, nil
+	}
+	return &pb.GetCandidateMatchEvaluationResponse{Code: errs.OK, Msg: "success", Evaluation: recruitingCandidateMatchSnapshotPB(snapshot)}, nil
 }
 
 func (s nativeRecruitingIntelligenceService) GetCandidateMatchEvaluation(ctx context.Context, req *pb.GetCandidateMatchEvaluationRequest) (*pb.GetCandidateMatchEvaluationResponse, error) {

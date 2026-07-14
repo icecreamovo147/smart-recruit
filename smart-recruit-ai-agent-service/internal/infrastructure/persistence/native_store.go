@@ -803,6 +803,20 @@ func (s *NativeStore) GetRecruitingCandidateMatchEvaluationSnapshotByApplication
 	return s.recruitingCandidateMatchSnapshot(ctx, evaluation)
 }
 
+func (s *NativeStore) GetRecruitingCandidateMatchEvaluationSnapshotByApplicationAgentRunID(ctx context.Context, applicationID int64, agentRunID uint64) (aiagentgrpc.RecruitingCandidateMatchSnapshot, bool, error) {
+	var evaluation recruitingCandidateMatchEvaluationRecord
+	if err := s.db.WithContext(ctx).
+		Where("application_id = ? AND agent_run_id = ?", applicationID, agentRunID).
+		Order("evaluation_version DESC, id DESC").
+		First(&evaluation).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return aiagentgrpc.RecruitingCandidateMatchSnapshot{}, false, nil
+		}
+		return aiagentgrpc.RecruitingCandidateMatchSnapshot{}, false, err
+	}
+	return s.recruitingCandidateMatchSnapshot(ctx, evaluation)
+}
+
 func (s *NativeStore) GetLatestRecruitingCandidateMatchEvaluationSnapshotByApplicationID(ctx context.Context, applicationID int64) (aiagentgrpc.RecruitingCandidateMatchSnapshot, bool, error) {
 	var evaluation recruitingCandidateMatchEvaluationRecord
 	if err := s.db.WithContext(ctx).

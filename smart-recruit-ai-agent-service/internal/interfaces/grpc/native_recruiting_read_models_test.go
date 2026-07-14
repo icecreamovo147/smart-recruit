@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"reflect"
+	"strings"
 	"testing"
 	"time"
 
@@ -91,6 +92,107 @@ func TestGetResumeProfileReadModelNotFound(t *testing.T) {
 	}
 }
 
+func TestParseResumeProfileReadThroughPath(t *testing.T) {
+	t.Run("missing ids", func(t *testing.T) {
+		resp, err := nativeRecruitingIntelligenceService{}.ParseResumeProfile(recruitingAuthContext(), &pb.ParseResumeProfileRequest{StaffUserId: testRecruitingStaffUserID})
+		if err != nil {
+			t.Fatalf("ParseResumeProfile error = %v", err)
+		}
+		if resp.GetCode() != errs.ErrBadRequest {
+			t.Fatalf("code = %d msg=%q, want bad request", resp.GetCode(), resp.GetMsg())
+		}
+	})
+
+	t.Run("store nil", func(t *testing.T) {
+		resp, err := nativeRecruitingIntelligenceService{}.ParseResumeProfile(recruitingAuthContext(), &pb.ParseResumeProfileRequest{StaffUserId: testRecruitingStaffUserID, ApplicationId: 7001})
+		if err != nil {
+			t.Fatalf("ParseResumeProfile error = %v", err)
+		}
+		if resp.GetCode() != errs.ErrInternal {
+			t.Fatalf("code = %d msg=%q, want internal", resp.GetCode(), resp.GetMsg())
+		}
+	})
+
+	t.Run("existing profile success", func(t *testing.T) {
+		store := newFakeRecruitingReadStore()
+		store.latestApplicationByResumeID[8001] = RecruitingApplicationContext{ApplicationID: 7001, JobID: 9001, CandidateUserID: 3001, ResumeID: 8001}
+		store.currentProfileByResumeID[8001] = RecruitingResumeProfileRow{ID: 6001, ResumeID: 8001, UserID: 3001, ParseRunID: 5001, Version: 2, IsCurrent: 1}
+		store.resumeSnapshots[6001] = sampleRecruitingResumeSnapshot(6001, 8001, 3001)
+		applications := &fakeApplicationOwnerClient{snapshot: &pb.GetApplicationSnapshotResponse{Code: errs.OK, ApplicationId: 7001, ResumeId: 8001, JobId: 9001}}
+		service := nativeRecruitingIntelligenceService{store: store, applications: applications}
+
+		resp, err := service.ParseResumeProfile(recruitingAuthContext(), &pb.ParseResumeProfileRequest{StaffUserId: testRecruitingStaffUserID, ResumeId: 8001})
+		if err != nil {
+			t.Fatalf("ParseResumeProfile error = %v", err)
+		}
+		if resp.GetCode() != errs.OK {
+			t.Fatalf("code = %d msg=%q, want OK", resp.GetCode(), resp.GetMsg())
+		}
+		if got := resp.GetProfile().GetProfile().GetFullName(); got != "Ada Lovelace" {
+			t.Fatalf("full name = %q, want Ada Lovelace", got)
+		}
+		if len(applications.requests) != 1 || applications.requests[0].GetApplicationId() != 7001 {
+			t.Fatalf("application auth requests = %+v, want resolved application 7001", applications.requests)
+		}
+	})
+
+	t.Run("no current profile does not fabricate", func(t *testing.T) {
+		store := newFakeRecruitingReadStore()
+		store.latestApplicationByResumeID[8001] = RecruitingApplicationContext{ApplicationID: 7001, JobID: 9001, CandidateUserID: 3001, ResumeID: 8001}
+		service := nativeRecruitingIntelligenceService{
+			store:        store,
+			applications: &fakeApplicationOwnerClient{snapshot: &pb.GetApplicationSnapshotResponse{Code: errs.OK, ApplicationId: 7001, ResumeId: 8001, JobId: 9001}},
+		}
+
+		resp, err := service.ParseResumeProfile(recruitingAuthContext(), &pb.ParseResumeProfileRequest{StaffUserId: testRecruitingStaffUserID, ResumeId: 8001})
+		if err != nil {
+			t.Fatalf("ParseResumeProfile error = %v", err)
+		}
+		if resp.GetCode() == errs.OK || resp.GetProfile() != nil {
+			t.Fatalf("response = %+v, want non-success without profile", resp)
+		}
+		if !strings.Contains(resp.GetMsg(), "current resume profile not found") || !strings.Contains(resp.GetMsg(), "parser") {
+			t.Fatalf("msg = %q, want not found/parser unavailable", resp.GetMsg())
+		}
+		if len(store.resumeSnapshots) != 0 || len(store.currentProfileByResumeID) != 0 {
+			t.Fatalf("store fabricated profile data: current=%+v snapshots=%+v", store.currentProfileByResumeID, store.resumeSnapshots)
+		}
+	})
+
+	t.Run("application resume mismatch", func(t *testing.T) {
+		store := newFakeRecruitingReadStore()
+		store.applicationsByID[7001] = RecruitingApplicationContext{ApplicationID: 7001, JobID: 9001, ResumeID: 8001}
+		service := nativeRecruitingIntelligenceService{
+			store:        store,
+			applications: &fakeApplicationOwnerClient{snapshot: &pb.GetApplicationSnapshotResponse{Code: errs.OK, ApplicationId: 7001, ResumeId: 8001, JobId: 9001}},
+		}
+
+		resp, err := service.ParseResumeProfile(recruitingAuthContext(), &pb.ParseResumeProfileRequest{StaffUserId: testRecruitingStaffUserID, ApplicationId: 7001, ResumeId: 9999})
+		if err != nil {
+			t.Fatalf("ParseResumeProfile error = %v", err)
+		}
+		if resp.GetCode() != errs.ErrBadRequest {
+			t.Fatalf("code = %d msg=%q, want bad request", resp.GetCode(), resp.GetMsg())
+		}
+	})
+
+	t.Run("unauthorized application", func(t *testing.T) {
+		store := newFakeRecruitingReadStore()
+		service := nativeRecruitingIntelligenceService{
+			store:        store,
+			applications: &fakeApplicationOwnerClient{snapshot: &pb.GetApplicationSnapshotResponse{Code: errs.ErrForbidden, Msg: "denied"}},
+		}
+
+		resp, err := service.ParseResumeProfile(recruitingAuthContext(), &pb.ParseResumeProfileRequest{StaffUserId: testRecruitingStaffUserID, ApplicationId: 7001})
+		if err != nil {
+			t.Fatalf("ParseResumeProfile error = %v", err)
+		}
+		if resp.GetCode() != errs.ErrForbidden {
+			t.Fatalf("code = %d msg=%q, want forbidden", resp.GetCode(), resp.GetMsg())
+		}
+	})
+}
+
 func TestGetCandidateMatchEvaluationReadModelResolution(t *testing.T) {
 	store := newFakeRecruitingReadStore()
 	latest := sampleCandidateMatchSnapshot(9103, 7001, 3, 91)
@@ -156,6 +258,113 @@ func TestGetCandidateMatchEvaluationReadModelHidesApplicationMismatch(t *testing
 	if resp.GetCode() != 404 {
 		t.Fatalf("application mismatch code = %d msg=%q, want 404", resp.GetCode(), resp.GetMsg())
 	}
+}
+
+func TestEvaluateCandidateMatchReadThroughPath(t *testing.T) {
+	t.Run("bad request", func(t *testing.T) {
+		resp, err := nativeRecruitingIntelligenceService{}.EvaluateCandidateMatch(recruitingAuthContext(), &pb.EvaluateCandidateMatchRequest{StaffUserId: testRecruitingStaffUserID})
+		if err != nil {
+			t.Fatalf("EvaluateCandidateMatch error = %v", err)
+		}
+		if resp.GetCode() != errs.ErrBadRequest {
+			t.Fatalf("code = %d msg=%q, want bad request", resp.GetCode(), resp.GetMsg())
+		}
+	})
+
+	t.Run("store nil", func(t *testing.T) {
+		resp, err := nativeRecruitingIntelligenceService{}.EvaluateCandidateMatch(recruitingAuthContext(), &pb.EvaluateCandidateMatchRequest{StaffUserId: testRecruitingStaffUserID, ApplicationId: 7001})
+		if err != nil {
+			t.Fatalf("EvaluateCandidateMatch error = %v", err)
+		}
+		if resp.GetCode() != errs.ErrInternal {
+			t.Fatalf("code = %d msg=%q, want internal", resp.GetCode(), resp.GetMsg())
+		}
+	})
+
+	t.Run("latest success", func(t *testing.T) {
+		store := newFakeRecruitingReadStore()
+		store.latestMatchByApp[7001] = sampleCandidateMatchSnapshot(9103, 7001, 3, 91)
+		service := nativeRecruitingIntelligenceService{
+			store:        store,
+			applications: &fakeApplicationOwnerClient{snapshot: &pb.GetApplicationSnapshotResponse{Code: errs.OK, ApplicationId: 7001, ResumeId: 8001, JobId: 9001}},
+		}
+
+		resp, err := service.EvaluateCandidateMatch(recruitingAuthContext(), &pb.EvaluateCandidateMatchRequest{StaffUserId: testRecruitingStaffUserID, ApplicationId: 7001})
+		if err != nil {
+			t.Fatalf("EvaluateCandidateMatch error = %v", err)
+		}
+		if resp.GetCode() != errs.OK {
+			t.Fatalf("code = %d msg=%q, want OK", resp.GetCode(), resp.GetMsg())
+		}
+		if got := resp.GetEvaluation().GetEvaluation().GetId(); got != 9103 {
+			t.Fatalf("evaluation id = %d, want 9103", got)
+		}
+	})
+
+	t.Run("agent run success", func(t *testing.T) {
+		store := newFakeRecruitingReadStore()
+		agentRunID := uint64(12001)
+		snapshot := sampleCandidateMatchSnapshot(9104, 7001, 4, 93)
+		snapshot.Evaluation.AgentRunID = &agentRunID
+		store.matchByAppAgentRun[matchAgentRunKey(7001, agentRunID)] = snapshot
+		service := nativeRecruitingIntelligenceService{
+			store:        store,
+			applications: &fakeApplicationOwnerClient{snapshot: &pb.GetApplicationSnapshotResponse{Code: errs.OK, ApplicationId: 7001, ResumeId: 8001, JobId: 9001}},
+		}
+
+		resp, err := service.EvaluateCandidateMatch(recruitingAuthContext(), &pb.EvaluateCandidateMatchRequest{StaffUserId: testRecruitingStaffUserID, ApplicationId: 7001, AgentRunId: agentRunID})
+		if err != nil {
+			t.Fatalf("EvaluateCandidateMatch error = %v", err)
+		}
+		if resp.GetCode() != errs.OK {
+			t.Fatalf("code = %d msg=%q, want OK", resp.GetCode(), resp.GetMsg())
+		}
+		if got := resp.GetEvaluation().GetEvaluation().GetAgentRunId(); got != agentRunID {
+			t.Fatalf("agent run id = %d, want %d", got, agentRunID)
+		}
+	})
+
+	t.Run("agent run application mismatch hidden", func(t *testing.T) {
+		store := newFakeRecruitingReadStore()
+		agentRunID := uint64(12001)
+		snapshot := sampleCandidateMatchSnapshot(9104, 7002, 1, 93)
+		snapshot.Evaluation.AgentRunID = &agentRunID
+		store.matchByAppAgentRun[matchAgentRunKey(7002, agentRunID)] = snapshot
+		service := nativeRecruitingIntelligenceService{
+			store:        store,
+			applications: &fakeApplicationOwnerClient{snapshot: &pb.GetApplicationSnapshotResponse{Code: errs.OK, ApplicationId: 7001, ResumeId: 8001, JobId: 9001}},
+		}
+
+		resp, err := service.EvaluateCandidateMatch(recruitingAuthContext(), &pb.EvaluateCandidateMatchRequest{StaffUserId: testRecruitingStaffUserID, ApplicationId: 7001, AgentRunId: agentRunID})
+		if err != nil {
+			t.Fatalf("EvaluateCandidateMatch error = %v", err)
+		}
+		if resp.GetCode() != 404 || resp.GetEvaluation() != nil {
+			t.Fatalf("response = %+v, want 404 without leaked evaluation", resp)
+		}
+	})
+
+	t.Run("no result does not fabricate", func(t *testing.T) {
+		store := newFakeRecruitingReadStore()
+		service := nativeRecruitingIntelligenceService{
+			store:        store,
+			applications: &fakeApplicationOwnerClient{snapshot: &pb.GetApplicationSnapshotResponse{Code: errs.OK, ApplicationId: 7001, ResumeId: 8001, JobId: 9001}},
+		}
+
+		resp, err := service.EvaluateCandidateMatch(recruitingAuthContext(), &pb.EvaluateCandidateMatchRequest{StaffUserId: testRecruitingStaffUserID, ApplicationId: 7001})
+		if err != nil {
+			t.Fatalf("EvaluateCandidateMatch error = %v", err)
+		}
+		if resp.GetCode() == errs.OK || resp.GetEvaluation() != nil {
+			t.Fatalf("response = %+v, want non-success without evaluation", resp)
+		}
+		if !strings.Contains(resp.GetMsg(), "candidate match evaluation not found") || !strings.Contains(resp.GetMsg(), "matcher") {
+			t.Fatalf("msg = %q, want not found/matcher unavailable", resp.GetMsg())
+		}
+		if len(store.latestMatchByApp) != 0 || len(store.matchByAppAgentRun) != 0 {
+			t.Fatalf("store fabricated evaluation data: latest=%+v agent=%+v", store.latestMatchByApp, store.matchByAppAgentRun)
+		}
+	})
 }
 
 func TestCompareCandidatesForJobReadModelOrderingMissingAndAuthDeny(t *testing.T) {
@@ -270,6 +479,7 @@ type fakeRecruitingReadStore struct {
 	resumeSnapshots                  map[uint64]RecruitingResumeProfileSnapshot
 	matchSnapshots                   map[uint64]RecruitingCandidateMatchSnapshot
 	matchByAppVersion                map[string]RecruitingCandidateMatchSnapshot
+	matchByAppAgentRun               map[string]RecruitingCandidateMatchSnapshot
 	latestMatchByApp                 map[int64]RecruitingCandidateMatchSnapshot
 	applicationsByJob                map[int64][]RecruitingApplicationContext
 	latestEvaluationsByApplicationID map[int64]RecruitingCandidateMatchEvaluationRow
@@ -285,6 +495,7 @@ func newFakeRecruitingReadStore() *fakeRecruitingReadStore {
 		resumeSnapshots:                  make(map[uint64]RecruitingResumeProfileSnapshot),
 		matchSnapshots:                   make(map[uint64]RecruitingCandidateMatchSnapshot),
 		matchByAppVersion:                make(map[string]RecruitingCandidateMatchSnapshot),
+		matchByAppAgentRun:               make(map[string]RecruitingCandidateMatchSnapshot),
 		latestMatchByApp:                 make(map[int64]RecruitingCandidateMatchSnapshot),
 		applicationsByJob:                make(map[int64][]RecruitingApplicationContext),
 		latestEvaluationsByApplicationID: make(map[int64]RecruitingCandidateMatchEvaluationRow),
@@ -347,6 +558,14 @@ func (f *fakeRecruitingReadStore) GetRecruitingCandidateMatchEvaluationSnapshotB
 	return row, ok, nil
 }
 
+func (f *fakeRecruitingReadStore) GetRecruitingCandidateMatchEvaluationSnapshotByApplicationAgentRunID(_ context.Context, applicationID int64, agentRunID uint64) (RecruitingCandidateMatchSnapshot, bool, error) {
+	if f.err != nil {
+		return RecruitingCandidateMatchSnapshot{}, false, f.err
+	}
+	row, ok := f.matchByAppAgentRun[matchAgentRunKey(applicationID, agentRunID)]
+	return row, ok, nil
+}
+
 func (f *fakeRecruitingReadStore) GetLatestRecruitingCandidateMatchEvaluationSnapshotByApplicationID(_ context.Context, applicationID int64) (RecruitingCandidateMatchSnapshot, bool, error) {
 	if f.err != nil {
 		return RecruitingCandidateMatchSnapshot{}, false, f.err
@@ -377,4 +596,8 @@ func (f *fakeRecruitingReadStore) ListLatestRecruitingCandidateMatchEvaluationsB
 
 func matchVersionKey(applicationID int64, version int32) string {
 	return fmt.Sprintf("%d:%d", applicationID, version)
+}
+
+func matchAgentRunKey(applicationID int64, agentRunID uint64) string {
+	return fmt.Sprintf("%d:%d", applicationID, agentRunID)
 }

@@ -102,6 +102,21 @@ func TestNativeStoreRecruitingCandidateMatchSnapshotAndComparisonInputs(t *testi
 		t.Fatalf("by id snapshot = %+v found=%v, want application 7001", byID, found)
 	}
 
+	byRun, found, err := store.GetRecruitingCandidateMatchEvaluationSnapshotByApplicationAgentRunID(ctx, 7001, 9901)
+	if err != nil {
+		t.Fatalf("GetRecruitingCandidateMatchEvaluationSnapshotByApplicationAgentRunID error = %v", err)
+	}
+	if !found || byRun.Evaluation.ID != 9102 || byRun.Evaluation.AgentRunID == nil || *byRun.Evaluation.AgentRunID != 9901 {
+		t.Fatalf("by agent run snapshot = %+v found=%v, want evaluation 9102 for run 9901", byRun, found)
+	}
+	crossApplicationRun, found, err := store.GetRecruitingCandidateMatchEvaluationSnapshotByApplicationAgentRunID(ctx, 7002, 9901)
+	if err != nil {
+		t.Fatalf("GetRecruitingCandidateMatchEvaluationSnapshotByApplicationAgentRunID cross app error = %v", err)
+	}
+	if found {
+		t.Fatalf("cross application agent run snapshot = %+v, want not found", crossApplicationRun)
+	}
+
 	applications, err := store.ListCurrentRecruitingApplicationsByJobID(ctx, 9001)
 	if err != nil {
 		t.Fatalf("ListCurrentRecruitingApplicationsByJobID error = %v", err)
@@ -199,9 +214,10 @@ func seedRecruitingReadModels(t *testing.T, db *gorm.DB) {
 		t.Fatalf("seed skill: %v", err)
 	}
 
+	matchRunID := uint64(9901)
 	evaluations := []recruitingCandidateMatchEvaluationRecord{
 		{ID: 9101, ApplicationID: 7001, JobID: 9001, CandidateUserID: 3001, ResumeProfileID: 6001, EvaluationVersion: 1, IsLatest: 0, OverallScore: nf(80), Recommendation: ns("possible_match"), Summary: ns("Historical"), ScoreBreakdownJSON: ns(`{"dimensions":[]}`), ModelName: ns("model-a"), EvaluatedAt: now, CreatedAt: now, UpdatedAt: now},
-		{ID: 9102, ApplicationID: 7001, JobID: 9001, CandidateUserID: 3001, ResumeProfileID: 6001, EvaluationVersion: 2, IsLatest: 1, OverallScore: nf(92.5), Recommendation: ns("strong_match"), Summary: ns("Latest"), StrengthsJSON: ns(`["go"]`), RisksJSON: ns(`[]`), ScoreBreakdownJSON: ns(`{"dimensions":[{"name":"backend","score":92.5}]}`), ModelName: ns("model-b"), EvaluatedAt: now.Add(time.Hour), CreatedAt: now, UpdatedAt: now},
+		{ID: 9102, ApplicationID: 7001, JobID: 9001, CandidateUserID: 3001, ResumeProfileID: 6001, AgentRunID: &matchRunID, EvaluationVersion: 2, IsLatest: 1, OverallScore: nf(92.5), Recommendation: ns("strong_match"), Summary: ns("Latest"), StrengthsJSON: ns(`["go"]`), RisksJSON: ns(`[]`), ScoreBreakdownJSON: ns(`{"dimensions":[{"name":"backend","score":92.5}]}`), ModelName: ns("model-b"), EvaluatedAt: now.Add(time.Hour), CreatedAt: now, UpdatedAt: now},
 		{ID: 9103, ApplicationID: 7003, JobID: 9001, CandidateUserID: 3003, ResumeProfileID: 6001, EvaluationVersion: 1, IsLatest: 1, OverallScore: nf(97), Recommendation: ns("strong_match"), Summary: ns("Top"), ScoreBreakdownJSON: ns(`{"dimensions":[{"name":"backend","score":97}]}`), ModelName: ns("model-b"), EvaluatedAt: now.Add(2 * time.Hour), CreatedAt: now, UpdatedAt: now},
 	}
 	if err := db.Create(&evaluations).Error; err != nil {
