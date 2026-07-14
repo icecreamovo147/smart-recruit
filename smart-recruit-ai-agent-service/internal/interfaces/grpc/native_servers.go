@@ -52,6 +52,10 @@ type AIStore interface {
 	ListEmbeddingModels(ctx context.Context, page, pageSize int32, providerID int64) ([]*pb.EmbeddingModelInfo, int64, error)
 }
 
+type activePromptStore interface {
+	GetActivePromptByAgentType(context.Context, *pb.GetActivePromptByAgentTypeRequest) (*pb.GetActivePromptByAgentTypeResponse, error)
+}
+
 type RuntimeDeps struct {
 	Store            AIStore
 	Provider         ChatProvider
@@ -141,6 +145,15 @@ const (
 	agentRunEventPollInterval = 500 * time.Millisecond
 
 	agentRunCodeBadRequest int32 = 400
+
+	candidateAssistantAgentType    = "candidate_assistant"
+	candidatePromptRoleSystem      = "system"
+	candidateChatContextPageSize   = int32(100)
+	candidateChatEmptyMessageError = "message is required"
+
+	candidateSystemPrompt = "你是智能招聘系统的候选人端 AI 助手。你只服务当前登录候选人，回答应围绕候选人自己的求职、简历、岗位、投递、面试和 Offer 相关问题。\n" +
+		"必须保护招聘系统数据边界：不要透露 HR 内部备注、其他候选人信息、未授权的招聘数据或系统实现细节。\n" +
+		"当缺少实时工具或数据时，明确说明当前无法读取实时系统数据，并给出安全、可执行的求职建议。"
 
 	agentRunStatusQueued              = "queued"
 	agentRunStatusPlanning            = "planning"
@@ -352,16 +365,22 @@ func (s *nativeAIService) DeleteSession(ctx context.Context, req *pb.DeleteSessi
 
 func (s *nativeAIService) CandidateChatStream(req *pb.CandidateChatRequest, stream gogrpc.ServerStreamingServer[pb.ChatStreamResponse]) error {
 	ctx := stream.Context()
+	if req == nil || strings.TrimSpace(req.GetMessage()) == "" {
+		return stream.Send(&pb.ChatStreamResponse{Code: agentRunCodeBadRequest, Msg: candidateChatEmptyMessageError, Done: true, CreatedAt: formatTime(time.Now()), EventType: "done"})
+	}
 	session, err := s.ensureSession(ctx, ownerRoleCandidate, req.GetUserId(), req.GetSessionId(), 0, req.GetMessage())
 	if err != nil {
 		return err
 	}
-	if strings.TrimSpace(req.GetMessage()) != "" && s.store != nil {
-		if _, err := s.store.AppendChatMessage(ctx, ChatMessageRow{OwnerRole: ownerRoleCandidate, OwnerID: req.GetUserId(), SessionID: session.ID, Role: "user", Content: req.GetMessage()}); err != nil {
-			return err
-		}
+	userMessage, err := s.store.AppendChatMessage(ctx, ChatMessageRow{OwnerRole: ownerRoleCandidate, OwnerID: req.GetUserId(), SessionID: session.ID, Role: "user", Content: req.GetMessage()})
+	if err != nil {
+		return err
 	}
-	reply, err := s.complete(ctx, req.GetMessage(), 0)
+	prompt, err := s.buildCandidateProviderPrompt(ctx, req.GetUserId(), session.ID, userMessage)
+	if err != nil {
+		return err
+	}
+	reply, err := s.complete(ctx, prompt, 0)
 	if err != nil {
 		return err
 	}
@@ -371,6 +390,79 @@ func (s *nativeAIService) CandidateChatStream(req *pb.CandidateChatRequest, stre
 		}
 	}
 	return stream.Send(&pb.ChatStreamResponse{Code: 0, Msg: "success", Delta: reply, Done: true, SessionId: session.ID, CreatedAt: formatTime(time.Now()), EventType: "done"})
+}
+
+func (s *nativeAIService) buildCandidateProviderPrompt(ctx context.Context, userID, sessionID int64, currentUserMessage ChatMessageRow) (string, error) {
+	systemPrompt, err := s.resolveCandidateSystemPrompt(ctx)
+	if err != nil {
+		return "", err
+	}
+	messages, err := s.store.ListChatMessages(ctx, ownerRoleCandidate, userID, sessionID, 1, candidateChatContextPageSize)
+	if err != nil {
+		return "", err
+	}
+	messages = ensureCandidateCurrentMessage(messages, currentUserMessage, userID, sessionID)
+	return renderCandidateProviderPrompt(systemPrompt, messages, userID, sessionID), nil
+}
+
+func (s *nativeAIService) resolveCandidateSystemPrompt(ctx context.Context) (string, error) {
+	if promptStore, ok := s.store.(activePromptStore); ok {
+		resp, err := promptStore.GetActivePromptByAgentType(ctx, &pb.GetActivePromptByAgentTypeRequest{AgentType: candidateAssistantAgentType, PromptRole: candidatePromptRoleSystem})
+		if err != nil {
+			return "", err
+		}
+		if content := strings.TrimSpace(resp.GetTemplate().GetContent()); content != "" {
+			return content, nil
+		}
+	}
+	return candidateSystemPrompt, nil
+}
+
+func ensureCandidateCurrentMessage(messages []ChatMessageRow, current ChatMessageRow, userID, sessionID int64) []ChatMessageRow {
+	if current.ID == 0 {
+		return messages
+	}
+	for _, message := range messages {
+		if message.ID == current.ID {
+			return messages
+		}
+	}
+	if current.OwnerRole == ownerRoleCandidate && current.OwnerID == userID && current.SessionID == sessionID {
+		return append(messages, current)
+	}
+	return messages
+}
+
+func renderCandidateProviderPrompt(systemPrompt string, messages []ChatMessageRow, userID, sessionID int64) string {
+	var b strings.Builder
+	b.WriteString("System:\n")
+	b.WriteString(strings.TrimSpace(systemPrompt))
+	b.WriteString("\n\nConversation:\n")
+	for _, message := range messages {
+		if message.OwnerRole != ownerRoleCandidate || message.OwnerID != userID || message.SessionID != sessionID {
+			continue
+		}
+		role := normalizeConversationRole(message.Role)
+		content := strings.TrimSpace(message.Content)
+		if role == "" || content == "" {
+			continue
+		}
+		b.WriteString(role)
+		b.WriteString(":\n")
+		b.WriteString(content)
+		b.WriteString("\n\n")
+	}
+	b.WriteString("Assistant:")
+	return b.String()
+}
+
+func normalizeConversationRole(role string) string {
+	switch strings.ToLower(strings.TrimSpace(role)) {
+	case "user", "assistant":
+		return strings.ToLower(strings.TrimSpace(role))
+	default:
+		return ""
+	}
 }
 
 func (s *nativeAIService) CandidateListSessions(ctx context.Context, req *pb.CandidateSessionListRequest) (*pb.ChatSessionListResponse, error) {
