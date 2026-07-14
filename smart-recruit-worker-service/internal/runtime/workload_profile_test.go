@@ -13,8 +13,8 @@ func TestWorkloadProfilesMatchDefaultRuntimeDescriptors(t *testing.T) {
 	if err != nil {
 		t.Fatalf("ParseWorkloadConfig returned %v", err)
 	}
-	if !reflect.DeepEqual(cfg.Enabled, WorkloadProfileNames()) {
-		t.Fatalf("default enabled workloads = %#v, profiles = %#v", cfg.Enabled, WorkloadProfileNames())
+	if !reflect.DeepEqual(cfg.Enabled, []string{"outbox-dispatcher"}) {
+		t.Fatalf("default enabled workloads = %#v, want only outbox-dispatcher", cfg.Enabled)
 	}
 }
 
@@ -32,8 +32,14 @@ func TestWorkloadProfilesRecordOwnerContracts(t *testing.T) {
 		if !ok {
 			t.Fatalf("missing profile %s", name)
 		}
-		if !profile.Toggle.DefaultOn || profile.Toggle.EnableEnv != "WORKER_WORKLOADS" || profile.Toggle.DisableEnv != "WORKER_DISABLED_WORKLOADS" {
+		if profile.Toggle.EnableEnv != "WORKER_WORKLOADS" || profile.Toggle.DisableEnv != "WORKER_DISABLED_WORKLOADS" {
 			t.Fatalf("unexpected toggle for %s: %+v", name, profile.Toggle)
+		}
+		if name == "outbox-dispatcher" && !profile.Toggle.DefaultOn {
+			t.Fatalf("outbox-dispatcher should be default-on: %+v", profile.Toggle)
+		}
+		if name != "outbox-dispatcher" && profile.Toggle.DefaultOn {
+			t.Fatalf("%s should stay default-off until its real starter is wired", name)
 		}
 		if profile.Contract.OwnerContext == "" || profile.Contract.DLQ == "" || profile.Contract.Retry == "" || profile.Contract.Writes == "" {
 			t.Fatalf("incomplete owner contract for %s: %+v", name, profile.Contract)

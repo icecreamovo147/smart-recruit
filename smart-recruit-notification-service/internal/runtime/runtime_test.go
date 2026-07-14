@@ -34,26 +34,32 @@ func TestRuntimeRequiresNotificationDependency(t *testing.T) {
 	}
 }
 
-func TestComponentsRequirePersistenceRealtimeOutboxInboxAndEmail(t *testing.T) {
+func TestComponentsRequirePersistenceRealtimeAndPairedConsumers(t *testing.T) {
 	if err := (Components{}).Validate(); err == nil {
 		t.Fatal("expected missing components error")
 	}
 	components := Components{
 		Persistence:       true,
 		RealtimeDelivery:  true,
-		OutboxPublisher:   true,
 		NotificationInbox: true,
 		EmailCoordination: true,
 	}
 	if err := components.Validate(); err != nil {
 		t.Fatalf("Validate returned error: %v", err)
 	}
+	partial := Components{
+		Persistence:       true,
+		RealtimeDelivery:  true,
+		NotificationInbox: true,
+	}
+	if err := partial.Validate(); err == nil || !strings.Contains(err.Error(), "configured together") {
+		t.Fatalf("expected paired consumer validation error, got %v", err)
+	}
 }
 
 func TestRuntimeAcceptsLocalRuntimeComponents(t *testing.T) {
 	runtime, err := New(Deps{
 		Notification:         fakeNotificationAPI{},
-		OutboxPublisher:      fakeOutboxPublisher{},
 		NotificationConsumer: fakeConsumer{},
 		EmailConsumer:        fakeConsumer{},
 	})
@@ -63,12 +69,14 @@ func TestRuntimeAcceptsLocalRuntimeComponents(t *testing.T) {
 	if err := runtime.Components.Validate(); err != nil {
 		t.Fatalf("component validation failed: %v", err)
 	}
+	if runtime.Components.OutboxPublisher {
+		t.Fatal("outbox publisher should be disabled by default")
+	}
 }
 
 func TestRuntimeStartReportsMissingMQWhenConsumersAreConfigured(t *testing.T) {
 	runtime, err := New(Deps{
 		Notification:         fakeNotificationAPI{},
-		OutboxPublisher:      fakeOutboxPublisher{},
 		NotificationConsumer: fakeConsumer{},
 		EmailConsumer:        fakeConsumer{},
 	})
@@ -78,6 +86,34 @@ func TestRuntimeStartReportsMissingMQWhenConsumersAreConfigured(t *testing.T) {
 	errs := runtime.Start(context.Background())
 	if len(errs) != 1 || errs[0].Component != "notification-runtime-mq" {
 		t.Fatalf("unexpected start errors: %#v", errs)
+	}
+}
+
+func TestRuntimeStartWithoutOutboxPublisherStartsConsumersOnly(t *testing.T) {
+	mqConn := &sharedmq.Conn{}
+	notificationConsumer := &recordingConsumer{}
+	emailConsumer := &recordingConsumer{}
+	runtime, err := New(Deps{
+		Notification:         fakeNotificationAPI{},
+		MQ:                   mqConn,
+		NotificationConsumer: notificationConsumer,
+		EmailConsumer:        emailConsumer,
+	})
+	if err != nil {
+		t.Fatalf("New returned error: %v", err)
+	}
+	errs := runtime.Start(context.Background())
+	if len(errs) != 0 {
+		t.Fatalf("unexpected start errors: %#v", errs)
+	}
+	if notificationConsumer.starts != 1 || notificationConsumer.mq != mqConn {
+		t.Fatalf("notification consumer starts = %d, mq = %p", notificationConsumer.starts, notificationConsumer.mq)
+	}
+	if emailConsumer.starts != 1 || emailConsumer.mq != mqConn {
+		t.Fatalf("email consumer starts = %d, mq = %p", emailConsumer.starts, emailConsumer.mq)
+	}
+	if runtime.Components.OutboxPublisher {
+		t.Fatal("outbox publisher should be absent")
 	}
 }
 
@@ -119,3 +155,14 @@ func (fakeOutboxPublisher) Start(context.Context) {}
 type fakeConsumer struct{}
 
 func (fakeConsumer) Start(context.Context, *sharedmq.Conn) error { return nil }
+
+type recordingConsumer struct {
+	starts int
+	mq     *sharedmq.Conn
+}
+
+func (c *recordingConsumer) Start(_ context.Context, mqConn *sharedmq.Conn) error {
+	c.starts++
+	c.mq = mqConn
+	return nil
+}

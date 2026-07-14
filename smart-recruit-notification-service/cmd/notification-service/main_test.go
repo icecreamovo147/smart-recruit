@@ -81,3 +81,20 @@ func TestMQConfigMapsNotificationOutboxInboxAndEmailQueues(t *testing.T) {
 		t.Fatalf("unexpected retry settings: %#v", mapped)
 	}
 }
+
+func TestNotificationOutboxDispatcherEnabledDefaultsOff(t *testing.T) {
+	t.Setenv("NOTIFICATION_OUTBOX_DISPATCHER_ENABLED", "")
+	if notificationOutboxDispatcherEnabled() {
+		t.Fatal("notification outbox dispatcher should be disabled by default")
+	}
+
+	t.Setenv("NOTIFICATION_OUTBOX_DISPATCHER_ENABLED", "true")
+	if !notificationOutboxDispatcherEnabled() {
+		t.Fatal("notification outbox dispatcher should be enabled when explicitly true")
+	}
+
+	t.Setenv("NOTIFICATION_OUTBOX_DISPATCHER_ENABLED", "false")
+	if notificationOutboxDispatcherEnabled() {
+		t.Fatal("notification outbox dispatcher should stay disabled unless explicitly true")
+	}
+}

@@ -45,7 +45,7 @@ var DefaultWorkloadProfiles = []WorkloadProfile{
 		Name:        "outbox-dispatcher",
 		Queue:       "event_outbox",
 		Category:    "outbox",
-		Toggle:      defaultToggle(),
+		Toggle:      defaultToggle(true),
 		Description: "Publishes pending outbox events to RabbitMQ without owning source-domain tables.",
 		Contract: OwnerContract{
 			OwnerContext: OwnerPlatform,
@@ -61,7 +61,7 @@ var DefaultWorkloadProfiles = []WorkloadProfile{
 		Name:        "notification-consumer",
 		Queue:       "RABBITMQ_NOTIFICATION_QUEUE",
 		Category:    "notification",
-		Toggle:      defaultToggle(),
+		Toggle:      defaultToggle(false),
 		Description: "Consumes notification.create events and writes Notification-owned rows/cache effects.",
 		Contract: OwnerContract{
 			OwnerContext: OwnerNotification,
@@ -78,7 +78,7 @@ var DefaultWorkloadProfiles = []WorkloadProfile{
 		Name:        "email-consumer",
 		Queue:       "RABBITMQ_EMAIL_QUEUE",
 		Category:    "email",
-		Toggle:      defaultToggle(),
+		Toggle:      defaultToggle(false),
 		Description: "Consumes email.send events and records email delivery attempts.",
 		Contract: OwnerContract{
 			OwnerContext: OwnerNotification,
@@ -95,7 +95,7 @@ var DefaultWorkloadProfiles = []WorkloadProfile{
 		Name:        "resume-parse-consumer",
 		Queue:       "RABBITMQ_RESUME_PARSE_QUEUE",
 		Category:    "resume",
-		Toggle:      defaultToggle(),
+		Toggle:      defaultToggle(false),
 		Description: "Consumes resume parse events and updates resume parsed-text state.",
 		Contract: OwnerContract{
 			OwnerContext: OwnerRecruitment,
@@ -112,7 +112,7 @@ var DefaultWorkloadProfiles = []WorkloadProfile{
 		Name:        "embedding-consumer",
 		Queue:       "RABBITMQ_EMBEDDING_QUEUE",
 		Category:    "embedding",
-		Toggle:      defaultToggle(),
+		Toggle:      defaultToggle(false),
 		Description: "Consumes embedding upsert events for AI-owned semantic retrieval objects.",
 		Contract: OwnerContract{
 			OwnerContext: OwnerAIAgent,
@@ -129,7 +129,7 @@ var DefaultWorkloadProfiles = []WorkloadProfile{
 		Name:        "agent-run-consumer",
 		Queue:       "RABBITMQ_AGENT_RUN_QUEUE",
 		Category:    "agent-run",
-		Toggle:      defaultToggle(),
+		Toggle:      defaultToggle(false),
 		Description: "Consumes durable agent-run execution requests.",
 		Contract: OwnerContract{
 			OwnerContext: OwnerAIAgent,
@@ -146,7 +146,7 @@ var DefaultWorkloadProfiles = []WorkloadProfile{
 		Name:        "analytics-projection-consumer",
 		Queue:       "domain-event projections",
 		Category:    "analytics",
-		Toggle:      defaultToggle(),
+		Toggle:      defaultToggle(false),
 		Description: "Consumes domain events into Analytics-owned projection ledgers.",
 		Contract: OwnerContract{
 			OwnerContext: OwnerAnalytics,
@@ -214,6 +214,6 @@ func WorkloadProfileNames() []string {
 	return names
 }
 
-func defaultToggle() WorkloadToggle {
-	return WorkloadToggle{EnableEnv: "WORKER_WORKLOADS", DisableEnv: "WORKER_DISABLED_WORKLOADS", DefaultOn: true}
+func defaultToggle(defaultOn bool) WorkloadToggle {
+	return WorkloadToggle{EnableEnv: "WORKER_WORKLOADS", DisableEnv: "WORKER_DISABLED_WORKLOADS", DefaultOn: defaultOn}
 }

@@ -1907,7 +1907,24 @@ func contentTypeFromFileType(fileType string) string {
 }
 
 func notificationPayload(userID int64, accountType, category, title, content, link, relatedType string, relatedID int64, relatedTitle, extra string) map[string]any {
-	return map[string]any{"user_id": userID, "account_type": accountType, "category": category, "title": title, "content": content, "link": link, "related_type": relatedType, "related_id": relatedID, "related_title": relatedTitle, "extra": extra}
+	return map[string]any{
+		"receiver_id":           userID,
+		"receiver_account_type": accountType,
+		"type":                  category,
+		"title":                 title,
+		"content":               content,
+		"link":                  link,
+		"biz_type":              relatedType,
+		"biz_id":                relatedID,
+		"job_title":             relatedTitle,
+		"user_id":               userID,
+		"account_type":          accountType,
+		"category":              category,
+		"related_type":          relatedType,
+		"related_id":            relatedID,
+		"related_title":         relatedTitle,
+		"extra":                 extra,
+	}
 }
 
 func candidateDisplayName(realName string, userID int64) string {

@@ -34,9 +34,7 @@ func ParseWorkloadConfig(enabledList string, disabledList string) (WorkloadConfi
 	known := knownWorkloadSet()
 	enabled := parseList(enabledList)
 	if len(enabled) == 0 {
-		for _, workload := range DefaultWorkloads {
-			enabled = append(enabled, workload.Name)
-		}
+		enabled = defaultEnabledWorkloads()
 	}
 	disabled := parseSet(disabledList)
 	result := make([]string, 0, len(enabled))
@@ -163,9 +161,6 @@ func (r *Runtime) Start(ctx context.Context) error {
 		if !ok {
 			return fmt.Errorf("worker workload %q profile is required", workload.Name)
 		}
-		if !profile.Toggle.DefaultOn {
-			return fmt.Errorf("worker workload %q default toggle must remain enabled", workload.Name)
-		}
 		if strings.TrimSpace(profile.Contract.OwnerContext) == "" {
 			return fmt.Errorf("worker workload %q owner context is required", workload.Name)
 		}
@@ -274,6 +269,18 @@ func workloadProfileSet() map[string]WorkloadProfile {
 		set[profile.Name] = profile
 	}
 	return set
+}
+
+func defaultEnabledWorkloads() []string {
+	result := make([]string, 0, len(DefaultWorkloads))
+	for _, workload := range DefaultWorkloads {
+		profile, ok := ProfileByName(workload.Name)
+		if !ok || !profile.Toggle.DefaultOn {
+			continue
+		}
+		result = append(result, workload.Name)
+	}
+	return result
 }
 
 func parseSet(value string) map[string]struct{} {

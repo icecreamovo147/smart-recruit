@@ -49,7 +49,7 @@ var IdempotencySemantics = []string{
 	"notification persistence uses CreateOnce/CreateOnceWithResult for business-key idempotency",
 	"notification consumer attaches Inbox storage before consuming RabbitMQ messages",
 	"email consumer attaches Inbox storage before consuming RabbitMQ email coordination messages",
-	"outbox publisher claims pending events and signals dispatch after transactional writes",
+	"legacy outbox publisher can be enabled explicitly and claims pending events after transactional writes",
 	"realtime delivery invalidates unread cache and publishes Redis notification events after persistence writes",
 }
 
@@ -77,10 +77,8 @@ func New(deps Deps) (*Runtime, error) {
 		NotificationInbox: deps.NotificationConsumer != nil,
 		EmailCoordination: deps.EmailConsumer != nil,
 	}
-	if deps.OutboxPublisher != nil || deps.NotificationConsumer != nil || deps.EmailConsumer != nil {
-		if err := components.Validate(); err != nil {
-			return nil, err
-		}
+	if err := components.Validate(); err != nil {
+		return nil, err
 	}
 	return &Runtime{
 		Notification:         notificationServer{api: deps.Notification},
@@ -98,12 +96,8 @@ func (c Components) Validate() error {
 		return fmt.Errorf("notification persistence component is required")
 	case !c.RealtimeDelivery:
 		return fmt.Errorf("notification realtime delivery component is required")
-	case !c.OutboxPublisher:
-		return fmt.Errorf("notification outbox publisher is required")
-	case !c.NotificationInbox:
-		return fmt.Errorf("notification inbox consumer is required")
-	case !c.EmailCoordination:
-		return fmt.Errorf("notification email coordination consumer is required")
+	case c.NotificationInbox != c.EmailCoordination:
+		return fmt.Errorf("notification mq consumers must be configured together")
 	default:
 		return nil
 	}
@@ -115,6 +109,9 @@ func (r *Runtime) Start(ctx context.Context) []StartError {
 	}
 	if r.outboxPublisher != nil {
 		r.outboxPublisher.Start(ctx)
+	}
+	if r.notificationConsumer == nil && r.emailConsumer == nil {
+		return nil
 	}
 	if r.mq == nil {
 		return []StartError{{Component: "notification-runtime-mq", Err: fmt.Errorf("notification runtime mq connection is nil")}}

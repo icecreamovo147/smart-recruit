@@ -28,6 +28,7 @@ import (
 	platformobs "smart-recruit-platform-go/observability"
 	"smart-recruit-platform-go/server"
 	logicconfig "smart-recruit-platform-go/serviceconfig"
+	workeroutbox "smart-recruit-worker-service/internal/outbox"
 	workerruntime "smart-recruit-worker-service/internal/runtime"
 )
 
@@ -64,8 +65,11 @@ func checkRuntime() error {
 		return err
 	}
 	runtime, err := workerruntime.New(workerruntime.Deps{
-		Config:   cfg,
-		Starters: controlledStarters(cfg.Enabled, nil),
+		Config: cfg,
+		Starters: controlledStarters(cfg.Enabled, starterDeps{
+			OutboxStore:     checkOutboxStore{},
+			OutboxPublisher: checkOutboxPublisher{},
+		}),
 		Status: func(context.Context) workerruntime.DependencyStatus {
 			return workerruntime.DependencyStatus{RabbitMQ: true, MySQL: true}
 		},
@@ -73,7 +77,14 @@ func checkRuntime() error {
 	if err != nil {
 		return err
 	}
-	return runtime.Start(context.Background())
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	if err := runtime.Start(ctx); err != nil {
+		return err
+	}
+	stopCtx, stopCancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer stopCancel()
+	return runtime.Stop(stopCtx)
 }
 
 func serveWorker(healthAddr string) error {
@@ -132,9 +143,13 @@ func serveWorker(healthAddr string) error {
 		return err
 	}
 	runtime, err := workerruntime.New(workerruntime.Deps{
-		Config:   workloadCfg,
-		Starters: controlledStarters(workloadCfg.Enabled, log),
-		Status:   dependencyStatus(sqlDB, mqConn),
+		Config: workloadCfg,
+		Starters: controlledStarters(workloadCfg.Enabled, starterDeps{
+			DB:  db,
+			MQ:  mqConn,
+			Log: log,
+		}),
+		Status: dependencyStatus(sqlDB, mqConn),
 	})
 	if err != nil {
 		return err
@@ -190,25 +205,72 @@ func serveWorker(healthAddr string) error {
 	return healthServer.Shutdown(shutdownCtx)
 }
 
-func controlledStarters(names []string, log *zap.Logger) map[string]workerruntime.Starter {
+type starterDeps struct {
+	DB              *gorm.DB
+	MQ              *mq.Conn
+	Log             *zap.Logger
+	OutboxStore     workeroutbox.Store
+	OutboxPublisher workeroutbox.Publisher
+}
+
+func controlledStarters(names []string, deps starterDeps) map[string]workerruntime.Starter {
 	starters := make(map[string]workerruntime.Starter, len(names))
 	for _, name := range names {
 		workloadName := name
-		starters[workloadName] = workerruntime.StarterFunc(func(ctx context.Context) error {
-			if log != nil {
-				log.Info("worker workload supervisor started", zap.String("workload", workloadName))
-			}
-			go func() {
-				<-ctx.Done()
-				if log != nil {
-					log.Info("worker workload supervisor stopped", zap.String("workload", workloadName))
-				}
-			}()
-			return nil
-		})
+		switch workloadName {
+		case "outbox-dispatcher":
+			starters[workloadName] = outboxDispatcherStarter(deps)
+		default:
+			starters[workloadName] = unsupportedWorkloadStarter(workloadName)
+		}
 	}
 	return starters
 }
+
+func outboxDispatcherStarter(deps starterDeps) workerruntime.Starter {
+	store := deps.OutboxStore
+	if store == nil && deps.DB != nil {
+		store = workeroutbox.NewGormStore(deps.DB)
+	}
+	publisher := deps.OutboxPublisher
+	if publisher == nil && deps.MQ != nil {
+		publisher = workeroutbox.NewMQPublisher(deps.MQ)
+	}
+	return workeroutbox.NewDispatcher(store, publisher, workeroutbox.Options{
+		Logger: deps.Log,
+	})
+}
+
+func unsupportedWorkloadStarter(name string) workerruntime.Starter {
+	return workerruntime.StarterFunc(func(context.Context) error {
+		switch name {
+		case "notification-consumer", "email-consumer":
+			return fmt.Errorf("worker workload %q is not started by worker-service; notification-service owns this consumer to avoid duplicate consumption", name)
+		case "resume-parse-consumer", "embedding-consumer", "agent-run-consumer":
+			return fmt.Errorf("worker workload %q is not implemented in worker-service yet; keep it disabled until its real consumer is wired", name)
+		default:
+			return fmt.Errorf("worker workload %q is not implemented in worker-service yet; keep it disabled", name)
+		}
+	})
+}
+
+type checkOutboxStore struct{}
+
+func (checkOutboxStore) ClaimPending(context.Context, int, string, time.Duration) ([]workeroutbox.Event, error) {
+	return nil, nil
+}
+
+func (checkOutboxStore) MarkPublished(context.Context, uint64) error { return nil }
+
+func (checkOutboxStore) MarkRetryableFailure(context.Context, uint64, string, time.Time) error {
+	return nil
+}
+
+func (checkOutboxStore) MarkDead(context.Context, uint64, string) error { return nil }
+
+type checkOutboxPublisher struct{}
+
+func (checkOutboxPublisher) Publish(context.Context, string, []byte) error { return nil }
 
 func dependencyStatus(sqlDB *sql.DB, mqConn *mq.Conn) func(context.Context) workerruntime.DependencyStatus {
 	return func(ctx context.Context) workerruntime.DependencyStatus {

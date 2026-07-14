@@ -247,13 +247,16 @@ func buildNotificationRuntime(cfg logicconfig.Config, db *gorm.DB, redisClient *
 		Renderer:      notificationemail.NewRenderer(renderer),
 		Sender:        notificationemail.NewSender(sender),
 	})
-	runtime, err := notificationruntime.New(notificationruntime.Deps{
+	deps := notificationruntime.Deps{
 		Notification:         notificationgrpc.NewServer(notificationService),
 		MQ:                   mqConn,
-		OutboxPublisher:      notificationmq.NewOutboxPublisher(db, mqConn),
 		NotificationConsumer: notificationmq.NewNotificationConsumer(notificationService, inboxRepo),
 		EmailConsumer:        notificationmq.NewEmailConsumer(notificationService, inboxRepo),
-	})
+	}
+	if notificationOutboxDispatcherEnabled() {
+		deps.OutboxPublisher = notificationmq.NewOutboxPublisher(db, mqConn)
+	}
+	runtime, err := notificationruntime.New(deps)
 	if err != nil {
 		_ = sender.Close()
 		mqConn.Close()
@@ -270,6 +273,10 @@ func buildNotificationRuntime(cfg logicconfig.Config, db *gorm.DB, redisClient *
 		}
 	}
 	return runtime, mqConn, cleanup, nil
+}
+
+func notificationOutboxDispatcherEnabled() bool {
+	return strings.EqualFold(strings.TrimSpace(os.Getenv("NOTIFICATION_OUTBOX_DISPATCHER_ENABLED")), "true")
 }
 
 func mqConfig(cfg logicconfig.Config) mq.Config {
