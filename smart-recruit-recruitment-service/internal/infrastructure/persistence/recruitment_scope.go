@@ -250,3 +250,53 @@ func (a *nativeStore) contextStaffJobScope(ctx context.Context, jobID int64) (bo
 	}
 	return scope.allowed(), nil
 }
+
+func (a *nativeStore) authorizeUserPermission(ctx context.Context, userID uint64, permission string) (bool, error) {
+	permission = strings.TrimSpace(permission)
+	if a == nil || a.db == nil || userID == 0 || permission == "" {
+		return false, nil
+	}
+	for _, table := range []string{"user_roles", "role_permissions", "permissions"} {
+		if !a.db.Migrator().HasTable(table) {
+			return false, nil
+		}
+	}
+	var count int64
+	err := a.db.WithContext(ctx).
+		Table("user_roles ur").
+		Joins("JOIN role_permissions rp ON rp.role_id = ur.role_id").
+		Joins("JOIN permissions p ON p.id = rp.permission_id").
+		Where("ur.user_id = ? AND ur.revoked_at IS NULL AND p.permission_key = ?", userID, permission).
+		Count(&count).Error
+	return count > 0, err
+}
+
+func (a *nativeStore) requireCandidateCollaborationAccess(ctx context.Context, staffUserID int64, candidateUserID uint64, permissions ...string) (bool, error) {
+	if staffUserID <= 0 || candidateUserID == 0 {
+		return false, nil
+	}
+	for _, permission := range permissions {
+		allowed, err := a.authorizeUserPermission(ctx, uint64(staffUserID), permission)
+		if err != nil || !allowed {
+			return allowed, err
+		}
+	}
+	return a.candidateHasApplicationInRecruitmentScope(ctx, staffUserID, candidateUserID)
+}
+
+func (a *nativeStore) candidateHasApplicationInRecruitmentScope(ctx context.Context, staffUserID int64, candidateUserID uint64) (bool, error) {
+	scope, err := a.evaluateRecruitmentScope(ctx, staffUserID)
+	if err != nil || !scope.allowed() {
+		return false, err
+	}
+	query := a.db.WithContext(ctx).
+		Table("applications a").
+		Joins("JOIN jobs j ON j.id = a.job_id").
+		Where("a.user_id = ?", candidateUserID)
+	query = applyRecruitmentScopeToJoinedJobsQuery(query, scope, "j")
+	var count int64
+	if err := query.Count(&count).Error; err != nil {
+		return false, err
+	}
+	return count > 0, nil
+}

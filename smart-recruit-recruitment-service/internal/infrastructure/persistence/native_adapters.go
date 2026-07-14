@@ -1515,7 +1515,20 @@ func (a *usageStatsAdapter) GetUsageTrend(ctx context.Context, req *pb.GetUsageT
 	return &pb.GetUsageTrendResponse{Code: errs.OK, Msg: "success", List: list}, nil
 }
 
+const collaborationForbiddenMsg = "无权限访问该候选人协同数据"
+
 func (a *collaborationAdapter) GetCandidateWorkspace(ctx context.Context, req *pb.GetCandidateWorkspaceRequest) (*pb.GetCandidateWorkspaceResponse, error) {
+	candidateUserID := uint64(0)
+	if req.CandidateUserId > 0 {
+		candidateUserID = uint64(req.CandidateUserId)
+	}
+	allowed, err := a.requireCandidateCollaborationAccess(ctx, req.StaffUserId, candidateUserID, domainmodel.PermissionApplicationRead)
+	if err != nil {
+		return nil, err
+	}
+	if !allowed {
+		return &pb.GetCandidateWorkspaceResponse{Code: errs.ErrForbidden, Msg: collaborationForbiddenMsg}, nil
+	}
 	workspace := &pb.CandidateWorkspace{}
 	var profile candidateProfileRecord
 	if err := a.db.WithContext(ctx).Where("user_id = ?", req.CandidateUserId).First(&profile).Error; err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
@@ -1560,6 +1573,13 @@ func (a *collaborationAdapter) GetCandidateWorkspace(ctx context.Context, req *p
 }
 
 func (a *collaborationAdapter) CreateNote(ctx context.Context, req *pb.CreateNoteRequest) (*pb.CreateNoteResponse, error) {
+	allowed, err := a.requireCandidateCollaborationAccess(ctx, req.StaffUserId, req.CandidateUserId, domainmodel.PermissionApplicationRead, domainmodel.PermissionCollaborationNoteCreate)
+	if err != nil {
+		return nil, err
+	}
+	if !allowed {
+		return &pb.CreateNoteResponse{Code: errs.ErrForbidden, Msg: collaborationForbiddenMsg}, nil
+	}
 	content := strings.TrimSpace(req.Content)
 	if content == "" {
 		return &pb.CreateNoteResponse{Code: errs.ErrBadRequest, Msg: "备注内容不能为空"}, nil
@@ -1572,6 +1592,13 @@ func (a *collaborationAdapter) CreateNote(ctx context.Context, req *pb.CreateNot
 }
 
 func (a *collaborationAdapter) ListNotes(ctx context.Context, req *pb.ListNotesRequest) (*pb.ListNotesResponse, error) {
+	allowed, err := a.requireCandidateCollaborationAccess(ctx, req.StaffUserId, req.CandidateUserId, domainmodel.PermissionApplicationRead, domainmodel.PermissionCollaborationNoteRead)
+	if err != nil {
+		return nil, err
+	}
+	if !allowed {
+		return &pb.ListNotesResponse{Code: errs.ErrForbidden, Msg: collaborationForbiddenMsg}, nil
+	}
 	query := a.db.WithContext(ctx).Where("candidate_user_id = ?", req.CandidateUserId)
 	if req.ApplicationId > 0 {
 		query = query.Where("application_id = ?", req.ApplicationId)
@@ -1588,6 +1615,13 @@ func (a *collaborationAdapter) ListNotes(ctx context.Context, req *pb.ListNotesR
 }
 
 func (a *collaborationAdapter) CreateTag(ctx context.Context, req *pb.CreateTagRequest) (*pb.CreateTagResponse, error) {
+	allowed, err := a.authorizeUserPermission(ctx, uint64(req.StaffUserId), domainmodel.PermissionCollaborationTagManage)
+	if err != nil {
+		return nil, err
+	}
+	if !allowed {
+		return &pb.CreateTagResponse{Code: errs.ErrForbidden, Msg: "无权限管理候选人标签"}, nil
+	}
 	name := strings.TrimSpace(req.Name)
 	if name == "" {
 		return &pb.CreateTagResponse{Code: errs.ErrBadRequest, Msg: "标签名称不能为空"}, nil
@@ -1603,7 +1637,14 @@ func (a *collaborationAdapter) CreateTag(ctx context.Context, req *pb.CreateTagR
 	return &pb.CreateTagResponse{Code: errs.OK, Msg: "success", Tag: tagToPB(*row)}, nil
 }
 
-func (a *collaborationAdapter) ListTags(ctx context.Context, _ *pb.ListTagsRequest) (*pb.ListTagsResponse, error) {
+func (a *collaborationAdapter) ListTags(ctx context.Context, req *pb.ListTagsRequest) (*pb.ListTagsResponse, error) {
+	allowed, err := a.authorizeUserPermission(ctx, uint64(req.StaffUserId), domainmodel.PermissionCollaborationTagManage)
+	if err != nil {
+		return nil, err
+	}
+	if !allowed {
+		return &pb.ListTagsResponse{Code: errs.ErrForbidden, Msg: "无权限管理候选人标签"}, nil
+	}
 	var rows []candidateTagRecord
 	if err := a.db.WithContext(ctx).Order("created_at DESC, id DESC").Find(&rows).Error; err != nil {
 		return nil, err
@@ -1616,8 +1657,15 @@ func (a *collaborationAdapter) ListTags(ctx context.Context, _ *pb.ListTagsReque
 }
 
 func (a *collaborationAdapter) AssignTag(ctx context.Context, req *pb.AssignTagRequest) (*pb.CommonResponse, error) {
+	allowed, err := a.requireCandidateCollaborationAccess(ctx, req.StaffUserId, req.CandidateUserId, domainmodel.PermissionApplicationRead, domainmodel.PermissionCollaborationTagManage)
+	if err != nil {
+		return nil, err
+	}
+	if !allowed {
+		return &pb.CommonResponse{Code: errs.ErrForbidden, Msg: collaborationForbiddenMsg}, nil
+	}
 	row := &candidateTagAssignmentRecord{TagID: req.TagId, CandidateUserID: req.CandidateUserId, CreatedBy: positiveUintPtr(uint64(req.StaffUserId)), CreatedAt: a.now()}
-	err := a.db.WithContext(ctx).Clauses(clause.OnConflict{Columns: []clause.Column{{Name: "tag_id"}, {Name: "candidate_user_id"}}, DoNothing: true}).Create(row).Error
+	err = a.db.WithContext(ctx).Clauses(clause.OnConflict{Columns: []clause.Column{{Name: "tag_id"}, {Name: "candidate_user_id"}}, DoNothing: true}).Create(row).Error
 	if err != nil {
 		return nil, err
 	}
@@ -1625,11 +1673,25 @@ func (a *collaborationAdapter) AssignTag(ctx context.Context, req *pb.AssignTagR
 }
 
 func (a *collaborationAdapter) UnassignTag(ctx context.Context, req *pb.UnassignTagRequest) (*pb.CommonResponse, error) {
+	allowed, err := a.requireCandidateCollaborationAccess(ctx, req.StaffUserId, req.CandidateUserId, domainmodel.PermissionApplicationRead, domainmodel.PermissionCollaborationTagManage)
+	if err != nil {
+		return nil, err
+	}
+	if !allowed {
+		return &pb.CommonResponse{Code: errs.ErrForbidden, Msg: collaborationForbiddenMsg}, nil
+	}
 	result := a.db.WithContext(ctx).Where("tag_id = ? AND candidate_user_id = ?", req.TagId, req.CandidateUserId).Delete(&candidateTagAssignmentRecord{})
 	return rowsCommon(result, "success", "标签未分配")
 }
 
 func (a *collaborationAdapter) ListCandidateTags(ctx context.Context, req *pb.ListCandidateTagsRequest) (*pb.ListCandidateTagsResponse, error) {
+	allowed, err := a.requireCandidateCollaborationAccess(ctx, req.StaffUserId, req.CandidateUserId, domainmodel.PermissionApplicationRead)
+	if err != nil {
+		return nil, err
+	}
+	if !allowed {
+		return &pb.ListCandidateTagsResponse{Code: errs.ErrForbidden, Msg: collaborationForbiddenMsg}, nil
+	}
 	tags, err := a.candidateTags(ctx, req.CandidateUserId)
 	if err != nil {
 		return nil, err
@@ -1638,6 +1700,13 @@ func (a *collaborationAdapter) ListCandidateTags(ctx context.Context, req *pb.Li
 }
 
 func (a *collaborationAdapter) CreateFollowUpTask(ctx context.Context, req *pb.CreateFollowUpTaskRequest) (*pb.CreateFollowUpTaskResponse, error) {
+	allowed, err := a.requireCandidateCollaborationAccess(ctx, req.StaffUserId, req.CandidateUserId, domainmodel.PermissionApplicationRead, domainmodel.PermissionCollaborationTaskManage)
+	if err != nil {
+		return nil, err
+	}
+	if !allowed {
+		return &pb.CreateFollowUpTaskResponse{Code: errs.ErrForbidden, Msg: collaborationForbiddenMsg}, nil
+	}
 	title := strings.TrimSpace(req.Title)
 	if title == "" {
 		return &pb.CreateFollowUpTaskResponse{Code: errs.ErrBadRequest, Msg: "任务标题不能为空"}, nil
@@ -1654,6 +1723,16 @@ func (a *collaborationAdapter) CreateFollowUpTask(ctx context.Context, req *pb.C
 }
 
 func (a *collaborationAdapter) ListFollowUpTasks(ctx context.Context, req *pb.ListFollowUpTasksRequest) (*pb.ListFollowUpTasksResponse, error) {
+	if req.CandidateUserId == 0 {
+		return &pb.ListFollowUpTasksResponse{Code: errs.ErrForbidden, Msg: "必须指定候选人范围"}, nil
+	}
+	allowed, err := a.requireCandidateCollaborationAccess(ctx, req.StaffUserId, req.CandidateUserId, domainmodel.PermissionApplicationRead, domainmodel.PermissionCollaborationTaskManage)
+	if err != nil {
+		return nil, err
+	}
+	if !allowed {
+		return &pb.ListFollowUpTasksResponse{Code: errs.ErrForbidden, Msg: collaborationForbiddenMsg}, nil
+	}
 	query := a.db.WithContext(ctx).Model(&followUpTaskRecord{})
 	if req.CandidateUserId > 0 {
 		query = query.Where("candidate_user_id = ?", req.CandidateUserId)
@@ -1676,8 +1755,21 @@ func (a *collaborationAdapter) ListFollowUpTasks(ctx context.Context, req *pb.Li
 }
 
 func (a *collaborationAdapter) CompleteFollowUpTask(ctx context.Context, req *pb.CompleteFollowUpTaskRequest) (*pb.CommonResponse, error) {
+	var row followUpTaskRecord
+	if err := a.db.WithContext(ctx).Where("id = ?", req.TaskId).First(&row).Error; errors.Is(err, gorm.ErrRecordNotFound) {
+		return &pb.CommonResponse{Code: errs.ErrBadRequest, Msg: "任务不存在"}, nil
+	} else if err != nil {
+		return nil, err
+	}
+	allowed, err := a.requireCandidateCollaborationAccess(ctx, req.StaffUserId, row.CandidateUserID, domainmodel.PermissionApplicationRead, domainmodel.PermissionCollaborationTaskManage)
+	if err != nil {
+		return nil, err
+	}
+	if !allowed {
+		return &pb.CommonResponse{Code: errs.ErrForbidden, Msg: collaborationForbiddenMsg}, nil
+	}
 	now := a.now()
-	result := a.db.WithContext(ctx).Model(&followUpTaskRecord{}).Where("id = ?", req.TaskId).Updates(map[string]any{"status": "completed", "completed_at": now, "updated_at": now})
+	result := a.db.WithContext(ctx).Model(&followUpTaskRecord{}).Where("id = ? AND candidate_user_id = ?", req.TaskId, row.CandidateUserID).Updates(map[string]any{"status": "completed", "completed_at": now, "updated_at": now})
 	return rowsCommon(result, "success", "任务不存在")
 }
 
@@ -1690,10 +1782,24 @@ func (a *collaborationAdapter) GetFollowUpTask(ctx context.Context, req *pb.GetF
 	if err != nil {
 		return nil, err
 	}
+	allowed, err := a.requireCandidateCollaborationAccess(ctx, req.StaffUserId, row.CandidateUserID, domainmodel.PermissionApplicationRead, domainmodel.PermissionCollaborationTaskManage)
+	if err != nil {
+		return nil, err
+	}
+	if !allowed {
+		return &pb.GetFollowUpTaskResponse{Code: errs.ErrForbidden, Msg: collaborationForbiddenMsg}, nil
+	}
 	return &pb.GetFollowUpTaskResponse{Code: errs.OK, Msg: "success", Task: followUpToPB(row)}, nil
 }
 
 func (a *collaborationAdapter) ListTimelineEvents(ctx context.Context, req *pb.ListTimelineEventsRequest) (*pb.ListTimelineEventsResponse, error) {
+	allowed, err := a.requireCandidateCollaborationAccess(ctx, req.StaffUserId, req.CandidateUserId, domainmodel.PermissionApplicationRead)
+	if err != nil {
+		return nil, err
+	}
+	if !allowed {
+		return &pb.ListTimelineEventsResponse{Code: errs.ErrForbidden, Msg: collaborationForbiddenMsg}, nil
+	}
 	events := []*pb.TimelineEventInfo{}
 	var notes []candidateNoteRecord
 	if err := a.db.WithContext(ctx).Where("candidate_user_id = ?", req.CandidateUserId).Order("created_at DESC, id DESC").Limit(100).Find(&notes).Error; err != nil {
@@ -1703,7 +1809,7 @@ func (a *collaborationAdapter) ListTimelineEvents(ctx context.Context, req *pb.L
 		events = append(events, &pb.TimelineEventInfo{Id: fmt.Sprintf("note-%d", note.ID), EventType: "note", Title: "候选人备注", Description: note.Content, Timestamp: formatTime(note.CreatedAt), ActorName: fmt.Sprintf("用户%d", note.AuthorUserID), ApplicationId: int64(ptrUintValue(note.ApplicationID))})
 	}
 	var transitions []applicationTransitionRecord
-	err := a.db.WithContext(ctx).Table("application_status_transitions ast").
+	err = a.db.WithContext(ctx).Table("application_status_transitions ast").
 		Select("ast.*").
 		Joins("JOIN applications a ON a.id = ast.application_id").
 		Where("a.user_id = ?", req.CandidateUserId).
