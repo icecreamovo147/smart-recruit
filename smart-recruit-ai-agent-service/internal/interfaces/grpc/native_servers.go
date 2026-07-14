@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"sync"
 	"time"
 
 	gogrpc "google.golang.org/grpc"
@@ -136,6 +137,8 @@ var (
 const (
 	ownerRoleCandidate int32 = 1
 	ownerRoleHR        int32 = 2
+
+	agentRunEventPollInterval = 500 * time.Millisecond
 )
 
 func NewNativeRuntimeDeps(deps RuntimeDeps) aiagentruntime.Deps {
@@ -164,13 +167,61 @@ func NewNativeRuntimeDeps(deps RuntimeDeps) aiagentruntime.Deps {
 }
 
 func NewNativeAIService(store AIStore, provider ChatProvider) pb.AIServiceServer {
-	return &nativeAIService{store: store, provider: provider}
+	return &nativeAIService{store: store, provider: provider, eventHub: newAgentRunEventHub()}
 }
 
 type nativeAIService struct {
 	pb.UnimplementedAIServiceServer
-	store    AIStore
-	provider ChatProvider
+	store      AIStore
+	provider   ChatProvider
+	eventHubMu sync.Mutex
+	eventHub   *agentRunEventHub
+}
+
+type agentRunEventHub struct {
+	mu          sync.RWMutex
+	subscribers map[int64]map[chan AgentRunEventRow]struct{}
+}
+
+func newAgentRunEventHub() *agentRunEventHub {
+	return &agentRunEventHub{subscribers: make(map[int64]map[chan AgentRunEventRow]struct{})}
+}
+
+func (h *agentRunEventHub) subscribe(runID int64) (<-chan AgentRunEventRow, func()) {
+	ch := make(chan AgentRunEventRow, 32)
+	h.mu.Lock()
+	if h.subscribers[runID] == nil {
+		h.subscribers[runID] = make(map[chan AgentRunEventRow]struct{})
+	}
+	h.subscribers[runID][ch] = struct{}{}
+	h.mu.Unlock()
+
+	unsubscribe := func() {
+		h.mu.Lock()
+		if subscribers := h.subscribers[runID]; subscribers != nil {
+			delete(subscribers, ch)
+			if len(subscribers) == 0 {
+				delete(h.subscribers, runID)
+			}
+		}
+		close(ch)
+		h.mu.Unlock()
+	}
+	return ch, unsubscribe
+}
+
+func (h *agentRunEventHub) publish(row AgentRunEventRow) {
+	if h == nil || row.RunID == 0 {
+		return
+	}
+	h.mu.RLock()
+	for ch := range h.subscribers[row.RunID] {
+		select {
+		case ch <- row:
+		default:
+		}
+	}
+	h.mu.RUnlock()
 }
 
 func (s *nativeAIService) Chat(ctx context.Context, req *pb.ChatRequest) (*pb.ChatResponse, error) {
@@ -391,19 +442,16 @@ func (s *nativeAIService) CreateAgentRun(ctx context.Context, req *pb.CreateAgen
 	if idempotent {
 		return &pb.CreateAgentRunResponse{Code: 0, Msg: "success", Run: mapAgentRunSnapshot(run), IdempotentReplay: true}, nil
 	}
-	if _, err := s.store.AppendAgentRunEvent(ctx, run.ID, "run.created", `{"status":"queued"}`); err != nil {
-		return nil, err
-	}
-	if err := s.executeAgentRun(ctx, run, req.GetMessage(), req.GetModelId()); err != nil {
-		return nil, err
-	}
-	updated, found, err := s.store.GetAgentRun(ctx, req.GetHrId(), run.ID)
+	created, err := s.appendAgentRunEvent(ctx, run.ID, "run.created", `{"status":"queued"}`)
 	if err != nil {
 		return nil, err
 	}
-	if found {
-		run = updated
+	if created.Seq > 0 {
+		run.LastEventSeq = created.Seq
 	}
+	go func(run AgentRunRow, message string, modelID int64) {
+		_ = s.executeAgentRun(context.Background(), run, message, modelID)
+	}(run, req.GetMessage(), req.GetModelId())
 	return &pb.CreateAgentRunResponse{Code: 0, Msg: "success", Run: mapAgentRunSnapshot(run), IdempotentReplay: false}, nil
 }
 
@@ -430,21 +478,93 @@ func (s *nativeAIService) GetActiveAgentRun(ctx context.Context, req *pb.GetActi
 }
 
 func (s *nativeAIService) SubscribeAgentRunEvents(req *pb.SubscribeAgentRunEventsRequest, stream gogrpc.ServerStreamingServer[pb.AgentRunEvent]) error {
+	if req == nil {
+		return errors.New("subscribe agent run events request is required")
+	}
 	if s.store == nil {
 		return errAIStoreRequired
 	}
-	rows, err := s.store.ListAgentRunEvents(stream.Context(), req.GetHrId(), req.GetRunId(), req.GetAfterSeq())
+	ctx := stream.Context()
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	if _, found, err := s.getRun(ctx, req.GetHrId(), req.GetRunId()); err != nil {
+		return err
+	} else if !found {
+		return status.Error(codes.NotFound, "agent run not found")
+	}
+	liveEvents, unsubscribe := s.agentRunEvents().subscribe(req.GetRunId())
+	defer unsubscribe()
+
+	lastSeq := req.GetAfterSeq()
+	sendRow := func(row AgentRunEventRow) (bool, error) {
+		if row.RunID != req.GetRunId() || (row.Seq > 0 && row.Seq <= lastSeq) {
+			return false, nil
+		}
+		event := mapAgentRunEvent(row)
+		if err := stream.Send(event); err != nil {
+			return false, err
+		}
+		if row.Seq > lastSeq {
+			lastSeq = row.Seq
+		}
+		return isTerminalAgentRunEvent(event), nil
+	}
+	replay := func() (bool, error) {
+		rows, err := s.store.ListAgentRunEvents(ctx, req.GetHrId(), req.GetRunId(), lastSeq)
+		if err != nil {
+			return false, err
+		}
+		for _, row := range rows {
+			terminal, err := sendRow(row)
+			if terminal || err != nil {
+				return terminal, err
+			}
+		}
+		return false, nil
+	}
+
+	terminal, err := replay()
 	if err != nil {
+		if ctx.Err() != nil {
+			return nil
+		}
 		return err
 	}
-	for _, row := range rows {
-		event := &pb.AgentRunEvent{RunId: row.RunID, Seq: row.Seq, EventType: row.EventType, PayloadJson: row.PayloadJSON, CreatedAt: formatTime(row.CreatedAt)}
-		applyAgentRunPayload(event, row.PayloadJSON)
-		if err := stream.Send(event); err != nil {
-			return err
+	if terminal {
+		return nil
+	}
+
+	ticker := time.NewTicker(agentRunEventPollInterval)
+	defer ticker.Stop()
+	for {
+		select {
+		case <-ctx.Done():
+			return nil
+		case row, ok := <-liveEvents:
+			if !ok {
+				return nil
+			}
+			terminal, err := sendRow(row)
+			if err != nil {
+				return err
+			}
+			if terminal {
+				return nil
+			}
+		case <-ticker.C:
+			terminal, err := replay()
+			if err != nil {
+				if ctx.Err() != nil {
+					return nil
+				}
+				return err
+			}
+			if terminal {
+				return nil
+			}
 		}
 	}
-	return nil
 }
 
 func (s *nativeAIService) CancelAgentRun(ctx context.Context, req *pb.CancelAgentRunRequest) (*pb.CancelAgentRunResponse, error) {
@@ -528,17 +648,17 @@ func (s *nativeAIService) executeAgentRun(ctx context.Context, run AgentRunRow, 
 	reply, err := s.complete(ctx, message, modelID)
 	if err != nil {
 		errorMessage := err.Error()
-		if _, eventErr := s.store.AppendAgentRunEvent(ctx, run.ID, "run.error", fmt.Sprintf(`{"status":"failed","error_type":"provider","error_message":%q}`, errorMessage)); eventErr != nil {
+		if _, eventErr := s.appendAgentRunEvent(ctx, run.ID, "run.error", fmt.Sprintf(`{"status":"failed","error_type":"provider","error_message":%q}`, errorMessage)); eventErr != nil {
 			return eventErr
 		}
 		if _, _, completeErr := s.store.CompleteAgentRun(ctx, run.OwnerID, run.ID, "", "failed", "provider", errorMessage); completeErr != nil {
 			return completeErr
 		}
-		_, eventErr := s.store.AppendAgentRunEvent(ctx, run.ID, "run.completed", fmt.Sprintf(`{"status":"failed","error_type":"provider","error_message":%q}`, errorMessage))
+		_, eventErr := s.appendAgentRunEvent(ctx, run.ID, "run.completed", fmt.Sprintf(`{"status":"failed","error_type":"provider","error_message":%q}`, errorMessage))
 		return eventErr
 	}
 	if strings.TrimSpace(reply) != "" {
-		if _, err := s.store.AppendAgentRunEvent(ctx, run.ID, "assistant.delta", fmt.Sprintf(`{"status":"running","delta":%q}`, reply)); err != nil {
+		if _, err := s.appendAgentRunEvent(ctx, run.ID, "assistant.delta", fmt.Sprintf(`{"status":"running","delta":%q}`, reply)); err != nil {
 			return err
 		}
 		if _, err := s.store.AppendChatMessage(ctx, ChatMessageRow{OwnerRole: ownerRoleHR, OwnerID: run.OwnerID, SessionID: run.SessionID, Role: "assistant", Content: reply, ModelID: modelID, CreatedAt: time.Now()}); err != nil {
@@ -548,8 +668,70 @@ func (s *nativeAIService) executeAgentRun(ctx context.Context, run AgentRunRow, 
 	if _, _, err := s.store.CompleteAgentRun(ctx, run.OwnerID, run.ID, reply, "succeeded", "", ""); err != nil {
 		return err
 	}
-	_, err = s.store.AppendAgentRunEvent(ctx, run.ID, "run.completed", `{"status":"succeeded"}`)
+	_, err = s.appendAgentRunEvent(ctx, run.ID, "run.completed", `{"status":"succeeded"}`)
 	return err
+}
+
+func (s *nativeAIService) appendAgentRunEvent(ctx context.Context, runID int64, eventType, payload string) (AgentRunEventRow, error) {
+	if s.store == nil {
+		return AgentRunEventRow{}, errAIStoreRequired
+	}
+	row, err := s.store.AppendAgentRunEvent(ctx, runID, eventType, payload)
+	if err != nil {
+		return row, err
+	}
+	if row.RunID == 0 {
+		row.RunID = runID
+	}
+	if row.EventType == "" {
+		row.EventType = eventType
+	}
+	if row.PayloadJSON == "" {
+		row.PayloadJSON = payload
+	}
+	if row.CreatedAt.IsZero() {
+		row.CreatedAt = time.Now()
+	}
+	s.agentRunEvents().publish(row)
+	return row, nil
+}
+
+func (s *nativeAIService) agentRunEvents() *agentRunEventHub {
+	s.eventHubMu.Lock()
+	defer s.eventHubMu.Unlock()
+	if s.eventHub == nil {
+		s.eventHub = newAgentRunEventHub()
+	}
+	return s.eventHub
+}
+
+func mapAgentRunEvent(row AgentRunEventRow) *pb.AgentRunEvent {
+	event := &pb.AgentRunEvent{RunId: row.RunID, Seq: row.Seq, EventType: row.EventType, PayloadJson: row.PayloadJSON, CreatedAt: formatTime(row.CreatedAt)}
+	applyAgentRunPayload(event, row.PayloadJSON)
+	return event
+}
+
+func isTerminalAgentRunEvent(event *pb.AgentRunEvent) bool {
+	if event == nil {
+		return false
+	}
+	switch event.GetEventType() {
+	case "run.completed":
+		return true
+	case "run.status_changed", "status.changed":
+		return isTerminalAgentRunStatus(event.GetStatus())
+	default:
+		return false
+	}
+}
+
+func isTerminalAgentRunStatus(status string) bool {
+	switch status {
+	case "succeeded", "failed", "canceled", "partial":
+		return true
+	default:
+		return false
+	}
 }
 
 func applyAgentRunPayload(event *pb.AgentRunEvent, payloadJSON string) {
@@ -602,7 +784,7 @@ func (s *nativeAIService) updateRun(ctx context.Context, ownerID, runID int64, s
 	}
 	run, found, err := s.store.UpdateAgentRunStatus(ctx, ownerID, runID, status)
 	if err == nil && found {
-		if _, eventErr := s.store.AppendAgentRunEvent(ctx, runID, "status.changed", fmt.Sprintf(`{"status":%q}`, status)); eventErr != nil {
+		if _, eventErr := s.appendAgentRunEvent(ctx, runID, "run.status_changed", fmt.Sprintf(`{"status":%q}`, status)); eventErr != nil {
 			return AgentRunRow{}, false, eventErr
 		}
 	}
