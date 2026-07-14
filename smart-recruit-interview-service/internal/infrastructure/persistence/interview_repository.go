@@ -288,7 +288,7 @@ type interviewFeedbackRecord struct {
 	UpdatedAt           time.Time `gorm:"column:updated_at"`
 }
 
-func (interviewFeedbackRecord) TableName() string { return "interview_feedbacks" }
+func (interviewFeedbackRecord) TableName() string { return "interview_feedback" }
 
 type interviewWithDetailsRow struct {
 	ID              int64
