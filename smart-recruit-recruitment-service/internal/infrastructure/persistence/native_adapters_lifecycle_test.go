@@ -366,6 +366,7 @@ func (f *lifecycleFixture) seedApplication(t *testing.T, statusKey string, round
 		RoundNo:   roundNo,
 		IsCurrent: isCurrent,
 		AppliedAt: f.now,
+		UpdatedAt: f.now,
 	}
 	if err := f.db.Create(app).Error; err != nil {
 		t.Fatalf("seed application: %v", err)

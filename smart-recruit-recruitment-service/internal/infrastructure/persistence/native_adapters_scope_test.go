@@ -351,7 +351,11 @@ func TestNativeCollaborationScopeAllowsOwnedCandidateWithPermissions(t *testing.
 	fixture.seedScope(t, 101, sharedauthz.ScopeOwnJobs, "", 0)
 	fixture.seedPermissions(t, 101, collaborationPermissionSet()...)
 	fixture.seedJob(t, 1001, 101, 10, 20)
-	fixture.seedApplication(t, 1001, 3001, domainmodel.StatusKeyApplied)
+	appID := fixture.seedApplication(t, 1001, 3001, domainmodel.StatusKeyApplied)
+	fixture.seedTransition(t, appID, domainmodel.StatusKeyApplied, domainmodel.StatusKeyInterviewing, 101)
+	interviewID := fixture.seedInterview(t, appID, 202, fixture.now.Add(time.Hour))
+	fixture.seedInterviewFeedback(t, interviewID, appID, 202)
+	fixture.seedOffer(t, appID, 3001, 1001, "sent", fixture.now.Add(4*time.Hour))
 
 	workspace, err := fixture.collaboration.GetCandidateWorkspace(ctx, &pb.GetCandidateWorkspaceRequest{StaffUserId: 101, CandidateUserId: 3001})
 	if err != nil {
@@ -359,6 +363,29 @@ func TestNativeCollaborationScopeAllowsOwnedCandidateWithPermissions(t *testing.
 	}
 	if workspace.Code != errs.OK || workspace.Workspace == nil || workspace.Workspace.TotalApplications != 1 {
 		t.Fatalf("GetCandidateWorkspace() = code %d workspace %+v, want OK", workspace.Code, workspace.Workspace)
+	}
+	if len(workspace.Workspace.Applications) != 1 || workspace.Workspace.Applications[0].Department != "Department" || workspace.Workspace.Applications[0].Location != "Location" {
+		t.Fatalf("workspace applications = %+v, want department/location details", workspace.Workspace.Applications)
+	}
+	if workspace.Workspace.TotalInterviews != 1 || len(workspace.Workspace.Interviews) != 1 {
+		t.Fatalf("workspace interviews = total %d len %d, want one", workspace.Workspace.TotalInterviews, len(workspace.Workspace.Interviews))
+	}
+	gotInterview := workspace.Workspace.Interviews[0]
+	if gotInterview.InterviewId != interviewID || gotInterview.ApplicationId != appID || gotInterview.Title != "Technical Round" || gotInterview.Mode != "video" || !gotInterview.HasFeedback {
+		t.Fatalf("workspace interview = %+v, want seeded interview with feedback", gotInterview)
+	}
+	if gotInterview.FeedbackRecommendation != "positive" || gotInterview.FeedbackScore != 9 || gotInterview.FeedbackDimensionScoresJson != `{"technical":9}` || gotInterview.FeedbackComments != "strong signal" {
+		t.Fatalf("workspace interview feedback = %+v, want positive feedback", gotInterview)
+	}
+	if workspace.Workspace.TotalOffers != 1 || len(workspace.Workspace.Offers) != 1 {
+		t.Fatalf("workspace offers = total %d len %d, want one", workspace.Workspace.TotalOffers, len(workspace.Workspace.Offers))
+	}
+	gotOffer := workspace.Workspace.Offers[0]
+	if gotOffer.ApplicationId != appID || gotOffer.Title != "Senior Engineer Offer" || gotOffer.Status != "sent" || gotOffer.SalaryRange != "30k-40k" || gotOffer.Level != "P6" || gotOffer.WorkLocation != "Shanghai" || gotOffer.StartDate != "2026-08-01" || gotOffer.JobTitle != "Job 1001" {
+		t.Fatalf("workspace offer = %+v, want seeded offer", gotOffer)
+	}
+	if workspace.Workspace.LatestActivityAt != fixture.now.Add(5*time.Hour).Format(time.RFC3339) {
+		t.Fatalf("LatestActivityAt = %q, want feedback updated_at", workspace.Workspace.LatestActivityAt)
 	}
 	note, err := fixture.collaboration.CreateNote(ctx, &pb.CreateNoteRequest{StaffUserId: 101, CandidateUserId: 3001, Content: "strong"})
 	if err != nil {
@@ -437,6 +464,28 @@ func TestNativeCollaborationScopeAllowsOwnedCandidateWithPermissions(t *testing.
 	if timeline.Code != errs.OK || len(timeline.Events) == 0 {
 		t.Fatalf("ListTimelineEvents() = code %d len %d, want events", timeline.Code, len(timeline.Events))
 	}
+	eventTypes := make(map[string]bool, len(timeline.Events))
+	for _, event := range timeline.Events {
+		eventTypes[event.EventType] = true
+	}
+	for _, eventType := range []string{"note", "status_transition", "interview", "offer"} {
+		if !eventTypes[eventType] {
+			t.Fatalf("timeline event types = %#v, want %s", eventTypes, eventType)
+		}
+	}
+	for i := 1; i < len(timeline.Events); i++ {
+		prev, err := time.Parse(time.RFC3339, timeline.Events[i-1].Timestamp)
+		if err != nil {
+			t.Fatalf("parse previous timeline timestamp: %v", err)
+		}
+		next, err := time.Parse(time.RFC3339, timeline.Events[i].Timestamp)
+		if err != nil {
+			t.Fatalf("parse next timeline timestamp: %v", err)
+		}
+		if next.After(prev) {
+			t.Fatalf("timeline not sorted desc at %d: %s before %s", i, timeline.Events[i-1].Timestamp, timeline.Events[i].Timestamp)
+		}
+	}
 }
 
 type scopeFixture struct {
@@ -467,6 +516,9 @@ func newScopeFixture(t *testing.T) *scopeFixture {
 		&candidateTagRecord{},
 		&candidateTagAssignmentRecord{},
 		&followUpTaskRecord{},
+		&scopeInterviewScheduleRecord{},
+		&scopeInterviewFeedbackRecord{},
+		&scopeOfferRecord{},
 		&scopePermissionRecord{},
 		&scopeRolePermissionRecord{},
 		&scopeUserRoleRecord{},
@@ -513,6 +565,58 @@ type scopeUserRoleRecord struct {
 }
 
 func (scopeUserRoleRecord) TableName() string { return "user_roles" }
+
+type scopeInterviewScheduleRecord struct {
+	ID            int64 `gorm:"primaryKey"`
+	ApplicationID int64
+	InterviewerID int64
+	RoundNo       int32
+	Title         string
+	Mode          string
+	ScheduledAt   *time.Time
+	Status        string
+	CreatedBy     *int64
+	CreatedAt     time.Time
+	UpdatedAt     time.Time
+	DeletedAt     *time.Time
+}
+
+func (scopeInterviewScheduleRecord) TableName() string { return "interview_schedules" }
+
+type scopeInterviewFeedbackRecord struct {
+	ID                  int64  `gorm:"primaryKey"`
+	InterviewID         int64  `gorm:"column:interview_id"`
+	ApplicationID       int64  `gorm:"column:application_id"`
+	InterviewerID       int64  `gorm:"column:interviewer_id"`
+	Recommendation      string `gorm:"column:recommendation"`
+	Score               int32  `gorm:"column:score"`
+	DimensionScoresJSON string `gorm:"column:dimension_scores_json"`
+	Comments            string `gorm:"column:comments"`
+	SubmittedAt         time.Time
+	UpdatedAt           time.Time
+}
+
+func (scopeInterviewFeedbackRecord) TableName() string { return "interview_feedback" }
+
+type scopeOfferRecord struct {
+	ID              int64 `gorm:"primaryKey"`
+	ApplicationID   int64
+	CandidateUserID int64
+	JobID           int64
+	Status          string
+	Title           string
+	SalaryRange     string
+	Level           string
+	WorkLocation    string
+	StartDate       string
+	CreatedBy       int64
+	SentBy          *int64
+	DecidedAt       *time.Time
+	CreatedAt       time.Time
+	UpdatedAt       time.Time
+}
+
+func (scopeOfferRecord) TableName() string { return "offers" }
 
 func (f *scopeFixture) seedScope(t *testing.T, userID int64, scopeKey, resourceType string, resourceID uint64) {
 	t.Helper()
@@ -562,6 +666,7 @@ func (f *scopeFixture) seedApplication(t *testing.T, jobID, userID int64, status
 		RoundNo:   1,
 		IsCurrent: 1,
 		AppliedAt: f.now,
+		UpdatedAt: f.now,
 	}
 	if err := f.db.Create(row).Error; err != nil {
 		t.Fatalf("seed application: %v", err)
@@ -575,6 +680,68 @@ func (f *scopeFixture) seedTransition(t *testing.T, applicationID int64, from, t
 	if err := f.db.Create(row).Error; err != nil {
 		t.Fatalf("seed transition: %v", err)
 	}
+}
+
+func (f *scopeFixture) seedInterview(t *testing.T, applicationID, interviewerID int64, createdAt time.Time) int64 {
+	t.Helper()
+	scheduledAt := createdAt.Add(2 * time.Hour)
+	creatorID := int64(101)
+	row := &scopeInterviewScheduleRecord{
+		ApplicationID: applicationID,
+		InterviewerID: interviewerID,
+		RoundNo:       2,
+		Title:         "Technical Round",
+		Mode:          "video",
+		ScheduledAt:   &scheduledAt,
+		Status:        "scheduled",
+		CreatedBy:     &creatorID,
+		CreatedAt:     createdAt,
+		UpdatedAt:     createdAt.Add(10 * time.Minute),
+	}
+	if err := f.db.Create(row).Error; err != nil {
+		t.Fatalf("seed interview: %v", err)
+	}
+	return row.ID
+}
+
+func (f *scopeFixture) seedInterviewFeedback(t *testing.T, interviewID, applicationID, interviewerID int64) {
+	t.Helper()
+	row := &scopeInterviewFeedbackRecord{
+		InterviewID:         interviewID,
+		ApplicationID:       applicationID,
+		InterviewerID:       interviewerID,
+		Recommendation:      "positive",
+		Score:               9,
+		DimensionScoresJSON: `{"technical":9}`,
+		Comments:            "strong signal",
+		SubmittedAt:         f.now.Add(5 * time.Hour),
+		UpdatedAt:           f.now.Add(5 * time.Hour),
+	}
+	if err := f.db.Create(row).Error; err != nil {
+		t.Fatalf("seed interview feedback: %v", err)
+	}
+}
+
+func (f *scopeFixture) seedOffer(t *testing.T, applicationID, candidateUserID, jobID int64, status string, createdAt time.Time) int64 {
+	t.Helper()
+	row := &scopeOfferRecord{
+		ApplicationID:   applicationID,
+		CandidateUserID: candidateUserID,
+		JobID:           jobID,
+		Status:          status,
+		Title:           "Senior Engineer Offer",
+		SalaryRange:     "30k-40k",
+		Level:           "P6",
+		WorkLocation:    "Shanghai",
+		StartDate:       "2026-08-01",
+		CreatedBy:       101,
+		CreatedAt:       createdAt,
+		UpdatedAt:       createdAt.Add(15 * time.Minute),
+	}
+	if err := f.db.Create(row).Error; err != nil {
+		t.Fatalf("seed offer: %v", err)
+	}
+	return row.ID
 }
 
 func (f *scopeFixture) seedPermissions(t *testing.T, userID int64, permissions ...string) {

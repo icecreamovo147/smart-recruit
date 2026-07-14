@@ -3,11 +3,13 @@ package persistence
 import (
 	"context"
 	"crypto/rand"
+	"database/sql"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"path/filepath"
+	"sort"
 	"strings"
 	"time"
 
@@ -269,6 +271,7 @@ type applicationRecord struct {
 	RoundNo   int32
 	IsCurrent int32
 	AppliedAt time.Time
+	UpdatedAt time.Time
 }
 
 func (applicationRecord) TableName() string { return "applications" }
@@ -278,6 +281,8 @@ type applicationDetailRow struct {
 	UserID        int64
 	JobID         int64
 	JobTitle      string
+	Department    string
+	Location      string
 	RealName      string
 	Phone         string
 	Education     string
@@ -292,6 +297,7 @@ type applicationDetailRow struct {
 	RoundNo       int32
 	IsCurrent     int32
 	AppliedAt     time.Time
+	UpdatedAt     time.Time
 }
 
 type applicationTransitionRecord struct {
@@ -306,6 +312,41 @@ type applicationTransitionRecord struct {
 }
 
 func (applicationTransitionRecord) TableName() string { return "application_status_transitions" }
+
+type candidateWorkspaceInterviewRow struct {
+	InterviewID                 int64
+	ApplicationID               int64
+	Title                       string
+	Mode                        string
+	Status                      string
+	ScheduledAt                 *time.Time
+	InterviewerID               int64
+	JobTitle                    string
+	RoundNo                     int32
+	FeedbackRecommendation      string
+	FeedbackScore               int32
+	FeedbackDimensionScoresJSON string
+	FeedbackComments            string
+	HasFeedback                 bool
+	CreatedAt                   time.Time
+	UpdatedAt                   time.Time
+}
+
+type candidateWorkspaceOfferRow struct {
+	OfferID       int64
+	ApplicationID int64
+	Title         string
+	Status        string
+	SalaryRange   string
+	Level         string
+	WorkLocation  string
+	StartDate     string
+	JobTitle      string
+	CreatedBy     int64
+	CreatedAt     time.Time
+	UpdatedAt     time.Time
+	DecidedAt     *time.Time
+}
 
 type inviteCodeRecord struct {
 	ID        int64 `gorm:"primaryKey"`
@@ -801,7 +842,8 @@ func (a *applicationAdapter) ApplyJob(ctx context.Context, req *pb.ApplyJobReque
 	if err := a.db.WithContext(ctx).Where("id = ? AND status = ?", req.JobId, 1).First(&job).Error; err != nil {
 		return &pb.CommonResponse{Code: errs.ErrJobNotAvailable, Msg: "该岗位已下架或不存在，无法投递"}, nil
 	}
-	app := &applicationRecord{UserID: req.UserId, JobID: req.JobId, ResumeID: resume.ID, Status: 0, StatusKey: domainmodel.StatusKeyApplied, RoundNo: 1, IsCurrent: 1, AppliedAt: a.now()}
+	now := a.now()
+	app := &applicationRecord{UserID: req.UserId, JobID: req.JobId, ResumeID: resume.ID, Status: 0, StatusKey: domainmodel.StatusKeyApplied, RoundNo: 1, IsCurrent: 1, AppliedAt: now, UpdatedAt: now}
 	err := a.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		if err := tx.Create(app).Error; err != nil {
 			return err
@@ -945,7 +987,7 @@ func (a *applicationAdapter) applyApplicationStatusChange(ctx context.Context, c
 	}
 	var rowsAffected int64
 	err = a.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-		updates := map[string]any{"status": legacyStatus, "status_key": targetKey}
+		updates := map[string]any{"status": legacyStatus, "status_key": targetKey, "updated_at": a.now()}
 		if isRePass {
 			updates["round_no"] = gorm.Expr("round_no + 1")
 			updates["is_current"] = 1
@@ -1150,10 +1192,10 @@ func (a *applicationOwnerAdapter) ApplyApplicationLifecycleTransition(ctx contex
 
 func (a *nativeStore) applicationDetails() *gorm.DB {
 	return a.db.Table("applications a").
-		Select(`a.id AS application_id, a.user_id, a.job_id, j.title AS job_title, COALESCE(cp.real_name, CONCAT('候选人', a.user_id)) AS real_name,
+		Select(`a.id AS application_id, a.user_id, a.job_id, j.title AS job_title, COALESCE(j.department, '') AS department, COALESCE(j.location, '') AS location, COALESCE(cp.real_name, CONCAT('候选人', a.user_id)) AS real_name,
 			COALESCE(cp.phone, '') AS phone, COALESCE(cp.education, '') AS education, COALESCE(cp.school, '') AS school, COALESCE(cp.skills, '') AS skills,
 			a.resume_id, COALESCE(r.oss_key, '') AS oss_key, COALESCE(r.file_name, '') AS file_name, COALESCE(r.file_type, '') AS file_type,
-			a.status, a.status_key, a.round_no, a.is_current, a.applied_at`).
+			a.status, a.status_key, a.round_no, a.is_current, a.applied_at, a.updated_at`).
 		Joins("JOIN jobs j ON j.id = a.job_id").
 		Joins("LEFT JOIN candidate_profiles cp ON cp.user_id = a.user_id").
 		Joins("LEFT JOIN resumes r ON r.id = a.resume_id")
@@ -1548,12 +1590,11 @@ func (a *collaborationAdapter) GetCandidateWorkspace(ctx context.Context, req *p
 	}
 	for _, row := range rows {
 		workspace.Applications = append(workspace.Applications, &pb.CandidateWorkspaceApplication{
-			ApplicationId: row.ApplicationID, JobId: row.JobID, JobTitle: row.JobTitle, StatusKey: row.StatusKey,
+			ApplicationId: row.ApplicationID, JobId: row.JobID, JobTitle: row.JobTitle, Department: row.Department, Location: row.Location, StatusKey: row.StatusKey,
 			RoundNo: row.RoundNo, IsCurrent: row.IsCurrent, AppliedAt: formatTime(row.AppliedAt),
 		})
-		if workspace.LatestActivityAt == "" {
-			workspace.LatestActivityAt = formatTime(row.AppliedAt)
-		}
+		updateLatestActivity(&workspace.LatestActivityAt, row.AppliedAt)
+		updateLatestActivity(&workspace.LatestActivityAt, row.UpdatedAt)
 	}
 	workspace.TotalApplications = int64(len(rows))
 	tags, err := a.candidateTags(ctx, uint64(req.CandidateUserId))
@@ -1567,8 +1608,63 @@ func (a *collaborationAdapter) GetCandidateWorkspace(ctx context.Context, req *p
 	} else if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
 		return nil, err
 	}
-	a.db.WithContext(ctx).Table("interview_schedules i").Joins("JOIN applications a ON a.id = i.application_id").Where("a.user_id = ?", req.CandidateUserId).Count(&workspace.TotalInterviews)
-	a.db.WithContext(ctx).Table("offers o").Joins("JOIN applications a ON a.id = o.application_id").Where("a.user_id = ?", req.CandidateUserId).Count(&workspace.TotalOffers)
+	interviews, err := a.candidateWorkspaceInterviews(ctx, int64(req.CandidateUserId))
+	if err != nil {
+		return nil, err
+	}
+	if err := a.db.WithContext(ctx).Table("interview_schedules i").Joins("JOIN applications a ON a.id = i.application_id").Where("a.user_id = ? AND i.deleted_at IS NULL", req.CandidateUserId).Count(&workspace.TotalInterviews).Error; err != nil {
+		return nil, err
+	}
+	workspace.Interviews = make([]*pb.CandidateWorkspaceInterview, 0, len(interviews))
+	for _, row := range interviews {
+		workspace.Interviews = append(workspace.Interviews, &pb.CandidateWorkspaceInterview{
+			InterviewId:                 row.InterviewID,
+			ApplicationId:               row.ApplicationID,
+			Title:                       row.Title,
+			Mode:                        row.Mode,
+			Status:                      row.Status,
+			ScheduledAt:                 formatOptionalTime(row.ScheduledAt),
+			InterviewerName:             userDisplayName(row.InterviewerID),
+			JobTitle:                    row.JobTitle,
+			RoundNo:                     row.RoundNo,
+			FeedbackRecommendation:      row.FeedbackRecommendation,
+			FeedbackScore:               row.FeedbackScore,
+			FeedbackDimensionScoresJson: row.FeedbackDimensionScoresJSON,
+			FeedbackComments:            row.FeedbackComments,
+			HasFeedback:                 row.HasFeedback,
+		})
+		updateLatestActivity(&workspace.LatestActivityAt, row.CreatedAt)
+		updateLatestActivity(&workspace.LatestActivityAt, row.UpdatedAt)
+	}
+	offers, err := a.candidateWorkspaceOffers(ctx, int64(req.CandidateUserId))
+	if err != nil {
+		return nil, err
+	}
+	if err := a.db.WithContext(ctx).Table("offers").Where("candidate_user_id = ?", req.CandidateUserId).Count(&workspace.TotalOffers).Error; err != nil {
+		return nil, err
+	}
+	workspace.Offers = make([]*pb.CandidateWorkspaceOffer, 0, len(offers))
+	for _, row := range offers {
+		workspace.Offers = append(workspace.Offers, &pb.CandidateWorkspaceOffer{
+			OfferId:       row.OfferID,
+			ApplicationId: row.ApplicationID,
+			Title:         row.Title,
+			Status:        row.Status,
+			SalaryRange:   row.SalaryRange,
+			Level:         row.Level,
+			WorkLocation:  row.WorkLocation,
+			StartDate:     row.StartDate,
+			JobTitle:      row.JobTitle,
+		})
+		updateLatestActivity(&workspace.LatestActivityAt, row.CreatedAt)
+		updateLatestActivity(&workspace.LatestActivityAt, row.UpdatedAt)
+		updateLatestActivityPtr(&workspace.LatestActivityAt, row.DecidedAt)
+	}
+	latestCollaborationActivity, err := a.latestCandidateCollaborationActivity(ctx, candidateUserID)
+	if err != nil {
+		return nil, err
+	}
+	updateLatestActivityPtr(&workspace.LatestActivityAt, latestCollaborationActivity)
 	return &pb.GetCandidateWorkspaceResponse{Code: errs.OK, Msg: "success", Workspace: workspace}, nil
 }
 
@@ -1822,7 +1918,234 @@ func (a *collaborationAdapter) ListTimelineEvents(ctx context.Context, req *pb.L
 	for _, transition := range transitions {
 		events = append(events, &pb.TimelineEventInfo{Id: fmt.Sprintf("status-%d", transition.ID), EventType: "status_transition", Title: "状态变更", Description: fmt.Sprintf("%s -> %s", transition.FromStatus, transition.ToStatus), Timestamp: formatTime(transition.CreatedAt), ActorName: fmt.Sprintf("用户%d", transition.ActorUserID), ApplicationId: transition.ApplicationID})
 	}
+	interviews, err := a.candidateWorkspaceInterviews(ctx, int64(req.CandidateUserId))
+	if err != nil {
+		return nil, err
+	}
+	for _, interview := range interviews {
+		events = append(events, &pb.TimelineEventInfo{
+			Id:            fmt.Sprintf("interview-%d", interview.InterviewID),
+			EventType:     "interview",
+			Title:         candidateWorkspaceInterviewTimelineTitle(interview),
+			Description:   candidateWorkspaceInterviewTimelineDescription(interview),
+			Timestamp:     formatTime(interview.CreatedAt),
+			ActorName:     userDisplayName(interview.InterviewerID),
+			ApplicationId: interview.ApplicationID,
+		})
+	}
+	offers, err := a.candidateWorkspaceOffers(ctx, int64(req.CandidateUserId))
+	if err != nil {
+		return nil, err
+	}
+	for _, offer := range offers {
+		events = append(events, &pb.TimelineEventInfo{
+			Id:            fmt.Sprintf("offer-%d", offer.OfferID),
+			EventType:     "offer",
+			Title:         candidateWorkspaceOfferTimelineTitle(offer),
+			Description:   strings.TrimSpace(fmt.Sprintf("薪酬: %s | 职级: %s", offer.SalaryRange, offer.Level)),
+			Timestamp:     formatTime(offer.CreatedAt),
+			ActorName:     userDisplayName(offer.CreatedBy),
+			ApplicationId: offer.ApplicationID,
+		})
+	}
+	sortTimelineEvents(events)
 	return &pb.ListTimelineEventsResponse{Code: errs.OK, Msg: "success", Events: events}, nil
+}
+
+func (a *collaborationAdapter) candidateWorkspaceInterviews(ctx context.Context, candidateUserID int64) ([]candidateWorkspaceInterviewRow, error) {
+	var rows []candidateWorkspaceInterviewRow
+	err := a.db.WithContext(ctx).Table("interview_schedules i").
+		Select(`i.id AS interview_id,
+			i.application_id,
+			COALESCE(i.title, '') AS title,
+			COALESCE(i.mode, '') AS mode,
+			i.status,
+			i.scheduled_at,
+			i.interviewer_id,
+			j.title AS job_title,
+			i.round_no,
+			COALESCE(f.recommendation, '') AS feedback_recommendation,
+			COALESCE(f.score, 0) AS feedback_score,
+			COALESCE(f.dimension_scores_json, '') AS feedback_dimension_scores_json,
+			COALESCE(f.comments, '') AS feedback_comments,
+			CASE WHEN f.id IS NULL THEN 0 ELSE 1 END AS has_feedback,
+			i.created_at,
+			i.updated_at`).
+		Joins("JOIN applications a ON a.id = i.application_id").
+		Joins("JOIN jobs j ON j.id = a.job_id").
+		Joins("LEFT JOIN interview_feedback f ON f.interview_id = i.id AND f.application_id = i.application_id AND f.interviewer_id = i.interviewer_id").
+		Where("a.user_id = ? AND i.deleted_at IS NULL", candidateUserID).
+		Where("i.status NOT IN ?", []string{"cancelled"}).
+		Order("i.scheduled_at DESC, i.created_at DESC, i.id DESC").
+		Scan(&rows).Error
+	return rows, err
+}
+
+func (a *collaborationAdapter) candidateWorkspaceOffers(ctx context.Context, candidateUserID int64) ([]candidateWorkspaceOfferRow, error) {
+	var rows []candidateWorkspaceOfferRow
+	err := a.db.WithContext(ctx).Table("offers o").
+		Select(`o.id AS offer_id,
+			o.application_id,
+			o.title,
+			o.status,
+			COALESCE(o.salary_range, '') AS salary_range,
+			COALESCE(o.level, '') AS level,
+			COALESCE(o.work_location, '') AS work_location,
+			COALESCE(o.start_date, '') AS start_date,
+			j.title AS job_title,
+			o.created_by,
+			o.created_at,
+			o.updated_at,
+			o.decided_at`).
+		Joins("JOIN jobs j ON j.id = o.job_id").
+		Joins("JOIN applications a ON a.id = o.application_id").
+		Where("o.candidate_user_id = ?", candidateUserID).
+		Where("o.status != ?", "draft").
+		Order("o.created_at DESC, o.id DESC").
+		Limit(100).
+		Scan(&rows).Error
+	return rows, err
+}
+
+func (a *collaborationAdapter) latestCandidateCollaborationActivity(ctx context.Context, candidateUserID uint64) (*time.Time, error) {
+	var latest struct {
+		ActivityAt sql.NullString
+	}
+	query := `
+		SELECT MAX(activity_at) AS activity_at FROM (
+			SELECT applied_at AS activity_at FROM applications WHERE user_id = ?
+			UNION ALL
+			SELECT updated_at AS activity_at FROM applications WHERE user_id = ?
+			UNION ALL
+			SELECT i.created_at AS activity_at FROM interview_schedules i JOIN applications a ON a.id = i.application_id WHERE a.user_id = ? AND i.deleted_at IS NULL
+			UNION ALL
+			SELECT i.updated_at AS activity_at FROM interview_schedules i JOIN applications a ON a.id = i.application_id WHERE a.user_id = ? AND i.deleted_at IS NULL
+			UNION ALL
+			SELECT f.submitted_at AS activity_at FROM interview_feedback f JOIN applications a ON a.id = f.application_id WHERE a.user_id = ?
+			UNION ALL
+			SELECT f.updated_at AS activity_at FROM interview_feedback f JOIN applications a ON a.id = f.application_id WHERE a.user_id = ?
+			UNION ALL
+			SELECT o.created_at AS activity_at FROM offers o WHERE o.candidate_user_id = ?
+			UNION ALL
+			SELECT o.updated_at AS activity_at FROM offers o WHERE o.candidate_user_id = ?
+			UNION ALL
+			SELECT o.decided_at AS activity_at FROM offers o WHERE o.candidate_user_id = ? AND o.decided_at IS NOT NULL
+			UNION ALL
+			SELECT cn.created_at AS activity_at FROM candidate_notes cn WHERE cn.candidate_user_id = ?
+			UNION ALL
+			SELECT ast.created_at AS activity_at FROM application_status_transitions ast JOIN applications a ON a.id = ast.application_id WHERE a.user_id = ?
+		) candidate_activity
+	`
+	err := a.db.WithContext(ctx).Raw(query, candidateUserID, candidateUserID, candidateUserID, candidateUserID, candidateUserID, candidateUserID, candidateUserID, candidateUserID, candidateUserID, candidateUserID, candidateUserID).Scan(&latest).Error
+	if err != nil {
+		return nil, err
+	}
+	if !latest.ActivityAt.Valid || strings.TrimSpace(latest.ActivityAt.String) == "" {
+		return nil, nil
+	}
+	parsed, err := parseDatabaseTime(latest.ActivityAt.String)
+	if err != nil {
+		return nil, err
+	}
+	return &parsed, nil
+}
+
+func updateLatestActivity(latest *string, candidate time.Time) {
+	if latest == nil || candidate.IsZero() {
+		return
+	}
+	current, err := time.Parse(time.RFC3339, *latest)
+	if *latest == "" || err != nil || candidate.After(current) {
+		*latest = formatTime(candidate)
+	}
+}
+
+func updateLatestActivityPtr(latest *string, candidate *time.Time) {
+	if candidate == nil {
+		return
+	}
+	updateLatestActivity(latest, *candidate)
+}
+
+func sortTimelineEvents(events []*pb.TimelineEventInfo) {
+	sort.SliceStable(events, func(i, j int) bool {
+		left, leftErr := time.Parse(time.RFC3339, events[i].Timestamp)
+		right, rightErr := time.Parse(time.RFC3339, events[j].Timestamp)
+		if leftErr != nil && rightErr != nil {
+			return events[i].Id > events[j].Id
+		}
+		if leftErr != nil {
+			return false
+		}
+		if rightErr != nil {
+			return true
+		}
+		return left.After(right)
+	})
+}
+
+func userDisplayName(userID int64) string {
+	if userID <= 0 {
+		return ""
+	}
+	return fmt.Sprintf("用户%d", userID)
+}
+
+func candidateWorkspaceInterviewTimelineTitle(row candidateWorkspaceInterviewRow) string {
+	title := strings.TrimSpace(row.Title)
+	if title == "" {
+		title = fmt.Sprintf("第 %d 轮面试", row.RoundNo)
+	}
+	if row.Status == "cancelled" {
+		return "面试已取消: " + title
+	}
+	return "面试: " + title
+}
+
+func candidateWorkspaceInterviewTimelineDescription(row candidateWorkspaceInterviewRow) string {
+	parts := []string{}
+	if name := userDisplayName(row.InterviewerID); name != "" {
+		parts = append(parts, "面试官: "+name)
+	}
+	if scheduledAt := formatOptionalTime(row.ScheduledAt); scheduledAt != "" {
+		parts = append(parts, "时间: "+scheduledAt)
+	}
+	return strings.Join(parts, " | ")
+}
+
+func candidateWorkspaceOfferTimelineTitle(row candidateWorkspaceOfferRow) string {
+	title := "Offer: " + row.Title
+	switch row.Status {
+	case "draft":
+		title = "Offer已创建: " + row.Title
+	case "sent":
+		title = "Offer已发送: " + row.Title
+	case "accepted":
+		title = "Offer已接受: " + row.Title
+	case "rejected":
+		title = "Offer已拒绝: " + row.Title
+	case "withdrawn":
+		title = "Offer已撤回: " + row.Title
+	}
+	return title
+}
+
+func parseDatabaseTime(value string) (time.Time, error) {
+	value = strings.TrimSpace(value)
+	for _, layout := range []string{
+		time.RFC3339Nano,
+		time.RFC3339,
+		"2006-01-02 15:04:05.999999999-07:00",
+		"2006-01-02 15:04:05-07:00",
+		"2006-01-02 15:04:05.999999999",
+		"2006-01-02 15:04:05",
+	} {
+		parsed, err := time.ParseInLocation(layout, value, time.Local)
+		if err == nil {
+			return parsed, nil
+		}
+	}
+	return time.Time{}, fmt.Errorf("invalid database time: %s", value)
 }
 
 func (a *nativeStore) lookupDepartment(ctx context.Context, id int64) (*departmentRecord, error) {
