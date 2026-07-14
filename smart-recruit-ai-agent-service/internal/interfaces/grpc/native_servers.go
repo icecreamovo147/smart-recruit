@@ -129,6 +129,11 @@ var (
 	errAIProviderRequired = errors.New("ai provider is required for native AI runtime")
 )
 
+const (
+	ownerRoleCandidate int32 = 1
+	ownerRoleHR        int32 = 2
+)
+
 func NewNativeRuntimeDeps(deps RuntimeDeps) aiagentruntime.Deps {
 	ai := NewNativeAIService(deps.Store, deps.Provider)
 	embedding := deps.EmbeddingConfigs
@@ -168,12 +173,12 @@ func (s *nativeAIService) Chat(ctx context.Context, req *pb.ChatRequest) (*pb.Ch
 	if req == nil {
 		return nil, errors.New("chat request is required")
 	}
-	session, err := s.ensureSession(ctx, 1, req.GetHrId(), req.GetSessionId(), req.GetApplicationId(), req.GetMessage())
+	session, err := s.ensureSession(ctx, ownerRoleHR, req.GetHrId(), req.GetSessionId(), req.GetApplicationId(), req.GetMessage())
 	if err != nil {
 		return nil, err
 	}
 	if strings.TrimSpace(req.GetMessage()) != "" && s.store != nil {
-		if _, err := s.store.AppendChatMessage(ctx, ChatMessageRow{OwnerRole: 1, OwnerID: req.GetHrId(), SessionID: session.ID, Role: "user", Content: req.GetMessage(), ModelID: req.GetModelId()}); err != nil {
+		if _, err := s.store.AppendChatMessage(ctx, ChatMessageRow{OwnerRole: ownerRoleHR, OwnerID: req.GetHrId(), SessionID: session.ID, Role: "user", Content: req.GetMessage(), ModelID: req.GetModelId()}); err != nil {
 			return nil, err
 		}
 	}
@@ -185,7 +190,7 @@ func (s *nativeAIService) Chat(ctx context.Context, req *pb.ChatRequest) (*pb.Ch
 		return nil, err
 	}
 	if s.store != nil {
-		if _, err := s.store.AppendChatMessage(ctx, ChatMessageRow{OwnerRole: 1, OwnerID: req.GetHrId(), SessionID: session.ID, Role: "assistant", Content: reply, ModelID: req.GetModelId(), CreatedAt: time.Now()}); err != nil {
+		if _, err := s.store.AppendChatMessage(ctx, ChatMessageRow{OwnerRole: ownerRoleHR, OwnerID: req.GetHrId(), SessionID: session.ID, Role: "assistant", Content: reply, ModelID: req.GetModelId(), CreatedAt: time.Now()}); err != nil {
 			return nil, err
 		}
 	}
@@ -201,7 +206,7 @@ func (s *nativeAIService) ChatStream(req *pb.ChatRequest, stream gogrpc.ServerSt
 }
 
 func (s *nativeAIService) History(ctx context.Context, req *pb.ChatHistoryRequest) (*pb.ChatHistoryResponse, error) {
-	rows, err := s.listMessages(ctx, 1, req.GetHrId(), 0, req.GetPage(), req.GetPageSize())
+	rows, err := s.listMessages(ctx, ownerRoleHR, req.GetHrId(), 0, req.GetPage(), req.GetPageSize())
 	if err != nil {
 		return nil, err
 	}
@@ -220,7 +225,7 @@ func (s *nativeAIService) AnalyzeApplication(ctx context.Context, req *pb.Analyz
 }
 
 func (s *nativeAIService) ListChatSessions(ctx context.Context, req *pb.ChatSessionListRequest) (*pb.ChatSessionListResponse, error) {
-	rows, total, err := s.listSessions(ctx, 1, req.GetHrId(), req.GetPage(), req.GetPageSize())
+	rows, total, err := s.listSessions(ctx, ownerRoleHR, req.GetHrId(), req.GetPage(), req.GetPageSize())
 	if err != nil {
 		return nil, err
 	}
@@ -228,7 +233,7 @@ func (s *nativeAIService) ListChatSessions(ctx context.Context, req *pb.ChatSess
 }
 
 func (s *nativeAIService) CreateChatSession(ctx context.Context, req *pb.CreateChatSessionRequest) (*pb.CreateChatSessionResponse, error) {
-	session, err := s.ensureSession(ctx, 1, req.GetHrId(), 0, 0, req.GetTitle())
+	session, err := s.ensureSession(ctx, ownerRoleHR, req.GetHrId(), 0, 0, req.GetTitle())
 	if err != nil {
 		return nil, err
 	}
@@ -236,7 +241,7 @@ func (s *nativeAIService) CreateChatSession(ctx context.Context, req *pb.CreateC
 }
 
 func (s *nativeAIService) SessionMessages(ctx context.Context, req *pb.SessionMessagesRequest) (*pb.ChatHistoryResponse, error) {
-	rows, err := s.listMessages(ctx, 1, req.GetHrId(), req.GetSessionId(), req.GetPage(), req.GetPageSize())
+	rows, err := s.listMessages(ctx, ownerRoleHR, req.GetHrId(), req.GetSessionId(), req.GetPage(), req.GetPageSize())
 	if err != nil {
 		return nil, err
 	}
@@ -244,7 +249,7 @@ func (s *nativeAIService) SessionMessages(ctx context.Context, req *pb.SessionMe
 }
 
 func (s *nativeAIService) CreateApplicationAnalysisSession(ctx context.Context, req *pb.CreateApplicationAnalysisSessionRequest) (*pb.CreateApplicationAnalysisSessionResponse, error) {
-	session, err := s.ensureSession(ctx, 1, req.GetHrId(), 0, req.GetApplicationId(), fmt.Sprintf("Application %d analysis", req.GetApplicationId()))
+	session, err := s.ensureSession(ctx, ownerRoleHR, req.GetHrId(), 0, req.GetApplicationId(), fmt.Sprintf("Application %d analysis", req.GetApplicationId()))
 	if err != nil {
 		return nil, err
 	}
@@ -255,7 +260,7 @@ func (s *nativeAIService) UpdateSession(ctx context.Context, req *pb.UpdateSessi
 	if s.store == nil {
 		return &pb.CommonResponse{Code: configCodeUnavailable, Msg: errAIStoreRequired.Error()}, nil
 	}
-	if err := s.store.UpdateChatSessionTitle(ctx, 1, req.GetHrId(), req.GetSessionId(), req.GetTitle()); err != nil {
+	if err := s.store.UpdateChatSessionTitle(ctx, ownerRoleHR, req.GetHrId(), req.GetSessionId(), req.GetTitle()); err != nil {
 		return nil, err
 	}
 	return commonOK(), nil
@@ -265,26 +270,37 @@ func (s *nativeAIService) DeleteSession(ctx context.Context, req *pb.DeleteSessi
 	if s.store == nil {
 		return &pb.CommonResponse{Code: configCodeUnavailable, Msg: errAIStoreRequired.Error()}, nil
 	}
-	if err := s.store.DeleteChatSession(ctx, 1, req.GetHrId(), req.GetSessionId()); err != nil {
+	if err := s.store.DeleteChatSession(ctx, ownerRoleHR, req.GetHrId(), req.GetSessionId()); err != nil {
 		return nil, err
 	}
 	return commonOK(), nil
 }
 
 func (s *nativeAIService) CandidateChatStream(req *pb.CandidateChatRequest, stream gogrpc.ServerStreamingServer[pb.ChatStreamResponse]) error {
-	session, err := s.ensureSession(stream.Context(), 2, req.GetUserId(), req.GetSessionId(), 0, req.GetMessage())
+	ctx := stream.Context()
+	session, err := s.ensureSession(ctx, ownerRoleCandidate, req.GetUserId(), req.GetSessionId(), 0, req.GetMessage())
 	if err != nil {
 		return err
 	}
-	reply, err := s.complete(stream.Context(), req.GetMessage(), 0)
+	if strings.TrimSpace(req.GetMessage()) != "" && s.store != nil {
+		if _, err := s.store.AppendChatMessage(ctx, ChatMessageRow{OwnerRole: ownerRoleCandidate, OwnerID: req.GetUserId(), SessionID: session.ID, Role: "user", Content: req.GetMessage()}); err != nil {
+			return err
+		}
+	}
+	reply, err := s.complete(ctx, req.GetMessage(), 0)
 	if err != nil {
 		return err
+	}
+	if s.store != nil {
+		if _, err := s.store.AppendChatMessage(ctx, ChatMessageRow{OwnerRole: ownerRoleCandidate, OwnerID: req.GetUserId(), SessionID: session.ID, Role: "assistant", Content: reply, CreatedAt: time.Now()}); err != nil {
+			return err
+		}
 	}
 	return stream.Send(&pb.ChatStreamResponse{Code: 0, Msg: "success", Delta: reply, Done: true, SessionId: session.ID, CreatedAt: formatTime(time.Now()), EventType: "done"})
 }
 
 func (s *nativeAIService) CandidateListSessions(ctx context.Context, req *pb.CandidateSessionListRequest) (*pb.ChatSessionListResponse, error) {
-	rows, total, err := s.listSessions(ctx, 2, req.GetUserId(), req.GetPage(), req.GetPageSize())
+	rows, total, err := s.listSessions(ctx, ownerRoleCandidate, req.GetUserId(), req.GetPage(), req.GetPageSize())
 	if err != nil {
 		return nil, err
 	}
@@ -292,7 +308,7 @@ func (s *nativeAIService) CandidateListSessions(ctx context.Context, req *pb.Can
 }
 
 func (s *nativeAIService) CandidateCreateSession(ctx context.Context, req *pb.CandidateCreateSessionRequest) (*pb.CreateChatSessionResponse, error) {
-	session, err := s.ensureSession(ctx, 2, req.GetUserId(), 0, 0, req.GetTitle())
+	session, err := s.ensureSession(ctx, ownerRoleCandidate, req.GetUserId(), 0, 0, req.GetTitle())
 	if err != nil {
 		return nil, err
 	}
@@ -300,7 +316,7 @@ func (s *nativeAIService) CandidateCreateSession(ctx context.Context, req *pb.Ca
 }
 
 func (s *nativeAIService) CandidateSessionMessages(ctx context.Context, req *pb.CandidateSessionMessagesRequest) (*pb.ChatHistoryResponse, error) {
-	rows, err := s.listMessages(ctx, 2, req.GetUserId(), req.GetSessionId(), req.GetPage(), req.GetPageSize())
+	rows, err := s.listMessages(ctx, ownerRoleCandidate, req.GetUserId(), req.GetSessionId(), req.GetPage(), req.GetPageSize())
 	if err != nil {
 		return nil, err
 	}
@@ -311,7 +327,7 @@ func (s *nativeAIService) CandidateUpdateSession(ctx context.Context, req *pb.Ca
 	if s.missingStore() {
 		return &pb.CommonResponse{Code: configCodeUnavailable, Msg: errAIStoreRequired.Error()}, nil
 	}
-	if err := s.store.UpdateChatSessionTitle(ctx, 2, req.GetUserId(), req.GetSessionId(), req.GetTitle()); err != nil {
+	if err := s.store.UpdateChatSessionTitle(ctx, ownerRoleCandidate, req.GetUserId(), req.GetSessionId(), req.GetTitle()); err != nil {
 		return nil, err
 	}
 	return commonOK(), nil
@@ -321,7 +337,7 @@ func (s *nativeAIService) CandidateDeleteSession(ctx context.Context, req *pb.Ca
 	if s.missingStore() {
 		return &pb.CommonResponse{Code: configCodeUnavailable, Msg: errAIStoreRequired.Error()}, nil
 	}
-	if err := s.store.DeleteChatSession(ctx, 2, req.GetUserId(), req.GetSessionId()); err != nil {
+	if err := s.store.DeleteChatSession(ctx, ownerRoleCandidate, req.GetUserId(), req.GetSessionId()); err != nil {
 		return nil, err
 	}
 	return commonOK(), nil
@@ -514,7 +530,7 @@ func (s *nativeAIService) executeAgentRun(ctx context.Context, run AgentRunRow, 
 		if _, err := s.store.AppendAgentRunEvent(ctx, run.ID, "assistant.delta", fmt.Sprintf(`{"status":"running","delta":%q}`, reply)); err != nil {
 			return err
 		}
-		if _, err := s.store.AppendChatMessage(ctx, ChatMessageRow{OwnerRole: 1, OwnerID: run.OwnerID, SessionID: run.SessionID, Role: "assistant", Content: reply, ModelID: modelID, CreatedAt: time.Now()}); err != nil {
+		if _, err := s.store.AppendChatMessage(ctx, ChatMessageRow{OwnerRole: ownerRoleHR, OwnerID: run.OwnerID, SessionID: run.SessionID, Role: "assistant", Content: reply, ModelID: modelID, CreatedAt: time.Now()}); err != nil {
 			return err
 		}
 	}

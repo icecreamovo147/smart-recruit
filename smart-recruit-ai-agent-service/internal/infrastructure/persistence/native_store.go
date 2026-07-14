@@ -25,6 +25,12 @@ type NativeStore struct {
 	hasEncryptionKey bool
 }
 
+const (
+	chatOwnerRoleLegacyHR  int32 = 0
+	chatOwnerRoleCandidate int32 = 1
+	chatOwnerRoleHR        int32 = 2
+)
+
 func NewNativeStore(db *gorm.DB) *NativeStore {
 	return &NativeStore{db: db}
 }
@@ -90,7 +96,7 @@ func looksEncryptedAPIKey(value string) bool {
 func (s *NativeStore) EnsureChatSession(ctx context.Context, ownerRole int32, ownerID int64, title string, applicationID int64) (aiagentgrpc.ChatSessionRow, error) {
 	now := time.Now()
 	session := aiChatSessionRecord{
-		HRID:          ownerID,
+		HRID:          chatCompatibilityHRID(ownerRole, ownerID),
 		OwnerRole:     ownerRole,
 		OwnerID:       ownerID,
 		Title:         title,
@@ -107,11 +113,8 @@ func (s *NativeStore) EnsureChatSession(ctx context.Context, ownerRole int32, ow
 func (s *NativeStore) ListChatSessions(ctx context.Context, ownerRole int32, ownerID int64, page, pageSize int32) ([]aiagentgrpc.ChatSessionRow, int64, error) {
 	var total int64
 	query := s.db.WithContext(ctx).Model(&aiChatSessionRecord{}).
-		Where("owner_role = ? AND owner_id = ? AND deleted_at IS NULL", ownerRole, ownerID)
-	if ownerRole == 1 {
-		query = s.db.WithContext(ctx).Model(&aiChatSessionRecord{}).
-			Where("hr_id = ? AND deleted_at IS NULL", ownerID)
-	}
+		Where("deleted_at IS NULL")
+	query = applyChatOwnerScope(query, ownerRole, ownerID)
 	if err := query.Count(&total).Error; err != nil {
 		return nil, 0, err
 	}
@@ -127,19 +130,15 @@ func (s *NativeStore) ListChatSessions(ctx context.Context, ownerRole int32, own
 }
 
 func (s *NativeStore) UpdateChatSessionTitle(ctx context.Context, ownerRole int32, ownerID, sessionID int64, title string) error {
-	query := s.db.WithContext(ctx).Model(&aiChatSessionRecord{}).Where("id = ? AND owner_role = ? AND owner_id = ? AND deleted_at IS NULL", sessionID, ownerRole, ownerID)
-	if ownerRole == 1 {
-		query = s.db.WithContext(ctx).Model(&aiChatSessionRecord{}).Where("id = ? AND hr_id = ? AND deleted_at IS NULL", sessionID, ownerID)
-	}
+	query := s.db.WithContext(ctx).Model(&aiChatSessionRecord{}).Where("id = ? AND deleted_at IS NULL", sessionID)
+	query = applyChatOwnerScope(query, ownerRole, ownerID)
 	return query.Update("title", title).Error
 }
 
 func (s *NativeStore) DeleteChatSession(ctx context.Context, ownerRole int32, ownerID, sessionID int64) error {
 	now := time.Now()
-	query := s.db.WithContext(ctx).Model(&aiChatSessionRecord{}).Where("id = ? AND owner_role = ? AND owner_id = ? AND deleted_at IS NULL", sessionID, ownerRole, ownerID)
-	if ownerRole == 1 {
-		query = s.db.WithContext(ctx).Model(&aiChatSessionRecord{}).Where("id = ? AND hr_id = ? AND deleted_at IS NULL", sessionID, ownerID)
-	}
+	query := s.db.WithContext(ctx).Model(&aiChatSessionRecord{}).Where("id = ? AND deleted_at IS NULL", sessionID)
+	query = applyChatOwnerScope(query, ownerRole, ownerID)
 	return query.Update("deleted_at", &now).Error
 }
 
@@ -149,7 +148,7 @@ func (s *NativeStore) AppendChatMessage(ctx context.Context, message aiagentgrpc
 		now = message.CreatedAt
 	}
 	row := aiChatHistoryRecord{
-		HRID:           message.OwnerID,
+		HRID:           chatCompatibilityHRID(message.OwnerRole, message.OwnerID),
 		OwnerRole:      message.OwnerRole,
 		OwnerID:        message.OwnerID,
 		SessionID:      message.SessionID,
@@ -172,10 +171,8 @@ func (s *NativeStore) AppendChatMessage(ctx context.Context, message aiagentgrpc
 }
 
 func (s *NativeStore) ListChatMessages(ctx context.Context, ownerRole int32, ownerID, sessionID int64, page, pageSize int32) ([]aiagentgrpc.ChatMessageRow, error) {
-	query := s.db.WithContext(ctx).Model(&aiChatHistoryRecord{}).Where("owner_role = ? AND owner_id = ?", ownerRole, ownerID)
-	if ownerRole == 1 {
-		query = s.db.WithContext(ctx).Model(&aiChatHistoryRecord{}).Where("hr_id = ?", ownerID)
-	}
+	query := s.db.WithContext(ctx).Model(&aiChatHistoryRecord{})
+	query = applyChatOwnerScope(query, ownerRole, ownerID)
 	if sessionID > 0 {
 		query = query.Where("session_id = ?", sessionID)
 	}
@@ -884,6 +881,26 @@ func mapSessionRecord(row aiChatSessionRecord) aiagentgrpc.ChatSessionRow {
 
 func mapMessageRecord(row aiChatHistoryRecord) aiagentgrpc.ChatMessageRow {
 	return aiagentgrpc.ChatMessageRow{ID: row.ID, OwnerRole: row.OwnerRole, OwnerID: row.OwnerID, SessionID: row.SessionID, Role: row.Role, Content: row.Content, ProcessContent: row.ProcessContent, ModelID: row.ModelID, ModelName: row.ModelName, CreatedAt: row.CreatedAt}
+}
+
+func applyChatOwnerScope(query *gorm.DB, ownerRole int32, ownerID int64) *gorm.DB {
+	if ownerRole != chatOwnerRoleHR {
+		return query.Where("owner_role = ? AND owner_id = ?", ownerRole, ownerID)
+	}
+	return query.Where(
+		"((owner_role = ? AND owner_id = ?) OR (hr_id = ? AND owner_role IN ?))",
+		chatOwnerRoleHR,
+		ownerID,
+		ownerID,
+		[]int32{chatOwnerRoleLegacyHR, chatOwnerRoleHR},
+	)
+}
+
+func chatCompatibilityHRID(ownerRole int32, ownerID int64) int64 {
+	if ownerRole == chatOwnerRoleHR || ownerRole == chatOwnerRoleLegacyHR {
+		return ownerID
+	}
+	return 0
 }
 
 func mapRunRecord(row agentRunRecord) aiagentgrpc.AgentRunRow {
