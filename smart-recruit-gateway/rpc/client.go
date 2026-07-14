@@ -403,9 +403,13 @@ func NewClientsWithOptions(addr string, options ClientOptions) (*Clients, error)
 		analyticsTarget = options.AnalyticsAddr
 	}
 	baseAdminClient := pb.NewAdminServiceClient(conn)
-	identityAdminClient := baseAdminClient
+	recruitmentAdminClient := baseAdminClient
+	if recruitmentMode == "recruitment" {
+		recruitmentAdminClient = newRecruitmentAdminClient(baseAdminClient, pb.NewAdminServiceClient(recruitmentConn))
+	}
+	identityAdminClient := recruitmentAdminClient
 	if identityMode == "identity" {
-		identityAdminClient = newIdentityAdminClient(baseAdminClient, pb.NewAdminServiceClient(identityConn))
+		identityAdminClient = newIdentityAdminClient(recruitmentAdminClient, pb.NewAdminServiceClient(identityConn))
 	}
 	adminClient := identityAdminClient
 	if analyticsMode == "analytics" {

@@ -9,6 +9,8 @@ import (
 
 	"google.golang.org/grpc"
 	healthpb "google.golang.org/grpc/health/grpc_health_v1"
+
+	"smart-recruit-proto/recruitment/pb"
 )
 
 func TestNewClientsDefaultsNotificationToService(t *testing.T) {
@@ -137,6 +139,9 @@ func TestNewClientsRoutesRecruitmentToExtractedService(t *testing.T) {
 	}
 	if clients.recruitmentConn == clients.conn {
 		t.Fatal("Recruitment cutover should use a separate gRPC connection")
+	}
+	if !adminClientContainsRecruitmentWrapper(clients.Admin) {
+		t.Fatalf("Admin client type = %T, want chain containing *recruitmentAdminClient", clients.Admin)
 	}
 }
 
@@ -425,4 +430,17 @@ fGNwAACec8twMMOFx6oNlOD5U8qc2yUI2qK93g==
 		t.Fatalf("Close: %v", err)
 	}
 	return file.Name()
+}
+
+func adminClientContainsRecruitmentWrapper(client pb.AdminServiceClient) bool {
+	switch c := client.(type) {
+	case *recruitmentAdminClient:
+		return true
+	case *identityAdminClient:
+		return adminClientContainsRecruitmentWrapper(c.AdminServiceClient)
+	case *analyticsAdminClient:
+		return adminClientContainsRecruitmentWrapper(c.AdminServiceClient)
+	default:
+		return false
+	}
 }
