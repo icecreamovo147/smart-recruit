@@ -17,6 +17,7 @@ import (
 
 	"smart-recruit-commons/oss"
 	"smart-recruit-platform-go/errs"
+	"smart-recruit-platform-go/metadata"
 	"smart-recruit-proto/recruitment/pb"
 	"smart-recruit-recruitment-service/internal/application/service"
 	domainmodel "smart-recruit-recruitment-service/internal/domain/model"
@@ -671,6 +672,9 @@ func (a *candidateAdapter) UpdateProfile(ctx context.Context, req *pb.UpdateProf
 }
 
 func (a *candidateAdapter) GetResume(ctx context.Context, req *pb.GetResumeRequest) (*pb.GetResumeResponse, error) {
+	if code, msg, ok := validateCandidateActor(ctx, req.UserId); !ok {
+		return &pb.GetResumeResponse{Code: code, Msg: msg}, nil
+	}
 	var resume resumeRecord
 	err := a.db.WithContext(ctx).Where("user_id = ? AND is_valid = ?", req.UserId, 1).Order("uploaded_at DESC, id DESC").First(&resume).Error
 	if errors.Is(err, gorm.ErrRecordNotFound) {
@@ -690,6 +694,9 @@ func (a *candidateAdapter) GetResume(ctx context.Context, req *pb.GetResumeReque
 }
 
 func (a *candidateAdapter) PresignResumeUpload(ctx context.Context, req *pb.PresignResumeUploadRequest) (*pb.PresignResumeUploadResponse, error) {
+	if code, msg, ok := validateCandidateActor(ctx, req.UserId); !ok {
+		return &pb.PresignResumeUploadResponse{Code: code, Msg: msg}, nil
+	}
 	if !allowedResumeFile(req.FileName, req.FileType) {
 		return &pb.PresignResumeUploadResponse{Code: errs.ErrBadRequest, Msg: "仅支持 PDF、DOCX 格式"}, nil
 	}
@@ -713,19 +720,21 @@ func (a *candidateAdapter) PresignResumeUpload(ctx context.Context, req *pb.Pres
 }
 
 func (a *candidateAdapter) ConfirmResumeUpload(ctx context.Context, req *pb.ConfirmResumeUploadRequest) (*pb.ConfirmResumeUploadResponse, error) {
+	if code, msg, ok := validateCandidateActor(ctx, req.UserId); !ok {
+		return &pb.ConfirmResumeUploadResponse{Code: code, Msg: msg}, nil
+	}
 	if !allowedResumeFile(req.FileName, req.FileType) {
 		return &pb.ConfirmResumeUploadResponse{Code: errs.ErrBadRequest, Msg: "仅支持 PDF、DOCX 格式"}, nil
 	}
-	if req.UploadId != "" {
-		session, err := a.storage.GetAndDeletePresignSession(ctx, req.UploadId)
-		if err != nil {
-			return &pb.ConfirmResumeUploadResponse{Code: errs.ErrBadRequest, Msg: "上传凭证无效或已过期，请重新上传"}, nil
-		}
-		if session.UserID != req.UserId || session.OssKey != req.OssKey || session.FileType != req.FileType {
-			return &pb.ConfirmResumeUploadResponse{Code: errs.ErrBadRequest, Msg: "文件信息不匹配，请重新上传"}, nil
-		}
-	} else if !strings.HasPrefix(req.OssKey, fmt.Sprintf("resumes/%d/", req.UserId)) {
-		return &pb.ConfirmResumeUploadResponse{Code: errs.ErrBadRequest, Msg: "文件信息与当前用户不匹配"}, nil
+	if req.UploadId == "" {
+		return &pb.ConfirmResumeUploadResponse{Code: errs.ErrBadRequest, Msg: domainpolicy.ErrResumeUploadIDRequired.Error()}, nil
+	}
+	session, err := a.storage.GetAndDeletePresignSession(ctx, req.UploadId)
+	if err != nil {
+		return &pb.ConfirmResumeUploadResponse{Code: errs.ErrBadRequest, Msg: domainpolicy.ErrResumeSessionInvalid.Error()}, nil
+	}
+	if err := domainpolicy.ValidateStrictResumeSession(req.UserId, req.UploadId, req.OssKey, req.FileType, req.FileSize, ossPresignSessionToDomain(session)); err != nil {
+		return &pb.ConfirmResumeUploadResponse{Code: errs.ErrBadRequest, Msg: err.Error()}, nil
 	}
 	if err := a.storage.VerifyObject(ctx, req.OssKey); err != nil {
 		return &pb.ConfirmResumeUploadResponse{Code: errs.ErrBadRequest, Msg: "未在 OSS 中找到已上传的简历文件"}, nil
@@ -752,6 +761,31 @@ func (a *candidateAdapter) ConfirmResumeUpload(ctx context.Context, req *pb.Conf
 	}
 	_ = a.writeUsageLog(ctx, usageLogRecord{UserID: req.UserId, Role: 1, ServiceType: "oss_confirm", Endpoint: "/candidate/resume/confirm", Provider: a.storage.ProviderName(), ObjectKey: req.OssKey, ObjectSize: req.FileSize, Status: "ok"})
 	return &pb.ConfirmResumeUploadResponse{Code: errs.OK, Msg: "success", ResumeId: resume.ID}, nil
+}
+
+func validateCandidateActor(ctx context.Context, userID int64) (int32, string, bool) {
+	if userID <= 0 {
+		return errs.ErrBadRequest, "用户信息无效", false
+	}
+	if metadata.GetAuthAccountType(ctx) != "candidate" || metadata.GetAuthUserID(ctx) != userID {
+		return errs.ErrForbidden, "无权限访问该候选人资源", false
+	}
+	return errs.OK, "", true
+}
+
+func ossPresignSessionToDomain(session *oss.PresignSession) *domainmodel.PresignSession {
+	if session == nil {
+		return nil
+	}
+	return &domainmodel.PresignSession{
+		UserID:      session.UserID,
+		OSSKey:      session.OssKey,
+		FileName:    session.FileName,
+		FileType:    session.FileType,
+		ContentType: session.ContentType,
+		MaxSize:     session.MaxSize,
+		Status:      session.Status,
+	}
 }
 
 func (a *applicationAdapter) ApplyJob(ctx context.Context, req *pb.ApplyJobRequest) (*pb.CommonResponse, error) {
