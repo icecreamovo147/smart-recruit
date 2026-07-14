@@ -23,6 +23,7 @@ import (
 	"gorm.io/driver/mysql"
 	"gorm.io/gorm"
 
+	"smart-recruit-commons/oss"
 	interviewapp "smart-recruit-interview-service/internal/application/service"
 	interviewclient "smart-recruit-interview-service/internal/infrastructure/client"
 	interviewmq "smart-recruit-interview-service/internal/infrastructure/mq"
@@ -136,7 +137,7 @@ func serveInterview(addr string) error {
 	}
 	defer server.ShutdownMetricsServer(context.Background(), metricsServer)
 
-	interviewServer, err := buildInterviewServer(db)
+	interviewServer, err := buildInterviewServer(db, cfg)
 	if err != nil {
 		return err
 	}
@@ -199,7 +200,7 @@ func serveInterview(addr string) error {
 	return nil
 }
 
-func buildInterviewServer(db *gorm.DB) (pb.InterviewServiceServer, error) {
+func buildInterviewServer(db *gorm.DB, cfg logicconfig.Config) (pb.InterviewServiceServer, error) {
 	identityConn, err := dialInternalGRPC(envOrDefault("IDENTITY_GRPC_ADDR", "127.0.0.1:50061"))
 	if err != nil {
 		return nil, err
@@ -211,6 +212,19 @@ func buildInterviewServer(db *gorm.DB) (pb.InterviewServiceServer, error) {
 	}
 	applications := interviewclient.NewApplicationAdapter(pb.NewApplicationOwnerServiceClient(recruitmentConn))
 	interviews := interviewpersistence.NewInterviewRepository(db)
+	ossStorage, err := oss.NewStorage(oss.Config{
+		Provider:        cfg.OSS.Provider,
+		Endpoint:        cfg.OSS.Endpoint,
+		AccessKeyID:     cfg.OSS.AccessKeyID,
+		AccessKeySecret: cfg.OSS.AccessKeySecret,
+		BucketName:      cfg.OSS.BucketName,
+		PublicBaseURL:   cfg.OSS.PublicBaseURL,
+	})
+	if err != nil {
+		_ = identityConn.Close()
+		_ = recruitmentConn.Close()
+		return nil, fmt.Errorf("init oss storage: %w", err)
+	}
 
 	interviewService, err := interviewapp.NewInterviewService(interviewapp.Deps{
 		Interviews:   interviews,
@@ -224,6 +238,7 @@ func buildInterviewServer(db *gorm.DB) (pb.InterviewServiceServer, error) {
 			interviews,
 			interviewclient.NewGormInterviewAssignmentReader(db),
 		),
+		ResumeURLs: ossStorage,
 	})
 	if err != nil {
 		return nil, err

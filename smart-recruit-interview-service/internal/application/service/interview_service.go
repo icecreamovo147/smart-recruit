@@ -26,6 +26,7 @@ type InterviewService struct {
 	lifecycle    port.ApplicationLifecycle
 	outbox       port.OutboxPublisher
 	authorizer   port.Authorizer
+	resumeURLs   port.ResumeURLSigner
 	clock        port.Clock
 }
 
@@ -36,6 +37,7 @@ type Deps struct {
 	Lifecycle    port.ApplicationLifecycle
 	Outbox       port.OutboxPublisher
 	Authorizer   port.Authorizer
+	ResumeURLs   port.ResumeURLSigner
 	Clock        port.Clock
 }
 
@@ -69,6 +71,7 @@ func NewInterviewService(deps Deps) (*InterviewService, error) {
 		lifecycle:    deps.Lifecycle,
 		outbox:       deps.Outbox,
 		authorizer:   deps.Authorizer,
+		resumeURLs:   deps.ResumeURLs,
 		clock:        clock,
 	}, nil
 }
@@ -380,6 +383,7 @@ func (s *InterviewService) GetInterview(ctx context.Context, qry query.GetInterv
 	}
 	if candidateUserID == qry.UserID {
 		details.Interview.InternalNote = ""
+		s.attachResumeURL(details)
 		return details, nil
 	}
 	if err := s.authorizer.Authorize(ctx, qry.UserID, port.PermissionInterviewRead); err != nil {
@@ -388,6 +392,7 @@ func (s *InterviewService) GetInterview(ctx context.Context, qry query.GetInterv
 	if err := s.authorizer.CanReadInterview(ctx, qry.UserID, qry.InterviewID); err != nil {
 		return nil, err
 	}
+	s.attachResumeURL(details)
 	return details, nil
 }
 
@@ -419,7 +424,12 @@ func (s *InterviewService) ListApplicationInterviews(ctx context.Context, qry qu
 	if err := s.authorizer.CanScheduleApplication(ctx, qry.HRID, qry.ApplicationID); err != nil {
 		return nil, err
 	}
-	return s.interviews.ListByApplication(ctx, qry.ApplicationID)
+	rows, err := s.interviews.ListByApplication(ctx, qry.ApplicationID)
+	if err != nil {
+		return nil, err
+	}
+	s.attachResumeURLs(rows)
+	return rows, nil
 }
 
 func (s *InterviewService) ListMyInterviews(ctx context.Context, qry query.ListMyInterviews) ([]repository.InterviewDetails, error) {
@@ -450,6 +460,7 @@ func (s *InterviewService) ListMyInterviews(ctx context.Context, qry query.ListM
 	for i := range rows {
 		rows[i].HasFeedbackForRequest = hasFeedback[rows[i].Interview.ID]
 	}
+	s.attachResumeURLs(rows)
 	return rows, nil
 }
 
@@ -464,7 +475,25 @@ func (s *InterviewService) ListCandidateInterviews(ctx context.Context, qry quer
 	for i := range rows {
 		rows[i].Interview.InternalNote = ""
 	}
+	s.attachResumeURLs(rows)
 	return rows, nil
+}
+
+func (s *InterviewService) attachResumeURLs(rows []repository.InterviewDetails) {
+	for i := range rows {
+		s.attachResumeURL(&rows[i])
+	}
+}
+
+func (s *InterviewService) attachResumeURL(details *repository.InterviewDetails) {
+	if details == nil || details.ResumeOssKey == "" || s.resumeURLs == nil {
+		return
+	}
+	url, err := s.resumeURLs.GeneratePresignedGetURL(details.ResumeOssKey)
+	if err != nil {
+		return
+	}
+	details.ResumeURL = url
 }
 
 func (s *InterviewService) applicationSnapshot(ctx context.Context, applicationID int64) (*port.ApplicationSnapshot, error) {

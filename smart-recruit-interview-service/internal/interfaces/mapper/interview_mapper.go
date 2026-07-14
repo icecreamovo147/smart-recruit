@@ -51,6 +51,7 @@ func ToPBInterview(details repository.InterviewDetails) *pb.InterviewSchedule {
 		JobTitle:             details.JobTitle,
 		CandidateName:        details.CandidateName,
 		CandidatePhone:       details.CandidatePhone,
+		ResumeUrl:            details.ResumeURL,
 		HasFeedback:          details.HasFeedbackForRequest,
 	}
 }

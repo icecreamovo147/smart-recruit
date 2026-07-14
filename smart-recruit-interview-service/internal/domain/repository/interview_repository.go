@@ -15,6 +15,7 @@ type InterviewDetails struct {
 	CandidatePhone        string
 	InterviewerName       string
 	ResumeOssKey          string
+	ResumeURL             string
 	HasFeedbackForRequest bool
 }
 

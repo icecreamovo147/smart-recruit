@@ -90,12 +90,13 @@ func TestGetInterviewMapsCandidateFilteredDetails(t *testing.T) {
 		ApplicationStatusKey: model.ApplicationStatusInterviewPending,
 		JobTitle:             "Backend Engineer",
 		CandidateName:        "Candidate A",
+		ResumeURL:            "https://signed.example/resume.pdf",
 	}})
 	resp, err := server.GetInterview(context.Background(), &pb.GetInterviewRequest{UserId: 300, InterviewId: 1})
 	if err != nil {
 		t.Fatalf("GetInterview error=%v", err)
 	}
-	if resp.Code != errs.OK || resp.Interview.InternalNote != "" || resp.Interview.JobTitle != "Backend Engineer" {
+	if resp.Code != errs.OK || resp.Interview.InternalNote != "" || resp.Interview.JobTitle != "Backend Engineer" || resp.Interview.ResumeUrl != "https://signed.example/resume.pdf" {
 		t.Fatalf("response=%+v, want candidate-safe interview", resp)
 	}
 }

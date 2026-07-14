@@ -247,6 +247,70 @@ func TestListCandidateInterviewsFiltersInternalNotes(t *testing.T) {
 	}
 }
 
+func TestGetInterviewSignsResumeURLAndFiltersCandidateNotes(t *testing.T) {
+	fixture := newInterviewFixture(t)
+	interview := fixture.seedInterview(model.InterviewStatusScheduled, model.ApplicationStatusInterviewPending)
+	detail := fixture.repo.details[interview.ID]
+	detail.Interview.InternalNote = "staff-only"
+	detail.ResumeOssKey = "resumes/300/cv.pdf"
+	fixture.repo.details[interview.ID] = detail
+	fixture.resumeURLs.urls[detail.ResumeOssKey] = "https://signed.example/resumes/300/cv.pdf"
+
+	got, err := fixture.service.GetInterview(context.Background(), query.GetInterview{UserID: 300, InterviewID: interview.ID})
+	if err != nil {
+		t.Fatalf("GetInterview returned error: %v", err)
+	}
+	if got.Interview.InternalNote != "" {
+		t.Fatalf("internal note=%q, want filtered", got.Interview.InternalNote)
+	}
+	if got.ResumeURL != "https://signed.example/resumes/300/cv.pdf" {
+		t.Fatalf("resume url=%q, want signed URL", got.ResumeURL)
+	}
+	if len(fixture.resumeURLs.calls) != 1 || fixture.resumeURLs.calls[0] != detail.ResumeOssKey {
+		t.Fatalf("signer calls=%v, want [%s]", fixture.resumeURLs.calls, detail.ResumeOssKey)
+	}
+}
+
+func TestListMyInterviewsIgnoresResumeURLSigningFailure(t *testing.T) {
+	fixture := newInterviewFixture(t)
+	interview := fixture.seedInterview(model.InterviewStatusScheduled, model.ApplicationStatusInterviewPending)
+	detail := fixture.repo.details[interview.ID]
+	detail.ResumeOssKey = "resumes/300/cv.pdf"
+	fixture.repo.details[interview.ID] = detail
+	fixture.resumeURLs.err = errors.New("presign failed")
+
+	rows, err := fixture.service.ListMyInterviews(context.Background(), query.ListMyInterviews{InterviewerID: 200})
+	if err != nil {
+		t.Fatalf("ListMyInterviews returned error: %v", err)
+	}
+	if len(rows) != 1 {
+		t.Fatalf("rows=%d, want 1", len(rows))
+	}
+	if rows[0].ResumeURL != "" {
+		t.Fatalf("resume url=%q, want empty after signer failure", rows[0].ResumeURL)
+	}
+	if len(fixture.resumeURLs.calls) != 1 || fixture.resumeURLs.calls[0] != detail.ResumeOssKey {
+		t.Fatalf("signer calls=%v, want [%s]", fixture.resumeURLs.calls, detail.ResumeOssKey)
+	}
+}
+
+func TestGetInterviewWithoutResumeURLSignerLeavesResumeURLEmpty(t *testing.T) {
+	fixture := newInterviewFixture(t)
+	fixture.service.resumeURLs = nil
+	interview := fixture.seedInterview(model.InterviewStatusScheduled, model.ApplicationStatusInterviewPending)
+	detail := fixture.repo.details[interview.ID]
+	detail.ResumeOssKey = "resumes/300/cv.pdf"
+	fixture.repo.details[interview.ID] = detail
+
+	got, err := fixture.service.GetInterview(context.Background(), query.GetInterview{UserID: 300, InterviewID: interview.ID})
+	if err != nil {
+		t.Fatalf("GetInterview returned error: %v", err)
+	}
+	if got.ResumeURL != "" {
+		t.Fatalf("resume url=%q, want empty without signer", got.ResumeURL)
+	}
+}
+
 func newInterviewFixture(t *testing.T) *interviewFixture {
 	t.Helper()
 	repo := &fakeInterviewRepository{
@@ -267,6 +331,7 @@ func newInterviewFixture(t *testing.T) *interviewFixture {
 	lifecycle := &fakeLifecycle{}
 	outbox := &fakeOutbox{}
 	authorizer := &fakeAuthorizer{}
+	resumeURLs := &fakeResumeURLSigner{urls: map[string]string{}}
 	service, err := NewInterviewService(Deps{
 		Interviews:   repo,
 		Applications: apps,
@@ -274,6 +339,7 @@ func newInterviewFixture(t *testing.T) *interviewFixture {
 		Lifecycle:    lifecycle,
 		Outbox:       outbox,
 		Authorizer:   authorizer,
+		ResumeURLs:   resumeURLs,
 		Clock:        fixedClock{now: time.Date(2026, 7, 13, 10, 0, 0, 0, time.UTC)},
 	})
 	if err != nil {
@@ -286,6 +352,7 @@ func newInterviewFixture(t *testing.T) *interviewFixture {
 		lifecycle:    lifecycle,
 		outbox:       outbox,
 		authorizer:   authorizer,
+		resumeURLs:   resumeURLs,
 	}
 }
 
@@ -296,6 +363,7 @@ type interviewFixture struct {
 	lifecycle    *fakeLifecycle
 	outbox       *fakeOutbox
 	authorizer   *fakeAuthorizer
+	resumeURLs   *fakeResumeURLSigner
 }
 
 func (f *interviewFixture) seedInterview(status model.InterviewStatus, appStatus model.ApplicationStatus) *model.Interview {
@@ -511,6 +579,20 @@ func (a *fakeAuthorizer) CanScheduleApplication(context.Context, int64, int64) e
 
 func (a *fakeAuthorizer) CanReadInterview(context.Context, int64, int64) error {
 	return nil
+}
+
+type fakeResumeURLSigner struct {
+	urls  map[string]string
+	calls []string
+	err   error
+}
+
+func (s *fakeResumeURLSigner) GeneratePresignedGetURL(ossKey string) (string, error) {
+	s.calls = append(s.calls, ossKey)
+	if s.err != nil {
+		return "", s.err
+	}
+	return s.urls[ossKey], nil
 }
 
 type fixedClock struct {
