@@ -28,9 +28,7 @@ import (
 	"smart-recruit-platform-go/server"
 	logicconfig "smart-recruit-platform-go/serviceconfig"
 	"smart-recruit-proto/recruitment/pb"
-	recruitmentgrpc "smart-recruit-recruitment-service/internal/interfaces/grpc"
-	"smart-recruit-recruitment-service/internal/legacydomain/repository"
-	"smart-recruit-recruitment-service/internal/legacydomain/service"
+	recruitmentpersistence "smart-recruit-recruitment-service/internal/infrastructure/persistence"
 	recruitmentruntime "smart-recruit-recruitment-service/internal/runtime"
 )
 
@@ -62,14 +60,15 @@ func main() {
 
 func checkRuntime() error {
 	runtime, err := recruitmentruntime.New(recruitmentruntime.Deps{
-		Job:           noopJobAPI{},
-		JobTaxonomy:   noopJobTaxonomyAPI{},
-		TaxonomyAdmin: noopTaxonomyAdminAPI{},
-		Admin:         noopRecruitmentAdminAPI{},
-		UsageStats:    noopUsageStatsAPI{},
-		Candidate:     noopCandidateAPI{},
-		Application:   noopApplicationAPI{},
-		Collaboration: noopCollaborationService{},
+		Job:                      noopJobAPI{},
+		JobTaxonomy:              noopJobTaxonomyAPI{},
+		TaxonomyAdmin:            noopTaxonomyAdminAPI{},
+		Admin:                    noopRecruitmentAdminAPI{},
+		UsageStats:               noopUsageStatsAPI{},
+		Candidate:                noopCandidateAPI{},
+		Application:              noopApplicationAPI{},
+		ApplicationOwnerContract: noopApplicationOwnerContractAPI{},
+		Collaboration:            noopCollaborationService{},
 	})
 	if err != nil {
 		return err
@@ -141,80 +140,24 @@ func serveRecruitment(addr string) error {
 		return err
 	}
 
-	jobRepo := repository.NewJobRepo(db)
-	userRepo := repository.NewUserRepo(db)
-	profileRepo := repository.NewProfileRepo(db)
-	resumeRepo := repository.NewResumeRepo(db)
-	applicationRepo := repository.NewApplicationRepo(db)
-	interviewRepo := repository.NewInterviewRepo(db)
-	offerRepo := repository.NewOfferRepo(db)
-	notificationRepo := repository.NewNotificationRepo(db)
-	authzRepo := repository.NewAuthzRepo(db)
-	collaborationRepo := repository.NewCollaborationRepo(db)
-	scopeEval := service.NewScopeEvaluator(authzRepo)
-	serviceAuth := service.NewServiceAuthorizer(authzRepo, scopeEval)
-	outboxPublisher := service.NewOutboxPublisher(repository.NewOutboxRepo(db), nil)
-	taxonomySvc := service.NewJobTaxonomyService(repository.NewDepartmentRepo(db), repository.NewJobLocationRepo(db), jobRepo, repository.NewDepartmentLocationRepo(db))
-	jobSvc := service.NewJobService(jobRepo, nil, authzRepo, taxonomySvc, scopeEval)
-	candidateSvc := service.NewCandidateService(profileRepo, resumeRepo, ossClient, outboxPublisher, repository.NewUsageLogRepo(db), serviceAuth)
-	applicationSvc := service.NewApplicationService(authzRepo, applicationRepo, profileRepo, resumeRepo, jobRepo, interviewRepo, notificationRepo, outboxPublisher, ossClient, nil, scopeEval)
-	adminSvc := service.NewAdminService(repository.NewInviteCodeRepo(db), repository.NewUsageLogRepo(db), userRepo, authzRepo, redisClient, serviceAuth)
-	usageStatsSvc := service.NewUsageStatsService(repository.NewUsageStatsRepo(db), serviceAuth)
-	collaborationSvc := service.NewCollaborationService(
-		authzRepo,
-		collaborationRepo,
-		applicationRepo,
-		profileRepo,
-		jobRepo,
-		userRepo,
-		interviewRepo,
-		offerRepo,
-		resumeRepo,
-		ossClient,
-		serviceAuth,
-		scopeEval,
-	)
-	jobAPI, err := recruitmentgrpc.NewJobAdapter(jobSvc)
-	if err != nil {
-		return err
-	}
-	jobTaxonomyAPI, err := recruitmentgrpc.NewJobTaxonomyAdapter(taxonomySvc)
-	if err != nil {
-		return err
-	}
-	taxonomyAdminAPI, err := recruitmentgrpc.NewTaxonomyAdminAdapter(taxonomySvc)
-	if err != nil {
-		return err
-	}
-	adminAPI, err := recruitmentgrpc.NewRecruitmentAdminAdapter(adminSvc)
-	if err != nil {
-		return err
-	}
-	usageStatsAPI, err := recruitmentgrpc.NewUsageStatsAdapter(usageStatsSvc)
-	if err != nil {
-		return err
-	}
-	candidateAPI, err := recruitmentgrpc.NewCandidateAdapter(candidateSvc)
-	if err != nil {
-		return err
-	}
-	applicationAPI, err := recruitmentgrpc.NewApplicationAdapter(applicationSvc)
-	if err != nil {
-		return err
-	}
-	collaborationAPI, err := recruitmentgrpc.NewCollaborationAdapter(collaborationSvc)
+	nativeBundle, err := recruitmentpersistence.NewNativeBundle(recruitmentpersistence.NativeOptions{
+		DB:    db,
+		OSS:   ossClient,
+		Redis: redisClient,
+	})
 	if err != nil {
 		return err
 	}
 	runtime, err := recruitmentruntime.New(recruitmentruntime.Deps{
-		Job:           jobAPI,
-		JobTaxonomy:   jobTaxonomyAPI,
-		TaxonomyAdmin: taxonomyAdminAPI,
-		Admin:         adminAPI,
-		UsageStats:    usageStatsAPI,
-		Candidate:     candidateAPI,
-		Application:   applicationAPI,
-		Collaboration: collaborationAPI,
+		Job:                      nativeBundle.Job,
+		JobTaxonomy:              nativeBundle.JobTaxonomy,
+		TaxonomyAdmin:            nativeBundle.TaxonomyAdmin,
+		Admin:                    nativeBundle.Admin,
+		UsageStats:               nativeBundle.UsageStats,
+		Candidate:                nativeBundle.Candidate,
+		Application:              nativeBundle.Application,
+		ApplicationOwnerContract: nativeBundle.ApplicationOwnerContract,
+		Collaboration:            nativeBundle.Collaboration,
 	})
 	if err != nil {
 		return err
@@ -369,6 +312,9 @@ type noopCandidateAPI struct {
 }
 type noopApplicationAPI struct {
 	recruitmentruntime.ApplicationAPI
+}
+type noopApplicationOwnerContractAPI struct {
+	recruitmentruntime.ApplicationOwnerContractAPI
 }
 
 type noopCollaborationService struct {

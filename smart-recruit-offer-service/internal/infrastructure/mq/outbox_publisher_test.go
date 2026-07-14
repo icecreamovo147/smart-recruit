@@ -9,7 +9,6 @@ import (
 
 	"smart-recruit-offer-service/internal/application/port"
 	"smart-recruit-offer-service/internal/infrastructure/persistence"
-	sharedmodel "smart-recruit-offer-service/internal/legacydomain/model"
 )
 
 func TestBuildEventKeepsLegacyEnvelopeCompatibility(t *testing.T) {
@@ -83,17 +82,17 @@ func TestPublishUsesTransactionFromContext(t *testing.T) {
 }
 
 type fakeOutboxStore struct {
-	created   *sharedmodel.EventOutbox
-	createdTx *sharedmodel.EventOutbox
+	created   *EventOutboxRecord
+	createdTx *EventOutboxRecord
 	usedTx    bool
 }
 
-func (s *fakeOutboxStore) Create(_ context.Context, event *sharedmodel.EventOutbox) error {
+func (s *fakeOutboxStore) Create(_ context.Context, event *EventOutboxRecord) error {
 	s.created = event
 	return nil
 }
 
-func (s *fakeOutboxStore) CreateWithTx(_ *gorm.DB, event *sharedmodel.EventOutbox) error {
+func (s *fakeOutboxStore) CreateWithTx(_ *gorm.DB, event *EventOutboxRecord) error {
 	s.usedTx = true
 	s.createdTx = event
 	return nil

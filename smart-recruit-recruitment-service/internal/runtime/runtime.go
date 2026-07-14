@@ -6,6 +6,7 @@ import (
 
 	"google.golang.org/grpc"
 
+	"smart-recruit-platform-go/errs"
 	"smart-recruit-proto/recruitment/pb"
 )
 
@@ -73,23 +74,30 @@ type ApplicationAPI interface {
 	ListApplicationStatusTransitions(context.Context, *pb.ListApplicationStatusTransitionsRequest) (*pb.ListApplicationStatusTransitionsResponse, error)
 }
 
+type ApplicationOwnerContractAPI interface {
+	GetApplicationSnapshot(context.Context, *pb.GetApplicationSnapshotRequest) (*pb.GetApplicationSnapshotResponse, error)
+	ApplyApplicationLifecycleTransition(context.Context, *pb.ApplyApplicationLifecycleTransitionRequest) (*pb.ApplyApplicationLifecycleTransitionResponse, error)
+}
+
 type Deps struct {
-	Job           JobAPI
-	JobTaxonomy   JobTaxonomyAPI
-	TaxonomyAdmin TaxonomyAdminAPI
-	Admin         RecruitmentAdminAPI
-	UsageStats    UsageStatsAPI
-	Candidate     CandidateAPI
-	Application   ApplicationAPI
-	Collaboration pb.CollaborationServiceServer
+	Job                      JobAPI
+	JobTaxonomy              JobTaxonomyAPI
+	TaxonomyAdmin            TaxonomyAdminAPI
+	Admin                    RecruitmentAdminAPI
+	UsageStats               UsageStatsAPI
+	Candidate                CandidateAPI
+	Application              ApplicationAPI
+	ApplicationOwnerContract ApplicationOwnerContractAPI
+	Collaboration            pb.CollaborationServiceServer
 }
 
 type Runtime struct {
-	Job           pb.JobServiceServer
-	Admin         pb.AdminServiceServer
-	Candidate     pb.CandidateServiceServer
-	Application   pb.ApplicationServiceServer
-	Collaboration pb.CollaborationServiceServer
+	Job              pb.JobServiceServer
+	Admin            pb.AdminServiceServer
+	Candidate        pb.CandidateServiceServer
+	Application      pb.ApplicationServiceServer
+	ApplicationOwner pb.ApplicationOwnerServiceServer
+	Collaboration    pb.CollaborationServiceServer
 }
 
 func New(deps Deps) (*Runtime, error) {
@@ -114,6 +122,9 @@ func New(deps Deps) (*Runtime, error) {
 	if deps.Application == nil {
 		return nil, fmt.Errorf("recruitment application api is required")
 	}
+	if deps.ApplicationOwnerContract == nil {
+		return nil, fmt.Errorf("recruitment application owner contract api is required")
+	}
 	if deps.Collaboration == nil {
 		return nil, fmt.Errorf("recruitment collaboration api is required")
 	}
@@ -124,9 +135,10 @@ func New(deps Deps) (*Runtime, error) {
 			admin:      deps.Admin,
 			usageStats: deps.UsageStats,
 		},
-		Candidate:     candidateServer{api: deps.Candidate},
-		Application:   applicationServer{api: deps.Application},
-		Collaboration: deps.Collaboration,
+		Candidate:        candidateServer{api: deps.Candidate},
+		Application:      applicationServer{api: deps.Application},
+		ApplicationOwner: applicationOwnerServer{owner: deps.ApplicationOwnerContract},
+		Collaboration:    deps.Collaboration,
 	}, nil
 }
 
@@ -134,13 +146,14 @@ func (r *Runtime) RegisterGRPC(registrar grpc.ServiceRegistrar) error {
 	if registrar == nil {
 		return fmt.Errorf("grpc service registrar is required")
 	}
-	if r == nil || r.Job == nil || r.Admin == nil || r.Candidate == nil || r.Application == nil || r.Collaboration == nil {
+	if r == nil || r.Job == nil || r.Admin == nil || r.Candidate == nil || r.Application == nil || r.ApplicationOwner == nil || r.Collaboration == nil {
 		return fmt.Errorf("recruitment runtime is not initialized")
 	}
 	pb.RegisterJobServiceServer(registrar, r.Job)
 	pb.RegisterAdminServiceServer(registrar, r.Admin)
 	pb.RegisterCandidateServiceServer(registrar, r.Candidate)
 	pb.RegisterApplicationServiceServer(registrar, r.Application)
+	pb.RegisterApplicationOwnerServiceServer(registrar, r.ApplicationOwner)
 	pb.RegisterCollaborationServiceServer(registrar, r.Collaboration)
 	return nil
 }
@@ -235,6 +248,25 @@ func (s applicationServer) UpdateApplicationStatus(ctx context.Context, req *pb.
 
 func (s applicationServer) ListApplicationStatusTransitions(ctx context.Context, req *pb.ListApplicationStatusTransitionsRequest) (*pb.ListApplicationStatusTransitionsResponse, error) {
 	return s.api.ListApplicationStatusTransitions(ctx, req)
+}
+
+type applicationOwnerServer struct {
+	pb.UnimplementedApplicationOwnerServiceServer
+	owner ApplicationOwnerContractAPI
+}
+
+func (s applicationOwnerServer) GetApplicationSnapshot(ctx context.Context, req *pb.GetApplicationSnapshotRequest) (*pb.GetApplicationSnapshotResponse, error) {
+	if s.owner == nil {
+		return &pb.GetApplicationSnapshotResponse{Code: errs.ErrInternal, Msg: "application owner contract not configured"}, nil
+	}
+	return s.owner.GetApplicationSnapshot(ctx, req)
+}
+
+func (s applicationOwnerServer) ApplyApplicationLifecycleTransition(ctx context.Context, req *pb.ApplyApplicationLifecycleTransitionRequest) (*pb.ApplyApplicationLifecycleTransitionResponse, error) {
+	if s.owner == nil {
+		return &pb.ApplyApplicationLifecycleTransitionResponse{Code: errs.ErrInternal, Msg: "application owner contract not configured"}, nil
+	}
+	return s.owner.ApplyApplicationLifecycleTransition(ctx, req)
 }
 
 type adminServer struct {

@@ -13,7 +13,6 @@ import (
 
 	"smart-recruit-interview-service/internal/application/port"
 	"smart-recruit-interview-service/internal/infrastructure/persistence"
-	sharedmodel "smart-recruit-interview-service/internal/legacydomain/model"
 )
 
 const (
@@ -22,12 +21,28 @@ const (
 )
 
 type outboxStore interface {
-	Create(ctx context.Context, event *sharedmodel.EventOutbox) error
-	CreateWithTx(tx *gorm.DB, event *sharedmodel.EventOutbox) error
+	Create(ctx context.Context, event *EventOutboxRecord) error
+	CreateWithTx(tx *gorm.DB, event *EventOutboxRecord) error
 }
 
 type OutboxPublisher struct {
 	outbox outboxStore
+}
+
+type GormOutboxStore struct {
+	db *gorm.DB
+}
+
+func NewGormOutboxStore(db *gorm.DB) *GormOutboxStore {
+	return &GormOutboxStore{db: db}
+}
+
+func (s *GormOutboxStore) Create(ctx context.Context, event *EventOutboxRecord) error {
+	return s.db.WithContext(ctx).Create(event).Error
+}
+
+func (s *GormOutboxStore) CreateWithTx(tx *gorm.DB, event *EventOutboxRecord) error {
+	return tx.Create(event).Error
 }
 
 func NewOutboxPublisher(outbox outboxStore) *OutboxPublisher {
@@ -48,7 +63,7 @@ func (p *OutboxPublisher) Publish(ctx context.Context, message port.OutboxMessag
 func (p *OutboxPublisher) Signal() {
 }
 
-func (p *OutboxPublisher) buildEvent(message port.OutboxMessage) (*sharedmodel.EventOutbox, error) {
+func (p *OutboxPublisher) buildEvent(message port.OutboxMessage) (*EventOutboxRecord, error) {
 	eventID, err := newEventID()
 	if err != nil {
 		return nil, err
@@ -96,7 +111,7 @@ func (p *OutboxPublisher) buildEvent(message port.OutboxMessage) (*sharedmodel.E
 	if err != nil {
 		return nil, err
 	}
-	return &sharedmodel.EventOutbox{
+	return &EventOutboxRecord{
 		EventID:        eventID,
 		SchemaVersion:  envelope.SchemaVersion,
 		EventType:      message.EventType,
@@ -107,9 +122,40 @@ func (p *OutboxPublisher) buildEvent(message port.OutboxMessage) (*sharedmodel.E
 		IdempotencyKey: envelope.IdempotencyKey,
 		Payload:        string(outboxPayloadJSON),
 		Metadata:       string(metadataJSON),
-		Status:         sharedmodel.EventOutboxStatusPending,
+		Status:         EventOutboxStatusPending,
 	}, nil
 }
+
+const EventOutboxStatusPending int32 = 0
+
+type EventOutboxRecord struct {
+	ID             uint64     `gorm:"primaryKey"`
+	EventID        string     `gorm:"column:event_id"`
+	SchemaVersion  string     `gorm:"column:schema_version"`
+	EventType      string     `gorm:"column:event_type"`
+	AggregateType  string     `gorm:"column:aggregate_type"`
+	AggregateID    uint64     `gorm:"column:aggregate_id"`
+	RoutingKey     string     `gorm:"column:routing_key"`
+	Producer       string     `gorm:"column:producer"`
+	IdempotencyKey string     `gorm:"column:idempotency_key"`
+	CorrelationID  string     `gorm:"column:correlation_id"`
+	CausationID    string     `gorm:"column:causation_id"`
+	TraceID        string     `gorm:"column:trace_id"`
+	Payload        string     `gorm:"column:payload"`
+	Metadata       string     `gorm:"column:metadata"`
+	Status         int32      `gorm:"column:status"`
+	RetryCount     int32      `gorm:"column:retry_count"`
+	NextRetryAt    *time.Time `gorm:"column:next_retry_at"`
+	LastError      string     `gorm:"column:last_error"`
+	LockedAt       *time.Time `gorm:"column:locked_at"`
+	LockedBy       string     `gorm:"column:locked_by"`
+	PublishedAt    *time.Time `gorm:"column:published_at"`
+	DeadLetteredAt *time.Time `gorm:"column:dead_lettered_at"`
+	CreatedAt      time.Time  `gorm:"column:created_at"`
+	UpdatedAt      time.Time  `gorm:"column:updated_at"`
+}
+
+func (EventOutboxRecord) TableName() string { return "event_outbox" }
 
 type envelopeInput struct {
 	EventID        string

@@ -59,6 +59,17 @@ type UpdateApplicationStatus struct {
 	Reason        string
 }
 
+type ApplyApplicationLifecycleTransition struct {
+	ActorUserID        int64
+	ActorAccountType   string
+	ApplicationID      int64
+	ExpectedStatusKey  string
+	TargetStatusKey    string
+	LegacyTargetStatus int32
+	Reason             string
+	CloseCurrentRound  bool
+}
+
 type CreateNote struct {
 	StaffUserID     uint64
 	CandidateUserID uint64

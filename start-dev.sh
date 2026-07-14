@@ -357,12 +357,14 @@ build_selected_go_binaries() {
     target_selected ai-agent-service && build_go_binary "${ROOT}/smart-recruit-ai-agent-service" "ai-agent-service" "./cmd/ai-agent-service"
     target_selected analytics-service && build_go_binary "${ROOT}/smart-recruit-analytics-service" "analytics-service" "./cmd/analytics-service"
     target_selected worker-service && build_go_binary "${ROOT}/smart-recruit-worker-service" "worker-service" "./cmd/worker-service"
+    return 0
 }
 
 install_selected_frontend_dependencies() {
     target_selected hr-frontend && install_frontend_dependencies "${ROOT}/hr-frontend" "HR frontend"
     target_selected user-frontend && install_frontend_dependencies "${ROOT}/user-frontend" "User frontend"
     target_selected interviewer-frontend && install_frontend_dependencies "${ROOT}/interviewer-frontend" "Interviewer frontend"
+    return 0
 }
 
 start_service() {

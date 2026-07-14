@@ -11,16 +11,14 @@ tags:
   - skill
   - retrieval
 applies_to:
-  - smart-recruit-ai-agent-service/internal/legacydomain/service/agent_skill_*.go
-  - smart-recruit-ai-agent-service/internal/legacydomain/repository/agent_skill_repo.go
+  - smart-recruit-ai-agent-service/internal/application/service/capability_service.go
+  - smart-recruit-ai-agent-service/internal/infrastructure/persistence/native_store.go
   - hr-frontend/src/views/hr/admin/AgentSkillManageView.vue
 source_refs:
-  - smart-recruit-ai-agent-service/internal/legacydomain/service/agent_skill_service.go
-  - smart-recruit-ai-agent-service/internal/legacydomain/service/agent_skill_selector.go
-  - smart-recruit-ai-agent-service/internal/legacydomain/service/agent_skill_parser.go
-  - smart-recruit-ai-agent-service/internal/legacydomain/service/agent_skill_eligibility.go
-  - smart-recruit-ai-agent-service/internal/legacydomain/repository/agent_skill_repo.go
+  - smart-recruit-ai-agent-service/internal/application/service/capability_service.go
   - smart-recruit-ai-agent-service/internal/domain/policy/capability.go
+  - smart-recruit-ai-agent-service/internal/domain/model/capability.go
+  - smart-recruit-ai-agent-service/internal/infrastructure/persistence/native_store.go
   - hr-frontend/src/views/hr/admin/AgentSkillManageView.vue
 last_verified: 2026-07-14
 review_after: 2026-10-14

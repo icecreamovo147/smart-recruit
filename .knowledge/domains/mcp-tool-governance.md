@@ -19,11 +19,8 @@ applies_to:
 source_refs:
   - smart-recruit-ai-agent-service/internal/domain/model/capability.go
   - smart-recruit-ai-agent-service/internal/domain/policy/capability.go
-  - smart-recruit-ai-agent-service/internal/legacydomain/service/mcp_service.go
-  - smart-recruit-ai-agent-service/internal/legacydomain/service/mcp_policy.go
-  - smart-recruit-ai-agent-service/internal/legacydomain/service/mcp_policy_api.go
-  - smart-recruit-ai-agent-service/internal/legacydomain/service/mcp_log_api.go
-  - smart-recruit-ai-agent-service/internal/legacydomain/repository/mcp_repo.go
+  - smart-recruit-ai-agent-service/internal/interfaces/grpc/native_servers.go
+  - smart-recruit-ai-agent-service/internal/infrastructure/mcp/doc.go
   - smart-recruit-gateway/handler/hr/mcp.go
   - smart-recruit-gateway/router/router.go
   - hr-frontend/src/views/hr/admin/McpManageView.vue

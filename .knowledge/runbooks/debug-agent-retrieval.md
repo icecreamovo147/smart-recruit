@@ -11,16 +11,13 @@ tags:
   - retrieval
   - debug
 applies_to:
-  - smart-recruit-ai-agent-service/internal/legacydomain/service/agent_skill_*.go
-  - smart-recruit-ai-agent-service/internal/legacydomain/service/agent_context.go
-  - smart-recruit-ai-agent-service/internal/legacydomain/service/embedding_*.go
+  - smart-recruit-ai-agent-service/internal/application/service/capability_service.go
+  - smart-recruit-ai-agent-service/internal/interfaces/grpc/native_servers.go
   - hr-frontend/src/views/hr/admin/SemanticRetrievalDebugView.vue
 source_refs:
-  - smart-recruit-ai-agent-service/internal/legacydomain/service/agent_skill_service.go
-  - smart-recruit-ai-agent-service/internal/legacydomain/service/agent_skill_selector.go
-  - smart-recruit-ai-agent-service/internal/legacydomain/service/agent_context.go
-  - smart-recruit-ai-agent-service/internal/legacydomain/service/embedding_service.go
+  - smart-recruit-ai-agent-service/internal/application/service/capability_service.go
   - smart-recruit-ai-agent-service/internal/domain/policy/capability.go
+  - smart-recruit-ai-agent-service/internal/interfaces/grpc/native_servers.go
   - hr-frontend/src/views/hr/admin/SemanticRetrievalDebugView.vue
 last_verified: 2026-07-14
 review_after: 2026-10-14

@@ -13,8 +13,8 @@ tags:
 applies_to:
   - smart-recruit-gateway/handler/candidate/resume.go
   - smart-recruit-recruitment-service/**
-  - smart-recruit-ai-agent-service/internal/legacydomain/service/*resume*.go
-  - smart-recruit-ai-agent-service/internal/legacydomain/service/candidate_match_*.go
+  - smart-recruit-ai-agent-service/internal/interfaces/grpc/native_servers.go
+  - smart-recruit-ai-agent-service/internal/application/service/capability_service.go
   - smart-recruit-commons/resumeparser/**
 source_refs:
   - smart-recruit-gateway/handler/candidate/resume.go
@@ -23,10 +23,9 @@ source_refs:
   - smart-recruit-recruitment-service/internal/application/service/job_candidate_resume_service.go
   - smart-recruit-recruitment-service/internal/domain/policy/recruitment.go
   - smart-recruit-commons/resumeparser/parser.go
-  - smart-recruit-ai-agent-service/internal/legacydomain/service/resume_profile_service.go
-  - smart-recruit-ai-agent-service/internal/legacydomain/service/resume_profile_extractor_llm.go
-  - smart-recruit-ai-agent-service/internal/legacydomain/service/recruiting_intelligence_service.go
-  - smart-recruit-ai-agent-service/internal/legacydomain/service/candidate_match_service.go
+  - smart-recruit-ai-agent-service/internal/interfaces/grpc/native_servers.go
+  - smart-recruit-ai-agent-service/internal/infrastructure/provider/doc.go
+  - smart-recruit-ai-agent-service/internal/application/service/capability_service.go
 last_verified: 2026-07-14
 review_after: 2026-10-14
 ---

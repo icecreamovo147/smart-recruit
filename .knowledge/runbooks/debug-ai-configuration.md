@@ -15,12 +15,9 @@ applies_to:
   - smart-recruit-gateway/handler/hr/*config*.go
   - hr-frontend/src/views/hr/*ConfigView.vue
 source_refs:
-  - smart-recruit-ai-agent-service/internal/legacydomain/service/llm_config_service.go
-  - smart-recruit-ai-agent-service/internal/legacydomain/service/embedding_config_service.go
-  - smart-recruit-ai-agent-service/internal/legacydomain/service/prompt_service.go
-  - smart-recruit-ai-agent-service/internal/legacydomain/service/agent_service.go
-  - smart-recruit-ai-agent-service/internal/legacydomain/service/mcp_service.go
-  - smart-recruit-ai-agent-service/internal/legacydomain/service/agent_runtime_policy.go
+  - smart-recruit-ai-agent-service/internal/interfaces/grpc/native_servers.go
+  - smart-recruit-ai-agent-service/internal/application/service/agent_service.go
+  - smart-recruit-ai-agent-service/internal/runtime/runtime.go
   - smart-recruit-gateway/router/router.go
 last_verified: 2026-07-14
 review_after: 2026-10-14

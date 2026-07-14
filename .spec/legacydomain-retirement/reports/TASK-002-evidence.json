@@ -1,0 +1,330 @@
+{
+  "schemaVersion": 1,
+  "feature_name": "legacydomain-retirement",
+  "task_id": "TASK-002",
+  "base_sha": "b0c34ce746bcd494d63718aa3ab664b9c6d1edb9",
+  "base_tree": "3d5eeeab29b0502ae468f41c2fb230d3c1c21b2e",
+  "head_sha": "b0c34ce746bcd494d63718aa3ab664b9c6d1edb9",
+  "changed_files": [
+    ".knowledge/architecture/api-contracts-and-gateway.md",
+    ".knowledge/architecture/auth-rbac-security.md",
+    ".knowledge/architecture/service-boundaries.md",
+    ".knowledge/domains/recruitment-lifecycle.md",
+    ".knowledge/domains/recruitment.md",
+    ".knowledge/pitfalls/protobuf-synchronization.md",
+    ".knowledge/runbooks/protobuf-and-migration-change.md",
+    ".spec/legacydomain-retirement/pipeline-state.json",
+    ".spec/legacydomain-retirement/scripts/check-task-scope.sh",
+    ".spec/legacydomain-retirement/reports/TASK-002-evidence.json",
+    ".spec/legacydomain-retirement/reports/TASK-002-report.md",
+    "smart-recruit-gateway/rpc/client.go",
+    "smart-recruit-identity-service/cmd/identity-service/main.go",
+    "smart-recruit-identity-service/internal/interfaces/grpc/identity_server.go",
+    "smart-recruit-identity-service/internal/runtime/runtime.go",
+    "smart-recruit-identity-service/internal/runtime/runtime_test.go",
+    "smart-recruit-proto/proto/recruitment.proto",
+    "smart-recruit-proto/recruitment/pb/recruitment.pb.go",
+    "smart-recruit-proto/recruitment/pb/recruitment_grpc.pb.go",
+    "smart-recruit-recruitment-service/internal/application/command/recruitment.go",
+    "smart-recruit-recruitment-service/internal/application/dto/recruitment.go",
+    "smart-recruit-recruitment-service/internal/application/service/application_collaboration_taxonomy_service.go",
+    "smart-recruit-recruitment-service/internal/application/service/application_collaboration_taxonomy_service_test.go",
+    "smart-recruit-recruitment-service/internal/domain/repository/recruitment.go",
+    "smart-recruit-recruitment-service/internal/interfaces/grpc/adapters_test.go",
+    "smart-recruit-recruitment-service/internal/interfaces/grpc/application_owner_contract.go",
+    "smart-recruit-recruitment-service/internal/runtime/runtime.go",
+    "smart-recruit-recruitment-service/internal/runtime/runtime_test.go"
+  ],
+  "scope": {
+    "status": "passed",
+    "checked_by": "bash .spec/legacydomain-retirement/scripts/check-task-scope.sh TASK-002",
+    "out_of_scope": [],
+    "forbidden": [],
+    "notes": [
+      "Scope checker now uses pipeline-state.task_runs[TASK-ID].base_tree to isolate each TASK delta.",
+      "pipeline-state.json and check-task-scope.sh are treated as harness runtime/control-plane support files."
+    ]
+  },
+  "checks": [
+    {
+      "command": "go test ./...",
+      "working_dir": "smart-recruit-proto",
+      "exit_code": 0,
+      "started_at": "2026-07-14T02:22:15Z",
+      "duration_ms": 5433,
+      "status": "passed",
+      "summary": "smart-recruit-proto and generated pb package passed."
+    },
+    {
+      "command": "go test ./...",
+      "working_dir": "smart-recruit-recruitment-service",
+      "exit_code": 0,
+      "started_at": "2026-07-14T02:22:15Z",
+      "duration_ms": 11975,
+      "status": "passed",
+      "summary": "Recruitment command, application service, gRPC adapter, runtime, and legacy packages passed."
+    },
+    {
+      "command": "go test ./...",
+      "working_dir": "smart-recruit-identity-service",
+      "exit_code": 0,
+      "started_at": "2026-07-14T02:22:15Z",
+      "duration_ms": 7197,
+      "status": "passed",
+      "summary": "Identity command, application service, gRPC, and runtime packages passed."
+    },
+    {
+      "command": "go test ./...",
+      "working_dir": "smart-recruit-gateway",
+      "exit_code": 0,
+      "started_at": "2026-07-14T02:22:15Z",
+      "duration_ms": 10633,
+      "status": "passed",
+      "summary": "Gateway handlers, runtime, router, and rpc packages passed."
+    },
+    {
+      "command": "node scripts/check-backend-boundaries.mjs",
+      "exit_code": 0,
+      "started_at": "2026-07-14T02:24:02Z",
+      "duration_ms": 403,
+      "status": "passed",
+      "summary": "backend_boundary_result: PASS; legacydomain_retirement_staging remains WARN for expected remaining debt."
+    },
+    {
+      "command": "node scripts/check-mysql-table-ownership.mjs",
+      "exit_code": 0,
+      "started_at": "2026-07-14T02:24:02Z",
+      "duration_ms": 262,
+      "status": "passed",
+      "summary": "mysql_table_ownership: PASS (67 tables, single MySQL instance)."
+    },
+    {
+      "command": "node .knowledge/scripts/validate-knowledge.mjs --root .",
+      "exit_code": 0,
+      "started_at": "2026-07-14T02:24:02Z",
+      "duration_ms": 204,
+      "status": "passed",
+      "summary": "knowledge_result: PASS (37 formal documents)."
+    },
+    {
+      "command": "node .knowledge/scripts/check-references.mjs --root .",
+      "exit_code": 0,
+      "started_at": "2026-07-14T02:24:02Z",
+      "duration_ms": 184,
+      "status": "passed",
+      "summary": "reference_result: PASS."
+    },
+    {
+      "command": "node .knowledge/scripts/detect-impact.mjs --root . --base-tree 3d5eeeab29b0502ae468f41c2fb230d3c1c21b2e",
+      "exit_code": 0,
+      "started_at": "2026-07-14T02:27:58Z",
+      "duration_ms": 1238,
+      "status": "passed",
+      "summary": "impact_result: update_required; matched_routes: 8."
+    },
+    {
+      "command": "bash .spec/legacydomain-retirement/scripts/check-task-scope.sh TASK-002",
+      "exit_code": 0,
+      "started_at": "2026-07-14T02:30:20Z",
+      "duration_ms": 957,
+      "status": "passed",
+      "summary": "Scope check passed for TASK-002. Changed files: 28."
+    },
+    {
+      "command": "bash .spec/legacydomain-retirement/scripts/agent-check.sh",
+      "exit_code": 0,
+      "started_at": "2026-07-14T02:30:20Z",
+      "duration_ms": 1403,
+      "status": "passed",
+      "summary": "Harness JSON, knowledge validation, reference check, backend boundary, MySQL ownership, and all TASK-002 Go module tests passed."
+    }
+  ],
+  "review": {
+    "type": "self-review",
+    "round": 1,
+    "verdict": "通过",
+    "findings": [
+      {
+        "severity": "Medium",
+        "summary": "Initial owner lifecycle RPC placement widened public ApplicationService client compile scope; repaired by using a separate internal ApplicationOwnerService."
+      },
+      {
+        "severity": "Medium",
+        "summary": "Initial TASK scope checker did not honor base_tree and blocked all post-TASK-001 checks; repaired in the feature harness script."
+      },
+      {
+        "severity": "Medium",
+        "summary": "Initial lifecycle owner contract did not expose close-current-round and actor account type semantics needed by Offer; repaired by appending fields and routing them through Recruitment application service."
+      },
+      {
+        "severity": "Medium",
+        "summary": "Initial application snapshot contract did not expose job owner, department, and location metadata needed to replace Offer application-access authorization; repaired by appending fields and mapping Recruitment job data."
+      }
+    ]
+  },
+  "human_confirmation": {
+    "required": true,
+    "confirmed": true,
+    "confirmed_by": "user",
+    "confirmed_at": "2026-07-14T02:16:31.701Z",
+    "confirmation_text": "用户确认继续执行，后续不需要人工门禁，除非执行过程中遇到阻塞性问题。"
+  },
+  "exceptions": [],
+  "knowledgeImpact": {
+    "result": "update_required",
+    "triggeredBy": [
+      "smart-recruit-proto/**",
+      "smart-recruit-identity-service/**",
+      "smart-recruit-recruitment-service/**",
+      "smart-recruit-gateway/rpc/**",
+      ".knowledge/**"
+    ],
+    "reviewResults": [
+      {
+        "document": "api-contracts-and-gateway",
+        "path": ".knowledge/architecture/api-contracts-and-gateway.md",
+        "verdict": "UPDATED",
+        "evidence": [
+          "Documented that internal owner contracts should use separate internal gRPC services when they are not frontend/gateway behavior."
+        ]
+      },
+      {
+        "document": "auth-rbac-security",
+        "path": ".knowledge/architecture/auth-rbac-security.md",
+        "verdict": "UPDATED",
+        "evidence": [
+          "Documented AuthService.AuthorizeInternal principal, permission, scope, and audit behavior."
+        ]
+      },
+      {
+        "document": "service-boundaries",
+        "path": ".knowledge/architecture/service-boundaries.md",
+        "verdict": "UPDATED",
+        "evidence": [
+          "Documented Identity and Recruitment owner contracts as replacements for copied cross-context repositories."
+        ]
+      },
+      {
+        "document": "recruitment",
+        "path": ".knowledge/domains/recruitment.md",
+        "verdict": "UPDATED",
+        "evidence": [
+          "Documented Recruitment-owned ApplicationOwnerService snapshot and lifecycle responsibilities."
+        ]
+      },
+      {
+        "document": "recruitment-lifecycle",
+        "path": ".knowledge/domains/recruitment-lifecycle.md",
+        "verdict": "UPDATED",
+        "evidence": [
+          "Documented ApplicationOwnerService snapshot metadata and conditional lifecycle transition semantics."
+        ]
+      },
+      {
+        "document": "protobuf-synchronization",
+        "path": ".knowledge/pitfalls/protobuf-synchronization.md",
+        "verdict": "UPDATED",
+        "evidence": [
+          "Documented the compile-scope pitfall of appending internal methods to public-facing generated client interfaces."
+        ]
+      },
+      {
+        "document": "protobuf-and-migration-change",
+        "path": ".knowledge/runbooks/protobuf-and-migration-change.md",
+        "verdict": "UPDATED",
+        "evidence": [
+          "Documented internal-only proto service guidance and regeneration/testing requirements."
+        ]
+      },
+      {
+        "document": "auth-permission-alignment",
+        "path": ".knowledge/pitfalls/auth-permission-alignment.md",
+        "verdict": "UNCHANGED",
+        "evidence": [
+          "Reviewed because authorization changed; existing permission alignment warning remains correct."
+        ]
+      },
+      {
+        "document": "debug-auth-permissions",
+        "path": ".knowledge/runbooks/debug-auth-permissions.md",
+        "verdict": "UNCHANGED",
+        "evidence": [
+          "Reviewed because Identity authorization changed; debug steps remain valid for existing gateway/RBAC paths."
+        ]
+      },
+      {
+        "document": "debug-recruitment-lifecycle",
+        "path": ".knowledge/runbooks/debug-recruitment-lifecycle.md",
+        "verdict": "UNCHANGED",
+        "evidence": [
+          "Reviewed because Recruitment lifecycle changed; existing debugging flow remains valid and no new public route was added."
+        ]
+      },
+      {
+        "document": "knowledge-coverage-audit",
+        "path": ".knowledge/runbooks/knowledge-coverage-audit.md",
+        "verdict": "UNCHANGED",
+        "evidence": [
+          "Reviewed because .knowledge changed; route coverage remains sufficient for proto/auth/recruitment lifecycle changes."
+        ]
+      },
+      {
+        "document": "local-development",
+        "path": ".knowledge/runbooks/local-development.md",
+        "verdict": "UNCHANGED",
+        "evidence": [
+          "Reviewed due gateway/proto/service routes; no local startup or command behavior changed."
+        ]
+      },
+      {
+        "document": "notification-outbox",
+        "path": ".knowledge/domains/notification-outbox.md",
+        "verdict": "UNCHANGED",
+        "evidence": [
+          "Reviewed because lifecycle transitions reuse existing outbox behavior; no notification/outbox contract changed."
+        ]
+      },
+      {
+        "document": "service-binary-convention",
+        "path": ".knowledge/runbooks/service-binary-convention.md",
+        "verdict": "UNCHANGED",
+        "evidence": [
+          "Reviewed due service runtime changes; service binary convention remains unchanged."
+        ]
+      },
+      {
+        "document": "status-notification-drift",
+        "path": ".knowledge/pitfalls/status-notification-drift.md",
+        "verdict": "UNCHANGED",
+        "evidence": [
+          "Reviewed because lifecycle status paths changed; notification drift warning remains correct."
+        ]
+      },
+      {
+        "document": "system-overview",
+        "path": ".knowledge/architecture/system-overview.md",
+        "verdict": "UNCHANGED",
+        "evidence": [
+          "Reviewed due proto/service routes; high-level topology remains correct."
+        ]
+      }
+    ],
+    "updatePaths": [
+      ".knowledge/architecture/api-contracts-and-gateway.md",
+      ".knowledge/architecture/auth-rbac-security.md",
+      ".knowledge/architecture/service-boundaries.md",
+      ".knowledge/domains/recruitment.md",
+      ".knowledge/domains/recruitment-lifecycle.md",
+      ".knowledge/pitfalls/protobuf-synchronization.md",
+      ".knowledge/runbooks/protobuf-and-migration-change.md"
+    ],
+    "coverageGap": false,
+    "validationExitCode": 0,
+    "evidence": [
+      "impact_result: update_required",
+      "knowledge_result: PASS (37 formal documents)",
+      "reference_result: PASS"
+    ]
+  },
+  "skipped_checks": []
+}

@@ -2,104 +2,72 @@ package client
 
 import (
 	"context"
-	"time"
-
-	"gorm.io/gorm"
+	"fmt"
 
 	"smart-recruit-offer-service/internal/application/port"
 	"smart-recruit-offer-service/internal/domain/model"
-	"smart-recruit-offer-service/internal/infrastructure/persistence"
-	sharedmodel "smart-recruit-offer-service/internal/legacydomain/model"
-	sharedrepo "smart-recruit-offer-service/internal/legacydomain/repository"
+	"smart-recruit-platform-go/errs"
+	"smart-recruit-proto/recruitment/pb"
 )
 
 type ApplicationAdapter struct {
-	applications *sharedrepo.ApplicationRepo
+	applications pb.ApplicationOwnerServiceClient
 }
 
-func NewApplicationAdapter(applications *sharedrepo.ApplicationRepo) *ApplicationAdapter {
+func NewApplicationAdapter(applications pb.ApplicationOwnerServiceClient) *ApplicationAdapter {
 	return &ApplicationAdapter{applications: applications}
 }
 
 func (a *ApplicationAdapter) GetApplicationSnapshot(ctx context.Context, applicationID int64) (*port.ApplicationSnapshot, error) {
-	row, err := a.applications.GetDetail(ctx, applicationID)
-	if err != nil || row == nil {
+	resp, err := a.applications.GetApplicationSnapshot(ctx, &pb.GetApplicationSnapshotRequest{ApplicationId: applicationID})
+	if err != nil {
 		return nil, err
 	}
+	if resp.Code != errs.OK {
+		return nil, fmt.Errorf("get application snapshot: %s", resp.Msg)
+	}
 	return &port.ApplicationSnapshot{
-		ApplicationID:   row.ApplicationID,
-		CandidateUserID: row.UserID,
-		JobID:           row.JobID,
-		JobTitle:        row.JobTitle,
-		StatusKey:       model.ApplicationStatus(row.StatusKey),
+		ApplicationID:   resp.ApplicationId,
+		CandidateUserID: resp.CandidateUserId,
+		JobID:           resp.JobId,
+		JobTitle:        resp.JobTitle,
+		StatusKey:       model.ApplicationStatus(resp.StatusKey),
+		JobHRID:         resp.JobHrId,
+		DepartmentID:    zeroAsNil(resp.DepartmentId),
+		LocationID:      zeroAsNil(resp.LocationId),
 	}, nil
 }
 
 type ApplicationLifecycleAdapter struct {
-	applications *sharedrepo.ApplicationRepo
+	applications pb.ApplicationOwnerServiceClient
 }
 
-func NewApplicationLifecycleAdapter(applications *sharedrepo.ApplicationRepo) *ApplicationLifecycleAdapter {
+func NewApplicationLifecycleAdapter(applications pb.ApplicationOwnerServiceClient) *ApplicationLifecycleAdapter {
 	return &ApplicationLifecycleAdapter{applications: applications}
 }
 
 func (a *ApplicationLifecycleAdapter) ApplyTransition(ctx context.Context, command port.LifecycleTransitionCommand) (bool, error) {
-	if tx, ok := persistence.TxFromContext(ctx); ok {
-		return a.applyWithTx(ctx, tx, command)
-	}
-	var changed bool
-	err := a.applications.Transaction(ctx, func(tx *gorm.DB) error {
-		var err error
-		changed, err = a.applyWithTx(ctx, tx, command)
-		return err
+	resp, err := a.applications.ApplyApplicationLifecycleTransition(ctx, &pb.ApplyApplicationLifecycleTransitionRequest{
+		ActorUserId:       command.ActorUserID,
+		ActorAccountType:  command.ActorAccountType,
+		ApplicationId:     command.ApplicationID,
+		ExpectedStatusKey: string(command.FromStatus),
+		TargetStatusKey:   string(command.ToStatus),
+		Reason:            command.Reason,
+		CloseCurrentRound: command.CloseCurrentRound,
 	})
 	if err != nil {
 		return false, err
 	}
-	return changed, nil
+	if resp.Code != errs.OK {
+		return false, fmt.Errorf("apply application lifecycle transition: %s", resp.Msg)
+	}
+	return resp.Changed, nil
 }
 
-func (a *ApplicationLifecycleAdapter) applyWithTx(ctx context.Context, tx *gorm.DB, command port.LifecycleTransitionCommand) (bool, error) {
-	rows, err := a.applications.UpdateStatusAnyWithTx(
-		ctx,
-		tx,
-		command.ApplicationID,
-		string(command.FromStatus),
-		string(command.ToStatus),
-		legacyStatus(command.ToStatus),
-	)
-	if err != nil {
-		return false, err
+func zeroAsNil(value int64) *int64 {
+	if value == 0 {
+		return nil
 	}
-	if rows == 0 {
-		return false, nil
-	}
-	if command.CloseCurrentRound {
-		if err := a.applications.CloseCurrentRoundWithTx(ctx, tx, command.ApplicationID); err != nil {
-			return false, err
-		}
-	}
-	if err := a.applications.CreateTransition(ctx, tx, transitionRecord(command, time.Now())); err != nil {
-		return false, err
-	}
-	return true, nil
-}
-
-func legacyStatus(status model.ApplicationStatus) int32 {
-	if value, ok := sharedmodel.StatusKeyToLegacy[string(status)]; ok {
-		return value
-	}
-	return 0
-}
-
-func transitionRecord(command port.LifecycleTransitionCommand, now time.Time) *sharedmodel.ApplicationStatusTransition {
-	return &sharedmodel.ApplicationStatusTransition{
-		ApplicationID:    command.ApplicationID,
-		FromStatus:       string(command.FromStatus),
-		ToStatus:         string(command.ToStatus),
-		ActorUserID:      command.ActorUserID,
-		ActorAccountType: command.ActorAccountType,
-		Reason:           command.Reason,
-		CreatedAt:        now,
-	}
+	return &value
 }

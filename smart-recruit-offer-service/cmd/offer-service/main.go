@@ -17,7 +17,9 @@ import (
 	"github.com/redis/go-redis/v9"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials/insecure"
 	healthpb "google.golang.org/grpc/health/grpc_health_v1"
+	"google.golang.org/grpc/metadata"
 	"gorm.io/driver/mysql"
 	"gorm.io/gorm"
 
@@ -26,7 +28,6 @@ import (
 	offermq "smart-recruit-offer-service/internal/infrastructure/mq"
 	offerpersistence "smart-recruit-offer-service/internal/infrastructure/persistence"
 	offergrpc "smart-recruit-offer-service/internal/interfaces/grpc"
-	"smart-recruit-offer-service/internal/legacydomain/repository"
 	offerruntime "smart-recruit-offer-service/internal/runtime"
 	platformconfig "smart-recruit-platform-go/config"
 	"smart-recruit-platform-go/logger"
@@ -199,23 +200,47 @@ func serveOffer(addr string) error {
 }
 
 func buildOfferServer(db *gorm.DB) (pb.OfferServiceServer, error) {
-	offerRepo := repository.NewOfferRepo(db)
-	applicationRepo := repository.NewApplicationRepo(db)
-	jobRepo := repository.NewJobRepo(db)
-	authzRepo := repository.NewAuthzRepo(db)
-	outboxRepo := repository.NewOutboxRepo(db)
+	identityConn, err := dialInternalGRPC(envOrDefault("IDENTITY_GRPC_ADDR", "127.0.0.1:50061"))
+	if err != nil {
+		return nil, err
+	}
+	recruitmentConn, err := dialInternalGRPC(envOrDefault("RECRUITMENT_GRPC_ADDR", "127.0.0.1:50062"))
+	if err != nil {
+		_ = identityConn.Close()
+		return nil, err
+	}
+	applications := offerclient.NewApplicationAdapter(pb.NewApplicationOwnerServiceClient(recruitmentConn))
 
 	offerService, err := offerapp.NewOfferService(offerapp.Deps{
-		Offers:       offerpersistence.NewOfferRepository(offerRepo),
-		Applications: offerclient.NewApplicationAdapter(applicationRepo),
-		Lifecycle:    offerclient.NewApplicationLifecycleAdapter(applicationRepo),
-		Outbox:       offermq.NewOutboxPublisher(outboxRepo),
-		Authorizer:   offerclient.NewAuthorizer(authzRepo, applicationRepo, jobRepo),
+		Offers:       offerpersistence.NewOfferRepository(db),
+		Applications: applications,
+		Lifecycle:    offerclient.NewApplicationLifecycleAdapter(pb.NewApplicationOwnerServiceClient(recruitmentConn)),
+		Outbox:       offermq.NewOutboxPublisher(offermq.NewGormOutboxStore(db)),
+		Authorizer:   offerclient.NewAuthorizer(pb.NewAuthServiceClient(identityConn), applications),
 	})
 	if err != nil {
 		return nil, err
 	}
 	return offergrpc.NewServer(offerService)
+}
+
+func dialInternalGRPC(addr string) (*grpc.ClientConn, error) {
+	return grpc.NewClient(addr,
+		grpc.WithTransportCredentials(insecure.NewCredentials()),
+		grpc.WithUnaryInterceptor(internalClientUnaryInterceptor()),
+	)
+}
+
+func internalClientUnaryInterceptor() grpc.UnaryClientInterceptor {
+	return func(ctx context.Context, method string, req, reply any, cc *grpc.ClientConn, invoker grpc.UnaryInvoker, opts ...grpc.CallOption) error {
+		if incoming, ok := metadata.FromIncomingContext(ctx); ok {
+			ctx = metadata.NewOutgoingContext(ctx, incoming.Copy())
+		}
+		if token := os.Getenv("GRPC_INTERNAL_TOKEN"); token != "" {
+			ctx = metadata.AppendToOutgoingContext(ctx, "x-internal-token", token)
+		}
+		return invoker(ctx, method, req, reply, cc, opts...)
+	}
 }
 
 func loadBootstrap(addr string) (platformconfig.Bootstrap, error) {

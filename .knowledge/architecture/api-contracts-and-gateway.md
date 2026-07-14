@@ -36,7 +36,9 @@ review_after: 2026-10-14
 
 The gateway exposes `/api/v1`, applies timeout/body/rate/quota/risk/auth middleware, and calls generated gRPC clients. `smart-recruit-gateway/rpc/client.go` defaults route modes to independent service targets and forwards internal auth, request, and trace metadata.
 
-Changing HTTP routes normally requires route registration, handler mapping, permission metadata, frontend API/types, and a matching protobuf or service contract. Changing protobuf wire shape is a public-contract change rooted in `smart-recruit-proto/proto/recruitment.proto`.
+Changing HTTP routes normally requires route registration, handler mapping, permission metadata, frontend API/types, and a matching protobuf or service contract. Changing protobuf wire shape is rooted in `smart-recruit-proto/proto/recruitment.proto`; public-facing service extensions can force gateway and handler test clients to implement new methods, so internal owner contracts should prefer separate internal gRPC services when they are not part of frontend/gateway behavior.
+
+The legacydomain retirement contract adds internal `ApplicationOwnerService` and `AuthService.AuthorizeInternal` without adding new HTTP routes or frontend entry points. `rpc.Clients` may expose generated internal clients, but gateway route behavior remains unchanged unless handlers are explicitly modified.
 
 ## Verification
 

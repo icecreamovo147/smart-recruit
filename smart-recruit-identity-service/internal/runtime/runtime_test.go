@@ -65,6 +65,10 @@ func (fakeAuthAPI) GetPrincipal(context.Context, *pb.GetPrincipalRequest) (*pb.G
 	return &pb.GetPrincipalResponse{Code: errs.OK}, nil
 }
 
+func (fakeAuthAPI) AuthorizeInternal(context.Context, *pb.AuthorizeInternalRequest) (*pb.AuthorizeInternalResponse, error) {
+	return &pb.AuthorizeInternalResponse{Code: errs.OK, Allowed: true}, nil
+}
+
 func (fakeAuthAPI) UpdateEmail(context.Context, *pb.UpdateEmailRequest) (*pb.CommonResponse, error) {
 	return &pb.CommonResponse{Code: errs.OK}, nil
 }

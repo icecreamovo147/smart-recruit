@@ -14,6 +14,7 @@ service AuthService {
   rpc RevokeRefreshToken(RevokeRefreshTokenRequest) returns (CommonResponse);
   rpc RecordAuthDecision(AuthAuditRequest) returns (CommonResponse);
   rpc GetPrincipal(GetPrincipalRequest) returns (GetPrincipalResponse);
+  rpc AuthorizeInternal(AuthorizeInternalRequest) returns (AuthorizeInternalResponse);
   rpc UpdateEmail(UpdateEmailRequest) returns (CommonResponse);
 }
 
@@ -43,6 +44,11 @@ service ApplicationService {
   rpc ListJobApplications(ListJobApplicationsRequest) returns (ListJobApplicationsResponse);
   rpc UpdateApplicationStatus(UpdateApplicationStatusRequest) returns (CommonResponse);
   rpc ListApplicationStatusTransitions(ListApplicationStatusTransitionsRequest) returns (ListApplicationStatusTransitionsResponse);
+}
+
+service ApplicationOwnerService {
+  rpc GetApplicationSnapshot(GetApplicationSnapshotRequest) returns (GetApplicationSnapshotResponse);
+  rpc ApplyApplicationLifecycleTransition(ApplyApplicationLifecycleTransitionRequest) returns (ApplyApplicationLifecycleTransitionResponse);
 }
 
 service InterviewService {
@@ -292,6 +298,25 @@ message GetPrincipalResponse {
   int32 token_version = 9;
   repeated ScopeAssignment data_scopes = 10;
   string email = 11;
+}
+
+message AuthorizeInternalRequest {
+  int64 actor_user_id = 1;
+  string permission_key = 2;
+  string required_scope_key = 3;
+  string resource_type = 4;
+  int64 resource_id = 5;
+  string request_id = 6;
+  string client_ip = 7;
+}
+
+message AuthorizeInternalResponse {
+  int32 code = 1;
+  string msg = 2;
+  bool allowed = 3;
+  string reason = 4;
+  GetPrincipalResponse principal = 5;
+  repeated ScopeAssignment matched_scopes = 6;
 }
 
 message UpdateEmailRequest {
@@ -561,6 +586,47 @@ message ListApplicationStatusTransitionsResponse {
   int32 code = 1;
   string msg = 2;
   repeated ApplicationStatusTransition list = 3;
+}
+
+message GetApplicationSnapshotRequest {
+  int64 application_id = 1;
+}
+
+message GetApplicationSnapshotResponse {
+  int32 code = 1;
+  string msg = 2;
+  int64 application_id = 3;
+  int64 candidate_user_id = 4;
+  int64 job_id = 5;
+  string job_title = 6;
+  string candidate_name = 7;
+  int64 resume_id = 8;
+  int32 legacy_status = 9;
+  string status_key = 10;
+  int32 round_no = 11;
+  bool is_current = 12;
+  int64 job_hr_id = 13;
+  int64 department_id = 14;
+  int64 location_id = 15;
+}
+
+message ApplyApplicationLifecycleTransitionRequest {
+  int64 actor_user_id = 1;
+  int64 application_id = 2;
+  string expected_status_key = 3;
+  string target_status_key = 4;
+  int32 legacy_target_status = 5;
+  string reason = 6;
+  bool close_current_round = 7;
+  string actor_account_type = 8;
+}
+
+message ApplyApplicationLifecycleTransitionResponse {
+  int32 code = 1;
+  string msg = 2;
+  bool changed = 3;
+  string from_status_key = 4;
+  string current_status_key = 5;
 }
 
 message ChatRequest {

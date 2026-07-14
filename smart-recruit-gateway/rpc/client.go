@@ -82,6 +82,7 @@ type Clients struct {
 	Job                    pb.JobServiceClient
 	Candidate              pb.CandidateServiceClient
 	Application            pb.ApplicationServiceClient
+	ApplicationOwner       pb.ApplicationOwnerServiceClient
 	AI                     pb.AIServiceClient
 	Notification           pb.NotificationServiceClient
 	Interview              pb.InterviewServiceClient
@@ -438,6 +439,7 @@ func NewClientsWithOptions(addr string, options ClientOptions) (*Clients, error)
 		Job:                    pb.NewJobServiceClient(recruitmentConn),
 		Candidate:              pb.NewCandidateServiceClient(recruitmentConn),
 		Application:            pb.NewApplicationServiceClient(recruitmentConn),
+		ApplicationOwner:       pb.NewApplicationOwnerServiceClient(recruitmentConn),
 		AI:                     pb.NewAIServiceClient(aiAgentConn),
 		Notification:           pb.NewNotificationServiceClient(notificationConn),
 		Interview:              pb.NewInterviewServiceClient(interviewConn),

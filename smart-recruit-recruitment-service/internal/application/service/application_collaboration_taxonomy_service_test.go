@@ -57,6 +57,14 @@ func TestApplicationLifecycleApplyAndUpdateStatus(t *testing.T) {
 		t.Fatalf("apply notification payload = %#v", outbox.events[0].Payload)
 	}
 
+	snapshot, err := svc.GetSnapshot(ctx, 7001)
+	if err != nil {
+		t.Fatalf("GetSnapshot() error = %v", err)
+	}
+	if snapshot.ApplicationID != 7001 || snapshot.CandidateUserID != 42 || snapshot.StatusKey != model.StatusKeyApplied || !snapshot.IsCurrent || snapshot.JobHRID != 7 {
+		t.Fatalf("snapshot = %+v", snapshot)
+	}
+
 	outbox.events = nil
 	outbox.signaled = false
 	changed, err := svc.UpdateStatus(ctx, command.UpdateApplicationStatus{
@@ -79,6 +87,29 @@ func TestApplicationLifecycleApplyAndUpdateStatus(t *testing.T) {
 	payload, ok = outbox.events[0].Payload.(model.NotificationPayload)
 	if !ok || payload.Type != "application_approved" || payload.ReceiverID != 42 || payload.BizID != 7001 {
 		t.Fatalf("status notification payload = %#v", outbox.events[0].Payload)
+	}
+
+	if _, err := svc.ApplyLifecycleTransition(ctx, command.ApplyApplicationLifecycleTransition{
+		ActorUserID:       7,
+		ApplicationID:     7001,
+		ExpectedStatusKey: model.StatusKeyRejected,
+		TargetStatusKey:   model.StatusKeyOfferPending,
+	}); err == nil {
+		t.Fatal("ApplyLifecycleTransition() expected status conflict")
+	}
+	result, err := svc.ApplyLifecycleTransition(ctx, command.ApplyApplicationLifecycleTransition{
+		ActorUserID:       42,
+		ActorAccountType:  "candidate",
+		ApplicationID:     7001,
+		ExpectedStatusKey: model.StatusKeyApplied,
+		TargetStatusKey:   model.StatusKeyScreenPassed,
+		CloseCurrentRound: true,
+	})
+	if err != nil {
+		t.Fatalf("ApplyLifecycleTransition() error = %v", err)
+	}
+	if !result.Changed || result.CurrentStatusKey != model.StatusKeyScreenPassed || apps.closedRound != 7001 {
+		t.Fatalf("lifecycle transition result=%+v closedRound=%d", result, apps.closedRound)
 	}
 }
 
@@ -159,6 +190,7 @@ type fakeApplicationRepository struct {
 	detail        *model.ApplicationDetail
 	updatedTarget string
 	updatedLegacy int32
+	closedRound   int64
 }
 
 func (r *fakeApplicationRepository) CreateNewRound(_ context.Context, application *model.Application, afterCreate func(applicationID int64) error) error {
@@ -183,6 +215,11 @@ func (r *fakeApplicationRepository) UpdateStatus(_ context.Context, applicationI
 		return 1, afterUpdate(1)
 	}
 	return 1, nil
+}
+
+func (r *fakeApplicationRepository) CloseCurrentRound(_ context.Context, applicationID int64) error {
+	r.closedRound = applicationID
+	return nil
 }
 
 func (r *fakeApplicationRepository) ListTransitions(context.Context, int64) ([]model.ApplicationStatusTransition, error) {

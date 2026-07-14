@@ -42,6 +42,8 @@ review_after: 2026-10-14
 
 The gateway owns cookies, JWT parsing, route-level role and permission checks, denied-decision audit emission, and actor metadata forwarding. Identity owns registration, login, refresh-token rotation, principal loading, RBAC catalog, role/data-scope management, token-version invalidation, and security audit query/persistence.
 
+Service-to-service authorization should use Identity owner contracts rather than local copies of authz repositories. `AuthService.GetPrincipal` returns the actor principal, permissions, token version, and data scopes. `AuthService.AuthorizeInternal` evaluates an optional permission key and optional required scope/resource tuple, returns the principal plus matched scopes, and records an allow/deny audit decision.
+
 Permission changes must keep gateway route declarations, authz constants, RBAC seed migrations, frontend route metadata, Identity behavior, and audit logging aligned.
 
 ## Verification

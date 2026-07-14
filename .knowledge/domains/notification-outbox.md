@@ -13,6 +13,9 @@ tags:
   - email
 applies_to:
   - smart-recruit-notification-service/**
+  - smart-recruit-interview-service/internal/infrastructure/mq/**
+  - smart-recruit-offer-service/internal/infrastructure/mq/**
+  - smart-recruit-recruitment-service/internal/infrastructure/persistence/**
   - smart-recruit-worker-service/**
   - smart-recruit-commons/internal/platform/events/**
   - smart-recruit-commons/mq/**
@@ -29,6 +32,9 @@ source_refs:
   - smart-recruit-commons/mq/publisher.go
   - smart-recruit-commons/migrations/000051_standardize_event_outbox.sql
   - smart-recruit-commons/migrations/000052_add_event_inbox.sql
+  - smart-recruit-interview-service/internal/infrastructure/mq/outbox_publisher.go
+  - smart-recruit-offer-service/internal/infrastructure/mq/outbox_publisher.go
+  - smart-recruit-recruitment-service/internal/infrastructure/persistence/native_adapters.go
   - smart-recruit-gateway/handler/notification.go
 last_verified: 2026-07-14
 review_after: 2026-10-14
@@ -37,6 +43,8 @@ review_after: 2026-10-14
 # Notification and Outbox Domain
 
 Notification APIs are served by Notification service. Shared outbox/inbox schema, event envelope, and MQ support live in Commons and Worker service profiles. Gateway notification endpoints expose list, unread count, summary, mark-read, mark-all-read, and stream behavior through generated clients.
+
+Recruitment, Interview, and Offer write their domain events through local GORM outbox adapters using the shared `event_outbox` table shape instead of copied legacy outbox repositories. Recruitment's active outbox writes live in `smart-recruit-recruitment-service/internal/infrastructure/persistence/native_adapters.go`; Interview and Offer keep dedicated `internal/infrastructure/mq` adapters.
 
 ## Verification
 

@@ -1,0 +1,203 @@
+{
+  "schemaVersion": 1,
+  "feature_name": "legacydomain-retirement",
+  "task_id": "TASK-006",
+  "base_sha": "b0c34ce746bcd494d63718aa3ab664b9c6d1edb9",
+  "base_tree": "02cbf87335942a88340408d9d6870ebbea981a7b",
+  "head_sha": "b0c34ce746bcd494d63718aa3ab664b9c6d1edb9",
+  "changed_files": [
+    ".knowledge/architecture/service-boundaries.md",
+    ".knowledge/domains/recruitment.md",
+    ".spec/legacydomain-retirement/pipeline-state.json",
+    ".spec/legacydomain-retirement/reports/TASK-006-evidence.json",
+    ".spec/legacydomain-retirement/reports/TASK-006-report.md",
+    "scripts/check-mysql-table-ownership.mjs",
+    "smart-recruit-recruitment-service/internal/docs/core_domain_inventory.md",
+    "smart-recruit-recruitment-service/internal/legacydomain/**"
+  ],
+  "scope": {
+    "status": "passed",
+    "checked_by": "bash .spec/legacydomain-retirement/scripts/check-task-scope.sh TASK-006",
+    "out_of_scope": [],
+    "forbidden": [],
+    "notes": [
+      "TASK-006 scope allows smart-recruit-recruitment-service/**, guardrail scripts, .knowledge/**, and TASK report/evidence files.",
+      "Deleted files under smart-recruit-recruitment-service/internal/legacydomain/** are expected by acceptance criteria."
+    ]
+  },
+  "checks": [
+    {
+      "command": "go test ./...",
+      "working_dir": "smart-recruit-recruitment-service",
+      "exit_code": 0,
+      "started_at": "2026-07-14T03:30:00Z",
+      "duration_ms": 612,
+      "status": "passed",
+      "summary": "Recruitment command, application, domain, infrastructure, interfaces, and runtime packages passed after deleting legacydomain."
+    },
+    {
+      "command": "node scripts/check-backend-boundaries.mjs",
+      "exit_code": 0,
+      "started_at": "2026-07-14T03:31:00Z",
+      "duration_ms": 157,
+      "status": "passed",
+      "summary": "backend_boundary_result: PASS; remaining staging warning covers AI Agent legacy root/imports only."
+    },
+    {
+      "command": "node scripts/check-mysql-table-ownership.mjs",
+      "exit_code": 0,
+      "started_at": "2026-07-14T03:31:00Z",
+      "duration_ms": 247,
+      "status": "passed",
+      "summary": "mysql_table_ownership: PASS (67 tables, single MySQL instance)."
+    },
+    {
+      "command": "node .knowledge/scripts/validate-knowledge.mjs --root .",
+      "exit_code": 0,
+      "started_at": "2026-07-14T03:31:00Z",
+      "duration_ms": 1,
+      "status": "passed",
+      "summary": "knowledge_result: PASS (37 formal documents)."
+    },
+    {
+      "command": "node .knowledge/scripts/check-references.mjs --root .",
+      "exit_code": 0,
+      "started_at": "2026-07-14T03:31:00Z",
+      "duration_ms": 1,
+      "status": "passed",
+      "summary": "reference_result: PASS."
+    },
+    {
+      "command": "node .knowledge/scripts/detect-impact.mjs --root . --base-tree 02cbf87335942a88340408d9d6870ebbea981a7b --json",
+      "exit_code": 0,
+      "started_at": "2026-07-14T03:31:00Z",
+      "duration_ms": 1122,
+      "status": "passed",
+      "summary": "impact_result: update_required; coverage_gaps: none."
+    },
+    {
+      "command": "bash .spec/legacydomain-retirement/scripts/check-task-scope.sh TASK-006",
+      "exit_code": 0,
+      "started_at": "2026-07-14T03:31:00Z",
+      "duration_ms": 791,
+      "status": "passed",
+      "summary": "Scope check passed for TASK-006. Changed files: 145 before report/evidence, 147 after report/evidence."
+    },
+    {
+      "command": "bash .spec/legacydomain-retirement/scripts/agent-check.sh",
+      "exit_code": 0,
+      "started_at": "2026-07-14T03:32:00Z",
+      "duration_ms": 1808,
+      "status": "passed",
+      "summary": "Harness JSON validation, knowledge validation, reference check, backend boundary, MySQL ownership, and relevant Go module tests passed."
+    },
+    {
+      "command": "test ! -d smart-recruit-recruitment-service/internal/legacydomain && rg \"legacydomain\" smart-recruit-recruitment-service -g'*.go' -n || true",
+      "exit_code": 0,
+      "started_at": "2026-07-14T03:31:00Z",
+      "duration_ms": 1,
+      "status": "passed",
+      "summary": "Recruitment internal/legacydomain directory is absent and no Recruitment Go legacydomain references remain."
+    }
+  ],
+  "review": {
+    "type": "self-review",
+    "round": 1,
+    "verdict": "通过",
+    "findings": [
+      {
+        "severity": "Low",
+        "summary": "Remaining legacydomain staging warning is limited to AI Agent and is owned by TASK-007/TASK-008."
+      }
+    ]
+  },
+  "human_confirmation": {
+    "required": false,
+    "confirmed": true,
+    "confirmed_by": "not_required",
+    "confirmed_at": "2026-07-14T03:24:13Z",
+    "confirmation_text": "TASK-006 does not require human confirmation. User confirmed the pipeline can continue without routine human gates unless blocked."
+  },
+  "exceptions": [],
+  "knowledgeImpact": {
+    "result": "update_required",
+    "triggeredBy": [
+      "authorization-changed",
+      "configuration-changed",
+      "covered-path-changed",
+      "database-schema-changed",
+      "public-api-changed",
+      "sensitive-data-flow-changed",
+      "service-boundary-changed"
+    ],
+    "reviewResults": [
+      {
+        "document": "service-boundaries",
+        "path": ".knowledge/architecture/service-boundaries.md",
+        "verdict": "UPDATED",
+        "evidence": [
+          "Documented that Recruitment has retired its service-local internal/legacydomain copy."
+        ]
+      },
+      {
+        "document": "recruitment",
+        "path": ".knowledge/domains/recruitment.md",
+        "verdict": "UPDATED",
+        "evidence": [
+          "Documented that Recruitment no longer carries the service-local legacy directory."
+        ]
+      },
+      {
+        "document": "debug-recruitment-lifecycle",
+        "verdict": "UNCHANGED",
+        "evidence": [
+          "Reviewed after deleting Recruitment legacydomain; lifecycle debug flow still routes through owner runtime and local adapters."
+        ]
+      },
+      {
+        "document": "knowledge-coverage-audit",
+        "verdict": "UNCHANGED",
+        "evidence": [
+          "Reviewed route triggered by knowledge updates; no route coverage change required."
+        ]
+      },
+      {
+        "document": "local-development",
+        "verdict": "UNCHANGED",
+        "evidence": [
+          "Reviewed due pipeline-state change; local development commands remain unchanged."
+        ]
+      },
+      {
+        "document": "notification-outbox",
+        "verdict": "UNCHANGED",
+        "evidence": [
+          "Reviewed after Recruitment legacy deletion; outbox description from TASK-005 remains accurate."
+        ]
+      },
+      {
+        "document": "recruitment-lifecycle",
+        "verdict": "UNCHANGED",
+        "evidence": [
+          "Reviewed lifecycle ownership after deletion; owner contract and downstream adapters remain accurate."
+        ]
+      },
+      {
+        "document": "status-notification-drift",
+        "verdict": "UNCHANGED",
+        "evidence": [
+          "Reviewed status/notification impact; no behavior or public contract change was introduced."
+        ]
+      },
+      {
+        "document": "system-overview",
+        "verdict": "UNCHANGED",
+        "evidence": [
+          "Reviewed high-level service overview; no service ownership change required."
+        ]
+      }
+    ],
+    "coverageGap": false,
+    "validationExitCode": 0
+  }
+}

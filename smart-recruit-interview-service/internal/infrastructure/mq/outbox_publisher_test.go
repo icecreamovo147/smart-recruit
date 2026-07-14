@@ -8,7 +8,6 @@ import (
 	"gorm.io/gorm"
 
 	"smart-recruit-interview-service/internal/application/port"
-	sharedmodel "smart-recruit-interview-service/internal/legacydomain/model"
 )
 
 func TestOutboxPublisherWritesLegacyCompatibleEnvelope(t *testing.T) {
@@ -60,15 +59,15 @@ func TestOutboxPublisherWritesLegacyCompatibleEnvelope(t *testing.T) {
 }
 
 type fakeOutboxStore struct {
-	created []*sharedmodel.EventOutbox
+	created []*EventOutboxRecord
 }
 
-func (s *fakeOutboxStore) Create(_ context.Context, event *sharedmodel.EventOutbox) error {
+func (s *fakeOutboxStore) Create(_ context.Context, event *EventOutboxRecord) error {
 	s.created = append(s.created, event)
 	return nil
 }
 
-func (s *fakeOutboxStore) CreateWithTx(_ *gorm.DB, event *sharedmodel.EventOutbox) error {
+func (s *fakeOutboxStore) CreateWithTx(_ *gorm.DB, event *EventOutboxRecord) error {
 	s.created = append(s.created, event)
 	return nil
 }

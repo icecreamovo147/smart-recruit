@@ -11,6 +11,12 @@ const declared = Object.keys(manifest.tables || {}).sort();
 const services = new Set(manifest.services || []);
 const issues = [];
 const validModes = new Set(["read", "write"]);
+const retiredServiceRoots = [
+  "smart-recruit-offer-service",
+  "smart-recruit-interview-service",
+  "smart-recruit-recruitment-service",
+  "smart-recruit-ai-agent-service",
+];
 
 if (manifest.single_mysql_instance !== true) {
   issues.push("manifest must declare single_mysql_instance=true");
@@ -38,17 +44,21 @@ for (const table of declared) {
 }
 
 const scanRoots = [
-  "smart-recruit-offer-service/internal/legacydomain/repository",
-  "smart-recruit-offer-service/internal/legacydomain/service",
-  "smart-recruit-interview-service/internal/legacydomain/repository",
-  "smart-recruit-interview-service/internal/legacydomain/service",
-  "smart-recruit-recruitment-service/internal/legacydomain/repository",
-  "smart-recruit-recruitment-service/internal/legacydomain/service",
-  "smart-recruit-ai-agent-service/internal/legacydomain/repository",
-  "smart-recruit-ai-agent-service/internal/legacydomain/service",
+  "smart-recruit-offer-service/internal/infrastructure",
+  "smart-recruit-interview-service/internal/infrastructure",
+  "smart-recruit-recruitment-service/internal/infrastructure/persistence",
+  "smart-recruit-ai-agent-service/internal/infrastructure/persistence",
   "smart-recruit-analytics-service",
   "smart-recruit-worker-service",
 ];
+
+for (const serviceRoot of retiredServiceRoots) {
+  const legacyRoot = path.join(serviceRoot, "internal", "legacydomain");
+  if (fs.existsSync(legacyRoot)) {
+    issues.push(`${legacyRoot}: internal/legacydomain directory is forbidden after legacydomain retirement`);
+  }
+}
+
 for (const file of listFiles(scanRoots)) {
   const owner = inferOwner(file);
   if (!owner) continue;

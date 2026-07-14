@@ -21,10 +21,8 @@ import (
 	"gorm.io/driver/mysql"
 	"gorm.io/gorm"
 
+	aiagentpersistence "smart-recruit-ai-agent-service/internal/infrastructure/persistence"
 	aiagentgrpc "smart-recruit-ai-agent-service/internal/interfaces/grpc"
-	"smart-recruit-ai-agent-service/internal/legacydomain/ai"
-	"smart-recruit-ai-agent-service/internal/legacydomain/repository"
-	"smart-recruit-ai-agent-service/internal/legacydomain/service"
 	aiagentruntime "smart-recruit-ai-agent-service/internal/runtime"
 	"smart-recruit-commons/mq"
 	platformconfig "smart-recruit-platform-go/config"
@@ -149,14 +147,15 @@ func serveAIAgent(addr string) error {
 	}
 	defer server.ShutdownMetricsServer(context.Background(), metricsServer)
 
-	services := buildDomainServices(cfg, db, redisClient, mqConn)
-	aiRuntime := services.AIAgentRuntime
-	runtime, err := aiagentruntime.New(depsFromAIAgentRuntime(aiRuntime))
+	nativeStore := aiagentpersistence.NewNativeStore(db)
+	runtime, err := aiagentruntime.New(aiagentgrpc.NewNativeRuntimeDeps(aiagentgrpc.RuntimeDeps{
+		Store:           nativeStore,
+		EmbeddingWorker: true,
+		AgentRunWorker:  true,
+		RuntimeName:     cfg.AI.AgentRuntime,
+	}))
 	if err != nil {
 		return err
-	}
-	if runtimeErrors := aiRuntime.Start(context.Background(), mqConn); len(runtimeErrors) > 0 {
-		return fmt.Errorf("start ai agent runtime: %s: %w", runtimeErrors[0].Component, runtimeErrors[0].Err)
 	}
 
 	listener, err := net.Listen("tcp", addr)
@@ -205,102 +204,6 @@ func serveAIAgent(addr string) error {
 		return fmt.Errorf("grpc serve: %w", err)
 	}
 	return nil
-}
-
-func depsFromAIAgentRuntime(runtime *service.AIAgentRuntime) aiagentruntime.Deps {
-	embeddingConfig := pb.EmbeddingConfigServiceServer(unavailableEmbeddingConfigService{})
-	if runtime.EmbeddingConfig != nil {
-		embeddingConfig = runtime.EmbeddingConfig
-	}
-	llmConfig := pb.LlmConfigServiceServer(unavailableLlmConfigService{})
-	if runtime.LlmConfig != nil {
-		llmConfig = runtime.LlmConfig
-	}
-	return aiagentruntime.Deps{
-		AI:                     aiagentgrpc.NewLegacyAIService(runtime.AI, runtime.CandidateAI),
-		LlmConfig:              llmConfig,
-		Prompt:                 runtime.Prompt,
-		AgentConfig:            runtime.AgentConfig,
-		MCP:                    runtime.MCP,
-		Skill:                  runtime.Skill,
-		AgentSkill:             runtime.AgentSkill,
-		RecruitingIntelligence: aiagentgrpc.NewLegacyRecruitingIntelligenceService(runtime.Intelligence),
-		EmbeddingConfig:        embeddingConfig,
-		LongTasks: aiagentruntime.LongTaskControls{
-			RabbitMQRequired: true,
-			EmbeddingWorker:  runtime.EmbeddingConsumer != nil,
-			AgentRunWorker:   runtime.AgentRunConsumer != nil,
-			RuntimeName:      runtime.RuntimeName,
-		},
-	}
-}
-
-func buildDomainServices(cfg logicconfig.Config, db *gorm.DB, redisClient *redis.Client, mqConn *mq.Conn) *service.Services {
-	authzRepo := repository.NewAuthzRepo(db)
-	aiClient := buildAIClient(cfg)
-	return service.NewServices(
-		redisClient,
-		db,
-		repository.NewUserRepo(db),
-		repository.NewRefreshTokenRepo(db),
-		repository.NewJobRepo(db),
-		repository.NewProfileRepo(db),
-		repository.NewResumeRepo(db),
-		repository.NewApplicationRepo(db),
-		repository.NewInterviewRepo(db),
-		repository.NewOfferRepo(db),
-		repository.NewChatRepo(db),
-		repository.NewSessionSummaryRepo(db),
-		repository.NewToolTraceRepo(db),
-		repository.NewAgentRunRepo(db),
-		repository.NewMemoryRepo(db),
-		repository.NewNotificationRepo(db),
-		repository.NewOutboxRepo(db),
-		repository.NewInviteCodeRepo(db),
-		repository.NewDepartmentRepo(db),
-		repository.NewJobLocationRepo(db),
-		repository.NewDepartmentLocationRepo(db),
-		repository.NewUsageLogRepo(db),
-		authzRepo,
-		repository.NewEmailLogRepo(db),
-		nil,
-		nil,
-		nil,
-		aiClient,
-		mqConn,
-		cfg,
-		cfg.JWT.Secret,
-		nil,
-		nil,
-	)
-}
-
-func buildAIClient(cfg logicconfig.Config) *ai.Client {
-	if strings.TrimSpace(cfg.AI.APIKey) == "" {
-		logger.L().Warn("ai client not configured: AI_API_KEY is empty")
-		return nil
-	}
-	client, err := ai.NewClientFromConfig(context.Background(), ai.ClientConfig{
-		APIKey:                  cfg.AI.APIKey,
-		Model:                   cfg.AI.Model,
-		BaseURL:                 cfg.AI.BaseURL,
-		Timeout:                 cfg.AI.Timeout.Duration,
-		TotalTimeout:            cfg.AI.TotalTimeout.Duration,
-		ToolMaxRounds:           cfg.AI.ToolMaxRounds,
-		ToolTotalTimeout:        cfg.AI.ToolTotalTimeout.Duration,
-		MaxConcurrency:          cfg.AI.MaxConcurrency,
-		CircuitFailureThreshold: cfg.AI.CircuitFailureThreshold,
-		CircuitOpenTimeout:      cfg.AI.CircuitOpenTimeout.Duration,
-		HalfOpenMaxRequests:     cfg.AI.CircuitHalfOpenMaxRequests,
-		RetryMaxAttempts:        cfg.AI.RetryMaxAttempts,
-		RetryBaseDelay:          cfg.AI.RetryBaseDelay.Duration,
-		SlowResponseThreshold:   cfg.AI.SlowResponseThreshold.Duration,
-	})
-	if err != nil {
-		logger.L().Warn("ai client init failed", zap.Error(err))
-		return nil
-	}
-	return client
 }
 
 func loadBootstrap(addr string) (platformconfig.Bootstrap, error) {

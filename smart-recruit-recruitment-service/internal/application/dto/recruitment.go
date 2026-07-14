@@ -31,6 +31,28 @@ type StatusChangeResult struct {
 	IsRePass   bool
 }
 
+type ApplicationSnapshot struct {
+	ApplicationID   int64
+	CandidateUserID int64
+	JobID           int64
+	JobTitle        string
+	CandidateName   string
+	ResumeID        int64
+	LegacyStatus    int32
+	StatusKey       string
+	RoundNo         int32
+	IsCurrent       bool
+	JobHRID         int64
+	DepartmentID    *int64
+	LocationID      *int64
+}
+
+type ApplicationLifecycleTransitionResult struct {
+	Changed          bool
+	FromStatusKey    string
+	CurrentStatusKey string
+}
+
 type CreateNoteResult struct {
 	Note model.CandidateNote
 }

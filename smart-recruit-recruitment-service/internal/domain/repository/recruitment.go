@@ -73,6 +73,7 @@ type ApplicationRepository interface {
 	CreateNewRound(ctx context.Context, application *model.Application, afterCreate func(applicationID int64) error) error
 	GetDetail(ctx context.Context, applicationID int64) (*model.ApplicationDetail, error)
 	UpdateStatus(ctx context.Context, applicationID int64, currentKey, targetKey string, legacyStatus int32, actorUserID int64, scope JobScope, isRePass bool, reason string, afterUpdate func(rows int64) error) (int64, error)
+	CloseCurrentRound(ctx context.Context, applicationID int64) error
 	ListTransitions(ctx context.Context, applicationID int64) ([]model.ApplicationStatusTransition, error)
 }
 

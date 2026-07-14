@@ -1,0 +1,327 @@
+{
+  "schemaVersion": 1,
+  "feature_name": "legacydomain-retirement",
+  "task_id": "TASK-007",
+  "base_sha": "b0c34ce746bcd494d63718aa3ab664b9c6d1edb9",
+  "base_tree": "a25ef872cc53b54b93a8d1394b7443859fa5a4a1",
+  "head_sha": "b0c34ce746bcd494d63718aa3ab664b9c6d1edb9",
+  "changed_files": [
+    ".knowledge/architecture/agent-runtime.md",
+    ".knowledge/architecture/semantic-retrieval.md",
+    ".knowledge/architecture/service-boundaries.md",
+    ".knowledge/domains/agent-skill.md",
+    ".knowledge/domains/ai-configuration-governance.md",
+    ".knowledge/domains/mcp-tool-governance.md",
+    ".knowledge/domains/memory-and-context.md",
+    ".knowledge/domains/resume-intelligence.md",
+    ".knowledge/pitfalls/embedding-fallback.md",
+    ".knowledge/pitfalls/mcp-policy-audit.md",
+    ".knowledge/pitfalls/resume-sensitive-data.md",
+    ".knowledge/runbooks/debug-agent-retrieval.md",
+    ".knowledge/runbooks/debug-ai-configuration.md",
+    ".knowledge/runbooks/debug-resume-intelligence.md",
+    ".spec/legacydomain-retirement/pipeline-state.json",
+    ".spec/legacydomain-retirement/reports/TASK-007-evidence.json",
+    ".spec/legacydomain-retirement/reports/TASK-007-report.md",
+    "smart-recruit-ai-agent-service/cmd/ai-agent-service/main.go",
+    "smart-recruit-ai-agent-service/internal/infrastructure/persistence/native_store.go",
+    "smart-recruit-ai-agent-service/internal/interfaces/grpc/legacy_servers.go",
+    "smart-recruit-ai-agent-service/internal/interfaces/grpc/native_servers.go"
+  ],
+  "scope": {
+    "status": "passed",
+    "checked_by": "bash .spec/legacydomain-retirement/scripts/check-task-scope.sh TASK-007",
+    "out_of_scope": [],
+    "forbidden": [],
+    "notes": [
+      "TASK-007 scope allows smart-recruit-ai-agent-service/**, .knowledge/**, and TASK report/evidence files.",
+      "AI Agent internal/legacydomain remains present and is intentionally deferred to TASK-008."
+    ]
+  },
+  "checks": [
+    {
+      "command": "go test ./...",
+      "working_dir": "smart-recruit-ai-agent-service",
+      "exit_code": 0,
+      "started_at": "2026-07-14T04:02:00Z",
+      "duration_ms": 3315,
+      "status": "passed",
+      "summary": "AI Agent command, application, domain, infrastructure, interfaces, legacy-isolated packages, and runtime tests passed."
+    },
+    {
+      "command": "node scripts/check-backend-boundaries.mjs",
+      "exit_code": 0,
+      "started_at": "2026-07-14T04:03:00Z",
+      "duration_ms": 150,
+      "status": "passed",
+      "summary": "backend_boundary_result: PASS; legacydomain_retirement_staging warns only about AI Agent legacy root with 0 import sites."
+    },
+    {
+      "command": "node scripts/check-mysql-table-ownership.mjs",
+      "exit_code": 0,
+      "started_at": "2026-07-14T04:03:00Z",
+      "duration_ms": 1,
+      "status": "passed",
+      "summary": "mysql_table_ownership: PASS (67 tables, single MySQL instance)."
+    },
+    {
+      "command": "node .knowledge/scripts/validate-knowledge.mjs --root .",
+      "exit_code": 0,
+      "started_at": "2026-07-14T04:03:00Z",
+      "duration_ms": 57,
+      "status": "passed",
+      "summary": "knowledge_result: PASS (37 formal documents)."
+    },
+    {
+      "command": "node .knowledge/scripts/check-references.mjs --root .",
+      "exit_code": 0,
+      "started_at": "2026-07-14T04:03:00Z",
+      "duration_ms": 57,
+      "status": "passed",
+      "summary": "reference_result: PASS."
+    },
+    {
+      "command": "node .knowledge/scripts/detect-impact.mjs --root . --base-tree a25ef872cc53b54b93a8d1394b7443859fa5a4a1",
+      "exit_code": 0,
+      "started_at": "2026-07-14T04:02:00Z",
+      "duration_ms": 1002,
+      "status": "passed",
+      "summary": "impact_result: update_required; matched_routes: 7; coverage gaps: none."
+    },
+    {
+      "command": "bash .spec/legacydomain-retirement/scripts/check-task-scope.sh TASK-007",
+      "exit_code": 0,
+      "started_at": "2026-07-14T04:04:00Z",
+      "duration_ms": 30000,
+      "status": "passed",
+      "summary": "Scope check passed for TASK-007. Changed files: 19."
+    },
+    {
+      "command": "bash .spec/legacydomain-retirement/scripts/agent-check.sh",
+      "exit_code": 0,
+      "started_at": "2026-07-14T04:04:00Z",
+      "duration_ms": 30000,
+      "status": "passed",
+      "summary": "Harness JSON validation, knowledge validation, reference check, backend boundary, MySQL ownership, and relevant Go module tests passed."
+    },
+    {
+      "command": "rg \"legacydomain\" smart-recruit-ai-agent-service -g'*.go' -g'!**/internal/legacydomain/**' -n || true",
+      "exit_code": 0,
+      "started_at": "2026-07-14T04:03:00Z",
+      "duration_ms": 1,
+      "status": "passed",
+      "summary": "No active AI Agent Go files outside internal/legacydomain reference legacydomain."
+    }
+  ],
+  "review": {
+    "type": "self-review",
+    "round": 1,
+    "verdict": "通过",
+    "findings": [
+      {
+        "severity": "Low",
+        "summary": "Native config/MCP/skill/embedding surfaces are registered with conservative empty/unavailable responses for several write-heavy admin methods; deeper parity can be hardened after TASK-008 removes the legacy directory."
+      }
+    ]
+  },
+  "human_confirmation": {
+    "required": false,
+    "confirmed": true,
+    "confirmed_by": "not_required",
+    "confirmed_at": "2026-07-14T03:34:19Z",
+    "confirmation_text": "TASK-007 does not require human confirmation. User confirmed the pipeline can continue without routine human gates unless blocked."
+  },
+  "exceptions": [],
+  "knowledgeImpact": {
+    "result": "update_required",
+    "triggeredBy": [
+      "authorization-changed",
+      "configuration-changed",
+      "covered-path-changed",
+      "fallback-behavior-changed",
+      "memory-behavior-changed",
+      "retrieval-behavior-changed",
+      "sensitive-data-flow-changed",
+      "service-boundary-changed"
+    ],
+    "reviewResults": [
+      {
+        "document": "agent-runtime",
+        "path": ".knowledge/architecture/agent-runtime.md",
+        "verdict": "UPDATED",
+        "evidence": [
+          "Updated AI Agent runtime source_refs and summary to native runtime/gRPC/persistence/provider paths."
+        ]
+      },
+      {
+        "document": "semantic-retrieval",
+        "path": ".knowledge/architecture/semantic-retrieval.md",
+        "verdict": "UPDATED",
+        "evidence": [
+          "Updated semantic retrieval source_refs away from AI Agent legacy paths."
+        ]
+      },
+      {
+        "document": "service-boundaries",
+        "path": ".knowledge/architecture/service-boundaries.md",
+        "verdict": "UPDATED",
+        "evidence": [
+          "Documented AI Agent active runtime cutover to native gRPC and persistence adapters."
+        ]
+      },
+      {
+        "document": "agent-skill",
+        "path": ".knowledge/domains/agent-skill.md",
+        "verdict": "UPDATED",
+        "evidence": [
+          "Updated Agent Skill paths to application/domain/persistence native files."
+        ]
+      },
+      {
+        "document": "ai-configuration-governance",
+        "path": ".knowledge/domains/ai-configuration-governance.md",
+        "verdict": "UPDATED",
+        "evidence": [
+          "Updated AI configuration governance source_refs to native gRPC/application/runtime paths."
+        ]
+      },
+      {
+        "document": "mcp-tool-governance",
+        "path": ".knowledge/domains/mcp-tool-governance.md",
+        "verdict": "UPDATED",
+        "evidence": [
+          "Updated MCP governance references to native gRPC/domain/mcp paths."
+        ]
+      },
+      {
+        "document": "memory-and-context",
+        "path": ".knowledge/domains/memory-and-context.md",
+        "verdict": "UPDATED",
+        "evidence": [
+          "Updated context/memory source_refs to native gRPC and persistence paths."
+        ]
+      },
+      {
+        "document": "resume-intelligence",
+        "path": ".knowledge/domains/resume-intelligence.md",
+        "verdict": "UPDATED",
+        "evidence": [
+          "Updated resume intelligence AI Agent references to native gRPC/capability/provider paths."
+        ]
+      },
+      {
+        "document": "embedding-fallback",
+        "path": ".knowledge/pitfalls/embedding-fallback.md",
+        "verdict": "UPDATED",
+        "evidence": [
+          "Updated embedding fallback references to native capability/provider paths."
+        ]
+      },
+      {
+        "document": "mcp-policy-audit",
+        "path": ".knowledge/pitfalls/mcp-policy-audit.md",
+        "verdict": "UPDATED",
+        "evidence": [
+          "Updated MCP audit references to native gRPC/domain/mcp paths."
+        ]
+      },
+      {
+        "document": "resume-sensitive-data",
+        "path": ".knowledge/pitfalls/resume-sensitive-data.md",
+        "verdict": "UPDATED",
+        "evidence": [
+          "Updated sensitive resume data source_refs to native AI Agent paths."
+        ]
+      },
+      {
+        "document": "debug-agent-retrieval",
+        "path": ".knowledge/runbooks/debug-agent-retrieval.md",
+        "verdict": "UPDATED",
+        "evidence": [
+          "Updated debug retrieval route/source references away from legacy paths."
+        ]
+      },
+      {
+        "document": "debug-ai-configuration",
+        "path": ".knowledge/runbooks/debug-ai-configuration.md",
+        "verdict": "UPDATED",
+        "evidence": [
+          "Updated debug AI configuration references to native gRPC/application/runtime paths."
+        ]
+      },
+      {
+        "document": "debug-resume-intelligence",
+        "path": ".knowledge/runbooks/debug-resume-intelligence.md",
+        "verdict": "UPDATED",
+        "evidence": [
+          "Updated debug resume intelligence references to native AI Agent paths."
+        ]
+      },
+      {
+        "document": "api-contracts-and-gateway",
+        "verdict": "UNCHANGED",
+        "evidence": [
+          "Reviewed due route match; TASK-007 did not change gateway or public proto contracts."
+        ]
+      },
+      {
+        "document": "knowledge-coverage-audit",
+        "verdict": "UNCHANGED",
+        "evidence": [
+          "Reviewed due knowledge update route; no new coverage route required."
+        ]
+      },
+      {
+        "document": "local-development",
+        "verdict": "UNCHANGED",
+        "evidence": [
+          "Reviewed service binary route; --check/--serve behavior remains compatible."
+        ]
+      },
+      {
+        "document": "migration-model-drift",
+        "verdict": "UNCHANGED",
+        "evidence": [
+          "Reviewed persistence change; TASK-007 does not edit schema or migrations."
+        ]
+      },
+      {
+        "document": "persistence-and-migrations",
+        "verdict": "UNCHANGED",
+        "evidence": [
+          "Reviewed persistence route; no schema or migration change introduced."
+        ]
+      },
+      {
+        "document": "protobuf-and-migration-change",
+        "verdict": "UNCHANGED",
+        "evidence": [
+          "Reviewed because route matched existing feature state; TASK-007 does not alter protobuf or migrations."
+        ]
+      },
+      {
+        "document": "protobuf-synchronization",
+        "verdict": "UNCHANGED",
+        "evidence": [
+          "Reviewed protobuf route; no generated contract change introduced in TASK-007."
+        ]
+      },
+      {
+        "document": "service-binary-convention",
+        "verdict": "UNCHANGED",
+        "evidence": [
+          "Reviewed AI Agent cmd change; binary flags remain --check and --serve."
+        ]
+      },
+      {
+        "document": "system-overview",
+        "verdict": "UNCHANGED",
+        "evidence": [
+          "Reviewed high-level overview; service list and ownership remain unchanged."
+        ]
+      }
+    ],
+    "coverageGap": false,
+    "validationExitCode": 0
+  }
+}

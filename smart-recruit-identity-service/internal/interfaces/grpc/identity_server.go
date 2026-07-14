@@ -3,11 +3,13 @@ package grpc
 import (
 	"context"
 	"errors"
+	"strings"
 	"time"
 
 	"smart-recruit-identity-service/internal/application/command"
 	"smart-recruit-identity-service/internal/application/query"
 	appservice "smart-recruit-identity-service/internal/application/service"
+	securitymodel "smart-recruit-identity-service/internal/domain/model"
 	"smart-recruit-identity-service/internal/domain/policy"
 	"smart-recruit-platform-go/errs"
 	"smart-recruit-proto/recruitment/pb"
@@ -142,6 +144,64 @@ func (s *Server) GetPrincipal(ctx context.Context, req *pb.GetPrincipalRequest) 
 		}
 		return nil, err
 	}
+	return principalResponse(principal), nil
+}
+
+func (s *Server) AuthorizeInternal(ctx context.Context, req *pb.AuthorizeInternalRequest) (*pb.AuthorizeInternalResponse, error) {
+	principal, err := s.auth.GetPrincipal(ctx, query.GetPrincipal{UserID: req.ActorUserId})
+	if err != nil {
+		if errors.Is(err, appservice.ErrAuthzRepoUnavailable) {
+			return &pb.AuthorizeInternalResponse{Code: errs.ErrInternal, Msg: "authz repo not configured", Allowed: false, Reason: "authz repo not configured"}, nil
+		}
+		return nil, err
+	}
+	resp := &pb.AuthorizeInternalResponse{
+		Code:      errs.OK,
+		Msg:       "success",
+		Allowed:   true,
+		Principal: principalResponse(principal),
+	}
+	if principal == nil {
+		resp.Allowed = false
+		resp.Reason = "principal not found"
+	} else if req.PermissionKey != "" && !principal.HasPermission(req.PermissionKey) {
+		resp.Allowed = false
+		resp.Reason = "permission denied"
+	} else if req.RequiredScopeKey != "" {
+		matched := matchingScopes(principal, req.RequiredScopeKey, req.ResourceType, req.ResourceId)
+		if len(matched) == 0 {
+			resp.Allowed = false
+			resp.Reason = "scope denied"
+		}
+		resp.MatchedScopes = matched
+	}
+	if resp.Allowed {
+		resp.Reason = "allowed"
+	}
+	decision := "deny"
+	if resp.Allowed {
+		decision = "allow"
+	}
+	if err := s.auth.RecordAuthDecision(ctx, command.RecordAuthDecision{
+		ActorUserID:   uint64(req.ActorUserId),
+		ActorRoles:    strings.Join(resp.Principal.GetRoles(), ","),
+		PermissionKey: req.PermissionKey,
+		ResourceType:  req.ResourceType,
+		ResourceID:    uint64(req.ResourceId),
+		Decision:      decision,
+		Reason:        resp.Reason,
+		RequestID:     req.RequestId,
+		ClientIP:      req.ClientIp,
+	}); err != nil {
+		return nil, err
+	}
+	return resp, nil
+}
+
+func principalResponse(principal *securitymodel.Principal) *pb.GetPrincipalResponse {
+	if principal == nil {
+		return &pb.GetPrincipalResponse{Code: errs.ErrBadRequest, Msg: "principal not found"}
+	}
 	scopes := make([]*pb.ScopeAssignment, 0, len(principal.DataScopes))
 	for _, scope := range principal.DataScopes {
 		scopes = append(scopes, &pb.ScopeAssignment{
@@ -162,7 +222,31 @@ func (s *Server) GetPrincipal(ctx context.Context, req *pb.GetPrincipalRequest) 
 		TokenVersion: principal.TokenVersion,
 		DataScopes:   scopes,
 		Email:        principal.Email,
-	}, nil
+	}
+}
+
+func matchingScopes(principal *securitymodel.Principal, requiredScopeKey, resourceType string, resourceID int64) []*pb.ScopeAssignment {
+	if principal == nil {
+		return nil
+	}
+	matches := make([]*pb.ScopeAssignment, 0, len(principal.DataScopes))
+	for _, scope := range principal.DataScopes {
+		if scope.ScopeKey != requiredScopeKey && scope.ScopeKey != securitymodel.ScopeRecruitingAll && scope.ScopeKey != securitymodel.ScopeSystemAll {
+			continue
+		}
+		if resourceType != "" && scope.ResourceType != "" && scope.ResourceType != resourceType {
+			continue
+		}
+		if resourceID > 0 && scope.ResourceID > 0 && scope.ResourceID != resourceID {
+			continue
+		}
+		matches = append(matches, &pb.ScopeAssignment{
+			ScopeKey:     scope.ScopeKey,
+			ResourceType: scope.ResourceType,
+			ResourceId:   scope.ResourceID,
+		})
+	}
+	return matches
 }
 
 func (s *Server) UpdateEmail(ctx context.Context, req *pb.UpdateEmailRequest) (*pb.CommonResponse, error) {
@@ -390,6 +474,7 @@ var (
 		RevokeRefreshToken(context.Context, *pb.RevokeRefreshTokenRequest) (*pb.CommonResponse, error)
 		RecordAuthDecision(context.Context, *pb.AuthAuditRequest) (*pb.CommonResponse, error)
 		GetPrincipal(context.Context, *pb.GetPrincipalRequest) (*pb.GetPrincipalResponse, error)
+		AuthorizeInternal(context.Context, *pb.AuthorizeInternalRequest) (*pb.AuthorizeInternalResponse, error)
 		UpdateEmail(context.Context, *pb.UpdateEmailRequest) (*pb.CommonResponse, error)
 	} = (*Server)(nil)
 

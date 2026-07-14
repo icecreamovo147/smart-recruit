@@ -1,0 +1,169 @@
+{
+  "schemaVersion": 1,
+  "feature_name": "legacydomain-retirement",
+  "task_id": "TASK-001",
+  "base_sha": "b0c34ce746bcd494d63718aa3ab664b9c6d1edb9",
+  "base_tree": "12c2bd09f93e39778fe3782fb9c7a2a63554319e",
+  "head_sha": "b0c34ce746bcd494d63718aa3ab664b9c6d1edb9",
+  "changed_files": [
+    ".knowledge/architecture/service-boundaries.md",
+    ".spec/legacydomain-retirement/AGENT_RULES.md",
+    ".spec/legacydomain-retirement/TASKS.md",
+    ".spec/legacydomain-retirement/acceptance/TASK-001.md",
+    ".spec/legacydomain-retirement/acceptance/TASK-002.md",
+    ".spec/legacydomain-retirement/acceptance/TASK-003.md",
+    ".spec/legacydomain-retirement/acceptance/TASK-004.md",
+    ".spec/legacydomain-retirement/acceptance/TASK-005.md",
+    ".spec/legacydomain-retirement/acceptance/TASK-006.md",
+    ".spec/legacydomain-retirement/acceptance/TASK-007.md",
+    ".spec/legacydomain-retirement/acceptance/TASK-008.md",
+    ".spec/legacydomain-retirement/acceptance/TASK-009.md",
+    ".spec/legacydomain-retirement/docs/.gitkeep",
+    ".spec/legacydomain-retirement/docs/legacydomain-baseline.md",
+    ".spec/legacydomain-retirement/legacydomain-retirement-SDD.md",
+    ".spec/legacydomain-retirement/legacydomain-retirement-SPEC.md",
+    ".spec/legacydomain-retirement/pipeline-state.json",
+    ".spec/legacydomain-retirement/prompts/fix-check-failures.md",
+    ".spec/legacydomain-retirement/prompts/implement-task.md",
+    ".spec/legacydomain-retirement/prompts/self-review.md",
+    ".spec/legacydomain-retirement/reports/.gitkeep",
+    ".spec/legacydomain-retirement/reports/TASK-001-evidence.json",
+    ".spec/legacydomain-retirement/reports/TASK-001-report.md",
+    ".spec/legacydomain-retirement/scripts/agent-check.sh",
+    ".spec/legacydomain-retirement/scripts/check-task-scope.sh",
+    ".spec/legacydomain-retirement/task-scope.json",
+    "scripts/check-backend-boundaries.mjs"
+  ],
+  "scope": {
+    "status": "passed",
+    "checked_by": "bash .spec/legacydomain-retirement/scripts/check-task-scope.sh TASK-001",
+    "out_of_scope": [],
+    "forbidden": []
+  },
+  "checks": [
+    {
+      "command": "git diff --name-only",
+      "exit_code": 0,
+      "started_at": "2026-07-14T02:06:09Z",
+      "duration_ms": 20,
+      "status": "passed",
+      "summary": "Tracked diff plus untracked feature files are reflected in changed_files."
+    },
+    {
+      "command": "bash .spec/legacydomain-retirement/scripts/check-task-scope.sh TASK-001",
+      "exit_code": 0,
+      "started_at": "2026-07-14T02:06:09Z",
+      "duration_ms": 120,
+      "status": "passed",
+      "summary": "Scope check passed for TASK-001. Changed files: 27"
+    },
+    {
+      "command": "bash .spec/legacydomain-retirement/scripts/agent-check.sh",
+      "exit_code": 0,
+      "started_at": "2026-07-14T02:06:09Z",
+      "duration_ms": 491,
+      "status": "passed",
+      "summary": "Harness, knowledge validation, reference check, backend boundary check, and MySQL ownership check passed. No Go module changes detected."
+    },
+    {
+      "command": "node .knowledge/scripts/detect-impact.mjs --root . --base-tree 12c2bd09f93e39778fe3782fb9c7a2a63554319e",
+      "exit_code": 0,
+      "started_at": "2026-07-14T02:06:09Z",
+      "duration_ms": 828,
+      "status": "passed",
+      "summary": "impact_result: update_required"
+    },
+    {
+      "command": "node .agents/skills/spec-harness/scripts/validate-feature.mjs --feature .spec/legacydomain-retirement",
+      "exit_code": 0,
+      "started_at": "2026-07-14T02:06:09Z",
+      "duration_ms": 20,
+      "status": "passed",
+      "summary": "feature: legacydomain-retirement; classification: current"
+    },
+    {
+      "command": "node .agents/skills/spec-harness/scripts/validate-evidence.mjs --file .spec/legacydomain-retirement/reports/TASK-001-evidence.json --allow-pending-review",
+      "exit_code": 0,
+      "started_at": "2026-07-14T02:11:38Z",
+      "duration_ms": 140,
+      "status": "passed",
+      "summary": "Evidence schema passed before final self-review verdict was recorded."
+    }
+  ],
+  "review": {
+    "type": "self-review",
+    "round": 1,
+    "verdict": "通过",
+    "findings": [
+      {
+        "severity": "Medium",
+        "summary": "Initial evidence used non-canonical field names and failed validate-evidence; repaired before completion."
+      }
+    ]
+  },
+  "human_confirmation": {
+    "required": false,
+    "confirmed": true,
+    "confirmed_by": "not_required",
+    "confirmed_at": "2026-07-14T02:06:09Z",
+    "confirmation_text": "TASK-001 does not require human confirmation."
+  },
+  "exceptions": [],
+  "knowledgeImpact": {
+    "result": "update_required",
+    "triggeredBy": [
+      ".spec/legacydomain-retirement/**",
+      ".knowledge/architecture/service-boundaries.md"
+    ],
+    "reviewResults": [
+      {
+        "document": "service-boundaries",
+        "path": ".knowledge/architecture/service-boundaries.md",
+        "verdict": "UPDATED",
+        "evidence": [
+          "Updated text now points to .spec/legacydomain-retirement as the active retirement control plane for service-local legacydomain debt."
+        ]
+      },
+      {
+        "document": "system-overview",
+        "path": ".knowledge/architecture/system-overview.md",
+        "verdict": "UNCHANGED",
+        "evidence": [
+          "Reviewed because spec/harness paths route to system overview; existing high-level service topology remains correct for TASK-001."
+        ]
+      },
+      {
+        "document": "local-development",
+        "path": ".knowledge/runbooks/local-development.md",
+        "verdict": "UNCHANGED",
+        "evidence": [
+          "Reviewed because spec/harness paths route to local development; TASK-001 did not change startup or validation commands outside the new feature harness."
+        ]
+      },
+      {
+        "document": "knowledge-coverage-audit",
+        "path": ".knowledge/runbooks/knowledge-coverage-audit.md",
+        "verdict": "UNCHANGED",
+        "evidence": [
+          "Reviewed because .knowledge changes route to coverage audit; TASK-001 kept routing broad and recorded future AI-specific updates in task scope."
+        ]
+      }
+    ],
+    "updatePaths": [
+      ".knowledge/architecture/service-boundaries.md"
+    ],
+    "coverageGap": false,
+    "validationExitCode": 0,
+    "evidence": [
+      "impact_result: update_required",
+      "knowledge_result: PASS (37 formal documents)",
+      "reference_result: PASS"
+    ]
+  },
+  "skipped_checks": [
+    {
+      "check": "go test ./...",
+      "reason": "No Go module changes detected by agent-check.sh."
+    }
+  ]
+}

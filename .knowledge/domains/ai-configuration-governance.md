@@ -20,10 +20,8 @@ source_refs:
   - smart-recruit-ai-agent-service/internal/domain/model/agent.go
   - smart-recruit-ai-agent-service/internal/domain/policy/agent.go
   - smart-recruit-ai-agent-service/internal/domain/policy/capability.go
-  - smart-recruit-ai-agent-service/internal/legacydomain/service/llm_config_service.go
-  - smart-recruit-ai-agent-service/internal/legacydomain/service/embedding_config_service.go
-  - smart-recruit-ai-agent-service/internal/legacydomain/service/prompt_service.go
-  - smart-recruit-ai-agent-service/internal/legacydomain/service/agent_service.go
+  - smart-recruit-ai-agent-service/internal/interfaces/grpc/native_servers.go
+  - smart-recruit-ai-agent-service/internal/application/service/agent_service.go
   - smart-recruit-gateway/handler/hr/llm_config.go
   - smart-recruit-gateway/handler/hr/embedding_config.go
   - smart-recruit-gateway/handler/hr/prompt.go

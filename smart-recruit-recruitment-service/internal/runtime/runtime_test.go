@@ -12,14 +12,15 @@ import (
 
 func TestRuntimeRegistersRecruitmentGRPCServices(t *testing.T) {
 	runtime, err := New(Deps{
-		Job:           fakeJobAPI{},
-		JobTaxonomy:   fakeJobTaxonomyAPI{},
-		TaxonomyAdmin: fakeTaxonomyAdminAPI{},
-		Admin:         fakeRecruitmentAdminAPI{},
-		UsageStats:    fakeUsageStatsAPI{},
-		Candidate:     fakeCandidateAPI{},
-		Application:   fakeApplicationAPI{},
-		Collaboration: fakeCollaborationService{},
+		Job:                      fakeJobAPI{},
+		JobTaxonomy:              fakeJobTaxonomyAPI{},
+		TaxonomyAdmin:            fakeTaxonomyAdminAPI{},
+		Admin:                    fakeRecruitmentAdminAPI{},
+		UsageStats:               fakeUsageStatsAPI{},
+		Candidate:                fakeCandidateAPI{},
+		Application:              fakeApplicationAPI{},
+		ApplicationOwnerContract: fakeApplicationOwnerContractAPI{},
+		Collaboration:            fakeCollaborationService{},
 	})
 	if err != nil {
 		t.Fatalf("New returned error: %v", err)
@@ -35,11 +36,16 @@ func TestRuntimeRegistersRecruitmentGRPCServices(t *testing.T) {
 		pb.AdminService_ServiceDesc.ServiceName,
 		pb.CandidateService_ServiceDesc.ServiceName,
 		pb.ApplicationService_ServiceDesc.ServiceName,
+		pb.ApplicationOwnerService_ServiceDesc.ServiceName,
 		pb.CollaborationService_ServiceDesc.ServiceName,
 	} {
 		if _, ok := services[serviceName]; !ok {
 			t.Fatalf("missing registered service %s", serviceName)
 		}
+	}
+	snapshot, err := runtime.ApplicationOwner.GetApplicationSnapshot(context.Background(), &pb.GetApplicationSnapshotRequest{ApplicationId: 7001})
+	if err != nil || snapshot.Code != errs.OK || snapshot.ApplicationId != 7001 {
+		t.Fatalf("GetApplicationSnapshot() = %+v, %v", snapshot, err)
 	}
 }
 
@@ -225,6 +231,16 @@ func (fakeApplicationAPI) UpdateApplicationStatus(context.Context, *pb.UpdateApp
 
 func (fakeApplicationAPI) ListApplicationStatusTransitions(context.Context, *pb.ListApplicationStatusTransitionsRequest) (*pb.ListApplicationStatusTransitionsResponse, error) {
 	return &pb.ListApplicationStatusTransitionsResponse{Code: errs.OK}, nil
+}
+
+type fakeApplicationOwnerContractAPI struct{}
+
+func (fakeApplicationOwnerContractAPI) GetApplicationSnapshot(context.Context, *pb.GetApplicationSnapshotRequest) (*pb.GetApplicationSnapshotResponse, error) {
+	return &pb.GetApplicationSnapshotResponse{Code: errs.OK, ApplicationId: 7001}, nil
+}
+
+func (fakeApplicationOwnerContractAPI) ApplyApplicationLifecycleTransition(context.Context, *pb.ApplyApplicationLifecycleTransitionRequest) (*pb.ApplyApplicationLifecycleTransitionResponse, error) {
+	return &pb.ApplyApplicationLifecycleTransitionResponse{Code: errs.OK, Changed: true}, nil
 }
 
 type fakeCollaborationService struct {

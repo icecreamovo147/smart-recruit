@@ -6,18 +6,18 @@ import (
 
 	sharedauthz "smart-recruit-commons/pkg/authz"
 	"smart-recruit-offer-service/internal/application/port"
-	sharedrepo "smart-recruit-offer-service/internal/legacydomain/repository"
+	"smart-recruit-platform-go/errs"
 	"smart-recruit-platform-go/metadata"
+	"smart-recruit-proto/recruitment/pb"
 )
 
 type Authorizer struct {
-	authz        *sharedrepo.AuthzRepo
-	applications *sharedrepo.ApplicationRepo
-	jobs         *sharedrepo.JobRepo
+	auth         pb.AuthServiceClient
+	applications port.ApplicationSnapshotReader
 }
 
-func NewAuthorizer(authz *sharedrepo.AuthzRepo, applications *sharedrepo.ApplicationRepo, jobs *sharedrepo.JobRepo) *Authorizer {
-	return &Authorizer{authz: authz, applications: applications, jobs: jobs}
+func NewAuthorizer(auth pb.AuthServiceClient, applications port.ApplicationSnapshotReader) *Authorizer {
+	return &Authorizer{auth: auth, applications: applications}
 }
 
 func (a *Authorizer) VerifyActor(ctx context.Context, actorID int64) error {
@@ -32,19 +32,20 @@ func (a *Authorizer) VerifyActor(ctx context.Context, actorID int64) error {
 }
 
 func (a *Authorizer) Authorize(ctx context.Context, actorID int64, permission port.Permission) error {
-	if a.authz == nil {
-		return nil
-	}
-	perms, err := a.authz.GetUserPermissions(ctx, uint64(actorID))
+	resp, err := a.auth.AuthorizeInternal(ctx, &pb.AuthorizeInternalRequest{
+		ActorUserId:   actorID,
+		PermissionKey: string(permission),
+	})
 	if err != nil {
-		return fmt.Errorf("permission lookup failed: %w", err)
+		return err
 	}
-	for _, perm := range perms {
-		if perm == string(permission) {
-			return nil
-		}
+	if resp.Code != errs.OK {
+		return fmt.Errorf("permission lookup failed: %s", resp.Msg)
 	}
-	return fmt.Errorf("actor %d missing permission %q", actorID, permission)
+	if !resp.Allowed {
+		return fmt.Errorf("actor %d missing permission %q", actorID, permission)
+	}
+	return nil
 }
 
 func (a *Authorizer) CanManageApplication(ctx context.Context, actorID int64, applicationID int64) error {
@@ -56,79 +57,51 @@ func (a *Authorizer) CanReadApplication(ctx context.Context, actorID int64, appl
 }
 
 func (a *Authorizer) canAccessApplication(ctx context.Context, actorID int64, applicationID int64) error {
-	if a.authz == nil {
-		return nil
-	}
-	detail, err := a.applications.GetDetail(ctx, applicationID)
+	snapshot, err := a.applications.GetApplicationSnapshot(ctx, applicationID)
 	if err != nil {
 		return err
 	}
-	if detail == nil {
+	if snapshot == nil {
 		return fmt.Errorf("application %d not found", applicationID)
 	}
-	job, err := a.jobs.GetByID(ctx, detail.JobID)
+	principal, err := a.auth.GetPrincipal(ctx, &pb.GetPrincipalRequest{UserId: actorID})
 	if err != nil {
 		return err
 	}
-	if job == nil {
-		return fmt.Errorf("job %d not found", detail.JobID)
+	if principal.Code != errs.OK {
+		return fmt.Errorf("principal lookup failed: %s", principal.Msg)
 	}
-	return a.canAccessJob(ctx, actorID, job.ID, job.HrID, job.DepartmentID, job.LocationID)
-}
-
-func (a *Authorizer) canAccessJob(ctx context.Context, actorID int64, jobID int64, hrID int64, departmentID *int64, locationID *int64) error {
-	scopeKeys, err := a.authz.GetUserScopeKeys(ctx, uint64(actorID))
-	if err != nil {
-		return fmt.Errorf("scope lookup failed: %w", err)
-	}
-	hasOwnJobs, hasDept, hasLoc, hasInterview := false, false, false, false
-	for _, scopeKey := range scopeKeys {
-		switch scopeKey {
-		case sharedauthz.ScopeRecruitingAll, sharedauthz.ScopeSystemAll:
-			return nil
-		case sharedauthz.ScopeOwnJobs:
-			hasOwnJobs = true
-		case sharedauthz.ScopeDepartment:
-			hasDept = true
-		case sharedauthz.ScopeLocation:
-			hasLoc = true
-		case sharedauthz.ScopeAssignedInterviews:
-			hasInterview = true
-		}
-	}
-	if hasOwnJobs && hrID == actorID {
+	if canAccessJob(actorID, snapshot, principal.DataScopes) {
 		return nil
 	}
-	if hasDept && departmentID != nil {
-		departmentIDs, err := a.authz.GetUserDepartmentIDs(ctx, uint64(actorID))
-		if err != nil {
-			return fmt.Errorf("department scope lookup: %w", err)
-		}
-		for _, id := range departmentIDs {
-			if uint64(*departmentID) == id {
-				return nil
-			}
-		}
-	}
-	if hasLoc && locationID != nil {
-		locationIDs, err := a.authz.GetUserLocationIDs(ctx, uint64(actorID))
-		if err != nil {
-			return fmt.Errorf("location scope lookup: %w", err)
-		}
-		for _, id := range locationIDs {
-			if uint64(*locationID) == id {
-				return nil
-			}
-		}
-	}
-	if hasInterview {
-		ok, err := a.authz.IsInterviewerForJob(ctx, uint64(actorID), uint64(jobID))
-		if err != nil {
-			return fmt.Errorf("interviewer scope lookup: %w", err)
-		}
-		if ok {
-			return nil
-		}
-	}
 	return fmt.Errorf("scope denied for user %d", actorID)
+}
+
+func canAccessJob(actorID int64, snapshot *port.ApplicationSnapshot, scopes []*pb.ScopeAssignment) bool {
+	for _, scope := range scopes {
+		switch scope.ScopeKey {
+		case sharedauthz.ScopeRecruitingAll, sharedauthz.ScopeSystemAll:
+			return true
+		case sharedauthz.ScopeOwnJobs:
+			if snapshot.JobHRID == actorID {
+				return true
+			}
+		case sharedauthz.ScopeDepartment:
+			if snapshot.DepartmentID != nil && scopeMatches(scope, "department", *snapshot.DepartmentID) {
+				return true
+			}
+		case sharedauthz.ScopeLocation:
+			if snapshot.LocationID != nil && scopeMatches(scope, "location", *snapshot.LocationID) {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+func scopeMatches(scope *pb.ScopeAssignment, resourceType string, resourceID int64) bool {
+	if scope.ResourceType != "" && scope.ResourceType != resourceType {
+		return false
+	}
+	return scope.ResourceId == 0 || scope.ResourceId == resourceID
 }

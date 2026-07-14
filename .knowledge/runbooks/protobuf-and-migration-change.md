@@ -31,7 +31,7 @@ review_after: 2026-10-14
 
 # Protobuf and Migration Change Runbook
 
-For proto changes, edit `smart-recruit-proto/proto/recruitment.proto`, regenerate Go contracts, update gateway/service usages, and run proto contract tests. For schema changes, add Commons migration pairs, update `db.sql`, update service persistence adapters, review table ownership, and run migration consistency tests.
+For proto changes, edit `smart-recruit-proto/proto/recruitment.proto`, regenerate Go contracts, update gateway/service usages, and run proto contract tests. If a new method is internal-only, consider defining a separate service so existing public-facing generated client interfaces and unrelated handler fakes do not need to change. For schema changes, add Commons migration pairs, update `db.sql`, update service persistence adapters, review table ownership, and run migration consistency tests.
 
 ## Verification
 

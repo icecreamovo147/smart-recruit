@@ -17,7 +17,9 @@ import (
 	"github.com/redis/go-redis/v9"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials/insecure"
 	healthpb "google.golang.org/grpc/health/grpc_health_v1"
+	"google.golang.org/grpc/metadata"
 	"gorm.io/driver/mysql"
 	"gorm.io/gorm"
 
@@ -26,7 +28,6 @@ import (
 	interviewmq "smart-recruit-interview-service/internal/infrastructure/mq"
 	interviewpersistence "smart-recruit-interview-service/internal/infrastructure/persistence"
 	interviewgrpc "smart-recruit-interview-service/internal/interfaces/grpc"
-	"smart-recruit-interview-service/internal/legacydomain/repository"
 	interviewruntime "smart-recruit-interview-service/internal/runtime"
 	platformconfig "smart-recruit-platform-go/config"
 	"smart-recruit-platform-go/logger"
@@ -199,25 +200,54 @@ func serveInterview(addr string) error {
 }
 
 func buildInterviewServer(db *gorm.DB) (pb.InterviewServiceServer, error) {
-	userRepo := repository.NewUserRepo(db)
-	jobRepo := repository.NewJobRepo(db)
-	applicationRepo := repository.NewApplicationRepo(db)
-	interviewRepo := repository.NewInterviewRepo(db)
-	outboxRepo := repository.NewOutboxRepo(db)
-	authzRepo := repository.NewAuthzRepo(db)
+	identityConn, err := dialInternalGRPC(envOrDefault("IDENTITY_GRPC_ADDR", "127.0.0.1:50061"))
+	if err != nil {
+		return nil, err
+	}
+	recruitmentConn, err := dialInternalGRPC(envOrDefault("RECRUITMENT_GRPC_ADDR", "127.0.0.1:50062"))
+	if err != nil {
+		_ = identityConn.Close()
+		return nil, err
+	}
+	applications := interviewclient.NewApplicationAdapter(pb.NewApplicationOwnerServiceClient(recruitmentConn))
+	interviews := interviewpersistence.NewInterviewRepository(db)
 
 	interviewService, err := interviewapp.NewInterviewService(interviewapp.Deps{
-		Interviews:   interviewpersistence.NewInterviewRepository(interviewRepo),
-		Applications: interviewclient.NewApplicationAdapter(applicationRepo),
-		Staff:        interviewclient.NewStaffDirectory(userRepo),
-		Lifecycle:    interviewclient.NewApplicationLifecycleAdapter(applicationRepo),
-		Outbox:       interviewmq.NewOutboxPublisher(outboxRepo),
-		Authorizer:   interviewclient.NewAuthorizer(authzRepo, applicationRepo, jobRepo, interviewRepo),
+		Interviews:   interviews,
+		Applications: applications,
+		Staff:        interviewclient.NewStaffDirectory(db),
+		Lifecycle:    interviewclient.NewApplicationLifecycleAdapter(pb.NewApplicationOwnerServiceClient(recruitmentConn)),
+		Outbox:       interviewmq.NewOutboxPublisher(interviewmq.NewGormOutboxStore(db)),
+		Authorizer: interviewclient.NewAuthorizer(
+			pb.NewAuthServiceClient(identityConn),
+			applications,
+			interviews,
+			interviewclient.NewGormInterviewAssignmentReader(db),
+		),
 	})
 	if err != nil {
 		return nil, err
 	}
 	return interviewgrpc.NewServer(interviewService)
+}
+
+func dialInternalGRPC(addr string) (*grpc.ClientConn, error) {
+	return grpc.NewClient(addr,
+		grpc.WithTransportCredentials(insecure.NewCredentials()),
+		grpc.WithUnaryInterceptor(internalClientUnaryInterceptor()),
+	)
+}
+
+func internalClientUnaryInterceptor() grpc.UnaryClientInterceptor {
+	return func(ctx context.Context, method string, req, reply any, cc *grpc.ClientConn, invoker grpc.UnaryInvoker, opts ...grpc.CallOption) error {
+		if incoming, ok := metadata.FromIncomingContext(ctx); ok {
+			ctx = metadata.NewOutgoingContext(ctx, incoming.Copy())
+		}
+		if token := os.Getenv("GRPC_INTERNAL_TOKEN"); token != "" {
+			ctx = metadata.AppendToOutgoingContext(ctx, "x-internal-token", token)
+		}
+		return invoker(ctx, method, req, reply, cc, opts...)
+	}
 }
 
 func loadBootstrap(addr string) (platformconfig.Bootstrap, error) {

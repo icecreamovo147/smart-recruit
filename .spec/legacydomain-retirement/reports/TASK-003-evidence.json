@@ -1,0 +1,284 @@
+{
+  "schemaVersion": 1,
+  "feature_name": "legacydomain-retirement",
+  "task_id": "TASK-003",
+  "base_sha": "b0c34ce746bcd494d63718aa3ab664b9c6d1edb9",
+  "base_tree": "f24aa86a716b6df8cf5ad880e6bd4cde582507ce",
+  "head_sha": "b0c34ce746bcd494d63718aa3ab664b9c6d1edb9",
+  "changed_files": [
+    ".knowledge/architecture/persistence-and-migrations.md",
+    ".knowledge/architecture/service-boundaries.md",
+    ".knowledge/domains/notification-outbox.md",
+    ".knowledge/domains/recruitment-lifecycle.md",
+    ".spec/legacydomain-retirement/pipeline-state.json",
+    ".spec/legacydomain-retirement/reports/TASK-003-evidence.json",
+    ".spec/legacydomain-retirement/reports/TASK-003-report.md",
+    "smart-recruit-offer-service/cmd/offer-service/main.go",
+    "smart-recruit-offer-service/internal/application/port/offer_ports.go",
+    "smart-recruit-offer-service/internal/infrastructure/client/application_adapter.go",
+    "smart-recruit-offer-service/internal/infrastructure/client/authorizer.go",
+    "smart-recruit-offer-service/internal/infrastructure/mq/outbox_publisher.go",
+    "smart-recruit-offer-service/internal/infrastructure/mq/outbox_publisher_test.go",
+    "smart-recruit-offer-service/internal/infrastructure/persistence/offer_repository.go",
+    "smart-recruit-offer-service/internal/legacydomain/model/embedding_config.go",
+    "smart-recruit-offer-service/internal/legacydomain/model/model.go",
+    "smart-recruit-offer-service/internal/legacydomain/model/refresh_token.go",
+    "smart-recruit-offer-service/internal/legacydomain/model/status.go",
+    "smart-recruit-offer-service/internal/legacydomain/repository/agent_config_repo.go",
+    "smart-recruit-offer-service/internal/legacydomain/repository/agent_run_event_repo.go",
+    "smart-recruit-offer-service/internal/legacydomain/repository/agent_run_repo.go",
+    "smart-recruit-offer-service/internal/legacydomain/repository/agent_skill_repo.go",
+    "smart-recruit-offer-service/internal/legacydomain/repository/ai_embedding_repo.go",
+    "smart-recruit-offer-service/internal/legacydomain/repository/analytics_projection_repo.go",
+    "smart-recruit-offer-service/internal/legacydomain/repository/analytics_repo.go",
+    "smart-recruit-offer-service/internal/legacydomain/repository/application_repo.go",
+    "smart-recruit-offer-service/internal/legacydomain/repository/authz_repo.go",
+    "smart-recruit-offer-service/internal/legacydomain/repository/candidate_match_repo.go",
+    "smart-recruit-offer-service/internal/legacydomain/repository/chat_repo.go",
+    "smart-recruit-offer-service/internal/legacydomain/repository/collaboration_repo.go",
+    "smart-recruit-offer-service/internal/legacydomain/repository/department_location_repo.go",
+    "smart-recruit-offer-service/internal/legacydomain/repository/department_repo.go",
+    "smart-recruit-offer-service/internal/legacydomain/repository/email_log_repo.go",
+    "smart-recruit-offer-service/internal/legacydomain/repository/embedding_model_repo.go",
+    "smart-recruit-offer-service/internal/legacydomain/repository/embedding_provider_repo.go",
+    "smart-recruit-offer-service/internal/legacydomain/repository/inbox_repo.go",
+    "smart-recruit-offer-service/internal/legacydomain/repository/interview_repo.go",
+    "smart-recruit-offer-service/internal/legacydomain/repository/invite_code_repo.go",
+    "smart-recruit-offer-service/internal/legacydomain/repository/job_location_repo.go",
+    "smart-recruit-offer-service/internal/legacydomain/repository/job_repo.go",
+    "smart-recruit-offer-service/internal/legacydomain/repository/mcp_repo.go",
+    "smart-recruit-offer-service/internal/legacydomain/repository/memory_repo.go",
+    "smart-recruit-offer-service/internal/legacydomain/repository/model_config_repo.go",
+    "smart-recruit-offer-service/internal/legacydomain/repository/notification_repo.go",
+    "smart-recruit-offer-service/internal/legacydomain/repository/offer_repo.go",
+    "smart-recruit-offer-service/internal/legacydomain/repository/outbox_repo.go",
+    "smart-recruit-offer-service/internal/legacydomain/repository/profile_repo.go",
+    "smart-recruit-offer-service/internal/legacydomain/repository/prompt_template_repo.go",
+    "smart-recruit-offer-service/internal/legacydomain/repository/provider_repo.go",
+    "smart-recruit-offer-service/internal/legacydomain/repository/refresh_token_repo.go",
+    "smart-recruit-offer-service/internal/legacydomain/repository/resume_profile_repo.go",
+    "smart-recruit-offer-service/internal/legacydomain/repository/resume_repo.go",
+    "smart-recruit-offer-service/internal/legacydomain/repository/session_summary_repo.go",
+    "smart-recruit-offer-service/internal/legacydomain/repository/skill_repo.go",
+    "smart-recruit-offer-service/internal/legacydomain/repository/tool_trace_repo.go",
+    "smart-recruit-offer-service/internal/legacydomain/repository/usage_audit_context_repo.go",
+    "smart-recruit-offer-service/internal/legacydomain/repository/usage_log_repo.go",
+    "smart-recruit-offer-service/internal/legacydomain/repository/usage_stats_repo.go",
+    "smart-recruit-offer-service/internal/legacydomain/repository/user_repo.go"
+  ],
+  "scope": {
+    "status": "passed",
+    "checked_by": "bash .spec/legacydomain-retirement/scripts/check-task-scope.sh TASK-003",
+    "out_of_scope": [],
+    "forbidden": [],
+    "notes": [
+      "TASK-003 scope allows smart-recruit-offer-service/**, .knowledge/**, and TASK report/evidence files.",
+      "Deleted files under smart-recruit-offer-service/internal/legacydomain/** are expected by the acceptance criteria."
+    ]
+  },
+  "checks": [
+    {
+      "command": "go test ./...",
+      "working_dir": "smart-recruit-offer-service",
+      "exit_code": 0,
+      "started_at": "2026-07-14T02:49:11Z",
+      "duration_ms": 727,
+      "status": "passed",
+      "summary": "Offer command, application, domain, infrastructure, interfaces, and runtime packages passed."
+    },
+    {
+      "command": "node scripts/check-backend-boundaries.mjs",
+      "exit_code": 0,
+      "started_at": "2026-07-14T02:49:11Z",
+      "duration_ms": 263,
+      "status": "passed",
+      "summary": "backend_boundary_result: PASS; remaining staging warning covers Interview, Recruitment, and AI Agent legacy roots only."
+    },
+    {
+      "command": "node scripts/check-mysql-table-ownership.mjs",
+      "exit_code": 0,
+      "started_at": "2026-07-14T02:49:11Z",
+      "duration_ms": 0,
+      "status": "passed",
+      "summary": "mysql_table_ownership: PASS (67 tables, single MySQL instance)."
+    },
+    {
+      "command": "node .knowledge/scripts/validate-knowledge.mjs --root .",
+      "exit_code": 0,
+      "started_at": "2026-07-14T02:49:11Z",
+      "duration_ms": 204,
+      "status": "passed",
+      "summary": "knowledge_result: PASS (37 formal documents)."
+    },
+    {
+      "command": "node .knowledge/scripts/check-references.mjs --root .",
+      "exit_code": 0,
+      "started_at": "2026-07-14T02:49:11Z",
+      "duration_ms": 184,
+      "status": "passed",
+      "summary": "reference_result: PASS."
+    },
+    {
+      "command": "node .knowledge/scripts/detect-impact.mjs --root . --base-tree f24aa86a716b6df8cf5ad880e6bd4cde582507ce",
+      "exit_code": 0,
+      "started_at": "2026-07-14T02:49:12Z",
+      "duration_ms": 1238,
+      "status": "passed",
+      "summary": "impact_result: update_required; matched_routes: 6."
+    },
+    {
+      "command": "bash .spec/legacydomain-retirement/scripts/check-task-scope.sh TASK-003",
+      "exit_code": 0,
+      "started_at": "2026-07-14T02:53:22Z",
+      "duration_ms": 905,
+      "status": "passed",
+      "summary": "Scope check passed for TASK-003. Changed files: 57 before report/evidence, 59 after report/evidence."
+    },
+    {
+      "command": "bash .spec/legacydomain-retirement/scripts/agent-check.sh",
+      "exit_code": 0,
+      "started_at": "2026-07-14T02:53:22Z",
+      "duration_ms": 46000,
+      "status": "passed",
+      "summary": "Harness JSON validation, knowledge validation, reference check, backend boundary, MySQL ownership, and relevant Go module tests passed."
+    },
+    {
+      "command": "rg -n \"legacydomain\" smart-recruit-offer-service -g'*.go' || true && test ! -d smart-recruit-offer-service/internal/legacydomain",
+      "exit_code": 0,
+      "started_at": "2026-07-14T02:53:22Z",
+      "duration_ms": 1,
+      "status": "passed",
+      "summary": "No Offer Go legacydomain imports found and Offer internal/legacydomain directory is absent."
+    }
+  ],
+  "review": {
+    "type": "self-review",
+    "round": 1,
+    "verdict": "通过",
+    "findings": [
+      {
+        "severity": "Low",
+        "summary": "Offer legacydomain imports and directory are removed; remaining legacydomain staging warnings are outside TASK-003 and covered by later tasks."
+      },
+      {
+        "severity": "Low",
+        "summary": "Offer application authorization no longer directly resolves assigned_interviews from Interview-owned tables; this is documented as a residual owner-contract follow-up for Interview retirement."
+      }
+    ]
+  },
+  "human_confirmation": {
+    "required": false,
+    "confirmed": true,
+    "confirmed_by": "not_required",
+    "confirmed_at": "2026-07-14T02:41:39.818Z",
+    "confirmation_text": "TASK-003 does not require human confirmation. User confirmed the pipeline can continue without routine human gates unless blocked."
+  },
+  "exceptions": [],
+  "knowledgeImpact": {
+    "result": "update_required",
+    "triggeredBy": [
+      "smart-recruit-offer-service/**",
+      "smart-recruit-offer-service/internal/infrastructure/**",
+      ".knowledge/**"
+    ],
+    "reviewResults": [
+      {
+        "document": "service-boundaries",
+        "path": ".knowledge/architecture/service-boundaries.md",
+        "verdict": "UPDATED",
+        "evidence": [
+          "Documented that Offer has retired internal/legacydomain and now uses local infrastructure adapters plus Recruitment and Identity owner contracts."
+        ]
+      },
+      {
+        "document": "recruitment-lifecycle",
+        "path": ".knowledge/domains/recruitment-lifecycle.md",
+        "verdict": "UPDATED",
+        "evidence": [
+          "Documented Offer application snapshot and lifecycle coordination through ApplicationOwnerService adapters."
+        ]
+      },
+      {
+        "document": "notification-outbox",
+        "path": ".knowledge/domains/notification-outbox.md",
+        "verdict": "UPDATED",
+        "evidence": [
+          "Documented Offer's local outbox adapter for shared event_outbox writes."
+        ]
+      },
+      {
+        "document": "persistence-and-migrations",
+        "path": ".knowledge/architecture/persistence-and-migrations.md",
+        "verdict": "UPDATED",
+        "evidence": [
+          "Documented that Offer GORM records remain private to infrastructure persistence and mq adapters."
+        ]
+      },
+      {
+        "document": "debug-recruitment-lifecycle",
+        "verdict": "UNCHANGED",
+        "evidence": [
+          "Reviewed after Offer lifecycle adapter change; debug steps remain valid."
+        ]
+      },
+      {
+        "document": "knowledge-coverage-audit",
+        "verdict": "UNCHANGED",
+        "evidence": [
+          "Reviewed route triggered by .knowledge changes; no coverage table change required for this task."
+        ]
+      },
+      {
+        "document": "local-development",
+        "verdict": "UNCHANGED",
+        "evidence": [
+          "Reviewed due feature harness route; local development commands were unchanged."
+        ]
+      },
+      {
+        "document": "migration-model-drift",
+        "verdict": "UNCHANGED",
+        "evidence": [
+          "Reviewed after local GORM record migration; no schema change was made."
+        ]
+      },
+      {
+        "document": "protobuf-and-migration-change",
+        "verdict": "UNCHANGED",
+        "evidence": [
+          "Reviewed because prior owner contracts are used; TASK-003 made no protobuf change."
+        ]
+      },
+      {
+        "document": "recruitment",
+        "verdict": "UNCHANGED",
+        "evidence": [
+          "Reviewed Offer cross-context usage; existing Recruitment owner contract description remains accurate."
+        ]
+      },
+      {
+        "document": "service-binary-convention",
+        "verdict": "UNCHANGED",
+        "evidence": [
+          "Reviewed Offer service binary wiring; command layout remains consistent."
+        ]
+      },
+      {
+        "document": "status-notification-drift",
+        "verdict": "UNCHANGED",
+        "evidence": [
+          "Reviewed Offer status and notification changes; behavior was preserved."
+        ]
+      },
+      {
+        "document": "system-overview",
+        "verdict": "UNCHANGED",
+        "evidence": [
+          "Reviewed high-level service list; no system responsibility change required."
+        ]
+      }
+    ],
+    "coverageGap": false,
+    "validationExitCode": 0
+  }
+}

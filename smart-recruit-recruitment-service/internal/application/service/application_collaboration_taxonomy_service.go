@@ -203,6 +203,95 @@ func (s *ApplicationLifecycleService) UpdateStatus(ctx context.Context, cmd comm
 	return dto.StatusChangeResult{FromStatus: currentKey, ToStatus: targetKey, IsRePass: isRePass}, nil
 }
 
+func (s *ApplicationLifecycleService) GetSnapshot(ctx context.Context, applicationID int64) (dto.ApplicationSnapshot, error) {
+	detail, err := s.applications.GetDetail(ctx, applicationID)
+	if err != nil {
+		return dto.ApplicationSnapshot{}, err
+	}
+	if detail == nil {
+		return dto.ApplicationSnapshot{}, ErrJobForbidden
+	}
+	statusKey := detail.StatusKey
+	if statusKey == "" {
+		statusKey = model.LegacyStatusToKey[detail.Status]
+	}
+	job, err := s.jobsForApplication(ctx, detail.JobID)
+	if err != nil {
+		return dto.ApplicationSnapshot{}, err
+	}
+	if job == nil {
+		return dto.ApplicationSnapshot{}, ErrJobForbidden
+	}
+	return dto.ApplicationSnapshot{
+		ApplicationID:   detail.ApplicationID,
+		CandidateUserID: detail.UserID,
+		JobID:           detail.JobID,
+		JobTitle:        detail.JobTitle,
+		CandidateName:   detail.RealName,
+		ResumeID:        detail.ResumeID,
+		LegacyStatus:    detail.Status,
+		StatusKey:       statusKey,
+		RoundNo:         detail.RoundNo,
+		IsCurrent:       detail.IsCurrent == 1,
+		JobHRID:         job.HRID,
+		DepartmentID:    job.DepartmentID,
+		LocationID:      job.LocationID,
+	}, nil
+}
+
+func (s *ApplicationLifecycleService) ApplyLifecycleTransition(ctx context.Context, cmd command.ApplyApplicationLifecycleTransition) (dto.ApplicationLifecycleTransitionResult, error) {
+	snapshot, err := s.GetSnapshot(ctx, cmd.ApplicationID)
+	if err != nil {
+		return dto.ApplicationLifecycleTransitionResult{}, err
+	}
+	if cmd.ExpectedStatusKey != "" && snapshot.StatusKey != cmd.ExpectedStatusKey {
+		return dto.ApplicationLifecycleTransitionResult{}, ErrApplicationConflict
+	}
+	targetKey, err := policy.TargetStatusKey(cmd.TargetStatusKey, cmd.LegacyTargetStatus)
+	if err != nil {
+		return dto.ApplicationLifecycleTransitionResult{}, err
+	}
+	currentKey, isRePass, legacyStatus, err := policy.ValidateStatusChange(model.ApplicationDetail{
+		ApplicationID: snapshot.ApplicationID,
+		UserID:        snapshot.CandidateUserID,
+		JobID:         snapshot.JobID,
+		JobTitle:      snapshot.JobTitle,
+		RealName:      snapshot.CandidateName,
+		ResumeID:      snapshot.ResumeID,
+		Status:        snapshot.LegacyStatus,
+		StatusKey:     snapshot.StatusKey,
+		RoundNo:       snapshot.RoundNo,
+		IsCurrent:     boolToInt32(snapshot.IsCurrent),
+	}, targetKey, cmd.Reason)
+	if err != nil {
+		return dto.ApplicationLifecycleTransitionResult{}, err
+	}
+	rows, err := s.applications.UpdateStatus(ctx, cmd.ApplicationID, currentKey, targetKey, legacyStatus, cmd.ActorUserID, repository.JobScope{Level: repository.JobScopeFull}, isRePass, cmd.Reason, nil)
+	if err != nil {
+		return dto.ApplicationLifecycleTransitionResult{}, err
+	}
+	if rows == 0 {
+		return dto.ApplicationLifecycleTransitionResult{}, ErrApplicationConflict
+	}
+	if cmd.CloseCurrentRound {
+		if err := s.applications.CloseCurrentRound(ctx, cmd.ApplicationID); err != nil {
+			return dto.ApplicationLifecycleTransitionResult{}, err
+		}
+	}
+	return dto.ApplicationLifecycleTransitionResult{
+		Changed:          true,
+		FromStatusKey:    currentKey,
+		CurrentStatusKey: targetKey,
+	}, nil
+}
+
+func boolToInt32(value bool) int32 {
+	if value {
+		return 1
+	}
+	return 0
+}
+
 func (s *ApplicationLifecycleService) jobsForApplication(ctx context.Context, jobID int64) (*model.Job, error) {
 	getter, ok := s.jobs.(interface {
 		GetByID(context.Context, int64) (*model.Job, error)

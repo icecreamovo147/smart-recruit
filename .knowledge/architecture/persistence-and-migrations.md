@@ -27,6 +27,11 @@ source_refs:
   - smart-recruit-deploy/mysql-table-ownership.json
   - db.sql
   - smart-recruit-notification-service/internal/infrastructure/persistence/notification_repository.go
+  - smart-recruit-interview-service/internal/infrastructure/persistence/interview_repository.go
+  - smart-recruit-interview-service/internal/infrastructure/mq/outbox_publisher.go
+  - smart-recruit-offer-service/internal/infrastructure/persistence/offer_repository.go
+  - smart-recruit-offer-service/internal/infrastructure/mq/outbox_publisher.go
+  - smart-recruit-recruitment-service/internal/infrastructure/persistence/native_adapters.go
   - smart-recruit-analytics-service/internal/infrastructure/projection/gorm_store.go
   - smart-recruit-recruitment-service/internal/domain/repository/recruitment.go
 last_verified: 2026-07-14
@@ -38,6 +43,8 @@ review_after: 2026-10-14
 Shared SQL migrations and the migration runner live in `smart-recruit-commons/`. Bounded services own repository ports and persistence adapters for their contexts. The current single-MySQL ownership model is documented in `smart-recruit-deploy/mysql-table-ownership.json`.
 
 Schema changes must keep migrations, `db.sql`, service persistence code, table ownership, and focused tests aligned.
+
+GORM table records that are needed by a bounded service should stay private to that service's infrastructure adapter. Recruitment's active runtime uses a local native persistence bundle for job, taxonomy, candidate/resume, application, invite-code, usage-audit, and `event_outbox` records under `smart-recruit-recruitment-service/internal/infrastructure/persistence/`. Interview's active persistence keeps `interview_schedules`, `interview_feedbacks`, and local `event_outbox` records under `smart-recruit-interview-service/internal/infrastructure/**`; Offer's active persistence keeps `offers`, `offer_events`, and local `event_outbox` records under `smart-recruit-offer-service/internal/infrastructure/**`. Domain packages continue to use repository and publisher ports rather than GORM models.
 
 ## Verification
 

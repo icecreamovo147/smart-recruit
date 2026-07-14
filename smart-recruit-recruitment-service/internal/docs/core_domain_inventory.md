@@ -1,8 +1,9 @@
 # Recruitment Core Domain Inventory
 
 TASK-015 establishes the Recruitment DDD skeleton and records the current core
-domain contract. TASK-029 later localizes the remaining legacy implementation
-paths under `internal/legacydomain` without changing protobuf contracts,
+domain contract. The legacydomain retirement sequence later replaced the active
+runtime graph with local infrastructure persistence adapters and removed the
+service-local legacy implementation copy without changing protobuf contracts,
 database schema, or recruitment API behavior.
 
 ## Current Runtime Boundary
@@ -12,12 +13,11 @@ database schema, or recruitment API behavior.
 - Runtime registration: `internal/runtime/runtime.go` registers `JobService`,
   `AdminService` subsets, `CandidateService`, `ApplicationService`, and
   `CollaborationService`.
-- Current implementation source after TASK-029: service-local
-  `internal/legacydomain/service`, `repository`, `model`, and `ai`
-  compatibility packages provide active job, taxonomy, candidate, resume,
-  application, collaboration, usage-stats, authz/scope, AI helper, and outbox
-  behavior. `smart-recruit-commons/oss` remains a shared infrastructure
-  bridge/commons candidate.
+- Current implementation source: `internal/infrastructure/persistence/native_adapters.go`
+  provides active job, taxonomy/admin, candidate/resume, application,
+  collaboration, usage audit, application owner contract, and outbox behavior.
+  `smart-recruit-commons/oss` remains a shared infrastructure bridge/commons
+  candidate.
 - Platform behavior retained by runtime: Nacos discovery, gRPC internal auth,
   health, metrics, trace, MySQL, optional Redis, and OSS configuration.
 
@@ -25,13 +25,13 @@ database schema, or recruitment API behavior.
 
 | Surface | Runtime provider | Current responsibility |
 | --- | --- | --- |
-| Job | local legacy `JobService` | Create/update/online/offline jobs, HR job listing, public listing, job detail, department/location validation, scope filtering. |
-| Job taxonomy | local legacy `JobTaxonomyService` | Department, location, department-location configuration, job option queries. |
-| Recruitment admin | local legacy `AdminService` subset | Invite-code and third-party usage log RPCs remain registered through Recruitment runtime, not Identity runtime. |
-| Usage stats | local legacy `UsageStatsService` | Usage stats and trends guarded by service authorizer. |
-| Candidate | local legacy `CandidateService` | Candidate profile, resume read/update, resume upload presign/confirm, OSS interactions, usage logs and outbox side effects. |
-| Application | local legacy `ApplicationService` | Apply job, candidate application list, HR application list, status mutation, status transition listing, outbox/notification side effects. |
-| Collaboration | local legacy `CollaborationService` | Candidate workspace aggregate, notes, tags, follow-up tasks, timeline, and cross-context interview/offer/resume reads. |
+| Job | local native persistence adapter | Create/update/online/offline jobs, HR job listing, public listing, job detail, department/location validation, scope filtering. |
+| Job taxonomy | local native persistence adapter | Department, location, department-location configuration, job option queries. |
+| Recruitment admin | local native persistence adapter | Invite-code and third-party usage log RPCs remain registered through Recruitment runtime, not Identity runtime. |
+| Usage stats | local native persistence adapter | Usage stats and trends over third-party usage logs. |
+| Candidate | local native persistence adapter | Candidate profile, resume read/update, resume upload presign/confirm, OSS interactions, usage logs and outbox side effects. |
+| Application | local native persistence adapter | Apply job, candidate application list, HR application list, status mutation, status transition listing, outbox/notification side effects. |
+| Collaboration | local native persistence adapter | Candidate workspace aggregate, notes, tags, follow-up tasks, timeline, and cross-context interview/offer/resume reads. |
 
 ## Core Domain Areas
 

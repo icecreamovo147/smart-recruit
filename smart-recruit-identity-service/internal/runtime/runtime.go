@@ -18,6 +18,7 @@ type AuthAPI interface {
 	RevokeRefreshToken(context.Context, *pb.RevokeRefreshTokenRequest) (*pb.CommonResponse, error)
 	RecordAuthDecision(context.Context, *pb.AuthAuditRequest) (*pb.CommonResponse, error)
 	GetPrincipal(context.Context, *pb.GetPrincipalRequest) (*pb.GetPrincipalResponse, error)
+	AuthorizeInternal(context.Context, *pb.AuthorizeInternalRequest) (*pb.AuthorizeInternalResponse, error)
 	UpdateEmail(context.Context, *pb.UpdateEmailRequest) (*pb.CommonResponse, error)
 }
 
@@ -103,6 +104,10 @@ func (s authServer) RecordAuthDecision(ctx context.Context, req *pb.AuthAuditReq
 
 func (s authServer) GetPrincipal(ctx context.Context, req *pb.GetPrincipalRequest) (*pb.GetPrincipalResponse, error) {
 	return s.api.GetPrincipal(ctx, req)
+}
+
+func (s authServer) AuthorizeInternal(ctx context.Context, req *pb.AuthorizeInternalRequest) (*pb.AuthorizeInternalResponse, error) {
+	return s.api.AuthorizeInternal(ctx, req)
 }
 
 func (s authServer) UpdateEmail(ctx context.Context, req *pb.UpdateEmailRequest) (*pb.CommonResponse, error) {

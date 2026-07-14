@@ -6,6 +6,9 @@ import (
 
 	"smart-recruit-platform-go/errs"
 	"smart-recruit-proto/recruitment/pb"
+	"smart-recruit-recruitment-service/internal/application/command"
+	"smart-recruit-recruitment-service/internal/application/dto"
+	"smart-recruit-recruitment-service/internal/domain/model"
 )
 
 func TestAdaptersDelegateRecruitmentRuntimeAPIs(t *testing.T) {
@@ -35,6 +38,24 @@ func TestAdaptersDelegateRecruitmentRuntimeAPIs(t *testing.T) {
 	if delegate.calls["CreateJob"] != 1 || delegate.calls["UpdateProfile"] != 1 || delegate.calls["UpdateApplicationStatus"] != 1 {
 		t.Fatalf("delegate calls = %+v", delegate.calls)
 	}
+
+	owner, err := NewApplicationOwnerContractAdapter(fakeOwnerContractUsecase{})
+	if err != nil {
+		t.Fatalf("NewApplicationOwnerContractAdapter() error = %v", err)
+	}
+	snapshot, err := owner.GetApplicationSnapshot(ctx, &pb.GetApplicationSnapshotRequest{ApplicationId: 7001})
+	if err != nil || snapshot.Code != errs.OK || snapshot.StatusKey != model.StatusKeyApplied || !snapshot.IsCurrent || snapshot.JobHrId != 7 || snapshot.DepartmentId != 12 {
+		t.Fatalf("GetApplicationSnapshot() = %+v, %v", snapshot, err)
+	}
+	transition, err := owner.ApplyApplicationLifecycleTransition(ctx, &pb.ApplyApplicationLifecycleTransitionRequest{
+		ActorUserId:       7,
+		ApplicationId:     7001,
+		ExpectedStatusKey: model.StatusKeyApplied,
+		TargetStatusKey:   model.StatusKeyScreenPassed,
+	})
+	if err != nil || transition.Code != errs.OK || transition.CurrentStatusKey != model.StatusKeyScreenPassed {
+		t.Fatalf("ApplyApplicationLifecycleTransition() = %+v, %v", transition, err)
+	}
 }
 
 func TestAdaptersRejectMissingDelegates(t *testing.T) {
@@ -48,6 +69,31 @@ func TestAdaptersRejectMissingDelegates(t *testing.T) {
 
 type fakeRecruitmentDelegate struct {
 	calls map[string]int
+}
+
+type fakeOwnerContractUsecase struct{}
+
+func (fakeOwnerContractUsecase) GetSnapshot(context.Context, int64) (dto.ApplicationSnapshot, error) {
+	departmentID := int64(12)
+	locationID := int64(21)
+	return dto.ApplicationSnapshot{
+		ApplicationID:   7001,
+		CandidateUserID: 42,
+		JobID:           501,
+		StatusKey:       model.StatusKeyApplied,
+		IsCurrent:       true,
+		JobHRID:         7,
+		DepartmentID:    &departmentID,
+		LocationID:      &locationID,
+	}, nil
+}
+
+func (fakeOwnerContractUsecase) ApplyLifecycleTransition(context.Context, command.ApplyApplicationLifecycleTransition) (dto.ApplicationLifecycleTransitionResult, error) {
+	return dto.ApplicationLifecycleTransitionResult{
+		Changed:          true,
+		FromStatusKey:    model.StatusKeyApplied,
+		CurrentStatusKey: model.StatusKeyScreenPassed,
+	}, nil
 }
 
 func (d *fakeRecruitmentDelegate) mark(name string) {

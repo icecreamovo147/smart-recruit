@@ -29,6 +29,9 @@ type ApplicationSnapshot struct {
 	JobID           int64
 	JobTitle        string
 	StatusKey       model.ApplicationStatus
+	JobHRID         int64
+	DepartmentID    *int64
+	LocationID      *int64
 }
 
 type ApplicationSnapshotReader interface {

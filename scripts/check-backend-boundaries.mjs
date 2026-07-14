@@ -19,16 +19,23 @@ const scanRoots = [
 ];
 const forbidden = ["logic-grpc-service", "web-gin-service"];
 const issues = [];
+const legacydomainUsage = {
+  directories: [],
+  imports: [],
+};
 
 for (const file of listFiles(scanRoots)) {
   const text = fs.readFileSync(file, "utf8");
   const relative = toPosix(path.relative(root, file));
   checkLegacyReferences(relative, text);
+  collectLegacydomainUsage(relative, text);
 
   if (!file.endsWith(".go")) continue;
   const imports = parseGoImports(text);
   checkLayerImports(relative, imports);
 }
+
+recordLegacydomainRetirementIssues();
 
 if (issues.length > 0) {
   console.error("backend_boundary_result: FAIL");
@@ -37,6 +44,7 @@ if (issues.length > 0) {
 }
 
 console.log("backend_boundary_result: PASS");
+printLegacydomainRetirementReport();
 
 function checkLegacyReferences(relative, text) {
   for (const token of forbidden) {
@@ -44,6 +52,44 @@ function checkLegacyReferences(relative, text) {
       issues.push(`${relative}: references legacy module ${token}`);
     }
   }
+}
+
+function collectLegacydomainUsage(relative, text) {
+  if (relative.includes("/internal/legacydomain/")) {
+    const rootPath = relative.replace(/\/internal\/legacydomain\/.*/, "/internal/legacydomain");
+    if (!legacydomainUsage.directories.includes(rootPath)) {
+      legacydomainUsage.directories.push(rootPath);
+    }
+  }
+  if (!relative.endsWith(".go")) return;
+  if (relative.includes("/internal/legacydomain/")) return;
+  const imports = parseGoImports(text).filter((item) => item.includes("/internal/legacydomain/"));
+  for (const importPath of imports) {
+    legacydomainUsage.imports.push(`${relative}: ${importPath}`);
+  }
+}
+
+function recordLegacydomainRetirementIssues() {
+  const directories = legacydomainUsage.directories.sort();
+  const imports = legacydomainUsage.imports.sort();
+  for (const item of directories) {
+    issues.push(`${item}: internal/legacydomain directory is forbidden after legacydomain retirement`);
+  }
+  for (const item of imports) {
+    issues.push(`${item}: internal/legacydomain import is forbidden after legacydomain retirement`);
+  }
+}
+
+function printLegacydomainRetirementReport() {
+  const directories = legacydomainUsage.directories.sort();
+  const imports = legacydomainUsage.imports.sort();
+  if (directories.length === 0 && imports.length === 0) {
+    console.log("legacydomain_retirement_enforcement: PASS (no legacydomain directories or imports)");
+    return;
+  }
+  console.log(`legacydomain_retirement_enforcement: FAIL (${directories.length} roots, ${imports.length} import sites)`);
+  for (const item of directories) console.log(`- legacy root: ${item}`);
+  for (const item of imports) console.log(`- legacy import: ${item}`);
 }
 
 function checkLayerImports(relative, imports) {

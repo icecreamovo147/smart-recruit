@@ -28,7 +28,9 @@ review_after: 2026-10-14
 
 # Protobuf Synchronization Pitfall
 
-The canonical protobuf source is `smart-recruit-proto/proto/recruitment.proto`. Generated Go contracts under `smart-recruit-proto/recruitment/pb/` are shared by the gateway and services. Wire-shape changes are public-contract changes.
+The canonical protobuf source is `smart-recruit-proto/proto/recruitment.proto`. Generated Go contracts under `smart-recruit-proto/recruitment/pb/` are shared by the gateway and services. Wire-shape changes can widen compile scope across all generated clients and test fakes.
+
+For internal owner contracts that are not part of frontend/gateway behavior, prefer a separate internal gRPC service over appending methods to a public-facing service interface. This avoids forcing unrelated `pb.<Service>Client` fakes to implement internal-only methods while keeping protobuf changes additive.
 
 ## Verification
 
