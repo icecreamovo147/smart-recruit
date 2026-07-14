@@ -25,6 +25,7 @@ import (
 	aiagentgrpc "smart-recruit-ai-agent-service/internal/interfaces/grpc"
 	aiagentruntime "smart-recruit-ai-agent-service/internal/runtime"
 	"smart-recruit-commons/mq"
+	"smart-recruit-commons/pkg/crypto"
 	platformconfig "smart-recruit-platform-go/config"
 	"smart-recruit-platform-go/logger"
 	"smart-recruit-platform-go/nacos"
@@ -148,8 +149,31 @@ func serveAIAgent(addr string) error {
 	defer server.ShutdownMetricsServer(context.Background(), metricsServer)
 
 	nativeStore := aiagentpersistence.NewNativeStore(db)
+	if encKey, encKeyErr := crypto.LoadEncryptionKey(); encKeyErr != nil {
+		log.Warn("ENCRYPTION_KEY not set, provider api key encryption will be unavailable", zap.Error(encKeyErr))
+	} else {
+		nativeStore.SetEncryptionKey(encKey)
+	}
+	nativeStore.SetRuntimeLLMConfig(aiagentpersistence.RuntimeLLMConfig{
+		APIKey:                  cfg.AI.APIKey,
+		Model:                   cfg.AI.Model,
+		BaseURL:                 cfg.AI.BaseURL,
+		ProviderType:            "openai_compatible",
+		Timeout:                 cfg.AI.Timeout.Duration,
+		TotalTimeout:            cfg.AI.TotalTimeout.Duration,
+		ToolMaxRounds:           cfg.AI.ToolMaxRounds,
+		ToolTotalTimeout:        cfg.AI.ToolTotalTimeout.Duration,
+		MaxConcurrency:          cfg.AI.MaxConcurrency,
+		CircuitFailureThreshold: cfg.AI.CircuitFailureThreshold,
+		CircuitOpenTimeout:      cfg.AI.CircuitOpenTimeout.Duration,
+		HalfOpenMaxRequests:     cfg.AI.CircuitHalfOpenMaxRequests,
+		RetryMaxAttempts:        cfg.AI.RetryMaxAttempts,
+		RetryBaseDelay:          cfg.AI.RetryBaseDelay.Duration,
+		SlowResponseThreshold:   cfg.AI.SlowResponseThreshold.Duration,
+	})
 	runtime, err := aiagentruntime.New(aiagentgrpc.NewNativeRuntimeDeps(aiagentgrpc.RuntimeDeps{
 		Store:           nativeStore,
+		Provider:        nativeStore,
 		EmbeddingWorker: true,
 		AgentRunWorker:  true,
 		RuntimeName:     cfg.AI.AgentRuntime,

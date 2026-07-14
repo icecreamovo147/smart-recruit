@@ -41,7 +41,7 @@ Recruitment owns jobs, candidates, resumes, applications, taxonomy, invite/admin
 
 Application records and application status transitions are Recruitment-owned data. Services that need application state should read `ApplicationOwnerService.GetApplicationSnapshot`; services that need to advance application lifecycle should call `ApplicationOwnerService.ApplyApplicationLifecycleTransition` instead of carrying local application repositories.
 
-Recruitment service runtime is no longer bootstrapped from `internal/legacydomain` repositories/services, and the Recruitment service-local legacy directory has been retired. `cmd/recruitment-service` wires a local native persistence bundle that owns job, taxonomy/admin, candidate/resume, application lifecycle, collaboration, usage audit, outbox, and application-owner contract behavior for the active runtime.
+Recruitment service runtime is no longer bootstrapped from `internal/legacydomain` repositories/services, and the Recruitment service-local legacy directory has been retired. `cmd/recruitment-service` wires a local native persistence bundle that exposes focused adapters for job, taxonomy/admin, candidate/resume, application lifecycle, collaboration, usage audit, outbox, and application-owner contract behavior for the active runtime.
 
 ## Verification
 

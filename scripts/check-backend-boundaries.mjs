@@ -23,12 +23,73 @@ const legacydomainUsage = {
   directories: [],
   imports: [],
 };
+const runtimeStubUsage = {
+  emptySuccess: [],
+  storeNilSuccess: [],
+  unimplementedNativeServers: [],
+};
+
+const allowedRuntimeStubFindings = new Set([
+  "smart-recruit-ai-agent-service/cmd/ai-agent-service/main.go:unavailableEmbeddingConfigService:unimplemented-native-server",
+  "smart-recruit-ai-agent-service/cmd/ai-agent-service/main.go:unavailableLlmConfigService:unimplemented-native-server",
+  "smart-recruit-ai-agent-service/cmd/ai-agent-service/main.go:noopAIService:unimplemented-native-server",
+  "smart-recruit-ai-agent-service/cmd/ai-agent-service/main.go:noopAgentConfigService:unimplemented-native-server",
+  "smart-recruit-ai-agent-service/cmd/ai-agent-service/main.go:noopAgentSkillService:unimplemented-native-server",
+  "smart-recruit-ai-agent-service/cmd/ai-agent-service/main.go:noopEmbeddingConfigService:unimplemented-native-server",
+  "smart-recruit-ai-agent-service/cmd/ai-agent-service/main.go:noopLlmConfigService:unimplemented-native-server",
+  "smart-recruit-ai-agent-service/cmd/ai-agent-service/main.go:noopMCPService:unimplemented-native-server",
+  "smart-recruit-ai-agent-service/cmd/ai-agent-service/main.go:noopPromptService:unimplemented-native-server",
+  "smart-recruit-ai-agent-service/cmd/ai-agent-service/main.go:noopRecruitingIntelligenceService:unimplemented-native-server",
+  "smart-recruit-ai-agent-service/cmd/ai-agent-service/main.go:noopSkillService:unimplemented-native-server",
+  "smart-recruit-ai-agent-service/internal/interfaces/grpc/native_servers.go:CompareCandidatesForJob:empty-success",
+  "smart-recruit-ai-agent-service/internal/interfaces/grpc/native_servers.go:CreateAgentRun:store-nil-success",
+  "smart-recruit-ai-agent-service/internal/interfaces/grpc/native_servers.go:DeleteSession:store-nil-success",
+  "smart-recruit-ai-agent-service/internal/interfaces/grpc/native_servers.go:GetActiveAgentRun:store-nil-success",
+  "smart-recruit-ai-agent-service/internal/interfaces/grpc/native_servers.go:GetActiveAgentRun:empty-success",
+  "smart-recruit-ai-agent-service/internal/interfaces/grpc/native_servers.go:GetAgentRuns:store-nil-success",
+  "smart-recruit-ai-agent-service/internal/interfaces/grpc/native_servers.go:GetAgentRuns:empty-success",
+  "smart-recruit-ai-agent-service/internal/interfaces/grpc/native_servers.go:GetToolTraces:store-nil-success",
+  "smart-recruit-ai-agent-service/internal/interfaces/grpc/native_servers.go:GetToolTraces:empty-success",
+  "smart-recruit-ai-agent-service/internal/interfaces/grpc/native_servers.go:ListAgents:store-nil-success",
+  "smart-recruit-ai-agent-service/internal/interfaces/grpc/native_servers.go:ListAgents:empty-success",
+  "smart-recruit-ai-agent-service/internal/interfaces/grpc/native_servers.go:ListAgentSkills:store-nil-success",
+  "smart-recruit-ai-agent-service/internal/interfaces/grpc/native_servers.go:ListAgentSkills:empty-success",
+  "smart-recruit-ai-agent-service/internal/interfaces/grpc/native_servers.go:ListAvailableAgentSkills:store-nil-success",
+  "smart-recruit-ai-agent-service/internal/interfaces/grpc/native_servers.go:ListAvailableAgentSkills:empty-success",
+  "smart-recruit-ai-agent-service/internal/interfaces/grpc/native_servers.go:ListCapabilities:empty-success",
+  "smart-recruit-ai-agent-service/internal/interfaces/grpc/native_servers.go:ListEmbeddingModels:store-nil-success",
+  "smart-recruit-ai-agent-service/internal/interfaces/grpc/native_servers.go:ListEmbeddingModels:empty-success",
+  "smart-recruit-ai-agent-service/internal/interfaces/grpc/native_servers.go:ListEmbeddingProviders:store-nil-success",
+  "smart-recruit-ai-agent-service/internal/interfaces/grpc/native_servers.go:ListEmbeddingProviders:empty-success",
+  "smart-recruit-ai-agent-service/internal/interfaces/grpc/native_servers.go:ListMCPServers:store-nil-success",
+  "smart-recruit-ai-agent-service/internal/interfaces/grpc/native_servers.go:ListMCPServers:empty-success",
+  "smart-recruit-ai-agent-service/internal/interfaces/grpc/native_servers.go:ListMCPToolLogs:empty-success",
+  "smart-recruit-ai-agent-service/internal/interfaces/grpc/native_servers.go:ListMCPToolPolicies:empty-success",
+  "smart-recruit-ai-agent-service/internal/interfaces/grpc/native_servers.go:ListModels:store-nil-success",
+  "smart-recruit-ai-agent-service/internal/interfaces/grpc/native_servers.go:ListModels:empty-success",
+  "smart-recruit-ai-agent-service/internal/interfaces/grpc/native_servers.go:ListProviders:store-nil-success",
+  "smart-recruit-ai-agent-service/internal/interfaces/grpc/native_servers.go:ListProviders:empty-success",
+  "smart-recruit-ai-agent-service/internal/interfaces/grpc/native_servers.go:ListPromptTemplates:store-nil-success",
+  "smart-recruit-ai-agent-service/internal/interfaces/grpc/native_servers.go:ListPromptTemplates:empty-success",
+  "smart-recruit-ai-agent-service/internal/interfaces/grpc/native_servers.go:ListSkills:empty-success",
+  "smart-recruit-ai-agent-service/internal/interfaces/grpc/native_servers.go:UpdateSession:store-nil-success",
+  "smart-recruit-ai-agent-service/internal/interfaces/grpc/native_servers.go:nativeAIService:unimplemented-native-server",
+  "smart-recruit-ai-agent-service/internal/interfaces/grpc/native_servers.go:nativeAgentConfigService:unimplemented-native-server",
+  "smart-recruit-ai-agent-service/internal/interfaces/grpc/native_servers.go:nativeAgentSkillService:unimplemented-native-server",
+  "smart-recruit-ai-agent-service/internal/interfaces/grpc/native_servers.go:nativeEmbeddingConfigService:unimplemented-native-server",
+  "smart-recruit-ai-agent-service/internal/interfaces/grpc/native_servers.go:nativeLlmConfigService:unimplemented-native-server",
+  "smart-recruit-ai-agent-service/internal/interfaces/grpc/native_servers.go:nativeMCPService:unimplemented-native-server",
+  "smart-recruit-ai-agent-service/internal/interfaces/grpc/native_servers.go:nativePromptService:unimplemented-native-server",
+  "smart-recruit-ai-agent-service/internal/interfaces/grpc/native_servers.go:nativeRecruitingIntelligenceService:unimplemented-native-server",
+  "smart-recruit-ai-agent-service/internal/interfaces/grpc/native_servers.go:nativeSkillService:unimplemented-native-server",
+]);
 
 for (const file of listFiles(scanRoots)) {
   const text = fs.readFileSync(file, "utf8");
   const relative = toPosix(path.relative(root, file));
   checkLegacyReferences(relative, text);
   collectLegacydomainUsage(relative, text);
+  collectRuntimeStubUsage(relative, text);
 
   if (!file.endsWith(".go")) continue;
   const imports = parseGoImports(text);
@@ -36,6 +97,7 @@ for (const file of listFiles(scanRoots)) {
 }
 
 recordLegacydomainRetirementIssues();
+recordRuntimeStubIssues();
 
 if (issues.length > 0) {
   console.error("backend_boundary_result: FAIL");
@@ -45,6 +107,7 @@ if (issues.length > 0) {
 
 console.log("backend_boundary_result: PASS");
 printLegacydomainRetirementReport();
+printRuntimeStubReport();
 
 function checkLegacyReferences(relative, text) {
   for (const token of forbidden) {
@@ -90,6 +153,97 @@ function printLegacydomainRetirementReport() {
   console.log(`legacydomain_retirement_enforcement: FAIL (${directories.length} roots, ${imports.length} import sites)`);
   for (const item of directories) console.log(`- legacy root: ${item}`);
   for (const item of imports) console.log(`- legacy import: ${item}`);
+}
+
+function collectRuntimeStubUsage(relative, text) {
+  if (!relative.startsWith("smart-recruit-ai-agent-service/")) return;
+  if (!relative.endsWith(".go") || relative.endsWith("_test.go")) return;
+
+  collectUnimplementedNativeServers(relative, text);
+  for (const fn of parseGoFunctions(text)) {
+    const labelBase = `${relative}:${fn.name}`;
+    if (hasStoreNilSuccessFallback(fn.body)) {
+      runtimeStubUsage.storeNilSuccess.push(`${labelBase}:store-nil-success`);
+    }
+    if (hasUnconditionalEmptySuccess(fn.body)) {
+      runtimeStubUsage.emptySuccess.push(`${labelBase}:empty-success`);
+    }
+  }
+}
+
+function collectUnimplementedNativeServers(relative, text) {
+  const typePattern = /type\s+(\w+)\s+struct\s*\{([\s\S]*?)\n\}/g;
+  let match;
+  while ((match = typePattern.exec(text)) !== null) {
+    const typeName = match[1];
+    const body = match[2];
+    if (!/\bpb\.Unimplemented\w+ServiceServer\b/.test(body)) continue;
+    if (!/^(native|noop|unavailable)/.test(typeName)) continue;
+    runtimeStubUsage.unimplementedNativeServers.push(`${relative}:${typeName}:unimplemented-native-server`);
+  }
+}
+
+function parseGoFunctions(text) {
+  const functions = [];
+  const pattern = /func\s+(?:\([^)]*\)\s*)?(\w+)\s*\([^)]*\)\s*(?:\([^)]*\)|\*\w+(?:\.\w+)?|\w+(?:\.\w+)?)?\s*\{/g;
+  let match;
+  while ((match = pattern.exec(text)) !== null) {
+    const name = match[1];
+    const bodyStart = pattern.lastIndex - 1;
+    const bodyEnd = findMatchingBrace(text, bodyStart);
+    if (bodyEnd === -1) continue;
+    functions.push({ name, body: text.slice(bodyStart, bodyEnd + 1) });
+    pattern.lastIndex = bodyEnd + 1;
+  }
+  return functions;
+}
+
+function findMatchingBrace(text, openIndex) {
+  let depth = 0;
+  for (let i = openIndex; i < text.length; i++) {
+    const ch = text[i];
+    if (ch === "{") depth++;
+    if (ch === "}") {
+      depth--;
+      if (depth === 0) return i;
+    }
+  }
+  return -1;
+}
+
+function hasStoreNilSuccessFallback(body) {
+  return /if\s+[\w.]+\.?store\s*==\s*nil\s*\{[\s\S]*?(?:Code:\s*0,\s*Msg:\s*"success"|commonOK\(\)|fallbackAgentRun)/.test(body);
+}
+
+function hasUnconditionalEmptySuccess(body) {
+  return /return\s+&pb\.\w+\{Code:\s*0,\s*Msg:\s*"success"\},\s*nil/.test(body);
+}
+
+function recordRuntimeStubIssues() {
+  const findings = [
+    ...runtimeStubUsage.unimplementedNativeServers,
+    ...runtimeStubUsage.storeNilSuccess,
+    ...runtimeStubUsage.emptySuccess,
+  ].sort();
+  for (const finding of findings) {
+    if (!allowedRuntimeStubFindings.has(finding)) {
+      issues.push(`${finding}: AI Agent runtime stub is not in the finalization baseline`);
+    }
+  }
+}
+
+function printRuntimeStubReport() {
+  const findings = [
+    ...runtimeStubUsage.unimplementedNativeServers,
+    ...runtimeStubUsage.storeNilSuccess,
+    ...runtimeStubUsage.emptySuccess,
+  ].sort();
+  if (findings.length === 0) {
+    console.log("runtime_stub_guardrail: PASS (no targeted AI Agent runtime stubs found)");
+    return;
+  }
+  console.log(`runtime_stub_guardrail: PASS (${findings.length} known targeted AI Agent runtime stub finding(s), 0 new)`);
+  for (const finding of findings) console.log(`- known runtime stub: ${finding}`);
 }
 
 function checkLayerImports(relative, imports) {

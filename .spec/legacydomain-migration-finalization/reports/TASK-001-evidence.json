@@ -1,0 +1,254 @@
+{
+  "schemaVersion": 1,
+  "feature_name": "legacydomain-migration-finalization",
+  "task_id": "TASK-001",
+  "base_sha": "f0162252ba30bc0a8a1f6e8578d324f1d0e006ad",
+  "base_tree": "da9570e5bbf2fda0ad961e6b02c9a29d41661000",
+  "head_sha": "f0162252ba30bc0a8a1f6e8578d324f1d0e006ad",
+  "changed_files": [
+    ".spec/legacydomain-migration-finalization/AGENT_RULES.md",
+    ".spec/legacydomain-migration-finalization/TASKS.md",
+    ".spec/legacydomain-migration-finalization/acceptance/TASK-001.md",
+    ".spec/legacydomain-migration-finalization/acceptance/TASK-002.md",
+    ".spec/legacydomain-migration-finalization/acceptance/TASK-003.md",
+    ".spec/legacydomain-migration-finalization/acceptance/TASK-004.md",
+    ".spec/legacydomain-migration-finalization/acceptance/TASK-005.md",
+    ".spec/legacydomain-migration-finalization/acceptance/TASK-006.md",
+    ".spec/legacydomain-migration-finalization/docs/.gitkeep",
+    ".spec/legacydomain-migration-finalization/docs/finalization-baseline.md",
+    ".spec/legacydomain-migration-finalization/legacydomain-migration-finalization-SDD.md",
+    ".spec/legacydomain-migration-finalization/legacydomain-migration-finalization-SPEC.md",
+    ".spec/legacydomain-migration-finalization/pipeline-state.json",
+    ".spec/legacydomain-migration-finalization/prompts/fix-check-failures.md",
+    ".spec/legacydomain-migration-finalization/prompts/implement-task.md",
+    ".spec/legacydomain-migration-finalization/prompts/self-review.md",
+    ".spec/legacydomain-migration-finalization/reports/.gitkeep",
+    ".spec/legacydomain-migration-finalization/reports/TASK-001-evidence.json",
+    ".spec/legacydomain-migration-finalization/reports/TASK-001-report.md",
+    ".spec/legacydomain-migration-finalization/scripts/agent-check.sh",
+    ".spec/legacydomain-migration-finalization/scripts/check-task-scope.sh",
+    ".spec/legacydomain-migration-finalization/task-scope.json",
+    "scripts/check-backend-boundaries.mjs"
+  ],
+  "scope": {
+    "status": "passed",
+    "checked_by": "bash .spec/legacydomain-migration-finalization/scripts/check-task-scope.sh TASK-001",
+    "out_of_scope": [],
+    "forbidden": []
+  },
+  "checks": [
+    {
+      "command": "git diff --name-only && git ls-files --others --exclude-standard",
+      "exit_code": 0,
+      "started_at": "2026-07-14T07:22:34.468Z",
+      "duration_ms": 93,
+      "status": "passed",
+      "summary": "Changed files were listed for TASK evidence, including untracked feature harness files."
+    },
+    {
+      "command": "node scripts/check-backend-boundaries.mjs",
+      "exit_code": 0,
+      "started_at": "2026-07-14T07:22:34.561Z",
+      "duration_ms": 149,
+      "status": "passed",
+      "summary": "backend_boundary_result: PASS; legacydomain_retirement_enforcement: PASS; runtime_stub_guardrail: PASS (52 known targeted AI Agent runtime stub findings, 0 new)."
+    },
+    {
+      "command": "node scripts/check-mysql-table-ownership.mjs",
+      "exit_code": 0,
+      "started_at": "2026-07-14T07:22:34.710Z",
+      "duration_ms": 36,
+      "status": "passed",
+      "summary": "mysql_table_ownership: PASS (67 tables, single MySQL instance)."
+    },
+    {
+      "command": "node .knowledge/scripts/validate-knowledge.mjs --root .",
+      "exit_code": 0,
+      "started_at": "2026-07-14T07:22:34.746Z",
+      "duration_ms": 52,
+      "status": "passed",
+      "summary": "knowledge_result: PASS (37 formal documents)."
+    },
+    {
+      "command": "node .knowledge/scripts/check-references.mjs --root .",
+      "exit_code": 0,
+      "started_at": "2026-07-14T07:22:34.798Z",
+      "duration_ms": 49,
+      "status": "passed",
+      "summary": "reference_result: PASS."
+    },
+    {
+      "command": "bash .spec/legacydomain-migration-finalization/scripts/check-task-scope.sh TASK-001",
+      "exit_code": 0,
+      "started_at": "2026-07-14T07:22:34.847Z",
+      "duration_ms": 79,
+      "status": "passed",
+      "summary": "scope ok: 21 changed file(s) within TASK-001."
+    },
+    {
+      "command": "bash .spec/legacydomain-migration-finalization/scripts/agent-check.sh",
+      "exit_code": 0,
+      "started_at": "2026-07-14T07:22:34.926Z",
+      "duration_ms": 207,
+      "status": "passed",
+      "summary": "Backend boundary, MySQL ownership, knowledge validation, and reference checks passed."
+    },
+    {
+      "command": "node .knowledge/scripts/detect-impact.mjs --root . --base-tree da9570e5bbf2fda0ad961e6b02c9a29d41661000",
+      "exit_code": 0,
+      "started_at": "2026-07-14T07:22:35.133Z",
+      "duration_ms": 584,
+      "status": "passed",
+      "summary": "impact_result: update_required; routed documents: local-development, system-overview."
+    }
+  ],
+  "review": {
+    "type": "self-review",
+    "round": 1,
+    "verdict": "通过",
+    "findings": []
+  },
+  "human_confirmation": {
+    "required": false,
+    "confirmed": true,
+    "confirmed_by": "not_required",
+    "confirmed_at": "2026-07-14T07:22:35.717Z",
+    "confirmation_text": "TASK-001 does not require human confirmation."
+  },
+  "exceptions": [],
+  "knowledgeImpact": {
+    "result": "update_required",
+    "triggeredBy": [
+      ".spec/legacydomain-migration-finalization/**",
+      "scripts/check-backend-boundaries.mjs"
+    ],
+    "reviewResults": [
+      {
+        "document": "system-overview",
+        "path": ".knowledge/architecture/system-overview.md",
+        "verdict": "UNCHANGED",
+        "evidence": [
+          "Reviewed because feature harness changes route to system overview; current high-level repository topology remains accurate."
+        ]
+      },
+      {
+        "document": "local-development",
+        "path": ".knowledge/runbooks/local-development.md",
+        "verdict": "UNCHANGED",
+        "evidence": [
+          "Reviewed because feature harness changes route to local development; TASK-001 did not change startup or validation commands."
+        ]
+      },
+      {
+        "document": "service-boundaries",
+        "path": ".knowledge/architecture/service-boundaries.md",
+        "verdict": "UNCHANGED",
+        "evidence": [
+          "Reviewed against Recruitment and AI Agent source refs. The document intentionally describes the current interim native runtime state, which remains true for TASK-001."
+        ]
+      },
+      {
+        "document": "agent-runtime",
+        "path": ".knowledge/architecture/agent-runtime.md",
+        "verdict": "UNCHANGED",
+        "evidence": [
+          "Reviewed against AI Agent runtime source refs. TASK-001 recorded existing native runtime gaps but did not change AI Agent runtime behavior."
+        ]
+      },
+      {
+        "document": "ai-configuration-governance",
+        "path": ".knowledge/domains/ai-configuration-governance.md",
+        "verdict": "UNCHANGED",
+        "evidence": [
+          "Reviewed against AI configuration source refs. Configuration behavior is unchanged until TASK-003."
+        ]
+      },
+      {
+        "document": "mcp-tool-governance",
+        "path": ".knowledge/domains/mcp-tool-governance.md",
+        "verdict": "UNCHANGED",
+        "evidence": [
+          "Reviewed against MCP source refs. MCP behavior is unchanged until TASK-004."
+        ]
+      },
+      {
+        "document": "agent-skill",
+        "path": ".knowledge/domains/agent-skill.md",
+        "verdict": "UNCHANGED",
+        "evidence": [
+          "Reviewed against Agent Skill source refs. Agent Skill behavior is unchanged until TASK-004."
+        ]
+      },
+      {
+        "document": "semantic-retrieval",
+        "path": ".knowledge/architecture/semantic-retrieval.md",
+        "verdict": "UNCHANGED",
+        "evidence": [
+          "Reviewed against retrieval source refs. Retrieval behavior is unchanged until later AI Agent runtime TASKs."
+        ]
+      },
+      {
+        "document": "memory-and-context",
+        "path": ".knowledge/domains/memory-and-context.md",
+        "verdict": "UNCHANGED",
+        "evidence": [
+          "Reviewed against memory/context source refs. TASK-001 did not change context assembly."
+        ]
+      },
+      {
+        "document": "embedding-fallback",
+        "path": ".knowledge/pitfalls/embedding-fallback.md",
+        "verdict": "UNCHANGED",
+        "evidence": [
+          "Reviewed against embedding source refs. TASK-001 did not change embedding fallback behavior."
+        ]
+      },
+      {
+        "document": "resume-intelligence",
+        "path": ".knowledge/domains/resume-intelligence.md",
+        "verdict": "UNCHANGED",
+        "evidence": [
+          "Reviewed against resume intelligence source refs. TASK-001 only recorded the CompareCandidatesForJob empty-success baseline."
+        ]
+      },
+      {
+        "document": "recruitment",
+        "path": ".knowledge/domains/recruitment.md",
+        "verdict": "UNCHANGED",
+        "evidence": [
+          "Reviewed against Recruitment runtime and native adapter source refs. The document remains accurate until TASK-002 splits adapters."
+        ]
+      },
+      {
+        "document": "recruitment-lifecycle",
+        "path": ".knowledge/domains/recruitment-lifecycle.md",
+        "verdict": "UNCHANGED",
+        "evidence": [
+          "Reviewed against Recruitment lifecycle source refs. TASK-001 did not change lifecycle behavior."
+        ]
+      },
+      {
+        "document": "knowledge-coverage-audit",
+        "path": ".knowledge/runbooks/knowledge-coverage-audit.md",
+        "verdict": "UNCHANGED",
+        "evidence": [
+          "Reviewed because knowledge protocol requires route review. TASK-001 did not change knowledge routing or coverage policy."
+        ]
+      }
+    ],
+    "updatePaths": [],
+    "coverageGap": false,
+    "validationExitCode": 0,
+    "evidence": [
+      "node .knowledge/scripts/detect-impact.mjs --root . --base-tree da9570e5bbf2fda0ad961e6b02c9a29d41661000 => impact_result: update_required",
+      "node .knowledge/scripts/validate-knowledge.mjs --root . => knowledge_result: PASS (37 formal documents)",
+      "node .knowledge/scripts/check-references.mjs --root . => reference_result: PASS"
+    ]
+  },
+  "skipped_checks": [
+    {
+      "check": "go test ./...",
+      "reason": "TASK-001 forbids business Go runtime changes and only modified a Node guard script plus feature docs/reports."
+    }
+  ]
+}

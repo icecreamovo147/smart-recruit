@@ -3,8 +3,10 @@ package persistence
 import (
 	"context"
 	"database/sql"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"strings"
 	"time"
 
@@ -12,15 +14,77 @@ import (
 	"gorm.io/gorm/clause"
 
 	aiagentgrpc "smart-recruit-ai-agent-service/internal/interfaces/grpc"
+	"smart-recruit-commons/pkg/crypto"
 	"smart-recruit-proto/recruitment/pb"
 )
 
 type NativeStore struct {
-	db *gorm.DB
+	db               *gorm.DB
+	runtimeLLM       RuntimeLLMConfig
+	encryptionKey    crypto.EncryptionKey
+	hasEncryptionKey bool
 }
 
 func NewNativeStore(db *gorm.DB) *NativeStore {
 	return &NativeStore{db: db}
+}
+
+func (s *NativeStore) SetRuntimeLLMConfig(cfg RuntimeLLMConfig) {
+	s.runtimeLLM = cfg
+}
+
+func (s *NativeStore) SetEncryptionKey(key crypto.EncryptionKey) {
+	s.encryptionKey = key
+	s.hasEncryptionKey = true
+}
+
+func (s *NativeStore) encryptAPIKey(value string) (string, error) {
+	trimmed := strings.TrimSpace(value)
+	if trimmed == "" {
+		return "", fmt.Errorf("api_key is required")
+	}
+	if !s.hasEncryptionKey {
+		return "", fmt.Errorf("api key encryption key is not configured")
+	}
+	return crypto.Encrypt(s.encryptionKey, []byte(trimmed))
+}
+
+func (s *NativeStore) decryptAPIKey(value string) (string, error) {
+	trimmed := strings.TrimSpace(value)
+	if trimmed == "" {
+		return "", fmt.Errorf("api_key is empty")
+	}
+	if !s.hasEncryptionKey {
+		if looksEncryptedAPIKey(trimmed) {
+			return "", fmt.Errorf("api key encryption key is not configured")
+		}
+		return trimmed, nil
+	}
+	plaintext, err := crypto.Decrypt(s.encryptionKey, trimmed)
+	if err == nil {
+		return strings.TrimSpace(string(plaintext)), nil
+	}
+	if looksEncryptedAPIKey(trimmed) {
+		return "", fmt.Errorf("decrypt api key: %w", err)
+	}
+	return trimmed, nil
+}
+
+func (s *NativeStore) maskStoredAPIKey(value string) string {
+	plaintext, err := s.decryptAPIKey(value)
+	if err != nil {
+		return "********"
+	}
+	return crypto.MaskAPIKey(plaintext)
+}
+
+func looksEncryptedAPIKey(value string) bool {
+	trimmed := strings.TrimSpace(value)
+	if len(trimmed) < 96 || len(trimmed)%2 != 0 {
+		return false
+	}
+	_, err := hex.DecodeString(trimmed)
+	return err == nil
 }
 
 func (s *NativeStore) EnsureChatSession(ctx context.Context, ownerRole int32, ownerID int64, title string, applicationID int64) (aiagentgrpc.ChatSessionRow, error) {
@@ -241,6 +305,35 @@ func (s *NativeStore) UpdateAgentRunStatus(ctx context.Context, ownerID, runID i
 	return s.GetAgentRun(ctx, ownerID, runID)
 }
 
+func (s *NativeStore) CompleteAgentRun(ctx context.Context, ownerID, runID int64, assistantText, status, errorType, errorMessage string) (aiagentgrpc.AgentRunRow, bool, error) {
+	now := time.Now()
+	if status == "" {
+		status = "succeeded"
+	}
+	updates := map[string]any{
+		"status":         status,
+		"assistant_text": assistantText,
+		"updated_at":     now,
+	}
+	if status == "succeeded" || status == "failed" || status == "canceled" {
+		updates["completed_at"] = now
+	}
+	if errorType != "" {
+		updates["error_type"] = errorType
+	}
+	if errorMessage != "" {
+		updates["error_message"] = errorMessage
+	}
+	result := s.db.WithContext(ctx).Model(&agentRunRecord{}).Where("id = ? AND hr_id = ?", runID, ownerID).Updates(updates)
+	if result.Error != nil {
+		return aiagentgrpc.AgentRunRow{}, false, result.Error
+	}
+	if result.RowsAffected == 0 {
+		return aiagentgrpc.AgentRunRow{}, false, nil
+	}
+	return s.GetAgentRun(ctx, ownerID, runID)
+}
+
 func (s *NativeStore) AppendAgentRunEvent(ctx context.Context, runID int64, eventType, payload string) (aiagentgrpc.AgentRunEventRow, error) {
 	var event agentRunEventRecord
 	err := s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
@@ -435,22 +528,7 @@ func (s *NativeStore) ListMCPServers(ctx context.Context, page, pageSize int32) 
 	}
 	items := make([]*pb.MCPServerInfo, 0, len(rows))
 	for _, row := range rows {
-		items = append(items, &pb.MCPServerInfo{
-			Id:             row.ID,
-			Name:           row.Name,
-			Description:    nullString(row.Description),
-			Transport:      row.Transport,
-			CommandOrUrl:   row.CommandOrURL,
-			Args:           nullString(row.Args),
-			EnvVars:        nullString(row.EnvVars),
-			TimeoutSeconds: int32(row.TimeoutSeconds),
-			IsEnabled:      row.IsEnabled,
-			Status:         row.Status,
-			ToolCount:      int32(row.ToolCount),
-			LastError:      nullString(row.LastError),
-			CreatedAt:      formatTime(row.CreatedAt),
-			UpdatedAt:      formatTime(row.UpdatedAt),
-		})
+		items = append(items, mcpServerToPB(row))
 	}
 	return items, total, nil
 }

@@ -20,7 +20,7 @@ source_refs:
   - .knowledge/manifest.yaml
   - .spec/populate-development-agent-knowledge/populate-development-agent-knowledge-SPEC.md
   - .spec/populate-development-agent-knowledge/populate-development-agent-knowledge-SDD.md
-last_verified: 2026-07-10
+last_verified: 2026-07-14
 review_after: 2026-10-08
 ---
 
@@ -40,14 +40,14 @@ Use this runbook when expanding or reviewing the coding-Agent knowledge layer. T
 | Area | Current status | Planned owner TASK |
 |---|---|---|
 | System overview and service boundaries | Covered by initial architecture documents | Existing knowledge |
-| Agent runtime, semantic retrieval, Skill, Memory, Embedding fallback | Partially covered | TASK-005 |
+| Agent runtime, semantic retrieval, Skill, Memory, Embedding fallback | Covered by active AI Agent runtime, semantic retrieval, Agent Skill, memory/context, and embedding fallback documents | Existing knowledge |
 | Auth, refresh tokens, RBAC, data scopes, security audit | High-risk uncovered | TASK-002 |
 | Gin gateway, handlers, middleware, gRPC clients | Partially covered by service boundaries | TASK-003 |
 | Proto, generated code, migrations, model, repository | Partially covered by proto pitfall and recruitment domain | TASK-003 |
 | Jobs, applications, interviews, offers | Partially covered by recruitment domain | TASK-004 |
 | Collaboration, notification, outbox, SSE, analytics | Partially covered; Analytics projection has a draft Inbox candidate pending promotion | TASK-004 / TASK-BDME-024 |
-| LLM providers/models, prompt templates, Agent config, MCP tools | High-risk uncovered | TASK-005 |
-| Resume upload, parsing, structured profile, candidate matching | High-risk uncovered | TASK-006 |
+| LLM providers/models, prompt templates, Agent config, MCP tools | Covered by AI configuration governance and MCP tool governance documents | Existing knowledge |
+| Resume upload, parsing, structured profile, candidate matching | Covered by resume intelligence and resume sensitive data documents | Existing knowledge |
 | Three Vue apps, route guards, auth stores, API wrappers, validation | Partially covered by system overview and HR admin pitfall | TASK-007 |
 | Deployment and infrastructure | Low-risk partially covered by local-development | Follow-up if deployment work becomes active |
 | Email delivery | Low-risk uncovered relative to current request | Follow-up or notification TASK extension |

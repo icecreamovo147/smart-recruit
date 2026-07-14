@@ -2,6 +2,7 @@ package grpc
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"strings"
@@ -17,6 +18,10 @@ type ChatProvider interface {
 	Complete(ctx context.Context, prompt string) (string, error)
 }
 
+type ModelAwareChatProvider interface {
+	CompleteWithModel(ctx context.Context, prompt string, modelID int64) (string, error)
+}
+
 type AIStore interface {
 	EnsureChatSession(ctx context.Context, ownerRole int32, ownerID int64, title string, applicationID int64) (ChatSessionRow, error)
 	ListChatSessions(ctx context.Context, ownerRole int32, ownerID int64, page, pageSize int32) ([]ChatSessionRow, int64, error)
@@ -30,6 +35,7 @@ type AIStore interface {
 	GetAgentRun(ctx context.Context, ownerID, runID int64) (AgentRunRow, bool, error)
 	GetActiveAgentRun(ctx context.Context, ownerID, sessionID int64) (AgentRunRow, bool, error)
 	UpdateAgentRunStatus(ctx context.Context, ownerID, runID int64, status string) (AgentRunRow, bool, error)
+	CompleteAgentRun(ctx context.Context, ownerID, runID int64, assistantText, status, errorType, errorMessage string) (AgentRunRow, bool, error)
 	AppendAgentRunEvent(ctx context.Context, runID int64, eventType, payload string) (AgentRunEventRow, error)
 	ListAgentRunEvents(ctx context.Context, ownerID, runID, afterSeq int64) ([]AgentRunEventRow, error)
 	ListLlmProviders(ctx context.Context, page, pageSize int32) ([]*pb.LlmProviderInfo, int64, error)
@@ -118,6 +124,11 @@ type AgentRunEventRow struct {
 	CreatedAt   time.Time
 }
 
+var (
+	errAIStoreRequired    = errors.New("ai store is required for native AI runtime")
+	errAIProviderRequired = errors.New("ai provider is required for native AI runtime")
+)
+
 func NewNativeRuntimeDeps(deps RuntimeDeps) aiagentruntime.Deps {
 	ai := NewNativeAIService(deps.Store, deps.Provider)
 	embedding := deps.EmbeddingConfigs
@@ -130,7 +141,7 @@ func NewNativeRuntimeDeps(deps RuntimeDeps) aiagentruntime.Deps {
 		Prompt:                 nativePromptService{store: deps.Store},
 		AgentConfig:            nativeAgentConfigService{store: deps.Store},
 		MCP:                    nativeMCPService{store: deps.Store},
-		Skill:                  nativeSkillService{},
+		Skill:                  nativeSkillService{store: deps.Store},
 		AgentSkill:             nativeAgentSkillService{store: deps.Store},
 		RecruitingIntelligence: nativeRecruitingIntelligenceService{},
 		EmbeddingConfig:        embedding,
@@ -162,14 +173,21 @@ func (s *nativeAIService) Chat(ctx context.Context, req *pb.ChatRequest) (*pb.Ch
 		return nil, err
 	}
 	if strings.TrimSpace(req.GetMessage()) != "" && s.store != nil {
-		_, _ = s.store.AppendChatMessage(ctx, ChatMessageRow{OwnerRole: 1, OwnerID: req.GetHrId(), SessionID: session.ID, Role: "user", Content: req.GetMessage(), ModelID: req.GetModelId()})
+		if _, err := s.store.AppendChatMessage(ctx, ChatMessageRow{OwnerRole: 1, OwnerID: req.GetHrId(), SessionID: session.ID, Role: "user", Content: req.GetMessage(), ModelID: req.GetModelId()}); err != nil {
+			return nil, err
+		}
 	}
-	reply, err := s.complete(ctx, req.GetMessage())
+	reply, err := s.complete(ctx, req.GetMessage(), req.GetModelId())
 	if err != nil {
+		if errors.Is(err, errAIProviderRequired) {
+			return &pb.ChatResponse{Code: configCodeUnavailable, Msg: err.Error(), CreatedAt: formatTime(time.Now()), SessionId: session.ID, ApplicationId: req.GetApplicationId()}, nil
+		}
 		return nil, err
 	}
 	if s.store != nil {
-		_, _ = s.store.AppendChatMessage(ctx, ChatMessageRow{OwnerRole: 1, OwnerID: req.GetHrId(), SessionID: session.ID, Role: "assistant", Content: reply, ModelID: req.GetModelId(), CreatedAt: time.Now()})
+		if _, err := s.store.AppendChatMessage(ctx, ChatMessageRow{OwnerRole: 1, OwnerID: req.GetHrId(), SessionID: session.ID, Role: "assistant", Content: reply, ModelID: req.GetModelId(), CreatedAt: time.Now()}); err != nil {
+			return nil, err
+		}
 	}
 	return &pb.ChatResponse{Code: 0, Msg: "success", Reply: reply, CreatedAt: formatTime(time.Now()), SessionId: session.ID, ApplicationId: req.GetApplicationId()}, nil
 }
@@ -191,8 +209,11 @@ func (s *nativeAIService) History(ctx context.Context, req *pb.ChatHistoryReques
 }
 
 func (s *nativeAIService) AnalyzeApplication(ctx context.Context, req *pb.AnalyzeApplicationRequest) (*pb.AnalyzeApplicationResponse, error) {
-	reply, err := s.complete(ctx, fmt.Sprintf("Analyze application %d", req.GetApplicationId()))
+	reply, err := s.complete(ctx, fmt.Sprintf("Analyze application %d", req.GetApplicationId()), 0)
 	if err != nil {
+		if errors.Is(err, errAIProviderRequired) {
+			return &pb.AnalyzeApplicationResponse{Code: configCodeUnavailable, Msg: err.Error()}, nil
+		}
 		return nil, err
 	}
 	return &pb.AnalyzeApplicationResponse{Code: 0, Msg: "success", Reply: reply}, nil
@@ -232,7 +253,7 @@ func (s *nativeAIService) CreateApplicationAnalysisSession(ctx context.Context, 
 
 func (s *nativeAIService) UpdateSession(ctx context.Context, req *pb.UpdateSessionRequest) (*pb.CommonResponse, error) {
 	if s.store == nil {
-		return commonOK(), nil
+		return &pb.CommonResponse{Code: configCodeUnavailable, Msg: errAIStoreRequired.Error()}, nil
 	}
 	if err := s.store.UpdateChatSessionTitle(ctx, 1, req.GetHrId(), req.GetSessionId(), req.GetTitle()); err != nil {
 		return nil, err
@@ -242,7 +263,7 @@ func (s *nativeAIService) UpdateSession(ctx context.Context, req *pb.UpdateSessi
 
 func (s *nativeAIService) DeleteSession(ctx context.Context, req *pb.DeleteSessionRequest) (*pb.CommonResponse, error) {
 	if s.store == nil {
-		return commonOK(), nil
+		return &pb.CommonResponse{Code: configCodeUnavailable, Msg: errAIStoreRequired.Error()}, nil
 	}
 	if err := s.store.DeleteChatSession(ctx, 1, req.GetHrId(), req.GetSessionId()); err != nil {
 		return nil, err
@@ -255,7 +276,7 @@ func (s *nativeAIService) CandidateChatStream(req *pb.CandidateChatRequest, stre
 	if err != nil {
 		return err
 	}
-	reply, err := s.complete(stream.Context(), req.GetMessage())
+	reply, err := s.complete(stream.Context(), req.GetMessage(), 0)
 	if err != nil {
 		return err
 	}
@@ -287,26 +308,28 @@ func (s *nativeAIService) CandidateSessionMessages(ctx context.Context, req *pb.
 }
 
 func (s *nativeAIService) CandidateUpdateSession(ctx context.Context, req *pb.CandidateUpdateSessionRequest) (*pb.CommonResponse, error) {
-	if s.store != nil {
-		if err := s.store.UpdateChatSessionTitle(ctx, 2, req.GetUserId(), req.GetSessionId(), req.GetTitle()); err != nil {
-			return nil, err
-		}
+	if s.missingStore() {
+		return &pb.CommonResponse{Code: configCodeUnavailable, Msg: errAIStoreRequired.Error()}, nil
+	}
+	if err := s.store.UpdateChatSessionTitle(ctx, 2, req.GetUserId(), req.GetSessionId(), req.GetTitle()); err != nil {
+		return nil, err
 	}
 	return commonOK(), nil
 }
 
 func (s *nativeAIService) CandidateDeleteSession(ctx context.Context, req *pb.CandidateDeleteSessionRequest) (*pb.CommonResponse, error) {
-	if s.store != nil {
-		if err := s.store.DeleteChatSession(ctx, 2, req.GetUserId(), req.GetSessionId()); err != nil {
-			return nil, err
-		}
+	if s.missingStore() {
+		return &pb.CommonResponse{Code: configCodeUnavailable, Msg: errAIStoreRequired.Error()}, nil
+	}
+	if err := s.store.DeleteChatSession(ctx, 2, req.GetUserId(), req.GetSessionId()); err != nil {
+		return nil, err
 	}
 	return commonOK(), nil
 }
 
 func (s *nativeAIService) GetToolTraces(ctx context.Context, req *pb.GetToolTracesRequest) (*pb.GetToolTracesResponse, error) {
 	if s.store == nil {
-		return &pb.GetToolTracesResponse{Code: 0, Msg: "success"}, nil
+		return &pb.GetToolTracesResponse{Code: configCodeUnavailable, Msg: errAIStoreRequired.Error()}, nil
 	}
 	rows, err := s.store.ListToolTraces(ctx, req.GetHrId(), req.GetSessionId())
 	if err != nil {
@@ -321,7 +344,7 @@ func (s *nativeAIService) GetToolTraces(ctx context.Context, req *pb.GetToolTrac
 
 func (s *nativeAIService) GetAgentRuns(ctx context.Context, req *pb.GetAgentRunsRequest) (*pb.GetAgentRunsResponse, error) {
 	if s.store == nil {
-		return &pb.GetAgentRunsResponse{Code: 0, Msg: "success"}, nil
+		return &pb.GetAgentRunsResponse{Code: configCodeUnavailable, Msg: errAIStoreRequired.Error()}, nil
 	}
 	rows, err := s.store.ListAgentRuns(ctx, req.GetHrId(), req.GetSessionId())
 	if err != nil {
@@ -339,15 +362,29 @@ func (s *nativeAIService) CreateAgentRun(ctx context.Context, req *pb.CreateAgen
 		return nil, errors.New("create agent run request is required")
 	}
 	if s.store == nil {
-		run := fallbackAgentRun(req.GetHrId(), req.GetSessionId(), req.GetClientRequestId(), req.GetMessage(), req.GetModelId())
-		return &pb.CreateAgentRunResponse{Code: 0, Msg: "success", Run: mapAgentRunSnapshot(run)}, nil
+		return &pb.CreateAgentRunResponse{Code: configCodeUnavailable, Msg: errAIStoreRequired.Error()}, nil
 	}
 	run, idempotent, err := s.store.CreateAgentRun(ctx, fallbackAgentRun(req.GetHrId(), req.GetSessionId(), req.GetClientRequestId(), req.GetMessage(), req.GetModelId()))
 	if err != nil {
 		return nil, err
 	}
-	_, _ = s.store.AppendAgentRunEvent(ctx, run.ID, "run.created", `{"status":"queued"}`)
-	return &pb.CreateAgentRunResponse{Code: 0, Msg: "success", Run: mapAgentRunSnapshot(run), IdempotentReplay: idempotent}, nil
+	if idempotent {
+		return &pb.CreateAgentRunResponse{Code: 0, Msg: "success", Run: mapAgentRunSnapshot(run), IdempotentReplay: true}, nil
+	}
+	if _, err := s.store.AppendAgentRunEvent(ctx, run.ID, "run.created", `{"status":"queued"}`); err != nil {
+		return nil, err
+	}
+	if err := s.executeAgentRun(ctx, run, req.GetMessage(), req.GetModelId()); err != nil {
+		return nil, err
+	}
+	updated, found, err := s.store.GetAgentRun(ctx, req.GetHrId(), run.ID)
+	if err != nil {
+		return nil, err
+	}
+	if found {
+		run = updated
+	}
+	return &pb.CreateAgentRunResponse{Code: 0, Msg: "success", Run: mapAgentRunSnapshot(run), IdempotentReplay: false}, nil
 }
 
 func (s *nativeAIService) GetAgentRun(ctx context.Context, req *pb.GetAgentRunRequest) (*pb.GetAgentRunResponse, error) {
@@ -363,7 +400,7 @@ func (s *nativeAIService) GetAgentRun(ctx context.Context, req *pb.GetAgentRunRe
 
 func (s *nativeAIService) GetActiveAgentRun(ctx context.Context, req *pb.GetActiveAgentRunRequest) (*pb.GetActiveAgentRunResponse, error) {
 	if s.store == nil {
-		return &pb.GetActiveAgentRunResponse{Code: 0, Msg: "success"}, nil
+		return &pb.GetActiveAgentRunResponse{Code: configCodeUnavailable, Msg: errAIStoreRequired.Error()}, nil
 	}
 	run, found, err := s.store.GetActiveAgentRun(ctx, req.GetHrId(), req.GetSessionId())
 	if err != nil {
@@ -374,14 +411,16 @@ func (s *nativeAIService) GetActiveAgentRun(ctx context.Context, req *pb.GetActi
 
 func (s *nativeAIService) SubscribeAgentRunEvents(req *pb.SubscribeAgentRunEventsRequest, stream gogrpc.ServerStreamingServer[pb.AgentRunEvent]) error {
 	if s.store == nil {
-		return nil
+		return errAIStoreRequired
 	}
 	rows, err := s.store.ListAgentRunEvents(stream.Context(), req.GetHrId(), req.GetRunId(), req.GetAfterSeq())
 	if err != nil {
 		return err
 	}
 	for _, row := range rows {
-		if err := stream.Send(&pb.AgentRunEvent{RunId: row.RunID, Seq: row.Seq, EventType: row.EventType, PayloadJson: row.PayloadJSON, CreatedAt: formatTime(row.CreatedAt)}); err != nil {
+		event := &pb.AgentRunEvent{RunId: row.RunID, Seq: row.Seq, EventType: row.EventType, PayloadJson: row.PayloadJSON, CreatedAt: formatTime(row.CreatedAt)}
+		applyAgentRunPayload(event, row.PayloadJSON)
+		if err := stream.Send(event); err != nil {
 			return err
 		}
 	}
@@ -411,6 +450,9 @@ func (s *nativeAIService) ConfirmAgentRun(ctx context.Context, req *pb.ConfirmAg
 }
 
 func (s *nativeAIService) ensureSession(ctx context.Context, ownerRole int32, ownerID, sessionID, applicationID int64, seed string) (ChatSessionRow, error) {
+	if s.store == nil {
+		return ChatSessionRow{}, errAIStoreRequired
+	}
 	if sessionID > 0 {
 		return ChatSessionRow{ID: sessionID, UpdatedAt: time.Now()}, nil
 	}
@@ -421,16 +463,26 @@ func (s *nativeAIService) ensureSession(ctx context.Context, ownerRole int32, ow
 	if len([]rune(title)) > 32 {
 		title = string([]rune(title)[:32])
 	}
-	if s.store == nil {
-		now := time.Now()
-		return ChatSessionRow{ID: time.Now().UnixNano(), Title: title, ApplicationID: applicationID, CreatedAt: now, UpdatedAt: now}, nil
-	}
 	return s.store.EnsureChatSession(ctx, ownerRole, ownerID, title, applicationID)
 }
 
-func (s *nativeAIService) complete(ctx context.Context, prompt string) (string, error) {
+func (s *nativeAIService) missingStore() bool {
+	return s == nil || s.store == nil
+}
+
+func (s *nativeAIService) complete(ctx context.Context, prompt string, modelID int64) (string, error) {
 	if s.provider == nil {
-		return "AI provider is not configured for this environment.", nil
+		return "", errAIProviderRequired
+	}
+	if modelAware, ok := s.provider.(ModelAwareChatProvider); ok {
+		reply, err := modelAware.CompleteWithModel(ctx, prompt, modelID)
+		if err != nil {
+			return "", err
+		}
+		if strings.TrimSpace(reply) == "" {
+			return "AI provider returned an empty response.", nil
+		}
+		return reply, nil
 	}
 	reply, err := s.provider.Complete(ctx, prompt)
 	if err != nil {
@@ -442,34 +494,90 @@ func (s *nativeAIService) complete(ctx context.Context, prompt string) (string, 
 	return reply, nil
 }
 
+func (s *nativeAIService) executeAgentRun(ctx context.Context, run AgentRunRow, message string, modelID int64) error {
+	if _, _, err := s.updateRun(ctx, run.OwnerID, run.ID, "running"); err != nil {
+		return err
+	}
+	reply, err := s.complete(ctx, message, modelID)
+	if err != nil {
+		errorMessage := err.Error()
+		if _, eventErr := s.store.AppendAgentRunEvent(ctx, run.ID, "run.error", fmt.Sprintf(`{"status":"failed","error_type":"provider","error_message":%q}`, errorMessage)); eventErr != nil {
+			return eventErr
+		}
+		if _, _, completeErr := s.store.CompleteAgentRun(ctx, run.OwnerID, run.ID, "", "failed", "provider", errorMessage); completeErr != nil {
+			return completeErr
+		}
+		_, eventErr := s.store.AppendAgentRunEvent(ctx, run.ID, "run.completed", fmt.Sprintf(`{"status":"failed","error_type":"provider","error_message":%q}`, errorMessage))
+		return eventErr
+	}
+	if strings.TrimSpace(reply) != "" {
+		if _, err := s.store.AppendAgentRunEvent(ctx, run.ID, "assistant.delta", fmt.Sprintf(`{"status":"running","delta":%q}`, reply)); err != nil {
+			return err
+		}
+		if _, err := s.store.AppendChatMessage(ctx, ChatMessageRow{OwnerRole: 1, OwnerID: run.OwnerID, SessionID: run.SessionID, Role: "assistant", Content: reply, ModelID: modelID, CreatedAt: time.Now()}); err != nil {
+			return err
+		}
+	}
+	if _, _, err := s.store.CompleteAgentRun(ctx, run.OwnerID, run.ID, reply, "succeeded", "", ""); err != nil {
+		return err
+	}
+	_, err = s.store.AppendAgentRunEvent(ctx, run.ID, "run.completed", `{"status":"succeeded"}`)
+	return err
+}
+
+func applyAgentRunPayload(event *pb.AgentRunEvent, payloadJSON string) {
+	if strings.TrimSpace(payloadJSON) == "" {
+		return
+	}
+	var payload struct {
+		Status       string `json:"status"`
+		Delta        string `json:"delta"`
+		SnapshotText string `json:"snapshot_text"`
+		ToolName     string `json:"tool_name"`
+		ErrorType    string `json:"error_type"`
+		ErrorMessage string `json:"error_message"`
+	}
+	if err := json.Unmarshal([]byte(payloadJSON), &payload); err != nil {
+		return
+	}
+	event.Status = payload.Status
+	event.Delta = payload.Delta
+	event.SnapshotText = payload.SnapshotText
+	event.ToolName = payload.ToolName
+	event.ErrorType = payload.ErrorType
+	event.ErrorMessage = payload.ErrorMessage
+}
+
 func (s *nativeAIService) listSessions(ctx context.Context, ownerRole int32, ownerID int64, page, pageSize int32) ([]ChatSessionRow, int64, error) {
 	if s.store == nil {
-		return nil, 0, nil
+		return nil, 0, errAIStoreRequired
 	}
 	return s.store.ListChatSessions(ctx, ownerRole, ownerID, normalizePage(page), normalizePageSize(pageSize))
 }
 
 func (s *nativeAIService) listMessages(ctx context.Context, ownerRole int32, ownerID, sessionID int64, page, pageSize int32) ([]ChatMessageRow, error) {
 	if s.store == nil {
-		return nil, nil
+		return nil, errAIStoreRequired
 	}
 	return s.store.ListChatMessages(ctx, ownerRole, ownerID, sessionID, normalizePage(page), normalizePageSize(pageSize))
 }
 
 func (s *nativeAIService) getRun(ctx context.Context, ownerID, runID int64) (AgentRunRow, bool, error) {
 	if s.store == nil {
-		return AgentRunRow{}, false, nil
+		return AgentRunRow{}, false, errAIStoreRequired
 	}
 	return s.store.GetAgentRun(ctx, ownerID, runID)
 }
 
 func (s *nativeAIService) updateRun(ctx context.Context, ownerID, runID int64, status string) (AgentRunRow, bool, error) {
 	if s.store == nil {
-		return AgentRunRow{}, false, nil
+		return AgentRunRow{}, false, errAIStoreRequired
 	}
 	run, found, err := s.store.UpdateAgentRunStatus(ctx, ownerID, runID, status)
 	if err == nil && found {
-		_, _ = s.store.AppendAgentRunEvent(ctx, runID, "status.changed", fmt.Sprintf(`{"status":%q}`, status))
+		if _, eventErr := s.store.AppendAgentRunEvent(ctx, runID, "status.changed", fmt.Sprintf(`{"status":%q}`, status)); eventErr != nil {
+			return AgentRunRow{}, false, eventErr
+		}
 	}
 	return run, found, err
 }
@@ -483,11 +591,11 @@ func (nativeRecruitingIntelligenceService) GetResumeProfile(context.Context, *pb
 }
 
 func (nativeRecruitingIntelligenceService) ParseResumeProfile(context.Context, *pb.ParseResumeProfileRequest) (*pb.GetResumeProfileResponse, error) {
-	return &pb.GetResumeProfileResponse{Code: 202, Msg: "resume profile parsing is queued or unavailable"}, nil
+	return &pb.GetResumeProfileResponse{Code: configCodeUnsupported, Msg: "resume profile parsing worker is not configured in native runtime"}, nil
 }
 
 func (nativeRecruitingIntelligenceService) EvaluateCandidateMatch(context.Context, *pb.EvaluateCandidateMatchRequest) (*pb.GetCandidateMatchEvaluationResponse, error) {
-	return &pb.GetCandidateMatchEvaluationResponse{Code: 202, Msg: "candidate match evaluation is queued or unavailable"}, nil
+	return &pb.GetCandidateMatchEvaluationResponse{Code: configCodeUnsupported, Msg: "candidate match evaluation worker is not configured in native runtime"}, nil
 }
 
 func (nativeRecruitingIntelligenceService) GetCandidateMatchEvaluation(context.Context, *pb.GetCandidateMatchEvaluationRequest) (*pb.GetCandidateMatchEvaluationResponse, error) {
@@ -495,7 +603,7 @@ func (nativeRecruitingIntelligenceService) GetCandidateMatchEvaluation(context.C
 }
 
 func (nativeRecruitingIntelligenceService) CompareCandidatesForJob(context.Context, *pb.CompareCandidatesForJobRequest) (*pb.CompareCandidatesForJobResponse, error) {
-	return &pb.CompareCandidatesForJobResponse{Code: 0, Msg: "success"}, nil
+	return &pb.CompareCandidatesForJobResponse{Code: configCodeUnsupported, Msg: "candidate comparison read model is not configured in native runtime"}, nil
 }
 
 type nativeLlmConfigService struct {
@@ -516,6 +624,7 @@ type nativeMCPService struct {
 }
 type nativeSkillService struct {
 	pb.UnimplementedSkillServiceServer
+	store AIStore
 }
 type nativeAgentSkillService struct {
 	pb.UnimplementedAgentSkillServiceServer
@@ -528,7 +637,7 @@ type nativeEmbeddingConfigService struct {
 
 func (s nativeLlmConfigService) ListProviders(ctx context.Context, req *pb.ListProvidersRequest) (*pb.ListProvidersResponse, error) {
 	if s.store == nil {
-		return &pb.ListProvidersResponse{Code: 0, Msg: "success"}, nil
+		return &pb.ListProvidersResponse{Code: configCodeUnavailable, Msg: "ai configuration store is not configured"}, nil
 	}
 	rows, total, err := s.store.ListLlmProviders(ctx, normalizePage(req.GetPage()), normalizePageSize(req.GetPageSize()))
 	if err != nil {
@@ -538,7 +647,7 @@ func (s nativeLlmConfigService) ListProviders(ctx context.Context, req *pb.ListP
 }
 func (s nativeLlmConfigService) ListModels(ctx context.Context, req *pb.ListModelsRequest) (*pb.ListModelsResponse, error) {
 	if s.store == nil {
-		return &pb.ListModelsResponse{Code: 0, Msg: "success"}, nil
+		return &pb.ListModelsResponse{Code: configCodeUnavailable, Msg: "ai configuration store is not configured"}, nil
 	}
 	rows, total, err := s.store.ListLlmModels(ctx, normalizePage(req.GetPage()), normalizePageSize(req.GetPageSize()), req.GetProviderId())
 	if err != nil {
@@ -548,7 +657,7 @@ func (s nativeLlmConfigService) ListModels(ctx context.Context, req *pb.ListMode
 }
 func (s nativePromptService) ListPromptTemplates(ctx context.Context, req *pb.ListPromptTemplatesRequest) (*pb.ListPromptTemplatesResponse, error) {
 	if s.store == nil {
-		return &pb.ListPromptTemplatesResponse{Code: 0, Msg: "success"}, nil
+		return &pb.ListPromptTemplatesResponse{Code: configCodeUnavailable, Msg: "ai configuration store is not configured"}, nil
 	}
 	rows, total, err := s.store.ListPromptTemplates(ctx, normalizePage(req.GetPage()), normalizePageSize(req.GetPageSize()), req.GetAgentType())
 	if err != nil {
@@ -558,7 +667,7 @@ func (s nativePromptService) ListPromptTemplates(ctx context.Context, req *pb.Li
 }
 func (s nativeAgentConfigService) ListAgents(ctx context.Context, req *pb.ListAgentsRequest) (*pb.ListAgentsResponse, error) {
 	if s.store == nil {
-		return &pb.ListAgentsResponse{Code: 0, Msg: "success"}, nil
+		return &pb.ListAgentsResponse{Code: configCodeUnavailable, Msg: "ai configuration store is not configured"}, nil
 	}
 	rows, total, err := s.store.ListAgentConfigs(ctx, normalizePage(req.GetPage()), normalizePageSize(req.GetPageSize()), req.GetAgentType())
 	if err != nil {
@@ -566,12 +675,12 @@ func (s nativeAgentConfigService) ListAgents(ctx context.Context, req *pb.ListAg
 	}
 	return &pb.ListAgentsResponse{Code: 0, Msg: "success", Total: total, List: rows}, nil
 }
-func (nativeAgentConfigService) ListCapabilities(context.Context, *pb.ListCapabilitiesRequest) (*pb.ListCapabilitiesResponse, error) {
-	return &pb.ListCapabilitiesResponse{Code: 0, Msg: "success"}, nil
+func (nativeAgentConfigService) ListCapabilities(_ context.Context, req *pb.ListCapabilitiesRequest) (*pb.ListCapabilitiesResponse, error) {
+	return &pb.ListCapabilitiesResponse{Code: 0, Msg: "success", List: builtinCapabilities(req.GetAgentType())}, nil
 }
 func (s nativeMCPService) ListMCPServers(ctx context.Context, req *pb.ListMCPServersRequest) (*pb.ListMCPServersResponse, error) {
 	if s.store == nil {
-		return &pb.ListMCPServersResponse{Code: 0, Msg: "success"}, nil
+		return &pb.ListMCPServersResponse{Code: configCodeUnavailable, Msg: "ai governance store is not configured"}, nil
 	}
 	rows, total, err := s.store.ListMCPServers(ctx, normalizePage(req.GetPage()), normalizePageSize(req.GetPageSize()))
 	if err != nil {
@@ -579,18 +688,30 @@ func (s nativeMCPService) ListMCPServers(ctx context.Context, req *pb.ListMCPSer
 	}
 	return &pb.ListMCPServersResponse{Code: 0, Msg: "success", Total: total, List: rows}, nil
 }
-func (nativeMCPService) ListMCPToolPolicies(context.Context, *pb.ListMCPToolPoliciesRequest) (*pb.ListMCPToolPoliciesResponse, error) {
-	return &pb.ListMCPToolPoliciesResponse{Code: 0, Msg: "success"}, nil
+func (s nativeMCPService) ListMCPToolPolicies(ctx context.Context, req *pb.ListMCPToolPoliciesRequest) (*pb.ListMCPToolPoliciesResponse, error) {
+	store, ok := s.store.(mcpGovernanceStore)
+	if !ok {
+		return &pb.ListMCPToolPoliciesResponse{Code: configCodeUnavailable, Msg: "ai governance store is not configured"}, nil
+	}
+	return store.ListMCPToolPolicies(ctx, req)
 }
-func (nativeMCPService) ListMCPToolLogs(context.Context, *pb.ListMCPToolLogsRequest) (*pb.ListMCPToolLogsResponse, error) {
-	return &pb.ListMCPToolLogsResponse{Code: 0, Msg: "success"}, nil
+func (s nativeMCPService) ListMCPToolLogs(ctx context.Context, req *pb.ListMCPToolLogsRequest) (*pb.ListMCPToolLogsResponse, error) {
+	store, ok := s.store.(mcpGovernanceStore)
+	if !ok {
+		return &pb.ListMCPToolLogsResponse{Code: configCodeUnavailable, Msg: "ai governance store is not configured"}, nil
+	}
+	return store.ListMCPToolLogs(ctx, req)
 }
-func (nativeSkillService) ListSkills(context.Context, *pb.ListSkillsRequest) (*pb.ListSkillsResponse, error) {
-	return &pb.ListSkillsResponse{Code: 0, Msg: "success"}, nil
+func (s nativeSkillService) ListSkills(ctx context.Context, req *pb.ListSkillsRequest) (*pb.ListSkillsResponse, error) {
+	store, ok := s.store.(skillGovernanceStore)
+	if !ok {
+		return &pb.ListSkillsResponse{Code: configCodeUnavailable, Msg: "ai governance store is not configured"}, nil
+	}
+	return store.ListSkills(ctx, req)
 }
 func (s nativeAgentSkillService) ListAgentSkills(ctx context.Context, req *pb.ListAgentSkillsRequest) (*pb.ListAgentSkillsResponse, error) {
 	if s.store == nil {
-		return &pb.ListAgentSkillsResponse{Code: 0, Msg: "success"}, nil
+		return &pb.ListAgentSkillsResponse{Code: configCodeUnavailable, Msg: "ai governance store is not configured"}, nil
 	}
 	rows, total, err := s.store.ListAgentSkills(ctx, normalizePage(req.GetPage()), normalizePageSize(req.GetPageSize()), req.GetKeyword(), req.GetEnabledOnly())
 	if err != nil {
@@ -600,7 +721,7 @@ func (s nativeAgentSkillService) ListAgentSkills(ctx context.Context, req *pb.Li
 }
 func (s nativeAgentSkillService) ListAvailableAgentSkills(ctx context.Context, req *pb.ListAvailableAgentSkillsRequest) (*pb.ListAgentSkillsResponse, error) {
 	if s.store == nil {
-		return &pb.ListAgentSkillsResponse{Code: 0, Msg: "success"}, nil
+		return &pb.ListAgentSkillsResponse{Code: configCodeUnavailable, Msg: "ai governance store is not configured"}, nil
 	}
 	rows, total, err := s.store.ListAgentSkills(ctx, normalizePage(req.GetPage()), normalizePageSize(req.GetPageSize()), "", true)
 	if err != nil {
@@ -610,7 +731,7 @@ func (s nativeAgentSkillService) ListAvailableAgentSkills(ctx context.Context, r
 }
 func (s nativeEmbeddingConfigService) ListEmbeddingProviders(ctx context.Context, req *pb.ListEmbeddingProvidersRequest) (*pb.ListEmbeddingProvidersResponse, error) {
 	if s.store == nil {
-		return &pb.ListEmbeddingProvidersResponse{Code: 0, Msg: "success"}, nil
+		return &pb.ListEmbeddingProvidersResponse{Code: configCodeUnavailable, Msg: "ai configuration store is not configured"}, nil
 	}
 	rows, total, err := s.store.ListEmbeddingProviders(ctx, normalizePage(req.GetPage()), normalizePageSize(req.GetPageSize()))
 	if err != nil {
@@ -620,7 +741,7 @@ func (s nativeEmbeddingConfigService) ListEmbeddingProviders(ctx context.Context
 }
 func (s nativeEmbeddingConfigService) ListEmbeddingModels(ctx context.Context, req *pb.ListEmbeddingModelsRequest) (*pb.ListEmbeddingModelsResponse, error) {
 	if s.store == nil {
-		return &pb.ListEmbeddingModelsResponse{Code: 0, Msg: "success"}, nil
+		return &pb.ListEmbeddingModelsResponse{Code: configCodeUnavailable, Msg: "ai configuration store is not configured"}, nil
 	}
 	rows, total, err := s.store.ListEmbeddingModels(ctx, normalizePage(req.GetPage()), normalizePageSize(req.GetPageSize()), req.GetProviderId())
 	if err != nil {

@@ -114,28 +114,63 @@ func NewNativeBundle(options NativeOptions) (*NativeBundle, error) {
 	if now == nil {
 		now = time.Now
 	}
-	adapter := &nativeAdapter{db: options.DB, storage: options.OSS, redis: options.Redis, now: now}
+	store := &nativeStore{db: options.DB, storage: options.OSS, redis: options.Redis, now: now}
+	application := &applicationAdapter{nativeStore: store}
 	return &NativeBundle{
-		Job:                      adapter,
-		JobTaxonomy:              adapter,
-		TaxonomyAdmin:            adapter,
-		Admin:                    adapter,
-		UsageStats:               adapter,
-		Candidate:                adapter,
-		Application:              adapter,
-		ApplicationOwnerContract: adapter,
-		Collaboration:            adapter,
+		Job:                      &jobAdapter{nativeStore: store},
+		JobTaxonomy:              &jobTaxonomyAdapter{nativeStore: store},
+		TaxonomyAdmin:            &taxonomyAdminAdapter{nativeStore: store},
+		Admin:                    &adminAdapter{nativeStore: store},
+		UsageStats:               &usageStatsAdapter{nativeStore: store},
+		Candidate:                &candidateAdapter{nativeStore: store},
+		Application:              application,
+		ApplicationOwnerContract: &applicationOwnerAdapter{applicationAdapter: application},
+		Collaboration:            &collaborationAdapter{nativeStore: store},
 	}, nil
 }
 
-type nativeAdapter struct {
-	pb.UnimplementedCollaborationServiceServer
-	pb.UnimplementedApplicationOwnerServiceServer
+type nativeStore struct {
 	db      *gorm.DB
 	storage oss.Storage
 	redis   *redis.Client
 	now     func() time.Time
 }
+
+type jobAdapter struct{ *nativeStore }
+
+type jobTaxonomyAdapter struct{ *nativeStore }
+
+type taxonomyAdminAdapter struct{ *nativeStore }
+
+type adminAdapter struct{ *nativeStore }
+
+type usageStatsAdapter struct{ *nativeStore }
+
+type candidateAdapter struct{ *nativeStore }
+
+type applicationAdapter struct{ *nativeStore }
+
+type applicationOwnerAdapter struct {
+	pb.UnimplementedApplicationOwnerServiceServer
+	*applicationAdapter
+}
+
+type collaborationAdapter struct {
+	pb.UnimplementedCollaborationServiceServer
+	*nativeStore
+}
+
+var (
+	_ JobAPI                           = (*jobAdapter)(nil)
+	_ JobTaxonomyAPI                   = (*jobTaxonomyAdapter)(nil)
+	_ TaxonomyAdminAPI                 = (*taxonomyAdminAdapter)(nil)
+	_ RecruitmentAdminAPI              = (*adminAdapter)(nil)
+	_ UsageStatsAPI                    = (*usageStatsAdapter)(nil)
+	_ CandidateAPI                     = (*candidateAdapter)(nil)
+	_ ApplicationAPI                   = (*applicationAdapter)(nil)
+	_ pb.ApplicationOwnerServiceServer = (*applicationOwnerAdapter)(nil)
+	_ pb.CollaborationServiceServer    = (*collaborationAdapter)(nil)
+)
 
 type jobRecord struct {
 	ID           int64 `gorm:"primaryKey"`
@@ -388,7 +423,7 @@ type eventOutboxRecord struct {
 
 func (eventOutboxRecord) TableName() string { return "event_outbox" }
 
-func (a *nativeAdapter) CreateJob(ctx context.Context, req *pb.CreateJobRequest) (*pb.CreateJobResponse, error) {
+func (a *jobAdapter) CreateJob(ctx context.Context, req *pb.CreateJobRequest) (*pb.CreateJobResponse, error) {
 	if req.HrId == 0 || strings.TrimSpace(req.Title) == "" {
 		return &pb.CreateJobResponse{Code: errs.ErrBadRequest, Msg: "岗位名称不能为空"}, nil
 	}
@@ -434,7 +469,7 @@ func (a *nativeAdapter) CreateJob(ctx context.Context, req *pb.CreateJobRequest)
 	return &pb.CreateJobResponse{Code: errs.OK, Msg: "success", JobId: job.ID}, nil
 }
 
-func (a *nativeAdapter) UpdateJob(ctx context.Context, req *pb.UpdateJobRequest) (*pb.CommonResponse, error) {
+func (a *jobAdapter) UpdateJob(ctx context.Context, req *pb.UpdateJobRequest) (*pb.CommonResponse, error) {
 	fields := map[string]any{}
 	putTrimmed(fields, "title", req.Title)
 	putTrimmed(fields, "salary_range", req.SalaryRange)
@@ -471,15 +506,15 @@ func (a *nativeAdapter) UpdateJob(ctx context.Context, req *pb.UpdateJobRequest)
 	return &pb.CommonResponse{Code: errs.OK, Msg: "success"}, nil
 }
 
-func (a *nativeAdapter) OfflineJob(ctx context.Context, req *pb.OfflineJobRequest) (*pb.CommonResponse, error) {
+func (a *jobAdapter) OfflineJob(ctx context.Context, req *pb.OfflineJobRequest) (*pb.CommonResponse, error) {
 	return a.setJobStatus(ctx, req.JobId, 0, "岗位已下架")
 }
 
-func (a *nativeAdapter) OnlineJob(ctx context.Context, req *pb.OfflineJobRequest) (*pb.CommonResponse, error) {
+func (a *jobAdapter) OnlineJob(ctx context.Context, req *pb.OfflineJobRequest) (*pb.CommonResponse, error) {
 	return a.setJobStatus(ctx, req.JobId, 1, "岗位已上线")
 }
 
-func (a *nativeAdapter) setJobStatus(ctx context.Context, jobID int64, status int32, msg string) (*pb.CommonResponse, error) {
+func (a *jobAdapter) setJobStatus(ctx context.Context, jobID int64, status int32, msg string) (*pb.CommonResponse, error) {
 	result := a.db.WithContext(ctx).Model(&jobRecord{}).Where("id = ?", jobID).Update("status", status)
 	if result.Error != nil {
 		return nil, result.Error
@@ -490,7 +525,7 @@ func (a *nativeAdapter) setJobStatus(ctx context.Context, jobID int64, status in
 	return &pb.CommonResponse{Code: errs.OK, Msg: msg}, nil
 }
 
-func (a *nativeAdapter) ListHRJobs(ctx context.Context, req *pb.ListHRJobsRequest) (*pb.ListJobsResponse, error) {
+func (a *jobAdapter) ListHRJobs(ctx context.Context, req *pb.ListHRJobsRequest) (*pb.ListJobsResponse, error) {
 	query := a.db.WithContext(ctx).Model(&jobRecord{})
 	if req.HrId > 0 && !a.hasFullRecruitmentScope(ctx, req.HrId) {
 		query = query.Where("hr_id = ?", req.HrId)
@@ -498,7 +533,7 @@ func (a *nativeAdapter) ListHRJobs(ctx context.Context, req *pb.ListHRJobsReques
 	return a.listJobs(query, page(req.Page), pageSize(req.PageSize))
 }
 
-func (a *nativeAdapter) ListPublicJobs(ctx context.Context, req *pb.ListPublicJobsRequest) (*pb.ListJobsResponse, error) {
+func (a *jobAdapter) ListPublicJobs(ctx context.Context, req *pb.ListPublicJobsRequest) (*pb.ListJobsResponse, error) {
 	query := a.db.WithContext(ctx).Model(&jobRecord{}).Where("status = ?", 1)
 	keyword := strings.TrimSpace(req.Keyword)
 	if keyword != "" {
@@ -508,7 +543,7 @@ func (a *nativeAdapter) ListPublicJobs(ctx context.Context, req *pb.ListPublicJo
 	return a.listJobs(query, page(req.Page), pageSize(req.PageSize))
 }
 
-func (a *nativeAdapter) GetJobDetail(ctx context.Context, req *pb.GetJobDetailRequest) (*pb.GetJobDetailResponse, error) {
+func (a *jobAdapter) GetJobDetail(ctx context.Context, req *pb.GetJobDetailRequest) (*pb.GetJobDetailResponse, error) {
 	var job jobRecord
 	err := a.db.WithContext(ctx).Where("id = ? AND status = ?", req.JobId, 1).First(&job).Error
 	if errors.Is(err, gorm.ErrRecordNotFound) {
@@ -524,7 +559,7 @@ func (a *nativeAdapter) GetJobDetail(ctx context.Context, req *pb.GetJobDetailRe
 	return &pb.GetJobDetailResponse{Code: errs.OK, Msg: "success", Job: item}, nil
 }
 
-func (a *nativeAdapter) listJobs(query *gorm.DB, pageNum, size int32) (*pb.ListJobsResponse, error) {
+func (a *jobAdapter) listJobs(query *gorm.DB, pageNum, size int32) (*pb.ListJobsResponse, error) {
 	var total int64
 	if err := query.Count(&total).Error; err != nil {
 		return nil, err
@@ -544,7 +579,7 @@ func (a *nativeAdapter) listJobs(query *gorm.DB, pageNum, size int32) (*pb.ListJ
 	return &pb.ListJobsResponse{Code: errs.OK, Msg: "success", Total: total, List: list}, nil
 }
 
-func (a *nativeAdapter) jobToPB(ctx context.Context, job jobRecord) (*pb.Job, error) {
+func (a *jobAdapter) jobToPB(ctx context.Context, job jobRecord) (*pb.Job, error) {
 	var applications int64
 	if err := a.db.WithContext(ctx).Model(&applicationRecord{}).Where("job_id = ?", job.ID).Count(&applications).Error; err != nil {
 		return nil, err
@@ -566,7 +601,7 @@ func (a *nativeAdapter) jobToPB(ctx context.Context, job jobRecord) (*pb.Job, er
 	}, nil
 }
 
-func (a *nativeAdapter) GetProfile(ctx context.Context, req *pb.GetProfileRequest) (*pb.GetProfileResponse, error) {
+func (a *candidateAdapter) GetProfile(ctx context.Context, req *pb.GetProfileRequest) (*pb.GetProfileResponse, error) {
 	var profile candidateProfileRecord
 	err := a.db.WithContext(ctx).Where("user_id = ?", req.UserId).First(&profile).Error
 	if errors.Is(err, gorm.ErrRecordNotFound) {
@@ -578,7 +613,7 @@ func (a *nativeAdapter) GetProfile(ctx context.Context, req *pb.GetProfileReques
 	return &pb.GetProfileResponse{Code: errs.OK, Msg: "success", Profile: profileToPB(profile)}, nil
 }
 
-func (a *nativeAdapter) UpdateProfile(ctx context.Context, req *pb.UpdateProfileRequest) (*pb.GetProfileResponse, error) {
+func (a *candidateAdapter) UpdateProfile(ctx context.Context, req *pb.UpdateProfileRequest) (*pb.GetProfileResponse, error) {
 	profile := candidateProfileRecord{
 		UserID:         req.UserId,
 		RealName:       req.RealName,
@@ -611,7 +646,7 @@ func (a *nativeAdapter) UpdateProfile(ctx context.Context, req *pb.UpdateProfile
 	return &pb.GetProfileResponse{Code: errs.OK, Msg: "保存成功", Profile: profileToPB(profile)}, nil
 }
 
-func (a *nativeAdapter) GetResume(ctx context.Context, req *pb.GetResumeRequest) (*pb.GetResumeResponse, error) {
+func (a *candidateAdapter) GetResume(ctx context.Context, req *pb.GetResumeRequest) (*pb.GetResumeResponse, error) {
 	var resume resumeRecord
 	err := a.db.WithContext(ctx).Where("user_id = ? AND is_valid = ?", req.UserId, 1).Order("uploaded_at DESC, id DESC").First(&resume).Error
 	if errors.Is(err, gorm.ErrRecordNotFound) {
@@ -630,7 +665,7 @@ func (a *nativeAdapter) GetResume(ctx context.Context, req *pb.GetResumeRequest)
 	}}, nil
 }
 
-func (a *nativeAdapter) PresignResumeUpload(ctx context.Context, req *pb.PresignResumeUploadRequest) (*pb.PresignResumeUploadResponse, error) {
+func (a *candidateAdapter) PresignResumeUpload(ctx context.Context, req *pb.PresignResumeUploadRequest) (*pb.PresignResumeUploadResponse, error) {
 	if !allowedResumeFile(req.FileName, req.FileType) {
 		return &pb.PresignResumeUploadResponse{Code: errs.ErrBadRequest, Msg: "仅支持 PDF、DOCX 格式"}, nil
 	}
@@ -653,7 +688,7 @@ func (a *nativeAdapter) PresignResumeUpload(ctx context.Context, req *pb.Presign
 	return &pb.PresignResumeUploadResponse{Code: errs.OK, Msg: "success", UploadUrl: uploadURL, OssKey: ossKey, ExpireAt: formatTime(expireAt), UploadId: uploadID}, nil
 }
 
-func (a *nativeAdapter) ConfirmResumeUpload(ctx context.Context, req *pb.ConfirmResumeUploadRequest) (*pb.ConfirmResumeUploadResponse, error) {
+func (a *candidateAdapter) ConfirmResumeUpload(ctx context.Context, req *pb.ConfirmResumeUploadRequest) (*pb.ConfirmResumeUploadResponse, error) {
 	if !allowedResumeFile(req.FileName, req.FileType) {
 		return &pb.ConfirmResumeUploadResponse{Code: errs.ErrBadRequest, Msg: "仅支持 PDF、DOCX 格式"}, nil
 	}
@@ -695,7 +730,7 @@ func (a *nativeAdapter) ConfirmResumeUpload(ctx context.Context, req *pb.Confirm
 	return &pb.ConfirmResumeUploadResponse{Code: errs.OK, Msg: "success", ResumeId: resume.ID}, nil
 }
 
-func (a *nativeAdapter) ApplyJob(ctx context.Context, req *pb.ApplyJobRequest) (*pb.CommonResponse, error) {
+func (a *applicationAdapter) ApplyJob(ctx context.Context, req *pb.ApplyJobRequest) (*pb.CommonResponse, error) {
 	var profile candidateProfileRecord
 	if err := a.db.WithContext(ctx).Where("user_id = ?", req.UserId).First(&profile).Error; err != nil || profile.IsComplete != 1 {
 		return &pb.CommonResponse{Code: errs.ErrProfileIncomplete, Msg: "请先完善个人资料后再投递"}, nil
@@ -728,7 +763,7 @@ func (a *nativeAdapter) ApplyJob(ctx context.Context, req *pb.ApplyJobRequest) (
 	return &pb.CommonResponse{Code: errs.OK, Msg: "投递成功"}, nil
 }
 
-func (a *nativeAdapter) ListMyApplications(ctx context.Context, req *pb.ListMyApplicationsRequest) (*pb.ListMyApplicationsResponse, error) {
+func (a *applicationAdapter) ListMyApplications(ctx context.Context, req *pb.ListMyApplicationsRequest) (*pb.ListMyApplicationsResponse, error) {
 	var rows []applicationDetailRow
 	query := a.applicationDetails().Where("a.user_id = ?", req.UserId)
 	var total int64
@@ -745,7 +780,7 @@ func (a *nativeAdapter) ListMyApplications(ctx context.Context, req *pb.ListMyAp
 	return &pb.ListMyApplicationsResponse{Code: errs.OK, Msg: "success", Total: total, List: list}, nil
 }
 
-func (a *nativeAdapter) ListJobApplications(ctx context.Context, req *pb.ListJobApplicationsRequest) (*pb.ListJobApplicationsResponse, error) {
+func (a *applicationAdapter) ListJobApplications(ctx context.Context, req *pb.ListJobApplicationsRequest) (*pb.ListJobApplicationsResponse, error) {
 	var rows []applicationDetailRow
 	query := a.applicationDetails().Where("a.job_id = ?", req.JobId)
 	var total int64
@@ -770,7 +805,7 @@ func (a *nativeAdapter) ListJobApplications(ctx context.Context, req *pb.ListJob
 	return &pb.ListJobApplicationsResponse{Code: errs.OK, Msg: "success", Total: total, List: list}, nil
 }
 
-func (a *nativeAdapter) UpdateApplicationStatus(ctx context.Context, req *pb.UpdateApplicationStatusRequest) (*pb.CommonResponse, error) {
+func (a *applicationAdapter) UpdateApplicationStatus(ctx context.Context, req *pb.UpdateApplicationStatusRequest) (*pb.CommonResponse, error) {
 	targetKey := req.StatusKey
 	if targetKey == "" {
 		targetKey = domainmodel.LegacyStatusToKey[req.Status]
@@ -815,7 +850,7 @@ func (a *nativeAdapter) UpdateApplicationStatus(ctx context.Context, req *pb.Upd
 	return &pb.CommonResponse{Code: errs.OK, Msg: "投递状态已更新"}, nil
 }
 
-func (a *nativeAdapter) ListApplicationStatusTransitions(ctx context.Context, req *pb.ListApplicationStatusTransitionsRequest) (*pb.ListApplicationStatusTransitionsResponse, error) {
+func (a *applicationAdapter) ListApplicationStatusTransitions(ctx context.Context, req *pb.ListApplicationStatusTransitionsRequest) (*pb.ListApplicationStatusTransitionsResponse, error) {
 	var rows []applicationTransitionRecord
 	if err := a.db.WithContext(ctx).Where("application_id = ?", req.ApplicationId).Order("created_at ASC, id ASC").Find(&rows).Error; err != nil {
 		return nil, err
@@ -827,7 +862,7 @@ func (a *nativeAdapter) ListApplicationStatusTransitions(ctx context.Context, re
 	return &pb.ListApplicationStatusTransitionsResponse{Code: errs.OK, Msg: "success", List: list}, nil
 }
 
-func (a *nativeAdapter) GetApplicationSnapshot(ctx context.Context, req *pb.GetApplicationSnapshotRequest) (*pb.GetApplicationSnapshotResponse, error) {
+func (a *applicationOwnerAdapter) GetApplicationSnapshot(ctx context.Context, req *pb.GetApplicationSnapshotRequest) (*pb.GetApplicationSnapshotResponse, error) {
 	detail, err := a.getApplicationDetail(ctx, req.ApplicationId)
 	if err != nil {
 		return nil, err
@@ -846,7 +881,7 @@ func (a *nativeAdapter) GetApplicationSnapshot(ctx context.Context, req *pb.GetA
 	}, nil
 }
 
-func (a *nativeAdapter) ApplyApplicationLifecycleTransition(ctx context.Context, req *pb.ApplyApplicationLifecycleTransitionRequest) (*pb.ApplyApplicationLifecycleTransitionResponse, error) {
+func (a *applicationOwnerAdapter) ApplyApplicationLifecycleTransition(ctx context.Context, req *pb.ApplyApplicationLifecycleTransitionRequest) (*pb.ApplyApplicationLifecycleTransitionResponse, error) {
 	statusReq := &pb.UpdateApplicationStatusRequest{HrId: req.ActorUserId, ApplicationId: req.ApplicationId, Status: req.LegacyTargetStatus, StatusKey: req.TargetStatusKey, Reason: req.Reason}
 	snapshot, err := a.GetApplicationSnapshot(ctx, &pb.GetApplicationSnapshotRequest{ApplicationId: req.ApplicationId})
 	if err != nil || snapshot.Code != errs.OK {
@@ -870,7 +905,7 @@ func (a *nativeAdapter) ApplyApplicationLifecycleTransition(ctx context.Context,
 	return &pb.ApplyApplicationLifecycleTransitionResponse{Code: errs.OK, Msg: "success", Changed: true, FromStatusKey: snapshot.StatusKey, CurrentStatusKey: statusReq.StatusKey}, nil
 }
 
-func (a *nativeAdapter) applicationDetails() *gorm.DB {
+func (a *nativeStore) applicationDetails() *gorm.DB {
 	return a.db.Table("applications a").
 		Select(`a.id AS application_id, a.user_id, a.job_id, j.title AS job_title, COALESCE(cp.real_name, CONCAT('候选人', a.user_id)) AS real_name,
 			COALESCE(cp.phone, '') AS phone, COALESCE(cp.education, '') AS education, COALESCE(cp.school, '') AS school, COALESCE(cp.skills, '') AS skills,
@@ -881,7 +916,7 @@ func (a *nativeAdapter) applicationDetails() *gorm.DB {
 		Joins("LEFT JOIN resumes r ON r.id = a.resume_id")
 }
 
-func (a *nativeAdapter) getApplicationDetail(ctx context.Context, applicationID int64) (*applicationDetailRow, error) {
+func (a *nativeStore) getApplicationDetail(ctx context.Context, applicationID int64) (*applicationDetailRow, error) {
 	var detail applicationDetailRow
 	err := a.applicationDetails().WithContext(ctx).Where("a.id = ?", applicationID).Scan(&detail).Error
 	if err != nil {
@@ -893,7 +928,7 @@ func (a *nativeAdapter) getApplicationDetail(ctx context.Context, applicationID 
 	return &detail, nil
 }
 
-func (a *nativeAdapter) ListJobOptions(ctx context.Context, _ *pb.ListJobOptionsRequest) (*pb.ListJobOptionsResponse, error) {
+func (a *jobTaxonomyAdapter) ListJobOptions(ctx context.Context, _ *pb.ListJobOptionsRequest) (*pb.ListJobOptionsResponse, error) {
 	departments, err := a.listDepartmentRecords(ctx)
 	if err != nil {
 		return nil, err
@@ -909,7 +944,7 @@ func (a *nativeAdapter) ListJobOptions(ctx context.Context, _ *pb.ListJobOptions
 	return &pb.ListJobOptionsResponse{Code: errs.OK, Msg: "success", DepartmentTree: departmentTree(departments), Locations: locationsToPB(locations), DepartmentLocationMap: maps}, nil
 }
 
-func (a *nativeAdapter) ListDepartmentLocations(ctx context.Context, req *pb.ListDepartmentLocationsRequest) (*pb.ListDepartmentLocationsResponse, error) {
+func (a *jobTaxonomyAdapter) ListDepartmentLocations(ctx context.Context, req *pb.ListDepartmentLocationsRequest) (*pb.ListDepartmentLocationsResponse, error) {
 	locations, err := a.effectiveLocations(ctx, req.DepartmentId)
 	if err != nil {
 		return nil, err
@@ -917,7 +952,7 @@ func (a *nativeAdapter) ListDepartmentLocations(ctx context.Context, req *pb.Lis
 	return &pb.ListDepartmentLocationsResponse{Code: errs.OK, Msg: "success", DepartmentId: req.DepartmentId, Locations: locationsToPB(locations)}, nil
 }
 
-func (a *nativeAdapter) ListDepartments(ctx context.Context, _ *pb.ListDepartmentsRequest) (*pb.ListDepartmentsResponse, error) {
+func (a *taxonomyAdminAdapter) ListDepartments(ctx context.Context, _ *pb.ListDepartmentsRequest) (*pb.ListDepartmentsResponse, error) {
 	departments, err := a.listDepartmentRecords(ctx)
 	if err != nil {
 		return nil, err
@@ -925,7 +960,7 @@ func (a *nativeAdapter) ListDepartments(ctx context.Context, _ *pb.ListDepartmen
 	return &pb.ListDepartmentsResponse{Code: errs.OK, Msg: "success", List: departmentTree(departments)}, nil
 }
 
-func (a *nativeAdapter) CreateDepartment(ctx context.Context, req *pb.CreateDepartmentRequest) (*pb.DepartmentResponse, error) {
+func (a *taxonomyAdminAdapter) CreateDepartment(ctx context.Context, req *pb.CreateDepartmentRequest) (*pb.DepartmentResponse, error) {
 	name := strings.TrimSpace(req.Name)
 	if name == "" {
 		return &pb.DepartmentResponse{Code: errs.ErrBadRequest, Msg: "部门名称不能为空"}, nil
@@ -940,7 +975,7 @@ func (a *nativeAdapter) CreateDepartment(ctx context.Context, req *pb.CreateDepa
 	return &pb.DepartmentResponse{Code: errs.OK, Msg: "success", Department: departmentToPB(*dep)}, nil
 }
 
-func (a *nativeAdapter) UpdateDepartment(ctx context.Context, req *pb.UpdateDepartmentRequest) (*pb.DepartmentResponse, error) {
+func (a *taxonomyAdminAdapter) UpdateDepartment(ctx context.Context, req *pb.UpdateDepartmentRequest) (*pb.DepartmentResponse, error) {
 	var dep departmentRecord
 	err := a.db.WithContext(ctx).Where("id = ? AND deleted_at IS NULL", req.Id).First(&dep).Error
 	if errors.Is(err, gorm.ErrRecordNotFound) {
@@ -964,18 +999,18 @@ func (a *nativeAdapter) UpdateDepartment(ctx context.Context, req *pb.UpdateDepa
 	return &pb.DepartmentResponse{Code: errs.OK, Msg: "success", Department: departmentToPB(dep)}, nil
 }
 
-func (a *nativeAdapter) UpdateDepartmentStatus(ctx context.Context, req *pb.UpdateDepartmentStatusRequest) (*pb.CommonResponse, error) {
+func (a *taxonomyAdminAdapter) UpdateDepartmentStatus(ctx context.Context, req *pb.UpdateDepartmentStatusRequest) (*pb.CommonResponse, error) {
 	result := a.db.WithContext(ctx).Model(&departmentRecord{}).Where("id = ? AND deleted_at IS NULL", req.Id).Updates(map[string]any{"is_active": req.IsActive, "updated_by": req.AdminId})
 	return rowsCommon(result, "success", "部门不存在")
 }
 
-func (a *nativeAdapter) DeleteDepartment(ctx context.Context, req *pb.DeleteDepartmentRequest) (*pb.CommonResponse, error) {
+func (a *taxonomyAdminAdapter) DeleteDepartment(ctx context.Context, req *pb.DeleteDepartmentRequest) (*pb.CommonResponse, error) {
 	now := a.now()
 	result := a.db.WithContext(ctx).Model(&departmentRecord{}).Where("id = ? AND deleted_at IS NULL", req.Id).Updates(map[string]any{"deleted_at": now, "deleted_by": req.AdminId})
 	return rowsCommon(result, "success", "部门不存在")
 }
 
-func (a *nativeAdapter) ListJobLocations(ctx context.Context, _ *pb.ListJobLocationsRequest) (*pb.ListJobLocationsResponse, error) {
+func (a *taxonomyAdminAdapter) ListJobLocations(ctx context.Context, _ *pb.ListJobLocationsRequest) (*pb.ListJobLocationsResponse, error) {
 	locations, err := a.listLocationRecords(ctx, true)
 	if err != nil {
 		return nil, err
@@ -983,7 +1018,7 @@ func (a *nativeAdapter) ListJobLocations(ctx context.Context, _ *pb.ListJobLocat
 	return &pb.ListJobLocationsResponse{Code: errs.OK, Msg: "success", List: locationsToPB(locations)}, nil
 }
 
-func (a *nativeAdapter) CreateJobLocation(ctx context.Context, req *pb.CreateJobLocationRequest) (*pb.JobLocationResponse, error) {
+func (a *taxonomyAdminAdapter) CreateJobLocation(ctx context.Context, req *pb.CreateJobLocationRequest) (*pb.JobLocationResponse, error) {
 	name := strings.TrimSpace(req.Name)
 	if name == "" {
 		return &pb.JobLocationResponse{Code: errs.ErrBadRequest, Msg: "地点名称不能为空"}, nil
@@ -995,7 +1030,7 @@ func (a *nativeAdapter) CreateJobLocation(ctx context.Context, req *pb.CreateJob
 	return &pb.JobLocationResponse{Code: errs.OK, Msg: "success", Location: locationToPB(*loc)}, nil
 }
 
-func (a *nativeAdapter) UpdateJobLocation(ctx context.Context, req *pb.UpdateJobLocationRequest) (*pb.JobLocationResponse, error) {
+func (a *taxonomyAdminAdapter) UpdateJobLocation(ctx context.Context, req *pb.UpdateJobLocationRequest) (*pb.JobLocationResponse, error) {
 	fields := map[string]any{"updated_by": req.AdminId}
 	putTrimmed(fields, "name", req.Name)
 	fields["code"] = strings.TrimSpace(req.Code)
@@ -1014,18 +1049,18 @@ func (a *nativeAdapter) UpdateJobLocation(ctx context.Context, req *pb.UpdateJob
 	return &pb.JobLocationResponse{Code: errs.OK, Msg: "success", Location: locationToPB(*loc)}, nil
 }
 
-func (a *nativeAdapter) UpdateJobLocationStatus(ctx context.Context, req *pb.UpdateJobLocationStatusRequest) (*pb.CommonResponse, error) {
+func (a *taxonomyAdminAdapter) UpdateJobLocationStatus(ctx context.Context, req *pb.UpdateJobLocationStatusRequest) (*pb.CommonResponse, error) {
 	result := a.db.WithContext(ctx).Model(&jobLocationRecord{}).Where("id = ? AND deleted_at IS NULL", req.Id).Updates(map[string]any{"is_active": req.IsActive, "updated_by": req.AdminId})
 	return rowsCommon(result, "success", "地点不存在")
 }
 
-func (a *nativeAdapter) DeleteJobLocation(ctx context.Context, req *pb.DeleteJobLocationRequest) (*pb.CommonResponse, error) {
+func (a *taxonomyAdminAdapter) DeleteJobLocation(ctx context.Context, req *pb.DeleteJobLocationRequest) (*pb.CommonResponse, error) {
 	now := a.now()
 	result := a.db.WithContext(ctx).Model(&jobLocationRecord{}).Where("id = ? AND deleted_at IS NULL", req.Id).Updates(map[string]any{"deleted_at": now, "deleted_by": req.AdminId})
 	return rowsCommon(result, "success", "地点不存在")
 }
 
-func (a *nativeAdapter) GetDepartmentLocationConfig(ctx context.Context, req *pb.GetDepartmentLocationConfigRequest) (*pb.DepartmentLocationConfigResponse, error) {
+func (a *taxonomyAdminAdapter) GetDepartmentLocationConfig(ctx context.Context, req *pb.GetDepartmentLocationConfigRequest) (*pb.DepartmentLocationConfigResponse, error) {
 	dep, err := a.lookupDepartment(ctx, req.DepartmentId)
 	if err != nil {
 		return nil, err
@@ -1052,7 +1087,7 @@ func (a *nativeAdapter) GetDepartmentLocationConfig(ctx context.Context, req *pb
 	return &pb.DepartmentLocationConfigResponse{Code: errs.OK, Msg: "success", DepartmentId: req.DepartmentId, InheritLocations: dep.InheritLocations, DirectLocationIds: direct, EffectiveLocationIds: effective, Locations: locationsToPB(locations), AvailableLocationIds: available}, nil
 }
 
-func (a *nativeAdapter) UpdateDepartmentLocationConfig(ctx context.Context, req *pb.UpdateDepartmentLocationConfigRequest) (*pb.DepartmentLocationConfigResponse, error) {
+func (a *taxonomyAdminAdapter) UpdateDepartmentLocationConfig(ctx context.Context, req *pb.UpdateDepartmentLocationConfigRequest) (*pb.DepartmentLocationConfigResponse, error) {
 	err := a.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		if err := tx.Model(&departmentRecord{}).Where("id = ? AND deleted_at IS NULL", req.DepartmentId).Updates(map[string]any{"inherit_locations": req.InheritLocations, "updated_by": req.AdminId}).Error; err != nil {
 			return err
@@ -1078,7 +1113,7 @@ func (a *nativeAdapter) UpdateDepartmentLocationConfig(ctx context.Context, req 
 	return a.GetDepartmentLocationConfig(ctx, &pb.GetDepartmentLocationConfigRequest{DepartmentId: req.DepartmentId})
 }
 
-func (a *nativeAdapter) ListDepartmentsLocationMap(ctx context.Context, _ *pb.ListDepartmentsLocationMapRequest) (*pb.ListDepartmentsLocationMapResponse, error) {
+func (a *taxonomyAdminAdapter) ListDepartmentsLocationMap(ctx context.Context, _ *pb.ListDepartmentsLocationMapRequest) (*pb.ListDepartmentsLocationMapResponse, error) {
 	items, err := a.listDepartmentLocationMaps(ctx)
 	if err != nil {
 		return nil, err
@@ -1086,7 +1121,7 @@ func (a *nativeAdapter) ListDepartmentsLocationMap(ctx context.Context, _ *pb.Li
 	return &pb.ListDepartmentsLocationMapResponse{Code: errs.OK, Msg: "success", Items: items}, nil
 }
 
-func (a *nativeAdapter) CreateInviteCode(ctx context.Context, req *pb.CreateInviteCodeRequest) (*pb.CreateInviteCodeResponse, error) {
+func (a *adminAdapter) CreateInviteCode(ctx context.Context, req *pb.CreateInviteCodeRequest) (*pb.CreateInviteCodeResponse, error) {
 	code, err := randomCode()
 	if err != nil {
 		return nil, err
@@ -1102,7 +1137,7 @@ func (a *nativeAdapter) CreateInviteCode(ctx context.Context, req *pb.CreateInvi
 	return &pb.CreateInviteCodeResponse{Code: errs.OK, Msg: "success", InviteCode: inviteCodeToPB(*row)}, nil
 }
 
-func (a *nativeAdapter) ListInviteCodes(ctx context.Context, req *pb.ListInviteCodesRequest) (*pb.ListInviteCodesResponse, error) {
+func (a *adminAdapter) ListInviteCodes(ctx context.Context, req *pb.ListInviteCodesRequest) (*pb.ListInviteCodesResponse, error) {
 	query := a.db.WithContext(ctx).Model(&inviteCodeRecord{})
 	if req.CreatedBy > 0 {
 		query = query.Where("created_by = ?", req.CreatedBy)
@@ -1122,7 +1157,7 @@ func (a *nativeAdapter) ListInviteCodes(ctx context.Context, req *pb.ListInviteC
 	return &pb.ListInviteCodesResponse{Code: errs.OK, Msg: "success", Total: total, List: list}, nil
 }
 
-func (a *nativeAdapter) ExtendInviteCode(ctx context.Context, req *pb.ExtendInviteCodeRequest) (*pb.CommonResponse, error) {
+func (a *adminAdapter) ExtendInviteCode(ctx context.Context, req *pb.ExtendInviteCodeRequest) (*pb.CommonResponse, error) {
 	expiresAt, err := parseOptionalTime(req.NewExpiresAt)
 	if err != nil {
 		return &pb.CommonResponse{Code: errs.ErrBadRequest, Msg: "过期时间格式不正确"}, nil
@@ -1131,17 +1166,17 @@ func (a *nativeAdapter) ExtendInviteCode(ctx context.Context, req *pb.ExtendInvi
 	return rowsCommon(result, "success", "邀请码不存在")
 }
 
-func (a *nativeAdapter) RevokeInviteCode(ctx context.Context, req *pb.RevokeInviteCodeRequest) (*pb.CommonResponse, error) {
+func (a *adminAdapter) RevokeInviteCode(ctx context.Context, req *pb.RevokeInviteCodeRequest) (*pb.CommonResponse, error) {
 	result := a.db.WithContext(ctx).Model(&inviteCodeRecord{}).Where("id = ?", req.Id).Update("is_active", 0)
 	return rowsCommon(result, "success", "邀请码不存在")
 }
 
-func (a *nativeAdapter) ReactivateInviteCode(ctx context.Context, req *pb.ReactivateInviteCodeRequest) (*pb.CommonResponse, error) {
+func (a *adminAdapter) ReactivateInviteCode(ctx context.Context, req *pb.ReactivateInviteCodeRequest) (*pb.CommonResponse, error) {
 	result := a.db.WithContext(ctx).Model(&inviteCodeRecord{}).Where("id = ?", req.Id).Update("is_active", 1)
 	return rowsCommon(result, "success", "邀请码不存在")
 }
 
-func (a *nativeAdapter) ValidateInviteCode(ctx context.Context, req *pb.ValidateInviteCodeRequest) (*pb.ValidateInviteCodeResponse, error) {
+func (a *adminAdapter) ValidateInviteCode(ctx context.Context, req *pb.ValidateInviteCodeRequest) (*pb.ValidateInviteCodeResponse, error) {
 	var row inviteCodeRecord
 	err := a.db.WithContext(ctx).Where("code = ? AND is_active = ?", strings.TrimSpace(req.InviteCode), 1).First(&row).Error
 	if errors.Is(err, gorm.ErrRecordNotFound) {
@@ -1154,7 +1189,7 @@ func (a *nativeAdapter) ValidateInviteCode(ctx context.Context, req *pb.Validate
 	return &pb.ValidateInviteCodeResponse{Code: errs.OK, Msg: "success", Valid: valid}, nil
 }
 
-func (a *nativeAdapter) QueryUsageLogs(ctx context.Context, req *pb.QueryUsageLogsRequest) (*pb.QueryUsageLogsResponse, error) {
+func (a *adminAdapter) QueryUsageLogs(ctx context.Context, req *pb.QueryUsageLogsRequest) (*pb.QueryUsageLogsResponse, error) {
 	query := a.usageLogQuery(ctx, req.StartTime, req.EndTime)
 	if strings.TrimSpace(req.ServiceType) != "" {
 		query = query.Where("service_type = ?", strings.TrimSpace(req.ServiceType))
@@ -1186,7 +1221,7 @@ func (a *nativeAdapter) QueryUsageLogs(ctx context.Context, req *pb.QueryUsageLo
 	return &pb.QueryUsageLogsResponse{Code: errs.OK, Msg: "success", Total: total, List: list}, nil
 }
 
-func (a *nativeAdapter) GetUsageStats(ctx context.Context, req *pb.GetUsageStatsRequest) (*pb.GetUsageStatsResponse, error) {
+func (a *usageStatsAdapter) GetUsageStats(ctx context.Context, req *pb.GetUsageStatsRequest) (*pb.GetUsageStatsResponse, error) {
 	dimension := usageDimension(req.Dimension)
 	var rows []struct {
 		Name        string
@@ -1209,7 +1244,7 @@ func (a *nativeAdapter) GetUsageStats(ctx context.Context, req *pb.GetUsageStats
 	return &pb.GetUsageStatsResponse{Code: errs.OK, Msg: "success", List: list}, nil
 }
 
-func (a *nativeAdapter) GetUsageTrend(ctx context.Context, req *pb.GetUsageTrendRequest) (*pb.GetUsageTrendResponse, error) {
+func (a *usageStatsAdapter) GetUsageTrend(ctx context.Context, req *pb.GetUsageTrendRequest) (*pb.GetUsageTrendResponse, error) {
 	dateExpr := "DATE(created_at)"
 	if req.Granularity == "month" {
 		dateExpr = "DATE_FORMAT(created_at, '%Y-%m')"
@@ -1237,7 +1272,7 @@ func (a *nativeAdapter) GetUsageTrend(ctx context.Context, req *pb.GetUsageTrend
 	return &pb.GetUsageTrendResponse{Code: errs.OK, Msg: "success", List: list}, nil
 }
 
-func (a *nativeAdapter) GetCandidateWorkspace(ctx context.Context, req *pb.GetCandidateWorkspaceRequest) (*pb.GetCandidateWorkspaceResponse, error) {
+func (a *collaborationAdapter) GetCandidateWorkspace(ctx context.Context, req *pb.GetCandidateWorkspaceRequest) (*pb.GetCandidateWorkspaceResponse, error) {
 	workspace := &pb.CandidateWorkspace{}
 	var profile candidateProfileRecord
 	if err := a.db.WithContext(ctx).Where("user_id = ?", req.CandidateUserId).First(&profile).Error; err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
@@ -1281,7 +1316,7 @@ func (a *nativeAdapter) GetCandidateWorkspace(ctx context.Context, req *pb.GetCa
 	return &pb.GetCandidateWorkspaceResponse{Code: errs.OK, Msg: "success", Workspace: workspace}, nil
 }
 
-func (a *nativeAdapter) CreateNote(ctx context.Context, req *pb.CreateNoteRequest) (*pb.CreateNoteResponse, error) {
+func (a *collaborationAdapter) CreateNote(ctx context.Context, req *pb.CreateNoteRequest) (*pb.CreateNoteResponse, error) {
 	content := strings.TrimSpace(req.Content)
 	if content == "" {
 		return &pb.CreateNoteResponse{Code: errs.ErrBadRequest, Msg: "备注内容不能为空"}, nil
@@ -1293,7 +1328,7 @@ func (a *nativeAdapter) CreateNote(ctx context.Context, req *pb.CreateNoteReques
 	return &pb.CreateNoteResponse{Code: errs.OK, Msg: "success", Note: noteToPB(*row)}, nil
 }
 
-func (a *nativeAdapter) ListNotes(ctx context.Context, req *pb.ListNotesRequest) (*pb.ListNotesResponse, error) {
+func (a *collaborationAdapter) ListNotes(ctx context.Context, req *pb.ListNotesRequest) (*pb.ListNotesResponse, error) {
 	query := a.db.WithContext(ctx).Where("candidate_user_id = ?", req.CandidateUserId)
 	if req.ApplicationId > 0 {
 		query = query.Where("application_id = ?", req.ApplicationId)
@@ -1309,7 +1344,7 @@ func (a *nativeAdapter) ListNotes(ctx context.Context, req *pb.ListNotesRequest)
 	return &pb.ListNotesResponse{Code: errs.OK, Msg: "success", List: list}, nil
 }
 
-func (a *nativeAdapter) CreateTag(ctx context.Context, req *pb.CreateTagRequest) (*pb.CreateTagResponse, error) {
+func (a *collaborationAdapter) CreateTag(ctx context.Context, req *pb.CreateTagRequest) (*pb.CreateTagResponse, error) {
 	name := strings.TrimSpace(req.Name)
 	if name == "" {
 		return &pb.CreateTagResponse{Code: errs.ErrBadRequest, Msg: "标签名称不能为空"}, nil
@@ -1325,7 +1360,7 @@ func (a *nativeAdapter) CreateTag(ctx context.Context, req *pb.CreateTagRequest)
 	return &pb.CreateTagResponse{Code: errs.OK, Msg: "success", Tag: tagToPB(*row)}, nil
 }
 
-func (a *nativeAdapter) ListTags(ctx context.Context, _ *pb.ListTagsRequest) (*pb.ListTagsResponse, error) {
+func (a *collaborationAdapter) ListTags(ctx context.Context, _ *pb.ListTagsRequest) (*pb.ListTagsResponse, error) {
 	var rows []candidateTagRecord
 	if err := a.db.WithContext(ctx).Order("created_at DESC, id DESC").Find(&rows).Error; err != nil {
 		return nil, err
@@ -1337,7 +1372,7 @@ func (a *nativeAdapter) ListTags(ctx context.Context, _ *pb.ListTagsRequest) (*p
 	return &pb.ListTagsResponse{Code: errs.OK, Msg: "success", List: list}, nil
 }
 
-func (a *nativeAdapter) AssignTag(ctx context.Context, req *pb.AssignTagRequest) (*pb.CommonResponse, error) {
+func (a *collaborationAdapter) AssignTag(ctx context.Context, req *pb.AssignTagRequest) (*pb.CommonResponse, error) {
 	row := &candidateTagAssignmentRecord{TagID: req.TagId, CandidateUserID: req.CandidateUserId, CreatedBy: positiveUintPtr(uint64(req.StaffUserId)), CreatedAt: a.now()}
 	err := a.db.WithContext(ctx).Clauses(clause.OnConflict{Columns: []clause.Column{{Name: "tag_id"}, {Name: "candidate_user_id"}}, DoNothing: true}).Create(row).Error
 	if err != nil {
@@ -1346,12 +1381,12 @@ func (a *nativeAdapter) AssignTag(ctx context.Context, req *pb.AssignTagRequest)
 	return &pb.CommonResponse{Code: errs.OK, Msg: "success"}, nil
 }
 
-func (a *nativeAdapter) UnassignTag(ctx context.Context, req *pb.UnassignTagRequest) (*pb.CommonResponse, error) {
+func (a *collaborationAdapter) UnassignTag(ctx context.Context, req *pb.UnassignTagRequest) (*pb.CommonResponse, error) {
 	result := a.db.WithContext(ctx).Where("tag_id = ? AND candidate_user_id = ?", req.TagId, req.CandidateUserId).Delete(&candidateTagAssignmentRecord{})
 	return rowsCommon(result, "success", "标签未分配")
 }
 
-func (a *nativeAdapter) ListCandidateTags(ctx context.Context, req *pb.ListCandidateTagsRequest) (*pb.ListCandidateTagsResponse, error) {
+func (a *collaborationAdapter) ListCandidateTags(ctx context.Context, req *pb.ListCandidateTagsRequest) (*pb.ListCandidateTagsResponse, error) {
 	tags, err := a.candidateTags(ctx, req.CandidateUserId)
 	if err != nil {
 		return nil, err
@@ -1359,7 +1394,7 @@ func (a *nativeAdapter) ListCandidateTags(ctx context.Context, req *pb.ListCandi
 	return &pb.ListCandidateTagsResponse{Code: errs.OK, Msg: "success", List: tags}, nil
 }
 
-func (a *nativeAdapter) CreateFollowUpTask(ctx context.Context, req *pb.CreateFollowUpTaskRequest) (*pb.CreateFollowUpTaskResponse, error) {
+func (a *collaborationAdapter) CreateFollowUpTask(ctx context.Context, req *pb.CreateFollowUpTaskRequest) (*pb.CreateFollowUpTaskResponse, error) {
 	title := strings.TrimSpace(req.Title)
 	if title == "" {
 		return &pb.CreateFollowUpTaskResponse{Code: errs.ErrBadRequest, Msg: "任务标题不能为空"}, nil
@@ -1375,7 +1410,7 @@ func (a *nativeAdapter) CreateFollowUpTask(ctx context.Context, req *pb.CreateFo
 	return &pb.CreateFollowUpTaskResponse{Code: errs.OK, Msg: "success", Task: followUpToPB(*row)}, nil
 }
 
-func (a *nativeAdapter) ListFollowUpTasks(ctx context.Context, req *pb.ListFollowUpTasksRequest) (*pb.ListFollowUpTasksResponse, error) {
+func (a *collaborationAdapter) ListFollowUpTasks(ctx context.Context, req *pb.ListFollowUpTasksRequest) (*pb.ListFollowUpTasksResponse, error) {
 	query := a.db.WithContext(ctx).Model(&followUpTaskRecord{})
 	if req.CandidateUserId > 0 {
 		query = query.Where("candidate_user_id = ?", req.CandidateUserId)
@@ -1397,13 +1432,13 @@ func (a *nativeAdapter) ListFollowUpTasks(ctx context.Context, req *pb.ListFollo
 	return &pb.ListFollowUpTasksResponse{Code: errs.OK, Msg: "success", List: list}, nil
 }
 
-func (a *nativeAdapter) CompleteFollowUpTask(ctx context.Context, req *pb.CompleteFollowUpTaskRequest) (*pb.CommonResponse, error) {
+func (a *collaborationAdapter) CompleteFollowUpTask(ctx context.Context, req *pb.CompleteFollowUpTaskRequest) (*pb.CommonResponse, error) {
 	now := a.now()
 	result := a.db.WithContext(ctx).Model(&followUpTaskRecord{}).Where("id = ?", req.TaskId).Updates(map[string]any{"status": "completed", "completed_at": now, "updated_at": now})
 	return rowsCommon(result, "success", "任务不存在")
 }
 
-func (a *nativeAdapter) GetFollowUpTask(ctx context.Context, req *pb.GetFollowUpTaskRequest) (*pb.GetFollowUpTaskResponse, error) {
+func (a *collaborationAdapter) GetFollowUpTask(ctx context.Context, req *pb.GetFollowUpTaskRequest) (*pb.GetFollowUpTaskResponse, error) {
 	var row followUpTaskRecord
 	err := a.db.WithContext(ctx).Where("id = ?", req.TaskId).First(&row).Error
 	if errors.Is(err, gorm.ErrRecordNotFound) {
@@ -1415,7 +1450,7 @@ func (a *nativeAdapter) GetFollowUpTask(ctx context.Context, req *pb.GetFollowUp
 	return &pb.GetFollowUpTaskResponse{Code: errs.OK, Msg: "success", Task: followUpToPB(row)}, nil
 }
 
-func (a *nativeAdapter) ListTimelineEvents(ctx context.Context, req *pb.ListTimelineEventsRequest) (*pb.ListTimelineEventsResponse, error) {
+func (a *collaborationAdapter) ListTimelineEvents(ctx context.Context, req *pb.ListTimelineEventsRequest) (*pb.ListTimelineEventsResponse, error) {
 	events := []*pb.TimelineEventInfo{}
 	var notes []candidateNoteRecord
 	if err := a.db.WithContext(ctx).Where("candidate_user_id = ?", req.CandidateUserId).Order("created_at DESC, id DESC").Limit(100).Find(&notes).Error; err != nil {
@@ -1441,7 +1476,7 @@ func (a *nativeAdapter) ListTimelineEvents(ctx context.Context, req *pb.ListTime
 	return &pb.ListTimelineEventsResponse{Code: errs.OK, Msg: "success", Events: events}, nil
 }
 
-func (a *nativeAdapter) lookupDepartment(ctx context.Context, id int64) (*departmentRecord, error) {
+func (a *nativeStore) lookupDepartment(ctx context.Context, id int64) (*departmentRecord, error) {
 	var dep departmentRecord
 	err := a.db.WithContext(ctx).Where("id = ? AND deleted_at IS NULL", id).First(&dep).Error
 	if errors.Is(err, gorm.ErrRecordNotFound) {
@@ -1453,7 +1488,7 @@ func (a *nativeAdapter) lookupDepartment(ctx context.Context, id int64) (*depart
 	return &dep, nil
 }
 
-func (a *nativeAdapter) lookupLocation(ctx context.Context, id int64) (*jobLocationRecord, error) {
+func (a *nativeStore) lookupLocation(ctx context.Context, id int64) (*jobLocationRecord, error) {
 	var loc jobLocationRecord
 	err := a.db.WithContext(ctx).Where("id = ? AND deleted_at IS NULL", id).First(&loc).Error
 	if errors.Is(err, gorm.ErrRecordNotFound) {
@@ -1465,7 +1500,7 @@ func (a *nativeAdapter) lookupLocation(ctx context.Context, id int64) (*jobLocat
 	return &loc, nil
 }
 
-func (a *nativeAdapter) validateDepartmentLocation(ctx context.Context, departmentID, locationID int64) error {
+func (a *nativeStore) validateDepartmentLocation(ctx context.Context, departmentID, locationID int64) error {
 	ids, err := a.directLocationIDs(ctx, departmentID)
 	if err != nil {
 		return err
@@ -1478,13 +1513,13 @@ func (a *nativeAdapter) validateDepartmentLocation(ctx context.Context, departme
 	return fmt.Errorf("所选部门不支持该地点")
 }
 
-func (a *nativeAdapter) listDepartmentRecords(ctx context.Context) ([]departmentRecord, error) {
+func (a *nativeStore) listDepartmentRecords(ctx context.Context) ([]departmentRecord, error) {
 	var rows []departmentRecord
 	err := a.db.WithContext(ctx).Where("deleted_at IS NULL").Order("parent_id ASC, sort_order ASC, id ASC").Find(&rows).Error
 	return rows, err
 }
 
-func (a *nativeAdapter) listLocationRecords(ctx context.Context, includeInactive bool) ([]jobLocationRecord, error) {
+func (a *nativeStore) listLocationRecords(ctx context.Context, includeInactive bool) ([]jobLocationRecord, error) {
 	query := a.db.WithContext(ctx).Where("deleted_at IS NULL")
 	if !includeInactive {
 		query = query.Where("is_active = ?", 1)
@@ -1494,7 +1529,7 @@ func (a *nativeAdapter) listLocationRecords(ctx context.Context, includeInactive
 	return rows, err
 }
 
-func (a *nativeAdapter) fillDepartmentPath(ctx context.Context, dep *departmentRecord) error {
+func (a *nativeStore) fillDepartmentPath(ctx context.Context, dep *departmentRecord) error {
 	dep.FullName = dep.Name
 	dep.Path = "/"
 	dep.Depth = 1
@@ -1513,7 +1548,7 @@ func (a *nativeAdapter) fillDepartmentPath(ctx context.Context, dep *departmentR
 	return nil
 }
 
-func (a *nativeAdapter) directLocationIDs(ctx context.Context, departmentID int64) ([]int64, error) {
+func (a *nativeStore) directLocationIDs(ctx context.Context, departmentID int64) ([]int64, error) {
 	var ids []int64
 	err := a.db.WithContext(ctx).Model(&departmentLocationRecord{}).
 		Where("department_id = ? AND is_active = ? AND deleted_at IS NULL", departmentID, 1).
@@ -1522,7 +1557,7 @@ func (a *nativeAdapter) directLocationIDs(ctx context.Context, departmentID int6
 	return ids, err
 }
 
-func (a *nativeAdapter) effectiveLocationIDs(ctx context.Context, dep departmentRecord) ([]int64, error) {
+func (a *nativeStore) effectiveLocationIDs(ctx context.Context, dep departmentRecord) ([]int64, error) {
 	if dep.InheritLocations == 1 && dep.ParentID > 0 {
 		parent, err := a.lookupDepartment(ctx, dep.ParentID)
 		if err != nil {
@@ -1535,7 +1570,7 @@ func (a *nativeAdapter) effectiveLocationIDs(ctx context.Context, dep department
 	return a.directLocationIDs(ctx, dep.ID)
 }
 
-func (a *nativeAdapter) effectiveLocations(ctx context.Context, departmentID int64) ([]jobLocationRecord, error) {
+func (a *nativeStore) effectiveLocations(ctx context.Context, departmentID int64) ([]jobLocationRecord, error) {
 	if departmentID <= 0 {
 		return a.listLocationRecords(ctx, false)
 	}
@@ -1550,7 +1585,7 @@ func (a *nativeAdapter) effectiveLocations(ctx context.Context, departmentID int
 	return a.locationsByIDs(ctx, ids)
 }
 
-func (a *nativeAdapter) locationsByIDs(ctx context.Context, ids []int64) ([]jobLocationRecord, error) {
+func (a *nativeStore) locationsByIDs(ctx context.Context, ids []int64) ([]jobLocationRecord, error) {
 	if len(ids) == 0 {
 		return nil, nil
 	}
@@ -1559,13 +1594,13 @@ func (a *nativeAdapter) locationsByIDs(ctx context.Context, ids []int64) ([]jobL
 	return rows, err
 }
 
-func (a *nativeAdapter) allActiveLocationIDs(ctx context.Context) ([]int64, error) {
+func (a *nativeStore) allActiveLocationIDs(ctx context.Context) ([]int64, error) {
 	var ids []int64
 	err := a.db.WithContext(ctx).Model(&jobLocationRecord{}).Where("is_active = ? AND deleted_at IS NULL", 1).Order("sort_order ASC, id ASC").Pluck("id", &ids).Error
 	return ids, err
 }
 
-func (a *nativeAdapter) listDepartmentLocationMaps(ctx context.Context) ([]*pb.DepartmentLocationMap, error) {
+func (a *nativeStore) listDepartmentLocationMaps(ctx context.Context) ([]*pb.DepartmentLocationMap, error) {
 	var rows []departmentLocationRecord
 	if err := a.db.WithContext(ctx).Where("is_active = ? AND deleted_at IS NULL", 1).Order("department_id ASC, location_id ASC").Find(&rows).Error; err != nil {
 		return nil, err
@@ -1586,7 +1621,7 @@ func (a *nativeAdapter) listDepartmentLocationMaps(ctx context.Context) ([]*pb.D
 	return list, nil
 }
 
-func (a *nativeAdapter) usageLogQuery(ctx context.Context, start, end string) *gorm.DB {
+func (a *nativeStore) usageLogQuery(ctx context.Context, start, end string) *gorm.DB {
 	query := a.db.WithContext(ctx).Model(&usageLogRecord{})
 	if t, err := parseOptionalTime(start); err == nil && t != nil {
 		query = query.Where("created_at >= ?", *t)
@@ -1597,7 +1632,7 @@ func (a *nativeAdapter) usageLogQuery(ctx context.Context, start, end string) *g
 	return query
 }
 
-func (a *nativeAdapter) candidateTags(ctx context.Context, candidateUserID uint64) ([]*pb.CandidateTagInfo, error) {
+func (a *nativeStore) candidateTags(ctx context.Context, candidateUserID uint64) ([]*pb.CandidateTagInfo, error) {
 	var rows []candidateTagRecord
 	err := a.db.WithContext(ctx).Table("candidate_tags t").
 		Select("t.*").
@@ -1615,7 +1650,7 @@ func (a *nativeAdapter) candidateTags(ctx context.Context, candidateUserID uint6
 	return list, nil
 }
 
-func (a *nativeAdapter) writeUsageLog(ctx context.Context, row usageLogRecord) error {
+func (a *nativeStore) writeUsageLog(ctx context.Context, row usageLogRecord) error {
 	if row.CreatedAt.IsZero() {
 		row.CreatedAt = a.now()
 	}
@@ -1625,7 +1660,7 @@ func (a *nativeAdapter) writeUsageLog(ctx context.Context, row usageLogRecord) e
 	return a.db.WithContext(ctx).Create(&row).Error
 }
 
-func (a *nativeAdapter) writeOutboxTx(tx *gorm.DB, eventType, aggregateType string, aggregateID uint64, routingKey string, payload any) error {
+func (a *nativeStore) writeOutboxTx(tx *gorm.DB, eventType, aggregateType string, aggregateID uint64, routingKey string, payload any) error {
 	data, err := json.Marshal(payload)
 	if err != nil {
 		return err
@@ -1893,6 +1928,6 @@ func splitSkills(value string) []string {
 	return out
 }
 
-func (a *nativeAdapter) hasFullRecruitmentScope(context.Context, int64) bool {
+func (a *nativeStore) hasFullRecruitmentScope(context.Context, int64) bool {
 	return false
 }
