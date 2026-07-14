@@ -110,6 +110,19 @@ func (s *NativeStore) EnsureChatSession(ctx context.Context, ownerRole int32, ow
 	return mapSessionRecord(session), nil
 }
 
+func (s *NativeStore) GetChatSession(ctx context.Context, ownerRole int32, ownerID, sessionID int64) (aiagentgrpc.ChatSessionRow, bool, error) {
+	var row aiChatSessionRecord
+	query := s.db.WithContext(ctx).Where("id = ? AND deleted_at IS NULL", sessionID)
+	query = applyChatOwnerScope(query, ownerRole, ownerID)
+	if err := query.First(&row).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return aiagentgrpc.ChatSessionRow{}, false, nil
+		}
+		return aiagentgrpc.ChatSessionRow{}, false, err
+	}
+	return mapSessionRecord(row), true, nil
+}
+
 func (s *NativeStore) ListChatSessions(ctx context.Context, ownerRole int32, ownerID int64, page, pageSize int32) ([]aiagentgrpc.ChatSessionRow, int64, error) {
 	var total int64
 	query := s.db.WithContext(ctx).Model(&aiChatSessionRecord{}).

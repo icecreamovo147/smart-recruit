@@ -9,6 +9,8 @@ import (
 	"time"
 
 	gogrpc "google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 
 	aiagentruntime "smart-recruit-ai-agent-service/internal/runtime"
 	"smart-recruit-proto/recruitment/pb"
@@ -24,6 +26,7 @@ type ModelAwareChatProvider interface {
 
 type AIStore interface {
 	EnsureChatSession(ctx context.Context, ownerRole int32, ownerID int64, title string, applicationID int64) (ChatSessionRow, error)
+	GetChatSession(ctx context.Context, ownerRole int32, ownerID, sessionID int64) (ChatSessionRow, bool, error)
 	ListChatSessions(ctx context.Context, ownerRole int32, ownerID int64, page, pageSize int32) ([]ChatSessionRow, int64, error)
 	UpdateChatSessionTitle(ctx context.Context, ownerRole int32, ownerID, sessionID int64, title string) error
 	DeleteChatSession(ctx context.Context, ownerRole int32, ownerID, sessionID int64) error
@@ -125,8 +128,9 @@ type AgentRunEventRow struct {
 }
 
 var (
-	errAIStoreRequired    = errors.New("ai store is required for native AI runtime")
-	errAIProviderRequired = errors.New("ai provider is required for native AI runtime")
+	errAIStoreRequired     = errors.New("ai store is required for native AI runtime")
+	errAIProviderRequired  = errors.New("ai provider is required for native AI runtime")
+	errChatSessionNotFound = errors.New("chat session not found")
 )
 
 const (
@@ -470,7 +474,14 @@ func (s *nativeAIService) ensureSession(ctx context.Context, ownerRole int32, ow
 		return ChatSessionRow{}, errAIStoreRequired
 	}
 	if sessionID > 0 {
-		return ChatSessionRow{ID: sessionID, UpdatedAt: time.Now()}, nil
+		session, found, err := s.store.GetChatSession(ctx, ownerRole, ownerID, sessionID)
+		if err != nil {
+			return ChatSessionRow{}, err
+		}
+		if !found {
+			return ChatSessionRow{}, status.Error(codes.NotFound, errChatSessionNotFound.Error())
+		}
+		return session, nil
 	}
 	title := strings.TrimSpace(seed)
 	if title == "" {

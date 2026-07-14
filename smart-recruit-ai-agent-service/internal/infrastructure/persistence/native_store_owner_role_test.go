@@ -102,6 +102,66 @@ func TestNativeStoreChatOwnerRoleIsolationWithHRIDCollision(t *testing.T) {
 	}
 }
 
+func TestNativeStoreGetChatSessionOwnerIsolation(t *testing.T) {
+	ctx := context.Background()
+	db := newNativeStoreTestDB(t)
+	store := NewNativeStore(db)
+	now := time.Now().UTC()
+
+	hrSession := aiChatSessionRecord{HRID: 7, OwnerRole: chatOwnerRoleHR, OwnerID: 7, Title: "hr", CreatedAt: now, UpdatedAt: now}
+	legacyHRSession := aiChatSessionRecord{HRID: 7, OwnerRole: chatOwnerRoleLegacyHR, OwnerID: 0, Title: "legacy-hr", CreatedAt: now.Add(time.Second), UpdatedAt: now.Add(time.Second)}
+	candidateCollisionSession := aiChatSessionRecord{HRID: 7, OwnerRole: chatOwnerRoleCandidate, OwnerID: 7, Title: "candidate-collision", CreatedAt: now.Add(2 * time.Second), UpdatedAt: now.Add(2 * time.Second)}
+	otherCandidateSession := aiChatSessionRecord{HRID: 0, OwnerRole: chatOwnerRoleCandidate, OwnerID: 8, Title: "other-candidate", CreatedAt: now.Add(3 * time.Second), UpdatedAt: now.Add(3 * time.Second)}
+	if err := db.Create(&hrSession).Error; err != nil {
+		t.Fatalf("create hr session: %v", err)
+	}
+	if err := db.Create(&legacyHRSession).Error; err != nil {
+		t.Fatalf("create legacy hr session: %v", err)
+	}
+	if err := db.Create(&candidateCollisionSession).Error; err != nil {
+		t.Fatalf("create candidate collision session: %v", err)
+	}
+	if err := db.Create(&otherCandidateSession).Error; err != nil {
+		t.Fatalf("create other candidate session: %v", err)
+	}
+
+	tests := []struct {
+		name      string
+		ownerRole int32
+		ownerID   int64
+		sessionID int64
+		wantFound bool
+		wantTitle string
+	}{
+		{name: "hr current session", ownerRole: chatOwnerRoleHR, ownerID: 7, sessionID: hrSession.ID, wantFound: true, wantTitle: "hr"},
+		{name: "hr legacy session", ownerRole: chatOwnerRoleHR, ownerID: 7, sessionID: legacyHRSession.ID, wantFound: true, wantTitle: "legacy-hr"},
+		{name: "hr blocked from candidate collision", ownerRole: chatOwnerRoleHR, ownerID: 7, sessionID: candidateCollisionSession.ID, wantFound: false},
+		{name: "candidate own collision session", ownerRole: chatOwnerRoleCandidate, ownerID: 7, sessionID: candidateCollisionSession.ID, wantFound: true, wantTitle: "candidate-collision"},
+		{name: "candidate blocked from hr same id", ownerRole: chatOwnerRoleCandidate, ownerID: 7, sessionID: hrSession.ID, wantFound: false},
+		{name: "candidate blocked from legacy hr", ownerRole: chatOwnerRoleCandidate, ownerID: 7, sessionID: legacyHRSession.ID, wantFound: false},
+		{name: "candidate blocked from other candidate", ownerRole: chatOwnerRoleCandidate, ownerID: 7, sessionID: otherCandidateSession.ID, wantFound: false},
+		{name: "missing session", ownerRole: chatOwnerRoleHR, ownerID: 7, sessionID: 999999, wantFound: false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			row, found, err := store.GetChatSession(ctx, tt.ownerRole, tt.ownerID, tt.sessionID)
+			if err != nil {
+				t.Fatalf("GetChatSession returned error: %v", err)
+			}
+			if found != tt.wantFound {
+				t.Fatalf("found = %v, want %v; row = %#v", found, tt.wantFound, row)
+			}
+			if !tt.wantFound {
+				return
+			}
+			if row.ID != tt.sessionID || row.Title != tt.wantTitle {
+				t.Fatalf("row = %#v, want id %d title %q", row, tt.sessionID, tt.wantTitle)
+			}
+		})
+	}
+}
+
 func TestNativeStoreWritesCompatibilityHRIDOnlyForHR(t *testing.T) {
 	ctx := context.Background()
 	db := newNativeStoreTestDB(t)

@@ -6,6 +6,8 @@ import (
 	"time"
 
 	gogrpc "google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 
 	"smart-recruit-proto/recruitment/pb"
 )
@@ -89,12 +91,151 @@ func TestHRChatPersistsMessagesWithHROwnerRole(t *testing.T) {
 	}
 }
 
+func TestHRChatExistingSessionRequiresOwner(t *testing.T) {
+	tests := []struct {
+		name      string
+		seed      func(*fakeAIStore) int64
+		sessionID int64
+	}{
+		{
+			name: "foreign hr session",
+			seed: func(store *fakeAIStore) int64 {
+				return store.seedChatSession(ownerRoleHR, 88, 901, "foreign hr").ID
+			},
+		},
+		{
+			name: "candidate collision session",
+			seed: func(store *fakeAIStore) int64 {
+				return store.seedChatSession(ownerRoleCandidate, 77, 902, "candidate collision").ID
+			},
+		},
+		{name: "missing session", sessionID: 903},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			store := newFakeAIStore()
+			sessionID := tt.sessionID
+			if tt.seed != nil {
+				sessionID = tt.seed(store)
+			}
+			provider := &fakeChatProvider{reply: "must not be called"}
+			service := &nativeAIService{store: store, provider: provider}
+
+			resp, err := service.Chat(context.Background(), &pb.ChatRequest{HrId: 77, SessionId: sessionID, Message: "hr asks"})
+			if status.Code(err) != codes.NotFound {
+				t.Fatalf("Chat status code = %v, want %v (err = %v)", status.Code(err), codes.NotFound, err)
+			}
+			if resp != nil {
+				t.Fatalf("Chat response = %#v, want nil", resp)
+			}
+			if provider.calls != 0 {
+				t.Fatalf("provider calls = %d, want 0", provider.calls)
+			}
+			if len(store.messages) != 0 {
+				t.Fatalf("messages = %#v, want none", store.messages)
+			}
+			if len(store.lookupCalls) != 1 {
+				t.Fatalf("lookup calls = %d, want 1", len(store.lookupCalls))
+			}
+			if call := store.lookupCalls[0]; call.ownerRole != ownerRoleHR || call.ownerID != 77 || call.sessionID != sessionID {
+				t.Fatalf("lookup call = %#v, want hr owner/session", call)
+			}
+			if len(store.ensureCalls) != 0 {
+				t.Fatalf("ensure calls = %d, want 0 for existing session_id", len(store.ensureCalls))
+			}
+		})
+	}
+}
+
+func TestHRChatStreamExistingSessionRequiresOwner(t *testing.T) {
+	store := newFakeAIStore()
+	session := store.seedChatSession(ownerRoleCandidate, 77, 904, "candidate collision")
+	provider := &fakeChatProvider{reply: "must not be called"}
+	service := &nativeAIService{store: store, provider: provider}
+	stream := &captureChatStream{ctx: context.Background()}
+
+	err := service.ChatStream(&pb.ChatRequest{HrId: 77, SessionId: session.ID, Message: "hr stream asks"}, stream)
+	if status.Code(err) != codes.NotFound {
+		t.Fatalf("ChatStream status code = %v, want %v (err = %v)", status.Code(err), codes.NotFound, err)
+	}
+	if provider.calls != 0 {
+		t.Fatalf("provider calls = %d, want 0", provider.calls)
+	}
+	if len(store.messages) != 0 {
+		t.Fatalf("messages = %#v, want none", store.messages)
+	}
+	if len(stream.responses) != 0 {
+		t.Fatalf("stream responses = %#v, want none", stream.responses)
+	}
+}
+
+func TestCandidateChatStreamExistingSessionRequiresOwner(t *testing.T) {
+	tests := []struct {
+		name      string
+		seed      func(*fakeAIStore) int64
+		sessionID int64
+	}{
+		{
+			name: "foreign candidate session",
+			seed: func(store *fakeAIStore) int64 {
+				return store.seedChatSession(ownerRoleCandidate, 66, 1001, "foreign candidate").ID
+			},
+		},
+		{
+			name: "hr collision session",
+			seed: func(store *fakeAIStore) int64 {
+				return store.seedChatSession(ownerRoleHR, 55, 1002, "hr collision").ID
+			},
+		},
+		{name: "missing session", sessionID: 1003},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			store := newFakeAIStore()
+			sessionID := tt.sessionID
+			if tt.seed != nil {
+				sessionID = tt.seed(store)
+			}
+			provider := &fakeChatProvider{reply: "must not be called"}
+			service := &nativeAIService{store: store, provider: provider}
+			stream := &captureChatStream{ctx: context.Background()}
+
+			err := service.CandidateChatStream(&pb.CandidateChatRequest{UserId: 55, SessionId: sessionID, Message: "candidate asks"}, stream)
+			if status.Code(err) != codes.NotFound {
+				t.Fatalf("CandidateChatStream status code = %v, want %v (err = %v)", status.Code(err), codes.NotFound, err)
+			}
+			if provider.calls != 0 {
+				t.Fatalf("provider calls = %d, want 0", provider.calls)
+			}
+			if len(store.messages) != 0 {
+				t.Fatalf("messages = %#v, want none", store.messages)
+			}
+			if len(stream.responses) != 0 {
+				t.Fatalf("stream responses = %#v, want none", stream.responses)
+			}
+			if len(store.lookupCalls) != 1 {
+				t.Fatalf("lookup calls = %d, want 1", len(store.lookupCalls))
+			}
+			if call := store.lookupCalls[0]; call.ownerRole != ownerRoleCandidate || call.ownerID != 55 || call.sessionID != sessionID {
+				t.Fatalf("lookup call = %#v, want candidate owner/session", call)
+			}
+			if len(store.ensureCalls) != 0 {
+				t.Fatalf("ensure calls = %d, want 0 for existing session_id", len(store.ensureCalls))
+			}
+		})
+	}
+}
+
 type fakeChatProvider struct {
 	reply      string
 	onComplete func(prompt string)
+	calls      int
 }
 
 func (p *fakeChatProvider) Complete(_ context.Context, prompt string) (string, error) {
+	p.calls++
 	if p.onComplete != nil {
 		p.onComplete(prompt)
 	}
@@ -126,16 +267,29 @@ type ensureChatSessionCall struct {
 	applicationID int64
 }
 
+type lookupChatSessionCall struct {
+	ownerRole int32
+	ownerID   int64
+	sessionID int64
+}
+
+type fakeChatSessionOwner struct {
+	ownerRole int32
+	ownerID   int64
+}
+
 type fakeAIStore struct {
 	nextSessionID int64
 	nextMessageID int64
 	ensureCalls   []ensureChatSessionCall
+	lookupCalls   []lookupChatSessionCall
+	sessionOwners map[int64]fakeChatSessionOwner
 	sessions      []ChatSessionRow
 	messages      []ChatMessageRow
 }
 
 func newFakeAIStore() *fakeAIStore {
-	return &fakeAIStore{nextSessionID: 100, nextMessageID: 200}
+	return &fakeAIStore{nextSessionID: 100, nextMessageID: 200, sessionOwners: make(map[int64]fakeChatSessionOwner)}
 }
 
 func (s *fakeAIStore) EnsureChatSession(_ context.Context, ownerRole int32, ownerID int64, title string, applicationID int64) (ChatSessionRow, error) {
@@ -144,7 +298,31 @@ func (s *fakeAIStore) EnsureChatSession(_ context.Context, ownerRole int32, owne
 	row := ChatSessionRow{ID: s.nextSessionID, Title: title, ApplicationID: applicationID, CreatedAt: now, UpdatedAt: now}
 	s.ensureCalls = append(s.ensureCalls, ensureChatSessionCall{ownerRole: ownerRole, ownerID: ownerID, title: title, applicationID: applicationID})
 	s.sessions = append(s.sessions, row)
+	s.sessionOwners[row.ID] = fakeChatSessionOwner{ownerRole: ownerRole, ownerID: ownerID}
 	return row, nil
+}
+
+func (s *fakeAIStore) GetChatSession(_ context.Context, ownerRole int32, ownerID, sessionID int64) (ChatSessionRow, bool, error) {
+	s.lookupCalls = append(s.lookupCalls, lookupChatSessionCall{ownerRole: ownerRole, ownerID: ownerID, sessionID: sessionID})
+	for _, row := range s.sessions {
+		if row.ID != sessionID {
+			continue
+		}
+		owner, ok := s.sessionOwners[sessionID]
+		if !ok || owner.ownerRole != ownerRole || owner.ownerID != ownerID {
+			return ChatSessionRow{}, false, nil
+		}
+		return row, true, nil
+	}
+	return ChatSessionRow{}, false, nil
+}
+
+func (s *fakeAIStore) seedChatSession(ownerRole int32, ownerID, sessionID int64, title string) ChatSessionRow {
+	now := time.Now()
+	row := ChatSessionRow{ID: sessionID, Title: title, CreatedAt: now, UpdatedAt: now}
+	s.sessions = append(s.sessions, row)
+	s.sessionOwners[row.ID] = fakeChatSessionOwner{ownerRole: ownerRole, ownerID: ownerID}
+	return row
 }
 
 func (s *fakeAIStore) ListChatSessions(context.Context, int32, int64, int32, int32) ([]ChatSessionRow, int64, error) {
