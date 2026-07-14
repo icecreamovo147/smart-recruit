@@ -659,6 +659,354 @@ func (s *NativeStore) ListEmbeddingModels(ctx context.Context, page, pageSize in
 	return items, total, nil
 }
 
+func (s *NativeStore) GetRecruitingApplicationByID(ctx context.Context, applicationID int64) (aiagentgrpc.RecruitingApplicationContext, bool, error) {
+	var row recruitingApplicationReadRow
+	err := recruitingApplicationReadQuery(s.db.WithContext(ctx)).
+		Where("a.id = ?", applicationID).
+		Limit(1).
+		Scan(&row).Error
+	if err != nil {
+		return aiagentgrpc.RecruitingApplicationContext{}, false, err
+	}
+	if row.ApplicationID == 0 {
+		return aiagentgrpc.RecruitingApplicationContext{}, false, nil
+	}
+	return mapRecruitingApplicationReadRow(row), true, nil
+}
+
+func (s *NativeStore) GetLatestRecruitingApplicationByResumeID(ctx context.Context, resumeID int64) (aiagentgrpc.RecruitingApplicationContext, bool, error) {
+	var row recruitingApplicationReadRow
+	err := recruitingApplicationReadQuery(s.db.WithContext(ctx)).
+		Where("a.resume_id = ?", resumeID).
+		Order("a.applied_at DESC, a.id DESC").
+		Limit(1).
+		Scan(&row).Error
+	if err != nil {
+		return aiagentgrpc.RecruitingApplicationContext{}, false, err
+	}
+	if row.ApplicationID == 0 {
+		return aiagentgrpc.RecruitingApplicationContext{}, false, nil
+	}
+	return mapRecruitingApplicationReadRow(row), true, nil
+}
+
+func (s *NativeStore) ListCurrentRecruitingApplicationsByJobID(ctx context.Context, jobID int64) ([]aiagentgrpc.RecruitingApplicationContext, error) {
+	var rows []recruitingApplicationReadRow
+	if err := recruitingApplicationReadQuery(s.db.WithContext(ctx)).
+		Where("a.job_id = ? AND a.is_current = ?", jobID, 1).
+		Order("a.id ASC").
+		Scan(&rows).Error; err != nil {
+		return nil, err
+	}
+	items := make([]aiagentgrpc.RecruitingApplicationContext, 0, len(rows))
+	for _, row := range rows {
+		items = append(items, mapRecruitingApplicationReadRow(row))
+	}
+	return items, nil
+}
+
+func (s *NativeStore) GetRecruitingResumeProfileByID(ctx context.Context, profileID uint64) (aiagentgrpc.RecruitingResumeProfileRow, bool, error) {
+	var row recruitingResumeProfileRecord
+	if err := s.db.WithContext(ctx).Where("id = ?", profileID).First(&row).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return aiagentgrpc.RecruitingResumeProfileRow{}, false, nil
+		}
+		return aiagentgrpc.RecruitingResumeProfileRow{}, false, err
+	}
+	return mapRecruitingResumeProfileRecord(row), true, nil
+}
+
+func (s *NativeStore) GetCurrentRecruitingResumeProfileByResumeID(ctx context.Context, resumeID int64) (aiagentgrpc.RecruitingResumeProfileRow, bool, error) {
+	var row recruitingResumeProfileRecord
+	if err := s.db.WithContext(ctx).
+		Where("resume_id = ? AND is_current = ?", resumeID, 1).
+		Order("version DESC, id DESC").
+		First(&row).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return aiagentgrpc.RecruitingResumeProfileRow{}, false, nil
+		}
+		return aiagentgrpc.RecruitingResumeProfileRow{}, false, err
+	}
+	return mapRecruitingResumeProfileRecord(row), true, nil
+}
+
+func (s *NativeStore) GetRecruitingResumeProfileSnapshot(ctx context.Context, profileID uint64) (aiagentgrpc.RecruitingResumeProfileSnapshot, bool, error) {
+	var profile recruitingResumeProfileRecord
+	if err := s.db.WithContext(ctx).Where("id = ?", profileID).First(&profile).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return aiagentgrpc.RecruitingResumeProfileSnapshot{}, false, nil
+		}
+		return aiagentgrpc.RecruitingResumeProfileSnapshot{}, false, err
+	}
+	var parseRun recruitingResumeParseRunRecord
+	if err := s.db.WithContext(ctx).Where("id = ?", profile.ParseRunID).First(&parseRun).Error; err != nil {
+		return aiagentgrpc.RecruitingResumeProfileSnapshot{}, false, err
+	}
+	var educations []recruitingResumeEducationRecord
+	if err := s.db.WithContext(ctx).Where("resume_profile_id = ?", profile.ID).Order("sort_order ASC, id ASC").Find(&educations).Error; err != nil {
+		return aiagentgrpc.RecruitingResumeProfileSnapshot{}, false, err
+	}
+	var experiences []recruitingResumeExperienceRecord
+	if err := s.db.WithContext(ctx).Where("resume_profile_id = ?", profile.ID).Order("sort_order ASC, id ASC").Find(&experiences).Error; err != nil {
+		return aiagentgrpc.RecruitingResumeProfileSnapshot{}, false, err
+	}
+	var projects []recruitingResumeProjectRecord
+	if err := s.db.WithContext(ctx).Where("resume_profile_id = ?", profile.ID).Order("sort_order ASC, id ASC").Find(&projects).Error; err != nil {
+		return aiagentgrpc.RecruitingResumeProfileSnapshot{}, false, err
+	}
+	var skills []recruitingResumeSkillRecord
+	if err := s.db.WithContext(ctx).Where("resume_profile_id = ?", profile.ID).Order("sort_order ASC, id ASC").Find(&skills).Error; err != nil {
+		return aiagentgrpc.RecruitingResumeProfileSnapshot{}, false, err
+	}
+	snapshot := aiagentgrpc.RecruitingResumeProfileSnapshot{
+		ParseRun:    mapRecruitingResumeParseRunRecord(parseRun),
+		Profile:     mapRecruitingResumeProfileRecord(profile),
+		Educations:  make([]aiagentgrpc.RecruitingResumeEducationRow, 0, len(educations)),
+		Experiences: make([]aiagentgrpc.RecruitingResumeExperienceRow, 0, len(experiences)),
+		Projects:    make([]aiagentgrpc.RecruitingResumeProjectRow, 0, len(projects)),
+		Skills:      make([]aiagentgrpc.RecruitingResumeSkillRow, 0, len(skills)),
+	}
+	for _, row := range educations {
+		snapshot.Educations = append(snapshot.Educations, mapRecruitingResumeEducationRecord(row))
+	}
+	for _, row := range experiences {
+		snapshot.Experiences = append(snapshot.Experiences, mapRecruitingResumeExperienceRecord(row))
+	}
+	for _, row := range projects {
+		snapshot.Projects = append(snapshot.Projects, mapRecruitingResumeProjectRecord(row))
+	}
+	for _, row := range skills {
+		snapshot.Skills = append(snapshot.Skills, mapRecruitingResumeSkillRecord(row))
+	}
+	return snapshot, true, nil
+}
+
+func (s *NativeStore) GetRecruitingCandidateMatchEvaluationSnapshot(ctx context.Context, evaluationID uint64) (aiagentgrpc.RecruitingCandidateMatchSnapshot, bool, error) {
+	var evaluation recruitingCandidateMatchEvaluationRecord
+	if err := s.db.WithContext(ctx).Where("id = ?", evaluationID).First(&evaluation).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return aiagentgrpc.RecruitingCandidateMatchSnapshot{}, false, nil
+		}
+		return aiagentgrpc.RecruitingCandidateMatchSnapshot{}, false, err
+	}
+	return s.recruitingCandidateMatchSnapshot(ctx, evaluation)
+}
+
+func (s *NativeStore) GetRecruitingCandidateMatchEvaluationSnapshotByApplicationVersion(ctx context.Context, applicationID int64, version int32) (aiagentgrpc.RecruitingCandidateMatchSnapshot, bool, error) {
+	var evaluation recruitingCandidateMatchEvaluationRecord
+	if err := s.db.WithContext(ctx).Where("application_id = ? AND evaluation_version = ?", applicationID, version).First(&evaluation).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return aiagentgrpc.RecruitingCandidateMatchSnapshot{}, false, nil
+		}
+		return aiagentgrpc.RecruitingCandidateMatchSnapshot{}, false, err
+	}
+	return s.recruitingCandidateMatchSnapshot(ctx, evaluation)
+}
+
+func (s *NativeStore) GetLatestRecruitingCandidateMatchEvaluationSnapshotByApplicationID(ctx context.Context, applicationID int64) (aiagentgrpc.RecruitingCandidateMatchSnapshot, bool, error) {
+	var evaluation recruitingCandidateMatchEvaluationRecord
+	if err := s.db.WithContext(ctx).
+		Where("application_id = ? AND is_latest = ?", applicationID, 1).
+		Order("evaluation_version DESC, id DESC").
+		First(&evaluation).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return aiagentgrpc.RecruitingCandidateMatchSnapshot{}, false, nil
+		}
+		return aiagentgrpc.RecruitingCandidateMatchSnapshot{}, false, err
+	}
+	return s.recruitingCandidateMatchSnapshot(ctx, evaluation)
+}
+
+func (s *NativeStore) ListLatestRecruitingCandidateMatchEvaluationsByApplicationIDs(ctx context.Context, applicationIDs []int64) ([]aiagentgrpc.RecruitingCandidateMatchEvaluationRow, error) {
+	if len(applicationIDs) == 0 {
+		return nil, nil
+	}
+	var rows []recruitingCandidateMatchEvaluationRecord
+	if err := s.db.WithContext(ctx).
+		Where("application_id IN ? AND is_latest = ?", applicationIDs, 1).
+		Order("application_id ASC, evaluation_version DESC, id DESC").
+		Find(&rows).Error; err != nil {
+		return nil, err
+	}
+	items := make([]aiagentgrpc.RecruitingCandidateMatchEvaluationRow, 0, len(rows))
+	for _, row := range rows {
+		items = append(items, mapRecruitingCandidateMatchEvaluationRecord(row))
+	}
+	return items, nil
+}
+
+func (s *NativeStore) recruitingCandidateMatchSnapshot(ctx context.Context, evaluation recruitingCandidateMatchEvaluationRecord) (aiagentgrpc.RecruitingCandidateMatchSnapshot, bool, error) {
+	var evidence []recruitingCandidateMatchEvidenceRecord
+	if err := s.db.WithContext(ctx).Where("evaluation_id = ?", evaluation.ID).Order("id ASC").Find(&evidence).Error; err != nil {
+		return aiagentgrpc.RecruitingCandidateMatchSnapshot{}, false, err
+	}
+	snapshot := aiagentgrpc.RecruitingCandidateMatchSnapshot{
+		Evaluation: mapRecruitingCandidateMatchEvaluationRecord(evaluation),
+		Evidence:   make([]aiagentgrpc.RecruitingCandidateMatchEvidenceRow, 0, len(evidence)),
+	}
+	for _, row := range evidence {
+		snapshot.Evidence = append(snapshot.Evidence, mapRecruitingCandidateMatchEvidenceRecord(row))
+	}
+	return snapshot, true, nil
+}
+
+type recruitingApplicationReadRow struct {
+	ApplicationID   int64  `gorm:"column:application_id"`
+	JobID           int64  `gorm:"column:job_id"`
+	CandidateUserID int64  `gorm:"column:candidate_user_id"`
+	CandidateName   string `gorm:"column:candidate_name"`
+	ResumeID        int64  `gorm:"column:resume_id"`
+	IsCurrent       int32  `gorm:"column:is_current"`
+}
+
+type recruitingResumeParseRunRecord struct {
+	ID            uint64         `gorm:"primaryKey"`
+	ResumeID      int64          `gorm:"column:resume_id"`
+	UserID        int64          `gorm:"column:user_id"`
+	AgentRunID    *uint64        `gorm:"column:agent_run_id"`
+	Status        string         `gorm:"column:status"`
+	ParserVersion sql.NullString `gorm:"column:parser_version"`
+	InputHash     sql.NullString `gorm:"column:input_hash"`
+	ErrorMessage  sql.NullString `gorm:"column:error_message"`
+	StartedAt     time.Time      `gorm:"column:started_at"`
+	CompletedAt   *time.Time     `gorm:"column:completed_at"`
+	CreatedAt     time.Time      `gorm:"column:created_at"`
+	UpdatedAt     time.Time      `gorm:"column:updated_at"`
+}
+
+func (recruitingResumeParseRunRecord) TableName() string { return "resume_parse_runs" }
+
+type recruitingResumeProfileRecord struct {
+	ID                   uint64          `gorm:"primaryKey"`
+	ResumeID             int64           `gorm:"column:resume_id"`
+	UserID               int64           `gorm:"column:user_id"`
+	ParseRunID           uint64          `gorm:"column:parse_run_id"`
+	Version              int32           `gorm:"column:version"`
+	IsCurrent            int32           `gorm:"column:is_current"`
+	FullName             sql.NullString  `gorm:"column:full_name"`
+	Email                sql.NullString  `gorm:"column:email"`
+	Phone                sql.NullString  `gorm:"column:phone"`
+	Location             sql.NullString  `gorm:"column:location"`
+	Headline             sql.NullString  `gorm:"column:headline"`
+	Summary              sql.NullString  `gorm:"column:summary"`
+	TotalExperienceYears sql.NullFloat64 `gorm:"column:total_experience_years"`
+	HighestDegree        sql.NullString  `gorm:"column:highest_degree"`
+	RawJSON              sql.NullString  `gorm:"column:raw_json"`
+	CreatedAt            time.Time       `gorm:"column:created_at"`
+	UpdatedAt            time.Time       `gorm:"column:updated_at"`
+}
+
+func (recruitingResumeProfileRecord) TableName() string { return "resume_profiles" }
+
+type recruitingResumeEducationRecord struct {
+	ID              uint64         `gorm:"primaryKey"`
+	ResumeProfileID uint64         `gorm:"column:resume_profile_id"`
+	School          string         `gorm:"column:school"`
+	Degree          sql.NullString `gorm:"column:degree"`
+	Major           sql.NullString `gorm:"column:major"`
+	StartDate       *time.Time     `gorm:"column:start_date"`
+	EndDate         *time.Time     `gorm:"column:end_date"`
+	Description     sql.NullString `gorm:"column:description"`
+	SortOrder       int32          `gorm:"column:sort_order"`
+	CreatedAt       time.Time      `gorm:"column:created_at"`
+	UpdatedAt       time.Time      `gorm:"column:updated_at"`
+}
+
+func (recruitingResumeEducationRecord) TableName() string { return "resume_educations" }
+
+type recruitingResumeExperienceRecord struct {
+	ID               uint64         `gorm:"primaryKey"`
+	ResumeProfileID  uint64         `gorm:"column:resume_profile_id"`
+	Company          string         `gorm:"column:company"`
+	Title            sql.NullString `gorm:"column:title"`
+	Location         sql.NullString `gorm:"column:location"`
+	StartDate        *time.Time     `gorm:"column:start_date"`
+	EndDate          *time.Time     `gorm:"column:end_date"`
+	IsCurrent        int32          `gorm:"column:is_current"`
+	Description      sql.NullString `gorm:"column:description"`
+	AchievementsJSON sql.NullString `gorm:"column:achievements_json"`
+	SortOrder        int32          `gorm:"column:sort_order"`
+	CreatedAt        time.Time      `gorm:"column:created_at"`
+	UpdatedAt        time.Time      `gorm:"column:updated_at"`
+}
+
+func (recruitingResumeExperienceRecord) TableName() string { return "resume_experiences" }
+
+type recruitingResumeProjectRecord struct {
+	ID               uint64         `gorm:"primaryKey"`
+	ResumeProfileID  uint64         `gorm:"column:resume_profile_id"`
+	Name             string         `gorm:"column:name"`
+	Role             sql.NullString `gorm:"column:role"`
+	StartDate        *time.Time     `gorm:"column:start_date"`
+	EndDate          *time.Time     `gorm:"column:end_date"`
+	Description      sql.NullString `gorm:"column:description"`
+	TechnologiesJSON sql.NullString `gorm:"column:technologies_json"`
+	HighlightsJSON   sql.NullString `gorm:"column:highlights_json"`
+	SortOrder        int32          `gorm:"column:sort_order"`
+	CreatedAt        time.Time      `gorm:"column:created_at"`
+	UpdatedAt        time.Time      `gorm:"column:updated_at"`
+}
+
+func (recruitingResumeProjectRecord) TableName() string { return "resume_projects" }
+
+type recruitingResumeSkillRecord struct {
+	ID              uint64          `gorm:"primaryKey"`
+	ResumeProfileID uint64          `gorm:"column:resume_profile_id"`
+	Name            string          `gorm:"column:name"`
+	Category        sql.NullString  `gorm:"column:category"`
+	Level           sql.NullString  `gorm:"column:level"`
+	Years           sql.NullFloat64 `gorm:"column:years"`
+	Evidence        sql.NullString  `gorm:"column:evidence"`
+	SortOrder       int32           `gorm:"column:sort_order"`
+	CreatedAt       time.Time       `gorm:"column:created_at"`
+	UpdatedAt       time.Time       `gorm:"column:updated_at"`
+}
+
+func (recruitingResumeSkillRecord) TableName() string { return "resume_skills" }
+
+type recruitingCandidateMatchEvaluationRecord struct {
+	ID                 uint64          `gorm:"primaryKey"`
+	ApplicationID      int64           `gorm:"column:application_id"`
+	JobID              int64           `gorm:"column:job_id"`
+	CandidateUserID    int64           `gorm:"column:candidate_user_id"`
+	ResumeProfileID    uint64          `gorm:"column:resume_profile_id"`
+	AgentRunID         *uint64         `gorm:"column:agent_run_id"`
+	EvaluationVersion  int32           `gorm:"column:evaluation_version"`
+	IsLatest           int32           `gorm:"column:is_latest"`
+	OverallScore       sql.NullFloat64 `gorm:"column:overall_score"`
+	Recommendation     sql.NullString  `gorm:"column:recommendation"`
+	Summary            sql.NullString  `gorm:"column:summary"`
+	StrengthsJSON      sql.NullString  `gorm:"column:strengths_json"`
+	RisksJSON          sql.NullString  `gorm:"column:risks_json"`
+	ScoreBreakdownJSON sql.NullString  `gorm:"column:score_breakdown_json"`
+	ModelName          sql.NullString  `gorm:"column:model_name"`
+	EvaluatedAt        time.Time       `gorm:"column:evaluated_at"`
+	CreatedAt          time.Time       `gorm:"column:created_at"`
+	UpdatedAt          time.Time       `gorm:"column:updated_at"`
+}
+
+func (recruitingCandidateMatchEvaluationRecord) TableName() string {
+	return "candidate_match_evaluations"
+}
+
+type recruitingCandidateMatchEvidenceRecord struct {
+	ID           uint64          `gorm:"primaryKey"`
+	EvaluationID uint64          `gorm:"column:evaluation_id"`
+	EvidenceType string          `gorm:"column:evidence_type"`
+	Dimension    sql.NullString  `gorm:"column:dimension"`
+	SourceTable  sql.NullString  `gorm:"column:source_table"`
+	SourceID     *uint64         `gorm:"column:source_id"`
+	Snippet      sql.NullString  `gorm:"column:snippet"`
+	Weight       sql.NullFloat64 `gorm:"column:weight"`
+	ScoreImpact  sql.NullFloat64 `gorm:"column:score_impact"`
+	MetadataJSON sql.NullString  `gorm:"column:metadata_json"`
+	CreatedAt    time.Time       `gorm:"column:created_at"`
+}
+
+func (recruitingCandidateMatchEvidenceRecord) TableName() string {
+	return "candidate_match_evidence"
+}
+
 type aiChatSessionRecord struct {
 	ID            int64      `gorm:"primaryKey"`
 	HRID          int64      `gorm:"column:hr_id"`
@@ -886,6 +1234,154 @@ type embeddingModelListRow struct {
 	CreatedAt       time.Time      `gorm:"column:created_at"`
 	UpdatedAt       time.Time      `gorm:"column:updated_at"`
 	ProviderName    string         `gorm:"column:provider_name"`
+}
+
+func recruitingApplicationReadQuery(db *gorm.DB) *gorm.DB {
+	return db.Table("applications a").
+		Select("a.id AS application_id, a.job_id, a.user_id AS candidate_user_id, COALESCE(cp.real_name, '') AS candidate_name, a.resume_id, a.is_current").
+		Joins("LEFT JOIN candidate_profiles cp ON cp.user_id = a.user_id")
+}
+
+func mapRecruitingApplicationReadRow(row recruitingApplicationReadRow) aiagentgrpc.RecruitingApplicationContext {
+	return aiagentgrpc.RecruitingApplicationContext{
+		ApplicationID:   row.ApplicationID,
+		JobID:           row.JobID,
+		CandidateUserID: row.CandidateUserID,
+		CandidateName:   row.CandidateName,
+		ResumeID:        row.ResumeID,
+		IsCurrent:       row.IsCurrent,
+	}
+}
+
+func mapRecruitingResumeParseRunRecord(row recruitingResumeParseRunRecord) aiagentgrpc.RecruitingResumeParseRunRow {
+	return aiagentgrpc.RecruitingResumeParseRunRow{
+		ID:            row.ID,
+		ResumeID:      row.ResumeID,
+		UserID:        row.UserID,
+		AgentRunID:    row.AgentRunID,
+		Status:        row.Status,
+		ParserVersion: nullString(row.ParserVersion),
+		InputHash:     nullString(row.InputHash),
+		ErrorMessage:  nullString(row.ErrorMessage),
+		StartedAt:     row.StartedAt,
+		CompletedAt:   row.CompletedAt,
+		CreatedAt:     row.CreatedAt,
+		UpdatedAt:     row.UpdatedAt,
+	}
+}
+
+func mapRecruitingResumeProfileRecord(row recruitingResumeProfileRecord) aiagentgrpc.RecruitingResumeProfileRow {
+	return aiagentgrpc.RecruitingResumeProfileRow{
+		ID:                   row.ID,
+		ResumeID:             row.ResumeID,
+		UserID:               row.UserID,
+		ParseRunID:           row.ParseRunID,
+		Version:              row.Version,
+		IsCurrent:            row.IsCurrent,
+		FullName:             nullString(row.FullName),
+		Email:                nullString(row.Email),
+		Phone:                nullString(row.Phone),
+		Location:             nullString(row.Location),
+		Headline:             nullString(row.Headline),
+		Summary:              nullString(row.Summary),
+		TotalExperienceYears: nullFloat64(row.TotalExperienceYears),
+		HighestDegree:        nullString(row.HighestDegree),
+		RawJSON:              nullString(row.RawJSON),
+		CreatedAt:            row.CreatedAt,
+		UpdatedAt:            row.UpdatedAt,
+	}
+}
+
+func mapRecruitingResumeEducationRecord(row recruitingResumeEducationRecord) aiagentgrpc.RecruitingResumeEducationRow {
+	return aiagentgrpc.RecruitingResumeEducationRow{
+		ID:          row.ID,
+		School:      row.School,
+		Degree:      nullString(row.Degree),
+		Major:       nullString(row.Major),
+		StartDate:   row.StartDate,
+		EndDate:     row.EndDate,
+		Description: nullString(row.Description),
+		SortOrder:   row.SortOrder,
+	}
+}
+
+func mapRecruitingResumeExperienceRecord(row recruitingResumeExperienceRecord) aiagentgrpc.RecruitingResumeExperienceRow {
+	return aiagentgrpc.RecruitingResumeExperienceRow{
+		ID:               row.ID,
+		Company:          row.Company,
+		Title:            nullString(row.Title),
+		Location:         nullString(row.Location),
+		StartDate:        row.StartDate,
+		EndDate:          row.EndDate,
+		IsCurrent:        row.IsCurrent,
+		Description:      nullString(row.Description),
+		AchievementsJSON: nullString(row.AchievementsJSON),
+		SortOrder:        row.SortOrder,
+	}
+}
+
+func mapRecruitingResumeProjectRecord(row recruitingResumeProjectRecord) aiagentgrpc.RecruitingResumeProjectRow {
+	return aiagentgrpc.RecruitingResumeProjectRow{
+		ID:               row.ID,
+		Name:             row.Name,
+		Role:             nullString(row.Role),
+		StartDate:        row.StartDate,
+		EndDate:          row.EndDate,
+		Description:      nullString(row.Description),
+		TechnologiesJSON: nullString(row.TechnologiesJSON),
+		HighlightsJSON:   nullString(row.HighlightsJSON),
+		SortOrder:        row.SortOrder,
+	}
+}
+
+func mapRecruitingResumeSkillRecord(row recruitingResumeSkillRecord) aiagentgrpc.RecruitingResumeSkillRow {
+	return aiagentgrpc.RecruitingResumeSkillRow{
+		ID:        row.ID,
+		Name:      row.Name,
+		Category:  nullString(row.Category),
+		Level:     nullString(row.Level),
+		Years:     nullFloat64(row.Years),
+		Evidence:  nullString(row.Evidence),
+		SortOrder: row.SortOrder,
+	}
+}
+
+func mapRecruitingCandidateMatchEvaluationRecord(row recruitingCandidateMatchEvaluationRecord) aiagentgrpc.RecruitingCandidateMatchEvaluationRow {
+	return aiagentgrpc.RecruitingCandidateMatchEvaluationRow{
+		ID:                 row.ID,
+		ApplicationID:      row.ApplicationID,
+		JobID:              row.JobID,
+		CandidateUserID:    row.CandidateUserID,
+		ResumeProfileID:    row.ResumeProfileID,
+		AgentRunID:         row.AgentRunID,
+		EvaluationVersion:  row.EvaluationVersion,
+		IsLatest:           row.IsLatest,
+		OverallScore:       nullFloat64(row.OverallScore),
+		Recommendation:     nullString(row.Recommendation),
+		Summary:            nullString(row.Summary),
+		StrengthsJSON:      nullString(row.StrengthsJSON),
+		RisksJSON:          nullString(row.RisksJSON),
+		ScoreBreakdownJSON: nullString(row.ScoreBreakdownJSON),
+		ModelName:          nullString(row.ModelName),
+		EvaluatedAt:        row.EvaluatedAt,
+		CreatedAt:          row.CreatedAt,
+		UpdatedAt:          row.UpdatedAt,
+	}
+}
+
+func mapRecruitingCandidateMatchEvidenceRecord(row recruitingCandidateMatchEvidenceRecord) aiagentgrpc.RecruitingCandidateMatchEvidenceRow {
+	return aiagentgrpc.RecruitingCandidateMatchEvidenceRow{
+		ID:           row.ID,
+		EvidenceType: row.EvidenceType,
+		Dimension:    nullString(row.Dimension),
+		SourceTable:  nullString(row.SourceTable),
+		SourceID:     row.SourceID,
+		Snippet:      nullString(row.Snippet),
+		Weight:       nullFloat64(row.Weight),
+		ScoreImpact:  nullFloat64(row.ScoreImpact),
+		MetadataJSON: nullString(row.MetadataJSON),
+		CreatedAt:    row.CreatedAt,
+	}
 }
 
 func mapSessionRecord(row aiChatSessionRecord) aiagentgrpc.ChatSessionRow {
