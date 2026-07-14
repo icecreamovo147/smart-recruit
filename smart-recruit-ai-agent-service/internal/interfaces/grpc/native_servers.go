@@ -14,6 +14,8 @@ import (
 	"google.golang.org/grpc/status"
 
 	aiagentruntime "smart-recruit-ai-agent-service/internal/runtime"
+	"smart-recruit-platform-go/errs"
+	platformmetadata "smart-recruit-platform-go/metadata"
 	"smart-recruit-proto/recruitment/pb"
 )
 
@@ -63,6 +65,9 @@ type RuntimeDeps struct {
 	AgentRunWorker   bool
 	RuntimeName      string
 	EmbeddingConfigs pb.EmbeddingConfigServiceServer
+	Auth             pb.AuthServiceClient
+	Applications     pb.ApplicationOwnerServiceClient
+	Jobs             pb.JobServiceClient
 }
 
 type ChatSessionRow struct {
@@ -180,7 +185,7 @@ func NewNativeRuntimeDeps(deps RuntimeDeps) aiagentruntime.Deps {
 		MCP:                    nativeMCPService{store: deps.Store},
 		Skill:                  nativeSkillService{store: deps.Store},
 		AgentSkill:             nativeAgentSkillService{store: deps.Store},
-		RecruitingIntelligence: nativeRecruitingIntelligenceService{},
+		RecruitingIntelligence: nativeRecruitingIntelligenceService{auth: deps.Auth, applications: deps.Applications, jobs: deps.Jobs},
 		EmbeddingConfig:        embedding,
 		LongTasks: aiagentruntime.LongTaskControls{
 			RabbitMQRequired: true,
@@ -1152,6 +1157,121 @@ func (s *nativeAIService) updateRun(ctx context.Context, ownerID, runID int64, s
 
 type nativeRecruitingIntelligenceService struct {
 	pb.UnimplementedRecruitingIntelligenceServiceServer
+	auth         pb.AuthServiceClient
+	applications pb.ApplicationOwnerServiceClient
+	jobs         pb.JobServiceClient
+}
+
+type recruitingAuthError struct {
+	code    int32
+	message string
+	err     error
+}
+
+func (e *recruitingAuthError) Error() string {
+	if e == nil {
+		return ""
+	}
+	if e.err != nil {
+		return fmt.Sprintf("%s: %v", e.message, e.err)
+	}
+	return e.message
+}
+
+func (s nativeRecruitingIntelligenceService) verifyRecruitingStaffActor(ctx context.Context, staffUserID int64) *recruitingAuthError {
+	if staffUserID <= 0 {
+		return &recruitingAuthError{code: errs.ErrBadRequest, message: "staff user id is required"}
+	}
+	authUserID := platformmetadata.GetAuthUserID(ctx)
+	if authUserID <= 0 {
+		return &recruitingAuthError{code: errs.ErrForbidden, message: "authenticated user not found in context"}
+	}
+	if authUserID != staffUserID {
+		return &recruitingAuthError{code: errs.ErrForbidden, message: fmt.Sprintf("authenticated user %d cannot access staff user %d", authUserID, staffUserID)}
+	}
+	return nil
+}
+
+func (s nativeRecruitingIntelligenceService) authorizeRecruitingApplication(ctx context.Context, staffUserID, applicationID int64) (*pb.GetApplicationSnapshotResponse, *recruitingAuthError) {
+	if authErr := s.verifyRecruitingStaffActor(ctx, staffUserID); authErr != nil {
+		return nil, authErr
+	}
+	if applicationID <= 0 {
+		return nil, &recruitingAuthError{code: errs.ErrBadRequest, message: "application id is required"}
+	}
+	if s.applications == nil {
+		return nil, &recruitingAuthError{code: errs.ErrInternal, message: "application owner service is not configured"}
+	}
+	resp, err := s.applications.GetApplicationSnapshot(ctx, &pb.GetApplicationSnapshotRequest{ApplicationId: applicationID})
+	if err != nil {
+		return nil, &recruitingAuthError{code: errs.ErrInternal, message: "get application snapshot failed", err: err}
+	}
+	if resp == nil {
+		return nil, &recruitingAuthError{code: errs.ErrInternal, message: "get application snapshot returned nil response"}
+	}
+	switch resp.GetCode() {
+	case errs.OK:
+		return resp, nil
+	case errs.ErrForbidden:
+		return nil, &recruitingAuthError{code: errs.ErrForbidden, message: recruitingMessageOrDefault(resp.GetMsg(), "application access forbidden")}
+	case errs.ErrBadRequest, 404:
+		return nil, &recruitingAuthError{code: 404, message: recruitingMessageOrDefault(resp.GetMsg(), "application not found")}
+	default:
+		return nil, &recruitingAuthError{code: resp.GetCode(), message: recruitingMessageOrDefault(resp.GetMsg(), "get application snapshot was denied")}
+	}
+}
+
+func (s nativeRecruitingIntelligenceService) authorizeRecruitingJob(ctx context.Context, staffUserID, jobID int64) (*pb.Job, *recruitingAuthError) {
+	if authErr := s.verifyRecruitingStaffActor(ctx, staffUserID); authErr != nil {
+		return nil, authErr
+	}
+	if jobID <= 0 {
+		return nil, &recruitingAuthError{code: errs.ErrBadRequest, message: "job id is required"}
+	}
+	if s.jobs == nil {
+		return nil, &recruitingAuthError{code: errs.ErrInternal, message: "job service is not configured"}
+	}
+	const (
+		pageSize = int32(100)
+		maxPages = int32(1000)
+	)
+	var seen int64
+	for page := int32(1); page <= maxPages; page++ {
+		resp, err := s.jobs.ListHRJobs(ctx, &pb.ListHRJobsRequest{HrId: staffUserID, Page: page, PageSize: pageSize})
+		if err != nil {
+			return nil, &recruitingAuthError{code: errs.ErrInternal, message: "list hr jobs failed", err: err}
+		}
+		if resp == nil {
+			return nil, &recruitingAuthError{code: errs.ErrInternal, message: "list hr jobs returned nil response"}
+		}
+		if resp.GetCode() != errs.OK {
+			return nil, &recruitingAuthError{code: resp.GetCode(), message: recruitingMessageOrDefault(resp.GetMsg(), "list hr jobs was denied")}
+		}
+		jobs := resp.GetList()
+		for _, job := range jobs {
+			if job.GetJobId() == jobID {
+				return job, nil
+			}
+		}
+		if len(jobs) == 0 {
+			return nil, &recruitingAuthError{code: errs.ErrForbidden, message: "job not in staff scope"}
+		}
+		seen += int64(len(jobs))
+		if resp.GetTotal() > 0 && seen >= resp.GetTotal() {
+			return nil, &recruitingAuthError{code: errs.ErrForbidden, message: "job not in staff scope"}
+		}
+		if int32(len(jobs)) < pageSize {
+			return nil, &recruitingAuthError{code: errs.ErrForbidden, message: "job not in staff scope"}
+		}
+	}
+	return nil, &recruitingAuthError{code: errs.ErrForbidden, message: "job not in staff scope"}
+}
+
+func recruitingMessageOrDefault(message, fallback string) string {
+	if trimmed := strings.TrimSpace(message); trimmed != "" {
+		return trimmed
+	}
+	return fallback
 }
 
 func (nativeRecruitingIntelligenceService) GetResumeProfile(context.Context, *pb.GetResumeProfileRequest) (*pb.GetResumeProfileResponse, error) {

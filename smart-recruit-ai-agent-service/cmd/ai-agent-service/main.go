@@ -17,7 +17,9 @@ import (
 	"github.com/redis/go-redis/v9"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials/insecure"
 	healthpb "google.golang.org/grpc/health/grpc_health_v1"
+	"google.golang.org/grpc/metadata"
 	"gorm.io/driver/mysql"
 	"gorm.io/gorm"
 
@@ -141,6 +143,16 @@ func serveAIAgent(addr string) error {
 		return fmt.Errorf("connect rabbitmq: %w", err)
 	}
 	defer mqConn.Close()
+	identityConn, err := dialInternalGRPC(envOrDefault("IDENTITY_GRPC_ADDR", "127.0.0.1:50061"))
+	if err != nil {
+		return fmt.Errorf("dial identity grpc: %w", err)
+	}
+	defer identityConn.Close()
+	recruitmentConn, err := dialInternalGRPC(envOrDefault("RECRUITMENT_GRPC_ADDR", "127.0.0.1:50062"))
+	if err != nil {
+		return fmt.Errorf("dial recruitment grpc: %w", err)
+	}
+	defer recruitmentConn.Close()
 
 	metricsServer, err := server.StartMetricsServer(cfg.Observability.MetricsAddr)
 	if err != nil {
@@ -177,6 +189,9 @@ func serveAIAgent(addr string) error {
 		EmbeddingWorker: true,
 		AgentRunWorker:  true,
 		RuntimeName:     cfg.AI.AgentRuntime,
+		Auth:            pb.NewAuthServiceClient(identityConn),
+		Applications:    pb.NewApplicationOwnerServiceClient(recruitmentConn),
+		Jobs:            pb.NewJobServiceClient(recruitmentConn),
 	}))
 	if err != nil {
 		return err
@@ -228,6 +243,25 @@ func serveAIAgent(addr string) error {
 		return fmt.Errorf("grpc serve: %w", err)
 	}
 	return nil
+}
+
+func dialInternalGRPC(addr string) (*grpc.ClientConn, error) {
+	return grpc.NewClient(addr,
+		grpc.WithTransportCredentials(insecure.NewCredentials()),
+		grpc.WithUnaryInterceptor(internalClientUnaryInterceptor()),
+	)
+}
+
+func internalClientUnaryInterceptor() grpc.UnaryClientInterceptor {
+	return func(ctx context.Context, method string, req, reply any, cc *grpc.ClientConn, invoker grpc.UnaryInvoker, opts ...grpc.CallOption) error {
+		if incoming, ok := metadata.FromIncomingContext(ctx); ok {
+			ctx = metadata.NewOutgoingContext(ctx, incoming.Copy())
+		}
+		if token := os.Getenv("GRPC_INTERNAL_TOKEN"); token != "" {
+			ctx = metadata.AppendToOutgoingContext(ctx, "x-internal-token", token)
+		}
+		return invoker(ctx, method, req, reply, cc, opts...)
+	}
 }
 
 func loadBootstrap(addr string) (platformconfig.Bootstrap, error) {
