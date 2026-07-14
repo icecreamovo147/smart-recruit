@@ -150,20 +150,21 @@ var StatusKeyToLegacy = map[string]int32{
 }
 
 var HRStatusLabels = map[string]string{
-	StatusKeyApplied:          "待查看",
-	StatusKeyViewed:           "已查看",
-	StatusKeyScreening:        "筛选中",
-	StatusKeyScreenPassed:     "筛选通过",
-	StatusKeyInterviewPending: "待安排面试",
-	StatusKeyInterviewing:     "面试中",
-	StatusKeyInterviewPassed:  "面试通过",
-	StatusKeyOfferPending:     "待发Offer",
-	StatusKeyOfferSent:        "Offer已发",
-	StatusKeyOfferAccepted:    "Offer已接受",
-	StatusKeyOfferRejected:    "Offer被拒",
-	StatusKeyHired:            "已入职",
-	StatusKeyRejected:         "淘汰",
-	StatusKeyWithdrawn:        "候选人撤回",
+	StatusKeyApplied:            "待查看",
+	StatusKeyViewed:             "已查看",
+	StatusKeyScreening:          "筛选中",
+	StatusKeyScreenPassed:       "筛选通过",
+	StatusKeyInterviewPending:   "待安排面试",
+	StatusKeyInterviewing:       "面试中",
+	StatusKeyInterviewPassed:    "面试通过",
+	StatusKeyInterviewCancelled: "面试已取消",
+	StatusKeyOfferPending:       "待发Offer",
+	StatusKeyOfferSent:          "Offer已发",
+	StatusKeyOfferAccepted:      "Offer已接受",
+	StatusKeyOfferRejected:      "Offer被拒",
+	StatusKeyHired:              "已入职",
+	StatusKeyRejected:           "淘汰",
+	StatusKeyWithdrawn:          "候选人撤回",
 }
 
 var TerminalStatusKeys = map[string]bool{

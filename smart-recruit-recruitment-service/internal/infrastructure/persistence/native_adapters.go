@@ -20,6 +20,7 @@ import (
 	"smart-recruit-proto/recruitment/pb"
 	"smart-recruit-recruitment-service/internal/application/service"
 	domainmodel "smart-recruit-recruitment-service/internal/domain/model"
+	domainpolicy "smart-recruit-recruitment-service/internal/domain/policy"
 )
 
 type NativeBundle struct {
@@ -806,48 +807,177 @@ func (a *applicationAdapter) ListJobApplications(ctx context.Context, req *pb.Li
 }
 
 func (a *applicationAdapter) UpdateApplicationStatus(ctx context.Context, req *pb.UpdateApplicationStatusRequest) (*pb.CommonResponse, error) {
-	targetKey := req.StatusKey
-	if targetKey == "" {
-		targetKey = domainmodel.LegacyStatusToKey[req.Status]
-	}
-	if targetKey == "" {
-		return &pb.CommonResponse{Code: errs.ErrBadRequest, Msg: "投递状态不合法"}, nil
-	}
-	detail, err := a.getApplicationDetail(ctx, req.ApplicationId)
+	actorAccountType, err := normalizePublicActorAccountType("")
 	if err != nil {
-		return nil, err
+		return &pb.CommonResponse{Code: errs.ErrBadRequest, Msg: err.Error()}, nil
+	}
+	_, resp, err := a.applyApplicationStatusChange(ctx, applicationStatusChangeCommand{
+		actorUserID:        req.HrId,
+		actorAccountType:   actorAccountType,
+		applicationID:      req.ApplicationId,
+		targetStatusKey:    req.StatusKey,
+		legacyTargetStatus: req.Status,
+		reason:             req.Reason,
+	})
+	return resp, err
+}
+
+type applicationStatusChangeCommand struct {
+	actorUserID        int64
+	actorAccountType   string
+	applicationID      int64
+	targetStatusKey    string
+	legacyTargetStatus int32
+	reason             string
+	closeCurrentRound  bool
+}
+
+type applicationStatusChangeResult struct {
+	FromStatusKey    string
+	CurrentStatusKey string
+}
+
+func (a *applicationAdapter) applyApplicationStatusChange(ctx context.Context, cmd applicationStatusChangeCommand) (applicationStatusChangeResult, *pb.CommonResponse, error) {
+	targetKey, err := domainpolicy.TargetStatusKey(cmd.targetStatusKey, cmd.legacyTargetStatus)
+	if err != nil {
+		return applicationStatusChangeResult{}, &pb.CommonResponse{Code: errs.ErrBadRequest, Msg: err.Error()}, nil
+	}
+	actorAccountType, err := normalizeActorAccountType(cmd.actorAccountType)
+	if err != nil {
+		return applicationStatusChangeResult{}, &pb.CommonResponse{Code: errs.ErrBadRequest, Msg: err.Error()}, nil
+	}
+	detail, err := a.getApplicationDetail(ctx, cmd.applicationID)
+	if err != nil {
+		return applicationStatusChangeResult{}, nil, err
 	}
 	if detail == nil {
-		return &pb.CommonResponse{Code: errs.ErrForbidden, Msg: "该投递记录不存在或无权限访问"}, nil
+		return applicationStatusChangeResult{}, &pb.CommonResponse{Code: errs.ErrForbidden, Msg: "该投递记录不存在或无权限访问"}, nil
 	}
-	currentKey := detail.StatusKey
-	if currentKey == "" {
-		currentKey = domainmodel.LegacyStatusToKey[detail.Status]
+	domainDetail := domainmodel.ApplicationDetail{
+		ApplicationID: detail.ApplicationID,
+		UserID:        detail.UserID,
+		JobID:         detail.JobID,
+		JobTitle:      detail.JobTitle,
+		RealName:      detail.RealName,
+		ResumeID:      detail.ResumeID,
+		Status:        detail.Status,
+		StatusKey:     detail.StatusKey,
+		RoundNo:       detail.RoundNo,
+		IsCurrent:     detail.IsCurrent,
 	}
-	legacyStatus := domainmodel.StatusKeyToLegacy[targetKey]
+	currentKey, isRePass, legacyStatus, err := domainpolicy.ValidateStatusChange(domainDetail, targetKey, cmd.reason)
+	if err != nil {
+		return applicationStatusChangeResult{}, statusChangeValidationResponse(err), nil
+	}
+	var rowsAffected int64
 	err = a.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-		result := tx.Model(&applicationRecord{}).Where("id = ? AND status_key = ?", req.ApplicationId, currentKey).Updates(map[string]any{"status": legacyStatus, "status_key": targetKey})
+		updates := map[string]any{"status": legacyStatus, "status_key": targetKey}
+		if isRePass {
+			updates["round_no"] = gorm.Expr("round_no + 1")
+			updates["is_current"] = 1
+		} else if domainmodel.TerminalStatusKeys[targetKey] || cmd.closeCurrentRound {
+			updates["is_current"] = 0
+		}
+		query := tx.Model(&applicationRecord{}).Where("id = ?", cmd.applicationID)
+		if detail.StatusKey == "" {
+			query = query.Where("(status_key = ? OR status_key = '')", currentKey)
+		} else {
+			query = query.Where("status_key = ?", currentKey)
+		}
+		result := query.Updates(updates)
 		if result.Error != nil {
 			return result.Error
 		}
+		rowsAffected = result.RowsAffected
 		if result.RowsAffected == 0 {
 			return service.ErrApplicationConflict
 		}
-		if domainmodel.TerminalStatusKeys[targetKey] {
-			if err := tx.Model(&applicationRecord{}).Where("id = ?", req.ApplicationId).Update("is_current", 0).Error; err != nil {
+		if targetKey == domainmodel.StatusKeyRejected || targetKey == domainmodel.StatusKeyWithdrawn {
+			cancelReason := strings.TrimSpace(cmd.reason)
+			if cancelReason == "" {
+				cancelReason = "投递状态变更为" + domainmodel.HRStatusLabels[targetKey]
+			}
+			if err := a.cancelActiveInterviewsTx(tx, cmd.applicationID, cancelReason); err != nil {
 				return err
 			}
 		}
-		transition := &applicationTransitionRecord{ApplicationID: req.ApplicationId, FromStatus: currentKey, ToStatus: targetKey, ActorUserID: req.HrId, ActorAccountType: "staff", Reason: req.Reason, CreatedAt: a.now()}
-		return tx.Create(transition).Error
+		transition := &applicationTransitionRecord{
+			ApplicationID:    cmd.applicationID,
+			FromStatus:       currentKey,
+			ToStatus:         targetKey,
+			ActorUserID:      cmd.actorUserID,
+			ActorAccountType: actorAccountType,
+			Reason:           cmd.reason,
+			CreatedAt:        a.now(),
+		}
+		if err := tx.Create(transition).Error; err != nil {
+			return err
+		}
+		notifyType, content := domainpolicy.BuildApplicationNotification(targetKey, isRePass, domainDetail)
+		if notifyType == "" {
+			return nil
+		}
+		payload := notificationPayload(detail.UserID, "candidate", notifyType, "投递进展更新", content, "/applications", "application", cmd.applicationID, detail.JobTitle, detail.RealName)
+		if err := a.writeOutboxTx(tx, "application.notification_requested", "application", uint64(cmd.applicationID), "notification.create", payload); err != nil {
+			return err
+		}
+		return a.writeOutboxTx(tx, "application.email_requested", "application", uint64(cmd.applicationID), "email.send", payload)
 	})
 	if errors.Is(err, service.ErrApplicationConflict) {
-		return &pb.CommonResponse{Code: errs.ErrConflict, Msg: "投递状态已变化，请刷新后重试"}, nil
+		return applicationStatusChangeResult{}, &pb.CommonResponse{Code: errs.ErrConflict, Msg: service.ErrApplicationConflict.Error()}, nil
 	}
 	if err != nil {
-		return nil, err
+		return applicationStatusChangeResult{}, nil, err
 	}
-	return &pb.CommonResponse{Code: errs.OK, Msg: "投递状态已更新"}, nil
+	if rowsAffected == 0 {
+		return applicationStatusChangeResult{}, &pb.CommonResponse{Code: errs.ErrConflict, Msg: service.ErrApplicationConflict.Error()}, nil
+	}
+	return applicationStatusChangeResult{FromStatusKey: currentKey, CurrentStatusKey: targetKey}, &pb.CommonResponse{Code: errs.OK, Msg: "投递状态已更新"}, nil
+}
+
+func statusChangeValidationResponse(err error) *pb.CommonResponse {
+	var transitionErr *domainpolicy.TransitionError
+	switch {
+	case errors.As(err, &transitionErr), errors.Is(err, domainpolicy.ErrReasonRequired):
+		return &pb.CommonResponse{Code: errs.ErrBadRequest, Msg: err.Error()}
+	case errors.Is(err, domainpolicy.ErrApplicationNotCurrent):
+		return &pb.CommonResponse{Code: errs.ErrForbidden, Msg: err.Error()}
+	default:
+		return &pb.CommonResponse{Code: errs.ErrBadRequest, Msg: err.Error()}
+	}
+}
+
+func normalizePublicActorAccountType(value string) (string, error) {
+	if strings.TrimSpace(value) == "" {
+		return "staff", nil
+	}
+	return normalizeActorAccountType(value)
+}
+
+func normalizeOwnerActorAccountType(value string) (string, error) {
+	if strings.TrimSpace(value) == "" {
+		return "", fmt.Errorf("actor_account_type 不能为空")
+	}
+	return normalizeActorAccountType(value)
+}
+
+func normalizeActorAccountType(value string) (string, error) {
+	value = strings.TrimSpace(value)
+	switch value {
+	case "candidate", "staff", "service":
+		return value, nil
+	default:
+		return "", fmt.Errorf("actor_account_type 不合法")
+	}
+}
+
+func (a *nativeStore) cancelActiveInterviewsTx(tx *gorm.DB, applicationID int64, reason string) error {
+	return tx.Table("interview_schedules").
+		Where("application_id = ? AND status IN ? AND deleted_at IS NULL", applicationID, []string{"pending", "scheduled"}).
+		Updates(map[string]any{
+			"status":        "cancelled",
+			"cancel_reason": reason,
+		}).Error
 }
 
 func (a *applicationAdapter) ListApplicationStatusTransitions(ctx context.Context, req *pb.ListApplicationStatusTransitionsRequest) (*pb.ListApplicationStatusTransitionsResponse, error) {
@@ -874,15 +1004,27 @@ func (a *applicationOwnerAdapter) GetApplicationSnapshot(ctx context.Context, re
 	if err := a.db.WithContext(ctx).Where("id = ?", detail.JobID).First(&job).Error; err != nil {
 		return nil, err
 	}
+	statusKey := detail.StatusKey
+	if statusKey == "" {
+		statusKey = domainmodel.LegacyStatusToKey[detail.Status]
+	}
 	return &pb.GetApplicationSnapshotResponse{
 		Code: errs.OK, Msg: "success", ApplicationId: detail.ApplicationID, CandidateUserId: detail.UserID, JobId: detail.JobID, JobTitle: detail.JobTitle,
-		CandidateName: detail.RealName, ResumeId: detail.ResumeID, LegacyStatus: detail.Status, StatusKey: detail.StatusKey, RoundNo: detail.RoundNo,
+		CandidateName: detail.RealName, ResumeId: detail.ResumeID, LegacyStatus: detail.Status, StatusKey: statusKey, RoundNo: detail.RoundNo,
 		IsCurrent: detail.IsCurrent == 1, JobHrId: job.HrID, DepartmentId: ptrValue(job.DepartmentID), LocationId: ptrValue(job.LocationID),
 	}, nil
 }
 
 func (a *applicationOwnerAdapter) ApplyApplicationLifecycleTransition(ctx context.Context, req *pb.ApplyApplicationLifecycleTransitionRequest) (*pb.ApplyApplicationLifecycleTransitionResponse, error) {
-	statusReq := &pb.UpdateApplicationStatusRequest{HrId: req.ActorUserId, ApplicationId: req.ApplicationId, Status: req.LegacyTargetStatus, StatusKey: req.TargetStatusKey, Reason: req.Reason}
+	actorAccountType, err := normalizeOwnerActorAccountType(req.ActorAccountType)
+	if err != nil {
+		return &pb.ApplyApplicationLifecycleTransitionResponse{Code: errs.ErrBadRequest, Msg: err.Error()}, nil
+	}
+	if req.ExpectedStatusKey != "" {
+		if err := domainpolicy.ValidateStatusKey(req.ExpectedStatusKey); err != nil {
+			return &pb.ApplyApplicationLifecycleTransitionResponse{Code: errs.ErrBadRequest, Msg: err.Error()}, nil
+		}
+	}
 	snapshot, err := a.GetApplicationSnapshot(ctx, &pb.GetApplicationSnapshotRequest{ApplicationId: req.ApplicationId})
 	if err != nil || snapshot.Code != errs.OK {
 		return &pb.ApplyApplicationLifecycleTransitionResponse{Code: snapshot.GetCode(), Msg: snapshot.GetMsg()}, err
@@ -890,19 +1032,22 @@ func (a *applicationOwnerAdapter) ApplyApplicationLifecycleTransition(ctx contex
 	if req.ExpectedStatusKey != "" && snapshot.StatusKey != req.ExpectedStatusKey {
 		return &pb.ApplyApplicationLifecycleTransitionResponse{Code: errs.ErrConflict, Msg: "投递状态已变化，请刷新后重试"}, nil
 	}
-	resp, err := a.UpdateApplicationStatus(ctx, statusReq)
+	result, resp, err := a.applyApplicationStatusChange(ctx, applicationStatusChangeCommand{
+		actorUserID:        req.ActorUserId,
+		actorAccountType:   actorAccountType,
+		applicationID:      req.ApplicationId,
+		targetStatusKey:    req.TargetStatusKey,
+		legacyTargetStatus: req.LegacyTargetStatus,
+		reason:             req.Reason,
+		closeCurrentRound:  req.CloseCurrentRound,
+	})
 	if err != nil {
 		return nil, err
 	}
 	if resp.Code != errs.OK {
 		return &pb.ApplyApplicationLifecycleTransitionResponse{Code: resp.Code, Msg: resp.Msg}, nil
 	}
-	if req.CloseCurrentRound {
-		if err := a.db.WithContext(ctx).Model(&applicationRecord{}).Where("id = ?", req.ApplicationId).Update("is_current", 0).Error; err != nil {
-			return nil, err
-		}
-	}
-	return &pb.ApplyApplicationLifecycleTransitionResponse{Code: errs.OK, Msg: "success", Changed: true, FromStatusKey: snapshot.StatusKey, CurrentStatusKey: statusReq.StatusKey}, nil
+	return &pb.ApplyApplicationLifecycleTransitionResponse{Code: errs.OK, Msg: "success", Changed: true, FromStatusKey: result.FromStatusKey, CurrentStatusKey: result.CurrentStatusKey}, nil
 }
 
 func (a *nativeStore) applicationDetails() *gorm.DB {
