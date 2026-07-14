@@ -314,6 +314,7 @@ func newLifecycleFixture(t *testing.T) *lifecycleFixture {
 		&applicationRecord{},
 		&applicationTransitionRecord{},
 		&eventOutboxRecord{},
+		&userDataScopeRecord{},
 		&lifecycleInterviewScheduleRecord{},
 	); err != nil {
 		t.Fatalf("auto migrate: %v", err)
@@ -339,6 +340,15 @@ func (f *lifecycleFixture) seedBaseRecords(t *testing.T) {
 	}
 	if err := f.db.Create(resume).Error; err != nil {
 		t.Fatalf("seed resume: %v", err)
+	}
+	f.seedScope(t, lifecycleHRID, "own_jobs", "", 0)
+}
+
+func (f *lifecycleFixture) seedScope(t *testing.T, userID int64, scopeKey, resourceType string, resourceID uint64) {
+	t.Helper()
+	scope := &userDataScopeRecord{UserID: uint64(userID), ScopeKey: scopeKey, ResourceType: resourceType, ResourceID: resourceID, AssignedAt: f.now}
+	if err := f.db.Create(scope).Error; err != nil {
+		t.Fatalf("seed scope: %v", err)
 	}
 }
 

@@ -497,7 +497,16 @@ func (a *jobAdapter) UpdateJob(ctx context.Context, req *pb.UpdateJobRequest) (*
 	if len(fields) == 0 {
 		return &pb.CommonResponse{Code: errs.ErrBadRequest, Msg: "没有可更新字段"}, nil
 	}
-	result := a.db.WithContext(ctx).Model(&jobRecord{}).Where("id = ?", req.JobId).Updates(fields)
+	scope, err := a.checkRecruitmentJobScope(ctx, req.HrId, req.JobId)
+	if err != nil {
+		return nil, err
+	}
+	if !scope.allowed() {
+		return &pb.CommonResponse{Code: errs.ErrForbidden, Msg: "无权限操作该岗位"}, nil
+	}
+	query := a.db.WithContext(ctx).Model(&jobRecord{}).Where("id = ?", req.JobId)
+	query = applyRecruitmentScopeToJobMutationQuery(query, scope)
+	result := query.Updates(fields)
 	if result.Error != nil {
 		return nil, result.Error
 	}
@@ -508,15 +517,24 @@ func (a *jobAdapter) UpdateJob(ctx context.Context, req *pb.UpdateJobRequest) (*
 }
 
 func (a *jobAdapter) OfflineJob(ctx context.Context, req *pb.OfflineJobRequest) (*pb.CommonResponse, error) {
-	return a.setJobStatus(ctx, req.JobId, 0, "岗位已下架")
+	return a.setJobStatus(ctx, req.HrId, req.JobId, 0, "岗位已下架")
 }
 
 func (a *jobAdapter) OnlineJob(ctx context.Context, req *pb.OfflineJobRequest) (*pb.CommonResponse, error) {
-	return a.setJobStatus(ctx, req.JobId, 1, "岗位已上线")
+	return a.setJobStatus(ctx, req.HrId, req.JobId, 1, "岗位已上线")
 }
 
-func (a *jobAdapter) setJobStatus(ctx context.Context, jobID int64, status int32, msg string) (*pb.CommonResponse, error) {
-	result := a.db.WithContext(ctx).Model(&jobRecord{}).Where("id = ?", jobID).Update("status", status)
+func (a *jobAdapter) setJobStatus(ctx context.Context, hrID, jobID int64, status int32, msg string) (*pb.CommonResponse, error) {
+	scope, err := a.checkRecruitmentJobScope(ctx, hrID, jobID)
+	if err != nil {
+		return nil, err
+	}
+	if !scope.allowed() {
+		return &pb.CommonResponse{Code: errs.ErrForbidden, Msg: "无权限操作该岗位"}, nil
+	}
+	query := a.db.WithContext(ctx).Model(&jobRecord{}).Where("id = ?", jobID)
+	query = applyRecruitmentScopeToJobMutationQuery(query, scope)
+	result := query.Update("status", status)
 	if result.Error != nil {
 		return nil, result.Error
 	}
@@ -527,10 +545,15 @@ func (a *jobAdapter) setJobStatus(ctx context.Context, jobID int64, status int32
 }
 
 func (a *jobAdapter) ListHRJobs(ctx context.Context, req *pb.ListHRJobsRequest) (*pb.ListJobsResponse, error) {
-	query := a.db.WithContext(ctx).Model(&jobRecord{})
-	if req.HrId > 0 && !a.hasFullRecruitmentScope(ctx, req.HrId) {
-		query = query.Where("hr_id = ?", req.HrId)
+	scope, err := a.evaluateRecruitmentScope(ctx, req.HrId)
+	if err != nil {
+		return nil, err
 	}
+	if !scope.allowed() {
+		return &pb.ListJobsResponse{Code: errs.ErrForbidden, Msg: "无数据范围权限"}, nil
+	}
+	query := a.db.WithContext(ctx).Model(&jobRecord{})
+	query = applyRecruitmentScopeToJobsQuery(query, scope)
 	return a.listJobs(query, page(req.Page), pageSize(req.PageSize))
 }
 
@@ -782,6 +805,13 @@ func (a *applicationAdapter) ListMyApplications(ctx context.Context, req *pb.Lis
 }
 
 func (a *applicationAdapter) ListJobApplications(ctx context.Context, req *pb.ListJobApplicationsRequest) (*pb.ListJobApplicationsResponse, error) {
+	scope, err := a.checkRecruitmentJobScope(ctx, req.HrId, req.JobId)
+	if err != nil {
+		return nil, err
+	}
+	if !scope.allowed() {
+		return &pb.ListJobApplicationsResponse{Code: errs.ErrForbidden, Msg: "无权限查看该岗位"}, nil
+	}
 	var rows []applicationDetailRow
 	query := a.applicationDetails().Where("a.job_id = ?", req.JobId)
 	var total int64
@@ -853,6 +883,16 @@ func (a *applicationAdapter) applyApplicationStatusChange(ctx context.Context, c
 	if detail == nil {
 		return applicationStatusChangeResult{}, &pb.CommonResponse{Code: errs.ErrForbidden, Msg: "该投递记录不存在或无权限访问"}, nil
 	}
+	var staffScope recruitmentScope
+	if actorAccountType == "staff" {
+		staffScope, err = a.checkRecruitmentJobScope(ctx, cmd.actorUserID, detail.JobID)
+		if err != nil {
+			return applicationStatusChangeResult{}, nil, err
+		}
+		if !staffScope.allowed() {
+			return applicationStatusChangeResult{}, &pb.CommonResponse{Code: errs.ErrForbidden, Msg: "无权限操作投递状态"}, nil
+		}
+	}
 	domainDetail := domainmodel.ApplicationDetail{
 		ApplicationID: detail.ApplicationID,
 		UserID:        detail.UserID,
@@ -879,6 +919,9 @@ func (a *applicationAdapter) applyApplicationStatusChange(ctx context.Context, c
 			updates["is_current"] = 0
 		}
 		query := tx.Model(&applicationRecord{}).Where("id = ?", cmd.applicationID)
+		if actorAccountType == "staff" {
+			query = applyRecruitmentScopeToApplicationMutationQuery(query, staffScope)
+		}
 		if detail.StatusKey == "" {
 			query = query.Where("(status_key = ? OR status_key = '')", currentKey)
 		} else {
@@ -981,6 +1024,20 @@ func (a *nativeStore) cancelActiveInterviewsTx(tx *gorm.DB, applicationID int64,
 }
 
 func (a *applicationAdapter) ListApplicationStatusTransitions(ctx context.Context, req *pb.ListApplicationStatusTransitionsRequest) (*pb.ListApplicationStatusTransitionsResponse, error) {
+	detail, err := a.getApplicationDetail(ctx, req.ApplicationId)
+	if err != nil {
+		return nil, err
+	}
+	if detail == nil {
+		return &pb.ListApplicationStatusTransitionsResponse{Code: errs.ErrForbidden, Msg: "该投递记录不存在"}, nil
+	}
+	scope, err := a.checkRecruitmentJobScope(ctx, req.HrId, detail.JobID)
+	if err != nil {
+		return nil, err
+	}
+	if !scope.allowed() {
+		return &pb.ListApplicationStatusTransitionsResponse{Code: errs.ErrForbidden, Msg: "无权限查看投递状态变更记录"}, nil
+	}
 	var rows []applicationTransitionRecord
 	if err := a.db.WithContext(ctx).Where("application_id = ?", req.ApplicationId).Order("created_at ASC, id ASC").Find(&rows).Error; err != nil {
 		return nil, err
@@ -1003,6 +1060,13 @@ func (a *applicationOwnerAdapter) GetApplicationSnapshot(ctx context.Context, re
 	var job jobRecord
 	if err := a.db.WithContext(ctx).Where("id = ?", detail.JobID).First(&job).Error; err != nil {
 		return nil, err
+	}
+	ok, err := a.contextStaffJobScope(ctx, job.ID)
+	if err != nil {
+		return nil, err
+	}
+	if !ok {
+		return &pb.GetApplicationSnapshotResponse{Code: errs.ErrForbidden, Msg: "无权限访问该投递"}, nil
 	}
 	statusKey := detail.StatusKey
 	if statusKey == "" {
@@ -2090,6 +2154,7 @@ func splitSkills(value string) []string {
 	return out
 }
 
-func (a *nativeStore) hasFullRecruitmentScope(context.Context, int64) bool {
-	return false
+func (a *nativeStore) hasFullRecruitmentScope(ctx context.Context, actorID int64) bool {
+	scope, err := a.evaluateRecruitmentScope(ctx, actorID)
+	return err == nil && scope.full()
 }
