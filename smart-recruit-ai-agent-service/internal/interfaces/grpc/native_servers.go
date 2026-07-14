@@ -139,6 +139,18 @@ const (
 	ownerRoleHR        int32 = 2
 
 	agentRunEventPollInterval = 500 * time.Millisecond
+
+	agentRunCodeBadRequest int32 = 400
+
+	agentRunStatusQueued              = "queued"
+	agentRunStatusPlanning            = "planning"
+	agentRunStatusRunning             = "running"
+	agentRunStatusWaitingConfirmation = "waiting_confirmation"
+	agentRunStatusCancelRequested     = "cancel_requested"
+	agentRunStatusSucceeded           = "succeeded"
+	agentRunStatusFailed              = "failed"
+	agentRunStatusCanceled            = "canceled"
+	agentRunStatusPartial             = "partial"
 )
 
 func NewNativeRuntimeDeps(deps RuntimeDeps) aiagentruntime.Deps {
@@ -172,10 +184,17 @@ func NewNativeAIService(store AIStore, provider ChatProvider) pb.AIServiceServer
 
 type nativeAIService struct {
 	pb.UnimplementedAIServiceServer
-	store      AIStore
-	provider   ChatProvider
-	eventHubMu sync.Mutex
-	eventHub   *agentRunEventHub
+	store           AIStore
+	provider        ChatProvider
+	eventHubMu      sync.Mutex
+	eventHub        *agentRunEventHub
+	runCancelMu     sync.Mutex
+	runCancels      map[int64]*agentRunCancelEntry
+	runTransitionMu sync.Mutex
+}
+
+type agentRunCancelEntry struct {
+	cancel context.CancelFunc
 }
 
 type agentRunEventHub struct {
@@ -449,9 +468,7 @@ func (s *nativeAIService) CreateAgentRun(ctx context.Context, req *pb.CreateAgen
 	if created.Seq > 0 {
 		run.LastEventSeq = created.Seq
 	}
-	go func(run AgentRunRow, message string, modelID int64) {
-		_ = s.executeAgentRun(context.Background(), run, message, modelID)
-	}(run, req.GetMessage(), req.GetModelId())
+	s.dispatchAgentRun(run, req.GetMessage(), req.GetModelId())
 	return &pb.CreateAgentRunResponse{Code: 0, Msg: "success", Run: mapAgentRunSnapshot(run), IdempotentReplay: false}, nil
 }
 
@@ -568,23 +585,92 @@ func (s *nativeAIService) SubscribeAgentRunEvents(req *pb.SubscribeAgentRunEvent
 }
 
 func (s *nativeAIService) CancelAgentRun(ctx context.Context, req *pb.CancelAgentRunRequest) (*pb.CancelAgentRunResponse, error) {
-	run, found, err := s.updateRun(ctx, req.GetHrId(), req.GetRunId(), "cancel_requested")
+	if req == nil {
+		return nil, errors.New("cancel agent run request is required")
+	}
+	run, found, err := s.getRun(ctx, req.GetHrId(), req.GetRunId())
 	if err != nil {
 		return nil, err
 	}
 	if !found {
 		return &pb.CancelAgentRunResponse{Code: 404, Msg: "agent run not found"}, nil
 	}
+
+	if isTerminalAgentRunStatus(run.Status) || run.Status == agentRunStatusCancelRequested {
+		return &pb.CancelAgentRunResponse{Code: 0, Msg: "success", Run: mapAgentRunSnapshot(run)}, nil
+	}
+	if !isCancelableAgentRunStatus(run.Status) {
+		return &pb.CancelAgentRunResponse{Code: agentRunCodeBadRequest, Msg: illegalAgentRunTransitionMessage("cancel", run.Status), Run: mapAgentRunSnapshot(run)}, nil
+	}
+
+	s.runTransitionMu.Lock()
+	defer s.runTransitionMu.Unlock()
+	run, found, err = s.getRun(ctx, req.GetHrId(), req.GetRunId())
+	if err != nil {
+		return nil, err
+	}
+	if !found {
+		return &pb.CancelAgentRunResponse{Code: 404, Msg: "agent run not found"}, nil
+	}
+	if isTerminalAgentRunStatus(run.Status) || run.Status == agentRunStatusCancelRequested {
+		return &pb.CancelAgentRunResponse{Code: 0, Msg: "success", Run: mapAgentRunSnapshot(run)}, nil
+	}
+	if !isCancelableAgentRunStatus(run.Status) {
+		return &pb.CancelAgentRunResponse{Code: agentRunCodeBadRequest, Msg: illegalAgentRunTransitionMessage("cancel", run.Status), Run: mapAgentRunSnapshot(run)}, nil
+	}
+	run, found, err = s.updateRun(ctx, req.GetHrId(), req.GetRunId(), agentRunStatusCancelRequested)
+	if err != nil {
+		return nil, err
+	}
+	if !found {
+		return &pb.CancelAgentRunResponse{Code: 404, Msg: "agent run not found"}, nil
+	}
+	s.cancelAgentRunExecution(req.GetRunId())
 	return &pb.CancelAgentRunResponse{Code: 0, Msg: "success", Run: mapAgentRunSnapshot(run)}, nil
 }
 
 func (s *nativeAIService) ConfirmAgentRun(ctx context.Context, req *pb.ConfirmAgentRunRequest) (*pb.ConfirmAgentRunResponse, error) {
-	run, found, err := s.updateRun(ctx, req.GetHrId(), req.GetRunId(), "running")
+	if req == nil {
+		return nil, errors.New("confirm agent run request is required")
+	}
+	run, found, err := s.getRun(ctx, req.GetHrId(), req.GetRunId())
 	if err != nil {
 		return nil, err
 	}
 	if !found {
 		return &pb.ConfirmAgentRunResponse{Code: 404, Msg: "agent run not found"}, nil
+	}
+	if run.Status == agentRunStatusRunning || isTerminalAgentRunStatus(run.Status) {
+		return &pb.ConfirmAgentRunResponse{Code: 0, Msg: "success", Run: mapAgentRunSnapshot(run)}, nil
+	}
+	if run.Status != agentRunStatusWaitingConfirmation {
+		return &pb.ConfirmAgentRunResponse{Code: agentRunCodeBadRequest, Msg: illegalAgentRunTransitionMessage("confirm", run.Status), Run: mapAgentRunSnapshot(run)}, nil
+	}
+
+	s.runTransitionMu.Lock()
+	defer s.runTransitionMu.Unlock()
+	run, found, err = s.getRun(ctx, req.GetHrId(), req.GetRunId())
+	if err != nil {
+		return nil, err
+	}
+	if !found {
+		return &pb.ConfirmAgentRunResponse{Code: 404, Msg: "agent run not found"}, nil
+	}
+	if run.Status == agentRunStatusRunning || isTerminalAgentRunStatus(run.Status) {
+		return &pb.ConfirmAgentRunResponse{Code: 0, Msg: "success", Run: mapAgentRunSnapshot(run)}, nil
+	}
+	if run.Status != agentRunStatusWaitingConfirmation {
+		return &pb.ConfirmAgentRunResponse{Code: agentRunCodeBadRequest, Msg: illegalAgentRunTransitionMessage("confirm", run.Status), Run: mapAgentRunSnapshot(run)}, nil
+	}
+	run, found, err = s.updateRun(ctx, req.GetHrId(), req.GetRunId(), agentRunStatusRunning)
+	if err != nil {
+		return nil, err
+	}
+	if !found {
+		return &pb.ConfirmAgentRunResponse{Code: 404, Msg: "agent run not found"}, nil
+	}
+	if _, err := s.appendAgentRunEvent(ctx, run.ID, "confirmation.accepted", fmt.Sprintf(`{"status":%q}`, agentRunStatusRunning)); err != nil {
+		return nil, err
 	}
 	return &pb.ConfirmAgentRunResponse{Code: 0, Msg: "success", Run: mapAgentRunSnapshot(run)}, nil
 }
@@ -641,35 +727,185 @@ func (s *nativeAIService) complete(ctx context.Context, prompt string, modelID i
 	return reply, nil
 }
 
+func (s *nativeAIService) dispatchAgentRun(run AgentRunRow, message string, modelID int64) {
+	ctx, cancel := context.WithCancel(context.Background())
+	s.storeAgentRunCancel(run.ID, cancel)
+	go func() {
+		_ = s.executeAgentRun(ctx, run, message, modelID)
+	}()
+}
+
 func (s *nativeAIService) executeAgentRun(ctx context.Context, run AgentRunRow, message string, modelID int64) error {
-	if _, _, err := s.updateRun(ctx, run.OwnerID, run.ID, "running"); err != nil {
+	defer s.clearAgentRunCancel(run.ID)
+
+	current, shouldExecute, err := s.beginAgentRunExecution(ctx, run)
+	if err != nil || !shouldExecute {
 		return err
 	}
 	reply, err := s.complete(ctx, message, modelID)
 	if err != nil {
-		errorMessage := err.Error()
-		if _, eventErr := s.appendAgentRunEvent(ctx, run.ID, "run.error", fmt.Sprintf(`{"status":"failed","error_type":"provider","error_message":%q}`, errorMessage)); eventErr != nil {
-			return eventErr
+		if agentRunExecutionCanceled(ctx, err) {
+			return s.finishAgentRunCanceled(ctx, current)
 		}
-		if _, _, completeErr := s.store.CompleteAgentRun(ctx, run.OwnerID, run.ID, "", "failed", "provider", errorMessage); completeErr != nil {
-			return completeErr
-		}
-		_, eventErr := s.appendAgentRunEvent(ctx, run.ID, "run.completed", fmt.Sprintf(`{"status":"failed","error_type":"provider","error_message":%q}`, errorMessage))
-		return eventErr
+		return s.finishAgentRunFailed(ctx, current, err)
 	}
-	if strings.TrimSpace(reply) != "" {
-		if _, err := s.appendAgentRunEvent(ctx, run.ID, "assistant.delta", fmt.Sprintf(`{"status":"running","delta":%q}`, reply)); err != nil {
-			return err
-		}
-		if _, err := s.store.AppendChatMessage(ctx, ChatMessageRow{OwnerRole: ownerRoleHR, OwnerID: run.OwnerID, SessionID: run.SessionID, Role: "assistant", Content: reply, ModelID: modelID, CreatedAt: time.Now()}); err != nil {
-			return err
-		}
+	if agentRunExecutionCanceled(ctx, nil) {
+		return s.finishAgentRunCanceled(ctx, current)
 	}
-	if _, _, err := s.store.CompleteAgentRun(ctx, run.OwnerID, run.ID, reply, "succeeded", "", ""); err != nil {
+	return s.finishAgentRunSucceeded(ctx, current, reply, modelID)
+}
+
+func (s *nativeAIService) beginAgentRunExecution(ctx context.Context, run AgentRunRow) (AgentRunRow, bool, error) {
+	storeCtx := agentRunStoreContext(ctx)
+	s.runTransitionMu.Lock()
+	defer s.runTransitionMu.Unlock()
+
+	current, found, err := s.getRun(storeCtx, run.OwnerID, run.ID)
+	if err != nil || !found {
+		return current, false, err
+	}
+	if agentRunExecutionCanceled(ctx, nil) || current.Status == agentRunStatusCancelRequested {
+		if err := s.completeAgentRunCanceledLocked(storeCtx, current); err != nil {
+			return AgentRunRow{}, false, err
+		}
+		return current, false, nil
+	}
+	if isTerminalAgentRunStatus(current.Status) || current.Status == agentRunStatusWaitingConfirmation {
+		return current, false, nil
+	}
+	if current.Status == agentRunStatusRunning {
+		return current, true, nil
+	}
+	if !isExecutableAgentRunStatus(current.Status) {
+		return current, false, nil
+	}
+	next, found, err := s.updateRun(storeCtx, current.OwnerID, current.ID, agentRunStatusRunning)
+	if err != nil || !found {
+		return next, false, err
+	}
+	return next, true, nil
+}
+
+func (s *nativeAIService) finishAgentRunSucceeded(ctx context.Context, run AgentRunRow, reply string, modelID int64) error {
+	storeCtx := agentRunStoreContext(ctx)
+	s.runTransitionMu.Lock()
+	defer s.runTransitionMu.Unlock()
+
+	current, found, err := s.getRun(storeCtx, run.OwnerID, run.ID)
+	if err != nil || !found {
 		return err
 	}
-	_, err = s.appendAgentRunEvent(ctx, run.ID, "run.completed", `{"status":"succeeded"}`)
+	if current.Status == agentRunStatusCancelRequested || current.Status == agentRunStatusCanceled {
+		return s.completeAgentRunCanceledLocked(storeCtx, current)
+	}
+	if isTerminalAgentRunStatus(current.Status) {
+		return nil
+	}
+	if !isExecutableAgentRunStatus(current.Status) {
+		return nil
+	}
+	if strings.TrimSpace(reply) != "" {
+		if _, err := s.appendAgentRunEvent(storeCtx, run.ID, "assistant.delta", fmt.Sprintf(`{"status":%q,"delta":%q}`, agentRunStatusRunning, reply)); err != nil {
+			return err
+		}
+		if _, err := s.store.AppendChatMessage(storeCtx, ChatMessageRow{OwnerRole: ownerRoleHR, OwnerID: run.OwnerID, SessionID: run.SessionID, Role: "assistant", Content: reply, ModelID: modelID, CreatedAt: time.Now()}); err != nil {
+			return err
+		}
+	}
+	if _, _, err := s.store.CompleteAgentRun(storeCtx, run.OwnerID, run.ID, reply, agentRunStatusSucceeded, "", ""); err != nil {
+		return err
+	}
+	_, err = s.appendAgentRunEvent(storeCtx, run.ID, "run.completed", fmt.Sprintf(`{"status":%q}`, agentRunStatusSucceeded))
 	return err
+}
+
+func (s *nativeAIService) finishAgentRunFailed(ctx context.Context, run AgentRunRow, runErr error) error {
+	storeCtx := agentRunStoreContext(ctx)
+	s.runTransitionMu.Lock()
+	defer s.runTransitionMu.Unlock()
+
+	current, found, err := s.getRun(storeCtx, run.OwnerID, run.ID)
+	if err != nil || !found {
+		return err
+	}
+	if current.Status == agentRunStatusCancelRequested || current.Status == agentRunStatusCanceled {
+		return s.completeAgentRunCanceledLocked(storeCtx, current)
+	}
+	if isTerminalAgentRunStatus(current.Status) {
+		return nil
+	}
+	errorMessage := runErr.Error()
+	if _, eventErr := s.appendAgentRunEvent(storeCtx, run.ID, "run.error", fmt.Sprintf(`{"status":%q,"error_type":"provider","error_message":%q}`, agentRunStatusFailed, errorMessage)); eventErr != nil {
+		return eventErr
+	}
+	if _, _, completeErr := s.store.CompleteAgentRun(storeCtx, run.OwnerID, run.ID, "", agentRunStatusFailed, "provider", errorMessage); completeErr != nil {
+		return completeErr
+	}
+	_, eventErr := s.appendAgentRunEvent(storeCtx, run.ID, "run.completed", fmt.Sprintf(`{"status":%q,"error_type":"provider","error_message":%q}`, agentRunStatusFailed, errorMessage))
+	return eventErr
+}
+
+func (s *nativeAIService) finishAgentRunCanceled(ctx context.Context, run AgentRunRow) error {
+	storeCtx := agentRunStoreContext(ctx)
+	s.runTransitionMu.Lock()
+	defer s.runTransitionMu.Unlock()
+
+	current, found, err := s.getRun(storeCtx, run.OwnerID, run.ID)
+	if err != nil || !found {
+		return err
+	}
+	return s.completeAgentRunCanceledLocked(storeCtx, current)
+}
+
+func (s *nativeAIService) completeAgentRunCanceledLocked(ctx context.Context, run AgentRunRow) error {
+	if run.Status == agentRunStatusCanceled || isTerminalAgentRunStatus(run.Status) {
+		return nil
+	}
+	completed, found, err := s.store.CompleteAgentRun(ctx, run.OwnerID, run.ID, run.AssistantText, agentRunStatusCanceled, "", "")
+	if err != nil || !found {
+		return err
+	}
+	_, err = s.appendAgentRunEvent(ctx, completed.ID, "run.canceled", fmt.Sprintf(`{"status":%q}`, agentRunStatusCanceled))
+	return err
+}
+
+func agentRunStoreContext(ctx context.Context) context.Context {
+	if ctx == nil {
+		return context.Background()
+	}
+	return context.WithoutCancel(ctx)
+}
+
+func agentRunExecutionCanceled(ctx context.Context, err error) bool {
+	if ctx != nil && ctx.Err() != nil {
+		return true
+	}
+	return errors.Is(err, context.Canceled)
+}
+
+func isCancelableAgentRunStatus(status string) bool {
+	switch status {
+	case agentRunStatusQueued, agentRunStatusPlanning, agentRunStatusRunning, agentRunStatusWaitingConfirmation:
+		return true
+	default:
+		return false
+	}
+}
+
+func isExecutableAgentRunStatus(status string) bool {
+	switch status {
+	case agentRunStatusQueued, agentRunStatusPlanning, agentRunStatusRunning:
+		return true
+	default:
+		return false
+	}
+}
+
+func illegalAgentRunTransitionMessage(action, currentStatus string) string {
+	if strings.TrimSpace(currentStatus) == "" {
+		currentStatus = "unknown"
+	}
+	return fmt.Sprintf("cannot %s agent run from status %q", action, currentStatus)
 }
 
 func (s *nativeAIService) appendAgentRunEvent(ctx context.Context, runID int64, eventType, payload string) (AgentRunEventRow, error) {
@@ -705,6 +941,37 @@ func (s *nativeAIService) agentRunEvents() *agentRunEventHub {
 	return s.eventHub
 }
 
+func (s *nativeAIService) storeAgentRunCancel(runID int64, cancel context.CancelFunc) {
+	if runID == 0 || cancel == nil {
+		return
+	}
+	s.runCancelMu.Lock()
+	defer s.runCancelMu.Unlock()
+	if s.runCancels == nil {
+		s.runCancels = make(map[int64]*agentRunCancelEntry)
+	}
+	s.runCancels[runID] = &agentRunCancelEntry{cancel: cancel}
+}
+
+func (s *nativeAIService) cancelAgentRunExecution(runID int64) {
+	s.runCancelMu.Lock()
+	entry := s.runCancels[runID]
+	s.runCancelMu.Unlock()
+	if entry != nil && entry.cancel != nil {
+		entry.cancel()
+	}
+}
+
+func (s *nativeAIService) clearAgentRunCancel(runID int64) {
+	s.runCancelMu.Lock()
+	entry := s.runCancels[runID]
+	delete(s.runCancels, runID)
+	s.runCancelMu.Unlock()
+	if entry != nil && entry.cancel != nil {
+		entry.cancel()
+	}
+}
+
 func mapAgentRunEvent(row AgentRunEventRow) *pb.AgentRunEvent {
 	event := &pb.AgentRunEvent{RunId: row.RunID, Seq: row.Seq, EventType: row.EventType, PayloadJson: row.PayloadJSON, CreatedAt: formatTime(row.CreatedAt)}
 	applyAgentRunPayload(event, row.PayloadJSON)
@@ -716,7 +983,7 @@ func isTerminalAgentRunEvent(event *pb.AgentRunEvent) bool {
 		return false
 	}
 	switch event.GetEventType() {
-	case "run.completed":
+	case "run.completed", "run.canceled":
 		return true
 	case "run.status_changed", "status.changed":
 		return isTerminalAgentRunStatus(event.GetStatus())
@@ -727,7 +994,7 @@ func isTerminalAgentRunEvent(event *pb.AgentRunEvent) bool {
 
 func isTerminalAgentRunStatus(status string) bool {
 	switch status {
-	case "succeeded", "failed", "canceled", "partial":
+	case agentRunStatusSucceeded, agentRunStatusFailed, agentRunStatusCanceled, agentRunStatusPartial:
 		return true
 	default:
 		return false

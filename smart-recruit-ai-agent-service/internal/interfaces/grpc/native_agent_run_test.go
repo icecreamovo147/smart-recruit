@@ -126,6 +126,178 @@ func TestCreateAgentRunIdempotentReplayDoesNotRedispatch(t *testing.T) {
 	}
 }
 
+func TestCancelAgentRunCancelsBackgroundProviderAndFinishesCanceled(t *testing.T) {
+	store := newAgentRunTestStore()
+	provider := newBlockingAgentRunProvider("late assistant reply")
+	service := &nativeAIService{store: store, provider: provider}
+
+	created, err := service.CreateAgentRun(context.Background(), &pb.CreateAgentRunRequest{
+		HrId:            77,
+		SessionId:       101,
+		ClientRequestId: "cancel-running",
+		Message:         "user asks",
+		ModelId:         123,
+	})
+	if err != nil {
+		t.Fatalf("CreateAgentRun returned error: %v", err)
+	}
+	select {
+	case <-provider.started:
+	case <-time.After(time.Second):
+		t.Fatal("provider was not dispatched")
+	}
+
+	canceled, err := service.CancelAgentRun(context.Background(), &pb.CancelAgentRunRequest{HrId: 77, RunId: created.GetRun().GetRunId()})
+	if err != nil {
+		t.Fatalf("CancelAgentRun returned error: %v", err)
+	}
+	if canceled.GetCode() != 0 || canceled.GetRun().GetStatus() != "cancel_requested" {
+		t.Fatalf("CancelAgentRun response = %#v, want cancel_requested success", canceled)
+	}
+	select {
+	case <-provider.canceled:
+	case <-time.After(time.Second):
+		t.Fatal("provider context was not canceled")
+	}
+
+	waitUntilAgentRunTest(t, time.Second, func() bool {
+		run, found := store.runSnapshot(created.GetRun().GetRunId())
+		return found && run.Status == "canceled"
+	})
+	close(provider.release)
+	time.Sleep(20 * time.Millisecond)
+
+	finalRun, found := store.runSnapshot(created.GetRun().GetRunId())
+	if !found || finalRun.Status != "canceled" {
+		t.Fatalf("final run = %#v, found=%v; want canceled", finalRun, found)
+	}
+	if messages := store.messagesSnapshot(); len(messages) != 0 {
+		t.Fatalf("assistant messages = %#v, want none after cancel", messages)
+	}
+	eventTypes := store.eventTypes(created.GetRun().GetRunId())
+	if !containsString(eventTypes, "run.canceled") {
+		t.Fatalf("event types = %v, want run.canceled", eventTypes)
+	}
+	if containsString(eventTypes, "run.completed") {
+		t.Fatalf("event types = %v, did not expect run.completed after cancel", eventTypes)
+	}
+}
+
+func TestCancelAgentRunIdempotentStatusesDoNotAppendEvents(t *testing.T) {
+	store := newAgentRunTestStore()
+	service := &nativeAIService{store: store}
+
+	tests := []struct {
+		name      string
+		status    string
+		eventType string
+		payload   string
+	}{
+		{name: "terminal succeeded", status: "succeeded", eventType: "run.completed", payload: `{"status":"succeeded"}`},
+		{name: "already cancel requested", status: "cancel_requested", eventType: "run.status_changed", payload: `{"status":"cancel_requested"}`},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			run := fallbackAgentRun(77, 101, "idempotent-cancel-"+tt.name, "user asks", 123)
+			run.Status = tt.status
+			created, _, err := store.CreateAgentRun(context.Background(), run)
+			if err != nil {
+				t.Fatalf("CreateAgentRun seed returned error: %v", err)
+			}
+			if _, err := store.AppendAgentRunEvent(context.Background(), created.ID, tt.eventType, tt.payload); err != nil {
+				t.Fatalf("AppendAgentRunEvent seed returned error: %v", err)
+			}
+			beforeEvents := store.totalEventCount(created.ID)
+
+			resp, err := service.CancelAgentRun(context.Background(), &pb.CancelAgentRunRequest{HrId: 77, RunId: created.ID})
+			if err != nil {
+				t.Fatalf("CancelAgentRun returned error: %v", err)
+			}
+			if resp.GetCode() != 0 || resp.GetRun().GetStatus() != tt.status {
+				t.Fatalf("CancelAgentRun response = %#v, want %s idempotent success", resp, tt.status)
+			}
+			if afterEvents := store.totalEventCount(created.ID); afterEvents != beforeEvents {
+				t.Fatalf("event count = %d, want %d", afterEvents, beforeEvents)
+			}
+		})
+	}
+	if count := store.countStatusUpdates("cancel_requested"); count != 0 {
+		t.Fatalf("cancel_requested updates = %d, want 0", count)
+	}
+}
+
+func TestConfirmAgentRunWaitingConfirmationMovesToRunningAndWritesEvent(t *testing.T) {
+	store := newAgentRunTestStore()
+	service := &nativeAIService{store: store}
+	run := fallbackAgentRun(77, 101, "confirm-waiting", "user asks", 123)
+	run.Status = "waiting_confirmation"
+	created, _, err := store.CreateAgentRun(context.Background(), run)
+	if err != nil {
+		t.Fatalf("CreateAgentRun seed returned error: %v", err)
+	}
+
+	resp, err := service.ConfirmAgentRun(context.Background(), &pb.ConfirmAgentRunRequest{HrId: 77, RunId: created.ID})
+	if err != nil {
+		t.Fatalf("ConfirmAgentRun returned error: %v", err)
+	}
+	if resp.GetCode() != 0 || resp.GetRun().GetStatus() != "running" {
+		t.Fatalf("ConfirmAgentRun response = %#v, want running success", resp)
+	}
+	finalRun, found := store.runSnapshot(created.ID)
+	if !found || finalRun.Status != "running" {
+		t.Fatalf("run after confirm = %#v, found=%v; want running", finalRun, found)
+	}
+	eventTypes := store.eventTypes(created.ID)
+	if !containsString(eventTypes, "confirmation.accepted") {
+		t.Fatalf("event types = %v, want confirmation.accepted", eventTypes)
+	}
+	if count := store.countStatusUpdates("running"); count != 1 {
+		t.Fatalf("running status updates = %d, want 1", count)
+	}
+}
+
+func TestConfirmAgentRunNonWaitingStatusesDoNotJump(t *testing.T) {
+	tests := []struct {
+		name     string
+		status   string
+		wantCode int32
+	}{
+		{name: "queued", status: "queued", wantCode: agentRunCodeBadRequest},
+		{name: "running retry", status: "running", wantCode: 0},
+		{name: "succeeded retry", status: "succeeded", wantCode: 0},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			store := newAgentRunTestStore()
+			service := &nativeAIService{store: store}
+			run := fallbackAgentRun(77, 101, "confirm-"+tt.name, "user asks", 123)
+			run.Status = tt.status
+			created, _, err := store.CreateAgentRun(context.Background(), run)
+			if err != nil {
+				t.Fatalf("CreateAgentRun seed returned error: %v", err)
+			}
+			beforeEvents := store.totalEventCount(created.ID)
+
+			resp, err := service.ConfirmAgentRun(context.Background(), &pb.ConfirmAgentRunRequest{HrId: 77, RunId: created.ID})
+			if err != nil {
+				t.Fatalf("ConfirmAgentRun returned error: %v", err)
+			}
+			if resp.GetCode() != tt.wantCode {
+				t.Fatalf("ConfirmAgentRun code = %d, want %d; response=%#v", resp.GetCode(), tt.wantCode, resp)
+			}
+			finalRun, found := store.runSnapshot(created.ID)
+			if !found || finalRun.Status != tt.status {
+				t.Fatalf("run after confirm = %#v, found=%v; want status %s", finalRun, found, tt.status)
+			}
+			if afterEvents := store.totalEventCount(created.ID); afterEvents != beforeEvents {
+				t.Fatalf("event count = %d, want %d", afterEvents, beforeEvents)
+			}
+		})
+	}
+}
+
 func TestSubscribeAgentRunEventsReplaysThenLiveTailsUntilContextCancel(t *testing.T) {
 	store := newAgentRunTestStore()
 	service := &nativeAIService{store: store}
@@ -222,22 +394,25 @@ func TestSubscribeAgentRunEventsRejectsWrongHROwnerBeforeLiveSubscription(t *tes
 }
 
 type blockingAgentRunProvider struct {
-	reply     string
-	started   chan struct{}
-	release   chan struct{}
-	done      chan struct{}
-	mu        sync.Mutex
-	calls     int
-	startOnce sync.Once
-	doneOnce  sync.Once
+	reply      string
+	started    chan struct{}
+	release    chan struct{}
+	done       chan struct{}
+	canceled   chan struct{}
+	mu         sync.Mutex
+	calls      int
+	startOnce  sync.Once
+	doneOnce   sync.Once
+	cancelOnce sync.Once
 }
 
 func newBlockingAgentRunProvider(reply string) *blockingAgentRunProvider {
 	return &blockingAgentRunProvider{
-		reply:   reply,
-		started: make(chan struct{}),
-		release: make(chan struct{}),
-		done:    make(chan struct{}),
+		reply:    reply,
+		started:  make(chan struct{}),
+		release:  make(chan struct{}),
+		done:     make(chan struct{}),
+		canceled: make(chan struct{}),
 	}
 }
 
@@ -248,6 +423,7 @@ func (p *blockingAgentRunProvider) Complete(ctx context.Context, _ string) (stri
 	p.startOnce.Do(func() { close(p.started) })
 	select {
 	case <-ctx.Done():
+		p.cancelOnce.Do(func() { close(p.canceled) })
 		p.doneOnce.Do(func() { close(p.done) })
 		return "", ctx.Err()
 	case <-p.release:
@@ -355,7 +531,15 @@ func (s *agentRunTestStore) UpdateAgentRunStatus(_ context.Context, ownerID, run
 		return AgentRunRow{}, false, nil
 	}
 	run.Status = status
-	run.UpdatedAt = time.Now()
+	now := time.Now()
+	run.UpdatedAt = now
+	if status == "cancel_requested" {
+		run.CancelRequestedAt = &now
+	}
+	if status == "canceled" {
+		run.CompletedAt = &now
+		run.CanceledAt = &now
+	}
 	s.runs[runID] = run
 	s.statusUpdates = append(s.statusUpdates, status)
 	return run, true, nil
@@ -374,6 +558,9 @@ func (s *agentRunTestStore) CompleteAgentRun(_ context.Context, ownerID, runID i
 	run.ErrorType = errorType
 	run.ErrorMessage = errorMessage
 	run.CompletedAt = &now
+	if status == "canceled" {
+		run.CanceledAt = &now
+	}
 	run.UpdatedAt = now
 	s.runs[runID] = run
 	return run, true, nil
@@ -456,6 +643,12 @@ func (s *agentRunTestStore) countEvents(runID int64, eventType string) int {
 		}
 	}
 	return count
+}
+
+func (s *agentRunTestStore) totalEventCount(runID int64) int {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return len(s.runEvents[runID])
 }
 
 func (s *agentRunTestStore) countStatusUpdates(status string) int {
