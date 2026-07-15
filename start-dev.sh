@@ -109,7 +109,23 @@ ensure_system_dependencies() {
 
 port_in_use() {
     local port="$1"
-    lsof -tiTCP:"${port}" -sTCP:LISTEN >/dev/null 2>&1
+
+    # Linux: lsof -sTCP:LISTEN often misses system service listeners; prefer ss/nc.
+    if command -v ss >/dev/null 2>&1; then
+        ss -H -ltn sport = :"${port}" 2>/dev/null | grep -q .
+        return $?
+    fi
+
+    if lsof -tiTCP:"${port}" -sTCP:LISTEN >/dev/null 2>&1; then
+        return 0
+    fi
+
+    if command -v nc >/dev/null 2>&1; then
+        nc -z 127.0.0.1 "${port}" >/dev/null 2>&1
+        return $?
+    fi
+
+    return 1
 }
 
 ensure_runtime_services() {

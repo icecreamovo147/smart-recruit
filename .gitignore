@@ -4,8 +4,8 @@
 .env.local
 .env.development
 .env.production
-smart-recruit-domain-go/config/config.yaml
-smart-recruit-domain-go/config/*.local.yaml
+smart-recruit-commons/config/config.yaml
+smart-recruit-commons/config/*.local.yaml
 docker/.env
 
 # Dependency caches and installed packages.

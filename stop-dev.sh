@@ -220,6 +220,14 @@ kill_port() {
     local pids
 
     pids="$(lsof -tiTCP:"${port}" -sTCP:LISTEN 2>/dev/null || true)"
+    if [ -z "${pids}" ] && command -v ss >/dev/null 2>&1; then
+        pids="$(
+            ss -H -ltnp sport = :"${port}" 2>/dev/null \
+                | sed -n 's/.*pid=\([0-9]\+\).*/\1/p' \
+                | sort -u \
+                | tr '\n' ' '
+        )"
+    fi
     if [ -z "${pids}" ]; then
         info "${name} (port ${port}) is not running."
         return 0
