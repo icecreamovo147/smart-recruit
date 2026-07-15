@@ -1,0 +1,269 @@
+{
+  "schemaVersion": 1,
+  "feature_name": "ai-agent-runtime-recovery",
+  "task_id": "TASK-002",
+  "base_sha": "dc018e6d28e8b1db277b3594fd435b581215eaf3",
+  "base_tree": "e7902b30ceb5de303d03620cfb43296989f4cc70",
+  "head_sha": "dc018e6d28e8b1db277b3594fd435b581215eaf3",
+  "changed_files": [
+    ".spec/ai-agent-runtime-recovery/pipeline-state.json",
+    ".spec/ai-agent-runtime-recovery/reports/TASK-002-evidence.json",
+    ".spec/ai-agent-runtime-recovery/reports/TASK-002-report.md",
+    "smart-recruit-ai-agent-service/internal/infrastructure/persistence/native_store.go",
+    "smart-recruit-ai-agent-service/internal/interfaces/grpc/native_ai_chat_test.go",
+    "smart-recruit-ai-agent-service/internal/interfaces/grpc/native_servers.go"
+  ],
+  "scope": {
+    "status": "passed",
+    "base_tree": "e7902b30ceb5de303d03620cfb43296989f4cc70",
+    "forbidden": [],
+    "out_of_scope": [],
+    "allowed": [
+      ".spec/ai-agent-runtime-recovery/pipeline-state.json",
+      ".spec/ai-agent-runtime-recovery/reports/TASK-002-evidence.json",
+      ".spec/ai-agent-runtime-recovery/reports/TASK-002-report.md",
+      "smart-recruit-ai-agent-service/internal/infrastructure/persistence/native_store.go",
+      "smart-recruit-ai-agent-service/internal/interfaces/grpc/native_ai_chat_test.go",
+      "smart-recruit-ai-agent-service/internal/interfaces/grpc/native_servers.go"
+    ]
+  },
+  "checks": [
+    {
+      "command": "GOWORK=off go test ./internal/interfaces/grpc -run 'TestHRChat|TestHRChatStream' (smart-recruit-ai-agent-service)",
+      "status": "passed",
+      "exit_code": 0,
+      "started_at": "2026-07-14T17:37:00Z",
+      "duration_ms": 3377
+    },
+    {
+      "command": "GOWORK=off go test ./... (smart-recruit-ai-agent-service)",
+      "status": "passed",
+      "exit_code": 0,
+      "started_at": "2026-07-14T17:38:00Z",
+      "duration_ms": 4143
+    },
+    {
+      "command": "git diff --name-only",
+      "status": "passed",
+      "exit_code": 0,
+      "started_at": "2026-07-14T17:32:00Z",
+      "duration_ms": 8
+    },
+    {
+      "command": "bash .spec/ai-agent-runtime-recovery/scripts/check-task-scope.sh TASK-002",
+      "status": "passed",
+      "exit_code": 0,
+      "started_at": "2026-07-14T17:38:00Z",
+      "duration_ms": 1807
+    },
+    {
+      "command": "bash .spec/ai-agent-runtime-recovery/scripts/agent-check.sh",
+      "status": "passed",
+      "exit_code": 0,
+      "started_at": "2026-07-14T17:38:00Z",
+      "duration_ms": 5678
+    },
+    {
+      "command": "node .knowledge/scripts/detect-impact.mjs --root . --base-tree e7902b30ceb5de303d03620cfb43296989f4cc70 --json",
+      "status": "passed",
+      "exit_code": 0,
+      "started_at": "2026-07-14T17:32:30Z",
+      "duration_ms": 873
+    },
+    {
+      "command": "node .agents/skills/spec-harness/scripts/validate-evidence.mjs --file .spec/ai-agent-runtime-recovery/reports/TASK-002-evidence.json --require-knowledge-impact",
+      "status": "passed",
+      "exit_code": 0,
+      "started_at": "2026-07-14T17:45:01Z",
+      "duration_ms": 30
+    }
+  ],
+  "review": {
+    "type": "independent-read-only-subagent",
+    "round": 2,
+    "verdict": "通过",
+    "reviewer": "independent-read-only-subagent: Carson (019f61b8-0120-76f0-8f9d-eb0bf93e75b4)",
+    "completed_at": "2026-07-14T17:45:01Z",
+    "notes": [
+      "Round 1 returned 不通过 for fallback/tool-error/report-state issues.",
+      "Round 2 returned 通过 with no required fixes."
+    ]
+  },
+  "human_confirmation": {
+    "required": true,
+    "confirmed": true,
+    "confirmed_by": "user",
+    "confirmed_at": "2026-07-14T17:08:11Z",
+    "confirmation_text": "User explicitly authorized execution of all requiresHumanConfirmation=true TASKs within feature ai-agent-runtime-recovery, including but not limited to TASK-002 and TASK-007, and instructed the pipeline to record this confirmation in pipeline-state.json and corresponding TASK evidence/report without stopping again before those TASKs."
+  },
+  "exceptions": [],
+  "knowledgeImpact": {
+    "result": "update_required",
+    "triggeredBy": [
+      "authorization-changed",
+      "configuration-changed",
+      "covered-path-changed",
+      "database-schema-changed",
+      "fallback-behavior-changed",
+      "memory-behavior-changed",
+      "public-api-changed",
+      "retrieval-behavior-changed",
+      "sensitive-data-flow-changed",
+      "service-boundary-changed"
+    ],
+    "reviewResults": [
+      {
+        "document": "agent-runtime",
+        "verdict": "UNCHANGED",
+        "evidence": [
+          "Reviewed for TASK-002 impact; implementation stays within existing microservice/proto/schema boundaries and does not require editing agent-runtime."
+        ]
+      },
+      {
+        "document": "agent-skill",
+        "verdict": "UNCHANGED",
+        "evidence": [
+          "Reviewed for TASK-002 impact; implementation stays within existing microservice/proto/schema boundaries and does not require editing agent-skill."
+        ]
+      },
+      {
+        "document": "ai-configuration-governance",
+        "verdict": "UNCHANGED",
+        "evidence": [
+          "Reviewed for TASK-002 impact; implementation stays within existing microservice/proto/schema boundaries and does not require editing ai-configuration-governance."
+        ]
+      },
+      {
+        "document": "api-contracts-and-gateway",
+        "verdict": "UNCHANGED",
+        "evidence": [
+          "Reviewed for TASK-002 impact; implementation stays within existing microservice/proto/schema boundaries and does not require editing api-contracts-and-gateway."
+        ]
+      },
+      {
+        "document": "debug-agent-retrieval",
+        "verdict": "UNCHANGED",
+        "evidence": [
+          "Reviewed for TASK-002 impact; implementation stays within existing microservice/proto/schema boundaries and does not require editing debug-agent-retrieval."
+        ]
+      },
+      {
+        "document": "embedding-fallback",
+        "verdict": "UNCHANGED",
+        "evidence": [
+          "Reviewed for TASK-002 impact; implementation stays within existing microservice/proto/schema boundaries and does not require editing embedding-fallback."
+        ]
+      },
+      {
+        "document": "local-development",
+        "verdict": "UNCHANGED",
+        "evidence": [
+          "Reviewed for TASK-002 impact; implementation stays within existing microservice/proto/schema boundaries and does not require editing local-development."
+        ]
+      },
+      {
+        "document": "mcp-policy-audit",
+        "verdict": "UNCHANGED",
+        "evidence": [
+          "Reviewed for TASK-002 impact; implementation stays within existing microservice/proto/schema boundaries and does not require editing mcp-policy-audit."
+        ]
+      },
+      {
+        "document": "mcp-tool-governance",
+        "verdict": "UNCHANGED",
+        "evidence": [
+          "Reviewed for TASK-002 impact; implementation stays within existing microservice/proto/schema boundaries and does not require editing mcp-tool-governance."
+        ]
+      },
+      {
+        "document": "memory-and-context",
+        "verdict": "UNCHANGED",
+        "evidence": [
+          "Reviewed for TASK-002 impact; implementation stays within existing microservice/proto/schema boundaries and does not require editing memory-and-context."
+        ]
+      },
+      {
+        "document": "migration-model-drift",
+        "verdict": "UNCHANGED",
+        "evidence": [
+          "Reviewed for TASK-002 impact; implementation stays within existing microservice/proto/schema boundaries and does not require editing migration-model-drift."
+        ]
+      },
+      {
+        "document": "persistence-and-migrations",
+        "verdict": "UNCHANGED",
+        "evidence": [
+          "Reviewed for TASK-002 impact; implementation stays within existing microservice/proto/schema boundaries and does not require editing persistence-and-migrations."
+        ]
+      },
+      {
+        "document": "protobuf-and-migration-change",
+        "verdict": "UNCHANGED",
+        "evidence": [
+          "Reviewed for TASK-002 impact; implementation stays within existing microservice/proto/schema boundaries and does not require editing protobuf-and-migration-change."
+        ]
+      },
+      {
+        "document": "protobuf-synchronization",
+        "verdict": "UNCHANGED",
+        "evidence": [
+          "Reviewed for TASK-002 impact; implementation stays within existing microservice/proto/schema boundaries and does not require editing protobuf-synchronization."
+        ]
+      },
+      {
+        "document": "resume-intelligence",
+        "verdict": "UNCHANGED",
+        "evidence": [
+          "Reviewed for TASK-002 impact; implementation stays within existing microservice/proto/schema boundaries and does not require editing resume-intelligence."
+        ]
+      },
+      {
+        "document": "resume-sensitive-data",
+        "verdict": "UNCHANGED",
+        "evidence": [
+          "Reviewed for TASK-002 impact; implementation stays within existing microservice/proto/schema boundaries and does not require editing resume-sensitive-data."
+        ]
+      },
+      {
+        "document": "semantic-retrieval",
+        "verdict": "UNCHANGED",
+        "evidence": [
+          "Reviewed for TASK-002 impact; implementation stays within existing microservice/proto/schema boundaries and does not require editing semantic-retrieval."
+        ]
+      },
+      {
+        "document": "service-boundaries",
+        "verdict": "UNCHANGED",
+        "evidence": [
+          "Reviewed for TASK-002 impact; implementation stays within existing microservice/proto/schema boundaries and does not require editing service-boundaries."
+        ]
+      },
+      {
+        "document": "system-overview",
+        "verdict": "UNCHANGED",
+        "evidence": [
+          "Reviewed for TASK-002 impact; implementation stays within existing microservice/proto/schema boundaries and does not require editing system-overview."
+        ]
+      }
+    ],
+    "coverageGap": false,
+    "validationExitCode": 0
+  },
+  "skipped_checks": [
+    {
+      "check": "live HR AI provider smoke",
+      "reason": "No live provider credentials or local HR data fixture were available; fake-provider tests cover runtime behavior."
+    }
+  ],
+  "repair_rounds": [
+    {
+      "round": 1,
+      "verdict": "不通过",
+      "fixed_items": [
+        "F1 fallback now requires successful non-empty tool result",
+        "F2 failed tool emits error/TOOL_ERROR instead of successful tool_done",
+        "F3 report/evidence/state will be aligned after final review"
+      ]
+    }
+  ]
+}

@@ -1,0 +1,334 @@
+{
+  "schemaVersion": 1,
+  "feature_name": "ai-agent-runtime-recovery",
+  "task_id": "TASK-004",
+  "base_sha": "dc018e6d28e8b1db277b3594fd435b581215eaf3",
+  "base_tree": "bda1084740e8177e3cc4ce16e2df799a15482f9f",
+  "head_sha": "dc018e6d28e8b1db277b3594fd435b581215eaf3",
+  "changed_files": [
+    ".spec/ai-agent-runtime-recovery/pipeline-state.json",
+    ".spec/ai-agent-runtime-recovery/reports/TASK-004-evidence.json",
+    ".spec/ai-agent-runtime-recovery/reports/TASK-004-report.md",
+    "smart-recruit-ai-agent-service/internal/infrastructure/persistence/native_candidate_runtime_test.go",
+    "smart-recruit-ai-agent-service/internal/infrastructure/persistence/native_store.go",
+    "smart-recruit-ai-agent-service/internal/interfaces/grpc/native_ai_chat_test.go",
+    "smart-recruit-ai-agent-service/internal/interfaces/grpc/native_servers.go",
+    "smart-recruit-gateway/handler/candidate/ai.go",
+    "smart-recruit-gateway/handler/candidate/ai_test.go",
+    "smart-recruit-gateway/router/contract_baseline_test.go",
+    "smart-recruit-gateway/router/router.go"
+  ],
+  "scope": {
+    "status": "passed",
+    "base_tree": "bda1084740e8177e3cc4ce16e2df799a15482f9f",
+    "forbidden": [],
+    "out_of_scope": [],
+    "allowed": [
+      ".spec/ai-agent-runtime-recovery/pipeline-state.json",
+      ".spec/ai-agent-runtime-recovery/reports/TASK-004-evidence.json",
+      ".spec/ai-agent-runtime-recovery/reports/TASK-004-report.md",
+      "smart-recruit-ai-agent-service/internal/infrastructure/persistence/native_candidate_runtime_test.go",
+      "smart-recruit-ai-agent-service/internal/infrastructure/persistence/native_store.go",
+      "smart-recruit-ai-agent-service/internal/interfaces/grpc/native_ai_chat_test.go",
+      "smart-recruit-ai-agent-service/internal/interfaces/grpc/native_servers.go",
+      "smart-recruit-gateway/handler/candidate/ai.go",
+      "smart-recruit-gateway/handler/candidate/ai_test.go",
+      "smart-recruit-gateway/router/contract_baseline_test.go",
+      "smart-recruit-gateway/router/router.go"
+    ]
+  },
+  "checks": [
+    {
+      "command": "GOWORK=off go test ./internal/interfaces/grpc -run 'TestCandidateChatStream' -count=1 -v (smart-recruit-ai-agent-service)",
+      "status": "passed",
+      "exit_code": 0,
+      "started_at": "2026-07-14T18:39:00Z",
+      "duration_ms": 3091
+    },
+    {
+      "command": "GOWORK=off go test ./internal/infrastructure/persistence -run 'TestNativeStoreLoadCandidateRuntimeContextScopesCandidateData|TestNativeStoreRecordCandidateUsageAuditWritesUsageAndAuthContext' -count=1 -v (smart-recruit-ai-agent-service)",
+      "status": "passed",
+      "exit_code": 0,
+      "started_at": "2026-07-14T18:33:59Z",
+      "duration_ms": 3456
+    },
+    {
+      "command": "GOWORK=off go test ./handler/candidate ./router -run 'TestCandidateChatAggregatesStreamResponse|TestCoreHTTPRouteGroupsRemainRegistered' -count=1 -v (smart-recruit-gateway)",
+      "status": "passed",
+      "exit_code": 0,
+      "started_at": "2026-07-14T18:32:50Z",
+      "duration_ms": 3312
+    },
+    {
+      "command": "GOWORK=off go test ./... (smart-recruit-ai-agent-service)",
+      "status": "passed",
+      "exit_code": 0,
+      "started_at": "2026-07-14T18:40:05Z",
+      "duration_ms": 3567
+    },
+    {
+      "command": "GOWORK=off go test ./... (smart-recruit-gateway)",
+      "status": "passed",
+      "exit_code": 0,
+      "started_at": "2026-07-14T18:40:05Z",
+      "duration_ms": 1468
+    },
+    {
+      "command": "git diff --name-only",
+      "status": "passed",
+      "exit_code": 0,
+      "started_at": "2026-07-14T18:41:40Z",
+      "duration_ms": 8
+    },
+    {
+      "command": "bash .spec/ai-agent-runtime-recovery/scripts/check-task-scope.sh TASK-004",
+      "status": "passed",
+      "exit_code": 0,
+      "started_at": "2026-07-14T18:40:05Z",
+      "duration_ms": 602
+    },
+    {
+      "command": "bash .spec/ai-agent-runtime-recovery/scripts/agent-check.sh",
+      "status": "passed",
+      "exit_code": 0,
+      "started_at": "2026-07-14T18:40:05Z",
+      "duration_ms": 4548
+    },
+    {
+      "command": "TASK_BASE_TREE=bda1084740e8177e3cc4ce16e2df799a15482f9f node .knowledge/scripts/detect-impact.mjs",
+      "status": "passed",
+      "exit_code": 0,
+      "started_at": "2026-07-14T18:29:10Z",
+      "duration_ms": 116
+    }
+  ],
+  "review": {
+    "type": "independent-read-only-subagent",
+    "round": 2,
+    "verdict": "通过",
+    "reviewers": [
+      {
+        "round": 1,
+        "reviewer": "independent-read-only-subagent: Hegel (019f61e9-2c3d-7f20-9472-77920193dc53)",
+        "verdict": "不通过",
+        "notes": [
+          "Reported resume parsed text/summary could be persisted into ai_tool_traces.result_summary through get_my_resume_text trace payload."
+        ]
+      },
+      {
+        "round": 2,
+        "reviewer": "independent-read-only-subagent: Leibniz (019f61ec-9fe9-73a1-82c6-075e75b23769)",
+        "verdict": "通过",
+        "notes": [
+          "Confirmed resume trace sanitization removes Summary before persistence while prompt can still use candidate-owned summary.",
+          "Confirmed candidate context, clean assistant persistence, usage/auth audit, suggested questions, non-streaming route aggregation, and candidate isolation coverage."
+        ]
+      }
+    ],
+    "completed_at": "2026-07-14T18:41:40Z",
+    "blocking_reason": ""
+  },
+  "human_confirmation": {
+    "required": false,
+    "confirmed": true,
+    "confirmed_by": "not_required",
+    "confirmed_at": "2026-07-14T18:41:40Z",
+    "confirmation_text": "TASK-004 does not require human confirmation."
+  },
+  "exceptions": [],
+  "knowledgeImpact": {
+    "result": "update_required",
+    "triggeredBy": [
+      "authorization-changed",
+      "configuration-changed",
+      "covered-path-changed",
+      "database-schema-changed",
+      "fallback-behavior-changed",
+      "memory-behavior-changed",
+      "public-api-changed",
+      "retrieval-behavior-changed",
+      "sensitive-data-flow-changed",
+      "service-boundary-changed"
+    ],
+    "reviewResults": [
+      {
+        "document": "agent-runtime",
+        "verdict": "CANDIDATE",
+        "evidence": [
+          "TASK-004 restores candidate runtime context loading, prompt rendering, fallback behavior, suggested questions, and usage audit in the native AI Agent service. .knowledge edits are outside TASK scope."
+        ]
+      },
+      {
+        "document": "api-contracts-and-gateway",
+        "verdict": "CANDIDATE",
+        "evidence": [
+          "TASK-004 adds POST /api/v1/candidate/ai/chat compatibility route in the gateway while reusing existing CandidateChatStream protobuf contract."
+        ]
+      },
+      {
+        "document": "resume-sensitive-data",
+        "verdict": "CANDIDATE",
+        "evidence": [
+          "TASK-004 introduces resume summary into candidate-owned prompt context and sanitizes persisted tool traces to avoid storing resume summary text."
+        ]
+      },
+      {
+        "document": "persistence-and-migrations",
+        "verdict": "CANDIDATE",
+        "evidence": [
+          "TASK-004 adds NativeStore read paths and existing-table usage/auth audit writes without schema or migration changes."
+        ]
+      },
+      {
+        "document": "service-boundaries",
+        "verdict": "CANDIDATE",
+        "evidence": [
+          "TASK-004 uses current microservice boundaries and existing database-backed NativeStore alternatives without proto/startup dependency wiring."
+        ]
+      },
+      {
+        "document": "agent-skill",
+        "verdict": "UNCHANGED",
+        "evidence": [
+          "Reviewed due AI Agent route; TASK-004 does not change Agent Skill registry or binding behavior."
+        ]
+      },
+      {
+        "document": "ai-configuration-governance",
+        "verdict": "UNCHANGED",
+        "evidence": [
+          "Reviewed due candidate assistant prompt/config path; TASK-004 reuses existing prompt lookup and does not change AI configuration governance."
+        ]
+      },
+      {
+        "document": "auth-permission-alignment",
+        "verdict": "UNCHANGED",
+        "evidence": [
+          "Reviewed due candidate AI route and audit context; existing permission key ai.candidate.use is reused without RBAC catalog changes."
+        ]
+      },
+      {
+        "document": "auth-rbac-security",
+        "verdict": "UNCHANGED",
+        "evidence": [
+          "Reviewed due usage auth-context write and gateway route; no auth/RBAC rules or permissions were modified."
+        ]
+      },
+      {
+        "document": "debug-agent-retrieval",
+        "verdict": "UNCHANGED",
+        "evidence": [
+          "Reviewed due AI Agent runtime routing; debug agent retrieval behavior was not changed."
+        ]
+      },
+      {
+        "document": "debug-ai-configuration",
+        "verdict": "UNCHANGED",
+        "evidence": [
+          "Reviewed due prompt/provider path; debug AI configuration behavior was not changed."
+        ]
+      },
+      {
+        "document": "debug-auth-permissions",
+        "verdict": "UNCHANGED",
+        "evidence": [
+          "Reviewed due candidate route auth; auth-permission debugging behavior was not changed."
+        ]
+      },
+      {
+        "document": "embedding-fallback",
+        "verdict": "UNCHANGED",
+        "evidence": [
+          "Reviewed due runtime route; embedding fallback behavior was not changed."
+        ]
+      },
+      {
+        "document": "local-development",
+        "verdict": "UNCHANGED",
+        "evidence": [
+          "Reviewed due gateway/service test route; local development commands and startup were not changed."
+        ]
+      },
+      {
+        "document": "mcp-policy-audit",
+        "verdict": "UNCHANGED",
+        "evidence": [
+          "Reviewed due AI Agent route; MCP policy/audit behavior was not changed."
+        ]
+      },
+      {
+        "document": "mcp-tool-governance",
+        "verdict": "UNCHANGED",
+        "evidence": [
+          "Reviewed due AI Agent route; MCP tool governance behavior was not changed."
+        ]
+      },
+      {
+        "document": "memory-and-context",
+        "verdict": "UNCHANGED",
+        "evidence": [
+          "Reviewed due candidate runtime context changes; existing context guidance remains applicable."
+        ]
+      },
+      {
+        "document": "migration-model-drift",
+        "verdict": "UNCHANGED",
+        "evidence": [
+          "Reviewed due NativeStore read/write changes; no migration or model schema drift was introduced."
+        ]
+      },
+      {
+        "document": "protobuf-and-migration-change",
+        "verdict": "UNCHANGED",
+        "evidence": [
+          "Reviewed due gateway/API behavior; no protobuf or migration files were changed."
+        ]
+      },
+      {
+        "document": "protobuf-synchronization",
+        "verdict": "UNCHANGED",
+        "evidence": [
+          "Reviewed due gRPC adapter changes; existing generated protobuf fields were reused without synchronization changes."
+        ]
+      },
+      {
+        "document": "resume-intelligence",
+        "verdict": "UNCHANGED",
+        "evidence": [
+          "Reviewed due resume context route; resume intelligence parsing/evaluation behavior was not changed."
+        ]
+      },
+      {
+        "document": "semantic-retrieval",
+        "verdict": "UNCHANGED",
+        "evidence": [
+          "Reviewed due AI Agent route; semantic retrieval behavior was not changed."
+        ]
+      },
+      {
+        "document": "system-overview",
+        "verdict": "UNCHANGED",
+        "evidence": [
+          "Reviewed due service route changes; service topology and shared contract ownership remain unchanged."
+        ]
+      }
+    ],
+    "coverageGap": false,
+    "validationExitCode": 0
+  },
+  "skipped_checks": [
+    {
+      "check": "pnpm --filter user-frontend typecheck",
+      "reason": "user-frontend was not touched in TASK-004; the existing API helper already targets /api/v1/candidate/ai/chat."
+    },
+    {
+      "check": "live provider/browser smoke",
+      "reason": "No live provider credentials or local end-to-end data fixture were available; fake-provider, persistence, gateway route, and full Go service tests covered the implemented behavior."
+    }
+  ],
+  "blocked": {
+    "status": false,
+    "reason": "",
+    "unresolved_findings": []
+  }
+}

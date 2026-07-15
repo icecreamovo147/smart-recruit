@@ -102,6 +102,41 @@ func TestNativeStoreChatOwnerRoleIsolationWithHRIDCollision(t *testing.T) {
 	}
 }
 
+func TestNativeStoreChatMessagePersistsAgentSkillMetadata(t *testing.T) {
+	ctx := context.Background()
+	db := newNativeStoreTestDB(t)
+	store := NewNativeStore(db)
+	now := time.Now().UTC()
+	session := aiChatSessionRecord{HRID: 7, OwnerRole: chatOwnerRoleHR, OwnerID: 7, Title: "hr", CreatedAt: now, UpdatedAt: now}
+	if err := db.Create(&session).Error; err != nil {
+		t.Fatalf("create session: %v", err)
+	}
+
+	saved, err := store.AppendChatMessage(ctx, aiagentgrpc.ChatMessageRow{
+		OwnerRole:       chatOwnerRoleHR,
+		OwnerID:         7,
+		SessionID:       session.ID,
+		Role:            "assistant",
+		Content:         "reply",
+		AgentSkillIDs:   []int64{7001, 7002},
+		AgentSkillNames: []string{"candidate_screen", "resume_match"},
+	})
+	if err != nil {
+		t.Fatalf("AppendChatMessage error = %v", err)
+	}
+	if !reflect.DeepEqual(saved.AgentSkillIDs, []int64{7001, 7002}) || !reflect.DeepEqual(saved.AgentSkillNames, []string{"candidate_screen", "resume_match"}) {
+		t.Fatalf("saved skill metadata = ids %#v names %#v", saved.AgentSkillIDs, saved.AgentSkillNames)
+	}
+
+	messages, err := store.ListChatMessages(ctx, chatOwnerRoleHR, 7, session.ID, 1, 20)
+	if err != nil {
+		t.Fatalf("ListChatMessages error = %v", err)
+	}
+	if len(messages) != 1 || !reflect.DeepEqual(messages[0].AgentSkillIDs, []int64{7001, 7002}) || !reflect.DeepEqual(messages[0].AgentSkillNames, []string{"candidate_screen", "resume_match"}) {
+		t.Fatalf("listed messages = %#v, want skill metadata round-trip", messages)
+	}
+}
+
 func TestNativeStoreGetChatSessionOwnerIsolation(t *testing.T) {
 	ctx := context.Background()
 	db := newNativeStoreTestDB(t)
@@ -218,6 +253,43 @@ func TestNativeStoreWritesCompatibilityHRIDOnlyForHR(t *testing.T) {
 	}
 }
 
+func TestNativeStoreCompleteAgentRunCanceledSetsCanceledAt(t *testing.T) {
+	ctx := context.Background()
+	db := newNativeStoreTestDB(t)
+	store := NewNativeStore(db)
+
+	run, replay, err := store.CreateAgentRun(ctx, aiagentgrpc.AgentRunRow{
+		SessionID:       101,
+		OwnerID:         77,
+		ClientRequestID: "cancel-timestamps",
+		Status:          "queued",
+		PlanJSON:        `{"durable_request":{"message":"user asks","model_id":123}}`,
+		ModelID:         123,
+		AgentType:       "hr",
+		AgentName:       "hr_recruiting_agent",
+		StartedAt:       time.Now(),
+		CreatedAt:       time.Now(),
+		UpdatedAt:       time.Now(),
+	})
+	if err != nil {
+		t.Fatalf("CreateAgentRun returned error: %v", err)
+	}
+	if replay {
+		t.Fatal("CreateAgentRun returned idempotent replay for fresh run")
+	}
+
+	completed, found, err := store.CompleteAgentRun(ctx, 77, run.ID, "", "canceled", "", "")
+	if err != nil {
+		t.Fatalf("CompleteAgentRun returned error: %v", err)
+	}
+	if !found {
+		t.Fatalf("CompleteAgentRun did not find run %d", run.ID)
+	}
+	if completed.Status != "canceled" || completed.CompletedAt == nil || completed.CanceledAt == nil {
+		t.Fatalf("completed run = %#v, want canceled with completed_at and canceled_at", completed)
+	}
+}
+
 func newNativeStoreTestDB(t *testing.T) *gorm.DB {
 	t.Helper()
 	db, err := gorm.Open(sqlite.Open(":memory:"), &gorm.Config{})
@@ -229,7 +301,7 @@ func newNativeStoreTestDB(t *testing.T) *gorm.DB {
 		t.Fatalf("get sql db: %v", err)
 	}
 	sqlDB.SetMaxOpenConns(1)
-	if err := db.AutoMigrate(&aiChatSessionRecord{}, &aiChatHistoryRecord{}); err != nil {
+	if err := db.AutoMigrate(&aiChatSessionRecord{}, &aiChatHistoryRecord{}, &agentRunRecord{}); err != nil {
 		t.Fatalf("auto migrate: %v", err)
 	}
 	return db

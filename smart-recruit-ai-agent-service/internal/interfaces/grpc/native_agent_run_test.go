@@ -2,7 +2,9 @@ package grpc
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -16,6 +18,7 @@ import (
 
 func TestCreateAgentRunDispatchesDetachedAndCompletes(t *testing.T) {
 	store := newAgentRunTestStore()
+	store.seedChatSession(ownerRoleHR, 77, 101, "hr run session")
 	provider := newBlockingAgentRunProvider("assistant reply")
 	service := &nativeAIService{store: store, provider: provider}
 
@@ -50,11 +53,28 @@ func TestCreateAgentRunDispatchesDetachedAndCompletes(t *testing.T) {
 	if status := resp.GetRun().GetStatus(); status != "queued" && status != "planning" && status != "running" {
 		t.Fatalf("run status = %q, want queued/planning/running", status)
 	}
+	createdRun, found := store.runSnapshot(resp.GetRun().GetRunId())
+	if !found {
+		t.Fatalf("created run %d not found in store", resp.GetRun().GetRunId())
+	}
+	var durable struct {
+		DurableRequest agentRunDurablePayload `json:"durable_request"`
+	}
+	if err := json.Unmarshal([]byte(createdRun.PlanJSON), &durable); err != nil {
+		t.Fatalf("PlanJSON = %q, want durable request JSON: %v", createdRun.PlanJSON, err)
+	}
+	if durable.DurableRequest.Message != "user asks" || durable.DurableRequest.ModelID != 123 {
+		t.Fatalf("durable request = %#v, want message/model preserved", durable.DurableRequest)
+	}
 
 	select {
 	case <-provider.started:
 	case <-time.After(time.Second):
 		t.Fatal("provider was not dispatched in the background")
+	}
+	prompts := provider.promptsSnapshot()
+	if len(prompts) != 1 || !strings.Contains(prompts[0], "System:\n") || !strings.Contains(prompts[0], "User:\nuser asks") {
+		t.Fatalf("provider prompts = %#v, want HR runtime prompt rendered from durable payload", prompts)
 	}
 	select {
 	case <-provider.done:
@@ -65,18 +85,22 @@ func TestCreateAgentRunDispatchesDetachedAndCompletes(t *testing.T) {
 	close(provider.release)
 	waitUntilAgentRunTest(t, time.Second, func() bool {
 		run, found := store.runSnapshot(resp.GetRun().GetRunId())
-		return found && run.Status == "succeeded" && len(store.messagesSnapshot()) == 1
+		return found && run.Status == "succeeded" && len(store.messagesSnapshot()) == 2
 	})
 
 	if provider.callCount() != 1 {
 		t.Fatalf("provider calls = %d, want 1", provider.callCount())
 	}
-	message := store.messagesSnapshot()[0]
+	messages := store.messagesSnapshot()
+	if messages[0].Role != "user" || messages[0].Content != "user asks" || messages[0].OwnerID != 77 || messages[0].SessionID != 101 {
+		t.Fatalf("user message = %#v", messages[0])
+	}
+	message := messages[1]
 	if message.Role != "assistant" || message.Content != "assistant reply" || message.OwnerID != 77 || message.SessionID != 101 {
 		t.Fatalf("assistant message = %#v", message)
 	}
 	eventTypes := store.eventTypes(resp.GetRun().GetRunId())
-	for _, want := range []string{"run.created", "run.status_changed", "assistant.delta", "run.completed"} {
+	for _, want := range []string{"run.created", "run.status_changed", "process.delta", "assistant.delta", "run.result", "run.completed"} {
 		if !containsString(eventTypes, want) {
 			t.Fatalf("event types = %v, want %s", eventTypes, want)
 		}
@@ -85,6 +109,7 @@ func TestCreateAgentRunDispatchesDetachedAndCompletes(t *testing.T) {
 
 func TestCreateAgentRunIdempotentReplayDoesNotRedispatch(t *testing.T) {
 	store := newAgentRunTestStore()
+	store.seedChatSession(ownerRoleHR, 77, 101, "hr run session")
 	provider := newBlockingAgentRunProvider("assistant reply")
 	service := &nativeAIService{store: store, provider: provider}
 	req := &pb.CreateAgentRunRequest{HrId: 77, SessionId: 101, ClientRequestId: "same-request", Message: "user asks", ModelId: 123}
@@ -128,6 +153,7 @@ func TestCreateAgentRunIdempotentReplayDoesNotRedispatch(t *testing.T) {
 
 func TestCancelAgentRunCancelsBackgroundProviderAndFinishesCanceled(t *testing.T) {
 	store := newAgentRunTestStore()
+	store.seedChatSession(ownerRoleHR, 77, 101, "hr run session")
 	provider := newBlockingAgentRunProvider("late assistant reply")
 	service := &nativeAIService{store: store, provider: provider}
 
@@ -171,8 +197,8 @@ func TestCancelAgentRunCancelsBackgroundProviderAndFinishesCanceled(t *testing.T
 	if !found || finalRun.Status != "canceled" {
 		t.Fatalf("final run = %#v, found=%v; want canceled", finalRun, found)
 	}
-	if messages := store.messagesSnapshot(); len(messages) != 0 {
-		t.Fatalf("assistant messages = %#v, want none after cancel", messages)
+	if messages := store.messagesSnapshot(); len(messages) != 1 || messages[0].Role != "user" {
+		t.Fatalf("messages = %#v, want only persisted user message after cancel", messages)
 	}
 	eventTypes := store.eventTypes(created.GetRun().GetRunId())
 	if !containsString(eventTypes, "run.canceled") {
@@ -199,7 +225,7 @@ func TestCancelAgentRunIdempotentStatusesDoNotAppendEvents(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			run := fallbackAgentRun(77, 101, "idempotent-cancel-"+tt.name, "user asks", 123)
+			run := fallbackAgentRun(77, 101, "idempotent-cancel-"+tt.name, agentRunDurablePayload{Message: "user asks", ModelID: 123})
 			run.Status = tt.status
 			created, _, err := store.CreateAgentRun(context.Background(), run)
 			if err != nil {
@@ -227,33 +253,110 @@ func TestCancelAgentRunIdempotentStatusesDoNotAppendEvents(t *testing.T) {
 	}
 }
 
-func TestConfirmAgentRunWaitingConfirmationMovesToRunningAndWritesEvent(t *testing.T) {
+func TestCancelAgentRunQueuedWorkFinishesCanceledWithoutActiveWorker(t *testing.T) {
 	store := newAgentRunTestStore()
 	service := &nativeAIService{store: store}
-	run := fallbackAgentRun(77, 101, "confirm-waiting", "user asks", 123)
+	run := fallbackAgentRun(77, 101, "cancel-queued", agentRunDurablePayload{Message: "user asks", ModelID: 123})
+	run.Status = "queued"
+	created, _, err := store.CreateAgentRun(context.Background(), run)
+	if err != nil {
+		t.Fatalf("CreateAgentRun seed returned error: %v", err)
+	}
+
+	resp, err := service.CancelAgentRun(context.Background(), &pb.CancelAgentRunRequest{HrId: 77, RunId: created.ID})
+	if err != nil {
+		t.Fatalf("CancelAgentRun returned error: %v", err)
+	}
+	if resp.GetCode() != 0 || resp.GetRun().GetStatus() != "canceled" {
+		t.Fatalf("CancelAgentRun response = %#v, want terminal canceled success", resp)
+	}
+	finalRun, found := store.runSnapshot(created.ID)
+	if !found || finalRun.Status != "canceled" || finalRun.CanceledAt == nil || finalRun.CompletedAt == nil {
+		t.Fatalf("run after queued cancel = %#v, found=%v; want terminal canceled timestamps", finalRun, found)
+	}
+	eventTypes := store.eventTypes(created.ID)
+	for _, want := range []string{"run.status_changed", "run.canceled"} {
+		if !containsString(eventTypes, want) {
+			t.Fatalf("event types = %v, want %s", eventTypes, want)
+		}
+	}
+}
+
+func TestConfirmAgentRunWaitingConfirmationRedispatchesAndCompletes(t *testing.T) {
+	store := newAgentRunTestStore()
+	store.seedChatSession(ownerRoleHR, 77, 101, "hr run session")
+	store.seedChatMessage(ChatMessageRow{OwnerRole: ownerRoleHR, OwnerID: 77, SessionID: 101, Role: "user", Content: "user asks", ModelID: 123})
+	provider := newBlockingAgentRunProvider("assistant after confirmation")
+	service := &nativeAIService{store: store, provider: provider}
+	run := fallbackAgentRun(77, 101, "confirm-waiting", agentRunDurablePayload{Message: "user asks", ModelID: 123})
 	run.Status = "waiting_confirmation"
 	created, _, err := store.CreateAgentRun(context.Background(), run)
 	if err != nil {
 		t.Fatalf("CreateAgentRun seed returned error: %v", err)
 	}
 
-	resp, err := service.ConfirmAgentRun(context.Background(), &pb.ConfirmAgentRunRequest{HrId: 77, RunId: created.ID})
+	resp, err := service.ConfirmAgentRun(context.Background(), &pb.ConfirmAgentRunRequest{
+		HrId:                         77,
+		RunId:                        created.ID,
+		ClientRequestId:              "confirm-1",
+		AgentSkillIds:                []int64{7001, 7002},
+		AgentSkillSelectionConfirmed: true,
+		AgentSkillSelectionMessageId: 9001,
+		ConfirmationPayloadJson:      `{"approved":true}`,
+	})
 	if err != nil {
 		t.Fatalf("ConfirmAgentRun returned error: %v", err)
 	}
 	if resp.GetCode() != 0 || resp.GetRun().GetStatus() != "running" {
 		t.Fatalf("ConfirmAgentRun response = %#v, want running success", resp)
 	}
+	select {
+	case <-provider.started:
+	case <-time.After(time.Second):
+		t.Fatal("provider was not redispatched after confirmation")
+	}
+	close(provider.release)
+	waitUntilAgentRunTest(t, time.Second, func() bool {
+		finalRun, found := store.runSnapshot(created.ID)
+		return found && finalRun.Status == "succeeded"
+	})
 	finalRun, found := store.runSnapshot(created.ID)
-	if !found || finalRun.Status != "running" {
-		t.Fatalf("run after confirm = %#v, found=%v; want running", finalRun, found)
+	if !found || finalRun.Status != "succeeded" || finalRun.AssistantText != "assistant after confirmation" {
+		t.Fatalf("run after confirm = %#v, found=%v; want succeeded with provider reply", finalRun, found)
+	}
+	messages := store.messagesSnapshot()
+	if len(messages) != 2 || messages[0].Role != "user" || messages[0].Content != "user asks" || messages[1].Role != "assistant" {
+		t.Fatalf("messages after confirm = %#v, want existing user plus assistant without duplicate user", messages)
+	}
+	var durable struct {
+		DurableRequest agentRunDurablePayload `json:"durable_request"`
+	}
+	if err := json.Unmarshal([]byte(finalRun.PlanJSON), &durable); err != nil {
+		t.Fatalf("PlanJSON = %q, want durable request JSON: %v", finalRun.PlanJSON, err)
+	}
+	if got := durable.DurableRequest.AgentSkillIDs; len(got) != 2 || got[0] != 7001 || got[1] != 7002 {
+		t.Fatalf("durable AgentSkillIDs = %v, want [7001 7002]", got)
+	}
+	if !durable.DurableRequest.AgentSkillSelectionConfirmed || durable.DurableRequest.AgentSkillSelectionMessageID != 9001 || durable.DurableRequest.ConfirmationPayloadJSON != `{"approved":true}` {
+		t.Fatalf("durable confirmation fields = %#v, want confirmed selection metadata", durable.DurableRequest)
+	}
+	if prompts := provider.promptsSnapshot(); len(prompts) != 1 || !strings.Contains(prompts[0], "agent_skill_ids") || !strings.Contains(prompts[0], "7001") {
+		t.Fatalf("provider prompts = %#v, want resumed runtime to use confirmed durable selection", prompts)
 	}
 	eventTypes := store.eventTypes(created.ID)
 	if !containsString(eventTypes, "confirmation.accepted") {
 		t.Fatalf("event types = %v, want confirmation.accepted", eventTypes)
 	}
+	if !containsString(eventTypes, "run.completed") {
+		t.Fatalf("event types = %v, want run.completed", eventTypes)
+	}
 	if count := store.countStatusUpdates("running"); count != 1 {
 		t.Fatalf("running status updates = %d, want 1", count)
+	}
+	confirmationEvent := store.lastEvent(created.ID, "confirmation.accepted")
+	mapped := mapAgentRunEvent(confirmationEvent)
+	if got := mapped.GetConfirmation().GetRecommendedAgentSkillIds(); len(got) != 2 || got[0] != 7001 || got[1] != 7002 {
+		t.Fatalf("confirmation event = %#v, want confirmed skill ids", mapped.GetConfirmation())
 	}
 }
 
@@ -272,7 +375,7 @@ func TestConfirmAgentRunNonWaitingStatusesDoNotJump(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			store := newAgentRunTestStore()
 			service := &nativeAIService{store: store}
-			run := fallbackAgentRun(77, 101, "confirm-"+tt.name, "user asks", 123)
+			run := fallbackAgentRun(77, 101, "confirm-"+tt.name, agentRunDurablePayload{Message: "user asks", ModelID: 123})
 			run.Status = tt.status
 			created, _, err := store.CreateAgentRun(context.Background(), run)
 			if err != nil {
@@ -301,7 +404,7 @@ func TestConfirmAgentRunNonWaitingStatusesDoNotJump(t *testing.T) {
 func TestSubscribeAgentRunEventsReplaysThenLiveTailsUntilContextCancel(t *testing.T) {
 	store := newAgentRunTestStore()
 	service := &nativeAIService{store: store}
-	run, _, err := store.CreateAgentRun(context.Background(), fallbackAgentRun(77, 101, "sub-request", "user asks", 123))
+	run, _, err := store.CreateAgentRun(context.Background(), fallbackAgentRun(77, 101, "sub-request", agentRunDurablePayload{Message: "user asks", ModelID: 123}))
 	if err != nil {
 		t.Fatalf("CreateAgentRun seed returned error: %v", err)
 	}
@@ -346,10 +449,58 @@ func TestSubscribeAgentRunEventsReplaysThenLiveTailsUntilContextCancel(t *testin
 	}
 }
 
+func TestSubscribeAgentRunEventsReplaysStructuredMetadata(t *testing.T) {
+	store := newAgentRunTestStore()
+	service := &nativeAIService{store: store}
+	run, _, err := store.CreateAgentRun(context.Background(), fallbackAgentRun(77, 101, "sub-metadata", agentRunDurablePayload{Message: "user asks", ModelID: 123}))
+	if err != nil {
+		t.Fatalf("CreateAgentRun seed returned error: %v", err)
+	}
+	if _, err := store.AppendAgentRunEvent(context.Background(), run.ID, "run.result", `{"status":"succeeded","result_metadata":{"application_id":42,"candidate_name":"Ada","job_title":"Engineer","status":3,"context_usage":{"model_id":123,"prompt_tokens_estimated":88,"usage_ratio":0.25,"estimated":true,"source":"estimate","stage":"hr_chat"}}}`); err != nil {
+		t.Fatalf("AppendAgentRunEvent result seed returned error: %v", err)
+	}
+	if _, err := store.AppendAgentRunEvent(context.Background(), run.ID, "confirmation.required", `{"status":"waiting_confirmation","confirmation":{"required":true,"reason":"skill confirmation","recommended_agent_skill_ids":[7,8],"user_message_id":2001}}`); err != nil {
+		t.Fatalf("AppendAgentRunEvent confirmation seed returned error: %v", err)
+	}
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	stream := newCaptureAgentRunEventStream(ctx)
+	errCh := make(chan error, 1)
+	go func() {
+		errCh <- service.SubscribeAgentRunEvents(&pb.SubscribeAgentRunEventsRequest{HrId: 77, RunId: run.ID}, stream)
+	}()
+
+	resultEvent := stream.waitForEvent(t, "run.result", time.Second)
+	if resultEvent.GetResultMetadata().GetApplicationId() != 42 || resultEvent.GetResultMetadata().GetCandidateName() != "Ada" {
+		t.Fatalf("result metadata = %#v, want replayed structured result", resultEvent.GetResultMetadata())
+	}
+	if resultEvent.GetResultMetadata().GetContextUsage().GetPromptTokensEstimated() != 88 {
+		t.Fatalf("context usage = %#v, want replayed usage", resultEvent.GetResultMetadata().GetContextUsage())
+	}
+	confirmationEvent := stream.waitForEvent(t, "confirmation.required", time.Second)
+	if !confirmationEvent.GetConfirmation().GetRequired() || confirmationEvent.GetConfirmation().GetReason() != "skill confirmation" {
+		t.Fatalf("confirmation = %#v, want replayed structured confirmation", confirmationEvent.GetConfirmation())
+	}
+	if got := confirmationEvent.GetConfirmation().GetRecommendedAgentSkillIds(); len(got) != 2 || got[0] != 7 || got[1] != 8 {
+		t.Fatalf("recommended skill ids = %v, want [7 8]", got)
+	}
+
+	cancel()
+	select {
+	case err := <-errCh:
+		if err != nil {
+			t.Fatalf("SubscribeAgentRunEvents returned error after cancel: %v", err)
+		}
+	case <-time.After(time.Second):
+		t.Fatal("SubscribeAgentRunEvents did not exit after stream context cancel")
+	}
+}
+
 func TestSubscribeAgentRunEventsRejectsWrongHROwnerBeforeLiveSubscription(t *testing.T) {
 	store := newAgentRunTestStore()
 	service := &nativeAIService{store: store}
-	run, _, err := store.CreateAgentRun(context.Background(), fallbackAgentRun(77, 101, "wrong-owner-request", "user asks", 123))
+	run, _, err := store.CreateAgentRun(context.Background(), fallbackAgentRun(77, 101, "wrong-owner-request", agentRunDurablePayload{Message: "user asks", ModelID: 123}))
 	if err != nil {
 		t.Fatalf("CreateAgentRun seed returned error: %v", err)
 	}
@@ -401,6 +552,7 @@ type blockingAgentRunProvider struct {
 	canceled   chan struct{}
 	mu         sync.Mutex
 	calls      int
+	prompts    []string
 	startOnce  sync.Once
 	doneOnce   sync.Once
 	cancelOnce sync.Once
@@ -416,9 +568,10 @@ func newBlockingAgentRunProvider(reply string) *blockingAgentRunProvider {
 	}
 }
 
-func (p *blockingAgentRunProvider) Complete(ctx context.Context, _ string) (string, error) {
+func (p *blockingAgentRunProvider) Complete(ctx context.Context, prompt string) (string, error) {
 	p.mu.Lock()
 	p.calls++
+	p.prompts = append(p.prompts, prompt)
 	p.mu.Unlock()
 	p.startOnce.Do(func() { close(p.started) })
 	select {
@@ -436,6 +589,14 @@ func (p *blockingAgentRunProvider) callCount() int {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 	return p.calls
+}
+
+func (p *blockingAgentRunProvider) promptsSnapshot() []string {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	out := make([]string, len(p.prompts))
+	copy(out, p.prompts)
+	return out
 }
 
 type agentRunTestStore struct {
@@ -545,6 +706,20 @@ func (s *agentRunTestStore) UpdateAgentRunStatus(_ context.Context, ownerID, run
 	return run, true, nil
 }
 
+func (s *agentRunTestStore) UpdateAgentRunPlan(_ context.Context, ownerID, runID int64, planJSON, optionContextJSON string) (AgentRunRow, bool, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	run, ok := s.runs[runID]
+	if !ok || run.OwnerID != ownerID {
+		return AgentRunRow{}, false, nil
+	}
+	run.PlanJSON = planJSON
+	run.OptionContextJSON = optionContextJSON
+	run.UpdatedAt = time.Now()
+	s.runs[runID] = run
+	return run, true, nil
+}
+
 func (s *agentRunTestStore) CompleteAgentRun(_ context.Context, ownerID, runID int64, assistantText, status, errorType, errorMessage string) (AgentRunRow, bool, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -643,6 +818,18 @@ func (s *agentRunTestStore) countEvents(runID int64, eventType string) int {
 		}
 	}
 	return count
+}
+
+func (s *agentRunTestStore) lastEvent(runID int64, eventType string) AgentRunEventRow {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	var last AgentRunEventRow
+	for _, event := range s.runEvents[runID] {
+		if event.EventType == eventType {
+			last = event
+		}
+	}
+	return last
 }
 
 func (s *agentRunTestStore) totalEventCount(runID int64) int {

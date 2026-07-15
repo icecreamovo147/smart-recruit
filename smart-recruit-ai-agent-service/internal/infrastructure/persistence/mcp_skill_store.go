@@ -12,6 +12,7 @@ import (
 
 	"smart-recruit-ai-agent-service/internal/domain/model"
 	"smart-recruit-ai-agent-service/internal/domain/policy"
+	mcpinfra "smart-recruit-ai-agent-service/internal/infrastructure/mcp"
 	"smart-recruit-proto/recruitment/pb"
 )
 
@@ -288,6 +289,89 @@ func (s *NativeStore) ListMCPTools(context.Context, *pb.ListMCPToolsRequest) (*p
 
 func (s *NativeStore) CallMCPTool(context.Context, *pb.CallMCPToolRequest) (*pb.CallMCPToolResponse, error) {
 	return &pb.CallMCPToolResponse{Code: governanceUnsupported, Msg: "mcp tool execution is not configured in native runtime", ErrorMsg: "mcp client runner is not bound"}, nil
+}
+
+func (s *NativeStore) GetMCPRuntimeServer(ctx context.Context, serverID int64) (mcpinfra.ServerConfig, bool, error) {
+	var row mcpServerRecord
+	if err := s.db.WithContext(ctx).First(&row, serverID).Error; err != nil {
+		if err == gorm.ErrRecordNotFound {
+			return mcpinfra.ServerConfig{}, false, nil
+		}
+		return mcpinfra.ServerConfig{}, false, err
+	}
+	return mcpinfra.ServerConfig{
+		ID:                  row.ID,
+		Name:                row.Name,
+		Transport:           row.Transport,
+		CommandOrURL:        row.CommandOrURL,
+		ArgsJSON:            nullString(row.Args),
+		EnvVarsJSON:         nullString(row.EnvVars),
+		TimeoutSeconds:      row.TimeoutSeconds,
+		Enabled:             row.IsEnabled,
+		AllowPrivateNetwork: false,
+		AllowedCommands:     []string{"node", "npx", "python", "python3"},
+	}, true, nil
+}
+
+func (s *NativeStore) UpdateMCPRuntimeStatus(ctx context.Context, serverID int64, status string, toolCount int, lastError string) error {
+	updates := map[string]any{"status": strings.TrimSpace(status), "last_error": nullStringFrom(lastError, true)}
+	if toolCount >= 0 {
+		updates["tool_count"] = toolCount
+	}
+	return s.db.WithContext(ctx).Model(&mcpServerRecord{}).Where("id = ?", serverID).Updates(updates).Error
+}
+
+func (s *NativeStore) GetMCPRuntimeToolPolicy(ctx context.Context, serverID int64, toolName string) (*model.MCPToolPolicy, bool, error) {
+	var row mcpToolPolicyRecord
+	if err := s.db.WithContext(ctx).Where("server_id = ? AND tool_name = ? AND is_enabled = ?", serverID, strings.TrimSpace(toolName), true).Order("id DESC").First(&row).Error; err != nil {
+		if err == gorm.ErrRecordNotFound {
+			return nil, false, nil
+		}
+		return nil, false, err
+	}
+	policyModel := &model.MCPToolPolicy{
+		ID:                     uint64(row.ID),
+		ServerID:               uint64(row.ServerID),
+		ToolName:               row.ToolName,
+		Enabled:                row.IsEnabled,
+		Effect:                 row.Effect,
+		RiskLevel:              row.RiskLevel,
+		AllowedRoles:           stringListFromJSON(row.AllowedRolesJSON),
+		AllowedScopes:          stringListFromJSON(row.AllowedScopesJSON),
+		RequiredArgs:           stringListFromJSON(row.RequiredArgsJSON),
+		DeniedArgs:             stringListFromJSON(row.DeniedArgsJSON),
+		ArgRules:               argRulesFromJSON(row.ArgRulesJSON),
+		RedactFields:           stringListFromJSON(row.RedactFieldsJSON),
+		RequireConfirmation:    row.RequireConfirmation,
+		RateLimitWindowSeconds: row.RateLimitWindowSeconds,
+		RateLimitMaxCalls:      row.RateLimitMaxCalls,
+	}
+	return policyModel, true, nil
+}
+
+func (s *NativeStore) CountRecentMCPToolCalls(ctx context.Context, serverID int64, toolName string, since time.Time) (int64, error) {
+	var total int64
+	err := s.db.WithContext(ctx).Model(&mcpToolLogRecord{}).
+		Where("server_id = ? AND tool_name = ? AND created_at >= ?", serverID, strings.TrimSpace(toolName), since).
+		Count(&total).Error
+	return total, err
+}
+
+func (s *NativeStore) AppendMCPToolLog(ctx context.Context, log mcpinfra.ToolLog) error {
+	row := mcpToolLogRecord{
+		ServerID:       log.ServerID,
+		ToolName:       strings.TrimSpace(log.ToolName),
+		ArgsJSON:       nullStringFrom(log.ArgsJSON, true),
+		ResultContent:  nullStringFrom(log.ResultContent, true),
+		DurationMs:     int(log.DurationMs),
+		ErrorMsg:       nullStringFrom(log.ErrorMsg, true),
+		CalledByHRID:   nullInt64From(log.CalledByHRID),
+		SessionID:      nullInt64From(log.SessionID),
+		PolicyID:       nullInt64From(log.PolicyID),
+		PolicyDecision: strings.TrimSpace(log.PolicyDecision),
+		PolicyReason:   nullStringFrom(log.PolicyReason, true),
+	}
+	return s.db.WithContext(ctx).Create(&row).Error
 }
 
 func (s *NativeStore) ListSkills(ctx context.Context, req *pb.ListSkillsRequest) (*pb.ListSkillsResponse, error) {
@@ -745,6 +829,21 @@ func putMCPJSON(updates map[string]any, key, value string) {
 	if strings.TrimSpace(value) != "" {
 		updates[key] = nullStringFrom(value, true)
 	}
+}
+
+func stringListFromJSON(value sql.NullString) []string {
+	return jsonStringList(value)
+}
+
+func argRulesFromJSON(value sql.NullString) map[string]model.MCPArgRule {
+	if !value.Valid || strings.TrimSpace(value.String) == "" {
+		return nil
+	}
+	var rules map[string]model.MCPArgRule
+	if err := json.Unmarshal([]byte(value.String), &rules); err != nil {
+		return nil
+	}
+	return rules
 }
 
 func jsonListNull(items []string) sql.NullString {

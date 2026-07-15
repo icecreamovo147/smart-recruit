@@ -1,0 +1,213 @@
+{
+  "schemaVersion": 1,
+  "feature_name": "ai-agent-runtime-recovery",
+  "task_id": "TASK-005",
+  "base_sha": "dc018e6d28e8b1db277b3594fd435b581215eaf3",
+  "base_tree": "52668f973b06f3a737fc9d7758a49e8f39e39183",
+  "head_sha": "dc018e6d28e8b1db277b3594fd435b581215eaf3",
+  "changed_files": [
+    ".spec/ai-agent-runtime-recovery/pipeline-state.json",
+    ".spec/ai-agent-runtime-recovery/reports/TASK-005-evidence.json",
+    ".spec/ai-agent-runtime-recovery/reports/TASK-005-report.md",
+    "smart-recruit-ai-agent-service/internal/infrastructure/persistence/native_recruiting_generation_test.go",
+    "smart-recruit-ai-agent-service/internal/infrastructure/persistence/native_store.go",
+    "smart-recruit-ai-agent-service/internal/interfaces/grpc/native_recruiting_generation_test.go",
+    "smart-recruit-ai-agent-service/internal/interfaces/grpc/native_servers.go"
+  ],
+  "scope": {
+    "status": "passed",
+    "base_tree": "52668f973b06f3a737fc9d7758a49e8f39e39183",
+    "forbidden": [],
+    "out_of_scope": [],
+    "allowed": [
+      ".spec/ai-agent-runtime-recovery/pipeline-state.json",
+      ".spec/ai-agent-runtime-recovery/reports/TASK-005-evidence.json",
+      ".spec/ai-agent-runtime-recovery/reports/TASK-005-report.md",
+      "smart-recruit-ai-agent-service/internal/infrastructure/persistence/native_recruiting_generation_test.go",
+      "smart-recruit-ai-agent-service/internal/infrastructure/persistence/native_store.go",
+      "smart-recruit-ai-agent-service/internal/interfaces/grpc/native_recruiting_generation_test.go",
+      "smart-recruit-ai-agent-service/internal/interfaces/grpc/native_servers.go"
+    ]
+  },
+  "checks": [
+    {
+      "command": "GOWORK=off go test ./internal/interfaces/grpc -run 'TestParseResumeProfileGeneratesAndPersistsFreshSnapshot|TestParseResumeProfileRejectsAIPermissionDenied|TestEvaluateCandidateMatchGeneratesAndPreservesAgentRunID|TestEvaluateCandidateMatchRejectsAIPermissionDenied|TestParseResumeProfileReadThroughPath|TestEvaluateCandidateMatchReadThroughPath' -count=1 -v (smart-recruit-ai-agent-service)",
+      "status": "passed",
+      "exit_code": 0,
+      "started_at": "2026-07-14T18:55:47Z",
+      "duration_ms": 3325
+    },
+    {
+      "command": "GOWORK=off go test ./internal/infrastructure/persistence -run 'TestNativeStoreSaveRecruitingResumeProfileDraftVersionsAndChildren|TestNativeStoreSaveRecruitingCandidateMatchDraftVersionsLatestAndAgentRun|TestNativeStoreRecruitingReadModels' -count=1 -v (smart-recruit-ai-agent-service)",
+      "status": "passed",
+      "exit_code": 0,
+      "started_at": "2026-07-14T18:57:10Z",
+      "duration_ms": 1819
+    },
+    {
+      "command": "GOWORK=off go test ./... (smart-recruit-ai-agent-service)",
+      "status": "passed",
+      "exit_code": 0,
+      "started_at": "2026-07-14T18:58:20Z",
+      "duration_ms": 3089
+    },
+    {
+      "command": "git diff --name-only",
+      "status": "passed",
+      "exit_code": 0,
+      "started_at": "2026-07-14T19:01:00Z",
+      "duration_ms": 8
+    },
+    {
+      "command": "bash .spec/ai-agent-runtime-recovery/scripts/check-task-scope.sh TASK-005",
+      "status": "passed",
+      "exit_code": 0,
+      "started_at": "2026-07-14T18:58:50Z",
+      "duration_ms": 103
+    },
+    {
+      "command": "bash .spec/ai-agent-runtime-recovery/scripts/agent-check.sh",
+      "status": "passed",
+      "exit_code": 0,
+      "started_at": "2026-07-14T18:59:30Z",
+      "duration_ms": 3151
+    },
+    {
+      "command": "node .knowledge/scripts/detect-impact.mjs --root . --base-tree 52668f973b06f3a737fc9d7758a49e8f39e39183",
+      "status": "passed",
+      "exit_code": 0,
+      "started_at": "2026-07-14T19:00:10Z",
+      "duration_ms": 124
+    }
+  ],
+  "review": {
+    "type": "independent-read-only-subagent",
+    "round": 1,
+    "verdict": "通过",
+    "reviewers": [
+      {
+        "round": 1,
+        "reviewer": "independent-read-only-subagent: Jason (019f61fd-cdc8-7670-a1a2-1c875a425d31)",
+        "verdict": "通过",
+        "notes": [
+          "No findings against scope, forbidden-file constraints, auth/AI permission preservation, snapshot persistence, agent_run_id preservation, read API compatibility, or TASK-report sensitive-data constraints."
+        ]
+      }
+    ],
+    "completed_at": "2026-07-14T19:01:00Z",
+    "blocking_reason": ""
+  },
+  "human_confirmation": {
+    "required": false,
+    "confirmed": true,
+    "confirmed_by": "not_required",
+    "confirmed_at": "2026-07-14T19:01:00Z",
+    "confirmation_text": "TASK-005 does not require human confirmation."
+  },
+  "exceptions": [],
+  "knowledgeImpact": {
+    "result": "update_required",
+    "triggeredBy": [
+      "authorization-changed",
+      "covered-path-changed",
+      "database-schema-changed",
+      "fallback-behavior-changed",
+      "public-api-changed",
+      "sensitive-data-flow-changed",
+      "service-boundary-changed"
+    ],
+    "reviewResults": [
+      {
+        "document": "agent-runtime",
+        "verdict": "CANDIDATE",
+        "evidence": [
+          "TASK-005 restores Recruiting Intelligence provider-backed generation paths in the native AI Agent service. Knowledge edits are outside TASK scope."
+        ]
+      },
+      {
+        "document": "resume-intelligence",
+        "verdict": "CANDIDATE",
+        "evidence": [
+          "TASK-005 changes resume profile parse behavior from read-through-only to generated and versioned snapshot persistence."
+        ]
+      },
+      {
+        "document": "resume-sensitive-data",
+        "verdict": "CANDIDATE",
+        "evidence": [
+          "TASK-005 sends parsed resume text to the provider for profile generation but keeps TASK reports/evidence free of raw resume data and bounds persisted match evidence snippets."
+        ]
+      },
+      {
+        "document": "persistence-and-migrations",
+        "verdict": "CANDIDATE",
+        "evidence": [
+          "TASK-005 writes existing resume profile and candidate match tables with version/current/latest semantics without schema migrations."
+        ]
+      },
+      {
+        "document": "service-boundaries",
+        "verdict": "CANDIDATE",
+        "evidence": [
+          "TASK-005 keeps the current AI Agent microservice boundary and does not reintroduce the old monolith runtime dependency."
+        ]
+      },
+      {
+        "document": "api-contracts-and-gateway",
+        "verdict": "UNCHANGED",
+        "evidence": [
+          "Reviewed due Recruiting Intelligence gRPC behavior; TASK-005 reuses existing protobuf contracts and does not touch gateway HTTP mapping."
+        ]
+      },
+      {
+        "document": "protobuf-and-migration-change",
+        "verdict": "UNCHANGED",
+        "evidence": [
+          "Reviewed due generated persistence behavior; no protobuf or migration files were changed."
+        ]
+      },
+      {
+        "document": "protobuf-synchronization",
+        "verdict": "UNCHANGED",
+        "evidence": [
+          "Existing generated protobuf fields were reused without synchronization changes."
+        ]
+      },
+      {
+        "document": "local-development",
+        "verdict": "UNCHANGED",
+        "evidence": [
+          "Local development commands and startup behavior were not changed."
+        ]
+      },
+      {
+        "document": "system-overview",
+        "verdict": "UNCHANGED",
+        "evidence": [
+          "Service topology remains unchanged."
+        ]
+      }
+    ],
+    "coverageGap": false,
+    "validationExitCode": 0
+  },
+  "skipped_checks": [
+    {
+      "check": "GOWORK=off go test ./... from smart-recruit-gateway",
+      "reason": "Gateway was not touched in TASK-005; agent-check still ran Gateway tests because prior staged TASK-004 Gateway files exist, and those tests passed."
+    },
+    {
+      "check": "pnpm --filter hr-frontend typecheck",
+      "reason": "HR frontend was not touched in TASK-005."
+    },
+    {
+      "check": "live provider/browser smoke",
+      "reason": "No live provider credentials or local end-to-end data fixture were available; fake-provider and persistence tests covered generation and persistence behavior."
+    }
+  ],
+  "blocked": {
+    "status": false,
+    "reason": "",
+    "unresolved_findings": []
+  }
+}

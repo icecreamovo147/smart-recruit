@@ -8,6 +8,7 @@ import (
 
 	"gorm.io/gorm"
 
+	aiagentgrpc "smart-recruit-ai-agent-service/internal/interfaces/grpc"
 	commonsai "smart-recruit-commons/ai"
 	"smart-recruit-proto/recruitment/pb"
 )
@@ -65,9 +66,16 @@ func (s *NativeStore) Complete(ctx context.Context, prompt string) (string, erro
 }
 
 func (s *NativeStore) CompleteWithModel(ctx context.Context, prompt string, modelID int64) (string, error) {
+	return s.CompleteWithOptions(ctx, prompt, modelID, aiagentgrpc.ChatCompletionOptions{})
+}
+
+func (s *NativeStore) CompleteWithOptions(ctx context.Context, prompt string, modelID int64, opts aiagentgrpc.ChatCompletionOptions) (string, error) {
 	cfg, err := s.selectLLMRuntimeConfig(ctx, modelID, 0)
 	if err != nil {
 		return "", err
+	}
+	if opts.TemperatureOverride != nil && *opts.TemperatureOverride > 0 {
+		cfg.Temperature = *opts.TemperatureOverride
 	}
 	client, err := s.newRuntimeClient(ctx, cfg)
 	if err != nil {

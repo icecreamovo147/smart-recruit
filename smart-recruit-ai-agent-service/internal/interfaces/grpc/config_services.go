@@ -243,6 +243,9 @@ func (s nativeEmbeddingConfigService) SetDefaultEmbeddingModel(ctx context.Conte
 }
 
 func (s nativeEmbeddingConfigService) TestEmbeddingModel(ctx context.Context, req *pb.TestEmbeddingModelRequest) (*pb.TestEmbeddingModelResponse, error) {
+	if s.embedding != nil {
+		return s.embedding.TestModel(ctx, req)
+	}
 	store, ok := s.store.(embeddingConfigStore)
 	if !ok {
 		return &pb.TestEmbeddingModelResponse{Code: configCodeUnavailable, Msg: "ai configuration store is not configured", Success: false}, nil
@@ -251,6 +254,9 @@ func (s nativeEmbeddingConfigService) TestEmbeddingModel(ctx context.Context, re
 }
 
 func (s nativeEmbeddingConfigService) BackfillEmbeddings(ctx context.Context, req *pb.BackfillEmbeddingsRequest) (*pb.BackfillEmbeddingsResponse, error) {
+	if s.embedding != nil {
+		return s.embedding.Backfill(ctx, req)
+	}
 	store, ok := s.store.(embeddingConfigStore)
 	if !ok {
 		return &pb.BackfillEmbeddingsResponse{Code: configCodeUnsupported, Msg: "embedding backfill worker is not configured in native runtime"}, nil

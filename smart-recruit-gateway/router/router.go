@@ -216,6 +216,7 @@ func Setup(cfg config.Config, clients *rpc.Clients, rdb *redis.Client) (*gin.Eng
 	candidateGroup.GET("/ai/sessions/:session_id/messages", normalTimeout, middleware.RequirePermission(authz.PermAICandidateUse), candidateAIHandler.SessionMessages)
 	candidateGroup.PUT("/ai/sessions/:session_id", normalTimeout, bodyAuth, middleware.RequirePermission(authz.PermAICandidateUse), candidateAIHandler.UpdateSession)
 	candidateGroup.DELETE("/ai/sessions/:session_id", normalTimeout, middleware.RequirePermission(authz.PermAICandidateUse), candidateAIHandler.DeleteSession)
+	candidateGroup.POST("/ai/chat", riskBlock, aiLimit, candidateAIQuota, aiTimeout, bodyAI, middleware.RequirePermission(authz.PermAICandidateUse), candidateAIHandler.Chat)
 	candidateGroup.POST("/ai/chat/stream", riskBlock, aiLimit, candidateAIQuota, bodyAI, middleware.RequirePermission(authz.PermAICandidateUse), candidateAIHandler.ChatStream)
 
 	// ── Staff routes (formerly /hr) ────────────────────────────────────

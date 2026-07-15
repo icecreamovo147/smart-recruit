@@ -67,6 +67,38 @@ const friendlyStreamMsg = (code: number, msg: string): string => {
   return msg || 'AI 服务响应错误'
 }
 
+export const normalizeAgentRunEvent = (event: AgentRunEvent): AgentRunEvent => {
+  if (!event.payload_json) {
+    if (event.event_type === 'process.delta' && event.result_metadata) {
+      return { ...event, event_type: 'run.result' }
+    }
+    return event
+  }
+  try {
+    const payload = JSON.parse(event.payload_json) as {
+      event_message?: string
+      result_metadata?: AgentRunEvent['result_metadata']
+    }
+    const normalized: AgentRunEvent = {
+      ...event,
+      ...(payload.event_message && !event.event_message ? { event_message: payload.event_message } : {}),
+      ...(payload.result_metadata && !event.result_metadata ? { result_metadata: payload.result_metadata } : {}),
+    }
+    if (
+      event.event_type === 'process.delta' &&
+      normalized.result_metadata
+    ) {
+      return {
+        ...normalized,
+        event_type: 'run.result',
+      }
+    }
+    return normalized
+  } catch {
+    return event
+  }
+}
+
 /**
  * Subscribe to durable run events via SSE.
  * AbortSignal cancels only this subscription fetch — never the backend run.
@@ -174,7 +206,7 @@ export const subscribeAgentRunEvents = async (
       const { id, data: text } = parseSSEBlock(block)
       if (!text) return false
       try {
-        const payload = JSON.parse(text) as AgentRunEvent
+        const payload = normalizeAgentRunEvent(JSON.parse(text) as AgentRunEvent)
         if (payload.code && payload.code !== 0) {
           handlers.onError?.({
             code: payload.code,

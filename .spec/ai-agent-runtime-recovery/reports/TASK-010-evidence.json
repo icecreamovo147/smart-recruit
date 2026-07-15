@@ -1,0 +1,261 @@
+{
+  "schemaVersion": 1,
+  "feature_name": "ai-agent-runtime-recovery",
+  "task_id": "TASK-010",
+  "base_sha": "dc018e6d28e8b1db277b3594fd435b581215eaf3",
+  "base_tree": "4e5c497335b546ac22e018329585fe4556bdb91b",
+  "head_sha": "dc018e6d28e8b1db277b3594fd435b581215eaf3",
+  "changed_files": [
+    ".spec/ai-agent-runtime-recovery/docs/manual-smoke-checklist.md",
+    ".spec/ai-agent-runtime-recovery/pipeline-state.json",
+    ".spec/ai-agent-runtime-recovery/reports/TASK-010-evidence.json",
+    ".spec/ai-agent-runtime-recovery/reports/TASK-010-report.md",
+    ".spec/ai-agent-runtime-recovery/reports/pipeline-summary.md"
+  ],
+  "scope": {
+    "status": "passed",
+    "base_tree": "4e5c497335b546ac22e018329585fe4556bdb91b",
+    "forbidden": [],
+    "out_of_scope": [],
+    "allowed": [
+      ".spec/ai-agent-runtime-recovery/docs/manual-smoke-checklist.md",
+      ".spec/ai-agent-runtime-recovery/pipeline-state.json",
+      ".spec/ai-agent-runtime-recovery/reports/TASK-010-evidence.json",
+      ".spec/ai-agent-runtime-recovery/reports/TASK-010-report.md",
+      ".spec/ai-agent-runtime-recovery/reports/pipeline-summary.md"
+    ]
+  },
+  "checks": [
+    {
+      "command": "GOWORK=off go test ./... (smart-recruit-ai-agent-service)",
+      "status": "passed",
+      "exit_code": 0,
+      "started_at": "2026-07-14T20:28:00Z",
+      "duration_ms": 4727
+    },
+    {
+      "command": "GOWORK=off go test ./... (smart-recruit-gateway)",
+      "status": "passed",
+      "exit_code": 0,
+      "started_at": "2026-07-14T20:28:00Z",
+      "duration_ms": 3101
+    },
+    {
+      "command": "pnpm --filter hr-frontend typecheck",
+      "status": "passed",
+      "exit_code": 0,
+      "started_at": "2026-07-14T20:28:00Z",
+      "duration_ms": 13330,
+      "notes": "pnpm printed a workspace filter notice, then ran hr-frontend vue-tsc and exited 0."
+    },
+    {
+      "command": "pnpm --filter user-frontend typecheck",
+      "status": "passed",
+      "exit_code": 0,
+      "started_at": "2026-07-14T20:28:00Z",
+      "duration_ms": 8708,
+      "notes": "Run because user frontend was included in earlier feature scope. pnpm printed a workspace filter notice, then ran user-frontend vue-tsc and exited 0."
+    },
+    {
+      "command": "pnpm --filter hr-frontend test -- --run src/api/agentRun.test.ts",
+      "status": "passed",
+      "exit_code": 0,
+      "started_at": "2026-07-14T20:28:00Z",
+      "duration_ms": 8722,
+      "notes": "Due current script argument forwarding, Vitest ran all 9 HR test files / 69 tests."
+    },
+    {
+      "command": "node .knowledge/scripts/detect-impact.mjs --root . --base-tree 4e5c497335b546ac22e018329585fe4556bdb91b",
+      "status": "passed",
+      "exit_code": 0,
+      "started_at": "2026-07-14T20:28:00Z",
+      "duration_ms": 90,
+      "notes": "Output reported changed_files: 0, matched_routes: 0, impact_result: none before TASK-010 evidence documentation edits."
+    },
+    {
+      "command": "git diff --name-only",
+      "status": "passed",
+      "exit_code": 0,
+      "started_at": "2026-07-14T20:32:51Z",
+      "duration_ms": 0,
+      "notes": "Listed pipeline-state.json; git diff --name-only does not list untracked TASK-010 docs/reports before staging."
+    },
+    {
+      "command": "git status --short .spec/ai-agent-runtime-recovery/docs/manual-smoke-checklist.md .spec/ai-agent-runtime-recovery/reports/TASK-010-report.md .spec/ai-agent-runtime-recovery/reports/TASK-010-evidence.json .spec/ai-agent-runtime-recovery/reports/pipeline-summary.md .spec/ai-agent-runtime-recovery/pipeline-state.json",
+      "status": "passed",
+      "exit_code": 0,
+      "started_at": "2026-07-14T20:32:51Z",
+      "duration_ms": 0,
+      "notes": "Confirmed TASK-010 new docs/reports and modified pipeline state before staging."
+    },
+    {
+      "command": "TASK_BASE_TREE=4e5c497335b546ac22e018329585fe4556bdb91b bash .spec/ai-agent-runtime-recovery/scripts/check-task-scope.sh TASK-010",
+      "status": "passed",
+      "exit_code": 0,
+      "started_at": "2026-07-14T20:31:00Z",
+      "duration_ms": 132
+    },
+    {
+      "command": "TASK_BASE_TREE=4e5c497335b546ac22e018329585fe4556bdb91b bash .spec/ai-agent-runtime-recovery/scripts/agent-check.sh",
+      "status": "passed",
+      "exit_code": 0,
+      "started_at": "2026-07-14T20:31:00Z",
+      "duration_ms": 11259,
+      "notes": "agent-check reran feature validation, whitespace, task-scope parse, AI Agent gofmt/go test, Gateway gofmt/go test, and HR frontend typecheck based on staged feature changes."
+    },
+    {
+      "command": "node .agents/skills/spec-harness/scripts/validate-evidence.mjs --file .spec/ai-agent-runtime-recovery/reports/TASK-010-evidence.json --allow-missing-confirmation --require-knowledge-impact",
+      "status": "passed",
+      "exit_code": 0,
+      "started_at": "2026-07-14T20:33:00Z",
+      "duration_ms": 0,
+      "notes": "Passed after independent review round 2 was recorded."
+    },
+    {
+      "command": "node .agents/skills/harness-pipeline/scripts/validate-pipeline-state.mjs --feature-dir .spec/ai-agent-runtime-recovery",
+      "status": "passed",
+      "exit_code": 0,
+      "started_at": "2026-07-14T20:33:00Z",
+      "duration_ms": 0,
+      "notes": "Passed with pipeline status completed and current_phase completed."
+    },
+    {
+      "command": "TASK_BASE_TREE=4e5c497335b546ac22e018329585fe4556bdb91b bash .spec/ai-agent-runtime-recovery/scripts/check-task-scope.sh TASK-010",
+      "status": "passed",
+      "exit_code": 0,
+      "started_at": "2026-07-14T20:33:00Z",
+      "duration_ms": 180,
+      "notes": "Final scope recheck after completed pipeline-state update."
+    }
+  ],
+  "review": {
+    "type": "independent-read-only-subagent",
+    "round": 2,
+    "verdict": "通过",
+    "reviewers": [
+      {
+        "round": 1,
+        "reviewer": "independent-read-only-subagent: Herschel (019f6253-c180-7610-b5f4-8ac799f3d658)",
+        "verdict": "不通过",
+        "notes": [
+          "Initial TASK-010 report/evidence/pipeline-state still recorded final scope/check results as pending.",
+          "No blocking issue was found with manual smoke coverage, focused frontend compatibility coverage, or TASK-010 production runtime scope."
+        ]
+      },
+      {
+        "round": 2,
+        "reviewer": "independent-read-only-subagent: Herschel (019f6253-c180-7610-b5f4-8ac799f3d658)",
+        "verdict": "通过",
+        "notes": [
+          "Verified previous pending scope/check blockers were fixed.",
+          "Verified TASK-010 acceptance coverage, honest live-smoke skip recording, and no production runtime behavior in TASK-010 scoped diff."
+        ]
+      }
+    ],
+    "completed_at": "2026-07-14T20:32:51Z",
+    "blocking_reason": ""
+  },
+  "human_confirmation": {
+    "required": false,
+    "confirmed": true,
+    "confirmed_by": "not_required",
+    "confirmed_at": "2026-07-14T20:28:50Z",
+    "confirmation_text": "TASK-010 does not require human confirmation."
+  },
+  "exceptions": [],
+  "knowledgeImpact": {
+    "result": "none",
+    "triggeredBy": [],
+    "reviewResults": [
+      {
+        "document": "agent-runtime",
+        "verdict": "UNCHANGED",
+        "evidence": [
+          "TASK-010 adds only feature-owned validation documentation and evidence; no AI Agent runtime source changed in this TASK."
+        ]
+      },
+      {
+        "document": "api-contracts-and-gateway",
+        "verdict": "UNCHANGED",
+        "evidence": [
+          "TASK-010 changes no gateway source, protobuf definitions, or public API contracts."
+        ]
+      },
+      {
+        "document": "frontend-apps",
+        "verdict": "UNCHANGED",
+        "evidence": [
+          "TASK-010 changes no frontend source; it only verifies HR/User frontend checks."
+        ]
+      },
+      {
+        "document": "frontend-validation",
+        "verdict": "UNCHANGED",
+        "evidence": [
+          "Required frontend typecheck and Vitest commands were run and recorded without changing validation guidance."
+        ]
+      },
+      {
+        "document": "resume-intelligence",
+        "verdict": "UNCHANGED",
+        "evidence": [
+          "TASK-010 only documents manual smoke coverage for Recruiting Intelligence; no resume intelligence runtime or data flow changed."
+        ]
+      },
+      {
+        "document": "mcp-tool-governance",
+        "verdict": "UNCHANGED",
+        "evidence": [
+          "TASK-010 only documents MCP manual smoke expectations; no MCP policy or runtime files changed."
+        ]
+      },
+      {
+        "document": "embedding-fallback",
+        "verdict": "UNCHANGED",
+        "evidence": [
+          "TASK-010 only records embedding smoke expectations and automated test status; no fallback behavior changed."
+        ]
+      },
+      {
+        "document": "mcp-policy-audit",
+        "verdict": "UNCHANGED",
+        "evidence": [
+          "TASK-010 only records MCP audit smoke expectations; no audit policy behavior changed."
+        ]
+      }
+    ],
+    "coverageGap": false,
+    "validationExitCode": 0
+  },
+  "skipped_checks": [
+    {
+      "check": "Live HR AI Chat smoke",
+      "reason": "No running local stack, safe AI provider credentials, or verified seeded recruitment data were available during TASK-010."
+    },
+    {
+      "check": "Live durable Agent Run smoke",
+      "reason": "No running local stack or safe provider credentials were available during TASK-010."
+    },
+    {
+      "check": "Live Candidate AI smoke",
+      "reason": "No running candidate session/data stack was available during TASK-010."
+    },
+    {
+      "check": "Live Recruiting Intelligence parse/evaluate smoke",
+      "reason": "No running local stack, safe provider credentials, or seeded resume/job data were available during TASK-010."
+    },
+    {
+      "check": "Live MCP smoke",
+      "reason": "No safe MCP endpoint, credentials, or running stack were available during TASK-010."
+    },
+    {
+      "check": "Live Embedding and Semantic Debug smoke",
+      "reason": "No safe embedding provider credentials or running DB/service stack were available during TASK-010."
+    }
+  ],
+  "risks": [
+    "Live provider, MCP endpoint, and end-to-end browser verification still require a safe non-production environment.",
+    "Earlier TASK knowledge update candidates remain recorded as out-of-scope knowledge debt rather than edited in this TASK."
+  ],
+  "next_task_can_start": false
+}

@@ -160,6 +160,7 @@ export interface AgentRunEvent {
   seq: number
   event_type: AgentRunEventType | string
   payload_json?: string
+  event_message?: string
   status?: string
   delta?: string
   snapshot_text?: string

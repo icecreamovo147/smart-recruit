@@ -2,10 +2,14 @@ package grpc
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"math"
 	"sort"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -13,8 +17,14 @@ import (
 	gogrpc "google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
+	"google.golang.org/protobuf/encoding/protojson"
 
+	"smart-recruit-ai-agent-service/internal/domain/model"
+	"smart-recruit-ai-agent-service/internal/domain/policy"
+	mcpinfra "smart-recruit-ai-agent-service/internal/infrastructure/mcp"
+	embeddinginfra "smart-recruit-ai-agent-service/internal/infrastructure/provider"
 	aiagentruntime "smart-recruit-ai-agent-service/internal/runtime"
+	commonsai "smart-recruit-commons/ai"
 	"smart-recruit-platform-go/errs"
 	platformmetadata "smart-recruit-platform-go/metadata"
 	"smart-recruit-proto/recruitment/pb"
@@ -28,6 +38,14 @@ type ModelAwareChatProvider interface {
 	CompleteWithModel(ctx context.Context, prompt string, modelID int64) (string, error)
 }
 
+type ChatCompletionOptions struct {
+	TemperatureOverride *float64
+}
+
+type RuntimeOptionsChatProvider interface {
+	CompleteWithOptions(ctx context.Context, prompt string, modelID int64, opts ChatCompletionOptions) (string, error)
+}
+
 type AIStore interface {
 	EnsureChatSession(ctx context.Context, ownerRole int32, ownerID int64, title string, applicationID int64) (ChatSessionRow, error)
 	GetChatSession(ctx context.Context, ownerRole int32, ownerID, sessionID int64) (ChatSessionRow, bool, error)
@@ -37,11 +55,13 @@ type AIStore interface {
 	AppendChatMessage(ctx context.Context, message ChatMessageRow) (ChatMessageRow, error)
 	ListChatMessages(ctx context.Context, ownerRole int32, ownerID, sessionID int64, page, pageSize int32) ([]ChatMessageRow, error)
 	ListToolTraces(ctx context.Context, ownerID, sessionID int64) ([]ToolTraceRow, error)
+	AppendToolTrace(ctx context.Context, ownerID int64, trace ToolTraceRow) (ToolTraceRow, error)
 	CreateAgentRun(ctx context.Context, run AgentRunRow) (AgentRunRow, bool, error)
 	ListAgentRuns(ctx context.Context, ownerID, sessionID int64) ([]AgentRunRow, error)
 	GetAgentRun(ctx context.Context, ownerID, runID int64) (AgentRunRow, bool, error)
 	GetActiveAgentRun(ctx context.Context, ownerID, sessionID int64) (AgentRunRow, bool, error)
 	UpdateAgentRunStatus(ctx context.Context, ownerID, runID int64, status string) (AgentRunRow, bool, error)
+	UpdateAgentRunPlan(ctx context.Context, ownerID, runID int64, planJSON, optionContextJSON string) (AgentRunRow, bool, error)
 	CompleteAgentRun(ctx context.Context, ownerID, runID int64, assistantText, status, errorType, errorMessage string) (AgentRunRow, bool, error)
 	AppendAgentRunEvent(ctx context.Context, runID int64, eventType, payload string) (AgentRunEventRow, error)
 	ListAgentRunEvents(ctx context.Context, ownerID, runID, afterSeq int64) ([]AgentRunEventRow, error)
@@ -59,6 +79,18 @@ type activePromptStore interface {
 	GetActivePromptByAgentType(context.Context, *pb.GetActivePromptByAgentTypeRequest) (*pb.GetActivePromptByAgentTypeResponse, error)
 }
 
+type candidateContextStore interface {
+	LoadCandidateRuntimeContext(ctx context.Context, userID int64, limit int32) (CandidateRuntimeContext, error)
+}
+
+type candidateUsageAuditStore interface {
+	RecordCandidateUsageAudit(ctx context.Context, row CandidateUsageAuditRow) (int64, error)
+}
+
+type applicationSnapshotClient interface {
+	GetApplicationSnapshot(ctx context.Context, in *pb.GetApplicationSnapshotRequest, opts ...gogrpc.CallOption) (*pb.GetApplicationSnapshotResponse, error)
+}
+
 type RuntimeDeps struct {
 	Store            AIStore
 	Provider         ChatProvider
@@ -69,6 +101,8 @@ type RuntimeDeps struct {
 	Auth             pb.AuthServiceClient
 	Applications     pb.ApplicationOwnerServiceClient
 	Jobs             pb.JobServiceClient
+	MCPRunner        mcpinfra.Runner
+	EmbeddingRunner  embeddinginfra.EmbeddingRunner
 }
 
 type ChatSessionRow struct {
@@ -80,16 +114,18 @@ type ChatSessionRow struct {
 }
 
 type ChatMessageRow struct {
-	ID             int64
-	OwnerRole      int32
-	OwnerID        int64
-	SessionID      int64
-	Role           string
-	Content        string
-	ProcessContent string
-	ModelID        int64
-	ModelName      string
-	CreatedAt      time.Time
+	ID              int64
+	OwnerRole       int32
+	OwnerID         int64
+	SessionID       int64
+	Role            string
+	Content         string
+	ProcessContent  string
+	ModelID         int64
+	ModelName       string
+	AgentSkillIDs   []int64
+	AgentSkillNames []string
+	CreatedAt       time.Time
 }
 
 type ToolTraceRow struct {
@@ -103,6 +139,88 @@ type ToolTraceRow struct {
 	CreatedAt     time.Time
 }
 
+type CandidateRuntimeContext struct {
+	Applications []CandidateApplicationContext `json:"applications"`
+	Resume       CandidateResumeContext        `json:"resume"`
+	Jobs         []CandidateJobContext         `json:"jobs"`
+	Interviews   []CandidateInterviewContext   `json:"interviews"`
+	Offers       []CandidateOfferContext       `json:"offers"`
+}
+
+type CandidateApplicationContext struct {
+	ApplicationID int64  `json:"application_id"`
+	JobID         int64  `json:"job_id"`
+	JobTitle      string `json:"job_title"`
+	Status        int32  `json:"status"`
+	StatusKey     string `json:"status_key,omitempty"`
+	StatusText    string `json:"status_text,omitempty"`
+	RoundNo       int32  `json:"round_no"`
+	AppliedAt     string `json:"applied_at,omitempty"`
+}
+
+type CandidateResumeContext struct {
+	Available  bool   `json:"available"`
+	ResumeID   int64  `json:"resume_id,omitempty"`
+	FileName   string `json:"file_name,omitempty"`
+	TextLength int    `json:"text_length,omitempty"`
+	Summary    string `json:"summary,omitempty"`
+	Message    string `json:"message,omitempty"`
+}
+
+type CandidateJobContext struct {
+	JobID       int64  `json:"job_id"`
+	Title       string `json:"title"`
+	Department  string `json:"department,omitempty"`
+	Location    string `json:"location,omitempty"`
+	SalaryRange string `json:"salary_range,omitempty"`
+	Status      int32  `json:"status"`
+	StatusText  string `json:"status_text,omitempty"`
+	HasApplied  bool   `json:"has_applied"`
+}
+
+type CandidateInterviewContext struct {
+	InterviewID   int64  `json:"interview_id"`
+	ApplicationID int64  `json:"application_id"`
+	JobTitle      string `json:"job_title,omitempty"`
+	RoundNo       int32  `json:"round_no"`
+	Title         string `json:"title,omitempty"`
+	Mode          string `json:"mode,omitempty"`
+	ScheduledAt   string `json:"scheduled_at,omitempty"`
+	Status        string `json:"status,omitempty"`
+	CandidateNote string `json:"candidate_note,omitempty"`
+}
+
+type CandidateOfferContext struct {
+	OfferID       int64  `json:"offer_id"`
+	ApplicationID int64  `json:"application_id"`
+	JobID         int64  `json:"job_id"`
+	Title         string `json:"title,omitempty"`
+	Status        string `json:"status,omitempty"`
+	SalaryRange   string `json:"salary_range,omitempty"`
+	WorkLocation  string `json:"work_location,omitempty"`
+	StartDate     string `json:"start_date,omitempty"`
+	ExpiresAt     string `json:"expires_at,omitempty"`
+}
+
+type CandidateUsageAuditRow struct {
+	UserID          int64
+	ServiceType     string
+	Endpoint        string
+	Provider        string
+	Model           string
+	RequestChars    int
+	ResponseChars   int
+	EstimatedTokens int
+	Status          string
+	ErrorCode       string
+	CostMs          int
+	RequestID       string
+	IP              string
+	RoleKeys        []string
+	PermissionKey   string
+	ScopeKeys       []string
+}
+
 type AgentRunRow struct {
 	ID                int64
 	SessionID         int64
@@ -113,6 +231,7 @@ type AgentRunRow struct {
 	Status            string
 	AssistantText     string
 	ProcessText       string
+	PlanJSON          string
 	OptionContextJSON string
 	LastEventSeq      int64
 	ErrorType         string
@@ -136,6 +255,20 @@ type AgentRunEventRow struct {
 	EventType   string
 	PayloadJSON string
 	CreatedAt   time.Time
+}
+
+type agentRunDurablePayload struct {
+	Message                      string   `json:"message,omitempty"`
+	ActionType                   string   `json:"action_type,omitempty"`
+	ActionPayloadJSON            string   `json:"action_payload_json,omitempty"`
+	ApplicationID                int64    `json:"application_id,omitempty"`
+	ModelID                      int64    `json:"model_id,omitempty"`
+	SkillCapabilityKeys          []string `json:"skill_capability_keys,omitempty"`
+	AgentSkillIDs                []int64  `json:"agent_skill_ids,omitempty"`
+	AgentSkillSelectionConfirmed bool     `json:"agent_skill_selection_confirmed,omitempty"`
+	AgentSkillSelectionMessageID int64    `json:"agent_skill_selection_message_id,omitempty"`
+	ConfirmationPayloadJSON      string   `json:"confirmation_payload_json,omitempty"`
+	ConfirmationClientRequestID  string   `json:"confirmation_client_request_id,omitempty"`
 }
 
 type RecruitingApplicationContext struct {
@@ -276,6 +409,143 @@ type RecruitingCandidateMatchSnapshot struct {
 	Evidence   []RecruitingCandidateMatchEvidenceRow
 }
 
+type RecruitingResumeSource struct {
+	ResumeID   int64
+	UserID     int64
+	FileName   string
+	ParsedText string
+}
+
+type RecruitingResumeProfileDraft struct {
+	ResumeID             int64
+	UserID               int64
+	ParserVersion        string
+	InputHash            string
+	RawJSON              string
+	FullName             string
+	Email                string
+	Phone                string
+	Location             string
+	Headline             string
+	Summary              string
+	TotalExperienceYears float64
+	HighestDegree        string
+	Educations           []RecruitingResumeEducationRow
+	Experiences          []RecruitingResumeExperienceRow
+	Projects             []RecruitingResumeProjectRow
+	Skills               []RecruitingResumeSkillRow
+}
+
+type RecruitingJobContext struct {
+	JobID        int64
+	Title        string
+	Department   string
+	Location     string
+	Description  string
+	Requirements string
+}
+
+type RecruitingMatchSource struct {
+	Application RecruitingApplicationContext
+	Job         RecruitingJobContext
+	Profile     RecruitingResumeProfileSnapshot
+}
+
+type RecruitingCandidateMatchDraft struct {
+	ApplicationID      int64
+	JobID              int64
+	CandidateUserID    int64
+	ResumeProfileID    uint64
+	AgentRunID         *uint64
+	OverallScore       float64
+	Recommendation     string
+	Summary            string
+	StrengthsJSON      string
+	RisksJSON          string
+	ScoreBreakdownJSON string
+	ModelName          string
+	Evidence           []RecruitingCandidateMatchEvidenceRow
+}
+
+type generatedResumeProfile struct {
+	FullName             string                      `json:"full_name"`
+	Email                string                      `json:"email"`
+	Phone                string                      `json:"phone"`
+	Location             string                      `json:"location"`
+	Headline             string                      `json:"headline"`
+	Summary              string                      `json:"summary"`
+	TotalExperienceYears float64                     `json:"total_experience_years"`
+	HighestDegree        string                      `json:"highest_degree"`
+	Educations           []generatedResumeEducation  `json:"educations"`
+	Experiences          []generatedResumeExperience `json:"experiences"`
+	Projects             []generatedResumeProject    `json:"projects"`
+	Skills               []generatedResumeSkill      `json:"skills"`
+}
+
+type generatedResumeEducation struct {
+	School      string `json:"school"`
+	Degree      string `json:"degree"`
+	Major       string `json:"major"`
+	StartDate   string `json:"start_date"`
+	EndDate     string `json:"end_date"`
+	Description string `json:"description"`
+}
+
+type generatedResumeExperience struct {
+	Company          string   `json:"company"`
+	Title            string   `json:"title"`
+	Location         string   `json:"location"`
+	StartDate        string   `json:"start_date"`
+	EndDate          string   `json:"end_date"`
+	IsCurrent        bool     `json:"is_current"`
+	Description      string   `json:"description"`
+	Achievements     []string `json:"achievements"`
+	AchievementsJSON string   `json:"achievements_json"`
+}
+
+type generatedResumeProject struct {
+	Name             string   `json:"name"`
+	Role             string   `json:"role"`
+	StartDate        string   `json:"start_date"`
+	EndDate          string   `json:"end_date"`
+	Description      string   `json:"description"`
+	Technologies     []string `json:"technologies"`
+	Highlights       []string `json:"highlights"`
+	TechnologiesJSON string   `json:"technologies_json"`
+	HighlightsJSON   string   `json:"highlights_json"`
+}
+
+type generatedResumeSkill struct {
+	Name     string  `json:"name"`
+	Category string  `json:"category"`
+	Level    string  `json:"level"`
+	Years    float64 `json:"years"`
+	Evidence string  `json:"evidence"`
+}
+
+type generatedCandidateMatch struct {
+	OverallScore        float64                           `json:"overall_score"`
+	Recommendation      string                            `json:"recommendation"`
+	Summary             string                            `json:"summary"`
+	Strengths           []string                          `json:"strengths"`
+	Risks               []string                          `json:"risks"`
+	MissingRequirements []string                          `json:"missing_requirements"`
+	Dimensions          []map[string]any                  `json:"dimensions"`
+	ScoreBreakdown      map[string]any                    `json:"score_breakdown"`
+	Evidence            []generatedCandidateMatchEvidence `json:"evidence"`
+}
+
+type generatedCandidateMatchEvidence struct {
+	EvidenceType string  `json:"evidence_type"`
+	Dimension    string  `json:"dimension"`
+	SourceTable  string  `json:"source_table"`
+	SourceID     uint64  `json:"source_id"`
+	Snippet      string  `json:"snippet"`
+	Weight       float64 `json:"weight"`
+	ScoreImpact  float64 `json:"score_impact"`
+	MetadataJSON string  `json:"metadata_json"`
+}
+
 var (
 	errAIStoreRequired     = errors.New("ai store is required for native AI runtime")
 	errAIProviderRequired  = errors.New("ai provider is required for native AI runtime")
@@ -290,15 +560,22 @@ const (
 
 	agentRunCodeBadRequest int32 = 400
 
-	candidateAssistantAgentType    = "candidate_assistant"
-	candidatePromptRoleSystem      = "system"
-	candidateChatContextPageSize   = int32(100)
-	candidateChatEmptyMessageError = "message is required"
+	candidateAssistantAgentType            = "candidate_assistant"
+	candidatePromptRoleSystem              = "system"
+	candidateChatContextPageSize           = int32(100)
+	candidateRuntimeContextLimit           = int32(20)
+	candidateChatEmptyMessageError         = "message is required"
+	candidateSuggestedQuestionsStartMarker = "<<<CANDIDATE_SUGGESTED_QUESTIONS_JSON>>>"
+	candidateSuggestedQuestionsEndMarker   = "<<<END_CANDIDATE_SUGGESTED_QUESTIONS_JSON>>>"
 
 	candidateSystemPrompt = "你是智能招聘系统的候选人端 AI 助手。你只服务当前登录候选人，回答应围绕候选人自己的求职、简历、岗位、投递、面试和 Offer 相关问题。\n" +
 		"必须保护招聘系统数据边界：不要透露 HR 内部备注、其他候选人信息、未授权的招聘数据或系统实现细节。\n" +
 		"当缺少实时工具或数据时，明确说明当前无法读取实时系统数据，并给出安全、可执行的求职建议。"
 
+	hrRecruitingAgentType             = "hr_recruiting_agent"
+	hrCandidateSearchCapability       = "candidate_search"
+	hrApplicationSnapshotTool         = "get_application_snapshot"
+	hrRuntimePromptRoleSystem         = "system"
 	agentRunStatusQueued              = "queued"
 	agentRunStatusPlanning            = "planning"
 	agentRunStatusRunning             = "running"
@@ -311,10 +588,18 @@ const (
 )
 
 func NewNativeRuntimeDeps(deps RuntimeDeps) aiagentruntime.Deps {
-	ai := NewNativeAIService(deps.Store, deps.Provider)
+	mcpRunner := deps.MCPRunner
+	if mcpRunner == nil {
+		mcpRunner = mcpinfra.NewRunner()
+	}
+	var embeddingService *embeddinginfra.EmbeddingService
+	if store, ok := deps.Store.(embeddinginfra.EmbeddingStore); ok {
+		embeddingService = embeddinginfra.NewEmbeddingService(store, deps.EmbeddingRunner)
+	}
+	ai := newNativeAIServiceWithRunner(deps.Store, deps.Provider, deps.Applications, mcpRunner, embeddingService)
 	embedding := deps.EmbeddingConfigs
 	if embedding == nil {
-		embedding = nativeEmbeddingConfigService{store: deps.Store}
+		embedding = nativeEmbeddingConfigService{store: deps.Store, embedding: embeddingService}
 	}
 	var recruitingStore recruitingReadStore
 	if deps.Store != nil {
@@ -325,10 +610,10 @@ func NewNativeRuntimeDeps(deps RuntimeDeps) aiagentruntime.Deps {
 		LlmConfig:              nativeLlmConfigService{store: deps.Store},
 		Prompt:                 nativePromptService{store: deps.Store},
 		AgentConfig:            nativeAgentConfigService{store: deps.Store},
-		MCP:                    nativeMCPService{store: deps.Store},
+		MCP:                    nativeMCPService{store: deps.Store, runner: mcpRunner},
 		Skill:                  nativeSkillService{store: deps.Store},
-		AgentSkill:             nativeAgentSkillService{store: deps.Store},
-		RecruitingIntelligence: nativeRecruitingIntelligenceService{store: recruitingStore, auth: deps.Auth, applications: deps.Applications, jobs: deps.Jobs},
+		AgentSkill:             nativeAgentSkillService{store: deps.Store, embedding: embeddingService},
+		RecruitingIntelligence: nativeRecruitingIntelligenceService{store: recruitingStore, provider: deps.Provider, auth: deps.Auth, applications: deps.Applications, jobs: deps.Jobs},
 		EmbeddingConfig:        embedding,
 		LongTasks: aiagentruntime.LongTaskControls{
 			RabbitMQRequired: true,
@@ -340,13 +625,24 @@ func NewNativeRuntimeDeps(deps RuntimeDeps) aiagentruntime.Deps {
 }
 
 func NewNativeAIService(store AIStore, provider ChatProvider) pb.AIServiceServer {
-	return &nativeAIService{store: store, provider: provider, eventHub: newAgentRunEventHub()}
+	return newNativeAIService(store, provider, nil)
+}
+
+func newNativeAIService(store AIStore, provider ChatProvider, applications applicationSnapshotClient) *nativeAIService {
+	return newNativeAIServiceWithRunner(store, provider, applications, nil, nil)
+}
+
+func newNativeAIServiceWithRunner(store AIStore, provider ChatProvider, applications applicationSnapshotClient, mcpRunner mcpinfra.Runner, embedding *embeddinginfra.EmbeddingService) *nativeAIService {
+	return &nativeAIService{store: store, provider: provider, applications: applications, mcpRunner: mcpRunner, embedding: embedding, eventHub: newAgentRunEventHub()}
 }
 
 type nativeAIService struct {
 	pb.UnimplementedAIServiceServer
 	store           AIStore
 	provider        ChatProvider
+	applications    applicationSnapshotClient
+	mcpRunner       mcpinfra.Runner
+	embedding       *embeddinginfra.EmbeddingService
 	eventHubMu      sync.Mutex
 	eventHub        *agentRunEventHub
 	runCancelMu     sync.Mutex
@@ -408,36 +704,880 @@ func (s *nativeAIService) Chat(ctx context.Context, req *pb.ChatRequest) (*pb.Ch
 	if req == nil {
 		return nil, errors.New("chat request is required")
 	}
-	session, err := s.ensureSession(ctx, ownerRoleHR, req.GetHrId(), req.GetSessionId(), req.GetApplicationId(), req.GetMessage())
+	result, err := s.runHRChatRuntime(ctx, req, nil)
 	if err != nil {
 		return nil, err
 	}
-	if strings.TrimSpace(req.GetMessage()) != "" && s.store != nil {
-		if _, err := s.store.AppendChatMessage(ctx, ChatMessageRow{OwnerRole: ownerRoleHR, OwnerID: req.GetHrId(), SessionID: session.ID, Role: "user", Content: req.GetMessage(), ModelID: req.GetModelId()}); err != nil {
-			return nil, err
-		}
+	if result.providerUnavailable && !result.fallbackUsed {
+		return &pb.ChatResponse{Code: configCodeUnavailable, Msg: errAIProviderRequired.Error(), CreatedAt: formatTime(time.Now()), SessionId: result.session.ID, ApplicationId: req.GetApplicationId(), ContextUsage: result.contextUsage}, nil
 	}
-	reply, err := s.complete(ctx, req.GetMessage(), req.GetModelId())
-	if err != nil {
-		if errors.Is(err, errAIProviderRequired) {
-			return &pb.ChatResponse{Code: configCodeUnavailable, Msg: err.Error(), CreatedAt: formatTime(time.Now()), SessionId: session.ID, ApplicationId: req.GetApplicationId()}, nil
-		}
-		return nil, err
-	}
-	if s.store != nil {
-		if _, err := s.store.AppendChatMessage(ctx, ChatMessageRow{OwnerRole: ownerRoleHR, OwnerID: req.GetHrId(), SessionID: session.ID, Role: "assistant", Content: reply, ModelID: req.GetModelId(), CreatedAt: time.Now()}); err != nil {
-			return nil, err
-		}
-	}
-	return &pb.ChatResponse{Code: 0, Msg: "success", Reply: reply, CreatedAt: formatTime(time.Now()), SessionId: session.ID, ApplicationId: req.GetApplicationId()}, nil
+	return &pb.ChatResponse{Code: 0, Msg: "success", Reply: result.reply, CreatedAt: formatTime(time.Now()), SessionId: result.session.ID, ApplicationId: req.GetApplicationId(), CandidateName: result.candidateName, JobTitle: result.jobTitle, Status: result.status, ContextUsage: result.contextUsage}, nil
 }
 
 func (s *nativeAIService) ChatStream(req *pb.ChatRequest, stream gogrpc.ServerStreamingServer[pb.ChatStreamResponse]) error {
-	resp, err := s.Chat(stream.Context(), req)
+	if req == nil {
+		return errors.New("chat request is required")
+	}
+	result, err := s.runHRChatRuntime(stream.Context(), req, func(event *pb.ChatStreamResponse) error {
+		event.SessionId = firstNonZeroInt64(event.GetSessionId(), req.GetSessionId())
+		event.ApplicationId = req.GetApplicationId()
+		if event.CreatedAt == "" {
+			event.CreatedAt = formatTime(time.Now())
+		}
+		return stream.Send(event)
+	})
 	if err != nil {
 		return err
 	}
-	return stream.Send(&pb.ChatStreamResponse{Code: resp.Code, Msg: resp.Msg, Delta: resp.Reply, Done: true, SessionId: resp.SessionId, CreatedAt: resp.CreatedAt, EventType: "done"})
+	if result.providerUnavailable && !result.fallbackUsed {
+		return stream.Send(&pb.ChatStreamResponse{Code: configCodeUnavailable, Msg: errAIProviderRequired.Error(), Done: true, SessionId: result.session.ID, ApplicationId: req.GetApplicationId(), CreatedAt: formatTime(time.Now()), EventType: "error", EventMessage: errAIProviderRequired.Error(), ErrorType: "AI_PROVIDER_UNAVAILABLE", ContextUsage: result.contextUsage})
+	}
+	return stream.Send(&pb.ChatStreamResponse{Code: 0, Msg: "success", Delta: result.reply, Done: true, SessionId: result.session.ID, ApplicationId: req.GetApplicationId(), CandidateName: result.candidateName, JobTitle: result.jobTitle, Status: result.status, CreatedAt: formatTime(time.Now()), EventType: "done", EventMessage: "completed", ContextUsage: result.contextUsage})
+}
+
+type hrChatStreamEmitter func(*pb.ChatStreamResponse) error
+
+type hrChatRuntimeOptions struct {
+	reuseExistingUserMessage bool
+}
+
+type hrChatRuntimeResult struct {
+	session             ChatSessionRow
+	reply               string
+	contextUsage        *pb.ContextUsageInfo
+	candidateName       string
+	jobTitle            string
+	status              int32
+	providerUnavailable bool
+	fallbackUsed        bool
+}
+
+type hrRuntimeGovernanceContext struct {
+	Agent                        *pb.AgentConfigInfo
+	Prompt                       *pb.PromptTemplateInfo
+	CapabilityKeys               []string
+	ToolNames                    []string
+	SelectedAgentSkills          []hrRuntimeAgentSkill
+	AgentSkillSelectionMode      string
+	AgentSkillSelectionConfirmed bool
+	AgentSkillSelectionMessageID int64
+}
+
+type hrRuntimeAgentSkill struct {
+	ID                   int64    `json:"id"`
+	Name                 string   `json:"name"`
+	DisplayName          string   `json:"display_name,omitempty"`
+	Description          string   `json:"description,omitempty"`
+	Manual               bool     `json:"manual"`
+	Reason               string   `json:"reason,omitempty"`
+	RiskLevel            string   `json:"risk_level,omitempty"`
+	RequiredCapabilities []string `json:"required_capabilities,omitempty"`
+}
+
+type hrRuntimeAgentConfigStore interface {
+	GetAgentConfig(context.Context, *pb.GetAgentConfigRequest) (*pb.GetAgentConfigResponse, error)
+}
+
+type hrRuntimePromptTemplateStore interface {
+	GetRuntimePromptTemplateByID(ctx context.Context, id int64) (*pb.PromptTemplateInfo, bool, error)
+}
+
+func (s *nativeAIService) runHRChatRuntime(ctx context.Context, req *pb.ChatRequest, emit hrChatStreamEmitter) (hrChatRuntimeResult, error) {
+	return s.runHRChatRuntimeWithOptions(ctx, req, emit, hrChatRuntimeOptions{})
+}
+
+func (s *nativeAIService) runHRChatRuntimeWithOptions(ctx context.Context, req *pb.ChatRequest, emit hrChatStreamEmitter, opts hrChatRuntimeOptions) (hrChatRuntimeResult, error) {
+	session, err := s.ensureSession(ctx, ownerRoleHR, req.GetHrId(), req.GetSessionId(), req.GetApplicationId(), req.GetMessage())
+	if err != nil {
+		return hrChatRuntimeResult{}, err
+	}
+	result := hrChatRuntimeResult{session: session}
+	send := func(event *pb.ChatStreamResponse) error {
+		if emit == nil || event == nil {
+			return nil
+		}
+		event.SessionId = session.ID
+		event.ApplicationId = req.GetApplicationId()
+		event.CandidateName = result.candidateName
+		event.JobTitle = result.jobTitle
+		event.Status = result.status
+		return emit(event)
+	}
+	if err := send(&pb.ChatStreamResponse{Code: 0, Msg: "success", EventType: "thinking", EventMessage: "planning HR recruiting context", CreatedAt: formatTime(time.Now())}); err != nil {
+		return result, err
+	}
+	governance, err := s.loadHRRuntimeGovernance(ctx, req)
+	if err != nil {
+		return result, err
+	}
+
+	history, err := s.hrRecentMessages(ctx, req.GetHrId(), session.ID)
+	if err != nil {
+		return result, err
+	}
+	var userMessage ChatMessageRow
+	if opts.reuseExistingUserMessage {
+		userMessage = findHRUserMessage(history, req.GetMessage())
+	}
+	if strings.TrimSpace(req.GetMessage()) != "" && s.store != nil {
+		if userMessage.ID == 0 {
+			userMessage, err = s.store.AppendChatMessage(ctx, ChatMessageRow{OwnerRole: ownerRoleHR, OwnerID: req.GetHrId(), SessionID: session.ID, Role: "user", Content: req.GetMessage(), ModelID: req.GetModelId(), AgentSkillIDs: hrRuntimeAgentSkillIDs(governance), AgentSkillNames: hrRuntimeAgentSkillNames(governance)})
+			if err != nil {
+				return result, err
+			}
+		}
+	}
+
+	traces, err := s.executeHRContextTools(ctx, req, session.ID, governance, send)
+	if err != nil {
+		return result, err
+	}
+	for _, trace := range traces {
+		if trace.ToolName == "get_application_snapshot" {
+			result.candidateName, result.jobTitle, result.status = extractApplicationTraceMetadata(trace.ResultContent)
+		}
+	}
+	contextPrompt := renderHRProviderPrompt(req, history, userMessage, traces, governance)
+	result.contextUsage = estimateHRContextUsage(req.GetModelId(), contextPrompt, req.GetMessage(), traces)
+	if err := send(&pb.ChatStreamResponse{Code: 0, Msg: "success", EventType: "context_usage", EventMessage: "context usage estimated", ContextUsage: result.contextUsage, CreatedAt: formatTime(time.Now())}); err != nil {
+		return result, err
+	}
+	if err := send(&pb.ChatStreamResponse{Code: 0, Msg: "success", EventType: "generating", EventMessage: "calling model with HR context", CreatedAt: formatTime(time.Now())}); err != nil {
+		return result, err
+	}
+	reply, err := s.complete(ctx, contextPrompt, req.GetModelId(), hrRuntimeCompletionOptions(governance))
+	if err != nil {
+		if errors.Is(err, errAIProviderRequired) {
+			result.providerUnavailable = true
+		}
+		if !hasUsefulToolResults(traces) {
+			if errors.Is(err, errAIProviderRequired) {
+				return result, nil
+			}
+			return result, err
+		}
+		result.fallbackUsed = true
+		reply = commonsai.BuildHRFallbackReply(toCommonsToolTraces(traces))
+		if err := send(&pb.ChatStreamResponse{Code: 0, Msg: "success", EventType: "fallback", EventMessage: "model failed after useful tool results; using deterministic fallback", CreatedAt: formatTime(time.Now())}); err != nil {
+			return result, err
+		}
+	}
+	result.reply = reply
+	processContent := buildHRProcessContent(traces, result.contextUsage, result.fallbackUsed, governance)
+	if s.store != nil {
+		if _, err := s.store.AppendChatMessage(ctx, ChatMessageRow{OwnerRole: ownerRoleHR, OwnerID: req.GetHrId(), SessionID: session.ID, Role: "assistant", Content: reply, ProcessContent: processContent, ModelID: req.GetModelId(), AgentSkillIDs: hrRuntimeAgentSkillIDs(governance), AgentSkillNames: hrRuntimeAgentSkillNames(governance), CreatedAt: time.Now()}); err != nil {
+			return result, err
+		}
+	}
+	return result, nil
+}
+
+func findHRUserMessage(messages []ChatMessageRow, content string) ChatMessageRow {
+	needle := strings.TrimSpace(content)
+	if needle == "" {
+		return ChatMessageRow{}
+	}
+	for index := len(messages) - 1; index >= 0; index-- {
+		message := messages[index]
+		if message.Role == "user" && strings.TrimSpace(message.Content) == needle {
+			return message
+		}
+	}
+	return ChatMessageRow{}
+}
+
+func (s *nativeAIService) hrRecentMessages(ctx context.Context, hrID, sessionID int64) ([]ChatMessageRow, error) {
+	if s == nil || s.store == nil || sessionID == 0 {
+		return nil, nil
+	}
+	return s.store.ListChatMessages(ctx, ownerRoleHR, hrID, sessionID, 1, 20)
+}
+
+func (s *nativeAIService) loadHRRuntimeGovernance(ctx context.Context, req *pb.ChatRequest) (hrRuntimeGovernanceContext, error) {
+	var runtime hrRuntimeGovernanceContext
+	if s == nil || s.store == nil {
+		return runtime, nil
+	}
+	agent, err := s.loadDefaultHRAgentConfig(ctx)
+	if err != nil {
+		return runtime, err
+	}
+	runtime.Agent = agent
+	runtime.CapabilityKeys = hrRuntimeCapabilityKeys(agent)
+	runtime.ToolNames = hrRuntimeToolNames(agent)
+	runtime.Prompt = s.loadHRRuntimePrompt(ctx, agent)
+	runtime.AgentSkillSelectionConfirmed = req.GetAgentSkillSelectionConfirmed()
+	runtime.AgentSkillSelectionMessageID = req.GetAgentSkillSelectionMessageId()
+	runtime.SelectedAgentSkills = s.selectHRRuntimeAgentSkills(ctx, req, runtime.CapabilityKeys)
+	switch {
+	case len(req.GetAgentSkillIds()) > 0:
+		runtime.AgentSkillSelectionMode = "manual"
+	case req.GetAgentSkillSelectionConfirmed():
+		runtime.AgentSkillSelectionMode = "confirmed_empty"
+	case len(runtime.SelectedAgentSkills) > 0:
+		runtime.AgentSkillSelectionMode = "auto"
+	default:
+		runtime.AgentSkillSelectionMode = "none"
+	}
+	return runtime, nil
+}
+
+func (s *nativeAIService) loadDefaultHRAgentConfig(ctx context.Context) (*pb.AgentConfigInfo, error) {
+	rows, _, err := s.store.ListAgentConfigs(ctx, 1, 100, hrRecruitingAgentType)
+	if err != nil {
+		return nil, err
+	}
+	var selected *pb.AgentConfigInfo
+	for _, row := range rows {
+		if row == nil || !row.GetIsEnabled() {
+			continue
+		}
+		if row.GetIsDefault() {
+			selected = row
+			break
+		}
+		if selected == nil {
+			selected = row
+		}
+	}
+	if selected == nil {
+		return nil, nil
+	}
+	if configStore, ok := s.store.(hrRuntimeAgentConfigStore); ok {
+		resp, err := configStore.GetAgentConfig(ctx, &pb.GetAgentConfigRequest{AgentType: hrRecruitingAgentType})
+		if err != nil {
+			return nil, err
+		}
+		if resp != nil && resp.GetCode() == 0 && resp.GetAgent() != nil {
+			return resp.GetAgent(), nil
+		}
+	}
+	return selected, nil
+}
+
+func (s *nativeAIService) loadHRRuntimePrompt(ctx context.Context, agent *pb.AgentConfigInfo) *pb.PromptTemplateInfo {
+	if s == nil || s.store == nil {
+		return nil
+	}
+	if agent != nil && agent.GetPromptTemplateId() > 0 {
+		if promptStore, ok := s.store.(hrRuntimePromptTemplateStore); ok {
+			template, found, err := promptStore.GetRuntimePromptTemplateByID(ctx, agent.GetPromptTemplateId())
+			if err == nil && found {
+				return template
+			}
+		}
+	}
+	if promptStore, ok := s.store.(activePromptStore); ok {
+		resp, err := promptStore.GetActivePromptByAgentType(ctx, &pb.GetActivePromptByAgentTypeRequest{AgentType: hrRecruitingAgentType, PromptRole: hrRuntimePromptRoleSystem})
+		if err == nil && resp != nil && resp.GetCode() == 0 {
+			return resp.GetTemplate()
+		}
+	}
+	return nil
+}
+
+func (s *nativeAIService) selectHRRuntimeAgentSkills(ctx context.Context, req *pb.ChatRequest, capabilityKeys []string) []hrRuntimeAgentSkill {
+	if s == nil || s.store == nil || req.GetAgentSkillSelectionConfirmed() && len(req.GetAgentSkillIds()) == 0 {
+		return nil
+	}
+	rows, _, err := s.store.ListAgentSkills(ctx, 1, 100, "", true)
+	if err != nil || len(rows) == 0 {
+		return nil
+	}
+	available := make(map[string]bool, len(capabilityKeys))
+	for _, key := range capabilityKeys {
+		available[key] = true
+	}
+	selectedCapabilities := normalizedStringSet(req.GetSkillCapabilityKeys())
+	if len(selectedCapabilities) > 0 {
+		for key := range available {
+			if !selectedCapabilities[key] {
+				delete(available, key)
+			}
+		}
+	}
+	candidates := make([]model.AgentSkill, 0, len(rows))
+	byID := make(map[uint64]*pb.AgentSkillInfo, len(rows))
+	for _, row := range rows {
+		if row == nil {
+			continue
+		}
+		id := uint64(row.GetId())
+		byID[id] = row
+		candidates = append(candidates, model.AgentSkill{
+			ID:                   id,
+			Name:                 row.GetName(),
+			AgentType:            row.GetAgentType(),
+			Enabled:              row.GetIsEnabled(),
+			ManualInvocable:      row.GetIsManualInvocable(),
+			Category:             row.GetCategory(),
+			Scenario:             row.GetScenario(),
+			Priority:             int(row.GetPriority()),
+			RiskLevel:            row.GetRiskLevel(),
+			RequiredCapabilities: row.GetRequiredCapabilities(),
+			SemanticTags:         row.GetSemanticTags(),
+		})
+	}
+	manualIDs := make([]uint64, 0, len(req.GetAgentSkillIds()))
+	for _, id := range req.GetAgentSkillIds() {
+		if id > 0 {
+			manualIDs = append(manualIDs, uint64(id))
+		}
+	}
+	semanticScores := map[uint64]float64(nil)
+	if len(manualIDs) == 0 && s.embedding != nil {
+		if scores, _ := s.embedding.SemanticScores(ctx, req.GetMessage(), 20); len(scores) > 0 {
+			semanticScores = scores
+		}
+	}
+	selected := policy.SelectAgentSkills(candidates, model.AgentSkillSelectionRequest{
+		AgentType:             hrRecruitingAgentType,
+		Question:              req.GetMessage(),
+		ManualIDs:             manualIDs,
+		AvailableCapabilities: available,
+		SemanticScores:        semanticScores,
+		MaxSkills:             3,
+	})
+	result := make([]hrRuntimeAgentSkill, 0, len(selected))
+	for _, skill := range selected {
+		row := byID[skill.ID]
+		if row == nil {
+			continue
+		}
+		result = append(result, hrRuntimeAgentSkill{
+			ID:                   row.GetId(),
+			Name:                 row.GetName(),
+			DisplayName:          row.GetDisplayName(),
+			Description:          row.GetDescription(),
+			Manual:               skill.Manual,
+			Reason:               skill.Reason,
+			RiskLevel:            skill.RiskLevel,
+			RequiredCapabilities: row.GetRequiredCapabilities(),
+		})
+	}
+	return result
+}
+
+func hrRuntimeCapabilityKeys(agent *pb.AgentConfigInfo) []string {
+	if agent == nil || len(agent.GetCapabilityBindings()) == 0 {
+		return []string{hrCandidateSearchCapability, "resume_intelligence", "interview_context"}
+	}
+	keys := make([]string, 0, len(agent.GetCapabilityBindings()))
+	for _, binding := range agent.GetCapabilityBindings() {
+		if binding == nil || !binding.GetIsEnabled() {
+			continue
+		}
+		key := strings.TrimSpace(binding.GetCapabilityKey())
+		if key != "" {
+			keys = append(keys, key)
+		}
+	}
+	sort.Strings(keys)
+	return keys
+}
+
+func hrRuntimeToolNames(agent *pb.AgentConfigInfo) []string {
+	if agent == nil || len(agent.GetToolBindings()) == 0 {
+		return []string{hrApplicationSnapshotTool}
+	}
+	tools := make([]string, 0, len(agent.GetToolBindings()))
+	for _, binding := range agent.GetToolBindings() {
+		if binding == nil || !binding.GetIsEnabled() {
+			continue
+		}
+		name := strings.TrimSpace(binding.GetToolName())
+		if name != "" {
+			tools = append(tools, name)
+		}
+	}
+	sort.Strings(tools)
+	return tools
+}
+
+func hrRuntimeAgentSkillIDs(governance hrRuntimeGovernanceContext) []int64 {
+	ids := make([]int64, 0, len(governance.SelectedAgentSkills))
+	for _, skill := range governance.SelectedAgentSkills {
+		if skill.ID > 0 {
+			ids = append(ids, skill.ID)
+		}
+	}
+	return ids
+}
+
+func hrRuntimeAgentSkillNames(governance hrRuntimeGovernanceContext) []string {
+	names := make([]string, 0, len(governance.SelectedAgentSkills))
+	for _, skill := range governance.SelectedAgentSkills {
+		if strings.TrimSpace(skill.Name) != "" {
+			names = append(names, strings.TrimSpace(skill.Name))
+		}
+	}
+	return names
+}
+
+func hrRuntimeCompletionOptions(governance hrRuntimeGovernanceContext) ChatCompletionOptions {
+	if governance.Agent == nil || governance.Agent.GetTemperatureOverride() <= 0 {
+		return ChatCompletionOptions{}
+	}
+	temperature := governance.Agent.GetTemperatureOverride()
+	return ChatCompletionOptions{TemperatureOverride: &temperature}
+}
+
+func (s *nativeAIService) executeHRContextTools(ctx context.Context, req *pb.ChatRequest, sessionID int64, governance hrRuntimeGovernanceContext, emit hrChatStreamEmitter) ([]ToolTraceRow, error) {
+	traces := make([]ToolTraceRow, 0, 1)
+	if req.GetApplicationId() <= 0 {
+		mcpTraces, err := s.executeHRMCPTools(ctx, req, sessionID, governance, emit)
+		return append(traces, mcpTraces...), err
+	}
+	if !hrRuntimeAllowsApplicationSnapshot(req, governance) {
+		trace := ToolTraceRow{SessionID: sessionID, ToolName: hrApplicationSnapshotTool, ArgsJSON: fmt.Sprintf(`{"application_id":%d}`, req.GetApplicationId()), ErrorMsg: "application snapshot tool is not enabled by current agent capabilities", CreatedAt: time.Now()}
+		_, _ = s.persistHRToolTrace(ctx, req.GetHrId(), trace)
+		traces = append(traces, trace)
+	} else if s == nil || s.applications == nil {
+		trace := ToolTraceRow{SessionID: sessionID, ToolName: hrApplicationSnapshotTool, ArgsJSON: fmt.Sprintf(`{"application_id":%d}`, req.GetApplicationId()), ErrorMsg: "application owner client is not configured", CreatedAt: time.Now()}
+		_, _ = s.persistHRToolTrace(ctx, req.GetHrId(), trace)
+		traces = append(traces, trace)
+	} else {
+		if emit != nil {
+			if err := emit(&pb.ChatStreamResponse{Code: 0, Msg: "success", EventType: "tool_calling", EventMessage: "loading application snapshot", ToolName: hrApplicationSnapshotTool, CreatedAt: formatTime(time.Now())}); err != nil {
+				return nil, err
+			}
+		}
+		start := time.Now()
+		snapshot, err := s.applications.GetApplicationSnapshot(ctx, &pb.GetApplicationSnapshotRequest{ApplicationId: req.GetApplicationId()})
+		duration := time.Since(start)
+		trace := ToolTraceRow{SessionID: sessionID, ToolName: hrApplicationSnapshotTool, ArgsJSON: fmt.Sprintf(`{"application_id":%d}`, req.GetApplicationId()), DurationMs: duration.Milliseconds(), CreatedAt: time.Now()}
+		if err != nil {
+			trace.ErrorMsg = err.Error()
+		} else if snapshot.GetCode() != 0 {
+			trace.ErrorMsg = strings.TrimSpace(snapshot.GetMsg())
+			if trace.ErrorMsg == "" {
+				trace.ErrorMsg = "application snapshot unavailable"
+			}
+		} else {
+			trace.ResultContent = marshalJSONString(map[string]any{
+				"application_id":    snapshot.GetApplicationId(),
+				"candidate_user_id": snapshot.GetCandidateUserId(),
+				"job_id":            snapshot.GetJobId(),
+				"job_title":         snapshot.GetJobTitle(),
+				"candidate_name":    snapshot.GetCandidateName(),
+				"resume_id":         snapshot.GetResumeId(),
+				"legacy_status":     snapshot.GetLegacyStatus(),
+				"status_key":        snapshot.GetStatusKey(),
+				"round_no":          snapshot.GetRoundNo(),
+				"is_current":        snapshot.GetIsCurrent(),
+			})
+		}
+		persisted, persistErr := s.persistHRToolTrace(ctx, req.GetHrId(), trace)
+		if persistErr != nil {
+			return nil, persistErr
+		}
+		if persisted.ID != 0 {
+			trace = persisted
+		}
+		if emit != nil {
+			event := &pb.ChatStreamResponse{Code: 0, Msg: "success", EventType: "tool_done", EventMessage: "application snapshot loaded", ToolName: "get_application_snapshot", CreatedAt: formatTime(time.Now())}
+			if trace.ErrorMsg != "" {
+				event.EventType = "error"
+				event.EventMessage = trace.ErrorMsg
+				event.ErrorType = "TOOL_ERROR"
+				event.Msg = trace.ErrorMsg
+			}
+			if err := emit(event); err != nil {
+				return nil, err
+			}
+		}
+		traces = append(traces, trace)
+	}
+	mcpTraces, err := s.executeHRMCPTools(ctx, req, sessionID, governance, emit)
+	if err != nil {
+		return traces, err
+	}
+	return append(traces, mcpTraces...), nil
+}
+
+func (s *nativeAIService) executeHRMCPTools(ctx context.Context, req *pb.ChatRequest, sessionID int64, governance hrRuntimeGovernanceContext, emit hrChatStreamEmitter) ([]ToolTraceRow, error) {
+	calls := hrRuntimeSelectedMCPTools(req, governance)
+	if len(calls) == 0 {
+		return nil, nil
+	}
+	if s == nil || s.mcpRunner == nil {
+		traces := make([]ToolTraceRow, 0, len(calls))
+		for _, call := range calls {
+			trace := ToolTraceRow{SessionID: sessionID, ToolName: call.runtimeName, ArgsJSON: call.argsJSON(req.GetMessage()), ErrorMsg: "mcp runner is not configured", CreatedAt: time.Now()}
+			persisted, err := s.persistHRToolTrace(ctx, req.GetHrId(), trace)
+			if err != nil {
+				return traces, err
+			}
+			if persisted.ID != 0 {
+				trace = persisted
+			}
+			traces = append(traces, trace)
+		}
+		return traces, nil
+	}
+	service := nativeMCPService{store: s.store, runner: s.mcpRunner}
+	traces := make([]ToolTraceRow, 0, len(calls))
+	for _, call := range calls {
+		argsJSON := call.argsJSON(req.GetMessage())
+		if emit != nil {
+			if err := emit(&pb.ChatStreamResponse{Code: 0, Msg: "success", EventType: "tool_calling", EventMessage: "calling MCP tool", ToolName: call.runtimeName, CreatedAt: formatTime(time.Now())}); err != nil {
+				return traces, err
+			}
+		}
+		resp, err := service.CallMCPTool(ctx, &pb.CallMCPToolRequest{ServerId: call.serverID, ToolName: call.toolName, ArgsJson: argsJSON, CalledByHrId: req.GetHrId(), SessionId: sessionID, CallerRole: "hr_agent", CallerScope: "agent_runtime", ConfirmationApproved: req.GetAgentSkillSelectionConfirmed()})
+		trace := ToolTraceRow{SessionID: sessionID, ToolName: call.runtimeName, ArgsJSON: service.RedactedArgsForTool(ctx, call.serverID, call.toolName, argsJSON), CreatedAt: time.Now()}
+		if err != nil {
+			trace.ErrorMsg = err.Error()
+		} else if resp.GetCode() != 0 || strings.TrimSpace(resp.GetErrorMsg()) != "" {
+			trace.ErrorMsg = strings.TrimSpace(resp.GetErrorMsg())
+			if trace.ErrorMsg == "" {
+				trace.ErrorMsg = strings.TrimSpace(resp.GetMsg())
+			}
+			trace.DurationMs = resp.GetDurationMs()
+		} else {
+			trace.ResultContent = resp.GetResultContent()
+			trace.DurationMs = resp.GetDurationMs()
+		}
+		persisted, persistErr := s.persistHRToolTrace(ctx, req.GetHrId(), trace)
+		if persistErr != nil {
+			return traces, persistErr
+		}
+		if persisted.ID != 0 {
+			trace = persisted
+		}
+		if emit != nil {
+			event := &pb.ChatStreamResponse{Code: 0, Msg: "success", EventType: "tool_done", EventMessage: "MCP tool finished", ToolName: call.runtimeName, CreatedAt: formatTime(time.Now())}
+			if trace.ErrorMsg != "" {
+				event.EventType = "error"
+				event.EventMessage = trace.ErrorMsg
+				event.ErrorType = "MCP_TOOL_ERROR"
+				event.Msg = trace.ErrorMsg
+			}
+			if err := emit(event); err != nil {
+				return traces, err
+			}
+		}
+		traces = append(traces, trace)
+	}
+	return traces, nil
+}
+
+type hrRuntimeMCPToolCall struct {
+	serverID    int64
+	toolName    string
+	runtimeName string
+}
+
+func (call hrRuntimeMCPToolCall) argsJSON(message string) string {
+	return marshalJSONString(map[string]any{"query": strings.TrimSpace(message)})
+}
+
+func hrRuntimeSelectedMCPTools(req *pb.ChatRequest, governance hrRuntimeGovernanceContext) []hrRuntimeMCPToolCall {
+	if governance.Agent == nil {
+		return nil
+	}
+	selected := normalizedStringSet(req.GetSkillCapabilityKeys())
+	if len(selected) == 0 {
+		return nil
+	}
+	calls := make([]hrRuntimeMCPToolCall, 0)
+	seen := map[string]bool{}
+	for _, binding := range governance.Agent.GetCapabilityBindings() {
+		if binding == nil || !binding.GetIsEnabled() || !strings.EqualFold(binding.GetCapabilitySource(), "mcp") {
+			continue
+		}
+		key := strings.TrimSpace(binding.GetCapabilityKey())
+		if key == "" || !selected[key] || seen[key] {
+			continue
+		}
+		serverID, toolName, ok := parseHRMCPBindingKey(key)
+		if !ok {
+			continue
+		}
+		calls = append(calls, hrRuntimeMCPToolCall{serverID: serverID, toolName: toolName, runtimeName: hrMCPRuntimeToolName(serverID, toolName)})
+		seen[key] = true
+	}
+	return calls
+}
+
+func parseHRMCPBindingKey(key string) (int64, string, bool) {
+	parts := strings.SplitN(strings.TrimSpace(key), ":", 2)
+	if len(parts) != 2 {
+		return 0, "", false
+	}
+	serverID, err := strconv.ParseInt(strings.TrimSpace(parts[0]), 10, 64)
+	if err != nil {
+		return 0, "", false
+	}
+	toolName := strings.TrimSpace(parts[1])
+	return serverID, toolName, serverID > 0 && toolName != ""
+}
+
+func hrMCPRuntimeToolName(serverID int64, toolName string) string {
+	clean := strings.NewReplacer(":", "_", "-", "_", ".", "_", " ", "_").Replace(strings.TrimSpace(toolName))
+	return fmt.Sprintf("mcp_%d_%s", serverID, clean)
+}
+
+func (s *nativeAIService) persistHRToolTrace(ctx context.Context, hrID int64, trace ToolTraceRow) (ToolTraceRow, error) {
+	if s == nil || s.store == nil {
+		return trace, nil
+	}
+	return s.store.AppendToolTrace(ctx, hrID, trace)
+}
+
+func hrRuntimeAllowsApplicationSnapshot(req *pb.ChatRequest, governance hrRuntimeGovernanceContext) bool {
+	if governance.Agent != nil && len(governance.Agent.GetToolBindings()) > 0 && !stringSliceContains(governance.ToolNames, hrApplicationSnapshotTool) {
+		return false
+	}
+	if governance.Agent != nil && len(governance.Agent.GetCapabilityBindings()) > 0 && !stringSliceContains(governance.CapabilityKeys, hrCandidateSearchCapability) {
+		return false
+	}
+	selected := normalizedStringSet(req.GetSkillCapabilityKeys())
+	if len(selected) > 0 && !selected[hrCandidateSearchCapability] {
+		return false
+	}
+	return true
+}
+
+func renderHRProviderPrompt(req *pb.ChatRequest, history []ChatMessageRow, current ChatMessageRow, traces []ToolTraceRow, governance hrRuntimeGovernanceContext) string {
+	var b strings.Builder
+	b.WriteString("System:\n你是 Smart Recruit 的 HR 招聘助手。必须优先依据系统工具返回的招聘数据回答；如果工具不可用，明确说明限制，不要编造候选人、岗位或投递数据。\n")
+	if governance.Prompt != nil && strings.TrimSpace(governance.Prompt.GetContent()) != "" {
+		b.WriteString("\nActive prompt template:\n")
+		b.WriteString(strings.TrimSpace(governance.Prompt.GetContent()))
+		b.WriteString("\n")
+	}
+	if governance.Agent != nil {
+		b.WriteString("\nActive agent config:\n")
+		b.WriteString(marshalJSONString(map[string]any{
+			"agent_id":             governance.Agent.GetId(),
+			"agent_type":           governance.Agent.GetAgentType(),
+			"name":                 governance.Agent.GetName(),
+			"display_name":         governance.Agent.GetDisplayName(),
+			"instruction":          governance.Agent.GetInstruction(),
+			"max_iterations":       governance.Agent.GetMaxIterations(),
+			"temperature_override": governance.Agent.GetTemperatureOverride(),
+			"capability_keys":      governance.CapabilityKeys,
+			"tool_names":           governance.ToolNames,
+		}))
+		b.WriteString("\n")
+	}
+	if len(history) > 0 {
+		b.WriteString("\nRecent conversation:\n")
+		for _, message := range ensureHRCurrentMessage(history, current) {
+			if strings.TrimSpace(message.Content) == "" {
+				continue
+			}
+			b.WriteString(message.Role)
+			b.WriteString(":\n")
+			b.WriteString(strings.TrimSpace(message.Content))
+			b.WriteString("\n")
+		}
+	}
+	if len(traces) > 0 {
+		b.WriteString("\nTool results:\n")
+		for _, trace := range traces {
+			b.WriteString("- ")
+			b.WriteString(trace.ToolName)
+			if trace.ErrorMsg != "" {
+				b.WriteString(" error: ")
+				b.WriteString(trace.ErrorMsg)
+			} else {
+				b.WriteString(": ")
+				b.WriteString(trace.ResultContent)
+			}
+			b.WriteString("\n")
+		}
+	}
+	if req.GetAgentSkillSelectionConfirmed() || len(req.GetAgentSkillIds()) > 0 || len(req.GetSkillCapabilityKeys()) > 0 {
+		b.WriteString("\nRuntime selection:\n")
+		b.WriteString(marshalJSONString(map[string]any{
+			"agent_skill_ids":                  req.GetAgentSkillIds(),
+			"skill_capability_keys":            req.GetSkillCapabilityKeys(),
+			"agent_skill_selection_confirmed":  req.GetAgentSkillSelectionConfirmed(),
+			"agent_skill_selection_message_id": req.GetAgentSkillSelectionMessageId(),
+		}))
+		b.WriteString("\n")
+	}
+	if len(governance.SelectedAgentSkills) > 0 || governance.AgentSkillSelectionMode != "" {
+		b.WriteString("\nSelected Agent Skills:\n")
+		b.WriteString(marshalJSONString(map[string]any{
+			"mode":         governance.AgentSkillSelectionMode,
+			"confirmed":    governance.AgentSkillSelectionConfirmed,
+			"message_id":   governance.AgentSkillSelectionMessageID,
+			"agent_skills": governance.SelectedAgentSkills,
+		}))
+		b.WriteString("\n")
+	}
+	b.WriteString("\nUser:\n")
+	b.WriteString(strings.TrimSpace(req.GetMessage()))
+	b.WriteString("\nAssistant:")
+	return b.String()
+}
+
+func ensureHRCurrentMessage(messages []ChatMessageRow, current ChatMessageRow) []ChatMessageRow {
+	if current.ID == 0 {
+		return messages
+	}
+	for _, message := range messages {
+		if message.ID == current.ID {
+			return messages
+		}
+	}
+	out := make([]ChatMessageRow, 0, len(messages)+1)
+	out = append(out, messages...)
+	out = append(out, current)
+	return out
+}
+
+func estimateHRContextUsage(modelID int64, prompt, current string, traces []ToolTraceRow) *pb.ContextUsageInfo {
+	system := estimateTokens("你是 Smart Recruit 的 HR 招聘助手。")
+	currentTokens := estimateTokens(current)
+	toolTokens := 0
+	for _, trace := range traces {
+		toolTokens += estimateTokens(trace.ResultContent) + estimateTokens(trace.ErrorMsg)
+	}
+	promptTokens := estimateTokens(prompt)
+	window := int32(8192)
+	remaining := int32(math.Max(0, float64(int(window)-promptTokens)))
+	return &pb.ContextUsageInfo{
+		ModelId:                  modelID,
+		ContextWindowTokens:      window,
+		MaxOutputTokens:          1024,
+		PromptTokensEstimated:    int32(promptTokens),
+		RemainingTokensEstimated: remaining,
+		UsageRatio:               float64(promptTokens) / float64(window),
+		Estimated:                true,
+		Source:                   "native-hr-runtime",
+		Stage:                    "pre_generation",
+		Breakdown: &pb.ContextUsageBreakdown{
+			SystemPromptTokens:   int32(system),
+			CurrentMessageTokens: int32(currentTokens),
+			ToolResultTokens:     int32(toolTokens),
+			RecentMessageTokens:  int32(maxInt(promptTokens-system-currentTokens-toolTokens, 0)),
+		},
+	}
+}
+
+func estimateTokens(value string) int {
+	trimmed := strings.TrimSpace(value)
+	if trimmed == "" {
+		return 0
+	}
+	runes := len([]rune(trimmed))
+	return maxInt((runes+3)/4, 1)
+}
+
+func toCommonsToolTraces(rows []ToolTraceRow) []commonsai.ToolTrace {
+	traces := make([]commonsai.ToolTrace, 0, len(rows))
+	for _, row := range rows {
+		trace := commonsai.ToolTrace{ToolName: row.ToolName, Result: row.ResultContent, Cost: time.Duration(row.DurationMs) * time.Millisecond}
+		if strings.TrimSpace(row.ArgsJSON) != "" {
+			var args map[string]any
+			if err := json.Unmarshal([]byte(row.ArgsJSON), &args); err == nil {
+				trace.Arguments = args
+			}
+		}
+		if strings.TrimSpace(row.ErrorMsg) != "" {
+			trace.Error = errors.New(row.ErrorMsg)
+		}
+		traces = append(traces, trace)
+	}
+	return traces
+}
+
+func hasUsefulToolResults(rows []ToolTraceRow) bool {
+	for _, row := range rows {
+		if strings.TrimSpace(row.ErrorMsg) == "" && strings.TrimSpace(row.ResultContent) != "" {
+			return true
+		}
+	}
+	return false
+}
+
+func extractApplicationTraceMetadata(raw string) (candidateName, jobTitle string, status int32) {
+	var data map[string]any
+	if err := json.Unmarshal([]byte(raw), &data); err != nil {
+		return "", "", 0
+	}
+	candidateName, _ = data["candidate_name"].(string)
+	jobTitle, _ = data["job_title"].(string)
+	status = int32(numberFromAny(data["legacy_status"]))
+	return candidateName, jobTitle, status
+}
+
+func buildHRProcessContent(traces []ToolTraceRow, usage *pb.ContextUsageInfo, fallbackUsed bool, governance hrRuntimeGovernanceContext) string {
+	payload := map[string]any{
+		"runtime":       "native-hr-runtime",
+		"fallback_used": fallbackUsed,
+		"tool_count":    len(traces),
+	}
+	if usage != nil {
+		payload["context_usage"] = map[string]any{
+			"prompt_tokens_estimated":    usage.GetPromptTokensEstimated(),
+			"remaining_tokens_estimated": usage.GetRemainingTokensEstimated(),
+			"source":                     usage.GetSource(),
+			"stage":                      usage.GetStage(),
+		}
+	}
+	if governance.Agent != nil || governance.Prompt != nil || len(governance.SelectedAgentSkills) > 0 || governance.AgentSkillSelectionMode != "" {
+		payload["governance"] = map[string]any{
+			"agent_id":                         agentConfigID(governance.Agent),
+			"agent_type":                       agentConfigType(governance.Agent),
+			"prompt_template_id":               promptTemplateID(governance.Prompt),
+			"capability_keys":                  governance.CapabilityKeys,
+			"tool_names":                       governance.ToolNames,
+			"agent_skill_selection_mode":       governance.AgentSkillSelectionMode,
+			"agent_skill_selection_confirmed":  governance.AgentSkillSelectionConfirmed,
+			"agent_skill_selection_message_id": governance.AgentSkillSelectionMessageID,
+			"agent_skills":                     governance.SelectedAgentSkills,
+		}
+	}
+	return marshalJSONString(payload)
+}
+
+func marshalJSONString(value any) string {
+	data, err := json.Marshal(value)
+	if err != nil {
+		return "{}"
+	}
+	return string(data)
+}
+
+func firstNonZeroInt64(values ...int64) int64 {
+	for _, value := range values {
+		if value != 0 {
+			return value
+		}
+	}
+	return 0
+}
+
+func maxInt(a, b int) int {
+	if a > b {
+		return a
+	}
+	return b
+}
+
+func numberFromAny(value any) float64 {
+	switch v := value.(type) {
+	case float64:
+		return v
+	case float32:
+		return float64(v)
+	case int:
+		return float64(v)
+	case int32:
+		return float64(v)
+	case int64:
+		return float64(v)
+	case json.Number:
+		n, _ := v.Float64()
+		return n
+	default:
+		return 0
+	}
 }
 
 func (s *nativeAIService) History(ctx context.Context, req *pb.ChatHistoryRequest) (*pb.ChatHistoryResponse, error) {
@@ -516,6 +1656,8 @@ func (s *nativeAIService) CandidateChatStream(req *pb.CandidateChatRequest, stre
 	if req == nil || strings.TrimSpace(req.GetMessage()) == "" {
 		return stream.Send(&pb.ChatStreamResponse{Code: agentRunCodeBadRequest, Msg: candidateChatEmptyMessageError, Done: true, CreatedAt: formatTime(time.Now()), EventType: "done"})
 	}
+	startedAt := time.Now()
+	inputChars := len([]rune(req.GetMessage()))
 	session, err := s.ensureSession(ctx, ownerRoleCandidate, req.GetUserId(), req.GetSessionId(), 0, req.GetMessage())
 	if err != nil {
 		return err
@@ -524,23 +1666,50 @@ func (s *nativeAIService) CandidateChatStream(req *pb.CandidateChatRequest, stre
 	if err != nil {
 		return err
 	}
-	prompt, err := s.buildCandidateProviderPrompt(ctx, req.GetUserId(), session.ID, userMessage)
+	runtimeContext, err := s.loadCandidateRuntimeContext(ctx, req.GetUserId(), session.ID)
+	if err != nil {
+		return err
+	}
+	prompt, err := s.buildCandidateProviderPrompt(ctx, req.GetUserId(), session.ID, userMessage, runtimeContext)
 	if err != nil {
 		return err
 	}
 	reply, err := s.complete(ctx, prompt, 0)
 	if err != nil {
+		if fallback := buildCandidateContextFallbackReply(runtimeContext); fallback != "" {
+			questions := candidateSuggestedQuestions(req.GetMessage(), fallback)
+			if _, saveErr := s.store.AppendChatMessage(ctx, ChatMessageRow{OwnerRole: ownerRoleCandidate, OwnerID: req.GetUserId(), SessionID: session.ID, Role: "assistant", Content: fallback, CreatedAt: time.Now()}); saveErr != nil {
+				return saveErr
+			}
+			if auditErr := s.recordCandidateUsageAudit(ctx, req.GetUserId(), inputChars, len([]rune(fallback)), "error", "provider_error", int(time.Since(startedAt).Milliseconds())); auditErr != nil {
+				return auditErr
+			}
+			if sendErr := stream.Send(&pb.ChatStreamResponse{Code: 0, Msg: "success", EventType: "partial_done", EventMessage: "已基于已查询数据给出保守回复", ErrorType: "provider_error", SessionId: session.ID, CreatedAt: formatTime(time.Now())}); sendErr != nil {
+				return sendErr
+			}
+			return stream.Send(&pb.ChatStreamResponse{Code: 0, Msg: "success", Delta: fallback, Done: true, SessionId: session.ID, CreatedAt: formatTime(time.Now()), EventType: "done", SuggestedQuestions: questions})
+		}
+		if auditErr := s.recordCandidateUsageAudit(ctx, req.GetUserId(), inputChars, 0, "error", "provider_error", int(time.Since(startedAt).Milliseconds())); auditErr != nil {
+			return errors.Join(err, auditErr)
+		}
 		return err
 	}
+	cleanReply, suggestedQuestions := extractCandidateSuggestedQuestions(reply)
+	if len(suggestedQuestions) != 3 {
+		suggestedQuestions = candidateSuggestedQuestions(req.GetMessage(), cleanReply)
+	}
 	if s.store != nil {
-		if _, err := s.store.AppendChatMessage(ctx, ChatMessageRow{OwnerRole: ownerRoleCandidate, OwnerID: req.GetUserId(), SessionID: session.ID, Role: "assistant", Content: reply, CreatedAt: time.Now()}); err != nil {
+		if _, err := s.store.AppendChatMessage(ctx, ChatMessageRow{OwnerRole: ownerRoleCandidate, OwnerID: req.GetUserId(), SessionID: session.ID, Role: "assistant", Content: cleanReply, CreatedAt: time.Now()}); err != nil {
 			return err
 		}
 	}
-	return stream.Send(&pb.ChatStreamResponse{Code: 0, Msg: "success", Delta: reply, Done: true, SessionId: session.ID, CreatedAt: formatTime(time.Now()), EventType: "done"})
+	if err := s.recordCandidateUsageAudit(ctx, req.GetUserId(), inputChars, len([]rune(cleanReply)), "ok", "", int(time.Since(startedAt).Milliseconds())); err != nil {
+		return err
+	}
+	return stream.Send(&pb.ChatStreamResponse{Code: 0, Msg: "success", Delta: cleanReply, Done: true, SessionId: session.ID, CreatedAt: formatTime(time.Now()), EventType: "done", SuggestedQuestions: suggestedQuestions})
 }
 
-func (s *nativeAIService) buildCandidateProviderPrompt(ctx context.Context, userID, sessionID int64, currentUserMessage ChatMessageRow) (string, error) {
+func (s *nativeAIService) buildCandidateProviderPrompt(ctx context.Context, userID, sessionID int64, currentUserMessage ChatMessageRow, runtimeContext CandidateRuntimeContext) (string, error) {
 	systemPrompt, err := s.resolveCandidateSystemPrompt(ctx)
 	if err != nil {
 		return "", err
@@ -550,7 +1719,7 @@ func (s *nativeAIService) buildCandidateProviderPrompt(ctx context.Context, user
 		return "", err
 	}
 	messages = ensureCandidateCurrentMessage(messages, currentUserMessage, userID, sessionID)
-	return renderCandidateProviderPrompt(systemPrompt, messages, userID, sessionID), nil
+	return renderCandidateProviderPrompt(systemPrompt, messages, userID, sessionID, runtimeContext), nil
 }
 
 func (s *nativeAIService) resolveCandidateSystemPrompt(ctx context.Context) (string, error) {
@@ -581,10 +1750,91 @@ func ensureCandidateCurrentMessage(messages []ChatMessageRow, current ChatMessag
 	return messages
 }
 
-func renderCandidateProviderPrompt(systemPrompt string, messages []ChatMessageRow, userID, sessionID int64) string {
+func (s *nativeAIService) loadCandidateRuntimeContext(ctx context.Context, userID, sessionID int64) (CandidateRuntimeContext, error) {
+	contextStore, ok := s.store.(candidateContextStore)
+	if !ok {
+		return CandidateRuntimeContext{}, nil
+	}
+	snapshot, err := contextStore.LoadCandidateRuntimeContext(ctx, userID, candidateRuntimeContextLimit)
+	if err != nil {
+		return CandidateRuntimeContext{}, err
+	}
+	for _, trace := range candidateContextToolTraces(snapshot, sessionID) {
+		if _, err := s.store.AppendToolTrace(ctx, userID, trace); err != nil {
+			return CandidateRuntimeContext{}, err
+		}
+	}
+	return snapshot, nil
+}
+
+func candidateContextToolTraces(snapshot CandidateRuntimeContext, sessionID int64) []ToolTraceRow {
+	now := time.Now()
+	traces := make([]ToolTraceRow, 0, 5)
+	appendTrace := func(name string, payload any) {
+		raw, _ := json.Marshal(payload)
+		traces = append(traces, ToolTraceRow{
+			SessionID:     sessionID,
+			ToolName:      name,
+			ArgsJSON:      `{"scope":"current_candidate"}`,
+			ResultContent: string(raw),
+			CreatedAt:     now,
+		})
+	}
+	appendTrace("list_my_applications", map[string]any{"applications": snapshot.Applications})
+	appendTrace("get_my_resume_text", sanitizeCandidateResumeTrace(snapshot.Resume))
+	appendTrace("list_jobs_for_recommendation", map[string]any{"jobs": snapshot.Jobs})
+	appendTrace("list_candidate_interviews", map[string]any{"interviews": snapshot.Interviews})
+	appendTrace("list_my_offers", map[string]any{"offers": snapshot.Offers})
+	return traces
+}
+
+func sanitizeCandidateResumeTrace(resume CandidateResumeContext) CandidateResumeContext {
+	resume.Summary = ""
+	return resume
+}
+
+func (s *nativeAIService) recordCandidateUsageAudit(ctx context.Context, userID int64, requestChars, responseChars int, statusValue, errorCode string, costMs int) error {
+	auditStore, ok := s.store.(candidateUsageAuditStore)
+	if !ok {
+		return nil
+	}
+	if statusValue == "" {
+		statusValue = "ok"
+	}
+	_, err := auditStore.RecordCandidateUsageAudit(ctx, CandidateUsageAuditRow{
+		UserID:          userID,
+		ServiceType:     "ai_chat",
+		Endpoint:        "/candidate/ai/chat/stream",
+		Provider:        "openai_compatible",
+		RequestChars:    requestChars,
+		ResponseChars:   responseChars,
+		EstimatedTokens: estimateTokenUsage(requestChars, responseChars),
+		Status:          statusValue,
+		ErrorCode:       errorCode,
+		CostMs:          costMs,
+		RequestID:       platformmetadata.GetRequestID(ctx),
+		IP:              platformmetadata.GetClientIP(ctx),
+		RoleKeys:        []string{"candidate"},
+		PermissionKey:   "ai.candidate.use",
+		ScopeKeys:       []string{"self"},
+	})
+	return err
+}
+
+func estimateTokenUsage(requestChars, responseChars int) int {
+	total := requestChars + responseChars
+	if total <= 0 {
+		return 0
+	}
+	return int(math.Ceil(float64(total) / 4.0))
+}
+
+func renderCandidateProviderPrompt(systemPrompt string, messages []ChatMessageRow, userID, sessionID int64, runtimeContext CandidateRuntimeContext) string {
 	var b strings.Builder
 	b.WriteString("System:\n")
 	b.WriteString(strings.TrimSpace(systemPrompt))
+	b.WriteString("\n\nCandidate runtime context (current candidate only; do not infer other candidates or HR-only data):\n")
+	b.WriteString(renderCandidateRuntimeContext(runtimeContext))
 	b.WriteString("\n\nConversation:\n")
 	for _, message := range messages {
 		if message.OwnerRole != ownerRoleCandidate || message.OwnerID != userID || message.SessionID != sessionID {
@@ -602,6 +1852,197 @@ func renderCandidateProviderPrompt(systemPrompt string, messages []ChatMessageRo
 	}
 	b.WriteString("Assistant:")
 	return b.String()
+}
+
+func renderCandidateRuntimeContext(snapshot CandidateRuntimeContext) string {
+	raw, err := json.MarshalIndent(snapshot, "", "  ")
+	if err != nil {
+		return "{}"
+	}
+	return string(raw)
+}
+
+func extractCandidateSuggestedQuestions(reply string) (string, []string) {
+	raw := strings.TrimSpace(reply)
+	start := strings.Index(raw, candidateSuggestedQuestionsStartMarker)
+	if start < 0 {
+		return raw, nil
+	}
+	cleanReply := strings.TrimSpace(raw[:start])
+	rest := raw[start+len(candidateSuggestedQuestionsStartMarker):]
+	jsonText := rest
+	if end := strings.Index(rest, candidateSuggestedQuestionsEndMarker); end >= 0 {
+		jsonText = rest[:end]
+		after := strings.TrimSpace(rest[end+len(candidateSuggestedQuestionsEndMarker):])
+		if after != "" {
+			cleanReply = strings.TrimSpace(cleanReply + "\n\n" + after)
+		}
+	}
+	return cleanReply, parseCandidateSuggestedQuestionsJSON(jsonText)
+}
+
+func parseCandidateSuggestedQuestionsJSON(content string) []string {
+	var values []string
+	if err := json.Unmarshal([]byte(strings.TrimSpace(content)), &values); err != nil {
+		return nil
+	}
+	questions := make([]string, 0, 3)
+	for _, value := range values {
+		value = strings.TrimSpace(value)
+		if value == "" {
+			continue
+		}
+		questions = append(questions, value)
+		if len(questions) == 3 {
+			break
+		}
+	}
+	if len(questions) != 3 {
+		return nil
+	}
+	return questions
+}
+
+func candidateSuggestedQuestions(message, reply string) []string {
+	lower := strings.ToLower(message + "\n" + reply)
+	switch {
+	case strings.Contains(lower, "offer"):
+		return []string{"我的 Offer 什么时候过期？", "Offer 里有哪些需要确认？", "我可以查看哪些 Offer 记录？"}
+	case strings.Contains(lower, "面试") || strings.Contains(lower, "interview"):
+		return []string{"我最近有哪些面试安排？", "面试前需要准备什么？", "这个岗位面试到第几轮了？"}
+	case strings.Contains(lower, "简历") || strings.Contains(lower, "resume"):
+		return []string{"我的简历解析完成了吗？", "简历可以优化哪些方向？", "基于简历推荐哪些岗位？"}
+	case strings.Contains(lower, "岗位") || strings.Contains(lower, "job"):
+		return []string{"有哪些岗位适合我？", "这些岗位我投递过吗？", "能按匹配度推荐岗位吗？"}
+	default:
+		return []string{"我有哪些投递进展？", "有哪些岗位适合我？", "我接下来应该准备什么？"}
+	}
+}
+
+func buildCandidateContextFallbackReply(snapshot CandidateRuntimeContext) string {
+	if !candidateRuntimeContextHasData(snapshot) {
+		return ""
+	}
+	var b strings.Builder
+	b.WriteString("当前 AI 生成服务暂时不可用。我已基于你本人可见的系统数据给出保守摘要：\n\n")
+	if len(snapshot.Applications) > 0 {
+		b.WriteString("## 投递进度\n\n")
+		for _, app := range snapshot.Applications {
+			b.WriteString("- **")
+			b.WriteString(nonEmpty(app.JobTitle, fmt.Sprintf("岗位 %d", app.JobID)))
+			b.WriteString("** — ")
+			b.WriteString(nonEmpty(app.StatusText, app.StatusKey))
+			if app.AppliedAt != "" {
+				b.WriteString("，投递于 ")
+				b.WriteString(app.AppliedAt)
+			}
+			b.WriteString("\n")
+		}
+		b.WriteString("\n")
+	}
+	if len(snapshot.Interviews) > 0 {
+		b.WriteString("## 面试安排\n\n")
+		for _, interview := range snapshot.Interviews {
+			b.WriteString("- **")
+			b.WriteString(nonEmpty(interview.Title, fmt.Sprintf("第 %d 轮面试", interview.RoundNo)))
+			b.WriteString("**")
+			if interview.JobTitle != "" {
+				b.WriteString(" — ")
+				b.WriteString(interview.JobTitle)
+			}
+			if interview.ScheduledAt != "" {
+				b.WriteString("，时间 ")
+				b.WriteString(interview.ScheduledAt)
+			}
+			if interview.Status != "" {
+				b.WriteString("，状态 ")
+				b.WriteString(interview.Status)
+			}
+			b.WriteString("\n")
+		}
+		b.WriteString("\n")
+	}
+	if len(snapshot.Offers) > 0 {
+		b.WriteString("## Offer\n\n")
+		for _, offer := range snapshot.Offers {
+			b.WriteString("- **")
+			b.WriteString(nonEmpty(offer.Title, fmt.Sprintf("Offer %d", offer.OfferID)))
+			b.WriteString("** — ")
+			b.WriteString(offer.Status)
+			if offer.ExpiresAt != "" {
+				b.WriteString("，有效期至 ")
+				b.WriteString(offer.ExpiresAt)
+			}
+			b.WriteString("\n")
+		}
+		b.WriteString("\n")
+	}
+	if snapshot.Resume.Available {
+		b.WriteString("## 简历\n\n")
+		b.WriteString("- 已读取你的有效简历")
+		if snapshot.Resume.FileName != "" {
+			b.WriteString("：**")
+			b.WriteString(snapshot.Resume.FileName)
+			b.WriteString("**")
+		}
+		b.WriteString("\n\n")
+	}
+	return strings.TrimSpace(b.String())
+}
+
+func candidateRuntimeContextHasData(snapshot CandidateRuntimeContext) bool {
+	return len(snapshot.Applications) > 0 || snapshot.Resume.Available || len(snapshot.Jobs) > 0 || len(snapshot.Interviews) > 0 || len(snapshot.Offers) > 0
+}
+
+func nonEmpty(values ...string) string {
+	for _, value := range values {
+		if strings.TrimSpace(value) != "" {
+			return strings.TrimSpace(value)
+		}
+	}
+	return ""
+}
+
+func stringSliceContains(values []string, needle string) bool {
+	needle = strings.TrimSpace(needle)
+	for _, value := range values {
+		if strings.TrimSpace(value) == needle {
+			return true
+		}
+	}
+	return false
+}
+
+func normalizedStringSet(values []string) map[string]bool {
+	out := make(map[string]bool, len(values))
+	for _, value := range values {
+		trimmed := strings.TrimSpace(value)
+		if trimmed != "" {
+			out[trimmed] = true
+		}
+	}
+	return out
+}
+
+func agentConfigID(agent *pb.AgentConfigInfo) int64 {
+	if agent == nil {
+		return 0
+	}
+	return agent.GetId()
+}
+
+func agentConfigType(agent *pb.AgentConfigInfo) string {
+	if agent == nil {
+		return ""
+	}
+	return agent.GetAgentType()
+}
+
+func promptTemplateID(template *pb.PromptTemplateInfo) int64 {
+	if template == nil {
+		return 0
+	}
+	return template.GetId()
 }
 
 func normalizeConversationRole(role string) string {
@@ -694,7 +2135,8 @@ func (s *nativeAIService) CreateAgentRun(ctx context.Context, req *pb.CreateAgen
 	if s.store == nil {
 		return &pb.CreateAgentRunResponse{Code: configCodeUnavailable, Msg: errAIStoreRequired.Error()}, nil
 	}
-	run, idempotent, err := s.store.CreateAgentRun(ctx, fallbackAgentRun(req.GetHrId(), req.GetSessionId(), req.GetClientRequestId(), req.GetMessage(), req.GetModelId()))
+	payload := agentRunPayloadFromCreateRequest(req)
+	run, idempotent, err := s.store.CreateAgentRun(ctx, fallbackAgentRun(req.GetHrId(), req.GetSessionId(), req.GetClientRequestId(), payload))
 	if err != nil {
 		return nil, err
 	}
@@ -708,7 +2150,7 @@ func (s *nativeAIService) CreateAgentRun(ctx context.Context, req *pb.CreateAgen
 	if created.Seq > 0 {
 		run.LastEventSeq = created.Seq
 	}
-	s.dispatchAgentRun(run, req.GetMessage(), req.GetModelId())
+	s.dispatchAgentRun(run)
 	return &pb.CreateAgentRunResponse{Code: 0, Msg: "success", Run: mapAgentRunSnapshot(run), IdempotentReplay: false}, nil
 }
 
@@ -865,7 +2307,19 @@ func (s *nativeAIService) CancelAgentRun(ctx context.Context, req *pb.CancelAgen
 	if !found {
 		return &pb.CancelAgentRunResponse{Code: 404, Msg: "agent run not found"}, nil
 	}
-	s.cancelAgentRunExecution(req.GetRunId())
+	activeExecution := s.cancelAgentRunExecution(req.GetRunId())
+	if !activeExecution {
+		if err := s.completeAgentRunCanceledLocked(ctx, run); err != nil {
+			return nil, err
+		}
+		finalRun, finalFound, err := s.getRun(ctx, req.GetHrId(), req.GetRunId())
+		if err != nil {
+			return nil, err
+		}
+		if finalFound {
+			run = finalRun
+		}
+	}
 	return &pb.CancelAgentRunResponse{Code: 0, Msg: "success", Run: mapAgentRunSnapshot(run)}, nil
 }
 
@@ -902,6 +2356,13 @@ func (s *nativeAIService) ConfirmAgentRun(ctx context.Context, req *pb.ConfirmAg
 	if run.Status != agentRunStatusWaitingConfirmation {
 		return &pb.ConfirmAgentRunResponse{Code: agentRunCodeBadRequest, Msg: illegalAgentRunTransitionMessage("confirm", run.Status), Run: mapAgentRunSnapshot(run)}, nil
 	}
+	run, found, err = s.updateAgentRunConfirmation(ctx, run, req)
+	if err != nil {
+		return nil, err
+	}
+	if !found {
+		return &pb.ConfirmAgentRunResponse{Code: 404, Msg: "agent run not found"}, nil
+	}
 	run, found, err = s.updateRun(ctx, req.GetHrId(), req.GetRunId(), agentRunStatusRunning)
 	if err != nil {
 		return nil, err
@@ -909,10 +2370,36 @@ func (s *nativeAIService) ConfirmAgentRun(ctx context.Context, req *pb.ConfirmAg
 	if !found {
 		return &pb.ConfirmAgentRunResponse{Code: 404, Msg: "agent run not found"}, nil
 	}
-	if _, err := s.appendAgentRunEvent(ctx, run.ID, "confirmation.accepted", fmt.Sprintf(`{"status":%q}`, agentRunStatusRunning)); err != nil {
+	if _, err := s.appendAgentRunEvent(ctx, run.ID, "confirmation.accepted", agentRunConfirmationAcceptedPayload(req)); err != nil {
 		return nil, err
 	}
+	s.dispatchAgentRun(run)
 	return &pb.ConfirmAgentRunResponse{Code: 0, Msg: "success", Run: mapAgentRunSnapshot(run)}, nil
+}
+
+func (s *nativeAIService) updateAgentRunConfirmation(ctx context.Context, run AgentRunRow, req *pb.ConfirmAgentRunRequest) (AgentRunRow, bool, error) {
+	if s.store == nil {
+		return AgentRunRow{}, false, errAIStoreRequired
+	}
+	payload := agentRunPayloadFromRow(run)
+	if len(req.GetAgentSkillIds()) > 0 {
+		payload.AgentSkillIDs = append([]int64(nil), req.GetAgentSkillIds()...)
+	}
+	if req.GetAgentSkillSelectionConfirmed() {
+		payload.AgentSkillSelectionConfirmed = true
+	}
+	if req.GetAgentSkillSelectionMessageId() != 0 {
+		payload.AgentSkillSelectionMessageID = req.GetAgentSkillSelectionMessageId()
+	}
+	if strings.TrimSpace(req.GetConfirmationPayloadJson()) != "" {
+		payload.ConfirmationPayloadJSON = strings.TrimSpace(req.GetConfirmationPayloadJson())
+	}
+	if strings.TrimSpace(req.GetClientRequestId()) != "" {
+		payload.ConfirmationClientRequestID = strings.TrimSpace(req.GetClientRequestId())
+	}
+	planJSON := agentRunPlanJSON(payload)
+	optionContextJSON := agentRunConfirmationOptionContext(req)
+	return s.store.UpdateAgentRunPlan(ctx, run.OwnerID, run.ID, planJSON, optionContextJSON)
 }
 
 func (s *nativeAIService) ensureSession(ctx context.Context, ownerRole int32, ownerID, sessionID, applicationID int64, seed string) (ChatSessionRow, error) {
@@ -943,9 +2430,23 @@ func (s *nativeAIService) missingStore() bool {
 	return s == nil || s.store == nil
 }
 
-func (s *nativeAIService) complete(ctx context.Context, prompt string, modelID int64) (string, error) {
+func (s *nativeAIService) complete(ctx context.Context, prompt string, modelID int64, opts ...ChatCompletionOptions) (string, error) {
 	if s.provider == nil {
 		return "", errAIProviderRequired
+	}
+	var completionOpts ChatCompletionOptions
+	if len(opts) > 0 {
+		completionOpts = opts[0]
+	}
+	if optionsAware, ok := s.provider.(RuntimeOptionsChatProvider); ok && completionOpts.TemperatureOverride != nil {
+		reply, err := optionsAware.CompleteWithOptions(ctx, prompt, modelID, completionOpts)
+		if err != nil {
+			return "", err
+		}
+		if strings.TrimSpace(reply) == "" {
+			return "AI provider returned an empty response.", nil
+		}
+		return reply, nil
 	}
 	if modelAware, ok := s.provider.(ModelAwareChatProvider); ok {
 		reply, err := modelAware.CompleteWithModel(ctx, prompt, modelID)
@@ -967,22 +2468,33 @@ func (s *nativeAIService) complete(ctx context.Context, prompt string, modelID i
 	return reply, nil
 }
 
-func (s *nativeAIService) dispatchAgentRun(run AgentRunRow, message string, modelID int64) {
+func (s *nativeAIService) dispatchAgentRun(run AgentRunRow) {
 	ctx, cancel := context.WithCancel(context.Background())
 	s.storeAgentRunCancel(run.ID, cancel)
 	go func() {
-		_ = s.executeAgentRun(ctx, run, message, modelID)
+		_ = s.executeAgentRun(ctx, run)
 	}()
 }
 
-func (s *nativeAIService) executeAgentRun(ctx context.Context, run AgentRunRow, message string, modelID int64) error {
+func (s *nativeAIService) executeAgentRun(ctx context.Context, run AgentRunRow) error {
 	defer s.clearAgentRunCancel(run.ID)
 
 	current, shouldExecute, err := s.beginAgentRunExecution(ctx, run)
 	if err != nil || !shouldExecute {
 		return err
 	}
-	reply, err := s.complete(ctx, message, modelID)
+	payload := agentRunPayloadFromRow(current)
+	result, err := s.runHRChatRuntimeWithOptions(ctx, &pb.ChatRequest{
+		HrId:                         current.OwnerID,
+		SessionId:                    current.SessionID,
+		Message:                      payload.Message,
+		ApplicationId:                payload.ApplicationID,
+		ModelId:                      payload.ModelID,
+		SkillCapabilityKeys:          payload.SkillCapabilityKeys,
+		AgentSkillIds:                payload.AgentSkillIDs,
+		AgentSkillSelectionConfirmed: payload.AgentSkillSelectionConfirmed,
+		AgentSkillSelectionMessageId: payload.AgentSkillSelectionMessageID,
+	}, s.agentRunChatEmitter(current.ID), hrChatRuntimeOptions{reuseExistingUserMessage: run.Status == agentRunStatusRunning || run.Status == agentRunStatusWaitingConfirmation})
 	if err != nil {
 		if agentRunExecutionCanceled(ctx, err) {
 			return s.finishAgentRunCanceled(ctx, current)
@@ -992,7 +2504,10 @@ func (s *nativeAIService) executeAgentRun(ctx context.Context, run AgentRunRow, 
 	if agentRunExecutionCanceled(ctx, nil) {
 		return s.finishAgentRunCanceled(ctx, current)
 	}
-	return s.finishAgentRunSucceeded(ctx, current, reply, modelID)
+	if result.providerUnavailable && !result.fallbackUsed {
+		return s.finishAgentRunFailed(ctx, current, errAIProviderRequired)
+	}
+	return s.finishAgentRunSucceeded(ctx, current, result, payload.ModelID)
 }
 
 func (s *nativeAIService) beginAgentRunExecution(ctx context.Context, run AgentRunRow) (AgentRunRow, bool, error) {
@@ -1026,7 +2541,7 @@ func (s *nativeAIService) beginAgentRunExecution(ctx context.Context, run AgentR
 	return next, true, nil
 }
 
-func (s *nativeAIService) finishAgentRunSucceeded(ctx context.Context, run AgentRunRow, reply string, modelID int64) error {
+func (s *nativeAIService) finishAgentRunSucceeded(ctx context.Context, run AgentRunRow, result hrChatRuntimeResult, modelID int64) error {
 	storeCtx := agentRunStoreContext(ctx)
 	s.runTransitionMu.Lock()
 	defer s.runTransitionMu.Unlock()
@@ -1044,11 +2559,14 @@ func (s *nativeAIService) finishAgentRunSucceeded(ctx context.Context, run Agent
 	if !isExecutableAgentRunStatus(current.Status) {
 		return nil
 	}
+	reply := result.reply
 	if strings.TrimSpace(reply) != "" {
 		if _, err := s.appendAgentRunEvent(storeCtx, run.ID, "assistant.delta", fmt.Sprintf(`{"status":%q,"delta":%q}`, agentRunStatusRunning, reply)); err != nil {
 			return err
 		}
-		if _, err := s.store.AppendChatMessage(storeCtx, ChatMessageRow{OwnerRole: ownerRoleHR, OwnerID: run.OwnerID, SessionID: run.SessionID, Role: "assistant", Content: reply, ModelID: modelID, CreatedAt: time.Now()}); err != nil {
+	}
+	if result.contextUsage != nil || result.candidateName != "" || result.jobTitle != "" || result.status != 0 {
+		if _, err := s.appendAgentRunEvent(storeCtx, run.ID, "run.result", agentRunResultPayload(result)); err != nil {
 			return err
 		}
 	}
@@ -1123,6 +2641,156 @@ func agentRunExecutionCanceled(ctx context.Context, err error) bool {
 	return errors.Is(err, context.Canceled)
 }
 
+func (s *nativeAIService) agentRunChatEmitter(runID int64) hrChatStreamEmitter {
+	return func(event *pb.ChatStreamResponse) error {
+		if event == nil {
+			return nil
+		}
+		eventType := agentRunEventTypeFromChatEvent(event)
+		payload := map[string]any{
+			"status":        agentRunStatusRunning,
+			"source_event":  event.GetEventType(),
+			"event_message": event.GetEventMessage(),
+		}
+		if event.GetDelta() != "" {
+			payload["delta"] = event.GetDelta()
+		}
+		if event.GetToolName() != "" {
+			payload["tool_name"] = event.GetToolName()
+		}
+		if event.GetErrorType() != "" {
+			payload["error_type"] = event.GetErrorType()
+		}
+		if event.GetContextUsage() != nil {
+			payload["result_metadata"] = map[string]any{
+				"context_usage": contextUsagePayload(event.GetContextUsage()),
+			}
+		}
+		if event.GetEventType() == "error" && event.GetErrorType() == "TOOL_ERROR" {
+			payload["error_message"] = event.GetEventMessage()
+		}
+		_, err := s.appendAgentRunEvent(agentRunStoreContext(context.Background()), runID, eventType, marshalJSONString(payload))
+		return err
+	}
+}
+
+func agentRunEventTypeFromChatEvent(event *pb.ChatStreamResponse) string {
+	switch event.GetEventType() {
+	case "tool_calling":
+		return "tool.started"
+	case "tool_done":
+		return "tool.finished"
+	case "context_usage", "thinking", "generating", "fallback":
+		return "process.delta"
+	case "error":
+		if event.GetErrorType() == "TOOL_ERROR" {
+			return "tool.finished"
+		}
+		return "run.error"
+	default:
+		return "process.delta"
+	}
+}
+
+func agentRunResultPayload(result hrChatRuntimeResult) string {
+	payload := map[string]any{
+		"status": agentRunStatusSucceeded,
+		"result_metadata": map[string]any{
+			"application_id": result.session.ApplicationID,
+			"candidate_name": result.candidateName,
+			"job_title":      result.jobTitle,
+			"status":         result.status,
+			"context_usage":  contextUsagePayload(result.contextUsage),
+			"raw_json":       buildHRProcessContent(nil, result.contextUsage, result.fallbackUsed, hrRuntimeGovernanceContext{}),
+		},
+	}
+	return marshalJSONString(payload)
+}
+
+func contextUsagePayload(usage *pb.ContextUsageInfo) map[string]any {
+	if usage == nil {
+		return nil
+	}
+	return map[string]any{
+		"model_id":                   usage.GetModelId(),
+		"model_name":                 usage.GetModelName(),
+		"context_window_tokens":      usage.GetContextWindowTokens(),
+		"max_output_tokens":          usage.GetMaxOutputTokens(),
+		"prompt_tokens_estimated":    usage.GetPromptTokensEstimated(),
+		"remaining_tokens_estimated": usage.GetRemainingTokensEstimated(),
+		"usage_ratio":                usage.GetUsageRatio(),
+		"estimated":                  usage.GetEstimated(),
+		"source":                     usage.GetSource(),
+		"stage":                      usage.GetStage(),
+	}
+}
+
+func agentRunPayloadFromCreateRequest(req *pb.CreateAgentRunRequest) agentRunDurablePayload {
+	if req == nil {
+		return agentRunDurablePayload{}
+	}
+	return agentRunDurablePayload{
+		Message:                      req.GetMessage(),
+		ActionType:                   req.GetActionType(),
+		ActionPayloadJSON:            req.GetActionPayloadJson(),
+		ApplicationID:                req.GetApplicationId(),
+		ModelID:                      req.GetModelId(),
+		SkillCapabilityKeys:          append([]string(nil), req.GetSkillCapabilityKeys()...),
+		AgentSkillIDs:                append([]int64(nil), req.GetAgentSkillIds()...),
+		AgentSkillSelectionConfirmed: req.GetAgentSkillSelectionConfirmed(),
+		AgentSkillSelectionMessageID: req.GetAgentSkillSelectionMessageId(),
+	}
+}
+
+func agentRunPlanJSON(payload agentRunDurablePayload) string {
+	return marshalJSONString(map[string]any{"durable_request": payload})
+}
+
+func agentRunConfirmationAcceptedPayload(req *pb.ConfirmAgentRunRequest) string {
+	payload := map[string]any{
+		"status":       agentRunStatusRunning,
+		"confirmation": agentRunConfirmationPayload(req),
+	}
+	return marshalJSONString(payload)
+}
+
+func agentRunConfirmationOptionContext(req *pb.ConfirmAgentRunRequest) string {
+	return marshalJSONString(map[string]any{
+		"confirmation": agentRunConfirmationPayload(req),
+	})
+}
+
+func agentRunConfirmationPayload(req *pb.ConfirmAgentRunRequest) map[string]any {
+	if req == nil {
+		return nil
+	}
+	payload := map[string]any{
+		"required":                    false,
+		"recommended_agent_skill_ids": append([]int64(nil), req.GetAgentSkillIds()...),
+		"user_message_id":             req.GetAgentSkillSelectionMessageId(),
+	}
+	if strings.TrimSpace(req.GetConfirmationPayloadJson()) != "" {
+		payload["raw_json"] = strings.TrimSpace(req.GetConfirmationPayloadJson())
+	}
+	return payload
+}
+
+func agentRunPayloadFromRow(run AgentRunRow) agentRunDurablePayload {
+	var payload agentRunDurablePayload
+	if strings.TrimSpace(run.PlanJSON) != "" {
+		var wrapper struct {
+			DurableRequest agentRunDurablePayload `json:"durable_request"`
+		}
+		if err := json.Unmarshal([]byte(run.PlanJSON), &wrapper); err == nil {
+			payload = wrapper.DurableRequest
+		}
+	}
+	if payload.ModelID == 0 {
+		payload.ModelID = run.ModelID
+	}
+	return payload
+}
+
 func isCancelableAgentRunStatus(status string) bool {
 	switch status {
 	case agentRunStatusQueued, agentRunStatusPlanning, agentRunStatusRunning, agentRunStatusWaitingConfirmation:
@@ -1193,13 +2861,15 @@ func (s *nativeAIService) storeAgentRunCancel(runID int64, cancel context.Cancel
 	s.runCancels[runID] = &agentRunCancelEntry{cancel: cancel}
 }
 
-func (s *nativeAIService) cancelAgentRunExecution(runID int64) {
+func (s *nativeAIService) cancelAgentRunExecution(runID int64) bool {
 	s.runCancelMu.Lock()
 	entry := s.runCancels[runID]
 	s.runCancelMu.Unlock()
 	if entry != nil && entry.cancel != nil {
 		entry.cancel()
+		return true
 	}
+	return false
 }
 
 func (s *nativeAIService) clearAgentRunCancel(runID int64) {
@@ -1246,12 +2916,15 @@ func applyAgentRunPayload(event *pb.AgentRunEvent, payloadJSON string) {
 		return
 	}
 	var payload struct {
-		Status       string `json:"status"`
-		Delta        string `json:"delta"`
-		SnapshotText string `json:"snapshot_text"`
-		ToolName     string `json:"tool_name"`
-		ErrorType    string `json:"error_type"`
-		ErrorMessage string `json:"error_message"`
+		Status              string          `json:"status"`
+		Delta               string          `json:"delta"`
+		SnapshotText        string          `json:"snapshot_text"`
+		ResultMetadata      json.RawMessage `json:"result_metadata"`
+		Confirmation        json.RawMessage `json:"confirmation"`
+		ConfirmationRequest json.RawMessage `json:"confirmation_request"`
+		ToolName            string          `json:"tool_name"`
+		ErrorType           string          `json:"error_type"`
+		ErrorMessage        string          `json:"error_message"`
 	}
 	if err := json.Unmarshal([]byte(payloadJSON), &payload); err != nil {
 		return
@@ -1259,9 +2932,66 @@ func applyAgentRunPayload(event *pb.AgentRunEvent, payloadJSON string) {
 	event.Status = payload.Status
 	event.Delta = payload.Delta
 	event.SnapshotText = payload.SnapshotText
+	event.ResultMetadata = parseAgentRunResultMetadata(payload.ResultMetadata)
+	event.Confirmation = parseAgentRunConfirmation(payload.Confirmation)
+	if event.Confirmation == nil {
+		event.Confirmation = parseAgentRunConfirmation(payload.ConfirmationRequest)
+	}
 	event.ToolName = payload.ToolName
 	event.ErrorType = payload.ErrorType
 	event.ErrorMessage = payload.ErrorMessage
+}
+
+func applyAgentRunSnapshotPayload(snapshot *pb.AgentRunSnapshot, payloadJSON string) {
+	if snapshot == nil || strings.TrimSpace(payloadJSON) == "" {
+		return
+	}
+	var payload struct {
+		ResultMetadata      json.RawMessage `json:"result_metadata"`
+		ConfirmationRequest json.RawMessage `json:"confirmation_request"`
+		Confirmation        json.RawMessage `json:"confirmation"`
+	}
+	if err := json.Unmarshal([]byte(payloadJSON), &payload); err != nil {
+		return
+	}
+	if snapshot.ResultMetadata == nil {
+		snapshot.ResultMetadata = parseAgentRunResultMetadata(payload.ResultMetadata)
+	}
+	if snapshot.ConfirmationRequest == nil {
+		snapshot.ConfirmationRequest = parseAgentRunConfirmation(payload.ConfirmationRequest)
+	}
+	if snapshot.ConfirmationRequest == nil {
+		snapshot.ConfirmationRequest = parseAgentRunConfirmation(payload.Confirmation)
+	}
+}
+
+func parseAgentRunResultMetadata(raw json.RawMessage) *pb.AgentRunResultMetadata {
+	if isEmptyAgentRunJSON(raw) {
+		return nil
+	}
+	result := &pb.AgentRunResultMetadata{}
+	opts := protojson.UnmarshalOptions{DiscardUnknown: true}
+	if err := opts.Unmarshal(raw, result); err != nil {
+		return &pb.AgentRunResultMetadata{RawJson: string(raw)}
+	}
+	return result
+}
+
+func parseAgentRunConfirmation(raw json.RawMessage) *pb.AgentRunConfirmationPayload {
+	if isEmptyAgentRunJSON(raw) {
+		return nil
+	}
+	confirmation := &pb.AgentRunConfirmationPayload{}
+	opts := protojson.UnmarshalOptions{DiscardUnknown: true}
+	if err := opts.Unmarshal(raw, confirmation); err != nil {
+		return &pb.AgentRunConfirmationPayload{RawJson: string(raw)}
+	}
+	return confirmation
+}
+
+func isEmptyAgentRunJSON(raw json.RawMessage) bool {
+	trimmed := strings.TrimSpace(string(raw))
+	return trimmed == "" || trimmed == "null" || trimmed == "{}"
 }
 
 func (s *nativeAIService) listSessions(ctx context.Context, ownerRole int32, ownerID int64, page, pageSize int32) ([]ChatSessionRow, int64, error) {
@@ -1301,6 +3031,7 @@ func (s *nativeAIService) updateRun(ctx context.Context, ownerID, runID int64, s
 type nativeRecruitingIntelligenceService struct {
 	pb.UnimplementedRecruitingIntelligenceServiceServer
 	store        recruitingReadStore
+	provider     ChatProvider
 	auth         pb.AuthServiceClient
 	applications pb.ApplicationOwnerServiceClient
 	jobs         pb.JobServiceClient
@@ -1318,6 +3049,16 @@ type recruitingReadStore interface {
 	GetLatestRecruitingCandidateMatchEvaluationSnapshotByApplicationID(ctx context.Context, applicationID int64) (RecruitingCandidateMatchSnapshot, bool, error)
 	ListCurrentRecruitingApplicationsByJobID(ctx context.Context, jobID int64) ([]RecruitingApplicationContext, error)
 	ListLatestRecruitingCandidateMatchEvaluationsByApplicationIDs(ctx context.Context, applicationIDs []int64) ([]RecruitingCandidateMatchEvaluationRow, error)
+}
+
+type recruitingResumeProfileGenerationStore interface {
+	GetRecruitingResumeSource(ctx context.Context, resumeID int64) (RecruitingResumeSource, bool, error)
+	SaveRecruitingResumeProfileDraft(ctx context.Context, draft RecruitingResumeProfileDraft) (RecruitingResumeProfileSnapshot, error)
+}
+
+type recruitingCandidateMatchGenerationStore interface {
+	GetRecruitingMatchSource(ctx context.Context, applicationID int64) (RecruitingMatchSource, bool, error)
+	SaveRecruitingCandidateMatchDraft(ctx context.Context, draft RecruitingCandidateMatchDraft) (RecruitingCandidateMatchSnapshot, error)
 }
 
 type recruitingAuthError struct {
@@ -1425,6 +3166,36 @@ func (s nativeRecruitingIntelligenceService) authorizeRecruitingJob(ctx context.
 	return nil, &recruitingAuthError{code: errs.ErrForbidden, message: "job not in staff scope"}
 }
 
+func (s nativeRecruitingIntelligenceService) authorizeRecruitingAIPermission(ctx context.Context, staffUserID int64, resourceType string, resourceID int64) *recruitingAuthError {
+	if authErr := s.verifyRecruitingStaffActor(ctx, staffUserID); authErr != nil {
+		return authErr
+	}
+	if s.auth == nil {
+		return &recruitingAuthError{code: errs.ErrInternal, message: "auth service is not configured"}
+	}
+	resp, err := s.auth.AuthorizeInternal(ctx, &pb.AuthorizeInternalRequest{
+		ActorUserId:   staffUserID,
+		PermissionKey: "ai.hr.use",
+		ResourceType:  resourceType,
+		ResourceId:    resourceID,
+		RequestId:     platformmetadata.GetRequestID(ctx),
+		ClientIp:      platformmetadata.GetClientIP(ctx),
+	})
+	if err != nil {
+		return &recruitingAuthError{code: errs.ErrInternal, message: "authorize ai permission failed", err: err}
+	}
+	if resp == nil {
+		return &recruitingAuthError{code: errs.ErrInternal, message: "authorize ai permission returned nil response"}
+	}
+	if resp.GetCode() == errs.OK && resp.GetAllowed() {
+		return nil
+	}
+	if resp.GetCode() == errs.OK {
+		return &recruitingAuthError{code: errs.ErrForbidden, message: recruitingMessageOrDefault(resp.GetReason(), "AI HR permission denied")}
+	}
+	return &recruitingAuthError{code: resp.GetCode(), message: recruitingMessageOrDefault(resp.GetMsg(), "AI HR permission denied")}
+}
+
 func recruitingMessageOrDefault(message, fallback string) string {
 	if trimmed := strings.TrimSpace(message); trimmed != "" {
 		return trimmed
@@ -1471,6 +3242,37 @@ func (s nativeRecruitingIntelligenceService) ParseResumeProfile(ctx context.Cont
 	if req.GetApplicationId() <= 0 && req.GetResumeId() <= 0 {
 		return &pb.GetResumeProfileResponse{Code: errs.ErrBadRequest, Msg: "resume_id or application_id is required"}, nil
 	}
+	if s.store == nil {
+		return &pb.GetResumeProfileResponse{Code: errs.ErrInternal, Msg: "recruiting read store is not configured"}, nil
+	}
+	if generationStore, ok := s.store.(recruitingResumeProfileGenerationStore); ok && s.provider != nil {
+		resumeID, accessResp := s.resolveResumeProfileAccess(ctx, &pb.GetResumeProfileRequest{StaffUserId: req.GetStaffUserId(), ResumeId: req.GetResumeId(), ApplicationId: req.GetApplicationId()})
+		if accessResp != nil {
+			return accessResp, nil
+		}
+		if authErr := s.authorizeRecruitingAIPermission(ctx, req.GetStaffUserId(), "resume", resumeID); authErr != nil {
+			return &pb.GetResumeProfileResponse{Code: authErr.code, Msg: authErr.message}, nil
+		}
+		source, found, err := generationStore.GetRecruitingResumeSource(ctx, resumeID)
+		if err != nil {
+			return &pb.GetResumeProfileResponse{Code: errs.ErrInternal, Msg: err.Error()}, nil
+		}
+		if !found {
+			return &pb.GetResumeProfileResponse{Code: 404, Msg: "resume not found"}, nil
+		}
+		if strings.TrimSpace(source.ParsedText) == "" {
+			return &pb.GetResumeProfileResponse{Code: errs.ErrBadRequest, Msg: "resume parsed_text is empty"}, nil
+		}
+		draft, err := s.generateResumeProfileDraft(ctx, source)
+		if err != nil {
+			return &pb.GetResumeProfileResponse{Code: configCodeUnavailable, Msg: err.Error()}, nil
+		}
+		snapshot, err := generationStore.SaveRecruitingResumeProfileDraft(ctx, draft)
+		if err != nil {
+			return &pb.GetResumeProfileResponse{Code: errs.ErrInternal, Msg: err.Error()}, nil
+		}
+		return &pb.GetResumeProfileResponse{Code: errs.OK, Msg: "success", Profile: recruitingResumeProfileSnapshotPB(snapshot)}, nil
+	}
 	resp, err := s.GetResumeProfile(ctx, &pb.GetResumeProfileRequest{
 		StaffUserId:   req.GetStaffUserId(),
 		ResumeId:      req.GetResumeId(),
@@ -1495,6 +3297,27 @@ func (s nativeRecruitingIntelligenceService) EvaluateCandidateMatch(ctx context.
 	if _, authErr := s.authorizeRecruitingApplication(ctx, req.GetStaffUserId(), req.GetApplicationId()); authErr != nil {
 		return recruitingMatchAuthResponse(authErr), nil
 	}
+	if generationStore, ok := s.store.(recruitingCandidateMatchGenerationStore); ok && s.provider != nil {
+		if authErr := s.authorizeRecruitingAIPermission(ctx, req.GetStaffUserId(), "application", req.GetApplicationId()); authErr != nil {
+			return recruitingMatchAuthResponse(authErr), nil
+		}
+		source, found, err := generationStore.GetRecruitingMatchSource(ctx, req.GetApplicationId())
+		if err != nil {
+			return &pb.GetCandidateMatchEvaluationResponse{Code: errs.ErrInternal, Msg: err.Error()}, nil
+		}
+		if !found {
+			return &pb.GetCandidateMatchEvaluationResponse{Code: 404, Msg: "application match source not found"}, nil
+		}
+		draft, err := s.generateCandidateMatchDraft(ctx, source, req.GetAgentRunId())
+		if err != nil {
+			return &pb.GetCandidateMatchEvaluationResponse{Code: configCodeUnavailable, Msg: err.Error()}, nil
+		}
+		snapshot, err := generationStore.SaveRecruitingCandidateMatchDraft(ctx, draft)
+		if err != nil {
+			return &pb.GetCandidateMatchEvaluationResponse{Code: errs.ErrInternal, Msg: err.Error()}, nil
+		}
+		return &pb.GetCandidateMatchEvaluationResponse{Code: errs.OK, Msg: "success", Evaluation: recruitingCandidateMatchSnapshotPB(snapshot)}, nil
+	}
 	var (
 		snapshot RecruitingCandidateMatchSnapshot
 		found    bool
@@ -1515,6 +3338,304 @@ func (s nativeRecruitingIntelligenceService) EvaluateCandidateMatch(ctx context.
 		return &pb.GetCandidateMatchEvaluationResponse{Code: configCodeUnsupported, Msg: "candidate match evaluation not found and matcher is not configured in native runtime"}, nil
 	}
 	return &pb.GetCandidateMatchEvaluationResponse{Code: errs.OK, Msg: "success", Evaluation: recruitingCandidateMatchSnapshotPB(snapshot)}, nil
+}
+
+func (s nativeRecruitingIntelligenceService) generateResumeProfileDraft(ctx context.Context, source RecruitingResumeSource) (RecruitingResumeProfileDraft, error) {
+	if s.provider == nil {
+		return RecruitingResumeProfileDraft{}, errAIProviderRequired
+	}
+	reply, err := s.provider.Complete(ctx, renderRecruitingResumeProfilePrompt(source))
+	if err != nil {
+		return RecruitingResumeProfileDraft{}, err
+	}
+	jsonText, err := extractRecruitingJSONObject(reply)
+	if err != nil {
+		return RecruitingResumeProfileDraft{}, err
+	}
+	var generated generatedResumeProfile
+	if err := json.Unmarshal([]byte(jsonText), &generated); err != nil {
+		return RecruitingResumeProfileDraft{}, fmt.Errorf("parse resume profile JSON: %w", err)
+	}
+	if nonEmpty(generated.FullName, generated.Headline, generated.Summary) == "" && len(generated.Skills) == 0 && len(generated.Experiences) == 0 {
+		return RecruitingResumeProfileDraft{}, fmt.Errorf("resume profile output is empty")
+	}
+	hash := sha256.Sum256([]byte(source.ParsedText))
+	draft := RecruitingResumeProfileDraft{
+		ResumeID:             source.ResumeID,
+		UserID:               source.UserID,
+		ParserVersion:        "native-resume-profile-parser-v1",
+		InputHash:            hex.EncodeToString(hash[:]),
+		RawJSON:              jsonText,
+		FullName:             strings.TrimSpace(generated.FullName),
+		Email:                strings.TrimSpace(generated.Email),
+		Phone:                strings.TrimSpace(generated.Phone),
+		Location:             strings.TrimSpace(generated.Location),
+		Headline:             strings.TrimSpace(generated.Headline),
+		Summary:              strings.TrimSpace(generated.Summary),
+		TotalExperienceYears: generated.TotalExperienceYears,
+		HighestDegree:        strings.TrimSpace(generated.HighestDegree),
+		Educations:           make([]RecruitingResumeEducationRow, 0, len(generated.Educations)),
+		Experiences:          make([]RecruitingResumeExperienceRow, 0, len(generated.Experiences)),
+		Projects:             make([]RecruitingResumeProjectRow, 0, len(generated.Projects)),
+		Skills:               make([]RecruitingResumeSkillRow, 0, len(generated.Skills)),
+	}
+	for index, row := range generated.Educations {
+		draft.Educations = append(draft.Educations, RecruitingResumeEducationRow{
+			School:      strings.TrimSpace(row.School),
+			Degree:      strings.TrimSpace(row.Degree),
+			Major:       strings.TrimSpace(row.Major),
+			StartDate:   parseRecruitingDatePtr(row.StartDate),
+			EndDate:     parseRecruitingDatePtr(row.EndDate),
+			Description: strings.TrimSpace(row.Description),
+			SortOrder:   int32(index + 1),
+		})
+	}
+	for index, row := range generated.Experiences {
+		isCurrent := int32(0)
+		if row.IsCurrent {
+			isCurrent = 1
+		}
+		achievementsJSON := strings.TrimSpace(row.AchievementsJSON)
+		if achievementsJSON == "" {
+			achievementsJSON = marshalJSONString(row.Achievements)
+		}
+		draft.Experiences = append(draft.Experiences, RecruitingResumeExperienceRow{
+			Company:          strings.TrimSpace(row.Company),
+			Title:            strings.TrimSpace(row.Title),
+			Location:         strings.TrimSpace(row.Location),
+			StartDate:        parseRecruitingDatePtr(row.StartDate),
+			EndDate:          parseRecruitingDatePtr(row.EndDate),
+			IsCurrent:        isCurrent,
+			Description:      strings.TrimSpace(row.Description),
+			AchievementsJSON: achievementsJSON,
+			SortOrder:        int32(index + 1),
+		})
+	}
+	for index, row := range generated.Projects {
+		technologiesJSON := strings.TrimSpace(row.TechnologiesJSON)
+		if technologiesJSON == "" {
+			technologiesJSON = marshalJSONString(row.Technologies)
+		}
+		highlightsJSON := strings.TrimSpace(row.HighlightsJSON)
+		if highlightsJSON == "" {
+			highlightsJSON = marshalJSONString(row.Highlights)
+		}
+		draft.Projects = append(draft.Projects, RecruitingResumeProjectRow{
+			Name:             strings.TrimSpace(row.Name),
+			Role:             strings.TrimSpace(row.Role),
+			StartDate:        parseRecruitingDatePtr(row.StartDate),
+			EndDate:          parseRecruitingDatePtr(row.EndDate),
+			Description:      strings.TrimSpace(row.Description),
+			TechnologiesJSON: technologiesJSON,
+			HighlightsJSON:   highlightsJSON,
+			SortOrder:        int32(index + 1),
+		})
+	}
+	for index, row := range generated.Skills {
+		name := strings.TrimSpace(row.Name)
+		if name == "" {
+			continue
+		}
+		draft.Skills = append(draft.Skills, RecruitingResumeSkillRow{
+			Name:      name,
+			Category:  strings.TrimSpace(row.Category),
+			Level:     strings.TrimSpace(row.Level),
+			Years:     row.Years,
+			Evidence:  strings.TrimSpace(row.Evidence),
+			SortOrder: int32(index + 1),
+		})
+	}
+	return draft, nil
+}
+
+func (s nativeRecruitingIntelligenceService) generateCandidateMatchDraft(ctx context.Context, source RecruitingMatchSource, agentRunID uint64) (RecruitingCandidateMatchDraft, error) {
+	if s.provider == nil {
+		return RecruitingCandidateMatchDraft{}, errAIProviderRequired
+	}
+	reply, err := s.provider.Complete(ctx, renderRecruitingCandidateMatchPrompt(source))
+	if err != nil {
+		return RecruitingCandidateMatchDraft{}, err
+	}
+	jsonText, err := extractRecruitingJSONObject(reply)
+	if err != nil {
+		return RecruitingCandidateMatchDraft{}, err
+	}
+	var generated generatedCandidateMatch
+	if err := json.Unmarshal([]byte(jsonText), &generated); err != nil {
+		return RecruitingCandidateMatchDraft{}, fmt.Errorf("parse candidate match JSON: %w", err)
+	}
+	score := clampRecruitingScore(generated.OverallScore)
+	recommendation := strings.TrimSpace(generated.Recommendation)
+	if recommendation == "" {
+		recommendation = defaultRecruitingRecommendation(score)
+	}
+	summary := nonEmpty(generated.Summary, fmt.Sprintf("候选人与岗位匹配度 %.0f 分。", score))
+	breakdown := generated.ScoreBreakdown
+	if breakdown == nil {
+		breakdown = make(map[string]any)
+	}
+	if _, ok := breakdown["overall_score"]; !ok {
+		breakdown["overall_score"] = score
+	}
+	if _, ok := breakdown["recommendation"]; !ok {
+		breakdown["recommendation"] = recommendation
+	}
+	if _, ok := breakdown["missing_requirements"]; !ok {
+		breakdown["missing_requirements"] = generated.MissingRequirements
+	}
+	if _, ok := breakdown["dimensions"]; !ok {
+		breakdown["dimensions"] = generated.Dimensions
+	}
+	draft := RecruitingCandidateMatchDraft{
+		ApplicationID:      source.Application.ApplicationID,
+		JobID:              source.Application.JobID,
+		CandidateUserID:    source.Application.CandidateUserID,
+		ResumeProfileID:    source.Profile.Profile.ID,
+		OverallScore:       score,
+		Recommendation:     recommendation,
+		Summary:            summary,
+		StrengthsJSON:      marshalJSONString(generated.Strengths),
+		RisksJSON:          marshalJSONString(generated.Risks),
+		ScoreBreakdownJSON: marshalJSONString(breakdown),
+		ModelName:          "native-candidate-match-scorer-v1",
+		Evidence:           make([]RecruitingCandidateMatchEvidenceRow, 0, len(generated.Evidence)),
+	}
+	if agentRunID > 0 {
+		draft.AgentRunID = &agentRunID
+	}
+	for _, row := range generated.Evidence {
+		sourceID := row.SourceID
+		var sourceIDPtr *uint64
+		if sourceID > 0 {
+			sourceIDPtr = &sourceID
+		}
+		draft.Evidence = append(draft.Evidence, RecruitingCandidateMatchEvidenceRow{
+			EvidenceType: nonEmpty(row.EvidenceType, "profile"),
+			Dimension:    strings.TrimSpace(row.Dimension),
+			SourceTable:  strings.TrimSpace(row.SourceTable),
+			SourceID:     sourceIDPtr,
+			Snippet:      truncateRecruitingSensitiveSnippet(row.Snippet, 240),
+			Weight:       row.Weight,
+			ScoreImpact:  row.ScoreImpact,
+			MetadataJSON: strings.TrimSpace(row.MetadataJSON),
+		})
+	}
+	if len(draft.Evidence) == 0 {
+		draft.Evidence = append(draft.Evidence, RecruitingCandidateMatchEvidenceRow{
+			EvidenceType: "profile_summary",
+			Dimension:    "overall",
+			SourceTable:  "resume_profiles",
+			SourceID:     &draft.ResumeProfileID,
+			Snippet:      truncateRecruitingSensitiveSnippet(source.Profile.Profile.Summary, 240),
+			Weight:       1,
+			ScoreImpact:  score / 20,
+			MetadataJSON: `{"generated_fallback":true}`,
+		})
+	}
+	return draft, nil
+}
+
+func renderRecruitingResumeProfilePrompt(source RecruitingResumeSource) string {
+	var b strings.Builder
+	b.WriteString("你是招聘系统的简历结构化解析器。只返回一个 JSON object，不要 Markdown，不要解释，不要复制原始简历全文。\n")
+	b.WriteString("字段：full_name,email,phone,location,headline,summary,total_experience_years,highest_degree,educations,experiences,projects,skills。\n")
+	b.WriteString("数组子项使用 start_date/end_date 的 YYYY-MM-DD 或空字符串。achievements/technologies/highlights 必须是字符串数组。\n")
+	b.WriteString("\nResume metadata:\n")
+	b.WriteString(marshalJSONString(map[string]any{"resume_id": source.ResumeID, "user_id": source.UserID, "file_name": source.FileName, "text_length": len([]rune(source.ParsedText))}))
+	b.WriteString("\nResume parsed text:\n")
+	b.WriteString(strings.TrimSpace(source.ParsedText))
+	return b.String()
+}
+
+func renderRecruitingCandidateMatchPrompt(source RecruitingMatchSource) string {
+	var b strings.Builder
+	b.WriteString("你是招聘系统的候选人岗位匹配评估器。只返回一个 JSON object，不要 Markdown。\n")
+	b.WriteString("字段：overall_score(0-100),recommendation,summary,strengths,risks,missing_requirements,dimensions,score_breakdown,evidence。\n")
+	b.WriteString("evidence 子项字段：evidence_type,dimension,source_table,source_id,snippet,weight,score_impact,metadata_json。snippet 只保留最小证据，不要输出完整简历或敏感原文。\n")
+	b.WriteString("\nJob:\n")
+	b.WriteString(marshalJSONString(map[string]any{
+		"job_id":       source.Job.JobID,
+		"title":        source.Job.Title,
+		"department":   source.Job.Department,
+		"location":     source.Job.Location,
+		"description":  source.Job.Description,
+		"requirements": source.Job.Requirements,
+	}))
+	b.WriteString("\nCandidate profile snapshot:\n")
+	b.WriteString(marshalJSONString(map[string]any{
+		"profile_id":             source.Profile.Profile.ID,
+		"headline":               source.Profile.Profile.Headline,
+		"summary":                source.Profile.Profile.Summary,
+		"total_experience_years": source.Profile.Profile.TotalExperienceYears,
+		"highest_degree":         source.Profile.Profile.HighestDegree,
+		"skills":                 source.Profile.Skills,
+		"experiences":            source.Profile.Experiences,
+		"projects":               source.Profile.Projects,
+		"educations":             source.Profile.Educations,
+	}))
+	return b.String()
+}
+
+func extractRecruitingJSONObject(value string) (string, error) {
+	trimmed := strings.TrimSpace(value)
+	trimmed = strings.TrimPrefix(trimmed, "```json")
+	trimmed = strings.TrimPrefix(trimmed, "```")
+	trimmed = strings.TrimSuffix(trimmed, "```")
+	trimmed = strings.TrimSpace(trimmed)
+	start := strings.Index(trimmed, "{")
+	end := strings.LastIndex(trimmed, "}")
+	if start < 0 || end < start {
+		return "", fmt.Errorf("model response did not contain a JSON object")
+	}
+	return trimmed[start : end+1], nil
+}
+
+func parseRecruitingDatePtr(value string) *time.Time {
+	trimmed := strings.TrimSpace(value)
+	if trimmed == "" {
+		return nil
+	}
+	layouts := []string{"2006-01-02", time.RFC3339, "2006-01"}
+	for _, layout := range layouts {
+		parsed, err := time.Parse(layout, trimmed)
+		if err == nil {
+			return &parsed
+		}
+	}
+	return nil
+}
+
+func clampRecruitingScore(score float64) float64 {
+	if score < 0 {
+		return 0
+	}
+	if score > 100 {
+		return 100
+	}
+	return score
+}
+
+func defaultRecruitingRecommendation(score float64) string {
+	switch {
+	case score >= 85:
+		return "strong_match"
+	case score >= 70:
+		return "possible_match"
+	default:
+		return "weak_match"
+	}
+}
+
+func truncateRecruitingSensitiveSnippet(value string, limit int) string {
+	trimmed := strings.TrimSpace(value)
+	if limit <= 0 {
+		return ""
+	}
+	runes := []rune(trimmed)
+	if len(runes) <= limit {
+		return trimmed
+	}
+	return string(runes[:limit])
 }
 
 func (s nativeRecruitingIntelligenceService) GetCandidateMatchEvaluation(ctx context.Context, req *pb.GetCandidateMatchEvaluationRequest) (*pb.GetCandidateMatchEvaluationResponse, error) {
@@ -1874,7 +3995,8 @@ type nativeAgentConfigService struct {
 }
 type nativeMCPService struct {
 	pb.UnimplementedMCPServiceServer
-	store AIStore
+	store  AIStore
+	runner mcpinfra.Runner
 }
 type nativeSkillService struct {
 	pb.UnimplementedSkillServiceServer
@@ -1882,11 +4004,13 @@ type nativeSkillService struct {
 }
 type nativeAgentSkillService struct {
 	pb.UnimplementedAgentSkillServiceServer
-	store AIStore
+	store     AIStore
+	embedding *embeddinginfra.EmbeddingService
 }
 type nativeEmbeddingConfigService struct {
 	pb.UnimplementedEmbeddingConfigServiceServer
-	store AIStore
+	store     AIStore
+	embedding *embeddinginfra.EmbeddingService
 }
 
 func (s nativeLlmConfigService) ListProviders(ctx context.Context, req *pb.ListProvidersRequest) (*pb.ListProvidersResponse, error) {
@@ -2029,19 +4153,22 @@ func mapChatMessages(rows []ChatMessageRow) []*pb.ChatMessage {
 }
 
 func mapAgentRunItem(row AgentRunRow) *pb.AgentRunItem {
-	return &pb.AgentRunItem{Id: row.ID, SessionId: row.SessionID, MessageId: row.MessageID, HistoryId: row.HistoryID, HrId: row.OwnerID, AgentType: row.AgentType, AgentId: row.AgentID, AgentName: row.AgentName, ModelId: row.ModelID, ModelName: row.ModelName, Status: row.Status, FinalAnswer: row.AssistantText, ErrorType: row.ErrorType, ErrorMessage: row.ErrorMessage, StartedAt: formatTime(row.StartedAt), CompletedAt: formatTimePtr(row.CompletedAt), CreatedAt: formatTime(row.CreatedAt)}
+	return &pb.AgentRunItem{Id: row.ID, SessionId: row.SessionID, MessageId: row.MessageID, HistoryId: row.HistoryID, HrId: row.OwnerID, AgentType: row.AgentType, AgentId: row.AgentID, AgentName: row.AgentName, ModelId: row.ModelID, ModelName: row.ModelName, Status: row.Status, PlanJson: row.PlanJSON, FinalAnswer: row.AssistantText, ErrorType: row.ErrorType, ErrorMessage: row.ErrorMessage, StartedAt: formatTime(row.StartedAt), CompletedAt: formatTimePtr(row.CompletedAt), CreatedAt: formatTime(row.CreatedAt)}
 }
 
 func mapAgentRunSnapshot(row AgentRunRow) *pb.AgentRunSnapshot {
 	if row.ID == 0 {
 		return nil
 	}
-	return &pb.AgentRunSnapshot{RunId: row.ID, SessionId: row.SessionID, HrId: row.OwnerID, ClientRequestId: row.ClientRequestID, MessageId: row.MessageID, HistoryId: row.HistoryID, Status: row.Status, AssistantText: row.AssistantText, ProcessText: row.ProcessText, OptionContextJson: row.OptionContextJSON, LastEventSeq: row.LastEventSeq, ErrorType: row.ErrorType, ErrorMessage: row.ErrorMessage, ModelId: row.ModelID, ModelName: row.ModelName, AgentType: row.AgentType, AgentId: row.AgentID, AgentName: row.AgentName, StartedAt: formatTime(row.StartedAt), CompletedAt: formatTimePtr(row.CompletedAt), CancelRequestedAt: formatTimePtr(row.CancelRequestedAt), CanceledAt: formatTimePtr(row.CanceledAt), CreatedAt: formatTime(row.CreatedAt), UpdatedAt: formatTime(row.UpdatedAt)}
+	snapshot := &pb.AgentRunSnapshot{RunId: row.ID, SessionId: row.SessionID, HrId: row.OwnerID, ClientRequestId: row.ClientRequestID, MessageId: row.MessageID, HistoryId: row.HistoryID, Status: row.Status, AssistantText: row.AssistantText, ProcessText: row.ProcessText, OptionContextJson: row.OptionContextJSON, LastEventSeq: row.LastEventSeq, ErrorType: row.ErrorType, ErrorMessage: row.ErrorMessage, ModelId: row.ModelID, ModelName: row.ModelName, AgentType: row.AgentType, AgentId: row.AgentID, AgentName: row.AgentName, StartedAt: formatTime(row.StartedAt), CompletedAt: formatTimePtr(row.CompletedAt), CancelRequestedAt: formatTimePtr(row.CancelRequestedAt), CanceledAt: formatTimePtr(row.CanceledAt), CreatedAt: formatTime(row.CreatedAt), UpdatedAt: formatTime(row.UpdatedAt)}
+	applyAgentRunSnapshotPayload(snapshot, row.OptionContextJSON)
+	applyAgentRunSnapshotPayload(snapshot, row.ProcessText)
+	return snapshot
 }
 
-func fallbackAgentRun(hrID, sessionID int64, clientRequestID, message string, modelID int64) AgentRunRow {
+func fallbackAgentRun(hrID, sessionID int64, clientRequestID string, payload agentRunDurablePayload) AgentRunRow {
 	now := time.Now()
-	return AgentRunRow{SessionID: sessionID, OwnerID: hrID, ClientRequestID: clientRequestID, Status: "queued", AssistantText: "", ModelID: modelID, AgentType: "hr", AgentName: "hr_recruiting_agent", StartedAt: now, CreatedAt: now, UpdatedAt: now}
+	return AgentRunRow{SessionID: sessionID, OwnerID: hrID, ClientRequestID: clientRequestID, Status: "queued", AssistantText: "", PlanJSON: agentRunPlanJSON(payload), ModelID: payload.ModelID, AgentType: "hr", AgentName: "hr_recruiting_agent", StartedAt: now, CreatedAt: now, UpdatedAt: now}
 }
 
 func formatTime(t time.Time) string {

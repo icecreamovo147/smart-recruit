@@ -161,16 +161,18 @@ func (s *NativeStore) AppendChatMessage(ctx context.Context, message aiagentgrpc
 		now = message.CreatedAt
 	}
 	row := aiChatHistoryRecord{
-		HRID:           chatCompatibilityHRID(message.OwnerRole, message.OwnerID),
-		OwnerRole:      message.OwnerRole,
-		OwnerID:        message.OwnerID,
-		SessionID:      message.SessionID,
-		Role:           message.Role,
-		Content:        message.Content,
-		ProcessContent: message.ProcessContent,
-		ModelID:        message.ModelID,
-		ModelName:      message.ModelName,
-		CreatedAt:      now,
+		HRID:            chatCompatibilityHRID(message.OwnerRole, message.OwnerID),
+		OwnerRole:       message.OwnerRole,
+		OwnerID:         message.OwnerID,
+		SessionID:       message.SessionID,
+		Role:            message.Role,
+		Content:         message.Content,
+		ProcessContent:  message.ProcessContent,
+		ModelID:         message.ModelID,
+		ModelName:       message.ModelName,
+		AgentSkillIDs:   nullableJSON(marshalInt64Slice(message.AgentSkillIDs)),
+		AgentSkillNames: nullableJSON(marshalStringSlice(message.AgentSkillNames)),
+		CreatedAt:       now,
 	}
 	if err := s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		if err := tx.Create(&row).Error; err != nil {
@@ -216,6 +218,27 @@ func (s *NativeStore) ListToolTraces(ctx context.Context, ownerID, sessionID int
 	return result, nil
 }
 
+func (s *NativeStore) AppendToolTrace(ctx context.Context, ownerID int64, trace aiagentgrpc.ToolTraceRow) (aiagentgrpc.ToolTraceRow, error) {
+	now := time.Now()
+	if !trace.CreatedAt.IsZero() {
+		now = trace.CreatedAt
+	}
+	row := aiToolTraceRecord{
+		HRID:          ownerID,
+		SessionID:     trace.SessionID,
+		ToolName:      strings.TrimSpace(trace.ToolName),
+		ArgsJSON:      strings.TrimSpace(trace.ArgsJSON),
+		ResultContent: strings.TrimSpace(trace.ResultContent),
+		DurationMs:    trace.DurationMs,
+		ErrorMsg:      strings.TrimSpace(trace.ErrorMsg),
+		CreatedAt:     now,
+	}
+	if err := s.db.WithContext(ctx).Create(&row).Error; err != nil {
+		return aiagentgrpc.ToolTraceRow{}, err
+	}
+	return aiagentgrpc.ToolTraceRow{ID: row.ID, SessionID: row.SessionID, ToolName: row.ToolName, ArgsJSON: row.ArgsJSON, ResultContent: row.ResultContent, DurationMs: row.DurationMs, ErrorMsg: row.ErrorMsg, CreatedAt: row.CreatedAt}, nil
+}
+
 func (s *NativeStore) CreateAgentRun(ctx context.Context, run aiagentgrpc.AgentRunRow) (aiagentgrpc.AgentRunRow, bool, error) {
 	if run.ClientRequestID != "" {
 		var existing agentRunRecord
@@ -233,6 +256,7 @@ func (s *NativeStore) CreateAgentRun(ctx context.Context, run aiagentgrpc.AgentR
 		HRID:            run.OwnerID,
 		ClientRequestID: run.ClientRequestID,
 		Status:          "queued",
+		PlanJSON:        nullableJSON(run.PlanJSON),
 		OptionContext:   nullableJSON(run.OptionContextJSON),
 		ModelID:         run.ModelID,
 		ModelName:       run.ModelName,
@@ -305,6 +329,27 @@ func (s *NativeStore) UpdateAgentRunStatus(ctx context.Context, ownerID, runID i
 	if status == "canceled" || status == "succeeded" || status == "failed" {
 		updates["completed_at"] = now
 	}
+	if status == "canceled" {
+		updates["canceled_at"] = now
+	}
+	result := s.db.WithContext(ctx).Model(&agentRunRecord{}).Where("id = ? AND hr_id = ?", runID, ownerID).Updates(updates)
+	if result.Error != nil {
+		return aiagentgrpc.AgentRunRow{}, false, result.Error
+	}
+	if result.RowsAffected == 0 {
+		return aiagentgrpc.AgentRunRow{}, false, nil
+	}
+	return s.GetAgentRun(ctx, ownerID, runID)
+}
+
+func (s *NativeStore) UpdateAgentRunPlan(ctx context.Context, ownerID, runID int64, planJSON, optionContextJSON string) (aiagentgrpc.AgentRunRow, bool, error) {
+	updates := map[string]any{
+		"plan_json":  nullableJSON(planJSON),
+		"updated_at": time.Now(),
+	}
+	if strings.TrimSpace(optionContextJSON) != "" {
+		updates["option_context_json"] = nullableJSON(optionContextJSON)
+	}
 	result := s.db.WithContext(ctx).Model(&agentRunRecord{}).Where("id = ? AND hr_id = ?", runID, ownerID).Updates(updates)
 	if result.Error != nil {
 		return aiagentgrpc.AgentRunRow{}, false, result.Error
@@ -327,6 +372,9 @@ func (s *NativeStore) CompleteAgentRun(ctx context.Context, ownerID, runID int64
 	}
 	if status == "succeeded" || status == "failed" || status == "canceled" {
 		updates["completed_at"] = now
+	}
+	if status == "canceled" {
+		updates["canceled_at"] = now
 	}
 	if errorType != "" {
 		updates["error_type"] = errorType
@@ -483,6 +531,30 @@ func (s *NativeStore) ListPromptTemplates(ctx context.Context, page, pageSize in
 		})
 	}
 	return items, total, nil
+}
+
+func (s *NativeStore) GetRuntimePromptTemplateByID(ctx context.Context, id int64) (*pb.PromptTemplateInfo, bool, error) {
+	var row promptTemplateRecord
+	if err := s.db.WithContext(ctx).Where("id = ?", id).First(&row).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, false, nil
+		}
+		return nil, false, err
+	}
+	return &pb.PromptTemplateInfo{
+		Id:            row.ID,
+		Name:          row.Name,
+		Content:       row.Content,
+		VariablesJson: nullString(row.Variables),
+		Version:       int32(row.Version),
+		IsActive:      row.IsActive,
+		AgentType:     row.AgentType,
+		PromptRole:    row.PromptRole,
+		CreatedBy:     nullInt64(row.CreatedBy),
+		UpdatedBy:     nullInt64(row.UpdatedBy),
+		CreatedAt:     formatTime(row.CreatedAt),
+		UpdatedAt:     formatTime(row.UpdatedAt),
+	}, true, nil
 }
 
 func (s *NativeStore) ListAgentConfigs(ctx context.Context, page, pageSize int32, agentType string) ([]*pb.AgentConfigInfo, int64, error) {
@@ -705,6 +777,103 @@ func (s *NativeStore) ListCurrentRecruitingApplicationsByJobID(ctx context.Conte
 	return items, nil
 }
 
+func (s *NativeStore) LoadCandidateRuntimeContext(ctx context.Context, userID int64, limit int32) (aiagentgrpc.CandidateRuntimeContext, error) {
+	if limit <= 0 || limit > 50 {
+		limit = 20
+	}
+	applications, err := s.listCandidateApplications(ctx, userID, limit)
+	if err != nil {
+		return aiagentgrpc.CandidateRuntimeContext{}, err
+	}
+	resume, err := s.getCandidateResumeContext(ctx, userID)
+	if err != nil {
+		return aiagentgrpc.CandidateRuntimeContext{}, err
+	}
+	jobs, err := s.listCandidateJobs(ctx, userID, limit)
+	if err != nil {
+		return aiagentgrpc.CandidateRuntimeContext{}, err
+	}
+	interviews, err := s.listCandidateInterviews(ctx, userID, limit)
+	if err != nil {
+		return aiagentgrpc.CandidateRuntimeContext{}, err
+	}
+	offers, err := s.listCandidateOffers(ctx, userID, limit)
+	if err != nil {
+		return aiagentgrpc.CandidateRuntimeContext{}, err
+	}
+	return aiagentgrpc.CandidateRuntimeContext{
+		Applications: applications,
+		Resume:       resume,
+		Jobs:         jobs,
+		Interviews:   interviews,
+		Offers:       offers,
+	}, nil
+}
+
+func (s *NativeStore) RecordCandidateUsageAudit(ctx context.Context, row aiagentgrpc.CandidateUsageAuditRow) (int64, error) {
+	if row.ServiceType == "" {
+		row.ServiceType = "ai_chat"
+	}
+	if row.Endpoint == "" {
+		row.Endpoint = "/candidate/ai/chat/stream"
+	}
+	if row.Provider == "" {
+		row.Provider = "openai_compatible"
+	}
+	if row.Status == "" {
+		row.Status = "ok"
+	}
+	if row.PermissionKey == "" {
+		row.PermissionKey = "ai.candidate.use"
+	}
+	if len(row.RoleKeys) == 0 {
+		row.RoleKeys = []string{"candidate"}
+	}
+	if len(row.ScopeKeys) == 0 {
+		row.ScopeKeys = []string{"self"}
+	}
+	usage := thirdPartyUsageLogRecord{
+		UserID:          row.UserID,
+		Role:            1,
+		ServiceType:     row.ServiceType,
+		Endpoint:        row.Endpoint,
+		Provider:        row.Provider,
+		Model:           row.Model,
+		RequestChars:    row.RequestChars,
+		ResponseChars:   row.ResponseChars,
+		EstimatedTokens: row.EstimatedTokens,
+		Status:          row.Status,
+		ErrorCode:       row.ErrorCode,
+		CostMs:          row.CostMs,
+		RequestID:       row.RequestID,
+		IP:              row.IP,
+		CreatedAt:       time.Now(),
+	}
+	err := s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		if err := tx.Create(&usage).Error; err != nil {
+			return err
+		}
+		authCtx := aiUsageAuthContextRecord{
+			UsageLogID:    usage.ID,
+			ActorUserID:   row.UserID,
+			AccountType:   "candidate",
+			RoleKeys:      strings.Join(row.RoleKeys, ","),
+			PermissionKey: row.PermissionKey,
+			ScopeKeys:     strings.Join(row.ScopeKeys, ","),
+			ResourceType:  "ai",
+			ResourceID:    0,
+			Decision:      "allowed",
+			RequestID:     row.RequestID,
+			CreatedAt:     time.Now(),
+		}
+		return tx.Create(&authCtx).Error
+	})
+	if err != nil {
+		return 0, err
+	}
+	return usage.ID, nil
+}
+
 func (s *NativeStore) GetRecruitingResumeProfileByID(ctx context.Context, profileID uint64) (aiagentgrpc.RecruitingResumeProfileRow, bool, error) {
 	var row recruitingResumeProfileRecord
 	if err := s.db.WithContext(ctx).Where("id = ?", profileID).First(&row).Error; err != nil {
@@ -779,6 +948,179 @@ func (s *NativeStore) GetRecruitingResumeProfileSnapshot(ctx context.Context, pr
 		snapshot.Skills = append(snapshot.Skills, mapRecruitingResumeSkillRecord(row))
 	}
 	return snapshot, true, nil
+}
+
+func (s *NativeStore) GetRecruitingResumeSource(ctx context.Context, resumeID int64) (aiagentgrpc.RecruitingResumeSource, bool, error) {
+	var row recruitingResumeSourceRow
+	if err := s.db.WithContext(ctx).Table("resumes").
+		Select("id AS resume_id, user_id, file_name, parsed_text").
+		Where("id = ?", resumeID).
+		Limit(1).
+		Scan(&row).Error; err != nil {
+		return aiagentgrpc.RecruitingResumeSource{}, false, err
+	}
+	if row.ResumeID == 0 {
+		return aiagentgrpc.RecruitingResumeSource{}, false, nil
+	}
+	return aiagentgrpc.RecruitingResumeSource{
+		ResumeID:   row.ResumeID,
+		UserID:     row.UserID,
+		FileName:   row.FileName,
+		ParsedText: nullString(row.ParsedText),
+	}, true, nil
+}
+
+func (s *NativeStore) SaveRecruitingResumeProfileDraft(ctx context.Context, draft aiagentgrpc.RecruitingResumeProfileDraft) (aiagentgrpc.RecruitingResumeProfileSnapshot, error) {
+	now := time.Now()
+	completedAt := now
+	var profileID uint64
+	if err := s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		var maxVersion sql.NullInt32
+		if err := tx.Model(&recruitingResumeProfileRecord{}).
+			Where("resume_id = ?", draft.ResumeID).
+			Select("MAX(version)").
+			Scan(&maxVersion).Error; err != nil {
+			return err
+		}
+		version := int32(1)
+		if maxVersion.Valid {
+			version = maxVersion.Int32 + 1
+		}
+		if err := tx.Model(&recruitingResumeProfileRecord{}).
+			Where("resume_id = ? AND is_current = ?", draft.ResumeID, 1).
+			Update("is_current", 0).Error; err != nil {
+			return err
+		}
+		parseRun := recruitingResumeParseRunRecord{
+			ResumeID:      draft.ResumeID,
+			UserID:        draft.UserID,
+			Status:        "succeeded",
+			ParserVersion: nullableSQLString(draft.ParserVersion),
+			InputHash:     nullableSQLString(draft.InputHash),
+			StartedAt:     now,
+			CompletedAt:   &completedAt,
+			CreatedAt:     now,
+			UpdatedAt:     now,
+		}
+		if err := tx.Create(&parseRun).Error; err != nil {
+			return err
+		}
+		profile := recruitingResumeProfileRecord{
+			ResumeID:             draft.ResumeID,
+			UserID:               draft.UserID,
+			ParseRunID:           parseRun.ID,
+			Version:              version,
+			IsCurrent:            1,
+			FullName:             nullableSQLString(draft.FullName),
+			Email:                nullableSQLString(draft.Email),
+			Phone:                nullableSQLString(draft.Phone),
+			Location:             nullableSQLString(draft.Location),
+			Headline:             nullableSQLString(draft.Headline),
+			Summary:              nullableSQLString(draft.Summary),
+			TotalExperienceYears: sql.NullFloat64{Float64: draft.TotalExperienceYears, Valid: true},
+			HighestDegree:        nullableSQLString(draft.HighestDegree),
+			RawJSON:              nullableSQLString(draft.RawJSON),
+			CreatedAt:            now,
+			UpdatedAt:            now,
+		}
+		if err := tx.Create(&profile).Error; err != nil {
+			return err
+		}
+		profileID = profile.ID
+		for _, row := range draft.Educations {
+			record := recruitingResumeEducationRecord{
+				ResumeProfileID: profile.ID,
+				School:          strings.TrimSpace(row.School),
+				Degree:          nullableSQLString(row.Degree),
+				Major:           nullableSQLString(row.Major),
+				StartDate:       row.StartDate,
+				EndDate:         row.EndDate,
+				Description:     nullableSQLString(row.Description),
+				SortOrder:       row.SortOrder,
+				CreatedAt:       now,
+				UpdatedAt:       now,
+			}
+			if record.School == "" {
+				continue
+			}
+			if err := tx.Create(&record).Error; err != nil {
+				return err
+			}
+		}
+		for _, row := range draft.Experiences {
+			record := recruitingResumeExperienceRecord{
+				ResumeProfileID:  profile.ID,
+				Company:          strings.TrimSpace(row.Company),
+				Title:            nullableSQLString(row.Title),
+				Location:         nullableSQLString(row.Location),
+				StartDate:        row.StartDate,
+				EndDate:          row.EndDate,
+				IsCurrent:        row.IsCurrent,
+				Description:      nullableSQLString(row.Description),
+				AchievementsJSON: nullableSQLString(row.AchievementsJSON),
+				SortOrder:        row.SortOrder,
+				CreatedAt:        now,
+				UpdatedAt:        now,
+			}
+			if record.Company == "" {
+				continue
+			}
+			if err := tx.Create(&record).Error; err != nil {
+				return err
+			}
+		}
+		for _, row := range draft.Projects {
+			record := recruitingResumeProjectRecord{
+				ResumeProfileID:  profile.ID,
+				Name:             strings.TrimSpace(row.Name),
+				Role:             nullableSQLString(row.Role),
+				StartDate:        row.StartDate,
+				EndDate:          row.EndDate,
+				Description:      nullableSQLString(row.Description),
+				TechnologiesJSON: nullableSQLString(row.TechnologiesJSON),
+				HighlightsJSON:   nullableSQLString(row.HighlightsJSON),
+				SortOrder:        row.SortOrder,
+				CreatedAt:        now,
+				UpdatedAt:        now,
+			}
+			if record.Name == "" {
+				continue
+			}
+			if err := tx.Create(&record).Error; err != nil {
+				return err
+			}
+		}
+		for _, row := range draft.Skills {
+			record := recruitingResumeSkillRecord{
+				ResumeProfileID: profile.ID,
+				Name:            strings.TrimSpace(row.Name),
+				Category:        nullableSQLString(row.Category),
+				Level:           nullableSQLString(row.Level),
+				Years:           sql.NullFloat64{Float64: row.Years, Valid: true},
+				Evidence:        nullableSQLString(row.Evidence),
+				SortOrder:       row.SortOrder,
+				CreatedAt:       now,
+				UpdatedAt:       now,
+			}
+			if record.Name == "" {
+				continue
+			}
+			if err := tx.Create(&record).Error; err != nil {
+				return err
+			}
+		}
+		return nil
+	}); err != nil {
+		return aiagentgrpc.RecruitingResumeProfileSnapshot{}, err
+	}
+	snapshot, found, err := s.GetRecruitingResumeProfileSnapshot(ctx, profileID)
+	if err != nil {
+		return aiagentgrpc.RecruitingResumeProfileSnapshot{}, err
+	}
+	if !found {
+		return aiagentgrpc.RecruitingResumeProfileSnapshot{}, fmt.Errorf("saved resume profile not found")
+	}
+	return snapshot, nil
 }
 
 func (s *NativeStore) GetRecruitingCandidateMatchEvaluationSnapshot(ctx context.Context, evaluationID uint64) (aiagentgrpc.RecruitingCandidateMatchSnapshot, bool, error) {
@@ -864,6 +1206,121 @@ func (s *NativeStore) recruitingCandidateMatchSnapshot(ctx context.Context, eval
 	return snapshot, true, nil
 }
 
+func (s *NativeStore) GetRecruitingMatchSource(ctx context.Context, applicationID int64) (aiagentgrpc.RecruitingMatchSource, bool, error) {
+	application, found, err := s.GetRecruitingApplicationByID(ctx, applicationID)
+	if err != nil || !found {
+		return aiagentgrpc.RecruitingMatchSource{}, found, err
+	}
+	profile, found, err := s.GetCurrentRecruitingResumeProfileByResumeID(ctx, application.ResumeID)
+	if err != nil || !found {
+		return aiagentgrpc.RecruitingMatchSource{}, found, err
+	}
+	snapshot, found, err := s.GetRecruitingResumeProfileSnapshot(ctx, profile.ID)
+	if err != nil || !found {
+		return aiagentgrpc.RecruitingMatchSource{}, found, err
+	}
+	var job recruitingJobContextRow
+	if err := s.db.WithContext(ctx).Table("jobs").
+		Select("id AS job_id, title, department, location, description, requirements").
+		Where("id = ?", application.JobID).
+		Limit(1).
+		Scan(&job).Error; err != nil {
+		return aiagentgrpc.RecruitingMatchSource{}, false, err
+	}
+	if job.JobID == 0 {
+		return aiagentgrpc.RecruitingMatchSource{}, false, nil
+	}
+	return aiagentgrpc.RecruitingMatchSource{
+		Application: application,
+		Job: aiagentgrpc.RecruitingJobContext{
+			JobID:        job.JobID,
+			Title:        job.Title,
+			Department:   nullString(job.Department),
+			Location:     nullString(job.Location),
+			Description:  nullString(job.Description),
+			Requirements: nullString(job.Requirements),
+		},
+		Profile: snapshot,
+	}, true, nil
+}
+
+func (s *NativeStore) SaveRecruitingCandidateMatchDraft(ctx context.Context, draft aiagentgrpc.RecruitingCandidateMatchDraft) (aiagentgrpc.RecruitingCandidateMatchSnapshot, error) {
+	now := time.Now()
+	var evaluationID uint64
+	if err := s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		var maxVersion sql.NullInt32
+		if err := tx.Model(&recruitingCandidateMatchEvaluationRecord{}).
+			Where("application_id = ?", draft.ApplicationID).
+			Select("MAX(evaluation_version)").
+			Scan(&maxVersion).Error; err != nil {
+			return err
+		}
+		version := int32(1)
+		if maxVersion.Valid {
+			version = maxVersion.Int32 + 1
+		}
+		if err := tx.Model(&recruitingCandidateMatchEvaluationRecord{}).
+			Where("application_id = ? AND is_latest = ?", draft.ApplicationID, 1).
+			Update("is_latest", 0).Error; err != nil {
+			return err
+		}
+		evaluation := recruitingCandidateMatchEvaluationRecord{
+			ApplicationID:      draft.ApplicationID,
+			JobID:              draft.JobID,
+			CandidateUserID:    draft.CandidateUserID,
+			ResumeProfileID:    draft.ResumeProfileID,
+			AgentRunID:         draft.AgentRunID,
+			EvaluationVersion:  version,
+			IsLatest:           1,
+			OverallScore:       sql.NullFloat64{Float64: draft.OverallScore, Valid: true},
+			Recommendation:     nullableSQLString(draft.Recommendation),
+			Summary:            nullableSQLString(draft.Summary),
+			StrengthsJSON:      nullableSQLString(draft.StrengthsJSON),
+			RisksJSON:          nullableSQLString(draft.RisksJSON),
+			ScoreBreakdownJSON: nullableSQLString(draft.ScoreBreakdownJSON),
+			ModelName:          nullableSQLString(draft.ModelName),
+			EvaluatedAt:        now,
+			CreatedAt:          now,
+			UpdatedAt:          now,
+		}
+		if err := tx.Create(&evaluation).Error; err != nil {
+			return err
+		}
+		evaluationID = evaluation.ID
+		for _, row := range draft.Evidence {
+			record := recruitingCandidateMatchEvidenceRecord{
+				EvaluationID: evaluation.ID,
+				EvidenceType: strings.TrimSpace(row.EvidenceType),
+				Dimension:    nullableSQLString(row.Dimension),
+				SourceTable:  nullableSQLString(row.SourceTable),
+				SourceID:     row.SourceID,
+				Snippet:      nullableSQLString(row.Snippet),
+				Weight:       sql.NullFloat64{Float64: row.Weight, Valid: true},
+				ScoreImpact:  sql.NullFloat64{Float64: row.ScoreImpact, Valid: true},
+				MetadataJSON: nullableSQLString(row.MetadataJSON),
+				CreatedAt:    now,
+			}
+			if record.EvidenceType == "" {
+				record.EvidenceType = "profile"
+			}
+			if err := tx.Create(&record).Error; err != nil {
+				return err
+			}
+		}
+		return nil
+	}); err != nil {
+		return aiagentgrpc.RecruitingCandidateMatchSnapshot{}, err
+	}
+	snapshot, found, err := s.GetRecruitingCandidateMatchEvaluationSnapshot(ctx, evaluationID)
+	if err != nil {
+		return aiagentgrpc.RecruitingCandidateMatchSnapshot{}, err
+	}
+	if !found {
+		return aiagentgrpc.RecruitingCandidateMatchSnapshot{}, fmt.Errorf("saved candidate match evaluation not found")
+	}
+	return snapshot, nil
+}
+
 type recruitingApplicationReadRow struct {
 	ApplicationID   int64  `gorm:"column:application_id"`
 	JobID           int64  `gorm:"column:job_id"`
@@ -871,6 +1328,72 @@ type recruitingApplicationReadRow struct {
 	CandidateName   string `gorm:"column:candidate_name"`
 	ResumeID        int64  `gorm:"column:resume_id"`
 	IsCurrent       int32  `gorm:"column:is_current"`
+}
+
+type candidateApplicationReadRow struct {
+	ApplicationID int64     `gorm:"column:application_id"`
+	JobID         int64     `gorm:"column:job_id"`
+	JobTitle      string    `gorm:"column:job_title"`
+	Status        int32     `gorm:"column:status"`
+	StatusKey     string    `gorm:"column:status_key"`
+	RoundNo       int32     `gorm:"column:round_no"`
+	AppliedAt     time.Time `gorm:"column:applied_at"`
+}
+
+type candidateResumeReadRow struct {
+	ResumeID   int64          `gorm:"column:resume_id"`
+	FileName   string         `gorm:"column:file_name"`
+	ParsedText sql.NullString `gorm:"column:parsed_text"`
+}
+
+type recruitingResumeSourceRow struct {
+	ResumeID   int64          `gorm:"column:resume_id"`
+	UserID     int64          `gorm:"column:user_id"`
+	FileName   string         `gorm:"column:file_name"`
+	ParsedText sql.NullString `gorm:"column:parsed_text"`
+}
+
+type recruitingJobContextRow struct {
+	JobID        int64          `gorm:"column:job_id"`
+	Title        string         `gorm:"column:title"`
+	Department   sql.NullString `gorm:"column:department"`
+	Location     sql.NullString `gorm:"column:location"`
+	Description  sql.NullString `gorm:"column:description"`
+	Requirements sql.NullString `gorm:"column:requirements"`
+}
+
+type candidateJobReadRow struct {
+	JobID       int64          `gorm:"column:job_id"`
+	Title       string         `gorm:"column:title"`
+	Department  sql.NullString `gorm:"column:department"`
+	Location    sql.NullString `gorm:"column:location"`
+	SalaryRange sql.NullString `gorm:"column:salary_range"`
+	Status      int32          `gorm:"column:status"`
+	HasApplied  bool           `gorm:"column:has_applied"`
+}
+
+type candidateInterviewReadRow struct {
+	InterviewID   int64          `gorm:"column:interview_id"`
+	ApplicationID int64          `gorm:"column:application_id"`
+	JobTitle      string         `gorm:"column:job_title"`
+	RoundNo       int32          `gorm:"column:round_no"`
+	Title         sql.NullString `gorm:"column:title"`
+	Mode          sql.NullString `gorm:"column:mode"`
+	ScheduledAt   *time.Time     `gorm:"column:scheduled_at"`
+	Status        string         `gorm:"column:status"`
+	CandidateNote sql.NullString `gorm:"column:candidate_note"`
+}
+
+type candidateOfferReadRow struct {
+	OfferID       int64          `gorm:"column:offer_id"`
+	ApplicationID int64          `gorm:"column:application_id"`
+	JobID         int64          `gorm:"column:job_id"`
+	Title         string         `gorm:"column:title"`
+	Status        string         `gorm:"column:status"`
+	SalaryRange   sql.NullString `gorm:"column:salary_range"`
+	WorkLocation  sql.NullString `gorm:"column:work_location"`
+	StartDate     sql.NullString `gorm:"column:start_date"`
+	ExpiresAt     *time.Time     `gorm:"column:expires_at"`
 }
 
 type recruitingResumeParseRunRecord struct {
@@ -1037,18 +1560,20 @@ type aiChatSessionRecord struct {
 func (aiChatSessionRecord) TableName() string { return "ai_chat_sessions" }
 
 type aiChatHistoryRecord struct {
-	ID             int64     `gorm:"primaryKey"`
-	HRID           int64     `gorm:"column:hr_id"`
-	OwnerRole      int32     `gorm:"column:owner_role"`
-	OwnerID        int64     `gorm:"column:owner_id"`
-	SessionID      int64     `gorm:"column:session_id"`
-	Role           string    `gorm:"column:role"`
-	Content        string    `gorm:"column:content"`
-	ProcessContent string    `gorm:"column:process_content"`
-	ModelID        int64     `gorm:"column:model_id"`
-	ModelName      string    `gorm:"column:model_name"`
-	AgentRunID     *int64    `gorm:"column:agent_run_id"`
-	CreatedAt      time.Time `gorm:"column:created_at"`
+	ID              int64     `gorm:"primaryKey"`
+	HRID            int64     `gorm:"column:hr_id"`
+	OwnerRole       int32     `gorm:"column:owner_role"`
+	OwnerID         int64     `gorm:"column:owner_id"`
+	SessionID       int64     `gorm:"column:session_id"`
+	Role            string    `gorm:"column:role"`
+	Content         string    `gorm:"column:content"`
+	ProcessContent  string    `gorm:"column:process_content"`
+	ModelID         int64     `gorm:"column:model_id"`
+	ModelName       string    `gorm:"column:model_name"`
+	AgentSkillIDs   *string   `gorm:"column:agent_skill_ids_json"`
+	AgentSkillNames *string   `gorm:"column:agent_skill_names_json"`
+	AgentRunID      *int64    `gorm:"column:agent_run_id"`
+	CreatedAt       time.Time `gorm:"column:created_at"`
 }
 
 func (aiChatHistoryRecord) TableName() string { return "ai_chat_history" }
@@ -1058,14 +1583,52 @@ type aiToolTraceRecord struct {
 	HRID          int64     `gorm:"column:hr_id"`
 	SessionID     int64     `gorm:"column:session_id"`
 	ToolName      string    `gorm:"column:tool_name"`
-	ArgsJSON      string    `gorm:"column:args_json"`
-	ResultContent string    `gorm:"column:result_content"`
+	ArgsJSON      string    `gorm:"column:arguments_json"`
+	ResultContent string    `gorm:"column:result_summary"`
 	DurationMs    int64     `gorm:"column:duration_ms"`
-	ErrorMsg      string    `gorm:"column:error_msg"`
+	ErrorMsg      string    `gorm:"column:error_message"`
 	CreatedAt     time.Time `gorm:"column:created_at"`
 }
 
 func (aiToolTraceRecord) TableName() string { return "ai_tool_traces" }
+
+type thirdPartyUsageLogRecord struct {
+	ID              int64     `gorm:"primaryKey"`
+	UserID          int64     `gorm:"column:user_id"`
+	Role            int32     `gorm:"column:role"`
+	ServiceType     string    `gorm:"column:service_type"`
+	Endpoint        string    `gorm:"column:endpoint"`
+	Provider        string    `gorm:"column:provider"`
+	Model           string    `gorm:"column:model"`
+	RequestChars    int       `gorm:"column:request_chars"`
+	ResponseChars   int       `gorm:"column:response_chars"`
+	EstimatedTokens int       `gorm:"column:estimated_tokens"`
+	Status          string    `gorm:"column:status"`
+	ErrorCode       string    `gorm:"column:error_code"`
+	CostMs          int       `gorm:"column:cost_ms"`
+	RequestID       string    `gorm:"column:request_id"`
+	IP              string    `gorm:"column:ip"`
+	CreatedAt       time.Time `gorm:"column:created_at"`
+}
+
+func (thirdPartyUsageLogRecord) TableName() string { return "third_party_usage_logs" }
+
+type aiUsageAuthContextRecord struct {
+	ID            int64     `gorm:"primaryKey"`
+	UsageLogID    int64     `gorm:"column:usage_log_id"`
+	ActorUserID   int64     `gorm:"column:actor_user_id"`
+	AccountType   string    `gorm:"column:account_type"`
+	RoleKeys      string    `gorm:"column:role_keys"`
+	PermissionKey string    `gorm:"column:permission_key"`
+	ScopeKeys     string    `gorm:"column:scope_keys"`
+	ResourceType  string    `gorm:"column:resource_type"`
+	ResourceID    int64     `gorm:"column:resource_id"`
+	Decision      string    `gorm:"column:decision"`
+	RequestID     string    `gorm:"column:request_id"`
+	CreatedAt     time.Time `gorm:"column:created_at"`
+}
+
+func (aiUsageAuthContextRecord) TableName() string { return "ai_usage_auth_contexts" }
 
 type agentRunRecord struct {
 	ID                int64      `gorm:"primaryKey"`
@@ -1077,6 +1640,7 @@ type agentRunRecord struct {
 	Status            string     `gorm:"column:status"`
 	AssistantText     string     `gorm:"column:assistant_text"`
 	ProcessText       string     `gorm:"column:process_text"`
+	PlanJSON          *string    `gorm:"column:plan_json"`
 	OptionContext     *string    `gorm:"column:option_context_json"`
 	LastEventSeq      int64      `gorm:"column:last_event_seq"`
 	ErrorType         string     `gorm:"column:error_type"`
@@ -1256,6 +1820,143 @@ func recruitingApplicationReadQuery(db *gorm.DB) *gorm.DB {
 		Joins("LEFT JOIN candidate_profiles cp ON cp.user_id = a.user_id")
 }
 
+func (s *NativeStore) listCandidateApplications(ctx context.Context, userID int64, limit int32) ([]aiagentgrpc.CandidateApplicationContext, error) {
+	var rows []candidateApplicationReadRow
+	if err := s.db.WithContext(ctx).Table("applications a").
+		Select("a.id AS application_id, a.job_id, COALESCE(j.title, '') AS job_title, a.status, a.status_key, a.round_no, a.applied_at").
+		Joins("LEFT JOIN jobs j ON j.id = a.job_id").
+		Where("a.user_id = ?", userID).
+		Order("a.applied_at DESC, a.id DESC").
+		Limit(int(limit)).
+		Scan(&rows).Error; err != nil {
+		return nil, err
+	}
+	items := make([]aiagentgrpc.CandidateApplicationContext, 0, len(rows))
+	for _, row := range rows {
+		items = append(items, aiagentgrpc.CandidateApplicationContext{
+			ApplicationID: row.ApplicationID,
+			JobID:         row.JobID,
+			JobTitle:      row.JobTitle,
+			Status:        row.Status,
+			StatusKey:     row.StatusKey,
+			StatusText:    candidateApplicationStatusText(row.StatusKey, row.Status),
+			RoundNo:       row.RoundNo,
+			AppliedAt:     formatTime(row.AppliedAt),
+		})
+	}
+	return items, nil
+}
+
+func (s *NativeStore) getCandidateResumeContext(ctx context.Context, userID int64) (aiagentgrpc.CandidateResumeContext, error) {
+	var row candidateResumeReadRow
+	err := s.db.WithContext(ctx).Table("resumes").
+		Select("id AS resume_id, file_name, parsed_text").
+		Where("user_id = ? AND is_valid = ?", userID, 1).
+		Order("uploaded_at DESC, id DESC").
+		Limit(1).
+		Scan(&row).Error
+	if err != nil {
+		return aiagentgrpc.CandidateResumeContext{}, err
+	}
+	if row.ResumeID == 0 {
+		return aiagentgrpc.CandidateResumeContext{Available: false, Message: "candidate has no valid resume"}, nil
+	}
+	text := strings.TrimSpace(nullString(row.ParsedText))
+	if text == "" {
+		return aiagentgrpc.CandidateResumeContext{Available: false, ResumeID: row.ResumeID, FileName: row.FileName, Message: "resume parsed text is unavailable"}, nil
+	}
+	return aiagentgrpc.CandidateResumeContext{
+		Available:  true,
+		ResumeID:   row.ResumeID,
+		FileName:   row.FileName,
+		TextLength: len([]rune(text)),
+		Summary:    truncateRunes(text, 1200),
+	}, nil
+}
+
+func (s *NativeStore) listCandidateJobs(ctx context.Context, userID int64, limit int32) ([]aiagentgrpc.CandidateJobContext, error) {
+	var rows []candidateJobReadRow
+	if err := s.db.WithContext(ctx).Table("jobs j").
+		Select("j.id AS job_id, j.title, j.department, j.location, j.salary_range, j.status, CASE WHEN a.id IS NULL THEN false ELSE true END AS has_applied").
+		Joins("LEFT JOIN applications a ON a.job_id = j.id AND a.user_id = ? AND a.is_current = 1", userID).
+		Where("j.status = ?", 1).
+		Order("j.created_at DESC, j.id DESC").
+		Limit(int(limit)).
+		Scan(&rows).Error; err != nil {
+		return nil, err
+	}
+	items := make([]aiagentgrpc.CandidateJobContext, 0, len(rows))
+	for _, row := range rows {
+		items = append(items, aiagentgrpc.CandidateJobContext{
+			JobID:       row.JobID,
+			Title:       row.Title,
+			Department:  nullString(row.Department),
+			Location:    nullString(row.Location),
+			SalaryRange: nullString(row.SalaryRange),
+			Status:      row.Status,
+			StatusText:  candidateJobStatusText(row.Status),
+			HasApplied:  row.HasApplied,
+		})
+	}
+	return items, nil
+}
+
+func (s *NativeStore) listCandidateInterviews(ctx context.Context, userID int64, limit int32) ([]aiagentgrpc.CandidateInterviewContext, error) {
+	var rows []candidateInterviewReadRow
+	if err := s.db.WithContext(ctx).Table("interview_schedules i").
+		Select("i.id AS interview_id, i.application_id, COALESCE(j.title, '') AS job_title, i.round_no, i.title, i.mode, i.scheduled_at, i.status, i.candidate_note").
+		Joins("JOIN applications a ON a.id = i.application_id AND a.user_id = ?", userID).
+		Joins("LEFT JOIN jobs j ON j.id = a.job_id").
+		Where("i.deleted_at IS NULL").
+		Order("i.scheduled_at DESC, i.id DESC").
+		Limit(int(limit)).
+		Scan(&rows).Error; err != nil {
+		return nil, err
+	}
+	items := make([]aiagentgrpc.CandidateInterviewContext, 0, len(rows))
+	for _, row := range rows {
+		items = append(items, aiagentgrpc.CandidateInterviewContext{
+			InterviewID:   row.InterviewID,
+			ApplicationID: row.ApplicationID,
+			JobTitle:      row.JobTitle,
+			RoundNo:       row.RoundNo,
+			Title:         nullString(row.Title),
+			Mode:          nullString(row.Mode),
+			ScheduledAt:   formatTimePtr(row.ScheduledAt),
+			Status:        row.Status,
+			CandidateNote: nullString(row.CandidateNote),
+		})
+	}
+	return items, nil
+}
+
+func (s *NativeStore) listCandidateOffers(ctx context.Context, userID int64, limit int32) ([]aiagentgrpc.CandidateOfferContext, error) {
+	var rows []candidateOfferReadRow
+	if err := s.db.WithContext(ctx).Table("offers").
+		Select("id AS offer_id, application_id, job_id, title, status, salary_range, work_location, start_date, expires_at").
+		Where("candidate_user_id = ?", userID).
+		Order("created_at DESC, id DESC").
+		Limit(int(limit)).
+		Scan(&rows).Error; err != nil {
+		return nil, err
+	}
+	items := make([]aiagentgrpc.CandidateOfferContext, 0, len(rows))
+	for _, row := range rows {
+		items = append(items, aiagentgrpc.CandidateOfferContext{
+			OfferID:       row.OfferID,
+			ApplicationID: row.ApplicationID,
+			JobID:         row.JobID,
+			Title:         row.Title,
+			Status:        row.Status,
+			SalaryRange:   nullString(row.SalaryRange),
+			WorkLocation:  nullString(row.WorkLocation),
+			StartDate:     nullString(row.StartDate),
+			ExpiresAt:     formatTimePtr(row.ExpiresAt),
+		})
+	}
+	return items, nil
+}
+
 func mapRecruitingApplicationReadRow(row recruitingApplicationReadRow) aiagentgrpc.RecruitingApplicationContext {
 	return aiagentgrpc.RecruitingApplicationContext{
 		ApplicationID:   row.ApplicationID,
@@ -1403,7 +2104,7 @@ func mapSessionRecord(row aiChatSessionRecord) aiagentgrpc.ChatSessionRow {
 }
 
 func mapMessageRecord(row aiChatHistoryRecord) aiagentgrpc.ChatMessageRow {
-	return aiagentgrpc.ChatMessageRow{ID: row.ID, OwnerRole: row.OwnerRole, OwnerID: row.OwnerID, SessionID: row.SessionID, Role: row.Role, Content: row.Content, ProcessContent: row.ProcessContent, ModelID: row.ModelID, ModelName: row.ModelName, CreatedAt: row.CreatedAt}
+	return aiagentgrpc.ChatMessageRow{ID: row.ID, OwnerRole: row.OwnerRole, OwnerID: row.OwnerID, SessionID: row.SessionID, Role: row.Role, Content: row.Content, ProcessContent: row.ProcessContent, ModelID: row.ModelID, ModelName: row.ModelName, AgentSkillIDs: parseInt64JSONSlice(stringValue(row.AgentSkillIDs)), AgentSkillNames: parseStringJSONSlice(stringValue(row.AgentSkillNames)), CreatedAt: row.CreatedAt}
 }
 
 func applyChatOwnerScope(query *gorm.DB, ownerRole int32, ownerID int64) *gorm.DB {
@@ -1427,7 +2128,7 @@ func chatCompatibilityHRID(ownerRole int32, ownerID int64) int64 {
 }
 
 func mapRunRecord(row agentRunRecord) aiagentgrpc.AgentRunRow {
-	return aiagentgrpc.AgentRunRow{ID: row.ID, SessionID: row.SessionID, MessageID: row.MessageID, HistoryID: row.HistoryID, OwnerID: row.HRID, ClientRequestID: row.ClientRequestID, Status: row.Status, AssistantText: row.AssistantText, ProcessText: row.ProcessText, OptionContextJSON: stringValue(row.OptionContext), LastEventSeq: row.LastEventSeq, ErrorType: row.ErrorType, ErrorMessage: row.ErrorMessage, ModelID: row.ModelID, ModelName: row.ModelName, AgentType: row.AgentType, AgentID: row.AgentID, AgentName: row.AgentName, StartedAt: row.StartedAt, CompletedAt: row.CompletedAt, CancelRequestedAt: row.CancelRequestedAt, CanceledAt: row.CanceledAt, CreatedAt: row.CreatedAt, UpdatedAt: row.UpdatedAt}
+	return aiagentgrpc.AgentRunRow{ID: row.ID, SessionID: row.SessionID, MessageID: row.MessageID, HistoryID: row.HistoryID, OwnerID: row.HRID, ClientRequestID: row.ClientRequestID, Status: row.Status, AssistantText: row.AssistantText, ProcessText: row.ProcessText, PlanJSON: stringValue(row.PlanJSON), OptionContextJSON: stringValue(row.OptionContext), LastEventSeq: row.LastEventSeq, ErrorType: row.ErrorType, ErrorMessage: row.ErrorMessage, ModelID: row.ModelID, ModelName: row.ModelName, AgentType: row.AgentType, AgentID: row.AgentID, AgentName: row.AgentName, StartedAt: row.StartedAt, CompletedAt: row.CompletedAt, CancelRequestedAt: row.CancelRequestedAt, CanceledAt: row.CanceledAt, CreatedAt: row.CreatedAt, UpdatedAt: row.UpdatedAt}
 }
 
 func offset(page, pageSize int32) int {
@@ -1446,6 +2147,14 @@ func nullableJSON(value string) *string {
 		return nil
 	}
 	return &value
+}
+
+func nullableSQLString(value string) sql.NullString {
+	trimmed := strings.TrimSpace(value)
+	if trimmed == "" {
+		return sql.NullString{}
+	}
+	return sql.NullString{String: trimmed, Valid: true}
 }
 
 func stringValue(value *string) string {
@@ -1476,6 +2185,57 @@ func nullFloat64(value sql.NullFloat64) float64 {
 	return value.Float64
 }
 
+func truncateRunes(value string, limit int) string {
+	if limit <= 0 {
+		return ""
+	}
+	runes := []rune(value)
+	if len(runes) <= limit {
+		return value
+	}
+	return string(runes[:limit])
+}
+
+func candidateApplicationStatusText(statusKey string, status int32) string {
+	switch strings.TrimSpace(statusKey) {
+	case "applied":
+		return "待查看"
+	case "screening":
+		return "筛选中"
+	case "interview":
+		return "面试中"
+	case "offer":
+		return "Offer 阶段"
+	case "hired":
+		return "已录用"
+	case "rejected":
+		return "未通过"
+	case "withdrawn":
+		return "已撤回"
+	case "offer_rejected":
+		return "Offer 已拒绝"
+	}
+	switch status {
+	case 0:
+		return "待查看"
+	case 1:
+		return "已查看"
+	case 2:
+		return "已通过"
+	case 3:
+		return "未通过"
+	default:
+		return "未知"
+	}
+}
+
+func candidateJobStatusText(status int32) string {
+	if status == 1 {
+		return "招募中"
+	}
+	return "已下架"
+}
+
 func formatTime(value time.Time) string {
 	if value.IsZero() {
 		return ""
@@ -1503,6 +2263,56 @@ func jsonStringList(value sql.NullString) []string {
 	}
 	var items []string
 	if err := json.Unmarshal([]byte(value.String), &items); err != nil {
+		return nil
+	}
+	return items
+}
+
+func marshalInt64Slice(values []int64) string {
+	if len(values) == 0 {
+		return ""
+	}
+	data, err := json.Marshal(values)
+	if err != nil {
+		return ""
+	}
+	return string(data)
+}
+
+func marshalStringSlice(values []string) string {
+	cleaned := make([]string, 0, len(values))
+	for _, value := range values {
+		if strings.TrimSpace(value) != "" {
+			cleaned = append(cleaned, strings.TrimSpace(value))
+		}
+	}
+	if len(cleaned) == 0 {
+		return ""
+	}
+	data, err := json.Marshal(cleaned)
+	if err != nil {
+		return ""
+	}
+	return string(data)
+}
+
+func parseInt64JSONSlice(value string) []int64 {
+	if strings.TrimSpace(value) == "" {
+		return nil
+	}
+	var items []int64
+	if err := json.Unmarshal([]byte(value), &items); err != nil {
+		return nil
+	}
+	return items
+}
+
+func parseStringJSONSlice(value string) []string {
+	if strings.TrimSpace(value) == "" {
+		return nil
+	}
+	var items []string
+	if err := json.Unmarshal([]byte(value), &items); err != nil {
 		return nil
 	}
 	return items

@@ -1,0 +1,183 @@
+{
+  "schemaVersion": 1,
+  "feature_name": "ai-agent-runtime-recovery",
+  "current_task": "TASK-010",
+  "current_phase": "completed",
+  "completed_tasks": [
+    "TASK-001",
+    "TASK-002",
+    "TASK-003",
+    "TASK-004",
+    "TASK-005",
+    "TASK-006",
+    "TASK-007",
+    "TASK-008",
+    "TASK-009",
+    "TASK-010"
+  ],
+  "blocked_tasks": [],
+  "failed_tasks": [],
+  "skipped_human_confirmation_tasks": [],
+  "approved_exceptions": [],
+  "review_round": 1,
+  "status": "completed",
+  "skip_human_confirm": false,
+  "human_confirmation_grant": {
+    "confirmed_by": "user",
+    "confirmed_at": "2026-07-14T17:08:11Z",
+    "confirmation_text": "User explicitly authorized execution of all requiresHumanConfirmation=true TASKs within feature ai-agent-runtime-recovery, including but not limited to TASK-002 and TASK-007, and instructed the pipeline to record this confirmation in pipeline-state.json and corresponding TASK evidence/report without stopping again before those TASKs."
+  },
+  "task_runs": {
+    "TASK-001": {
+      "base_sha": "dc018e6d28e8b1db277b3594fd435b581215eaf3",
+      "base_tree": "5fa32a2c019dbceb08b976ff27b9fa82b0e4703c",
+      "scope_status": "passed",
+      "checks_status": "passed",
+      "review_verdict": "通过",
+      "head_sha": "dc018e6d28e8b1db277b3594fd435b581215eaf3",
+      "review_rounds": 2,
+      "evidence": ".spec/ai-agent-runtime-recovery/reports/TASK-001-evidence.json",
+      "completed_at": "2026-07-14T17:26:20Z"
+    },
+    "TASK-002": {
+      "base_sha": "dc018e6d28e8b1db277b3594fd435b581215eaf3",
+      "base_tree": "e7902b30ceb5de303d03620cfb43296989f4cc70",
+      "scope_status": "passed",
+      "checks_status": "passed",
+      "review_verdict": "通过",
+      "human_confirmation": {
+        "required": true,
+        "confirmed": true,
+        "confirmed_by": "user",
+        "confirmed_at": "2026-07-14T17:08:11Z",
+        "confirmation_text": "User explicitly authorized execution of all requiresHumanConfirmation=true TASKs within feature ai-agent-runtime-recovery, including but not limited to TASK-002 and TASK-007, and instructed the pipeline to record this confirmation in pipeline-state.json and corresponding TASK evidence/report without stopping again before those TASKs."
+      },
+      "head_sha": "dc018e6d28e8b1db277b3594fd435b581215eaf3",
+      "review_rounds": 2,
+      "evidence": ".spec/ai-agent-runtime-recovery/reports/TASK-002-evidence.json",
+      "completed_at": "2026-07-14T17:45:01Z"
+    },
+    "TASK-003": {
+      "base_sha": "dc018e6d28e8b1db277b3594fd435b581215eaf3",
+      "base_tree": "306c8e8abef5b321b5c0ce0131e808cbe752a748",
+      "scope_status": "passed",
+      "checks_status": "passed",
+      "review_verdict": "通过",
+      "head_sha": "dc018e6d28e8b1db277b3594fd435b581215eaf3",
+      "review_rounds": 2,
+      "evidence": ".spec/ai-agent-runtime-recovery/reports/TASK-003-evidence.json",
+      "blocked_at": "2026-07-14T18:13:07Z",
+      "blocked_reason": "TASK-003 reached max_review_rounds=3 without a passing self-review. Round 3 still reported a confirmation-continuation duplicate-user-message risk and missing TASK evidence at review time.",
+      "resumed_at": "2026-07-14T18:18:35Z",
+      "resume_reason": "Continuation resumed TASK-003 fix-check-failures to address the remaining duplicate user-message risk.",
+      "completed_at": "2026-07-14T18:21:41Z"
+    },
+    "TASK-004": {
+      "base_sha": "dc018e6d28e8b1db277b3594fd435b581215eaf3",
+      "base_tree": "bda1084740e8177e3cc4ce16e2df799a15482f9f",
+      "scope_status": "passed",
+      "checks_status": "passed",
+      "review_verdict": "通过",
+      "head_sha": "dc018e6d28e8b1db277b3594fd435b581215eaf3",
+      "review_rounds": 2,
+      "evidence": ".spec/ai-agent-runtime-recovery/reports/TASK-004-evidence.json",
+      "completed_at": "2026-07-14T18:41:40Z"
+    },
+    "TASK-005": {
+      "base_sha": "dc018e6d28e8b1db277b3594fd435b581215eaf3",
+      "base_tree": "52668f973b06f3a737fc9d7758a49e8f39e39183",
+      "scope_status": "passed",
+      "checks_status": "passed",
+      "review_verdict": "通过",
+      "head_sha": "dc018e6d28e8b1db277b3594fd435b581215eaf3",
+      "review_rounds": 1,
+      "evidence": ".spec/ai-agent-runtime-recovery/reports/TASK-005-evidence.json",
+      "completed_at": "2026-07-14T19:01:00Z"
+    },
+    "TASK-006": {
+      "base_sha": "dc018e6d28e8b1db277b3594fd435b581215eaf3",
+      "base_tree": "b805f67514efcef0f325b36931cb4634a0d573b9",
+      "scope_status": "passed",
+      "checks_status": "passed",
+      "review_verdict": "通过",
+      "head_sha": "dc018e6d28e8b1db277b3594fd435b581215eaf3",
+      "review_rounds": 3,
+      "evidence": ".spec/ai-agent-runtime-recovery/reports/TASK-006-evidence.json",
+      "completed_at": "2026-07-14T19:27:30Z"
+    },
+    "TASK-007": {
+      "base_sha": "dc018e6d28e8b1db277b3594fd435b581215eaf3",
+      "base_tree": "947270a22584868dfe68bbee773b65117f8cc53b",
+      "scope_status": "passed",
+      "checks_status": "passed",
+      "review_verdict": "通过",
+      "human_confirmation": {
+        "required": true,
+        "confirmed": true,
+        "confirmed_by": "user",
+        "confirmed_at": "2026-07-14T17:08:11Z",
+        "recorded_at": "2026-07-14T19:28:25Z",
+        "confirmation_text": "User explicitly authorized execution of all requiresHumanConfirmation=true TASKs within feature ai-agent-runtime-recovery, including but not limited to TASK-002 and TASK-007, and instructed the pipeline to record this confirmation in pipeline-state.json and corresponding TASK evidence/report without stopping again before those TASKs."
+      },
+      "head_sha": "dc018e6d28e8b1db277b3594fd435b581215eaf3",
+      "review_rounds": 2,
+      "evidence": ".spec/ai-agent-runtime-recovery/reports/TASK-007-evidence.json",
+      "completed_at": "2026-07-14T19:50:52Z"
+    },
+    "TASK-008": {
+      "base_sha": "dc018e6d28e8b1db277b3594fd435b581215eaf3",
+      "base_tree": "d037ab7dc3d115ff168264a629917e41fc080ee6",
+      "scope_status": "passed",
+      "checks_status": "passed",
+      "review_verdict": "通过",
+      "human_confirmation": {
+        "required": false,
+        "confirmed": true,
+        "confirmed_by": "not_required",
+        "confirmed_at": "2026-07-14T19:52:17Z",
+        "confirmation_text": "TASK-008 does not require human confirmation."
+      },
+      "head_sha": "dc018e6d28e8b1db277b3594fd435b581215eaf3",
+      "review_rounds": 3,
+      "evidence": ".spec/ai-agent-runtime-recovery/reports/TASK-008-evidence.json",
+      "completed_at": "2026-07-14T20:13:51Z"
+    },
+    "TASK-009": {
+      "base_sha": "dc018e6d28e8b1db277b3594fd435b581215eaf3",
+      "base_tree": "3408c36d27dffeb8a9609c066cea63d124e85c45",
+      "scope_status": "passed",
+      "checks_status": "passed",
+      "review_verdict": "通过",
+      "human_confirmation": {
+        "required": false,
+        "confirmed": true,
+        "confirmed_by": "not_required",
+        "confirmed_at": "2026-07-14T20:15:00Z",
+        "confirmation_text": "TASK-009 does not require human confirmation."
+      },
+      "head_sha": "dc018e6d28e8b1db277b3594fd435b581215eaf3",
+      "review_rounds": 2,
+      "evidence": ".spec/ai-agent-runtime-recovery/reports/TASK-009-evidence.json",
+      "completed_at": "2026-07-14T20:25:42Z"
+    },
+    "TASK-010": {
+      "base_sha": "dc018e6d28e8b1db277b3594fd435b581215eaf3",
+      "base_tree": "4e5c497335b546ac22e018329585fe4556bdb91b",
+      "scope_status": "passed",
+      "checks_status": "passed",
+      "review_verdict": "通过",
+      "human_confirmation": {
+        "required": false,
+        "confirmed": true,
+        "confirmed_by": "not_required",
+        "confirmed_at": "2026-07-14T20:28:50Z",
+        "confirmation_text": "TASK-010 does not require human confirmation."
+      },
+      "head_sha": "dc018e6d28e8b1db277b3594fd435b581215eaf3",
+      "review_rounds": 2,
+      "evidence": ".spec/ai-agent-runtime-recovery/reports/TASK-010-evidence.json",
+      "started_at": "2026-07-14T20:28:50Z",
+      "completed_at": "2026-07-14T20:32:51Z"
+    }
+  }
+}

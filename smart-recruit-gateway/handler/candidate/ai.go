@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"strconv"
+	"strings"
 
 	"github.com/gin-gonic/gin"
 
@@ -21,6 +22,74 @@ type AIHandler struct {
 
 func NewAIHandler(clients *rpc.Clients) *AIHandler {
 	return &AIHandler{clients: clients}
+}
+
+// Chat handles non-streaming candidate AI chat by aggregating the streaming RPC.
+func (h *AIHandler) Chat(c *gin.Context) {
+	var req struct {
+		Message   string         `json:"message" binding:"required"`
+		SessionID base.FlexInt64 `json:"session_id"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		base.BadRequest(c, "消息不能为空")
+		return
+	}
+	stream, err := h.clients.AI.CandidateChatStream(c.Request.Context(), &pb.CandidateChatRequest{
+		UserId:    middleware.UserID(c),
+		Message:   req.Message,
+		SessionId: int64(req.SessionID),
+	})
+	if err != nil {
+		base.Internal(c, err)
+		return
+	}
+
+	var reply strings.Builder
+	var sessionID int64
+	var createdAt string
+	var suggestedQuestions []string
+	code := int32(0)
+	msg := "success"
+	for {
+		chunk, err := stream.Recv()
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			base.Internal(c, err)
+			return
+		}
+		if chunk.GetCode() != 0 {
+			base.From(c, chunk.GetCode(), chunk.GetMsg(), nil)
+			return
+		}
+		code = chunk.GetCode()
+		if chunk.GetMsg() != "" {
+			msg = chunk.GetMsg()
+		}
+		if chunk.GetDelta() != "" {
+			reply.WriteString(chunk.GetDelta())
+		}
+		if chunk.GetSessionId() > 0 {
+			sessionID = chunk.GetSessionId()
+		}
+		if chunk.GetCreatedAt() != "" {
+			createdAt = chunk.GetCreatedAt()
+		}
+		if len(chunk.GetSuggestedQuestions()) > 0 {
+			suggestedQuestions = chunk.GetSuggestedQuestions()
+		}
+		if chunk.GetDone() {
+			break
+		}
+	}
+	base.From(c, code, msg, gin.H{
+		"reply":               reply.String(),
+		"created_at":          createdAt,
+		"session_id":          sessionID,
+		"suggested_questions": suggestedQuestions,
+		"suggestedQuestions":  suggestedQuestions,
+	})
 }
 
 // ChatStream handles SSE streaming candidate AI chat.

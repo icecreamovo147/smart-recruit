@@ -3,12 +3,15 @@ package persistence
 import (
 	"context"
 	"database/sql"
+	"encoding/json"
 	"fmt"
 	"strings"
 	"time"
 
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 
+	embeddinginfra "smart-recruit-ai-agent-service/internal/infrastructure/provider"
 	"smart-recruit-proto/recruitment/pb"
 )
 
@@ -113,6 +116,25 @@ type embeddingModelRecord struct {
 }
 
 func (embeddingModelRecord) TableName() string { return "embedding_models" }
+
+type aiEmbeddingRecord struct {
+	ID             int64          `gorm:"primaryKey"`
+	ObjectType     string         `gorm:"column:object_type"`
+	ObjectID       int64          `gorm:"column:object_id"`
+	ScopeType      string         `gorm:"column:scope_type"`
+	ScopeID        int64          `gorm:"column:scope_id"`
+	TextHash       string         `gorm:"column:text_hash"`
+	EmbeddingModel string         `gorm:"column:embedding_model"`
+	EmbeddingDim   int            `gorm:"column:embedding_dim"`
+	VectorJSON     sql.NullString `gorm:"column:vector_json"`
+	MetadataJSON   sql.NullString `gorm:"column:metadata_json"`
+	Status         string         `gorm:"column:status"`
+	LastError      sql.NullString `gorm:"column:last_error"`
+	CreatedAt      time.Time      `gorm:"column:created_at"`
+	UpdatedAt      time.Time      `gorm:"column:updated_at"`
+}
+
+func (aiEmbeddingRecord) TableName() string { return "ai_embeddings" }
 
 func (s *NativeStore) CreateLlmProvider(ctx context.Context, req *pb.CreateProviderRequest) (*pb.ProviderResponse, error) {
 	providerType := strings.TrimSpace(req.GetProviderType())
@@ -626,6 +648,193 @@ func (s *NativeStore) TestEmbeddingModel(ctx context.Context, req *pb.TestEmbedd
 
 func (s *NativeStore) BackfillEmbeddings(context.Context, *pb.BackfillEmbeddingsRequest) (*pb.BackfillEmbeddingsResponse, error) {
 	return &pb.BackfillEmbeddingsResponse{Code: configUnsupported, Msg: "embedding backfill worker is not configured in native configuration service"}, nil
+}
+
+func (s *NativeStore) ResolveEmbeddingConfig(ctx context.Context, providerID, modelID int64) (embeddinginfra.EmbeddingConfig, bool, error) {
+	var model embeddingModelRecord
+	query := s.db.WithContext(ctx).Model(&embeddingModelRecord{}).Where("is_enabled = ?", true)
+	if modelID > 0 {
+		query = query.Where("id = ?", modelID)
+	} else {
+		query = query.Where("is_default = ?", true)
+		if providerID > 0 {
+			query = query.Where("provider_id = ?", providerID)
+		}
+	}
+	if err := query.Order("is_default DESC, id ASC").First(&model).Error; err != nil {
+		if err == gorm.ErrRecordNotFound {
+			return embeddinginfra.EmbeddingConfig{}, false, nil
+		}
+		return embeddinginfra.EmbeddingConfig{}, false, err
+	}
+	var provider embeddingProviderRecord
+	providerQuery := s.db.WithContext(ctx).Where("id = ? AND is_enabled = ?", model.ProviderID, true)
+	if providerID > 0 {
+		providerQuery = providerQuery.Where("id = ?", providerID)
+	}
+	if err := providerQuery.First(&provider).Error; err != nil {
+		if err == gorm.ErrRecordNotFound {
+			return embeddinginfra.EmbeddingConfig{}, false, nil
+		}
+		return embeddinginfra.EmbeddingConfig{}, false, err
+	}
+	apiKey, err := s.decryptAPIKey(provider.APIKeyEncrypted)
+	if err != nil {
+		return embeddinginfra.EmbeddingConfig{}, false, fmt.Errorf("decrypt embedding provider %d api key: %w", provider.ID, err)
+	}
+	return embeddinginfra.EmbeddingConfig{
+		ProviderID:     provider.ID,
+		ProviderName:   provider.Name,
+		ProviderType:   provider.ProviderType,
+		Endpoint:       provider.Endpoint,
+		APIKey:         apiKey,
+		ExtraHeaders:   nullString(provider.ExtraHeaders),
+		ModelID:        model.ID,
+		ModelName:      model.ModelName,
+		Dimension:      model.EmbeddingDim,
+		BatchSize:      model.BatchSize,
+		TimeoutSeconds: model.TimeoutSeconds,
+		MaxRetries:     model.MaxRetries,
+	}, true, nil
+}
+
+func (s *NativeStore) UpdateEmbeddingTestStatus(ctx context.Context, modelID int64, status, lastError string, testedAt time.Time) error {
+	if modelID <= 0 {
+		return nil
+	}
+	updates := map[string]any{"last_test_status": strings.TrimSpace(status), "last_test_at": testedAt}
+	if strings.TrimSpace(lastError) == "" {
+		updates["last_test_error"] = sql.NullString{}
+	} else {
+		updates["last_test_error"] = sql.NullString{String: strings.TrimSpace(lastError), Valid: true}
+	}
+	return s.db.WithContext(ctx).Model(&embeddingModelRecord{}).Where("id = ?", modelID).Updates(updates).Error
+}
+
+func (s *NativeStore) ListAgentSkillEmbeddingDocuments(ctx context.Context, objectID int64, limit int) ([]embeddinginfra.AgentSkillEmbeddingDocument, error) {
+	if limit <= 0 || limit > 200 {
+		limit = 100
+	}
+	type row struct {
+		agentSkillRecord
+		BodyMarkdown sql.NullString `gorm:"column:body_markdown"`
+		SkillMD      sql.NullString `gorm:"column:skill_md"`
+	}
+	query := s.db.WithContext(ctx).Table("agent_skills s").
+		Select("s.*, v.body_markdown, v.skill_md").
+		Joins("LEFT JOIN agent_skill_versions v ON v.id = s.current_version_id").
+		Where("s.is_enabled = ? AND s.current_version_id IS NOT NULL", true)
+	if objectID > 0 {
+		query = query.Where("s.id = ?", objectID)
+	}
+	var rows []row
+	if err := query.Order("s.priority DESC, s.id ASC").Limit(limit).Scan(&rows).Error; err != nil {
+		return nil, err
+	}
+	docs := make([]embeddinginfra.AgentSkillEmbeddingDocument, 0, len(rows))
+	for _, item := range rows {
+		body := nullString(item.BodyMarkdown)
+		if strings.TrimSpace(body) == "" {
+			body = nullString(item.SkillMD)
+		}
+		docs = append(docs, embeddinginfra.AgentSkillEmbeddingDocument{
+			ID:                   item.ID,
+			Name:                 item.Name,
+			DisplayName:          item.DisplayName,
+			Description:          nullString(item.Description),
+			AgentType:            item.AgentType,
+			Category:             item.Category,
+			Scenario:             item.Scenario,
+			Priority:             item.Priority,
+			RiskLevel:            item.RiskLevel,
+			TriggerKeywords:      jsonStringList(item.TriggerKeywords),
+			RequiredCapabilities: jsonStringList(item.RequiredCapabilities),
+			EvaluationCriteria:   jsonStringList(item.EvaluationCriteria),
+			SemanticTags:         jsonStringList(item.SemanticTags),
+			OutputSchema:         nullString(item.OutputSchema),
+			BodyMarkdown:         body,
+			Enabled:              item.IsEnabled,
+		})
+	}
+	return docs, nil
+}
+
+func (s *NativeStore) UpsertAIEmbedding(ctx context.Context, row embeddinginfra.AIEmbeddingRecord) error {
+	vector, err := json.Marshal(row.Vector)
+	if err != nil {
+		return err
+	}
+	metadata, err := json.Marshal(row.Metadata)
+	if err != nil {
+		return err
+	}
+	record := aiEmbeddingRecord{
+		ObjectType:     strings.TrimSpace(row.ObjectType),
+		ObjectID:       row.ObjectID,
+		ScopeType:      strings.TrimSpace(row.ScopeType),
+		ScopeID:        row.ScopeID,
+		TextHash:       strings.TrimSpace(row.TextHash),
+		EmbeddingModel: strings.TrimSpace(row.EmbeddingModel),
+		EmbeddingDim:   row.EmbeddingDim,
+		VectorJSON:     sql.NullString{String: string(vector), Valid: len(row.Vector) > 0},
+		MetadataJSON:   sql.NullString{String: string(metadata), Valid: row.Metadata != nil},
+		Status:         defaultString(strings.TrimSpace(row.Status), "ready"),
+		LastError:      nullStringFrom(row.LastError, false),
+	}
+	if record.ObjectType == "" || record.ObjectID <= 0 || record.TextHash == "" || record.EmbeddingModel == "" {
+		return fmt.Errorf("invalid embedding record")
+	}
+	return s.db.WithContext(ctx).Clauses(clause.OnConflict{
+		Columns: []clause.Column{{Name: "object_type"}, {Name: "object_id"}, {Name: "embedding_model"}, {Name: "text_hash"}},
+		DoUpdates: clause.AssignmentColumns([]string{
+			"scope_type", "scope_id", "embedding_dim", "vector_json", "metadata_json", "status", "last_error", "updated_at",
+		}),
+	}).Create(&record).Error
+}
+
+func (s *NativeStore) InvalidateAIEmbedding(ctx context.Context, objectType string, objectID int64) error {
+	if strings.TrimSpace(objectType) == "" || objectID <= 0 {
+		return nil
+	}
+	return s.db.WithContext(ctx).Model(&aiEmbeddingRecord{}).
+		Where("object_type = ? AND object_id = ?", strings.TrimSpace(objectType), objectID).
+		Updates(map[string]any{"status": "invalidated", "last_error": sql.NullString{String: "object disabled or changed", Valid: true}}).Error
+}
+
+func (s *NativeStore) ListAIEmbeddings(ctx context.Context, objectType, modelName string, limit int) ([]embeddinginfra.AIEmbeddingRecord, error) {
+	if limit <= 0 || limit > 1000 {
+		limit = 500
+	}
+	var rows []aiEmbeddingRecord
+	query := s.db.WithContext(ctx).Where("object_type = ? AND embedding_model = ? AND status = ?", strings.TrimSpace(objectType), strings.TrimSpace(modelName), "ready")
+	if err := query.Order("updated_at DESC, id DESC").Limit(limit).Find(&rows).Error; err != nil {
+		return nil, err
+	}
+	out := make([]embeddinginfra.AIEmbeddingRecord, 0, len(rows))
+	for _, row := range rows {
+		var vector []float64
+		if row.VectorJSON.Valid {
+			_ = json.Unmarshal([]byte(row.VectorJSON.String), &vector)
+		}
+		var metadata map[string]any
+		if row.MetadataJSON.Valid {
+			_ = json.Unmarshal([]byte(row.MetadataJSON.String), &metadata)
+		}
+		out = append(out, embeddinginfra.AIEmbeddingRecord{
+			ObjectType:     row.ObjectType,
+			ObjectID:       row.ObjectID,
+			ScopeType:      row.ScopeType,
+			ScopeID:        row.ScopeID,
+			TextHash:       row.TextHash,
+			EmbeddingModel: row.EmbeddingModel,
+			EmbeddingDim:   row.EmbeddingDim,
+			Vector:         vector,
+			Metadata:       metadata,
+			Status:         row.Status,
+			LastError:      nullString(row.LastError),
+		})
+	}
+	return out, nil
 }
 
 func (s *NativeStore) getLlmProviderResponse(ctx context.Context, id int64) (*pb.ProviderResponse, error) {
