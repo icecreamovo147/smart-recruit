@@ -1,0 +1,436 @@
+{
+  "schemaVersion": 1,
+  "feature_name": "dev-log-viewer",
+  "tasks": {
+    "TASK-DLV-001": {
+      "title": "建立独立模块与依赖基线",
+      "status": "pending",
+      "allowedFiles": [
+        "pnpm-workspace.yaml",
+        "pnpm-lock.yaml",
+        "dev-log-viewer/go.mod",
+        "dev-log-viewer/go.sum",
+        "dev-log-viewer/*.json",
+        "dev-log-viewer/*.ts",
+        "dev-log-viewer/*.js",
+        "dev-log-viewer/web/index.html",
+        "dev-log-viewer/web/src/main.tsx",
+        "dev-log-viewer/web/src/App.tsx",
+        "dev-log-viewer/web/src/styles/**",
+        "dev-log-viewer/web/src/test/**",
+        "dev-log-viewer/web/src/vite-env.d.ts",
+        ".spec/dev-log-viewer/reports/TASK-DLV-001-report.md",
+        ".spec/dev-log-viewer/reports/TASK-DLV-001-evidence.json",
+        ".spec/dev-log-viewer/pipeline-state.json"
+      ],
+      "forbiddenFiles": [
+        "start-dev.sh",
+        "stop-dev.sh",
+        ".gitignore",
+        ".knowledge/**",
+        "smart-recruit-gateway/**",
+        "smart-recruit-*-service/**",
+        "smart-recruit-commons/**",
+        "smart-recruit-platform-go/**",
+        "smart-recruit-proto/**",
+        "hr-frontend/**",
+        "user-frontend/**",
+        "interviewer-frontend/**",
+        "docs/**"
+      ],
+      "requiresHumanConfirmation": true,
+      "allowedActions": ["create", "modify", "test", "install"],
+      "acceptance": ".spec/dev-log-viewer/acceptance/TASK-DLV-001.md",
+      "report": ".spec/dev-log-viewer/reports/TASK-DLV-001-report.md",
+      "requiredKnowledgeImpact": true,
+      "knowledge": {
+        "review": [
+          ".knowledge/architecture/system-overview.md",
+          ".knowledge/architecture/frontend-apps.md",
+          ".knowledge/runbooks/local-development.md"
+        ]
+      },
+      "notes": [
+        "用户已确认将 dev-log-viewer 加入 workspace、增加 SPEC D-002/D-011 所列依赖并更新根锁文件；执行时仍需把本轮确认写入 evidence。",
+        "不得升级或重写其他 workspace package 的依赖。"
+      ]
+    },
+    "TASK-DLV-002": {
+      "title": "服务目录、进程状态与基础 HTTP",
+      "status": "pending",
+      "allowedFiles": [
+        "dev-log-viewer/cmd/dev-log-viewer/**",
+        "dev-log-viewer/internal/catalog/**",
+        "dev-log-viewer/internal/config/**",
+        "dev-log-viewer/internal/server/**",
+        ".spec/dev-log-viewer/reports/TASK-DLV-002-report.md",
+        ".spec/dev-log-viewer/reports/TASK-DLV-002-evidence.json",
+        ".spec/dev-log-viewer/pipeline-state.json"
+      ],
+      "forbiddenFiles": [
+        "dev-log-viewer/go.mod",
+        "dev-log-viewer/go.sum",
+        "dev-log-viewer/package.json",
+        "dev-log-viewer/web/**",
+        "dev-log-viewer/internal/tailer/**",
+        "dev-log-viewer/internal/parser/**",
+        "dev-log-viewer/internal/stream/**",
+        "pnpm-workspace.yaml",
+        "pnpm-lock.yaml",
+        "start-dev.sh",
+        "stop-dev.sh",
+        ".knowledge/**",
+        "smart-recruit-*/**",
+        "hr-frontend/**",
+        "user-frontend/**",
+        "interviewer-frontend/**",
+        "docs/**"
+      ],
+      "requiresHumanConfirmation": false,
+      "allowedActions": ["create", "modify", "test"],
+      "acceptance": ".spec/dev-log-viewer/acceptance/TASK-DLV-002.md",
+      "report": ".spec/dev-log-viewer/reports/TASK-DLV-002-report.md",
+      "requiredKnowledgeImpact": true,
+      "knowledge": {
+        "review": [
+          ".knowledge/architecture/system-overview.md",
+          ".knowledge/architecture/service-boundaries.md",
+          ".knowledge/runbooks/local-development.md"
+        ]
+      },
+      "notes": ["不得通过 HTTP 参数接受任意文件路径。"]
+    },
+    "TASK-DLV-003": {
+      "title": "有界文件 Tail 与混合日志解析",
+      "status": "pending",
+      "allowedFiles": [
+        "dev-log-viewer/internal/tailer/**",
+        "dev-log-viewer/internal/parser/**",
+        "dev-log-viewer/testdata/**",
+        ".spec/dev-log-viewer/reports/TASK-DLV-003-report.md",
+        ".spec/dev-log-viewer/reports/TASK-DLV-003-evidence.json",
+        ".spec/dev-log-viewer/pipeline-state.json"
+      ],
+      "forbiddenFiles": [
+        "dev-log-viewer/go.mod",
+        "dev-log-viewer/go.sum",
+        "dev-log-viewer/package.json",
+        "dev-log-viewer/web/**",
+        "dev-log-viewer/internal/server/**",
+        "dev-log-viewer/internal/stream/**",
+        "pnpm-workspace.yaml",
+        "pnpm-lock.yaml",
+        "start-dev.sh",
+        "stop-dev.sh",
+        ".knowledge/**",
+        "smart-recruit-*/**",
+        "hr-frontend/**",
+        "user-frontend/**",
+        "interviewer-frontend/**",
+        "docs/**"
+      ],
+      "requiresHumanConfirmation": false,
+      "allowedActions": ["create", "modify", "test"],
+      "acceptance": ".spec/dev-log-viewer/acceptance/TASK-DLV-003.md",
+      "report": ".spec/dev-log-viewer/reports/TASK-DLV-003-report.md",
+      "requiredKnowledgeImpact": true,
+      "knowledge": {
+        "review": [
+          ".knowledge/architecture/system-overview.md",
+          ".knowledge/runbooks/local-development.md"
+        ]
+      },
+      "notes": ["测试 fixture 必须脱敏，不得复制真实候选人、员工、凭据或生产日志。"]
+    },
+    "TASK-DLV-004": {
+      "title": "EventHub、SSE 与断线恢复",
+      "status": "pending",
+      "allowedFiles": [
+        "dev-log-viewer/internal/stream/**",
+        "dev-log-viewer/internal/server/**",
+        "dev-log-viewer/internal/tailer/**",
+        "dev-log-viewer/cmd/dev-log-viewer/**",
+        ".spec/dev-log-viewer/reports/TASK-DLV-004-report.md",
+        ".spec/dev-log-viewer/reports/TASK-DLV-004-evidence.json",
+        ".spec/dev-log-viewer/pipeline-state.json"
+      ],
+      "forbiddenFiles": [
+        "dev-log-viewer/go.mod",
+        "dev-log-viewer/go.sum",
+        "dev-log-viewer/package.json",
+        "dev-log-viewer/web/**",
+        "pnpm-workspace.yaml",
+        "pnpm-lock.yaml",
+        "start-dev.sh",
+        "stop-dev.sh",
+        ".knowledge/**",
+        "smart-recruit-*/**",
+        "hr-frontend/**",
+        "user-frontend/**",
+        "interviewer-frontend/**",
+        "docs/**"
+      ],
+      "requiresHumanConfirmation": false,
+      "allowedActions": ["create", "modify", "test"],
+      "acceptance": ".spec/dev-log-viewer/acceptance/TASK-DLV-004.md",
+      "report": ".spec/dev-log-viewer/reports/TASK-DLV-004-report.md",
+      "requiredKnowledgeImpact": true,
+      "knowledge": {
+        "review": [
+          ".knowledge/architecture/system-overview.md",
+          ".knowledge/runbooks/local-development.md"
+        ]
+      },
+      "notes": ["慢客户端不得阻塞 tailer 或其他订阅者。"]
+    },
+    "TASK-DLV-005": {
+      "title": "前端日志状态模型与流连接",
+      "status": "pending",
+      "allowedFiles": [
+        "dev-log-viewer/web/src/api/**",
+        "dev-log-viewer/web/src/types/**",
+        "dev-log-viewer/web/src/state/**",
+        "dev-log-viewer/web/src/hooks/**",
+        "dev-log-viewer/web/src/test/**",
+        ".spec/dev-log-viewer/reports/TASK-DLV-005-report.md",
+        ".spec/dev-log-viewer/reports/TASK-DLV-005-evidence.json",
+        ".spec/dev-log-viewer/pipeline-state.json"
+      ],
+      "forbiddenFiles": [
+        "dev-log-viewer/go.mod",
+        "dev-log-viewer/go.sum",
+        "dev-log-viewer/package.json",
+        "dev-log-viewer/internal/**",
+        "dev-log-viewer/cmd/**",
+        "dev-log-viewer/web/src/components/**",
+        "dev-log-viewer/web/src/styles/**",
+        "pnpm-workspace.yaml",
+        "pnpm-lock.yaml",
+        "start-dev.sh",
+        "stop-dev.sh",
+        ".knowledge/**",
+        "smart-recruit-*/**",
+        "hr-frontend/**",
+        "user-frontend/**",
+        "interviewer-frontend/**",
+        "docs/**"
+      ],
+      "requiresHumanConfirmation": false,
+      "allowedActions": ["create", "modify", "test"],
+      "acceptance": ".spec/dev-log-viewer/acceptance/TASK-DLV-005.md",
+      "report": ".spec/dev-log-viewer/reports/TASK-DLV-005-report.md",
+      "requiredKnowledgeImpact": true,
+      "knowledge": {
+        "review": [
+          ".knowledge/architecture/frontend-apps.md",
+          ".knowledge/architecture/system-overview.md",
+          ".knowledge/runbooks/local-development.md"
+        ]
+      },
+      "notes": ["状态逻辑应保持可单测，正式布局属于 TASK-DLV-006。"]
+    },
+    "TASK-DLV-006": {
+      "title": "Canonical UI 与虚拟日志列表",
+      "status": "pending",
+      "allowedFiles": [
+        "dev-log-viewer/web/src/App.tsx",
+        "dev-log-viewer/web/src/components/**",
+        "dev-log-viewer/web/src/styles/**",
+        "dev-log-viewer/web/src/assets/**",
+        "dev-log-viewer/web/src/test/**",
+        ".spec/dev-log-viewer/reports/TASK-DLV-006-report.md",
+        ".spec/dev-log-viewer/reports/TASK-DLV-006-evidence.json",
+        ".spec/dev-log-viewer/pipeline-state.json"
+      ],
+      "forbiddenFiles": [
+        "dev-log-viewer/go.mod",
+        "dev-log-viewer/go.sum",
+        "dev-log-viewer/package.json",
+        "dev-log-viewer/internal/**",
+        "dev-log-viewer/cmd/**",
+        "pnpm-workspace.yaml",
+        "pnpm-lock.yaml",
+        "start-dev.sh",
+        "stop-dev.sh",
+        ".knowledge/**",
+        "smart-recruit-*/**",
+        "hr-frontend/**",
+        "user-frontend/**",
+        "interviewer-frontend/**",
+        "docs/**"
+      ],
+      "requiresHumanConfirmation": false,
+      "allowedActions": ["create", "modify", "test"],
+      "acceptance": ".spec/dev-log-viewer/acceptance/TASK-DLV-006.md",
+      "report": ".spec/dev-log-viewer/reports/TASK-DLV-006-report.md",
+      "requiredKnowledgeImpact": true,
+      "knowledge": {
+        "review": [
+          ".knowledge/architecture/frontend-apps.md",
+          ".knowledge/architecture/system-overview.md"
+        ]
+      },
+      "notes": ["design/screens 是视觉事实源，design/html 只作结构参考。"]
+    },
+    "TASK-DLV-007": {
+      "title": "完成交互状态、导出与布局持久化",
+      "status": "pending",
+      "allowedFiles": [
+        "dev-log-viewer/web/src/App.tsx",
+        "dev-log-viewer/web/src/components/**",
+        "dev-log-viewer/web/src/hooks/**",
+        "dev-log-viewer/web/src/state/**",
+        "dev-log-viewer/web/src/utils/**",
+        "dev-log-viewer/web/src/styles/**",
+        "dev-log-viewer/web/src/test/**",
+        ".spec/dev-log-viewer/reports/TASK-DLV-007-report.md",
+        ".spec/dev-log-viewer/reports/TASK-DLV-007-evidence.json",
+        ".spec/dev-log-viewer/pipeline-state.json"
+      ],
+      "forbiddenFiles": [
+        "dev-log-viewer/go.mod",
+        "dev-log-viewer/go.sum",
+        "dev-log-viewer/package.json",
+        "dev-log-viewer/internal/**",
+        "dev-log-viewer/cmd/**",
+        "pnpm-workspace.yaml",
+        "pnpm-lock.yaml",
+        "start-dev.sh",
+        "stop-dev.sh",
+        ".knowledge/**",
+        "smart-recruit-*/**",
+        "hr-frontend/**",
+        "user-frontend/**",
+        "interviewer-frontend/**",
+        "docs/**"
+      ],
+      "requiresHumanConfirmation": false,
+      "allowedActions": ["create", "modify", "test"],
+      "acceptance": ".spec/dev-log-viewer/acceptance/TASK-DLV-007.md",
+      "report": ".spec/dev-log-viewer/reports/TASK-DLV-007-report.md",
+      "requiredKnowledgeImpact": true,
+      "knowledge": {
+        "review": [
+          ".knowledge/architecture/frontend-apps.md",
+          ".knowledge/architecture/system-overview.md",
+          ".knowledge/runbooks/local-development.md"
+        ]
+      },
+      "notes": ["不实现自动脱敏、JSONL 或服务端导出。"]
+    },
+    "TASK-DLV-008": {
+      "title": "静态嵌入、启停脚本与运行文档",
+      "status": "pending",
+      "allowedFiles": [
+        "dev-log-viewer/embed*.go",
+        "dev-log-viewer/cmd/dev-log-viewer/**",
+        "dev-log-viewer/internal/server/**",
+        "dev-log-viewer/package.json",
+        "dev-log-viewer/README.md",
+        "dev-log-viewer/scripts/**",
+        "start-dev.sh",
+        "stop-dev.sh",
+        ".knowledge/manifest.yaml",
+        ".knowledge/architecture/system-overview.md",
+        ".knowledge/runbooks/local-development.md",
+        ".spec/dev-log-viewer/reports/TASK-DLV-008-report.md",
+        ".spec/dev-log-viewer/reports/TASK-DLV-008-evidence.json",
+        ".spec/dev-log-viewer/pipeline-state.json"
+      ],
+      "forbiddenFiles": [
+        "pnpm-workspace.yaml",
+        "pnpm-lock.yaml",
+        ".gitignore",
+        ".knowledge/INDEX.md",
+        ".knowledge/inbox/**",
+        ".knowledge/archive/**",
+        "smart-recruit-*/**",
+        "hr-frontend/**",
+        "user-frontend/**",
+        "interviewer-frontend/**",
+        "README.md",
+        "docs/**"
+      ],
+      "requiresHumanConfirmation": true,
+      "allowedActions": ["create", "modify", "test", "build"],
+      "acceptance": ".spec/dev-log-viewer/acceptance/TASK-DLV-008.md",
+      "report": ".spec/dev-log-viewer/reports/TASK-DLV-008-report.md",
+      "requiredKnowledgeImpact": true,
+      "knowledge": {
+        "review": [
+          ".knowledge/architecture/system-overview.md",
+          ".knowledge/architecture/service-boundaries.md",
+          ".knowledge/architecture/frontend-apps.md",
+          ".knowledge/runbooks/local-development.md"
+        ],
+        "modify": [
+          ".knowledge/manifest.yaml",
+          ".knowledge/architecture/system-overview.md",
+          ".knowledge/runbooks/local-development.md"
+        ]
+      },
+      "notes": [
+        "用户已确认显式启停 target、模块 README 和相关知识库更新。",
+        "知识更新只写已由代码、脚本和测试验证的事实。"
+      ]
+    },
+    "TASK-DLV-009": {
+      "title": "集成、安全与视觉验收",
+      "status": "pending",
+      "allowedFiles": [
+        "dev-log-viewer/**/*_test.go",
+        "dev-log-viewer/web/src/**/*.test.ts",
+        "dev-log-viewer/web/src/**/*.test.tsx",
+        "dev-log-viewer/test/**",
+        "dev-log-viewer/scripts/smoke-test.sh",
+        ".knowledge/manifest.yaml",
+        ".knowledge/architecture/system-overview.md",
+        ".knowledge/runbooks/local-development.md",
+        ".spec/dev-log-viewer/docs/**",
+        ".spec/dev-log-viewer/reports/TASK-DLV-009-report.md",
+        ".spec/dev-log-viewer/reports/TASK-DLV-009-evidence.json",
+        ".spec/dev-log-viewer/pipeline-state.json"
+      ],
+      "forbiddenFiles": [
+        "dev-log-viewer/go.mod",
+        "dev-log-viewer/go.sum",
+        "dev-log-viewer/package.json",
+        "pnpm-workspace.yaml",
+        "pnpm-lock.yaml",
+        "start-dev.sh",
+        "stop-dev.sh",
+        ".gitignore",
+        ".knowledge/inbox/**",
+        ".knowledge/archive/**",
+        "smart-recruit-*/**",
+        "hr-frontend/**",
+        "user-frontend/**",
+        "interviewer-frontend/**",
+        "README.md",
+        "docs/**"
+      ],
+      "requiresHumanConfirmation": false,
+      "allowedActions": ["create", "modify", "test", "review"],
+      "acceptance": ".spec/dev-log-viewer/acceptance/TASK-DLV-009.md",
+      "report": ".spec/dev-log-viewer/reports/TASK-DLV-009-report.md",
+      "requiredKnowledgeImpact": true,
+      "knowledge": {
+        "review": [
+          ".knowledge/architecture/system-overview.md",
+          ".knowledge/architecture/service-boundaries.md",
+          ".knowledge/architecture/frontend-apps.md",
+          ".knowledge/runbooks/local-development.md"
+        ],
+        "modify": [
+          ".knowledge/manifest.yaml",
+          ".knowledge/architecture/system-overview.md",
+          ".knowledge/runbooks/local-development.md"
+        ]
+      },
+      "notes": [
+        "本 TASK 只补测试、验证证据和已授权知识事实，不修改生产实现。",
+        "人工视觉检查需记录视口、设计基线和真实结果。"
+      ]
+    }
+  }
+}

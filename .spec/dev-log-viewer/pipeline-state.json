@@ -1,0 +1,14 @@
+{
+  "schemaVersion": 1,
+  "feature_name": "dev-log-viewer",
+  "current_task": null,
+  "current_phase": "not_started",
+  "completed_tasks": [],
+  "blocked_tasks": [],
+  "failed_tasks": [],
+  "skipped_human_confirmation_tasks": [],
+  "approved_exceptions": [],
+  "review_round": 0,
+  "status": "pending",
+  "task_runs": {}
+}
