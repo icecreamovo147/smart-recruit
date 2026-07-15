@@ -1,0 +1,177 @@
+{
+  "schemaVersion": 1,
+  "feature_name": "recruiting-intelligence-runtime-parity",
+  "task_id": "TASK-003",
+  "base_sha": "98165e7cdac06c0aa2a0685ecf1ad7c00a3eb518",
+  "base_tree": "9fdbe164e5c46b96a17d46f6722ab846d09cf33e",
+  "head_sha": "98165e7cdac06c0aa2a0685ecf1ad7c00a3eb518",
+  "started_at": "2026-07-15T03:40:24Z",
+  "ended_at": "2026-07-15T06:50:47Z",
+  "changed_files": [
+    ".spec/recruiting-intelligence-runtime-parity/pipeline-state.json",
+    ".spec/recruiting-intelligence-runtime-parity/reports/TASK-003-evidence.json",
+    ".spec/recruiting-intelligence-runtime-parity/reports/TASK-003-report.md",
+    ".spec/recruiting-intelligence-runtime-parity/task-scope.json",
+    "smart-recruit-ai-agent-service/internal/application/recruiting_intelligence/resume_profile.go",
+    "smart-recruit-ai-agent-service/internal/application/recruiting_intelligence/resume_profile_test.go",
+    "smart-recruit-ai-agent-service/internal/application/recruiting_intelligence/runtime_policy.go",
+    "smart-recruit-ai-agent-service/internal/application/recruiting_intelligence/runtime_policy_test.go",
+    "smart-recruit-ai-agent-service/internal/infrastructure/persistence/native_recruiting_generation_test.go",
+    "smart-recruit-ai-agent-service/internal/interfaces/grpc/native_resume_profile_test.go",
+    "smart-recruit-ai-agent-service/internal/interfaces/grpc/native_servers.go"
+  ],
+  "scope": {
+    "status": "passed",
+    "base_tree": "9fdbe164e5c46b96a17d46f6722ab846d09cf33e",
+    "forbidden": [],
+    "out_of_scope": [],
+    "fixer_did_not_edit": [
+      ".spec/recruiting-intelligence-runtime-parity/pipeline-state.json",
+      ".spec/recruiting-intelligence-runtime-parity/task-scope.json"
+    ]
+  },
+  "checks": [
+    {"command": "GOWORK=off go test -count=1 ./internal/application/recruiting_intelligence ./internal/interfaces/grpc ./internal/infrastructure/persistence", "working_directory": "smart-recruit-ai-agent-service", "started_at": "2026-07-15T06:20:30Z", "duration_ms": 4143, "exit_code": 0, "status": "passed"},
+    {"command": "GOWORK=off go test -count=5 ./internal/interfaces/grpc -run 'TestParseResumeProfile(ModelWindowExpiryLeavesPersistenceBudget|ParentCancellationDoesNotSaveFallback)$'", "working_directory": "smart-recruit-ai-agent-service", "started_at": "2026-07-15T06:22:00Z", "duration_ms": 716, "exit_code": 0, "status": "passed"},
+    {"command": "GOWORK=off go test ./...", "working_directory": "smart-recruit-ai-agent-service", "started_at": "2026-07-15T06:22:01Z", "duration_ms": 7258, "exit_code": 0, "status": "passed"},
+    {"command": "node .knowledge/scripts/detect-impact.mjs --root . --base-tree 9fdbe164e5c46b96a17d46f6722ab846d09cf33e", "working_directory": ".", "started_at": "2026-07-15T06:23:00Z", "duration_ms": 1011, "exit_code": 0, "status": "passed"},
+    {"command": "git diff --name-only inventory; git diff --check", "working_directory": ".", "started_at": "2026-07-15T06:24:00Z", "duration_ms": 100, "exit_code": 0, "status": "passed"},
+    {"command": "bash .spec/recruiting-intelligence-runtime-parity/scripts/check-task-scope.sh TASK-003", "working_directory": ".", "started_at": "2026-07-15T06:24:01Z", "duration_ms": 1017, "exit_code": 0, "status": "passed"},
+    {"command": "bash .spec/recruiting-intelligence-runtime-parity/scripts/agent-check.sh", "working_directory": ".", "started_at": "2026-07-15T06:24:50Z", "duration_ms": 1528, "exit_code": 0, "status": "passed"},
+    {"command": "node .agents/skills/spec-harness/scripts/validate-evidence.mjs --file .spec/recruiting-intelligence-runtime-parity/reports/TASK-003-evidence.json --allow-pending-review --require-knowledge-impact", "working_directory": ".", "started_at": "2026-07-15T06:28:20Z", "duration_ms": 23, "exit_code": 0, "status": "passed"},
+    {"command": "GOWORK=off go test -count=10 ./internal/infrastructure/persistence -run TestNativeStoreStructuredAdapterClassifiesAIEmptyReplyForResumeFallback", "working_directory": "smart-recruit-ai-agent-service", "started_at": "2026-07-15T06:43:47Z", "duration_ms": 4500, "exit_code": 0, "status": "passed"},
+    {"command": "GOWORK=off go test -count=2 ./internal/infrastructure/persistence -run 'TestNativeStore(SaveRecruitingResumeProfileDraftVersionsAndChildren|SaveRecruitingResumeProfileDraftRollsBackEveryTableOnChildFailure|StructuredAdapterClassifiesAIEmptyReplyForResumeFallback)$'", "working_directory": "smart-recruit-ai-agent-service", "started_at": "2026-07-15T06:45:25Z", "duration_ms": 3300, "exit_code": 0, "status": "passed"},
+    {"command": "GOWORK=off go test ./...", "working_directory": "smart-recruit-ai-agent-service", "started_at": "2026-07-15T06:45:42Z", "duration_ms": 2740, "exit_code": 0, "status": "passed"},
+    {"command": "node .knowledge/scripts/detect-impact.mjs --root . --base-tree 9fdbe164e5c46b96a17d46f6722ab846d09cf33e; git diff --check; git diff --name-only 9fdbe164e5c46b96a17d46f6722ab846d09cf33e", "working_directory": ".", "started_at": "2026-07-15T06:45:52Z", "duration_ms": 1200, "exit_code": 0, "status": "passed"},
+    {"command": "bash .spec/recruiting-intelligence-runtime-parity/scripts/check-task-scope.sh TASK-003", "working_directory": ".", "started_at": "2026-07-15T06:48:40Z", "duration_ms": 1000, "exit_code": 0, "status": "passed"},
+    {"command": "bash .spec/recruiting-intelligence-runtime-parity/scripts/agent-check.sh", "working_directory": ".", "started_at": "2026-07-15T06:48:41Z", "duration_ms": 1700, "exit_code": 0, "status": "passed"},
+    {"command": "node .agents/skills/spec-harness/scripts/validate-evidence.mjs --file .spec/recruiting-intelligence-runtime-parity/reports/TASK-003-evidence.json --allow-pending-review --require-knowledge-impact", "working_directory": ".", "started_at": "2026-07-15T06:50:30Z", "duration_ms": 100, "exit_code": 0, "status": "passed"},
+    {"command": "bash .spec/recruiting-intelligence-runtime-parity/scripts/check-task-scope.sh TASK-003", "working_directory": ".", "started_at": "2026-07-15T06:50:39Z", "duration_ms": 1000, "exit_code": 0, "status": "passed"},
+    {"command": "bash .spec/recruiting-intelligence-runtime-parity/scripts/agent-check.sh", "working_directory": ".", "started_at": "2026-07-15T06:50:40Z", "duration_ms": 2500, "exit_code": 0, "status": "passed"}
+  ],
+  "review": {
+    "type": "independent_agent",
+    "round": 3,
+    "verdict": "通过",
+    "reviewer_type": "fresh independent read-only subagent",
+    "reviewer": "independent-read-only-subagent:/root/task003_reviewer_r3",
+    "completed_at": "2026-07-15T06:56:47Z",
+    "notes": [
+      "No critical, high, medium, or low findings; all R1 and R2 findings are closed.",
+      "The three whole-package repeated-test failures are proven unchanged baseline helper callers outside TASK-003 and do not affect this TASK acceptance."
+    ],
+    "history": [
+      {
+        "round": 1,
+        "reviewer": "independent-read-only-subagent:/root/task003_reviewer_r1",
+        "verdict": "不通过",
+        "findings": [
+          {"id": "R1-H1", "severity": "High", "summary": "required scalar and nested schema keys were not presence-tracked"},
+          {"id": "R1-M1", "severity": "Medium", "summary": "parsing timeout did not reserve persistence budget"},
+          {"id": "R1-M2", "severity": "Medium", "summary": "Commons AIEmptyReply was classified as provider instead of empty_response"},
+          {"id": "R1-M3", "severity": "Medium", "summary": "real NativeStore rollback and full mapping evidence was missing"},
+          {"id": "R1-M4", "severity": "Medium", "summary": "evidence completion preceded required checks"}
+        ]
+      },
+      {
+        "round": 2,
+        "reviewer": "independent-read-only-subagent:/root/task003_reviewer_r2",
+        "verdict": "不通过",
+        "completed_at": "2026-07-15T06:43:47Z",
+        "completed_at_basis": "root-recorded reviewer-output receipt time",
+        "findings": [
+          {"id": "R2-M1", "severity": "Medium", "summary": "new real-adapter test did not close the fixed-name shared-memory SQLite database and failed repeated execution"}
+        ]
+      },
+      {
+        "round": 3,
+        "reviewer": "independent-read-only-subagent:/root/task003_reviewer_r3",
+        "verdict": "通过",
+        "completed_at": "2026-07-15T06:56:47Z",
+        "findings": []
+      }
+    ]
+  },
+  "repair": {
+    "round": 2,
+    "mode": "fix-check-failures",
+    "fixed_findings": ["R2-M1"],
+    "root_cause": "the new test called a shared helper whose fixed named shared-memory SQLite DSN survived repeated iterations because the underlying sql.DB was not closed",
+    "files_changed": [
+      "smart-recruit-ai-agent-service/internal/infrastructure/persistence/native_recruiting_generation_test.go",
+      ".spec/recruiting-intelligence-runtime-parity/reports/TASK-003-report.md",
+      ".spec/recruiting-intelligence-runtime-parity/reports/TASK-003-evidence.json"
+    ],
+    "status": "completed",
+    "history": [
+      {
+        "round": 1,
+        "fixed_findings": ["R1-H1", "R1-M1", "R1-M2", "R1-M3", "R1-M4"],
+        "root_cause": "the decoder did not track all key presence, wrapped Commons error types were not inspected, parsing consumed the total timeout, persistence proof used a fake, and the evidence timeline ended too early",
+        "status": "completed_pending_independent_re_review"
+      },
+      {
+        "round": 2,
+        "fixed_findings": ["R2-M1"],
+        "root_cause": "the new test did not close the fixed-name shared-memory SQLite database returned by the shared test helper",
+        "status": "completed_pending_independent_re_review"
+      }
+    ]
+  },
+  "human_confirmation": {"required": false, "confirmed": true, "confirmed_by": "not_required", "confirmed_at": "2026-07-15T03:40:24Z", "confirmation_text": "TASK-003 does not require human confirmation."},
+  "exceptions": [
+    {
+      "task_id": "TASK-003",
+      "approved_object": "smart-recruit-ai-agent-service/internal/infrastructure/persistence/native_recruiting_generation_test.go test-only scope expansion",
+      "approved_by": "user",
+      "approved_at": "2026-07-15T06:11:38Z",
+      "scope": "TASK-003 may modify only smart-recruit-ai-agent-service/internal/infrastructure/persistence/native_recruiting_generation_test.go outside its original scope; production persistence, schema, Proto, dependencies, and public APIs remain forbidden.",
+      "reason": "Independent review requires real NativeStore transaction rollback and full resume child/date/JSON mapping evidence."
+    }
+  ],
+  "skipped_checks": [
+    {"check": "live provider smoke test", "reason": "The real NativeStore/Commons adapter chain is exercised with a local OpenAI-compatible HTTP fixture; no live credentials are required or recorded."}
+  ],
+  "observations": [
+    {
+      "command": "GOWORK=off go test -count=2 ./internal/application/recruiting_intelligence ./internal/interfaces/grpc ./internal/infrastructure/persistence",
+      "status": "out_of_scope_failure_observed",
+      "reason": "Three pre-existing direct callers in llm_runtime_prompt_test.go also leave the shared fixed-DSN helper open. That shared helper/file is outside the only R2-authorized implementation file; the exact R2 test and all persistence tests owned by native_recruiting_generation_test.go pass repeatedly."
+    }
+  ],
+  "knowledgeImpact": {
+    "result": "candidate_required",
+    "triggeredBy": [
+      "smart-recruit-ai-agent-service/internal/application/recruiting_intelligence/resume_profile.go",
+      "smart-recruit-ai-agent-service/internal/application/recruiting_intelligence/runtime_policy.go",
+      "smart-recruit-ai-agent-service/internal/infrastructure/persistence/native_recruiting_generation_test.go",
+      "smart-recruit-ai-agent-service/internal/interfaces/grpc/native_servers.go"
+    ],
+    "reviewResults": [
+      {"document": ".knowledge/architecture/agent-runtime.md", "verdict": "CANDIDATE", "evidence": ["source_refs verified; strict DB-prompt resume extraction and persistence deadline reserve remain deferred to TASK-007"]},
+      {"document": ".knowledge/domains/agent-skill.md", "verdict": "UNCHANGED", "evidence": ["Agent Skill behavior is unaffected"]},
+      {"document": ".knowledge/domains/ai-configuration-governance.md", "verdict": "UNCHANGED", "evidence": ["existing immutable policy is consumed without configuration changes"]},
+      {"document": ".knowledge/architecture/api-contracts-and-gateway.md", "verdict": "UNCHANGED", "evidence": ["no wire, gateway, or public contract changed"]},
+      {"document": ".knowledge/runbooks/debug-agent-retrieval.md", "verdict": "UNCHANGED", "evidence": ["retrieval diagnostics are unaffected"]},
+      {"document": ".knowledge/pitfalls/embedding-fallback.md", "verdict": "UNCHANGED", "evidence": ["embedding fallback is unaffected"]},
+      {"document": ".knowledge/runbooks/local-development.md", "verdict": "UNCHANGED", "evidence": ["startup and validation commands remain unchanged"]},
+      {"document": ".knowledge/pitfalls/mcp-policy-audit.md", "verdict": "UNCHANGED", "evidence": ["MCP policy and audit are unaffected"]},
+      {"document": ".knowledge/domains/mcp-tool-governance.md", "verdict": "UNCHANGED", "evidence": ["MCP governance is unaffected"]},
+      {"document": ".knowledge/domains/memory-and-context.md", "verdict": "UNCHANGED", "evidence": ["chat memory and context assembly are unaffected"]},
+      {"document": ".knowledge/pitfalls/migration-model-drift.md", "verdict": "UNCHANGED", "evidence": ["test-only transaction coverage changed; production model and schema remain aligned and unchanged"]},
+      {"document": ".knowledge/architecture/persistence-and-migrations.md", "verdict": "UNCHANGED", "evidence": ["NativeStore production transaction and migration ownership are unchanged"]},
+      {"document": ".knowledge/runbooks/protobuf-and-migration-change.md", "verdict": "UNCHANGED", "evidence": ["no Proto, migration, schema, or ownership change"]},
+      {"document": ".knowledge/pitfalls/protobuf-synchronization.md", "verdict": "UNCHANGED", "evidence": ["canonical Proto and generated contracts are unchanged"]},
+      {"document": ".knowledge/domains/resume-intelligence.md", "verdict": "CANDIDATE", "evidence": ["source_refs verified; document still describes resume generation as unavailable and must be updated in TASK-007"]},
+      {"document": ".knowledge/pitfalls/resume-sensitive-data.md", "verdict": "UNCHANGED", "evidence": ["no raw resume, prompt, output, credentials, or candidate PII was added to logs or evidence"]},
+      {"document": ".knowledge/architecture/semantic-retrieval.md", "verdict": "UNCHANGED", "evidence": ["semantic Agent Skill and memory retrieval are unaffected"]},
+      {"document": ".knowledge/architecture/service-boundaries.md", "verdict": "UNCHANGED", "evidence": ["AI Agent ownership and cross-service boundaries remain unchanged"]},
+      {"document": ".knowledge/architecture/system-overview.md", "verdict": "UNCHANGED", "evidence": ["repository modules and service ownership remain unchanged"]}
+    ],
+    "coverageGap": false,
+    "validationExitCode": 0
+  },
+  "privacy": {"status": "passed", "candidate_pii_present": false, "raw_prompts_present": false, "raw_model_output_present": false, "secrets_present": false},
+  "next_task_ready": true,
+  "next_task_blocker": ""
+}

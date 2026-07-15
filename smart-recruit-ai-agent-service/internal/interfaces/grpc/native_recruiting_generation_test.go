@@ -2,6 +2,7 @@ package grpc
 
 import (
 	"context"
+	"strings"
 	"testing"
 
 	gogrpc "google.golang.org/grpc"
@@ -119,14 +120,18 @@ func TestEvaluateCandidateMatchGeneratesAndPreservesAgentRunID(t *testing.T) {
 	if evaluation.GetAgentRunId() != agentRunID {
 		t.Fatalf("agent run id = %d, want %d", evaluation.GetAgentRunId(), agentRunID)
 	}
-	if evaluation.GetOverallScore() != 88.5 || evaluation.GetRecommendation() != "strong_match" {
-		t.Fatalf("evaluation = %+v, want generated score/recommendation", evaluation)
+	if evaluation.GetOverallScore() <= 0 || evaluation.GetRecommendation() == "" ||
+		!strings.Contains(evaluation.GetScoreBreakdownJson(), `"scorer_type":"legacy_deterministic"`) {
+		t.Fatalf("evaluation = %+v, want deterministic score/recommendation", evaluation)
 	}
-	if len(resp.GetEvaluation().GetEvidence()) != 1 {
-		t.Fatalf("evidence len = %d, want 1", len(resp.GetEvaluation().GetEvidence()))
+	if len(resp.GetEvaluation().GetEvidence()) == 0 {
+		t.Fatal("deterministic evaluation evidence is empty")
 	}
 	if len(store.savedMatchDrafts) != 1 || store.savedMatchDrafts[0].AgentRunID == nil || *store.savedMatchDrafts[0].AgentRunID != agentRunID {
 		t.Fatalf("saved match drafts = %+v, want preserved agent run id", store.savedMatchDrafts)
+	}
+	if provider.calls != 0 {
+		t.Fatalf("generic aggregate provider calls = %d, want zero", provider.calls)
 	}
 	if len(auth.authorizeRequests) != 1 || auth.authorizeRequests[0].GetResourceType() != "application" || auth.authorizeRequests[0].GetResourceId() != 7001 {
 		t.Fatalf("auth requests = %+v, want application permission check", auth.authorizeRequests)

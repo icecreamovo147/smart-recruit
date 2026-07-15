@@ -1230,8 +1230,39 @@ func (s *NativeStore) GetRecruitingMatchSource(ctx context.Context, applicationI
 	if job.JobID == 0 {
 		return aiagentgrpc.RecruitingMatchSource{}, false, nil
 	}
+	var candidateProfile recruitingCandidateProfileReadRow
+	if err := s.db.WithContext(ctx).Table("candidate_profiles").
+		Select("id, real_name, phone, education, school, work_experience, skills, is_complete").
+		Where("user_id = ?", application.CandidateUserID).
+		Limit(1).
+		Scan(&candidateProfile).Error; err != nil {
+		return aiagentgrpc.RecruitingMatchSource{}, false, err
+	}
+	var resume struct {
+		ID         int64          `gorm:"column:id"`
+		ParsedText sql.NullString `gorm:"column:parsed_text"`
+	}
+	if err := s.db.WithContext(ctx).Table("resumes").
+		Select("id, parsed_text").
+		Where("id = ?", application.ResumeID).
+		Limit(1).
+		Scan(&resume).Error; err != nil {
+		return aiagentgrpc.RecruitingMatchSource{}, false, err
+	}
+	if resume.ID == 0 {
+		return aiagentgrpc.RecruitingMatchSource{}, false, nil
+	}
+	var mappedCandidateProfile *aiagentgrpc.RecruitingCandidateProfileRow
+	if candidateProfile.ID > 0 {
+		mappedCandidateProfile = &aiagentgrpc.RecruitingCandidateProfileRow{
+			ID: candidateProfile.ID, RealName: nullString(candidateProfile.RealName), Phone: nullString(candidateProfile.Phone),
+			Education: nullString(candidateProfile.Education), School: nullString(candidateProfile.School),
+			WorkExperience: nullString(candidateProfile.WorkExperience), Skills: nullString(candidateProfile.Skills), IsComplete: candidateProfile.IsComplete,
+		}
+	}
 	return aiagentgrpc.RecruitingMatchSource{
-		Application: application,
+		Application: application, CandidateProfile: mappedCandidateProfile,
+		ApplicationEducation: nullString(candidateProfile.Education), ResumeParsedText: nullString(resume.ParsedText),
 		Job: aiagentgrpc.RecruitingJobContext{
 			JobID:        job.JobID,
 			Title:        job.Title,
@@ -1328,6 +1359,17 @@ type recruitingApplicationReadRow struct {
 	CandidateName   string `gorm:"column:candidate_name"`
 	ResumeID        int64  `gorm:"column:resume_id"`
 	IsCurrent       int32  `gorm:"column:is_current"`
+}
+
+type recruitingCandidateProfileReadRow struct {
+	ID             uint64         `gorm:"column:id"`
+	RealName       sql.NullString `gorm:"column:real_name"`
+	Phone          sql.NullString `gorm:"column:phone"`
+	Education      sql.NullString `gorm:"column:education"`
+	School         sql.NullString `gorm:"column:school"`
+	WorkExperience sql.NullString `gorm:"column:work_experience"`
+	Skills         sql.NullString `gorm:"column:skills"`
+	IsComplete     int32          `gorm:"column:is_complete"`
 }
 
 type candidateApplicationReadRow struct {

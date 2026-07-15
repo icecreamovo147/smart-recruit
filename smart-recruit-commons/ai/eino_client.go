@@ -390,6 +390,14 @@ func (c *Client) call(ctx context.Context, fn func(context.Context) error) error
 	return c.callWithRetry(ctx, fn, nil)
 }
 
+// callPrivacySafe applies the normal runtime controls without writing the raw
+// provider error to logs. Structured requests may contain provider-generated
+// diagnostics derived from sensitive input, so only the stable classification
+// is observable on this path.
+func (c *Client) callPrivacySafe(ctx context.Context, fn func(context.Context) error) error {
+	return c.callWithRetryLogging(ctx, fn, nil, false)
+}
+
 // callStreaming is like call but passes hasOutput directly into the retry loop so
 // that each iteration can abort retry if deltas have already been streamed. This
 // prevents duplicate output when a streaming LLM call fails mid-stream.
@@ -402,12 +410,16 @@ func (c *Client) callStreaming(ctx context.Context, fn func(context.Context) err
 // loop breaks immediately — this is used by streaming callers to avoid duplicating
 // output that has already been sent via onDelta.
 func (c *Client) callWithRetry(ctx context.Context, fn func(context.Context) error, shouldStopRetry func() bool) error {
+	return c.callWithRetryLogging(ctx, fn, shouldStopRetry, true)
+}
+
+func (c *Client) callWithRetryLogging(ctx context.Context, fn func(context.Context) error, shouldStopRetry func() bool, includeRawError bool) error {
 	callStart := time.Now()
 	circuitState := c.breaker.State()
 	if err := c.breaker.BeforeCall(); err != nil {
 		logger.L().Warn("[AI调用] 熔断器拒绝",
 			zap.String("circuit_state", circuitState),
-			zap.Error(err),
+			aiCallErrorField(err, includeRawError),
 		)
 		return err
 	}
@@ -439,7 +451,7 @@ func (c *Client) callWithRetry(ctx context.Context, fn func(context.Context) err
 		if shouldStopRetry != nil && shouldStopRetry() {
 			logger.L().Warn("[AI重试] 流式输出已发送，跳过重试",
 				zap.Int("attempt", attempt+1),
-				zap.Error(err),
+				aiCallErrorField(err, includeRawError),
 			)
 			break
 		}
@@ -450,7 +462,7 @@ func (c *Client) callWithRetry(ctx context.Context, fn func(context.Context) err
 			zap.Int("attempt", attempt+1),
 			zap.Int("max_attempts", maxAttempts),
 			zap.Duration("backoff", backoff+jitter),
-			zap.Error(err),
+			aiCallErrorField(err, includeRawError),
 		)
 		timer := time.NewTimer(backoff + jitter)
 		select {
@@ -464,9 +476,16 @@ func (c *Client) callWithRetry(ctx context.Context, fn func(context.Context) err
 	logger.L().Info("[AI调用] 完成",
 		zap.Duration("total_call_cost", time.Since(callStart)),
 		zap.String("circuit_state", c.breaker.State()),
-		zap.Error(lastErr),
+		aiCallErrorField(lastErr, includeRawError),
 	)
 	return lastErr
+}
+
+func aiCallErrorField(err error, includeRawError bool) zap.Field {
+	if includeRawError {
+		return zap.Error(err)
+	}
+	return zap.String("error_type", string(ClassifyAIError(err).Type))
 }
 
 // GenerateRecruitingReply answers HR questions using recruiting statistics.

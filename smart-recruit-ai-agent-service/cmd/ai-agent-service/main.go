@@ -23,6 +23,7 @@ import (
 	"gorm.io/driver/mysql"
 	"gorm.io/gorm"
 
+	recruitingruntime "smart-recruit-ai-agent-service/internal/application/recruiting_intelligence"
 	aiagentpersistence "smart-recruit-ai-agent-service/internal/infrastructure/persistence"
 	aiagentgrpc "smart-recruit-ai-agent-service/internal/interfaces/grpc"
 	aiagentruntime "smart-recruit-ai-agent-service/internal/runtime"
@@ -184,14 +185,15 @@ func serveAIAgent(addr string) error {
 		SlowResponseThreshold:   cfg.AI.SlowResponseThreshold.Duration,
 	})
 	runtime, err := aiagentruntime.New(aiagentgrpc.NewNativeRuntimeDeps(aiagentgrpc.RuntimeDeps{
-		Store:           nativeStore,
-		Provider:        nativeStore,
-		EmbeddingWorker: true,
-		AgentRunWorker:  true,
-		RuntimeName:     cfg.AI.AgentRuntime,
-		Auth:            pb.NewAuthServiceClient(identityConn),
-		Applications:    pb.NewApplicationOwnerServiceClient(recruitmentConn),
-		Jobs:            pb.NewJobServiceClient(recruitmentConn),
+		Store:            nativeStore,
+		Provider:         nativeStore,
+		RecruitingPolicy: recruitingRuntimePolicy(cfg),
+		EmbeddingWorker:  true,
+		AgentRunWorker:   true,
+		RuntimeName:      cfg.AI.AgentRuntime,
+		Auth:             pb.NewAuthServiceClient(identityConn),
+		Applications:     pb.NewApplicationOwnerServiceClient(recruitmentConn),
+		Jobs:             pb.NewJobServiceClient(recruitmentConn),
 	}))
 	if err != nil {
 		return err
@@ -243,6 +245,25 @@ func serveAIAgent(addr string) error {
 		return fmt.Errorf("grpc serve: %w", err)
 	}
 	return nil
+}
+
+func recruitingRuntimePolicy(cfg logicconfig.Config) recruitingruntime.RuntimePolicy {
+	return recruitingruntime.NewRuntimePolicy(recruitingruntime.RuntimePolicyConfig{
+		StructuredResumeParse:  boolSetting(cfg.Agent.Features.StructuredResumeParse, true),
+		CandidateMatch:         boolSetting(cfg.Agent.Features.CandidateMatch, true),
+		CandidateMatchSemantic: boolSetting(cfg.Agent.Features.CandidateMatchSemantic, true),
+		CandidateMatchShadow:   boolSetting(cfg.Agent.Features.CandidateMatchShadow, false),
+		Fallbacks:              boolSetting(cfg.Agent.Features.Fallbacks, true),
+		ResumeParseTimeout:     cfg.Agent.Features.ResumeParseTimeout.Duration,
+		CandidateMatchTimeout:  cfg.Agent.Features.CandidateMatchTimeout.Duration,
+	})
+}
+
+func boolSetting(value *bool, fallback bool) bool {
+	if value == nil {
+		return fallback
+	}
+	return *value
 }
 
 func dialInternalGRPC(addr string) (*grpc.ClientConn, error) {

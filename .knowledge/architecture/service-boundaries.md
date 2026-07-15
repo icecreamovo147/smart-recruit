@@ -35,6 +35,9 @@ source_refs:
   - smart-recruit-offer-service/internal/runtime/runtime.go
   - smart-recruit-notification-service/internal/runtime/runtime.go
   - smart-recruit-ai-agent-service/internal/runtime/runtime.go
+  - smart-recruit-ai-agent-service/internal/interfaces/grpc/native_servers.go
+  - smart-recruit-ai-agent-service/internal/infrastructure/persistence/native_store.go
+  - smart-recruit-ai-agent-service/internal/application/recruiting_intelligence/structured_runtime.go
   - smart-recruit-analytics-service/internal/runtime/runtime.go
   - smart-recruit-worker-service/internal/runtime/runtime.go
   - smart-recruit-interview-service/internal/infrastructure/client/application_adapter.go
@@ -46,7 +49,7 @@ source_refs:
   - smart-recruit-offer-service/internal/infrastructure/persistence/offer_repository.go
   - smart-recruit-offer-service/internal/infrastructure/mq/outbox_publisher.go
   - smart-recruit-commons/internal/platform/events/envelope.go
-last_verified: 2026-07-14
+last_verified: 2026-07-15
 review_after: 2026-10-14
 ---
 
@@ -60,8 +63,10 @@ Recruitment has retired its service-local `internal/legacydomain/` copy. Its act
 
 AI Agent has retired and deleted its service-local `internal/legacydomain/` copy; `cmd/ai-agent-service` wires `internal/interfaces/grpc/native_servers.go` with `internal/infrastructure/persistence/native_store.go` for chat, sessions, tool traces, and durable agent runs. Interview and Offer services have retired their service-local `internal/legacydomain/` copies. Their active runtimes now use local persistence and outbox adapters under `internal/infrastructure/**`, while application snapshots, lifecycle transitions, and authorization are reached through explicit Recruitment and Identity owner adapters. Interviewer assignment checks are Interview-owned local reads over `interview_schedules`. Backend boundary and MySQL table-ownership checks now fail if any targeted service reintroduces `internal/legacydomain`.
 
+Recruitment continues to own applications, resumes, candidate profiles, and resume-profile source rows. AI Agent reads those authorized sources for scoped recruiting intelligence and owns structured generation, deterministic matching/aggregation, `candidate_match_evaluations`, `candidate_match_evidence`, Prompt/model runtime access, and durable Agent-run association. This flow does not introduce a cross-service write, new table, or public contract.
+
 `smart-recruit-proto/proto/recruitment.proto` is the canonical wire contract. `smart-recruit-deploy/mysql-table-ownership.json` is the table ownership source for the current single-MySQL deployment.
 
 ## Verification
 
-Verified against current repository files on 2026-07-14.
+Verified against current service adapters, persistence mappings, table ownership, and generated contracts on 2026-07-15.

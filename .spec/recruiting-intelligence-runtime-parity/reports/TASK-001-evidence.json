@@ -1,0 +1,432 @@
+{
+  "schemaVersion": 1,
+  "feature_name": "recruiting-intelligence-runtime-parity",
+  "task_id": "TASK-001",
+  "base_sha": "98165e7cdac06c0aa2a0685ecf1ad7c00a3eb518",
+  "base_tree": "fb76dfce94d5068494f7be7c5b6519df582cae2e",
+  "head_sha": "98165e7cdac06c0aa2a0685ecf1ad7c00a3eb518",
+  "changed_files": [
+    ".spec/recruiting-intelligence-runtime-parity/pipeline-state.json",
+    ".spec/recruiting-intelligence-runtime-parity/reports/TASK-001-evidence.json",
+    ".spec/recruiting-intelligence-runtime-parity/reports/TASK-001-report.md",
+    ".spec/recruiting-intelligence-runtime-parity/task-scope.json",
+    "smart-recruit-ai-agent-service/internal/application/recruiting_intelligence/structured_runtime.go",
+    "smart-recruit-ai-agent-service/internal/application/recruiting_intelligence/structured_runtime_test.go",
+    "smart-recruit-ai-agent-service/internal/infrastructure/persistence/llm_runtime.go",
+    "smart-recruit-ai-agent-service/internal/infrastructure/persistence/llm_runtime_prompt_test.go",
+    "smart-recruit-ai-agent-service/internal/interfaces/grpc/native_servers.go",
+    "smart-recruit-ai-agent-service/internal/interfaces/grpc/native_structured_runtime_test.go",
+    "smart-recruit-commons/ai/eino_client.go",
+    "smart-recruit-commons/ai/structured_completion.go",
+    "smart-recruit-commons/ai/structured_completion_test.go",
+    "smart-recruit-commons/go.sum"
+  ],
+  "scope": {
+    "status": "passed",
+    "base_tree": "fb76dfce94d5068494f7be7c5b6519df582cae2e",
+    "forbidden": [],
+    "out_of_scope": [],
+    "allowed": [
+      ".spec/recruiting-intelligence-runtime-parity/pipeline-state.json",
+      ".spec/recruiting-intelligence-runtime-parity/reports/TASK-001-evidence.json",
+      ".spec/recruiting-intelligence-runtime-parity/reports/TASK-001-report.md",
+      ".spec/recruiting-intelligence-runtime-parity/task-scope.json",
+      "smart-recruit-ai-agent-service/internal/application/recruiting_intelligence/structured_runtime.go",
+      "smart-recruit-ai-agent-service/internal/application/recruiting_intelligence/structured_runtime_test.go",
+      "smart-recruit-ai-agent-service/internal/infrastructure/persistence/llm_runtime.go",
+      "smart-recruit-ai-agent-service/internal/infrastructure/persistence/llm_runtime_prompt_test.go",
+      "smart-recruit-ai-agent-service/internal/interfaces/grpc/native_servers.go",
+      "smart-recruit-ai-agent-service/internal/interfaces/grpc/native_structured_runtime_test.go",
+      "smart-recruit-commons/ai/eino_client.go",
+      "smart-recruit-commons/ai/structured_completion.go",
+      "smart-recruit-commons/ai/structured_completion_test.go",
+      "smart-recruit-commons/go.sum"
+    ]
+  },
+  "checks": [
+    {
+      "command": "go test ./smart-recruit-commons/ai ./smart-recruit-ai-agent-service/internal/application/recruiting_intelligence ./smart-recruit-ai-agent-service/internal/infrastructure/persistence ./smart-recruit-ai-agent-service/internal/interfaces/grpc",
+      "status": "passed",
+      "exit_code": 0,
+      "started_at": "2026-07-15T02:42:00Z",
+      "duration_ms": 5714
+    },
+    {
+      "command": "GOWORK=off go test ./... (smart-recruit-ai-agent-service)",
+      "status": "passed",
+      "exit_code": 0,
+      "started_at": "2026-07-15T02:42:00Z",
+      "duration_ms": 6360
+    },
+    {
+      "command": "GOWORK=off go test ./... (smart-recruit-commons)",
+      "status": "passed",
+      "exit_code": 0,
+      "started_at": "2026-07-15T02:42:00Z",
+      "duration_ms": 4889
+    },
+    {
+      "command": "GOWORK=off go test -race ./internal/infrastructure/persistence -run 'TestNativeStoreCompleteStructured|TestLoadActiveRecruitingPrompt' -count=1 (smart-recruit-ai-agent-service)",
+      "status": "passed",
+      "exit_code": 0,
+      "started_at": "2026-07-15T02:40:00Z",
+      "duration_ms": 28100
+    },
+    {
+      "command": "GOWORK=off go test ./ai -run 'TestGenerateStructured' -count=1 -v (smart-recruit-commons)",
+      "status": "passed",
+      "exit_code": 0,
+      "started_at": "2026-07-15T02:40:00Z",
+      "duration_ms": 416
+    },
+    {
+      "command": "git diff --check -- smart-recruit-commons/ai smart-recruit-ai-agent-service/internal smart-recruit-commons/go.sum",
+      "status": "passed",
+      "exit_code": 0,
+      "started_at": "2026-07-15T02:39:00Z",
+      "duration_ms": 100
+    },
+    {
+      "command": "node .knowledge/scripts/detect-impact.mjs --root . --base-tree fb76dfce94d5068494f7be7c5b6519df582cae2e",
+      "status": "passed",
+      "exit_code": 0,
+      "started_at": "2026-07-15T02:44:00Z",
+      "duration_ms": 1021
+    },
+    {
+      "command": "bash .spec/recruiting-intelligence-runtime-parity/scripts/check-task-scope.sh TASK-001",
+      "status": "passed",
+      "exit_code": 0,
+      "started_at": "2026-07-15T02:44:00Z",
+      "duration_ms": 876
+    },
+    {
+      "command": "bash .spec/recruiting-intelligence-runtime-parity/scripts/agent-check.sh",
+      "status": "passed",
+      "exit_code": 0,
+      "started_at": "2026-07-15T02:44:00Z",
+      "duration_ms": 3878
+    },
+    {
+      "command": "git diff --name-only plus git ls-files --others --exclude-standard",
+      "status": "passed",
+      "exit_code": 0,
+      "started_at": "2026-07-15T02:45:00Z",
+      "duration_ms": 200
+    },
+    {
+      "command": "node .agents/skills/spec-harness/scripts/validate-evidence.mjs --file .spec/recruiting-intelligence-runtime-parity/reports/TASK-001-evidence.json --require-knowledge-impact --allow-pending-review",
+      "status": "passed",
+      "exit_code": 0,
+      "started_at": "2026-07-15T03:04:00Z",
+      "duration_ms": 100
+    },
+    {
+      "command": "structured provider sensitive-marker captured-log test and privacy scan for raw recruiting payload markers in TASK reports",
+      "status": "passed",
+      "exit_code": 0,
+      "started_at": "2026-07-15T02:40:00Z",
+      "duration_ms": 100
+    },
+    {
+      "command": "git diff --numstat -- smart-recruit-commons/go.sum (verify exactly +12/-0)",
+      "status": "passed",
+      "exit_code": 0,
+      "started_at": "2026-07-15T02:45:00Z",
+      "duration_ms": 100
+    },
+    {
+      "command": "GOWORK=off go test ./... (smart-recruit-ai-agent-service, repair round 2)",
+      "status": "passed",
+      "exit_code": 0,
+      "started_at": "2026-07-15T03:02:00Z",
+      "duration_ms": 4335
+    },
+    {
+      "command": "GOWORK=off go test ./... (smart-recruit-commons, repair round 2)",
+      "status": "passed",
+      "exit_code": 0,
+      "started_at": "2026-07-15T03:02:00Z",
+      "duration_ms": 646
+    },
+    {
+      "command": "GOWORK=off go test -race ./internal/infrastructure/persistence -run 'TestNativeStoreCompleteStructured|TestLoadActiveRecruitingPrompt' -count=1 (smart-recruit-ai-agent-service, repair round 2 controlled interleaving)",
+      "status": "passed",
+      "exit_code": 0,
+      "started_at": "2026-07-15T03:02:00Z",
+      "duration_ms": 6071
+    },
+    {
+      "command": "node .knowledge/scripts/detect-impact.mjs --root . --base-tree fb76dfce94d5068494f7be7c5b6519df582cae2e (repair round 2; 19 unique routed verdicts reconciled)",
+      "status": "passed",
+      "exit_code": 0,
+      "started_at": "2026-07-15T03:02:30Z",
+      "duration_ms": 900
+    },
+    {
+      "command": "bash .spec/recruiting-intelligence-runtime-parity/scripts/check-task-scope.sh TASK-001 (repair round 2)",
+      "status": "passed",
+      "exit_code": 0,
+      "started_at": "2026-07-15T03:02:31Z",
+      "duration_ms": 1000
+    },
+    {
+      "command": "bash .spec/recruiting-intelligence-runtime-parity/scripts/agent-check.sh (repair round 2)",
+      "status": "passed",
+      "exit_code": 0,
+      "started_at": "2026-07-15T03:02:32Z",
+      "duration_ms": 5000
+    },
+    {
+      "command": "node .knowledge/scripts/knowledge-validator.test.mjs && validate-knowledge.mjs --root . && check-references.mjs --root .",
+      "status": "passed",
+      "exit_code": 0,
+      "started_at": "2026-07-15T03:03:00Z",
+      "duration_ms": 1000
+    }
+  ],
+  "review": {
+    "type": "independent-read-only-subagent",
+    "round": 3,
+    "verdict": "通过",
+    "reviewer": "independent-read-only-subagent:/root/task001_reviewer_r3",
+    "notes": [
+      "No blocking findings.",
+      "R1 and R2 findings are closed; configuration interleaving, 19 knowledge verdicts, exception metadata, checksum bounds, privacy, scope, race, and standalone module checks were independently verified."
+    ],
+    "completed_at": "2026-07-15T03:09:38Z"
+  },
+  "review_history": [
+    {
+      "type": "independent-read-only-subagent",
+      "round": 1,
+      "verdict": "不通过",
+      "reviewer": "independent-read-only-subagent:/root/task001_reviewer_r1",
+      "notes": [
+        "R1-001 High: required Commons standalone-module test and agent-check fail because baseline go.sum entries are incomplete and go.sum is forbidden by TASK scope.",
+        "R1-002 High: NativeStore recreates the AI Client per structured request, so concurrency and circuit-breaker state are not shared across requests.",
+        "R1-003 High: reused retry logging emits raw provider errors and needs classification-only logging plus a sensitive-marker log test."
+      ],
+      "completed_at": "2026-07-15T02:33:27Z"
+    },
+    {
+      "type": "independent-read-only-subagent",
+      "round": 2,
+      "verdict": "不通过",
+      "reviewer": "independent-read-only-subagent:/root/task001_reviewer_r2",
+      "notes": [
+        "R2-001 High: late old-config cache write can replace the newer client.",
+        "R2-002 Medium: all 19 mechanically routed knowledge documents require one verdict each.",
+        "R2-003 Medium: report/evidence/task-scope exception and changed-file metadata require reconciliation."
+      ]
+    },
+    {
+      "type": "independent-read-only-subagent",
+      "round": 3,
+      "verdict": "通过",
+      "reviewer": "independent-read-only-subagent:/root/task001_reviewer_r3",
+      "notes": [
+        "No critical, high, medium, or blocking low findings; all R1/R2 findings and required checks are closed."
+      ],
+      "completed_at": "2026-07-15T03:09:38Z"
+    }
+  ],
+  "human_confirmation": {
+    "required": true,
+    "confirmed": true,
+    "confirmed_by": "user",
+    "confirmed_at": "2026-07-15T02:14:05Z",
+    "confirmation_text": "用户明确选择“授权修改”，仅新增内部结构化 System/User 消息调用能力，不修改依赖、Proto 或公共 HTTP API。",
+    "additional_authorizations": [
+      {
+        "confirmed_at": "2026-07-15T02:37:25Z",
+        "text": "用户追加授权仅向 smart-recruit-commons/go.sum 精确新增临时验证确认的 12 条现有依赖 go.mod checksum，禁止修改 go.mod 或依赖版本。"
+      }
+    ]
+  },
+  "exceptions": [
+    {
+      "task_id": "TASK-001",
+      "approved_object": "smart-recruit-commons/go.sum checksum-only additions",
+      "approved_by": "user",
+      "approved_at": "2026-07-15T02:37:25Z",
+      "scope": "Add exactly 12 missing existing-dependency checksum lines to smart-recruit-commons/go.sum; do not change go.mod or dependency versions.",
+      "reason": "Required Commons GOWORK=off test cannot compile against the pre-existing incomplete module checksum set."
+    }
+  ],
+  "knowledgeImpact": {
+    "result": "candidate_required",
+    "triggeredBy": [
+      "covered-path-changed",
+      "service-boundary-changed",
+      "configuration-changed",
+      "sensitive-data-flow-changed"
+    ],
+    "reviewResults": [
+      {
+        "document": ".knowledge/architecture/agent-runtime.md",
+        "verdict": "CANDIDATE",
+        "evidence": [
+          "New internal structured runtime, fingerprint-keyed shared resilience state, and privacy-safe structured logging are verified against structured_runtime.go, llm_runtime.go, eino_client.go, structured_completion.go, native_servers.go, and the document source_refs; update is deferred by AGENT_RULES.md to TASK-007."
+        ]
+      },
+      {
+        "document": ".knowledge/domains/agent-skill.md",
+        "verdict": "UNCHANGED",
+        "evidence": [
+          "TASK-001 changes no Agent Skill eligibility, versions, retrieval metadata, administration, or runtime tool execution."
+        ]
+      },
+      {
+        "document": ".knowledge/architecture/service-boundaries.md",
+        "verdict": "UNCHANGED",
+        "evidence": [
+          "The implementation remains inside AI Agent and Commons internal paths and changes no gRPC/Proto/service ownership contract."
+        ]
+      },
+      {
+        "document": ".knowledge/domains/ai-configuration-governance.md",
+        "verdict": "CANDIDATE",
+        "evidence": [
+          "Active prompt selection drives internal structured generation per request with ID/name/version provenance, while DB-backed model configuration fingerprints share the correct client without stale write-back after refresh; the knowledge update is deferred to TASK-007."
+        ]
+      },
+      {
+        "document": ".knowledge/architecture/api-contracts-and-gateway.md",
+        "verdict": "UNCHANGED",
+        "evidence": [
+          "No HTTP route, gateway handler/client, protobuf, or public gRPC shape changed."
+        ]
+      },
+      {
+        "document": ".knowledge/runbooks/debug-agent-retrieval.md",
+        "verdict": "UNCHANGED",
+        "evidence": [
+          "Skill, memory, embedding, context-budget, and semantic-retrieval diagnostics are untouched."
+        ]
+      },
+      {
+        "document": ".knowledge/pitfalls/embedding-fallback.md",
+        "verdict": "UNCHANGED",
+        "evidence": [
+          "No embedding provider, dimension, retrieval fallback, or visible retrieval status changed."
+        ]
+      },
+      {
+        "document": ".knowledge/runbooks/local-development.md",
+        "verdict": "UNCHANGED",
+        "evidence": [
+          "Startup order, local infrastructure, service commands, and endpoint conventions are unchanged."
+        ]
+      },
+      {
+        "document": ".knowledge/pitfalls/mcp-policy-audit.md",
+        "verdict": "UNCHANGED",
+        "evidence": [
+          "No MCP policy, confirmation, network or command restriction, redaction, or audit path changed."
+        ]
+      },
+      {
+        "document": ".knowledge/domains/mcp-tool-governance.md",
+        "verdict": "UNCHANGED",
+        "evidence": [
+          "No MCP server, policy, log, discovery, or tool-execution behavior changed."
+        ]
+      },
+      {
+        "document": ".knowledge/domains/memory-and-context.md",
+        "verdict": "UNCHANGED",
+        "evidence": [
+          "No memory, summary, context assembly, budget, or persistence behavior changed."
+        ]
+      },
+      {
+        "document": ".knowledge/pitfalls/migration-model-drift.md",
+        "verdict": "UNCHANGED",
+        "evidence": [
+          "No migration, schema, persistence model, table ownership, or db.sql change occurred."
+        ]
+      },
+      {
+        "document": ".knowledge/architecture/persistence-and-migrations.md",
+        "verdict": "UNCHANGED",
+        "evidence": [
+          "The DB work is read-only runtime configuration and prompt selection; schema and repository ownership remain unchanged."
+        ]
+      },
+      {
+        "document": ".knowledge/runbooks/protobuf-and-migration-change.md",
+        "verdict": "UNCHANGED",
+        "evidence": [
+          "No protobuf generation or migration workflow is implicated by this internal-only change."
+        ]
+      },
+      {
+        "document": ".knowledge/pitfalls/protobuf-synchronization.md",
+        "verdict": "UNCHANGED",
+        "evidence": [
+          "Canonical protobuf and generated contracts are unchanged."
+        ]
+      },
+      {
+        "document": ".knowledge/domains/resume-intelligence.md",
+        "verdict": "CANDIDATE",
+        "evidence": [
+          "TASK-001 establishes the database-prompt and structured-provider foundation; extraction behavior remains unchanged until TASK-003 and documentation is deferred to TASK-007."
+        ]
+      },
+      {
+        "document": ".knowledge/pitfalls/resume-sensitive-data.md",
+        "verdict": "UNCHANGED",
+        "evidence": [
+          "TASK-001 processes no resume records; captured-log tests verify structured provider errors expose only model/prompt identities, counts, duration, and classifications, never raw provider errors, message bodies, or model output."
+        ]
+      },
+      {
+        "document": ".knowledge/architecture/semantic-retrieval.md",
+        "verdict": "UNCHANGED",
+        "evidence": [
+          "Agent Skill and memory semantic retrieval and embedding fallback behavior are untouched."
+        ]
+      },
+      {
+        "document": ".knowledge/architecture/system-overview.md",
+        "verdict": "UNCHANGED",
+        "evidence": [
+          "No top-level module, service responsibility, protocol location, or shared-platform boundary changed."
+        ]
+      }
+    ],
+    "coverageGap": false,
+    "validationExitCode": 0
+  },
+  "skipped_checks": [],
+  "repair_rounds": [
+    {
+      "round": 1,
+      "review_round": 1,
+      "verdict": "pending independent re-review",
+      "completed_at": "2026-07-15T02:46:32Z",
+      "fixed_items": [
+        "R1-001: added exactly 12 authorized existing-dependency go.mod checksums; Commons standalone module tests and agent-check pass",
+        "R1-002: CompleteStructured reuses resilience state for identical NativeStore/runtime configuration and refreshes safely after configuration change; cross-request concurrency/circuit tests pass",
+        "R1-003: structured retry/circuit logs emit classification only; sensitive-marker captured-log test passes"
+      ]
+    },
+    {
+      "round": 2,
+      "review_round": 2,
+      "verdict": "pending independent re-review",
+      "fixed_items": [
+        "R2-001: clients are shared by complete configuration fingerprint, so a late old-config request cannot replace newer shared resilience state; controlled interleaving race test passes",
+        "R2-002: detect-impact was re-run at base_tree fb76dfce94d5068494f7be7c5b6519df582cae2e and all 19 routed documents have exactly one report/evidence verdict without knowledge edits",
+        "R2-003: report/evidence changed files include task-scope.json and the non-empty exception matches pipeline approved_at, scope, and reason"
+      ]
+    }
+  ],
+  "blocked": {
+    "status": false,
+    "reason": "",
+    "unresolved_findings": []
+  }
+}

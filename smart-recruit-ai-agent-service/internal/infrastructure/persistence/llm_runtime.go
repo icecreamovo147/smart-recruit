@@ -2,12 +2,15 @@ package persistence
 
 import (
 	"context"
+	"crypto/sha256"
 	"fmt"
 	"strings"
+	"sync"
 	"time"
 
 	"gorm.io/gorm"
 
+	recruitingruntime "smart-recruit-ai-agent-service/internal/application/recruiting_intelligence"
 	aiagentgrpc "smart-recruit-ai-agent-service/internal/interfaces/grpc"
 	commonsai "smart-recruit-commons/ai"
 	"smart-recruit-proto/recruitment/pb"
@@ -61,6 +64,20 @@ type llmRuntimeRow struct {
 	ContextWindowTokens int     `gorm:"column:context_window_tokens"`
 }
 
+type structuredRuntimeClientCache struct {
+	mu                        sync.Mutex
+	clients                   map[[sha256.Size]byte]*commonsai.Client
+	beforeClientLookupForTest func(selectedLLMConfig)
+}
+
+// NativeStore is process-lived in production. Keep one cache entry per store
+// so requests using the same selected runtime configuration share concurrency
+// and circuit-breaker state. Clients are keyed by the configuration observed by
+// each request instead of a mutable "current" slot: if an older DB read resumes
+// after a newer configuration has already been used, it cannot overwrite the
+// newer client's shared resilience state.
+var structuredRuntimeClientCaches sync.Map // map[*NativeStore]*structuredRuntimeClientCache
+
 func (s *NativeStore) Complete(ctx context.Context, prompt string) (string, error) {
 	return s.CompleteWithModel(ctx, prompt, 0)
 }
@@ -82,6 +99,84 @@ func (s *NativeStore) CompleteWithOptions(ctx context.Context, prompt string, mo
 		return "", err
 	}
 	return client.GenerateRecruitingReply(ctx, prompt, commonsai.RecruitingStats{}, nil)
+}
+
+func (s *NativeStore) CompleteStructured(ctx context.Context, systemPrompt, userPrompt string) (recruitingruntime.StructuredCompletionResult, error) {
+	cfg, err := s.selectLLMRuntimeConfig(ctx, 0, 0)
+	if err != nil {
+		return recruitingruntime.StructuredCompletionResult{}, err
+	}
+	cache := structuredRuntimeClientCacheFor(s)
+	cache.mu.Lock()
+	beforeClientLookup := cache.beforeClientLookupForTest
+	cache.mu.Unlock()
+	if beforeClientLookup != nil {
+		beforeClientLookup(cfg)
+	}
+	client, err := s.structuredRuntimeClient(ctx, cfg)
+	if err != nil {
+		return recruitingruntime.StructuredCompletionResult{}, err
+	}
+	result, err := client.GenerateStructured(ctx, systemPrompt, userPrompt)
+	if err != nil {
+		return recruitingruntime.StructuredCompletionResult{}, err
+	}
+	return recruitingruntime.StructuredCompletionResult{Content: result.Content, ModelName: result.ModelName}, nil
+}
+
+func (s *NativeStore) structuredRuntimeClient(ctx context.Context, cfg selectedLLMConfig) (*commonsai.Client, error) {
+	cache := structuredRuntimeClientCacheFor(s)
+	fingerprint := structuredRuntimeConfigFingerprint(cfg, s.runtimeLLM)
+
+	cache.mu.Lock()
+	defer cache.mu.Unlock()
+	if client := cache.clients[fingerprint]; client != nil {
+		return client, nil
+	}
+	client, err := s.newRuntimeClient(ctx, cfg)
+	if err != nil {
+		return nil, err
+	}
+	if cache.clients == nil {
+		cache.clients = make(map[[sha256.Size]byte]*commonsai.Client)
+	}
+	cache.clients[fingerprint] = client
+	return client, nil
+}
+
+func structuredRuntimeClientCacheFor(store *NativeStore) *structuredRuntimeClientCache {
+	cacheValue, _ := structuredRuntimeClientCaches.LoadOrStore(store, &structuredRuntimeClientCache{})
+	return cacheValue.(*structuredRuntimeClientCache)
+}
+
+func structuredRuntimeConfigFingerprint(selected selectedLLMConfig, defaults RuntimeLLMConfig) [sha256.Size]byte {
+	hash := sha256.New()
+	_, _ = fmt.Fprintf(hash, "%#v|%#v", selected, defaults)
+	var fingerprint [sha256.Size]byte
+	copy(fingerprint[:], hash.Sum(nil))
+	return fingerprint
+}
+
+func (s *NativeStore) LoadActiveRecruitingPrompt(ctx context.Context, agentType, role string) (recruitingruntime.PromptDescriptor, error) {
+	var row promptTemplateRecord
+	err := s.db.WithContext(ctx).
+		Where("agent_type = ? AND prompt_role = ? AND is_active = ?", agentType, role, true).
+		Order("updated_at DESC, id DESC").
+		First(&row).Error
+	if err == gorm.ErrRecordNotFound {
+		return recruitingruntime.PromptDescriptor{}, recruitingruntime.ErrPromptNotFound
+	}
+	if err != nil {
+		return recruitingruntime.PromptDescriptor{}, fmt.Errorf("load active recruiting prompt: %w", err)
+	}
+	return recruitingruntime.PromptDescriptor{
+		ID:        row.ID,
+		Name:      row.Name,
+		Version:   int32(row.Version),
+		AgentType: row.AgentType,
+		Role:      row.PromptRole,
+		Content:   row.Content,
+	}, nil
 }
 
 func (s *NativeStore) validateLlmProviderConnection(ctx context.Context, provider llmProviderRecord) (*pb.TestProviderConnectionResponse, error) {

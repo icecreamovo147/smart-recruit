@@ -1,0 +1,235 @@
+{
+  "schemaVersion": 1,
+  "feature_name": "recruiting-intelligence-runtime-parity",
+  "task_id": "TASK-007",
+  "base_sha": "98165e7cdac06c0aa2a0685ecf1ad7c00a3eb518",
+  "base_tree": "a3c78ee11f198247c20cf107b3790fd7c5ce61ce",
+  "head_sha": "98165e7cdac06c0aa2a0685ecf1ad7c00a3eb518",
+  "started_at": "2026-07-15T11:56:23Z",
+  "ended_at": "2026-07-15T14:14:06Z",
+  "changed_files": [
+    ".knowledge/architecture/agent-runtime.md",
+    ".knowledge/architecture/service-boundaries.md",
+    ".knowledge/domains/ai-configuration-governance.md",
+    ".knowledge/domains/resume-intelligence.md",
+    ".knowledge/pitfalls/resume-sensitive-data.md",
+    ".knowledge/runbooks/debug-resume-intelligence.md",
+    ".spec/recruiting-intelligence-runtime-parity/pipeline-state.json",
+    ".spec/recruiting-intelligence-runtime-parity/reports/TASK-007-evidence.json",
+    ".spec/recruiting-intelligence-runtime-parity/reports/TASK-007-report.md",
+    ".spec/recruiting-intelligence-runtime-parity/reports/compatibility-and-risk.md",
+    "smart-recruit-ai-agent-service/internal/application/recruiting_intelligence/candidate_match.go",
+    "smart-recruit-ai-agent-service/internal/application/recruiting_intelligence/job_requirement.go",
+    "smart-recruit-ai-agent-service/internal/application/recruiting_intelligence/resume_profile.go",
+    "smart-recruit-ai-agent-service/internal/application/recruiting_intelligence/structured_runtime.go",
+    "smart-recruit-ai-agent-service/internal/application/recruiting_intelligence/structured_runtime_observability_test.go",
+    "smart-recruit-ai-agent-service/internal/interfaces/grpc/native_servers.go",
+    "smart-recruit-ai-agent-service/internal/interfaces/grpc/recruiting_observability.go",
+    "smart-recruit-ai-agent-service/internal/interfaces/grpc/recruiting_observability_test.go"
+  ],
+  "scope": {
+    "status": "passed",
+    "base_tree": "a3c78ee11f198247c20cf107b3790fd7c5ce61ce",
+    "forbidden": [],
+    "out_of_scope": [],
+    "developer_did_not_edit": [
+      ".spec/recruiting-intelligence-runtime-parity/pipeline-state.json",
+      ".spec/recruiting-intelligence-runtime-parity/task-scope.json"
+    ]
+  },
+  "checks": [
+    {"command":"metadata-only local MySQL selection for the three recruiting agent types","working_directory":".","started_at":"2026-07-15T11:58:00Z","duration_ms":200,"exit_code":0,"status":"passed"},
+    {"command":"GOWORK=off go test ./internal/application/recruiting_intelligence -run TestRuntimeLoadsEveryRecruitingSystemPromptOnEveryRequest -count=10","working_directory":"smart-recruit-ai-agent-service","started_at":"2026-07-15T12:00:00Z","duration_ms":272,"exit_code":0,"status":"passed"},
+    {"command":"GOWORK=off go test ./internal/interfaces/grpc -run 'TestRecruitingRuntimeObserverLogsOnlyPrivacyAllowList|TestParseResumeProfileGeneratesAndPersistsFreshSnapshot|TestParseResumeProfileUsesSystemPromptAndPolicyFallback|TestEvaluateCandidateMatchStructuredPipelineAggregatesAndPreservesEvidenceAndAgentRun|TestEvaluateCandidateMatchDeterministicPrimaryMakesNoModelCall|TestEvaluateCandidateMatchFallbackDisabledInvalidMainChainDoesNotSave' -count=3","working_directory":"smart-recruit-ai-agent-service","started_at":"2026-07-15T12:01:00Z","duration_ms":323,"exit_code":0,"status":"passed"},
+    {"command":"GOWORK=off go test ./internal/infrastructure/persistence -run 'TestNativeStoreSaveRecruitingResumeProfileDraftVersionsAndChildren|TestNativeStoreSaveRecruitingResumeProfileDraftRollsBackEveryTableOnChildFailure|TestNativeStoreSaveRecruitingCandidateMatchDraftVersionsLatestAndAgentRun' -count=3","working_directory":"smart-recruit-ai-agent-service","started_at":"2026-07-15T12:01:01Z","duration_ms":366,"exit_code":0,"status":"passed"},
+    {"command":"GOWORK=off go test ./ai -run TestGenerateStructured -count=3","working_directory":"smart-recruit-commons","started_at":"2026-07-15T12:02:00Z","duration_ms":504,"exit_code":0,"status":"passed"},
+    {"command":"node .knowledge/scripts/validate-knowledge.mjs --root .; node .knowledge/scripts/check-references.mjs --root .","working_directory":".","started_at":"2026-07-15T12:03:00Z","duration_ms":300,"exit_code":0,"status":"passed"},
+    {"command":"node .knowledge/scripts/detect-impact.mjs --root . --base-tree a3c78ee11f198247c20cf107b3790fd7c5ce61ce","working_directory":".","started_at":"2026-07-15T12:04:00Z","duration_ms":1500,"exit_code":0,"status":"passed"},
+    {"command":"bash .spec/recruiting-intelligence-runtime-parity/scripts/check-task-scope.sh TASK-007","working_directory":".","started_at":"2026-07-15T12:06:00Z","duration_ms":1400,"exit_code":0,"status":"passed"},
+    {"command":"GOWORK=off go test ./...","working_directory":"smart-recruit-ai-agent-service","started_at":"2026-07-15T12:10:56Z","duration_ms":1000,"exit_code":0,"status":"passed"},
+    {"command":"GOWORK=off go test ./internal/application/recruiting_intelligence ./internal/interfaces/grpc -run 'TestRuntimeLoadsEveryRecruitingSystemPromptOnEveryRequest|TestResumeFallbackObservationContainsClassificationNotProviderBody|TestRecruitingRuntimeObserverLogsOnlyPrivacyAllowList' -count=10","working_directory":"smart-recruit-ai-agent-service","started_at":"2026-07-15T12:10:57Z","duration_ms":2000,"exit_code":0,"status":"passed"},
+    {"command":"GOWORK=off go test ./ai -run TestGenerateStructured -count=3","working_directory":"smart-recruit-commons","started_at":"2026-07-15T12:11:14Z","duration_ms":2000,"exit_code":0,"status":"passed"},
+    {"command":"knowledge validator tests, validation, reference check, impact detection, TASK-007 scope, and git diff --check","working_directory":".","started_at":"2026-07-15T12:11:20Z","duration_ms":4200,"exit_code":0,"status":"passed"},
+    {"command":"privacy regex scan of all feature reports/evidence and six modified knowledge files; forbidden Zap field scan","working_directory":".","started_at":"2026-07-15T12:11:40Z","duration_ms":100,"exit_code":0,"status":"passed"},
+    {"command":"bash .spec/recruiting-intelligence-runtime-parity/scripts/agent-check.sh","working_directory":".","started_at":"2026-07-15T12:12:00Z","duration_ms":1800,"exit_code":0,"status":"passed"},
+    {"command":"pending-review evidence validation, final TASK-007 scope, git diff --check, and feature validation","working_directory":".","started_at":"2026-07-15T12:12:10Z","duration_ms":1800,"exit_code":0,"status":"passed"},
+    {"command":"GOWORK=off go test ./internal/application/recruiting_intelligence ./internal/interfaces/grpc -run 'TestRuntimeLoadsEveryRecruitingSystemPromptOnEveryRequest|TestResumeFallbackObservationContainsClassificationNotProviderBody|TestObservationCountsAreBoundedBeforeObserver|TestRecruitingRuntimeObserverLogsOnlyPrivacyAllowList|TestRecruitingNativeOperationsEmitExactlyOneTerminalOutcome' -count=10","working_directory":"smart-recruit-ai-agent-service","started_at":"2026-07-15T12:45:00Z","duration_ms":3100,"exit_code":0,"status":"passed"},
+    {"command":"GOWORK=off go test ./...","working_directory":"smart-recruit-ai-agent-service","started_at":"2026-07-15T12:45:04Z","duration_ms":6000,"exit_code":0,"status":"passed"},
+    {"command":"GOWORK=off go test ./ai -run TestGenerateStructured -count=10","working_directory":"smart-recruit-commons","started_at":"2026-07-15T12:36:00Z","duration_ms":1100,"exit_code":0,"status":"passed"},
+    {"command":"node .knowledge/scripts/validate-knowledge.mjs --root . && node .knowledge/scripts/check-references.mjs --root . && node .knowledge/scripts/detect-impact.mjs --root . --base-tree a3c78ee11f198247c20cf107b3790fd7c5ce61ce","working_directory":".","started_at":"2026-07-15T12:34:00Z","duration_ms":1700,"exit_code":0,"status":"passed"},
+    {"command":"node .knowledge/scripts/knowledge-validator.test.mjs","working_directory":".","started_at":"2026-07-15T12:40:00Z","duration_ms":1800,"exit_code":0,"status":"passed"},
+    {"command":"bash .spec/recruiting-intelligence-runtime-parity/scripts/check-task-scope.sh TASK-007 && pending-review evidence validation && git diff --check","working_directory":".","started_at":"2026-07-15T12:39:00Z","duration_ms":1500,"exit_code":0,"status":"passed"},
+    {"command":"bash .spec/recruiting-intelligence-runtime-parity/scripts/agent-check.sh","working_directory":".","started_at":"2026-07-15T12:40:00Z","duration_ms":1800,"exit_code":0,"status":"passed"},
+    {"command":"privacy scan for credential/PII patterns in reports and six knowledge files plus forbidden arbitrary/error Zap fields","working_directory":".","started_at":"2026-07-15T12:42:00Z","duration_ms":100,"exit_code":0,"status":"passed"},
+    {"command":"GOWORK=off go test ./internal/application/recruiting_intelligence ./internal/interfaces/grpc -run 'TestRuntimeLoadsEveryRecruitingSystemPromptOnEveryRequest|TestResumeFallbackObservationContainsClassificationNotProviderBody|TestObservationCountsAreBoundedBeforeObserver|TestObservationBoundary|TestRecruitingRuntimeObserver|TestRecruitingNativeObservationRejectsPropagatedExternalRequestID|TestRecruitingNativeOperationsEmitExactlyOneTerminalOutcome|TestParseResumeProfileSaveFailureReturnsNonSuccessWithoutCommittedDraft|TestEvaluateCandidateMatchDeadlineCoversSourceReadAndParentCancellationPreventsSave' -count=10","working_directory":"smart-recruit-ai-agent-service","started_at":"2026-07-15T12:50:00Z","duration_ms":3700,"exit_code":0,"status":"passed"},
+    {"command":"GOWORK=off go test ./...","working_directory":"smart-recruit-ai-agent-service","started_at":"2026-07-15T12:54:00Z","duration_ms":5700,"exit_code":0,"status":"passed"},
+    {"command":"GOWORK=off go test ./ai -run TestGenerateStructured -count=10","working_directory":"smart-recruit-commons","started_at":"2026-07-15T12:54:00Z","duration_ms":5700,"exit_code":0,"status":"passed"},
+    {"command":"node .knowledge/scripts/knowledge-validator.test.mjs && node .knowledge/scripts/validate-knowledge.mjs --root . && node .knowledge/scripts/check-references.mjs --root . && node .knowledge/scripts/detect-impact.mjs --root . --base-tree a3c78ee11f198247c20cf107b3790fd7c5ce61ce","working_directory":".","started_at":"2026-07-15T12:54:00Z","duration_ms":5700,"exit_code":0,"status":"passed"},
+    {"command":"git diff --check","working_directory":".","started_at":"2026-07-15T12:55:37Z","duration_ms":100,"exit_code":0,"status":"passed"},
+    {"command":"bash .spec/recruiting-intelligence-runtime-parity/scripts/check-task-scope.sh TASK-007","working_directory":".","started_at":"2026-07-15T12:57:00Z","duration_ms":2000,"exit_code":0,"status":"passed"},
+    {"command":"bash .spec/recruiting-intelligence-runtime-parity/scripts/agent-check.sh","working_directory":".","started_at":"2026-07-15T12:57:00Z","duration_ms":2000,"exit_code":0,"status":"passed"},
+    {"command":"node .agents/skills/spec-harness/scripts/validate-feature.mjs --feature .spec/recruiting-intelligence-runtime-parity","working_directory":".","started_at":"2026-07-15T12:57:00Z","duration_ms":2000,"exit_code":0,"status":"passed"},
+    {"command":"privacy artifact and forbidden-log-field scan; R1/R2 history, round-3 pending, next-task false evidence assertion; git diff --check","working_directory":".","started_at":"2026-07-15T12:59:00Z","duration_ms":100,"exit_code":0,"status":"passed"},
+    {"command":"GOWORK=off go test ./internal/application/recruiting_intelligence ./internal/interfaces/grpc -run 'TestRuntimeLoadsEveryRecruitingSystemPromptOnEveryRequest|TestResumeFallbackObservationContainsClassificationNotProviderBody|TestObservationCountsAreBoundedBeforeObserver|TestObservationBoundary|TestObservationRequestID|TestObservationIdentity|TestRecruitingRuntimeObserver|TestRecruitingNativeObservation|TestRecruitingNativeOperationsEmitExactlyOneTerminalOutcome|TestRecruitingNativeMethodBoundaryFinalizesEveryEarlyReturn|TestParseResumeProfileSaveFailureReturnsNonSuccessWithoutCommittedDraft|TestEvaluateCandidateMatchDeadlineCoversSourceReadAndParentCancellationPreventsSave' -count=10","working_directory":"smart-recruit-ai-agent-service","started_at":"2026-07-15T13:21:00Z","duration_ms":4400,"exit_code":0,"status":"passed"},
+    {"command":"GOWORK=off go test ./...","working_directory":"smart-recruit-ai-agent-service","started_at":"2026-07-15T13:23:00Z","duration_ms":6225,"exit_code":0,"status":"passed"},
+    {"command":"GOWORK=off go test ./internal/infrastructure/persistence -run 'TestNativeStoreSaveRecruitingResumeProfileDraft|TestNativeStoreSaveRecruitingCandidateMatchDraft' -count=10","working_directory":"smart-recruit-ai-agent-service","started_at":"2026-07-15T13:23:00Z","duration_ms":5533,"exit_code":0,"status":"passed"},
+    {"command":"GOWORK=off go test ./ai -run TestGenerateStructured -count=10","working_directory":"smart-recruit-commons","started_at":"2026-07-15T13:23:00Z","duration_ms":4696,"exit_code":0,"status":"passed"},
+    {"command":"node .knowledge/scripts/knowledge-validator.test.mjs && node .knowledge/scripts/validate-knowledge.mjs --root . && node .knowledge/scripts/check-references.mjs --root .","working_directory":".","started_at":"2026-07-15T13:25:00Z","duration_ms":1900,"exit_code":0,"status":"passed"},
+    {"command":"node .knowledge/scripts/detect-impact.mjs --root . --base-tree a3c78ee11f198247c20cf107b3790fd7c5ce61ce","working_directory":".","started_at":"2026-07-15T13:25:00Z","duration_ms":1900,"exit_code":0,"status":"passed"},
+    {"command":"final TASK-007 scope; agent-check; feature and pending-review evidence validation; knowledge validation/references/impact; artifact privacy and forbidden-Zap-field scans; git diff --check/name-only","working_directory":".","started_at":"2026-07-15T13:30:00Z","duration_ms":4000,"exit_code":0,"status":"passed"},
+    {"command":"gofmt -w internal/interfaces/grpc/native_servers.go internal/interfaces/grpc/recruiting_observability_test.go","working_directory":"smart-recruit-ai-agent-service","started_at":"2026-07-15T13:58:00Z","duration_ms":100,"exit_code":0,"status":"passed"},
+    {"command":"GOWORK=off go test ./internal/interfaces/grpc -run 'TestRecruitingNativeMethodBoundaryFinalizesEveryEarlyReturn|TestRecruitingNativeOperationsEmitExactlyOneTerminalOutcome' -count=10","working_directory":"smart-recruit-ai-agent-service","started_at":"2026-07-15T13:58:01Z","duration_ms":4800,"exit_code":0,"status":"passed"},
+    {"command":"GOWORK=off go test ./...","working_directory":"smart-recruit-ai-agent-service","started_at":"2026-07-15T13:59:00Z","duration_ms":5200,"exit_code":0,"status":"passed"},
+    {"command":"GOWORK=off go test ./internal/infrastructure/persistence -run 'TestNativeStoreSaveRecruitingResumeProfileDraft|TestNativeStoreSaveRecruitingCandidateMatchDraft' -count=10","working_directory":"smart-recruit-ai-agent-service","started_at":"2026-07-15T13:59:00Z","duration_ms":5200,"exit_code":0,"status":"passed"},
+    {"command":"GOWORK=off go test ./ai -run TestGenerateStructured -count=10","working_directory":"smart-recruit-commons","started_at":"2026-07-15T13:59:00Z","duration_ms":5200,"exit_code":0,"status":"passed"},
+    {"command":"knowledge validator/tests/references/impact; TASK-007 scope; agent-check; feature and pending-review evidence validation; corrected privacy/forbidden-log scan; git diff --check/name-only","working_directory":".","started_at":"2026-07-15T14:04:00Z","duration_ms":2100,"exit_code":0,"status":"passed"}
+  ],
+  "review": {
+    "type": "independent_agent",
+    "round": 5,
+    "verdict": "通过",
+    "reviewer_type": "fresh independent read-only subagent",
+    "reviewer": "/root/task007_reviewer_r5",
+    "verdict_text": "verdict: 通过",
+    "notes": ["Fresh independent Reviewer R5 confirmed R4-H1 closed and returned verdict: 通过 after independently rerunning all required checks."],
+    "history": [
+      {
+        "round": 1,
+        "reviewer": "/root/task007_reviewer_r1",
+        "verdict": "failed",
+        "verdict_text": "verdict: 不通过",
+        "findings": [
+          {"id":"R1-H1","severity":"High","summary":"Observation omitted SPEC safety fields and native source/aggregation/timeout/persistence terminal semantics, allowing generation success before persistence failure"},
+          {"id":"R1-M1","severity":"Medium","summary":"three updated knowledge documents lacked direct implementation and test source_refs for their new verified claims"},
+          {"id":"R1-M2","severity":"Medium","summary":"debug runbook lacked exact metadata-only SQL, focused commands and expectations, synthetic smoke steps, and service/provider skip decisions"}
+        ]
+      },
+      {
+        "round": 2,
+        "reviewer": "/root/task007_reviewer_r2",
+        "verdict": "failed",
+        "verdict_text": "verdict: 不通过",
+        "findings": [
+          {"id":"R2-H1","severity":"High","summary":"external X-Request-ID and caller-controlled classification/identity strings crossed recruiting observation/log boundaries without fail-closed normalization; the privacy marker did not exercise the real request-ID path"}
+        ],
+        "notes": ["R1-M1 and R1-M2 were confirmed closed."]
+      },
+      {
+        "round": 3,
+        "reviewer": "/root/task007_reviewer_r3",
+        "verdict": "failed",
+        "verdict_text": "verdict: 不通过",
+        "findings": [
+          {"id":"R3-H1","severity":"High","summary":"safe-alphabet sensitive request IDs may pass verbatim while the 80-byte ASCII identity policy can discard legitimate UTF-8 and schema-length Prompt/model identities"},
+          {"id":"R3-H2","severity":"High","summary":"native resume and candidate-match early-return paths are outside the current terminal matrix and can emit zero terminal events"}
+        ]
+      },
+      {
+        "round": 4,
+        "reviewer": "/root/task007_reviewer_r4",
+        "verdict": "failed",
+        "verdict_text": "verdict: 不通过",
+        "findings": [
+          {"id":"R4-H1","severity":"High","summary":"ParseResumeProfile erases typed application-owner configuration errors, misclassifies missing or nil owner dependencies as source_failure, and omits both cases from the exhaustive boundary matrix"}
+        ],
+        "notes": ["R3-H1 is closed. R3-H2 is incomplete only for the resume application-owner missing/nil classification paths; exactly-one terminal cardinality itself passed."]
+      },
+      {
+        "round": 5,
+        "reviewer": "/root/task007_reviewer_r5",
+        "verdict": "通过",
+        "verdict_text": "verdict: 通过",
+        "findings": [],
+        "notes": ["R4-H1 is closed; typed resume access errors, exact terminal categories, exhaustive boundary tests, and GetResumeProfile compatibility were independently verified."]
+      }
+    ]
+  },
+  "repair": {
+    "mode": "fix-check-failures",
+    "round": 4,
+    "fixed_findings": ["R4-H1"],
+    "status": "checks_passed_review_passed",
+    "root_cause": "resolveResumeProfileAccess converted the typed recruiting authorization/configuration error into a public response before ParseResumeProfile classified the terminal, so missing/nil owner dependencies collapsed into source_failure and were absent from the exhaustive matrix.",
+    "fix_summary": [
+      "The internal resume access resolver now returns the typed authorization error alongside the unchanged public response; GetResumeProfile ignores the internal value, preserving external behavior, while ParseResumeProfile classifies it directly.",
+      "Typed configuration errors carry a fixed terminal category, replacing message-substring classification; genuine RPC errors and all existing code mappings retain their prior categories.",
+      "The exhaustive boundary table now includes missing application-owner client and nil owner response, each requiring exactly one configuration_failure/error terminal, while retaining every existing resume and candidate matrix case."
+    ]
+  },
+  "human_confirmation": {
+    "required": false,
+    "confirmed": true,
+    "confirmed_by": "not_required",
+    "confirmed_at": "2026-07-15T11:56:23Z",
+    "confirmation_text": "TASK-007 does not require human confirmation; subsequent ordinary human gates were cancelled by the user."
+  },
+  "exceptions": [],
+  "skipped_checks": [
+    {
+      "check": "live provider/API resume reparse and candidate-match smoke",
+      "reason": "AI Agent, Identity, Recruitment, and Gateway were not listening locally, and no explicitly synthetic authorized database resume/application fixture was available for safe provider submission. Fake-provider native orchestration and real persistence integration tests passed; this skip is not a live PASS."
+    }
+  ],
+  "observations": [
+    {
+      "check": "initial combined privacy regex invocation",
+      "status": "invalid_invocation_replaced",
+      "reason": "A shell quoting error made the first combined regex invalid even though the wrapper reached its PASS branch. That result was discarded. A corrected standalone artifact and forbidden-Zap-field scan then ran with exit code 0 and is the only privacy scan treated as evidence."
+    },
+    {
+      "check": "first full-test timing wrapper",
+      "status": "timing_wrapper_error_replaced",
+      "reason": "macOS date does not support GNU %3N; the underlying full AI Agent suite printed PASS, but the wrapper failed while computing duration. The complete command was rerun with a portable timer and exit code 0, which is the recorded full-suite evidence."
+    },
+    {
+      "check": "first final forbidden-Zap-field regex",
+      "status": "overbroad_scan_replaced",
+      "reason": "The first final combined scan matched the allowed fixed field prompt_name because its regex treated every prompt-prefixed field as forbidden. Scope, Harness, evidence, knowledge, privacy-marker, and diff checks before that scan passed. The forbidden-field expression was narrowed to arbitrary error/body/content/response fields and the complete final validation was rerun; only the corrected run is treated as passing evidence."
+    }
+  ],
+  "knowledgeImpact": {
+    "result": "update_required",
+    "triggeredBy": [
+      "smart-recruit-ai-agent-service/internal/application/recruiting_intelligence/structured_runtime.go",
+      "smart-recruit-ai-agent-service/internal/application/recruiting_intelligence/resume_profile.go",
+      "smart-recruit-ai-agent-service/internal/application/recruiting_intelligence/job_requirement.go",
+      "smart-recruit-ai-agent-service/internal/application/recruiting_intelligence/candidate_match.go",
+      "smart-recruit-ai-agent-service/internal/interfaces/grpc/native_servers.go",
+      "smart-recruit-ai-agent-service/internal/interfaces/grpc/recruiting_observability.go"
+    ],
+    "reviewResults": [
+      {"document":".knowledge/architecture/agent-runtime.md","verdict":"UPDATED","evidence":["process-keyed HMAC correlation, idempotent normalization, method-boundary finalization, and privacy/terminal tests verified"]},
+      {"document":".knowledge/architecture/service-boundaries.md","verdict":"UPDATED","evidence":["AI Agent/Recruitment ownership and existing table mapping verified"]},
+      {"document":".knowledge/domains/ai-configuration-governance.md","verdict":"UPDATED","evidence":["per-request active Prompt selection and bounded non-reversible Prompt/model correlations verified"]},
+      {"document":".knowledge/domains/resume-intelligence.md","verdict":"UPDATED","evidence":["HMAC correlation and deferred exactly-one terminal finalization now match implementation and tests"]},
+      {"document":".knowledge/runbooks/debug-resume-intelligence.md","verdict":"UPDATED","evidence":["focused commands now cover HMAC privacy and exhaustive early-return finalization at -count=10"]},
+      {"document":".knowledge/pitfalls/resume-sensitive-data.md","verdict":"UPDATED","evidence":["safe-alphabet low-entropy and secret-shaped request IDs are documented as untrusted and non-reversible"]},
+      {"document":".knowledge/architecture/system-overview.md","verdict":"UNCHANGED","evidence":["module topology and service inventory unchanged"]},
+      {"document":".knowledge/runbooks/local-development.md","verdict":"UNCHANGED","evidence":["startup commands and dependency order unchanged"]},
+      {"document":".knowledge/architecture/semantic-retrieval.md","verdict":"UNCHANGED","evidence":["Agent Skill/memory retrieval unaffected"]},
+      {"document":".knowledge/domains/memory-and-context.md","verdict":"UNCHANGED","evidence":["chat memory/context unaffected"]},
+      {"document":".knowledge/runbooks/debug-agent-retrieval.md","verdict":"UNCHANGED","evidence":["retrieval diagnostics unaffected"]},
+      {"document":".knowledge/domains/agent-skill.md","verdict":"UNCHANGED","evidence":["Agent Skill lifecycle unaffected"]},
+      {"document":".knowledge/pitfalls/embedding-fallback.md","verdict":"UNCHANGED","evidence":["embedding behavior unaffected"]},
+      {"document":".knowledge/domains/mcp-tool-governance.md","verdict":"UNCHANGED","evidence":["MCP runtime/governance unaffected"]},
+      {"document":".knowledge/pitfalls/mcp-policy-audit.md","verdict":"UNCHANGED","evidence":["MCP policy/audit unaffected"]},
+      {"document":".knowledge/runbooks/knowledge-coverage-audit.md","verdict":"UNCHANGED","evidence":["route protocol remains valid and complete"]},
+      {"document":".knowledge/architecture/api-contracts-and-gateway.md","verdict":"UNCHANGED","evidence":["gateway routes and generated wire contracts unchanged"]},
+      {"document":".knowledge/runbooks/protobuf-and-migration-change.md","verdict":"UNCHANGED","evidence":["no Proto, migration, schema, or table ownership change"]},
+      {"document":".knowledge/pitfalls/protobuf-synchronization.md","verdict":"UNCHANGED","evidence":["canonical and generated Proto files unchanged"]}
+    ],
+    "coverageGap": false,
+    "validationExitCode": 0
+  },
+  "privacy": {
+    "status": "passed",
+    "candidate_pii_present": false,
+    "raw_prompts_present": false,
+    "raw_model_output_present": false,
+    "raw_evidence_present": false,
+    "secrets_present": false,
+    "notes": "Runtime and Zap tests prove safe-alphabet phone/body/API-key/JWT/UUID/ULID/normal request IDs and malicious configured identities never appear raw, while same-process HMAC correlation is stable, distinct, bounded, and idempotent. Artifact scans remain required after report finalization."
+  },
+  "next_task_ready": true,
+  "next_task_blocker": null
+}

@@ -2,8 +2,6 @@ package grpc
 
 import (
 	"context"
-	"crypto/sha256"
-	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -19,6 +17,7 @@ import (
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/encoding/protojson"
 
+	recruitingruntime "smart-recruit-ai-agent-service/internal/application/recruiting_intelligence"
 	"smart-recruit-ai-agent-service/internal/domain/model"
 	"smart-recruit-ai-agent-service/internal/domain/policy"
 	mcpinfra "smart-recruit-ai-agent-service/internal/infrastructure/mcp"
@@ -94,6 +93,7 @@ type applicationSnapshotClient interface {
 type RuntimeDeps struct {
 	Store            AIStore
 	Provider         ChatProvider
+	RecruitingPolicy recruitingruntime.RuntimePolicy
 	EmbeddingWorker  bool
 	AgentRunWorker   bool
 	RuntimeName      string
@@ -280,6 +280,17 @@ type RecruitingApplicationContext struct {
 	IsCurrent       int32
 }
 
+type RecruitingCandidateProfileRow struct {
+	ID             uint64
+	RealName       string
+	Phone          string
+	Education      string
+	School         string
+	WorkExperience string
+	Skills         string
+	IsComplete     int32
+}
+
 type RecruitingResumeParseRunRow struct {
 	ID            uint64
 	ResumeID      int64
@@ -446,9 +457,12 @@ type RecruitingJobContext struct {
 }
 
 type RecruitingMatchSource struct {
-	Application RecruitingApplicationContext
-	Job         RecruitingJobContext
-	Profile     RecruitingResumeProfileSnapshot
+	Application          RecruitingApplicationContext
+	Job                  RecruitingJobContext
+	Profile              RecruitingResumeProfileSnapshot
+	CandidateProfile     *RecruitingCandidateProfileRow
+	ApplicationEducation string
+	ResumeParsedText     string
 }
 
 type RecruitingCandidateMatchDraft struct {
@@ -465,85 +479,9 @@ type RecruitingCandidateMatchDraft struct {
 	ScoreBreakdownJSON string
 	ModelName          string
 	Evidence           []RecruitingCandidateMatchEvidenceRow
-}
-
-type generatedResumeProfile struct {
-	FullName             string                      `json:"full_name"`
-	Email                string                      `json:"email"`
-	Phone                string                      `json:"phone"`
-	Location             string                      `json:"location"`
-	Headline             string                      `json:"headline"`
-	Summary              string                      `json:"summary"`
-	TotalExperienceYears float64                     `json:"total_experience_years"`
-	HighestDegree        string                      `json:"highest_degree"`
-	Educations           []generatedResumeEducation  `json:"educations"`
-	Experiences          []generatedResumeExperience `json:"experiences"`
-	Projects             []generatedResumeProject    `json:"projects"`
-	Skills               []generatedResumeSkill      `json:"skills"`
-}
-
-type generatedResumeEducation struct {
-	School      string `json:"school"`
-	Degree      string `json:"degree"`
-	Major       string `json:"major"`
-	StartDate   string `json:"start_date"`
-	EndDate     string `json:"end_date"`
-	Description string `json:"description"`
-}
-
-type generatedResumeExperience struct {
-	Company          string   `json:"company"`
-	Title            string   `json:"title"`
-	Location         string   `json:"location"`
-	StartDate        string   `json:"start_date"`
-	EndDate          string   `json:"end_date"`
-	IsCurrent        bool     `json:"is_current"`
-	Description      string   `json:"description"`
-	Achievements     []string `json:"achievements"`
-	AchievementsJSON string   `json:"achievements_json"`
-}
-
-type generatedResumeProject struct {
-	Name             string   `json:"name"`
-	Role             string   `json:"role"`
-	StartDate        string   `json:"start_date"`
-	EndDate          string   `json:"end_date"`
-	Description      string   `json:"description"`
-	Technologies     []string `json:"technologies"`
-	Highlights       []string `json:"highlights"`
-	TechnologiesJSON string   `json:"technologies_json"`
-	HighlightsJSON   string   `json:"highlights_json"`
-}
-
-type generatedResumeSkill struct {
-	Name     string  `json:"name"`
-	Category string  `json:"category"`
-	Level    string  `json:"level"`
-	Years    float64 `json:"years"`
-	Evidence string  `json:"evidence"`
-}
-
-type generatedCandidateMatch struct {
-	OverallScore        float64                           `json:"overall_score"`
-	Recommendation      string                            `json:"recommendation"`
-	Summary             string                            `json:"summary"`
-	Strengths           []string                          `json:"strengths"`
-	Risks               []string                          `json:"risks"`
-	MissingRequirements []string                          `json:"missing_requirements"`
-	Dimensions          []map[string]any                  `json:"dimensions"`
-	ScoreBreakdown      map[string]any                    `json:"score_breakdown"`
-	Evidence            []generatedCandidateMatchEvidence `json:"evidence"`
-}
-
-type generatedCandidateMatchEvidence struct {
-	EvidenceType string  `json:"evidence_type"`
-	Dimension    string  `json:"dimension"`
-	SourceTable  string  `json:"source_table"`
-	SourceID     uint64  `json:"source_id"`
-	Snippet      string  `json:"snippet"`
-	Weight       float64 `json:"weight"`
-	ScoreImpact  float64 `json:"score_impact"`
-	MetadataJSON string  `json:"metadata_json"`
+	ScorerVersion      string
+	RequirementCount   int
+	FallbackUsed       bool
 }
 
 var (
@@ -613,7 +551,7 @@ func NewNativeRuntimeDeps(deps RuntimeDeps) aiagentruntime.Deps {
 		MCP:                    nativeMCPService{store: deps.Store, runner: mcpRunner},
 		Skill:                  nativeSkillService{store: deps.Store},
 		AgentSkill:             nativeAgentSkillService{store: deps.Store, embedding: embeddingService},
-		RecruitingIntelligence: nativeRecruitingIntelligenceService{store: recruitingStore, provider: deps.Provider, auth: deps.Auth, applications: deps.Applications, jobs: deps.Jobs},
+		RecruitingIntelligence: nativeRecruitingIntelligenceService{store: recruitingStore, provider: deps.Provider, structured: newRecruitingStructuredRuntime(deps.Store, deps.Provider, deps.RecruitingPolicy), policy: deps.RecruitingPolicy, auth: deps.Auth, applications: deps.Applications, jobs: deps.Jobs},
 		EmbeddingConfig:        embedding,
 		LongTasks: aiagentruntime.LongTaskControls{
 			RabbitMQRequired: true,
@@ -3032,9 +2970,121 @@ type nativeRecruitingIntelligenceService struct {
 	pb.UnimplementedRecruitingIntelligenceServiceServer
 	store        recruitingReadStore
 	provider     ChatProvider
+	structured   *recruitingruntime.Runtime
+	policy       recruitingruntime.RuntimePolicy
 	auth         pb.AuthServiceClient
 	applications pb.ApplicationOwnerServiceClient
 	jobs         pb.JobServiceClient
+	observer     recruitingruntime.Observer
+}
+
+func (s nativeRecruitingIntelligenceService) recruitingObserver() recruitingruntime.Observer {
+	if s.observer != nil {
+		return s.observer
+	}
+	observer := newRecruitingRuntimeObserver()
+	return observer
+}
+
+func boundedRecruitingCount(value int) int32 {
+	if value <= 0 {
+		return 0
+	}
+	if value > 1000 {
+		return 1000
+	}
+	return int32(value)
+}
+
+func (s nativeRecruitingIntelligenceService) observeRecruiting(ctx context.Context, event recruitingruntime.Observation) {
+	s.recruitingObserver().ObserveRecruitingRuntime(ctx, recruitingruntime.NormalizeObservation(event))
+}
+
+func recruitingOperationEvent(ctx context.Context, operation, resourceType string, resourceID int64, stage, category, outcome string, terminal bool, started time.Time) recruitingruntime.Observation {
+	return recruitingruntime.Observation{
+		Operation: operation, RequestID: platformmetadata.GetRequestID(ctx), ResourceType: resourceType, ResourceID: resourceID,
+		Stage: stage, Terminal: terminal, Category: category, Outcome: outcome, Duration: time.Since(started),
+	}
+}
+
+// recruitingOperationFinalizer owns the single terminal observation for one
+// public method invocation. It is installed before request validation and
+// emitted by defer, so every return path is covered and intermediate stages
+// cannot accidentally claim overall success.
+type recruitingOperationFinalizer struct {
+	service nativeRecruitingIntelligenceService
+	ctx     context.Context
+	event   recruitingruntime.Observation
+	started time.Time
+	emitted bool
+}
+
+func newRecruitingOperationFinalizer(service nativeRecruitingIntelligenceService, ctx context.Context, operation, resourceType string, resourceID int64) *recruitingOperationFinalizer {
+	started := time.Now()
+	return &recruitingOperationFinalizer{
+		service: service,
+		ctx:     ctx,
+		event:   recruitingOperationEvent(ctx, operation, resourceType, resourceID, "operation", "domain_validation_failure", "error", true, started),
+		started: started,
+	}
+}
+
+func (f *recruitingOperationFinalizer) classify(category, outcome string) {
+	f.event.Category = category
+	f.event.Outcome = outcome
+}
+
+func (f *recruitingOperationFinalizer) finalize() {
+	if f == nil || f.emitted {
+		return
+	}
+	f.emitted = true
+	f.event.Terminal = true
+	f.event.Duration = time.Since(f.started)
+	f.service.observeRecruiting(f.ctx, f.event)
+}
+
+func recruitingTerminalCategoryForCode(code int32) string {
+	switch code {
+	case errs.OK:
+		return "success"
+	case errs.ErrBadRequest:
+		return "domain_validation_failure"
+	case errs.ErrForbidden:
+		return "authorization_failure"
+	case 404:
+		return "not_found"
+	default:
+		return "source_failure"
+	}
+}
+
+func recruitingTerminalCategoryForAuthError(authErr *recruitingAuthError) string {
+	if authErr == nil {
+		return "success"
+	}
+	if authErr.terminalCategory != "" {
+		return authErr.terminalCategory
+	}
+	return recruitingTerminalCategoryForCode(authErr.code)
+}
+
+func newRecruitingStructuredRuntime(store AIStore, provider ChatProvider, policies ...recruitingruntime.RuntimePolicy) *recruitingruntime.Runtime {
+	promptStore, promptOK := store.(recruitingruntime.PromptStore)
+	structuredProvider, providerOK := provider.(recruitingruntime.StructuredCompletionProvider)
+	if !promptOK || !providerOK {
+		return nil
+	}
+	return recruitingruntime.NewRuntimeWithObserver(recruitingruntime.NewPromptLoader(promptStore), structuredProvider, newRecruitingRuntimeObserver(), policies...)
+}
+
+func (s nativeRecruitingIntelligenceService) hasRecruitingStructuredRuntime() bool {
+	if s.structured != nil {
+		return true
+	}
+	_, promptOK := s.store.(recruitingruntime.PromptStore)
+	_, providerOK := s.provider.(recruitingruntime.StructuredCompletionProvider)
+	return promptOK && providerOK
 }
 
 type recruitingReadStore interface {
@@ -3062,9 +3112,10 @@ type recruitingCandidateMatchGenerationStore interface {
 }
 
 type recruitingAuthError struct {
-	code    int32
-	message string
-	err     error
+	code             int32
+	message          string
+	err              error
+	terminalCategory string
 }
 
 func (e *recruitingAuthError) Error() string {
@@ -3099,14 +3150,14 @@ func (s nativeRecruitingIntelligenceService) authorizeRecruitingApplication(ctx 
 		return nil, &recruitingAuthError{code: errs.ErrBadRequest, message: "application id is required"}
 	}
 	if s.applications == nil {
-		return nil, &recruitingAuthError{code: errs.ErrInternal, message: "application owner service is not configured"}
+		return nil, &recruitingAuthError{code: errs.ErrInternal, message: "application owner service is not configured", terminalCategory: "configuration_failure"}
 	}
 	resp, err := s.applications.GetApplicationSnapshot(ctx, &pb.GetApplicationSnapshotRequest{ApplicationId: applicationID})
 	if err != nil {
 		return nil, &recruitingAuthError{code: errs.ErrInternal, message: "get application snapshot failed", err: err}
 	}
 	if resp == nil {
-		return nil, &recruitingAuthError{code: errs.ErrInternal, message: "get application snapshot returned nil response"}
+		return nil, &recruitingAuthError{code: errs.ErrInternal, message: "get application snapshot returned nil response", terminalCategory: "configuration_failure"}
 	}
 	switch resp.GetCode() {
 	case errs.OK:
@@ -3171,7 +3222,7 @@ func (s nativeRecruitingIntelligenceService) authorizeRecruitingAIPermission(ctx
 		return authErr
 	}
 	if s.auth == nil {
-		return &recruitingAuthError{code: errs.ErrInternal, message: "auth service is not configured"}
+		return &recruitingAuthError{code: errs.ErrInternal, message: "auth service is not configured", terminalCategory: "configuration_failure"}
 	}
 	resp, err := s.auth.AuthorizeInternal(ctx, &pb.AuthorizeInternalRequest{
 		ActorUserId:   staffUserID,
@@ -3185,7 +3236,7 @@ func (s nativeRecruitingIntelligenceService) authorizeRecruitingAIPermission(ctx
 		return &recruitingAuthError{code: errs.ErrInternal, message: "authorize ai permission failed", err: err}
 	}
 	if resp == nil {
-		return &recruitingAuthError{code: errs.ErrInternal, message: "authorize ai permission returned nil response"}
+		return &recruitingAuthError{code: errs.ErrInternal, message: "authorize ai permission returned nil response", terminalCategory: "configuration_failure"}
 	}
 	if resp.GetCode() == errs.OK && resp.GetAllowed() {
 		return nil
@@ -3210,7 +3261,7 @@ func (s nativeRecruitingIntelligenceService) GetResumeProfile(ctx context.Contex
 	if s.store == nil {
 		return &pb.GetResumeProfileResponse{Code: errs.ErrInternal, Msg: "recruiting read store is not configured"}, nil
 	}
-	resumeID, accessResp := s.resolveResumeProfileAccess(ctx, req)
+	resumeID, accessResp, _ := s.resolveResumeProfileAccess(ctx, req)
 	if accessResp != nil {
 		return accessResp, nil
 	}
@@ -3239,38 +3290,94 @@ func (s nativeRecruitingIntelligenceService) GetResumeProfile(ctx context.Contex
 }
 
 func (s nativeRecruitingIntelligenceService) ParseResumeProfile(ctx context.Context, req *pb.ParseResumeProfileRequest) (*pb.GetResumeProfileResponse, error) {
+	finalizer := newRecruitingOperationFinalizer(s, ctx, "resume_profile", "resume", req.GetResumeId())
+	defer finalizer.finalize()
 	if req.GetApplicationId() <= 0 && req.GetResumeId() <= 0 {
 		return &pb.GetResumeProfileResponse{Code: errs.ErrBadRequest, Msg: "resume_id or application_id is required"}, nil
 	}
 	if s.store == nil {
+		finalizer.classify("configuration_failure", "error")
 		return &pb.GetResumeProfileResponse{Code: errs.ErrInternal, Msg: "recruiting read store is not configured"}, nil
 	}
-	if generationStore, ok := s.store.(recruitingResumeProfileGenerationStore); ok && s.provider != nil {
-		resumeID, accessResp := s.resolveResumeProfileAccess(ctx, &pb.GetResumeProfileRequest{StaffUserId: req.GetStaffUserId(), ResumeId: req.GetResumeId(), ApplicationId: req.GetApplicationId()})
+	if generationStore, ok := s.store.(recruitingResumeProfileGenerationStore); ok {
+		resumeID, accessResp, accessAuthErr := s.resolveResumeProfileAccess(ctx, &pb.GetResumeProfileRequest{StaffUserId: req.GetStaffUserId(), ResumeId: req.GetResumeId(), ApplicationId: req.GetApplicationId()})
+		finalizer.event.ResourceID = resumeID
 		if accessResp != nil {
+			if accessAuthErr != nil {
+				finalizer.classify(recruitingTerminalCategoryForAuthError(accessAuthErr), "error")
+			} else {
+				finalizer.classify(recruitingTerminalCategoryForCode(accessResp.GetCode()), "error")
+			}
 			return accessResp, nil
 		}
 		if authErr := s.authorizeRecruitingAIPermission(ctx, req.GetStaffUserId(), "resume", resumeID); authErr != nil {
+			finalizer.classify(recruitingTerminalCategoryForAuthError(authErr), "error")
 			return &pb.GetResumeProfileResponse{Code: authErr.code, Msg: authErr.message}, nil
 		}
+		sourceStarted := time.Now()
 		source, found, err := generationStore.GetRecruitingResumeSource(ctx, resumeID)
 		if err != nil {
+			s.observeRecruiting(ctx, recruitingOperationEvent(ctx, "resume_profile", "resume", resumeID, "source", "source_failure", "error", false, sourceStarted))
+			finalizer.classify("source_failure", "error")
 			return &pb.GetResumeProfileResponse{Code: errs.ErrInternal, Msg: err.Error()}, nil
 		}
 		if !found {
+			finalizer.classify("not_found", "error")
 			return &pb.GetResumeProfileResponse{Code: 404, Msg: "resume not found"}, nil
 		}
 		if strings.TrimSpace(source.ParsedText) == "" {
+			finalizer.classify("domain_validation_failure", "error")
 			return &pb.GetResumeProfileResponse{Code: errs.ErrBadRequest, Msg: "resume parsed_text is empty"}, nil
 		}
-		draft, err := s.generateResumeProfileDraft(ctx, source)
+		sourceEvent := recruitingOperationEvent(ctx, "resume_profile", "resume", resumeID, "source", "success", "success", false, sourceStarted)
+		sourceEvent.InputCount = 1
+		s.observeRecruiting(ctx, sourceEvent)
+		totalCtx, parseCtx, cancel := s.policy.ResumeExecutionContexts(ctx)
+		defer cancel()
+		parseCtx = recruitingruntime.WithObservationMetadata(parseCtx, platformmetadata.GetRequestID(ctx), "resume", resumeID)
+		generationStarted := time.Now()
+		draft, err := s.generateResumeProfileDraft(parseCtx, source)
 		if err != nil {
+			category := recruitingruntime.ObservationCategoryForError(err)
+			if category == "provider_failure" && !s.hasRecruitingStructuredRuntime() {
+				category = "configuration_failure"
+			}
+			if errors.Is(err, context.DeadlineExceeded) || parseCtx.Err() != nil {
+				category = "timeout"
+			}
+			s.observeRecruiting(ctx, recruitingOperationEvent(ctx, "resume_profile", "resume", resumeID, "generation", category, "error", false, generationStarted))
+			finalizer.classify(category, "error")
 			return &pb.GetResumeProfileResponse{Code: configCodeUnavailable, Msg: err.Error()}, nil
 		}
-		snapshot, err := generationStore.SaveRecruitingResumeProfileDraft(ctx, draft)
+		generationEvent := recruitingOperationEvent(ctx, "resume_profile", "resume", resumeID, "generation", "success", "success", false, generationStarted)
+		generationEvent.ParserVersion = draft.ParserVersion
+		generationEvent.OutputCount = boundedRecruitingCount(1 + len(draft.Educations) + len(draft.Experiences) + len(draft.Projects) + len(draft.Skills))
+		s.observeRecruiting(ctx, generationEvent)
+		if err := totalCtx.Err(); err != nil {
+			timeoutEvent := recruitingOperationEvent(ctx, "resume_profile", "resume", resumeID, "persistence", "timeout", "error", false, time.Now())
+			timeoutEvent.ParserVersion, timeoutEvent.OutputCount = draft.ParserVersion, generationEvent.OutputCount
+			s.observeRecruiting(ctx, timeoutEvent)
+			finalizer.classify("timeout", "error")
+			finalizer.event.ParserVersion, finalizer.event.OutputCount = draft.ParserVersion, generationEvent.OutputCount
+			return &pb.GetResumeProfileResponse{Code: configCodeUnavailable, Msg: "resume profile extraction failed (timeout)"}, nil
+		}
+		persistenceStarted := time.Now()
+		snapshot, err := generationStore.SaveRecruitingResumeProfileDraft(totalCtx, draft)
 		if err != nil {
+			persistenceEvent := recruitingOperationEvent(ctx, "resume_profile", "resume", resumeID, "persistence", "persistence_failure", "error", false, persistenceStarted)
+			persistenceEvent.ParserVersion, persistenceEvent.OutputCount = draft.ParserVersion, generationEvent.OutputCount
+			s.observeRecruiting(ctx, persistenceEvent)
+			finalizer.classify("persistence_failure", "error")
+			finalizer.event.ParserVersion, finalizer.event.OutputCount = draft.ParserVersion, generationEvent.OutputCount
 			return &pb.GetResumeProfileResponse{Code: errs.ErrInternal, Msg: err.Error()}, nil
 		}
+		s.observeRecruiting(ctx, recruitingOperationEvent(ctx, "resume_profile", "resume", resumeID, "persistence", "success", "success", false, persistenceStarted))
+		finalizer.classify("success", "success")
+		finalizer.event.ParserVersion = draft.ParserVersion
+		if draft.ParserVersion == recruitingruntime.ResumeHeuristicParserVersion {
+			finalizer.event.Category, finalizer.event.Fallback = "fallback_success", "heuristic"
+		}
+		finalizer.event.OutputCount = generationEvent.OutputCount
 		return &pb.GetResumeProfileResponse{Code: errs.OK, Msg: "success", Profile: recruitingResumeProfileSnapshotPB(snapshot)}, nil
 	}
 	resp, err := s.GetResumeProfile(ctx, &pb.GetResumeProfileRequest{
@@ -3279,8 +3386,14 @@ func (s nativeRecruitingIntelligenceService) ParseResumeProfile(ctx context.Cont
 		ApplicationId: req.GetApplicationId(),
 	})
 	if err != nil || resp == nil || resp.GetCode() == errs.OK {
+		if err != nil || resp == nil {
+			finalizer.classify("source_failure", "error")
+		} else {
+			finalizer.classify("success", "success")
+		}
 		return resp, err
 	}
+	finalizer.classify(recruitingTerminalCategoryForCode(resp.GetCode()), "error")
 	if resp.GetCode() == 404 && resp.GetMsg() == "current resume profile not found" {
 		resp.Msg = "current resume profile not found and resume profile parser is not configured in native runtime"
 	}
@@ -3288,33 +3401,90 @@ func (s nativeRecruitingIntelligenceService) ParseResumeProfile(ctx context.Cont
 }
 
 func (s nativeRecruitingIntelligenceService) EvaluateCandidateMatch(ctx context.Context, req *pb.EvaluateCandidateMatchRequest) (*pb.GetCandidateMatchEvaluationResponse, error) {
+	finalizer := newRecruitingOperationFinalizer(s, ctx, "candidate_match", "application", req.GetApplicationId())
+	defer finalizer.finalize()
 	if req.GetApplicationId() <= 0 {
 		return &pb.GetCandidateMatchEvaluationResponse{Code: errs.ErrBadRequest, Msg: "application_id is required"}, nil
 	}
 	if s.store == nil {
+		finalizer.classify("configuration_failure", "error")
 		return &pb.GetCandidateMatchEvaluationResponse{Code: errs.ErrInternal, Msg: "recruiting read store is not configured"}, nil
 	}
 	if _, authErr := s.authorizeRecruitingApplication(ctx, req.GetStaffUserId(), req.GetApplicationId()); authErr != nil {
+		finalizer.classify(recruitingTerminalCategoryForAuthError(authErr), "error")
 		return recruitingMatchAuthResponse(authErr), nil
 	}
-	if generationStore, ok := s.store.(recruitingCandidateMatchGenerationStore); ok && s.provider != nil {
+	if generationStore, ok := s.store.(recruitingCandidateMatchGenerationStore); ok && s.policy.CandidateMatchEnabled() {
 		if authErr := s.authorizeRecruitingAIPermission(ctx, req.GetStaffUserId(), "application", req.GetApplicationId()); authErr != nil {
+			finalizer.classify(recruitingTerminalCategoryForAuthError(authErr), "error")
 			return recruitingMatchAuthResponse(authErr), nil
 		}
-		source, found, err := generationStore.GetRecruitingMatchSource(ctx, req.GetApplicationId())
+		totalCtx, generationCtx, cancel := s.policy.CandidateMatchExecutionContexts(ctx)
+		defer cancel()
+		generationCtx = recruitingruntime.WithObservationMetadata(generationCtx, platformmetadata.GetRequestID(ctx), "application", req.GetApplicationId())
+		sourceStarted := time.Now()
+		source, found, err := generationStore.GetRecruitingMatchSource(generationCtx, req.GetApplicationId())
 		if err != nil {
+			category := "source_failure"
+			if generationCtx.Err() != nil || totalCtx.Err() != nil {
+				category = "timeout"
+				s.observeRecruiting(ctx, recruitingOperationEvent(ctx, "candidate_match", "application", req.GetApplicationId(), "source", category, "error", false, sourceStarted))
+				finalizer.classify(category, "error")
+				return &pb.GetCandidateMatchEvaluationResponse{Code: configCodeUnavailable, Msg: "candidate match evaluation failed (timeout or cancellation)"}, nil
+			}
+			s.observeRecruiting(ctx, recruitingOperationEvent(ctx, "candidate_match", "application", req.GetApplicationId(), "source", category, "error", false, sourceStarted))
+			finalizer.classify(category, "error")
 			return &pb.GetCandidateMatchEvaluationResponse{Code: errs.ErrInternal, Msg: err.Error()}, nil
 		}
 		if !found {
+			finalizer.classify("not_found", "error")
 			return &pb.GetCandidateMatchEvaluationResponse{Code: 404, Msg: "application match source not found"}, nil
 		}
-		draft, err := s.generateCandidateMatchDraft(ctx, source, req.GetAgentRunId())
+		sourceEvent := recruitingOperationEvent(ctx, "candidate_match", "application", req.GetApplicationId(), "source", "success", "success", false, sourceStarted)
+		sourceEvent.InputCount = 1
+		s.observeRecruiting(ctx, sourceEvent)
+		generationStarted := time.Now()
+		draft, err := s.generateCandidateMatchDraft(generationCtx, source, req.GetAgentRunId())
 		if err != nil {
+			category := recruitingruntime.ObservationCategoryForError(err)
+			if s.policy.CandidateMatchExecutionPlan().StructuredCompletionEnabled() && !s.hasRecruitingStructuredRuntime() {
+				category = "configuration_failure"
+			}
+			if generationCtx.Err() != nil || errors.Is(err, context.DeadlineExceeded) || errors.Is(err, context.Canceled) {
+				category = "timeout"
+			}
+			s.observeRecruiting(ctx, recruitingOperationEvent(ctx, "candidate_match", "application", req.GetApplicationId(), "aggregation", category, "error", false, generationStarted))
+			finalizer.classify(category, "error")
 			return &pb.GetCandidateMatchEvaluationResponse{Code: configCodeUnavailable, Msg: err.Error()}, nil
 		}
-		snapshot, err := generationStore.SaveRecruitingCandidateMatchDraft(ctx, draft)
+		aggregationEvent := recruitingOperationEvent(ctx, "candidate_match", "application", req.GetApplicationId(), "aggregation", "success", "success", false, generationStarted)
+		aggregationEvent.ScorerVersion = draft.ScorerVersion
+		aggregationEvent.RequirementCount = boundedRecruitingCount(draft.RequirementCount)
+		aggregationEvent.EvidenceCount = boundedRecruitingCount(len(draft.Evidence))
+		s.observeRecruiting(ctx, aggregationEvent)
+		if totalCtx.Err() != nil {
+			timeoutEvent := recruitingOperationEvent(ctx, "candidate_match", "application", req.GetApplicationId(), "persistence", "timeout", "error", false, time.Now())
+			timeoutEvent.ScorerVersion, timeoutEvent.RequirementCount, timeoutEvent.EvidenceCount = draft.ScorerVersion, aggregationEvent.RequirementCount, aggregationEvent.EvidenceCount
+			s.observeRecruiting(ctx, timeoutEvent)
+			finalizer.classify("timeout", "error")
+			finalizer.event.ScorerVersion, finalizer.event.RequirementCount, finalizer.event.EvidenceCount = draft.ScorerVersion, aggregationEvent.RequirementCount, aggregationEvent.EvidenceCount
+			return &pb.GetCandidateMatchEvaluationResponse{Code: configCodeUnavailable, Msg: "candidate match evaluation failed (timeout or cancellation)"}, nil
+		}
+		persistenceStarted := time.Now()
+		snapshot, err := generationStore.SaveRecruitingCandidateMatchDraft(totalCtx, draft)
 		if err != nil {
+			persistenceEvent := recruitingOperationEvent(ctx, "candidate_match", "application", req.GetApplicationId(), "persistence", "persistence_failure", "error", false, persistenceStarted)
+			persistenceEvent.ScorerVersion, persistenceEvent.RequirementCount, persistenceEvent.EvidenceCount = draft.ScorerVersion, aggregationEvent.RequirementCount, aggregationEvent.EvidenceCount
+			s.observeRecruiting(ctx, persistenceEvent)
+			finalizer.classify("persistence_failure", "error")
+			finalizer.event.ScorerVersion, finalizer.event.RequirementCount, finalizer.event.EvidenceCount = draft.ScorerVersion, aggregationEvent.RequirementCount, aggregationEvent.EvidenceCount
 			return &pb.GetCandidateMatchEvaluationResponse{Code: errs.ErrInternal, Msg: err.Error()}, nil
+		}
+		s.observeRecruiting(ctx, recruitingOperationEvent(ctx, "candidate_match", "application", req.GetApplicationId(), "persistence", "success", "success", false, persistenceStarted))
+		finalizer.classify("success", "success")
+		finalizer.event.ScorerVersion, finalizer.event.RequirementCount, finalizer.event.EvidenceCount = draft.ScorerVersion, aggregationEvent.RequirementCount, aggregationEvent.EvidenceCount
+		if draft.FallbackUsed {
+			finalizer.event.Category, finalizer.event.Fallback = "fallback_success", "legacy_deterministic"
 		}
 		return &pb.GetCandidateMatchEvaluationResponse{Code: errs.OK, Msg: "success", Evaluation: recruitingCandidateMatchSnapshotPB(snapshot)}, nil
 	}
@@ -3329,119 +3499,102 @@ func (s nativeRecruitingIntelligenceService) EvaluateCandidateMatch(ctx context.
 		snapshot, found, err = s.store.GetLatestRecruitingCandidateMatchEvaluationSnapshotByApplicationID(ctx, req.GetApplicationId())
 	}
 	if err != nil {
+		finalizer.classify("source_failure", "error")
 		return &pb.GetCandidateMatchEvaluationResponse{Code: errs.ErrInternal, Msg: err.Error()}, nil
 	}
 	if !found {
+		finalizer.classify("not_found", "error")
 		if req.GetAgentRunId() > 0 {
 			return &pb.GetCandidateMatchEvaluationResponse{Code: 404, Msg: "candidate match evaluation not found for agent_run_id and matcher is not configured in native runtime"}, nil
 		}
 		return &pb.GetCandidateMatchEvaluationResponse{Code: configCodeUnsupported, Msg: "candidate match evaluation not found and matcher is not configured in native runtime"}, nil
 	}
+	finalizer.classify("success", "success")
 	return &pb.GetCandidateMatchEvaluationResponse{Code: errs.OK, Msg: "success", Evaluation: recruitingCandidateMatchSnapshotPB(snapshot)}, nil
 }
 
 func (s nativeRecruitingIntelligenceService) generateResumeProfileDraft(ctx context.Context, source RecruitingResumeSource) (RecruitingResumeProfileDraft, error) {
-	if s.provider == nil {
-		return RecruitingResumeProfileDraft{}, errAIProviderRequired
+	structured := s.structured
+	if structured == nil {
+		promptStore, promptOK := s.store.(recruitingruntime.PromptStore)
+		structuredProvider, providerOK := s.provider.(recruitingruntime.StructuredCompletionProvider)
+		if promptOK && providerOK {
+			structured = recruitingruntime.NewRuntimeWithObserver(recruitingruntime.NewPromptLoader(promptStore), structuredProvider, newRecruitingRuntimeObserver(), s.policy)
+		}
 	}
-	reply, err := s.provider.Complete(ctx, renderRecruitingResumeProfilePrompt(source))
+	result, err := recruitingruntime.NewResumeProfileExtractor(structured, s.policy).Extract(ctx, recruitingruntime.ResumeSource{
+		ResumeID: source.ResumeID, UserID: source.UserID, FileName: source.FileName, ParsedText: source.ParsedText,
+	})
 	if err != nil {
 		return RecruitingResumeProfileDraft{}, err
 	}
-	jsonText, err := extractRecruitingJSONObject(reply)
-	if err != nil {
-		return RecruitingResumeProfileDraft{}, err
-	}
-	var generated generatedResumeProfile
-	if err := json.Unmarshal([]byte(jsonText), &generated); err != nil {
-		return RecruitingResumeProfileDraft{}, fmt.Errorf("parse resume profile JSON: %w", err)
-	}
-	if nonEmpty(generated.FullName, generated.Headline, generated.Summary) == "" && len(generated.Skills) == 0 && len(generated.Experiences) == 0 {
-		return RecruitingResumeProfileDraft{}, fmt.Errorf("resume profile output is empty")
-	}
-	hash := sha256.Sum256([]byte(source.ParsedText))
+	profile := result.Profile
 	draft := RecruitingResumeProfileDraft{
 		ResumeID:             source.ResumeID,
 		UserID:               source.UserID,
-		ParserVersion:        "native-resume-profile-parser-v1",
-		InputHash:            hex.EncodeToString(hash[:]),
-		RawJSON:              jsonText,
-		FullName:             strings.TrimSpace(generated.FullName),
-		Email:                strings.TrimSpace(generated.Email),
-		Phone:                strings.TrimSpace(generated.Phone),
-		Location:             strings.TrimSpace(generated.Location),
-		Headline:             strings.TrimSpace(generated.Headline),
-		Summary:              strings.TrimSpace(generated.Summary),
-		TotalExperienceYears: generated.TotalExperienceYears,
-		HighestDegree:        strings.TrimSpace(generated.HighestDegree),
-		Educations:           make([]RecruitingResumeEducationRow, 0, len(generated.Educations)),
-		Experiences:          make([]RecruitingResumeExperienceRow, 0, len(generated.Experiences)),
-		Projects:             make([]RecruitingResumeProjectRow, 0, len(generated.Projects)),
-		Skills:               make([]RecruitingResumeSkillRow, 0, len(generated.Skills)),
+		ParserVersion:        result.ParserVersion,
+		InputHash:            result.InputHash,
+		RawJSON:              result.RawJSON,
+		FullName:             profile.FullName,
+		Email:                profile.Email,
+		Phone:                profile.Phone,
+		Location:             profile.Location,
+		Headline:             profile.Headline,
+		Summary:              profile.Summary,
+		TotalExperienceYears: profile.TotalExperienceYears,
+		HighestDegree:        profile.HighestDegree,
+		Educations:           make([]RecruitingResumeEducationRow, 0, len(profile.Educations)),
+		Experiences:          make([]RecruitingResumeExperienceRow, 0, len(profile.Experiences)),
+		Projects:             make([]RecruitingResumeProjectRow, 0, len(profile.Projects)),
+		Skills:               make([]RecruitingResumeSkillRow, 0, len(profile.Skills)),
 	}
-	for index, row := range generated.Educations {
+	for index, row := range profile.Educations {
 		draft.Educations = append(draft.Educations, RecruitingResumeEducationRow{
-			School:      strings.TrimSpace(row.School),
-			Degree:      strings.TrimSpace(row.Degree),
-			Major:       strings.TrimSpace(row.Major),
-			StartDate:   parseRecruitingDatePtr(row.StartDate),
-			EndDate:     parseRecruitingDatePtr(row.EndDate),
-			Description: strings.TrimSpace(row.Description),
+			School:      row.School,
+			Degree:      row.Degree,
+			Major:       row.Major,
+			StartDate:   row.StartDate,
+			EndDate:     row.EndDate,
+			Description: row.Description,
 			SortOrder:   int32(index + 1),
 		})
 	}
-	for index, row := range generated.Experiences {
+	for index, row := range profile.Experiences {
 		isCurrent := int32(0)
 		if row.IsCurrent {
 			isCurrent = 1
 		}
-		achievementsJSON := strings.TrimSpace(row.AchievementsJSON)
-		if achievementsJSON == "" {
-			achievementsJSON = marshalJSONString(row.Achievements)
-		}
 		draft.Experiences = append(draft.Experiences, RecruitingResumeExperienceRow{
-			Company:          strings.TrimSpace(row.Company),
-			Title:            strings.TrimSpace(row.Title),
-			Location:         strings.TrimSpace(row.Location),
-			StartDate:        parseRecruitingDatePtr(row.StartDate),
-			EndDate:          parseRecruitingDatePtr(row.EndDate),
+			Company:          row.Company,
+			Title:            row.Title,
+			Location:         row.Location,
+			StartDate:        row.StartDate,
+			EndDate:          row.EndDate,
 			IsCurrent:        isCurrent,
-			Description:      strings.TrimSpace(row.Description),
-			AchievementsJSON: achievementsJSON,
+			Description:      row.Description,
+			AchievementsJSON: marshalJSONString(row.Achievements),
 			SortOrder:        int32(index + 1),
 		})
 	}
-	for index, row := range generated.Projects {
-		technologiesJSON := strings.TrimSpace(row.TechnologiesJSON)
-		if technologiesJSON == "" {
-			technologiesJSON = marshalJSONString(row.Technologies)
-		}
-		highlightsJSON := strings.TrimSpace(row.HighlightsJSON)
-		if highlightsJSON == "" {
-			highlightsJSON = marshalJSONString(row.Highlights)
-		}
+	for index, row := range profile.Projects {
 		draft.Projects = append(draft.Projects, RecruitingResumeProjectRow{
-			Name:             strings.TrimSpace(row.Name),
-			Role:             strings.TrimSpace(row.Role),
-			StartDate:        parseRecruitingDatePtr(row.StartDate),
-			EndDate:          parseRecruitingDatePtr(row.EndDate),
-			Description:      strings.TrimSpace(row.Description),
-			TechnologiesJSON: technologiesJSON,
-			HighlightsJSON:   highlightsJSON,
+			Name:             row.Name,
+			Role:             row.Role,
+			StartDate:        row.StartDate,
+			EndDate:          row.EndDate,
+			Description:      row.Description,
+			TechnologiesJSON: marshalJSONString(row.Technologies),
+			HighlightsJSON:   marshalJSONString(row.Highlights),
 			SortOrder:        int32(index + 1),
 		})
 	}
-	for index, row := range generated.Skills {
-		name := strings.TrimSpace(row.Name)
-		if name == "" {
-			continue
-		}
+	for index, row := range profile.Skills {
 		draft.Skills = append(draft.Skills, RecruitingResumeSkillRow{
-			Name:      name,
-			Category:  strings.TrimSpace(row.Category),
-			Level:     strings.TrimSpace(row.Level),
+			Name:      row.Name,
+			Category:  row.Category,
+			Level:     row.Level,
 			Years:     row.Years,
-			Evidence:  strings.TrimSpace(row.Evidence),
+			Evidence:  row.Evidence,
 			SortOrder: int32(index + 1),
 		})
 	}
@@ -3449,181 +3602,305 @@ func (s nativeRecruitingIntelligenceService) generateResumeProfileDraft(ctx cont
 }
 
 func (s nativeRecruitingIntelligenceService) generateCandidateMatchDraft(ctx context.Context, source RecruitingMatchSource, agentRunID uint64) (RecruitingCandidateMatchDraft, error) {
-	if s.provider == nil {
-		return RecruitingCandidateMatchDraft{}, errAIProviderRequired
+	if !s.policy.CandidateMatchEnabled() {
+		return RecruitingCandidateMatchDraft{}, recruitingruntime.ErrCandidateMatchPolicy
 	}
-	reply, err := s.provider.Complete(ctx, renderRecruitingCandidateMatchPrompt(source))
+	draft, _, err := s.generateCandidateMatchDraftWithShadow(ctx, source, agentRunID)
+	return draft, err
+}
+
+type candidateMatchShadowComparison struct {
+	PrimaryMode           recruitingruntime.CandidateMatchExecutionMode
+	ShadowMode            recruitingruntime.CandidateMatchExecutionMode
+	PrimaryScore          float64
+	ShadowScore           float64
+	ScoreDelta            float64
+	PrimaryRecommendation string
+	ShadowRecommendation  string
+	PrimaryEvidenceCount  int
+	ShadowEvidenceCount   int
+	ShadowSucceeded       bool
+}
+
+func (s nativeRecruitingIntelligenceService) generateCandidateMatchDraftWithShadow(ctx context.Context, source RecruitingMatchSource, agentRunID uint64) (RecruitingCandidateMatchDraft, *candidateMatchShadowComparison, error) {
+	plan := s.policy.CandidateMatchExecutionPlan()
+	var (
+		primary RecruitingCandidateMatchDraft
+		err     error
+	)
+	switch plan.Primary() {
+	case recruitingruntime.CandidateMatchExecutionDeterministic:
+		primary = s.generateDeterministicCandidateMatchDraft(source, agentRunID, false)
+	case recruitingruntime.CandidateMatchExecutionEnhanced:
+		if s.structured == nil {
+			// Candidate matching never routes through generic aggregate model
+			// output. Policy decides whether missing structured dependencies fail
+			// closed or switch to the deterministic legacy scorer below.
+			err = errAIProviderRequired
+		} else {
+			primary, err = s.generateEnhancedCandidateMatchDraft(ctx, source, agentRunID)
+		}
+		if err != nil && s.policy.FallbacksEnabled() && candidateMatchFallbackEligible(err) {
+			primary = s.generateDeterministicCandidateMatchDraft(source, agentRunID, true)
+			err = nil
+		}
+	default:
+		return RecruitingCandidateMatchDraft{}, nil, recruitingruntime.ErrCandidateMatchPolicy
+	}
 	if err != nil {
-		return RecruitingCandidateMatchDraft{}, err
+		return RecruitingCandidateMatchDraft{}, nil, err
 	}
-	jsonText, err := extractRecruitingJSONObject(reply)
+	if plan.Shadow() == recruitingruntime.CandidateMatchExecutionDisabled {
+		return primary, nil, nil
+	}
+
+	comparison := &candidateMatchShadowComparison{
+		PrimaryMode: plan.Primary(), ShadowMode: plan.Shadow(), PrimaryScore: primary.OverallScore,
+		PrimaryRecommendation: primary.Recommendation, PrimaryEvidenceCount: len(primary.Evidence),
+	}
+	var shadow RecruitingCandidateMatchDraft
+	switch plan.Shadow() {
+	case recruitingruntime.CandidateMatchExecutionDeterministic:
+		shadow = s.generateDeterministicCandidateMatchDraft(source, 0, false)
+	case recruitingruntime.CandidateMatchExecutionEnhanced:
+		if s.structured == nil {
+			return primary, comparison, nil
+		}
+		shadow, err = s.generateEnhancedCandidateMatchDraft(ctx, source, 0)
+	}
 	if err != nil {
-		return RecruitingCandidateMatchDraft{}, err
+		return primary, comparison, nil
 	}
-	var generated generatedCandidateMatch
-	if err := json.Unmarshal([]byte(jsonText), &generated); err != nil {
-		return RecruitingCandidateMatchDraft{}, fmt.Errorf("parse candidate match JSON: %w", err)
-	}
-	score := clampRecruitingScore(generated.OverallScore)
-	recommendation := strings.TrimSpace(generated.Recommendation)
-	if recommendation == "" {
-		recommendation = defaultRecruitingRecommendation(score)
-	}
-	summary := nonEmpty(generated.Summary, fmt.Sprintf("候选人与岗位匹配度 %.0f 分。", score))
-	breakdown := generated.ScoreBreakdown
-	if breakdown == nil {
-		breakdown = make(map[string]any)
-	}
-	if _, ok := breakdown["overall_score"]; !ok {
-		breakdown["overall_score"] = score
-	}
-	if _, ok := breakdown["recommendation"]; !ok {
-		breakdown["recommendation"] = recommendation
-	}
-	if _, ok := breakdown["missing_requirements"]; !ok {
-		breakdown["missing_requirements"] = generated.MissingRequirements
-	}
-	if _, ok := breakdown["dimensions"]; !ok {
-		breakdown["dimensions"] = generated.Dimensions
+	comparison.ShadowSucceeded = true
+	comparison.ShadowScore = shadow.OverallScore
+	comparison.ScoreDelta = shadow.OverallScore - primary.OverallScore
+	comparison.ShadowRecommendation = shadow.Recommendation
+	comparison.ShadowEvidenceCount = len(shadow.Evidence)
+	return primary, comparison, nil
+}
+
+func candidateMatchFallbackEligible(err error) bool {
+	return err != nil && !errors.Is(err, context.Canceled) && !errors.Is(err, context.DeadlineExceeded) && !errors.Is(err, recruitingruntime.ErrCandidateMatchPolicy)
+}
+
+func (s nativeRecruitingIntelligenceService) generateDeterministicCandidateMatchDraft(source RecruitingMatchSource, agentRunID uint64, fallbackUsed bool) RecruitingCandidateMatchDraft {
+	index := recruitingruntime.BuildEvidenceIndex(recruitingCandidateEvidenceSource(source))
+	resumeText, skillNames := recruitingLegacyScoringSource(source)
+	result := recruitingruntime.ScoreCandidateMatchLegacy(recruitingruntime.LegacyCandidateMatchInput{
+		JobID:    source.Job.JobID,
+		Job:      recruitingruntime.JobRequirementSource{JobTitle: source.Job.Title, Department: source.Job.Department, Location: source.Job.Location, Description: source.Job.Description, Requirements: source.Job.Requirements},
+		Evidence: index, ProfileID: source.Profile.Profile.ID, ResumeID: source.Application.ResumeID,
+		ResumeParsedText: source.ResumeParsedText, ResumeText: resumeText, SkillNames: skillNames, ApplicationEducation: source.ApplicationEducation,
+		CandidateProfile: recruitingLegacyCandidateProfile(source.CandidateProfile), FullName: source.Profile.Profile.FullName,
+		Headline: source.Profile.Profile.Headline, Summary: source.Profile.Profile.Summary,
+		HighestDegree: source.Profile.Profile.HighestDegree, ExperienceYears: source.Profile.Profile.TotalExperienceYears,
+	})
+	breakdown := map[string]any{
+		"scorer_version": result.Breakdown.ScorerVersion, "input_hash": result.Breakdown.InputHash,
+		"missing_requirements": result.Breakdown.MissingRequirements, "dimensions": result.Breakdown.Dimensions,
+		"scorer_type": "legacy_deterministic", "fallback_used": fallbackUsed,
 	}
 	draft := RecruitingCandidateMatchDraft{
-		ApplicationID:      source.Application.ApplicationID,
-		JobID:              source.Application.JobID,
-		CandidateUserID:    source.Application.CandidateUserID,
-		ResumeProfileID:    source.Profile.Profile.ID,
-		OverallScore:       score,
-		Recommendation:     recommendation,
-		Summary:            summary,
-		StrengthsJSON:      marshalJSONString(generated.Strengths),
-		RisksJSON:          marshalJSONString(generated.Risks),
-		ScoreBreakdownJSON: marshalJSONString(breakdown),
-		ModelName:          "native-candidate-match-scorer-v1",
-		Evidence:           make([]RecruitingCandidateMatchEvidenceRow, 0, len(generated.Evidence)),
+		ApplicationID: source.Application.ApplicationID, JobID: source.Application.JobID,
+		CandidateUserID: source.Application.CandidateUserID, ResumeProfileID: source.Profile.Profile.ID,
+		OverallScore: result.OverallScore, Recommendation: result.Recommendation, Summary: result.Summary,
+		StrengthsJSON: marshalJSONString(result.Strengths), RisksJSON: marshalJSONString(result.Risks),
+		ScoreBreakdownJSON: marshalJSONString(breakdown), ModelName: recruitingruntime.LegacyCandidateMatchScorerVersion,
+		Evidence:      legacyCandidateMatchEvidenceRows(result.Evidence),
+		ScorerVersion: recruitingruntime.LegacyCandidateMatchScorerVersion, FallbackUsed: fallbackUsed,
 	}
 	if agentRunID > 0 {
 		draft.AgentRunID = &agentRunID
 	}
-	for _, row := range generated.Evidence {
-		sourceID := row.SourceID
-		var sourceIDPtr *uint64
-		if sourceID > 0 {
-			sourceIDPtr = &sourceID
+	return draft
+}
+
+// recruitingLegacyScoringSource mirrors dev's buildCandidateMatchResumeText
+// and resumeSkillNames inputs. These complete values exist only in memory for
+// deterministic scoring and hashing; persisted evidence remains independently
+// bounded and redacted through EvidenceIndex.
+func recruitingLegacyScoringSource(source RecruitingMatchSource) (string, []string) {
+	parts := []string{
+		source.ResumeParsedText,
+		source.Profile.Profile.FullName,
+		source.Profile.Profile.Headline,
+		source.Profile.Profile.Summary,
+		source.Profile.Profile.HighestDegree,
+	}
+	if profile := source.CandidateProfile; profile != nil {
+		parts = append(parts, profile.RealName, profile.Education, profile.School, profile.WorkExperience, profile.Skills)
+	}
+	for _, education := range source.Profile.Educations {
+		parts = append(parts, education.School, education.Degree, education.Major, education.Description)
+	}
+	for _, experience := range source.Profile.Experiences {
+		parts = append(parts, experience.Company, experience.Title, experience.Description, experience.AchievementsJSON)
+	}
+	for _, project := range source.Profile.Projects {
+		parts = append(parts, project.Name, project.Role, project.Description, project.TechnologiesJSON, project.HighlightsJSON)
+	}
+	skillNames := make([]string, 0, len(source.Profile.Skills))
+	for _, skill := range source.Profile.Skills {
+		parts = append(parts, skill.Name, skill.Category, skill.Level, skill.Evidence)
+		if strings.TrimSpace(skill.Name) != "" {
+			skillNames = append(skillNames, skill.Name)
 		}
-		draft.Evidence = append(draft.Evidence, RecruitingCandidateMatchEvidenceRow{
-			EvidenceType: nonEmpty(row.EvidenceType, "profile"),
-			Dimension:    strings.TrimSpace(row.Dimension),
-			SourceTable:  strings.TrimSpace(row.SourceTable),
-			SourceID:     sourceIDPtr,
-			Snippet:      truncateRecruitingSensitiveSnippet(row.Snippet, 240),
-			Weight:       row.Weight,
-			ScoreImpact:  row.ScoreImpact,
-			MetadataJSON: strings.TrimSpace(row.MetadataJSON),
+	}
+	sort.Strings(skillNames)
+	return strings.Join(parts, " "), skillNames
+}
+
+func legacyCandidateMatchEvidenceRows(references []recruitingruntime.MatchEvidenceReference) []RecruitingCandidateMatchEvidenceRow {
+	rows := make([]RecruitingCandidateMatchEvidenceRow, 0, len(references))
+	for _, reference := range references {
+		sourceID := reference.SourceID
+		rows = append(rows, RecruitingCandidateMatchEvidenceRow{
+			EvidenceType: "legacy_match", Dimension: "legacy", SourceTable: reference.SourceTable, SourceID: &sourceID,
+			Snippet:      truncateRecruitingSensitiveSnippet(reference.Snippet, recruitingruntime.MaxCandidateEvidenceRunes),
+			MetadataJSON: marshalJSONString(map[string]any{"reason": reference.Reason, "scorer_type": "legacy_deterministic"}),
 		})
 	}
-	if len(draft.Evidence) == 0 {
-		draft.Evidence = append(draft.Evidence, RecruitingCandidateMatchEvidenceRow{
-			EvidenceType: "profile_summary",
-			Dimension:    "overall",
-			SourceTable:  "resume_profiles",
-			SourceID:     &draft.ResumeProfileID,
-			Snippet:      truncateRecruitingSensitiveSnippet(source.Profile.Profile.Summary, 240),
-			Weight:       1,
-			ScoreImpact:  score / 20,
-			MetadataJSON: `{"generated_fallback":true}`,
-		})
+	return rows
+}
+
+func (s nativeRecruitingIntelligenceService) generateStructuredCandidateMatchDraft(ctx context.Context, source RecruitingMatchSource, agentRunID uint64) (RecruitingCandidateMatchDraft, error) {
+	return s.generateEnhancedCandidateMatchDraft(ctx, source, agentRunID)
+}
+
+func (s nativeRecruitingIntelligenceService) generateEnhancedCandidateMatchDraft(ctx context.Context, source RecruitingMatchSource, agentRunID uint64) (RecruitingCandidateMatchDraft, error) {
+	if s.structured == nil {
+		return RecruitingCandidateMatchDraft{}, errAIProviderRequired
+	}
+	jobSource := recruitingruntime.JobRequirementSource{
+		JobTitle: source.Job.Title, Department: source.Job.Department, Location: source.Job.Location,
+		Description: source.Job.Description, Requirements: source.Job.Requirements,
+	}
+	extraction, err := recruitingruntime.NewJobRequirementExtractor(s.structured, s.policy).Extract(ctx, jobSource)
+	if err != nil {
+		return RecruitingCandidateMatchDraft{}, err
+	}
+	if extraction.FallbackUsed {
+		return RecruitingCandidateMatchDraft{}, recruitingruntime.ErrJobRequirementFallback
+	}
+
+	evidenceIndex := recruitingruntime.BuildEvidenceIndex(recruitingCandidateEvidenceSource(source))
+	var results []recruitingruntime.RequirementMatchResult
+	results, err = recruitingruntime.NewCandidateRequirementEvaluator(s.structured, s.policy).Evaluate(ctx, extraction.Profile, evidenceIndex)
+	if err != nil {
+		return RecruitingCandidateMatchDraft{}, err
+	}
+
+	fallbackUsed := extraction.FallbackUsed
+	modelName := extraction.ModelName
+	for _, result := range results {
+		fallbackUsed = fallbackUsed || result.FallbackUsed
+		if modelName == "" && result.ModelName != "" {
+			modelName = result.ModelName
+		}
+	}
+	if fallbackUsed {
+		return RecruitingCandidateMatchDraft{}, recruitingruntime.ErrProvider
+	}
+	scorerType := string(recruitingruntime.CandidateMatchExecutionEnhanced)
+	aggregated, err := recruitingruntime.NewCandidateMatchAggregator(recruitingruntime.CandidateMatchScorerVersion).Aggregate(
+		extraction.Profile, results, source.Profile.Profile.TotalExperienceYears, extraction.InputHash, scorerType, fallbackUsed,
+	)
+	if err != nil {
+		return RecruitingCandidateMatchDraft{}, err
+	}
+	if modelName == "" {
+		modelName = recruitingruntime.CandidateMatchScorerVersion
+	}
+	draft := RecruitingCandidateMatchDraft{
+		ApplicationID: source.Application.ApplicationID, JobID: source.Application.JobID,
+		CandidateUserID: source.Application.CandidateUserID, ResumeProfileID: source.Profile.Profile.ID,
+		OverallScore: aggregated.OverallScore, Recommendation: aggregated.Recommendation, Summary: aggregated.Summary,
+		StrengthsJSON: marshalJSONString(aggregated.Strengths), RisksJSON: marshalJSONString(aggregated.Risks),
+		ScoreBreakdownJSON: marshalJSONString(aggregated.Breakdown), ModelName: modelName,
+		Evidence:      recruitingCandidateMatchEvidenceRows(extraction.Profile, results),
+		ScorerVersion: recruitingruntime.CandidateMatchScorerVersion, RequirementCount: len(results), FallbackUsed: fallbackUsed,
+	}
+	if agentRunID > 0 {
+		draft.AgentRunID = &agentRunID
 	}
 	return draft, nil
 }
 
-func renderRecruitingResumeProfilePrompt(source RecruitingResumeSource) string {
-	var b strings.Builder
-	b.WriteString("你是招聘系统的简历结构化解析器。只返回一个 JSON object，不要 Markdown，不要解释，不要复制原始简历全文。\n")
-	b.WriteString("字段：full_name,email,phone,location,headline,summary,total_experience_years,highest_degree,educations,experiences,projects,skills。\n")
-	b.WriteString("数组子项使用 start_date/end_date 的 YYYY-MM-DD 或空字符串。achievements/technologies/highlights 必须是字符串数组。\n")
-	b.WriteString("\nResume metadata:\n")
-	b.WriteString(marshalJSONString(map[string]any{"resume_id": source.ResumeID, "user_id": source.UserID, "file_name": source.FileName, "text_length": len([]rune(source.ParsedText))}))
-	b.WriteString("\nResume parsed text:\n")
-	b.WriteString(strings.TrimSpace(source.ParsedText))
-	return b.String()
-}
-
-func renderRecruitingCandidateMatchPrompt(source RecruitingMatchSource) string {
-	var b strings.Builder
-	b.WriteString("你是招聘系统的候选人岗位匹配评估器。只返回一个 JSON object，不要 Markdown。\n")
-	b.WriteString("字段：overall_score(0-100),recommendation,summary,strengths,risks,missing_requirements,dimensions,score_breakdown,evidence。\n")
-	b.WriteString("evidence 子项字段：evidence_type,dimension,source_table,source_id,snippet,weight,score_impact,metadata_json。snippet 只保留最小证据，不要输出完整简历或敏感原文。\n")
-	b.WriteString("\nJob:\n")
-	b.WriteString(marshalJSONString(map[string]any{
-		"job_id":       source.Job.JobID,
-		"title":        source.Job.Title,
-		"department":   source.Job.Department,
-		"location":     source.Job.Location,
-		"description":  source.Job.Description,
-		"requirements": source.Job.Requirements,
-	}))
-	b.WriteString("\nCandidate profile snapshot:\n")
-	b.WriteString(marshalJSONString(map[string]any{
-		"profile_id":             source.Profile.Profile.ID,
-		"headline":               source.Profile.Profile.Headline,
-		"summary":                source.Profile.Profile.Summary,
-		"total_experience_years": source.Profile.Profile.TotalExperienceYears,
-		"highest_degree":         source.Profile.Profile.HighestDegree,
-		"skills":                 source.Profile.Skills,
-		"experiences":            source.Profile.Experiences,
-		"projects":               source.Profile.Projects,
-		"educations":             source.Profile.Educations,
-	}))
-	return b.String()
-}
-
-func extractRecruitingJSONObject(value string) (string, error) {
-	trimmed := strings.TrimSpace(value)
-	trimmed = strings.TrimPrefix(trimmed, "```json")
-	trimmed = strings.TrimPrefix(trimmed, "```")
-	trimmed = strings.TrimSuffix(trimmed, "```")
-	trimmed = strings.TrimSpace(trimmed)
-	start := strings.Index(trimmed, "{")
-	end := strings.LastIndex(trimmed, "}")
-	if start < 0 || end < start {
-		return "", fmt.Errorf("model response did not contain a JSON object")
+func recruitingCandidateEvidenceSource(source RecruitingMatchSource) recruitingruntime.CandidateEvidenceSource {
+	out := recruitingruntime.CandidateEvidenceSource{
+		Skills:      make([]recruitingruntime.CandidateEvidenceSkill, 0, len(source.Profile.Skills)),
+		Experiences: make([]recruitingruntime.CandidateEvidenceExperience, 0, len(source.Profile.Experiences)),
+		Projects:    make([]recruitingruntime.CandidateEvidenceProject, 0, len(source.Profile.Projects)),
+		Educations:  make([]recruitingruntime.CandidateEvidenceEducation, 0, len(source.Profile.Educations)),
 	}
-	return trimmed[start : end+1], nil
-}
-
-func parseRecruitingDatePtr(value string) *time.Time {
-	trimmed := strings.TrimSpace(value)
-	if trimmed == "" {
-		return nil
+	if source.Application.ResumeID > 0 {
+		out.Resume = &recruitingruntime.CandidateEvidenceResume{ID: uint64(source.Application.ResumeID), ParsedText: source.ResumeParsedText}
 	}
-	layouts := []string{"2006-01-02", time.RFC3339, "2006-01"}
-	for _, layout := range layouts {
-		parsed, err := time.Parse(layout, trimmed)
-		if err == nil {
-			return &parsed
+	if source.CandidateProfile != nil {
+		profile := source.CandidateProfile
+		out.CandidateProfile = &recruitingruntime.CandidateEvidenceProfile{
+			ID: profile.ID, Education: profile.Education, School: profile.School,
+			WorkExperience: profile.WorkExperience, Skills: profile.Skills,
 		}
 	}
-	return nil
+	for _, row := range source.Profile.Skills {
+		out.Skills = append(out.Skills, recruitingruntime.CandidateEvidenceSkill{ID: row.ID, Name: row.Name, Category: row.Category, Level: row.Level, Evidence: row.Evidence})
+	}
+	for _, row := range source.Profile.Experiences {
+		out.Experiences = append(out.Experiences, recruitingruntime.CandidateEvidenceExperience{ID: row.ID, Company: row.Company, Title: row.Title, Description: row.Description, Achievements: recruitingJSONStringSlice(row.AchievementsJSON)})
+	}
+	for _, row := range source.Profile.Projects {
+		out.Projects = append(out.Projects, recruitingruntime.CandidateEvidenceProject{ID: row.ID, Name: row.Name, Role: row.Role, Description: row.Description, Technologies: recruitingJSONStringSlice(row.TechnologiesJSON), Highlights: recruitingJSONStringSlice(row.HighlightsJSON)})
+	}
+	for _, row := range source.Profile.Educations {
+		out.Educations = append(out.Educations, recruitingruntime.CandidateEvidenceEducation{ID: row.ID, School: row.School, Degree: row.Degree, Major: row.Major, Description: row.Description})
+	}
+	return out
 }
 
-func clampRecruitingScore(score float64) float64 {
-	if score < 0 {
-		return 0
+func recruitingLegacyCandidateProfile(profile *RecruitingCandidateProfileRow) *recruitingruntime.LegacyCandidateProfile {
+	if profile == nil {
+		return nil
 	}
-	if score > 100 {
-		return 100
+	return &recruitingruntime.LegacyCandidateProfile{
+		ID: profile.ID, RealName: profile.RealName, Phone: profile.Phone, Education: profile.Education,
+		School: profile.School, WorkExperience: profile.WorkExperience, Skills: profile.Skills, IsComplete: profile.IsComplete,
 	}
-	return score
 }
 
-func defaultRecruitingRecommendation(score float64) string {
-	switch {
-	case score >= 85:
-		return "strong_match"
-	case score >= 70:
-		return "possible_match"
-	default:
-		return "weak_match"
+func recruitingJSONStringSlice(raw string) []string {
+	var values []string
+	if err := json.Unmarshal([]byte(strings.TrimSpace(raw)), &values); err != nil {
+		return nil
 	}
+	return values
+}
+
+func recruitingCandidateMatchEvidenceRows(profile recruitingruntime.JobRequirementProfile, results []recruitingruntime.RequirementMatchResult) []RecruitingCandidateMatchEvidenceRow {
+	weightByID := make(map[string]float64, len(profile.Requirements))
+	for _, requirement := range profile.Requirements {
+		weightByID[requirement.ID] = requirement.Weight
+	}
+	rows := make([]RecruitingCandidateMatchEvidenceRow, 0)
+	seen := make(map[string]struct{})
+	for _, result := range results {
+		for _, reference := range result.Evidence {
+			key := fmt.Sprintf("%s:%s:%d", result.RequirementID, reference.SourceTable, reference.SourceID)
+			if _, duplicate := seen[key]; duplicate {
+				continue
+			}
+			seen[key] = struct{}{}
+			sourceID := reference.SourceID
+			rows = append(rows, RecruitingCandidateMatchEvidenceRow{
+				EvidenceType: "requirement_match", Dimension: result.RequirementID,
+				SourceTable: reference.SourceTable, SourceID: &sourceID,
+				Snippet: truncateRecruitingSensitiveSnippet(reference.Snippet, recruitingruntime.MaxCandidateEvidenceRunes),
+				Weight:  weightByID[result.RequirementID], ScoreImpact: result.Score,
+				MetadataJSON: marshalJSONString(map[string]any{"requirement_id": result.RequirementID, "reason": reference.Reason, "evaluator_type": result.EvaluatorType}),
+			})
+		}
+	}
+	return rows
 }
 
 func truncateRecruitingSensitiveSnippet(value string, limit int) string {
@@ -3730,64 +4007,64 @@ func (s nativeRecruitingIntelligenceService) CompareCandidatesForJob(ctx context
 	return &pb.CompareCandidatesForJobResponse{Code: errs.OK, Msg: "success", JobId: req.GetJobId(), Candidates: candidates, MissingApplicationIds: missing}, nil
 }
 
-func (s nativeRecruitingIntelligenceService) resolveResumeProfileAccess(ctx context.Context, req *pb.GetResumeProfileRequest) (int64, *pb.GetResumeProfileResponse) {
+func (s nativeRecruitingIntelligenceService) resolveResumeProfileAccess(ctx context.Context, req *pb.GetResumeProfileRequest) (int64, *pb.GetResumeProfileResponse, *recruitingAuthError) {
 	if req.GetApplicationId() > 0 {
 		if _, authErr := s.authorizeRecruitingApplication(ctx, req.GetStaffUserId(), req.GetApplicationId()); authErr != nil {
-			return 0, recruitingResumeAuthResponse(authErr)
+			return 0, recruitingResumeAuthResponse(authErr), authErr
 		}
 		application, found, err := s.store.GetRecruitingApplicationByID(ctx, req.GetApplicationId())
 		if err != nil {
-			return 0, &pb.GetResumeProfileResponse{Code: errs.ErrInternal, Msg: err.Error()}
+			return 0, &pb.GetResumeProfileResponse{Code: errs.ErrInternal, Msg: err.Error()}, nil
 		}
 		if !found || application.ResumeID <= 0 {
-			return 0, &pb.GetResumeProfileResponse{Code: 404, Msg: "application resume not found"}
+			return 0, &pb.GetResumeProfileResponse{Code: 404, Msg: "application resume not found"}, nil
 		}
 		if req.GetResumeId() > 0 && req.GetResumeId() != application.ResumeID {
-			return 0, &pb.GetResumeProfileResponse{Code: errs.ErrBadRequest, Msg: "application_id and resume_id refer to different resumes"}
+			return 0, &pb.GetResumeProfileResponse{Code: errs.ErrBadRequest, Msg: "application_id and resume_id refer to different resumes"}, nil
 		}
 		if req.GetProfileId() > 0 {
 			profile, profileFound, profileErr := s.store.GetRecruitingResumeProfileByID(ctx, req.GetProfileId())
 			if profileErr != nil {
-				return 0, &pb.GetResumeProfileResponse{Code: errs.ErrInternal, Msg: profileErr.Error()}
+				return 0, &pb.GetResumeProfileResponse{Code: errs.ErrInternal, Msg: profileErr.Error()}, nil
 			}
 			if !profileFound {
-				return 0, &pb.GetResumeProfileResponse{Code: 404, Msg: "resume profile not found"}
+				return 0, &pb.GetResumeProfileResponse{Code: 404, Msg: "resume profile not found"}, nil
 			}
 			if profile.ResumeID != application.ResumeID {
-				return 0, &pb.GetResumeProfileResponse{Code: errs.ErrBadRequest, Msg: "profile_id does not belong to requested resume/application"}
+				return 0, &pb.GetResumeProfileResponse{Code: errs.ErrBadRequest, Msg: "profile_id does not belong to requested resume/application"}, nil
 			}
 		}
-		return application.ResumeID, nil
+		return application.ResumeID, nil, nil
 	}
 
 	resumeID := req.GetResumeId()
 	if req.GetProfileId() > 0 {
 		profile, found, err := s.store.GetRecruitingResumeProfileByID(ctx, req.GetProfileId())
 		if err != nil {
-			return 0, &pb.GetResumeProfileResponse{Code: errs.ErrInternal, Msg: err.Error()}
+			return 0, &pb.GetResumeProfileResponse{Code: errs.ErrInternal, Msg: err.Error()}, nil
 		}
 		if !found {
-			return 0, &pb.GetResumeProfileResponse{Code: 404, Msg: "resume profile not found"}
+			return 0, &pb.GetResumeProfileResponse{Code: 404, Msg: "resume profile not found"}, nil
 		}
 		if resumeID > 0 && resumeID != profile.ResumeID {
-			return 0, &pb.GetResumeProfileResponse{Code: errs.ErrBadRequest, Msg: "profile_id does not belong to requested resume/application"}
+			return 0, &pb.GetResumeProfileResponse{Code: errs.ErrBadRequest, Msg: "profile_id does not belong to requested resume/application"}, nil
 		}
 		resumeID = profile.ResumeID
 	}
 	if resumeID <= 0 {
-		return 0, &pb.GetResumeProfileResponse{Code: errs.ErrBadRequest, Msg: "resume_id, profile_id, or application_id is required"}
+		return 0, &pb.GetResumeProfileResponse{Code: errs.ErrBadRequest, Msg: "resume_id, profile_id, or application_id is required"}, nil
 	}
 	application, found, err := s.store.GetLatestRecruitingApplicationByResumeID(ctx, resumeID)
 	if err != nil {
-		return 0, &pb.GetResumeProfileResponse{Code: errs.ErrInternal, Msg: err.Error()}
+		return 0, &pb.GetResumeProfileResponse{Code: errs.ErrInternal, Msg: err.Error()}, nil
 	}
 	if !found {
-		return 0, &pb.GetResumeProfileResponse{Code: 404, Msg: "application context not found for resume"}
+		return 0, &pb.GetResumeProfileResponse{Code: 404, Msg: "application context not found for resume"}, nil
 	}
 	if _, authErr := s.authorizeRecruitingApplication(ctx, req.GetStaffUserId(), application.ApplicationID); authErr != nil {
-		return 0, recruitingResumeAuthResponse(authErr)
+		return 0, recruitingResumeAuthResponse(authErr), authErr
 	}
-	return resumeID, nil
+	return resumeID, nil, nil
 }
 
 func recruitingResumeAuthResponse(authErr *recruitingAuthError) *pb.GetResumeProfileResponse {
