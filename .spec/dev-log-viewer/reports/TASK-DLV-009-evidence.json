@@ -1,0 +1,138 @@
+{
+  "schemaVersion": 1,
+  "feature_name": "dev-log-viewer",
+  "task_id": "TASK-DLV-009",
+  "base_sha": "6344ba11a1ce0fdc2943469b1a04ac02075bbfb0",
+  "base_tree": "b7a32665de0dec2a06a13229f28dee05510b5bbe",
+  "head_sha": "6344ba11a1ce0fdc2943469b1a04ac02075bbfb0",
+  "changed_files": [
+    ".knowledge/runbooks/local-development.md",
+    ".spec/dev-log-viewer/docs/TASK-DLV-009-visual-verification.md",
+    ".spec/dev-log-viewer/docs/visual/canonical-1366x768.png",
+    ".spec/dev-log-viewer/docs/visual/canonical-1440x900.png",
+    ".spec/dev-log-viewer/pipeline-state.json",
+    ".spec/dev-log-viewer/reports/TASK-DLV-009-report.md",
+    ".spec/dev-log-viewer/reports/TASK-DLV-009-evidence.json",
+    "dev-log-viewer/scripts/smoke-test.sh",
+    "dev-log-viewer/web/src/test/security.test.ts"
+  ],
+  "scope": {
+    "status": "passed",
+    "command": "bash .spec/dev-log-viewer/scripts/check-task-scope.sh TASK-DLV-009",
+    "classification": "current",
+    "out_of_scope": [],
+    "forbidden": []
+  },
+  "checks": [
+    {
+      "command": "pnpm --filter dev-log-viewer test",
+      "exit_code": 0,
+      "started_at": "2026-07-15T12:25:20Z",
+      "duration_ms": 1312,
+      "status": "passed"
+    },
+    {
+      "command": "dev-log-viewer/scripts/smoke-test.sh",
+      "exit_code": 0,
+      "started_at": "2026-07-15T12:26:00Z",
+      "duration_ms": 3185,
+      "status": "passed"
+    },
+    {
+      "command": "bash .spec/dev-log-viewer/scripts/agent-check.sh TASK-DLV-009",
+      "exit_code": 0,
+      "started_at": "2026-07-15T12:26:17Z",
+      "duration_ms": 3911,
+      "status": "passed"
+    },
+    {
+      "command": "bash .spec/dev-log-viewer/scripts/check-task-scope.sh TASK-DLV-009",
+      "exit_code": 0,
+      "started_at": "2026-07-15T12:26:30Z",
+      "duration_ms": 187,
+      "status": "passed"
+    },
+    {
+      "command": "node .knowledge/scripts/knowledge-validator.test.mjs",
+      "exit_code": 0,
+      "started_at": "2026-07-15T12:26:17Z",
+      "duration_ms": 171,
+      "status": "passed"
+    },
+    {
+      "command": "node .knowledge/scripts/validate-knowledge.mjs --root .",
+      "exit_code": 0,
+      "started_at": "2026-07-15T12:26:17Z",
+      "duration_ms": 171,
+      "status": "passed"
+    },
+    {
+      "command": "node .knowledge/scripts/check-references.mjs --root .",
+      "exit_code": 0,
+      "started_at": "2026-07-15T12:26:17Z",
+      "duration_ms": 171,
+      "status": "passed"
+    },
+    {
+      "command": "node .knowledge/scripts/detect-impact.mjs --root . --base-tree b7a32665de0dec2a06a13229f28dee05510b5bbe",
+      "exit_code": 0,
+      "started_at": "2026-07-15T12:26:30Z",
+      "duration_ms": 190,
+      "status": "passed"
+    },
+    {
+      "command": "google-chrome --headless screenshots for 1440x900 and 1366x768",
+      "exit_code": 0,
+      "started_at": "2026-07-15T12:24:00Z",
+      "duration_ms": 2888,
+      "status": "passed"
+    }
+  ],
+  "review": {
+    "reviewer_type": "self-review",
+    "round": 1,
+    "verdict": "通过",
+    "reviewed_at": "2026-07-15T12:27:00Z",
+    "findings": []
+  },
+  "human_confirmation": {
+    "required": false,
+    "confirmed": true
+  },
+  "exceptions": [],
+  "skipped_checks": [],
+  "knowledgeImpact": {
+    "result": "candidate_required",
+    "triggeredBy": [
+      "dev-log-viewer/scripts/smoke-test.sh added",
+      "dev-log-viewer/web/src/test/security.test.ts added",
+      ".spec/dev-log-viewer/docs visual evidence added",
+      ".knowledge/runbooks/local-development.md changed"
+    ],
+    "reviewResults": [
+      {
+        "document": ".knowledge/generated/knowledge-coverage-audit.json",
+        "verdict": "CANDIDATE",
+        "evidence": [
+          "Knowledge change routed coverage audit, but generated audit artifacts are outside TASK-DLV-009 allowed files."
+        ]
+      },
+      {
+        "document": ".knowledge/architecture/system-overview.md",
+        "verdict": "UNCHANGED",
+        "evidence": [
+          "TASK-DLV-009 added validation artifacts only; TASK-DLV-008 already recorded the module architecture facts."
+        ]
+      },
+      {
+        "document": ".knowledge/runbooks/local-development.md",
+        "verdict": "UPDATED",
+        "evidence": [
+          "Added smoke-test source reference and validation command."
+        ]
+      }
+    ],
+    "coverageGap": false,
+    "validationExitCode": 0
+  }
+}

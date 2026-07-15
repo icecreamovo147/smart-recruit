@@ -2,6 +2,7 @@ packages:
   - 'user-frontend'
   - 'hr-frontend'
   - 'interviewer-frontend'
+  - 'dev-log-viewer'
   - 'packages/*'
 allowBuilds:
   es5-ext: true

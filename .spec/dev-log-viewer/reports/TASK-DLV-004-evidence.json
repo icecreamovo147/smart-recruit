@@ -1,0 +1,110 @@
+{
+  "schemaVersion": 1,
+  "feature_name": "dev-log-viewer",
+  "task_id": "TASK-DLV-004",
+  "base_sha": "6344ba11a1ce0fdc2943469b1a04ac02075bbfb0",
+  "base_tree": "e1420419476b349b2133f24f8b4b2c0fd098f0e3",
+  "head_sha": "6344ba11a1ce0fdc2943469b1a04ac02075bbfb0",
+  "changed_files": [
+    ".spec/dev-log-viewer/pipeline-state.json",
+    ".spec/dev-log-viewer/reports/TASK-DLV-004-report.md",
+    ".spec/dev-log-viewer/reports/TASK-DLV-004-evidence.json",
+    "dev-log-viewer/internal/stream/hub.go",
+    "dev-log-viewer/internal/stream/hub_test.go",
+    "dev-log-viewer/internal/tailer/coordinator.go",
+    "dev-log-viewer/internal/tailer/coordinator_test.go",
+    "dev-log-viewer/internal/server/server.go",
+    "dev-log-viewer/internal/server/server_test.go",
+    "dev-log-viewer/cmd/dev-log-viewer/main.go"
+  ],
+  "scope": {
+    "status": "passed",
+    "command": "bash .spec/dev-log-viewer/scripts/check-task-scope.sh TASK-DLV-004",
+    "classification": "current",
+    "out_of_scope": [],
+    "forbidden": []
+  },
+  "checks": [
+    {
+      "command": "cd dev-log-viewer && go test ./internal/stream ./internal/server ./internal/tailer -race",
+      "exit_code": 0,
+      "started_at": "2026-07-15T09:15:00Z",
+      "duration_ms": 1490,
+      "status": "passed"
+    },
+    {
+      "command": "cd dev-log-viewer && go test ./...",
+      "exit_code": 0,
+      "started_at": "2026-07-15T09:15:00Z",
+      "duration_ms": 447,
+      "status": "passed"
+    },
+    {
+      "command": "cd dev-log-viewer && go vet ./...",
+      "exit_code": 0,
+      "started_at": "2026-07-15T09:15:00Z",
+      "duration_ms": 1,
+      "status": "passed"
+    },
+    {
+      "command": "bash .spec/dev-log-viewer/scripts/check-task-scope.sh TASK-DLV-004",
+      "exit_code": 0,
+      "started_at": "2026-07-15T09:16:50Z",
+      "duration_ms": 44,
+      "status": "passed"
+    },
+    {
+      "command": "bash .spec/dev-log-viewer/scripts/agent-check.sh TASK-DLV-004",
+      "exit_code": 0,
+      "started_at": "2026-07-15T09:16:50Z",
+      "duration_ms": 363,
+      "status": "passed"
+    },
+    {
+      "command": "node .knowledge/scripts/detect-impact.mjs --root . --base-tree e1420419476b349b2133f24f8b4b2c0fd098f0e3",
+      "exit_code": 0,
+      "started_at": "2026-07-15T09:16:50Z",
+      "duration_ms": 54,
+      "status": "passed"
+    }
+  ],
+  "review": {
+    "reviewer_type": "self-review",
+    "round": 1,
+    "verdict": "通过",
+    "reviewed_at": "2026-07-15T09:17:22Z",
+    "findings": []
+  },
+  "human_confirmation": {
+    "required": false,
+    "confirmed": true
+  },
+  "exceptions": [],
+  "skipped_checks": [],
+  "knowledgeImpact": {
+    "result": "candidate_required",
+    "triggeredBy": [
+      "dev-log-viewer/internal/stream changed",
+      "dev-log-viewer/internal/server SSE route changed",
+      "dev-log-viewer/internal/tailer coordinator changed"
+    ],
+    "reviewResults": [
+      {
+        "document": ".knowledge/architecture/system-overview.md",
+        "verdict": "CANDIDATE",
+        "evidence": [
+          "New dev-log-viewer stream/SSE backend behavior is not documented yet; TASK-DLV-004 cannot modify knowledge files."
+        ]
+      },
+      {
+        "document": ".knowledge/runbooks/local-development.md",
+        "verdict": "CANDIDATE",
+        "evidence": [
+          "New dev-log-viewer stream runtime behavior is not documented yet; TASK-DLV-004 cannot modify knowledge files."
+        ]
+      }
+    ],
+    "coverageGap": false,
+    "validationExitCode": 0
+  }
+}

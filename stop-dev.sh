@@ -5,6 +5,7 @@
 #   ./stop-dev.sh business                # stop all business services
 #   ./stop-dev.sh identity recruitment    # stop selected business services
 #   ./stop-dev.sh gateway frontends       # stop gateway and all frontends
+#   ./stop-dev.sh logs                    # stop the local dev log viewer
 
 set -euo pipefail
 
@@ -32,6 +33,7 @@ Targets:
   backend             Business services plus gateway.
   gateway             HTTP gateway only.
   frontends           HR, user, and interviewer frontends.
+  logs | log-viewer   Local dev log viewer only.
 
 Business service aliases:
   identity            identity-service
@@ -52,6 +54,7 @@ Examples:
   ./stop-dev.sh business
   ./stop-dev.sh identity recruitment notification
   ./stop-dev.sh backend hr
+  ./stop-dev.sh logs
 EOF
 }
 
@@ -119,6 +122,9 @@ expand_target() {
             ;;
         frontends|frontend)
             add_many "${FRONTEND_SERVICES[@]}"
+            ;;
+        logs|log-viewer|dev-log-viewer)
+            add_target dev-log-viewer
             ;;
         identity|identity-service)
             add_target identity-service
@@ -246,6 +252,7 @@ info "Stopping selected dev services: ${TARGETS[*]}"
 target_selected user-frontend && stop_pid_file "user-frontend"
 target_selected hr-frontend && stop_pid_file "hr-frontend"
 target_selected interviewer-frontend && stop_pid_file "interviewer-frontend"
+target_selected dev-log-viewer && stop_pid_file "dev-log-viewer"
 target_selected smart-recruit-gateway && stop_pid_file "smart-recruit-gateway"
 target_selected worker-service && stop_pid_file "worker-service"
 target_selected analytics-service && stop_pid_file "analytics-service"
@@ -259,6 +266,7 @@ target_selected identity-service && stop_pid_file "identity-service"
 target_selected user-frontend && kill_port 5174 "User Frontend"
 target_selected hr-frontend && kill_port 5173 "HR Frontend"
 target_selected interviewer-frontend && kill_port 5175 "Interviewer Frontend"
+target_selected dev-log-viewer && kill_port 8090 "Dev Log Viewer"
 target_selected smart-recruit-gateway && kill_port 8080 "Smart Recruit Gateway"
 target_selected worker-service && kill_port 50068 "Worker Service"
 target_selected analytics-service && kill_port 50067 "Analytics Service"

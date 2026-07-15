@@ -1,0 +1,117 @@
+{
+  "schemaVersion": 1,
+  "feature_name": "dev-log-viewer",
+  "task_id": "TASK-DLV-002",
+  "base_sha": "6344ba11a1ce0fdc2943469b1a04ac02075bbfb0",
+  "base_tree": "12f8d97c3fa8f810df2a4a1c83b295ea227d7cd9",
+  "head_sha": "6344ba11a1ce0fdc2943469b1a04ac02075bbfb0",
+  "changed_files": [
+    ".spec/dev-log-viewer/pipeline-state.json",
+    ".spec/dev-log-viewer/reports/TASK-DLV-002-report.md",
+    ".spec/dev-log-viewer/reports/TASK-DLV-002-evidence.json",
+    "dev-log-viewer/cmd/dev-log-viewer/main.go",
+    "dev-log-viewer/internal/catalog/catalog.go",
+    "dev-log-viewer/internal/catalog/catalog_test.go",
+    "dev-log-viewer/internal/config/config.go",
+    "dev-log-viewer/internal/config/config_test.go",
+    "dev-log-viewer/internal/server/server.go",
+    "dev-log-viewer/internal/server/server_test.go"
+  ],
+  "scope": {
+    "status": "passed",
+    "command": "bash .spec/dev-log-viewer/scripts/check-task-scope.sh TASK-DLV-002",
+    "classification": "current",
+    "out_of_scope": [],
+    "forbidden": []
+  },
+  "checks": [
+    {
+      "command": "gofmt -l dev-log-viewer/internal/catalog dev-log-viewer/internal/config dev-log-viewer/internal/server dev-log-viewer/cmd/dev-log-viewer",
+      "exit_code": 0,
+      "started_at": "2026-07-15T09:01:30Z",
+      "duration_ms": 1,
+      "status": "passed"
+    },
+    {
+      "command": "cd dev-log-viewer && go test ./internal/catalog ./internal/config ./internal/server ./cmd/dev-log-viewer",
+      "exit_code": 0,
+      "started_at": "2026-07-15T09:01:30Z",
+      "duration_ms": 98,
+      "status": "passed"
+    },
+    {
+      "command": "cd dev-log-viewer && go vet ./...",
+      "exit_code": 0,
+      "started_at": "2026-07-15T09:01:30Z",
+      "duration_ms": 1,
+      "status": "passed"
+    },
+    {
+      "command": "bash .spec/dev-log-viewer/scripts/check-task-scope.sh TASK-DLV-002",
+      "exit_code": 0,
+      "started_at": "2026-07-15T09:00:30Z",
+      "duration_ms": 1,
+      "status": "passed"
+    },
+    {
+      "command": "bash .spec/dev-log-viewer/scripts/agent-check.sh TASK-DLV-002",
+      "exit_code": 0,
+      "started_at": "2026-07-15T09:01:30Z",
+      "duration_ms": 186,
+      "status": "passed"
+    },
+    {
+      "command": "node .knowledge/scripts/detect-impact.mjs --root . --base-tree 12f8d97c3fa8f810df2a4a1c83b295ea227d7cd9",
+      "exit_code": 0,
+      "started_at": "2026-07-15T09:00:30Z",
+      "duration_ms": 6,
+      "status": "passed"
+    }
+  ],
+  "review": {
+    "reviewer_type": "self-review",
+    "round": 1,
+    "verdict": "通过",
+    "reviewed_at": "2026-07-15T09:01:56Z",
+    "findings": []
+  },
+  "human_confirmation": {
+    "required": false,
+    "confirmed": true
+  },
+  "exceptions": [],
+  "skipped_checks": [],
+  "knowledgeImpact": {
+    "result": "coverage_gap",
+    "triggeredBy": [
+      "dev-log-viewer/internal/catalog changed",
+      "dev-log-viewer/internal/config changed",
+      "dev-log-viewer/internal/server changed"
+    ],
+    "reviewResults": [
+      {
+        "document": ".knowledge/architecture/system-overview.md",
+        "verdict": "CANDIDATE",
+        "evidence": [
+          "New dev-log-viewer backend module responsibilities are not documented yet; TASK-DLV-002 cannot modify knowledge files."
+        ]
+      },
+      {
+        "document": ".knowledge/architecture/service-boundaries.md",
+        "verdict": "CANDIDATE",
+        "evidence": [
+          "The new local-only viewer is intentionally outside business service/Gateway boundaries and should be documented later."
+        ]
+      },
+      {
+        "document": ".knowledge/runbooks/local-development.md",
+        "verdict": "CANDIDATE",
+        "evidence": [
+          "New dev-log-viewer config and startup behavior are not documented yet; startup integration is a later TASK."
+        ]
+      }
+    ],
+    "coverageGap": true,
+    "validationExitCode": 0
+  }
+}

@@ -40,6 +40,17 @@ routes:
       - configuration-changed
 
   - match:
+      - dev-log-viewer/**
+      - start-dev.sh
+      - stop-dev.sh
+    documents:
+      - system-overview
+      - local-development
+    triggers:
+      - covered-path-changed
+      - configuration-changed
+
+  - match:
       - README.md
       - pnpm-workspace.yaml
       - hr-frontend/**

@@ -4,6 +4,7 @@ use (
 	./smart-recruit-ai-agent-service
 	./smart-recruit-analytics-service
 	./smart-recruit-commons
+	./dev-log-viewer
 	./smart-recruit-gateway
 	./smart-recruit-identity-service
 	./smart-recruit-interview-service

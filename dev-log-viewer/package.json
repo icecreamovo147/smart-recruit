@@ -1,0 +1,30 @@
+{
+  "name": "dev-log-viewer",
+  "version": "0.1.0",
+  "private": true,
+  "packageManager": "pnpm@11.9.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite --host 127.0.0.1 --port 8091",
+    "build": "tsc -b && vite build",
+    "build:binary": "mkdir -p ../.dev/bin && pnpm run build && go build -tags prod -o ../.dev/bin/dev-log-viewer ./cmd/dev-log-viewer",
+    "preview": "vite preview --host 127.0.0.1 --port 8091",
+    "typecheck": "tsc -b --pretty false",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@tanstack/react-virtual": "3.14.6",
+    "react": "19.2.7",
+    "react-dom": "19.2.7"
+  },
+  "devDependencies": {
+    "@tailwindcss/vite": "4.3.2",
+    "@testing-library/react": "16.3.2",
+    "@types/react": "19.2.17",
+    "@types/react-dom": "19.2.3",
+    "tailwindcss": "4.3.2",
+    "typescript": "^6.0.3",
+    "vite": "6.3.5",
+    "vitest": "^4.1.8"
+  }
+}

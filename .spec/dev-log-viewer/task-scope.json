@@ -8,8 +8,10 @@
       "allowedFiles": [
         "pnpm-workspace.yaml",
         "pnpm-lock.yaml",
+        "go.work",
         "dev-log-viewer/go.mod",
         "dev-log-viewer/go.sum",
+        "dev-log-viewer/*.go",
         "dev-log-viewer/*.json",
         "dev-log-viewer/*.ts",
         "dev-log-viewer/*.js",
@@ -21,6 +23,7 @@
         "dev-log-viewer/web/src/vite-env.d.ts",
         ".spec/dev-log-viewer/reports/TASK-DLV-001-report.md",
         ".spec/dev-log-viewer/reports/TASK-DLV-001-evidence.json",
+        ".spec/dev-log-viewer/task-scope.json",
         ".spec/dev-log-viewer/pipeline-state.json"
       ],
       "forbiddenFiles": [
@@ -52,6 +55,7 @@
       },
       "notes": [
         "用户已确认将 dev-log-viewer 加入 workspace、增加 SPEC D-002/D-011 所列依赖并更新根锁文件；执行时仍需把本轮确认写入 evidence。",
+        "用户已追加确认允许修改根 go.work，并新增 dev-log-viewer 最小 Go package 文件以满足 TASK-DLV-001 Go 测试验收。",
         "不得升级或重写其他 workspace package 的依赖。"
       ]
     },
