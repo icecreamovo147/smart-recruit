@@ -102,6 +102,17 @@ func (s *NativeStore) CompleteWithOptions(ctx context.Context, prompt string, mo
 	return client.GenerateRecruitingReply(ctx, prompt, commonsai.RecruitingStats{}, nil)
 }
 
+func (s *NativeStore) ResolveLLMRuntimeModel(ctx context.Context, modelID int64) (int64, string, bool, error) {
+	cfg, err := s.selectLLMRuntimeConfig(ctx, modelID, 0)
+	if err != nil {
+		return 0, "", false, err
+	}
+	if cfg.ModelID <= 0 || strings.TrimSpace(cfg.Model) == "" {
+		return 0, "", false, nil
+	}
+	return cfg.ModelID, strings.TrimSpace(cfg.Model), true, nil
+}
+
 // ChatWithRecruitingTools runs the shared commons tool-calling loop against the
 // selected runtime model. Used by the native HR agent runtime for real builtin tools.
 func (s *NativeStore) ChatWithRecruitingTools(

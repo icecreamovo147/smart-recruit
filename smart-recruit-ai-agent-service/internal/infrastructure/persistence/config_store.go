@@ -1008,7 +1008,7 @@ func replaceAgentBindings(tx *gorm.DB, agentID int64, toolNames []string, caps [
 			if cap == nil || strings.TrimSpace(cap.GetCapabilitySource()) == "" || strings.TrimSpace(cap.GetCapabilityKey()) == "" {
 				continue
 			}
-			if err := tx.Create(&agentCapabilityBindingRecord{AgentID: agentID, CapabilitySource: strings.TrimSpace(cap.GetCapabilitySource()), CapabilityKey: strings.TrimSpace(cap.GetCapabilityKey()), IsEnabled: cap.GetIsEnabled(), Priority: int(cap.GetPriority()), PolicyJSON: nullStringFrom(cap.GetPolicyJson(), true)}).Error; err != nil {
+			if err := tx.Create(&agentCapabilityBindingRecord{AgentID: agentID, CapabilitySource: strings.TrimSpace(cap.GetCapabilitySource()), CapabilityKey: strings.TrimSpace(cap.GetCapabilityKey()), IsEnabled: cap.GetIsEnabled(), Priority: int(cap.GetPriority()), PolicyJSON: nullableJSONText(cap.GetPolicyJson())}).Error; err != nil {
 				return err
 			}
 		}

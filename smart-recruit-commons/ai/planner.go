@@ -33,6 +33,7 @@ type RecruitingPlan struct {
 	RequiredTools           []string                `json:"required_tools"`
 	RequiredData            []string                `json:"required_data"`
 	RequiredToolGroups      []RecruitingToolGroup   `json:"required_tool_groups"`
+	DisplaySteps            []RecruitingDisplayStep `json:"display_steps"`
 	MissingInputs           []string                `json:"missing_inputs"`
 	SelectedSkills          []string                `json:"selected_skills"`
 	SelectedMemories        []string                `json:"selected_memories"`
@@ -46,6 +47,13 @@ type RecruitingPlan struct {
 type RecruitingToolGroup struct {
 	Name  string   `json:"name"`
 	Tools []string `json:"tools"`
+}
+
+type RecruitingDisplayStep struct {
+	Key       string   `json:"key"`
+	Purpose   string   `json:"purpose"`
+	ToolGroup string   `json:"tool_group,omitempty"`
+	Tools     []string `json:"tools,omitempty"`
 }
 
 type ConfirmationRequirement struct {
@@ -175,6 +183,7 @@ func (RecruitingPlanner) Plan(input RecruitingPlannerInput) RecruitingPlan {
 		plan.RiskChecks = []string{"do_not_claim_unavailable_tools", "ask_for_missing_recruiting_intent_or_entities"}
 	}
 	plan.RequiredTools = toolsFromGroups(plan.RequiredToolGroups)
+	plan.DisplaySteps = displayStepsForPlan(intent, plan.RequiredToolGroups)
 
 	plan.RiskChecks = appendUnavailableToolRisk(plan.RiskChecks, intent, available)
 	logger.L().Info("[domain][planner] plan finished",
@@ -183,6 +192,94 @@ func (RecruitingPlanner) Plan(input RecruitingPlannerInput) RecruitingPlan {
 		zap.Int("risk_checks", len(plan.RiskChecks)),
 		zap.Int64("duration_ms", time.Since(started).Milliseconds()))
 	return plan
+}
+
+func displayStepsForPlan(intent string, groups []RecruitingToolGroup) []RecruitingDisplayStep {
+	steps := make([]RecruitingDisplayStep, 0, len(groups)+1)
+	for _, group := range groups {
+		purpose := displayPurposeForGroup(intent, group.Name)
+		if purpose == "" {
+			purpose = "查询所需的实时招聘数据"
+		}
+		steps = append(steps, RecruitingDisplayStep{
+			Key:       group.Name,
+			Purpose:   purpose,
+			ToolGroup: group.Name,
+			Tools:     append([]string(nil), group.Tools...),
+		})
+	}
+	if intent != IntentUnknown {
+		steps = append(steps, RecruitingDisplayStep{
+			Key:     "compose_answer",
+			Purpose: displayComposePurpose(intent),
+		})
+	}
+	return steps
+}
+
+func displayPurposeForGroup(intent, group string) string {
+	switch group {
+	case "candidate_identity":
+		return "读取当前投递和候选人上下文"
+	case "match_evidence":
+		return "获取或生成候选人与岗位的匹配评估"
+	case "job_identity", "job_detail":
+		return "读取岗位详情和任职要求"
+	case "job_candidates":
+		return "读取该岗位下的候选人和投递数据"
+	case "job_inventory":
+		return "读取当前岗位列表"
+	case "application_context":
+		return "读取当前投递关联的候选人和岗位上下文"
+	case "application_inventory":
+		return "读取投递记录列表"
+	case "candidate_search":
+		return "搜索符合条件的候选人"
+	case "candidate_detail":
+		return "读取候选人详情"
+	case "today_applications":
+		return "统计今日投递数据"
+	case "application_trend":
+		return "读取投递趋势数据"
+	case "job_heat":
+		return "读取岗位热度排行"
+	case "application_status":
+		return "读取投递状态分布"
+	case "total_applications":
+		return "统计累计投递数据"
+	default:
+		if intent == IntentAnalytics {
+			return "读取招聘统计指标"
+		}
+		return ""
+	}
+}
+
+func displayComposePurpose(intent string) string {
+	switch intent {
+	case IntentCandidateMatchEvaluation:
+		return "基于候选人、岗位和匹配评估形成结论"
+	case IntentCandidateComparison:
+		return "对候选人进行对比并整理建议"
+	case IntentAnalytics:
+		return "归纳招聘指标并说明口径"
+	case IntentJobListing:
+		return "整理岗位列表和可用筛选条件"
+	case IntentJobDetail:
+		return "整理岗位详情并说明关键信息"
+	case IntentStatusChangeProposal:
+		return "整理状态变更建议并等待确认"
+	case IntentInterviewPrep:
+		return "基于简历和岗位生成面试准备内容"
+	case IntentOfferSupport:
+		return "整理 Offer 支持信息和待确认项"
+	case IntentApplicationListing:
+		return "整理投递记录和筛选结果"
+	case IntentCandidateLookup:
+		return "整理候选人查询结果"
+	default:
+		return "整理已获取的数据并生成回复"
+	}
 }
 
 func (p RecruitingPlan) JSON() string {

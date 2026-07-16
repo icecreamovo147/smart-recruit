@@ -717,22 +717,11 @@ func (s *NativeStore) ListAgentConfigs(ctx context.Context, page, pageSize int32
 	}
 	items := make([]*pb.AgentConfigInfo, 0, len(rows))
 	for _, row := range rows {
-		items = append(items, &pb.AgentConfigInfo{
-			Id:                  row.ID,
-			Name:                row.Name,
-			DisplayName:         row.DisplayName,
-			Description:         nullString(row.Description),
-			AgentType:           row.AgentType,
-			PromptTemplateId:    nullInt64(row.PromptTemplateID),
-			Instruction:         nullString(row.Instruction),
-			MaxIterations:       int32(row.MaxIterations),
-			TemperatureOverride: nullFloat64(row.TemperatureOverride),
-			IsDefault:           row.IsDefault,
-			IsEnabled:           row.IsEnabled,
-			CreatedAt:           formatTime(row.CreatedAt),
-			UpdatedAt:           formatTime(row.UpdatedAt),
-			PromptTemplateName:  row.PromptTemplateName,
-		})
+		info, err := s.agentConfigInfo(ctx, row)
+		if err != nil {
+			return nil, 0, err
+		}
+		items = append(items, info)
 	}
 	return items, total, nil
 }

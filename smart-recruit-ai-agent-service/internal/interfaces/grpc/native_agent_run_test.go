@@ -13,6 +13,8 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
+	commonsai "smart-recruit-commons/ai"
+	platformmetadata "smart-recruit-platform-go/metadata"
 	"smart-recruit-proto/recruitment/pb"
 )
 
@@ -157,6 +159,130 @@ func TestCreateAgentRunDispatchesDetachedAndCompletes(t *testing.T) {
 		if !containsString(eventTypes, want) {
 			t.Fatalf("event types = %v, want %s", eventTypes, want)
 		}
+	}
+}
+
+func TestCreateAgentRunPreservesAuthActorForDetachedExecution(t *testing.T) {
+	store := newAgentRunTestStore()
+	store.seedChatSession(ownerRoleHR, 77, 101, "hr run session")
+	provider := &authCapturingAgentRunProvider{reply: "assistant reply", done: make(chan struct{})}
+	service := &nativeAIService{store: store, provider: provider}
+	ctx := platformmetadata.WithAuthActor(context.Background(), 77, "staff")
+
+	resp, err := service.CreateAgentRun(ctx, &pb.CreateAgentRunRequest{
+		HrId:            77,
+		SessionId:       101,
+		ClientRequestId: "auth-detached",
+		Message:         "user asks",
+		ModelId:         123,
+	})
+	if err != nil {
+		t.Fatalf("CreateAgentRun returned error: %v", err)
+	}
+	waitUntilAgentRunTest(t, time.Second, func() bool {
+		run, found := store.runSnapshot(resp.GetRun().GetRunId())
+		return found && run.Status == "succeeded"
+	})
+
+	if provider.authUserID != 77 || provider.accountType != "staff" {
+		t.Fatalf("provider auth = (%d, %q), want (77, staff)", provider.authUserID, provider.accountType)
+	}
+	createdRun, found := store.runSnapshot(resp.GetRun().GetRunId())
+	if !found {
+		t.Fatalf("created run %d not found in store", resp.GetRun().GetRunId())
+	}
+	var durable struct {
+		DurableRequest agentRunDurablePayload `json:"durable_request"`
+	}
+	if err := json.Unmarshal([]byte(createdRun.PlanJSON), &durable); err != nil {
+		t.Fatalf("PlanJSON = %q, want durable request JSON: %v", createdRun.PlanJSON, err)
+	}
+	if durable.DurableRequest.AuthUserID != 77 || durable.DurableRequest.AuthAccountType != "staff" {
+		t.Fatalf("durable auth = (%d, %q), want (77, staff)", durable.DurableRequest.AuthUserID, durable.DurableRequest.AuthAccountType)
+	}
+}
+
+func TestAgentRunEmitterPersistsPlannerDisplayMessage(t *testing.T) {
+	store := newAgentRunTestStore()
+	service := &nativeAIService{store: store}
+	run := fallbackAgentRun(77, 101, "display-message", agentRunDurablePayload{Message: "user asks"})
+	run.Status = agentRunStatusRunning
+	created, _, err := store.CreateAgentRun(context.Background(), run)
+	if err != nil {
+		t.Fatalf("CreateAgentRun seed returned error: %v", err)
+	}
+	emit := service.agentRunChatEmitter(created.ID)
+	display := &agentRunDisplayContext{
+		Plan: commonsai.RecruitingPlan{
+			Intent: commonsai.IntentCandidateMatchEvaluation,
+		},
+		StepKey:     "candidate_identity",
+		StepPurpose: "读取当前投递和候选人上下文",
+		ToolGroup:   "candidate_identity",
+	}
+	if err := emit(&pb.ChatStreamResponse{EventType: "tool_calling", EventMessage: "querying get_candidate_detail", ToolName: "get_candidate_detail", Msg: "success"}, display); err != nil {
+		t.Fatalf("emit tool_calling returned error: %v", err)
+	}
+	event := store.lastEvent(created.ID, "tool.started")
+	if !strings.Contains(event.PayloadJSON, `"display_message":"我正在读取当前投递和候选人上下文。"`) ||
+		!strings.Contains(event.PayloadJSON, `"step_key":"candidate_identity"`) {
+		t.Fatalf("event payload = %s, want planner display message and step metadata", event.PayloadJSON)
+	}
+}
+
+func TestAgentRunRuntimePlanJSONIncludesTraceOverviewFields(t *testing.T) {
+	plan := commonsai.RecruitingPlan{
+		Intent:        commonsai.IntentCandidateMatchEvaluation,
+		RequiredTools: []string{"get_candidate_detail", "get_candidate_match_evaluation"},
+		RequiredData:  []string{"application_id", "candidate_match_evaluation"},
+		RiskChecks:    []string{"verify_candidate_identity", "cite_tool_returned_evidence"},
+		ConfirmationRequirement: commonsai.ConfirmationRequirement{
+			Required: false,
+		},
+	}
+	raw := agentRunRuntimePlanJSON(
+		agentRunDurablePayload{Message: "analyze candidate", ApplicationID: 88},
+		&pb.ChatRequest{HrId: 77, SessionId: 101, Message: "analyze candidate", ApplicationId: 88},
+		hrRuntimeGovernanceContext{},
+		plan,
+		9,
+		"qwen3.6-flash",
+		[]string{"AI 响应较慢，请稍候..."},
+	)
+	var parsed struct {
+		DurableRequest agentRunDurablePayload `json:"durable_request"`
+		Runtime        string                 `json:"runtime"`
+		Model          string                 `json:"model"`
+		RecruitingPlan struct {
+			Intent     string   `json:"intent"`
+			RiskChecks []string `json:"risk_checks"`
+		} `json:"recruiting_plan"`
+		RiskFlags []string `json:"risk_flags"`
+		Decision  struct {
+			Intent          string   `json:"intent"`
+			RiskFlagCount   int      `json:"risk_flag_count"`
+			RuntimeWarning  bool     `json:"runtime_warning"`
+			WarningCount    int      `json:"warning_count"`
+			WarningMessages []string `json:"warning_messages"`
+		} `json:"decision"`
+	}
+	if err := json.Unmarshal([]byte(raw), &parsed); err != nil {
+		t.Fatalf("agentRunRuntimePlanJSON = %q, want valid JSON: %v", raw, err)
+	}
+	if parsed.DurableRequest.Message != "analyze candidate" || parsed.DurableRequest.ApplicationID != 88 {
+		t.Fatalf("durable request = %#v, want original payload preserved", parsed.DurableRequest)
+	}
+	if parsed.Runtime != "native-hr-runtime" || parsed.Model != "qwen3.6-flash" {
+		t.Fatalf("runtime/model = (%q, %q), want native runtime/resolved model", parsed.Runtime, parsed.Model)
+	}
+	if parsed.RecruitingPlan.Intent != string(commonsai.IntentCandidateMatchEvaluation) || len(parsed.RecruitingPlan.RiskChecks) != 2 {
+		t.Fatalf("recruiting plan = %#v, want intent and risk checks", parsed.RecruitingPlan)
+	}
+	if len(parsed.RiskFlags) != 2 || parsed.Decision.Intent != string(commonsai.IntentCandidateMatchEvaluation) || parsed.Decision.RiskFlagCount != 2 {
+		t.Fatalf("risk/decision = (%#v, %#v), want overview fields", parsed.RiskFlags, parsed.Decision)
+	}
+	if !parsed.Decision.RuntimeWarning || parsed.Decision.WarningCount != 1 || len(parsed.Decision.WarningMessages) != 1 {
+		t.Fatalf("runtime warning decision = %#v, want warning details", parsed.Decision)
 	}
 }
 
@@ -650,6 +776,20 @@ func (p *blockingAgentRunProvider) promptsSnapshot() []string {
 	out := make([]string, len(p.prompts))
 	copy(out, p.prompts)
 	return out
+}
+
+type authCapturingAgentRunProvider struct {
+	reply       string
+	done        chan struct{}
+	authUserID  int64
+	accountType string
+}
+
+func (p *authCapturingAgentRunProvider) Complete(ctx context.Context, _ string) (string, error) {
+	p.authUserID = platformmetadata.GetAuthUserID(ctx)
+	p.accountType = platformmetadata.GetAuthAccountType(ctx)
+	close(p.done)
+	return p.reply, nil
 }
 
 type agentRunTestStore struct {

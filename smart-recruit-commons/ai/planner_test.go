@@ -2,6 +2,7 @@ package ai
 
 import (
 	"encoding/json"
+	"strings"
 	"testing"
 )
 
@@ -97,8 +98,31 @@ func TestRecruitingPlannerRequiredIntentCoverage(t *testing.T) {
 			if plan.SelectedSkills == nil || plan.SelectedMemories == nil {
 				t.Fatal("selected skill and memory placeholders must be present as empty arrays")
 			}
+			if tt.intent != IntentUnknown && len(plan.DisplaySteps) == 0 {
+				t.Fatal("display steps must be present for executable intents")
+			}
 			assertPlanJSON(t, plan)
 		})
+	}
+}
+
+func TestRecruitingPlannerDisplayStepsCarryBusinessPurpose(t *testing.T) {
+	plan := NewRecruitingPlanner().Plan(RecruitingPlannerInput{
+		Message:        "请分析该候选人当前投递简历与岗位的匹配度",
+		ApplicationID:  99,
+		AvailableTools: allPlannerTestTools(),
+	})
+	if len(plan.DisplaySteps) < 3 {
+		t.Fatalf("display steps = %#v, want evidence steps plus compose step", plan.DisplaySteps)
+	}
+	if plan.DisplaySteps[0].Key != "candidate_identity" || !strings.Contains(plan.DisplaySteps[0].Purpose, "候选人上下文") {
+		t.Fatalf("first display step = %#v, want candidate context purpose", plan.DisplaySteps[0])
+	}
+	if plan.DisplaySteps[1].Key != "match_evidence" || !strings.Contains(plan.DisplaySteps[1].Purpose, "匹配评估") {
+		t.Fatalf("second display step = %#v, want match evaluation purpose", plan.DisplaySteps[1])
+	}
+	if got := plan.DisplaySteps[len(plan.DisplaySteps)-1]; got.Key != "compose_answer" || !strings.Contains(got.Purpose, "形成结论") {
+		t.Fatalf("compose display step = %#v, want conclusion purpose", got)
 	}
 }
 

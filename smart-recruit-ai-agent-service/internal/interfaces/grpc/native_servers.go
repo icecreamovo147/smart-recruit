@@ -18,6 +18,7 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/encoding/protojson"
+	"google.golang.org/protobuf/proto"
 
 	"smart-recruit-ai-agent-service/internal/application/hr_tools"
 	recruitingruntime "smart-recruit-ai-agent-service/internal/application/recruiting_intelligence"
@@ -47,6 +48,10 @@ type ChatCompletionOptions struct {
 
 type RuntimeOptionsChatProvider interface {
 	CompleteWithOptions(ctx context.Context, prompt string, modelID int64, opts ChatCompletionOptions) (string, error)
+}
+
+type llmRuntimeModelResolver interface {
+	ResolveLLMRuntimeModel(ctx context.Context, modelID int64) (int64, string, bool, error)
 }
 
 // RecruitingToolChatProvider runs the model-driven tool-calling loop for HR chat.
@@ -318,6 +323,8 @@ type agentRunDurablePayload struct {
 	ActionPayloadJSON            string   `json:"action_payload_json,omitempty"`
 	ApplicationID                int64    `json:"application_id,omitempty"`
 	ModelID                      int64    `json:"model_id,omitempty"`
+	AuthUserID                   int64    `json:"auth_user_id,omitempty"`
+	AuthAccountType              string   `json:"auth_account_type,omitempty"`
 	EffectiveAgentID             int64    `json:"effective_agent_id,omitempty"`
 	EffectiveAgentPinned         bool     `json:"effective_agent_pinned,omitempty"`
 	SkillCapabilityKeys          []string `json:"skill_capability_keys,omitempty"`
@@ -592,6 +599,8 @@ func NewNativeRuntimeDeps(deps RuntimeDeps) aiagentruntime.Deps {
 		embeddingService = embeddinginfra.NewEmbeddingService(store, deps.EmbeddingRunner)
 	}
 	ai := newNativeAIServiceWithRunner(deps.Store, deps.Provider, deps.Applications, deps.Jobs, deps.AppList, mcpRunner, embeddingService)
+	ai.recruitingPolicy = deps.RecruitingPolicy
+	ai.auth = deps.Auth
 	embedding := deps.EmbeddingConfigs
 	if embedding == nil {
 		embedding = nativeEmbeddingConfigService{store: deps.Store, embedding: embeddingService}
@@ -633,18 +642,20 @@ func newNativeAIServiceWithRunner(store AIStore, provider ChatProvider, applicat
 
 type nativeAIService struct {
 	pb.UnimplementedAIServiceServer
-	store           AIStore
-	provider        ChatProvider
-	applications    applicationSnapshotClient
-	jobs            hr_tools.JobClient
-	appList         hr_tools.ApplicationListClient
-	mcpRunner       mcpinfra.Runner
-	embedding       *embeddinginfra.EmbeddingService
-	eventHubMu      sync.Mutex
-	eventHub        *agentRunEventHub
-	runCancelMu     sync.Mutex
-	runCancels      map[int64]*agentRunCancelEntry
-	runTransitionMu sync.Mutex
+	store            AIStore
+	provider         ChatProvider
+	recruitingPolicy recruitingruntime.RuntimePolicy
+	auth             pb.AuthServiceClient
+	applications     applicationSnapshotClient
+	jobs             hr_tools.JobClient
+	appList          hr_tools.ApplicationListClient
+	mcpRunner        mcpinfra.Runner
+	embedding        *embeddinginfra.EmbeddingService
+	eventHubMu       sync.Mutex
+	eventHub         *agentRunEventHub
+	runCancelMu      sync.Mutex
+	runCancels       map[int64]*agentRunCancelEntry
+	runTransitionMu  sync.Mutex
 }
 
 type agentRunCancelEntry struct {
@@ -715,7 +726,7 @@ func (s *nativeAIService) ChatStream(req *pb.ChatRequest, stream gogrpc.ServerSt
 	if req == nil {
 		return errors.New("chat request is required")
 	}
-	result, err := s.runHRChatRuntime(stream.Context(), req, func(event *pb.ChatStreamResponse) error {
+	result, err := s.runHRChatRuntime(stream.Context(), req, func(event *pb.ChatStreamResponse, _ *agentRunDisplayContext) error {
 		event.SessionId = firstNonZeroInt64(event.GetSessionId(), req.GetSessionId())
 		event.ApplicationId = req.GetApplicationId()
 		if event.CreatedAt == "" {
@@ -732,19 +743,30 @@ func (s *nativeAIService) ChatStream(req *pb.ChatRequest, stream gogrpc.ServerSt
 	return stream.Send(&pb.ChatStreamResponse{Code: 0, Msg: "success", Delta: result.reply, Done: true, SessionId: result.session.ID, ApplicationId: req.GetApplicationId(), CandidateName: result.candidateName, JobTitle: result.jobTitle, Status: result.status, CreatedAt: formatTime(time.Now()), EventType: "done", EventMessage: "completed", ContextUsage: result.contextUsage})
 }
 
-type hrChatStreamEmitter func(*pb.ChatStreamResponse) error
+type hrChatStreamEmitter func(*pb.ChatStreamResponse, *agentRunDisplayContext) error
+
+type agentRunDisplayContext struct {
+	Plan        commonsai.RecruitingPlan
+	StepKey     string
+	StepPurpose string
+	ToolGroup   string
+}
 
 type hrChatRuntimeOptions struct {
 	reuseExistingUserMessage bool
 	agentRunID               int64
 	effectiveAgentID         int64
 	effectiveAgentPinned     bool
+	durablePayload           agentRunDurablePayload
 }
 
 type hrChatRuntimeResult struct {
 	session             ChatSessionRow
 	reply               string
 	governance          hrRuntimeGovernanceContext
+	plan                commonsai.RecruitingPlan
+	modelID             int64
+	modelName           string
 	toolTraces          []ToolTraceRow
 	streamedTextDelta   bool
 	contextUsage        *pb.ContextUsageInfo
@@ -753,6 +775,7 @@ type hrChatRuntimeResult struct {
 	status              int32
 	providerUnavailable bool
 	fallbackUsed        bool
+	runtimeWarnings     []string
 }
 
 type hrRuntimeGovernanceContext struct {
@@ -791,6 +814,8 @@ type hrRuntimeGovernanceError struct {
 type hrAllowlistedToolRunner struct {
 	delegate commonsai.ToolRunner
 	allowed  map[string]bool
+	service  *nativeAIService
+	runID    int64
 }
 
 func newHRAllowlistedToolRunner(delegate commonsai.ToolRunner, toolNames []string) hrAllowlistedToolRunner {
@@ -803,6 +828,13 @@ func newHRAllowlistedToolRunner(delegate commonsai.ToolRunner, toolNames []strin
 	return hrAllowlistedToolRunner{delegate: delegate, allowed: allowed}
 }
 
+func newHRRuntimeToolRunner(delegate commonsai.ToolRunner, toolNames []string, service *nativeAIService, runID int64) hrAllowlistedToolRunner {
+	runner := newHRAllowlistedToolRunner(delegate, toolNames)
+	runner.service = service
+	runner.runID = runID
+	return runner
+}
+
 func (r hrAllowlistedToolRunner) Execute(ctx context.Context, hrID int64, toolName string, args map[string]any) (commonsai.ToolResult, error) {
 	normalized := hr_tools.NormalizeToolName(toolName)
 	if !r.allowed[normalized] {
@@ -812,6 +844,9 @@ func (r hrAllowlistedToolRunner) Execute(ctx context.Context, hrID int64, toolNa
 	if r.delegate == nil {
 		err := &hr_tools.ToolExecutionError{Kind: "unavailable", ToolName: normalized, Message: "tool executor is unavailable"}
 		return commonsai.ToolResult{Content: marshalJSONString(map[string]any{"error": err.Error(), "error_type": err.Kind})}, err
+	}
+	if isRecruitingIntelligenceTool(normalized) {
+		return r.service.executeRecruitingIntelligenceTool(ctx, hrID, normalized, args, r.runID)
 	}
 	return r.delegate.Execute(ctx, hrID, normalized, args)
 }
@@ -837,7 +872,8 @@ func (s *nativeAIService) runHRChatRuntimeWithOptions(ctx context.Context, req *
 	if req.GetSessionId() == 0 {
 		req.SessionId = session.ID
 	}
-	send := func(event *pb.ChatStreamResponse) error {
+	result.modelID, result.modelName = s.resolveRuntimeModelDisplay(ctx, req.GetModelId())
+	sendWithDisplay := func(event *pb.ChatStreamResponse, display *agentRunDisplayContext) error {
 		if emit == nil || event == nil {
 			return nil
 		}
@@ -846,7 +882,16 @@ func (s *nativeAIService) runHRChatRuntimeWithOptions(ctx context.Context, req *
 		event.CandidateName = result.candidateName
 		event.JobTitle = result.jobTitle
 		event.Status = result.status
-		return emit(event)
+		return emit(event, display)
+	}
+	send := func(event *pb.ChatStreamResponse) error {
+		return sendWithDisplay(event, nil)
+	}
+	emitWithoutDisplay := func(event *pb.ChatStreamResponse, _ *agentRunDisplayContext) error {
+		return send(event)
+	}
+	emitWithDisplay := func(event *pb.ChatStreamResponse, display *agentRunDisplayContext) error {
+		return sendWithDisplay(event, display)
 	}
 	if err := send(&pb.ChatStreamResponse{Code: 0, Msg: "success", EventType: "thinking", EventMessage: "planning HR recruiting context", CreatedAt: formatTime(time.Now())}); err != nil {
 		return result, err
@@ -875,7 +920,7 @@ func (s *nativeAIService) runHRChatRuntimeWithOptions(ctx context.Context, req *
 	}
 
 	// Application snapshot + MCP remain available as pre-context tools.
-	traces, err := s.executeHRContextTools(ctx, req, session.ID, opts.agentRunID, governance, send)
+	traces, err := s.executeHRContextTools(ctx, req, session.ID, opts.agentRunID, governance, emitWithoutDisplay)
 	if err != nil {
 		return result, err
 	}
@@ -894,14 +939,18 @@ func (s *nativeAIService) runHRChatRuntimeWithOptions(ctx context.Context, req *
 		ApplicationID:  req.GetApplicationId(),
 		JobID:          jobIDFromMessage(req.GetMessage()),
 	})
-	planned, planErr := s.preExecutePlannedHRTools(ctx, req, session.ID, opts.agentRunID, plan, traces, executor, send)
+	result.plan = plan
+	if err := s.persistAgentRunRuntimePlan(ctx, req, opts, governance, plan, result.modelID, result.modelName, nil); err != nil {
+		return result, err
+	}
+	planned, planErr := s.preExecutePlannedHRTools(ctx, req, session.ID, opts.agentRunID, plan, traces, executor, emitWithDisplay)
 	if planErr != nil {
 		return result, planErr
 	}
 	traces = append(traces, planned...)
 
 	toolSchemas := hrRecruitingToolSchemas(governance.ExecutableToolNames)
-	modelToolRunner := newHRAllowlistedToolRunner(executor, governance.ExecutableToolNames)
+	modelToolRunner := newHRRuntimeToolRunner(executor, governance.ExecutableToolNames, s, opts.agentRunID)
 	toolProvider, hasToolProvider := s.provider.(RecruitingToolChatProvider)
 	canRunTools := len(toolSchemas) > 0 && (s.jobs != nil || s.appList != nil || s.applications != nil)
 
@@ -912,7 +961,7 @@ func (s *nativeAIService) runHRChatRuntimeWithOptions(ctx context.Context, req *
 		reply = hrDeterministicToolReply(traces)
 	} else if gateRequired && !gateSatisfied {
 		reply = hrPlanGateReply(plan, traces)
-		if err := send(&pb.ChatStreamResponse{Code: 0, Msg: "success", EventType: "fallback", EventMessage: "live-data evidence gate blocked model generation", CreatedAt: formatTime(time.Now())}); err != nil {
+		if err := sendWithDisplay(&pb.ChatStreamResponse{Code: 0, Msg: "success", EventType: "fallback", EventMessage: "live-data evidence gate blocked model generation", CreatedAt: formatTime(time.Now())}, displayContextForPlanStep(plan, "compose_answer")); err != nil {
 			return result, err
 		}
 	} else if plan.Intent == commonsai.IntentStatusChangeProposal {
@@ -924,8 +973,8 @@ func (s *nativeAIService) runHRChatRuntimeWithOptions(ctx context.Context, req *
 		if len(messages) > 0 {
 			messages[0].Content += "\n\n" + plan.InstructionBlock()
 		}
-		result.contextUsage = estimateHRContextUsage(req.GetModelId(), renderHRProviderPrompt(req, history, userMessage, traces, governance), req.GetMessage(), traces)
-		if err := send(&pb.ChatStreamResponse{Code: 0, Msg: "success", EventType: "context_usage", EventMessage: "context usage estimated", ContextUsage: result.contextUsage, CreatedAt: formatTime(time.Now())}); err != nil {
+		result.contextUsage = estimateHRContextUsage(result.modelID, result.modelName, renderHRProviderPrompt(req, history, userMessage, traces, governance), req.GetMessage(), traces)
+		if err := sendWithDisplay(&pb.ChatStreamResponse{Code: 0, Msg: "success", EventType: "context_usage", EventMessage: "context usage estimated", ContextUsage: result.contextUsage, CreatedAt: formatTime(time.Now())}, displayContextForPlanStep(plan, "compose_answer")); err != nil {
 			return result, err
 		}
 		onStatus := func(eventType, eventMessage, errorType, toolName string) error {
@@ -936,7 +985,16 @@ func (s *nativeAIService) runHRChatRuntimeWithOptions(ctx context.Context, req *
 					event.Msg = eventMessage
 				}
 			}
-			return send(event)
+			if eventType == "timeout_warning" || strings.TrimSpace(errorType) != "" {
+				warning := strings.TrimSpace(eventMessage)
+				if warning == "" {
+					warning = strings.TrimSpace(errorType)
+				}
+				if warning != "" {
+					result.runtimeWarnings = append(result.runtimeWarnings, warning)
+				}
+			}
+			return sendWithDisplay(event, displayContextForTool(plan, toolName))
 		}
 		onTool := func(toolCallID, toolName, argsJSON, resultContent string, duration time.Duration, execErr error) {
 			trace := ToolTraceRow{
@@ -975,7 +1033,7 @@ func (s *nativeAIService) runHRChatRuntimeWithOptions(ctx context.Context, req *
 				if delta != "" {
 					result.streamedTextDelta = true
 				}
-				return send(&pb.ChatStreamResponse{Code: 0, Msg: "success", Delta: delta, EventType: "generating", EventMessage: "streaming answer", CreatedAt: formatTime(time.Now())})
+				return sendWithDisplay(&pb.ChatStreamResponse{Code: 0, Msg: "success", Delta: delta, EventType: "generating", EventMessage: "streaming answer", CreatedAt: formatTime(time.Now())}, displayContextForPlanStep(plan, "compose_answer"))
 			},
 			onTool,
 			onStatus,
@@ -992,7 +1050,7 @@ func (s *nativeAIService) runHRChatRuntimeWithOptions(ctx context.Context, req *
 			}
 			result.fallbackUsed = true
 			reply = commonsai.BuildHRFallbackReply(toCommonsToolTraces(traces))
-			if err := send(&pb.ChatStreamResponse{Code: 0, Msg: "success", EventType: "fallback", EventMessage: "model failed after useful tool results; using deterministic fallback", CreatedAt: formatTime(time.Now())}); err != nil {
+			if err := sendWithDisplay(&pb.ChatStreamResponse{Code: 0, Msg: "success", EventType: "fallback", EventMessage: "model failed after useful tool results; using deterministic fallback", CreatedAt: formatTime(time.Now())}, displayContextForPlanStep(plan, "compose_answer")); err != nil {
 				return result, err
 			}
 		} else {
@@ -1004,11 +1062,11 @@ func (s *nativeAIService) runHRChatRuntimeWithOptions(ctx context.Context, req *
 	} else {
 		contextPrompt := renderHRProviderPrompt(req, history, userMessage, traces, governance)
 		contextPrompt += "\n\n" + plan.InstructionBlock()
-		result.contextUsage = estimateHRContextUsage(req.GetModelId(), contextPrompt, req.GetMessage(), traces)
-		if err := send(&pb.ChatStreamResponse{Code: 0, Msg: "success", EventType: "context_usage", EventMessage: "context usage estimated", ContextUsage: result.contextUsage, CreatedAt: formatTime(time.Now())}); err != nil {
+		result.contextUsage = estimateHRContextUsage(result.modelID, result.modelName, contextPrompt, req.GetMessage(), traces)
+		if err := sendWithDisplay(&pb.ChatStreamResponse{Code: 0, Msg: "success", EventType: "context_usage", EventMessage: "context usage estimated", ContextUsage: result.contextUsage, CreatedAt: formatTime(time.Now())}, displayContextForPlanStep(plan, "compose_answer")); err != nil {
 			return result, err
 		}
-		if err := send(&pb.ChatStreamResponse{Code: 0, Msg: "success", EventType: "generating", EventMessage: "calling model with HR context", CreatedAt: formatTime(time.Now())}); err != nil {
+		if err := sendWithDisplay(&pb.ChatStreamResponse{Code: 0, Msg: "success", EventType: "generating", EventMessage: "calling model with HR context", CreatedAt: formatTime(time.Now())}, displayContextForPlanStep(plan, "compose_answer")); err != nil {
 			return result, err
 		}
 		reply, err = s.complete(ctx, contextPrompt, req.GetModelId(), hrRuntimeCompletionOptions(governance))
@@ -1024,16 +1082,16 @@ func (s *nativeAIService) runHRChatRuntimeWithOptions(ctx context.Context, req *
 			}
 			result.fallbackUsed = true
 			reply = commonsai.BuildHRFallbackReply(toCommonsToolTraces(traces))
-			if err := send(&pb.ChatStreamResponse{Code: 0, Msg: "success", EventType: "fallback", EventMessage: "model failed after useful tool results; using deterministic fallback", CreatedAt: formatTime(time.Now())}); err != nil {
+			if err := sendWithDisplay(&pb.ChatStreamResponse{Code: 0, Msg: "success", EventType: "fallback", EventMessage: "model failed after useful tool results; using deterministic fallback", CreatedAt: formatTime(time.Now())}, displayContextForPlanStep(plan, "compose_answer")); err != nil {
 				return result, err
 			}
 		}
 	}
 	result.reply = reply
 	result.toolTraces = append([]ToolTraceRow(nil), traces...)
-	processContent := buildHRProcessContent(traces, result.contextUsage, result.fallbackUsed, governance)
+	processContent := buildHRProcessContent(traces, result.contextUsage, result.fallbackUsed, governance, plan)
 	if s.store != nil {
-		if _, err := s.store.AppendChatMessage(ctx, ChatMessageRow{OwnerRole: ownerRoleHR, OwnerID: req.GetHrId(), SessionID: session.ID, Role: "assistant", Content: reply, ProcessContent: processContent, ModelID: req.GetModelId(), AgentSkillIDs: hrRuntimeAgentSkillIDs(governance), AgentSkillNames: hrRuntimeAgentSkillNames(governance), CreatedAt: time.Now()}); err != nil {
+		if _, err := s.store.AppendChatMessage(ctx, ChatMessageRow{OwnerRole: ownerRoleHR, OwnerID: req.GetHrId(), SessionID: session.ID, Role: "assistant", Content: reply, ProcessContent: processContent, ModelID: result.modelID, ModelName: result.modelName, AgentSkillIDs: hrRuntimeAgentSkillIDs(governance), AgentSkillNames: hrRuntimeAgentSkillNames(governance), CreatedAt: time.Now()}); err != nil {
 			return result, err
 		}
 	}
@@ -1128,7 +1186,7 @@ func (s *nativeAIService) preExecutePlannedHRTools(ctx context.Context, req *pb.
 		}
 		for _, candidate := range group.Tools {
 			name := hr_tools.NormalizeToolName(candidate)
-			if (!hr_tools.ExecutableByThisRunner[name] && name != "get_candidate_match_evaluation") || name == "propose_application_status_update" {
+			if (!hr_tools.ExecutableByThisRunner[name] && !isRecruitingIntelligenceTool(name)) || name == "propose_application_status_update" {
 				continue
 			}
 			args, ok := plannedHRToolArgs(name, req, allTraces)
@@ -1136,7 +1194,7 @@ func (s *nativeAIService) preExecutePlannedHRTools(ctx context.Context, req *pb.
 				continue
 			}
 			if emit != nil {
-				if err := emit(&pb.ChatStreamResponse{Code: 0, Msg: "success", EventType: "tool_calling", EventMessage: "querying " + name, ToolName: name, CreatedAt: formatTime(time.Now())}); err != nil {
+				if err := emit(&pb.ChatStreamResponse{Code: 0, Msg: "success", EventType: "tool_calling", EventMessage: "querying " + name, ToolName: name, CreatedAt: formatTime(time.Now())}, displayContextForTool(plan, name)); err != nil {
 					return traces, err
 				}
 			}
@@ -1173,7 +1231,7 @@ func (s *nativeAIService) preExecutePlannedHRTools(ctx context.Context, req *pb.
 					event.ErrorType = "TOOL_ERROR"
 					event.Msg = trace.ErrorMsg
 				}
-				if err := emit(event); err != nil {
+				if err := emit(event, displayContextForTool(plan, name)); err != nil {
 					return traces, err
 				}
 			}
@@ -1199,7 +1257,7 @@ func plannedHRToolArgs(name string, req *pb.ChatRequest, traces []ToolTraceRow) 
 			return nil, false
 		}
 		args["application_id"] = applicationID
-	case "get_candidate_match_evaluation":
+	case "get_candidate_match_evaluation", "evaluate_candidate_match", "get_resume_profile", "parse_resume_profile":
 		if req.GetApplicationId() <= 0 {
 			return nil, false
 		}
@@ -1232,25 +1290,94 @@ func plannedHRToolArgs(name string, req *pb.ChatRequest, traces []ToolTraceRow) 
 }
 
 func (s *nativeAIService) executePlannedHRTool(ctx context.Context, hrID int64, name string, args map[string]any, executor *hr_tools.Executor) (commonsai.ToolResult, error) {
-	if name != "get_candidate_match_evaluation" {
-		return executor.Execute(ctx, hrID, name, args)
+	if isRecruitingIntelligenceTool(name) {
+		return s.executeRecruitingIntelligenceTool(ctx, hrID, name, args, 0)
 	}
+	return executor.Execute(ctx, hrID, name, args)
+}
+
+func isRecruitingIntelligenceTool(name string) bool {
+	switch hr_tools.NormalizeToolName(name) {
+	case "parse_resume_profile", "get_resume_profile", "evaluate_candidate_match", "get_candidate_match_evaluation", "compare_candidates_for_job":
+		return true
+	default:
+		return false
+	}
+}
+
+func (s *nativeAIService) executeRecruitingIntelligenceTool(ctx context.Context, hrID int64, name string, args map[string]any, agentRunID int64) (commonsai.ToolResult, error) {
+	if s == nil {
+		return hrToolErrorResult(name, "unavailable", "native HR runtime is not configured", nil)
+	}
+	store, ok := s.store.(recruitingReadStore)
+	if (!ok || store == nil) && hr_tools.NormalizeToolName(name) == "get_candidate_match_evaluation" {
+		return s.executeLegacyCandidateMatchReadTool(ctx, name, args)
+	}
+	if !ok || store == nil {
+		return hrToolErrorResult(name, "unavailable", "recruiting intelligence store is not configured", nil)
+	}
+	service := nativeRecruitingIntelligenceService{
+		store:        store,
+		provider:     s.provider,
+		structured:   newRecruitingStructuredRuntime(s.store, s.provider, s.recruitingPolicy),
+		policy:       s.recruitingPolicy,
+		auth:         s.auth,
+		applications: s.applications,
+		jobs:         s.jobs,
+	}
+	toolName := hr_tools.NormalizeToolName(name)
+	switch toolName {
+	case "get_resume_profile":
+		applicationID, resumeID := recruitingApplicationAndResumeArgs(args)
+		resp, err := service.GetResumeProfile(ctx, &pb.GetResumeProfileRequest{StaffUserId: hrID, ApplicationId: applicationID, ResumeId: resumeID, ProfileId: uint64(numberFromAny(args["profile_id"]))})
+		return recruitingToolResponse(toolName, resp, err)
+	case "parse_resume_profile":
+		applicationID, resumeID := recruitingApplicationAndResumeArgs(args)
+		resp, err := service.ParseResumeProfile(ctx, &pb.ParseResumeProfileRequest{StaffUserId: hrID, ApplicationId: applicationID, ResumeId: resumeID})
+		return recruitingToolResponse(toolName, resp, err)
+	case "get_candidate_match_evaluation":
+		applicationID := int64(numberFromAny(args["application_id"]))
+		resp, err := service.GetCandidateMatchEvaluation(ctx, &pb.GetCandidateMatchEvaluationRequest{
+			StaffUserId:       hrID,
+			ApplicationId:     applicationID,
+			EvaluationId:      uint64(numberFromAny(args["evaluation_id"])),
+			EvaluationVersion: int32(numberFromAny(args["evaluation_version"])),
+		})
+		return recruitingToolResponse(toolName, resp, err)
+	case "evaluate_candidate_match":
+		applicationID := int64(numberFromAny(args["application_id"]))
+		resp, err := service.EvaluateCandidateMatch(ctx, &pb.EvaluateCandidateMatchRequest{StaffUserId: hrID, ApplicationId: applicationID, AgentRunId: uint64(agentRunID)})
+		return recruitingToolResponse(toolName, resp, err)
+	case "compare_candidates_for_job":
+		jobID := int64(numberFromAny(args["job_id"]))
+		resp, err := service.CompareCandidatesForJob(ctx, &pb.CompareCandidatesForJobRequest{StaffUserId: hrID, JobId: jobID})
+		return recruitingToolResponse(toolName, resp, err)
+	default:
+		return hrToolErrorResult(toolName, "unsupported", fmt.Sprintf("unsupported tool: %s", name), nil)
+	}
+}
+
+func (s *nativeAIService) executeLegacyCandidateMatchReadTool(ctx context.Context, name string, args map[string]any) (commonsai.ToolResult, error) {
 	applicationID := int64(numberFromAny(args["application_id"]))
 	store, ok := s.store.(hrCandidateMatchReadStore)
 	if !ok {
-		return commonsai.ToolResult{Content: marshalJSONString(map[string]any{"error": "candidate match evaluation store is not configured", "error_type": "unavailable"})}, errors.New("candidate match evaluation store is not configured")
+		return hrToolErrorResult(name, "unavailable", "candidate match evaluation store is not configured", nil)
 	}
 	snapshot, found, err := store.GetLatestRecruitingCandidateMatchEvaluationSnapshotByApplicationID(ctx, applicationID)
 	if err != nil {
-		return commonsai.ToolResult{Content: marshalJSONString(map[string]any{"error": "candidate match evaluation query failed", "error_type": "downstream"})}, err
+		return hrToolErrorResult(name, "downstream", "candidate match evaluation query failed", err)
 	}
 	if !found {
-		return commonsai.ToolResult{Content: marshalJSONString(map[string]any{"error": "candidate match evaluation not found", "error_type": "not_found"})}, errors.New("candidate match evaluation not found")
+		return hrToolErrorResult(name, "not_found", "candidate match evaluation not found", nil)
 	}
 	if snapshot.Evaluation.ApplicationID != applicationID {
-		return commonsai.ToolResult{Content: marshalJSONString(map[string]any{"error": "candidate match evaluation scope mismatch", "error_type": "forbidden_or_not_found"})}, errors.New("candidate match evaluation scope mismatch")
+		return hrToolErrorResult(name, "forbidden_or_not_found", "candidate match evaluation scope mismatch", nil)
 	}
-	return commonsai.ToolResult{Content: marshalJSONString(map[string]any{
+	return commonsai.ToolResult{Content: marshalJSONString(candidateMatchSnapshotToolPayload(snapshot))}, nil
+}
+
+func candidateMatchSnapshotToolPayload(snapshot RecruitingCandidateMatchSnapshot) map[string]any {
+	return map[string]any{
 		"application_id": snapshot.Evaluation.ApplicationID,
 		"job_id":         snapshot.Evaluation.JobID,
 		"overall_score":  snapshot.Evaluation.OverallScore,
@@ -1261,7 +1388,80 @@ func (s *nativeAIService) executePlannedHRTool(ctx context.Context, hrID int64, 
 		"evaluation_id":  snapshot.Evaluation.ID,
 		"evidence_count": len(snapshot.Evidence),
 		"evaluated_at":   formatTime(snapshot.Evaluation.EvaluatedAt),
-	})}, nil
+	}
+}
+
+func recruitingApplicationAndResumeArgs(args map[string]any) (int64, int64) {
+	if args == nil {
+		return 0, 0
+	}
+	return int64(numberFromAny(args["application_id"])), int64(numberFromAny(args["resume_id"]))
+}
+
+type recruitingToolPBResponse interface {
+	proto.Message
+	GetCode() int32
+	GetMsg() string
+}
+
+func recruitingToolResponse(toolName string, resp recruitingToolPBResponse, err error) (commonsai.ToolResult, error) {
+	if err != nil {
+		return hrToolErrorResult(toolName, "downstream", err.Error(), err)
+	}
+	if resp == nil {
+		return hrToolErrorResult(toolName, "unavailable", "recruiting intelligence tool returned nil response", nil)
+	}
+	content := protoJSONOrFallback(resp)
+	if resp.GetCode() == errs.OK {
+		return commonsai.ToolResult{Content: content}, nil
+	}
+	kind := recruitingToolErrorKind(resp.GetCode(), resp.GetMsg())
+	execErr := &hr_tools.ToolExecutionError{Kind: kind, ToolName: toolName, Message: recruitingMessageOrDefault(resp.GetMsg(), "recruiting intelligence tool failed")}
+	return commonsai.ToolResult{Content: marshalJSONString(map[string]any{"error": execErr.Error(), "error_type": execErr.Kind, "tool_response": jsonRawObject(content)})}, execErr
+}
+
+func protoJSONOrFallback(message proto.Message) string {
+	if message == nil {
+		return "{}"
+	}
+	data, err := protojson.MarshalOptions{UseProtoNames: true}.Marshal(message)
+	if err != nil {
+		return marshalJSONString(map[string]any{"error": err.Error()})
+	}
+	return string(data)
+}
+
+func jsonRawObject(content string) any {
+	var payload any
+	if json.Unmarshal([]byte(content), &payload) == nil {
+		return payload
+	}
+	return content
+}
+
+func recruitingToolErrorKind(code int32, message string) string {
+	switch code {
+	case 404:
+		return "not_found"
+	case errs.ErrForbidden:
+		return "forbidden_or_not_found"
+	case errs.ErrBadRequest:
+		return "invalid_argument"
+	case configCodeUnsupported:
+		if strings.Contains(strings.ToLower(message), "not found") {
+			return "not_found"
+		}
+		return "unsupported"
+	case configCodeUnavailable:
+		return "unavailable"
+	default:
+		return "downstream"
+	}
+}
+
+func hrToolErrorResult(toolName, kind, message string, cause error) (commonsai.ToolResult, error) {
+	execErr := &hr_tools.ToolExecutionError{Kind: kind, ToolName: hr_tools.NormalizeToolName(toolName), Message: message, Cause: cause}
+	return commonsai.ToolResult{Content: marshalJSONString(map[string]any{"error": execErr.Error(), "error_type": execErr.Kind})}, execErr
 }
 
 func candidateKeywordFromMessage(message string) string {
@@ -1402,12 +1602,47 @@ func hrPlanGateReply(plan commonsai.RecruitingPlan, traces []ToolTraceRow) strin
 	if len(plan.MissingInputs) > 0 {
 		return "需要先选择或提供具体的岗位、候选人或投递记录，才能查询对应的实时数据。"
 	}
+	for _, group := range plan.RequiredToolGroups {
+		if len(group.Tools) == 0 {
+			return "当前 Agent 未启用或未绑定完成该问题所需的能力，请在 Agent 管理中启用对应工具后再试。"
+		}
+	}
 	for _, trace := range traces {
 		if trace.Status == "error" && stringSliceContains(plan.RequiredTools, trace.ToolName) {
+			if hrToolTraceHasErrorType(trace, "not_found") {
+				return "实时数据查询失败：当前投递暂无可用的匹配评估记录；如需基于真实简历和岗位数据生成结论，请启用并运行候选人匹配评估生成工具。"
+			}
+			if hrToolTraceHasErrorType(trace, "unsupported", "unavailable") {
+				return "完成该实时数据查询所需的工具已绑定，但当前运行时未接入或暂不可用，无法提供可靠结果。"
+			}
 			return "实时数据查询失败，无法可靠回答该问题。请稍后重试。"
 		}
 	}
 	return "当前 Agent 未启用完成该实时数据查询所需的工具，或对应工具在运行时不可用，无法提供可靠结果。"
+}
+
+func hrToolTraceHasErrorType(trace ToolTraceRow, types ...string) bool {
+	if strings.TrimSpace(trace.ResultContent) == "" || len(types) == 0 {
+		return false
+	}
+	var payload map[string]any
+	if json.Unmarshal([]byte(trace.ResultContent), &payload) != nil {
+		return false
+	}
+	errorType, _ := payload["error_type"].(string)
+	if errorType == "" {
+		if nested, ok := payload["tool_response"].(map[string]any); ok {
+			if code := int32(numberFromAny(nested["code"])); code != 0 {
+				errorType = recruitingToolErrorKind(code, stringFromAny(nested["msg"]))
+			}
+		}
+	}
+	for _, typ := range types {
+		if errorType == typ {
+			return true
+		}
+	}
+	return false
 }
 
 func hrPlanUsesDeterministicFacts(plan commonsai.RecruitingPlan) bool {
@@ -1926,7 +2161,7 @@ func (s *nativeAIService) executeHRContextTools(ctx context.Context, req *pb.Cha
 		traces = append(traces, trace)
 	} else {
 		if emit != nil {
-			if err := emit(&pb.ChatStreamResponse{Code: 0, Msg: "success", EventType: "tool_calling", EventMessage: "loading application snapshot", ToolName: hrApplicationSnapshotTool, CreatedAt: formatTime(time.Now())}); err != nil {
+			if err := emit(&pb.ChatStreamResponse{Code: 0, Msg: "success", EventType: "tool_calling", EventMessage: "loading application snapshot", ToolName: hrApplicationSnapshotTool, CreatedAt: formatTime(time.Now())}, nil); err != nil {
 				return nil, err
 			}
 		}
@@ -1973,7 +2208,7 @@ func (s *nativeAIService) executeHRContextTools(ctx context.Context, req *pb.Cha
 				event.ErrorType = "TOOL_ERROR"
 				event.Msg = trace.ErrorMsg
 			}
-			if err := emit(event); err != nil {
+			if err := emit(event, nil); err != nil {
 				return nil, err
 			}
 		}
@@ -2011,7 +2246,7 @@ func (s *nativeAIService) executeHRMCPTools(ctx context.Context, req *pb.ChatReq
 	for _, call := range calls {
 		argsJSON := call.argsJSON(req.GetMessage())
 		if emit != nil {
-			if err := emit(&pb.ChatStreamResponse{Code: 0, Msg: "success", EventType: "tool_calling", EventMessage: "calling MCP tool", ToolName: call.runtimeName, CreatedAt: formatTime(time.Now())}); err != nil {
+			if err := emit(&pb.ChatStreamResponse{Code: 0, Msg: "success", EventType: "tool_calling", EventMessage: "calling MCP tool", ToolName: call.runtimeName, CreatedAt: formatTime(time.Now())}, nil); err != nil {
 				return traces, err
 			}
 		}
@@ -2047,7 +2282,7 @@ func (s *nativeAIService) executeHRMCPTools(ctx context.Context, req *pb.ChatReq
 				event.ErrorType = "MCP_TOOL_ERROR"
 				event.Msg = trace.ErrorMsg
 			}
-			if err := emit(event); err != nil {
+			if err := emit(event, nil); err != nil {
 				return traces, err
 			}
 		}
@@ -2162,10 +2397,7 @@ func (s *nativeAIService) persistHRToolTrace(ctx context.Context, hrID int64, tr
 }
 
 func hrRuntimeAllowsApplicationSnapshot(req *pb.ChatRequest, governance hrRuntimeGovernanceContext) bool {
-	// The snapshot fallback is platform-owned only when no persisted Agent exists.
-	// A configured Agent must explicitly bind the concrete snapshot Tool; abstract
-	// capabilities never grant it implicitly.
-	if governance.Agent != nil && !stringSliceContains(governance.ToolNames, hrApplicationSnapshotTool) {
+	if governance.Agent != nil && !hrRuntimeToolSetAllowsApplicationContext(governance.ToolNames) {
 		return false
 	}
 	selected := normalizedStringSet(req.GetSkillCapabilityKeys())
@@ -2173,6 +2405,16 @@ func hrRuntimeAllowsApplicationSnapshot(req *pb.ChatRequest, governance hrRuntim
 		return false
 	}
 	return true
+}
+
+func hrRuntimeToolSetAllowsApplicationContext(toolNames []string) bool {
+	for _, name := range toolNames {
+		switch hr_tools.NormalizeToolName(name) {
+		case hrApplicationSnapshotTool, "get_candidate_detail", "get_resume_profile", "parse_resume_profile", "get_candidate_match_evaluation", "evaluate_candidate_match":
+			return true
+		}
+	}
+	return false
 }
 
 func renderHRProviderPrompt(req *pb.ChatRequest, history []ChatMessageRow, current ChatMessageRow, traces []ToolTraceRow, governance hrRuntimeGovernanceContext) string {
@@ -2287,7 +2529,7 @@ func ensureHRCurrentMessage(messages []ChatMessageRow, current ChatMessageRow) [
 	return out
 }
 
-func estimateHRContextUsage(modelID int64, prompt, current string, traces []ToolTraceRow) *pb.ContextUsageInfo {
+func estimateHRContextUsage(modelID int64, modelName, prompt, current string, traces []ToolTraceRow) *pb.ContextUsageInfo {
 	system := estimateTokens("你是 Smart Recruit 的 HR 招聘助手。")
 	currentTokens := estimateTokens(current)
 	toolTokens := 0
@@ -2299,6 +2541,7 @@ func estimateHRContextUsage(modelID int64, prompt, current string, traces []Tool
 	remaining := int32(math.Max(0, float64(int(window)-promptTokens)))
 	return &pb.ContextUsageInfo{
 		ModelId:                  modelID,
+		ModelName:                modelName,
 		ContextWindowTokens:      window,
 		MaxOutputTokens:          1024,
 		PromptTokensEstimated:    int32(promptTokens),
@@ -2380,11 +2623,14 @@ func extractApplicationTraceMetadata(raw string) (candidateName, jobTitle string
 	return candidateName, jobTitle, status
 }
 
-func buildHRProcessContent(traces []ToolTraceRow, usage *pb.ContextUsageInfo, fallbackUsed bool, governance hrRuntimeGovernanceContext) string {
+func buildHRProcessContent(traces []ToolTraceRow, usage *pb.ContextUsageInfo, fallbackUsed bool, governance hrRuntimeGovernanceContext, plan commonsai.RecruitingPlan) string {
 	payload := map[string]any{
 		"runtime":       "native-hr-runtime",
 		"fallback_used": fallbackUsed,
 		"tool_count":    len(traces),
+	}
+	if summary := buildAgentRunDisplaySummary(plan, traces, usage, fallbackUsed); len(summary) > 0 {
+		payload["display_summary"] = summary
 	}
 	if usage != nil {
 		payload["context_usage"] = map[string]any{
@@ -2421,6 +2667,56 @@ func buildHRProcessContent(traces []ToolTraceRow, usage *pb.ContextUsageInfo, fa
 		payload["tool_results"] = toolResults
 	}
 	return marshalJSONString(payload)
+}
+
+func buildAgentRunDisplaySummary(plan commonsai.RecruitingPlan, traces []ToolTraceRow, usage *pb.ContextUsageInfo, fallbackUsed bool) []string {
+	lines := make([]string, 0, len(plan.DisplaySteps)+2)
+	traceByTool := make(map[string]ToolTraceRow, len(traces))
+	for _, trace := range traces {
+		if strings.TrimSpace(trace.ToolName) != "" {
+			traceByTool[hr_tools.NormalizeToolName(trace.ToolName)] = trace
+		}
+	}
+	for _, step := range plan.DisplaySteps {
+		if step.Key == "compose_answer" {
+			continue
+		}
+		if strings.TrimSpace(step.Purpose) == "" {
+			continue
+		}
+		success, failed, attempted := false, false, false
+		for _, tool := range step.Tools {
+			trace, ok := traceByTool[hr_tools.NormalizeToolName(tool)]
+			if !ok {
+				continue
+			}
+			attempted = true
+			if trace.Status == "success" {
+				success = true
+			}
+			if trace.Status == "error" {
+				failed = true
+			}
+		}
+		switch {
+		case success:
+			lines = append(lines, "已完成："+step.Purpose+"。")
+		case failed:
+			lines = append(lines, step.Purpose+"暂时没有完全完成，我已继续使用其他可用数据推进。")
+		case attempted:
+			lines = append(lines, "已尝试："+step.Purpose+"。")
+		}
+	}
+	if usage != nil {
+		lines = append(lines, "我已确认上下文容量，准备整理工具结果并生成回复。")
+	}
+	if fallbackUsed {
+		lines = append(lines, "模型调用异常时，我已使用保守兜底逻辑避免编造数据。")
+	}
+	if len(lines) == 0 && len(traces) > 0 {
+		lines = append(lines, "我已读取实时招聘数据，并基于工具结果生成回复。")
+	}
+	return lines
 }
 
 func hrRuntimeAgentSkillEvidence(skills []hrRuntimeAgentSkill) []map[string]any {
@@ -2479,8 +2775,22 @@ func numberFromAny(value any) float64 {
 	case json.Number:
 		n, _ := v.Float64()
 		return n
+	case string:
+		n, _ := strconv.ParseFloat(strings.TrimSpace(v), 64)
+		return n
 	default:
 		return 0
+	}
+}
+
+func stringFromAny(value any) string {
+	switch v := value.(type) {
+	case string:
+		return v
+	case fmt.Stringer:
+		return v.String()
+	default:
+		return ""
 	}
 }
 
@@ -3076,6 +3386,14 @@ func (s *nativeAIService) CreateAgentRun(ctx context.Context, req *pb.CreateAgen
 		return &pb.CreateAgentRunResponse{Code: configCodeUnavailable, Msg: errAIStoreRequired.Error()}, nil
 	}
 	payload := agentRunPayloadFromCreateRequest(req)
+	payload.AuthUserID = platformmetadata.GetAuthUserID(ctx)
+	payload.AuthAccountType = platformmetadata.GetAuthAccountType(ctx)
+	if payload.AuthUserID <= 0 {
+		payload.AuthUserID = req.GetHrId()
+	}
+	if strings.TrimSpace(payload.AuthAccountType) == "" {
+		payload.AuthAccountType = "staff"
+	}
 	governance, err := s.loadHRRuntimeGovernance(ctx, &pb.ChatRequest{
 		HrId:                         req.GetHrId(),
 		SessionId:                    req.GetSessionId(),
@@ -3442,6 +3760,7 @@ func (s *nativeAIService) executeAgentRun(ctx context.Context, run AgentRunRow) 
 		return err
 	}
 	payload := agentRunPayloadFromRow(current)
+	ctx = agentRunExecutionContext(ctx, current, payload)
 	result, err := s.runHRChatRuntimeWithOptions(ctx, &pb.ChatRequest{
 		HrId:                         current.OwnerID,
 		SessionId:                    current.SessionID,
@@ -3457,6 +3776,7 @@ func (s *nativeAIService) executeAgentRun(ctx context.Context, run AgentRunRow) 
 		agentRunID:               current.ID,
 		effectiveAgentID:         payload.EffectiveAgentID,
 		effectiveAgentPinned:     payload.EffectiveAgentPinned,
+		durablePayload:           payload,
 	})
 	if err != nil {
 		if agentRunExecutionCanceled(ctx, err) {
@@ -3535,6 +3855,19 @@ func (s *nativeAIService) finishAgentRunSucceeded(ctx context.Context, run Agent
 			return err
 		}
 	}
+	if result.plan.Intent != "" {
+		payload := agentRunPayloadFromRow(current)
+		planJSON := agentRunRuntimePlanJSON(payload, &pb.ChatRequest{
+			HrId:          current.OwnerID,
+			SessionId:     current.SessionID,
+			Message:       payload.Message,
+			ApplicationId: payload.ApplicationID,
+			ModelId:       payload.ModelID,
+		}, result.governance, result.plan, result.modelID, result.modelName, result.runtimeWarnings)
+		if _, _, err := s.store.UpdateAgentRunPlan(storeCtx, current.OwnerID, current.ID, planJSON, current.OptionContextJSON); err != nil {
+			return err
+		}
+	}
 	if _, err := s.appendAgentRunEvent(storeCtx, run.ID, "run.result", agentRunResultPayload(result)); err != nil {
 		return err
 	}
@@ -3610,7 +3943,7 @@ func agentRunExecutionCanceled(ctx context.Context, err error) bool {
 }
 
 func (s *nativeAIService) agentRunChatEmitter(runID int64) hrChatStreamEmitter {
-	return func(event *pb.ChatStreamResponse) error {
+	return func(event *pb.ChatStreamResponse, display *agentRunDisplayContext) error {
 		if event == nil {
 			return nil
 		}
@@ -3619,6 +3952,24 @@ func (s *nativeAIService) agentRunChatEmitter(runID int64) hrChatStreamEmitter {
 			"status":        agentRunStatusRunning,
 			"source_event":  event.GetEventType(),
 			"event_message": event.GetEventMessage(),
+		}
+		if display != nil {
+			if display.StepKey != "" {
+				payload["step_key"] = display.StepKey
+			}
+			if display.StepPurpose != "" {
+				payload["step_purpose"] = display.StepPurpose
+			}
+			if display.ToolGroup != "" {
+				payload["tool_group"] = display.ToolGroup
+			}
+		}
+		if displayMessage := agentRunDisplayMessage(eventType, event, display); displayMessage != "" {
+			payload["display_message"] = displayMessage
+			payload["display_source"] = "planner_step"
+			if display == nil || display.StepPurpose == "" {
+				payload["display_source"] = "runtime_fallback"
+			}
 		}
 		if event.GetDelta() != "" {
 			payload["delta"] = event.GetDelta()
@@ -3640,6 +3991,91 @@ func (s *nativeAIService) agentRunChatEmitter(runID int64) hrChatStreamEmitter {
 		_, err := s.appendAgentRunEvent(agentRunStoreContext(context.Background()), runID, eventType, marshalJSONString(payload))
 		return err
 	}
+}
+
+func displayContextForTool(plan commonsai.RecruitingPlan, toolName string) *agentRunDisplayContext {
+	toolName = hr_tools.NormalizeToolName(toolName)
+	if toolName == "" {
+		return nil
+	}
+	for _, step := range plan.DisplaySteps {
+		for _, tool := range step.Tools {
+			if hr_tools.NormalizeToolName(tool) == toolName {
+				return &agentRunDisplayContext{
+					Plan:        plan,
+					StepKey:     step.Key,
+					StepPurpose: step.Purpose,
+					ToolGroup:   step.ToolGroup,
+				}
+			}
+		}
+	}
+	return nil
+}
+
+func displayContextForPlanStep(plan commonsai.RecruitingPlan, key string) *agentRunDisplayContext {
+	for _, step := range plan.DisplaySteps {
+		if step.Key == key {
+			return &agentRunDisplayContext{
+				Plan:        plan,
+				StepKey:     step.Key,
+				StepPurpose: step.Purpose,
+				ToolGroup:   step.ToolGroup,
+			}
+		}
+	}
+	return nil
+}
+
+func agentRunDisplayMessage(eventType string, event *pb.ChatStreamResponse, display *agentRunDisplayContext) string {
+	if event == nil {
+		return ""
+	}
+	purpose := ""
+	if display != nil {
+		purpose = strings.TrimSpace(display.StepPurpose)
+	}
+	switch eventType {
+	case "tool.started":
+		if purpose != "" {
+			return "我正在" + purpose + "。"
+		}
+		return "我正在查询实时招聘数据。"
+	case "tool.finished":
+		if event.GetErrorType() != "" || strings.TrimSpace(event.GetMsg()) != "success" {
+			if purpose != "" {
+				return purpose + "暂时没有完成，我会尝试使用其他可用数据继续推进。"
+			}
+			return "这一步实时数据暂时没有完成，我会尝试使用其他可用数据继续推进。"
+		}
+		if purpose != "" {
+			return "已完成：" + purpose + "。"
+		}
+		return "已获取一项实时招聘数据。"
+	case "process.delta":
+		switch event.GetEventType() {
+		case "context_usage":
+			if purpose != "" {
+				return "我已确认上下文容量，准备" + purpose + "。"
+			}
+			return "我已确认上下文容量，准备整理工具结果。"
+		case "thinking":
+			return "我正在判断问题意图，并规划需要读取哪些招聘数据。"
+		case "fallback":
+			return "实时证据不足以可靠回答，我会避免编造数据。"
+		case "generating":
+			if purpose != "" {
+				return "我正在" + purpose + "。"
+			}
+			return "我正在整理已获取的数据。"
+		}
+	case "run.error":
+		if purpose != "" {
+			return purpose + "过程中出现异常。"
+		}
+		return "执行过程中出现异常。"
+	}
+	return ""
 }
 
 func agentRunEventTypeFromChatEvent(event *pb.ChatStreamResponse) string {
@@ -3669,7 +4105,7 @@ func agentRunResultPayload(result hrChatRuntimeResult) string {
 		"result_metadata": map[string]any{
 			"status":        result.status,
 			"context_usage": contextUsagePayload(result.contextUsage),
-			"raw_json":      buildHRProcessContent(result.toolTraces, result.contextUsage, result.fallbackUsed, result.governance),
+			"raw_json":      buildHRProcessContent(result.toolTraces, result.contextUsage, result.fallbackUsed, result.governance, result.plan),
 		},
 	}
 	return marshalJSONString(payload)
@@ -3693,6 +4129,77 @@ func contextUsagePayload(usage *pb.ContextUsageInfo) map[string]any {
 	}
 }
 
+func modelDisplayName(modelID int64) string {
+	if modelID > 0 {
+		return fmt.Sprintf("模型 #%d", modelID)
+	}
+	return "默认模型"
+}
+
+func (s *nativeAIService) resolveRuntimeModelDisplay(ctx context.Context, requestedModelID int64) (int64, string) {
+	fallbackID := requestedModelID
+	fallbackName := modelDisplayName(requestedModelID)
+	if s == nil || s.store == nil {
+		return fallbackID, fallbackName
+	}
+	if resolver, ok := s.store.(llmRuntimeModelResolver); ok {
+		id, name, found, err := resolver.ResolveLLMRuntimeModel(ctx, requestedModelID)
+		if err == nil && found && strings.TrimSpace(name) != "" {
+			return id, strings.TrimSpace(name)
+		}
+	}
+	rows, _, err := s.store.ListLlmModels(ctx, 1, 200, 0)
+	if err != nil || len(rows) == 0 {
+		return fallbackID, fallbackName
+	}
+	var firstEnabled *pb.LlmModelInfo
+	for _, row := range rows {
+		if row == nil || !row.GetIsEnabled() {
+			continue
+		}
+		if firstEnabled == nil {
+			firstEnabled = row
+		}
+		if requestedModelID > 0 && row.GetId() == requestedModelID {
+			return row.GetId(), llmModelDisplayName(row)
+		}
+		if requestedModelID <= 0 && row.GetIsDefault() {
+			return row.GetId(), llmModelDisplayName(row)
+		}
+	}
+	if requestedModelID <= 0 && firstEnabled != nil {
+		return firstEnabled.GetId(), llmModelDisplayName(firstEnabled)
+	}
+	return fallbackID, fallbackName
+}
+
+func llmModelDisplayName(model *pb.LlmModelInfo) string {
+	if model == nil {
+		return ""
+	}
+	if name := strings.TrimSpace(model.GetModelName()); name != "" {
+		return name
+	}
+	if name := strings.TrimSpace(model.GetDisplayName()); name != "" {
+		return name
+	}
+	return modelDisplayName(model.GetId())
+}
+
+func compactStrings(values []string) []string {
+	result := make([]string, 0, len(values))
+	seen := make(map[string]bool, len(values))
+	for _, value := range values {
+		value = strings.TrimSpace(value)
+		if value == "" || seen[value] {
+			continue
+		}
+		seen[value] = true
+		result = append(result, value)
+	}
+	return result
+}
+
 func agentRunPayloadFromCreateRequest(req *pb.CreateAgentRunRequest) agentRunDurablePayload {
 	if req == nil {
 		return agentRunDurablePayload{}
@@ -3712,6 +4219,98 @@ func agentRunPayloadFromCreateRequest(req *pb.CreateAgentRunRequest) agentRunDur
 
 func agentRunPlanJSON(payload agentRunDurablePayload) string {
 	return marshalJSONString(map[string]any{"durable_request": payload})
+}
+
+func agentRunRuntimePlanJSON(payload agentRunDurablePayload, req *pb.ChatRequest, governance hrRuntimeGovernanceContext, plan commonsai.RecruitingPlan, runtimeModelID int64, runtimeModelName string, runtimeWarnings []string) string {
+	if req != nil {
+		if strings.TrimSpace(payload.Message) == "" {
+			payload.Message = req.GetMessage()
+		}
+		if payload.ApplicationID == 0 {
+			payload.ApplicationID = req.GetApplicationId()
+		}
+		if payload.ModelID == 0 {
+			payload.ModelID = req.GetModelId()
+		}
+		if len(payload.SkillCapabilityKeys) == 0 {
+			payload.SkillCapabilityKeys = append([]string(nil), req.GetSkillCapabilityKeys()...)
+		}
+		if len(payload.AgentSkillIDs) == 0 {
+			payload.AgentSkillIDs = append([]int64(nil), req.GetAgentSkillIds()...)
+		}
+		if req.GetAgentSkillSelectionConfirmed() {
+			payload.AgentSkillSelectionConfirmed = true
+		}
+		if payload.AgentSkillSelectionMessageID == 0 {
+			payload.AgentSkillSelectionMessageID = req.GetAgentSkillSelectionMessageId()
+		}
+	}
+	agentType := hrRecruitingAgentType
+	agentName := hrRecruitingAgentType
+	agentID := int64(0)
+	if governance.Agent != nil {
+		if value := strings.TrimSpace(governance.Agent.GetAgentType()); value != "" {
+			agentType = value
+		}
+		if value := strings.TrimSpace(governance.Agent.GetName()); value != "" {
+			agentName = value
+		}
+		agentID = governance.Agent.GetId()
+	}
+	decision := map[string]any{
+		"intent":                     string(plan.Intent),
+		"required_tool_count":        len(plan.RequiredTools),
+		"required_data_count":        len(plan.RequiredData),
+		"risk_flag_count":            len(plan.RiskChecks),
+		"requires_human_confirm":     plan.ConfirmationRequirement.Required,
+		"requires_evidence_citation": len(plan.RiskChecks) > 0,
+	}
+	if plan.ConfirmationRequirement.Required {
+		decision["confirmation_required"] = true
+		decision["confirmation_reason"] = plan.ConfirmationRequirement.Reason
+	}
+	if runtimeModelName == "" {
+		runtimeModelName = modelDisplayName(payload.ModelID)
+	}
+	if runtimeModelID == 0 {
+		runtimeModelID = payload.ModelID
+	}
+	runtimeWarnings = compactStrings(runtimeWarnings)
+	if len(runtimeWarnings) > 0 {
+		decision["runtime_warning"] = true
+		decision["warning_count"] = len(runtimeWarnings)
+		decision["warning_messages"] = runtimeWarnings
+	}
+	return marshalJSONString(map[string]any{
+		"durable_request":   payload,
+		"runtime":           "native-hr-runtime",
+		"agent":             agentName,
+		"agent_type":        agentType,
+		"agent_id":          agentID,
+		"model":             runtimeModelName,
+		"model_id":          runtimeModelID,
+		"application_bound": payload.ApplicationID > 0,
+		"application_id":    payload.ApplicationID,
+		"recruiting_plan":   plan,
+		"risk_flags":        append([]string(nil), plan.RiskChecks...),
+		"decision":          decision,
+	})
+}
+
+func (s *nativeAIService) persistAgentRunRuntimePlan(ctx context.Context, req *pb.ChatRequest, opts hrChatRuntimeOptions, governance hrRuntimeGovernanceContext, plan commonsai.RecruitingPlan, runtimeModelID int64, runtimeModelName string, runtimeWarnings []string) error {
+	if s == nil || s.store == nil || opts.agentRunID <= 0 || req == nil {
+		return nil
+	}
+	payload := opts.durablePayload
+	planJSON := agentRunRuntimePlanJSON(payload, req, governance, plan, runtimeModelID, runtimeModelName, runtimeWarnings)
+	_, found, err := s.store.UpdateAgentRunPlan(ctx, req.GetHrId(), opts.agentRunID, planJSON, "")
+	if err != nil {
+		return err
+	}
+	if !found {
+		return fmt.Errorf("agent run not found")
+	}
+	return nil
 }
 
 func agentRunConfirmationAcceptedPayload(req *pb.ConfirmAgentRunRequest) string {
@@ -3757,6 +4356,21 @@ func agentRunPayloadFromRow(run AgentRunRow) agentRunDurablePayload {
 		payload.ModelID = run.ModelID
 	}
 	return payload
+}
+
+func agentRunExecutionContext(ctx context.Context, run AgentRunRow, payload agentRunDurablePayload) context.Context {
+	authUserID := payload.AuthUserID
+	if authUserID <= 0 {
+		authUserID = run.OwnerID
+	}
+	if authUserID <= 0 {
+		return ctx
+	}
+	accountType := strings.TrimSpace(payload.AuthAccountType)
+	if accountType == "" {
+		accountType = "staff"
+	}
+	return platformmetadata.WithAuthActor(ctx, authUserID, accountType)
 }
 
 func isCancelableAgentRunStatus(status string) bool {
@@ -4003,8 +4617,8 @@ type nativeRecruitingIntelligenceService struct {
 	structured   *recruitingruntime.Runtime
 	policy       recruitingruntime.RuntimePolicy
 	auth         pb.AuthServiceClient
-	applications pb.ApplicationOwnerServiceClient
-	jobs         pb.JobServiceClient
+	applications applicationSnapshotClient
+	jobs         hr_tools.JobClient
 	observer     recruitingruntime.Observer
 }
 
@@ -5495,7 +6109,7 @@ func mapAgentRunSnapshot(row AgentRunRow) *pb.AgentRunSnapshot {
 
 func fallbackAgentRun(hrID, sessionID int64, clientRequestID string, payload agentRunDurablePayload) AgentRunRow {
 	now := time.Now()
-	return AgentRunRow{SessionID: sessionID, OwnerID: hrID, ClientRequestID: clientRequestID, Status: "queued", AssistantText: "", PlanJSON: agentRunPlanJSON(payload), ModelID: payload.ModelID, AgentType: "hr", AgentName: "hr_recruiting_agent", StartedAt: now, CreatedAt: now, UpdatedAt: now}
+	return AgentRunRow{SessionID: sessionID, OwnerID: hrID, ClientRequestID: clientRequestID, Status: "queued", AssistantText: "", PlanJSON: agentRunPlanJSON(payload), ModelID: payload.ModelID, ModelName: modelDisplayName(payload.ModelID), AgentType: "hr", AgentName: "hr_recruiting_agent", StartedAt: now, CreatedAt: now, UpdatedAt: now}
 }
 
 func applyHRGovernanceToAgentRun(run *AgentRunRow, governance hrRuntimeGovernanceContext) {

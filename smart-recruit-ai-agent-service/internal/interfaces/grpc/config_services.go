@@ -4,6 +4,9 @@ import (
 	"context"
 	"strings"
 
+	"github.com/cloudwego/eino/schema"
+
+	commonsai "smart-recruit-commons/ai"
 	"smart-recruit-proto/recruitment/pb"
 )
 
@@ -265,53 +268,37 @@ func (s nativeEmbeddingConfigService) BackfillEmbeddings(ctx context.Context, re
 }
 
 func builtinCapabilities(agentType string) []*pb.CapabilityInfo {
-	items := []*pb.CapabilityInfo{
-		{
-			Source:      "builtin",
-			Key:         "candidate_search",
-			Name:        "candidate_search",
-			DisplayName: "Candidate Search",
-			Description: "Search candidate and application context from recruitment data.",
-			IsAvailable: true,
-			RuntimeType: "native",
-		},
-		{
-			Source:      "builtin",
-			Key:         "resume_intelligence",
-			Name:        "resume_intelligence",
-			DisplayName: "Resume Intelligence",
-			Description: "Read resume intelligence already persisted by the recruitment domain.",
-			IsAvailable: true,
-			RuntimeType: "native",
-		},
-		{
-			Source:      "builtin",
-			Key:         "interview_context",
-			Name:        "interview_context",
-			DisplayName: "Interview Context",
-			Description: "Use interview schedule and result context when it is available.",
-			IsAvailable: true,
-			RuntimeType: "native",
-		},
-		// Executable recruiting tools exposed to Agent admin bindings / runtime allowlists.
-		{Source: "builtin", Key: "get_job_list", Name: "get_job_list", DisplayName: "岗位列表", Description: "List open jobs owned by the current HR.", IsAvailable: true, RuntimeType: "native"},
-		{Source: "builtin", Key: "search_jobs", Name: "search_jobs", DisplayName: "搜索岗位", Description: "Search HR jobs by keyword and status.", IsAvailable: true, RuntimeType: "native"},
-		{Source: "builtin", Key: "get_job_detail", Name: "get_job_detail", DisplayName: "岗位详情", Description: "Get a single job detail within HR scope.", IsAvailable: true, RuntimeType: "native"},
-		{Source: "builtin", Key: "get_application_snapshot", Name: "get_application_snapshot", DisplayName: "投递快照", Description: "Load application snapshot context when application_id is present.", IsAvailable: true, RuntimeType: "native"},
-		{Source: "builtin", Key: "query_total_applications", Name: "query_total_applications", DisplayName: "累计投递", Description: "Count total applications for the current HR.", IsAvailable: true, RuntimeType: "native"},
-		{Source: "builtin", Key: "query_today_applications", Name: "query_today_applications", DisplayName: "今日投递", Description: "Count today's new applications.", IsAvailable: true, RuntimeType: "native"},
-		{Source: "builtin", Key: "get_job_heat_ranking", Name: "get_job_heat_ranking", DisplayName: "岗位热度", Description: "Rank jobs by application volume.", IsAvailable: true, RuntimeType: "native"},
-		{Source: "builtin", Key: "list_all_applications", Name: "list_all_applications", DisplayName: "全部投递", Description: "List applications across HR jobs.", IsAvailable: true, RuntimeType: "native"},
-		{Source: "builtin", Key: "list_applications_by_job", Name: "list_applications_by_job", DisplayName: "按岗位投递", Description: "List applications for one job.", IsAvailable: true, RuntimeType: "native"},
-		{Source: "builtin", Key: "list_applications_by_status", Name: "list_applications_by_status", DisplayName: "按状态投递", Description: "List applications filtered by status.", IsAvailable: true, RuntimeType: "native"},
-		{Source: "builtin", Key: "get_application_status_summary", Name: "get_application_status_summary", DisplayName: "状态分布", Description: "Aggregate application status counts.", IsAvailable: true, RuntimeType: "native"},
-		{Source: "builtin", Key: "get_application_trend", Name: "get_application_trend", DisplayName: "投递趋势", Description: "Daily application trend over recent days.", IsAvailable: true, RuntimeType: "native"},
-		{Source: "builtin", Key: "search_candidates", Name: "search_candidates", DisplayName: "搜索候选人", Description: "Search candidates by name/phone/job.", IsAvailable: true, RuntimeType: "native"},
-		{Source: "builtin", Key: "get_candidate_detail", Name: "get_candidate_detail", DisplayName: "候选人详情", Description: "Load candidate application snapshot.", IsAvailable: true, RuntimeType: "native"},
-		{Source: "builtin", Key: "propose_application_status_update", Name: "propose_application_status_update", DisplayName: "状态变更提案", Description: "Propose status change without mutating DB.", IsAvailable: true, RuntimeType: "native"},
+	switch strings.TrimSpace(agentType) {
+	case "", "hr_recruiting_agent":
+		items := capabilitiesFromTools(commonsai.RecruitingTools())
+		if strings.TrimSpace(agentType) == "" {
+			items = append(items, capabilitiesFromTools(commonsai.CandidateTools())...)
+		}
+		return items
+	case "candidate_assistant":
+		return capabilitiesFromTools(commonsai.CandidateTools())
+	default:
+		return nil
 	}
-	if strings.TrimSpace(agentType) == "candidate_assistant" {
-		return items[:1]
+}
+
+func capabilitiesFromTools(tools []*schema.ToolInfo) []*pb.CapabilityInfo {
+	items := make([]*pb.CapabilityInfo, 0, len(tools))
+	seen := map[string]bool{}
+	for _, tool := range tools {
+		if tool == nil || strings.TrimSpace(tool.Name) == "" || seen[tool.Name] {
+			continue
+		}
+		seen[tool.Name] = true
+		items = append(items, &pb.CapabilityInfo{
+			Source:      "builtin",
+			Key:         tool.Name,
+			Name:        tool.Name,
+			DisplayName: tool.Name,
+			Description: tool.Desc,
+			IsAvailable: true,
+			RuntimeType: "native",
+		})
 	}
 	return items
 }

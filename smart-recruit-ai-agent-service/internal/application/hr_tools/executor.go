@@ -92,6 +92,11 @@ var ExecutableByThisRunner = map[string]bool{
 	"search_candidates":                 true,
 	"get_candidate_detail":              true,
 	"propose_application_status_update": true,
+	"parse_resume_profile":              true,
+	"get_resume_profile":                true,
+	"evaluate_candidate_match":          true,
+	"get_candidate_match_evaluation":    true,
+	"compare_candidates_for_job":        true,
 }
 
 // Execute routes a model-selected tool call to the underlying domain client.

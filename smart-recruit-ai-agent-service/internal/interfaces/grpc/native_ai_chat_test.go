@@ -339,6 +339,7 @@ func TestHRChatPersistsMessagesWithHROwnerRole(t *testing.T) {
 
 func TestHRChatRuntimeUsesApplicationToolContextAndPersistsTrace(t *testing.T) {
 	store := newFakeAIStore()
+	store.llmModels = []*pb.LlmModelInfo{{Id: 7, ModelName: "qwen3.6-flash", IsDefault: true, IsEnabled: true}}
 	apps := &fakeApplicationSnapshotClient{response: &pb.GetApplicationSnapshotResponse{
 		Code:            0,
 		ApplicationId:   99,
@@ -366,7 +367,7 @@ func TestHRChatRuntimeUsesApplicationToolContextAndPersistsTrace(t *testing.T) {
 	}
 	service := newNativeAIService(store, provider, apps, nil, nil)
 
-	resp, err := service.Chat(context.Background(), &pb.ChatRequest{HrId: 77, Message: "summarize application", ApplicationId: 99, ModelId: 123})
+	resp, err := service.Chat(context.Background(), &pb.ChatRequest{HrId: 77, Message: "summarize application", ApplicationId: 99})
 	if err != nil {
 		t.Fatalf("Chat returned error: %v", err)
 	}
@@ -389,6 +390,12 @@ func TestHRChatRuntimeUsesApplicationToolContextAndPersistsTrace(t *testing.T) {
 	}
 	if got := store.messages[1]; got.Role != "assistant" || got.ProcessContent == "" || !strings.Contains(got.ProcessContent, "native-hr-runtime") {
 		t.Fatalf("assistant message = %#v, want process content", got)
+	}
+	if got := store.messages[1]; got.ModelID != 7 || got.ModelName != "qwen3.6-flash" {
+		t.Fatalf("assistant model = (%d, %q), want persisted model for history reload", got.ModelID, got.ModelName)
+	}
+	if resp.GetContextUsage().GetModelId() != 7 || resp.GetContextUsage().GetModelName() != "qwen3.6-flash" {
+		t.Fatalf("context usage model = (%d, %q), want resolved default model", resp.GetContextUsage().GetModelId(), resp.GetContextUsage().GetModelName())
 	}
 }
 
@@ -1953,6 +1960,7 @@ type fakeAIStore struct {
 	agentConfigs       []*pb.AgentConfigInfo
 	agentSkills        []*pb.AgentSkillInfo
 	agentSkillVersions map[int64][]*pb.AgentSkillVersionInfo
+	llmModels          []*pb.LlmModelInfo
 	toolTraces         []ToolTraceRow
 	candidateContext   CandidateRuntimeContext
 	usageAudits        []CandidateUsageAuditRow
@@ -2164,8 +2172,18 @@ func (s *fakeAIStore) ListLlmProviders(context.Context, int32, int32) ([]*pb.Llm
 	return nil, 0, nil
 }
 
-func (s *fakeAIStore) ListLlmModels(context.Context, int32, int32, int64) ([]*pb.LlmModelInfo, int64, error) {
-	return nil, 0, nil
+func (s *fakeAIStore) ListLlmModels(_ context.Context, _ int32, _ int32, providerID int64) ([]*pb.LlmModelInfo, int64, error) {
+	items := make([]*pb.LlmModelInfo, 0, len(s.llmModels))
+	for _, model := range s.llmModels {
+		if model == nil {
+			continue
+		}
+		if providerID > 0 && model.GetProviderId() != providerID {
+			continue
+		}
+		items = append(items, model)
+	}
+	return items, int64(len(items)), nil
 }
 
 func (s *fakeAIStore) ListPromptTemplates(_ context.Context, _ int32, _ int32, agentType string) ([]*pb.PromptTemplateInfo, int64, error) {
@@ -2482,11 +2500,11 @@ func TestAgentRunStreamingDeltasAreAssistantEventsWithoutFinalDuplicate(t *testi
 	}
 	emit := service.agentRunChatEmitter(created.ID)
 	for _, delta := range []string{"first ", "second"} {
-		if err := emit(&pb.ChatStreamResponse{EventType: "generating", Delta: delta, EventMessage: "streaming answer"}); err != nil {
+		if err := emit(&pb.ChatStreamResponse{EventType: "generating", Delta: delta, EventMessage: "streaming answer"}, nil); err != nil {
 			t.Fatalf("emit delta returned error: %v", err)
 		}
 	}
-	if err := emit(&pb.ChatStreamResponse{EventType: "generating", EventMessage: "calling model"}); err != nil {
+	if err := emit(&pb.ChatStreamResponse{EventType: "generating", EventMessage: "calling model"}, nil); err != nil {
 		t.Fatalf("emit process status returned error: %v", err)
 	}
 	result := hrChatRuntimeResult{reply: "first second", streamedTextDelta: true}

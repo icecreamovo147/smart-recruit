@@ -127,9 +127,9 @@ func TestResolveBuiltinToolNamesFailsClosedAndNormalizes(t *testing.T) {
 		t.Fatalf("resolved = %v", got)
 	}
 	for name, input := range map[string][]string{
-		"abstract":      {"candidate_search", "resume_intelligence"},
-		"unknown":       {"unknown_tool"},
-		"unimplemented": {"parse_resume_profile"},
+		"abstract":         {"candidate_search", "resume_intelligence"},
+		"unknown":          {"unknown_tool"},
+		"platform_context": {"get_application_snapshot"},
 	} {
 		if got := ResolveBuiltinToolNames(nil, input); len(got) != 0 {
 			t.Fatalf("%s bindings resolved = %v, want none", name, got)
