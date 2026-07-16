@@ -273,6 +273,22 @@ func TestHandleEmailMessageCoordinatesTemplateIdempotencyRecipientAndSend(t *tes
 	if logs.created[len(logs.created)-1].Status != model.EmailStatusSent {
 		t.Fatalf("success should log sent: %#v", logs.created[len(logs.created)-1])
 	}
+
+	// After SMTP succeeds, a log write failure must not bubble up (would cause MQ redelivery).
+	logs.createErr = errors.New("uk_email_event_id duplicate")
+	logs.exists = false
+	beforeSends := len(sender.sentTo)
+	if err := svc.HandleEmailMessage(ctx, command.EmailMessage{
+		EventID:    "evt-5",
+		ReceiverID: 10,
+		Type:       "offer_sent",
+		Title:      "Offer",
+	}); err != nil {
+		t.Fatalf("post-send log failure should not retry: %v", err)
+	}
+	if len(sender.sentTo) != beforeSends+1 {
+		t.Fatalf("expected one additional send after log failure, sent=%d", len(sender.sentTo))
+	}
 }
 
 func TestInboxIdentityAndRunWithInbox(t *testing.T) {
@@ -429,13 +445,14 @@ func (r *fakeRealtime) PublishNotificationEvent(_ context.Context, _ uint64, _ s
 }
 
 type fakeEmailLogs struct {
-	exists  bool
-	created []model.EmailLog
+	exists    bool
+	createErr error
+	created   []model.EmailLog
 }
 
 func (l *fakeEmailLogs) Create(_ context.Context, log *model.EmailLog) error {
 	l.created = append(l.created, *log)
-	return nil
+	return l.createErr
 }
 
 func (l *fakeEmailLogs) ExistsByEventID(context.Context, string) (bool, error) {

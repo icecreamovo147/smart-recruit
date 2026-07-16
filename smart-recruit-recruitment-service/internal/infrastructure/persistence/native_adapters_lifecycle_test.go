@@ -439,6 +439,15 @@ func (f *lifecycleFixture) assertOutboxPayload(t *testing.T, row eventOutboxReco
 	if payload["biz_type"] != "application" || payload["related_type"] != "application" {
 		t.Fatalf("payload biz type = %v/%v, want application", payload["biz_type"], payload["related_type"])
 	}
+	if payload["event_id"] != row.EventID || row.EventID == "" {
+		t.Fatalf("payload event_id = %v, row event_id = %q", payload["event_id"], row.EventID)
+	}
+	if payload["event_type"] != row.EventType || row.EventType == "" {
+		t.Fatalf("payload event_type = %v, row event_type = %q", payload["event_type"], row.EventType)
+	}
+	if payload["idempotency_key"] != row.IdempotencyKey || row.IdempotencyKey == "" {
+		t.Fatalf("payload idempotency_key = %v, row idempotency_key = %q", payload["idempotency_key"], row.IdempotencyKey)
+	}
 }
 
 func (f *lifecycleFixture) assertCount(t *testing.T, model any, want int64) {

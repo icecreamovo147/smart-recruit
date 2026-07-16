@@ -222,15 +222,20 @@ func TestCandidateResumeConfirmHappyPathSavesResumeAndOutbox(t *testing.T) {
 		t.Fatalf("outbox = %+v, want resume.parse for saved resume", outbox)
 	}
 	var payload struct {
-		ResumeID int64  `json:"resume_id"`
-		FileType string `json:"file_type"`
-		OSSKey   string `json:"oss_key"`
+		EventID    string `json:"event_id"`
+		EventType  string `json:"event_type"`
+		ResumeID   int64  `json:"resume_id"`
+		FileType   string `json:"file_type"`
+		OSSKey     string `json:"oss_key"`
 	}
 	if err := json.Unmarshal([]byte(outbox.Payload), &payload); err != nil {
 		t.Fatalf("unmarshal outbox payload: %v", err)
 	}
 	if payload.ResumeID != newResume.ID || payload.FileType != "pdf" || payload.OSSKey != newResume.OSSKey {
 		t.Fatalf("outbox payload = %+v, want saved resume details", payload)
+	}
+	if payload.EventID != outbox.EventID || payload.EventID == "" || payload.EventType != outbox.EventType {
+		t.Fatalf("outbox payload identity = %+v, row event_id=%q event_type=%q", payload, outbox.EventID, outbox.EventType)
 	}
 }
 

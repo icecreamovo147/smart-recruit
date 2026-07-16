@@ -2333,20 +2333,56 @@ func (a *nativeStore) writeUsageLog(ctx context.Context, row usageLogRecord) err
 }
 
 func (a *nativeStore) writeOutboxTx(tx *gorm.DB, eventType, aggregateType string, aggregateID uint64, routingKey string, payload any) error {
-	data, err := json.Marshal(payload)
+	eventID, err := randomCode()
 	if err != nil {
 		return err
 	}
-	eventID, err := randomCode()
+	payloadMap, err := asOutboxPayloadMap(payload)
+	if err != nil {
+		return err
+	}
+	// Consumers (email/notification) rely on event_id in the published body for
+	// email_logs / inbox idempotency. Keep it in payload, not only on the outbox row.
+	idempotencyKey := fmt.Sprintf("%s:%d:%s:%s", aggregateType, aggregateID, eventType, eventID)
+	payloadMap["event_id"] = eventID
+	payloadMap["event_type"] = eventType
+	payloadMap["idempotency_key"] = idempotencyKey
+	data, err := json.Marshal(payloadMap)
 	if err != nil {
 		return err
 	}
 	row := &eventOutboxRecord{
 		EventID: eventID, SchemaVersion: "1.0", EventType: eventType, AggregateType: aggregateType, AggregateID: aggregateID,
-		RoutingKey: routingKey, Producer: "recruitment-service", IdempotencyKey: fmt.Sprintf("%s:%d:%s", aggregateType, aggregateID, routingKey),
+		RoutingKey: routingKey, Producer: "recruitment-service", IdempotencyKey: idempotencyKey,
 		Payload: string(data), Metadata: "{}", Status: 0, CreatedAt: a.now(), UpdatedAt: a.now(),
 	}
 	return tx.Create(row).Error
+}
+
+func asOutboxPayloadMap(payload any) (map[string]any, error) {
+	switch value := payload.(type) {
+	case nil:
+		return map[string]any{}, nil
+	case map[string]any:
+		out := make(map[string]any, len(value)+3)
+		for key, item := range value {
+			out[key] = item
+		}
+		return out, nil
+	default:
+		data, err := json.Marshal(payload)
+		if err != nil {
+			return nil, err
+		}
+		var out map[string]any
+		if err := json.Unmarshal(data, &out); err != nil {
+			return nil, err
+		}
+		if out == nil {
+			out = map[string]any{}
+		}
+		return out, nil
+	}
 }
 
 func departmentTree(rows []departmentRecord) []*pb.DepartmentNode {

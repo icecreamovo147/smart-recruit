@@ -41,7 +41,18 @@ func (s *Service) HandleEmailMessage(ctx context.Context, msg command.EmailMessa
 		}
 		return err
 	}
-	return s.recordEmailLog(ctx, msg, recipient.Email, model.EmailStatusSent, "")
+	if err := s.recordEmailLog(ctx, msg, recipient.Email, model.EmailStatusSent, ""); err != nil {
+		// SMTP already succeeded. Returning an error would Nack/retry and double-send.
+		// Prefer an audit gap over duplicate emails when the log write fails
+		// (e.g. empty event_id colliding on uk_email_event_id).
+		if msg.EventID != "" && s.emailLogs != nil {
+			if exists, existsErr := s.emailLogs.ExistsByEventID(ctx, msg.EventID); existsErr == nil && exists {
+				return nil
+			}
+		}
+		return nil
+	}
+	return nil
 }
 
 func (s *Service) recordEmailLog(ctx context.Context, msg command.EmailMessage, addr, status, errMsg string) error {
