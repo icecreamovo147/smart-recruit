@@ -471,6 +471,11 @@ func (h *AIHandler) CreateAgentRun(c *gin.Context) {
 		base.BadRequest(c, "会话 ID 不合法")
 		return
 	}
+	req.Message = strings.TrimSpace(req.Message)
+	if req.Message == "" {
+		base.BadRequest(c, "消息内容不能为空")
+		return
+	}
 	resp, err := h.clients.AI.CreateAgentRun(c.Request.Context(), &pb.CreateAgentRunRequest{
 		HrId:                         middleware.UserID(c),
 		SessionId:                    int64(req.SessionID),

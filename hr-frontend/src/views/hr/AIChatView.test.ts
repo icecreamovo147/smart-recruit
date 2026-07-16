@@ -4,6 +4,11 @@
  * Here we exercise message-slot seeding rules used by restoreActiveRunForSession.
  */
 import { describe, expect, it } from 'vitest'
+import {
+  buildApplicationAnalysisMessage,
+  buildApplicationAnalysisRunRequest,
+  resolveApplicationAnalysisMessage,
+} from './AIChatView.vue'
 
 interface MessageItem {
   role: string
@@ -111,5 +116,59 @@ describe('AIChatView restore assistant slot seeding', () => {
     })
     expect(idx).toBe(0)
     expect(messages[0].content).toBe('Hello')
+  })
+})
+
+describe('AIChatView application analysis message', () => {
+  it('builds a non-empty planner-recognizable message for route fallback', () => {
+    const message = buildApplicationAnalysisMessage('张三', '后端工程师')
+    expect(message).toContain('张三')
+    expect(message).toContain('后端工程师')
+    expect(message).toContain('匹配度')
+    expect(message.trim()).not.toBe('')
+  })
+
+  it('uses stable placeholders when route labels are missing', () => {
+    expect(buildApplicationAnalysisMessage()).toContain('该候选人')
+    expect(buildApplicationAnalysisMessage()).toContain('该岗位')
+  })
+
+  it('route entry prefers the backend canonical message in the submitted payload', () => {
+    const message = resolveApplicationAnalysisMessage(
+      [{ role: 'user', content: '  后端返回的匹配评估指令  ' }],
+      '张三',
+      '后端工程师',
+    )
+    const payload = buildApplicationAnalysisRunRequest({
+      sessionId: 11,
+      message,
+      applicationId: 22,
+      clientRequestId: 'route-request',
+      modelId: 33,
+      skillCapabilityKeys: ['candidate.match'],
+    })
+    expect(payload.message).toBe('后端返回的匹配评估指令')
+    expect(payload.action_type).toBe('analyze_application')
+    expect(payload.application_id).toBe(22)
+    expect(payload.skill_capability_keys).toEqual(['candidate.match'])
+  })
+
+  it('in-chat analysis submits the planner-recognizable fallback for legacy empty messages', () => {
+    const message = resolveApplicationAnalysisMessage(
+      [{ role: 'assistant', content: 'ignored' }, { role: 'user', content: '   ' }],
+      '李四',
+      '产品经理',
+    )
+    const payload = buildApplicationAnalysisRunRequest({
+      sessionId: 44,
+      message,
+      applicationId: 55,
+      clientRequestId: 'option-request',
+    })
+    expect(payload.message ?? '').toContain('李四')
+    expect(payload.message ?? '').toContain('产品经理')
+    expect(payload.message ?? '').toContain('匹配度')
+    expect((payload.message ?? '').trim()).not.toBe('')
+    expect(payload.action_type).toBe('analyze_application')
   })
 })

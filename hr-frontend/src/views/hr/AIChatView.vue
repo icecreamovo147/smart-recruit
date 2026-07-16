@@ -1,3 +1,43 @@
+<script lang="ts">
+import type { CreateAgentRunRequest } from '@/types/agentRun'
+
+export const buildApplicationAnalysisMessage = (candidateName?: string, jobTitle?: string): string => {
+  const candidate = candidateName?.trim() || '该候选人'
+  const job = jobTitle?.trim() || '该岗位'
+  return `请分析${candidate}投递${job}的简历与岗位匹配度，并基于真实候选人、岗位和匹配评估数据给出结论。`
+}
+
+interface ApplicationAnalysisMessageLike {
+  role?: string
+  content?: string
+}
+
+export const resolveApplicationAnalysisMessage = (
+  returnedMessages: ApplicationAnalysisMessageLike[],
+  candidateName?: string,
+  jobTitle?: string,
+): string => returnedMessages
+  .find((message) => message.role === 'user' && message.content?.trim())
+  ?.content?.trim() || buildApplicationAnalysisMessage(candidateName, jobTitle)
+
+export const buildApplicationAnalysisRunRequest = (input: {
+  sessionId: number
+  message: string
+  applicationId: number
+  clientRequestId: string
+  modelId?: number
+  skillCapabilityKeys?: string[]
+}): CreateAgentRunRequest => ({
+  session_id: input.sessionId,
+  message: input.message.trim(),
+  action_type: 'analyze_application',
+  application_id: input.applicationId,
+  client_request_id: input.clientRequestId,
+  ...(input.modelId != null ? { model_id: input.modelId } : {}),
+  ...(input.skillCapabilityKeys?.length ? { skill_capability_keys: [...input.skillCapabilityKeys] } : {}),
+})
+</script>
+
 <script setup lang="ts">
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
@@ -22,7 +62,7 @@ import ConversationHeader from '@/components/chat/ConversationHeader.vue'
 import ChatMessageList from '@/components/chat/ChatMessageList.vue'
 import ChatComposer from '@/components/chat/ChatComposer.vue'
 import { useHrAgentRun } from '@/composables/useHrAgentRun'
-import type { AgentRunResultMetadata, CreateAgentRunRequest } from '@/types/agentRun'
+import type { AgentRunResultMetadata } from '@/types/agentRun'
 import type { AgentSkillSelectionPayload, ChatMessageSkill, ChatSessionListItem, Session, CandidateOption, StreamPayload, ContextUsageInfo } from '@/types/ai'
 import type { CapabilityInfo } from '@/types/agent'
 import type { LlmModel } from '@/types/llm'
@@ -944,6 +984,11 @@ const createAnalysisSessionFromRoute = async () => {
   const session = normalizeSession(data.session)
   currentSession.value = session
   messages.value = normalizeMessages(data.messages || [])
+  const returnedUserText = messages.value.find((message) => message.role === 'user' && message.content?.trim())?.content?.trim()
+  const userText = resolveApplicationAnalysisMessage(messages.value, candidateName.value, candidatePosition.value)
+  if (!returnedUserText) {
+    messages.value.unshift({ role: 'user', content: userText })
+  }
   restorePersistedContextUsage(session, messages.value)
   // Replace URL: remove application_id/candidate_name, set session_id so a refresh
   // will load the session normally instead of re-triggering analysis.
@@ -960,16 +1005,15 @@ const createAnalysisSessionFromRoute = async () => {
 
   // Phase 2: Durable run for the analysis reply (observes events; does not own execution).
   const token = beginAgentRun()
-  const userText = messages.value[0]?.content || ''
   try {
-    const createPayload: CreateAgentRunRequest = {
-      session_id: session.id,
+    const createPayload = buildApplicationAnalysisRunRequest({
+      sessionId: session.id,
       message: userText,
-      client_request_id: createClientRequestId(),
-      ...(selectedModelId.value != null ? { model_id: selectedModelId.value } : {}),
-      ...(session.application_id ? { application_id: session.application_id } : {}),
-      ...(selectedSkillKeys.value.length > 0 ? { skill_capability_keys: [...selectedSkillKeys.value] } : {}),
-    }
+      applicationId: session.application_id || applicationId,
+      clientRequestId: createClientRequestId(),
+      ...(selectedModelId.value != null ? { modelId: selectedModelId.value } : {}),
+      ...(selectedSkillKeys.value.length > 0 ? { skillCapabilityKeys: selectedSkillKeys.value } : {}),
+    })
     const result = await executeCreateChatRun(
       agentRun,
       createPayload,
@@ -1040,8 +1084,6 @@ const analyzeCandidateOption = async (option: CandidateOption) => {
   if (!option?.application_id || loading.value) return
   candidateName.value = option.candidate_name || ''
   candidatePosition.value = option.job_title || ''
-  const userMessage = `请帮我分析${option.candidate_name || '该候选人'}投递${option.job_title || '该岗位'}的简历。`
-
   // Durable runs require session_id — create analysis session first (same as route entry).
   let data: { session: ChatSessionListItem; messages: Partial<MessageItem>[] }
   try {
@@ -1057,6 +1099,11 @@ const analyzeCandidateOption = async (option: CandidateOption) => {
   const session = normalizeSession(data.session)
   currentSession.value = session
   messages.value = normalizeMessages(data.messages || [])
+  const returnedUserText = messages.value.find((message) => message.role === 'user' && message.content?.trim())?.content?.trim()
+  const userMessage = resolveApplicationAnalysisMessage(messages.value, option.candidate_name, option.job_title)
+  if (!returnedUserText) {
+    messages.value.unshift({ role: 'user', content: userMessage })
+  }
   restorePersistedContextUsage(session, messages.value)
   await router.replace({ path: '/hr/ai', query: { session_id: String(session.id) } })
   await refreshSessions()
@@ -1071,13 +1118,13 @@ const analyzeCandidateOption = async (option: CandidateOption) => {
   try {
     const result = await executeCreateChatRun(
       agentRun,
-      {
-        session_id: session.id,
+      buildApplicationAnalysisRunRequest({
+        sessionId: session.id,
         message: userMessage,
-        application_id: option.application_id,
-        client_request_id: createClientRequestId(),
-        ...(selectedModelId.value != null ? { model_id: selectedModelId.value } : {}),
-      },
+        applicationId: option.application_id,
+        clientRequestId: createClientRequestId(),
+        ...(selectedModelId.value != null ? { modelId: selectedModelId.value } : {}),
+      }),
       makeChatUiBinder(assistantIndex),
       { isAborted: () => userAborted.value || !isActiveAgentRun(token) },
     )

@@ -1,3 +1,18 @@
+<script lang="ts">
+import type { PromptTemplate } from '@/types/prompt'
+
+export const isCompatibleAgentPrompt = (
+  prompt: Pick<PromptTemplate, 'is_active' | 'prompt_role' | 'agent_type'>,
+  agentType: string,
+): boolean => {
+  if (!prompt.is_active || prompt.prompt_role.trim().toLowerCase() !== 'system') return false
+  const promptAgentType = prompt.agent_type.trim().toLowerCase()
+  const normalizedAgentType = agentType.trim().toLowerCase()
+  if (promptAgentType === normalizedAgentType) return true
+  return normalizedAgentType === 'hr_recruiting_agent' && promptAgentType === 'hr_agent'
+}
+</script>
+
 <script setup lang="ts">
 import { onMounted, reactive, ref, computed } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
@@ -18,8 +33,6 @@ import type {
   CreateAgentPayload,
   UpdateAgentPayload,
 } from '@/types/agent'
-import type { PromptTemplate } from '@/types/prompt'
-
 // ====== Agent types dropdown options ======
 
 const AGENT_TYPE_OPTIONS = [
@@ -99,6 +112,10 @@ const loadList = async () => {
 
 const promptList = ref<PromptTemplate[]>([])
 const capabilityList = ref<CapabilityInfo[]>([])
+
+const compatiblePromptList = computed(() =>
+  promptList.value.filter((prompt) => isCompatibleAgentPrompt(prompt, dialogForm.agent_type)),
+)
 
 const loadReferenceData = async () => {
   try {
@@ -252,6 +269,9 @@ const legacySkillBindings = (bindings: AgentCapabilityBindingInfo[] = []) =>
 
 const handleAgentTypeChange = async () => {
   dialogForm.capability_ids = []
+  if (!compatiblePromptList.value.some((prompt) => prompt.id === dialogForm.prompt_template_id)) {
+    dialogForm.prompt_template_id = null
+  }
   await loadCapabilities(dialogForm.agent_type)
 }
 
@@ -590,7 +610,7 @@ onMounted(() => {
         <el-form-item label="绑定 Prompt">
           <el-select v-model="dialogForm.prompt_template_id" style="width: 100%" placeholder="选择 Prompt 模板" clearable>
             <el-option
-              v-for="p in promptList"
+              v-for="p in compatiblePromptList"
               :key="p.id"
               :value="p.id"
               :label="p.name"

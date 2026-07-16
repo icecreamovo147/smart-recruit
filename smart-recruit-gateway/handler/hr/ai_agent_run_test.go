@@ -235,6 +235,30 @@ func TestCreateAgentRun_Validation(t *testing.T) {
 	}
 }
 
+func TestCreateAgentRun_RejectsBlankMessageBeforeRPC(t *testing.T) {
+	var called atomic.Bool
+	mock := &mockAIServiceClient{createFn: func(_ context.Context, _ *pb.CreateAgentRunRequest, _ ...grpc.CallOption) (*pb.CreateAgentRunResponse, error) {
+		called.Store(true)
+		return &pb.CreateAgentRunResponse{Code: 0, Msg: "ok"}, nil
+	}}
+	r := newAgentRunTestRouter(mock, 42)
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/hr/ai/runs", strings.NewReader(`{"session_id":7,"message":"   "}`))
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+
+	var body map[string]any
+	if err := json.Unmarshal(w.Body.Bytes(), &body); err != nil {
+		t.Fatalf("decode: %v", err)
+	}
+	if code, _ := body["code"].(float64); code != 400 {
+		t.Fatalf("expected business code 400, got %v body=%s", body["code"], w.Body.String())
+	}
+	if called.Load() {
+		t.Fatal("blank message must be rejected before CreateAgentRun RPC")
+	}
+}
+
 func TestCreateAgentRun_ForwardsHrIDAndFields(t *testing.T) {
 	var captured *pb.CreateAgentRunRequest
 	mock := &mockAIServiceClient{
