@@ -44,11 +44,23 @@ export function collectChangedFiles(root, baseTree) {
   return [...changed].sort();
 }
 
+function collectDeletedFiles(root, baseTree) {
+  return new Set(lines(git(root, ["diff", "--diff-filter=D", "--name-only", baseTree, "--"])));
+}
+
 function firstMatch(file, patterns) {
   for (const pattern of patterns || []) {
     if (compileGlob(pattern).test(file)) return pattern;
   }
   return null;
+}
+
+function isOrchestratorOwned(file, featureName, taskId) {
+  const prefix = `.spec/${featureName}/`;
+  return file === `${prefix}pipeline-state.json`
+    || file === `${prefix}reports/${taskId}-report.md`
+    || file === `${prefix}reports/${taskId}-evidence.json`
+    || file === `${prefix}reports/pipeline-summary.md`;
 }
 
 export function checkTaskScope({ root, featureDir, taskId, baseTree }) {
@@ -59,17 +71,29 @@ export function checkTaskScope({ root, featureDir, taskId, baseTree }) {
   const scope = JSON.parse(fs.readFileSync(path.join(featureDir, "task-scope.json"), "utf8"));
   const task = scope.tasks?.[taskId];
   if (!task) throw new Error(`unknown TASK-ID: ${taskId}`);
+  if (scope.schemaVersion === 2 && !["ready", "in_progress", "review"].includes(task.lifecycle)) {
+    throw new Error(`TASK ${taskId} lifecycle ${task.lifecycle} is not executable; reconcile or amend the plan first`);
+  }
 
   const changedFiles = collectChangedFiles(root, baseTree);
+  const deletedFiles = collectDeletedFiles(root, baseTree);
+  const policyIssues = [];
   const rows = changedFiles.map((file) => {
     const forbidden = firstMatch(file, task.forbiddenFiles);
     const allowed = firstMatch(file, task.allowedFiles);
     if (forbidden) return { file, result: "FORBIDDEN", pattern: forbidden };
+    if (scope.schemaVersion === 2 && isOrchestratorOwned(file, scope.feature_name, taskId)) return { file, result: "ORCHESTRATOR", pattern: "canonical runtime artifact" };
+    if (scope.schemaVersion === 2 && deletedFiles.has(file) && !(task.allowedActions || []).includes("delete")) {
+      return { file, result: "ACTION_NOT_ALLOWED", pattern: "allowedActions lacks delete" };
+    }
     if (allowed) return { file, result: "ALLOWED", pattern: allowed };
     return { file, result: "OUT_OF_SCOPE", pattern: null };
   });
-  const failed = rows.some((row) => row.result !== "ALLOWED");
-  return { feature_name: scope.feature_name, task_id: taskId, base_tree: baseTree, classification: feature.classification, rows, failed };
+  if (scope.schemaVersion === 2 && deletedFiles.size > 20 && !(task.destructiveActions || []).some((action) => ["bulk_delete", "delete_source"].includes(action))) {
+    policyIssues.push(`TASK deletes ${deletedFiles.size} files but does not declare bulk_delete or delete_source`);
+  }
+  const failed = rows.some((row) => !["ALLOWED", "ORCHESTRATOR"].includes(row.result)) || policyIssues.length > 0;
+  return { feature_name: scope.feature_name, task_id: taskId, base_tree: baseTree, classification: feature.classification, rows, policy_issues: policyIssues, failed };
 }
 
 function parseArgs(argv) {
@@ -101,6 +125,7 @@ if (import.meta.url === `file://${process.argv[1]}`) {
       console.log(`classification: ${result.classification}`);
       if (result.rows.length === 0) console.log("No TASK-local changed files detected.");
       for (const row of result.rows) console.log(`${row.result}\t${row.file}\t${row.pattern || "-"}`);
+      for (const issue of result.policy_issues || []) console.error(`POLICY\t${issue}`);
       console.log(`scope_result: ${result.failed ? "FAIL" : "PASS"} (${result.task_id})`);
     }
     process.exit(result.failed ? 1 : 0);
