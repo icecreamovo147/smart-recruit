@@ -65,6 +65,11 @@ const AVAILABLE_TOOLS_BY_TYPE: Record<string, { name: string; label: string }[]>
     { name: 'get_application_status_summary', label: '投递状态汇总' },
     { name: 'get_application_trend', label: '投递趋势' },
     { name: 'get_job_list', label: '岗位列表' },
+    { name: 'parse_resume_profile', label: '解析简历画像' },
+    { name: 'get_resume_profile', label: '简历画像' },
+    { name: 'evaluate_candidate_match', label: '候选人匹配评估' },
+    { name: 'get_candidate_match_evaluation', label: '查询匹配评估' },
+    { name: 'compare_candidates_for_job', label: '岗位候选人对比' },
   ],
   candidate_assistant: [
     { name: 'list_my_applications', label: '我的投递列表' },
@@ -576,7 +581,7 @@ onMounted(() => {
       v-model="dialogVisible"
       :title="dialogTitle"
       size="680px"
-      :close-on-click-modal="false"
+      :close-on-click-modal="true"
       destroy-on-close
     >
       <el-form :model="dialogForm" label-width="130px">

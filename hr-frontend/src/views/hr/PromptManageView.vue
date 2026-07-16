@@ -58,7 +58,7 @@ const loadList = async () => {
 const agentTypeLabel = (t: string): string => {
   const map: Record<string, string> = {
     hr_recruiting_agent: 'HR 招聘助手',
-    hr_agent: 'HR（历史）',
+    hr_agent: 'HR 招聘助手',
     candidate_assistant: '候选人',
   }
   return map[t] || t || '-'
@@ -144,7 +144,7 @@ const openEdit = (row: PromptTemplate) => {
   dialogTitle.value = '编辑 Prompt 模板'
   dialogForm.name = row.name
   dialogForm.content = row.content
-  dialogForm.agent_type = row.agent_type
+  dialogForm.agent_type = row.agent_type === 'hr_agent' ? 'hr_recruiting_agent' : row.agent_type
   dialogForm.prompt_role = row.prompt_role
   dialogForm.is_active = row.is_active
   dialogForm.change_note = ''
@@ -349,7 +349,6 @@ onMounted(() => {
           >
             <el-option value="" label="全部 Agent 类型" />
             <el-option value="hr_recruiting_agent" label="HR 招聘助手" />
-            <el-option value="hr_agent" label="HR（历史）" />
             <el-option value="candidate_assistant" label="候选人" />
           </el-select>
           <el-select v-model="statusFilter" placeholder="全部状态" clearable style="width: 140px">
@@ -443,7 +442,7 @@ onMounted(() => {
       v-model="dialogVisible"
       :title="dialogTitle"
       size="680px"
-      :close-on-click-modal="false"
+      :close-on-click-modal="true"
       destroy-on-close
     >
       <el-form :model="dialogForm" label-width="120px">
@@ -453,7 +452,6 @@ onMounted(() => {
         <el-form-item label="Agent 类型" required>
           <el-select v-model="dialogForm.agent_type" style="width: 100%">
             <el-option value="hr_recruiting_agent" label="HR 招聘助手" />
-            <el-option value="hr_agent" label="HR（历史）" />
             <el-option value="candidate_assistant" label="候选人" />
           </el-select>
         </el-form-item>
