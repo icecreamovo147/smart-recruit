@@ -133,6 +133,21 @@ function parseResultMetadata(event: AgentRunEvent): AgentRunResultMetadata | nul
   }
 }
 
+function modelPatchFromMetadata(
+  metadata: AgentRunResultMetadata | null | undefined,
+): Partial<Pick<HrAgentRunState, 'modelId' | 'modelName'>> {
+  const usage = metadata?.context_usage
+  if (!usage) return {}
+  const patch: Partial<Pick<HrAgentRunState, 'modelId' | 'modelName'>> = {}
+  if (typeof usage.model_id === 'number' && Number.isFinite(usage.model_id)) {
+    patch.modelId = usage.model_id
+  }
+  if (typeof usage.model_name === 'string' && usage.model_name.trim()) {
+    patch.modelName = usage.model_name.trim()
+  }
+  return patch
+}
+
 function withStatus(state: HrAgentRunState, status: string): HrAgentRunState {
   if (!status) return state
   return {
@@ -140,6 +155,47 @@ function withStatus(state: HrAgentRunState, status: string): HrAgentRunState {
     status,
     isTerminal: isTerminalAgentRunStatus(status),
   }
+}
+
+function appendProcessLine(text: string, line: string): string {
+  if (!line) return text
+  const separator = text && !text.endsWith('\n') ? '\n' : ''
+  return `${text}${separator}${line}`
+}
+
+function processMessageFromEvent(event: AgentRunEvent, phase: 'process' | 'tool.started' | 'tool.finished'): string {
+  if (event.display_message) {
+    return event.display_message
+  }
+  const message = event.event_message || ''
+  if (phase === 'tool.started') {
+    return '我正在查询实时招聘数据。'
+  }
+  if (phase === 'tool.finished') {
+    if (event.error_type || event.error_message || /\bnot found\b/i.test(message)) {
+      return '这一步实时数据暂时没有完成，我会尝试使用其他可用数据继续推进。'
+    }
+    return '已获取一项实时招聘数据。'
+  }
+  if (message === 'planning HR recruiting context') {
+    return '我正在判断问题意图，并规划需要读取哪些招聘数据。'
+  }
+  if (message === 'context usage estimated') {
+    return '我已确认上下文容量，准备整理工具结果。'
+  }
+  if (message === '正在分析问题...') {
+    return '我正在理解问题，并准备整理已查到的数据。'
+  }
+  if (message === 'AI 响应较慢，请稍候...') {
+    return '模型响应稍慢，我还在等待它基于工具结果继续推理。'
+  }
+  if (message === '正在生成回答...') {
+    return '我正在整理已获取的数据并生成回复。'
+  }
+  if (message === '回答完成') {
+    return '分析完成，已生成基于真实数据的回复。'
+  }
+  return message
 }
 
 /**
@@ -205,9 +261,17 @@ export function reduceAgentRunEvent(
       return next
     }
     case 'process.delta': {
-      const delta = event.delta ?? ''
-      if (delta) {
-        next = { ...next, processText: next.processText + delta }
+      if (event.delta) {
+        next = { ...next, processText: next.processText + event.delta }
+      } else if (event.event_message) {
+        next = { ...next, processText: appendProcessLine(next.processText, processMessageFromEvent(event, 'process')) }
+      }
+      if (event.result_metadata) {
+        next = {
+          ...next,
+          resultMetadata: event.result_metadata,
+          ...modelPatchFromMetadata(event.result_metadata),
+        }
       }
       if (event.status) next = withStatus(next, event.status)
       return next
@@ -219,17 +283,21 @@ export function reduceAgentRunEvent(
       return next
     }
     case 'tool.started': {
+      const processText = processMessageFromEvent(event, 'tool.started')
       next = {
         ...next,
         lastToolName: event.tool_name || next.lastToolName,
+        ...(processText ? { processText: appendProcessLine(next.processText, processText) } : {}),
       }
       if (event.status) next = withStatus(next, event.status)
       return next
     }
     case 'tool.finished': {
+      const processText = processMessageFromEvent(event, 'tool.finished')
       next = {
         ...next,
         lastToolName: event.tool_name || next.lastToolName,
+        ...(processText ? { processText: appendProcessLine(next.processText, processText) } : {}),
       }
       if (event.error_type || event.error_message) {
         // Tool-level errors do not necessarily fail the run; record lightly.
@@ -262,9 +330,11 @@ export function reduceAgentRunEvent(
       return next
     }
     case 'run.result': {
+      const metadata = parseResultMetadata(event) ?? next.resultMetadata
       next = {
         ...next,
-        resultMetadata: parseResultMetadata(event) ?? next.resultMetadata,
+        resultMetadata: metadata,
+        ...modelPatchFromMetadata(metadata),
       }
       if (event.status) next = withStatus(next, event.status)
       return next
@@ -282,7 +352,11 @@ export function reduceAgentRunEvent(
       const terminalStatus = event.status || (next.status && isTerminalAgentRunStatus(next.status) ? next.status : 'succeeded')
       next = withStatus(next, terminalStatus)
       if (event.result_metadata) {
-        next = { ...next, resultMetadata: event.result_metadata }
+        next = {
+          ...next,
+          resultMetadata: event.result_metadata,
+          ...modelPatchFromMetadata(event.result_metadata),
+        }
       }
       if (event.error_type || event.error_message) {
         next = {

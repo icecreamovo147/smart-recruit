@@ -7,6 +7,7 @@ import {
   buildTraceSessionVM,
   classifyStatus,
   formatJsonContent,
+  formatToolTitle,
   nextTraceVisibleCount,
   paginateTraceItems,
   policyDecisionFromJson,
@@ -96,6 +97,12 @@ describe('agentTraceViewModel classification helpers', () => {
     expect(classifyStatus('success')).toBe('succeeded')
     expect(classifyStatus('running')).toBe('active')
     expect(classifyStatus('queued')).toBe('active')
+  })
+
+  it('formats tool titles with Chinese labels while keeping english names', () => {
+    expect(formatToolTitle('search_candidates')).toBe('搜索候选人（search_candidates）')
+    expect(formatToolTitle('unknown_custom_tool')).toBe('unknown_custom_tool')
+    expect(formatToolTitle('')).toBe('')
   })
 
   it('parses MCP policy decisions and risk flags from step/output JSON', () => {
@@ -210,6 +217,41 @@ describe('agentTraceViewModel durable runs', () => {
     // Issue summary should show localized risk text, not raw English keys
     expect(runVM.issues.some((issue) => issue.detail === '核验候选人身份')).toBe(true)
     expect(runVM.issues.every((issue) => !String(issue.detail).includes('verify_candidate_identity'))).toBe(true)
+  })
+
+  it('uses runtime planner metadata when run model and labels are not denormalized', () => {
+    const run = makeRun({
+      model_id: 0,
+      model_name: '',
+      agent_type: 'hr_recruiting_agent',
+      plan_json: JSON.stringify({
+        runtime: 'native-hr-runtime',
+        model: '默认模型',
+        recruiting_plan: {
+          intent: 'candidate_match_evaluation',
+          risk_checks: ['verify_candidate_identity', 'cite_tool_returned_evidence'],
+          confirmation_requirement: { required: false },
+        },
+        risk_flags: ['verify_candidate_identity', 'cite_tool_returned_evidence'],
+        decision: {
+          intent: 'candidate_match_evaluation',
+          risk_flag_count: 2,
+          runtime_warning: true,
+          warning_count: 1,
+          warning_messages: ['AI 响应较慢，请稍候...'],
+        },
+      }),
+      steps: [],
+    })
+
+    const session = buildTraceSessionVM([run], [])
+
+    expect(session.overview.modelName).toBe('默认模型')
+    expect(session.overview.runtimeLabel).toBe('HR 招聘运行时')
+    expect(session.overview.intentLabel).toBe('候选人匹配评估')
+    expect(session.overview.riskCount).toBe(2)
+    expect(session.overview.warningCount).toBe(1)
+    expect(session.issues.some((issue) => issue.label === '运行告警')).toBe(true)
   })
 
   it('localizes known risk flags including do_not_claim_unavailable_tools', () => {
@@ -369,7 +411,7 @@ describe('agentTraceViewModel filters', () => {
       issueOnly: false,
     })
     expect(keyword.isFilterEmpty).toBe(false)
-    expect(keyword.runs.some((run) => run.steps.some((step) => step.title === 'search_candidates'))).toBe(true)
+    expect(keyword.runs.some((run) => run.steps.some((step) => step.title === '搜索候选人（search_candidates）'))).toBe(true)
 
     const failedOnly = applyTraceFilters(session, {
       keyword: '',

@@ -3,7 +3,7 @@ import { normalizeAgentRunEvent } from './agentRun'
 import type { AgentRunEvent } from '@/types/agentRun'
 
 describe('normalizeAgentRunEvent', () => {
-  it('maps process metadata payloads into reducer-compatible result events', () => {
+  it('keeps process metadata events as process events and extracts payload fields', () => {
     const event: AgentRunEvent = {
       run_id: 1,
       seq: 2,
@@ -12,6 +12,8 @@ describe('normalizeAgentRunEvent', () => {
         status: 'running',
         source_event: 'context_usage',
         event_message: 'context usage estimated',
+        display_message: '我已确认上下文容量，准备整理工具结果。',
+        step_key: 'compose_answer',
         result_metadata: {
           context_usage: {
             model_id: 7,
@@ -24,8 +26,11 @@ describe('normalizeAgentRunEvent', () => {
 
     const normalized = normalizeAgentRunEvent(event)
 
-    expect(normalized.event_type).toBe('run.result')
+    expect(normalized.event_type).toBe('process.delta')
+    expect(normalized.status).toBe('running')
     expect(normalized.event_message).toBe('context usage estimated')
+    expect(normalized.display_message).toBe('我已确认上下文容量，准备整理工具结果。')
+    expect(normalized.step_key).toBe('compose_answer')
     expect(normalized.result_metadata?.context_usage?.model_id).toBe(7)
   })
 
@@ -40,7 +45,7 @@ describe('normalizeAgentRunEvent', () => {
     expect(normalizeAgentRunEvent(event)).toEqual(event)
   })
 
-  it('maps gateway-shaped process events with top-level metadata', () => {
+  it('keeps gateway-shaped process events with top-level metadata unchanged', () => {
     const event: AgentRunEvent = {
       run_id: 1,
       seq: 4,
@@ -61,7 +66,8 @@ describe('normalizeAgentRunEvent', () => {
 
     const normalized = normalizeAgentRunEvent(event)
 
-    expect(normalized.event_type).toBe('run.result')
+    expect(normalized.event_type).toBe('process.delta')
+    expect(normalized.event_message).toBe('context usage estimated')
     expect(normalized.result_metadata?.context_usage?.model_id).toBe(8)
   })
 })

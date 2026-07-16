@@ -529,16 +529,16 @@ const quickHints = [
 }
 
 .assistant-process {
-  margin-bottom: 10px;
-  padding: 10px 12px;
+  margin-bottom: 8px;
+  padding: 8px 10px;
   border: 1px solid var(--border);
-  border-radius: 10px;
+  border-radius: 8px;
   background: var(--surface-muted);
   color: var(--text-muted);
 }
 
 .assistant-process__label {
-  margin-bottom: 5px;
+  margin-bottom: 4px;
   color: var(--text-faint);
   font-size: 11px;
   font-weight: 700;
@@ -548,7 +548,20 @@ const quickHints = [
   white-space: pre-wrap;
   overflow-wrap: anywhere;
   font-size: 13px;
-  line-height: 1.65;
+  line-height: 1.5;
+}
+
+.assistant-process__content :deep(p) {
+  margin: 3px 0;
+}
+
+.assistant-process__content :deep(ul),
+.assistant-process__content :deep(ol) {
+  margin: 4px 0 4px 16px;
+}
+
+.assistant-process__content :deep(li) {
+  margin: 2px 0;
 }
 
 .assistant-loading-card {

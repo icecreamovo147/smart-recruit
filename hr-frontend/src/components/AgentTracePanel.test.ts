@@ -170,17 +170,18 @@ describe('AgentTracePanel overview shell', () => {
     vi.useRealTimers()
   })
 
-  it('shows overview and issue summary before timeline for durable runs', async () => {
+  it('shows overview without the issue summary block for durable runs', async () => {
     getAgentRuns.mockResolvedValue({ list: [makeRun()] })
     getToolTraces.mockResolvedValue({ list: [] })
 
     const wrapper = await openPanel(1)
 
     expect(wrapper.find('[data-testid="trace-overview"]').exists()).toBe(true)
-    expect(wrapper.find('[data-testid="trace-issue-summary"]').exists()).toBe(true)
+    expect(wrapper.find('[data-testid="trace-issue-summary"]').exists()).toBe(false)
     expect(wrapper.text()).toContain('执行概览')
-    expect(wrapper.text()).toContain('异常与风险摘要')
+    expect(wrapper.text()).not.toContain('异常与风险摘要')
     expect(wrapper.text()).toContain('search_candidates')
+    expect(wrapper.text()).toContain('搜索候选人')
     // final answer markdown sanitized path still renders content
     expect(wrapper.html()).toContain('hello')
     expect(wrapper.html()).toContain('min(860px')
@@ -197,7 +198,7 @@ describe('AgentTracePanel overview shell', () => {
     expect(wrapper.find('[data-testid="trace-overview"]').exists()).toBe(true)
     expect(wrapper.text()).toContain('兼容工具调用明细')
     expect(wrapper.text()).toContain('old_tool')
-    expect(wrapper.find('[data-testid="trace-issue-summary"]').exists()).toBe(true)
+    expect(wrapper.find('[data-testid="trace-issue-summary"]').exists()).toBe(false)
   })
 
   it('shows empty state when no runs or traces', async () => {

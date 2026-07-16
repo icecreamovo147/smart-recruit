@@ -15,7 +15,6 @@ import type {
 } from '@/types/ai'
 import { debugLog } from '@/utils/debugLog'
 import TraceOverview from '@/components/agent-trace/TraceOverview.vue'
-import TraceIssueSummary from '@/components/agent-trace/TraceIssueSummary.vue'
 import TraceFilterBar from '@/components/agent-trace/TraceFilterBar.vue'
 import TraceRunSection from '@/components/agent-trace/TraceRunSection.vue'
 import TraceLegacySection from '@/components/agent-trace/TraceLegacySection.vue'
@@ -26,11 +25,12 @@ import {
   DEFAULT_FILTER_STATE,
   DEFAULT_LIVE_STATE,
   DEFAULT_TRACE_PAGE_SIZE,
+  formatToolTitle,
   nextTraceVisibleCount,
   paginateTraceItems,
   resetTraceFilters,
+  toolLabel as resolveToolLabel,
   type TraceFilterState,
-  type TraceIssueItem,
   type TraceLiveState,
   type TraceRunVM,
   type TraceLegacyVM,
@@ -102,17 +102,6 @@ const drawerSize = computed(() => 'min(860px, 100vw)')
 
 const resetFilters = () => {
   filterState.value = resetTraceFilters()
-}
-
-const onSelectIssue = (issue: TraceIssueItem) => {
-  // Prefer steps layer for step anchors; no-op if target hidden by filters.
-  if (issue.sourceKind === 'step') activeLayer.value = 'steps'
-  else if (issue.sourceKind === 'legacy') activeLayer.value = 'legacy'
-  else activeLayer.value = 'overview'
-  requestAnimationFrame(() => {
-    const el = document.getElementById(issue.anchorKey)
-    if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' })
-  })
 }
 
 /** Map filtered run VMs back to original runs but with filtered steps for timeline rendering. */
@@ -210,8 +199,10 @@ const applyLiveEvent = (event: AgentRunEvent) => {
   const status = event.status || liveState.value.status || 'running'
   const processText = event.snapshot_text
     || event.delta
+    || event.display_message
+    || event.event_message
     || event.error_message
-    || (event.tool_name ? `工具: ${event.tool_name}` : liveState.value.processText)
+    || (event.tool_name ? `工具: ${formatToolTitle(event.tool_name)}` : liveState.value.processText)
   liveState.value = {
     active: !isTerminalAgentRunStatus(status),
     runId: event.run_id || liveState.value.runId,
@@ -493,6 +484,10 @@ const agentLabels: Record<string, string> = {
 }
 
 const runtimeLabels: Record<string, string> = {
+  'native-hr-runtime': 'HR 招聘运行时',
+  hr_recruiting_agent: 'HR 招聘助手',
+  candidate_ai_assistant: '候选人 AI 助手',
+  candidate_assistant: '候选人 AI 助手',
   adk: 'ADK 运行时',
   legacy: '兼容运行时',
   mock: '模拟运行时',
@@ -502,30 +497,15 @@ const runtimeLabels: Record<string, string> = {
 const intentLabels: Record<string, string> = {
   candidate_match_evaluation: '候选人匹配评估',
   candidate_comparison: '候选人对比',
+  candidate_lookup: '候选人查询',
+  job_listing: '职位列表查询',
+  job_detail: '职位详情查询',
+  application_listing: '投递列表查询',
   analytics: '招聘数据分析',
   status_change_proposal: '状态变更建议',
   interview_prep: '面试准备',
   offer_support: 'Offer 支持',
   unknown: '待澄清意图',
-}
-
-const toolLabels: Record<string, string> = {
-  search_candidates: '搜索候选人',
-  get_candidate_detail: '获取候选人详情',
-  parse_resume_profile: '解析简历画像',
-  evaluate_candidate_match: '评估候选人匹配度',
-  get_candidate_match_evaluation: '读取匹配评估结果',
-  search_jobs: '搜索职位',
-  list_applications_by_job: '查询职位投递列表',
-  compare_candidates_for_job: '对比职位候选人',
-  query_total_applications: '查询累计投递数',
-  query_today_applications: '查询今日投递数',
-  get_job_heat_ranking: '获取职位热度排行',
-  get_application_status_summary: '获取投递状态分布',
-  get_application_trend: '获取投递趋势',
-  propose_application_status_update: '生成状态变更建议',
-  get_resume_profile: '获取简历画像',
-  get_job_detail: '获取职位详情',
 }
 
 const dataLabels: Record<string, string> = {
@@ -615,6 +595,9 @@ const decisionKeyLabels: Record<string, string> = {
   required_tool_count: '所需工具数',
   required_data_count: '所需数据数',
   risk_flag_count: '风险检查数',
+  runtime_warning: '运行告警',
+  warning_count: '告警数',
+  warning_messages: '告警信息',
   unavailable_tool_risk: '工具不可用风险',
   requires_human_confirm: '需要人工确认',
   requires_evidence_citation: '需要证据引用',
@@ -679,6 +662,15 @@ const parseNestedPlanner = (value: unknown): AgentRunRecruitingPlan | null => {
 const runPlan = (run: AgentRunItem): AgentRunPlanJSON | null =>
   parseJsonObject<AgentRunPlanJSON>(run.plan_json)
 
+const runModelDisplayName = (run: AgentRunItem): string => {
+  const fromRun = String(run.model_name || '').trim()
+  if (fromRun) return fromRun
+  const plan = runPlan(run)
+  const fromPlan = typeof plan?.model === 'string' ? plan.model.trim() : ''
+  if (fromPlan) return fromPlan
+  return run.model_id > 0 ? `模型 #${run.model_id}` : '默认模型'
+}
+
 const recruitingPlan = (run: AgentRunItem): AgentRunRecruitingPlan | null => {
   const plan = runPlan(run)
   if (!plan) return null
@@ -728,7 +720,7 @@ const labelFrom = (labels: Record<string, string>, value: unknown): string => {
 const agentLabel = (value: unknown): string => labelFrom(agentLabels, value)
 const runtimeLabel = (value: unknown): string => labelFrom(runtimeLabels, value)
 const intentLabel = (value: unknown): string => labelFrom(intentLabels, value)
-const toolLabel = (value: string): string => labelFrom(toolLabels, value)
+const toolLabel = (value: string): string => resolveToolLabel(value)
 const dataLabel = (value: string): string => labelFrom(dataLabels, value)
 const riskLabel = (value: string): string => labelFrom(riskLabels, value)
 const outputFieldLabel = (value: string): string => labelFrom(outputFieldLabels, value)
@@ -885,7 +877,7 @@ const stepTagType = (step: AgentRunStepItem): 'success' | 'warning' | 'danger' |
 }
 
 const stepTitle = (step: AgentRunStepItem): string => {
-  if (step.tool_name) return step.tool_name
+  if (step.tool_name) return formatToolTitle(step.tool_name)
   if (step.capability_key) return step.capability_key
   return step.step_type
 }
@@ -972,7 +964,7 @@ onBeforeUnmount(() => {
     title="Agent 执行轨迹"
     :size="drawerSize"
     class="agent-trace-drawer"
-    :close-on-click-modal="false"
+    :close-on-click-modal="true"
   >
     <div class="trace-panel" v-loading="loading">
       <template v-if="!hasTraceData && !loading">
@@ -999,7 +991,6 @@ onBeforeUnmount(() => {
             show-icon
           />
         </div>
-        <TraceIssueSummary :issues="sessionVM.issues" @select-issue="onSelectIssue" />
         <TraceFilterBar v-model="filterState" @reset="resetFilters" />
         <el-alert
           v-if="historyTruncationHint"
@@ -1032,7 +1023,7 @@ onBeforeUnmount(() => {
             <div>
               <div class="run-item__title">{{ runAgentName(run) }}</div>
               <div class="run-item__meta">
-                {{ run.model_name || '未记录模型' }} · {{ formatTime(run.started_at || run.created_at) }}
+                {{ runModelDisplayName(run) }} · {{ formatTime(run.started_at || run.created_at) }}
               </div>
             </div>
             <el-tag :type="statusTagType(run.status)" size="small">
@@ -1308,7 +1299,7 @@ onBeforeUnmount(() => {
                     <div>
                       <div class="run-item__title">{{ runAgentName(run) }}</div>
                       <div class="run-item__meta">
-                        {{ run.model_name || '未记录模型' }} · {{ formatTime(run.started_at || run.created_at) }}
+                        {{ runModelDisplayName(run) }} · {{ formatTime(run.started_at || run.created_at) }}
                       </div>
                     </div>
                     <el-tag :type="statusTagType(run.status)" size="small">
@@ -1382,13 +1373,23 @@ onBeforeUnmount(() => {
               <div class="run-list">
                 <section v-for="run in filteredRunItems" :key="'raw-' + run.id" class="run-item">
                   <div class="run-item__title">{{ runAgentName(run) }}</div>
-                  <div v-for="step in run.steps" :key="'raw-step-' + step.id" class="trace-item">
-                    <div class="trace-item__name">{{ stepTitle(step) }}</div>
-                    <div v-if="step.input_json" class="trace-item__section">
-                      <TraceJsonBlock :content="step.input_json" label="输入" />
-                    </div>
-                    <div v-if="step.output_json" class="trace-item__section">
-                      <TraceJsonBlock :content="step.output_json" label="输出" />
+                  <div class="raw-step-list">
+                    <div
+                      v-for="step in run.steps"
+                      :key="'raw-step-' + step.id"
+                      class="trace-item raw-step"
+                    >
+                      <div class="raw-step__header">
+                        <div class="trace-item__name">{{ stepTitle(step) }}</div>
+                      </div>
+                      <div class="raw-step__body">
+                        <div v-if="step.input_json" class="trace-item__section">
+                          <TraceJsonBlock :content="step.input_json" label="输入" />
+                        </div>
+                        <div v-if="step.output_json" class="trace-item__section">
+                          <TraceJsonBlock :content="step.output_json" label="输出" />
+                        </div>
+                      </div>
                     </div>
                   </div>
                 </section>
@@ -1415,7 +1416,7 @@ onBeforeUnmount(() => {
               <!-- Tool name -->
               <div class="trace-item__header">
                 <span class="trace-item__name" :class="{ 'trace-item__name--error': !!item.error_msg }">
-                  {{ item.tool_name }}
+                  {{ formatToolTitle(item.tool_name) }}
                 </span>
                 <el-tag
                   v-if="item.error_msg"
@@ -1712,6 +1713,41 @@ onBeforeUnmount(() => {
 
 .run-steps {
   margin-top: 8px;
+}
+
+.raw-step-list {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  margin-top: 12px;
+}
+
+.raw-step {
+  border: 1px solid var(--el-border-color-lighter);
+  border-radius: 8px;
+  background: var(--el-fill-color-blank);
+  overflow: hidden;
+}
+
+.raw-step__header {
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--el-border-color-extra-light);
+  background: var(--el-fill-color-extra-light);
+}
+
+.raw-step__header .trace-item__name {
+  margin: 0;
+}
+
+.raw-step__body {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 12px;
+}
+
+.raw-step__body .trace-item__section {
+  margin-bottom: 0;
 }
 
 .legacy-traces {

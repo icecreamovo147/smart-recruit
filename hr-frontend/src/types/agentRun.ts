@@ -161,6 +161,11 @@ export interface AgentRunEvent {
   event_type: AgentRunEventType | string
   payload_json?: string
   event_message?: string
+  display_message?: string
+  display_source?: string
+  step_key?: string
+  step_purpose?: string
+  tool_group?: string
   status?: string
   delta?: string
   snapshot_text?: string

@@ -69,29 +69,39 @@ const friendlyStreamMsg = (code: number, msg: string): string => {
 
 export const normalizeAgentRunEvent = (event: AgentRunEvent): AgentRunEvent => {
   if (!event.payload_json) {
-    if (event.event_type === 'process.delta' && event.result_metadata) {
-      return { ...event, event_type: 'run.result' }
-    }
     return event
   }
   try {
     const payload = JSON.parse(event.payload_json) as {
       event_message?: string
+      display_message?: string
+      display_source?: string
+      step_key?: string
+      step_purpose?: string
+      tool_group?: string
+      status?: string
+      delta?: string
+      snapshot_text?: string
+      tool_name?: string
+      error_type?: string
+      error_message?: string
       result_metadata?: AgentRunEvent['result_metadata']
     }
     const normalized: AgentRunEvent = {
       ...event,
       ...(payload.event_message && !event.event_message ? { event_message: payload.event_message } : {}),
+      ...(payload.display_message && !event.display_message ? { display_message: payload.display_message } : {}),
+      ...(payload.display_source && !event.display_source ? { display_source: payload.display_source } : {}),
+      ...(payload.step_key && !event.step_key ? { step_key: payload.step_key } : {}),
+      ...(payload.step_purpose && !event.step_purpose ? { step_purpose: payload.step_purpose } : {}),
+      ...(payload.tool_group && !event.tool_group ? { tool_group: payload.tool_group } : {}),
+      ...(payload.status && !event.status ? { status: payload.status } : {}),
+      ...(payload.delta && !event.delta ? { delta: payload.delta } : {}),
+      ...(payload.snapshot_text && !event.snapshot_text ? { snapshot_text: payload.snapshot_text } : {}),
+      ...(payload.tool_name && !event.tool_name ? { tool_name: payload.tool_name } : {}),
+      ...(payload.error_type && !event.error_type ? { error_type: payload.error_type } : {}),
+      ...(payload.error_message && !event.error_message ? { error_message: payload.error_message } : {}),
       ...(payload.result_metadata && !event.result_metadata ? { result_metadata: payload.result_metadata } : {}),
-    }
-    if (
-      event.event_type === 'process.delta' &&
-      normalized.result_metadata
-    ) {
-      return {
-        ...normalized,
-        event_type: 'run.result',
-      }
     }
     return normalized
   } catch {
