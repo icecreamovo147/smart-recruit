@@ -340,6 +340,12 @@ const save = async () => {
       payload.is_enabled_set = true
       payload.capability_bindings = selectedCapabilities.value
       payload.capability_bindings_set = true
+      // Dual-write concrete builtin tool names so runtime tool_bindings stay aligned.
+      payload.tool_names = selectedCapabilities.value
+        .filter((cap) => cap.capability_source === 'builtin')
+        .map((cap) => cap.capability_key)
+        .filter(Boolean)
+      payload.tool_names_set = true
       await updateAgentConfig(editingId.value, payload)
       ElMessage.success('Agent 配置已更新')
     } else {
@@ -355,7 +361,13 @@ const save = async () => {
       payload.temperature_override = dialogForm.temperature_override
       payload.temperature_override_set = dialogForm.temperature_override_enabled
       payload.is_default = dialogForm.is_default
-      if (selectedCapabilities.value.length > 0) payload.capability_bindings = selectedCapabilities.value
+      if (selectedCapabilities.value.length > 0) {
+        payload.capability_bindings = selectedCapabilities.value
+        payload.tool_names = selectedCapabilities.value
+          .filter((cap) => cap.capability_source === 'builtin')
+          .map((cap) => cap.capability_key)
+          .filter(Boolean)
+      }
       await createAgentConfig(payload)
       ElMessage.success('Agent 配置已创建')
     }

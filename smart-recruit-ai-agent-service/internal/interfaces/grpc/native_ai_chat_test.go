@@ -326,7 +326,7 @@ func TestHRChatRuntimeUsesApplicationToolContextAndPersistsTrace(t *testing.T) {
 			}
 		},
 	}
-	service := newNativeAIService(store, provider, apps)
+	service := newNativeAIService(store, provider, apps, nil, nil)
 
 	resp, err := service.Chat(context.Background(), &pb.ChatRequest{HrId: 77, Message: "summarize application", ApplicationId: 99, ModelId: 123})
 	if err != nil {
@@ -393,7 +393,7 @@ func TestHRChatRuntimeAppliesAgentPromptAndManualAgentSkills(t *testing.T) {
 			assertPromptNotContains(t, prompt, "auto_should_not_fill")
 		},
 	}
-	service := newNativeAIService(store, provider, apps)
+	service := newNativeAIService(store, provider, apps, nil, nil)
 
 	resp, err := service.Chat(context.Background(), &pb.ChatRequest{HrId: 77, Message: "screen this candidate", ApplicationId: 99, AgentSkillIds: []int64{7001}})
 	if err != nil {
@@ -457,7 +457,7 @@ func TestHRChatRuntimeCapabilityBindingsRestrictApplicationTool(t *testing.T) {
 					assertPromptNotContains(t, prompt, `"candidate_name":"Ada"`)
 				},
 			}
-			service := newNativeAIService(store, provider, apps)
+			service := newNativeAIService(store, provider, apps, nil, nil)
 
 			resp, err := service.Chat(context.Background(), &pb.ChatRequest{HrId: 77, Message: "summarize application", ApplicationId: 99, SkillCapabilityKeys: tt.selected})
 			if err != nil {
@@ -488,7 +488,7 @@ func TestHRChatRuntimeAutoSelectsEligibleAgentSkill(t *testing.T) {
 			assertPromptContains(t, prompt, "resume_match")
 		},
 	}
-	service := newNativeAIService(store, provider, nil)
+	service := newNativeAIService(store, provider, nil, nil, nil)
 
 	resp, err := service.Chat(context.Background(), &pb.ChatRequest{HrId: 77, Message: "analyze candidate resume match"})
 	if err != nil {
@@ -515,7 +515,7 @@ func TestHRChatRuntimeSelectedCapabilitiesRestrictAgentSkillSelection(t *testing
 			assertPromptNotContains(t, prompt, "candidate_search_skill")
 		},
 	}
-	service := newNativeAIService(store, provider, nil)
+	service := newNativeAIService(store, provider, nil, nil, nil)
 
 	resp, err := service.Chat(context.Background(), &pb.ChatRequest{HrId: 77, Message: "analyze candidate resume match", SkillCapabilityKeys: []string{"resume_intelligence"}})
 	if err != nil {
@@ -533,7 +533,7 @@ func TestHRChatRuntimeFallsBackFromToolTraceWhenProviderFails(t *testing.T) {
 	store := newFakeAIStore()
 	apps := &fakeApplicationSnapshotClient{response: &pb.GetApplicationSnapshotResponse{Code: 0, ApplicationId: 99, CandidateName: "Ada", JobTitle: "Backend Engineer", LegacyStatus: 2}}
 	provider := &fakeChatProvider{err: errors.New("model timeout")}
-	service := newNativeAIService(store, provider, apps)
+	service := newNativeAIService(store, provider, apps, nil, nil)
 
 	resp, err := service.Chat(context.Background(), &pb.ChatRequest{HrId: 77, Message: "summarize application", ApplicationId: 99})
 	if err != nil {
@@ -554,7 +554,7 @@ func TestHRChatRuntimeFallsBackFromToolTraceWhenProviderFails(t *testing.T) {
 func TestHRChatRuntimeDoesNotFallbackWhenToolFailed(t *testing.T) {
 	store := newFakeAIStore()
 	provider := &fakeChatProvider{err: errors.New("model timeout")}
-	service := newNativeAIService(store, provider, nil)
+	service := newNativeAIService(store, provider, nil, nil, nil)
 
 	_, err := service.Chat(context.Background(), &pb.ChatRequest{HrId: 77, Message: "summarize application", ApplicationId: 99})
 	if err == nil || !strings.Contains(err.Error(), "model timeout") {
@@ -568,11 +568,65 @@ func TestHRChatRuntimeDoesNotFallbackWhenToolFailed(t *testing.T) {
 	}
 }
 
+func TestHRChatRuntimeQueriesJobsOnFreeChatWithoutApplication(t *testing.T) {
+	store := newFakeAIStore()
+	jobs := &fakeHRJobClient{list: &pb.ListJobsResponse{
+		Code:  0,
+		Total: 3,
+		List: []*pb.Job{
+			{JobId: 1, Title: "Backend Engineer", Status: 1, Department: "R&D"},
+			{JobId: 2, Title: "Frontend Engineer", Status: 1, Location: "Shanghai"},
+			{JobId: 3, Title: "Product Manager", Status: 1},
+		},
+	}}
+	provider := &fakeChatProvider{
+		reply: "当前在招 3 个岗位：Backend Engineer、Frontend Engineer、Product Manager。",
+		onComplete: func(prompt string) {
+			assertPromptContains(t, prompt, "Tool results:")
+			assertPromptContains(t, prompt, "get_job_list")
+			assertPromptContains(t, prompt, "Backend Engineer")
+			assertPromptContains(t, prompt, "Frontend Engineer")
+			assertPromptContains(t, prompt, "Product Manager")
+			// Must not invent a fourth fabricated role from empty context.
+			if strings.Count(prompt, "Backend Engineer") == 0 {
+				t.Fatalf("expected real job inventory in prompt")
+			}
+		},
+	}
+	service := newNativeAIService(store, provider, nil, jobs, nil)
+
+	resp, err := service.Chat(context.Background(), &pb.ChatRequest{HrId: 1, Message: "现在有哪些岗位"})
+	if err != nil {
+		t.Fatalf("Chat returned error: %v", err)
+	}
+	if resp.GetCode() != 0 || !strings.Contains(resp.GetReply(), "3") {
+		t.Fatalf("chat response = %#v", resp)
+	}
+	if len(store.toolTraces) == 0 {
+		t.Fatalf("expected job tool traces, got none")
+	}
+	foundJobTool := false
+	for _, trace := range store.toolTraces {
+		if trace.ToolName == "get_job_list" || trace.ToolName == "search_jobs" {
+			foundJobTool = true
+			if !strings.Contains(trace.ResultContent, "Backend Engineer") {
+				t.Fatalf("job tool trace missing inventory: %#v", trace)
+			}
+		}
+	}
+	if !foundJobTool {
+		t.Fatalf("tool traces = %#v, want get_job_list/search_jobs", store.toolTraces)
+	}
+	if len(store.messages) != 2 || !strings.Contains(store.messages[1].ProcessContent, `"tool_count":`) {
+		t.Fatalf("assistant process content = %#v", store.messages)
+	}
+}
+
 func TestHRChatStreamEmitsRuntimeEvents(t *testing.T) {
 	store := newFakeAIStore()
 	apps := &fakeApplicationSnapshotClient{response: &pb.GetApplicationSnapshotResponse{Code: 0, ApplicationId: 99, CandidateName: "Ada", JobTitle: "Backend Engineer"}}
 	provider := &fakeChatProvider{reply: "streamed hr reply"}
-	service := newNativeAIService(store, provider, apps)
+	service := newNativeAIService(store, provider, apps, nil, nil)
 	stream := &captureChatStream{ctx: context.Background()}
 
 	if err := service.ChatStream(&pb.ChatRequest{HrId: 77, Message: "summarize application", ApplicationId: 99}, stream); err != nil {
@@ -599,7 +653,7 @@ func TestHRChatStreamEmitsToolErrorWhenSnapshotFails(t *testing.T) {
 	store := newFakeAIStore()
 	apps := &fakeApplicationSnapshotClient{response: &pb.GetApplicationSnapshotResponse{Code: 503, Msg: "snapshot unavailable"}}
 	provider := &fakeChatProvider{err: errors.New("model timeout")}
-	service := newNativeAIService(store, provider, apps)
+	service := newNativeAIService(store, provider, apps, nil, nil)
 	stream := &captureChatStream{ctx: context.Background()}
 
 	err := service.ChatStream(&pb.ChatRequest{HrId: 77, Message: "summarize application", ApplicationId: 99}, stream)
@@ -625,7 +679,7 @@ func TestHRChatStreamEmitsFallbackEventWhenProviderFailsAfterTool(t *testing.T) 
 	store := newFakeAIStore()
 	apps := &fakeApplicationSnapshotClient{response: &pb.GetApplicationSnapshotResponse{Code: 0, ApplicationId: 99, CandidateName: "Ada", JobTitle: "Backend Engineer"}}
 	provider := &fakeChatProvider{err: errors.New("model timeout")}
-	service := newNativeAIService(store, provider, apps)
+	service := newNativeAIService(store, provider, apps, nil, nil)
 	stream := &captureChatStream{ctx: context.Background()}
 
 	if err := service.ChatStream(&pb.ChatRequest{HrId: 77, Message: "summarize application", ApplicationId: 99}, stream); err != nil {
@@ -884,6 +938,7 @@ type fakeChatSessionOwner struct {
 }
 
 type fakeAIStore struct {
+	runSteps map[int64][]AgentRunStepRow
 	nextSessionID     int64
 	nextMessageID     int64
 	ensureCalls       []ensureChatSessionCall
@@ -1018,6 +1073,25 @@ func (s *fakeAIStore) AppendToolTrace(_ context.Context, _ int64, trace ToolTrac
 	}
 	s.toolTraces = append(s.toolTraces, trace)
 	return trace, nil
+}
+
+func (s *fakeAIStore) AppendAgentRunStep(_ context.Context, step AgentRunStepRow) (AgentRunStepRow, error) {
+	if s.runSteps == nil {
+		s.runSteps = map[int64][]AgentRunStepRow{}
+	}
+	step.ID = int64(len(s.runSteps[step.RunID]) + 1)
+	if step.StepIndex <= 0 {
+		step.StepIndex = int32(len(s.runSteps[step.RunID]) + 1)
+	}
+	s.runSteps[step.RunID] = append(s.runSteps[step.RunID], step)
+	return step, nil
+}
+
+func (s *fakeAIStore) ListAgentRunSteps(_ context.Context, runID int64) ([]AgentRunStepRow, error) {
+	if s.runSteps == nil {
+		return nil, nil
+	}
+	return append([]AgentRunStepRow(nil), s.runSteps[runID]...), nil
 }
 
 func (s *fakeAIStore) LoadCandidateRuntimeContext(context.Context, int64, int32) (CandidateRuntimeContext, error) {
@@ -1156,6 +1230,25 @@ type fakeApplicationSnapshotClient struct {
 	response *pb.GetApplicationSnapshotResponse
 	err      error
 	calls    []*pb.GetApplicationSnapshotRequest
+}
+
+type fakeHRJobClient struct {
+	list   *pb.ListJobsResponse
+	detail *pb.GetJobDetailResponse
+}
+
+func (f *fakeHRJobClient) ListHRJobs(context.Context, *pb.ListHRJobsRequest, ...gogrpc.CallOption) (*pb.ListJobsResponse, error) {
+	if f.list != nil {
+		return f.list, nil
+	}
+	return &pb.ListJobsResponse{Code: 0}, nil
+}
+
+func (f *fakeHRJobClient) GetJobDetail(_ context.Context, req *pb.GetJobDetailRequest, _ ...gogrpc.CallOption) (*pb.GetJobDetailResponse, error) {
+	if f.detail != nil {
+		return f.detail, nil
+	}
+	return &pb.GetJobDetailResponse{Code: 404, Msg: "not found"}, nil
 }
 
 func (c *fakeApplicationSnapshotClient) GetApplicationSnapshot(_ context.Context, req *pb.GetApplicationSnapshotRequest, _ ...gogrpc.CallOption) (*pb.GetApplicationSnapshotResponse, error) {

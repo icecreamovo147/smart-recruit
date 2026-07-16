@@ -8,6 +8,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/cloudwego/eino/schema"
 	"gorm.io/gorm"
 
 	recruitingruntime "smart-recruit-ai-agent-service/internal/application/recruiting_intelligence"
@@ -99,6 +100,34 @@ func (s *NativeStore) CompleteWithOptions(ctx context.Context, prompt string, mo
 		return "", err
 	}
 	return client.GenerateRecruitingReply(ctx, prompt, commonsai.RecruitingStats{}, nil)
+}
+
+// ChatWithRecruitingTools runs the shared commons tool-calling loop against the
+// selected runtime model. Used by the native HR agent runtime for real builtin tools.
+func (s *NativeStore) ChatWithRecruitingTools(
+	ctx context.Context,
+	modelID int64,
+	opts aiagentgrpc.ChatCompletionOptions,
+	messages []*schema.Message,
+	tools []*schema.ToolInfo,
+	executor commonsai.ToolRunner,
+	hrID int64,
+	onDelta func(string) error,
+	onToolExecuted commonsai.ToolTraceCallback,
+	onStatus func(eventType, eventMessage, errorType, toolName string) error,
+) (string, commonsai.ToolMetadata, error) {
+	cfg, err := s.selectLLMRuntimeConfig(ctx, modelID, 0)
+	if err != nil {
+		return "", commonsai.ToolMetadata{}, err
+	}
+	if opts.TemperatureOverride != nil && *opts.TemperatureOverride > 0 {
+		cfg.Temperature = *opts.TemperatureOverride
+	}
+	client, err := s.newRuntimeClient(ctx, cfg)
+	if err != nil {
+		return "", commonsai.ToolMetadata{}, err
+	}
+	return client.ChatWithTools(ctx, messages, tools, executor, hrID, onDelta, onToolExecuted, onStatus)
 }
 
 func (s *NativeStore) CompleteStructured(ctx context.Context, systemPrompt, userPrompt string) (recruitingruntime.StructuredCompletionResult, error) {

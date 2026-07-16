@@ -57,7 +57,8 @@ const loadList = async () => {
 
 const agentTypeLabel = (t: string): string => {
   const map: Record<string, string> = {
-    hr_agent: 'HR',
+    hr_recruiting_agent: 'HR 招聘助手',
+    hr_agent: 'HR（历史）',
     candidate_assistant: '候选人',
   }
   return map[t] || t || '-'
@@ -111,7 +112,7 @@ const editingId = ref(0)
 const dialogForm = reactive({
   name: '',
   content: '',
-  agent_type: 'hr_agent',
+  agent_type: 'hr_recruiting_agent',
   prompt_role: 'system',
   is_active: true,
   change_note: '',
@@ -123,7 +124,7 @@ const extractedVars = computed(() => extractVariables(dialogForm.content))
 const resetDialogForm = () => {
   dialogForm.name = ''
   dialogForm.content = ''
-  dialogForm.agent_type = 'hr_agent'
+  dialogForm.agent_type = 'hr_recruiting_agent'
   dialogForm.prompt_role = 'system'
   dialogForm.is_active = true
   dialogForm.change_note = ''
@@ -347,7 +348,8 @@ onMounted(() => {
             @change="() => { templatePage = 1; loadList() }"
           >
             <el-option value="" label="全部 Agent 类型" />
-            <el-option value="hr_agent" label="HR" />
+            <el-option value="hr_recruiting_agent" label="HR 招聘助手" />
+            <el-option value="hr_agent" label="HR（历史）" />
             <el-option value="candidate_assistant" label="候选人" />
           </el-select>
           <el-select v-model="statusFilter" placeholder="全部状态" clearable style="width: 140px">
@@ -450,7 +452,8 @@ onMounted(() => {
         </el-form-item>
         <el-form-item label="Agent 类型" required>
           <el-select v-model="dialogForm.agent_type" style="width: 100%">
-            <el-option value="hr_agent" label="HR" />
+            <el-option value="hr_recruiting_agent" label="HR 招聘助手" />
+            <el-option value="hr_agent" label="HR（历史）" />
             <el-option value="candidate_assistant" label="候选人" />
           </el-select>
         </el-form-item>

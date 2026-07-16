@@ -213,7 +213,7 @@ func (s *NativeStore) ListToolTraces(ctx context.Context, ownerID, sessionID int
 	}
 	result := make([]aiagentgrpc.ToolTraceRow, 0, len(rows))
 	for _, row := range rows {
-		result = append(result, aiagentgrpc.ToolTraceRow{ID: row.ID, SessionID: row.SessionID, ToolName: row.ToolName, ArgsJSON: row.ArgsJSON, ResultContent: row.ResultContent, DurationMs: row.DurationMs, ErrorMsg: row.ErrorMsg, CreatedAt: row.CreatedAt})
+		result = append(result, mapToolTraceRecord(row))
 	}
 	return result, nil
 }
@@ -223,20 +223,158 @@ func (s *NativeStore) AppendToolTrace(ctx context.Context, ownerID int64, trace 
 	if !trace.CreatedAt.IsZero() {
 		now = trace.CreatedAt
 	}
+	status := strings.TrimSpace(trace.Status)
+	if status == "" {
+		if strings.TrimSpace(trace.ErrorMsg) != "" {
+			status = "error"
+		} else {
+			status = "success"
+		}
+	}
 	row := aiToolTraceRecord{
 		HRID:          ownerID,
 		SessionID:     trace.SessionID,
+		ToolCallID:    strings.TrimSpace(trace.ToolCallID),
 		ToolName:      strings.TrimSpace(trace.ToolName),
 		ArgsJSON:      strings.TrimSpace(trace.ArgsJSON),
 		ResultContent: strings.TrimSpace(trace.ResultContent),
+		Status:        status,
 		DurationMs:    trace.DurationMs,
 		ErrorMsg:      strings.TrimSpace(trace.ErrorMsg),
 		CreatedAt:     now,
 	}
+	if trace.AgentRunID > 0 {
+		id := trace.AgentRunID
+		row.AgentRunID = &id
+	}
+	if trace.AgentRunStepID > 0 {
+		id := trace.AgentRunStepID
+		row.AgentRunStepID = &id
+	}
 	if err := s.db.WithContext(ctx).Create(&row).Error; err != nil {
 		return aiagentgrpc.ToolTraceRow{}, err
 	}
-	return aiagentgrpc.ToolTraceRow{ID: row.ID, SessionID: row.SessionID, ToolName: row.ToolName, ArgsJSON: row.ArgsJSON, ResultContent: row.ResultContent, DurationMs: row.DurationMs, ErrorMsg: row.ErrorMsg, CreatedAt: row.CreatedAt}, nil
+	return mapToolTraceRecord(row), nil
+}
+
+func mapToolTraceRecord(row aiToolTraceRecord) aiagentgrpc.ToolTraceRow {
+	out := aiagentgrpc.ToolTraceRow{
+		ID:            row.ID,
+		SessionID:     row.SessionID,
+		ToolCallID:    row.ToolCallID,
+		ToolName:      row.ToolName,
+		ArgsJSON:      row.ArgsJSON,
+		ResultContent: row.ResultContent,
+		Status:        row.Status,
+		DurationMs:    row.DurationMs,
+		ErrorMsg:      row.ErrorMsg,
+		CreatedAt:     row.CreatedAt,
+	}
+	if row.AgentRunID != nil {
+		out.AgentRunID = *row.AgentRunID
+	}
+	if row.AgentRunStepID != nil {
+		out.AgentRunStepID = *row.AgentRunStepID
+	}
+	return out
+}
+
+func (s *NativeStore) AppendAgentRunStep(ctx context.Context, step aiagentgrpc.AgentRunStepRow) (aiagentgrpc.AgentRunStepRow, error) {
+	if step.RunID <= 0 {
+		return aiagentgrpc.AgentRunStepRow{}, fmt.Errorf("run_id is required")
+	}
+	now := time.Now()
+	if step.CreatedAt.IsZero() {
+		step.CreatedAt = now
+	}
+	if step.UpdatedAt.IsZero() {
+		step.UpdatedAt = now
+	}
+	if step.StartedAt.IsZero() {
+		step.StartedAt = step.CreatedAt
+	}
+	if step.StepIndex <= 0 {
+		var maxIndex sql.NullInt64
+		if err := s.db.WithContext(ctx).Model(&agentRunStepRecord{}).
+			Select("MAX(step_index)").
+			Where("run_id = ?", step.RunID).
+			Scan(&maxIndex).Error; err != nil {
+			return aiagentgrpc.AgentRunStepRow{}, err
+		}
+		if maxIndex.Valid {
+			step.StepIndex = int32(maxIndex.Int64) + 1
+		} else {
+			step.StepIndex = 1
+		}
+	}
+	status := strings.TrimSpace(step.Status)
+	if status == "" {
+		status = "running"
+	}
+	row := agentRunStepRecord{
+		RunID:            step.RunID,
+		StepIndex:        step.StepIndex,
+		StepType:         defaultString(strings.TrimSpace(step.StepType), "tool"),
+		CapabilitySource: strings.TrimSpace(step.CapabilitySource),
+		CapabilityKey:    strings.TrimSpace(step.CapabilityKey),
+		ToolName:         strings.TrimSpace(step.ToolName),
+		InputJSON:        nullableJSON(step.InputJSON),
+		OutputJSON:       nullableJSON(step.OutputJSON),
+		Status:           status,
+		DurationMs:       step.DurationMs,
+		ErrorMsg:         strings.TrimSpace(step.ErrorMsg),
+		StartedAt:        step.StartedAt,
+		CompletedAt:      step.CompletedAt,
+		CreatedAt:        step.CreatedAt,
+		UpdatedAt:        step.UpdatedAt,
+	}
+	if err := s.db.WithContext(ctx).Create(&row).Error; err != nil {
+		return aiagentgrpc.AgentRunStepRow{}, err
+	}
+	return mapAgentRunStepRecord(row), nil
+}
+
+func (s *NativeStore) ListAgentRunSteps(ctx context.Context, runID int64) ([]aiagentgrpc.AgentRunStepRow, error) {
+	if runID <= 0 {
+		return nil, nil
+	}
+	var rows []agentRunStepRecord
+	if err := s.db.WithContext(ctx).Where("run_id = ?", runID).Order("step_index ASC, id ASC").Find(&rows).Error; err != nil {
+		return nil, err
+	}
+	result := make([]aiagentgrpc.AgentRunStepRow, 0, len(rows))
+	for _, row := range rows {
+		result = append(result, mapAgentRunStepRecord(row))
+	}
+	return result, nil
+}
+
+func mapAgentRunStepRecord(row agentRunStepRecord) aiagentgrpc.AgentRunStepRow {
+	return aiagentgrpc.AgentRunStepRow{
+		ID:               row.ID,
+		RunID:            row.RunID,
+		StepIndex:        row.StepIndex,
+		StepType:         row.StepType,
+		CapabilitySource: row.CapabilitySource,
+		CapabilityKey:    row.CapabilityKey,
+		ToolName:         row.ToolName,
+		InputJSON:        stringFromPtr(row.InputJSON),
+		OutputJSON:       stringFromPtr(row.OutputJSON),
+		Status:           row.Status,
+		DurationMs:       row.DurationMs,
+		ErrorMsg:         row.ErrorMsg,
+		StartedAt:        row.StartedAt,
+		CompletedAt:      row.CompletedAt,
+		CreatedAt:        row.CreatedAt,
+		UpdatedAt:        row.UpdatedAt,
+	}
+}
+
+func stringFromPtr(value *string) string {
+	if value == nil {
+		return ""
+	}
+	return *value
 }
 
 func (s *NativeStore) CreateAgentRun(ctx context.Context, run aiagentgrpc.AgentRunRow) (aiagentgrpc.AgentRunRow, bool, error) {
@@ -1621,18 +1759,43 @@ type aiChatHistoryRecord struct {
 func (aiChatHistoryRecord) TableName() string { return "ai_chat_history" }
 
 type aiToolTraceRecord struct {
-	ID            int64     `gorm:"primaryKey"`
-	HRID          int64     `gorm:"column:hr_id"`
-	SessionID     int64     `gorm:"column:session_id"`
-	ToolName      string    `gorm:"column:tool_name"`
-	ArgsJSON      string    `gorm:"column:arguments_json"`
-	ResultContent string    `gorm:"column:result_summary"`
-	DurationMs    int64     `gorm:"column:duration_ms"`
-	ErrorMsg      string    `gorm:"column:error_message"`
-	CreatedAt     time.Time `gorm:"column:created_at"`
+	ID             int64     `gorm:"primaryKey"`
+	HRID           int64     `gorm:"column:hr_id"`
+	SessionID      int64     `gorm:"column:session_id"`
+	AgentRunID     *int64    `gorm:"column:agent_run_id"`
+	AgentRunStepID *int64    `gorm:"column:agent_run_step_id"`
+	ToolCallID     string    `gorm:"column:tool_call_id"`
+	ToolName       string    `gorm:"column:tool_name"`
+	ArgsJSON       string    `gorm:"column:arguments_json"`
+	ResultContent  string    `gorm:"column:result_summary"`
+	Status         string    `gorm:"column:status"`
+	DurationMs     int64     `gorm:"column:duration_ms"`
+	ErrorMsg       string    `gorm:"column:error_message"`
+	CreatedAt      time.Time `gorm:"column:created_at"`
 }
 
 func (aiToolTraceRecord) TableName() string { return "ai_tool_traces" }
+
+type agentRunStepRecord struct {
+	ID               int64      `gorm:"primaryKey"`
+	RunID            int64      `gorm:"column:run_id"`
+	StepIndex        int32      `gorm:"column:step_index"`
+	StepType         string     `gorm:"column:step_type"`
+	CapabilitySource string     `gorm:"column:capability_source"`
+	CapabilityKey    string     `gorm:"column:capability_key"`
+	ToolName         string     `gorm:"column:tool_name"`
+	InputJSON        *string    `gorm:"column:input_json"`
+	OutputJSON       *string    `gorm:"column:output_json"`
+	Status           string     `gorm:"column:status"`
+	DurationMs       int64      `gorm:"column:duration_ms"`
+	ErrorMsg         string     `gorm:"column:error_message"`
+	StartedAt        time.Time  `gorm:"column:started_at"`
+	CompletedAt      *time.Time `gorm:"column:completed_at"`
+	CreatedAt        time.Time  `gorm:"column:created_at"`
+	UpdatedAt        time.Time  `gorm:"column:updated_at"`
+}
+
+func (agentRunStepRecord) TableName() string { return "agent_run_steps" }
 
 type thirdPartyUsageLogRecord struct {
 	ID              int64     `gorm:"primaryKey"`

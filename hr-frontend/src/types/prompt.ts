@@ -7,7 +7,7 @@ export interface PromptTemplate {
   variables_json: string     // JSON array string, e.g. '["name","job_title"]'
   version: number
   is_active: boolean
-  agent_type: string         // hr_agent / candidate_assistant
+  agent_type: string         // hr_recruiting_agent / hr_agent (legacy) / candidate_assistant
   prompt_role: string        // system / user
   created_by: number
   updated_by: number

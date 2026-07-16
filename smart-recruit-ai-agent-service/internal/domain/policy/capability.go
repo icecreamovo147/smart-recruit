@@ -489,11 +489,32 @@ func agentTypeMatches(skillAgentType, requested string) bool {
 
 func capabilitiesAvailable(required []string, available map[string]bool) bool {
 	for _, capability := range required {
-		if !available[capability] {
-			return false
+		if capabilitySatisfied(capability, available) {
+			continue
 		}
+		return false
 	}
 	return true
+}
+
+func capabilitySatisfied(required string, available map[string]bool) bool {
+	required = strings.TrimSpace(required)
+	if required == "" {
+		return true
+	}
+	if available[required] {
+		return true
+	}
+	// Normalize "builtin:foo" <-> "foo" so admin UI prefixes match runtime keys.
+	if i := strings.IndexByte(required, ':'); i >= 0 {
+		bare := strings.TrimSpace(required[i+1:])
+		if bare != "" && available[bare] {
+			return true
+		}
+	} else if available["builtin:"+required] {
+		return true
+	}
+	return false
 }
 
 func agentSkillAutoEligible(question string) bool {

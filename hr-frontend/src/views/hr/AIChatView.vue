@@ -4,7 +4,7 @@ import { useRoute, useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import DOMPurify from 'dompurify'
 import MarkdownIt from 'markdown-it'
-import { createApplicationAnalysisSession, createSession, deleteSession, getSessionMessages, listSessions, updateSession } from '@/api/ai'
+import { createApplicationAnalysisSession, createSession, deleteSession, getSessionMessages, listSessions, listSkillCapabilities, updateSession } from '@/api/ai'
 import { listAvailableAgentSkills } from '@/api/agentSkill'
 import { updateApplicationStatus } from '@/api/application'
 import { listAvailableModels } from '@/api/llm'
@@ -24,6 +24,7 @@ import ChatComposer from '@/components/chat/ChatComposer.vue'
 import { useHrAgentRun } from '@/composables/useHrAgentRun'
 import type { AgentRunResultMetadata, CreateAgentRunRequest } from '@/types/agentRun'
 import type { AgentSkillSelectionPayload, ChatMessageSkill, ChatSessionListItem, Session, CandidateOption, StreamPayload, ContextUsageInfo } from '@/types/ai'
+import type { CapabilityInfo } from '@/types/agent'
 import type { LlmModel } from '@/types/llm'
 import type { AvailableAgentSkill } from '@/types/agentSkill'
 
@@ -146,6 +147,8 @@ const dataSource = ref('招聘业务数据库')
 const tracePanelVisible = ref(false)
 const agentSkills = ref<AvailableAgentSkill[]>([])
 const selectedAgentSkillIds = ref<number[]>([])
+const skillCapabilities = ref<CapabilityInfo[]>([])
+const selectedSkillKeys = ref<string[]>([])
 const contextUsage = ref<ContextUsageInfo | null>(null)
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const listRef = ref<any>(null)
@@ -965,6 +968,7 @@ const createAnalysisSessionFromRoute = async () => {
       client_request_id: createClientRequestId(),
       ...(selectedModelId.value != null ? { model_id: selectedModelId.value } : {}),
       ...(session.application_id ? { application_id: session.application_id } : {}),
+      ...(selectedSkillKeys.value.length > 0 ? { skill_capability_keys: [...selectedSkillKeys.value] } : {}),
     }
     const result = await executeCreateChatRun(
       agentRun,
@@ -1282,6 +1286,8 @@ const submit = async () => {
   const assistantIndex = messages.value.length
   try {
     messages.value.push({ role: 'assistant', content: '', pending: true, waitingText: session.application_id ? '分析中' : '响应中' })
+    const skillKeysForMessage = [...selectedSkillKeys.value]
+    selectedSkillKeys.value = []
     const result = await executeCreateChatRun(
       agentRun,
       {
@@ -1290,6 +1296,7 @@ const submit = async () => {
         client_request_id: createClientRequestId(),
         ...(selectedModelId.value != null ? { model_id: selectedModelId.value } : {}),
         ...(agentSkillIdsForMessage.length > 0 ? { agent_skill_ids: agentSkillIdsForMessage } : {}),
+        ...(skillKeysForMessage.length > 0 ? { skill_capability_keys: skillKeysForMessage } : {}),
         ...(session.application_id ? { application_id: session.application_id } : {}),
       },
       makeChatUiBinder(assistantIndex),
@@ -1303,6 +1310,7 @@ const submit = async () => {
     }
     if (result.outcome === 'failed') {
       selectedAgentSkillIds.value = agentSkillIdsForMessage
+      selectedSkillKeys.value = skillKeysForMessage
       markAssistantError(assistantIndex, result.error || new Error('AI 流式响应失败'))
       ElMessage.error(result.error?.message || 'AI 流式响应失败')
       return
@@ -1431,6 +1439,10 @@ onMounted(async () => {
     const agentSkillData = await listAvailableAgentSkills()
     agentSkills.value = agentSkillData.list || []
   } catch { /* non-fatal: agent skill selector will be empty */ }
+  try {
+    const capabilityData = await listSkillCapabilities()
+    skillCapabilities.value = capabilityData.list || []
+  } catch { /* non-fatal: capability slash menu will be empty; backend uses agent-bound tools by default */ }
   await refreshSessions()
   if (await createAnalysisSessionFromRoute()) return
   const querySessionId = Number(route.query.session_id || 0)
@@ -1590,12 +1602,13 @@ onBeforeUnmount(() => {
             :context-usage="contextUsage"
             :data-source="dataSource"
             :current-session="currentSession"
-            :skill-capabilities="[]"
-            :selected-skill-keys="[]"
+            :skill-capabilities="skillCapabilities"
+            :selected-skill-keys="selectedSkillKeys"
             :agent-skills="agentSkills"
             :selected-agent-skill-ids="selectedAgentSkillIds"
             @update:input="(val: string) => input = val"
             @update:selected-model-id="(val: number | null) => selectedModelId = val"
+            @update:selected-skill-keys="(val: string[]) => selectedSkillKeys = val"
             @update:selected-agent-skill-ids="(val: number[]) => selectedAgentSkillIds = val"
             @submit="submit"
             @stop="stopStreaming"

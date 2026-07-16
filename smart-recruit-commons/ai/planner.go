@@ -15,6 +15,7 @@ const (
 	IntentCandidateMatchEvaluation = "candidate_match_evaluation"
 	IntentCandidateComparison      = "candidate_comparison"
 	IntentAnalytics                = "analytics"
+	IntentJobListing               = "job_listing"
 	IntentStatusChangeProposal     = "status_change_proposal"
 	IntentInterviewPrep            = "interview_prep"
 	IntentOfferSupport             = "offer_support"
@@ -92,10 +93,20 @@ func (RecruitingPlanner) Plan(input RecruitingPlannerInput) RecruitingPlan {
 			"get_application_status_summary",
 			"get_application_trend",
 			"search_jobs",
+			"get_job_list",
 		)
 		plan.RequiredData = []string{"time_range", "job_filter_optional", "application_counts", "status_distribution", "trend"}
 		plan.OutputSchema = objectSchema("analytics", "metrics", "filters", "observations", "caveats")
 		plan.RiskChecks = []string{"state_time_window", "do_not_mix_filtered_and_global_counts", "call_tools_for_live_metrics"}
+	case IntentJobListing:
+		plan.RequiredTools = availableTools(available,
+			"get_job_list",
+			"search_jobs",
+			"get_job_detail",
+		)
+		plan.RequiredData = []string{"job_inventory", "job_status_filter_optional"}
+		plan.OutputSchema = objectSchema("job_listing", "jobs", "total", "filters", "caveats")
+		plan.RiskChecks = []string{"call_tools_for_live_job_data", "do_not_invent_jobs", "state_when_inventory_empty"}
 	case IntentStatusChangeProposal:
 		plan.RequiredTools = availableTools(available,
 			"search_candidates",
@@ -168,6 +179,12 @@ func classifyRecruitingIntent(message string) string {
 		return IntentInterviewPrep
 	case containsAny(msg, "统计", "趋势", "漏斗", "热度", "排行", "多少", "今日", "今天", "analytics", "trend", "funnel", "metrics"):
 		return IntentAnalytics
+	case containsAny(msg,
+		"有哪些岗位", "哪些岗位", "岗位列表", "现在有哪些", "当前岗位", "在招岗位", "发布的岗位",
+		"有什么岗位", "岗位有哪些", "职位列表", "有哪些职位", "job list", "list jobs", "open positions", "which jobs"):
+		return IntentJobListing
+	case containsAny(msg, "岗位", "职位", "jobs", "positions") && containsAny(msg, "哪些", "什么", "列表", "全部", "所有", "list", "all", "open"):
+		return IntentJobListing
 	default:
 		return IntentUnknown
 	}

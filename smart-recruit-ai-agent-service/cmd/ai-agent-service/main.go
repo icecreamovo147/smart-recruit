@@ -193,6 +193,7 @@ func serveAIAgent(addr string) error {
 		RuntimeName:      cfg.AI.AgentRuntime,
 		Auth:             pb.NewAuthServiceClient(identityConn),
 		Applications:     pb.NewApplicationOwnerServiceClient(recruitmentConn),
+		AppList:          pb.NewApplicationServiceClient(recruitmentConn),
 		Jobs:             pb.NewJobServiceClient(recruitmentConn),
 	}))
 	if err != nil {

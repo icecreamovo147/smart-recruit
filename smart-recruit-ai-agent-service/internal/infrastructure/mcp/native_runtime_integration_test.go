@@ -167,6 +167,20 @@ func (s *runtimeStore) AppendToolTrace(_ context.Context, _ int64, row aiagentgr
 	return row, nil
 }
 
+func (s *runtimeStore) AppendAgentRunStep(_ context.Context, step aiagentgrpc.AgentRunStepRow) (aiagentgrpc.AgentRunStepRow, error) {
+	if step.ID == 0 {
+		step.ID = 1
+	}
+	if step.StepIndex <= 0 {
+		step.StepIndex = 1
+	}
+	return step, nil
+}
+
+func (s *runtimeStore) ListAgentRunSteps(context.Context, int64) ([]aiagentgrpc.AgentRunStepRow, error) {
+	return nil, nil
+}
+
 func (s *runtimeStore) CreateAgentRun(context.Context, aiagentgrpc.AgentRunRow) (aiagentgrpc.AgentRunRow, bool, error) {
 	return aiagentgrpc.AgentRunRow{}, false, nil
 }

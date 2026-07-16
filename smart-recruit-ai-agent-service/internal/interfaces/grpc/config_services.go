@@ -293,6 +293,22 @@ func builtinCapabilities(agentType string) []*pb.CapabilityInfo {
 			IsAvailable: true,
 			RuntimeType: "native",
 		},
+		// Executable recruiting tools exposed to Agent admin bindings / runtime allowlists.
+		{Source: "builtin", Key: "get_job_list", Name: "get_job_list", DisplayName: "岗位列表", Description: "List open jobs owned by the current HR.", IsAvailable: true, RuntimeType: "native"},
+		{Source: "builtin", Key: "search_jobs", Name: "search_jobs", DisplayName: "搜索岗位", Description: "Search HR jobs by keyword and status.", IsAvailable: true, RuntimeType: "native"},
+		{Source: "builtin", Key: "get_job_detail", Name: "get_job_detail", DisplayName: "岗位详情", Description: "Get a single job detail within HR scope.", IsAvailable: true, RuntimeType: "native"},
+		{Source: "builtin", Key: "get_application_snapshot", Name: "get_application_snapshot", DisplayName: "投递快照", Description: "Load application snapshot context when application_id is present.", IsAvailable: true, RuntimeType: "native"},
+		{Source: "builtin", Key: "query_total_applications", Name: "query_total_applications", DisplayName: "累计投递", Description: "Count total applications for the current HR.", IsAvailable: true, RuntimeType: "native"},
+		{Source: "builtin", Key: "query_today_applications", Name: "query_today_applications", DisplayName: "今日投递", Description: "Count today's new applications.", IsAvailable: true, RuntimeType: "native"},
+		{Source: "builtin", Key: "get_job_heat_ranking", Name: "get_job_heat_ranking", DisplayName: "岗位热度", Description: "Rank jobs by application volume.", IsAvailable: true, RuntimeType: "native"},
+		{Source: "builtin", Key: "list_all_applications", Name: "list_all_applications", DisplayName: "全部投递", Description: "List applications across HR jobs.", IsAvailable: true, RuntimeType: "native"},
+		{Source: "builtin", Key: "list_applications_by_job", Name: "list_applications_by_job", DisplayName: "按岗位投递", Description: "List applications for one job.", IsAvailable: true, RuntimeType: "native"},
+		{Source: "builtin", Key: "list_applications_by_status", Name: "list_applications_by_status", DisplayName: "按状态投递", Description: "List applications filtered by status.", IsAvailable: true, RuntimeType: "native"},
+		{Source: "builtin", Key: "get_application_status_summary", Name: "get_application_status_summary", DisplayName: "状态分布", Description: "Aggregate application status counts.", IsAvailable: true, RuntimeType: "native"},
+		{Source: "builtin", Key: "get_application_trend", Name: "get_application_trend", DisplayName: "投递趋势", Description: "Daily application trend over recent days.", IsAvailable: true, RuntimeType: "native"},
+		{Source: "builtin", Key: "search_candidates", Name: "search_candidates", DisplayName: "搜索候选人", Description: "Search candidates by name/phone/job.", IsAvailable: true, RuntimeType: "native"},
+		{Source: "builtin", Key: "get_candidate_detail", Name: "get_candidate_detail", DisplayName: "候选人详情", Description: "Load candidate application snapshot.", IsAvailable: true, RuntimeType: "native"},
+		{Source: "builtin", Key: "propose_application_status_update", Name: "propose_application_status_update", DisplayName: "状态变更提案", Description: "Propose status change without mutating DB.", IsAvailable: true, RuntimeType: "native"},
 	}
 	if strings.TrimSpace(agentType) == "candidate_assistant" {
 		return items[:1]
