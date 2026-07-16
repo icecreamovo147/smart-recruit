@@ -1407,19 +1407,26 @@ func (a *taxonomyAdminAdapter) ListDepartmentsLocationMap(ctx context.Context, _
 }
 
 func (a *adminAdapter) CreateInviteCode(ctx context.Context, req *pb.CreateInviteCodeRequest) (*pb.CreateInviteCodeResponse, error) {
-	code, err := randomCode()
-	if err != nil {
-		return nil, err
-	}
 	expiresAt, err := parseOptionalTime(req.ExpiresAt)
 	if err != nil {
 		return &pb.CreateInviteCodeResponse{Code: errs.ErrBadRequest, Msg: "过期时间格式不正确"}, nil
 	}
-	row := &inviteCodeRecord{Code: code, CreatedBy: req.CreatedBy, ExpiresAt: expiresAt, IsActive: 1, CreatedAt: a.now()}
-	if err := a.db.WithContext(ctx).Create(row).Error; err != nil {
-		return nil, err
+	const maxAttempts = 8
+	for attempt := 0; attempt < maxAttempts; attempt++ {
+		code, err := randomInviteCode()
+		if err != nil {
+			return nil, err
+		}
+		row := &inviteCodeRecord{Code: code, CreatedBy: req.CreatedBy, ExpiresAt: expiresAt, IsActive: 1, CreatedAt: a.now()}
+		if err := a.db.WithContext(ctx).Create(row).Error; err != nil {
+			if errors.Is(err, gorm.ErrDuplicatedKey) || strings.Contains(err.Error(), "Duplicate") {
+				continue
+			}
+			return nil, err
+		}
+		return &pb.CreateInviteCodeResponse{Code: errs.OK, Msg: "success", InviteCode: inviteCodeToPB(*row)}, nil
 	}
-	return &pb.CreateInviteCodeResponse{Code: errs.OK, Msg: "success", InviteCode: inviteCodeToPB(*row)}, nil
+	return nil, fmt.Errorf("failed to generate unique invite code after %d attempts", maxAttempts)
 }
 
 func (a *adminAdapter) ListInviteCodes(ctx context.Context, req *pb.ListInviteCodesRequest) (*pb.ListInviteCodesResponse, error) {
@@ -2561,6 +2568,21 @@ func randomCode() (string, error) {
 		return "", err
 	}
 	return strings.ToUpper(hex.EncodeToString(buf)), nil
+}
+
+// randomInviteCode returns a 6-character invite code using mixed-case letters and digits.
+func randomInviteCode() (string, error) {
+	const alphabet = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
+	const length = 6
+	buf := make([]byte, length)
+	if _, err := rand.Read(buf); err != nil {
+		return "", err
+	}
+	out := make([]byte, length)
+	for i, b := range buf {
+		out[i] = alphabet[int(b)%len(alphabet)]
+	}
+	return string(out), nil
 }
 
 func usageDimension(value string) string {

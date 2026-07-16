@@ -117,11 +117,11 @@ func serveRecruitment(addr string) error {
 		return err
 	}
 	defer sqlDB.Close()
-	var redisClient *redis.Client
-	if cfg.Redis.Addr != "" {
-		redisClient = redis.NewClient(redisOptions(cfg))
-		defer redisClient.Close()
+	redisClient, err := newRecruitmentRedisClient(cfg)
+	if err != nil {
+		return err
 	}
+	defer redisClient.Close()
 	metricsServer, err := server.StartMetricsServer(cfg.Observability.MetricsAddr)
 	if err != nil {
 		return err
@@ -139,6 +139,11 @@ func serveRecruitment(addr string) error {
 	if err != nil {
 		return err
 	}
+	presignCache, err := attachOSSPresignCache(ossClient, cfg)
+	if err != nil {
+		return err
+	}
+	defer presignCache.Close()
 
 	nativeBundle, err := recruitmentpersistence.NewNativeBundle(recruitmentpersistence.NativeOptions{
 		DB:    db,
@@ -280,6 +285,32 @@ func ensureLogicConfigPath() error {
 		}
 	}
 	return nil
+}
+
+func newRecruitmentRedisClient(cfg logicconfig.Config) (*redis.Client, error) {
+	if strings.TrimSpace(cfg.Redis.Addr) == "" {
+		return nil, fmt.Errorf("recruitment redis addr is required for resume presign cache")
+	}
+	rdb := redis.NewClient(redisOptions(cfg))
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+	if err := rdb.Ping(ctx).Err(); err != nil {
+		_ = rdb.Close()
+		return nil, fmt.Errorf("connect redis for resume presign cache: %w", err)
+	}
+	return rdb, nil
+}
+
+func attachOSSPresignCache(storage oss.Storage, cfg logicconfig.Config) (*oss.PresignCache, error) {
+	if storage == nil {
+		return nil, fmt.Errorf("recruitment oss storage is required for resume presign cache")
+	}
+	if strings.TrimSpace(cfg.Redis.Addr) == "" {
+		return nil, fmt.Errorf("recruitment redis addr is required for resume presign cache")
+	}
+	cache := oss.NewPresignCacheWithOptions(redisOptions(cfg))
+	storage.SetPresignCache(cache)
+	return cache, nil
 }
 
 func redisOptions(cfg logicconfig.Config) *redis.Options {
