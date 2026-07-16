@@ -26,7 +26,7 @@ source_refs:
   - smart-recruit-gateway/handler/hr/mcp.go
   - smart-recruit-gateway/router/router.go
   - hr-frontend/src/views/hr/admin/McpManageView.vue
-last_verified: 2026-07-14
+last_verified: 2026-07-16
 review_after: 2026-10-14
 ---
 
@@ -34,8 +34,10 @@ review_after: 2026-10-14
 
 MCP governance covers server configuration, tool policy evaluation, policy APIs, logs, and admin surfaces. Keep deny/rate-limit/confirmation order, private-network blocking, stdio command allowlists, URL host constraints, argument redaction, and audit persistence aligned.
 
-Native MCP governance now persists server CRUD, tool policy CRUD/list, and tool log list responses through the AI Agent database tables. Server env vars, MCP args, runtime config, log result payloads, policy details, and error strings must stay redacted or truncated on read paths. Live MCP connection tests, tool discovery, and tool execution are explicit non-success unsupported responses until a safe MCP runner is bound.
+Native MCP governance persists server CRUD, tool policy CRUD/list, and tool log list responses through the AI Agent database tables. Server env vars, MCP args, runtime config, log result payloads, policy details, and error strings must stay redacted or truncated on read paths.
+
+When a safe MCP runner is bound, live connection tests, discovery, and policy-governed calls are supported. HR chat invokes an Agent-bound MCP tool only when its exact capability key is explicitly selected in `skill_capability_keys`; an empty selection invokes none. The runtime still evaluates enablement, deny/rate-limit/confirmation policy, transport allowlists/private-network constraints, redaction, and audit logging before returning success. Without a bound runner or when policy blocks the call, the operation is explicit non-success.
 
 ## Verification
 
-Verified against current repository files on 2026-07-14.
+Verified against cumulative MCP runtime integration, explicit/empty selection, policy failure, audit, and HR Agent runtime tests on 2026-07-16.

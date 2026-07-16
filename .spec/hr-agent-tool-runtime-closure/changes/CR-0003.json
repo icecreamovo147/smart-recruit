@@ -1,0 +1,63 @@
+{
+  "schemaVersion": 2,
+  "changeRequestId": "CR-0003",
+  "feature_name": "hr-agent-tool-runtime-closure",
+  "baseRevision": 3,
+  "status": "applied",
+  "classification": "scope_correction",
+  "approvalLevel": "L0",
+  "reason": "The mandatory TASK-002 knowledge impact check reports update_required because active Agent runtime and AI configuration governance documents do not yet describe per-intent live-data evidence groups or effective per-Agent max_iterations. The correction adds only those two already-routed active knowledge documents to TASK-002 write scope and changes no product behavior or contract semantics.",
+  "evidenceRefs": [
+    "repo://.knowledge/architecture/agent-runtime.md",
+    "repo://.knowledge/domains/ai-configuration-governance.md",
+    "repo://smart-recruit-ai-agent-service/internal/interfaces/grpc/native_servers.go#hrPlanEvidenceSatisfied",
+    "repo://smart-recruit-ai-agent-service/internal/interfaces/grpc/native_servers.go#hrRuntimeCompletionOptions"
+  ],
+  "trigger": {
+    "task_id": "TASK-002",
+    "phase": "implement"
+  },
+  "impact": {
+    "requirements": [
+      "KNOW-001",
+      "FR-002",
+      "CFG-001"
+    ],
+    "tasks": [
+      "TASK-002",
+      "TASK-005"
+    ],
+    "completedTasksRequiringRevalidation": []
+  },
+  "revalidationPlan": [
+    "TASK-002",
+    "TASK-005"
+  ],
+  "resultingRevision": 4,
+  "approval": {
+    "approved_by": "/root/cr3_reviewer",
+    "approved_at": "2026-07-16T13:45:24+08:00",
+    "decision": "approve"
+  },
+  "updates": [
+    {
+      "target": "contract.json",
+      "staged_file": "changes/CR-0003/contract.json",
+      "before_sha256": "9cd7988c8705f0faa9ac35e3a90682601b6f559d0b5a43329db85ce1e56adb2b",
+      "after_sha256": "8c42fb1e626eac4cc141b2646bdca7f9ebefc69dddd1fb9cf5b47c695a36eed3"
+    },
+    {
+      "target": "task-scope.json",
+      "staged_file": "changes/CR-0003/task-scope.json",
+      "before_sha256": "4d3aa7a65342e7e16eacf0f571ccce164976f682d18489af2a8c09926049384a",
+      "after_sha256": "464c69d344d9100daf4f5c88c00a87e4ee618c604b69c3f4446f42e4ef92f219"
+    },
+    {
+      "target": "traceability.json",
+      "staged_file": "changes/CR-0003/traceability.json",
+      "before_sha256": "fc543132ff82e95205c45e8aa10c4661592c3b03076972f97b3cd4dc6b7a7a3a",
+      "after_sha256": "73c11233cc8dc90eabfdcd5fa46197f0ffb67792a707a71f14adbce98f52e7f3"
+    }
+  ],
+  "applied_at": "2026-07-16T05:46:21.151Z"
+}

@@ -1,0 +1,449 @@
+{
+  "schemaVersion": 2,
+  "feature_name": "hr-agent-tool-runtime-closure",
+  "contractRevision": 3,
+  "tasks": {
+    "TASK-001": {
+      "title": "Fail-closed Tool governance and truthful errors",
+      "lifecycle": "completed",
+      "requirements": [
+        "FR-001",
+        "MCP-001",
+        "ERR-001",
+        "FR-003"
+      ],
+      "behaviorSurfaces": [
+        "FLOW-001",
+        "FLOW-002"
+      ],
+      "dependencies": [],
+      "allowedFiles": [
+        "smart-recruit-ai-agent-service/internal/application/hr_tools/*.go",
+        "smart-recruit-ai-agent-service/internal/interfaces/grpc/native_servers.go",
+        "smart-recruit-ai-agent-service/internal/interfaces/grpc/native_ai_chat_test.go",
+        "smart-recruit-ai-agent-service/internal/infrastructure/mcp/native_runtime_integration_test.go",
+        ".knowledge/architecture/agent-runtime.md",
+        ".knowledge/domains/ai-configuration-governance.md",
+        ".knowledge/domains/mcp-tool-governance.md",
+        ".knowledge/pitfalls/mcp-policy-audit.md"
+      ],
+      "forbiddenFiles": [
+        "smart-recruit-proto/**",
+        "**/go.mod",
+        "**/go.sum",
+        "**/package.json",
+        "**/pnpm-lock.yaml",
+        "db.sql"
+      ],
+      "allowedActions": [
+        "modify",
+        "create",
+        "test"
+      ],
+      "requiresHumanConfirmation": false,
+      "reviewPolicy": "independent_required",
+      "destructiveActions": [],
+      "requiredKnowledgeImpact": true,
+      "knowledge": {
+        "review": [
+          ".knowledge/architecture/agent-runtime.md",
+          ".knowledge/domains/mcp-tool-governance.md",
+          ".knowledge/pitfalls/mcp-policy-audit.md"
+        ],
+        "modify": [
+          ".knowledge/architecture/agent-runtime.md",
+          ".knowledge/domains/ai-configuration-governance.md",
+          ".knowledge/domains/mcp-tool-governance.md",
+          ".knowledge/pitfalls/mcp-policy-audit.md"
+        ],
+        "candidate": []
+      },
+      "requiredChecks": [
+        {
+          "id": "CHECK-001",
+          "kind": "unit",
+          "blocking": true,
+          "covers": [
+            "FR-001",
+            "ERR-001",
+            "FLOW-001",
+            "FLOW-002"
+          ],
+          "command": "cd smart-recruit-ai-agent-service && go test ./internal/application/hr_tools",
+          "successCriteria": "Negative allowlist and Tool error cases pass."
+        },
+        {
+          "id": "CHECK-002",
+          "kind": "integration",
+          "blocking": true,
+          "covers": [
+            "MCP-001",
+            "FR-003",
+            "FLOW-001"
+          ],
+          "command": "cd smart-recruit-ai-agent-service && go test ./internal/interfaces/grpc ./internal/infrastructure/mcp",
+          "successCriteria": "Empty MCP selection makes no call and Trace/Step status follows execution outcome."
+        }
+      ],
+      "acceptance": ".spec/hr-agent-tool-runtime-closure/acceptance/TASK-001.md",
+      "report": ".spec/hr-agent-tool-runtime-closure/reports/TASK-001-report.md"
+    },
+    "TASK-002": {
+      "title": "Live-data truth gate and per-Agent iteration control",
+      "lifecycle": "ready",
+      "requirements": [
+        "FR-002",
+        "CFG-001",
+        "FR-003"
+      ],
+      "behaviorSurfaces": [
+        "FLOW-003",
+        "FLOW-004"
+      ],
+      "dependencies": [
+        "TASK-001"
+      ],
+      "allowedFiles": [
+        "smart-recruit-commons/ai/eino_client.go",
+        "smart-recruit-commons/ai/planner.go",
+        "smart-recruit-commons/ai/fallback.go",
+        "smart-recruit-commons/ai/*_test.go",
+        "smart-recruit-ai-agent-service/internal/interfaces/grpc/native_servers.go",
+        "smart-recruit-ai-agent-service/internal/interfaces/grpc/native_ai_chat_test.go",
+        "smart-recruit-ai-agent-service/internal/infrastructure/persistence/llm_runtime.go",
+        "smart-recruit-ai-agent-service/internal/infrastructure/persistence/*llm*_test.go"
+      ],
+      "forbiddenFiles": [
+        "smart-recruit-proto/**",
+        "**/go.mod",
+        "**/go.sum",
+        "**/package.json",
+        "**/pnpm-lock.yaml",
+        "db.sql"
+      ],
+      "allowedActions": [
+        "modify",
+        "create",
+        "test"
+      ],
+      "requiresHumanConfirmation": true,
+      "reviewPolicy": "independent_required",
+      "destructiveActions": [],
+      "requiredKnowledgeImpact": true,
+      "knowledge": {
+        "review": [
+          ".knowledge/architecture/agent-runtime.md",
+          ".knowledge/domains/ai-configuration-governance.md"
+        ],
+        "modify": [],
+        "candidate": []
+      },
+      "requiredChecks": [
+        {
+          "id": "CHECK-003",
+          "kind": "unit",
+          "blocking": true,
+          "covers": [
+            "CFG-001",
+            "FLOW-004"
+          ],
+          "command": "cd smart-recruit-commons && go test ./ai",
+          "successCriteria": "Per-call max rounds override is enforced and existing wrappers retain default behavior."
+        },
+        {
+          "id": "CHECK-004",
+          "kind": "integration",
+          "blocking": true,
+          "covers": [
+            "FR-002",
+            "FR-003",
+            "FLOW-003"
+          ],
+          "command": "cd smart-recruit-ai-agent-service && go test ./internal/interfaces/grpc ./internal/infrastructure/persistence && cd ../smart-recruit-commons && go test ./ai",
+          "successCriteria": "Every declared live-data intent and requested metric satisfies all deterministic evidence groups across success, missing-parameter, disabled, failure, empty, and provider-direct-text cases."
+        }
+      ],
+      "acceptance": ".spec/hr-agent-tool-runtime-closure/acceptance/TASK-002.md",
+      "report": ".spec/hr-agent-tool-runtime-closure/reports/TASK-002-report.md"
+    },
+    "TASK-003": {
+      "title": "Prompt and published Agent Skill runtime semantics",
+      "lifecycle": "draft",
+      "requirements": [
+        "FR-004",
+        "FR-005"
+      ],
+      "behaviorSurfaces": [
+        "FLOW-005"
+      ],
+      "dependencies": [
+        "TASK-002"
+      ],
+      "allowedFiles": [
+        "smart-recruit-ai-agent-service/internal/interfaces/grpc/native_servers.go",
+        "smart-recruit-ai-agent-service/internal/interfaces/grpc/config_services.go",
+        "smart-recruit-ai-agent-service/internal/interfaces/grpc/*_test.go",
+        "smart-recruit-ai-agent-service/internal/infrastructure/persistence/native_store.go",
+        "smart-recruit-ai-agent-service/internal/infrastructure/persistence/config_store.go",
+        "smart-recruit-ai-agent-service/internal/infrastructure/persistence/*_test.go",
+        "hr-frontend/src/views/hr/admin/AgentManageView.vue",
+        "hr-frontend/src/views/hr/admin/*AgentManage*.test.ts"
+      ],
+      "forbiddenFiles": [
+        "smart-recruit-proto/**",
+        "**/go.mod",
+        "**/go.sum",
+        "**/package.json",
+        "**/pnpm-lock.yaml",
+        "db.sql"
+      ],
+      "allowedActions": [
+        "modify",
+        "create",
+        "test"
+      ],
+      "requiresHumanConfirmation": false,
+      "reviewPolicy": "independent_required",
+      "destructiveActions": [],
+      "requiredKnowledgeImpact": true,
+      "knowledge": {
+        "review": [
+          ".knowledge/domains/ai-configuration-governance.md",
+          ".knowledge/domains/agent-skill.md",
+          ".knowledge/architecture/agent-runtime.md"
+        ],
+        "modify": [],
+        "candidate": []
+      },
+      "requiredChecks": [
+        {
+          "id": "CHECK-005",
+          "kind": "integration",
+          "blocking": true,
+          "covers": [
+            "FR-004",
+            "FR-005",
+            "FLOW-005"
+          ],
+          "command": "cd smart-recruit-ai-agent-service && go test ./internal/interfaces/grpc ./internal/infrastructure/persistence",
+          "successCriteria": "Prompt rendering/binding validation and exact current Skill version behavior pass."
+        },
+        {
+          "id": "CHECK-006",
+          "kind": "build",
+          "blocking": true,
+          "covers": [
+            "FR-004"
+          ],
+          "command": "pnpm --filter hr-frontend typecheck",
+          "successCriteria": "HR Prompt selector filtering remains type-safe."
+        }
+      ],
+      "acceptance": ".spec/hr-agent-tool-runtime-closure/acceptance/TASK-003.md",
+      "report": ".spec/hr-agent-tool-runtime-closure/reports/TASK-003-report.md"
+    },
+    "TASK-004": {
+      "title": "Durable governance identity and streaming event contract",
+      "lifecycle": "draft",
+      "requirements": [
+        "OBS-001",
+        "EVT-001"
+      ],
+      "behaviorSurfaces": [
+        "FLOW-006"
+      ],
+      "dependencies": [
+        "TASK-003"
+      ],
+      "allowedFiles": [
+        "smart-recruit-ai-agent-service/internal/interfaces/grpc/native_servers.go",
+        "smart-recruit-ai-agent-service/internal/interfaces/grpc/native_ai_chat_test.go",
+        "smart-recruit-ai-agent-service/internal/infrastructure/persistence/native_store.go",
+        "smart-recruit-ai-agent-service/internal/infrastructure/persistence/*_test.go"
+      ],
+      "forbiddenFiles": [
+        "smart-recruit-proto/**",
+        "**/go.mod",
+        "**/go.sum",
+        "**/package.json",
+        "**/pnpm-lock.yaml",
+        "db.sql"
+      ],
+      "allowedActions": [
+        "modify",
+        "create",
+        "test"
+      ],
+      "requiresHumanConfirmation": false,
+      "reviewPolicy": "independent_required",
+      "destructiveActions": [],
+      "requiredKnowledgeImpact": true,
+      "knowledge": {
+        "review": [
+          ".knowledge/architecture/agent-runtime.md",
+          ".knowledge/domains/ai-configuration-governance.md",
+          ".knowledge/domains/agent-skill.md"
+        ],
+        "modify": [],
+        "candidate": []
+      },
+      "requiredChecks": [
+        {
+          "id": "CHECK-007",
+          "kind": "integration",
+          "blocking": true,
+          "covers": [
+            "OBS-001",
+            "EVT-001",
+            "FLOW-006"
+          ],
+          "command": "cd smart-recruit-ai-agent-service && go test ./internal/interfaces/grpc ./internal/infrastructure/persistence",
+          "successCriteria": "Durable Run identity/version evidence and assistant delta events are accurate and non-duplicated."
+        }
+      ],
+      "acceptance": ".spec/hr-agent-tool-runtime-closure/acceptance/TASK-004.md",
+      "report": ".spec/hr-agent-tool-runtime-closure/reports/TASK-004-report.md"
+    },
+    "TASK-005": {
+      "title": "Bounded aggregation, knowledge, and cumulative behavior verification",
+      "lifecycle": "draft",
+      "requirements": [
+        "NFR-001",
+        "KNOW-001",
+        "FR-001",
+        "MCP-001",
+        "ERR-001",
+        "FR-002",
+        "CFG-001",
+        "FR-003",
+        "FR-004",
+        "FR-005",
+        "OBS-001",
+        "EVT-001"
+      ],
+      "behaviorSurfaces": [
+        "FLOW-007",
+        "FLOW-001",
+        "FLOW-002",
+        "FLOW-003",
+        "FLOW-004",
+        "FLOW-005",
+        "FLOW-006"
+      ],
+      "dependencies": [
+        "TASK-004"
+      ],
+      "allowedFiles": [
+        "smart-recruit-ai-agent-service/internal/application/hr_tools/executor_applications.go",
+        "smart-recruit-ai-agent-service/internal/application/hr_tools/executor_applications_test.go",
+        ".knowledge/architecture/agent-runtime.md",
+        ".knowledge/architecture/service-boundaries.md",
+        ".knowledge/domains/ai-configuration-governance.md",
+        ".knowledge/domains/agent-skill.md",
+        ".knowledge/domains/mcp-tool-governance.md",
+        ".knowledge/pitfalls/mcp-policy-audit.md"
+      ],
+      "forbiddenFiles": [
+        "smart-recruit-proto/**",
+        "**/go.mod",
+        "**/go.sum",
+        "**/package.json",
+        "**/pnpm-lock.yaml",
+        "db.sql"
+      ],
+      "allowedActions": [
+        "modify",
+        "create",
+        "test"
+      ],
+      "requiresHumanConfirmation": false,
+      "reviewPolicy": "independent_required",
+      "destructiveActions": [],
+      "requiredKnowledgeImpact": true,
+      "knowledge": {
+        "review": [
+          ".knowledge/architecture/agent-runtime.md",
+          ".knowledge/architecture/service-boundaries.md",
+          ".knowledge/domains/ai-configuration-governance.md",
+          ".knowledge/domains/agent-skill.md",
+          ".knowledge/domains/mcp-tool-governance.md",
+          ".knowledge/pitfalls/mcp-policy-audit.md"
+        ],
+        "modify": [
+          ".knowledge/architecture/agent-runtime.md",
+          ".knowledge/architecture/service-boundaries.md",
+          ".knowledge/domains/ai-configuration-governance.md",
+          ".knowledge/domains/agent-skill.md",
+          ".knowledge/domains/mcp-tool-governance.md",
+          ".knowledge/pitfalls/mcp-policy-audit.md"
+        ],
+        "candidate": []
+      },
+      "requiredChecks": [
+        {
+          "id": "CHECK-008",
+          "kind": "unit",
+          "blocking": true,
+          "covers": [
+            "NFR-001",
+            "FLOW-007"
+          ],
+          "command": "cd smart-recruit-ai-agent-service && go test ./internal/application/hr_tools",
+          "successCriteria": "Aggregation honors concurrency, bounds, cancellation, deterministic ordering, and partial failures."
+        },
+        {
+          "id": "CHECK-009",
+          "kind": "integration",
+          "blocking": true,
+          "covers": [
+            "FR-001",
+            "MCP-001",
+            "ERR-001",
+            "FR-002",
+            "CFG-001",
+            "FR-003",
+            "FR-004",
+            "FR-005",
+            "OBS-001",
+            "EVT-001"
+          ],
+          "command": "cd smart-recruit-ai-agent-service && go test ./...",
+          "successCriteria": "All AI Agent service tests pass cumulatively."
+        },
+        {
+          "id": "CHECK-010",
+          "kind": "integration",
+          "blocking": true,
+          "covers": [
+            "CFG-001",
+            "FR-002"
+          ],
+          "command": "cd smart-recruit-commons && go test ./ai",
+          "successCriteria": "Shared AI tool loop remains compatible and enforces per-call limits."
+        },
+        {
+          "id": "CHECK-011",
+          "kind": "build",
+          "blocking": true,
+          "covers": [
+            "FR-004"
+          ],
+          "command": "pnpm --filter hr-frontend typecheck && pnpm --filter hr-frontend test",
+          "successCriteria": "HR frontend typecheck and tests pass."
+        },
+        {
+          "id": "CHECK-012",
+          "kind": "contract",
+          "blocking": true,
+          "covers": [
+            "KNOW-001"
+          ],
+          "command": "node .knowledge/scripts/validate-knowledge.mjs --root . && node .knowledge/scripts/check-references.mjs --root .",
+          "successCriteria": "Updated active knowledge validates and references current sources."
+        }
+      ],
+      "acceptance": ".spec/hr-agent-tool-runtime-closure/acceptance/TASK-005.md",
+      "report": ".spec/hr-agent-tool-runtime-closure/reports/TASK-005-report.md"
+    }
+  }
+}

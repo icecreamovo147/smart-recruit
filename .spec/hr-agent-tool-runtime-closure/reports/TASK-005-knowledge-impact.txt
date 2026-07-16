@@ -1,0 +1,14 @@
+base_tree: 5a325efbc2c483af6a910dd94b047b5e5beaae17
+detector_result: update_required
+reported_result: update_required
+reviewed_documents:
+- .knowledge/architecture/agent-runtime.md: UPDATED
+- .knowledge/architecture/service-boundaries.md: UPDATED
+- .knowledge/domains/ai-configuration-governance.md: UPDATED
+- .knowledge/domains/agent-skill.md: UPDATED
+- .knowledge/domains/mcp-tool-governance.md: UPDATED
+- .knowledge/pitfalls/mcp-policy-audit.md: UPDATED
+coverage_gap: false
+validation_result: PASS
+reference_result: PASS
+reason: Final cumulative behavior and bounded cross-service aggregation were reconciled with all routed active knowledge.

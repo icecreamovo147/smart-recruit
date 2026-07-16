@@ -1,0 +1,15 @@
+base_tree: db3629e67fffb008dd9518aaab2e0525aba4a20a
+detector_result: update_required
+reported_result: update_required
+reviewed_documents:
+- .knowledge/architecture/agent-runtime.md: UPDATED
+- .knowledge/domains/ai-configuration-governance.md: UPDATED
+- .knowledge/domains/agent-skill.md: UPDATED
+update_paths:
+- .knowledge/architecture/agent-runtime.md
+- .knowledge/domains/ai-configuration-governance.md
+- .knowledge/domains/agent-skill.md
+coverage_gap: false
+validation_result: PASS
+reference_result: PASS
+reason: CR-0006 added the routed documents to TASK-004 knowledge.modify; all three now describe durable identity, privacy-safe governance evidence, exact Skill version evidence, and assistant/process delta semantics.

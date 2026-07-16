@@ -1,0 +1,93 @@
+{
+  "schemaVersion": 2,
+  "changeRequestId": "CR-0007",
+  "feature_name": "hr-agent-tool-runtime-closure",
+  "baseRevision": 7,
+  "status": "applied",
+  "classification": "contract_gap",
+  "approvalLevel": "L2",
+  "reason": "The completed contract did not cover application-analysis session message seeding, blank durable Run validation, or the Anthropic System-only request envelope. Runtime evidence proves that the route-entry flow submits an empty message and serializes messages:null.",
+  "evidenceRefs": [
+    "repo://.dev/logs/ai-agent-service.log#HTTP-400-messages-null",
+    "repo://hr-frontend/src/views/hr/AIChatView.vue#createAnalysisSessionFromRoute",
+    "repo://smart-recruit-ai-agent-service/internal/interfaces/grpc/native_servers.go#CreateApplicationAnalysisSession",
+    "repo://smart-recruit-ai-agent-service/internal/interfaces/grpc/native_servers.go#buildHRToolCallingMessages",
+    "repo://smart-recruit-commons/ai/anthropic_chatmodel.go#buildRequest"
+  ],
+  "trigger": {
+    "task_id": "TASK-005",
+    "phase": "post-completion-runtime-diagnosis"
+  },
+  "impact": {
+    "requirements": [
+      "FR-006"
+    ],
+    "tasks": [
+      "TASK-006"
+    ],
+    "completedTasksRequiringRevalidation": []
+  },
+  "revalidationPlan": [
+    "TASK-006"
+  ],
+  "resultingRevision": 8,
+  "humanApproval": {
+    "approved_by": "user",
+    "approved_at": "2026-07-16T17:00:00+08:00",
+    "decision": "approve",
+    "confirmation_text": "把这个问题解决一下"
+  },
+  "approval": {
+    "approved_by": "user",
+    "approved_at": "2026-07-16T17:10:00+08:00",
+    "decision": "approve",
+    "reviewed_by": "root-task005-reviewer-r2-cr0007",
+    "outcome": "pass",
+    "verdict": "通过"
+  },
+  "updates": [
+    {
+      "target": "contract.json",
+      "staged_file": "changes/CR-0007/contract.json",
+      "before_sha256": "30ef3cd0ac9c24c63e55c9f8ba17307fa0db4cc2b8588748eff9a6c7ec21144a",
+      "after_sha256": "3234454fdce1209e3d9c4bf1476558faf2df7ff36bc8d8db8fce44238f5b052b"
+    },
+    {
+      "target": "task-scope.json",
+      "staged_file": "changes/CR-0007/task-scope.json",
+      "before_sha256": "1a87d109e7d44043e4d43c7b5a0647564741beffa2f71a6f2c6f92a9cef97712",
+      "after_sha256": "453fe0766ee931a296a2dd6eeeded50914b0fc9a18377e75e944f9c742414002"
+    },
+    {
+      "target": "traceability.json",
+      "staged_file": "changes/CR-0007/traceability.json",
+      "before_sha256": "af17bfaf071b50fae6c614e4e40d31d304502828b2f5d1e165712302e003dc72",
+      "after_sha256": "341e7c764f4437063496a137d106c21044da3082d00ea01ff1d0f9183cb8c4ef"
+    },
+    {
+      "target": "hr-agent-tool-runtime-closure-SPEC.md",
+      "staged_file": "changes/CR-0007/hr-agent-tool-runtime-closure-SPEC.md",
+      "before_sha256": "c5e6342dd1e92e7473243202f8cb8db819eefeb75a92a5b33a62821f66c352ea",
+      "after_sha256": "911532ad2b86fbf66429ff769fdecfcfe35f1fa1d56462c71fa0a170e25f23c8"
+    },
+    {
+      "target": "hr-agent-tool-runtime-closure-SDD.md",
+      "staged_file": "changes/CR-0007/hr-agent-tool-runtime-closure-SDD.md",
+      "before_sha256": "033543dc8b54f822b5ef18011520701cf4516f456e72bda37299420c7cb6f0c4",
+      "after_sha256": "82ae9c4eb4dcc73827ebf8c42111b1379367af21cd1cbbffd91965b4b3c10e33"
+    },
+    {
+      "target": "TASKS.md",
+      "staged_file": "changes/CR-0007/TASKS.md",
+      "before_sha256": "112af5de1c02f52d169079c19ce113d221179a64f7bf4667ed9bfc81fe5f7df0",
+      "after_sha256": "6aacb315af026f7c8e88f6d7894ccadb5716478e59b7677a8a7667dc9b1688e2"
+    },
+    {
+      "target": "acceptance/TASK-006.md",
+      "staged_file": "changes/CR-0007/acceptance/TASK-006.md",
+      "before_sha256": null,
+      "after_sha256": "87f966ca7607108a874850d2ddf46fe88a12c1b1bcc02c16304a0ab3af0e04f9"
+    }
+  ],
+  "applied_at": "2026-07-16T09:10:57.016Z"
+}

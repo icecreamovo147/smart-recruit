@@ -1,0 +1,57 @@
+{
+  "schemaVersion": 2,
+  "changeRequestId": "CR-0005",
+  "feature_name": "hr-agent-tool-runtime-closure",
+  "baseRevision": 5,
+  "status": "applied",
+  "classification": "scope_correction",
+  "approvalLevel": "L0",
+  "reason": "CR-0004 correctly added TASK-003 knowledge scope but its staged task-scope inherited an orchestrator lifecycle error: TASK-001 became ready and TASK-003 became completed before valid Evidence. This control-plane-only correction restores the serial rolling lifecycle without changing any requirement, scope, behavior, acceptance, check, API, schema, dependency, or security policy.",
+  "evidenceRefs": [
+    "repo://.spec/hr-agent-tool-runtime-closure/pipeline-state.json",
+    "repo://.spec/hr-agent-tool-runtime-closure/task-scope.json"
+  ],
+  "trigger": {
+    "task_id": "TASK-003",
+    "phase": "replan"
+  },
+  "impact": {
+    "requirements": [],
+    "tasks": [
+      "TASK-001",
+      "TASK-003",
+      "TASK-004"
+    ],
+    "completedTasksRequiringRevalidation": []
+  },
+  "revalidationPlan": [
+    "TASK-003"
+  ],
+  "resultingRevision": 6,
+  "approval": {
+    "approved_by": "cr5-reviewer-r1",
+    "approved_at": "2026-07-16T15:09:00+08:00",
+    "decision": "approve"
+  },
+  "updates": [
+    {
+      "target": "contract.json",
+      "staged_file": "changes/CR-0005/contract.json",
+      "before_sha256": "80d3457f2a1903e41d8c51b5680825f789e6179e4114fe0b3bd3e757a84ba765",
+      "after_sha256": "4e2f9040e32052d119ccc1d91313204b0415e98ded81e4ce086ae65ef09b9b83"
+    },
+    {
+      "target": "task-scope.json",
+      "staged_file": "changes/CR-0005/task-scope.json",
+      "before_sha256": "df4ba1cea668455eb6b32cdfa00fd87421860792aeb6c7b841e02083ea62583e",
+      "after_sha256": "ccee2cae1ac3087d8f7e00a3970ea36a2c9318ae865d4564c38a0dd547412950"
+    },
+    {
+      "target": "traceability.json",
+      "staged_file": "changes/CR-0005/traceability.json",
+      "before_sha256": "0a549a149c37b86820dca5ad37f99d7f0a08428264e02057e78bb7e3a40691f4",
+      "after_sha256": "f7f0c8e81465f634d2c7965c906a0b55705bcfae072a653eaf5f64c5622ee57a"
+    }
+  ],
+  "applied_at": "2026-07-16T07:03:20.274Z"
+}
