@@ -87,6 +87,48 @@ func TestNativeStoreRecordCandidateUsageAuditWritesUsageAndAuthContext(t *testin
 	}
 }
 
+func TestNativeStoreRecordUsageAuditWritesHRStaffContext(t *testing.T) {
+	ctx := context.Background()
+	db := newCandidateRuntimeTestDB(t)
+	store := NewNativeStore(db)
+
+	usageID, err := store.RecordUsageAudit(ctx, aiagentgrpc.UsageAuditRow{
+		UserID:        77,
+		Role:          2,
+		AccountType:   "staff",
+		ServiceType:   "ai_chat",
+		Endpoint:      "/hr/ai/chat/stream",
+		Provider:      "openai_compatible",
+		Model:         "qwen",
+		RequestChars:  8,
+		ResponseChars: 16,
+		Status:        "ok",
+		RequestID:     "hr-req-1",
+		IP:            "10.0.0.1",
+		RoleKeys:      []string{"staff"},
+		PermissionKey: "ai.hr.use",
+		ResourceType:  "ai",
+		ResourceID:    99,
+	})
+	if err != nil {
+		t.Fatalf("RecordUsageAudit error = %v", err)
+	}
+	var usage thirdPartyUsageLogRecord
+	if err := db.First(&usage, usageID).Error; err != nil {
+		t.Fatalf("load usage: %v", err)
+	}
+	if usage.UserID != 77 || usage.Role != 2 || usage.Endpoint != "/hr/ai/chat/stream" || usage.Model != "qwen" {
+		t.Fatalf("usage = %#v", usage)
+	}
+	var authCtx aiUsageAuthContextRecord
+	if err := db.Where("usage_log_id = ?", usageID).First(&authCtx).Error; err != nil {
+		t.Fatalf("load auth context: %v", err)
+	}
+	if authCtx.AccountType != "staff" || authCtx.PermissionKey != "ai.hr.use" || authCtx.ResourceID != 99 || authCtx.RoleKeys != "staff" {
+		t.Fatalf("auth context = %#v", authCtx)
+	}
+}
+
 func newCandidateRuntimeTestDB(t *testing.T) *gorm.DB {
 	t.Helper()
 	db, err := gorm.Open(sqlite.Open(":memory:"), &gorm.Config{})

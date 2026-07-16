@@ -335,6 +335,90 @@ func TestHRChatPersistsMessagesWithHROwnerRole(t *testing.T) {
 	if store.messages[1].Role != "assistant" || store.messages[1].Content != "hr reply" {
 		t.Fatalf("hr assistant message = %#v", store.messages[1])
 	}
+	if len(store.usageAudits) != 1 {
+		t.Fatalf("usage audits = %d, want 1", len(store.usageAudits))
+	}
+	audit := store.usageAudits[0]
+	if audit.UserID != 77 || audit.Role != 2 || audit.AccountType != "staff" || audit.ServiceType != "ai_chat" ||
+		audit.Endpoint != "/hr/ai/chat" || audit.PermissionKey != "ai.hr.use" || audit.Status != "ok" ||
+		audit.ResourceID != 99 || audit.RequestChars != len([]rune("hr asks")) || audit.ResponseChars != len([]rune("hr reply")) {
+		t.Fatalf("hr usage audit = %#v", audit)
+	}
+}
+
+func TestHRChatStreamRecordsUsageAudit(t *testing.T) {
+	store := newFakeAIStore()
+	provider := &fakeChatProvider{reply: "stream reply"}
+	service := &nativeAIService{store: store, provider: provider}
+	stream := &captureChatStream{ctx: context.Background()}
+
+	if err := service.ChatStream(&pb.ChatRequest{HrId: 88, Message: "stream ask", ApplicationId: 11}, stream); err != nil {
+		t.Fatalf("ChatStream returned error: %v", err)
+	}
+	if len(store.usageAudits) != 1 {
+		t.Fatalf("usage audits = %d, want 1", len(store.usageAudits))
+	}
+	audit := store.usageAudits[0]
+	if audit.Endpoint != "/hr/ai/chat/stream" || audit.UserID != 88 || audit.Status != "ok" || audit.ResourceID != 11 {
+		t.Fatalf("stream usage audit = %#v", audit)
+	}
+}
+
+func TestHRChatProviderErrorRecordsUsageAudit(t *testing.T) {
+	store := newFakeAIStore()
+	provider := &fakeChatProvider{err: errAIProviderRequired}
+	service := &nativeAIService{store: store, provider: provider}
+
+	resp, err := service.Chat(context.Background(), &pb.ChatRequest{HrId: 77, Message: "hr asks"})
+	if err != nil {
+		t.Fatalf("Chat returned transport error: %v", err)
+	}
+	if resp.GetCode() == 0 {
+		t.Fatalf("expected provider unavailable business code, got %#v", resp)
+	}
+	if len(store.usageAudits) != 1 {
+		t.Fatalf("usage audits = %d, want 1", len(store.usageAudits))
+	}
+	audit := store.usageAudits[0]
+	if audit.Status != "error" || audit.ErrorCode != "provider_error" || audit.Endpoint != "/hr/ai/chat" {
+		t.Fatalf("provider error audit = %#v", audit)
+	}
+}
+
+func TestRecordHRUsageAuditUsesAgentRunEndpoint(t *testing.T) {
+	store := newFakeAIStore()
+	service := &nativeAIService{store: store}
+	if err := service.recordHRUsageAudit(
+		context.Background(),
+		&pb.ChatRequest{HrId: 42, Message: "run ask", ApplicationId: 7},
+		hrChatRuntimeOptions{agentRunID: 1001},
+		true,
+		hrChatRuntimeResult{reply: "run reply", modelName: "qwen", providerName: "DeepSeek"},
+		"ok",
+		"",
+		time.Now(),
+	); err != nil {
+		t.Fatalf("recordHRUsageAudit error = %v", err)
+	}
+	if len(store.usageAudits) != 1 {
+		t.Fatalf("usage audits = %d, want 1", len(store.usageAudits))
+	}
+	audit := store.usageAudits[0]
+	if audit.Endpoint != "/hr/ai/agent-run" || audit.UserID != 42 || audit.ResourceID != 7 || audit.Model != "qwen" || audit.Provider != "DeepSeek" {
+		t.Fatalf("agent-run usage audit = %#v", audit)
+	}
+}
+
+func TestResolveRuntimeModelDisplayReturnsProviderName(t *testing.T) {
+	store := newFakeAIStore()
+	store.llmModels = []*pb.LlmModelInfo{
+		{Id: 7, ModelName: "deepseek-v4-flash", ProviderName: "DeepSeek", IsEnabled: true, IsDefault: true},
+	}
+	service := &nativeAIService{store: store}
+	id, modelName, providerName := service.resolveRuntimeModelDisplay(context.Background(), 7)
+	if id != 7 || modelName != "deepseek-v4-flash" || providerName != "DeepSeek" {
+		t.Fatalf("resolve = (%d, %q, %q), want (7, deepseek-v4-flash, DeepSeek)", id, modelName, providerName)
+	}
 }
 
 func TestHRChatRuntimeUsesApplicationToolContextAndPersistsTrace(t *testing.T) {
@@ -1963,7 +2047,8 @@ type fakeAIStore struct {
 	llmModels          []*pb.LlmModelInfo
 	toolTraces         []ToolTraceRow
 	candidateContext   CandidateRuntimeContext
-	usageAudits        []CandidateUsageAuditRow
+	usageAudits        []UsageAuditRow
+	candidateAudits    []CandidateUsageAuditRow
 	matchSnapshot      RecruitingCandidateMatchSnapshot
 	matchFound         bool
 	matchErr           error
@@ -2118,9 +2203,14 @@ func (s *fakeAIStore) LoadCandidateRuntimeContext(context.Context, int64, int32)
 	return s.candidateContext, nil
 }
 
-func (s *fakeAIStore) RecordCandidateUsageAudit(_ context.Context, row CandidateUsageAuditRow) (int64, error) {
+func (s *fakeAIStore) RecordUsageAudit(_ context.Context, row UsageAuditRow) (int64, error) {
 	s.usageAudits = append(s.usageAudits, row)
 	return int64(len(s.usageAudits)), nil
+}
+
+func (s *fakeAIStore) RecordCandidateUsageAudit(_ context.Context, row CandidateUsageAuditRow) (int64, error) {
+	s.candidateAudits = append(s.candidateAudits, row)
+	return s.RecordUsageAudit(context.Background(), candidateUsageAuditToUsageAudit(row))
 }
 
 func (s *fakeAIStore) CreateAgentRun(context.Context, AgentRunRow) (AgentRunRow, bool, error) {

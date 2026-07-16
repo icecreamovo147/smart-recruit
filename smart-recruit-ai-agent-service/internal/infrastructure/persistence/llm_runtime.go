@@ -37,6 +37,7 @@ type RuntimeLLMConfig struct {
 
 type selectedLLMConfig struct {
 	ProviderID          int64
+	ProviderName        string
 	ModelID             int64
 	APIKey              string
 	Model               string
@@ -52,6 +53,7 @@ type selectedLLMConfig struct {
 
 type llmRuntimeRow struct {
 	ProviderID          int64   `gorm:"column:provider_id"`
+	ProviderName        string  `gorm:"column:provider_name"`
 	ModelID             int64   `gorm:"column:model_id"`
 	APIKey              string  `gorm:"column:api_key"`
 	Model               string  `gorm:"column:model"`
@@ -102,15 +104,15 @@ func (s *NativeStore) CompleteWithOptions(ctx context.Context, prompt string, mo
 	return client.GenerateRecruitingReply(ctx, prompt, commonsai.RecruitingStats{}, nil)
 }
 
-func (s *NativeStore) ResolveLLMRuntimeModel(ctx context.Context, modelID int64) (int64, string, bool, error) {
+func (s *NativeStore) ResolveLLMRuntimeModel(ctx context.Context, modelID int64) (int64, string, string, bool, error) {
 	cfg, err := s.selectLLMRuntimeConfig(ctx, modelID, 0)
 	if err != nil {
-		return 0, "", false, err
+		return 0, "", "", false, err
 	}
 	if cfg.ModelID <= 0 || strings.TrimSpace(cfg.Model) == "" {
-		return 0, "", false, nil
+		return 0, "", "", false, nil
 	}
-	return cfg.ModelID, strings.TrimSpace(cfg.Model), true, nil
+	return cfg.ModelID, strings.TrimSpace(cfg.Model), auditProviderName(cfg.ProviderName, cfg.ProviderType), true, nil
 }
 
 // ChatWithRecruitingTools runs the shared commons tool-calling loop against the
@@ -292,6 +294,7 @@ func (s *NativeStore) selectLLMRuntimeConfig(ctx context.Context, modelID, provi
 	var row llmRuntimeRow
 	query := s.db.WithContext(ctx).Table("llm_models m").
 		Select(`p.id AS provider_id,
+			p.name AS provider_name,
 			m.id AS model_id,
 			p.api_key_encrypted AS api_key,
 			m.model_name AS model,
@@ -330,6 +333,7 @@ func (s *NativeStore) selectLLMRuntimeConfig(ctx context.Context, modelID, provi
 	}
 	selected := selectedLLMConfig{
 		ProviderID:          row.ProviderID,
+		ProviderName:        strings.TrimSpace(row.ProviderName),
 		ModelID:             row.ModelID,
 		APIKey:              apiKey,
 		Model:               strings.TrimSpace(row.Model),
@@ -364,6 +368,7 @@ func (s *NativeStore) defaultConfigForProvider(ctx context.Context, providerID i
 	}
 	selected := selectedLLMConfig{
 		ProviderID:   provider.ID,
+		ProviderName: strings.TrimSpace(provider.Name),
 		APIKey:       apiKey,
 		Model:        strings.TrimSpace(s.runtimeLLM.Model),
 		BaseURL:      strings.TrimSpace(provider.BaseURL),
@@ -404,4 +409,17 @@ func (c *selectedLLMConfig) applyDefaults(defaults RuntimeLLMConfig) {
 	if c.ProviderType == "" {
 		c.ProviderType = "openai_compatible"
 	}
+	if strings.TrimSpace(c.ProviderName) == "" {
+		c.ProviderName = strings.TrimSpace(c.ProviderType)
+	}
+}
+
+func auditProviderName(providerName, providerType string) string {
+	if name := strings.TrimSpace(providerName); name != "" {
+		return name
+	}
+	if typ := strings.TrimSpace(providerType); typ != "" {
+		return typ
+	}
+	return "unknown"
 }

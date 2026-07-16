@@ -955,37 +955,28 @@ func (s *NativeStore) LoadCandidateRuntimeContext(ctx context.Context, userID in
 }
 
 func (s *NativeStore) RecordCandidateUsageAudit(ctx context.Context, row aiagentgrpc.CandidateUsageAuditRow) (int64, error) {
-	if row.ServiceType == "" {
-		row.ServiceType = "ai_chat"
+	return s.RecordUsageAudit(ctx, candidateUsageRowFromLegacy(row))
+}
+
+func (s *NativeStore) RecordUsageAudit(ctx context.Context, row aiagentgrpc.UsageAuditRow) (int64, error) {
+	row = normalizeUsageAuditRow(row)
+	tokenCount := row.TokenUsageTotal
+	if tokenCount <= 0 {
+		tokenCount = row.EstimatedTokens
 	}
-	if row.Endpoint == "" {
-		row.Endpoint = "/candidate/ai/chat/stream"
-	}
-	if row.Provider == "" {
-		row.Provider = "openai_compatible"
-	}
-	if row.Status == "" {
-		row.Status = "ok"
-	}
-	if row.PermissionKey == "" {
-		row.PermissionKey = "ai.candidate.use"
-	}
-	if len(row.RoleKeys) == 0 {
-		row.RoleKeys = []string{"candidate"}
-	}
-	if len(row.ScopeKeys) == 0 {
-		row.ScopeKeys = []string{"self"}
+	if tokenCount <= 0 {
+		tokenCount = estimateUsageTokens(row.RequestChars, row.ResponseChars)
 	}
 	usage := thirdPartyUsageLogRecord{
 		UserID:          row.UserID,
-		Role:            1,
+		Role:            row.Role,
 		ServiceType:     row.ServiceType,
 		Endpoint:        row.Endpoint,
 		Provider:        row.Provider,
 		Model:           row.Model,
 		RequestChars:    row.RequestChars,
 		ResponseChars:   row.ResponseChars,
-		EstimatedTokens: row.EstimatedTokens,
+		EstimatedTokens: tokenCount,
 		Status:          row.Status,
 		ErrorCode:       row.ErrorCode,
 		CostMs:          row.CostMs,
@@ -1000,12 +991,12 @@ func (s *NativeStore) RecordCandidateUsageAudit(ctx context.Context, row aiagent
 		authCtx := aiUsageAuthContextRecord{
 			UsageLogID:    usage.ID,
 			ActorUserID:   row.UserID,
-			AccountType:   "candidate",
+			AccountType:   row.AccountType,
 			RoleKeys:      strings.Join(row.RoleKeys, ","),
 			PermissionKey: row.PermissionKey,
 			ScopeKeys:     strings.Join(row.ScopeKeys, ","),
-			ResourceType:  "ai",
-			ResourceID:    0,
+			ResourceType:  row.ResourceType,
+			ResourceID:    row.ResourceID,
 			Decision:      "allowed",
 			RequestID:     row.RequestID,
 			CreatedAt:     time.Now(),
@@ -1016,6 +1007,96 @@ func (s *NativeStore) RecordCandidateUsageAudit(ctx context.Context, row aiagent
 		return 0, err
 	}
 	return usage.ID, nil
+}
+
+func candidateUsageRowFromLegacy(row aiagentgrpc.CandidateUsageAuditRow) aiagentgrpc.UsageAuditRow {
+	return aiagentgrpc.UsageAuditRow{
+		UserID:          row.UserID,
+		Role:            1,
+		AccountType:     "candidate",
+		ServiceType:     row.ServiceType,
+		Endpoint:        row.Endpoint,
+		Provider:        row.Provider,
+		Model:           row.Model,
+		RequestChars:    row.RequestChars,
+		ResponseChars:   row.ResponseChars,
+		EstimatedTokens: row.EstimatedTokens,
+		Status:          row.Status,
+		ErrorCode:       row.ErrorCode,
+		CostMs:          row.CostMs,
+		RequestID:       row.RequestID,
+		IP:              row.IP,
+		RoleKeys:        append([]string(nil), row.RoleKeys...),
+		PermissionKey:   row.PermissionKey,
+		ScopeKeys:       append([]string(nil), row.ScopeKeys...),
+		ResourceType:    "ai",
+		ResourceID:      0,
+	}
+}
+
+func normalizeUsageAuditRow(row aiagentgrpc.UsageAuditRow) aiagentgrpc.UsageAuditRow {
+	if row.ServiceType == "" {
+		row.ServiceType = "ai_chat"
+	}
+	if row.Status == "" {
+		row.Status = "ok"
+	}
+	if row.AccountType == "" {
+		if row.Role == 2 {
+			row.AccountType = "staff"
+		} else {
+			row.AccountType = "candidate"
+			if row.Role == 0 {
+				row.Role = 1
+			}
+		}
+	}
+	if row.Role == 0 {
+		if row.AccountType == "staff" {
+			row.Role = 2
+		} else {
+			row.Role = 1
+		}
+	}
+	if row.Endpoint == "" {
+		if row.AccountType == "staff" {
+			row.Endpoint = "/hr/ai/chat"
+		} else {
+			row.Endpoint = "/candidate/ai/chat/stream"
+		}
+	}
+	if row.Provider == "" {
+		row.Provider = "openai_compatible"
+	}
+	if row.PermissionKey == "" {
+		if row.AccountType == "staff" {
+			row.PermissionKey = "ai.hr.use"
+		} else {
+			row.PermissionKey = "ai.candidate.use"
+		}
+	}
+	if len(row.RoleKeys) == 0 {
+		if row.AccountType == "staff" {
+			row.RoleKeys = []string{"staff"}
+		} else {
+			row.RoleKeys = []string{"candidate"}
+		}
+	}
+	if len(row.ScopeKeys) == 0 && row.AccountType != "staff" {
+		row.ScopeKeys = []string{"self"}
+	}
+	if row.ResourceType == "" {
+		row.ResourceType = "ai"
+	}
+	return row
+}
+
+func estimateUsageTokens(requestChars, responseChars int) int {
+	total := requestChars + responseChars
+	if total <= 0 {
+		return 0
+	}
+	return (total + 3) / 4
 }
 
 func (s *NativeStore) GetRecruitingResumeProfileByID(ctx context.Context, profileID uint64) (aiagentgrpc.RecruitingResumeProfileRow, bool, error) {

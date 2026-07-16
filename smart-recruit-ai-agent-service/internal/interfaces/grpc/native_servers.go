@@ -51,7 +51,7 @@ type RuntimeOptionsChatProvider interface {
 }
 
 type llmRuntimeModelResolver interface {
-	ResolveLLMRuntimeModel(ctx context.Context, modelID int64) (int64, string, bool, error)
+	ResolveLLMRuntimeModel(ctx context.Context, modelID int64) (int64, string, string, bool, error)
 }
 
 // RecruitingToolChatProvider runs the model-driven tool-calling loop for HR chat.
@@ -120,6 +120,10 @@ type candidateContextStore interface {
 
 type candidateUsageAuditStore interface {
 	RecordCandidateUsageAudit(ctx context.Context, row CandidateUsageAuditRow) (int64, error)
+}
+
+type usageAuditStore interface {
+	RecordUsageAudit(ctx context.Context, row UsageAuditRow) (int64, error)
 }
 
 type applicationSnapshotClient interface {
@@ -262,6 +266,32 @@ type CandidateOfferContext struct {
 	ExpiresAt     string `json:"expires_at,omitempty"`
 }
 
+// UsageAuditRow is a third-party usage audit record for AI calls (HR or candidate).
+type UsageAuditRow struct {
+	UserID          int64
+	Role            int32
+	AccountType     string
+	ServiceType     string
+	Endpoint        string
+	Provider        string
+	Model           string
+	RequestChars    int
+	ResponseChars   int
+	EstimatedTokens int
+	TokenUsageTotal int
+	Status          string
+	ErrorCode       string
+	CostMs          int
+	RequestID       string
+	IP              string
+	RoleKeys        []string
+	PermissionKey   string
+	ScopeKeys       []string
+	ResourceType    string
+	ResourceID      int64
+}
+
+// CandidateUsageAuditRow keeps the candidate-facing audit shape used by existing call sites.
 type CandidateUsageAuditRow struct {
 	UserID          int64
 	ServiceType     string
@@ -279,6 +309,31 @@ type CandidateUsageAuditRow struct {
 	RoleKeys        []string
 	PermissionKey   string
 	ScopeKeys       []string
+}
+
+func candidateUsageAuditToUsageAudit(row CandidateUsageAuditRow) UsageAuditRow {
+	return UsageAuditRow{
+		UserID:          row.UserID,
+		Role:            1,
+		AccountType:     "candidate",
+		ServiceType:     row.ServiceType,
+		Endpoint:        row.Endpoint,
+		Provider:        row.Provider,
+		Model:           row.Model,
+		RequestChars:    row.RequestChars,
+		ResponseChars:   row.ResponseChars,
+		EstimatedTokens: row.EstimatedTokens,
+		Status:          row.Status,
+		ErrorCode:       row.ErrorCode,
+		CostMs:          row.CostMs,
+		RequestID:       row.RequestID,
+		IP:              row.IP,
+		RoleKeys:        append([]string(nil), row.RoleKeys...),
+		PermissionKey:   row.PermissionKey,
+		ScopeKeys:       append([]string(nil), row.ScopeKeys...),
+		ResourceType:    "ai",
+		ResourceID:      0,
+	}
 }
 
 type AgentRunRow struct {
@@ -767,6 +822,7 @@ type hrChatRuntimeResult struct {
 	plan                commonsai.RecruitingPlan
 	modelID             int64
 	modelName           string
+	providerName        string
 	toolTraces          []ToolTraceRow
 	streamedTextDelta   bool
 	contextUsage        *pb.ContextUsageInfo
@@ -863,16 +919,26 @@ func (s *nativeAIService) runHRChatRuntime(ctx context.Context, req *pb.ChatRequ
 	return s.runHRChatRuntimeWithOptions(ctx, req, emit, hrChatRuntimeOptions{})
 }
 
-func (s *nativeAIService) runHRChatRuntimeWithOptions(ctx context.Context, req *pb.ChatRequest, emit hrChatStreamEmitter, opts hrChatRuntimeOptions) (hrChatRuntimeResult, error) {
+func (s *nativeAIService) runHRChatRuntimeWithOptions(ctx context.Context, req *pb.ChatRequest, emit hrChatStreamEmitter, opts hrChatRuntimeOptions) (result hrChatRuntimeResult, err error) {
 	session, err := s.ensureSession(ctx, ownerRoleHR, req.GetHrId(), req.GetSessionId(), req.GetApplicationId(), req.GetMessage())
 	if err != nil {
 		return hrChatRuntimeResult{}, err
 	}
-	result := hrChatRuntimeResult{session: session}
+	result = hrChatRuntimeResult{session: session}
 	if req.GetSessionId() == 0 {
 		req.SessionId = session.ID
 	}
-	result.modelID, result.modelName = s.resolveRuntimeModelDisplay(ctx, req.GetModelId())
+	result.modelID, result.modelName, result.providerName = s.resolveRuntimeModelDisplay(ctx, req.GetModelId())
+	startedAt := time.Now()
+	auditEnabled := false
+	auditStatus := "ok"
+	auditErrorCode := ""
+	defer func() {
+		if !auditEnabled {
+			return
+		}
+		s.bestEffortRecordHRUsageAudit(ctx, req, opts, emit != nil, result, auditStatus, auditErrorCode, startedAt)
+	}()
 	sendWithDisplay := func(event *pb.ChatStreamResponse, display *agentRunDisplayContext) error {
 		if emit == nil || event == nil {
 			return nil
@@ -953,6 +1019,9 @@ func (s *nativeAIService) runHRChatRuntimeWithOptions(ctx context.Context, req *
 	modelToolRunner := newHRRuntimeToolRunner(executor, governance.ExecutableToolNames, s, opts.agentRunID)
 	toolProvider, hasToolProvider := s.provider.(RecruitingToolChatProvider)
 	canRunTools := len(toolSchemas) > 0 && (s.jobs != nil || s.appList != nil || s.applications != nil)
+
+	// From here on, every exit should leave an AI usage audit trail (aligned with legacy writeHRUsageAudit).
+	auditEnabled = true
 
 	var reply string
 	gateRequired := len(plan.RequiredToolGroups) > 0
@@ -1043,12 +1112,20 @@ func (s *nativeAIService) runHRChatRuntimeWithOptions(ctx context.Context, req *
 				result.providerUnavailable = true
 			}
 			if !hasUsefulToolResults(traces) {
+				if agentRunExecutionCanceled(ctx, toolErr) {
+					auditStatus = "timeout"
+					result.reply = strings.TrimSpace(deltaBuilder.String())
+				} else {
+					auditStatus = "error"
+					auditErrorCode = "provider_error"
+				}
 				if result.providerUnavailable {
 					return result, nil
 				}
 				return result, toolErr
 			}
 			result.fallbackUsed = true
+			auditErrorCode = "fallback"
 			reply = commonsai.BuildHRFallbackReply(toCommonsToolTraces(traces))
 			if err := sendWithDisplay(&pb.ChatStreamResponse{Code: 0, Msg: "success", EventType: "fallback", EventMessage: "model failed after useful tool results; using deterministic fallback", CreatedAt: formatTime(time.Now())}, displayContextForPlanStep(plan, "compose_answer")); err != nil {
 				return result, err
@@ -1075,12 +1152,19 @@ func (s *nativeAIService) runHRChatRuntimeWithOptions(ctx context.Context, req *
 				result.providerUnavailable = true
 			}
 			if !hasUsefulToolResults(traces) {
+				if agentRunExecutionCanceled(ctx, err) {
+					auditStatus = "timeout"
+				} else {
+					auditStatus = "error"
+					auditErrorCode = "provider_error"
+				}
 				if errors.Is(err, errAIProviderRequired) {
 					return result, nil
 				}
 				return result, err
 			}
 			result.fallbackUsed = true
+			auditErrorCode = "fallback"
 			reply = commonsai.BuildHRFallbackReply(toCommonsToolTraces(traces))
 			if err := sendWithDisplay(&pb.ChatStreamResponse{Code: 0, Msg: "success", EventType: "fallback", EventMessage: "model failed after useful tool results; using deterministic fallback", CreatedAt: formatTime(time.Now())}, displayContextForPlanStep(plan, "compose_answer")); err != nil {
 				return result, err
@@ -3018,15 +3102,77 @@ func sanitizeCandidateResumeTrace(resume CandidateResumeContext) CandidateResume
 	return resume
 }
 
-func (s *nativeAIService) recordCandidateUsageAudit(ctx context.Context, userID int64, requestChars, responseChars int, statusValue, errorCode string, costMs int) error {
-	auditStore, ok := s.store.(candidateUsageAuditStore)
+func (s *nativeAIService) bestEffortRecordHRUsageAudit(ctx context.Context, req *pb.ChatRequest, opts hrChatRuntimeOptions, streaming bool, result hrChatRuntimeResult, statusValue, errorCode string, startedAt time.Time) {
+	if err := s.recordHRUsageAudit(ctx, req, opts, streaming, result, statusValue, errorCode, startedAt); err != nil {
+		// Audit must not fail the user-facing AI response (aligned with legacy createUsageLogSync warn-only).
+		_ = err
+	}
+}
+
+func (s *nativeAIService) recordHRUsageAudit(ctx context.Context, req *pb.ChatRequest, opts hrChatRuntimeOptions, streaming bool, result hrChatRuntimeResult, statusValue, errorCode string, startedAt time.Time) error {
+	if req == nil {
+		return nil
+	}
+	auditStore, ok := s.store.(usageAuditStore)
 	if !ok {
 		return nil
 	}
 	if statusValue == "" {
 		statusValue = "ok"
 	}
-	_, err := auditStore.RecordCandidateUsageAudit(ctx, CandidateUsageAuditRow{
+	endpoint := "/hr/ai/chat"
+	if opts.agentRunID > 0 {
+		endpoint = "/hr/ai/agent-run"
+	} else if streaming {
+		endpoint = "/hr/ai/chat/stream"
+	}
+	requestChars := len([]rune(strings.TrimSpace(req.GetMessage())))
+	responseChars := len([]rune(result.reply))
+	tokenTotal := 0
+	if result.contextUsage != nil {
+		tokenTotal = int(result.contextUsage.GetTotalTokensActual())
+		if tokenTotal <= 0 {
+			tokenTotal = int(result.contextUsage.GetPromptTokensActual() + result.contextUsage.GetCompletionTokensActual())
+		}
+		if tokenTotal <= 0 {
+			tokenTotal = int(result.contextUsage.GetPromptTokensEstimated())
+		}
+	}
+	provider := strings.TrimSpace(result.providerName)
+	if provider == "" {
+		provider = "unknown"
+	}
+	modelName := strings.TrimSpace(result.modelName)
+	_, err := auditStore.RecordUsageAudit(ctx, UsageAuditRow{
+		UserID:          req.GetHrId(),
+		Role:            2,
+		AccountType:     "staff",
+		ServiceType:     "ai_chat",
+		Endpoint:        endpoint,
+		Provider:        provider,
+		Model:           modelName,
+		RequestChars:    requestChars,
+		ResponseChars:   responseChars,
+		EstimatedTokens: estimateTokenUsage(requestChars, responseChars),
+		TokenUsageTotal: tokenTotal,
+		Status:          statusValue,
+		ErrorCode:       errorCode,
+		CostMs:          int(time.Since(startedAt).Milliseconds()),
+		RequestID:       platformmetadata.GetRequestID(ctx),
+		IP:              platformmetadata.GetClientIP(ctx),
+		RoleKeys:        []string{"staff"},
+		PermissionKey:   "ai.hr.use",
+		ResourceType:    "ai",
+		ResourceID:      req.GetApplicationId(),
+	})
+	return err
+}
+
+func (s *nativeAIService) recordCandidateUsageAudit(ctx context.Context, userID int64, requestChars, responseChars int, statusValue, errorCode string, costMs int) error {
+	if statusValue == "" {
+		statusValue = "ok"
+	}
+	row := CandidateUsageAuditRow{
 		UserID:          userID,
 		ServiceType:     "ai_chat",
 		Endpoint:        "/candidate/ai/chat/stream",
@@ -3042,7 +3188,16 @@ func (s *nativeAIService) recordCandidateUsageAudit(ctx context.Context, userID 
 		RoleKeys:        []string{"candidate"},
 		PermissionKey:   "ai.candidate.use",
 		ScopeKeys:       []string{"self"},
-	})
+	}
+	if auditStore, ok := s.store.(usageAuditStore); ok {
+		_, err := auditStore.RecordUsageAudit(ctx, candidateUsageAuditToUsageAudit(row))
+		return err
+	}
+	auditStore, ok := s.store.(candidateUsageAuditStore)
+	if !ok {
+		return nil
+	}
+	_, err := auditStore.RecordCandidateUsageAudit(ctx, row)
 	return err
 }
 
@@ -4136,21 +4291,22 @@ func modelDisplayName(modelID int64) string {
 	return "默认模型"
 }
 
-func (s *nativeAIService) resolveRuntimeModelDisplay(ctx context.Context, requestedModelID int64) (int64, string) {
+func (s *nativeAIService) resolveRuntimeModelDisplay(ctx context.Context, requestedModelID int64) (int64, string, string) {
 	fallbackID := requestedModelID
 	fallbackName := modelDisplayName(requestedModelID)
+	fallbackProvider := ""
 	if s == nil || s.store == nil {
-		return fallbackID, fallbackName
+		return fallbackID, fallbackName, fallbackProvider
 	}
 	if resolver, ok := s.store.(llmRuntimeModelResolver); ok {
-		id, name, found, err := resolver.ResolveLLMRuntimeModel(ctx, requestedModelID)
+		id, name, providerName, found, err := resolver.ResolveLLMRuntimeModel(ctx, requestedModelID)
 		if err == nil && found && strings.TrimSpace(name) != "" {
-			return id, strings.TrimSpace(name)
+			return id, strings.TrimSpace(name), strings.TrimSpace(providerName)
 		}
 	}
 	rows, _, err := s.store.ListLlmModels(ctx, 1, 200, 0)
 	if err != nil || len(rows) == 0 {
-		return fallbackID, fallbackName
+		return fallbackID, fallbackName, fallbackProvider
 	}
 	var firstEnabled *pb.LlmModelInfo
 	for _, row := range rows {
@@ -4161,16 +4317,16 @@ func (s *nativeAIService) resolveRuntimeModelDisplay(ctx context.Context, reques
 			firstEnabled = row
 		}
 		if requestedModelID > 0 && row.GetId() == requestedModelID {
-			return row.GetId(), llmModelDisplayName(row)
+			return row.GetId(), llmModelDisplayName(row), strings.TrimSpace(row.GetProviderName())
 		}
 		if requestedModelID <= 0 && row.GetIsDefault() {
-			return row.GetId(), llmModelDisplayName(row)
+			return row.GetId(), llmModelDisplayName(row), strings.TrimSpace(row.GetProviderName())
 		}
 	}
 	if requestedModelID <= 0 && firstEnabled != nil {
-		return firstEnabled.GetId(), llmModelDisplayName(firstEnabled)
+		return firstEnabled.GetId(), llmModelDisplayName(firstEnabled), strings.TrimSpace(firstEnabled.GetProviderName())
 	}
-	return fallbackID, fallbackName
+	return fallbackID, fallbackName, fallbackProvider
 }
 
 func llmModelDisplayName(model *pb.LlmModelInfo) string {
