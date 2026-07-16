@@ -9,6 +9,7 @@ import {
   buildApplicationAnalysisRunRequest,
   resolveApplicationAnalysisMessage,
 } from './AIChatView.vue'
+import { sanitizeAssistantProcessText } from '@/utils/hrAssistantProcess'
 
 interface MessageItem {
   role: string
@@ -116,6 +117,22 @@ describe('AIChatView restore assistant slot seeding', () => {
     })
     expect(idx).toBe(0)
     expect(messages[0].content).toBe('Hello')
+  })
+})
+
+describe('AIChatView assistant process formatting', () => {
+  it('renders persisted ADK runtime JSON as display summary text', () => {
+    const text = sanitizeAssistantProcessText(JSON.stringify({
+      runtime: 'adk',
+      display_summary: ['已完成：读取当前岗位列表。'],
+      fallback_used: false,
+      tool_count: 1,
+      tool_results: [{ tool_name: 'get_job_list', status: 'success' }],
+    }))
+
+    expect(text).toBe('已完成：读取当前岗位列表。')
+    expect(text).not.toContain('"runtime"')
+    expect(text).not.toContain('tool_results')
   })
 })
 

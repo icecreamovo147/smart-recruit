@@ -248,6 +248,7 @@ func TestAgentRunRuntimePlanJSONIncludesTraceOverviewFields(t *testing.T) {
 		9,
 		"qwen3.6-flash",
 		[]string{"AI 响应较慢，请稍候..."},
+		"adk",
 	)
 	var parsed struct {
 		DurableRequest agentRunDurablePayload `json:"durable_request"`
@@ -272,8 +273,8 @@ func TestAgentRunRuntimePlanJSONIncludesTraceOverviewFields(t *testing.T) {
 	if parsed.DurableRequest.Message != "analyze candidate" || parsed.DurableRequest.ApplicationID != 88 {
 		t.Fatalf("durable request = %#v, want original payload preserved", parsed.DurableRequest)
 	}
-	if parsed.Runtime != "native-hr-runtime" || parsed.Model != "qwen3.6-flash" {
-		t.Fatalf("runtime/model = (%q, %q), want native runtime/resolved model", parsed.Runtime, parsed.Model)
+	if parsed.Runtime != "adk" || parsed.Model != "qwen3.6-flash" {
+		t.Fatalf("runtime/model = (%q, %q), want adk runtime/resolved model", parsed.Runtime, parsed.Model)
 	}
 	if parsed.RecruitingPlan.Intent != string(commonsai.IntentCandidateMatchEvaluation) || len(parsed.RecruitingPlan.RiskChecks) != 2 {
 		t.Fatalf("recruiting plan = %#v, want intent and risk checks", parsed.RecruitingPlan)

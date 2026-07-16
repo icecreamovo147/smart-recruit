@@ -472,8 +472,8 @@ func TestHRChatRuntimeUsesApplicationToolContextAndPersistsTrace(t *testing.T) {
 	if len(store.messages) != 2 {
 		t.Fatalf("messages = %d, want 2", len(store.messages))
 	}
-	if got := store.messages[1]; got.Role != "assistant" || got.ProcessContent == "" || !strings.Contains(got.ProcessContent, "native-hr-runtime") {
-		t.Fatalf("assistant message = %#v, want process content", got)
+	if got := store.messages[1]; got.Role != "assistant" || got.ProcessContent == "" || !(strings.Contains(got.ProcessContent, `"runtime":"adk"`) || strings.Contains(got.ProcessContent, `"runtime":"legacy"`)) {
+		t.Fatalf("assistant message = %#v, want process content with adk/legacy runtime", got)
 	}
 	if got := store.messages[1]; got.ModelID != 7 || got.ModelName != "qwen3.6-flash" {
 		t.Fatalf("assistant model = (%d, %q), want persisted model for history reload", got.ModelID, got.ModelName)
@@ -1033,6 +1033,49 @@ func TestHRLiveDataGateBlocksModelNativeFabrication(t *testing.T) {
 						t.Fatalf("tool traces = %#v, want all attempts %s", store.toolTraces, tt.wantTraceStat)
 					}
 				}
+			}
+		})
+	}
+}
+
+func TestHRGreetingDoesNotExposeOrCallDataTools(t *testing.T) {
+	for _, msg := range []string{"hello", "hi", "你好"} {
+		t.Run(msg, func(t *testing.T) {
+			store := newFakeAIStore()
+			store.agentConfigs = []*pb.AgentConfigInfo{{
+				Id: 11, Name: "hr-data-agent", AgentType: hrRecruitingAgentType, IsDefault: true, IsEnabled: true,
+				ToolBindings: []*pb.AgentToolBindingInfo{
+					{ToolName: "get_job_list", IsEnabled: true},
+					{ToolName: "query_total_applications", IsEnabled: true},
+					{ToolName: "query_today_applications", IsEnabled: true},
+					{ToolName: "list_all_applications", IsEnabled: true},
+				},
+			}}
+			provider := &fakeRecruitingToolProvider{reply: "should not be used for greeting tool path"}
+			// Force plain completion path when tools are correctly stripped.
+			provider.fakeChatProvider.reply = "你好，我是招聘助手，可以帮你查岗位和投递。"
+			service := newNativeAIService(store, provider, nil, &fakeHRJobClient{list: &pb.ListJobsResponse{
+				Code: 0, List: []*pb.Job{{JobId: 1, Title: "Must Not Appear"}},
+			}}, nil)
+
+			resp, err := service.Chat(context.Background(), &pb.ChatRequest{HrId: 1, Message: msg})
+			if err != nil {
+				t.Fatalf("Chat returned error: %v", err)
+			}
+			if provider.toolCalls != 0 {
+				t.Fatalf("ChatWithRecruitingTools calls = %d, want 0 for greeting %q (tools=%v)", provider.toolCalls, msg, provider.toolNames)
+			}
+			for _, trace := range store.toolTraces {
+				switch strings.TrimSpace(trace.ToolName) {
+				case "get_job_list", "query_total_applications", "query_today_applications", "list_all_applications":
+					t.Fatalf("unexpected data tool trace for greeting %q: %#v", msg, store.toolTraces)
+				}
+			}
+			if strings.Contains(resp.GetReply(), "Must Not Appear") {
+				t.Fatalf("reply leaked live job data for greeting %q: %q", msg, resp.GetReply())
+			}
+			if strings.TrimSpace(resp.GetReply()) == "" {
+				t.Fatalf("empty reply for greeting %q", msg)
 			}
 		})
 	}
@@ -1627,7 +1670,7 @@ func TestHRRuntimeCompletionOptionsClampAgentIterations(t *testing.T) {
 	}
 }
 
-func TestHRModelToolLoopReceivesAgentIterationLimitWithoutActionTool(t *testing.T) {
+func TestHRNonLiveRecruitingAdviceUsesPlainModelWithoutRecruitingTools(t *testing.T) {
 	store := newFakeAIStore()
 	store.agentConfigs = []*pb.AgentConfigInfo{{
 		Id: 13, Name: "status-agent", AgentType: hrRecruitingAgentType, IsDefault: true, IsEnabled: true, MaxIterations: 7,
@@ -1636,21 +1679,51 @@ func TestHRModelToolLoopReceivesAgentIterationLimitWithoutActionTool(t *testing.
 			{ToolName: "propose_application_status_update", IsEnabled: true},
 		},
 	}}
-	provider := &fakeRecruitingToolProvider{reply: "已生成待确认的状态变更建议"}
+	provider := &fakeRecruitingToolProvider{reply: "tool path should not be used"}
+	provider.fakeChatProvider.reply = "可以，下面是招聘沟通建议。"
 	service := newNativeAIService(store, provider, nil, &fakeHRJobClient{}, nil)
 
 	resp, err := service.Chat(context.Background(), &pb.ChatRequest{HrId: 1, Message: "请提供招聘沟通建议"})
 	if err != nil {
 		t.Fatalf("Chat returned error: %v", err)
 	}
-	if provider.toolCalls != 1 || len(provider.options) != 1 || provider.options[0].MaxIterations != 7 {
-		t.Fatalf("provider calls/options = %d/%#v, want max iterations 7", provider.toolCalls, provider.options)
+	if provider.toolCalls != 0 {
+		t.Fatalf("tool calls = %d, want 0 for non-live recruiting advice", provider.toolCalls)
 	}
-	if containsString(provider.toolNames, "propose_application_status_update") {
-		t.Fatalf("model tools = %v, action tool must require a separate confirmation transport", provider.toolNames)
+	if provider.calls != 1 {
+		t.Fatalf("plain provider calls = %d, want one completion", provider.calls)
 	}
-	if !strings.Contains(resp.GetReply(), "待确认") {
-		t.Fatalf("reply = %q, want confirmation-oriented proposal", resp.GetReply())
+	if !strings.Contains(resp.GetReply(), "招聘沟通建议") {
+		t.Fatalf("reply = %q, want plain model advice", resp.GetReply())
+	}
+}
+
+func TestHRGeneralProgrammingQuestionBypassesLiveDataGate(t *testing.T) {
+	store := newFakeAIStore()
+	store.agentConfigs = []*pb.AgentConfigInfo{{
+		Id: 14, Name: "live-data-agent", AgentType: hrRecruitingAgentType, IsDefault: true, IsEnabled: true,
+		ToolBindings: []*pb.AgentToolBindingInfo{
+			{ToolName: "get_job_detail", IsEnabled: true},
+			{ToolName: "list_applications_by_job", IsEnabled: true},
+			{ToolName: "get_candidate_detail", IsEnabled: true},
+		},
+	}}
+	provider := &fakeRecruitingToolProvider{reply: "tool path should not be used"}
+	provider.fakeChatProvider.reply = "下面是一段 Go 快速排序代码。"
+	service := newNativeAIService(store, provider, nil, &fakeHRJobClient{}, nil)
+
+	resp, err := service.Chat(context.Background(), &pb.ChatRequest{HrId: 1, Message: "帮我写一段快速排序代码"})
+	if err != nil {
+		t.Fatalf("Chat returned error: %v", err)
+	}
+	if provider.toolCalls != 0 {
+		t.Fatalf("tool calls = %d, want 0 for general programming request (tools=%v)", provider.toolCalls, provider.toolNames)
+	}
+	if provider.calls != 1 {
+		t.Fatalf("plain provider calls = %d, want 1", provider.calls)
+	}
+	if strings.Contains(resp.GetReply(), "需要先选择") || !strings.Contains(resp.GetReply(), "快速排序") {
+		t.Fatalf("reply = %q, want programming answer without live-data gate", resp.GetReply())
 	}
 }
 
@@ -1669,11 +1742,14 @@ func TestHRChatStreamEmitsRuntimeEvents(t *testing.T) {
 	for _, resp := range stream.responses {
 		eventTypes = append(eventTypes, resp.GetEventType())
 	}
-	want := []string{"thinking", "tool_calling", "tool_done", "context_usage", "generating", "done"}
+	want := []string{"model_info", "thinking", "tool_calling", "tool_done", "context_usage", "generating", "done"}
 	for _, eventType := range want {
 		if !containsString(eventTypes, eventType) {
 			t.Fatalf("event types = %#v, missing %q", eventTypes, eventType)
 		}
+	}
+	if stream.responses[0].GetEventType() != "model_info" || stream.responses[0].GetContextUsage().GetModelName() == "" {
+		t.Fatalf("first stream response = %#v, want model_info with model name", stream.responses[0])
 	}
 	last := stream.responses[len(stream.responses)-1]
 	if !last.GetDone() || last.GetDelta() != "streamed hr reply" || last.GetContextUsage() == nil {
@@ -2566,7 +2642,7 @@ func TestAgentRunResultPayloadKeepsGovernanceEvidencePrivacySafe(t *testing.T) {
 			ToolName: "search_candidates", Status: "success", ResultContent: `{"candidate_name":"PRIVATE_PERSON"}`,
 		}},
 	}
-	payload := agentRunResultPayload(result)
+	payload := agentRunResultPayload(result, "adk")
 	for _, forbidden := range []string{"PRIVATE_PROMPT_BODY", "PRIVATE_SKILL_BODY", "PRIVATE_PERSON", "PRIVATE_CANDIDATE_NAME", "PRIVATE_JOB_TITLE", "990099", "application_id", "candidate_name", "job_title"} {
 		if strings.Contains(payload, forbidden) {
 			t.Fatalf("run result payload leaked %q: %s", forbidden, payload)

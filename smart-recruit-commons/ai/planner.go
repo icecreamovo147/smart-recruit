@@ -12,6 +12,7 @@ import (
 )
 
 const (
+	IntentGeneralChat              = "general_chat"
 	IntentCandidateMatchEvaluation = "candidate_match_evaluation"
 	IntentCandidateComparison      = "candidate_comparison"
 	IntentCandidateLookup          = "candidate_lookup"
@@ -22,7 +23,14 @@ const (
 	IntentStatusChangeProposal     = "status_change_proposal"
 	IntentInterviewPrep            = "interview_prep"
 	IntentOfferSupport             = "offer_support"
+	IntentGreeting                 = "greeting"
 	IntentUnknown                  = "unknown"
+)
+
+const (
+	IntentDomainGeneral    = "general_chat"
+	IntentDomainRecruiting = "recruiting_domain"
+	IntentDomainAmbiguous  = "ambiguous"
 )
 
 // RecruitingPlan is the deterministic, rule-based planner output passed to
@@ -30,6 +38,12 @@ const (
 // skill and memory selectors without persisting planner state.
 type RecruitingPlan struct {
 	Intent                  string                  `json:"intent"`
+	Domain                  string                  `json:"domain"`
+	Confidence              float64                 `json:"confidence"`
+	RequiresRecruitingData  bool                    `json:"requires_recruiting_data"`
+	KeywordHints            []string                `json:"keyword_hints"`
+	PossibleIntents         []string                `json:"possible_intents"`
+	ClassificationSource    string                  `json:"classification_source"`
 	RequiredTools           []string                `json:"required_tools"`
 	RequiredData            []string                `json:"required_data"`
 	RequiredToolGroups      []RecruitingToolGroup   `json:"required_tool_groups"`
@@ -40,6 +54,16 @@ type RecruitingPlan struct {
 	OutputSchema            map[string]any          `json:"output_schema"`
 	ConfirmationRequirement ConfirmationRequirement `json:"confirmation_requirement"`
 	RiskChecks              []string                `json:"risk_checks"`
+}
+
+type IntentClassification struct {
+	Domain                 string
+	Intent                 string
+	Confidence             float64
+	RequiresRecruitingData bool
+	KeywordHints           []string
+	PossibleIntents        []string
+	Source                 string
 }
 
 // RecruitingToolGroup defines one mandatory evidence group. At least one Tool
@@ -76,18 +100,30 @@ func NewRecruitingPlanner() RecruitingPlanner {
 
 func (RecruitingPlanner) Plan(input RecruitingPlannerInput) RecruitingPlan {
 	started := time.Now()
-	intent := classifyRecruitingIntent(input.Message)
+	classification := classifyRecruitingMessage(input.Message)
+	intent := classification.Intent
 	available := toolSet(input.AvailableTools)
 
 	plan := RecruitingPlan{
-		Intent:             intent,
-		SelectedSkills:     []string{},
-		SelectedMemories:   []string{},
-		RequiredToolGroups: []RecruitingToolGroup{},
-		MissingInputs:      []string{},
+		Intent:                 intent,
+		Domain:                 classification.Domain,
+		Confidence:             classification.Confidence,
+		RequiresRecruitingData: classification.RequiresRecruitingData,
+		KeywordHints:           classification.KeywordHints,
+		PossibleIntents:        classification.PossibleIntents,
+		ClassificationSource:   classification.Source,
+		SelectedSkills:         []string{},
+		SelectedMemories:       []string{},
+		RequiredToolGroups:     []RecruitingToolGroup{},
+		MissingInputs:          []string{},
 	}
 
 	switch intent {
+	case IntentGeneralChat:
+		plan.RequiredTools = []string{}
+		plan.RequiredData = []string{"general_user_message"}
+		plan.OutputSchema = objectSchema("general_chat", "answer", "caveats")
+		plan.RiskChecks = []string{"do_not_call_recruiting_tools", "do_not_fetch_live_recruiting_data", "answer_without_live_data_gate"}
 	case IntentCandidateMatchEvaluation:
 		plan.RequiredToolGroups = []RecruitingToolGroup{
 			toolGroup(available, "candidate_identity", "get_candidate_detail"),
@@ -176,11 +212,16 @@ func (RecruitingPlanner) Plan(input RecruitingPlannerInput) RecruitingPlan {
 		plan.RequiredData = []string{"candidate_identity", "application_scope"}
 		plan.OutputSchema = objectSchema("candidate_lookup", "candidates", "total", "filters", "caveats")
 		plan.RiskChecks = []string{"call_tools_for_live_candidate_data", "do_not_invent_candidates", "respect_hr_scope"}
+	case IntentGreeting:
+		plan.RequiredTools = []string{}
+		plan.RequiredData = []string{"greeting_reply"}
+		plan.OutputSchema = objectSchema("greeting", "greeting", "capability_hints")
+		plan.RiskChecks = []string{"do_not_call_any_tools", "do_not_fetch_live_recruiting_data", "offer_capabilities_without_querying"}
 	default:
 		plan.RequiredTools = []string{}
 		plan.RequiredData = []string{"clarifying_question"}
 		plan.OutputSchema = objectSchema("unknown", "clarifying_question", "known_constraints")
-		plan.RiskChecks = []string{"do_not_claim_unavailable_tools", "ask_for_missing_recruiting_intent_or_entities"}
+		plan.RiskChecks = []string{"do_not_claim_unavailable_tools", "ask_for_missing_recruiting_intent_or_entities", "prefer_clarifying_question_over_unsolicited_inventory_queries"}
 	}
 	plan.RequiredTools = toolsFromGroups(plan.RequiredToolGroups)
 	plan.DisplaySteps = displayStepsForPlan(intent, plan.RequiredToolGroups)
@@ -208,7 +249,7 @@ func displayStepsForPlan(intent string, groups []RecruitingToolGroup) []Recruiti
 			Tools:     append([]string(nil), group.Tools...),
 		})
 	}
-	if intent != IntentUnknown {
+	if intent != IntentUnknown && intent != IntentGreeting {
 		steps = append(steps, RecruitingDisplayStep{
 			Key:     "compose_answer",
 			Purpose: displayComposePurpose(intent),
@@ -257,6 +298,8 @@ func displayPurposeForGroup(intent, group string) string {
 
 func displayComposePurpose(intent string) string {
 	switch intent {
+	case IntentGeneralChat:
+		return "直接回答用户的通用问题，不查询招聘实时数据"
 	case IntentCandidateMatchEvaluation:
 		return "基于候选人、岗位和匹配评估形成结论"
 	case IntentCandidateComparison:
@@ -277,6 +320,8 @@ func displayComposePurpose(intent string) string {
 		return "整理投递记录和筛选结果"
 	case IntentCandidateLookup:
 		return "整理候选人查询结果"
+	case IntentGreeting:
+		return "礼貌问候并介绍可提供的招聘数据能力"
 	default:
 		return "整理已获取的数据并生成回复"
 	}
@@ -291,40 +336,183 @@ func (p RecruitingPlan) JSON() string {
 }
 
 func (p RecruitingPlan) InstructionBlock() string {
-	return "Deterministic planner output JSON:\n" + p.JSON() + "\nFollow this plan when choosing tools. If required data is missing, ask for it instead of guessing. Do not call tools that are not listed in required_tools."
+	base := "Deterministic planner output JSON:\n" + p.JSON() + "\nFollow this plan when choosing tools. If required data is missing, ask for it instead of guessing. Do not call tools that are not listed in required_tools."
+	if p.DisallowsModelTools() {
+		if p.Intent == IntentGreeting {
+			base += "\nHARD RULE: required_tools is empty for this turn. You MUST NOT call any tools. Do not query jobs, applications, candidates, or analytics. Reply with a short greeting and capability guidance only."
+		} else {
+			base += "\nHARD RULE: this turn is not a live recruiting-data request. You MUST NOT call recruiting tools or query jobs, applications, candidates, resumes, or analytics. Answer the user's request directly from general model knowledge, and state limitations when appropriate."
+		}
+	}
+	return base
+}
+
+// DisallowsModelTools reports whether the runtime must expose zero model tools.
+// Greetings and non-recruiting general turns are hard-banned from recruiting
+// tools; other intents keep model tools subject to planner guidance.
+func (p RecruitingPlan) DisallowsModelTools() bool {
+	return p.Intent == IntentGreeting || p.Intent == IntentGeneralChat
 }
 
 func classifyRecruitingIntent(message string) string {
+	return classifyRecruitingMessage(message).Intent
+}
+
+func classifyRecruitingMessage(message string) IntentClassification {
 	msg := strings.ToLower(strings.TrimSpace(message))
 	switch {
+	case isGeneralChatMessage(msg):
+		return IntentClassification{
+			Domain:                 IntentDomainGeneral,
+			Intent:                 IntentGeneralChat,
+			Confidence:             0.92,
+			RequiresRecruitingData: false,
+			KeywordHints:           collectKeywordHints(msg, generalChatKeywords()...),
+			PossibleIntents:        possibleIntentsForGeneralMessage(msg),
+			Source:                 "deterministic_domain_classifier",
+		}
+	case isGreetingMessage(msg):
+		return recruitingClassification(IntentGreeting, 0.97, false, collectKeywordHints(msg, "hello", "hi", "hey", "你好", "您好", "嗨", "谢谢", "thanks"), IntentGreeting)
 	case containsAny(msg, "对比", "比较", "排名", "排序", "哪个更适合", "compare", "ranking", "rank candidates"):
-		return IntentCandidateComparison
+		return recruitingClassification(IntentCandidateComparison, 0.82, true, collectKeywordHints(msg, "对比", "比较", "排名", "排序", "哪个更适合", "compare", "ranking", "rank candidates"), IntentCandidateComparison)
 	case containsAny(msg, "匹配度", "匹配评估", "候选人匹配", "适配度", "胜任", "match evaluation", "candidate match", "fit score"):
-		return IntentCandidateMatchEvaluation
+		return recruitingClassification(IntentCandidateMatchEvaluation, 0.9, true, collectKeywordHints(msg, "匹配度", "匹配评估", "候选人匹配", "适配度", "胜任", "match evaluation", "candidate match", "fit score"), IntentCandidateMatchEvaluation)
 	case containsAny(msg, "offer", "薪资方案", "报价", "录用通知", "发放录用", "offer support"):
-		return IntentOfferSupport
+		return recruitingClassification(IntentOfferSupport, 0.86, true, collectKeywordHints(msg, "offer", "薪资方案", "报价", "录用通知", "发放录用", "offer support"), IntentOfferSupport)
 	case containsAny(msg, "面试准备", "面试题", "面试问题", "面试提纲", "interview prep", "interview questions"):
-		return IntentInterviewPrep
+		return recruitingClassification(IntentInterviewPrep, 0.86, true, collectKeywordHints(msg, "面试准备", "面试题", "面试问题", "面试提纲", "interview prep", "interview questions"), IntentInterviewPrep)
 	case isApplicationListingQuery(msg):
-		return IntentApplicationListing
+		return recruitingClassification(IntentApplicationListing, 0.88, true, collectKeywordHints(msg, "投递", "application", "投递列表", "所有投递", "全部投递", "已通过", "已淘汰"), IntentApplicationListing)
 	case containsAny(msg, "候选人", "应聘者", "candidate") && containsAny(msg, "查找", "搜索", "查询", "列表", "详情", "是谁", "search", "find", "list", "detail"):
-		return IntentCandidateLookup
+		return recruitingClassification(IntentCandidateLookup, 0.84, true, collectKeywordHints(msg, "候选人", "应聘者", "candidate", "查找", "搜索", "查询", "列表", "详情", "search", "find", "list", "detail"), IntentCandidateLookup)
 	case containsAny(msg, "岗位详情", "职位详情", "job detail", "position detail") ||
 		(containsAny(msg, "岗位", "职位", "job", "position") && containsAny(msg, "详情", "详细", "detail")):
-		return IntentJobDetail
+		return recruitingClassification(IntentJobDetail, 0.88, true, collectKeywordHints(msg, "岗位详情", "职位详情", "job detail", "position detail", "岗位", "职位", "job", "position", "详情", "详细", "detail"), IntentJobDetail)
 	case containsAny(msg,
 		"有哪些岗位", "哪些岗位", "岗位列表", "现在有哪些", "当前岗位", "在招岗位", "发布的岗位",
 		"有什么岗位", "岗位有哪些", "职位列表", "有哪些职位", "有多少岗位", "岗位数量", "职位数量", "job list", "list jobs", "open positions", "which jobs", "how many jobs"):
-		return IntentJobListing
+		return recruitingClassification(IntentJobListing, 0.9, true, collectKeywordHints(msg, "有哪些岗位", "岗位列表", "当前岗位", "在招岗位", "职位列表", "有多少岗位", "job list", "list jobs", "open positions", "which jobs", "how many jobs"), IntentJobListing)
 	case containsAny(msg, "岗位", "职位", "jobs", "positions") && containsAny(msg, "哪些", "什么", "列表", "全部", "所有", "list", "all", "open"):
-		return IntentJobListing
+		return recruitingClassification(IntentJobListing, 0.82, true, collectKeywordHints(msg, "岗位", "职位", "jobs", "positions", "哪些", "什么", "列表", "全部", "所有", "list", "all", "open"), IntentJobListing)
 	case containsAny(msg, "统计", "趋势", "漏斗", "热度", "排行", "多少", "今日", "今天", "analytics", "trend", "funnel", "metrics"):
-		return IntentAnalytics
+		return recruitingClassification(IntentAnalytics, 0.78, true, collectKeywordHints(msg, "统计", "趋势", "漏斗", "热度", "排行", "多少", "今日", "今天", "analytics", "trend", "funnel", "metrics"), IntentAnalytics)
 	case containsAny(msg, "通过", "淘汰", "拒绝", "录用", "进入下一轮", "推进", "状态改", "状态变更", "status update", "reject", "approve"):
-		return IntentStatusChangeProposal
+		return recruitingClassification(IntentStatusChangeProposal, 0.8, true, collectKeywordHints(msg, "通过", "淘汰", "拒绝", "录用", "进入下一轮", "推进", "状态改", "状态变更", "status update", "reject", "approve"), IntentStatusChangeProposal)
 	default:
-		return IntentUnknown
+		return IntentClassification{
+			Domain:                 IntentDomainAmbiguous,
+			Intent:                 IntentUnknown,
+			Confidence:             0.45,
+			RequiresRecruitingData: false,
+			KeywordHints:           []string{},
+			PossibleIntents:        []string{IntentUnknown},
+			Source:                 "deterministic_domain_classifier",
+		}
 	}
+}
+
+func recruitingClassification(intent string, confidence float64, requiresData bool, hints []string, possible ...string) IntentClassification {
+	if len(possible) == 0 {
+		possible = []string{intent}
+	}
+	domain := IntentDomainRecruiting
+	if !requiresData && intent == IntentGreeting {
+		domain = IntentDomainGeneral
+	}
+	return IntentClassification{
+		Domain:                 domain,
+		Intent:                 intent,
+		Confidence:             confidence,
+		RequiresRecruitingData: requiresData,
+		KeywordHints:           hints,
+		PossibleIntents:        possible,
+		Source:                 "deterministic_domain_classifier",
+	}
+}
+
+func isGeneralChatMessage(message string) bool {
+	msg := strings.ToLower(strings.TrimSpace(message))
+	if msg == "" {
+		return false
+	}
+	if isGreetingMessage(msg) {
+		return false
+	}
+	if containsAny(msg, "代码", "算法", "函数", "编程", "程序", "实现", "示例代码", "quick sort", "quicksort", "leetcode", "python", "golang", "go语言", "java", "javascript", "typescript", "sql", "正则") {
+		return true
+	}
+	if containsAny(msg, "翻译", "润色", "改写", "总结", "解释一下", "是什么", "为什么", "怎么做", "写一段", "写一个", "想一个", "主题", "建议") && !hasLiveRecruitingSignal(msg) {
+		return true
+	}
+	return false
+}
+
+func hasLiveRecruitingSignal(message string) bool {
+	if !containsAny(message, "岗位", "职位", "投递", "简历", "候选人", "应聘者", "面试", "offer", "招聘", "job", "position", "application", "resume", "candidate", "interview") {
+		return false
+	}
+	return containsAny(message, "当前", "现在", "实时", "系统", "这些", "这个", "该", "列表", "详情", "查询", "搜索", "统计", "趋势", "状态", "匹配度", "排序", "比较", "多少", "today", "current", "list", "detail", "search", "analytics")
+}
+
+func generalChatKeywords() []string {
+	return []string{"代码", "算法", "函数", "编程", "程序", "实现", "示例代码", "quick sort", "quicksort", "leetcode", "python", "golang", "go语言", "java", "javascript", "typescript", "sql", "正则", "翻译", "润色", "改写", "总结", "解释一下", "写一段", "写一个", "想一个", "主题", "建议"}
+}
+
+func possibleIntentsForGeneralMessage(message string) []string {
+	possible := []string{IntentGeneralChat}
+	if containsAny(message, "排序", "排名", "ranking", "rank") {
+		possible = append(possible, IntentCandidateComparison)
+	}
+	if containsAny(message, "多少", "统计", "趋势", "排行", "analytics", "metrics") {
+		possible = append(possible, IntentAnalytics)
+	}
+	return possible
+}
+
+func collectKeywordHints(message string, keywords ...string) []string {
+	hints := make([]string, 0, len(keywords))
+	seen := map[string]bool{}
+	for _, keyword := range keywords {
+		keyword = strings.TrimSpace(keyword)
+		if keyword == "" || seen[keyword] || !strings.Contains(message, strings.ToLower(keyword)) {
+			continue
+		}
+		seen[keyword] = true
+		hints = append(hints, keyword)
+	}
+	return hints
+}
+
+func isGreetingMessage(message string) bool {
+	msg := strings.ToLower(strings.TrimSpace(message))
+	if msg == "" {
+		return false
+	}
+	// Strip common trailing punctuation / emoji-ish suffixes for short greetings.
+	msg = strings.Trim(msg, " \t\n\r!！.。?？~～、,，")
+	msg = strings.TrimSpace(msg)
+	if msg == "" {
+		return false
+	}
+	exact := map[string]bool{
+		"hello": true, "hi": true, "hey": true, "hola": true,
+		"你好": true, "您好": true, "嗨": true, "哈喽": true, "哈囉": true,
+		"在吗": true, "在嘛": true, "早上好": true, "下午好": true, "晚上好": true,
+		"早": true, "晚安": true, "thanks": true, "thank you": true,
+		"谢谢": true, "多谢": true, "谢谢你": true, "thankyou": true,
+	}
+	if exact[msg] {
+		return true
+	}
+	// Very short pure greeting phrases only; avoid matching real queries.
+	if len([]rune(msg)) <= 12 && containsAny(msg, "hello", "hi there", "hey there", "你好呀", "你好啊", "您好呀") {
+		// Reject if it still looks like a data question.
+		if containsAny(msg, "岗位", "职位", "投递", "候选人", "统计", "job", "application", "candidate") {
+			return false
+		}
+		return true
+	}
+	return false
 }
 
 func containsAny(s string, needles ...string) bool {
@@ -436,7 +624,7 @@ func objectSchema(name string, fields ...string) map[string]any {
 }
 
 func appendUnavailableToolRisk(risks []string, intent string, available map[string]bool) []string {
-	if intent == IntentUnknown {
+	if intent == IntentUnknown || intent == IntentGreeting || intent == IntentGeneralChat {
 		return risks
 	}
 	if len(available) == 0 {

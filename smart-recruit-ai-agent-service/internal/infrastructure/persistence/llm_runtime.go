@@ -143,6 +143,33 @@ func (s *NativeStore) ChatWithRecruitingTools(
 	return client.ChatWithToolsWithOptions(ctx, messages, tools, executor, hrID, onDelta, onToolExecuted, onStatus, commonsai.ToolLoopOptions{MaxRounds: opts.MaxIterations})
 }
 
+// ChatWithRecruitingADK runs HR chat through the Eino ADK ChatModelAgent path.
+func (s *NativeStore) ChatWithRecruitingADK(
+	ctx context.Context,
+	modelID int64,
+	opts aiagentgrpc.ChatCompletionOptions,
+	input commonsai.AgentRunInput,
+	onDelta func(string) error,
+	onToolExecuted commonsai.ToolTraceCallback,
+	onStatus func(eventType, eventMessage, errorType, toolName string) error,
+) (string, commonsai.ToolMetadata, error) {
+	cfg, err := s.selectLLMRuntimeConfig(ctx, modelID, 0)
+	if err != nil {
+		return "", commonsai.ToolMetadata{}, err
+	}
+	if opts.TemperatureOverride != nil && *opts.TemperatureOverride > 0 {
+		cfg.Temperature = *opts.TemperatureOverride
+	}
+	if opts.MaxIterations > 0 {
+		input.MaxIterations = opts.MaxIterations
+	}
+	client, err := s.newRuntimeClient(ctx, cfg)
+	if err != nil {
+		return "", commonsai.ToolMetadata{}, err
+	}
+	return client.ChatWithADKAgent(ctx, input, onDelta, onToolExecuted, onStatus)
+}
+
 func (s *NativeStore) CompleteStructured(ctx context.Context, systemPrompt, userPrompt string) (recruitingruntime.StructuredCompletionResult, error) {
 	cfg, err := s.selectLLMRuntimeConfig(ctx, 0, 0)
 	if err != nil {

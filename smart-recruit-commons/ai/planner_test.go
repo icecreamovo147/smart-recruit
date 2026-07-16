@@ -69,11 +69,32 @@ func TestRecruitingPlannerRequiredIntentCoverage(t *testing.T) {
 			outputName: "offer_support",
 		},
 		{
-			name:       "unknown fallback",
+			name:       "general chat fallback",
 			message:    "帮我想一个办公室午餐主题",
-			intent:     IntentUnknown,
+			intent:     IntentGeneralChat,
 			wantTool:   "",
-			outputName: "unknown",
+			outputName: "general_chat",
+		},
+		{
+			name:       "greeting hello",
+			message:    "hello",
+			intent:     IntentGreeting,
+			wantTool:   "",
+			outputName: "greeting",
+		},
+		{
+			name:       "greeting hi",
+			message:    "hi",
+			intent:     IntentGreeting,
+			wantTool:   "",
+			outputName: "greeting",
+		},
+		{
+			name:       "greeting chinese",
+			message:    "你好",
+			intent:     IntentGreeting,
+			wantTool:   "",
+			outputName: "greeting",
 		},
 	}
 
@@ -98,11 +119,77 @@ func TestRecruitingPlannerRequiredIntentCoverage(t *testing.T) {
 			if plan.SelectedSkills == nil || plan.SelectedMemories == nil {
 				t.Fatal("selected skill and memory placeholders must be present as empty arrays")
 			}
-			if tt.intent != IntentUnknown && len(plan.DisplaySteps) == 0 {
+			if tt.intent != IntentUnknown && tt.intent != IntentGreeting && len(plan.DisplaySteps) == 0 {
 				t.Fatal("display steps must be present for executable intents")
+			}
+			if tt.intent == IntentGreeting && !plan.DisallowsModelTools() {
+				t.Fatalf("intent %q must disallow model tools", tt.intent)
+			}
+			if tt.intent == IntentGreeting && !strings.Contains(plan.InstructionBlock(), "MUST NOT call any tools") {
+				t.Fatalf("instruction block missing hard no-tool rule for %q", tt.intent)
+			}
+			if tt.intent == IntentGeneralChat && !plan.DisallowsModelTools() {
+				t.Fatalf("intent %q must not expose recruiting tools", tt.intent)
+			}
+			if tt.intent == IntentUnknown && plan.DisallowsModelTools() {
+				t.Fatalf("unknown intent should keep model tools available for selected workflows")
 			}
 			assertPlanJSON(t, plan)
 		})
+	}
+}
+
+func TestRecruitingPlannerSeparatesGeneralDomainBeforeKeywordHints(t *testing.T) {
+	planner := NewRecruitingPlanner()
+	tests := []struct {
+		name    string
+		message string
+	}{
+		{"quick sort code chinese", "帮我写一段快速排序代码"},
+		{"quick sort code english", "write quicksort in Go"},
+		{"translation", "帮我翻译这句话：good morning"},
+		{"general explanation", "解释一下 TCP 三次握手是什么"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			plan := planner.Plan(RecruitingPlannerInput{Message: tt.message, AvailableTools: allPlannerTestTools()})
+			if plan.Intent != IntentGeneralChat || plan.Domain != IntentDomainGeneral {
+				t.Fatalf("plan intent/domain = %q/%q, want general_chat/general_chat", plan.Intent, plan.Domain)
+			}
+			if plan.RequiresRecruitingData || len(plan.RequiredTools) != 0 || len(plan.RequiredToolGroups) != 0 {
+				t.Fatalf("plan requires recruiting data/tools: %#v", plan)
+			}
+			if !plan.DisallowsModelTools() {
+				t.Fatalf("general turn must not expose recruiting tools: %#v", plan)
+			}
+			if len(plan.PossibleIntents) == 0 || !containsString(plan.PossibleIntents, IntentGeneralChat) {
+				t.Fatalf("possible intents = %v, want general_chat", plan.PossibleIntents)
+			}
+			if strings.Contains(plan.InstructionBlock(), "Reply with a short greeting") {
+				t.Fatalf("general instruction should not use greeting-only guidance: %s", plan.InstructionBlock())
+			}
+		})
+	}
+}
+
+func TestRecruitingPlannerGreetingDoesNotRequireTools(t *testing.T) {
+	planner := NewRecruitingPlanner()
+	for _, msg := range []string{"hello", "hi", "Hello!", "你好", "嗨", "thanks"} {
+		plan := planner.Plan(RecruitingPlannerInput{Message: msg, AvailableTools: allPlannerTestTools()})
+		if plan.Intent != IntentGreeting {
+			t.Fatalf("message %q intent = %q, want greeting", msg, plan.Intent)
+		}
+		if len(plan.RequiredTools) != 0 || len(plan.RequiredToolGroups) != 0 {
+			t.Fatalf("message %q required tools/groups = %#v / %#v, want empty", msg, plan.RequiredTools, plan.RequiredToolGroups)
+		}
+		if !plan.DisallowsModelTools() {
+			t.Fatalf("message %q should disallow model tools", msg)
+		}
+	}
+	// Data questions must not be classified as greeting.
+	plan := planner.Plan(RecruitingPlannerInput{Message: "现在有哪些岗位", AvailableTools: allPlannerTestTools()})
+	if plan.Intent != IntentJobListing || plan.DisallowsModelTools() {
+		t.Fatalf("job list query plan = %#v, want job_listing with tools allowed", plan)
 	}
 }
 
@@ -254,7 +341,7 @@ func TestRecruitingPlannerJobDetailRequiresResolvableJob(t *testing.T) {
 
 func TestRecruitingPlannerUnknownWithNoToolsFallsBackSafely(t *testing.T) {
 	planner := NewRecruitingPlanner()
-	plan := planner.Plan(RecruitingPlannerInput{Message: "随便聊聊"})
+	plan := planner.Plan(RecruitingPlannerInput{Message: "继续处理一下"})
 
 	if plan.Intent != IntentUnknown {
 		t.Fatalf("intent = %q, want unknown", plan.Intent)
@@ -267,6 +354,9 @@ func TestRecruitingPlannerUnknownWithNoToolsFallsBackSafely(t *testing.T) {
 	}
 	if !containsString(plan.RiskChecks, "do_not_claim_unavailable_tools") {
 		t.Fatalf("risk_checks = %v, want safe unavailable-tool check", plan.RiskChecks)
+	}
+	if plan.DisallowsModelTools() {
+		t.Fatalf("unknown turn should keep model tools available for selected workflows: %#v", plan)
 	}
 }
 
