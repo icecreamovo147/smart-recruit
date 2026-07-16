@@ -127,7 +127,7 @@ func (s *NativeStore) ChatWithRecruitingTools(
 	if err != nil {
 		return "", commonsai.ToolMetadata{}, err
 	}
-	return client.ChatWithTools(ctx, messages, tools, executor, hrID, onDelta, onToolExecuted, onStatus)
+	return client.ChatWithToolsWithOptions(ctx, messages, tools, executor, hrID, onDelta, onToolExecuted, onStatus, commonsai.ToolLoopOptions{MaxRounds: opts.MaxIterations})
 }
 
 func (s *NativeStore) CompleteStructured(ctx context.Context, systemPrompt, userPrompt string) (recruitingruntime.StructuredCompletionResult, error) {

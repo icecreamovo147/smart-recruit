@@ -100,6 +100,12 @@ type ToolRunner interface {
 	Execute(ctx context.Context, hrID int64, toolName string, args map[string]any) (ToolResult, error)
 }
 
+// ToolLoopOptions applies to one Tool Calling request without mutating the
+// shared Client or its process-level defaults.
+type ToolLoopOptions struct {
+	MaxRounds int
+}
+
 type Client struct {
 	model            string
 	cm               chatmodel.ToolCallingChatModel
@@ -730,12 +736,23 @@ func sendStatus(onStatus func(eventType, eventMessage, errorType, toolName strin
 // onStatus is an optional callback for Phase 4 streaming UX: event_type values are
 // thinking|tool_calling|tool_done|generating|timeout_warning|partial_done|done|error.
 func (c *Client) ChatWithTools(ctx context.Context, messages []*schema.Message, tools []*schema.ToolInfo, executor ToolRunner, hrID int64, onDelta func(string) error, onToolExecuted ToolTraceCallback, onStatus func(eventType, eventMessage, errorType, toolName string) error) (string, ToolMetadata, error) {
-	return c.ChatWithToolsWithMessageCallback(ctx, messages, tools, executor, hrID, onDelta, onToolExecuted, onStatus, nil)
+	return c.ChatWithToolsWithOptions(ctx, messages, tools, executor, hrID, onDelta, onToolExecuted, onStatus, ToolLoopOptions{})
+}
+
+// ChatWithToolsWithOptions is ChatWithTools with per-request loop controls.
+func (c *Client) ChatWithToolsWithOptions(ctx context.Context, messages []*schema.Message, tools []*schema.ToolInfo, executor ToolRunner, hrID int64, onDelta func(string) error, onToolExecuted ToolTraceCallback, onStatus func(eventType, eventMessage, errorType, toolName string) error, opts ToolLoopOptions) (string, ToolMetadata, error) {
+	return c.ChatWithToolsWithMessageCallbackAndOptions(ctx, messages, tools, executor, hrID, onDelta, onToolExecuted, onStatus, nil, opts)
 }
 
 // ChatWithToolsWithMessageCallback is ChatWithTools plus an optional callback
 // fired whenever tool results have been appended to the next LLM input.
 func (c *Client) ChatWithToolsWithMessageCallback(ctx context.Context, messages []*schema.Message, tools []*schema.ToolInfo, executor ToolRunner, hrID int64, onDelta func(string) error, onToolExecuted ToolTraceCallback, onStatus func(eventType, eventMessage, errorType, toolName string) error, onMessagesUpdated MessageUpdateCallback) (string, ToolMetadata, error) {
+	return c.ChatWithToolsWithMessageCallbackAndOptions(ctx, messages, tools, executor, hrID, onDelta, onToolExecuted, onStatus, onMessagesUpdated, ToolLoopOptions{})
+}
+
+// ChatWithToolsWithMessageCallbackAndOptions combines per-request loop controls
+// with the optional message callback used by durable callers.
+func (c *Client) ChatWithToolsWithMessageCallbackAndOptions(ctx context.Context, messages []*schema.Message, tools []*schema.ToolInfo, executor ToolRunner, hrID int64, onDelta func(string) error, onToolExecuted ToolTraceCallback, onStatus func(eventType, eventMessage, errorType, toolName string) error, onMessagesUpdated MessageUpdateCallback, opts ToolLoopOptions) (string, ToolMetadata, error) {
 	if c.cm == nil {
 		return "", ToolMetadata{}, NewAIError(AIUnavailable, "", fmt.Errorf("ai chat model is nil"))
 	}
@@ -747,6 +764,9 @@ func (c *Client) ChatWithToolsWithMessageCallback(ctx context.Context, messages 
 	start := time.Now()
 	round := 0
 	maxRounds := c.toolMaxRounds
+	if opts.MaxRounds > 0 {
+		maxRounds = opts.MaxRounds
+	}
 	if maxRounds <= 0 {
 		maxRounds = 5
 	}

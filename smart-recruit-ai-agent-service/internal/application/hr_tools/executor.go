@@ -5,6 +5,7 @@ package hr_tools
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"strings"
 
@@ -28,17 +29,26 @@ type Executor struct {
 	Snapshots    SnapshotClient
 }
 
-// DefaultJobToolNames are the default tools used when agent bindings do not name concrete tools.
-var DefaultJobToolNames = []string{
-	"get_job_list",
-	"search_jobs",
-	"get_job_detail",
-	"query_total_applications",
-	"query_today_applications",
-	"get_job_heat_ranking",
-	"get_application_status_summary",
-	"list_all_applications",
-	"search_candidates",
+// ToolExecutionError classifies a Tool failure without relying on JSON content.
+type ToolExecutionError struct {
+	Kind     string
+	ToolName string
+	Message  string
+	Cause    error
+}
+
+func (e *ToolExecutionError) Error() string {
+	if e == nil || strings.TrimSpace(e.Message) == "" {
+		return "tool execution failed"
+	}
+	return e.Message
+}
+
+func (e *ToolExecutionError) Unwrap() error {
+	if e == nil {
+		return nil
+	}
+	return e.Cause
 }
 
 // KnownBuiltinToolNames is the allowlist of tool names this executor (or future
@@ -87,46 +97,60 @@ var ExecutableByThisRunner = map[string]bool{
 // Execute routes a model-selected tool call to the underlying domain client.
 func (e *Executor) Execute(ctx context.Context, hrID int64, toolName string, args map[string]any) (commonsai.ToolResult, error) {
 	if e == nil {
-		return commonsai.ToolResult{}, fmt.Errorf("hr tool executor is not configured")
+		return toolFailure("unavailable", toolName, "hr tool executor is not configured", nil)
 	}
 	if hrID <= 0 {
-		return jsonResult(map[string]any{"error": "hr_id is required"}), nil
+		return toolFailure("invalid_argument", toolName, "hr_id is required", nil)
 	}
 	if args == nil {
 		args = map[string]any{}
 	}
-	switch NormalizeToolName(toolName) {
+	normalized := NormalizeToolName(toolName)
+	var result commonsai.ToolResult
+	var err error
+	switch normalized {
 	case "get_job_list":
-		return e.getJobList(ctx, hrID, args)
+		result, err = e.getJobList(ctx, hrID, args)
 	case "search_jobs":
-		return e.searchJobs(ctx, hrID, args)
+		result, err = e.searchJobs(ctx, hrID, args)
 	case "get_job_detail":
-		return e.getJobDetail(ctx, hrID, args)
+		result, err = e.getJobDetail(ctx, hrID, args)
 	case "query_total_applications":
-		return e.queryTotalApplications(ctx, hrID, args)
+		result, err = e.queryTotalApplications(ctx, hrID, args)
 	case "query_today_applications":
-		return e.queryTodayApplications(ctx, hrID, args)
+		result, err = e.queryTodayApplications(ctx, hrID, args)
 	case "get_job_heat_ranking":
-		return e.jobHeatRanking(ctx, hrID, args)
+		result, err = e.jobHeatRanking(ctx, hrID, args)
 	case "list_all_applications":
-		return e.listAllApplicationsTool(ctx, hrID, args)
+		result, err = e.listAllApplicationsTool(ctx, hrID, args)
 	case "list_applications_by_job":
-		return e.listApplicationsByJob(ctx, hrID, args)
+		result, err = e.listApplicationsByJob(ctx, hrID, args)
 	case "list_applications_by_status":
-		return e.listApplicationsByStatus(ctx, hrID, args)
+		result, err = e.listApplicationsByStatus(ctx, hrID, args)
 	case "get_application_status_summary":
-		return e.applicationStatusSummary(ctx, hrID, args)
+		result, err = e.applicationStatusSummary(ctx, hrID, args)
 	case "get_application_trend":
-		return e.applicationTrend(ctx, hrID, args)
+		result, err = e.applicationTrend(ctx, hrID, args)
 	case "search_candidates":
-		return e.searchCandidates(ctx, hrID, args)
+		result, err = e.searchCandidates(ctx, hrID, args)
 	case "get_candidate_detail":
-		return e.getCandidateDetail(ctx, hrID, args)
+		result, err = e.getCandidateDetail(ctx, hrID, args)
 	case "propose_application_status_update":
-		return e.proposeApplicationStatusUpdate(ctx, hrID, args)
+		result, err = e.proposeApplicationStatusUpdate(ctx, hrID, args)
 	default:
-		return jsonResult(map[string]any{"error": fmt.Sprintf("unsupported tool: %s", toolName)}), nil
+		return toolFailure("unsupported", normalized, fmt.Sprintf("unsupported tool: %s", toolName), nil)
 	}
+	if err == nil {
+		return result, nil
+	}
+	var classified *ToolExecutionError
+	if !errors.As(err, &classified) {
+		return toolFailure("downstream", normalized, "tool dependency failed", err)
+	}
+	if strings.TrimSpace(result.Content) == "" {
+		result = jsonResult(map[string]any{"error": classified.Error(), "error_type": classified.Kind})
+	}
+	return result, err
 }
 
 func (e *Executor) getJobList(ctx context.Context, hrID int64, args map[string]any) (commonsai.ToolResult, error) {
@@ -187,7 +211,7 @@ func (e *Executor) searchJobs(ctx context.Context, hrID int64, args map[string]a
 func (e *Executor) getJobDetail(ctx context.Context, hrID int64, args map[string]any) (commonsai.ToolResult, error) {
 	jobID := int64Arg(args, "job_id")
 	if jobID <= 0 {
-		return jsonResult(map[string]any{"error": "job_id is required"}), nil
+		return toolFailure("invalid_argument", "get_job_detail", "job_id is required", nil)
 	}
 	if e.Jobs == nil {
 		return commonsai.ToolResult{}, fmt.Errorf("job service is not configured")
@@ -197,7 +221,7 @@ func (e *Executor) getJobDetail(ctx context.Context, hrID int64, args map[string
 		return commonsai.ToolResult{}, err
 	}
 	if owned == nil {
-		return jsonResult(map[string]any{"error": "岗位不存在或无权限访问"}), nil
+		return toolFailure("forbidden_or_not_found", "get_job_detail", "岗位不存在或无权限访问", nil)
 	}
 	resp, err := e.Jobs.GetJobDetail(ctx, &pb.GetJobDetailRequest{JobId: jobID})
 	if err != nil {
@@ -211,7 +235,7 @@ func (e *Executor) getJobDetail(ctx context.Context, hrID int64, args map[string
 		if msg == "" {
 			msg = "job detail unavailable"
 		}
-		return jsonResult(map[string]any{"error": msg}), nil
+		return toolFailure("downstream", "get_job_detail", msg, nil)
 	}
 	job := resp.GetJob()
 	return jsonResult(map[string]any{
@@ -349,6 +373,22 @@ func jsonResult(value any) commonsai.ToolResult {
 	return commonsai.ToolResult{Content: string(data)}
 }
 
+func toolFailure(kind, toolName, message string, cause error) (commonsai.ToolResult, error) {
+	err := &ToolExecutionError{
+		Kind:     strings.TrimSpace(kind),
+		ToolName: NormalizeToolName(toolName),
+		Message:  strings.TrimSpace(message),
+		Cause:    cause,
+	}
+	if err.Kind == "" {
+		err.Kind = "unknown"
+	}
+	if err.Message == "" {
+		err.Message = "tool execution failed"
+	}
+	return jsonResult(map[string]any{"error": err.Message, "error_type": err.Kind}), err
+}
+
 func pageArgs(args map[string]any, defaultPage, defaultSize int32) (int32, int32) {
 	page := defaultPage
 	size := defaultSize
@@ -433,15 +473,15 @@ func NormalizeToolName(name string) string {
 	return name
 }
 
-// ResolveBuiltinToolNames derives the executable builtin tool allowlist from agent bindings.
-// When bindings are empty or only abstract capability labels are present, DefaultJobToolNames
-// are returned so free chat still has real tools.
+// ResolveBuiltinToolNames derives a fail-closed executable builtin allowlist
+// from explicit Agent bindings. Empty, abstract, unknown, and unimplemented
+// bindings never grant default business tools.
 func ResolveBuiltinToolNames(toolBindings []string, capabilityKeys []string) []string {
 	seen := map[string]bool{}
 	out := make([]string, 0)
 	add := func(name string) {
 		name = NormalizeToolName(name)
-		if name == "" || seen[name] || !KnownBuiltinToolNames[name] {
+		if name == "" || seen[name] || !KnownBuiltinToolNames[name] || !ExecutableByThisRunner[name] {
 			return
 		}
 		seen[name] = true
@@ -452,25 +492,6 @@ func ResolveBuiltinToolNames(toolBindings []string, capabilityKeys []string) []s
 	}
 	for _, key := range capabilityKeys {
 		add(key)
-	}
-	if len(out) == 0 {
-		return append([]string(nil), DefaultJobToolNames...)
-	}
-	hasConcreteExecutable := false
-	for _, name := range out {
-		if ExecutableByThisRunner[name] {
-			hasConcreteExecutable = true
-			break
-		}
-	}
-	if !hasConcreteExecutable {
-		merged := append([]string(nil), DefaultJobToolNames...)
-		for _, name := range out {
-			if name == "get_application_snapshot" {
-				merged = append(merged, name)
-			}
-		}
-		return merged
 	}
 	return out
 }

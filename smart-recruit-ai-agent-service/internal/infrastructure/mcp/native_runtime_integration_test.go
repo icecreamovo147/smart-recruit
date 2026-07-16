@@ -70,6 +70,13 @@ func TestNativeMCPRuntimeConnectionDiscoveryPolicyAuditAndHRTool(t *testing.T) {
 	if !strings.Contains(store.mcpLogs[0].ArgsJSON, "[redacted]") {
 		t.Fatalf("denied args not redacted: %s", store.mcpLogs[0].ArgsJSON)
 	}
+	chatWithoutSelection, err := deps.AI.Chat(context.Background(), &pb.ChatRequest{HrId: 88, Message: "hello"})
+	if err != nil || chatWithoutSelection.GetCode() != 0 || chatWithoutSelection.GetReply() != "MCP-informed reply" {
+		t.Fatalf("chat without selection response=%#v err=%v", chatWithoutSelection, err)
+	}
+	if len(store.mcpLogs) != 1 || len(store.toolTraces) != 0 {
+		t.Fatalf("empty selection executed MCP: logs=%d traces=%d", len(store.mcpLogs), len(store.toolTraces))
+	}
 	chatResp, err := deps.AI.Chat(context.Background(), &pb.ChatRequest{HrId: 88, Message: "find Alice", SkillCapabilityKeys: []string{"7:search"}, AgentSkillSelectionConfirmed: true})
 	if err != nil || chatResp.GetCode() != 0 || chatResp.GetReply() != "MCP-informed reply" {
 		t.Fatalf("chat response=%#v err=%v", chatResp, err)

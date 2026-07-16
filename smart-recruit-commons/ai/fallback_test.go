@@ -65,6 +65,19 @@ func TestBuildHRFallbackReplyApplicationList(t *testing.T) {
 	}
 }
 
+func TestBuildHRFallbackReplyApplicationListUsesRuntimeContract(t *testing.T) {
+	traces := []ToolTrace{{
+		ToolName: "list_all_applications",
+		Result:   `{"total":1,"applications":[{"real_name":"Ada Lovelace","status_text":"已查看"}]}`,
+	}}
+	got := BuildHRFallbackReply(traces)
+	for _, want := range []string{"Ada Lovelace", "已查看", "共 1 条"} {
+		if !strings.Contains(got, want) {
+			t.Errorf("missing %q in: %s", want, got)
+		}
+	}
+}
+
 func TestBuildHRFallbackReplySearchCandidatesEmpty(t *testing.T) {
 	traces := []ToolTrace{{
 		ToolName: "search_candidates",

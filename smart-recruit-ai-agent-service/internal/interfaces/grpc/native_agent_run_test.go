@@ -16,6 +16,59 @@ import (
 	"smart-recruit-proto/recruitment/pb"
 )
 
+func TestCreateAgentRunRejectsBlankMessageBeforeDispatch(t *testing.T) {
+	service := &nativeAIService{}
+	_, err := service.CreateAgentRun(context.Background(), &pb.CreateAgentRunRequest{HrId: 77, SessionId: 101, Message: " \n\t "})
+	if status.Code(err) != codes.InvalidArgument {
+		t.Fatalf("error code = %v, want %v; err=%v", status.Code(err), codes.InvalidArgument, err)
+	}
+}
+
+func TestApplicationAnalysisRunReusesSeededUserMessage(t *testing.T) {
+	store := newAgentRunTestStore()
+	service := &nativeAIService{store: store}
+	analysis, err := service.CreateApplicationAnalysisSession(context.Background(), &pb.CreateApplicationAnalysisSessionRequest{
+		HrId:          77,
+		ApplicationId: 901,
+		ModelId:       123,
+	})
+	if err != nil {
+		t.Fatalf("CreateApplicationAnalysisSession returned error: %v", err)
+	}
+	if len(analysis.GetMessages()) != 1 {
+		t.Fatalf("analysis messages = %d, want 1", len(analysis.GetMessages()))
+	}
+	created, err := service.CreateAgentRun(context.Background(), &pb.CreateAgentRunRequest{
+		HrId:            77,
+		SessionId:       analysis.GetSession().GetSessionId(),
+		ClientRequestId: "analysis-run",
+		Message:         analysis.GetMessages()[0].GetContent(),
+		ActionType:      "analyze_application",
+		ApplicationId:   901,
+		ModelId:         123,
+	})
+	if err != nil {
+		t.Fatalf("CreateAgentRun returned error: %v", err)
+	}
+	waitUntilAgentRunTest(t, time.Second, func() bool {
+		run, found := store.runSnapshot(created.GetRun().GetRunId())
+		return found && isTerminalAgentRunStatus(run.Status)
+	})
+	messages := store.messagesSnapshot()
+	if len(messages) != 2 {
+		t.Fatalf("messages = %#v, want one seeded user message and one assistant message", messages)
+	}
+	userCount := 0
+	for _, message := range messages {
+		if message.Role == "user" {
+			userCount++
+		}
+	}
+	if userCount != 1 {
+		t.Fatalf("user message count = %d, want 1; messages=%#v", userCount, messages)
+	}
+}
+
 func TestCreateAgentRunDispatchesDetachedAndCompletes(t *testing.T) {
 	store := newAgentRunTestStore()
 	store.seedChatSession(ownerRoleHR, 77, 101, "hr run session")

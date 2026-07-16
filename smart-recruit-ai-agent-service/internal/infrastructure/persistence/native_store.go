@@ -399,6 +399,7 @@ func (s *NativeStore) CreateAgentRun(ctx context.Context, run aiagentgrpc.AgentR
 		ModelID:         run.ModelID,
 		ModelName:       run.ModelName,
 		AgentType:       defaultString(run.AgentType, "hr"),
+		AgentID:         run.AgentID,
 		AgentName:       defaultString(run.AgentName, "hr_recruiting_agent"),
 		StartedAt:       now,
 		CreatedAt:       now,
@@ -734,6 +735,22 @@ func (s *NativeStore) ListAgentConfigs(ctx context.Context, page, pageSize int32
 		})
 	}
 	return items, total, nil
+}
+
+func (s *NativeStore) GetRuntimeAgentConfigByID(ctx context.Context, id int64) (*pb.AgentConfigInfo, bool, error) {
+	var row agentConfigListRow
+	query := s.agentConfigSelect(ctx).Where("a.id = ?", id)
+	if err := query.First(&row).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, false, nil
+		}
+		return nil, false, err
+	}
+	agent, err := s.agentConfigInfo(ctx, row)
+	if err != nil {
+		return nil, false, err
+	}
+	return agent, true, nil
 }
 
 func (s *NativeStore) ListMCPServers(ctx context.Context, page, pageSize int32) ([]*pb.MCPServerInfo, int64, error) {

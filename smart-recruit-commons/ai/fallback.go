@@ -237,28 +237,41 @@ func formatJobList(raw, key string) string {
 }
 
 func formatApplicationList(raw string) string {
+	type applicationSummary struct {
+		RealName   string `json:"real_name"`
+		JobTitle   string `json:"job_title"`
+		StatusText string `json:"status_text"`
+	}
 	var data struct {
-		Total      int64 `json:"total"`
-		Candidates []struct {
-			RealName   string `json:"real_name"`
-			JobTitle   string `json:"job_title"`
-			StatusText string `json:"status_text"`
-		} `json:"candidates"`
+		Total        int64                `json:"total"`
+		Applications []applicationSummary `json:"applications"`
+		Candidates   []applicationSummary `json:"candidates"`
 	}
 	if err := json.Unmarshal([]byte(raw), &data); err != nil {
 		return ""
 	}
-	if len(data.Candidates) == 0 {
+	applications := data.Applications
+	if len(applications) == 0 {
+		applications = data.Candidates
+	}
+	if len(applications) == 0 {
 		return fmt.Sprintf("- 投递列表：未查询到符合条件的投递记录（共 %d 条）。", data.Total)
 	}
 	var b strings.Builder
-	b.WriteString(fmt.Sprintf("- 投递列表（共 %d 条，前 %d 条）：\n", data.Total, len(data.Candidates)))
-	for _, c := range data.Candidates {
+	b.WriteString(fmt.Sprintf("- 投递列表（共 %d 条，前 %d 条）：\n", data.Total, len(applications)))
+	for _, c := range applications {
 		name := c.RealName
 		if name == "" {
 			name = "候选人"
 		}
-		b.WriteString(fmt.Sprintf("  - %s · %s · %s\n", name, c.JobTitle, c.StatusText))
+		parts := []string{name}
+		if c.JobTitle != "" {
+			parts = append(parts, c.JobTitle)
+		}
+		if c.StatusText != "" {
+			parts = append(parts, c.StatusText)
+		}
+		b.WriteString("  - " + strings.Join(parts, " · ") + "\n")
 	}
 	return strings.TrimRight(b.String(), "\n")
 }

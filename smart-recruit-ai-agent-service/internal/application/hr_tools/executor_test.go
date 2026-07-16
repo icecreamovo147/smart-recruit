@@ -3,6 +3,7 @@ package hr_tools
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"testing"
 
 	gogrpc "google.golang.org/grpc"
@@ -110,27 +111,55 @@ func TestGetJobDetailRequiresOwnership(t *testing.T) {
 	}
 	// Not owned
 	result, err = exec.Execute(context.Background(), 77, "get_job_detail", map[string]any{"job_id": 99})
-	if err != nil {
-		t.Fatalf("Execute unowned: %v", err)
-	}
+	assertToolErrorKind(t, err, "forbidden_or_not_found")
 	if !jsonContains(result.Content, "无权限") && !jsonContains(result.Content, "error") {
 		t.Fatalf("unowned result = %s", result.Content)
 	}
 }
 
-func TestResolveBuiltinToolNamesDefaultsAndNormalizes(t *testing.T) {
+func TestResolveBuiltinToolNamesFailsClosedAndNormalizes(t *testing.T) {
 	got := ResolveBuiltinToolNames(nil, nil)
-	if len(got) != len(DefaultJobToolNames) {
-		t.Fatalf("default tools = %v, want %v", got, DefaultJobToolNames)
+	if len(got) != 0 {
+		t.Fatalf("empty bindings resolved = %v, want none", got)
 	}
-	got = ResolveBuiltinToolNames([]string{"builtin:get_job_list"}, []string{"candidate_search"})
+	got = ResolveBuiltinToolNames([]string{"builtin:get_job_list", "builtin:disabled_unknown"}, []string{"candidate_search"})
 	if len(got) != 1 || got[0] != "get_job_list" {
 		t.Fatalf("resolved = %v", got)
 	}
-	// Only abstract caps → fall back to default job tools
-	got = ResolveBuiltinToolNames(nil, []string{"candidate_search", "resume_intelligence"})
-	if len(got) != len(DefaultJobToolNames) {
-		t.Fatalf("abstract fallback = %v", got)
+	for name, input := range map[string][]string{
+		"abstract":      {"candidate_search", "resume_intelligence"},
+		"unknown":       {"unknown_tool"},
+		"unimplemented": {"parse_resume_profile"},
+	} {
+		if got := ResolveBuiltinToolNames(nil, input); len(got) != 0 {
+			t.Fatalf("%s bindings resolved = %v, want none", name, got)
+		}
+	}
+}
+
+func TestExecuteReturnsClassifiedErrors(t *testing.T) {
+	exec := &Executor{}
+	result, err := exec.Execute(context.Background(), 0, "get_job_list", nil)
+	assertToolErrorKind(t, err, "invalid_argument")
+	if !jsonContains(result.Content, "error_type") {
+		t.Fatalf("invalid argument result = %s", result.Content)
+	}
+
+	_, err = exec.Execute(context.Background(), 77, "does_not_exist", nil)
+	assertToolErrorKind(t, err, "unsupported")
+
+	_, err = exec.Execute(context.Background(), 77, "get_job_list", nil)
+	assertToolErrorKind(t, err, "downstream")
+}
+
+func assertToolErrorKind(t *testing.T, err error, want string) {
+	t.Helper()
+	var toolErr *ToolExecutionError
+	if !errors.As(err, &toolErr) {
+		t.Fatalf("error = %v, want ToolExecutionError", err)
+	}
+	if toolErr.Kind != want {
+		t.Fatalf("error kind = %q, want %q", toolErr.Kind, want)
 	}
 }
 

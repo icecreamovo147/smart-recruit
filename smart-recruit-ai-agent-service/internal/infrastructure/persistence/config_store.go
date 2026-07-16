@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"strings"
 	"time"
@@ -408,6 +409,15 @@ func (s *NativeStore) CreateAgent(ctx context.Context, req *pb.CreateAgentReques
 	if strings.TrimSpace(req.GetName()) == "" || strings.TrimSpace(req.GetDisplayName()) == "" || strings.TrimSpace(req.GetAgentType()) == "" {
 		return &pb.AgentConfigResponse{Code: configBadRequest, Msg: "name, display_name, and agent_type are required"}, nil
 	}
+	if req.GetPromptTemplateId() > 0 {
+		message, err := validateAgentPromptBinding(s.db.WithContext(ctx), req.GetPromptTemplateId(), req.GetAgentType())
+		if err != nil {
+			return nil, err
+		}
+		if message != "" {
+			return &pb.AgentConfigResponse{Code: configBadRequest, Msg: message}, nil
+		}
+	}
 	row := agentConfigRecord{Name: strings.TrimSpace(req.GetName()), DisplayName: strings.TrimSpace(req.GetDisplayName()), Description: nullStringFrom(req.GetDescription(), true), AgentType: strings.TrimSpace(req.GetAgentType()), PromptTemplateID: nullInt64From(req.GetPromptTemplateId()), Instruction: nullStringFrom(req.GetInstruction(), true), MaxIterations: defaultInt32(req.GetMaxIterations(), 5), IsDefault: req.GetIsDefault(), IsEnabled: true}
 	if req.GetTemperatureOverrideSet() {
 		row.TemperatureOverride = sql.NullFloat64{Float64: req.GetTemperatureOverride(), Valid: true}
@@ -457,6 +467,15 @@ func (s *NativeStore) UpdateAgent(ctx context.Context, req *pb.UpdateAgentReques
 		}
 		return nil, err
 	}
+	if req.GetPromptTemplateIdSet() && req.GetPromptTemplateId() > 0 {
+		message, err := validateAgentPromptBinding(s.db.WithContext(ctx), req.GetPromptTemplateId(), existing.AgentType)
+		if err != nil {
+			return nil, err
+		}
+		if message != "" {
+			return &pb.AgentConfigResponse{Code: configBadRequest, Msg: message}, nil
+		}
+	}
 	err := s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		if req.GetIsDefaultSet() && req.GetIsDefault() {
 			if err := tx.Model(&agentConfigRecord{}).Where("id <> ? AND agent_type = ? AND is_default = ?", req.GetId(), existing.AgentType, true).Update("is_default", false).Error; err != nil {
@@ -474,6 +493,35 @@ func (s *NativeStore) UpdateAgent(ctx context.Context, req *pb.UpdateAgentReques
 		return nil, err
 	}
 	return s.getAgentResponse(ctx, req.GetId())
+}
+
+func validateAgentPromptBinding(db *gorm.DB, promptID int64, agentType string) (string, error) {
+	var prompt promptTemplateRecord
+	if err := db.Where("id = ?", promptID).First(&prompt).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return "prompt template not found", nil
+		}
+		return "", err
+	}
+	if !prompt.IsActive {
+		return "prompt template must be active", nil
+	}
+	if !strings.EqualFold(strings.TrimSpace(prompt.PromptRole), "system") {
+		return "prompt template role must be system", nil
+	}
+	if !agentPromptTypesCompatible(agentType, prompt.AgentType) {
+		return "prompt template agent type is incompatible", nil
+	}
+	return "", nil
+}
+
+func agentPromptTypesCompatible(agentType, promptAgentType string) bool {
+	agentType = strings.TrimSpace(agentType)
+	promptAgentType = strings.TrimSpace(promptAgentType)
+	if strings.EqualFold(agentType, promptAgentType) {
+		return true
+	}
+	return strings.EqualFold(agentType, "hr_recruiting_agent") && strings.EqualFold(promptAgentType, "hr_agent")
 }
 
 func (s *NativeStore) DeleteAgent(ctx context.Context, req *pb.DeleteAgentRequest) (*pb.CommonResponse, error) {

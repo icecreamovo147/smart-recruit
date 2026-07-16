@@ -265,8 +265,9 @@ func TestNativeStoreCompleteAgentRunCanceledSetsCanceledAt(t *testing.T) {
 		Status:          "queued",
 		PlanJSON:        `{"durable_request":{"message":"user asks","model_id":123}}`,
 		ModelID:         123,
-		AgentType:       "hr",
-		AgentName:       "hr_recruiting_agent",
+		AgentType:       "hr_recruiting_agent",
+		AgentID:         42,
+		AgentName:       "hr-data-agent",
 		StartedAt:       time.Now(),
 		CreatedAt:       time.Now(),
 		UpdatedAt:       time.Now(),
@@ -276,6 +277,9 @@ func TestNativeStoreCompleteAgentRunCanceledSetsCanceledAt(t *testing.T) {
 	}
 	if replay {
 		t.Fatal("CreateAgentRun returned idempotent replay for fresh run")
+	}
+	if run.AgentID != 42 || run.AgentType != "hr_recruiting_agent" || run.AgentName != "hr-data-agent" {
+		t.Fatalf("created run identity = id:%d type:%q name:%q", run.AgentID, run.AgentType, run.AgentName)
 	}
 
 	completed, found, err := store.CompleteAgentRun(ctx, 77, run.ID, "", "canceled", "", "")

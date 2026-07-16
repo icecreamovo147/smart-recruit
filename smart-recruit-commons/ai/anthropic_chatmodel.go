@@ -209,6 +209,9 @@ func (m *anthropicChatModel) buildRequest(messages []*schema.Message, stream boo
 
 	// Merge consecutive same-role messages to avoid protocol errors
 	msgs = mergeConsecutiveRoles(msgs)
+	if len(msgs) == 0 {
+		return nil, fmt.Errorf("anthropic request requires at least one non-system message")
+	}
 
 	maxTokens := m.maxTokens
 	if options.MaxTokens != nil && *options.MaxTokens > 0 {
