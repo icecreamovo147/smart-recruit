@@ -46,7 +46,9 @@
 
   color: var(--text-primary);
   background: var(--bg);
-  font-family: "Manrope", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+  /* Font stack defined in styles/fonts.css — OPPO Sans */
+  font-family: var(--font-app);
+  --el-font-family: var(--font-app);
 }
 
 :root[data-theme='dark'] {
@@ -1453,7 +1455,7 @@ a {
 }
 
 .console-code {
-  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-family: var(--font-mono);
   color: var(--text-secondary);
 }
 
@@ -2323,7 +2325,7 @@ a {
   padding: 2px 6px;
   background: var(--surface-muted);
   border-radius: 6px;
-  font-family: "JetBrains Mono", "SFMono-Regular", Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+  font-family: var(--font-mono);
   font-size: 13px;
 }
 
@@ -2949,7 +2951,7 @@ a {
   }
 
   .mobile-invite-card .invite-code__text {
-    font-family: "JetBrains Mono", monospace;
+    font-family: var(--font-mono);
     font-size: 13px;
     word-break: break-all;
     color: var(--brand-strong);

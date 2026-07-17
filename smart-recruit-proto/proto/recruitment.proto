@@ -856,6 +856,7 @@ message CandidateChatRequest {
   int64 user_id = 1;
   string message = 2;
   int64 session_id = 3;
+  int64 model_id = 4; // optional; 0 = default model
 }
 
 message CandidateSessionListRequest {

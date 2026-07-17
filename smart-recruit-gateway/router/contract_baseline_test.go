@@ -36,6 +36,7 @@ func TestCoreHTTPRouteGroupsRemainRegistered(t *testing.T) {
 		"GET /api/v1/candidate/notifications",
 		"POST /api/v1/candidate/ai/chat",
 		"POST /api/v1/candidate/ai/chat/stream",
+		"GET /api/v1/candidate/ai/models",
 		"GET /api/v1/hr/jobs",
 		"POST /api/v1/hr/jobs",
 		"PATCH /api/v1/hr/applications/:application_id/status",

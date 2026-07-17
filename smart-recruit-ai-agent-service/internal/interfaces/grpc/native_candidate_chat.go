@@ -111,7 +111,7 @@ func (s *nativeAIService) runCandidateChatRuntime(req *pb.CandidateChatRequest, 
 
 	startedAt := time.Now()
 	inputChars := len([]rune(req.GetMessage()))
-	_, modelName, providerName := s.resolveRuntimeModelDisplay(ctx, 0)
+	modelID, modelName, providerName := s.resolveRuntimeModelDisplay(ctx, req.GetModelId())
 	auditOpts := candidateUsageAuditOptions{Provider: providerName, Model: modelName}
 	session, err := s.ensureSession(ctx, ownerRoleCandidate, req.GetUserId(), req.GetSessionId(), 0, req.GetMessage())
 	if err != nil {
@@ -120,6 +120,20 @@ func (s *nativeAIService) runCandidateChatRuntime(req *pb.CandidateChatRequest, 
 	if _, err := s.store.AppendChatMessage(ctx, ChatMessageRow{
 		OwnerRole: ownerRoleCandidate, OwnerID: req.GetUserId(), SessionID: session.ID,
 		Role: "user", Content: req.GetMessage(),
+	}); err != nil {
+		return err
+	}
+
+	modelInfoUsage := &pb.ContextUsageInfo{
+		ModelId:   modelID,
+		ModelName: modelName,
+		Estimated: true,
+		Source:    "candidate-agent-runtime",
+		Stage:     "model_selected",
+	}
+	if err := stream.Send(&pb.ChatStreamResponse{
+		Code: 0, Msg: "success", EventType: "model_info", ContextUsage: modelInfoUsage,
+		SessionId: session.ID, CreatedAt: formatTime(time.Now()),
 	}); err != nil {
 		return err
 	}
@@ -142,6 +156,18 @@ func (s *nativeAIService) runCandidateChatRuntime(req *pb.CandidateChatRequest, 
 
 	runtimeCfg := s.getCandidateAgentRuntimeConfig(ctx)
 	systemPrompt := s.resolveCandidateAgentSystemPrompt(ctx, runtimeCfg)
+	availablePlanTools := append([]string(nil), runtimeCfg.ToolNames...)
+	if len(availablePlanTools) == 0 {
+		availablePlanTools = commonsai.CandidateToolNames()
+	}
+	intentPlan := commonsai.NewCandidateAssistantPlanner().Plan(commonsai.CandidateAssistantPlannerInput{
+		Message:        req.GetMessage(),
+		AvailableTools: availablePlanTools,
+	})
+
+	if suffix := intentPlan.InstructionBlock(); suffix != "" {
+		systemPrompt += "\n\n" + suffix
+	}
 
 	var reply string
 	var metadata commonsai.ToolMetadata
@@ -162,6 +188,11 @@ func (s *nativeAIService) runCandidateChatRuntime(req *pb.CandidateChatRequest, 
 			if len(runtimeCfg.ToolNames) > 0 {
 				adkTools = commonsai.FilterCandidateADKToolsByName(adkTools, runtimeCfg.ToolNames)
 			}
+			if intentPlan.DisallowsModelTools() {
+				adkTools = nil
+			} else {
+				adkTools = commonsai.FilterCandidateADKToolsByName(adkTools, intentPlan.RequiredTools)
+			}
 			adkProvider, hasADK := s.provider.(RecruitingADKChatProvider)
 			if !hasADK {
 				legacyFallback = true
@@ -178,7 +209,7 @@ func (s *nativeAIService) runCandidateChatRuntime(req *pb.CandidateChatRequest, 
 				}
 				reply, metadata, execErr = adkProvider.ChatWithRecruitingADK(
 					adkCtx,
-					0,
+					modelID,
 					opts,
 					commonsai.AgentRunInput{
 						AgentName:     candidateAssistantAgentType,
@@ -213,6 +244,11 @@ func (s *nativeAIService) runCandidateChatRuntime(req *pb.CandidateChatRequest, 
 		if len(runtimeCfg.ToolNames) > 0 {
 			tools = commonsai.FilterCandidateToolInfosByName(tools, runtimeCfg.ToolNames)
 		}
+		if intentPlan.DisallowsModelTools() {
+			tools = nil
+		} else {
+			tools = commonsai.FilterCandidateToolInfosByName(tools, intentPlan.RequiredTools)
+		}
 		messages := []*schema.Message{
 			schema.SystemMessage(systemPrompt),
 			schema.UserMessage(req.GetMessage()),
@@ -225,7 +261,7 @@ func (s *nativeAIService) runCandidateChatRuntime(req *pb.CandidateChatRequest, 
 			s.recordCandidateToolTrace(session.ID, req.GetUserId(), toolCallID, toolName, argsJSON, resultContent, duration, toolErr)
 		}
 		reply, metadata, execErr = toolProvider.ChatWithRecruitingTools(
-			ctx, 0, opts, messages, tools, executor, req.GetUserId(),
+			ctx, modelID, opts, messages, tools, executor, req.GetUserId(),
 			streamFilter.Write, traceFn, statusSender,
 		)
 	}
@@ -253,7 +289,7 @@ func (s *nativeAIService) runCandidateChatRuntime(req *pb.CandidateChatRequest, 
 			}
 			if _, saveErr := s.store.AppendChatMessage(ctx, ChatMessageRow{
 				OwnerRole: ownerRoleCandidate, OwnerID: req.GetUserId(), SessionID: session.ID,
-				Role: "assistant", Content: fallback, ModelName: modelName, CreatedAt: time.Now(),
+				Role: "assistant", Content: fallback, ModelID: modelID, ModelName: modelName, CreatedAt: time.Now(),
 			}); saveErr != nil {
 				return saveErr
 			}
@@ -282,11 +318,14 @@ func (s *nativeAIService) runCandidateChatRuntime(req *pb.CandidateChatRequest, 
 		cleanReply = strings.TrimSpace(partialReply.String())
 	}
 	if len(suggestedQuestions) != 3 {
-		suggestedQuestions = candidateSuggestedQuestionsFallback()
+		suggestedQuestions = intentPlan.SuggestedQuestions
+		if len(suggestedQuestions) != 3 {
+			suggestedQuestions = candidateSuggestedQuestionsFallback()
+		}
 	}
 	if _, err := s.store.AppendChatMessage(ctx, ChatMessageRow{
 		OwnerRole: ownerRoleCandidate, OwnerID: req.GetUserId(), SessionID: session.ID,
-		Role: "assistant", Content: cleanReply, ModelName: modelName, CreatedAt: time.Now(),
+		Role: "assistant", Content: cleanReply, ModelID: modelID, ModelName: modelName, CreatedAt: time.Now(),
 	}); err != nil {
 		return err
 	}

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { nextTick, onBeforeUnmount, ref, watch } from 'vue'
+import { computed, nextTick, onBeforeUnmount, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { ChatDotRound, Close, Delete, EditPen, Moon, Plus, Promotion, Sunny, User } from '@element-plus/icons-vue'
@@ -13,8 +13,10 @@ import {
   sendMessageStream,
   updateSession,
 } from '@/api/ai'
+import { listAvailableModels } from '@/api/llm'
 import { applyJob } from '@/api/application'
 import type { CandidateSession, RecommendedJob, StreamPayload } from '@/types/ai'
+import type { LlmModel } from '@/types/llm'
 
 interface MessageItem {
   role: 'user' | 'assistant'
@@ -24,6 +26,7 @@ interface MessageItem {
   waitingText?: string
   actionPayload?: CandidateAIActionPayload | null
   suggestedQuestions?: string[]
+  model_name?: string
 }
 
 interface CandidateAIActionPayload {
@@ -33,6 +36,8 @@ interface CandidateAIActionPayload {
 }
 
 const router = useRouter()
+
+const SELECTED_MODEL_STORAGE_KEY = 'candidate-ai-selected-model-id'
 
 const panelOpen = ref(false)
 const input = ref('')
@@ -44,6 +49,8 @@ const userAborted = ref(false)
 const sessions = ref<CandidateSession[]>([])
 const currentSession = ref<CandidateSession | null>(null)
 const sessionListOpen = ref(false)
+const modelList = ref<LlmModel[]>([])
+const selectedModelId = ref<number | null>(null)
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const listRef = ref<any>(null)
 
@@ -60,6 +67,43 @@ const renderMarkdown = (content: string): string => {
 }
 
 const waitingText = (msg: MessageItem): string => msg.waitingText || '思考中'
+
+const modelNameFromPayload = (payload: StreamPayload): string | undefined =>
+  payload.context_usage?.model_name || payload.model_name || undefined
+
+const resolveSelectedModelDisplayName = (): string | undefined => {
+  if (selectedModelId.value != null) {
+    const selected = modelList.value.find((model) => model.id === selectedModelId.value)
+    if (selected) return selected.display_name || selected.model_name
+  }
+  const defaultModel = modelList.value.find((model) => model.is_default)
+  return defaultModel?.display_name || defaultModel?.model_name
+}
+
+const loadAvailableModels = async () => {
+  try {
+    const data = await listAvailableModels(1, 200)
+    modelList.value = data.list || []
+    const stored = sessionStorage.getItem(SELECTED_MODEL_STORAGE_KEY)
+    if (stored) {
+      const parsed = Number(stored)
+      if (modelList.value.some((model) => model.id === parsed)) {
+        selectedModelId.value = parsed
+      }
+    }
+  } catch {
+    modelList.value = []
+  }
+}
+
+const defaultModelDisplayName = computed(() => {
+  const defaultModel = modelList.value.find((model) => model.is_default)
+  return defaultModel?.display_name || defaultModel?.model_name || ''
+})
+
+const modelSelectPlaceholder = computed(() =>
+  defaultModelDisplayName.value ? `默认 · ${defaultModelDisplayName.value}` : '默认模型',
+)
 
 const quickActions = [
   { label: '我的应聘进度怎么样？', icon: Promotion },
@@ -83,6 +127,7 @@ const scrollBottom = async () => {
 const togglePanel = () => {
   panelOpen.value = !panelOpen.value
   if (panelOpen.value) {
+    void loadAvailableModels()
     refreshSessions().then(() => {
       if (!currentSession.value && sessions.value.length > 0) {
         selectSession(sessions.value[0])
@@ -139,7 +184,11 @@ const selectSession = async (session: CandidateSession) => {
   sessionListOpen.value = false
   try {
     const data = await getSessionMessages(session.session_id, { page: 1, page_size: 100 })
-    messages.value = (data.list || []) as MessageItem[]
+    messages.value = (data.list || []).map((item) => ({
+      role: item.role === 'assistant' ? 'assistant' : 'user',
+      content: item.content,
+      model_name: item.model_name || undefined,
+    }))
   } catch {
     messages.value = []
   }
@@ -267,7 +316,11 @@ const send = async (text?: string) => {
     let streamFailed = false
     const result = { payload: null as StreamPayload | null }
     await sendMessageStream(
-      { message, session_id: session.session_id },
+      {
+        message,
+        session_id: session.session_id,
+        ...(selectedModelId.value != null ? { model_id: selectedModelId.value } : {}),
+      },
       {
         onDelta: (delta) => {
           const msg = messages.value[assistantIndex]
@@ -276,11 +329,15 @@ const send = async (text?: string) => {
           }
           scrollBottom()
         },
-        onStatus: (eventType, eventMessage) => {
+        onStatus: (eventType, eventMessage, payload) => {
           const msg = messages.value[assistantIndex]
-          if (msg) {
-            messages.value[assistantIndex] = { ...msg, waitingText: eventMessage }
+          if (!msg) return
+          const updates: Partial<MessageItem> = { waitingText: eventMessage }
+          const modelName = modelNameFromPayload(payload)
+          if (eventType === 'model_info' && modelName) {
+            updates.model_name = modelName
           }
+          messages.value[assistantIndex] = { ...msg, ...updates }
         },
         onDone: (payload: StreamPayload) => {
           result.payload = payload
@@ -311,8 +368,10 @@ const send = async (text?: string) => {
       const latestMsg = messages.value[assistantIndex]
       if (latestMsg) {
         const suggestedQuestions = normalizeSuggestedQuestions(finalPayload.suggested_questions ?? finalPayload.suggestedQuestions)
+        const modelName = modelNameFromPayload(finalPayload) || latestMsg.model_name || resolveSelectedModelDisplayName()
         messages.value[assistantIndex] = {
           ...latestMsg,
+          model_name: modelName,
           suggestedQuestions: suggestedQuestions.length > 0
             ? suggestedQuestions
             : buildFallbackSuggestedQuestions(message, latestMsg.content),
@@ -390,6 +449,14 @@ watch(panelOpen, (val) => {
     scrollBottom()
   } else {
     document.body.style.overflow = ''
+  }
+})
+
+watch(selectedModelId, (id) => {
+  if (id != null) {
+    sessionStorage.setItem(SELECTED_MODEL_STORAGE_KEY, String(id))
+  } else {
+    sessionStorage.removeItem(SELECTED_MODEL_STORAGE_KEY)
   }
 })
 
@@ -504,6 +571,13 @@ onBeforeUnmount(() => {
               </div>
               <div v-else class="ai-bubble__content" v-html="renderMarkdown(msg.content)"></div>
 
+              <div
+                v-if="msg.role === 'assistant' && msg.model_name && !msg.pending"
+                class="ai-bubble__meta"
+              >
+                <el-tag size="small" effect="plain">{{ msg.model_name }}</el-tag>
+              </div>
+
               <!-- Action payload: recommend_jobs -->
               <div v-if="msg.actionPayload?.action === 'recommend_jobs' && msg.actionPayload.jobs?.length" class="ai-recommend">
                 <div v-for="job in msg.actionPayload.jobs" :key="job.job_id" class="ai-recommend__card">
@@ -567,20 +641,45 @@ onBeforeUnmount(() => {
 
         <!-- Input -->
         <div class="ai-panel__input">
-          <el-input
-            v-model="input"
-            placeholder="输入你的问题..."
-            :disabled="streaming"
-            @keyup.enter="streaming ? undefined : send()"
-            clearable
-            @clear="clearInput"
-          />
-          <el-button v-if="streaming" type="danger" plain @click="stopStreaming">
-            中断
-          </el-button>
-          <el-button v-else type="primary" :loading="loading" :disabled="!input.trim()" @click="send()">
-            发送
-          </el-button>
+          <div class="ai-composer">
+            <div class="ai-composer__main">
+              <el-input
+                v-model="input"
+                class="ai-composer__field"
+                placeholder="输入你的问题..."
+                :disabled="streaming"
+                @keyup.enter="streaming ? undefined : send()"
+                clearable
+                @clear="clearInput"
+              />
+              <el-button v-if="streaming" class="ai-composer__send" type="danger" plain @click="stopStreaming">
+                中断
+              </el-button>
+              <el-button v-else class="ai-composer__send" type="primary" :loading="loading" :disabled="!input.trim()" @click="send()">
+                发送
+              </el-button>
+            </div>
+            <div class="ai-composer__toolbar">
+              <el-select
+                v-if="modelList.length > 0"
+                v-model="selectedModelId"
+                size="small"
+                :placeholder="modelSelectPlaceholder"
+                class="ai-panel__model-select"
+                clearable
+              >
+                <el-option
+                  v-for="model in modelList"
+                  :key="model.id"
+                  :value="model.id"
+                  :label="model.display_name || model.model_name"
+                >
+                  <span>{{ model.display_name || model.model_name }}</span>
+                  <span v-if="model.is_default" class="ai-panel__model-default">默认</span>
+                </el-option>
+              </el-select>
+            </div>
+          </div>
         </div>
         </div><!-- /ai-panel__main -->
       </div>
@@ -719,7 +818,7 @@ onBeforeUnmount(() => {
   position: absolute;
   right: 0;
   bottom: 72px;
-  width: 420px;
+  width: clamp(520px, 38vw, 640px);
   max-width: calc(100vw - 48px);
   height: 560px;
   max-height: calc(100vh - 120px);
@@ -1069,6 +1168,21 @@ onBeforeUnmount(() => {
 .ai-bubble__content :deep(td) { border: 1px solid var(--border); padding: 6px 8px; text-align: left; }
 .ai-bubble__content :deep(th) { background: var(--surface); font-weight: 600; }
 
+.ai-bubble__meta {
+  display: flex;
+  justify-content: flex-start;
+  margin-top: 8px;
+  line-height: 1;
+}
+
+.ai-bubble__meta :deep(.el-tag) {
+  max-width: 100%;
+  height: 20px;
+  font-size: 11px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
 .ai-bubble--failed .ai-bubble__content {
   color: #991b1b;
   background: #fef2f2;
@@ -1230,15 +1344,94 @@ onBeforeUnmount(() => {
 
 /* Input */
 .ai-panel__input {
-  display: flex;
-  gap: 8px;
-  padding: 12px 16px;
+  padding: 12px 16px 14px;
   border-top: 1px solid var(--border);
+  background: color-mix(in srgb, var(--surface) 92%, var(--surface-muted));
   flex-shrink: 0;
 }
 
-.ai-panel__input .el-input {
+.ai-composer {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px;
+  border: 1px solid rgba(37, 99, 235, 0.18);
+  border-radius: 12px;
+  background: var(--surface);
+  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.06);
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.ai-composer:focus-within {
+  border-color: rgba(37, 99, 235, 0.48);
+  box-shadow: 0 10px 28px rgba(37, 99, 235, 0.13);
+}
+
+.ai-composer__main {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.ai-composer__field {
   flex: 1;
+  min-width: 0;
+}
+
+.ai-composer__field :deep(.el-input__wrapper) {
+  min-height: 36px;
+  padding: 0 2px;
+  border-radius: 8px;
+  background: transparent;
+  box-shadow: none;
+}
+
+.ai-composer__field :deep(.el-input__wrapper.is-focus) {
+  box-shadow: none;
+}
+
+.ai-composer__field :deep(.el-input__inner) {
+  color: var(--text-primary);
+}
+
+.ai-composer__send {
+  width: 64px;
+  height: 36px;
+  flex-shrink: 0;
+  border-radius: 8px;
+}
+
+.ai-composer__toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 8px;
+  min-height: 28px;
+}
+
+.ai-panel__model-select {
+  width: min(240px, 72%);
+}
+
+.ai-panel__model-select :deep(.el-select__wrapper) {
+  min-height: 28px;
+  border-radius: 999px;
+  background: var(--surface-muted);
+  box-shadow: 0 0 0 1px rgba(148, 163, 184, 0.2) inset;
+}
+
+.ai-panel__model-select :deep(.el-select__placeholder),
+.ai-panel__model-select :deep(.el-select__selected-item) {
+  max-width: 176px;
+  color: var(--text-secondary);
+  font-size: 12px;
+}
+
+.ai-panel__model-default {
+  float: right;
+  margin-left: 12px;
+  color: var(--brand);
+  font-size: 12px;
 }
 
 /* Mobile */
@@ -1271,13 +1464,29 @@ onBeforeUnmount(() => {
   }
 
   .ai-panel__input {
-    padding: 10px 12px;
-    flex-wrap: wrap;
-    gap: 6px;
+    padding: 10px 12px calc(10px + env(safe-area-inset-bottom, 0px));
   }
 
-  .ai-panel__input .el-input {
-    min-width: 0;
+  .ai-composer {
+    padding: 9px;
+    border-radius: 12px;
+  }
+
+  .ai-composer__main {
+    width: 100%;
+  }
+
+  .ai-composer__send {
+    width: 58px;
+  }
+
+  .ai-panel__model-select {
+    width: min(230px, 78%);
+  }
+
+  .ai-panel__model-select :deep(.el-select__placeholder),
+  .ai-panel__model-select :deep(.el-select__selected-item) {
+    max-width: 156px;
   }
 
   .ai-panel__messages {

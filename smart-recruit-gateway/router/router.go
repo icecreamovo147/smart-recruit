@@ -213,6 +213,7 @@ func Setup(cfg config.Config, clients *rpc.Clients, rdb *redis.Client) (*gin.Eng
 	candidateGroup.GET("/notifications/stream", middleware.RequirePermission(authz.PermNotificationRead), notificationHandler.Stream)
 	candidateGroup.PATCH("/notifications/:notification_id/read", normalTimeout, middleware.RequirePermission(authz.PermNotificationRead), notificationHandler.MarkRead)
 	candidateGroup.PATCH("/notifications/read-all", normalTimeout, middleware.RequirePermission(authz.PermNotificationRead), notificationHandler.MarkAllRead)
+	candidateGroup.GET("/ai/models", normalTimeout, middleware.RequirePermission(authz.PermAICandidateUse), candidateAIHandler.ListAvailableModels)
 	candidateGroup.GET("/ai/sessions", normalTimeout, middleware.RequirePermission(authz.PermAICandidateUse), candidateAIHandler.ListSessions)
 	candidateGroup.POST("/ai/sessions", normalTimeout, bodyProfile, middleware.RequirePermission(authz.PermAICandidateUse), candidateAIHandler.CreateSession)
 	candidateGroup.GET("/ai/sessions/:session_id/messages", normalTimeout, middleware.RequirePermission(authz.PermAICandidateUse), candidateAIHandler.SessionMessages)

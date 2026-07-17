@@ -8,9 +8,11 @@ import (
 	"strings"
 
 	"github.com/gin-gonic/gin"
+	"go.uber.org/zap"
 
 	base "smart-recruit-gateway/handler"
 	"smart-recruit-gateway/middleware"
+	"smart-recruit-gateway/pkg/logger"
 	"smart-recruit-gateway/rpc"
 	"smart-recruit-proto/recruitment/pb"
 )
@@ -29,6 +31,7 @@ func (h *AIHandler) Chat(c *gin.Context) {
 	var req struct {
 		Message   string         `json:"message" binding:"required"`
 		SessionID base.FlexInt64 `json:"session_id"`
+		ModelID   base.FlexInt64 `json:"model_id"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
 		base.BadRequest(c, "消息不能为空")
@@ -38,6 +41,7 @@ func (h *AIHandler) Chat(c *gin.Context) {
 		UserId:    middleware.UserID(c),
 		Message:   req.Message,
 		SessionId: int64(req.SessionID),
+		ModelId:   int64(req.ModelID),
 	})
 	if err != nil {
 		base.Internal(c, err)
@@ -47,6 +51,7 @@ func (h *AIHandler) Chat(c *gin.Context) {
 	var reply strings.Builder
 	var sessionID int64
 	var createdAt string
+	var modelName string
 	var suggestedQuestions []string
 	code := int32(0)
 	msg := "success"
@@ -76,6 +81,9 @@ func (h *AIHandler) Chat(c *gin.Context) {
 		if chunk.GetCreatedAt() != "" {
 			createdAt = chunk.GetCreatedAt()
 		}
+		if cu := chunk.GetContextUsage(); cu != nil && cu.GetModelName() != "" {
+			modelName = cu.GetModelName()
+		}
 		if len(chunk.GetSuggestedQuestions()) > 0 {
 			suggestedQuestions = chunk.GetSuggestedQuestions()
 		}
@@ -87,6 +95,7 @@ func (h *AIHandler) Chat(c *gin.Context) {
 		"reply":               reply.String(),
 		"created_at":          createdAt,
 		"session_id":          sessionID,
+		"model_name":          modelName,
 		"suggested_questions": suggestedQuestions,
 		"suggestedQuestions":  suggestedQuestions,
 	})
@@ -97,6 +106,7 @@ func (h *AIHandler) ChatStream(c *gin.Context) {
 	var req struct {
 		Message   string         `json:"message" binding:"required"`
 		SessionID base.FlexInt64 `json:"session_id"`
+		ModelID   base.FlexInt64 `json:"model_id"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
 		base.BadRequest(c, "消息不能为空")
@@ -106,6 +116,7 @@ func (h *AIHandler) ChatStream(c *gin.Context) {
 		UserId:    middleware.UserID(c),
 		Message:   req.Message,
 		SessionId: int64(req.SessionID),
+		ModelId:   int64(req.ModelID),
 	})
 	if err != nil {
 		base.Internal(c, err)
@@ -181,6 +192,7 @@ func (h *AIHandler) ChatStream(c *gin.Context) {
 				"event_message":       result.chunk.EventMessage,
 				"error_type":          result.chunk.ErrorType,
 				"tool_name":           result.chunk.ToolName,
+				"context_usage":       mapContextUsage(result.chunk.GetContextUsage()),
 				"request_id":          base.RequestID(c),
 			}
 			line := fmt.Sprintf("event: message\ndata: %s\n\n", mustMarshal(payload))
@@ -297,6 +309,46 @@ func (h *AIHandler) DeleteSession(c *gin.Context) {
 	base.ProtoResponse(c, resp)
 }
 
+// ListAvailableModels returns enabled LLM models for candidate AI chat selection.
+func (h *AIHandler) ListAvailableModels(c *gin.Context) {
+	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
+	pageSize, _ := strconv.Atoi(c.DefaultQuery("page_size", "200"))
+	if pageSize <= 0 || pageSize > 200 {
+		pageSize = 200
+	}
+
+	resp, err := h.clients.LlmConfig.ListModels(c.Request.Context(), &pb.ListModelsRequest{
+		Page:     int32(page),
+		PageSize: int32(pageSize),
+	})
+	if err != nil {
+		logger.L().Error("ListAvailableModels failed", zap.Error(err))
+		base.Internal(c, err)
+		return
+	}
+
+	list := make([]gin.H, 0, len(resp.List))
+	for _, model := range resp.List {
+		if model == nil || !model.GetIsEnabled() {
+			continue
+		}
+		list = append(list, gin.H{
+			"id":                    model.GetId(),
+			"model_name":            model.GetModelName(),
+			"display_name":          model.GetDisplayName(),
+			"is_enabled":            model.GetIsEnabled(),
+			"is_default":            model.GetIsDefault(),
+			"max_tokens":            model.GetMaxTokens(),
+			"context_window_tokens": model.GetContextWindowTokens(),
+		})
+	}
+
+	base.From(c, resp.Code, resp.Msg, gin.H{
+		"total": int64(len(list)),
+		"list":  list,
+	})
+}
+
 func basePagination(c *gin.Context) (int32, int32) {
 	page := int32(1)
 	pageSize := int32(20)
@@ -312,4 +364,38 @@ func basePagination(c *gin.Context) (int32, int32) {
 func mustMarshal(v any) string {
 	b, _ := json.Marshal(v)
 	return string(b)
+}
+
+func mapContextUsage(cu *pb.ContextUsageInfo) map[string]any {
+	if cu == nil {
+		return nil
+	}
+	var breakdown map[string]any
+	if bd := cu.GetBreakdown(); bd != nil {
+		breakdown = gin.H{
+			"system_prompt_tokens":   bd.GetSystemPromptTokens(),
+			"recent_message_tokens":  bd.GetRecentMessageTokens(),
+			"summary_tokens":         bd.GetSummaryTokens(),
+			"memory_tokens":          bd.GetMemoryTokens(),
+			"current_message_tokens": bd.GetCurrentMessageTokens(),
+			"skill_tokens":           bd.GetSkillTokens(),
+			"tool_result_tokens":     bd.GetToolResultTokens(),
+		}
+	}
+	return gin.H{
+		"model_id":                   cu.GetModelId(),
+		"model_name":                 cu.GetModelName(),
+		"context_window_tokens":      cu.GetContextWindowTokens(),
+		"max_output_tokens":          cu.GetMaxOutputTokens(),
+		"prompt_tokens_estimated":    cu.GetPromptTokensEstimated(),
+		"prompt_tokens_actual":       cu.GetPromptTokensActual(),
+		"completion_tokens_actual":   cu.GetCompletionTokensActual(),
+		"total_tokens_actual":        cu.GetTotalTokensActual(),
+		"remaining_tokens_estimated": cu.GetRemainingTokensEstimated(),
+		"usage_ratio":                cu.GetUsageRatio(),
+		"estimated":                  cu.GetEstimated(),
+		"source":                     cu.GetSource(),
+		"stage":                      cu.GetStage(),
+		"breakdown":                  breakdown,
+	}
 }

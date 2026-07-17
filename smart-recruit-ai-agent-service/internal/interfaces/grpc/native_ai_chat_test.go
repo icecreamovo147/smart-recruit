@@ -190,9 +190,168 @@ func TestCandidateChatStreamPersistsMessagesWithCandidateOwnerRole(t *testing.T)
 		t.Fatalf("stream responses = %d, want at least 1", len(stream.responses))
 	}
 	done := stream.responses[len(stream.responses)-1]
-	if !done.Done || done.EventType != "done" || done.SessionId != store.sessions[0].ID {
+	if done.EventType != "done" || done.SessionId != store.sessions[0].ID {
 		t.Fatalf("stream done response = %#v", done)
 	}
+}
+
+func TestCandidateChatStreamEmitsModelInfoAndForwardsModelID(t *testing.T) {
+	store := newFakeAIStore()
+	store.llmModels = []*pb.LlmModelInfo{{
+		Id: 9, ModelName: "qwen-candidate", DisplayName: "Qwen Candidate", IsEnabled: true,
+	}}
+	provider := &fakeCandidateADKProvider{reply: "assistant reply"}
+	service := newCandidateAITestService(store, provider)
+	stream := &captureChatStream{ctx: context.Background()}
+
+	if err := service.CandidateChatStream(&pb.CandidateChatRequest{UserId: 55, Message: "candidate asks", ModelId: 9}, stream); err != nil {
+		t.Fatalf("CandidateChatStream returned error: %v", err)
+	}
+	if provider.lastModelID != 9 {
+		t.Fatalf("provider model id = %d, want 9", provider.lastModelID)
+	}
+	if len(stream.responses) == 0 || stream.responses[0].EventType != "model_info" {
+		t.Fatalf("first stream event = %#v, want model_info", stream.responses[0])
+	}
+	usage := stream.responses[0].GetContextUsage()
+	if usage == nil || usage.GetModelId() != 9 || usage.GetModelName() != "qwen-candidate" {
+		t.Fatalf("model info usage = %#v", usage)
+	}
+	if got := store.messages[1]; got.ModelID != 9 || got.ModelName != "qwen-candidate" {
+		t.Fatalf("assistant message model = %#v", got)
+	}
+}
+
+func TestCandidateChatStreamGreetingCallsProviderWithoutTools(t *testing.T) {
+	store := newFakeAIStore()
+	provider := &fakeCandidateADKProvider{
+		reply: "你好，我是你的求职助手。可以帮你看投递进度、推荐岗位或优化简历。",
+		onRun: func(input commonsai.AgentRunInput) {
+			if len(input.Tools) != 0 {
+				t.Fatalf("greeting tools = %v, want none", commonsai.ADKToolNames(input.Tools))
+			}
+			if !strings.Contains(input.Instruction, "MUST NOT call any tools") {
+				t.Fatalf("instruction missing greeting no-tool rule: %q", input.Instruction)
+			}
+		},
+		simulateTool: func(onTool commonsai.ToolTraceCallback) {
+			if onTool != nil {
+				onTool("call-1", "list_my_applications", `{}`, `{"total":99}`, time.Millisecond, nil)
+			}
+		},
+	}
+	service := newCandidateAITestService(store, provider)
+	stream := &captureChatStream{ctx: context.Background()}
+
+	if err := service.CandidateChatStream(&pb.CandidateChatRequest{UserId: 55, Message: "hello"}, stream); err != nil {
+		t.Fatalf("CandidateChatStream returned error: %v", err)
+	}
+	if provider.adkCalls != 1 {
+		t.Fatalf("ADK provider calls = %d, want 1", provider.adkCalls)
+	}
+	if len(store.toolTraces) != 0 {
+		t.Fatalf("tool traces = %#v, want none for greeting", store.toolTraces)
+	}
+	if len(store.messages) != 2 {
+		t.Fatalf("messages = %d, want user and assistant", len(store.messages))
+	}
+	reply := store.messages[1].Content
+	if !strings.Contains(reply, "求职助手") || strings.Contains(reply, "7 条") || strings.Contains(reply, "简历亮点") {
+		t.Fatalf("greeting reply = %q, want model-generated capability greeting without live data", reply)
+	}
+	if len(stream.responses) < 3 {
+		t.Fatalf("stream responses = %d, want model_info, delta, done", len(stream.responses))
+	}
+	done := stream.responses[len(stream.responses)-1]
+	if !done.Done || done.EventType != "done" || len(done.GetSuggestedQuestions()) != 3 {
+		t.Fatalf("done response = %#v, want done with suggested questions", done)
+	}
+}
+
+func TestCandidateChatStreamFiltersToolsByCandidateIntent(t *testing.T) {
+	tests := []struct {
+		name      string
+		message   string
+		wantTools []string
+	}{
+		{
+			name:      "application progress",
+			message:   "我目前的应聘进度？",
+			wantTools: []string{"list_my_applications"},
+		},
+		{
+			name:      "application detail",
+			message:   "查看第2轮那个投递的详细进度",
+			wantTools: []string{"list_my_applications", "get_my_application_detail"},
+		},
+		{
+			name:      "resume advice",
+			message:   "可以帮我优化一下简历吗",
+			wantTools: []string{"get_my_resume_text"},
+		},
+		{
+			name:      "job recommendation",
+			message:   "根据我的简历推荐一些岗位",
+			wantTools: []string{"recommend_jobs_by_resume"},
+		},
+		{
+			name:      "job detail",
+			message:   "深圳的软件开发实习生岗位具体职责是什么？",
+			wantTools: []string{"list_jobs_for_recommendation", "get_job_detail_for_candidate"},
+		},
+		{
+			name:      "unknown no tools",
+			message:   "随便聊聊",
+			wantTools: []string{},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			store := newFakeAIStore()
+			provider := &fakeCandidateADKProvider{
+				reply: "assistant reply",
+				onRun: func(input commonsai.AgentRunInput) {
+					got := commonsai.ADKToolNames(input.Tools)
+					if !candidateSameStringSet(got, tt.wantTools) {
+						t.Fatalf("tools = %v, want %v", got, tt.wantTools)
+					}
+					if tt.wantTools == nil {
+						return
+					}
+					if len(tt.wantTools) == 0 && !strings.Contains(input.Instruction, "MUST NOT call candidate tools") {
+						t.Fatalf("instruction missing no-tool rule: %q", input.Instruction)
+					}
+				},
+			}
+			service := newCandidateAITestService(store, provider)
+			stream := &captureChatStream{ctx: context.Background()}
+
+			if err := service.CandidateChatStream(&pb.CandidateChatRequest{UserId: 55, Message: tt.message}, stream); err != nil {
+				t.Fatalf("CandidateChatStream returned error: %v", err)
+			}
+			if provider.adkCalls != 1 {
+				t.Fatalf("ADK provider calls = %d, want 1", provider.adkCalls)
+			}
+		})
+	}
+}
+
+func candidateSameStringSet(got, want []string) bool {
+	if len(got) != len(want) {
+		return false
+	}
+	counts := make(map[string]int, len(got))
+	for _, value := range got {
+		counts[value]++
+	}
+	for _, value := range want {
+		if counts[value] == 0 {
+			return false
+		}
+		counts[value]--
+	}
+	return true
 }
 
 func TestCandidateChatStreamRejectsEmptyMessage(t *testing.T) {
@@ -240,7 +399,7 @@ func TestCandidateChatStreamBuildsPromptWithActiveCandidatePromptAndHistory(t *t
 	provider := &fakeCandidateADKProvider{
 		reply: "assistant reply",
 		onRun: func(input commonsai.AgentRunInput) {
-			if input.Instruction != "ACTIVE candidate assistant system prompt" {
+			if !strings.Contains(input.Instruction, "ACTIVE candidate assistant system prompt") {
 				t.Fatalf("instruction = %q", input.Instruction)
 			}
 			joined := ""
@@ -371,7 +530,11 @@ func TestCandidateChatStreamFallsBackFromToolTracesWhenProviderFails(t *testing.
 	if len(stream.responses) < 2 {
 		t.Fatalf("stream responses = %d, want partial_done and done", len(stream.responses))
 	}
-	if stream.responses[0].EventType != "partial_done" || !stream.responses[len(stream.responses)-1].Done {
+	eventTypes := make([]string, 0, len(stream.responses))
+	for _, resp := range stream.responses {
+		eventTypes = append(eventTypes, resp.GetEventType())
+	}
+	if !containsString(eventTypes, "partial_done") || !stream.responses[len(stream.responses)-1].Done {
 		t.Fatalf("stream responses = %#v", stream.responses)
 	}
 	if got := store.messages[len(store.messages)-1].Content; !strings.Contains(got, "Backend Engineer") {
@@ -394,8 +557,8 @@ func TestCandidateChatStreamMissingProviderReturnsDiagnosticError(t *testing.T) 
 	if len(store.messages) != 1 {
 		t.Fatalf("messages = %d, want persisted user message before provider error", len(store.messages))
 	}
-	if len(stream.responses) != 0 {
-		t.Fatalf("stream responses = %#v, want none on provider error", stream.responses)
+	if len(stream.responses) != 1 || stream.responses[0].GetEventType() != "model_info" {
+		t.Fatalf("stream responses = %#v, want only model_info before provider error", stream.responses)
 	}
 }
 
@@ -2054,23 +2217,25 @@ type fakeCandidateADKProvider struct {
 	onRun        func(commonsai.AgentRunInput)
 	simulateTool func(onTool commonsai.ToolTraceCallback)
 	adkCalls     int
+	lastModelID  int64
 }
 
 func (p *fakeCandidateADKProvider) ChatWithRecruitingADK(
 	_ context.Context,
-	_ int64,
+	modelID int64,
 	_ ChatCompletionOptions,
 	input commonsai.AgentRunInput,
 	onDelta func(string) error,
 	onToolExecuted commonsai.ToolTraceCallback,
 	_ func(eventType, eventMessage, errorType, toolName string) error,
 ) (string, commonsai.ToolMetadata, error) {
+	p.lastModelID = modelID
 	p.adkCalls++
 	if p.onRun != nil {
 		p.onRun(input)
 	}
 	meta := commonsai.ToolMetadata{}
-	if p.simulateTool != nil {
+	if p.simulateTool != nil && len(input.Tools) > 0 {
 		p.simulateTool(func(toolCallID, toolName, argsJSON, resultContent string, duration time.Duration, execErr error) {
 			meta.ToolTraces = append(meta.ToolTraces, commonsai.ToolTrace{
 				ToolName: toolName,

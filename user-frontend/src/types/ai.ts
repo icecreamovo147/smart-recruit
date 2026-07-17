@@ -7,6 +7,7 @@ export interface CandidateChatMessage {
   failed?: boolean
   waitingText?: string
   suggestedQuestions?: string[]
+  model_name?: string
 }
 
 export interface CandidateSession {
@@ -31,10 +32,15 @@ export interface StreamPayload {
   suggested_questions?: string[] | string
   suggestedQuestions?: string[] | string
   // Phase 4: streaming UX status events
-  event_type?: string // thinking | tool_calling | tool_done | generating | timeout_warning | partial_done | done | error
+  event_type?: string // thinking | tool_calling | tool_done | generating | timeout_warning | partial_done | done | error | model_info
   event_message?: string
   error_type?: string
   tool_name?: string
+  model_name?: string
+  context_usage?: {
+    model_id?: number
+    model_name?: string
+  }
 }
 
 export interface StreamHandlers {

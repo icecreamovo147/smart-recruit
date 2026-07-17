@@ -65,6 +65,136 @@ func TestCandidateChatAggregatesStreamResponse(t *testing.T) {
 	}
 }
 
+func TestCandidateChatForwardsModelID(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	aiClient := &candidateChatAIClient{
+		stream: &candidateChatStream{
+			ctx: context.Background(),
+			responses: []*pb.ChatStreamResponse{
+				{
+					Code: 0, Msg: "success", EventType: "model_info",
+					ContextUsage: &pb.ContextUsageInfo{ModelId: 9, ModelName: "qwen-candidate"},
+				},
+				{Code: 0, Msg: "success", Delta: "hello", Done: true, SessionId: 123},
+			},
+		},
+	}
+	handler := NewAIHandler(&rpc.Clients{AI: aiClient})
+	router := gin.New()
+	router.POST("/api/v1/candidate/ai/chat", func(c *gin.Context) {
+		c.Set("user_id", int64(55))
+		handler.Chat(c)
+	})
+
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/candidate/ai/chat", strings.NewReader(`{"message":"hi","session_id":123,"model_id":9}`))
+	req.Header.Set("Content-Type", "application/json")
+	rec := httptest.NewRecorder()
+	router.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, body = %s", rec.Code, rec.Body.String())
+	}
+	if aiClient.request.GetModelId() != 9 {
+		t.Fatalf("candidate chat model_id = %d, want 9", aiClient.request.GetModelId())
+	}
+	var envelope struct {
+		Code int32 `json:"code"`
+		Data struct {
+			Reply     string `json:"reply"`
+			ModelName string `json:"model_name"`
+		} `json:"data"`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &envelope); err != nil {
+		t.Fatalf("decode response: %v", err)
+	}
+	if envelope.Data.ModelName != "qwen-candidate" {
+		t.Fatalf("model_name = %q, want qwen-candidate", envelope.Data.ModelName)
+	}
+}
+
+func TestCandidateChatStreamIncludesContextUsage(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	aiClient := &candidateChatAIClient{
+		stream: &candidateChatStream{
+			ctx: context.Background(),
+			responses: []*pb.ChatStreamResponse{
+				{
+					Code: 0, Msg: "success", EventType: "model_info",
+					ContextUsage: &pb.ContextUsageInfo{ModelId: 9, ModelName: "qwen-candidate"},
+				},
+				{Code: 0, Msg: "success", Done: true},
+			},
+		},
+	}
+	handler := NewAIHandler(&rpc.Clients{AI: aiClient})
+	router := gin.New()
+	router.POST("/api/v1/candidate/ai/chat/stream", func(c *gin.Context) {
+		c.Set("user_id", int64(55))
+		handler.ChatStream(c)
+	})
+
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/candidate/ai/chat/stream", strings.NewReader(`{"message":"hi","model_id":9}`))
+	req.Header.Set("Content-Type", "application/json")
+	rec := httptest.NewRecorder()
+	router.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, body = %s", rec.Code, rec.Body.String())
+	}
+	if !strings.Contains(rec.Body.String(), `"model_name":"qwen-candidate"`) {
+		t.Fatalf("stream body missing context_usage model_name: %s", rec.Body.String())
+	}
+	if aiClient.request.GetModelId() != 9 {
+		t.Fatalf("candidate chat model_id = %d, want 9", aiClient.request.GetModelId())
+	}
+}
+
+type candidateLlmConfigClient struct {
+	pb.LlmConfigServiceClient
+}
+
+func (c *candidateLlmConfigClient) ListModels(_ context.Context, _ *pb.ListModelsRequest, _ ...grpc.CallOption) (*pb.ListModelsResponse, error) {
+	return &pb.ListModelsResponse{
+		Code: 0,
+		Msg:  "success",
+		List: []*pb.LlmModelInfo{
+			{Id: 1, ModelName: "enabled-model", DisplayName: "Enabled", IsEnabled: true, IsDefault: true},
+			{Id: 2, ModelName: "disabled-model", DisplayName: "Disabled", IsEnabled: false},
+		},
+	}, nil
+}
+
+func TestCandidateListAvailableModelsFiltersDisabled(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	handler := NewAIHandler(&rpc.Clients{LlmConfig: &candidateLlmConfigClient{}})
+	router := gin.New()
+	router.GET("/api/v1/candidate/ai/models", handler.ListAvailableModels)
+
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/candidate/ai/models", nil)
+	rec := httptest.NewRecorder()
+	router.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, body = %s", rec.Code, rec.Body.String())
+	}
+	var envelope struct {
+		Code int32 `json:"code"`
+		Data struct {
+			Total int64 `json:"total"`
+			List  []struct {
+				ID       int64  `json:"id"`
+				ModelName string `json:"model_name"`
+			} `json:"list"`
+		} `json:"data"`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &envelope); err != nil {
+		t.Fatalf("decode response: %v", err)
+	}
+	if envelope.Data.Total != 1 || len(envelope.Data.List) != 1 || envelope.Data.List[0].ID != 1 {
+		t.Fatalf("response envelope = %#v", envelope)
+	}
+}
+
 type candidateChatAIClient struct {
 	pb.AIServiceClient
 	stream  grpc.ServerStreamingClient[pb.ChatStreamResponse]

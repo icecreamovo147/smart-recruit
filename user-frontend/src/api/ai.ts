@@ -7,7 +7,7 @@ import type { StreamHandlers, StreamPayload, CandidateSession } from '@/types/ai
 import request from './request'
 import { silentRefresh } from './authRefresh'
 
-export const sendMessage = (data: { message: string; session_id?: number }): Promise<{
+export const sendMessage = (data: { message: string; session_id?: number; model_id?: number }): Promise<{
   reply: string
   created_at: string
   session_id?: number
@@ -27,7 +27,7 @@ export const createSession = (data: { title?: string }): Promise<{
 }> => request.post('/api/v1/candidate/ai/sessions', data)
 
 export const getSessionMessages = (sessionId: number, params: { page: number; page_size: number }): Promise<{
-  list: { role: string; content: string; created_at: string }[]
+  list: { role: string; content: string; created_at: string; model_name?: string }[]
 }> => request.get(`/api/v1/candidate/ai/sessions/${sessionId}/messages`, { params })
 
 export const updateSession = (sessionId: number, data: { title: string }): Promise<void> =>
@@ -72,8 +72,12 @@ const handleStreamPayload = (text: string, handlers: StreamHandlers): boolean =>
     if (payload.event_type && payload.event_type === 'error') {
       handlers.onError?.(payload.error_type || '', payload.event_message || payload.msg || '', payload)
     }
-    if (payload.event_type && payload.event_message && !payload.delta) {
-      handlers.onStatus?.(payload.event_type, payload.event_message, payload)
+    if (
+      payload.event_type
+      && !payload.delta
+      && (payload.event_message || payload.event_type === 'model_info' || payload.context_usage)
+    ) {
+      handlers.onStatus?.(payload.event_type, payload.event_message || '', payload)
     }
     if (payload.delta) {
       handlers.onDelta?.(payload.delta, payload)
@@ -89,7 +93,7 @@ const handleStreamPayload = (text: string, handlers: StreamHandlers): boolean =>
 }
 
 export const sendMessageStream = async (
-  data: { message: string; session_id?: number },
+  data: { message: string; session_id?: number; model_id?: number },
   handlers: StreamHandlers = {},
   options: { signal?: AbortSignal; silentAbort?: boolean } = {},
 ): Promise<void> => {
