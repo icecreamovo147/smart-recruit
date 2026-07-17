@@ -400,6 +400,7 @@ func Setup(cfg config.Config, clients *rpc.Clients, rdb *redis.Client) (*gin.Eng
 	adminGroup.POST("/llm-models", normalTimeout, bodyAuth, middleware.RequirePermission(authz.PermSystemConfigManage), llmConfigHandler.CreateModel)
 	adminGroup.PUT("/llm-models/:id", normalTimeout, bodyAuth, middleware.RequirePermission(authz.PermSystemConfigManage), llmConfigHandler.UpdateModel)
 	adminGroup.DELETE("/llm-models/:id", normalTimeout, middleware.RequirePermission(authz.PermSystemConfigManage), llmConfigHandler.DeleteModel)
+	adminGroup.POST("/llm-models/:id/test", normalTimeout, middleware.RequirePermission(authz.PermSystemConfigManage), llmConfigHandler.TestModelConnection)
 
 	// Prompt template management — requires AI business permission
 	adminGroup.GET("/prompt-templates", normalTimeout, middleware.RequirePermission(authz.PermAIPromptManage), promptHandler.List)

@@ -315,22 +315,33 @@ const handleDeleteModel = async (row: EmbeddingModel) => {
 
 // ---- Test Model ----
 
-const testingModelId = ref(0)
+/** Concurrent tests: track every model currently in-flight (not a single scalar id). */
+const testingModelIds = ref<Set<number>>(new Set())
+
+const isTestingModel = (id: number): boolean => testingModelIds.value.has(id)
+
+const markModelTesting = (id: number, testing: boolean) => {
+  const next = new Set(testingModelIds.value)
+  if (testing) next.add(id)
+  else next.delete(id)
+  testingModelIds.value = next
+}
 
 const handleTestModel = async (row: EmbeddingModel) => {
-  testingModelId.value = row.id
+  if (isTestingModel(row.id)) return
+  markModelTesting(row.id, true)
   try {
     const result = await testEmbeddingModel({ provider_id: row.provider_id, model_id: row.id })
     if (result.success) {
-      ElMessage.success(`测试成功：维度 ${result.dimension}，耗时 ${result.latency_ms}ms`)
+      ElMessage.success(`「${row.display_name || row.model_name}」测试成功：维度 ${result.dimension}，耗时 ${result.latency_ms}ms`)
     } else {
-      ElMessage.error(`测试失败：${result.detail || '未知错误'}`)
+      ElMessage.error(`「${row.display_name || row.model_name}」测试失败：${result.detail || '未知错误'}`)
     }
     await loadModels()
   } catch (e: unknown) {
-    ElMessage.error((e as { message?: string }).message || '测试连接失败')
+    ElMessage.error(`「${row.display_name || row.model_name}」${(e as { message?: string }).message || '测试连接失败'}`)
   } finally {
-    testingModelId.value = 0
+    markModelTesting(row.id, false)
   }
 }
 
@@ -657,7 +668,7 @@ onMounted(() => {
             <el-table-column label="操作" width="190" fixed="right">
               <template #default="{ row }: { row: EmbeddingModel }">
                 <div class="row-actions">
-                  <el-button size="small" :icon="Connection" :loading="testingModelId === row.id" @click="handleTestModel(row)">测试</el-button>
+                  <el-button size="small" :icon="Connection" :loading="isTestingModel(row.id)" @click="handleTestModel(row)">测试</el-button>
                   <el-button size="small" :icon="Edit" @click="openEditModel(row)">编辑</el-button>
                   <el-dropdown trigger="click">
                     <el-button size="small">更多<el-icon class="el-icon--right"><ArrowDown /></el-icon></el-button>
@@ -692,7 +703,7 @@ onMounted(() => {
       v-model="providerDrawerVisible"
       :title="providerDrawerTitle"
       size="520px"
-      :close-on-click-modal="false"
+      :close-on-click-modal="true"
       class="config-drawer"
     >
       <el-form :model="providerForm" label-position="top">
@@ -740,7 +751,7 @@ onMounted(() => {
       v-model="modelDrawerVisible"
       :title="modelDrawerTitle"
       size="560px"
-      :close-on-click-modal="false"
+      :close-on-click-modal="true"
       class="config-drawer"
     >
       <el-form :model="modelForm" label-position="top">

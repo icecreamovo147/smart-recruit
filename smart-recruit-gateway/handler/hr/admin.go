@@ -603,7 +603,7 @@ func (h *AdminHandler) GetUsageStats(c *gin.Context) {
 	var req struct {
 		StartTime string `form:"start_time"`
 		EndTime   string `form:"end_time"`
-		Dimension string `form:"dimension"` // user / model / session
+		Dimension string `form:"dimension"` // user / model / session / provider / service_type
 	}
 	if err := c.ShouldBindQuery(&req); err != nil {
 		base.BadRequest(c, "请求参数错误")

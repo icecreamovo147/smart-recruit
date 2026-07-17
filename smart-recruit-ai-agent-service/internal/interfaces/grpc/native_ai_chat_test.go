@@ -18,6 +18,101 @@ import (
 	commonsai "smart-recruit-commons/ai"
 )
 
+func TestSessionMessagesPreservesAgentSkillMetadata(t *testing.T) {
+	store := newFakeAIStore()
+	store.seedChatMessage(ChatMessageRow{
+		OwnerRole:       ownerRoleHR,
+		OwnerID:         77,
+		SessionID:       101,
+		Role:            "user",
+		Content:         "请复核候选人匹配度",
+		AgentSkillIDs:   []int64{1, 2},
+		AgentSkillNames: []string{"candidate_fit_review", "candidate-offer-risk-review"},
+		CreatedAt:       time.Date(2026, 7, 17, 10, 0, 0, 0, time.UTC),
+	})
+	store.seedChatMessage(ChatMessageRow{
+		OwnerRole:       ownerRoleHR,
+		OwnerID:         77,
+		SessionID:       101,
+		Role:            "assistant",
+		Content:         "匹配结论：强匹配",
+		AgentSkillIDs:   []int64{1, 2},
+		AgentSkillNames: []string{"candidate_fit_review", "candidate-offer-risk-review"},
+		CreatedAt:       time.Date(2026, 7, 17, 10, 0, 1, 0, time.UTC),
+	})
+	service := &nativeAIService{store: store}
+
+	resp, err := service.SessionMessages(context.Background(), &pb.SessionMessagesRequest{
+		HrId:      77,
+		SessionId: 101,
+		Page:      1,
+		PageSize:  20,
+	})
+	if err != nil {
+		t.Fatalf("SessionMessages returned error: %v", err)
+	}
+	if resp.GetCode() != 0 {
+		t.Fatalf("SessionMessages code = %d msg = %s", resp.GetCode(), resp.GetMsg())
+	}
+	if len(resp.GetList()) != 2 {
+		t.Fatalf("messages = %d, want 2", len(resp.GetList()))
+	}
+	user := resp.GetList()[0]
+	if user.GetRole() != "user" {
+		t.Fatalf("first role = %q, want user", user.GetRole())
+	}
+	if got := user.GetAgentSkillIds(); len(got) != 2 || got[0] != 1 || got[1] != 2 {
+		t.Fatalf("user agent_skill_ids = %v, want [1 2]", got)
+	}
+	if got := user.GetAgentSkillNames(); len(got) != 2 || got[0] != "candidate_fit_review" || got[1] != "candidate-offer-risk-review" {
+		t.Fatalf("user agent_skill_names = %v, want [candidate_fit_review candidate-offer-risk-review]", got)
+	}
+	assistant := resp.GetList()[1]
+	if got := assistant.GetAgentSkillIds(); len(got) != 2 || got[0] != 1 || got[1] != 2 {
+		t.Fatalf("assistant agent_skill_ids = %v, want [1 2]", got)
+	}
+	if got := assistant.GetAgentSkillNames(); len(got) != 2 || got[0] != "candidate_fit_review" || got[1] != "candidate-offer-risk-review" {
+		t.Fatalf("assistant agent_skill_names = %v, want [candidate_fit_review candidate-offer-risk-review]", got)
+	}
+}
+
+func TestHRRuntimeAgentSkillNamesPrefersDisplayName(t *testing.T) {
+	got := hrRuntimeAgentSkillNames(hrRuntimeGovernanceContext{
+		SelectedAgentSkills: []hrRuntimeAgentSkill{
+			{ID: 1, Name: "candidate_fit_review", DisplayName: "候选人岗位匹配复核"},
+			{ID: 2, Name: "candidate-offer-risk-review", DisplayName: ""},
+			{ID: 3, Name: "", DisplayName: ""},
+		},
+	})
+	want := []string{"候选人岗位匹配复核", "candidate-offer-risk-review"}
+	if len(got) != len(want) || got[0] != want[0] || got[1] != want[1] {
+		t.Fatalf("hrRuntimeAgentSkillNames = %v, want %v", got, want)
+	}
+}
+
+func TestMapChatMessagesCopiesAgentSkillSlices(t *testing.T) {
+	ids := []int64{7}
+	names := []string{"resume_match"}
+	items := mapChatMessages([]ChatMessageRow{{
+		Role:            "user",
+		Content:         "hello",
+		AgentSkillIDs:   ids,
+		AgentSkillNames: names,
+		CreatedAt:       time.Date(2026, 7, 17, 10, 0, 0, 0, time.UTC),
+	}})
+	if len(items) != 1 {
+		t.Fatalf("items = %d, want 1", len(items))
+	}
+	ids[0] = 99
+	names[0] = "mutated"
+	if got := items[0].GetAgentSkillIds(); len(got) != 1 || got[0] != 7 {
+		t.Fatalf("mapped agent_skill_ids mutated: %v", got)
+	}
+	if got := items[0].GetAgentSkillNames(); len(got) != 1 || got[0] != "resume_match" {
+		t.Fatalf("mapped agent_skill_names mutated: %v", got)
+	}
+}
+
 func TestCreateApplicationAnalysisSessionSeedsPlannerRecognizableUserMessage(t *testing.T) {
 	store := newFakeAIStore()
 	service := &nativeAIService{store: store}
@@ -544,8 +639,8 @@ func TestHRChatRuntimeAppliesAgentPromptAndManualAgentSkills(t *testing.T) {
 		t.Fatalf("messages = %d, want 2", len(store.messages))
 	}
 	for _, message := range store.messages {
-		if len(message.AgentSkillIDs) != 1 || message.AgentSkillIDs[0] != 7001 || len(message.AgentSkillNames) != 1 || message.AgentSkillNames[0] != "candidate_screen" {
-			t.Fatalf("message skill metadata = %#v, want selected candidate_screen", message)
+		if len(message.AgentSkillIDs) != 1 || message.AgentSkillIDs[0] != 7001 || len(message.AgentSkillNames) != 1 || message.AgentSkillNames[0] != "Candidate Screen" {
+			t.Fatalf("message skill metadata = %#v, want selected Candidate Screen display name", message)
 		}
 	}
 	if !strings.Contains(store.messages[1].ProcessContent, `"agent_skill_selection_mode":"manual"`) || !strings.Contains(store.messages[1].ProcessContent, `"prompt_template_id":901`) {

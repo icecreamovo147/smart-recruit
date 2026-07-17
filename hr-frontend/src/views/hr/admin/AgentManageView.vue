@@ -690,7 +690,7 @@ onMounted(() => {
       </template>
     </el-drawer>
 
-    <el-drawer v-model="detailVisible" title="Agent 详情" size="560px" destroy-on-close>
+    <el-drawer v-model="detailVisible" title="Agent 详情" size="560px" :close-on-click-modal="true" destroy-on-close>
       <template v-if="detailAgent">
         <el-descriptions :column="1" border>
           <el-descriptions-item label="显示名称">{{ detailAgent.display_name || '-' }}</el-descriptions-item>

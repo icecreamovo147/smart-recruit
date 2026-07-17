@@ -203,7 +203,38 @@ func (s *NativeStore) TestLlmProviderConnection(ctx context.Context, req *pb.Tes
 	if strings.TrimSpace(row.BaseURL) == "" || strings.TrimSpace(row.APIKeyEncrypted) == "" {
 		return &pb.TestProviderConnectionResponse{Code: configUnavailable, Msg: "provider configuration incomplete", Success: false, Detail: "base_url and api_key are required"}, nil
 	}
-	return s.validateLlmProviderConnection(ctx, row)
+	return s.validateLlmRuntimeConnection(ctx, 0, row.ID)
+}
+
+func (s *NativeStore) TestLlmModelConnection(ctx context.Context, req *pb.TestModelConnectionRequest) (*pb.TestProviderConnectionResponse, error) {
+	if req.GetModelId() <= 0 {
+		return &pb.TestProviderConnectionResponse{Code: configBadRequest, Msg: "model_id is required", Success: false, Detail: "model_id is required"}, nil
+	}
+	var model llmModelRecord
+	err := s.db.WithContext(ctx).First(&model, req.GetModelId()).Error
+	if err == gorm.ErrRecordNotFound {
+		return &pb.TestProviderConnectionResponse{Code: configNotFound, Msg: "model not found", Success: false, Detail: "model not found"}, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	if !model.IsEnabled {
+		return &pb.TestProviderConnectionResponse{Code: configUnavailable, Msg: "model disabled", Success: false, Detail: "model is disabled"}, nil
+	}
+	var provider llmProviderRecord
+	if err := s.db.WithContext(ctx).First(&provider, model.ProviderID).Error; err != nil {
+		if err == gorm.ErrRecordNotFound {
+			return &pb.TestProviderConnectionResponse{Code: configNotFound, Msg: "provider not found", Success: false, Detail: "provider not found"}, nil
+		}
+		return nil, err
+	}
+	if !provider.IsEnabled {
+		return &pb.TestProviderConnectionResponse{Code: configUnavailable, Msg: "provider disabled", Success: false, Detail: "provider is disabled"}, nil
+	}
+	if strings.TrimSpace(provider.BaseURL) == "" || strings.TrimSpace(provider.APIKeyEncrypted) == "" {
+		return &pb.TestProviderConnectionResponse{Code: configUnavailable, Msg: "provider configuration incomplete", Success: false, Detail: "base_url and api_key are required"}, nil
+	}
+	return s.validateLlmRuntimeConnection(ctx, model.ID, 0)
 }
 
 func (s *NativeStore) CreateLlmModel(ctx context.Context, req *pb.CreateModelRequest) (*pb.ModelResponse, error) {
@@ -320,6 +351,19 @@ func (s *NativeStore) UpdatePromptTemplate(ctx context.Context, req *pb.UpdatePr
 		updates["variables"] = nullStringFrom(req.GetVariablesJson(), true)
 	}
 	if req.GetIsActiveSet() {
+		// Refuse to disable the last active prompt in a type/role scope so runtime always has a fallback.
+		if row.IsActive && !req.GetIsActive() {
+			hasOther, checkErr := s.hasOtherActivePromptTemplate(ctx, row.ID, row.AgentType, row.PromptRole)
+			if checkErr != nil {
+				return nil, checkErr
+			}
+			if !hasOther {
+				return &pb.PromptTemplateResponse{
+					Code: configBadRequest,
+					Msg:  "当前绑定类型下没有其他启用中的提示词，不能禁用最后一条",
+				}, nil
+			}
+		}
 		updates["is_active"] = req.GetIsActive()
 	}
 	if contentChanged {
@@ -338,6 +382,38 @@ func (s *NativeStore) UpdatePromptTemplate(ctx context.Context, req *pb.UpdatePr
 		return nil, err
 	}
 	return s.getPromptTemplateResponse(ctx, req.GetId())
+}
+
+// hasOtherActivePromptTemplate reports whether another enabled template can serve the same
+// agent_type + prompt_role scope (hr_agent / hr_recruiting_agent share one conversation scope).
+func (s *NativeStore) hasOtherActivePromptTemplate(ctx context.Context, excludeID int64, agentType, promptRole string) (bool, error) {
+	query := s.db.WithContext(ctx).Model(&promptTemplateRecord{}).
+		Where("id <> ? AND is_active = ?", excludeID, true)
+	types := promptAgentTypeScope(agentType)
+	if len(types) == 1 {
+		query = query.Where("agent_type = ?", types[0])
+	} else {
+		query = query.Where("agent_type IN ?", types)
+	}
+	if role := strings.TrimSpace(promptRole); role != "" {
+		query = query.Where("prompt_role = ?", role)
+	}
+	var count int64
+	if err := query.Count(&count).Error; err != nil {
+		return false, err
+	}
+	return count > 0, nil
+}
+
+func promptAgentTypeScope(agentType string) []string {
+	agentType = strings.TrimSpace(agentType)
+	if strings.EqualFold(agentType, "hr_recruiting_agent") || strings.EqualFold(agentType, "hr_agent") {
+		return []string{"hr_recruiting_agent", "hr_agent"}
+	}
+	if agentType == "" {
+		return []string{""}
+	}
+	return []string{agentType}
 }
 
 func (s *NativeStore) DeletePromptTemplate(ctx context.Context, req *pb.DeletePromptTemplateRequest) (*pb.CommonResponse, error) {

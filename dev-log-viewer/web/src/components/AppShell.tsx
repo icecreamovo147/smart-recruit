@@ -167,7 +167,7 @@ export function AppShell() {
           {visibleRecords.length === 0 ? <strong>No results.</strong> : null}
         </div>
       </div>
-      <div className="app-body" style={{ gridTemplateColumns: layout.sidebarCollapsed ? `72px minmax(420px, 1fr) ${layout.detailWidth}px` : `240px minmax(420px, 1fr) ${layout.detailWidth}px` }}>
+      <div className="app-body" style={{ gridTemplateColumns: layout.sidebarCollapsed ? `var(--sidebar-width-collapsed) minmax(420px, 1fr) ${layout.detailWidth}px` : `var(--sidebar-width-expanded) minmax(420px, 1fr) ${layout.detailWidth}px` }}>
         <ServiceSidebar
           services={viewerState.services}
           collapsed={layout.sidebarCollapsed}

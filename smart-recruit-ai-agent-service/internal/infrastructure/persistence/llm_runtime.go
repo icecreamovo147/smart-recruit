@@ -248,14 +248,16 @@ func (s *NativeStore) LoadActiveRecruitingPrompt(ctx context.Context, agentType,
 	}, nil
 }
 
-func (s *NativeStore) validateLlmProviderConnection(ctx context.Context, provider llmProviderRecord) (*pb.TestProviderConnectionResponse, error) {
-	cfg, err := s.selectLLMRuntimeConfig(ctx, 0, provider.ID)
+// validateLlmRuntimeConnection probes the LLM endpoint for a concrete model (modelID > 0)
+// or the provider's preferred enabled model (providerID > 0). Model-level tests are preferred.
+func (s *NativeStore) validateLlmRuntimeConnection(ctx context.Context, modelID, providerID int64) (*pb.TestProviderConnectionResponse, error) {
+	cfg, err := s.selectLLMRuntimeConfig(ctx, modelID, providerID)
 	if err != nil {
-		return &pb.TestProviderConnectionResponse{Code: configUnavailable, Msg: "provider runtime validation failed", Success: false, Detail: err.Error()}, nil
+		return &pb.TestProviderConnectionResponse{Code: configUnavailable, Msg: "llm runtime validation failed", Success: false, Detail: err.Error()}, nil
 	}
 	client, err := s.newRuntimeClient(ctx, cfg)
 	if err != nil {
-		return &pb.TestProviderConnectionResponse{Code: configUnavailable, Msg: "provider runtime validation failed", Success: false, Detail: err.Error()}, nil
+		return &pb.TestProviderConnectionResponse{Code: configUnavailable, Msg: "llm runtime validation failed", Success: false, Detail: err.Error()}, nil
 	}
 	testCtx := ctx
 	if cfg.TimeoutSeconds <= 0 && s.runtimeLLM.Timeout <= 0 {
@@ -263,12 +265,16 @@ func (s *NativeStore) validateLlmProviderConnection(ctx context.Context, provide
 		testCtx, cancel = context.WithTimeout(ctx, 20*time.Second)
 		defer cancel()
 	}
-	reply, err := client.GenerateRecruitingReply(testCtx, "请回复“连接正常”用于 Provider 连通性测试。", commonsai.RecruitingStats{}, nil)
+	prompt := "请回复“连接正常”用于 Model 连通性测试。"
+	if modelID <= 0 {
+		prompt = "请回复“连接正常”用于 Provider 连通性测试。"
+	}
+	reply, err := client.GenerateRecruitingReply(testCtx, prompt, commonsai.RecruitingStats{}, nil)
 	if err != nil {
-		return &pb.TestProviderConnectionResponse{Code: configUnavailable, Msg: "provider connection failed", Success: false, Detail: err.Error()}, nil
+		return &pb.TestProviderConnectionResponse{Code: configUnavailable, Msg: "llm connection failed", Success: false, Detail: err.Error()}, nil
 	}
 	if strings.TrimSpace(reply) == "" {
-		return &pb.TestProviderConnectionResponse{Code: configUnavailable, Msg: "provider returned empty response", Success: false, Detail: "empty response from provider"}, nil
+		return &pb.TestProviderConnectionResponse{Code: configUnavailable, Msg: "llm returned empty response", Success: false, Detail: "empty response from model"}, nil
 	}
 	return &pb.TestProviderConnectionResponse{Code: configOK, Msg: "success", Success: true, Detail: fmt.Sprintf("validated with model %s", cfg.Model)}, nil
 }

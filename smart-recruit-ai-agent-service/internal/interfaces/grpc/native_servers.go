@@ -2310,8 +2310,13 @@ func hrRuntimeAgentSkillIDs(governance hrRuntimeGovernanceContext) []int64 {
 func hrRuntimeAgentSkillNames(governance hrRuntimeGovernanceContext) []string {
 	names := make([]string, 0, len(governance.SelectedAgentSkills))
 	for _, skill := range governance.SelectedAgentSkills {
-		if strings.TrimSpace(skill.Name) != "" {
-			names = append(names, strings.TrimSpace(skill.Name))
+		// Persist the user-facing label for history badges; fall back to technical name.
+		label := strings.TrimSpace(skill.DisplayName)
+		if label == "" {
+			label = strings.TrimSpace(skill.Name)
+		}
+		if label != "" {
+			names = append(names, label)
 		}
 	}
 	return names
@@ -6344,7 +6349,16 @@ func mapChatSessions(rows []ChatSessionRow) []*pb.ChatSession {
 func mapChatMessages(rows []ChatMessageRow) []*pb.ChatMessage {
 	items := make([]*pb.ChatMessage, 0, len(rows))
 	for _, row := range rows {
-		items = append(items, &pb.ChatMessage{Role: row.Role, Content: row.Content, ProcessContent: row.ProcessContent, ModelId: row.ModelID, ModelName: row.ModelName, CreatedAt: formatTime(row.CreatedAt)})
+		items = append(items, &pb.ChatMessage{
+			Role:            row.Role,
+			Content:         row.Content,
+			ProcessContent:  row.ProcessContent,
+			ModelId:         row.ModelID,
+			ModelName:       row.ModelName,
+			AgentSkillIds:   append([]int64(nil), row.AgentSkillIDs...),
+			AgentSkillNames: append([]string(nil), row.AgentSkillNames...),
+			CreatedAt:       formatTime(row.CreatedAt),
+		})
 	}
 	return items
 }

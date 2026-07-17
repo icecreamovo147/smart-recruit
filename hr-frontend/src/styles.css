@@ -274,9 +274,30 @@ a {
 
 .sidebar-nav {
   flex: 1;
-  overflow-y: auto;
-  overflow-x: hidden;
+  min-height: 0;
+  min-width: 0;
+  overflow: hidden;
   padding: 0 0 8px;
+}
+
+/* el-scrollbar owns vertical scrolling; never allow horizontal bleed in the rail */
+.sidebar-nav > .el-scrollbar {
+  height: 100%;
+  width: 100%;
+}
+
+.sidebar-nav .el-scrollbar__wrap {
+  overflow-x: hidden !important;
+}
+
+.sidebar-nav .el-scrollbar__bar.is-horizontal {
+  display: none !important;
+}
+
+.sidebar-nav .el-scrollbar__view {
+  min-width: 0;
+  width: 100%;
+  overflow-x: hidden;
 }
 
 .sidebar-footer {
@@ -293,12 +314,24 @@ a {
 
 .sidebar--collapsed .sidebar-footer {
   flex-direction: column;
+  align-items: center;
   gap: 8px;
-  padding: 12px 10px;
+  padding: 12px 0;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.sidebar--collapsed .sidebar-footer .el-tooltip__trigger {
+  display: inline-flex;
+  width: 40px;
+  max-width: 100%;
+  flex: 0 0 40px;
 }
 
 .sidebar--collapsed {
   width: 64px;
+  min-width: 64px;
+  max-width: 64px;
 }
 
 .sidebar--collapsed .sidebar-head {
@@ -481,12 +514,36 @@ a {
 }
 
 .sidebar--collapsed .sidebar-link span {
+  /* Collapse text out of layout so nowrap labels do not widen the rail */
+  flex: 0 0 0;
+  width: 0;
+  min-width: 0;
+  max-width: 0;
+  margin: 0;
+  padding: 0;
   opacity: 0;
+  overflow: hidden;
+  pointer-events: none;
   transition: opacity 120ms ease;
 }
 
 .sidebar--collapsed .sidebar-link {
-  padding: 0 16px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 0;
+  width: 100%;
+  min-width: 0;
+  padding: 0;
+  overflow: hidden;
+}
+
+.sidebar--collapsed .sidebar-link.router-link-active,
+.sidebar--collapsed .sidebar-link.router-link-active:hover,
+.sidebar--collapsed .sidebar-group-toggle--active {
+  /* Keep active accent without shifting icon off-center in the narrow rail */
+  box-shadow: inset 3px 0 0 var(--brand);
+  border-left-color: transparent;
 }
 
 .sidebar-link.router-link-active,
@@ -545,11 +602,28 @@ a {
 }
 
 .sidebar--collapsed .sidebar-group-toggle {
-  padding: 0 16px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 0;
+  padding: 0;
+  min-width: 0;
+  overflow: hidden;
 }
 
 .sidebar--collapsed .sidebar-group-toggle .group-arrow {
   display: none;
+  flex: 0 0 0;
+  width: 0;
+  min-width: 0;
+  margin: 0;
+  overflow: hidden;
+}
+
+.sidebar--collapsed .sidebar-nav-group {
+  width: 100%;
+  min-width: 0;
+  overflow: hidden;
 }
 
 .sidebar-group-toggle--active {
@@ -2299,11 +2373,44 @@ a {
   }
 
   .sidebar--collapsed .sidebar-link {
+    justify-content: flex-start;
+    gap: 10px;
     padding: 0 16px;
+    overflow: visible;
   }
 
   .sidebar--collapsed .sidebar-link span {
+    flex: initial;
+    width: auto;
+    min-width: 0;
+    max-width: none;
+    margin: unset;
+    padding: unset;
     opacity: 1;
+    overflow: visible;
+    pointer-events: auto;
+  }
+
+  .sidebar--collapsed .sidebar-link.router-link-active,
+  .sidebar--collapsed .sidebar-link.router-link-active:hover,
+  .sidebar--collapsed .sidebar-group-toggle--active {
+    box-shadow: none;
+    border-left-color: var(--brand);
+  }
+
+  .sidebar--collapsed .sidebar-group-toggle {
+    justify-content: flex-start;
+    gap: 10px;
+    padding: 0 16px;
+    overflow: visible;
+  }
+
+  .sidebar--collapsed .sidebar-group-toggle .group-arrow {
+    display: block;
+  }
+
+  .sidebar--collapsed .sidebar-nav-group {
+    overflow: visible;
   }
 
   .sidebar--collapsed .sidebar-brand__text {
@@ -2317,8 +2424,15 @@ a {
 
   .sidebar--collapsed .sidebar-footer {
     flex-direction: row;
+    align-items: center;
     gap: 8px;
     padding: 12px 14px;
+    overflow: visible;
+  }
+
+  .sidebar--collapsed .sidebar-footer .el-tooltip__trigger {
+    width: auto;
+    flex: 1 1 0;
   }
 
   .sidebar--collapsed .sidebar-footer-action {
@@ -2329,6 +2443,11 @@ a {
 
   .sidebar--collapsed .sidebar-footer-action__label {
     display: inline;
+  }
+
+  .sidebar--collapsed {
+    min-width: 0;
+    max-width: none;
   }
 
   /* Backdrop */

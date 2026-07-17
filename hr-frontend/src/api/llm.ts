@@ -24,6 +24,7 @@ export const updateProvider = (id: number, data: UpdateProviderPayload): Promise
 export const deleteProvider = (id: number): Promise<void> =>
   request.delete(`/api/v1/hr/admin/llm-providers/${id}`)
 
+/** @deprecated Prefer testModelConnection — provider-level test is retained for compatibility. */
 export const testProviderConnection = (id: number): Promise<TestConnectionResult> =>
   request.post(`/api/v1/hr/admin/llm-providers/${id}/test`)
 
@@ -46,3 +47,6 @@ export const updateModel = (id: number, data: UpdateModelPayload): Promise<{ mod
 
 export const deleteModel = (id: number): Promise<void> =>
   request.delete(`/api/v1/hr/admin/llm-models/${id}`)
+
+export const testModelConnection = (id: number): Promise<TestConnectionResult> =>
+  request.post(`/api/v1/hr/admin/llm-models/${id}/test`)

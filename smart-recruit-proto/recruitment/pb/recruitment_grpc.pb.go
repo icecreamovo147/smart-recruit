@@ -6411,6 +6411,7 @@ const (
 	LlmConfigService_CreateModel_FullMethodName            = "/recruitment.LlmConfigService/CreateModel"
 	LlmConfigService_UpdateModel_FullMethodName            = "/recruitment.LlmConfigService/UpdateModel"
 	LlmConfigService_DeleteModel_FullMethodName            = "/recruitment.LlmConfigService/DeleteModel"
+	LlmConfigService_TestModelConnection_FullMethodName    = "/recruitment.LlmConfigService/TestModelConnection"
 )
 
 // LlmConfigServiceClient is the client API for LlmConfigService service.
@@ -6426,6 +6427,8 @@ type LlmConfigServiceClient interface {
 	CreateModel(ctx context.Context, in *CreateModelRequest, opts ...grpc.CallOption) (*ModelResponse, error)
 	UpdateModel(ctx context.Context, in *UpdateModelRequest, opts ...grpc.CallOption) (*ModelResponse, error)
 	DeleteModel(ctx context.Context, in *DeleteModelRequest, opts ...grpc.CallOption) (*CommonResponse, error)
+	// TestModelConnection validates a concrete model (preferred over provider-level test).
+	TestModelConnection(ctx context.Context, in *TestModelConnectionRequest, opts ...grpc.CallOption) (*TestProviderConnectionResponse, error)
 }
 
 type llmConfigServiceClient struct {
@@ -6526,6 +6529,16 @@ func (c *llmConfigServiceClient) DeleteModel(ctx context.Context, in *DeleteMode
 	return out, nil
 }
 
+func (c *llmConfigServiceClient) TestModelConnection(ctx context.Context, in *TestModelConnectionRequest, opts ...grpc.CallOption) (*TestProviderConnectionResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(TestProviderConnectionResponse)
+	err := c.cc.Invoke(ctx, LlmConfigService_TestModelConnection_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // LlmConfigServiceServer is the server API for LlmConfigService service.
 // All implementations must embed UnimplementedLlmConfigServiceServer
 // for forward compatibility.
@@ -6539,6 +6552,8 @@ type LlmConfigServiceServer interface {
 	CreateModel(context.Context, *CreateModelRequest) (*ModelResponse, error)
 	UpdateModel(context.Context, *UpdateModelRequest) (*ModelResponse, error)
 	DeleteModel(context.Context, *DeleteModelRequest) (*CommonResponse, error)
+	// TestModelConnection validates a concrete model (preferred over provider-level test).
+	TestModelConnection(context.Context, *TestModelConnectionRequest) (*TestProviderConnectionResponse, error)
 	mustEmbedUnimplementedLlmConfigServiceServer()
 }
 
@@ -6575,6 +6590,9 @@ func (UnimplementedLlmConfigServiceServer) UpdateModel(context.Context, *UpdateM
 }
 func (UnimplementedLlmConfigServiceServer) DeleteModel(context.Context, *DeleteModelRequest) (*CommonResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method DeleteModel not implemented")
+}
+func (UnimplementedLlmConfigServiceServer) TestModelConnection(context.Context, *TestModelConnectionRequest) (*TestProviderConnectionResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method TestModelConnection not implemented")
 }
 func (UnimplementedLlmConfigServiceServer) mustEmbedUnimplementedLlmConfigServiceServer() {}
 func (UnimplementedLlmConfigServiceServer) testEmbeddedByValue()                          {}
@@ -6759,6 +6777,24 @@ func _LlmConfigService_DeleteModel_Handler(srv interface{}, ctx context.Context,
 	return interceptor(ctx, in, info, handler)
 }
 
+func _LlmConfigService_TestModelConnection_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(TestModelConnectionRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(LlmConfigServiceServer).TestModelConnection(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: LlmConfigService_TestModelConnection_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(LlmConfigServiceServer).TestModelConnection(ctx, req.(*TestModelConnectionRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // LlmConfigService_ServiceDesc is the grpc.ServiceDesc for LlmConfigService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -6801,6 +6837,10 @@ var LlmConfigService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "DeleteModel",
 			Handler:    _LlmConfigService_DeleteModel_Handler,
+		},
+		{
+			MethodName: "TestModelConnection",
+			Handler:    _LlmConfigService_TestModelConnection_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

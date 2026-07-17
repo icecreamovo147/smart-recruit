@@ -119,6 +119,26 @@ func (h *LlmConfigHandler) TestProviderConnection(c *gin.Context) {
 	})
 }
 
+func (h *LlmConfigHandler) TestModelConnection(c *gin.Context) {
+	idStr := c.Param("id")
+	id, err := strconv.ParseInt(idStr, 10, 64)
+	if err != nil {
+		base.BadRequest(c, "invalid id")
+		return
+	}
+
+	resp, err := h.clients.LlmConfig.TestModelConnection(c.Request.Context(), &pb.TestModelConnectionRequest{ModelId: id})
+	if err != nil {
+		logger.L().Error("TestModelConnection failed", zap.Error(err))
+		base.Internal(c, err)
+		return
+	}
+	base.From(c, resp.Code, resp.Msg, gin.H{
+		"success": resp.Success,
+		"detail":  resp.Detail,
+	})
+}
+
 // ── Models ──────────────────────────────────────────────────────────────
 
 func (h *LlmConfigHandler) ListModels(c *gin.Context) {

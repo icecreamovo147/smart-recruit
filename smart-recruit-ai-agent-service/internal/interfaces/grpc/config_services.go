@@ -23,6 +23,7 @@ type llmConfigStore interface {
 	CreateLlmModel(context.Context, *pb.CreateModelRequest) (*pb.ModelResponse, error)
 	UpdateLlmModel(context.Context, *pb.UpdateModelRequest) (*pb.ModelResponse, error)
 	DeleteLlmModel(context.Context, *pb.DeleteModelRequest) (*pb.CommonResponse, error)
+	TestLlmModelConnection(context.Context, *pb.TestModelConnectionRequest) (*pb.TestProviderConnectionResponse, error)
 }
 
 type promptConfigStore interface {
@@ -107,6 +108,14 @@ func (s nativeLlmConfigService) DeleteModel(ctx context.Context, req *pb.DeleteM
 		return &pb.CommonResponse{Code: configCodeUnavailable, Msg: "ai configuration store is not configured"}, nil
 	}
 	return store.DeleteLlmModel(ctx, req)
+}
+
+func (s nativeLlmConfigService) TestModelConnection(ctx context.Context, req *pb.TestModelConnectionRequest) (*pb.TestProviderConnectionResponse, error) {
+	store, ok := s.store.(llmConfigStore)
+	if !ok {
+		return &pb.TestProviderConnectionResponse{Code: configCodeUnavailable, Msg: "ai configuration store is not configured", Success: false}, nil
+	}
+	return store.TestLlmModelConnection(ctx, req)
 }
 
 func (s nativePromptService) CreatePromptTemplate(ctx context.Context, req *pb.CreatePromptTemplateRequest) (*pb.PromptTemplateResponse, error) {

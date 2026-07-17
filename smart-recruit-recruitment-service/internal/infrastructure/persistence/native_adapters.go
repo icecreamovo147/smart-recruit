@@ -1514,26 +1514,76 @@ func (a *adminAdapter) QueryUsageLogs(ctx context.Context, req *pb.QueryUsageLog
 }
 
 func (a *usageStatsAdapter) GetUsageStats(ctx context.Context, req *pb.GetUsageStatsRequest) (*pb.GetUsageStatsResponse, error) {
-	dimension := usageDimension(req.Dimension)
-	var rows []struct {
-		Name        string
-		TotalTokens int64
-		CallCount   int64
-		AvgCostMs   float64
+	dimensionCol := usageDimension(req.GetDimension())
+
+	var summaryRow struct {
+		TotalTokens  int64   `gorm:"column:total_tokens"`
+		CallCount    int64   `gorm:"column:call_count"`
+		SuccessCount int64   `gorm:"column:success_count"`
+		FailedCount  int64   `gorm:"column:failed_count"`
+		AvgCostMs    float64 `gorm:"column:avg_cost_ms"`
 	}
-	err := a.usageLogQuery(ctx, req.StartTime, req.EndTime).
-		Select(fmt.Sprintf("%s AS name, COALESCE(SUM(estimated_tokens),0) AS total_tokens, COUNT(*) AS call_count, COALESCE(AVG(cost_ms),0) AS avg_cost_ms", dimension)).
-		Group(dimension).
+	// Independent aggregate (do not reuse a chained query session).
+	if err := a.usageLogQuery(ctx, req.GetStartTime(), req.GetEndTime()).
+		Select(`COALESCE(SUM(estimated_tokens),0) AS total_tokens,
+			COUNT(*) AS call_count,
+			COALESCE(SUM(CASE WHEN status = 'ok' THEN 1 ELSE 0 END),0) AS success_count,
+			COALESCE(SUM(CASE WHEN status <> 'ok' THEN 1 ELSE 0 END),0) AS failed_count,
+			COALESCE(AVG(cost_ms),0) AS avg_cost_ms`).
+		Scan(&summaryRow).Error; err != nil {
+		return nil, err
+	}
+	summary := &pb.UsageStatsSummary{
+		TotalTokens:   summaryRow.TotalTokens,
+		CallCount:     summaryRow.CallCount,
+		SuccessCount:  summaryRow.SuccessCount,
+		FailedCount:   summaryRow.FailedCount,
+		AvgCostMs:     summaryRow.AvgCostMs,
+		EstimatedCost: estimateCost(summaryRow.TotalTokens),
+	}
+	if summaryRow.CallCount > 0 {
+		summary.SuccessRate = float64(summaryRow.SuccessCount) * 100 / float64(summaryRow.CallCount)
+	}
+
+	var rows []struct {
+		DimKey       string  `gorm:"column:dim_key"`
+		TotalTokens  int64   `gorm:"column:total_tokens"`
+		CallCount    int64   `gorm:"column:call_count"`
+		AvgCostMs    float64 `gorm:"column:avg_cost_ms"`
+		SuccessCount int64   `gorm:"column:success_count"`
+		FailedCount  int64   `gorm:"column:failed_count"`
+	}
+	// Always alias dimension as dim_key so GORM maps the label reliably (provider/model/etc.).
+	selectSQL := fmt.Sprintf(`%s AS dim_key,
+			COALESCE(SUM(estimated_tokens),0) AS total_tokens,
+			COUNT(*) AS call_count,
+			COALESCE(AVG(cost_ms),0) AS avg_cost_ms,
+			COALESCE(SUM(CASE WHEN status = 'ok' THEN 1 ELSE 0 END),0) AS success_count,
+			COALESCE(SUM(CASE WHEN status <> 'ok' THEN 1 ELSE 0 END),0) AS failed_count`, dimensionCol)
+	if err := a.usageLogQuery(ctx, req.GetStartTime(), req.GetEndTime()).
+		Select(selectSQL).
+		Group(dimensionCol).
 		Order("total_tokens DESC").
-		Scan(&rows).Error
-	if err != nil {
+		Scan(&rows).Error; err != nil {
 		return nil, err
 	}
 	list := make([]*pb.UsageStatsItem, 0, len(rows))
 	for _, row := range rows {
-		list = append(list, &pb.UsageStatsItem{Name: row.Name, TotalTokens: row.TotalTokens, CallCount: row.CallCount, AvgCostMs: row.AvgCostMs, EstimatedCost: estimateCost(row.TotalTokens)})
+		name := strings.TrimSpace(row.DimKey)
+		if name == "" {
+			name = "(空)"
+		}
+		list = append(list, &pb.UsageStatsItem{
+			Name:          name,
+			TotalTokens:   row.TotalTokens,
+			CallCount:     row.CallCount,
+			AvgCostMs:     row.AvgCostMs,
+			EstimatedCost: estimateCost(row.TotalTokens),
+			SuccessCount:  row.SuccessCount,
+			FailedCount:   row.FailedCount,
+		})
 	}
-	return &pb.GetUsageStatsResponse{Code: errs.OK, Msg: "success", List: list}, nil
+	return &pb.GetUsageStatsResponse{Code: errs.OK, Msg: "success", List: list, Summary: summary}, nil
 }
 
 func (a *usageStatsAdapter) GetUsageTrend(ctx context.Context, req *pb.GetUsageTrendRequest) (*pb.GetUsageTrendResponse, error) {
@@ -2553,9 +2603,12 @@ func parseOptionalTime(value string) (*time.Time, error) {
 	if value == "" {
 		return nil, nil
 	}
-	for _, layout := range []string{time.RFC3339, "2006-01-02 15:04:05", "2006-01-02"} {
-		parsed, err := time.ParseInLocation(layout, value, time.Local)
-		if err == nil {
+	// Accept browser ISO strings with fractional seconds (toISOString) and local forms.
+	for _, layout := range []string{time.RFC3339Nano, time.RFC3339, "2006-01-02 15:04:05", "2006-01-02"} {
+		if parsed, err := time.Parse(layout, value); err == nil {
+			return &parsed, nil
+		}
+		if parsed, err := time.ParseInLocation(layout, value, time.Local); err == nil {
 			return &parsed, nil
 		}
 	}
@@ -2591,6 +2644,12 @@ func usageDimension(value string) string {
 		return "model"
 	case "session":
 		return "request_id"
+	case "provider":
+		return "provider"
+	case "service_type":
+		return "service_type"
+	case "user":
+		return "CAST(user_id AS CHAR)"
 	default:
 		return "CAST(user_id AS CHAR)"
 	}

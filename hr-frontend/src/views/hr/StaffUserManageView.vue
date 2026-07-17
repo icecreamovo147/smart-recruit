@@ -364,7 +364,7 @@ const filteredList = computed(() => {
     </div>
 
     <!-- Create user dialog -->
-    <el-drawer v-model="createDialogVisible" title="创建员工账号" size="480px">
+    <el-drawer v-model="createDialogVisible" title="创建员工账号" size="480px" :close-on-click-modal="true">
       <el-form label-position="top">
         <el-form-item label="用户名" required>
           <el-input v-model="createForm.username" placeholder="输入登录用户名" />

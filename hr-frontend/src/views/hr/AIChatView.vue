@@ -250,56 +250,72 @@ const normalizeSession = (item: ChatSessionListItem): Session => ({
 
 const agentSkillLabel = (skill: AvailableAgentSkill) => skill.display_name || skill.name
 
+/** Resolve user-facing Skill label: prefer catalog display_name over stored technical name. */
+const resolveAgentSkillLabel = (id?: number | string, fallbackName?: string): string => {
+  const numericId = typeof id === 'string' ? Number(id) : id
+  if (typeof numericId === 'number' && Number.isFinite(numericId) && numericId > 0) {
+    const byId = agentSkills.value.find((skill) => skill.id === numericId)
+    if (byId) return agentSkillLabel(byId)
+  }
+  const key = (fallbackName || '').trim()
+  if (key) {
+    const byKey = agentSkills.value.find(
+      (skill) => skill.name === key || skill.display_name === key,
+    )
+    if (byKey) return agentSkillLabel(byKey)
+  }
+  return key
+}
+
+const toMessageSkill = (id?: number | string, fallbackName?: string): ChatMessageSkill | undefined => {
+  const name = resolveAgentSkillLabel(id, fallbackName)
+  if (!name) return undefined
+  return {
+    ...(id !== undefined && id !== null && id !== '' ? { id } : {}),
+    name,
+    command: `/${name}`,
+  }
+}
+
 const buildMessageSkills = (ids: number[]): ChatMessageSkill[] =>
   ids
-    .map((id) => agentSkills.value.find((skill) => skill.id === id))
-    .filter((skill): skill is AvailableAgentSkill => Boolean(skill))
-    .map((skill) => {
-      const name = agentSkillLabel(skill)
-      return {
-        id: skill.id,
-        name,
-        command: `/${name}`,
-      }
-    })
+    .map((id) => toMessageSkill(id))
+    .filter((skill): skill is ChatMessageSkill => Boolean(skill))
 
 const normalizeSkillMeta = (message: Partial<MessageItem>, fallback?: MessageItem): ChatMessageSkill | undefined => {
-  if (message.skill?.name) {
-    return {
-      ...message.skill,
-      command: message.skill.command || `/${message.skill.name}`,
-    }
+  if (message.skill?.name || message.skill?.id != null) {
+    const resolved = toMessageSkill(message.skill?.id, message.skill?.name)
+    if (resolved) return resolved
   }
   const name = message.skill_name || message.skillName
-  if (name) {
-    return {
-      id: message.skill_id ?? message.skillId,
-      name,
-      command: message.skill_command || message.skillCommand || `/${name}`,
-    }
+  const id = message.skill_id ?? message.skillId
+  if (name || id != null) {
+    const resolved = toMessageSkill(id, name)
+    if (resolved) return resolved
   }
   return fallback?.skill
 }
 
 const normalizeSkillsMeta = (message: Partial<MessageItem>, fallback?: MessageItem): ChatMessageSkill[] | undefined => {
   if (Array.isArray(message.skills) && message.skills.length > 0) {
-    return message.skills
-      .filter((skill): skill is ChatMessageSkill => Boolean(skill?.name))
-      .map((skill) => ({
-        ...skill,
-        command: skill.command || `/${skill.name}`,
-      }))
+    const resolved = message.skills
+      .map((skill) => toMessageSkill(skill?.id, skill?.name))
+      .filter((skill): skill is ChatMessageSkill => Boolean(skill))
+    if (resolved.length > 0) return resolved
   }
   const agentSkillNames = message.agent_skill_names || message.agentSkillNames
+  const agentSkillIds = message.agent_skill_ids || message.agentSkillIds || []
   if (Array.isArray(agentSkillNames) && agentSkillNames.length > 0) {
-    const agentSkillIds = message.agent_skill_ids || message.agentSkillIds || []
-    return agentSkillNames
-      .filter(Boolean)
-      .map((name, index) => ({
-        id: agentSkillIds[index],
-        name,
-        command: `/${name}`,
-      }))
+    const resolved = agentSkillNames
+      .map((name, index) => toMessageSkill(agentSkillIds[index], name))
+      .filter((skill): skill is ChatMessageSkill => Boolean(skill))
+    if (resolved.length > 0) return resolved
+  }
+  if (Array.isArray(agentSkillIds) && agentSkillIds.length > 0) {
+    const resolved = agentSkillIds
+      .map((id) => toMessageSkill(id))
+      .filter((skill): skill is ChatMessageSkill => Boolean(skill))
+    if (resolved.length > 0) return resolved
   }
   if (fallback?.skills?.length) return fallback.skills
   const skill = normalizeSkillMeta(message, fallback)

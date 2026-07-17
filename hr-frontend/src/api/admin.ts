@@ -156,10 +156,12 @@ export const revokeDataScope = (scopeId: number): Promise<void> =>
 
 // ── Usage Stats (P1-003) ─────────────────────────────────────────────────
 
+export type UsageStatsDimension = 'user' | 'model' | 'session' | 'provider' | 'service_type'
+
 export interface UsageStatsQuery {
   start_time?: string
   end_time?: string
-  dimension?: 'user' | 'model' | 'session'
+  dimension?: UsageStatsDimension
 }
 
 export interface UsageStatsItem {
@@ -168,6 +170,18 @@ export interface UsageStatsItem {
   call_count: number
   avg_cost_ms: number
   estimated_cost: number
+  success_count?: number
+  failed_count?: number
+}
+
+export interface UsageStatsSummary {
+  total_tokens: number
+  call_count: number
+  success_count: number
+  failed_count: number
+  avg_cost_ms: number
+  estimated_cost: number
+  success_rate: number
 }
 
 export interface UsageTrendQuery {
@@ -184,7 +198,9 @@ export interface UsageTrendPoint {
   estimated_cost: number
 }
 
-export const getUsageStats = (params: UsageStatsQuery): Promise<{ list: UsageStatsItem[] }> =>
+export const getUsageStats = (
+  params: UsageStatsQuery,
+): Promise<{ list: UsageStatsItem[]; summary?: UsageStatsSummary }> =>
   request.get('/api/v1/hr/admin/usage-stats', { params })
 
 export const getUsageTrend = (params: UsageTrendQuery): Promise<{ list: UsageTrendPoint[] }> =>

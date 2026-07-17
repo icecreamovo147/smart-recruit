@@ -1155,7 +1155,7 @@ onMounted(() => {
       v-model="dialogVisible"
       :title="dialogTitle"
       size="640px"
-      :close-on-click-modal="false"
+      :close-on-click-modal="true"
       destroy-on-close
     >
       <el-form :model="dialogForm" label-width="130px">
@@ -1233,7 +1233,7 @@ onMounted(() => {
       v-model="policyDialogVisible"
       :title="policyDialogTitle"
       size="720px"
-      :close-on-click-modal="false"
+      :close-on-click-modal="true"
       destroy-on-close
     >
       <el-form :model="policyForm" label-width="150px">

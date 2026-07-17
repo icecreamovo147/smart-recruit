@@ -18,11 +18,11 @@ import {
   createProvider,
   updateProvider,
   deleteProvider,
-  testProviderConnection,
   listModels,
   createModel,
   updateModel,
   deleteModel,
+  testModelConnection,
 } from '@/api/llm'
 import type {
   LlmProvider,
@@ -39,7 +39,7 @@ const props = defineProps<{
 
 type ConnectionStatus = 'unknown' | 'success' | 'failed'
 
-interface ProviderHealth {
+interface ModelHealth {
   status: ConnectionStatus
   detail: string
   testedAt: string
@@ -57,8 +57,6 @@ const providerError = ref('')
 const providerSearch = ref('')
 const providerTypeFilter = ref('')
 const providerStatusFilter = ref('')
-const providerHealthFilter = ref('')
-const providerHealthMap = reactive<Record<number, ProviderHealth>>({})
 
 const loadProviders = async () => {
   providerLoading.value = true
@@ -191,37 +189,6 @@ const handleDeleteProvider = async (row: LlmProvider) => {
   }
 }
 
-// ---- Test Connection ----
-
-const testingId = ref(0)
-
-const handleTestConnection = async (row: LlmProvider) => {
-  testingId.value = row.id
-  try {
-    const result = await testProviderConnection(row.id)
-    providerHealthMap[row.id] = {
-      status: result.success ? 'success' : 'failed',
-      detail: result.detail || (result.success ? '连接正常' : '未知错误'),
-      testedAt: new Date().toISOString(),
-    }
-    if (result.success) {
-      ElMessage.success('连接测试成功')
-    } else {
-      ElMessage.error(`连接测试失败：${result.detail || '未知错误'}`)
-    }
-  } catch (e: unknown) {
-    const detail = (e as { message?: string }).message || '连接测试失败'
-    providerHealthMap[row.id] = {
-      status: 'failed',
-      detail,
-      testedAt: new Date().toISOString(),
-    }
-    ElMessage.error(detail)
-  } finally {
-    testingId.value = 0
-  }
-}
-
 // ====== Model State ======
 
 const modelList = ref<LlmModel[]>([])
@@ -234,6 +201,7 @@ const modelProviderFilter = ref(0) // 0 = all
 const modelSearch = ref('')
 const modelStatusFilter = ref('')
 const modelDefaultFilter = ref('')
+const modelHealthFilter = ref('')
 
 const loadModels = async () => {
   modelLoading.value = true
@@ -386,6 +354,49 @@ const handleDeleteModel = async (row: LlmModel) => {
   }
 }
 
+// ---- Test Model Connection ----
+
+/** Concurrent tests: track every model currently in-flight (not a single scalar id). */
+const testingModelIds = ref<Set<number>>(new Set())
+const modelHealthMap = reactive<Record<number, ModelHealth>>({})
+
+const isTestingModel = (id: number): boolean => testingModelIds.value.has(id)
+
+const markModelTesting = (id: number, testing: boolean) => {
+  const next = new Set(testingModelIds.value)
+  if (testing) next.add(id)
+  else next.delete(id)
+  testingModelIds.value = next
+}
+
+const handleTestModel = async (row: LlmModel) => {
+  if (isTestingModel(row.id)) return
+  markModelTesting(row.id, true)
+  try {
+    const result = await testModelConnection(row.id)
+    modelHealthMap[row.id] = {
+      status: result.success ? 'success' : 'failed',
+      detail: result.detail || (result.success ? '连接正常' : '未知错误'),
+      testedAt: new Date().toISOString(),
+    }
+    if (result.success) {
+      ElMessage.success(`「${row.display_name || row.model_name}」连接测试成功`)
+    } else {
+      ElMessage.error(`「${row.display_name || row.model_name}」连接测试失败：${result.detail || '未知错误'}`)
+    }
+  } catch (e: unknown) {
+    const detail = (e as { message?: string }).message || '连接测试失败'
+    modelHealthMap[row.id] = {
+      status: 'failed',
+      detail,
+      testedAt: new Date().toISOString(),
+    }
+    ElMessage.error(`「${row.display_name || row.model_name}」${detail}`)
+  } finally {
+    markModelTesting(row.id, false)
+  }
+}
+
 // ====== Tab Switch ======
 
 const activeTab = ref<'providers' | 'models'>(props.section || 'providers')
@@ -397,8 +408,8 @@ const pageTitle = computed(() => {
   return '模型配置'
 })
 const pageDescription = computed(() => {
-  if (props.section === 'providers') return '统一管理大模型服务商、API 入口、密钥和连接健康状态。'
-  if (props.section === 'models') return '统一管理模型参数、默认路由、并发和可用状态，支撑 HR AI 对话、分析与自动化能力。'
+  if (props.section === 'providers') return '统一管理大模型服务商、API 入口、密钥和启用状态。'
+  if (props.section === 'models') return '统一管理模型参数、默认路由、连通性测试、并发和可用状态，支撑 HR AI 对话、分析与自动化能力。'
   return '统一管理大模型服务商、模型参数和默认路由，支撑 HR AI 对话、分析与自动化能力。'
 })
 
@@ -424,21 +435,20 @@ const providerTypeOptions = computed(() => {
 const filteredProviders = computed(() => {
   const keyword = providerSearch.value.trim().toLowerCase()
   return providerList.value.filter((item) => {
-    const healthStatus = providerHealthMap[item.id]?.status || 'unknown'
     const matchesKeyword = !keyword
       || item.name.toLowerCase().includes(keyword)
       || item.base_url.toLowerCase().includes(keyword)
     const matchesType = !providerTypeFilter.value || item.provider_type === providerTypeFilter.value
     const matchesStatus = !providerStatusFilter.value
       || (providerStatusFilter.value === 'enabled' ? item.is_enabled : !item.is_enabled)
-    const matchesHealth = !providerHealthFilter.value || healthStatus === providerHealthFilter.value
-    return matchesKeyword && matchesType && matchesStatus && matchesHealth
+    return matchesKeyword && matchesType && matchesStatus
   })
 })
 
 const filteredModels = computed(() => {
   const keyword = modelSearch.value.trim().toLowerCase()
   return modelList.value.filter((item) => {
+    const healthStatus = modelHealthMap[item.id]?.status || 'unknown'
     const matchesKeyword = !keyword
       || item.model_name.toLowerCase().includes(keyword)
       || (item.display_name || '').toLowerCase().includes(keyword)
@@ -447,7 +457,8 @@ const filteredModels = computed(() => {
       || (modelStatusFilter.value === 'enabled' ? item.is_enabled : !item.is_enabled)
     const matchesDefault = !modelDefaultFilter.value
       || (modelDefaultFilter.value === 'default' ? item.is_default : !item.is_default)
-    return matchesKeyword && matchesStatus && matchesDefault
+    const matchesHealth = !modelHealthFilter.value || healthStatus === modelHealthFilter.value
+    return matchesKeyword && matchesStatus && matchesDefault && matchesHealth
   })
 })
 
@@ -475,8 +486,8 @@ const maskApiKey = (key: string): string => {
   return key.slice(0, 4) + '****' + key.slice(-4)
 }
 
-const providerHealth = (row: LlmProvider): ProviderHealth => (
-  providerHealthMap[row.id] || { status: 'unknown', detail: '尚未在本次会话中测试连接', testedAt: '' }
+const modelHealth = (row: LlmModel): ModelHealth => (
+  modelHealthMap[row.id] || { status: 'unknown', detail: '尚未在本次会话中测试连接', testedAt: '' }
 )
 
 const healthTagType = (status: ConnectionStatus): 'success' | 'danger' | 'info' => {
@@ -507,7 +518,6 @@ const resetProviderFilters = () => {
   providerSearch.value = ''
   providerTypeFilter.value = ''
   providerStatusFilter.value = ''
-  providerHealthFilter.value = ''
 }
 
 const resetModelFilters = () => {
@@ -515,6 +525,7 @@ const resetModelFilters = () => {
   modelProviderFilter.value = 0
   modelStatusFilter.value = ''
   modelDefaultFilter.value = ''
+  modelHealthFilter.value = ''
   modelPage.value = 1
   loadModels()
 }
@@ -560,11 +571,6 @@ onMounted(() => {
               <el-option value="enabled" label="启用" />
               <el-option value="disabled" label="禁用" />
             </el-select>
-            <el-select v-model="providerHealthFilter" clearable placeholder="连接状态" style="width: 140px">
-              <el-option value="success" label="连接正常" />
-              <el-option value="failed" label="连接失败" />
-              <el-option value="unknown" label="未测试" />
-            </el-select>
           </div>
           <div class="workspace-surface__actions">
             <el-button @click="resetProviderFilters">重置</el-button>
@@ -589,15 +595,6 @@ onMounted(() => {
                     <span>ID {{ row.id }}</span>
                   </div>
                 </div>
-              </template>
-            </el-table-column>
-            <el-table-column label="连接状态" width="140">
-              <template #default="{ row }: { row: LlmProvider }">
-                <el-tooltip :content="`${providerHealth(row).detail}${providerHealth(row).testedAt ? ' · ' + formatTime(providerHealth(row).testedAt) : ''}`" placement="top">
-                  <el-tag :type="healthTagType(providerHealth(row).status)" effect="light">
-                    {{ healthLabel(providerHealth(row).status) }}
-                  </el-tag>
-                </el-tooltip>
               </template>
             </el-table-column>
             <el-table-column label="Base URL" min-width="260">
@@ -629,10 +626,9 @@ onMounted(() => {
                 {{ formatTime(row.created_at) }}
               </template>
             </el-table-column>
-            <el-table-column label="操作" width="190" fixed="right">
+            <el-table-column label="操作" width="130" fixed="right">
               <template #default="{ row }: { row: LlmProvider }">
                 <div class="row-actions">
-                  <el-button size="small" :icon="Connection" :loading="testingId === row.id" @click="handleTestConnection(row)">测试</el-button>
                   <el-button size="small" :icon="Edit" @click="openEditProvider(row)">编辑</el-button>
                   <el-dropdown trigger="click">
                     <el-button size="small">更多<el-icon class="el-icon--right"><ArrowDown /></el-icon></el-button>
@@ -682,6 +678,11 @@ onMounted(() => {
             <el-select v-model="modelDefaultFilter" clearable placeholder="默认" style="width: 130px">
               <el-option value="default" label="默认 Model" />
               <el-option value="custom" label="非默认" />
+            </el-select>
+            <el-select v-model="modelHealthFilter" clearable placeholder="连接状态" style="width: 140px">
+              <el-option value="success" label="连接正常" />
+              <el-option value="failed" label="连接失败" />
+              <el-option value="unknown" label="未测试" />
             </el-select>
           </div>
           <div class="workspace-surface__actions">
@@ -753,9 +754,19 @@ onMounted(() => {
                 </div>
               </template>
             </el-table-column>
-            <el-table-column label="操作" width="130" fixed="right">
+            <el-table-column label="连接状态" width="140">
+              <template #default="{ row }: { row: LlmModel }">
+                <el-tooltip :content="`${modelHealth(row).detail}${modelHealth(row).testedAt ? ' · ' + formatTime(modelHealth(row).testedAt) : ''}`" placement="top">
+                  <el-tag :type="healthTagType(modelHealth(row).status)" effect="light">
+                    {{ healthLabel(modelHealth(row).status) }}
+                  </el-tag>
+                </el-tooltip>
+              </template>
+            </el-table-column>
+            <el-table-column label="操作" width="190" fixed="right">
               <template #default="{ row }: { row: LlmModel }">
                 <div class="row-actions">
+                  <el-button size="small" :icon="Connection" :loading="isTestingModel(row.id)" @click="handleTestModel(row)">测试</el-button>
                   <el-button size="small" :icon="Edit" @click="openEditModel(row)">编辑</el-button>
                   <el-dropdown trigger="click">
                     <el-button size="small">更多<el-icon class="el-icon--right"><ArrowDown /></el-icon></el-button>
@@ -789,7 +800,7 @@ onMounted(() => {
       v-model="providerDrawerVisible"
       :title="providerDrawerTitle"
       size="520px"
-      :close-on-click-modal="false"
+      :close-on-click-modal="true"
       class="config-drawer"
     >
       <el-form :model="providerForm" label-position="top">
@@ -842,7 +853,7 @@ onMounted(() => {
       v-model="modelDrawerVisible"
       :title="modelDrawerTitle"
       size="560px"
-      :close-on-click-modal="false"
+      :close-on-click-modal="true"
       class="config-drawer"
     >
       <el-form :model="modelForm" label-position="top">

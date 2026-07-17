@@ -19,6 +19,12 @@
 :root {
   --motion-fast: 150ms cubic-bezier(0.2, 0, 0, 1);
   --motion-medium: 220ms cubic-bezier(0.2, 0, 0, 1);
+  --scrollbar-size: 8px;
+  --scrollbar-thumb: #424754;
+  --scrollbar-thumb-hover: #565b6a;
+  --scrollbar-track: transparent;
+  --sidebar-width-expanded: 240px;
+  --sidebar-width-collapsed: 48px;
   font-family:
     Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   font-size: 14px;
@@ -38,6 +44,42 @@
 body {
   margin: 0;
   overflow: hidden;
+}
+
+:where(.detail-panel, .log-scroll, .detail-panel pre) {
+  scrollbar-gutter: stable;
+  scrollbar-width: thin;
+  scrollbar-color: var(--scrollbar-thumb) var(--scrollbar-track);
+}
+
+:where(.service-sidebar, .detail-panel, .log-scroll, .detail-panel pre) {
+  scrollbar-width: thin;
+  scrollbar-color: var(--scrollbar-thumb) var(--scrollbar-track);
+}
+
+:where(.service-sidebar, .detail-panel, .log-scroll, .detail-panel pre)::-webkit-scrollbar {
+  width: var(--scrollbar-size);
+  height: var(--scrollbar-size);
+}
+
+:where(.service-sidebar, .detail-panel, .log-scroll, .detail-panel pre)::-webkit-scrollbar-track {
+  background: var(--scrollbar-track);
+}
+
+:where(.service-sidebar, .detail-panel, .log-scroll, .detail-panel pre)::-webkit-scrollbar-thumb {
+  border: 2px solid transparent;
+  border-radius: 999px;
+  background: var(--scrollbar-thumb);
+  background-clip: padding-box;
+}
+
+:where(.service-sidebar, .detail-panel, .log-scroll, .detail-panel pre)::-webkit-scrollbar-thumb:hover {
+  background: var(--scrollbar-thumb-hover);
+  background-clip: padding-box;
+}
+
+:where(.service-sidebar, .detail-panel, .log-scroll, .detail-panel pre)::-webkit-scrollbar-corner {
+  background: var(--scrollbar-track);
 }
 
 button,
@@ -198,7 +240,7 @@ select:focus-visible {
 
 .app-body {
   display: grid;
-  grid-template-columns: 240px minmax(420px, 1fr) minmax(280px, 24vw);
+  grid-template-columns: var(--sidebar-width-expanded) minmax(420px, 1fr) minmax(280px, 24vw);
   min-height: 0;
   transition: grid-template-columns var(--motion-medium);
 }
@@ -218,19 +260,37 @@ select:focus-visible {
     border-color var(--motion-medium);
 }
 
-.service-sidebar--collapsed .service-item {
-  grid-template-columns: 10px minmax(0, 1fr);
+.service-sidebar--collapsed .service-group {
+  padding: 2px 0;
+}
+
+.service-sidebar--collapsed .service-group + .service-group {
+  padding-top: 0;
 }
 
 .service-sidebar--collapsed .service-group h2,
-.service-sidebar--collapsed .service-name,
-.service-sidebar--collapsed .service-meta,
+.service-sidebar--collapsed .service-main,
 .service-sidebar--collapsed .service-item .log-chip {
-  max-width: 0;
-  opacity: 0;
-  overflow: hidden;
-  transform: translateX(-6px);
-  visibility: hidden;
+  display: none;
+}
+
+.service-sidebar--collapsed .service-item {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  min-height: 26px;
+  padding: 2px 0;
+}
+
+.service-sidebar--collapsed .service-item:hover {
+  transform: none;
+}
+
+.service-sidebar--collapsed .service-item--selected {
+  padding: 2px 0;
+  border-left: 0;
+  box-shadow: inset 0 0 0 1px rgba(173, 198, 255, 0.28);
 }
 
 .detail-panel {
@@ -642,25 +702,44 @@ select:focus-visible {
 
 @media (max-width: 1380px) {
   .app-body {
-    grid-template-columns: 72px minmax(420px, 1fr) 300px;
+    grid-template-columns: var(--sidebar-width-collapsed) minmax(420px, 1fr) 300px;
   }
 
   .service-sidebar {
     overflow-x: hidden;
   }
 
-  .service-item {
-    grid-template-columns: 10px 1fr;
+  .service-group {
+    padding: 2px 0;
   }
 
-  .service-name,
-  .service-meta,
-  .log-chip {
-    max-width: 0;
-    opacity: 0;
-    overflow: hidden;
-    transform: translateX(-6px);
-    visibility: hidden;
+  .service-group + .service-group {
+    padding-top: 0;
+  }
+
+  .service-group h2,
+  .service-main,
+  .service-item .log-chip {
+    display: none;
+  }
+
+  .service-item {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    min-height: 26px;
+    padding: 2px 0;
+  }
+
+  .service-item:hover {
+    transform: none;
+  }
+
+  .service-item--selected {
+    padding: 2px 0;
+    border-left: 0;
+    box-shadow: inset 0 0 0 1px rgba(173, 198, 255, 0.28);
   }
 
   .filter-bar {

@@ -2298,21 +2298,36 @@ message GetInterviewOfferMetricsResponse {
 message GetUsageStatsRequest {
   string start_time = 1;   // RFC 3339
   string end_time = 2;     // RFC 3339
-  string dimension = 3;    // user / model / session
+  // user / model / session / provider / service_type
+  string dimension = 3;
 }
 
 message UsageStatsItem {
-  string name = 1;                // dimension value: user_id, model name, or session_id
+  string name = 1;                // dimension value: user_id, model, session, provider, or service_type
   int64 total_tokens = 2;         // total estimated tokens
   int64 call_count = 3;           // total call count
   double avg_cost_ms = 4;         // average cost in milliseconds
   double estimated_cost = 5;      // estimated cost in USD
+  int64 success_count = 6;        // status = ok
+  int64 failed_count = 7;         // status != ok
+}
+
+// Period-level totals independent of the selected dimension.
+message UsageStatsSummary {
+  int64 total_tokens = 1;
+  int64 call_count = 2;
+  int64 success_count = 3;
+  int64 failed_count = 4;
+  double avg_cost_ms = 5;
+  double estimated_cost = 6;
+  double success_rate = 7; // 0-100
 }
 
 message GetUsageStatsResponse {
   int32 code = 1;
   string msg = 2;
   repeated UsageStatsItem list = 3;
+  UsageStatsSummary summary = 4;
 }
 
 message GetUsageTrendRequest {
@@ -2597,6 +2612,8 @@ service LlmConfigService {
   rpc CreateModel(CreateModelRequest) returns (ModelResponse);
   rpc UpdateModel(UpdateModelRequest) returns (ModelResponse);
   rpc DeleteModel(DeleteModelRequest) returns (CommonResponse);
+  // TestModelConnection validates a concrete model (preferred over provider-level test).
+  rpc TestModelConnection(TestModelConnectionRequest) returns (TestProviderConnectionResponse);
 }
 
 // ── LLM Provider messages ───────────────────────────────────────────
@@ -2664,6 +2681,10 @@ message TestProviderConnectionResponse {
   string msg = 2;
   bool success = 3;
   string detail = 4;               // 连接详情或错误信息
+}
+
+message TestModelConnectionRequest {
+  int64 model_id = 1;
 }
 
 // ── LLM Model messages ─────────────────────────────────────────────

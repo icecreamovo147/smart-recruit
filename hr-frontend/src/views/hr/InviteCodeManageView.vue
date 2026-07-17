@@ -250,7 +250,7 @@ onMounted(load)
     </div>
 
     <!-- Create dialog -->
-    <el-drawer v-model="dialogVisible" title="生成邀请码" size="460px" @closed="form.expires_at = ''">
+    <el-drawer v-model="dialogVisible" title="生成邀请码" size="460px" :close-on-click-modal="true" @closed="form.expires_at = ''">
       <el-form label-position="top">
         <el-form-item label="过期时间">
           <el-date-picker
@@ -270,7 +270,7 @@ onMounted(load)
     </el-drawer>
 
     <!-- Extend dialog -->
-    <el-drawer v-model="extendingVisible" title="延长有效期" size="460px">
+    <el-drawer v-model="extendingVisible" title="延长有效期" size="460px" :close-on-click-modal="true">
       <el-form label-position="top">
         <el-form-item label="新过期时间">
           <el-date-picker
