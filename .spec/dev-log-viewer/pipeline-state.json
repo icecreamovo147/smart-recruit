@@ -1,0 +1,147 @@
+{
+  "schemaVersion": 1,
+  "feature_name": "dev-log-viewer",
+  "current_task": "TASK-DLV-009",
+  "current_phase": "completed",
+  "completed_tasks": ["TASK-DLV-001", "TASK-DLV-002", "TASK-DLV-003", "TASK-DLV-004", "TASK-DLV-005", "TASK-DLV-006", "TASK-DLV-007", "TASK-DLV-008", "TASK-DLV-009"],
+  "blocked_tasks": [],
+  "failed_tasks": [],
+  "skipped_human_confirmation_tasks": [],
+  "approved_exceptions": [],
+  "review_round": 0,
+  "status": "completed",
+  "task_runs": {
+    "TASK-DLV-001": {
+      "base_sha": "6344ba11a1ce0fdc2943469b1a04ac02075bbfb0",
+      "base_tree": "bab2bfaad0aa5b09044030665b3f01d60db7ade2",
+      "head_sha": "6344ba11a1ce0fdc2943469b1a04ac02075bbfb0",
+      "head_tree": "12f8d97c3fa8f810df2a4a1c83b295ea227d7cd9",
+      "human_confirmation": {
+        "required": true,
+        "confirmed": true,
+        "confirmed_by": "user",
+        "confirmed_at": "2026-07-15T08:47:02Z",
+        "confirmation_text": "确认执行 TASK-DLV-001，允许新增 dev-log-viewer 脚手架、更新 pnpm-workspace.yaml 和 pnpm-lock.yaml。追加确认：确认扩展 TASK-DLV-001 scope，允许修改根 go.work，并新增 dev-log-viewer 最小 Go package 文件以通过 go test。"
+      },
+      "scope_status": "passed",
+      "checks_status": "passed",
+      "review_verdict": "通过",
+      "evidence": ".spec/dev-log-viewer/reports/TASK-DLV-001-evidence.json"
+    },
+    "TASK-DLV-002": {
+      "base_sha": "6344ba11a1ce0fdc2943469b1a04ac02075bbfb0",
+      "base_tree": "12f8d97c3fa8f810df2a4a1c83b295ea227d7cd9",
+      "head_sha": "6344ba11a1ce0fdc2943469b1a04ac02075bbfb0",
+      "head_tree": "a211170be1f0be520cc5827810cadda5200e4b54",
+      "human_confirmation": {
+        "required": false,
+        "confirmed": true
+      },
+      "scope_status": "passed",
+      "checks_status": "passed",
+      "review_verdict": "通过",
+      "evidence": ".spec/dev-log-viewer/reports/TASK-DLV-002-evidence.json"
+    },
+    "TASK-DLV-003": {
+      "base_sha": "6344ba11a1ce0fdc2943469b1a04ac02075bbfb0",
+      "base_tree": "a211170be1f0be520cc5827810cadda5200e4b54",
+      "head_sha": "6344ba11a1ce0fdc2943469b1a04ac02075bbfb0",
+      "head_tree": "e1420419476b349b2133f24f8b4b2c0fd098f0e3",
+      "human_confirmation": {
+        "required": false,
+        "confirmed": true
+      },
+      "scope_status": "passed",
+      "checks_status": "passed",
+      "review_verdict": "通过",
+      "evidence": ".spec/dev-log-viewer/reports/TASK-DLV-003-evidence.json"
+    },
+    "TASK-DLV-004": {
+      "base_sha": "6344ba11a1ce0fdc2943469b1a04ac02075bbfb0",
+      "base_tree": "e1420419476b349b2133f24f8b4b2c0fd098f0e3",
+      "head_sha": "6344ba11a1ce0fdc2943469b1a04ac02075bbfb0",
+      "head_tree": "1f281a4ada77343b8c409e2a693b53a1f2ec7613",
+      "human_confirmation": {
+        "required": false,
+        "confirmed": true
+      },
+      "scope_status": "passed",
+      "checks_status": "passed",
+      "review_verdict": "通过",
+      "evidence": ".spec/dev-log-viewer/reports/TASK-DLV-004-evidence.json"
+    },
+    "TASK-DLV-005": {
+      "base_sha": "6344ba11a1ce0fdc2943469b1a04ac02075bbfb0",
+      "base_tree": "1f281a4ada77343b8c409e2a693b53a1f2ec7613",
+      "head_sha": "6344ba11a1ce0fdc2943469b1a04ac02075bbfb0",
+      "head_tree": "44de8c92633e87f607ba7a2ab0aa575dc86cd98a",
+      "human_confirmation": {
+        "required": false,
+        "confirmed": true
+      },
+      "scope_status": "passed",
+      "checks_status": "passed",
+      "review_verdict": "通过",
+      "evidence": ".spec/dev-log-viewer/reports/TASK-DLV-005-evidence.json"
+    },
+    "TASK-DLV-006": {
+      "base_sha": "6344ba11a1ce0fdc2943469b1a04ac02075bbfb0",
+      "base_tree": "44de8c92633e87f607ba7a2ab0aa575dc86cd98a",
+      "head_sha": "6344ba11a1ce0fdc2943469b1a04ac02075bbfb0",
+      "head_tree": "39c02d033fcf8b62e0e4ce5889303cf97277021c",
+      "human_confirmation": {
+        "required": false,
+        "confirmed": true
+      },
+      "scope_status": "passed",
+      "checks_status": "passed",
+      "review_verdict": "通过",
+      "evidence": ".spec/dev-log-viewer/reports/TASK-DLV-006-evidence.json"
+    },
+    "TASK-DLV-007": {
+      "base_sha": "6344ba11a1ce0fdc2943469b1a04ac02075bbfb0",
+      "base_tree": "39c02d033fcf8b62e0e4ce5889303cf97277021c",
+      "head_sha": "6344ba11a1ce0fdc2943469b1a04ac02075bbfb0",
+      "head_tree": "9640de53d362e1635c9762652f2f45ae097ada9d",
+      "human_confirmation": {
+        "required": false,
+        "confirmed": true
+      },
+      "scope_status": "passed",
+      "checks_status": "passed",
+      "review_verdict": "通过",
+      "evidence": ".spec/dev-log-viewer/reports/TASK-DLV-007-evidence.json"
+    },
+    "TASK-DLV-008": {
+      "base_sha": "6344ba11a1ce0fdc2943469b1a04ac02075bbfb0",
+      "base_tree": "9640de53d362e1635c9762652f2f45ae097ada9d",
+      "head_sha": "6344ba11a1ce0fdc2943469b1a04ac02075bbfb0",
+      "head_tree": "b7a32665de0dec2a06a13229f28dee05510b5bbe",
+      "human_confirmation": {
+        "required": true,
+        "confirmed": true,
+        "confirmed_by": "user",
+        "confirmed_at": "2026-07-15T12:13:47Z",
+        "confirmation_text": "确认执行 TASK-DLV-008，允许修改 dev-log-viewer embed/cmd/server/package/README/scripts、start-dev.sh、stop-dev.sh，以及 .knowledge/manifest.yaml、system-overview、local-development。"
+      },
+      "scope_status": "passed",
+      "checks_status": "passed",
+      "review_verdict": "通过",
+      "evidence": ".spec/dev-log-viewer/reports/TASK-DLV-008-evidence.json"
+    },
+    "TASK-DLV-009": {
+      "base_sha": "6344ba11a1ce0fdc2943469b1a04ac02075bbfb0",
+      "base_tree": "b7a32665de0dec2a06a13229f28dee05510b5bbe",
+      "head_sha": "6344ba11a1ce0fdc2943469b1a04ac02075bbfb0",
+      "head_tree": "4de63a17420ec66109bce5128c2a2a5900f71aa1",
+      "human_confirmation": {
+        "required": false,
+        "confirmed": true
+      },
+      "scope_status": "passed",
+      "checks_status": "passed",
+      "review_verdict": "通过",
+      "evidence": ".spec/dev-log-viewer/reports/TASK-DLV-009-evidence.json"
+    }
+  }
+}

@@ -5,6 +5,7 @@
 #   ./start-dev.sh business                # start all business services
 #   ./start-dev.sh identity recruitment    # start selected business services
 #   ./start-dev.sh gateway frontends       # start gateway and all frontends
+#   ./start-dev.sh logs                    # start the local dev log viewer
 
 set -euo pipefail
 
@@ -35,6 +36,7 @@ Targets:
   backend             Business services plus gateway.
   gateway             HTTP gateway only.
   frontends           HR, user, and interviewer frontends.
+  logs | log-viewer   Local dev log viewer only.
 
 Business service aliases:
   identity            identity-service
@@ -55,6 +57,7 @@ Examples:
   ./start-dev.sh business
   ./start-dev.sh identity recruitment notification
   ./start-dev.sh backend hr
+  ./start-dev.sh logs
 EOF
 }
 
@@ -98,10 +101,10 @@ ensure_pnpm() {
 
 ensure_system_dependencies() {
     install_with_package_manager lsof lsof lsof
-    if has_any_backend_target; then
+    if has_any_backend_target || has_log_viewer_target; then
         install_with_package_manager go go golang-go
     fi
-    if has_any_frontend_target; then
+    if has_any_frontend_target || has_log_viewer_target; then
         install_with_package_manager node node nodejs
         ensure_pnpm
     fi
@@ -265,6 +268,9 @@ expand_target() {
         frontends|frontend)
             add_many "${FRONTEND_SERVICES[@]}"
             ;;
+        logs|log-viewer|dev-log-viewer)
+            add_target dev-log-viewer
+            ;;
         identity|identity-service)
             add_target identity-service
             ;;
@@ -347,7 +353,22 @@ has_any_frontend_target() {
     return 1
 }
 
+has_log_viewer_target() {
+    target_selected dev-log-viewer
+}
+
+build_log_viewer_binary() {
+    install_frontend_dependencies "${ROOT}/dev-log-viewer" "Dev log viewer"
+    info "Building dev-log-viewer web assets..."
+    (cd "${ROOT}" && pnpm --filter dev-log-viewer build)
+    info "Downloading dev-log-viewer Go dependencies..."
+    (cd "${ROOT}/dev-log-viewer" && go mod download)
+    info "Building dev-log-viewer..."
+    (cd "${ROOT}/dev-log-viewer" && go build -tags prod -o "${BIN_DIR}/dev-log-viewer" ./cmd/dev-log-viewer)
+}
+
 build_selected_go_binaries() {
+    target_selected dev-log-viewer && build_log_viewer_binary
     target_selected smart-recruit-gateway && build_go_binary "${ROOT}/smart-recruit-gateway" "smart-recruit-gateway" "./cmd/gateway"
     target_selected identity-service && build_go_binary "${ROOT}/smart-recruit-identity-service" "identity-service" "./cmd/identity-service"
     target_selected recruitment-service && build_go_binary "${ROOT}/smart-recruit-recruitment-service" "recruitment-service" "./cmd/recruitment-service"
@@ -448,6 +469,9 @@ target_selected smart-recruit-gateway && start_service "smart-recruit-gateway" "
 target_selected hr-frontend && start_service "hr-frontend" "${ROOT}/hr-frontend" 5173 pnpm run dev
 target_selected user-frontend && start_service "user-frontend" "${ROOT}/user-frontend" 5174 pnpm run dev
 target_selected interviewer-frontend && start_service "interviewer-frontend" "${ROOT}/interviewer-frontend" 5175 pnpm run dev
+target_selected dev-log-viewer && start_service "dev-log-viewer" "${ROOT}/dev-log-viewer" 8090 \
+    env DEV_LOG_VIEWER_ADDR=127.0.0.1:8090 DEV_LOG_VIEWER_ROOT="${ROOT}" \
+    "${BIN_DIR}/dev-log-viewer" -addr 127.0.0.1:8090 -root "${ROOT}"
 
 cat <<EOF
 
@@ -464,6 +488,7 @@ Done. Selected dev services are starting in the background.
   HR:          http://localhost:5173
   User:        http://localhost:5174
   Interviewer: http://localhost:5175
+  Log Viewer:  http://127.0.0.1:8090
 
 Logs:
   ${LOG_DIR}

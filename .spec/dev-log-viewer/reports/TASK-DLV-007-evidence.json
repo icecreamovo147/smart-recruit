@@ -1,0 +1,123 @@
+{
+  "schemaVersion": 1,
+  "feature_name": "dev-log-viewer",
+  "task_id": "TASK-DLV-007",
+  "base_sha": "6344ba11a1ce0fdc2943469b1a04ac02075bbfb0",
+  "base_tree": "39c02d033fcf8b62e0e4ce5889303cf97277021c",
+  "head_sha": "6344ba11a1ce0fdc2943469b1a04ac02075bbfb0",
+  "changed_files": [
+    ".spec/dev-log-viewer/pipeline-state.json",
+    ".spec/dev-log-viewer/reports/TASK-DLV-007-report.md",
+    ".spec/dev-log-viewer/reports/TASK-DLV-007-evidence.json",
+    "dev-log-viewer/web/src/components/AppShell.tsx",
+    "dev-log-viewer/web/src/components/FilterBar.tsx",
+    "dev-log-viewer/web/src/components/LogTable.tsx",
+    "dev-log-viewer/web/src/components/ServiceSidebar.tsx",
+    "dev-log-viewer/web/src/components/TopToolbar.tsx",
+    "dev-log-viewer/web/src/hooks/usePersistedLayout.ts",
+    "dev-log-viewer/web/src/state/logState.ts",
+    "dev-log-viewer/web/src/styles/app.css",
+    "dev-log-viewer/web/src/test/exportLayout.test.ts",
+    "dev-log-viewer/web/src/utils/clipboard.ts",
+    "dev-log-viewer/web/src/utils/exportLogs.ts",
+    "dev-log-viewer/web/src/utils/layoutStorage.ts"
+  ],
+  "scope": {
+    "status": "passed",
+    "command": "bash .spec/dev-log-viewer/scripts/check-task-scope.sh TASK-DLV-007",
+    "classification": "current",
+    "out_of_scope": [],
+    "forbidden": []
+  },
+  "checks": [
+    {
+      "command": "pnpm --filter dev-log-viewer typecheck",
+      "exit_code": 0,
+      "started_at": "2026-07-15T09:33:20Z",
+      "duration_ms": 1145,
+      "status": "passed"
+    },
+    {
+      "command": "pnpm --filter dev-log-viewer test",
+      "exit_code": 0,
+      "started_at": "2026-07-15T09:33:20Z",
+      "duration_ms": 1508,
+      "status": "passed"
+    },
+    {
+      "command": "pnpm --filter dev-log-viewer build",
+      "exit_code": 0,
+      "started_at": "2026-07-15T09:33:20Z",
+      "duration_ms": 1795,
+      "status": "passed"
+    },
+    {
+      "command": "git diff --name-only",
+      "exit_code": 0,
+      "started_at": "2026-07-15T09:33:43Z",
+      "duration_ms": 1,
+      "status": "passed"
+    },
+    {
+      "command": "bash .spec/dev-log-viewer/scripts/check-task-scope.sh TASK-DLV-007",
+      "exit_code": 0,
+      "started_at": "2026-07-15T09:33:32Z",
+      "duration_ms": 132,
+      "status": "passed"
+    },
+    {
+      "command": "bash .spec/dev-log-viewer/scripts/agent-check.sh TASK-DLV-007",
+      "exit_code": 0,
+      "started_at": "2026-07-15T09:33:32Z",
+      "duration_ms": 3458,
+      "status": "passed"
+    },
+    {
+      "command": "node .knowledge/scripts/detect-impact.mjs --root . --base-tree 39c02d033fcf8b62e0e4ce5889303cf97277021c",
+      "exit_code": 0,
+      "started_at": "2026-07-15T09:33:32Z",
+      "duration_ms": 135,
+      "status": "passed"
+    }
+  ],
+  "review": {
+    "reviewer_type": "self-review",
+    "round": 1,
+    "verdict": "通过",
+    "reviewed_at": "2026-07-15T09:33:43Z",
+    "findings": []
+  },
+  "human_confirmation": {
+    "required": false,
+    "confirmed": true
+  },
+  "exceptions": [],
+  "skipped_checks": [],
+  "knowledgeImpact": {
+    "result": "candidate_required",
+    "triggeredBy": [
+      "dev-log-viewer/web/src/components changed",
+      "dev-log-viewer/web/src/hooks changed",
+      "dev-log-viewer/web/src/state changed",
+      "dev-log-viewer/web/src/utils changed"
+    ],
+    "reviewResults": [
+      {
+        "document": ".knowledge/runbooks/local-development.md",
+        "verdict": "CANDIDATE",
+        "evidence": [
+          "DLV-007 added interactive frontend state/export/layout behavior, but this TASK scope forbids knowledge edits."
+        ]
+      },
+      {
+        "document": ".knowledge/architecture/system-overview.md",
+        "verdict": "CANDIDATE",
+        "evidence": [
+          "The dev-log-viewer frontend behavior is now broader than existing architecture knowledge; TASK-DLV-008 is allowed to update knowledge."
+        ]
+      }
+    ],
+    "coverageGap": false,
+    "validationExitCode": 0
+  }
+}

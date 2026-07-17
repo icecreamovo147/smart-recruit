@@ -15,6 +15,7 @@ applies_to:
   - README.md
   - start-dev.sh
   - stop-dev.sh
+  - dev-log-viewer/**
   - docker/**
   - smart-recruit-gateway/**
   - smart-recruit-*-service/**
@@ -28,6 +29,11 @@ source_refs:
   - README.md
   - start-dev.sh
   - stop-dev.sh
+  - dev-log-viewer/README.md
+  - dev-log-viewer/package.json
+  - dev-log-viewer/scripts/build-production.sh
+  - dev-log-viewer/scripts/smoke-test.sh
+  - dev-log-viewer/cmd/dev-log-viewer/main.go
   - docker/docker-compose.yml
   - docker/.env.example
   - .spec/backend-ddd-microservices-evolution/docs/backend-ddd-microservices-evolution-internal-service-security.md
@@ -39,7 +45,7 @@ source_refs:
   - .spec/backend-ddd-microservices-evolution/docs/backend-ddd-microservices-evolution-final-readiness-audit.json
   - scripts/backend-load-test.mjs
   - scripts/backend-final-readiness-audit.mjs
-last_verified: 2026-07-12
+last_verified: 2026-07-15
 review_after: 2026-10-08
 ---
 
@@ -66,7 +72,8 @@ Use this runbook to orient local startup and validation. Always prefer checked-i
    - HR app: `pnpm --filter hr-frontend dev`
    - candidate app: `pnpm --filter user-frontend dev`
    - interviewer app: `pnpm --filter interviewer-frontend dev`
-4. Run targeted checks for touched services or apps before broad checks.
+4. Start the local log viewer only when explicitly needed with `./start-dev.sh logs` or `./start-dev.sh log-viewer`; it uses `127.0.0.1:8090`, `.dev/pids/dev-log-viewer.pid`, and `.dev/logs/dev-log-viewer.log`.
+5. Run targeted checks for touched services or apps before broad checks.
 
 ## Validation Commands
 
@@ -80,6 +87,10 @@ Use this runbook to orient local startup and validation. Always prefer checked-i
 - HR frontend typecheck: `pnpm --filter hr-frontend typecheck`.
 - Candidate frontend typecheck: `pnpm --filter user-frontend typecheck`.
 - Interviewer frontend typecheck: `pnpm --filter interviewer-frontend typecheck`.
+- Dev log viewer frontend build: `pnpm --filter dev-log-viewer build`.
+- Dev log viewer production binary build: `dev-log-viewer/scripts/build-production.sh`.
+- Dev log viewer loopback smoke test: `dev-log-viewer/scripts/smoke-test.sh`.
+- Dev log viewer Go checks: run `go test ./...` and `go vet ./...` from `dev-log-viewer/`.
 
 ## Cross-Platform Notes
 
