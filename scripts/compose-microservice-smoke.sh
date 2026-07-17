@@ -26,9 +26,9 @@ SERVICES=(
 
 NACOS_SERVICES=(identity recruitment interview offer notification ai-agent analytics worker)
 GATEWAY_ROUTE_CHECKS=(
-  "identity:POST:http://localhost:8080/api/v1/auth/login"
-  "recruitment:GET:http://localhost:8080/api/v1/jobs"
-  "analytics:GET:http://localhost:8080/api/v1/hr/analytics/dashboard"
+  "identity:POST:http://127.0.0.1:8080/api/v1/auth/login"
+  "recruitment:GET:http://127.0.0.1:8080/api/v1/jobs"
+  "analytics:GET:http://127.0.0.1:8080/api/v1/hr/analytics/dashboard"
 )
 
 while [ "$#" -gt 0 ]; do
@@ -118,7 +118,7 @@ wait_http() {
 
 check_nacos_registration() {
   local service="$1"
-  local url="http://localhost:8848/nacos/v1/ns/instance/list?serviceName=${service}&groupName=DEFAULT_GROUP"
+  local url="http://127.0.0.1:8848/nacos/v1/ns/instance/list?serviceName=${service}&groupName=DEFAULT_GROUP"
   curl -fsS "${url}" >"${LOG_DIR}/nacos-${service}.json"
   if ! grep -q '"hosts"' "${LOG_DIR}/nacos-${service}.json"; then
     echo "nacos response for ${service} did not include hosts" >&2
@@ -152,8 +152,8 @@ fi
 
 if [ "${DRY_RUN}" -eq 1 ]; then
   echo "COMPOSE_PROFILES=infra,observability,services docker-compose -p ${PROJECT_NAME} -f ${COMPOSE_FILE} up -d --build"
-  echo "curl -fsS http://localhost:8848/nacos/v1/console/health/readiness"
-  echo "curl -fsS http://localhost:8080/health"
+  echo "curl -fsS http://127.0.0.1:8848/nacos/v1/console/health/readiness"
+  echo "curl -fsS http://127.0.0.1:8080/health"
   printf 'nacos registrations: %s\n' "${NACOS_SERVICES[*]}"
   printf 'gateway route checks: %s\n' "${GATEWAY_ROUTE_CHECKS[*]}"
   echo "logs: ${LOG_DIR}"
@@ -177,9 +177,9 @@ cleanup() {
 trap cleanup EXIT
 
 compose_base up -d --build
-wait_http "nacos-readiness" "http://localhost:8848/nacos/v1/console/health/readiness"
-wait_http "gateway-health" "http://localhost:8080/health"
-wait_http "prometheus-ready" "http://localhost:9090/-/ready"
+wait_http "nacos-readiness" "http://127.0.0.1:8848/nacos/v1/console/health/readiness"
+wait_http "gateway-health" "http://127.0.0.1:8080/health"
+wait_http "prometheus-ready" "http://127.0.0.1:9090/-/ready"
 
 for service in "${NACOS_SERVICES[@]}"; do
   check_nacos_registration "${service}"

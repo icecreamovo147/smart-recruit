@@ -476,18 +476,18 @@ target_selected dev-log-viewer && start_service "dev-log-viewer" "${ROOT}/dev-lo
 cat <<EOF
 
 Done. Selected dev services are starting in the background.
-  Gateway API: http://localhost:8080
-  Identity:    localhost:50061
-  Recruitment: localhost:50062
-  Interview:   localhost:50063
-  Offer:       localhost:50064
-  Notification:localhost:50065
-  AI Agent:    localhost:50066
-  Analytics:   localhost:50067
-  Worker:      localhost:50068
-  HR:          http://localhost:5173
-  User:        http://localhost:5174
-  Interviewer: http://localhost:5175
+  Gateway API: http://127.0.0.1:8080
+  Identity:    127.0.0.1:50061
+  Recruitment: 127.0.0.1:50062
+  Interview:   127.0.0.1:50063
+  Offer:       127.0.0.1:50064
+  Notification:127.0.0.1:50065
+  AI Agent:    127.0.0.1:50066
+  Analytics:   127.0.0.1:50067
+  Worker:      127.0.0.1:50068
+  HR:          http://127.0.0.1:5173
+  User:        http://127.0.0.1:5174
+  Interviewer: http://127.0.0.1:5175
   Log Viewer:  http://127.0.0.1:8090
 
 Logs:

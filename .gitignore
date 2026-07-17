@@ -15,8 +15,10 @@ node_modules/
 
 # Build outputs, local binaries, and test artifacts.
 dist/
+bin/
 *.exe
 *.test
+*.tsbuildinfo
 
 # Local development stack outputs.
 .dev/
