@@ -149,11 +149,15 @@ func TestCreateApplicationAnalysisSessionSeedsPlannerRecognizableUserMessage(t *
 
 func TestCandidateChatStreamPersistsMessagesWithCandidateOwnerRole(t *testing.T) {
 	store := newFakeAIStore()
-	provider := &fakeChatProvider{
+	provider := &fakeCandidateADKProvider{
 		reply: "assistant reply",
-		onComplete: func(prompt string) {
-			assertPromptContains(t, prompt, candidateSystemPrompt)
-			assertPromptContains(t, prompt, "user:\ncandidate asks")
+		onRun: func(input commonsai.AgentRunInput) {
+			if input.AgentName != candidateAssistantAgentType {
+				t.Fatalf("agent name = %q", input.AgentName)
+			}
+			if !strings.Contains(input.Instruction, "候选人") {
+				t.Fatalf("instruction missing candidate prompt: %q", input.Instruction)
+			}
 			if len(store.messages) != 1 {
 				t.Fatalf("messages before provider = %d, want 1", len(store.messages))
 			}
@@ -163,7 +167,7 @@ func TestCandidateChatStreamPersistsMessagesWithCandidateOwnerRole(t *testing.T)
 			}
 		},
 	}
-	service := &nativeAIService{store: store, provider: provider}
+	service := newCandidateAITestService(store, provider)
 	stream := &captureChatStream{ctx: context.Background()}
 
 	if err := service.CandidateChatStream(&pb.CandidateChatRequest{UserId: 55, Message: "candidate asks"}, stream); err != nil {
@@ -182,11 +186,12 @@ func TestCandidateChatStreamPersistsMessagesWithCandidateOwnerRole(t *testing.T)
 	if got := store.messages[1]; got.OwnerRole != ownerRoleCandidate || got.OwnerID != 55 || got.Role != "assistant" || got.Content != "assistant reply" {
 		t.Fatalf("assistant message = %#v", got)
 	}
-	if len(stream.responses) != 1 {
-		t.Fatalf("stream responses = %d, want 1", len(stream.responses))
+	if len(stream.responses) < 1 {
+		t.Fatalf("stream responses = %d, want at least 1", len(stream.responses))
 	}
-	if resp := stream.responses[0]; !resp.Done || resp.EventType != "done" || resp.Delta != "assistant reply" || resp.SessionId != store.sessions[0].ID {
-		t.Fatalf("stream response = %#v", resp)
+	done := stream.responses[len(stream.responses)-1]
+	if !done.Done || done.EventType != "done" || done.SessionId != store.sessions[0].ID {
+		t.Fatalf("stream done response = %#v", done)
 	}
 }
 
@@ -232,23 +237,28 @@ func TestCandidateChatStreamBuildsPromptWithActiveCandidatePromptAndHistory(t *t
 	store.seedChatMessage(ChatMessageRow{OwnerRole: ownerRoleCandidate, OwnerID: 66, SessionID: session.ID, Role: "user", Content: "other candidate should not appear"})
 	store.seedChatMessage(ChatMessageRow{OwnerRole: ownerRoleCandidate, OwnerID: 55, SessionID: session.ID + 1, Role: "user", Content: "other session should not appear"})
 
-	provider := &fakeChatProvider{
+	provider := &fakeCandidateADKProvider{
 		reply: "assistant reply",
-		onComplete: func(prompt string) {
-			assertPromptOrder(t, prompt, []string{
-				"System:\nACTIVE candidate assistant system prompt",
-				"user:\nprevious candidate question",
-				"assistant:\nprevious assistant answer",
-				"user:\ncurrent candidate question",
-				"Assistant:",
-			})
-			assertPromptNotContains(t, prompt, candidateSystemPrompt)
-			assertPromptNotContains(t, prompt, "hr secret should not appear")
-			assertPromptNotContains(t, prompt, "other candidate should not appear")
-			assertPromptNotContains(t, prompt, "other session should not appear")
+		onRun: func(input commonsai.AgentRunInput) {
+			if input.Instruction != "ACTIVE candidate assistant system prompt" {
+				t.Fatalf("instruction = %q", input.Instruction)
+			}
+			joined := ""
+			for _, m := range input.Messages {
+				if m == nil {
+					continue
+				}
+				joined += string(m.Role) + ":" + m.Content + "\n"
+			}
+			if !strings.Contains(joined, "previous candidate question") || !strings.Contains(joined, "previous assistant answer") || !strings.Contains(joined, "current candidate question") {
+				t.Fatalf("messages missing history: %q", joined)
+			}
+			if strings.Contains(joined, "hr secret") || strings.Contains(joined, "other candidate") || strings.Contains(joined, "other session") {
+				t.Fatalf("messages leaked foreign context: %q", joined)
+			}
 		},
 	}
-	service := &nativeAIService{store: store, provider: provider}
+	service := newCandidateAITestService(store, provider)
 	stream := &captureChatStream{ctx: context.Background()}
 
 	if err := service.CandidateChatStream(&pb.CandidateChatRequest{UserId: 55, SessionId: session.ID, Message: "current candidate question"}, stream); err != nil {
@@ -261,24 +271,19 @@ func TestCandidateChatStreamBuildsPromptWithActiveCandidatePromptAndHistory(t *t
 	if call := store.activePromptCalls[0]; call.agentType != candidateAssistantAgentType || call.promptRole != candidatePromptRoleSystem {
 		t.Fatalf("active prompt call = %#v, want candidate system prompt", call)
 	}
-	if len(store.listMessageCalls) != 1 {
-		t.Fatalf("list message calls = %d, want 1", len(store.listMessageCalls))
-	}
-	if call := store.listMessageCalls[0]; call.ownerRole != ownerRoleCandidate || call.ownerID != 55 || call.sessionID != session.ID {
-		t.Fatalf("list message call = %#v, want candidate owner/session", call)
-	}
 }
 
 func TestCandidateChatStreamUsesFallbackCandidatePromptWhenActivePromptMissing(t *testing.T) {
 	store := newFakeAIStore()
-	provider := &fakeChatProvider{
+	provider := &fakeCandidateADKProvider{
 		reply: "fallback reply",
-		onComplete: func(prompt string) {
-			assertPromptContains(t, prompt, candidateSystemPrompt)
-			assertPromptContains(t, prompt, "user:\nneed candidate help")
+		onRun: func(input commonsai.AgentRunInput) {
+			if !strings.Contains(input.Instruction, "只服务当前登录候选人") {
+				t.Fatalf("expected DEV ADK system prompt, got %q", input.Instruction)
+			}
 		},
 	}
-	service := &nativeAIService{store: store, provider: provider}
+	service := newCandidateAITestService(store, provider)
 	stream := &captureChatStream{ctx: context.Background()}
 
 	if err := service.CandidateChatStream(&pb.CandidateChatRequest{UserId: 55, Message: "need candidate help"}, stream); err != nil {
@@ -286,50 +291,45 @@ func TestCandidateChatStreamUsesFallbackCandidatePromptWhenActivePromptMissing(t
 	}
 }
 
-func TestCandidateChatStreamIncludesScopedRuntimeContextAndToolTraces(t *testing.T) {
+func TestCandidateChatStreamRecordsToolTracesFromADKCallbacks(t *testing.T) {
 	store := newFakeAIStore()
-	store.candidateContext = CandidateRuntimeContext{
-		Applications: []CandidateApplicationContext{{ApplicationID: 7001, JobID: 9001, JobTitle: "Backend Engineer", StatusKey: "interview", StatusText: "面试中", AppliedAt: "2026-07-01T10:00:00Z"}},
-		Resume:       CandidateResumeContext{Available: true, ResumeID: 8001, FileName: "resume.pdf", TextLength: 42, Summary: "Go backend candidate"},
-		Jobs:         []CandidateJobContext{{JobID: 9001, Title: "Backend Engineer", Status: 1, StatusText: "招募中", HasApplied: true}},
-		Interviews:   []CandidateInterviewContext{{InterviewID: 6001, ApplicationID: 7001, JobTitle: "Backend Engineer", RoundNo: 1, Title: "初试", Status: "scheduled"}},
-		Offers:       []CandidateOfferContext{{OfferID: 5001, ApplicationID: 7001, JobID: 9001, Title: "Backend Engineer", Status: "sent"}},
-	}
-	provider := &fakeChatProvider{
+	provider := &fakeCandidateADKProvider{
 		reply: "assistant reply",
-		onComplete: func(prompt string) {
-			assertPromptContains(t, prompt, "Candidate runtime context (current candidate only")
-			assertPromptContains(t, prompt, `"application_id": 7001`)
-			assertPromptContains(t, prompt, `"file_name": "resume.pdf"`)
-			assertPromptContains(t, prompt, `"has_applied": true`)
-			assertPromptContains(t, prompt, `"interview_id": 6001`)
-			assertPromptContains(t, prompt, `"offer_id": 5001`)
+		onRun: func(input commonsai.AgentRunInput) {},
+		simulateTool: func(onTool commonsai.ToolTraceCallback) {
+			if onTool != nil {
+				onTool("call-1", "list_my_applications", `{"scope":"self"}`, `{"applications":[{"job_title":"Backend Engineer"}]}`, time.Millisecond, nil)
+				onTool("call-2", "get_my_resume_text", `{}`, `{"resume_available":true,"resume_text":"SECRET_RESUME"}`, time.Millisecond, nil)
+			}
 		},
 	}
-	service := &nativeAIService{store: store, provider: provider}
+	service := newCandidateAITestService(store, provider)
 	stream := &captureChatStream{ctx: context.Background()}
 
 	if err := service.CandidateChatStream(&pb.CandidateChatRequest{UserId: 55, Message: "show my progress"}, stream); err != nil {
 		t.Fatalf("CandidateChatStream returned error: %v", err)
 	}
 
-	if len(store.toolTraces) != 5 {
-		t.Fatalf("tool traces = %d, want 5", len(store.toolTraces))
+	if len(store.toolTraces) != 2 {
+		t.Fatalf("tool traces = %d, want 2", len(store.toolTraces))
 	}
 	if store.toolTraces[0].ToolName != "list_my_applications" || !strings.Contains(store.toolTraces[0].ResultContent, "Backend Engineer") {
 		t.Fatalf("application trace = %#v", store.toolTraces[0])
 	}
-	for _, trace := range store.toolTraces {
-		if trace.ToolName == "get_my_resume_text" && strings.Contains(trace.ResultContent, "Go backend candidate") {
-			t.Fatalf("resume trace leaked summary text: %s", trace.ResultContent)
-		}
+	if store.toolTraces[1].ToolName != "get_my_resume_text" {
+		t.Fatalf("resume tool = %s", store.toolTraces[1].ToolName)
+	}
+	if strings.Contains(store.toolTraces[1].ResultContent, "SECRET_RESUME") {
+		t.Fatalf("resume trace leaked full text: %s", store.toolTraces[1].ResultContent)
 	}
 }
 
 func TestCandidateChatStreamStripsSuggestedQuestionsPersistsCleanReplyAndAudits(t *testing.T) {
 	store := newFakeAIStore()
-	provider := &fakeChatProvider{reply: "clean assistant reply\n" + candidateSuggestedQuestionsStartMarker + "\n[\"Q1\",\"Q2\",\"Q3\"]\n" + candidateSuggestedQuestionsEndMarker}
-	service := &nativeAIService{store: store, provider: provider}
+	provider := &fakeCandidateADKProvider{
+		reply: "clean assistant reply\n" + candidateSuggestedQuestionsStartMarker + "\n[\"Q1\",\"Q2\",\"Q3\"]\n" + candidateSuggestedQuestionsEndMarker,
+	}
+	service := newCandidateAITestService(store, provider)
 	stream := &captureChatStream{ctx: context.Background()}
 
 	if err := service.CandidateChatStream(&pb.CandidateChatRequest{UserId: 55, Message: "candidate asks"}, stream); err != nil {
@@ -339,10 +339,8 @@ func TestCandidateChatStreamStripsSuggestedQuestionsPersistsCleanReplyAndAudits(
 	if got := store.messages[len(store.messages)-1].Content; got != "clean assistant reply" {
 		t.Fatalf("assistant content = %q, want clean reply", got)
 	}
-	if len(stream.responses) != 1 {
-		t.Fatalf("stream responses = %d, want 1", len(stream.responses))
-	}
-	if got := stream.responses[0].GetSuggestedQuestions(); len(got) != 3 || got[0] != "Q1" || got[2] != "Q3" {
+	done := stream.responses[len(stream.responses)-1]
+	if got := done.GetSuggestedQuestions(); len(got) != 3 || got[0] != "Q1" || got[2] != "Q3" {
 		t.Fatalf("suggested questions = %#v", got)
 	}
 	if len(store.usageAudits) != 1 {
@@ -353,36 +351,40 @@ func TestCandidateChatStreamStripsSuggestedQuestionsPersistsCleanReplyAndAudits(
 	}
 }
 
-func TestCandidateChatStreamFallsBackFromCandidateContextWhenProviderFails(t *testing.T) {
+func TestCandidateChatStreamFallsBackFromToolTracesWhenProviderFails(t *testing.T) {
 	store := newFakeAIStore()
-	store.candidateContext = CandidateRuntimeContext{
-		Applications: []CandidateApplicationContext{{ApplicationID: 7001, JobID: 9001, JobTitle: "Backend Engineer", StatusText: "面试中", AppliedAt: "2026-07-01T10:00:00Z"}},
+	provider := &fakeCandidateADKProvider{
+		err: errors.New("provider unavailable"),
+		simulateTool: func(onTool commonsai.ToolTraceCallback) {
+			if onTool != nil {
+				onTool("call-1", "list_my_applications", `{}`, `{"applications":[{"job_title":"Backend Engineer","status_text":"面试中"}]}`, time.Millisecond, nil)
+			}
+		},
 	}
-	provider := &fakeChatProvider{err: errors.New("provider unavailable")}
-	service := &nativeAIService{store: store, provider: provider}
+	service := newCandidateAITestService(store, provider)
 	stream := &captureChatStream{ctx: context.Background()}
 
 	if err := service.CandidateChatStream(&pb.CandidateChatRequest{UserId: 55, Message: "my applications"}, stream); err != nil {
 		t.Fatalf("CandidateChatStream returned error: %v", err)
 	}
 
-	if len(stream.responses) != 2 {
+	if len(stream.responses) < 2 {
 		t.Fatalf("stream responses = %d, want partial_done and done", len(stream.responses))
 	}
-	if stream.responses[0].EventType != "partial_done" || !stream.responses[1].Done {
+	if stream.responses[0].EventType != "partial_done" || !stream.responses[len(stream.responses)-1].Done {
 		t.Fatalf("stream responses = %#v", stream.responses)
 	}
 	if got := store.messages[len(store.messages)-1].Content; !strings.Contains(got, "Backend Engineer") {
 		t.Fatalf("fallback assistant content = %q, want application summary", got)
 	}
-	if audit := store.usageAudits[0]; audit.Status != "error" || audit.ErrorCode != "provider_error" {
+	if audit := store.usageAudits[0]; audit.Status != "error" || audit.ErrorCode != "fallback" {
 		t.Fatalf("usage audit = %#v", audit)
 	}
 }
 
 func TestCandidateChatStreamMissingProviderReturnsDiagnosticError(t *testing.T) {
 	store := newFakeAIStore()
-	service := &nativeAIService{store: store}
+	service := &nativeAIService{store: store, agentRuntime: agentRuntimeADK, candidateTools: &stubCandidateToolRunner{}}
 	stream := &captureChatStream{ctx: context.Background()}
 
 	err := service.CandidateChatStream(&pb.CandidateChatRequest{UserId: 55, Message: "candidate asks"}, stream)
@@ -2039,6 +2041,114 @@ func TestCandidateChatStreamExistingSessionRequiresOwner(t *testing.T) {
 	}
 }
 
+type stubCandidateToolRunner struct{}
+
+func (s *stubCandidateToolRunner) Execute(context.Context, int64, string, map[string]any) (commonsai.ToolResult, error) {
+	return commonsai.ToolResult{Content: `{}`}, nil
+}
+
+type fakeCandidateADKProvider struct {
+	fakeChatProvider
+	reply        string
+	err          error
+	onRun        func(commonsai.AgentRunInput)
+	simulateTool func(onTool commonsai.ToolTraceCallback)
+	adkCalls     int
+}
+
+func (p *fakeCandidateADKProvider) ChatWithRecruitingADK(
+	_ context.Context,
+	_ int64,
+	_ ChatCompletionOptions,
+	input commonsai.AgentRunInput,
+	onDelta func(string) error,
+	onToolExecuted commonsai.ToolTraceCallback,
+	_ func(eventType, eventMessage, errorType, toolName string) error,
+) (string, commonsai.ToolMetadata, error) {
+	p.adkCalls++
+	if p.onRun != nil {
+		p.onRun(input)
+	}
+	meta := commonsai.ToolMetadata{}
+	if p.simulateTool != nil {
+		p.simulateTool(func(toolCallID, toolName, argsJSON, resultContent string, duration time.Duration, execErr error) {
+			meta.ToolTraces = append(meta.ToolTraces, commonsai.ToolTrace{
+				ToolName: toolName,
+				Result:   resultContent,
+				Cost:     duration,
+				Error:    execErr,
+			})
+			if onToolExecuted != nil {
+				onToolExecuted(toolCallID, toolName, argsJSON, resultContent, duration, execErr)
+			}
+		})
+	}
+	if p.err != nil {
+		return "", meta, p.err
+	}
+	reply := p.reply
+	if reply == "" {
+		reply = p.fakeChatProvider.reply
+	}
+	if onDelta != nil && reply != "" {
+		_ = onDelta(reply)
+	}
+	return reply, meta, nil
+}
+
+func newCandidateAITestService(store AIStore, provider ChatProvider) *nativeAIService {
+	return &nativeAIService{
+		store:          store,
+		provider:       provider,
+		agentRuntime:   agentRuntimeADK,
+		candidateTools: &stubCandidateToolRunner{},
+	}
+}
+
+func TestInvalidateCachedCandidateADKTools(t *testing.T) {
+	service := newCandidateAITestService(newFakeAIStore(), &fakeCandidateADKProvider{reply: "x"})
+	tools, err := service.getOrInitCandidateADKTools()
+	if err != nil || len(tools) != 6 {
+		t.Fatalf("init tools err=%v len=%d", err, len(tools))
+	}
+	service.InvalidateCachedCandidateADKTools()
+	if service.cachedCandidateADKTools != nil {
+		t.Fatal("expected cache cleared")
+	}
+	tools2, err := service.getOrInitCandidateADKTools()
+	if err != nil || len(tools2) != 6 {
+		t.Fatalf("re-init tools err=%v len=%d", err, len(tools2))
+	}
+}
+
+func TestCandidateUsageAuditIncludesModelAndTokenTotal(t *testing.T) {
+	store := newFakeAIStore()
+	store.llmModels = []*pb.LlmModelInfo{{Id: 7, ModelName: "qwen-test", ProviderName: "DashScope", IsDefault: true, IsEnabled: true}}
+	provider := &fakeCandidateADKProvider{
+		reply: "assistant reply",
+		// Billing tokens are applied after ChatWithRecruitingADK returns; inject via metadata in provider
+	}
+	// Override ChatWithRecruitingADK return is already set; patch by using onRun no-op and setting reply only.
+	// We verify audit opts by calling recordCandidateUsageAudit directly after resolve.
+	service := newCandidateAITestService(store, provider)
+	_, modelName, providerName := service.resolveRuntimeModelDisplay(context.Background(), 0)
+	if modelName != "qwen-test" || providerName != "DashScope" {
+		t.Fatalf("model display = (%q, %q)", modelName, providerName)
+	}
+	if err := service.recordCandidateUsageAudit(context.Background(), 55, 10, 20, "ok", "", 12, candidateUsageAuditOptions{
+		Provider: providerName, Model: modelName, TokenUsageTotal: 42,
+	}); err != nil {
+		t.Fatalf("audit: %v", err)
+	}
+	if len(store.usageAudits) != 1 {
+		t.Fatalf("audits = %d", len(store.usageAudits))
+	}
+	audit := store.usageAudits[0]
+	if audit.Model != "qwen-test" || audit.Provider != "DashScope" || audit.TokenUsageTotal != 42 {
+		t.Fatalf("audit = %#v", audit)
+	}
+}
+
 type fakeChatProvider struct {
 	reply       string
 	err         error
@@ -2296,6 +2406,10 @@ func (s *fakeAIStore) DeleteChatSession(context.Context, int32, int64, int64) er
 
 func (s *fakeAIStore) AppendChatMessage(_ context.Context, message ChatMessageRow) (ChatMessageRow, error) {
 	return s.seedChatMessage(message), nil
+}
+
+func (s *fakeAIStore) ListRecentChatMessages(ctx context.Context, ownerRole int32, ownerID, sessionID int64, limit int32) ([]ChatMessageRow, error) {
+	return s.ListChatMessages(ctx, ownerRole, ownerID, sessionID, 1, limit)
 }
 
 func (s *fakeAIStore) ListChatMessages(_ context.Context, ownerRole int32, ownerID, sessionID int64, page, pageSize int32) ([]ChatMessageRow, error) {

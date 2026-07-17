@@ -21,6 +21,7 @@ import (
 	"gorm.io/gorm"
 
 	"smart-recruit-commons/mq"
+	"smart-recruit-commons/oss"
 	platformconfig "smart-recruit-platform-go/config"
 	"smart-recruit-platform-go/logger"
 	"smart-recruit-platform-go/nacos"
@@ -29,6 +30,7 @@ import (
 	"smart-recruit-platform-go/server"
 	logicconfig "smart-recruit-platform-go/serviceconfig"
 	workeroutbox "smart-recruit-worker-service/internal/outbox"
+	workerresumeparse "smart-recruit-worker-service/internal/resumeparse"
 	workerruntime "smart-recruit-worker-service/internal/runtime"
 )
 
@@ -148,6 +150,14 @@ func serveWorker(healthAddr string) error {
 			DB:  db,
 			MQ:  mqConn,
 			Log: log,
+			OSS: oss.Config{
+				Provider:        cfg.OSS.Provider,
+				Endpoint:        cfg.OSS.Endpoint,
+				AccessKeyID:     cfg.OSS.AccessKeyID,
+				AccessKeySecret: cfg.OSS.AccessKeySecret,
+				BucketName:      cfg.OSS.BucketName,
+				PublicBaseURL:   cfg.OSS.PublicBaseURL,
+			},
 		}),
 		Status: dependencyStatus(sqlDB, mqConn),
 	})
@@ -209,6 +219,7 @@ type starterDeps struct {
 	DB              *gorm.DB
 	MQ              *mq.Conn
 	Log             *zap.Logger
+	OSS             oss.Config
 	OutboxStore     workeroutbox.Store
 	OutboxPublisher workeroutbox.Publisher
 }
@@ -220,6 +231,8 @@ func controlledStarters(names []string, deps starterDeps) map[string]workerrunti
 		switch workloadName {
 		case "outbox-dispatcher":
 			starters[workloadName] = outboxDispatcherStarter(deps)
+		case "resume-parse-consumer":
+			starters[workloadName] = resumeParseConsumerStarter(deps)
 		default:
 			starters[workloadName] = unsupportedWorkloadStarter(workloadName)
 		}
@@ -241,12 +254,34 @@ func outboxDispatcherStarter(deps starterDeps) workerruntime.Starter {
 	})
 }
 
+func resumeParseConsumerStarter(deps starterDeps) workerruntime.Starter {
+	return workerruntime.StarterFunc(func(ctx context.Context) error {
+		if deps.DB == nil {
+			return fmt.Errorf("resume-parse-consumer requires mysql")
+		}
+		if deps.MQ == nil {
+			return fmt.Errorf("resume-parse-consumer requires rabbitmq")
+		}
+		storage, err := oss.NewStorage(deps.OSS)
+		if err != nil {
+			return fmt.Errorf("resume-parse-consumer oss: %w", err)
+		}
+		consumer := workerresumeparse.NewConsumer(
+			deps.MQ,
+			workerresumeparse.NewStore(deps.DB),
+			storage,
+			workerresumeparse.Options{Logger: deps.Log},
+		)
+		return consumer.Start(ctx)
+	})
+}
+
 func unsupportedWorkloadStarter(name string) workerruntime.Starter {
 	return workerruntime.StarterFunc(func(context.Context) error {
 		switch name {
 		case "notification-consumer", "email-consumer":
 			return fmt.Errorf("worker workload %q is not started by worker-service; notification-service owns this consumer to avoid duplicate consumption", name)
-		case "resume-parse-consumer", "embedding-consumer", "agent-run-consumer":
+		case "embedding-consumer", "agent-run-consumer":
 			return fmt.Errorf("worker workload %q is not implemented in worker-service yet; keep it disabled until its real consumer is wired", name)
 		default:
 			return fmt.Errorf("worker workload %q is not implemented in worker-service yet; keep it disabled", name)

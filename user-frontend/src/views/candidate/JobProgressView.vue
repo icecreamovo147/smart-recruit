@@ -302,28 +302,32 @@ onMounted(async () => {
     <div class="progress-layout">
       <!-- Left Sidebar -->
       <aside class="progress-sidebar">
-        <div class="sidebar-heading">
-          <span class="progress-eyebrow">CANDIDATE JOURNEY</span>
-          <h1 class="page-title">求职进展</h1>
-          <p class="page-subtitle">集中查看你的投递状态、面试安排与录用通知。</p>
-        </div>
-        <div class="sidebar-summary" aria-label="求职进展概览">
-          <button class="summary-item" :class="{ active: activeTab === 'applications' }" @click="activeTab = 'applications'">
-            <span class="summary-value">{{ appTotal }}</span>
-            <span class="summary-label">全部投递</span>
-            <small>{{ activeApplicationCount }} 个进行中</small>
-          </button>
-          <button class="summary-item" :class="{ active: activeTab === 'interviews' }" @click="activeTab = 'interviews'">
-            <span class="summary-value">{{ upcomingInterviewCount }}</span>
-            <span class="summary-label">待参加面试</span>
-            <small>共 {{ interviews.length }} 场记录</small>
-          </button>
-          <button class="summary-item summary-item--offer" :class="{ active: activeTab === 'offers' }" @click="activeTab = 'offers'">
-            <span class="summary-value">{{ pendingOfferCount }}</span>
-            <span class="summary-label">待处理录用</span>
-            <small>请留意有效期限</small>
-          </button>
-        </div>
+        <el-scrollbar class="progress-sidebar__scroll">
+          <div class="progress-sidebar__inner">
+            <div class="sidebar-heading">
+              <span class="progress-eyebrow">CANDIDATE JOURNEY</span>
+              <h1 class="page-title">求职进展</h1>
+              <p class="page-subtitle">集中查看你的投递状态、面试安排与录用通知。</p>
+            </div>
+            <div class="sidebar-summary" aria-label="求职进展概览">
+              <button class="summary-item" :class="{ active: activeTab === 'applications' }" @click="activeTab = 'applications'">
+                <span class="summary-value">{{ appTotal }}</span>
+                <span class="summary-label">全部投递</span>
+                <small>{{ activeApplicationCount }} 个进行中</small>
+              </button>
+              <button class="summary-item" :class="{ active: activeTab === 'interviews' }" @click="activeTab = 'interviews'">
+                <span class="summary-value">{{ upcomingInterviewCount }}</span>
+                <span class="summary-label">待参加面试</span>
+                <small>共 {{ interviews.length }} 场记录</small>
+              </button>
+              <button class="summary-item summary-item--offer" :class="{ active: activeTab === 'offers' }" @click="activeTab = 'offers'">
+                <span class="summary-value">{{ pendingOfferCount }}</span>
+                <span class="summary-label">待处理录用</span>
+                <small>请留意有效期限</small>
+              </button>
+            </div>
+          </div>
+        </el-scrollbar>
       </aside>
 
       <!-- Right Main -->
@@ -346,55 +350,57 @@ onMounted(async () => {
               </div>
               <el-button type="primary" plain @click="router.push('/jobs')">继续发现岗位</el-button>
             </div>
-            <el-table
-              v-if="applications.length > 0"
-              class="desktop-progress-table"
-              :data="applications"
-              empty-text="暂无投递记录"
-            >
-              <el-table-column label="岗位" min-width="180">
-                <template #default="{ row }">
-                  <el-link type="primary" @click="router.push(`/jobs/${row.job_id}`)">{{ row.job_title }}</el-link>
-                </template>
-              </el-table-column>
-              <el-table-column label="状态" width="130">
-                <template #default="{ row }">
-                  <el-tag :type="appStatusType(row)">{{ appStatusLabel(row) }}</el-tag>
-                </template>
-              </el-table-column>
-              <el-table-column prop="applied_time_display" label="投递时间" width="160" sortable="custom" />
-              <el-table-column label="轮次" width="80">
-                <template #default="{ row }">第 {{ row.round_no }} 轮</template>
-              </el-table-column>
-              <el-table-column label="流程" width="100">
-                <template #default="{ row }">
-                  <el-tag :type="row.is_current === 1 ? 'success' : 'info'" size="small">
-                    {{ row.is_current === 1 ? '当前投递' : '历史投递' }}
-                  </el-tag>
-                </template>
-              </el-table-column>
-            </el-table>
+            <el-scrollbar class="tab-scroll">
+              <el-table
+                v-if="applications.length > 0"
+                class="desktop-progress-table"
+                :data="applications"
+                empty-text="暂无投递记录"
+              >
+                <el-table-column label="岗位" min-width="180">
+                  <template #default="{ row }">
+                    <el-link type="primary" @click="router.push(`/jobs/${row.job_id}`)">{{ row.job_title }}</el-link>
+                  </template>
+                </el-table-column>
+                <el-table-column label="状态" width="130">
+                  <template #default="{ row }">
+                    <el-tag :type="appStatusType(row)">{{ appStatusLabel(row) }}</el-tag>
+                  </template>
+                </el-table-column>
+                <el-table-column prop="applied_time_display" label="投递时间" width="160" sortable="custom" />
+                <el-table-column label="轮次" width="80">
+                  <template #default="{ row }">第 {{ row.round_no }} 轮</template>
+                </el-table-column>
+                <el-table-column label="流程" width="100">
+                  <template #default="{ row }">
+                    <el-tag :type="row.is_current === 1 ? 'success' : 'info'" size="small">
+                      {{ row.is_current === 1 ? '当前投递' : '历史投递' }}
+                    </el-tag>
+                  </template>
+                </el-table-column>
+              </el-table>
 
-            <div v-if="applications.length > 0" class="mobile-application-list">
-              <article v-for="row in applications" :key="row.application_id" class="application-card">
-                <div class="application-card__top">
-                  <div>
-                    <span class="application-card__hint">应聘岗位</span>
-                    <h3 @click="router.push(`/jobs/${row.job_id}`)">{{ row.job_title }}</h3>
+              <div v-if="applications.length > 0" class="mobile-application-list">
+                <article v-for="row in applications" :key="row.application_id" class="application-card">
+                  <div class="application-card__top">
+                    <div>
+                      <span class="application-card__hint">应聘岗位</span>
+                      <h3 @click="router.push(`/jobs/${row.job_id}`)">{{ row.job_title }}</h3>
+                    </div>
+                    <el-tag :type="appStatusType(row)">{{ appStatusLabel(row) }}</el-tag>
                   </div>
-                  <el-tag :type="appStatusType(row)">{{ appStatusLabel(row) }}</el-tag>
-                </div>
-                <div class="application-card__meta">
-                  <span>{{ row.applied_time_display }}</span>
-                  <span>第 {{ row.round_no }} 轮</span>
-                  <span>{{ row.is_current === 1 ? '当前投递' : '历史投递' }}</span>
-                </div>
-              </article>
-            </div>
+                  <div class="application-card__meta">
+                    <span>{{ row.applied_time_display }}</span>
+                    <span>第 {{ row.round_no }} 轮</span>
+                    <span>{{ row.is_current === 1 ? '当前投递' : '历史投递' }}</span>
+                  </div>
+                </article>
+              </div>
 
-            <el-empty v-if="!appLoading && applications.length === 0" description="暂无投递记录">
-              <el-button type="primary" @click="router.push('/jobs')">去看看岗位</el-button>
-            </el-empty>
+              <el-empty v-if="!appLoading && applications.length === 0" description="暂无投递记录">
+                <el-button type="primary" @click="router.push('/jobs')">去看看岗位</el-button>
+              </el-empty>
+            </el-scrollbar>
 
             <div v-if="applications.length > 0" class="pagination-wrapper">
               <el-pagination
@@ -418,65 +424,67 @@ onMounted(async () => {
                 <p>按时间查看面试方式、地点与注意事项。</p>
               </div>
             </div>
-            <el-empty v-if="!intLoading && interviews.length === 0" description="暂无面试安排" />
+            <el-scrollbar class="tab-scroll">
+              <el-empty v-if="!intLoading && interviews.length === 0" description="暂无面试安排" />
 
-            <div v-else class="interview-list">
-              <article v-for="item in interviews" :key="item.interview_id" class="interview-card">
-                <div class="interview-card__date-col">
-                  <div class="interview-card__date-badge">
-                    <span class="interview-card__month">{{ fmtDT(item.scheduled_at).slice(5, 7) }}月</span>
-                    <span class="interview-card__day">{{ fmtDT(item.scheduled_at).slice(8, 10) }}</span>
-                  </div>
-                  <div class="interview-card__time">
-                    {{ fmtDT(item.scheduled_at).slice(11, 16) }}
-                  </div>
-                </div>
-                <div class="interview-card__body">
-                  <div class="interview-card__top">
-                    <div class="interview-card__title-area">
-                      <span class="interview-card__meta-tag">第 {{ item.round_no || 1 }} 轮 · {{ modeLabel(item.mode) }}</span>
-                      <h3 class="interview-card__title">{{ item.job_title }}</h3>
-                      <span v-if="item.title" class="interview-card__subtitle">{{ item.title }}</span>
+              <div v-else class="interview-list">
+                <article v-for="item in interviews" :key="item.interview_id" class="interview-card">
+                  <div class="interview-card__date-col">
+                    <div class="interview-card__date-badge">
+                      <span class="interview-card__month">{{ fmtDT(item.scheduled_at).slice(5, 7) }}月</span>
+                      <span class="interview-card__day">{{ fmtDT(item.scheduled_at).slice(8, 10) }}</span>
                     </div>
-                    <el-tag :type="interviewStatusType(item.status)" effect="plain" size="small">
-                      {{ interviewStatusLabel(item.status) }}
-                    </el-tag>
-                  </div>
-                  <div class="interview-card__info-grid">
-                    <div class="interview-card__info-item">
-                      <span class="interview-card__info-label">面试官</span>
-                      <strong class="interview-card__info-value">{{ item.interviewer_name || '-' }}</strong>
-                    </div>
-                    <div class="interview-card__info-item">
-                      <span class="interview-card__info-label">预计时长</span>
-                      <strong class="interview-card__info-value">{{ item.duration_minutes ? item.duration_minutes + ' 分钟' : '-' }}</strong>
-                    </div>
-                    <div v-if="item.location" class="interview-card__info-item">
-                      <span class="interview-card__info-label">面试地点</span>
-                      <strong class="interview-card__info-value">{{ item.location }}</strong>
+                    <div class="interview-card__time">
+                      {{ fmtDT(item.scheduled_at).slice(11, 16) }}
                     </div>
                   </div>
-                  <div v-if="item.mode === 'video' || item.meeting_url || item.candidate_note" class="interview-card__footer">
-                    <div class="interview-card__footer-left">
-                      <span v-if="item.mode === 'video'" class="interview-card__link-label">面试链接：</span>
-                      <a
-                        v-if="item.meeting_url"
-                        :href="item.meeting_url"
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        class="interview-card__meeting-link"
-                      >
-                        进入面试会议
-                      </a>
-                      <span v-else-if="item.mode === 'video'" class="interview-card__no-link">
-                        暂无会议链接，请与HR确认
-                      </span>
+                  <div class="interview-card__body">
+                    <div class="interview-card__top">
+                      <div class="interview-card__title-area">
+                        <span class="interview-card__meta-tag">第 {{ item.round_no || 1 }} 轮 · {{ modeLabel(item.mode) }}</span>
+                        <h3 class="interview-card__title">{{ item.job_title }}</h3>
+                        <span v-if="item.title" class="interview-card__subtitle">{{ item.title }}</span>
+                      </div>
+                      <el-tag :type="interviewStatusType(item.status)" effect="plain" size="small">
+                        {{ interviewStatusLabel(item.status) }}
+                      </el-tag>
                     </div>
-                    <span v-if="item.candidate_note" class="interview-card__note">{{ item.candidate_note }}</span>
+                    <div class="interview-card__info-grid">
+                      <div class="interview-card__info-item">
+                        <span class="interview-card__info-label">面试官</span>
+                        <strong class="interview-card__info-value">{{ item.interviewer_name || '-' }}</strong>
+                      </div>
+                      <div class="interview-card__info-item">
+                        <span class="interview-card__info-label">预计时长</span>
+                        <strong class="interview-card__info-value">{{ item.duration_minutes ? item.duration_minutes + ' 分钟' : '-' }}</strong>
+                      </div>
+                      <div v-if="item.location" class="interview-card__info-item">
+                        <span class="interview-card__info-label">面试地点</span>
+                        <strong class="interview-card__info-value">{{ item.location }}</strong>
+                      </div>
+                    </div>
+                    <div v-if="item.mode === 'video' || item.meeting_url || item.candidate_note" class="interview-card__footer">
+                      <div class="interview-card__footer-left">
+                        <span v-if="item.mode === 'video'" class="interview-card__link-label">面试链接：</span>
+                        <a
+                          v-if="item.meeting_url"
+                          :href="item.meeting_url"
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          class="interview-card__meeting-link"
+                        >
+                          进入面试会议
+                        </a>
+                        <span v-else-if="item.mode === 'video'" class="interview-card__no-link">
+                          暂无会议链接，请与HR确认
+                        </span>
+                      </div>
+                      <span v-if="item.candidate_note" class="interview-card__note">{{ item.candidate_note }}</span>
+                    </div>
                   </div>
-                </div>
-              </article>
-            </div>
+                </article>
+              </div>
+            </el-scrollbar>
           </div>
         </el-tab-pane>
 
@@ -499,76 +507,77 @@ onMounted(async () => {
                 <p>查看录用条件，并在有效期内完成决定。</p>
               </div>
             </div>
-            <el-empty v-if="!offerLoading && offers.length === 0" description="暂无Offer记录" />
+            <el-scrollbar class="tab-scroll">
+              <el-empty v-if="!offerLoading && offers.length === 0" description="暂无Offer记录" />
 
-            <article
-              v-for="offer in offers"
-              :key="offer.id"
-              :id="`offer-card-${offer.id}`"
-              class="offer-card"
-              :class="{ 'offer-card--highlight': highlightOfferId === offer.id }"
-            >
-              <div class="offer-card-header">
-                <div class="offer-card-title">
-                  <span class="application-card__hint">录用岗位</span>
-                  <h3>{{ offer.job_title || offer.title }}</h3>
-                  <p>{{ offer.title }}</p>
-                </div>
-                <div class="offer-status">
-                  <el-tag :type="offerStatusType(offer.status) as any">{{ offerStatusLabel(offer.status) }}</el-tag>
-                  <strong v-if="offer.status === 'sent' && offerDaysRemaining(offer.expires_at) !== null">
-                    {{ offerDaysRemaining(offer.expires_at) === 0 ? '即将到期' : `剩余 ${offerDaysRemaining(offer.expires_at)} 天` }}
-                  </strong>
-                </div>
-              </div>
-
-              <div class="offer-facts">
-                <div><span>薪资范围</span><strong>{{ offer.salary_range || '-' }}</strong></div>
-                <div><span>职级</span><strong>{{ offer.level || '-' }}</strong></div>
-                <div><span>工作地点</span><strong>{{ offer.work_location || '-' }}</strong></div>
-                <div><span>预计入职</span><strong>{{ offer.start_date || '-' }}</strong></div>
-                <div><span>有效期至</span><strong>{{ fmtDT(offer.expires_at) }}</strong></div>
-                <div><span>发送时间</span><strong>{{ fmtDT(offer.created_at) }}</strong></div>
-              </div>
-
-              <div v-if="offerTerms(offer).length" class="offer-terms">
-                <h4>录用条款</h4>
-                <dl>
-                  <div v-for="term in offerTerms(offer)" :key="term.label">
-                    <dt>{{ term.label }}</dt>
-                    <dd>{{ term.value }}</dd>
+              <article
+                v-for="offer in offers"
+                :key="offer.id"
+                :id="`offer-card-${offer.id}`"
+                class="offer-card"
+                :class="{ 'offer-card--highlight': highlightOfferId === offer.id }"
+              >
+                <div class="offer-card-header">
+                  <div class="offer-card-title">
+                    <span class="application-card__hint">录用岗位</span>
+                    <h3>{{ offer.job_title || offer.title }}</h3>
+                    <p>{{ offer.title }}</p>
                   </div>
-                </dl>
-              </div>
-
-              <div v-if="offer.status === 'sent'" class="offer-actions">
-                <span>请确认信息无误后再完成决定。</span>
-                <div>
-                  <el-button
-                    type="success"
-                    :loading="actionLoading === offer.id"
-                    @click="handleAccept(offer)"
-                  >
-                    接受Offer
-                  </el-button>
-                  <el-button
-                    type="danger"
-                    plain
-                    :loading="actionLoading === offer.id"
-                    @click="handleReject(offer)"
-                  >
-                    拒绝Offer
-                  </el-button>
+                  <div class="offer-status">
+                    <el-tag :type="offerStatusType(offer.status) as any">{{ offerStatusLabel(offer.status) }}</el-tag>
+                    <strong v-if="offer.status === 'sent' && offerDaysRemaining(offer.expires_at) !== null">
+                      {{ offerDaysRemaining(offer.expires_at) === 0 ? '即将到期' : `剩余 ${offerDaysRemaining(offer.expires_at)} 天` }}
+                    </strong>
+                  </div>
                 </div>
-              </div>
-            </article>
 
-            <!-- Load More -->
-            <div v-if="offerHasMore" class="pagination-wrapper">
-              <el-button :loading="offerLoading" @click="loadOffers(false)">
-                加载更多 ({{ offers.length }} / {{ offerTotal }})
-              </el-button>
-            </div>
+                <div class="offer-facts">
+                  <div><span>薪资范围</span><strong>{{ offer.salary_range || '-' }}</strong></div>
+                  <div><span>职级</span><strong>{{ offer.level || '-' }}</strong></div>
+                  <div><span>工作地点</span><strong>{{ offer.work_location || '-' }}</strong></div>
+                  <div><span>预计入职</span><strong>{{ offer.start_date || '-' }}</strong></div>
+                  <div><span>有效期至</span><strong>{{ fmtDT(offer.expires_at) }}</strong></div>
+                  <div><span>发送时间</span><strong>{{ fmtDT(offer.created_at) }}</strong></div>
+                </div>
+
+                <div v-if="offerTerms(offer).length" class="offer-terms">
+                  <h4>录用条款</h4>
+                  <dl>
+                    <div v-for="term in offerTerms(offer)" :key="term.label">
+                      <dt>{{ term.label }}</dt>
+                      <dd>{{ term.value }}</dd>
+                    </div>
+                  </dl>
+                </div>
+
+                <div v-if="offer.status === 'sent'" class="offer-actions">
+                  <span>请确认信息无误后再完成决定。</span>
+                  <div>
+                    <el-button
+                      type="success"
+                      :loading="actionLoading === offer.id"
+                      @click="handleAccept(offer)"
+                    >
+                      接受Offer
+                    </el-button>
+                    <el-button
+                      type="danger"
+                      plain
+                      :loading="actionLoading === offer.id"
+                      @click="handleReject(offer)"
+                    >
+                      拒绝Offer
+                    </el-button>
+                  </div>
+                </div>
+              </article>
+
+              <div v-if="offerHasMore" class="pagination-wrapper pagination-wrapper--in-scroll">
+                <el-button :loading="offerLoading" @click="loadOffers(false)">
+                  加载更多 ({{ offers.length }} / {{ offerTotal }})
+                </el-button>
+              </div>
+            </el-scrollbar>
           </div>
         </el-tab-pane>
       </el-tabs>
@@ -580,7 +589,7 @@ onMounted(async () => {
 
 <style scoped>
 .job-progress {
-  max-width: 1080px;
+  width: 100%;
   margin: 0 auto;
   height: calc(100dvh - 120px);
   overflow: hidden;
@@ -595,13 +604,26 @@ onMounted(async () => {
 .progress-sidebar {
   display: flex;
   flex-direction: column;
-  gap: 20px;
-  padding: 24px 22px;
+  min-height: 0;
   border: 1px solid var(--border);
   border-radius: 18px;
   background: linear-gradient(135deg, var(--surface) 0%, var(--surface) 60%, var(--brand-soft) 140%);
   box-shadow: 0 12px 30px rgba(15, 23, 42, 0.06);
-  overflow-y: auto;
+  overflow: hidden;
+}
+.progress-sidebar__scroll {
+  flex: 1 1 auto;
+  min-height: 0;
+  height: 100%;
+}
+.progress-sidebar__scroll :deep(.el-scrollbar__wrap) {
+  overflow-x: hidden;
+}
+.progress-sidebar__inner {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  padding: 24px 22px;
 }
 .progress-eyebrow {
   display: block;
@@ -711,9 +733,13 @@ onMounted(async () => {
   color: var(--brand-strong);
 }
 .progress-tabs :deep(.el-tabs__content) {
-  flex: 1;
-  overflow-y: auto;
+  flex: 1 1 0;
+  min-height: 0;
+  overflow: hidden;
   padding: 0;
+}
+.progress-tabs :deep(.el-tab-pane) {
+  height: 100%;
 }
 .tab-content {
   height: 100%;
@@ -722,6 +748,7 @@ onMounted(async () => {
   flex-direction: column;
   min-height: 0;
   padding: 24px;
+  box-sizing: border-box;
 }
 .tab-content .section-heading {
   flex-shrink: 0;
@@ -729,26 +756,22 @@ onMounted(async () => {
 .tab-content .pagination-wrapper {
   flex-shrink: 0;
 }
-
-.desktop-progress-table {
-  flex: 1;
+.tab-scroll {
+  flex: 1 1 0;
   min-height: 0;
-}
-
-.desktop-progress-table :deep(.el-table__inner-wrapper) {
-  display: flex;
-  flex-direction: column;
   height: 100%;
 }
-
-.desktop-progress-table :deep(.el-table__header-wrapper) {
-  flex-shrink: 0;
+.tab-scroll :deep(.el-scrollbar__wrap) {
+  overflow-x: hidden;
+}
+.tab-scroll :deep(.el-scrollbar__view) {
+  box-sizing: border-box;
+  padding-right: 4px;
+  padding-bottom: 4px;
 }
 
-.desktop-progress-table :deep(.el-table__body-wrapper) {
-  flex: 1;
-  min-height: 0;
-  overflow-y: auto;
+.desktop-progress-table {
+  width: 100%;
 }
 .section-heading {
   display: flex;
@@ -1065,17 +1088,25 @@ onMounted(async () => {
 @media (max-width: 960px) {
   .progress-layout {
     grid-template-columns: 1fr;
+    height: auto;
+    overflow: visible;
   }
   .job-progress {
     height: auto;
     overflow: visible;
   }
-  .progress-layout {
-    height: auto;
-    overflow: visible;
-  }
   .progress-sidebar,
   .progress-main {
+    overflow: visible;
+  }
+  .progress-sidebar__scroll,
+  .tab-scroll {
+    height: auto;
+  }
+  .progress-tabs :deep(.el-tabs__content),
+  .progress-tabs :deep(.el-tab-pane),
+  .tab-content {
+    height: auto;
     overflow: visible;
   }
 }

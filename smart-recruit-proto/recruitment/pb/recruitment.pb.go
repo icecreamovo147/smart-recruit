@@ -1601,11 +1601,14 @@ func (x *ListHRJobsRequest) GetCursor() string {
 }
 
 type ListPublicJobsRequest struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Page          int32                  `protobuf:"varint,1,opt,name=page,proto3" json:"page,omitempty"`
-	PageSize      int32                  `protobuf:"varint,2,opt,name=page_size,json=pageSize,proto3" json:"page_size,omitempty"`
-	Keyword       string                 `protobuf:"bytes,3,opt,name=keyword,proto3" json:"keyword,omitempty"`
-	Cursor        string                 `protobuf:"bytes,4,opt,name=cursor,proto3" json:"cursor,omitempty"`
+	state    protoimpl.MessageState `protogen:"open.v1"`
+	Page     int32                  `protobuf:"varint,1,opt,name=page,proto3" json:"page,omitempty"`
+	PageSize int32                  `protobuf:"varint,2,opt,name=page_size,json=pageSize,proto3" json:"page_size,omitempty"`
+	Keyword  string                 `protobuf:"bytes,3,opt,name=keyword,proto3" json:"keyword,omitempty"`
+	Cursor   string                 `protobuf:"bytes,4,opt,name=cursor,proto3" json:"cursor,omitempty"`
+	// Optional multi-select filters (public job board facets).
+	DepartmentIds []int64 `protobuf:"varint,5,rep,packed,name=department_ids,json=departmentIds,proto3" json:"department_ids,omitempty"`
+	LocationIds   []int64 `protobuf:"varint,6,rep,packed,name=location_ids,json=locationIds,proto3" json:"location_ids,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -1666,6 +1669,20 @@ func (x *ListPublicJobsRequest) GetCursor() string {
 		return x.Cursor
 	}
 	return ""
+}
+
+func (x *ListPublicJobsRequest) GetDepartmentIds() []int64 {
+	if x != nil {
+		return x.DepartmentIds
+	}
+	return nil
+}
+
+func (x *ListPublicJobsRequest) GetLocationIds() []int64 {
+	if x != nil {
+		return x.LocationIds
+	}
+	return nil
 }
 
 type GetJobDetailRequest struct {
@@ -32319,12 +32336,14 @@ const file_proto_recruitment_proto_rawDesc = "" +
 	"\x05hr_id\x18\x01 \x01(\x03R\x04hrId\x12\x12\n" +
 	"\x04page\x18\x02 \x01(\x05R\x04page\x12\x1b\n" +
 	"\tpage_size\x18\x03 \x01(\x05R\bpageSize\x12\x16\n" +
-	"\x06cursor\x18\x04 \x01(\tR\x06cursor\"z\n" +
+	"\x06cursor\x18\x04 \x01(\tR\x06cursor\"\xc4\x01\n" +
 	"\x15ListPublicJobsRequest\x12\x12\n" +
 	"\x04page\x18\x01 \x01(\x05R\x04page\x12\x1b\n" +
 	"\tpage_size\x18\x02 \x01(\x05R\bpageSize\x12\x18\n" +
 	"\akeyword\x18\x03 \x01(\tR\akeyword\x12\x16\n" +
-	"\x06cursor\x18\x04 \x01(\tR\x06cursor\",\n" +
+	"\x06cursor\x18\x04 \x01(\tR\x06cursor\x12%\n" +
+	"\x0edepartment_ids\x18\x05 \x03(\x03R\rdepartmentIds\x12!\n" +
+	"\flocation_ids\x18\x06 \x03(\x03R\vlocationIds\",\n" +
 	"\x13GetJobDetailRequest\x12\x15\n" +
 	"\x06job_id\x18\x01 \x01(\x03R\x05jobId\"\x96\x03\n" +
 	"\x03Job\x12\x15\n" +

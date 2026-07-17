@@ -168,6 +168,8 @@ func Setup(cfg config.Config, clients *rpc.Clients, rdb *redis.Client) (*gin.Eng
 	v1.PUT("/auth/email", normalTimeout, bodyAuth, middleware.JWTAuthByClient(cfg.JWTSecret, cfg.CandidateCookie, cfg.HRCookie, cfg.InterviewerCookie, cfg.AuthCookieName, rdb), authHandler.UpdateEmail)
 	v1.GET("/jobs", normalTimeout, publicHandler.ListJobs)
 	v1.GET("/jobs/:job_id", normalTimeout, publicHandler.JobDetail)
+	// Public taxonomy for candidate job-board filters (active departments/locations).
+	v1.GET("/job-options", normalTimeout, publicHandler.JobOptions)
 
 	// ── Authenticated middleware (with token_version validation via Redis) ─
 	jwtAuth := middleware.JWTAuthByClient(cfg.JWTSecret, cfg.CandidateCookie, cfg.HRCookie, cfg.InterviewerCookie, cfg.AuthCookieName, rdb)

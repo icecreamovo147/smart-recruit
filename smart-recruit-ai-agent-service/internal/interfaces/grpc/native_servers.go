@@ -13,6 +13,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/cloudwego/eino/components/tool"
 	"github.com/cloudwego/eino/schema"
 	gogrpc "google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
@@ -20,6 +21,7 @@ import (
 	"google.golang.org/protobuf/encoding/protojson"
 	"google.golang.org/protobuf/proto"
 
+	candidatetools "smart-recruit-ai-agent-service/internal/application/candidate_tools"
 	"smart-recruit-ai-agent-service/internal/application/hr_tools"
 	recruitingruntime "smart-recruit-ai-agent-service/internal/application/recruiting_intelligence"
 	"smart-recruit-ai-agent-service/internal/domain/model"
@@ -314,6 +316,7 @@ type CandidateUsageAuditRow struct {
 	RequestChars    int
 	ResponseChars   int
 	EstimatedTokens int
+	TokenUsageTotal int
 	Status          string
 	ErrorCode       string
 	CostMs          int
@@ -336,6 +339,7 @@ func candidateUsageAuditToUsageAudit(row CandidateUsageAuditRow) UsageAuditRow {
 		RequestChars:    row.RequestChars,
 		ResponseChars:   row.ResponseChars,
 		EstimatedTokens: row.EstimatedTokens,
+		TokenUsageTotal: row.TokenUsageTotal,
 		Status:          row.Status,
 		ErrorCode:       row.ErrorCode,
 		CostMs:          row.CostMs,
@@ -670,6 +674,15 @@ func NewNativeRuntimeDeps(deps RuntimeDeps) aiagentruntime.Deps {
 	ai.recruitingPolicy = deps.RecruitingPolicy
 	ai.auth = deps.Auth
 	ai.agentRuntime = normalizeAgentRuntime(deps.RuntimeName)
+	if store, ok := deps.Store.(candidatetools.DataStore); ok {
+		ai.candidateTools = candidatetools.NewExecutor(store)
+	}
+	if seeder, ok := deps.Store.(interface {
+		EnsureDefaultCandidateAssistant(context.Context) error
+	}); ok {
+		// Best-effort DEV-parity seed; failures must not block service startup.
+		_ = seeder.EnsureDefaultCandidateAssistant(context.Background())
+	}
 	embedding := deps.EmbeddingConfigs
 	if embedding == nil {
 		embedding = nativeEmbeddingConfigService{store: deps.Store, embedding: embeddingService}
@@ -735,21 +748,24 @@ func normalizeAgentRuntime(value string) string {
 
 type nativeAIService struct {
 	pb.UnimplementedAIServiceServer
-	store            AIStore
-	provider         ChatProvider
-	recruitingPolicy recruitingruntime.RuntimePolicy
-	auth             pb.AuthServiceClient
-	applications     applicationSnapshotClient
-	jobs             hr_tools.JobClient
-	appList          hr_tools.ApplicationListClient
-	mcpRunner        mcpinfra.Runner
-	embedding        *embeddinginfra.EmbeddingService
-	agentRuntime     string
-	eventHubMu       sync.Mutex
-	eventHub         *agentRunEventHub
-	runCancelMu      sync.Mutex
-	runCancels       map[int64]*agentRunCancelEntry
-	runTransitionMu  sync.Mutex
+	store                   AIStore
+	provider                ChatProvider
+	recruitingPolicy        recruitingruntime.RuntimePolicy
+	auth                    pb.AuthServiceClient
+	applications            applicationSnapshotClient
+	jobs                    hr_tools.JobClient
+	appList                 hr_tools.ApplicationListClient
+	mcpRunner               mcpinfra.Runner
+	embedding               *embeddinginfra.EmbeddingService
+	agentRuntime            string
+	candidateTools          commonsai.ToolRunner
+	candidateToolsMu        sync.Mutex
+	cachedCandidateADKTools []tool.BaseTool
+	eventHubMu              sync.Mutex
+	eventHub                *agentRunEventHub
+	runCancelMu             sync.Mutex
+	runCancels              map[int64]*agentRunCancelEntry
+	runTransitionMu         sync.Mutex
 }
 
 func (s *nativeAIService) effectiveAgentRuntime() string {
@@ -3082,63 +3098,7 @@ func (s *nativeAIService) DeleteSession(ctx context.Context, req *pb.DeleteSessi
 	return commonOK(), nil
 }
 
-func (s *nativeAIService) CandidateChatStream(req *pb.CandidateChatRequest, stream gogrpc.ServerStreamingServer[pb.ChatStreamResponse]) error {
-	ctx := stream.Context()
-	if req == nil || strings.TrimSpace(req.GetMessage()) == "" {
-		return stream.Send(&pb.ChatStreamResponse{Code: agentRunCodeBadRequest, Msg: candidateChatEmptyMessageError, Done: true, CreatedAt: formatTime(time.Now()), EventType: "done"})
-	}
-	startedAt := time.Now()
-	inputChars := len([]rune(req.GetMessage()))
-	session, err := s.ensureSession(ctx, ownerRoleCandidate, req.GetUserId(), req.GetSessionId(), 0, req.GetMessage())
-	if err != nil {
-		return err
-	}
-	userMessage, err := s.store.AppendChatMessage(ctx, ChatMessageRow{OwnerRole: ownerRoleCandidate, OwnerID: req.GetUserId(), SessionID: session.ID, Role: "user", Content: req.GetMessage()})
-	if err != nil {
-		return err
-	}
-	runtimeContext, err := s.loadCandidateRuntimeContext(ctx, req.GetUserId(), session.ID)
-	if err != nil {
-		return err
-	}
-	prompt, err := s.buildCandidateProviderPrompt(ctx, req.GetUserId(), session.ID, userMessage, runtimeContext)
-	if err != nil {
-		return err
-	}
-	reply, err := s.complete(ctx, prompt, 0)
-	if err != nil {
-		if fallback := buildCandidateContextFallbackReply(runtimeContext); fallback != "" {
-			questions := candidateSuggestedQuestions(req.GetMessage(), fallback)
-			if _, saveErr := s.store.AppendChatMessage(ctx, ChatMessageRow{OwnerRole: ownerRoleCandidate, OwnerID: req.GetUserId(), SessionID: session.ID, Role: "assistant", Content: fallback, CreatedAt: time.Now()}); saveErr != nil {
-				return saveErr
-			}
-			if auditErr := s.recordCandidateUsageAudit(ctx, req.GetUserId(), inputChars, len([]rune(fallback)), "error", "provider_error", int(time.Since(startedAt).Milliseconds())); auditErr != nil {
-				return auditErr
-			}
-			if sendErr := stream.Send(&pb.ChatStreamResponse{Code: 0, Msg: "success", EventType: "partial_done", EventMessage: "已基于已查询数据给出保守回复", ErrorType: "provider_error", SessionId: session.ID, CreatedAt: formatTime(time.Now())}); sendErr != nil {
-				return sendErr
-			}
-			return stream.Send(&pb.ChatStreamResponse{Code: 0, Msg: "success", Delta: fallback, Done: true, SessionId: session.ID, CreatedAt: formatTime(time.Now()), EventType: "done", SuggestedQuestions: questions})
-		}
-		if auditErr := s.recordCandidateUsageAudit(ctx, req.GetUserId(), inputChars, 0, "error", "provider_error", int(time.Since(startedAt).Milliseconds())); auditErr != nil {
-			return errors.Join(err, auditErr)
-		}
-		return err
-	}
-	cleanReply, suggestedQuestions := extractCandidateSuggestedQuestions(reply)
-	if len(suggestedQuestions) != 3 {
-		suggestedQuestions = candidateSuggestedQuestions(req.GetMessage(), cleanReply)
-	}
-	if s.store != nil {
-		if _, err := s.store.AppendChatMessage(ctx, ChatMessageRow{OwnerRole: ownerRoleCandidate, OwnerID: req.GetUserId(), SessionID: session.ID, Role: "assistant", Content: cleanReply, CreatedAt: time.Now()}); err != nil {
-			return err
-		}
-	}
-	if err := s.recordCandidateUsageAudit(ctx, req.GetUserId(), inputChars, len([]rune(cleanReply)), "ok", "", int(time.Since(startedAt).Milliseconds())); err != nil {
-		return err
-	}
-	return stream.Send(&pb.ChatStreamResponse{Code: 0, Msg: "success", Delta: cleanReply, Done: true, SessionId: session.ID, CreatedAt: formatTime(time.Now()), EventType: "done", SuggestedQuestions: suggestedQuestions})
-}
+// CandidateChatStream is implemented in native_candidate_chat.go (DEV ADK parity).
 
 func (s *nativeAIService) buildCandidateProviderPrompt(ctx context.Context, userID, sessionID int64, currentUserMessage ChatMessageRow, runtimeContext CandidateRuntimeContext) (string, error) {
 	systemPrompt, err := s.resolveCandidateSystemPrompt(ctx)
@@ -3290,18 +3250,40 @@ func (s *nativeAIService) recordHRUsageAudit(ctx context.Context, req *pb.ChatRe
 	return err
 }
 
-func (s *nativeAIService) recordCandidateUsageAudit(ctx context.Context, userID int64, requestChars, responseChars int, statusValue, errorCode string, costMs int) error {
+type candidateUsageAuditOptions struct {
+	Provider        string
+	Model           string
+	TokenUsageTotal int
+}
+
+func (s *nativeAIService) recordCandidateUsageAudit(ctx context.Context, userID int64, requestChars, responseChars int, statusValue, errorCode string, costMs int, opts ...candidateUsageAuditOptions) error {
 	if statusValue == "" {
 		statusValue = "ok"
+	}
+	provider := "openai_compatible"
+	modelName := ""
+	tokenTotal := 0
+	if len(opts) > 0 {
+		if strings.TrimSpace(opts[0].Provider) != "" {
+			provider = strings.TrimSpace(opts[0].Provider)
+		}
+		modelName = strings.TrimSpace(opts[0].Model)
+		tokenTotal = opts[0].TokenUsageTotal
+	}
+	estimated := estimateTokenUsage(requestChars, responseChars)
+	if tokenTotal <= 0 {
+		tokenTotal = estimated
 	}
 	row := CandidateUsageAuditRow{
 		UserID:          userID,
 		ServiceType:     "ai_chat",
 		Endpoint:        "/candidate/ai/chat/stream",
-		Provider:        "openai_compatible",
+		Provider:        provider,
+		Model:           modelName,
 		RequestChars:    requestChars,
 		ResponseChars:   responseChars,
-		EstimatedTokens: estimateTokenUsage(requestChars, responseChars),
+		EstimatedTokens: estimated,
+		TokenUsageTotal: tokenTotal,
 		Status:          statusValue,
 		ErrorCode:       errorCode,
 		CostMs:          costMs,
@@ -3321,6 +3303,16 @@ func (s *nativeAIService) recordCandidateUsageAudit(ctx context.Context, userID 
 	}
 	_, err := auditStore.RecordCandidateUsageAudit(ctx, row)
 	return err
+}
+
+func tokenUsageTotalFromMeta(usage *schema.TokenUsage) int {
+	if usage == nil {
+		return 0
+	}
+	if usage.TotalTokens > 0 {
+		return usage.TotalTokens
+	}
+	return usage.PromptTokens + usage.CompletionTokens
 }
 
 func estimateTokenUsage(requestChars, responseChars int) int {

@@ -15,8 +15,11 @@ func TestParseWorkloadConfigDefaultsAndDisables(t *testing.T) {
 	if _, ok := enabled["outbox-dispatcher"]; !ok {
 		t.Fatal("default config should enable outbox-dispatcher")
 	}
-	if len(enabled) != 1 {
-		t.Fatalf("default config enabled = %#v, want only outbox-dispatcher", cfg.Enabled)
+	if _, ok := enabled["resume-parse-consumer"]; !ok {
+		t.Fatal("default config should enable resume-parse-consumer")
+	}
+	if len(enabled) != 2 {
+		t.Fatalf("default config enabled = %#v, want outbox-dispatcher and resume-parse-consumer", cfg.Enabled)
 	}
 	if _, ok := enabled["email-consumer"]; ok {
 		t.Fatal("disabled email-consumer should not be enabled")

@@ -81,6 +81,19 @@ type structuredRuntimeClientCache struct {
 // newer client's shared resilience state.
 var structuredRuntimeClientCaches sync.Map // map[*NativeStore]*structuredRuntimeClientCache
 
+// GenerateSessionSummary updates a rolling session summary via the runtime LLM client.
+func (s *NativeStore) GenerateSessionSummary(ctx context.Context, oldSummary string, recentMessages []string) (string, error) {
+	cfg, err := s.selectLLMRuntimeConfig(ctx, 0, 0)
+	if err != nil {
+		return "", err
+	}
+	client, err := s.newRuntimeClient(ctx, cfg)
+	if err != nil {
+		return "", err
+	}
+	return client.GenerateSessionSummary(ctx, oldSummary, recentMessages)
+}
+
 func (s *NativeStore) Complete(ctx context.Context, prompt string) (string, error) {
 	return s.CompleteWithModel(ctx, prompt, 0)
 }

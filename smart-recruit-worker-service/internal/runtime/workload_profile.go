@@ -95,7 +95,7 @@ var DefaultWorkloadProfiles = []WorkloadProfile{
 		Name:        "resume-parse-consumer",
 		Queue:       "RABBITMQ_RESUME_PARSE_QUEUE",
 		Category:    "resume",
-		Toggle:      defaultToggle(false),
+		Toggle:      defaultToggle(true),
 		Description: "Consumes resume parse events and updates resume parsed-text state.",
 		Contract: OwnerContract{
 			OwnerContext: OwnerRecruitment,

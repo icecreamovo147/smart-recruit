@@ -69,7 +69,15 @@ const quickActions = [
 
 const scrollBottom = async () => {
   await nextTick()
-  if (listRef.value) listRef.value.scrollTop = listRef.value.scrollHeight
+  const sb = listRef.value as { setScrollTop?: (top: number) => void; wrapRef?: HTMLElement } | null
+  if (!sb) return
+  const wrap = sb.wrapRef
+  const top = wrap?.scrollHeight ?? 999999
+  if (typeof sb.setScrollTop === 'function') {
+    sb.setScrollTop(top)
+  } else if (wrap) {
+    wrap.scrollTop = top
+  }
 }
 
 const togglePanel = () => {
@@ -419,7 +427,7 @@ onBeforeUnmount(() => {
               <el-icon :size="18"><Close /></el-icon>
             </button>
           </div>
-          <div class="ai-panel__sidebar-list">
+          <el-scrollbar class="ai-panel__sidebar-list">
             <div
               v-for="session in sessions"
               :key="session.session_id"
@@ -438,7 +446,7 @@ onBeforeUnmount(() => {
               </div>
             </div>
             <el-empty v-if="sessions.length === 0" description="暂无会话" :image-size="48" />
-          </div>
+          </el-scrollbar>
         </div>
 
         <!-- Main chat area -->
@@ -460,7 +468,7 @@ onBeforeUnmount(() => {
         </div>
 
         <!-- Messages -->
-        <div ref="listRef" class="ai-panel__messages">
+        <el-scrollbar ref="listRef" class="ai-panel__messages">
           <!-- Quick actions -->
           <div v-if="messages.length === 0 && !loading" class="ai-quick">
             <p class="ai-quick__hint">我是你的 AI 求职助手，可以帮你：</p>
@@ -555,7 +563,7 @@ onBeforeUnmount(() => {
               <div class="ai-typing"><span>思考中</span><span class="ai-typing__dots"><i></i><i></i><i></i></span></div>
             </div>
           </div>
-        </div>
+        </el-scrollbar>
 
         <!-- Input -->
         <div class="ai-panel__input">
@@ -837,9 +845,18 @@ onBeforeUnmount(() => {
 }
 
 .ai-panel__sidebar-list {
-  flex: 1;
-  overflow-y: auto;
+  flex: 1 1 0;
+  min-height: 0;
+  height: 100%;
+}
+
+.ai-panel__sidebar-list :deep(.el-scrollbar__view) {
   padding: 8px;
+  box-sizing: border-box;
+}
+
+.ai-panel__sidebar-list :deep(.el-scrollbar__wrap) {
+  overflow-x: hidden;
 }
 
 .ai-panel__main {
@@ -914,13 +931,22 @@ onBeforeUnmount(() => {
 
 /* Messages */
 .ai-panel__messages {
-  flex: 1;
-  overflow-y: auto;
+  flex: 1 1 0;
+  min-height: 0;
+  height: 100%;
+}
+
+.ai-panel__messages :deep(.el-scrollbar__view) {
   padding: 16px;
+  box-sizing: border-box;
   display: flex;
   flex-direction: column;
   gap: 16px;
-  min-height: 0;
+  min-height: 100%;
+}
+
+.ai-panel__messages :deep(.el-scrollbar__wrap) {
+  overflow-x: hidden;
 }
 
 /* Quick actions */

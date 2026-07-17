@@ -620,6 +620,43 @@ func (s *NativeStore) GetAgentConfig(ctx context.Context, req *pb.GetAgentConfig
 	return &pb.GetAgentConfigResponse{Code: configOK, Msg: "success", Agent: agent}, nil
 }
 
+// defaultCandidateAssistantToolNames is the DEV-parity builtin tool surface for candidate_assistant.
+var defaultCandidateAssistantToolNames = []string{
+	"list_my_applications",
+	"get_my_application_detail",
+	"get_my_resume_text",
+	"list_jobs_for_recommendation",
+	"get_job_detail_for_candidate",
+	"recommend_jobs_by_resume",
+}
+
+// EnsureDefaultCandidateAssistant seeds the default candidate_assistant agent and
+// its six tool bindings when no enabled agent of that type exists (DEV parity).
+func (s *NativeStore) EnsureDefaultCandidateAssistant(ctx context.Context) error {
+	if s == nil || s.db == nil {
+		return gorm.ErrInvalidDB
+	}
+	var count int64
+	if err := s.db.WithContext(ctx).Model(&agentConfigRecord{}).
+		Where("agent_type = ?", "candidate_assistant").
+		Count(&count).Error; err != nil {
+		return err
+	}
+	if count > 0 {
+		return nil
+	}
+	_, err := s.CreateAgent(ctx, &pb.CreateAgentRequest{
+		Name:          "candidate_assistant",
+		DisplayName:   "候选人 AI 助手",
+		Description:   "为候选人提供投递进度查询、岗位推荐、简历优化建议的 AI 助手",
+		AgentType:     "candidate_assistant",
+		MaxIterations: 5,
+		IsDefault:     true,
+		ToolNames:     append([]string(nil), defaultCandidateAssistantToolNames...),
+	})
+	return err
+}
+
 func (s *NativeStore) CreateEmbeddingProvider(ctx context.Context, req *pb.CreateEmbeddingProviderRequest) (*pb.EmbeddingProviderResponse, error) {
 	if strings.TrimSpace(req.GetName()) == "" || strings.TrimSpace(req.GetProviderType()) == "" || strings.TrimSpace(req.GetEndpoint()) == "" {
 		return &pb.EmbeddingProviderResponse{Code: configBadRequest, Msg: "name, provider_type, and endpoint are required"}, nil

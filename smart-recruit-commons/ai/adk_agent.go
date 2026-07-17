@@ -181,6 +181,7 @@ func (c *Client) ChatWithADKAgent(
 		if mv.IsStreaming && mv.MessageStream != nil {
 			var turnBuilder strings.Builder
 			var turnHasToolCall bool
+			var streamedAsReply bool
 			chunks := make([]*schema.Message, 0, 16)
 			for {
 				chunk, chunkErr := mv.MessageStream.Recv()
@@ -198,19 +199,33 @@ func (c *Client) ChatWithADKAgent(
 					continue
 				}
 				chunks = append(chunks, chunk)
-				if chunk.Content != "" {
-					turnBuilder.WriteString(chunk.Content)
-				}
 				if len(chunk.ToolCalls) > 0 {
 					toolCallsObserved = true
 					turnHasToolCall = true
 				}
+				if chunk.Content == "" {
+					continue
+				}
+				turnBuilder.WriteString(chunk.Content)
+				// Stream final-answer tokens as they arrive. Tool-call turns keep
+				// content buffered for process_delta (planning text, not the answer).
+				if !turnHasToolCall {
+					if err := flushReply(chunk.Content); err != nil {
+						return replyBuilder.String(), state.ReadMetadata(), err
+					}
+					streamedAsReply = true
+				}
 			}
 			if turnHasToolCall {
-				if err := emitProcess(turnBuilder.String()); err != nil {
-					return replyBuilder.String(), state.ReadMetadata(), err
+				// Planning / tool-call turn: surface buffered text as process, not answer.
+				// Skip if we already mistakenly streamed content as reply before tool_calls appeared.
+				if !streamedAsReply {
+					if err := emitProcess(turnBuilder.String()); err != nil {
+						return replyBuilder.String(), state.ReadMetadata(), err
+					}
 				}
-			} else if turnBuilder.Len() > 0 {
+			} else if turnBuilder.Len() > 0 && !streamedAsReply {
+				// Non-chunked content path fallback (provider returned one block).
 				if err := flushReply(turnBuilder.String()); err != nil {
 					return replyBuilder.String(), state.ReadMetadata(), err
 				}

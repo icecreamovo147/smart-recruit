@@ -378,6 +378,9 @@ message ListPublicJobsRequest {
   int32 page_size = 2;
   string keyword = 3;
   string cursor = 4;
+  // Optional multi-select filters (public job board facets).
+  repeated int64 department_ids = 5;
+  repeated int64 location_ids = 6;
 }
 
 message GetJobDetailRequest {

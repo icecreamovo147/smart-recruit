@@ -142,17 +142,47 @@ export interface Job {
   status?: number
   application_count?: number
   created_at?: string
+  department_id?: number
+  location_id?: number
   // camelCase fallbacks for API inconsistency
   jobId?: number
   salaryRange?: string
   applicationCount?: number
   createdAt?: string
+  departmentId?: number
+  locationId?: number
 }
 
 export interface JobQuery {
   page: number
   page_size: number
   keyword?: string
+  department_ids?: number[]
+  location_ids?: number[]
+}
+
+export interface DepartmentNode {
+  id: number
+  parent_id: number
+  name: string
+  full_name: string
+  is_active: number
+  sort_order: number
+  depth: number
+  children: DepartmentNode[]
+}
+
+export interface LocationOption {
+  id: number
+  name: string
+  code: string
+  is_active: number
+  sort_order: number
+}
+
+export interface JobOptionsResponse {
+  department_tree: DepartmentNode[]
+  locations: LocationOption[]
 }
 
 export interface JobCreatePayload {

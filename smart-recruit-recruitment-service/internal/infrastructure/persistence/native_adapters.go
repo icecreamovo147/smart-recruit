@@ -606,6 +606,12 @@ func (a *jobAdapter) ListPublicJobs(ctx context.Context, req *pb.ListPublicJobsR
 		like := "%" + keyword + "%"
 		query = query.Where("title LIKE ? OR department LIKE ? OR location LIKE ?", like, like, like)
 	}
+	if ids := positiveIDs(req.GetDepartmentIds()); len(ids) > 0 {
+		query = query.Where("department_id IN ?", ids)
+	}
+	if ids := positiveIDs(req.GetLocationIds()); len(ids) > 0 {
+		query = query.Where("location_id IN ?", ids)
+	}
 	return a.listJobs(query, page(req.Page), pageSize(req.PageSize))
 }
 
@@ -2530,6 +2536,25 @@ func positivePtr(v int64) *int64 {
 		return nil
 	}
 	return &v
+}
+
+func positiveIDs(ids []int64) []int64 {
+	if len(ids) == 0 {
+		return nil
+	}
+	out := make([]int64, 0, len(ids))
+	seen := make(map[int64]struct{}, len(ids))
+	for _, id := range ids {
+		if id <= 0 {
+			continue
+		}
+		if _, ok := seen[id]; ok {
+			continue
+		}
+		seen[id] = struct{}{}
+		out = append(out, id)
+	}
+	return out
 }
 
 func positiveUintPtr(v uint64) *uint64 {

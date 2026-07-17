@@ -138,8 +138,9 @@ func TestControlledStartersRunsOutboxAndRejectsUnsupportedWorkloads(t *testing.T
 	}
 
 	err := starters["resume-parse-consumer"].Start(context.Background())
-	if err == nil || !strings.Contains(err.Error(), "not implemented in worker-service yet") {
-		t.Fatalf("resume-parse-consumer error = %v", err)
+	if err == nil || !strings.Contains(err.Error(), "requires") {
+		// Without DB/MQ/OSS the starter must fail closed with a clear dependency error.
+		t.Fatalf("resume-parse-consumer error = %v, want dependency error", err)
 	}
 	err = starters["notification-consumer"].Start(context.Background())
 	if err == nil || !strings.Contains(err.Error(), "notification-service owns this consumer") {

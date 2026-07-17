@@ -202,6 +202,34 @@ func (s *NativeStore) ListChatMessages(ctx context.Context, ownerRole int32, own
 	return result, nil
 }
 
+// ListRecentChatMessages returns the newest messages for a session in chronological order.
+func (s *NativeStore) ListRecentChatMessages(ctx context.Context, ownerRole int32, ownerID, sessionID int64, limit int32) ([]aiagentgrpc.ChatMessageRow, error) {
+	if limit <= 0 {
+		limit = 20
+	}
+	if limit > 100 {
+		limit = 100
+	}
+	query := s.db.WithContext(ctx).Model(&aiChatHistoryRecord{})
+	query = applyChatOwnerScope(query, ownerRole, ownerID)
+	if sessionID > 0 {
+		query = query.Where("session_id = ?", sessionID)
+	}
+	var rows []aiChatHistoryRecord
+	if err := query.Order("created_at DESC, id DESC").Limit(int(limit)).Find(&rows).Error; err != nil {
+		return nil, err
+	}
+	// Reverse to chronological ascending for agent message assembly.
+	for i, j := 0, len(rows)-1; i < j; i, j = i+1, j-1 {
+		rows[i], rows[j] = rows[j], rows[i]
+	}
+	result := make([]aiagentgrpc.ChatMessageRow, 0, len(rows))
+	for _, row := range rows {
+		result = append(result, mapMessageRecord(row))
+	}
+	return result, nil
+}
+
 func (s *NativeStore) ListToolTraces(ctx context.Context, ownerID, sessionID int64) ([]aiagentgrpc.ToolTraceRow, error) {
 	var rows []aiToolTraceRecord
 	query := s.db.WithContext(ctx).Where("hr_id = ?", ownerID)
