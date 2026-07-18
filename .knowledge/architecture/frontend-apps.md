@@ -16,7 +16,12 @@ applies_to:
   - hr-frontend/src/**
   - user-frontend/src/**
   - interviewer-frontend/src/**
+  - packages/shared/src/**
 source_refs:
+  - pnpm-workspace.yaml
+  - hr-frontend/tsconfig.json
+  - user-frontend/tsconfig.json
+  - interviewer-frontend/tsconfig.json
   - hr-frontend/src/router/index.ts
   - user-frontend/src/router/index.ts
   - interviewer-frontend/src/router/index.ts
@@ -31,7 +36,10 @@ source_refs:
   - interviewer-frontend/src/components/NotificationBell.vue
   - hr-frontend/src/components/admin-console/PageHeader.vue
   - hr-frontend/src/components/admin-console/DataTableCard.vue
-last_verified: 2026-07-10
+  - packages/shared/src/components/EmailSetupDialog.vue
+  - packages/shared/src/types/domain.ts
+  - packages/shared/src/utils/token.ts
+last_verified: 2026-07-19
 review_after: 2026-10-08
 ---
 
@@ -43,7 +51,7 @@ The repository has three Vue 3 + Vite apps with shared patterns but different us
 - `user-frontend` serves candidates, public job browsing, profile, resume upload, applications, interviews, offers, and candidate AI.
 - `interviewer-frontend` serves staff interviewers with assigned interviews, feedback, notifications, and profile.
 
-Each app keeps its own `src/router`, `src/stores`, `src/api`, `src/types`, `src/components`, `src/views`, `src/utils`, and app-level styles. Avoid creating cross-app hidden dependencies; duplicate small app-specific wiring when behavior or permissions differ.
+Each app keeps its own `src/router`, `src/stores`, `src/api`, `src/types`, `src/components`, `src/views`, `src/utils`, and app-level styles. Deliberately shared components, types, utilities, and brand assets live under `packages/shared/src/` and are imported through the configured `@shared/*` alias. Do not import source directly from another frontend app; keep behavior- or permission-specific wiring local even when a lower-level primitive is shared.
 
 ## Routing and Auth
 
@@ -85,7 +93,8 @@ HR admin and AI configuration pages use the `admin-console` component family for
 - API helper/type changes that affect gateway contracts.
 - Notification polling/SSE/link behavior.
 - HR admin menu, route, or admin-console layout changes.
+- Shared package changes, which require checking every consuming app rather than only the file's nearest frontend.
 
 ## Verification
 
-Verified against current routers, auth stores, request wrappers, notification bells, admin-console components, and representative HR/candidate/interviewer views on 2026-07-10.
+Verified against the pnpm workspace, shared-package aliases and consumers, current routers, auth stores, request wrappers, notification bells, admin-console components, and representative HR/candidate/interviewer views on 2026-07-19.

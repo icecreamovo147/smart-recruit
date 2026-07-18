@@ -34,7 +34,7 @@ source_refs:
   - smart-recruit-gateway/handler/hr/embedding_config.go
   - smart-recruit-gateway/handler/hr/prompt.go
   - smart-recruit-gateway/handler/hr/agent_config.go
-last_verified: 2026-07-18
+last_verified: 2026-07-19
 review_after: 2026-10-14
 ---
 
@@ -58,4 +58,4 @@ Durable Run governance uses the configuration that was effective when the Run wa
 
 ## Verification
 
-Verified against cumulative configuration stores, Prompt binding/rendering, Tool allowlist/evidence-gate/iteration-control, durable governance, bounded aggregation, structured runtime, and prompt refresh/privacy tests on 2026-07-16.
+Verified against cumulative configuration stores, Prompt binding/rendering, Tool allowlist/evidence-gate/iteration-control, durable governance, bounded aggregation, structured runtime, and prompt refresh/privacy tests on 2026-07-19.

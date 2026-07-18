@@ -49,7 +49,7 @@ source_refs:
   - smart-recruit-offer-service/internal/infrastructure/persistence/offer_repository.go
   - smart-recruit-offer-service/internal/infrastructure/mq/outbox_publisher.go
   - smart-recruit-commons/internal/platform/events/envelope.go
-last_verified: 2026-07-15
+last_verified: 2026-07-19
 review_after: 2026-10-14
 ---
 
@@ -71,4 +71,4 @@ For HR-wide application/candidate reads, AI Agent composes the existing HR job i
 
 ## Verification
 
-Verified against current service adapters, bounded HR aggregation, persistence mappings, table ownership, and generated contracts on 2026-07-16.
+Verified against current service adapters, bounded HR aggregation, persistence mappings, table ownership, and generated contracts on 2026-07-19.

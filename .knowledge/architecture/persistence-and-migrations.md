@@ -35,7 +35,7 @@ source_refs:
   - smart-recruit-recruitment-service/internal/infrastructure/persistence/native_adapters.go
   - smart-recruit-analytics-service/internal/infrastructure/projection/gorm_store.go
   - smart-recruit-recruitment-service/internal/domain/repository/recruitment.go
-last_verified: 2026-07-18
+last_verified: 2026-07-19
 review_after: 2026-10-14
 ---
 
@@ -51,4 +51,4 @@ GORM table records that are needed by a bounded service should stay private to t
 
 ## Verification
 
-Verified against current repository files on 2026-07-14.
+Verified against current repository files on 2026-07-19.

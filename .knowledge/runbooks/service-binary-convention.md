@@ -16,6 +16,8 @@ applies_to:
   - smart-recruit-*-service/cmd/**
   - smart-recruit-worker-service/**
   - smart-recruit-deploy/**
+  - deploy/**
+  - docker/**
 source_refs:
   - smart-recruit-platform-go/servicebinary/convention.go
   - smart-recruit-platform-go/servicebinary/convention_test.go
@@ -30,14 +32,16 @@ source_refs:
   - smart-recruit-worker-service/cmd/worker-service/main.go
   - smart-recruit-deploy/docker/go-service.Dockerfile
   - smart-recruit-deploy/docker-compose.microservices.yml
-last_verified: 2026-07-14
+  - deploy/k8s/README-service-binaries.md
+  - docker/docker-compose.yml
+last_verified: 2026-07-19
 review_after: 2026-10-14
 ---
 
 # Service Binary Convention Runbook
 
-Service unit conventions live in `smart-recruit-platform-go/servicebinary/`. Each independent service has a `cmd/<service>/main.go` entrypoint and service-owned runtime package. Docker build and local microservice composition live under `smart-recruit-deploy/`. Review command name, image name, config prefix, health/readiness, internal gRPC token/TLS, metrics, and route-mode defaults before changing a service binary.
+Service unit conventions live in `smart-recruit-platform-go/servicebinary/`. Each independent service has a `cmd/<service>/main.go` entrypoint and service-owned runtime package. Microservice image and composition assets live under `smart-recruit-deploy/`; the full local/container stack lives under `docker/`; Kubernetes manifests and service-binary deployment notes live under `deploy/k8s/`. Review command name, image name, config prefix, health/readiness, internal gRPC token/TLS, metrics, and route-mode defaults before changing a service binary or its deployment surface.
 
 ## Verification
 
-Verified against current repository files on 2026-07-14.
+Verified against current service entrypoints, binary conventions, Docker assets, microservice composition, and Kubernetes deployment notes on 2026-07-19.

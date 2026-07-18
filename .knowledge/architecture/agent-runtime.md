@@ -32,7 +32,7 @@ source_refs:
   - smart-recruit-commons/ai/fallback.go
   - smart-recruit-commons/ai/anthropic_chatmodel.go
   - hr-frontend/src/views/hr/AIChatView.vue
-last_verified: 2026-07-18
+last_verified: 2026-07-19
 review_after: 2026-10-14
 ---
 
@@ -70,4 +70,4 @@ Recruiting stage diagnostics pass through an idempotent fail-closed normalizatio
 
 ## Verification
 
-Verified against current repository files and cumulative HR Tool, bounded aggregation, MCP, live-data evidence-gate, Prompt/Skill, durable Run, application-analysis message, Anthropic envelope, and recruiting runtime tests on 2026-07-16.
+Verified against current repository files and cumulative HR Tool, bounded aggregation, MCP, live-data evidence-gate, Prompt/Skill, durable Run, application-analysis message, Anthropic envelope, and recruiting runtime tests on 2026-07-19.

@@ -35,6 +35,7 @@ routes:
     documents:
       - system-overview
       - local-development
+      - knowledge-coverage-audit
     triggers:
       - covered-path-changed
       - configuration-changed
@@ -56,12 +57,15 @@ routes:
       - hr-frontend/**
       - user-frontend/**
       - interviewer-frontend/**
+      - packages/shared/**
       - smart-recruit-gateway/**
       - smart-recruit-*-service/**
       - smart-recruit-commons/**
       - smart-recruit-platform-go/**
       - smart-recruit-proto/**
       - smart-recruit-deploy/**
+      - deploy/**
+      - docker/**
     documents:
       - system-overview
       - service-boundaries
@@ -189,6 +193,7 @@ routes:
       - service-boundary-changed
 
   - match:
+      - smart-recruit-commons/cmd/migrate/**
       - smart-recruit-commons/migration/**
       - smart-recruit-commons/migrations/**
       - smart-recruit-*-service/internal/infrastructure/persistence/**
@@ -198,6 +203,7 @@ routes:
       - persistence-and-migrations
       - migration-model-drift
       - protobuf-and-migration-change
+      - local-development
     triggers:
       - covered-path-changed
       - database-schema-changed
@@ -254,6 +260,7 @@ routes:
       - hr-frontend/**
       - user-frontend/**
       - interviewer-frontend/**
+      - packages/shared/**
     documents:
       - frontend-apps
       - frontend-validation
@@ -267,6 +274,8 @@ routes:
       - smart-recruit-*-service/cmd/**
       - smart-recruit-worker-service/**
       - smart-recruit-deploy/**
+      - deploy/**
+      - docker/**
     documents:
       - service-binary-convention
       - service-boundaries

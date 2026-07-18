@@ -13,14 +13,23 @@ tags:
   - harness
 applies_to:
   - .knowledge/**
-  - .spec/populate-development-agent-knowledge/**
+  - .spec/development-agent-knowledge-base/**
+  - .spec/knowledge-base-current-state-refresh/**
 source_refs:
+  - AGENTS.md
   - .knowledge/README.md
   - .knowledge/INDEX.md
   - .knowledge/manifest.yaml
-  - .spec/populate-development-agent-knowledge/populate-development-agent-knowledge-SPEC.md
-  - .spec/populate-development-agent-knowledge/populate-development-agent-knowledge-SDD.md
-last_verified: 2026-07-14
+  - .knowledge/architecture/auth-rbac-security.md
+  - .knowledge/architecture/api-contracts-and-gateway.md
+  - .knowledge/architecture/frontend-apps.md
+  - .knowledge/architecture/persistence-and-migrations.md
+  - .knowledge/domains/notification-outbox.md
+  - .knowledge/domains/recruitment-lifecycle.md
+  - .knowledge/runbooks/local-development.md
+  - .spec/development-agent-knowledge-base/development-agent-knowledge-base-SPEC.md
+  - .spec/knowledge-base-current-state-refresh/knowledge-base-current-state-refresh-SPEC.md
+last_verified: 2026-07-19
 review_after: 2026-10-08
 ---
 
@@ -35,27 +44,27 @@ Use this runbook when expanding or reviewing the coding-Agent knowledge layer. T
 - High-risk uncovered: the area includes auth, authorization, public contracts, schema, sensitive data, AI configuration, MCP tools, or cross-surface business workflows without a focused route.
 - Low-risk uncovered: the area is simple, local, or rarely changed, and broad system knowledge is enough for now.
 
-## First-Round Coverage Map
+## Current Coverage Map
 
-| Area | Current status | Planned owner TASK |
+| Area | Current status | Remaining review focus |
 |---|---|---|
-| System overview and service boundaries | Covered by initial architecture documents | Existing knowledge |
-| Agent runtime, semantic retrieval, Skill, Memory, Embedding fallback | Covered by active AI Agent runtime, semantic retrieval, Agent Skill, memory/context, and embedding fallback documents | Existing knowledge |
-| Auth, refresh tokens, RBAC, data scopes, security audit | High-risk uncovered | TASK-002 |
-| Gin gateway, handlers, middleware, gRPC clients | Partially covered by service boundaries | TASK-003 |
-| Proto, generated code, migrations, model, repository | Partially covered by proto pitfall and recruitment domain | TASK-003 |
-| Jobs, applications, interviews, offers | Partially covered by recruitment domain | TASK-004 |
-| Collaboration, notification, outbox, SSE, analytics | Partially covered; Analytics projection has a draft Inbox candidate pending promotion | TASK-004 / TASK-BDME-024 |
-| LLM providers/models, prompt templates, Agent config, MCP tools | Covered by AI configuration governance and MCP tool governance documents | Existing knowledge |
-| Resume upload, parsing, structured profile, candidate matching | Covered by resume intelligence and resume sensitive data documents | Existing knowledge |
-| Three Vue apps, route guards, auth stores, API wrappers, validation | Partially covered by system overview and HR admin pitfall | TASK-007 |
-| Deployment and infrastructure | Low-risk partially covered by local-development | Follow-up if deployment work becomes active |
-| Email delivery | Low-risk uncovered relative to current request | Follow-up or notification TASK extension |
-| Command-line tools under service `cmd/` directories | Low-risk uncovered | Follow-up if tool work begins |
+| System overview and service boundaries | Covered by active system overview and service-boundary documents | Recheck on new top-level modules or ownership changes |
+| Agent runtime, semantic retrieval, Skill, Memory, Embedding fallback | Covered by focused active Agent documents and pitfalls | Recheck on provider, retrieval, memory, or fallback behavior changes |
+| Auth, refresh tokens, RBAC, data scopes, security audit | Covered by focused architecture, runbook, and alignment pitfall documents | Keep gateway, Identity, frontend permission metadata, and seed catalog aligned |
+| Gin gateway, handlers, middleware, gRPC clients | Covered by gateway/API architecture, service boundaries, and local-development routing | Recheck on route, middleware, metadata, or public contract changes |
+| Proto, generated code, migrations, model, repository | Covered by protobuf, persistence/migration architecture, runbook, and drift pitfalls | Recheck generated contracts, baseline schema, ownership, and adapters together |
+| Jobs, applications, interviews, offers | Covered by recruitment and lifecycle documents plus debugging/status pitfalls | Recheck cross-context transitions and frontend labels together |
+| Collaboration, notification, outbox, SSE, analytics | Notification/outbox and cross-context drift are covered; Analytics remains broad rather than having a dedicated active domain document | Add focused Analytics knowledge if projection work becomes frequent or high risk |
+| LLM providers/models, prompt templates, Agent config, MCP tools | Covered by AI configuration and MCP governance documents | Recheck secrets, policy, provenance, and runtime binding behavior |
+| Resume upload, parsing, structured profile, candidate matching | Covered by resume intelligence, diagnostics, and sensitive-data pitfall documents | Recheck privacy and source ownership on every data-flow change |
+| Three Vue apps and `packages/shared` | Covered by frontend architecture, validation, menu pitfall, and explicit shared-package routing | Validate every consuming app for shared-package changes |
+| Deployment and infrastructure | Covered across system overview, local development, service-binary convention, and routes for `docker/`, `deploy/`, and `smart-recruit-deploy/` | Recheck service names, images, health, and configuration together |
+| Email delivery | Partially covered by notification/outbox knowledge | Add a focused delivery runbook if provider/retry operations expand |
+| Command-line tools under `cmd/` directories | Migration command is explicitly routed; service binaries are covered by convention knowledge | Add focused routes for other operational commands when they gain independent workflows |
 
 ## Audit Procedure
 
-1. Read `AGENTS.md`, the active feature contract, `.knowledge/README.md`, `INDEX.md`, and `manifest.yaml`.
+1. Read `AGENTS.md`, `.knowledge/README.md`, `INDEX.md`, and `manifest.yaml`. Read an active feature contract only when the user explicitly named `spec-harness` or instructed the Agent to use the repository Harness workflow.
 2. List planned changed paths and match them against manifest routes.
 3. Classify each touched area as covered, partially covered, high-risk uncovered, or low-risk uncovered.
 4. Verify critical knowledge claims against each document's `source_refs`.
@@ -81,4 +90,8 @@ node .knowledge/scripts/validate-knowledge.mjs --root .
 node .knowledge/scripts/check-references.mjs --root .
 ```
 
-When a reliable TASK base tree exists, also run the task scope and agent checks from the active feature harness.
+When the current work explicitly uses an active Harness feature and has a reliable TASK base tree, also run its task-scope and agent checks. Do not invoke `spec-harness` or create a feature contract solely because this coverage audit is being used.
+
+## Verification
+
+Verified against the active knowledge catalog, manifest routes, current frontend shared package, migration startup path, deployment roots, and current knowledge-validation workflow on 2026-07-19.
