@@ -6,14 +6,14 @@
 
 It is not a product runtime knowledge base, a replacement for code or specifications, or a store for Agent conversations and reasoning.
 
-The root `AGENTS.md` is the durable entry point. This directory is read after `AGENTS.md` and the active `.spec/<feature-name>/` contract for non-trivial TASKs.
+The root `AGENTS.md` is the durable entry point. This directory is read after `AGENTS.md`; an active `.spec/<feature-name>/` contract is read first only when the user explicitly names `spec-harness` or instructs the Agent to use the repository Harness workflow.
 
 ## 2. Authority Order
 
 When sources conflict, use this order:
 
 1. Security constraints and the nearest applicable `AGENTS.md`.
-2. The active `.spec/<feature-name>/` SPEC, SDD, TASK, acceptance, and runtime evidence.
+2. When its Harness workflow was explicitly activated, the active `.spec/<feature-name>/` SPEC, SDD, TASK, acceptance, and runtime evidence.
 3. Proto definitions, database schemas, current code, and tests.
 4. Accepted ADRs under `.knowledge/decisions/`.
 5. Active formal knowledge under `.knowledge/`.
@@ -41,9 +41,9 @@ Ordinary knowledge documents are descriptive evidence and navigation. They canno
 
 ## 4. Reading Protocol
 
-For every non-trivial TASK:
+For every non-trivial task:
 
-1. Read `AGENTS.md` and the active feature contract first.
+1. Read `AGENTS.md` first. Read an active feature contract only when the user explicitly names `spec-harness` or instructs the Agent to use the repository Harness workflow; SPEC/SDD, planning, implementation, review, or fix requests alone do not activate it.
 2. Read this file.
 3. Use `manifest.yaml` routes against the planned file scope.
 4. Use `INDEX.md` for stable domain navigation.
@@ -83,9 +83,9 @@ The following require human confirmation and must start as an Inbox candidate or
 - public API compatibility policy;
 - reversal of an accepted ADR.
 
-## 6. Mandatory Knowledge Impact Check
+## 6. Harness Knowledge Impact Check
 
-Every non-trivial TASK must report:
+Every explicitly activated non-trivial Harness TASK must report:
 
 ```yaml
 knowledge_impact:
@@ -115,11 +115,11 @@ Each routed document receives exactly one verdict:
 - `CANDIDATE`
 - `CONFLICT`
 
-Mechanical routes decide what must be reviewed. The Agent must not skip review merely because it considers the change unimportant.
+Mechanical routes decide what must be reviewed inside an explicitly activated Harness TASK. The Agent must not skip that review merely because it considers the change unimportant. Ordinary non-Harness work should still use the routes for focused reading, but it does not create Harness evidence or invoke Harness phases unless the user asks.
 
 ## 7. Scope and Conflict Handling
 
-- Knowledge changes are TASK changes and must be allowed by `task-scope.json`.
+- Inside an explicitly activated Harness workflow, knowledge changes are TASK changes and must be allowed by `task-scope.json`.
 - If an affected document is outside scope, report `STALE` or `CANDIDATE`; do not edit it.
 - If knowledge conflicts with a higher-authority source, report `CONFLICT` and identify the evidence.
 - If a new core module, public contract, schema, or configuration surface has no route, report `coverage_gap`.
@@ -191,6 +191,8 @@ node .knowledge/scripts/knowledge-validator.test.mjs
 node .knowledge/scripts/validate-knowledge.mjs --root .
 node .knowledge/scripts/check-references.mjs --root .
 node .agents/skills/spec-harness/scripts/validate-feature.mjs --feature .spec/development-agent-knowledge-base
+node .agents/skills/spec-harness/scripts/validate-feature.mjs --feature .spec/knowledge-base-current-state-refresh
+node .agents/skills/spec-harness/scripts/validate-feature.mjs --feature .spec/github-ci-current-state-refresh
 node .agents/skills/spec-harness/scripts/validator.test.mjs
 git diff --check
 ```

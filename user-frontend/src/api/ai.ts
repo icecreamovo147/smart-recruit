@@ -7,7 +7,14 @@ import type { StreamHandlers, StreamPayload, CandidateSession } from '@/types/ai
 import request from './request'
 import { silentRefresh } from './authRefresh'
 
-export const sendMessage = (data: { message: string; session_id?: number }): Promise<{
+export interface CandidateAISessionSource {
+  session_type?: string
+  source_type?: string
+  source_id?: number
+  source_title?: string
+}
+
+export const sendMessage = (data: { message: string; session_id?: number; model_id?: number } & CandidateAISessionSource): Promise<{
   reply: string
   created_at: string
   session_id?: number
@@ -17,17 +24,32 @@ export const sendMessage = (data: { message: string; session_id?: number }): Pro
   suggestedQuestions?: string[] | string
 }> => request.post('/api/v1/candidate/ai/chat', data)
 
-export const listSessions = (params: { page: number; page_size: number }): Promise<{
+export const listSessions = (params: {
+  page: number
+  page_size: number
+  keyword?: string
+  session_type?: string
+  source_type?: string
+  source_id?: number
+}): Promise<{
   total: number
   list: CandidateSession[]
 }> => request.get('/api/v1/candidate/ai/sessions', { params })
 
-export const createSession = (data: { title?: string }): Promise<{
+export const createSession = (data: { title?: string; initial_message?: string } & CandidateAISessionSource): Promise<{
   session: CandidateSession
 }> => request.post('/api/v1/candidate/ai/sessions', data)
 
 export const getSessionMessages = (sessionId: number, params: { page: number; page_size: number }): Promise<{
-  list: { role: string; content: string; created_at: string }[]
+  list: {
+    role: string
+    content: string
+    created_at: string
+    model_name?: string
+    process_content?: string
+    suggested_questions?: string[] | string
+    suggestedQuestions?: string[] | string
+  }[]
 }> => request.get(`/api/v1/candidate/ai/sessions/${sessionId}/messages`, { params })
 
 export const updateSession = (sessionId: number, data: { title: string }): Promise<void> =>
@@ -72,8 +94,12 @@ const handleStreamPayload = (text: string, handlers: StreamHandlers): boolean =>
     if (payload.event_type && payload.event_type === 'error') {
       handlers.onError?.(payload.error_type || '', payload.event_message || payload.msg || '', payload)
     }
-    if (payload.event_type && payload.event_message && !payload.delta) {
-      handlers.onStatus?.(payload.event_type, payload.event_message, payload)
+    if (
+      payload.event_type
+      && !payload.delta
+      && (payload.event_message || payload.event_type === 'model_info' || payload.context_usage)
+    ) {
+      handlers.onStatus?.(payload.event_type, payload.event_message || '', payload)
     }
     if (payload.delta) {
       handlers.onDelta?.(payload.delta, payload)
@@ -89,7 +115,7 @@ const handleStreamPayload = (text: string, handlers: StreamHandlers): boolean =>
 }
 
 export const sendMessageStream = async (
-  data: { message: string; session_id?: number },
+  data: { message: string; session_id?: number; model_id?: number } & CandidateAISessionSource,
   handlers: StreamHandlers = {},
   options: { signal?: AbortSignal; silentAbort?: boolean } = {},
 ): Promise<void> => {

@@ -1,0 +1,260 @@
+{
+  "schemaVersion": 2,
+  "feature_name": "hr-agent-tool-runtime-closure",
+  "contractRevision": 5,
+  "requirements": [
+    {
+      "id": "FR-001",
+      "mandatory": true,
+      "status": "planned",
+      "design_refs": [
+        "hr-agent-tool-runtime-closure-SDD.md#flow-001--governance-resolution"
+      ],
+      "task_ids": [
+        "TASK-001",
+        "TASK-005"
+      ],
+      "acceptance_ids": [
+        "ACASE-001",
+        "ACASE-020"
+      ],
+      "check_ids": [
+        "CHECK-001",
+        "CHECK-009"
+      ],
+      "evidence_refs": []
+    },
+    {
+      "id": "MCP-001",
+      "mandatory": true,
+      "status": "planned",
+      "design_refs": [
+        "hr-agent-tool-runtime-closure-SDD.md#flow-001--governance-resolution"
+      ],
+      "task_ids": [
+        "TASK-001",
+        "TASK-005"
+      ],
+      "acceptance_ids": [
+        "ACASE-002",
+        "ACASE-020"
+      ],
+      "check_ids": [
+        "CHECK-002",
+        "CHECK-009"
+      ],
+      "evidence_refs": []
+    },
+    {
+      "id": "ERR-001",
+      "mandatory": true,
+      "status": "planned",
+      "design_refs": [
+        "hr-agent-tool-runtime-closure-SDD.md#flow-002--tool-result-contract"
+      ],
+      "task_ids": [
+        "TASK-001",
+        "TASK-005"
+      ],
+      "acceptance_ids": [
+        "ACASE-003",
+        "ACASE-020"
+      ],
+      "check_ids": [
+        "CHECK-001",
+        "CHECK-009"
+      ],
+      "evidence_refs": []
+    },
+    {
+      "id": "FR-002",
+      "mandatory": true,
+      "status": "planned",
+      "design_refs": [
+        "hr-agent-tool-runtime-closure-SDD.md#flow-003--required-live-data-execution"
+      ],
+      "task_ids": [
+        "TASK-002",
+        "TASK-005"
+      ],
+      "acceptance_ids": [
+        "ACASE-004",
+        "ACASE-020"
+      ],
+      "check_ids": [
+        "CHECK-004",
+        "CHECK-009",
+        "CHECK-010"
+      ],
+      "evidence_refs": []
+    },
+    {
+      "id": "CFG-001",
+      "mandatory": true,
+      "status": "planned",
+      "design_refs": [
+        "hr-agent-tool-runtime-closure-SDD.md#flow-004--iteration-control"
+      ],
+      "task_ids": [
+        "TASK-002",
+        "TASK-005"
+      ],
+      "acceptance_ids": [
+        "ACASE-005",
+        "ACASE-020"
+      ],
+      "check_ids": [
+        "CHECK-003",
+        "CHECK-009",
+        "CHECK-010"
+      ],
+      "evidence_refs": []
+    },
+    {
+      "id": "FR-003",
+      "mandatory": true,
+      "status": "planned",
+      "design_refs": [
+        "hr-agent-tool-runtime-closure-SDD.md#flow-003--required-live-data-execution"
+      ],
+      "task_ids": [
+        "TASK-001",
+        "TASK-002",
+        "TASK-005"
+      ],
+      "acceptance_ids": [
+        "ACASE-003",
+        "ACASE-004",
+        "ACASE-020"
+      ],
+      "check_ids": [
+        "CHECK-002",
+        "CHECK-004",
+        "CHECK-009"
+      ],
+      "evidence_refs": []
+    },
+    {
+      "id": "FR-004",
+      "mandatory": true,
+      "status": "planned",
+      "design_refs": [
+        "hr-agent-tool-runtime-closure-SDD.md#flow-005--prompt-and-skill-compilation"
+      ],
+      "task_ids": [
+        "TASK-003",
+        "TASK-005"
+      ],
+      "acceptance_ids": [
+        "ACASE-006",
+        "ACASE-020"
+      ],
+      "check_ids": [
+        "CHECK-005",
+        "CHECK-006",
+        "CHECK-009",
+        "CHECK-011"
+      ],
+      "evidence_refs": []
+    },
+    {
+      "id": "FR-005",
+      "mandatory": true,
+      "status": "planned",
+      "design_refs": [
+        "hr-agent-tool-runtime-closure-SDD.md#flow-005--prompt-and-skill-compilation"
+      ],
+      "task_ids": [
+        "TASK-003",
+        "TASK-005"
+      ],
+      "acceptance_ids": [
+        "ACASE-007",
+        "ACASE-020"
+      ],
+      "check_ids": [
+        "CHECK-005",
+        "CHECK-009"
+      ],
+      "evidence_refs": []
+    },
+    {
+      "id": "OBS-001",
+      "mandatory": true,
+      "status": "planned",
+      "design_refs": [
+        "hr-agent-tool-runtime-closure-SDD.md#flow-006--durable-governance-and-events"
+      ],
+      "task_ids": [
+        "TASK-004",
+        "TASK-005"
+      ],
+      "acceptance_ids": [
+        "ACASE-008",
+        "ACASE-020"
+      ],
+      "check_ids": [
+        "CHECK-007",
+        "CHECK-009"
+      ],
+      "evidence_refs": []
+    },
+    {
+      "id": "EVT-001",
+      "mandatory": true,
+      "status": "planned",
+      "design_refs": [
+        "hr-agent-tool-runtime-closure-SDD.md#flow-006--durable-governance-and-events"
+      ],
+      "task_ids": [
+        "TASK-004",
+        "TASK-005"
+      ],
+      "acceptance_ids": [
+        "ACASE-009",
+        "ACASE-020"
+      ],
+      "check_ids": [
+        "CHECK-007",
+        "CHECK-009"
+      ],
+      "evidence_refs": []
+    },
+    {
+      "id": "NFR-001",
+      "mandatory": true,
+      "status": "planned",
+      "design_refs": [
+        "hr-agent-tool-runtime-closure-SDD.md#flow-007--bounded-aggregation"
+      ],
+      "task_ids": [
+        "TASK-005"
+      ],
+      "acceptance_ids": [
+        "ACASE-010"
+      ],
+      "check_ids": [
+        "CHECK-008"
+      ],
+      "evidence_refs": []
+    },
+    {
+      "id": "KNOW-001",
+      "mandatory": true,
+      "status": "planned",
+      "design_refs": [
+        "hr-agent-tool-runtime-closure-SDD.md#observability-and-privacy"
+      ],
+      "task_ids": [
+        "TASK-005"
+      ],
+      "acceptance_ids": [
+        "ACASE-011"
+      ],
+      "check_ids": [
+        "CHECK-012"
+      ],
+      "evidence_refs": []
+    }
+  ]
+}

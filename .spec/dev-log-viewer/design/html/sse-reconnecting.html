@@ -1,0 +1,403 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Smart Recruit Dev Logs - Live Logs</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&amp;family=JetBrains+Mono:wght@400&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "background": "#10131a",
+                        "on-secondary-fixed-variant": "#005321",
+                        "tertiary-container": "#df7412",
+                        "on-secondary": "#003915",
+                        "on-primary-fixed": "#001a42",
+                        "on-background": "#e1e2ec",
+                        "on-surface-variant": "#c2c6d6",
+                        "primary-container": "#4d8eff",
+                        "surface-container-highest": "#32353c",
+                        "on-primary-container": "#00285d",
+                        "tertiary-fixed-dim": "#ffb786",
+                        "on-tertiary-container": "#461f00",
+                        "on-secondary-fixed": "#002109",
+                        "primary": "#adc6ff",
+                        "surface": "#10131a",
+                        "on-primary-fixed-variant": "#004395",
+                        "on-tertiary": "#502400",
+                        "error": "#ffb4ab",
+                        "on-secondary-container": "#004119",
+                        "inverse-surface": "#e1e2ec",
+                        "on-primary": "#002e6a",
+                        "secondary": "#4ae176",
+                        "on-error-container": "#ffdad6",
+                        "secondary-fixed": "#6bff8f",
+                        "primary-fixed": "#d8e2ff",
+                        "primary-fixed-dim": "#adc6ff",
+                        "error-container": "#93000a",
+                        "surface-container": "#1d2027",
+                        "outline-variant": "#424754",
+                        "outline": "#8c909f",
+                        "surface-container-lowest": "#0b0e15",
+                        "surface-container-high": "#272a31",
+                        "surface-dim": "#10131a",
+                        "surface-container-low": "#191b23",
+                        "on-surface": "#e1e2ec",
+                        "inverse-on-surface": "#2e3038",
+                        "surface-variant": "#32353c",
+                        "on-tertiary-fixed": "#311400",
+                        "secondary-fixed-dim": "#4ae176",
+                        "on-error": "#690005",
+                        "inverse-primary": "#005ac2",
+                        "on-tertiary-fixed-variant": "#723600",
+                        "tertiary-fixed": "#ffdcc6",
+                        "tertiary": "#ffb786",
+                        "surface-bright": "#363941",
+                        "surface-tint": "#adc6ff",
+                        "secondary-container": "#00b954"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.125rem",
+                        "lg": "0.25rem",
+                        "xl": "0.5rem",
+                        "full": "0.75rem"
+                    },
+                    "spacing": {
+                        "xl": "24px",
+                        "lg": "16px",
+                        "gutter": "8px",
+                        "md": "12px",
+                        "sm": "8px",
+                        "sidebar_width": "240px",
+                        "base": "4px",
+                        "xs": "4px"
+                    },
+                    "fontFamily": {
+                        "label-xs": ["Inter"],
+                        "body-md": ["Inter"],
+                        "body-sm": ["Inter"],
+                        "headline-lg": ["Inter"],
+                        "code-md": ["JetBrains Mono"],
+                        "headline-md": ["Inter"],
+                        "code-sm": ["JetBrains Mono"]
+                    },
+                    "fontSize": {
+                        "label-xs": ["11px", { "lineHeight": "16px", "letterSpacing": "0.05em", "fontWeight": "700" }],
+                        "body-md": ["14px", { "lineHeight": "20px", "fontWeight": "400" }],
+                        "body-sm": ["13px", { "lineHeight": "18px", "fontWeight": "400" }],
+                        "headline-lg": ["20px", { "lineHeight": "28px", "letterSpacing": "-0.01em", "fontWeight": "600" }],
+                        "code-md": ["13px", { "lineHeight": "20px", "fontWeight": "400" }],
+                        "headline-md": ["16px", { "lineHeight": "24px", "letterSpacing": "-0.01em", "fontWeight": "600" }],
+                        "code-sm": ["12px", { "lineHeight": "16px", "fontWeight": "400" }]
+                    }
+                }
+            }
+        }
+    </script>
+<style>
+        /* Kinetic Terminal specific overrides and utilities */
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #10131a;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #32353c;
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #424754;
+        }
+
+        .log-row:hover {
+            background-color: #252932; /* Tonal layering override for row hover */
+        }
+        .text-truncate {
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+    </style>
+</head>
+<body class="bg-background text-on-surface h-screen flex flex-col overflow-hidden font-body-md select-none">
+<!-- TopNavBar -->
+<header class="bg-surface-container dark:bg-surface-container docked full-width top-0 border-b border-outline-variant dark:border-outline-variant transition-colors duration-150 flex justify-between items-center w-full px-lg py-xs h-12 shrink-0 z-20">
+<div class="flex items-center gap-sm">
+<button class="p-xs text-on-surface-variant hover:bg-surface-container-highest rounded-DEFAULT" title="Toggle Sidebar">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 0;">menu</span>
+</button>
+<h1 class="font-headline-md text-headline-md font-bold text-on-surface dark:text-on-surface tracking-tight">Smart Recruit Dev Logs</h1>
+</div>
+<div class="flex-1 max-w-2xl mx-lg flex items-center">
+<!-- search_bar: on_left equivalent structure -->
+<div class="relative w-full flex items-center bg-background border border-outline-variant rounded-DEFAULT focus-within:border-primary transition-colors duration-150 h-8">
+<span class="material-symbols-outlined text-on-surface-variant absolute left-xs" style="font-variation-settings: 'FILL' 0; font-size: 18px;">search</span>
+<input class="w-full bg-transparent border-none text-on-surface font-code-sm text-code-sm pl-8 pr-sm py-0 h-full focus:ring-0 placeholder:text-outline" placeholder="Filter logs (e.g., level:ERROR service:auth)" spellcheck="false" type="text"/>
+<span class="font-code-sm text-[10px] text-outline px-xs border border-outline-variant rounded-DEFAULT mr-xs">/</span>
+</div>
+</div>
+<div class="flex items-center gap-xs">
+<button class="p-xs text-on-surface-variant hover:bg-surface-container-highest rounded-DEFAULT flex items-center justify-center transition-colors duration-150 h-8 w-8" title="Auto-scroll">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 0;">sensors_off</span>
+</button>
+<button class="p-xs text-on-surface-variant hover:bg-surface-container-highest rounded-DEFAULT flex items-center justify-center transition-colors duration-150 h-8 w-8" title="Performance">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 0;">speed</span>
+</button>
+<div class="h-6 w-px bg-outline-variant mx-xs"></div>
+<!-- overflow menu for less important actions -->
+<button class="p-xs text-on-surface-variant hover:bg-surface-container-highest rounded-DEFAULT flex items-center justify-center transition-colors duration-150 h-8 w-8" title="More Options">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 0;">more_vert</span>
+</button>
+</div>
+</header>
+<div class="flex flex-1 overflow-hidden">
+<!-- SideNavBar -->
+<nav class="bg-surface-container-low dark:bg-surface-container-low border-r border-outline-variant dark:border-outline-variant transition-all duration-200 flex flex-col h-full w-sidebar_width shrink-0 z-10">
+<div class="px-md py-sm border-b border-outline-variant flex items-center justify-between">
+<div>
+<h2 class="font-headline-md text-headline-md text-on-surface">Services</h2>
+<p class="font-label-xs text-label-xs text-on-surface-variant">Instance Status</p>
+</div>
+<!-- header_avatar_alt removed as per spec to clean up UI, focusing on data -->
+</div>
+<div class="flex-1 overflow-y-auto py-xs">
+<!-- All Services (Added) -->
+<button class="w-full flex items-center px-md py-sm hover:bg-surface-container-highest text-primary dark:text-primary bg-surface-container-highest dark:bg-surface-container-highest transition-colors duration-150 text-left">
+<span class="material-symbols-outlined mr-sm text-[18px]" style="font-variation-settings: 'FILL' 0;">apps</span>
+<span class="font-body-sm text-body-sm flex-1 font-bold">All Services</span>
+</button>
+<!-- Category: Backend (50061-50068) -->
+<div class="mt-md mb-xs px-md">
+<span class="font-label-xs text-label-xs text-outline uppercase tracking-wider">Backend</span>
+</div>
+<div class="flex flex-col gap-[2px] px-xs">
+<button class="w-full flex items-center px-sm py-[6px] hover:bg-surface-container-high rounded-DEFAULT text-on-surface-variant transition-colors duration-150 text-left group">
+<span class="w-2 h-2 rounded-full bg-outline mr-sm shrink-0"></span>
+<span class="font-code-sm text-code-sm flex-1 text-truncate group-hover:text-on-surface">auth-svc</span>
+<span class="font-code-sm text-[10px] text-outline">50061</span>
+</button>
+<button class="w-full flex items-center px-sm py-[6px] hover:bg-surface-container-high rounded-DEFAULT text-on-surface-variant transition-colors duration-150 text-left group">
+<span class="w-2 h-2 rounded-full bg-outline mr-sm shrink-0"></span>
+<span class="font-code-sm text-code-sm flex-1 text-truncate group-hover:text-on-surface">user-profile-svc</span>
+<span class="font-code-sm text-[10px] text-outline">50062</span>
+</button>
+<button class="w-full flex items-center px-sm py-[6px] hover:bg-surface-container-high rounded-DEFAULT text-on-surface-variant transition-colors duration-150 text-left group">
+<span class="w-2 h-2 rounded-full bg-outline mr-sm shrink-0"></span>
+<span class="font-code-sm text-code-sm flex-1 text-truncate group-hover:text-on-surface">matching-engine</span>
+<span class="font-code-sm text-[10px] text-outline">50063</span>
+</button>
+<button class="w-full flex items-center px-sm py-[6px] hover:bg-surface-container-high rounded-DEFAULT text-on-surface-variant transition-colors duration-150 text-left group">
+<span class="w-2 h-2 rounded-full bg-outline mr-sm shrink-0"></span>
+<span class="font-code-sm text-code-sm flex-1 text-truncate group-hover:text-on-surface">resume-parser</span>
+<span class="font-code-sm text-[10px] text-outline">50064</span>
+</button>
+<button class="w-full flex items-center px-sm py-[6px] hover:bg-surface-container-high rounded-DEFAULT text-on-surface-variant transition-colors duration-150 text-left group">
+<span class="w-2 h-2 rounded-full bg-outline mr-sm shrink-0"></span>
+<span class="font-code-sm text-code-sm flex-1 text-truncate group-hover:text-on-surface text-error">notification-svc</span>
+<span class="font-code-sm text-[10px] text-outline">50065</span>
+</button>
+<button class="w-full flex items-center px-sm py-[6px] hover:bg-surface-container-high rounded-DEFAULT text-on-surface-variant transition-colors duration-150 text-left group">
+<span class="w-2 h-2 rounded-full bg-outline mr-sm shrink-0"></span>
+<span class="font-code-sm text-code-sm flex-1 text-truncate group-hover:text-on-surface">billing-svc</span>
+<span class="font-code-sm text-[10px] text-outline">50066</span>
+</button>
+<button class="w-full flex items-center px-sm py-[6px] hover:bg-surface-container-high rounded-DEFAULT text-on-surface-variant transition-colors duration-150 text-left group">
+<span class="w-2 h-2 rounded-full bg-outline mr-sm shrink-0"></span>
+<span class="font-code-sm text-code-sm flex-1 text-truncate group-hover:text-on-surface">analytics-worker</span>
+<span class="font-code-sm text-[10px] text-outline">50067</span>
+</button>
+<button class="w-full flex items-center px-sm py-[6px] hover:bg-surface-container-high rounded-DEFAULT text-on-surface-variant transition-colors duration-150 text-left group">
+<span class="w-2 h-2 rounded-full bg-outline mr-sm shrink-0"></span>
+<span class="font-code-sm text-code-sm flex-1 text-truncate group-hover:text-on-surface">ml-training-job</span>
+<span class="font-code-sm text-[10px] text-outline">50068</span>
+</button>
+</div>
+<!-- Category: Gateway (8080) -->
+<div class="mt-md mb-xs px-md">
+<span class="font-label-xs text-label-xs text-outline uppercase tracking-wider">Gateway</span>
+</div>
+<div class="flex flex-col gap-[2px] px-xs">
+<button class="w-full flex items-center px-sm py-[6px] hover:bg-surface-container-high rounded-DEFAULT text-on-surface-variant transition-colors duration-150 text-left group">
+<span class="w-2 h-2 rounded-full bg-outline mr-sm shrink-0"></span>
+<span class="font-code-sm text-code-sm flex-1 text-truncate group-hover:text-on-surface">api-gateway</span>
+<span class="font-code-sm text-[10px] text-outline">8080</span>
+</button>
+</div>
+<!-- Category: Frontend (5173-5175) -->
+<div class="mt-md mb-xs px-md">
+<span class="font-label-xs text-label-xs text-outline uppercase tracking-wider">Frontend</span>
+</div>
+<div class="flex flex-col gap-[2px] px-xs">
+<button class="w-full flex items-center px-sm py-[6px] hover:bg-surface-container-high rounded-DEFAULT text-on-surface-variant transition-colors duration-150 text-left group">
+<span class="w-2 h-2 rounded-full bg-outline mr-sm shrink-0"></span>
+<span class="font-code-sm text-code-sm flex-1 text-truncate group-hover:text-on-surface">recruiter-dashboard</span>
+<span class="font-code-sm text-[10px] text-outline">5173</span>
+</button>
+<button class="w-full flex items-center px-sm py-[6px] hover:bg-surface-container-high rounded-DEFAULT text-on-surface-variant transition-colors duration-150 text-left group">
+<span class="w-2 h-2 rounded-full bg-outline mr-sm shrink-0"></span>
+<span class="font-code-sm text-code-sm flex-1 text-truncate group-hover:text-on-surface">candidate-portal</span>
+<span class="font-code-sm text-[10px] text-outline">5174</span>
+</button>
+<button class="w-full flex items-center px-sm py-[6px] hover:bg-surface-container-high rounded-DEFAULT text-on-surface-variant transition-colors duration-150 text-left group">
+<span class="w-2 h-2 rounded-full bg-outline mr-sm shrink-0"></span>
+<span class="font-code-sm text-code-sm flex-1 text-truncate group-hover:text-on-surface">admin-panel</span>
+<span class="font-code-sm text-[10px] text-outline">5175</span>
+</button>
+</div>
+</div>
+<div class="p-sm border-t border-outline-variant">
+<button class="w-full bg-transparent border border-outline-variant hover:bg-surface-container-high text-on-surface font-body-sm text-body-sm rounded-DEFAULT py-[6px] transition-colors duration-150 flex justify-center items-center gap-xs">
+<span class="material-symbols-outlined text-[16px]" style="font-variation-settings: 'FILL' 0;">add</span>
+                    Connect New Service
+                </button>
+</div>
+</nav>
+<!-- Main Content Area (Log Stream) -->
+<main class="flex-1 flex flex-col min-w-0 bg-background relative">
+<!-- Context/Action Bar -->
+<div class="h-8 border-b border-outline-variant bg-surface-container-lowest flex items-center px-sm justify-between shrink-0">
+<div class="flex items-center gap-sm">
+<div class="flex gap-1">
+<!-- Level Filters -->
+<button class="px-2 py-[2px] bg-surface-container-highest text-on-surface border border-outline-variant rounded-DEFAULT font-label-xs text-[10px] hover:border-primary transition-colors">ALL</button>
+<button class="px-2 py-[2px] bg-transparent text-on-surface-variant border border-transparent hover:border-outline-variant rounded-DEFAULT font-label-xs text-[10px] transition-colors">INFO</button>
+<button class="px-2 py-[2px] bg-transparent text-tertiary border border-transparent hover:border-tertiary-container rounded-DEFAULT font-label-xs text-[10px] transition-colors">WARN</button>
+<button class="px-2 py-[2px] bg-transparent text-error border border-transparent hover:border-error-container rounded-DEFAULT font-label-xs text-[10px] transition-colors">ERROR</button>
+</div>
+<div class="w-px h-4 bg-outline-variant"></div>
+<span class="font-code-sm text-[11px] text-tertiary">Disconnected</span>
+</div>
+<div class="flex items-center gap-2">
+<button class="text-on-surface-variant hover:text-on-surface flex items-center font-label-xs text-[10px] gap-1 px-2 py-1 rounded-DEFAULT hover:bg-surface-container-highest transition-colors">
+<span class="material-symbols-outlined text-[14px]">download</span> Export
+                    </button>
+<button class="text-on-surface-variant hover:text-on-surface flex items-center font-label-xs text-[10px] gap-1 px-2 py-1 rounded-DEFAULT hover:bg-surface-container-highest transition-colors">
+<span class="material-symbols-outlined text-[14px]">layers_clear</span> Clear
+                    </button>
+</div>
+</div>
+<!-- Disconnected Banner -->
+<div class="bg-[#461f00] text-tertiary px-md py-xs border-b border-tertiary-container flex items-center justify-between shrink-0 font-body-sm text-body-sm">
+<div class="flex items-center gap-sm">
+<span class="material-symbols-outlined text-[18px]">wifi_off</span>
+<span>SSE Disconnected. Reconnecting in 5s...</span>
+</div>
+<button class="bg-tertiary text-[#461f00] px-sm py-[2px] rounded-DEFAULT font-label-xs text-label-xs hover:bg-tertiary-fixed transition-colors">
+    Retry Now
+</button>
+</div>
+<!-- Log Table Header -->
+<div class="grid grid-cols-[100px_60px_120px_140px_1fr] gap-sm px-md py-[4px] border-b border-outline-variant bg-surface-container-lowest font-label-xs text-label-xs text-outline shrink-0 uppercase">
+<div>Timestamp</div>
+<div>Level</div>
+<div>Service</div>
+<div>Caller</div>
+<div>Message</div>
+</div>
+<!-- Log Stream Body -->
+<div class="flex-1 overflow-y-auto font-code-sm text-code-sm pb-10">
+<!-- Log Rows (Compact 24px) -->
+<div class="grid grid-cols-[100px_60px_120px_140px_1fr] gap-sm px-md items-center h-[24px] log-row border-b border-transparent cursor-pointer">
+<div class="text-outline text-truncate">14:22:01.452</div>
+<div><span class="inline-block px-[4px] py-[1px] bg-[#1a1d23] text-primary border-l-2 border-primary rounded-r-[2px] text-[10px] leading-none uppercase font-bold">INFO</span></div>
+<div class="text-on-surface-variant text-truncate">api-gateway</div>
+<div class="text-on-surface-variant text-truncate opacity-70">router.go:142</div>
+<div class="text-on-surface text-truncate">Request routed successfully [req_id: req_9a8b7c] path=/api/v1/auth</div>
+</div>
+<div class="grid grid-cols-[100px_60px_120px_140px_1fr] gap-sm px-md items-center h-[24px] log-row border-b border-transparent cursor-pointer">
+<div class="text-outline text-truncate">14:22:01.460</div>
+<div><span class="inline-block px-[4px] py-[1px] bg-[#1a1d23] text-primary border-l-2 border-primary rounded-r-[2px] text-[10px] leading-none uppercase font-bold">INFO</span></div>
+<div class="text-on-surface-variant text-truncate">auth-svc</div>
+<div class="text-on-surface-variant text-truncate opacity-70">validator.go:45</div>
+<div class="text-on-surface text-truncate">Token validated [user_id: usr_12345]</div>
+</div>
+<div class="grid grid-cols-[100px_60px_120px_140px_1fr] gap-sm px-md items-center h-[24px] log-row border-b border-transparent cursor-pointer bg-surface-container-high">
+<!-- Highlighted active row example -->
+<div class="text-outline text-truncate">14:22:02.105</div>
+<div><span class="inline-block px-[4px] py-[1px] bg-[#461f00] text-tertiary border-l-2 border-tertiary rounded-r-[2px] text-[10px] leading-none uppercase font-bold">WARN</span></div>
+<div class="text-on-surface-variant text-truncate">matching-engine</div>
+<div class="text-on-surface-variant text-truncate opacity-70">scorer.py:89</div>
+<div class="text-tertiary text-truncate">Latency spike detected in semantic search backend. Response time: 850ms</div>
+</div>
+<div class="grid grid-cols-[100px_60px_120px_140px_1fr] gap-sm px-md items-start py-[4px] log-row border-b border-transparent cursor-pointer">
+<!-- Error row with multi-line preview capability but truncated to one line as per spec -->
+<div class="text-outline text-truncate leading-[16px]">14:22:03.551</div>
+<div class="leading-[16px]"><span class="inline-block px-[4px] py-[1px] bg-[#3a0005] text-error border-l-2 border-error rounded-r-[2px] text-[10px] leading-none uppercase font-bold">ERROR</span></div>
+<div class="text-on-surface-variant text-truncate leading-[16px]">notification-svc</div>
+<div class="text-on-surface-variant text-truncate opacity-70 leading-[16px]">smtp_client.go:210</div>
+<div class="flex flex-col w-full min-w-0">
+<div class="text-error text-truncate font-bold leading-[16px]">Failed to dispatch email notification: connection timeout to smtp.sendgrid.net:587</div>
+<!-- Spec asks for one-line preview for ERROR, implying we don't show stacktrace inline by default, but it's an error so it stands out -->
+</div>
+</div>
+<div class="grid grid-cols-[100px_60px_120px_140px_1fr] gap-sm px-md items-center h-[24px] log-row border-b border-transparent cursor-pointer">
+<div class="text-outline text-truncate">14:22:04.012</div>
+<div><span class="inline-block px-[4px] py-[1px] bg-[#1a1d23] text-primary border-l-2 border-primary rounded-r-[2px] text-[10px] leading-none uppercase font-bold">INFO</span></div>
+<div class="text-on-surface-variant text-truncate">api-gateway</div>
+<div class="text-on-surface-variant text-truncate opacity-70">router.go:142</div>
+<div class="text-on-surface text-truncate">Request routed successfully [req_id: req_9a8b7d] path=/api/v1/jobs/45</div>
+</div>
+<div class="grid grid-cols-[100px_60px_120px_140px_1fr] gap-sm px-md items-center h-[24px] log-row border-b border-transparent cursor-pointer">
+<div class="text-outline text-truncate">14:22:04.100</div>
+<div><span class="inline-block px-[4px] py-[1px] bg-[#1a1d23] text-primary border-l-2 border-primary rounded-r-[2px] text-[10px] leading-none uppercase font-bold">INFO</span></div>
+<div class="text-on-surface-variant text-truncate">resume-parser</div>
+<div class="text-on-surface-variant text-truncate opacity-70">extract.py:55</div>
+<div class="text-on-surface text-truncate">Parsed resume document successfully [doc_id: doc_9982] format: pdf</div>
+</div>
+<div class="grid grid-cols-[100px_60px_120px_140px_1fr] gap-sm px-md items-center h-[24px] log-row border-b border-transparent cursor-pointer">
+<div class="text-outline text-truncate">14:22:05.888</div>
+<div><span class="inline-block px-[4px] py-[1px] bg-[#1a1d23] text-primary border-l-2 border-primary rounded-r-[2px] text-[10px] leading-none uppercase font-bold">INFO</span></div>
+<div class="text-on-surface-variant text-truncate">analytics-worker</div>
+<div class="text-on-surface-variant text-truncate opacity-70">aggregate.go:301</div>
+<div class="text-on-surface text-truncate">Flushed metrics batch to data warehouse. Rows: 1540</div>
+</div>
+<!-- Many empty/filler rows for realism -->
+<div class="grid grid-cols-[100px_60px_120px_140px_1fr] gap-sm px-md items-center h-[24px] log-row border-b border-transparent cursor-pointer opacity-50">
+<div class="text-outline text-truncate">14:22:06.120</div>
+<div><span class="inline-block px-[4px] py-[1px] bg-[#1a1d23] text-outline border-l-2 border-outline rounded-r-[2px] text-[10px] leading-none uppercase font-bold">DEBUG</span></div>
+<div class="text-on-surface-variant text-truncate">billing-svc</div>
+<div class="text-on-surface-variant text-truncate opacity-70">stripe_sync.go:22</div>
+<div class="text-on-surface text-truncate">Checking subscription status for tenant_99</div>
+</div>
+<!-- Filler... -->
+</div>
+<!-- Absolute positioned generic 'scroll to bottom' pill if needed, omitting for minimalism -->
+</main>
+<!-- NavigationDrawer (Closed by Default - translating to visually hidden but structurally present or narrow) -->
+<!-- In this execution, to show it's 'closed' in the layout we use hidden, but structurally it belongs here. -->
+<aside class="hidden bg-surface-container-high dark:bg-surface-container-high fixed right-0 top-12 bottom-8 w-96 border-l border-outline-variant dark:border-outline-variant flex-col z-30 shadow-[-4px_0_15px_rgba(0,0,0,0.5)]">
+<div class="px-md py-sm border-b border-outline-variant flex justify-between items-center">
+<div>
+<h2 class="font-headline-md text-headline-md text-on-surface">Log Details</h2>
+<p class="font-label-xs text-label-xs text-on-surface-variant">Structured Metadata</p>
+</div>
+<button class="text-on-surface-variant hover:text-on-surface">
+<span class="material-symbols-outlined text-[18px]">close</span>
+</button>
+</div>
+<div class="flex-1 overflow-y-auto p-md font-code-sm text-code-sm">
+<!-- Content would go here -->
+</div>
+</aside>
+</div>
+<!-- Footer -->
+<footer class="bg-surface-container-lowest dark:bg-surface-container-lowest border-t border-outline-variant dark:border-outline-variant fixed bottom-0 left-0 w-full flex justify-between items-center px-lg py-xs z-50 h-8">
+<div class="font-label-xs text-label-xs text-secondary dark:text-secondary">
+            v2.4.0-stable | System Health: Disconnected
+        </div>
+<div class="flex gap-md font-label-xs text-label-xs text-on-surface-variant">
+<!-- Removed Metrics, Docs, Support as per spec -->
+<span class="flex items-center gap-[2px]"><span class="w-1.5 h-1.5 rounded-full bg-outline"></span> Backend Offline</span>
+<span class="flex items-center gap-[2px]"><span class="w-1.5 h-1.5 rounded-full bg-outline"></span> Gateway Offline</span>
+<span class="flex items-center gap-[2px]"><span class="w-1.5 h-1.5 rounded-full bg-outline"></span> Frontend Offline</span>
+</div>
+</footer>
+</body></html>

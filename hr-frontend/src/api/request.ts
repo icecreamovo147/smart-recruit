@@ -7,6 +7,7 @@ import { clearLocalAuthCache } from '@/utils/token'
 import { BusinessError } from '@/types/api'
 import { silentRefresh } from './authRefresh'
 import { debugLog } from '@/utils/debugLog'
+import { contextGuardCodeFrom, contextGuardMessage } from '@/utils/contextUsage'
 
 interface RequestConfig extends AxiosRequestConfig {
   silentError?: boolean
@@ -63,6 +64,10 @@ http.interceptors.response.use(
     }
     if (code !== 0) {
       const error = new BusinessError(code, friendlyBusinessMessage(code, msg), requestId)
+      const contextGuardCode = contextGuardCodeFrom(msg)
+      if (contextGuardCode) {
+        Object.assign(error, { contextGuardCode })
+      }
       const resetAt = response.data?.data?.reset_at as string || ''
       const displayMsg = resetAt ? `${error.message}（${formatResetTime(resetAt)}恢复）` : error.message
       if (!(response.config as RequestConfig).silentError) {
@@ -136,13 +141,20 @@ http.interceptors.response.use(
     }
     debugLog.http.warn('response_failed', { ...logData, request_id: requestId?.slice(0, 8) || '', business_msg: friendlyMessage })
     if (data?.code && typeof data.code === 'number') {
-      return Promise.reject(new BusinessError(data.code as number, friendlyMessage, requestId))
+      const businessError = new BusinessError(data.code as number, friendlyMessage, requestId)
+      const contextGuardCode = contextGuardCodeFrom(data.msg)
+      if (contextGuardCode) {
+        Object.assign(businessError, { contextGuardCode })
+      }
+      return Promise.reject(businessError)
     }
     return Promise.reject(new Error(friendlyMessage))
   },
 )
 
-const friendlyBusinessMessage = (code: number, msg: string): string => {
+export const friendlyBusinessMessage = (code: number, msg: string): string => {
+  const guardMessage = contextGuardMessage(contextGuardCodeFrom(msg))
+  if (guardMessage) return guardMessage
   if (msg === 'extract resume profile: resume profile extractor is not configured') {
     return '简历画像解析器未配置，请先完成后端解析器配置后再发起解析'
   }

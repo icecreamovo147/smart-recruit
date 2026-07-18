@@ -1,0 +1,148 @@
+{
+  "schemaVersion": 1,
+  "feature_name": "microservice-runtime-implementation",
+  "task_id": "TASK-MRI-007",
+  "base_sha": "2e3373dd9f809354e84e4019a8738aae7dd04786",
+  "base_tree": "188dc343671ea8e80efc39e93ce74a2209fb3c80",
+  "head_sha": "2e3373dd9f809354e84e4019a8738aae7dd04786",
+  "head_tree": "pending-local-commit",
+  "changed_files": [
+    ".spec/microservice-runtime-implementation/pipeline-state.json",
+    ".spec/microservice-runtime-implementation/reports/TASK-MRI-007-evidence.json",
+    ".spec/microservice-runtime-implementation/reports/TASK-MRI-007-report.md",
+    "go.work",
+    "smart-recruit-gateway/README.md",
+    "smart-recruit-gateway/cmd/gateway/main.go",
+    "smart-recruit-gateway/go.mod",
+    "smart-recruit-gateway/go.sum",
+    "smart-recruit-gateway/internal/runtime/runtime.go",
+    "smart-recruit-gateway/internal/runtime/runtime_test.go"
+  ],
+  "scope": {
+    "status": "passed",
+    "command": "TASK_BASE_TREE=188dc343671ea8e80efc39e93ce74a2209fb3c80 bash .spec/microservice-runtime-implementation/scripts/check-task-scope.sh TASK-MRI-007",
+    "classification": "current",
+    "out_of_scope": [],
+    "forbidden": [],
+    "allowed_patterns": [
+      "smart-recruit-gateway/**",
+      "web-gin-service/**",
+      "smart-recruit-proto/**",
+      "smart-recruit-platform-go/**",
+      "go.work",
+      "**/go.mod",
+      "**/go.sum",
+      ".spec/microservice-runtime-implementation/**"
+    ]
+  },
+  "checks": [
+    {
+      "command": "cd smart-recruit-gateway && GOWORK=off go test ./...",
+      "exit_code": 0,
+      "status": "passed",
+      "started_at": "2026-07-12T07:00:11.238Z",
+      "duration_ms": 588
+    },
+    {
+      "command": "cd smart-recruit-gateway && GOWORK=off go build ./cmd/gateway",
+      "exit_code": 0,
+      "status": "passed",
+      "started_at": "2026-07-12T07:00:11.835Z",
+      "duration_ms": 7055
+    },
+    {
+      "command": "rm -f smart-recruit-gateway/gateway go.work.sum",
+      "exit_code": 0,
+      "status": "passed",
+      "started_at": "2026-07-12T07:00:18.892Z",
+      "duration_ms": 9
+    },
+    {
+      "command": "git diff --name-only",
+      "exit_code": 0,
+      "status": "passed",
+      "started_at": "2026-07-12T07:00:18.903Z",
+      "duration_ms": 32
+    },
+    {
+      "command": "node .knowledge/scripts/detect-impact.mjs --root . --base-tree 188dc343671ea8e80efc39e93ce74a2209fb3c80 --json",
+      "exit_code": 0,
+      "status": "passed",
+      "started_at": "2026-07-12T07:00:18.936Z",
+      "duration_ms": 301
+    },
+    {
+      "command": "TASK_BASE_TREE=188dc343671ea8e80efc39e93ce74a2209fb3c80 bash .spec/microservice-runtime-implementation/scripts/check-task-scope.sh TASK-MRI-007",
+      "exit_code": 0,
+      "status": "passed",
+      "started_at": "2026-07-12T07:00:19.237Z",
+      "duration_ms": 87
+    },
+    {
+      "command": "bash .spec/microservice-runtime-implementation/scripts/agent-check.sh",
+      "exit_code": 0,
+      "status": "passed",
+      "started_at": "2026-07-12T07:00:19.325Z",
+      "duration_ms": 1380
+    },
+    {
+      "command": "rm -f go.work.sum smart-recruit-gateway/gateway",
+      "exit_code": 0,
+      "status": "passed",
+      "started_at": "2026-07-12T07:00:20.705Z",
+      "duration_ms": 4
+    },
+    {
+      "command": "node .agents/skills/spec-harness/scripts/validate-evidence.mjs --file .spec/microservice-runtime-implementation/reports/TASK-MRI-007-evidence.json",
+      "exit_code": 0,
+      "status": "passed",
+      "started_at": "2026-07-12T07:00:51.792Z",
+      "duration_ms": 61
+    }
+  ],
+  "review": {
+    "reviewer_type": "self-review",
+    "round": 1,
+    "verdict": "通过",
+    "findings": []
+  },
+  "human_confirmation": {
+    "required": false,
+    "confirmed": true,
+    "confirmed_at": "2026-07-12T07:05:00Z",
+    "source": "TASK-MRI-007 does not require human confirmation; harness-pipeline execution was explicitly requested by the user."
+  },
+  "exceptions": [],
+  "skipped_checks": [
+    {
+      "check": "Live HTTP route regression",
+      "reason": "TASK-MRI-007 validates independent build and preserves HTTP behavior by reusing the existing web-gin-service router; live route smoke is assigned to later gateway cutover/smoke TASKs."
+    }
+  ],
+  "knowledgeImpact": {
+    "result": "update_required",
+    "triggeredBy": [
+      "configuration-changed",
+      "covered-path-changed",
+      "recurring-defect-fixed"
+    ],
+    "reviewResults": [
+      {
+        "document": ".knowledge/architecture/system-overview.md",
+        "verdict": "UNCHANGED",
+        "evidence": [
+          "Reviewed active source_refs; TASK-MRI-007 adds an extracted gateway source root while preserving existing web-gin-service behavior through compatibility imports."
+        ]
+      },
+      {
+        "document": ".knowledge/runbooks/local-development.md",
+        "verdict": "UNCHANGED",
+        "evidence": [
+          "Reviewed active local startup guidance; TASK-MRI-007 adds a new gateway module without replacing existing start-dev or docker commands."
+        ]
+      }
+    ],
+    "coverageGap": false,
+    "validationExitCode": 0
+  }
+}

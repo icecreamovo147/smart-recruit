@@ -46,7 +46,9 @@
 
   color: var(--text-primary);
   background: var(--bg);
-  font-family: "Manrope", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+  /* Font stack defined in styles/fonts.css — HarmonyOS Sans */
+  font-family: var(--font-app);
+  --el-font-family: var(--font-app);
 }
 
 :root[data-theme='dark'] {
@@ -183,23 +185,199 @@
 
 /* ---- Theme transition ---- */
 
-:root.theme-switching *,
-:root.theme-switching *::before,
-:root.theme-switching *::after {
+/*
+ * Soften token repaint when theme flips without the full-screen mask
+ * (e.g. reduced-motion / init edge cases).
+ * IMPORTANT: never target #theme-switch-overlay — `transition: … !important`
+ * would wipe the mask's own opacity/transform fades.
+ */
+:root.theme-switching body,
+:root.theme-switching body *:not(#theme-switch-overlay, #theme-switch-overlay *),
+:root.theme-switching body *:not(#theme-switch-overlay, #theme-switch-overlay *)::before,
+:root.theme-switching body *:not(#theme-switch-overlay, #theme-switch-overlay *)::after {
   transition:
     background-color var(--motion-theme) var(--ease-theme),
     border-color var(--motion-theme) var(--ease-theme),
     box-shadow var(--motion-theme) var(--ease-theme),
     color var(--motion-theme) var(--ease-theme),
     fill var(--motion-theme) var(--ease-theme),
-    opacity var(--motion-theme) var(--ease-theme),
     stroke var(--motion-theme) var(--ease-theme) !important;
 }
 
-:root.theme-switching body {
+/*
+ * Full-screen theme mask:
+ * - Outer shell stays opacity:1 (does not dim children via parent opacity).
+ * - Opaque .__scrim fades 0→1 / 1→0 so the page never shows a half-switched theme.
+ * - --solid locks scrim fully opaque while tokens + Vue theme state commit.
+ */
+.theme-switch-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 2147483000;
+  pointer-events: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  visibility: hidden;
+  color: #e5e7eb;
+}
+
+.theme-switch-overlay[data-theme-target='light'] {
+  color: #0f172a;
+}
+
+.theme-switch-overlay[data-theme-target='dark'] {
+  color: #e5e7eb;
+}
+
+.theme-switch-overlay__scrim {
+  position: absolute;
+  inset: 0;
+  /* Fully opaque solids — never use alpha colors here */
+  background-color: #0f172a;
+  opacity: 0;
+  transition: opacity 280ms cubic-bezier(0.4, 0, 0.2, 1);
+  will-change: opacity;
+}
+
+.theme-switch-overlay[data-theme-target='light'] .theme-switch-overlay__scrim {
+  background-color: #f3f6fb;
+}
+
+.theme-switch-overlay[data-theme-target='dark'] .theme-switch-overlay__scrim {
+  background-color: #0f172a;
+}
+
+/* Enter: show shell + fade scrim 0 → 1 */
+.theme-switch-overlay--active {
+  pointer-events: auto;
+  visibility: visible;
+  cursor: progress;
+}
+
+.theme-switch-overlay--active .theme-switch-overlay__scrim {
+  opacity: 1;
+}
+
+/*
+ * Solid lock: force fully opaque, kill transitions while theme commits.
+ * Page repaint happens only in this window and must not leak through.
+ */
+.theme-switch-overlay--active.theme-switch-overlay--solid .theme-switch-overlay__scrim {
+  opacity: 1 !important;
+  transition: none !important;
+}
+
+.theme-switch-overlay--active.theme-switch-overlay--solid .theme-switch-overlay__panel {
+  opacity: 1 !important;
+  transform: translateY(0) scale(1) !important;
+  transition: none !important;
+}
+
+/* Leave: fade scrim back out (page already on new theme) */
+.theme-switch-overlay--active.theme-switch-overlay--leaving {
+  pointer-events: none;
+  cursor: default;
+}
+
+.theme-switch-overlay--active.theme-switch-overlay--leaving .theme-switch-overlay__scrim {
+  opacity: 0;
+}
+
+.theme-switch-overlay__panel {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+  padding: 20px 28px;
+  border-radius: 16px;
+  background: color-mix(in srgb, currentColor 6%, transparent);
+  border: 1px solid color-mix(in srgb, currentColor 12%, transparent);
+  backdrop-filter: blur(8px);
+  box-shadow: 0 12px 40px rgba(15, 23, 42, 0.12);
+  opacity: 0;
+  transform: translateY(8px) scale(0.96);
   transition:
-    background-color var(--motion-theme) var(--ease-theme),
-    color var(--motion-theme) var(--ease-theme) !important;
+    opacity 280ms cubic-bezier(0.4, 0, 0.2, 1),
+    transform 320ms cubic-bezier(0.2, 0.8, 0.2, 1);
+  will-change: opacity, transform;
+}
+
+.theme-switch-overlay--active .theme-switch-overlay__panel {
+  opacity: 1;
+  transform: translateY(0) scale(1);
+}
+
+.theme-switch-overlay--active.theme-switch-overlay--leaving .theme-switch-overlay__panel {
+  opacity: 0;
+  transform: translateY(-4px) scale(0.98);
+}
+
+.theme-switch-overlay[data-theme-target='dark'] .theme-switch-overlay__panel {
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.35);
+}
+
+.theme-switch-overlay__spinner {
+  position: relative;
+  width: 44px;
+  height: 44px;
+}
+
+.theme-switch-overlay__ring {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  border: 2.5px solid transparent;
+  border-top-color: #2563eb;
+  border-right-color: color-mix(in srgb, #2563eb 35%, transparent);
+  animation: theme-switch-spin 0.9s cubic-bezier(0.5, 0.15, 0.5, 0.85) infinite;
+}
+
+.theme-switch-overlay__ring:nth-child(2) {
+  inset: 6px;
+  border-top-color: #60a5fa;
+  border-right-color: color-mix(in srgb, #60a5fa 30%, transparent);
+  animation-duration: 1.15s;
+  animation-direction: reverse;
+}
+
+.theme-switch-overlay__ring:nth-child(3) {
+  inset: 12px;
+  border-top-color: #93c5fd;
+  border-right-color: transparent;
+  animation-duration: 0.75s;
+}
+
+.theme-switch-overlay__text {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  color: inherit;
+  opacity: 0.88;
+}
+
+@keyframes theme-switch-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .theme-switch-overlay__scrim,
+  .theme-switch-overlay__panel {
+    transition: none !important;
+  }
+
+  .theme-switch-overlay__ring {
+    animation: none;
+    border-top-color: #2563eb;
+    border-right-color: #2563eb;
+    border-bottom-color: color-mix(in srgb, #2563eb 25%, transparent);
+    border-left-color: color-mix(in srgb, #2563eb 25%, transparent);
+  }
 }
 
 * {
@@ -274,9 +452,30 @@ a {
 
 .sidebar-nav {
   flex: 1;
-  overflow-y: auto;
-  overflow-x: hidden;
+  min-height: 0;
+  min-width: 0;
+  overflow: hidden;
   padding: 0 0 8px;
+}
+
+/* el-scrollbar owns vertical scrolling; never allow horizontal bleed in the rail */
+.sidebar-nav > .el-scrollbar {
+  height: 100%;
+  width: 100%;
+}
+
+.sidebar-nav .el-scrollbar__wrap {
+  overflow-x: hidden !important;
+}
+
+.sidebar-nav .el-scrollbar__bar.is-horizontal {
+  display: none !important;
+}
+
+.sidebar-nav .el-scrollbar__view {
+  min-width: 0;
+  width: 100%;
+  overflow-x: hidden;
 }
 
 .sidebar-footer {
@@ -293,12 +492,24 @@ a {
 
 .sidebar--collapsed .sidebar-footer {
   flex-direction: column;
+  align-items: center;
   gap: 8px;
-  padding: 12px 10px;
+  padding: 12px 0;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.sidebar--collapsed .sidebar-footer .el-tooltip__trigger {
+  display: inline-flex;
+  width: 40px;
+  max-width: 100%;
+  flex: 0 0 40px;
 }
 
 .sidebar--collapsed {
   width: 64px;
+  min-width: 64px;
+  max-width: 64px;
 }
 
 .sidebar--collapsed .sidebar-head {
@@ -481,12 +692,36 @@ a {
 }
 
 .sidebar--collapsed .sidebar-link span {
+  /* Collapse text out of layout so nowrap labels do not widen the rail */
+  flex: 0 0 0;
+  width: 0;
+  min-width: 0;
+  max-width: 0;
+  margin: 0;
+  padding: 0;
   opacity: 0;
+  overflow: hidden;
+  pointer-events: none;
   transition: opacity 120ms ease;
 }
 
 .sidebar--collapsed .sidebar-link {
-  padding: 0 16px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 0;
+  width: 100%;
+  min-width: 0;
+  padding: 0;
+  overflow: hidden;
+}
+
+.sidebar--collapsed .sidebar-link.router-link-active,
+.sidebar--collapsed .sidebar-link.router-link-active:hover,
+.sidebar--collapsed .sidebar-group-toggle--active {
+  /* Keep active accent without shifting icon off-center in the narrow rail */
+  box-shadow: inset 3px 0 0 var(--brand);
+  border-left-color: transparent;
 }
 
 .sidebar-link.router-link-active,
@@ -545,11 +780,28 @@ a {
 }
 
 .sidebar--collapsed .sidebar-group-toggle {
-  padding: 0 16px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 0;
+  padding: 0;
+  min-width: 0;
+  overflow: hidden;
 }
 
 .sidebar--collapsed .sidebar-group-toggle .group-arrow {
   display: none;
+  flex: 0 0 0;
+  width: 0;
+  min-width: 0;
+  margin: 0;
+  overflow: hidden;
+}
+
+.sidebar--collapsed .sidebar-nav-group {
+  width: 100%;
+  min-width: 0;
+  overflow: hidden;
 }
 
 .sidebar-group-toggle--active {
@@ -1203,7 +1455,7 @@ a {
 }
 
 .console-code {
-  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-family: var(--font-mono);
   color: var(--text-secondary);
 }
 
@@ -2073,7 +2325,7 @@ a {
   padding: 2px 6px;
   background: var(--surface-muted);
   border-radius: 6px;
-  font-family: "JetBrains Mono", "SFMono-Regular", Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+  font-family: var(--font-mono);
   font-size: 13px;
 }
 
@@ -2299,11 +2551,44 @@ a {
   }
 
   .sidebar--collapsed .sidebar-link {
+    justify-content: flex-start;
+    gap: 10px;
     padding: 0 16px;
+    overflow: visible;
   }
 
   .sidebar--collapsed .sidebar-link span {
+    flex: initial;
+    width: auto;
+    min-width: 0;
+    max-width: none;
+    margin: unset;
+    padding: unset;
     opacity: 1;
+    overflow: visible;
+    pointer-events: auto;
+  }
+
+  .sidebar--collapsed .sidebar-link.router-link-active,
+  .sidebar--collapsed .sidebar-link.router-link-active:hover,
+  .sidebar--collapsed .sidebar-group-toggle--active {
+    box-shadow: none;
+    border-left-color: var(--brand);
+  }
+
+  .sidebar--collapsed .sidebar-group-toggle {
+    justify-content: flex-start;
+    gap: 10px;
+    padding: 0 16px;
+    overflow: visible;
+  }
+
+  .sidebar--collapsed .sidebar-group-toggle .group-arrow {
+    display: block;
+  }
+
+  .sidebar--collapsed .sidebar-nav-group {
+    overflow: visible;
   }
 
   .sidebar--collapsed .sidebar-brand__text {
@@ -2317,8 +2602,15 @@ a {
 
   .sidebar--collapsed .sidebar-footer {
     flex-direction: row;
+    align-items: center;
     gap: 8px;
     padding: 12px 14px;
+    overflow: visible;
+  }
+
+  .sidebar--collapsed .sidebar-footer .el-tooltip__trigger {
+    width: auto;
+    flex: 1 1 0;
   }
 
   .sidebar--collapsed .sidebar-footer-action {
@@ -2329,6 +2621,11 @@ a {
 
   .sidebar--collapsed .sidebar-footer-action__label {
     display: inline;
+  }
+
+  .sidebar--collapsed {
+    min-width: 0;
+    max-width: none;
   }
 
   /* Backdrop */
@@ -2654,7 +2951,7 @@ a {
   }
 
   .mobile-invite-card .invite-code__text {
-    font-family: "JetBrains Mono", monospace;
+    font-family: var(--font-mono);
     font-size: 13px;
     word-break: break-all;
     color: var(--brand-strong);

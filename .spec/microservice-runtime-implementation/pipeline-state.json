@@ -1,0 +1,336 @@
+{
+  "schemaVersion": 1,
+  "feature_name": "microservice-runtime-implementation",
+  "current_task": "TASK-MRI-032",
+  "current_phase": "completed",
+  "completed_tasks": [
+    "TASK-MRI-001",
+    "TASK-MRI-002",
+    "TASK-MRI-003",
+    "TASK-MRI-004",
+    "TASK-MRI-005",
+    "TASK-MRI-006",
+    "TASK-MRI-007",
+    "TASK-MRI-008",
+    "TASK-MRI-009",
+    "TASK-MRI-010",
+    "TASK-MRI-011",
+    "TASK-MRI-012",
+    "TASK-MRI-013",
+    "TASK-MRI-014",
+    "TASK-MRI-015",
+    "TASK-MRI-016",
+    "TASK-MRI-017",
+    "TASK-MRI-018",
+    "TASK-MRI-019",
+    "TASK-MRI-020",
+    "TASK-MRI-021",
+    "TASK-MRI-022",
+    "TASK-MRI-023",
+    "TASK-MRI-024",
+    "TASK-MRI-025",
+    "TASK-MRI-026",
+    "TASK-MRI-027",
+    "TASK-MRI-028",
+    "TASK-MRI-029",
+    "TASK-MRI-030",
+    "TASK-MRI-031",
+    "TASK-MRI-032"
+  ],
+  "blocked_tasks": [],
+  "failed_tasks": [],
+  "skipped_human_confirmation_tasks": [],
+  "approved_exceptions": [],
+  "review_round": 0,
+  "status": "completed",
+  "task_runs": {
+    "TASK-MRI-001": {
+      "base_sha": "96ffcaf562ebb4e49176f589563068a14f0a9ab4",
+      "base_tree": "b8ffa2719d35cca0d0d0fbef835e0ca7e3b52bc0",
+      "head_sha": "96ffcaf562ebb4e49176f589563068a14f0a9ab4",
+      "scope_status": "passed",
+      "checks_status": "passed",
+      "review_verdict": "通过",
+      "evidence": ".spec/microservice-runtime-implementation/reports/TASK-MRI-001-evidence.json"
+    },
+    "TASK-MRI-002": {
+      "base_sha": "719e87e1f4651c7b5990c3de15cfa2768d241c8f",
+      "base_tree": "b75a09d505e5c3306fdc235a1d0b4d032caffb6b",
+      "head_sha": "719e87e1f4651c7b5990c3de15cfa2768d241c8f",
+      "scope_status": "passed",
+      "checks_status": "passed",
+      "review_verdict": "通过",
+      "evidence": ".spec/microservice-runtime-implementation/reports/TASK-MRI-002-evidence.json"
+    },
+    "TASK-MRI-003": {
+      "base_sha": "2bc7bc91b1935f5e0a30c333a9a30e907613cd21",
+      "base_tree": "960b99e11630a02eed0fd3305ba809a09e9de756",
+      "head_sha": "2bc7bc91b1935f5e0a30c333a9a30e907613cd21",
+      "scope_status": "passed",
+      "checks_status": "passed",
+      "review_verdict": "通过",
+      "evidence": ".spec/microservice-runtime-implementation/reports/TASK-MRI-003-evidence.json"
+    },
+    "TASK-MRI-004": {
+      "base_sha": "25aa60af7ce2cc8d450e82cb236c71631ff55eb0",
+      "base_tree": "1d248f118b2a33c54ff6a19621c56c4802723785",
+      "head_sha": "25aa60af7ce2cc8d450e82cb236c71631ff55eb0",
+      "scope_status": "passed",
+      "checks_status": "passed",
+      "review_verdict": "通过",
+      "evidence": ".spec/microservice-runtime-implementation/reports/TASK-MRI-004-evidence.json"
+    },
+    "TASK-MRI-005": {
+      "base_sha": "600bc83e5e6624369fd175e6de541f52a02e1103",
+      "base_tree": "f03a3d4504612341c4c95a797c4112b5534e3250",
+      "head_sha": "600bc83e5e6624369fd175e6de541f52a02e1103",
+      "scope_status": "passed",
+      "checks_status": "passed",
+      "review_verdict": "通过",
+      "evidence": ".spec/microservice-runtime-implementation/reports/TASK-MRI-005-evidence.json"
+    },
+    "TASK-MRI-006": {
+      "base_sha": "5d0272b93f62cf3c984f593cb76e299089776d65",
+      "base_tree": "95b71b2d76fdf3c9b76dd5ae7930df00c4f040c1",
+      "head_sha": "5d0272b93f62cf3c984f593cb76e299089776d65",
+      "scope_status": "passed",
+      "checks_status": "passed",
+      "review_verdict": "通过",
+      "evidence": ".spec/microservice-runtime-implementation/reports/TASK-MRI-006-evidence.json"
+    },
+    "TASK-MRI-007": {
+      "base_sha": "2e3373dd9f809354e84e4019a8738aae7dd04786",
+      "base_tree": "188dc343671ea8e80efc39e93ce74a2209fb3c80",
+      "head_sha": "2e3373dd9f809354e84e4019a8738aae7dd04786",
+      "scope_status": "passed",
+      "checks_status": "passed",
+      "review_verdict": "通过",
+      "evidence": ".spec/microservice-runtime-implementation/reports/TASK-MRI-007-evidence.json"
+    },
+    "TASK-MRI-008": {
+      "base_sha": "562be5c338300b9227c4bad583bdc41f2f2dbd2c",
+      "base_tree": "2097290f419a98758ec17b01f6fb4815318ebf21",
+      "head_sha": "562be5c338300b9227c4bad583bdc41f2f2dbd2c",
+      "scope_status": "passed",
+      "checks_status": "passed",
+      "review_verdict": "通过",
+      "evidence": ".spec/microservice-runtime-implementation/reports/TASK-MRI-008-evidence.json"
+    },
+    "TASK-MRI-009": {
+      "base_sha": "b1af341ce60837a3289f0a8ba03a99f8c564c523",
+      "base_tree": "b16895fe9f2d156c3fafd36bcc686953b58fa79a",
+      "head_sha": "b1af341ce60837a3289f0a8ba03a99f8c564c523",
+      "scope_status": "passed",
+      "checks_status": "passed",
+      "review_verdict": "通过",
+      "evidence": ".spec/microservice-runtime-implementation/reports/TASK-MRI-009-evidence.json"
+    },
+    "TASK-MRI-010": {
+      "base_sha": "8156331dfde31db0bbf8db26dd5df3c9034a294a",
+      "base_tree": "65a6cfb311ce1b5b45b6ed34b6786d3bb354522f",
+      "head_sha": "8156331dfde31db0bbf8db26dd5df3c9034a294a",
+      "scope_status": "passed",
+      "checks_status": "passed",
+      "review_verdict": "通过",
+      "evidence": ".spec/microservice-runtime-implementation/reports/TASK-MRI-010-evidence.json"
+    },
+    "TASK-MRI-011": {
+      "base_sha": "f1aa73fce633afef0a0e69f29257051f842c8f2f",
+      "base_tree": "2e697dc1664987d3ff4539d08554d70e9de75496",
+      "head_sha": "f1aa73fce633afef0a0e69f29257051f842c8f2f",
+      "scope_status": "passed",
+      "checks_status": "passed",
+      "review_verdict": "通过",
+      "evidence": ".spec/microservice-runtime-implementation/reports/TASK-MRI-011-evidence.json"
+    },
+    "TASK-MRI-012": {
+      "base_sha": "6215164331c6d4543e8542403c62f4866c26fedb",
+      "base_tree": "cfad0b1bb24e8309ef2dc0c8e1371af28ded5adc",
+      "head_sha": "6215164331c6d4543e8542403c62f4866c26fedb",
+      "scope_status": "passed",
+      "checks_status": "passed",
+      "review_verdict": "通过",
+      "evidence": ".spec/microservice-runtime-implementation/reports/TASK-MRI-012-evidence.json"
+    },
+    "TASK-MRI-013": {
+      "base_sha": "2c18149e73da96d76a13edbc0df56c4cb3490877",
+      "base_tree": "af01b6c0c0cf5568cf58b63fc2cffd264f898879",
+      "head_sha": "2c18149e73da96d76a13edbc0df56c4cb3490877",
+      "scope_status": "passed",
+      "checks_status": "passed",
+      "review_verdict": "通过",
+      "evidence": ".spec/microservice-runtime-implementation/reports/TASK-MRI-013-evidence.json"
+    },
+    "TASK-MRI-014": {
+      "base_sha": "ee9e70e234f19842d7290789fe307c24b038255a",
+      "base_tree": "301af09ea3f5d7767fa590154d92d0b3bfb5ac7e",
+      "head_sha": "ee9e70e234f19842d7290789fe307c24b038255a",
+      "scope_status": "passed",
+      "checks_status": "passed",
+      "review_verdict": "通过",
+      "evidence": ".spec/microservice-runtime-implementation/reports/TASK-MRI-014-evidence.json"
+    },
+    "TASK-MRI-015": {
+      "base_sha": "8f208b29a51dc3bbab56ac9e77df46f2c12e0b32",
+      "base_tree": "da37cac77e634623ed28bb91ac64593252691a5e",
+      "head_sha": "8f208b29a51dc3bbab56ac9e77df46f2c12e0b32",
+      "scope_status": "passed",
+      "checks_status": "passed",
+      "review_verdict": "通过",
+      "evidence": ".spec/microservice-runtime-implementation/reports/TASK-MRI-015-evidence.json"
+    },
+    "TASK-MRI-016": {
+      "base_sha": "5785b8dad8397e758812682180e048f3f48585d5",
+      "base_tree": "69fbadc8b6fb0f91844b18a6edc71e4f70244ef4",
+      "head_sha": "5785b8dad8397e758812682180e048f3f48585d5",
+      "scope_status": "passed",
+      "checks_status": "passed",
+      "review_verdict": "通过",
+      "evidence": ".spec/microservice-runtime-implementation/reports/TASK-MRI-016-evidence.json"
+    },
+    "TASK-MRI-017": {
+      "base_sha": "29cdfa068efc3a1af92c2c0b4054b5f7169470b6",
+      "base_tree": "207b32e8d076e570abe5430833057cb65305f413",
+      "head_sha": "29cdfa068efc3a1af92c2c0b4054b5f7169470b6",
+      "scope_status": "passed",
+      "checks_status": "passed",
+      "review_verdict": "通过",
+      "evidence": ".spec/microservice-runtime-implementation/reports/TASK-MRI-017-evidence.json"
+    },
+    "TASK-MRI-018": {
+      "base_sha": "30f7bbdc11ad882102523f05c5f42e44dcad74e7",
+      "base_tree": "daf0a47fec221b77dd278f9dcaec78a9af31871b",
+      "head_sha": "30f7bbdc11ad882102523f05c5f42e44dcad74e7",
+      "scope_status": "passed",
+      "checks_status": "passed",
+      "review_verdict": "通过",
+      "evidence": ".spec/microservice-runtime-implementation/reports/TASK-MRI-018-evidence.json"
+    },
+    "TASK-MRI-019": {
+      "base_sha": "030c96da6def1b2f0af20cad2705c38391ef4b66",
+      "base_tree": "acf912c748be7001064f0e0082a21ad1ef45ad23",
+      "head_sha": "030c96da6def1b2f0af20cad2705c38391ef4b66",
+      "scope_status": "passed",
+      "checks_status": "passed",
+      "review_verdict": "通过",
+      "evidence": ".spec/microservice-runtime-implementation/reports/TASK-MRI-019-evidence.json"
+    },
+    "TASK-MRI-020": {
+      "base_sha": "37104782dc7f412e53d1e0e50ca82dfa6877a2c1",
+      "base_tree": "c49c6e11623107ca7b5dc2136d9de7a0b332ffb7",
+      "head_sha": "37104782dc7f412e53d1e0e50ca82dfa6877a2c1",
+      "scope_status": "passed",
+      "checks_status": "passed",
+      "review_verdict": "通过",
+      "evidence": ".spec/microservice-runtime-implementation/reports/TASK-MRI-020-evidence.json"
+    },
+    "TASK-MRI-021": {
+      "base_sha": "4cb7ba36988f3da234914470662cf0962e70a478",
+      "base_tree": "ccab226ef3c8dd4ddc49168e255f4c892ac86b36",
+      "head_sha": "4cb7ba36988f3da234914470662cf0962e70a478",
+      "scope_status": "passed",
+      "checks_status": "passed",
+      "review_verdict": "通过",
+      "evidence": ".spec/microservice-runtime-implementation/reports/TASK-MRI-021-evidence.json"
+    },
+    "TASK-MRI-022": {
+      "base_sha": "3937a700d60f861618f9cd21fd2a306939dc6421",
+      "base_tree": "9bb08f57cdd84cdb2450c33f6bd6dc05fd4c319b",
+      "head_sha": "3937a700d60f861618f9cd21fd2a306939dc6421",
+      "scope_status": "passed",
+      "checks_status": "passed",
+      "review_verdict": "通过",
+      "evidence": ".spec/microservice-runtime-implementation/reports/TASK-MRI-022-evidence.json"
+    },
+    "TASK-MRI-023": {
+      "base_sha": "3174725246a093e20efbd9fb810176a01428cc50",
+      "base_tree": "5bb56677d9267523711b77f0cae9ded177eaf3f6",
+      "head_sha": "3174725246a093e20efbd9fb810176a01428cc50",
+      "scope_status": "passed",
+      "checks_status": "passed",
+      "review_verdict": "通过",
+      "evidence": ".spec/microservice-runtime-implementation/reports/TASK-MRI-023-evidence.json"
+    },
+    "TASK-MRI-024": {
+      "base_sha": "7679378a663fecb439da558c89b0ed087ce293c1",
+      "base_tree": "b48e129250ae164d422f34cf6739c23d57a3b040",
+      "head_sha": "7679378a663fecb439da558c89b0ed087ce293c1",
+      "scope_status": "passed",
+      "checks_status": "passed",
+      "review_verdict": "通过",
+      "evidence": ".spec/microservice-runtime-implementation/reports/TASK-MRI-024-evidence.json"
+    },
+    "TASK-MRI-025": {
+      "base_sha": "c2b542c7424ebc6ca38049c300462f971c1d0e40",
+      "base_tree": "813f042dfec1bcd1a876ce1231abbde65e62f513",
+      "head_sha": "c2b542c7424ebc6ca38049c300462f971c1d0e40",
+      "scope_status": "passed",
+      "checks_status": "passed",
+      "review_verdict": "通过",
+      "evidence": ".spec/microservice-runtime-implementation/reports/TASK-MRI-025-evidence.json"
+    },
+    "TASK-MRI-026": {
+      "base_sha": "2396ff845688a05f79e3e3a3a9680d3860968f40",
+      "base_tree": "63b68f8273cfd5581db3d5d6fee170a85c80cf35",
+      "head_sha": "2396ff845688a05f79e3e3a3a9680d3860968f40",
+      "scope_status": "passed",
+      "checks_status": "passed",
+      "review_verdict": "通过",
+      "evidence": ".spec/microservice-runtime-implementation/reports/TASK-MRI-026-evidence.json"
+    },
+    "TASK-MRI-027": {
+      "base_sha": "ff148a803fa480f78a11ce7c60cbc217567fb069",
+      "base_tree": "78541b3daf8860d1fe9aead9056a453faa5b98a7",
+      "head_sha": "ff148a803fa480f78a11ce7c60cbc217567fb069",
+      "scope_status": "passed",
+      "checks_status": "passed",
+      "review_verdict": "通过",
+      "evidence": ".spec/microservice-runtime-implementation/reports/TASK-MRI-027-evidence.json"
+    },
+    "TASK-MRI-028": {
+      "base_sha": "547f43e85d448ee5e95355ce0a149eac4f182de4",
+      "base_tree": "0a694856f4e224c2fa82404b4f3448d8d8f8b62f",
+      "head_sha": "547f43e85d448ee5e95355ce0a149eac4f182de4",
+      "scope_status": "passed",
+      "checks_status": "passed",
+      "review_verdict": "通过",
+      "evidence": ".spec/microservice-runtime-implementation/reports/TASK-MRI-028-evidence.json"
+    },
+    "TASK-MRI-029": {
+      "base_sha": "f5f9007eea33950ce3ef3cee63c5d5f4cc668c7c",
+      "base_tree": "803624e64a4cbddb713732e4183ca9cff591a1cd",
+      "head_sha": "f5f9007eea33950ce3ef3cee63c5d5f4cc668c7c",
+      "scope_status": "passed",
+      "checks_status": "passed",
+      "review_verdict": "通过",
+      "evidence": ".spec/microservice-runtime-implementation/reports/TASK-MRI-029-evidence.json"
+    },
+    "TASK-MRI-030": {
+      "base_sha": "2836756886aa90784958d73311ef4b18b14434ce",
+      "base_tree": "b0d539fc2d203739dd3461ee8097c6c0e4092b11",
+      "head_sha": "2836756886aa90784958d73311ef4b18b14434ce",
+      "scope_status": "passed",
+      "checks_status": "passed",
+      "review_verdict": "通过",
+      "evidence": ".spec/microservice-runtime-implementation/reports/TASK-MRI-030-evidence.json"
+    },
+    "TASK-MRI-031": {
+      "base_sha": "752a9d6f6a967862c7b288ef2ce6040381017778",
+      "base_tree": "b91346cac2034b75f6ed3c662358730049613fb7",
+      "head_sha": "752a9d6f6a967862c7b288ef2ce6040381017778",
+      "scope_status": "passed",
+      "checks_status": "passed",
+      "review_verdict": "通过",
+      "evidence": ".spec/microservice-runtime-implementation/reports/TASK-MRI-031-evidence.json"
+    },
+    "TASK-MRI-032": {
+      "base_sha": "c8b0bbdaf7af77000aa9db04c638135321930a4a",
+      "base_tree": "d6eae26c1bb2754406eb099d3737741598a99deb",
+      "head_sha": "c8b0bbdaf7af77000aa9db04c638135321930a4a",
+      "scope_status": "passed",
+      "checks_status": "passed",
+      "review_verdict": "通过",
+      "evidence": ".spec/microservice-runtime-implementation/reports/TASK-MRI-032-evidence.json"
+    }
+  }
+}

@@ -1,10 +1,10 @@
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: logic-config
+  name: smart-recruit-service-config
   namespace: recruitment
 data:
-  GRPC_PORT: "50051"
+  GRPC_ADDR: ":50061"
   GRPC_INTERNAL_AUTH: "required"
   GRPC_INTERNAL_TLS: "required"
   GRPC_TLS_CERT_FILE: "/etc/recruitment/grpc-tls/tls.crt"
@@ -56,26 +56,26 @@ data:
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: web-config
+  name: smart-recruit-gateway-config
   namespace: recruitment
 data:
   HTTP_PORT: "8080"
-  GRPC_ADDR: "dns:///logic-grpc-service.recruitment.svc.cluster.local:50051"
+  GRPC_ADDR: "dns:///smart-recruit-identity-service.recruitment.svc.cluster.local:50061"
   GRPC_INTERNAL_TLS: "required"
   GRPC_TLS_CA_FILE: "/etc/recruitment/grpc-tls/ca.crt"
-  GRPC_TLS_SERVER_NAME: "logic-grpc-service.recruitment.svc.cluster.local"
-  NOTIFICATION_ROUTE_MODE: "logic"
-  NOTIFICATION_GRPC_ADDR: ""
-  AI_AGENT_ROUTE_MODE: "logic"
-  AI_AGENT_GRPC_ADDR: ""
-  IDENTITY_ROUTE_MODE: "logic"
-  IDENTITY_GRPC_ADDR: ""
-  RECRUITMENT_ROUTE_MODE: "logic"
-  RECRUITMENT_GRPC_ADDR: ""
-  INTERVIEW_ROUTE_MODE: "logic"
-  INTERVIEW_GRPC_ADDR: ""
-  OFFER_ROUTE_MODE: "logic"
-  OFFER_GRPC_ADDR: ""
+  GRPC_TLS_SERVER_NAME: "smart-recruit-identity-service.recruitment.svc.cluster.local"
+  NOTIFICATION_ROUTE_MODE: "notification"
+  NOTIFICATION_GRPC_ADDR: "dns:///smart-recruit-notification-service.recruitment.svc.cluster.local:50065"
+  AI_AGENT_ROUTE_MODE: "ai-agent"
+  AI_AGENT_GRPC_ADDR: "dns:///smart-recruit-ai-agent-service.recruitment.svc.cluster.local:50066"
+  IDENTITY_ROUTE_MODE: "identity"
+  IDENTITY_GRPC_ADDR: "dns:///smart-recruit-identity-service.recruitment.svc.cluster.local:50061"
+  RECRUITMENT_ROUTE_MODE: "recruitment"
+  RECRUITMENT_GRPC_ADDR: "dns:///smart-recruit-recruitment-service.recruitment.svc.cluster.local:50062"
+  INTERVIEW_ROUTE_MODE: "interview"
+  INTERVIEW_GRPC_ADDR: "dns:///smart-recruit-interview-service.recruitment.svc.cluster.local:50063"
+  OFFER_ROUTE_MODE: "offer"
+  OFFER_GRPC_ADDR: "dns:///smart-recruit-offer-service.recruitment.svc.cluster.local:50064"
   AUTH_COOKIE_SECURE: "true"
   CANDIDATE_AUTH_COOKIE_NAME: "recruitment_candidate_token"
   HR_AUTH_COOKIE_NAME: "recruitment_hr_token"

@@ -1378,6 +1378,7 @@ onMounted(() => {
       size="min(560px, 92vw)"
       direction="rtl"
       class="agent-skill-preview-drawer"
+      :close-on-click-modal="true"
       destroy-on-close
     >
       <div class="preview-drawer-body" v-loading="previewLoading">
@@ -1412,6 +1413,7 @@ onMounted(() => {
       title="当前版本预览"
       size="min(640px, 94vw)"
       direction="rtl"
+      :close-on-click-modal="true"
       destroy-on-close
     >
       <div class="preview-drawer-body" v-loading="savedPreviewLoading">
@@ -1441,6 +1443,7 @@ onMounted(() => {
       size="min(1180px, 96vw)"
       direction="rtl"
       class="agent-skill-versions-drawer"
+      :close-on-click-modal="true"
       destroy-on-close
     >
       <div class="version-drawer-body" v-loading="versionsLoading">

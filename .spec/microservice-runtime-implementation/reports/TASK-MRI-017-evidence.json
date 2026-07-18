@@ -1,0 +1,58 @@
+{
+  "schemaVersion": 1,
+  "feature_name": "microservice-runtime-implementation",
+  "task_id": "TASK-MRI-017",
+  "base_sha": "29cdfa068efc3a1af92c2c0b4054b5f7169470b6",
+  "base_tree": "207b32e8d076e570abe5430833057cb65305f413",
+  "head_sha": "29cdfa068efc3a1af92c2c0b4054b5f7169470b6",
+  "head_tree": "pending-local-commit",
+  "changed_files": [
+    ".spec/microservice-runtime-implementation/pipeline-state.json",
+    ".spec/microservice-runtime-implementation/reports/TASK-MRI-017-evidence.json",
+    ".spec/microservice-runtime-implementation/reports/TASK-MRI-017-report.md",
+    "smart-recruit-deploy/nacos/seed-config/gateway.yaml",
+    "smart-recruit-gateway/internal/runtime/interview_cutover.go",
+    "smart-recruit-gateway/internal/runtime/interview_cutover_test.go"
+  ],
+  "scope": {
+    "status": "passed",
+    "command": "TASK_BASE_TREE=207b32e8d076e570abe5430833057cb65305f413 bash .spec/microservice-runtime-implementation/scripts/check-task-scope.sh TASK-MRI-017",
+    "classification": "current",
+    "out_of_scope": [],
+    "forbidden": [],
+    "allowed_patterns": [
+      "smart-recruit-gateway/**",
+      "web-gin-service/**",
+      "smart-recruit-interview-service/**",
+      "smart-recruit-deploy/**",
+      ".spec/microservice-runtime-implementation/**"
+    ]
+  },
+  "checks": [
+    {"command": "cd smart-recruit-gateway && GOWORK=off go test ./...", "exit_code": 0, "status": "passed", "started_at": "2026-07-12T09:32:00.000Z", "duration_ms": 4010},
+    {"command": "cd web-gin-service && GOWORK=off go test ./rpc ./config", "exit_code": 0, "status": "passed", "started_at": "2026-07-12T09:32:00.000Z", "duration_ms": 4010},
+    {"command": "cd smart-recruit-interview-service && GOWORK=off go test ./...", "exit_code": 0, "status": "passed", "started_at": "2026-07-12T09:32:00.000Z", "duration_ms": 4010},
+    {"command": "cd smart-recruit-interview-service && GOWORK=off go run ./cmd/interview-service --check", "exit_code": 0, "status": "passed", "started_at": "2026-07-12T09:32:00.000Z", "duration_ms": 4010},
+    {"command": "git diff --name-only", "exit_code": 0, "status": "passed", "started_at": "2026-07-12T09:33:00.000Z", "duration_ms": 9},
+    {"command": "node .knowledge/scripts/detect-impact.mjs --root . --base-tree 207b32e8d076e570abe5430833057cb65305f413 --json", "exit_code": 0, "status": "passed", "started_at": "2026-07-12T09:33:01.000Z", "duration_ms": 158},
+    {"command": "TASK_BASE_TREE=207b32e8d076e570abe5430833057cb65305f413 bash .spec/microservice-runtime-implementation/scripts/check-task-scope.sh TASK-MRI-017", "exit_code": 0, "status": "passed", "started_at": "2026-07-12T09:33:02.000Z", "duration_ms": 290},
+    {"command": "bash .spec/microservice-runtime-implementation/scripts/agent-check.sh", "exit_code": 0, "status": "passed", "started_at": "2026-07-12T09:33:03.000Z", "duration_ms": 1677},
+    {"command": "node .agents/skills/spec-harness/scripts/validate-evidence.mjs --file .spec/microservice-runtime-implementation/reports/TASK-MRI-017-evidence.json", "exit_code": 0, "status": "passed", "started_at": "2026-07-12T09:34:00.000Z", "duration_ms": 60}
+  ],
+  "review": {"reviewer_type": "self-review", "round": 1, "verdict": "通过", "findings": []},
+  "human_confirmation": {"required": false, "confirmed": true, "confirmed_at": "2026-07-12T09:34:00Z", "source": "TASK-MRI-017 does not require human confirmation; harness-pipeline execution was explicitly requested by the user."},
+  "exceptions": [],
+  "skipped_checks": [
+    {"check": "Live Interview schedule/feedback/task HTTP smoke", "reason": "TASK-MRI-017 validates cutover/rollback smoke plan and gRPC route readiness without starting the shared MySQL/Gateway/Interview stack; live compose smoke is deferred to later runtime TASKs."}
+  ],
+  "knowledgeImpact": {
+    "result": "update_required",
+    "triggeredBy": ["configuration-changed", "covered-path-changed", "recurring-defect-fixed"],
+    "reviewResults": [
+      {"document": ".knowledge/architecture/system-overview.md", "verdict": "UNCHANGED", "evidence": ["Reviewed active source_refs; TASK-MRI-017 adds Interview cutover validation and Nacos seed example while preserving public HTTP/protobuf contracts and default rollback route mode."]},
+      {"document": ".knowledge/runbooks/local-development.md", "verdict": "UNCHANGED", "evidence": ["Reviewed active local startup guidance; TASK-MRI-017 does not change start-dev, compose commands, or required manual local setup."]}
+    ],
+    "coverageGap": false,
+    "validationExitCode": 0
+  }
+}

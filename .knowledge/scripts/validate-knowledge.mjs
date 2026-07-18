@@ -259,7 +259,7 @@ export function scanKnowledge(root) {
     }
     for (const ref of item.source_refs || []) {
       if (/[*?]/.test(ref)) { errors.push(`${relative}: source_refs must be exact paths: ${ref}`); continue; }
-      if (!fs.existsSync(path.join(repoRoot, ref))) errors.push(`${relative}: missing source_ref ${ref}`);
+      if (item.status === "active" && !fs.existsSync(path.join(repoRoot, ref))) errors.push(`${relative}: missing source_ref ${ref}`);
     }
     if (!validDate(item.last_verified)) errors.push(`${relative}: invalid last_verified`);
     if (!validDate(item.review_after)) errors.push(`${relative}: invalid review_after`);

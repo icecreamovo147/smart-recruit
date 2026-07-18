@@ -17,6 +17,16 @@ import type {
   UpdatePromptPayload,
   PromptVersion,
 } from '@/types/prompt'
+import {
+  PROMPT_AGENT_TYPE_GROUP_LABEL,
+  conversationPromptAgentTypes,
+  findPromptAgentTypeOption,
+  normalizePromptAgentType,
+  promptAgentTypeKind,
+  promptAgentTypeKindLabel,
+  promptAgentTypeLabel,
+  structuredTaskPromptAgentTypes,
+} from '@/constants/promptAgentTypes'
 
 // ====== Auth state ======
 
@@ -55,13 +65,7 @@ const loadList = async () => {
 
 // ====== Helpers ======
 
-const agentTypeLabel = (t: string): string => {
-  const map: Record<string, string> = {
-    hr_agent: 'HR',
-    candidate_assistant: '候选人',
-  }
-  return map[t] || t || '-'
-}
+const agentTypeLabel = promptAgentTypeLabel
 
 const promptRoleLabel = (r: string): string => {
   const map: Record<string, string> = {
@@ -111,11 +115,23 @@ const editingId = ref(0)
 const dialogForm = reactive({
   name: '',
   content: '',
-  agent_type: 'hr_agent',
+  agent_type: 'hr_recruiting_agent',
   prompt_role: 'system',
   is_active: true,
   change_note: '',
 })
+
+const selectedAgentTypeOption = computed(() => findPromptAgentTypeOption(dialogForm.agent_type))
+const isStructuredTaskType = computed(
+  () => promptAgentTypeKind(dialogForm.agent_type) === 'structured_task',
+)
+
+const handleAgentTypeChange = (value: string) => {
+  // Structured task pipelines only load active system prompts.
+  if (promptAgentTypeKind(value) === 'structured_task') {
+    dialogForm.prompt_role = 'system'
+  }
+}
 
 // Variables extracted from the current content text.
 const extractedVars = computed(() => extractVariables(dialogForm.content))
@@ -123,7 +139,7 @@ const extractedVars = computed(() => extractVariables(dialogForm.content))
 const resetDialogForm = () => {
   dialogForm.name = ''
   dialogForm.content = ''
-  dialogForm.agent_type = 'hr_agent'
+  dialogForm.agent_type = 'hr_recruiting_agent'
   dialogForm.prompt_role = 'system'
   dialogForm.is_active = true
   dialogForm.change_note = ''
@@ -143,11 +159,27 @@ const openEdit = (row: PromptTemplate) => {
   dialogTitle.value = '编辑 Prompt 模板'
   dialogForm.name = row.name
   dialogForm.content = row.content
-  dialogForm.agent_type = row.agent_type
+  dialogForm.agent_type = normalizePromptAgentType(row.agent_type)
   dialogForm.prompt_role = row.prompt_role
   dialogForm.is_active = row.is_active
   dialogForm.change_note = ''
   dialogVisible.value = true
+}
+
+/** Whether another enabled template covers the same type/role scope (legacy hr_agent shares HR scope). */
+const hasOtherActivePrompt = (row: Pick<PromptTemplate, 'id' | 'agent_type' | 'prompt_role'>): boolean => {
+  const scope = (agentType: string): string[] => {
+    const t = agentType.trim().toLowerCase()
+    if (t === 'hr_recruiting_agent' || t === 'hr_agent') return ['hr_recruiting_agent', 'hr_agent']
+    return [t]
+  }
+  const rowScope = new Set(scope(row.agent_type))
+  const role = row.prompt_role.trim().toLowerCase()
+  return templateList.value.some((item) => {
+    if (item.id === row.id || !item.is_active) return false
+    if (item.prompt_role.trim().toLowerCase() !== role) return false
+    return scope(item.agent_type).some((t) => rowScope.has(t))
+  })
 }
 
 const save = async () => {
@@ -158,6 +190,22 @@ const save = async () => {
   if (!dialogForm.content) {
     ElMessage.warning('请输入 Prompt 内容')
     return
+  }
+  if (
+    isEditing.value
+    && !dialogForm.is_active
+    && !hasOtherActivePrompt({
+      id: editingId.value,
+      agent_type: dialogForm.agent_type,
+      prompt_role: dialogForm.prompt_role,
+    })
+  ) {
+    // If the row is already inactive, allow saving other fields without re-checking.
+    const current = templateList.value.find((item) => item.id === editingId.value)
+    if (current?.is_active) {
+      ElMessage.warning('当前绑定类型下没有其他启用中的提示词，不能禁用最后一条')
+      return
+    }
   }
   saving.value = true
   try {
@@ -173,7 +221,7 @@ const save = async () => {
         change_note: dialogForm.change_note || undefined,
       }
       await updatePromptTemplate(editingId.value, payload)
-      ElMessage.success('Prompt 模板已更新（版本已自动递增）')
+      ElMessage.success('Prompt 模板已更新')
     } else {
       const payload: CreatePromptPayload = {
         name: dialogForm.name,
@@ -219,6 +267,10 @@ const handleDelete = async (row: PromptTemplate) => {
 // ====== Toggle active status ======
 
 const handleToggleActive = async (row: PromptTemplate) => {
+  if (row.is_active && !hasOtherActivePrompt(row)) {
+    ElMessage.warning('当前绑定类型下没有其他启用中的提示词，不能禁用最后一条')
+    return
+  }
   try {
     await updatePromptTemplate(row.id, {
       is_active: !row.is_active,
@@ -326,7 +378,9 @@ onMounted(() => {
         <div class="workspace-surface__header-copy">
           <p class="console-eyebrow">PROMPT OPS</p>
           <h2 class="console-title">Prompt 管理</h2>
-          <p class="console-description">管理可版本化的 Prompt 模板，跟踪变量、角色、Agent 类型和版本回滚，保障 Agent 输出策略可控。</p>
+          <p class="console-description">
+            管理提示词模板：「对话助手」用于 HR/候选人聊天；「系统内置任务」用于系统自动处理简历、JD、匹配评估。后一类只需在这里改提示词，不用去 Agent 管理建 Agent。
+          </p>
         </div>
         <div class="workspace-surface__header-actions">
           <el-button :icon="Refresh" @click="loadList">刷新</el-button>
@@ -341,14 +395,28 @@ onMounted(() => {
           <el-input v-model="keywordFilter" :prefix-icon="Search" clearable placeholder="搜索模板名称 / 内容" style="width: 260px" />
           <el-select
             v-model="agentTypeFilter"
-            placeholder="全部 Agent 类型"
+            placeholder="全部绑定类型"
             clearable
-            style="width: 180px"
+            style="width: 220px"
             @change="() => { templatePage = 1; loadList() }"
           >
-            <el-option value="" label="全部 Agent 类型" />
-            <el-option value="hr_agent" label="HR" />
-            <el-option value="candidate_assistant" label="候选人" />
+            <el-option value="" label="全部绑定类型" />
+            <el-option-group :label="PROMPT_AGENT_TYPE_GROUP_LABEL.conversation">
+              <el-option
+                v-for="item in conversationPromptAgentTypes"
+                :key="item.value"
+                :value="item.value"
+                :label="item.label"
+              />
+            </el-option-group>
+            <el-option-group :label="PROMPT_AGENT_TYPE_GROUP_LABEL.structured_task">
+              <el-option
+                v-for="item in structuredTaskPromptAgentTypes"
+                :key="item.value"
+                :value="item.value"
+                :label="item.label"
+              />
+            </el-option-group>
           </el-select>
           <el-select v-model="statusFilter" placeholder="全部状态" clearable style="width: 140px">
             <el-option value="active" label="启用" />
@@ -379,9 +447,18 @@ onMounted(() => {
               {{ promptRoleLabel(row.prompt_role) }}
             </template>
           </el-table-column>
-          <el-table-column label="Agent 类型" width="110">
+          <el-table-column label="绑定类型" min-width="200">
             <template #default="{ row }: { row: PromptTemplate }">
-              {{ agentTypeLabel(row.agent_type) }}
+              <div class="prompt-type-cell">
+                <span class="prompt-type-cell__label">{{ agentTypeLabel(row.agent_type) }}</span>
+                <el-tag
+                  size="small"
+                  effect="plain"
+                  :type="promptAgentTypeKind(row.agent_type) === 'structured_task' ? 'warning' : 'info'"
+                >
+                  {{ promptAgentTypeKindLabel(row.agent_type) }}
+                </el-tag>
+              </div>
             </template>
           </el-table-column>
           <el-table-column prop="version" label="当前版本" width="100">
@@ -441,24 +518,54 @@ onMounted(() => {
       v-model="dialogVisible"
       :title="dialogTitle"
       size="680px"
-      :close-on-click-modal="false"
+      :close-on-click-modal="true"
       destroy-on-close
     >
       <el-form :model="dialogForm" label-width="120px">
         <el-form-item label="模板名称" required>
           <el-input v-model="dialogForm.name" placeholder="例如：HR 面试助手 System Prompt" />
         </el-form-item>
-        <el-form-item label="Agent 类型" required>
-          <el-select v-model="dialogForm.agent_type" style="width: 100%">
-            <el-option value="hr_agent" label="HR" />
-            <el-option value="candidate_assistant" label="候选人" />
+        <el-form-item label="绑定类型" required>
+          <el-select
+            v-model="dialogForm.agent_type"
+            style="width: 100%"
+            :disabled="isEditing"
+            placeholder="选择用途：对话助手 或 系统内置任务"
+            @change="handleAgentTypeChange"
+          >
+            <el-option-group :label="PROMPT_AGENT_TYPE_GROUP_LABEL.conversation">
+              <el-option
+                v-for="item in conversationPromptAgentTypes"
+                :key="item.value"
+                :value="item.value"
+                :label="item.label"
+              />
+            </el-option-group>
+            <el-option-group :label="PROMPT_AGENT_TYPE_GROUP_LABEL.structured_task">
+              <el-option
+                v-for="item in structuredTaskPromptAgentTypes"
+                :key="item.value"
+                :value="item.value"
+                :label="item.label"
+              />
+            </el-option-group>
           </el-select>
+          <p v-if="selectedAgentTypeOption" class="field-hint">
+            {{ selectedAgentTypeOption.description }}
+          </p>
+          <p v-if="isStructuredTaskType" class="field-hint field-hint--task">
+            系统内置任务提示词保存在数据库中，由后台按类型自动加载；不必在 Agent 管理里再建一个 Agent。
+          </p>
+          <p v-if="isEditing" class="field-hint">编辑时不可更改绑定类型（避免影响已上线任务）。如需换类型请新建模板。</p>
         </el-form-item>
         <el-form-item label="角色" required>
-          <el-select v-model="dialogForm.prompt_role" style="width: 100%">
+          <el-select v-model="dialogForm.prompt_role" style="width: 100%" :disabled="isEditing && isStructuredTaskType">
             <el-option value="system" label="系统（System）" />
             <el-option value="user" label="用户（User）" />
           </el-select>
+          <p v-if="isStructuredTaskType" class="field-hint">
+            系统内置任务请使用「系统」角色；系统只会加载启用中的 system 提示词。
+          </p>
         </el-form-item>
         <el-form-item label="Prompt 内容" required>
           <div class="content-editor-wrap">
@@ -498,7 +605,7 @@ onMounted(() => {
       <template #footer>
         <el-button @click="dialogVisible = false">取消</el-button>
         <el-button type="primary" :loading="saving" @click="save">
-          {{ isEditing ? '保存（版本号自动递增）' : '创建' }}
+          {{ isEditing ? '保存' : '创建' }}
         </el-button>
       </template>
     </el-drawer>
@@ -587,6 +694,31 @@ onMounted(() => {
 <style scoped>
 .prompt-manage-view {
   padding-bottom: 24px;
+}
+
+.prompt-type-cell {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+}
+
+.prompt-type-cell__label {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-primary);
+  line-height: 1.3;
+}
+
+.field-hint {
+  margin: 6px 0 0;
+  font-size: 12px;
+  line-height: 1.45;
+  color: var(--text-muted, var(--el-text-color-secondary));
+}
+
+.field-hint--task {
+  color: var(--el-color-warning-dark-2, #b88230);
 }
 
 .page-title {

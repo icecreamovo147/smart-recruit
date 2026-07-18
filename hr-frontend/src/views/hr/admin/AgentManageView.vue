@@ -1,3 +1,18 @@
+<script lang="ts">
+import type { PromptTemplate } from '@/types/prompt'
+
+export const isCompatibleAgentPrompt = (
+  prompt: Pick<PromptTemplate, 'is_active' | 'prompt_role' | 'agent_type'>,
+  agentType: string,
+): boolean => {
+  if (!prompt.is_active || prompt.prompt_role.trim().toLowerCase() !== 'system') return false
+  const promptAgentType = prompt.agent_type.trim().toLowerCase()
+  const normalizedAgentType = agentType.trim().toLowerCase()
+  if (promptAgentType === normalizedAgentType) return true
+  return normalizedAgentType === 'hr_recruiting_agent' && promptAgentType === 'hr_agent'
+}
+</script>
+
 <script setup lang="ts">
 import { onMounted, reactive, ref, computed } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
@@ -18,8 +33,6 @@ import type {
   CreateAgentPayload,
   UpdateAgentPayload,
 } from '@/types/agent'
-import type { PromptTemplate } from '@/types/prompt'
-
 // ====== Agent types dropdown options ======
 
 const AGENT_TYPE_OPTIONS = [
@@ -52,6 +65,11 @@ const AVAILABLE_TOOLS_BY_TYPE: Record<string, { name: string; label: string }[]>
     { name: 'get_application_status_summary', label: '投递状态汇总' },
     { name: 'get_application_trend', label: '投递趋势' },
     { name: 'get_job_list', label: '岗位列表' },
+    { name: 'parse_resume_profile', label: '解析简历画像' },
+    { name: 'get_resume_profile', label: '简历画像' },
+    { name: 'evaluate_candidate_match', label: '候选人匹配评估' },
+    { name: 'get_candidate_match_evaluation', label: '查询匹配评估' },
+    { name: 'compare_candidates_for_job', label: '岗位候选人对比' },
   ],
   candidate_assistant: [
     { name: 'list_my_applications', label: '我的投递列表' },
@@ -99,6 +117,10 @@ const loadList = async () => {
 
 const promptList = ref<PromptTemplate[]>([])
 const capabilityList = ref<CapabilityInfo[]>([])
+
+const compatiblePromptList = computed(() =>
+  promptList.value.filter((prompt) => isCompatibleAgentPrompt(prompt, dialogForm.agent_type)),
+)
 
 const loadReferenceData = async () => {
   try {
@@ -252,6 +274,9 @@ const legacySkillBindings = (bindings: AgentCapabilityBindingInfo[] = []) =>
 
 const handleAgentTypeChange = async () => {
   dialogForm.capability_ids = []
+  if (!compatiblePromptList.value.some((prompt) => prompt.id === dialogForm.prompt_template_id)) {
+    dialogForm.prompt_template_id = null
+  }
   await loadCapabilities(dialogForm.agent_type)
 }
 
@@ -340,6 +365,12 @@ const save = async () => {
       payload.is_enabled_set = true
       payload.capability_bindings = selectedCapabilities.value
       payload.capability_bindings_set = true
+      // Dual-write concrete builtin tool names so runtime tool_bindings stay aligned.
+      payload.tool_names = selectedCapabilities.value
+        .filter((cap) => cap.capability_source === 'builtin')
+        .map((cap) => cap.capability_key)
+        .filter(Boolean)
+      payload.tool_names_set = true
       await updateAgentConfig(editingId.value, payload)
       ElMessage.success('Agent 配置已更新')
     } else {
@@ -355,7 +386,13 @@ const save = async () => {
       payload.temperature_override = dialogForm.temperature_override
       payload.temperature_override_set = dialogForm.temperature_override_enabled
       payload.is_default = dialogForm.is_default
-      if (selectedCapabilities.value.length > 0) payload.capability_bindings = selectedCapabilities.value
+      if (selectedCapabilities.value.length > 0) {
+        payload.capability_bindings = selectedCapabilities.value
+        payload.tool_names = selectedCapabilities.value
+          .filter((cap) => cap.capability_source === 'builtin')
+          .map((cap) => cap.capability_key)
+          .filter(Boolean)
+      }
       await createAgentConfig(payload)
       ElMessage.success('Agent 配置已创建')
     }
@@ -544,7 +581,7 @@ onMounted(() => {
       v-model="dialogVisible"
       :title="dialogTitle"
       size="680px"
-      :close-on-click-modal="false"
+      :close-on-click-modal="true"
       destroy-on-close
     >
       <el-form :model="dialogForm" label-width="130px">
@@ -578,7 +615,7 @@ onMounted(() => {
         <el-form-item label="绑定 Prompt">
           <el-select v-model="dialogForm.prompt_template_id" style="width: 100%" placeholder="选择 Prompt 模板" clearable>
             <el-option
-              v-for="p in promptList"
+              v-for="p in compatiblePromptList"
               :key="p.id"
               :value="p.id"
               :label="p.name"
@@ -653,7 +690,7 @@ onMounted(() => {
       </template>
     </el-drawer>
 
-    <el-drawer v-model="detailVisible" title="Agent 详情" size="560px" destroy-on-close>
+    <el-drawer v-model="detailVisible" title="Agent 详情" size="560px" :close-on-click-modal="true" destroy-on-close>
       <template v-if="detailAgent">
         <el-descriptions :column="1" border>
           <el-descriptions-item label="显示名称">{{ detailAgent.display_name || '-' }}</el-descriptions-item>

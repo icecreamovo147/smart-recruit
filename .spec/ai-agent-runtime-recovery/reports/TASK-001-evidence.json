@@ -1,0 +1,229 @@
+{
+  "schemaVersion": 1,
+  "feature_name": "ai-agent-runtime-recovery",
+  "task_id": "TASK-001",
+  "base_sha": "dc018e6d28e8b1db277b3594fd435b581215eaf3",
+  "base_tree": "5fa32a2c019dbceb08b976ff27b9fa82b0e4703c",
+  "head_sha": "dc018e6d28e8b1db277b3594fd435b581215eaf3",
+  "changed_files": [
+    ".spec/ai-agent-runtime-recovery/docs/dev-reference-inventory.md",
+    ".spec/ai-agent-runtime-recovery/pipeline-state.json",
+    ".spec/ai-agent-runtime-recovery/reports/TASK-001-evidence.json",
+    ".spec/ai-agent-runtime-recovery/reports/TASK-001-report.md",
+    "smart-recruit-ai-agent-service/go.sum",
+    "smart-recruit-gateway/go.sum"
+  ],
+  "scope": {
+    "status": "passed",
+    "base_tree": "5fa32a2c019dbceb08b976ff27b9fa82b0e4703c",
+    "forbidden": [],
+    "out_of_scope": [],
+    "allowed": [
+      ".spec/ai-agent-runtime-recovery/docs/dev-reference-inventory.md",
+      ".spec/ai-agent-runtime-recovery/pipeline-state.json",
+      ".spec/ai-agent-runtime-recovery/reports/TASK-001-evidence.json",
+      ".spec/ai-agent-runtime-recovery/reports/TASK-001-report.md",
+      "smart-recruit-ai-agent-service/go.sum",
+      "smart-recruit-gateway/go.sum"
+    ]
+  },
+  "checks": [
+    {
+      "command": "GOWORK=off go test ./... (smart-recruit-ai-agent-service)",
+      "status": "passed",
+      "exit_code": 0,
+      "started_at": "2026-07-14T17:10:00Z",
+      "duration_ms": 3879
+    },
+    {
+      "command": "GOWORK=off go test ./... (smart-recruit-gateway)",
+      "status": "passed",
+      "exit_code": 0,
+      "started_at": "2026-07-14T17:10:00Z",
+      "duration_ms": 2585
+    },
+    {
+      "command": "git diff --name-only",
+      "status": "passed",
+      "exit_code": 0,
+      "started_at": "2026-07-14T17:15:00Z",
+      "duration_ms": 10
+    },
+    {
+      "command": "bash .spec/ai-agent-runtime-recovery/scripts/check-task-scope.sh TASK-001",
+      "status": "passed",
+      "exit_code": 0,
+      "started_at": "2026-07-14T17:19:00Z",
+      "duration_ms": 552
+    },
+    {
+      "command": "bash .spec/ai-agent-runtime-recovery/scripts/agent-check.sh",
+      "status": "passed",
+      "exit_code": 0,
+      "started_at": "2026-07-14T17:20:00Z",
+      "duration_ms": 3196
+    },
+    {
+      "command": "node .knowledge/scripts/detect-impact.mjs --root . --base-tree 5fa32a2c019dbceb08b976ff27b9fa82b0e4703c --json",
+      "status": "passed",
+      "exit_code": 0,
+      "started_at": "2026-07-14T17:20:30Z",
+      "duration_ms": 735
+    },
+    {
+      "command": "node .agents/skills/spec-harness/scripts/validate-evidence.mjs --file .spec/ai-agent-runtime-recovery/reports/TASK-001-evidence.json --require-knowledge-impact",
+      "status": "passed",
+      "exit_code": 0,
+      "started_at": "2026-07-14T17:22:00Z",
+      "duration_ms": 32
+    }
+  ],
+  "review": {
+    "type": "independent-read-only-subagent",
+    "round": 2,
+    "verdict": "通过",
+    "reviewer": "independent-read-only-subagent: Huygens (019f61a6-e501-73c3-a97d-8b3afb707d56)",
+    "notes": [
+      "Round 1 independent review returned 不通过 for missing evidence and pipeline-state scope mismatch.",
+      "Fixes added pipeline-state to TASK allowed scope, regenerated TASK base tree, reran scope and agent checks, and created this evidence file.",
+      "Round 2 independent review returned 通过 with no required fixes."
+    ],
+    "completed_at": "2026-07-14T17:26:20Z"
+  },
+  "human_confirmation": {
+    "required": false,
+    "confirmed": true,
+    "confirmed_by": "not_required",
+    "confirmed_at": "2026-07-14T17:21:00Z",
+    "confirmation_text": "TASK-001 does not require human confirmation."
+  },
+  "exceptions": [],
+  "knowledgeImpact": {
+    "result": "update_required",
+    "triggeredBy": [
+      "authorization-changed",
+      "configuration-changed",
+      "covered-path-changed",
+      "fallback-behavior-changed",
+      "memory-behavior-changed",
+      "retrieval-behavior-changed",
+      "sensitive-data-flow-changed",
+      "service-boundary-changed"
+    ],
+    "reviewResults": [
+      {
+        "document": "agent-runtime",
+        "verdict": "UNCHANGED",
+        "evidence": [
+          "TASK-001 only adds checksum entries and a feature-owned dev reference inventory; runtime behavior remains unchanged."
+        ]
+      },
+      {
+        "document": "agent-skill",
+        "verdict": "UNCHANGED",
+        "evidence": [
+          "Agent Skill behavior is documented for later reference only; no Agent Skill source or knowledge behavior changed."
+        ]
+      },
+      {
+        "document": "ai-configuration-governance",
+        "verdict": "UNCHANGED",
+        "evidence": [
+          "AI configuration governance was reviewed because AI Agent module checksums changed; no governance behavior changed."
+        ]
+      },
+      {
+        "document": "debug-agent-retrieval",
+        "verdict": "UNCHANGED",
+        "evidence": [
+          "Retrieval debug knowledge was reviewed via route impact; TASK-001 does not alter retrieval code."
+        ]
+      },
+      {
+        "document": "embedding-fallback",
+        "verdict": "UNCHANGED",
+        "evidence": [
+          "Embedding fallback behavior is only inventoried as later recovery scope."
+        ]
+      },
+      {
+        "document": "local-development",
+        "verdict": "UNCHANGED",
+        "evidence": [
+          "Go validation commands remain aligned with the local-development runbook."
+        ]
+      },
+      {
+        "document": "mcp-policy-audit",
+        "verdict": "UNCHANGED",
+        "evidence": [
+          "MCP audit behavior is only referenced for later recovery; no MCP runtime source changed."
+        ]
+      },
+      {
+        "document": "mcp-tool-governance",
+        "verdict": "UNCHANGED",
+        "evidence": [
+          "MCP governance behavior is only inventoried as later recovery scope."
+        ]
+      },
+      {
+        "document": "memory-and-context",
+        "verdict": "UNCHANGED",
+        "evidence": [
+          "Context and memory behavior is only inventoried; no runtime context assembly changed."
+        ]
+      },
+      {
+        "document": "resume-intelligence",
+        "verdict": "UNCHANGED",
+        "evidence": [
+          "Resume intelligence behavior is only inventoried; no source or data handling changed."
+        ]
+      },
+      {
+        "document": "resume-sensitive-data",
+        "verdict": "UNCHANGED",
+        "evidence": [
+          "No raw resume or candidate-sensitive data was written to TASK reports."
+        ]
+      },
+      {
+        "document": "semantic-retrieval",
+        "verdict": "UNCHANGED",
+        "evidence": [
+          "Semantic retrieval behavior is only inventoried as later recovery scope."
+        ]
+      },
+      {
+        "document": "service-boundaries",
+        "verdict": "UNCHANGED",
+        "evidence": [
+          "Inventory explicitly keeps old monolith files as references only and preserves current service boundaries."
+        ]
+      },
+      {
+        "document": "system-overview",
+        "verdict": "UNCHANGED",
+        "evidence": [
+          "Repository architecture and service list remain unchanged."
+        ]
+      }
+    ],
+    "coverageGap": false,
+    "validationExitCode": 0
+  },
+  "skipped_checks": [],
+  "repair_rounds": [
+    {
+      "round": 1,
+      "verdict": "不通过",
+      "fixed_items": [
+        "RF-001 pipeline-state scope mismatch",
+        "RF-002 missing evidence file",
+        "RF-003 report reproducibility mismatch",
+        "RF-004 pending runtime state inconsistency"
+      ]
+    }
+  ]
+}

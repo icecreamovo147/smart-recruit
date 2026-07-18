@@ -11,7 +11,8 @@ WORKDIR /build
 RUN echo "registry=https://registry.npmmirror.com" > .npmrc
 
 # Preserve monorepo structure so Vite @shared alias resolves correctly.
-COPY interviewer-frontend/package.json interviewer-frontend/pnpm-lock.yaml ./interviewer-frontend/
+COPY pnpm-lock.yaml pnpm-workspace.yaml ./
+COPY interviewer-frontend/package.json ./interviewer-frontend/
 
 WORKDIR /build/interviewer-frontend
 RUN pnpm install --frozen-lockfile

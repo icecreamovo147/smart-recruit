@@ -1,0 +1,1276 @@
+{
+  "revision": "2026-07-18.3",
+  "entries": [
+    {
+      "provider_family": "deepseek",
+      "model_name": "deepseek-v4-flash",
+      "display_name": "DeepSeek V4 Flash",
+      "context_window_tokens": 1000000,
+      "max_output_tokens": 384000,
+      "temperature": 1.0,
+      "top_p": 1.0,
+      "capabilities": {
+        "thinking": true,
+        "json_output": true,
+        "tool_calls": true,
+        "prefix_completion": true,
+        "fim_completion": "non_thinking_only"
+      },
+      "source_type": "official_document",
+      "source_url": "https://api-docs.deepseek.com/zh-cn/quick_start/pricing/",
+      "field_sources": {
+        "temperature": "https://api-docs.deepseek.com/zh-cn/api/create-chat-completion/",
+        "top_p": "https://api-docs.deepseek.com/zh-cn/api/create-chat-completion/"
+      },
+      "verified_at": "2026-07-18T00:00:00Z",
+      "expires_at": "2026-10-18T00:00:00Z"
+    },
+    {
+      "provider_family": "deepseek",
+      "model_name": "deepseek-v4-pro",
+      "display_name": "DeepSeek V4 Pro",
+      "context_window_tokens": 1000000,
+      "max_output_tokens": 384000,
+      "temperature": 1.0,
+      "top_p": 1.0,
+      "capabilities": {
+        "thinking": true,
+        "json_output": true,
+        "tool_calls": true,
+        "prefix_completion": true,
+        "fim_completion": "non_thinking_only"
+      },
+      "source_type": "official_document",
+      "source_url": "https://api-docs.deepseek.com/zh-cn/quick_start/pricing/",
+      "field_sources": {
+        "temperature": "https://api-docs.deepseek.com/zh-cn/api/create-chat-completion/",
+        "top_p": "https://api-docs.deepseek.com/zh-cn/api/create-chat-completion/"
+      },
+      "verified_at": "2026-07-18T00:00:00Z",
+      "expires_at": "2026-10-18T00:00:00Z"
+    },
+    {
+      "provider_family": "deepseek",
+      "model_name": "deepseek-chat",
+      "display_name": "DeepSeek Chat (V4 Flash compatibility alias)",
+      "context_window_tokens": 1000000,
+      "max_output_tokens": 384000,
+      "capabilities": {
+        "thinking": false,
+        "json_output": true,
+        "tool_calls": true,
+        "compatibility_alias": true
+      },
+      "source_type": "official_document",
+      "source_url": "https://api-docs.deepseek.com/updates/",
+      "field_sources": {},
+      "verified_at": "2026-07-18T00:00:00Z",
+      "expires_at": "2026-07-24T15:59:00Z"
+    },
+    {
+      "provider_family": "deepseek",
+      "model_name": "deepseek-reasoner",
+      "display_name": "DeepSeek Reasoner (V4 Flash compatibility alias)",
+      "context_window_tokens": 1000000,
+      "max_output_tokens": 384000,
+      "capabilities": {
+        "thinking": true,
+        "json_output": true,
+        "tool_calls": true,
+        "compatibility_alias": true
+      },
+      "source_type": "official_document",
+      "source_url": "https://api-docs.deepseek.com/updates/",
+      "field_sources": {},
+      "verified_at": "2026-07-18T00:00:00Z",
+      "expires_at": "2026-07-24T15:59:00Z"
+    },
+    {
+      "provider_family": "openai",
+      "model_name": "gpt-5.6",
+      "display_name": "GPT-5.6",
+      "capabilities": {
+        "reasoning": true,
+        "image_input": true,
+        "tool_calls": true,
+        "structured_output": true,
+        "responses_api": true
+      },
+      "source_type": "official_document",
+      "source_url": "https://developers.openai.com/api/docs/guides/latest-model",
+      "field_sources": {},
+      "verified_at": "2026-07-18T00:00:00Z",
+      "expires_at": "2026-10-18T00:00:00Z"
+    },
+    {
+      "provider_family": "openai",
+      "model_name": "gpt-5.6-sol",
+      "display_name": "GPT-5.6 Sol",
+      "capabilities": {
+        "reasoning": true,
+        "image_input": true,
+        "tool_calls": true,
+        "structured_output": true,
+        "responses_api": true
+      },
+      "source_type": "official_document",
+      "source_url": "https://developers.openai.com/api/docs/guides/latest-model",
+      "field_sources": {},
+      "verified_at": "2026-07-18T00:00:00Z",
+      "expires_at": "2026-10-18T00:00:00Z"
+    },
+    {
+      "provider_family": "openai",
+      "model_name": "gpt-5.6-terra",
+      "display_name": "GPT-5.6 Terra",
+      "capabilities": {
+        "reasoning": true,
+        "image_input": true,
+        "tool_calls": true,
+        "structured_output": true,
+        "responses_api": true
+      },
+      "source_type": "official_document",
+      "source_url": "https://developers.openai.com/api/docs/guides/latest-model",
+      "field_sources": {},
+      "verified_at": "2026-07-18T00:00:00Z",
+      "expires_at": "2026-10-18T00:00:00Z"
+    },
+    {
+      "provider_family": "openai",
+      "model_name": "gpt-5.6-luna",
+      "display_name": "GPT-5.6 Luna",
+      "capabilities": {
+        "reasoning": true,
+        "image_input": true,
+        "tool_calls": true,
+        "structured_output": true,
+        "responses_api": true
+      },
+      "source_type": "official_document",
+      "source_url": "https://developers.openai.com/api/docs/guides/latest-model",
+      "field_sources": {},
+      "verified_at": "2026-07-18T00:00:00Z",
+      "expires_at": "2026-10-18T00:00:00Z"
+    },
+    {
+      "provider_family": "openai",
+      "model_name": "gpt-5.4",
+      "display_name": "GPT-5.4",
+      "context_window_tokens": 1050000,
+      "max_output_tokens": 128000,
+      "capabilities": {
+        "reasoning": true,
+        "image_input": true,
+        "function_calling": true,
+        "structured_output": true,
+        "chat_completions": true,
+        "responses_api": true
+      },
+      "source_type": "official_document",
+      "source_url": "https://developers.openai.com/api/docs/models/gpt-5.4",
+      "field_sources": {},
+      "verified_at": "2026-07-18T00:00:00Z",
+      "expires_at": "2026-10-18T00:00:00Z"
+    },
+    {
+      "provider_family": "openai",
+      "model_name": "gpt-5.4-mini",
+      "display_name": "GPT-5.4 Mini",
+      "context_window_tokens": 400000,
+      "max_input_tokens": 272000,
+      "max_output_tokens": 128000,
+      "capabilities": {
+        "reasoning": true,
+        "image_input": true,
+        "function_calling": true,
+        "structured_output": true,
+        "chat_completions": true,
+        "responses_api": true
+      },
+      "source_type": "official_document",
+      "source_url": "https://developers.openai.com/api/docs/models/gpt-5.4-mini",
+      "field_sources": {},
+      "verified_at": "2026-07-18T00:00:00Z",
+      "expires_at": "2026-10-18T00:00:00Z"
+    },
+    {
+      "provider_family": "openai",
+      "model_name": "gpt-5.4-nano",
+      "display_name": "GPT-5.4 Nano",
+      "context_window_tokens": 400000,
+      "max_input_tokens": 272000,
+      "max_output_tokens": 128000,
+      "capabilities": {
+        "reasoning": true,
+        "image_input": true,
+        "function_calling": true,
+        "structured_output": true,
+        "chat_completions": true,
+        "responses_api": true
+      },
+      "source_type": "official_document",
+      "source_url": "https://developers.openai.com/api/docs/models/gpt-5.4-nano",
+      "field_sources": {},
+      "verified_at": "2026-07-18T00:00:00Z",
+      "expires_at": "2026-10-18T00:00:00Z"
+    },
+    {
+      "provider_family": "openai",
+      "model_name": "gpt-4.1",
+      "display_name": "GPT-4.1",
+      "context_window_tokens": 1047576,
+      "max_output_tokens": 32768,
+      "capabilities": {
+        "image_input": true,
+        "function_calling": true,
+        "structured_output": true,
+        "fine_tuning": true
+      },
+      "source_type": "official_document",
+      "source_url": "https://developers.openai.com/api/docs/models/gpt-4.1",
+      "field_sources": {},
+      "verified_at": "2026-07-18T00:00:00Z",
+      "expires_at": "2026-10-18T00:00:00Z"
+    },
+    {
+      "provider_family": "openai",
+      "model_name": "gpt-4.1-mini",
+      "display_name": "GPT-4.1 Mini",
+      "context_window_tokens": 1047576,
+      "max_output_tokens": 32768,
+      "capabilities": {
+        "image_input": true,
+        "function_calling": true,
+        "structured_output": true,
+        "fine_tuning": true
+      },
+      "source_type": "official_document",
+      "source_url": "https://developers.openai.com/api/docs/models/gpt-4.1-mini",
+      "field_sources": {},
+      "verified_at": "2026-07-18T00:00:00Z",
+      "expires_at": "2026-10-18T00:00:00Z"
+    },
+    {
+      "provider_family": "openai",
+      "model_name": "gpt-4o",
+      "display_name": "GPT-4o",
+      "context_window_tokens": 128000,
+      "max_output_tokens": 16384,
+      "capabilities": {
+        "image_input": true,
+        "function_calling": true,
+        "structured_output": true,
+        "fine_tuning": true
+      },
+      "source_type": "official_document",
+      "source_url": "https://developers.openai.com/api/docs/models/gpt-4o",
+      "field_sources": {},
+      "verified_at": "2026-07-18T00:00:00Z",
+      "expires_at": "2026-10-18T00:00:00Z"
+    },
+    {
+      "provider_family": "anthropic",
+      "model_name": "claude-fable-5",
+      "display_name": "Claude Fable 5",
+      "context_window_tokens": 1000000,
+      "max_input_tokens": 1000000,
+      "max_output_tokens": 128000,
+      "capabilities": {
+        "adaptive_thinking": true,
+        "image_input": true,
+        "tool_calls": true,
+        "multilingual": true
+      },
+      "source_type": "official_document",
+      "source_url": "https://platform.claude.com/docs/en/about-claude/models/overview",
+      "field_sources": {},
+      "verified_at": "2026-07-18T00:00:00Z",
+      "expires_at": "2026-10-18T00:00:00Z"
+    },
+    {
+      "provider_family": "anthropic",
+      "model_name": "claude-opus-4-8",
+      "display_name": "Claude Opus 4.8",
+      "context_window_tokens": 1000000,
+      "max_input_tokens": 1000000,
+      "max_output_tokens": 128000,
+      "capabilities": {
+        "adaptive_thinking": true,
+        "image_input": true,
+        "tool_calls": true,
+        "multilingual": true
+      },
+      "source_type": "official_document",
+      "source_url": "https://platform.claude.com/docs/en/about-claude/models/overview",
+      "field_sources": {},
+      "verified_at": "2026-07-18T00:00:00Z",
+      "expires_at": "2026-10-18T00:00:00Z"
+    },
+    {
+      "provider_family": "anthropic",
+      "model_name": "claude-sonnet-5",
+      "display_name": "Claude Sonnet 5",
+      "context_window_tokens": 1000000,
+      "max_input_tokens": 1000000,
+      "max_output_tokens": 128000,
+      "capabilities": {
+        "adaptive_thinking": true,
+        "image_input": true,
+        "tool_calls": true,
+        "multilingual": true
+      },
+      "source_type": "official_document",
+      "source_url": "https://platform.claude.com/docs/en/about-claude/models/overview",
+      "field_sources": {},
+      "verified_at": "2026-07-18T00:00:00Z",
+      "expires_at": "2026-10-18T00:00:00Z"
+    },
+    {
+      "provider_family": "anthropic",
+      "model_name": "claude-haiku-4-5-20251001",
+      "display_name": "Claude Haiku 4.5",
+      "context_window_tokens": 200000,
+      "max_input_tokens": 200000,
+      "max_output_tokens": 64000,
+      "capabilities": {
+        "extended_thinking": true,
+        "image_input": true,
+        "tool_calls": true,
+        "multilingual": true
+      },
+      "source_type": "official_document",
+      "source_url": "https://platform.claude.com/docs/en/about-claude/models/overview",
+      "field_sources": {},
+      "verified_at": "2026-07-18T00:00:00Z",
+      "expires_at": "2026-10-18T00:00:00Z"
+    },
+    {
+      "provider_family": "anthropic",
+      "model_name": "claude-haiku-4-5",
+      "display_name": "Claude Haiku 4.5",
+      "context_window_tokens": 200000,
+      "max_input_tokens": 200000,
+      "max_output_tokens": 64000,
+      "capabilities": {
+        "extended_thinking": true,
+        "image_input": true,
+        "tool_calls": true,
+        "multilingual": true
+      },
+      "source_type": "official_document",
+      "source_url": "https://platform.claude.com/docs/en/about-claude/models/overview",
+      "field_sources": {},
+      "verified_at": "2026-07-18T00:00:00Z",
+      "expires_at": "2026-10-18T00:00:00Z"
+    },
+    {
+      "provider_family": "anthropic",
+      "model_name": "claude-opus-4-7",
+      "display_name": "Claude Opus 4.7",
+      "context_window_tokens": 1000000,
+      "max_input_tokens": 1000000,
+      "max_output_tokens": 128000,
+      "capabilities": {
+        "adaptive_thinking": true,
+        "image_input": true,
+        "tool_calls": true,
+        "multilingual": true
+      },
+      "source_type": "official_document",
+      "source_url": "https://platform.claude.com/docs/en/about-claude/models/migration-guide",
+      "field_sources": {},
+      "verified_at": "2026-07-18T00:00:00Z",
+      "expires_at": "2026-10-18T00:00:00Z"
+    },
+    {
+      "provider_family": "anthropic",
+      "model_name": "claude-opus-4-6",
+      "display_name": "Claude Opus 4.6",
+      "context_window_tokens": 1000000,
+      "max_input_tokens": 1000000,
+      "max_output_tokens": 128000,
+      "capabilities": {
+        "adaptive_thinking": true,
+        "image_input": true,
+        "tool_calls": true,
+        "multilingual": true
+      },
+      "source_type": "official_document",
+      "source_url": "https://platform.claude.com/docs/en/about-claude/models/migration-guide",
+      "field_sources": {},
+      "verified_at": "2026-07-18T00:00:00Z",
+      "expires_at": "2026-10-18T00:00:00Z"
+    },
+    {
+      "provider_family": "anthropic",
+      "model_name": "claude-sonnet-4-6",
+      "display_name": "Claude Sonnet 4.6",
+      "context_window_tokens": 1000000,
+      "max_input_tokens": 1000000,
+      "max_output_tokens": 64000,
+      "capabilities": {
+        "adaptive_thinking": true,
+        "extended_thinking": true,
+        "image_input": true,
+        "tool_calls": true,
+        "multilingual": true
+      },
+      "source_type": "official_document",
+      "source_url": "https://platform.claude.com/docs/en/about-claude/models/overview",
+      "field_sources": {},
+      "verified_at": "2026-07-18T00:00:00Z",
+      "expires_at": "2026-10-18T00:00:00Z"
+    },
+    {
+      "provider_family": "google_gemini",
+      "model_name": "gemini-3.5-flash",
+      "display_name": "Gemini 3.5 Flash",
+      "context_window_tokens": 1000000,
+      "max_input_tokens": 1000000,
+      "max_output_tokens": 65000,
+      "capabilities": {
+        "thinking": true,
+        "multimodal": true,
+        "function_calling": true,
+        "structured_output": true,
+        "built_in_tools": true
+      },
+      "source_type": "official_document",
+      "source_url": "https://ai.google.dev/gemini-api/docs/whats-new-gemini-3.5",
+      "field_sources": {},
+      "verified_at": "2026-07-18T00:00:00Z",
+      "expires_at": "2026-10-18T00:00:00Z"
+    },
+    {
+      "provider_family": "google_gemini",
+      "model_name": "gemini-2.5-pro",
+      "display_name": "Gemini 2.5 Pro",
+      "capabilities": {
+        "thinking": true,
+        "multimodal": true,
+        "function_calling": true,
+        "structured_output": true
+      },
+      "source_type": "official_document",
+      "source_url": "https://ai.google.dev/gemini-api/docs/models",
+      "field_sources": {},
+      "verified_at": "2026-07-18T00:00:00Z",
+      "expires_at": "2026-10-18T00:00:00Z"
+    },
+    {
+      "provider_family": "google_gemini",
+      "model_name": "gemini-2.5-flash",
+      "display_name": "Gemini 2.5 Flash",
+      "capabilities": {
+        "thinking": true,
+        "multimodal": true,
+        "function_calling": true,
+        "structured_output": true
+      },
+      "source_type": "official_document",
+      "source_url": "https://ai.google.dev/gemini-api/docs/models",
+      "field_sources": {},
+      "verified_at": "2026-07-18T00:00:00Z",
+      "expires_at": "2026-10-18T00:00:00Z"
+    },
+    {
+      "provider_family": "google_gemini",
+      "model_name": "gemini-2.5-flash-lite",
+      "display_name": "Gemini 2.5 Flash-Lite",
+      "capabilities": {
+        "thinking": true,
+        "multimodal": true,
+        "function_calling": true,
+        "structured_output": true
+      },
+      "source_type": "official_document",
+      "source_url": "https://ai.google.dev/gemini-api/docs/models",
+      "field_sources": {},
+      "verified_at": "2026-07-18T00:00:00Z",
+      "expires_at": "2026-10-18T00:00:00Z"
+    },
+    {
+      "provider_family": "google_gemini",
+      "model_name": "gemini-3.1-pro-preview",
+      "display_name": "Gemini 3.1 Pro Preview",
+      "capabilities": {
+        "thinking": true,
+        "multimodal": true,
+        "function_calling": true,
+        "structured_output": true,
+        "preview": true
+      },
+      "source_type": "official_document",
+      "source_url": "https://ai.google.dev/gemini-api/docs/deprecations",
+      "field_sources": {},
+      "verified_at": "2026-07-18T00:00:00Z",
+      "expires_at": "2026-10-18T00:00:00Z"
+    },
+    {
+      "provider_family": "google_gemini",
+      "model_name": "gemini-3.1-flash-lite",
+      "display_name": "Gemini 3.1 Flash-Lite",
+      "capabilities": {
+        "thinking": true,
+        "multimodal": true,
+        "function_calling": true,
+        "structured_output": true
+      },
+      "source_type": "official_document",
+      "source_url": "https://ai.google.dev/gemini-api/docs/deprecations",
+      "field_sources": {},
+      "verified_at": "2026-07-18T00:00:00Z",
+      "expires_at": "2026-10-18T00:00:00Z"
+    },
+    {
+      "provider_family": "google_gemini",
+      "model_name": "gemini-3-flash-preview",
+      "display_name": "Gemini 3 Flash Preview",
+      "capabilities": {
+        "thinking": true,
+        "multimodal": true,
+        "function_calling": true,
+        "structured_output": true,
+        "preview": true
+      },
+      "source_type": "official_document",
+      "source_url": "https://ai.google.dev/gemini-api/docs/deprecations",
+      "field_sources": {},
+      "verified_at": "2026-07-18T00:00:00Z",
+      "expires_at": "2026-10-18T00:00:00Z"
+    },
+    {
+      "provider_family": "xai",
+      "model_name": "grok-4.5",
+      "display_name": "Grok 4.5",
+      "context_window_tokens": 500000,
+      "capabilities": {
+        "reasoning_effort": true,
+        "image_input": true,
+        "function_calling": true,
+        "web_search": true,
+        "x_search": true,
+        "code_execution": true
+      },
+      "source_type": "official_document",
+      "source_url": "https://docs.x.ai/developers/grok-4-5",
+      "field_sources": {
+        "context_window_tokens": "https://docs.x.ai/developers/pricing"
+      },
+      "verified_at": "2026-07-18T00:00:00Z",
+      "expires_at": "2026-10-18T00:00:00Z"
+    },
+    {
+      "provider_family": "xai",
+      "model_name": "grok-420-reasoning",
+      "display_name": "Grok 420 Reasoning",
+      "context_window_tokens": 256000,
+      "capabilities": {
+        "reasoning": true,
+        "image_input": true
+      },
+      "source_type": "official_document",
+      "source_url": "https://docs.x.ai/developers/rest-api-reference/inference/models",
+      "field_sources": {},
+      "verified_at": "2026-07-18T00:00:00Z",
+      "expires_at": "2026-10-18T00:00:00Z"
+    },
+    {
+      "provider_family": "xai",
+      "model_name": "grok-4.3",
+      "display_name": "Grok 4.3",
+      "context_window_tokens": 1000000,
+      "capabilities": {
+        "reasoning_effort": true,
+        "function_calling": true,
+        "agentic": true
+      },
+      "source_type": "official_document",
+      "source_url": "https://docs.x.ai/developers/models",
+      "field_sources": {},
+      "verified_at": "2026-07-18T00:00:00Z",
+      "expires_at": "2026-10-18T00:00:00Z"
+    },
+    {
+      "provider_family": "xai",
+      "model_name": "grok-build-0.1",
+      "display_name": "Grok Build 0.1",
+      "context_window_tokens": 256000,
+      "capabilities": {
+        "reasoning": true,
+        "image_input": true,
+        "function_calling": true,
+        "structured_output": true,
+        "coding": true
+      },
+      "source_type": "official_document",
+      "source_url": "https://docs.x.ai/developers/models/grok-build-0.1",
+      "field_sources": {},
+      "verified_at": "2026-07-18T00:00:00Z",
+      "expires_at": "2026-10-18T00:00:00Z"
+    },
+    {
+      "provider_family": "xai",
+      "model_name": "grok-4.20-0309-reasoning",
+      "display_name": "Grok 4.20 Reasoning",
+      "context_window_tokens": 1000000,
+      "capabilities": {
+        "reasoning": true,
+        "function_calling": true
+      },
+      "source_type": "official_document",
+      "source_url": "https://docs.x.ai/developers/pricing",
+      "field_sources": {},
+      "verified_at": "2026-07-18T00:00:00Z",
+      "expires_at": "2026-10-18T00:00:00Z"
+    },
+    {
+      "provider_family": "xai",
+      "model_name": "grok-4.20-0309-non-reasoning",
+      "display_name": "Grok 4.20 Non-Reasoning",
+      "context_window_tokens": 1000000,
+      "capabilities": {
+        "reasoning": false,
+        "function_calling": true
+      },
+      "source_type": "official_document",
+      "source_url": "https://docs.x.ai/developers/pricing",
+      "field_sources": {},
+      "verified_at": "2026-07-18T00:00:00Z",
+      "expires_at": "2026-10-18T00:00:00Z"
+    },
+    {
+      "provider_family": "xai",
+      "model_name": "grok-4.20-multi-agent-0309",
+      "display_name": "Grok 4.20 Multi-Agent",
+      "context_window_tokens": 1000000,
+      "capabilities": {
+        "reasoning": true,
+        "multi_agent": true,
+        "function_calling": true
+      },
+      "source_type": "official_document",
+      "source_url": "https://docs.x.ai/developers/pricing",
+      "field_sources": {},
+      "verified_at": "2026-07-18T00:00:00Z",
+      "expires_at": "2026-10-18T00:00:00Z"
+    },
+    {
+      "provider_family": "mistral",
+      "model_name": "mistral-large-2512",
+      "display_name": "Mistral Large 3",
+      "context_window_tokens": 256000,
+      "capabilities": {
+        "multimodal": true,
+        "function_calling": true,
+        "structured_output": true,
+        "fim": true,
+        "document_qna": true
+      },
+      "source_type": "official_document",
+      "source_url": "https://docs.mistral.ai/models/model-cards/mistral-large-3-25-12",
+      "field_sources": {},
+      "verified_at": "2026-07-18T00:00:00Z",
+      "expires_at": "2026-10-18T00:00:00Z"
+    },
+    {
+      "provider_family": "mistral",
+      "model_name": "mistral-large-latest",
+      "display_name": "Mistral Large (Latest)",
+      "context_window_tokens": 256000,
+      "capabilities": {
+        "multimodal": true,
+        "function_calling": true,
+        "structured_output": true
+      },
+      "source_type": "official_document",
+      "source_url": "https://docs.mistral.ai/getting-started/quickstarts/developer/first-api-request",
+      "field_sources": {
+        "context_window_tokens": "https://docs.mistral.ai/resources/known-limitations"
+      },
+      "verified_at": "2026-07-18T00:00:00Z",
+      "expires_at": "2026-10-18T00:00:00Z"
+    },
+    {
+      "provider_family": "mistral",
+      "model_name": "mistral-medium-3-5",
+      "display_name": "Mistral Medium 3.5",
+      "context_window_tokens": 256000,
+      "capabilities": {
+        "multimodal": true,
+        "function_calling": true,
+        "structured_output": true
+      },
+      "source_type": "official_document",
+      "source_url": "https://docs.mistral.ai/models/overview",
+      "field_sources": {
+        "context_window_tokens": "https://docs.mistral.ai/resources/known-limitations"
+      },
+      "verified_at": "2026-07-18T00:00:00Z",
+      "expires_at": "2026-10-18T00:00:00Z"
+    },
+    {
+      "provider_family": "mistral",
+      "model_name": "mistral-small-2603",
+      "display_name": "Mistral Small 4",
+      "context_window_tokens": 256000,
+      "capabilities": {
+        "reasoning": true,
+        "coding": true,
+        "function_calling": true,
+        "structured_output": true
+      },
+      "source_type": "official_document",
+      "source_url": "https://docs.mistral.ai/models/overview",
+      "field_sources": {
+        "context_window_tokens": "https://docs.mistral.ai/resources/known-limitations"
+      },
+      "verified_at": "2026-07-18T00:00:00Z",
+      "expires_at": "2026-10-18T00:00:00Z"
+    },
+    {
+      "provider_family": "mistral",
+      "model_name": "mistral-small-latest",
+      "display_name": "Mistral Small (Latest)",
+      "context_window_tokens": 256000,
+      "capabilities": {
+        "reasoning": true,
+        "coding": true,
+        "function_calling": true,
+        "structured_output": true
+      },
+      "source_type": "official_document",
+      "source_url": "https://docs.mistral.ai/getting-started/quickstarts/studio/test-model-playground",
+      "field_sources": {
+        "context_window_tokens": "https://docs.mistral.ai/resources/known-limitations"
+      },
+      "verified_at": "2026-07-18T00:00:00Z",
+      "expires_at": "2026-10-18T00:00:00Z"
+    },
+    {
+      "provider_family": "qwen",
+      "model_name": "qwen3.7-max",
+      "display_name": "Qwen3.7-Max",
+      "context_window_tokens": 1000000,
+      "capabilities": {
+        "thinking": true,
+        "function_calling": true,
+        "built_in_tools": true
+      },
+      "source_type": "official_document",
+      "source_url": "https://help.aliyun.com/zh/model-studio/text-generation-model",
+      "field_sources": {},
+      "verified_at": "2026-07-18T00:00:00Z",
+      "expires_at": "2026-10-18T00:00:00Z"
+    },
+    {
+      "provider_family": "qwen",
+      "model_name": "qwen3.7-plus",
+      "display_name": "Qwen3.7-Plus",
+      "context_window_tokens": 1000000,
+      "capabilities": {
+        "thinking": true,
+        "function_calling": true,
+        "built_in_tools": true,
+        "structured_output": true
+      },
+      "source_type": "official_document",
+      "source_url": "https://help.aliyun.com/zh/model-studio/text-generation-model",
+      "field_sources": {},
+      "verified_at": "2026-07-18T00:00:00Z",
+      "expires_at": "2026-10-18T00:00:00Z"
+    },
+    {
+      "provider_family": "qwen",
+      "model_name": "qwen3.6-flash",
+      "display_name": "Qwen3.6-Flash",
+      "context_window_tokens": 1000000,
+      "capabilities": {
+        "thinking": true,
+        "function_calling": true,
+        "built_in_tools": true,
+        "structured_output": true
+      },
+      "source_type": "official_document",
+      "source_url": "https://help.aliyun.com/zh/model-studio/text-generation-model",
+      "field_sources": {},
+      "verified_at": "2026-07-18T00:00:00Z",
+      "expires_at": "2026-10-18T00:00:00Z"
+    },
+    {
+      "provider_family": "qwen",
+      "model_name": "qwen-long",
+      "display_name": "Qwen Long",
+      "context_window_tokens": 10000000,
+      "capabilities": {
+        "long_context": true,
+        "function_calling": true
+      },
+      "source_type": "official_document",
+      "source_url": "https://help.aliyun.com/zh/model-studio/text-generation-model",
+      "field_sources": {},
+      "verified_at": "2026-07-18T00:00:00Z",
+      "expires_at": "2026-10-18T00:00:00Z"
+    },
+    {
+      "provider_family": "qwen",
+      "model_name": "qwen3-max",
+      "display_name": "Qwen3-Max",
+      "capabilities": {
+        "thinking": true,
+        "function_calling": true,
+        "built_in_tools": true
+      },
+      "source_type": "official_document",
+      "source_url": "https://help.aliyun.com/en/model-studio/deep-thinking",
+      "field_sources": {},
+      "verified_at": "2026-07-18T00:00:00Z",
+      "expires_at": "2026-10-18T00:00:00Z"
+    },
+    {
+      "provider_family": "qwen",
+      "model_name": "qwen3-max-2026-01-23",
+      "display_name": "Qwen3-Max 2026-01-23",
+      "capabilities": {
+        "thinking": true,
+        "function_calling": true,
+        "pinned_snapshot": true
+      },
+      "source_type": "official_document",
+      "source_url": "https://help.aliyun.com/en/model-studio/coding-plan",
+      "field_sources": {},
+      "verified_at": "2026-07-18T00:00:00Z",
+      "expires_at": "2026-10-18T00:00:00Z"
+    },
+    {
+      "provider_family": "qwen",
+      "model_name": "qwen3.6-plus",
+      "display_name": "Qwen3.6-Plus",
+      "capabilities": {
+        "thinking": true,
+        "multimodal": true,
+        "function_calling": true,
+        "structured_output": true
+      },
+      "source_type": "official_document",
+      "source_url": "https://help.aliyun.com/en/model-studio/coding-plan",
+      "field_sources": {},
+      "verified_at": "2026-07-18T00:00:00Z",
+      "expires_at": "2026-10-18T00:00:00Z"
+    },
+    {
+      "provider_family": "qwen",
+      "model_name": "qwen3.5-plus",
+      "display_name": "Qwen3.5-Plus",
+      "capabilities": {
+        "thinking": true,
+        "multimodal": true,
+        "function_calling": true,
+        "structured_output": true
+      },
+      "source_type": "official_document",
+      "source_url": "https://help.aliyun.com/en/model-studio/coding-plan",
+      "field_sources": {},
+      "verified_at": "2026-07-18T00:00:00Z",
+      "expires_at": "2026-10-18T00:00:00Z"
+    },
+    {
+      "provider_family": "qwen",
+      "model_name": "qwen3-coder-next",
+      "display_name": "Qwen3 Coder Next",
+      "capabilities": {
+        "thinking": true,
+        "coding": true,
+        "function_calling": true,
+        "agentic": true
+      },
+      "source_type": "official_document",
+      "source_url": "https://help.aliyun.com/en/model-studio/coding-plan",
+      "field_sources": {},
+      "verified_at": "2026-07-18T00:00:00Z",
+      "expires_at": "2026-10-18T00:00:00Z"
+    },
+    {
+      "provider_family": "qwen",
+      "model_name": "qwen3-coder-plus",
+      "display_name": "Qwen3 Coder Plus",
+      "capabilities": {
+        "thinking": true,
+        "coding": true,
+        "function_calling": true,
+        "agentic": true
+      },
+      "source_type": "official_document",
+      "source_url": "https://help.aliyun.com/en/model-studio/coding-plan",
+      "field_sources": {},
+      "verified_at": "2026-07-18T00:00:00Z",
+      "expires_at": "2026-10-18T00:00:00Z"
+    },
+    {
+      "provider_family": "qwen",
+      "model_name": "qwen-plus",
+      "display_name": "Qwen Plus",
+      "capabilities": {
+        "thinking": true,
+        "function_calling": true
+      },
+      "source_type": "official_document",
+      "source_url": "https://help.aliyun.com/en/model-studio/deep-thinking",
+      "field_sources": {},
+      "verified_at": "2026-07-18T00:00:00Z",
+      "expires_at": "2026-10-18T00:00:00Z"
+    },
+    {
+      "provider_family": "zhipu",
+      "model_name": "glm-5.2",
+      "display_name": "GLM-5.2",
+      "context_window_tokens": 1000000,
+      "max_output_tokens": 128000,
+      "temperature": 1.0,
+      "capabilities": {
+        "thinking": true,
+        "function_calling": true,
+        "structured_output": true,
+        "context_cache": true
+      },
+      "source_type": "official_document",
+      "source_url": "https://docs.bigmodel.cn/cn/guide/models/text/glm-5.2",
+      "field_sources": {
+        "temperature": "https://docs.bigmodel.cn/api-reference/%E6%A8%A1%E5%9E%8B-api/%E5%AF%B9%E8%AF%9D%E8%A1%A5%E5%85%A8"
+      },
+      "verified_at": "2026-07-18T00:00:00Z",
+      "expires_at": "2026-10-18T00:00:00Z"
+    },
+    {
+      "provider_family": "zhipu",
+      "model_name": "glm-5.1",
+      "display_name": "GLM-5.1",
+      "capabilities": {
+        "thinking": true,
+        "function_calling": true,
+        "coding": true,
+        "agentic": true
+      },
+      "source_type": "official_document",
+      "source_url": "https://docs.bigmodel.cn/cn/coding-plan/faq",
+      "field_sources": {},
+      "verified_at": "2026-07-18T00:00:00Z",
+      "expires_at": "2026-10-18T00:00:00Z"
+    },
+    {
+      "provider_family": "zhipu",
+      "model_name": "glm-5-turbo",
+      "display_name": "GLM-5 Turbo",
+      "capabilities": {
+        "thinking": true,
+        "function_calling": true,
+        "coding": true
+      },
+      "source_type": "official_document",
+      "source_url": "https://docs.bigmodel.cn/cn/coding-plan/faq",
+      "field_sources": {},
+      "verified_at": "2026-07-18T00:00:00Z",
+      "expires_at": "2026-10-18T00:00:00Z"
+    },
+    {
+      "provider_family": "zhipu",
+      "model_name": "glm-5",
+      "display_name": "GLM-5",
+      "context_window_tokens": 200000,
+      "max_output_tokens": 128000,
+      "capabilities": {
+        "thinking": true,
+        "function_calling": true,
+        "context_cache": true,
+        "coding": true,
+        "agentic": true
+      },
+      "source_type": "official_document",
+      "source_url": "https://docs.bigmodel.cn/cn/guide/models/text/glm-5",
+      "field_sources": {},
+      "verified_at": "2026-07-18T00:00:00Z",
+      "expires_at": "2026-10-18T00:00:00Z"
+    },
+    {
+      "provider_family": "zhipu",
+      "model_name": "glm-4.7",
+      "display_name": "GLM-4.7",
+      "capabilities": {
+        "thinking": true,
+        "function_calling": true,
+        "coding": true,
+        "agentic": true
+      },
+      "source_type": "official_document",
+      "source_url": "https://docs.bigmodel.cn/cn/coding-plan/faq",
+      "field_sources": {},
+      "verified_at": "2026-07-18T00:00:00Z",
+      "expires_at": "2026-10-18T00:00:00Z"
+    },
+    {
+      "provider_family": "zhipu",
+      "model_name": "glm-4.7-flash",
+      "display_name": "GLM-4.7 Flash",
+      "capabilities": {
+        "thinking": true,
+        "function_calling": true,
+        "coding": true
+      },
+      "source_type": "official_document",
+      "source_url": "https://docs.bigmodel.cn/cn/update/new-releases",
+      "field_sources": {},
+      "verified_at": "2026-07-18T00:00:00Z",
+      "expires_at": "2026-10-18T00:00:00Z"
+    },
+    {
+      "provider_family": "zhipu",
+      "model_name": "glm-4.5-air",
+      "display_name": "GLM-4.5 Air",
+      "capabilities": {
+        "function_calling": true,
+        "coding": true
+      },
+      "source_type": "official_document",
+      "source_url": "https://docs.bigmodel.cn/cn/coding-plan/faq",
+      "field_sources": {},
+      "verified_at": "2026-07-18T00:00:00Z",
+      "expires_at": "2026-10-18T00:00:00Z"
+    },
+    {
+      "provider_family": "minimax",
+      "model_name": "MiniMax-M3",
+      "display_name": "MiniMax M3",
+      "context_window_tokens": 1000000,
+      "capabilities": {
+        "thinking_toggle": true,
+        "multimodal": true,
+        "coding": true,
+        "tool_calls": true,
+        "agentic": true
+      },
+      "source_type": "official_document",
+      "source_url": "https://www.minimax.io/models/text/m3",
+      "field_sources": {},
+      "verified_at": "2026-07-18T00:00:00Z",
+      "expires_at": "2026-10-18T00:00:00Z"
+    },
+    {
+      "provider_family": "minimax",
+      "model_name": "MiniMax-M2.7",
+      "display_name": "MiniMax M2.7",
+      "capabilities": {
+        "reasoning": true,
+        "coding": true,
+        "tool_calls": true,
+        "agentic": true
+      },
+      "source_type": "official_document",
+      "source_url": "https://platform.minimax.io/docs/guides/models-intro",
+      "field_sources": {},
+      "verified_at": "2026-07-18T00:00:00Z",
+      "expires_at": "2026-10-18T00:00:00Z"
+    },
+    {
+      "provider_family": "minimax",
+      "model_name": "MiniMax-M2.7-highspeed",
+      "display_name": "MiniMax M2.7 Highspeed",
+      "capabilities": {
+        "reasoning": true,
+        "coding": true,
+        "tool_calls": true,
+        "low_latency": true
+      },
+      "source_type": "official_document",
+      "source_url": "https://platform.minimax.io/docs/guides/models-intro",
+      "field_sources": {},
+      "verified_at": "2026-07-18T00:00:00Z",
+      "expires_at": "2026-10-18T00:00:00Z"
+    },
+    {
+      "provider_family": "minimax",
+      "model_name": "MiniMax-M2.5",
+      "display_name": "MiniMax M2.5",
+      "capabilities": {
+        "reasoning": true,
+        "coding": true,
+        "tool_calls": true
+      },
+      "source_type": "official_document",
+      "source_url": "https://platform.minimax.io/docs/guides/models-intro",
+      "field_sources": {},
+      "verified_at": "2026-07-18T00:00:00Z",
+      "expires_at": "2026-10-18T00:00:00Z"
+    },
+    {
+      "provider_family": "minimax",
+      "model_name": "MiniMax-M2.5-highspeed",
+      "display_name": "MiniMax M2.5 Highspeed",
+      "capabilities": {
+        "reasoning": true,
+        "coding": true,
+        "tool_calls": true,
+        "low_latency": true
+      },
+      "source_type": "official_document",
+      "source_url": "https://platform.minimax.io/docs/guides/models-intro",
+      "field_sources": {},
+      "verified_at": "2026-07-18T00:00:00Z",
+      "expires_at": "2026-10-18T00:00:00Z"
+    },
+    {
+      "provider_family": "minimax",
+      "model_name": "MiniMax-M2.1",
+      "display_name": "MiniMax M2.1",
+      "capabilities": {
+        "reasoning": true,
+        "coding": true,
+        "tool_calls": true,
+        "legacy": true
+      },
+      "source_type": "official_document",
+      "source_url": "https://platform.minimax.io/docs/guides/models-intro",
+      "field_sources": {},
+      "verified_at": "2026-07-18T00:00:00Z",
+      "expires_at": "2026-10-18T00:00:00Z"
+    },
+    {
+      "provider_family": "minimax",
+      "model_name": "MiniMax-M2.1-highspeed",
+      "display_name": "MiniMax M2.1 Highspeed",
+      "capabilities": {
+        "reasoning": true,
+        "coding": true,
+        "tool_calls": true,
+        "low_latency": true,
+        "legacy": true
+      },
+      "source_type": "official_document",
+      "source_url": "https://platform.minimax.io/docs/guides/models-intro",
+      "field_sources": {},
+      "verified_at": "2026-07-18T00:00:00Z",
+      "expires_at": "2026-10-18T00:00:00Z"
+    },
+    {
+      "provider_family": "minimax",
+      "model_name": "MiniMax-M2",
+      "display_name": "MiniMax M2",
+      "context_window_tokens": 200000,
+      "max_output_tokens": 128000,
+      "capabilities": {
+        "reasoning": true,
+        "function_calling": true,
+        "agentic": true,
+        "legacy": true
+      },
+      "source_type": "official_document",
+      "source_url": "https://platform.minimax.io/docs/guides/models-intro",
+      "field_sources": {},
+      "verified_at": "2026-07-18T00:00:00Z",
+      "expires_at": "2026-10-18T00:00:00Z"
+    },
+    {
+      "provider_family": "xiaomi",
+      "model_name": "mimo-v2.5-pro",
+      "display_name": "Xiaomi MiMo V2.5 Pro",
+      "context_window_tokens": 1000000,
+      "max_input_tokens": 1000000,
+      "max_output_tokens": 128000,
+      "temperature": 1.0,
+      "top_p": 0.95,
+      "capabilities": {
+        "thinking": true,
+        "streaming": true,
+        "function_calling": true,
+        "structured_output": true,
+        "web_search": true
+      },
+      "source_type": "official_document",
+      "source_url": "https://mimo.mi.com/docs/en-US/quick-start/model",
+      "field_sources": {
+        "temperature": "https://mimo.mi.com/docs/en-US/api/guidance/model-hyperparameters",
+        "top_p": "https://mimo.mi.com/docs/en-US/api/guidance/model-hyperparameters"
+      },
+      "verified_at": "2026-07-18T00:00:00Z",
+      "expires_at": "2026-10-18T00:00:00Z"
+    },
+    {
+      "provider_family": "xiaomi",
+      "model_name": "mimo-v2.5",
+      "display_name": "Xiaomi MiMo V2.5",
+      "context_window_tokens": 1000000,
+      "max_input_tokens": 1000000,
+      "max_output_tokens": 128000,
+      "temperature": 1.0,
+      "top_p": 0.95,
+      "capabilities": {
+        "thinking": true,
+        "multimodal": true,
+        "streaming": true,
+        "function_calling": true,
+        "structured_output": true,
+        "web_search": true
+      },
+      "source_type": "official_document",
+      "source_url": "https://mimo.mi.com/docs/en-US/quick-start/model",
+      "field_sources": {
+        "temperature": "https://mimo.mi.com/docs/en-US/api/guidance/model-hyperparameters",
+        "top_p": "https://mimo.mi.com/docs/en-US/api/guidance/model-hyperparameters"
+      },
+      "verified_at": "2026-07-18T00:00:00Z",
+      "expires_at": "2026-10-18T00:00:00Z"
+    },
+    {
+      "provider_family": "moonshot",
+      "model_name": "kimi-k2.5",
+      "display_name": "Kimi K2.5",
+      "capabilities": {
+        "thinking": true,
+        "multimodal": true,
+        "tool_calls": true,
+        "coding": true
+      },
+      "source_type": "official_document",
+      "source_url": "https://platform.moonshot.ai/docs/guide/prompt-best-practice",
+      "field_sources": {},
+      "verified_at": "2026-07-18T00:00:00Z",
+      "expires_at": "2026-10-18T00:00:00Z"
+    },
+    {
+      "provider_family": "moonshot",
+      "model_name": "kimi-k2-thinking",
+      "display_name": "Kimi K2 Thinking",
+      "context_window_tokens": 262144,
+      "capabilities": {
+        "thinking": true,
+        "tool_calls": true,
+        "coding": true
+      },
+      "source_type": "official_document",
+      "source_url": "https://forum.moonshot.ai/t/an-update-on-new-k2-models-and-new-pricing/104",
+      "field_sources": {
+        "context_window_tokens": "https://moonshotai.github.io/kimi-code/en/configuration/config-files.html"
+      },
+      "verified_at": "2026-07-18T00:00:00Z",
+      "expires_at": "2026-10-18T00:00:00Z"
+    },
+    {
+      "provider_family": "moonshot",
+      "model_name": "kimi-k2-thinking-turbo",
+      "display_name": "Kimi K2 Thinking Turbo",
+      "context_window_tokens": 262144,
+      "capabilities": {
+        "thinking": true,
+        "tool_calls": true,
+        "coding": true
+      },
+      "source_type": "official_document",
+      "source_url": "https://forum.moonshot.ai/t/an-update-on-new-k2-models-and-new-pricing/104",
+      "field_sources": {
+        "context_window_tokens": "https://moonshotai.github.io/kimi-code/en/configuration/config-files.html"
+      },
+      "verified_at": "2026-07-18T00:00:00Z",
+      "expires_at": "2026-10-18T00:00:00Z"
+    }
+  ]
+}

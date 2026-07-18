@@ -1,0 +1,304 @@
+{
+  "schemaVersion": 1,
+  "feature_name": "legacydomain-migration-finalization",
+  "task_id": "TASK-004",
+  "base_sha": "f0162252ba30bc0a8a1f6e8578d324f1d0e006ad",
+  "base_tree": "3965595465491d3d59eaafdf89698be82a4dfd0b",
+  "head_sha": "f0162252ba30bc0a8a1f6e8578d324f1d0e006ad",
+  "changed_files": [
+    ".knowledge/architecture/agent-runtime.md",
+    ".knowledge/domains/agent-skill.md",
+    ".knowledge/domains/mcp-tool-governance.md",
+    ".knowledge/pitfalls/mcp-policy-audit.md",
+    ".spec/legacydomain-migration-finalization/pipeline-state.json",
+    ".spec/legacydomain-migration-finalization/reports/TASK-004-evidence.json",
+    ".spec/legacydomain-migration-finalization/reports/TASK-004-report.md",
+    "smart-recruit-ai-agent-service/internal/infrastructure/persistence/mcp_skill_store.go",
+    "smart-recruit-ai-agent-service/internal/infrastructure/persistence/native_store.go",
+    "smart-recruit-ai-agent-service/internal/interfaces/grpc/mcp_skill_services.go",
+    "smart-recruit-ai-agent-service/internal/interfaces/grpc/native_servers.go"
+  ],
+  "scope": {
+    "status": "passed",
+    "checked_by": "bash .spec/legacydomain-migration-finalization/scripts/check-task-scope.sh TASK-004",
+    "out_of_scope": [],
+    "forbidden": []
+  },
+  "checks": [
+    {
+      "command": "git diff --name-only",
+      "exit_code": 0,
+      "started_at": "2026-07-14T08:12:00Z",
+      "duration_ms": 1,
+      "status": "passed",
+      "summary": "Tracked working-tree diff was listed for audit; untracked TASK files are represented in this evidence changed_files list."
+    },
+    {
+      "command": "cd smart-recruit-ai-agent-service && go test ./...",
+      "exit_code": 0,
+      "started_at": "2026-07-14T08:12:00Z",
+      "duration_ms": 1088,
+      "status": "passed",
+      "summary": "AI Agent service tests passed."
+    },
+    {
+      "command": "bash .spec/legacydomain-migration-finalization/scripts/check-task-scope.sh TASK-004",
+      "exit_code": 0,
+      "started_at": "2026-07-14T08:14:00Z",
+      "duration_ms": 348,
+      "status": "passed",
+      "summary": "scope ok: 9 changed file(s) within TASK-004."
+    },
+    {
+      "command": "bash .spec/legacydomain-migration-finalization/scripts/agent-check.sh",
+      "exit_code": 0,
+      "started_at": "2026-07-14T08:14:00Z",
+      "duration_ms": 441,
+      "status": "passed",
+      "summary": "Backend boundary, MySQL ownership, knowledge validation, and reference checks passed."
+    },
+    {
+      "command": "node scripts/check-backend-boundaries.mjs",
+      "exit_code": 0,
+      "started_at": "2026-07-14T08:12:00Z",
+      "duration_ms": 584,
+      "status": "passed",
+      "summary": "backend_boundary_result: PASS; legacydomain_retirement_enforcement: PASS; runtime_stub_guardrail: PASS (39 known targeted AI Agent runtime stub finding(s), 0 new)."
+    },
+    {
+      "command": "node scripts/check-mysql-table-ownership.mjs",
+      "exit_code": 0,
+      "started_at": "2026-07-14T08:12:00Z",
+      "duration_ms": 162,
+      "status": "passed",
+      "summary": "mysql_table_ownership: PASS (67 tables, single MySQL instance)."
+    },
+    {
+      "command": "node .knowledge/scripts/validate-knowledge.mjs --root .",
+      "exit_code": 0,
+      "started_at": "2026-07-14T08:12:00Z",
+      "duration_ms": 202,
+      "status": "passed",
+      "summary": "knowledge_result: PASS (37 formal documents)."
+    },
+    {
+      "command": "node .knowledge/scripts/check-references.mjs --root .",
+      "exit_code": 0,
+      "started_at": "2026-07-14T08:12:00Z",
+      "duration_ms": 203,
+      "status": "passed",
+      "summary": "reference_result: PASS."
+    },
+    {
+      "command": "node .knowledge/scripts/detect-impact.mjs --root . --base-tree 3965595465491d3d59eaafdf89698be82a4dfd0b",
+      "exit_code": 0,
+      "started_at": "2026-07-14T08:14:00Z",
+      "duration_ms": 1049,
+      "status": "passed",
+      "summary": "impact_result: update_required; routed AI Agent runtime, MCP, Skill, API, persistence, semantic retrieval, and system documents."
+    },
+    {
+      "command": "node .agents/skills/spec-harness/scripts/validate-evidence.mjs --file .spec/legacydomain-migration-finalization/reports/TASK-004-evidence.json --require-knowledge-impact",
+      "exit_code": 0,
+      "started_at": "2026-07-14T08:15:00Z",
+      "duration_ms": 33,
+      "status": "passed",
+      "summary": "evidence_result: PASS."
+    }
+  ],
+  "review": {
+    "type": "self-review",
+    "round": 1,
+    "verdict": "通过",
+    "findings": []
+  },
+  "human_confirmation": {
+    "required": false,
+    "confirmed": true,
+    "confirmed_by": "not_required",
+    "confirmed_at": "2026-07-14T08:15:00Z",
+    "confirmation_text": "TASK-004 does not require human confirmation."
+  },
+  "exceptions": [],
+  "knowledgeImpact": {
+    "result": "update_required",
+    "triggeredBy": [
+      "smart-recruit-ai-agent-service/internal/infrastructure/persistence/mcp_skill_store.go",
+      "smart-recruit-ai-agent-service/internal/infrastructure/persistence/native_store.go",
+      "smart-recruit-ai-agent-service/internal/interfaces/grpc/mcp_skill_services.go",
+      "smart-recruit-ai-agent-service/internal/interfaces/grpc/native_servers.go",
+      ".knowledge/architecture/agent-runtime.md",
+      ".knowledge/domains/agent-skill.md",
+      ".knowledge/domains/mcp-tool-governance.md",
+      ".knowledge/pitfalls/mcp-policy-audit.md"
+    ],
+    "reviewResults": [
+      {
+        "document": "agent-runtime",
+        "path": ".knowledge/architecture/agent-runtime.md",
+        "verdict": "UPDATED",
+        "evidence": [
+          "Updated runtime architecture with DB-backed MCP, Skill registry, and Agent Skill admin paths plus explicit unsupported live runner behavior."
+        ]
+      },
+      {
+        "document": "agent-skill",
+        "path": ".knowledge/domains/agent-skill.md",
+        "verdict": "UPDATED",
+        "evidence": [
+          "Updated Agent Skill knowledge for native admin methods and the separate ai_skills Skill registry."
+        ]
+      },
+      {
+        "document": "mcp-tool-governance",
+        "path": ".knowledge/domains/mcp-tool-governance.md",
+        "verdict": "UPDATED",
+        "evidence": [
+          "Updated MCP governance knowledge for DB-backed server, policy, and log admin paths plus redaction and unsupported live MCP runner behavior."
+        ]
+      },
+      {
+        "document": "mcp-policy-audit",
+        "path": ".knowledge/pitfalls/mcp-policy-audit.md",
+        "verdict": "UPDATED",
+        "evidence": [
+          "Updated MCP audit pitfall guidance to preserve non-success responses until live connection/tool execution has full policy and redaction enforcement."
+        ]
+      },
+      {
+        "document": "ai-configuration-governance",
+        "path": ".knowledge/domains/ai-configuration-governance.md",
+        "verdict": "UNCHANGED",
+        "evidence": [
+          "Reviewed because AI Agent native runtime paths changed. TASK-004 was limited to MCP, Skill registry, and Agent Skill governance."
+        ]
+      },
+      {
+        "document": "api-contracts-and-gateway",
+        "path": ".knowledge/architecture/api-contracts-and-gateway.md",
+        "verdict": "UNCHANGED",
+        "evidence": [
+          "Reviewed because Gateway-reachable admin methods are affected. TASK-004 changed service implementation only; proto and Gateway contracts remain unchanged."
+        ]
+      },
+      {
+        "document": "debug-agent-retrieval",
+        "path": ".knowledge/runbooks/debug-agent-retrieval.md",
+        "verdict": "UNCHANGED",
+        "evidence": [
+          "Reviewed because semantic debug method changed from unimplemented to explicit unsupported. Retrieval debugging flow remains unchanged until a runner is bound."
+        ]
+      },
+      {
+        "document": "embedding-fallback",
+        "path": ".knowledge/pitfalls/embedding-fallback.md",
+        "verdict": "UNCHANGED",
+        "evidence": [
+          "Reviewed because semantic debug references embedding availability. Embedding fallback behavior was not changed."
+        ]
+      },
+      {
+        "document": "memory-and-context",
+        "path": ".knowledge/architecture/memory-and-context.md",
+        "verdict": "UNCHANGED",
+        "evidence": [
+          "Reviewed because AI Agent runtime source refs route here. TASK-004 did not change memory or context assembly behavior."
+        ]
+      },
+      {
+        "document": "persistence-and-migrations",
+        "path": ".knowledge/architecture/persistence-and-migrations.md",
+        "verdict": "UNCHANGED",
+        "evidence": [
+          "Reviewed because new persistence methods were added. TASK-004 uses existing tables and does not change schema or migrations."
+        ]
+      },
+      {
+        "document": "protobuf-and-migration-change",
+        "path": ".knowledge/runbooks/protobuf-and-migration-change.md",
+        "verdict": "UNCHANGED",
+        "evidence": [
+          "Reviewed because MCP/Skill services implement proto methods. No proto or generated contract changed."
+        ]
+      },
+      {
+        "document": "protobuf-synchronization",
+        "path": ".knowledge/runbooks/protobuf-synchronization.md",
+        "verdict": "UNCHANGED",
+        "evidence": [
+          "Reviewed because generated gRPC interfaces were inspected. TASK-004 did not regenerate or alter protobuf files."
+        ]
+      },
+      {
+        "document": "resume-intelligence",
+        "path": ".knowledge/domains/resume-intelligence.md",
+        "verdict": "UNCHANGED",
+        "evidence": [
+          "Reviewed because Agent Skill capabilities can reference resume intelligence. Resume extraction and match behavior were not changed."
+        ]
+      },
+      {
+        "document": "resume-sensitive-data",
+        "path": ".knowledge/pitfalls/resume-sensitive-data.md",
+        "verdict": "UNCHANGED",
+        "evidence": [
+          "Reviewed because MCP logs and skill metadata could contain sensitive content. TASK-004 added redaction/truncation on MCP governance reads and did not expose resume content."
+        ]
+      },
+      {
+        "document": "semantic-retrieval",
+        "path": ".knowledge/architecture/semantic-retrieval.md",
+        "verdict": "UNCHANGED",
+        "evidence": [
+          "Reviewed because DebugSemanticRetrieval now returns explicit unsupported. Selection and retrieval scoring behavior remain unchanged."
+        ]
+      },
+      {
+        "document": "service-boundaries",
+        "path": ".knowledge/architecture/service-boundaries.md",
+        "verdict": "UNCHANGED",
+        "evidence": [
+          "Reviewed because AI Agent service implementation changed. Existing service ownership boundaries remain accurate."
+        ]
+      },
+      {
+        "document": "system-overview",
+        "path": ".knowledge/architecture/system-overview.md",
+        "verdict": "UNCHANGED",
+        "evidence": [
+          "Reviewed because feature and service paths route to system overview. Overall topology remains unchanged."
+        ]
+      },
+      {
+        "document": "local-development",
+        "path": ".knowledge/runbooks/local-development.md",
+        "verdict": "UNCHANGED",
+        "evidence": [
+          "Reviewed because feature harness paths route to local development. Validation commands remain unchanged."
+        ]
+      },
+      {
+        "document": "knowledge-coverage-audit",
+        "path": ".knowledge/runbooks/knowledge-coverage-audit.md",
+        "verdict": "UNCHANGED",
+        "evidence": [
+          "Reviewed because .knowledge documents changed. TASK-004 did not alter knowledge routing coverage."
+        ]
+      }
+    ],
+    "updatePaths": [
+      ".knowledge/architecture/agent-runtime.md",
+      ".knowledge/domains/agent-skill.md",
+      ".knowledge/domains/mcp-tool-governance.md",
+      ".knowledge/pitfalls/mcp-policy-audit.md"
+    ],
+    "coverageGap": false,
+    "validationExitCode": 0,
+    "evidence": [
+      "node .knowledge/scripts/detect-impact.mjs --root . --base-tree 3965595465491d3d59eaafdf89698be82a4dfd0b => impact_result: update_required",
+      "node .knowledge/scripts/validate-knowledge.mjs --root . => knowledge_result: PASS (37 formal documents)",
+      "node .knowledge/scripts/check-references.mjs --root . => reference_result: PASS"
+    ]
+  },
+  "skipped_checks": []
+}

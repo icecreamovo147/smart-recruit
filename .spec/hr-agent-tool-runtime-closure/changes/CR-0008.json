@@ -1,0 +1,66 @@
+{
+  "schemaVersion": 2,
+  "changeRequestId": "CR-0008",
+  "feature_name": "hr-agent-tool-runtime-closure",
+  "baseRevision": 8,
+  "status": "applied",
+  "classification": "scope_correction",
+  "approvalLevel": "L0",
+  "reason": "TASK-006 changes durable Run and Anthropic envelope validation but cannot currently update the two directly affected active knowledge documents or prove their validation.",
+  "evidenceRefs": [
+    "review://root-task005-reviewer-r1-cr0007",
+    "repo://.knowledge/architecture/agent-runtime.md",
+    "repo://.knowledge/architecture/api-contracts-and-gateway.md"
+  ],
+  "trigger": {
+    "task_id": "TASK-006",
+    "phase": "implement"
+  },
+  "impact": {
+    "requirements": [
+      "FR-006"
+    ],
+    "tasks": [
+      "TASK-006"
+    ],
+    "completedTasksRequiringRevalidation": []
+  },
+  "revalidationPlan": [
+    "TASK-006"
+  ],
+  "resultingRevision": 9,
+  "approval": {
+    "approved_by": "root-task005-reviewer-r1-cr0007",
+    "approved_at": "2026-07-16T17:17:00+08:00",
+    "decision": "approve",
+    "outcome": "contract_gap corrected",
+    "verdict": "通过"
+  },
+  "updates": [
+    {
+      "target": "contract.json",
+      "staged_file": "changes/CR-0008/contract.json",
+      "before_sha256": "3234454fdce1209e3d9c4bf1476558faf2df7ff36bc8d8db8fce44238f5b052b",
+      "after_sha256": "57b4b2b84076c1ee6d7fcf22a64f3ac7009966ecc6c1adf8ea65bcefaade4b94"
+    },
+    {
+      "target": "task-scope.json",
+      "staged_file": "changes/CR-0008/task-scope.json",
+      "before_sha256": "453fe0766ee931a296a2dd6eeeded50914b0fc9a18377e75e944f9c742414002",
+      "after_sha256": "4b6a26e4c494bf5d5e301a3241da00b9329ab4ca314a9b65b29e9f45e4960343"
+    },
+    {
+      "target": "traceability.json",
+      "staged_file": "changes/CR-0008/traceability.json",
+      "before_sha256": "341e7c764f4437063496a137d106c21044da3082d00ea01ff1d0f9183cb8c4ef",
+      "after_sha256": "eb38992cc9ee09192ff73f67316ecd6a3cb9852fad000fb556fc4c5bebd6f147"
+    },
+    {
+      "target": "acceptance/TASK-006.md",
+      "staged_file": "changes/CR-0008/TASK-006.md",
+      "before_sha256": "87f966ca7607108a874850d2ddf46fe88a12c1b1bcc02c16304a0ab3af0e04f9",
+      "after_sha256": "037aa9b0770b26adfa271cb0fa069549c030d6ca76818f5ff423a1e637632095"
+    }
+  ],
+  "applied_at": "2026-07-16T09:23:35.908Z"
+}

@@ -10,44 +10,37 @@ tags:
   - protobuf
   - grpc
   - contract
-  - generated-code
 applies_to:
-  - logic-grpc-service/proto/**
-  - web-gin-service/proto/**
-  - logic-grpc-service/recruitment/pb/**
-  - web-gin-service/recruitment/pb/**
+  - smart-recruit-proto/proto/**
+  - smart-recruit-proto/recruitment/pb/**
+  - smart-recruit-proto/scripts/**
+  - scripts/check-proto-sync.mjs
+  - .github/workflows/ci.yml
+  - smart-recruit-gateway/rpc/**
+  - smart-recruit-*-service/internal/interfaces/grpc/**
 source_refs:
-  - logic-grpc-service/proto/recruitment.proto
-  - logic-grpc-service/recruitment/pb/recruitment.pb.go
-  - web-gin-service/recruitment/pb/recruitment.pb.go
-  - .spec/agent-skill-selection-confirmation/reports/TASK-ASC-002-report.md
-last_verified: 2026-07-10
-review_after: 2026-10-08
+  - smart-recruit-proto/proto/recruitment.proto
+  - smart-recruit-proto/recruitment/pb/recruitment.pb.go
+  - smart-recruit-proto/recruitment/pb/recruitment_grpc.pb.go
+  - smart-recruit-proto/scripts/tool-versions.env
+  - smart-recruit-proto/scripts/bootstrap-tools.sh
+  - smart-recruit-proto/scripts/generate-go.sh
+  - scripts/check-proto-sync.mjs
+  - .github/workflows/ci.yml
+  - smart-recruit-proto/proto_contract_test.go
+  - smart-recruit-gateway/rpc/client.go
+last_verified: 2026-07-19
+review_after: 2026-10-14
 ---
 
 # Protobuf Synchronization Pitfall
 
-Proto changes are easy to under-scope because the source `.proto` file and generated Go code exist in more than one service tree. A change that updates only one side can compile in one package while leaving gateway and logic contracts inconsistent.
+The canonical protobuf source is `smart-recruit-proto/proto/recruitment.proto`. Generated Go contracts under `smart-recruit-proto/recruitment/pb/` are shared by the gateway and services. Wire-shape changes can widen compile scope across all generated clients and test fakes.
 
-## Trigger Conditions
+Protobuf generation is reproducible only with the repository-pinned toolchain in `smart-recruit-proto/scripts/tool-versions.env`. Run `scripts/bootstrap-tools.sh` before generation; `generate-go.sh` prefers that cache and fails before writing when `protoc`, `protoc-gen-go`, or `protoc-gen-go-grpc` differs from the pins. The sync checker validates canonical file presence and generated tool-version headers, while CI regenerates and requires an empty Git diff. A `proto_sync_result: PASS` therefore confirms the expected files and pinned generator identity; the subsequent empty-diff gate proves source-to-output reproducibility.
 
-- Adding, renaming, or deleting fields in `recruitment.proto`.
-- Adding service methods, request messages, response messages, enum values, or stream event fields.
-- Changing generated Go files without the matching source proto.
-- Updating frontend payloads for a protobuf-backed API without checking generated gateway and logic structs.
-
-## Risk
-
-The HTTP gateway may marshal, forward, or stream a different contract than the logic service expects. Missing generated updates can also hide until a package-specific build or test runs.
-
-## Prevention
-
-- Treat proto source and generated files as one public-contract change.
-- Check both `logic-grpc-service/recruitment/pb/` and `web-gin-service/recruitment/pb/`.
-- Run targeted Go tests in both services after protobuf-related changes.
-- Update frontend API/types only after the server contract is known.
-- If the proto change is coupled to persistence, also review migration, model, and repository alignment.
+For internal owner contracts that are not part of frontend/gateway behavior, prefer a separate internal gRPC service over appending methods to a public-facing service interface. This avoids forcing unrelated `pb.<Service>Client` fakes to implement internal-only methods while keeping protobuf changes additive.
 
 ## Verification
 
-This pitfall was verified from current proto locations, generated Go code locations, gateway client construction, and persistence-change routing on 2026-07-10.
+Verified against the pinned tool version source, cross-platform bootstrap, fail-fast generator, generated headers, sync checker, and Proto Lint workflow on 2026-07-19.

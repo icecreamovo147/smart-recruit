@@ -262,8 +262,6 @@ const reset = () => {
           </div>
         </section>
 
-        <div class="workspace-surface__divider"></div>
-
         <section class="console-stats debug-stats" aria-label="召回结果概览">
           <div class="console-stat">
             <div class="console-stat__label">测试状态</div>

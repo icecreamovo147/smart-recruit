@@ -1,0 +1,176 @@
+{
+  "schemaVersion": 1,
+  "feature_name": "dev-log-viewer",
+  "task_id": "TASK-DLV-008",
+  "base_sha": "6344ba11a1ce0fdc2943469b1a04ac02075bbfb0",
+  "base_tree": "9640de53d362e1635c9762652f2f45ae097ada9d",
+  "head_sha": "6344ba11a1ce0fdc2943469b1a04ac02075bbfb0",
+  "changed_files": [
+    ".knowledge/architecture/system-overview.md",
+    ".knowledge/manifest.yaml",
+    ".knowledge/runbooks/local-development.md",
+    ".spec/dev-log-viewer/pipeline-state.json",
+    ".spec/dev-log-viewer/reports/TASK-DLV-008-report.md",
+    ".spec/dev-log-viewer/reports/TASK-DLV-008-evidence.json",
+    "dev-log-viewer/README.md",
+    "dev-log-viewer/cmd/dev-log-viewer/main.go",
+    "dev-log-viewer/embed.go",
+    "dev-log-viewer/embed_dev.go",
+    "dev-log-viewer/internal/server/server.go",
+    "dev-log-viewer/internal/server/server_test.go",
+    "dev-log-viewer/package.json",
+    "dev-log-viewer/scripts/build-production.sh",
+    "start-dev.sh",
+    "stop-dev.sh"
+  ],
+  "scope": {
+    "status": "passed",
+    "command": "bash .spec/dev-log-viewer/scripts/check-task-scope.sh TASK-DLV-008",
+    "classification": "current",
+    "out_of_scope": [],
+    "forbidden": []
+  },
+  "checks": [
+    {
+      "command": "pnpm --filter dev-log-viewer build",
+      "exit_code": 0,
+      "started_at": "2026-07-15T12:17:00Z",
+      "duration_ms": 1707,
+      "status": "passed"
+    },
+    {
+      "command": "pnpm --filter dev-log-viewer build:binary",
+      "exit_code": 0,
+      "started_at": "2026-07-15T12:18:00Z",
+      "duration_ms": 1336,
+      "status": "passed"
+    },
+    {
+      "command": "cd dev-log-viewer && go test ./...",
+      "exit_code": 0,
+      "started_at": "2026-07-15T12:21:04Z",
+      "duration_ms": 1,
+      "status": "passed"
+    },
+    {
+      "command": "cd dev-log-viewer && go vet ./...",
+      "exit_code": 0,
+      "started_at": "2026-07-15T12:21:04Z",
+      "duration_ms": 1,
+      "status": "passed"
+    },
+    {
+      "command": "pnpm --filter dev-log-viewer test",
+      "exit_code": 0,
+      "started_at": "2026-07-15T12:21:04Z",
+      "duration_ms": 1353,
+      "status": "passed"
+    },
+    {
+      "command": "bash -n start-dev.sh stop-dev.sh dev-log-viewer/scripts/build-production.sh",
+      "exit_code": 0,
+      "started_at": "2026-07-15T12:17:00Z",
+      "duration_ms": 1,
+      "status": "passed"
+    },
+    {
+      "command": "./start-dev.sh logs; curl /healthz and /; ./stop-dev.sh logs",
+      "exit_code": 0,
+      "started_at": "2026-07-15T12:20:00Z",
+      "duration_ms": 2238,
+      "status": "passed"
+    },
+    {
+      "command": "node .knowledge/scripts/knowledge-validator.test.mjs",
+      "exit_code": 0,
+      "started_at": "2026-07-15T12:20:00Z",
+      "duration_ms": 174,
+      "status": "passed"
+    },
+    {
+      "command": "node .knowledge/scripts/validate-knowledge.mjs --root .",
+      "exit_code": 0,
+      "started_at": "2026-07-15T12:20:00Z",
+      "duration_ms": 174,
+      "status": "passed"
+    },
+    {
+      "command": "node .knowledge/scripts/check-references.mjs --root .",
+      "exit_code": 0,
+      "started_at": "2026-07-15T12:20:00Z",
+      "duration_ms": 174,
+      "status": "passed"
+    },
+    {
+      "command": "node .knowledge/scripts/detect-impact.mjs --root . --base-tree 9640de53d362e1635c9762652f2f45ae097ada9d",
+      "exit_code": 0,
+      "started_at": "2026-07-15T12:20:00Z",
+      "duration_ms": 178,
+      "status": "passed"
+    },
+    {
+      "command": "bash .spec/dev-log-viewer/scripts/check-task-scope.sh TASK-DLV-008",
+      "exit_code": 0,
+      "started_at": "2026-07-15T12:20:00Z",
+      "duration_ms": 153,
+      "status": "passed"
+    },
+    {
+      "command": "bash .spec/dev-log-viewer/scripts/agent-check.sh TASK-DLV-008",
+      "exit_code": 0,
+      "started_at": "2026-07-15T12:20:33Z",
+      "duration_ms": 3542,
+      "status": "passed"
+    }
+  ],
+  "review": {
+    "reviewer_type": "self-review",
+    "round": 1,
+    "verdict": "通过",
+    "reviewed_at": "2026-07-15T12:21:23Z",
+    "findings": []
+  },
+  "human_confirmation": {
+    "required": true,
+    "confirmed": true,
+    "confirmed_by": "user",
+    "confirmed_at": "2026-07-15T12:13:47Z",
+    "confirmation_text": "确认执行 TASK-DLV-008，允许修改 dev-log-viewer embed/cmd/server/package/README/scripts、start-dev.sh、stop-dev.sh，以及 .knowledge/manifest.yaml、system-overview、local-development。"
+  },
+  "exceptions": [],
+  "skipped_checks": [],
+  "knowledgeImpact": {
+    "result": "candidate_required",
+    "triggeredBy": [
+      "dev-log-viewer/** changed",
+      "start-dev.sh changed",
+      "stop-dev.sh changed",
+      ".knowledge/manifest.yaml changed"
+    ],
+    "reviewResults": [
+      {
+        "document": ".knowledge/generated/knowledge-coverage-audit.json",
+        "verdict": "CANDIDATE",
+        "evidence": [
+          "Manifest routing changed and detect-impact routed knowledge-coverage-audit; TASK-DLV-008 cannot modify generated knowledge audit artifacts."
+        ]
+      },
+      {
+        "document": ".knowledge/architecture/system-overview.md",
+        "verdict": "UPDATED",
+        "evidence": [
+          "Updated applies_to/source_refs and documented dev-log-viewer as a loopback-only explicit local utility."
+        ]
+      },
+      {
+        "document": ".knowledge/runbooks/local-development.md",
+        "verdict": "UPDATED",
+        "evidence": [
+          "Updated applies_to/source_refs and documented explicit logs target, build helper, and validation commands."
+        ]
+      }
+    ],
+    "coverageGap": false,
+    "validationExitCode": 0
+  }
+}

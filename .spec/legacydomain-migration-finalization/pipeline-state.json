@@ -1,0 +1,118 @@
+{
+  "schemaVersion": 1,
+  "feature_name": "legacydomain-migration-finalization",
+  "current_task": null,
+  "current_phase": "complete",
+  "completed_tasks": [
+    "TASK-001",
+    "TASK-002",
+    "TASK-003",
+    "TASK-004",
+    "TASK-005",
+    "TASK-006"
+  ],
+  "blocked_tasks": [],
+  "failed_tasks": [],
+  "skipped_human_confirmation_tasks": [],
+  "approved_exceptions": [],
+  "review_round": 0,
+  "status": "complete",
+  "task_runs": {
+    "TASK-001": {
+      "base_sha": "f0162252ba30bc0a8a1f6e8578d324f1d0e006ad",
+      "base_tree": "da9570e5bbf2fda0ad961e6b02c9a29d41661000",
+      "human_confirmation": {
+        "required": false,
+        "confirmed": true,
+        "confirmed_by": "not_required",
+        "confirmed_at": "2026-07-14T07:22:35.717Z",
+        "confirmation_text": "TASK-001 does not require human confirmation."
+      },
+      "head_sha": "f0162252ba30bc0a8a1f6e8578d324f1d0e006ad",
+      "scope_status": "passed",
+      "checks_status": "passed",
+      "review_verdict": "通过",
+      "evidence": ".spec/legacydomain-migration-finalization/reports/TASK-001-evidence.json"
+    },
+    "TASK-002": {
+      "base_sha": "f0162252ba30bc0a8a1f6e8578d324f1d0e006ad",
+      "base_tree": "6702e0412187b0a4cb877edadbf4cfc8b9eba1ea",
+      "human_confirmation": {
+        "required": false,
+        "confirmed": true,
+        "confirmed_by": "not_required",
+        "confirmed_at": "2026-07-14T07:29:06.327Z",
+        "confirmation_text": "TASK-002 does not require human confirmation."
+      },
+      "head_sha": "f0162252ba30bc0a8a1f6e8578d324f1d0e006ad",
+      "scope_status": "passed",
+      "checks_status": "passed",
+      "review_verdict": "通过",
+      "evidence": ".spec/legacydomain-migration-finalization/reports/TASK-002-evidence.json"
+    },
+    "TASK-003": {
+      "base_sha": "f0162252ba30bc0a8a1f6e8578d324f1d0e006ad",
+      "base_tree": "a4ed65a3e6ff2f4d3140473a1d74621b256d8b16",
+      "human_confirmation": {
+        "required": false,
+        "confirmed": true,
+        "confirmed_by": "not_required",
+        "confirmed_at": "2026-07-14T07:50:43Z",
+        "confirmation_text": "TASK-003 does not require human confirmation."
+      },
+      "head_sha": "f0162252ba30bc0a8a1f6e8578d324f1d0e006ad",
+      "scope_status": "passed",
+      "checks_status": "passed",
+      "review_verdict": "通过",
+      "evidence": ".spec/legacydomain-migration-finalization/reports/TASK-003-evidence.json"
+    },
+    "TASK-004": {
+      "base_sha": "f0162252ba30bc0a8a1f6e8578d324f1d0e006ad",
+      "base_tree": "3965595465491d3d59eaafdf89698be82a4dfd0b",
+      "human_confirmation": {
+        "required": false,
+        "confirmed": true,
+        "confirmed_by": "not_required",
+        "confirmed_at": "2026-07-14T08:15:00Z",
+        "confirmation_text": "TASK-004 does not require human confirmation."
+      },
+      "head_sha": "f0162252ba30bc0a8a1f6e8578d324f1d0e006ad",
+      "scope_status": "passed",
+      "checks_status": "passed",
+      "review_verdict": "通过",
+      "evidence": ".spec/legacydomain-migration-finalization/reports/TASK-004-evidence.json"
+    },
+    "TASK-005": {
+      "base_sha": "f0162252ba30bc0a8a1f6e8578d324f1d0e006ad",
+      "base_tree": "d1354209d2b954be36aa4f084ea851dba07a2e43",
+      "human_confirmation": {
+        "required": false,
+        "confirmed": true,
+        "confirmed_by": "not_required",
+        "confirmed_at": "2026-07-14T08:33:00Z",
+        "confirmation_text": "TASK-005 does not require human confirmation."
+      },
+      "head_sha": "f0162252ba30bc0a8a1f6e8578d324f1d0e006ad",
+      "scope_status": "passed",
+      "checks_status": "passed",
+      "review_verdict": "通过",
+      "evidence": ".spec/legacydomain-migration-finalization/reports/TASK-005-evidence.json"
+    },
+    "TASK-006": {
+      "base_sha": "f0162252ba30bc0a8a1f6e8578d324f1d0e006ad",
+      "base_tree": "65429df725fe086d989ea388a96c007aab912346",
+      "human_confirmation": {
+        "required": false,
+        "confirmed": true,
+        "confirmed_by": "not_required",
+        "confirmed_at": "2026-07-14T08:41:00Z",
+        "confirmation_text": "TASK-006 does not require human confirmation."
+      },
+      "head_sha": "f0162252ba30bc0a8a1f6e8578d324f1d0e006ad",
+      "scope_status": "passed",
+      "checks_status": "passed",
+      "review_verdict": "通过",
+      "evidence": ".spec/legacydomain-migration-finalization/reports/TASK-006-evidence.json"
+    }
+  }
+}

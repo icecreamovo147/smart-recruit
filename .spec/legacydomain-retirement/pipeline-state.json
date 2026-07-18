@@ -1,0 +1,170 @@
+{
+  "schemaVersion": 1,
+  "feature_name": "legacydomain-retirement",
+  "current_task": "TASK-009",
+  "current_phase": "completed",
+  "completed_tasks": [
+    "TASK-001",
+    "TASK-002",
+    "TASK-003",
+    "TASK-004",
+    "TASK-005",
+    "TASK-006",
+    "TASK-007",
+    "TASK-008",
+    "TASK-009"
+  ],
+  "blocked_tasks": [],
+  "failed_tasks": [],
+  "skipped_human_confirmation_tasks": [],
+  "approved_exceptions": [],
+  "review_round": 0,
+  "status": "completed",
+  "skip_human_confirm": false,
+  "task_runs": {
+    "TASK-001": {
+      "base_sha": "b0c34ce746bcd494d63718aa3ab664b9c6d1edb9",
+      "base_tree": "12c2bd09f93e39778fe3782fb9c7a2a63554319e",
+      "head_sha": "b0c34ce746bcd494d63718aa3ab664b9c6d1edb9",
+      "scope_status": "passed",
+      "checks_status": "passed",
+      "review_verdict": "通过",
+      "evidence": ".spec/legacydomain-retirement/reports/TASK-001-evidence.json",
+      "human_confirmation": {
+        "required": false,
+        "confirmed": true,
+        "confirmed_by": "not_required",
+        "confirmed_at": "2026-07-14T02:06:09Z",
+        "confirmation_text": "TASK-001 does not require human confirmation."
+      }
+    },
+    "TASK-002": {
+      "base_sha": "b0c34ce746bcd494d63718aa3ab664b9c6d1edb9",
+      "base_tree": "3d5eeeab29b0502ae468f41c2fb230d3c1c21b2e",
+      "human_confirmation": {
+        "required": true,
+        "confirmed": true,
+        "confirmed_by": "user",
+        "confirmed_at": "2026-07-14T02:16:31.701Z",
+        "confirmation_text": "用户确认继续执行，后续不需要人工门禁，除非执行过程中遇到阻塞性问题。"
+      },
+      "head_sha": "b0c34ce746bcd494d63718aa3ab664b9c6d1edb9",
+      "scope_status": "passed",
+      "checks_status": "passed",
+      "review_verdict": "通过",
+      "evidence": ".spec/legacydomain-retirement/reports/TASK-002-evidence.json"
+    },
+    "TASK-003": {
+      "base_sha": "b0c34ce746bcd494d63718aa3ab664b9c6d1edb9",
+      "base_tree": "f24aa86a716b6df8cf5ad880e6bd4cde582507ce",
+      "human_confirmation": {
+        "required": false,
+        "confirmed": true,
+        "confirmed_by": "not_required",
+        "confirmed_at": "2026-07-14T02:41:39.818Z",
+        "confirmation_text": "TASK-003 does not require human confirmation. User confirmed the pipeline can continue without routine human gates unless blocked."
+      },
+      "head_sha": "b0c34ce746bcd494d63718aa3ab664b9c6d1edb9",
+      "scope_status": "passed",
+      "checks_status": "passed",
+      "review_verdict": "通过",
+      "evidence": ".spec/legacydomain-retirement/reports/TASK-003-evidence.json"
+    },
+    "TASK-004": {
+      "base_sha": "b0c34ce746bcd494d63718aa3ab664b9c6d1edb9",
+      "base_tree": "59853a980cae1269fc2e1522ba302e1de7b65a44",
+      "human_confirmation": {
+        "required": false,
+        "confirmed": true,
+        "confirmed_by": "not_required",
+        "confirmed_at": "2026-07-14T03:02:13.000Z",
+        "confirmation_text": "TASK-004 does not require human confirmation. User confirmed the pipeline can continue without routine human gates unless blocked."
+      },
+      "head_sha": "b0c34ce746bcd494d63718aa3ab664b9c6d1edb9",
+      "scope_status": "passed",
+      "checks_status": "passed",
+      "review_verdict": "通过",
+      "evidence": ".spec/legacydomain-retirement/reports/TASK-004-evidence.json"
+    },
+    "TASK-005": {
+      "base_sha": "b0c34ce746bcd494d63718aa3ab664b9c6d1edb9",
+      "base_tree": "05531bd729ab76b2bae4ae7c8a5c09d5798679ba",
+      "human_confirmation": {
+        "required": false,
+        "confirmed": true,
+        "confirmed_by": "not_required",
+        "confirmed_at": "2026-07-14T03:34:19.000Z",
+        "confirmation_text": "TASK-005 does not require human confirmation. User confirmed the pipeline can continue without routine human gates unless blocked."
+      },
+      "head_sha": "b0c34ce746bcd494d63718aa3ab664b9c6d1edb9",
+      "scope_status": "passed",
+      "checks_status": "passed",
+      "review_verdict": "通过",
+      "evidence": ".spec/legacydomain-retirement/reports/TASK-005-evidence.json"
+    },
+    "TASK-006": {
+      "base_sha": "b0c34ce746bcd494d63718aa3ab664b9c6d1edb9",
+      "base_tree": "02cbf87335942a88340408d9d6870ebbea981a7b",
+      "human_confirmation": {
+        "required": false,
+        "confirmed": true,
+        "confirmed_by": "not_required",
+        "confirmed_at": "2026-07-14T03:24:13Z",
+        "confirmation_text": "TASK-006 does not require human confirmation. User confirmed the pipeline can continue without routine human gates unless blocked."
+      },
+      "head_sha": "b0c34ce746bcd494d63718aa3ab664b9c6d1edb9",
+      "scope_status": "passed",
+      "checks_status": "passed",
+      "review_verdict": "通过",
+      "evidence": ".spec/legacydomain-retirement/reports/TASK-006-evidence.json"
+    },
+    "TASK-007": {
+      "base_sha": "b0c34ce746bcd494d63718aa3ab664b9c6d1edb9",
+      "base_tree": "a25ef872cc53b54b93a8d1394b7443859fa5a4a1",
+      "human_confirmation": {
+        "required": false,
+        "confirmed": true,
+        "confirmed_by": "not_required",
+        "confirmed_at": "2026-07-14T03:34:19Z",
+        "confirmation_text": "TASK-007 does not require human confirmation. User confirmed the pipeline can continue without routine human gates unless blocked."
+      },
+      "head_sha": "b0c34ce746bcd494d63718aa3ab664b9c6d1edb9",
+      "scope_status": "passed",
+      "checks_status": "passed",
+      "review_verdict": "通过",
+      "evidence": ".spec/legacydomain-retirement/reports/TASK-007-evidence.json"
+    },
+    "TASK-008": {
+      "base_sha": "b0c34ce746bcd494d63718aa3ab664b9c6d1edb9",
+      "base_tree": "26b8faaf390118957812a2cd66f81d1eaea13e71",
+      "human_confirmation": {
+        "required": false,
+        "confirmed": true,
+        "confirmed_by": "not_required",
+        "confirmed_at": "2026-07-14T04:09:00Z",
+        "confirmation_text": "TASK-008 does not require human confirmation. User confirmed the pipeline can continue without routine human gates unless blocked."
+      },
+      "head_sha": "b0c34ce746bcd494d63718aa3ab664b9c6d1edb9",
+      "scope_status": "passed",
+      "checks_status": "passed",
+      "review_verdict": "通过",
+      "evidence": ".spec/legacydomain-retirement/reports/TASK-008-evidence.json"
+    },
+    "TASK-009": {
+      "base_sha": "b0c34ce746bcd494d63718aa3ab664b9c6d1edb9",
+      "base_tree": "ce0594adb6743cba7362fb47135a94fb3892fcab",
+      "human_confirmation": {
+        "required": false,
+        "confirmed": true,
+        "confirmed_by": "not_required",
+        "confirmed_at": "2026-07-14T04:31:00Z",
+        "confirmation_text": "TASK-009 does not require human confirmation. User confirmed the pipeline can continue without routine human gates unless blocked."
+      },
+      "head_sha": "b0c34ce746bcd494d63718aa3ab664b9c6d1edb9",
+      "scope_status": "passed",
+      "checks_status": "passed",
+      "review_verdict": "通过",
+      "evidence": ".spec/legacydomain-retirement/reports/TASK-009-evidence.json"
+    }
+  }
+}

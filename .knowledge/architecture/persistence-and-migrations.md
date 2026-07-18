@@ -12,60 +12,43 @@ tags:
   - model
   - repository
 applies_to:
-  - logic-grpc-service/migration/**
-  - logic-grpc-service/migrations/**
-  - logic-grpc-service/model/**
-  - logic-grpc-service/repository/**
+  - smart-recruit-commons/migration/**
+  - smart-recruit-commons/migrations/**
+  - smart-recruit-*-service/internal/infrastructure/persistence/**
+  - smart-recruit-deploy/mysql-table-ownership.json
   - db.sql
 source_refs:
-  - logic-grpc-service/main.go
-  - logic-grpc-service/migration/runner.go
-  - logic-grpc-service/migration/runner_test.go
-  - logic-grpc-service/migration/mysql_consistency_test.go
-  - logic-grpc-service/model/model.go
-  - logic-grpc-service/migrations/000051_standardize_event_outbox.sql
-  - logic-grpc-service/migrations/000052_add_event_inbox.sql
-  - logic-grpc-service/migrations/000053_add_analytics_projection_events.sql
-  - logic-grpc-service/repository/outbox_repo.go
-  - logic-grpc-service/repository/inbox_repo.go
-  - logic-grpc-service/repository/analytics_projection_repo.go
-  - logic-grpc-service/repository/application_repo.go
-  - .spec/backend-ddd-microservices-evolution/docs/backend-ddd-microservices-evolution-table-ownership-manifest.json
-  - .spec/backend-ddd-microservices-evolution/docs/backend-ddd-microservices-evolution-schema-separation-plan.md
-  - scripts/check-table-ownership.mjs
+  - smart-recruit-commons/migration/runner.go
+  - smart-recruit-commons/migration/runner_test.go
+  - smart-recruit-commons/migration/mysql_consistency_test.go
+  - smart-recruit-commons/migrations/000051_standardize_event_outbox.sql
+  - smart-recruit-commons/migrations/000052_add_event_inbox.sql
+  - smart-recruit-commons/migrations/000053_add_analytics_projection_events.sql
+  - smart-recruit-commons/migrations/000060_add_llm_model_catalog.sql
+  - smart-recruit-deploy/mysql-table-ownership.json
   - db.sql
-last_verified: 2026-07-12
-review_after: 2026-10-08
+  - smart-recruit-notification-service/internal/infrastructure/persistence/notification_repository.go
+  - smart-recruit-interview-service/internal/infrastructure/persistence/interview_repository.go
+  - smart-recruit-interview-service/internal/infrastructure/mq/outbox_publisher.go
+  - smart-recruit-offer-service/internal/infrastructure/persistence/offer_repository.go
+  - smart-recruit-offer-service/internal/infrastructure/mq/outbox_publisher.go
+  - smart-recruit-recruitment-service/internal/infrastructure/persistence/native_adapters.go
+  - smart-recruit-analytics-service/internal/infrastructure/projection/gorm_store.go
+  - smart-recruit-recruitment-service/internal/domain/repository/recruitment.go
+last_verified: 2026-07-19
+review_after: 2026-10-14
 ---
 
 # Persistence and Migration Architecture
 
-The logic service owns persistence. Database structure is represented by SQL migrations, `db.sql`, GORM models, repositories, and service-level transactions. The HTTP gateway should not encode persistence rules.
+Shared SQL migrations and the migration runner live in `smart-recruit-commons/`. Bounded services own repository ports and persistence adapters for their contexts. The current single-MySQL ownership model is documented in `smart-recruit-deploy/mysql-table-ownership.json`.
 
-## Persistence Layers
+Schema changes must keep migrations, `db.sql`, service persistence code, table ownership, and focused tests aligned.
 
-- `logic-grpc-service/migrations/` contains ordered SQL migration pairs.
-- `logic-grpc-service/migration/runner.go` loads, applies, tracks, baselines, and rolls back migrations.
-- `logic-grpc-service/main.go` embeds migrations and applies pending migrations before starting service registration.
-- `logic-grpc-service/model/` contains GORM models for users, RBAC, recruitment, notification/outbox, AI, resume intelligence, MCP, and configuration tables.
-- `logic-grpc-service/repository/` owns database access, transactions, pagination, and query shapes.
-- `logic-grpc-service/service/` owns business invariants and orchestrates repository calls.
-- Outbox schema changes must align `event_outbox` migrations, `db.sql`, `model.EventOutbox`, `repository.OutboxRepo`, publisher payload compatibility, and tests because the table is used for transactional event delivery and retry diagnostics.
-- Inbox schema changes must align `event_inbox` migrations, `db.sql`, `model.EventInbox`, `repository.InboxRepo`, consumer entrypoint wiring, and tests because the table is used for consumer idempotency and duplicate-delivery diagnostics.
-- Analytics projection schema changes must align `analytics_projection_events`, `analytics_projection_checkpoints`, `db.sql`, GORM models, `repository.AnalyticsProjectionRepo`, projection infrastructure adapters, and ingestion tests because those tables are the Analytics-owned event-projection read-model input.
-- `.spec/backend-ddd-microservices-evolution/docs/backend-ddd-microservices-evolution-table-ownership-manifest.json` is the current table ownership manifest for the DDD/microservices evolution. Every table in `db.sql` must have an owner, allowed readers, allowed writers, and explicit transitional shared access when a non-owner writer remains during extraction.
-- `.spec/backend-ddd-microservices-evolution/docs/backend-ddd-microservices-evolution-schema-separation-plan.md` defines the non-executing schema separation plan. It requires expand-contract steps, rollback, reconciliation, 30-minute RTO, 5-minute RPO, and scoped migration/model/`db.sql` changes for any future separation TASK.
+LLM model metadata uses `llm_model_catalog` for reviewed reusable facts, `llm_model_metadata_observations` for deduplicated field-level evidence, and `llm_models` for the user-confirmed runtime snapshot. Changing catalog data belongs in the versioned catalog import rather than migration seed SQL; migrations define only the durable schema.
 
-## Impact Guidance
-
-- Schema changes require migration files, model alignment, repository review, and MySQL consistency tests.
-- Transactional workflow changes should be made in services and repositories, not handlers.
-- Cursor or pagination changes should check affected repository queries and gateway handler parsing.
-- `db.sql` must remain aligned with migrations when it represents the current baseline.
-- Table additions or ownership changes must update the ownership manifest and pass `node scripts/check-table-ownership.mjs`.
-- Schema or physical database separation must follow the schema separation plan before changing migrations, models, repositories, or `db.sql`.
-- Test helpers using `AutoMigrate` are not a replacement for production migrations.
+GORM table records that are needed by a bounded service should stay private to that service's infrastructure adapter. Recruitment's active runtime uses a local native persistence bundle for job, taxonomy, candidate/resume, application, invite-code, usage-audit, and `event_outbox` records under `smart-recruit-recruitment-service/internal/infrastructure/persistence/`. Interview's active persistence keeps `interview_schedules`, `interview_feedbacks`, and local `event_outbox` records under `smart-recruit-interview-service/internal/infrastructure/**`; Offer's active persistence keeps `offers`, `offer_events`, and local `event_outbox` records under `smart-recruit-offer-service/internal/infrastructure/**`. Domain packages continue to use repository and publisher ports rather than GORM models.
 
 ## Verification
 
-Verified against migration runner, migration tests, MySQL consistency test, `model.go`, `000051_standardize_event_outbox.sql`, `000052_add_event_inbox.sql`, `000053_add_analytics_projection_events.sql`, representative repositories, the table ownership manifest/check script, the schema separation plan, and `db.sql` on 2026-07-12.
+Verified against current repository files on 2026-07-19.

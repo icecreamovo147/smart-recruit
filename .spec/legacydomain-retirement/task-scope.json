@@ -1,0 +1,278 @@
+{
+  "schemaVersion": 1,
+  "feature_name": "legacydomain-retirement",
+  "tasks": {
+    "TASK-001": {
+      "title": "Legacy baseline, knowledge routes, and guardrail staging",
+      "status": "pending",
+      "allowedFiles": [
+        ".spec/legacydomain-retirement/**",
+        ".spec/legacydomain-retirement/docs/**",
+        ".spec/legacydomain-retirement/reports/**",
+        ".knowledge/**",
+        "scripts/check-backend-boundaries.mjs",
+        "scripts/check-mysql-table-ownership.mjs"
+      ],
+      "forbiddenFiles": [
+        "smart-recruit-*-service/**",
+        "smart-recruit-proto/**",
+        "db.sql",
+        "go.mod",
+        "go.sum",
+        "go.work",
+        "go.work.sum",
+        "package.json",
+        "pnpm-lock.yaml"
+      ],
+      "requiresHumanConfirmation": false,
+      "requiredKnowledgeImpact": true,
+      "knowledge": {
+        "review": [".knowledge/**"],
+        "modify": [".knowledge/**"],
+        "candidate": [".knowledge/inbox/**"]
+      },
+      "allowedActions": ["create", "modify", "test"],
+      "acceptance": ".spec/legacydomain-retirement/acceptance/TASK-001.md",
+      "report": ".spec/legacydomain-retirement/reports/TASK-001-report.md",
+      "notes": ["No business code changes."]
+    },
+    "TASK-002": {
+      "title": "Owner contracts for lifecycle and authorization",
+      "status": "pending",
+      "allowedFiles": [
+        "smart-recruit-proto/**",
+        "smart-recruit-recruitment-service/**",
+        "smart-recruit-identity-service/**",
+        "smart-recruit-gateway/rpc/**",
+        ".knowledge/**",
+        ".spec/legacydomain-retirement/reports/**"
+      ],
+      "forbiddenFiles": [
+        "db.sql",
+        "smart-recruit-*-service/internal/legacydomain/**",
+        "package.json",
+        "pnpm-lock.yaml",
+        "go.work",
+        "go.work.sum"
+      ],
+      "requiresHumanConfirmation": true,
+      "requiredKnowledgeImpact": true,
+      "knowledge": {
+        "review": [".knowledge/**"],
+        "modify": [".knowledge/**"],
+        "candidate": [".knowledge/inbox/**"]
+      },
+      "allowedActions": ["create", "modify", "test"],
+      "acceptance": ".spec/legacydomain-retirement/acceptance/TASK-002.md",
+      "report": ".spec/legacydomain-retirement/reports/TASK-002-report.md",
+      "notes": ["Shared contract changes require explicit confirmation."]
+    },
+    "TASK-003": {
+      "title": "Retire Offer legacydomain",
+      "status": "pending",
+      "allowedFiles": [
+        "smart-recruit-offer-service/**",
+        ".knowledge/**",
+        ".spec/legacydomain-retirement/reports/**"
+      ],
+      "forbiddenFiles": [
+        "smart-recruit-proto/**",
+        "smart-recruit-interview-service/**",
+        "smart-recruit-recruitment-service/**",
+        "smart-recruit-ai-agent-service/**",
+        "db.sql",
+        "package.json",
+        "pnpm-lock.yaml"
+      ],
+      "requiresHumanConfirmation": false,
+      "requiredKnowledgeImpact": true,
+      "knowledge": {
+        "review": [".knowledge/**"],
+        "modify": [".knowledge/**"],
+        "candidate": [".knowledge/inbox/**"]
+      },
+      "allowedActions": ["create", "modify", "delete", "test"],
+      "acceptance": ".spec/legacydomain-retirement/acceptance/TASK-003.md",
+      "report": ".spec/legacydomain-retirement/reports/TASK-003-report.md",
+      "notes": ["Requires TASK-002 owner contracts."]
+    },
+    "TASK-004": {
+      "title": "Retire Interview legacydomain",
+      "status": "pending",
+      "allowedFiles": [
+        "smart-recruit-interview-service/**",
+        ".knowledge/**",
+        ".spec/legacydomain-retirement/reports/**"
+      ],
+      "forbiddenFiles": [
+        "smart-recruit-proto/**",
+        "smart-recruit-offer-service/**",
+        "smart-recruit-recruitment-service/**",
+        "smart-recruit-ai-agent-service/**",
+        "db.sql",
+        "package.json",
+        "pnpm-lock.yaml"
+      ],
+      "requiresHumanConfirmation": false,
+      "requiredKnowledgeImpact": true,
+      "knowledge": {
+        "review": [".knowledge/**"],
+        "modify": [".knowledge/**"],
+        "candidate": [".knowledge/inbox/**"]
+      },
+      "allowedActions": ["create", "modify", "delete", "test"],
+      "acceptance": ".spec/legacydomain-retirement/acceptance/TASK-004.md",
+      "report": ".spec/legacydomain-retirement/reports/TASK-004-report.md",
+      "notes": ["Depends on Offer retirement."]
+    },
+    "TASK-005": {
+      "title": "Recruitment native runtime cutover",
+      "status": "pending",
+      "allowedFiles": [
+        "smart-recruit-recruitment-service/**",
+        ".knowledge/**",
+        ".spec/legacydomain-retirement/reports/**"
+      ],
+      "forbiddenFiles": [
+        "smart-recruit-proto/**",
+        "smart-recruit-offer-service/**",
+        "smart-recruit-interview-service/**",
+        "smart-recruit-ai-agent-service/**",
+        "db.sql",
+        "package.json",
+        "pnpm-lock.yaml"
+      ],
+      "requiresHumanConfirmation": false,
+      "requiredKnowledgeImpact": true,
+      "knowledge": {
+        "review": [".knowledge/**"],
+        "modify": [".knowledge/**"],
+        "candidate": [".knowledge/inbox/**"]
+      },
+      "allowedActions": ["create", "modify", "test"],
+      "acceptance": ".spec/legacydomain-retirement/acceptance/TASK-005.md",
+      "report": ".spec/legacydomain-retirement/reports/TASK-005-report.md",
+      "notes": ["Do not delete Recruitment legacydomain in this task."]
+    },
+    "TASK-006": {
+      "title": "Retire Recruitment legacydomain",
+      "status": "pending",
+      "allowedFiles": [
+        "smart-recruit-recruitment-service/**",
+        "scripts/check-backend-boundaries.mjs",
+        "scripts/check-mysql-table-ownership.mjs",
+        ".knowledge/**",
+        ".spec/legacydomain-retirement/reports/**"
+      ],
+      "forbiddenFiles": [
+        "smart-recruit-proto/**",
+        "smart-recruit-offer-service/**",
+        "smart-recruit-interview-service/**",
+        "smart-recruit-ai-agent-service/**",
+        "db.sql",
+        "package.json",
+        "pnpm-lock.yaml"
+      ],
+      "requiresHumanConfirmation": false,
+      "requiredKnowledgeImpact": true,
+      "knowledge": {
+        "review": [".knowledge/**"],
+        "modify": [".knowledge/**"],
+        "candidate": [".knowledge/inbox/**"]
+      },
+      "allowedActions": ["create", "modify", "delete", "test"],
+      "acceptance": ".spec/legacydomain-retirement/acceptance/TASK-006.md",
+      "report": ".spec/legacydomain-retirement/reports/TASK-006-report.md",
+      "notes": ["Remove scan exceptions for Recruitment legacy paths."]
+    },
+    "TASK-007": {
+      "title": "AI Agent native runtime cutover",
+      "status": "pending",
+      "allowedFiles": [
+        "smart-recruit-ai-agent-service/**",
+        ".knowledge/**",
+        ".spec/legacydomain-retirement/reports/**"
+      ],
+      "forbiddenFiles": [
+        "smart-recruit-proto/**",
+        "smart-recruit-recruitment-service/**",
+        "smart-recruit-offer-service/**",
+        "smart-recruit-interview-service/**",
+        "db.sql",
+        "package.json",
+        "pnpm-lock.yaml"
+      ],
+      "requiresHumanConfirmation": false,
+      "requiredKnowledgeImpact": true,
+      "knowledge": {
+        "review": [".knowledge/**"],
+        "modify": [".knowledge/**"],
+        "candidate": [".knowledge/inbox/**"]
+      },
+      "allowedActions": ["create", "modify", "test"],
+      "acceptance": ".spec/legacydomain-retirement/acceptance/TASK-007.md",
+      "report": ".spec/legacydomain-retirement/reports/TASK-007-report.md",
+      "notes": ["Do not delete AI Agent legacydomain in this task."]
+    },
+    "TASK-008": {
+      "title": "Retire AI Agent legacydomain",
+      "status": "pending",
+      "allowedFiles": [
+        "smart-recruit-ai-agent-service/**",
+        "scripts/check-backend-boundaries.mjs",
+        "scripts/check-mysql-table-ownership.mjs",
+        ".knowledge/**",
+        ".spec/legacydomain-retirement/reports/**"
+      ],
+      "forbiddenFiles": [
+        "smart-recruit-proto/**",
+        "smart-recruit-recruitment-service/**",
+        "smart-recruit-offer-service/**",
+        "smart-recruit-interview-service/**",
+        "db.sql",
+        "package.json",
+        "pnpm-lock.yaml"
+      ],
+      "requiresHumanConfirmation": false,
+      "requiredKnowledgeImpact": true,
+      "knowledge": {
+        "review": [".knowledge/**"],
+        "modify": [".knowledge/**"],
+        "candidate": [".knowledge/inbox/**"]
+      },
+      "allowedActions": ["create", "modify", "delete", "test"],
+      "acceptance": ".spec/legacydomain-retirement/acceptance/TASK-008.md",
+      "report": ".spec/legacydomain-retirement/reports/TASK-008-report.md",
+      "notes": ["Remove scan exceptions for AI Agent legacy paths."]
+    },
+    "TASK-009": {
+      "title": "Final legacydomain enforcement and documentation convergence",
+      "status": "pending",
+      "allowedFiles": [
+        "scripts/check-backend-boundaries.mjs",
+        "scripts/check-mysql-table-ownership.mjs",
+        ".knowledge/**",
+        ".spec/legacydomain-retirement/docs/**",
+        ".spec/legacydomain-retirement/reports/**"
+      ],
+      "forbiddenFiles": [
+        "smart-recruit-*-service/internal/legacydomain/**",
+        "smart-recruit-proto/**",
+        "db.sql",
+        "package.json",
+        "pnpm-lock.yaml"
+      ],
+      "requiresHumanConfirmation": false,
+      "requiredKnowledgeImpact": true,
+      "knowledge": {
+        "review": [".knowledge/**"],
+        "modify": [".knowledge/**"],
+        "candidate": [".knowledge/inbox/**"]
+      },
+      "allowedActions": ["create", "modify", "test"],
+      "acceptance": ".spec/legacydomain-retirement/acceptance/TASK-009.md",
+      "report": ".spec/legacydomain-retirement/reports/TASK-009-report.md",
+      "notes": ["Final hard enforcement after all roots are removed."]
+    }
+  }
+}

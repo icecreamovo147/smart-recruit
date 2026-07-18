@@ -1,0 +1,55 @@
+{
+  "schemaVersion": 1,
+  "retirementReady": false,
+  "recommendation": "retain_monolith_fallback",
+  "fallbackRetained": true,
+  "liveSmokePassed": false,
+  "routeAudit": [
+    {
+      "service": "identity",
+      "cutoverTask": "TASK-MRI-011",
+      "rollbackMode": "logic",
+      "directMode": "identity"
+    },
+    {
+      "service": "recruitment",
+      "cutoverTask": "TASK-MRI-013",
+      "rollbackMode": "logic",
+      "directMode": "recruitment"
+    },
+    {
+      "service": "interview",
+      "cutoverTask": "TASK-MRI-017",
+      "rollbackMode": "logic",
+      "directMode": "interview"
+    },
+    {
+      "service": "offer",
+      "cutoverTask": "TASK-MRI-015",
+      "rollbackMode": "logic",
+      "directMode": "offer"
+    },
+    {
+      "service": "notification",
+      "cutoverTask": "TASK-MRI-019",
+      "rollbackMode": "logic",
+      "directMode": "notification"
+    },
+    {
+      "service": "ai-agent",
+      "cutoverTask": "TASK-MRI-021",
+      "rollbackMode": "logic",
+      "directMode": "ai-agent"
+    },
+    {
+      "service": "analytics",
+      "cutoverTask": "TASK-MRI-023",
+      "rollbackMode": "logic",
+      "directMode": "analytics"
+    }
+  ],
+  "issues": [],
+  "warnings": [
+    "live compose smoke has not passed; monolith fallback retirement is blocked"
+  ]
+}

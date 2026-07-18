@@ -1,0 +1,9 @@
+base_tree: bba7473fc1d605effd7703b9801d214565ad349c
+changed_files: 8
+matched_routes: 4
+impact_result: update_required
+directly_affected_active_documents:
+- .knowledge/architecture/agent-runtime.md
+- .knowledge/domains/ai-configuration-governance.md
+- .knowledge/domains/mcp-tool-governance.md
+- .knowledge/pitfalls/mcp-policy-audit.md

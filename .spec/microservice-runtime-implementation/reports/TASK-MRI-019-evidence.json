@@ -1,0 +1,43 @@
+{
+  "schemaVersion": 1,
+  "feature_name": "microservice-runtime-implementation",
+  "task_id": "TASK-MRI-019",
+  "base_sha": "030c96da6def1b2f0af20cad2705c38391ef4b66",
+  "base_tree": "acf912c748be7001064f0e0082a21ad1ef45ad23",
+  "head_sha": "030c96da6def1b2f0af20cad2705c38391ef4b66",
+  "head_tree": "pending-local-commit",
+  "changed_files": [
+    ".spec/microservice-runtime-implementation/pipeline-state.json",
+    ".spec/microservice-runtime-implementation/reports/TASK-MRI-019-evidence.json",
+    ".spec/microservice-runtime-implementation/reports/TASK-MRI-019-report.md",
+    "smart-recruit-deploy/nacos/seed-config/gateway.yaml",
+    "smart-recruit-gateway/internal/runtime/notification_cutover.go",
+    "smart-recruit-gateway/internal/runtime/notification_cutover_test.go"
+  ],
+  "scope": {"status": "passed", "command": "TASK_BASE_TREE=acf912c748be7001064f0e0082a21ad1ef45ad23 bash .spec/microservice-runtime-implementation/scripts/check-task-scope.sh TASK-MRI-019", "classification": "current", "out_of_scope": [], "forbidden": [], "allowed_patterns": ["smart-recruit-gateway/**", "web-gin-service/**", "smart-recruit-notification-service/**", "smart-recruit-deploy/**", ".spec/microservice-runtime-implementation/**"]},
+  "checks": [
+    {"command": "cd smart-recruit-gateway && GOWORK=off go test ./...", "exit_code": 0, "status": "passed", "started_at": "2026-07-12T10:03:00.000Z", "duration_ms": 4447},
+    {"command": "cd web-gin-service && GOWORK=off go test ./rpc ./config", "exit_code": 0, "status": "passed", "started_at": "2026-07-12T10:03:00.000Z", "duration_ms": 4447},
+    {"command": "cd smart-recruit-notification-service && GOWORK=off go test ./...", "exit_code": 0, "status": "passed", "started_at": "2026-07-12T10:03:00.000Z", "duration_ms": 4447},
+    {"command": "cd smart-recruit-notification-service && GOWORK=off go run ./cmd/notification-service --check", "exit_code": 0, "status": "passed", "started_at": "2026-07-12T10:03:00.000Z", "duration_ms": 4447},
+    {"command": "git diff --name-only", "exit_code": 0, "status": "passed", "started_at": "2026-07-12T10:04:00.000Z", "duration_ms": 9},
+    {"command": "node .knowledge/scripts/detect-impact.mjs --root . --base-tree acf912c748be7001064f0e0082a21ad1ef45ad23 --json", "exit_code": 0, "status": "passed", "started_at": "2026-07-12T10:04:01.000Z", "duration_ms": 171},
+    {"command": "TASK_BASE_TREE=acf912c748be7001064f0e0082a21ad1ef45ad23 bash .spec/microservice-runtime-implementation/scripts/check-task-scope.sh TASK-MRI-019", "exit_code": 0, "status": "passed", "started_at": "2026-07-12T10:04:02.000Z", "duration_ms": 290},
+    {"command": "bash .spec/microservice-runtime-implementation/scripts/agent-check.sh", "exit_code": 0, "status": "passed", "started_at": "2026-07-12T10:04:03.000Z", "duration_ms": 1398},
+    {"command": "node .agents/skills/spec-harness/scripts/validate-evidence.mjs --file .spec/microservice-runtime-implementation/reports/TASK-MRI-019-evidence.json", "exit_code": 0, "status": "passed", "started_at": "2026-07-12T10:05:00.000Z", "duration_ms": 60}
+  ],
+  "review": {"reviewer_type": "self-review", "round": 1, "verdict": "通过", "findings": []},
+  "human_confirmation": {"required": false, "confirmed": true, "confirmed_at": "2026-07-12T10:05:00Z", "source": "TASK-MRI-019 does not require human confirmation; harness-pipeline execution was explicitly requested by the user."},
+  "exceptions": [],
+  "skipped_checks": [{"check": "Live Notification list/unread/SSE HTTP smoke", "reason": "TASK-MRI-019 validates cutover/rollback smoke plan and realtime channel compatibility signal without starting the shared MySQL/Gateway/Notification stack; live compose smoke is deferred to later runtime TASKs."}],
+  "knowledgeImpact": {
+    "result": "update_required",
+    "triggeredBy": ["configuration-changed", "covered-path-changed", "recurring-defect-fixed"],
+    "reviewResults": [
+      {"document": ".knowledge/architecture/system-overview.md", "verdict": "UNCHANGED", "evidence": ["Reviewed active source_refs; TASK-MRI-019 adds Notification cutover validation and Nacos seed example while preserving public HTTP/protobuf contracts and default rollback route mode."]},
+      {"document": ".knowledge/runbooks/local-development.md", "verdict": "UNCHANGED", "evidence": ["Reviewed active local startup guidance; TASK-MRI-019 does not change start-dev, compose commands, or required manual local setup."]}
+    ],
+    "coverageGap": false,
+    "validationExitCode": 0
+  }
+}

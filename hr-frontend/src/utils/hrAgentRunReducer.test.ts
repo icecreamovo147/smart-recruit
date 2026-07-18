@@ -61,6 +61,72 @@ describe('hrAgentRunReducer', () => {
     expect(state.lastEventSeq).toBe(3)
   })
 
+  it('uses event_message as visible process text for durable stream events', () => {
+    const state = applyAgentRunEvents(createInitialHrAgentRunState({ runId: 42 }), [
+      baseEvent({ seq: 1, event_type: 'process.delta', event_message: 'planning HR recruiting context' }),
+      baseEvent({ seq: 2, event_type: 'tool.started', tool_name: 'get_candidate_detail', event_message: 'querying get_candidate_detail' }),
+      baseEvent({ seq: 3, event_type: 'tool.finished', tool_name: 'get_candidate_detail', event_message: 'get_candidate_detail finished' }),
+    ])
+
+    expect(state.processText).toBe('我正在判断问题意图，并规划需要读取哪些招聘数据。\n我正在查询实时招聘数据。\n已获取一项实时招聘数据。')
+    expect(state.lastToolName).toBe('get_candidate_detail')
+  })
+
+  it('keeps process context usage metadata without changing event type', () => {
+    const state = reduceAgentRunEvent(
+      createInitialHrAgentRunState({ runId: 42, modelName: '默认模型' }),
+      baseEvent({
+        seq: 1,
+        event_type: 'process.delta',
+        event_message: 'context usage estimated',
+        result_metadata: {
+          context_usage: {
+            model_id: 8,
+            model_name: 'deepseek-v4-flash',
+            prompt_tokens_estimated: 240,
+          },
+        },
+      }),
+    )
+    expect(state.processText).toBe('我已确认上下文容量，准备整理工具结果。')
+    expect(state.resultMetadata?.context_usage?.model_id).toBe(8)
+    expect(state.modelId).toBe(8)
+    expect(state.modelName).toBe('deepseek-v4-flash')
+  })
+
+  it('updates model name from run result metadata during live streaming', () => {
+    const state = reduceAgentRunEvent(
+      createInitialHrAgentRunState({ runId: 42, modelName: '默认模型' }),
+      baseEvent({
+        seq: 1,
+        event_type: 'run.result',
+        result_metadata: {
+          context_usage: {
+            model_id: 1,
+            model_name: 'deepseek-v4-flash',
+          },
+        },
+      }),
+    )
+
+    expect(state.modelId).toBe(1)
+    expect(state.modelName).toBe('deepseek-v4-flash')
+  })
+
+  it('prefers backend display_message over local fallback wording', () => {
+    const state = reduceAgentRunEvent(
+      createInitialHrAgentRunState({ runId: 42 }),
+      baseEvent({
+        seq: 1,
+        event_type: 'tool.started',
+        tool_name: 'get_candidate_detail',
+        event_message: 'querying get_candidate_detail',
+        display_message: '我正在读取当前投递和候选人上下文。',
+      }),
+    )
+    expect(state.processText).toBe('我正在读取当前投递和候选人上下文。')
+  })
+
   it('snapshots replace text buffers', () => {
     let state = createInitialHrAgentRunState({
       runId: 42,

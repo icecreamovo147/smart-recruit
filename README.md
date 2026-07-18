@@ -45,7 +45,7 @@
 
 **平台能力**
 - JWT + Refresh Token 身份认证，支持 Cookie 隔离与基于 RBAC 的细粒度权限鉴权（Candidate / Recruiter / Recruiting Admin / System Admin / Interviewer）
-- Web 网关与 Logic 服务之间支持内部 gRPC Token 鉴权
+- HTTP Gateway 与后端微服务之间支持内部 gRPC Token 鉴权
 - 权限审计日志：记录每次鉴权决策（allow / deny），支持安全审计查询
 - 简历文件通过预签名 URL 直传对象存储，支持腾讯云 COS / 阿里云 OSS
 - 事务消息 Outbox 模式保证通知投递可靠性
@@ -58,8 +58,8 @@
 
 ![HR 招聘 AI Agent 架构图](./docs/assets/hr-agent-architecture.png)
 
-- **Web 层**（Gin）：处理 HTTP API、RBAC 权限校验、限流、请求体限制、SSE 流式响应和 HTTP → gRPC 转换
-- **Logic 层**（gRPC）：承载核心业务逻辑，通过 Eino/ADK Agent 编排招聘工具调用，状态机驱动投递流转
+- **Gateway 层**（Gin）：处理 HTTP API、RBAC 权限校验、限流、请求体限制、SSE 流式响应和 HTTP → gRPC 转换
+- **后端微服务层**（gRPC）：Identity、Recruitment、Interview、Offer、Notification、AI Agent、Analytics、Worker 独立构建和启动，共享 protobuf、platform 与 domain 模块
 - **消息队列**：事务 Outbox 模式保障通知可靠投递，简历解析异步化
 - **文件存储**：私有 Bucket + 预签名 URL 直传，支持腾讯云 COS 与阿里云 OSS
 - **安全治理**：Refresh Token、RBAC 细粒度权限、权限审计日志、内部 gRPC 鉴权、Redis 限流、AI 配额和第三方调用审计
@@ -120,28 +120,13 @@ docker-compose up -d --build
 ```bash
 # 1. 启动基础服务（MySQL、Redis、RabbitMQ）
 cd docker && docker compose up -d mysql redis rabbitmq && cd ..
-# 数据库 schema 由 Logic 服务启动时自动迁移，无需手动导入
+# 也可以使用本机已安装的 MySQL / Redis / RabbitMQ
 
-# 2. 配置 Logic 服务
-cp logic-grpc-service/config/config.example.yaml logic-grpc-service/config/config.yaml
-# 编辑 config.yaml，填写 MySQL DSN、Redis、RabbitMQ、OSS/COS、JWT 和 AI 配置
-
-# 3. 启动 Logic gRPC 服务（必须先启动）
-cd logic-grpc-service
-go mod tidy
-go run main.go
-# 监听 :50051
-
-# 4. 启动 Web Gin 服务
-cd web-gin-service
-go mod tidy
-go run main.go
-# 监听 :8080
-
-# 5. 启动前端
-cd hr-frontend && pnpm install && pnpm run dev            # → localhost:5173
-cd user-frontend && pnpm install && pnpm run dev           # → localhost:5174
-cd interviewer-frontend && pnpm install && pnpm run dev    # → localhost:5175
+# 2. 启动新微服务后端和前端
+export MYSQL_DSN='root:password@tcp(127.0.0.1:3306)/recruitment?charset=utf8mb4&parseTime=True&loc=Local'
+export JWT_SECRET='dev-jwt-secret-at-least-32-chars-long!!'
+export GRPC_INTERNAL_TOKEN='local-dev-internal-token-at-least-32!!'
+./start-dev.sh
 ```
 
 ## 项目结构
@@ -165,22 +150,18 @@ smart-recruit/
 │       ├── api/                # API 请求层
 │       ├── views/              # 面试官页面（工作台、面试列表、面试详情、反馈、通知等）
 │       └── ...
-├── web-gin-service/            # Gin Web 网关服务
-│   ├── handler/                # HTTP 处理器（candidate / hr 分组，含面试、Offer、协作、分析等）
-│   ├── middleware/             # JWT、限流、配额、CSP、RBAC 权限校验等中间件
-│   ├── pkg/                    # 网关通用包（authz 权限定义、logger、redisclient 等）
-│   ├── router/                 # 路由注册（含权限声明）
-│   └── rpc/                    # gRPC 客户端连接
-├── logic-grpc-service/         # 核心业务 gRPC 服务
-│   ├── ai/                     # Eino/ADK Agent、工具、重试、熔断与预算控制
-│   ├── service/                # 业务逻辑层（岗位、投递、面试、Offer、协作、通知、AI、RBAC 等）
-│   ├── repository/             # 数据访问层
-│   ├── model/                  # 数据模型
-│   ├── migrations/             # 数据库迁移脚本（21 个版本）
-│   ├── mq/                     # RabbitMQ 发布/消费
-│   ├── oss/                    # 腾讯云 COS / 阿里云 OSS 客户端
-│   ├── pkg/                    # Logic 通用包
-│   └── proto/                  # Protobuf 定义
+├── smart-recruit-gateway/      # Gin HTTP Gateway，承接 HTTP 路由、middleware、handler、gRPC clients
+├── smart-recruit-identity-service/
+├── smart-recruit-recruitment-service/
+├── smart-recruit-interview-service/
+├── smart-recruit-offer-service/
+├── smart-recruit-notification-service/
+├── smart-recruit-ai-agent-service/
+├── smart-recruit-analytics-service/
+├── smart-recruit-worker-service/
+├── smart-recruit-commons/    # 领域服务、repository、model、migration、mq、oss、ai、email
+├── smart-recruit-platform-go/  # Nacos、配置、日志、健康检查、metrics、trace、gRPC runtime helper
+├── smart-recruit-proto/        # 唯一 protobuf 源码根与生成代码
 ├── packages/                   # 前端共享工具包
 ├── docker/                     # Dockerfiles 与 Compose 编排
 ├── deploy/k8s/                 # Kubernetes 部署清单
@@ -193,7 +174,7 @@ smart-recruit/
 
 | 配置文件 | 用途 |
 |----------|------|
-| `logic-grpc-service/config/config.yaml` | 本地运行 Logic 服务的 MySQL / Redis / RabbitMQ / OSS / AI / JWT 配置 |
+| `smart-recruit-commons/config/config.example.yaml` | 本地运行后端微服务的 MySQL / Redis / RabbitMQ / OSS / AI / JWT 配置模板 |
 | `docker/.env` | Docker Compose 环境变量，包含内部 gRPC Token、JWT、AI 与对象存储密钥 |
 
 **对象存储配置要点**：Bucket 建议私有读写，关闭公开访问，CORS 配置允许前端直传。`OSS_PROVIDER` 可设置为 `tencent_cos` 或 `aliyun_oss`。
@@ -215,7 +196,7 @@ ai:
 
 ## API 文档
 
-启动 Web 服务后访问 Swagger UI：
+启动 Gateway 后访问 Swagger UI：
 
 ```text
 http://localhost:8080/swagger/index.html

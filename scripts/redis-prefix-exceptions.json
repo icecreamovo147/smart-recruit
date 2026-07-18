@@ -1,0 +1,17 @@
+{
+  "schemaVersion": 1,
+  "policy": "All Redis keys should use smart-recruit-platform-go/rediskey service prefixes. Remaining exceptions are recorded against their migrated owner paths.",
+  "exceptions": [
+    {"file": "smart-recruit-gateway/middleware/jwt.go", "reason": "Gateway token_version cache retains the existing public auth behavior during source-root migration.", "patterns": ["token_version"]},
+    {"file": "smart-recruit-gateway/middleware/ai_quota.go", "reason": "Gateway AI quota keys retain the existing quota behavior during source-root migration.", "patterns": ["quota:ai"]},
+    {"file": "smart-recruit-gateway/middleware/resume_quota.go", "reason": "Gateway resume quota keys retain the existing quota behavior during source-root migration.", "patterns": ["quota:", "key"]},
+    {"file": "smart-recruit-gateway/middleware/risk_block.go", "reason": "Gateway risk block keys retain the existing risk-block behavior during source-root migration.", "patterns": ["risk:block"]},
+    {"file": "smart-recruit-gateway/middleware/ratelimit.go", "reason": "Gateway distributed rate-limit keys retain the existing behavior during source-root migration.", "patterns": ["rateLimitKey", "key"]},
+    {"file": "smart-recruit-gateway/handler/notification.go", "reason": "Gateway notification SSE keeps the existing notification channel contract.", "patterns": ["notificationEventChannel"]},
+    {"file": "smart-recruit-commons/pkg/cache/job_cache.go", "reason": "Domain job cache key shape is preserved during domain module migration.", "patterns": ["jobs:public:first_page", "jobCacheKeyPrefix", "publicFirstPageKey", "keys"]},
+    {"file": "smart-recruit-commons/pkg/cache/notification_cache.go", "reason": "Domain notification cache/event key shape is preserved during domain module migration.", "patterns": ["notif:unread", "notif:event", "unreadKey", "NotificationEventChannel"]},
+    {"file": "smart-recruit-commons/oss/cache.go", "reason": "Domain OSS presign cache key shape is preserved during domain module migration.", "patterns": ["oss:presign"]},
+    {"file": "smart-recruit-commons/oss/presign_session.go", "reason": "Domain OSS presign session key shape is preserved during domain module migration.", "patterns": ["oss:presign_session", "presignSessionKey", "key"]},
+    {"file": "smart-recruit-identity-service/internal/infrastructure/cache/token_version.go", "reason": "Identity-owned token_version cache key shape is preserved during domain module migration.", "patterns": ["token_version", "key"]}
+  ]
+}

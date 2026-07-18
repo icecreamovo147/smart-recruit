@@ -1,0 +1,58 @@
+{
+  "schemaVersion": 1,
+  "feature_name": "microservice-runtime-implementation",
+  "task_id": "TASK-MRI-029",
+  "base_sha": "f5f9007eea33950ce3ef3cee63c5d5f4cc668c7c",
+  "base_tree": "803624e64a4cbddb713732e4183ca9cff591a1cd",
+  "head_sha": "f5f9007eea33950ce3ef3cee63c5d5f4cc668c7c",
+  "head_tree": "pending-local-commit",
+  "changed_files": [
+    ".spec/microservice-runtime-implementation/pipeline-state.json",
+    ".spec/microservice-runtime-implementation/reports/TASK-MRI-029-evidence.json",
+    ".spec/microservice-runtime-implementation/reports/TASK-MRI-029-report.md",
+    ".spec/microservice-runtime-implementation/reports/compose-smoke/20260712T090128Z/docker-info.txt",
+    ".spec/microservice-runtime-implementation/scripts/agent-check.sh",
+    "scripts/compose-microservice-smoke.sh",
+    "smart-recruit-deploy/docker-compose.microservices.yml",
+    "smart-recruit-deploy/docker/go-service.Dockerfile"
+  ],
+  "scope": {
+    "status": "passed",
+    "command": "TASK_BASE_TREE=803624e64a4cbddb713732e4183ca9cff591a1cd bash .spec/microservice-runtime-implementation/scripts/check-task-scope.sh TASK-MRI-029",
+    "classification": "current",
+    "out_of_scope": [],
+    "forbidden": [],
+    "allowed_patterns": [
+      "smart-recruit-deploy/**",
+      "scripts/**",
+      "docs/**",
+      ".spec/microservice-runtime-implementation/**"
+    ]
+  },
+  "checks": [
+    {"command": "bash scripts/compose-microservice-smoke.sh --check", "exit_code": 0, "status": "passed", "started_at": "2026-07-12T09:01:20.000Z", "duration_ms": 126},
+    {"command": "bash scripts/compose-microservice-smoke.sh --dry-run", "exit_code": 0, "status": "passed", "started_at": "2026-07-12T09:01:22.000Z", "duration_ms": 134},
+    {"command": "COMPOSE_PROFILES=infra,observability,services docker-compose -f smart-recruit-deploy/docker-compose.microservices.yml config", "exit_code": 0, "status": "passed", "started_at": "2026-07-12T09:01:22.000Z", "duration_ms": 87},
+    {"command": "git diff --name-only", "exit_code": 0, "status": "passed", "started_at": "2026-07-12T09:02:00.000Z", "duration_ms": 4},
+    {"command": "node .knowledge/scripts/detect-impact.mjs --root . --base-tree 803624e64a4cbddb713732e4183ca9cff591a1cd --json", "exit_code": 0, "status": "passed", "started_at": "2026-07-12T09:02:00.000Z", "duration_ms": 390},
+    {"command": "TASK_BASE_TREE=803624e64a4cbddb713732e4183ca9cff591a1cd bash .spec/microservice-runtime-implementation/scripts/check-task-scope.sh TASK-MRI-029", "exit_code": 0, "status": "passed", "started_at": "2026-07-12T09:02:00.000Z", "duration_ms": 386},
+    {"command": "bash .spec/microservice-runtime-implementation/scripts/agent-check.sh", "exit_code": 0, "status": "passed", "started_at": "2026-07-12T09:02:00.000Z", "duration_ms": 920},
+    {"command": "node .agents/skills/spec-harness/scripts/validate-evidence.mjs --file .spec/microservice-runtime-implementation/reports/TASK-MRI-029-evidence.json", "exit_code": 0, "status": "passed", "started_at": "2026-07-12T09:04:00.000Z", "duration_ms": 5}
+  ],
+  "review": {"reviewer_type": "self-review", "round": 1, "verdict": "通过", "findings": []},
+  "human_confirmation": {"required": false, "confirmed": true, "confirmed_at": "2026-07-12T09:03:00Z", "source": "TASK-MRI-029 does not require human confirmation; harness-pipeline execution was explicitly requested by the user."},
+  "exceptions": [],
+  "skipped_checks": [
+    {"check": "bash scripts/compose-microservice-smoke.sh live startup", "reason": "Docker daemon is not running; script exited with diagnostics path .spec/microservice-runtime-implementation/reports/compose-smoke/20260712T090128Z/docker-info.txt before attempting up."}
+  ],
+  "knowledgeImpact": {
+    "result": "update_required",
+    "triggeredBy": ["configuration-changed", "covered-path-changed"],
+    "reviewResults": [
+      {"document": ".knowledge/architecture/system-overview.md", "verdict": "UNCHANGED", "evidence": ["Reviewed source_refs; TASK-MRI-029 adds compose smoke diagnostics and startup wiring without changing HTTP/protobuf behavior or service ownership."]},
+      {"document": ".knowledge/runbooks/local-development.md", "verdict": "UNCHANGED", "evidence": ["Reviewed active local-development guidance; smoke script is feature-scoped and does not replace the existing local development runbook."]}
+    ],
+    "coverageGap": false,
+    "validationExitCode": 0
+  }
+}

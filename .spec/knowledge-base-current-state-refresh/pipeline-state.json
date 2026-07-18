@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 1,
+  "feature_name": "knowledge-base-current-state-refresh",
+  "status": "in_progress",
+  "task_runs": {
+    "TASK-KBR-001": {
+      "status": "in_progress",
+      "base_commit": "84bce9f6b93b8c4ce0bd1c2c955d336a31f7080d",
+      "base_tree": "4b63d9ee0180122715425c975571f8b0df43268a"
+    }
+  }
+}

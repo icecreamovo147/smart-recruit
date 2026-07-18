@@ -1,0 +1,61 @@
+{
+  "schemaVersion": 2,
+  "changeRequestId": "CR-0001",
+  "feature_name": "hr-agent-tool-runtime-closure",
+  "baseRevision": 1,
+  "status": "applied",
+  "classification": "scope_correction",
+  "approvalLevel": "L0",
+  "reason": "TASK-001 changes active Tool and MCP runtime semantics, but its initial scope permits knowledge review without permitting required updates. The correction adds only the four directly affected active knowledge documents and changes no product behavior, requirement, API, schema, dependency, or security policy.",
+  "evidenceRefs": [
+    "reports/TASK-001-knowledge-impact.txt",
+    "repo://.knowledge/architecture/agent-runtime.md",
+    "repo://.knowledge/domains/mcp-tool-governance.md",
+    "repo://.knowledge/pitfalls/mcp-policy-audit.md"
+  ],
+  "trigger": {
+    "task_id": "TASK-001",
+    "phase": "implement"
+  },
+  "impact": {
+    "requirements": [
+      "KNOW-001"
+    ],
+    "tasks": [
+      "TASK-001",
+      "TASK-005"
+    ],
+    "completedTasksRequiringRevalidation": []
+  },
+  "revalidationPlan": [
+    "TASK-001",
+    "TASK-005"
+  ],
+  "resultingRevision": 2,
+  "approval": {
+    "approved_by": "amendment-reviewer-20260716-cr1",
+    "approved_at": "2026-07-16T13:05:00+08:00",
+    "decision": "approve"
+  },
+  "updates": [
+    {
+      "target": "contract.json",
+      "staged_file": "changes/CR-0001/contract.json",
+      "before_sha256": "fda539a01803274f54494d5fa94f9978c8222def6efb05e2f5104ca22be93045",
+      "after_sha256": "d7ba558eb1623061092f15b750adb4fa8c5a9cfc3619d2969c07956018e30e61"
+    },
+    {
+      "target": "task-scope.json",
+      "staged_file": "changes/CR-0001/task-scope.json",
+      "before_sha256": "ffd684f1527ce4acd3f5374ad8ed11476978490f55e25e8dcc07c02feac3d730",
+      "after_sha256": "a9ddcd5e08805d2bff1d02b8202ef23879322ca329b3e1bae33583e73a3e4c22"
+    },
+    {
+      "target": "traceability.json",
+      "staged_file": "changes/CR-0001/traceability.json",
+      "before_sha256": "7905514f8f1f39e492f9dd0fccdac6ac9d95f376f1e3bb4e9066a76240f0dad9",
+      "after_sha256": "24c7e97adbc4d50fd3291483d5ff2b7951d8ad114d2e6d29bd057241c309107e"
+    }
+  ],
+  "applied_at": "2026-07-16T04:56:48.288Z"
+}

@@ -197,6 +197,10 @@ export const agentLabels: Record<string, string> = {
 }
 
 export const runtimeLabels: Record<string, string> = {
+  'native-hr-runtime': 'HR 招聘运行时',
+  hr_recruiting_agent: 'HR 招聘助手',
+  candidate_ai_assistant: '候选人 AI 助手',
+  candidate_assistant: '候选人 AI 助手',
   adk: 'ADK 运行时',
   legacy: '兼容运行时',
   mock: '模拟运行时',
@@ -206,11 +210,59 @@ export const runtimeLabels: Record<string, string> = {
 export const intentLabels: Record<string, string> = {
   candidate_match_evaluation: '候选人匹配评估',
   candidate_comparison: '候选人对比',
+  candidate_lookup: '候选人查询',
+  job_listing: '职位列表查询',
+  job_detail: '职位详情查询',
+  application_listing: '投递列表查询',
   analytics: '招聘数据分析',
   status_change_proposal: '状态变更建议',
   interview_prep: '面试准备',
   offer_support: 'Offer 支持',
   unknown: '待澄清意图',
+}
+
+export const toolLabels: Record<string, string> = {
+  // HR recruiting tools
+  search_candidates: '搜索候选人',
+  get_candidate_detail: '获取候选人详情',
+  parse_resume_profile: '解析简历画像',
+  evaluate_candidate_match: '评估候选人匹配度',
+  get_candidate_match_evaluation: '读取匹配评估结果',
+  search_jobs: '搜索职位',
+  get_job_list: '获取职位列表',
+  get_job_detail: '获取职位详情',
+  get_application_snapshot: '获取投递快照',
+  list_all_applications: '列出全部投递',
+  list_applications_by_job: '按职位查询投递',
+  list_applications_by_status: '按状态查询投递',
+  compare_candidates_for_job: '对比职位候选人',
+  query_total_applications: '查询累计投递数',
+  query_today_applications: '查询今日投递数',
+  get_job_heat_ranking: '获取职位热度排行',
+  get_application_status_summary: '获取投递状态分布',
+  get_application_trend: '获取投递趋势',
+  propose_application_status_update: '生成状态变更建议',
+  get_resume_profile: '获取简历画像',
+  // Candidate assistant tools
+  list_my_applications: '我的投递列表',
+  get_my_application_detail: '我的投递详情',
+  get_my_resume_text: '我的简历文本',
+  list_jobs_for_recommendation: '推荐职位列表',
+  get_job_detail_for_candidate: '候选人视角职位详情',
+  recommend_jobs_by_resume: '按简历推荐职位',
+}
+
+/** Display tool name as `中文（english）` when a Chinese label exists. */
+export function formatToolTitle(toolName: string): string {
+  const name = (toolName || '').trim()
+  if (!name) return ''
+  const zh = toolLabels[name]
+  if (zh && zh !== name) return `${zh}（${name}）`
+  return name
+}
+
+export function toolLabel(value: string): string {
+  return labelFrom(toolLabels, value)
 }
 
 export const statusLabels: Record<string, string> = {
@@ -248,6 +300,9 @@ export const decisionKeyLabels: Record<string, string> = {
   required_tool_count: '所需工具数',
   required_data_count: '所需数据数',
   risk_flag_count: '风险检查数',
+  runtime_warning: '运行告警',
+  warning_count: '告警数',
+  warning_messages: '告警信息',
   unavailable_tool_risk: '工具不可用风险',
   requires_human_confirm: '需要人工确认',
   requires_evidence_citation: '需要证据引用',
@@ -291,6 +346,7 @@ export function riskLabel(value: string): string {
 }
 
 const WARNING_DECISION_KEYS = new Set([
+  'runtime_warning',
   'unavailable_tool_risk',
   'requires_human_confirm',
   'risk_flag_hit',
@@ -598,7 +654,7 @@ export function stepEvidenceSummary(step: AgentRunStepItem): string {
 }
 
 export function stepTitle(step: AgentRunStepItem): string {
-  if (step.tool_name) return step.tool_name
+  if (step.tool_name) return formatToolTitle(step.tool_name)
   if (step.capability_key) return step.capability_key
   return step.step_type || 'step'
 }
@@ -629,6 +685,14 @@ function localizedValue(value: unknown): string {
 export function extractRiskFlags(run: AgentRunItem, plan: AgentRunRecruitingPlan | null): string[] {
   const fromRun = normalizeStringList(parseRunPlan(run)?.risk_flags)
   return fromRun.length > 0 ? fromRun : normalizeStringList(plan?.risk_checks)
+}
+
+export function runModelDisplayName(run: AgentRunItem, plan: AgentRunPlanJSON | null): string {
+  const fromRun = String(run.model_name || '').trim()
+  if (fromRun) return fromRun
+  const fromPlan = typeof plan?.model === 'string' ? plan.model.trim() : ''
+  if (fromPlan) return fromPlan
+  return run.model_id > 0 ? `模型 #${run.model_id}` : '默认模型'
 }
 
 export function extractDecisionEntries(
@@ -826,7 +890,7 @@ export function buildRunVM(run: AgentRunItem): TraceRunVM {
   return {
     run,
     agentLabel: labelFrom(agentLabels, agentName),
-    modelName: run.model_name || '未记录',
+    modelName: runModelDisplayName(run, plan),
     intentLabel: intentRaw ? labelFrom(intentLabels, intentRaw) : '未记录',
     runtimeLabel: runtimeRaw ? labelFrom(runtimeLabels, runtimeRaw) : '未记录',
     statusCategory,
@@ -929,6 +993,11 @@ export function buildOverview(
   const warningCount = runs.filter((run) => run.statusCategory === 'warning').length
     + allSteps.filter((step) => step.statusCategory === 'warning').length
     + legacyTraces.filter((trace) => trace.statusCategory === 'warning').length
+    + runs.flatMap((run) => run.issues).filter((issue) => (
+      issue.severity === 'warning'
+      && issue.label !== '风险检查'
+      && issue.label !== '需要人工确认'
+    )).length
   const riskCount = runs.reduce((sum, run) => sum + run.riskFlags.length, 0)
   const policyIssueCount = [
     ...allSteps.map((step) => step.policyDecision),

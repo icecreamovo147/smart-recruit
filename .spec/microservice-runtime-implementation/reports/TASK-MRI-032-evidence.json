@@ -1,0 +1,52 @@
+{
+  "schemaVersion": 1,
+  "feature_name": "microservice-runtime-implementation",
+  "task_id": "TASK-MRI-032",
+  "base_sha": "c8b0bbdaf7af77000aa9db04c638135321930a4a",
+  "base_tree": "d6eae26c1bb2754406eb099d3737741598a99deb",
+  "head_sha": "c8b0bbdaf7af77000aa9db04c638135321930a4a",
+  "head_tree": "pending-local-commit",
+  "changed_files": [
+    ".spec/microservice-runtime-implementation/pipeline-state.json",
+    ".spec/microservice-runtime-implementation/reports/TASK-MRI-032-evidence.json",
+    ".spec/microservice-runtime-implementation/reports/TASK-MRI-032-report.md",
+    ".spec/microservice-runtime-implementation/reports/pipeline-summary.md"
+  ],
+  "scope": {
+    "status": "passed",
+    "command": "TASK_BASE_TREE=d6eae26c1bb2754406eb099d3737741598a99deb bash .spec/microservice-runtime-implementation/scripts/check-task-scope.sh TASK-MRI-032",
+    "classification": "current",
+    "out_of_scope": [],
+    "forbidden": [],
+    "allowed_patterns": [
+      "smart-recruit-deploy/**",
+      "docs/**",
+      ".knowledge/**",
+      ".spec/microservice-runtime-implementation/**"
+    ]
+  },
+  "checks": [
+    {"command": "validate evidence TASK-MRI-001..TASK-MRI-031", "exit_code": 0, "status": "passed", "started_at": "2026-07-12T09:22:00.000Z", "duration_ms": 853},
+    {"command": "git diff --name-only", "exit_code": 0, "status": "passed", "started_at": "2026-07-12T09:25:00.000Z", "duration_ms": 4},
+    {"command": "TASK_BASE_TREE=d6eae26c1bb2754406eb099d3737741598a99deb bash .spec/microservice-runtime-implementation/scripts/check-task-scope.sh TASK-MRI-032", "exit_code": 0, "status": "passed", "started_at": "2026-07-12T09:25:00.000Z", "duration_ms": 226},
+    {"command": "bash .spec/microservice-runtime-implementation/scripts/agent-check.sh", "exit_code": 0, "status": "passed", "started_at": "2026-07-12T09:25:00.000Z", "duration_ms": 612},
+    {"command": "node .agents/skills/spec-harness/scripts/validate-evidence.mjs --file .spec/microservice-runtime-implementation/reports/TASK-MRI-032-evidence.json", "exit_code": 0, "status": "passed", "started_at": "2026-07-12T09:25:00.000Z", "duration_ms": 5},
+    {"command": "node .agents/skills/harness-pipeline/scripts/validate-pipeline-state.mjs --feature-dir .spec/microservice-runtime-implementation", "exit_code": 0, "status": "passed", "started_at": "2026-07-12T09:26:00.000Z", "duration_ms": 5}
+  ],
+  "review": {"reviewer_type": "self-review", "round": 1, "verdict": "通过", "findings": []},
+  "human_confirmation": {"required": false, "confirmed": true, "confirmed_at": "2026-07-12T09:25:00Z", "source": "TASK-MRI-032 does not require human confirmation; harness-pipeline execution was explicitly requested by the user."},
+  "exceptions": [],
+  "skipped_checks": [
+    {"check": "Live Docker build and compose smoke", "reason": "Docker daemon unavailable in this environment; see TASK-MRI-028 and TASK-MRI-029 evidence plus pipeline summary risks."}
+  ],
+  "knowledgeImpact": {
+    "result": "update_required",
+    "triggeredBy": ["configuration-changed", "covered-path-changed"],
+    "reviewResults": [
+      {"document": ".knowledge/architecture/system-overview.md", "verdict": "UNCHANGED", "evidence": ["Final summary records completed runtime extraction without changing source behavior in TASK-MRI-032."]},
+      {"document": ".knowledge/runbooks/local-development.md", "verdict": "UNCHANGED", "evidence": ["Final summary records commands and remaining manual actions; standard runbook remains valid."]}
+    ],
+    "coverageGap": false,
+    "validationExitCode": 0
+  }
+}

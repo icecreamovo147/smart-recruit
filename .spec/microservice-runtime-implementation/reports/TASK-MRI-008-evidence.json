@@ -1,0 +1,128 @@
+{
+  "schemaVersion": 1,
+  "feature_name": "microservice-runtime-implementation",
+  "task_id": "TASK-MRI-008",
+  "base_sha": "562be5c338300b9227c4bad583bdc41f2f2dbd2c",
+  "base_tree": "2097290f419a98758ec17b01f6fb4815318ebf21",
+  "head_sha": "562be5c338300b9227c4bad583bdc41f2f2dbd2c",
+  "head_tree": "pending-local-commit",
+  "changed_files": [
+    ".spec/microservice-runtime-implementation/pipeline-state.json",
+    ".spec/microservice-runtime-implementation/reports/TASK-MRI-008-evidence.json",
+    ".spec/microservice-runtime-implementation/reports/TASK-MRI-008-report.md",
+    "smart-recruit-gateway/README.md",
+    "smart-recruit-gateway/internal/runtime/nacos.go",
+    "smart-recruit-gateway/internal/runtime/nacos_test.go"
+  ],
+  "scope": {
+    "status": "passed",
+    "command": "TASK_BASE_TREE=2097290f419a98758ec17b01f6fb4815318ebf21 bash .spec/microservice-runtime-implementation/scripts/check-task-scope.sh TASK-MRI-008",
+    "classification": "current",
+    "out_of_scope": [],
+    "forbidden": [],
+    "allowed_patterns": [
+      "smart-recruit-gateway/**",
+      "web-gin-service/**",
+      "smart-recruit-platform-go/**",
+      "**/go.mod",
+      "**/go.sum",
+      ".spec/microservice-runtime-implementation/**"
+    ]
+  },
+  "checks": [
+    {
+      "command": "cd smart-recruit-gateway && GOWORK=off go test ./...",
+      "exit_code": 0,
+      "status": "passed",
+      "started_at": "2026-07-12T07:10:00.000Z",
+      "duration_ms": 4151
+    },
+    {
+      "command": "git diff --name-only",
+      "exit_code": 0,
+      "status": "passed",
+      "started_at": "2026-07-12T07:10:05.000Z",
+      "duration_ms": 1549
+    },
+    {
+      "command": "node .knowledge/scripts/detect-impact.mjs --root . --base-tree 2097290f419a98758ec17b01f6fb4815318ebf21 --json",
+      "exit_code": 0,
+      "status": "passed",
+      "started_at": "2026-07-12T07:10:07.000Z",
+      "duration_ms": 4279
+    },
+    {
+      "command": "TASK_BASE_TREE=2097290f419a98758ec17b01f6fb4815318ebf21 bash .spec/microservice-runtime-implementation/scripts/check-task-scope.sh TASK-MRI-008",
+      "exit_code": 0,
+      "status": "passed",
+      "started_at": "2026-07-12T07:10:12.000Z",
+      "duration_ms": 3249
+    },
+    {
+      "command": "bash .spec/microservice-runtime-implementation/scripts/agent-check.sh",
+      "exit_code": 0,
+      "status": "passed",
+      "started_at": "2026-07-12T07:10:16.000Z",
+      "duration_ms": 6590
+    },
+    {
+      "command": "rm -f go.work.sum smart-recruit-gateway/gateway",
+      "exit_code": 0,
+      "status": "passed",
+      "started_at": "2026-07-12T07:10:23.000Z",
+      "duration_ms": 5
+    },
+    {
+      "command": "node .agents/skills/spec-harness/scripts/validate-evidence.mjs --file .spec/microservice-runtime-implementation/reports/TASK-MRI-008-evidence.json",
+      "exit_code": 0,
+      "status": "passed",
+      "started_at": "2026-07-12T07:11:00.000Z",
+      "duration_ms": 60
+    }
+  ],
+  "review": {
+    "reviewer_type": "self-review",
+    "round": 1,
+    "verdict": "通过",
+    "findings": []
+  },
+  "human_confirmation": {
+    "required": false,
+    "confirmed": true,
+    "confirmed_at": "2026-07-12T07:11:00Z",
+    "source": "TASK-MRI-008 does not require human confirmation; harness-pipeline execution was explicitly requested by the user."
+  },
+  "exceptions": [],
+  "skipped_checks": [
+    {
+      "check": "Live Nacos integration",
+      "reason": "TASK-MRI-008 verifies Nacos config/discovery with httptest and static fallback; full compose runtime smoke is assigned to later deploy/smoke TASKs."
+    }
+  ],
+  "knowledgeImpact": {
+    "result": "update_required",
+    "triggeredBy": [
+      "configuration-changed",
+      "covered-path-changed",
+      "recurring-defect-fixed"
+    ],
+    "reviewResults": [
+      {
+        "document": ".knowledge/architecture/system-overview.md",
+        "verdict": "UNCHANGED",
+        "evidence": [
+          "Reviewed active source_refs; TASK-MRI-008 adds gateway Nacos runtime helpers without changing current HTTP routing ownership or deployed service boundaries."
+        ]
+      },
+      {
+        "document": ".knowledge/runbooks/local-development.md",
+        "verdict": "UNCHANGED",
+        "evidence": [
+          "Reviewed active local startup guidance; TASK-MRI-008 adds a helper layer but does not replace current start-dev, docker, or gateway startup commands."
+        ]
+      }
+    ],
+    "coverageGap": false,
+    "validationExitCode": 0
+  }
+}

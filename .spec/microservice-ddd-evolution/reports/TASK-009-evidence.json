@@ -1,0 +1,177 @@
+{
+  "schemaVersion": 1,
+  "feature_name": "microservice-ddd-evolution",
+  "task_id": "TASK-009",
+  "base_sha": "c88fad1582721207290274a119aca2c1a2b235f5",
+  "base_tree": "d2823d905767e4720dc54603492f0c99a706d28f",
+  "head_sha": "c88fad1582721207290274a119aca2c1a2b235f5",
+  "changed_files": [
+    "smart-recruit-notification-service/internal/domain/doc.go",
+    "smart-recruit-notification-service/internal/domain/model/doc.go",
+    "smart-recruit-notification-service/internal/domain/event/doc.go",
+    "smart-recruit-notification-service/internal/domain/repository/doc.go",
+    "smart-recruit-notification-service/internal/domain/service/doc.go",
+    "smart-recruit-notification-service/internal/application/doc.go",
+    "smart-recruit-notification-service/internal/application/command/doc.go",
+    "smart-recruit-notification-service/internal/application/query/doc.go",
+    "smart-recruit-notification-service/internal/application/port/doc.go",
+    "smart-recruit-notification-service/internal/application/service/doc.go",
+    "smart-recruit-notification-service/internal/infrastructure/doc.go",
+    "smart-recruit-notification-service/internal/infrastructure/persistence/doc.go",
+    "smart-recruit-notification-service/internal/infrastructure/mq/doc.go",
+    "smart-recruit-notification-service/internal/infrastructure/cache/doc.go",
+    "smart-recruit-notification-service/internal/infrastructure/email/doc.go",
+    "smart-recruit-notification-service/internal/infrastructure/client/doc.go",
+    "smart-recruit-notification-service/internal/interfaces/doc.go",
+    "smart-recruit-notification-service/internal/interfaces/grpc/doc.go",
+    "smart-recruit-notification-service/internal/interfaces/mapper/doc.go",
+    "smart-recruit-notification-service/internal/interfaces/event/doc.go",
+    "smart-recruit-notification-service/internal/docs/contract_inventory.md",
+    ".spec/microservice-ddd-evolution/reports/TASK-009-report.md",
+    ".spec/microservice-ddd-evolution/reports/TASK-009-evidence.json"
+  ],
+  "scope": {
+    "status": "passed",
+    "checked_by": "bash .spec/microservice-ddd-evolution/scripts/check-task-scope.sh TASK-009",
+    "out_of_scope": [],
+    "forbidden": []
+  },
+  "checks": [
+    {
+      "command": "git diff --name-only",
+      "exit_code": 0,
+      "started_at": "2026-07-13T07:18:00Z",
+      "duration_ms": 1,
+      "status": "passed",
+      "summary": "Tracked diff output was empty because TASK-009 files were untracked additions; changed_files records the complete file list."
+    },
+    {
+      "command": "bash .spec/microservice-ddd-evolution/scripts/check-task-scope.sh TASK-009",
+      "exit_code": 0,
+      "started_at": "2026-07-13T07:19:00Z",
+      "duration_ms": 44,
+      "status": "passed",
+      "summary": "Scope check passed for TASK-009. Changed files: 23"
+    },
+    {
+      "command": "bash .spec/microservice-ddd-evolution/scripts/agent-check.sh",
+      "exit_code": 0,
+      "started_at": "2026-07-13T07:19:00Z",
+      "duration_ms": 4170,
+      "status": "passed",
+      "summary": "Harness JSON validation passed. Running go test ./... in smart-recruit-notification-service passed."
+    },
+    {
+      "command": "go test ./...",
+      "exit_code": 0,
+      "started_at": "2026-07-13T07:19:00Z",
+      "duration_ms": 4191,
+      "status": "passed",
+      "summary": "smart-recruit-notification-service package tests passed, including newly added doc packages."
+    },
+    {
+      "command": "node scripts/check-mysql-table-ownership.mjs",
+      "exit_code": 0,
+      "started_at": "2026-07-13T07:19:00Z",
+      "duration_ms": 1,
+      "status": "passed",
+      "summary": "mysql_table_ownership: PASS (67 tables, single MySQL instance)"
+    },
+    {
+      "command": "node scripts/check-backend-boundaries.mjs",
+      "exit_code": 0,
+      "started_at": "2026-07-13T07:19:00Z",
+      "duration_ms": 108,
+      "status": "passed",
+      "summary": "backend_boundary_result: PASS"
+    }
+  ],
+  "non_blocking_checks": [
+    {
+      "command": "node .knowledge/scripts/detect-impact.mjs --root . --base-tree d2823d905767e4720dc54603492f0c99a706d28f",
+      "exit_code": 1,
+      "started_at": "2026-07-13T07:21:00Z",
+      "duration_ms": 12,
+      "status": "failed",
+      "summary": "既有 active knowledge 中大量旧 logic-grpc-service/web-gin-service source_refs 缺失；本 TASK scope 不允许修改 .knowledge/**，记录为 candidate_required。"
+    }
+  ],
+  "review": {
+    "type": "independent-agent",
+    "round": 1,
+    "verdict": "通过",
+    "findings": [
+      {
+        "id": "L1",
+        "severity": "Low",
+        "status": "documented",
+        "summary": "users email receiver lookup is a transitional direct read and should become an owner-service query/client port or explicit debt in TASK-010/TASK-011."
+      },
+      {
+        "id": "L2",
+        "severity": "Low",
+        "status": "documented",
+        "summary": "AuthzRepo is wired but current Notification read path primarily uses gRPC metadata actor verification; contract inventory now clarifies this."
+      }
+    ]
+  },
+  "human_confirmation": {
+    "required": false,
+    "confirmed": true,
+    "confirmed_by": "not_required",
+    "confirmed_at": "2026-07-13T07:20:00Z",
+    "confirmation_text": "TASK-009 does not require human confirmation."
+  },
+  "exceptions": [],
+  "knowledgeImpact": {
+    "result": "candidate_required",
+    "triggeredBy": [
+      "smart-recruit-notification-service/internal/domain/**",
+      "smart-recruit-notification-service/internal/application/**",
+      "smart-recruit-notification-service/internal/infrastructure/**",
+      "smart-recruit-notification-service/internal/interfaces/**",
+      "smart-recruit-notification-service/internal/docs/contract_inventory.md"
+    ],
+    "reviewResults": [
+      {
+        "document": ".knowledge/architecture/system-overview.md",
+        "verdict": "CANDIDATE",
+        "evidence": [
+          "TASK-009 adds smart-recruit-notification-service local DDD package boundaries while active knowledge still describes legacy logic-grpc-service topology."
+        ]
+      },
+      {
+        "document": ".knowledge/architecture/service-boundaries.md",
+        "verdict": "CANDIDATE",
+        "evidence": [
+          "Notification service now has explicit local DDD skeleton and contract inventory, but active boundary knowledge still points to old logic-grpc-service notification runtime paths."
+        ]
+      },
+      {
+        "document": ".knowledge/domains/recruitment.md",
+        "verdict": "CANDIDATE",
+        "evidence": [
+          "Notification remains part of recruitment workflows; TASK-009 documents the extracted Notification service baseline and future owner migration path."
+        ]
+      },
+      {
+        "document": ".knowledge/domains/recruitment-lifecycle.md",
+        "verdict": "CANDIDATE",
+        "evidence": [
+          "Application, Interview, and Offer workflows produce notification/email outbox events consumed by Notification runtime; TASK-009 records these dependencies for later migration."
+        ]
+      },
+      {
+        "document": ".knowledge/domains/notification-outbox.md",
+        "verdict": "CANDIDATE",
+        "evidence": [
+          "TASK-009 records Notification local DDD skeleton and current notification/email/outbox/inbox/SSE contract inventory in smart-recruit-notification-service."
+        ]
+      }
+    ],
+    "coverageGap": false,
+    "validationExitCode": 1,
+    "reason": "Knowledge impact detection cannot complete until pre-existing source_ref debt is resolved; TASK-009 scope does not allow editing .knowledge/**."
+  },
+  "skipped_checks": []
+}

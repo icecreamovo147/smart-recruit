@@ -1,0 +1,151 @@
+{
+  "schemaVersion": 1,
+  "feature_name": "microservice-ddd-evolution",
+  "task_id": "TASK-017",
+  "base_sha": "be65c7b786f53ce713129647f444de68c76ccb17",
+  "base_tree": "f228364a9635f89991fff945cb2983e5af94b9ad",
+  "head_sha": "be65c7b786f53ce713129647f444de68c76ccb17",
+  "changed_files": [
+    "smart-recruit-recruitment-service/internal/application/command/recruitment.go",
+    "smart-recruit-recruitment-service/internal/application/dto/recruitment.go",
+    "smart-recruit-recruitment-service/internal/application/service/application_collaboration_taxonomy_service.go",
+    "smart-recruit-recruitment-service/internal/application/service/application_collaboration_taxonomy_service_test.go",
+    "smart-recruit-recruitment-service/internal/application/service/job_candidate_resume_service_test.go",
+    "smart-recruit-recruitment-service/internal/domain/model/recruitment.go",
+    "smart-recruit-recruitment-service/internal/domain/policy/recruitment.go",
+    "smart-recruit-recruitment-service/internal/domain/repository/recruitment.go",
+    ".spec/microservice-ddd-evolution/reports/TASK-017-report.md",
+    ".spec/microservice-ddd-evolution/reports/TASK-017-evidence.json"
+  ],
+  "scope": {
+    "status": "passed",
+    "checked_by": "bash .spec/microservice-ddd-evolution/scripts/check-task-scope.sh TASK-017",
+    "out_of_scope": [],
+    "forbidden": []
+  },
+  "checks": [
+    {
+      "command": "go test ./internal/application/service ./internal/domain/policy",
+      "exit_code": 0,
+      "started_at": "2026-07-13T09:45:00Z",
+      "duration_ms": 165,
+      "status": "passed",
+      "summary": "Targeted Recruitment application/collaboration/taxonomy/usage stats tests passed."
+    },
+    {
+      "command": "go test ./...",
+      "exit_code": 0,
+      "started_at": "2026-07-13T09:44:00Z",
+      "duration_ms": 1294,
+      "status": "passed",
+      "summary": "smart-recruit-recruitment-service package tests passed after local application/collaboration/taxonomy migration."
+    },
+    {
+      "command": "node scripts/check-mysql-table-ownership.mjs",
+      "exit_code": 0,
+      "started_at": "2026-07-13T09:45:00Z",
+      "duration_ms": 162,
+      "status": "passed",
+      "summary": "mysql_table_ownership: PASS (67 tables, single MySQL instance)"
+    },
+    {
+      "command": "node scripts/check-backend-boundaries.mjs",
+      "exit_code": 0,
+      "started_at": "2026-07-13T09:45:00Z",
+      "duration_ms": 321,
+      "status": "passed",
+      "summary": "backend_boundary_result: PASS"
+    },
+    {
+      "command": "git diff --name-only",
+      "exit_code": 0,
+      "started_at": "2026-07-13T09:45:00Z",
+      "duration_ms": 1,
+      "status": "passed",
+      "summary": "Tracked diff listed modified local Recruitment files; new service files are listed by git status and changed_files."
+    },
+    {
+      "command": "bash .spec/microservice-ddd-evolution/scripts/check-task-scope.sh TASK-017",
+      "exit_code": 0,
+      "started_at": "2026-07-13T09:45:00Z",
+      "duration_ms": 105,
+      "status": "passed",
+      "summary": "Scope check passed for TASK-017. Changed files: 10"
+    },
+    {
+      "command": "bash .spec/microservice-ddd-evolution/scripts/agent-check.sh",
+      "exit_code": 0,
+      "started_at": "2026-07-13T09:45:00Z",
+      "duration_ms": 815,
+      "status": "passed",
+      "summary": "Harness JSON validation passed. Running go test ./... in smart-recruit-recruitment-service passed."
+    }
+  ],
+  "non_blocking_checks": [
+    {
+      "command": "node .knowledge/scripts/detect-impact.mjs --root . --base-tree f228364a9635f89991fff945cb2983e5af94b9ad",
+      "exit_code": 1,
+      "started_at": "2026-07-13T09:45:00Z",
+      "duration_ms": 1,
+      "status": "failed",
+      "summary": "Pre-existing active knowledge source_refs still point at removed logic-grpc-service/web-gin-service paths; TASK-017 scope does not allow .knowledge/** edits, so this is recorded as candidate_required."
+    }
+  ],
+  "review": {
+    "type": "self-review",
+    "round": 1,
+    "verdict": "通过",
+    "findings": []
+  },
+  "human_confirmation": {
+    "required": false,
+    "confirmed": true,
+    "confirmed_by": "not_required",
+    "confirmed_at": "2026-07-13T09:34:00Z",
+    "confirmation_text": "TASK-017 does not require human confirmation; user authorized continuing future TASKs unless a blocking issue needs intervention."
+  },
+  "exceptions": [],
+  "knowledgeImpact": {
+    "result": "candidate_required",
+    "triggeredBy": [
+      "smart-recruit-recruitment-service/internal/application/service/application_collaboration_taxonomy_service.go",
+      "smart-recruit-recruitment-service/internal/domain/model/recruitment.go",
+      "smart-recruit-recruitment-service/internal/domain/policy/recruitment.go",
+      "smart-recruit-recruitment-service/internal/domain/repository/recruitment.go"
+    ],
+    "reviewResults": [
+      {
+        "document": ".knowledge/domains/recruitment.md",
+        "verdict": "CANDIDATE",
+        "evidence": [
+          "TASK-017 adds local application lifecycle, collaboration, taxonomy, and usage stats domain/application services."
+        ]
+      },
+      {
+        "document": ".knowledge/domains/recruitment-lifecycle.md",
+        "verdict": "CANDIDATE",
+        "evidence": [
+          "TASK-017 preserves application status transition, terminal/re-pass, and notification semantics in local Recruitment policy/application layers."
+        ]
+      },
+      {
+        "document": ".knowledge/domains/notification-outbox.md",
+        "verdict": "CANDIDATE",
+        "evidence": [
+          "TASK-017 keeps existing application notification/email outbox topic and event type contracts behind a local outbox port."
+        ]
+      },
+      {
+        "document": ".knowledge/runbooks/debug-recruitment-lifecycle.md",
+        "verdict": "CANDIDATE",
+        "evidence": [
+          "TASK-017 adds new local package anchors for application status and collaboration debugging."
+        ]
+      }
+    ],
+    "coverageGap": false,
+    "validationExitCode": 1,
+    "reason": "Knowledge impact detection cannot complete until pre-existing source_ref debt is resolved; TASK-017 scope does not allow editing .knowledge/**."
+  },
+  "skipped_checks": []
+}

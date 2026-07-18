@@ -1,0 +1,110 @@
+{
+  "schemaVersion": 1,
+  "feature_name": "dev-log-viewer",
+  "task_id": "TASK-DLV-005",
+  "base_sha": "6344ba11a1ce0fdc2943469b1a04ac02075bbfb0",
+  "base_tree": "1f281a4ada77343b8c409e2a693b53a1f2ec7613",
+  "head_sha": "6344ba11a1ce0fdc2943469b1a04ac02075bbfb0",
+  "changed_files": [
+    ".spec/dev-log-viewer/pipeline-state.json",
+    ".spec/dev-log-viewer/reports/TASK-DLV-005-report.md",
+    ".spec/dev-log-viewer/reports/TASK-DLV-005-evidence.json",
+    "dev-log-viewer/web/src/types/api.ts",
+    "dev-log-viewer/web/src/api/services.ts",
+    "dev-log-viewer/web/src/api/stream.ts",
+    "dev-log-viewer/web/src/state/logState.ts",
+    "dev-log-viewer/web/src/hooks/useLogStream.ts",
+    "dev-log-viewer/web/src/test/logState.test.ts",
+    "dev-log-viewer/web/src/test/stream.test.ts"
+  ],
+  "scope": {
+    "status": "passed",
+    "command": "bash .spec/dev-log-viewer/scripts/check-task-scope.sh TASK-DLV-005",
+    "classification": "current",
+    "out_of_scope": [],
+    "forbidden": []
+  },
+  "checks": [
+    {
+      "command": "pnpm --filter dev-log-viewer typecheck",
+      "exit_code": 0,
+      "started_at": "2026-07-15T09:20:45Z",
+      "duration_ms": 840,
+      "status": "passed"
+    },
+    {
+      "command": "pnpm --filter dev-log-viewer test",
+      "exit_code": 0,
+      "started_at": "2026-07-15T09:20:45Z",
+      "duration_ms": 1382,
+      "status": "passed"
+    },
+    {
+      "command": "bash .spec/dev-log-viewer/scripts/check-task-scope.sh TASK-DLV-005",
+      "exit_code": 0,
+      "started_at": "2026-07-15T09:20:55Z",
+      "duration_ms": 66,
+      "status": "passed"
+    },
+    {
+      "command": "bash .spec/dev-log-viewer/scripts/agent-check.sh TASK-DLV-005",
+      "exit_code": 0,
+      "started_at": "2026-07-15T09:20:54Z",
+      "duration_ms": 2618,
+      "status": "passed"
+    },
+    {
+      "command": "node .knowledge/scripts/detect-impact.mjs --root . --base-tree 1f281a4ada77343b8c409e2a693b53a1f2ec7613",
+      "exit_code": 0,
+      "started_at": "2026-07-15T09:20:54Z",
+      "duration_ms": 80,
+      "status": "passed"
+    }
+  ],
+  "review": {
+    "reviewer_type": "self-review",
+    "round": 1,
+    "verdict": "通过",
+    "reviewed_at": "2026-07-15T09:21:08Z",
+    "findings": []
+  },
+  "human_confirmation": {
+    "required": false,
+    "confirmed": true
+  },
+  "exceptions": [],
+  "skipped_checks": [],
+  "knowledgeImpact": {
+    "result": "candidate_required",
+    "triggeredBy": [
+      "dev-log-viewer/web/src/api changed",
+      "dev-log-viewer/web/src/state changed",
+      "dev-log-viewer/web/src/hooks changed"
+    ],
+    "reviewResults": [
+      {
+        "document": ".knowledge/architecture/frontend-apps.md",
+        "verdict": "CANDIDATE",
+        "evidence": [
+          "New independent React app state/API patterns are not documented yet; TASK-DLV-005 cannot modify knowledge files."
+        ]
+      },
+      {
+        "document": ".knowledge/architecture/system-overview.md",
+        "verdict": "CANDIDATE",
+        "evidence": [
+          "New dev-log-viewer frontend state responsibilities are not documented yet; TASK-DLV-005 cannot modify knowledge files."
+        ]
+      },
+      {
+        "document": ".knowledge/runbooks/local-development.md",
+        "verdict": "CANDIDATE",
+        "evidence": [
+          "New dev-log-viewer frontend validation commands are not documented yet; TASK-DLV-005 cannot modify knowledge files."
+        ]
+      }
+    ],
+    "coverageGap": false,
+    "validationExitCode": 0
+  }
+}

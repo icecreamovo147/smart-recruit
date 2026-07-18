@@ -1,0 +1,193 @@
+{
+  "schemaVersion": 1,
+  "feature_name": "ai-agent-runtime-recovery",
+  "task_id": "TASK-009",
+  "base_sha": "dc018e6d28e8b1db277b3594fd435b581215eaf3",
+  "base_tree": "3408c36d27dffeb8a9609c066cea63d124e85c45",
+  "head_sha": "dc018e6d28e8b1db277b3594fd435b581215eaf3",
+  "changed_files": [
+    ".spec/ai-agent-runtime-recovery/pipeline-state.json",
+    ".spec/ai-agent-runtime-recovery/reports/TASK-009-evidence.json",
+    ".spec/ai-agent-runtime-recovery/reports/TASK-009-report.md",
+    "hr-frontend/src/api/agentRun.test.ts",
+    "hr-frontend/src/api/agentRun.ts",
+    "hr-frontend/src/types/agentRun.ts"
+  ],
+  "scope": {
+    "status": "passed",
+    "base_tree": "3408c36d27dffeb8a9609c066cea63d124e85c45",
+    "forbidden": [],
+    "out_of_scope": [],
+    "allowed": [
+      ".spec/ai-agent-runtime-recovery/pipeline-state.json",
+      ".spec/ai-agent-runtime-recovery/reports/TASK-009-evidence.json",
+      ".spec/ai-agent-runtime-recovery/reports/TASK-009-report.md",
+      "hr-frontend/src/api/agentRun.test.ts",
+      "hr-frontend/src/api/agentRun.ts",
+      "hr-frontend/src/types/agentRun.ts"
+    ]
+  },
+  "checks": [
+    {
+      "command": "pnpm --filter hr-frontend test -- --run src/api/agentRun.test.ts",
+      "status": "passed",
+      "exit_code": 0,
+      "started_at": "2026-07-14T20:21:41Z",
+      "duration_ms": 5013,
+      "notes": "Due current script argument forwarding, Vitest ran all 9 HR test files / 69 tests."
+    },
+    {
+      "command": "pnpm --filter hr-frontend typecheck",
+      "status": "passed",
+      "exit_code": 0,
+      "started_at": "2026-07-14T20:21:41Z",
+      "duration_ms": 8658
+    },
+    {
+      "command": "git diff --name-only",
+      "status": "passed",
+      "exit_code": 0,
+      "started_at": "2026-07-14T20:17:00Z",
+      "duration_ms": 8,
+      "notes": "This command does not list untracked new API test files before staging; git status and scope check were also recorded."
+    },
+    {
+      "command": "git status --short hr-frontend/src/api/agentRun.test.ts hr-frontend/src/api/agentRun.ts hr-frontend/src/types/agentRun.ts hr-frontend/src/utils/hrAgentRunReducer.ts",
+      "status": "passed",
+      "exit_code": 0,
+      "started_at": "2026-07-14T20:18:00Z",
+      "duration_ms": 7
+    },
+    {
+      "command": "TASK_BASE_TREE=3408c36d27dffeb8a9609c066cea63d124e85c45 bash .spec/ai-agent-runtime-recovery/scripts/check-task-scope.sh TASK-009",
+      "status": "passed",
+      "exit_code": 0,
+      "started_at": "2026-07-14T20:18:00Z",
+      "duration_ms": 108
+    },
+    {
+      "command": "TASK_BASE_TREE=3408c36d27dffeb8a9609c066cea63d124e85c45 bash .spec/ai-agent-runtime-recovery/scripts/agent-check.sh",
+      "status": "passed",
+      "exit_code": 0,
+      "started_at": "2026-07-14T20:21:41Z",
+      "duration_ms": 247
+    },
+    {
+      "command": "node .knowledge/scripts/detect-impact.mjs --root . --base-tree 3408c36d27dffeb8a9609c066cea63d124e85c45",
+      "status": "passed",
+      "exit_code": 0,
+      "started_at": "2026-07-14T20:22:00Z",
+      "duration_ms": 281
+    }
+  ],
+  "review": {
+    "type": "independent-read-only-subagent",
+    "round": 2,
+    "verdict": "通过",
+    "reviewers": [
+      {
+        "round": 1,
+        "reviewer": "independent-read-only-subagent: Descartes (019f6248-2e81-7c03-be7e-8fa39f64666a)",
+        "verdict": "不通过",
+        "notes": [
+          "Gateway-shaped process.delta events with top-level result_metadata remained process.delta, so the existing reducer ignored context usage metadata.",
+          "Focused test only covered payload_json result_metadata and missed top-level result_metadata."
+        ]
+      },
+      {
+        "round": 2,
+        "reviewer": "independent-read-only-subagent: Hilbert (019f624c-2248-77c2-8e1c-42a3ad0c84b6)",
+        "verdict": "通过",
+        "notes": [
+          "Verified process.delta events with top-level or payload result_metadata normalize to run.result before reducer metadata consumption.",
+          "Verified gateway-shaped top-level metadata regression coverage and no blocking findings."
+        ]
+      }
+    ],
+    "completed_at": "2026-07-14T20:25:42Z",
+    "blocking_reason": ""
+  },
+  "human_confirmation": {
+    "required": false,
+    "confirmed": true,
+    "confirmed_by": "not_required",
+    "confirmed_at": "2026-07-14T20:15:00Z",
+    "confirmation_text": "TASK-009 does not require human confirmation."
+  },
+  "exceptions": [],
+  "knowledgeImpact": {
+    "result": "update_required",
+    "triggeredBy": [
+      "covered-path-changed",
+      "service-boundary-changed"
+    ],
+    "reviewResults": [
+      {
+        "document": "frontend-apps",
+        "verdict": "CANDIDATE",
+        "evidence": [
+          "TASK-009 updates HR frontend API/type compatibility for durable Agent Run event metadata normalization."
+        ]
+      },
+      {
+        "document": "frontend-validation",
+        "verdict": "CANDIDATE",
+        "evidence": [
+          "TASK-009 ran HR frontend Vitest and typecheck for touched frontend API/type files."
+        ]
+      },
+      {
+        "document": "frontend-menu-consistency",
+        "verdict": "UNCHANGED",
+        "evidence": [
+          "No HR admin menu, route, page-header, or visual layout files were changed."
+        ]
+      },
+      {
+        "document": "agent-runtime",
+        "verdict": "CANDIDATE",
+        "evidence": [
+          "TASK-009 normalizes restored durable Agent Run metadata for HR frontend runtime display."
+        ]
+      },
+      {
+        "document": "resume-intelligence",
+        "verdict": "UNCHANGED",
+        "evidence": [
+          "ApplicationIntelligenceView and recruiting intelligence API/types were inspected but not changed; generated profile/evaluation contract remained compatible."
+        ]
+      },
+      {
+        "document": "service-boundaries",
+        "verdict": "UNCHANGED",
+        "evidence": [
+          "TASK-009 changes only HR frontend API/types and does not modify backend service boundaries."
+        ]
+      },
+      {
+        "document": "system-overview",
+        "verdict": "CANDIDATE",
+        "evidence": [
+          "Impact detector matched broad frontend/service routes; frontend compatibility details are candidates for future knowledge update."
+        ]
+      }
+    ],
+    "coverageGap": false,
+    "validationExitCode": 0
+  },
+  "skipped_checks": [
+    {
+      "check": "pnpm --filter user-frontend typecheck",
+      "reason": "No user frontend files were touched in TASK-009."
+    },
+    {
+      "check": "Manual UI smoke",
+      "reason": "No dev server/browser smoke was required for this narrow API/type compatibility fix; Vitest and typecheck covered the parser contract."
+    }
+  ],
+  "risks": [
+    "The normalization is intentionally narrow and only converts process.delta events that carry result_metadata from either top-level gateway fields or payload_json.",
+    "The focused test verifies the exported helper, not a live browser fetch stream."
+  ],
+  "next_task_can_start": true
+}

@@ -1,273 +1,302 @@
 ---
 name: harness-pipeline
-description: 自动串行执行某个功能点下所有 TASK：对每个 TASK 按 implement-task → self-review → fix-check-failures 循环驱动，直至全部完成或人工打断。依赖 spec-harness 的四模式定义。
+description: Serially orchestrate all TASKs in a spec-harness feature, including typed Review routing, implementation repair, contract amendments, rolling-plan reconciliation, cumulative verification, and migration parity or retirement gates. Use only when the user explicitly requests multi-TASK pipeline execution.
 ---
 
 # harness-pipeline
 
-串行编排器。对 `.spec/<feature-name>/` 下已分解好的 TASK 列表，逐个执行：
+## Authority and prerequisites
 
+This skill orchestrates `spec-harness`; it does not redefine TASK implementation, Review, Amendment, scope, evidence, or completion semantics.
+
+Before execution, read the active `spec-harness` SKILL completely. For schema v2, also read its contract reference; for `behavior_preserving_migration`, read the migration reference.
+
+Require:
+
+- a valid `.spec/<feature>/` package;
+- SPEC, SDD, TASKS, rules, scope, acceptance, prompts, scripts, and reports;
+- an approved v2 contract and traceability for new features;
+- a pinned baseline and behavior manifest for migrations;
+- no unrelated dirty changes that overlap the feature;
+- a reliable Git base tree for every TASK.
+
+Input:
+
+```text
+Feature: <feature-name>
+Start Task: <optional TASK-ID>
+Max Review Rounds: <default 3>
+Skip Human Confirm: <default false>
 ```
-for each TASK:
-  loop (max_review_rounds):
-    implement-task   → 实现
-    self-review      → 审查
-    if verdict == 通过: break
-    fix-check-failures → 修复
+
+`skip_human_confirm=true` means block rather than bypass a human gate.
+
+## Compatibility
+
+- Resume existing schema v1 non-migration pipelines with their original state semantics and strengthened evidence validation.
+- Do not silently upgrade schema v1 state or evidence.
+- Do not resume schema-less pipelines for implementation.
+- Require schema v2 for pending migration, cutover, or source-retirement work.
+
+## Pipeline model
+
+The v2 loop is:
+
+```text
+discovery / plan review
+→ ready TASK
+→ implement
+→ typed review
+   ├─ pass                   → complete TASK → reconcile plan
+   ├─ implementation_defect  → fix → review
+   ├─ contract_gap           → amendment_pending
+   ├─ requirement_conflict   → amendment_pending + user decision
+   └─ environment_blocker    → blocked at current completion level
+→ cumulative final verification
+→ completed only at the contract's required completion level
 ```
 
-人仅在以下时机介入：
-- 所有 TASK 完成后审合入包
-- 某 TASK 被打上 `requiresHumanConfirmation` 标记时停等确认
-- 连续 `max_review_rounds` 轮审查未通过时硬暂停
+Do not send `contract_gap`, `requirement_conflict`, or `environment_blocker` into the ordinary fix loop.
 
-## 输入
+## State ownership
 
-由调用方在 prompt 中提供：
+`pipeline-state.json` is the runtime source of truth. `task-scope.json.tasks[*].lifecycle` is the contract-defined readiness state; it is not a substitute for runtime evidence.
 
-| 参数 | 必填 | 默认 | 说明 |
-|------|:----:|------|------|
-| `feature_name` | ✅ | — | `.spec/` 下的功能目录名 |
-| `start_task` | — | 第一个未完成的 TASK | 格式 `TASK-001`，用于续跑 |
-| `max_review_rounds` | — | `3` | 单个 TASK 最多修复轮数 |
-| `skip_human_confirm` | — | `false` | 设为 `true` 则遇见 `requiresHumanConfirmation` 不停等，直接拒绝该 TASK 并跳过 |
-
-## 前置条件
-
-执行前必须满足：
-1. `.spec/<feature_name>/` 下已存在 SPEC.md、SDD.md、TASKS.md、task-scope.json、AGENT_RULES.md、acceptance/、prompts/、scripts/
-2. `scripts/check-task-scope.sh` 和 `scripts/agent-check.sh` 已就绪
-3. `git status` 干净（无与当前功能无关的未提交改动）
-
-## 状态管理
-
-状态文件：`.spec/<feature_name>/pipeline-state.json`
+Schema v2 state includes:
 
 ```json
 {
-  "schemaVersion": 1,
-  "feature_name": "...",
-  "current_task": "TASK-003",
+  "schemaVersion": 2,
+  "feature_name": "example",
+  "contract_revision": 1,
+  "current_task": "TASK-001",
   "current_phase": "implement",
-  "completed_tasks": ["TASK-001", "TASK-002"],
-  "blocked_tasks": [],
+  "completion_level": "code_complete",
+  "completed_tasks": [],
   "failed_tasks": [],
+  "blocked_tasks": [],
   "skipped_human_confirmation_tasks": [],
   "approved_exceptions": [],
-  "review_round": 2,
+  "open_change_requests": [],
+  "needs_revalidation_tasks": [],
+  "review_round": 0,
   "status": "in_progress",
-  "task_runs": {
-    "TASK-002": {
-      "base_sha": "...",
-      "base_tree": "...",
-      "head_sha": "...",
-      "scope_status": "passed",
-      "checks_status": "passed",
-      "review_verdict": "通过",
-      "human_confirmation": {
-        "required": true,
-        "confirmed": true,
-        "confirmed_by": "user",
-        "confirmed_at": "...",
-        "confirmation_text": "..."
-      },
-      "evidence": ".spec/<feature_name>/reports/TASK-002-evidence.json"
-    }
-  }
+  "task_runs": {}
 }
 ```
 
-- 每个 TASK 实现完成后立即更新状态文件
-- 支持中断续跑：读取 state → 从 `current_task` 继续
-- `status` 只能是 `pending`、`in_progress`、`blocked`、`completed` 或 `completed_with_exceptions`
-- `current_phase` 只能是 `pending`、`implement`、`review`、`fix`、`finalize`、`completed` 或 `blocked`
-- `task_runs` 是每个 TASK 的运行证据索引；`task-scope.json.tasks[*].status` 不参与运行时完成判定
+Allowed status:
 
-## 状态完成不变量
+- `pending`
+- `in_progress`
+- `blocked`
+- `completed`
+- `completed_with_exceptions`
 
-Pipeline 写入普通 `completed` 前必须通过：
+Allowed v2 phase:
 
-```bash
-node .agents/skills/harness-pipeline/scripts/validate-pipeline-state.mjs \
-  --feature-dir .spec/<feature_name>
-```
+- `pending`
+- `discovery`
+- `plan_review`
+- `ready`
+- `implement`
+- `review`
+- `fix`
+- `amendment_pending`
+- `amendment_review`
+- `replan`
+- `revalidate`
+- `finalize`
+- `final_review`
+- `completed`
+- `blocked`
 
-普通 `completed` 必须同时满足：
+## Preflight
 
-- 所有 TASK 均在 `completed_tasks` 中；
-- `failed_tasks` 和 `blocked_tasks` 为空；
-- 每个 completed TASK 都有 `task_runs[TASK-ID].evidence`；
-- evidence 文件存在且通过 canonical evidence validator；
-- `scope_status`、`checks_status` 均为 `passed`；
-- `review_verdict` 为 `通过`；
-- 需要人工确认的 TASK 已记录明确确认；
-- 没有未批准 exception。
-
-`completed_with_exceptions` 只允许在存在人工批准例外时使用，且每个例外必须记录 `approved_object`、`approved_by`、`approved_at` 和 `reason`。存在未批准失败、缺失 evidence、Review 不通过、scope/check 失败或缺失确认时，状态必须保持 `blocked` 或失败结果，不能写成普通完成。
-
-每个批准例外还必须用 `task_id` 或 `task_ids` 明确覆盖对应 TASK；未完成、失败、阻塞或跳过的 TASK 不能靠泛泛的例外说明通过。
-
-当 `skip_human_confirm=true` 且遇到 `requiresHumanConfirmation=true` 的 TASK 时，该 TASK 必须记录到 `blocked_tasks` 和 `skipped_human_confirmation_tasks`，不得加入 `completed_tasks`，最终状态必须保持 `blocked`，除非用户之后明确批准例外并记录为 `completed_with_exceptions`。
-
-## 执行流程
-
-### Step 0：初始化
-
-1. 读入以下文件（与 spec-harness implement-task 相同）：
-   - `.spec/<feature_name>/<feature_name>-SPEC.md`
-   - `.spec/<feature_name>/<feature_name>-SDD.md`
-   - `.spec/<feature_name>/TASKS.md`
-   - `.spec/<feature_name>/AGENT_RULES.md`
-   - `.spec/<feature_name>/task-scope.json`
-
-2. 从 `TASKS.md` 提取所有 TASK-ID 列表（按出现顺序）
-3. 如果 `start_task` 指定了值，定位到该 TASK；否则从第一个开始
-4. 运行 feature preflight：
+Run:
 
 ```bash
 node .agents/skills/spec-harness/scripts/validate-feature.mjs \
-  --feature .spec/<feature_name> \
+  --feature .spec/<feature-name> \
   --require-pipeline
 ```
 
-5. 运行 `git status --short`，确认无与当前功能无关的未提交改动
-6. 如果 `pipeline-state.json` 已存在，恢复状态并确认续跑；如果状态为 `completed`，直接输出汇总报告
+Then:
 
-### Step 1：TASK 循环
+1. Load the active contract revision, profile, traceability, TASK order, and dependencies.
+2. Confirm there are no unresolved blocking assumptions.
+3. Confirm the next TASK is `ready`; do not execute `draft`, `amendment_pending`, `needs_revalidation`, or `superseded` TASKs.
+4. If `pipeline-state.json` exists, resume its exact phase. Do not trust a stale TASK definition hash or contract revision.
+5. If status is completed, validate it again before reporting completion.
 
-对每个未完成的 TASK（从起始 TASK 到最后一个）：
+## TASK baseline
 
-#### Step 1.0：TASK 基线
+Before any TASK write:
 
-在修改任何文件前，为当前 TASK 建立可靠基线：
+- record `base_sha`;
+- create or record a reliable `base_tree` that includes earlier completed TASK work;
+- compute the active TASK definition hash and traceability hash;
+- bind the run to `contract_revision`;
+- record implementer run identity when independent Review may be required.
 
-- 记录 `base_sha`：`git rev-parse HEAD`
-- 记录 `base_tree`：能代表“当前工作区加上已完成 TASK 改动”的 git tree id
-- 将二者写入 `pipeline-state.json.task_runs[TASK-ID]`
+Use the same baseline for scope, report, and evidence. Stop if it cannot be reproduced.
 
-如果不能生成可靠 `base_tree`，必须停止并说明原因。后续 scope check、report 和 evidence 都必须使用同一个 TASK 基线，避免后续 TASK 被前一个 TASK 的文件变更污染。
+## Human and destructive gates
 
-#### Step 1.1：人工确认检查
+Before implementation, inspect `requiresHumanConfirmation` and `destructiveActions`.
 
-如果 `task-scope.json` 中该 TASK 的 `requiresHumanConfirmation` 为 `true`：
+If confirmation is required:
 
-- 如果 `skip_human_confirm` 为 `true`：拒绝执行，将该 TASK 记录到 `blocked_tasks` 和 `skipped_human_confirmation_tasks`，原因是 `requiresHumanConfirmation`，然后停止 pipeline
-- 否则：**停止并向用户发送确认请求**，等待用户回复后再继续
+- stop and request explicit user approval;
+- record approver, time, and confirmation text in state and evidence;
+- if `skip_human_confirm=true`, add the TASK to blocked and skipped lists and stop.
 
-确认后必须同时写入 state 和 evidence：
+Never bypass confirmation with a generic exception.
 
-```json
-{
-  "required": true,
-  "confirmed": true,
-  "confirmed_by": "user",
-  "confirmed_at": "<ISO-8601>",
-  "confirmation_text": "<原始确认摘要>"
-}
-```
+Every destructive TASK requires independent Review. Cutover and source deletion must be different TASKs. Migration cutover/deletion additionally require a fully verified parity manifest.
 
-#### Step 1.2：implement-task
+## Implement
 
-按照 spec-harness SKILL.md 中 `implement-task` 模式执行当前 TASK：
+Set `current_phase=implement` and run `spec-harness` `implement-task` for exactly one TASK.
 
-1. 读取 `.spec/<feature_name>/acceptance/<TASK-ID>.md`
-2. 读取 `.spec/<feature_name>/prompts/implement-task.md`
-3. 仅修改该 TASK 的 `allowedFiles` 所允许的文件；不要修改 `task-scope.json` 本身，除非当前 TASK 明确允许
-4. 完成后运行：
-   - `git diff --name-only`
-   - `bash .spec/<feature_name>/scripts/check-task-scope.sh <TASK-ID>`
-   - `bash .spec/<feature_name>/scripts/agent-check.sh`
-5. 生成：
-   - `.spec/<feature_name>/reports/<TASK-ID>-report.md`
-   - `.spec/<feature_name>/reports/<TASK-ID>-evidence.json`
-6. evidence 必须通过 canonical validator：
+Run scope and project checks:
 
 ```bash
-node .agents/skills/spec-harness/scripts/validate-evidence.mjs \
-  --file .spec/<feature_name>/reports/<TASK-ID>-evidence.json
+git diff --name-only
+bash .spec/<feature-name>/scripts/check-task-scope.sh <TASK-ID>
+bash .spec/<feature-name>/scripts/agent-check.sh
 ```
 
-#### Step 1.3：self-review
+Run every declared required check. The Evidence must include every check ID with actual status. Static/build/registration checks cannot substitute for stronger required kinds.
 
-按照 spec-harness SKILL.md 中 `self-review` 模式审查当前 TASK：
+Validate Evidence. The Pipeline validator will pass the TASK's declared checks to the canonical Evidence validator; do not infer `checks_status` from an Agent-authored summary.
 
-1. 对照 SPEC、SDD、TASKS、task-scope.json、acceptance、AGENT_RULES.md
-2. 检查：越界、遗漏、兼容性、安全、异常处理
-3. 输出 verdict：**通过** 或 **不通过 + 问题列表**
+## Typed Review routing
 
-如果 verdict 为 **通过**：
-- 更新 pipeline-state：当前 TASK 加入 `completed_tasks`，记录 `head_sha`、`scope_status`、`checks_status`、`review_verdict`、`evidence`，`review_round` 重置为 0
-- 进入下一个 TASK
+Set `current_phase=review` and run an independent Reviewer when required.
 
-如果 verdict 为 **不通过**：
-- `review_round += 1`
-- 如果 `review_round > max_review_rounds`：**硬暂停**，将该 TASK 标记为 `failed`，输出失败报告，停止整个 pipeline
-- 否则进入 Step 1.4
+### `pass`
 
-#### Step 1.4：fix-check-failures
+Require:
 
-按照 spec-harness SKILL.md 中 `fix-check-failures` 模式修复：
+- `verdict: 通过`;
+- all blocking checks passed;
+- scope passed;
+- no unresolved mandatory coverage;
+- active revision and hashes match;
+- required human and independent Review evidence exists.
 
-1. 仅修复 self-review 列出的问题
-2. 不实现新功能，不扩大范围
-3. 修复后重新运行失败的检查
-4. 如果连续两次修复同一问题失败：停止并说明根因
-5. 回到 Step 1.3（self-review）
+Add the TASK to `completed_tasks`, record the run evidence, reset Review rounds, then enter `reconcile-plan`.
 
-### Step 2：全部完成
+### `implementation_defect`
 
-所有 TASK 完成后：
+Set `current_phase=fix`, increment the Review round, and run `fix-check-failures`.
 
-1. 将 pipeline-state 更新到 `current_phase=finalize`
-2. 生成候选完成状态：`status=completed`、`current_phase=completed`
-3. 对候选状态运行 `validate-pipeline-state.mjs`
-4. 只有校验通过，才保留候选完成状态；否则改回 `status=blocked` 或对应失败状态并报告原因
-5. 输出最终汇总报告：`.spec/<feature_name>/reports/pipeline-summary.md`
+Stop as failed when the configured maximum is exceeded or the same repair fails twice. Do not broaden scope while fixing.
 
-### Step 3：异常与人工门禁
+### `contract_gap`
 
-- **Hard Stop 条件**（与 spec-harness 一致）：
-  - 需要修改 `package.json` 或 lockfile
-  - 需要修改公共模块/共享类型/全局配置
-  - 需要修改公共 API 行为
-  - 发现 SPEC/SDD/TASKS 冲突
-- **人工中断**：运行中用户可随时停止，pipeline-state 保留，后续可按续跑方式继续
+Set:
 
-## 最终汇总报告格式
-
-```markdown
-# Pipeline Summary - <feature_name>
-
-## 执行概况
-- 起始 TASK: <TASK-ID>
-- 结束 TASK: <TASK-ID>
-- 完成: <N> / <M>
-- 失败: <列表>
-
-## 各 TASK 结果
-| TASK | 状态 | 审查轮数 | 报告 |
-|------|------|----------|------|
-| TASK-001 | ✅ | 2 | link |
-| TASK-002 | ✅ | 1 | link |
-| TASK-003 | ❌ | 4 (超限) | link |
-
-## 总修改文件
-<git diff --name-only 汇总>
-
-## 待确认项
-- 需要人工合并的 TASK（requiresHumanConfirmation=true 已跳过）
-- 失败 TASK 根因
-- 建议修复方式
+```text
+status=in_progress
+current_phase=amendment_pending
 ```
 
-## 与 spec-harness 的关系
+Create a CR through `spec-harness propose-amendment`. Add it to `open_change_requests`. Do not modify business code or start a later TASK.
 
-`harness-pipeline` **不重新定义** implement-task / self-review / fix-check-failures 的具体行为，而是直接引用 `spec-harness` SKILL.md 中各模式的规则和约束。执行每个 TASK 时，应将 `spec-harness` SKILL.md 加载到上下文中，按该 Skill 的对应模式执行。
+After approval and application:
 
-## 续跑
+- update `contract_revision`;
+- supersede invalid TASK definitions;
+- add affected completed TASKs to `needs_revalidation_tasks`;
+- enter `replan`, then `revalidate` as required;
+- resume only after validators pass and the next TASK is `ready`.
 
-用户说「继续 pipeline」「续跑」或检测到 `pipeline-state.json` 存在时：
+### `requirement_conflict`
 
-1. 读 `pipeline-state.json`
-2. 从 `current_task` 的当前阶段继续（如果是 review 阶段则从 review 继续）
-3. 如果 `status` 为 `completed`，直接输出汇总报告
+Follow the Amendment path with L2 user approval. Preserve both conflicting sources and evidence. Do not choose silently.
+
+### `environment_blocker`
+
+Set `status=blocked`, `current_phase=blocked`, record the blocker and current completion level, and stop. Mandatory live or parity checks cannot be converted to advisory after execution begins.
+
+## Reconcile the rolling plan
+
+After each passing TASK:
+
+1. Recheck downstream assumptions, dependencies, runtime ownership, and acceptance.
+2. Compare the actual diff and evidence with the next draft TASKs.
+3. Promote only the next one or two valid TASKs to `ready`.
+4. Generate a CR instead of silently rewriting a stale task boundary.
+5. Revalidate any completed TASK affected by a new contract revision.
+
+## Completion and verification
+
+After all applicable TASKs pass:
+
+1. Set `current_phase=finalize`.
+2. Run cumulative feature tests from the feature base tree.
+3. Validate traceability with `--require-verified`.
+4. For migrations, validate parity with `--require-verified` and run the contract's integration, differential, E2E, cutover, or retirement gates.
+5. Set the achieved `completion_level` truthfully.
+6. Create a candidate completed state.
+7. Run:
+
+```bash
+node .agents/skills/harness-pipeline/scripts/validate-pipeline-state.mjs \
+  --feature-dir .spec/<feature-name>
+```
+
+Keep completed only if validation passes.
+
+Ordinary completed requires:
+
+- every non-superseded TASK completed;
+- no failed or blocked TASKs;
+- no open CRs or revalidation debt;
+- active hashes and revisions match;
+- every mandatory requirement verified or user-approved as a behavior delta;
+- every blocking check passed;
+- completion level meets the contract target;
+- migration parity and destructive gates passed when applicable.
+
+## Exceptions
+
+`completed_with_exceptions` requires a scoped, explicit user approval with task IDs, object, approver, time, reason, and category.
+
+Exceptions cannot waive:
+
+- mandatory migration parity;
+- an unpinned or changed baseline;
+- source deletion safety;
+- missing human confirmation;
+- open contract gaps that require Amendment.
+
+Use `approved_delta` through an L2 Contract Amendment for intentional behavior changes.
+
+## Pipeline summary
+
+Write `.spec/<feature-name>/reports/pipeline-summary.md` with:
+
+- schema, profile, contract revision, and baseline;
+- required and achieved completion level;
+- TASK states, Review outcomes, rounds, and evidence links;
+- open/applied CRs and revalidation results;
+- cumulative checks and skipped advisory checks;
+- parity/cutover/retirement status for migrations;
+- approved deltas and exceptions;
+- unresolved risks and exact next action.
+
+Do not describe code completion as behavior verification, cutover readiness, or retirement.
+
+## Resume
+
+On resume:
+
+1. validate feature and state;
+2. verify active revision and hashes;
+3. continue the exact `current_phase`;
+4. if amendment is open, resume amendment rather than implementation;
+5. if revalidation is pending, complete it before new TASKs;
+6. if completed, revalidate and report without rerunning implementation.

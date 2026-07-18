@@ -1,0 +1,368 @@
+{
+  "schemaVersion": 1,
+  "feature_name": "recruiting-intelligence-runtime-parity",
+  "task_id": "TASK-004",
+  "base_sha": "98165e7cdac06c0aa2a0685ecf1ad7c00a3eb518",
+  "base_tree": "4ab11f06d69ea2c3a06912ea4ef95fd8c5ee992c",
+  "head_sha": "98165e7cdac06c0aa2a0685ecf1ad7c00a3eb518",
+  "started_at": "2026-07-15T06:56:47Z",
+  "ended_at": "2026-07-15T07:43:06Z",
+  "changed_files": [
+    ".spec/recruiting-intelligence-runtime-parity/pipeline-state.json",
+    ".spec/recruiting-intelligence-runtime-parity/reports/TASK-004-evidence.json",
+    ".spec/recruiting-intelligence-runtime-parity/reports/TASK-004-report.md",
+    "smart-recruit-ai-agent-service/internal/application/recruiting_intelligence/job_requirement.go",
+    "smart-recruit-ai-agent-service/internal/application/recruiting_intelligence/job_requirement_test.go"
+  ],
+  "scope": {
+    "status": "passed",
+    "base_tree": "4ab11f06d69ea2c3a06912ea4ef95fd8c5ee992c",
+    "forbidden": [],
+    "out_of_scope": [],
+    "developer_did_not_edit": [
+      ".spec/recruiting-intelligence-runtime-parity/pipeline-state.json"
+    ]
+  },
+  "checks": [
+    {
+      "command": "GOWORK=off go test -count=10 ./internal/application/recruiting_intelligence -run 'TestJobRequirement|TestStableJobRequirements'",
+      "working_directory": "smart-recruit-ai-agent-service",
+      "started_at": "2026-07-15T07:05:50Z",
+      "duration_ms": 3100,
+      "exit_code": 0,
+      "status": "passed"
+    },
+    {
+      "command": "GOWORK=off go test ./...",
+      "working_directory": "smart-recruit-ai-agent-service",
+      "started_at": "2026-07-15T07:00:30Z",
+      "duration_ms": 5300,
+      "exit_code": 0,
+      "status": "passed"
+    },
+    {
+      "command": "node .knowledge/scripts/detect-impact.mjs --root . --base-tree 4ab11f06d69ea2c3a06912ea4ef95fd8c5ee992c",
+      "working_directory": ".",
+      "started_at": "2026-07-15T07:01:20Z",
+      "duration_ms": 1200,
+      "exit_code": 0,
+      "status": "passed"
+    },
+    {
+      "command": "git diff --name-only inventory; bash .spec/recruiting-intelligence-runtime-parity/scripts/check-task-scope.sh TASK-004",
+      "working_directory": ".",
+      "started_at": "2026-07-15T07:02:00Z",
+      "duration_ms": 1000,
+      "exit_code": 0,
+      "status": "passed"
+    },
+    {
+      "command": "bash .spec/recruiting-intelligence-runtime-parity/scripts/agent-check.sh",
+      "working_directory": ".",
+      "started_at": "2026-07-15T07:02:20Z",
+      "duration_ms": 1800,
+      "exit_code": 0,
+      "status": "passed"
+    },
+    {
+      "command": "node .agents/skills/spec-harness/scripts/validate-evidence.mjs --file .spec/recruiting-intelligence-runtime-parity/reports/TASK-004-evidence.json --allow-pending-review --require-knowledge-impact",
+      "working_directory": ".",
+      "started_at": "2026-07-15T07:08:20Z",
+      "duration_ms": 100,
+      "exit_code": 0,
+      "status": "passed"
+    },
+    {
+      "command": "bash .spec/recruiting-intelligence-runtime-parity/scripts/check-task-scope.sh TASK-004",
+      "working_directory": ".",
+      "started_at": "2026-07-15T07:08:20Z",
+      "duration_ms": 1000,
+      "exit_code": 0,
+      "status": "passed"
+    },
+    {
+      "command": "bash .spec/recruiting-intelligence-runtime-parity/scripts/agent-check.sh",
+      "working_directory": ".",
+      "started_at": "2026-07-15T07:08:21Z",
+      "duration_ms": 6500,
+      "exit_code": 0,
+      "status": "passed"
+    },
+    {
+      "command": "GOWORK=off go test -count=10 ./internal/application/recruiting_intelligence -run 'TestJobRequirement|TestStableJobRequirements' (repair round 1)",
+      "working_directory": "smart-recruit-ai-agent-service",
+      "started_at": "2026-07-15T07:17:18Z",
+      "duration_ms": 2979,
+      "exit_code": 0,
+      "status": "passed"
+    },
+    {
+      "command": "GOWORK=off go test ./... (repair round 1)",
+      "working_directory": "smart-recruit-ai-agent-service",
+      "started_at": "2026-07-15T07:18:04Z",
+      "duration_ms": 4418,
+      "exit_code": 0,
+      "status": "passed"
+    },
+    {
+      "command": "node .knowledge/scripts/detect-impact.mjs --root . --base-tree 4ab11f06d69ea2c3a06912ea4ef95fd8c5ee992c; git diff --name-only; bash .spec/recruiting-intelligence-runtime-parity/scripts/check-task-scope.sh TASK-004 (repair round 1)",
+      "working_directory": ".",
+      "started_at": "2026-07-15T07:18:23Z",
+      "duration_ms": 2066,
+      "exit_code": 0,
+      "status": "passed"
+    },
+    {
+      "command": "bash .spec/recruiting-intelligence-runtime-parity/scripts/agent-check.sh (repair round 1)",
+      "working_directory": ".",
+      "started_at": "2026-07-15T07:18:35Z",
+      "duration_ms": 3548,
+      "exit_code": 0,
+      "status": "passed"
+    },
+    {
+      "command": "jq empty TASK-004-evidence.json; validate-evidence --allow-pending-review --require-knowledge-impact; git diff --check; check-task-scope.sh TASK-004 (repair round 1)",
+      "working_directory": ".",
+      "started_at": "2026-07-15T07:21:20Z",
+      "duration_ms": 1020,
+      "exit_code": 0,
+      "status": "passed"
+    },
+    {
+      "command": "GOWORK=off go test -count=10 ./internal/application/recruiting_intelligence -run 'TestJobRequirement|TestStableJobRequirements' (repair round 2)",
+      "working_directory": "smart-recruit-ai-agent-service",
+      "started_at": "2026-07-15T07:29:00Z",
+      "duration_ms": 2284,
+      "exit_code": 0,
+      "status": "passed"
+    },
+    {
+      "command": "GOWORK=off go test ./... (repair round 2)",
+      "working_directory": "smart-recruit-ai-agent-service",
+      "started_at": "2026-07-15T07:29:10Z",
+      "duration_ms": 2947,
+      "exit_code": 0,
+      "status": "passed"
+    },
+    {
+      "command": "node .knowledge/scripts/detect-impact.mjs --root . --base-tree 4ab11f06d69ea2c3a06912ea4ef95fd8c5ee992c (repair round 2)",
+      "working_directory": ".",
+      "started_at": "2026-07-15T07:31:00Z",
+      "duration_ms": 996,
+      "exit_code": 0,
+      "status": "passed"
+    },
+    {
+      "command": "git diff --name-only inventory; bash .spec/recruiting-intelligence-runtime-parity/scripts/check-task-scope.sh TASK-004 (repair round 2)",
+      "working_directory": ".",
+      "started_at": "2026-07-15T07:31:10Z",
+      "duration_ms": 922,
+      "exit_code": 0,
+      "status": "passed"
+    },
+    {
+      "command": "bash .spec/recruiting-intelligence-runtime-parity/scripts/agent-check.sh (repair round 2)",
+      "working_directory": ".",
+      "started_at": "2026-07-15T07:31:20Z",
+      "duration_ms": 3762,
+      "exit_code": 0,
+      "status": "passed"
+    },
+    {
+      "command": "gofmt; focused -count=10; GOWORK=off go test ./... (final repair round 2 implementation validation)",
+      "working_directory": "smart-recruit-ai-agent-service",
+      "started_at": "2026-07-15T07:33:40Z",
+      "duration_ms": 6322,
+      "exit_code": 0,
+      "status": "passed"
+    },
+    {
+      "command": "detect-impact; check-task-scope.sh TASK-004; agent-check.sh (final repair round 2 harness validation)",
+      "working_directory": ".",
+      "started_at": "2026-07-15T07:34:05Z",
+      "duration_ms": 4931,
+      "exit_code": 0,
+      "status": "passed"
+    },
+    {
+      "command": "jq empty TASK-004-evidence.json; validate-evidence --allow-pending-review --require-knowledge-impact; git diff --check; check-task-scope.sh TASK-004 (final repair round 2 evidence validation)",
+      "working_directory": ".",
+      "started_at": "2026-07-15T07:35:00Z",
+      "duration_ms": 991,
+      "exit_code": 0,
+      "status": "passed"
+    }
+  ],
+  "review": {
+    "type": "independent_agent",
+    "round": 3,
+    "verdict": "通过",
+    "reviewer_type": "fresh independent read-only subagent",
+    "reviewer": "independent-read-only-subagent:/root/task004_reviewer_r3",
+    "notes": [
+      "Round 3 independently verified all R1/R2 repairs, the complete TASK-004 acceptance contract, scope, evidence, privacy, and knowledge impact with no remaining findings."
+    ],
+    "history": [
+      {
+        "round": 1,
+        "reviewer": "independent-read-only-subagent:/root/task004_reviewer_r1",
+        "verdict": "不通过",
+        "findings": [
+          {"id": "R1-H1", "severity": "High", "summary": "minor residual normalization could turn the final positive weight into zero without boundary or post-normalization validation"},
+          {"id": "R1-M1", "severity": "Medium", "summary": "label and description did not enforce the active DB prompt's Chinese display-prose requirement with technical terms allowed"},
+          {"id": "R1-M2", "severity": "Medium", "summary": "top-level and nested null expected-object errors did not wrap ErrJobRequirementSchema"}
+        ]
+      },
+      {
+        "round": 2,
+        "reviewer": "independent-read-only-subagent:/root/task004_reviewer_r2",
+        "verdict": "不通过",
+        "findings": [
+          {"id": "R2-H1", "severity": "High", "summary": "id, category, and priority were trimmed before validation, silently accepting machine values with surrounding whitespace"},
+          {"id": "R2-M1", "severity": "Medium", "summary": "Han-only display validation accepted Traditional Chinese and Japanese text despite the Simplified Chinese database-prompt contract"}
+        ]
+      },
+      {
+        "round": 3,
+        "reviewer": "independent-read-only-subagent:/root/task004_reviewer_r3",
+        "verdict": "通过",
+        "findings": []
+      }
+    ]
+  },
+  "repair": {
+    "round": 2,
+    "mode": "fix-check-failures",
+    "fixed_findings": ["R2-H1", "R2-M1"],
+    "root_cause": "machine fields were normalized before schema validation, and Unicode Han detection was incorrectly used as a proxy for the database prompt's Simplified Chinese display requirement",
+    "files_changed": [
+      "smart-recruit-ai-agent-service/internal/application/recruiting_intelligence/job_requirement.go",
+      "smart-recruit-ai-agent-service/internal/application/recruiting_intelligence/job_requirement_test.go",
+      ".spec/recruiting-intelligence-runtime-parity/reports/TASK-004-report.md",
+      ".spec/recruiting-intelligence-runtime-parity/reports/TASK-004-evidence.json"
+    ],
+    "status": "completed_and_independently_verified",
+    "history": [
+      {
+        "round": 1,
+        "fixed_findings": ["R1-H1", "R1-M1", "R1-M2"],
+        "status": "completed_then_rejected_in_review_round_2"
+      },
+      {
+        "round": 2,
+        "fixed_findings": ["R2-H1", "R2-M1"],
+        "status": "completed_pending_independent_review_round_3"
+      }
+    ]
+  },
+  "human_confirmation": {
+    "required": false,
+    "confirmed": true,
+    "confirmed_by": "not_required",
+    "confirmed_at": "2026-07-15T06:56:47Z",
+    "confirmation_text": "TASK-004 does not require human confirmation."
+  },
+  "exceptions": [],
+  "skipped_checks": [
+    {
+      "check": "live provider smoke test",
+      "reason": "No live credentials are required for this internal deterministic component; structured provider and prompt roles are exercised with bounded fakes."
+    }
+  ],
+  "knowledgeImpact": {
+    "result": "candidate_required",
+    "triggeredBy": [
+      "smart-recruit-ai-agent-service/internal/application/recruiting_intelligence/job_requirement.go",
+      "smart-recruit-ai-agent-service/internal/application/recruiting_intelligence/job_requirement_test.go"
+    ],
+    "reviewResults": [
+      {
+        "document": ".knowledge/architecture/agent-runtime.md",
+        "verdict": "CANDIDATE",
+        "evidence": [
+          "source_refs verified against current structured Runtime and native adapter; internal DB-prompt job requirement extraction should be documented in TASK-007"
+        ]
+      },
+      {
+        "document": ".knowledge/domains/ai-configuration-governance.md",
+        "verdict": "CANDIDATE",
+        "evidence": [
+          "source_refs and migration prompt verified; active prompt governance now drives the internal requirement extractor and remains deferred to TASK-007"
+        ]
+      },
+      {
+        "document": ".knowledge/domains/resume-intelligence.md",
+        "verdict": "CANDIDATE",
+        "evidence": [
+          "source_refs verified; current knowledge still describes recruiting generation as unavailable while internal extraction restoration is now implemented"
+        ]
+      },
+      {
+        "document": ".knowledge/domains/agent-skill.md",
+        "verdict": "UNCHANGED",
+        "evidence": ["Agent Skill selection and persistence are unaffected"]
+      },
+      {
+        "document": ".knowledge/runbooks/debug-agent-retrieval.md",
+        "verdict": "UNCHANGED",
+        "evidence": ["Agent Skill and memory retrieval diagnostics are unaffected"]
+      },
+      {
+        "document": ".knowledge/pitfalls/embedding-fallback.md",
+        "verdict": "UNCHANGED",
+        "evidence": ["No embedding or retrieval fallback behavior changed"]
+      },
+      {
+        "document": ".knowledge/runbooks/local-development.md",
+        "verdict": "UNCHANGED",
+        "evidence": ["Startup, dependencies, and validation commands remain unchanged"]
+      },
+      {
+        "document": ".knowledge/pitfalls/mcp-policy-audit.md",
+        "verdict": "UNCHANGED",
+        "evidence": ["MCP policy, execution, redaction, and audit are unaffected"]
+      },
+      {
+        "document": ".knowledge/domains/mcp-tool-governance.md",
+        "verdict": "UNCHANGED",
+        "evidence": ["No MCP server, tool, policy, or runtime behavior changed"]
+      },
+      {
+        "document": ".knowledge/domains/memory-and-context.md",
+        "verdict": "UNCHANGED",
+        "evidence": ["Chat memory and context assembly are unaffected"]
+      },
+      {
+        "document": ".knowledge/pitfalls/resume-sensitive-data.md",
+        "verdict": "UNCHANGED",
+        "evidence": ["No raw candidate data, prompt body, or model output is logged or recorded in evidence"]
+      },
+      {
+        "document": ".knowledge/architecture/semantic-retrieval.md",
+        "verdict": "UNCHANGED",
+        "evidence": ["Semantic Agent Skill and memory retrieval are unaffected"]
+      },
+      {
+        "document": ".knowledge/architecture/service-boundaries.md",
+        "verdict": "UNCHANGED",
+        "evidence": ["The component remains AI Agent-internal with no owner contract or wire change"]
+      },
+      {
+        "document": ".knowledge/architecture/system-overview.md",
+        "verdict": "UNCHANGED",
+        "evidence": ["Repository modules and service ownership remain unchanged"]
+      }
+    ],
+    "coverageGap": false,
+    "validationExitCode": 0
+  },
+  "privacy": {
+    "status": "passed",
+    "candidate_pii_present": false,
+    "raw_prompts_present": false,
+    "raw_model_output_present": false,
+    "secrets_present": false
+  },
+  "next_task_ready": true,
+  "next_task_blocker": null
+}

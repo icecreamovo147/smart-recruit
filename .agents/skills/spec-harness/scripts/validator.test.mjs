@@ -8,6 +8,11 @@ import { execFileSync } from "node:child_process";
 import { validateFeature } from "./validate-feature.mjs";
 import { checkTaskScope } from "./check-task-scope.mjs";
 import { validateEvidence } from "./validate-evidence.mjs";
+import { validateTraceability } from "./validate-traceability.mjs";
+import { validateParityManifest, PARITY_DIMENSIONS } from "./validate-parity.mjs";
+import { validateAmendment } from "./validate-amendment.mjs";
+import { applyAmendment } from "./apply-amendment.mjs";
+import { hashFile, hashJson } from "./contract-utils.mjs";
 
 function write(file, content = "\n") {
   fs.mkdirSync(path.dirname(file), { recursive: true });
@@ -77,9 +82,74 @@ try {
   const unsupportedDir = createFeature(temp, "unsupported", { feature: "unsupported", allowedFiles: ["allowed.txt"] });
   const invalidPatternTask = { ...task, acceptance: ".spec/invalid-pattern/acceptance/TASK-001.md", report: ".spec/invalid-pattern/reports/TASK-001-report.md", allowedFiles: ["bad[pattern"] };
   const invalidPatternDir = createFeature(temp, "invalid-pattern", { schemaVersion: 1, feature_name: "invalid-pattern", tasks: { "TASK-001": invalidPatternTask } });
+  const invalidRootDocsTask = { ...task, acceptance: ".spec/invalid-root-docs/acceptance/TASK-001.md", report: ".spec/invalid-root-docs/reports/TASK-001-report.md", allowedFiles: ["docs/architecture/**"] };
+  const invalidRootDocsDir = createFeature(temp, "invalid-root-docs", { schemaVersion: 1, feature_name: "invalid-root-docs", tasks: { "TASK-001": invalidRootDocsTask } });
   const missingAcceptanceTask = { ...task, acceptance: ".spec/missing-acceptance/acceptance/TASK-001.md", report: ".spec/missing-acceptance/reports/TASK-001-report.md", allowedFiles: [".spec/missing-acceptance/**"] };
   const missingAcceptanceDir = createFeature(temp, "missing-acceptance", { schemaVersion: 1, feature_name: "missing-acceptance", tasks: { "TASK-001": missingAcceptanceTask } });
   fs.rmSync(path.join(missingAcceptanceDir, "acceptance/TASK-001.md"));
+  const requiredCheck = { id: "CHECK-001", kind: "unit", blocking: true, covers: ["FR-001"], successCriteria: "unit behavior passes", command: "node test.mjs" };
+  const v2Task = {
+    ...task,
+    lifecycle: "ready",
+    requirements: ["FR-001"],
+    behaviorSurfaces: ["FLOW-001"],
+    dependencies: [],
+    destructiveActions: [],
+    requiredChecks: [requiredCheck],
+    reviewPolicy: "self_allowed",
+    acceptance: ".spec/v2-feature/acceptance/TASK-001.md",
+    report: ".spec/v2-feature/reports/TASK-001-report.md",
+    allowedFiles: ["allowed.txt"],
+  };
+  const v2Dir = createFeature(temp, "v2-feature", { schemaVersion: 2, feature_name: "v2-feature", contractRevision: 1, tasks: { "TASK-001": v2Task } });
+  const v2Contract = {
+    schemaVersion: 2,
+    feature_name: "v2-feature",
+    profile: "feature_delivery",
+    contractRevision: 1,
+    planningStatus: "approved",
+    requiredCompletionLevel: "behavior_verified",
+    assumptions: [],
+    reviewPolicy: {
+      plan: "independent_required",
+      highRiskTask: "independent_required",
+      amendment: "independent_required",
+      deleteSource: "independent_and_human",
+    },
+  };
+  write(path.join(v2Dir, "contract.json"), `${JSON.stringify(v2Contract, null, 2)}\n`);
+  const traceability = {
+    schemaVersion: 2,
+    feature_name: "v2-feature",
+    contractRevision: 1,
+    requirements: [{
+      id: "FR-001",
+      mandatory: true,
+      status: "planned",
+      design_refs: ["SDD#design"],
+      task_ids: ["TASK-001"],
+      acceptance_ids: ["ACASE-001"],
+      check_ids: ["CHECK-001"],
+      evidence_refs: [],
+    }],
+  };
+  write(path.join(v2Dir, "traceability.json"), `${JSON.stringify(traceability, null, 2)}\n`);
+  write(path.join(v2Dir, "acceptance/TASK-001.md"), "# Acceptance\n\n## CHECK-001\n");
+  write(path.join(v2Dir, "prompts/propose-amendment.md"));
+  write(path.join(v2Dir, "prompts/review-amendment.md"));
+  write(path.join(v2Dir, "prompts/reconcile-plan.md"));
+  for (const name of ["changes", "revisions", "reviews"]) fs.mkdirSync(path.join(v2Dir, name), { recursive: true });
+  write(path.join(v2Dir, "reviews/PLAN-REV-0001.json"), `${JSON.stringify({
+    schemaVersion: 2,
+    feature_name: "v2-feature",
+    contractRevision: 1,
+    contract_hash: hashJson(v2Contract),
+    outcome: "pass",
+    verdict: "通过",
+    reviewer_type: "independent_agent",
+    planner_run_id: "planner-1",
+    reviewer_run_id: "reviewer-1",
+  }, null, 2)}\n`);
   write(path.join(temp, "allowed.txt"), "base\n");
   write(path.join(temp, "committed.txt"), "base\n");
   write(path.join(temp, "forbidden.txt"), "base\n");
@@ -95,8 +165,12 @@ try {
   assert.equal(validateFeature(unsupportedDir).classification, "unsupported");
   assert.equal(validateFeature(invalidPatternDir).classification, "unsupported");
   assert(validateFeature(invalidPatternDir).issues.some((issue) => issue.includes("invalid glob")));
+  assert.equal(validateFeature(invalidRootDocsDir).classification, "unsupported");
+  assert(validateFeature(invalidRootDocsDir).issues.some((issue) => issue.includes("repository-root docs")));
   assert.equal(validateFeature(missingAcceptanceDir).classification, "unsupported");
   assert(validateFeature(missingAcceptanceDir).issues.some((issue) => issue.includes("missing acceptance file")));
+  assert.equal(validateFeature(v2Dir).classification, "current", validateFeature(v2Dir).issues.join("; "));
+  assert.equal(validateFeature(v2Dir).schema_version, 2);
 
   write(path.join(temp, "virtual-baseline.txt"), "same in synthetic baseline\n");
   const syntheticIndex = path.join(os.tmpdir(), `synthetic-${process.pid}-${Date.now()}.index`);
@@ -165,6 +239,120 @@ try {
   } }).valid, false);
   evidence.checks[0].exit_code = 1;
   assert.equal(validateEvidence(evidence).valid, false);
+
+  const v2Evidence = {
+    schemaVersion: 2,
+    feature_name: "v2-feature",
+    task_id: "TASK-001",
+    contract_revision: 1,
+    task_definition_hash: "task-hash",
+    traceability_hash: "trace-hash",
+    base_sha: "a",
+    head_sha: "b",
+    changed_files: ["allowed.txt"],
+    scope: { status: "passed", out_of_scope: [], forbidden: [] },
+    checks: [{ id: "CHECK-001", kind: "unit", covers: ["FR-001"], command: "node test.mjs", exit_code: 0, started_at: new Date().toISOString(), duration_ms: 1, status: "passed" }],
+    skipped_checks: [],
+    coverage_claims: [{ id: "FR-001", status: "verified" }],
+    review: { reviewer_type: "self-review", outcome: "pass", verdict: "通过", round: 1 },
+    human_confirmation: { confirmed: true },
+    exceptions: [],
+  };
+  assert.equal(validateEvidence(v2Evidence, { requiredChecks: [requiredCheck] }).valid, true);
+  const missingRequired = validateEvidence({ ...v2Evidence, checks: [{ ...v2Evidence.checks[0], id: "CHECK-OTHER" }] }, { requiredChecks: [requiredCheck] });
+  assert.equal(missingRequired.valid, false);
+  assert(missingRequired.issues.some((issue) => issue.includes("missing required check evidence")));
+  const skippedBlocking = validateEvidence({
+    ...v2Evidence,
+    checks: [{ id: "CHECK-001", kind: "unit", covers: ["FR-001"], status: "skipped", reason: "environment unavailable" }],
+    skipped_checks: [{ id: "CHECK-001", reason: "environment unavailable" }],
+  }, { requiredChecks: [requiredCheck] });
+  assert.equal(skippedBlocking.valid, false);
+  assert(skippedBlocking.issues.some((issue) => issue.includes("blocking required check CHECK-001 must pass")));
+  const staticSubstitution = validateEvidence({ ...v2Evidence, checks: [{ ...v2Evidence.checks[0], kind: "static" }] }, { requiredChecks: [requiredCheck] });
+  assert.equal(staticSubstitution.valid, false);
+  assert(staticSubstitution.issues.some((issue) => issue.includes("kind mismatch")));
+
+  assert.equal(validateTraceability(traceability).valid, true);
+  assert.equal(validateTraceability(traceability, { requireVerified: true }).valid, false);
+  const verifiedTraceability = structuredClone(traceability);
+  verifiedTraceability.requirements[0].status = "verified";
+  verifiedTraceability.requirements[0].evidence_refs = ["reports/TASK-001-evidence.json#CHECK-001"];
+  assert.equal(validateTraceability(verifiedTraceability, { requireVerified: true }).valid, true);
+
+  const dimensions = Object.fromEntries(PARITY_DIMENSIONS.map((name) => [name, { status: "unknown", evidence_refs: [] }]));
+  const parity = {
+    schemaVersion: 2,
+    feature_name: "migration",
+    contractRevision: 1,
+    baseline: { ref: "dev", sha: "004db546", tree: "tree004db546", immutable: true },
+    capabilities: [{
+      id: "CAP-001",
+      mandatory: true,
+      source: { entrypoints: ["HTTP-1"], implementation_refs: ["dev:file.go#Fn"], tests: ["dev:file_test.go"] },
+      target: { implementation_refs: [] },
+      dimensions,
+      events: [{ routing_key: "resume.parse", producer_refs: ["producer.go"], consumer_refs: ["consumer.go"], final_effect_checks: ["CHECK-EVENT-1"] }],
+    }],
+  };
+  assert.equal(validateParityManifest(parity).valid, true);
+  assert.equal(validateParityManifest(parity, { requireVerified: true }).valid, false);
+  const orphanEvent = structuredClone(parity);
+  orphanEvent.capabilities[0].events[0].consumer_refs = [];
+  assert.equal(validateParityManifest(orphanEvent).valid, false);
+
+  const amendment = {
+    schemaVersion: 2,
+    changeRequestId: "CR-0001",
+    feature_name: "v2-feature",
+    baseRevision: 1,
+    status: "approved",
+    classification: "contract_gap",
+    approvalLevel: "L2",
+    reason: "public contract correction",
+    evidenceRefs: ["reports/TASK-001-report.md"],
+    trigger: { task_id: "TASK-001", phase: "implement" },
+    impact: { requirements: ["FR-001"], tasks: ["TASK-001"], completedTasksRequiringRevalidation: [] },
+    revalidationPlan: ["TASK-001"],
+    resultingRevision: 2,
+    approval: { approved_by: "user", approved_at: new Date().toISOString() },
+  };
+  assert.equal(validateAmendment(amendment).valid, true);
+  assert.equal(validateAmendment({ ...amendment, approval: { approved_by: "agent", approved_at: new Date().toISOString() } }).valid, false);
+
+  const stagedDir = path.join(v2Dir, "changes", "CR-0002");
+  const stagedContract = JSON.parse(fs.readFileSync(path.join(v2Dir, "contract.json"), "utf8"));
+  stagedContract.contractRevision = 2;
+  const stagedScope = JSON.parse(fs.readFileSync(path.join(v2Dir, "task-scope.json"), "utf8"));
+  stagedScope.contractRevision = 2;
+  const stagedTraceability = JSON.parse(fs.readFileSync(path.join(v2Dir, "traceability.json"), "utf8"));
+  stagedTraceability.contractRevision = 2;
+  write(path.join(stagedDir, "contract.json"), `${JSON.stringify(stagedContract, null, 2)}\n`);
+  write(path.join(stagedDir, "task-scope.json"), `${JSON.stringify(stagedScope, null, 2)}\n`);
+  write(path.join(stagedDir, "traceability.json"), `${JSON.stringify(stagedTraceability, null, 2)}\n`);
+  const updates = ["contract.json", "task-scope.json", "traceability.json"].map((target) => ({
+    target,
+    staged_file: `changes/CR-0002/${target}`,
+    before_sha256: hashFile(path.join(v2Dir, target)),
+    after_sha256: hashFile(path.join(stagedDir, target)),
+  }));
+  const applicableAmendment = {
+    ...amendment,
+    changeRequestId: "CR-0002",
+    classification: "scope_correction",
+    approvalLevel: "L0",
+    reason: "fixture revision",
+    resultingRevision: 2,
+    approval: { approved_by: "independent-reviewer", approved_at: new Date().toISOString() },
+    updates,
+  };
+  const amendmentPath = path.join(v2Dir, "changes", "CR-0002.json");
+  write(amendmentPath, `${JSON.stringify(applicableAmendment, null, 2)}\n`);
+  assert.equal(applyAmendment({ featureDir: v2Dir, crFile: amendmentPath }).applied, false);
+  assert.equal(applyAmendment({ featureDir: v2Dir, crFile: amendmentPath, apply: true }).applied, true);
+  assert.equal(JSON.parse(fs.readFileSync(path.join(v2Dir, "contract.json"), "utf8")).contractRevision, 2);
+  assert.equal(JSON.parse(fs.readFileSync(amendmentPath, "utf8")).status, "applied");
+  assert.equal(validateFeature(v2Dir).classification, "current", validateFeature(v2Dir).issues.join("; "));
 
   console.log("validator.test: PASS");
 } finally {

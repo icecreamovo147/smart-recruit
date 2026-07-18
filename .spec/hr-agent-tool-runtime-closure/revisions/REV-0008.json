@@ -1,0 +1,45 @@
+{
+  "schemaVersion": 2,
+  "feature_name": "hr-agent-tool-runtime-closure",
+  "revision": 8,
+  "change_request": "CR-0007",
+  "applied_at": "2026-07-16T09:10:57.016Z",
+  "updates": [
+    {
+      "target": "contract.json",
+      "sha256": "3234454fdce1209e3d9c4bf1476558faf2df7ff36bc8d8db8fce44238f5b052b"
+    },
+    {
+      "target": "task-scope.json",
+      "sha256": "453fe0766ee931a296a2dd6eeeded50914b0fc9a18377e75e944f9c742414002"
+    },
+    {
+      "target": "traceability.json",
+      "sha256": "341e7c764f4437063496a137d106c21044da3082d00ea01ff1d0f9183cb8c4ef"
+    },
+    {
+      "target": "hr-agent-tool-runtime-closure-SPEC.md",
+      "sha256": "911532ad2b86fbf66429ff769fdecfcfe35f1fa1d56462c71fa0a170e25f23c8"
+    },
+    {
+      "target": "hr-agent-tool-runtime-closure-SDD.md",
+      "sha256": "82ae9c4eb4dcc73827ebf8c42111b1379367af21cd1cbbffd91965b4b3c10e33"
+    },
+    {
+      "target": "TASKS.md",
+      "sha256": "6aacb315af026f7c8e88f6d7894ccadb5716478e59b7677a8a7667dc9b1688e2"
+    },
+    {
+      "target": "acceptance/TASK-006.md",
+      "sha256": "87f966ca7607108a874850d2ddf46fe88a12c1b1bcc02c16304a0ab3af0e04f9"
+    }
+  ],
+  "revalidation_tasks": [],
+  "carried_forward_tasks": [
+    "TASK-001",
+    "TASK-002",
+    "TASK-003",
+    "TASK-004",
+    "TASK-005"
+  ]
+}

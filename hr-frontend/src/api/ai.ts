@@ -3,10 +3,11 @@ import router from '@/router'
 import { clearLocalAuthCache } from '@/utils/token'
 import { useAuthStore } from '@/stores/auth'
 import { BusinessError } from '@/types/api'
-import type { StreamHandlers, StreamPayload, ChatSessionListItem, ToolTraceItem, AgentRunItem, ChatMessage } from '@/types/ai'
+import type { StreamHandlers, StreamPayload, ChatSessionListItem, ToolTraceItem, AgentRunItem, ChatMessage, ContextUsageInfo } from '@/types/ai'
 import type { CapabilityInfo } from '@/types/agent'
 import request from './request'
 import { silentRefresh } from './authRefresh'
+import { contextGuardCodeFrom, contextGuardMessage } from '@/utils/contextUsage'
 
 export interface ChatRequestPayload {
   message: string
@@ -29,6 +30,7 @@ export const sendMessage = (data: ChatRequestPayload): Promise<{
   job_title?: string
   status?: number
   session_id?: number
+  context_usage?: ContextUsageInfo | null
 }> => request.post('/api/v1/hr/ai/chat', data)
 
 export const getHistory = (params: { page: number; page_size: number }): Promise<{
@@ -57,6 +59,13 @@ export const getSessionMessages = (sessionId: number, params: { page: number; pa
   list: ChatMessage[]
 }> => request.get(`/api/v1/hr/ai/sessions/${sessionId}/messages`, { params })
 
+export const previewSessionContext = (
+  sessionId: number,
+  data: { model_id: number; skill_capability_keys?: string[]; agent_skill_ids?: number[] },
+  signal?: AbortSignal,
+): Promise<{ selected_model_id: number; context_usage: ContextUsageInfo }> =>
+  request.put(`/api/v1/hr/ai/sessions/${sessionId}/context-model`, data, { signal })
+
 export const createApplicationAnalysisSession = (data: { application_id: number; model_id?: number }): Promise<{
   session: ChatSessionListItem
   messages: ChatMessage[]
@@ -80,7 +89,9 @@ export const listSkillCapabilities = (): Promise<{
   list: CapabilityInfo[]
 }> => request.get('/api/v1/hr/ai/skill-capabilities')
 
-const friendlyStreamMsg = (code: number, msg: string): string => {
+export const friendlyStreamMsg = (code: number, msg: string): string => {
+  const guardMessage = contextGuardMessage(contextGuardCodeFrom(msg))
+  if (guardMessage) return guardMessage
   if (code === 42901) return msg || '今日 AI 使用次数已达上限，请明天再试'
   if (code === 42902) return msg || 'AI 请求太频繁，请稍后再试'
   if (code === 429) return msg || '请求过于频繁，请稍后再试'
@@ -108,13 +119,20 @@ const handleStreamPayload = (text: string, handlers: StreamHandlers): boolean =>
   try {
     const payload: StreamPayload = JSON.parse(text)
     if (payload.code && payload.code !== 0) {
-      handlers.onError?.(String(payload.code), payload.msg || 'AI 服务响应错误', payload)
-      streamError(payload.code, payload.msg || 'AI 服务响应错误', payload.request_id)
+      const guardCode = contextGuardCodeFrom(payload.error_type, payload.msg)
+      const friendlyMessage = contextGuardMessage(guardCode) || payload.msg || 'AI 服务响应错误'
+      handlers.onError?.(guardCode || String(payload.code), friendlyMessage, payload)
+      streamError(payload.code, friendlyMessage, payload.request_id)
       return true
     }
     // Phase 4: status/error events
     if (payload.event_type && payload.event_type === 'error') {
-      handlers.onError?.(payload.error_type || '', payload.event_message || payload.msg || '', payload)
+      const guardCode = contextGuardCodeFrom(payload.error_type, payload.event_message, payload.msg)
+      handlers.onError?.(
+        guardCode || payload.error_type || '',
+        contextGuardMessage(guardCode) || payload.event_message || payload.msg || '',
+        payload,
+      )
     }
     if (payload.event_type && !payload.delta) {
       handlers.onStatus?.(payload.event_type, payload.event_message || '', payload)

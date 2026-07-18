@@ -1,0 +1,387 @@
+name: smart-recruit-microservices
+
+x-go-service-build: &go-service-build
+  context: ..
+  dockerfile: smart-recruit-deploy/docker/go-service.Dockerfile
+
+x-runtime-env-file: &runtime-env-file
+  - ../docker/.env
+
+x-service-env: &service-env
+  TZ: ${TZ:-Asia/Shanghai}
+  CONFIG_PATH: /app/config/config.example.yaml
+  MYSQL_DSN: root:${MYSQL_ROOT_PASSWORD:-smart_recruit_local_root}@tcp(mysql:3306)/${MYSQL_DATABASE:-recruitment}?charset=utf8mb4&parseTime=True&loc=Local
+  REDIS_ADDR: redis:6379
+  RABBITMQ_URL: amqp://${RABBITMQ_DEFAULT_USER:-guest}:${RABBITMQ_DEFAULT_PASS:-guest}@rabbitmq:5672/
+  NACOS_ADDR: http://nacos:8848
+  NACOS_GROUP: DEFAULT_GROUP
+  GRPC_INTERNAL_AUTH: required
+  ALLOW_INSECURE_DEV_CONFIG: "true"
+  STATIC_FALLBACK: "false"
+  METRICS_ADDR: :9091
+
+services:
+  nacos:
+    image: nacos/nacos-server:v2.4.3
+    container_name: smart-recruit-nacos
+    profiles: ["infra"]
+    environment:
+      MODE: standalone
+      PREFER_HOST_MODE: hostname
+      NACOS_AUTH_ENABLE: "false"
+    ports:
+      - "8848:8848"
+      - "9848:9848"
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://localhost:8848/nacos/v1/console/health/readiness | grep -Eq 'OK|UP'"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+
+  mysql:
+    image: mysql:8.0
+    container_name: smart-recruit-mysql
+    profiles: ["infra"]
+    command: --default-authentication-plugin=mysql_native_password
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-smart_recruit_local_root}
+      MYSQL_DATABASE: ${MYSQL_DATABASE:-recruitment}
+      TZ: ${TZ:-Asia/Shanghai}
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD-SHELL", "mysqladmin ping -h localhost -p$${MYSQL_ROOT_PASSWORD}"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+
+  redis:
+    image: redis:7-alpine
+    container_name: smart-recruit-redis
+    profiles: ["infra"]
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 12
+
+  rabbitmq:
+    image: rabbitmq:4.2.3-management-alpine
+    container_name: smart-recruit-rabbitmq
+    profiles: ["infra"]
+    environment:
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_DEFAULT_USER:-guest}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_DEFAULT_PASS:-guest}
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "check_port_connectivity"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+
+  prometheus:
+    image: prom/prometheus:v2.55.1
+    container_name: smart-recruit-prometheus
+    profiles: ["observability"]
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --storage.tsdb.path=/prometheus
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./observability/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus_data:/prometheus
+
+  grafana:
+    image: grafana/grafana:11.4.0
+    container_name: smart-recruit-grafana
+    profiles: ["observability"]
+    environment:
+      GF_SECURITY_ADMIN_USER: ${GRAFANA_ADMIN_USER:-admin}
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:-admin}
+    ports:
+      - "3000:3000"
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./observability/grafana/provisioning:/etc/grafana/provisioning:ro
+
+  jaeger:
+    image: jaegertracing/all-in-one:1.63.0
+    container_name: smart-recruit-jaeger
+    profiles: ["observability"]
+    environment:
+      COLLECTOR_OTLP_ENABLED: "true"
+    ports:
+      - "16686:16686"
+      - "4317:4317"
+      - "4318:4318"
+
+  loki:
+    image: grafana/loki:3.3.2
+    container_name: smart-recruit-loki
+    profiles: ["observability"]
+    command: -config.file=/etc/loki/local-config.yaml
+    ports:
+      - "3100:3100"
+    volumes:
+      - ./observability/loki.yml:/etc/loki/local-config.yaml:ro
+      - loki_data:/loki
+
+  smart-recruit-gateway:
+    image: smart-recruit/smart-recruit-gateway:${IMAGE_TAG:-local}
+    profiles: ["services"]
+    env_file: *runtime-env-file
+    build:
+      <<: *go-service-build
+      args:
+        SERVICE_DIR: smart-recruit-gateway
+        CMD_PATH: ./cmd/gateway
+        BINARY_NAME: smart-recruit-gateway
+    ports:
+      - "8080:8080"
+    environment:
+      TZ: ${TZ:-Asia/Shanghai}
+      HTTP_PORT: "8080"
+      GRPC_ADDR: smart-recruit-identity-service:50061
+      REDIS_ADDR: redis:6379
+      ALLOW_INSECURE_DEV_CONFIG: "true"
+      GRPC_INTERNAL_AUTH: required
+      IDENTITY_ROUTE_MODE: identity
+      IDENTITY_GRPC_ADDR: smart-recruit-identity-service:50061
+      RECRUITMENT_ROUTE_MODE: recruitment
+      RECRUITMENT_GRPC_ADDR: smart-recruit-recruitment-service:50062
+      INTERVIEW_ROUTE_MODE: interview
+      INTERVIEW_GRPC_ADDR: smart-recruit-interview-service:50063
+      OFFER_ROUTE_MODE: offer
+      OFFER_GRPC_ADDR: smart-recruit-offer-service:50064
+      NOTIFICATION_ROUTE_MODE: notification
+      NOTIFICATION_GRPC_ADDR: smart-recruit-notification-service:50065
+      AI_AGENT_ROUTE_MODE: ai-agent
+      AI_AGENT_GRPC_ADDR: smart-recruit-ai-agent-service:50066
+      ANALYTICS_ROUTE_MODE: analytics
+      ANALYTICS_GRPC_ADDR: smart-recruit-analytics-service:50067
+    depends_on:
+      redis:
+        condition: service_healthy
+      smart-recruit-identity-service:
+        condition: service_started
+      smart-recruit-recruitment-service:
+        condition: service_started
+      smart-recruit-interview-service:
+        condition: service_started
+      smart-recruit-offer-service:
+        condition: service_started
+      smart-recruit-notification-service:
+        condition: service_started
+      smart-recruit-ai-agent-service:
+        condition: service_started
+      smart-recruit-analytics-service:
+        condition: service_started
+
+  smart-recruit-identity-service:
+    image: smart-recruit/smart-recruit-identity-service:${IMAGE_TAG:-local}
+    profiles: ["services"]
+    env_file: *runtime-env-file
+    build:
+      <<: *go-service-build
+      args:
+        SERVICE_DIR: smart-recruit-identity-service
+        CMD_PATH: ./cmd/identity-service
+        BINARY_NAME: identity-service
+    command: ["--serve", "--addr", ":50061"]
+    environment:
+      <<: *service-env
+      SERVICE_NAME: identity
+      GRPC_ADDR: :50061
+    depends_on:
+      nacos:
+        condition: service_healthy
+      mysql:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  smart-recruit-recruitment-service:
+    image: smart-recruit/smart-recruit-recruitment-service:${IMAGE_TAG:-local}
+    profiles: ["services"]
+    env_file: *runtime-env-file
+    build:
+      <<: *go-service-build
+      args:
+        SERVICE_DIR: smart-recruit-recruitment-service
+        CMD_PATH: ./cmd/recruitment-service
+        BINARY_NAME: recruitment-service
+    command: ["--serve", "--addr", ":50062"]
+    environment:
+      <<: *service-env
+      SERVICE_NAME: recruitment
+      GRPC_ADDR: :50062
+    depends_on:
+      nacos:
+        condition: service_healthy
+      mysql:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  smart-recruit-interview-service:
+    image: smart-recruit/smart-recruit-interview-service:${IMAGE_TAG:-local}
+    profiles: ["services"]
+    env_file: *runtime-env-file
+    build:
+      <<: *go-service-build
+      args:
+        SERVICE_DIR: smart-recruit-interview-service
+        CMD_PATH: ./cmd/interview-service
+        BINARY_NAME: interview-service
+    command: ["--serve", "--addr", ":50063"]
+    environment:
+      <<: *service-env
+      SERVICE_NAME: interview
+      GRPC_ADDR: :50063
+    depends_on:
+      nacos:
+        condition: service_healthy
+      mysql:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  smart-recruit-offer-service:
+    image: smart-recruit/smart-recruit-offer-service:${IMAGE_TAG:-local}
+    profiles: ["services"]
+    env_file: *runtime-env-file
+    build:
+      <<: *go-service-build
+      args:
+        SERVICE_DIR: smart-recruit-offer-service
+        CMD_PATH: ./cmd/offer-service
+        BINARY_NAME: offer-service
+    command: ["--serve", "--addr", ":50064"]
+    environment:
+      <<: *service-env
+      SERVICE_NAME: offer
+      GRPC_ADDR: :50064
+    depends_on:
+      nacos:
+        condition: service_healthy
+      mysql:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  smart-recruit-notification-service:
+    image: smart-recruit/smart-recruit-notification-service:${IMAGE_TAG:-local}
+    profiles: ["services"]
+    env_file: *runtime-env-file
+    build:
+      <<: *go-service-build
+      args:
+        SERVICE_DIR: smart-recruit-notification-service
+        CMD_PATH: ./cmd/notification-service
+        BINARY_NAME: notification-service
+    command: ["--serve", "--addr", ":50065"]
+    environment:
+      <<: *service-env
+      SERVICE_NAME: notification
+      GRPC_ADDR: :50065
+    depends_on:
+      nacos:
+        condition: service_healthy
+      mysql:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+
+  smart-recruit-ai-agent-service:
+    image: smart-recruit/smart-recruit-ai-agent-service:${IMAGE_TAG:-local}
+    profiles: ["services"]
+    env_file: *runtime-env-file
+    build:
+      <<: *go-service-build
+      args:
+        SERVICE_DIR: smart-recruit-ai-agent-service
+        CMD_PATH: ./cmd/ai-agent-service
+        BINARY_NAME: ai-agent-service
+    command: ["--serve", "--addr", ":50066"]
+    environment:
+      <<: *service-env
+      SERVICE_NAME: ai-agent
+      GRPC_ADDR: :50066
+    depends_on:
+      nacos:
+        condition: service_healthy
+      mysql:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+
+  smart-recruit-analytics-service:
+    image: smart-recruit/smart-recruit-analytics-service:${IMAGE_TAG:-local}
+    profiles: ["services"]
+    env_file: *runtime-env-file
+    build:
+      <<: *go-service-build
+      args:
+        SERVICE_DIR: smart-recruit-analytics-service
+        CMD_PATH: ./cmd/analytics-service
+        BINARY_NAME: analytics-service
+    command: ["--serve", "--addr", ":50067"]
+    environment:
+      <<: *service-env
+      SERVICE_NAME: analytics
+      GRPC_ADDR: :50067
+    depends_on:
+      nacos:
+        condition: service_healthy
+      mysql:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  smart-recruit-worker-service:
+    image: smart-recruit/smart-recruit-worker-service:${IMAGE_TAG:-local}
+    profiles: ["services"]
+    env_file: *runtime-env-file
+    build:
+      <<: *go-service-build
+      args:
+        SERVICE_DIR: smart-recruit-worker-service
+        CMD_PATH: ./cmd/worker-service
+        BINARY_NAME: worker-service
+    command: ["--serve", "--health-addr", ":50068"]
+    environment:
+      <<: *service-env
+      SERVICE_NAME: worker
+      GRPC_ADDR: :50068
+      WORKER_HEALTH_ADDR: :50068
+      WORKER_DISABLED_WORKLOADS: notification-consumer,email-consumer,resume-parse-consumer,embedding-consumer,agent-run-consumer
+    depends_on:
+      nacos:
+        condition: service_healthy
+      mysql:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+
+volumes:
+  mysql_data:
+  redis_data:
+  rabbitmq_data:
+  prometheus_data:
+  grafana_data:
+  loki_data:

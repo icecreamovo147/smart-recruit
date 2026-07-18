@@ -1,0 +1,135 @@
+{
+  "schemaVersion": 1,
+  "feature_name": "microservice-runtime-implementation",
+  "task_id": "TASK-MRI-009",
+  "base_sha": "b1af341ce60837a3289f0a8ba03a99f8c564c523",
+  "base_tree": "b16895fe9f2d156c3fafd36bcc686953b58fa79a",
+  "head_sha": "b1af341ce60837a3289f0a8ba03a99f8c564c523",
+  "head_tree": "pending-local-commit",
+  "changed_files": [
+    ".spec/microservice-runtime-implementation/pipeline-state.json",
+    ".spec/microservice-runtime-implementation/reports/TASK-MRI-009-evidence.json",
+    ".spec/microservice-runtime-implementation/reports/TASK-MRI-009-report.md",
+    "smart-recruit-deploy/nacos/seed-config/gateway.yaml",
+    "smart-recruit-gateway/README.md",
+    "smart-recruit-gateway/cmd/gateway/main.go",
+    "smart-recruit-gateway/internal/runtime/routes.go",
+    "smart-recruit-gateway/internal/runtime/routes_test.go"
+  ],
+  "scope": {
+    "status": "passed",
+    "command": "TASK_BASE_TREE=b16895fe9f2d156c3fafd36bcc686953b58fa79a bash .spec/microservice-runtime-implementation/scripts/check-task-scope.sh TASK-MRI-009",
+    "classification": "current",
+    "out_of_scope": [],
+    "forbidden": [],
+    "allowed_patterns": [
+      "smart-recruit-gateway/**",
+      "web-gin-service/**",
+      "smart-recruit-deploy/**",
+      ".spec/microservice-runtime-implementation/**"
+    ]
+  },
+  "checks": [
+    {
+      "command": "cd smart-recruit-gateway && GOWORK=off go test ./...",
+      "exit_code": 0,
+      "status": "passed",
+      "started_at": "2026-07-12T07:20:00.000Z",
+      "duration_ms": 3334
+    },
+    {
+      "command": "cd smart-recruit-gateway && GOWORK=off go build ./cmd/gateway && rm -f gateway",
+      "exit_code": 0,
+      "status": "passed",
+      "started_at": "2026-07-12T07:20:05.000Z",
+      "duration_ms": 6621
+    },
+    {
+      "command": "git diff --name-only",
+      "exit_code": 0,
+      "status": "passed",
+      "started_at": "2026-07-12T07:20:12.000Z",
+      "duration_ms": 1
+    },
+    {
+      "command": "node .knowledge/scripts/detect-impact.mjs --root . --base-tree b16895fe9f2d156c3fafd36bcc686953b58fa79a --json",
+      "exit_code": 0,
+      "status": "passed",
+      "started_at": "2026-07-12T07:20:13.000Z",
+      "duration_ms": 331
+    },
+    {
+      "command": "TASK_BASE_TREE=b16895fe9f2d156c3fafd36bcc686953b58fa79a bash .spec/microservice-runtime-implementation/scripts/check-task-scope.sh TASK-MRI-009",
+      "exit_code": 0,
+      "status": "passed",
+      "started_at": "2026-07-12T07:20:14.000Z",
+      "duration_ms": 276
+    },
+    {
+      "command": "bash .spec/microservice-runtime-implementation/scripts/agent-check.sh",
+      "exit_code": 0,
+      "status": "passed",
+      "started_at": "2026-07-12T07:20:15.000Z",
+      "duration_ms": 2222
+    },
+    {
+      "command": "rm -f go.work.sum smart-recruit-gateway/gateway",
+      "exit_code": 0,
+      "status": "passed",
+      "started_at": "2026-07-12T07:20:18.000Z",
+      "duration_ms": 5
+    },
+    {
+      "command": "node .agents/skills/spec-harness/scripts/validate-evidence.mjs --file .spec/microservice-runtime-implementation/reports/TASK-MRI-009-evidence.json",
+      "exit_code": 0,
+      "status": "passed",
+      "started_at": "2026-07-12T07:21:00.000Z",
+      "duration_ms": 60
+    }
+  ],
+  "review": {
+    "reviewer_type": "self-review",
+    "round": 1,
+    "verdict": "通过",
+    "findings": []
+  },
+  "human_confirmation": {
+    "required": false,
+    "confirmed": true,
+    "confirmed_at": "2026-07-12T07:21:00Z",
+    "source": "TASK-MRI-009 does not require human confirmation; harness-pipeline execution was explicitly requested by the user."
+  },
+  "exceptions": [],
+  "skipped_checks": [
+    {
+      "check": "Live gateway readiness request",
+      "reason": "TASK-MRI-009 validates route target planning and build-time startup wiring; live /readyz smoke is assigned to later compose/smoke TASKs after extracted services exist."
+    }
+  ],
+  "knowledgeImpact": {
+    "result": "update_required",
+    "triggeredBy": [
+      "configuration-changed",
+      "covered-path-changed",
+      "recurring-defect-fixed"
+    ],
+    "reviewResults": [
+      {
+        "document": ".knowledge/architecture/system-overview.md",
+        "verdict": "UNCHANGED",
+        "evidence": [
+          "Reviewed active source_refs; TASK-MRI-009 adds gateway route mode planning while preserving current HTTP ownership and logic fallback as default."
+        ]
+      },
+      {
+        "document": ".knowledge/runbooks/local-development.md",
+        "verdict": "UNCHANGED",
+        "evidence": [
+          "Reviewed active local startup guidance; TASK-MRI-009 does not replace existing start-dev, docker, or gateway startup commands."
+        ]
+      }
+    ],
+    "coverageGap": false,
+    "validationExitCode": 0
+  }
+}

@@ -1,0 +1,33 @@
+{
+  "schemaVersion": 2,
+  "feature_name": "hr-agent-tool-runtime-closure",
+  "revision": 9,
+  "change_request": "CR-0008",
+  "applied_at": "2026-07-16T09:23:35.908Z",
+  "updates": [
+    {
+      "target": "contract.json",
+      "sha256": "57b4b2b84076c1ee6d7fcf22a64f3ac7009966ecc6c1adf8ea65bcefaade4b94"
+    },
+    {
+      "target": "task-scope.json",
+      "sha256": "4b6a26e4c494bf5d5e301a3241da00b9329ab4ca314a9b65b29e9f45e4960343"
+    },
+    {
+      "target": "traceability.json",
+      "sha256": "eb38992cc9ee09192ff73f67316ecd6a3cb9852fad000fb556fc4c5bebd6f147"
+    },
+    {
+      "target": "acceptance/TASK-006.md",
+      "sha256": "037aa9b0770b26adfa271cb0fa069549c030d6ca76818f5ff423a1e637632095"
+    }
+  ],
+  "revalidation_tasks": [],
+  "carried_forward_tasks": [
+    "TASK-001",
+    "TASK-002",
+    "TASK-003",
+    "TASK-004",
+    "TASK-005"
+  ]
+}

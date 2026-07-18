@@ -2,10 +2,16 @@
 
 ## Project Structure & Module Organization
 
-- `hr-frontend/`, `user-frontend/`, `interviewer-frontend/`: Vue 3 + Vite apps for HR, candidate, and interviewer users. Source lives in `src/` with `api/`, `components/`, `views/`, `stores/`, `types/`, and `assets/`.
-- `logic-grpc-service/`: core Go gRPC service. Business logic is mainly in `service/`, persistence in `repository/` and `model/`, protobufs in `proto/` and generated code in `recruitment/pb/`.
-- `web-gin-service/`: Go HTTP gateway. Routes live in `router/`, handlers in `handler/`, backend clients in `rpc/`, middleware in `middleware/`.
-- `docs/`, `deploy/`, `docker/`, `db.sql`: documentation, deployment assets, local infrastructure, and database schema.
+- `hr-frontend/`, `user-frontend/`, `interviewer-frontend/`: Vue 3 + Vite apps for HR, candidate, and interviewer users. App-specific source lives in `src/` with `api/`, `components/`, `views/`, `stores/`, `types/`, and `assets/`.
+- `packages/shared/`: explicit cross-app frontend package for shared components, types, utilities, and brand assets imported through the `@shared/*` alias.
+- `smart-recruit-gateway/`: Go HTTP gateway. Routes live in `router/`, handlers in `handler/`, backend clients in `rpc/`, middleware in `middleware/`.
+- `smart-recruit-identity-service/`, `smart-recruit-recruitment-service/`, `smart-recruit-interview-service/`, `smart-recruit-offer-service/`, `smart-recruit-notification-service/`, `smart-recruit-ai-agent-service/`, `smart-recruit-analytics-service/`, `smart-recruit-worker-service/`: independently buildable Go service roots.
+- `smart-recruit-commons/`: shared domain support, migrations, MQ, OSS, AI, email, authz/JWT helpers, resume parsing, and command-line utilities such as the migration runner.
+- `smart-recruit-platform-go/`: shared runtime platform packages for config, Nacos, logging, health, metrics, trace, metadata, and gRPC helpers.
+- `smart-recruit-proto/`: canonical protobuf source and generated Go contracts.
+- `dev-log-viewer/`: independently buildable local Go/React log-viewing utility and pnpm workspace package.
+- `smart-recruit-deploy/`, `deploy/`, `docker/`: microservice deployment assets, Kubernetes manifests, and the local/full-stack Docker Compose setup.
+- `docs/`, `db.sql`: documentation and the baseline database schema.
 
 ## Build, Test, and Development Commands
 
@@ -16,12 +22,14 @@
 - `pnpm --filter hr-frontend build`: build one frontend app; replace the filter as needed.
 - `pnpm --filter hr-frontend typecheck`: run Vue TypeScript checks.
 - `pnpm --filter hr-frontend test`: run Vitest.
-- `go test ./...`: run Go tests from either `logic-grpc-service/` or `web-gin-service/`.
+- `go test ./...`: run Go tests from any `smart-recruit-*` Go module.
+- `smart-recruit-proto/scripts/bootstrap-tools.sh`: install the repository-pinned protobuf compiler and Go plugins into the local tool cache.
+- `smart-recruit-proto/scripts/generate-go.sh`: regenerate canonical Go protobuf contracts; it refuses unpinned tool versions.
 - `./start-dev.sh` / `./stop-dev.sh`: manage the local development stack.
 
 ## Coding Style & Naming Conventions
 
-Use TypeScript and Vue single-file components. Prefer PascalCase for components, camelCase for variables/functions, and kebab-case for route paths. Keep reusable UI in `src/components/` and pages in `src/views/`.
+Use TypeScript and Vue single-file components. Prefer PascalCase for components, camelCase for variables/functions, and kebab-case for route paths. Keep app-specific reusable UI in that app's `src/components/` and pages in `src/views/`. Put deliberately cross-app components, types, utilities, and assets in `packages/shared/src/`; do not import source directly from another frontend app.
 
 When adding a new HR left-menu page, keep the `page-header` styling consistent with the existing Agent Management and Prompt Management pages. Reuse the same layout, spacing, title/description treatment, and primary/secondary action placement before introducing page-specific variations.
 
@@ -49,15 +57,23 @@ Use concise commit subjects with `feat`, `fix`, `refactor`, `test`, or `docs`; i
 
 Do not commit secrets, tokens, or local credentials. Keep environment-specific settings in ignored local config files. When changing auth, AI, MCP, or recruitment data flows, document risks and add focused regression tests.
 
-## SPEC + SDD + Harness Workflow
+## Optional SPEC + SDD + Harness Workflow
+
+### Explicit activation only
+
+`spec-harness` is opt-in. Do not proactively invoke or read the `spec-harness` skill, create a `.spec/<feature-name>/` feature, or impose the SPEC/SDD/TASK/Harness lifecycle merely because a request is non-trivial, asks for analysis or an implementation plan, or involves implementing, testing, reviewing, or fixing code.
+
+Use `spec-harness` only when the user explicitly names `spec-harness` (including `$spec-harness`) or explicitly instructs the Agent to use the repository Harness workflow. A request for a SPEC, SDD, implementation plan, task breakdown, acceptance criteria, code implementation, review, or fix does not by itself activate `spec-harness`. The existence of an applicable `.spec` directory or a reference to an existing feature/TASK does not activate the skill unless the user also asks to use the Harness workflow. `harness-pipeline` is likewise used only when the user explicitly requests multi-TASK pipeline execution.
+
+Without explicit activation, follow the normal repository analysis, implementation, review, and testing guidelines directly in the current task. Do not create Harness artifacts or require Harness phases, reports, self-review rounds, or fixer rounds.
 
 ### Authority and source of truth
 
-Agent-driven development uses one canonical control plane:
+When the user explicitly activates the Harness workflow, use this canonical control plane:
 
 1. `AGENTS.md` defines durable repository-wide rules.
 2. `.agents/skills/spec-harness/SKILL.md` defines the feature and single-TASK lifecycle.
-3. `.agents/skills/harness-pipeline/SKILL.md` defines serial multi-TASK orchestration when the user explicitly invokes the pipeline.
+3. `.agents/skills/harness-pipeline/SKILL.md` defines serial multi-TASK orchestration only when the user explicitly invokes the pipeline.
 4. `.spec/<feature-name>/` is the only executable feature contract and runtime evidence location.
 
 Provider-specific files for Codex, Claude Code, or other agents may adapt to this control plane, but must not redefine TASK sources, review verdicts, state transitions, or completion rules. Historical plans and execution logs are reference material unless they have been migrated into a current `.spec/<feature-name>/` contract.
@@ -68,17 +84,18 @@ Provider-specific files for Codex, Claude Code, or other agents may adapt to thi
 
 `.knowledge/` is the canonical control plane's downstream project knowledge layer for coding Agents, developers, and reviewers. It may guide navigation, impact review, runbooks, and recurring pitfalls, but ordinary knowledge cannot override `AGENTS.md`, active SPEC/SDD/TASK/acceptance files, source code, tests, schema, protobuf definitions, or runtime evidence.
 
-For every non-trivial TASK:
+For every non-trivial task:
 
-1. Read `AGENTS.md`, the active `.spec/<feature-name>/` contract, and `.knowledge/README.md`.
+1. Read `AGENTS.md` and `.knowledge/README.md`. Read an active `.spec/<feature-name>/` contract only when the user explicitly activated its Harness workflow.
 2. Use `.knowledge/manifest.yaml` routes and `.knowledge/INDEX.md` to select only relevant active knowledge.
 3. Verify critical knowledge claims against each document's `source_refs`.
-4. Run knowledge impact detection when `.knowledge/scripts/detect-impact.mjs` is available and a reliable TASK base tree exists.
-5. Report `knowledge_impact` in TASK reports/evidence with one of the documented results and per-document verdicts.
+4. For an explicitly activated Harness TASK, run knowledge impact detection when `.knowledge/scripts/detect-impact.mjs` is available and a reliable TASK base tree exists, then report `knowledge_impact` in TASK evidence.
 
-If TASK scope does not allow updating affected knowledge, record `STALE`, `CANDIDATE`, or `coverage_gap` debt in the report instead of editing scope-out files. Do not read `inbox/`, `archive/`, stale, deprecated, or archived knowledge by default. Do not create provider-specific knowledge copies; adapters such as `CLAUDE.md` must keep pointing at this canonical entry.
+For an explicitly activated Harness TASK, if TASK scope does not allow updating affected knowledge, record `STALE`, `CANDIDATE`, or `coverage_gap` debt in the report instead of editing scope-out files. For ordinary non-Harness work, report discovered stale knowledge or coverage gaps directly to the user and update them only when the request authorizes documentation changes. Do not read `inbox/`, `archive/`, stale, deprecated, or archived knowledge by default. Do not create provider-specific knowledge copies; adapters such as `CLAUDE.md` must keep pointing at this canonical entry.
 
-For every non-trivial feature, create a feature directory first:
+### Rules when explicitly activated
+
+Only after explicit Harness activation, create or use the feature directory:
 
 `.spec/<feature-name>/`
 
@@ -94,11 +111,11 @@ The feature directory should contain:
 - `scripts/`
 - `reports/`
 
-Required development order:
+Required Harness development order:
 
 SPEC -> SDD -> TASKS -> Harness -> single TASK implementation -> Harness checks -> TASK completion report -> user confirmation -> next TASK.
 
-Hard rules:
+Harness hard rules:
 
 - Do not implement without SPEC and SDD.
 - Do not implement without `TASKS.md`.

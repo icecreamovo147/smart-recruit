@@ -1,10 +1,50 @@
+<script lang="ts">
+import type { CreateAgentRunRequest } from '@/types/agentRun'
+
+export const buildApplicationAnalysisMessage = (candidateName?: string, jobTitle?: string): string => {
+  const candidate = candidateName?.trim() || '该候选人'
+  const job = jobTitle?.trim() || '该岗位'
+  return `请分析${candidate}投递${job}的简历与岗位匹配度，并基于真实候选人、岗位和匹配评估数据给出结论。`
+}
+
+interface ApplicationAnalysisMessageLike {
+  role?: string
+  content?: string
+}
+
+export const resolveApplicationAnalysisMessage = (
+  returnedMessages: ApplicationAnalysisMessageLike[],
+  candidateName?: string,
+  jobTitle?: string,
+): string => returnedMessages
+  .find((message) => message.role === 'user' && message.content?.trim())
+  ?.content?.trim() || buildApplicationAnalysisMessage(candidateName, jobTitle)
+
+export const buildApplicationAnalysisRunRequest = (input: {
+  sessionId: number
+  message: string
+  applicationId: number
+  clientRequestId: string
+  modelId?: number
+  skillCapabilityKeys?: string[]
+}): CreateAgentRunRequest => ({
+  session_id: input.sessionId,
+  message: input.message.trim(),
+  action_type: 'analyze_application',
+  application_id: input.applicationId,
+  client_request_id: input.clientRequestId,
+  ...(input.modelId != null ? { model_id: input.modelId } : {}),
+  ...(input.skillCapabilityKeys?.length ? { skill_capability_keys: [...input.skillCapabilityKeys] } : {}),
+})
+</script>
+
 <script setup lang="ts">
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import DOMPurify from 'dompurify'
 import MarkdownIt from 'markdown-it'
-import { createApplicationAnalysisSession, createSession, deleteSession, getSessionMessages, listSessions, updateSession } from '@/api/ai'
+import { createApplicationAnalysisSession, createSession, deleteSession, getSessionMessages, listSessions, listSkillCapabilities, previewSessionContext, updateSession } from '@/api/ai'
 import { listAvailableAgentSkills } from '@/api/agentSkill'
 import { updateApplicationStatus } from '@/api/application'
 import { listAvailableModels } from '@/api/llm'
@@ -22,10 +62,19 @@ import ConversationHeader from '@/components/chat/ConversationHeader.vue'
 import ChatMessageList from '@/components/chat/ChatMessageList.vue'
 import ChatComposer from '@/components/chat/ChatComposer.vue'
 import { useHrAgentRun } from '@/composables/useHrAgentRun'
-import type { AgentRunResultMetadata, CreateAgentRunRequest } from '@/types/agentRun'
+import type { AgentRunResultMetadata } from '@/types/agentRun'
 import type { AgentSkillSelectionPayload, ChatMessageSkill, ChatSessionListItem, Session, CandidateOption, StreamPayload, ContextUsageInfo } from '@/types/ai'
+import type { CapabilityInfo } from '@/types/agent'
 import type { LlmModel } from '@/types/llm'
 import type { AvailableAgentSkill } from '@/types/agentSkill'
+import { sanitizeAssistantProcessText } from '@/utils/hrAssistantProcess'
+import {
+  contextGuardCodeFrom,
+  contextGuardMessage,
+  contextUsageBelongsToSession,
+  resolveLiveContextUsage,
+  resolveSessionContextUsage,
+} from '@/utils/contextUsage'
 
 interface MessageItem {
   role: string
@@ -45,6 +94,8 @@ interface MessageItem {
   agentSkillNames?: string[]
   pending?: boolean
   failed?: boolean
+  retryDisabled?: boolean
+  errorCode?: string
   waitingText?: string
   process_content?: string
   processContent?: string
@@ -146,11 +197,17 @@ const dataSource = ref('招聘业务数据库')
 const tracePanelVisible = ref(false)
 const agentSkills = ref<AvailableAgentSkill[]>([])
 const selectedAgentSkillIds = ref<number[]>([])
+const skillCapabilities = ref<CapabilityInfo[]>([])
+const selectedSkillKeys = ref<string[]>([])
 const contextUsage = ref<ContextUsageInfo | null>(null)
+const contextPreviewing = ref(false)
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const listRef = ref<any>(null)
 let pollTimer: ReturnType<typeof setInterval> | null = null
 let streamTypewriterTimer: ReturnType<typeof setInterval> | null = null
+let contextPreviewTimer: ReturnType<typeof setTimeout> | null = null
+let contextPreviewController: AbortController | null = null
+let contextPreviewVersion = 0
 const contextUsageStoragePrefix = 'hr-ai-context-usage:'
 
 // Durable HR Agent runtime (TASK-HARS-007). Legacy sendMessageStream remains in api/ai.ts for rollout compatibility.
@@ -202,86 +259,77 @@ const normalizeSession = (item: ChatSessionListItem): Session => ({
   application_id: item.application_id || 0,
   updated_at: item.updated_at || item.created_at || '',
   latest_context_usage: item.latest_context_usage || item.latestContextUsage,
+  selected_model_id: item.selected_model_id ?? item.selectedModelId,
 })
 
 const agentSkillLabel = (skill: AvailableAgentSkill) => skill.display_name || skill.name
 
+/** Resolve user-facing Skill label: prefer catalog display_name over stored technical name. */
+const resolveAgentSkillLabel = (id?: number | string, fallbackName?: string): string => {
+  const numericId = typeof id === 'string' ? Number(id) : id
+  if (typeof numericId === 'number' && Number.isFinite(numericId) && numericId > 0) {
+    const byId = agentSkills.value.find((skill) => skill.id === numericId)
+    if (byId) return agentSkillLabel(byId)
+  }
+  const key = (fallbackName || '').trim()
+  if (key) {
+    const byKey = agentSkills.value.find(
+      (skill) => skill.name === key || skill.display_name === key,
+    )
+    if (byKey) return agentSkillLabel(byKey)
+  }
+  return key
+}
+
+const toMessageSkill = (id?: number | string, fallbackName?: string): ChatMessageSkill | undefined => {
+  const name = resolveAgentSkillLabel(id, fallbackName)
+  if (!name) return undefined
+  return {
+    ...(id !== undefined && id !== null && id !== '' ? { id } : {}),
+    name,
+    command: `/${name}`,
+  }
+}
+
 const buildMessageSkills = (ids: number[]): ChatMessageSkill[] =>
   ids
-    .map((id) => agentSkills.value.find((skill) => skill.id === id))
-    .filter((skill): skill is AvailableAgentSkill => Boolean(skill))
-    .map((skill) => {
-      const name = agentSkillLabel(skill)
-      return {
-        id: skill.id,
-        name,
-        command: `/${name}`,
-      }
-    })
+    .map((id) => toMessageSkill(id))
+    .filter((skill): skill is ChatMessageSkill => Boolean(skill))
 
 const normalizeSkillMeta = (message: Partial<MessageItem>, fallback?: MessageItem): ChatMessageSkill | undefined => {
-  if (message.skill?.name) {
-    return {
-      ...message.skill,
-      command: message.skill.command || `/${message.skill.name}`,
-    }
+  if (message.skill?.name || message.skill?.id != null) {
+    const resolved = toMessageSkill(message.skill?.id, message.skill?.name)
+    if (resolved) return resolved
   }
   const name = message.skill_name || message.skillName
-  if (name) {
-    return {
-      id: message.skill_id ?? message.skillId,
-      name,
-      command: message.skill_command || message.skillCommand || `/${name}`,
-    }
+  const id = message.skill_id ?? message.skillId
+  if (name || id != null) {
+    const resolved = toMessageSkill(id, name)
+    if (resolved) return resolved
   }
   return fallback?.skill
 }
 
-const hiddenAssistantProcessLines = new Set([
-  'Agent run 已开始',
-  'Agent run 已完成',
-  'Agent run 已取消',
-  'Agent run 已部分完成',
-  'Agent run 失败',
-  'Agent run 保存失败',
-  '已选择可用能力',
-])
-
-const isHiddenAssistantProcessLine = (line: string): boolean => {
-  const text = line.trim()
-  return hiddenAssistantProcessLines.has(text)
-}
-
-const sanitizeAssistantProcessText = (text = ''): string => {
-  if (!text) return ''
-  const lines = text.split(/\r?\n/)
-  const filtered = lines.filter((line) => !isHiddenAssistantProcessLine(line))
-  let result = filtered.join('\n')
-  if (text.endsWith('\n') && result && !result.endsWith('\n')) {
-    result += '\n'
-  }
-  return result
-}
-
 const normalizeSkillsMeta = (message: Partial<MessageItem>, fallback?: MessageItem): ChatMessageSkill[] | undefined => {
   if (Array.isArray(message.skills) && message.skills.length > 0) {
-    return message.skills
-      .filter((skill): skill is ChatMessageSkill => Boolean(skill?.name))
-      .map((skill) => ({
-        ...skill,
-        command: skill.command || `/${skill.name}`,
-      }))
+    const resolved = message.skills
+      .map((skill) => toMessageSkill(skill?.id, skill?.name))
+      .filter((skill): skill is ChatMessageSkill => Boolean(skill))
+    if (resolved.length > 0) return resolved
   }
   const agentSkillNames = message.agent_skill_names || message.agentSkillNames
+  const agentSkillIds = message.agent_skill_ids || message.agentSkillIds || []
   if (Array.isArray(agentSkillNames) && agentSkillNames.length > 0) {
-    const agentSkillIds = message.agent_skill_ids || message.agentSkillIds || []
-    return agentSkillNames
-      .filter(Boolean)
-      .map((name, index) => ({
-        id: agentSkillIds[index],
-        name,
-        command: `/${name}`,
-      }))
+    const resolved = agentSkillNames
+      .map((name, index) => toMessageSkill(agentSkillIds[index], name))
+      .filter((skill): skill is ChatMessageSkill => Boolean(skill))
+    if (resolved.length > 0) return resolved
+  }
+  if (Array.isArray(agentSkillIds) && agentSkillIds.length > 0) {
+    const resolved = agentSkillIds
+      .map((id) => toMessageSkill(id))
+      .filter((skill): skill is ChatMessageSkill => Boolean(skill))
+    if (resolved.length > 0) return resolved
   }
   if (fallback?.skills?.length) return fallback.skills
   const skill = normalizeSkillMeta(message, fallback)
@@ -320,66 +368,16 @@ const rememberContextUsage = (sessionId: number, usage: ContextUsageInfo) => {
   }
 }
 
-const applyModelToContextUsage = (usage: ContextUsageInfo, selectedModel: LlmModel): ContextUsageInfo => {
-  const promptTokens = (usage.prompt_tokens_actual && usage.prompt_tokens_actual > 0)
-    ? usage.prompt_tokens_actual
-    : (usage.prompt_tokens_estimated || 0)
-  const contextWindowTokens = selectedModel.context_window_tokens || 0
-  const maxOutputTokens = selectedModel.max_tokens || 0
-  const remainingTokens = contextWindowTokens > 0
-    ? Math.max(contextWindowTokens - promptTokens - maxOutputTokens, 0)
-    : 0
-  const usageRatio = contextWindowTokens > 0
-    ? Math.min(promptTokens / contextWindowTokens, 1)
-    : 0
-
-  return {
-    ...usage,
-    model_id: selectedModel.id,
-    model_name: selectedModel.model_name,
-    context_window_tokens: contextWindowTokens,
-    max_output_tokens: maxOutputTokens,
-    remaining_tokens_estimated: remainingTokens,
-    usage_ratio: usageRatio,
-  }
-}
-
-const restoreContextUsage = (sessionId: number) => {
-  try {
-    const raw = sessionStorage.getItem(contextUsageStorageKey(sessionId))
-    const restored = raw ? JSON.parse(raw) as ContextUsageInfo : null
-    const selectedModel = selectedModelId.value != null
-      ? modelList.value.find((model) => model.id === selectedModelId.value)
-      : null
-    contextUsage.value = restored && selectedModel
-      ? applyModelToContextUsage(restored, selectedModel)
-      : restored
-  } catch {
-    contextUsage.value = null
-  }
-}
-
-const latestMessageContextUsage = (items: MessageItem[]): ContextUsageInfo | null => {
-  for (let i = items.length - 1; i >= 0; i--) {
-    const usage = items[i]?.context_usage || items[i]?.contextUsage
-    if (usage) return usage
-  }
-  return null
-}
-
 const restorePersistedContextUsage = (session: Session, items: MessageItem[]) => {
-  const persisted = session.latest_context_usage || session.latestContextUsage || latestMessageContextUsage(items)
+  const persisted = resolveSessionContextUsage(session, items)
   if (persisted) {
-    const selectedModel = selectedModelId.value != null
-      ? modelList.value.find((model) => model.id === selectedModelId.value)
-      : null
-    contextUsage.value = selectedModel
-      ? applyModelToContextUsage(persisted, selectedModel)
-      : persisted
+    contextUsage.value = persisted
     rememberContextUsage(session.id, contextUsage.value)
     return
   }
-  restoreContextUsage(session.id)
+  // Server snapshots are authoritative. A session without usage must show a
+  // neutral placeholder instead of reviving a stale browser cache entry.
+  contextUsage.value = null
 }
 
 const forgetContextUsage = (sessionId: number) => {
@@ -495,17 +493,29 @@ const appendAssistantProcess = (index: number, delta: string) => {
   enqueueAssistantText(index, 'process', text)
 }
 
-const markAssistantError = (index: number, error: Error | null) => {
+const markAssistantError = (index: number, error: Error | null, explicitCode?: string) => {
   clearAssistantTextQueue()
   const message = messages.value[index]
-  const content = error?.message || '响应中断，请稍后重试'
+  const errorWithGuard = error as (Error & { contextGuardCode?: string }) | null
+  const guardCode = contextGuardCodeFrom(explicitCode, errorWithGuard?.contextGuardCode, error?.message, message?.errorCode)
+  const content = contextGuardMessage(guardCode) || error?.message || '响应中断，请稍后重试'
+  const retryDisabled = Boolean(guardCode)
   if (message?.role === 'assistant') {
-    messages.value[index] = { ...message, content, pending: false, failed: true }
+    messages.value[index] = { ...message, content, pending: false, failed: true, retryDisabled, ...(guardCode ? { errorCode: guardCode } : {}) }
   } else {
-    messages.value.push({ role: 'assistant', content, failed: true })
+    messages.value.push({ role: 'assistant', content, failed: true, retryDisabled, ...(guardCode ? { errorCode: guardCode } : {}) })
   }
   scrollBottom()
 }
+
+const safeAgentRunErrorMessage = (
+  error: Error | undefined,
+  errorType: string,
+  errorMessage: string,
+  fallback: string,
+): string => contextGuardMessage(contextGuardCodeFrom(errorType, errorMessage, error?.message))
+  || error?.message
+  || fallback
 
 const beginAgentRun = (): number => {
   activeRunToken.value += 1
@@ -530,7 +540,10 @@ const resultMetaToStreamPayload = (
   context_usage: (meta?.context_usage as ContextUsageInfo | undefined) || undefined,
 })
 
-const makeChatUiBinder = (assistantIndex: number): DurableChatUiBinder => ({
+const makeChatUiBinder = (
+  assistantIndex: number,
+  expectedSessionId: number | undefined = currentSession.value?.id,
+): DurableChatUiBinder => ({
   onAssistantDelta: (delta) => appendAssistantDelta(assistantIndex, delta),
   onAssistantSnapshot: (text) => {
     flushAssistantTextQueue(assistantIndex)
@@ -569,7 +582,7 @@ const makeChatUiBinder = (assistantIndex: number): DurableChatUiBinder => ({
   onContextUsage: (usage, sessionId) => {
     handleContextUsage({
       context_usage: usage,
-      session_id: sessionId || currentSession.value?.id || undefined,
+      session_id: sessionId || expectedSessionId,
     })
   },
   onCandidateOptions: (options) => {
@@ -586,8 +599,14 @@ const makeChatUiBinder = (assistantIndex: number): DurableChatUiBinder => ({
     if (!meta?.context_usage) return
     handleContextUsage({
       context_usage: meta.context_usage as ContextUsageInfo,
-      session_id: currentSession.value?.id || undefined,
+      session_id: expectedSessionId,
     })
+  },
+  onRunError: (errorType, errorMessage) => {
+    const guardCode = contextGuardCodeFrom(errorType, errorMessage)
+    if (guardCode) {
+      markAssistantError(assistantIndex, new Error(contextGuardMessage(guardCode) || ''), guardCode)
+    }
   },
 })
 
@@ -775,9 +794,14 @@ const selectSession = async (session: Session) => {
   userAborted.value = true
   activeRunToken.value += 1
   agentRun.dispose()
+  cancelContextPreview()
   clearAssistantTextQueue()
   resetContextUsage()
   currentSession.value = session
+  const storedModelId = session.selected_model_id ?? session.selectedModelId
+  selectedModelId.value = storedModelId == null
+    ? (session.latest_context_usage?.model_id || session.latestContextUsage?.model_id || null)
+    : (storedModelId > 0 ? storedModelId : null)
   sessionLoading.value = true
   loading.value = false
   streaming.value = false
@@ -787,8 +811,12 @@ const selectSession = async (session: Session) => {
   }
   try {
     const data = await getSessionMessages(session.id, { page: 1, page_size: 100 })
+    if (currentSession.value?.id !== session.id) return
     messages.value = normalizeMessages(data.list || [])
     restorePersistedContextUsage(session, messages.value)
+    if (!contextUsageMatchesSelectedModel()) {
+      requestContextPreview(false)
+    }
     router.replace({ path: '/hr/ai', query: { session_id: String(session.id) } })
     scrollBottom()
   } finally {
@@ -919,6 +947,27 @@ const removeSession = async (session: Session) => {
   ElMessage.success('会话已删除')
 }
 
+const batchRemoveSessions = async (sessionIds: number[]) => {
+  const idSet = new Set(sessionIds)
+  for (const id of sessionIds) {
+    try {
+      await deleteSession(id)
+      forgetContextUsage(id)
+    } catch {
+      ElMessage.error(`删除会话 #${id} 失败`)
+    }
+  }
+  sessions.value = sessions.value.filter((s) => !idSet.has(s.id))
+  if (currentSession.value && idSet.has(currentSession.value.id)) {
+    clearAssistantTextQueue()
+    resetContextUsage()
+    currentSession.value = null
+    messages.value = []
+    router.replace({ path: '/hr/ai' })
+  }
+  ElMessage.success(`已删除 ${sessionIds.length} 个会话`)
+}
+
 const createAnalysisSessionFromRoute = async () => {
   const applicationId = Number(route.query.application_id || 0)
   if (!applicationId) return false
@@ -941,6 +990,11 @@ const createAnalysisSessionFromRoute = async () => {
   const session = normalizeSession(data.session)
   currentSession.value = session
   messages.value = normalizeMessages(data.messages || [])
+  const returnedUserText = messages.value.find((message) => message.role === 'user' && message.content?.trim())?.content?.trim()
+  const userText = resolveApplicationAnalysisMessage(messages.value, candidateName.value, candidatePosition.value)
+  if (!returnedUserText) {
+    messages.value.unshift({ role: 'user', content: userText })
+  }
   restorePersistedContextUsage(session, messages.value)
   // Replace URL: remove application_id/candidate_name, set session_id so a refresh
   // will load the session normally instead of re-triggering analysis.
@@ -957,15 +1011,15 @@ const createAnalysisSessionFromRoute = async () => {
 
   // Phase 2: Durable run for the analysis reply (observes events; does not own execution).
   const token = beginAgentRun()
-  const userText = messages.value[0]?.content || ''
   try {
-    const createPayload: CreateAgentRunRequest = {
-      session_id: session.id,
+    const createPayload = buildApplicationAnalysisRunRequest({
+      sessionId: session.id,
       message: userText,
-      client_request_id: createClientRequestId(),
-      ...(selectedModelId.value != null ? { model_id: selectedModelId.value } : {}),
-      ...(session.application_id ? { application_id: session.application_id } : {}),
-    }
+      applicationId: session.application_id || applicationId,
+      clientRequestId: createClientRequestId(),
+      ...(selectedModelId.value != null ? { modelId: selectedModelId.value } : {}),
+      ...(selectedSkillKeys.value.length > 0 ? { skillCapabilityKeys: selectedSkillKeys.value } : {}),
+    })
     const result = await executeCreateChatRun(
       agentRun,
       createPayload,
@@ -980,7 +1034,7 @@ const createAnalysisSessionFromRoute = async () => {
       return true
     }
     if (result.outcome === 'failed') {
-      markAssistantError(assistantIndex, result.error || new Error('AI 分析请求失败，请稍后重试'))
+      markAssistantError(assistantIndex, result.error || new Error('AI 分析请求失败，请稍后重试'), result.state.errorType)
       return true
     }
     await waitForAssistantTextQueue(assistantIndex)
@@ -1036,8 +1090,6 @@ const analyzeCandidateOption = async (option: CandidateOption) => {
   if (!option?.application_id || loading.value) return
   candidateName.value = option.candidate_name || ''
   candidatePosition.value = option.job_title || ''
-  const userMessage = `请帮我分析${option.candidate_name || '该候选人'}投递${option.job_title || '该岗位'}的简历。`
-
   // Durable runs require session_id — create analysis session first (same as route entry).
   let data: { session: ChatSessionListItem; messages: Partial<MessageItem>[] }
   try {
@@ -1053,6 +1105,11 @@ const analyzeCandidateOption = async (option: CandidateOption) => {
   const session = normalizeSession(data.session)
   currentSession.value = session
   messages.value = normalizeMessages(data.messages || [])
+  const returnedUserText = messages.value.find((message) => message.role === 'user' && message.content?.trim())?.content?.trim()
+  const userMessage = resolveApplicationAnalysisMessage(messages.value, option.candidate_name, option.job_title)
+  if (!returnedUserText) {
+    messages.value.unshift({ role: 'user', content: userMessage })
+  }
   restorePersistedContextUsage(session, messages.value)
   await router.replace({ path: '/hr/ai', query: { session_id: String(session.id) } })
   await refreshSessions()
@@ -1067,13 +1124,13 @@ const analyzeCandidateOption = async (option: CandidateOption) => {
   try {
     const result = await executeCreateChatRun(
       agentRun,
-      {
-        session_id: session.id,
+      buildApplicationAnalysisRunRequest({
+        sessionId: session.id,
         message: userMessage,
-        application_id: option.application_id,
-        client_request_id: createClientRequestId(),
-        ...(selectedModelId.value != null ? { model_id: selectedModelId.value } : {}),
-      },
+        applicationId: option.application_id,
+        clientRequestId: createClientRequestId(),
+        ...(selectedModelId.value != null ? { modelId: selectedModelId.value } : {}),
+      }),
       makeChatUiBinder(assistantIndex),
       { isAborted: () => userAborted.value || !isActiveAgentRun(token) },
     )
@@ -1083,8 +1140,8 @@ const analyzeCandidateOption = async (option: CandidateOption) => {
       return
     }
     if (result.outcome === 'failed') {
-      markAssistantError(assistantIndex, result.error || new Error('AI 流式响应失败'))
-      ElMessage.error(result.error?.message || 'AI 流式响应失败')
+      markAssistantError(assistantIndex, result.error || new Error('AI 流式响应失败'), result.state.errorType)
+      ElMessage.error(safeAgentRunErrorMessage(result.error, result.state.errorType, result.state.errorMessage, 'AI 流式响应失败'))
       return
     }
     await waitForAssistantTextQueue(assistantIndex)
@@ -1227,8 +1284,8 @@ const submitConfirmedSkillSelection = async (assistantIndex: number, skillIds: n
       return
     }
     if (result.outcome === 'failed') {
-      markAssistantError(assistantIndex, result.error || new Error('AI 流式响应失败'))
-      ElMessage.error(result.error?.message || 'AI 流式响应失败')
+      markAssistantError(assistantIndex, result.error || new Error('AI 流式响应失败'), result.state.errorType)
+      ElMessage.error(safeAgentRunErrorMessage(result.error, result.state.errorType, result.state.errorMessage, 'AI 流式响应失败'))
       return
     }
 
@@ -1282,6 +1339,8 @@ const submit = async () => {
   const assistantIndex = messages.value.length
   try {
     messages.value.push({ role: 'assistant', content: '', pending: true, waitingText: session.application_id ? '分析中' : '响应中' })
+    const skillKeysForMessage = [...selectedSkillKeys.value]
+    selectedSkillKeys.value = []
     const result = await executeCreateChatRun(
       agentRun,
       {
@@ -1290,6 +1349,7 @@ const submit = async () => {
         client_request_id: createClientRequestId(),
         ...(selectedModelId.value != null ? { model_id: selectedModelId.value } : {}),
         ...(agentSkillIdsForMessage.length > 0 ? { agent_skill_ids: agentSkillIdsForMessage } : {}),
+        ...(skillKeysForMessage.length > 0 ? { skill_capability_keys: skillKeysForMessage } : {}),
         ...(session.application_id ? { application_id: session.application_id } : {}),
       },
       makeChatUiBinder(assistantIndex),
@@ -1303,8 +1363,9 @@ const submit = async () => {
     }
     if (result.outcome === 'failed') {
       selectedAgentSkillIds.value = agentSkillIdsForMessage
-      markAssistantError(assistantIndex, result.error || new Error('AI 流式响应失败'))
-      ElMessage.error(result.error?.message || 'AI 流式响应失败')
+      selectedSkillKeys.value = skillKeysForMessage
+      markAssistantError(assistantIndex, result.error || new Error('AI 流式响应失败'), result.state.errorType)
+      ElMessage.error(safeAgentRunErrorMessage(result.error, result.state.errorType, result.state.errorMessage, 'AI 流式响应失败'))
       return
     }
     await waitForAssistantTextQueue(assistantIndex)
@@ -1337,7 +1398,7 @@ const submit = async () => {
 
 const retry = async (failedIndex: number) => {
   const failedMsg = messages.value[failedIndex]
-  if (!failedMsg || failedMsg.role !== 'assistant' || !failedMsg.failed) return
+  if (!failedMsg || failedMsg.role !== 'assistant' || !failedMsg.failed || failedMsg.retryDisabled) return
 
   let lastUserContent = ''
   let lastUserSkillIds: number[] = []
@@ -1390,8 +1451,8 @@ const retry = async (failedIndex: number) => {
       return
     }
     if (result.outcome === 'failed') {
-      markAssistantError(assistantIndex, result.error || new Error('AI 流式响应失败'))
-      ElMessage.error(result.error?.message || 'AI 流式响应失败')
+      markAssistantError(assistantIndex, result.error || new Error('AI 流式响应失败'), result.state.errorType)
+      ElMessage.error(safeAgentRunErrorMessage(result.error, result.state.errorType, result.state.errorMessage, 'AI 流式响应失败'))
       return
     }
     await waitForAssistantTextQueue(assistantIndex)
@@ -1431,6 +1492,10 @@ onMounted(async () => {
     const agentSkillData = await listAvailableAgentSkills()
     agentSkills.value = agentSkillData.list || []
   } catch { /* non-fatal: agent skill selector will be empty */ }
+  try {
+    const capabilityData = await listSkillCapabilities()
+    skillCapabilities.value = capabilityData.list || []
+  } catch { /* non-fatal: capability slash menu will be empty; backend uses agent-bound tools by default */ }
   await refreshSessions()
   if (await createAnalysisSessionFromRoute()) return
   const querySessionId = Number(route.query.session_id || 0)
@@ -1444,10 +1509,12 @@ const closeMenu = () => { menuSessionId.value = 0 }
 
 const handleContextUsage = (payload: StreamPayload) => {
   if (payload.context_usage) {
-    contextUsage.value = payload.context_usage
     const sessionId = payload.session_id || currentSession.value?.id || 0
+    if (!contextUsageBelongsToSession(sessionId, currentSession.value?.id)) return
+    const nextUsage = resolveLiveContextUsage(contextUsage.value, payload.context_usage)
+    contextUsage.value = nextUsage
     if (sessionId > 0) {
-      rememberContextUsage(sessionId, payload.context_usage)
+      rememberContextUsage(sessionId, nextUsage)
     }
   }
 }
@@ -1456,19 +1523,99 @@ const resetContextUsage = () => {
   contextUsage.value = null
 }
 
+const cancelContextPreview = () => {
+  contextPreviewVersion += 1
+  if (contextPreviewTimer) {
+    clearTimeout(contextPreviewTimer)
+    contextPreviewTimer = null
+  }
+  contextPreviewController?.abort()
+  contextPreviewController = null
+  contextPreviewing.value = false
+}
+
+const selectedEffectiveModel = (): LlmModel | undefined => selectedModelId.value == null
+  ? modelList.value.find((model) => model.is_default) || modelList.value.find((model) => model.is_enabled)
+  : modelList.value.find((model) => model.id === selectedModelId.value)
+
+const contextUsageMatchesSelectedModel = (): boolean => {
+  const model = selectedEffectiveModel()
+  return Boolean(contextUsage.value && (!model || contextUsage.value.model_id === model.id))
+}
+
+const requestContextPreview = (notifyOnError = true) => {
+  const session = currentSession.value
+  if (!session || streaming.value) return
+  cancelContextPreview()
+  const version = contextPreviewVersion
+  const sessionId = session.id
+  const requestedModelId = selectedModelId.value ?? 0
+  const skillCapabilityKeys = [...selectedSkillKeys.value]
+  const agentSkillIds = [...selectedAgentSkillIds.value]
+  contextPreviewing.value = true
+  contextPreviewTimer = setTimeout(async () => {
+    contextPreviewTimer = null
+    const controller = new AbortController()
+    contextPreviewController = controller
+    try {
+      const result = await previewSessionContext(sessionId, {
+        model_id: requestedModelId,
+        ...(skillCapabilityKeys.length > 0 ? { skill_capability_keys: skillCapabilityKeys } : {}),
+        ...(agentSkillIds.length > 0 ? { agent_skill_ids: agentSkillIds } : {}),
+      }, controller.signal)
+      if (version !== contextPreviewVersion || currentSession.value?.id !== sessionId) return
+      contextUsage.value = result.context_usage
+      rememberContextUsage(sessionId, result.context_usage)
+      const selected = result.selected_model_id
+      currentSession.value = {
+        ...currentSession.value,
+        selected_model_id: selected,
+        latest_context_usage: result.context_usage,
+      }
+      const sessionIndex = sessions.value.findIndex((item) => item.id === sessionId)
+      if (sessionIndex >= 0) {
+        sessions.value[sessionIndex] = {
+          ...sessions.value[sessionIndex],
+          selected_model_id: selected,
+          latest_context_usage: result.context_usage,
+        }
+      }
+    } catch (error: unknown) {
+      if (version !== contextPreviewVersion || controller.signal.aborted) return
+      contextUsage.value = null
+      if (notifyOnError) {
+        ElMessage.warning(error instanceof Error ? error.message : '模型上下文重新计算失败')
+      }
+    } finally {
+      if (version === contextPreviewVersion) {
+        contextPreviewController = null
+        contextPreviewing.value = false
+      }
+    }
+  }, 150)
+}
+
+const handleSelectedModelUpdate = (value: number | null) => {
+  selectedModelId.value = value
+  requestContextPreview()
+}
+
+const handleSelectedSkillKeysUpdate = (value: string[]) => {
+  selectedSkillKeys.value = value
+  requestContextPreview(false)
+}
+
+const handleSelectedAgentSkillIdsUpdate = (value: number[]) => {
+  selectedAgentSkillIds.value = value
+  requestContextPreview(false)
+}
+
 // Sync status bar model name with user selection.
 watch(selectedModelId, (id) => {
   if (id != null) {
     const m = modelList.value.find((x) => x.id === id)
     if (m) {
       modelName.value = m.display_name || m.model_name
-      if (contextUsage.value) {
-        contextUsage.value = applyModelToContextUsage(contextUsage.value, m)
-        const sessionId = currentSession.value?.id || 0
-        if (sessionId > 0) {
-          rememberContextUsage(sessionId, contextUsage.value)
-        }
-      }
     }
   }
 })
@@ -1509,6 +1656,7 @@ onBeforeUnmount(() => {
   if (pollTimer) clearInterval(pollTimer)
   if (typewriterTimer) clearInterval(typewriterTimer)
   clearSidebarPeekTimer()
+  cancelContextPreview()
   document.removeEventListener('click', closeMenu)
 })
 </script>
@@ -1550,6 +1698,7 @@ onBeforeUnmount(() => {
           @create-session="createNewSession"
           @rename-session="renameSession"
           @remove-session="removeSession"
+          @batch-remove-sessions="batchRemoveSessions"
           @menu-toggle="(id: number) => menuSessionId = id"
           @close-sidebar="closeSessionSidebar"
         />
@@ -1588,15 +1737,17 @@ onBeforeUnmount(() => {
             :model-list="modelList"
             :selected-model-id="selectedModelId"
             :context-usage="contextUsage"
+            :context-previewing="contextPreviewing"
             :data-source="dataSource"
             :current-session="currentSession"
-            :skill-capabilities="[]"
-            :selected-skill-keys="[]"
+            :skill-capabilities="skillCapabilities"
+            :selected-skill-keys="selectedSkillKeys"
             :agent-skills="agentSkills"
             :selected-agent-skill-ids="selectedAgentSkillIds"
             @update:input="(val: string) => input = val"
-            @update:selected-model-id="(val: number | null) => selectedModelId = val"
-            @update:selected-agent-skill-ids="(val: number[]) => selectedAgentSkillIds = val"
+            @update:selected-model-id="handleSelectedModelUpdate"
+            @update:selected-skill-keys="handleSelectedSkillKeysUpdate"
+            @update:selected-agent-skill-ids="handleSelectedAgentSkillIdsUpdate"
             @submit="submit"
             @stop="stopStreaming"
           />

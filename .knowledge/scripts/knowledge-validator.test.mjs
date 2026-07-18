@@ -29,7 +29,7 @@ owners:
 tags:
   - architecture
 applies_to:
-  - logic-grpc-service/**
+  - smart-recruit-recruitment-service/**
 source_refs:
   - ${source}
 last_verified: 2026-07-10
@@ -50,7 +50,7 @@ policies:
     - decision
 routes:
   - match:
-      - logic-grpc-service/service/*.go
+      - smart-recruit-recruitment-service/internal/application/service/*.go
     documents:
       - system-overview
     triggers:
@@ -110,17 +110,17 @@ test("manifest validation rejects invalid and duplicate route or trigger items",
 });
 
 test("repository paths reject absolute and Windows forms", () => {
-  assert.equal(normalizeRepoPath("logic-grpc-service/service/a.go"), "logic-grpc-service/service/a.go");
+  assert.equal(normalizeRepoPath("smart-recruit-recruitment-service/internal/application/service/a.go"), "smart-recruit-recruitment-service/internal/application/service/a.go");
   assert.throws(() => normalizeRepoPath("/Users/test/repo/file"));
   assert.throws(() => normalizeRepoPath("C:\\repo\\file"));
   assert.throws(() => normalizeRepoPath("../outside"));
 });
 
 test("glob matching is deterministic", () => {
-  const regex = compileGlob("logic-grpc-service/service/*.go");
-  assert.equal(regex.test("logic-grpc-service/service/a.go"), true);
-  assert.equal(regex.test("logic-grpc-service/service/nested/a.go"), false);
-  assert.throws(() => compileGlob("logic-grpc-service/[ab].go"), /unsupported character class/);
+  const regex = compileGlob("smart-recruit-recruitment-service/internal/application/service/*.go");
+  assert.equal(regex.test("smart-recruit-recruitment-service/internal/application/service/a.go"), true);
+  assert.equal(regex.test("smart-recruit-recruitment-service/internal/application/service/nested/a.go"), false);
+  assert.throws(() => compileGlob("smart-recruit-recruitment-service/[ab].go"), /unsupported character class/);
 });
 
 test("valid repository passes scan and reference checks", () => {
@@ -198,19 +198,19 @@ test("impact detection requires a valid baseline and includes tracked and untrac
   git(root, ["init", "-q"]);
   git(root, ["config", "user.email", "test@example.com"]);
   git(root, ["config", "user.name", "Knowledge Test"]);
-  write(path.join(root, "logic-grpc-service", "service", "existing.go"), "package service\n");
+  write(path.join(root, "smart-recruit-recruitment-service", "internal", "application", "service", "existing.go"), "package service\n");
   git(root, ["add", "-A"]);
   git(root, ["commit", "-qm", "fixture"]);
   const base = git(root, ["rev-parse", "HEAD"]);
-  write(path.join(root, "logic-grpc-service", "service", "existing.go"), "package service\n// changed\n");
-  write(path.join(root, "logic-grpc-service", "service", "new.go"), "package service\n");
+  write(path.join(root, "smart-recruit-recruitment-service", "internal", "application", "service", "existing.go"), "package service\n// changed\n");
+  write(path.join(root, "smart-recruit-recruitment-service", "internal", "application", "service", "new.go"), "package service\n");
   const changed = collectChangedFiles(root, base);
-  assert.deepEqual(changed, ["logic-grpc-service/service/existing.go", "logic-grpc-service/service/new.go"]);
+  assert.deepEqual(changed, ["smart-recruit-recruitment-service/internal/application/service/existing.go", "smart-recruit-recruitment-service/internal/application/service/new.go"]);
   const impact = detectImpact({ root, baseTree: base });
   assert.deepEqual(impact.reviewed_documents, ["system-overview"]);
   assert.equal(impact.knowledge_impact.result, "update_required");
   assert.equal(impact.triggered_by.includes("new-top-level-module"), false);
-  write(path.join(root, "logic-grpc-service", "config", "config.example.yaml"), "mode: test\n");
+  write(path.join(root, "smart-recruit-gateway", "config", "config.example.yaml"), "mode: test\n");
   const triggerOnly = detectImpact({ root, baseTree: base });
   assert.equal(triggerOnly.triggered_by.includes("configuration-changed"), true);
   assert.notEqual(triggerOnly.knowledge_impact.result, "none");

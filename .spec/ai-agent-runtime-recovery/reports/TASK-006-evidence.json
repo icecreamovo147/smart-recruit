@@ -1,0 +1,237 @@
+{
+  "schemaVersion": 1,
+  "feature_name": "ai-agent-runtime-recovery",
+  "task_id": "TASK-006",
+  "base_sha": "dc018e6d28e8b1db277b3594fd435b581215eaf3",
+  "base_tree": "b805f67514efcef0f325b36931cb4634a0d573b9",
+  "head_sha": "dc018e6d28e8b1db277b3594fd435b581215eaf3",
+  "changed_files": [
+    ".spec/ai-agent-runtime-recovery/pipeline-state.json",
+    ".spec/ai-agent-runtime-recovery/reports/TASK-006-evidence.json",
+    ".spec/ai-agent-runtime-recovery/reports/TASK-006-report.md",
+    "smart-recruit-ai-agent-service/internal/infrastructure/persistence/llm_runtime.go",
+    "smart-recruit-ai-agent-service/internal/infrastructure/persistence/native_store.go",
+    "smart-recruit-ai-agent-service/internal/infrastructure/persistence/native_store_owner_role_test.go",
+    "smart-recruit-ai-agent-service/internal/interfaces/grpc/native_ai_chat_test.go",
+    "smart-recruit-ai-agent-service/internal/interfaces/grpc/native_servers.go"
+  ],
+  "scope": {
+    "status": "passed",
+    "base_tree": "b805f67514efcef0f325b36931cb4634a0d573b9",
+    "forbidden": [],
+    "out_of_scope": [],
+    "allowed": [
+      ".spec/ai-agent-runtime-recovery/pipeline-state.json",
+      ".spec/ai-agent-runtime-recovery/reports/TASK-006-evidence.json",
+      ".spec/ai-agent-runtime-recovery/reports/TASK-006-report.md",
+      "smart-recruit-ai-agent-service/internal/infrastructure/persistence/llm_runtime.go",
+      "smart-recruit-ai-agent-service/internal/infrastructure/persistence/native_store.go",
+      "smart-recruit-ai-agent-service/internal/infrastructure/persistence/native_store_owner_role_test.go",
+      "smart-recruit-ai-agent-service/internal/interfaces/grpc/native_ai_chat_test.go",
+      "smart-recruit-ai-agent-service/internal/interfaces/grpc/native_servers.go"
+    ]
+  },
+  "checks": [
+    {
+      "command": "GOWORK=off go test ./internal/interfaces/grpc -run 'TestHRChatRuntimeAppliesAgentPromptAndManualAgentSkills|TestHRChatRuntimeCapabilityBindingsRestrictApplicationTool|TestHRChatRuntimeAutoSelectsEligibleAgentSkill|TestHRChatRuntimeSelectedCapabilitiesRestrictAgentSkillSelection|TestConfirmAgentRun' -count=1 -v (smart-recruit-ai-agent-service)",
+      "status": "passed",
+      "exit_code": 0,
+      "started_at": "2026-07-14T19:20:50Z",
+      "duration_ms": 3866
+    },
+    {
+      "command": "GOWORK=off go test ./internal/infrastructure/persistence -run 'TestNativeStoreChatMessagePersistsAgentSkillMetadata|TestNativeStoreChatOwnerRoleIsolationWithHRIDCollision' -count=1 -v (smart-recruit-ai-agent-service)",
+      "status": "passed",
+      "exit_code": 0,
+      "started_at": "2026-07-14T19:15:00Z",
+      "duration_ms": 3024
+    },
+    {
+      "command": "GOWORK=off go test ./... (smart-recruit-ai-agent-service)",
+      "status": "passed",
+      "exit_code": 0,
+      "started_at": "2026-07-14T19:21:20Z",
+      "duration_ms": 3191
+    },
+    {
+      "command": "git diff --name-only",
+      "status": "passed",
+      "exit_code": 0,
+      "started_at": "2026-07-14T19:24:22Z",
+      "duration_ms": 8
+    },
+    {
+      "command": "bash .spec/ai-agent-runtime-recovery/scripts/check-task-scope.sh TASK-006",
+      "status": "passed",
+      "exit_code": 0,
+      "started_at": "2026-07-14T19:21:20Z",
+      "duration_ms": 181
+    },
+    {
+      "command": "bash .spec/ai-agent-runtime-recovery/scripts/agent-check.sh",
+      "status": "passed",
+      "exit_code": 0,
+      "started_at": "2026-07-14T19:22:20Z",
+      "duration_ms": 2473
+    },
+    {
+      "command": "node .knowledge/scripts/detect-impact.mjs --root . --base-tree b805f67514efcef0f325b36931cb4634a0d573b9",
+      "status": "passed",
+      "exit_code": 0,
+      "started_at": "2026-07-14T19:16:37Z",
+      "duration_ms": 61
+    }
+  ],
+  "review": {
+    "type": "independent-read-only-subagent",
+    "round": 3,
+    "verdict": "通过",
+    "reviewers": [
+      {
+        "round": 1,
+        "reviewer": "independent-read-only-subagent: Curie (019f620b-c9ca-7ab2-b784-b5bfc881e7e4)",
+        "verdict": "不通过",
+        "notes": [
+          "Reported selected skill_capability_keys restricted tools but not Agent Skill selection."
+        ]
+      },
+      {
+        "round": 2,
+        "reviewer": "independent-read-only-subagent: Locke (019f620f-2236-7a90-b158-6bd79559be91)",
+        "verdict": "不通过",
+        "notes": [
+          "Reported AgentConfig temperature_override was rendered but not applied to provider execution."
+        ]
+      },
+      {
+        "round": 3,
+        "reviewer": "independent-read-only-subagent: James (019f6214-54ee-7450-8197-aa1771ae7531)",
+        "verdict": "通过",
+        "notes": [
+          "Confirmed default AgentConfig loading, prompt/instruction rendering, capability/tool/skill filtering, metadata persistence, and temperature override application."
+        ]
+      }
+    ],
+    "completed_at": "2026-07-14T19:24:22Z",
+    "blocking_reason": ""
+  },
+  "human_confirmation": {
+    "required": false,
+    "confirmed": true,
+    "confirmed_by": "not_required",
+    "confirmed_at": "2026-07-14T19:24:22Z",
+    "confirmation_text": "TASK-006 does not require human confirmation."
+  },
+  "exceptions": [],
+  "knowledgeImpact": {
+    "result": "update_required",
+    "triggeredBy": [
+      "configuration-changed",
+      "covered-path-changed",
+      "fallback-behavior-changed",
+      "memory-behavior-changed",
+      "retrieval-behavior-changed",
+      "service-boundary-changed"
+    ],
+    "reviewResults": [
+      {
+        "document": "agent-runtime",
+        "verdict": "CANDIDATE",
+        "evidence": [
+          "TASK-006 wires HR runtime to AgentConfig, prompts, capability filters, Agent Skill selection, and temperature override. Knowledge edits are outside TASK scope."
+        ]
+      },
+      {
+        "document": "ai-configuration-governance",
+        "verdict": "CANDIDATE",
+        "evidence": [
+          "TASK-006 makes AgentConfig prompt_template_id, instruction, max_iterations metadata, temperature_override, tool bindings, and capability bindings affect runtime requests."
+        ]
+      },
+      {
+        "document": "agent-skill",
+        "verdict": "CANDIDATE",
+        "evidence": [
+          "TASK-006 uses existing Agent Skill policy selection for manual and rule-based runtime selection and persists selected skill IDs/names on chat history."
+        ]
+      },
+      {
+        "document": "semantic-retrieval",
+        "verdict": "CANDIDATE",
+        "evidence": [
+          "TASK-006 keeps embedding-backed semantic retrieval out of scope while preserving rule selection and capability eligibility for Agent Skills."
+        ]
+      },
+      {
+        "document": "debug-ai-configuration",
+        "verdict": "CANDIDATE",
+        "evidence": [
+          "TASK-006 changes debug expectations because runtime now reloads prompt/agent configuration per request."
+        ]
+      },
+      {
+        "document": "debug-agent-retrieval",
+        "verdict": "CANDIDATE",
+        "evidence": [
+          "TASK-006 changes Agent Skill runtime selection behavior and selected metadata persistence."
+        ]
+      },
+      {
+        "document": "persistence-and-migrations",
+        "verdict": "CANDIDATE",
+        "evidence": [
+          "TASK-006 writes existing chat history Agent Skill JSON columns without schema migrations."
+        ]
+      },
+      {
+        "document": "mcp-policy-audit",
+        "verdict": "UNCHANGED",
+        "evidence": [
+          "Reviewed due capability/tool filtering; TASK-006 does not implement MCP live execution or policy audit."
+        ]
+      },
+      {
+        "document": "mcp-tool-governance",
+        "verdict": "UNCHANGED",
+        "evidence": [
+          "Reviewed due tool availability; TASK-006 does not change MCP tool governance execution."
+        ]
+      },
+      {
+        "document": "protobuf-and-migration-change",
+        "verdict": "UNCHANGED",
+        "evidence": [
+          "No protobuf or migration files were changed."
+        ]
+      },
+      {
+        "document": "service-boundaries",
+        "verdict": "UNCHANGED",
+        "evidence": [
+          "Current microservice boundaries remain unchanged."
+        ]
+      }
+    ],
+    "coverageGap": false,
+    "validationExitCode": 0
+  },
+  "skipped_checks": [
+    {
+      "check": "pnpm --filter hr-frontend typecheck",
+      "reason": "HR frontend was not touched in TASK-006."
+    },
+    {
+      "check": "Gateway/frontend payload mapping tests",
+      "reason": "No Gateway or frontend payload mapping files were touched in TASK-006. agent-check still ran Gateway tests because prior staged TASK-004 Gateway files exist, and those tests passed."
+    },
+    {
+      "check": "live MCP/SKILL execution smoke",
+      "reason": "MCP live execution is explicitly out of scope for TASK-006 and belongs to TASK-007."
+    }
+  ],
+  "blocked": {
+    "status": false,
+    "reason": "",
+    "unresolved_findings": []
+  }
+}

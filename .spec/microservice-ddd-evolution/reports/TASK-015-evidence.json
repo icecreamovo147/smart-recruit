@@ -1,0 +1,158 @@
+{
+  "schemaVersion": 1,
+  "feature_name": "microservice-ddd-evolution",
+  "task_id": "TASK-015",
+  "base_sha": "c9d1e313435aa82eb2877ac1011b4be1d987f274",
+  "base_tree": "fc8fb85682d605a8bfcfc7aa1d6b21263f58c99b",
+  "head_sha": "c9d1e313435aa82eb2877ac1011b4be1d987f274",
+  "changed_files": [
+    "smart-recruit-recruitment-service/internal/application/doc.go",
+    "smart-recruit-recruitment-service/internal/application/command/doc.go",
+    "smart-recruit-recruitment-service/internal/application/dto/doc.go",
+    "smart-recruit-recruitment-service/internal/application/port/doc.go",
+    "smart-recruit-recruitment-service/internal/application/query/doc.go",
+    "smart-recruit-recruitment-service/internal/application/service/doc.go",
+    "smart-recruit-recruitment-service/internal/docs/core_domain_inventory.md",
+    "smart-recruit-recruitment-service/internal/domain/doc.go",
+    "smart-recruit-recruitment-service/internal/domain/event/doc.go",
+    "smart-recruit-recruitment-service/internal/domain/model/doc.go",
+    "smart-recruit-recruitment-service/internal/domain/policy/doc.go",
+    "smart-recruit-recruitment-service/internal/domain/repository/doc.go",
+    "smart-recruit-recruitment-service/internal/domain/service/doc.go",
+    "smart-recruit-recruitment-service/internal/domain/valueobject/doc.go",
+    "smart-recruit-recruitment-service/internal/infrastructure/doc.go",
+    "smart-recruit-recruitment-service/internal/infrastructure/client/doc.go",
+    "smart-recruit-recruitment-service/internal/infrastructure/mq/doc.go",
+    "smart-recruit-recruitment-service/internal/infrastructure/oss/doc.go",
+    "smart-recruit-recruitment-service/internal/infrastructure/persistence/doc.go",
+    "smart-recruit-recruitment-service/internal/interfaces/doc.go",
+    "smart-recruit-recruitment-service/internal/interfaces/grpc/doc.go",
+    "smart-recruit-recruitment-service/internal/interfaces/mapper/doc.go",
+    ".spec/microservice-ddd-evolution/reports/TASK-015-report.md",
+    ".spec/microservice-ddd-evolution/reports/TASK-015-evidence.json"
+  ],
+  "scope": {
+    "status": "passed",
+    "checked_by": "bash .spec/microservice-ddd-evolution/scripts/check-task-scope.sh TASK-015",
+    "out_of_scope": [],
+    "forbidden": []
+  },
+  "checks": [
+    {
+      "command": "go test ./...",
+      "exit_code": 0,
+      "started_at": "2026-07-13T09:16:00Z",
+      "duration_ms": 550,
+      "status": "passed",
+      "summary": "smart-recruit-recruitment-service package tests passed with the new DDD skeleton packages."
+    },
+    {
+      "command": "node scripts/check-mysql-table-ownership.mjs",
+      "exit_code": 0,
+      "started_at": "2026-07-13T09:16:00Z",
+      "duration_ms": 96,
+      "status": "passed",
+      "summary": "mysql_table_ownership: PASS (67 tables, single MySQL instance)"
+    },
+    {
+      "command": "node scripts/check-backend-boundaries.mjs",
+      "exit_code": 0,
+      "started_at": "2026-07-13T09:16:00Z",
+      "duration_ms": 187,
+      "status": "passed",
+      "summary": "backend_boundary_result: PASS"
+    },
+    {
+      "command": "git diff --name-only",
+      "exit_code": 0,
+      "started_at": "2026-07-13T09:16:00Z",
+      "duration_ms": 1,
+      "status": "passed",
+      "summary": "Tracked diff was empty before report creation because TASK-015 added untracked files; git status and git ls-files --others listed all new files."
+    },
+    {
+      "command": "bash .spec/microservice-ddd-evolution/scripts/check-task-scope.sh TASK-015",
+      "exit_code": 0,
+      "started_at": "2026-07-13T09:16:00Z",
+      "duration_ms": 31,
+      "status": "passed",
+      "summary": "Scope check passed for TASK-015. Changed files: 24"
+    },
+    {
+      "command": "bash .spec/microservice-ddd-evolution/scripts/agent-check.sh",
+      "exit_code": 0,
+      "started_at": "2026-07-13T09:16:00Z",
+      "duration_ms": 1424,
+      "status": "passed",
+      "summary": "Harness JSON validation passed. Running go test ./... in smart-recruit-recruitment-service passed."
+    }
+  ],
+  "non_blocking_checks": [
+    {
+      "command": "node .knowledge/scripts/detect-impact.mjs --root . --base-tree fc8fb85682d605a8bfcfc7aa1d6b21263f58c99b",
+      "exit_code": 1,
+      "started_at": "2026-07-13T09:16:00Z",
+      "duration_ms": 1,
+      "status": "failed",
+      "summary": "Pre-existing active knowledge source_refs still point at removed logic-grpc-service/web-gin-service paths; TASK-015 scope does not allow .knowledge/** edits, so this is recorded as candidate_required."
+    }
+  ],
+  "review": {
+    "type": "self-review",
+    "round": 1,
+    "verdict": "通过",
+    "findings": []
+  },
+  "human_confirmation": {
+    "required": false,
+    "confirmed": true,
+    "confirmed_by": "not_required",
+    "confirmed_at": "2026-07-13T09:15:00Z",
+    "confirmation_text": "TASK-015 does not require human confirmation; user authorized continuing future TASKs unless a blocking issue needs intervention."
+  },
+  "exceptions": [],
+  "knowledgeImpact": {
+    "result": "candidate_required",
+    "triggeredBy": [
+      "smart-recruit-recruitment-service/internal/docs/core_domain_inventory.md",
+      "smart-recruit-recruitment-service/internal/domain/**",
+      "smart-recruit-recruitment-service/internal/application/**",
+      "smart-recruit-recruitment-service/internal/infrastructure/**",
+      "smart-recruit-recruitment-service/internal/interfaces/**"
+    ],
+    "reviewResults": [
+      {
+        "document": ".knowledge/architecture/service-boundaries.md",
+        "verdict": "CANDIDATE",
+        "evidence": [
+          "TASK-015 creates the Recruitment DDD target boundary and records current service runtime ownership while active knowledge still references legacy monolith paths."
+        ]
+      },
+      {
+        "document": ".knowledge/domains/recruitment.md",
+        "verdict": "CANDIDATE",
+        "evidence": [
+          "TASK-015 inventories jobs, candidate profiles, resumes, applications, collaboration, taxonomy, and usage stats for the new Recruitment service boundary."
+        ]
+      },
+      {
+        "document": ".knowledge/domains/recruitment-lifecycle.md",
+        "verdict": "CANDIDATE",
+        "evidence": [
+          "TASK-015 records lifecycle dependencies across Recruitment, Interview, Offer, Notification, and platform outbox without changing runtime behavior."
+        ]
+      },
+      {
+        "document": ".knowledge/runbooks/debug-recruitment-lifecycle.md",
+        "verdict": "CANDIDATE",
+        "evidence": [
+          "TASK-015 establishes future local package anchors for Recruitment debugging while current runbook source_refs still point at removed legacy paths."
+        ]
+      }
+    ],
+    "coverageGap": false,
+    "validationExitCode": 1,
+    "reason": "Knowledge impact detection cannot complete until pre-existing source_ref debt is resolved; TASK-015 scope does not allow editing .knowledge/**."
+  },
+  "skipped_checks": []
+}

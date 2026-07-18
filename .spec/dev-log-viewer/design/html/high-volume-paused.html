@@ -1,0 +1,246 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Smart Recruit Dev Logs - High Volume</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "background": "#10131a",
+                        "on-secondary-fixed-variant": "#005321",
+                        "tertiary-container": "#df7412",
+                        "on-secondary": "#003915",
+                        "on-primary-fixed": "#001a42",
+                        "on-background": "#e1e2ec",
+                        "on-surface-variant": "#c2c6d6",
+                        "primary-container": "#4d8eff",
+                        "surface-container-highest": "#32353c",
+                        "on-primary-container": "#00285d",
+                        "tertiary-fixed-dim": "#ffb786",
+                        "on-tertiary-container": "#461f00",
+                        "on-secondary-fixed": "#002109",
+                        "primary": "#adc6ff",
+                        "surface": "#10131a",
+                        "on-primary-fixed-variant": "#004395",
+                        "on-tertiary": "#502400",
+                        "error": "#ffb4ab",
+                        "on-secondary-container": "#004119",
+                        "inverse-surface": "#e1e2ec",
+                        "on-primary": "#002e6a",
+                        "secondary": "#4ae176",
+                        "on-error-container": "#ffdad6",
+                        "secondary-fixed": "#6bff8f",
+                        "primary-fixed": "#d8e2ff",
+                        "primary-fixed-dim": "#adc6ff",
+                        "error-container": "#93000a",
+                        "surface-container": "#1d2027",
+                        "outline-variant": "#424754",
+                        "outline": "#8c909f",
+                        "surface-container-lowest": "#0b0e15",
+                        "surface-container-high": "#272a31",
+                        "surface-dim": "#10131a",
+                        "surface-container-low": "#191b23",
+                        "on-surface": "#e1e2ec",
+                        "inverse-on-surface": "#2e3038",
+                        "surface-variant": "#32353c",
+                        "on-tertiary-fixed": "#311400",
+                        "secondary-fixed-dim": "#4ae176",
+                        "on-error": "#690005",
+                        "inverse-primary": "#005ac2",
+                        "on-tertiary-fixed-variant": "#723600",
+                        "tertiary-fixed": "#ffdcc6",
+                        "tertiary": "#ffb786",
+                        "surface-bright": "#363941",
+                        "surface-tint": "#adc6ff",
+                        "secondary-container": "#00b954"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.125rem",
+                        "lg": "0.25rem",
+                        "xl": "0.5rem",
+                        "full": "0.75rem"
+                    },
+                    "spacing": {
+                        "xl": "24px",
+                        "lg": "16px",
+                        "gutter": "8px",
+                        "md": "12px",
+                        "sm": "8px",
+                        "sidebar_width": "240px",
+                        "base": "4px",
+                        "xs": "4px"
+                    },
+                    "fontFamily": {
+                        "label-xs": ["Inter"],
+                        "body-md": ["Inter"],
+                        "body-sm": ["Inter"],
+                        "headline-lg": ["Inter"],
+                        "code-md": ["JetBrains Mono"],
+                        "headline-md": ["Inter"],
+                        "code-sm": ["JetBrains Mono"]
+                    },
+                    "fontSize": {
+                        "label-xs": ["11px", { "lineHeight": "16px", "letterSpacing": "0.05em", "fontWeight": "700" }],
+                        "body-md": ["14px", { "lineHeight": "20px", "fontWeight": "400" }],
+                        "body-sm": ["13px", { "lineHeight": "18px", "fontWeight": "400" }],
+                        "headline-lg": ["20px", { "lineHeight": "28px", "letterSpacing": "-0.01em", "fontWeight": "600" }],
+                        "code-md": ["13px", { "lineHeight": "20px", "fontWeight": "400" }],
+                        "headline-md": ["16px", { "lineHeight": "24px", "letterSpacing": "-0.01em", "fontWeight": "600" }],
+                        "code-sm": ["12px", { "lineHeight": "16px", "fontWeight": "400" }]
+                    }
+                }
+            }
+        }
+    </script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&amp;family=JetBrains+Mono:wght@400&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+</head>
+<body class="bg-background text-on-surface h-screen w-screen overflow-hidden flex flex-col font-body-md">
+<!-- TopNavBar -->
+<header class="bg-surface-container dark:bg-surface-container font-body-md text-body-md border-b border-outline-variant dark:border-outline-variant flex justify-between items-center w-full px-lg py-xs h-12 shrink-0 docked full-width top-0">
+<div class="flex items-center gap-4">
+<span class="font-headline-md text-headline-md font-bold text-on-surface dark:text-on-surface">Smart Recruit Dev Logs</span>
+<div class="flex items-center bg-background border border-outline-variant rounded px-2 py-1 focus-within:border-primary">
+<span class="material-symbols-outlined text-[16px] text-outline mr-2" data-icon="search">search</span>
+<input class="bg-transparent border-none text-on-surface focus:ring-0 text-[13px] w-64 p-0 font-code-md" placeholder="Search logs (e.g. error OR warn)..." type="text"/>
+</div>
+</div>
+<div class="flex items-center gap-4">
+<button class="hover:bg-surface-container-highest dark:hover:bg-surface-container-highest p-1 rounded transition-colors duration-150">
+<span class="material-symbols-outlined text-on-surface-variant dark:text-on-surface-variant" data-icon="sensors">sensors</span>
+</button>
+<button class="hover:bg-surface-container-highest dark:hover:bg-surface-container-highest p-1 rounded transition-colors duration-150">
+<span class="material-symbols-outlined text-on-surface-variant dark:text-on-surface-variant" data-icon="speed">speed</span>
+</button>
+<button class="hover:bg-surface-container-highest dark:hover:bg-surface-container-highest p-1 rounded transition-colors duration-150">
+<span class="material-symbols-outlined text-on-surface-variant dark:text-on-surface-variant" data-icon="account_circle">account_circle</span>
+</button>
+</div>
+</header>
+<div class="flex flex-1 overflow-hidden relative">
+<!-- SideNavBar -->
+<aside class="bg-surface-container-low dark:bg-surface-container-low border-r border-outline-variant dark:border-outline-variant h-full w-sidebar_width shrink-0 flex flex-col font-label-xs text-label-xs">
+<div class="p-lg border-b border-outline-variant flex flex-col gap-1">
+<span class="text-on-surface-variant">User Profile</span>
+<span class="font-headline-md text-headline-md text-on-surface">Services</span>
+<span class="text-on-surface-variant">Instance Status</span>
+</div>
+<nav class="flex-1 py-xs flex flex-col gap-1">
+<a class="flex items-center gap-3 px-lg py-md text-primary dark:text-primary bg-surface-container-highest dark:bg-surface-container-highest transition-all duration-200" href="#">
+<span class="material-symbols-outlined" data-icon="dns">dns</span>
+<span>Backend</span>
+</a>
+<a class="flex items-center gap-3 px-lg py-md text-on-surface-variant dark:text-on-surface-variant hover:bg-surface-container-high dark:hover:bg-surface-container-high transition-all duration-200" href="#">
+<span class="material-symbols-outlined" data-icon="router">router</span>
+<span>Gateway</span>
+</a>
+<a class="flex items-center gap-3 px-lg py-md text-on-surface-variant dark:text-on-surface-variant hover:bg-surface-container-high dark:hover:bg-surface-container-high transition-all duration-200" href="#">
+<span class="material-symbols-outlined" data-icon="web">web</span>
+<span>Frontend</span>
+</a>
+</nav>
+<div class="p-lg border-t border-outline-variant">
+<button class="w-full bg-primary text-on-primary py-1 rounded hover:bg-primary-fixed transition-colors">Connect New Service</button>
+</div>
+</aside>
+<!-- Main Content Canvas -->
+<main class="flex-1 flex flex-col min-w-0 bg-background relative">
+<!-- High Volume Warning Banner -->
+<div class="bg-error-container/20 border-b border-error-container px-lg py-2 flex items-center justify-between shrink-0">
+<div class="flex items-center gap-2 text-error">
+<span class="material-symbols-outlined text-[18px]" data-icon="warning">warning</span>
+<span class="font-body-sm">High log volume: 1,240 messages dropped</span>
+</div>
+<div class="flex items-center gap-2">
+<span class="font-body-sm text-on-surface-variant">Buffer: 92%</span>
+<div class="w-24 h-1 bg-surface-variant rounded overflow-hidden">
+<div class="h-full bg-error w-[92%]"></div>
+</div>
+</div>
+</div>
+<!-- Log Stream Toolbar -->
+<div class="bg-surface border-b border-outline-variant px-lg py-2 flex items-center justify-between shrink-0">
+<div class="flex items-center gap-2">
+<button class="border border-outline-variant text-on-surface px-3 py-1 rounded bg-transparent hover:bg-surface-container-high transition-colors font-body-sm flex items-center gap-1">
+<span class="material-symbols-outlined text-[14px]" data-icon="filter_list">filter_list</span>
+                        Filters
+                    </button>
+<div class="flex gap-1 ml-2">
+<span class="bg-surface-container-high text-on-surface px-2 py-0.5 rounded text-[11px] font-code-sm border border-outline-variant">level:error</span>
+<span class="bg-surface-container-high text-on-surface px-2 py-0.5 rounded text-[11px] font-code-sm border border-outline-variant">level:warn</span>
+</div>
+</div>
+<div class="flex items-center gap-3">
+<span class="text-on-surface-variant text-[12px] flex items-center gap-1">
+<span class="w-2 h-2 rounded-full bg-outline"></span>
+                        Auto-scroll paused
+                    </span>
+<div class="border-l border-outline-variant h-4"></div>
+<span class="font-code-sm text-on-surface-variant">42,105 events</span>
+</div>
+</div>
+<!-- Log Stream Area -->
+<div class="flex-1 overflow-y-auto p-4 font-code-sm text-code-sm font-code-sm bg-background">
+<!-- Log Rows -->
+<div class="flex flex-col">
+<div class="flex gap-4 py-1 hover:bg-surface-container-high px-2 rounded -mx-2 transition-colors border-l-2 border-transparent">
+<span class="text-on-surface-variant w-32 shrink-0">14:32:10.102</span>
+<span class="w-12 shrink-0 text-primary">INFO</span>
+<span class="text-on-surface truncate">Request processed successfully [req_id=a1b2]</span>
+</div>
+<div class="flex gap-4 py-1 hover:bg-surface-container-high px-2 rounded -mx-2 transition-colors border-l-2 border-transparent">
+<span class="text-on-surface-variant w-32 shrink-0">14:32:10.150</span>
+<span class="w-12 shrink-0 text-tertiary-container">WARN</span>
+<span class="text-on-surface truncate">DB query execution time high: 450ms [query_id=q8x]</span>
+</div>
+<!-- ERROR Log -->
+<div class="flex gap-4 py-1 bg-error-container/10 px-2 rounded -mx-2 transition-colors border-l-2 border-error">
+<span class="text-on-surface-variant w-32 shrink-0">14:32:10.185</span>
+<span class="w-12 shrink-0 text-error font-bold">ERROR</span>
+<span class="text-on-surface">Connection to Redis cache failed: Timeout after 2000ms</span>
+</div>
+<div class="flex gap-4 py-1 hover:bg-surface-container-high px-2 rounded -mx-2 transition-colors border-l-2 border-transparent">
+<span class="text-on-surface-variant w-32 shrink-0">14:32:10.201</span>
+<span class="w-12 shrink-0 text-primary">INFO</span>
+<span class="text-on-surface truncate">Initiating retry sequence for [job=cache_sync]</span>
+</div>
+<div class="flex gap-4 py-1 bg-error-container/10 px-2 rounded -mx-2 transition-colors border-l-2 border-error">
+<span class="text-on-surface-variant w-32 shrink-0">14:32:10.210</span>
+<span class="w-12 shrink-0 text-error font-bold">ERROR</span>
+<span class="text-on-surface">Retry limit exceeded for [job=cache_sync]. Marking job as failed.</span>
+</div>
+<div class="flex gap-4 py-1 hover:bg-surface-container-high px-2 rounded -mx-2 transition-colors border-l-2 border-transparent">
+<span class="text-on-surface-variant w-32 shrink-0">14:32:10.250</span>
+<span class="w-12 shrink-0 text-primary">INFO</span>
+<span class="text-on-surface truncate">User authentication successful [user_id=8923]</span>
+</div>
+</div>
+</div>
+<!-- Floating Jump to Latest Button -->
+<div class="absolute bottom-8 left-1/2 transform -translate-x-1/2">
+<button class="bg-surface-container-highest border border-outline text-on-surface px-4 py-2 rounded-full shadow-lg flex items-center gap-2 hover:bg-surface-container-high transition-all font-body-sm">
+<span class="material-symbols-outlined text-[18px]" data-icon="arrow_downward">arrow_downward</span>
+                    Jump to latest
+                    <span class="bg-primary/20 text-primary text-[10px] px-1.5 py-0.5 rounded-full ml-1">942 new</span>
+</button>
+</div>
+</main>
+<!-- NavigationDrawer (Log Details) - Hidden by default for this view, but structure included -->
+<!-- <aside class="bg-surface-container-high dark:bg-surface-container-high text-primary dark:text-primary font-code-sm text-code-sm border-l border-outline-variant dark:border-outline-variant h-full w-96 flex flex-col fixed right-0 top-0 translate-x-full transition-transform"> ... </aside> -->
+</div>
+<!-- Footer -->
+<footer class="bg-surface-container-lowest dark:bg-surface-container-lowest font-label-xs text-label-xs border-t border-outline-variant dark:border-outline-variant flex justify-between items-center px-lg py-xs z-50 h-8 shrink-0 fixed bottom-0 left-0 w-full">
+<span class="text-secondary dark:text-secondary">v2.4.0-stable | System Health: 100%</span>
+<div class="flex gap-4">
+<a class="text-on-surface-variant dark:text-on-surface-variant hover:text-on-surface dark:hover:text-on-surface cursor-default" href="#">Metrics</a>
+<a class="text-on-surface-variant dark:text-on-surface-variant hover:text-on-surface dark:hover:text-on-surface cursor-default" href="#">Docs</a>
+<a class="text-on-surface-variant dark:text-on-surface-variant hover:text-on-surface dark:hover:text-on-surface cursor-default" href="#">Support</a>
+</div>
+</footer>
+</body></html>

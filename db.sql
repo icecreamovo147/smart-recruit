@@ -272,7 +272,15 @@ CREATE TABLE IF NOT EXISTS `ai_chat_sessions` (
   `owner_id` BIGINT UNSIGNED NOT NULL DEFAULT 0 COMMENT '归属用户ID',
   `title` VARCHAR(255) NOT NULL COMMENT '会话标题',
   `application_id` BIGINT UNSIGNED NOT NULL DEFAULT 0 COMMENT '绑定的投递记录ID，0表示普通数据问答',
+  `session_type` VARCHAR(32) NOT NULL DEFAULT 'general' COMMENT '会话类型：general/resume/job_match/interview/offer/progress',
+  `source_type` VARCHAR(32) NOT NULL DEFAULT '' COMMENT '来源类型：job/application/resume/interview/offer等',
+  `source_id` BIGINT UNSIGNED NOT NULL DEFAULT 0 COMMENT '来源业务ID',
+  `source_title` VARCHAR(255) NOT NULL DEFAULT '' COMMENT '来源标题',
+  `summary` VARCHAR(500) NOT NULL DEFAULT '' COMMENT '会话摘要',
+  `last_message_preview` VARCHAR(500) NOT NULL DEFAULT '' COMMENT '最近消息摘要',
+  `message_count` INT NOT NULL DEFAULT 0 COMMENT '会话消息数',
   `latest_context_usage_json` TEXT NULL COMMENT '当前会话最近一次上下文占用快照(JSON)',
+  `selected_model_id` BIGINT UNSIGNED NOT NULL DEFAULT 0 COMMENT '下一轮请求选择的模型ID，0表示跟随默认模型',
   `active_run_id` BIGINT NULL COMMENT 'Current active agent_runs.id for this session',
   `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   `updated_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
@@ -281,8 +289,11 @@ CREATE TABLE IF NOT EXISTS `ai_chat_sessions` (
   KEY `idx_hr_updated_at` (`hr_id`, `updated_at`),
   KEY `idx_hr_deleted_updated` (`hr_id`, `deleted_at`, `updated_at`),
   KEY `idx_owner_deleted_updated` (`owner_role`, `owner_id`, `deleted_at`, `updated_at`),
+  KEY `idx_owner_type_updated` (`owner_role`, `owner_id`, `session_type`, `updated_at`),
+  KEY `idx_owner_source` (`owner_role`, `owner_id`, `source_type`, `source_id`),
   KEY `idx_application_id` (`application_id`),
-  KEY `idx_ai_chat_sessions_active_run` (`active_run_id`)
+  KEY `idx_ai_chat_sessions_active_run` (`active_run_id`),
+  KEY `idx_ai_chat_sessions_selected_model` (`selected_model_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='AI 会话表';
 
 CREATE TABLE IF NOT EXISTS `ai_chat_history` (
@@ -550,7 +561,7 @@ CREATE TABLE IF NOT EXISTS `event_outbox` (
   `aggregate_type` VARCHAR(64) NOT NULL COMMENT 'application / resume / notification',
   `aggregate_id` BIGINT UNSIGNED NOT NULL DEFAULT 0,
   `routing_key` VARCHAR(128) NOT NULL,
-  `producer` VARCHAR(128) NOT NULL DEFAULT 'logic-grpc-service.outbox' COMMENT '事件生产者',
+  `producer` VARCHAR(128) NOT NULL DEFAULT 'smart-recruit-domain-go.outbox' COMMENT '事件生产者',
   `idempotency_key` VARCHAR(255) NOT NULL DEFAULT '' COMMENT '消费者幂等键',
   `correlation_id` VARCHAR(128) NOT NULL DEFAULT '' COMMENT '请求/流程关联ID',
   `causation_id` VARCHAR(128) NOT NULL DEFAULT '' COMMENT '触发当前事件的命令或事件ID',
@@ -1241,13 +1252,18 @@ CREATE TABLE IF NOT EXISTS `llm_providers` (
   `name` VARCHAR(128) NOT NULL COMMENT 'Provider display name',
   `base_url` VARCHAR(512) NOT NULL COMMENT 'API base URL',
   `api_key_encrypted` VARCHAR(512) NOT NULL COMMENT 'AES-256-GCM encrypted API key',
-  `provider_type` VARCHAR(64) NOT NULL COMMENT 'openai_compatible/anthropic/deepseek/ollama',
+  `provider_type` VARCHAR(64) NOT NULL COMMENT 'openai/anthropic/azure_openai/google_gemini/ollama/openai_compatible/custom',
+  `protocol_type` VARCHAR(64) NOT NULL DEFAULT 'openai_chat_completions' COMMENT 'Runtime protocol adapter',
+  `auth_type` VARCHAR(64) NOT NULL DEFAULT 'bearer' COMMENT 'Authentication strategy',
+  `api_version` VARCHAR(64) NULL COMMENT 'Provider API version, primarily Azure',
+  `discovery_url` VARCHAR(512) NULL COMMENT 'Optional explicit model discovery endpoint',
   `extra_headers` JSON COMMENT 'Extra HTTP headers as JSON object',
   `is_enabled` TINYINT(1) NOT NULL DEFAULT 1 COMMENT 'Whether provider is enabled',
   `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   `updated_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`),
   KEY `idx_provider_type` (`provider_type`),
+  KEY `idx_llm_provider_protocol_type` (`protocol_type`),
   KEY `idx_is_enabled` (`is_enabled`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='LLM provider configurations';
 
@@ -1255,11 +1271,20 @@ CREATE TABLE IF NOT EXISTS `llm_models` (
   `id` BIGINT NOT NULL AUTO_INCREMENT,
   `provider_id` BIGINT NOT NULL COMMENT 'FK to llm_providers.id',
   `model_name` VARCHAR(128) NOT NULL COMMENT 'Model name used in API calls',
+  `catalog_model_name` VARCHAR(256) NULL COMMENT 'Provider catalog model id when runtime name differs, e.g. Azure deployment',
   `display_name` VARCHAR(128) COMMENT 'Human-readable display name',
   `temperature` DOUBLE NOT NULL DEFAULT 0.7 COMMENT 'LLM temperature parameter',
   `top_p` DOUBLE NOT NULL DEFAULT 1.0 COMMENT 'LLM top_p parameter',
   `max_tokens` INT NOT NULL DEFAULT 4096 COMMENT 'Max tokens for generation (output budget)',
   `context_window_tokens` INT NOT NULL DEFAULT 0 COMMENT 'Total model context window tokens (input + output); 0 = unknown',
+  `provider_max_input_tokens` INT NULL COMMENT 'Provider-advertised input token limit',
+  `provider_max_output_tokens` INT NULL COMMENT 'Provider-advertised output token limit',
+  `capabilities` JSON NULL COMMENT 'Provider-advertised capabilities',
+  `metadata_source` VARCHAR(32) NOT NULL DEFAULT 'manual' COMMENT 'manual/provider/merged/mixed',
+  `metadata_sources` JSON NULL COMMENT 'Field-level metadata provenance captured when the user saved the model',
+  `metadata_synced_at` DATETIME NULL COMMENT 'Last provider metadata synchronization time',
+  `temperature_enabled` TINYINT(1) NOT NULL DEFAULT 1 COMMENT 'Whether temperature is sent to provider',
+  `top_p_enabled` TINYINT(1) NOT NULL DEFAULT 1 COMMENT 'Whether top_p is sent to provider',
   `max_concurrency` INT NOT NULL DEFAULT 10 COMMENT 'Max concurrent LLM calls',
   `timeout_seconds` INT NOT NULL DEFAULT 90 COMMENT 'Request timeout in seconds',
   `is_enabled` TINYINT(1) NOT NULL DEFAULT 1 COMMENT 'Whether model is enabled',
@@ -1274,6 +1299,54 @@ CREATE TABLE IF NOT EXISTS `llm_models` (
   UNIQUE KEY `uk_llm_global_default` (`global_default_key`),
   CONSTRAINT `fk_llm_models_provider` FOREIGN KEY (`provider_id`) REFERENCES `llm_providers` (`id`) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='LLM model configurations';
+
+CREATE TABLE IF NOT EXISTS `llm_model_catalog` (
+  `id` BIGINT NOT NULL AUTO_INCREMENT,
+  `provider_family` VARCHAR(64) NOT NULL COMMENT 'Stable provider family, e.g. deepseek/openai/anthropic',
+  `model_name` VARCHAR(256) NOT NULL COMMENT 'Provider catalog model identifier',
+  `display_name` VARCHAR(256) NULL COMMENT 'Human-readable model name',
+  `context_window_tokens` INT NULL COMMENT 'Total context window; NULL = unknown',
+  `max_input_tokens` INT NULL COMMENT 'Provider-advertised input limit; NULL = unknown',
+  `max_output_tokens` INT NULL COMMENT 'Provider-advertised output limit; NULL = unknown',
+  `temperature` DOUBLE NULL COMMENT 'Provider request default; NULL = unknown',
+  `top_p` DOUBLE NULL COMMENT 'Provider request default; NULL = unknown',
+  `capabilities` JSON NULL COMMENT 'Verified model capabilities',
+  `field_sources` JSON NULL COMMENT 'Per-field provenance overrides',
+  `source_type` VARCHAR(32) NOT NULL COMMENT 'official_document/provider_api/admin',
+  `source_url` VARCHAR(1024) NULL COMMENT 'Evidence URL without credentials',
+  `source_revision` VARCHAR(128) NOT NULL COMMENT 'Version of the imported source data',
+  `content_hash` CHAR(64) NOT NULL COMMENT 'SHA-256 of normalized catalog content',
+  `status` VARCHAR(32) NOT NULL DEFAULT 'active' COMMENT 'active/inactive',
+  `managed_by` VARCHAR(32) NOT NULL DEFAULT 'bundled' COMMENT 'bundled/admin/remote_sync',
+  `verified_at` DATETIME NULL,
+  `expires_at` DATETIME NULL,
+  `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_llm_model_catalog_family_model` (`provider_family`, `model_name`),
+  KEY `idx_llm_model_catalog_status` (`status`, `expires_at`),
+  KEY `idx_llm_model_catalog_hash` (`content_hash`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='Verified reusable LLM model metadata catalog';
+
+CREATE TABLE IF NOT EXISTS `llm_model_metadata_observations` (
+  `id` BIGINT NOT NULL AUTO_INCREMENT,
+  `provider_id` BIGINT NOT NULL COMMENT 'Provider that produced the observation',
+  `model_name` VARCHAR(256) NOT NULL,
+  `field_name` VARCHAR(64) NOT NULL COMMENT 'Observed metadata field',
+  `value_json` JSON NOT NULL COMMENT 'Typed observed value encoded as JSON',
+  `source_type` VARCHAR(32) NOT NULL COMMENT 'provider_api/provider_detail/official_document',
+  `source_ref` VARCHAR(1024) NULL COMMENT 'Sanitized endpoint or evidence URL',
+  `confidence` DECIMAL(5,4) NOT NULL DEFAULT 1.0000,
+  `content_hash` CHAR(64) NOT NULL COMMENT 'Deduplication hash excluding observation time',
+  `observed_at` DATETIME NOT NULL,
+  `expires_at` DATETIME NULL,
+  `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_llm_model_observation_hash` (`content_hash`),
+  KEY `idx_llm_model_observation_lookup` (`provider_id`, `model_name`, `field_name`, `observed_at`),
+  KEY `idx_llm_model_observation_expiry` (`expires_at`),
+  CONSTRAINT `fk_llm_model_observations_provider` FOREIGN KEY (`provider_id`) REFERENCES `llm_providers` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='Field-level model metadata observations and provenance';
 
 CREATE TABLE IF NOT EXISTS `embedding_providers` (
   `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,

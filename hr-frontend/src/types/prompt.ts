@@ -7,7 +7,8 @@ export interface PromptTemplate {
   variables_json: string     // JSON array string, e.g. '["name","job_title"]'
   version: number
   is_active: boolean
-  agent_type: string         // hr_agent / candidate_assistant
+  /** 绑定用途 key：聊天助手或后台自动任务，见 constants/promptAgentTypes */
+  agent_type: string
   prompt_role: string        // system / user
   created_by: number
   updated_by: number

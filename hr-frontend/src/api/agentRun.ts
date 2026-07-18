@@ -17,6 +17,7 @@ import router from '@/router'
 import { ElMessage } from 'element-plus'
 import request from './request'
 import { silentRefresh } from './authRefresh'
+import { contextGuardCodeFrom, contextGuardMessage } from '@/utils/contextUsage'
 
 const RUNS_BASE = '/api/v1/hr/ai/runs'
 
@@ -60,11 +61,55 @@ const parseSSEBlock = (block: string): { id?: string; data: string } => {
   return { id, data: dataLines.join('\n') }
 }
 
-const friendlyStreamMsg = (code: number, msg: string): string => {
+export const friendlyAgentRunStreamMsg = (code: number, msg: string): string => {
+  const guardMessage = contextGuardMessage(contextGuardCodeFrom(msg))
+  if (guardMessage) return guardMessage
   if (code === 42901) return msg || '今日 AI 使用次数已达上限，请明天再试'
   if (code === 42902) return msg || 'AI 请求太频繁，请稍后再试'
   if (code === 429) return msg || '请求过于频繁，请稍后再试'
   return msg || 'AI 服务响应错误'
+}
+
+export const normalizeAgentRunEvent = (event: AgentRunEvent): AgentRunEvent => {
+  if (!event.payload_json) {
+    return event
+  }
+  try {
+    const payload = JSON.parse(event.payload_json) as {
+      event_message?: string
+      display_message?: string
+      display_source?: string
+      step_key?: string
+      step_purpose?: string
+      tool_group?: string
+      status?: string
+      delta?: string
+      snapshot_text?: string
+      tool_name?: string
+      error_type?: string
+      error_message?: string
+      result_metadata?: AgentRunEvent['result_metadata']
+    }
+    const normalized: AgentRunEvent = {
+      ...event,
+      ...(payload.event_message && !event.event_message ? { event_message: payload.event_message } : {}),
+      ...(payload.display_message && !event.display_message ? { display_message: payload.display_message } : {}),
+      ...(payload.display_source && !event.display_source ? { display_source: payload.display_source } : {}),
+      ...(payload.step_key && !event.step_key ? { step_key: payload.step_key } : {}),
+      ...(payload.step_purpose && !event.step_purpose ? { step_purpose: payload.step_purpose } : {}),
+      ...(payload.tool_group && !event.tool_group ? { tool_group: payload.tool_group } : {}),
+      ...(payload.status && !event.status ? { status: payload.status } : {}),
+      ...(payload.delta && !event.delta ? { delta: payload.delta } : {}),
+      ...(payload.snapshot_text && !event.snapshot_text ? { snapshot_text: payload.snapshot_text } : {}),
+      ...(payload.tool_name && !event.tool_name ? { tool_name: payload.tool_name } : {}),
+      ...(payload.error_type && !event.error_type ? { error_type: payload.error_type } : {}),
+      ...(payload.error_message && !event.error_message ? { error_message: payload.error_message } : {}),
+      ...(payload.result_metadata && !event.result_metadata ? { result_metadata: payload.result_metadata } : {}),
+    }
+    return normalized
+  } catch {
+    return event
+  }
 }
 
 /**
@@ -139,7 +184,7 @@ export const subscribeAgentRunEvents = async (
         useAuthStore().$reset()
         router.push('/login')
       }
-      ElMessage.error(friendlyStreamMsg(code, message))
+      ElMessage.error(friendlyAgentRunStreamMsg(code, message))
       handlers.onDone?.()
       return
     }
@@ -174,7 +219,7 @@ export const subscribeAgentRunEvents = async (
       const { id, data: text } = parseSSEBlock(block)
       if (!text) return false
       try {
-        const payload = JSON.parse(text) as AgentRunEvent
+        const payload = normalizeAgentRunEvent(JSON.parse(text) as AgentRunEvent)
         if (payload.code && payload.code !== 0) {
           handlers.onError?.({
             code: payload.code,

@@ -1,0 +1,124 @@
+{
+  "schemaVersion": 1,
+  "feature_name": "microservice-runtime-implementation",
+  "task_id": "TASK-MRI-004",
+  "base_sha": "25aa60af7ce2cc8d450e82cb236c71631ff55eb0",
+  "base_tree": "1d248f118b2a33c54ff6a19621c56c4802723785",
+  "head_sha": "25aa60af7ce2cc8d450e82cb236c71631ff55eb0",
+  "head_tree": "pending-local-commit",
+  "changed_files": [
+    ".spec/microservice-runtime-implementation/pipeline-state.json",
+    ".spec/microservice-runtime-implementation/reports/TASK-MRI-004-evidence.json",
+    ".spec/microservice-runtime-implementation/reports/TASK-MRI-004-report.md",
+    "smart-recruit-platform-go/README.md",
+    "smart-recruit-platform-go/nacos/address.go",
+    "smart-recruit-platform-go/nacos/client.go",
+    "smart-recruit-platform-go/nacos/config.go",
+    "smart-recruit-platform-go/nacos/discovery.go",
+    "smart-recruit-platform-go/nacos/nacos_test.go"
+  ],
+  "scope": {
+    "status": "passed",
+    "command": "TASK_BASE_TREE=1d248f118b2a33c54ff6a19621c56c4802723785 bash .spec/microservice-runtime-implementation/scripts/check-task-scope.sh TASK-MRI-004",
+    "classification": "current",
+    "out_of_scope": [],
+    "forbidden": [],
+    "allowed_patterns": [
+      "smart-recruit-platform-go/**",
+      "smart-recruit-deploy/**",
+      "go.work",
+      "**/go.mod",
+      "**/go.sum",
+      ".spec/microservice-runtime-implementation/**"
+    ]
+  },
+  "checks": [
+    {
+      "command": "git diff --name-only",
+      "exit_code": 0,
+      "status": "passed",
+      "started_at": "2026-07-12T06:45:44.172Z",
+      "duration_ms": 43
+    },
+    {
+      "command": "cd smart-recruit-platform-go && GOWORK=off go test ./...",
+      "exit_code": 0,
+      "status": "passed",
+      "started_at": "2026-07-12T06:45:44.223Z",
+      "duration_ms": 780
+    },
+    {
+      "command": "node .knowledge/scripts/detect-impact.mjs --root . --base-tree 1d248f118b2a33c54ff6a19621c56c4802723785 --json",
+      "exit_code": 0,
+      "status": "passed",
+      "started_at": "2026-07-12T06:45:45.004Z",
+      "duration_ms": 662
+    },
+    {
+      "command": "TASK_BASE_TREE=1d248f118b2a33c54ff6a19621c56c4802723785 bash .spec/microservice-runtime-implementation/scripts/check-task-scope.sh TASK-MRI-004",
+      "exit_code": 0,
+      "status": "passed",
+      "started_at": "2026-07-12T06:45:45.668Z",
+      "duration_ms": 340
+    },
+    {
+      "command": "bash .spec/microservice-runtime-implementation/scripts/agent-check.sh",
+      "exit_code": 0,
+      "status": "passed",
+      "started_at": "2026-07-12T06:45:46.009Z",
+      "duration_ms": 769
+    },
+    {
+      "command": "node .agents/skills/spec-harness/scripts/validate-evidence.mjs --file .spec/microservice-runtime-implementation/reports/TASK-MRI-004-evidence.json",
+      "exit_code": 0,
+      "status": "passed",
+      "started_at": "2026-07-12T06:46:10.513Z",
+      "duration_ms": 78
+    }
+  ],
+  "review": {
+    "reviewer_type": "self-review",
+    "round": 1,
+    "verdict": "通过",
+    "findings": []
+  },
+  "human_confirmation": {
+    "required": false,
+    "confirmed": true,
+    "confirmed_at": "2026-07-12T06:48:00Z",
+    "source": "TASK-MRI-004 does not require human confirmation; harness-pipeline execution was explicitly requested by the user."
+  },
+  "exceptions": [],
+  "skipped_checks": [
+    {
+      "check": "Live Nacos server integration",
+      "reason": "TASK-MRI-004 validates the Nacos OpenAPI adapter with httptest and fallback behavior; full Compose Nacos runtime is assigned to deploy/compose TASKs."
+    }
+  ],
+  "knowledgeImpact": {
+    "result": "update_required",
+    "triggeredBy": [
+      "configuration-changed",
+      "covered-path-changed",
+      "recurring-defect-fixed"
+    ],
+    "reviewResults": [
+      {
+        "document": ".knowledge/architecture/system-overview.md",
+        "verdict": "UNCHANGED",
+        "evidence": [
+          "Reviewed active source_refs; TASK-MRI-004 adds platform Nacos adapters without changing current active runtime traffic."
+        ]
+      },
+      {
+        "document": ".knowledge/runbooks/local-development.md",
+        "verdict": "UNCHANGED",
+        "evidence": [
+          "Reviewed active local startup guidance; TASK-MRI-004 does not alter existing docker/start-dev commands."
+        ]
+      }
+    ],
+    "coverageGap": false,
+    "validationExitCode": 0
+  }
+}

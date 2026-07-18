@@ -69,6 +69,13 @@ export interface AgentRunContextUsage {
   estimated?: boolean
   source?: string
   stage?: string
+  input_budget_tokens?: number
+  safety_margin_tokens?: number
+  budget_usage_ratio?: number
+  budget_status?: string
+  included_message_count?: number
+  omitted_message_count?: number
+  summary_applied?: boolean
   breakdown?: {
     system_prompt_tokens?: number
     recent_message_tokens?: number
@@ -77,6 +84,8 @@ export interface AgentRunContextUsage {
     current_message_tokens?: number
     skill_tokens?: number
     tool_result_tokens?: number
+    tool_schema_tokens?: number
+    protocol_overhead_tokens?: number
   }
 }
 
@@ -160,6 +169,12 @@ export interface AgentRunEvent {
   seq: number
   event_type: AgentRunEventType | string
   payload_json?: string
+  event_message?: string
+  display_message?: string
+  display_source?: string
+  step_key?: string
+  step_purpose?: string
+  tool_group?: string
   status?: string
   delta?: string
   snapshot_text?: string

@@ -91,14 +91,19 @@ const handleEmailSaved = async (email: string) => {
       <RouterLink class="brand" to="/jobs" aria-label="智联招聘">
         <img class="brand-logo" :src="logoSrc" alt="智联招聘" />
       </RouterLink>
-      <nav>
-        <RouterLink to="/jobs">岗位</RouterLink>
-        <RouterLink v-if="auth.isLoggedIn" to="/progress">
-          求职进展
-          <el-badge v-if="pendingOfferCount > 0" :value="pendingOfferCount" class="nav-badge" />
-        </RouterLink>
-        <RouterLink v-if="auth.isLoggedIn" to="/profile">资料</RouterLink>
-        <RouterLink v-if="auth.isLoggedIn" to="/resume">简历</RouterLink>
+      <nav class="topbar-nav" aria-label="主导航">
+        <el-scrollbar class="topbar-nav__scroll">
+          <div class="topbar-nav__inner">
+            <RouterLink to="/jobs">岗位列表</RouterLink>
+            <RouterLink v-if="auth.isLoggedIn" to="/progress">
+              求职进展
+              <el-badge v-if="pendingOfferCount > 0" :value="pendingOfferCount" class="nav-badge" />
+            </RouterLink>
+            <RouterLink v-if="auth.isLoggedIn" to="/profile">个人资料</RouterLink>
+            <RouterLink v-if="auth.isLoggedIn" to="/resume">个人简历</RouterLink>
+            <RouterLink v-if="auth.isLoggedIn" to="/ai-assistant">AI求职助手</RouterLink>
+          </div>
+        </el-scrollbar>
       </nav>
       <div class="account" style="display:flex;align-items:center;gap:4px;">
         <el-tooltip :content="isDark ? '切换日间模式' : '切换夜间模式'" placement="bottom">
@@ -123,14 +128,27 @@ const handleEmailSaved = async (email: string) => {
         <el-button v-else type="primary" @click="router.push('/login')">登录</el-button>
       </div>
     </header>
-    <main class="container" :class="{ 'container--auth': route.path === '/login' || route.path === '/register' }">
+    <main
+      class="container"
+      :class="{
+        'container--auth': route.path === '/login' || route.path === '/register',
+        'container--content':
+          route.path === '/jobs' ||
+          route.path === '/progress' ||
+          route.path === '/profile' ||
+          route.path === '/resume' ||
+          route.path === '/ai-assistant',
+        'container--jobs': route.path === '/jobs',
+        'container--ai': route.path === '/ai-assistant',
+      }"
+    >
       <RouterView v-slot="{ Component }">
         <Transition name="page-fade" mode="out-in">
           <component :is="Component" />
         </Transition>
       </RouterView>
     </main>
-    <CandidateAIAssistant v-if="auth.isLoggedIn" />
+    <CandidateAIAssistant v-if="auth.isLoggedIn && route.path !== '/ai-assistant'" />
 
     <!-- 邮箱设置弹窗 -->
     <EmailSetupDialog v-model="showEmailSetup" @saved="handleEmailSaved" @error="(msg) => ElMessage.warning(msg)" />
@@ -138,6 +156,31 @@ const handleEmailSaved = async (email: string) => {
 </template>
 
 <style scoped>
+.topbar-nav {
+  flex: 1;
+  min-width: 0;
+}
+
+.topbar-nav__scroll {
+  width: 100%;
+}
+
+.topbar-nav__scroll :deep(.el-scrollbar__wrap) {
+  overflow-y: hidden;
+}
+
+.topbar-nav__scroll :deep(.el-scrollbar__bar.is-vertical) {
+  display: none;
+}
+
+.topbar-nav__inner {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  white-space: nowrap;
+  padding-bottom: 2px;
+}
+
 .nav-badge {
   margin-left: 2px;
 }

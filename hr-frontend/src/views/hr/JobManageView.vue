@@ -378,7 +378,7 @@ onMounted(() => {
       </div>
     </div>
 
-    <el-drawer v-model="dialogVisible" :title="editingId ? '编辑岗位' : '新增岗位'" size="860px" @closed="resetForm">
+    <el-drawer v-model="dialogVisible" :title="editingId ? '编辑岗位' : '新增岗位'" size="860px" :close-on-click-modal="true" @closed="resetForm">
       <el-form label-width="80px">
         <el-form-item label="岗位名称">
           <el-input v-model="form.title" />

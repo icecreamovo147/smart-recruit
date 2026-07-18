@@ -10,42 +10,44 @@ tags:
   - memory
   - context
   - agent
-  - prompt
 applies_to:
-  - logic-grpc-service/service/agent_context.go
-  - logic-grpc-service/repository/memory_repo.go
-  - logic-grpc-service/repository/session_summary_repo.go
-  - logic-grpc-service/model/model.go
+  - smart-recruit-ai-agent-service/internal/interfaces/grpc/native_servers.go
+  - smart-recruit-ai-agent-service/internal/interfaces/grpc/hr_context_budget.go
+  - smart-recruit-ai-agent-service/internal/infrastructure/persistence/native_store.go
+  - smart-recruit-proto/proto/recruitment.proto
+  - smart-recruit-gateway/handler/hr/ai.go
+  - hr-frontend/src/components/chat/ChatComposer.vue
+  - hr-frontend/src/utils/contextUsage.ts
 source_refs:
-  - logic-grpc-service/service/agent_context.go
-  - logic-grpc-service/repository/memory_repo.go
-  - logic-grpc-service/repository/session_summary_repo.go
-  - .spec/skill-memory-ranking/skill-memory-ranking-SPEC.md
-last_verified: 2026-07-10
-review_after: 2026-10-08
+  - smart-recruit-ai-agent-service/internal/interfaces/grpc/native_servers.go
+  - smart-recruit-ai-agent-service/internal/interfaces/grpc/hr_context_budget.go
+  - smart-recruit-ai-agent-service/internal/interfaces/grpc/hr_context_budget_test.go
+  - smart-recruit-ai-agent-service/internal/interfaces/grpc/context_usage_test.go
+  - smart-recruit-ai-agent-service/internal/infrastructure/persistence/native_store.go
+  - smart-recruit-ai-agent-service/internal/infrastructure/persistence/native_session_summary.go
+  - smart-recruit-commons/migrations/000038_persist_chat_context_usage.sql
+  - smart-recruit-commons/migrations/000057_add_ai_chat_session_selected_model.sql
+  - smart-recruit-commons/migrations/000045_add_ai_memory_importance.sql
+  - smart-recruit-proto/proto/recruitment.proto
+  - smart-recruit-gateway/handler/hr/ai.go
+  - hr-frontend/src/components/chat/ChatComposer.vue
+  - hr-frontend/src/utils/contextUsage.ts
+last_verified: 2026-07-18
+review_after: 2026-10-14
 ---
 
 # Memory and Agent Context Domain
 
-Agent context combines recent chat messages, session summary, active system prompt template, long-term memories, current message text, and budget metadata. Long-term memories are recalled by scope, ranked, then trimmed by configured count and character budget before prompt assembly.
+Agent context assembly combines recent messages, summaries, memories, selected skills, tool traces, and business records under configured limits. Keep candidate/staff data boundaries, prompt size limits, memory importance, context usage persistence, and fallback behavior intact.
 
-Memory behavior is a domain concern because it changes what the AI assistant can see. It must remain auditable and bounded by HR/session/application/job context. Do not document memory recall as product runtime RAG for `.knowledge`; this knowledge base is a separate coding-Agent layer.
+HR chat reports the current effective conversation footprint, not cumulative session billing. After each assistant reply, the runtime reuses the next-call context assembler to estimate the retained user/assistant messages, summaries, Prompt/Agent/Skill instructions, applicable Tool context, and protocol framing under the active model. Provider-reported usage remains available for the completed model call and billing audit, but the persisted assistant/session snapshot uses `stage=post_turn` so the latest reply and deterministic responses are represented in the visible conversation footprint. The conservative estimator counts non-ASCII runes by rune. Context snapshots are persisted on assistant messages and as the session's latest snapshot; cumulative billing usage remains audit data.
 
-## Context Layers
+HR sessions persist the model requested for the next turn independently from the model recorded on each completed message. Changing that selection invokes a model-relative, side-effect-free context compilation: it reads persisted history and any existing rolling summary, reloads current Prompt/Agent/Skill governance, applies the selected model's window and output reservation, and includes the Agent's authorized Tool schemas without calling a provider, executing Tools, or generating a new summary. The resulting `stage=model_preview` snapshot and requested selection are then persisted on the session. While this preview is pending, the composer shows `calculating / selected model window`; it never treats a configuration-only zero-token event as real conversation usage. Normal generation and `stage=post_turn` continue to use the same context budget controller.
 
-- Recent messages: bounded chronological session history.
-- Session summary: compact summary if present for the session.
-- System prompt template: active HR agent system template from repository.
-- Long-term memories: scoped recall candidates ranked for current request.
-- Budget metadata: character counts for prompt estimate and trimming.
+For a configured model, context governance uses `W` (context window), `O` (maximum output reservation), `S` (safety margin), and `B` (available input budget): `S = clamp(5% of W, 256, 2048)` and `B = W - O - S`. The normal target is 75% of `B`. Assembly preserves fixed system/current-call content, prefers the newest history that fits, restores chronological order, and can apply a rolling summary for covered older messages. At 60% of `B` it requests summary refresh asynchronously; an already over-budget envelope attempts synchronous refresh and then trims history. Summary failure degrades to safe trimming. If fixed content alone exceeds `B`, or `W/O/S` is invalid, the provider is not called and transports expose `AI_CONTEXT_BUDGET_EXCEEDED` or `AI_CONTEXT_CONFIGURATION_INVALID`.
 
-## Review Triggers
-
-- Scope derivation for memory recall.
-- Ranking signals, fallback ordering, or prompt budget trimming.
-- Debug fields for memory ranking or pool confidence.
-- Persistence schema or repository queries for memories and summaries.
+When the model context window is unknown, the runtime does not invent a window or ratio. It applies an existing summary when present and retains at most the most recent 20 history messages plus the current fixed envelope. The HR composer displays `current conversation footprint / total context window`; its detail popover separately retains the safe input budget `B`, `W`, `O`, `S`, window and safety-budget ratios, source/stage, breakdown, included/omitted counts, and summary state. Unknown configuration displays an unavailable denominator and explains the summary-plus-recent-message fallback.
 
 ## Verification
 
-This document was verified from `agent_context.go`, memory and summary repositories, and the Skill/Memory ranking SPEC on 2026-07-10.
+Verified against the context budget controller, model-switch preview and session persistence paths, persisted snapshots and summaries, additive protobuf/gateway mappings, HR composer utilities, full module tests, focused race tests, and repeated context tests on 2026-07-18.
