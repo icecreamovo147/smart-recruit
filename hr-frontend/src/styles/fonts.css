@@ -1,24 +1,35 @@
 /*
- * HR font stack — OPPO Sans only
+ * HR font stack — HarmonyOS Sans loaded from local assets.
  */
 
 @font-face {
-  font-family: "OPPO Sans";
-  src:
-    local("OPPO Sans"),
-    local("OPPOSans"),
-    local("OPPO Sans 4.0"),
-    url("https://cdn.jsdelivr.net/npm/@fontpkg/oppo-sans-4-0@1.700.0/OPPO%20Sans%204.0.ttf")
-      format("truetype");
+  font-family: "HarmonyOS Sans SC";
+  src: local("HarmonyOS Sans SC"), local("HarmonyOS Sans"), url("../assets/fonts/HarmonyOS_Sans_SC_Regular.woff2") format("woff2");
   font-style: normal;
-  font-weight: 100 900;
+  font-weight: 400;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "HarmonyOS Sans SC";
+  src: local("HarmonyOS Sans SC Medium"), local("HarmonyOS Sans Medium"), url("../assets/fonts/HarmonyOS_Sans_SC_Medium.woff2") format("woff2");
+  font-style: normal;
+  font-weight: 500 600;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "HarmonyOS Sans SC";
+  src: local("HarmonyOS Sans SC Bold"), local("HarmonyOS Sans Bold"), url("../assets/fonts/HarmonyOS_Sans_SC_Bold.woff2") format("woff2");
+  font-style: normal;
+  font-weight: 700 900;
   font-display: swap;
 }
 
 :root {
-  --font-app: "OPPO Sans", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "Noto Sans SC",
+  --font-app: "HarmonyOS Sans SC", "HarmonyOS Sans", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "Noto Sans SC",
     sans-serif;
-  --font-mono: "OPPO Sans", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "Noto Sans SC",
+  --font-mono: "HarmonyOS Sans SC", "HarmonyOS Sans", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "Noto Sans SC",
     sans-serif;
   --el-font-family: var(--font-app);
 }
