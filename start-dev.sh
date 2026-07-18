@@ -369,6 +369,7 @@ build_log_viewer_binary() {
 
 build_selected_go_binaries() {
     target_selected dev-log-viewer && build_log_viewer_binary
+    has_any_backend_target && build_go_binary "${ROOT}/smart-recruit-commons" "smart-recruit-migrate" "./cmd/migrate"
     target_selected smart-recruit-gateway && build_go_binary "${ROOT}/smart-recruit-gateway" "smart-recruit-gateway" "./cmd/gateway"
     target_selected identity-service && build_go_binary "${ROOT}/smart-recruit-identity-service" "identity-service" "./cmd/identity-service"
     target_selected recruitment-service && build_go_binary "${ROOT}/smart-recruit-recruitment-service" "recruitment-service" "./cmd/recruitment-service"
@@ -444,6 +445,14 @@ export GRPC_INTERNAL_TLS="${GRPC_INTERNAL_TLS:-optional}"
 export ALLOW_INSECURE_DEV_CONFIG="${ALLOW_INSECURE_DEV_CONFIG:-true}"
 export STATIC_FALLBACK="${STATIC_FALLBACK:-false}"
 export SERVICE_ENV="${SERVICE_ENV:-local}"
+
+if has_any_backend_target; then
+    info "Applying database migrations..."
+    (
+        cd "${ROOT}"
+        "${BIN_DIR}/smart-recruit-migrate" --migrations-dir "${ROOT}/smart-recruit-commons/migrations"
+    )
+fi
 
 target_selected identity-service && start_service "identity-service" "${ROOT}/smart-recruit-identity-service" 50061 "${BIN_DIR}/identity-service" --serve --addr :50061
 target_selected recruitment-service && start_service "recruitment-service" "${ROOT}/smart-recruit-recruitment-service" 50062 "${BIN_DIR}/recruitment-service" --serve --addr :50062

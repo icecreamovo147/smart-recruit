@@ -53,6 +53,7 @@ var legacyMigrationChecksums = map[int]string{
 	14: "5e8a85b71db7971a4eeaf4d6b6c006a90ce83cc1f2fdb033ceaeeae296a6540d",
 	17: "d2f52cfed883ad77ec1e1b9e5d32cee4255ff087525b6ae6b55bd0e489e0fcc3",
 	22: "7631c39e1df666e3bd99109d298a8c4c207efb54f3826d099f21d9d15c027395",
+	51: "a9b37da1a3a52089389b3a4a0de6c1e51dd5bccc94d0243f01860e8c6ba35156",
 }
 
 // Migration represents a single migration file.
