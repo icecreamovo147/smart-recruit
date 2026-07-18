@@ -99,27 +99,14 @@ jobs:
           go-version: "1.25.5"
           cache-dependency-path: |
             smart-recruit-proto/go.sum
-      - name: Install protoc 25.3
+      - name: Bootstrap pinned protobuf toolchain
         run: |
           set -euo pipefail
-          sudo apt-get update
-          sudo apt-get install -y wget unzip
-          PROTOC_VERSION=25.3
-          wget -q "https://github.com/protocolbuffers/protobuf/releases/download/v${PROTOC_VERSION}/protoc-${PROTOC_VERSION}-linux-x86_64.zip" -O /tmp/protoc.zip
-          PROTOC_DIR="$HOME/.local/protoc"
-          mkdir -p "$PROTOC_DIR"
-          unzip -q -o /tmp/protoc.zip -d "$PROTOC_DIR"
-          export PATH="$PROTOC_DIR/bin:$PATH"
-          echo "$PROTOC_DIR/bin" >> "$GITHUB_PATH"
-          protoc --version
-      - name: Install protoc-gen-go
-        run: go install google.golang.org/protobuf/cmd/protoc-gen-go@v1.36.11
-      - name: Install protoc-gen-go-grpc
-        run: go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@v1.6.2
+          tool_bin="$(smart-recruit-proto/scripts/bootstrap-tools.sh)"
+          echo "$tool_bin" >> "$GITHUB_PATH"
       - name: Regenerate protobuf contracts
         run: |
           set -euo pipefail
-          export PATH="$PATH:$(go env GOPATH)/bin"
           cd smart-recruit-proto
           ./scripts/generate-go.sh
       - name: Verify protobuf diff is empty
@@ -135,8 +122,9 @@ jobs:
             echo "This means the committed protobuf contracts are out of sync with the canonical proto source."
             echo "To fix locally:"
             echo "  1. cd smart-recruit-proto"
-            echo "  2. ./scripts/generate-go.sh"
-            echo "  3. Commit the generated smart-recruit-proto files"
+            echo "  2. ./scripts/bootstrap-tools.sh"
+            echo "  3. ./scripts/generate-go.sh"
+            echo "  4. Commit the generated smart-recruit-proto files"
             echo ""
             echo "Diff summary:"
             git diff --stat \

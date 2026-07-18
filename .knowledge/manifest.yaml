@@ -230,6 +230,8 @@ routes:
       - smart-recruit-proto/proto/**
       - smart-recruit-proto/recruitment/pb/**
       - smart-recruit-proto/scripts/**
+      - scripts/check-proto-sync.mjs
+      - .github/workflows/ci.yml
       - smart-recruit-gateway/rpc/**
       - smart-recruit-*-service/internal/interfaces/grpc/**
     documents:

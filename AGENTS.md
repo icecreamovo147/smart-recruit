@@ -23,6 +23,8 @@
 - `pnpm --filter hr-frontend typecheck`: run Vue TypeScript checks.
 - `pnpm --filter hr-frontend test`: run Vitest.
 - `go test ./...`: run Go tests from any `smart-recruit-*` Go module.
+- `smart-recruit-proto/scripts/bootstrap-tools.sh`: install the repository-pinned protobuf compiler and Go plugins into the local tool cache.
+- `smart-recruit-proto/scripts/generate-go.sh`: regenerate canonical Go protobuf contracts; it refuses unpinned tool versions.
 - `./start-dev.sh` / `./stop-dev.sh`: manage the local development stack.
 
 ## Coding Style & Naming Conventions
