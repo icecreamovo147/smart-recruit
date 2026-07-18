@@ -3,6 +3,7 @@ package persistence
 import (
 	"context"
 	"crypto/sha256"
+	"encoding/json"
 	"fmt"
 	"strings"
 	"sync"
@@ -43,8 +44,14 @@ type selectedLLMConfig struct {
 	Model               string
 	BaseURL             string
 	ProviderType        string
+	ProtocolType        string
+	AuthType            string
+	APIVersion          string
+	ExtraHeaders        map[string]string
 	Temperature         float64
 	TopP                float64
+	TemperatureEnabled  bool
+	TopPEnabled         bool
 	MaxTokens           int
 	MaxConcurrency      int
 	TimeoutSeconds      int
@@ -59,8 +66,14 @@ type llmRuntimeRow struct {
 	Model               string  `gorm:"column:model"`
 	BaseURL             string  `gorm:"column:base_url"`
 	ProviderType        string  `gorm:"column:provider_type"`
+	ProtocolType        string  `gorm:"column:protocol_type"`
+	AuthType            string  `gorm:"column:auth_type"`
+	APIVersion          string  `gorm:"column:api_version"`
+	ExtraHeadersJSON    string  `gorm:"column:extra_headers_json"`
 	Temperature         float64 `gorm:"column:temperature"`
 	TopP                float64 `gorm:"column:top_p"`
+	TemperatureEnabled  bool    `gorm:"column:temperature_enabled"`
+	TopPEnabled         bool    `gorm:"column:top_p_enabled"`
 	MaxTokens           int     `gorm:"column:max_tokens"`
 	MaxConcurrency      int     `gorm:"column:max_concurrency"`
 	TimeoutSeconds      int     `gorm:"column:timeout_seconds"`
@@ -315,17 +328,17 @@ func (s *NativeStore) validateLlmRuntimeConnection(ctx context.Context, modelID,
 }
 
 func (s *NativeStore) newRuntimeClient(ctx context.Context, cfg selectedLLMConfig) (*commonsai.Client, error) {
-	if strings.TrimSpace(cfg.APIKey) == "" {
+	if strings.TrimSpace(cfg.APIKey) == "" && cfg.AuthType != commonsai.AuthNone {
 		return nil, fmt.Errorf("llm api_key is empty")
 	}
 	if strings.TrimSpace(cfg.Model) == "" {
 		return nil, fmt.Errorf("llm model is empty")
 	}
 	modelParams := commonsai.ModelParams{}
-	if cfg.Temperature > 0 {
+	if cfg.TemperatureEnabled {
 		modelParams.Temperature = &cfg.Temperature
 	}
-	if cfg.TopP > 0 {
+	if cfg.TopPEnabled {
 		modelParams.TopP = &cfg.TopP
 	}
 	if cfg.MaxTokens > 0 {
@@ -336,6 +349,10 @@ func (s *NativeStore) newRuntimeClient(ctx context.Context, cfg selectedLLMConfi
 		Model:                   cfg.Model,
 		BaseURL:                 cfg.BaseURL,
 		ProviderType:            cfg.ProviderType,
+		ProtocolType:            cfg.ProtocolType,
+		AuthType:                cfg.AuthType,
+		APIVersion:              cfg.APIVersion,
+		ExtraHeaders:            cfg.ExtraHeaders,
 		ModelParams:             modelParams,
 		Timeout:                 s.runtimeLLM.Timeout,
 		TotalTimeout:            s.runtimeLLM.TotalTimeout,
@@ -368,8 +385,14 @@ func (s *NativeStore) selectLLMRuntimeConfig(ctx context.Context, modelID, provi
 			m.model_name AS model,
 			p.base_url AS base_url,
 			p.provider_type AS provider_type,
+			p.protocol_type AS protocol_type,
+			p.auth_type AS auth_type,
+			COALESCE(p.api_version, '') AS api_version,
+			COALESCE(p.extra_headers, '{}') AS extra_headers_json,
 			m.temperature AS temperature,
 			m.top_p AS top_p,
+			m.temperature_enabled AS temperature_enabled,
+			m.top_p_enabled AS top_p_enabled,
 			m.max_tokens AS max_tokens,
 			m.max_concurrency AS max_concurrency,
 			m.timeout_seconds AS timeout_seconds,
@@ -395,10 +418,14 @@ func (s *NativeStore) selectLLMRuntimeConfig(ctx context.Context, modelID, provi
 		}
 		return selectedLLMConfig{}, fmt.Errorf("no enabled llm model is configured")
 	}
-	apiKey, err := s.decryptAPIKey(row.APIKey)
-	if err != nil {
-		return selectedLLMConfig{}, fmt.Errorf("decrypt api key for provider %d: %w", row.ProviderID, err)
+	apiKey := ""
+	if row.AuthType != commonsai.AuthNone {
+		apiKey, err = s.decryptAPIKey(row.APIKey)
+		if err != nil {
+			return selectedLLMConfig{}, fmt.Errorf("decrypt api key for provider %d: %w", row.ProviderID, err)
+		}
 	}
+	extraHeaders := parseRuntimeHeaders(row.ExtraHeadersJSON)
 	selected := selectedLLMConfig{
 		ProviderID:          row.ProviderID,
 		ProviderName:        strings.TrimSpace(row.ProviderName),
@@ -407,8 +434,14 @@ func (s *NativeStore) selectLLMRuntimeConfig(ctx context.Context, modelID, provi
 		Model:               strings.TrimSpace(row.Model),
 		BaseURL:             strings.TrimSpace(row.BaseURL),
 		ProviderType:        strings.TrimSpace(row.ProviderType),
+		ProtocolType:        strings.TrimSpace(row.ProtocolType),
+		AuthType:            strings.TrimSpace(row.AuthType),
+		APIVersion:          strings.TrimSpace(row.APIVersion),
+		ExtraHeaders:        extraHeaders,
 		Temperature:         row.Temperature,
 		TopP:                row.TopP,
+		TemperatureEnabled:  row.TemperatureEnabled,
+		TopPEnabled:         row.TopPEnabled,
 		MaxTokens:           row.MaxTokens,
 		MaxConcurrency:      row.MaxConcurrency,
 		TimeoutSeconds:      row.TimeoutSeconds,
@@ -430,17 +463,26 @@ func (s *NativeStore) defaultConfigForProvider(ctx context.Context, providerID i
 	if strings.TrimSpace(s.runtimeLLM.Model) == "" {
 		return selectedLLMConfig{}, fmt.Errorf("no enabled model exists for provider and AI_MODEL fallback is empty")
 	}
-	apiKey, err := s.decryptAPIKey(provider.APIKeyEncrypted)
-	if err != nil {
-		return selectedLLMConfig{}, fmt.Errorf("decrypt api key for provider %d: %w", provider.ID, err)
+	apiKey := ""
+	if provider.AuthType != commonsai.AuthNone {
+		apiKey, err = s.decryptAPIKey(provider.APIKeyEncrypted)
+		if err != nil {
+			return selectedLLMConfig{}, fmt.Errorf("decrypt api key for provider %d: %w", provider.ID, err)
+		}
 	}
 	selected := selectedLLMConfig{
-		ProviderID:   provider.ID,
-		ProviderName: strings.TrimSpace(provider.Name),
-		APIKey:       apiKey,
-		Model:        strings.TrimSpace(s.runtimeLLM.Model),
-		BaseURL:      strings.TrimSpace(provider.BaseURL),
-		ProviderType: strings.TrimSpace(provider.ProviderType),
+		ProviderID:         provider.ID,
+		ProviderName:       strings.TrimSpace(provider.Name),
+		APIKey:             apiKey,
+		Model:              strings.TrimSpace(s.runtimeLLM.Model),
+		BaseURL:            strings.TrimSpace(provider.BaseURL),
+		ProviderType:       strings.TrimSpace(provider.ProviderType),
+		ProtocolType:       strings.TrimSpace(provider.ProtocolType),
+		AuthType:           strings.TrimSpace(provider.AuthType),
+		APIVersion:         nullString(provider.APIVersion),
+		ExtraHeaders:       parseRuntimeHeaders(nullString(provider.ExtraHeaders)),
+		TemperatureEnabled: true,
+		TopPEnabled:        true,
 	}
 	selected.applyDefaults(s.runtimeLLM)
 	return selected, nil
@@ -490,4 +532,12 @@ func auditProviderName(providerName, providerType string) string {
 		return typ
 	}
 	return "unknown"
+}
+
+func parseRuntimeHeaders(raw string) map[string]string {
+	var values map[string]string
+	if err := json.Unmarshal([]byte(strings.TrimSpace(raw)), &values); err != nil {
+		return nil
+	}
+	return values
 }

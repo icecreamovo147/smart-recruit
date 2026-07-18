@@ -7,6 +7,8 @@ import type {
   CreateModelPayload,
   UpdateModelPayload,
   TestConnectionResult,
+  ModelDiscoveryResult,
+  ModelPresetResult,
 } from '@/types/llm'
 import type { PaginatedList } from '@/types/domain'
 
@@ -27,6 +29,12 @@ export const deleteProvider = (id: number): Promise<void> =>
 /** @deprecated Prefer testModelConnection — provider-level test is retained for compatibility. */
 export const testProviderConnection = (id: number): Promise<TestConnectionResult> =>
   request.post(`/api/v1/hr/admin/llm-providers/${id}/test`)
+
+export const discoverProviderModels = (id: number, refresh = false): Promise<ModelDiscoveryResult> =>
+  request.post(`/api/v1/hr/admin/llm-providers/${id}/models/discover`, { refresh })
+
+export const getProviderModelPreset = (id: number, modelName: string): Promise<ModelPresetResult> =>
+  request.post(`/api/v1/hr/admin/llm-providers/${id}/models/preset`, { model_name: modelName })
 
 // ── Model CRUD ────────────────────────────────────────────────────────────
 

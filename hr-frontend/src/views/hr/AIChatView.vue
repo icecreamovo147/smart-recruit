@@ -947,6 +947,27 @@ const removeSession = async (session: Session) => {
   ElMessage.success('会话已删除')
 }
 
+const batchRemoveSessions = async (sessionIds: number[]) => {
+  const idSet = new Set(sessionIds)
+  for (const id of sessionIds) {
+    try {
+      await deleteSession(id)
+      forgetContextUsage(id)
+    } catch {
+      ElMessage.error(`删除会话 #${id} 失败`)
+    }
+  }
+  sessions.value = sessions.value.filter((s) => !idSet.has(s.id))
+  if (currentSession.value && idSet.has(currentSession.value.id)) {
+    clearAssistantTextQueue()
+    resetContextUsage()
+    currentSession.value = null
+    messages.value = []
+    router.replace({ path: '/hr/ai' })
+  }
+  ElMessage.success(`已删除 ${sessionIds.length} 个会话`)
+}
+
 const createAnalysisSessionFromRoute = async () => {
   const applicationId = Number(route.query.application_id || 0)
   if (!applicationId) return false
@@ -1677,6 +1698,7 @@ onBeforeUnmount(() => {
           @create-session="createNewSession"
           @rename-session="renameSession"
           @remove-session="removeSession"
+          @batch-remove-sessions="batchRemoveSessions"
           @menu-toggle="(id: number) => menuSessionId = id"
           @close-sidebar="closeSessionSidebar"
         />

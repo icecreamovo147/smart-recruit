@@ -162,6 +162,12 @@ func serveAIAgent(addr string) error {
 	defer server.ShutdownMetricsServer(context.Background(), metricsServer)
 
 	nativeStore := aiagentpersistence.NewNativeStore(db)
+	catalogSyncCtx, cancelCatalogSync := context.WithTimeout(context.Background(), 15*time.Second)
+	if err := nativeStore.SyncBundledLlmModelCatalog(catalogSyncCtx); err != nil {
+		cancelCatalogSync()
+		return fmt.Errorf("sync bundled llm model catalog: %w", err)
+	}
+	cancelCatalogSync()
 	if encKey, encKeyErr := crypto.LoadEncryptionKey(); encKeyErr != nil {
 		log.Warn("ENCRYPTION_KEY not set, provider api key encryption will be unavailable", zap.Error(encKeyErr))
 	} else {

@@ -2642,6 +2642,8 @@ service LlmConfigService {
   rpc UpdateProvider(UpdateProviderRequest) returns (ProviderResponse);
   rpc DeleteProvider(DeleteProviderRequest) returns (CommonResponse);
   rpc TestProviderConnection(TestProviderConnectionRequest) returns (TestProviderConnectionResponse);
+  rpc DiscoverProviderModels(DiscoverProviderModelsRequest) returns (DiscoverProviderModelsResponse);
+  rpc GetProviderModelPreset(GetProviderModelPresetRequest) returns (GetProviderModelPresetResponse);
 
   rpc ListModels(ListModelsRequest) returns (ListModelsResponse);
   rpc CreateModel(CreateModelRequest) returns (ModelResponse);
@@ -2663,6 +2665,10 @@ message LlmProviderInfo {
   bool is_enabled = 7;
   string created_at = 8;
   string updated_at = 9;
+  string protocol_type = 10;
+  string auth_type = 11;
+  string api_version = 12;
+  string discovery_url = 13;
 }
 
 message ListProvidersRequest {
@@ -2683,6 +2689,10 @@ message CreateProviderRequest {
   string api_key = 3;              // 明文传入，服务端加密存储
   string provider_type = 4;
   string extra_headers_json = 5;   // JSON string
+  string protocol_type = 6;
+  string auth_type = 7;
+  string api_version = 8;
+  string discovery_url = 9;
 }
 
 message UpdateProviderRequest {
@@ -2695,6 +2705,12 @@ message UpdateProviderRequest {
   bool is_enabled = 7;
   bool is_enabled_set = 8;         // 是否设置了 is_enabled
   bool extra_headers_set = 9;      // 是否显式设置了 extra_headers_json（支持清空）
+  string protocol_type = 10;
+  string auth_type = 11;
+  string api_version = 12;
+  string discovery_url = 13;
+  bool discovery_url_set = 14;
+  bool api_version_set = 15;
 }
 
 message ProviderResponse {
@@ -2722,6 +2738,60 @@ message TestModelConnectionRequest {
   int64 model_id = 1;
 }
 
+message DiscoverProviderModelsRequest {
+  int64 provider_id = 1;
+  bool refresh = 2;
+}
+
+message ModelMetadataFieldSource {
+  string field_name = 1;
+  string source_type = 2;
+  string source_ref = 3;
+  double confidence = 4;
+  string observed_at = 5;
+  bool verified = 6;
+}
+
+message DiscoveredLlmModel {
+  string model_name = 1;
+  string display_name = 2;
+  string owned_by = 3;
+  int32 max_input_tokens = 4;
+  bool max_input_tokens_known = 5;
+  int32 max_output_tokens = 6;
+  bool max_output_tokens_known = 7;
+  double temperature = 8;
+  bool temperature_known = 9;
+  double top_p = 10;
+  bool top_p_known = 11;
+  string capabilities_json = 12;
+  bool already_configured = 13;
+  int32 context_window_tokens = 14;
+  bool context_window_tokens_known = 15;
+  repeated ModelMetadataFieldSource field_sources = 16;
+}
+
+message DiscoverProviderModelsResponse {
+  int32 code = 1;
+  string msg = 2;
+  repeated DiscoveredLlmModel list = 3;
+  string source = 4;
+  string fetched_at = 5;
+}
+
+message GetProviderModelPresetRequest {
+  int64 provider_id = 1;
+  string model_name = 2;
+}
+
+message GetProviderModelPresetResponse {
+  int32 code = 1;
+  string msg = 2;
+  DiscoveredLlmModel model = 3;
+  string source = 4;
+  string fetched_at = 5;
+}
+
 // ── LLM Model messages ─────────────────────────────────────────────
 
 message LlmModelInfo {
@@ -2740,6 +2810,15 @@ message LlmModelInfo {
   string created_at = 12;
   string updated_at = 13;
   string provider_name = 14;       // Joined field
+  string catalog_model_name = 16;
+  int32 provider_max_input_tokens = 17;
+  int32 provider_max_output_tokens = 18;
+  string capabilities_json = 19;
+  string metadata_source = 20;
+  string metadata_synced_at = 21;
+  bool temperature_enabled = 22;
+  bool top_p_enabled = 23;
+  string metadata_sources_json = 24;
 }
 
 message ListModelsRequest {
@@ -2763,6 +2842,19 @@ message CreateModelRequest {
   double top_p = 5;
   int32 max_tokens = 6;
   int32 context_window_tokens = 10;
+  string catalog_model_name = 11;
+  int32 provider_max_input_tokens = 12;
+  int32 provider_max_output_tokens = 13;
+  string capabilities_json = 14;
+  string metadata_source = 15;
+  string metadata_synced_at = 16;
+  bool temperature_enabled = 17;
+  bool temperature_enabled_set = 18;
+  bool top_p_enabled = 19;
+  bool top_p_enabled_set = 20;
+  bool temperature_set = 21;
+  bool top_p_set = 22;
+  string metadata_sources_json = 23;
   int32 max_concurrency = 7;
   int32 timeout_seconds = 8;
   bool is_default = 9;
@@ -2788,6 +2880,22 @@ message UpdateModelRequest {
   bool is_enabled_set = 15;
   bool is_default = 16;
   bool is_default_set = 17;
+  string catalog_model_name = 20;
+  bool catalog_model_name_set = 21;
+  int32 provider_max_input_tokens = 22;
+  bool provider_max_input_tokens_set = 23;
+  int32 provider_max_output_tokens = 24;
+  bool provider_max_output_tokens_set = 25;
+  string capabilities_json = 26;
+  bool capabilities_json_set = 27;
+  string metadata_source = 28;
+  string metadata_synced_at = 29;
+  bool temperature_enabled = 30;
+  bool temperature_enabled_set = 31;
+  bool top_p_enabled = 32;
+  bool top_p_enabled_set = 33;
+  string metadata_sources_json = 34;
+  bool metadata_sources_json_set = 35;
 }
 
 message ModelResponse {

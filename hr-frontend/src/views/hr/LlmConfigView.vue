@@ -1,10 +1,12 @@
 <script setup lang="ts">
-import { computed, onMounted, reactive, ref } from 'vue'
+import { computed, nextTick, onMounted, reactive, ref, watch } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import {
   ArrowDown,
+  ArrowUp,
   Connection,
   Delete,
+  Download,
   Edit,
   Grid,
   MoreFilled,
@@ -23,6 +25,8 @@ import {
   updateModel,
   deleteModel,
   testModelConnection,
+  discoverProviderModels,
+  getProviderModelPreset,
 } from '@/api/llm'
 import type {
   LlmProvider,
@@ -31,6 +35,8 @@ import type {
   UpdateProviderPayload,
   CreateModelPayload,
   UpdateModelPayload,
+  DiscoveredLlmModel,
+  ModelMetadataFieldSource,
 } from '@/types/llm'
 
 const props = defineProps<{
@@ -58,6 +64,15 @@ const providerSearch = ref('')
 const providerTypeFilter = ref('')
 const providerStatusFilter = ref('')
 
+const providerProfiles: Record<string, { protocol: string; auth: string; baseUrl: string }> = {
+  openai: { protocol: 'openai_chat_completions', auth: 'bearer', baseUrl: 'https://api.openai.com/v1' },
+  anthropic: { protocol: 'anthropic_messages', auth: 'x_api_key', baseUrl: 'https://api.anthropic.com' },
+  azure_openai: { protocol: 'openai_chat_completions', auth: 'azure_api_key', baseUrl: '' },
+  google_gemini: { protocol: 'gemini_generate_content', auth: 'google_api_key', baseUrl: 'https://generativelanguage.googleapis.com' },
+  ollama: { protocol: 'ollama_chat', auth: 'none', baseUrl: 'http://127.0.0.1:11434' },
+  openai_compatible: { protocol: 'openai_chat_completions', auth: 'bearer', baseUrl: '' },
+}
+
 const loadProviders = async () => {
   providerLoading.value = true
   providerError.value = ''
@@ -84,6 +99,10 @@ const providerForm = reactive({
   base_url: '',
   api_key: '',
   provider_type: 'openai',
+  protocol_type: 'openai_chat_completions',
+  auth_type: 'bearer',
+  api_version: '',
+  discovery_url: '',
   extra_headers_json: '',
   is_enabled: true,
 })
@@ -93,6 +112,10 @@ const resetProviderForm = () => {
   providerForm.base_url = ''
   providerForm.api_key = ''
   providerForm.provider_type = 'openai'
+  providerForm.protocol_type = 'openai_chat_completions'
+  providerForm.auth_type = 'bearer'
+  providerForm.api_version = ''
+  providerForm.discovery_url = ''
   providerForm.extra_headers_json = ''
   providerForm.is_enabled = true
 }
@@ -113,6 +136,10 @@ const openEditProvider = (row: LlmProvider) => {
   providerForm.base_url = row.base_url
   providerForm.api_key = ''      // empty = do not change
   providerForm.provider_type = row.provider_type
+  providerForm.protocol_type = row.protocol_type
+  providerForm.auth_type = row.auth_type
+  providerForm.api_version = row.api_version || ''
+  providerForm.discovery_url = row.discovery_url || ''
   providerForm.extra_headers_json = row.extra_headers_json || ''
   providerForm.is_enabled = row.is_enabled
   providerDrawerVisible.value = true
@@ -127,7 +154,7 @@ const saveProvider = async () => {
     ElMessage.warning('请输入 Base URL')
     return
   }
-  if (!isEditingProvider.value && !providerForm.api_key) {
+  if (!isEditingProvider.value && providerForm.auth_type !== 'none' && !providerForm.api_key) {
     ElMessage.warning('请输入 API Key')
     return
   }
@@ -138,6 +165,12 @@ const saveProvider = async () => {
         name: providerForm.name,
         base_url: providerForm.base_url,
         provider_type: providerForm.provider_type,
+        protocol_type: providerForm.protocol_type,
+        auth_type: providerForm.auth_type,
+        api_version: providerForm.api_version,
+        api_version_set: true,
+        discovery_url: providerForm.discovery_url,
+        discovery_url_set: true,
         is_enabled: providerForm.is_enabled,
         is_enabled_set: true,
       }
@@ -156,6 +189,10 @@ const saveProvider = async () => {
         base_url: providerForm.base_url,
         api_key: providerForm.api_key,
         provider_type: providerForm.provider_type,
+        protocol_type: providerForm.protocol_type,
+        auth_type: providerForm.auth_type,
+        api_version: providerForm.api_version || undefined,
+        discovery_url: providerForm.discovery_url || undefined,
       }
       if (providerForm.extra_headers_json) {
         payload.extra_headers_json = providerForm.extra_headers_json
@@ -202,6 +239,13 @@ const modelSearch = ref('')
 const modelStatusFilter = ref('')
 const modelDefaultFilter = ref('')
 const modelHealthFilter = ref('')
+const discoveredModels = ref<DiscoveredLlmModel[]>([])
+const discoveryLoading = ref(false)
+const discoveryKeyword = ref('')
+const discoveryFetchedAt = ref('')
+const discoveryListRef = ref<HTMLElement | null>(null)
+const discoveryCollapsed = ref(true)
+const discoveryListExpandable = ref(false)
 
 const loadModels = async () => {
   modelLoading.value = true
@@ -227,11 +271,19 @@ const editingModelId = ref(0)
 const modelForm = reactive({
   provider_id: 0,
   model_name: '',
+  catalog_model_name: '',
   display_name: '',
   temperature: 0.7,
   top_p: 1.0,
   max_tokens: 4096,
   context_window_tokens: 0,
+  provider_max_input_tokens: 0,
+  provider_max_output_tokens: 0,
+  capabilities_json: '',
+  metadata_source: 'manual',
+  metadata_sources_json: '',
+  temperature_enabled: true,
+  top_p_enabled: true,
   max_concurrency: 1,
   timeout_seconds: 60,
   is_default: false,
@@ -241,11 +293,25 @@ const modelForm = reactive({
 const resetModelForm = () => {
   modelForm.provider_id = providerList.value.length > 0 ? providerList.value[0].id : 0
   modelForm.model_name = ''
+  modelForm.catalog_model_name = ''
   modelForm.display_name = ''
   modelForm.temperature = 0.7
   modelForm.top_p = 1.0
   modelForm.max_tokens = 4096
   modelForm.context_window_tokens = 0
+  modelForm.provider_max_input_tokens = 0
+  modelForm.provider_max_output_tokens = 0
+  modelForm.capabilities_json = ''
+  modelForm.metadata_source = 'manual'
+  modelForm.metadata_sources_json = ''
+  modelForm.temperature_enabled = true
+  modelForm.top_p_enabled = true
+
+  discoveredModels.value = []
+  discoveryKeyword.value = ''
+  discoveryFetchedAt.value = ''
+  discoveryCollapsed.value = true
+  discoveryListExpandable.value = false
   modelForm.max_concurrency = 1
   modelForm.timeout_seconds = 60
   modelForm.is_default = false
@@ -266,11 +332,19 @@ const openEditModel = (row: LlmModel) => {
   modelDrawerTitle.value = '编辑 Model'
   modelForm.provider_id = row.provider_id
   modelForm.model_name = row.model_name
+  modelForm.catalog_model_name = row.catalog_model_name || ''
   modelForm.display_name = row.display_name
   modelForm.temperature = row.temperature
   modelForm.top_p = row.top_p
   modelForm.max_tokens = row.max_tokens
   modelForm.context_window_tokens = row.context_window_tokens || 0
+  modelForm.provider_max_input_tokens = row.provider_max_input_tokens || 0
+  modelForm.provider_max_output_tokens = row.provider_max_output_tokens || 0
+  modelForm.capabilities_json = row.capabilities_json || ''
+  modelForm.metadata_source = row.metadata_source || 'manual'
+  modelForm.metadata_sources_json = row.metadata_sources_json || ''
+  modelForm.temperature_enabled = row.temperature_enabled ?? true
+  modelForm.top_p_enabled = row.top_p_enabled ?? true
   modelForm.max_concurrency = row.max_concurrency
   modelForm.timeout_seconds = row.timeout_seconds
   modelForm.is_default = row.is_default
@@ -293,6 +367,8 @@ const saveModel = async () => {
       const payload: UpdateModelPayload = {
         model_name: modelForm.model_name,
         display_name: modelForm.display_name || undefined,
+        catalog_model_name: modelForm.catalog_model_name,
+        catalog_model_name_set: true,
         temperature: modelForm.temperature,
         temperature_set: true,
         top_p: modelForm.top_p,
@@ -301,6 +377,20 @@ const saveModel = async () => {
         max_tokens_set: true,
         context_window_tokens: modelForm.context_window_tokens,
         context_window_tokens_set: true,
+        provider_max_input_tokens: modelForm.provider_max_input_tokens,
+        provider_max_input_tokens_set: true,
+        provider_max_output_tokens: modelForm.provider_max_output_tokens,
+        provider_max_output_tokens_set: true,
+        capabilities_json: modelForm.capabilities_json,
+        capabilities_json_set: true,
+        metadata_source: modelForm.metadata_source,
+        metadata_sources_json: modelForm.metadata_sources_json,
+        metadata_sources_json_set: true,
+        metadata_synced_at: modelForm.metadata_source !== 'manual' ? new Date().toISOString() : undefined,
+        temperature_enabled: modelForm.temperature_enabled,
+        temperature_enabled_set: true,
+        top_p_enabled: modelForm.top_p_enabled,
+        top_p_enabled_set: true,
         max_concurrency: modelForm.max_concurrency,
         max_concurrency_set: true,
         timeout_seconds: modelForm.timeout_seconds,
@@ -317,10 +407,23 @@ const saveModel = async () => {
         provider_id: modelForm.provider_id,
         model_name: modelForm.model_name,
         display_name: modelForm.display_name,
+        catalog_model_name: modelForm.catalog_model_name || undefined,
         temperature: modelForm.temperature,
+        temperature_set: true,
         top_p: modelForm.top_p,
+        top_p_set: true,
         max_tokens: modelForm.max_tokens,
         context_window_tokens: modelForm.context_window_tokens || undefined,
+        provider_max_input_tokens: modelForm.provider_max_input_tokens || undefined,
+        provider_max_output_tokens: modelForm.provider_max_output_tokens || undefined,
+        capabilities_json: modelForm.capabilities_json || undefined,
+        metadata_source: modelForm.metadata_source,
+        metadata_sources_json: modelForm.metadata_sources_json || undefined,
+        metadata_synced_at: modelForm.metadata_source !== 'manual' ? new Date().toISOString() : undefined,
+        temperature_enabled: modelForm.temperature_enabled,
+        temperature_enabled_set: true,
+        top_p_enabled: modelForm.top_p_enabled,
+        top_p_enabled_set: true,
         max_concurrency: modelForm.max_concurrency,
         timeout_seconds: modelForm.timeout_seconds,
         is_default: modelForm.is_default,
@@ -334,6 +437,160 @@ const saveModel = async () => {
     modelSaving.value = false
   }
 }
+
+const selectedModelProvider = computed(() => providerList.value.find(item => item.id === modelForm.provider_id))
+const metadataSources = computed<Record<string, ModelMetadataFieldSource>>(() => {
+  if (!modelForm.metadata_sources_json) return {}
+  try {
+    return JSON.parse(modelForm.metadata_sources_json) as Record<string, ModelMetadataFieldSource>
+  } catch {
+    return {}
+  }
+})
+
+const sourceLabels: Record<string, string> = {
+  provider_api: '供应商 API',
+  provider_detail: '供应商详情',
+  official_document: '官方目录',
+  platform_policy: '平台建议',
+  user: '用户设置',
+}
+
+const metadataSourceLabel = (field: string) => sourceLabels[metadataSources.value[field]?.source_type] || '未知'
+const metadataSourceType = (field: string): 'primary' | 'success' | 'warning' | 'info' => {
+  const source = metadataSources.value[field]?.source_type
+  if (source === 'user') return 'primary'
+  if (source === 'provider_api' || source === 'provider_detail') return 'success'
+  if (source === 'official_document') return 'warning'
+  return 'info'
+}
+const setMetadataSources = (sources: Record<string, ModelMetadataFieldSource>) => {
+  modelForm.metadata_sources_json = JSON.stringify(sources)
+}
+const markModelFieldManual = (field: string) => {
+  const sources = { ...metadataSources.value }
+  sources[field] = {
+    field_name: field,
+    source_type: 'user',
+    source_ref: '',
+    confidence: 1,
+    observed_at: new Date().toISOString(),
+    verified: true,
+  }
+  setMetadataSources(sources)
+  if (modelForm.metadata_source !== 'manual') modelForm.metadata_source = 'mixed'
+}
+const filteredDiscoveredModels = computed(() => {
+  const keyword = discoveryKeyword.value.trim().toLowerCase()
+  return discoveredModels.value.filter(item => !keyword
+    || item.model_name.toLowerCase().includes(keyword)
+    || item.display_name.toLowerCase().includes(keyword)
+    || item.owned_by.toLowerCase().includes(keyword))
+})
+
+const updateDiscoveryListExpandable = async () => {
+  await nextTick()
+  const list = discoveryListRef.value
+  discoveryListExpandable.value = !!list && list.scrollHeight > 171
+}
+
+watch(() => filteredDiscoveredModels.value.length, () => {
+  void updateDiscoveryListExpandable()
+}, { flush: 'post' })
+
+const handleDiscoverModels = async (refresh = false) => {
+  if (!modelForm.provider_id) {
+    ElMessage.warning('请先选择 Provider')
+    return
+  }
+  discoveryLoading.value = true
+  try {
+    const result = await discoverProviderModels(modelForm.provider_id, refresh)
+    discoveredModels.value = result.list || []
+    discoveryFetchedAt.value = result.fetched_at || ''
+    discoveryCollapsed.value = true
+    await updateDiscoveryListExpandable()
+    if (discoveredModels.value.length === 0) ElMessage.info('供应商没有返回可用模型')
+  } catch (e: unknown) {
+    ElMessage.error((e as { message?: string }).message || '获取模型列表失败')
+  } finally {
+    discoveryLoading.value = false
+  }
+}
+
+const applyDiscoveredModelValues = (item: DiscoveredLlmModel) => {
+  const azure = selectedModelProvider.value?.provider_type === 'azure_openai' || selectedModelProvider.value?.auth_type === 'azure_api_key'
+  modelForm.catalog_model_name = item.model_name
+  modelForm.model_name = azure ? '' : item.model_name
+  modelForm.display_name = item.display_name || item.model_name
+  modelForm.provider_max_input_tokens = item.max_input_tokens_known ? item.max_input_tokens : 0
+  modelForm.provider_max_output_tokens = item.max_output_tokens_known ? item.max_output_tokens : 0
+  modelForm.context_window_tokens = item.context_window_tokens_known ? item.context_window_tokens : 0
+  modelForm.max_tokens = item.max_output_tokens_known ? Math.min(4096, item.max_output_tokens) : 4096
+  modelForm.capabilities_json = item.capabilities_json || ''
+  modelForm.metadata_source = 'merged'
+  if (item.temperature_known) modelForm.temperature = item.temperature
+  if (item.top_p_known) modelForm.top_p = item.top_p
+  modelForm.temperature_enabled = false
+  modelForm.top_p_enabled = false
+  const sources = Object.fromEntries((item.field_sources || []).map(source => [source.field_name, source])) as Record<string, ModelMetadataFieldSource>
+  const now = new Date().toISOString()
+  sources.max_tokens = { field_name: 'max_tokens', source_type: 'platform_policy', source_ref: '', confidence: 1, observed_at: now, verified: true }
+  sources.max_concurrency = { field_name: 'max_concurrency', source_type: 'platform_policy', source_ref: '', confidence: 1, observed_at: now, verified: true }
+  sources.timeout_seconds = { field_name: 'timeout_seconds', source_type: 'platform_policy', source_ref: '', confidence: 1, observed_at: now, verified: true }
+  sources.temperature_enabled = { field_name: 'temperature_enabled', source_type: 'platform_policy', source_ref: '', confidence: 1, observed_at: now, verified: true }
+  sources.top_p_enabled = { field_name: 'top_p_enabled', source_type: 'platform_policy', source_ref: '', confidence: 1, observed_at: now, verified: true }
+  setMetadataSources(sources)
+}
+
+const notifyDiscoveredModelApplied = (item: DiscoveredLlmModel) => {
+  const modelName = item.display_name || item.model_name
+  const azure = selectedModelProvider.value?.provider_type === 'azure_openai' || selectedModelProvider.value?.auth_type === 'azure_api_key'
+  ElMessage.success(azure
+    ? `已应用「${modelName}」模型预设，请继续填写 Azure Deployment Name`
+    : `已应用「${modelName}」模型预设`)
+}
+
+const applyDiscoveredModel = async (item: DiscoveredLlmModel) => {
+  const collapseAfterApply = discoveryListExpandable.value
+  if (selectedModelProvider.value?.provider_type !== 'ollama' && selectedModelProvider.value?.protocol_type !== 'ollama_chat') {
+    applyDiscoveredModelValues(item)
+    notifyDiscoveredModelApplied(item)
+    if (collapseAfterApply) discoveryCollapsed.value = true
+    return
+  }
+  discoveryLoading.value = true
+  try {
+    const preset = await getProviderModelPreset(modelForm.provider_id, item.model_name)
+    const appliedModel = preset.model || item
+    applyDiscoveredModelValues(appliedModel)
+    notifyDiscoveredModelApplied(appliedModel)
+    if (collapseAfterApply) discoveryCollapsed.value = true
+  } catch {
+    applyDiscoveredModelValues(item)
+    ElMessage.warning('已应用模型列表信息，但未能读取 Ollama /api/show 详细预设')
+    if (collapseAfterApply) discoveryCollapsed.value = true
+  } finally {
+    discoveryLoading.value = false
+  }
+}
+
+watch(() => providerForm.provider_type, (type, previous) => {
+  const profile = providerProfiles[type]
+  if (!profile) return
+  providerForm.protocol_type = profile.protocol
+  providerForm.auth_type = profile.auth
+  if (!isEditingProvider.value && (previous !== type || !providerForm.base_url)) providerForm.base_url = profile.baseUrl
+})
+
+watch(() => modelForm.provider_id, () => {
+  if (!isEditingModel.value) {
+    discoveredModels.value = []
+    discoveryFetchedAt.value = ''
+    discoveryCollapsed.value = true
+    discoveryListExpandable.value = false
+  }
+})
 
 const handleDeleteModel = async (row: LlmModel) => {
   try {
@@ -468,10 +725,11 @@ const providerTypeLabel = (t: string): string => {
   const map: Record<string, string> = {
     openai: 'OpenAI',
     anthropic: 'Anthropic',
-    azure: 'Azure OpenAI',
+    azure_openai: 'Azure OpenAI',
     ollama: 'Ollama',
-    google: 'Google AI',
-    other: '其他',
+    google_gemini: 'Google Gemini',
+    openai_compatible: 'OpenAI Compatible',
+    custom: '自定义',
   }
   return map[t] || t || '未知'
 }
@@ -811,16 +1069,36 @@ onMounted(() => {
           <el-select v-model="providerForm.provider_type" style="width: 100%">
             <el-option value="openai" label="OpenAI" />
             <el-option value="anthropic" label="Anthropic" />
-            <el-option value="azure" label="Azure OpenAI" />
+            <el-option value="azure_openai" label="Azure OpenAI" />
             <el-option value="ollama" label="Ollama" />
-            <el-option value="google" label="Google AI" />
-            <el-option value="other" label="其他" />
+            <el-option value="google_gemini" label="Google Gemini" />
+            <el-option value="openai_compatible" label="OpenAI Compatible" />
+            <el-option value="custom" label="自定义" />
           </el-select>
         </el-form-item>
+        <div class="form-grid">
+          <el-form-item label="请求协议" required>
+            <el-select v-model="providerForm.protocol_type" :disabled="providerForm.provider_type !== 'custom'" style="width: 100%">
+              <el-option value="openai_chat_completions" label="OpenAI Chat Completions" />
+              <el-option value="anthropic_messages" label="Anthropic Messages" />
+              <el-option value="gemini_generate_content" label="Gemini GenerateContent" />
+              <el-option value="ollama_chat" label="Ollama Chat" />
+            </el-select>
+          </el-form-item>
+          <el-form-item label="认证方式" required>
+            <el-select v-model="providerForm.auth_type" :disabled="providerForm.provider_type !== 'custom'" style="width: 100%">
+              <el-option value="bearer" label="Bearer Token" />
+              <el-option value="x_api_key" label="x-api-key" />
+              <el-option value="azure_api_key" label="Azure api-key" />
+              <el-option value="google_api_key" label="Google API Key" />
+              <el-option value="none" label="无需认证" />
+            </el-select>
+          </el-form-item>
+        </div>
         <el-form-item label="Base URL" required>
           <el-input v-model="providerForm.base_url" placeholder="例如：https://api.openai.com" />
         </el-form-item>
-        <el-form-item :label="isEditingProvider ? 'API Key（留空不修改）' : 'API Key'" :required="!isEditingProvider">
+        <el-form-item v-if="providerForm.auth_type !== 'none'" :label="isEditingProvider ? 'API Key（留空不修改）' : 'API Key'" :required="!isEditingProvider">
           <el-input
             v-model="providerForm.api_key"
             type="password"
@@ -828,6 +1106,13 @@ onMounted(() => {
             autocomplete="new-password"
             placeholder="输入 API Key（编辑时留空表示不修改）"
           />
+        </el-form-item>
+        <el-form-item v-if="providerForm.provider_type === 'azure_openai' || providerForm.provider_type === 'google_gemini' || providerForm.provider_type === 'custom'" label="API Version">
+          <el-input v-model="providerForm.api_version" :placeholder="providerForm.provider_type === 'azure_openai' ? '例如：2024-10-21' : '例如：v1beta'" />
+        </el-form-item>
+        <el-form-item label="模型发现 URL">
+          <el-input v-model="providerForm.discovery_url" placeholder="可选；留空时按 Provider 类型自动推导" />
+          <div class="field-help">云端 Provider 仅允许 HTTPS 和公网地址；Ollama 可使用本地 HTTP 地址。</div>
         </el-form-item>
         <el-form-item label="Extra Headers">
           <el-input
@@ -852,7 +1137,7 @@ onMounted(() => {
     <el-drawer
       v-model="modelDrawerVisible"
       :title="modelDrawerTitle"
-      size="560px"
+      size="720px"
       :close-on-click-modal="true"
       class="config-drawer"
     >
@@ -862,39 +1147,102 @@ onMounted(() => {
             <el-option v-for="p in providerList" :key="p.id" :value="p.id" :label="p.name" />
           </el-select>
         </el-form-item>
+        <el-form-item v-if="!isEditingModel" label="供应商模型目录">
+          <div class="discovery-toolbar">
+            <el-button type="primary" plain :icon="Download" :loading="discoveryLoading" @click="handleDiscoverModels(false)">获取模型列表</el-button>
+            <el-button v-if="discoveredModels.length" :icon="Refresh" :loading="discoveryLoading" @click="handleDiscoverModels(true)">强制刷新</el-button>
+            <span v-if="discoveryFetchedAt" class="field-help">获取于 {{ formatTime(discoveryFetchedAt) }}</span>
+          </div>
+          <div v-if="discoveredModels.length" class="discovery-panel" :class="{ 'is-collapsed': discoveryCollapsed }">
+            <div class="discovery-search">
+              <el-input v-model="discoveryKeyword" :prefix-icon="Search" clearable placeholder="搜索模型名称或所有者" />
+            </div>
+            <div ref="discoveryListRef" class="discovery-list" :class="{ 'is-collapsed': discoveryCollapsed }">
+              <button
+                v-for="item in filteredDiscoveredModels"
+                :key="item.model_name"
+                type="button"
+                class="discovery-item"
+                :class="{ 'is-selected': modelForm.catalog_model_name === item.model_name }"
+                :disabled="item.already_configured"
+                @click="applyDiscoveredModel(item)"
+              >
+                <span><strong>{{ item.display_name || item.model_name }}</strong><small>{{ item.model_name }}<template v-if="item.owned_by"> · {{ item.owned_by }}</template></small></span>
+                <span class="discovery-meta">
+                  <el-tag v-if="item.max_input_tokens_known" size="small" effect="plain">输入 {{ formatNumber(item.max_input_tokens) }}</el-tag>
+                  <el-tag v-if="item.max_output_tokens_known" size="small" effect="plain">输出 {{ formatNumber(item.max_output_tokens) }}</el-tag>
+                  <el-tag v-if="item.already_configured" size="small" type="info">已配置</el-tag>
+                </span>
+              </button>
+            </div>
+            <div v-if="discoveryListExpandable" class="discovery-expand">
+              <el-button
+                type="primary"
+                text
+                :icon="discoveryCollapsed ? ArrowDown : ArrowUp"
+                @click="discoveryCollapsed = !discoveryCollapsed"
+              >
+                {{ discoveryCollapsed ? '展开模型列表' : '收缩模型列表' }}
+              </el-button>
+            </div>
+          </div>
+        </el-form-item>
         <el-form-item label="模型名称" required>
-          <el-input v-model="modelForm.model_name" placeholder="例如：gpt-4o" />
+          <el-input v-model="modelForm.model_name" :placeholder="selectedModelProvider?.provider_type === 'azure_openai' || selectedModelProvider?.auth_type === 'azure_api_key' ? '填写 Azure Deployment Name' : '例如：gpt-4o'" @change="markModelFieldManual('model_name')" />
+          <div v-if="(selectedModelProvider?.provider_type === 'azure_openai' || selectedModelProvider?.auth_type === 'azure_api_key') && modelForm.catalog_model_name" class="field-help">供应商目录模型：{{ modelForm.catalog_model_name }}；实际请求使用上方 Deployment Name。</div>
         </el-form-item>
         <el-form-item label="显示名称">
-          <el-input v-model="modelForm.display_name" placeholder="例如：GPT-4o（推荐）" />
+          <el-input v-model="modelForm.display_name" placeholder="例如：GPT-4o（推荐）" @change="markModelFieldManual('display_name')" />
         </el-form-item>
-        <el-form-item label="Temperature">
+        <el-form-item>
+          <template #label><span class="metadata-label">Temperature <el-tag size="small" :type="metadataSourceType('temperature')" effect="plain">{{ metadataSourceLabel('temperature') }}</el-tag></span></template>
+          <el-switch v-model="modelForm.temperature_enabled" active-text="随请求发送" inactive-text="使用供应商默认" @change="markModelFieldManual('temperature_enabled')" />
           <div class="slider-with-value">
-            <el-slider v-model="modelForm.temperature" :min="0" :max="2" :step="0.01" />
+            <el-slider v-model="modelForm.temperature" :disabled="!modelForm.temperature_enabled" :min="0" :max="2" :step="0.01" @change="markModelFieldManual('temperature')" />
             <span class="slider-value">{{ modelForm.temperature.toFixed(2) }}</span>
           </div>
         </el-form-item>
-        <el-form-item label="Top P">
+        <el-form-item>
+          <template #label><span class="metadata-label">Top P <el-tag size="small" :type="metadataSourceType('top_p')" effect="plain">{{ metadataSourceLabel('top_p') }}</el-tag></span></template>
+          <el-switch v-model="modelForm.top_p_enabled" active-text="随请求发送" inactive-text="使用供应商默认" @change="markModelFieldManual('top_p_enabled')" />
           <div class="slider-with-value">
-            <el-slider v-model="modelForm.top_p" :min="0" :max="1" :step="0.01" />
+            <el-slider v-model="modelForm.top_p" :disabled="!modelForm.top_p_enabled" :min="0" :max="1" :step="0.01" @change="markModelFieldManual('top_p')" />
             <span class="slider-value">{{ modelForm.top_p.toFixed(2) }}</span>
           </div>
         </el-form-item>
         <div class="form-grid">
-          <el-form-item label="Max Tokens（输出上限）">
-            <el-input-number v-model="modelForm.max_tokens" :min="1" :max="1000000" :step="1" controls-position="right" />
+          <el-form-item>
+            <template #label><span class="metadata-label">Max Tokens（请求输出预算） <el-tag size="small" :type="metadataSourceType('max_tokens')" effect="plain">{{ metadataSourceLabel('max_tokens') }}</el-tag></span></template>
+            <el-input-number v-model="modelForm.max_tokens" :min="1" :max="1000000" :step="1" controls-position="right" @change="markModelFieldManual('max_tokens')" />
           </el-form-item>
-          <el-form-item label="上下文窗口（总）">
-            <el-input-number v-model="modelForm.context_window_tokens" :min="0" :max="10000000" :step="1024" controls-position="right" />
-            <div style="font-size: 11px; color: var(--text-faint); margin-top: 4px;">0 = 未知。请根据模型文档填写总上下文窗口（输入 + 输出）。</div>
+          <el-form-item>
+            <template #label><span class="metadata-label">上下文窗口（总） <el-tag size="small" :type="metadataSourceType('context_window_tokens')" effect="plain">{{ metadataSourceLabel('context_window_tokens') }}</el-tag></span></template>
+            <el-input-number v-model="modelForm.context_window_tokens" :min="0" :max="10000000" :step="1024" controls-position="right" @change="markModelFieldManual('context_window_tokens')" />
+            <div class="field-help">{{ modelForm.context_window_tokens === 0 ? '未知；供应商未提供时请参考官方文档填写。' : '模型总上下文窗口。' }}</div>
           </el-form-item>
-          <el-form-item label="最大并发">
-            <el-input-number v-model="modelForm.max_concurrency" :min="1" :max="100" :step="1" controls-position="right" />
+          <el-form-item>
+            <template #label><span class="metadata-label">供应商输入上限 <el-tag size="small" :type="metadataSourceType('max_input_tokens')" effect="plain">{{ metadataSourceLabel('max_input_tokens') }}</el-tag></span></template>
+            <el-input-number v-model="modelForm.provider_max_input_tokens" :min="0" :max="10000000" :step="1024" controls-position="right" @change="markModelFieldManual('max_input_tokens')" />
+            <div v-if="modelForm.provider_max_input_tokens === 0" class="field-help">未知</div>
           </el-form-item>
-          <el-form-item label="超时（秒）">
-            <el-input-number v-model="modelForm.timeout_seconds" :min="1" :max="600" :step="1" controls-position="right" />
+          <el-form-item>
+            <template #label><span class="metadata-label">供应商输出上限 <el-tag size="small" :type="metadataSourceType('max_output_tokens')" effect="plain">{{ metadataSourceLabel('max_output_tokens') }}</el-tag></span></template>
+            <el-input-number v-model="modelForm.provider_max_output_tokens" :min="0" :max="10000000" :step="1024" controls-position="right" @change="markModelFieldManual('max_output_tokens')" />
+            <div v-if="modelForm.provider_max_output_tokens === 0" class="field-help">未知</div>
+          </el-form-item>
+          <el-form-item>
+            <template #label><span class="metadata-label">最大并发 <el-tag size="small" :type="metadataSourceType('max_concurrency')" effect="plain">{{ metadataSourceLabel('max_concurrency') }}</el-tag></span></template>
+            <el-input-number v-model="modelForm.max_concurrency" :min="1" :max="100" :step="1" controls-position="right" @change="markModelFieldManual('max_concurrency')" />
+          </el-form-item>
+          <el-form-item>
+            <template #label><span class="metadata-label">超时（秒） <el-tag size="small" :type="metadataSourceType('timeout_seconds')" effect="plain">{{ metadataSourceLabel('timeout_seconds') }}</el-tag></span></template>
+            <el-input-number v-model="modelForm.timeout_seconds" :min="1" :max="600" :step="1" controls-position="right" @change="markModelFieldManual('timeout_seconds')" />
           </el-form-item>
         </div>
+        <el-form-item>
+          <template #label><span class="metadata-label">能力元数据（JSON） <el-tag size="small" :type="metadataSourceType('capabilities')" effect="plain">{{ metadataSourceLabel('capabilities') }}</el-tag></span></template>
+          <el-input v-model="modelForm.capabilities_json" type="textarea" :rows="4" placeholder="未知时留空；例如：{&quot;tool_calls&quot;:true,&quot;json_output&quot;:true}" @change="markModelFieldManual('capabilities')" />
+        </el-form-item>
         <div class="switch-row">
           <el-form-item label="设为默认">
             <el-switch v-model="modelForm.is_default" active-text="默认" inactive-text="普通" />
@@ -1159,6 +1507,109 @@ onMounted(() => {
   display: flex;
   justify-content: flex-end;
   gap: 10px;
+}
+
+.field-help {
+  margin-top: 5px;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--el-text-color-secondary);
+}
+
+.metadata-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.discovery-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  flex-wrap: wrap;
+}
+
+.discovery-panel {
+  width: 100%;
+  padding: 10px;
+  margin-top: 10px;
+  border: 1px solid var(--el-border-color-light);
+  border-radius: 8px;
+  background: var(--el-fill-color-extra-light);
+  transition: padding-bottom 240ms ease;
+}
+
+.discovery-panel.is-collapsed {
+  padding-bottom: 4px;
+}
+
+.discovery-search {
+  width: 100%;
+}
+
+.discovery-list {
+  max-height: 260px;
+  margin-top: 8px;
+  overflow-y: auto;
+  transition:
+    max-height 260ms ease,
+    margin-top 240ms ease;
+}
+
+.discovery-list.is-collapsed {
+  max-height: 170px;
+}
+
+.discovery-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  width: 100%;
+  padding: 10px;
+  color: var(--el-text-color-primary);
+  text-align: left;
+  cursor: pointer;
+  border: 0;
+  border-bottom: 1px solid var(--el-border-color-lighter);
+  background: transparent;
+}
+
+.discovery-item:hover:not(:disabled) {
+  background: var(--el-color-primary-light-9);
+}
+
+.discovery-item.is-selected {
+  background: var(--el-color-primary-light-9);
+}
+
+.discovery-item:disabled {
+  cursor: not-allowed;
+  opacity: .55;
+}
+
+.discovery-item strong,
+.discovery-item small {
+  display: block;
+}
+
+.discovery-item small {
+  margin-top: 3px;
+  color: var(--el-text-color-secondary);
+}
+
+.discovery-meta {
+  display: flex;
+  gap: 5px;
+  flex: 0 0 auto;
+}
+
+.discovery-expand {
+  display: flex;
+  justify-content: center;
+  padding-top: 2px;
+  border-top: 1px solid var(--el-border-color-lighter);
 }
 
 @media (max-width: 1100px) {

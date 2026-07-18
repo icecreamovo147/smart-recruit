@@ -36,6 +36,7 @@ type AnthropicChatModelConfig struct {
 	Timeout     int // seconds, 0 uses default
 	MaxTokens   *int
 	Temperature *float64
+	HTTPClient  *http.Client
 }
 
 // newAnthropicChatModel creates a new Anthropic chat model.
@@ -48,13 +49,17 @@ func newAnthropicChatModel(config AnthropicChatModelConfig) *anthropicChatModel 
 	if config.MaxTokens != nil && *config.MaxTokens > 0 {
 		maxTokens = *config.MaxTokens
 	}
+	client := config.HTTPClient
+	if client == nil {
+		client = &http.Client{Timeout: time.Duration(timeout) * time.Second}
+	}
 	return &anthropicChatModel{
 		apiKey:      config.APIKey,
 		baseURL:     strings.TrimRight(config.BaseURL, "/"),
 		model:       config.Model,
 		maxTokens:   maxTokens,
 		temperature: config.Temperature,
-		httpClient:  &http.Client{Timeout: time.Duration(timeout) * time.Second},
+		httpClient:  client,
 	}
 }
 

@@ -25,19 +25,24 @@ source_refs:
   - smart-recruit-ai-agent-service/internal/application/service/agent_service.go
   - smart-recruit-ai-agent-service/internal/infrastructure/persistence/config_store.go
   - smart-recruit-ai-agent-service/internal/infrastructure/persistence/llm_runtime.go
+  - smart-recruit-ai-agent-service/internal/infrastructure/persistence/llm_discovery.go
+  - smart-recruit-ai-agent-service/internal/infrastructure/persistence/model_catalog.go
+  - smart-recruit-commons/migrations/000060_add_llm_model_catalog.sql
   - smart-recruit-ai-agent-service/internal/application/recruiting_intelligence/structured_runtime.go
   - smart-recruit-ai-agent-service/internal/interfaces/grpc/recruiting_observability.go
   - smart-recruit-gateway/handler/hr/llm_config.go
   - smart-recruit-gateway/handler/hr/embedding_config.go
   - smart-recruit-gateway/handler/hr/prompt.go
   - smart-recruit-gateway/handler/hr/agent_config.go
-last_verified: 2026-07-16
+last_verified: 2026-07-18
 review_after: 2026-10-14
 ---
 
 # AI Configuration Governance
 
 AI configuration covers LLM providers/models, embedding providers/models, prompt templates and versions, agent configs, capability bindings, runtime policy, MCP policy, and Agent Skills. Preserve auditability, credential redaction, default uniqueness, prompt version history, rollback semantics, and admin permission checks.
+
+LLM model discovery uses the same canonical protocol and authentication strategy as inference; there is no independent discovery protocol. Provider list/detail responses are stored as field-level observations, then merged with an expiring, reviewed model catalog only for fields the provider did not supply. Each effective preset carries per-field provenance, unknown values remain unknown, and saving a model captures an editable user-owned snapshot rather than creating a live dependency on later catalog updates. Bundled catalog imports are versioned and idempotent, never overwrite administrator-managed rows, and expired observations are removed during synchronization.
 
 The native AI Agent gRPC runtime now backs LLM, embedding, prompt, and agent configuration surfaces with `NativeStore` persistence instead of inherited unimplemented stubs. Live provider and embedding model tests validate persisted configuration and return explicit non-success unsupported/configuration responses when no provider client or worker is bound; secrets returned through configuration reads remain masked or redacted.
 

@@ -6445,6 +6445,8 @@ const (
 	LlmConfigService_UpdateProvider_FullMethodName         = "/recruitment.LlmConfigService/UpdateProvider"
 	LlmConfigService_DeleteProvider_FullMethodName         = "/recruitment.LlmConfigService/DeleteProvider"
 	LlmConfigService_TestProviderConnection_FullMethodName = "/recruitment.LlmConfigService/TestProviderConnection"
+	LlmConfigService_DiscoverProviderModels_FullMethodName = "/recruitment.LlmConfigService/DiscoverProviderModels"
+	LlmConfigService_GetProviderModelPreset_FullMethodName = "/recruitment.LlmConfigService/GetProviderModelPreset"
 	LlmConfigService_ListModels_FullMethodName             = "/recruitment.LlmConfigService/ListModels"
 	LlmConfigService_CreateModel_FullMethodName            = "/recruitment.LlmConfigService/CreateModel"
 	LlmConfigService_UpdateModel_FullMethodName            = "/recruitment.LlmConfigService/UpdateModel"
@@ -6461,6 +6463,8 @@ type LlmConfigServiceClient interface {
 	UpdateProvider(ctx context.Context, in *UpdateProviderRequest, opts ...grpc.CallOption) (*ProviderResponse, error)
 	DeleteProvider(ctx context.Context, in *DeleteProviderRequest, opts ...grpc.CallOption) (*CommonResponse, error)
 	TestProviderConnection(ctx context.Context, in *TestProviderConnectionRequest, opts ...grpc.CallOption) (*TestProviderConnectionResponse, error)
+	DiscoverProviderModels(ctx context.Context, in *DiscoverProviderModelsRequest, opts ...grpc.CallOption) (*DiscoverProviderModelsResponse, error)
+	GetProviderModelPreset(ctx context.Context, in *GetProviderModelPresetRequest, opts ...grpc.CallOption) (*GetProviderModelPresetResponse, error)
 	ListModels(ctx context.Context, in *ListModelsRequest, opts ...grpc.CallOption) (*ListModelsResponse, error)
 	CreateModel(ctx context.Context, in *CreateModelRequest, opts ...grpc.CallOption) (*ModelResponse, error)
 	UpdateModel(ctx context.Context, in *UpdateModelRequest, opts ...grpc.CallOption) (*ModelResponse, error)
@@ -6527,6 +6531,26 @@ func (c *llmConfigServiceClient) TestProviderConnection(ctx context.Context, in 
 	return out, nil
 }
 
+func (c *llmConfigServiceClient) DiscoverProviderModels(ctx context.Context, in *DiscoverProviderModelsRequest, opts ...grpc.CallOption) (*DiscoverProviderModelsResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(DiscoverProviderModelsResponse)
+	err := c.cc.Invoke(ctx, LlmConfigService_DiscoverProviderModels_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *llmConfigServiceClient) GetProviderModelPreset(ctx context.Context, in *GetProviderModelPresetRequest, opts ...grpc.CallOption) (*GetProviderModelPresetResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(GetProviderModelPresetResponse)
+	err := c.cc.Invoke(ctx, LlmConfigService_GetProviderModelPreset_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 func (c *llmConfigServiceClient) ListModels(ctx context.Context, in *ListModelsRequest, opts ...grpc.CallOption) (*ListModelsResponse, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(ListModelsResponse)
@@ -6586,6 +6610,8 @@ type LlmConfigServiceServer interface {
 	UpdateProvider(context.Context, *UpdateProviderRequest) (*ProviderResponse, error)
 	DeleteProvider(context.Context, *DeleteProviderRequest) (*CommonResponse, error)
 	TestProviderConnection(context.Context, *TestProviderConnectionRequest) (*TestProviderConnectionResponse, error)
+	DiscoverProviderModels(context.Context, *DiscoverProviderModelsRequest) (*DiscoverProviderModelsResponse, error)
+	GetProviderModelPreset(context.Context, *GetProviderModelPresetRequest) (*GetProviderModelPresetResponse, error)
 	ListModels(context.Context, *ListModelsRequest) (*ListModelsResponse, error)
 	CreateModel(context.Context, *CreateModelRequest) (*ModelResponse, error)
 	UpdateModel(context.Context, *UpdateModelRequest) (*ModelResponse, error)
@@ -6616,6 +6642,12 @@ func (UnimplementedLlmConfigServiceServer) DeleteProvider(context.Context, *Dele
 }
 func (UnimplementedLlmConfigServiceServer) TestProviderConnection(context.Context, *TestProviderConnectionRequest) (*TestProviderConnectionResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method TestProviderConnection not implemented")
+}
+func (UnimplementedLlmConfigServiceServer) DiscoverProviderModels(context.Context, *DiscoverProviderModelsRequest) (*DiscoverProviderModelsResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method DiscoverProviderModels not implemented")
+}
+func (UnimplementedLlmConfigServiceServer) GetProviderModelPreset(context.Context, *GetProviderModelPresetRequest) (*GetProviderModelPresetResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method GetProviderModelPreset not implemented")
 }
 func (UnimplementedLlmConfigServiceServer) ListModels(context.Context, *ListModelsRequest) (*ListModelsResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method ListModels not implemented")
@@ -6743,6 +6775,42 @@ func _LlmConfigService_TestProviderConnection_Handler(srv interface{}, ctx conte
 	return interceptor(ctx, in, info, handler)
 }
 
+func _LlmConfigService_DiscoverProviderModels_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(DiscoverProviderModelsRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(LlmConfigServiceServer).DiscoverProviderModels(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: LlmConfigService_DiscoverProviderModels_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(LlmConfigServiceServer).DiscoverProviderModels(ctx, req.(*DiscoverProviderModelsRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _LlmConfigService_GetProviderModelPreset_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetProviderModelPresetRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(LlmConfigServiceServer).GetProviderModelPreset(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: LlmConfigService_GetProviderModelPreset_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(LlmConfigServiceServer).GetProviderModelPreset(ctx, req.(*GetProviderModelPresetRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 func _LlmConfigService_ListModels_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(ListModelsRequest)
 	if err := dec(in); err != nil {
@@ -6859,6 +6927,14 @@ var LlmConfigService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "TestProviderConnection",
 			Handler:    _LlmConfigService_TestProviderConnection_Handler,
+		},
+		{
+			MethodName: "DiscoverProviderModels",
+			Handler:    _LlmConfigService_DiscoverProviderModels_Handler,
+		},
+		{
+			MethodName: "GetProviderModelPreset",
+			Handler:    _LlmConfigService_GetProviderModelPreset_Handler,
 		},
 		{
 			MethodName: "ListModels",

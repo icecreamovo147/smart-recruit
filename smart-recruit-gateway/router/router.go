@@ -399,6 +399,8 @@ func Setup(cfg config.Config, clients *rpc.Clients, rdb *redis.Client) (*gin.Eng
 	adminGroup.PUT("/llm-providers/:id", normalTimeout, bodyAuth, middleware.RequirePermission(authz.PermSystemConfigManage), llmConfigHandler.UpdateProvider)
 	adminGroup.DELETE("/llm-providers/:id", normalTimeout, middleware.RequirePermission(authz.PermSystemConfigManage), llmConfigHandler.DeleteProvider)
 	adminGroup.POST("/llm-providers/:id/test", normalTimeout, middleware.RequirePermission(authz.PermSystemConfigManage), llmConfigHandler.TestProviderConnection)
+	adminGroup.POST("/llm-providers/:id/models/discover", mcpTimeout, middleware.RequirePermission(authz.PermSystemConfigManage), llmConfigHandler.DiscoverProviderModels)
+	adminGroup.POST("/llm-providers/:id/models/preset", mcpTimeout, bodyAuth, middleware.RequirePermission(authz.PermSystemConfigManage), llmConfigHandler.GetProviderModelPreset)
 
 	adminGroup.GET("/llm-models", normalTimeout, middleware.RequirePermission(authz.PermSystemConfigManage), llmConfigHandler.ListModels)
 	adminGroup.POST("/llm-models", normalTimeout, bodyAuth, middleware.RequirePermission(authz.PermSystemConfigManage), llmConfigHandler.CreateModel)

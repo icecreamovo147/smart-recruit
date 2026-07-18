@@ -9,7 +9,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/cloudwego/eino-ext/components/model/openai"
 	chatmodel "github.com/cloudwego/eino/components/model"
 	"github.com/cloudwego/eino/schema"
 	"go.uber.org/zap"
@@ -41,41 +40,7 @@ func newChatModel(ctx context.Context, providerType, apiKey, model, baseURL stri
 // newChatModelWithParams creates a ToolCallingChatModel with generation
 // parameters sourced from model configuration.
 func newChatModelWithParams(ctx context.Context, providerType, apiKey, model, baseURL string, timeout time.Duration, params ModelParams) (chatmodel.ToolCallingChatModel, error) {
-	switch providerType {
-	case "anthropic":
-		return newAnthropicChatModel(AnthropicChatModelConfig{
-			APIKey:      apiKey,
-			BaseURL:     baseURL,
-			Model:       model,
-			Timeout:     int(timeout.Seconds()),
-			MaxTokens:   params.MaxTokens,
-			Temperature: params.Temperature,
-		}), nil
-	default: // openai_compatible, deepseek, ""
-		cfg := &openai.ChatModelConfig{
-			APIKey:  apiKey,
-			Model:   model,
-			BaseURL: baseURL,
-			Timeout: timeout,
-		}
-		if params.Temperature != nil {
-			temperature := float32(*params.Temperature)
-			cfg.Temperature = &temperature
-		}
-		if params.TopP != nil {
-			topP := float32(*params.TopP)
-			cfg.TopP = &topP
-		}
-		if params.MaxTokens != nil && *params.MaxTokens > 0 {
-			maxTokens := *params.MaxTokens
-			cfg.MaxTokens = &maxTokens
-		}
-		cm, err := openai.NewChatModel(ctx, cfg)
-		if err != nil {
-			return nil, err
-		}
-		return cm, nil
-	}
+	return NewProtocolChatModel(ctx, ChatModelRequest{ProviderType: providerType, APIKey: apiKey, Model: model, BaseURL: baseURL, Timeout: timeout, Params: params})
 }
 
 // NewChatModel is the exported version of newChatModel, used by the service layer
@@ -163,6 +128,10 @@ type ClientConfig struct {
 	Model                   string
 	BaseURL                 string
 	ProviderType            string
+	ProtocolType            string
+	AuthType                string
+	APIVersion              string
+	ExtraHeaders            map[string]string
 	ModelParams             ModelParams
 	Timeout                 time.Duration
 	TotalTimeout            time.Duration
@@ -263,7 +232,18 @@ func NewClientFromConfig(ctx context.Context, cfg ClientConfig, opts ...Options)
 	baseURL := cfg.BaseURL
 
 	if strings.TrimSpace(baseURL) == "" {
-		baseURL = "https://dashscope.aliyuncs.com/compatible-mode/v1"
+		switch normalizeProviderType(cfg.ProviderType) {
+		case "openai":
+			baseURL = "https://api.openai.com/v1"
+		case "anthropic":
+			baseURL = "https://api.anthropic.com"
+		case "ollama":
+			baseURL = "http://127.0.0.1:11434"
+		case "google_gemini":
+			// The Google GenAI client applies its official endpoint when empty.
+		default:
+			baseURL = "https://dashscope.aliyuncs.com/compatible-mode/v1"
+		}
 	}
 
 	opt := Options{
@@ -347,7 +327,11 @@ func NewClientFromConfig(ctx context.Context, cfg ClientConfig, opts ...Options)
 			opt.SlowResponseThreshold = opts[0].SlowResponseThreshold
 		}
 	}
-	cm, err := newChatModelWithParams(ctx, cfg.ProviderType, apiKey, model, baseURL, opt.Timeout, cfg.ModelParams)
+	cm, err := NewProtocolChatModel(ctx, ChatModelRequest{
+		ProviderType: cfg.ProviderType, ProtocolType: cfg.ProtocolType, AuthType: cfg.AuthType,
+		APIKey: apiKey, Model: model, BaseURL: baseURL, APIVersion: cfg.APIVersion,
+		ExtraHeaders: cfg.ExtraHeaders, Timeout: opt.Timeout, Params: cfg.ModelParams,
+	})
 	if err != nil {
 		return nil, err
 	}

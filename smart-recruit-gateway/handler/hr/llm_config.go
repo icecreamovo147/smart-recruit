@@ -119,6 +119,52 @@ func (h *LlmConfigHandler) TestProviderConnection(c *gin.Context) {
 	})
 }
 
+func (h *LlmConfigHandler) DiscoverProviderModels(c *gin.Context) {
+	id, err := strconv.ParseInt(c.Param("id"), 10, 64)
+	if err != nil {
+		base.BadRequest(c, "invalid id")
+		return
+	}
+	var body struct {
+		Refresh bool `json:"refresh"`
+	}
+	if c.Request.ContentLength > 0 {
+		if err := c.ShouldBindJSON(&body); err != nil {
+			base.BadRequest(c, "invalid request body")
+			return
+		}
+	}
+	resp, err := h.clients.LlmConfig.DiscoverProviderModels(c.Request.Context(), &pb.DiscoverProviderModelsRequest{ProviderId: id, Refresh: body.Refresh})
+	if err != nil {
+		logger.L().Error("DiscoverProviderModels failed", zap.Error(err))
+		base.Internal(c, err)
+		return
+	}
+	base.From(c, resp.Code, resp.Msg, gin.H{"list": resp.List, "source": resp.Source, "fetched_at": resp.FetchedAt})
+}
+
+func (h *LlmConfigHandler) GetProviderModelPreset(c *gin.Context) {
+	id, err := strconv.ParseInt(c.Param("id"), 10, 64)
+	if err != nil {
+		base.BadRequest(c, "invalid id")
+		return
+	}
+	var body struct {
+		ModelName string `json:"model_name" binding:"required"`
+	}
+	if err := c.ShouldBindJSON(&body); err != nil {
+		base.BadRequest(c, "model_name is required")
+		return
+	}
+	resp, err := h.clients.LlmConfig.GetProviderModelPreset(c.Request.Context(), &pb.GetProviderModelPresetRequest{ProviderId: id, ModelName: body.ModelName})
+	if err != nil {
+		logger.L().Error("GetProviderModelPreset failed", zap.Error(err))
+		base.Internal(c, err)
+		return
+	}
+	base.From(c, resp.Code, resp.Msg, gin.H{"model": resp.Model, "source": resp.Source, "fetched_at": resp.FetchedAt})
+}
+
 func (h *LlmConfigHandler) TestModelConnection(c *gin.Context) {
 	idStr := c.Param("id")
 	id, err := strconv.ParseInt(idStr, 10, 64)

@@ -59,6 +59,8 @@
     "ai_usage_auth_contexts": {"owner": "ai-agent", "access": {"ai-agent": ["read", "write"]}},
     "llm_providers": {"owner": "ai-agent", "access": {"ai-agent": ["read", "write"]}},
     "llm_models": {"owner": "ai-agent", "access": {"ai-agent": ["read", "write"]}},
+    "llm_model_catalog": {"owner": "ai-agent", "access": {"ai-agent": ["read", "write"]}},
+    "llm_model_metadata_observations": {"owner": "ai-agent", "access": {"ai-agent": ["read", "write"]}},
     "embedding_providers": {"owner": "ai-agent", "access": {"ai-agent": ["read", "write"]}},
     "embedding_models": {"owner": "ai-agent", "access": {"ai-agent": ["read", "write"]}},
     "prompt_templates": {"owner": "ai-agent", "access": {"ai-agent": ["read", "write"]}},

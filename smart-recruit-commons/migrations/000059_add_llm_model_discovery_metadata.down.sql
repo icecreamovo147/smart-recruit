@@ -1,0 +1,9 @@
+ALTER TABLE `llm_models`
+    DROP COLUMN `top_p_enabled`,
+    DROP COLUMN `temperature_enabled`,
+    DROP COLUMN `metadata_synced_at`,
+    DROP COLUMN `metadata_source`,
+    DROP COLUMN `capabilities`,
+    DROP COLUMN `provider_max_output_tokens`,
+    DROP COLUMN `provider_max_input_tokens`,
+    DROP COLUMN `catalog_model_name`;

@@ -13,6 +13,7 @@ import (
 	"gorm.io/gorm/clause"
 
 	embeddinginfra "smart-recruit-ai-agent-service/internal/infrastructure/provider"
+	commonsai "smart-recruit-commons/ai"
 	"smart-recruit-proto/recruitment/pb"
 )
 
@@ -25,20 +26,29 @@ const (
 )
 
 type llmModelRecord struct {
-	ID                  int64     `gorm:"primaryKey"`
-	ProviderID          int64     `gorm:"column:provider_id"`
-	ModelName           string    `gorm:"column:model_name"`
-	DisplayName         string    `gorm:"column:display_name"`
-	Temperature         float64   `gorm:"column:temperature"`
-	TopP                float64   `gorm:"column:top_p"`
-	MaxTokens           int       `gorm:"column:max_tokens"`
-	ContextWindowTokens int       `gorm:"column:context_window_tokens"`
-	MaxConcurrency      int       `gorm:"column:max_concurrency"`
-	TimeoutSeconds      int       `gorm:"column:timeout_seconds"`
-	IsEnabled           bool      `gorm:"column:is_enabled"`
-	IsDefault           bool      `gorm:"column:is_default"`
-	CreatedAt           time.Time `gorm:"column:created_at"`
-	UpdatedAt           time.Time `gorm:"column:updated_at"`
+	ID                      int64          `gorm:"primaryKey"`
+	ProviderID              int64          `gorm:"column:provider_id"`
+	ModelName               string         `gorm:"column:model_name"`
+	CatalogModelName        sql.NullString `gorm:"column:catalog_model_name"`
+	DisplayName             string         `gorm:"column:display_name"`
+	Temperature             float64        `gorm:"column:temperature"`
+	TopP                    float64        `gorm:"column:top_p"`
+	MaxTokens               int            `gorm:"column:max_tokens"`
+	ContextWindowTokens     int            `gorm:"column:context_window_tokens"`
+	ProviderMaxInputTokens  sql.NullInt64  `gorm:"column:provider_max_input_tokens"`
+	ProviderMaxOutputTokens sql.NullInt64  `gorm:"column:provider_max_output_tokens"`
+	Capabilities            sql.NullString `gorm:"column:capabilities"`
+	MetadataSource          string         `gorm:"column:metadata_source"`
+	MetadataSources         sql.NullString `gorm:"column:metadata_sources"`
+	MetadataSyncedAt        *time.Time     `gorm:"column:metadata_synced_at"`
+	TemperatureEnabled      bool           `gorm:"column:temperature_enabled"`
+	TopPEnabled             bool           `gorm:"column:top_p_enabled"`
+	MaxConcurrency          int            `gorm:"column:max_concurrency"`
+	TimeoutSeconds          int            `gorm:"column:timeout_seconds"`
+	IsEnabled               bool           `gorm:"column:is_enabled"`
+	IsDefault               bool           `gorm:"column:is_default"`
+	CreatedAt               time.Time      `gorm:"column:created_at"`
+	UpdatedAt               time.Time      `gorm:"column:updated_at"`
 }
 
 func (llmModelRecord) TableName() string { return "llm_models" }
@@ -138,18 +148,24 @@ type aiEmbeddingRecord struct {
 func (aiEmbeddingRecord) TableName() string { return "ai_embeddings" }
 
 func (s *NativeStore) CreateLlmProvider(ctx context.Context, req *pb.CreateProviderRequest) (*pb.ProviderResponse, error) {
-	providerType := strings.TrimSpace(req.GetProviderType())
-	if providerType == "" {
-		providerType = "openai_compatible"
+	profile, err := commonsai.ResolveProviderProfile(req.GetProviderType(), req.GetProtocolType(), req.GetAuthType())
+	if err != nil {
+		return &pb.ProviderResponse{Code: configBadRequest, Msg: err.Error()}, nil
 	}
 	if strings.TrimSpace(req.GetName()) == "" || strings.TrimSpace(req.GetBaseUrl()) == "" {
 		return &pb.ProviderResponse{Code: configBadRequest, Msg: "provider name and base_url are required"}, nil
 	}
-	encrypted, err := s.encryptAPIKey(req.GetApiKey())
-	if err != nil {
+	if err := validateStringMapJSON(req.GetExtraHeadersJson()); err != nil {
 		return &pb.ProviderResponse{Code: configBadRequest, Msg: err.Error()}, nil
 	}
-	row := llmProviderRecord{Name: strings.TrimSpace(req.GetName()), BaseURL: strings.TrimSpace(req.GetBaseUrl()), APIKeyEncrypted: encrypted, ProviderType: providerType, ExtraHeaders: nullableJSONText(req.GetExtraHeadersJson()), IsEnabled: true}
+	encrypted := ""
+	if profile.AuthType != commonsai.AuthNone || strings.TrimSpace(req.GetApiKey()) != "" {
+		encrypted, err = s.encryptAPIKey(req.GetApiKey())
+		if err != nil {
+			return &pb.ProviderResponse{Code: configBadRequest, Msg: err.Error()}, nil
+		}
+	}
+	row := llmProviderRecord{Name: strings.TrimSpace(req.GetName()), BaseURL: strings.TrimSpace(req.GetBaseUrl()), APIKeyEncrypted: encrypted, ProviderType: profile.ProviderType, ProtocolType: profile.ProtocolType, AuthType: profile.AuthType, APIVersion: nullableSQLString(req.GetApiVersion()), DiscoveryURL: nullableSQLString(req.GetDiscoveryUrl()), ExtraHeaders: nullableJSONText(req.GetExtraHeadersJson()), IsEnabled: true}
 	if err := s.db.WithContext(ctx).Create(&row).Error; err != nil {
 		return nil, err
 	}
@@ -157,7 +173,15 @@ func (s *NativeStore) CreateLlmProvider(ctx context.Context, req *pb.CreateProvi
 }
 
 func (s *NativeStore) UpdateLlmProvider(ctx context.Context, req *pb.UpdateProviderRequest) (*pb.ProviderResponse, error) {
+	var current llmProviderRecord
+	if err := s.db.WithContext(ctx).First(&current, req.GetId()).Error; err != nil {
+		if err == gorm.ErrRecordNotFound {
+			return &pb.ProviderResponse{Code: configNotFound, Msg: "provider not found"}, nil
+		}
+		return nil, err
+	}
 	updates := map[string]any{}
+	effectiveAuthType := current.AuthType
 	putString(updates, "name", req.GetName())
 	putString(updates, "base_url", req.GetBaseUrl())
 	if strings.TrimSpace(req.GetApiKey()) != "" {
@@ -167,8 +191,41 @@ func (s *NativeStore) UpdateLlmProvider(ctx context.Context, req *pb.UpdateProvi
 		}
 		updates["api_key_encrypted"] = encrypted
 	}
-	putString(updates, "provider_type", req.GetProviderType())
+	if strings.TrimSpace(req.GetProviderType()) != "" || strings.TrimSpace(req.GetProtocolType()) != "" || strings.TrimSpace(req.GetAuthType()) != "" {
+		providerType := current.ProviderType
+		if strings.TrimSpace(req.GetProviderType()) != "" {
+			providerType = req.GetProviderType()
+		}
+		protocolType := current.ProtocolType
+		if strings.TrimSpace(req.GetProtocolType()) != "" {
+			protocolType = req.GetProtocolType()
+		}
+		authType := current.AuthType
+		if strings.TrimSpace(req.GetAuthType()) != "" {
+			authType = req.GetAuthType()
+		}
+		profile, err := commonsai.ResolveProviderProfile(providerType, protocolType, authType)
+		if err != nil {
+			return &pb.ProviderResponse{Code: configBadRequest, Msg: err.Error()}, nil
+		}
+		updates["provider_type"] = profile.ProviderType
+		updates["protocol_type"] = profile.ProtocolType
+		updates["auth_type"] = profile.AuthType
+		effectiveAuthType = profile.AuthType
+	}
+	if effectiveAuthType != "" && effectiveAuthType != commonsai.AuthNone && strings.TrimSpace(current.APIKeyEncrypted) == "" && strings.TrimSpace(req.GetApiKey()) == "" {
+		return &pb.ProviderResponse{Code: configBadRequest, Msg: "api_key is required for the selected authentication type"}, nil
+	}
+	if req.GetApiVersionSet() {
+		updates["api_version"] = nullableUpdateValue(req.GetApiVersion())
+	}
+	if req.GetDiscoveryUrlSet() {
+		updates["discovery_url"] = nullableUpdateValue(req.GetDiscoveryUrl())
+	}
 	if req.GetExtraHeadersSet() {
+		if err := validateStringMapJSON(req.GetExtraHeadersJson()); err != nil {
+			return &pb.ProviderResponse{Code: configBadRequest, Msg: err.Error()}, nil
+		}
 		updates["extra_headers"] = nullableJSONText(req.GetExtraHeadersJson())
 	}
 	if req.GetIsEnabledSet() {
@@ -200,7 +257,7 @@ func (s *NativeStore) TestLlmProviderConnection(ctx context.Context, req *pb.Tes
 	if !row.IsEnabled {
 		return &pb.TestProviderConnectionResponse{Code: configUnavailable, Msg: "provider disabled", Success: false, Detail: "provider is disabled"}, nil
 	}
-	if strings.TrimSpace(row.BaseURL) == "" || strings.TrimSpace(row.APIKeyEncrypted) == "" {
+	if strings.TrimSpace(row.BaseURL) == "" || (row.AuthType != commonsai.AuthNone && strings.TrimSpace(row.APIKeyEncrypted) == "") {
 		return &pb.TestProviderConnectionResponse{Code: configUnavailable, Msg: "provider configuration incomplete", Success: false, Detail: "base_url and api_key are required"}, nil
 	}
 	return s.validateLlmRuntimeConnection(ctx, 0, row.ID)
@@ -231,7 +288,7 @@ func (s *NativeStore) TestLlmModelConnection(ctx context.Context, req *pb.TestMo
 	if !provider.IsEnabled {
 		return &pb.TestProviderConnectionResponse{Code: configUnavailable, Msg: "provider disabled", Success: false, Detail: "provider is disabled"}, nil
 	}
-	if strings.TrimSpace(provider.BaseURL) == "" || strings.TrimSpace(provider.APIKeyEncrypted) == "" {
+	if strings.TrimSpace(provider.BaseURL) == "" || (provider.AuthType != commonsai.AuthNone && strings.TrimSpace(provider.APIKeyEncrypted) == "") {
 		return &pb.TestProviderConnectionResponse{Code: configUnavailable, Msg: "provider configuration incomplete", Success: false, Detail: "base_url and api_key are required"}, nil
 	}
 	return s.validateLlmRuntimeConnection(ctx, model.ID, 0)
@@ -241,7 +298,42 @@ func (s *NativeStore) CreateLlmModel(ctx context.Context, req *pb.CreateModelReq
 	if req.GetProviderId() <= 0 || strings.TrimSpace(req.GetModelName()) == "" {
 		return &pb.ModelResponse{Code: configBadRequest, Msg: "provider_id and model_name are required"}, nil
 	}
-	row := llmModelRecord{ProviderID: req.GetProviderId(), ModelName: strings.TrimSpace(req.GetModelName()), DisplayName: strings.TrimSpace(req.GetDisplayName()), Temperature: defaultFloat(req.GetTemperature(), 0.7), TopP: defaultFloat(req.GetTopP(), 1), MaxTokens: defaultInt32(req.GetMaxTokens(), 4096), ContextWindowTokens: int(req.GetContextWindowTokens()), MaxConcurrency: defaultInt32(req.GetMaxConcurrency(), 10), TimeoutSeconds: defaultInt32(req.GetTimeoutSeconds(), 90), IsEnabled: true, IsDefault: req.GetIsDefault()}
+	if err := validateJSON(req.GetCapabilitiesJson(), "capabilities_json"); err != nil {
+		return &pb.ModelResponse{Code: configBadRequest, Msg: err.Error()}, nil
+	}
+	if err := validateJSONObject(req.GetMetadataSourcesJson(), "metadata_sources_json"); err != nil {
+		return &pb.ModelResponse{Code: configBadRequest, Msg: err.Error()}, nil
+	}
+	var duplicateCount int64
+	if err := s.db.WithContext(ctx).Model(&llmModelRecord{}).Where("provider_id = ? AND model_name = ?", req.GetProviderId(), strings.TrimSpace(req.GetModelName())).Count(&duplicateCount).Error; err != nil {
+		return nil, err
+	}
+	if duplicateCount > 0 {
+		return &pb.ModelResponse{Code: configBadRequest, Msg: "model already exists for this provider"}, nil
+	}
+	temperatureEnabled := true
+	if req.GetTemperatureEnabledSet() {
+		temperatureEnabled = req.GetTemperatureEnabled()
+	}
+	topPEnabled := true
+	if req.GetTopPEnabledSet() {
+		topPEnabled = req.GetTopPEnabled()
+	}
+	metadataSource := defaultString(strings.TrimSpace(req.GetMetadataSource()), "manual")
+	temperature := 0.7
+	if req.GetTemperatureSet() || req.GetTemperature() != 0 {
+		temperature = req.GetTemperature()
+	}
+	topP := 1.0
+	if req.GetTopPSet() || req.GetTopP() != 0 {
+		topP = req.GetTopP()
+	}
+	var metadataSyncedAt *time.Time
+	if metadataSource != "manual" {
+		now := time.Now()
+		metadataSyncedAt = &now
+	}
+	row := llmModelRecord{ProviderID: req.GetProviderId(), ModelName: strings.TrimSpace(req.GetModelName()), CatalogModelName: nullableSQLString(req.GetCatalogModelName()), DisplayName: strings.TrimSpace(req.GetDisplayName()), Temperature: temperature, TopP: topP, MaxTokens: defaultInt32(req.GetMaxTokens(), 4096), ContextWindowTokens: int(req.GetContextWindowTokens()), ProviderMaxInputTokens: nullablePositiveInt32(req.GetProviderMaxInputTokens()), ProviderMaxOutputTokens: nullablePositiveInt32(req.GetProviderMaxOutputTokens()), Capabilities: nullableJSONText(req.GetCapabilitiesJson()), MetadataSource: metadataSource, MetadataSources: nullableJSONText(req.GetMetadataSourcesJson()), MetadataSyncedAt: metadataSyncedAt, TemperatureEnabled: temperatureEnabled, TopPEnabled: topPEnabled, MaxConcurrency: defaultInt32(req.GetMaxConcurrency(), 10), TimeoutSeconds: defaultInt32(req.GetTimeoutSeconds(), 90), IsEnabled: true, IsDefault: req.GetIsDefault()}
 	err := s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		if row.IsDefault {
 			if err := tx.Model(&llmModelRecord{}).Where("is_default = ?", true).Update("is_default", false).Error; err != nil {
@@ -257,6 +349,22 @@ func (s *NativeStore) CreateLlmModel(ctx context.Context, req *pb.CreateModelReq
 }
 
 func (s *NativeStore) UpdateLlmModel(ctx context.Context, req *pb.UpdateModelRequest) (*pb.ModelResponse, error) {
+	var current llmModelRecord
+	if err := s.db.WithContext(ctx).First(&current, req.GetId()).Error; err != nil {
+		if err == gorm.ErrRecordNotFound {
+			return &pb.ModelResponse{Code: configNotFound, Msg: "model not found"}, nil
+		}
+		return nil, err
+	}
+	if strings.TrimSpace(req.GetModelName()) != "" && strings.TrimSpace(req.GetModelName()) != current.ModelName {
+		var count int64
+		if err := s.db.WithContext(ctx).Model(&llmModelRecord{}).Where("provider_id = ? AND model_name = ? AND id <> ?", current.ProviderID, strings.TrimSpace(req.GetModelName()), current.ID).Count(&count).Error; err != nil {
+			return nil, err
+		}
+		if count > 0 {
+			return &pb.ModelResponse{Code: configBadRequest, Msg: "model already exists for this provider"}, nil
+		}
+	}
 	updates := map[string]any{}
 	putString(updates, "model_name", req.GetModelName())
 	putString(updates, "display_name", req.GetDisplayName())
@@ -271,6 +379,37 @@ func (s *NativeStore) UpdateLlmModel(ctx context.Context, req *pb.UpdateModelReq
 	}
 	if req.GetContextWindowTokensSet() {
 		updates["context_window_tokens"] = req.GetContextWindowTokens()
+	}
+	if req.GetCatalogModelNameSet() {
+		updates["catalog_model_name"] = nullableUpdateValue(req.GetCatalogModelName())
+	}
+	if req.GetProviderMaxInputTokensSet() {
+		updates["provider_max_input_tokens"] = nullablePositiveInt32(req.GetProviderMaxInputTokens())
+	}
+	if req.GetProviderMaxOutputTokensSet() {
+		updates["provider_max_output_tokens"] = nullablePositiveInt32(req.GetProviderMaxOutputTokens())
+	}
+	if req.GetCapabilitiesJsonSet() {
+		if err := validateJSON(req.GetCapabilitiesJson(), "capabilities_json"); err != nil {
+			return &pb.ModelResponse{Code: configBadRequest, Msg: err.Error()}, nil
+		}
+		updates["capabilities"] = nullableJSONText(req.GetCapabilitiesJson())
+	}
+	putString(updates, "metadata_source", req.GetMetadataSource())
+	if req.GetMetadataSourcesJsonSet() {
+		if err := validateJSONObject(req.GetMetadataSourcesJson(), "metadata_sources_json"); err != nil {
+			return &pb.ModelResponse{Code: configBadRequest, Msg: err.Error()}, nil
+		}
+		updates["metadata_sources"] = nullableJSONText(req.GetMetadataSourcesJson())
+	}
+	if strings.TrimSpace(req.GetMetadataSyncedAt()) != "" {
+		updates["metadata_synced_at"] = time.Now()
+	}
+	if req.GetTemperatureEnabledSet() {
+		updates["temperature_enabled"] = req.GetTemperatureEnabled()
+	}
+	if req.GetTopPEnabledSet() {
+		updates["top_p_enabled"] = req.GetTopPEnabled()
 	}
 	if req.GetMaxConcurrencySet() {
 		updates["max_concurrency"] = req.GetMaxConcurrency()
@@ -1130,11 +1269,26 @@ func replaceAgentBindings(tx *gorm.DB, agentID int64, toolNames []string, caps [
 }
 
 func (s *NativeStore) llmProviderToPB(row llmProviderRecord) *pb.LlmProviderInfo {
-	return &pb.LlmProviderInfo{Id: row.ID, Name: row.Name, BaseUrl: row.BaseURL, ApiKeyMasked: s.maskStoredAPIKey(row.APIKeyEncrypted), ProviderType: row.ProviderType, ExtraHeadersJson: redactHeaders(nullString(row.ExtraHeaders)), IsEnabled: row.IsEnabled, CreatedAt: formatTime(row.CreatedAt), UpdatedAt: formatTime(row.UpdatedAt)}
+	return &pb.LlmProviderInfo{Id: row.ID, Name: row.Name, BaseUrl: row.BaseURL, ApiKeyMasked: s.maskStoredAPIKey(row.APIKeyEncrypted), ProviderType: row.ProviderType, ProtocolType: row.ProtocolType, AuthType: row.AuthType, ApiVersion: nullString(row.APIVersion), DiscoveryUrl: nullString(row.DiscoveryURL), ExtraHeadersJson: redactHeaders(nullString(row.ExtraHeaders)), IsEnabled: row.IsEnabled, CreatedAt: formatTime(row.CreatedAt), UpdatedAt: formatTime(row.UpdatedAt)}
 }
 
 func llmModelToPB(row llmModelListRow) *pb.LlmModelInfo {
-	return &pb.LlmModelInfo{Id: row.ID, ProviderId: row.ProviderID, ModelName: row.ModelName, DisplayName: row.DisplayName, Temperature: row.Temperature, TopP: row.TopP, MaxTokens: int32(row.MaxTokens), ContextWindowTokens: int32(row.ContextWindowTokens), MaxConcurrency: int32(row.MaxConcurrency), TimeoutSeconds: int32(row.TimeoutSeconds), IsEnabled: row.IsEnabled, IsDefault: row.IsDefault, CreatedAt: formatTime(row.CreatedAt), UpdatedAt: formatTime(row.UpdatedAt), ProviderName: row.ProviderName}
+	return &pb.LlmModelInfo{Id: row.ID, ProviderId: row.ProviderID, ModelName: row.ModelName, CatalogModelName: nullString(row.CatalogModelName), DisplayName: row.DisplayName, Temperature: row.Temperature, TopP: row.TopP, MaxTokens: int32(row.MaxTokens), ContextWindowTokens: int32(row.ContextWindowTokens), ProviderMaxInputTokens: int32(nullInt64(row.ProviderMaxInputTokens)), ProviderMaxOutputTokens: int32(nullInt64(row.ProviderMaxOutputTokens)), CapabilitiesJson: nullString(row.Capabilities), MetadataSource: row.MetadataSource, MetadataSourcesJson: nullString(row.MetadataSources), MetadataSyncedAt: formatTimePtr(row.MetadataSyncedAt), TemperatureEnabled: row.TemperatureEnabled, TopPEnabled: row.TopPEnabled, MaxConcurrency: int32(row.MaxConcurrency), TimeoutSeconds: int32(row.TimeoutSeconds), IsEnabled: row.IsEnabled, IsDefault: row.IsDefault, CreatedAt: formatTime(row.CreatedAt), UpdatedAt: formatTime(row.UpdatedAt), ProviderName: row.ProviderName}
+}
+
+func validateJSONObject(raw, field string) error {
+	trimmed := strings.TrimSpace(raw)
+	if trimmed == "" {
+		return nil
+	}
+	var value map[string]json.RawMessage
+	if err := json.Unmarshal([]byte(trimmed), &value); err != nil {
+		return fmt.Errorf("%s must be a JSON object", field)
+	}
+	if value == nil {
+		return fmt.Errorf("%s must be a JSON object", field)
+	}
+	return nil
 }
 
 func promptTemplateToPB(row promptTemplateRecord) *pb.PromptTemplateInfo {
@@ -1180,15 +1334,43 @@ func nullableJSONText(value string) sql.NullString {
 	return sql.NullString{String: trimmed, Valid: true}
 }
 
+func validateStringMapJSON(value string) error {
+	trimmed := strings.TrimSpace(value)
+	if trimmed == "" {
+		return nil
+	}
+	var headers map[string]string
+	if err := json.Unmarshal([]byte(trimmed), &headers); err != nil {
+		return fmt.Errorf("extra_headers_json must be a JSON object with string values")
+	}
+	return nil
+}
+
+func validateJSON(value, field string) error {
+	trimmed := strings.TrimSpace(value)
+	if trimmed == "" {
+		return nil
+	}
+	if !json.Valid([]byte(trimmed)) {
+		return fmt.Errorf("%s must be valid JSON", field)
+	}
+	return nil
+}
+
 func nullInt64From(value int64) sql.NullInt64 {
 	return sql.NullInt64{Int64: value, Valid: value > 0}
 }
 
-func defaultFloat(value, fallback float64) float64 {
-	if value == 0 {
-		return fallback
+func nullablePositiveInt32(value int32) sql.NullInt64 {
+	return sql.NullInt64{Int64: int64(value), Valid: value > 0}
+}
+
+func nullableUpdateValue(value string) any {
+	trimmed := strings.TrimSpace(value)
+	if trimmed == "" {
+		return nil
 	}
-	return value
+	return trimmed
 }
 
 func defaultInt32(value int32, fallback int) int {

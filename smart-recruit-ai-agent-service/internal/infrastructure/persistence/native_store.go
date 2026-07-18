@@ -80,6 +80,9 @@ func (s *NativeStore) decryptAPIKey(value string) (string, error) {
 }
 
 func (s *NativeStore) maskStoredAPIKey(value string) string {
+	if strings.TrimSpace(value) == "" {
+		return ""
+	}
 	plaintext, err := s.decryptAPIKey(value)
 	if err != nil {
 		return "********"
@@ -665,17 +668,7 @@ func (s *NativeStore) ListLlmProviders(ctx context.Context, page, pageSize int32
 	}
 	items := make([]*pb.LlmProviderInfo, 0, len(rows))
 	for _, row := range rows {
-		items = append(items, &pb.LlmProviderInfo{
-			Id:               row.ID,
-			Name:             row.Name,
-			BaseUrl:          row.BaseURL,
-			ApiKeyMasked:     maskSecret(row.APIKeyEncrypted),
-			ProviderType:     row.ProviderType,
-			ExtraHeadersJson: nullString(row.ExtraHeaders),
-			IsEnabled:        row.IsEnabled,
-			CreatedAt:        formatTime(row.CreatedAt),
-			UpdatedAt:        formatTime(row.UpdatedAt),
-		})
+		items = append(items, s.llmProviderToPB(row))
 	}
 	return items, total, nil
 }
@@ -701,23 +694,7 @@ func (s *NativeStore) ListLlmModels(ctx context.Context, page, pageSize int32, p
 	}
 	items := make([]*pb.LlmModelInfo, 0, len(rows))
 	for _, row := range rows {
-		items = append(items, &pb.LlmModelInfo{
-			Id:                  row.ID,
-			ProviderId:          row.ProviderID,
-			ModelName:           row.ModelName,
-			DisplayName:         row.DisplayName,
-			Temperature:         row.Temperature,
-			TopP:                row.TopP,
-			MaxTokens:           int32(row.MaxTokens),
-			ContextWindowTokens: int32(row.ContextWindowTokens),
-			MaxConcurrency:      int32(row.MaxConcurrency),
-			TimeoutSeconds:      int32(row.TimeoutSeconds),
-			IsEnabled:           row.IsEnabled,
-			IsDefault:           row.IsDefault,
-			CreatedAt:           formatTime(row.CreatedAt),
-			UpdatedAt:           formatTime(row.UpdatedAt),
-			ProviderName:        row.ProviderName,
-		})
+		items = append(items, llmModelToPB(row))
 	}
 	return items, total, nil
 }
@@ -2062,6 +2039,10 @@ type llmProviderRecord struct {
 	BaseURL         string         `gorm:"column:base_url"`
 	APIKeyEncrypted string         `gorm:"column:api_key_encrypted"`
 	ProviderType    string         `gorm:"column:provider_type"`
+	ProtocolType    string         `gorm:"column:protocol_type"`
+	AuthType        string         `gorm:"column:auth_type"`
+	APIVersion      sql.NullString `gorm:"column:api_version"`
+	DiscoveryURL    sql.NullString `gorm:"column:discovery_url"`
 	ExtraHeaders    sql.NullString `gorm:"column:extra_headers"`
 	IsEnabled       bool           `gorm:"column:is_enabled"`
 	CreatedAt       time.Time      `gorm:"column:created_at"`
@@ -2071,21 +2052,30 @@ type llmProviderRecord struct {
 func (llmProviderRecord) TableName() string { return "llm_providers" }
 
 type llmModelListRow struct {
-	ID                  int64     `gorm:"column:id"`
-	ProviderID          int64     `gorm:"column:provider_id"`
-	ModelName           string    `gorm:"column:model_name"`
-	DisplayName         string    `gorm:"column:display_name"`
-	Temperature         float64   `gorm:"column:temperature"`
-	TopP                float64   `gorm:"column:top_p"`
-	MaxTokens           int       `gorm:"column:max_tokens"`
-	ContextWindowTokens int       `gorm:"column:context_window_tokens"`
-	MaxConcurrency      int       `gorm:"column:max_concurrency"`
-	TimeoutSeconds      int       `gorm:"column:timeout_seconds"`
-	IsEnabled           bool      `gorm:"column:is_enabled"`
-	IsDefault           bool      `gorm:"column:is_default"`
-	CreatedAt           time.Time `gorm:"column:created_at"`
-	UpdatedAt           time.Time `gorm:"column:updated_at"`
-	ProviderName        string    `gorm:"column:provider_name"`
+	ID                      int64          `gorm:"column:id"`
+	ProviderID              int64          `gorm:"column:provider_id"`
+	ModelName               string         `gorm:"column:model_name"`
+	CatalogModelName        sql.NullString `gorm:"column:catalog_model_name"`
+	DisplayName             string         `gorm:"column:display_name"`
+	Temperature             float64        `gorm:"column:temperature"`
+	TopP                    float64        `gorm:"column:top_p"`
+	MaxTokens               int            `gorm:"column:max_tokens"`
+	ContextWindowTokens     int            `gorm:"column:context_window_tokens"`
+	ProviderMaxInputTokens  sql.NullInt64  `gorm:"column:provider_max_input_tokens"`
+	ProviderMaxOutputTokens sql.NullInt64  `gorm:"column:provider_max_output_tokens"`
+	Capabilities            sql.NullString `gorm:"column:capabilities"`
+	MetadataSource          string         `gorm:"column:metadata_source"`
+	MetadataSources         sql.NullString `gorm:"column:metadata_sources"`
+	MetadataSyncedAt        *time.Time     `gorm:"column:metadata_synced_at"`
+	TemperatureEnabled      bool           `gorm:"column:temperature_enabled"`
+	TopPEnabled             bool           `gorm:"column:top_p_enabled"`
+	MaxConcurrency          int            `gorm:"column:max_concurrency"`
+	TimeoutSeconds          int            `gorm:"column:timeout_seconds"`
+	IsEnabled               bool           `gorm:"column:is_enabled"`
+	IsDefault               bool           `gorm:"column:is_default"`
+	CreatedAt               time.Time      `gorm:"column:created_at"`
+	UpdatedAt               time.Time      `gorm:"column:updated_at"`
+	ProviderName            string         `gorm:"column:provider_name"`
 }
 
 type promptTemplateRecord struct {

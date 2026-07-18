@@ -20,6 +20,8 @@ type llmConfigStore interface {
 	UpdateLlmProvider(context.Context, *pb.UpdateProviderRequest) (*pb.ProviderResponse, error)
 	DeleteLlmProvider(context.Context, *pb.DeleteProviderRequest) (*pb.CommonResponse, error)
 	TestLlmProviderConnection(context.Context, *pb.TestProviderConnectionRequest) (*pb.TestProviderConnectionResponse, error)
+	DiscoverLlmProviderModels(context.Context, *pb.DiscoverProviderModelsRequest) (*pb.DiscoverProviderModelsResponse, error)
+	GetLlmProviderModelPreset(context.Context, *pb.GetProviderModelPresetRequest) (*pb.GetProviderModelPresetResponse, error)
 	CreateLlmModel(context.Context, *pb.CreateModelRequest) (*pb.ModelResponse, error)
 	UpdateLlmModel(context.Context, *pb.UpdateModelRequest) (*pb.ModelResponse, error)
 	DeleteLlmModel(context.Context, *pb.DeleteModelRequest) (*pb.CommonResponse, error)
@@ -84,6 +86,22 @@ func (s nativeLlmConfigService) TestProviderConnection(ctx context.Context, req 
 		return &pb.TestProviderConnectionResponse{Code: configCodeUnavailable, Msg: "ai configuration store is not configured", Success: false}, nil
 	}
 	return store.TestLlmProviderConnection(ctx, req)
+}
+
+func (s nativeLlmConfigService) DiscoverProviderModels(ctx context.Context, req *pb.DiscoverProviderModelsRequest) (*pb.DiscoverProviderModelsResponse, error) {
+	store, ok := s.store.(llmConfigStore)
+	if !ok {
+		return &pb.DiscoverProviderModelsResponse{Code: configCodeUnavailable, Msg: "ai configuration store is not configured"}, nil
+	}
+	return store.DiscoverLlmProviderModels(ctx, req)
+}
+
+func (s nativeLlmConfigService) GetProviderModelPreset(ctx context.Context, req *pb.GetProviderModelPresetRequest) (*pb.GetProviderModelPresetResponse, error) {
+	store, ok := s.store.(llmConfigStore)
+	if !ok {
+		return &pb.GetProviderModelPresetResponse{Code: configCodeUnavailable, Msg: "ai configuration store is not configured"}, nil
+	}
+	return store.GetLlmProviderModelPreset(ctx, req)
 }
 
 func (s nativeLlmConfigService) CreateModel(ctx context.Context, req *pb.CreateModelRequest) (*pb.ModelResponse, error) {
