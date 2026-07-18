@@ -10,9 +10,18 @@ export interface CandidateChatMessage {
   model_name?: string
 }
 
+export type CandidateAISessionType = 'general' | 'resume' | 'job_match' | 'interview' | 'offer' | 'progress'
+
 export interface CandidateSession {
   session_id: number
   title: string
+  session_type?: CandidateAISessionType | string
+  source_type?: string
+  source_id?: number
+  source_title?: string
+  summary?: string
+  last_message_preview?: string
+  message_count?: number
   created_at?: string
   updated_at?: string
 }

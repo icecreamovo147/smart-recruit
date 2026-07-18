@@ -101,6 +101,7 @@ const handleEmailSaved = async (email: string) => {
             </RouterLink>
             <RouterLink v-if="auth.isLoggedIn" to="/profile">个人资料</RouterLink>
             <RouterLink v-if="auth.isLoggedIn" to="/resume">个人简历</RouterLink>
+            <RouterLink v-if="auth.isLoggedIn" to="/ai-assistant">AI求职助手</RouterLink>
           </div>
         </el-scrollbar>
       </nav>
@@ -135,8 +136,10 @@ const handleEmailSaved = async (email: string) => {
           route.path === '/jobs' ||
           route.path === '/progress' ||
           route.path === '/profile' ||
-          route.path === '/resume',
+          route.path === '/resume' ||
+          route.path === '/ai-assistant',
         'container--jobs': route.path === '/jobs',
+        'container--ai': route.path === '/ai-assistant',
       }"
     >
       <RouterView v-slot="{ Component }">
@@ -145,7 +148,7 @@ const handleEmailSaved = async (email: string) => {
         </Transition>
       </RouterView>
     </main>
-    <CandidateAIAssistant v-if="auth.isLoggedIn" />
+    <CandidateAIAssistant v-if="auth.isLoggedIn && route.path !== '/ai-assistant'" />
 
     <!-- 邮箱设置弹窗 -->
     <EmailSetupDialog v-model="showEmailSetup" @saved="handleEmailSaved" @error="(msg) => ElMessage.warning(msg)" />
