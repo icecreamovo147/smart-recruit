@@ -44,7 +44,7 @@ import { useRoute, useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import DOMPurify from 'dompurify'
 import MarkdownIt from 'markdown-it'
-import { createApplicationAnalysisSession, createSession, deleteSession, getSessionMessages, listSessions, listSkillCapabilities, updateSession } from '@/api/ai'
+import { createApplicationAnalysisSession, createSession, deleteSession, getSessionMessages, listSessions, listSkillCapabilities, previewSessionContext, updateSession } from '@/api/ai'
 import { listAvailableAgentSkills } from '@/api/agentSkill'
 import { updateApplicationStatus } from '@/api/application'
 import { listAvailableModels } from '@/api/llm'
@@ -72,6 +72,7 @@ import {
   contextGuardCodeFrom,
   contextGuardMessage,
   contextUsageBelongsToSession,
+  resolveLiveContextUsage,
   resolveSessionContextUsage,
 } from '@/utils/contextUsage'
 
@@ -199,10 +200,14 @@ const selectedAgentSkillIds = ref<number[]>([])
 const skillCapabilities = ref<CapabilityInfo[]>([])
 const selectedSkillKeys = ref<string[]>([])
 const contextUsage = ref<ContextUsageInfo | null>(null)
+const contextPreviewing = ref(false)
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const listRef = ref<any>(null)
 let pollTimer: ReturnType<typeof setInterval> | null = null
 let streamTypewriterTimer: ReturnType<typeof setInterval> | null = null
+let contextPreviewTimer: ReturnType<typeof setTimeout> | null = null
+let contextPreviewController: AbortController | null = null
+let contextPreviewVersion = 0
 const contextUsageStoragePrefix = 'hr-ai-context-usage:'
 
 // Durable HR Agent runtime (TASK-HARS-007). Legacy sendMessageStream remains in api/ai.ts for rollout compatibility.
@@ -254,6 +259,7 @@ const normalizeSession = (item: ChatSessionListItem): Session => ({
   application_id: item.application_id || 0,
   updated_at: item.updated_at || item.created_at || '',
   latest_context_usage: item.latest_context_usage || item.latestContextUsage,
+  selected_model_id: item.selected_model_id ?? item.selectedModelId,
 })
 
 const agentSkillLabel = (skill: AvailableAgentSkill) => skill.display_name || skill.name
@@ -788,9 +794,14 @@ const selectSession = async (session: Session) => {
   userAborted.value = true
   activeRunToken.value += 1
   agentRun.dispose()
+  cancelContextPreview()
   clearAssistantTextQueue()
   resetContextUsage()
   currentSession.value = session
+  const storedModelId = session.selected_model_id ?? session.selectedModelId
+  selectedModelId.value = storedModelId == null
+    ? (session.latest_context_usage?.model_id || session.latestContextUsage?.model_id || null)
+    : (storedModelId > 0 ? storedModelId : null)
   sessionLoading.value = true
   loading.value = false
   streaming.value = false
@@ -803,6 +814,9 @@ const selectSession = async (session: Session) => {
     if (currentSession.value?.id !== session.id) return
     messages.value = normalizeMessages(data.list || [])
     restorePersistedContextUsage(session, messages.value)
+    if (!contextUsageMatchesSelectedModel()) {
+      requestContextPreview(false)
+    }
     router.replace({ path: '/hr/ai', query: { session_id: String(session.id) } })
     scrollBottom()
   } finally {
@@ -1476,15 +1490,103 @@ const handleContextUsage = (payload: StreamPayload) => {
   if (payload.context_usage) {
     const sessionId = payload.session_id || currentSession.value?.id || 0
     if (!contextUsageBelongsToSession(sessionId, currentSession.value?.id)) return
-    contextUsage.value = payload.context_usage
+    const nextUsage = resolveLiveContextUsage(contextUsage.value, payload.context_usage)
+    contextUsage.value = nextUsage
     if (sessionId > 0) {
-      rememberContextUsage(sessionId, payload.context_usage)
+      rememberContextUsage(sessionId, nextUsage)
     }
   }
 }
 
 const resetContextUsage = () => {
   contextUsage.value = null
+}
+
+const cancelContextPreview = () => {
+  contextPreviewVersion += 1
+  if (contextPreviewTimer) {
+    clearTimeout(contextPreviewTimer)
+    contextPreviewTimer = null
+  }
+  contextPreviewController?.abort()
+  contextPreviewController = null
+  contextPreviewing.value = false
+}
+
+const selectedEffectiveModel = (): LlmModel | undefined => selectedModelId.value == null
+  ? modelList.value.find((model) => model.is_default) || modelList.value.find((model) => model.is_enabled)
+  : modelList.value.find((model) => model.id === selectedModelId.value)
+
+const contextUsageMatchesSelectedModel = (): boolean => {
+  const model = selectedEffectiveModel()
+  return Boolean(contextUsage.value && (!model || contextUsage.value.model_id === model.id))
+}
+
+const requestContextPreview = (notifyOnError = true) => {
+  const session = currentSession.value
+  if (!session || streaming.value) return
+  cancelContextPreview()
+  const version = contextPreviewVersion
+  const sessionId = session.id
+  const requestedModelId = selectedModelId.value ?? 0
+  const skillCapabilityKeys = [...selectedSkillKeys.value]
+  const agentSkillIds = [...selectedAgentSkillIds.value]
+  contextPreviewing.value = true
+  contextPreviewTimer = setTimeout(async () => {
+    contextPreviewTimer = null
+    const controller = new AbortController()
+    contextPreviewController = controller
+    try {
+      const result = await previewSessionContext(sessionId, {
+        model_id: requestedModelId,
+        ...(skillCapabilityKeys.length > 0 ? { skill_capability_keys: skillCapabilityKeys } : {}),
+        ...(agentSkillIds.length > 0 ? { agent_skill_ids: agentSkillIds } : {}),
+      }, controller.signal)
+      if (version !== contextPreviewVersion || currentSession.value?.id !== sessionId) return
+      contextUsage.value = result.context_usage
+      rememberContextUsage(sessionId, result.context_usage)
+      const selected = result.selected_model_id
+      currentSession.value = {
+        ...currentSession.value,
+        selected_model_id: selected,
+        latest_context_usage: result.context_usage,
+      }
+      const sessionIndex = sessions.value.findIndex((item) => item.id === sessionId)
+      if (sessionIndex >= 0) {
+        sessions.value[sessionIndex] = {
+          ...sessions.value[sessionIndex],
+          selected_model_id: selected,
+          latest_context_usage: result.context_usage,
+        }
+      }
+    } catch (error: unknown) {
+      if (version !== contextPreviewVersion || controller.signal.aborted) return
+      contextUsage.value = null
+      if (notifyOnError) {
+        ElMessage.warning(error instanceof Error ? error.message : '模型上下文重新计算失败')
+      }
+    } finally {
+      if (version === contextPreviewVersion) {
+        contextPreviewController = null
+        contextPreviewing.value = false
+      }
+    }
+  }, 150)
+}
+
+const handleSelectedModelUpdate = (value: number | null) => {
+  selectedModelId.value = value
+  requestContextPreview()
+}
+
+const handleSelectedSkillKeysUpdate = (value: string[]) => {
+  selectedSkillKeys.value = value
+  requestContextPreview(false)
+}
+
+const handleSelectedAgentSkillIdsUpdate = (value: number[]) => {
+  selectedAgentSkillIds.value = value
+  requestContextPreview(false)
 }
 
 // Sync status bar model name with user selection.
@@ -1533,6 +1635,7 @@ onBeforeUnmount(() => {
   if (pollTimer) clearInterval(pollTimer)
   if (typewriterTimer) clearInterval(typewriterTimer)
   clearSidebarPeekTimer()
+  cancelContextPreview()
   document.removeEventListener('click', closeMenu)
 })
 </script>
@@ -1612,6 +1715,7 @@ onBeforeUnmount(() => {
             :model-list="modelList"
             :selected-model-id="selectedModelId"
             :context-usage="contextUsage"
+            :context-previewing="contextPreviewing"
             :data-source="dataSource"
             :current-session="currentSession"
             :skill-capabilities="skillCapabilities"
@@ -1619,9 +1723,9 @@ onBeforeUnmount(() => {
             :agent-skills="agentSkills"
             :selected-agent-skill-ids="selectedAgentSkillIds"
             @update:input="(val: string) => input = val"
-            @update:selected-model-id="(val: number | null) => selectedModelId = val"
-            @update:selected-skill-keys="(val: string[]) => selectedSkillKeys = val"
-            @update:selected-agent-skill-ids="(val: number[]) => selectedAgentSkillIds = val"
+            @update:selected-model-id="handleSelectedModelUpdate"
+            @update:selected-skill-keys="handleSelectedSkillKeysUpdate"
+            @update:selected-agent-skill-ids="handleSelectedAgentSkillIdsUpdate"
             @submit="submit"
             @stop="stopStreaming"
           />

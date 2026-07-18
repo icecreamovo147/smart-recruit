@@ -6,18 +6,20 @@ import type { LlmModel } from '@/types/llm'
 import type { CapabilityInfo } from '@/types/agent'
 import type { AvailableAgentSkill } from '@/types/agentSkill'
 import {
-  contextBudgetProgressRatio,
   contextBudgetRatio,
   contextBudgetSeverity,
   contextUsageSourceLabel,
   contextUsageStageLabel,
+  contextWindowProgressRatio,
+  contextWindowRatio,
+  contextWindowTokens,
   currentEffectiveContextTokens,
   formatCompactTokens,
   inputBudgetTokens,
 } from '@/utils/contextUsage'
 
 const hasEstimatedBreakdownDetails = computed(() => {
-  const breakdown = props.contextUsage?.breakdown
+  const breakdown = visibleContextUsage.value?.breakdown
   if (!breakdown) return false
   return [
     breakdown.summary_tokens,
@@ -37,6 +39,7 @@ const props = defineProps<{
   modelList: LlmModel[]
   selectedModelId: number | null
   contextUsage: ContextUsageInfo | null
+  contextPreviewing: boolean
   dataSource: string
   currentSession: Session | null
   skillCapabilities: CapabilityInfo[]
@@ -155,28 +158,49 @@ const removeAgentSkill = (id: number) => {
   emit('update:selectedAgentSkillIds', props.selectedAgentSkillIds.filter((item) => item !== id))
 }
 
-const sessionTokensUsed = computed(() => currentEffectiveContextTokens(props.contextUsage))
-const availableInputBudget = computed(() => inputBudgetTokens(props.contextUsage))
-const budgetRatio = computed(() => contextBudgetRatio(props.contextUsage))
-const progressRatio = computed(() => contextBudgetProgressRatio(props.contextUsage))
+const selectedModel = computed(() => props.selectedModelId == null
+  ? props.modelList.find((model) => model.is_default) || props.modelList.find((model) => model.is_enabled)
+  : props.modelList.find((model) => model.id === props.selectedModelId))
+const contextUsageMatchesSelection = computed(() => {
+  if (!props.contextUsage) return false
+  if (!selectedModel.value) return true
+  return props.contextUsage.model_id === selectedModel.value.id
+})
+const visibleContextUsage = computed(() => props.contextPreviewing || !contextUsageMatchesSelection.value
+  ? null
+  : props.contextUsage)
+const sessionTokensUsed = computed(() => currentEffectiveContextTokens(visibleContextUsage.value))
+const totalContextWindow = computed(() => contextWindowTokens(visibleContextUsage.value)
+  || selectedModel.value?.context_window_tokens)
+const windowRatio = computed(() => contextWindowRatio(visibleContextUsage.value))
+const windowProgressRatio = computed(() => contextWindowProgressRatio(visibleContextUsage.value))
+const availableInputBudget = computed(() => inputBudgetTokens(visibleContextUsage.value))
+const budgetRatio = computed(() => contextBudgetRatio(visibleContextUsage.value))
 const hasKnownBudget = computed(() => availableInputBudget.value != null)
 const unknownConfiguration = computed(() =>
-  Boolean(props.contextUsage && (!hasKnownBudget.value || props.contextUsage.budget_status === 'unknown_config')),
+  Boolean(visibleContextUsage.value && (!hasKnownBudget.value || visibleContextUsage.value.budget_status === 'unknown_config')),
 )
-const usagePercent = computed(() => budgetRatio.value == null
+const windowUsagePercent = computed(() => windowRatio.value == null
+  ? '无法计算'
+  : `${Number((windowRatio.value * 100).toFixed(1))}%`)
+const windowUsageLabel = computed(() => windowRatio.value == null
+  ? windowUsagePercent.value
+  : `${windowUsagePercent.value} 已用`)
+const budgetUsagePercent = computed(() => budgetRatio.value == null
   ? '无法计算'
   : `${(budgetRatio.value * 100).toFixed(1)}%`)
 const contextIndicatorLabel = computed(() => {
-  if (!props.contextUsage) return 'Context 使用情况暂不可用'
-  return `Context ${formatCompactTokens(sessionTokensUsed.value)} / ${formatCompactTokens(availableInputBudget.value)}${budgetRatio.value == null ? '' : `，占用 ${usagePercent.value}`}`
+  if (props.contextPreviewing) return `Context 计算中 / ${formatCompactTokens(totalContextWindow.value)}`
+  if (!visibleContextUsage.value) return `Context — / ${formatCompactTokens(totalContextWindow.value)}`
+  return `Context ${formatCompactTokens(sessionTokensUsed.value)} / ${formatCompactTokens(totalContextWindow.value)}${windowRatio.value == null ? '' : `，${windowUsageLabel.value}`}`
 })
 
 const contextUsageSeverityClass = computed(() => {
-  return `chat-composer__context-indicator--${contextBudgetSeverity(props.contextUsage)}`
+  return `chat-composer__context-indicator--${contextBudgetSeverity(visibleContextUsage.value)}`
 })
 
 const contextUsageRatioClass = computed(() => {
-  const severity = contextBudgetSeverity(props.contextUsage)
+  const severity = contextBudgetSeverity(visibleContextUsage.value)
   if (severity === 'danger' || severity === 'warning') return 'context-usage-popover__value--warning'
   if (severity === 'caution') return 'context-usage-popover__value--caution'
   return ''
@@ -256,7 +280,7 @@ const positive = (value: number | undefined): boolean => Number.isFinite(value) 
         :autosize="{ minRows: 2, maxRows: 6 }"
         resize="none"
         class="chat-composer__text-input"
-        @keydown.enter.exact.prevent="streaming ? undefined : emit('submit')"
+        @keydown.enter.exact.prevent="streaming || contextPreviewing ? undefined : emit('submit')"
         @update:model-value="(val: string) => emit('update:input', val)"
       />
     </div>
@@ -270,6 +294,7 @@ const positive = (value: number | undefined): boolean => Number.isFinite(value) 
           placeholder="默认模型"
           class="chat-composer__model-select"
           clearable
+          :disabled="streaming || contextPreviewing"
           @update:model-value="(val: number | null) => emit('update:selectedModelId', val)"
         >
           <el-option
@@ -284,7 +309,7 @@ const positive = (value: number | undefined): boolean => Number.isFinite(value) 
           trigger="hover"
           :width="340"
           popper-class="context-usage-popover"
-          :disabled="!contextUsage"
+          :disabled="!visibleContextUsage || contextPreviewing"
         >
           <template #reference>
             <button
@@ -295,16 +320,19 @@ const positive = (value: number | undefined): boolean => Number.isFinite(value) 
               :title="contextIndicatorLabel"
             >
               <span class="chat-composer__context-label">Context</span>
-              <span v-if="contextUsage" class="chat-composer__context-value">
-                {{ formatCompactTokens(sessionTokensUsed) }} / {{ formatCompactTokens(availableInputBudget) }}
+              <span v-if="contextPreviewing" class="chat-composer__context-unknown">
+                计算中 / {{ formatCompactTokens(totalContextWindow) }}
               </span>
-              <span v-else class="chat-composer__context-unknown">— / —</span>
+              <span v-else-if="visibleContextUsage" class="chat-composer__context-value">
+                {{ formatCompactTokens(sessionTokensUsed) }} / {{ formatCompactTokens(totalContextWindow) }}
+              </span>
+              <span v-else class="chat-composer__context-unknown">— / {{ formatCompactTokens(totalContextWindow) }}</span>
             </button>
           </template>
-          <template v-if="contextUsage">
+          <template v-if="visibleContextUsage">
             <div class="context-usage-popover__header">
-              <span class="context-usage-popover__title">当前有效 Context</span>
-              <span class="context-usage-popover__badge">{{ contextUsageSourceLabel(contextUsage) }}</span>
+              <span class="context-usage-popover__title">上下文窗口</span>
+              <span class="context-usage-popover__badge">{{ windowUsageLabel }}</span>
             </div>
             <div v-if="unknownConfiguration" class="context-usage-popover__notice" role="status">
               模型上下文窗口未配置，已使用摘要 + 最近消息的安全降级策略。
@@ -312,78 +340,84 @@ const positive = (value: number | undefined): boolean => Number.isFinite(value) 
             <div class="context-usage-popover__grid">
               <div class="context-usage-popover__item">
                 <span class="context-usage-popover__label">模型</span>
-                <span class="context-usage-popover__value">{{ contextUsage.model_name || '-' }}</span>
+                <span class="context-usage-popover__value">{{ visibleContextUsage.model_name || '-' }}</span>
               </div>
               <div class="context-usage-popover__item">
                 <span class="context-usage-popover__label">总上下文窗口</span>
-                <span class="context-usage-popover__value">{{ positive(contextUsage.context_window_tokens) ? formatCompactTokens(contextUsage.context_window_tokens) : '未配置' }}</span>
+                <span class="context-usage-popover__value">{{ positive(visibleContextUsage.context_window_tokens) ? formatCompactTokens(visibleContextUsage.context_window_tokens) : '未配置' }}</span>
               </div>
               <div class="context-usage-popover__item">
                 <span class="context-usage-popover__label">最大输出预留</span>
-                <span class="context-usage-popover__value">{{ positive(contextUsage.max_output_tokens) ? formatCompactTokens(contextUsage.max_output_tokens) : '—' }}</span>
+                <span class="context-usage-popover__value">{{ positive(visibleContextUsage.max_output_tokens) ? formatCompactTokens(visibleContextUsage.max_output_tokens) : '—' }}</span>
               </div>
               <div class="context-usage-popover__item">
                 <span class="context-usage-popover__label">安全余量</span>
-                <span class="context-usage-popover__value">{{ positive(contextUsage.safety_margin_tokens) ? formatCompactTokens(contextUsage.safety_margin_tokens) : '—' }}</span>
+                <span class="context-usage-popover__value">{{ positive(visibleContextUsage.safety_margin_tokens) ? formatCompactTokens(visibleContextUsage.safety_margin_tokens) : '—' }}</span>
               </div>
               <div class="context-usage-popover__item">
                 <span class="context-usage-popover__label">可用输入预算</span>
                 <span class="context-usage-popover__value">{{ formatCompactTokens(availableInputBudget) }}</span>
               </div>
               <div class="context-usage-popover__item">
-                <span class="context-usage-popover__label">当前有效输入</span>
+                <span class="context-usage-popover__label">当前会话已用</span>
                 <span class="context-usage-popover__value">{{ formatCompactTokens(sessionTokensUsed) }}</span>
               </div>
               <div class="context-usage-popover__item">
-                <span class="context-usage-popover__label">占比</span>
+                <span class="context-usage-popover__label">窗口占用</span>
                 <span class="context-usage-popover__value" :class="contextUsageRatioClass">
-                  {{ usagePercent }}
+                  {{ windowUsagePercent }}
+                </span>
+              </div>
+              <div class="context-usage-popover__item">
+                <span class="context-usage-popover__label">安全预算占用</span>
+                <span class="context-usage-popover__value" :class="contextUsageRatioClass">
+                  {{ budgetUsagePercent }}
                 </span>
               </div>
             </div>
             <div v-if="hasKnownBudget" class="context-usage-popover__progress" aria-hidden="true">
-              <span :style="{ width: `${progressRatio * 100}%` }"></span>
+              <span :style="{ width: `${windowProgressRatio * 100}%` }"></span>
             </div>
-            <template v-if="hasEstimatedBreakdownDetails && contextUsage.breakdown">
+            <template v-if="hasEstimatedBreakdownDetails && visibleContextUsage.breakdown">
               <div class="context-usage-popover__section-title">细分（估算）</div>
               <div class="context-usage-popover__breakdown">
-                <div v-if="positive(contextUsage.breakdown.system_prompt_tokens)" class="context-usage-popover__breakdown-item">
-                  <span>系统指令</span><span>{{ formatCompactTokens(contextUsage.breakdown.system_prompt_tokens) }}</span>
+                <div v-if="positive(visibleContextUsage.breakdown.system_prompt_tokens)" class="context-usage-popover__breakdown-item">
+                  <span>系统指令</span><span>{{ formatCompactTokens(visibleContextUsage.breakdown.system_prompt_tokens) }}</span>
                 </div>
-                <div v-if="positive(contextUsage.breakdown.recent_message_tokens)" class="context-usage-popover__breakdown-item">
-                  <span>最近消息</span><span>{{ formatCompactTokens(contextUsage.breakdown.recent_message_tokens) }}</span>
+                <div v-if="positive(visibleContextUsage.breakdown.recent_message_tokens)" class="context-usage-popover__breakdown-item">
+                  <span>最近消息</span><span>{{ formatCompactTokens(visibleContextUsage.breakdown.recent_message_tokens) }}</span>
                 </div>
-                <div v-if="positive(contextUsage.breakdown.summary_tokens)" class="context-usage-popover__breakdown-item">
-                  <span>会话摘要</span><span>{{ formatCompactTokens(contextUsage.breakdown.summary_tokens) }}</span>
+                <div v-if="positive(visibleContextUsage.breakdown.summary_tokens)" class="context-usage-popover__breakdown-item">
+                  <span>会话摘要</span><span>{{ formatCompactTokens(visibleContextUsage.breakdown.summary_tokens) }}</span>
                 </div>
-                <div v-if="positive(contextUsage.breakdown.memory_tokens)" class="context-usage-popover__breakdown-item">
-                  <span>长期记忆</span><span>{{ formatCompactTokens(contextUsage.breakdown.memory_tokens) }}</span>
+                <div v-if="positive(visibleContextUsage.breakdown.memory_tokens)" class="context-usage-popover__breakdown-item">
+                  <span>长期记忆</span><span>{{ formatCompactTokens(visibleContextUsage.breakdown.memory_tokens) }}</span>
                 </div>
-                <div v-if="positive(contextUsage.breakdown.current_message_tokens)" class="context-usage-popover__breakdown-item">
-                  <span>当前消息</span><span>{{ formatCompactTokens(contextUsage.breakdown.current_message_tokens) }}</span>
+                <div v-if="positive(visibleContextUsage.breakdown.current_message_tokens)" class="context-usage-popover__breakdown-item">
+                  <span>当前消息</span><span>{{ formatCompactTokens(visibleContextUsage.breakdown.current_message_tokens) }}</span>
                 </div>
-                <div v-if="positive(contextUsage.breakdown.skill_tokens)" class="context-usage-popover__breakdown-item">
-                  <span>技能指令</span><span>{{ formatCompactTokens(contextUsage.breakdown.skill_tokens) }}</span>
+                <div v-if="positive(visibleContextUsage.breakdown.skill_tokens)" class="context-usage-popover__breakdown-item">
+                  <span>技能指令</span><span>{{ formatCompactTokens(visibleContextUsage.breakdown.skill_tokens) }}</span>
                 </div>
-                <div v-if="positive(contextUsage.breakdown.tool_schema_tokens)" class="context-usage-popover__breakdown-item">
-                  <span>工具定义</span><span>{{ formatCompactTokens(contextUsage.breakdown.tool_schema_tokens) }}</span>
+                <div v-if="positive(visibleContextUsage.breakdown.tool_schema_tokens)" class="context-usage-popover__breakdown-item">
+                  <span>工具定义</span><span>{{ formatCompactTokens(visibleContextUsage.breakdown.tool_schema_tokens) }}</span>
                 </div>
-                <div v-if="positive(contextUsage.breakdown.tool_result_tokens)" class="context-usage-popover__breakdown-item">
-                  <span>工具结果</span><span>{{ formatCompactTokens(contextUsage.breakdown.tool_result_tokens) }}</span>
+                <div v-if="positive(visibleContextUsage.breakdown.tool_result_tokens)" class="context-usage-popover__breakdown-item">
+                  <span>工具结果</span><span>{{ formatCompactTokens(visibleContextUsage.breakdown.tool_result_tokens) }}</span>
                 </div>
-                <div v-if="positive(contextUsage.breakdown.protocol_overhead_tokens)" class="context-usage-popover__breakdown-item">
-                  <span>协议开销</span><span>{{ formatCompactTokens(contextUsage.breakdown.protocol_overhead_tokens) }}</span>
+                <div v-if="positive(visibleContextUsage.breakdown.protocol_overhead_tokens)" class="context-usage-popover__breakdown-item">
+                  <span>协议开销</span><span>{{ formatCompactTokens(visibleContextUsage.breakdown.protocol_overhead_tokens) }}</span>
                 </div>
               </div>
             </template>
-            <div v-if="contextUsage.included_message_count != null || contextUsage.omitted_message_count != null || contextUsage.summary_applied" class="context-usage-popover__meta">
-              <span v-if="contextUsage.included_message_count != null">纳入 {{ contextUsage.included_message_count }} 条消息</span>
-              <span v-if="contextUsage.omitted_message_count != null">省略 {{ contextUsage.omitted_message_count }} 条消息</span>
-              <span v-if="contextUsage.summary_applied">已应用会话摘要</span>
+            <div v-if="visibleContextUsage.included_message_count != null || visibleContextUsage.omitted_message_count != null || visibleContextUsage.summary_applied" class="context-usage-popover__meta">
+              <span v-if="visibleContextUsage.included_message_count != null">纳入 {{ visibleContextUsage.included_message_count }} 条消息</span>
+              <span v-if="visibleContextUsage.omitted_message_count != null">省略 {{ visibleContextUsage.omitted_message_count }} 条消息</span>
+              <span v-if="visibleContextUsage.summary_applied">已应用会话摘要</span>
             </div>
             <div class="context-usage-popover__footer">
-              <span>{{ contextUsageStageLabel(contextUsage.stage) }}</span>
-              <span>{{ contextUsageSourceLabel(contextUsage) }}</span>
+              <span>{{ contextUsageStageLabel(visibleContextUsage.stage) }}</span>
+              <span>{{ contextUsageSourceLabel(visibleContextUsage) }}</span>
             </div>
           </template>
         </el-popover>
@@ -406,7 +440,7 @@ const positive = (value: number | undefined): boolean => Number.isFinite(value) 
         type="primary"
         :icon="Position"
         :loading="loading"
-        :disabled="!input.trim()"
+        :disabled="!input.trim() || contextPreviewing"
         class="chat-composer__send-btn"
         @click="emit('submit')"
       >

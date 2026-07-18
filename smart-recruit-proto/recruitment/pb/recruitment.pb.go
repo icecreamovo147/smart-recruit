@@ -5510,6 +5510,7 @@ type ChatSession struct {
 	Summary            string                 `protobuf:"bytes,11,opt,name=summary,proto3" json:"summary,omitempty"`
 	LastMessagePreview string                 `protobuf:"bytes,12,opt,name=last_message_preview,json=lastMessagePreview,proto3" json:"last_message_preview,omitempty"`
 	MessageCount       int32                  `protobuf:"varint,13,opt,name=message_count,json=messageCount,proto3" json:"message_count,omitempty"`
+	SelectedModelId    int64                  `protobuf:"varint,14,opt,name=selected_model_id,json=selectedModelId,proto3" json:"selected_model_id,omitempty"` // Requested model for the next turn; 0 follows the current default model.
 	unknownFields      protoimpl.UnknownFields
 	sizeCache          protoimpl.SizeCache
 }
@@ -5631,6 +5632,13 @@ func (x *ChatSession) GetLastMessagePreview() string {
 func (x *ChatSession) GetMessageCount() int32 {
 	if x != nil {
 		return x.MessageCount
+	}
+	return 0
+}
+
+func (x *ChatSession) GetSelectedModelId() int64 {
+	if x != nil {
+		return x.SelectedModelId
 	}
 	return 0
 }
@@ -32426,6 +32434,150 @@ func (x *BackfillEmbeddingsResponse) GetSkippedCount() int32 {
 	return 0
 }
 
+type PreviewChatContextRequest struct {
+	state               protoimpl.MessageState `protogen:"open.v1"`
+	HrId                int64                  `protobuf:"varint,1,opt,name=hr_id,json=hrId,proto3" json:"hr_id,omitempty"`
+	SessionId           int64                  `protobuf:"varint,2,opt,name=session_id,json=sessionId,proto3" json:"session_id,omitempty"`
+	ModelId             int64                  `protobuf:"varint,3,opt,name=model_id,json=modelId,proto3" json:"model_id,omitempty"` // Requested model; 0 follows the current default model.
+	SkillCapabilityKeys []string               `protobuf:"bytes,4,rep,name=skill_capability_keys,json=skillCapabilityKeys,proto3" json:"skill_capability_keys,omitempty"`
+	AgentSkillIds       []int64                `protobuf:"varint,5,rep,packed,name=agent_skill_ids,json=agentSkillIds,proto3" json:"agent_skill_ids,omitempty"`
+	unknownFields       protoimpl.UnknownFields
+	sizeCache           protoimpl.SizeCache
+}
+
+func (x *PreviewChatContextRequest) Reset() {
+	*x = PreviewChatContextRequest{}
+	mi := &file_proto_recruitment_proto_msgTypes[404]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *PreviewChatContextRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*PreviewChatContextRequest) ProtoMessage() {}
+
+func (x *PreviewChatContextRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_recruitment_proto_msgTypes[404]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use PreviewChatContextRequest.ProtoReflect.Descriptor instead.
+func (*PreviewChatContextRequest) Descriptor() ([]byte, []int) {
+	return file_proto_recruitment_proto_rawDescGZIP(), []int{404}
+}
+
+func (x *PreviewChatContextRequest) GetHrId() int64 {
+	if x != nil {
+		return x.HrId
+	}
+	return 0
+}
+
+func (x *PreviewChatContextRequest) GetSessionId() int64 {
+	if x != nil {
+		return x.SessionId
+	}
+	return 0
+}
+
+func (x *PreviewChatContextRequest) GetModelId() int64 {
+	if x != nil {
+		return x.ModelId
+	}
+	return 0
+}
+
+func (x *PreviewChatContextRequest) GetSkillCapabilityKeys() []string {
+	if x != nil {
+		return x.SkillCapabilityKeys
+	}
+	return nil
+}
+
+func (x *PreviewChatContextRequest) GetAgentSkillIds() []int64 {
+	if x != nil {
+		return x.AgentSkillIds
+	}
+	return nil
+}
+
+type PreviewChatContextResponse struct {
+	state           protoimpl.MessageState `protogen:"open.v1"`
+	Code            int32                  `protobuf:"varint,1,opt,name=code,proto3" json:"code,omitempty"`
+	Msg             string                 `protobuf:"bytes,2,opt,name=msg,proto3" json:"msg,omitempty"`
+	SelectedModelId int64                  `protobuf:"varint,3,opt,name=selected_model_id,json=selectedModelId,proto3" json:"selected_model_id,omitempty"`
+	ContextUsage    *ContextUsageInfo      `protobuf:"bytes,4,opt,name=context_usage,json=contextUsage,proto3" json:"context_usage,omitempty"`
+	unknownFields   protoimpl.UnknownFields
+	sizeCache       protoimpl.SizeCache
+}
+
+func (x *PreviewChatContextResponse) Reset() {
+	*x = PreviewChatContextResponse{}
+	mi := &file_proto_recruitment_proto_msgTypes[405]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *PreviewChatContextResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*PreviewChatContextResponse) ProtoMessage() {}
+
+func (x *PreviewChatContextResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_recruitment_proto_msgTypes[405]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use PreviewChatContextResponse.ProtoReflect.Descriptor instead.
+func (*PreviewChatContextResponse) Descriptor() ([]byte, []int) {
+	return file_proto_recruitment_proto_rawDescGZIP(), []int{405}
+}
+
+func (x *PreviewChatContextResponse) GetCode() int32 {
+	if x != nil {
+		return x.Code
+	}
+	return 0
+}
+
+func (x *PreviewChatContextResponse) GetMsg() string {
+	if x != nil {
+		return x.Msg
+	}
+	return ""
+}
+
+func (x *PreviewChatContextResponse) GetSelectedModelId() int64 {
+	if x != nil {
+		return x.SelectedModelId
+	}
+	return 0
+}
+
+func (x *PreviewChatContextResponse) GetContextUsage() *ContextUsageInfo {
+	if x != nil {
+		return x.ContextUsage
+	}
+	return nil
+}
+
 var File_proto_recruitment_proto protoreflect.FileDescriptor
 
 const file_proto_recruitment_proto_rawDesc = "" +
@@ -32952,7 +33104,7 @@ const file_proto_recruitment_proto_rawDesc = "" +
 	"\x16ChatSessionListRequest\x12\x13\n" +
 	"\x05hr_id\x18\x01 \x01(\x03R\x04hrId\x12\x12\n" +
 	"\x04page\x18\x02 \x01(\x05R\x04page\x12\x1b\n" +
-	"\tpage_size\x18\x03 \x01(\x05R\bpageSize\"\xed\x03\n" +
+	"\tpage_size\x18\x03 \x01(\x05R\bpageSize\"\x99\x04\n" +
 	"\vChatSession\x12\x1d\n" +
 	"\n" +
 	"session_id\x18\x01 \x01(\x03R\tsessionId\x12\x14\n" +
@@ -32971,7 +33123,8 @@ const file_proto_recruitment_proto_rawDesc = "" +
 	" \x01(\tR\vsourceTitle\x12\x18\n" +
 	"\asummary\x18\v \x01(\tR\asummary\x120\n" +
 	"\x14last_message_preview\x18\f \x01(\tR\x12lastMessagePreview\x12#\n" +
-	"\rmessage_count\x18\r \x01(\x05R\fmessageCount\"\xa2\x01\n" +
+	"\rmessage_count\x18\r \x01(\x05R\fmessageCount\x12*\n" +
+	"\x11selected_model_id\x18\x0e \x01(\x03R\x0fselectedModelId\"\xa2\x01\n" +
 	"\x17ChatSessionListResponse\x12\x12\n" +
 	"\x04code\x18\x01 \x01(\x05R\x04code\x12\x10\n" +
 	"\x03msg\x18\x02 \x01(\tR\x03msg\x12\x14\n" +
@@ -35519,7 +35672,19 @@ const file_proto_recruitment_proto_rawDesc = "" +
 	"\x03msg\x18\x02 \x01(\tR\x03msg\x12#\n" +
 	"\rsuccess_count\x18\x03 \x01(\x05R\fsuccessCount\x12!\n" +
 	"\ffailed_count\x18\x04 \x01(\x05R\vfailedCount\x12#\n" +
-	"\rskipped_count\x18\x05 \x01(\x05R\fskippedCount2\x9e\x05\n" +
+	"\rskipped_count\x18\x05 \x01(\x05R\fskippedCount\"\xc6\x01\n" +
+	"\x19PreviewChatContextRequest\x12\x13\n" +
+	"\x05hr_id\x18\x01 \x01(\x03R\x04hrId\x12\x1d\n" +
+	"\n" +
+	"session_id\x18\x02 \x01(\x03R\tsessionId\x12\x19\n" +
+	"\bmodel_id\x18\x03 \x01(\x03R\amodelId\x122\n" +
+	"\x15skill_capability_keys\x18\x04 \x03(\tR\x13skillCapabilityKeys\x12&\n" +
+	"\x0fagent_skill_ids\x18\x05 \x03(\x03R\ragentSkillIds\"\xb2\x01\n" +
+	"\x1aPreviewChatContextResponse\x12\x12\n" +
+	"\x04code\x18\x01 \x01(\x05R\x04code\x12\x10\n" +
+	"\x03msg\x18\x02 \x01(\tR\x03msg\x12*\n" +
+	"\x11selected_model_id\x18\x03 \x01(\x03R\x0fselectedModelId\x12B\n" +
+	"\rcontext_usage\x18\x04 \x01(\v2\x1d.recruitment.ContextUsageInfoR\fcontextUsage2\x9e\x05\n" +
 	"\vAuthService\x12G\n" +
 	"\bRegister\x12\x1c.recruitment.RegisterRequest\x1a\x1d.recruitment.RegisterResponse\x12>\n" +
 	"\x05Login\x12\x19.recruitment.LoginRequest\x1a\x1a.recruitment.LoginResponse\x12S\n" +
@@ -35575,7 +35740,7 @@ const file_proto_recruitment_proto_rawDesc = "" +
 	"\x17UnreadNotificationCount\x12+.recruitment.UnreadNotificationCountRequest\x1a,.recruitment.UnreadNotificationCountResponse\x12h\n" +
 	"\x13NotificationSummary\x12'.recruitment.NotificationSummaryRequest\x1a(.recruitment.NotificationSummaryResponse\x12]\n" +
 	"\x14MarkNotificationRead\x12(.recruitment.MarkNotificationReadRequest\x1a\x1b.recruitment.CommonResponse\x12e\n" +
-	"\x18MarkAllNotificationsRead\x12,.recruitment.MarkAllNotificationsReadRequest\x1a\x1b.recruitment.CommonResponse2\xdc\x11\n" +
+	"\x18MarkAllNotificationsRead\x12,.recruitment.MarkAllNotificationsReadRequest\x1a\x1b.recruitment.CommonResponse2\xc3\x12\n" +
 	"\tAIService\x12;\n" +
 	"\x04Chat\x12\x18.recruitment.ChatRequest\x1a\x19.recruitment.ChatResponse\x12I\n" +
 	"\n" +
@@ -35585,7 +35750,8 @@ const file_proto_recruitment_proto_rawDesc = "" +
 	"\x10ListChatSessions\x12#.recruitment.ChatSessionListRequest\x1a$.recruitment.ChatSessionListResponse\x12b\n" +
 	"\x11CreateChatSession\x12%.recruitment.CreateChatSessionRequest\x1a&.recruitment.CreateChatSessionResponse\x12X\n" +
 	"\x0fSessionMessages\x12#.recruitment.SessionMessagesRequest\x1a .recruitment.ChatHistoryResponse\x12\x8f\x01\n" +
-	" CreateApplicationAnalysisSession\x124.recruitment.CreateApplicationAnalysisSessionRequest\x1a5.recruitment.CreateApplicationAnalysisSessionResponse\x12O\n" +
+	" CreateApplicationAnalysisSession\x124.recruitment.CreateApplicationAnalysisSessionRequest\x1a5.recruitment.CreateApplicationAnalysisSessionResponse\x12e\n" +
+	"\x12PreviewChatContext\x12&.recruitment.PreviewChatContextRequest\x1a'.recruitment.PreviewChatContextResponse\x12O\n" +
 	"\rUpdateSession\x12!.recruitment.UpdateSessionRequest\x1a\x1b.recruitment.CommonResponse\x12O\n" +
 	"\rDeleteSession\x12!.recruitment.DeleteSessionRequest\x1a\x1b.recruitment.CommonResponse\x12[\n" +
 	"\x13CandidateChatStream\x12!.recruitment.CandidateChatRequest\x1a\x1f.recruitment.ChatStreamResponse0\x01\x12g\n" +
@@ -35760,7 +35926,7 @@ func file_proto_recruitment_proto_rawDescGZIP() []byte {
 	return file_proto_recruitment_proto_rawDescData
 }
 
-var file_proto_recruitment_proto_msgTypes = make([]protoimpl.MessageInfo, 405)
+var file_proto_recruitment_proto_msgTypes = make([]protoimpl.MessageInfo, 407)
 var file_proto_recruitment_proto_goTypes = []any{
 	(*CommonResponse)(nil),                              // 0: recruitment.CommonResponse
 	(*RegisterRequest)(nil),                             // 1: recruitment.RegisterRequest
@@ -36166,7 +36332,9 @@ var file_proto_recruitment_proto_goTypes = []any{
 	(*TestEmbeddingModelResponse)(nil),                  // 401: recruitment.TestEmbeddingModelResponse
 	(*BackfillEmbeddingsRequest)(nil),                   // 402: recruitment.BackfillEmbeddingsRequest
 	(*BackfillEmbeddingsResponse)(nil),                  // 403: recruitment.BackfillEmbeddingsResponse
-	nil,                                                 // 404: recruitment.RenderPromptRequest.VariablesEntry
+	(*PreviewChatContextRequest)(nil),                   // 404: recruitment.PreviewChatContextRequest
+	(*PreviewChatContextResponse)(nil),                  // 405: recruitment.PreviewChatContextResponse
+	nil,                                                 // 406: recruitment.RenderPromptRequest.VariablesEntry
 }
 var file_proto_recruitment_proto_depIdxs = []int32{
 	14,  // 0: recruitment.GetPrincipalResponse.data_scopes:type_name -> recruitment.ScopeAssignment
@@ -36269,7 +36437,7 @@ var file_proto_recruitment_proto_depIdxs = []int32{
 	299, // 97: recruitment.ListPromptTemplatesResponse.list:type_name -> recruitment.PromptTemplateInfo
 	299, // 98: recruitment.PromptTemplateResponse.template:type_name -> recruitment.PromptTemplateInfo
 	306, // 99: recruitment.GetPromptVersionHistoryResponse.list:type_name -> recruitment.PromptVersionInfo
-	404, // 100: recruitment.RenderPromptRequest.variables:type_name -> recruitment.RenderPromptRequest.VariablesEntry
+	406, // 100: recruitment.RenderPromptRequest.variables:type_name -> recruitment.RenderPromptRequest.VariablesEntry
 	299, // 101: recruitment.GetActivePromptByAgentTypeResponse.template:type_name -> recruitment.PromptTemplateInfo
 	315, // 102: recruitment.AgentConfigInfo.tool_bindings:type_name -> recruitment.AgentToolBindingInfo
 	316, // 103: recruitment.AgentConfigInfo.capability_bindings:type_name -> recruitment.AgentCapabilityBindingInfo
@@ -36307,407 +36475,410 @@ var file_proto_recruitment_proto_depIdxs = []int32{
 	385, // 135: recruitment.EmbeddingProviderResponse.provider:type_name -> recruitment.EmbeddingProviderInfo
 	392, // 136: recruitment.ListEmbeddingModelsResponse.list:type_name -> recruitment.EmbeddingModelInfo
 	392, // 137: recruitment.EmbeddingModelResponse.model:type_name -> recruitment.EmbeddingModelInfo
-	1,   // 138: recruitment.AuthService.Register:input_type -> recruitment.RegisterRequest
-	3,   // 139: recruitment.AuthService.Login:input_type -> recruitment.LoginRequest
-	5,   // 140: recruitment.AuthService.RefreshToken:input_type -> recruitment.RefreshTokenRequest
-	7,   // 141: recruitment.AuthService.RevokeRefreshToken:input_type -> recruitment.RevokeRefreshTokenRequest
-	8,   // 142: recruitment.AuthService.RecordAuthDecision:input_type -> recruitment.AuthAuditRequest
-	9,   // 143: recruitment.AuthService.GetPrincipal:input_type -> recruitment.GetPrincipalRequest
-	11,  // 144: recruitment.AuthService.AuthorizeInternal:input_type -> recruitment.AuthorizeInternalRequest
-	13,  // 145: recruitment.AuthService.UpdateEmail:input_type -> recruitment.UpdateEmailRequest
-	15,  // 146: recruitment.JobService.CreateJob:input_type -> recruitment.CreateJobRequest
-	17,  // 147: recruitment.JobService.UpdateJob:input_type -> recruitment.UpdateJobRequest
-	18,  // 148: recruitment.JobService.OfflineJob:input_type -> recruitment.OfflineJobRequest
-	18,  // 149: recruitment.JobService.OnlineJob:input_type -> recruitment.OfflineJobRequest
-	19,  // 150: recruitment.JobService.ListHRJobs:input_type -> recruitment.ListHRJobsRequest
-	20,  // 151: recruitment.JobService.ListPublicJobs:input_type -> recruitment.ListPublicJobsRequest
-	21,  // 152: recruitment.JobService.GetJobDetail:input_type -> recruitment.GetJobDetailRequest
-	141, // 153: recruitment.JobService.ListJobOptions:input_type -> recruitment.ListJobOptionsRequest
-	162, // 154: recruitment.JobService.ListDepartmentLocations:input_type -> recruitment.ListDepartmentLocationsRequest
-	25,  // 155: recruitment.CandidateService.GetProfile:input_type -> recruitment.GetProfileRequest
-	26,  // 156: recruitment.CandidateService.UpdateProfile:input_type -> recruitment.UpdateProfileRequest
-	29,  // 157: recruitment.CandidateService.GetResume:input_type -> recruitment.GetResumeRequest
-	32,  // 158: recruitment.CandidateService.PresignResumeUpload:input_type -> recruitment.PresignResumeUploadRequest
-	34,  // 159: recruitment.CandidateService.ConfirmResumeUpload:input_type -> recruitment.ConfirmResumeUploadRequest
-	36,  // 160: recruitment.ApplicationService.ApplyJob:input_type -> recruitment.ApplyJobRequest
-	37,  // 161: recruitment.ApplicationService.ListMyApplications:input_type -> recruitment.ListMyApplicationsRequest
-	40,  // 162: recruitment.ApplicationService.ListJobApplications:input_type -> recruitment.ListJobApplicationsRequest
-	43,  // 163: recruitment.ApplicationService.UpdateApplicationStatus:input_type -> recruitment.UpdateApplicationStatusRequest
-	44,  // 164: recruitment.ApplicationService.ListApplicationStatusTransitions:input_type -> recruitment.ListApplicationStatusTransitionsRequest
-	47,  // 165: recruitment.ApplicationOwnerService.GetApplicationSnapshot:input_type -> recruitment.GetApplicationSnapshotRequest
-	49,  // 166: recruitment.ApplicationOwnerService.ApplyApplicationLifecycleTransition:input_type -> recruitment.ApplyApplicationLifecycleTransitionRequest
-	102, // 167: recruitment.InterviewService.ScheduleInterview:input_type -> recruitment.ScheduleInterviewRequest
-	104, // 168: recruitment.InterviewService.UpdateInterview:input_type -> recruitment.UpdateInterviewRequest
-	105, // 169: recruitment.InterviewService.CancelInterview:input_type -> recruitment.CancelInterviewRequest
-	106, // 170: recruitment.InterviewService.GetInterview:input_type -> recruitment.GetInterviewRequest
-	108, // 171: recruitment.InterviewService.ListInterviewers:input_type -> recruitment.ListInterviewersRequest
-	110, // 172: recruitment.InterviewService.ListApplicationInterviews:input_type -> recruitment.ListApplicationInterviewsRequest
-	112, // 173: recruitment.InterviewService.ListMyInterviews:input_type -> recruitment.ListMyInterviewsRequest
-	114, // 174: recruitment.InterviewService.ListCandidateInterviews:input_type -> recruitment.ListCandidateInterviewsRequest
-	117, // 175: recruitment.InterviewService.SubmitFeedback:input_type -> recruitment.SubmitFeedbackRequest
-	118, // 176: recruitment.InterviewService.GetFeedback:input_type -> recruitment.GetFeedbackRequest
-	120, // 177: recruitment.InterviewService.BatchCancelInterviews:input_type -> recruitment.BatchCancelInterviewsRequest
-	123, // 178: recruitment.NotificationService.ListNotifications:input_type -> recruitment.ListNotificationsRequest
-	125, // 179: recruitment.NotificationService.UnreadNotificationCount:input_type -> recruitment.UnreadNotificationCountRequest
-	127, // 180: recruitment.NotificationService.NotificationSummary:input_type -> recruitment.NotificationSummaryRequest
-	129, // 181: recruitment.NotificationService.MarkNotificationRead:input_type -> recruitment.MarkNotificationReadRequest
-	130, // 182: recruitment.NotificationService.MarkAllNotificationsRead:input_type -> recruitment.MarkAllNotificationsReadRequest
-	51,  // 183: recruitment.AIService.Chat:input_type -> recruitment.ChatRequest
-	51,  // 184: recruitment.AIService.ChatStream:input_type -> recruitment.ChatRequest
-	58,  // 185: recruitment.AIService.History:input_type -> recruitment.ChatHistoryRequest
-	61,  // 186: recruitment.AIService.AnalyzeApplication:input_type -> recruitment.AnalyzeApplicationRequest
-	63,  // 187: recruitment.AIService.ListChatSessions:input_type -> recruitment.ChatSessionListRequest
-	66,  // 188: recruitment.AIService.CreateChatSession:input_type -> recruitment.CreateChatSessionRequest
-	68,  // 189: recruitment.AIService.SessionMessages:input_type -> recruitment.SessionMessagesRequest
-	69,  // 190: recruitment.AIService.CreateApplicationAnalysisSession:input_type -> recruitment.CreateApplicationAnalysisSessionRequest
-	71,  // 191: recruitment.AIService.UpdateSession:input_type -> recruitment.UpdateSessionRequest
-	72,  // 192: recruitment.AIService.DeleteSession:input_type -> recruitment.DeleteSessionRequest
-	73,  // 193: recruitment.AIService.CandidateChatStream:input_type -> recruitment.CandidateChatRequest
-	74,  // 194: recruitment.AIService.CandidateListSessions:input_type -> recruitment.CandidateSessionListRequest
-	75,  // 195: recruitment.AIService.CandidateCreateSession:input_type -> recruitment.CandidateCreateSessionRequest
-	76,  // 196: recruitment.AIService.CandidateSessionMessages:input_type -> recruitment.CandidateSessionMessagesRequest
-	77,  // 197: recruitment.AIService.CandidateUpdateSession:input_type -> recruitment.CandidateUpdateSessionRequest
-	78,  // 198: recruitment.AIService.CandidateDeleteSession:input_type -> recruitment.CandidateDeleteSessionRequest
-	79,  // 199: recruitment.AIService.GetToolTraces:input_type -> recruitment.GetToolTracesRequest
-	82,  // 200: recruitment.AIService.GetAgentRuns:input_type -> recruitment.GetAgentRunsRequest
-	90,  // 201: recruitment.AIService.CreateAgentRun:input_type -> recruitment.CreateAgentRunRequest
-	92,  // 202: recruitment.AIService.GetAgentRun:input_type -> recruitment.GetAgentRunRequest
-	94,  // 203: recruitment.AIService.GetActiveAgentRun:input_type -> recruitment.GetActiveAgentRunRequest
-	96,  // 204: recruitment.AIService.SubscribeAgentRunEvents:input_type -> recruitment.SubscribeAgentRunEventsRequest
-	97,  // 205: recruitment.AIService.CancelAgentRun:input_type -> recruitment.CancelAgentRunRequest
-	99,  // 206: recruitment.AIService.ConfirmAgentRun:input_type -> recruitment.ConfirmAgentRunRequest
-	171, // 207: recruitment.OfferService.CreateOffer:input_type -> recruitment.CreateOfferRequest
-	173, // 208: recruitment.OfferService.UpdateOffer:input_type -> recruitment.UpdateOfferRequest
-	174, // 209: recruitment.OfferService.GetOffer:input_type -> recruitment.GetOfferRequest
-	176, // 210: recruitment.OfferService.ListOffersByApplication:input_type -> recruitment.ListOffersByApplicationRequest
-	178, // 211: recruitment.OfferService.SendOffer:input_type -> recruitment.SendOfferRequest
-	179, // 212: recruitment.OfferService.WithdrawOffer:input_type -> recruitment.WithdrawOfferRequest
-	180, // 213: recruitment.OfferService.AcceptOffer:input_type -> recruitment.AcceptOfferRequest
-	181, // 214: recruitment.OfferService.RejectOffer:input_type -> recruitment.RejectOfferRequest
-	182, // 215: recruitment.OfferService.ListMyOffers:input_type -> recruitment.ListMyOffersRequest
-	185, // 216: recruitment.OfferService.ListOfferEvents:input_type -> recruitment.ListOfferEventsRequest
-	132, // 217: recruitment.AdminService.CreateInviteCode:input_type -> recruitment.CreateInviteCodeRequest
-	134, // 218: recruitment.AdminService.ListInviteCodes:input_type -> recruitment.ListInviteCodesRequest
-	136, // 219: recruitment.AdminService.ExtendInviteCode:input_type -> recruitment.ExtendInviteCodeRequest
-	137, // 220: recruitment.AdminService.RevokeInviteCode:input_type -> recruitment.RevokeInviteCodeRequest
-	138, // 221: recruitment.AdminService.ReactivateInviteCode:input_type -> recruitment.ReactivateInviteCodeRequest
-	139, // 222: recruitment.AdminService.ValidateInviteCode:input_type -> recruitment.ValidateInviteCodeRequest
-	145, // 223: recruitment.AdminService.ListDepartments:input_type -> recruitment.ListDepartmentsRequest
-	147, // 224: recruitment.AdminService.CreateDepartment:input_type -> recruitment.CreateDepartmentRequest
-	148, // 225: recruitment.AdminService.UpdateDepartment:input_type -> recruitment.UpdateDepartmentRequest
-	149, // 226: recruitment.AdminService.UpdateDepartmentStatus:input_type -> recruitment.UpdateDepartmentStatusRequest
-	150, // 227: recruitment.AdminService.DeleteDepartment:input_type -> recruitment.DeleteDepartmentRequest
-	152, // 228: recruitment.AdminService.ListJobLocations:input_type -> recruitment.ListJobLocationsRequest
-	154, // 229: recruitment.AdminService.CreateJobLocation:input_type -> recruitment.CreateJobLocationRequest
-	155, // 230: recruitment.AdminService.UpdateJobLocation:input_type -> recruitment.UpdateJobLocationRequest
-	156, // 231: recruitment.AdminService.UpdateJobLocationStatus:input_type -> recruitment.UpdateJobLocationStatusRequest
-	157, // 232: recruitment.AdminService.DeleteJobLocation:input_type -> recruitment.DeleteJobLocationRequest
-	164, // 233: recruitment.AdminService.GetDepartmentLocationConfig:input_type -> recruitment.GetDepartmentLocationConfigRequest
-	165, // 234: recruitment.AdminService.UpdateDepartmentLocationConfig:input_type -> recruitment.UpdateDepartmentLocationConfigRequest
-	160, // 235: recruitment.AdminService.ListDepartmentsLocationMap:input_type -> recruitment.ListDepartmentsLocationMapRequest
-	168, // 236: recruitment.AdminService.QueryUsageLogs:input_type -> recruitment.QueryUsageLogsRequest
-	187, // 237: recruitment.AdminService.ListRoles:input_type -> recruitment.ListRolesRequest
-	190, // 238: recruitment.AdminService.ListPermissions:input_type -> recruitment.ListPermissionsRequest
-	193, // 239: recruitment.AdminService.GetUserRoles:input_type -> recruitment.GetUserRolesRequest
-	196, // 240: recruitment.AdminService.AssignUserRole:input_type -> recruitment.AssignUserRoleRequest
-	197, // 241: recruitment.AdminService.RevokeUserRole:input_type -> recruitment.RevokeUserRoleRequest
-	198, // 242: recruitment.AdminService.AssignDataScope:input_type -> recruitment.AssignDataScopeRequest
-	199, // 243: recruitment.AdminService.RevokeDataScope:input_type -> recruitment.RevokeDataScopeRequest
-	200, // 244: recruitment.AdminService.ListStaffUsers:input_type -> recruitment.ListStaffUsersRequest
-	203, // 245: recruitment.AdminService.CreateStaffUser:input_type -> recruitment.CreateStaffUserRequest
-	236, // 246: recruitment.AdminService.QueryAuthAuditLogs:input_type -> recruitment.QueryAuthAuditLogsRequest
-	239, // 247: recruitment.AdminService.GetDashboardReport:input_type -> recruitment.GetDashboardReportRequest
-	243, // 248: recruitment.AdminService.GetFunnelReport:input_type -> recruitment.GetFunnelReportRequest
-	246, // 249: recruitment.AdminService.GetTimeInStageReport:input_type -> recruitment.GetTimeInStageReportRequest
-	249, // 250: recruitment.AdminService.GetInterviewOfferMetrics:input_type -> recruitment.GetInterviewOfferMetricsRequest
-	251, // 251: recruitment.AdminService.GetUsageStats:input_type -> recruitment.GetUsageStatsRequest
-	255, // 252: recruitment.AdminService.GetUsageTrend:input_type -> recruitment.GetUsageTrendRequest
-	205, // 253: recruitment.CollaborationService.GetCandidateWorkspace:input_type -> recruitment.GetCandidateWorkspaceRequest
-	212, // 254: recruitment.CollaborationService.CreateNote:input_type -> recruitment.CreateNoteRequest
-	214, // 255: recruitment.CollaborationService.ListNotes:input_type -> recruitment.ListNotesRequest
-	217, // 256: recruitment.CollaborationService.CreateTag:input_type -> recruitment.CreateTagRequest
-	219, // 257: recruitment.CollaborationService.ListTags:input_type -> recruitment.ListTagsRequest
-	221, // 258: recruitment.CollaborationService.AssignTag:input_type -> recruitment.AssignTagRequest
-	222, // 259: recruitment.CollaborationService.UnassignTag:input_type -> recruitment.UnassignTagRequest
-	223, // 260: recruitment.CollaborationService.ListCandidateTags:input_type -> recruitment.ListCandidateTagsRequest
-	226, // 261: recruitment.CollaborationService.CreateFollowUpTask:input_type -> recruitment.CreateFollowUpTaskRequest
-	228, // 262: recruitment.CollaborationService.ListFollowUpTasks:input_type -> recruitment.ListFollowUpTasksRequest
-	230, // 263: recruitment.CollaborationService.CompleteFollowUpTask:input_type -> recruitment.CompleteFollowUpTaskRequest
-	231, // 264: recruitment.CollaborationService.GetFollowUpTask:input_type -> recruitment.GetFollowUpTaskRequest
-	234, // 265: recruitment.CollaborationService.ListTimelineEvents:input_type -> recruitment.ListTimelineEventsRequest
-	366, // 266: recruitment.RecruitingIntelligenceService.GetResumeProfile:input_type -> recruitment.GetResumeProfileRequest
-	367, // 267: recruitment.RecruitingIntelligenceService.ParseResumeProfile:input_type -> recruitment.ParseResumeProfileRequest
-	376, // 268: recruitment.RecruitingIntelligenceService.EvaluateCandidateMatch:input_type -> recruitment.EvaluateCandidateMatchRequest
-	377, // 269: recruitment.RecruitingIntelligenceService.GetCandidateMatchEvaluation:input_type -> recruitment.GetCandidateMatchEvaluationRequest
-	382, // 270: recruitment.RecruitingIntelligenceService.CompareCandidatesForJob:input_type -> recruitment.CompareCandidatesForJobRequest
-	259, // 271: recruitment.MCPService.ListMCPServers:input_type -> recruitment.ListMCPServersRequest
-	261, // 272: recruitment.MCPService.CreateMCPServer:input_type -> recruitment.CreateMCPServerRequest
-	262, // 273: recruitment.MCPService.UpdateMCPServer:input_type -> recruitment.UpdateMCPServerRequest
-	263, // 274: recruitment.MCPService.DeleteMCPServer:input_type -> recruitment.DeleteMCPServerRequest
-	266, // 275: recruitment.MCPService.ListMCPToolPolicies:input_type -> recruitment.ListMCPToolPoliciesRequest
-	268, // 276: recruitment.MCPService.CreateMCPToolPolicy:input_type -> recruitment.CreateMCPToolPolicyRequest
-	269, // 277: recruitment.MCPService.UpdateMCPToolPolicy:input_type -> recruitment.UpdateMCPToolPolicyRequest
-	270, // 278: recruitment.MCPService.DeleteMCPToolPolicy:input_type -> recruitment.DeleteMCPToolPolicyRequest
-	273, // 279: recruitment.MCPService.ListMCPToolLogs:input_type -> recruitment.ListMCPToolLogsRequest
-	275, // 280: recruitment.MCPService.TestMCPConnection:input_type -> recruitment.TestMCPConnectionRequest
-	277, // 281: recruitment.MCPService.ListMCPTools:input_type -> recruitment.ListMCPToolsRequest
-	280, // 282: recruitment.MCPService.CallMCPTool:input_type -> recruitment.CallMCPToolRequest
-	283, // 283: recruitment.LlmConfigService.ListProviders:input_type -> recruitment.ListProvidersRequest
-	285, // 284: recruitment.LlmConfigService.CreateProvider:input_type -> recruitment.CreateProviderRequest
-	286, // 285: recruitment.LlmConfigService.UpdateProvider:input_type -> recruitment.UpdateProviderRequest
-	288, // 286: recruitment.LlmConfigService.DeleteProvider:input_type -> recruitment.DeleteProviderRequest
-	289, // 287: recruitment.LlmConfigService.TestProviderConnection:input_type -> recruitment.TestProviderConnectionRequest
-	293, // 288: recruitment.LlmConfigService.ListModels:input_type -> recruitment.ListModelsRequest
-	295, // 289: recruitment.LlmConfigService.CreateModel:input_type -> recruitment.CreateModelRequest
-	296, // 290: recruitment.LlmConfigService.UpdateModel:input_type -> recruitment.UpdateModelRequest
-	298, // 291: recruitment.LlmConfigService.DeleteModel:input_type -> recruitment.DeleteModelRequest
-	291, // 292: recruitment.LlmConfigService.TestModelConnection:input_type -> recruitment.TestModelConnectionRequest
-	300, // 293: recruitment.PromptService.ListPromptTemplates:input_type -> recruitment.ListPromptTemplatesRequest
-	302, // 294: recruitment.PromptService.CreatePromptTemplate:input_type -> recruitment.CreatePromptTemplateRequest
-	303, // 295: recruitment.PromptService.UpdatePromptTemplate:input_type -> recruitment.UpdatePromptTemplateRequest
-	305, // 296: recruitment.PromptService.DeletePromptTemplate:input_type -> recruitment.DeletePromptTemplateRequest
-	307, // 297: recruitment.PromptService.GetPromptVersionHistory:input_type -> recruitment.GetPromptVersionHistoryRequest
-	309, // 298: recruitment.PromptService.RollbackPromptVersion:input_type -> recruitment.RollbackPromptVersionRequest
-	310, // 299: recruitment.PromptService.RenderPrompt:input_type -> recruitment.RenderPromptRequest
-	312, // 300: recruitment.PromptService.GetActivePromptByAgentType:input_type -> recruitment.GetActivePromptByAgentTypeRequest
-	320, // 301: recruitment.AgentConfigService.ListAgents:input_type -> recruitment.ListAgentsRequest
-	318, // 302: recruitment.AgentConfigService.ListCapabilities:input_type -> recruitment.ListCapabilitiesRequest
-	322, // 303: recruitment.AgentConfigService.CreateAgent:input_type -> recruitment.CreateAgentRequest
-	323, // 304: recruitment.AgentConfigService.UpdateAgent:input_type -> recruitment.UpdateAgentRequest
-	325, // 305: recruitment.AgentConfigService.DeleteAgent:input_type -> recruitment.DeleteAgentRequest
-	326, // 306: recruitment.AgentConfigService.GetAgentConfig:input_type -> recruitment.GetAgentConfigRequest
-	331, // 307: recruitment.SkillService.ListSkills:input_type -> recruitment.ListSkillsRequest
-	333, // 308: recruitment.SkillService.CreateSkill:input_type -> recruitment.CreateSkillRequest
-	334, // 309: recruitment.SkillService.UpdateSkill:input_type -> recruitment.UpdateSkillRequest
-	336, // 310: recruitment.SkillService.CreateSkillVersion:input_type -> recruitment.CreateSkillVersionRequest
-	338, // 311: recruitment.SkillService.ListSkillVersions:input_type -> recruitment.ListSkillVersionsRequest
-	340, // 312: recruitment.SkillService.ActivateSkillVersion:input_type -> recruitment.ActivateSkillVersionRequest
-	341, // 313: recruitment.SkillService.ListSkillTools:input_type -> recruitment.ListSkillToolsRequest
-	343, // 314: recruitment.SkillService.UpdateSkillTool:input_type -> recruitment.UpdateSkillToolRequest
-	347, // 315: recruitment.AgentSkillService.ListAgentSkills:input_type -> recruitment.ListAgentSkillsRequest
-	350, // 316: recruitment.AgentSkillService.GetAgentSkill:input_type -> recruitment.GetAgentSkillRequest
-	351, // 317: recruitment.AgentSkillService.CreateAgentSkill:input_type -> recruitment.CreateAgentSkillRequest
-	352, // 318: recruitment.AgentSkillService.UpdateAgentSkill:input_type -> recruitment.UpdateAgentSkillRequest
-	354, // 319: recruitment.AgentSkillService.CreateAgentSkillVersion:input_type -> recruitment.CreateAgentSkillVersionRequest
-	356, // 320: recruitment.AgentSkillService.ListAgentSkillVersions:input_type -> recruitment.ListAgentSkillVersionsRequest
-	358, // 321: recruitment.AgentSkillService.ActivateAgentSkillVersion:input_type -> recruitment.ActivateAgentSkillVersionRequest
-	359, // 322: recruitment.AgentSkillService.UpdateAgentSkillStatus:input_type -> recruitment.UpdateAgentSkillStatusRequest
-	360, // 323: recruitment.AgentSkillService.PreviewAgentSkill:input_type -> recruitment.PreviewAgentSkillRequest
-	348, // 324: recruitment.AgentSkillService.ListAvailableAgentSkills:input_type -> recruitment.ListAvailableAgentSkillsRequest
-	362, // 325: recruitment.AgentSkillService.DebugSemanticRetrieval:input_type -> recruitment.DebugSemanticRetrievalRequest
-	386, // 326: recruitment.EmbeddingConfigService.ListEmbeddingProviders:input_type -> recruitment.ListEmbeddingProvidersRequest
-	388, // 327: recruitment.EmbeddingConfigService.CreateEmbeddingProvider:input_type -> recruitment.CreateEmbeddingProviderRequest
-	389, // 328: recruitment.EmbeddingConfigService.UpdateEmbeddingProvider:input_type -> recruitment.UpdateEmbeddingProviderRequest
-	391, // 329: recruitment.EmbeddingConfigService.DeleteEmbeddingProvider:input_type -> recruitment.DeleteEmbeddingProviderRequest
-	393, // 330: recruitment.EmbeddingConfigService.ListEmbeddingModels:input_type -> recruitment.ListEmbeddingModelsRequest
-	395, // 331: recruitment.EmbeddingConfigService.CreateEmbeddingModel:input_type -> recruitment.CreateEmbeddingModelRequest
-	396, // 332: recruitment.EmbeddingConfigService.UpdateEmbeddingModel:input_type -> recruitment.UpdateEmbeddingModelRequest
-	399, // 333: recruitment.EmbeddingConfigService.SetDefaultEmbeddingModel:input_type -> recruitment.SetDefaultEmbeddingModelRequest
-	400, // 334: recruitment.EmbeddingConfigService.TestEmbeddingModel:input_type -> recruitment.TestEmbeddingModelRequest
-	402, // 335: recruitment.EmbeddingConfigService.BackfillEmbeddings:input_type -> recruitment.BackfillEmbeddingsRequest
-	2,   // 336: recruitment.AuthService.Register:output_type -> recruitment.RegisterResponse
-	4,   // 337: recruitment.AuthService.Login:output_type -> recruitment.LoginResponse
-	6,   // 338: recruitment.AuthService.RefreshToken:output_type -> recruitment.RefreshTokenResponse
-	0,   // 339: recruitment.AuthService.RevokeRefreshToken:output_type -> recruitment.CommonResponse
-	0,   // 340: recruitment.AuthService.RecordAuthDecision:output_type -> recruitment.CommonResponse
-	10,  // 341: recruitment.AuthService.GetPrincipal:output_type -> recruitment.GetPrincipalResponse
-	12,  // 342: recruitment.AuthService.AuthorizeInternal:output_type -> recruitment.AuthorizeInternalResponse
-	0,   // 343: recruitment.AuthService.UpdateEmail:output_type -> recruitment.CommonResponse
-	16,  // 344: recruitment.JobService.CreateJob:output_type -> recruitment.CreateJobResponse
-	0,   // 345: recruitment.JobService.UpdateJob:output_type -> recruitment.CommonResponse
-	0,   // 346: recruitment.JobService.OfflineJob:output_type -> recruitment.CommonResponse
-	0,   // 347: recruitment.JobService.OnlineJob:output_type -> recruitment.CommonResponse
-	23,  // 348: recruitment.JobService.ListHRJobs:output_type -> recruitment.ListJobsResponse
-	23,  // 349: recruitment.JobService.ListPublicJobs:output_type -> recruitment.ListJobsResponse
-	24,  // 350: recruitment.JobService.GetJobDetail:output_type -> recruitment.GetJobDetailResponse
-	142, // 351: recruitment.JobService.ListJobOptions:output_type -> recruitment.ListJobOptionsResponse
-	163, // 352: recruitment.JobService.ListDepartmentLocations:output_type -> recruitment.ListDepartmentLocationsResponse
-	28,  // 353: recruitment.CandidateService.GetProfile:output_type -> recruitment.GetProfileResponse
-	28,  // 354: recruitment.CandidateService.UpdateProfile:output_type -> recruitment.GetProfileResponse
-	31,  // 355: recruitment.CandidateService.GetResume:output_type -> recruitment.GetResumeResponse
-	33,  // 356: recruitment.CandidateService.PresignResumeUpload:output_type -> recruitment.PresignResumeUploadResponse
-	35,  // 357: recruitment.CandidateService.ConfirmResumeUpload:output_type -> recruitment.ConfirmResumeUploadResponse
-	0,   // 358: recruitment.ApplicationService.ApplyJob:output_type -> recruitment.CommonResponse
-	39,  // 359: recruitment.ApplicationService.ListMyApplications:output_type -> recruitment.ListMyApplicationsResponse
-	42,  // 360: recruitment.ApplicationService.ListJobApplications:output_type -> recruitment.ListJobApplicationsResponse
-	0,   // 361: recruitment.ApplicationService.UpdateApplicationStatus:output_type -> recruitment.CommonResponse
-	46,  // 362: recruitment.ApplicationService.ListApplicationStatusTransitions:output_type -> recruitment.ListApplicationStatusTransitionsResponse
-	48,  // 363: recruitment.ApplicationOwnerService.GetApplicationSnapshot:output_type -> recruitment.GetApplicationSnapshotResponse
-	50,  // 364: recruitment.ApplicationOwnerService.ApplyApplicationLifecycleTransition:output_type -> recruitment.ApplyApplicationLifecycleTransitionResponse
-	103, // 365: recruitment.InterviewService.ScheduleInterview:output_type -> recruitment.ScheduleInterviewResponse
-	0,   // 366: recruitment.InterviewService.UpdateInterview:output_type -> recruitment.CommonResponse
-	0,   // 367: recruitment.InterviewService.CancelInterview:output_type -> recruitment.CommonResponse
-	107, // 368: recruitment.InterviewService.GetInterview:output_type -> recruitment.GetInterviewResponse
-	109, // 369: recruitment.InterviewService.ListInterviewers:output_type -> recruitment.ListInterviewersResponse
-	111, // 370: recruitment.InterviewService.ListApplicationInterviews:output_type -> recruitment.ListApplicationInterviewsResponse
-	113, // 371: recruitment.InterviewService.ListMyInterviews:output_type -> recruitment.ListMyInterviewsResponse
-	115, // 372: recruitment.InterviewService.ListCandidateInterviews:output_type -> recruitment.ListCandidateInterviewsResponse
-	0,   // 373: recruitment.InterviewService.SubmitFeedback:output_type -> recruitment.CommonResponse
-	119, // 374: recruitment.InterviewService.GetFeedback:output_type -> recruitment.GetFeedbackResponse
-	121, // 375: recruitment.InterviewService.BatchCancelInterviews:output_type -> recruitment.BatchCancelInterviewsResponse
-	124, // 376: recruitment.NotificationService.ListNotifications:output_type -> recruitment.ListNotificationsResponse
-	126, // 377: recruitment.NotificationService.UnreadNotificationCount:output_type -> recruitment.UnreadNotificationCountResponse
-	128, // 378: recruitment.NotificationService.NotificationSummary:output_type -> recruitment.NotificationSummaryResponse
-	0,   // 379: recruitment.NotificationService.MarkNotificationRead:output_type -> recruitment.CommonResponse
-	0,   // 380: recruitment.NotificationService.MarkAllNotificationsRead:output_type -> recruitment.CommonResponse
-	54,  // 381: recruitment.AIService.Chat:output_type -> recruitment.ChatResponse
-	57,  // 382: recruitment.AIService.ChatStream:output_type -> recruitment.ChatStreamResponse
-	60,  // 383: recruitment.AIService.History:output_type -> recruitment.ChatHistoryResponse
-	62,  // 384: recruitment.AIService.AnalyzeApplication:output_type -> recruitment.AnalyzeApplicationResponse
-	65,  // 385: recruitment.AIService.ListChatSessions:output_type -> recruitment.ChatSessionListResponse
-	67,  // 386: recruitment.AIService.CreateChatSession:output_type -> recruitment.CreateChatSessionResponse
-	60,  // 387: recruitment.AIService.SessionMessages:output_type -> recruitment.ChatHistoryResponse
-	70,  // 388: recruitment.AIService.CreateApplicationAnalysisSession:output_type -> recruitment.CreateApplicationAnalysisSessionResponse
-	0,   // 389: recruitment.AIService.UpdateSession:output_type -> recruitment.CommonResponse
-	0,   // 390: recruitment.AIService.DeleteSession:output_type -> recruitment.CommonResponse
-	57,  // 391: recruitment.AIService.CandidateChatStream:output_type -> recruitment.ChatStreamResponse
-	65,  // 392: recruitment.AIService.CandidateListSessions:output_type -> recruitment.ChatSessionListResponse
-	67,  // 393: recruitment.AIService.CandidateCreateSession:output_type -> recruitment.CreateChatSessionResponse
-	60,  // 394: recruitment.AIService.CandidateSessionMessages:output_type -> recruitment.ChatHistoryResponse
-	0,   // 395: recruitment.AIService.CandidateUpdateSession:output_type -> recruitment.CommonResponse
-	0,   // 396: recruitment.AIService.CandidateDeleteSession:output_type -> recruitment.CommonResponse
-	81,  // 397: recruitment.AIService.GetToolTraces:output_type -> recruitment.GetToolTracesResponse
-	85,  // 398: recruitment.AIService.GetAgentRuns:output_type -> recruitment.GetAgentRunsResponse
-	91,  // 399: recruitment.AIService.CreateAgentRun:output_type -> recruitment.CreateAgentRunResponse
-	93,  // 400: recruitment.AIService.GetAgentRun:output_type -> recruitment.GetAgentRunResponse
-	95,  // 401: recruitment.AIService.GetActiveAgentRun:output_type -> recruitment.GetActiveAgentRunResponse
-	89,  // 402: recruitment.AIService.SubscribeAgentRunEvents:output_type -> recruitment.AgentRunEvent
-	98,  // 403: recruitment.AIService.CancelAgentRun:output_type -> recruitment.CancelAgentRunResponse
-	100, // 404: recruitment.AIService.ConfirmAgentRun:output_type -> recruitment.ConfirmAgentRunResponse
-	172, // 405: recruitment.OfferService.CreateOffer:output_type -> recruitment.CreateOfferResponse
-	0,   // 406: recruitment.OfferService.UpdateOffer:output_type -> recruitment.CommonResponse
-	175, // 407: recruitment.OfferService.GetOffer:output_type -> recruitment.GetOfferResponse
-	177, // 408: recruitment.OfferService.ListOffersByApplication:output_type -> recruitment.ListOffersByApplicationResponse
-	0,   // 409: recruitment.OfferService.SendOffer:output_type -> recruitment.CommonResponse
-	0,   // 410: recruitment.OfferService.WithdrawOffer:output_type -> recruitment.CommonResponse
-	0,   // 411: recruitment.OfferService.AcceptOffer:output_type -> recruitment.CommonResponse
-	0,   // 412: recruitment.OfferService.RejectOffer:output_type -> recruitment.CommonResponse
-	183, // 413: recruitment.OfferService.ListMyOffers:output_type -> recruitment.ListMyOffersResponse
-	186, // 414: recruitment.OfferService.ListOfferEvents:output_type -> recruitment.ListOfferEventsResponse
-	133, // 415: recruitment.AdminService.CreateInviteCode:output_type -> recruitment.CreateInviteCodeResponse
-	135, // 416: recruitment.AdminService.ListInviteCodes:output_type -> recruitment.ListInviteCodesResponse
-	0,   // 417: recruitment.AdminService.ExtendInviteCode:output_type -> recruitment.CommonResponse
-	0,   // 418: recruitment.AdminService.RevokeInviteCode:output_type -> recruitment.CommonResponse
-	0,   // 419: recruitment.AdminService.ReactivateInviteCode:output_type -> recruitment.CommonResponse
-	140, // 420: recruitment.AdminService.ValidateInviteCode:output_type -> recruitment.ValidateInviteCodeResponse
-	146, // 421: recruitment.AdminService.ListDepartments:output_type -> recruitment.ListDepartmentsResponse
-	151, // 422: recruitment.AdminService.CreateDepartment:output_type -> recruitment.DepartmentResponse
-	151, // 423: recruitment.AdminService.UpdateDepartment:output_type -> recruitment.DepartmentResponse
-	0,   // 424: recruitment.AdminService.UpdateDepartmentStatus:output_type -> recruitment.CommonResponse
-	0,   // 425: recruitment.AdminService.DeleteDepartment:output_type -> recruitment.CommonResponse
-	153, // 426: recruitment.AdminService.ListJobLocations:output_type -> recruitment.ListJobLocationsResponse
-	158, // 427: recruitment.AdminService.CreateJobLocation:output_type -> recruitment.JobLocationResponse
-	158, // 428: recruitment.AdminService.UpdateJobLocation:output_type -> recruitment.JobLocationResponse
-	0,   // 429: recruitment.AdminService.UpdateJobLocationStatus:output_type -> recruitment.CommonResponse
-	0,   // 430: recruitment.AdminService.DeleteJobLocation:output_type -> recruitment.CommonResponse
-	166, // 431: recruitment.AdminService.GetDepartmentLocationConfig:output_type -> recruitment.DepartmentLocationConfigResponse
-	166, // 432: recruitment.AdminService.UpdateDepartmentLocationConfig:output_type -> recruitment.DepartmentLocationConfigResponse
-	161, // 433: recruitment.AdminService.ListDepartmentsLocationMap:output_type -> recruitment.ListDepartmentsLocationMapResponse
-	169, // 434: recruitment.AdminService.QueryUsageLogs:output_type -> recruitment.QueryUsageLogsResponse
-	188, // 435: recruitment.AdminService.ListRoles:output_type -> recruitment.ListRolesResponse
-	191, // 436: recruitment.AdminService.ListPermissions:output_type -> recruitment.ListPermissionsResponse
-	194, // 437: recruitment.AdminService.GetUserRoles:output_type -> recruitment.GetUserRolesResponse
-	0,   // 438: recruitment.AdminService.AssignUserRole:output_type -> recruitment.CommonResponse
-	0,   // 439: recruitment.AdminService.RevokeUserRole:output_type -> recruitment.CommonResponse
-	0,   // 440: recruitment.AdminService.AssignDataScope:output_type -> recruitment.CommonResponse
-	0,   // 441: recruitment.AdminService.RevokeDataScope:output_type -> recruitment.CommonResponse
-	201, // 442: recruitment.AdminService.ListStaffUsers:output_type -> recruitment.ListStaffUsersResponse
-	204, // 443: recruitment.AdminService.CreateStaffUser:output_type -> recruitment.CreateStaffUserResponse
-	238, // 444: recruitment.AdminService.QueryAuthAuditLogs:output_type -> recruitment.QueryAuthAuditLogsResponse
-	242, // 445: recruitment.AdminService.GetDashboardReport:output_type -> recruitment.GetDashboardReportResponse
-	245, // 446: recruitment.AdminService.GetFunnelReport:output_type -> recruitment.GetFunnelReportResponse
-	248, // 447: recruitment.AdminService.GetTimeInStageReport:output_type -> recruitment.GetTimeInStageReportResponse
-	250, // 448: recruitment.AdminService.GetInterviewOfferMetrics:output_type -> recruitment.GetInterviewOfferMetricsResponse
-	254, // 449: recruitment.AdminService.GetUsageStats:output_type -> recruitment.GetUsageStatsResponse
-	257, // 450: recruitment.AdminService.GetUsageTrend:output_type -> recruitment.GetUsageTrendResponse
-	210, // 451: recruitment.CollaborationService.GetCandidateWorkspace:output_type -> recruitment.GetCandidateWorkspaceResponse
-	213, // 452: recruitment.CollaborationService.CreateNote:output_type -> recruitment.CreateNoteResponse
-	215, // 453: recruitment.CollaborationService.ListNotes:output_type -> recruitment.ListNotesResponse
-	218, // 454: recruitment.CollaborationService.CreateTag:output_type -> recruitment.CreateTagResponse
-	220, // 455: recruitment.CollaborationService.ListTags:output_type -> recruitment.ListTagsResponse
-	0,   // 456: recruitment.CollaborationService.AssignTag:output_type -> recruitment.CommonResponse
-	0,   // 457: recruitment.CollaborationService.UnassignTag:output_type -> recruitment.CommonResponse
-	224, // 458: recruitment.CollaborationService.ListCandidateTags:output_type -> recruitment.ListCandidateTagsResponse
-	227, // 459: recruitment.CollaborationService.CreateFollowUpTask:output_type -> recruitment.CreateFollowUpTaskResponse
-	229, // 460: recruitment.CollaborationService.ListFollowUpTasks:output_type -> recruitment.ListFollowUpTasksResponse
-	0,   // 461: recruitment.CollaborationService.CompleteFollowUpTask:output_type -> recruitment.CommonResponse
-	232, // 462: recruitment.CollaborationService.GetFollowUpTask:output_type -> recruitment.GetFollowUpTaskResponse
-	235, // 463: recruitment.CollaborationService.ListTimelineEvents:output_type -> recruitment.ListTimelineEventsResponse
-	375, // 464: recruitment.RecruitingIntelligenceService.GetResumeProfile:output_type -> recruitment.GetResumeProfileResponse
-	375, // 465: recruitment.RecruitingIntelligenceService.ParseResumeProfile:output_type -> recruitment.GetResumeProfileResponse
-	381, // 466: recruitment.RecruitingIntelligenceService.EvaluateCandidateMatch:output_type -> recruitment.GetCandidateMatchEvaluationResponse
-	381, // 467: recruitment.RecruitingIntelligenceService.GetCandidateMatchEvaluation:output_type -> recruitment.GetCandidateMatchEvaluationResponse
-	384, // 468: recruitment.RecruitingIntelligenceService.CompareCandidatesForJob:output_type -> recruitment.CompareCandidatesForJobResponse
-	260, // 469: recruitment.MCPService.ListMCPServers:output_type -> recruitment.ListMCPServersResponse
-	264, // 470: recruitment.MCPService.CreateMCPServer:output_type -> recruitment.MCPServerResponse
-	264, // 471: recruitment.MCPService.UpdateMCPServer:output_type -> recruitment.MCPServerResponse
-	0,   // 472: recruitment.MCPService.DeleteMCPServer:output_type -> recruitment.CommonResponse
-	267, // 473: recruitment.MCPService.ListMCPToolPolicies:output_type -> recruitment.ListMCPToolPoliciesResponse
-	271, // 474: recruitment.MCPService.CreateMCPToolPolicy:output_type -> recruitment.MCPToolPolicyResponse
-	271, // 475: recruitment.MCPService.UpdateMCPToolPolicy:output_type -> recruitment.MCPToolPolicyResponse
-	0,   // 476: recruitment.MCPService.DeleteMCPToolPolicy:output_type -> recruitment.CommonResponse
-	274, // 477: recruitment.MCPService.ListMCPToolLogs:output_type -> recruitment.ListMCPToolLogsResponse
-	276, // 478: recruitment.MCPService.TestMCPConnection:output_type -> recruitment.TestMCPConnectionResponse
-	279, // 479: recruitment.MCPService.ListMCPTools:output_type -> recruitment.ListMCPToolsResponse
-	281, // 480: recruitment.MCPService.CallMCPTool:output_type -> recruitment.CallMCPToolResponse
-	284, // 481: recruitment.LlmConfigService.ListProviders:output_type -> recruitment.ListProvidersResponse
-	287, // 482: recruitment.LlmConfigService.CreateProvider:output_type -> recruitment.ProviderResponse
-	287, // 483: recruitment.LlmConfigService.UpdateProvider:output_type -> recruitment.ProviderResponse
-	0,   // 484: recruitment.LlmConfigService.DeleteProvider:output_type -> recruitment.CommonResponse
-	290, // 485: recruitment.LlmConfigService.TestProviderConnection:output_type -> recruitment.TestProviderConnectionResponse
-	294, // 486: recruitment.LlmConfigService.ListModels:output_type -> recruitment.ListModelsResponse
-	297, // 487: recruitment.LlmConfigService.CreateModel:output_type -> recruitment.ModelResponse
-	297, // 488: recruitment.LlmConfigService.UpdateModel:output_type -> recruitment.ModelResponse
-	0,   // 489: recruitment.LlmConfigService.DeleteModel:output_type -> recruitment.CommonResponse
-	290, // 490: recruitment.LlmConfigService.TestModelConnection:output_type -> recruitment.TestProviderConnectionResponse
-	301, // 491: recruitment.PromptService.ListPromptTemplates:output_type -> recruitment.ListPromptTemplatesResponse
-	304, // 492: recruitment.PromptService.CreatePromptTemplate:output_type -> recruitment.PromptTemplateResponse
-	304, // 493: recruitment.PromptService.UpdatePromptTemplate:output_type -> recruitment.PromptTemplateResponse
-	0,   // 494: recruitment.PromptService.DeletePromptTemplate:output_type -> recruitment.CommonResponse
-	308, // 495: recruitment.PromptService.GetPromptVersionHistory:output_type -> recruitment.GetPromptVersionHistoryResponse
-	304, // 496: recruitment.PromptService.RollbackPromptVersion:output_type -> recruitment.PromptTemplateResponse
-	311, // 497: recruitment.PromptService.RenderPrompt:output_type -> recruitment.RenderPromptResponse
-	313, // 498: recruitment.PromptService.GetActivePromptByAgentType:output_type -> recruitment.GetActivePromptByAgentTypeResponse
-	321, // 499: recruitment.AgentConfigService.ListAgents:output_type -> recruitment.ListAgentsResponse
-	319, // 500: recruitment.AgentConfigService.ListCapabilities:output_type -> recruitment.ListCapabilitiesResponse
-	324, // 501: recruitment.AgentConfigService.CreateAgent:output_type -> recruitment.AgentConfigResponse
-	324, // 502: recruitment.AgentConfigService.UpdateAgent:output_type -> recruitment.AgentConfigResponse
-	0,   // 503: recruitment.AgentConfigService.DeleteAgent:output_type -> recruitment.CommonResponse
-	327, // 504: recruitment.AgentConfigService.GetAgentConfig:output_type -> recruitment.GetAgentConfigResponse
-	332, // 505: recruitment.SkillService.ListSkills:output_type -> recruitment.ListSkillsResponse
-	335, // 506: recruitment.SkillService.CreateSkill:output_type -> recruitment.SkillResponse
-	335, // 507: recruitment.SkillService.UpdateSkill:output_type -> recruitment.SkillResponse
-	337, // 508: recruitment.SkillService.CreateSkillVersion:output_type -> recruitment.SkillVersionResponse
-	339, // 509: recruitment.SkillService.ListSkillVersions:output_type -> recruitment.ListSkillVersionsResponse
-	335, // 510: recruitment.SkillService.ActivateSkillVersion:output_type -> recruitment.SkillResponse
-	342, // 511: recruitment.SkillService.ListSkillTools:output_type -> recruitment.ListSkillToolsResponse
-	344, // 512: recruitment.SkillService.UpdateSkillTool:output_type -> recruitment.SkillToolResponse
-	349, // 513: recruitment.AgentSkillService.ListAgentSkills:output_type -> recruitment.ListAgentSkillsResponse
-	353, // 514: recruitment.AgentSkillService.GetAgentSkill:output_type -> recruitment.AgentSkillResponse
-	353, // 515: recruitment.AgentSkillService.CreateAgentSkill:output_type -> recruitment.AgentSkillResponse
-	353, // 516: recruitment.AgentSkillService.UpdateAgentSkill:output_type -> recruitment.AgentSkillResponse
-	355, // 517: recruitment.AgentSkillService.CreateAgentSkillVersion:output_type -> recruitment.AgentSkillVersionResponse
-	357, // 518: recruitment.AgentSkillService.ListAgentSkillVersions:output_type -> recruitment.ListAgentSkillVersionsResponse
-	353, // 519: recruitment.AgentSkillService.ActivateAgentSkillVersion:output_type -> recruitment.AgentSkillResponse
-	353, // 520: recruitment.AgentSkillService.UpdateAgentSkillStatus:output_type -> recruitment.AgentSkillResponse
-	361, // 521: recruitment.AgentSkillService.PreviewAgentSkill:output_type -> recruitment.PreviewAgentSkillResponse
-	349, // 522: recruitment.AgentSkillService.ListAvailableAgentSkills:output_type -> recruitment.ListAgentSkillsResponse
-	365, // 523: recruitment.AgentSkillService.DebugSemanticRetrieval:output_type -> recruitment.DebugSemanticRetrievalResponse
-	387, // 524: recruitment.EmbeddingConfigService.ListEmbeddingProviders:output_type -> recruitment.ListEmbeddingProvidersResponse
-	390, // 525: recruitment.EmbeddingConfigService.CreateEmbeddingProvider:output_type -> recruitment.EmbeddingProviderResponse
-	390, // 526: recruitment.EmbeddingConfigService.UpdateEmbeddingProvider:output_type -> recruitment.EmbeddingProviderResponse
-	0,   // 527: recruitment.EmbeddingConfigService.DeleteEmbeddingProvider:output_type -> recruitment.CommonResponse
-	394, // 528: recruitment.EmbeddingConfigService.ListEmbeddingModels:output_type -> recruitment.ListEmbeddingModelsResponse
-	397, // 529: recruitment.EmbeddingConfigService.CreateEmbeddingModel:output_type -> recruitment.EmbeddingModelResponse
-	397, // 530: recruitment.EmbeddingConfigService.UpdateEmbeddingModel:output_type -> recruitment.EmbeddingModelResponse
-	0,   // 531: recruitment.EmbeddingConfigService.SetDefaultEmbeddingModel:output_type -> recruitment.CommonResponse
-	401, // 532: recruitment.EmbeddingConfigService.TestEmbeddingModel:output_type -> recruitment.TestEmbeddingModelResponse
-	403, // 533: recruitment.EmbeddingConfigService.BackfillEmbeddings:output_type -> recruitment.BackfillEmbeddingsResponse
-	336, // [336:534] is the sub-list for method output_type
-	138, // [138:336] is the sub-list for method input_type
-	138, // [138:138] is the sub-list for extension type_name
-	138, // [138:138] is the sub-list for extension extendee
-	0,   // [0:138] is the sub-list for field type_name
+	53,  // 138: recruitment.PreviewChatContextResponse.context_usage:type_name -> recruitment.ContextUsageInfo
+	1,   // 139: recruitment.AuthService.Register:input_type -> recruitment.RegisterRequest
+	3,   // 140: recruitment.AuthService.Login:input_type -> recruitment.LoginRequest
+	5,   // 141: recruitment.AuthService.RefreshToken:input_type -> recruitment.RefreshTokenRequest
+	7,   // 142: recruitment.AuthService.RevokeRefreshToken:input_type -> recruitment.RevokeRefreshTokenRequest
+	8,   // 143: recruitment.AuthService.RecordAuthDecision:input_type -> recruitment.AuthAuditRequest
+	9,   // 144: recruitment.AuthService.GetPrincipal:input_type -> recruitment.GetPrincipalRequest
+	11,  // 145: recruitment.AuthService.AuthorizeInternal:input_type -> recruitment.AuthorizeInternalRequest
+	13,  // 146: recruitment.AuthService.UpdateEmail:input_type -> recruitment.UpdateEmailRequest
+	15,  // 147: recruitment.JobService.CreateJob:input_type -> recruitment.CreateJobRequest
+	17,  // 148: recruitment.JobService.UpdateJob:input_type -> recruitment.UpdateJobRequest
+	18,  // 149: recruitment.JobService.OfflineJob:input_type -> recruitment.OfflineJobRequest
+	18,  // 150: recruitment.JobService.OnlineJob:input_type -> recruitment.OfflineJobRequest
+	19,  // 151: recruitment.JobService.ListHRJobs:input_type -> recruitment.ListHRJobsRequest
+	20,  // 152: recruitment.JobService.ListPublicJobs:input_type -> recruitment.ListPublicJobsRequest
+	21,  // 153: recruitment.JobService.GetJobDetail:input_type -> recruitment.GetJobDetailRequest
+	141, // 154: recruitment.JobService.ListJobOptions:input_type -> recruitment.ListJobOptionsRequest
+	162, // 155: recruitment.JobService.ListDepartmentLocations:input_type -> recruitment.ListDepartmentLocationsRequest
+	25,  // 156: recruitment.CandidateService.GetProfile:input_type -> recruitment.GetProfileRequest
+	26,  // 157: recruitment.CandidateService.UpdateProfile:input_type -> recruitment.UpdateProfileRequest
+	29,  // 158: recruitment.CandidateService.GetResume:input_type -> recruitment.GetResumeRequest
+	32,  // 159: recruitment.CandidateService.PresignResumeUpload:input_type -> recruitment.PresignResumeUploadRequest
+	34,  // 160: recruitment.CandidateService.ConfirmResumeUpload:input_type -> recruitment.ConfirmResumeUploadRequest
+	36,  // 161: recruitment.ApplicationService.ApplyJob:input_type -> recruitment.ApplyJobRequest
+	37,  // 162: recruitment.ApplicationService.ListMyApplications:input_type -> recruitment.ListMyApplicationsRequest
+	40,  // 163: recruitment.ApplicationService.ListJobApplications:input_type -> recruitment.ListJobApplicationsRequest
+	43,  // 164: recruitment.ApplicationService.UpdateApplicationStatus:input_type -> recruitment.UpdateApplicationStatusRequest
+	44,  // 165: recruitment.ApplicationService.ListApplicationStatusTransitions:input_type -> recruitment.ListApplicationStatusTransitionsRequest
+	47,  // 166: recruitment.ApplicationOwnerService.GetApplicationSnapshot:input_type -> recruitment.GetApplicationSnapshotRequest
+	49,  // 167: recruitment.ApplicationOwnerService.ApplyApplicationLifecycleTransition:input_type -> recruitment.ApplyApplicationLifecycleTransitionRequest
+	102, // 168: recruitment.InterviewService.ScheduleInterview:input_type -> recruitment.ScheduleInterviewRequest
+	104, // 169: recruitment.InterviewService.UpdateInterview:input_type -> recruitment.UpdateInterviewRequest
+	105, // 170: recruitment.InterviewService.CancelInterview:input_type -> recruitment.CancelInterviewRequest
+	106, // 171: recruitment.InterviewService.GetInterview:input_type -> recruitment.GetInterviewRequest
+	108, // 172: recruitment.InterviewService.ListInterviewers:input_type -> recruitment.ListInterviewersRequest
+	110, // 173: recruitment.InterviewService.ListApplicationInterviews:input_type -> recruitment.ListApplicationInterviewsRequest
+	112, // 174: recruitment.InterviewService.ListMyInterviews:input_type -> recruitment.ListMyInterviewsRequest
+	114, // 175: recruitment.InterviewService.ListCandidateInterviews:input_type -> recruitment.ListCandidateInterviewsRequest
+	117, // 176: recruitment.InterviewService.SubmitFeedback:input_type -> recruitment.SubmitFeedbackRequest
+	118, // 177: recruitment.InterviewService.GetFeedback:input_type -> recruitment.GetFeedbackRequest
+	120, // 178: recruitment.InterviewService.BatchCancelInterviews:input_type -> recruitment.BatchCancelInterviewsRequest
+	123, // 179: recruitment.NotificationService.ListNotifications:input_type -> recruitment.ListNotificationsRequest
+	125, // 180: recruitment.NotificationService.UnreadNotificationCount:input_type -> recruitment.UnreadNotificationCountRequest
+	127, // 181: recruitment.NotificationService.NotificationSummary:input_type -> recruitment.NotificationSummaryRequest
+	129, // 182: recruitment.NotificationService.MarkNotificationRead:input_type -> recruitment.MarkNotificationReadRequest
+	130, // 183: recruitment.NotificationService.MarkAllNotificationsRead:input_type -> recruitment.MarkAllNotificationsReadRequest
+	51,  // 184: recruitment.AIService.Chat:input_type -> recruitment.ChatRequest
+	51,  // 185: recruitment.AIService.ChatStream:input_type -> recruitment.ChatRequest
+	58,  // 186: recruitment.AIService.History:input_type -> recruitment.ChatHistoryRequest
+	61,  // 187: recruitment.AIService.AnalyzeApplication:input_type -> recruitment.AnalyzeApplicationRequest
+	63,  // 188: recruitment.AIService.ListChatSessions:input_type -> recruitment.ChatSessionListRequest
+	66,  // 189: recruitment.AIService.CreateChatSession:input_type -> recruitment.CreateChatSessionRequest
+	68,  // 190: recruitment.AIService.SessionMessages:input_type -> recruitment.SessionMessagesRequest
+	69,  // 191: recruitment.AIService.CreateApplicationAnalysisSession:input_type -> recruitment.CreateApplicationAnalysisSessionRequest
+	404, // 192: recruitment.AIService.PreviewChatContext:input_type -> recruitment.PreviewChatContextRequest
+	71,  // 193: recruitment.AIService.UpdateSession:input_type -> recruitment.UpdateSessionRequest
+	72,  // 194: recruitment.AIService.DeleteSession:input_type -> recruitment.DeleteSessionRequest
+	73,  // 195: recruitment.AIService.CandidateChatStream:input_type -> recruitment.CandidateChatRequest
+	74,  // 196: recruitment.AIService.CandidateListSessions:input_type -> recruitment.CandidateSessionListRequest
+	75,  // 197: recruitment.AIService.CandidateCreateSession:input_type -> recruitment.CandidateCreateSessionRequest
+	76,  // 198: recruitment.AIService.CandidateSessionMessages:input_type -> recruitment.CandidateSessionMessagesRequest
+	77,  // 199: recruitment.AIService.CandidateUpdateSession:input_type -> recruitment.CandidateUpdateSessionRequest
+	78,  // 200: recruitment.AIService.CandidateDeleteSession:input_type -> recruitment.CandidateDeleteSessionRequest
+	79,  // 201: recruitment.AIService.GetToolTraces:input_type -> recruitment.GetToolTracesRequest
+	82,  // 202: recruitment.AIService.GetAgentRuns:input_type -> recruitment.GetAgentRunsRequest
+	90,  // 203: recruitment.AIService.CreateAgentRun:input_type -> recruitment.CreateAgentRunRequest
+	92,  // 204: recruitment.AIService.GetAgentRun:input_type -> recruitment.GetAgentRunRequest
+	94,  // 205: recruitment.AIService.GetActiveAgentRun:input_type -> recruitment.GetActiveAgentRunRequest
+	96,  // 206: recruitment.AIService.SubscribeAgentRunEvents:input_type -> recruitment.SubscribeAgentRunEventsRequest
+	97,  // 207: recruitment.AIService.CancelAgentRun:input_type -> recruitment.CancelAgentRunRequest
+	99,  // 208: recruitment.AIService.ConfirmAgentRun:input_type -> recruitment.ConfirmAgentRunRequest
+	171, // 209: recruitment.OfferService.CreateOffer:input_type -> recruitment.CreateOfferRequest
+	173, // 210: recruitment.OfferService.UpdateOffer:input_type -> recruitment.UpdateOfferRequest
+	174, // 211: recruitment.OfferService.GetOffer:input_type -> recruitment.GetOfferRequest
+	176, // 212: recruitment.OfferService.ListOffersByApplication:input_type -> recruitment.ListOffersByApplicationRequest
+	178, // 213: recruitment.OfferService.SendOffer:input_type -> recruitment.SendOfferRequest
+	179, // 214: recruitment.OfferService.WithdrawOffer:input_type -> recruitment.WithdrawOfferRequest
+	180, // 215: recruitment.OfferService.AcceptOffer:input_type -> recruitment.AcceptOfferRequest
+	181, // 216: recruitment.OfferService.RejectOffer:input_type -> recruitment.RejectOfferRequest
+	182, // 217: recruitment.OfferService.ListMyOffers:input_type -> recruitment.ListMyOffersRequest
+	185, // 218: recruitment.OfferService.ListOfferEvents:input_type -> recruitment.ListOfferEventsRequest
+	132, // 219: recruitment.AdminService.CreateInviteCode:input_type -> recruitment.CreateInviteCodeRequest
+	134, // 220: recruitment.AdminService.ListInviteCodes:input_type -> recruitment.ListInviteCodesRequest
+	136, // 221: recruitment.AdminService.ExtendInviteCode:input_type -> recruitment.ExtendInviteCodeRequest
+	137, // 222: recruitment.AdminService.RevokeInviteCode:input_type -> recruitment.RevokeInviteCodeRequest
+	138, // 223: recruitment.AdminService.ReactivateInviteCode:input_type -> recruitment.ReactivateInviteCodeRequest
+	139, // 224: recruitment.AdminService.ValidateInviteCode:input_type -> recruitment.ValidateInviteCodeRequest
+	145, // 225: recruitment.AdminService.ListDepartments:input_type -> recruitment.ListDepartmentsRequest
+	147, // 226: recruitment.AdminService.CreateDepartment:input_type -> recruitment.CreateDepartmentRequest
+	148, // 227: recruitment.AdminService.UpdateDepartment:input_type -> recruitment.UpdateDepartmentRequest
+	149, // 228: recruitment.AdminService.UpdateDepartmentStatus:input_type -> recruitment.UpdateDepartmentStatusRequest
+	150, // 229: recruitment.AdminService.DeleteDepartment:input_type -> recruitment.DeleteDepartmentRequest
+	152, // 230: recruitment.AdminService.ListJobLocations:input_type -> recruitment.ListJobLocationsRequest
+	154, // 231: recruitment.AdminService.CreateJobLocation:input_type -> recruitment.CreateJobLocationRequest
+	155, // 232: recruitment.AdminService.UpdateJobLocation:input_type -> recruitment.UpdateJobLocationRequest
+	156, // 233: recruitment.AdminService.UpdateJobLocationStatus:input_type -> recruitment.UpdateJobLocationStatusRequest
+	157, // 234: recruitment.AdminService.DeleteJobLocation:input_type -> recruitment.DeleteJobLocationRequest
+	164, // 235: recruitment.AdminService.GetDepartmentLocationConfig:input_type -> recruitment.GetDepartmentLocationConfigRequest
+	165, // 236: recruitment.AdminService.UpdateDepartmentLocationConfig:input_type -> recruitment.UpdateDepartmentLocationConfigRequest
+	160, // 237: recruitment.AdminService.ListDepartmentsLocationMap:input_type -> recruitment.ListDepartmentsLocationMapRequest
+	168, // 238: recruitment.AdminService.QueryUsageLogs:input_type -> recruitment.QueryUsageLogsRequest
+	187, // 239: recruitment.AdminService.ListRoles:input_type -> recruitment.ListRolesRequest
+	190, // 240: recruitment.AdminService.ListPermissions:input_type -> recruitment.ListPermissionsRequest
+	193, // 241: recruitment.AdminService.GetUserRoles:input_type -> recruitment.GetUserRolesRequest
+	196, // 242: recruitment.AdminService.AssignUserRole:input_type -> recruitment.AssignUserRoleRequest
+	197, // 243: recruitment.AdminService.RevokeUserRole:input_type -> recruitment.RevokeUserRoleRequest
+	198, // 244: recruitment.AdminService.AssignDataScope:input_type -> recruitment.AssignDataScopeRequest
+	199, // 245: recruitment.AdminService.RevokeDataScope:input_type -> recruitment.RevokeDataScopeRequest
+	200, // 246: recruitment.AdminService.ListStaffUsers:input_type -> recruitment.ListStaffUsersRequest
+	203, // 247: recruitment.AdminService.CreateStaffUser:input_type -> recruitment.CreateStaffUserRequest
+	236, // 248: recruitment.AdminService.QueryAuthAuditLogs:input_type -> recruitment.QueryAuthAuditLogsRequest
+	239, // 249: recruitment.AdminService.GetDashboardReport:input_type -> recruitment.GetDashboardReportRequest
+	243, // 250: recruitment.AdminService.GetFunnelReport:input_type -> recruitment.GetFunnelReportRequest
+	246, // 251: recruitment.AdminService.GetTimeInStageReport:input_type -> recruitment.GetTimeInStageReportRequest
+	249, // 252: recruitment.AdminService.GetInterviewOfferMetrics:input_type -> recruitment.GetInterviewOfferMetricsRequest
+	251, // 253: recruitment.AdminService.GetUsageStats:input_type -> recruitment.GetUsageStatsRequest
+	255, // 254: recruitment.AdminService.GetUsageTrend:input_type -> recruitment.GetUsageTrendRequest
+	205, // 255: recruitment.CollaborationService.GetCandidateWorkspace:input_type -> recruitment.GetCandidateWorkspaceRequest
+	212, // 256: recruitment.CollaborationService.CreateNote:input_type -> recruitment.CreateNoteRequest
+	214, // 257: recruitment.CollaborationService.ListNotes:input_type -> recruitment.ListNotesRequest
+	217, // 258: recruitment.CollaborationService.CreateTag:input_type -> recruitment.CreateTagRequest
+	219, // 259: recruitment.CollaborationService.ListTags:input_type -> recruitment.ListTagsRequest
+	221, // 260: recruitment.CollaborationService.AssignTag:input_type -> recruitment.AssignTagRequest
+	222, // 261: recruitment.CollaborationService.UnassignTag:input_type -> recruitment.UnassignTagRequest
+	223, // 262: recruitment.CollaborationService.ListCandidateTags:input_type -> recruitment.ListCandidateTagsRequest
+	226, // 263: recruitment.CollaborationService.CreateFollowUpTask:input_type -> recruitment.CreateFollowUpTaskRequest
+	228, // 264: recruitment.CollaborationService.ListFollowUpTasks:input_type -> recruitment.ListFollowUpTasksRequest
+	230, // 265: recruitment.CollaborationService.CompleteFollowUpTask:input_type -> recruitment.CompleteFollowUpTaskRequest
+	231, // 266: recruitment.CollaborationService.GetFollowUpTask:input_type -> recruitment.GetFollowUpTaskRequest
+	234, // 267: recruitment.CollaborationService.ListTimelineEvents:input_type -> recruitment.ListTimelineEventsRequest
+	366, // 268: recruitment.RecruitingIntelligenceService.GetResumeProfile:input_type -> recruitment.GetResumeProfileRequest
+	367, // 269: recruitment.RecruitingIntelligenceService.ParseResumeProfile:input_type -> recruitment.ParseResumeProfileRequest
+	376, // 270: recruitment.RecruitingIntelligenceService.EvaluateCandidateMatch:input_type -> recruitment.EvaluateCandidateMatchRequest
+	377, // 271: recruitment.RecruitingIntelligenceService.GetCandidateMatchEvaluation:input_type -> recruitment.GetCandidateMatchEvaluationRequest
+	382, // 272: recruitment.RecruitingIntelligenceService.CompareCandidatesForJob:input_type -> recruitment.CompareCandidatesForJobRequest
+	259, // 273: recruitment.MCPService.ListMCPServers:input_type -> recruitment.ListMCPServersRequest
+	261, // 274: recruitment.MCPService.CreateMCPServer:input_type -> recruitment.CreateMCPServerRequest
+	262, // 275: recruitment.MCPService.UpdateMCPServer:input_type -> recruitment.UpdateMCPServerRequest
+	263, // 276: recruitment.MCPService.DeleteMCPServer:input_type -> recruitment.DeleteMCPServerRequest
+	266, // 277: recruitment.MCPService.ListMCPToolPolicies:input_type -> recruitment.ListMCPToolPoliciesRequest
+	268, // 278: recruitment.MCPService.CreateMCPToolPolicy:input_type -> recruitment.CreateMCPToolPolicyRequest
+	269, // 279: recruitment.MCPService.UpdateMCPToolPolicy:input_type -> recruitment.UpdateMCPToolPolicyRequest
+	270, // 280: recruitment.MCPService.DeleteMCPToolPolicy:input_type -> recruitment.DeleteMCPToolPolicyRequest
+	273, // 281: recruitment.MCPService.ListMCPToolLogs:input_type -> recruitment.ListMCPToolLogsRequest
+	275, // 282: recruitment.MCPService.TestMCPConnection:input_type -> recruitment.TestMCPConnectionRequest
+	277, // 283: recruitment.MCPService.ListMCPTools:input_type -> recruitment.ListMCPToolsRequest
+	280, // 284: recruitment.MCPService.CallMCPTool:input_type -> recruitment.CallMCPToolRequest
+	283, // 285: recruitment.LlmConfigService.ListProviders:input_type -> recruitment.ListProvidersRequest
+	285, // 286: recruitment.LlmConfigService.CreateProvider:input_type -> recruitment.CreateProviderRequest
+	286, // 287: recruitment.LlmConfigService.UpdateProvider:input_type -> recruitment.UpdateProviderRequest
+	288, // 288: recruitment.LlmConfigService.DeleteProvider:input_type -> recruitment.DeleteProviderRequest
+	289, // 289: recruitment.LlmConfigService.TestProviderConnection:input_type -> recruitment.TestProviderConnectionRequest
+	293, // 290: recruitment.LlmConfigService.ListModels:input_type -> recruitment.ListModelsRequest
+	295, // 291: recruitment.LlmConfigService.CreateModel:input_type -> recruitment.CreateModelRequest
+	296, // 292: recruitment.LlmConfigService.UpdateModel:input_type -> recruitment.UpdateModelRequest
+	298, // 293: recruitment.LlmConfigService.DeleteModel:input_type -> recruitment.DeleteModelRequest
+	291, // 294: recruitment.LlmConfigService.TestModelConnection:input_type -> recruitment.TestModelConnectionRequest
+	300, // 295: recruitment.PromptService.ListPromptTemplates:input_type -> recruitment.ListPromptTemplatesRequest
+	302, // 296: recruitment.PromptService.CreatePromptTemplate:input_type -> recruitment.CreatePromptTemplateRequest
+	303, // 297: recruitment.PromptService.UpdatePromptTemplate:input_type -> recruitment.UpdatePromptTemplateRequest
+	305, // 298: recruitment.PromptService.DeletePromptTemplate:input_type -> recruitment.DeletePromptTemplateRequest
+	307, // 299: recruitment.PromptService.GetPromptVersionHistory:input_type -> recruitment.GetPromptVersionHistoryRequest
+	309, // 300: recruitment.PromptService.RollbackPromptVersion:input_type -> recruitment.RollbackPromptVersionRequest
+	310, // 301: recruitment.PromptService.RenderPrompt:input_type -> recruitment.RenderPromptRequest
+	312, // 302: recruitment.PromptService.GetActivePromptByAgentType:input_type -> recruitment.GetActivePromptByAgentTypeRequest
+	320, // 303: recruitment.AgentConfigService.ListAgents:input_type -> recruitment.ListAgentsRequest
+	318, // 304: recruitment.AgentConfigService.ListCapabilities:input_type -> recruitment.ListCapabilitiesRequest
+	322, // 305: recruitment.AgentConfigService.CreateAgent:input_type -> recruitment.CreateAgentRequest
+	323, // 306: recruitment.AgentConfigService.UpdateAgent:input_type -> recruitment.UpdateAgentRequest
+	325, // 307: recruitment.AgentConfigService.DeleteAgent:input_type -> recruitment.DeleteAgentRequest
+	326, // 308: recruitment.AgentConfigService.GetAgentConfig:input_type -> recruitment.GetAgentConfigRequest
+	331, // 309: recruitment.SkillService.ListSkills:input_type -> recruitment.ListSkillsRequest
+	333, // 310: recruitment.SkillService.CreateSkill:input_type -> recruitment.CreateSkillRequest
+	334, // 311: recruitment.SkillService.UpdateSkill:input_type -> recruitment.UpdateSkillRequest
+	336, // 312: recruitment.SkillService.CreateSkillVersion:input_type -> recruitment.CreateSkillVersionRequest
+	338, // 313: recruitment.SkillService.ListSkillVersions:input_type -> recruitment.ListSkillVersionsRequest
+	340, // 314: recruitment.SkillService.ActivateSkillVersion:input_type -> recruitment.ActivateSkillVersionRequest
+	341, // 315: recruitment.SkillService.ListSkillTools:input_type -> recruitment.ListSkillToolsRequest
+	343, // 316: recruitment.SkillService.UpdateSkillTool:input_type -> recruitment.UpdateSkillToolRequest
+	347, // 317: recruitment.AgentSkillService.ListAgentSkills:input_type -> recruitment.ListAgentSkillsRequest
+	350, // 318: recruitment.AgentSkillService.GetAgentSkill:input_type -> recruitment.GetAgentSkillRequest
+	351, // 319: recruitment.AgentSkillService.CreateAgentSkill:input_type -> recruitment.CreateAgentSkillRequest
+	352, // 320: recruitment.AgentSkillService.UpdateAgentSkill:input_type -> recruitment.UpdateAgentSkillRequest
+	354, // 321: recruitment.AgentSkillService.CreateAgentSkillVersion:input_type -> recruitment.CreateAgentSkillVersionRequest
+	356, // 322: recruitment.AgentSkillService.ListAgentSkillVersions:input_type -> recruitment.ListAgentSkillVersionsRequest
+	358, // 323: recruitment.AgentSkillService.ActivateAgentSkillVersion:input_type -> recruitment.ActivateAgentSkillVersionRequest
+	359, // 324: recruitment.AgentSkillService.UpdateAgentSkillStatus:input_type -> recruitment.UpdateAgentSkillStatusRequest
+	360, // 325: recruitment.AgentSkillService.PreviewAgentSkill:input_type -> recruitment.PreviewAgentSkillRequest
+	348, // 326: recruitment.AgentSkillService.ListAvailableAgentSkills:input_type -> recruitment.ListAvailableAgentSkillsRequest
+	362, // 327: recruitment.AgentSkillService.DebugSemanticRetrieval:input_type -> recruitment.DebugSemanticRetrievalRequest
+	386, // 328: recruitment.EmbeddingConfigService.ListEmbeddingProviders:input_type -> recruitment.ListEmbeddingProvidersRequest
+	388, // 329: recruitment.EmbeddingConfigService.CreateEmbeddingProvider:input_type -> recruitment.CreateEmbeddingProviderRequest
+	389, // 330: recruitment.EmbeddingConfigService.UpdateEmbeddingProvider:input_type -> recruitment.UpdateEmbeddingProviderRequest
+	391, // 331: recruitment.EmbeddingConfigService.DeleteEmbeddingProvider:input_type -> recruitment.DeleteEmbeddingProviderRequest
+	393, // 332: recruitment.EmbeddingConfigService.ListEmbeddingModels:input_type -> recruitment.ListEmbeddingModelsRequest
+	395, // 333: recruitment.EmbeddingConfigService.CreateEmbeddingModel:input_type -> recruitment.CreateEmbeddingModelRequest
+	396, // 334: recruitment.EmbeddingConfigService.UpdateEmbeddingModel:input_type -> recruitment.UpdateEmbeddingModelRequest
+	399, // 335: recruitment.EmbeddingConfigService.SetDefaultEmbeddingModel:input_type -> recruitment.SetDefaultEmbeddingModelRequest
+	400, // 336: recruitment.EmbeddingConfigService.TestEmbeddingModel:input_type -> recruitment.TestEmbeddingModelRequest
+	402, // 337: recruitment.EmbeddingConfigService.BackfillEmbeddings:input_type -> recruitment.BackfillEmbeddingsRequest
+	2,   // 338: recruitment.AuthService.Register:output_type -> recruitment.RegisterResponse
+	4,   // 339: recruitment.AuthService.Login:output_type -> recruitment.LoginResponse
+	6,   // 340: recruitment.AuthService.RefreshToken:output_type -> recruitment.RefreshTokenResponse
+	0,   // 341: recruitment.AuthService.RevokeRefreshToken:output_type -> recruitment.CommonResponse
+	0,   // 342: recruitment.AuthService.RecordAuthDecision:output_type -> recruitment.CommonResponse
+	10,  // 343: recruitment.AuthService.GetPrincipal:output_type -> recruitment.GetPrincipalResponse
+	12,  // 344: recruitment.AuthService.AuthorizeInternal:output_type -> recruitment.AuthorizeInternalResponse
+	0,   // 345: recruitment.AuthService.UpdateEmail:output_type -> recruitment.CommonResponse
+	16,  // 346: recruitment.JobService.CreateJob:output_type -> recruitment.CreateJobResponse
+	0,   // 347: recruitment.JobService.UpdateJob:output_type -> recruitment.CommonResponse
+	0,   // 348: recruitment.JobService.OfflineJob:output_type -> recruitment.CommonResponse
+	0,   // 349: recruitment.JobService.OnlineJob:output_type -> recruitment.CommonResponse
+	23,  // 350: recruitment.JobService.ListHRJobs:output_type -> recruitment.ListJobsResponse
+	23,  // 351: recruitment.JobService.ListPublicJobs:output_type -> recruitment.ListJobsResponse
+	24,  // 352: recruitment.JobService.GetJobDetail:output_type -> recruitment.GetJobDetailResponse
+	142, // 353: recruitment.JobService.ListJobOptions:output_type -> recruitment.ListJobOptionsResponse
+	163, // 354: recruitment.JobService.ListDepartmentLocations:output_type -> recruitment.ListDepartmentLocationsResponse
+	28,  // 355: recruitment.CandidateService.GetProfile:output_type -> recruitment.GetProfileResponse
+	28,  // 356: recruitment.CandidateService.UpdateProfile:output_type -> recruitment.GetProfileResponse
+	31,  // 357: recruitment.CandidateService.GetResume:output_type -> recruitment.GetResumeResponse
+	33,  // 358: recruitment.CandidateService.PresignResumeUpload:output_type -> recruitment.PresignResumeUploadResponse
+	35,  // 359: recruitment.CandidateService.ConfirmResumeUpload:output_type -> recruitment.ConfirmResumeUploadResponse
+	0,   // 360: recruitment.ApplicationService.ApplyJob:output_type -> recruitment.CommonResponse
+	39,  // 361: recruitment.ApplicationService.ListMyApplications:output_type -> recruitment.ListMyApplicationsResponse
+	42,  // 362: recruitment.ApplicationService.ListJobApplications:output_type -> recruitment.ListJobApplicationsResponse
+	0,   // 363: recruitment.ApplicationService.UpdateApplicationStatus:output_type -> recruitment.CommonResponse
+	46,  // 364: recruitment.ApplicationService.ListApplicationStatusTransitions:output_type -> recruitment.ListApplicationStatusTransitionsResponse
+	48,  // 365: recruitment.ApplicationOwnerService.GetApplicationSnapshot:output_type -> recruitment.GetApplicationSnapshotResponse
+	50,  // 366: recruitment.ApplicationOwnerService.ApplyApplicationLifecycleTransition:output_type -> recruitment.ApplyApplicationLifecycleTransitionResponse
+	103, // 367: recruitment.InterviewService.ScheduleInterview:output_type -> recruitment.ScheduleInterviewResponse
+	0,   // 368: recruitment.InterviewService.UpdateInterview:output_type -> recruitment.CommonResponse
+	0,   // 369: recruitment.InterviewService.CancelInterview:output_type -> recruitment.CommonResponse
+	107, // 370: recruitment.InterviewService.GetInterview:output_type -> recruitment.GetInterviewResponse
+	109, // 371: recruitment.InterviewService.ListInterviewers:output_type -> recruitment.ListInterviewersResponse
+	111, // 372: recruitment.InterviewService.ListApplicationInterviews:output_type -> recruitment.ListApplicationInterviewsResponse
+	113, // 373: recruitment.InterviewService.ListMyInterviews:output_type -> recruitment.ListMyInterviewsResponse
+	115, // 374: recruitment.InterviewService.ListCandidateInterviews:output_type -> recruitment.ListCandidateInterviewsResponse
+	0,   // 375: recruitment.InterviewService.SubmitFeedback:output_type -> recruitment.CommonResponse
+	119, // 376: recruitment.InterviewService.GetFeedback:output_type -> recruitment.GetFeedbackResponse
+	121, // 377: recruitment.InterviewService.BatchCancelInterviews:output_type -> recruitment.BatchCancelInterviewsResponse
+	124, // 378: recruitment.NotificationService.ListNotifications:output_type -> recruitment.ListNotificationsResponse
+	126, // 379: recruitment.NotificationService.UnreadNotificationCount:output_type -> recruitment.UnreadNotificationCountResponse
+	128, // 380: recruitment.NotificationService.NotificationSummary:output_type -> recruitment.NotificationSummaryResponse
+	0,   // 381: recruitment.NotificationService.MarkNotificationRead:output_type -> recruitment.CommonResponse
+	0,   // 382: recruitment.NotificationService.MarkAllNotificationsRead:output_type -> recruitment.CommonResponse
+	54,  // 383: recruitment.AIService.Chat:output_type -> recruitment.ChatResponse
+	57,  // 384: recruitment.AIService.ChatStream:output_type -> recruitment.ChatStreamResponse
+	60,  // 385: recruitment.AIService.History:output_type -> recruitment.ChatHistoryResponse
+	62,  // 386: recruitment.AIService.AnalyzeApplication:output_type -> recruitment.AnalyzeApplicationResponse
+	65,  // 387: recruitment.AIService.ListChatSessions:output_type -> recruitment.ChatSessionListResponse
+	67,  // 388: recruitment.AIService.CreateChatSession:output_type -> recruitment.CreateChatSessionResponse
+	60,  // 389: recruitment.AIService.SessionMessages:output_type -> recruitment.ChatHistoryResponse
+	70,  // 390: recruitment.AIService.CreateApplicationAnalysisSession:output_type -> recruitment.CreateApplicationAnalysisSessionResponse
+	405, // 391: recruitment.AIService.PreviewChatContext:output_type -> recruitment.PreviewChatContextResponse
+	0,   // 392: recruitment.AIService.UpdateSession:output_type -> recruitment.CommonResponse
+	0,   // 393: recruitment.AIService.DeleteSession:output_type -> recruitment.CommonResponse
+	57,  // 394: recruitment.AIService.CandidateChatStream:output_type -> recruitment.ChatStreamResponse
+	65,  // 395: recruitment.AIService.CandidateListSessions:output_type -> recruitment.ChatSessionListResponse
+	67,  // 396: recruitment.AIService.CandidateCreateSession:output_type -> recruitment.CreateChatSessionResponse
+	60,  // 397: recruitment.AIService.CandidateSessionMessages:output_type -> recruitment.ChatHistoryResponse
+	0,   // 398: recruitment.AIService.CandidateUpdateSession:output_type -> recruitment.CommonResponse
+	0,   // 399: recruitment.AIService.CandidateDeleteSession:output_type -> recruitment.CommonResponse
+	81,  // 400: recruitment.AIService.GetToolTraces:output_type -> recruitment.GetToolTracesResponse
+	85,  // 401: recruitment.AIService.GetAgentRuns:output_type -> recruitment.GetAgentRunsResponse
+	91,  // 402: recruitment.AIService.CreateAgentRun:output_type -> recruitment.CreateAgentRunResponse
+	93,  // 403: recruitment.AIService.GetAgentRun:output_type -> recruitment.GetAgentRunResponse
+	95,  // 404: recruitment.AIService.GetActiveAgentRun:output_type -> recruitment.GetActiveAgentRunResponse
+	89,  // 405: recruitment.AIService.SubscribeAgentRunEvents:output_type -> recruitment.AgentRunEvent
+	98,  // 406: recruitment.AIService.CancelAgentRun:output_type -> recruitment.CancelAgentRunResponse
+	100, // 407: recruitment.AIService.ConfirmAgentRun:output_type -> recruitment.ConfirmAgentRunResponse
+	172, // 408: recruitment.OfferService.CreateOffer:output_type -> recruitment.CreateOfferResponse
+	0,   // 409: recruitment.OfferService.UpdateOffer:output_type -> recruitment.CommonResponse
+	175, // 410: recruitment.OfferService.GetOffer:output_type -> recruitment.GetOfferResponse
+	177, // 411: recruitment.OfferService.ListOffersByApplication:output_type -> recruitment.ListOffersByApplicationResponse
+	0,   // 412: recruitment.OfferService.SendOffer:output_type -> recruitment.CommonResponse
+	0,   // 413: recruitment.OfferService.WithdrawOffer:output_type -> recruitment.CommonResponse
+	0,   // 414: recruitment.OfferService.AcceptOffer:output_type -> recruitment.CommonResponse
+	0,   // 415: recruitment.OfferService.RejectOffer:output_type -> recruitment.CommonResponse
+	183, // 416: recruitment.OfferService.ListMyOffers:output_type -> recruitment.ListMyOffersResponse
+	186, // 417: recruitment.OfferService.ListOfferEvents:output_type -> recruitment.ListOfferEventsResponse
+	133, // 418: recruitment.AdminService.CreateInviteCode:output_type -> recruitment.CreateInviteCodeResponse
+	135, // 419: recruitment.AdminService.ListInviteCodes:output_type -> recruitment.ListInviteCodesResponse
+	0,   // 420: recruitment.AdminService.ExtendInviteCode:output_type -> recruitment.CommonResponse
+	0,   // 421: recruitment.AdminService.RevokeInviteCode:output_type -> recruitment.CommonResponse
+	0,   // 422: recruitment.AdminService.ReactivateInviteCode:output_type -> recruitment.CommonResponse
+	140, // 423: recruitment.AdminService.ValidateInviteCode:output_type -> recruitment.ValidateInviteCodeResponse
+	146, // 424: recruitment.AdminService.ListDepartments:output_type -> recruitment.ListDepartmentsResponse
+	151, // 425: recruitment.AdminService.CreateDepartment:output_type -> recruitment.DepartmentResponse
+	151, // 426: recruitment.AdminService.UpdateDepartment:output_type -> recruitment.DepartmentResponse
+	0,   // 427: recruitment.AdminService.UpdateDepartmentStatus:output_type -> recruitment.CommonResponse
+	0,   // 428: recruitment.AdminService.DeleteDepartment:output_type -> recruitment.CommonResponse
+	153, // 429: recruitment.AdminService.ListJobLocations:output_type -> recruitment.ListJobLocationsResponse
+	158, // 430: recruitment.AdminService.CreateJobLocation:output_type -> recruitment.JobLocationResponse
+	158, // 431: recruitment.AdminService.UpdateJobLocation:output_type -> recruitment.JobLocationResponse
+	0,   // 432: recruitment.AdminService.UpdateJobLocationStatus:output_type -> recruitment.CommonResponse
+	0,   // 433: recruitment.AdminService.DeleteJobLocation:output_type -> recruitment.CommonResponse
+	166, // 434: recruitment.AdminService.GetDepartmentLocationConfig:output_type -> recruitment.DepartmentLocationConfigResponse
+	166, // 435: recruitment.AdminService.UpdateDepartmentLocationConfig:output_type -> recruitment.DepartmentLocationConfigResponse
+	161, // 436: recruitment.AdminService.ListDepartmentsLocationMap:output_type -> recruitment.ListDepartmentsLocationMapResponse
+	169, // 437: recruitment.AdminService.QueryUsageLogs:output_type -> recruitment.QueryUsageLogsResponse
+	188, // 438: recruitment.AdminService.ListRoles:output_type -> recruitment.ListRolesResponse
+	191, // 439: recruitment.AdminService.ListPermissions:output_type -> recruitment.ListPermissionsResponse
+	194, // 440: recruitment.AdminService.GetUserRoles:output_type -> recruitment.GetUserRolesResponse
+	0,   // 441: recruitment.AdminService.AssignUserRole:output_type -> recruitment.CommonResponse
+	0,   // 442: recruitment.AdminService.RevokeUserRole:output_type -> recruitment.CommonResponse
+	0,   // 443: recruitment.AdminService.AssignDataScope:output_type -> recruitment.CommonResponse
+	0,   // 444: recruitment.AdminService.RevokeDataScope:output_type -> recruitment.CommonResponse
+	201, // 445: recruitment.AdminService.ListStaffUsers:output_type -> recruitment.ListStaffUsersResponse
+	204, // 446: recruitment.AdminService.CreateStaffUser:output_type -> recruitment.CreateStaffUserResponse
+	238, // 447: recruitment.AdminService.QueryAuthAuditLogs:output_type -> recruitment.QueryAuthAuditLogsResponse
+	242, // 448: recruitment.AdminService.GetDashboardReport:output_type -> recruitment.GetDashboardReportResponse
+	245, // 449: recruitment.AdminService.GetFunnelReport:output_type -> recruitment.GetFunnelReportResponse
+	248, // 450: recruitment.AdminService.GetTimeInStageReport:output_type -> recruitment.GetTimeInStageReportResponse
+	250, // 451: recruitment.AdminService.GetInterviewOfferMetrics:output_type -> recruitment.GetInterviewOfferMetricsResponse
+	254, // 452: recruitment.AdminService.GetUsageStats:output_type -> recruitment.GetUsageStatsResponse
+	257, // 453: recruitment.AdminService.GetUsageTrend:output_type -> recruitment.GetUsageTrendResponse
+	210, // 454: recruitment.CollaborationService.GetCandidateWorkspace:output_type -> recruitment.GetCandidateWorkspaceResponse
+	213, // 455: recruitment.CollaborationService.CreateNote:output_type -> recruitment.CreateNoteResponse
+	215, // 456: recruitment.CollaborationService.ListNotes:output_type -> recruitment.ListNotesResponse
+	218, // 457: recruitment.CollaborationService.CreateTag:output_type -> recruitment.CreateTagResponse
+	220, // 458: recruitment.CollaborationService.ListTags:output_type -> recruitment.ListTagsResponse
+	0,   // 459: recruitment.CollaborationService.AssignTag:output_type -> recruitment.CommonResponse
+	0,   // 460: recruitment.CollaborationService.UnassignTag:output_type -> recruitment.CommonResponse
+	224, // 461: recruitment.CollaborationService.ListCandidateTags:output_type -> recruitment.ListCandidateTagsResponse
+	227, // 462: recruitment.CollaborationService.CreateFollowUpTask:output_type -> recruitment.CreateFollowUpTaskResponse
+	229, // 463: recruitment.CollaborationService.ListFollowUpTasks:output_type -> recruitment.ListFollowUpTasksResponse
+	0,   // 464: recruitment.CollaborationService.CompleteFollowUpTask:output_type -> recruitment.CommonResponse
+	232, // 465: recruitment.CollaborationService.GetFollowUpTask:output_type -> recruitment.GetFollowUpTaskResponse
+	235, // 466: recruitment.CollaborationService.ListTimelineEvents:output_type -> recruitment.ListTimelineEventsResponse
+	375, // 467: recruitment.RecruitingIntelligenceService.GetResumeProfile:output_type -> recruitment.GetResumeProfileResponse
+	375, // 468: recruitment.RecruitingIntelligenceService.ParseResumeProfile:output_type -> recruitment.GetResumeProfileResponse
+	381, // 469: recruitment.RecruitingIntelligenceService.EvaluateCandidateMatch:output_type -> recruitment.GetCandidateMatchEvaluationResponse
+	381, // 470: recruitment.RecruitingIntelligenceService.GetCandidateMatchEvaluation:output_type -> recruitment.GetCandidateMatchEvaluationResponse
+	384, // 471: recruitment.RecruitingIntelligenceService.CompareCandidatesForJob:output_type -> recruitment.CompareCandidatesForJobResponse
+	260, // 472: recruitment.MCPService.ListMCPServers:output_type -> recruitment.ListMCPServersResponse
+	264, // 473: recruitment.MCPService.CreateMCPServer:output_type -> recruitment.MCPServerResponse
+	264, // 474: recruitment.MCPService.UpdateMCPServer:output_type -> recruitment.MCPServerResponse
+	0,   // 475: recruitment.MCPService.DeleteMCPServer:output_type -> recruitment.CommonResponse
+	267, // 476: recruitment.MCPService.ListMCPToolPolicies:output_type -> recruitment.ListMCPToolPoliciesResponse
+	271, // 477: recruitment.MCPService.CreateMCPToolPolicy:output_type -> recruitment.MCPToolPolicyResponse
+	271, // 478: recruitment.MCPService.UpdateMCPToolPolicy:output_type -> recruitment.MCPToolPolicyResponse
+	0,   // 479: recruitment.MCPService.DeleteMCPToolPolicy:output_type -> recruitment.CommonResponse
+	274, // 480: recruitment.MCPService.ListMCPToolLogs:output_type -> recruitment.ListMCPToolLogsResponse
+	276, // 481: recruitment.MCPService.TestMCPConnection:output_type -> recruitment.TestMCPConnectionResponse
+	279, // 482: recruitment.MCPService.ListMCPTools:output_type -> recruitment.ListMCPToolsResponse
+	281, // 483: recruitment.MCPService.CallMCPTool:output_type -> recruitment.CallMCPToolResponse
+	284, // 484: recruitment.LlmConfigService.ListProviders:output_type -> recruitment.ListProvidersResponse
+	287, // 485: recruitment.LlmConfigService.CreateProvider:output_type -> recruitment.ProviderResponse
+	287, // 486: recruitment.LlmConfigService.UpdateProvider:output_type -> recruitment.ProviderResponse
+	0,   // 487: recruitment.LlmConfigService.DeleteProvider:output_type -> recruitment.CommonResponse
+	290, // 488: recruitment.LlmConfigService.TestProviderConnection:output_type -> recruitment.TestProviderConnectionResponse
+	294, // 489: recruitment.LlmConfigService.ListModels:output_type -> recruitment.ListModelsResponse
+	297, // 490: recruitment.LlmConfigService.CreateModel:output_type -> recruitment.ModelResponse
+	297, // 491: recruitment.LlmConfigService.UpdateModel:output_type -> recruitment.ModelResponse
+	0,   // 492: recruitment.LlmConfigService.DeleteModel:output_type -> recruitment.CommonResponse
+	290, // 493: recruitment.LlmConfigService.TestModelConnection:output_type -> recruitment.TestProviderConnectionResponse
+	301, // 494: recruitment.PromptService.ListPromptTemplates:output_type -> recruitment.ListPromptTemplatesResponse
+	304, // 495: recruitment.PromptService.CreatePromptTemplate:output_type -> recruitment.PromptTemplateResponse
+	304, // 496: recruitment.PromptService.UpdatePromptTemplate:output_type -> recruitment.PromptTemplateResponse
+	0,   // 497: recruitment.PromptService.DeletePromptTemplate:output_type -> recruitment.CommonResponse
+	308, // 498: recruitment.PromptService.GetPromptVersionHistory:output_type -> recruitment.GetPromptVersionHistoryResponse
+	304, // 499: recruitment.PromptService.RollbackPromptVersion:output_type -> recruitment.PromptTemplateResponse
+	311, // 500: recruitment.PromptService.RenderPrompt:output_type -> recruitment.RenderPromptResponse
+	313, // 501: recruitment.PromptService.GetActivePromptByAgentType:output_type -> recruitment.GetActivePromptByAgentTypeResponse
+	321, // 502: recruitment.AgentConfigService.ListAgents:output_type -> recruitment.ListAgentsResponse
+	319, // 503: recruitment.AgentConfigService.ListCapabilities:output_type -> recruitment.ListCapabilitiesResponse
+	324, // 504: recruitment.AgentConfigService.CreateAgent:output_type -> recruitment.AgentConfigResponse
+	324, // 505: recruitment.AgentConfigService.UpdateAgent:output_type -> recruitment.AgentConfigResponse
+	0,   // 506: recruitment.AgentConfigService.DeleteAgent:output_type -> recruitment.CommonResponse
+	327, // 507: recruitment.AgentConfigService.GetAgentConfig:output_type -> recruitment.GetAgentConfigResponse
+	332, // 508: recruitment.SkillService.ListSkills:output_type -> recruitment.ListSkillsResponse
+	335, // 509: recruitment.SkillService.CreateSkill:output_type -> recruitment.SkillResponse
+	335, // 510: recruitment.SkillService.UpdateSkill:output_type -> recruitment.SkillResponse
+	337, // 511: recruitment.SkillService.CreateSkillVersion:output_type -> recruitment.SkillVersionResponse
+	339, // 512: recruitment.SkillService.ListSkillVersions:output_type -> recruitment.ListSkillVersionsResponse
+	335, // 513: recruitment.SkillService.ActivateSkillVersion:output_type -> recruitment.SkillResponse
+	342, // 514: recruitment.SkillService.ListSkillTools:output_type -> recruitment.ListSkillToolsResponse
+	344, // 515: recruitment.SkillService.UpdateSkillTool:output_type -> recruitment.SkillToolResponse
+	349, // 516: recruitment.AgentSkillService.ListAgentSkills:output_type -> recruitment.ListAgentSkillsResponse
+	353, // 517: recruitment.AgentSkillService.GetAgentSkill:output_type -> recruitment.AgentSkillResponse
+	353, // 518: recruitment.AgentSkillService.CreateAgentSkill:output_type -> recruitment.AgentSkillResponse
+	353, // 519: recruitment.AgentSkillService.UpdateAgentSkill:output_type -> recruitment.AgentSkillResponse
+	355, // 520: recruitment.AgentSkillService.CreateAgentSkillVersion:output_type -> recruitment.AgentSkillVersionResponse
+	357, // 521: recruitment.AgentSkillService.ListAgentSkillVersions:output_type -> recruitment.ListAgentSkillVersionsResponse
+	353, // 522: recruitment.AgentSkillService.ActivateAgentSkillVersion:output_type -> recruitment.AgentSkillResponse
+	353, // 523: recruitment.AgentSkillService.UpdateAgentSkillStatus:output_type -> recruitment.AgentSkillResponse
+	361, // 524: recruitment.AgentSkillService.PreviewAgentSkill:output_type -> recruitment.PreviewAgentSkillResponse
+	349, // 525: recruitment.AgentSkillService.ListAvailableAgentSkills:output_type -> recruitment.ListAgentSkillsResponse
+	365, // 526: recruitment.AgentSkillService.DebugSemanticRetrieval:output_type -> recruitment.DebugSemanticRetrievalResponse
+	387, // 527: recruitment.EmbeddingConfigService.ListEmbeddingProviders:output_type -> recruitment.ListEmbeddingProvidersResponse
+	390, // 528: recruitment.EmbeddingConfigService.CreateEmbeddingProvider:output_type -> recruitment.EmbeddingProviderResponse
+	390, // 529: recruitment.EmbeddingConfigService.UpdateEmbeddingProvider:output_type -> recruitment.EmbeddingProviderResponse
+	0,   // 530: recruitment.EmbeddingConfigService.DeleteEmbeddingProvider:output_type -> recruitment.CommonResponse
+	394, // 531: recruitment.EmbeddingConfigService.ListEmbeddingModels:output_type -> recruitment.ListEmbeddingModelsResponse
+	397, // 532: recruitment.EmbeddingConfigService.CreateEmbeddingModel:output_type -> recruitment.EmbeddingModelResponse
+	397, // 533: recruitment.EmbeddingConfigService.UpdateEmbeddingModel:output_type -> recruitment.EmbeddingModelResponse
+	0,   // 534: recruitment.EmbeddingConfigService.SetDefaultEmbeddingModel:output_type -> recruitment.CommonResponse
+	401, // 535: recruitment.EmbeddingConfigService.TestEmbeddingModel:output_type -> recruitment.TestEmbeddingModelResponse
+	403, // 536: recruitment.EmbeddingConfigService.BackfillEmbeddings:output_type -> recruitment.BackfillEmbeddingsResponse
+	338, // [338:537] is the sub-list for method output_type
+	139, // [139:338] is the sub-list for method input_type
+	139, // [139:139] is the sub-list for extension type_name
+	139, // [139:139] is the sub-list for extension extendee
+	0,   // [0:139] is the sub-list for field type_name
 }
 
 func init() { file_proto_recruitment_proto_init() }
@@ -36721,7 +36892,7 @@ func file_proto_recruitment_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_proto_recruitment_proto_rawDesc), len(file_proto_recruitment_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   405,
+			NumMessages:   407,
 			NumExtensions: 0,
 			NumServices:   19,
 		},

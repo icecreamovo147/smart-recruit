@@ -4,11 +4,15 @@ import {
   contextBudgetProgressRatio,
   contextBudgetRatio,
   contextBudgetSeverity,
+  contextWindowProgressRatio,
+  contextWindowRatio,
+  contextWindowTokens,
   contextGuardCodeFrom,
   contextGuardMessage,
   currentEffectiveContextTokens,
   formatCompactTokens,
   inputBudgetTokens,
+  resolveLiveContextUsage,
   contextUsageBelongsToSession,
   resolveSessionContextUsage,
 } from './contextUsage'
@@ -33,16 +37,25 @@ const usage = (patch: Partial<ContextUsageInfo> = {}): ContextUsageInfo => ({
 })
 
 describe('context usage view model', () => {
-  it('uses effective input over input budget (not total window)', () => {
+  it('exposes effective input, total window, and the separate safety budget', () => {
     const value = usage()
     expect(currentEffectiveContextTokens(value)).toBe(851)
+    expect(contextWindowTokens(value)).toBe(8_192)
+    expect(contextWindowRatio(value)).toBe(851 / 8_192)
+    expect(contextWindowProgressRatio(value)).toBe(851 / 8_192)
     expect(inputBudgetTokens(value)).toBe(6_758)
-    expect(`${formatCompactTokens(currentEffectiveContextTokens(value))} / ${formatCompactTokens(inputBudgetTokens(value))}`).toBe('851 / 6.8K')
+    expect(`${formatCompactTokens(currentEffectiveContextTokens(value))} / ${formatCompactTokens(contextWindowTokens(value))}`).toBe('851 / 8.2K')
   })
 
   it('prefers provider actual input and falls back to estimate', () => {
     expect(currentEffectiveContextTokens(usage({ prompt_tokens_actual: 777 }))).toBe(777)
     expect(currentEffectiveContextTokens(usage({ prompt_tokens_actual: Number.NaN, prompt_tokens_estimated: 123 }))).toBe(123)
+  })
+
+  it('formats exact thousand and million values without a trailing decimal', () => {
+    expect(formatCompactTokens(128_000)).toBe('128K')
+    expect(formatCompactTokens(1_000_000)).toBe('1M')
+    expect(formatCompactTokens(12_600)).toBe('12.6K')
   })
 
   it('does not invent a denominator or ratio for unknown configuration', () => {
@@ -84,5 +97,18 @@ describe('context usage view model', () => {
     expect(resolveSessionContextUsage({}, [])).toBeNull()
     expect(contextUsageBelongsToSession(2, 1)).toBe(false)
     expect(contextUsageBelongsToSession(1, 1)).toBe(true)
+  })
+
+  it('keeps the latest effective usage when the same model emits a configuration-only snapshot', () => {
+    const current = usage({ prompt_tokens_estimated: 1_234, stage: 'pre_generation' })
+    const modelInfo = usage({
+      prompt_tokens_estimated: 0,
+      prompt_tokens_actual: 0,
+      source: 'model_configuration',
+      stage: 'model_selected',
+    })
+    expect(resolveLiveContextUsage(current, modelInfo)).toBe(current)
+    expect(resolveLiveContextUsage(null, modelInfo)).toBe(modelInfo)
+    expect(resolveLiveContextUsage(current, { ...modelInfo, model_id: 2 })).toBe(current)
   })
 })

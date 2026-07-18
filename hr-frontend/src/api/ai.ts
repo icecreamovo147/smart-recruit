@@ -59,6 +59,13 @@ export const getSessionMessages = (sessionId: number, params: { page: number; pa
   list: ChatMessage[]
 }> => request.get(`/api/v1/hr/ai/sessions/${sessionId}/messages`, { params })
 
+export const previewSessionContext = (
+  sessionId: number,
+  data: { model_id: number; skill_capability_keys?: string[]; agent_skill_ids?: number[] },
+  signal?: AbortSignal,
+): Promise<{ selected_model_id: number; context_usage: ContextUsageInfo }> =>
+  request.put(`/api/v1/hr/ai/sessions/${sessionId}/context-model`, data, { signal })
+
 export const createApplicationAnalysisSession = (data: { application_id: number; model_id?: number }): Promise<{
   session: ChatSessionListItem
   messages: ChatMessage[]

@@ -82,6 +82,7 @@ service AIService {
   rpc CreateChatSession(CreateChatSessionRequest) returns (CreateChatSessionResponse);
   rpc SessionMessages(SessionMessagesRequest) returns (ChatHistoryResponse);
   rpc CreateApplicationAnalysisSession(CreateApplicationAnalysisSessionRequest) returns (CreateApplicationAnalysisSessionResponse);
+  rpc PreviewChatContext(PreviewChatContextRequest) returns (PreviewChatContextResponse);
   rpc UpdateSession(UpdateSessionRequest) returns (CommonResponse);
   rpc DeleteSession(DeleteSessionRequest) returns (CommonResponse);
 
@@ -814,6 +815,7 @@ message ChatSession {
   string summary = 11;
   string last_message_preview = 12;
   int32 message_count = 13;
+  int64 selected_model_id = 14; // Requested model for the next turn; 0 follows the current default model.
 }
 
 message ChatSessionListResponse {
@@ -3877,4 +3879,19 @@ message BackfillEmbeddingsResponse {
   int32 success_count = 3;
   int32 failed_count = 4;
   int32 skipped_count = 5;
+}
+
+message PreviewChatContextRequest {
+  int64 hr_id = 1;
+  int64 session_id = 2;
+  int64 model_id = 3; // Requested model; 0 follows the current default model.
+  repeated string skill_capability_keys = 4;
+  repeated int64 agent_skill_ids = 5;
+}
+
+message PreviewChatContextResponse {
+  int32 code = 1;
+  string msg = 2;
+  int64 selected_model_id = 3;
+  ContextUsageInfo context_usage = 4;
 }

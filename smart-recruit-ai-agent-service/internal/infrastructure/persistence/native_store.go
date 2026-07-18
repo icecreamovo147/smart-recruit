@@ -176,6 +176,20 @@ func (s *NativeStore) UpdateChatSessionTitle(ctx context.Context, ownerRole int3
 	return query.Update("title", title).Error
 }
 
+func (s *NativeStore) UpdateChatSessionContextModel(ctx context.Context, ownerRole int32, ownerID, sessionID, selectedModelID int64, usage *pb.ContextUsageInfo) error {
+	updates := map[string]any{"selected_model_id": selectedModelID}
+	if usage != nil {
+		contextUsageJSON, err := marshalContextUsage(usage)
+		if err != nil {
+			return fmt.Errorf("marshal chat session context preview: %w", err)
+		}
+		updates["latest_context_usage_json"] = contextUsageJSON
+	}
+	query := s.db.WithContext(ctx).Model(&aiChatSessionRecord{}).Where("id = ? AND deleted_at IS NULL", sessionID)
+	query = applyChatOwnerScope(query, ownerRole, ownerID)
+	return query.Updates(updates).Error
+}
+
 func (s *NativeStore) DeleteChatSession(ctx context.Context, ownerRole int32, ownerID, sessionID int64) error {
 	now := time.Now()
 	query := s.db.WithContext(ctx).Model(&aiChatSessionRecord{}).Where("id = ? AND deleted_at IS NULL", sessionID)
@@ -1895,6 +1909,7 @@ type aiChatSessionRecord struct {
 	LastMessagePreview     string     `gorm:"column:last_message_preview"`
 	MessageCount           int32      `gorm:"column:message_count"`
 	LatestContextUsageJSON *string    `gorm:"column:latest_context_usage_json"`
+	SelectedModelID        int64      `gorm:"column:selected_model_id"`
 	ActiveRunID            *int64     `gorm:"column:active_run_id"`
 	DeletedAt              *time.Time `gorm:"column:deleted_at"`
 	CreatedAt              time.Time  `gorm:"column:created_at"`
@@ -2482,6 +2497,7 @@ func mapSessionRecord(ctx context.Context, row aiChatSessionRecord) aiagentgrpc.
 		LastMessagePreview: row.LastMessagePreview,
 		MessageCount:       row.MessageCount,
 		LatestContextUsage: parseContextUsage(ctx, "chat_session", row.ID, row.ID, row.LatestContextUsageJSON),
+		SelectedModelID:    row.SelectedModelID,
 		CreatedAt:          row.CreatedAt,
 		UpdatedAt:          row.UpdatedAt,
 	}

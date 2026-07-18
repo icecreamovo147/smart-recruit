@@ -2189,6 +2189,7 @@ const (
 	AIService_CreateChatSession_FullMethodName                = "/recruitment.AIService/CreateChatSession"
 	AIService_SessionMessages_FullMethodName                  = "/recruitment.AIService/SessionMessages"
 	AIService_CreateApplicationAnalysisSession_FullMethodName = "/recruitment.AIService/CreateApplicationAnalysisSession"
+	AIService_PreviewChatContext_FullMethodName               = "/recruitment.AIService/PreviewChatContext"
 	AIService_UpdateSession_FullMethodName                    = "/recruitment.AIService/UpdateSession"
 	AIService_DeleteSession_FullMethodName                    = "/recruitment.AIService/DeleteSession"
 	AIService_CandidateChatStream_FullMethodName              = "/recruitment.AIService/CandidateChatStream"
@@ -2219,6 +2220,7 @@ type AIServiceClient interface {
 	CreateChatSession(ctx context.Context, in *CreateChatSessionRequest, opts ...grpc.CallOption) (*CreateChatSessionResponse, error)
 	SessionMessages(ctx context.Context, in *SessionMessagesRequest, opts ...grpc.CallOption) (*ChatHistoryResponse, error)
 	CreateApplicationAnalysisSession(ctx context.Context, in *CreateApplicationAnalysisSessionRequest, opts ...grpc.CallOption) (*CreateApplicationAnalysisSessionResponse, error)
+	PreviewChatContext(ctx context.Context, in *PreviewChatContextRequest, opts ...grpc.CallOption) (*PreviewChatContextResponse, error)
 	UpdateSession(ctx context.Context, in *UpdateSessionRequest, opts ...grpc.CallOption) (*CommonResponse, error)
 	DeleteSession(ctx context.Context, in *DeleteSessionRequest, opts ...grpc.CallOption) (*CommonResponse, error)
 	// Candidate AI
@@ -2332,6 +2334,16 @@ func (c *aIServiceClient) CreateApplicationAnalysisSession(ctx context.Context, 
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(CreateApplicationAnalysisSessionResponse)
 	err := c.cc.Invoke(ctx, AIService_CreateApplicationAnalysisSession_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *aIServiceClient) PreviewChatContext(ctx context.Context, in *PreviewChatContextRequest, opts ...grpc.CallOption) (*PreviewChatContextResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(PreviewChatContextResponse)
+	err := c.cc.Invoke(ctx, AIService_PreviewChatContext_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
@@ -2528,6 +2540,7 @@ type AIServiceServer interface {
 	CreateChatSession(context.Context, *CreateChatSessionRequest) (*CreateChatSessionResponse, error)
 	SessionMessages(context.Context, *SessionMessagesRequest) (*ChatHistoryResponse, error)
 	CreateApplicationAnalysisSession(context.Context, *CreateApplicationAnalysisSessionRequest) (*CreateApplicationAnalysisSessionResponse, error)
+	PreviewChatContext(context.Context, *PreviewChatContextRequest) (*PreviewChatContextResponse, error)
 	UpdateSession(context.Context, *UpdateSessionRequest) (*CommonResponse, error)
 	DeleteSession(context.Context, *DeleteSessionRequest) (*CommonResponse, error)
 	// Candidate AI
@@ -2581,6 +2594,9 @@ func (UnimplementedAIServiceServer) SessionMessages(context.Context, *SessionMes
 }
 func (UnimplementedAIServiceServer) CreateApplicationAnalysisSession(context.Context, *CreateApplicationAnalysisSessionRequest) (*CreateApplicationAnalysisSessionResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method CreateApplicationAnalysisSession not implemented")
+}
+func (UnimplementedAIServiceServer) PreviewChatContext(context.Context, *PreviewChatContextRequest) (*PreviewChatContextResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method PreviewChatContext not implemented")
 }
 func (UnimplementedAIServiceServer) UpdateSession(context.Context, *UpdateSessionRequest) (*CommonResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method UpdateSession not implemented")
@@ -2784,6 +2800,24 @@ func _AIService_CreateApplicationAnalysisSession_Handler(srv interface{}, ctx co
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(AIServiceServer).CreateApplicationAnalysisSession(ctx, req.(*CreateApplicationAnalysisSessionRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _AIService_PreviewChatContext_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(PreviewChatContextRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(AIServiceServer).PreviewChatContext(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: AIService_PreviewChatContext_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(AIServiceServer).PreviewChatContext(ctx, req.(*PreviewChatContextRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -3096,6 +3130,10 @@ var AIService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "CreateApplicationAnalysisSession",
 			Handler:    _AIService_CreateApplicationAnalysisSession_Handler,
+		},
+		{
+			MethodName: "PreviewChatContext",
+			Handler:    _AIService_PreviewChatContext_Handler,
 		},
 		{
 			MethodName: "UpdateSession",

@@ -16,7 +16,7 @@ const baseUsage = (patch: Partial<ContextUsageInfo> = {}): ContextUsageInfo => (
   usage_ratio: 0.104,
   estimated: true,
   source: 'conservative_estimator',
-  stage: 'pre_generation',
+  stage: 'post_turn',
   input_budget_tokens: 6_758,
   safety_margin_tokens: 410,
   budget_usage_ratio: 851 / 6_758,
@@ -38,7 +38,7 @@ const baseUsage = (patch: Partial<ContextUsageInfo> = {}): ContextUsageInfo => (
   ...patch,
 })
 
-const mountComposer = (contextUsage: ContextUsageInfo | null) => shallowMount(ChatComposer, {
+const mountComposer = (contextUsage: ContextUsageInfo | null, contextPreviewing = false) => shallowMount(ChatComposer, {
   props: {
     input: '',
     loading: false,
@@ -46,6 +46,7 @@ const mountComposer = (contextUsage: ContextUsageInfo | null) => shallowMount(Ch
     modelList: [],
     selectedModelId: null,
     contextUsage,
+    contextPreviewing,
     dataSource: '招聘业务数据库',
     currentSession: null,
     skillCapabilities: [],
@@ -69,9 +70,13 @@ const mountComposer = (contextUsage: ContextUsageInfo | null) => shallowMount(Ch
 })
 
 describe('ChatComposer Context indicator', () => {
-  it('renders current effective input over input budget and full details', () => {
+  it('renders current effective input with the total context window and full details', () => {
     const wrapper = mountComposer(baseUsage())
-    expect(wrapper.get('.chat-composer__context-value').text()).toBe('851 / 6.8K')
+    expect(wrapper.get('.chat-composer__context-value').text()).toBe('851 / 8.2K')
+    expect(wrapper.get('.chat-composer__context-indicator').attributes('aria-label')).toContain('10.4% 已用')
+    expect(wrapper.text()).toContain('上下文窗口')
+    expect(wrapper.text()).toContain('当前会话已用')
+    expect(wrapper.text()).toContain('安全预算占用')
     expect(wrapper.text()).toContain('总上下文窗口')
     expect(wrapper.text()).toContain('8.2K')
     expect(wrapper.text()).toContain('安全余量')
@@ -80,11 +85,12 @@ describe('ChatComposer Context indicator', () => {
     expect(wrapper.text()).toContain('纳入 12 条消息')
     expect(wrapper.text()).toContain('省略 3 条消息')
     expect(wrapper.text()).toContain('已应用会话摘要')
+    expect(wrapper.text()).toContain('当前会话')
   })
 
   it('prefers actual provider prompt tokens', () => {
     const wrapper = mountComposer(baseUsage({ prompt_tokens_actual: 777, source: 'provider_actual' }))
-    expect(wrapper.get('.chat-composer__context-value').text()).toBe('777 / 6.8K')
+    expect(wrapper.get('.chat-composer__context-value').text()).toBe('777 / 8.2K')
     expect(wrapper.text()).toContain('Provider 实际值')
   })
 
@@ -104,6 +110,20 @@ describe('ChatComposer Context indicator', () => {
   it('renders a neutral placeholder when the session has no snapshot', () => {
     const wrapper = mountComposer(null)
     expect(wrapper.get('.chat-composer__context-unknown').text()).toBe('— / —')
-    expect(wrapper.get('.chat-composer__context-indicator').attributes('aria-label')).toContain('暂不可用')
+    expect(wrapper.get('.chat-composer__context-indicator').attributes('aria-label')).toBe('Context — / —')
+  })
+
+  it('shows the newly selected model window while context is recalculating', () => {
+    const wrapper = shallowMount(ChatComposer, {
+      props: {
+        input: '下一步', loading: false, streaming: false,
+        modelList: [{ id: 2, provider_id: 1, model_name: 'large', display_name: 'Large', temperature: 0, top_p: 1, max_tokens: 4096, context_window_tokens: 128_000, max_concurrency: 1, timeout_seconds: 60, is_enabled: true, is_default: false, created_at: '', updated_at: '', provider_name: 'test' }],
+        selectedModelId: 2, contextUsage: baseUsage(), contextPreviewing: true,
+        dataSource: '招聘业务数据库', currentSession: null, skillCapabilities: [], selectedSkillKeys: [], agentSkills: [], selectedAgentSkillIds: [],
+      },
+      global: { stubs: { 'el-popover': { template: '<div><slot name="reference"/></div>' }, 'el-input': true, 'el-select': true, 'el-option': true, 'el-button': true, 'el-icon': true, Transition: false } },
+    })
+    expect(wrapper.get('.chat-composer__context-unknown').text()).toBe('计算中 / 128K')
+    expect(wrapper.get('.chat-composer__context-indicator').attributes('aria-label')).toBe('Context 计算中 / 128K')
   })
 })

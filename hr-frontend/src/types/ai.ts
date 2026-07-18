@@ -53,6 +53,8 @@ export interface Session {
   updated_at?: string
   latest_context_usage?: ContextUsageInfo
   latestContextUsage?: ContextUsageInfo
+  selected_model_id?: number
+  selectedModelId?: number
 }
 
 export interface ContextUsageBreakdown {
@@ -168,6 +170,8 @@ export interface ChatSessionListItem {
   updated_at: string
   latest_context_usage?: ContextUsageInfo
   latestContextUsage?: ContextUsageInfo
+  selected_model_id?: number
+  selectedModelId?: number
 }
 
 // ---- Agent Tool Trace Types ----

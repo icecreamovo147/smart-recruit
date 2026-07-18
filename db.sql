@@ -280,6 +280,7 @@ CREATE TABLE IF NOT EXISTS `ai_chat_sessions` (
   `last_message_preview` VARCHAR(500) NOT NULL DEFAULT '' COMMENT '最近消息摘要',
   `message_count` INT NOT NULL DEFAULT 0 COMMENT '会话消息数',
   `latest_context_usage_json` TEXT NULL COMMENT '当前会话最近一次上下文占用快照(JSON)',
+  `selected_model_id` BIGINT UNSIGNED NOT NULL DEFAULT 0 COMMENT '下一轮请求选择的模型ID，0表示跟随默认模型',
   `active_run_id` BIGINT NULL COMMENT 'Current active agent_runs.id for this session',
   `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   `updated_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
@@ -291,7 +292,8 @@ CREATE TABLE IF NOT EXISTS `ai_chat_sessions` (
   KEY `idx_owner_type_updated` (`owner_role`, `owner_id`, `session_type`, `updated_at`),
   KEY `idx_owner_source` (`owner_role`, `owner_id`, `source_type`, `source_id`),
   KEY `idx_application_id` (`application_id`),
-  KEY `idx_ai_chat_sessions_active_run` (`active_run_id`)
+  KEY `idx_ai_chat_sessions_active_run` (`active_run_id`),
+  KEY `idx_ai_chat_sessions_selected_model` (`selected_model_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='AI 会话表';
 
 CREATE TABLE IF NOT EXISTS `ai_chat_history` (

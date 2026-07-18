@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/cloudwego/eino/schema"
+	"google.golang.org/protobuf/proto"
 
 	commonsai "smart-recruit-commons/ai"
 	"smart-recruit-proto/recruitment/pb"
@@ -102,6 +103,43 @@ func TestEstimateHRCompletionContextUsageIsStrictPartition(t *testing.T) {
 	want := int32(estimateTokensConservative("actual flattened input 招聘\nPLAN") + 6)
 	if usage.GetPromptTokensEstimated() != want {
 		t.Fatalf("prompt estimate = %d, want exact completion input estimate %d", usage.GetPromptTokensEstimated(), want)
+	}
+}
+
+func TestEstimateHRPostTurnContextUsageIncludesConversationAndRuntimeContext(t *testing.T) {
+	service := &nativeAIService{}
+	model := RuntimeModelInfo{ID: 7, Name: "qwen", ContextWindowTokens: 8192, MaxOutputTokens: 1024}
+	tools := commonsai.RecruitingTools()
+	if len(tools) == 0 {
+		t.Fatal("expected recruiting tool schemas")
+	}
+	governance := hrRuntimeGovernanceContext{
+		SelectedAgentSkills: []hrRuntimeAgentSkill{{SkillMD: "POST_TURN_SKILL_MARKER"}},
+	}
+	usage := service.estimateHRPostTurnContextUsage(
+		context.Background(),
+		&pb.ChatRequest{HrId: 77, SessionId: 101, Message: "当前用户消息"},
+		model,
+		nil,
+		ChatMessageRow{ID: 1, Role: "user", Content: "当前用户消息"},
+		"当前 Agent 回复",
+		nil,
+		governance,
+		commonsai.RecruitingPlan{},
+		tools[:1],
+	)
+	breakdown := usage.GetBreakdown()
+	if usage.GetStage() != "post_turn" || !usage.GetEstimated() || usage.GetPromptTokensEstimated() == 0 {
+		t.Fatalf("post-turn usage flags = %+v", usage)
+	}
+	if usage.GetIncludedMessageCount() != 3 || breakdown.GetRecentMessageTokens() == 0 || breakdown.GetSkillTokens() == 0 || breakdown.GetToolSchemaTokens() == 0 {
+		t.Fatalf("post-turn conversation/runtime breakdown = %+v", usage)
+	}
+	if breakdown.GetCurrentMessageTokens() != 0 {
+		t.Fatalf("post-turn snapshot must not classify an unsent current message: %+v", breakdown)
+	}
+	if contextUsageBreakdownTotal(breakdown) != usage.GetPromptTokensEstimated() {
+		t.Fatalf("post-turn breakdown is not a strict partition: %+v", usage)
 	}
 }
 
@@ -236,7 +274,7 @@ func TestCompleteWithUsagePrefersUsageAwareProvider(t *testing.T) {
 	}
 }
 
-func TestHRChatFinalContextUsageMatchesEventAndPersistedAssistant(t *testing.T) {
+func TestHRChatFinalContextUsageReportsPostTurnConversationFootprint(t *testing.T) {
 	store := newFakeAIStore()
 	store.llmModels = []*pb.LlmModelInfo{{
 		Id: 7, ModelName: "qwen-context", IsEnabled: true, IsDefault: true,
@@ -255,7 +293,7 @@ func TestHRChatFinalContextUsageMatchesEventAndPersistedAssistant(t *testing.T) 
 		t.Fatal("expected stream responses")
 	}
 	final := stream.responses[len(stream.responses)-1].GetContextUsage()
-	if final.GetPromptTokensActual() != 321 || final.GetInputBudgetTokens() != 6758 || final.GetStage() != "final" {
+	if !final.GetEstimated() || final.GetPromptTokensEstimated() == 0 || final.GetPromptTokensActual() != 0 || final.GetInputBudgetTokens() != 6758 || final.GetStage() != "post_turn" {
 		t.Fatalf("final stream context usage = %+v", final)
 	}
 	var actualEvent *pb.ContextUsageInfo
@@ -264,15 +302,18 @@ func TestHRChatFinalContextUsageMatchesEventAndPersistedAssistant(t *testing.T) 
 			actualEvent = event.GetContextUsage()
 		}
 	}
-	if actualEvent == nil || actualEvent.GetPromptTokensActual() != final.GetPromptTokensActual() {
-		t.Fatalf("provider actual event = %+v, final = %+v", actualEvent, final)
+	if actualEvent == nil || actualEvent.GetPromptTokensActual() != 321 {
+		t.Fatalf("provider actual event = %+v, want prompt usage 321", actualEvent)
 	}
 	if len(store.messages) < 2 {
 		t.Fatalf("persisted messages = %d, want user and assistant", len(store.messages))
 	}
 	persisted := store.messages[len(store.messages)-1].ContextUsage
-	if persisted == nil || persisted.GetPromptTokensActual() != final.GetPromptTokensActual() || persisted.GetInputBudgetTokens() != final.GetInputBudgetTokens() {
+	if persisted == nil || !proto.Equal(persisted, final) {
 		t.Fatalf("persisted context usage = %+v, final = %+v", persisted, final)
+	}
+	if final.GetBreakdown().GetRecentMessageTokens() <= 0 {
+		t.Fatalf("post-turn usage must include persisted user and assistant messages: %+v", final)
 	}
 }
 
@@ -305,9 +346,9 @@ func TestHRCompletionWithoutProviderUsageKeepsEstimateOfExactSentPromptAndResolv
 				t.Fatalf("provider prompts = %d, want 1", len(provider.prompts))
 			}
 			usage := resp.GetContextUsage()
-			want := estimateHRCompletionContextUsage(RuntimeModelInfo{}, provider.prompts[0], "", nil, ChatMessageRow{}, nil, hrRuntimeGovernanceContext{}).GetPromptTokensEstimated()
-			if !usage.GetEstimated() || usage.GetSource() != "conservative_estimator" || usage.GetPromptTokensEstimated() != want {
-				t.Fatalf("final estimate = %+v, want prompt estimate %d", usage, want)
+			lastCallEstimate := estimateHRCompletionContextUsage(RuntimeModelInfo{}, provider.prompts[0], "", nil, ChatMessageRow{}, nil, hrRuntimeGovernanceContext{}).GetPromptTokensEstimated()
+			if !usage.GetEstimated() || usage.GetSource() != "conservative_estimator" || usage.GetStage() != "post_turn" || usage.GetPromptTokensEstimated() <= lastCallEstimate {
+				t.Fatalf("final estimate = %+v, want post-turn estimate larger than last call estimate %d", usage, lastCallEstimate)
 			}
 			if got := contextUsageBreakdownTotal(usage.GetBreakdown()); got != usage.GetPromptTokensEstimated() {
 				t.Fatalf("breakdown total = %d, prompt estimate = %d", got, usage.GetPromptTokensEstimated())
@@ -392,12 +433,15 @@ func TestHRToolHandlerUsesActualMessagesResolvedModelAndLatestContextUsage(t *te
 		}
 	}
 	final := stream.responses[len(stream.responses)-1].GetContextUsage()
-	if actualEvent == nil || final.GetPromptTokensActual() != 400 || actualEvent.GetPromptTokensActual() != 400 || final.GetTotalTokensActual() != 420 {
-		t.Fatalf("actual/final usage = %+v / %+v, want latest 400/420", actualEvent, final)
+	if actualEvent == nil || actualEvent.GetPromptTokensActual() != 400 || actualEvent.GetTotalTokensActual() != 420 {
+		t.Fatalf("actual usage event = %+v, want latest provider usage 400/420", actualEvent)
+	}
+	if !final.GetEstimated() || final.GetStage() != "post_turn" || final.GetPromptTokensEstimated() == 0 || final.GetPromptTokensActual() != 0 {
+		t.Fatalf("final post-turn usage = %+v", final)
 	}
 	persisted := store.messages[len(store.messages)-1].ContextUsage
-	if persisted == nil || persisted.GetPromptTokensActual() != 400 || persisted.GetTotalTokensActual() != 420 {
-		t.Fatalf("persisted usage = %+v, want latest context usage", persisted)
+	if persisted == nil || !proto.Equal(persisted, final) {
+		t.Fatalf("persisted usage = %+v, want final post-turn usage %+v", persisted, final)
 	}
 	if len(store.usageAudits) != 1 || store.usageAudits[0].TokenUsageTotal != 1520 {
 		t.Fatalf("usage audits = %#v, want cumulative billing total 1520", store.usageAudits)
@@ -423,10 +467,10 @@ func TestHRToolHandlerWithoutProviderUsageKeepsExactMessageEstimate(t *testing.T
 	if len(provider.messages) != 1 {
 		t.Fatalf("provider message calls = %d, want 1", len(provider.messages))
 	}
-	want := estimateHRMessagesContextUsage(RuntimeModelInfo{}, provider.messages[0], hrRecruitingToolSchemas([]string{"get_job_list"}), "draft a candidate outreach note", nil, hrRuntimeGovernanceContext{}).GetPromptTokensEstimated()
+	lastCallEstimate := estimateHRMessagesContextUsage(RuntimeModelInfo{}, provider.messages[0], hrRecruitingToolSchemas([]string{"get_job_list"}), "draft a candidate outreach note", nil, hrRuntimeGovernanceContext{}).GetPromptTokensEstimated()
 	usage := resp.GetContextUsage()
-	if !usage.GetEstimated() || usage.GetPromptTokensEstimated() != want || contextUsageBreakdownTotal(usage.GetBreakdown()) != want {
-		t.Fatalf("final usage = %+v, want exact message estimate %d", usage, want)
+	if !usage.GetEstimated() || usage.GetStage() != "post_turn" || usage.GetPromptTokensEstimated() <= lastCallEstimate || contextUsageBreakdownTotal(usage.GetBreakdown()) != usage.GetPromptTokensEstimated() {
+		t.Fatalf("final usage = %+v, want post-turn estimate larger than last call estimate %d", usage, lastCallEstimate)
 	}
 }
 

@@ -30,6 +30,7 @@ type mockAIServiceClient struct {
 	subscribeFn func(context.Context, *pb.SubscribeAgentRunEventsRequest, ...grpc.CallOption) (grpc.ServerStreamingClient[pb.AgentRunEvent], error)
 	cancelFn    func(context.Context, *pb.CancelAgentRunRequest, ...grpc.CallOption) (*pb.CancelAgentRunResponse, error)
 	confirmFn   func(context.Context, *pb.ConfirmAgentRunRequest, ...grpc.CallOption) (*pb.ConfirmAgentRunResponse, error)
+	previewFn   func(context.Context, *pb.PreviewChatContextRequest, ...grpc.CallOption) (*pb.PreviewChatContextResponse, error)
 
 	cancelCalled atomic.Bool
 }
@@ -57,6 +58,12 @@ func (m *mockAIServiceClient) SessionMessages(context.Context, *pb.SessionMessag
 }
 func (m *mockAIServiceClient) CreateApplicationAnalysisSession(context.Context, *pb.CreateApplicationAnalysisSessionRequest, ...grpc.CallOption) (*pb.CreateApplicationAnalysisSessionResponse, error) {
 	return &pb.CreateApplicationAnalysisSessionResponse{Code: 0, Msg: "ok"}, nil
+}
+func (m *mockAIServiceClient) PreviewChatContext(ctx context.Context, req *pb.PreviewChatContextRequest, opts ...grpc.CallOption) (*pb.PreviewChatContextResponse, error) {
+	if m.previewFn != nil {
+		return m.previewFn(ctx, req, opts...)
+	}
+	return &pb.PreviewChatContextResponse{Code: 0, Msg: "ok"}, nil
 }
 func (m *mockAIServiceClient) UpdateSession(context.Context, *pb.UpdateSessionRequest, ...grpc.CallOption) (*pb.CommonResponse, error) {
 	return &pb.CommonResponse{Code: 0, Msg: "ok"}, nil
@@ -211,7 +218,34 @@ func newAgentRunTestRouter(mock *mockAIServiceClient, userID int64) *gin.Engine 
 	r.GET("/api/v1/hr/ai/runs/:run_id/events", handler.SubscribeAgentRunEvents)
 	r.POST("/api/v1/hr/ai/runs/:run_id/cancel", handler.CancelAgentRun)
 	r.POST("/api/v1/hr/ai/runs/:run_id/confirm", handler.ConfirmAgentRun)
+	r.PUT("/api/v1/hr/ai/sessions/:session_id/context-model", handler.PreviewChatContext)
 	return r
+}
+
+func TestPreviewChatContextForwardsSelectionAndMapsUsage(t *testing.T) {
+	var captured *pb.PreviewChatContextRequest
+	mock := &mockAIServiceClient{previewFn: func(_ context.Context, req *pb.PreviewChatContextRequest, _ ...grpc.CallOption) (*pb.PreviewChatContextResponse, error) {
+		captured = req
+		return &pb.PreviewChatContextResponse{
+			Code: 0, Msg: "ok", SelectedModelId: req.GetModelId(),
+			ContextUsage: &pb.ContextUsageInfo{ModelId: 8, ContextWindowTokens: 128000, PromptTokensEstimated: 321, Stage: "model_preview"},
+		}, nil
+	}}
+	r := newAgentRunTestRouter(mock, 42)
+	req := httptest.NewRequest(http.MethodPut, "/api/v1/hr/ai/sessions/7/context-model", strings.NewReader(`{"model_id":8,"skill_capability_keys":["search"],"agent_skill_ids":[11]}`))
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK || captured == nil {
+		t.Fatalf("status=%d captured=%#v body=%s", w.Code, captured, w.Body.String())
+	}
+	if captured.GetHrId() != 42 || captured.GetSessionId() != 7 || captured.GetModelId() != 8 || len(captured.GetAgentSkillIds()) != 1 {
+		t.Fatalf("captured request = %#v", captured)
+	}
+	if !strings.Contains(w.Body.String(), `"selected_model_id":8`) || !strings.Contains(w.Body.String(), `"stage":"model_preview"`) {
+		t.Fatalf("response body = %s", w.Body.String())
+	}
 }
 
 func TestCreateAgentRun_Validation(t *testing.T) {

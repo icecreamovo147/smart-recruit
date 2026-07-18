@@ -273,6 +273,38 @@ func (h *AIHandler) SessionMessages(c *gin.Context) {
 	base.From(c, resp.Code, resp.Msg, gin.H{"list": resp.List})
 }
 
+func (h *AIHandler) PreviewChatContext(c *gin.Context) {
+	sessionID, err := strconv.ParseInt(c.Param("session_id"), 10, 64)
+	if err != nil || sessionID <= 0 {
+		base.BadRequest(c, "会话 ID 不合法")
+		return
+	}
+	var req struct {
+		ModelID             base.FlexInt64 `json:"model_id"`
+		SkillCapabilityKeys []string       `json:"skill_capability_keys"`
+		AgentSkillIDs       []int64        `json:"agent_skill_ids"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		base.BadRequest(c, "请求参数格式错误")
+		return
+	}
+	resp, err := h.clients.AI.PreviewChatContext(c.Request.Context(), &pb.PreviewChatContextRequest{
+		HrId:                middleware.UserID(c),
+		SessionId:           sessionID,
+		ModelId:             int64(req.ModelID),
+		SkillCapabilityKeys: req.SkillCapabilityKeys,
+		AgentSkillIds:       req.AgentSkillIDs,
+	})
+	if err != nil {
+		base.Internal(c, err)
+		return
+	}
+	base.From(c, resp.Code, resp.Msg, gin.H{
+		"selected_model_id": resp.SelectedModelId,
+		"context_usage":     mapHRContextUsage(resp.GetContextUsage()),
+	})
+}
+
 func (h *AIHandler) CreateApplicationAnalysisSession(c *gin.Context) {
 	var req struct {
 		ApplicationID base.FlexInt64 `json:"application_id" binding:"required"`

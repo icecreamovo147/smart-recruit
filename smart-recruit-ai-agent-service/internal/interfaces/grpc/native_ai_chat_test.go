@@ -115,13 +115,55 @@ func TestMapChatMessagesCopiesAgentSkillSlices(t *testing.T) {
 
 func TestMapChatRowsExposeContextUsageSnapshots(t *testing.T) {
 	usage := &pb.ContextUsageInfo{ModelId: 7, PromptTokensEstimated: 123, Estimated: true}
-	session := mapChatSession(ChatSessionRow{ID: 101, LatestContextUsage: usage})
+	session := mapChatSession(ChatSessionRow{ID: 101, LatestContextUsage: usage, SelectedModelID: 7})
 	if session.GetLatestContextUsage() != usage {
 		t.Fatalf("latest context usage = %#v, want mapped snapshot", session.GetLatestContextUsage())
+	}
+	if session.GetSelectedModelId() != 7 {
+		t.Fatalf("selected model id = %d, want 7", session.GetSelectedModelId())
 	}
 	messages := mapChatMessages([]ChatMessageRow{{ID: 1, Role: "assistant", Content: "reply", ContextUsage: usage}})
 	if len(messages) != 1 || messages[0].GetContextUsage() != usage {
 		t.Fatalf("mapped messages = %#v, want context usage snapshot", messages)
+	}
+}
+
+func TestPreviewChatContextRecompilesForSelectedModelAndPersistsSessionSnapshot(t *testing.T) {
+	store := newFakeAIStore()
+	store.seedChatSession(ownerRoleHR, 42, 900, "model switch")
+	store.seedChatMessage(ChatMessageRow{OwnerRole: ownerRoleHR, OwnerID: 42, SessionID: 900, Role: "user", Content: "first question"})
+	store.seedChatMessage(ChatMessageRow{OwnerRole: ownerRoleHR, OwnerID: 42, SessionID: 900, Role: "assistant", Content: "first answer"})
+	store.llmModels = []*pb.LlmModelInfo{
+		{Id: 7, ModelName: "small", IsEnabled: true, IsDefault: true, ContextWindowTokens: 8192, MaxTokens: 1024},
+		{Id: 8, ModelName: "large", IsEnabled: true, ContextWindowTokens: 128000, MaxTokens: 4096},
+	}
+	service := &nativeAIService{store: store}
+
+	resp, err := service.PreviewChatContext(context.Background(), &pb.PreviewChatContextRequest{
+		HrId: 42, SessionId: 900, ModelId: 8,
+	})
+	if err != nil {
+		t.Fatalf("PreviewChatContext error: %v", err)
+	}
+	usage := resp.GetContextUsage()
+	if resp.GetCode() != 0 || resp.GetSelectedModelId() != 8 {
+		t.Fatalf("response = %#v", resp)
+	}
+	if usage.GetModelId() != 8 || usage.GetContextWindowTokens() != 128000 || usage.GetPromptTokensEstimated() <= 0 {
+		t.Fatalf("usage = %#v", usage)
+	}
+	if usage.GetStage() != "model_preview" || !usage.GetEstimated() {
+		t.Fatalf("usage stage/source = %q/%q", usage.GetStage(), usage.GetSource())
+	}
+	if got := len(store.messages); got != 2 {
+		t.Fatalf("preview appended messages: got %d", got)
+	}
+	if got := len(store.contextModelUpdates); got != 1 {
+		t.Fatalf("context model updates = %#v", store.contextModelUpdates)
+	}
+	update := store.contextModelUpdates[0]
+	if update.selectedModelID != 8 || update.usage.GetModelId() != 8 {
+		t.Fatalf("context model update = %#v", update)
 	}
 }
 
@@ -2609,31 +2651,40 @@ type aiStoreWithoutRecent struct {
 }
 
 type fakeAIStore struct {
-	runSteps           map[int64][]AgentRunStepRow
-	nextSessionID      int64
-	nextMessageID      int64
-	ensureCalls        []ensureChatSessionCall
-	lookupCalls        []lookupChatSessionCall
-	listMessageCalls   []listChatMessagesCall
-	activePromptCalls  []activePromptCall
-	sessionOwners      map[int64]fakeChatSessionOwner
-	sessions           []ChatSessionRow
-	messages           []ChatMessageRow
-	activePrompt       *pb.PromptTemplateInfo
-	activePromptErr    error
-	promptTemplates    []*pb.PromptTemplateInfo
-	promptByID         map[int64]*pb.PromptTemplateInfo
-	agentConfigs       []*pb.AgentConfigInfo
-	agentSkills        []*pb.AgentSkillInfo
-	agentSkillVersions map[int64][]*pb.AgentSkillVersionInfo
-	llmModels          []*pb.LlmModelInfo
-	toolTraces         []ToolTraceRow
-	candidateContext   CandidateRuntimeContext
-	usageAudits        []UsageAuditRow
-	candidateAudits    []CandidateUsageAuditRow
-	matchSnapshot      RecruitingCandidateMatchSnapshot
-	matchFound         bool
-	matchErr           error
+	runSteps            map[int64][]AgentRunStepRow
+	nextSessionID       int64
+	nextMessageID       int64
+	ensureCalls         []ensureChatSessionCall
+	lookupCalls         []lookupChatSessionCall
+	listMessageCalls    []listChatMessagesCall
+	activePromptCalls   []activePromptCall
+	sessionOwners       map[int64]fakeChatSessionOwner
+	sessions            []ChatSessionRow
+	messages            []ChatMessageRow
+	activePrompt        *pb.PromptTemplateInfo
+	activePromptErr     error
+	promptTemplates     []*pb.PromptTemplateInfo
+	promptByID          map[int64]*pb.PromptTemplateInfo
+	agentConfigs        []*pb.AgentConfigInfo
+	agentSkills         []*pb.AgentSkillInfo
+	agentSkillVersions  map[int64][]*pb.AgentSkillVersionInfo
+	llmModels           []*pb.LlmModelInfo
+	toolTraces          []ToolTraceRow
+	candidateContext    CandidateRuntimeContext
+	usageAudits         []UsageAuditRow
+	candidateAudits     []CandidateUsageAuditRow
+	matchSnapshot       RecruitingCandidateMatchSnapshot
+	matchFound          bool
+	matchErr            error
+	contextModelUpdates []contextModelUpdate
+}
+
+type contextModelUpdate struct {
+	ownerRole       int32
+	ownerID         int64
+	sessionID       int64
+	selectedModelID int64
+	usage           *pb.ContextUsageInfo
 }
 
 func (s *fakeAIStore) GetLatestRecruitingCandidateMatchEvaluationSnapshotByApplicationID(_ context.Context, applicationID int64) (RecruitingCandidateMatchSnapshot, bool, error) {
@@ -2698,6 +2749,21 @@ func (s *fakeAIStore) ListChatSessions(context.Context, int32, int64, int32, int
 }
 
 func (s *fakeAIStore) UpdateChatSessionTitle(context.Context, int32, int64, int64, string) error {
+	return nil
+}
+
+func (s *fakeAIStore) UpdateChatSessionContextModel(_ context.Context, ownerRole int32, ownerID, sessionID, selectedModelID int64, usage *pb.ContextUsageInfo) error {
+	s.contextModelUpdates = append(s.contextModelUpdates, contextModelUpdate{
+		ownerRole: ownerRole, ownerID: ownerID, sessionID: sessionID, selectedModelID: selectedModelID, usage: usage,
+	})
+	for index := range s.sessions {
+		if s.sessions[index].ID == sessionID {
+			s.sessions[index].SelectedModelID = selectedModelID
+			if usage != nil {
+				s.sessions[index].LatestContextUsage = usage
+			}
+		}
+	}
 	return nil
 }
 

@@ -99,6 +99,26 @@ func TestNativeStoreChatOwnerRoleIsolationWithHRIDCollision(t *testing.T) {
 	if reloadedCandidate.Title != "candidate" {
 		t.Fatalf("hr update changed candidate title to %q", reloadedCandidate.Title)
 	}
+	usage := &pb.ContextUsageInfo{ModelId: 8, ContextWindowTokens: 128000, PromptTokensEstimated: 321, Stage: "model_preview"}
+	if err := store.UpdateChatSessionContextModel(ctx, chatOwnerRoleHR, 7, candidateSession.ID, 8, usage); err != nil {
+		t.Fatalf("update candidate context model through HR scope: %v", err)
+	}
+	if err := db.First(&reloadedCandidate, candidateSession.ID).Error; err != nil {
+		t.Fatalf("reload candidate session after context model update: %v", err)
+	}
+	if reloadedCandidate.SelectedModelID != 0 || reloadedCandidate.LatestContextUsageJSON != nil {
+		t.Fatalf("HR context model update leaked into candidate session: %#v", reloadedCandidate)
+	}
+	if err := store.UpdateChatSessionContextModel(ctx, chatOwnerRoleHR, 7, hrSession.ID, 8, usage); err != nil {
+		t.Fatalf("update HR context model: %v", err)
+	}
+	updatedHR, found, err := store.GetChatSession(ctx, chatOwnerRoleHR, 7, hrSession.ID)
+	if err != nil || !found {
+		t.Fatalf("reload HR session found=%v err=%v", found, err)
+	}
+	if updatedHR.SelectedModelID != 8 || updatedHR.LatestContextUsage.GetPromptTokensEstimated() != 321 {
+		t.Fatalf("updated HR session = %#v", updatedHR)
+	}
 
 	if err := store.DeleteChatSession(ctx, chatOwnerRoleHR, 7, candidateSession.ID); err != nil {
 		t.Fatalf("hr delete candidate session: %v", err)

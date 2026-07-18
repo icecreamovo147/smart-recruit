@@ -142,6 +142,10 @@ type AIStore interface {
 	ListEmbeddingModels(ctx context.Context, page, pageSize int32, providerID int64) ([]*pb.EmbeddingModelInfo, int64, error)
 }
 
+type chatSessionContextModelStore interface {
+	UpdateChatSessionContextModel(ctx context.Context, ownerRole int32, ownerID, sessionID, selectedModelID int64, usage *pb.ContextUsageInfo) error
+}
+
 type ChatSessionListFilter struct {
 	Keyword     string
 	SessionType string
@@ -202,6 +206,7 @@ type ChatSessionRow struct {
 	Title              string
 	ApplicationID      int64
 	LatestContextUsage *pb.ContextUsageInfo
+	SelectedModelID    int64
 	SessionType        string
 	SourceType         string
 	SourceID           int64
@@ -1051,6 +1056,11 @@ func (s *nativeAIService) runHRChatRuntimeWithOptions(ctx context.Context, req *
 	result.modelID = result.runtimeModel.ID
 	result.modelName = result.runtimeModel.Name
 	result.providerName = result.runtimeModel.ProviderName
+	if sessionStore, ok := s.store.(chatSessionContextModelStore); ok {
+		if err := sessionStore.UpdateChatSessionContextModel(ctx, ownerRoleHR, req.GetHrId(), session.ID, req.GetModelId(), nil); err != nil {
+			return result, err
+		}
+	}
 	startedAt := time.Now()
 	auditEnabled := false
 	auditStatus := "ok"
@@ -1421,6 +1431,18 @@ func (s *nativeAIService) runHRChatRuntimeWithOptions(ctx context.Context, req *
 	}
 	result.reply = reply
 	result.toolTraces = append([]ToolTraceRow(nil), traces...)
+	result.contextUsage = s.estimateHRPostTurnContextUsage(
+		ctx,
+		req,
+		result.runtimeModel,
+		history,
+		userMessage,
+		reply,
+		traces,
+		governance,
+		plan,
+		toolSchemas,
+	)
 	processContent := buildHRProcessContent(traces, result.contextUsage, result.fallbackUsed, governance, plan, s.hrRuntimeLabel())
 	if s.store != nil {
 		if _, err := s.store.AppendChatMessage(ctx, ChatMessageRow{OwnerRole: ownerRoleHR, OwnerID: req.GetHrId(), SessionID: session.ID, Role: "assistant", Content: reply, ProcessContent: processContent, ModelID: result.modelID, ModelName: result.modelName, ContextUsage: result.contextUsage, AgentSkillIDs: hrRuntimeAgentSkillIDs(governance), AgentSkillNames: hrRuntimeAgentSkillNames(governance), CreatedAt: time.Now()}); err != nil {
@@ -1428,6 +1450,75 @@ func (s *nativeAIService) runHRChatRuntimeWithOptions(ctx context.Context, req *
 		}
 	}
 	return result, nil
+}
+
+// estimateHRPostTurnContextUsage reports the effective context footprint of the
+// current conversation after the assistant reply is added. It intentionally
+// reuses the same budget controller as the next model call, so summaries,
+// history trimming, tool schemas, Prompt/Agent instructions, selected Skills,
+// and protocol framing follow one calculation path.
+func (s *nativeAIService) estimateHRPostTurnContextUsage(
+	ctx context.Context,
+	req *pb.ChatRequest,
+	model RuntimeModelInfo,
+	history []ChatMessageRow,
+	current ChatMessageRow,
+	reply string,
+	traces []ToolTraceRow,
+	governance hrRuntimeGovernanceContext,
+	plan commonsai.RecruitingPlan,
+	toolSchemas []*schema.ToolInfo,
+) *pb.ContextUsageInfo {
+	postTurnHistory := ensureHRCurrentMessage(history, current)
+	postTurnHistory = append([]ChatMessageRow(nil), postTurnHistory...)
+	if content := strings.TrimSpace(reply); content != "" {
+		postTurnHistory = append(postTurnHistory, ChatMessageRow{
+			OwnerRole: ownerRoleHR,
+			OwnerID:   req.GetHrId(),
+			SessionID: req.GetSessionId(),
+			Role:      "assistant",
+			Content:   content,
+			ModelID:   model.ID,
+			ModelName: model.Name,
+		})
+	}
+
+	previewReq := proto.Clone(req).(*pb.ChatRequest)
+	previewReq.Message = ""
+	messages := buildHRToolCallingMessages(previewReq, postTurnHistory, ChatMessageRow{}, traces, governance)
+	if len(messages) > 0 {
+		messages[0].Content += "\n\n" + plan.InstructionBlock()
+	}
+
+	var summaryStore hrSessionSummaryStore
+	if candidate, ok := s.store.(hrSessionSummaryStore); ok {
+		summaryStore = candidate
+	}
+	controller := newHRContextBudgetController(
+		ctx,
+		model,
+		toolSchemas,
+		"",
+		traces,
+		governance,
+		postTurnHistory,
+		req.GetHrId(),
+		req.GetSessionId(),
+		summaryStore,
+		nil,
+	)
+	_, _ = controller.prepare(ctx, messages, "post_turn")
+	usage := controller.usage
+	if usage == nil {
+		usage = estimateHRMessagesContextUsage(model, messages, toolSchemas, "", traces, governance)
+	}
+	usage.PromptTokensActual = 0
+	usage.CompletionTokensActual = 0
+	usage.TotalTokensActual = 0
+	usage.Estimated = true
+	usage.Source = "conservative_estimator"
+	usage.Stage = "post_turn"
+	return usage
 }
 
 func (s *nativeAIService) hrSummaryDependencies() (hrSessionSummaryStore, sessionSummaryGenerator) {
@@ -3465,6 +3556,104 @@ func (s *nativeAIService) SessionMessages(ctx context.Context, req *pb.SessionMe
 	return &pb.ChatHistoryResponse{Code: 0, Msg: "success", List: mapChatMessages(rows)}, nil
 }
 
+// PreviewChatContext recompiles the current persisted conversation for the
+// requested next-turn model without invoking a model, executing tools, or
+// generating/updating summaries. Persisting the selection and resulting
+// snapshot is intentionally separate from the read-only compilation step so a
+// refresh restores the same model-relative A / B view.
+func (s *nativeAIService) PreviewChatContext(ctx context.Context, req *pb.PreviewChatContextRequest) (*pb.PreviewChatContextResponse, error) {
+	if s.store == nil {
+		return &pb.PreviewChatContextResponse{Code: configCodeUnavailable, Msg: errAIStoreRequired.Error()}, nil
+	}
+	if req.GetSessionId() <= 0 {
+		return nil, status.Error(codes.InvalidArgument, "chat session id is required")
+	}
+	session, found, err := s.store.GetChatSession(ctx, ownerRoleHR, req.GetHrId(), req.GetSessionId())
+	if err != nil {
+		return nil, err
+	}
+	if !found {
+		return nil, status.Error(codes.NotFound, errChatSessionNotFound.Error())
+	}
+	model, found, err := s.resolveSelectableRuntimeModelInfo(ctx, req.GetModelId())
+	if err != nil {
+		return nil, err
+	}
+	if !found {
+		return nil, status.Error(codes.InvalidArgument, "selected model is unavailable")
+	}
+	chatReq := &pb.ChatRequest{
+		HrId:                req.GetHrId(),
+		SessionId:           session.ID,
+		ApplicationId:       session.ApplicationID,
+		ModelId:             req.GetModelId(),
+		SkillCapabilityKeys: append([]string(nil), req.GetSkillCapabilityKeys()...),
+		AgentSkillIds:       append([]int64(nil), req.GetAgentSkillIds()...),
+	}
+	governance, err := s.loadHRRuntimeGovernance(ctx, chatReq)
+	if err != nil {
+		return nil, err
+	}
+	history, err := s.hrContextMessages(ctx, req.GetHrId(), session.ID)
+	if err != nil {
+		return nil, err
+	}
+	usage := s.previewHRConversationContextUsage(ctx, chatReq, model, history, governance)
+	sessionStore, ok := s.store.(chatSessionContextModelStore)
+	if !ok {
+		return &pb.PreviewChatContextResponse{Code: configCodeUnavailable, Msg: "chat session context model persistence is unavailable"}, nil
+	}
+	if err := sessionStore.UpdateChatSessionContextModel(ctx, ownerRoleHR, req.GetHrId(), session.ID, req.GetModelId(), usage); err != nil {
+		return nil, err
+	}
+	return &pb.PreviewChatContextResponse{
+		Code:            0,
+		Msg:             "success",
+		SelectedModelId: req.GetModelId(),
+		ContextUsage:    usage,
+	}, nil
+}
+
+func (s *nativeAIService) previewHRConversationContextUsage(
+	ctx context.Context,
+	req *pb.ChatRequest,
+	model RuntimeModelInfo,
+	history []ChatMessageRow,
+	governance hrRuntimeGovernanceContext,
+) *pb.ContextUsageInfo {
+	toolSchemas := hrRecruitingToolSchemas(governance.ExecutableToolNames)
+	messages := buildHRToolCallingMessages(req, history, ChatMessageRow{}, nil, governance)
+	var summaryStore hrSessionSummaryStore
+	if candidate, ok := s.store.(hrSessionSummaryStore); ok {
+		summaryStore = candidate
+	}
+	controller := newHRContextBudgetController(
+		ctx,
+		model,
+		toolSchemas,
+		"",
+		nil,
+		governance,
+		history,
+		req.GetHrId(),
+		req.GetSessionId(),
+		summaryStore,
+		nil,
+	)
+	_, _ = controller.prepare(ctx, messages, "model_preview")
+	usage := controller.usage
+	if usage == nil {
+		usage = estimateHRMessagesContextUsage(model, messages, toolSchemas, "", nil, governance)
+	}
+	usage.PromptTokensActual = 0
+	usage.CompletionTokensActual = 0
+	usage.TotalTokensActual = 0
+	usage.Estimated = true
+	usage.Source = "conservative_estimator"
+	usage.Stage = "model_preview"
+	return usage
+}
+
 func (s *nativeAIService) CreateApplicationAnalysisSession(ctx context.Context, req *pb.CreateApplicationAnalysisSessionRequest) (*pb.CreateApplicationAnalysisSessionResponse, error) {
 	session, err := s.ensureSession(ctx, ownerRoleHR, req.GetHrId(), 0, req.GetApplicationId(), fmt.Sprintf("Application %d analysis", req.GetApplicationId()))
 	if err != nil {
@@ -4956,6 +5145,44 @@ func (s *nativeAIService) resolveRuntimeModelInfo(ctx context.Context, requested
 		return runtimeModelInfoFromProto(firstEnabled)
 	}
 	return fallback
+}
+
+func (s *nativeAIService) resolveSelectableRuntimeModelInfo(ctx context.Context, requestedModelID int64) (RuntimeModelInfo, bool, error) {
+	if s == nil || s.store == nil {
+		return RuntimeModelInfo{}, false, nil
+	}
+	if resolver, ok := s.store.(llmRuntimeModelInfoResolver); ok {
+		info, found, err := resolver.ResolveLLMRuntimeModelInfo(ctx, requestedModelID)
+		if err != nil || !found {
+			return RuntimeModelInfo{}, found, err
+		}
+		info.Name = strings.TrimSpace(info.Name)
+		info.ProviderName = strings.TrimSpace(info.ProviderName)
+		return info, info.ID > 0 && info.Name != "", nil
+	}
+	rows, _, err := s.store.ListLlmModels(ctx, 1, 200, 0)
+	if err != nil {
+		return RuntimeModelInfo{}, false, err
+	}
+	var firstEnabled *pb.LlmModelInfo
+	for _, row := range rows {
+		if row == nil || !row.GetIsEnabled() {
+			continue
+		}
+		if firstEnabled == nil {
+			firstEnabled = row
+		}
+		if requestedModelID > 0 && row.GetId() == requestedModelID {
+			return runtimeModelInfoFromProto(row), true, nil
+		}
+		if requestedModelID <= 0 && row.GetIsDefault() {
+			return runtimeModelInfoFromProto(row), true, nil
+		}
+	}
+	if requestedModelID <= 0 && firstEnabled != nil {
+		return runtimeModelInfoFromProto(firstEnabled), true, nil
+	}
+	return RuntimeModelInfo{}, false, nil
 }
 
 func runtimeModelInfoFromProto(model *pb.LlmModelInfo) RuntimeModelInfo {
@@ -6869,6 +7096,7 @@ func mapChatSession(row ChatSessionRow) *pb.ChatSession {
 		LastMessagePreview: row.LastMessagePreview,
 		MessageCount:       row.MessageCount,
 		LatestContextUsage: row.LatestContextUsage,
+		SelectedModelId:    row.SelectedModelID,
 	}
 }
 

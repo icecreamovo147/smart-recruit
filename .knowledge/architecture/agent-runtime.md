@@ -32,7 +32,7 @@ source_refs:
   - smart-recruit-commons/ai/fallback.go
   - smart-recruit-commons/ai/anthropic_chatmodel.go
   - hr-frontend/src/views/hr/AIChatView.vue
-last_verified: 2026-07-16
+last_verified: 2026-07-18
 review_after: 2026-10-14
 ---
 
@@ -45,6 +45,8 @@ Runtime-facing configuration services for LLM, prompt, agent, and embedding conf
 MCP, Skill registry, and Agent Skill admin services use the same native runtime pattern. Schema-backed server, policy, log, skill, version, tool, and Agent Skill management paths are DB-backed; MCP network/command execution and semantic debug paths return explicit non-success unsupported responses unless a runtime runner is bound.
 
 Native AI chat/session/agent-run methods require a configured store for database-backed behavior and a configured provider for model-backed behavior. Missing dependencies must return explicit failures rather than synthetic sessions, empty lists, fallback runs, or provider placeholder text.
+
+HR model selection is session-scoped for the next turn while every persisted message keeps the model actually used for that turn. `PreviewChatContext` recompiles persisted conversation history for a requested model without provider or Tool execution and without summary generation, then persists the selected-model state and `model_preview` context snapshot. The frontend treats this snapshot as model-relative: switching models shows the new denominator immediately in a calculating state and accepts only a matching-model snapshot as the numerator. The actual run and post-turn snapshot continue through the same budget controller, preventing preview/runtime context-policy drift.
 
 Application-analysis session creation persists and returns a canonical non-empty User message that explicitly requests resume-to-job match evaluation. Both HR analysis entry paths reuse that message, with a planner-recognizable frontend fallback for legacy responses. Durable Run creation rejects blank messages before governance loading or dispatch. The Anthropic Messages adapter also rejects System-only input locally, so it never sends `messages: null` or an empty conversation to the provider.
 

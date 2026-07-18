@@ -23,6 +23,31 @@ export const currentEffectiveContextTokens = (usage: ContextUsageInfo | null | u
 export const inputBudgetTokens = (usage: ContextUsageInfo | null | undefined): number | null =>
   positive(usage?.input_budget_tokens)
 
+export const contextWindowTokens = (usage: ContextUsageInfo | null | undefined): number | null =>
+  positive(usage?.context_window_tokens)
+
+export const contextWindowRatio = (usage: ContextUsageInfo | null | undefined): number | null => {
+  const window = contextWindowTokens(usage)
+  if (!usage || window == null) return null
+  return currentEffectiveContextTokens(usage) / window
+}
+
+export const contextWindowProgressRatio = (usage: ContextUsageInfo | null | undefined): number => {
+  const ratio = contextWindowRatio(usage) ?? 0
+  return Math.min(Math.max(ratio, 0), 1)
+}
+
+export const resolveLiveContextUsage = (
+  current: ContextUsageInfo | null | undefined,
+  incoming: ContextUsageInfo,
+): ContextUsageInfo => {
+  const isConfigurationOnly = incoming.stage === 'model_selected'
+    && current != null
+    && currentEffectiveContextTokens(incoming) === 0
+    && currentEffectiveContextTokens(current) > 0
+  return isConfigurationOnly ? current : incoming
+}
+
 export const contextBudgetRatio = (usage: ContextUsageInfo | null | undefined): number | null => {
   if (!usage || inputBudgetTokens(usage) == null) return null
   const backendRatio = finiteNonNegative(usage.budget_usage_ratio)
@@ -53,8 +78,8 @@ export const contextBudgetSeverity = (usage: ContextUsageInfo | null | undefined
 export const formatCompactTokens = (value: number | null | undefined): string => {
   const tokens = finiteNonNegative(value)
   if (tokens == null) return '—'
-  if (tokens >= 1_000_000) return `${(tokens / 1_000_000).toFixed(1)}M`
-  if (tokens >= 1_000) return `${(tokens / 1_000).toFixed(1)}K`
+  if (tokens >= 1_000_000) return `${Number((tokens / 1_000_000).toFixed(1))}M`
+  if (tokens >= 1_000) return `${Number((tokens / 1_000).toFixed(1))}K`
   return String(Math.round(tokens))
 }
 
@@ -64,6 +89,8 @@ export const contextUsageSourceLabel = (usage: ContextUsageInfo): string => {
 }
 
 export const contextUsageStageLabel = (stage: string | undefined): string => {
+  if (stage === 'model_preview') return '当前模型预览'
+  if (stage === 'post_turn') return '当前会话'
   if (stage === 'final') return '最终值'
   if (stage === 'pre_generation') return '生成前'
   return '实时值'
