@@ -46,14 +46,31 @@ type ModelAwareChatProvider interface {
 type ChatCompletionOptions struct {
 	TemperatureOverride *float64
 	MaxIterations       int
+	PrepareMessages     commonsai.MessagePrepareCallback
 }
 
 type RuntimeOptionsChatProvider interface {
 	CompleteWithOptions(ctx context.Context, prompt string, modelID int64, opts ChatCompletionOptions) (string, error)
 }
 
+type UsageAwareRuntimeOptionsChatProvider interface {
+	CompleteWithOptionsAndUsage(ctx context.Context, prompt string, modelID int64, opts ChatCompletionOptions) (commonsai.GenerateResult, error)
+}
+
+type RuntimeModelInfo struct {
+	ID                  int64
+	Name                string
+	ProviderName        string
+	ContextWindowTokens int32
+	MaxOutputTokens     int32
+}
+
 type llmRuntimeModelResolver interface {
 	ResolveLLMRuntimeModel(ctx context.Context, modelID int64) (int64, string, string, bool, error)
+}
+
+type llmRuntimeModelInfoResolver interface {
+	ResolveLLMRuntimeModelInfo(ctx context.Context, modelID int64) (RuntimeModelInfo, bool, error)
 }
 
 // RecruitingToolChatProvider runs the model-driven tool-calling loop for HR chat.
@@ -125,6 +142,25 @@ type AIStore interface {
 	ListEmbeddingModels(ctx context.Context, page, pageSize int32, providerID int64) ([]*pb.EmbeddingModelInfo, int64, error)
 }
 
+type ChatSessionListFilter struct {
+	Keyword     string
+	SessionType string
+	SourceType  string
+	SourceID    int64
+}
+
+type ChatSessionCreateOptions struct {
+	SessionType string
+	SourceType  string
+	SourceID    int64
+	SourceTitle string
+}
+
+type enhancedChatSessionStore interface {
+	EnsureChatSessionWithOptions(ctx context.Context, ownerRole int32, ownerID int64, title string, applicationID int64, opts ChatSessionCreateOptions) (ChatSessionRow, error)
+	ListChatSessionsWithFilter(ctx context.Context, ownerRole int32, ownerID int64, page, pageSize int32, filter ChatSessionListFilter) ([]ChatSessionRow, int64, error)
+}
+
 type activePromptStore interface {
 	GetActivePromptByAgentType(context.Context, *pb.GetActivePromptByAgentTypeRequest) (*pb.GetActivePromptByAgentTypeResponse, error)
 }
@@ -162,11 +198,19 @@ type RuntimeDeps struct {
 }
 
 type ChatSessionRow struct {
-	ID            int64
-	Title         string
-	ApplicationID int64
-	CreatedAt     time.Time
-	UpdatedAt     time.Time
+	ID                 int64
+	Title              string
+	ApplicationID      int64
+	LatestContextUsage *pb.ContextUsageInfo
+	SessionType        string
+	SourceType         string
+	SourceID           int64
+	SourceTitle        string
+	Summary            string
+	LastMessagePreview string
+	MessageCount       int32
+	CreatedAt          time.Time
+	UpdatedAt          time.Time
 }
 
 type ChatMessageRow struct {
@@ -179,6 +223,7 @@ type ChatMessageRow struct {
 	ProcessContent  string
 	ModelID         int64
 	ModelName       string
+	ContextUsage    *pb.ContextUsageInfo
 	AgentSkillIDs   []int64
 	AgentSkillNames []string
 	CreatedAt       time.Time
@@ -835,6 +880,9 @@ func (s *nativeAIService) Chat(ctx context.Context, req *pb.ChatRequest) (*pb.Ch
 	}
 	result, err := s.runHRChatRuntime(ctx, req, nil)
 	if err != nil {
+		if code := hrContextErrorCode(err); code != "" {
+			return &pb.ChatResponse{Code: configCodeUnavailable, Msg: code, CreatedAt: formatTime(time.Now()), SessionId: result.session.ID, ApplicationId: req.GetApplicationId(), ContextUsage: result.contextUsage}, nil
+		}
 		return nil, err
 	}
 	if result.providerUnavailable && !result.fallbackUsed {
@@ -856,6 +904,9 @@ func (s *nativeAIService) ChatStream(req *pb.ChatRequest, stream gogrpc.ServerSt
 		return stream.Send(event)
 	})
 	if err != nil {
+		if code := hrContextErrorCode(err); code != "" {
+			return stream.Send(&pb.ChatStreamResponse{Code: configCodeUnavailable, Msg: code, Done: true, SessionId: result.session.ID, ApplicationId: req.GetApplicationId(), CreatedAt: formatTime(time.Now()), EventType: "error", EventMessage: code, ErrorType: code, ContextUsage: result.contextUsage})
+		}
 		return err
 	}
 	if result.providerUnavailable && !result.fallbackUsed {
@@ -889,6 +940,8 @@ type hrChatRuntimeResult struct {
 	modelID             int64
 	modelName           string
 	providerName        string
+	runtimeModel        RuntimeModelInfo
+	billingTokenUsage   *schema.TokenUsage
 	toolTraces          []ToolTraceRow
 	streamedTextDelta   bool
 	contextUsage        *pb.ContextUsageInfo
@@ -994,7 +1047,10 @@ func (s *nativeAIService) runHRChatRuntimeWithOptions(ctx context.Context, req *
 	if req.GetSessionId() == 0 {
 		req.SessionId = session.ID
 	}
-	result.modelID, result.modelName, result.providerName = s.resolveRuntimeModelDisplay(ctx, req.GetModelId())
+	result.runtimeModel = s.resolveRuntimeModelInfo(ctx, req.GetModelId())
+	result.modelID = result.runtimeModel.ID
+	result.modelName = result.runtimeModel.Name
+	result.providerName = result.runtimeModel.ProviderName
 	startedAt := time.Now()
 	auditEnabled := false
 	auditStatus := "ok"
@@ -1025,13 +1081,10 @@ func (s *nativeAIService) runHRChatRuntimeWithOptions(ctx context.Context, req *
 	emitWithDisplay := func(event *pb.ChatStreamResponse, display *agentRunDisplayContext) error {
 		return sendWithDisplay(event, display)
 	}
-	modelInfoUsage := &pb.ContextUsageInfo{
-		ModelId:   result.modelID,
-		ModelName: result.modelName,
-		Estimated: true,
-		Source:    "hr-agent-runtime",
-		Stage:     "model_selected",
-	}
+	modelInfoUsage := newHRContextUsageEnvelope(result.runtimeModel, 0)
+	modelInfoUsage.Estimated = true
+	modelInfoUsage.Source = "model_configuration"
+	modelInfoUsage.Stage = "model_selected"
 	if err := send(&pb.ChatStreamResponse{Code: 0, Msg: "success", EventType: "model_info", ContextUsage: modelInfoUsage, CreatedAt: formatTime(time.Now())}); err != nil {
 		return result, err
 	}
@@ -1044,7 +1097,7 @@ func (s *nativeAIService) runHRChatRuntimeWithOptions(ctx context.Context, req *
 	}
 	result.governance = governance
 
-	history, err := s.hrRecentMessages(ctx, req.GetHrId(), session.ID)
+	history, err := s.hrContextMessages(ctx, req.GetHrId(), session.ID)
 	if err != nil {
 		return result, err
 	}
@@ -1126,7 +1179,13 @@ func (s *nativeAIService) runHRChatRuntimeWithOptions(ctx context.Context, req *
 		if len(messages) > 0 {
 			messages[0].Content += "\n\n" + plan.InstructionBlock()
 		}
-		result.contextUsage = estimateHRContextUsage(result.modelID, result.modelName, renderHRProviderPrompt(req, history, userMessage, traces, governance), req.GetMessage(), traces)
+		summaryStore, summaryGenerator := s.hrSummaryDependencies()
+		budgetController := newHRContextBudgetController(ctx, result.runtimeModel, toolSchemas, req.GetMessage(), traces, governance, history, req.GetHrId(), session.ID, summaryStore, summaryGenerator)
+		messages, err = budgetController.prepare(ctx, messages, "initial_tool_call")
+		result.contextUsage = budgetController.usage
+		if err != nil {
+			return result, err
+		}
 		if err := sendWithDisplay(&pb.ChatStreamResponse{Code: 0, Msg: "success", EventType: "context_usage", EventMessage: "context usage estimated", ContextUsage: result.contextUsage, CreatedAt: formatTime(time.Now())}, displayContextForPlanStep(plan, "compose_answer")); err != nil {
 			return result, err
 		}
@@ -1185,6 +1244,7 @@ func (s *nativeAIService) runHRChatRuntimeWithOptions(ctx context.Context, req *
 		}
 
 		var toolReply string
+		var toolMetadata commonsai.ToolMetadata
 		var toolErr error
 		ranADK := false
 		if useADK && hasADKProvider {
@@ -1199,19 +1259,22 @@ func (s *nativeAIService) runHRChatRuntimeWithOptions(ctx context.Context, req *
 				state := &commonsai.AgentRunState{}
 				adkCtx := commonsai.WithOwnerID(ctx, req.GetHrId())
 				adkCtx = commonsai.WithAgentRunState(adkCtx, state)
-				toolReply, _, toolErr = adkProvider.ChatWithRecruitingADK(
+				completionOptions := hrRuntimeCompletionOptions(governance)
+				completionOptions.PrepareMessages = budgetController.prepare
+				toolReply, toolMetadata, toolErr = adkProvider.ChatWithRecruitingADK(
 					adkCtx,
-					req.GetModelId(),
-					hrRuntimeCompletionOptions(governance),
+					result.modelID,
+					completionOptions,
 					commonsai.AgentRunInput{
-						AgentName:     "hr_recruiting_agent",
-						Instruction:   instruction,
-						Messages:      messages,
-						Tools:         adkTools,
-						MaxIterations: hrRuntimeCompletionOptions(governance).MaxIterations,
-						OwnerID:       req.GetHrId(),
-						SessionID:     session.ID,
-						State:         state,
+						AgentName:       "hr_recruiting_agent",
+						Instruction:     instruction,
+						Messages:        messages,
+						Tools:           adkTools,
+						MaxIterations:   hrRuntimeCompletionOptions(governance).MaxIterations,
+						OwnerID:         req.GetHrId(),
+						SessionID:       session.ID,
+						State:           state,
+						PrepareMessages: budgetController.prepare,
 					},
 					onDelta,
 					onTool,
@@ -1224,10 +1287,12 @@ func (s *nativeAIService) runHRChatRuntimeWithOptions(ctx context.Context, req *
 			if !hasToolProvider {
 				return result, fmt.Errorf("recruiting tool chat provider is not configured")
 			}
-			toolReply, _, toolErr = toolProvider.ChatWithRecruitingTools(
+			completionOptions := hrRuntimeCompletionOptions(governance)
+			completionOptions.PrepareMessages = budgetController.prepare
+			toolReply, toolMetadata, toolErr = toolProvider.ChatWithRecruitingTools(
 				ctx,
-				req.GetModelId(),
-				hrRuntimeCompletionOptions(governance),
+				result.modelID,
+				completionOptions,
 				messages,
 				toolSchemas,
 				modelToolRunner,
@@ -1236,6 +1301,12 @@ func (s *nativeAIService) runHRChatRuntimeWithOptions(ctx context.Context, req *
 				onTool,
 				onStatus,
 			)
+		}
+		result.billingTokenUsage = cloneTokenUsage(toolMetadata.BillingTokenUsage)
+		if applyToolMetadataContextUsage(result.contextUsage, toolMetadata) {
+			if err := sendWithDisplay(&pb.ChatStreamResponse{Code: 0, Msg: "success", EventType: "context_usage", EventMessage: "provider context usage", ContextUsage: result.contextUsage, CreatedAt: formatTime(time.Now())}, displayContextForPlanStep(plan, "compose_answer")); err != nil {
+				return result, err
+			}
 		}
 		if toolErr != nil {
 			if errors.Is(toolErr, errAIProviderRequired) || strings.Contains(toolErr.Error(), "api_key") || strings.Contains(toolErr.Error(), "provider") {
@@ -1267,16 +1338,63 @@ func (s *nativeAIService) runHRChatRuntimeWithOptions(ctx context.Context, req *
 			}
 		}
 	} else {
-		contextPrompt := renderHRProviderPrompt(req, history, userMessage, traces, governance)
-		contextPrompt += "\n\n" + plan.InstructionBlock()
-		result.contextUsage = estimateHRContextUsage(result.modelID, result.modelName, contextPrompt, req.GetMessage(), traces)
+		messages := buildHRToolCallingMessages(req, history, userMessage, traces, governance)
+		if len(messages) > 0 {
+			messages[0].Content += "\n\n" + plan.InstructionBlock()
+		}
+		summaryStore, summaryGenerator := s.hrSummaryDependencies()
+		budgetController := newHRContextBudgetController(ctx, result.runtimeModel, nil, req.GetMessage(), traces, governance, history, req.GetHrId(), session.ID, summaryStore, summaryGenerator)
+		messages, err = budgetController.prepare(ctx, messages, "completion_model_call")
+		result.contextUsage = budgetController.usage
+		if err != nil {
+			return result, err
+		}
+		selectedHistory := selectedHRHistoryRows(messages, history, userMessage)
+		summary := preparedHRSummary(messages)
+		renderCompletion := func() string {
+			prompt := renderHRProviderPrompt(req, selectedHistory, userMessage, traces, governance)
+			if summary != "" {
+				prompt = "Rolling conversation summary:\n" + summary + "\n\n" + prompt
+			}
+			return prompt + "\n\n" + plan.InstructionBlock()
+		}
+		contextPrompt := renderCompletion()
+		extraOmitted := 0
+		inputBudget := int64(budgetController.usage.GetInputBudgetTokens())
+		if result.runtimeModel.ContextWindowTokens > 0 {
+			for int64(estimateTokensConservative(contextPrompt)+6) > inputBudget && len(selectedHistory) > 0 {
+				selectedHistory = selectedHistory[1:]
+				extraOmitted++
+				contextPrompt = renderCompletion()
+			}
+			if int64(estimateTokensConservative(contextPrompt)+6) > inputBudget && summary != "" {
+				summary = ""
+				contextPrompt = renderCompletion()
+			}
+			if int64(estimateTokensConservative(contextPrompt)+6) > inputBudget {
+				budgetController.usage.BudgetStatus = "over_budget"
+				return result, &hrContextGuardError{code: hrContextBudgetExceededCode}
+			}
+		}
+		assemblyUsage := result.contextUsage
+		result.contextUsage = estimateHRCompletionContextUsage(result.runtimeModel, contextPrompt, req.GetMessage(), selectedHistory, userMessage, traces, governance)
+		result.contextUsage.OmittedMessageCount = assemblyUsage.GetOmittedMessageCount() + int32(extraOmitted)
+		result.contextUsage.SummaryApplied = summary != ""
 		if err := sendWithDisplay(&pb.ChatStreamResponse{Code: 0, Msg: "success", EventType: "context_usage", EventMessage: "context usage estimated", ContextUsage: result.contextUsage, CreatedAt: formatTime(time.Now())}, displayContextForPlanStep(plan, "compose_answer")); err != nil {
 			return result, err
 		}
 		if err := sendWithDisplay(&pb.ChatStreamResponse{Code: 0, Msg: "success", EventType: "generating", EventMessage: "calling model with HR context", CreatedAt: formatTime(time.Now())}, displayContextForPlanStep(plan, "compose_answer")); err != nil {
 			return result, err
 		}
-		reply, err = s.complete(ctx, contextPrompt, req.GetModelId(), hrRuntimeCompletionOptions(governance))
+		var completionResult commonsai.GenerateResult
+		completionResult, err = s.completeWithUsage(ctx, contextPrompt, result.modelID, hrRuntimeCompletionOptions(governance))
+		reply = completionResult.Content
+		result.billingTokenUsage = cloneTokenUsage(completionResult.TokenUsage)
+		if applyActualContextUsage(result.contextUsage, completionResult.TokenUsage) {
+			if emitErr := sendWithDisplay(&pb.ChatStreamResponse{Code: 0, Msg: "success", EventType: "context_usage", EventMessage: "provider context usage", ContextUsage: result.contextUsage, CreatedAt: formatTime(time.Now())}, displayContextForPlanStep(plan, "compose_answer")); emitErr != nil {
+				return result, emitErr
+			}
+		}
 		if err != nil {
 			if errors.Is(err, errAIProviderRequired) {
 				result.providerUnavailable = true
@@ -1305,11 +1423,25 @@ func (s *nativeAIService) runHRChatRuntimeWithOptions(ctx context.Context, req *
 	result.toolTraces = append([]ToolTraceRow(nil), traces...)
 	processContent := buildHRProcessContent(traces, result.contextUsage, result.fallbackUsed, governance, plan, s.hrRuntimeLabel())
 	if s.store != nil {
-		if _, err := s.store.AppendChatMessage(ctx, ChatMessageRow{OwnerRole: ownerRoleHR, OwnerID: req.GetHrId(), SessionID: session.ID, Role: "assistant", Content: reply, ProcessContent: processContent, ModelID: result.modelID, ModelName: result.modelName, AgentSkillIDs: hrRuntimeAgentSkillIDs(governance), AgentSkillNames: hrRuntimeAgentSkillNames(governance), CreatedAt: time.Now()}); err != nil {
+		if _, err := s.store.AppendChatMessage(ctx, ChatMessageRow{OwnerRole: ownerRoleHR, OwnerID: req.GetHrId(), SessionID: session.ID, Role: "assistant", Content: reply, ProcessContent: processContent, ModelID: result.modelID, ModelName: result.modelName, ContextUsage: result.contextUsage, AgentSkillIDs: hrRuntimeAgentSkillIDs(governance), AgentSkillNames: hrRuntimeAgentSkillNames(governance), CreatedAt: time.Now()}); err != nil {
 			return result, err
 		}
 	}
 	return result, nil
+}
+
+func (s *nativeAIService) hrSummaryDependencies() (hrSessionSummaryStore, sessionSummaryGenerator) {
+	var summaryStore hrSessionSummaryStore
+	if candidate, ok := s.store.(hrSessionSummaryStore); ok {
+		summaryStore = candidate
+	}
+	var generator sessionSummaryGenerator
+	if candidate, ok := s.provider.(sessionSummaryGenerator); ok {
+		generator = candidate
+	} else if candidate, ok := s.store.(sessionSummaryGenerator); ok {
+		generator = candidate
+	}
+	return summaryStore, generator
 }
 
 func findHRUserMessage(messages []ChatMessageRow, content string) ChatMessageRow {
@@ -1905,7 +2037,23 @@ func (s *nativeAIService) hrRecentMessages(ctx context.Context, hrID, sessionID 
 	if s == nil || s.store == nil || sessionID == 0 {
 		return nil, nil
 	}
+	if recent, ok := s.store.(recentChatMessageStore); ok {
+		return recent.ListRecentChatMessages(ctx, ownerRoleHR, hrID, sessionID, 20)
+	}
 	return s.store.ListChatMessages(ctx, ownerRoleHR, hrID, sessionID, 1, 20)
+}
+
+// hrContextMessages loads a bounded but substantially larger tail for budget
+// selection and rolling-summary coverage. Unknown-window degradation is still
+// capped to 20 by the assembler.
+func (s *nativeAIService) hrContextMessages(ctx context.Context, hrID, sessionID int64) ([]ChatMessageRow, error) {
+	if s == nil || s.store == nil || sessionID == 0 {
+		return nil, nil
+	}
+	if recent, ok := s.store.(recentChatMessageStore); ok {
+		return recent.ListRecentChatMessages(ctx, ownerRoleHR, hrID, sessionID, 200)
+	}
+	return s.store.ListChatMessages(ctx, ownerRoleHR, hrID, sessionID, 1, 200)
 }
 
 func (s *nativeAIService) loadHRRuntimeGovernance(ctx context.Context, req *pb.ChatRequest) (hrRuntimeGovernanceContext, error) {
@@ -2748,43 +2896,306 @@ func ensureHRCurrentMessage(messages []ChatMessageRow, current ChatMessageRow) [
 	return out
 }
 
-func estimateHRContextUsage(modelID int64, modelName, prompt, current string, traces []ToolTraceRow) *pb.ContextUsageInfo {
-	system := estimateTokens("你是 Smart Recruit 的 HR 招聘助手。")
-	currentTokens := estimateTokens(current)
-	toolTokens := 0
+// estimateHRMessagesContextUsage meters the exact message and tool-schema
+// values passed to the tool/ADK provider. Each input is assigned to exactly one
+// breakdown bucket, so the breakdown is a strict partition of the estimate.
+func estimateHRMessagesContextUsage(model RuntimeModelInfo, messages []*schema.Message, toolSchemas []*schema.ToolInfo, current string, traces []ToolTraceRow, governance hrRuntimeGovernanceContext) *pb.ContextUsageInfo {
+	var rawSystemTokens, recentTokens, currentTokens int64
+	currentIndex := -1
+	current = strings.TrimSpace(current)
+	for index := len(messages) - 1; index >= 0; index-- {
+		message := messages[index]
+		if message != nil && message.Role == schema.User && current != "" && strings.TrimSpace(message.Content) == current {
+			currentIndex = index
+			break
+		}
+	}
+	for index, message := range messages {
+		if message == nil {
+			continue
+		}
+		tokens := int64(estimateTokensConservative(message.Content))
+		switch {
+		case message.Role == schema.System:
+			rawSystemTokens += tokens
+		case index == currentIndex:
+			currentTokens += tokens
+		default:
+			recentTokens += tokens
+		}
+	}
+	skillTokens, rawSystemTokens := allocateKnownContextTokens(rawSystemTokens, estimateHRSkillFragmentTokens(governance))
+	toolResultTokens, systemTokens := allocateKnownContextTokens(rawSystemTokens, estimateHRToolTraceFragmentTokens(traces))
+	toolSchemaTokens := int64(estimateToolSchemaTokens(toolSchemas))
+	protocolTokens := int64(len(messages)*4 + 2)
+	return newEstimatedHRContextUsage(model, &pb.ContextUsageBreakdown{
+		SystemPromptTokens:     saturatingInt32(systemTokens),
+		RecentMessageTokens:    saturatingInt32(recentTokens),
+		CurrentMessageTokens:   saturatingInt32(currentTokens),
+		SkillTokens:            saturatingInt32(skillTokens),
+		ToolResultTokens:       saturatingInt32(toolResultTokens),
+		ToolSchemaTokens:       saturatingInt32(toolSchemaTokens),
+		ProtocolOverheadTokens: saturatingInt32(protocolTokens),
+	}, len(messages))
+}
+
+// estimateHRCompletionContextUsage meters the exact flattened prompt passed to
+// the completion provider. It is one provider input message plus its framing.
+func estimateHRCompletionContextUsage(model RuntimeModelInfo, prompt, current string, history []ChatMessageRow, currentRow ChatMessageRow, traces []ToolTraceRow, governance hrRuntimeGovernanceContext) *pb.ContextUsageInfo {
+	remaining := int64(estimateTokensConservative(prompt))
+	skillTokens, remaining := allocateKnownContextTokens(remaining, estimateHRSkillFragmentTokens(governance))
+	toolResultTokens, remaining := allocateKnownContextTokens(remaining, estimateHRToolTraceFragmentTokens(traces))
+
+	currentOccurrences := int64(1)
+	if currentRow.ID != 0 {
+		// renderHRProviderPrompt includes the current row in Recent conversation
+		// and also emits req.message in the final User section.
+		currentOccurrences = 2
+	}
+	currentWanted := int64(estimateTokensConservative(current)) * currentOccurrences
+	currentTokens, remaining := allocateKnownContextTokens(remaining, currentWanted)
+
+	var recentWanted int64
+	for _, message := range history {
+		if currentRow.ID != 0 && message.ID == currentRow.ID {
+			continue
+		}
+		recentWanted += int64(estimateTokensConservative(message.Content))
+	}
+	recentTokens, systemTokens := allocateKnownContextTokens(remaining, recentWanted)
+	return newEstimatedHRContextUsage(model, &pb.ContextUsageBreakdown{
+		SystemPromptTokens:     saturatingInt32(systemTokens),
+		RecentMessageTokens:    saturatingInt32(recentTokens),
+		CurrentMessageTokens:   saturatingInt32(currentTokens),
+		SkillTokens:            saturatingInt32(skillTokens),
+		ToolResultTokens:       saturatingInt32(toolResultTokens),
+		ProtocolOverheadTokens: 6,
+	}, 1)
+}
+
+func allocateKnownContextTokens(available, wanted int64) (allocated, remaining int64) {
+	if available <= 0 || wanted <= 0 {
+		return 0, maxInt64(available, 0)
+	}
+	if wanted > available {
+		wanted = available
+	}
+	return wanted, available - wanted
+}
+
+func estimateHRSkillFragmentTokens(governance hrRuntimeGovernanceContext) int64 {
+	var total int64
+	for _, skill := range governance.SelectedAgentSkills {
+		total += int64(estimateTokensConservative(skill.SkillMD))
+	}
+	return total
+}
+
+func estimateHRToolTraceFragmentTokens(traces []ToolTraceRow) int64 {
+	var total int64
 	for _, trace := range traces {
-		toolTokens += estimateTokens(trace.ResultContent) + estimateTokens(trace.ErrorMsg)
+		fragment := trace.ResultContent
+		if strings.TrimSpace(trace.ErrorMsg) != "" {
+			fragment = trace.ErrorMsg
+		}
+		total += int64(estimateTokensConservative(fragment))
 	}
-	promptTokens := estimateTokens(prompt)
-	window := int32(8192)
-	remaining := int32(math.Max(0, float64(int(window)-promptTokens)))
-	return &pb.ContextUsageInfo{
-		ModelId:                  modelID,
-		ModelName:                modelName,
-		ContextWindowTokens:      window,
-		MaxOutputTokens:          1024,
-		PromptTokensEstimated:    int32(promptTokens),
-		RemainingTokensEstimated: remaining,
-		UsageRatio:               float64(promptTokens) / float64(window),
-		Estimated:                true,
-		Source:                   "hr-agent-runtime",
-		Stage:                    "pre_generation",
-		Breakdown: &pb.ContextUsageBreakdown{
-			SystemPromptTokens:   int32(system),
-			CurrentMessageTokens: int32(currentTokens),
-			ToolResultTokens:     int32(toolTokens),
-			RecentMessageTokens:  int32(maxInt(promptTokens-system-currentTokens-toolTokens, 0)),
-		},
+	return total
+}
+
+func newEstimatedHRContextUsage(model RuntimeModelInfo, breakdown *pb.ContextUsageBreakdown, includedMessageCount int) *pb.ContextUsageInfo {
+	promptTokens := contextUsageBreakdownTotal(breakdown)
+	usage := newHRContextUsageEnvelope(model, promptTokens)
+	usage.PromptTokensEstimated = promptTokens
+	usage.Estimated = true
+	usage.Source = "conservative_estimator"
+	usage.Stage = "pre_generation"
+	usage.IncludedMessageCount = saturatingInt32(int64(maxInt(includedMessageCount, 0)))
+	usage.Breakdown = breakdown
+	return usage
+}
+
+func contextUsageBreakdownTotal(breakdown *pb.ContextUsageBreakdown) int32 {
+	if breakdown == nil {
+		return 0
 	}
+	total := int64(breakdown.GetSystemPromptTokens()) +
+		int64(breakdown.GetRecentMessageTokens()) +
+		int64(breakdown.GetSummaryTokens()) +
+		int64(breakdown.GetMemoryTokens()) +
+		int64(breakdown.GetCurrentMessageTokens()) +
+		int64(breakdown.GetSkillTokens()) +
+		int64(breakdown.GetToolResultTokens()) +
+		int64(breakdown.GetToolSchemaTokens()) +
+		int64(breakdown.GetProtocolOverheadTokens())
+	return saturatingInt32(total)
 }
 
 func estimateTokens(value string) int {
+	return estimateTokensConservative(value)
+}
+
+func estimateTokensConservative(value string) int {
 	trimmed := strings.TrimSpace(value)
 	if trimmed == "" {
 		return 0
 	}
-	runes := len([]rune(trimmed))
-	return maxInt((runes+3)/4, 1)
+	ascii := 0
+	nonASCII := 0
+	for _, r := range trimmed {
+		if r <= 0x7f {
+			ascii++
+		} else {
+			nonASCII++
+		}
+	}
+	return maxInt((ascii+3)/4+nonASCII, 1)
+}
+
+func estimateToolSchemaTokens(tools []*schema.ToolInfo) int {
+	total := 0
+	for _, tool := range tools {
+		if tool == nil {
+			continue
+		}
+		payload, err := json.Marshal(tool)
+		if err != nil {
+			continue
+		}
+		total += estimateTokensConservative(string(payload))
+	}
+	return total
+}
+
+func newHRContextUsageEnvelope(model RuntimeModelInfo, promptTokens int32) *pb.ContextUsageInfo {
+	usage := &pb.ContextUsageInfo{
+		ModelId:             model.ID,
+		ModelName:           model.Name,
+		ContextWindowTokens: model.ContextWindowTokens,
+		MaxOutputTokens:     model.MaxOutputTokens,
+		BudgetStatus:        "unknown_config",
+	}
+	window := int64(model.ContextWindowTokens)
+	maxOutput := int64(model.MaxOutputTokens)
+	if maxOutput < 0 {
+		usage.BudgetStatus = "invalid_config"
+		return usage
+	}
+	if window <= 0 {
+		return usage
+	}
+	safety := (window + 19) / 20
+	if safety < 256 {
+		safety = 256
+	}
+	if safety > 2048 {
+		safety = 2048
+	}
+	usage.SafetyMarginTokens = saturatingInt32(safety)
+	inputBudget := window - maxOutput - safety
+	usage.InputBudgetTokens = clampInt32(inputBudget)
+	if inputBudget <= 0 {
+		usage.BudgetStatus = "invalid_config"
+		return usage
+	}
+	prompt := int64(promptTokens)
+	usage.RemainingTokensEstimated = saturatingInt32(maxInt64(inputBudget-prompt, 0))
+	usage.UsageRatio = float64(prompt) / float64(window)
+	usage.BudgetUsageRatio = float64(prompt) / float64(inputBudget)
+	switch {
+	case usage.BudgetUsageRatio >= 0.75:
+		usage.BudgetStatus = "over_target"
+	case usage.BudgetUsageRatio >= 0.60:
+		usage.BudgetStatus = "approaching_target"
+	default:
+		usage.BudgetStatus = "within_budget"
+	}
+	return usage
+}
+
+func applyActualContextUsage(usage *pb.ContextUsageInfo, actual *schema.TokenUsage) bool {
+	if usage == nil || actual == nil {
+		return false
+	}
+	if actual.PromptTokens < 0 || actual.CompletionTokens < 0 || actual.TotalTokens < 0 {
+		return false
+	}
+	if actual.PromptTokens == 0 && actual.CompletionTokens == 0 && actual.TotalTokens == 0 {
+		return false
+	}
+	promptTokens := int64(actual.PromptTokens)
+	completionTokens := int64(actual.CompletionTokens)
+	totalTokens := int64(actual.TotalTokens)
+	// Some providers omit total or return a total smaller than the reported
+	// components. Use the larger value to avoid under-reporting while retaining
+	// a provider total that may legitimately include extra token classes.
+	componentTotal := promptTokens
+	if completionTokens > math.MaxInt64-componentTotal {
+		componentTotal = math.MaxInt64
+	} else {
+		componentTotal += completionTokens
+	}
+	if totalTokens < componentTotal {
+		totalTokens = componentTotal
+	}
+	usage.PromptTokensActual = saturatingInt32(promptTokens)
+	usage.CompletionTokensActual = saturatingInt32(completionTokens)
+	usage.TotalTokensActual = saturatingInt32(totalTokens)
+	usage.Estimated = false
+	usage.Source = "provider_actual"
+	usage.Stage = "final"
+	window := int64(usage.ContextWindowTokens)
+	if window > 0 {
+		usage.UsageRatio = float64(promptTokens) / float64(window)
+	}
+	inputBudget := int64(usage.InputBudgetTokens)
+	if inputBudget > 0 {
+		usage.RemainingTokensEstimated = saturatingInt32(maxInt64(inputBudget-promptTokens, 0))
+		usage.BudgetUsageRatio = float64(promptTokens) / float64(inputBudget)
+		switch {
+		case usage.BudgetUsageRatio >= 0.75:
+			usage.BudgetStatus = "over_target"
+		case usage.BudgetUsageRatio >= 0.60:
+			usage.BudgetStatus = "approaching_target"
+		default:
+			usage.BudgetStatus = "within_budget"
+		}
+	}
+	return true
+}
+
+func saturatingInt32(value int64) int32 {
+	if value <= 0 {
+		return 0
+	}
+	if value > math.MaxInt32 {
+		return math.MaxInt32
+	}
+	return int32(value)
+}
+
+func clampInt32(value int64) int32 {
+	if value > math.MaxInt32 {
+		return math.MaxInt32
+	}
+	if value < math.MinInt32 {
+		return math.MinInt32
+	}
+	return int32(value)
+}
+
+func applyToolMetadataContextUsage(usage *pb.ContextUsageInfo, metadata commonsai.ToolMetadata) bool {
+	// BillingTokenUsage is intentionally cumulative across model calls and is
+	// reserved for cost/audit reporting. The current context snapshot must use
+	// only the latest model call exposed by ContextTokenUsage.
+	return applyActualContextUsage(usage, metadata.ContextTokenUsage)
+}
+
+func maxInt64(a, b int64) int64 {
+	if a > b {
+		return a
+	}
+	return b
 }
 
 func toCommonsToolTraces(rows []ToolTraceRow) []commonsai.ToolTrace {
@@ -2855,12 +3266,7 @@ func buildHRProcessContent(traces []ToolTraceRow, usage *pb.ContextUsageInfo, fa
 		payload["display_summary"] = summary
 	}
 	if usage != nil {
-		payload["context_usage"] = map[string]any{
-			"prompt_tokens_estimated":    usage.GetPromptTokensEstimated(),
-			"remaining_tokens_estimated": usage.GetRemainingTokensEstimated(),
-			"source":                     usage.GetSource(),
-			"stage":                      usage.GetStage(),
-		}
+		payload["context_usage"] = contextUsagePayload(usage)
 	}
 	if governance.Agent != nil || governance.Prompt != nil || len(governance.SelectedAgentSkills) > 0 || governance.AgentSkillSelectionMode != "" || len(governance.GovernanceErrors) > 0 {
 		payload["governance"] = map[string]any{
@@ -3210,8 +3616,8 @@ func (s *nativeAIService) recordHRUsageAudit(ctx context.Context, req *pb.ChatRe
 	}
 	requestChars := len([]rune(strings.TrimSpace(req.GetMessage())))
 	responseChars := len([]rune(result.reply))
-	tokenTotal := 0
-	if result.contextUsage != nil {
+	tokenTotal := tokenUsageTotal(result.billingTokenUsage)
+	if tokenTotal <= 0 && result.contextUsage != nil {
 		tokenTotal = int(result.contextUsage.GetTotalTokensActual())
 		if tokenTotal <= 0 {
 			tokenTotal = int(result.contextUsage.GetPromptTokensActual() + result.contextUsage.GetCompletionTokensActual())
@@ -3248,6 +3654,24 @@ func (s *nativeAIService) recordHRUsageAudit(ctx context.Context, req *pb.ChatRe
 		ResourceID:      req.GetApplicationId(),
 	})
 	return err
+}
+
+func cloneTokenUsage(usage *schema.TokenUsage) *schema.TokenUsage {
+	if usage == nil {
+		return nil
+	}
+	cloned := *usage
+	return &cloned
+}
+
+func tokenUsageTotal(usage *schema.TokenUsage) int {
+	if usage == nil {
+		return 0
+	}
+	if usage.TotalTokens > 0 {
+		return usage.TotalTokens
+	}
+	return usage.PromptTokens + usage.CompletionTokens
 }
 
 type candidateUsageAuditOptions struct {
@@ -3563,7 +3987,7 @@ func normalizeConversationRole(role string) string {
 }
 
 func (s *nativeAIService) CandidateListSessions(ctx context.Context, req *pb.CandidateSessionListRequest) (*pb.ChatSessionListResponse, error) {
-	rows, total, err := s.listSessions(ctx, ownerRoleCandidate, req.GetUserId(), req.GetPage(), req.GetPageSize())
+	rows, total, err := s.listCandidateSessions(ctx, req)
 	if err != nil {
 		return nil, err
 	}
@@ -3571,9 +3995,22 @@ func (s *nativeAIService) CandidateListSessions(ctx context.Context, req *pb.Can
 }
 
 func (s *nativeAIService) CandidateCreateSession(ctx context.Context, req *pb.CandidateCreateSessionRequest) (*pb.CreateChatSessionResponse, error) {
-	session, err := s.ensureSession(ctx, ownerRoleCandidate, req.GetUserId(), 0, 0, req.GetTitle())
+	session, err := s.ensureSessionWithOptions(ctx, ownerRoleCandidate, req.GetUserId(), 0, 0, req.GetTitle(), ChatSessionCreateOptions{
+		SessionType: req.GetSessionType(),
+		SourceType:  req.GetSourceType(),
+		SourceID:    req.GetSourceId(),
+		SourceTitle: req.GetSourceTitle(),
+	})
 	if err != nil {
 		return nil, err
+	}
+	if initial := strings.TrimSpace(req.GetInitialMessage()); initial != "" {
+		if _, err := s.store.AppendChatMessage(ctx, ChatMessageRow{
+			OwnerRole: ownerRoleCandidate, OwnerID: req.GetUserId(), SessionID: session.ID,
+			Role: "user", Content: initial, CreatedAt: time.Now(),
+		}); err != nil {
+			return nil, err
+		}
 	}
 	return &pb.CreateChatSessionResponse{Code: 0, Msg: "success", Session: mapChatSession(session)}, nil
 }
@@ -3604,6 +4041,22 @@ func (s *nativeAIService) CandidateDeleteSession(ctx context.Context, req *pb.Ca
 		return nil, err
 	}
 	return commonOK(), nil
+}
+
+func (s *nativeAIService) listCandidateSessions(ctx context.Context, req *pb.CandidateSessionListRequest) ([]ChatSessionRow, int64, error) {
+	if s.store == nil {
+		return nil, 0, errAIStoreRequired
+	}
+	filter := ChatSessionListFilter{
+		Keyword:     req.GetKeyword(),
+		SessionType: req.GetSessionType(),
+		SourceType:  req.GetSourceType(),
+		SourceID:    req.GetSourceId(),
+	}
+	if enhanced, ok := s.store.(enhancedChatSessionStore); ok {
+		return enhanced.ListChatSessionsWithFilter(ctx, ownerRoleCandidate, req.GetUserId(), req.GetPage(), req.GetPageSize(), filter)
+	}
+	return s.listSessions(ctx, ownerRoleCandidate, req.GetUserId(), req.GetPage(), req.GetPageSize())
 }
 
 func (s *nativeAIService) GetToolTraces(ctx context.Context, req *pb.GetToolTracesRequest) (*pb.GetToolTracesResponse, error) {
@@ -3948,6 +4401,10 @@ func (s *nativeAIService) updateAgentRunConfirmation(ctx context.Context, run Ag
 }
 
 func (s *nativeAIService) ensureSession(ctx context.Context, ownerRole int32, ownerID, sessionID, applicationID int64, seed string) (ChatSessionRow, error) {
+	return s.ensureSessionWithOptions(ctx, ownerRole, ownerID, sessionID, applicationID, seed, ChatSessionCreateOptions{})
+}
+
+func (s *nativeAIService) ensureSessionWithOptions(ctx context.Context, ownerRole int32, ownerID, sessionID, applicationID int64, seed string, opts ChatSessionCreateOptions) (ChatSessionRow, error) {
 	if s.store == nil {
 		return ChatSessionRow{}, errAIStoreRequired
 	}
@@ -3968,6 +4425,9 @@ func (s *nativeAIService) ensureSession(ctx context.Context, ownerRole int32, ow
 	if len([]rune(title)) > 32 {
 		title = string([]rune(title)[:32])
 	}
+	if enhanced, ok := s.store.(enhancedChatSessionStore); ok {
+		return enhanced.EnsureChatSessionWithOptions(ctx, ownerRole, ownerID, title, applicationID, opts)
+	}
 	return s.store.EnsureChatSession(ctx, ownerRole, ownerID, title, applicationID)
 }
 
@@ -3976,41 +4436,56 @@ func (s *nativeAIService) missingStore() bool {
 }
 
 func (s *nativeAIService) complete(ctx context.Context, prompt string, modelID int64, opts ...ChatCompletionOptions) (string, error) {
+	result, err := s.completeWithUsage(ctx, prompt, modelID, opts...)
+	return result.Content, err
+}
+
+func (s *nativeAIService) completeWithUsage(ctx context.Context, prompt string, modelID int64, opts ...ChatCompletionOptions) (commonsai.GenerateResult, error) {
 	if s.provider == nil {
-		return "", errAIProviderRequired
+		return commonsai.GenerateResult{}, errAIProviderRequired
 	}
 	var completionOpts ChatCompletionOptions
 	if len(opts) > 0 {
 		completionOpts = opts[0]
 	}
+	if usageAware, ok := s.provider.(UsageAwareRuntimeOptionsChatProvider); ok {
+		result, err := usageAware.CompleteWithOptionsAndUsage(ctx, prompt, modelID, completionOpts)
+		if err != nil {
+			return commonsai.GenerateResult{}, err
+		}
+		if strings.TrimSpace(result.Content) == "" {
+			result.Content = "AI provider returned an empty response."
+		}
+		return result, nil
+	}
 	if optionsAware, ok := s.provider.(RuntimeOptionsChatProvider); ok && completionOpts.TemperatureOverride != nil {
 		reply, err := optionsAware.CompleteWithOptions(ctx, prompt, modelID, completionOpts)
 		if err != nil {
-			return "", err
+			return commonsai.GenerateResult{}, err
 		}
 		if strings.TrimSpace(reply) == "" {
-			return "AI provider returned an empty response.", nil
+			reply = "AI provider returned an empty response."
 		}
-		return reply, nil
+		return commonsai.GenerateResult{Content: reply}, nil
 	}
 	if modelAware, ok := s.provider.(ModelAwareChatProvider); ok {
 		reply, err := modelAware.CompleteWithModel(ctx, prompt, modelID)
 		if err != nil {
-			return "", err
+			return commonsai.GenerateResult{}, err
 		}
 		if strings.TrimSpace(reply) == "" {
-			return "AI provider returned an empty response.", nil
+			reply = "AI provider returned an empty response."
 		}
-		return reply, nil
+		return commonsai.GenerateResult{Content: reply}, nil
 	}
 	reply, err := s.provider.Complete(ctx, prompt)
 	if err != nil {
-		return "", err
+		return commonsai.GenerateResult{}, err
 	}
 	if strings.TrimSpace(reply) == "" {
-		return "AI provider returned an empty response.", nil
+		reply = "AI provider returned an empty response."
 	}
-	return reply, nil
+	return commonsai.GenerateResult{Content: reply}, nil
 }
 
 func (s *nativeAIService) dispatchAgentRun(run AgentRunRow) {
@@ -4162,14 +4637,19 @@ func (s *nativeAIService) finishAgentRunFailed(ctx context.Context, run AgentRun
 	if isTerminalAgentRunStatus(current.Status) {
 		return nil
 	}
+	errorType := "provider"
 	errorMessage := runErr.Error()
-	if _, eventErr := s.appendAgentRunEvent(storeCtx, run.ID, "run.error", fmt.Sprintf(`{"status":%q,"error_type":"provider","error_message":%q}`, agentRunStatusFailed, errorMessage)); eventErr != nil {
+	if contextCode := hrContextErrorCode(runErr); contextCode != "" {
+		errorType = contextCode
+		errorMessage = contextCode
+	}
+	if _, eventErr := s.appendAgentRunEvent(storeCtx, run.ID, "run.error", fmt.Sprintf(`{"status":%q,"error_type":%q,"error_message":%q}`, agentRunStatusFailed, errorType, errorMessage)); eventErr != nil {
 		return eventErr
 	}
-	if _, _, completeErr := s.store.CompleteAgentRun(storeCtx, run.OwnerID, run.ID, "", agentRunStatusFailed, "provider", errorMessage); completeErr != nil {
+	if _, _, completeErr := s.store.CompleteAgentRun(storeCtx, run.OwnerID, run.ID, "", agentRunStatusFailed, errorType, errorMessage); completeErr != nil {
 		return completeErr
 	}
-	_, eventErr := s.appendAgentRunEvent(storeCtx, run.ID, "run.completed", fmt.Sprintf(`{"status":%q,"error_type":"provider","error_message":%q}`, agentRunStatusFailed, errorMessage))
+	_, eventErr := s.appendAgentRunEvent(storeCtx, run.ID, "run.completed", fmt.Sprintf(`{"status":%q,"error_type":%q,"error_message":%q}`, agentRunStatusFailed, errorType, errorMessage))
 	return eventErr
 }
 
@@ -4384,18 +4864,42 @@ func contextUsagePayload(usage *pb.ContextUsageInfo) map[string]any {
 	if usage == nil {
 		return nil
 	}
-	return map[string]any{
+	payload := map[string]any{
 		"model_id":                   usage.GetModelId(),
 		"model_name":                 usage.GetModelName(),
 		"context_window_tokens":      usage.GetContextWindowTokens(),
 		"max_output_tokens":          usage.GetMaxOutputTokens(),
 		"prompt_tokens_estimated":    usage.GetPromptTokensEstimated(),
+		"prompt_tokens_actual":       usage.GetPromptTokensActual(),
+		"completion_tokens_actual":   usage.GetCompletionTokensActual(),
+		"total_tokens_actual":        usage.GetTotalTokensActual(),
 		"remaining_tokens_estimated": usage.GetRemainingTokensEstimated(),
 		"usage_ratio":                usage.GetUsageRatio(),
+		"input_budget_tokens":        usage.GetInputBudgetTokens(),
+		"safety_margin_tokens":       usage.GetSafetyMarginTokens(),
+		"budget_usage_ratio":         usage.GetBudgetUsageRatio(),
+		"budget_status":              usage.GetBudgetStatus(),
+		"included_message_count":     usage.GetIncludedMessageCount(),
+		"omitted_message_count":      usage.GetOmittedMessageCount(),
+		"summary_applied":            usage.GetSummaryApplied(),
 		"estimated":                  usage.GetEstimated(),
 		"source":                     usage.GetSource(),
 		"stage":                      usage.GetStage(),
 	}
+	if breakdown := usage.GetBreakdown(); breakdown != nil {
+		payload["breakdown"] = map[string]any{
+			"system_prompt_tokens":     breakdown.GetSystemPromptTokens(),
+			"recent_message_tokens":    breakdown.GetRecentMessageTokens(),
+			"summary_tokens":           breakdown.GetSummaryTokens(),
+			"memory_tokens":            breakdown.GetMemoryTokens(),
+			"current_message_tokens":   breakdown.GetCurrentMessageTokens(),
+			"skill_tokens":             breakdown.GetSkillTokens(),
+			"tool_result_tokens":       breakdown.GetToolResultTokens(),
+			"tool_schema_tokens":       breakdown.GetToolSchemaTokens(),
+			"protocol_overhead_tokens": breakdown.GetProtocolOverheadTokens(),
+		}
+	}
+	return payload
 }
 
 func modelDisplayName(modelID int64) string {
@@ -4406,21 +4910,32 @@ func modelDisplayName(modelID int64) string {
 }
 
 func (s *nativeAIService) resolveRuntimeModelDisplay(ctx context.Context, requestedModelID int64) (int64, string, string) {
-	fallbackID := requestedModelID
-	fallbackName := modelDisplayName(requestedModelID)
-	fallbackProvider := ""
+	info := s.resolveRuntimeModelInfo(ctx, requestedModelID)
+	return info.ID, info.Name, info.ProviderName
+}
+
+func (s *nativeAIService) resolveRuntimeModelInfo(ctx context.Context, requestedModelID int64) RuntimeModelInfo {
+	fallback := RuntimeModelInfo{ID: requestedModelID, Name: modelDisplayName(requestedModelID)}
 	if s == nil || s.store == nil {
-		return fallbackID, fallbackName, fallbackProvider
+		return fallback
+	}
+	if resolver, ok := s.store.(llmRuntimeModelInfoResolver); ok {
+		info, found, err := resolver.ResolveLLMRuntimeModelInfo(ctx, requestedModelID)
+		if err == nil && found && strings.TrimSpace(info.Name) != "" {
+			info.Name = strings.TrimSpace(info.Name)
+			info.ProviderName = strings.TrimSpace(info.ProviderName)
+			return info
+		}
 	}
 	if resolver, ok := s.store.(llmRuntimeModelResolver); ok {
 		id, name, providerName, found, err := resolver.ResolveLLMRuntimeModel(ctx, requestedModelID)
 		if err == nil && found && strings.TrimSpace(name) != "" {
-			return id, strings.TrimSpace(name), strings.TrimSpace(providerName)
+			return RuntimeModelInfo{ID: id, Name: strings.TrimSpace(name), ProviderName: strings.TrimSpace(providerName)}
 		}
 	}
 	rows, _, err := s.store.ListLlmModels(ctx, 1, 200, 0)
 	if err != nil || len(rows) == 0 {
-		return fallbackID, fallbackName, fallbackProvider
+		return fallback
 	}
 	var firstEnabled *pb.LlmModelInfo
 	for _, row := range rows {
@@ -4431,16 +4946,29 @@ func (s *nativeAIService) resolveRuntimeModelDisplay(ctx context.Context, reques
 			firstEnabled = row
 		}
 		if requestedModelID > 0 && row.GetId() == requestedModelID {
-			return row.GetId(), llmModelDisplayName(row), strings.TrimSpace(row.GetProviderName())
+			return runtimeModelInfoFromProto(row)
 		}
 		if requestedModelID <= 0 && row.GetIsDefault() {
-			return row.GetId(), llmModelDisplayName(row), strings.TrimSpace(row.GetProviderName())
+			return runtimeModelInfoFromProto(row)
 		}
 	}
 	if requestedModelID <= 0 && firstEnabled != nil {
-		return firstEnabled.GetId(), llmModelDisplayName(firstEnabled), strings.TrimSpace(firstEnabled.GetProviderName())
+		return runtimeModelInfoFromProto(firstEnabled)
 	}
-	return fallbackID, fallbackName, fallbackProvider
+	return fallback
+}
+
+func runtimeModelInfoFromProto(model *pb.LlmModelInfo) RuntimeModelInfo {
+	if model == nil {
+		return RuntimeModelInfo{}
+	}
+	return RuntimeModelInfo{
+		ID:                  model.GetId(),
+		Name:                llmModelDisplayName(model),
+		ProviderName:        strings.TrimSpace(model.GetProviderName()),
+		ContextWindowTokens: model.GetContextWindowTokens(),
+		MaxOutputTokens:     model.GetMaxTokens(),
+	}
 }
 
 func llmModelDisplayName(model *pb.LlmModelInfo) string {
@@ -6327,7 +6855,21 @@ func commonOK() *pb.CommonResponse {
 }
 
 func mapChatSession(row ChatSessionRow) *pb.ChatSession {
-	return &pb.ChatSession{SessionId: row.ID, Title: row.Title, ApplicationId: row.ApplicationID, CreatedAt: formatTime(row.CreatedAt), UpdatedAt: formatTime(row.UpdatedAt)}
+	return &pb.ChatSession{
+		SessionId:          row.ID,
+		Title:              row.Title,
+		ApplicationId:      row.ApplicationID,
+		CreatedAt:          formatTime(row.CreatedAt),
+		UpdatedAt:          formatTime(row.UpdatedAt),
+		SessionType:        row.SessionType,
+		SourceType:         row.SourceType,
+		SourceId:           row.SourceID,
+		SourceTitle:        row.SourceTitle,
+		Summary:            row.Summary,
+		LastMessagePreview: row.LastMessagePreview,
+		MessageCount:       row.MessageCount,
+		LatestContextUsage: row.LatestContextUsage,
+	}
 }
 
 func mapChatSessions(rows []ChatSessionRow) []*pb.ChatSession {
@@ -6347,6 +6889,7 @@ func mapChatMessages(rows []ChatMessageRow) []*pb.ChatMessage {
 			ProcessContent:  row.ProcessContent,
 			ModelId:         row.ModelID,
 			ModelName:       row.ModelName,
+			ContextUsage:    row.ContextUsage,
 			AgentSkillIds:   append([]int64(nil), row.AgentSkillIDs...),
 			AgentSkillNames: append([]string(nil), row.AgentSkillNames...),
 			CreatedAt:       formatTime(row.CreatedAt),

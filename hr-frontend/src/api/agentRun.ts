@@ -17,6 +17,7 @@ import router from '@/router'
 import { ElMessage } from 'element-plus'
 import request from './request'
 import { silentRefresh } from './authRefresh'
+import { contextGuardCodeFrom, contextGuardMessage } from '@/utils/contextUsage'
 
 const RUNS_BASE = '/api/v1/hr/ai/runs'
 
@@ -60,7 +61,9 @@ const parseSSEBlock = (block: string): { id?: string; data: string } => {
   return { id, data: dataLines.join('\n') }
 }
 
-const friendlyStreamMsg = (code: number, msg: string): string => {
+export const friendlyAgentRunStreamMsg = (code: number, msg: string): string => {
+  const guardMessage = contextGuardMessage(contextGuardCodeFrom(msg))
+  if (guardMessage) return guardMessage
   if (code === 42901) return msg || '今日 AI 使用次数已达上限，请明天再试'
   if (code === 42902) return msg || 'AI 请求太频繁，请稍后再试'
   if (code === 429) return msg || '请求过于频繁，请稍后再试'
@@ -181,7 +184,7 @@ export const subscribeAgentRunEvents = async (
         useAuthStore().$reset()
         router.push('/login')
       }
-      ElMessage.error(friendlyStreamMsg(code, message))
+      ElMessage.error(friendlyAgentRunStreamMsg(code, message))
       handlers.onDone?.()
       return
     }

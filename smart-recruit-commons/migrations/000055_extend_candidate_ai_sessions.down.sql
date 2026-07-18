@@ -1,0 +1,10 @@
+ALTER TABLE `ai_chat_sessions`
+  DROP KEY `idx_owner_source`,
+  DROP KEY `idx_owner_type_updated`,
+  DROP COLUMN `message_count`,
+  DROP COLUMN `last_message_preview`,
+  DROP COLUMN `summary`,
+  DROP COLUMN `source_title`,
+  DROP COLUMN `source_id`,
+  DROP COLUMN `source_type`,
+  DROP COLUMN `session_type`;

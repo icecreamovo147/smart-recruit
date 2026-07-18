@@ -65,6 +65,35 @@ func TestCandidateChatAggregatesStreamResponse(t *testing.T) {
 	}
 }
 
+func TestMapContextUsageIncludesBudgetAndBreakdownFields(t *testing.T) {
+	mapped := mapContextUsage(&pb.ContextUsageInfo{
+		InputBudgetTokens:    6758,
+		SafetyMarginTokens:   410,
+		BudgetUsageRatio:     0.25,
+		BudgetStatus:         "within_budget",
+		IncludedMessageCount: 12,
+		OmittedMessageCount:  3,
+		SummaryApplied:       true,
+		Breakdown: &pb.ContextUsageBreakdown{
+			ToolSchemaTokens:       44,
+			ProtocolOverheadTokens: 50,
+		},
+	})
+	if mapped["input_budget_tokens"] != int32(6758) || mapped["budget_status"] != "within_budget" {
+		t.Fatalf("budget mapping incomplete: %#v", mapped)
+	}
+	if mapped["included_message_count"] != int32(12) || mapped["omitted_message_count"] != int32(3) || mapped["summary_applied"] != true {
+		t.Fatalf("message/summary mapping incomplete: %#v", mapped)
+	}
+	breakdown, ok := mapped["breakdown"].(map[string]any)
+	if !ok {
+		t.Fatalf("breakdown type = %T, want map[string]any", mapped["breakdown"])
+	}
+	if breakdown["tool_schema_tokens"] != int32(44) || breakdown["protocol_overhead_tokens"] != int32(50) {
+		t.Fatalf("breakdown mapping incomplete: %#v", breakdown)
+	}
+}
+
 func TestCandidateChatForwardsModelID(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	aiClient := &candidateChatAIClient{
@@ -182,7 +211,7 @@ func TestCandidateListAvailableModelsFiltersDisabled(t *testing.T) {
 		Data struct {
 			Total int64 `json:"total"`
 			List  []struct {
-				ID       int64  `json:"id"`
+				ID        int64  `json:"id"`
 				ModelName string `json:"model_name"`
 			} `json:"list"`
 		} `json:"data"`

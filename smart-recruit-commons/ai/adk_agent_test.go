@@ -11,6 +11,7 @@ import (
 
 	"github.com/cloudwego/eino/adk"
 	"github.com/cloudwego/eino/components/tool"
+	"github.com/cloudwego/eino/schema"
 )
 
 func TestEscapeADKInstruction(t *testing.T) {
@@ -19,6 +20,23 @@ func TestEscapeADKInstruction(t *testing.T) {
 	expected := "使用 tool {{name}} 查询数据"
 	if got != expected {
 		t.Errorf("escapeADKInstruction(%q) = %q, want %q", input, got, expected)
+	}
+}
+
+func TestRecruitingAgentMiddlewarePreparesAuthoritativeState(t *testing.T) {
+	middleware := &RecruitingAgentMiddleware{PrepareMessages: func(_ context.Context, messages []*schema.Message, stage string) ([]*schema.Message, error) {
+		if stage != "adk_model_call" {
+			t.Fatalf("stage=%q", stage)
+		}
+		return append(messages, schema.SystemMessage("budgeted")), nil
+	}}
+	state := &adk.ChatModelAgentState{Messages: []*schema.Message{schema.UserMessage("hello")}}
+	_, rewritten, err := middleware.BeforeModelRewriteState(context.Background(), state, nil)
+	if err != nil {
+		t.Fatalf("rewrite: %v", err)
+	}
+	if len(rewritten.Messages) != 2 || rewritten.Messages[1].Content != "budgeted" {
+		t.Fatalf("messages=%v", rewritten.Messages)
 	}
 }
 

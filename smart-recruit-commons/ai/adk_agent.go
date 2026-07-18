@@ -29,6 +29,9 @@ type AgentRunInput struct {
 	// OnMessagesUpdated observes authoritative ADK message state before/after
 	// model calls so callers can compute context usage.
 	OnMessagesUpdated MessageUpdateCallback
+	// PrepareMessages rewrites the authoritative ADK state before every model
+	// iteration and may reject a call when its fixed envelope exceeds budget.
+	PrepareMessages MessagePrepareCallback
 	// State is an optional pre-created AgentRunState. When non-nil, tools
 	// and middleware share this state so business metadata (CandidateOptions,
 	// Action) written by tools flows back to the caller. When nil,
@@ -79,6 +82,7 @@ func (c *Client) ChatWithADKAgent(
 		OnToolExecuted:    onToolExecuted,
 		OnStatus:          onStatus,
 		OnMessagesUpdated: input.OnMessagesUpdated,
+		PrepareMessages:   input.PrepareMessages,
 	}
 
 	agent, err := adk.NewChatModelAgent(ctx, &adk.ChatModelAgentConfig{

@@ -6,6 +6,7 @@ import (
 	"errors"
 	"net/http"
 	"net/http/httptest"
+	"path/filepath"
 	"sync"
 	"sync/atomic"
 	"testing"
@@ -15,6 +16,7 @@ import (
 	"gorm.io/gorm"
 
 	recruitingruntime "smart-recruit-ai-agent-service/internal/application/recruiting_intelligence"
+	aiagentgrpc "smart-recruit-ai-agent-service/internal/interfaces/grpc"
 	commonsai "smart-recruit-commons/ai"
 )
 
@@ -226,9 +228,44 @@ func TestNativeStoreCompleteStructuredLateOldConfigCannotReplaceNewClient(t *tes
 	}
 }
 
+func TestNativeStoreResolvesContextConfigAndCompletionUsage(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(map[string]any{
+			"id": "usage-completion", "object": "chat.completion", "created": time.Now().Unix(),
+			"choices": []map[string]any{{"index": 0, "message": map[string]any{"role": "assistant", "content": "usage reply"}, "finish_reason": "stop"}},
+			"usage":   map[string]any{"prompt_tokens": 91, "completion_tokens": 9, "total_tokens": 100},
+		})
+	}))
+	t.Cleanup(server.Close)
+	store := newStructuredRuntimeTestStore(t, server.URL+"/v1", "usage-model", 1, 5)
+	if err := store.db.Model(&llmModelRecord{}).Where("id = ?", 1).Updates(map[string]any{
+		"context_window_tokens": 32768,
+		"max_tokens":            2048,
+	}).Error; err != nil {
+		t.Fatalf("update context config: %v", err)
+	}
+
+	info, found, err := store.ResolveLLMRuntimeModelInfo(context.Background(), 1)
+	if err != nil || !found {
+		t.Fatalf("ResolveLLMRuntimeModelInfo found=%v err=%v", found, err)
+	}
+	if info.ContextWindowTokens != 32768 || info.MaxOutputTokens != 2048 {
+		t.Fatalf("resolved context config = %d/%d, want 32768/2048", info.ContextWindowTokens, info.MaxOutputTokens)
+	}
+
+	result, err := store.CompleteWithOptionsAndUsage(context.Background(), "prompt", 1, aiagentgrpc.ChatCompletionOptions{})
+	if err != nil {
+		t.Fatalf("CompleteWithOptionsAndUsage: %v", err)
+	}
+	if result.Content != "usage reply" || result.TokenUsage == nil || result.TokenUsage.PromptTokens != 91 || result.TokenUsage.TotalTokens != 100 {
+		t.Fatalf("completion result = %+v", result)
+	}
+}
+
 func newStructuredRuntimeTestStore(t *testing.T, baseURL, model string, maxConcurrency, circuitThreshold int) *NativeStore {
 	t.Helper()
-	dsn := "file:" + t.Name() + "?mode=memory&cache=shared"
+	dsn := filepath.Join(t.TempDir(), "llm-runtime.db")
 	db, err := gorm.Open(sqlite.Open(dsn), &gorm.Config{})
 	if err != nil {
 		t.Fatalf("open sqlite: %v", err)

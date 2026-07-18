@@ -76,6 +76,7 @@ type RecruitingAgentMiddleware struct {
 	OnToolExecuted    ToolTraceCallback
 	OnStatus          func(eventType, eventMessage, errorType, toolName string) error
 	OnMessagesUpdated MessageUpdateCallback
+	PrepareMessages   MessagePrepareCallback
 }
 
 const adkContextUsageToolSeenKey = "smart_recruit.context_usage_tool_seen"
@@ -88,7 +89,17 @@ func (m *RecruitingAgentMiddleware) BeforeModelRewriteState(
 	state *adk.ChatModelAgentState,
 	mc *adk.ModelContext,
 ) (context.Context, *adk.ChatModelAgentState, error) {
-	if m.OnMessagesUpdated == nil || state == nil {
+	if state == nil {
+		return ctx, state, nil
+	}
+	if m.PrepareMessages != nil {
+		messages, err := m.PrepareMessages(ctx, state.Messages, "adk_model_call")
+		if err != nil {
+			return ctx, state, err
+		}
+		state.Messages = messages
+	}
+	if m.OnMessagesUpdated == nil {
 		return ctx, state, nil
 	}
 	if seen, _, err := adk.GetRunLocalValue(ctx, adkContextUsageToolSeenKey); err == nil {

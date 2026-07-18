@@ -103,29 +103,48 @@ func (s *NativeStore) CompleteWithModel(ctx context.Context, prompt string, mode
 }
 
 func (s *NativeStore) CompleteWithOptions(ctx context.Context, prompt string, modelID int64, opts aiagentgrpc.ChatCompletionOptions) (string, error) {
-	cfg, err := s.selectLLMRuntimeConfig(ctx, modelID, 0)
+	result, err := s.CompleteWithOptionsAndUsage(ctx, prompt, modelID, opts)
 	if err != nil {
 		return "", err
+	}
+	return result.Content, nil
+}
+
+func (s *NativeStore) CompleteWithOptionsAndUsage(ctx context.Context, prompt string, modelID int64, opts aiagentgrpc.ChatCompletionOptions) (commonsai.GenerateResult, error) {
+	cfg, err := s.selectLLMRuntimeConfig(ctx, modelID, 0)
+	if err != nil {
+		return commonsai.GenerateResult{}, err
 	}
 	if opts.TemperatureOverride != nil && *opts.TemperatureOverride > 0 {
 		cfg.Temperature = *opts.TemperatureOverride
 	}
 	client, err := s.newRuntimeClient(ctx, cfg)
 	if err != nil {
-		return "", err
+		return commonsai.GenerateResult{}, err
 	}
-	return client.GenerateRecruitingReply(ctx, prompt, commonsai.RecruitingStats{}, nil)
+	return client.GenerateRecruitingReplyWithUsage(ctx, prompt, commonsai.RecruitingStats{}, nil)
 }
 
 func (s *NativeStore) ResolveLLMRuntimeModel(ctx context.Context, modelID int64) (int64, string, string, bool, error) {
+	info, found, err := s.ResolveLLMRuntimeModelInfo(ctx, modelID)
+	return info.ID, info.Name, info.ProviderName, found, err
+}
+
+func (s *NativeStore) ResolveLLMRuntimeModelInfo(ctx context.Context, modelID int64) (aiagentgrpc.RuntimeModelInfo, bool, error) {
 	cfg, err := s.selectLLMRuntimeConfig(ctx, modelID, 0)
 	if err != nil {
-		return 0, "", "", false, err
+		return aiagentgrpc.RuntimeModelInfo{}, false, err
 	}
 	if cfg.ModelID <= 0 || strings.TrimSpace(cfg.Model) == "" {
-		return 0, "", "", false, nil
+		return aiagentgrpc.RuntimeModelInfo{}, false, nil
 	}
-	return cfg.ModelID, strings.TrimSpace(cfg.Model), auditProviderName(cfg.ProviderName, cfg.ProviderType), true, nil
+	return aiagentgrpc.RuntimeModelInfo{
+		ID:                  cfg.ModelID,
+		Name:                strings.TrimSpace(cfg.Model),
+		ProviderName:        auditProviderName(cfg.ProviderName, cfg.ProviderType),
+		ContextWindowTokens: int32(cfg.ContextWindowTokens),
+		MaxOutputTokens:     int32(cfg.MaxTokens),
+	}, true, nil
 }
 
 // ChatWithRecruitingTools runs the shared commons tool-calling loop against the
@@ -153,7 +172,7 @@ func (s *NativeStore) ChatWithRecruitingTools(
 	if err != nil {
 		return "", commonsai.ToolMetadata{}, err
 	}
-	return client.ChatWithToolsWithOptions(ctx, messages, tools, executor, hrID, onDelta, onToolExecuted, onStatus, commonsai.ToolLoopOptions{MaxRounds: opts.MaxIterations})
+	return client.ChatWithToolsWithOptions(ctx, messages, tools, executor, hrID, onDelta, onToolExecuted, onStatus, commonsai.ToolLoopOptions{MaxRounds: opts.MaxIterations, PrepareMessages: opts.PrepareMessages})
 }
 
 // ChatWithRecruitingADK runs HR chat through the Eino ADK ChatModelAgent path.
@@ -175,6 +194,9 @@ func (s *NativeStore) ChatWithRecruitingADK(
 	}
 	if opts.MaxIterations > 0 {
 		input.MaxIterations = opts.MaxIterations
+	}
+	if input.PrepareMessages == nil {
+		input.PrepareMessages = opts.PrepareMessages
 	}
 	client, err := s.newRuntimeClient(ctx, cfg)
 	if err != nil {

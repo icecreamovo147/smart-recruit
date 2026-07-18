@@ -113,6 +113,80 @@ func TestMapChatMessagesCopiesAgentSkillSlices(t *testing.T) {
 	}
 }
 
+func TestMapChatRowsExposeContextUsageSnapshots(t *testing.T) {
+	usage := &pb.ContextUsageInfo{ModelId: 7, PromptTokensEstimated: 123, Estimated: true}
+	session := mapChatSession(ChatSessionRow{ID: 101, LatestContextUsage: usage})
+	if session.GetLatestContextUsage() != usage {
+		t.Fatalf("latest context usage = %#v, want mapped snapshot", session.GetLatestContextUsage())
+	}
+	messages := mapChatMessages([]ChatMessageRow{{ID: 1, Role: "assistant", Content: "reply", ContextUsage: usage}})
+	if len(messages) != 1 || messages[0].GetContextUsage() != usage {
+		t.Fatalf("mapped messages = %#v, want context usage snapshot", messages)
+	}
+}
+
+func TestHRRecentMessagesUsesLatestTwentyInChronologicalOrder(t *testing.T) {
+	store := newFakeAIStore()
+	for index := 1; index <= 25; index++ {
+		store.seedChatMessage(ChatMessageRow{
+			OwnerRole: ownerRoleHR,
+			OwnerID:   77,
+			SessionID: 101,
+			Role:      "user",
+			Content:   fmt.Sprintf("message-%02d", index),
+			CreatedAt: time.Date(2026, 7, 17, 10, 0, index, 0, time.UTC),
+		})
+	}
+	service := &nativeAIService{store: store}
+
+	messages, err := service.hrRecentMessages(context.Background(), 77, 101)
+	if err != nil {
+		t.Fatalf("hrRecentMessages returned error: %v", err)
+	}
+	if len(messages) != 20 || messages[0].Content != "message-06" || messages[19].Content != "message-25" {
+		t.Fatalf("recent messages = %#v, want message-06 through message-25", messages)
+	}
+}
+
+func TestHRRecentMessagesFallsBackForStoreWithoutRecentCapability(t *testing.T) {
+	store := newFakeAIStore()
+	for index := 1; index <= 25; index++ {
+		store.seedChatMessage(ChatMessageRow{
+			OwnerRole: ownerRoleHR, OwnerID: 77, SessionID: 101,
+			Role: "user", Content: fmt.Sprintf("message-%02d", index),
+		})
+	}
+	service := &nativeAIService{store: &aiStoreWithoutRecent{AIStore: store}}
+
+	messages, err := service.hrRecentMessages(context.Background(), 77, 101)
+	if err != nil {
+		t.Fatalf("hrRecentMessages returned error: %v", err)
+	}
+	if len(messages) != 20 || messages[0].Content != "message-01" || messages[19].Content != "message-20" {
+		t.Fatalf("fallback messages = %#v, want legacy page-one behavior", messages)
+	}
+}
+
+func TestBuildHRToolCallingMessagesDoesNotDuplicateCurrentMessage(t *testing.T) {
+	current := ChatMessageRow{ID: 25, Role: "user", Content: "current question"}
+	messages := buildHRToolCallingMessages(
+		&pb.ChatRequest{Message: "current question"},
+		[]ChatMessageRow{{ID: 24, Role: "assistant", Content: "previous reply"}, current},
+		current,
+		nil,
+		hrRuntimeGovernanceContext{},
+	)
+	count := 0
+	for _, message := range messages {
+		if message != nil && message.Content == "current question" {
+			count++
+		}
+	}
+	if count != 1 {
+		t.Fatalf("current message count = %d, want 1; messages = %#v", count, messages)
+	}
+}
+
 func TestCreateApplicationAnalysisSessionSeedsPlannerRecognizableUserMessage(t *testing.T) {
 	store := newFakeAIStore()
 	service := &nativeAIService{store: store}
@@ -498,6 +572,9 @@ func TestCandidateChatStreamStripsSuggestedQuestionsPersistsCleanReplyAndAudits(
 	if got := store.messages[len(store.messages)-1].Content; got != "clean assistant reply" {
 		t.Fatalf("assistant content = %q, want clean reply", got)
 	}
+	if process := store.messages[len(store.messages)-1].ProcessContent; !strings.Contains(process, `"suggested_questions":["Q1","Q2","Q3"]`) {
+		t.Fatalf("assistant process content = %q, want persisted suggested questions", process)
+	}
 	done := stream.responses[len(stream.responses)-1]
 	if got := done.GetSuggestedQuestions(); len(got) != 3 || got[0] != "Q1" || got[2] != "Q3" {
 		t.Fatalf("suggested questions = %#v", got)
@@ -507,6 +584,44 @@ func TestCandidateChatStreamStripsSuggestedQuestionsPersistsCleanReplyAndAudits(
 	}
 	if audit := store.usageAudits[0]; audit.UserID != 55 || audit.PermissionKey != "ai.candidate.use" || audit.Status != "ok" || audit.ResponseChars != len([]rune("clean assistant reply")) {
 		t.Fatalf("usage audit = %#v", audit)
+	}
+}
+
+func TestCandidateChatStreamNormalizesMarkdownBeforePersisting(t *testing.T) {
+	store := newFakeAIStore()
+	provider := &fakeCandidateADKProvider{
+		reply: "## 简历优化建议\n\n- **技能清单：** 建议改为垂直列表，例如：\n  ```  \n  - **Java 核心：** 精通集合、反射、泛型\n  - **Spring 生态：** 熟练 SpringBoot、MyBatis\n  ```\n\n• **荣誉证书：** 建议标注年份",
+	}
+	service := newCandidateAITestService(store, provider)
+	stream := &captureChatStream{ctx: context.Background()}
+
+	if err := service.CandidateChatStream(&pb.CandidateChatRequest{UserId: 55, Message: "帮我优化简历"}, stream); err != nil {
+		t.Fatalf("CandidateChatStream returned error: %v", err)
+	}
+
+	got := store.messages[len(store.messages)-1].Content
+	if strings.Contains(got, "```") {
+		t.Fatalf("assistant content still has prose markdown fence: %q", got)
+	}
+	for _, want := range []string{
+		"  - **Java 核心：** 精通集合、反射、泛型",
+		"  - **Spring 生态：** 熟练 SpringBoot、MyBatis",
+		"- **荣誉证书：** 建议标注年份",
+	} {
+		if !strings.Contains(got, want) {
+			t.Fatalf("assistant content = %q, missing %q", got, want)
+		}
+	}
+}
+
+func TestNormalizeCandidateMarkdownReplyKeepsRealCodeFence(t *testing.T) {
+	input := "请参考：\n\n```json\n{\"status\":\"ok\"}\n```\n\n- **下一步：** 上传简历"
+	got := normalizeCandidateMarkdownReply(input)
+	if !strings.Contains(got, "```json") || !strings.Contains(got, "{\"status\":\"ok\"}") {
+		t.Fatalf("normalized content = %q, want json code fence preserved", got)
+	}
+	if !strings.Contains(got, "- **下一步：** 上传简历") {
+		t.Fatalf("normalized content = %q, want markdown list preserved", got)
 	}
 }
 
@@ -653,7 +768,11 @@ func TestRecordHRUsageAuditUsesAgentRunEndpoint(t *testing.T) {
 		&pb.ChatRequest{HrId: 42, Message: "run ask", ApplicationId: 7},
 		hrChatRuntimeOptions{agentRunID: 1001},
 		true,
-		hrChatRuntimeResult{reply: "run reply", modelName: "qwen", providerName: "DeepSeek"},
+		hrChatRuntimeResult{
+			reply: "run reply", modelName: "qwen", providerName: "DeepSeek",
+			billingTokenUsage: &schema.TokenUsage{PromptTokens: 400, CompletionTokens: 50, TotalTokens: 450},
+			contextUsage:      &pb.ContextUsageInfo{PromptTokensActual: 120, CompletionTokensActual: 20, TotalTokensActual: 140},
+		},
 		"ok",
 		"",
 		time.Now(),
@@ -667,17 +786,24 @@ func TestRecordHRUsageAuditUsesAgentRunEndpoint(t *testing.T) {
 	if audit.Endpoint != "/hr/ai/agent-run" || audit.UserID != 42 || audit.ResourceID != 7 || audit.Model != "qwen" || audit.Provider != "DeepSeek" {
 		t.Fatalf("agent-run usage audit = %#v", audit)
 	}
+	if audit.TokenUsageTotal != 450 {
+		t.Fatalf("audit token total = %d, want cumulative billing usage 450", audit.TokenUsageTotal)
+	}
 }
 
 func TestResolveRuntimeModelDisplayReturnsProviderName(t *testing.T) {
 	store := newFakeAIStore()
 	store.llmModels = []*pb.LlmModelInfo{
-		{Id: 7, ModelName: "deepseek-v4-flash", ProviderName: "DeepSeek", IsEnabled: true, IsDefault: true},
+		{Id: 7, ModelName: "deepseek-v4-flash", ProviderName: "DeepSeek", IsEnabled: true, IsDefault: true, ContextWindowTokens: 32768, MaxTokens: 2048},
 	}
 	service := &nativeAIService{store: store}
 	id, modelName, providerName := service.resolveRuntimeModelDisplay(context.Background(), 7)
 	if id != 7 || modelName != "deepseek-v4-flash" || providerName != "DeepSeek" {
 		t.Fatalf("resolve = (%d, %q, %q), want (7, deepseek-v4-flash, DeepSeek)", id, modelName, providerName)
+	}
+	info := service.resolveRuntimeModelInfo(context.Background(), 7)
+	if info.ContextWindowTokens != 32768 || info.MaxOutputTokens != 2048 {
+		t.Fatalf("resolved context config = %d/%d, want 32768/2048", info.ContextWindowTokens, info.MaxOutputTokens)
 	}
 }
 
@@ -2214,6 +2340,7 @@ type fakeCandidateADKProvider struct {
 	fakeChatProvider
 	reply        string
 	err          error
+	metadata     commonsai.ToolMetadata
 	onRun        func(commonsai.AgentRunInput)
 	simulateTool func(onTool commonsai.ToolTraceCallback)
 	adkCalls     int
@@ -2234,7 +2361,7 @@ func (p *fakeCandidateADKProvider) ChatWithRecruitingADK(
 	if p.onRun != nil {
 		p.onRun(input)
 	}
-	meta := commonsai.ToolMetadata{}
+	meta := p.metadata
 	if p.simulateTool != nil && len(input.Tools) > 0 {
 		p.simulateTool(func(toolCallID, toolName, argsJSON, resultContent string, duration time.Duration, execErr error) {
 			meta.ToolTraces = append(meta.ToolTraces, commonsai.ToolTrace{
@@ -2327,9 +2454,12 @@ type fakeRecruitingToolProvider struct {
 	fakeChatProvider
 	reply     string
 	err       error
+	metadata  commonsai.ToolMetadata
 	toolCalls int
 	options   []ChatCompletionOptions
 	toolNames []string
+	modelIDs  []int64
+	messages  [][]*schema.Message
 }
 
 type fakeUnauthorizedRecruitingToolProvider struct {
@@ -2360,9 +2490,9 @@ func (p *fakeUnauthorizedRecruitingToolProvider) ChatWithRecruitingTools(
 
 func (p *fakeRecruitingToolProvider) ChatWithRecruitingTools(
 	_ context.Context,
-	_ int64,
+	modelID int64,
 	opts ChatCompletionOptions,
-	_ []*schema.Message,
+	messages []*schema.Message,
 	tools []*schema.ToolInfo,
 	_ commonsai.ToolRunner,
 	_ int64,
@@ -2372,12 +2502,14 @@ func (p *fakeRecruitingToolProvider) ChatWithRecruitingTools(
 ) (string, commonsai.ToolMetadata, error) {
 	p.toolCalls++
 	p.options = append(p.options, opts)
+	p.modelIDs = append(p.modelIDs, modelID)
+	p.messages = append(p.messages, append([]*schema.Message(nil), messages...))
 	for _, tool := range tools {
 		if tool != nil {
 			p.toolNames = append(p.toolNames, tool.Name)
 		}
 	}
-	return p.reply, commonsai.ToolMetadata{}, p.err
+	return p.reply, p.metadata, p.err
 }
 
 func (p *fakeChatProvider) Complete(_ context.Context, prompt string) (string, error) {
@@ -2470,6 +2602,10 @@ type activePromptCall struct {
 type fakeChatSessionOwner struct {
 	ownerRole int32
 	ownerID   int64
+}
+
+type aiStoreWithoutRecent struct {
+	AIStore
 }
 
 type fakeAIStore struct {
@@ -2574,7 +2710,11 @@ func (s *fakeAIStore) AppendChatMessage(_ context.Context, message ChatMessageRo
 }
 
 func (s *fakeAIStore) ListRecentChatMessages(ctx context.Context, ownerRole int32, ownerID, sessionID int64, limit int32) ([]ChatMessageRow, error) {
-	return s.ListChatMessages(ctx, ownerRole, ownerID, sessionID, 1, limit)
+	rows, err := s.ListChatMessages(ctx, ownerRole, ownerID, sessionID, 1, int32(len(s.messages)))
+	if err != nil || int32(len(rows)) <= limit {
+		return rows, err
+	}
+	return append([]ChatMessageRow(nil), rows[len(rows)-int(limit):]...), nil
 }
 
 func (s *fakeAIStore) ListChatMessages(_ context.Context, ownerRole int32, ownerID, sessionID int64, page, pageSize int32) ([]ChatMessageRow, error) {

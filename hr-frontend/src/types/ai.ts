@@ -63,6 +63,8 @@ export interface ContextUsageBreakdown {
   current_message_tokens: number
   skill_tokens: number
   tool_result_tokens: number
+  tool_schema_tokens?: number
+  protocol_overhead_tokens?: number
 }
 
 export interface ContextUsageInfo {
@@ -79,6 +81,13 @@ export interface ContextUsageInfo {
   estimated: boolean
   source: string
   stage: string
+  input_budget_tokens?: number
+  safety_margin_tokens?: number
+  budget_usage_ratio?: number
+  budget_status?: string
+  included_message_count?: number
+  omitted_message_count?: number
+  summary_applied?: boolean
   breakdown?: ContextUsageBreakdown
 }
 

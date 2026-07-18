@@ -68,6 +68,12 @@ import type { CapabilityInfo } from '@/types/agent'
 import type { LlmModel } from '@/types/llm'
 import type { AvailableAgentSkill } from '@/types/agentSkill'
 import { sanitizeAssistantProcessText } from '@/utils/hrAssistantProcess'
+import {
+  contextGuardCodeFrom,
+  contextGuardMessage,
+  contextUsageBelongsToSession,
+  resolveSessionContextUsage,
+} from '@/utils/contextUsage'
 
 interface MessageItem {
   role: string
@@ -87,6 +93,8 @@ interface MessageItem {
   agentSkillNames?: string[]
   pending?: boolean
   failed?: boolean
+  retryDisabled?: boolean
+  errorCode?: string
   waitingText?: string
   process_content?: string
   processContent?: string
@@ -354,66 +362,16 @@ const rememberContextUsage = (sessionId: number, usage: ContextUsageInfo) => {
   }
 }
 
-const applyModelToContextUsage = (usage: ContextUsageInfo, selectedModel: LlmModel): ContextUsageInfo => {
-  const promptTokens = (usage.prompt_tokens_actual && usage.prompt_tokens_actual > 0)
-    ? usage.prompt_tokens_actual
-    : (usage.prompt_tokens_estimated || 0)
-  const contextWindowTokens = selectedModel.context_window_tokens || 0
-  const maxOutputTokens = selectedModel.max_tokens || 0
-  const remainingTokens = contextWindowTokens > 0
-    ? Math.max(contextWindowTokens - promptTokens - maxOutputTokens, 0)
-    : 0
-  const usageRatio = contextWindowTokens > 0
-    ? Math.min(promptTokens / contextWindowTokens, 1)
-    : 0
-
-  return {
-    ...usage,
-    model_id: selectedModel.id,
-    model_name: selectedModel.model_name,
-    context_window_tokens: contextWindowTokens,
-    max_output_tokens: maxOutputTokens,
-    remaining_tokens_estimated: remainingTokens,
-    usage_ratio: usageRatio,
-  }
-}
-
-const restoreContextUsage = (sessionId: number) => {
-  try {
-    const raw = sessionStorage.getItem(contextUsageStorageKey(sessionId))
-    const restored = raw ? JSON.parse(raw) as ContextUsageInfo : null
-    const selectedModel = selectedModelId.value != null
-      ? modelList.value.find((model) => model.id === selectedModelId.value)
-      : null
-    contextUsage.value = restored && selectedModel
-      ? applyModelToContextUsage(restored, selectedModel)
-      : restored
-  } catch {
-    contextUsage.value = null
-  }
-}
-
-const latestMessageContextUsage = (items: MessageItem[]): ContextUsageInfo | null => {
-  for (let i = items.length - 1; i >= 0; i--) {
-    const usage = items[i]?.context_usage || items[i]?.contextUsage
-    if (usage) return usage
-  }
-  return null
-}
-
 const restorePersistedContextUsage = (session: Session, items: MessageItem[]) => {
-  const persisted = session.latest_context_usage || session.latestContextUsage || latestMessageContextUsage(items)
+  const persisted = resolveSessionContextUsage(session, items)
   if (persisted) {
-    const selectedModel = selectedModelId.value != null
-      ? modelList.value.find((model) => model.id === selectedModelId.value)
-      : null
-    contextUsage.value = selectedModel
-      ? applyModelToContextUsage(persisted, selectedModel)
-      : persisted
+    contextUsage.value = persisted
     rememberContextUsage(session.id, contextUsage.value)
     return
   }
-  restoreContextUsage(session.id)
+  // Server snapshots are authoritative. A session without usage must show a
+  // neutral placeholder instead of reviving a stale browser cache entry.
+  contextUsage.value = null
 }
 
 const forgetContextUsage = (sessionId: number) => {
@@ -529,17 +487,29 @@ const appendAssistantProcess = (index: number, delta: string) => {
   enqueueAssistantText(index, 'process', text)
 }
 
-const markAssistantError = (index: number, error: Error | null) => {
+const markAssistantError = (index: number, error: Error | null, explicitCode?: string) => {
   clearAssistantTextQueue()
   const message = messages.value[index]
-  const content = error?.message || '响应中断，请稍后重试'
+  const errorWithGuard = error as (Error & { contextGuardCode?: string }) | null
+  const guardCode = contextGuardCodeFrom(explicitCode, errorWithGuard?.contextGuardCode, error?.message, message?.errorCode)
+  const content = contextGuardMessage(guardCode) || error?.message || '响应中断，请稍后重试'
+  const retryDisabled = Boolean(guardCode)
   if (message?.role === 'assistant') {
-    messages.value[index] = { ...message, content, pending: false, failed: true }
+    messages.value[index] = { ...message, content, pending: false, failed: true, retryDisabled, ...(guardCode ? { errorCode: guardCode } : {}) }
   } else {
-    messages.value.push({ role: 'assistant', content, failed: true })
+    messages.value.push({ role: 'assistant', content, failed: true, retryDisabled, ...(guardCode ? { errorCode: guardCode } : {}) })
   }
   scrollBottom()
 }
+
+const safeAgentRunErrorMessage = (
+  error: Error | undefined,
+  errorType: string,
+  errorMessage: string,
+  fallback: string,
+): string => contextGuardMessage(contextGuardCodeFrom(errorType, errorMessage, error?.message))
+  || error?.message
+  || fallback
 
 const beginAgentRun = (): number => {
   activeRunToken.value += 1
@@ -564,7 +534,10 @@ const resultMetaToStreamPayload = (
   context_usage: (meta?.context_usage as ContextUsageInfo | undefined) || undefined,
 })
 
-const makeChatUiBinder = (assistantIndex: number): DurableChatUiBinder => ({
+const makeChatUiBinder = (
+  assistantIndex: number,
+  expectedSessionId: number | undefined = currentSession.value?.id,
+): DurableChatUiBinder => ({
   onAssistantDelta: (delta) => appendAssistantDelta(assistantIndex, delta),
   onAssistantSnapshot: (text) => {
     flushAssistantTextQueue(assistantIndex)
@@ -603,7 +576,7 @@ const makeChatUiBinder = (assistantIndex: number): DurableChatUiBinder => ({
   onContextUsage: (usage, sessionId) => {
     handleContextUsage({
       context_usage: usage,
-      session_id: sessionId || currentSession.value?.id || undefined,
+      session_id: sessionId || expectedSessionId,
     })
   },
   onCandidateOptions: (options) => {
@@ -620,8 +593,14 @@ const makeChatUiBinder = (assistantIndex: number): DurableChatUiBinder => ({
     if (!meta?.context_usage) return
     handleContextUsage({
       context_usage: meta.context_usage as ContextUsageInfo,
-      session_id: currentSession.value?.id || undefined,
+      session_id: expectedSessionId,
     })
+  },
+  onRunError: (errorType, errorMessage) => {
+    const guardCode = contextGuardCodeFrom(errorType, errorMessage)
+    if (guardCode) {
+      markAssistantError(assistantIndex, new Error(contextGuardMessage(guardCode) || ''), guardCode)
+    }
   },
 })
 
@@ -821,6 +800,7 @@ const selectSession = async (session: Session) => {
   }
   try {
     const data = await getSessionMessages(session.id, { page: 1, page_size: 100 })
+    if (currentSession.value?.id !== session.id) return
     messages.value = normalizeMessages(data.list || [])
     restorePersistedContextUsage(session, messages.value)
     router.replace({ path: '/hr/ai', query: { session_id: String(session.id) } })
@@ -1019,7 +999,7 @@ const createAnalysisSessionFromRoute = async () => {
       return true
     }
     if (result.outcome === 'failed') {
-      markAssistantError(assistantIndex, result.error || new Error('AI 分析请求失败，请稍后重试'))
+      markAssistantError(assistantIndex, result.error || new Error('AI 分析请求失败，请稍后重试'), result.state.errorType)
       return true
     }
     await waitForAssistantTextQueue(assistantIndex)
@@ -1125,8 +1105,8 @@ const analyzeCandidateOption = async (option: CandidateOption) => {
       return
     }
     if (result.outcome === 'failed') {
-      markAssistantError(assistantIndex, result.error || new Error('AI 流式响应失败'))
-      ElMessage.error(result.error?.message || 'AI 流式响应失败')
+      markAssistantError(assistantIndex, result.error || new Error('AI 流式响应失败'), result.state.errorType)
+      ElMessage.error(safeAgentRunErrorMessage(result.error, result.state.errorType, result.state.errorMessage, 'AI 流式响应失败'))
       return
     }
     await waitForAssistantTextQueue(assistantIndex)
@@ -1269,8 +1249,8 @@ const submitConfirmedSkillSelection = async (assistantIndex: number, skillIds: n
       return
     }
     if (result.outcome === 'failed') {
-      markAssistantError(assistantIndex, result.error || new Error('AI 流式响应失败'))
-      ElMessage.error(result.error?.message || 'AI 流式响应失败')
+      markAssistantError(assistantIndex, result.error || new Error('AI 流式响应失败'), result.state.errorType)
+      ElMessage.error(safeAgentRunErrorMessage(result.error, result.state.errorType, result.state.errorMessage, 'AI 流式响应失败'))
       return
     }
 
@@ -1349,8 +1329,8 @@ const submit = async () => {
     if (result.outcome === 'failed') {
       selectedAgentSkillIds.value = agentSkillIdsForMessage
       selectedSkillKeys.value = skillKeysForMessage
-      markAssistantError(assistantIndex, result.error || new Error('AI 流式响应失败'))
-      ElMessage.error(result.error?.message || 'AI 流式响应失败')
+      markAssistantError(assistantIndex, result.error || new Error('AI 流式响应失败'), result.state.errorType)
+      ElMessage.error(safeAgentRunErrorMessage(result.error, result.state.errorType, result.state.errorMessage, 'AI 流式响应失败'))
       return
     }
     await waitForAssistantTextQueue(assistantIndex)
@@ -1383,7 +1363,7 @@ const submit = async () => {
 
 const retry = async (failedIndex: number) => {
   const failedMsg = messages.value[failedIndex]
-  if (!failedMsg || failedMsg.role !== 'assistant' || !failedMsg.failed) return
+  if (!failedMsg || failedMsg.role !== 'assistant' || !failedMsg.failed || failedMsg.retryDisabled) return
 
   let lastUserContent = ''
   let lastUserSkillIds: number[] = []
@@ -1436,8 +1416,8 @@ const retry = async (failedIndex: number) => {
       return
     }
     if (result.outcome === 'failed') {
-      markAssistantError(assistantIndex, result.error || new Error('AI 流式响应失败'))
-      ElMessage.error(result.error?.message || 'AI 流式响应失败')
+      markAssistantError(assistantIndex, result.error || new Error('AI 流式响应失败'), result.state.errorType)
+      ElMessage.error(safeAgentRunErrorMessage(result.error, result.state.errorType, result.state.errorMessage, 'AI 流式响应失败'))
       return
     }
     await waitForAssistantTextQueue(assistantIndex)
@@ -1494,8 +1474,9 @@ const closeMenu = () => { menuSessionId.value = 0 }
 
 const handleContextUsage = (payload: StreamPayload) => {
   if (payload.context_usage) {
-    contextUsage.value = payload.context_usage
     const sessionId = payload.session_id || currentSession.value?.id || 0
+    if (!contextUsageBelongsToSession(sessionId, currentSession.value?.id)) return
+    contextUsage.value = payload.context_usage
     if (sessionId > 0) {
       rememberContextUsage(sessionId, payload.context_usage)
     }
@@ -1512,13 +1493,6 @@ watch(selectedModelId, (id) => {
     const m = modelList.value.find((x) => x.id === id)
     if (m) {
       modelName.value = m.display_name || m.model_name
-      if (contextUsage.value) {
-        contextUsage.value = applyModelToContextUsage(contextUsage.value, m)
-        const sessionId = currentSession.value?.id || 0
-        if (sessionId > 0) {
-          rememberContextUsage(sessionId, contextUsage.value)
-        }
-      }
     }
   }
 })

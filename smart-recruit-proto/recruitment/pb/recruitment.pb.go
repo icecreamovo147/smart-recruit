@@ -4146,16 +4146,18 @@ func (x *ChatRequest) GetAgentSkillSelectionMessageId() int64 {
 }
 
 type ContextUsageBreakdown struct {
-	state                protoimpl.MessageState `protogen:"open.v1"`
-	SystemPromptTokens   int32                  `protobuf:"varint,1,opt,name=system_prompt_tokens,json=systemPromptTokens,proto3" json:"system_prompt_tokens,omitempty"`
-	RecentMessageTokens  int32                  `protobuf:"varint,2,opt,name=recent_message_tokens,json=recentMessageTokens,proto3" json:"recent_message_tokens,omitempty"`
-	SummaryTokens        int32                  `protobuf:"varint,3,opt,name=summary_tokens,json=summaryTokens,proto3" json:"summary_tokens,omitempty"`
-	MemoryTokens         int32                  `protobuf:"varint,4,opt,name=memory_tokens,json=memoryTokens,proto3" json:"memory_tokens,omitempty"`
-	CurrentMessageTokens int32                  `protobuf:"varint,5,opt,name=current_message_tokens,json=currentMessageTokens,proto3" json:"current_message_tokens,omitempty"`
-	SkillTokens          int32                  `protobuf:"varint,6,opt,name=skill_tokens,json=skillTokens,proto3" json:"skill_tokens,omitempty"`
-	ToolResultTokens     int32                  `protobuf:"varint,7,opt,name=tool_result_tokens,json=toolResultTokens,proto3" json:"tool_result_tokens,omitempty"`
-	unknownFields        protoimpl.UnknownFields
-	sizeCache            protoimpl.SizeCache
+	state                  protoimpl.MessageState `protogen:"open.v1"`
+	SystemPromptTokens     int32                  `protobuf:"varint,1,opt,name=system_prompt_tokens,json=systemPromptTokens,proto3" json:"system_prompt_tokens,omitempty"`
+	RecentMessageTokens    int32                  `protobuf:"varint,2,opt,name=recent_message_tokens,json=recentMessageTokens,proto3" json:"recent_message_tokens,omitempty"`
+	SummaryTokens          int32                  `protobuf:"varint,3,opt,name=summary_tokens,json=summaryTokens,proto3" json:"summary_tokens,omitempty"`
+	MemoryTokens           int32                  `protobuf:"varint,4,opt,name=memory_tokens,json=memoryTokens,proto3" json:"memory_tokens,omitempty"`
+	CurrentMessageTokens   int32                  `protobuf:"varint,5,opt,name=current_message_tokens,json=currentMessageTokens,proto3" json:"current_message_tokens,omitempty"`
+	SkillTokens            int32                  `protobuf:"varint,6,opt,name=skill_tokens,json=skillTokens,proto3" json:"skill_tokens,omitempty"`
+	ToolResultTokens       int32                  `protobuf:"varint,7,opt,name=tool_result_tokens,json=toolResultTokens,proto3" json:"tool_result_tokens,omitempty"`
+	ToolSchemaTokens       int32                  `protobuf:"varint,8,opt,name=tool_schema_tokens,json=toolSchemaTokens,proto3" json:"tool_schema_tokens,omitempty"`
+	ProtocolOverheadTokens int32                  `protobuf:"varint,9,opt,name=protocol_overhead_tokens,json=protocolOverheadTokens,proto3" json:"protocol_overhead_tokens,omitempty"`
+	unknownFields          protoimpl.UnknownFields
+	sizeCache              protoimpl.SizeCache
 }
 
 func (x *ContextUsageBreakdown) Reset() {
@@ -4237,6 +4239,20 @@ func (x *ContextUsageBreakdown) GetToolResultTokens() int32 {
 	return 0
 }
 
+func (x *ContextUsageBreakdown) GetToolSchemaTokens() int32 {
+	if x != nil {
+		return x.ToolSchemaTokens
+	}
+	return 0
+}
+
+func (x *ContextUsageBreakdown) GetProtocolOverheadTokens() int32 {
+	if x != nil {
+		return x.ProtocolOverheadTokens
+	}
+	return 0
+}
+
 type ContextUsageInfo struct {
 	state                    protoimpl.MessageState `protogen:"open.v1"`
 	ModelId                  int64                  `protobuf:"varint,1,opt,name=model_id,json=modelId,proto3" json:"model_id,omitempty"`
@@ -4253,6 +4269,13 @@ type ContextUsageInfo struct {
 	Source                   string                 `protobuf:"bytes,12,opt,name=source,proto3" json:"source,omitempty"`
 	Stage                    string                 `protobuf:"bytes,13,opt,name=stage,proto3" json:"stage,omitempty"`
 	Breakdown                *ContextUsageBreakdown `protobuf:"bytes,14,opt,name=breakdown,proto3" json:"breakdown,omitempty"`
+	InputBudgetTokens        int32                  `protobuf:"varint,15,opt,name=input_budget_tokens,json=inputBudgetTokens,proto3" json:"input_budget_tokens,omitempty"`
+	SafetyMarginTokens       int32                  `protobuf:"varint,16,opt,name=safety_margin_tokens,json=safetyMarginTokens,proto3" json:"safety_margin_tokens,omitempty"`
+	BudgetUsageRatio         float64                `protobuf:"fixed64,17,opt,name=budget_usage_ratio,json=budgetUsageRatio,proto3" json:"budget_usage_ratio,omitempty"`
+	BudgetStatus             string                 `protobuf:"bytes,18,opt,name=budget_status,json=budgetStatus,proto3" json:"budget_status,omitempty"`
+	IncludedMessageCount     int32                  `protobuf:"varint,19,opt,name=included_message_count,json=includedMessageCount,proto3" json:"included_message_count,omitempty"`
+	OmittedMessageCount      int32                  `protobuf:"varint,20,opt,name=omitted_message_count,json=omittedMessageCount,proto3" json:"omitted_message_count,omitempty"`
+	SummaryApplied           bool                   `protobuf:"varint,21,opt,name=summary_applied,json=summaryApplied,proto3" json:"summary_applied,omitempty"`
 	unknownFields            protoimpl.UnknownFields
 	sizeCache                protoimpl.SizeCache
 }
@@ -4383,6 +4406,55 @@ func (x *ContextUsageInfo) GetBreakdown() *ContextUsageBreakdown {
 		return x.Breakdown
 	}
 	return nil
+}
+
+func (x *ContextUsageInfo) GetInputBudgetTokens() int32 {
+	if x != nil {
+		return x.InputBudgetTokens
+	}
+	return 0
+}
+
+func (x *ContextUsageInfo) GetSafetyMarginTokens() int32 {
+	if x != nil {
+		return x.SafetyMarginTokens
+	}
+	return 0
+}
+
+func (x *ContextUsageInfo) GetBudgetUsageRatio() float64 {
+	if x != nil {
+		return x.BudgetUsageRatio
+	}
+	return 0
+}
+
+func (x *ContextUsageInfo) GetBudgetStatus() string {
+	if x != nil {
+		return x.BudgetStatus
+	}
+	return ""
+}
+
+func (x *ContextUsageInfo) GetIncludedMessageCount() int32 {
+	if x != nil {
+		return x.IncludedMessageCount
+	}
+	return 0
+}
+
+func (x *ContextUsageInfo) GetOmittedMessageCount() int32 {
+	if x != nil {
+		return x.OmittedMessageCount
+	}
+	return 0
+}
+
+func (x *ContextUsageInfo) GetSummaryApplied() bool {
+	if x != nil {
+		return x.SummaryApplied
+	}
+	return false
 }
 
 type ChatResponse struct {
@@ -5431,6 +5503,13 @@ type ChatSession struct {
 	CreatedAt          string                 `protobuf:"bytes,4,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
 	UpdatedAt          string                 `protobuf:"bytes,5,opt,name=updated_at,json=updatedAt,proto3" json:"updated_at,omitempty"`
 	LatestContextUsage *ContextUsageInfo      `protobuf:"bytes,6,opt,name=latest_context_usage,json=latestContextUsage,proto3" json:"latest_context_usage,omitempty"`
+	SessionType        string                 `protobuf:"bytes,7,opt,name=session_type,json=sessionType,proto3" json:"session_type,omitempty"`
+	SourceType         string                 `protobuf:"bytes,8,opt,name=source_type,json=sourceType,proto3" json:"source_type,omitempty"`
+	SourceId           int64                  `protobuf:"varint,9,opt,name=source_id,json=sourceId,proto3" json:"source_id,omitempty"`
+	SourceTitle        string                 `protobuf:"bytes,10,opt,name=source_title,json=sourceTitle,proto3" json:"source_title,omitempty"`
+	Summary            string                 `protobuf:"bytes,11,opt,name=summary,proto3" json:"summary,omitempty"`
+	LastMessagePreview string                 `protobuf:"bytes,12,opt,name=last_message_preview,json=lastMessagePreview,proto3" json:"last_message_preview,omitempty"`
+	MessageCount       int32                  `protobuf:"varint,13,opt,name=message_count,json=messageCount,proto3" json:"message_count,omitempty"`
 	unknownFields      protoimpl.UnknownFields
 	sizeCache          protoimpl.SizeCache
 }
@@ -5505,6 +5584,55 @@ func (x *ChatSession) GetLatestContextUsage() *ContextUsageInfo {
 		return x.LatestContextUsage
 	}
 	return nil
+}
+
+func (x *ChatSession) GetSessionType() string {
+	if x != nil {
+		return x.SessionType
+	}
+	return ""
+}
+
+func (x *ChatSession) GetSourceType() string {
+	if x != nil {
+		return x.SourceType
+	}
+	return ""
+}
+
+func (x *ChatSession) GetSourceId() int64 {
+	if x != nil {
+		return x.SourceId
+	}
+	return 0
+}
+
+func (x *ChatSession) GetSourceTitle() string {
+	if x != nil {
+		return x.SourceTitle
+	}
+	return ""
+}
+
+func (x *ChatSession) GetSummary() string {
+	if x != nil {
+		return x.Summary
+	}
+	return ""
+}
+
+func (x *ChatSession) GetLastMessagePreview() string {
+	if x != nil {
+		return x.LastMessagePreview
+	}
+	return ""
+}
+
+func (x *ChatSession) GetMessageCount() int32 {
+	if x != nil {
+		return x.MessageCount
+	}
+	return 0
 }
 
 type ChatSessionListResponse struct {
@@ -6009,6 +6137,10 @@ type CandidateChatRequest struct {
 	Message       string                 `protobuf:"bytes,2,opt,name=message,proto3" json:"message,omitempty"`
 	SessionId     int64                  `protobuf:"varint,3,opt,name=session_id,json=sessionId,proto3" json:"session_id,omitempty"`
 	ModelId       int64                  `protobuf:"varint,4,opt,name=model_id,json=modelId,proto3" json:"model_id,omitempty"` // optional; 0 = default model
+	SessionType   string                 `protobuf:"bytes,5,opt,name=session_type,json=sessionType,proto3" json:"session_type,omitempty"`
+	SourceType    string                 `protobuf:"bytes,6,opt,name=source_type,json=sourceType,proto3" json:"source_type,omitempty"`
+	SourceId      int64                  `protobuf:"varint,7,opt,name=source_id,json=sourceId,proto3" json:"source_id,omitempty"`
+	SourceTitle   string                 `protobuf:"bytes,8,opt,name=source_title,json=sourceTitle,proto3" json:"source_title,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -6071,11 +6203,43 @@ func (x *CandidateChatRequest) GetModelId() int64 {
 	return 0
 }
 
+func (x *CandidateChatRequest) GetSessionType() string {
+	if x != nil {
+		return x.SessionType
+	}
+	return ""
+}
+
+func (x *CandidateChatRequest) GetSourceType() string {
+	if x != nil {
+		return x.SourceType
+	}
+	return ""
+}
+
+func (x *CandidateChatRequest) GetSourceId() int64 {
+	if x != nil {
+		return x.SourceId
+	}
+	return 0
+}
+
+func (x *CandidateChatRequest) GetSourceTitle() string {
+	if x != nil {
+		return x.SourceTitle
+	}
+	return ""
+}
+
 type CandidateSessionListRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	UserId        int64                  `protobuf:"varint,1,opt,name=user_id,json=userId,proto3" json:"user_id,omitempty"`
 	Page          int32                  `protobuf:"varint,2,opt,name=page,proto3" json:"page,omitempty"`
 	PageSize      int32                  `protobuf:"varint,3,opt,name=page_size,json=pageSize,proto3" json:"page_size,omitempty"`
+	Keyword       string                 `protobuf:"bytes,4,opt,name=keyword,proto3" json:"keyword,omitempty"`
+	SessionType   string                 `protobuf:"bytes,5,opt,name=session_type,json=sessionType,proto3" json:"session_type,omitempty"`
+	SourceType    string                 `protobuf:"bytes,6,opt,name=source_type,json=sourceType,proto3" json:"source_type,omitempty"`
+	SourceId      int64                  `protobuf:"varint,7,opt,name=source_id,json=sourceId,proto3" json:"source_id,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -6131,12 +6295,45 @@ func (x *CandidateSessionListRequest) GetPageSize() int32 {
 	return 0
 }
 
+func (x *CandidateSessionListRequest) GetKeyword() string {
+	if x != nil {
+		return x.Keyword
+	}
+	return ""
+}
+
+func (x *CandidateSessionListRequest) GetSessionType() string {
+	if x != nil {
+		return x.SessionType
+	}
+	return ""
+}
+
+func (x *CandidateSessionListRequest) GetSourceType() string {
+	if x != nil {
+		return x.SourceType
+	}
+	return ""
+}
+
+func (x *CandidateSessionListRequest) GetSourceId() int64 {
+	if x != nil {
+		return x.SourceId
+	}
+	return 0
+}
+
 type CandidateCreateSessionRequest struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	UserId        int64                  `protobuf:"varint,1,opt,name=user_id,json=userId,proto3" json:"user_id,omitempty"`
-	Title         string                 `protobuf:"bytes,2,opt,name=title,proto3" json:"title,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	state          protoimpl.MessageState `protogen:"open.v1"`
+	UserId         int64                  `protobuf:"varint,1,opt,name=user_id,json=userId,proto3" json:"user_id,omitempty"`
+	Title          string                 `protobuf:"bytes,2,opt,name=title,proto3" json:"title,omitempty"`
+	SessionType    string                 `protobuf:"bytes,3,opt,name=session_type,json=sessionType,proto3" json:"session_type,omitempty"`
+	SourceType     string                 `protobuf:"bytes,4,opt,name=source_type,json=sourceType,proto3" json:"source_type,omitempty"`
+	SourceId       int64                  `protobuf:"varint,5,opt,name=source_id,json=sourceId,proto3" json:"source_id,omitempty"`
+	SourceTitle    string                 `protobuf:"bytes,6,opt,name=source_title,json=sourceTitle,proto3" json:"source_title,omitempty"`
+	InitialMessage string                 `protobuf:"bytes,7,opt,name=initial_message,json=initialMessage,proto3" json:"initial_message,omitempty"`
+	unknownFields  protoimpl.UnknownFields
+	sizeCache      protoimpl.SizeCache
 }
 
 func (x *CandidateCreateSessionRequest) Reset() {
@@ -6179,6 +6376,41 @@ func (x *CandidateCreateSessionRequest) GetUserId() int64 {
 func (x *CandidateCreateSessionRequest) GetTitle() string {
 	if x != nil {
 		return x.Title
+	}
+	return ""
+}
+
+func (x *CandidateCreateSessionRequest) GetSessionType() string {
+	if x != nil {
+		return x.SessionType
+	}
+	return ""
+}
+
+func (x *CandidateCreateSessionRequest) GetSourceType() string {
+	if x != nil {
+		return x.SourceType
+	}
+	return ""
+}
+
+func (x *CandidateCreateSessionRequest) GetSourceId() int64 {
+	if x != nil {
+		return x.SourceId
+	}
+	return 0
+}
+
+func (x *CandidateCreateSessionRequest) GetSourceTitle() string {
+	if x != nil {
+		return x.SourceTitle
+	}
+	return ""
+}
+
+func (x *CandidateCreateSessionRequest) GetInitialMessage() string {
+	if x != nil {
+		return x.InitialMessage
 	}
 	return ""
 }
@@ -32577,7 +32809,7 @@ const file_proto_recruitment_proto_rawDesc = "" +
 	"\x15skill_capability_keys\x18\x06 \x03(\tR\x13skillCapabilityKeys\x12&\n" +
 	"\x0fagent_skill_ids\x18\a \x03(\x03R\ragentSkillIds\x12E\n" +
 	"\x1fagent_skill_selection_confirmed\x18\b \x01(\bR\x1cagentSkillSelectionConfirmed\x12F\n" +
-	" agent_skill_selection_message_id\x18\t \x01(\x03R\x1cagentSkillSelectionMessageId\"\xd0\x02\n" +
+	" agent_skill_selection_message_id\x18\t \x01(\x03R\x1cagentSkillSelectionMessageId\"\xb8\x03\n" +
 	"\x15ContextUsageBreakdown\x120\n" +
 	"\x14system_prompt_tokens\x18\x01 \x01(\x05R\x12systemPromptTokens\x122\n" +
 	"\x15recent_message_tokens\x18\x02 \x01(\x05R\x13recentMessageTokens\x12%\n" +
@@ -32585,7 +32817,9 @@ const file_proto_recruitment_proto_rawDesc = "" +
 	"\rmemory_tokens\x18\x04 \x01(\x05R\fmemoryTokens\x124\n" +
 	"\x16current_message_tokens\x18\x05 \x01(\x05R\x14currentMessageTokens\x12!\n" +
 	"\fskill_tokens\x18\x06 \x01(\x05R\vskillTokens\x12,\n" +
-	"\x12tool_result_tokens\x18\a \x01(\x05R\x10toolResultTokens\"\xed\x04\n" +
+	"\x12tool_result_tokens\x18\a \x01(\x05R\x10toolResultTokens\x12,\n" +
+	"\x12tool_schema_tokens\x18\b \x01(\x05R\x10toolSchemaTokens\x128\n" +
+	"\x18protocol_overhead_tokens\x18\t \x01(\x05R\x16protocolOverheadTokens\"\xb5\a\n" +
 	"\x10ContextUsageInfo\x12\x19\n" +
 	"\bmodel_id\x18\x01 \x01(\x03R\amodelId\x12\x1d\n" +
 	"\n" +
@@ -32603,7 +32837,14 @@ const file_proto_recruitment_proto_rawDesc = "" +
 	"\testimated\x18\v \x01(\bR\testimated\x12\x16\n" +
 	"\x06source\x18\f \x01(\tR\x06source\x12\x14\n" +
 	"\x05stage\x18\r \x01(\tR\x05stage\x12@\n" +
-	"\tbreakdown\x18\x0e \x01(\v2\".recruitment.ContextUsageBreakdownR\tbreakdown\"\x8c\x03\n" +
+	"\tbreakdown\x18\x0e \x01(\v2\".recruitment.ContextUsageBreakdownR\tbreakdown\x12.\n" +
+	"\x13input_budget_tokens\x18\x0f \x01(\x05R\x11inputBudgetTokens\x120\n" +
+	"\x14safety_margin_tokens\x18\x10 \x01(\x05R\x12safetyMarginTokens\x12,\n" +
+	"\x12budget_usage_ratio\x18\x11 \x01(\x01R\x10budgetUsageRatio\x12#\n" +
+	"\rbudget_status\x18\x12 \x01(\tR\fbudgetStatus\x124\n" +
+	"\x16included_message_count\x18\x13 \x01(\x05R\x14includedMessageCount\x122\n" +
+	"\x15omitted_message_count\x18\x14 \x01(\x05R\x13omittedMessageCount\x12'\n" +
+	"\x0fsummary_applied\x18\x15 \x01(\bR\x0esummaryApplied\"\x8c\x03\n" +
 	"\fChatResponse\x12\x12\n" +
 	"\x04code\x18\x01 \x01(\x05R\x04code\x12\x10\n" +
 	"\x03msg\x18\x02 \x01(\tR\x03msg\x12\x14\n" +
@@ -32711,7 +32952,7 @@ const file_proto_recruitment_proto_rawDesc = "" +
 	"\x16ChatSessionListRequest\x12\x13\n" +
 	"\x05hr_id\x18\x01 \x01(\x03R\x04hrId\x12\x12\n" +
 	"\x04page\x18\x02 \x01(\x05R\x04page\x12\x1b\n" +
-	"\tpage_size\x18\x03 \x01(\x05R\bpageSize\"\xf8\x01\n" +
+	"\tpage_size\x18\x03 \x01(\x05R\bpageSize\"\xed\x03\n" +
 	"\vChatSession\x12\x1d\n" +
 	"\n" +
 	"session_id\x18\x01 \x01(\x03R\tsessionId\x12\x14\n" +
@@ -32721,7 +32962,16 @@ const file_proto_recruitment_proto_rawDesc = "" +
 	"created_at\x18\x04 \x01(\tR\tcreatedAt\x12\x1d\n" +
 	"\n" +
 	"updated_at\x18\x05 \x01(\tR\tupdatedAt\x12O\n" +
-	"\x14latest_context_usage\x18\x06 \x01(\v2\x1d.recruitment.ContextUsageInfoR\x12latestContextUsage\"\xa2\x01\n" +
+	"\x14latest_context_usage\x18\x06 \x01(\v2\x1d.recruitment.ContextUsageInfoR\x12latestContextUsage\x12!\n" +
+	"\fsession_type\x18\a \x01(\tR\vsessionType\x12\x1f\n" +
+	"\vsource_type\x18\b \x01(\tR\n" +
+	"sourceType\x12\x1b\n" +
+	"\tsource_id\x18\t \x01(\x03R\bsourceId\x12!\n" +
+	"\fsource_title\x18\n" +
+	" \x01(\tR\vsourceTitle\x12\x18\n" +
+	"\asummary\x18\v \x01(\tR\asummary\x120\n" +
+	"\x14last_message_preview\x18\f \x01(\tR\x12lastMessagePreview\x12#\n" +
+	"\rmessage_count\x18\r \x01(\x05R\fmessageCount\"\xa2\x01\n" +
 	"\x17ChatSessionListResponse\x12\x12\n" +
 	"\x04code\x18\x01 \x01(\x05R\x04code\x12\x10\n" +
 	"\x03msg\x18\x02 \x01(\tR\x03msg\x12\x14\n" +
@@ -32759,20 +33009,36 @@ const file_proto_recruitment_proto_rawDesc = "" +
 	"\x14DeleteSessionRequest\x12\x13\n" +
 	"\x05hr_id\x18\x01 \x01(\x03R\x04hrId\x12\x1d\n" +
 	"\n" +
-	"session_id\x18\x02 \x01(\x03R\tsessionId\"\x83\x01\n" +
+	"session_id\x18\x02 \x01(\x03R\tsessionId\"\x87\x02\n" +
 	"\x14CandidateChatRequest\x12\x17\n" +
 	"\auser_id\x18\x01 \x01(\x03R\x06userId\x12\x18\n" +
 	"\amessage\x18\x02 \x01(\tR\amessage\x12\x1d\n" +
 	"\n" +
 	"session_id\x18\x03 \x01(\x03R\tsessionId\x12\x19\n" +
-	"\bmodel_id\x18\x04 \x01(\x03R\amodelId\"g\n" +
+	"\bmodel_id\x18\x04 \x01(\x03R\amodelId\x12!\n" +
+	"\fsession_type\x18\x05 \x01(\tR\vsessionType\x12\x1f\n" +
+	"\vsource_type\x18\x06 \x01(\tR\n" +
+	"sourceType\x12\x1b\n" +
+	"\tsource_id\x18\a \x01(\x03R\bsourceId\x12!\n" +
+	"\fsource_title\x18\b \x01(\tR\vsourceTitle\"\xe2\x01\n" +
 	"\x1bCandidateSessionListRequest\x12\x17\n" +
 	"\auser_id\x18\x01 \x01(\x03R\x06userId\x12\x12\n" +
 	"\x04page\x18\x02 \x01(\x05R\x04page\x12\x1b\n" +
-	"\tpage_size\x18\x03 \x01(\x05R\bpageSize\"N\n" +
+	"\tpage_size\x18\x03 \x01(\x05R\bpageSize\x12\x18\n" +
+	"\akeyword\x18\x04 \x01(\tR\akeyword\x12!\n" +
+	"\fsession_type\x18\x05 \x01(\tR\vsessionType\x12\x1f\n" +
+	"\vsource_type\x18\x06 \x01(\tR\n" +
+	"sourceType\x12\x1b\n" +
+	"\tsource_id\x18\a \x01(\x03R\bsourceId\"\xfb\x01\n" +
 	"\x1dCandidateCreateSessionRequest\x12\x17\n" +
 	"\auser_id\x18\x01 \x01(\x03R\x06userId\x12\x14\n" +
-	"\x05title\x18\x02 \x01(\tR\x05title\"\x8a\x01\n" +
+	"\x05title\x18\x02 \x01(\tR\x05title\x12!\n" +
+	"\fsession_type\x18\x03 \x01(\tR\vsessionType\x12\x1f\n" +
+	"\vsource_type\x18\x04 \x01(\tR\n" +
+	"sourceType\x12\x1b\n" +
+	"\tsource_id\x18\x05 \x01(\x03R\bsourceId\x12!\n" +
+	"\fsource_title\x18\x06 \x01(\tR\vsourceTitle\x12'\n" +
+	"\x0finitial_message\x18\a \x01(\tR\x0einitialMessage\"\x8a\x01\n" +
 	"\x1fCandidateSessionMessagesRequest\x12\x17\n" +
 	"\auser_id\x18\x01 \x01(\x03R\x06userId\x12\x1d\n" +
 	"\n" +

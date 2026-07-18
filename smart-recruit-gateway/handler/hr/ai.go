@@ -43,37 +43,7 @@ func (h *AIHandler) Chat(c *gin.Context) {
 		base.Internal(c, err)
 		return
 	}
-	var contextUsage map[string]any
-	if cu := resp.GetContextUsage(); cu != nil {
-		var breakdown map[string]any
-		if bd := cu.GetBreakdown(); bd != nil {
-			breakdown = gin.H{
-				"system_prompt_tokens":   bd.GetSystemPromptTokens(),
-				"recent_message_tokens":  bd.GetRecentMessageTokens(),
-				"summary_tokens":         bd.GetSummaryTokens(),
-				"memory_tokens":          bd.GetMemoryTokens(),
-				"current_message_tokens": bd.GetCurrentMessageTokens(),
-				"skill_tokens":           bd.GetSkillTokens(),
-				"tool_result_tokens":     bd.GetToolResultTokens(),
-			}
-		}
-		contextUsage = gin.H{
-			"model_id":                   cu.GetModelId(),
-			"model_name":                 cu.GetModelName(),
-			"context_window_tokens":      cu.GetContextWindowTokens(),
-			"max_output_tokens":          cu.GetMaxOutputTokens(),
-			"prompt_tokens_estimated":    cu.GetPromptTokensEstimated(),
-			"prompt_tokens_actual":       cu.GetPromptTokensActual(),
-			"completion_tokens_actual":   cu.GetCompletionTokensActual(),
-			"total_tokens_actual":        cu.GetTotalTokensActual(),
-			"remaining_tokens_estimated": cu.GetRemainingTokensEstimated(),
-			"usage_ratio":                cu.GetUsageRatio(),
-			"estimated":                  cu.GetEstimated(),
-			"source":                     cu.GetSource(),
-			"stage":                      cu.GetStage(),
-			"breakdown":                  breakdown,
-		}
-	}
+	contextUsage := mapHRContextUsage(resp.GetContextUsage())
 	base.From(c, resp.Code, resp.Msg, gin.H{
 		"reply":          resp.Reply,
 		"created_at":     resp.CreatedAt,
@@ -161,37 +131,7 @@ func (h *AIHandler) ChatStream(c *gin.Context) {
 				}
 				return
 			}
-			var contextUsage map[string]any
-			if cu := result.chunk.GetContextUsage(); cu != nil {
-				var breakdown map[string]any
-				if bd := cu.GetBreakdown(); bd != nil {
-					breakdown = gin.H{
-						"system_prompt_tokens":   bd.GetSystemPromptTokens(),
-						"recent_message_tokens":  bd.GetRecentMessageTokens(),
-						"summary_tokens":         bd.GetSummaryTokens(),
-						"memory_tokens":          bd.GetMemoryTokens(),
-						"current_message_tokens": bd.GetCurrentMessageTokens(),
-						"skill_tokens":           bd.GetSkillTokens(),
-						"tool_result_tokens":     bd.GetToolResultTokens(),
-					}
-				}
-				contextUsage = gin.H{
-					"model_id":                   cu.GetModelId(),
-					"model_name":                 cu.GetModelName(),
-					"context_window_tokens":      cu.GetContextWindowTokens(),
-					"max_output_tokens":          cu.GetMaxOutputTokens(),
-					"prompt_tokens_estimated":    cu.GetPromptTokensEstimated(),
-					"prompt_tokens_actual":       cu.GetPromptTokensActual(),
-					"completion_tokens_actual":   cu.GetCompletionTokensActual(),
-					"total_tokens_actual":        cu.GetTotalTokensActual(),
-					"remaining_tokens_estimated": cu.GetRemainingTokensEstimated(),
-					"usage_ratio":                cu.GetUsageRatio(),
-					"estimated":                  cu.GetEstimated(),
-					"source":                     cu.GetSource(),
-					"stage":                      cu.GetStage(),
-					"breakdown":                  breakdown,
-				}
-			}
+			contextUsage := mapHRContextUsage(result.chunk.GetContextUsage())
 			payload := gin.H{
 				"code":                  result.chunk.Code,
 				"msg":                   result.chunk.Msg,
@@ -785,41 +725,54 @@ func agentRunEventPayload(event *pb.AgentRunEvent) gin.H {
 	}
 }
 
+func mapHRContextUsage(cu *pb.ContextUsageInfo) map[string]any {
+	if cu == nil {
+		return nil
+	}
+	var breakdown map[string]any
+	if bd := cu.GetBreakdown(); bd != nil {
+		breakdown = gin.H{
+			"system_prompt_tokens":     bd.GetSystemPromptTokens(),
+			"recent_message_tokens":    bd.GetRecentMessageTokens(),
+			"summary_tokens":           bd.GetSummaryTokens(),
+			"memory_tokens":            bd.GetMemoryTokens(),
+			"current_message_tokens":   bd.GetCurrentMessageTokens(),
+			"skill_tokens":             bd.GetSkillTokens(),
+			"tool_result_tokens":       bd.GetToolResultTokens(),
+			"tool_schema_tokens":       bd.GetToolSchemaTokens(),
+			"protocol_overhead_tokens": bd.GetProtocolOverheadTokens(),
+		}
+	}
+	return gin.H{
+		"model_id":                   cu.GetModelId(),
+		"model_name":                 cu.GetModelName(),
+		"context_window_tokens":      cu.GetContextWindowTokens(),
+		"max_output_tokens":          cu.GetMaxOutputTokens(),
+		"prompt_tokens_estimated":    cu.GetPromptTokensEstimated(),
+		"prompt_tokens_actual":       cu.GetPromptTokensActual(),
+		"completion_tokens_actual":   cu.GetCompletionTokensActual(),
+		"total_tokens_actual":        cu.GetTotalTokensActual(),
+		"remaining_tokens_estimated": cu.GetRemainingTokensEstimated(),
+		"usage_ratio":                cu.GetUsageRatio(),
+		"estimated":                  cu.GetEstimated(),
+		"source":                     cu.GetSource(),
+		"stage":                      cu.GetStage(),
+		"breakdown":                  breakdown,
+		"input_budget_tokens":        cu.GetInputBudgetTokens(),
+		"safety_margin_tokens":       cu.GetSafetyMarginTokens(),
+		"budget_usage_ratio":         cu.GetBudgetUsageRatio(),
+		"budget_status":              cu.GetBudgetStatus(),
+		"included_message_count":     cu.GetIncludedMessageCount(),
+		"omitted_message_count":      cu.GetOmittedMessageCount(),
+		"summary_applied":            cu.GetSummaryApplied(),
+	}
+}
+
 func agentRunResultMetadataPayload(meta *pb.AgentRunResultMetadata) map[string]any {
 	if meta == nil {
 		return nil
 	}
-	var contextUsage map[string]any
-	if cu := meta.GetContextUsage(); cu != nil {
-		var breakdown map[string]any
-		if bd := cu.GetBreakdown(); bd != nil {
-			breakdown = gin.H{
-				"system_prompt_tokens":   bd.GetSystemPromptTokens(),
-				"recent_message_tokens":  bd.GetRecentMessageTokens(),
-				"summary_tokens":         bd.GetSummaryTokens(),
-				"memory_tokens":          bd.GetMemoryTokens(),
-				"current_message_tokens": bd.GetCurrentMessageTokens(),
-				"skill_tokens":           bd.GetSkillTokens(),
-				"tool_result_tokens":     bd.GetToolResultTokens(),
-			}
-		}
-		contextUsage = gin.H{
-			"model_id":                   cu.GetModelId(),
-			"model_name":                 cu.GetModelName(),
-			"context_window_tokens":      cu.GetContextWindowTokens(),
-			"max_output_tokens":          cu.GetMaxOutputTokens(),
-			"prompt_tokens_estimated":    cu.GetPromptTokensEstimated(),
-			"prompt_tokens_actual":       cu.GetPromptTokensActual(),
-			"completion_tokens_actual":   cu.GetCompletionTokensActual(),
-			"total_tokens_actual":        cu.GetTotalTokensActual(),
-			"remaining_tokens_estimated": cu.GetRemainingTokensEstimated(),
-			"usage_ratio":                cu.GetUsageRatio(),
-			"estimated":                  cu.GetEstimated(),
-			"source":                     cu.GetSource(),
-			"stage":                      cu.GetStage(),
-			"breakdown":                  breakdown,
-		}
-	}
+	contextUsage := mapHRContextUsage(meta.GetContextUsage())
 	return gin.H{
 		"action":              meta.GetAction(),
 		"application_id":      meta.GetApplicationId(),

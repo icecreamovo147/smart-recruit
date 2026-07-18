@@ -652,6 +652,8 @@ message ContextUsageBreakdown {
   int32 current_message_tokens = 5;
   int32 skill_tokens = 6;
   int32 tool_result_tokens = 7;
+  int32 tool_schema_tokens = 8;
+  int32 protocol_overhead_tokens = 9;
 }
 
 message ContextUsageInfo {
@@ -669,6 +671,13 @@ message ContextUsageInfo {
   string source = 12;
   string stage = 13;
   ContextUsageBreakdown breakdown = 14;
+  int32 input_budget_tokens = 15;
+  int32 safety_margin_tokens = 16;
+  double budget_usage_ratio = 17;
+  string budget_status = 18;
+  int32 included_message_count = 19;
+  int32 omitted_message_count = 20;
+  bool summary_applied = 21;
 }
 
 message ChatResponse {
@@ -798,6 +807,13 @@ message ChatSession {
   string created_at = 4;
   string updated_at = 5;
   ContextUsageInfo latest_context_usage = 6;
+  string session_type = 7;
+  string source_type = 8;
+  int64 source_id = 9;
+  string source_title = 10;
+  string summary = 11;
+  string last_message_preview = 12;
+  int32 message_count = 13;
 }
 
 message ChatSessionListResponse {
@@ -857,17 +873,30 @@ message CandidateChatRequest {
   string message = 2;
   int64 session_id = 3;
   int64 model_id = 4; // optional; 0 = default model
+  string session_type = 5;
+  string source_type = 6;
+  int64 source_id = 7;
+  string source_title = 8;
 }
 
 message CandidateSessionListRequest {
   int64 user_id = 1;
   int32 page = 2;
   int32 page_size = 3;
+  string keyword = 4;
+  string session_type = 5;
+  string source_type = 6;
+  int64 source_id = 7;
 }
 
 message CandidateCreateSessionRequest {
   int64 user_id = 1;
   string title = 2;
+  string session_type = 3;
+  string source_type = 4;
+  int64 source_id = 5;
+  string source_title = 6;
+  string initial_message = 7;
 }
 
 message CandidateSessionMessagesRequest {

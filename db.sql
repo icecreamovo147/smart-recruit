@@ -272,6 +272,13 @@ CREATE TABLE IF NOT EXISTS `ai_chat_sessions` (
   `owner_id` BIGINT UNSIGNED NOT NULL DEFAULT 0 COMMENT '归属用户ID',
   `title` VARCHAR(255) NOT NULL COMMENT '会话标题',
   `application_id` BIGINT UNSIGNED NOT NULL DEFAULT 0 COMMENT '绑定的投递记录ID，0表示普通数据问答',
+  `session_type` VARCHAR(32) NOT NULL DEFAULT 'general' COMMENT '会话类型：general/resume/job_match/interview/offer/progress',
+  `source_type` VARCHAR(32) NOT NULL DEFAULT '' COMMENT '来源类型：job/application/resume/interview/offer等',
+  `source_id` BIGINT UNSIGNED NOT NULL DEFAULT 0 COMMENT '来源业务ID',
+  `source_title` VARCHAR(255) NOT NULL DEFAULT '' COMMENT '来源标题',
+  `summary` VARCHAR(500) NOT NULL DEFAULT '' COMMENT '会话摘要',
+  `last_message_preview` VARCHAR(500) NOT NULL DEFAULT '' COMMENT '最近消息摘要',
+  `message_count` INT NOT NULL DEFAULT 0 COMMENT '会话消息数',
   `latest_context_usage_json` TEXT NULL COMMENT '当前会话最近一次上下文占用快照(JSON)',
   `active_run_id` BIGINT NULL COMMENT 'Current active agent_runs.id for this session',
   `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -281,6 +288,8 @@ CREATE TABLE IF NOT EXISTS `ai_chat_sessions` (
   KEY `idx_hr_updated_at` (`hr_id`, `updated_at`),
   KEY `idx_hr_deleted_updated` (`hr_id`, `deleted_at`, `updated_at`),
   KEY `idx_owner_deleted_updated` (`owner_role`, `owner_id`, `deleted_at`, `updated_at`),
+  KEY `idx_owner_type_updated` (`owner_role`, `owner_id`, `session_type`, `updated_at`),
+  KEY `idx_owner_source` (`owner_role`, `owner_id`, `source_type`, `source_id`),
   KEY `idx_application_id` (`application_id`),
   KEY `idx_ai_chat_sessions_active_run` (`active_run_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='AI 会话表';

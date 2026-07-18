@@ -29,19 +29,27 @@ func NewAIHandler(clients *rpc.Clients) *AIHandler {
 // Chat handles non-streaming candidate AI chat by aggregating the streaming RPC.
 func (h *AIHandler) Chat(c *gin.Context) {
 	var req struct {
-		Message   string         `json:"message" binding:"required"`
-		SessionID base.FlexInt64 `json:"session_id"`
-		ModelID   base.FlexInt64 `json:"model_id"`
+		Message     string         `json:"message" binding:"required"`
+		SessionID   base.FlexInt64 `json:"session_id"`
+		ModelID     base.FlexInt64 `json:"model_id"`
+		SessionType string         `json:"session_type"`
+		SourceType  string         `json:"source_type"`
+		SourceID    base.FlexInt64 `json:"source_id"`
+		SourceTitle string         `json:"source_title"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
 		base.BadRequest(c, "消息不能为空")
 		return
 	}
 	stream, err := h.clients.AI.CandidateChatStream(c.Request.Context(), &pb.CandidateChatRequest{
-		UserId:    middleware.UserID(c),
-		Message:   req.Message,
-		SessionId: int64(req.SessionID),
-		ModelId:   int64(req.ModelID),
+		UserId:      middleware.UserID(c),
+		Message:     req.Message,
+		SessionId:   int64(req.SessionID),
+		ModelId:     int64(req.ModelID),
+		SessionType: req.SessionType,
+		SourceType:  req.SourceType,
+		SourceId:    int64(req.SourceID),
+		SourceTitle: req.SourceTitle,
 	})
 	if err != nil {
 		base.Internal(c, err)
@@ -104,19 +112,27 @@ func (h *AIHandler) Chat(c *gin.Context) {
 // ChatStream handles SSE streaming candidate AI chat.
 func (h *AIHandler) ChatStream(c *gin.Context) {
 	var req struct {
-		Message   string         `json:"message" binding:"required"`
-		SessionID base.FlexInt64 `json:"session_id"`
-		ModelID   base.FlexInt64 `json:"model_id"`
+		Message     string         `json:"message" binding:"required"`
+		SessionID   base.FlexInt64 `json:"session_id"`
+		ModelID     base.FlexInt64 `json:"model_id"`
+		SessionType string         `json:"session_type"`
+		SourceType  string         `json:"source_type"`
+		SourceID    base.FlexInt64 `json:"source_id"`
+		SourceTitle string         `json:"source_title"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
 		base.BadRequest(c, "消息不能为空")
 		return
 	}
 	stream, err := h.clients.AI.CandidateChatStream(c.Request.Context(), &pb.CandidateChatRequest{
-		UserId:    middleware.UserID(c),
-		Message:   req.Message,
-		SessionId: int64(req.SessionID),
-		ModelId:   int64(req.ModelID),
+		UserId:      middleware.UserID(c),
+		Message:     req.Message,
+		SessionId:   int64(req.SessionID),
+		ModelId:     int64(req.ModelID),
+		SessionType: req.SessionType,
+		SourceType:  req.SourceType,
+		SourceId:    int64(req.SourceID),
+		SourceTitle: req.SourceTitle,
 	})
 	if err != nil {
 		base.Internal(c, err)
@@ -213,9 +229,13 @@ func (h *AIHandler) ChatStream(c *gin.Context) {
 func (h *AIHandler) ListSessions(c *gin.Context) {
 	page, pageSize := basePagination(c)
 	resp, err := h.clients.AI.CandidateListSessions(c.Request.Context(), &pb.CandidateSessionListRequest{
-		UserId:   middleware.UserID(c),
-		Page:     page,
-		PageSize: pageSize,
+		UserId:      middleware.UserID(c),
+		Page:        page,
+		PageSize:    pageSize,
+		Keyword:     c.Query("keyword"),
+		SessionType: c.Query("session_type"),
+		SourceType:  c.Query("source_type"),
+		SourceId:    queryInt64(c, "source_id"),
 	})
 	if err != nil {
 		base.Internal(c, err)
@@ -227,15 +247,25 @@ func (h *AIHandler) ListSessions(c *gin.Context) {
 // CreateSession creates a new AI chat session for the candidate.
 func (h *AIHandler) CreateSession(c *gin.Context) {
 	var req struct {
-		Title string `json:"title"`
+		Title          string         `json:"title"`
+		SessionType    string         `json:"session_type"`
+		SourceType     string         `json:"source_type"`
+		SourceID       base.FlexInt64 `json:"source_id"`
+		SourceTitle    string         `json:"source_title"`
+		InitialMessage string         `json:"initial_message"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
 		base.BadRequest(c, "请求参数格式错误")
 		return
 	}
 	resp, err := h.clients.AI.CandidateCreateSession(c.Request.Context(), &pb.CandidateCreateSessionRequest{
-		UserId: middleware.UserID(c),
-		Title:  req.Title,
+		UserId:         middleware.UserID(c),
+		Title:          req.Title,
+		SessionType:    req.SessionType,
+		SourceType:     req.SourceType,
+		SourceId:       int64(req.SourceID),
+		SourceTitle:    req.SourceTitle,
+		InitialMessage: req.InitialMessage,
 	})
 	if err != nil {
 		base.Internal(c, err)
@@ -361,6 +391,18 @@ func basePagination(c *gin.Context) (int32, int32) {
 	return page, pageSize
 }
 
+func queryInt64(c *gin.Context, key string) int64 {
+	value := strings.TrimSpace(c.Query(key))
+	if value == "" {
+		return 0
+	}
+	parsed, err := strconv.ParseInt(value, 10, 64)
+	if err != nil || parsed < 0 {
+		return 0
+	}
+	return parsed
+}
+
 func mustMarshal(v any) string {
 	b, _ := json.Marshal(v)
 	return string(b)
@@ -373,13 +415,15 @@ func mapContextUsage(cu *pb.ContextUsageInfo) map[string]any {
 	var breakdown map[string]any
 	if bd := cu.GetBreakdown(); bd != nil {
 		breakdown = gin.H{
-			"system_prompt_tokens":   bd.GetSystemPromptTokens(),
-			"recent_message_tokens":  bd.GetRecentMessageTokens(),
-			"summary_tokens":         bd.GetSummaryTokens(),
-			"memory_tokens":          bd.GetMemoryTokens(),
-			"current_message_tokens": bd.GetCurrentMessageTokens(),
-			"skill_tokens":           bd.GetSkillTokens(),
-			"tool_result_tokens":     bd.GetToolResultTokens(),
+			"system_prompt_tokens":     bd.GetSystemPromptTokens(),
+			"recent_message_tokens":    bd.GetRecentMessageTokens(),
+			"summary_tokens":           bd.GetSummaryTokens(),
+			"memory_tokens":            bd.GetMemoryTokens(),
+			"current_message_tokens":   bd.GetCurrentMessageTokens(),
+			"skill_tokens":             bd.GetSkillTokens(),
+			"tool_result_tokens":       bd.GetToolResultTokens(),
+			"tool_schema_tokens":       bd.GetToolSchemaTokens(),
+			"protocol_overhead_tokens": bd.GetProtocolOverheadTokens(),
 		}
 	}
 	return gin.H{
@@ -397,5 +441,12 @@ func mapContextUsage(cu *pb.ContextUsageInfo) map[string]any {
 		"source":                     cu.GetSource(),
 		"stage":                      cu.GetStage(),
 		"breakdown":                  breakdown,
+		"input_budget_tokens":        cu.GetInputBudgetTokens(),
+		"safety_margin_tokens":       cu.GetSafetyMarginTokens(),
+		"budget_usage_ratio":         cu.GetBudgetUsageRatio(),
+		"budget_status":              cu.GetBudgetStatus(),
+		"included_message_count":     cu.GetIncludedMessageCount(),
+		"omitted_message_count":      cu.GetOmittedMessageCount(),
+		"summary_applied":            cu.GetSummaryApplied(),
 	}
 }

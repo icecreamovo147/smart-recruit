@@ -103,7 +103,8 @@ type ToolRunner interface {
 // ToolLoopOptions applies to one Tool Calling request without mutating the
 // shared Client or its process-level defaults.
 type ToolLoopOptions struct {
-	MaxRounds int
+	MaxRounds       int
+	PrepareMessages MessagePrepareCallback
 }
 
 type Client struct {
@@ -497,8 +498,17 @@ func aiCallErrorField(err error, includeRawError bool) zap.Field {
 // GenerateRecruitingReply answers HR questions using recruiting statistics.
 // When onDelta is non-nil, uses streaming mode and calls onDelta for each chunk.
 func (c *Client) GenerateRecruitingReply(ctx context.Context, question string, stats RecruitingStats, onDelta func(string) error) (string, error) {
+	result, err := c.GenerateRecruitingReplyWithUsage(ctx, question, stats, onDelta)
+	return result.Content, err
+}
+
+// GenerateRecruitingReplyWithUsage is the usage-aware variant of
+// GenerateRecruitingReply. Providers do not always expose usage for streaming
+// responses; in that case TokenUsage is nil and callers must retain their
+// conservative pre-generation estimate.
+func (c *Client) GenerateRecruitingReplyWithUsage(ctx context.Context, question string, stats RecruitingStats, onDelta func(string) error) (GenerateResult, error) {
 	if c.cm == nil {
-		return "", fmt.Errorf("ai chat model is nil")
+		return GenerateResult{}, fmt.Errorf("ai chat model is nil")
 	}
 	start := time.Now()
 	msgs := buildRecruitingMessages(question, stats)
@@ -519,7 +529,7 @@ func (c *Client) GenerateRecruitingReply(ctx context.Context, question string, s
 			zap.Duration("cost", time.Since(start)),
 			zap.Error(err),
 		)
-		return reply, err
+		return GenerateResult{Content: reply}, err
 	}
 	var resp *schema.Message
 	err := c.call(ctx, func(callCtx context.Context) error {
@@ -534,10 +544,10 @@ func (c *Client) GenerateRecruitingReply(ctx context.Context, question string, s
 			zap.Duration("cost", time.Since(start)),
 			zap.Error(err),
 		)
-		return "", err
+		return GenerateResult{}, err
 	}
 	if strings.TrimSpace(resp.Content) == "" {
-		return "", NewAIError(AIEmptyReply, "", fmt.Errorf("ai returned empty reply"))
+		return GenerateResult{}, NewAIError(AIEmptyReply, "", fmt.Errorf("ai returned empty reply"))
 	}
 	logger.L().Info("ai recruiting call done",
 		append(TokenUsageLogFields(tokenUsageFromMessage(resp)),
@@ -548,7 +558,7 @@ func (c *Client) GenerateRecruitingReply(ctx context.Context, question string, s
 			zap.Duration("cost", time.Since(start)),
 		)...,
 	)
-	return resp.Content, nil
+	return GenerateResult{Content: resp.Content, TokenUsage: tokenUsageFromMessage(resp)}, nil
 }
 
 type GenerateResult struct {
@@ -706,6 +716,11 @@ type ToolTraceCallback func(toolCallID, toolName, argsJSON, resultContent string
 // during a tool-calling loop.
 type MessageUpdateCallback func(messages []*schema.Message, stage string) error
 
+// MessagePrepareCallback rewrites the exact message envelope immediately before
+// a model call. It is used for context-budget enforcement and therefore may
+// return an error to prevent the provider call.
+type MessagePrepareCallback func(ctx context.Context, messages []*schema.Message, stage string) ([]*schema.Message, error)
+
 // isContextCanceled returns true when the error is due to context cancellation
 // (user abort or connection drop) vs deadline exceeded (timeout).
 func isContextCanceled(err error) bool {
@@ -795,6 +810,14 @@ func (c *Client) ChatWithToolsWithMessageCallbackAndOptions(ctx context.Context,
 		default:
 		}
 
+		if opts.PrepareMessages != nil {
+			var prepareErr error
+			messages, prepareErr = opts.PrepareMessages(ctx, messages, "model_call")
+			if prepareErr != nil {
+				return "", metadata, prepareErr
+			}
+		}
+
 		elapsed := time.Since(start)
 		remaining := time.Duration(-1)
 		if c.totalTimeout > 0 {
@@ -805,7 +828,7 @@ func (c *Client) ChatWithToolsWithMessageCallbackAndOptions(ctx context.Context,
 					zap.Duration("elapsed", elapsed),
 					zap.Duration("total_budget", c.totalTimeout),
 				)
-				return c.finalAnswerWithoutTools(ctx, messages, metadata, streamingOnDelta, func() bool { return streamedOutput }, start, round)
+				return c.finalAnswerWithoutTools(ctx, messages, metadata, streamingOnDelta, func() bool { return streamedOutput }, start, round, opts.PrepareMessages)
 			}
 		}
 		logger.L().Info("[AI意图] 询问LLM，等待决策...",
@@ -866,7 +889,7 @@ func (c *Client) ChatWithToolsWithMessageCallbackAndOptions(ctx context.Context,
 					zap.Int("tool_count", len(resp.ToolCalls)),
 					zap.Duration("elapsed", time.Since(start)),
 				)
-				return c.finalAnswerWithoutTools(ctx, messages, metadata, streamingOnDelta, func() bool { return streamedOutput }, start, round)
+				return c.finalAnswerWithoutTools(ctx, messages, metadata, streamingOnDelta, func() bool { return streamedOutput }, start, round, opts.PrepareMessages)
 			}
 			if toolBudgetExhausted(toolCumulative, toolBudget) {
 				logger.L().Warn("[AI预算] 工具累计耗时超出预算，进入兜底",
@@ -874,7 +897,7 @@ func (c *Client) ChatWithToolsWithMessageCallbackAndOptions(ctx context.Context,
 					zap.Duration("tool_cumulative", toolCumulative),
 					zap.Duration("tool_budget", toolBudget),
 				)
-				return c.finalAnswerWithoutTools(ctx, messages, metadata, streamingOnDelta, func() bool { return streamedOutput }, start, round)
+				return c.finalAnswerWithoutTools(ctx, messages, metadata, streamingOnDelta, func() bool { return streamedOutput }, start, round, opts.PrepareMessages)
 			}
 			messages = append(messages, resp)
 
@@ -955,8 +978,15 @@ func (c *Client) ChatWithToolsWithMessageCallbackAndOptions(ctx context.Context,
 	}
 }
 
-func (c *Client) finalAnswerWithoutTools(ctx context.Context, messages []*schema.Message, metadata ToolMetadata, onDelta func(string) error, hasOutput func() bool, start time.Time, round int) (string, ToolMetadata, error) {
+func (c *Client) finalAnswerWithoutTools(ctx context.Context, messages []*schema.Message, metadata ToolMetadata, onDelta func(string) error, hasOutput func() bool, start time.Time, round int, prepare MessagePrepareCallback) (string, ToolMetadata, error) {
 	messages = append(messages, schema.SystemMessage("工具调用轮次已达到上限。请停止调用工具，必须仅基于当前对话和已经返回的工具结果直接回答用户；如果信息仍不足，请说明已查询到的信息和需要用户补充的具体条件。"))
+	if prepare != nil {
+		var err error
+		messages, err = prepare(ctx, messages, "fallback_model_call")
+		if err != nil {
+			return "", metadata, err
+		}
+	}
 
 	var result GenerateResult
 	err := c.callStreaming(ctx, func(callCtx context.Context) error {

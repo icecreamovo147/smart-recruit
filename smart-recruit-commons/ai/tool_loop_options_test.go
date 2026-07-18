@@ -117,3 +117,23 @@ func TestChatWithToolsCompatibilityWrapperUsesClientDefault(t *testing.T) {
 		t.Fatalf("tool calls=%d, want compatibility default to execute one tool", runner.calls)
 	}
 }
+
+func TestChatWithToolsPreparesEveryProviderCallIncludingFallback(t *testing.T) {
+	model := &loopOptionsModel{}
+	client := &Client{model: "prepare-test", cm: model, timeout: time.Second, toolMaxRounds: 5, sem: make(chan struct{}, 1), breaker: NewCircuitBreaker(2, time.Minute, 1)}
+	calls := 0
+	reply, _, err := client.ChatWithToolsWithOptions(
+		context.Background(), []*schema.Message{schema.UserMessage("jobs")}, []*schema.ToolInfo{{Name: "get_job_list"}}, &countingToolRunner{}, 1,
+		nil, nil, nil,
+		ToolLoopOptions{MaxRounds: 1, PrepareMessages: func(_ context.Context, messages []*schema.Message, _ string) ([]*schema.Message, error) {
+			calls++
+			return messages, nil
+		}},
+	)
+	if err != nil || reply != "final" {
+		t.Fatalf("reply=%q err=%v", reply, err)
+	}
+	if calls != 2 {
+		t.Fatalf("prepare calls=%d, want first model call and fallback call", calls)
+	}
+}

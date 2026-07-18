@@ -56,6 +56,8 @@ Markdown 输出硬性规范：
 5. 标题必须写成 "## 标题"，井号后必须有空格；标题前后各空一行。
 6. 多条记录必须使用 Markdown 列表逐条输出，每条记录一行。
 7. 段落、标题、列表之间使用空行分隔；不要输出 HTML 标签。
+8. 只有真正的代码、SQL、JSON、命令行内容才允许使用三反引号代码块；面向候选人阅读的建议、示例、清单、步骤、简历条目必须直接用 Markdown 列表/标题展示，禁止包进代码块。
+9. 不要用代码块模拟排版，不要用缩进模拟列表；列表层级只能用 Markdown 列表缩进表达。
 
 示例——当候选人询问投递进度时，应输出：
 
@@ -113,7 +115,12 @@ func (s *nativeAIService) runCandidateChatRuntime(req *pb.CandidateChatRequest, 
 	inputChars := len([]rune(req.GetMessage()))
 	modelID, modelName, providerName := s.resolveRuntimeModelDisplay(ctx, req.GetModelId())
 	auditOpts := candidateUsageAuditOptions{Provider: providerName, Model: modelName}
-	session, err := s.ensureSession(ctx, ownerRoleCandidate, req.GetUserId(), req.GetSessionId(), 0, req.GetMessage())
+	session, err := s.ensureSessionWithOptions(ctx, ownerRoleCandidate, req.GetUserId(), req.GetSessionId(), 0, req.GetMessage(), ChatSessionCreateOptions{
+		SessionType: req.GetSessionType(),
+		SourceType:  req.GetSourceType(),
+		SourceID:    req.GetSourceId(),
+		SourceTitle: req.GetSourceTitle(),
+	})
 	if err != nil {
 		return err
 	}
@@ -287,9 +294,10 @@ func (s *nativeAIService) runCandidateChatRuntime(req *pb.CandidateChatRequest, 
 			}); err != nil {
 				return err
 			}
+			processContent := buildCandidateProcessContent(candidateSuggestedQuestionsFallback())
 			if _, saveErr := s.store.AppendChatMessage(ctx, ChatMessageRow{
 				OwnerRole: ownerRoleCandidate, OwnerID: req.GetUserId(), SessionID: session.ID,
-				Role: "assistant", Content: fallback, ModelID: modelID, ModelName: modelName, CreatedAt: time.Now(),
+				Role: "assistant", Content: fallback, ProcessContent: processContent, ModelID: modelID, ModelName: modelName, CreatedAt: time.Now(),
 			}); saveErr != nil {
 				return saveErr
 			}
@@ -317,15 +325,17 @@ func (s *nativeAIService) runCandidateChatRuntime(req *pb.CandidateChatRequest, 
 	if strings.TrimSpace(cleanReply) == "" {
 		cleanReply = strings.TrimSpace(partialReply.String())
 	}
+	cleanReply = normalizeCandidateMarkdownReply(cleanReply)
 	if len(suggestedQuestions) != 3 {
 		suggestedQuestions = intentPlan.SuggestedQuestions
 		if len(suggestedQuestions) != 3 {
 			suggestedQuestions = candidateSuggestedQuestionsFallback()
 		}
 	}
+	processContent := buildCandidateProcessContent(suggestedQuestions)
 	if _, err := s.store.AppendChatMessage(ctx, ChatMessageRow{
 		OwnerRole: ownerRoleCandidate, OwnerID: req.GetUserId(), SessionID: session.ID,
-		Role: "assistant", Content: cleanReply, ModelID: modelID, ModelName: modelName, CreatedAt: time.Now(),
+		Role: "assistant", Content: cleanReply, ProcessContent: processContent, ModelID: modelID, ModelName: modelName, CreatedAt: time.Now(),
 	}); err != nil {
 		return err
 	}
@@ -635,6 +645,20 @@ func candidateSuggestedQuestionsFallback() []string {
 	}
 }
 
+func buildCandidateProcessContent(suggestedQuestions []string) string {
+	if len(suggestedQuestions) == 0 {
+		return ""
+	}
+	payload := map[string]any{
+		"suggested_questions": append([]string(nil), suggestedQuestions...),
+	}
+	b, err := json.Marshal(payload)
+	if err != nil {
+		return ""
+	}
+	return string(b)
+}
+
 // candidateSuggestionStreamFilter suppresses suggested-questions markers from stream deltas.
 type candidateSuggestionStreamFilter struct {
 	onDelta     func(string) error
@@ -691,4 +715,181 @@ func longestSuffixMatchingPrefix(text, prefix string) int {
 		}
 	}
 	return 0
+}
+
+func normalizeCandidateMarkdownReply(content string) string {
+	text := strings.ReplaceAll(content, "\r\n", "\n")
+	text = strings.ReplaceAll(text, "\r", "\n")
+	lines := strings.Split(text, "\n")
+	lines = unwrapProseMarkdownFences(lines)
+	for i, line := range lines {
+		lines[i] = normalizeMarkdownBulletLine(line)
+	}
+	return strings.TrimSpace(strings.Join(lines, "\n"))
+}
+
+func unwrapProseMarkdownFences(lines []string) []string {
+	out := make([]string, 0, len(lines))
+	for i := 0; i < len(lines); i++ {
+		marker, info, ok := markdownFenceLine(lines[i])
+		if !ok {
+			out = append(out, lines[i])
+			continue
+		}
+		blockStart := i + 1
+		closeIndex := -1
+		for j := blockStart; j < len(lines); j++ {
+			closeMarker, _, closeOK := markdownFenceLine(lines[j])
+			if closeOK && closeMarker == marker {
+				closeIndex = j
+				break
+			}
+		}
+		if closeIndex < 0 {
+			out = append(out, lines[i])
+			continue
+		}
+		block := lines[blockStart:closeIndex]
+		if shouldUnwrapCandidateMarkdownFence(info, block) {
+			indent := strings.Repeat(" ", leadingSpaces(lines[i]))
+			for _, blockLine := range trimBlankEdgeLines(deindentLines(block)) {
+				if strings.TrimSpace(blockLine) == "" {
+					out = append(out, "")
+				} else {
+					out = append(out, indent+blockLine)
+				}
+			}
+		} else {
+			out = append(out, lines[i])
+			out = append(out, block...)
+			out = append(out, lines[closeIndex])
+		}
+		i = closeIndex
+	}
+	return out
+}
+
+func markdownFenceLine(line string) (string, string, bool) {
+	trimmed := strings.TrimSpace(line)
+	if strings.HasPrefix(trimmed, "```") {
+		return "```", strings.TrimSpace(strings.TrimPrefix(trimmed, "```")), true
+	}
+	if strings.HasPrefix(trimmed, "~~~") {
+		return "~~~", strings.TrimSpace(strings.TrimPrefix(trimmed, "~~~")), true
+	}
+	return "", "", false
+}
+
+func shouldUnwrapCandidateMarkdownFence(info string, lines []string) bool {
+	lang := strings.ToLower(strings.TrimSpace(info))
+	if lang != "" && lang != "md" && lang != "markdown" && lang != "text" && lang != "plain" {
+		return false
+	}
+	nonEmpty := 0
+	markdownSignals := 0
+	codeSignals := 0
+	for _, line := range lines {
+		trimmed := strings.TrimSpace(line)
+		if trimmed == "" {
+			continue
+		}
+		nonEmpty++
+		if looksLikeMarkdownProseLine(trimmed) {
+			markdownSignals++
+		}
+		if looksLikeCodeLine(trimmed) {
+			codeSignals++
+		}
+	}
+	return nonEmpty > 0 && markdownSignals > 0 && codeSignals == 0
+}
+
+func looksLikeMarkdownProseLine(line string) bool {
+	return strings.HasPrefix(line, "- ") ||
+		strings.HasPrefix(line, "* ") ||
+		strings.HasPrefix(line, "+ ") ||
+		strings.HasPrefix(line, "## ") ||
+		strings.Contains(line, "**")
+}
+
+func looksLikeCodeLine(line string) bool {
+	upper := strings.ToUpper(line)
+	return strings.HasPrefix(line, "{") ||
+		strings.HasPrefix(line, "}") ||
+		strings.HasPrefix(line, "[") ||
+		strings.HasPrefix(line, "]") ||
+		strings.HasPrefix(line, "func ") ||
+		strings.HasPrefix(line, "const ") ||
+		strings.HasPrefix(line, "var ") ||
+		strings.HasPrefix(line, "package ") ||
+		strings.HasPrefix(line, "$ ") ||
+		strings.HasPrefix(line, "npm ") ||
+		strings.HasPrefix(line, "pnpm ") ||
+		strings.HasPrefix(line, "go test") ||
+		strings.HasPrefix(upper, "SELECT ") ||
+		strings.HasPrefix(upper, "INSERT ") ||
+		strings.HasPrefix(upper, "UPDATE ") ||
+		strings.HasPrefix(upper, "DELETE ") ||
+		strings.HasPrefix(upper, "CREATE ") ||
+		strings.HasPrefix(upper, "ALTER ")
+}
+
+func normalizeMarkdownBulletLine(line string) string {
+	indentLen := leadingSpaces(line)
+	indent := line[:indentLen]
+	trimmed := strings.TrimSpace(line[indentLen:])
+	for _, marker := range []string{"•", "○", "●", "◦"} {
+		if trimmed == marker {
+			return indent + "-"
+		}
+		if strings.HasPrefix(trimmed, marker+" ") {
+			return indent + "- " + strings.TrimSpace(strings.TrimPrefix(trimmed, marker))
+		}
+	}
+	return line
+}
+
+func deindentLines(lines []string) []string {
+	minIndent := -1
+	for _, line := range lines {
+		if strings.TrimSpace(line) == "" {
+			continue
+		}
+		indent := leadingSpaces(line)
+		if minIndent < 0 || indent < minIndent {
+			minIndent = indent
+		}
+	}
+	if minIndent <= 0 {
+		return append([]string(nil), lines...)
+	}
+	out := make([]string, 0, len(lines))
+	for _, line := range lines {
+		if len(line) >= minIndent {
+			out = append(out, line[minIndent:])
+		} else {
+			out = append(out, strings.TrimLeft(line, " "))
+		}
+	}
+	return out
+}
+
+func trimBlankEdgeLines(lines []string) []string {
+	start := 0
+	for start < len(lines) && strings.TrimSpace(lines[start]) == "" {
+		start++
+	}
+	end := len(lines)
+	for end > start && strings.TrimSpace(lines[end-1]) == "" {
+		end--
+	}
+	return lines[start:end]
+}
+
+func leadingSpaces(line string) int {
+	count := 0
+	for count < len(line) && line[count] == ' ' {
+		count++
+	}
+	return count
 }

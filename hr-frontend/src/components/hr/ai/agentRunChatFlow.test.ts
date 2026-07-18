@@ -5,6 +5,7 @@ import type { AgentRunEvent, AgentRunSnapshot } from '@/types/agentRun'
 import { createInitialHrAgentRunState, reduceAgentRunEvent } from '@/utils/hrAgentRunReducer'
 import { useHrAgentRun } from '@/composables/useHrAgentRun'
 import {
+  bindRunStateToChatUi,
   createClientRequestId,
   executeConfirmChatRun,
   executeCreateChatRun,
@@ -115,6 +116,33 @@ describe('agentRunChatFlow helpers', () => {
     })
     expect(options).toHaveLength(1)
     expect(options[0].application_id).toBe(1)
+  })
+
+  it('pushes realtime SSE context usage into the chat binder', async () => {
+    const state = shallowRef(createInitialHrAgentRunState({ sessionId: 9 }))
+    const usages: Array<{ tokens?: number; sessionId?: number | null }> = []
+    const stop = bindRunStateToChatUi(state, {
+      onAssistantDelta: () => {},
+      onAssistantSnapshot: () => {},
+      onProcessDelta: () => {},
+      onProcessSnapshot: () => {},
+      onContextUsage: (value, sessionId) => usages.push({
+        tokens: value.prompt_tokens_actual,
+        sessionId,
+      }),
+    })
+    state.value = {
+      ...state.value,
+      resultMetadata: {
+        context_usage: {
+          prompt_tokens_actual: 851,
+          input_budget_tokens: 6_758,
+        },
+      },
+    }
+    await nextTick()
+    expect(usages).toEqual([{ tokens: 851, sessionId: 9 }])
+    stop()
   })
 })
 

@@ -83,6 +83,14 @@ func TestSessionSummaryUpsertAndGet(t *testing.T) {
 	if err != nil || !found || got != "updated summary" {
 		t.Fatalf("get2 = (%q, %v, %v)", got, found, err)
 	}
+	written, err := store.UpsertSessionSummaryIfNewer(ctx, 55, 1001, "stale summary", 15, 99)
+	if err != nil || written {
+		t.Fatalf("stale write = (%v, %v), want false, nil", written, err)
+	}
+	got, covered, count, found, err := store.GetSessionSummaryState(ctx, 55, 1001)
+	if err != nil || !found || got != "updated summary" || covered != 20 || count != 16 {
+		t.Fatalf("state after stale write = (%q, %d, %d, %v, %v)", got, covered, count, found, err)
+	}
 	_, found, err = store.GetSessionSummary(ctx, 99, 1001)
 	if err != nil || found {
 		t.Fatalf("wrong owner found=%v err=%v", found, err)

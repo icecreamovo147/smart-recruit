@@ -16,6 +16,8 @@ interface MessageItem {
   skillCommand?: string
   pending?: boolean
   failed?: boolean
+  retryDisabled?: boolean
+  errorCode?: string
   waitingText?: string
   process_content?: string
   processContent?: string
@@ -303,7 +305,7 @@ const quickHints = [
         </div>
 
         <!-- Retry button -->
-        <div v-if="message.role === 'assistant' && message.failed" class="bubble__retry">
+        <div v-if="message.role === 'assistant' && message.failed && !message.retryDisabled" class="bubble__retry">
           <el-button type="warning" size="small" @click="emit('retry', index)">重新发送</el-button>
         </div>
 

@@ -545,3 +545,27 @@ func TestResolveAfterSeq_Helpers(t *testing.T) {
 		}
 	})
 }
+
+func TestHRContextUsageMappingCoversBudgetFieldsForAllTransports(t *testing.T) {
+	usage := &pb.ContextUsageInfo{
+		InputBudgetTokens: 6758, SafetyMarginTokens: 410, BudgetUsageRatio: 0.3,
+		BudgetStatus: "within_budget", IncludedMessageCount: 9, OmittedMessageCount: 2,
+		SummaryApplied: true,
+		Breakdown:      &pb.ContextUsageBreakdown{ToolSchemaTokens: 33, ProtocolOverheadTokens: 38},
+	}
+	mapped := mapHRContextUsage(usage)
+	if mapped["input_budget_tokens"] != int32(6758) || mapped["safety_margin_tokens"] != int32(410) || mapped["budget_status"] != "within_budget" {
+		t.Fatalf("budget mapping incomplete: %#v", mapped)
+	}
+	if mapped["included_message_count"] != int32(9) || mapped["omitted_message_count"] != int32(2) || mapped["summary_applied"] != true {
+		t.Fatalf("message/summary mapping incomplete: %#v", mapped)
+	}
+	breakdown, ok := mapped["breakdown"].(map[string]any)
+	if !ok || breakdown["tool_schema_tokens"] != int32(33) || breakdown["protocol_overhead_tokens"] != int32(38) {
+		t.Fatalf("breakdown mapping incomplete: %#v", mapped["breakdown"])
+	}
+	metadata := agentRunResultMetadataPayload(&pb.AgentRunResultMetadata{ContextUsage: usage})
+	if got, ok := metadata["context_usage"].(map[string]any); !ok || got["input_budget_tokens"] != int32(6758) {
+		t.Fatalf("agent-run metadata context mapping incomplete: %#v", metadata)
+	}
+}
