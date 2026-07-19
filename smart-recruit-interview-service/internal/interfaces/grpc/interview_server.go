@@ -251,7 +251,7 @@ func classifyError(err error, fallback string, messages errorMessages) (int32, s
 		return errs.ErrBadRequest, "请选择面试推荐结论", nil
 	}
 	if errors.Is(err, model.ErrFeedbackScoreOutOfRange) {
-		return errs.ErrBadRequest, "评分范围为 0-10", nil
+		return errs.ErrBadRequest, "评分范围为 0-100", nil
 	}
 	if errors.Is(err, model.ErrFeedbackInvalidRecommendation) {
 		return errs.ErrBadRequest, "推荐结论值不合法", nil

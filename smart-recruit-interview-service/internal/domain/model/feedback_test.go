@@ -17,7 +17,16 @@ func TestNewFeedbackValidatesRecommendationAndScore(t *testing.T) {
 		ApplicationID:  2,
 		InterviewerID:  3,
 		Recommendation: "recommend",
-		Score:          11,
+		Score:          100,
+	}); err != nil {
+		t.Fatalf("maximum valid score error=%v, want nil", err)
+	}
+	if _, err := NewFeedback(FeedbackDetails{
+		InterviewID:    1,
+		ApplicationID:  2,
+		InterviewerID:  3,
+		Recommendation: "recommend",
+		Score:          101,
 	}); err != ErrFeedbackScoreOutOfRange {
 		t.Fatalf("invalid score error=%v, want ErrFeedbackScoreOutOfRange", err)
 	}

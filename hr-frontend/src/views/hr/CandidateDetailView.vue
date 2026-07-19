@@ -551,8 +551,8 @@ watch(activeSection, (section) => {
                         <el-tag :type="(RECOMMENDATION_TYPE[iv.feedback_recommendation] || 'info') as any" size="small" effect="light">
                           {{ RECOMMENDATION_LABEL[iv.feedback_recommendation] || iv.feedback_recommendation }}
                         </el-tag>
-                        <el-tag v-if="iv.feedback_score" size="small" type="primary" effect="plain">
-                          {{ iv.feedback_score }}分
+                        <el-tag size="small" type="primary" effect="plain">
+                          {{ iv.feedback_score }} / 100
                         </el-tag>
                       </div>
                       <!-- 维度评分 -->

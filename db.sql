@@ -825,7 +825,7 @@ CREATE TABLE IF NOT EXISTS `interview_feedback` (
   `application_id` BIGINT UNSIGNED NOT NULL COMMENT '关联 applications.id',
   `interviewer_id` BIGINT UNSIGNED NOT NULL COMMENT '面试官用户ID',
   `recommendation` VARCHAR(32) DEFAULT NULL COMMENT '推荐结论：positive / negative / pending',
-  `score` INT DEFAULT NULL COMMENT '评分（0-10）',
+  `score` INT DEFAULT NULL COMMENT '综合评分（0-100）',
   `dimension_scores_json` TEXT DEFAULT NULL COMMENT '维度评分 JSON，如 {"communication":4,"technical":5}',
   `comments` TEXT DEFAULT NULL COMMENT '面试评语',
   `submitted_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '提交时间',
@@ -834,7 +834,8 @@ CREATE TABLE IF NOT EXISTS `interview_feedback` (
   UNIQUE KEY `uk_interview_feedback_once` (`interview_id`, `application_id`, `interviewer_id`),
   KEY `idx_feedback_interview` (`interview_id`),
   KEY `idx_feedback_interviewer` (`interviewer_id`),
-  KEY `idx_feedback_application` (`application_id`)
+  KEY `idx_feedback_application` (`application_id`),
+  CONSTRAINT `chk_interview_feedback_score` CHECK (`score` IS NULL OR (`score` BETWEEN 0 AND 100))
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='面试反馈表';
 
 -- ── Offer 表 ─────────────────────────────────────────────────────────────

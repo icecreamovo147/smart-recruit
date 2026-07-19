@@ -12,8 +12,13 @@ var (
 	ErrFeedbackInvalid                = errors.New("面试反馈不合法")
 	ErrFeedbackRecommendationRequired = errors.New("请选择面试推荐结论")
 	ErrFeedbackInvalidRecommendation  = errors.New("推荐结论值不合法")
-	ErrFeedbackScoreOutOfRange        = errors.New("评分范围为 0-10")
+	ErrFeedbackScoreOutOfRange        = errors.New("评分范围为 0-100")
 	ErrInterviewerMismatch            = errors.New("您不是该面试的面试官，无法提交反馈")
+)
+
+const (
+	MinFeedbackScore int32 = 0
+	MaxFeedbackScore int32 = 100
 )
 
 type Feedback struct {
@@ -64,7 +69,7 @@ func NewFeedback(details FeedbackDetails) (*Feedback, error) {
 	if details.Recommendation == "" {
 		return nil, ErrFeedbackRecommendationRequired
 	}
-	if details.Score < 0 || details.Score > 10 {
+	if details.Score < MinFeedbackScore || details.Score > MaxFeedbackScore {
 		return nil, ErrFeedbackScoreOutOfRange
 	}
 	if !validRecommendations[details.Recommendation] {
