@@ -244,6 +244,23 @@ export interface User {
   roles?: string[]          // RBAC role keys
   permissions?: string[]    // RBAC permission keys
   email?: string
+  tenant_id?: number
+  membership_id?: number
+  client_app?: string
+  available_apps?: string[]
+  memberships?: TenantMembership[]
+}
+
+export interface TenantMembership {
+  membership_id: number
+  tenant_id: number
+  tenant_key: string
+  slug: string
+  name: string
+  tenant_status: string
+  membership_status: string
+  roles: string[]
+  is_default: boolean
 }
 
 export interface LoginPayload {
@@ -259,6 +276,11 @@ export interface LoginResponse {
   roles?: string[]
   permissions?: string[]
   email?: string
+  tenant_id?: number
+  membership_id?: number
+  client_app?: string
+  available_apps?: string[]
+  memberships?: TenantMembership[]
 }
 
 export interface RegisterPayload {

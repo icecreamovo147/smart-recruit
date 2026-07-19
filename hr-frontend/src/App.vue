@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { ArrowDown, Briefcase, ChatDotRound, Collection, Connection, DataAnalysis, Edit, Expand, Fold, Key, Link, MagicStick, Menu, Monitor, Moon, Operation, Search, Setting, Sunny, Tools, UserFilled } from '@element-plus/icons-vue'
+import { ArrowDown, Briefcase, ChatDotRound, Collection, Connection, DataAnalysis, Edit, Expand, Fold, Key, Link, MagicStick, Menu, Monitor, Moon, OfficeBuilding, Operation, Search, Setting, Sunny, Tools, UserFilled } from '@element-plus/icons-vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { useAuthStore } from '@/stores/auth'
 import { useTheme } from '@/composables/useTheme'
@@ -22,6 +22,7 @@ const { isDark, toggleTheme } = useTheme()
 const logoSrc = computed(() => isDark.value ? logoSmallDark : logoSmallLight)
 const sidebarCollapsed = ref(false)
 const mobileSidebarOpen = ref(false)
+const switchingTenant = ref(false)
 const taxonomyOpen = ref(false)
 const llmConfigOpen = ref(route.path.startsWith('/hr/admin/llm-config'))
 const embeddingConfigOpen = ref(route.path.startsWith('/hr/admin/embedding-config'))
@@ -29,6 +30,11 @@ const usageAuditOpen = ref(false)
 const isAuthRoute = computed(() => route.path === '/login' || route.path === '/register')
 const canManageAgentSkills = computed(() => auth.hasPermission(PERM.AI_AGENT_SKILL_MANAGE))
 const homePath = computed(() => resolveStaffHomePath(auth))
+const activeMemberships = computed(() => auth.memberships.filter(
+  (membership) => membership.tenant_status === 'active' && membership.membership_status === 'active',
+))
+const canSwitchTenant = computed(() => activeMemberships.value.length > 1)
+const activeTenantName = computed(() => auth.activeTenant?.name?.trim() || '当前企业')
 
 const toggleTaxonomy = () => {
   taxonomyOpen.value = !taxonomyOpen.value
@@ -93,6 +99,20 @@ const handleUserCommand = (command: string) => {
     return
   }
   if (command === 'logout') logout()
+}
+
+const handleTenantChange = async (tenantId: number) => {
+  if (!tenantId || tenantId === auth.tenantId || switchingTenant.value) return
+  switchingTenant.value = true
+  try {
+    await auth.switchTenant(tenantId)
+    ElMessage.success(`已切换至${auth.activeTenant?.name || '目标企业'}`)
+    window.location.assign(homePath.value)
+  } catch {
+    ElMessage.error('企业切换失败，请重新登录后重试')
+  } finally {
+    switchingTenant.value = false
+  }
 }
 
 const toggleSidebar = () => {
@@ -269,7 +289,34 @@ const routeViewKey = (viewRoute: { fullPath: string; path: string; params: Recor
           </button>
           <NotificationBell v-if="route.meta.requiresAuth" />
         </div>
-        <div style="display:flex;align-items:center;gap:4px;">
+        <div class="header-actions">
+          <el-select
+            v-if="canSwitchTenant"
+            class="tenant-switcher"
+            :model-value="auth.tenantId"
+            :loading="switchingTenant"
+            aria-label="切换企业"
+            @change="handleTenantChange"
+          >
+            <template #prefix>
+              <el-icon><OfficeBuilding /></el-icon>
+            </template>
+            <el-option
+              v-for="membership in activeMemberships"
+              :key="membership.membership_id"
+              :label="membership.name"
+              :value="membership.tenant_id"
+            />
+          </el-select>
+          <div
+            v-else-if="auth.activeTenant"
+            class="tenant-context"
+            :title="activeTenantName"
+            aria-label="当前企业"
+          >
+            <el-icon><OfficeBuilding /></el-icon>
+            <span>{{ activeTenantName }}</span>
+          </div>
           <el-dropdown trigger="hover" @command="handleUserCommand">
           <button class="user-menu">
             <span class="user-avatar"><el-icon><UserFilled /></el-icon></span>
