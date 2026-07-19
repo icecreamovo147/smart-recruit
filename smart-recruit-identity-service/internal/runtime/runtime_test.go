@@ -118,6 +118,15 @@ func (fakeAdminAPI) ListStaffUsers(context.Context, *pb.ListStaffUsersRequest) (
 func (fakeAdminAPI) CreateStaffUser(context.Context, *pb.CreateStaffUserRequest) (*pb.CreateStaffUserResponse, error) {
 	return &pb.CreateStaffUserResponse{Code: errs.OK}, nil
 }
+func (fakeAdminAPI) ListPlatformUsers(context.Context, *pb.ListPlatformUsersRequest) (*pb.ListPlatformUsersResponse, error) {
+	return &pb.ListPlatformUsersResponse{Code: errs.OK}, nil
+}
+func (fakeAdminAPI) CreatePlatformUser(context.Context, *pb.CreatePlatformUserRequest) (*pb.CreatePlatformUserResponse, error) {
+	return &pb.CreatePlatformUserResponse{Code: errs.OK}, nil
+}
+func (fakeAdminAPI) UpdatePlatformUser(context.Context, *pb.UpdatePlatformUserRequest) (*pb.PlatformUserResponse, error) {
+	return &pb.PlatformUserResponse{Code: errs.OK}, nil
+}
 
 type fakeAuditAPI struct{}
 
@@ -133,9 +142,48 @@ func (fakeTenantAPI) CreateTenant(context.Context, *pb.CreateTenantRequest) (*pb
 func (fakeTenantAPI) ListTenants(context.Context, *pb.ListTenantsRequest) (*pb.ListTenantsResponse, error) {
 	return &pb.ListTenantsResponse{Code: errs.OK}, nil
 }
+func (fakeTenantAPI) GetTenant(context.Context, *pb.GetTenantRequest) (*pb.TenantResponse, error) {
+	return &pb.TenantResponse{Code: errs.OK}, nil
+}
 func (fakeTenantAPI) UpdateTenantStatus(context.Context, *pb.UpdateTenantStatusRequest) (*pb.TenantResponse, error) {
 	return &pb.TenantResponse{Code: errs.OK}, nil
 }
 func (fakeTenantAPI) ListTenantMemberships(context.Context, *pb.ListTenantMembershipsRequest) (*pb.ListTenantMembershipsResponse, error) {
 	return &pb.ListTenantMembershipsResponse{Code: errs.OK}, nil
+}
+func (fakeTenantAPI) UpdateTenantMembershipStatus(context.Context, *pb.UpdateTenantMembershipStatusRequest) (*pb.TenantMembershipResponse, error) {
+	return &pb.TenantMembershipResponse{Code: errs.OK}, nil
+}
+func (fakeTenantAPI) GetPlatformDashboard(context.Context, *pb.GetPlatformDashboardRequest) (*pb.GetPlatformDashboardResponse, error) {
+	return &pb.GetPlatformDashboardResponse{Code: errs.OK}, nil
+}
+func (fakeTenantAPI) QueryPlatformAuditLogs(context.Context, *pb.QueryPlatformAuditLogsRequest) (*pb.QueryPlatformAuditLogsResponse, error) {
+	return &pb.QueryPlatformAuditLogsResponse{Code: errs.OK}, nil
+}
+func (fakeTenantAPI) ListPlatformPlans(context.Context, *pb.ListPlatformPlansRequest) (*pb.ListPlatformPlansResponse, error) {
+	return &pb.ListPlatformPlansResponse{Code: errs.OK}, nil
+}
+func (fakeTenantAPI) SavePlatformPlanVersion(context.Context, *pb.SavePlatformPlanVersionRequest) (*pb.PlatformPlanVersionResponse, error) {
+	return &pb.PlatformPlanVersionResponse{Code: errs.OK}, nil
+}
+func (fakeTenantAPI) PublishPlatformPlanVersion(context.Context, *pb.PublishPlatformPlanVersionRequest) (*pb.PlatformPlanVersionResponse, error) {
+	return &pb.PlatformPlanVersionResponse{Code: errs.OK}, nil
+}
+func (fakeTenantAPI) GetTenantSubscription(context.Context, *pb.GetTenantSubscriptionRequest) (*pb.TenantSubscriptionResponse, error) {
+	return &pb.TenantSubscriptionResponse{Code: errs.OK}, nil
+}
+func (fakeTenantAPI) UpdateTenantSubscription(context.Context, *pb.UpdateTenantSubscriptionRequest) (*pb.TenantSubscriptionResponse, error) {
+	return &pb.TenantSubscriptionResponse{Code: errs.OK}, nil
+}
+func (fakeTenantAPI) UpdateTenantEntitlementOverride(context.Context, *pb.UpdateTenantEntitlementOverrideRequest) (*pb.TenantSubscriptionResponse, error) {
+	return &pb.TenantSubscriptionResponse{Code: errs.OK}, nil
+}
+func (fakeTenantAPI) GetTenantUsage(context.Context, *pb.GetTenantUsageRequest) (*pb.GetTenantUsageResponse, error) {
+	return &pb.GetTenantUsageResponse{Code: errs.OK}, nil
+}
+func (fakeTenantAPI) ListQuotaAlerts(context.Context, *pb.ListQuotaAlertsRequest) (*pb.ListQuotaAlertsResponse, error) {
+	return &pb.ListQuotaAlertsResponse{Code: errs.OK}, nil
+}
+func (fakeTenantAPI) UpdateQuotaAlert(context.Context, *pb.UpdateQuotaAlertRequest) (*pb.QuotaAlertResponse, error) {
+	return &pb.QuotaAlertResponse{Code: errs.OK}, nil
 }

@@ -4,8 +4,10 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 
+	commonsquota "smart-recruit-commons/quota"
 	"smart-recruit-identity-service/internal/application/command"
 	"smart-recruit-identity-service/internal/application/dto"
 	"smart-recruit-identity-service/internal/application/port"
@@ -351,12 +353,21 @@ func (s *AdminService) CreateStaffUser(ctx context.Context, cmd command.CreateSt
 		Status:       model.UserStatusActive,
 		TokenVersion: 1,
 	}
+	tenantID := int64(0)
+	if s.tenants != nil {
+		tenantID = platformmetadata.GetAuthTenantID(ctx)
+		if err := s.tenants.CheckTenantQuota(ctx, tenantID, "members.max", 1); err != nil {
+			if errors.Is(err, commonsquota.ErrLimitExceeded) {
+				return 0, errors.New("已达到当前套餐的有效成员上限")
+			}
+			return 0, err
+		}
+	}
 	if err := s.users.Create(ctx, user); err != nil {
 		return 0, err
 	}
 	adminID := uint64(cmd.AdminID)
 	if s.tenants != nil {
-		tenantID := platformmetadata.GetAuthTenantID(ctx)
 		membership, err := s.tenants.EnsureMembership(ctx, user.ID, tenantID, "active")
 		if err != nil || membership == nil {
 			return 0, ErrAccountCreateFailed
@@ -389,6 +400,78 @@ func (s *AdminService) CreateStaffUser(ctx context.Context, cmd command.CreateSt
 	}
 	s.auditAdminAction(ctx, adminID, "create_staff", uint64(user.ID), "allowed", "created staff user "+username)
 	return user.ID, nil
+}
+
+func (s *AdminService) ListPlatformAccounts(ctx context.Context, page, pageSize int32, status string) ([]model.PlatformAccount, int64, error) {
+	if err := s.requireAdminPermission(ctx, model.PermPlatformUserManage); err != nil {
+		return nil, 0, err
+	}
+	if page < 1 {
+		page = 1
+	}
+	if pageSize < 1 || pageSize > 100 {
+		pageSize = 20
+	}
+	if status != "" && status != model.UserStatusActive && status != "disabled" {
+		return nil, 0, ErrAccountCreateFailed
+	}
+	return s.users.ListPlatformAccounts(ctx, page, pageSize, status)
+}
+
+func (s *AdminService) CreatePlatformAccount(ctx context.Context, adminID int64, username, email, password, roleKey string) (int64, error) {
+	if err := s.requireAdminPermission(ctx, model.PermPlatformUserManage); err != nil {
+		return 0, err
+	}
+	if s.users == nil || s.passwords == nil || !isPlatformRole(roleKey) {
+		return 0, ErrAccountCreateFailed
+	}
+	if err := policy.ValidatePassword(password); err != nil {
+		return 0, err
+	}
+	normalized, err := policy.NormalizeUsername(username)
+	if err != nil {
+		return 0, err
+	}
+	existing, err := s.users.GetByUsername(ctx, normalized)
+	if err != nil {
+		return 0, err
+	}
+	if existing != nil {
+		return 0, ErrUsernameExists
+	}
+	role, err := s.authz.GetRoleByKey(ctx, roleKey)
+	if err != nil || role == nil || role.ScopeType != model.RoleScopePlatform {
+		return 0, ErrRoleNotFound
+	}
+	hash, err := s.passwords.HashPassword(password)
+	if err != nil {
+		return 0, err
+	}
+	user := &model.User{Username: normalized, PasswordHash: hash, Email: strings.TrimSpace(email), Role: model.LegacyRoleAdmin, AccountType: model.AccountTypeStaff, Status: model.UserStatusActive, TokenVersion: 1}
+	actor := uint64(adminID)
+	if err := s.users.CreatePlatformAccount(ctx, user, role.ID, &actor); err != nil {
+		return 0, ErrAccountCreateFailed
+	}
+	return user.ID, nil
+}
+
+func (s *AdminService) UpdatePlatformAccount(ctx context.Context, adminID, userID int64, roleKey, status, reason string) (*model.PlatformAccount, error) {
+	if err := s.requireAdminPermission(ctx, model.PermPlatformUserManage); err != nil {
+		return nil, err
+	}
+	reason = strings.TrimSpace(reason)
+	if userID <= 0 || !isPlatformRole(roleKey) || (status != model.UserStatusActive && status != "disabled") || reason == "" || len(reason) > 500 {
+		return nil, ErrAccountCreateFailed
+	}
+	role, err := s.authz.GetRoleByKey(ctx, roleKey)
+	if err != nil || role == nil || role.ScopeType != model.RoleScopePlatform {
+		return nil, ErrRoleNotFound
+	}
+	return s.users.UpdatePlatformAccount(ctx, userID, role.ID, status, reason, adminID)
+}
+
+func isPlatformRole(roleKey string) bool {
+	return roleKey == model.RolePlatformAdmin || roleKey == model.RolePlatformOperator || roleKey == model.RolePlatformAuditor
 }
 
 func (s *AdminService) QueryAuthAuditLogs(ctx context.Context, req query.QueryAuthAuditLogs) (dto.AuditLogsResult, error) {

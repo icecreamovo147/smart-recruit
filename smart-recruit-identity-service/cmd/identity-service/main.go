@@ -228,6 +228,10 @@ func serveIdentity(addr string) error {
 	}
 	healthpb.RegisterHealthServer(grpcServer, server.NewHealthServer(sqlDB, redisClient, nil))
 
+	quotaRefreshCtx, stopQuotaRefresh := context.WithCancel(context.Background())
+	defer stopQuotaRefresh()
+	go refreshQuotaUsage(quotaRefreshCtx, repos.Tenants, 5*time.Minute)
+
 	shutdown := make(chan os.Signal, 1)
 	signal.Notify(shutdown, syscall.SIGINT, syscall.SIGTERM)
 	go func() {
@@ -253,6 +257,32 @@ func serveIdentity(addr string) error {
 		return fmt.Errorf("grpc serve: %w", err)
 	}
 	return nil
+}
+
+type quotaUsageRefresher interface {
+	RefreshQuotaUsage(context.Context) error
+}
+
+func refreshQuotaUsage(ctx context.Context, refresher quotaUsageRefresher, interval time.Duration) {
+	if refresher == nil || interval <= 0 {
+		return
+	}
+	refresh := func() {
+		if err := refresher.RefreshQuotaUsage(ctx); err != nil && !errors.Is(err, context.Canceled) {
+			logger.L().Warn("refresh platform quota usage failed", zap.Error(err))
+		}
+	}
+	refresh()
+	ticker := time.NewTicker(interval)
+	defer ticker.Stop()
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+			refresh()
+		}
+	}
 }
 
 func loadBootstrap(addr string) (platformconfig.Bootstrap, error) {
@@ -452,6 +482,15 @@ func (noopAdminAPI) ListStaffUsers(context.Context, *pb.ListStaffUsersRequest) (
 func (noopAdminAPI) CreateStaffUser(context.Context, *pb.CreateStaffUserRequest) (*pb.CreateStaffUserResponse, error) {
 	return &pb.CreateStaffUserResponse{Code: errs.OK}, nil
 }
+func (noopAdminAPI) ListPlatformUsers(context.Context, *pb.ListPlatformUsersRequest) (*pb.ListPlatformUsersResponse, error) {
+	return &pb.ListPlatformUsersResponse{Code: errs.OK}, nil
+}
+func (noopAdminAPI) CreatePlatformUser(context.Context, *pb.CreatePlatformUserRequest) (*pb.CreatePlatformUserResponse, error) {
+	return &pb.CreatePlatformUserResponse{Code: errs.OK}, nil
+}
+func (noopAdminAPI) UpdatePlatformUser(context.Context, *pb.UpdatePlatformUserRequest) (*pb.PlatformUserResponse, error) {
+	return &pb.PlatformUserResponse{Code: errs.OK}, nil
+}
 
 type noopAuditAPI struct{}
 
@@ -467,9 +506,48 @@ func (noopTenantAPI) CreateTenant(context.Context, *pb.CreateTenantRequest) (*pb
 func (noopTenantAPI) ListTenants(context.Context, *pb.ListTenantsRequest) (*pb.ListTenantsResponse, error) {
 	return &pb.ListTenantsResponse{Code: errs.OK}, nil
 }
+func (noopTenantAPI) GetTenant(context.Context, *pb.GetTenantRequest) (*pb.TenantResponse, error) {
+	return &pb.TenantResponse{Code: errs.OK}, nil
+}
 func (noopTenantAPI) UpdateTenantStatus(context.Context, *pb.UpdateTenantStatusRequest) (*pb.TenantResponse, error) {
 	return &pb.TenantResponse{Code: errs.OK}, nil
 }
 func (noopTenantAPI) ListTenantMemberships(context.Context, *pb.ListTenantMembershipsRequest) (*pb.ListTenantMembershipsResponse, error) {
 	return &pb.ListTenantMembershipsResponse{Code: errs.OK}, nil
+}
+func (noopTenantAPI) UpdateTenantMembershipStatus(context.Context, *pb.UpdateTenantMembershipStatusRequest) (*pb.TenantMembershipResponse, error) {
+	return &pb.TenantMembershipResponse{Code: errs.OK}, nil
+}
+func (noopTenantAPI) GetPlatformDashboard(context.Context, *pb.GetPlatformDashboardRequest) (*pb.GetPlatformDashboardResponse, error) {
+	return &pb.GetPlatformDashboardResponse{Code: errs.OK}, nil
+}
+func (noopTenantAPI) QueryPlatformAuditLogs(context.Context, *pb.QueryPlatformAuditLogsRequest) (*pb.QueryPlatformAuditLogsResponse, error) {
+	return &pb.QueryPlatformAuditLogsResponse{Code: errs.OK}, nil
+}
+func (noopTenantAPI) ListPlatformPlans(context.Context, *pb.ListPlatformPlansRequest) (*pb.ListPlatformPlansResponse, error) {
+	return &pb.ListPlatformPlansResponse{Code: errs.OK}, nil
+}
+func (noopTenantAPI) SavePlatformPlanVersion(context.Context, *pb.SavePlatformPlanVersionRequest) (*pb.PlatformPlanVersionResponse, error) {
+	return &pb.PlatformPlanVersionResponse{Code: errs.OK}, nil
+}
+func (noopTenantAPI) PublishPlatformPlanVersion(context.Context, *pb.PublishPlatformPlanVersionRequest) (*pb.PlatformPlanVersionResponse, error) {
+	return &pb.PlatformPlanVersionResponse{Code: errs.OK}, nil
+}
+func (noopTenantAPI) GetTenantSubscription(context.Context, *pb.GetTenantSubscriptionRequest) (*pb.TenantSubscriptionResponse, error) {
+	return &pb.TenantSubscriptionResponse{Code: errs.OK}, nil
+}
+func (noopTenantAPI) UpdateTenantSubscription(context.Context, *pb.UpdateTenantSubscriptionRequest) (*pb.TenantSubscriptionResponse, error) {
+	return &pb.TenantSubscriptionResponse{Code: errs.OK}, nil
+}
+func (noopTenantAPI) UpdateTenantEntitlementOverride(context.Context, *pb.UpdateTenantEntitlementOverrideRequest) (*pb.TenantSubscriptionResponse, error) {
+	return &pb.TenantSubscriptionResponse{Code: errs.OK}, nil
+}
+func (noopTenantAPI) GetTenantUsage(context.Context, *pb.GetTenantUsageRequest) (*pb.GetTenantUsageResponse, error) {
+	return &pb.GetTenantUsageResponse{Code: errs.OK}, nil
+}
+func (noopTenantAPI) ListQuotaAlerts(context.Context, *pb.ListQuotaAlertsRequest) (*pb.ListQuotaAlertsResponse, error) {
+	return &pb.ListQuotaAlertsResponse{Code: errs.OK}, nil
+}
+func (noopTenantAPI) UpdateQuotaAlert(context.Context, *pb.UpdateQuotaAlertRequest) (*pb.QuotaAlertResponse, error) {
+	return &pb.QuotaAlertResponse{Code: errs.OK}, nil
 }

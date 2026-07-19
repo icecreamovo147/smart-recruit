@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 
 	"gorm.io/gorm"
@@ -110,6 +111,138 @@ func (r *UserRepository) ListStaff(ctx context.Context, page, pageSize int32, st
 	}
 	return users, total, nil
 }
+
+func (r *UserRepository) ListPlatformAccounts(ctx context.Context, page, pageSize int32, status string) ([]model.PlatformAccount, int64, error) {
+	query := r.db.WithContext(ctx).Table("users user").
+		Joins("JOIN platform_user_roles assignment ON assignment.user_id = user.id AND assignment.revoked_at IS NULL").
+		Joins("JOIN roles role ON role.id = assignment.role_id AND role.scope_type = ?", model.RoleScopePlatform)
+	if status != "" {
+		query = query.Where("user.status = ?", status)
+	}
+	var total int64
+	if err := query.Distinct("user.id").Count(&total).Error; err != nil {
+		return nil, 0, err
+	}
+	var rows []platformAccountRow
+	if err := query.Select("user.id, user.username, user.email, user.account_type, user.status, user.token_version, user.created_at, GROUP_CONCAT(DISTINCT role.role_key ORDER BY role.role_key) AS role_keys").
+		Group("user.id, user.username, user.email, user.account_type, user.status, user.token_version, user.created_at").
+		Order("user.id DESC").Offset(int((page - 1) * pageSize)).Limit(int(pageSize)).Scan(&rows).Error; err != nil {
+		return nil, 0, err
+	}
+	result := make([]model.PlatformAccount, len(rows))
+	for i, row := range rows {
+		result[i] = row.toDomain()
+	}
+	return result, total, nil
+}
+
+func (r *UserRepository) CreatePlatformAccount(ctx context.Context, user *model.User, roleID uint64, assignedBy *uint64) error {
+	return r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		var role roleRow
+		if err := tx.Where("id = ? AND scope_type = ?", roleID, model.RoleScopePlatform).First(&role).Error; err != nil {
+			return err
+		}
+		row := userRow{Username: user.Username, Password: user.PasswordHash, Role: user.Role, Email: user.Email, AccountType: user.AccountType, Status: user.Status, TokenVersion: user.TokenVersion}
+		if err := tx.Create(&row).Error; err != nil {
+			return err
+		}
+		user.ID = row.ID
+		if err := tx.Create(&platformUserRoleRow{UserID: uint64(row.ID), RoleID: roleID, AssignedBy: assignedBy, AssignedAt: time.Now()}).Error; err != nil {
+			return err
+		}
+		return createPlatformResourceAudit(tx, ctx, "platform_user.create", "platform_user", row.ID, 0, nil, map[string]any{"role": role.RoleKey, "username": row.Username})
+	})
+}
+
+func (r *UserRepository) UpdatePlatformAccount(ctx context.Context, userID int64, roleID uint64, status, reason string, actorID int64) (*model.PlatformAccount, error) {
+	err := r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		var user userRow
+		if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).Where("id = ?", userID).First(&user).Error; err != nil {
+			return err
+		}
+		var targetRole roleRow
+		if err := tx.Where("id = ? AND scope_type = ?", roleID, model.RoleScopePlatform).First(&targetRole).Error; err != nil {
+			return err
+		}
+		var hasAdmin int64
+		if err := tx.Table("platform_user_roles assignment").Joins("JOIN roles role ON role.id = assignment.role_id").Where("assignment.user_id = ? AND assignment.revoked_at IS NULL AND role.role_key = ?", userID, model.RolePlatformAdmin).Count(&hasAdmin).Error; err != nil {
+			return err
+		}
+		if hasAdmin > 0 && (targetRole.RoleKey != model.RolePlatformAdmin || status != model.UserStatusActive) {
+			var activeAdmins int64
+			if err := tx.Table("platform_user_roles assignment").Joins("JOIN roles role ON role.id = assignment.role_id").Joins("JOIN users user ON user.id = assignment.user_id AND user.status = ?", model.UserStatusActive).Where("assignment.revoked_at IS NULL AND role.role_key = ?", model.RolePlatformAdmin).Distinct("assignment.user_id").Count(&activeAdmins).Error; err != nil {
+				return err
+			}
+			if activeAdmins <= 1 {
+				return repository.ErrLastAdmin
+			}
+		}
+		now := time.Now()
+		if err := tx.Model(&platformUserRoleRow{}).Where("user_id = ? AND revoked_at IS NULL", userID).Update("revoked_at", now).Error; err != nil {
+			return err
+		}
+		actor := uint64(actorID)
+		if err := tx.Create(&platformUserRoleRow{UserID: uint64(userID), RoleID: roleID, AssignedBy: &actor, AssignedAt: now}).Error; err != nil {
+			return err
+		}
+		if err := tx.Model(&userRow{}).Where("id = ?", userID).Updates(map[string]any{"status": status, "token_version": gorm.Expr("token_version + 1")}).Error; err != nil {
+			return err
+		}
+		return createPlatformResourceAudit(tx, ctx, "platform_user.update", "platform_user", userID, 0, map[string]any{"status": user.Status}, map[string]any{"status": status, "role": targetRole.RoleKey, "reason": reason})
+	})
+	if err != nil {
+		return nil, err
+	}
+	return r.getPlatformAccount(ctx, userID)
+}
+
+func (r *UserRepository) getPlatformAccount(ctx context.Context, userID int64) (*model.PlatformAccount, error) {
+	var row platformAccountRow
+	err := r.db.WithContext(ctx).Table("users user").
+		Select("user.id, user.username, user.email, user.account_type, user.status, user.token_version, user.created_at, GROUP_CONCAT(DISTINCT role.role_key ORDER BY role.role_key) AS role_keys").
+		Joins("JOIN platform_user_roles assignment ON assignment.user_id = user.id AND assignment.revoked_at IS NULL").
+		Joins("JOIN roles role ON role.id = assignment.role_id AND role.scope_type = ?", model.RoleScopePlatform).
+		Where("user.id = ?", userID).
+		Group("user.id, user.username, user.email, user.account_type, user.status, user.token_version, user.created_at").Scan(&row).Error
+	if err != nil {
+		return nil, err
+	}
+	if row.ID == 0 {
+		return nil, gorm.ErrRecordNotFound
+	}
+	result := row.toDomain()
+	return &result, nil
+}
+
+type platformAccountRow struct {
+	ID           int64
+	Username     string
+	Email        string
+	AccountType  string
+	Status       string
+	TokenVersion int32
+	CreatedAt    time.Time
+	RoleKeys     string
+}
+
+func (r platformAccountRow) toDomain() model.PlatformAccount {
+	roles := []string{}
+	if r.RoleKeys != "" {
+		roles = strings.Split(r.RoleKeys, ",")
+	}
+	return model.PlatformAccount{User: model.User{ID: r.ID, Username: r.Username, Email: r.Email, AccountType: r.AccountType, Status: r.Status, TokenVersion: r.TokenVersion, CreatedAt: r.CreatedAt}, Roles: roles}
+}
+
+type platformUserRoleRow struct {
+	ID         uint64 `gorm:"primaryKey"`
+	UserID     uint64
+	RoleID     uint64
+	AssignedBy *uint64
+	AssignedAt time.Time
+	RevokedAt  *time.Time
+}
+
+func (platformUserRoleRow) TableName() string { return "platform_user_roles" }
 
 type RefreshTokenRepository struct {
 	db *gorm.DB

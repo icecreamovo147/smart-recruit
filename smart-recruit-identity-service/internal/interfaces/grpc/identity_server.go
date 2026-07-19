@@ -11,6 +11,7 @@ import (
 	appservice "smart-recruit-identity-service/internal/application/service"
 	securitymodel "smart-recruit-identity-service/internal/domain/model"
 	"smart-recruit-identity-service/internal/domain/policy"
+	"smart-recruit-identity-service/internal/domain/repository"
 	"smart-recruit-platform-go/errs"
 	"smart-recruit-proto/recruitment/pb"
 )
@@ -43,7 +44,8 @@ func (s *Server) Register(ctx context.Context, req *pb.RegisterRequest) (*pb.Reg
 			errors.Is(err, policy.ErrUsernameInvalid),
 			errors.Is(err, policy.ErrUsernameBlank),
 			errors.Is(err, appservice.ErrInviteInvalid),
-			errors.Is(err, appservice.ErrUsernameExists):
+			errors.Is(err, appservice.ErrUsernameExists),
+			errors.Is(err, appservice.ErrTenantMemberQuota):
 			return &pb.RegisterResponse{Code: errs.ErrBadRequest, Msg: err.Error()}, nil
 		case errors.Is(err, appservice.ErrInviteServiceUnavailable),
 			errors.Is(err, appservice.ErrRoleSeedMissing),
@@ -287,9 +289,25 @@ func membershipsResponse(memberships []securitymodel.TenantMembership) []*pb.Ten
 			IsDefault:        membership.Tenant.IsDefault,
 			UserId:           membership.UserID,
 			Username:         membership.Username,
+			Email:            membership.Email,
+			JoinedAt:         formatOptionalTime(membership.JoinedAt),
 		})
 	}
 	return result
+}
+
+func (s *Server) GetTenant(ctx context.Context, req *pb.GetTenantRequest) (*pb.TenantResponse, error) {
+	tenant, err := s.tenant.Get(ctx, req.TenantId)
+	if err != nil {
+		if errors.Is(err, appservice.ErrTenantInvalid) {
+			return &pb.TenantResponse{Code: errs.ErrBadRequest, Msg: "企业不存在或参数无效"}, nil
+		}
+		if errors.Is(err, appservice.ErrInvalidCredentials) {
+			return &pb.TenantResponse{Code: errs.ErrForbidden, Msg: "无平台查看权限"}, nil
+		}
+		return nil, err
+	}
+	return &pb.TenantResponse{Code: errs.OK, Msg: "success", Tenant: tenantResponse(tenant)}, nil
 }
 
 func (s *Server) CreateTenant(ctx context.Context, req *pb.CreateTenantRequest) (*pb.TenantResponse, error) {
@@ -325,7 +343,7 @@ func (s *Server) ListTenants(ctx context.Context, req *pb.ListTenantsRequest) (*
 }
 
 func (s *Server) UpdateTenantStatus(ctx context.Context, req *pb.UpdateTenantStatusRequest) (*pb.TenantResponse, error) {
-	tenant, err := s.tenant.UpdateStatus(ctx, req.TenantId, req.Status)
+	tenant, err := s.tenant.UpdateStatus(ctx, req.TenantId, req.Status, req.Reason)
 	if err != nil {
 		if errors.Is(err, appservice.ErrTenantInvalid) {
 			return &pb.TenantResponse{Code: errs.ErrBadRequest, Msg: err.Error()}, nil
@@ -352,11 +370,264 @@ func (s *Server) ListTenantMemberships(ctx context.Context, req *pb.ListTenantMe
 	return &pb.ListTenantMembershipsResponse{Code: errs.OK, Msg: "success", Total: total, List: membershipsResponse(rows)}, nil
 }
 
+func (s *Server) UpdateTenantMembershipStatus(ctx context.Context, req *pb.UpdateTenantMembershipStatusRequest) (*pb.TenantMembershipResponse, error) {
+	membership, err := s.tenant.UpdateMembershipStatus(ctx, req.TenantId, req.MembershipId, req.Status, req.Reason)
+	if err != nil {
+		switch {
+		case errors.Is(err, appservice.ErrTenantInvalid):
+			return &pb.TenantMembershipResponse{Code: errs.ErrBadRequest, Msg: "成员不存在或参数无效"}, nil
+		case errors.Is(err, appservice.ErrLastTenantAdmin):
+			return &pb.TenantMembershipResponse{Code: errs.ErrBadRequest, Msg: err.Error()}, nil
+		case errors.Is(err, appservice.ErrInvalidCredentials):
+			return &pb.TenantMembershipResponse{Code: errs.ErrForbidden, Msg: "无平台成员管理权限"}, nil
+		default:
+			return nil, err
+		}
+	}
+	items := membershipsResponse([]securitymodel.TenantMembership{*membership})
+	return &pb.TenantMembershipResponse{Code: errs.OK, Msg: "成员状态已更新", Membership: items[0]}, nil
+}
+
+func (s *Server) GetPlatformDashboard(ctx context.Context, _ *pb.GetPlatformDashboardRequest) (*pb.GetPlatformDashboardResponse, error) {
+	dashboard, err := s.tenant.Dashboard(ctx)
+	if err != nil {
+		if errors.Is(err, appservice.ErrInvalidCredentials) {
+			return &pb.GetPlatformDashboardResponse{Code: errs.ErrForbidden, Msg: "无平台总览权限"}, nil
+		}
+		return nil, err
+	}
+	distribution := []*pb.PlatformTenantStatusCount{
+		{Status: "active", Count: dashboard.ActiveTenants},
+		{Status: "suspended", Count: dashboard.SuspendedTenants},
+		{Status: "disabled", Count: dashboard.DisabledTenants},
+	}
+	return &pb.GetPlatformDashboardResponse{
+		Code: errs.OK, Msg: "success", TotalTenants: dashboard.TotalTenants,
+		ActiveTenants: dashboard.ActiveTenants, SuspendedTenants: dashboard.SuspendedTenants,
+		DisabledTenants: dashboard.DisabledTenants, NewTenants_30D: dashboard.NewTenants30D,
+		TotalMemberships: dashboard.TotalMemberships, ActiveMemberships: dashboard.ActiveMemberships,
+		TenantsWithoutAdmin: dashboard.TenantsWithoutAdmin, StatusDistribution: distribution,
+	}, nil
+}
+
+func (s *Server) QueryPlatformAuditLogs(ctx context.Context, req *pb.QueryPlatformAuditLogsRequest) (*pb.QueryPlatformAuditLogsResponse, error) {
+	startTime, err := parseOptionalTime(req.StartTime)
+	if err != nil {
+		return &pb.QueryPlatformAuditLogsResponse{Code: errs.ErrBadRequest, Msg: "开始时间格式无效"}, nil
+	}
+	endTime, err := parseOptionalTime(req.EndTime)
+	if err != nil {
+		return &pb.QueryPlatformAuditLogsResponse{Code: errs.ErrBadRequest, Msg: "结束时间格式无效"}, nil
+	}
+	rows, total, err := s.tenant.QueryAuditLogs(ctx, securitymodel.PlatformAuditFilter{
+		TenantID: req.TenantId, ActorUserID: req.ActorUserId, Action: strings.TrimSpace(req.Action),
+		RequestID: strings.TrimSpace(req.RequestId), StartTime: startTime, EndTime: endTime,
+	}, req.Page, req.PageSize)
+	if err != nil {
+		if errors.Is(err, appservice.ErrTenantInvalid) {
+			return &pb.QueryPlatformAuditLogsResponse{Code: errs.ErrBadRequest, Msg: "审计查询参数无效"}, nil
+		}
+		if errors.Is(err, appservice.ErrInvalidCredentials) {
+			return &pb.QueryPlatformAuditLogsResponse{Code: errs.ErrForbidden, Msg: "无平台审计查看权限"}, nil
+		}
+		return nil, err
+	}
+	list := make([]*pb.PlatformAuditLogItem, len(rows))
+	for i, row := range rows {
+		list[i] = &pb.PlatformAuditLogItem{
+			Id: row.ID, ActorUserId: row.ActorUserID, ActorUsername: row.ActorUsername,
+			Action: row.Action, ResourceType: row.ResourceType, ResourceId: row.ResourceID,
+			TargetTenantId: row.TargetTenantID, TargetTenantName: row.TargetTenantName,
+			BeforeJson: row.BeforeJSON, AfterJson: row.AfterJSON, RequestId: row.RequestID,
+			ClientIp: row.ClientIP, CreatedAt: row.CreatedAt.Format(time.RFC3339),
+		}
+	}
+	return &pb.QueryPlatformAuditLogsResponse{Code: errs.OK, Msg: "success", Total: total, List: list}, nil
+}
+
+func (s *Server) ListPlatformPlans(ctx context.Context, req *pb.ListPlatformPlansRequest) (*pb.ListPlatformPlansResponse, error) {
+	rows, err := s.tenant.ListPlans(ctx, req.Status)
+	if err != nil {
+		return &pb.ListPlatformPlansResponse{Code: platformErrorCode(err), Msg: err.Error()}, nil
+	}
+	list := make([]*pb.PlatformPlanInfo, len(rows))
+	for i := range rows {
+		list[i] = platformPlanResponse(rows[i])
+	}
+	return &pb.ListPlatformPlansResponse{Code: errs.OK, Msg: "success", List: list}, nil
+}
+
+func (s *Server) SavePlatformPlanVersion(ctx context.Context, req *pb.SavePlatformPlanVersionRequest) (*pb.PlatformPlanVersionResponse, error) {
+	version, err := s.tenant.SavePlanVersion(ctx, req.PlanId, req.VersionId, req.ChangeNote, entitlementModels(req.Entitlements))
+	if err != nil {
+		return &pb.PlatformPlanVersionResponse{Code: platformErrorCode(err), Msg: err.Error()}, nil
+	}
+	return &pb.PlatformPlanVersionResponse{Code: errs.OK, Msg: "套餐草稿已保存", Version: platformPlanVersionResponse(*version)}, nil
+}
+
+func (s *Server) PublishPlatformPlanVersion(ctx context.Context, req *pb.PublishPlatformPlanVersionRequest) (*pb.PlatformPlanVersionResponse, error) {
+	effectiveAt, err := time.Parse(time.RFC3339, req.EffectiveAt)
+	if err != nil {
+		return &pb.PlatformPlanVersionResponse{Code: errs.ErrBadRequest, Msg: "生效时间格式无效"}, nil
+	}
+	version, err := s.tenant.PublishPlanVersion(ctx, req.PlanId, req.VersionId, effectiveAt, req.Reason)
+	if err != nil {
+		return &pb.PlatformPlanVersionResponse{Code: platformErrorCode(err), Msg: err.Error()}, nil
+	}
+	return &pb.PlatformPlanVersionResponse{Code: errs.OK, Msg: "套餐版本已发布", Version: platformPlanVersionResponse(*version)}, nil
+}
+
+func (s *Server) GetTenantSubscription(ctx context.Context, req *pb.GetTenantSubscriptionRequest) (*pb.TenantSubscriptionResponse, error) {
+	subscription, err := s.tenant.GetSubscription(ctx, req.TenantId)
+	if err != nil {
+		return &pb.TenantSubscriptionResponse{Code: platformErrorCode(err), Msg: err.Error()}, nil
+	}
+	return &pb.TenantSubscriptionResponse{Code: errs.OK, Msg: "success", Subscription: tenantSubscriptionResponse(subscription)}, nil
+}
+
+func (s *Server) UpdateTenantSubscription(ctx context.Context, req *pb.UpdateTenantSubscriptionRequest) (*pb.TenantSubscriptionResponse, error) {
+	startsAt, err := time.Parse(time.RFC3339, req.StartsAt)
+	if err != nil {
+		return &pb.TenantSubscriptionResponse{Code: errs.ErrBadRequest, Msg: "开始时间格式无效"}, nil
+	}
+	endsAt, err := parseOptionalTime(req.EndsAt)
+	if err != nil {
+		return &pb.TenantSubscriptionResponse{Code: errs.ErrBadRequest, Msg: "结束时间格式无效"}, nil
+	}
+	subscription, err := s.tenant.UpdateSubscription(ctx, req.TenantId, req.PlanVersionId, startsAt, endsAt, req.Reason)
+	if err != nil {
+		return &pb.TenantSubscriptionResponse{Code: platformErrorCode(err), Msg: err.Error()}, nil
+	}
+	return &pb.TenantSubscriptionResponse{Code: errs.OK, Msg: "租户订阅已更新", Subscription: tenantSubscriptionResponse(subscription)}, nil
+}
+
+func (s *Server) UpdateTenantEntitlementOverride(ctx context.Context, req *pb.UpdateTenantEntitlementOverrideRequest) (*pb.TenantSubscriptionResponse, error) {
+	expiresAt, err := parseOptionalTime(req.ExpiresAt)
+	if err != nil {
+		return &pb.TenantSubscriptionResponse{Code: errs.ErrBadRequest, Msg: "过期时间格式无效"}, nil
+	}
+	subscription, err := s.tenant.UpdateEntitlementOverride(ctx, req.TenantId, securitymodel.PlatformEntitlement{Key: req.EntitlementKey, ValueType: req.ValueType, ValueJSON: req.ValueJson, EnforcementMode: "hard", Source: "override"}, expiresAt, req.Reason)
+	if err != nil {
+		return &pb.TenantSubscriptionResponse{Code: platformErrorCode(err), Msg: err.Error()}, nil
+	}
+	return &pb.TenantSubscriptionResponse{Code: errs.OK, Msg: "租户权益覆盖已更新", Subscription: tenantSubscriptionResponse(subscription)}, nil
+}
+
+func (s *Server) GetTenantUsage(ctx context.Context, req *pb.GetTenantUsageRequest) (*pb.GetTenantUsageResponse, error) {
+	metrics, err := s.tenant.GetUsage(ctx, req.TenantId)
+	if err != nil {
+		return &pb.GetTenantUsageResponse{Code: platformErrorCode(err), Msg: err.Error()}, nil
+	}
+	items := make([]*pb.TenantUsageMetric, len(metrics))
+	for i, metric := range metrics {
+		items[i] = &pb.TenantUsageMetric{Key: metric.Key, UsageValue: metric.UsageValue, QuotaValue: metric.QuotaValue, UsagePercent: metric.UsagePercent, EnforcementMode: metric.EnforcementMode, MeasuredAt: formatTime(metric.MeasuredAt)}
+	}
+	return &pb.GetTenantUsageResponse{Code: errs.OK, Msg: "success", TenantId: req.TenantId, Metrics: items}, nil
+}
+
+func (s *Server) ListQuotaAlerts(ctx context.Context, req *pb.ListQuotaAlertsRequest) (*pb.ListQuotaAlertsResponse, error) {
+	rows, total, err := s.tenant.ListAlerts(ctx, securitymodel.QuotaAlertFilter{TenantID: req.TenantId, Status: req.Status, MetricKey: req.MetricKey}, req.Page, req.PageSize)
+	if err != nil {
+		return &pb.ListQuotaAlertsResponse{Code: platformErrorCode(err), Msg: err.Error()}, nil
+	}
+	list := make([]*pb.QuotaAlertInfo, len(rows))
+	for i := range rows {
+		list[i] = quotaAlertResponse(&rows[i])
+	}
+	return &pb.ListQuotaAlertsResponse{Code: errs.OK, Msg: "success", Total: total, List: list}, nil
+}
+
+func (s *Server) UpdateQuotaAlert(ctx context.Context, req *pb.UpdateQuotaAlertRequest) (*pb.QuotaAlertResponse, error) {
+	alert, err := s.tenant.UpdateAlert(ctx, req.AlertId, req.Status, req.AssigneeUserId, req.ResolutionNote)
+	if err != nil {
+		return &pb.QuotaAlertResponse{Code: platformErrorCode(err), Msg: err.Error()}, nil
+	}
+	return &pb.QuotaAlertResponse{Code: errs.OK, Msg: "告警状态已更新", Alert: quotaAlertResponse(alert)}, nil
+}
+
+func platformErrorCode(err error) int32 {
+	if errors.Is(err, appservice.ErrInvalidCredentials) {
+		return errs.ErrForbidden
+	}
+	if errors.Is(err, appservice.ErrTenantInvalid) || errors.Is(err, appservice.ErrTenantMemberQuota) {
+		return errs.ErrBadRequest
+	}
+	return errs.ErrInternal
+}
+
+func entitlementModels(items []*pb.PlatformEntitlementItem) []securitymodel.PlatformEntitlement {
+	result := make([]securitymodel.PlatformEntitlement, len(items))
+	for i, item := range items {
+		result[i] = securitymodel.PlatformEntitlement{Key: item.Key, ValueType: item.ValueType, ValueJSON: item.ValueJson, EnforcementMode: item.EnforcementMode, Source: item.Source}
+	}
+	return result
+}
+
+func entitlementResponses(items []securitymodel.PlatformEntitlement) []*pb.PlatformEntitlementItem {
+	result := make([]*pb.PlatformEntitlementItem, len(items))
+	for i, item := range items {
+		result[i] = &pb.PlatformEntitlementItem{Key: item.Key, ValueType: item.ValueType, ValueJson: item.ValueJSON, EnforcementMode: item.EnforcementMode, Source: item.Source}
+	}
+	return result
+}
+
+func platformPlanResponse(plan securitymodel.PlatformPlan) *pb.PlatformPlanInfo {
+	versions := make([]*pb.PlatformPlanVersionInfo, len(plan.Versions))
+	for i := range plan.Versions {
+		versions[i] = platformPlanVersionResponse(plan.Versions[i])
+	}
+	return &pb.PlatformPlanInfo{Id: plan.ID, PlanKey: plan.PlanKey, Name: plan.Name, Description: plan.Description, Status: plan.Status, Versions: versions, CreatedAt: formatTime(plan.CreatedAt), UpdatedAt: formatTime(plan.UpdatedAt)}
+}
+
+func platformPlanVersionResponse(version securitymodel.PlatformPlanVersion) *pb.PlatformPlanVersionInfo {
+	return &pb.PlatformPlanVersionInfo{Id: version.ID, PlanId: version.PlanID, Version: version.Version, Status: version.Status, EffectiveAt: formatOptionalTime(version.EffectiveAt), RetiredAt: formatOptionalTime(version.RetiredAt), ChangeNote: version.ChangeNote, Entitlements: entitlementResponses(version.Entitlements), CreatedAt: formatTime(version.CreatedAt), UpdatedAt: formatTime(version.UpdatedAt)}
+}
+
+func tenantSubscriptionResponse(subscription *securitymodel.TenantSubscription) *pb.TenantSubscriptionInfo {
+	if subscription == nil {
+		return nil
+	}
+	return &pb.TenantSubscriptionInfo{Id: subscription.ID, TenantId: subscription.TenantID, PlanVersionId: subscription.PlanVersionID, PlanKey: subscription.PlanKey, PlanName: subscription.PlanName, PlanVersion: subscription.PlanVersion, Status: subscription.Status, StartsAt: formatTime(subscription.StartsAt), EndsAt: formatOptionalTime(subscription.EndsAt), Reason: subscription.Reason, EffectiveEntitlements: entitlementResponses(subscription.EffectiveEntitlements)}
+}
+
+func quotaAlertResponse(alert *securitymodel.QuotaAlert) *pb.QuotaAlertInfo {
+	if alert == nil {
+		return nil
+	}
+	return &pb.QuotaAlertInfo{Id: alert.ID, TenantId: alert.TenantID, TenantName: alert.TenantName, MetricKey: alert.MetricKey, ThresholdPercent: alert.ThresholdPercent, UsageValue: alert.UsageValue, QuotaValue: alert.QuotaValue, Status: alert.Status, AssigneeUserId: alert.AssigneeUserID, AcknowledgedAt: formatOptionalTime(alert.AcknowledgedAt), ResolvedAt: formatOptionalTime(alert.ResolvedAt), ResolutionNote: alert.ResolutionNote, FirstTriggeredAt: formatTime(alert.FirstTriggeredAt), LastTriggeredAt: formatTime(alert.LastTriggeredAt)}
+}
+
 func tenantResponse(tenant *securitymodel.Tenant) *pb.TenantInfo {
 	if tenant == nil {
 		return nil
 	}
-	return &pb.TenantInfo{Id: tenant.ID, TenantKey: tenant.TenantKey, Slug: tenant.Slug, Name: tenant.Name, Status: tenant.Status, Timezone: tenant.Timezone, Locale: tenant.Locale, IsDefault: tenant.IsDefault, MembershipCount: tenant.MembershipCount}
+	return &pb.TenantInfo{Id: tenant.ID, TenantKey: tenant.TenantKey, Slug: tenant.Slug, Name: tenant.Name, Status: tenant.Status, Timezone: tenant.Timezone, Locale: tenant.Locale, IsDefault: tenant.IsDefault, MembershipCount: tenant.MembershipCount, CreatedAt: formatTime(tenant.CreatedAt), UpdatedAt: formatTime(tenant.UpdatedAt)}
+}
+
+func formatOptionalTime(value *time.Time) string {
+	if value == nil {
+		return ""
+	}
+	return value.Format(time.RFC3339)
+}
+
+func formatTime(value time.Time) string {
+	if value.IsZero() {
+		return ""
+	}
+	return value.Format(time.RFC3339)
+}
+
+func parseOptionalTime(value string) (*time.Time, error) {
+	value = strings.TrimSpace(value)
+	if value == "" {
+		return nil, nil
+	}
+	parsed, err := time.Parse(time.RFC3339, value)
+	if err != nil {
+		return nil, err
+	}
+	return &parsed, nil
 }
 
 func matchingScopes(principal *securitymodel.Principal, requiredScopeKey, resourceType string, resourceID int64) []*pb.ScopeAssignment {
@@ -560,6 +831,48 @@ func (s *Server) CreateStaffUser(ctx context.Context, req *pb.CreateStaffUserReq
 		}
 	}
 	return &pb.CreateStaffUserResponse{Code: errs.OK, Msg: "success", UserId: userID}, nil
+}
+
+func (s *Server) ListPlatformUsers(ctx context.Context, req *pb.ListPlatformUsersRequest) (*pb.ListPlatformUsersResponse, error) {
+	rows, total, err := s.admin.ListPlatformAccounts(ctx, req.Page, req.PageSize, req.Status)
+	if err != nil {
+		return &pb.ListPlatformUsersResponse{Code: errs.ErrForbidden, Msg: err.Error()}, nil
+	}
+	list := make([]*pb.PlatformUserInfo, len(rows))
+	for i := range rows {
+		list[i] = platformUserResponse(&rows[i])
+	}
+	return &pb.ListPlatformUsersResponse{Code: errs.OK, Msg: "success", Total: total, List: list}, nil
+}
+
+func (s *Server) CreatePlatformUser(ctx context.Context, req *pb.CreatePlatformUserRequest) (*pb.CreatePlatformUserResponse, error) {
+	userID, err := s.admin.CreatePlatformAccount(ctx, req.AdminId, req.Username, req.Email, req.Password, req.RoleKey)
+	if err != nil {
+		code := int32(errs.ErrBadRequest)
+		if !errors.Is(err, appservice.ErrUsernameExists) && !errors.Is(err, appservice.ErrAccountCreateFailed) && !errors.Is(err, appservice.ErrRoleNotFound) {
+			code = errs.ErrForbidden
+		}
+		return &pb.CreatePlatformUserResponse{Code: code, Msg: err.Error()}, nil
+	}
+	return &pb.CreatePlatformUserResponse{Code: errs.OK, Msg: "平台账号已创建", UserId: userID}, nil
+}
+
+func (s *Server) UpdatePlatformUser(ctx context.Context, req *pb.UpdatePlatformUserRequest) (*pb.PlatformUserResponse, error) {
+	user, err := s.admin.UpdatePlatformAccount(ctx, req.AdminId, req.UserId, req.RoleKey, req.Status, req.Reason)
+	if err != nil {
+		if errors.Is(err, repository.ErrLastAdmin) {
+			return &pb.PlatformUserResponse{Code: errs.ErrBadRequest, Msg: "平台必须至少保留一名有效平台管理员"}, nil
+		}
+		return &pb.PlatformUserResponse{Code: errs.ErrBadRequest, Msg: err.Error()}, nil
+	}
+	return &pb.PlatformUserResponse{Code: errs.OK, Msg: "平台账号已更新", User: platformUserResponse(user)}, nil
+}
+
+func platformUserResponse(user *securitymodel.PlatformAccount) *pb.PlatformUserInfo {
+	if user == nil {
+		return nil
+	}
+	return &pb.PlatformUserInfo{UserId: user.ID, Username: user.Username, Email: user.Email, Status: user.Status, Roles: user.Roles, TokenVersion: user.TokenVersion, CreatedAt: formatTime(user.CreatedAt)}
 }
 
 func (s *Server) QueryAuthAuditLogs(ctx context.Context, req *pb.QueryAuthAuditLogsRequest) (*pb.QueryAuthAuditLogsResponse, error) {

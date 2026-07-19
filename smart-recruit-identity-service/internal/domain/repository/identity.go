@@ -22,6 +22,9 @@ type UserRepository interface {
 	Create(context.Context, *model.User) error
 	UpdateEmail(context.Context, int64, string) error
 	ListStaff(context.Context, int32, int32, string) ([]model.User, int64, error)
+	ListPlatformAccounts(context.Context, int32, int32, string) ([]model.PlatformAccount, int64, error)
+	CreatePlatformAccount(ctx context.Context, user *model.User, roleID uint64, assignedBy *uint64) error
+	UpdatePlatformAccount(ctx context.Context, userID int64, roleID uint64, status, reason string, actorID int64) (*model.PlatformAccount, error)
 }
 
 type RefreshTokenRepository interface {
@@ -37,8 +40,23 @@ type TenantRepository interface {
 	GetDefault(context.Context) (*model.Tenant, error)
 	Create(context.Context, *model.Tenant) error
 	List(ctx context.Context, offset, limit int, keyword, status string) ([]model.Tenant, int64, error)
-	UpdateStatus(ctx context.Context, tenantID int64, status string) (*model.Tenant, error)
+	UpdateStatus(ctx context.Context, tenantID int64, status, reason string) (*model.Tenant, error)
+	GetPlatformDashboard(context.Context) (model.PlatformDashboard, error)
+	QueryPlatformAuditLogs(ctx context.Context, filter model.PlatformAuditFilter, offset, limit int) ([]model.PlatformAuditLog, int64, error)
+	ListPlatformPlans(ctx context.Context, status string) ([]model.PlatformPlan, error)
+	SavePlatformPlanVersion(ctx context.Context, planID, versionID int64, changeNote string, entitlements []model.PlatformEntitlement) (*model.PlatformPlanVersion, error)
+	PublishPlatformPlanVersion(ctx context.Context, planID, versionID int64, effectiveAt time.Time, reason string) (*model.PlatformPlanVersion, error)
+	GetTenantSubscription(ctx context.Context, tenantID int64) (*model.TenantSubscription, error)
+	UpdateTenantSubscription(ctx context.Context, tenantID, planVersionID int64, startsAt time.Time, endsAt *time.Time, reason string) (*model.TenantSubscription, error)
+	UpdateTenantEntitlementOverride(ctx context.Context, tenantID int64, entitlement model.PlatformEntitlement, expiresAt *time.Time, reason string) (*model.TenantSubscription, error)
+	GetTenantUsage(ctx context.Context, tenantID int64) ([]model.TenantUsageMetric, error)
+	ListQuotaAlerts(ctx context.Context, filter model.QuotaAlertFilter, offset, limit int) ([]model.QuotaAlert, int64, error)
+	UpdateQuotaAlert(ctx context.Context, alertID int64, status string, assigneeUserID int64, resolutionNote string) (*model.QuotaAlert, error)
+	CheckTenantQuota(ctx context.Context, tenantID int64, metricKey string, delta int64) error
 	ListTenantMemberships(ctx context.Context, tenantID int64, offset, limit int) ([]model.TenantMembership, int64, error)
+	GetTenantMembership(ctx context.Context, tenantID, membershipID int64) (*model.TenantMembership, error)
+	UpdateTenantMembershipStatus(ctx context.Context, tenantID, membershipID int64, status, reason string) (*model.TenantMembership, error)
+	MembershipHasRole(ctx context.Context, membershipID int64, roleKey string) (bool, error)
 	ListUserMemberships(context.Context, int64) ([]model.TenantMembership, error)
 	GetActiveMembership(ctx context.Context, userID, tenantID int64) (*model.TenantMembership, error)
 	LoadTenantPrincipal(ctx context.Context, userID, tenantID int64, clientApp string) (*model.Principal, error)

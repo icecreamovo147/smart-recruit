@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 
+	commonsquota "smart-recruit-commons/quota"
 	"smart-recruit-identity-service/internal/application/command"
 	"smart-recruit-identity-service/internal/application/dto"
 	"smart-recruit-identity-service/internal/application/port"
@@ -111,6 +112,26 @@ func (s *AuthService) Register(ctx context.Context, cmd command.Register) (dto.R
 	}
 	if existing != nil {
 		return dto.RegisterResult{}, ErrUsernameExists
+	}
+	if plan.AccountType == model.AccountTypeStaff && s.tenants != nil {
+		if inviteTenantID <= 0 {
+			defaultTenant, tenantErr := s.tenants.GetDefault(ctx)
+			if tenantErr != nil {
+				return dto.RegisterResult{}, fmt.Errorf("%w: resolve default tenant: %v", ErrAccountCreateFailed, tenantErr)
+			}
+			if defaultTenant != nil {
+				inviteTenantID = defaultTenant.ID
+			}
+		}
+		if inviteTenantID <= 0 {
+			return dto.RegisterResult{}, fmt.Errorf("%w: staff invite has no tenant", ErrAccountCreateFailed)
+		}
+		if err := s.tenants.CheckTenantQuota(ctx, inviteTenantID, "members.max", 1); err != nil {
+			if errors.Is(err, commonsquota.ErrLimitExceeded) {
+				return dto.RegisterResult{}, ErrTenantMemberQuota
+			}
+			return dto.RegisterResult{}, err
+		}
 	}
 	hash, err := s.passwords.HashPassword(cmd.Password)
 	if err != nil {

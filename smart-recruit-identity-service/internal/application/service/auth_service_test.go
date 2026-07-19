@@ -6,6 +6,7 @@ import (
 	"testing"
 	"time"
 
+	commonsquota "smart-recruit-commons/quota"
 	"smart-recruit-identity-service/internal/application/command"
 	"smart-recruit-identity-service/internal/application/port"
 	"smart-recruit-identity-service/internal/domain/model"
@@ -43,6 +44,22 @@ func TestAuthServiceRegisterStaffAssignsRecruiterAndOwnJobs(t *testing.T) {
 	}
 	if got := authz.assignedScopes[result.UserID]; len(got) != 1 || got[0] != model.ScopeOwnJobs {
 		t.Fatalf("assigned scopes = %#v, want own_jobs", got)
+	}
+}
+
+func TestAuthServiceRegisterStaffEnforcesTenantMemberQuotaBeforeCreatingUser(t *testing.T) {
+	users := newMemoryUsers()
+	tenantRepo := &tenantRepositoryFake{quotaErr: commonsquota.ErrLimitExceeded}
+	auth := newTestAuthService(t, AuthDeps{
+		Users: users, Authz: newMemoryAuthz(), Tenants: tenantRepo,
+		Invites: staticInvites{invite: &model.InviteCode{ID: 1, Code: "abc123", TenantID: 7, CreatedBy: 99, IsActive: true}},
+	})
+	_, err := auth.Register(context.Background(), command.Register{Username: "quota-user", Password: "Password1", Role: model.LegacyRoleHR, InviteCode: "abc123"})
+	if !errors.Is(err, ErrTenantMemberQuota) {
+		t.Fatalf("Register error = %v, want ErrTenantMemberQuota", err)
+	}
+	if len(users.byID) != 0 {
+		t.Fatal("quota denial must happen before creating the global user")
 	}
 }
 
