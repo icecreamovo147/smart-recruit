@@ -1608,13 +1608,17 @@ func (a *usageStatsAdapter) GetUsageStats(ctx context.Context, req *pb.GetUsageS
 		return nil, err
 	}
 	summary := &pb.UsageStatsSummary{
-		TotalTokens:   summaryRow.TotalTokens,
-		CallCount:     summaryRow.CallCount,
-		SuccessCount:  summaryRow.SuccessCount,
-		FailedCount:   summaryRow.FailedCount,
-		AvgCostMs:     summaryRow.AvgCostMs,
-		EstimatedCost: estimateCost(summaryRow.TotalTokens),
+		TotalTokens:  summaryRow.TotalTokens,
+		CallCount:    summaryRow.CallCount,
+		SuccessCount: summaryRow.SuccessCount,
+		FailedCount:  summaryRow.FailedCount,
+		AvgCostMs:    summaryRow.AvgCostMs,
 	}
+	var totalSupplierCostMicros int64
+	if err := a.billingUsageQuery(ctx, req.GetStartTime(), req.GetEndTime()).Select("COALESCE(SUM(supplier_cost_micros), 0)").Scan(&totalSupplierCostMicros).Error; err != nil {
+		return nil, err
+	}
+	summary.EstimatedCost = supplierMicrosToCurrency(totalSupplierCostMicros)
 	if summaryRow.CallCount > 0 {
 		summary.SuccessRate = float64(summaryRow.SuccessCount) * 100 / float64(summaryRow.CallCount)
 	}
@@ -1642,6 +1646,10 @@ func (a *usageStatsAdapter) GetUsageStats(ctx context.Context, req *pb.GetUsageS
 		return nil, err
 	}
 	list := make([]*pb.UsageStatsItem, 0, len(rows))
+	costByDimension, err := a.billingCostByDimension(ctx, req.GetStartTime(), req.GetEndTime(), req.GetDimension())
+	if err != nil {
+		return nil, err
+	}
 	for _, row := range rows {
 		name := strings.TrimSpace(row.DimKey)
 		if name == "" {
@@ -1652,7 +1660,7 @@ func (a *usageStatsAdapter) GetUsageStats(ctx context.Context, req *pb.GetUsageS
 			TotalTokens:   row.TotalTokens,
 			CallCount:     row.CallCount,
 			AvgCostMs:     row.AvgCostMs,
-			EstimatedCost: estimateCost(row.TotalTokens),
+			EstimatedCost: supplierMicrosToCurrency(costByDimension[row.DimKey]),
 			SuccessCount:  row.SuccessCount,
 			FailedCount:   row.FailedCount,
 		})
@@ -1682,8 +1690,12 @@ func (a *usageStatsAdapter) GetUsageTrend(ctx context.Context, req *pb.GetUsageT
 		return nil, err
 	}
 	list := make([]*pb.UsageTrendPoint, 0, len(rows))
+	costByDate, err := a.billingCostTrend(ctx, req.StartTime, req.EndTime, req.Granularity)
+	if err != nil {
+		return nil, err
+	}
 	for _, row := range rows {
-		list = append(list, &pb.UsageTrendPoint{Date: row.Date, TotalTokens: row.TotalTokens, CallCount: row.CallCount, AvgCostMs: row.AvgCostMs, EstimatedCost: estimateCost(row.TotalTokens)})
+		list = append(list, &pb.UsageTrendPoint{Date: row.Date, TotalTokens: row.TotalTokens, CallCount: row.CallCount, AvgCostMs: row.AvgCostMs, EstimatedCost: supplierMicrosToCurrency(costByDate[row.Date])})
 	}
 	return &pb.GetUsageTrendResponse{Code: errs.OK, Msg: "success", List: list}, nil
 }
@@ -2762,8 +2774,67 @@ func usageDimension(value string) string {
 	}
 }
 
-func estimateCost(tokens int64) float64 {
-	return float64(tokens) * 0.000002
+func supplierMicrosToCurrency(value int64) float64 { return float64(value) / 1_000_000 }
+
+func (a *nativeStore) billingUsageQuery(ctx context.Context, start, end string) *gorm.DB {
+	query := a.db.WithContext(ctx).Table("ai_usage_events")
+	if tenantID := metadata.GetAuthTenantID(ctx); tenantID > 0 {
+		query = query.Where("owner_type = ? AND owner_id = ?", "tenant", tenantID)
+	}
+	if t, err := parseOptionalTime(start); err == nil && t != nil {
+		query = query.Where("occurred_at >= ?", *t)
+	}
+	if t, err := parseOptionalTime(end); err == nil && t != nil {
+		query = query.Where("occurred_at <= ?", *t)
+	}
+	return query
+}
+
+func (a *nativeStore) billingCostByDimension(ctx context.Context, start, end, dimension string) (map[string]int64, error) {
+	column := "CAST(user_id AS CHAR)"
+	switch strings.TrimSpace(dimension) {
+	case "model":
+		column = "model_key"
+	case "provider":
+		column = "provider_key"
+	case "service_type":
+		column = "operation"
+	case "session":
+		column = "provider_request_id"
+	}
+	var rows []struct {
+		Key  string `gorm:"column:dim_key"`
+		Cost int64  `gorm:"column:cost_micros"`
+	}
+	if err := a.billingUsageQuery(ctx, start, end).Select(fmt.Sprintf("%s dim_key, COALESCE(SUM(supplier_cost_micros), 0) cost_micros", column)).Group(column).Scan(&rows).Error; err != nil {
+		return nil, err
+	}
+	result := make(map[string]int64, len(rows))
+	for _, row := range rows {
+		result[row.Key] = row.Cost
+	}
+	return result, nil
+}
+
+func (a *nativeStore) billingCostTrend(ctx context.Context, start, end, granularity string) (map[string]int64, error) {
+	expression := "DATE(occurred_at)"
+	if granularity == "month" {
+		expression = "DATE_FORMAT(occurred_at, '%Y-%m')"
+	} else if granularity == "week" {
+		expression = "YEARWEEK(occurred_at, 3)"
+	}
+	var rows []struct {
+		Date string `gorm:"column:date"`
+		Cost int64  `gorm:"column:cost_micros"`
+	}
+	if err := a.billingUsageQuery(ctx, start, end).Select(fmt.Sprintf("%s date, COALESCE(SUM(supplier_cost_micros), 0) cost_micros", expression)).Group("date").Scan(&rows).Error; err != nil {
+		return nil, err
+	}
+	result := make(map[string]int64, len(rows))
+	for _, row := range rows {
+		result[row.Date] = row.Cost
+	}
+	return result, nil
 }
 
 func completeFlag(values ...string) int32 {

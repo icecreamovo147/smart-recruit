@@ -31,6 +31,13 @@ func TestGetUsageStatsSummaryAndProviderNames(t *testing.T) {
 	if err := db.AutoMigrate(&usageLogRecord{}); err != nil {
 		t.Fatalf("migrate: %v", err)
 	}
+	if err := db.Exec(`CREATE TABLE ai_usage_events (
+		id INTEGER PRIMARY KEY, owner_type TEXT, owner_id INTEGER, user_id INTEGER,
+		operation TEXT, provider_key TEXT, model_key TEXT, provider_request_id TEXT,
+		supplier_cost_micros INTEGER NOT NULL DEFAULT 0, occurred_at DATETIME
+	)`).Error; err != nil {
+		t.Fatalf("migrate billing usage: %v", err)
+	}
 	now := time.Now()
 	seeds := []usageLogRecord{
 		{UserID: 1, ServiceType: "ai_chat", Provider: "dashscope", Model: "qwen", EstimatedTokens: 100, Status: "ok", CostMs: 10, CreatedAt: now},

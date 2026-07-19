@@ -115,7 +115,7 @@ func serveRecruitment(addr string) error {
 	}
 	if err := db.Use(tenantgorm.NewWithMixed(
 		[]string{"jobs", "applications", "application_status_transitions", "invite_codes", "departments", "job_locations", "department_locations", "candidate_notes", "candidate_tags", "candidate_tag_assignments", "follow_up_tasks", "interview_schedules", "interview_feedback", "offers", "offer_events"},
-		[]string{"event_outbox", "third_party_usage_logs"},
+		[]string{"event_outbox", "third_party_usage_logs", "ai_usage_events"},
 	)); err != nil {
 		return err
 	}

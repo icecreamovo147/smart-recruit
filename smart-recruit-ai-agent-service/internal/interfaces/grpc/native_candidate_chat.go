@@ -115,6 +115,11 @@ func (s *nativeAIService) runCandidateChatRuntime(req *pb.CandidateChatRequest, 
 	inputChars := len([]rune(req.GetMessage()))
 	modelID, modelName, providerName := s.resolveRuntimeModelDisplay(ctx, req.GetModelId())
 	auditOpts := candidateUsageAuditOptions{Provider: providerName, Model: modelName}
+	ctx, err := s.reserveAIBilling(ctx, billingOwnerUser, req.GetUserId(), "ai.chat.enabled", "candidate_chat", providerName, modelName, inputChars)
+	if err != nil {
+		return err
+	}
+	defer s.cancelUnsettledBilling(ctx, "runtime_completed_without_usage")
 	session, err := s.ensureSessionWithOptions(ctx, ownerRoleCandidate, req.GetUserId(), req.GetSessionId(), 0, req.GetMessage(), ChatSessionCreateOptions{
 		SessionType: req.GetSessionType(),
 		SourceType:  req.GetSourceType(),
@@ -274,6 +279,10 @@ func (s *nativeAIService) runCandidateChatRuntime(req *pb.CandidateChatRequest, 
 	}
 
 	auditOpts.TokenUsageTotal = tokenUsageTotalFromMeta(metadata.BillingTokenUsage)
+	if metadata.BillingTokenUsage != nil {
+		auditOpts.PromptTokens = metadata.BillingTokenUsage.PromptTokens
+		auditOpts.CompletionTokens = metadata.BillingTokenUsage.CompletionTokens
+	}
 
 	if execErr != nil {
 		if isCandidateChatCanceled(execErr) {

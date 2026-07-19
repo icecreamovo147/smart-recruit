@@ -494,7 +494,7 @@ onMounted(() => {
             <el-table-column prop="total_tokens" label="Token" width="110" align="center">
               <template #default="{ row }">{{ toNum(row.total_tokens).toLocaleString() }}</template>
             </el-table-column>
-            <el-table-column prop="estimated_cost" label="花费 ($)" width="110" align="center">
+            <el-table-column prop="estimated_cost" label="供应商成本（元）" width="140" align="center">
               <template #default="{ row }">{{ toNum(row.estimated_cost).toFixed(4) }}</template>
             </el-table-column>
             <el-table-column prop="avg_cost_ms" label="平均耗时" width="110" align="center">

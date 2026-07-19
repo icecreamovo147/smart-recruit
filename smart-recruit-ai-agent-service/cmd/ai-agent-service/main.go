@@ -161,6 +161,11 @@ func serveAIAgent(addr string) error {
 		return fmt.Errorf("dial recruitment grpc: %w", err)
 	}
 	defer recruitmentConn.Close()
+	billingConn, err := dialInternalGRPC(envOrDefault("BILLING_GRPC_ADDR", "127.0.0.1:50069"))
+	if err != nil {
+		return fmt.Errorf("dial billing grpc: %w", err)
+	}
+	defer billingConn.Close()
 
 	metricsServer, err := server.StartMetricsServer(cfg.Observability.MetricsAddr)
 	if err != nil {
@@ -205,6 +210,8 @@ func serveAIAgent(addr string) error {
 		AgentRunWorker:   true,
 		RuntimeName:      cfg.AI.AgentRuntime,
 		Auth:             pb.NewAuthServiceClient(identityConn),
+		Billing:          pb.NewBillingServiceClient(billingConn),
+		BillingRequired:  strings.EqualFold(envOrDefault("AI_BILLING_MODE", "shadow"), "enforce"),
 		Applications:     pb.NewApplicationOwnerServiceClient(recruitmentConn),
 		AppList:          pb.NewApplicationServiceClient(recruitmentConn),
 		Jobs:             pb.NewJobServiceClient(recruitmentConn),

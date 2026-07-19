@@ -194,6 +194,8 @@ type RuntimeDeps struct {
 	RuntimeName      string
 	EmbeddingConfigs pb.EmbeddingConfigServiceServer
 	Auth             pb.AuthServiceClient
+	Billing          pb.BillingServiceClient
+	BillingRequired  bool
 	Applications     pb.ApplicationOwnerServiceClient
 	AppList          pb.ApplicationServiceClient
 	Jobs             pb.JobServiceClient
@@ -333,73 +335,82 @@ type CandidateOfferContext struct {
 
 // UsageAuditRow is a third-party usage audit record for AI calls (HR or candidate).
 type UsageAuditRow struct {
-	UserID          int64
-	Role            int32
-	AccountType     string
-	ServiceType     string
-	Endpoint        string
-	Provider        string
-	Model           string
-	RequestChars    int
-	ResponseChars   int
-	EstimatedTokens int
-	TokenUsageTotal int
-	Status          string
-	ErrorCode       string
-	CostMs          int
-	RequestID       string
-	IP              string
-	RoleKeys        []string
-	PermissionKey   string
-	ScopeKeys       []string
-	ResourceType    string
-	ResourceID      int64
+	UserID            int64
+	Role              int32
+	AccountType       string
+	ServiceType       string
+	Endpoint          string
+	Provider          string
+	Model             string
+	RequestChars      int
+	ResponseChars     int
+	EstimatedTokens   int
+	TokenUsageTotal   int
+	PromptTokens      int
+	CompletionTokens  int
+	CachedInputTokens int
+	Status            string
+	ErrorCode         string
+	CostMs            int
+	RequestID         string
+	IP                string
+	RoleKeys          []string
+	PermissionKey     string
+	ScopeKeys         []string
+	ResourceType      string
+	ResourceID        int64
 }
 
 // CandidateUsageAuditRow keeps the candidate-facing audit shape used by existing call sites.
 type CandidateUsageAuditRow struct {
-	UserID          int64
-	ServiceType     string
-	Endpoint        string
-	Provider        string
-	Model           string
-	RequestChars    int
-	ResponseChars   int
-	EstimatedTokens int
-	TokenUsageTotal int
-	Status          string
-	ErrorCode       string
-	CostMs          int
-	RequestID       string
-	IP              string
-	RoleKeys        []string
-	PermissionKey   string
-	ScopeKeys       []string
+	UserID            int64
+	ServiceType       string
+	Endpoint          string
+	Provider          string
+	Model             string
+	RequestChars      int
+	ResponseChars     int
+	EstimatedTokens   int
+	TokenUsageTotal   int
+	PromptTokens      int
+	CompletionTokens  int
+	CachedInputTokens int
+	Status            string
+	ErrorCode         string
+	CostMs            int
+	RequestID         string
+	IP                string
+	RoleKeys          []string
+	PermissionKey     string
+	ScopeKeys         []string
 }
 
 func candidateUsageAuditToUsageAudit(row CandidateUsageAuditRow) UsageAuditRow {
 	return UsageAuditRow{
-		UserID:          row.UserID,
-		Role:            1,
-		AccountType:     "candidate",
-		ServiceType:     row.ServiceType,
-		Endpoint:        row.Endpoint,
-		Provider:        row.Provider,
-		Model:           row.Model,
-		RequestChars:    row.RequestChars,
-		ResponseChars:   row.ResponseChars,
-		EstimatedTokens: row.EstimatedTokens,
-		TokenUsageTotal: row.TokenUsageTotal,
-		Status:          row.Status,
-		ErrorCode:       row.ErrorCode,
-		CostMs:          row.CostMs,
-		RequestID:       row.RequestID,
-		IP:              row.IP,
-		RoleKeys:        append([]string(nil), row.RoleKeys...),
-		PermissionKey:   row.PermissionKey,
-		ScopeKeys:       append([]string(nil), row.ScopeKeys...),
-		ResourceType:    "ai",
-		ResourceID:      0,
+		UserID:            row.UserID,
+		Role:              1,
+		AccountType:       "candidate",
+		ServiceType:       row.ServiceType,
+		Endpoint:          row.Endpoint,
+		Provider:          row.Provider,
+		Model:             row.Model,
+		RequestChars:      row.RequestChars,
+		ResponseChars:     row.ResponseChars,
+		EstimatedTokens:   row.EstimatedTokens,
+		TokenUsageTotal:   row.TokenUsageTotal,
+		PromptTokens:      row.PromptTokens,
+		CompletionTokens:  row.CompletionTokens,
+		CachedInputTokens: row.CachedInputTokens,
+		Status:            row.Status,
+		ErrorCode:         row.ErrorCode,
+		CostMs:            row.CostMs,
+		RequestID:         row.RequestID,
+		IP:                row.IP,
+		RoleKeys:          append([]string(nil), row.RoleKeys...),
+		PermissionKey:     row.PermissionKey,
+		ScopeKeys:         append([]string(nil), row.ScopeKeys...),
+		ResourceType:      "ai",
+		ResourceID:        0,
 	}
 }
 
@@ -723,6 +734,8 @@ func NewNativeRuntimeDeps(deps RuntimeDeps) aiagentruntime.Deps {
 	ai := newNativeAIServiceWithRunner(deps.Store, deps.Provider, deps.Applications, deps.Jobs, deps.AppList, mcpRunner, embeddingService)
 	ai.recruitingPolicy = deps.RecruitingPolicy
 	ai.auth = deps.Auth
+	ai.billing = deps.Billing
+	ai.billingRequired = deps.BillingRequired
 	ai.agentRuntime = normalizeAgentRuntime(deps.RuntimeName)
 	if store, ok := deps.Store.(candidatetools.DataStore); ok {
 		ai.candidateTools = candidatetools.NewExecutor(store)
@@ -802,6 +815,8 @@ type nativeAIService struct {
 	provider                ChatProvider
 	recruitingPolicy        recruitingruntime.RuntimePolicy
 	auth                    pb.AuthServiceClient
+	billing                 pb.BillingServiceClient
+	billingRequired         bool
 	applications            applicationSnapshotClient
 	jobs                    hr_tools.JobClient
 	appList                 hr_tools.ApplicationListClient
@@ -1056,6 +1071,17 @@ func (s *nativeAIService) runHRChatRuntimeWithOptions(ctx context.Context, req *
 	result.modelID = result.runtimeModel.ID
 	result.modelName = result.runtimeModel.Name
 	result.providerName = result.runtimeModel.ProviderName
+	capability := "ai.chat.enabled"
+	operation := "hr_chat"
+	if opts.agentRunID > 0 {
+		capability = "ai.agent_run.enabled"
+		operation = "agent_run"
+	}
+	ctx, err = s.reserveAIBilling(ctx, billingOwnerTenant, req.GetHrId(), capability, operation, result.providerName, result.modelName, len([]rune(req.GetMessage())))
+	if err != nil {
+		return result, err
+	}
+	defer s.cancelUnsettledBilling(ctx, "runtime_completed_without_usage")
 	if sessionStore, ok := s.store.(chatSessionContextModelStore); ok {
 		if err := sessionStore.UpdateChatSessionContextModel(ctx, ownerRoleHR, req.GetHrId(), session.ID, req.GetModelId(), nil); err != nil {
 			return result, err
@@ -3820,7 +3846,7 @@ func (s *nativeAIService) recordHRUsageAudit(ctx context.Context, req *pb.ChatRe
 		provider = "unknown"
 	}
 	modelName := strings.TrimSpace(result.modelName)
-	_, err := auditStore.RecordUsageAudit(ctx, UsageAuditRow{
+	row := UsageAuditRow{
 		UserID:          req.GetHrId(),
 		Role:            2,
 		AccountType:     "staff",
@@ -3841,7 +3867,13 @@ func (s *nativeAIService) recordHRUsageAudit(ctx context.Context, req *pb.ChatRe
 		PermissionKey:   "ai.hr.use",
 		ResourceType:    "ai",
 		ResourceID:      req.GetApplicationId(),
-	})
+	}
+	if result.billingTokenUsage != nil {
+		row.PromptTokens = result.billingTokenUsage.PromptTokens
+		row.CompletionTokens = result.billingTokenUsage.CompletionTokens
+	}
+	_, err := auditStore.RecordUsageAudit(ctx, row)
+	s.bestEffortMeterUsage(ctx, row)
 	return err
 }
 
@@ -3864,9 +3896,11 @@ func tokenUsageTotal(usage *schema.TokenUsage) int {
 }
 
 type candidateUsageAuditOptions struct {
-	Provider        string
-	Model           string
-	TokenUsageTotal int
+	Provider         string
+	Model            string
+	TokenUsageTotal  int
+	PromptTokens     int
+	CompletionTokens int
 }
 
 func (s *nativeAIService) recordCandidateUsageAudit(ctx context.Context, userID int64, requestChars, responseChars int, statusValue, errorCode string, costMs int, opts ...candidateUsageAuditOptions) error {
@@ -3876,38 +3910,45 @@ func (s *nativeAIService) recordCandidateUsageAudit(ctx context.Context, userID 
 	provider := "openai_compatible"
 	modelName := ""
 	tokenTotal := 0
+	promptTokens := 0
+	completionTokens := 0
 	if len(opts) > 0 {
 		if strings.TrimSpace(opts[0].Provider) != "" {
 			provider = strings.TrimSpace(opts[0].Provider)
 		}
 		modelName = strings.TrimSpace(opts[0].Model)
 		tokenTotal = opts[0].TokenUsageTotal
+		promptTokens = opts[0].PromptTokens
+		completionTokens = opts[0].CompletionTokens
 	}
 	estimated := estimateTokenUsage(requestChars, responseChars)
 	if tokenTotal <= 0 {
 		tokenTotal = estimated
 	}
 	row := CandidateUsageAuditRow{
-		UserID:          userID,
-		ServiceType:     "ai_chat",
-		Endpoint:        "/candidate/ai/chat/stream",
-		Provider:        provider,
-		Model:           modelName,
-		RequestChars:    requestChars,
-		ResponseChars:   responseChars,
-		EstimatedTokens: estimated,
-		TokenUsageTotal: tokenTotal,
-		Status:          statusValue,
-		ErrorCode:       errorCode,
-		CostMs:          costMs,
-		RequestID:       platformmetadata.GetRequestID(ctx),
-		IP:              platformmetadata.GetClientIP(ctx),
-		RoleKeys:        []string{"candidate"},
-		PermissionKey:   "ai.candidate.use",
-		ScopeKeys:       []string{"self"},
+		UserID:           userID,
+		ServiceType:      "ai_chat",
+		Endpoint:         "/candidate/ai/chat/stream",
+		Provider:         provider,
+		Model:            modelName,
+		RequestChars:     requestChars,
+		ResponseChars:    responseChars,
+		EstimatedTokens:  estimated,
+		TokenUsageTotal:  tokenTotal,
+		PromptTokens:     promptTokens,
+		CompletionTokens: completionTokens,
+		Status:           statusValue,
+		ErrorCode:        errorCode,
+		CostMs:           costMs,
+		RequestID:        platformmetadata.GetRequestID(ctx),
+		IP:               platformmetadata.GetClientIP(ctx),
+		RoleKeys:         []string{"candidate"},
+		PermissionKey:    "ai.candidate.use",
+		ScopeKeys:        []string{"self"},
 	}
 	if auditStore, ok := s.store.(usageAuditStore); ok {
 		_, err := auditStore.RecordUsageAudit(ctx, candidateUsageAuditToUsageAudit(row))
+		s.bestEffortMeterUsage(ctx, candidateUsageAuditToUsageAudit(row))
 		return err
 	}
 	auditStore, ok := s.store.(candidateUsageAuditStore)
