@@ -17,3 +17,24 @@ func TestWithTraceContextPreservesIncomingTraceID(t *testing.T) {
 		t.Fatal("expected a new child span id")
 	}
 }
+
+func TestWithTenantActorRoundTripsTrustedContext(t *testing.T) {
+	want := TenantContext{
+		TenantID: 12, MembershipID: 34, UserID: 56,
+		AccountType: "staff", ClientApp: "staff",
+	}
+	got := GetTenantContext(WithTenantActor(context.Background(), want))
+	if got != want {
+		t.Fatalf("tenant context = %#v, want %#v", got, want)
+	}
+}
+
+func TestWithAuthActorRemainsGlobalByDefault(t *testing.T) {
+	got := GetTenantContext(WithAuthActor(context.Background(), 7, "candidate"))
+	if got.UserID != 7 || got.AccountType != "candidate" {
+		t.Fatalf("actor = %#v", got)
+	}
+	if got.TenantID != 0 || got.MembershipID != 0 || got.ClientApp != "" {
+		t.Fatalf("global actor unexpectedly tenant-bound: %#v", got)
+	}
+}

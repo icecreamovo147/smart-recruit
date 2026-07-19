@@ -17,11 +17,14 @@ const (
 	// KeyAuthUserID and KeyAuthAccountType carry the authenticated actor's identity
 	// from the HTTP gateway through gRPC metadata into backend service context.
 	// Set by the gRPC server interceptor (injectMetadataIntoContext).
-	KeyAuthUserID      ctxKey = "x-authenticated-user-id"
-	KeyAuthAccountType ctxKey = "x-authenticated-account-type"
-	KeyTraceID         ctxKey = "x-trace-id"
-	KeySpanID          ctxKey = "x-span-id"
-	KeyTraceparent     ctxKey = "traceparent"
+	KeyAuthUserID       ctxKey = "x-authenticated-user-id"
+	KeyAuthAccountType  ctxKey = "x-authenticated-account-type"
+	KeyAuthTenantID     ctxKey = "x-authenticated-tenant-id"
+	KeyAuthMembershipID ctxKey = "x-authenticated-membership-id"
+	KeyAuthClientApp    ctxKey = "x-authenticated-client-app"
+	KeyTraceID          ctxKey = "x-trace-id"
+	KeySpanID           ctxKey = "x-span-id"
+	KeyTraceparent      ctxKey = "traceparent"
 )
 
 // GetRequestID extracts the HTTP request-id from context.
@@ -63,6 +66,36 @@ func GetAuthAccountType(ctx context.Context) string {
 		return v
 	}
 	return ""
+}
+
+func GetAuthTenantID(ctx context.Context) int64 {
+	return getInt64(ctx, KeyAuthTenantID)
+}
+
+func GetAuthMembershipID(ctx context.Context) int64 {
+	return getInt64(ctx, KeyAuthMembershipID)
+}
+
+func GetAuthClientApp(ctx context.Context) string {
+	if value, ok := ctx.Value(KeyAuthClientApp).(string); ok {
+		return value
+	}
+	return ""
+}
+
+type TenantContext struct {
+	TenantID     int64
+	MembershipID int64
+	UserID       int64
+	AccountType  string
+	ClientApp    string
+}
+
+func GetTenantContext(ctx context.Context) TenantContext {
+	return TenantContext{
+		TenantID: GetAuthTenantID(ctx), MembershipID: GetAuthMembershipID(ctx),
+		UserID: GetAuthUserID(ctx), AccountType: GetAuthAccountType(ctx), ClientApp: GetAuthClientApp(ctx),
+	}
 }
 
 func GetTraceID(ctx context.Context) string {
@@ -110,6 +143,33 @@ func WithAuthActor(ctx context.Context, userID int64, accountType string) contex
 		ctx = context.WithValue(ctx, KeyAuthAccountType, accountType)
 	}
 	return ctx
+}
+
+func WithTenantActor(ctx context.Context, actor TenantContext) context.Context {
+	ctx = WithAuthActor(ctx, actor.UserID, actor.AccountType)
+	if actor.TenantID > 0 {
+		ctx = context.WithValue(ctx, KeyAuthTenantID, actor.TenantID)
+	}
+	if actor.MembershipID > 0 {
+		ctx = context.WithValue(ctx, KeyAuthMembershipID, actor.MembershipID)
+	}
+	if actor.ClientApp != "" {
+		ctx = context.WithValue(ctx, KeyAuthClientApp, actor.ClientApp)
+	}
+	return ctx
+}
+
+func getInt64(ctx context.Context, key ctxKey) int64 {
+	if value, ok := ctx.Value(key).(int64); ok {
+		return value
+	}
+	if value, ok := ctx.Value(key).(string); ok {
+		var id int64
+		if _, err := fmt.Sscanf(value, "%d", &id); err == nil {
+			return id
+		}
+	}
+	return 0
 }
 
 func parseTraceparent(value string) (string, string) {

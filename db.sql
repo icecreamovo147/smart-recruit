@@ -1,9 +1,25 @@
-CREATE DATABASE IF NOT EXISTS `recruitment`
-  CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
-
-USE `recruitment`;
-
+-- Create and select the target database before sourcing this baseline schema.
 SET NAMES utf8mb4;
+
+CREATE TABLE IF NOT EXISTS `tenants` (
+  `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+  `tenant_key` CHAR(36) NOT NULL COMMENT 'Immutable external tenant identifier',
+  `slug` VARCHAR(64) NOT NULL COMMENT 'Immutable public tenant slug',
+  `name` VARCHAR(128) NOT NULL,
+  `status` VARCHAR(32) NOT NULL DEFAULT 'provisioning' COMMENT 'provisioning/active/suspended/disabled',
+  `timezone` VARCHAR(64) NOT NULL DEFAULT 'Asia/Shanghai',
+  `locale` VARCHAR(32) NOT NULL DEFAULT 'zh-CN',
+  `is_default` TINYINT(1) NOT NULL DEFAULT 0,
+  `default_key` TINYINT GENERATED ALWAYS AS (CASE WHEN `is_default` = 1 THEN 1 ELSE NULL END) STORED,
+  `created_by` BIGINT UNSIGNED NULL COMMENT 'Platform actor users.id',
+  `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_tenants_tenant_key` (`tenant_key`),
+  UNIQUE KEY `uk_tenants_slug` (`slug`),
+  UNIQUE KEY `uk_tenants_default` (`default_key`),
+  KEY `idx_tenants_status` (`status`, `id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='Enterprise tenant directory';
 
 CREATE TABLE IF NOT EXISTS `users` (
   `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT COMMENT '用户ID',
@@ -11,7 +27,7 @@ CREATE TABLE IF NOT EXISTS `users` (
   `password` VARCHAR(255) NOT NULL COMMENT 'bcrypt 哈希密码',
   `role` TINYINT NOT NULL DEFAULT 1 COMMENT '角色：1=候选人 2=HR 3=HR管理员（Deprecated: 保留用于兼容，新授权逻辑使用 RBAC 表）',
   `email` VARCHAR(128) DEFAULT NULL COMMENT '邮箱（可选）',
-  `account_type` VARCHAR(32) NOT NULL DEFAULT 'candidate' COMMENT '账号类型：candidate | staff | service',
+  `account_type` VARCHAR(32) NOT NULL DEFAULT 'candidate' COMMENT 'candidate | staff | platform | service',
   `status` VARCHAR(32) NOT NULL DEFAULT 'active' COMMENT '账号状态：active | disabled | locked | pending',
   `token_version` INT NOT NULL DEFAULT 1 COMMENT '令牌版本号，权限变更时递增以失效旧令牌',
   `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -20,11 +36,30 @@ CREATE TABLE IF NOT EXISTS `users` (
   UNIQUE KEY `uk_username` (`username`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='用户账号表';
 
+CREATE TABLE IF NOT EXISTS `tenant_memberships` (
+  `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+  `tenant_id` BIGINT UNSIGNED NOT NULL,
+  `user_id` BIGINT UNSIGNED NOT NULL,
+  `status` VARCHAR(32) NOT NULL DEFAULT 'active' COMMENT 'invited/active/suspended/left',
+  `joined_at` DATETIME NULL,
+  `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_tenant_membership_user` (`tenant_id`, `user_id`),
+  KEY `idx_tenant_memberships_user_status` (`user_id`, `status`, `tenant_id`),
+  KEY `idx_tenant_memberships_tenant_status` (`tenant_id`, `status`, `user_id`),
+  CONSTRAINT `fk_tenant_memberships_tenant` FOREIGN KEY (`tenant_id`) REFERENCES `tenants` (`id`),
+  CONSTRAINT `fk_tenant_memberships_user` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='Global-user membership in an enterprise tenant';
+
 CREATE TABLE IF NOT EXISTS `refresh_tokens` (
   `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT COMMENT '刷新令牌ID',
   `user_id` BIGINT UNSIGNED NOT NULL COMMENT '关联 users.id',
   `token_hash` CHAR(64) NOT NULL COMMENT '明文 refresh token 的 sha256 哈希',
   `family_id` VARCHAR(64) NOT NULL COMMENT '登录会话族ID，轮换时保持不变',
+  `client_app` VARCHAR(32) NOT NULL DEFAULT '',
+  `active_tenant_id` BIGINT UNSIGNED NULL,
+  `membership_id` BIGINT UNSIGNED NULL,
   `expires_at` DATETIME(3) NOT NULL COMMENT '刷新令牌过期时间',
   `revoked_at` DATETIME(3) NULL COMMENT '令牌被轮换或撤销的时间',
   `replaced_by_hash` CHAR(64) NULL COMMENT '替换它的新 refresh token 哈希',
@@ -38,11 +73,16 @@ CREATE TABLE IF NOT EXISTS `refresh_tokens` (
   KEY `idx_refresh_tokens_user_id` (`user_id`),
   KEY `idx_refresh_tokens_family_id` (`family_id`),
   KEY `idx_refresh_tokens_expires_at` (`expires_at`),
-  CONSTRAINT `fk_refresh_tokens_user_id` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE
+  KEY `idx_refresh_tokens_active_tenant` (`active_tenant_id`, `user_id`),
+  KEY `idx_refresh_tokens_membership` (`membership_id`),
+  CONSTRAINT `fk_refresh_tokens_user_id` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE,
+  CONSTRAINT `fk_refresh_tokens_active_tenant` FOREIGN KEY (`active_tenant_id`) REFERENCES `tenants` (`id`),
+  CONSTRAINT `fk_refresh_tokens_membership` FOREIGN KEY (`membership_id`) REFERENCES `tenant_memberships` (`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='刷新令牌存储表';
 
 CREATE TABLE IF NOT EXISTS `jobs` (
   `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT COMMENT '岗位ID',
+  `tenant_id` BIGINT UNSIGNED NOT NULL,
   `hr_id` BIGINT UNSIGNED NOT NULL COMMENT '发布该岗位的 HR 用户ID',
   `title` VARCHAR(128) NOT NULL COMMENT '岗位名称',
   `department` VARCHAR(64) DEFAULT NULL COMMENT '所属部门',
@@ -54,10 +94,13 @@ CREATE TABLE IF NOT EXISTS `jobs` (
   `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   `updated_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_jobs_tenant_id` (`tenant_id`, `id`),
   KEY `idx_hr_id` (`hr_id`),
   KEY `idx_status` (`status`),
   KEY `idx_status_created_id` (`status`, `created_at`, `id`),
-  KEY `idx_hr_created_id` (`hr_id`, `created_at`, `id`)
+  KEY `idx_hr_created_id` (`hr_id`, `created_at`, `id`),
+  KEY `idx_jobs_tenant_status_created` (`tenant_id`, `status`, `created_at`, `id`),
+  CONSTRAINT `fk_jobs_tenant` FOREIGN KEY (`tenant_id`) REFERENCES `tenants` (`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='招聘岗位表';
 
 CREATE TABLE IF NOT EXISTS `candidate_profiles` (
@@ -224,6 +267,7 @@ CREATE TABLE IF NOT EXISTS `resume_skills` (
 
 CREATE TABLE IF NOT EXISTS `applications` (
   `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+  `tenant_id` BIGINT UNSIGNED NOT NULL,
   `job_id` BIGINT UNSIGNED NOT NULL COMMENT '投递的岗位ID',
   `user_id` BIGINT UNSIGNED NOT NULL COMMENT '投递的候选人用户ID',
   `resume_id` BIGINT UNSIGNED NOT NULL COMMENT '投递时使用的简历ID',
@@ -237,6 +281,7 @@ CREATE TABLE IF NOT EXISTS `applications` (
     CASE WHEN `is_current` = 1 AND `status_key` NOT IN ('rejected', 'withdrawn', 'offer_rejected', 'hired') THEN 1 ELSE NULL END
   ) STORED,
   PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_applications_tenant_id` (`tenant_id`, `id`),
   UNIQUE KEY `uk_active_application` (`job_id`, `user_id`, `active_key`),
   KEY `idx_job_user_current_status` (`job_id`, `user_id`, `is_current`, `status`),
   KEY `idx_job_status_current` (`job_id`, `status`, `is_current`),
@@ -244,7 +289,10 @@ CREATE TABLE IF NOT EXISTS `applications` (
   KEY `idx_user_applied` (`user_id`, `applied_at`, `id`),
   KEY `idx_job_id` (`job_id`),
   KEY `idx_user_id` (`user_id`),
-  KEY `idx_status_key` (`status_key`)
+  KEY `idx_status_key` (`status_key`),
+  KEY `idx_applications_tenant_job_status` (`tenant_id`, `job_id`, `status_key`, `is_current`),
+  CONSTRAINT `fk_applications_tenant` FOREIGN KEY (`tenant_id`) REFERENCES `tenants` (`id`),
+  CONSTRAINT `fk_applications_tenant_job` FOREIGN KEY (`tenant_id`, `job_id`) REFERENCES `jobs` (`tenant_id`, `id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='岗位投递关联表';
 
 -- ── Phase 1: 投递状态变更审计表 ─────────────────────────────────────────
@@ -252,6 +300,7 @@ CREATE TABLE IF NOT EXISTS `applications` (
 
 CREATE TABLE IF NOT EXISTS `application_status_transitions` (
   `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+  `tenant_id` BIGINT UNSIGNED NOT NULL,
   `application_id` BIGINT UNSIGNED NOT NULL COMMENT '关联 applications.id',
   `from_status` VARCHAR(64) NOT NULL COMMENT '变更前状态 key',
   `to_status` VARCHAR(64) NOT NULL COMMENT '变更后状态 key',
@@ -262,7 +311,10 @@ CREATE TABLE IF NOT EXISTS `application_status_transitions` (
   `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`),
   KEY `idx_transition_app` (`application_id`),
-  KEY `idx_transition_created` (`application_id`, `created_at`)
+  KEY `idx_transition_created` (`application_id`, `created_at`),
+  KEY `idx_app_transitions_tenant_app_created` (`tenant_id`, `application_id`, `created_at`),
+  CONSTRAINT `fk_app_transitions_tenant` FOREIGN KEY (`tenant_id`) REFERENCES `tenants` (`id`),
+  CONSTRAINT `fk_app_transitions_tenant_application` FOREIGN KEY (`tenant_id`, `application_id`) REFERENCES `applications` (`tenant_id`, `id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='投递状态变更审计记录表';
 
 CREATE TABLE IF NOT EXISTS `ai_chat_sessions` (
@@ -436,6 +488,7 @@ ALTER TABLE `resume_parse_runs`
 
 CREATE TABLE IF NOT EXISTS `candidate_match_evaluations` (
   `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+  `tenant_id` BIGINT UNSIGNED NOT NULL,
   `application_id` BIGINT UNSIGNED NOT NULL COMMENT 'applications.id',
   `job_id` BIGINT UNSIGNED NOT NULL COMMENT 'jobs.id',
   `candidate_user_id` BIGINT UNSIGNED NOT NULL COMMENT 'users.id for candidate',
@@ -457,6 +510,7 @@ CREATE TABLE IF NOT EXISTS `candidate_match_evaluations` (
   `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   `updated_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_match_eval_tenant_id` (`tenant_id`, `id`),
   UNIQUE KEY `uk_candidate_match_version` (`application_id`, `evaluation_version`),
   UNIQUE KEY `uk_candidate_match_latest` (`application_id`, `latest_key`),
   KEY `idx_candidate_match_application` (`application_id`),
@@ -467,11 +521,16 @@ CREATE TABLE IF NOT EXISTS `candidate_match_evaluations` (
   KEY `idx_candidate_match_latest` (`is_latest`),
   CONSTRAINT `fk_candidate_match_application` FOREIGN KEY (`application_id`) REFERENCES `applications` (`id`) ON DELETE CASCADE,
   CONSTRAINT `fk_candidate_match_resume_profile` FOREIGN KEY (`resume_profile_id`) REFERENCES `resume_profiles` (`id`) ON DELETE RESTRICT,
-  CONSTRAINT `fk_candidate_match_agent_run` FOREIGN KEY (`agent_run_id`) REFERENCES `agent_runs` (`id`) ON DELETE SET NULL
+  KEY `idx_match_eval_tenant_app` (`tenant_id`, `application_id`),
+  CONSTRAINT `fk_candidate_match_agent_run` FOREIGN KEY (`agent_run_id`) REFERENCES `agent_runs` (`id`) ON DELETE SET NULL,
+  CONSTRAINT `fk_match_eval_tenant` FOREIGN KEY (`tenant_id`) REFERENCES `tenants` (`id`),
+  CONSTRAINT `fk_match_eval_tenant_application` FOREIGN KEY (`tenant_id`, `application_id`) REFERENCES `applications` (`tenant_id`, `id`),
+  CONSTRAINT `fk_match_eval_tenant_job` FOREIGN KEY (`tenant_id`, `job_id`) REFERENCES `jobs` (`tenant_id`, `id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='Versioned candidate-job match evaluation';
 
 CREATE TABLE IF NOT EXISTS `candidate_match_evidence` (
   `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+  `tenant_id` BIGINT UNSIGNED NOT NULL,
   `evaluation_id` BIGINT UNSIGNED NOT NULL,
   `evidence_type` VARCHAR(64) NOT NULL,
   `dimension` VARCHAR(64) NULL,
@@ -485,7 +544,10 @@ CREATE TABLE IF NOT EXISTS `candidate_match_evidence` (
   PRIMARY KEY (`id`),
   KEY `idx_candidate_match_evidence_eval` (`evaluation_id`),
   KEY `idx_candidate_match_evidence_type` (`evidence_type`),
-  CONSTRAINT `fk_candidate_match_evidence_eval` FOREIGN KEY (`evaluation_id`) REFERENCES `candidate_match_evaluations` (`id`) ON DELETE CASCADE
+  KEY `idx_match_evidence_tenant_eval` (`tenant_id`, `evaluation_id`),
+  CONSTRAINT `fk_candidate_match_evidence_eval` FOREIGN KEY (`evaluation_id`) REFERENCES `candidate_match_evaluations` (`id`) ON DELETE CASCADE,
+  CONSTRAINT `fk_match_evidence_tenant` FOREIGN KEY (`tenant_id`) REFERENCES `tenants` (`id`),
+  CONSTRAINT `fk_match_evidence_tenant_evaluation` FOREIGN KEY (`tenant_id`, `evaluation_id`) REFERENCES `candidate_match_evaluations` (`tenant_id`, `id`) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='Evidence supporting candidate match evaluations';
 
 CREATE TABLE IF NOT EXISTS `ai_memories` (
@@ -664,6 +726,7 @@ CREATE TABLE IF NOT EXISTS `analytics_projection_checkpoints` (
 
 CREATE TABLE IF NOT EXISTS `invite_codes` (
   `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+  `tenant_id` BIGINT UNSIGNED NOT NULL,
   `code` VARCHAR(64) NOT NULL COMMENT '邀请码（随机生成）',
   `created_by` BIGINT UNSIGNED NOT NULL COMMENT '创建该邀请码的管理员用户ID',
   `expires_at` DATETIME NULL COMMENT '过期时间，NULL 表示永不过期',
@@ -673,8 +736,32 @@ CREATE TABLE IF NOT EXISTS `invite_codes` (
   PRIMARY KEY (`id`),
   UNIQUE KEY `uk_code` (`code`),
   KEY `idx_created_by` (`created_by`),
-  KEY `idx_code_active_expires` (`code`, `is_active`, `expires_at`)
+  KEY `idx_code_active_expires` (`code`, `is_active`, `expires_at`),
+  KEY `idx_invite_codes_tenant_active` (`tenant_id`, `is_active`, `expires_at`),
+  CONSTRAINT `fk_invite_codes_tenant` FOREIGN KEY (`tenant_id`) REFERENCES `tenants` (`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='HR 注册邀请码表';
+
+CREATE TABLE IF NOT EXISTS `tenant_invitations` (
+  `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+  `tenant_id` BIGINT UNSIGNED NOT NULL,
+  `email` VARCHAR(128) NOT NULL,
+  `token_hash` CHAR(64) NOT NULL,
+  `role_keys_json` JSON NOT NULL,
+  `status` VARCHAR(32) NOT NULL DEFAULT 'pending' COMMENT 'pending/accepted/revoked/expired',
+  `expires_at` DATETIME NOT NULL,
+  `created_by` BIGINT UNSIGNED NOT NULL,
+  `accepted_by` BIGINT UNSIGNED NULL,
+  `accepted_at` DATETIME NULL,
+  `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_tenant_invitations_token_hash` (`token_hash`),
+  KEY `idx_tenant_invitations_tenant_status` (`tenant_id`, `status`, `expires_at`),
+  KEY `idx_tenant_invitations_email_status` (`email`, `status`, `expires_at`),
+  CONSTRAINT `fk_tenant_invitations_tenant` FOREIGN KEY (`tenant_id`) REFERENCES `tenants` (`id`),
+  CONSTRAINT `fk_tenant_invitations_creator` FOREIGN KEY (`created_by`) REFERENCES `users` (`id`),
+  CONSTRAINT `fk_tenant_invitations_acceptor` FOREIGN KEY (`accepted_by`) REFERENCES `users` (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='Single-use tenant staff invitations';
 
 CREATE TABLE IF NOT EXISTS `third_party_usage_logs` (
   `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
@@ -707,9 +794,10 @@ CREATE TABLE IF NOT EXISTS `third_party_usage_logs` (
 
 CREATE TABLE IF NOT EXISTS `roles` (
   `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
-  `role_key` VARCHAR(64) NOT NULL COMMENT '角色唯一标识：candidate / recruiter / recruiting_admin / system_admin / interviewer',
+  `role_key` VARCHAR(64) NOT NULL COMMENT 'candidate/recruiter/recruiting_admin/interviewer/platform_admin/system_admin',
   `name` VARCHAR(128) NOT NULL COMMENT '角色中文名称',
   `description` VARCHAR(512) DEFAULT NULL COMMENT '角色描述',
+  `scope_type` VARCHAR(32) NOT NULL DEFAULT 'identity' COMMENT 'identity/tenant/platform',
   `is_system` TINYINT NOT NULL DEFAULT 1 COMMENT '是否系统角色：1=系统预置 0=自定义',
   `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   `updated_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
@@ -769,8 +857,56 @@ CREATE TABLE IF NOT EXISTS `user_data_scopes` (
   KEY `idx_scope_resource` (`scope_key`, `resource_type`, `resource_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='用户数据范围表';
 
+CREATE TABLE IF NOT EXISTS `tenant_membership_roles` (
+  `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+  `membership_id` BIGINT UNSIGNED NOT NULL,
+  `role_id` BIGINT UNSIGNED NOT NULL,
+  `assigned_by` BIGINT UNSIGNED NULL,
+  `assigned_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `revoked_at` DATETIME NULL,
+  `active_key` TINYINT GENERATED ALWAYS AS (CASE WHEN `revoked_at` IS NULL THEN 1 ELSE NULL END) STORED,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_tenant_membership_role_active` (`membership_id`, `role_id`, `active_key`),
+  KEY `idx_tenant_membership_roles_role` (`role_id`, `revoked_at`),
+  CONSTRAINT `fk_tenant_membership_roles_membership` FOREIGN KEY (`membership_id`) REFERENCES `tenant_memberships` (`id`) ON DELETE CASCADE,
+  CONSTRAINT `fk_tenant_membership_roles_role` FOREIGN KEY (`role_id`) REFERENCES `roles` (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='Tenant-scoped roles assigned to a membership';
+
+CREATE TABLE IF NOT EXISTS `tenant_membership_data_scopes` (
+  `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+  `membership_id` BIGINT UNSIGNED NOT NULL,
+  `scope_key` VARCHAR(64) NOT NULL,
+  `resource_type` VARCHAR(64) NOT NULL DEFAULT '',
+  `resource_id` BIGINT UNSIGNED NOT NULL DEFAULT 0,
+  `assigned_by` BIGINT UNSIGNED NULL,
+  `assigned_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `revoked_at` DATETIME NULL,
+  `active_key` TINYINT GENERATED ALWAYS AS (CASE WHEN `revoked_at` IS NULL THEN 1 ELSE NULL END) STORED,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_tenant_membership_scope_active` (`membership_id`, `scope_key`, `resource_type`, `resource_id`, `active_key`),
+  KEY `idx_tenant_membership_scopes_scope` (`scope_key`, `resource_type`, `resource_id`),
+  CONSTRAINT `fk_tenant_membership_scopes_membership` FOREIGN KEY (`membership_id`) REFERENCES `tenant_memberships` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='Tenant-scoped data grants assigned to a membership';
+
+CREATE TABLE IF NOT EXISTS `platform_user_roles` (
+  `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+  `user_id` BIGINT UNSIGNED NOT NULL,
+  `role_id` BIGINT UNSIGNED NOT NULL,
+  `assigned_by` BIGINT UNSIGNED NULL,
+  `assigned_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `revoked_at` DATETIME NULL,
+  `active_key` TINYINT GENERATED ALWAYS AS (CASE WHEN `revoked_at` IS NULL THEN 1 ELSE NULL END) STORED,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_platform_user_role_active` (`user_id`, `role_id`, `active_key`),
+  KEY `idx_platform_user_roles_role` (`role_id`, `revoked_at`),
+  CONSTRAINT `fk_platform_user_roles_user` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE,
+  CONSTRAINT `fk_platform_user_roles_role` FOREIGN KEY (`role_id`) REFERENCES `roles` (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='Platform-scoped role assignments';
+
 CREATE TABLE IF NOT EXISTS `authorization_audit_logs` (
   `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+  `tenant_id` BIGINT UNSIGNED NULL,
+  `membership_id` BIGINT UNSIGNED NULL,
   `actor_user_id` BIGINT UNSIGNED NOT NULL COMMENT '操作人用户ID',
   `actor_roles` VARCHAR(512) NOT NULL COMMENT '操作人当前角色，逗号分隔',
   `permission_key` VARCHAR(128) NOT NULL COMMENT '被检查的权限 key',
@@ -784,7 +920,10 @@ CREATE TABLE IF NOT EXISTS `authorization_audit_logs` (
   PRIMARY KEY (`id`),
   KEY `idx_actor_created` (`actor_user_id`, `created_at`),
   KEY `idx_permission_created` (`permission_key`, `created_at`),
-  KEY `idx_decision_created` (`decision`, `created_at`)
+  KEY `idx_decision_created` (`decision`, `created_at`),
+  KEY `idx_authorization_audit_tenant_created` (`tenant_id`, `created_at`),
+  CONSTRAINT `fk_authorization_audit_tenant` FOREIGN KEY (`tenant_id`) REFERENCES `tenants` (`id`),
+  CONSTRAINT `fk_authorization_audit_membership` FOREIGN KEY (`membership_id`) REFERENCES `tenant_memberships` (`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='授权审计日志表';
 
 -- ── 面试安排表 ────────────────────────────────────────────────────────
@@ -793,6 +932,7 @@ CREATE TABLE IF NOT EXISTS `authorization_audit_logs` (
 
 CREATE TABLE IF NOT EXISTS `interview_schedules` (
   `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+  `tenant_id` BIGINT UNSIGNED NOT NULL,
   `application_id` BIGINT UNSIGNED NOT NULL COMMENT '关联 applications.id',
   `interviewer_id` BIGINT UNSIGNED NOT NULL COMMENT '面试官用户ID（users.id）',
   `round_no` INT NOT NULL DEFAULT 1 COMMENT '面试轮次：1=初试 2=复试 ...',
@@ -811,9 +951,13 @@ CREATE TABLE IF NOT EXISTS `interview_schedules` (
   `updated_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   `deleted_at` DATETIME DEFAULT NULL COMMENT '软删除时间，NULL 表示有效',
   PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_interviews_tenant_id` (`tenant_id`, `id`),
   KEY `idx_interviewer_deleted` (`interviewer_id`, `deleted_at`),
   KEY `idx_application_deleted` (`application_id`, `deleted_at`),
-  KEY `idx_interviewer_app` (`interviewer_id`, `application_id`, `deleted_at`)
+  KEY `idx_interviewer_app` (`interviewer_id`, `application_id`, `deleted_at`),
+  KEY `idx_interviews_tenant_interviewer` (`tenant_id`, `interviewer_id`, `deleted_at`),
+  CONSTRAINT `fk_interviews_tenant` FOREIGN KEY (`tenant_id`) REFERENCES `tenants` (`id`),
+  CONSTRAINT `fk_interviews_tenant_application` FOREIGN KEY (`tenant_id`, `application_id`) REFERENCES `applications` (`tenant_id`, `id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='面试安排表';
 
 -- ── 面试反馈表 ────────────────────────────────────────────────────────
@@ -821,6 +965,7 @@ CREATE TABLE IF NOT EXISTS `interview_schedules` (
 
 CREATE TABLE IF NOT EXISTS `interview_feedback` (
   `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+  `tenant_id` BIGINT UNSIGNED NOT NULL,
   `interview_id` BIGINT UNSIGNED NOT NULL COMMENT '关联 interview_schedules.id',
   `application_id` BIGINT UNSIGNED NOT NULL COMMENT '关联 applications.id',
   `interviewer_id` BIGINT UNSIGNED NOT NULL COMMENT '面试官用户ID',
@@ -835,7 +980,11 @@ CREATE TABLE IF NOT EXISTS `interview_feedback` (
   KEY `idx_feedback_interview` (`interview_id`),
   KEY `idx_feedback_interviewer` (`interviewer_id`),
   KEY `idx_feedback_application` (`application_id`),
-  CONSTRAINT `chk_interview_feedback_score` CHECK (`score` IS NULL OR (`score` BETWEEN 0 AND 100))
+  KEY `idx_feedback_tenant_interview` (`tenant_id`, `interview_id`),
+  CONSTRAINT `chk_interview_feedback_score` CHECK (`score` IS NULL OR (`score` BETWEEN 0 AND 100)),
+  CONSTRAINT `fk_feedback_tenant` FOREIGN KEY (`tenant_id`) REFERENCES `tenants` (`id`),
+  CONSTRAINT `fk_feedback_tenant_interview` FOREIGN KEY (`tenant_id`, `interview_id`) REFERENCES `interview_schedules` (`tenant_id`, `id`),
+  CONSTRAINT `fk_feedback_tenant_application` FOREIGN KEY (`tenant_id`, `application_id`) REFERENCES `applications` (`tenant_id`, `id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='面试反馈表';
 
 -- ── Offer 表 ─────────────────────────────────────────────────────────────
@@ -843,6 +992,7 @@ CREATE TABLE IF NOT EXISTS `interview_feedback` (
 
 CREATE TABLE IF NOT EXISTS `offers` (
   `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT COMMENT 'Offer ID',
+  `tenant_id` BIGINT UNSIGNED NOT NULL,
   `application_id` BIGINT UNSIGNED NOT NULL COMMENT '关联 applications.id',
   `candidate_user_id` BIGINT UNSIGNED NOT NULL COMMENT '候选人用户ID',
   `job_id` BIGINT UNSIGNED NOT NULL COMMENT '关联 jobs.id',
@@ -861,16 +1011,22 @@ CREATE TABLE IF NOT EXISTS `offers` (
   `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   `updated_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_offers_tenant_id` (`tenant_id`, `id`),
   KEY `idx_offer_application` (`application_id`),
   KEY `idx_offer_candidate` (`candidate_user_id`),
   KEY `idx_offer_job` (`job_id`),
   KEY `idx_offer_status` (`status`),
   KEY `idx_offer_created_by` (`created_by`),
-  KEY `idx_offer_created` (`created_at`)
+  KEY `idx_offer_created` (`created_at`),
+  KEY `idx_offers_tenant_status_created` (`tenant_id`, `status`, `created_at`),
+  CONSTRAINT `fk_offers_tenant` FOREIGN KEY (`tenant_id`) REFERENCES `tenants` (`id`),
+  CONSTRAINT `fk_offers_tenant_application` FOREIGN KEY (`tenant_id`, `application_id`) REFERENCES `applications` (`tenant_id`, `id`),
+  CONSTRAINT `fk_offers_tenant_job` FOREIGN KEY (`tenant_id`, `job_id`) REFERENCES `jobs` (`tenant_id`, `id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='Offer表';
 
 CREATE TABLE IF NOT EXISTS `offer_events` (
   `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+  `tenant_id` BIGINT UNSIGNED NOT NULL,
   `offer_id` BIGINT UNSIGNED NOT NULL COMMENT '关联 offers.id',
   `event_type` VARCHAR(64) NOT NULL COMMENT '事件类型：created / updated / sent / withdrawn / accepted / rejected / expired',
   `actor_user_id` BIGINT UNSIGNED NOT NULL COMMENT '操作用户ID',
@@ -881,7 +1037,10 @@ CREATE TABLE IF NOT EXISTS `offer_events` (
   PRIMARY KEY (`id`),
   KEY `idx_offer_event_offer` (`offer_id`),
   KEY `idx_offer_event_type` (`event_type`),
-  KEY `idx_offer_event_created` (`offer_id`, `created_at`)
+  KEY `idx_offer_event_created` (`offer_id`, `created_at`),
+  KEY `idx_offer_events_tenant_offer` (`tenant_id`, `offer_id`, `created_at`),
+  CONSTRAINT `fk_offer_events_tenant` FOREIGN KEY (`tenant_id`) REFERENCES `tenants` (`id`),
+  CONSTRAINT `fk_offer_events_tenant_offer` FOREIGN KEY (`tenant_id`, `offer_id`) REFERENCES `offers` (`tenant_id`, `id`) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='Offer事件审计表';
 
 -- ══════════════════════════════════════════════════════════════════════
@@ -890,13 +1049,17 @@ CREATE TABLE IF NOT EXISTS `offer_events` (
 
 -- ── 角色 ──────────────────────────────────────────────────────────────
 
-INSERT INTO `roles` (`role_key`, `name`, `description`, `is_system`) VALUES
-  ('candidate',        '求职者',     '外部求职者，管理个人资料、简历、投递和AI会话', 1),
-  ('recruiter',        '招聘专员',   '负责岗位发布、候选人流程、面试安排和HR AI使用', 1),
-  ('recruiting_admin', '招聘管理员', '管理招聘配置、邀请码、部门、地点、用户角色分配', 1),
-  ('system_admin',     '系统管理员', '管理平台安全配置、角色目录、权限目录、审计日志', 1),
-  ('interviewer',      '面试官',     '查看被分配的面试并提交反馈', 1)
-ON DUPLICATE KEY UPDATE `name` = VALUES(`name`), `description` = VALUES(`description`);
+INSERT INTO `roles` (`role_key`, `name`, `description`, `scope_type`, `is_system`) VALUES
+  ('candidate',        '求职者',     '外部求职者，管理个人资料、简历、投递和AI会话', 'identity', 1),
+  ('recruiter',        '招聘专员',   '负责岗位发布、候选人流程、面试安排和HR AI使用', 'tenant', 1),
+  ('recruiting_admin', '招聘管理员', '管理招聘配置、邀请码、部门、地点、用户角色分配', 'tenant', 1),
+  ('system_admin',     '系统管理员', '平台管理员兼容角色，后续使用 platform_admin', 'platform', 1),
+  ('platform_admin',   '平台管理员', '管理租户、平台安全、全局目录与跨租户运营', 'platform', 1),
+  ('interviewer',      '面试官',     '查看被分配的面试并提交反馈', 'tenant', 1)
+ON DUPLICATE KEY UPDATE
+  `name` = VALUES(`name`),
+  `description` = VALUES(`description`),
+  `scope_type` = VALUES(`scope_type`);
 
 -- ── 权限 ──────────────────────────────────────────────────────────────
 
@@ -991,6 +1154,14 @@ INSERT IGNORE INTO `role_permissions` (`role_id`, `permission_id`)
     'auth.session.read', 'interview.read', 'interview.feedback.submit', 'notification.read'
   );
 
+-- Platform Admin receives the same platform permissions as the compatibility system_admin role.
+INSERT IGNORE INTO `role_permissions` (`role_id`, `permission_id`)
+  SELECT platform_role.id, rp.permission_id
+  FROM `roles` platform_role
+  JOIN `roles` legacy_role ON legacy_role.role_key = 'system_admin'
+  JOIN `role_permissions` rp ON rp.role_id = legacy_role.id
+  WHERE platform_role.role_key = 'platform_admin';
+
 -- ── 默认管理员账号 (admin / 123456) ────────────────────────────────────
 -- account_type=staff, role=3（兼容旧逻辑）, 分配 recruiting_admin + recruiter 角色
 
@@ -1022,10 +1193,46 @@ INSERT IGNORE INTO `user_roles` (`user_id`, `role_id`, `assigned_at`)
   FROM `users` u, `roles` r
   WHERE u.username = 'admin' AND r.role_key = 'system_admin';
 
+-- ── 默认租户与兼容数据 ────────────────────────────────────────────────
+
+INSERT INTO `tenants`
+  (`tenant_key`, `slug`, `name`, `status`, `timezone`, `locale`, `is_default`)
+VALUES
+  ('00000000-0000-4000-8000-000000000001', 'default', '默认企业', 'active', 'Asia/Shanghai', 'zh-CN', 1)
+ON DUPLICATE KEY UPDATE `name` = VALUES(`name`), `status` = 'active', `is_default` = 1;
+
+INSERT IGNORE INTO `tenant_memberships` (`tenant_id`, `user_id`, `status`, `joined_at`)
+  SELECT tenant.id, users.id, 'active', NOW()
+  FROM `tenants` tenant
+  JOIN `users` users ON users.account_type = 'staff'
+  WHERE tenant.is_default = 1;
+
+INSERT IGNORE INTO `tenant_membership_roles` (`membership_id`, `role_id`, `assigned_by`, `assigned_at`)
+  SELECT membership.id, user_role.role_id, user_role.assigned_by, user_role.assigned_at
+  FROM `tenant_memberships` membership
+  JOIN `user_roles` user_role ON user_role.user_id = membership.user_id AND user_role.revoked_at IS NULL
+  JOIN `roles` role ON role.id = user_role.role_id AND role.scope_type = 'tenant'
+  JOIN `tenants` tenant ON tenant.id = membership.tenant_id AND tenant.is_default = 1;
+
+INSERT IGNORE INTO `tenant_membership_data_scopes`
+  (`membership_id`, `scope_key`, `resource_type`, `resource_id`, `assigned_by`, `assigned_at`)
+  SELECT membership.id, scope.scope_key, scope.resource_type, scope.resource_id, scope.assigned_by, scope.assigned_at
+  FROM `tenant_memberships` membership
+  JOIN `user_data_scopes` scope ON scope.user_id = membership.user_id AND scope.revoked_at IS NULL
+  JOIN `tenants` tenant ON tenant.id = membership.tenant_id AND tenant.is_default = 1;
+
+INSERT IGNORE INTO `platform_user_roles` (`user_id`, `role_id`, `assigned_by`, `assigned_at`)
+  SELECT user_role.user_id, platform_role.id, user_role.assigned_by, user_role.assigned_at
+  FROM `user_roles` user_role
+  JOIN `roles` legacy_role ON legacy_role.id = user_role.role_id AND legacy_role.role_key = 'system_admin'
+  JOIN `roles` platform_role ON platform_role.role_key = 'platform_admin'
+  WHERE user_role.revoked_at IS NULL;
+
 -- ── 部门基础数据表 ──────────────────────────────────────────────────────
 
 CREATE TABLE IF NOT EXISTS `departments` (
   `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT COMMENT '部门ID',
+  `tenant_id` BIGINT UNSIGNED NOT NULL,
   `parent_id` BIGINT UNSIGNED NOT NULL DEFAULT 0 COMMENT '父部门ID，0表示根部门',
   `name` VARCHAR(64) NOT NULL COMMENT '部门名称',
   `full_name` VARCHAR(255) NOT NULL COMMENT '完整部门路径，如 技术研发部/后端组',
@@ -1041,16 +1248,20 @@ CREATE TABLE IF NOT EXISTS `departments` (
   `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   `updated_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`),
-  UNIQUE KEY `uk_department_parent_name` (`parent_id`, `name`),
+  UNIQUE KEY `uk_departments_tenant_id` (`tenant_id`, `id`),
+  UNIQUE KEY `uk_department_tenant_parent_name` (`tenant_id`, `parent_id`, `name`),
   KEY `idx_department_parent_sort` (`parent_id`, `sort_order`, `id`),
   KEY `idx_department_active` (`is_active`),
-  KEY `idx_department_path` (`path`)
+  KEY `idx_department_path` (`path`),
+  KEY `idx_departments_tenant_active` (`tenant_id`, `is_active`, `deleted_at`),
+  CONSTRAINT `fk_departments_tenant` FOREIGN KEY (`tenant_id`) REFERENCES `tenants` (`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='岗位部门基础数据表';
 
 -- ── 岗位地点基础数据表 ──────────────────────────────────────────────────
 
 CREATE TABLE IF NOT EXISTS `job_locations` (
   `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT COMMENT '地点ID',
+  `tenant_id` BIGINT UNSIGNED NOT NULL,
   `name` VARCHAR(128) NOT NULL COMMENT '地点名称',
   `code` VARCHAR(64) DEFAULT NULL COMMENT '地点编码，可选',
   `sort_order` INT NOT NULL DEFAULT 0 COMMENT '排序值，越小越靠前',
@@ -1062,14 +1273,18 @@ CREATE TABLE IF NOT EXISTS `job_locations` (
   `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   `updated_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`),
-  UNIQUE KEY `uk_job_location_name` (`name`),
-  KEY `idx_job_location_active_sort` (`is_active`, `sort_order`, `id`)
+  UNIQUE KEY `uk_job_locations_tenant_id` (`tenant_id`, `id`),
+  UNIQUE KEY `uk_job_location_tenant_name` (`tenant_id`, `name`),
+  KEY `idx_job_location_active_sort` (`is_active`, `sort_order`, `id`),
+  KEY `idx_job_locations_tenant_active` (`tenant_id`, `is_active`, `deleted_at`),
+  CONSTRAINT `fk_job_locations_tenant` FOREIGN KEY (`tenant_id`) REFERENCES `tenants` (`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='岗位地点基础数据表';
 
 -- ── 部门-地点关联表 ────────────────────────────────────────────────────
 
 CREATE TABLE IF NOT EXISTS `department_locations` (
   `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT COMMENT '部门地点关联ID',
+  `tenant_id` BIGINT UNSIGNED NOT NULL,
   `department_id` BIGINT UNSIGNED NOT NULL COMMENT '部门ID',
   `location_id` BIGINT UNSIGNED NOT NULL COMMENT '地点ID',
   `is_active` TINYINT NOT NULL DEFAULT 1 COMMENT '状态：1启用 0停用',
@@ -1082,7 +1297,11 @@ CREATE TABLE IF NOT EXISTS `department_locations` (
   PRIMARY KEY (`id`),
   UNIQUE KEY `uk_department_location` (`department_id`, `location_id`),
   KEY `idx_department_active` (`department_id`, `is_active`, `deleted_at`),
-  KEY `idx_location_active` (`location_id`, `is_active`, `deleted_at`)
+  KEY `idx_location_active` (`location_id`, `is_active`, `deleted_at`),
+  KEY `idx_department_locations_tenant` (`tenant_id`, `department_id`, `location_id`),
+  CONSTRAINT `fk_department_locations_tenant` FOREIGN KEY (`tenant_id`) REFERENCES `tenants` (`id`),
+  CONSTRAINT `fk_department_locations_tenant_department` FOREIGN KEY (`tenant_id`, `department_id`) REFERENCES `departments` (`tenant_id`, `id`),
+  CONSTRAINT `fk_department_locations_tenant_location` FOREIGN KEY (`tenant_id`, `location_id`) REFERENCES `job_locations` (`tenant_id`, `id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='部门可用地点关联表';
 
 -- ── 扩展 jobs 表，增加外键字段 ─────────────────────────────────────────
@@ -1095,35 +1314,35 @@ ALTER TABLE `jobs`
 
 -- ── 初始化部门数据 ─────────────────────────────────────────────────────
 
-INSERT INTO `departments` (`parent_id`, `name`, `full_name`, `path`, `depth`, `sort_order`, `is_active`, `inherit_locations`) VALUES
-  (0, '技术研发部', '技术研发部', '/1/', 1, 1, 1, 0),
-  (0, '产品部',     '产品部',     '/2/', 1, 2, 1, 0),
-  (0, '设计部',     '设计部',     '/3/', 1, 3, 1, 0),
-  (0, '市场部',     '市场部',     '/4/', 1, 4, 1, 0),
-  (0, '销售部',     '销售部',     '/5/', 1, 5, 1, 0),
-  (0, '运营部',     '运营部',     '/6/', 1, 6, 1, 0),
-  (0, '人力资源部', '人力资源部', '/7/', 1, 7, 1, 0),
-  (0, '财务部',     '财务部',     '/8/', 1, 8, 1, 0),
-  (0, '客户成功部', '客户成功部', '/9/', 1, 9, 1, 0);
+INSERT INTO `departments` (`tenant_id`, `parent_id`, `name`, `full_name`, `path`, `depth`, `sort_order`, `is_active`, `inherit_locations`) VALUES
+  ((SELECT id FROM tenants WHERE is_default = 1 LIMIT 1), 0, '技术研发部', '技术研发部', '/1/', 1, 1, 1, 0),
+  ((SELECT id FROM tenants WHERE is_default = 1 LIMIT 1), 0, '产品部',     '产品部',     '/2/', 1, 2, 1, 0),
+  ((SELECT id FROM tenants WHERE is_default = 1 LIMIT 1), 0, '设计部',     '设计部',     '/3/', 1, 3, 1, 0),
+  ((SELECT id FROM tenants WHERE is_default = 1 LIMIT 1), 0, '市场部',     '市场部',     '/4/', 1, 4, 1, 0),
+  ((SELECT id FROM tenants WHERE is_default = 1 LIMIT 1), 0, '销售部',     '销售部',     '/5/', 1, 5, 1, 0),
+  ((SELECT id FROM tenants WHERE is_default = 1 LIMIT 1), 0, '运营部',     '运营部',     '/6/', 1, 6, 1, 0),
+  ((SELECT id FROM tenants WHERE is_default = 1 LIMIT 1), 0, '人力资源部', '人力资源部', '/7/', 1, 7, 1, 0),
+  ((SELECT id FROM tenants WHERE is_default = 1 LIMIT 1), 0, '财务部',     '财务部',     '/8/', 1, 8, 1, 0),
+  ((SELECT id FROM tenants WHERE is_default = 1 LIMIT 1), 0, '客户成功部', '客户成功部', '/9/', 1, 9, 1, 0);
 
 -- ── 初始化地点数据 ─────────────────────────────────────────────────────
 
-INSERT INTO `job_locations` (`name`, `code`, `sort_order`, `is_active`) VALUES
-  ('北京', 'beijing',  1, 1),
-  ('上海', 'shanghai', 2, 1),
-  ('广州', 'guangzhou',3, 1),
-  ('深圳', 'shenzhen', 4, 1),
-  ('杭州', 'hangzhou', 5, 1),
-  ('成都', 'chengdu',  6, 1),
-  ('武汉', 'wuhan',    7, 1),
-  ('西安', 'xian',     8, 1),
-  ('南京', 'nanjing',  9, 1),
-  ('远程', 'remote',  10, 1);
+INSERT INTO `job_locations` (`tenant_id`, `name`, `code`, `sort_order`, `is_active`) VALUES
+  ((SELECT id FROM tenants WHERE is_default = 1 LIMIT 1), '北京', 'beijing',  1, 1),
+  ((SELECT id FROM tenants WHERE is_default = 1 LIMIT 1), '上海', 'shanghai', 2, 1),
+  ((SELECT id FROM tenants WHERE is_default = 1 LIMIT 1), '广州', 'guangzhou',3, 1),
+  ((SELECT id FROM tenants WHERE is_default = 1 LIMIT 1), '深圳', 'shenzhen', 4, 1),
+  ((SELECT id FROM tenants WHERE is_default = 1 LIMIT 1), '杭州', 'hangzhou', 5, 1),
+  ((SELECT id FROM tenants WHERE is_default = 1 LIMIT 1), '成都', 'chengdu',  6, 1),
+  ((SELECT id FROM tenants WHERE is_default = 1 LIMIT 1), '武汉', 'wuhan',    7, 1),
+  ((SELECT id FROM tenants WHERE is_default = 1 LIMIT 1), '西安', 'xian',     8, 1),
+  ((SELECT id FROM tenants WHERE is_default = 1 LIMIT 1), '南京', 'nanjing',  9, 1),
+  ((SELECT id FROM tenants WHERE is_default = 1 LIMIT 1), '远程', 'remote',  10, 1);
 
 -- ── 初始化部门可用地点数据 ─────────────────────────────────────────────
 -- 使用 CTE 为每个根部门分配 3 个伪随机地点，与 v9 迁移逻辑一致。
 
-INSERT INTO `department_locations` (`department_id`, `location_id`, `is_active`)
+INSERT INTO `department_locations` (`tenant_id`, `department_id`, `location_id`, `is_active`)
 WITH active_locations AS (
   SELECT
     id,
@@ -1150,8 +1369,9 @@ root_targets AS (
         AND dl.deleted_at IS NULL
   )
 )
-SELECT department_id, location_id, 1
+SELECT d.tenant_id, root_targets.department_id, root_targets.location_id, 1
 FROM root_targets
+JOIN departments d ON d.id = root_targets.department_id
 ON DUPLICATE KEY UPDATE
   is_active = 1,
   deleted_at = NULL,
@@ -1163,6 +1383,7 @@ ON DUPLICATE KEY UPDATE
 
 CREATE TABLE IF NOT EXISTS `candidate_notes` (
   `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT COMMENT '备注ID',
+  `tenant_id` BIGINT UNSIGNED NOT NULL,
   `candidate_user_id` BIGINT UNSIGNED NOT NULL COMMENT '候选人用户ID',
   `application_id` BIGINT UNSIGNED DEFAULT NULL COMMENT '关联投递ID（可选）',
   `author_user_id` BIGINT UNSIGNED NOT NULL COMMENT '创建人用户ID',
@@ -1174,21 +1395,28 @@ CREATE TABLE IF NOT EXISTS `candidate_notes` (
   KEY `idx_note_candidate` (`candidate_user_id`),
   KEY `idx_note_application` (`application_id`),
   KEY `idx_note_author` (`author_user_id`),
-  KEY `idx_note_created` (`candidate_user_id`, `created_at`)
+  KEY `idx_note_created` (`candidate_user_id`, `created_at`),
+  KEY `idx_candidate_notes_tenant_candidate` (`tenant_id`, `candidate_user_id`, `created_at`),
+  CONSTRAINT `fk_candidate_notes_tenant` FOREIGN KEY (`tenant_id`) REFERENCES `tenants` (`id`),
+  CONSTRAINT `fk_candidate_notes_tenant_application` FOREIGN KEY (`tenant_id`, `application_id`) REFERENCES `applications` (`tenant_id`, `id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='候选人内部备注表';
 
 CREATE TABLE IF NOT EXISTS `candidate_tags` (
   `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT COMMENT '标签ID',
+  `tenant_id` BIGINT UNSIGNED NOT NULL,
   `name` VARCHAR(64) NOT NULL COMMENT '标签名称',
   `color` VARCHAR(16) DEFAULT '#409eff' COMMENT '标签颜色',
   `created_by` BIGINT UNSIGNED DEFAULT NULL COMMENT '创建人用户ID',
   `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`),
-  UNIQUE KEY `uk_tag_name` (`name`)
+  UNIQUE KEY `uk_candidate_tags_tenant_id` (`tenant_id`, `id`),
+  UNIQUE KEY `uk_candidate_tag_tenant_name` (`tenant_id`, `name`),
+  CONSTRAINT `fk_candidate_tags_tenant` FOREIGN KEY (`tenant_id`) REFERENCES `tenants` (`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='候选人标签定义表';
 
 CREATE TABLE IF NOT EXISTS `candidate_tag_assignments` (
   `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT COMMENT '分配ID',
+  `tenant_id` BIGINT UNSIGNED NOT NULL,
   `tag_id` BIGINT UNSIGNED NOT NULL COMMENT '关联 candidate_tags.id',
   `candidate_user_id` BIGINT UNSIGNED NOT NULL COMMENT '候选人用户ID',
   `created_by` BIGINT UNSIGNED DEFAULT NULL COMMENT '分配人用户ID',
@@ -1196,11 +1424,15 @@ CREATE TABLE IF NOT EXISTS `candidate_tag_assignments` (
   PRIMARY KEY (`id`),
   UNIQUE KEY `uk_tag_candidate` (`tag_id`, `candidate_user_id`),
   KEY `idx_tag_assignment_candidate` (`candidate_user_id`),
-  KEY `idx_tag_assignment_tag` (`tag_id`)
+  KEY `idx_tag_assignment_tag` (`tag_id`),
+  KEY `idx_tag_assignments_tenant_candidate` (`tenant_id`, `candidate_user_id`),
+  CONSTRAINT `fk_tag_assignments_tenant` FOREIGN KEY (`tenant_id`) REFERENCES `tenants` (`id`),
+  CONSTRAINT `fk_tag_assignments_tenant_tag` FOREIGN KEY (`tenant_id`, `tag_id`) REFERENCES `candidate_tags` (`tenant_id`, `id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='候选人标签分配表';
 
 CREATE TABLE IF NOT EXISTS `follow_up_tasks` (
   `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT COMMENT '任务ID',
+  `tenant_id` BIGINT UNSIGNED NOT NULL,
   `candidate_user_id` BIGINT UNSIGNED NOT NULL COMMENT '关联候选人用户ID',
   `application_id` BIGINT UNSIGNED DEFAULT NULL COMMENT '关联投递ID（可选）',
   `assignee_user_id` BIGINT UNSIGNED NOT NULL COMMENT '负责人用户ID',
@@ -1217,7 +1449,10 @@ CREATE TABLE IF NOT EXISTS `follow_up_tasks` (
   KEY `idx_task_assignee` (`assignee_user_id`),
   KEY `idx_task_application` (`application_id`),
   KEY `idx_task_status` (`status`),
-  KEY `idx_task_due` (`due_at`)
+  KEY `idx_task_due` (`due_at`),
+  KEY `idx_follow_up_tenant_assignee` (`tenant_id`, `assignee_user_id`, `status`, `due_at`),
+  CONSTRAINT `fk_follow_up_tasks_tenant` FOREIGN KEY (`tenant_id`) REFERENCES `tenants` (`id`),
+  CONSTRAINT `fk_follow_up_tenant_application` FOREIGN KEY (`tenant_id`, `application_id`) REFERENCES `applications` (`tenant_id`, `id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='跟进任务表';
 
 -- ══════════════════════════════════════════════════════════════════════
@@ -1639,3 +1874,59 @@ CREATE TABLE IF NOT EXISTS `agent_skill_versions` (
 ALTER TABLE `ai_skills`
   ADD CONSTRAINT `fk_ai_skills_current_version`
   FOREIGN KEY (`current_version_id`) REFERENCES `ai_skill_versions` (`id`) ON DELETE SET NULL;
+
+-- Mixed-scope resources: NULL tenant_id means a platform/candidate global
+-- resource; non-NULL rows are private to the referenced enterprise tenant.
+ALTER TABLE ai_chat_sessions ADD COLUMN tenant_id BIGINT UNSIGNED NULL AFTER id, ADD KEY idx_ai_chat_sessions_tenant_owner (tenant_id, owner_role, owner_id, updated_at), ADD CONSTRAINT fk_ai_chat_sessions_tenant FOREIGN KEY (tenant_id) REFERENCES tenants(id);
+ALTER TABLE ai_chat_history ADD COLUMN tenant_id BIGINT UNSIGNED NULL AFTER id, ADD KEY idx_ai_chat_history_tenant_session (tenant_id, session_id, created_at), ADD CONSTRAINT fk_ai_chat_history_tenant FOREIGN KEY (tenant_id) REFERENCES tenants(id);
+ALTER TABLE ai_session_summaries ADD COLUMN tenant_id BIGINT UNSIGNED NULL AFTER id, ADD KEY idx_ai_session_summaries_tenant_session (tenant_id, session_id), ADD CONSTRAINT fk_ai_session_summaries_tenant FOREIGN KEY (tenant_id) REFERENCES tenants(id);
+ALTER TABLE ai_tool_traces ADD COLUMN tenant_id BIGINT UNSIGNED NULL AFTER id, ADD KEY idx_ai_tool_traces_tenant_session (tenant_id, session_id, created_at), ADD CONSTRAINT fk_ai_tool_traces_tenant FOREIGN KEY (tenant_id) REFERENCES tenants(id);
+ALTER TABLE agent_runs ADD COLUMN tenant_id BIGINT UNSIGNED NULL AFTER id, ADD KEY idx_agent_runs_tenant_session (tenant_id, session_id, created_at), ADD CONSTRAINT fk_agent_runs_tenant FOREIGN KEY (tenant_id) REFERENCES tenants(id);
+ALTER TABLE agent_run_events ADD COLUMN tenant_id BIGINT UNSIGNED NULL AFTER id, ADD KEY idx_agent_run_events_tenant_run (tenant_id, run_id, seq), ADD CONSTRAINT fk_agent_run_events_tenant FOREIGN KEY (tenant_id) REFERENCES tenants(id);
+ALTER TABLE agent_run_steps ADD COLUMN tenant_id BIGINT UNSIGNED NULL AFTER id, ADD KEY idx_agent_run_steps_tenant_run (tenant_id, run_id, step_index), ADD CONSTRAINT fk_agent_run_steps_tenant FOREIGN KEY (tenant_id) REFERENCES tenants(id);
+ALTER TABLE ai_memories ADD COLUMN tenant_id BIGINT UNSIGNED NULL AFTER id, ADD KEY idx_ai_memories_tenant_owner (tenant_id, hr_id, scope_type, scope_id), ADD CONSTRAINT fk_ai_memories_tenant FOREIGN KEY (tenant_id) REFERENCES tenants(id);
+ALTER TABLE ai_embeddings ADD COLUMN tenant_id BIGINT UNSIGNED NULL AFTER id, ADD KEY idx_ai_embeddings_tenant_object (tenant_id, object_type, object_id), ADD CONSTRAINT fk_ai_embeddings_tenant FOREIGN KEY (tenant_id) REFERENCES tenants(id);
+ALTER TABLE notifications ADD COLUMN tenant_id BIGINT UNSIGNED NULL AFTER id, ADD KEY idx_notifications_tenant_receiver (tenant_id, receiver_id, receiver_account_type, created_at), ADD CONSTRAINT fk_notifications_tenant FOREIGN KEY (tenant_id) REFERENCES tenants(id);
+ALTER TABLE event_outbox ADD COLUMN tenant_id BIGINT UNSIGNED NULL AFTER id, ADD KEY idx_event_outbox_tenant_status (tenant_id, status, created_at), ADD CONSTRAINT fk_event_outbox_tenant FOREIGN KEY (tenant_id) REFERENCES tenants(id);
+ALTER TABLE email_logs ADD COLUMN tenant_id BIGINT UNSIGNED NULL AFTER id, ADD KEY idx_email_logs_tenant_created (tenant_id, created_at), ADD CONSTRAINT fk_email_logs_tenant FOREIGN KEY (tenant_id) REFERENCES tenants(id);
+ALTER TABLE event_inbox ADD COLUMN tenant_id BIGINT UNSIGNED NULL AFTER id, ADD KEY idx_event_inbox_tenant_consumer (tenant_id, consumer_name, received_at), ADD CONSTRAINT fk_event_inbox_tenant FOREIGN KEY (tenant_id) REFERENCES tenants(id);
+ALTER TABLE analytics_projection_events ADD COLUMN tenant_id BIGINT UNSIGNED NULL AFTER id, ADD KEY idx_projection_events_tenant_projection (tenant_id, projection_name, created_at), ADD CONSTRAINT fk_projection_events_tenant FOREIGN KEY (tenant_id) REFERENCES tenants(id);
+ALTER TABLE third_party_usage_logs ADD COLUMN tenant_id BIGINT UNSIGNED NULL AFTER id, ADD KEY idx_usage_logs_tenant_created (tenant_id, created_at), ADD CONSTRAINT fk_usage_logs_tenant FOREIGN KEY (tenant_id) REFERENCES tenants(id);
+ALTER TABLE ai_usage_auth_contexts ADD COLUMN tenant_id BIGINT UNSIGNED NULL AFTER id, ADD KEY idx_ai_usage_auth_tenant_actor (tenant_id, actor_user_id, created_at), ADD CONSTRAINT fk_ai_usage_auth_tenant FOREIGN KEY (tenant_id) REFERENCES tenants(id);
+ALTER TABLE llm_providers ADD COLUMN tenant_id BIGINT UNSIGNED NULL AFTER id, ADD KEY idx_llm_providers_tenant_enabled (tenant_id, is_enabled), ADD CONSTRAINT fk_llm_providers_tenant FOREIGN KEY (tenant_id) REFERENCES tenants(id);
+ALTER TABLE llm_models ADD COLUMN tenant_id BIGINT UNSIGNED NULL AFTER id, ADD KEY idx_llm_models_tenant_provider (tenant_id, provider_id), ADD CONSTRAINT fk_llm_models_tenant FOREIGN KEY (tenant_id) REFERENCES tenants(id);
+ALTER TABLE embedding_providers ADD COLUMN tenant_id BIGINT UNSIGNED NULL AFTER id, ADD KEY idx_embedding_providers_tenant_enabled (tenant_id, is_enabled), ADD CONSTRAINT fk_embedding_providers_tenant FOREIGN KEY (tenant_id) REFERENCES tenants(id);
+ALTER TABLE embedding_models ADD COLUMN tenant_id BIGINT UNSIGNED NULL AFTER id, ADD KEY idx_embedding_models_tenant_provider (tenant_id, provider_id), ADD CONSTRAINT fk_embedding_models_tenant FOREIGN KEY (tenant_id) REFERENCES tenants(id);
+ALTER TABLE prompt_templates ADD COLUMN tenant_id BIGINT UNSIGNED NULL AFTER id, ADD KEY idx_prompt_templates_tenant_agent (tenant_id, agent_type, is_active), ADD CONSTRAINT fk_prompt_templates_tenant FOREIGN KEY (tenant_id) REFERENCES tenants(id);
+ALTER TABLE prompt_versions ADD COLUMN tenant_id BIGINT UNSIGNED NULL AFTER id, ADD KEY idx_prompt_versions_tenant_template (tenant_id, template_id, version), ADD CONSTRAINT fk_prompt_versions_tenant FOREIGN KEY (tenant_id) REFERENCES tenants(id);
+ALTER TABLE agent_configs ADD COLUMN tenant_id BIGINT UNSIGNED NULL AFTER id, ADD KEY idx_agent_configs_tenant_type (tenant_id, agent_type, is_enabled), ADD CONSTRAINT fk_agent_configs_tenant FOREIGN KEY (tenant_id) REFERENCES tenants(id);
+ALTER TABLE agent_tool_bindings ADD COLUMN tenant_id BIGINT UNSIGNED NULL AFTER id, ADD KEY idx_agent_tool_bindings_tenant_agent (tenant_id, agent_id), ADD CONSTRAINT fk_agent_tool_bindings_tenant FOREIGN KEY (tenant_id) REFERENCES tenants(id);
+ALTER TABLE mcp_servers ADD COLUMN tenant_id BIGINT UNSIGNED NULL AFTER id, ADD KEY idx_mcp_servers_tenant_enabled (tenant_id, is_enabled), ADD CONSTRAINT fk_mcp_servers_tenant FOREIGN KEY (tenant_id) REFERENCES tenants(id);
+ALTER TABLE mcp_tool_logs ADD COLUMN tenant_id BIGINT UNSIGNED NULL AFTER id, ADD KEY idx_mcp_tool_logs_tenant_created (tenant_id, created_at), ADD CONSTRAINT fk_mcp_tool_logs_tenant FOREIGN KEY (tenant_id) REFERENCES tenants(id);
+ALTER TABLE mcp_tool_policies ADD COLUMN tenant_id BIGINT UNSIGNED NULL AFTER id, ADD KEY idx_mcp_policies_tenant_server (tenant_id, server_id, tool_name), ADD CONSTRAINT fk_mcp_policies_tenant FOREIGN KEY (tenant_id) REFERENCES tenants(id);
+ALTER TABLE agent_capability_bindings ADD COLUMN tenant_id BIGINT UNSIGNED NULL AFTER id, ADD KEY idx_agent_capabilities_tenant_agent (tenant_id, agent_id), ADD CONSTRAINT fk_agent_capabilities_tenant FOREIGN KEY (tenant_id) REFERENCES tenants(id);
+ALTER TABLE ai_skills ADD COLUMN tenant_id BIGINT UNSIGNED NULL AFTER id, ADD KEY idx_ai_skills_tenant_enabled (tenant_id, is_enabled), ADD CONSTRAINT fk_ai_skills_tenant FOREIGN KEY (tenant_id) REFERENCES tenants(id);
+ALTER TABLE ai_skill_versions ADD COLUMN tenant_id BIGINT UNSIGNED NULL AFTER id, ADD KEY idx_ai_skill_versions_tenant_skill (tenant_id, skill_id), ADD CONSTRAINT fk_ai_skill_versions_tenant FOREIGN KEY (tenant_id) REFERENCES tenants(id);
+ALTER TABLE ai_skill_tools ADD COLUMN tenant_id BIGINT UNSIGNED NULL AFTER id, ADD KEY idx_ai_skill_tools_tenant_version (tenant_id, skill_version_id), ADD CONSTRAINT fk_ai_skill_tools_tenant FOREIGN KEY (tenant_id) REFERENCES tenants(id);
+ALTER TABLE agent_skills ADD COLUMN tenant_id BIGINT UNSIGNED NULL AFTER id, ADD KEY idx_agent_skills_tenant_enabled (tenant_id, is_enabled), ADD CONSTRAINT fk_agent_skills_tenant FOREIGN KEY (tenant_id) REFERENCES tenants(id);
+ALTER TABLE agent_skill_versions ADD COLUMN tenant_id BIGINT UNSIGNED NULL AFTER id, ADD KEY idx_agent_skill_versions_tenant_skill (tenant_id, skill_id), ADD CONSTRAINT fk_agent_skill_versions_tenant FOREIGN KEY (tenant_id) REFERENCES tenants(id);
+
+CREATE TABLE IF NOT EXISTS `platform_audit_logs` (
+  `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+  `actor_user_id` BIGINT UNSIGNED NOT NULL,
+  `action` VARCHAR(128) NOT NULL,
+  `resource_type` VARCHAR(64) NOT NULL,
+  `resource_id` BIGINT UNSIGNED NULL,
+  `target_tenant_id` BIGINT UNSIGNED NULL,
+  `before_json` JSON NULL,
+  `after_json` JSON NULL,
+  `request_id` VARCHAR(128) NOT NULL DEFAULT '',
+  `client_ip` VARCHAR(64) NOT NULL DEFAULT '',
+  `created_at` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  KEY `idx_platform_audit_actor_created` (`actor_user_id`, `created_at`),
+  KEY `idx_platform_audit_tenant_created` (`target_tenant_id`, `created_at`),
+  KEY `idx_platform_audit_action_created` (`action`, `created_at`),
+  CONSTRAINT `fk_platform_audit_actor` FOREIGN KEY (`actor_user_id`) REFERENCES `users` (`id`),
+  CONSTRAINT `fk_platform_audit_target_tenant` FOREIGN KEY (`target_tenant_id`) REFERENCES `tenants` (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='Immutable platform control-plane audit trail';

@@ -7,6 +7,19 @@ on:
     branches: [dev, main]
 
 jobs:
+  schema-governance:
+    name: Schema Governance
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Verify MySQL table ownership
+        run: node scripts/check-mysql-table-ownership.mjs
+      - name: Verify tenant data classification
+        run: node scripts/check-tenant-classification.mjs
+
   # ── Go Backend Tests ──────────────────────────────────────────────
   go-test:
     name: Go Tests (${{ matrix.module }})

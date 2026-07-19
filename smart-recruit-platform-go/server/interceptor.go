@@ -129,6 +129,19 @@ func injectMetadataIntoContext(ctx context.Context) context.Context {
 		if vals := md.Get("x-authenticated-account-type"); len(vals) > 0 {
 			ctx = context.WithValue(ctx, metadata.KeyAuthAccountType, vals[0])
 		}
+		if vals := md.Get("x-authenticated-tenant-id"); len(vals) > 0 {
+			if tenantID, err := strconv.ParseInt(vals[0], 10, 64); err == nil {
+				ctx = context.WithValue(ctx, metadata.KeyAuthTenantID, tenantID)
+			}
+		}
+		if vals := md.Get("x-authenticated-membership-id"); len(vals) > 0 {
+			if membershipID, err := strconv.ParseInt(vals[0], 10, 64); err == nil {
+				ctx = context.WithValue(ctx, metadata.KeyAuthMembershipID, membershipID)
+			}
+		}
+		if vals := md.Get("x-authenticated-client-app"); len(vals) > 0 {
+			ctx = context.WithValue(ctx, metadata.KeyAuthClientApp, vals[0])
+		}
 		traceparent := ""
 		if vals := md.Get("traceparent"); len(vals) > 0 {
 			traceparent = vals[0]

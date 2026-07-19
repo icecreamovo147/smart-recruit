@@ -25,6 +25,7 @@ const (
 	AuthService_Register_FullMethodName           = "/recruitment.AuthService/Register"
 	AuthService_Login_FullMethodName              = "/recruitment.AuthService/Login"
 	AuthService_RefreshToken_FullMethodName       = "/recruitment.AuthService/RefreshToken"
+	AuthService_SwitchTenant_FullMethodName       = "/recruitment.AuthService/SwitchTenant"
 	AuthService_RevokeRefreshToken_FullMethodName = "/recruitment.AuthService/RevokeRefreshToken"
 	AuthService_RecordAuthDecision_FullMethodName = "/recruitment.AuthService/RecordAuthDecision"
 	AuthService_GetPrincipal_FullMethodName       = "/recruitment.AuthService/GetPrincipal"
@@ -39,6 +40,7 @@ type AuthServiceClient interface {
 	Register(ctx context.Context, in *RegisterRequest, opts ...grpc.CallOption) (*RegisterResponse, error)
 	Login(ctx context.Context, in *LoginRequest, opts ...grpc.CallOption) (*LoginResponse, error)
 	RefreshToken(ctx context.Context, in *RefreshTokenRequest, opts ...grpc.CallOption) (*RefreshTokenResponse, error)
+	SwitchTenant(ctx context.Context, in *SwitchTenantRequest, opts ...grpc.CallOption) (*LoginResponse, error)
 	RevokeRefreshToken(ctx context.Context, in *RevokeRefreshTokenRequest, opts ...grpc.CallOption) (*CommonResponse, error)
 	RecordAuthDecision(ctx context.Context, in *AuthAuditRequest, opts ...grpc.CallOption) (*CommonResponse, error)
 	GetPrincipal(ctx context.Context, in *GetPrincipalRequest, opts ...grpc.CallOption) (*GetPrincipalResponse, error)
@@ -78,6 +80,16 @@ func (c *authServiceClient) RefreshToken(ctx context.Context, in *RefreshTokenRe
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(RefreshTokenResponse)
 	err := c.cc.Invoke(ctx, AuthService_RefreshToken_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *authServiceClient) SwitchTenant(ctx context.Context, in *SwitchTenantRequest, opts ...grpc.CallOption) (*LoginResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(LoginResponse)
+	err := c.cc.Invoke(ctx, AuthService_SwitchTenant_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
@@ -141,6 +153,7 @@ type AuthServiceServer interface {
 	Register(context.Context, *RegisterRequest) (*RegisterResponse, error)
 	Login(context.Context, *LoginRequest) (*LoginResponse, error)
 	RefreshToken(context.Context, *RefreshTokenRequest) (*RefreshTokenResponse, error)
+	SwitchTenant(context.Context, *SwitchTenantRequest) (*LoginResponse, error)
 	RevokeRefreshToken(context.Context, *RevokeRefreshTokenRequest) (*CommonResponse, error)
 	RecordAuthDecision(context.Context, *AuthAuditRequest) (*CommonResponse, error)
 	GetPrincipal(context.Context, *GetPrincipalRequest) (*GetPrincipalResponse, error)
@@ -164,6 +177,9 @@ func (UnimplementedAuthServiceServer) Login(context.Context, *LoginRequest) (*Lo
 }
 func (UnimplementedAuthServiceServer) RefreshToken(context.Context, *RefreshTokenRequest) (*RefreshTokenResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method RefreshToken not implemented")
+}
+func (UnimplementedAuthServiceServer) SwitchTenant(context.Context, *SwitchTenantRequest) (*LoginResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method SwitchTenant not implemented")
 }
 func (UnimplementedAuthServiceServer) RevokeRefreshToken(context.Context, *RevokeRefreshTokenRequest) (*CommonResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method RevokeRefreshToken not implemented")
@@ -251,6 +267,24 @@ func _AuthService_RefreshToken_Handler(srv interface{}, ctx context.Context, dec
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(AuthServiceServer).RefreshToken(ctx, req.(*RefreshTokenRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _AuthService_SwitchTenant_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(SwitchTenantRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(AuthServiceServer).SwitchTenant(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: AuthService_SwitchTenant_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(AuthServiceServer).SwitchTenant(ctx, req.(*SwitchTenantRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -365,6 +399,10 @@ var AuthService_ServiceDesc = grpc.ServiceDesc{
 			Handler:    _AuthService_RefreshToken_Handler,
 		},
 		{
+			MethodName: "SwitchTenant",
+			Handler:    _AuthService_SwitchTenant_Handler,
+		},
+		{
 			MethodName: "RevokeRefreshToken",
 			Handler:    _AuthService_RevokeRefreshToken_Handler,
 		},
@@ -383,6 +421,222 @@ var AuthService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "UpdateEmail",
 			Handler:    _AuthService_UpdateEmail_Handler,
+		},
+	},
+	Streams:  []grpc.StreamDesc{},
+	Metadata: "proto/recruitment.proto",
+}
+
+const (
+	PlatformTenantService_CreateTenant_FullMethodName          = "/recruitment.PlatformTenantService/CreateTenant"
+	PlatformTenantService_ListTenants_FullMethodName           = "/recruitment.PlatformTenantService/ListTenants"
+	PlatformTenantService_UpdateTenantStatus_FullMethodName    = "/recruitment.PlatformTenantService/UpdateTenantStatus"
+	PlatformTenantService_ListTenantMemberships_FullMethodName = "/recruitment.PlatformTenantService/ListTenantMemberships"
+)
+
+// PlatformTenantServiceClient is the client API for PlatformTenantService service.
+//
+// For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
+type PlatformTenantServiceClient interface {
+	CreateTenant(ctx context.Context, in *CreateTenantRequest, opts ...grpc.CallOption) (*TenantResponse, error)
+	ListTenants(ctx context.Context, in *ListTenantsRequest, opts ...grpc.CallOption) (*ListTenantsResponse, error)
+	UpdateTenantStatus(ctx context.Context, in *UpdateTenantStatusRequest, opts ...grpc.CallOption) (*TenantResponse, error)
+	ListTenantMemberships(ctx context.Context, in *ListTenantMembershipsRequest, opts ...grpc.CallOption) (*ListTenantMembershipsResponse, error)
+}
+
+type platformTenantServiceClient struct {
+	cc grpc.ClientConnInterface
+}
+
+func NewPlatformTenantServiceClient(cc grpc.ClientConnInterface) PlatformTenantServiceClient {
+	return &platformTenantServiceClient{cc}
+}
+
+func (c *platformTenantServiceClient) CreateTenant(ctx context.Context, in *CreateTenantRequest, opts ...grpc.CallOption) (*TenantResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(TenantResponse)
+	err := c.cc.Invoke(ctx, PlatformTenantService_CreateTenant_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *platformTenantServiceClient) ListTenants(ctx context.Context, in *ListTenantsRequest, opts ...grpc.CallOption) (*ListTenantsResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ListTenantsResponse)
+	err := c.cc.Invoke(ctx, PlatformTenantService_ListTenants_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *platformTenantServiceClient) UpdateTenantStatus(ctx context.Context, in *UpdateTenantStatusRequest, opts ...grpc.CallOption) (*TenantResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(TenantResponse)
+	err := c.cc.Invoke(ctx, PlatformTenantService_UpdateTenantStatus_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *platformTenantServiceClient) ListTenantMemberships(ctx context.Context, in *ListTenantMembershipsRequest, opts ...grpc.CallOption) (*ListTenantMembershipsResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ListTenantMembershipsResponse)
+	err := c.cc.Invoke(ctx, PlatformTenantService_ListTenantMemberships_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+// PlatformTenantServiceServer is the server API for PlatformTenantService service.
+// All implementations must embed UnimplementedPlatformTenantServiceServer
+// for forward compatibility.
+type PlatformTenantServiceServer interface {
+	CreateTenant(context.Context, *CreateTenantRequest) (*TenantResponse, error)
+	ListTenants(context.Context, *ListTenantsRequest) (*ListTenantsResponse, error)
+	UpdateTenantStatus(context.Context, *UpdateTenantStatusRequest) (*TenantResponse, error)
+	ListTenantMemberships(context.Context, *ListTenantMembershipsRequest) (*ListTenantMembershipsResponse, error)
+	mustEmbedUnimplementedPlatformTenantServiceServer()
+}
+
+// UnimplementedPlatformTenantServiceServer must be embedded to have
+// forward compatible implementations.
+//
+// NOTE: this should be embedded by value instead of pointer to avoid a nil
+// pointer dereference when methods are called.
+type UnimplementedPlatformTenantServiceServer struct{}
+
+func (UnimplementedPlatformTenantServiceServer) CreateTenant(context.Context, *CreateTenantRequest) (*TenantResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method CreateTenant not implemented")
+}
+func (UnimplementedPlatformTenantServiceServer) ListTenants(context.Context, *ListTenantsRequest) (*ListTenantsResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method ListTenants not implemented")
+}
+func (UnimplementedPlatformTenantServiceServer) UpdateTenantStatus(context.Context, *UpdateTenantStatusRequest) (*TenantResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method UpdateTenantStatus not implemented")
+}
+func (UnimplementedPlatformTenantServiceServer) ListTenantMemberships(context.Context, *ListTenantMembershipsRequest) (*ListTenantMembershipsResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method ListTenantMemberships not implemented")
+}
+func (UnimplementedPlatformTenantServiceServer) mustEmbedUnimplementedPlatformTenantServiceServer() {}
+func (UnimplementedPlatformTenantServiceServer) testEmbeddedByValue()                               {}
+
+// UnsafePlatformTenantServiceServer may be embedded to opt out of forward compatibility for this service.
+// Use of this interface is not recommended, as added methods to PlatformTenantServiceServer will
+// result in compilation errors.
+type UnsafePlatformTenantServiceServer interface {
+	mustEmbedUnimplementedPlatformTenantServiceServer()
+}
+
+func RegisterPlatformTenantServiceServer(s grpc.ServiceRegistrar, srv PlatformTenantServiceServer) {
+	// If the following call panics, it indicates UnimplementedPlatformTenantServiceServer was
+	// embedded by pointer and is nil.  This will cause panics if an
+	// unimplemented method is ever invoked, so we test this at initialization
+	// time to prevent it from happening at runtime later due to I/O.
+	if t, ok := srv.(interface{ testEmbeddedByValue() }); ok {
+		t.testEmbeddedByValue()
+	}
+	s.RegisterService(&PlatformTenantService_ServiceDesc, srv)
+}
+
+func _PlatformTenantService_CreateTenant_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(CreateTenantRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(PlatformTenantServiceServer).CreateTenant(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: PlatformTenantService_CreateTenant_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(PlatformTenantServiceServer).CreateTenant(ctx, req.(*CreateTenantRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _PlatformTenantService_ListTenants_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ListTenantsRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(PlatformTenantServiceServer).ListTenants(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: PlatformTenantService_ListTenants_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(PlatformTenantServiceServer).ListTenants(ctx, req.(*ListTenantsRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _PlatformTenantService_UpdateTenantStatus_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(UpdateTenantStatusRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(PlatformTenantServiceServer).UpdateTenantStatus(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: PlatformTenantService_UpdateTenantStatus_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(PlatformTenantServiceServer).UpdateTenantStatus(ctx, req.(*UpdateTenantStatusRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _PlatformTenantService_ListTenantMemberships_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ListTenantMembershipsRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(PlatformTenantServiceServer).ListTenantMemberships(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: PlatformTenantService_ListTenantMemberships_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(PlatformTenantServiceServer).ListTenantMemberships(ctx, req.(*ListTenantMembershipsRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+// PlatformTenantService_ServiceDesc is the grpc.ServiceDesc for PlatformTenantService service.
+// It's only intended for direct use with grpc.RegisterService,
+// and not to be introspected or modified (even as a copy)
+var PlatformTenantService_ServiceDesc = grpc.ServiceDesc{
+	ServiceName: "recruitment.PlatformTenantService",
+	HandlerType: (*PlatformTenantServiceServer)(nil),
+	Methods: []grpc.MethodDesc{
+		{
+			MethodName: "CreateTenant",
+			Handler:    _PlatformTenantService_CreateTenant_Handler,
+		},
+		{
+			MethodName: "ListTenants",
+			Handler:    _PlatformTenantService_ListTenants_Handler,
+		},
+		{
+			MethodName: "UpdateTenantStatus",
+			Handler:    _PlatformTenantService_UpdateTenantStatus_Handler,
+		},
+		{
+			MethodName: "ListTenantMemberships",
+			Handler:    _PlatformTenantService_ListTenantMemberships_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

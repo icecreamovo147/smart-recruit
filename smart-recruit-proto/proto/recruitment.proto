@@ -11,11 +11,19 @@ service AuthService {
   rpc Register(RegisterRequest) returns (RegisterResponse);
   rpc Login(LoginRequest) returns (LoginResponse);
   rpc RefreshToken(RefreshTokenRequest) returns (RefreshTokenResponse);
+  rpc SwitchTenant(SwitchTenantRequest) returns (LoginResponse);
   rpc RevokeRefreshToken(RevokeRefreshTokenRequest) returns (CommonResponse);
   rpc RecordAuthDecision(AuthAuditRequest) returns (CommonResponse);
   rpc GetPrincipal(GetPrincipalRequest) returns (GetPrincipalResponse);
   rpc AuthorizeInternal(AuthorizeInternalRequest) returns (AuthorizeInternalResponse);
   rpc UpdateEmail(UpdateEmailRequest) returns (CommonResponse);
+}
+
+service PlatformTenantService {
+  rpc CreateTenant(CreateTenantRequest) returns (TenantResponse);
+  rpc ListTenants(ListTenantsRequest) returns (ListTenantsResponse);
+  rpc UpdateTenantStatus(UpdateTenantStatusRequest) returns (TenantResponse);
+  rpc ListTenantMemberships(ListTenantMembershipsRequest) returns (ListTenantMembershipsResponse);
 }
 
 service JobService {
@@ -231,6 +239,79 @@ message RegisterResponse {
 message LoginRequest {
   string username = 1;
   string password = 2;
+  string client_app = 3;          // candidate | staff | hr | interviewer | platform
+  int64 requested_tenant_id = 4;  // Optional staff tenant selection
+}
+
+message TenantMembershipInfo {
+  int64 membership_id = 1;
+  int64 tenant_id = 2;
+  string tenant_key = 3;
+  string slug = 4;
+  string name = 5;
+  string tenant_status = 6;
+  string membership_status = 7;
+  repeated string roles = 8;
+  bool is_default = 9;
+  int64 user_id = 10;
+  string username = 11;
+}
+
+message TenantInfo {
+  int64 id = 1;
+  string tenant_key = 2;
+  string slug = 3;
+  string name = 4;
+  string status = 5;
+  string timezone = 6;
+  string locale = 7;
+  bool is_default = 8;
+  int64 membership_count = 9;
+}
+
+message CreateTenantRequest {
+  string slug = 1;
+  string name = 2;
+  string timezone = 3;
+  string locale = 4;
+}
+
+message ListTenantsRequest {
+  int32 page = 1;
+  int32 page_size = 2;
+  string keyword = 3;
+  string status = 4;
+}
+
+message TenantResponse {
+  int32 code = 1;
+  string msg = 2;
+  TenantInfo tenant = 3;
+}
+
+message ListTenantsResponse {
+  int32 code = 1;
+  string msg = 2;
+  int64 total = 3;
+  repeated TenantInfo list = 4;
+}
+
+message UpdateTenantStatusRequest {
+  int64 tenant_id = 1;
+  string status = 2;
+}
+
+message ListTenantMembershipsRequest {
+  int64 tenant_id = 1;
+  int32 page = 2;
+  int32 page_size = 3;
+}
+
+message ListTenantMembershipsResponse {
+  int32 code = 1;
+  string msg = 2;
+  int64 total = 3;
+  repeated TenantMembershipInfo list = 4;
 }
 
 message LoginResponse {
@@ -245,6 +326,11 @@ message LoginResponse {
   repeated string permissions = 9; // RBAC permission keys
   int32 token_version = 10;        // Incremented on permission change
   string email = 11;
+  int64 tenant_id = 12;
+  int64 membership_id = 13;
+  string client_app = 14;
+  repeated string available_apps = 15;
+  repeated TenantMembershipInfo memberships = 16;
 }
 
 message RefreshTokenRequest {
@@ -265,6 +351,16 @@ message RefreshTokenResponse {
   repeated string roles = 9;       // RBAC role keys
   repeated string permissions = 10; // RBAC permission keys
   int32 token_version = 11;        // Incremented on permission change
+  int64 tenant_id = 12;
+  int64 membership_id = 13;
+  string client_app = 14;
+}
+
+message SwitchTenantRequest {
+  string refresh_token = 1;
+  int64 tenant_id = 2;
+  string client_ip = 3;
+  string user_agent = 4;
 }
 
 message RevokeRefreshTokenRequest {
@@ -281,10 +377,15 @@ message AuthAuditRequest {
   string reason = 7;
   string request_id = 8;
   string client_ip = 9;
+  int64 tenant_id = 10;
+  int64 membership_id = 11;
 }
 
 message GetPrincipalRequest {
   int64 user_id = 1;
+  int64 tenant_id = 2;
+  int64 membership_id = 3;
+  string client_app = 4;
 }
 
 message GetPrincipalResponse {
@@ -299,6 +400,11 @@ message GetPrincipalResponse {
   int32 token_version = 9;
   repeated ScopeAssignment data_scopes = 10;
   string email = 11;
+  int64 tenant_id = 12;
+  int64 membership_id = 13;
+  string client_app = 14;
+  repeated string available_apps = 15;
+  repeated TenantMembershipInfo memberships = 16;
 }
 
 message AuthorizeInternalRequest {
@@ -309,6 +415,9 @@ message AuthorizeInternalRequest {
   int64 resource_id = 5;
   string request_id = 6;
   string client_ip = 7;
+  int64 tenant_id = 8;
+  int64 membership_id = 9;
+  string client_app = 10;
 }
 
 message AuthorizeInternalResponse {
@@ -1284,7 +1393,7 @@ message InterviewFeedback {
   int64 application_id = 3;
   int64 interviewer_id = 4;
   string recommendation = 5;  // strong_recommend / recommend / neutral / not_recommend / strong_not_recommend (legacy: positive / negative / pending)
-  int32 score = 6;
+  int32 score = 6;  // Overall interview score, 0-100
   string dimension_scores_json = 7;
   string comments = 8;
   string submitted_at = 9;
@@ -1297,7 +1406,7 @@ message SubmitFeedbackRequest {
   int64 interview_id = 2;
   int64 application_id = 3;
   string recommendation = 4;
-  int32 score = 5;
+  int32 score = 5;  // Overall interview score, 0-100
   string dimension_scores_json = 6;
   string comments = 7;
 }
