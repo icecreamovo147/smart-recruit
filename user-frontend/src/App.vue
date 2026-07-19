@@ -55,6 +55,10 @@ const handleUserCommand = (command: string) => {
     router.push('/profile')
     return
   }
+	if (command === 'billing') {
+		router.push('/billing')
+		return
+	}
   if (command === 'logout') logout()
 }
 
@@ -102,6 +106,7 @@ const handleEmailSaved = async (email: string) => {
             <RouterLink v-if="auth.isLoggedIn" to="/profile">个人资料</RouterLink>
             <RouterLink v-if="auth.isLoggedIn" to="/resume">个人简历</RouterLink>
             <RouterLink v-if="auth.isLoggedIn" to="/ai-assistant">AI求职助手</RouterLink>
+            <RouterLink v-if="auth.isLoggedIn" to="/billing">AI 套餐</RouterLink>
           </div>
         </el-scrollbar>
       </nav>
@@ -121,6 +126,7 @@ const handleEmailSaved = async (email: string) => {
           <template #dropdown>
             <el-dropdown-menu>
               <el-dropdown-item command="profile">个人资料</el-dropdown-item>
+              <el-dropdown-item command="billing">AI 套餐与额度</el-dropdown-item>
               <el-dropdown-item command="logout" divided>退出登录</el-dropdown-item>
             </el-dropdown-menu>
           </template>

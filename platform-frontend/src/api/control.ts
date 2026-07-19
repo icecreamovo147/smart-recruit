@@ -1,6 +1,10 @@
 import http from './http'
 import type { PageResult, PlatformEntitlement, PlatformPlan, PlatformPlanVersion, QuotaAlert, TenantSubscription, TenantUsageMetric } from '@/types'
 
+export interface BillingPriceAdmin { id: number; version: number; billing_term: 'monthly' | 'yearly' | 'one_time'; amount_fen: number; included_credits: number; entitlement_snapshot_json: string }
+export interface BillingProductAdmin { id: number; product_key: string; name: string; description: string; product_type: 'subscription' | 'credit_pack'; prices: BillingPriceAdmin[] }
+export interface AIRateCardAdmin { id: number; provider_key: string; model_key: string; version: number; currency: string; input_micros_per_1k_tokens: number; output_micros_per_1k_tokens: number; cached_input_micros_per_1k_tokens: number; credit_micros: number; status: string; effective_at_unix_ms: number }
+
 export const listPlans = (status = '') => http.get<never, { list: PlatformPlan[] }>('/api/v1/platform/plans', { params: { status } })
 
 export const savePlanVersion = (planId: number, payload: { version_id?: number; change_note: string; entitlements: PlatformEntitlement[] }) =>
@@ -8,6 +12,11 @@ export const savePlanVersion = (planId: number, payload: { version_id?: number; 
 
 export const publishPlanVersion = (planId: number, versionId: number, payload: { effective_at: string; reason: string }) =>
   http.post<never, { version: PlatformPlanVersion }>(`/api/v1/platform/plans/${planId}/versions/${versionId}/publish`, payload)
+
+export const listBillingProducts = () => http.get<never, { products: BillingProductAdmin[]; payment_environment: string }>('/api/v1/platform/billing/products')
+export const saveBillingPrice = (payload: { product_id: number; price_version_id?: number; billing_term: string; amount_fen: number; included_credits: number; entitlement_snapshot_json: string; publish: boolean }) => http.post('/api/v1/platform/billing/prices', payload)
+export const listAIRateCards = () => http.get<never, { rates: AIRateCardAdmin[] }>('/api/v1/platform/billing/rates')
+export const saveAIRateCard = (payload: Omit<AIRateCardAdmin, 'id' | 'version' | 'currency' | 'status' | 'effective_at_unix_ms'> & { publish: boolean }) => http.post('/api/v1/platform/billing/rates', payload)
 
 export const getTenantSubscription = (tenantId: number) =>
   http.get<never, { subscription?: TenantSubscription }>(`/api/v1/platform/tenants/${tenantId}/subscription`)

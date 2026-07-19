@@ -16,6 +16,7 @@ const MyInterviewListView = () => import('@/views/hr/MyInterviewListView.vue')
 const MyInterviewDetailView = () => import('@/views/hr/MyInterviewDetailView.vue')
 const OfferManageView = () => import('@/views/hr/OfferManageView.vue')
 const AIChatView = () => import('@/views/hr/AIChatView.vue')
+const BillingCenterView = () => import('@/views/hr/BillingCenterView.vue')
 const ProfileView = () => import('@/views/hr/ProfileView.vue')
 const InviteCodeManageView = () => import('@/views/hr/InviteCodeManageView.vue')
 const DepartmentManageView = () => import('@/views/hr/DepartmentManageView.vue')
@@ -111,6 +112,11 @@ const routes: RouteRecordRaw[] = [
     path: '/hr/ai',
     component: AIChatView,
     meta: { requiresAuth: true, requiresPermission: PERM.AI_HR_USE, title: 'AI 数据助手' },
+  },
+  {
+    path: '/hr/billing',
+    component: BillingCenterView,
+    meta: { requiresAuth: true, requiresPermission: PERM.BILLING_MANAGE, title: 'AI 套餐与额度' },
   },
   // Profile — any authenticated staff user
   {

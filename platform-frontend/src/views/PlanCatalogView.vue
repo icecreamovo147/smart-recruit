@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref } from 'vue'
 import { ElMessage } from 'element-plus'
-import { listPlans, publishPlanVersion, savePlanVersion } from '@/api/control'
+import { listAIRateCards, listBillingProducts, listPlans, publishPlanVersion, saveAIRateCard, saveBillingPrice, savePlanVersion, type AIRateCardAdmin, type BillingProductAdmin } from '@/api/control'
 import { PLATFORM_PERMISSIONS } from '@/permissions'
 import { useAuthStore } from '@/stores/auth'
 import type { PlatformEntitlement, PlatformPlan, PlatformPlanVersion } from '@/types'
@@ -9,23 +9,98 @@ import type { PlatformEntitlement, PlatformPlan, PlatformPlanVersion } from '@/t
 const auth = useAuthStore()
 const loading = ref(false)
 const plans = ref<PlatformPlan[]>([])
+const billingProducts = ref<BillingProductAdmin[]>([])
+const rateCards = ref<AIRateCardAdmin[]>([])
+const paymentEnvironment = ref('sandbox')
 const canManage = computed(() => auth.can(PLATFORM_PERMISSIONS.PLAN_MANAGE))
 const canPublish = computed(() => auth.can(PLATFORM_PERMISSIONS.PLAN_PUBLISH))
 const editorVisible = ref(false)
 const publishVisible = ref(false)
 const selectedPlan = ref<PlatformPlan | null>(null)
 const selectedVersion = ref<PlatformPlanVersion | null>(null)
-const form = reactive({ version_id: 0, change_note: '', members: 1, jobs: 1, applications: 1, resumes: 1 })
+const form = reactive({
+  version_id: 0, change_note: '', members: 1, jobs: 1, applications: 1, resumes: 1,
+  aiHr: true, aiChat: true, aiResumeParse: true, aiMatchEvaluation: true,
+  aiApplicationAnalysis: true, aiAgentRun: true, aiMonthlyCredits: 100,
+  aiConcurrentRuns: 1, aiSingleRunCredits: 20,
+})
 const publishForm = reactive({ effective_at: '', reason: '' })
+const priceVisible = ref(false)
+const selectedBillingProduct = ref<BillingProductAdmin | null>(null)
+const priceForm = reactive({ price_version_id: 0, billing_term: 'monthly', amount_yuan: 1, included_credits: 100, publish: false })
+const rateVisible = ref(false)
+const rateForm = reactive({ provider_key: '', model_key: '', input_yuan: 0, output_yuan: 0, cached_yuan: 0, credit_yuan: 0.01, publish: false })
 
 const entitlementLabels: Record<string, string> = {
   'members.max': '有效成员上限', 'jobs.published.max': '在线岗位上限',
   'applications.monthly.max': '月投递上限', 'resumes.storage.max': '简历存储上限',
+  'ai.hr.enabled': 'HR AI 总开关', 'ai.chat.enabled': 'AI 对话',
+  'ai.resume_parse.enabled': '简历解析', 'ai.match_evaluation.enabled': '匹配评估',
+  'ai.application_analysis.enabled': '申请分析', 'ai.agent_run.enabled': 'Agent 任务',
+  'ai.credits.monthly': '每月 AI 额度', 'ai.concurrent_runs.max': 'AI 并发任务',
+  'ai.single_run.max_credits': '单次任务额度上限',
 }
 
 const load = async () => {
   loading.value = true
-  try { plans.value = (await listPlans()).list || [] } finally { loading.value = false }
+  try {
+    const [planResult, billingResult, rateResult] = await Promise.all([listPlans(), listBillingProducts(), listAIRateCards()])
+    plans.value = planResult.list || []
+    billingProducts.value = billingResult.products || []
+    paymentEnvironment.value = billingResult.payment_environment || 'sandbox'
+    rateCards.value = rateResult.rates || []
+  } finally { loading.value = false }
+}
+
+const openRateEditor = (rate?: AIRateCardAdmin) => {
+  rateForm.provider_key = rate?.provider_key || ''
+  rateForm.model_key = rate?.model_key || ''
+  rateForm.input_yuan = (rate?.input_micros_per_1k_tokens || 0) / 1_000_000
+  rateForm.output_yuan = (rate?.output_micros_per_1k_tokens || 0) / 1_000_000
+  rateForm.cached_yuan = (rate?.cached_input_micros_per_1k_tokens || 0) / 1_000_000
+  rateForm.credit_yuan = (rate?.credit_micros || 10_000) / 1_000_000
+  rateForm.publish = false
+  rateVisible.value = true
+}
+
+const submitRate = async () => {
+  if (!rateForm.provider_key.trim() || !rateForm.model_key.trim() || rateForm.credit_yuan <= 0 || (rateForm.input_yuan <= 0 && rateForm.output_yuan <= 0)) return
+  await saveAIRateCard({
+    provider_key: rateForm.provider_key.trim(), model_key: rateForm.model_key.trim(),
+    input_micros_per_1k_tokens: Math.round(rateForm.input_yuan * 1_000_000),
+    output_micros_per_1k_tokens: Math.round(rateForm.output_yuan * 1_000_000),
+    cached_input_micros_per_1k_tokens: Math.round(rateForm.cached_yuan * 1_000_000),
+    credit_micros: Math.round(rateForm.credit_yuan * 1_000_000), publish: rateForm.publish,
+  })
+  rateVisible.value = false
+  ElMessage.success(rateForm.publish ? '费率卡已发布' : '费率卡草稿已保存')
+  await load()
+}
+
+const openPriceEditor = (product: BillingProductAdmin) => {
+  const latest = product.prices[0]
+  selectedBillingProduct.value = product
+  // Published versions are immutable; every UI edit creates a new version.
+  priceForm.price_version_id = 0
+  priceForm.billing_term = latest?.billing_term || (product.product_type === 'credit_pack' ? 'one_time' : 'monthly')
+  priceForm.amount_yuan = latest ? latest.amount_fen / 100 : 1
+  priceForm.included_credits = latest?.included_credits || 100
+  priceForm.publish = false
+  priceVisible.value = true
+}
+
+const submitPrice = async () => {
+  if (!selectedBillingProduct.value || priceForm.amount_yuan <= 0 || priceForm.included_credits <= 0) return
+  const isPack = selectedBillingProduct.value.product_type === 'credit_pack'
+  const snapshot = isPack ? {} : {
+    'ai.hr.enabled': true, 'ai.chat.enabled': true, 'ai.resume_parse.enabled': true,
+    'ai.match_evaluation.enabled': true, 'ai.application_analysis.enabled': true,
+    'ai.agent_run.enabled': true, 'ai.credits.monthly': priceForm.included_credits,
+  }
+  await saveBillingPrice({ product_id: selectedBillingProduct.value.id, price_version_id: priceForm.price_version_id || undefined, billing_term: priceForm.billing_term, amount_fen: Math.round(priceForm.amount_yuan * 100), included_credits: priceForm.included_credits, entitlement_snapshot_json: JSON.stringify(snapshot), publish: priceForm.publish })
+  priceVisible.value = false
+  ElMessage.success(priceForm.publish ? '沙箱价格已发布' : '价格草稿已保存')
+  await load()
 }
 
 const valueOf = (version: PlatformPlanVersion | undefined, key: string) => {
@@ -42,13 +117,39 @@ const openEditor = (plan: PlatformPlan, version?: PlatformPlanVersion) => {
   form.jobs = valueOf(version, 'jobs.published.max') || 20
   form.applications = valueOf(version, 'applications.monthly.max') || 500
   form.resumes = valueOf(version, 'resumes.storage.max') || 1000
+  form.aiHr = valueOf(version, 'ai.hr.enabled') !== 0
+  form.aiChat = valueOf(version, 'ai.chat.enabled') !== 0
+  form.aiResumeParse = valueOf(version, 'ai.resume_parse.enabled') !== 0
+  form.aiMatchEvaluation = valueOf(version, 'ai.match_evaluation.enabled') !== 0
+  form.aiApplicationAnalysis = valueOf(version, 'ai.application_analysis.enabled') !== 0
+  form.aiAgentRun = valueOf(version, 'ai.agent_run.enabled') !== 0
+  form.aiMonthlyCredits = valueOf(version, 'ai.credits.monthly') || 100
+  form.aiConcurrentRuns = valueOf(version, 'ai.concurrent_runs.max') || 1
+  form.aiSingleRunCredits = valueOf(version, 'ai.single_run.max_credits') || 20
   editorVisible.value = true
 }
 
-const entitlements = (): PlatformEntitlement[] => [
-  ['members.max', form.members], ['jobs.published.max', form.jobs],
-  ['applications.monthly.max', form.applications], ['resumes.storage.max', form.resumes],
-].map(([key, value]) => ({ key: String(key), value_type: 'integer', value_json: String(value), enforcement_mode: 'hard' }))
+const entitlements = (): PlatformEntitlement[] => {
+  const integers: Array<[string, number]> = [
+    ['members.max', form.members], ['jobs.published.max', form.jobs],
+    ['applications.monthly.max', form.applications], ['resumes.storage.max', form.resumes],
+    ['ai.credits.monthly', form.aiMonthlyCredits], ['ai.concurrent_runs.max', form.aiConcurrentRuns],
+    ['ai.single_run.max_credits', form.aiSingleRunCredits],
+  ]
+  const booleans: Array<[string, boolean]> = [
+    ['ai.hr.enabled', form.aiHr], ['ai.chat.enabled', form.aiChat],
+    ['ai.resume_parse.enabled', form.aiResumeParse], ['ai.match_evaluation.enabled', form.aiMatchEvaluation],
+    ['ai.application_analysis.enabled', form.aiApplicationAnalysis], ['ai.agent_run.enabled', form.aiAgentRun],
+  ]
+  return [
+    ...integers.map(([key, value]) => ({ key, value_type: 'integer' as const, value_json: String(value), enforcement_mode: 'hard' as const })),
+    ...booleans.map(([key, value]) => ({ key, value_type: 'boolean' as const, value_json: String(value), enforcement_mode: 'hard' as const })),
+  ]
+}
+
+const displayValue = (item: PlatformEntitlement) => item.value_type === 'boolean'
+  ? (item.value_json === 'true' ? '已启用' : '未启用')
+  : Number(item.value_json).toLocaleString()
 
 const submitDraft = async () => {
   if (!selectedPlan.value || !form.change_note.trim()) { ElMessage.warning('请填写版本变更说明'); return }
@@ -86,7 +187,7 @@ onMounted(load)
         <div class="plan-version-list">
           <section v-for="version in plan.versions" :key="version.id" class="plan-version">
             <div class="plan-version__heading"><div><strong>版本 V{{ version.version }}</strong><small>{{ version.change_note || '暂无版本说明' }}</small></div><el-tag :type="version.status === 'published' ? 'success' : version.status === 'draft' ? 'warning' : 'info'" size="small">{{ version.status }}</el-tag></div>
-            <div class="entitlement-grid"><div v-for="item in version.entitlements" :key="item.key"><span>{{ entitlementLabels[item.key] || item.key }}</span><strong>{{ Number(item.value_json).toLocaleString() }}</strong><small>{{ item.enforcement_mode === 'hard' ? '硬限制' : item.enforcement_mode }}</small></div></div>
+            <div class="entitlement-grid"><div v-for="item in version.entitlements" :key="item.key"><span>{{ entitlementLabels[item.key] || item.key }}</span><strong>{{ displayValue(item) }}</strong><small>{{ item.enforcement_mode === 'hard' ? '硬限制' : item.enforcement_mode }}</small></div></div>
             <footer><span>{{ version.status === 'published' ? `生效：${formatTime(version.effective_at)}` : `更新：${formatTime(version.updated_at)}` }}</span><div><el-button v-if="canManage && version.status === 'draft'" link type="primary" @click="openEditor(plan, version)">编辑草稿</el-button><el-button v-if="canPublish && version.status === 'draft'" link type="success" @click="openPublish(plan, version)">发布</el-button></div></footer>
           </section>
         </div>
@@ -94,9 +195,13 @@ onMounted(load)
       </article>
     </div>
 
+    <section class="surface-card billing-catalog"><header><div><h2>AI 计费商品与沙箱价格</h2><p>金额使用人民币元配置；发布后会进入 HR 或候选人购买页。已发布价格不可修改，请创建新版本。</p></div><el-tag type="warning">{{ paymentEnvironment === 'sandbox' ? '支付宝沙箱' : paymentEnvironment }}</el-tag></header><div class="billing-product-grid"><article v-for="product in billingProducts" :key="product.id"><div><strong>{{ product.name }}</strong><small>{{ product.product_key }} · {{ product.product_type }}</small></div><div v-if="product.prices[0]"><strong>¥{{ (product.prices[0].amount_fen / 100).toFixed(2) }}</strong><small>{{ product.prices[0].included_credits.toLocaleString() }} 额度 · V{{ product.prices[0].version }}</small></div><span v-else>尚未配置价格</span><el-button v-if="canManage && product.product_key !== 'candidate_free'" link type="primary" @click="openPriceEditor(product)">配置价格</el-button></article></div></section>
+
+    <section class="surface-card billing-catalog"><header><div><h2>AI 模型费率卡</h2><p>供应商成本按每千 Token 的人民币金额配置；额度换算决定用户消耗，发布新版本后旧版本自动退役。</p></div><el-button v-if="canManage" type="primary" plain @click="openRateEditor()">新增费率卡</el-button></header><div class="billing-product-grid"><article v-for="rate in rateCards" :key="rate.id"><div><strong>{{ rate.provider_key }} / {{ rate.model_key }}</strong><small>V{{ rate.version }} · {{ rate.status }}</small></div><div><strong>输入 ¥{{ (rate.input_micros_per_1k_tokens / 1_000_000).toFixed(6) }}</strong><small>输出 ¥{{ (rate.output_micros_per_1k_tokens / 1_000_000).toFixed(6) }} / 千 Token</small></div><span>1 额度 = ¥{{ (rate.credit_micros / 1_000_000).toFixed(6) }}</span><el-button v-if="canManage" link type="primary" @click="openRateEditor(rate)">创建新版本</el-button></article><el-empty v-if="!rateCards.length" description="尚未配置模型费率，强制计费模式将拒绝未知模型" /></div></section>
+
     <el-dialog v-model="editorVisible" :title="`${selectedPlan?.name || ''} · ${form.version_id ? '编辑草稿' : '新建版本'}`" width="680px">
       <el-alert title="已发布版本不可修改；保存新草稿不会立即影响任何租户。" type="info" :closable="false" show-icon />
-      <el-form class="dialog-form" label-position="top"><el-form-item label="版本变更说明" required><el-input v-model="form.change_note" maxlength="500" show-word-limit placeholder="说明本版本权益调整背景" /></el-form-item><div class="two-columns"><el-form-item label="有效成员上限"><el-input-number v-model="form.members" :min="1" :max="1000000" controls-position="right" /></el-form-item><el-form-item label="在线岗位上限"><el-input-number v-model="form.jobs" :min="1" :max="1000000" controls-position="right" /></el-form-item><el-form-item label="月投递上限"><el-input-number v-model="form.applications" :min="1" :max="100000000" controls-position="right" /></el-form-item><el-form-item label="简历存储上限"><el-input-number v-model="form.resumes" :min="1" :max="100000000" controls-position="right" /></el-form-item></div></el-form>
+      <el-form class="dialog-form" label-position="top"><el-form-item label="版本变更说明" required><el-input v-model="form.change_note" maxlength="500" show-word-limit placeholder="说明本版本权益调整背景" /></el-form-item><div class="two-columns"><el-form-item label="有效成员上限"><el-input-number v-model="form.members" :min="1" :max="1000000" controls-position="right" /></el-form-item><el-form-item label="在线岗位上限"><el-input-number v-model="form.jobs" :min="1" :max="1000000" controls-position="right" /></el-form-item><el-form-item label="月投递上限"><el-input-number v-model="form.applications" :min="1" :max="100000000" controls-position="right" /></el-form-item><el-form-item label="简历存储上限"><el-input-number v-model="form.resumes" :min="1" :max="100000000" controls-position="right" /></el-form-item></div><el-divider content-position="left">AI 权益</el-divider><div class="two-columns"><el-form-item label="HR AI 总开关"><el-switch v-model="form.aiHr" /></el-form-item><el-form-item label="AI 对话"><el-switch v-model="form.aiChat" /></el-form-item><el-form-item label="简历解析"><el-switch v-model="form.aiResumeParse" /></el-form-item><el-form-item label="匹配评估"><el-switch v-model="form.aiMatchEvaluation" /></el-form-item><el-form-item label="申请分析"><el-switch v-model="form.aiApplicationAnalysis" /></el-form-item><el-form-item label="Agent 任务"><el-switch v-model="form.aiAgentRun" /></el-form-item><el-form-item label="每月 AI 额度"><el-input-number v-model="form.aiMonthlyCredits" :min="1" :max="100000000" controls-position="right" /></el-form-item><el-form-item label="AI 并发任务"><el-input-number v-model="form.aiConcurrentRuns" :min="1" :max="1000" controls-position="right" /></el-form-item><el-form-item label="单次任务额度上限"><el-input-number v-model="form.aiSingleRunCredits" :min="1" :max="100000000" controls-position="right" /></el-form-item></div></el-form>
       <template #footer><el-button @click="editorVisible = false">取消</el-button><el-button type="primary" @click="submitDraft">保存草稿</el-button></template>
     </el-dialog>
 
@@ -105,5 +210,11 @@ onMounted(load)
       <el-form class="dialog-form" label-position="top"><el-form-item label="生效时间" required><el-date-picker v-model="publishForm.effective_at" type="datetime" value-format="YYYY-MM-DDTHH:mm:ssZ" style="width:100%" /></el-form-item><el-form-item label="发布原因" required><el-input v-model="publishForm.reason" type="textarea" :rows="4" maxlength="500" show-word-limit /></el-form-item></el-form>
       <template #footer><el-button @click="publishVisible = false">取消</el-button><el-button type="primary" @click="submitPublish">确认发布</el-button></template>
     </el-dialog>
+
+    <el-dialog v-model="priceVisible" :title="`${selectedBillingProduct?.name || ''} · 沙箱价格`" width="580px"><el-alert title="当前只对接支付宝沙箱。发布价格会立即出现在购买页，但不会计入真实营收。" type="warning" :closable="false" show-icon/><el-form class="dialog-form" label-position="top"><el-form-item label="计费周期"><el-select v-model="priceForm.billing_term" :disabled="selectedBillingProduct?.product_type === 'credit_pack'"><el-option label="按月" value="monthly"/><el-option label="按年" value="yearly"/><el-option label="一次性" value="one_time"/></el-select></el-form-item><div class="two-columns"><el-form-item label="沙箱价格（元）"><el-input-number v-model="priceForm.amount_yuan" :min="0.01" :precision="2" :step="1"/></el-form-item><el-form-item label="包含 AI 额度"><el-input-number v-model="priceForm.included_credits" :min="1" :step="100"/></el-form-item></div><el-form-item><el-checkbox v-model="priceForm.publish">保存后立即发布</el-checkbox></el-form-item></el-form><template #footer><el-button @click="priceVisible=false">取消</el-button><el-button type="primary" @click="submitPrice">保存价格版本</el-button></template></el-dialog>
+    <el-dialog v-model="rateVisible" title="AI 模型费率卡新版本" width="620px"><el-alert title="费率卡用于记录供应商成本并换算用户额度；已发布版本不可修改。" type="info" :closable="false" show-icon/><el-form class="dialog-form" label-position="top"><div class="two-columns"><el-form-item label="供应商标识" required><el-input v-model="rateForm.provider_key" placeholder="例如 openai"/></el-form-item><el-form-item label="模型标识" required><el-input v-model="rateForm.model_key" placeholder="必须与运行时上报一致"/></el-form-item><el-form-item label="输入成本（元/千 Token）"><el-input-number v-model="rateForm.input_yuan" :min="0" :precision="6" :step="0.001"/></el-form-item><el-form-item label="输出成本（元/千 Token）"><el-input-number v-model="rateForm.output_yuan" :min="0" :precision="6" :step="0.001"/></el-form-item><el-form-item label="缓存输入成本（元/千 Token）"><el-input-number v-model="rateForm.cached_yuan" :min="0" :precision="6" :step="0.001"/></el-form-item><el-form-item label="每额度价值（元）" required><el-input-number v-model="rateForm.credit_yuan" :min="0.000001" :precision="6" :step="0.001"/></el-form-item></div><el-form-item><el-checkbox v-model="rateForm.publish">保存后立即发布</el-checkbox></el-form-item></el-form><template #footer><el-button @click="rateVisible=false">取消</el-button><el-button type="primary" @click="submitRate">保存费率版本</el-button></template></el-dialog>
   </section>
 </template>
+
+<style scoped>
+.billing-catalog{margin-top:24px;padding:24px}.billing-catalog>header{display:flex;justify-content:space-between;gap:20px;align-items:flex-start}.billing-catalog h2{margin:0 0 6px}.billing-catalog p{margin:0;color:var(--el-text-color-secondary)}.billing-product-grid{display:grid;gap:10px;margin-top:20px}.billing-product-grid article{display:grid;grid-template-columns:minmax(180px,1fr) minmax(160px,.7fr) minmax(110px,.5fr) auto;gap:16px;align-items:center;padding:14px 16px;border:1px solid var(--el-border-color-lighter);border-radius:12px}.billing-product-grid article>div{display:grid;gap:3px}.billing-product-grid small,.billing-product-grid span{color:var(--el-text-color-secondary)}@media(max-width:760px){.billing-product-grid article{grid-template-columns:1fr}.billing-catalog>header{flex-direction:column}}</style>

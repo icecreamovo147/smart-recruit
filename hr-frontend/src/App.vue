@@ -199,6 +199,10 @@ const routeViewKey = (viewRoute: { fullPath: string; path: string; params: Recor
             <el-icon><ChatDotRound /></el-icon>
             <span>AI 数据助手</span>
           </RouterLink>
+          <RouterLink v-if="auth.hasPermission(PERM.BILLING_MANAGE)" class="sidebar-link" to="/hr/billing" @click="closeMobileSidebar">
+            <el-icon><DataAnalysis /></el-icon>
+            <span>AI 套餐与额度</span>
+          </RouterLink>
           <RouterLink v-if="auth.hasPermission(PERM.ADMIN_INVITE_MANAGE)" class="sidebar-link" to="/hr/admin/invite-codes" @click="closeMobileSidebar">
             <el-icon><Key /></el-icon>
             <span>邀请码管理</span>

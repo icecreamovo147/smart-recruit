@@ -29,6 +29,7 @@ export const PERM = {
   NOTIFICATION_READ: 'notification.read',
   AI_HR_USE: 'ai.hr.use',
   AI_CANDIDATE_USE: 'ai.candidate.use',
+  BILLING_MANAGE: 'billing.manage',
   ADMIN_INVITE_MANAGE: 'admin.invite.manage',
   ADMIN_DEPARTMENT_MANAGE: 'admin.department.manage',
   ADMIN_LOCATION_MANAGE: 'admin.location.manage',
