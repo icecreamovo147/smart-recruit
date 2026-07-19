@@ -21,6 +21,7 @@ type Repositories struct {
 	Authz   *AuthzRepository
 	Invites *InviteCodeRepository
 	Audit   *AuditRepository
+	Tenants *TenantRepository
 }
 
 func NewRepositories(db *gorm.DB) Repositories {
@@ -31,6 +32,7 @@ func NewRepositories(db *gorm.DB) Repositories {
 		Authz:   authz,
 		Invites: NewInviteCodeRepository(db),
 		Audit:   NewAuditRepository(db),
+		Tenants: NewTenantRepository(db),
 	}
 }
 
@@ -122,19 +124,55 @@ func TokenHash(plain string) string {
 	return hex.EncodeToString(sum[:])
 }
 
-func (r *RefreshTokenRepository) Create(ctx context.Context, userID int64, plainToken, familyID string, expiresAt time.Time, ip, userAgent string) error {
+func (r *RefreshTokenRepository) Create(ctx context.Context, userID int64, plainToken, familyID, clientApp string, tenantID, membershipID int64, expiresAt time.Time, ip, userAgent string) error {
 	row := refreshTokenRow{
 		UserID:           userID,
 		TokenHash:        TokenHash(plainToken),
 		FamilyID:         familyID,
+		ClientApp:        clientApp,
 		ExpiresAt:        expiresAt,
 		CreatedIP:        &ip,
 		CreatedUserAgent: &userAgent,
 	}
+	if tenantID > 0 {
+		row.ActiveTenantID = &tenantID
+	}
+	if membershipID > 0 {
+		row.MembershipID = &membershipID
+	}
 	return r.db.WithContext(ctx).Create(&row).Error
 }
 
+func (r *RefreshTokenRepository) GetActive(ctx context.Context, plainToken string) (*model.RefreshSession, error) {
+	var token refreshTokenRow
+	if err := r.db.WithContext(ctx).Where("token_hash = ?", TokenHash(plainToken)).First(&token).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, repository.ErrTokenNotFound
+		}
+		return nil, err
+	}
+	if token.RevokedAt != nil {
+		return nil, repository.ErrTokenReuseDetected
+	}
+	if time.Now().After(token.ExpiresAt) {
+		return nil, repository.ErrTokenExpired
+	}
+	var user userRow
+	if err := r.db.WithContext(ctx).Where("id = ?", token.UserID).First(&user).Error; err != nil {
+		return nil, err
+	}
+	return refreshSessionFromRows(user, token), nil
+}
+
 func (r *RefreshTokenRepository) Rotate(ctx context.Context, plainToken, newPlainToken string, newExpiresAt time.Time, newIP, newUserAgent string) (*model.RefreshSession, error) {
+	return r.rotate(ctx, plainToken, newPlainToken, 0, 0, false, newExpiresAt, newIP, newUserAgent)
+}
+
+func (r *RefreshTokenRepository) RotateToTenant(ctx context.Context, plainToken, newPlainToken string, tenantID, membershipID int64, newExpiresAt time.Time, newIP, newUserAgent string) (*model.RefreshSession, error) {
+	return r.rotate(ctx, plainToken, newPlainToken, tenantID, membershipID, true, newExpiresAt, newIP, newUserAgent)
+}
+
+func (r *RefreshTokenRepository) rotate(ctx context.Context, plainToken, newPlainToken string, tenantID, membershipID int64, rebind bool, newExpiresAt time.Time, newIP, newUserAgent string) (*model.RefreshSession, error) {
 	var result *model.RefreshSession
 	reuseDetected := false
 	err := r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
@@ -168,10 +206,19 @@ func (r *RefreshTokenRepository) Rotate(ctx context.Context, plainToken, newPlai
 			return err
 		}
 		newHash := TokenHash(newPlainToken)
+		activeTenantID := token.ActiveTenantID
+		activeMembershipID := token.MembershipID
+		if rebind {
+			activeTenantID = &tenantID
+			activeMembershipID = &membershipID
+		}
 		newToken := refreshTokenRow{
 			UserID:           token.UserID,
 			TokenHash:        newHash,
 			FamilyID:         token.FamilyID,
+			ClientApp:        token.ClientApp,
+			ActiveTenantID:   activeTenantID,
+			MembershipID:     activeMembershipID,
 			ExpiresAt:        newExpiresAt,
 			CreatedIP:        &newIP,
 			CreatedUserAgent: &newUserAgent,
@@ -185,20 +232,29 @@ func (r *RefreshTokenRepository) Rotate(ctx context.Context, plainToken, newPlai
 			Updates(map[string]any{"revoked_at": now, "replaced_by_hash": newHash}).Error; err != nil {
 			return err
 		}
-		result = &model.RefreshSession{
-			UserID:       user.ID,
-			Username:     user.Username,
-			Role:         user.Role,
-			AccountType:  user.AccountType,
-			TokenVersion: user.TokenVersion,
-			FamilyID:     token.FamilyID,
-		}
+		newToken.ActiveTenantID = activeTenantID
+		newToken.MembershipID = activeMembershipID
+		result = refreshSessionFromRows(user, newToken)
 		return nil
 	})
 	if err == nil && reuseDetected {
 		return nil, repository.ErrTokenReuseDetected
 	}
 	return result, err
+}
+
+func refreshSessionFromRows(user userRow, token refreshTokenRow) *model.RefreshSession {
+	result := &model.RefreshSession{
+		UserID: user.ID, Username: user.Username, Role: user.Role, AccountType: user.AccountType,
+		TokenVersion: user.TokenVersion, FamilyID: token.FamilyID, ClientApp: token.ClientApp,
+	}
+	if token.ActiveTenantID != nil {
+		result.TenantID = *token.ActiveTenantID
+	}
+	if token.MembershipID != nil {
+		result.MembershipID = *token.MembershipID
+	}
+	return result
 }
 
 func (r *RefreshTokenRepository) Revoke(ctx context.Context, plainToken string) error {
@@ -343,6 +399,36 @@ func (r *AuthzRepository) LoadPrincipal(ctx context.Context, userID uint64) (*mo
 		TokenVersion: user.TokenVersion,
 		Email:        user.Email,
 		LegacyRole:   user.Role,
+	}, nil
+}
+
+func (r *AuthzRepository) LoadPlatformPrincipal(ctx context.Context, userID uint64) (*model.Principal, error) {
+	var user userRow
+	if err := r.db.WithContext(ctx).Where("id = ?", userID).First(&user).Error; err != nil {
+		return nil, err
+	}
+	var roles []string
+	if err := r.db.WithContext(ctx).Table("platform_user_roles pur").
+		Select("r.role_key").Joins("JOIN roles r ON r.id = pur.role_id").
+		Where("pur.user_id = ? AND pur.revoked_at IS NULL AND r.scope_type = ?", userID, model.RoleScopePlatform).
+		Pluck("r.role_key", &roles).Error; err != nil {
+		return nil, err
+	}
+	if len(roles) == 0 {
+		return nil, fmt.Errorf("user %d has no platform application admission", userID)
+	}
+	var permissions []string
+	if err := r.db.WithContext(ctx).Table("platform_user_roles pur").Distinct("p.permission_key").
+		Joins("JOIN roles r ON r.id = pur.role_id").Joins("JOIN role_permissions rp ON rp.role_id = r.id").
+		Joins("JOIN permissions p ON p.id = rp.permission_id").
+		Where("pur.user_id = ? AND pur.revoked_at IS NULL AND r.scope_type = ?", userID, model.RoleScopePlatform).
+		Pluck("p.permission_key", &permissions).Error; err != nil {
+		return nil, err
+	}
+	return &model.Principal{
+		UserID: user.ID, Username: user.Username, AccountType: model.AccountTypePlatform,
+		Roles: roles, Permissions: permissions, TokenVersion: user.TokenVersion,
+		Email: user.Email, LegacyRole: user.Role, ClientApp: "platform", AvailableApps: []string{"platform"},
 	}, nil
 }
 
@@ -504,6 +590,12 @@ func (r *AuditRepository) RecordAuthDecision(ctx context.Context, decision model
 		RequestID:     decision.RequestID,
 		ClientIP:      decision.ClientIP,
 	}
+	if decision.TenantID > 0 {
+		row.TenantID = &decision.TenantID
+	}
+	if decision.MembershipID > 0 {
+		row.MembershipID = &decision.MembershipID
+	}
 	return r.db.WithContext(ctx).Create(&row).Error
 }
 
@@ -566,6 +658,9 @@ type refreshTokenRow struct {
 	UserID           int64
 	TokenHash        string
 	FamilyID         string
+	ClientApp        string
+	ActiveTenantID   *int64
+	MembershipID     *int64
 	ExpiresAt        time.Time
 	CreatedIP        *string
 	CreatedUserAgent *string
@@ -579,6 +674,7 @@ func (refreshTokenRow) TableName() string { return "refresh_tokens" }
 
 type inviteCodeRow struct {
 	ID        int64 `gorm:"primaryKey"`
+	TenantID  int64
 	Code      string
 	CreatedBy int64
 	IsActive  int32
@@ -589,7 +685,7 @@ type inviteCodeRow struct {
 func (inviteCodeRow) TableName() string { return "invite_codes" }
 
 func (r inviteCodeRow) toDomain() *model.InviteCode {
-	return &model.InviteCode{ID: r.ID, Code: r.Code, CreatedBy: r.CreatedBy, IsActive: r.IsActive == 1, ExpiresAt: r.ExpiresAt}
+	return &model.InviteCode{ID: r.ID, TenantID: r.TenantID, Code: r.Code, CreatedBy: r.CreatedBy, IsActive: r.IsActive == 1, ExpiresAt: r.ExpiresAt}
 }
 
 type roleRow struct {
@@ -597,6 +693,7 @@ type roleRow struct {
 	RoleKey     string
 	Name        string
 	Description string
+	ScopeType   string
 	IsSystem    int32
 	CreatedAt   time.Time
 	UpdatedAt   time.Time
@@ -605,7 +702,7 @@ type roleRow struct {
 func (roleRow) TableName() string { return "roles" }
 
 func (r roleRow) toDomain() *model.Role {
-	return &model.Role{ID: r.ID, RoleKey: r.RoleKey, Name: r.Name, Description: r.Description, IsSystem: r.IsSystem == 1, CreatedAt: r.CreatedAt, UpdatedAt: r.UpdatedAt}
+	return &model.Role{ID: r.ID, RoleKey: r.RoleKey, Name: r.Name, Description: r.Description, ScopeType: r.ScopeType, IsSystem: r.IsSystem == 1, CreatedAt: r.CreatedAt, UpdatedAt: r.UpdatedAt}
 }
 
 type permissionRow struct {
@@ -661,6 +758,8 @@ func (r dataScopeRow) toDomain() *model.DataScope {
 
 type authAuditRow struct {
 	ID            uint64 `gorm:"primaryKey"`
+	TenantID      *int64
+	MembershipID  *int64
 	ActorUserID   uint64
 	ActorRoles    string
 	PermissionKey string
@@ -676,7 +775,7 @@ type authAuditRow struct {
 func (authAuditRow) TableName() string { return "authorization_audit_logs" }
 
 func (r authAuditRow) toDomain() *model.AuthAuditLog {
-	return &model.AuthAuditLog{
+	result := &model.AuthAuditLog{
 		ID:            r.ID,
 		ActorUserID:   r.ActorUserID,
 		ActorRoles:    r.ActorRoles,
@@ -689,4 +788,11 @@ func (r authAuditRow) toDomain() *model.AuthAuditLog {
 		ClientIP:      r.ClientIP,
 		CreatedAt:     r.CreatedAt,
 	}
+	if r.TenantID != nil {
+		result.TenantID = *r.TenantID
+	}
+	if r.MembershipID != nil {
+		result.MembershipID = *r.MembershipID
+	}
+	return result
 }

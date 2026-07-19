@@ -13,6 +13,7 @@ import (
 	"smart-recruit-identity-service/internal/domain/model"
 	"smart-recruit-identity-service/internal/domain/policy"
 	"smart-recruit-identity-service/internal/domain/repository"
+	platformmetadata "smart-recruit-platform-go/metadata"
 )
 
 var (
@@ -30,6 +31,7 @@ type AdminDeps struct {
 	Passwords  port.PasswordService
 	Authorizer port.AdminAuthorizer
 	TokenCache port.TokenVersionCache
+	Tenants    repository.TenantRepository
 }
 
 type AdminService struct {
@@ -39,6 +41,7 @@ type AdminService struct {
 	passwords  port.PasswordService
 	authorizer port.AdminAuthorizer
 	tokenCache port.TokenVersionCache
+	tenants    repository.TenantRepository
 }
 
 func NewAdminService(deps AdminDeps) (*AdminService, error) {
@@ -52,6 +55,7 @@ func NewAdminService(deps AdminDeps) (*AdminService, error) {
 		passwords:  deps.Passwords,
 		authorizer: deps.Authorizer,
 		tokenCache: deps.TokenCache,
+		tenants:    deps.Tenants,
 	}, nil
 }
 
@@ -72,6 +76,18 @@ func (s *AdminService) ListPermissions(ctx context.Context) ([]model.Permission,
 func (s *AdminService) GetUserRoles(ctx context.Context, req query.GetUserRoles) (dto.UserRolesResult, error) {
 	if err := s.requireAdminPermission(ctx, model.PermAdminRoleManage); err != nil {
 		return dto.UserRolesResult{}, err
+	}
+	if s.tenants != nil {
+		tenantID := platformmetadata.GetAuthTenantID(ctx)
+		principal, err := s.tenants.LoadTenantPrincipal(ctx, req.UserID, tenantID, "staff")
+		if err != nil || principal == nil {
+			return dto.UserRolesResult{}, ErrRoleNotHeld
+		}
+		scopes := make([]model.DataScope, len(principal.DataScopes))
+		for i, scope := range principal.DataScopes {
+			scopes[i] = model.DataScope{ID: uint64(scope.ID), UserID: uint64(req.UserID), ScopeKey: scope.ScopeKey, ResourceType: scope.ResourceType, ResourceID: uint64(scope.ResourceID), AssignedAt: scope.AssignedAt}
+		}
+		return dto.UserRolesResult{RoleKeys: principal.Roles, PermissionKeys: principal.Permissions, DataScopes: scopes}, nil
 	}
 	roleKeys, err := s.authz.GetUserRoles(ctx, uint64(req.UserID))
 	if err != nil {
@@ -94,6 +110,17 @@ func (s *AdminService) AssignUserRole(ctx context.Context, cmd command.AssignUse
 		return err
 	}
 	adminID := uint64(cmd.AdminID)
+	if s.tenants != nil {
+		tenantID := platformmetadata.GetAuthTenantID(ctx)
+		membership, err := s.tenants.GetActiveMembership(ctx, cmd.UserID, tenantID)
+		if err != nil || membership == nil || role.ScopeType != model.RoleScopeTenant {
+			return ErrRoleNotFound
+		}
+		if err := s.tenants.AssignMembershipRole(ctx, membership.ID, role.ID, &adminID); err != nil {
+			return err
+		}
+		return s.bumpAuthorizationVersion(ctx, uint64(cmd.UserID))
+	}
 	if err := s.authz.AssignRole(ctx, uint64(cmd.UserID), role.ID, &adminID); err != nil {
 		return err
 	}
@@ -114,6 +141,30 @@ func (s *AdminService) RevokeUserRole(ctx context.Context, cmd command.RevokeUse
 		return err
 	}
 	adminID := uint64(cmd.AdminID)
+	if s.tenants != nil {
+		tenantID := platformmetadata.GetAuthTenantID(ctx)
+		membership, err := s.tenants.GetActiveMembership(ctx, cmd.UserID, tenantID)
+		if err != nil || membership == nil || role.ScopeType != model.RoleScopeTenant {
+			return ErrRoleNotHeld
+		}
+		if role.RoleKey == model.RoleRecruitingAdmin {
+			count, err := s.tenants.CountActiveTenantMembersWithRole(ctx, tenantID, role.ID)
+			if err != nil {
+				return err
+			}
+			if count <= 1 {
+				return policy.ErrLastSystemAdmin
+			}
+		}
+		revoked, err := s.tenants.RevokeMembershipRole(ctx, membership.ID, role.ID)
+		if err != nil {
+			return err
+		}
+		if !revoked {
+			return ErrRoleNotHeld
+		}
+		return s.bumpAuthorizationVersion(ctx, uint64(cmd.UserID))
+	}
 	if role.RoleKey == model.RoleSystemAdmin && uint64(cmd.UserID) == adminID {
 		principal, err := s.authz.LoadPrincipal(ctx, adminID)
 		if err != nil {
@@ -157,6 +208,16 @@ func (s *AdminService) RevokeUserRole(ctx context.Context, cmd command.RevokeUse
 
 func (s *AdminService) AssignDataScope(ctx context.Context, cmd command.AssignDataScope) error {
 	adminID := uint64(cmd.AdminID)
+	if s.tenants != nil {
+		membership, err := s.tenants.GetActiveMembership(ctx, cmd.UserID, platformmetadata.GetAuthTenantID(ctx))
+		if err != nil || membership == nil {
+			return ErrRoleNotHeld
+		}
+		if err := s.tenants.AssignMembershipDataScope(ctx, membership.ID, cmd.ScopeKey, cmd.ResourceType, cmd.ResourceID, &adminID); err != nil {
+			return err
+		}
+		return s.bumpAuthorizationVersion(ctx, uint64(cmd.UserID))
+	}
 	if err := s.authz.AssignDataScope(ctx, uint64(cmd.UserID), cmd.ScopeKey, cmd.ResourceType, cmd.ResourceID, &adminID); err != nil {
 		return err
 	}
@@ -172,6 +233,16 @@ func (s *AdminService) AssignDataScope(ctx context.Context, cmd command.AssignDa
 }
 
 func (s *AdminService) RevokeDataScope(ctx context.Context, cmd command.RevokeDataScope) error {
+	if s.tenants != nil {
+		userID, revoked, err := s.tenants.RevokeTenantDataScope(ctx, platformmetadata.GetAuthTenantID(ctx), int64(cmd.ScopeID))
+		if err != nil {
+			return err
+		}
+		if !revoked {
+			return ErrRoleNotHeld
+		}
+		return s.bumpAuthorizationVersion(ctx, uint64(userID))
+	}
 	scopeUserID, err := s.authz.GetScopeOwnerID(ctx, cmd.ScopeID)
 	if err != nil {
 		return err
@@ -206,6 +277,21 @@ func (s *AdminService) ListStaffUsers(ctx context.Context, req query.ListStaffUs
 	pageSize := req.PageSize
 	if pageSize <= 0 || pageSize > 100 {
 		pageSize = 20
+	}
+	if s.tenants != nil {
+		memberships, total, err := s.tenants.ListTenantMemberships(ctx, platformmetadata.GetAuthTenantID(ctx), int((page-1)*pageSize), int(pageSize))
+		if err != nil {
+			return dto.StaffUsersResult{}, err
+		}
+		list := make([]dto.StaffUser, 0, len(memberships))
+		for _, membership := range memberships {
+			user, err := s.users.GetByID(ctx, membership.UserID)
+			if err != nil || user == nil || (req.Status != "" && user.Status != req.Status) {
+				continue
+			}
+			list = append(list, dto.StaffUser{UserID: user.ID, Username: user.Username, Email: user.Email, Status: user.Status, AccountType: user.AccountType, Roles: membership.Roles, TokenVersion: user.TokenVersion, CreatedAt: user.CreatedAt.Format(time.RFC3339)})
+		}
+		return dto.StaffUsersResult{Total: total, List: list}, nil
 	}
 	users, total, err := s.users.ListStaff(ctx, page, pageSize, req.Status)
 	if err != nil {
@@ -269,6 +355,26 @@ func (s *AdminService) CreateStaffUser(ctx context.Context, cmd command.CreateSt
 		return 0, err
 	}
 	adminID := uint64(cmd.AdminID)
+	if s.tenants != nil {
+		tenantID := platformmetadata.GetAuthTenantID(ctx)
+		membership, err := s.tenants.EnsureMembership(ctx, user.ID, tenantID, "active")
+		if err != nil || membership == nil {
+			return 0, ErrAccountCreateFailed
+		}
+		for _, roleKey := range cmd.RoleKeys {
+			role, err := s.authz.GetRoleByKey(ctx, roleKey)
+			if err == nil && role != nil && role.ScopeType == model.RoleScopeTenant {
+				_ = s.tenants.AssignMembershipRole(ctx, membership.ID, role.ID, &adminID)
+			}
+		}
+		if containsRoleKey(cmd.RoleKeys, model.RoleRecruiter) {
+			if err := s.tenants.AssignMembershipDataScope(ctx, membership.ID, model.ScopeOwnJobs, "", 0, &adminID); err != nil {
+				return 0, ErrAccountCreateFailed
+			}
+		}
+		s.auditAdminAction(ctx, adminID, "create_staff", uint64(user.ID), "allowed", "created tenant staff user "+username)
+		return user.ID, nil
+	}
 	for _, roleKey := range cmd.RoleKeys {
 		role, err := s.authz.GetRoleByKey(ctx, roleKey)
 		if err != nil || role == nil {
@@ -330,6 +436,17 @@ func (s *AdminService) syncTokenVersion(ctx context.Context, userID uint64, vers
 		if delErr := s.tokenCache.DeleteTokenVersion(ctx, userID); delErr != nil {
 			return fmt.Errorf("token_version sync failed: SET error=%w, DEL error=%w", err, delErr)
 		}
+	}
+	return nil
+}
+
+func (s *AdminService) bumpAuthorizationVersion(ctx context.Context, userID uint64) error {
+	newVersion, err := s.authz.IncrementTokenVersion(ctx, userID)
+	if err != nil {
+		return ErrPermissionTokenSyncFailed
+	}
+	if err := s.syncTokenVersion(ctx, userID, newVersion); err != nil {
+		return ErrPermissionTokenSyncFailed
 	}
 	return nil
 }

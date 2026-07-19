@@ -1,7 +1,10 @@
 package query
 
 type GetPrincipal struct {
-	UserID int64
+	UserID       int64
+	TenantID     int64
+	MembershipID int64
+	ClientApp    string
 }
 
 type ListStaffUsers struct {

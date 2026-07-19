@@ -12,9 +12,10 @@ import (
 
 func TestRuntimeRegistersIdentityGRPCServices(t *testing.T) {
 	runtime, err := New(Deps{
-		Auth:  fakeAuthAPI{},
-		Admin: fakeAdminAPI{},
-		Audit: fakeAuditAPI{},
+		Auth:   fakeAuthAPI{},
+		Admin:  fakeAdminAPI{},
+		Audit:  fakeAuditAPI{},
+		Tenant: fakeTenantAPI{},
 	})
 	if err != nil {
 		t.Fatalf("New returned error: %v", err)
@@ -31,6 +32,9 @@ func TestRuntimeRegistersIdentityGRPCServices(t *testing.T) {
 	if _, ok := services[pb.AdminService_ServiceDesc.ServiceName]; !ok {
 		t.Fatalf("missing registered service %s", pb.AdminService_ServiceDesc.ServiceName)
 	}
+	if _, ok := services[pb.PlatformTenantService_ServiceDesc.ServiceName]; !ok {
+		t.Fatalf("missing registered service %s", pb.PlatformTenantService_ServiceDesc.ServiceName)
+	}
 }
 
 func TestRuntimeRequiresDependencies(t *testing.T) {
@@ -46,6 +50,10 @@ func (fakeAuthAPI) Register(context.Context, *pb.RegisterRequest) (*pb.RegisterR
 }
 
 func (fakeAuthAPI) Login(context.Context, *pb.LoginRequest) (*pb.LoginResponse, error) {
+	return &pb.LoginResponse{Code: errs.OK}, nil
+}
+
+func (fakeAuthAPI) SwitchTenant(context.Context, *pb.SwitchTenantRequest) (*pb.LoginResponse, error) {
 	return &pb.LoginResponse{Code: errs.OK}, nil
 }
 
@@ -115,4 +123,19 @@ type fakeAuditAPI struct{}
 
 func (fakeAuditAPI) QueryAuthAuditLogs(context.Context, *pb.QueryAuthAuditLogsRequest) (*pb.QueryAuthAuditLogsResponse, error) {
 	return &pb.QueryAuthAuditLogsResponse{Code: errs.OK}, nil
+}
+
+type fakeTenantAPI struct{}
+
+func (fakeTenantAPI) CreateTenant(context.Context, *pb.CreateTenantRequest) (*pb.TenantResponse, error) {
+	return &pb.TenantResponse{Code: errs.OK}, nil
+}
+func (fakeTenantAPI) ListTenants(context.Context, *pb.ListTenantsRequest) (*pb.ListTenantsResponse, error) {
+	return &pb.ListTenantsResponse{Code: errs.OK}, nil
+}
+func (fakeTenantAPI) UpdateTenantStatus(context.Context, *pb.UpdateTenantStatusRequest) (*pb.TenantResponse, error) {
+	return &pb.TenantResponse{Code: errs.OK}, nil
+}
+func (fakeTenantAPI) ListTenantMemberships(context.Context, *pb.ListTenantMembershipsRequest) (*pb.ListTenantMembershipsResponse, error) {
+	return &pb.ListTenantMembershipsResponse{Code: errs.OK}, nil
 }

@@ -15,6 +15,7 @@ type AuthAPI interface {
 	Register(context.Context, *pb.RegisterRequest) (*pb.RegisterResponse, error)
 	Login(context.Context, *pb.LoginRequest) (*pb.LoginResponse, error)
 	RefreshToken(context.Context, *pb.RefreshTokenRequest) (*pb.RefreshTokenResponse, error)
+	SwitchTenant(context.Context, *pb.SwitchTenantRequest) (*pb.LoginResponse, error)
 	RevokeRefreshToken(context.Context, *pb.RevokeRefreshTokenRequest) (*pb.CommonResponse, error)
 	RecordAuthDecision(context.Context, *pb.AuthAuditRequest) (*pb.CommonResponse, error)
 	GetPrincipal(context.Context, *pb.GetPrincipalRequest) (*pb.GetPrincipalResponse, error)
@@ -38,15 +39,24 @@ type AuditAPI interface {
 	QueryAuthAuditLogs(context.Context, *pb.QueryAuthAuditLogsRequest) (*pb.QueryAuthAuditLogsResponse, error)
 }
 
+type TenantAPI interface {
+	CreateTenant(context.Context, *pb.CreateTenantRequest) (*pb.TenantResponse, error)
+	ListTenants(context.Context, *pb.ListTenantsRequest) (*pb.ListTenantsResponse, error)
+	UpdateTenantStatus(context.Context, *pb.UpdateTenantStatusRequest) (*pb.TenantResponse, error)
+	ListTenantMemberships(context.Context, *pb.ListTenantMembershipsRequest) (*pb.ListTenantMembershipsResponse, error)
+}
+
 type Deps struct {
-	Auth  AuthAPI
-	Admin AdminAPI
-	Audit AuditAPI
+	Auth   AuthAPI
+	Admin  AdminAPI
+	Audit  AuditAPI
+	Tenant TenantAPI
 }
 
 type Runtime struct {
-	Auth  pb.AuthServiceServer
-	Admin pb.AdminServiceServer
+	Auth   pb.AuthServiceServer
+	Admin  pb.AdminServiceServer
+	Tenant pb.PlatformTenantServiceServer
 }
 
 func New(deps Deps) (*Runtime, error) {
@@ -59,9 +69,13 @@ func New(deps Deps) (*Runtime, error) {
 	if deps.Audit == nil {
 		return nil, fmt.Errorf("identity audit api is required")
 	}
+	if deps.Tenant == nil {
+		return nil, fmt.Errorf("identity tenant api is required")
+	}
 	return &Runtime{
-		Auth:  authServer{api: deps.Auth},
-		Admin: adminServer{admin: deps.Admin, audit: deps.Audit},
+		Auth:   authServer{api: deps.Auth},
+		Admin:  adminServer{admin: deps.Admin, audit: deps.Audit},
+		Tenant: tenantServer{api: deps.Tenant},
 	}, nil
 }
 
@@ -69,11 +83,12 @@ func (r *Runtime) RegisterGRPC(registrar grpc.ServiceRegistrar) error {
 	if registrar == nil {
 		return fmt.Errorf("grpc service registrar is required")
 	}
-	if r == nil || r.Auth == nil || r.Admin == nil {
+	if r == nil || r.Auth == nil || r.Admin == nil || r.Tenant == nil {
 		return fmt.Errorf("identity runtime is not initialized")
 	}
 	pb.RegisterAuthServiceServer(registrar, r.Auth)
 	pb.RegisterAdminServiceServer(registrar, r.Admin)
+	pb.RegisterPlatformTenantServiceServer(registrar, r.Tenant)
 	return nil
 }
 
@@ -92,6 +107,10 @@ func (s authServer) Login(ctx context.Context, req *pb.LoginRequest) (*pb.LoginR
 
 func (s authServer) RefreshToken(ctx context.Context, req *pb.RefreshTokenRequest) (*pb.RefreshTokenResponse, error) {
 	return s.api.RefreshToken(ctx, req)
+}
+
+func (s authServer) SwitchTenant(ctx context.Context, req *pb.SwitchTenantRequest) (*pb.LoginResponse, error) {
+	return s.api.SwitchTenant(ctx, req)
 }
 
 func (s authServer) RevokeRefreshToken(ctx context.Context, req *pb.RevokeRefreshTokenRequest) (*pb.CommonResponse, error) {
@@ -118,6 +137,24 @@ type adminServer struct {
 	pb.UnimplementedAdminServiceServer
 	admin AdminAPI
 	audit AuditAPI
+}
+
+type tenantServer struct {
+	pb.UnimplementedPlatformTenantServiceServer
+	api TenantAPI
+}
+
+func (s tenantServer) CreateTenant(ctx context.Context, req *pb.CreateTenantRequest) (*pb.TenantResponse, error) {
+	return s.api.CreateTenant(ctx, req)
+}
+func (s tenantServer) ListTenants(ctx context.Context, req *pb.ListTenantsRequest) (*pb.ListTenantsResponse, error) {
+	return s.api.ListTenants(ctx, req)
+}
+func (s tenantServer) UpdateTenantStatus(ctx context.Context, req *pb.UpdateTenantStatusRequest) (*pb.TenantResponse, error) {
+	return s.api.UpdateTenantStatus(ctx, req)
+}
+func (s tenantServer) ListTenantMemberships(ctx context.Context, req *pb.ListTenantMembershipsRequest) (*pb.ListTenantMembershipsResponse, error) {
+	return s.api.ListTenantMemberships(ctx, req)
 }
 
 func (s adminServer) ListRoles(ctx context.Context, req *pb.ListRolesRequest) (*pb.ListRolesResponse, error) {

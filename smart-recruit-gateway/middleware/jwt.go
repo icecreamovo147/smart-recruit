@@ -78,12 +78,18 @@ func JWTAuthWithTokenVersion(secret, cookieName string, rdb *redis.Client) gin.H
 		c.Set("roles", claims.Roles)             // []string of role keys
 		c.Set("permissions", claims.Permissions) // []string of permission keys
 		c.Set("token_version", claims.TokenVersion)
+		c.Set("tenant_id", claims.TenantID)
+		c.Set("membership_id", claims.MembershipID)
+		c.Set("client_app", claims.ClientApp)
 
 		// Also inject into the Go context so gRPC metadata forwarding
 		// can propagate the authenticated actor to backend services.
 		ctx := c.Request.Context()
 		ctx = context.WithValue(ctx, contextkeys.UserID, claims.UserID)
 		ctx = context.WithValue(ctx, contextkeys.AccountType, claims.AccountType)
+		ctx = context.WithValue(ctx, contextkeys.TenantID, claims.TenantID)
+		ctx = context.WithValue(ctx, contextkeys.MembershipID, claims.MembershipID)
+		ctx = context.WithValue(ctx, contextkeys.ClientApp, claims.ClientApp)
 		c.Request = c.Request.WithContext(ctx)
 
 		c.Next()
@@ -99,6 +105,9 @@ type CurrentPrincipal struct {
 	Roles        []string
 	Permissions  []string
 	TokenVersion int32
+	TenantID     int64
+	MembershipID int64
+	ClientApp    string
 }
 
 // PrincipalLoader loads the current identity from the source of truth.
@@ -136,8 +145,14 @@ func ValidateCurrentPrincipal(load PrincipalLoader) gin.HandlerFunc {
 		c.Set("roles", principal.Roles)
 		c.Set("permissions", principal.Permissions)
 		c.Set("token_version", principal.TokenVersion)
+		c.Set("tenant_id", principal.TenantID)
+		c.Set("membership_id", principal.MembershipID)
+		c.Set("client_app", principal.ClientApp)
 
 		ctx := context.WithValue(c.Request.Context(), contextkeys.AccountType, principal.AccountType)
+		ctx = context.WithValue(ctx, contextkeys.TenantID, principal.TenantID)
+		ctx = context.WithValue(ctx, contextkeys.MembershipID, principal.MembershipID)
+		ctx = context.WithValue(ctx, contextkeys.ClientApp, principal.ClientApp)
 		c.Request = c.Request.WithContext(ctx)
 		c.Next()
 	}
@@ -212,6 +227,53 @@ func UserID(c *gin.Context) int64 {
 	value, _ := c.Get("user_id")
 	userID, _ := value.(int64)
 	return userID
+}
+
+// TenantID returns the active, server-validated staff tenant. Global candidate
+// and platform sessions return zero.
+func TenantID(c *gin.Context) int64 {
+	value, _ := c.Get("tenant_id")
+	tenantID, _ := value.(int64)
+	return tenantID
+}
+
+func MembershipID(c *gin.Context) int64 {
+	value, _ := c.Get("membership_id")
+	membershipID, _ := value.(int64)
+	return membershipID
+}
+
+func ClientApp(c *gin.Context) string {
+	value, _ := c.Get("client_app")
+	clientApp, _ := value.(string)
+	return clientApp
+}
+
+// RequireActiveTenant fails closed for enterprise-workspace routes. A staff
+// identity is not sufficient by itself: the session must be bound to the
+// active membership that Identity validated when issuing the token.
+func RequireActiveTenant() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		if AccountType(c) != "staff" || TenantID(c) <= 0 || MembershipID(c) <= 0 {
+			c.AbortWithStatusJSON(http.StatusForbidden, gin.H{
+				"code": 403, "msg": "当前会话未绑定有效企业", "data": nil, "request_id": requestID(c),
+			})
+			return
+		}
+		c.Next()
+	}
+}
+
+func RequirePlatformApp() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		if AccountType(c) != "platform" || ClientApp(c) != "platform" || TenantID(c) != 0 || MembershipID(c) != 0 {
+			c.AbortWithStatusJSON(http.StatusForbidden, gin.H{
+				"code": 403, "msg": "当前会话无权访问平台控制台", "data": nil, "request_id": requestID(c),
+			})
+			return
+		}
+		c.Next()
+	}
 }
 
 // Username returns the authenticated username from the Gin context.

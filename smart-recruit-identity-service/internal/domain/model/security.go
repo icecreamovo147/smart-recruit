@@ -9,6 +9,8 @@ const (
 
 	AccountTypeCandidate = "candidate"
 	AccountTypeStaff     = "staff"
+	AccountTypePlatform  = "platform"
+	AccountTypeService   = "service"
 
 	UserStatusActive = "active"
 
@@ -16,6 +18,12 @@ const (
 	RoleRecruiter       = "recruiter"
 	RoleRecruitingAdmin = "recruiting_admin"
 	RoleSystemAdmin     = "system_admin"
+	RolePlatformAdmin   = "platform_admin"
+	RoleInterviewer     = "interviewer"
+
+	RoleScopeIdentity = "identity"
+	RoleScopeTenant   = "tenant"
+	RoleScopePlatform = "platform"
 
 	ScopeOwnJobs       = "own_jobs"
 	ScopeRecruitingAll = "recruiting_all"
@@ -43,6 +51,7 @@ type Role struct {
 	RoleKey     string
 	Name        string
 	Description string
+	ScopeType   string
 	IsSystem    bool
 	CreatedAt   time.Time
 	UpdatedAt   time.Time
@@ -68,21 +77,28 @@ type DataScope struct {
 }
 
 type ScopeAssignment struct {
+	ID           int64
 	ScopeKey     string
 	ResourceType string
 	ResourceID   int64
+	AssignedAt   time.Time
 }
 
 type Principal struct {
-	UserID       int64
-	Username     string
-	AccountType  string
-	Roles        []string
-	Permissions  []string
-	DataScopes   []ScopeAssignment
-	TokenVersion int32
-	Email        string
-	LegacyRole   int32
+	UserID        int64
+	Username      string
+	AccountType   string
+	Roles         []string
+	Permissions   []string
+	DataScopes    []ScopeAssignment
+	TokenVersion  int32
+	Email         string
+	LegacyRole    int32
+	TenantID      int64
+	MembershipID  int64
+	ClientApp     string
+	AvailableApps []string
+	Memberships   []TenantMembership
 }
 
 func (p *Principal) HasRole(roleKey string) bool {
@@ -131,6 +147,7 @@ func (p *Principal) IsCandidate() bool {
 
 type InviteCode struct {
 	ID        int64
+	TenantID  int64
 	Code      string
 	CreatedBy int64
 	IsActive  bool
@@ -151,9 +168,43 @@ type RefreshSession struct {
 	AccountType  string
 	TokenVersion int32
 	FamilyID     string
+	TenantID     int64
+	MembershipID int64
+	ClientApp    string
+}
+
+type Tenant struct {
+	ID              int64
+	TenantKey       string
+	Slug            string
+	Name            string
+	Status          string
+	Timezone        string
+	Locale          string
+	IsDefault       bool
+	MembershipCount int64
+}
+
+func (t Tenant) IsActive() bool { return t.Status == "active" }
+
+type TenantMembership struct {
+	ID       int64
+	TenantID int64
+	UserID   int64
+	Username string
+	Status   string
+	Tenant   Tenant
+	Roles    []string
+	JoinedAt *time.Time
+}
+
+func (m TenantMembership) IsActive() bool {
+	return m.Status == "active" && m.Tenant.IsActive()
 }
 
 type AuthAuditDecision struct {
+	TenantID      int64
+	MembershipID  int64
 	ActorUserID   uint64
 	ActorRoles    string
 	PermissionKey string
@@ -167,6 +218,8 @@ type AuthAuditDecision struct {
 
 type AuthAuditLog struct {
 	ID            uint64
+	TenantID      int64
+	MembershipID  int64
 	ActorUserID   uint64
 	ActorRoles    string
 	PermissionKey string

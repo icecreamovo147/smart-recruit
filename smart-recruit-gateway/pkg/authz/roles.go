@@ -9,6 +9,7 @@ const (
 	RoleRecruitingAdmin = "recruiting_admin"
 	RoleSystemAdmin     = "system_admin"
 	RoleInterviewer     = "interviewer"
+	RolePlatformAdmin   = "platform_admin"
 )
 
 // StaffRoles returns all staff roles (non-candidate).
@@ -28,6 +29,7 @@ var RoleDisplayNames = map[string]string{
 	RoleRecruitingAdmin: "招聘管理员",
 	RoleSystemAdmin:     "系统管理员",
 	RoleInterviewer:     "面试官",
+	RolePlatformAdmin:   "平台管理员",
 }
 
 // ── Deprecated numeric role constants (compatibility only) ─────────────

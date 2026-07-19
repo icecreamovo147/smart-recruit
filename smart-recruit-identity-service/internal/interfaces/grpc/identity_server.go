@@ -16,12 +16,13 @@ import (
 )
 
 type Server struct {
-	auth  *appservice.AuthService
-	admin *appservice.AdminService
+	auth   *appservice.AuthService
+	admin  *appservice.AdminService
+	tenant *appservice.TenantService
 }
 
-func NewServer(auth *appservice.AuthService, admin *appservice.AdminService) *Server {
-	return &Server{auth: auth, admin: admin}
+func NewServer(auth *appservice.AuthService, admin *appservice.AdminService, tenant *appservice.TenantService) *Server {
+	return &Server{auth: auth, admin: admin, tenant: tenant}
 }
 
 func (s *Server) Register(ctx context.Context, req *pb.RegisterRequest) (*pb.RegisterResponse, error) {
@@ -56,7 +57,10 @@ func (s *Server) Register(ctx context.Context, req *pb.RegisterRequest) (*pb.Reg
 }
 
 func (s *Server) Login(ctx context.Context, req *pb.LoginRequest) (*pb.LoginResponse, error) {
-	result, err := s.auth.Login(ctx, command.Login{Username: req.Username, Password: req.Password})
+	result, err := s.auth.Login(ctx, command.Login{
+		Username: req.Username, Password: req.Password,
+		ClientApp: req.ClientApp, RequestedTenantID: req.RequestedTenantId,
+	})
 	if err != nil {
 		if errors.Is(err, appservice.ErrInvalidCredentials) {
 			return &pb.LoginResponse{Code: errs.ErrUnauthorized, Msg: "用户名或密码错误"}, nil
@@ -64,17 +68,22 @@ func (s *Server) Login(ctx context.Context, req *pb.LoginRequest) (*pb.LoginResp
 		return nil, err
 	}
 	return &pb.LoginResponse{
-		Code:         errs.OK,
-		Msg:          "登录成功",
-		Token:        result.RefreshToken,
-		UserId:       result.UserID,
-		Role:         result.Role,
-		Username:     result.Username,
-		Email:        result.Email,
-		AccountType:  result.AccountType,
-		Roles:        result.Roles,
-		Permissions:  result.Permissions,
-		TokenVersion: result.TokenVersion,
+		Code:          errs.OK,
+		Msg:           "登录成功",
+		Token:         result.RefreshToken,
+		UserId:        result.UserID,
+		Role:          result.Role,
+		Username:      result.Username,
+		Email:         result.Email,
+		AccountType:   result.AccountType,
+		Roles:         result.Roles,
+		Permissions:   result.Permissions,
+		TokenVersion:  result.TokenVersion,
+		TenantId:      result.TenantID,
+		MembershipId:  result.MembershipID,
+		ClientApp:     result.ClientApp,
+		AvailableApps: result.AvailableApps,
+		Memberships:   membershipsResponse(result.Memberships),
 	}, nil
 }
 
@@ -105,6 +114,31 @@ func (s *Server) RefreshToken(ctx context.Context, req *pb.RefreshTokenRequest) 
 		Roles:            result.Roles,
 		Permissions:      result.Permissions,
 		TokenVersion:     result.TokenVersion,
+		TenantId:         result.TenantID,
+		MembershipId:     result.MembershipID,
+		ClientApp:        result.ClientApp,
+	}, nil
+}
+
+func (s *Server) SwitchTenant(ctx context.Context, req *pb.SwitchTenantRequest) (*pb.LoginResponse, error) {
+	result, err := s.auth.SwitchTenant(ctx, command.SwitchTenant{
+		RefreshToken: req.RefreshToken,
+		TenantID:     req.TenantId,
+		ClientIP:     req.ClientIp,
+		UserAgent:    req.UserAgent,
+	})
+	if err != nil {
+		if errors.Is(err, appservice.ErrRefreshTokenInvalid) || errors.Is(err, appservice.ErrRefreshTokenReused) || errors.Is(err, appservice.ErrInvalidCredentials) {
+			return &pb.LoginResponse{Code: errs.ErrUnauthorized, Msg: "无权切换到该企业或会话已失效"}, nil
+		}
+		return nil, err
+	}
+	return &pb.LoginResponse{
+		Code: errs.OK, Msg: "企业切换成功", Token: result.RefreshToken,
+		UserId: result.UserID, Username: result.Username, Role: result.Role, AccountType: result.AccountType,
+		Roles: result.Roles, Permissions: result.Permissions, TokenVersion: result.TokenVersion,
+		TenantId: result.TenantID, MembershipId: result.MembershipID, ClientApp: result.ClientApp,
+		AvailableApps: result.AvailableApps, Memberships: membershipsResponse(result.Memberships),
 	}, nil
 }
 
@@ -130,6 +164,8 @@ func (s *Server) RecordAuthDecision(ctx context.Context, req *pb.AuthAuditReques
 		Reason:        req.Reason,
 		RequestID:     req.RequestId,
 		ClientIP:      req.ClientIp,
+		TenantID:      req.TenantId,
+		MembershipID:  req.MembershipId,
 	}); err != nil {
 		return nil, err
 	}
@@ -137,7 +173,9 @@ func (s *Server) RecordAuthDecision(ctx context.Context, req *pb.AuthAuditReques
 }
 
 func (s *Server) GetPrincipal(ctx context.Context, req *pb.GetPrincipalRequest) (*pb.GetPrincipalResponse, error) {
-	principal, err := s.auth.GetPrincipal(ctx, query.GetPrincipal{UserID: req.UserId})
+	principal, err := s.auth.GetPrincipal(ctx, query.GetPrincipal{
+		UserID: req.UserId, TenantID: req.TenantId, MembershipID: req.MembershipId, ClientApp: req.ClientApp,
+	})
 	if err != nil {
 		if errors.Is(err, appservice.ErrAuthzRepoUnavailable) {
 			return &pb.GetPrincipalResponse{Code: errs.ErrInternal, Msg: "authz repo not configured"}, nil
@@ -148,7 +186,9 @@ func (s *Server) GetPrincipal(ctx context.Context, req *pb.GetPrincipalRequest) 
 }
 
 func (s *Server) AuthorizeInternal(ctx context.Context, req *pb.AuthorizeInternalRequest) (*pb.AuthorizeInternalResponse, error) {
-	principal, err := s.auth.GetPrincipal(ctx, query.GetPrincipal{UserID: req.ActorUserId})
+	principal, err := s.auth.GetPrincipal(ctx, query.GetPrincipal{
+		UserID: req.ActorUserId, TenantID: req.TenantId, MembershipID: req.MembershipId, ClientApp: req.ClientApp,
+	})
 	if err != nil {
 		if errors.Is(err, appservice.ErrAuthzRepoUnavailable) {
 			return &pb.AuthorizeInternalResponse{Code: errs.ErrInternal, Msg: "authz repo not configured", Allowed: false, Reason: "authz repo not configured"}, nil
@@ -192,6 +232,8 @@ func (s *Server) AuthorizeInternal(ctx context.Context, req *pb.AuthorizeInterna
 		Reason:        resp.Reason,
 		RequestID:     req.RequestId,
 		ClientIP:      req.ClientIp,
+		TenantID:      req.TenantId,
+		MembershipID:  req.MembershipId,
 	}); err != nil {
 		return nil, err
 	}
@@ -211,18 +253,110 @@ func principalResponse(principal *securitymodel.Principal) *pb.GetPrincipalRespo
 		})
 	}
 	return &pb.GetPrincipalResponse{
-		Code:         errs.OK,
-		Msg:          "success",
-		UserId:       principal.UserID,
-		Username:     principal.Username,
-		AccountType:  principal.AccountType,
-		Role:         principal.LegacyRole,
-		Roles:        principal.Roles,
-		Permissions:  principal.Permissions,
-		TokenVersion: principal.TokenVersion,
-		DataScopes:   scopes,
-		Email:        principal.Email,
+		Code:          errs.OK,
+		Msg:           "success",
+		UserId:        principal.UserID,
+		Username:      principal.Username,
+		AccountType:   principal.AccountType,
+		Role:          principal.LegacyRole,
+		Roles:         principal.Roles,
+		Permissions:   principal.Permissions,
+		TokenVersion:  principal.TokenVersion,
+		DataScopes:    scopes,
+		Email:         principal.Email,
+		TenantId:      principal.TenantID,
+		MembershipId:  principal.MembershipID,
+		ClientApp:     principal.ClientApp,
+		AvailableApps: principal.AvailableApps,
+		Memberships:   membershipsResponse(principal.Memberships),
 	}
+}
+
+func membershipsResponse(memberships []securitymodel.TenantMembership) []*pb.TenantMembershipInfo {
+	result := make([]*pb.TenantMembershipInfo, 0, len(memberships))
+	for _, membership := range memberships {
+		result = append(result, &pb.TenantMembershipInfo{
+			MembershipId:     membership.ID,
+			TenantId:         membership.TenantID,
+			TenantKey:        membership.Tenant.TenantKey,
+			Slug:             membership.Tenant.Slug,
+			Name:             membership.Tenant.Name,
+			TenantStatus:     membership.Tenant.Status,
+			MembershipStatus: membership.Status,
+			Roles:            membership.Roles,
+			IsDefault:        membership.Tenant.IsDefault,
+			UserId:           membership.UserID,
+			Username:         membership.Username,
+		})
+	}
+	return result
+}
+
+func (s *Server) CreateTenant(ctx context.Context, req *pb.CreateTenantRequest) (*pb.TenantResponse, error) {
+	tenant, err := s.tenant.Create(ctx, req.Slug, req.Name, req.Timezone, req.Locale)
+	if err != nil {
+		if errors.Is(err, appservice.ErrTenantInvalid) {
+			return &pb.TenantResponse{Code: errs.ErrBadRequest, Msg: err.Error()}, nil
+		}
+		if errors.Is(err, appservice.ErrInvalidCredentials) {
+			return &pb.TenantResponse{Code: errs.ErrForbidden, Msg: "无平台管理权限"}, nil
+		}
+		return nil, err
+	}
+	return &pb.TenantResponse{Code: errs.OK, Msg: "企业创建成功", Tenant: tenantResponse(tenant)}, nil
+}
+
+func (s *Server) ListTenants(ctx context.Context, req *pb.ListTenantsRequest) (*pb.ListTenantsResponse, error) {
+	rows, total, err := s.tenant.List(ctx, req.Page, req.PageSize, req.Keyword, req.Status)
+	if err != nil {
+		if errors.Is(err, appservice.ErrTenantInvalid) {
+			return &pb.ListTenantsResponse{Code: errs.ErrBadRequest, Msg: err.Error()}, nil
+		}
+		if errors.Is(err, appservice.ErrInvalidCredentials) {
+			return &pb.ListTenantsResponse{Code: errs.ErrForbidden, Msg: "无平台管理权限"}, nil
+		}
+		return nil, err
+	}
+	list := make([]*pb.TenantInfo, len(rows))
+	for i := range rows {
+		list[i] = tenantResponse(&rows[i])
+	}
+	return &pb.ListTenantsResponse{Code: errs.OK, Msg: "success", Total: total, List: list}, nil
+}
+
+func (s *Server) UpdateTenantStatus(ctx context.Context, req *pb.UpdateTenantStatusRequest) (*pb.TenantResponse, error) {
+	tenant, err := s.tenant.UpdateStatus(ctx, req.TenantId, req.Status)
+	if err != nil {
+		if errors.Is(err, appservice.ErrTenantInvalid) {
+			return &pb.TenantResponse{Code: errs.ErrBadRequest, Msg: err.Error()}, nil
+		}
+		if errors.Is(err, appservice.ErrInvalidCredentials) {
+			return &pb.TenantResponse{Code: errs.ErrForbidden, Msg: "无平台管理权限"}, nil
+		}
+		return nil, err
+	}
+	return &pb.TenantResponse{Code: errs.OK, Msg: "企业状态已更新", Tenant: tenantResponse(tenant)}, nil
+}
+
+func (s *Server) ListTenantMemberships(ctx context.Context, req *pb.ListTenantMembershipsRequest) (*pb.ListTenantMembershipsResponse, error) {
+	rows, total, err := s.tenant.ListMemberships(ctx, req.TenantId, req.Page, req.PageSize)
+	if err != nil {
+		if errors.Is(err, appservice.ErrTenantInvalid) {
+			return &pb.ListTenantMembershipsResponse{Code: errs.ErrBadRequest, Msg: err.Error()}, nil
+		}
+		if errors.Is(err, appservice.ErrInvalidCredentials) {
+			return &pb.ListTenantMembershipsResponse{Code: errs.ErrForbidden, Msg: "无平台管理权限"}, nil
+		}
+		return nil, err
+	}
+	return &pb.ListTenantMembershipsResponse{Code: errs.OK, Msg: "success", Total: total, List: membershipsResponse(rows)}, nil
+}
+
+func tenantResponse(tenant *securitymodel.Tenant) *pb.TenantInfo {
+	if tenant == nil {
+		return nil
+	}
+	return &pb.TenantInfo{Id: tenant.ID, TenantKey: tenant.TenantKey, Slug: tenant.Slug, Name: tenant.Name, Status: tenant.Status, Timezone: tenant.Timezone, Locale: tenant.Locale, IsDefault: tenant.IsDefault, MembershipCount: tenant.MembershipCount}
 }
 
 func matchingScopes(principal *securitymodel.Principal, requiredScopeKey, resourceType string, resourceID int64) []*pb.ScopeAssignment {

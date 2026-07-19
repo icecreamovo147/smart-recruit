@@ -84,14 +84,20 @@ func (h *AuthHandler) Register(c *gin.Context) {
 
 func (h *AuthHandler) Login(c *gin.Context) {
 	var req struct {
-		Username string `json:"username" binding:"required"`
-		Password string `json:"password" binding:"required"`
+		Username          string `json:"username" binding:"required"`
+		Password          string `json:"password" binding:"required"`
+		RequestedTenantID int64  `json:"requested_tenant_id"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
 		BadRequest(c, "请求参数错误")
 		return
 	}
-	resp, err := h.clients.Auth.Login(c.Request.Context(), &pb.LoginRequest{Username: req.Username, Password: req.Password})
+	resp, err := h.clients.Auth.Login(c.Request.Context(), &pb.LoginRequest{
+		Username:          req.Username,
+		Password:          req.Password,
+		ClientApp:         c.GetHeader("X-Client-App"),
+		RequestedTenantId: req.RequestedTenantID,
+	})
 	if err != nil {
 		Internal(c, err)
 		return
@@ -102,9 +108,10 @@ func (h *AuthHandler) Login(c *gin.Context) {
 		refreshCookie := cookieName + "_refresh"
 
 		// Write access JWT as httpOnly cookie (short TTL, 24h) with full RBAC metadata.
-		accessToken, err := jwt.GenerateFull(
+		accessToken, err := jwt.GenerateTenantFull(
 			h.jwtSecret, resp.UserId, resp.Username, resp.Role,
 			resp.AccountType, resp.Roles, resp.Permissions, resp.TokenVersion,
+			resp.TenantId, resp.MembershipId, resp.ClientApp,
 			jwt.AccessTokenTTL,
 		)
 		if err != nil {
@@ -142,7 +149,10 @@ func (h *AuthHandler) Login(c *gin.Context) {
 func (h *AuthHandler) Me(c *gin.Context) {
 	userID := middleware.UserID(c)
 	resp, err := h.clients.Auth.GetPrincipal(c.Request.Context(), &pb.GetPrincipalRequest{
-		UserId: userID,
+		UserId:       userID,
+		TenantId:     middleware.TenantID(c),
+		MembershipId: middleware.MembershipID(c),
+		ClientApp:    middleware.ClientApp(c),
 	})
 	if err != nil {
 		Internal(c, err)
@@ -162,15 +172,20 @@ func (h *AuthHandler) Me(c *gin.Context) {
 		})
 	}
 	OK(c, "ok", gin.H{
-		"user_id":       resp.UserId,
-		"username":      resp.Username,
-		"role":          resp.Role, // Deprecated: kept for compatibility
-		"account_type":  resp.AccountType,
-		"roles":         resp.Roles,
-		"permissions":   resp.Permissions,
-		"token_version": resp.TokenVersion,
-		"data_scopes":   dataScopes,
-		"email":         resp.Email,
+		"user_id":        resp.UserId,
+		"username":       resp.Username,
+		"role":           resp.Role, // Deprecated: kept for compatibility
+		"account_type":   resp.AccountType,
+		"roles":          resp.Roles,
+		"permissions":    resp.Permissions,
+		"token_version":  resp.TokenVersion,
+		"data_scopes":    dataScopes,
+		"email":          resp.Email,
+		"tenant_id":      resp.TenantId,
+		"membership_id":  resp.MembershipId,
+		"client_app":     resp.ClientApp,
+		"available_apps": resp.AvailableApps,
+		"memberships":    resp.Memberships,
 	})
 }
 
@@ -255,9 +270,10 @@ func (h *AuthHandler) RefreshToken(c *gin.Context) {
 	}
 
 	// Write new access JWT cookie with full RBAC metadata.
-	accessToken, err := jwt.GenerateFull(
+	accessToken, err := jwt.GenerateTenantFull(
 		h.jwtSecret, resp.UserId, resp.Username, resp.Role,
 		resp.AccountType, resp.Roles, resp.Permissions, resp.TokenVersion,
+		resp.TenantId, resp.MembershipId, resp.ClientApp,
 		jwt.AccessTokenTTL,
 	)
 	if err != nil {
@@ -271,6 +287,7 @@ func (h *AuthHandler) RefreshToken(c *gin.Context) {
 		HttpOnly: true, Secure: h.secureCookie(c), SameSite: http.SameSiteStrictMode,
 	})
 	// Write new opaque refresh token cookie.
+	refreshCookieName = cookieName + "_refresh"
 	http.SetCookie(c.Writer, &http.Cookie{
 		Name: refreshCookieName, Value: resp.RefreshToken,
 		Path: "/", Expires: time.Now().Add(jwt.RefreshTokenTTL),
@@ -286,6 +303,65 @@ func (h *AuthHandler) RefreshToken(c *gin.Context) {
 	}
 	// JSON body carries no token.
 	resp.RefreshToken = ""
+	ProtoResponse(c, resp)
+}
+
+// SwitchTenant rotates the refresh session and access JWT after Identity has
+// verified that the user owns an active membership in the target tenant.
+func (h *AuthHandler) SwitchTenant(c *gin.Context) {
+	var req struct {
+		TenantID int64 `json:"tenant_id" binding:"required"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil || req.TenantID <= 0 {
+		BadRequest(c, "目标企业不能为空")
+		return
+	}
+	cookieName := h.requestCookieName(c)
+	refreshCookieName := cookieName + "_refresh"
+	plainToken, err := c.Cookie(refreshCookieName)
+	if err != nil || plainToken == "" {
+		From(c, http.StatusUnauthorized, "刷新令牌不存在，请重新登录", nil)
+		return
+	}
+	resp, err := h.clients.Auth.SwitchTenant(c.Request.Context(), &pb.SwitchTenantRequest{
+		RefreshToken: plainToken,
+		TenantId:     req.TenantID,
+		ClientIp:     c.ClientIP(),
+		UserAgent:    c.GetHeader("User-Agent"),
+	})
+	if err != nil {
+		Internal(c, err)
+		return
+	}
+	if resp.Code != 0 {
+		ProtoResponse(c, resp)
+		return
+	}
+	accessToken, err := jwt.GenerateTenantFull(
+		h.jwtSecret, resp.UserId, resp.Username, resp.Role, resp.AccountType,
+		resp.Roles, resp.Permissions, resp.TokenVersion, resp.TenantId,
+		resp.MembershipId, resp.ClientApp, jwt.AccessTokenTTL,
+	)
+	if err != nil {
+		Internal(c, err)
+		return
+	}
+	http.SetCookie(c.Writer, &http.Cookie{
+		Name: cookieName + "_access", Value: accessToken, Path: "/",
+		Expires: time.Now().Add(jwt.AccessTokenTTL), HttpOnly: true,
+		Secure: h.secureCookie(c), SameSite: http.SameSiteStrictMode,
+	})
+	http.SetCookie(c.Writer, &http.Cookie{
+		Name: refreshCookieName, Value: resp.Token, Path: "/",
+		Expires: time.Now().Add(jwt.RefreshTokenTTL), HttpOnly: true,
+		Secure: h.secureCookie(c), SameSite: http.SameSiteStrictMode,
+	})
+	if h.rdb != nil && resp.TokenVersion > 0 {
+		if err := middleware.SetTokenVersionCache(c.Request.Context(), h.rdb, resp.UserId, resp.TokenVersion); err != nil {
+			logger.L().Warn("failed to cache token_version after tenant switch", zap.Int64("user_id", resp.UserId), zap.Error(err))
+		}
+	}
+	resp.Token = ""
 	ProtoResponse(c, resp)
 }
 
@@ -353,6 +429,9 @@ func (h *AuthHandler) loginCookieNameByAccountType(accountType string, legacyRol
 	if accountType == "candidate" {
 		return h.candidateCookie
 	}
+	if accountType == "platform" {
+		return h.defaultCookie
+	}
 	// Fallback to legacy role check
 	return h.loginCookieNameByRole(legacyRole)
 }
@@ -374,6 +453,9 @@ func (h *AuthHandler) requestCookieName(c *gin.Context) string {
 // When X-Client-App is "interviewer", it validates that the user holds the
 // interviewer role and returns the interviewer cookie namespace.
 func (h *AuthHandler) loginCookieName(c *gin.Context, accountType string, legacyRole int32, roles []string) string {
+	if c.GetHeader("X-Client-App") == "platform" {
+		return h.defaultCookie
+	}
 	if c.GetHeader("X-Client-App") == "interviewer" {
 		if slices.Contains(roles, authz.RoleInterviewer) {
 			return h.interviewerCookie

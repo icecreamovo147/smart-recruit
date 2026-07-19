@@ -79,6 +79,7 @@ type Clients struct {
 	AnalyticsTargetAddr    string
 	InternalTLSEnabled     bool
 	Auth                   pb.AuthServiceClient
+	Tenant                 pb.PlatformTenantServiceClient
 	Job                    pb.JobServiceClient
 	Candidate              pb.CandidateServiceClient
 	Application            pb.ApplicationServiceClient
@@ -440,6 +441,7 @@ func NewClientsWithOptions(addr string, options ClientOptions) (*Clients, error)
 		AnalyticsTargetAddr:    analyticsTarget,
 		InternalTLSEnabled:     tlsEnabled,
 		Auth:                   pb.NewAuthServiceClient(identityConn),
+		Tenant:                 pb.NewPlatformTenantServiceClient(identityConn),
 		Job:                    pb.NewJobServiceClient(recruitmentConn),
 		Candidate:              pb.NewCandidateServiceClient(recruitmentConn),
 		Application:            pb.NewApplicationServiceClient(recruitmentConn),
@@ -670,6 +672,15 @@ func forwardMetadata(ctx context.Context) context.Context {
 	}
 	if at, ok := ctx.Value(contextkeys.AccountType).(string); ok && at != "" {
 		ctx = metadata.AppendToOutgoingContext(ctx, "x-authenticated-account-type", at)
+	}
+	if tenantID, ok := ctx.Value(contextkeys.TenantID).(int64); ok && tenantID > 0 {
+		ctx = metadata.AppendToOutgoingContext(ctx, "x-authenticated-tenant-id", strconv.FormatInt(tenantID, 10))
+	}
+	if membershipID, ok := ctx.Value(contextkeys.MembershipID).(int64); ok && membershipID > 0 {
+		ctx = metadata.AppendToOutgoingContext(ctx, "x-authenticated-membership-id", strconv.FormatInt(membershipID, 10))
+	}
+	if clientApp, ok := ctx.Value(contextkeys.ClientApp).(string); ok && clientApp != "" {
+		ctx = metadata.AppendToOutgoingContext(ctx, "x-authenticated-client-app", clientApp)
 	}
 	if traceparent, ok := ctx.Value(contextkeys.Traceparent).(string); ok && traceparent != "" {
 		ctx = metadata.AppendToOutgoingContext(ctx, "traceparent", traceparent)

@@ -69,9 +69,10 @@ func main() {
 
 func checkRuntime() error {
 	runtime, err := identityruntime.New(identityruntime.Deps{
-		Auth:  noopAuthAPI{},
-		Admin: noopAdminAPI{},
-		Audit: noopAuditAPI{},
+		Auth:   noopAuthAPI{},
+		Admin:  noopAdminAPI{},
+		Audit:  noopAuditAPI{},
+		Tenant: noopTenantAPI{},
 	})
 	if err != nil {
 		return err
@@ -145,12 +146,13 @@ func serveIdentity(addr string) error {
 	passwords := identityclient.PasswordService{}
 	tokenFactory := identityclient.TokenGenerator{}
 	actorVerifier := identityclient.ActorVerifier{}
-	adminAuthorizer := identityclient.NewAdminAuthorizer(repos.Authz)
+	adminAuthorizer := identityclient.NewAdminAuthorizer(repos.Authz, repos.Tenants)
 	tokenVersionCache := identitycache.NewTokenVersionCache(redisClient)
 	authSvc, err := appservice.NewAuthService(appservice.AuthDeps{
 		Users:         repos.Users,
 		Tokens:        repos.Tokens,
 		Authz:         repos.Authz,
+		Tenants:       repos.Tenants,
 		Invites:       repos.Invites,
 		Audit:         repos.Audit,
 		Passwords:     passwords,
@@ -167,15 +169,18 @@ func serveIdentity(addr string) error {
 		Passwords:  passwords,
 		Authorizer: adminAuthorizer,
 		TokenCache: tokenVersionCache,
+		Tenants:    repos.Tenants,
 	})
 	if err != nil {
 		return fmt.Errorf("build identity admin service: %w", err)
 	}
-	localIdentity := identitygrpc.NewServer(authSvc, adminSvc)
+	tenantSvc := appservice.NewTenantService(repos.Tenants, repos.Authz)
+	localIdentity := identitygrpc.NewServer(authSvc, adminSvc, tenantSvc)
 	runtime, err := identityruntime.New(identityruntime.Deps{
-		Auth:  localIdentity,
-		Admin: localIdentity,
-		Audit: localIdentity,
+		Auth:   localIdentity,
+		Admin:  localIdentity,
+		Audit:  localIdentity,
+		Tenant: localIdentity,
 	})
 	if err != nil {
 		return err
@@ -386,6 +391,10 @@ func (noopAuthAPI) RefreshToken(context.Context, *pb.RefreshTokenRequest) (*pb.R
 	return &pb.RefreshTokenResponse{Code: errs.OK}, nil
 }
 
+func (noopAuthAPI) SwitchTenant(context.Context, *pb.SwitchTenantRequest) (*pb.LoginResponse, error) {
+	return &pb.LoginResponse{Code: errs.OK}, nil
+}
+
 func (noopAuthAPI) RevokeRefreshToken(context.Context, *pb.RevokeRefreshTokenRequest) (*pb.CommonResponse, error) {
 	return &pb.CommonResponse{Code: errs.OK}, nil
 }
@@ -448,4 +457,19 @@ type noopAuditAPI struct{}
 
 func (noopAuditAPI) QueryAuthAuditLogs(context.Context, *pb.QueryAuthAuditLogsRequest) (*pb.QueryAuthAuditLogsResponse, error) {
 	return &pb.QueryAuthAuditLogsResponse{Code: errs.OK}, nil
+}
+
+type noopTenantAPI struct{}
+
+func (noopTenantAPI) CreateTenant(context.Context, *pb.CreateTenantRequest) (*pb.TenantResponse, error) {
+	return &pb.TenantResponse{Code: errs.OK}, nil
+}
+func (noopTenantAPI) ListTenants(context.Context, *pb.ListTenantsRequest) (*pb.ListTenantsResponse, error) {
+	return &pb.ListTenantsResponse{Code: errs.OK}, nil
+}
+func (noopTenantAPI) UpdateTenantStatus(context.Context, *pb.UpdateTenantStatusRequest) (*pb.TenantResponse, error) {
+	return &pb.TenantResponse{Code: errs.OK}, nil
+}
+func (noopTenantAPI) ListTenantMemberships(context.Context, *pb.ListTenantMembershipsRequest) (*pb.ListTenantMembershipsResponse, error) {
+	return &pb.ListTenantMembershipsResponse{Code: errs.OK}, nil
 }

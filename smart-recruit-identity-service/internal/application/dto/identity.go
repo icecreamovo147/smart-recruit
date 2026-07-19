@@ -13,6 +13,11 @@ type AuthResult struct {
 	TokenVersion     int32
 	RefreshToken     string
 	RefreshExpiresAt int64
+	TenantID         int64
+	MembershipID     int64
+	ClientApp        string
+	AvailableApps    []string
+	Memberships      []model.TenantMembership
 }
 
 type RegisterResult struct {

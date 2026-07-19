@@ -151,18 +151,31 @@ func (s staticInvites) GetByCode(context.Context, string) (*model.InviteCode, er
 
 type recordingTokens struct {
 	created struct {
-		userID    int64
-		token     string
-		familyID  string
-		expiresAt time.Time
+		userID       int64
+		token        string
+		familyID     string
+		clientApp    string
+		tenantID     int64
+		membershipID int64
+		expiresAt    time.Time
 	}
 	rotateErr error
 }
 
-func (r *recordingTokens) Create(_ context.Context, userID int64, plainToken, familyID string, expiresAt time.Time, _, _ string) error {
+func (r *recordingTokens) GetActive(context.Context, string) (*model.RefreshSession, error) {
+	if r.rotateErr != nil {
+		return nil, r.rotateErr
+	}
+	return &model.RefreshSession{UserID: 7, Username: "alice", AccountType: model.AccountTypeCandidate}, nil
+}
+
+func (r *recordingTokens) Create(_ context.Context, userID int64, plainToken, familyID, clientApp string, tenantID, membershipID int64, expiresAt time.Time, _, _ string) error {
 	r.created.userID = userID
 	r.created.token = plainToken
 	r.created.familyID = familyID
+	r.created.clientApp = clientApp
+	r.created.tenantID = tenantID
+	r.created.membershipID = membershipID
 	r.created.expiresAt = expiresAt
 	return nil
 }
@@ -172,6 +185,13 @@ func (r *recordingTokens) Rotate(context.Context, string, string, time.Time, str
 		return nil, r.rotateErr
 	}
 	return &model.RefreshSession{UserID: 7, Username: "alice", Role: model.LegacyRoleCandidate, AccountType: model.AccountTypeCandidate, TokenVersion: 3}, nil
+}
+
+func (r *recordingTokens) RotateToTenant(context.Context, string, string, int64, int64, time.Time, string, string) (*model.RefreshSession, error) {
+	if r.rotateErr != nil {
+		return nil, r.rotateErr
+	}
+	return &model.RefreshSession{UserID: 7, Username: "alice", Role: model.LegacyRoleHR, AccountType: model.AccountTypeStaff, TokenVersion: 3, ClientApp: "staff"}, nil
 }
 
 func (r *recordingTokens) Revoke(context.Context, string) error {

@@ -119,6 +119,10 @@ func (m *memoryAuthz) LoadPrincipal(_ context.Context, userID uint64) (*model.Pr
 	return &model.Principal{UserID: int64(userID), Roles: m.userRoles[int64(userID)]}, nil
 }
 
+func (m *memoryAuthz) LoadPlatformPrincipal(_ context.Context, userID uint64) (*model.Principal, error) {
+	return &model.Principal{UserID: int64(userID), AccountType: model.AccountTypePlatform, Roles: []string{model.RolePlatformAdmin}, ClientApp: "platform"}, nil
+}
+
 func (m *memoryAuthz) AssignRole(_ context.Context, userID, roleID uint64, _ *uint64) error {
 	for _, role := range m.roles {
 		if role.ID == roleID {

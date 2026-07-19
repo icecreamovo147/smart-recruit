@@ -9,14 +9,23 @@ type Register struct {
 }
 
 type Login struct {
-	Username  string
-	Password  string
-	ClientIP  string
-	UserAgent string
+	Username          string
+	Password          string
+	ClientIP          string
+	UserAgent         string
+	ClientApp         string
+	RequestedTenantID int64
 }
 
 type RefreshToken struct {
 	RefreshToken string
+	ClientIP     string
+	UserAgent    string
+}
+
+type SwitchTenant struct {
+	RefreshToken string
+	TenantID     int64
 	ClientIP     string
 	UserAgent    string
 }
@@ -31,6 +40,8 @@ type UpdateEmail struct {
 }
 
 type RecordAuthDecision struct {
+	TenantID      int64
+	MembershipID  int64
 	ActorUserID   uint64
 	ActorRoles    string
 	PermissionKey string

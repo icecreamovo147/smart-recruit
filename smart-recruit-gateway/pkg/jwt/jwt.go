@@ -16,6 +16,9 @@ type Claims struct {
 	Roles        []string `json:"roles"`         // RBAC role keys
 	Permissions  []string `json:"permissions"`   // RBAC permission keys
 	TokenVersion int32    `json:"token_version"` // Incremented on permission change
+	TenantID     int64    `json:"tenant_id,omitempty"`
+	MembershipID int64    `json:"membership_id,omitempty"`
+	ClientApp    string   `json:"client_app,omitempty"`
 	golangjwt.RegisteredClaims
 }
 
@@ -38,6 +41,12 @@ func GenerateWithTTL(secret string, userID int64, username string, role int32, t
 
 // GenerateFull creates a JWT with full RBAC metadata.
 func GenerateFull(secret string, userID int64, username string, role int32, accountType string, roles, permissions []string, tokenVersion int32, ttl time.Duration) (string, error) {
+	return GenerateTenantFull(secret, userID, username, role, accountType, roles, permissions, tokenVersion, 0, 0, "", ttl)
+}
+
+// GenerateTenantFull creates an access token bound to a validated application
+// and, for staff sessions, an active tenant membership.
+func GenerateTenantFull(secret string, userID int64, username string, role int32, accountType string, roles, permissions []string, tokenVersion int32, tenantID, membershipID int64, clientApp string, ttl time.Duration) (string, error) {
 	claims := Claims{
 		UserID:       userID,
 		Username:     username,
@@ -46,6 +55,9 @@ func GenerateFull(secret string, userID int64, username string, role int32, acco
 		Roles:        roles,
 		Permissions:  permissions,
 		TokenVersion: tokenVersion,
+		TenantID:     tenantID,
+		MembershipID: membershipID,
+		ClientApp:    clientApp,
 		RegisteredClaims: golangjwt.RegisteredClaims{
 			ExpiresAt: golangjwt.NewNumericDate(time.Now().Add(ttl)),
 			IssuedAt:  golangjwt.NewNumericDate(time.Now()),

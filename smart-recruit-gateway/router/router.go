@@ -18,6 +18,7 @@ import (
 	"smart-recruit-gateway/handler/hr"
 	"smart-recruit-gateway/middleware"
 	"smart-recruit-gateway/pkg/authz"
+	"smart-recruit-gateway/pkg/contextkeys"
 	"smart-recruit-gateway/pkg/logger"
 	"smart-recruit-gateway/pkg/observability"
 	"smart-recruit-gateway/pkg/redisclient"
@@ -109,6 +110,7 @@ func Setup(cfg config.Config, clients *rpc.Clients, rdb *redis.Client) (*gin.Eng
 	r.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
 
 	authHandler := handler.NewAuthHandler(clients, cfg.AuthCookieName, cfg.CandidateCookie, cfg.HRCookie, cfg.InterviewerCookie, cfg.AuthCookieSecure, cfg.JWTSecret, rdb)
+	platformTenantHandler := handler.NewPlatformTenantHandler(clients)
 	publicHandler := handler.NewPublicHandler(clients)
 	hrJobHandler := hr.NewJobHandler(clients)
 	hrApplicationHandler := hr.NewApplicationHandler(clients)
@@ -164,6 +166,7 @@ func Setup(cfg config.Config, clients *rpc.Clients, rdb *redis.Client) (*gin.Eng
 	v1.POST("/auth/login", normalTimeout, authLimit, bodyAuth, authHandler.Login)
 	v1.POST("/auth/logout", normalTimeout, middleware.JWTAuthByClient(cfg.JWTSecret, cfg.CandidateCookie, cfg.HRCookie, cfg.InterviewerCookie, cfg.AuthCookieName, rdb), authHandler.Logout)
 	v1.POST("/auth/refresh", normalTimeout, authHandler.RefreshToken)
+	v1.POST("/auth/tenant/switch", normalTimeout, authLimit, bodyAuth, authHandler.SwitchTenant)
 	v1.GET("/auth/me", normalTimeout, middleware.JWTAuthByClient(cfg.JWTSecret, cfg.CandidateCookie, cfg.HRCookie, cfg.InterviewerCookie, cfg.AuthCookieName, rdb), authHandler.Me)
 	v1.PUT("/auth/email", normalTimeout, bodyAuth, middleware.JWTAuthByClient(cfg.JWTSecret, cfg.CandidateCookie, cfg.HRCookie, cfg.InterviewerCookie, cfg.AuthCookieName, rdb), authHandler.UpdateEmail)
 	v1.GET("/jobs", normalTimeout, publicHandler.ListJobs)
@@ -174,7 +177,12 @@ func Setup(cfg config.Config, clients *rpc.Clients, rdb *redis.Client) (*gin.Eng
 	// ── Authenticated middleware (with token_version validation via Redis) ─
 	jwtAuth := middleware.JWTAuthByClient(cfg.JWTSecret, cfg.CandidateCookie, cfg.HRCookie, cfg.InterviewerCookie, cfg.AuthCookieName, rdb)
 	currentPrincipal := middleware.ValidateCurrentPrincipal(func(ctx context.Context, userID int64) (*middleware.CurrentPrincipal, error) {
-		resp, err := clients.Auth.GetPrincipal(ctx, &pb.GetPrincipalRequest{UserId: userID})
+		tenantID, _ := ctx.Value(contextkeys.TenantID).(int64)
+		membershipID, _ := ctx.Value(contextkeys.MembershipID).(int64)
+		clientApp, _ := ctx.Value(contextkeys.ClientApp).(string)
+		resp, err := clients.Auth.GetPrincipal(ctx, &pb.GetPrincipalRequest{
+			UserId: userID, TenantId: tenantID, MembershipId: membershipID, ClientApp: clientApp,
+		})
 		if err != nil {
 			return nil, err
 		}
@@ -189,8 +197,17 @@ func Setup(cfg config.Config, clients *rpc.Clients, rdb *redis.Client) (*gin.Eng
 			Roles:        resp.Roles,
 			Permissions:  resp.Permissions,
 			TokenVersion: resp.TokenVersion,
+			TenantID:     resp.TenantId,
+			MembershipID: resp.MembershipId,
+			ClientApp:    resp.ClientApp,
 		}, nil
 	})
+
+	platformGroup := v1.Group("/platform", jwtAuth, currentPrincipal, middleware.RequirePlatformApp(), middleware.RequireAnyRole(authz.RolePlatformAdmin))
+	platformGroup.GET("/tenants", normalTimeout, platformTenantHandler.List)
+	platformGroup.POST("/tenants", normalTimeout, bodyAdmin, platformTenantHandler.Create)
+	platformGroup.PATCH("/tenants/:tenant_id/status", normalTimeout, bodyAuth, platformTenantHandler.UpdateStatus)
+	platformGroup.GET("/tenants/:tenant_id/memberships", normalTimeout, platformTenantHandler.ListMemberships)
 
 	// ── Candidate routes ───────────────────────────────────────────────
 	// Each candidate route declares the required permission explicitly.
@@ -224,7 +241,7 @@ func Setup(cfg config.Config, clients *rpc.Clients, rdb *redis.Client) (*gin.Eng
 
 	// ── Staff routes (formerly /hr) ────────────────────────────────────
 	// Base group: any staff role (recruiter, recruiting_admin, system_admin, interviewer).
-	staffGroup := v1.Group("/hr", jwtAuth, currentPrincipal, middleware.RequireAnyRole(authz.StaffRoles()...))
+	staffGroup := v1.Group("/hr", jwtAuth, currentPrincipal, middleware.RequireActiveTenant(), middleware.RequireAnyRole(authz.StaffRoles()...))
 
 	// Job management — requires explicit job permissions
 	staffGroup.GET("/job-options", normalTimeout, middleware.RequirePermission(authz.PermJobRead), hrJobHandler.JobOptions)
