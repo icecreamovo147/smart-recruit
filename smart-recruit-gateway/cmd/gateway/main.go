@@ -41,6 +41,7 @@ func main() {
 		"notification": cfg.NotificationRouteMode,
 		"ai-agent":     cfg.AIAgentRouteMode,
 		"analytics":    envOrDefault("ANALYTICS_ROUTE_MODE", "analytics"),
+		"billing":      "billing",
 	})
 	if err != nil {
 		log.Fatal("gateway route mode validation failed", zap.Error(err))
@@ -53,6 +54,7 @@ func main() {
 		"notification": cfg.NotificationGRPCAddr,
 		"ai-agent":     cfg.AIAgentGRPCAddr,
 		"analytics":    envOrDefault("ANALYTICS_GRPC_ADDR", "127.0.0.1:50067"),
+		"billing":      envOrDefault("BILLING_GRPC_ADDR", "127.0.0.1:50069"),
 	})
 	if err != nil {
 		log.Fatal("gateway route target validation failed", zap.Error(err))
@@ -74,6 +76,7 @@ func main() {
 		OfferRouteMode:        cfg.OfferRouteMode,
 		AnalyticsAddr:         envOrDefault("ANALYTICS_GRPC_ADDR", "127.0.0.1:50067"),
 		AnalyticsRouteMode:    envOrDefault("ANALYTICS_ROUTE_MODE", "analytics"),
+		BillingAddr:           envOrDefault("BILLING_GRPC_ADDR", "127.0.0.1:50069"),
 		GRPCInternalTLS:       cfg.GRPCInternalTLS,
 		GRPCTLSCAFile:         cfg.GRPCTLSCAFile,
 		GRPCTLSServerName:     cfg.GRPCTLSServerName,

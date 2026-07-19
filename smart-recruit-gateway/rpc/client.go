@@ -63,6 +63,7 @@ type Clients struct {
 	interviewConn          *grpc.ClientConn
 	offerConn              *grpc.ClientConn
 	analyticsConn          *grpc.ClientConn
+	billingConn            *grpc.ClientConn
 	NotificationRouteMode  string
 	NotificationTargetAddr string
 	AIAgentRouteMode       string
@@ -77,6 +78,7 @@ type Clients struct {
 	OfferTargetAddr        string
 	AnalyticsRouteMode     string
 	AnalyticsTargetAddr    string
+	BillingTargetAddr      string
 	InternalTLSEnabled     bool
 	Auth                   pb.AuthServiceClient
 	Tenant                 pb.PlatformTenantServiceClient
@@ -98,6 +100,7 @@ type Clients struct {
 	AgentSkill             pb.AgentSkillServiceClient
 	RecruitingIntelligence pb.RecruitingIntelligenceServiceClient
 	EmbeddingConfig        pb.EmbeddingConfigServiceClient
+	Billing                pb.BillingServiceClient
 	Health                 healthpb.HealthClient
 	NotificationHealth     healthpb.HealthClient
 	AIAgentHealth          healthpb.HealthClient
@@ -106,6 +109,7 @@ type Clients struct {
 	InterviewHealth        healthpb.HealthClient
 	OfferHealth            healthpb.HealthClient
 	AnalyticsHealth        healthpb.HealthClient
+	BillingHealth          healthpb.HealthClient
 }
 
 type ClientOptions struct {
@@ -123,6 +127,7 @@ type ClientOptions struct {
 	OfferRouteMode        string
 	AnalyticsAddr         string
 	AnalyticsRouteMode    string
+	BillingAddr           string
 	GRPCInternalTLS       string
 	GRPCTLSCAFile         string
 	GRPCTLSServerName     string
@@ -147,6 +152,7 @@ func NewClients(addr string) (*Clients, error) {
 		OfferRouteMode:        os.Getenv("OFFER_ROUTE_MODE"),
 		AnalyticsAddr:         os.Getenv("ANALYTICS_GRPC_ADDR"),
 		AnalyticsRouteMode:    os.Getenv("ANALYTICS_ROUTE_MODE"),
+		BillingAddr:           os.Getenv("BILLING_GRPC_ADDR"),
 		GRPCInternalTLS:       os.Getenv("GRPC_INTERNAL_TLS"),
 		GRPCTLSCAFile:         os.Getenv("GRPC_TLS_CA_FILE"),
 		GRPCTLSServerName:     os.Getenv("GRPC_TLS_SERVER_NAME"),
@@ -224,6 +230,9 @@ func NewClientsWithOptions(addr string, options ClientOptions) (*Clients, error)
 	if analyticsMode == "analytics" && strings.TrimSpace(options.AnalyticsAddr) == "" {
 		options.AnalyticsAddr = "127.0.0.1:50067"
 	}
+	if strings.TrimSpace(options.BillingAddr) == "" {
+		options.BillingAddr = "127.0.0.1:50069"
+	}
 	token := grpcInternalToken()
 	opts, tlsEnabled, err := dialOptions(token, options)
 	if err != nil {
@@ -256,6 +265,8 @@ func NewClientsWithOptions(addr string, options ClientOptions) (*Clients, error)
 	offerTarget := addr
 	analyticsConn := conn
 	analyticsTarget := addr
+	billingConn := conn
+	billingTarget := addr
 	if notificationMode == "notification" {
 		if options.NotificationAddr == "" {
 			_ = conn.Close()
@@ -403,6 +414,16 @@ func NewClientsWithOptions(addr string, options ClientOptions) (*Clients, error)
 		}
 		analyticsTarget = options.AnalyticsAddr
 	}
+	if options.BillingAddr == "" {
+		closeClientConns(conn, notificationConn, aiAgentConn, identityConn, recruitmentConn, interviewConn, offerConn, analyticsConn)
+		return nil, fmt.Errorf("billing grpc addr is required")
+	}
+	billingConn, err = grpc.NewClient(options.BillingAddr, append(opts, grpc.WithConnectParams(grpc.ConnectParams{Backoff: backoff.Config{MaxDelay: 5 * time.Second}, MinConnectTimeout: 3 * time.Second}))...)
+	if err != nil {
+		closeClientConns(conn, notificationConn, aiAgentConn, identityConn, recruitmentConn, interviewConn, offerConn, analyticsConn)
+		return nil, err
+	}
+	billingTarget = options.BillingAddr
 	baseAdminClient := pb.NewAdminServiceClient(conn)
 	recruitmentAdminClient := baseAdminClient
 	if recruitmentMode == "recruitment" {
@@ -425,6 +446,7 @@ func NewClientsWithOptions(addr string, options ClientOptions) (*Clients, error)
 		interviewConn:          interviewConn,
 		offerConn:              offerConn,
 		analyticsConn:          analyticsConn,
+		billingConn:            billingConn,
 		NotificationRouteMode:  notificationMode,
 		NotificationTargetAddr: notificationTarget,
 		AIAgentRouteMode:       aiAgentMode,
@@ -439,6 +461,7 @@ func NewClientsWithOptions(addr string, options ClientOptions) (*Clients, error)
 		OfferTargetAddr:        offerTarget,
 		AnalyticsRouteMode:     analyticsMode,
 		AnalyticsTargetAddr:    analyticsTarget,
+		BillingTargetAddr:      billingTarget,
 		InternalTLSEnabled:     tlsEnabled,
 		Auth:                   pb.NewAuthServiceClient(identityConn),
 		Tenant:                 pb.NewPlatformTenantServiceClient(identityConn),
@@ -460,6 +483,7 @@ func NewClientsWithOptions(addr string, options ClientOptions) (*Clients, error)
 		AgentSkill:             pb.NewAgentSkillServiceClient(aiAgentConn),
 		RecruitingIntelligence: pb.NewRecruitingIntelligenceServiceClient(aiAgentConn),
 		EmbeddingConfig:        pb.NewEmbeddingConfigServiceClient(aiAgentConn),
+		Billing:                pb.NewBillingServiceClient(billingConn),
 		Health:                 healthpb.NewHealthClient(conn),
 		NotificationHealth:     healthpb.NewHealthClient(notificationConn),
 		AIAgentHealth:          healthpb.NewHealthClient(aiAgentConn),
@@ -468,6 +492,7 @@ func NewClientsWithOptions(addr string, options ClientOptions) (*Clients, error)
 		InterviewHealth:        healthpb.NewHealthClient(interviewConn),
 		OfferHealth:            healthpb.NewHealthClient(offerConn),
 		AnalyticsHealth:        healthpb.NewHealthClient(analyticsConn),
+		BillingHealth:          healthpb.NewHealthClient(billingConn),
 	}, nil
 }
 
@@ -548,6 +573,11 @@ func clientTransportCredentials(options ClientOptions) (credentials.TransportCre
 }
 
 func (c *Clients) Close() error {
+	if c.billingConn != nil && c.billingConn != c.conn && c.billingConn != c.notificationConn && c.billingConn != c.aiAgentConn && c.billingConn != c.identityConn && c.billingConn != c.recruitmentConn && c.billingConn != c.interviewConn && c.billingConn != c.offerConn && c.billingConn != c.analyticsConn {
+		if err := c.billingConn.Close(); err != nil {
+			return err
+		}
+	}
 	if c.analyticsConn != nil && c.analyticsConn != c.conn && c.analyticsConn != c.notificationConn && c.analyticsConn != c.aiAgentConn && c.analyticsConn != c.identityConn && c.analyticsConn != c.recruitmentConn && c.analyticsConn != c.interviewConn && c.analyticsConn != c.offerConn {
 		if err := c.analyticsConn.Close(); err != nil {
 			closeClientConns(c.conn, c.notificationConn, c.aiAgentConn, c.identityConn, c.recruitmentConn, c.interviewConn, c.offerConn)
@@ -629,6 +659,11 @@ func (c *Clients) Ready(ctx context.Context) error {
 	}
 	if c.analyticsConn != nil && c.analyticsConn != c.conn && c.analyticsConn != c.notificationConn && c.analyticsConn != c.aiAgentConn && c.analyticsConn != c.identityConn && c.analyticsConn != c.recruitmentConn && c.analyticsConn != c.interviewConn && c.analyticsConn != c.offerConn && c.AnalyticsHealth != nil {
 		if err := checkHealth(ctx, "analytics", c.AnalyticsHealth); err != nil {
+			return err
+		}
+	}
+	if c.billingConn != nil && c.billingConn != c.conn && c.BillingHealth != nil {
+		if err := checkHealth(ctx, "billing", c.BillingHealth); err != nil {
 			return err
 		}
 	}

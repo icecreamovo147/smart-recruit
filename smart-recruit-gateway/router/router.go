@@ -133,6 +133,9 @@ func Setup(cfg config.Config, clients *rpc.Clients, rdb *redis.Client) (*gin.Eng
 	analyticsHandler := hr.NewAnalyticsHandler(clients)
 	collaborationHandler := hr.NewCollaborationHandler(clients)
 	recruitingIntelligenceHandler := hr.NewRecruitingIntelligenceHandler(clients)
+	candidateBillingHandler := handler.NewBillingHandler(clients, pb.BillingOwnerType_BILLING_OWNER_TYPE_USER)
+	tenantBillingHandler := handler.NewBillingHandler(clients, pb.BillingOwnerType_BILLING_OWNER_TYPE_TENANT)
+	alipayWebhookHandler := handler.NewAlipayWebhookHandler(clients)
 
 	normalTimeout := middleware.Timeout(10 * time.Second)
 	uploadTimeout := middleware.Timeout(20 * time.Second)
@@ -174,6 +177,7 @@ func Setup(cfg config.Config, clients *rpc.Clients, rdb *redis.Client) (*gin.Eng
 	v1.GET("/jobs/:job_id", normalTimeout, publicHandler.JobDetail)
 	// Public taxonomy for candidate job-board filters (active departments/locations).
 	v1.GET("/job-options", normalTimeout, publicHandler.JobOptions)
+	v1.POST("/public/billing/webhooks/alipay", normalTimeout, middleware.MaxBodyBytes(64<<10), alipayWebhookHandler.Notify)
 
 	// ── Authenticated middleware (with token_version validation via Redis) ─
 	jwtAuth := middleware.JWTAuthByClient(cfg.JWTSecret, cfg.CandidateCookie, cfg.HRCookie, cfg.InterviewerCookie, cfg.AuthCookieName, rdb)
@@ -216,6 +220,10 @@ func Setup(cfg config.Config, clients *rpc.Clients, rdb *redis.Client) (*gin.Eng
 	platformGroup.GET("/plans", normalTimeout, middleware.RequirePermission(authz.PermPlatformPlanRead), platformTenantHandler.ListPlans)
 	platformGroup.POST("/plans/:plan_id/versions", normalTimeout, bodyAdmin, middleware.RequirePermission(authz.PermPlatformPlanManage), platformTenantHandler.SavePlanVersion)
 	platformGroup.POST("/plans/:plan_id/versions/:version_id/publish", normalTimeout, bodyAdmin, middleware.RequirePermission(authz.PermPlatformPlanPublish), platformTenantHandler.PublishPlanVersion)
+	platformGroup.GET("/billing/products", normalTimeout, middleware.RequirePermission(authz.PermPlatformPlanRead), tenantBillingHandler.AdminCatalog)
+	platformGroup.POST("/billing/prices", normalTimeout, bodyAdmin, middleware.RequirePermission(authz.PermPlatformPlanManage), tenantBillingHandler.SavePrice)
+	platformGroup.GET("/billing/rates", normalTimeout, middleware.RequirePermission(authz.PermPlatformPlanRead), tenantBillingHandler.AdminRateCards)
+	platformGroup.POST("/billing/rates", normalTimeout, bodyAdmin, middleware.RequirePermission(authz.PermPlatformPlanManage), tenantBillingHandler.SaveRateCard)
 	platformGroup.GET("/tenants/:tenant_id/subscription", normalTimeout, middleware.RequirePermission(authz.PermPlatformTenantRead), platformTenantHandler.GetSubscription)
 	platformGroup.PUT("/tenants/:tenant_id/subscription", normalTimeout, bodyAdmin, middleware.RequirePermission(authz.PermPlatformSubscriptionManage), platformTenantHandler.UpdateSubscription)
 	platformGroup.PUT("/tenants/:tenant_id/entitlement-override", normalTimeout, bodyAdmin, middleware.RequirePermission(authz.PermPlatformPlanManage), platformTenantHandler.UpdateEntitlementOverride)
@@ -255,10 +263,24 @@ func Setup(cfg config.Config, clients *rpc.Clients, rdb *redis.Client) (*gin.Eng
 	candidateGroup.DELETE("/ai/sessions/:session_id", normalTimeout, middleware.RequirePermission(authz.PermAICandidateUse), candidateAIHandler.DeleteSession)
 	candidateGroup.POST("/ai/chat", riskBlock, aiLimit, candidateAIQuota, aiTimeout, bodyAI, middleware.RequirePermission(authz.PermAICandidateUse), candidateAIHandler.Chat)
 	candidateGroup.POST("/ai/chat/stream", riskBlock, aiLimit, candidateAIQuota, bodyAI, middleware.RequirePermission(authz.PermAICandidateUse), candidateAIHandler.ChatStream)
+	candidateGroup.GET("/billing/catalog", normalTimeout, candidateBillingHandler.Catalog)
+	candidateGroup.GET("/billing/subscription", normalTimeout, candidateBillingHandler.Account)
+	candidateGroup.GET("/billing/credits", normalTimeout, candidateBillingHandler.Account)
+	candidateGroup.GET("/billing/orders", normalTimeout, candidateBillingHandler.Orders)
+	candidateGroup.POST("/billing/orders", normalTimeout, bodyAuth, candidateBillingHandler.CreateOrder)
+	candidateGroup.POST("/billing/orders/:order_no/pay", normalTimeout, bodyAuth, candidateBillingHandler.Pay)
+	candidateGroup.POST("/billing/orders/:order_no/refund", normalTimeout, bodyAuth, candidateBillingHandler.Refund)
 
 	// ── Staff routes (formerly /hr) ────────────────────────────────────
 	// Base group: any staff role (recruiter, recruiting_admin, system_admin, interviewer).
 	staffGroup := v1.Group("/hr", jwtAuth, currentPrincipal, middleware.RequireActiveTenant(), middleware.RequireAnyRole(authz.StaffRoles()...))
+	staffGroup.GET("/billing/catalog", normalTimeout, tenantBillingHandler.Catalog)
+	staffGroup.GET("/billing/subscription", normalTimeout, tenantBillingHandler.Account)
+	staffGroup.GET("/billing/credits", normalTimeout, tenantBillingHandler.Account)
+	staffGroup.GET("/billing/orders", normalTimeout, middleware.RequirePermission(authz.PermBillingManage), tenantBillingHandler.Orders)
+	staffGroup.POST("/billing/orders", normalTimeout, bodyAuth, middleware.RequirePermission(authz.PermBillingManage), tenantBillingHandler.CreateOrder)
+	staffGroup.POST("/billing/orders/:order_no/pay", normalTimeout, bodyAuth, middleware.RequirePermission(authz.PermBillingManage), tenantBillingHandler.Pay)
+	staffGroup.POST("/billing/orders/:order_no/refund", normalTimeout, bodyAuth, middleware.RequirePermission(authz.PermBillingManage), tenantBillingHandler.Refund)
 
 	// Job management — requires explicit job permissions
 	staffGroup.GET("/job-options", normalTimeout, middleware.RequirePermission(authz.PermJobRead), hrJobHandler.JobOptions)

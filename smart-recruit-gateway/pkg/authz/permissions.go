@@ -32,6 +32,7 @@ const (
 	// AI assistants
 	PermAIHRUse        = "ai.hr.use"
 	PermAICandidateUse = "ai.candidate.use"
+	PermBillingManage  = "billing.manage"
 
 	// AI business management (recruiting-facing)
 	PermAIPromptManage     = "ai.prompt.manage"
