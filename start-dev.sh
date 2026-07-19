@@ -46,6 +46,7 @@ Business service aliases:
   notification        notification-service
   ai-agent | ai       ai-agent-service
   analytics           analytics-service
+  billing             billing-service
   worker              worker-service
 
 Frontend aliases:
@@ -211,6 +212,7 @@ BUSINESS_SERVICES=(
     notification-service
     ai-agent-service
     analytics-service
+    billing-service
     worker-service
 )
 
@@ -291,6 +293,9 @@ expand_target() {
             ;;
         analytics|analytics-service)
             add_target analytics-service
+            ;;
+        billing|billing-service)
+            add_target billing-service
             ;;
         worker|worker-service)
             add_target worker-service
@@ -378,6 +383,7 @@ build_selected_go_binaries() {
     target_selected notification-service && build_go_binary "${ROOT}/smart-recruit-notification-service" "notification-service" "./cmd/notification-service"
     target_selected ai-agent-service && build_go_binary "${ROOT}/smart-recruit-ai-agent-service" "ai-agent-service" "./cmd/ai-agent-service"
     target_selected analytics-service && build_go_binary "${ROOT}/smart-recruit-analytics-service" "analytics-service" "./cmd/analytics-service"
+    target_selected billing-service && build_go_binary "${ROOT}/smart-recruit-billing-service" "billing-service" "./cmd/billing-service"
     target_selected worker-service && build_go_binary "${ROOT}/smart-recruit-worker-service" "worker-service" "./cmd/worker-service"
     return 0
 }
@@ -462,6 +468,7 @@ target_selected notification-service && start_service "notification-service" "${
 target_selected ai-agent-service && start_service "ai-agent-service" "${ROOT}/smart-recruit-ai-agent-service" 50066 "${BIN_DIR}/ai-agent-service" --serve --addr :50066
 target_selected analytics-service && start_service "analytics-service" "${ROOT}/smart-recruit-analytics-service" 50067 "${BIN_DIR}/analytics-service" --serve --addr :50067
 target_selected worker-service && start_service "worker-service" "${ROOT}/smart-recruit-worker-service" 50068 "${BIN_DIR}/worker-service" --serve --health-addr :50068
+target_selected billing-service && start_service "billing-service" "${ROOT}/smart-recruit-billing-service" 50069 "${BIN_DIR}/billing-service" --serve --addr :50069
 
 target_selected smart-recruit-gateway && start_service "smart-recruit-gateway" "${ROOT}/smart-recruit-gateway" 8080 \
     env HTTP_PORT=8080 \
@@ -473,6 +480,7 @@ target_selected smart-recruit-gateway && start_service "smart-recruit-gateway" "
     NOTIFICATION_ROUTE_MODE=notification NOTIFICATION_GRPC_ADDR=127.0.0.1:50065 \
     AI_AGENT_ROUTE_MODE=ai-agent AI_AGENT_GRPC_ADDR=127.0.0.1:50066 \
     ANALYTICS_ROUTE_MODE=analytics ANALYTICS_GRPC_ADDR=127.0.0.1:50067 \
+    BILLING_GRPC_ADDR=127.0.0.1:50069 \
     "${BIN_DIR}/smart-recruit-gateway"
 
 target_selected hr-frontend && start_service "hr-frontend" "${ROOT}/hr-frontend" 5173 pnpm run dev
@@ -494,6 +502,7 @@ Done. Selected dev services are starting in the background.
   AI Agent:    127.0.0.1:50066
   Analytics:   127.0.0.1:50067
   Worker:      127.0.0.1:50068
+  Billing:     127.0.0.1:50069 (Alipay sandbox)
   Staff:       http://127.0.0.1:5173
   Candidate:   http://127.0.0.1:5174
   Platform:    http://127.0.0.1:5175

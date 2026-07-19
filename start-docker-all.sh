@@ -107,6 +107,7 @@ seed_nacos_configs() {
     nacos_put_inline "notification-service.yaml" $'service:\n  name: notification-service\n'
     nacos_put_inline "ai-agent-service.yaml" $'service:\n  name: ai-agent-service\n'
     nacos_put_inline "analytics-service.yaml" $'service:\n  name: analytics-service\n'
+    nacos_put_inline "billing-service.yaml" $'service:\n  name: billing-service\npayment:\n  environment: sandbox\n'
     nacos_put_inline "worker-service.yaml" $'service:\n  name: worker-service\nworker:\n  workloads: all\n'
     nacos_put_file "gateway.yaml" "${ROOT}/smart-recruit-deploy/nacos/seed-config/gateway.yaml"
     nacos_put_file "services.yaml" "${ROOT}/smart-recruit-deploy/nacos/seed-config/services.yaml"

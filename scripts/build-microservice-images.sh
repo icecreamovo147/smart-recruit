@@ -18,6 +18,7 @@ SERVICES=(
   "smart-recruit-notification-service:./cmd/notification-service:notification-service"
   "smart-recruit-ai-agent-service:./cmd/ai-agent-service:ai-agent-service"
   "smart-recruit-analytics-service:./cmd/analytics-service:analytics-service"
+  "smart-recruit-billing-service:./cmd/billing-service:billing-service"
   "smart-recruit-worker-service:./cmd/worker-service:worker-service"
 )
 
