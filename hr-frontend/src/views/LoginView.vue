@@ -36,7 +36,7 @@ const submit = async () => {
     if (auth.accountType !== 'staff') {
       await request.post('/api/v1/auth/logout').catch(() => {})
       auth.logout()
-      ElMessage.error('请使用 HR 账号登录')
+      ElMessage.error('请使用企业成员账号登录')
       return
     }
     router.push(resolveStaffHomePath(auth))
@@ -72,7 +72,7 @@ const submit = async () => {
 
       <div class="auth-form-panel">
         <div class="auth-panel-top">
-          <span>HR 管理端</span>
+          <span>企业招聘工作台</span>
           <el-tooltip :content="isDark ? '切换日间模式' : '切换夜间模式'" placement="bottom">
             <button class="theme-toggle" type="button" @click="toggleTheme">
               <el-icon :size="18"><Moon v-if="!isDark" /><Sunny v-else /></el-icon>
@@ -81,8 +81,8 @@ const submit = async () => {
         </div>
         <section class="auth-box">
           <p class="auth-kicker">Welcome back</p>
-          <h1 class="auth-title">HR 管理端登录</h1>
-          <p class="auth-subtitle">掌控招聘流程，从这里开始。</p>
+          <h1 class="auth-title">企业成员登录</h1>
+          <p class="auth-subtitle">招聘专员、招聘管理员与面试官统一从这里进入。</p>
           <el-form ref="formRef" label-position="top" :model="form" :rules="rules" @submit.prevent>
             <el-form-item label="用户名" prop="username">
               <el-input v-model="form.username" autocomplete="username" size="large" />
@@ -92,7 +92,7 @@ const submit = async () => {
             </el-form-item>
             <el-button type="primary" :loading="loading" size="large" style="width: 100%" @click="submit">登录</el-button>
           </el-form>
-          <p class="auth-foot">没有账号？<RouterLink to="/register">注册 HR 账号</RouterLink></p>
+          <p class="auth-foot">收到企业邀请码？<RouterLink to="/register">激活成员账号</RouterLink></p>
         </section>
       </div>
     </section>

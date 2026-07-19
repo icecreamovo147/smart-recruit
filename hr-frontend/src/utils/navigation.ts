@@ -6,6 +6,7 @@ type PermissionChecker = {
 
 const staffHomeCandidates = [
   { permission: PERM.JOB_READ, path: '/hr/workbench' },
+  { permission: PERM.INTERVIEW_READ, path: '/hr/my-interviews' },
   { permission: PERM.ADMIN_DEPARTMENT_MANAGE, path: '/hr/admin/departments' },
   { permission: PERM.ADMIN_LOCATION_MANAGE, path: '/hr/admin/locations' },
   { permission: PERM.AI_HR_USE, path: '/hr/ai' },

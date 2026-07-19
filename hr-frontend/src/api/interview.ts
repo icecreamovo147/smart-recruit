@@ -67,5 +67,5 @@ export const listMyInterviews = (status?: string): Promise<{ list: InterviewSche
 export const submitFeedback = (interviewId: number, data: SubmitFeedbackPayload): Promise<void> =>
   request.post(`/api/v1/hr/interviews/${interviewId}/feedback`, data)
 
-export const getFeedback = (interviewId: number): Promise<{ feedback: InterviewFeedback }> =>
+export const getFeedback = (interviewId: number): Promise<{ feedback: InterviewFeedback | null }> =>
   request.get(`/api/v1/hr/interviews/${interviewId}/feedback`)

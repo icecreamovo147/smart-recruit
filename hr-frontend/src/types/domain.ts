@@ -546,6 +546,26 @@ export interface InterviewSchedule {
   candidate_phone: string
 }
 
+export const INTERVIEW_STATUS_LABEL: Record<string, string> = {
+  pending: '待安排',
+  scheduled: '待面试',
+  completed: '已完成',
+  cancelled: '已取消',
+}
+
+export const INTERVIEW_STATUS_TYPE: Record<string, 'info' | 'warning' | 'success' | 'danger'> = {
+  pending: 'warning',
+  scheduled: 'warning',
+  completed: 'success',
+  cancelled: 'info',
+}
+
+export const INTERVIEW_MODE_LABEL: Record<string, string> = {
+  video: '视频面试',
+  phone: '电话面试',
+  onsite: '现场面试',
+}
+
 // ── Offer ──────────────────────────────────────────────────────────────────
 
 export interface Offer {

@@ -579,11 +579,15 @@ func (s *InterviewService) publishCancelMessages(ctx context.Context, interview 
 }
 
 func staffNotification(interview *model.Interview, snapshot *port.ApplicationSnapshot, typ string, title string, content string) port.OutboxMessage {
-	return baseMessage(interview, snapshot, "notification.create", interview.InterviewerID, 2, "staff", typ, title, content, fmt.Sprintf("/hr/interviews/%d", interview.ID))
+	return baseMessage(interview, snapshot, "notification.create", interview.InterviewerID, 2, "staff", typ, title, content, staffInterviewDetailPath(interview.ID))
 }
 
 func staffEmail(interview *model.Interview, snapshot *port.ApplicationSnapshot, typ string, title string, content string) port.OutboxMessage {
-	return baseMessage(interview, snapshot, "email.send", interview.InterviewerID, 0, "staff", typ, title, content, fmt.Sprintf("/hr/interviews/%d", interview.ID))
+	return baseMessage(interview, snapshot, "email.send", interview.InterviewerID, 0, "staff", typ, title, content, staffInterviewDetailPath(interview.ID))
+}
+
+func staffInterviewDetailPath(interviewID int64) string {
+	return fmt.Sprintf("/hr/my-interviews/%d", interviewID)
 }
 
 func candidateNotification(interview *model.Interview, snapshot *port.ApplicationSnapshot, typ string, title string, content string) port.OutboxMessage {

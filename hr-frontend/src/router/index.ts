@@ -12,6 +12,8 @@ const JobManageView = () => import('@/views/hr/JobManageView.vue')
 const ApplicationListView = () => import('@/views/hr/ApplicationListView.vue')
 const ApplicationIntelligenceView = () => import('@/views/hr/ApplicationIntelligenceView.vue')
 const InterviewScheduleView = () => import('@/views/hr/InterviewScheduleView.vue')
+const MyInterviewListView = () => import('@/views/hr/MyInterviewListView.vue')
+const MyInterviewDetailView = () => import('@/views/hr/MyInterviewDetailView.vue')
 const OfferManageView = () => import('@/views/hr/OfferManageView.vue')
 const AIChatView = () => import('@/views/hr/AIChatView.vue')
 const ProfileView = () => import('@/views/hr/ProfileView.vue')
@@ -81,6 +83,22 @@ const routes: RouteRecordRaw[] = [
     path: '/hr/interviews/schedule',
     component: InterviewScheduleView,
     meta: { requiresAuth: true, requiresPermission: PERM.INTERVIEW_SCHEDULE, title: '安排面试' },
+  },
+  {
+    path: '/hr/my-interviews',
+    component: MyInterviewListView,
+    meta: { requiresAuth: true, requiresPermission: PERM.INTERVIEW_READ, title: '我的面试' },
+  },
+  {
+    path: '/hr/my-interviews/:interviewId',
+    component: MyInterviewDetailView,
+    meta: { requiresAuth: true, requiresPermission: PERM.INTERVIEW_READ, title: '面试详情' },
+  },
+  // Compatibility for notifications created before interviewer workflows moved
+  // into the unified staff workspace.
+  {
+    path: '/hr/interviews/:interviewId',
+    redirect: (to) => `/hr/my-interviews/${String(to.params.interviewId)}`,
   },
   // Offer management — requires offer.read permission
   {

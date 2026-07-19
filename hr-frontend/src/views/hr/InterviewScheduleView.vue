@@ -79,7 +79,7 @@ const handleSubmit = async () => {
       scheduled_at: form.scheduled_at ? new Date(form.scheduled_at).toISOString() : undefined,
     })
     ElMessage.success('面试安排成功')
-    router.push('/hr/interviews')
+    router.push('/hr/my-interviews')
   } catch (error: unknown) {
     ElMessage.error(error instanceof Error ? error.message : '安排面试失败')
   } finally {

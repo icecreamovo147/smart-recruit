@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { ArrowDown, Briefcase, ChatDotRound, Collection, Connection, DataAnalysis, Edit, Expand, Fold, Key, Link, MagicStick, Menu, Monitor, Moon, OfficeBuilding, Operation, Search, Setting, Sunny, Tools, UserFilled } from '@element-plus/icons-vue'
+import { ArrowDown, Briefcase, Calendar, ChatDotRound, Collection, Connection, DataAnalysis, Edit, Expand, Fold, Key, Link, MagicStick, Menu, Monitor, Moon, OfficeBuilding, Operation, Search, Setting, Sunny, Tools, UserFilled } from '@element-plus/icons-vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { useAuthStore } from '@/stores/auth'
 import { useTheme } from '@/composables/useTheme'
@@ -190,6 +190,10 @@ const routeViewKey = (viewRoute: { fullPath: string; path: string; params: Recor
           <RouterLink v-if="auth.hasPermission(PERM.JOB_READ)" class="sidebar-link" to="/hr/jobs" @click="closeMobileSidebar">
             <el-icon><Briefcase /></el-icon>
             <span>岗位管理</span>
+          </RouterLink>
+          <RouterLink v-if="auth.hasPermission(PERM.INTERVIEW_READ)" class="sidebar-link" to="/hr/my-interviews" @click="closeMobileSidebar">
+            <el-icon><Calendar /></el-icon>
+            <span>我的面试</span>
           </RouterLink>
           <RouterLink v-if="auth.hasPermission(PERM.AI_HR_USE)" class="sidebar-link" to="/hr/ai" @click="closeMobileSidebar">
             <el-icon><ChatDotRound /></el-icon>

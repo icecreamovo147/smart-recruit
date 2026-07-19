@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"errors"
+	"fmt"
 	"testing"
 	"time"
 
@@ -39,6 +40,10 @@ func TestScheduleInterviewCreatesScheduledInterviewAndPublishesMessages(t *testi
 	}
 	if fixture.outbox.messages[0].Type != "interview_assigned" || fixture.outbox.messages[1].RoutingKey != "email.send" {
 		t.Fatalf("unexpected outbox messages: %+v", fixture.outbox.messages)
+	}
+	wantStaffLink := fmt.Sprintf("/hr/my-interviews/%d", interviewID)
+	if fixture.outbox.messages[0].Link != wantStaffLink || fixture.outbox.messages[1].Link != wantStaffLink {
+		t.Fatalf("staff message links=(%q, %q), want %q", fixture.outbox.messages[0].Link, fixture.outbox.messages[1].Link, wantStaffLink)
 	}
 	if !fixture.outbox.signaled {
 		t.Fatal("expected outbox signal")
