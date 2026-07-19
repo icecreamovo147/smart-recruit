@@ -72,7 +72,7 @@ func DefaultDefinitions() []ServiceDefinition {
 		service("gateway", "smart-recruit-gateway", 8080),
 		service("frontend", "hr-frontend", 5173),
 		service("frontend", "user-frontend", 5174),
-		service("frontend", "interviewer-frontend", 5175),
+		service("frontend", "platform-frontend", 5175),
 	}
 }
 

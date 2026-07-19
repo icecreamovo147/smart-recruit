@@ -19,7 +19,7 @@ Targets are the same as start-dev.sh and stop-dev.sh:
   all, business, backend, gateway, frontends
   identity, recruitment, interview, offer, notification
   ai-agent | ai, analytics, worker
-  hr, user, interviewer
+  hr, user, platform
 
 Examples:
   ./restart-dev.sh business

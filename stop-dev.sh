@@ -32,7 +32,7 @@ Targets:
   business            All business services only.
   backend             Business services plus gateway.
   gateway             HTTP gateway only.
-  frontends           HR, user, and interviewer frontends.
+  frontends           Staff workspace, candidate portal, and platform console.
   logs | log-viewer   Local dev log viewer only.
 
 Business service aliases:
@@ -48,7 +48,7 @@ Business service aliases:
 Frontend aliases:
   hr                  hr-frontend
   user                user-frontend
-  interviewer         interviewer-frontend
+  platform            platform-frontend
 
 Examples:
   ./stop-dev.sh business
@@ -72,7 +72,7 @@ BUSINESS_SERVICES=(
 FRONTEND_SERVICES=(
     hr-frontend
     user-frontend
-    interviewer-frontend
+    platform-frontend
 )
 
 ALL_SERVICES=(
@@ -156,8 +156,8 @@ expand_target() {
         user|user-frontend)
             add_target user-frontend
             ;;
-        interviewer|interviewer-frontend)
-            add_target interviewer-frontend
+        platform|platform-frontend)
+            add_target platform-frontend
             ;;
         *)
             die "Unknown target: ${raw}. Run ./stop-dev.sh --help for supported targets."
@@ -251,7 +251,7 @@ info "Stopping selected dev services: ${TARGETS[*]}"
 
 target_selected user-frontend && stop_pid_file "user-frontend"
 target_selected hr-frontend && stop_pid_file "hr-frontend"
-target_selected interviewer-frontend && stop_pid_file "interviewer-frontend"
+target_selected platform-frontend && stop_pid_file "platform-frontend"
 target_selected dev-log-viewer && stop_pid_file "dev-log-viewer"
 target_selected smart-recruit-gateway && stop_pid_file "smart-recruit-gateway"
 target_selected worker-service && stop_pid_file "worker-service"
@@ -265,7 +265,7 @@ target_selected identity-service && stop_pid_file "identity-service"
 
 target_selected user-frontend && kill_port 5174 "User Frontend"
 target_selected hr-frontend && kill_port 5173 "HR Frontend"
-target_selected interviewer-frontend && kill_port 5175 "Interviewer Frontend"
+target_selected platform-frontend && kill_port 5175 "Platform Frontend"
 target_selected dev-log-viewer && kill_port 8090 "Dev Log Viewer"
 target_selected smart-recruit-gateway && kill_port 8080 "Smart Recruit Gateway"
 target_selected worker-service && kill_port 50068 "Worker Service"

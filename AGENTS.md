@@ -2,7 +2,7 @@
 
 ## Project Structure & Module Organization
 
-- `hr-frontend/`, `user-frontend/`, `interviewer-frontend/`: Vue 3 + Vite apps for HR, candidate, and interviewer users. App-specific source lives in `src/` with `api/`, `components/`, `views/`, `stores/`, `types/`, and `assets/`.
+- `hr-frontend/`, `user-frontend/`, `platform-frontend/`: Vue 3 + Vite apps for the staff workspace, candidate portal, and platform console. App-specific source lives in `src/` with `api/`, `components/`, `views/`, `stores/`, `types/`, and `assets/`.
 - `packages/shared/`: explicit cross-app frontend package for shared components, types, utilities, and brand assets imported through the `@shared/*` alias.
 - `smart-recruit-gateway/`: Go HTTP gateway. Routes live in `router/`, handlers in `handler/`, backend clients in `rpc/`, middleware in `middleware/`.
 - `smart-recruit-identity-service/`, `smart-recruit-recruitment-service/`, `smart-recruit-interview-service/`, `smart-recruit-offer-service/`, `smart-recruit-notification-service/`, `smart-recruit-ai-agent-service/`, `smart-recruit-analytics-service/`, `smart-recruit-worker-service/`: independently buildable Go service roots.
@@ -18,7 +18,7 @@
 - `pnpm install`: install workspace frontend dependencies.
 - `pnpm --filter hr-frontend dev`: run the HR app on port `5173`.
 - `pnpm --filter user-frontend dev`: run the user app on port `5174`.
-- `pnpm --filter interviewer-frontend dev`: run the interviewer app on port `5175`.
+- `pnpm --filter platform-frontend dev`: run the platform console on port `5175`.
 - `pnpm --filter hr-frontend build`: build one frontend app; replace the filter as needed.
 - `pnpm --filter hr-frontend typecheck`: run Vue TypeScript checks.
 - `pnpm --filter hr-frontend test`: run Vitest.

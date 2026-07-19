@@ -19,11 +19,11 @@ services:
     ports:
       - "5174:80"
 
-  interviewer-frontend:
+  platform-frontend:
     build:
       context: ..
-      dockerfile: docker/interviewer-frontend.Dockerfile
-    container_name: recruitment-interviewer-frontend
+      dockerfile: docker/platform-frontend.Dockerfile
+    container_name: recruitment-platform-frontend
     restart: unless-stopped
     ports:
       - "5175:80"

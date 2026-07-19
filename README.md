@@ -27,12 +27,15 @@
 - 管理员能力：邀请码管理、部门/地点分类维护、员工账号管理、RBAC 角色与权限分配、数据权限控制
 - 第三方/AI 调用审计与安全鉴权审计，辅助观察模型与外部服务使用情况
 
-**面试官端**
-- 独立工作台：查看分配的面试任务
-- 面试列表与详情：查看候选人简历、面试安排信息
-- 面试反馈提交：在线填写面试评价与评分
-- 通知中心：接收面试安排与变更通知
-- 个人信息管理
+**企业招聘工作台中的面试官工作区**
+- 面试官与招聘团队共用企业成员登录和租户会话
+- “我的面试”仅展示当前企业分配的任务、候选人材料和面试安排
+- 面试反馈由 `interview.read` 与 `interview.feedback.submit` 权限控制，不再维护独立面试官身份域
+
+**平台运营控制台**
+- 独立 `platform` 应用准入，仅允许平台管理员访问
+- 企业租户创建、状态管理和成员归属审查
+- 平台身份不携带企业租户上下文，避免与企业管理员权限混用
 
 **候选人端**
 - 岗位浏览与搜索，查看职位详情
@@ -108,9 +111,9 @@ docker-compose up -d --build
 
 | 服务 | 地址 |
 |------|------|
-| HR 管理端 | http://localhost:5173 |
-| 候选人用户端 | http://localhost:5174 |
-| 面试官端 | http://localhost:5175 |
+| 企业招聘工作台 | http://localhost:5173 |
+| 候选人门户 | http://localhost:5174 |
+| 平台运营控制台 | http://localhost:5175 |
 | Web API | http://localhost:8080 |
 | Swagger | http://localhost:8080/swagger/index.html |
 | RabbitMQ 管理 | http://localhost:15672 |
@@ -133,22 +136,22 @@ export GRPC_INTERNAL_TOKEN='local-dev-internal-token-at-least-32!!'
 
 ```
 smart-recruit/
-├── hr-frontend/                # HR 管理端前端 (Vue 3 + Element Plus + ECharts)
+├── hr-frontend/                # 企业招聘工作台：招聘专员、招聘管理员、面试官
 │   └── src/
 │       ├── api/                # API 请求层
 │       ├── components/         # 通用组件
 │       ├── views/hr/           # HR 页面（工作台、岗位、候选人、面试、Offer、AI、数据分析等）
 │       ├── stores/             # Pinia 状态管理
 │       └── router/             # 路由定义（含 RBAC 权限守卫）
-├── user-frontend/              # 候选人用户端前端 (Vue 3 + Element Plus)
+├── user-frontend/              # 候选人门户 (Vue 3 + Element Plus)
 │   └── src/
 │       ├── api/                # API 请求层
 │       ├── views/candidate/    # 候选人页面（岗位列表、投递、简历、面试、Offer 等）
 │       └── ...
-├── interviewer-frontend/       # 面试官独立前端 (Vue 3 + Element Plus)
+├── platform-frontend/          # 平台运营控制台，仅允许平台管理员准入
 │   └── src/
 │       ├── api/                # API 请求层
-│       ├── views/              # 面试官页面（工作台、面试列表、面试详情、反馈、通知等）
+│       ├── views/              # 企业租户与平台治理页面
 │       └── ...
 ├── smart-recruit-gateway/      # Gin HTTP Gateway，承接 HTTP 路由、middleware、handler、gRPC clients
 ├── smart-recruit-identity-service/

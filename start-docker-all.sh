@@ -168,9 +168,9 @@ Done.
 
 Entry points:
   Gateway:      http://127.0.0.1:8080
-  HR:           http://127.0.0.1:5173
-  User:         http://127.0.0.1:5174
-  Interviewer:  http://127.0.0.1:5175
+  Staff:        http://127.0.0.1:5173
+  Candidate:    http://127.0.0.1:5174
+  Platform:     http://127.0.0.1:5175
   Nacos:        http://127.0.0.1:8848
   RabbitMQ:     http://127.0.0.1:15672
   Prometheus:   http://127.0.0.1:9090

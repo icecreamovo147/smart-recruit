@@ -29,7 +29,7 @@ func TestDefaultDefinitions(t *testing.T) {
 		"smart-recruit-gateway": {"gateway", 8080},
 		"hr-frontend":           {"frontend", 5173},
 		"user-frontend":         {"frontend", 5174},
-		"interviewer-frontend":  {"frontend", 5175},
+		"platform-frontend":     {"frontend", 5175},
 	}
 	seen := map[string]bool{}
 	for _, definition := range definitions {

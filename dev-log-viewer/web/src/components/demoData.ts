@@ -12,7 +12,7 @@ export const SERVICES: ServiceStatus[] = [
   service('smart-recruit-gateway', 'gateway', 8080, 'running', 'ready'),
   service('hr-frontend', 'frontend', 5173, 'running', 'ready'),
   service('user-frontend', 'frontend', 5174, 'running', 'ready'),
-  service('interviewer-frontend', 'frontend', 5175, 'running', 'ready'),
+  service('platform-frontend', 'frontend', 5175, 'running', 'ready'),
 ]
 
 export function createDemoRecords(count = 240): LogRecord[] {

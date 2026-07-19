@@ -1,7 +1,7 @@
 packages:
   - 'user-frontend'
   - 'hr-frontend'
-  - 'interviewer-frontend'
+  - 'platform-frontend'
   - 'dev-log-viewer'
   - 'packages/*'
 allowBuilds:

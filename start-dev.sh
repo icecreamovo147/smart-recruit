@@ -35,7 +35,7 @@ Targets:
   business            All business services only.
   backend             Business services plus gateway.
   gateway             HTTP gateway only.
-  frontends           HR, user, and interviewer frontends.
+  frontends           Staff workspace, candidate portal, and platform console.
   logs | log-viewer   Local dev log viewer only.
 
 Business service aliases:
@@ -51,7 +51,7 @@ Business service aliases:
 Frontend aliases:
   hr                  hr-frontend
   user                user-frontend
-  interviewer         interviewer-frontend
+  platform            platform-frontend
 
 Examples:
   ./start-dev.sh business
@@ -217,7 +217,7 @@ BUSINESS_SERVICES=(
 FRONTEND_SERVICES=(
     hr-frontend
     user-frontend
-    interviewer-frontend
+    platform-frontend
 )
 
 ALL_SERVICES=(
@@ -301,8 +301,8 @@ expand_target() {
         user|user-frontend)
             add_target user-frontend
             ;;
-        interviewer|interviewer-frontend)
-            add_target interviewer-frontend
+        platform|platform-frontend)
+            add_target platform-frontend
             ;;
         *)
             die "Unknown target: ${raw}. Run ./start-dev.sh --help for supported targets."
@@ -385,7 +385,7 @@ build_selected_go_binaries() {
 install_selected_frontend_dependencies() {
     target_selected hr-frontend && install_frontend_dependencies "${ROOT}/hr-frontend" "HR frontend"
     target_selected user-frontend && install_frontend_dependencies "${ROOT}/user-frontend" "User frontend"
-    target_selected interviewer-frontend && install_frontend_dependencies "${ROOT}/interviewer-frontend" "Interviewer frontend"
+    target_selected platform-frontend && install_frontend_dependencies "${ROOT}/platform-frontend" "Platform frontend"
     return 0
 }
 
@@ -477,7 +477,7 @@ target_selected smart-recruit-gateway && start_service "smart-recruit-gateway" "
 
 target_selected hr-frontend && start_service "hr-frontend" "${ROOT}/hr-frontend" 5173 pnpm run dev
 target_selected user-frontend && start_service "user-frontend" "${ROOT}/user-frontend" 5174 pnpm run dev
-target_selected interviewer-frontend && start_service "interviewer-frontend" "${ROOT}/interviewer-frontend" 5175 pnpm run dev
+target_selected platform-frontend && start_service "platform-frontend" "${ROOT}/platform-frontend" 5175 pnpm run dev
 target_selected dev-log-viewer && start_service "dev-log-viewer" "${ROOT}/dev-log-viewer" 8090 \
     env DEV_LOG_VIEWER_ADDR=127.0.0.1:8090 DEV_LOG_VIEWER_ROOT="${ROOT}" \
     "${BIN_DIR}/dev-log-viewer" -addr 127.0.0.1:8090 -root "${ROOT}"
@@ -494,9 +494,9 @@ Done. Selected dev services are starting in the background.
   AI Agent:    127.0.0.1:50066
   Analytics:   127.0.0.1:50067
   Worker:      127.0.0.1:50068
-  HR:          http://127.0.0.1:5173
-  User:        http://127.0.0.1:5174
-  Interviewer: http://127.0.0.1:5175
+  Staff:       http://127.0.0.1:5173
+  Candidate:   http://127.0.0.1:5174
+  Platform:    http://127.0.0.1:5175
   Log Viewer:  http://127.0.0.1:8090
 
 Logs:

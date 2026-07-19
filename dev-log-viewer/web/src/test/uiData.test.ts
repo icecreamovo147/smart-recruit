@@ -16,7 +16,7 @@ describe('canonical UI data contract', () => {
       ['smart-recruit-gateway', 'gateway', 8080],
       ['hr-frontend', 'frontend', 5173],
       ['user-frontend', 'frontend', 5174],
-      ['interviewer-frontend', 'frontend', 5175],
+      ['platform-frontend', 'frontend', 5175],
     ])
   })
 
