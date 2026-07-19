@@ -129,6 +129,28 @@ service AIService {
   rpc ConfirmAgentRun(ConfirmAgentRunRequest) returns (ConfirmAgentRunResponse);
 }
 
+// BillingService is an internal authority for AI entitlements, credit reservations,
+// immutable usage settlement, and owner balances. Public commerce APIs are exposed
+// by the gateway and never trust owner identifiers supplied by browsers.
+service BillingService {
+  rpc CheckAIAccess(CheckAIAccessRequest) returns (CheckAIAccessResponse);
+  rpc ReserveAIUsage(ReserveAIUsageRequest) returns (ReserveAIUsageResponse);
+  rpc SettleAIUsage(SettleAIUsageRequest) returns (SettleAIUsageResponse);
+  rpc CancelAIUsage(CancelAIUsageRequest) returns (CancelAIUsageResponse);
+  rpc GetAICreditBalance(GetAICreditBalanceRequest) returns (GetAICreditBalanceResponse);
+  rpc ListBillingCatalog(ListBillingCatalogRequest) returns (ListBillingCatalogResponse);
+  rpc GetBillingAccount(GetBillingAccountRequest) returns (GetBillingAccountResponse);
+  rpc ListBillingOrders(ListBillingOrdersRequest) returns (ListBillingOrdersResponse);
+  rpc CreateBillingOrder(CreateBillingOrderRequest) returns (BillingOrderResponse);
+  rpc CreateAlipayPayment(CreateAlipayPaymentRequest) returns (CreateAlipayPaymentResponse);
+  rpc RequestBillingRefund(RequestBillingRefundRequest) returns (BillingRefundResponse);
+  rpc ProcessAlipayNotification(ProcessAlipayNotificationRequest) returns (ProcessAlipayNotificationResponse);
+  rpc ListBillingAdminCatalog(ListBillingAdminCatalogRequest) returns (ListBillingCatalogResponse);
+  rpc SaveBillingPriceVersion(SaveBillingPriceVersionRequest) returns (BillingPriceInfo);
+  rpc ListAIRateCards(ListAIRateCardsRequest) returns (ListAIRateCardsResponse);
+  rpc SaveAIRateCard(SaveAIRateCardRequest) returns (AIRateCardInfo);
+}
+
 service OfferService {
   rpc CreateOffer(CreateOfferRequest) returns (CreateOfferResponse);
   rpc UpdateOffer(UpdateOfferRequest) returns (CommonResponse);
@@ -4423,4 +4445,277 @@ message PreviewChatContextResponse {
   string msg = 2;
   int64 selected_model_id = 3;
   ContextUsageInfo context_usage = 4;
+}
+
+enum BillingOwnerType {
+  BILLING_OWNER_TYPE_UNSPECIFIED = 0;
+  BILLING_OWNER_TYPE_TENANT = 1;
+  BILLING_OWNER_TYPE_USER = 2;
+}
+
+enum BillingEnforcementMode {
+  BILLING_ENFORCEMENT_MODE_UNSPECIFIED = 0;
+  BILLING_ENFORCEMENT_MODE_SHADOW = 1;
+  BILLING_ENFORCEMENT_MODE_ENFORCE = 2;
+}
+
+message BillingOwner {
+  BillingOwnerType type = 1;
+  int64 id = 2;
+}
+
+message CheckAIAccessRequest {
+  BillingOwner owner = 1;
+  int64 user_id = 2;
+  string capability = 3;
+  int64 estimated_credits = 4;
+}
+
+message CheckAIAccessResponse {
+  int32 code = 1;
+  string msg = 2;
+  bool allowed = 3;
+  string reason = 4;
+  int64 available_credits = 5;
+  BillingEnforcementMode enforcement_mode = 6;
+}
+
+message ReserveAIUsageRequest {
+  BillingOwner owner = 1;
+  int64 user_id = 2;
+  string capability = 3;
+  string operation = 4;
+  string provider_key = 5;
+  string model_key = 6;
+  int64 estimated_credits = 7;
+  string idempotency_key = 8;
+  int64 ttl_seconds = 9;
+}
+
+message ReserveAIUsageResponse {
+  int32 code = 1;
+  string msg = 2;
+  bool allowed = 3;
+  string reason = 4;
+  string reservation_no = 5;
+  int64 reserved_credits = 6;
+  int64 available_credits = 7;
+  int64 expires_at_unix_ms = 8;
+  BillingEnforcementMode enforcement_mode = 9;
+}
+
+message AIProviderUsage {
+  int32 provider_call_seq = 1;
+  string provider_key = 2;
+  string model_key = 3;
+  int64 input_tokens = 4;
+  int64 output_tokens = 5;
+  int64 cached_input_tokens = 6;
+  string provider_request_id = 7;
+  bool estimated = 8;
+  int64 occurred_at_unix_ms = 9;
+  string metadata_json = 10;
+}
+
+message SettleAIUsageRequest {
+  string reservation_no = 1;
+  repeated AIProviderUsage provider_usages = 2;
+  string idempotency_key = 3;
+}
+
+message SettleAIUsageResponse {
+  int32 code = 1;
+  string msg = 2;
+  int64 charged_credits = 3;
+  int64 supplier_cost_micros = 4;
+  int64 available_credits = 5;
+  bool already_settled = 6;
+}
+
+message CancelAIUsageRequest {
+  string reservation_no = 1;
+  string reason = 2;
+  string idempotency_key = 3;
+}
+
+message CancelAIUsageResponse {
+  int32 code = 1;
+  string msg = 2;
+  int64 released_credits = 3;
+  int64 available_credits = 4;
+  bool already_cancelled = 5;
+}
+
+message GetAICreditBalanceRequest {
+  BillingOwner owner = 1;
+}
+
+message GetAICreditBalanceResponse {
+  int32 code = 1;
+  string msg = 2;
+  int64 available_credits = 3;
+  int64 reserved_credits = 4;
+  int64 next_expiry_at_unix_ms = 5;
+  BillingEnforcementMode enforcement_mode = 6;
+}
+
+message BillingPriceInfo {
+  int64 id = 1;
+  int32 version = 2;
+  string billing_term = 3;
+  int64 amount_fen = 4;
+  string currency = 5;
+  int64 included_credits = 6;
+  string entitlement_snapshot_json = 7;
+}
+
+message BillingProductInfo {
+  int64 id = 1;
+  string product_key = 2;
+  string name = 3;
+  string description = 4;
+  string product_type = 5;
+  repeated BillingPriceInfo prices = 6;
+}
+
+message ListBillingCatalogRequest { BillingOwner owner = 1; }
+message ListBillingCatalogResponse {
+  int32 code = 1;
+  string msg = 2;
+  repeated BillingProductInfo products = 3;
+  string payment_environment = 4;
+}
+
+message BillingSubscriptionInfo {
+  int64 id = 1;
+  string product_key = 2;
+  string product_name = 3;
+  string status = 4;
+  string term = 5;
+  int64 current_period_start_unix_ms = 6;
+  int64 current_period_end_unix_ms = 7;
+  bool cancel_at_period_end = 8;
+}
+
+message GetBillingAccountRequest { BillingOwner owner = 1; }
+message GetBillingAccountResponse {
+  int32 code = 1;
+  string msg = 2;
+  BillingSubscriptionInfo subscription = 3;
+  int64 available_credits = 4;
+  int64 reserved_credits = 5;
+  int64 next_expiry_at_unix_ms = 6;
+  string payment_environment = 7;
+}
+
+message BillingOrderInfo {
+  string order_no = 1;
+  string order_type = 2;
+  string product_key = 3;
+  string product_name = 4;
+  int64 price_version_id = 5;
+  int64 amount_fen = 6;
+  string currency = 7;
+  string status = 8;
+  string payment_environment = 9;
+  int64 expires_at_unix_ms = 10;
+  int64 paid_at_unix_ms = 11;
+  int64 created_at_unix_ms = 12;
+}
+
+message ListBillingOrdersRequest {
+  BillingOwner owner = 1;
+  int32 page = 2;
+  int32 page_size = 3;
+}
+message ListBillingOrdersResponse {
+  int32 code = 1;
+  string msg = 2;
+  repeated BillingOrderInfo orders = 3;
+  int64 total = 4;
+}
+
+message CreateBillingOrderRequest {
+  BillingOwner owner = 1;
+  int64 actor_user_id = 2;
+  int64 price_version_id = 3;
+  string order_type = 4;
+  string idempotency_key = 5;
+}
+message BillingOrderResponse {
+  int32 code = 1;
+  string msg = 2;
+  BillingOrderInfo order = 3;
+}
+
+message CreateAlipayPaymentRequest {
+  BillingOwner owner = 1;
+  int64 actor_user_id = 2;
+  string order_no = 3;
+  string scene = 4;
+}
+message CreateAlipayPaymentResponse {
+  int32 code = 1;
+  string msg = 2;
+  string payment_no = 3;
+  string redirect_url = 4;
+  string payment_environment = 5;
+}
+
+message RequestBillingRefundRequest {
+  BillingOwner owner = 1;
+  int64 actor_user_id = 2;
+  string order_no = 3;
+  string reason = 4;
+}
+message BillingRefundResponse {
+  int32 code = 1;
+  string msg = 2;
+  string refund_no = 3;
+  string status = 4;
+  string review_mode = 5;
+}
+
+message AlipayNotificationField { string key = 1; string value = 2; }
+message ProcessAlipayNotificationRequest { repeated AlipayNotificationField fields = 1; }
+message ProcessAlipayNotificationResponse {
+  int32 code = 1;
+  string msg = 2;
+  bool accepted = 3;
+}
+
+message ListBillingAdminCatalogRequest {}
+message SaveBillingPriceVersionRequest {
+  int64 product_id = 1;
+  int64 price_version_id = 2;
+  string billing_term = 3;
+  int64 amount_fen = 4;
+  int64 included_credits = 5;
+  string entitlement_snapshot_json = 6;
+  bool publish = 7;
+}
+
+message AIRateCardInfo {
+  int64 id = 1;
+  string provider_key = 2;
+  string model_key = 3;
+  int32 version = 4;
+  string currency = 5;
+  int64 input_micros_per_1k_tokens = 6;
+  int64 output_micros_per_1k_tokens = 7;
+  int64 cached_input_micros_per_1k_tokens = 8;
+  int64 credit_micros = 9;
+  string status = 10;
+  int64 effective_at_unix_ms = 11;
+}
+message ListAIRateCardsRequest {}
+message ListAIRateCardsResponse { int32 code = 1; string msg = 2; repeated AIRateCardInfo rates = 3; }
+message SaveAIRateCardRequest {
+  string provider_key = 1;
+  string model_key = 2;
+  int64 input_micros_per_1k_tokens = 3;
+  int64 output_micros_per_1k_tokens = 4;
+  int64 cached_input_micros_per_1k_tokens = 5;
+  int64 credit_micros = 6;
+  bool publish = 7;
 }

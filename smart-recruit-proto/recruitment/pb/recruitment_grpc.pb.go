@@ -3961,6 +3961,686 @@ var AIService_ServiceDesc = grpc.ServiceDesc{
 }
 
 const (
+	BillingService_CheckAIAccess_FullMethodName             = "/recruitment.BillingService/CheckAIAccess"
+	BillingService_ReserveAIUsage_FullMethodName            = "/recruitment.BillingService/ReserveAIUsage"
+	BillingService_SettleAIUsage_FullMethodName             = "/recruitment.BillingService/SettleAIUsage"
+	BillingService_CancelAIUsage_FullMethodName             = "/recruitment.BillingService/CancelAIUsage"
+	BillingService_GetAICreditBalance_FullMethodName        = "/recruitment.BillingService/GetAICreditBalance"
+	BillingService_ListBillingCatalog_FullMethodName        = "/recruitment.BillingService/ListBillingCatalog"
+	BillingService_GetBillingAccount_FullMethodName         = "/recruitment.BillingService/GetBillingAccount"
+	BillingService_ListBillingOrders_FullMethodName         = "/recruitment.BillingService/ListBillingOrders"
+	BillingService_CreateBillingOrder_FullMethodName        = "/recruitment.BillingService/CreateBillingOrder"
+	BillingService_CreateAlipayPayment_FullMethodName       = "/recruitment.BillingService/CreateAlipayPayment"
+	BillingService_RequestBillingRefund_FullMethodName      = "/recruitment.BillingService/RequestBillingRefund"
+	BillingService_ProcessAlipayNotification_FullMethodName = "/recruitment.BillingService/ProcessAlipayNotification"
+	BillingService_ListBillingAdminCatalog_FullMethodName   = "/recruitment.BillingService/ListBillingAdminCatalog"
+	BillingService_SaveBillingPriceVersion_FullMethodName   = "/recruitment.BillingService/SaveBillingPriceVersion"
+	BillingService_ListAIRateCards_FullMethodName           = "/recruitment.BillingService/ListAIRateCards"
+	BillingService_SaveAIRateCard_FullMethodName            = "/recruitment.BillingService/SaveAIRateCard"
+)
+
+// BillingServiceClient is the client API for BillingService service.
+//
+// For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
+//
+// BillingService is an internal authority for AI entitlements, credit reservations,
+// immutable usage settlement, and owner balances. Public commerce APIs are exposed
+// by the gateway and never trust owner identifiers supplied by browsers.
+type BillingServiceClient interface {
+	CheckAIAccess(ctx context.Context, in *CheckAIAccessRequest, opts ...grpc.CallOption) (*CheckAIAccessResponse, error)
+	ReserveAIUsage(ctx context.Context, in *ReserveAIUsageRequest, opts ...grpc.CallOption) (*ReserveAIUsageResponse, error)
+	SettleAIUsage(ctx context.Context, in *SettleAIUsageRequest, opts ...grpc.CallOption) (*SettleAIUsageResponse, error)
+	CancelAIUsage(ctx context.Context, in *CancelAIUsageRequest, opts ...grpc.CallOption) (*CancelAIUsageResponse, error)
+	GetAICreditBalance(ctx context.Context, in *GetAICreditBalanceRequest, opts ...grpc.CallOption) (*GetAICreditBalanceResponse, error)
+	ListBillingCatalog(ctx context.Context, in *ListBillingCatalogRequest, opts ...grpc.CallOption) (*ListBillingCatalogResponse, error)
+	GetBillingAccount(ctx context.Context, in *GetBillingAccountRequest, opts ...grpc.CallOption) (*GetBillingAccountResponse, error)
+	ListBillingOrders(ctx context.Context, in *ListBillingOrdersRequest, opts ...grpc.CallOption) (*ListBillingOrdersResponse, error)
+	CreateBillingOrder(ctx context.Context, in *CreateBillingOrderRequest, opts ...grpc.CallOption) (*BillingOrderResponse, error)
+	CreateAlipayPayment(ctx context.Context, in *CreateAlipayPaymentRequest, opts ...grpc.CallOption) (*CreateAlipayPaymentResponse, error)
+	RequestBillingRefund(ctx context.Context, in *RequestBillingRefundRequest, opts ...grpc.CallOption) (*BillingRefundResponse, error)
+	ProcessAlipayNotification(ctx context.Context, in *ProcessAlipayNotificationRequest, opts ...grpc.CallOption) (*ProcessAlipayNotificationResponse, error)
+	ListBillingAdminCatalog(ctx context.Context, in *ListBillingAdminCatalogRequest, opts ...grpc.CallOption) (*ListBillingCatalogResponse, error)
+	SaveBillingPriceVersion(ctx context.Context, in *SaveBillingPriceVersionRequest, opts ...grpc.CallOption) (*BillingPriceInfo, error)
+	ListAIRateCards(ctx context.Context, in *ListAIRateCardsRequest, opts ...grpc.CallOption) (*ListAIRateCardsResponse, error)
+	SaveAIRateCard(ctx context.Context, in *SaveAIRateCardRequest, opts ...grpc.CallOption) (*AIRateCardInfo, error)
+}
+
+type billingServiceClient struct {
+	cc grpc.ClientConnInterface
+}
+
+func NewBillingServiceClient(cc grpc.ClientConnInterface) BillingServiceClient {
+	return &billingServiceClient{cc}
+}
+
+func (c *billingServiceClient) CheckAIAccess(ctx context.Context, in *CheckAIAccessRequest, opts ...grpc.CallOption) (*CheckAIAccessResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(CheckAIAccessResponse)
+	err := c.cc.Invoke(ctx, BillingService_CheckAIAccess_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *billingServiceClient) ReserveAIUsage(ctx context.Context, in *ReserveAIUsageRequest, opts ...grpc.CallOption) (*ReserveAIUsageResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ReserveAIUsageResponse)
+	err := c.cc.Invoke(ctx, BillingService_ReserveAIUsage_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *billingServiceClient) SettleAIUsage(ctx context.Context, in *SettleAIUsageRequest, opts ...grpc.CallOption) (*SettleAIUsageResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(SettleAIUsageResponse)
+	err := c.cc.Invoke(ctx, BillingService_SettleAIUsage_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *billingServiceClient) CancelAIUsage(ctx context.Context, in *CancelAIUsageRequest, opts ...grpc.CallOption) (*CancelAIUsageResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(CancelAIUsageResponse)
+	err := c.cc.Invoke(ctx, BillingService_CancelAIUsage_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *billingServiceClient) GetAICreditBalance(ctx context.Context, in *GetAICreditBalanceRequest, opts ...grpc.CallOption) (*GetAICreditBalanceResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(GetAICreditBalanceResponse)
+	err := c.cc.Invoke(ctx, BillingService_GetAICreditBalance_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *billingServiceClient) ListBillingCatalog(ctx context.Context, in *ListBillingCatalogRequest, opts ...grpc.CallOption) (*ListBillingCatalogResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ListBillingCatalogResponse)
+	err := c.cc.Invoke(ctx, BillingService_ListBillingCatalog_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *billingServiceClient) GetBillingAccount(ctx context.Context, in *GetBillingAccountRequest, opts ...grpc.CallOption) (*GetBillingAccountResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(GetBillingAccountResponse)
+	err := c.cc.Invoke(ctx, BillingService_GetBillingAccount_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *billingServiceClient) ListBillingOrders(ctx context.Context, in *ListBillingOrdersRequest, opts ...grpc.CallOption) (*ListBillingOrdersResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ListBillingOrdersResponse)
+	err := c.cc.Invoke(ctx, BillingService_ListBillingOrders_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *billingServiceClient) CreateBillingOrder(ctx context.Context, in *CreateBillingOrderRequest, opts ...grpc.CallOption) (*BillingOrderResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(BillingOrderResponse)
+	err := c.cc.Invoke(ctx, BillingService_CreateBillingOrder_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *billingServiceClient) CreateAlipayPayment(ctx context.Context, in *CreateAlipayPaymentRequest, opts ...grpc.CallOption) (*CreateAlipayPaymentResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(CreateAlipayPaymentResponse)
+	err := c.cc.Invoke(ctx, BillingService_CreateAlipayPayment_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *billingServiceClient) RequestBillingRefund(ctx context.Context, in *RequestBillingRefundRequest, opts ...grpc.CallOption) (*BillingRefundResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(BillingRefundResponse)
+	err := c.cc.Invoke(ctx, BillingService_RequestBillingRefund_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *billingServiceClient) ProcessAlipayNotification(ctx context.Context, in *ProcessAlipayNotificationRequest, opts ...grpc.CallOption) (*ProcessAlipayNotificationResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ProcessAlipayNotificationResponse)
+	err := c.cc.Invoke(ctx, BillingService_ProcessAlipayNotification_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *billingServiceClient) ListBillingAdminCatalog(ctx context.Context, in *ListBillingAdminCatalogRequest, opts ...grpc.CallOption) (*ListBillingCatalogResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ListBillingCatalogResponse)
+	err := c.cc.Invoke(ctx, BillingService_ListBillingAdminCatalog_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *billingServiceClient) SaveBillingPriceVersion(ctx context.Context, in *SaveBillingPriceVersionRequest, opts ...grpc.CallOption) (*BillingPriceInfo, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(BillingPriceInfo)
+	err := c.cc.Invoke(ctx, BillingService_SaveBillingPriceVersion_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *billingServiceClient) ListAIRateCards(ctx context.Context, in *ListAIRateCardsRequest, opts ...grpc.CallOption) (*ListAIRateCardsResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ListAIRateCardsResponse)
+	err := c.cc.Invoke(ctx, BillingService_ListAIRateCards_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *billingServiceClient) SaveAIRateCard(ctx context.Context, in *SaveAIRateCardRequest, opts ...grpc.CallOption) (*AIRateCardInfo, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(AIRateCardInfo)
+	err := c.cc.Invoke(ctx, BillingService_SaveAIRateCard_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+// BillingServiceServer is the server API for BillingService service.
+// All implementations must embed UnimplementedBillingServiceServer
+// for forward compatibility.
+//
+// BillingService is an internal authority for AI entitlements, credit reservations,
+// immutable usage settlement, and owner balances. Public commerce APIs are exposed
+// by the gateway and never trust owner identifiers supplied by browsers.
+type BillingServiceServer interface {
+	CheckAIAccess(context.Context, *CheckAIAccessRequest) (*CheckAIAccessResponse, error)
+	ReserveAIUsage(context.Context, *ReserveAIUsageRequest) (*ReserveAIUsageResponse, error)
+	SettleAIUsage(context.Context, *SettleAIUsageRequest) (*SettleAIUsageResponse, error)
+	CancelAIUsage(context.Context, *CancelAIUsageRequest) (*CancelAIUsageResponse, error)
+	GetAICreditBalance(context.Context, *GetAICreditBalanceRequest) (*GetAICreditBalanceResponse, error)
+	ListBillingCatalog(context.Context, *ListBillingCatalogRequest) (*ListBillingCatalogResponse, error)
+	GetBillingAccount(context.Context, *GetBillingAccountRequest) (*GetBillingAccountResponse, error)
+	ListBillingOrders(context.Context, *ListBillingOrdersRequest) (*ListBillingOrdersResponse, error)
+	CreateBillingOrder(context.Context, *CreateBillingOrderRequest) (*BillingOrderResponse, error)
+	CreateAlipayPayment(context.Context, *CreateAlipayPaymentRequest) (*CreateAlipayPaymentResponse, error)
+	RequestBillingRefund(context.Context, *RequestBillingRefundRequest) (*BillingRefundResponse, error)
+	ProcessAlipayNotification(context.Context, *ProcessAlipayNotificationRequest) (*ProcessAlipayNotificationResponse, error)
+	ListBillingAdminCatalog(context.Context, *ListBillingAdminCatalogRequest) (*ListBillingCatalogResponse, error)
+	SaveBillingPriceVersion(context.Context, *SaveBillingPriceVersionRequest) (*BillingPriceInfo, error)
+	ListAIRateCards(context.Context, *ListAIRateCardsRequest) (*ListAIRateCardsResponse, error)
+	SaveAIRateCard(context.Context, *SaveAIRateCardRequest) (*AIRateCardInfo, error)
+	mustEmbedUnimplementedBillingServiceServer()
+}
+
+// UnimplementedBillingServiceServer must be embedded to have
+// forward compatible implementations.
+//
+// NOTE: this should be embedded by value instead of pointer to avoid a nil
+// pointer dereference when methods are called.
+type UnimplementedBillingServiceServer struct{}
+
+func (UnimplementedBillingServiceServer) CheckAIAccess(context.Context, *CheckAIAccessRequest) (*CheckAIAccessResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method CheckAIAccess not implemented")
+}
+func (UnimplementedBillingServiceServer) ReserveAIUsage(context.Context, *ReserveAIUsageRequest) (*ReserveAIUsageResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method ReserveAIUsage not implemented")
+}
+func (UnimplementedBillingServiceServer) SettleAIUsage(context.Context, *SettleAIUsageRequest) (*SettleAIUsageResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method SettleAIUsage not implemented")
+}
+func (UnimplementedBillingServiceServer) CancelAIUsage(context.Context, *CancelAIUsageRequest) (*CancelAIUsageResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method CancelAIUsage not implemented")
+}
+func (UnimplementedBillingServiceServer) GetAICreditBalance(context.Context, *GetAICreditBalanceRequest) (*GetAICreditBalanceResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method GetAICreditBalance not implemented")
+}
+func (UnimplementedBillingServiceServer) ListBillingCatalog(context.Context, *ListBillingCatalogRequest) (*ListBillingCatalogResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method ListBillingCatalog not implemented")
+}
+func (UnimplementedBillingServiceServer) GetBillingAccount(context.Context, *GetBillingAccountRequest) (*GetBillingAccountResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method GetBillingAccount not implemented")
+}
+func (UnimplementedBillingServiceServer) ListBillingOrders(context.Context, *ListBillingOrdersRequest) (*ListBillingOrdersResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method ListBillingOrders not implemented")
+}
+func (UnimplementedBillingServiceServer) CreateBillingOrder(context.Context, *CreateBillingOrderRequest) (*BillingOrderResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method CreateBillingOrder not implemented")
+}
+func (UnimplementedBillingServiceServer) CreateAlipayPayment(context.Context, *CreateAlipayPaymentRequest) (*CreateAlipayPaymentResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method CreateAlipayPayment not implemented")
+}
+func (UnimplementedBillingServiceServer) RequestBillingRefund(context.Context, *RequestBillingRefundRequest) (*BillingRefundResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method RequestBillingRefund not implemented")
+}
+func (UnimplementedBillingServiceServer) ProcessAlipayNotification(context.Context, *ProcessAlipayNotificationRequest) (*ProcessAlipayNotificationResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method ProcessAlipayNotification not implemented")
+}
+func (UnimplementedBillingServiceServer) ListBillingAdminCatalog(context.Context, *ListBillingAdminCatalogRequest) (*ListBillingCatalogResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method ListBillingAdminCatalog not implemented")
+}
+func (UnimplementedBillingServiceServer) SaveBillingPriceVersion(context.Context, *SaveBillingPriceVersionRequest) (*BillingPriceInfo, error) {
+	return nil, status.Error(codes.Unimplemented, "method SaveBillingPriceVersion not implemented")
+}
+func (UnimplementedBillingServiceServer) ListAIRateCards(context.Context, *ListAIRateCardsRequest) (*ListAIRateCardsResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method ListAIRateCards not implemented")
+}
+func (UnimplementedBillingServiceServer) SaveAIRateCard(context.Context, *SaveAIRateCardRequest) (*AIRateCardInfo, error) {
+	return nil, status.Error(codes.Unimplemented, "method SaveAIRateCard not implemented")
+}
+func (UnimplementedBillingServiceServer) mustEmbedUnimplementedBillingServiceServer() {}
+func (UnimplementedBillingServiceServer) testEmbeddedByValue()                        {}
+
+// UnsafeBillingServiceServer may be embedded to opt out of forward compatibility for this service.
+// Use of this interface is not recommended, as added methods to BillingServiceServer will
+// result in compilation errors.
+type UnsafeBillingServiceServer interface {
+	mustEmbedUnimplementedBillingServiceServer()
+}
+
+func RegisterBillingServiceServer(s grpc.ServiceRegistrar, srv BillingServiceServer) {
+	// If the following call panics, it indicates UnimplementedBillingServiceServer was
+	// embedded by pointer and is nil.  This will cause panics if an
+	// unimplemented method is ever invoked, so we test this at initialization
+	// time to prevent it from happening at runtime later due to I/O.
+	if t, ok := srv.(interface{ testEmbeddedByValue() }); ok {
+		t.testEmbeddedByValue()
+	}
+	s.RegisterService(&BillingService_ServiceDesc, srv)
+}
+
+func _BillingService_CheckAIAccess_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(CheckAIAccessRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(BillingServiceServer).CheckAIAccess(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: BillingService_CheckAIAccess_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(BillingServiceServer).CheckAIAccess(ctx, req.(*CheckAIAccessRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _BillingService_ReserveAIUsage_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ReserveAIUsageRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(BillingServiceServer).ReserveAIUsage(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: BillingService_ReserveAIUsage_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(BillingServiceServer).ReserveAIUsage(ctx, req.(*ReserveAIUsageRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _BillingService_SettleAIUsage_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(SettleAIUsageRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(BillingServiceServer).SettleAIUsage(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: BillingService_SettleAIUsage_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(BillingServiceServer).SettleAIUsage(ctx, req.(*SettleAIUsageRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _BillingService_CancelAIUsage_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(CancelAIUsageRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(BillingServiceServer).CancelAIUsage(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: BillingService_CancelAIUsage_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(BillingServiceServer).CancelAIUsage(ctx, req.(*CancelAIUsageRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _BillingService_GetAICreditBalance_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetAICreditBalanceRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(BillingServiceServer).GetAICreditBalance(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: BillingService_GetAICreditBalance_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(BillingServiceServer).GetAICreditBalance(ctx, req.(*GetAICreditBalanceRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _BillingService_ListBillingCatalog_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ListBillingCatalogRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(BillingServiceServer).ListBillingCatalog(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: BillingService_ListBillingCatalog_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(BillingServiceServer).ListBillingCatalog(ctx, req.(*ListBillingCatalogRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _BillingService_GetBillingAccount_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetBillingAccountRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(BillingServiceServer).GetBillingAccount(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: BillingService_GetBillingAccount_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(BillingServiceServer).GetBillingAccount(ctx, req.(*GetBillingAccountRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _BillingService_ListBillingOrders_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ListBillingOrdersRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(BillingServiceServer).ListBillingOrders(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: BillingService_ListBillingOrders_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(BillingServiceServer).ListBillingOrders(ctx, req.(*ListBillingOrdersRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _BillingService_CreateBillingOrder_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(CreateBillingOrderRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(BillingServiceServer).CreateBillingOrder(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: BillingService_CreateBillingOrder_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(BillingServiceServer).CreateBillingOrder(ctx, req.(*CreateBillingOrderRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _BillingService_CreateAlipayPayment_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(CreateAlipayPaymentRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(BillingServiceServer).CreateAlipayPayment(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: BillingService_CreateAlipayPayment_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(BillingServiceServer).CreateAlipayPayment(ctx, req.(*CreateAlipayPaymentRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _BillingService_RequestBillingRefund_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(RequestBillingRefundRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(BillingServiceServer).RequestBillingRefund(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: BillingService_RequestBillingRefund_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(BillingServiceServer).RequestBillingRefund(ctx, req.(*RequestBillingRefundRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _BillingService_ProcessAlipayNotification_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ProcessAlipayNotificationRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(BillingServiceServer).ProcessAlipayNotification(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: BillingService_ProcessAlipayNotification_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(BillingServiceServer).ProcessAlipayNotification(ctx, req.(*ProcessAlipayNotificationRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _BillingService_ListBillingAdminCatalog_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ListBillingAdminCatalogRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(BillingServiceServer).ListBillingAdminCatalog(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: BillingService_ListBillingAdminCatalog_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(BillingServiceServer).ListBillingAdminCatalog(ctx, req.(*ListBillingAdminCatalogRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _BillingService_SaveBillingPriceVersion_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(SaveBillingPriceVersionRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(BillingServiceServer).SaveBillingPriceVersion(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: BillingService_SaveBillingPriceVersion_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(BillingServiceServer).SaveBillingPriceVersion(ctx, req.(*SaveBillingPriceVersionRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _BillingService_ListAIRateCards_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ListAIRateCardsRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(BillingServiceServer).ListAIRateCards(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: BillingService_ListAIRateCards_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(BillingServiceServer).ListAIRateCards(ctx, req.(*ListAIRateCardsRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _BillingService_SaveAIRateCard_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(SaveAIRateCardRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(BillingServiceServer).SaveAIRateCard(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: BillingService_SaveAIRateCard_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(BillingServiceServer).SaveAIRateCard(ctx, req.(*SaveAIRateCardRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+// BillingService_ServiceDesc is the grpc.ServiceDesc for BillingService service.
+// It's only intended for direct use with grpc.RegisterService,
+// and not to be introspected or modified (even as a copy)
+var BillingService_ServiceDesc = grpc.ServiceDesc{
+	ServiceName: "recruitment.BillingService",
+	HandlerType: (*BillingServiceServer)(nil),
+	Methods: []grpc.MethodDesc{
+		{
+			MethodName: "CheckAIAccess",
+			Handler:    _BillingService_CheckAIAccess_Handler,
+		},
+		{
+			MethodName: "ReserveAIUsage",
+			Handler:    _BillingService_ReserveAIUsage_Handler,
+		},
+		{
+			MethodName: "SettleAIUsage",
+			Handler:    _BillingService_SettleAIUsage_Handler,
+		},
+		{
+			MethodName: "CancelAIUsage",
+			Handler:    _BillingService_CancelAIUsage_Handler,
+		},
+		{
+			MethodName: "GetAICreditBalance",
+			Handler:    _BillingService_GetAICreditBalance_Handler,
+		},
+		{
+			MethodName: "ListBillingCatalog",
+			Handler:    _BillingService_ListBillingCatalog_Handler,
+		},
+		{
+			MethodName: "GetBillingAccount",
+			Handler:    _BillingService_GetBillingAccount_Handler,
+		},
+		{
+			MethodName: "ListBillingOrders",
+			Handler:    _BillingService_ListBillingOrders_Handler,
+		},
+		{
+			MethodName: "CreateBillingOrder",
+			Handler:    _BillingService_CreateBillingOrder_Handler,
+		},
+		{
+			MethodName: "CreateAlipayPayment",
+			Handler:    _BillingService_CreateAlipayPayment_Handler,
+		},
+		{
+			MethodName: "RequestBillingRefund",
+			Handler:    _BillingService_RequestBillingRefund_Handler,
+		},
+		{
+			MethodName: "ProcessAlipayNotification",
+			Handler:    _BillingService_ProcessAlipayNotification_Handler,
+		},
+		{
+			MethodName: "ListBillingAdminCatalog",
+			Handler:    _BillingService_ListBillingAdminCatalog_Handler,
+		},
+		{
+			MethodName: "SaveBillingPriceVersion",
+			Handler:    _BillingService_SaveBillingPriceVersion_Handler,
+		},
+		{
+			MethodName: "ListAIRateCards",
+			Handler:    _BillingService_ListAIRateCards_Handler,
+		},
+		{
+			MethodName: "SaveAIRateCard",
+			Handler:    _BillingService_SaveAIRateCard_Handler,
+		},
+	},
+	Streams:  []grpc.StreamDesc{},
+	Metadata: "proto/recruitment.proto",
+}
+
+const (
 	OfferService_CreateOffer_FullMethodName             = "/recruitment.OfferService/CreateOffer"
 	OfferService_UpdateOffer_FullMethodName             = "/recruitment.OfferService/UpdateOffer"
 	OfferService_GetOffer_FullMethodName                = "/recruitment.OfferService/GetOffer"

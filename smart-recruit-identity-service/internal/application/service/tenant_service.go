@@ -225,19 +225,27 @@ func (s *TenantService) SavePlanVersion(ctx context.Context, planID, versionID i
 	if planID <= 0 || versionID < 0 || changeNote == "" || len(changeNote) > 500 || len(entitlements) == 0 || len(entitlements) > 50 {
 		return nil, ErrTenantInvalid
 	}
-	allowedKeys := map[string]bool{"members.max": true, "jobs.published.max": true, "applications.monthly.max": true, "resumes.storage.max": true}
+	allowedKeys := platformEntitlementTypes()
 	seen := map[string]bool{}
 	for i := range entitlements {
 		item := &entitlements[i]
 		item.Key = strings.TrimSpace(item.Key)
 		item.ValueType = strings.TrimSpace(item.ValueType)
 		item.EnforcementMode = strings.TrimSpace(item.EnforcementMode)
-		if !allowedKeys[item.Key] || seen[item.Key] || item.ValueType != "integer" || (item.EnforcementMode != "hard" && item.EnforcementMode != "soft" && item.EnforcementMode != "observe") || !json.Valid([]byte(item.ValueJSON)) {
+		expectedType, allowed := allowedKeys[item.Key]
+		if !allowed || seen[item.Key] || item.ValueType != expectedType || (item.EnforcementMode != "hard" && item.EnforcementMode != "soft" && item.EnforcementMode != "observe") || !json.Valid([]byte(item.ValueJSON)) {
 			return nil, ErrTenantInvalid
 		}
-		var value int64
-		if err := json.Unmarshal([]byte(item.ValueJSON), &value); err != nil || value <= 0 {
-			return nil, ErrTenantInvalid
+		if expectedType == "integer" {
+			var value int64
+			if err := json.Unmarshal([]byte(item.ValueJSON), &value); err != nil || value <= 0 {
+				return nil, ErrTenantInvalid
+			}
+		} else {
+			var value bool
+			if err := json.Unmarshal([]byte(item.ValueJSON), &value); err != nil {
+				return nil, ErrTenantInvalid
+			}
 		}
 		seen[item.Key] = true
 	}
@@ -281,13 +289,32 @@ func (s *TenantService) UpdateEntitlementOverride(ctx context.Context, tenantID 
 		return nil, err
 	}
 	reason = strings.TrimSpace(reason)
-	allowedKeys := map[string]bool{"members.max": true, "jobs.published.max": true, "applications.monthly.max": true, "resumes.storage.max": true}
+	allowedKeys := platformEntitlementTypes()
 	var value int64
-	if tenantID <= 0 || !allowedKeys[entitlement.Key] || entitlement.ValueType != "integer" || json.Unmarshal([]byte(entitlement.ValueJSON), &value) != nil || value <= 0 || (expiresAt != nil && !expiresAt.After(time.Now())) || reason == "" || len(reason) > 500 {
+	expectedType, allowed := allowedKeys[entitlement.Key]
+	if tenantID <= 0 || !allowed || expectedType != "integer" || entitlement.ValueType != "integer" || json.Unmarshal([]byte(entitlement.ValueJSON), &value) != nil || value <= 0 || (expiresAt != nil && !expiresAt.After(time.Now())) || reason == "" || len(reason) > 500 {
 		return nil, ErrTenantInvalid
 	}
 	entitlement.Source = "override"
 	return s.repo.UpdateTenantEntitlementOverride(ctx, tenantID, entitlement, expiresAt, reason)
+}
+
+func platformEntitlementTypes() map[string]string {
+	return map[string]string{
+		"members.max":                     "integer",
+		"jobs.published.max":              "integer",
+		"applications.monthly.max":        "integer",
+		"resumes.storage.max":             "integer",
+		"ai.hr.enabled":                   "boolean",
+		"ai.chat.enabled":                 "boolean",
+		"ai.resume_parse.enabled":         "boolean",
+		"ai.match_evaluation.enabled":     "boolean",
+		"ai.application_analysis.enabled": "boolean",
+		"ai.agent_run.enabled":            "boolean",
+		"ai.credits.monthly":              "integer",
+		"ai.concurrent_runs.max":          "integer",
+		"ai.single_run.max_credits":       "integer",
+	}
 }
 
 func (s *TenantService) GetUsage(ctx context.Context, tenantID int64) ([]model.TenantUsageMetric, error) {

@@ -24,6 +24,104 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
+type BillingOwnerType int32
+
+const (
+	BillingOwnerType_BILLING_OWNER_TYPE_UNSPECIFIED BillingOwnerType = 0
+	BillingOwnerType_BILLING_OWNER_TYPE_TENANT      BillingOwnerType = 1
+	BillingOwnerType_BILLING_OWNER_TYPE_USER        BillingOwnerType = 2
+)
+
+// Enum value maps for BillingOwnerType.
+var (
+	BillingOwnerType_name = map[int32]string{
+		0: "BILLING_OWNER_TYPE_UNSPECIFIED",
+		1: "BILLING_OWNER_TYPE_TENANT",
+		2: "BILLING_OWNER_TYPE_USER",
+	}
+	BillingOwnerType_value = map[string]int32{
+		"BILLING_OWNER_TYPE_UNSPECIFIED": 0,
+		"BILLING_OWNER_TYPE_TENANT":      1,
+		"BILLING_OWNER_TYPE_USER":        2,
+	}
+)
+
+func (x BillingOwnerType) Enum() *BillingOwnerType {
+	p := new(BillingOwnerType)
+	*p = x
+	return p
+}
+
+func (x BillingOwnerType) String() string {
+	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
+}
+
+func (BillingOwnerType) Descriptor() protoreflect.EnumDescriptor {
+	return file_proto_recruitment_proto_enumTypes[0].Descriptor()
+}
+
+func (BillingOwnerType) Type() protoreflect.EnumType {
+	return &file_proto_recruitment_proto_enumTypes[0]
+}
+
+func (x BillingOwnerType) Number() protoreflect.EnumNumber {
+	return protoreflect.EnumNumber(x)
+}
+
+// Deprecated: Use BillingOwnerType.Descriptor instead.
+func (BillingOwnerType) EnumDescriptor() ([]byte, []int) {
+	return file_proto_recruitment_proto_rawDescGZIP(), []int{0}
+}
+
+type BillingEnforcementMode int32
+
+const (
+	BillingEnforcementMode_BILLING_ENFORCEMENT_MODE_UNSPECIFIED BillingEnforcementMode = 0
+	BillingEnforcementMode_BILLING_ENFORCEMENT_MODE_SHADOW      BillingEnforcementMode = 1
+	BillingEnforcementMode_BILLING_ENFORCEMENT_MODE_ENFORCE     BillingEnforcementMode = 2
+)
+
+// Enum value maps for BillingEnforcementMode.
+var (
+	BillingEnforcementMode_name = map[int32]string{
+		0: "BILLING_ENFORCEMENT_MODE_UNSPECIFIED",
+		1: "BILLING_ENFORCEMENT_MODE_SHADOW",
+		2: "BILLING_ENFORCEMENT_MODE_ENFORCE",
+	}
+	BillingEnforcementMode_value = map[string]int32{
+		"BILLING_ENFORCEMENT_MODE_UNSPECIFIED": 0,
+		"BILLING_ENFORCEMENT_MODE_SHADOW":      1,
+		"BILLING_ENFORCEMENT_MODE_ENFORCE":     2,
+	}
+)
+
+func (x BillingEnforcementMode) Enum() *BillingEnforcementMode {
+	p := new(BillingEnforcementMode)
+	*p = x
+	return p
+}
+
+func (x BillingEnforcementMode) String() string {
+	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
+}
+
+func (BillingEnforcementMode) Descriptor() protoreflect.EnumDescriptor {
+	return file_proto_recruitment_proto_enumTypes[1].Descriptor()
+}
+
+func (BillingEnforcementMode) Type() protoreflect.EnumType {
+	return &file_proto_recruitment_proto_enumTypes[1]
+}
+
+func (x BillingEnforcementMode) Number() protoreflect.EnumNumber {
+	return protoreflect.EnumNumber(x)
+}
+
+// Deprecated: Use BillingEnforcementMode.Descriptor instead.
+func (BillingEnforcementMode) EnumDescriptor() ([]byte, []int) {
+	return file_proto_recruitment_proto_rawDescGZIP(), []int{1}
+}
+
 type CommonResponse struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Code          int32                  `protobuf:"varint,1,opt,name=code,proto3" json:"code,omitempty"`
@@ -37246,6 +37344,2754 @@ func (x *PreviewChatContextResponse) GetContextUsage() *ContextUsageInfo {
 	return nil
 }
 
+type BillingOwner struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Type          BillingOwnerType       `protobuf:"varint,1,opt,name=type,proto3,enum=recruitment.BillingOwnerType" json:"type,omitempty"`
+	Id            int64                  `protobuf:"varint,2,opt,name=id,proto3" json:"id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *BillingOwner) Reset() {
+	*x = BillingOwner{}
+	mi := &file_proto_recruitment_proto_msgTypes[459]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *BillingOwner) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*BillingOwner) ProtoMessage() {}
+
+func (x *BillingOwner) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_recruitment_proto_msgTypes[459]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use BillingOwner.ProtoReflect.Descriptor instead.
+func (*BillingOwner) Descriptor() ([]byte, []int) {
+	return file_proto_recruitment_proto_rawDescGZIP(), []int{459}
+}
+
+func (x *BillingOwner) GetType() BillingOwnerType {
+	if x != nil {
+		return x.Type
+	}
+	return BillingOwnerType_BILLING_OWNER_TYPE_UNSPECIFIED
+}
+
+func (x *BillingOwner) GetId() int64 {
+	if x != nil {
+		return x.Id
+	}
+	return 0
+}
+
+type CheckAIAccessRequest struct {
+	state            protoimpl.MessageState `protogen:"open.v1"`
+	Owner            *BillingOwner          `protobuf:"bytes,1,opt,name=owner,proto3" json:"owner,omitempty"`
+	UserId           int64                  `protobuf:"varint,2,opt,name=user_id,json=userId,proto3" json:"user_id,omitempty"`
+	Capability       string                 `protobuf:"bytes,3,opt,name=capability,proto3" json:"capability,omitempty"`
+	EstimatedCredits int64                  `protobuf:"varint,4,opt,name=estimated_credits,json=estimatedCredits,proto3" json:"estimated_credits,omitempty"`
+	unknownFields    protoimpl.UnknownFields
+	sizeCache        protoimpl.SizeCache
+}
+
+func (x *CheckAIAccessRequest) Reset() {
+	*x = CheckAIAccessRequest{}
+	mi := &file_proto_recruitment_proto_msgTypes[460]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *CheckAIAccessRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*CheckAIAccessRequest) ProtoMessage() {}
+
+func (x *CheckAIAccessRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_recruitment_proto_msgTypes[460]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use CheckAIAccessRequest.ProtoReflect.Descriptor instead.
+func (*CheckAIAccessRequest) Descriptor() ([]byte, []int) {
+	return file_proto_recruitment_proto_rawDescGZIP(), []int{460}
+}
+
+func (x *CheckAIAccessRequest) GetOwner() *BillingOwner {
+	if x != nil {
+		return x.Owner
+	}
+	return nil
+}
+
+func (x *CheckAIAccessRequest) GetUserId() int64 {
+	if x != nil {
+		return x.UserId
+	}
+	return 0
+}
+
+func (x *CheckAIAccessRequest) GetCapability() string {
+	if x != nil {
+		return x.Capability
+	}
+	return ""
+}
+
+func (x *CheckAIAccessRequest) GetEstimatedCredits() int64 {
+	if x != nil {
+		return x.EstimatedCredits
+	}
+	return 0
+}
+
+type CheckAIAccessResponse struct {
+	state            protoimpl.MessageState `protogen:"open.v1"`
+	Code             int32                  `protobuf:"varint,1,opt,name=code,proto3" json:"code,omitempty"`
+	Msg              string                 `protobuf:"bytes,2,opt,name=msg,proto3" json:"msg,omitempty"`
+	Allowed          bool                   `protobuf:"varint,3,opt,name=allowed,proto3" json:"allowed,omitempty"`
+	Reason           string                 `protobuf:"bytes,4,opt,name=reason,proto3" json:"reason,omitempty"`
+	AvailableCredits int64                  `protobuf:"varint,5,opt,name=available_credits,json=availableCredits,proto3" json:"available_credits,omitempty"`
+	EnforcementMode  BillingEnforcementMode `protobuf:"varint,6,opt,name=enforcement_mode,json=enforcementMode,proto3,enum=recruitment.BillingEnforcementMode" json:"enforcement_mode,omitempty"`
+	unknownFields    protoimpl.UnknownFields
+	sizeCache        protoimpl.SizeCache
+}
+
+func (x *CheckAIAccessResponse) Reset() {
+	*x = CheckAIAccessResponse{}
+	mi := &file_proto_recruitment_proto_msgTypes[461]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *CheckAIAccessResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*CheckAIAccessResponse) ProtoMessage() {}
+
+func (x *CheckAIAccessResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_recruitment_proto_msgTypes[461]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use CheckAIAccessResponse.ProtoReflect.Descriptor instead.
+func (*CheckAIAccessResponse) Descriptor() ([]byte, []int) {
+	return file_proto_recruitment_proto_rawDescGZIP(), []int{461}
+}
+
+func (x *CheckAIAccessResponse) GetCode() int32 {
+	if x != nil {
+		return x.Code
+	}
+	return 0
+}
+
+func (x *CheckAIAccessResponse) GetMsg() string {
+	if x != nil {
+		return x.Msg
+	}
+	return ""
+}
+
+func (x *CheckAIAccessResponse) GetAllowed() bool {
+	if x != nil {
+		return x.Allowed
+	}
+	return false
+}
+
+func (x *CheckAIAccessResponse) GetReason() string {
+	if x != nil {
+		return x.Reason
+	}
+	return ""
+}
+
+func (x *CheckAIAccessResponse) GetAvailableCredits() int64 {
+	if x != nil {
+		return x.AvailableCredits
+	}
+	return 0
+}
+
+func (x *CheckAIAccessResponse) GetEnforcementMode() BillingEnforcementMode {
+	if x != nil {
+		return x.EnforcementMode
+	}
+	return BillingEnforcementMode_BILLING_ENFORCEMENT_MODE_UNSPECIFIED
+}
+
+type ReserveAIUsageRequest struct {
+	state            protoimpl.MessageState `protogen:"open.v1"`
+	Owner            *BillingOwner          `protobuf:"bytes,1,opt,name=owner,proto3" json:"owner,omitempty"`
+	UserId           int64                  `protobuf:"varint,2,opt,name=user_id,json=userId,proto3" json:"user_id,omitempty"`
+	Capability       string                 `protobuf:"bytes,3,opt,name=capability,proto3" json:"capability,omitempty"`
+	Operation        string                 `protobuf:"bytes,4,opt,name=operation,proto3" json:"operation,omitempty"`
+	ProviderKey      string                 `protobuf:"bytes,5,opt,name=provider_key,json=providerKey,proto3" json:"provider_key,omitempty"`
+	ModelKey         string                 `protobuf:"bytes,6,opt,name=model_key,json=modelKey,proto3" json:"model_key,omitempty"`
+	EstimatedCredits int64                  `protobuf:"varint,7,opt,name=estimated_credits,json=estimatedCredits,proto3" json:"estimated_credits,omitempty"`
+	IdempotencyKey   string                 `protobuf:"bytes,8,opt,name=idempotency_key,json=idempotencyKey,proto3" json:"idempotency_key,omitempty"`
+	TtlSeconds       int64                  `protobuf:"varint,9,opt,name=ttl_seconds,json=ttlSeconds,proto3" json:"ttl_seconds,omitempty"`
+	unknownFields    protoimpl.UnknownFields
+	sizeCache        protoimpl.SizeCache
+}
+
+func (x *ReserveAIUsageRequest) Reset() {
+	*x = ReserveAIUsageRequest{}
+	mi := &file_proto_recruitment_proto_msgTypes[462]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ReserveAIUsageRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ReserveAIUsageRequest) ProtoMessage() {}
+
+func (x *ReserveAIUsageRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_recruitment_proto_msgTypes[462]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ReserveAIUsageRequest.ProtoReflect.Descriptor instead.
+func (*ReserveAIUsageRequest) Descriptor() ([]byte, []int) {
+	return file_proto_recruitment_proto_rawDescGZIP(), []int{462}
+}
+
+func (x *ReserveAIUsageRequest) GetOwner() *BillingOwner {
+	if x != nil {
+		return x.Owner
+	}
+	return nil
+}
+
+func (x *ReserveAIUsageRequest) GetUserId() int64 {
+	if x != nil {
+		return x.UserId
+	}
+	return 0
+}
+
+func (x *ReserveAIUsageRequest) GetCapability() string {
+	if x != nil {
+		return x.Capability
+	}
+	return ""
+}
+
+func (x *ReserveAIUsageRequest) GetOperation() string {
+	if x != nil {
+		return x.Operation
+	}
+	return ""
+}
+
+func (x *ReserveAIUsageRequest) GetProviderKey() string {
+	if x != nil {
+		return x.ProviderKey
+	}
+	return ""
+}
+
+func (x *ReserveAIUsageRequest) GetModelKey() string {
+	if x != nil {
+		return x.ModelKey
+	}
+	return ""
+}
+
+func (x *ReserveAIUsageRequest) GetEstimatedCredits() int64 {
+	if x != nil {
+		return x.EstimatedCredits
+	}
+	return 0
+}
+
+func (x *ReserveAIUsageRequest) GetIdempotencyKey() string {
+	if x != nil {
+		return x.IdempotencyKey
+	}
+	return ""
+}
+
+func (x *ReserveAIUsageRequest) GetTtlSeconds() int64 {
+	if x != nil {
+		return x.TtlSeconds
+	}
+	return 0
+}
+
+type ReserveAIUsageResponse struct {
+	state            protoimpl.MessageState `protogen:"open.v1"`
+	Code             int32                  `protobuf:"varint,1,opt,name=code,proto3" json:"code,omitempty"`
+	Msg              string                 `protobuf:"bytes,2,opt,name=msg,proto3" json:"msg,omitempty"`
+	Allowed          bool                   `protobuf:"varint,3,opt,name=allowed,proto3" json:"allowed,omitempty"`
+	Reason           string                 `protobuf:"bytes,4,opt,name=reason,proto3" json:"reason,omitempty"`
+	ReservationNo    string                 `protobuf:"bytes,5,opt,name=reservation_no,json=reservationNo,proto3" json:"reservation_no,omitempty"`
+	ReservedCredits  int64                  `protobuf:"varint,6,opt,name=reserved_credits,json=reservedCredits,proto3" json:"reserved_credits,omitempty"`
+	AvailableCredits int64                  `protobuf:"varint,7,opt,name=available_credits,json=availableCredits,proto3" json:"available_credits,omitempty"`
+	ExpiresAtUnixMs  int64                  `protobuf:"varint,8,opt,name=expires_at_unix_ms,json=expiresAtUnixMs,proto3" json:"expires_at_unix_ms,omitempty"`
+	EnforcementMode  BillingEnforcementMode `protobuf:"varint,9,opt,name=enforcement_mode,json=enforcementMode,proto3,enum=recruitment.BillingEnforcementMode" json:"enforcement_mode,omitempty"`
+	unknownFields    protoimpl.UnknownFields
+	sizeCache        protoimpl.SizeCache
+}
+
+func (x *ReserveAIUsageResponse) Reset() {
+	*x = ReserveAIUsageResponse{}
+	mi := &file_proto_recruitment_proto_msgTypes[463]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ReserveAIUsageResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ReserveAIUsageResponse) ProtoMessage() {}
+
+func (x *ReserveAIUsageResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_recruitment_proto_msgTypes[463]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ReserveAIUsageResponse.ProtoReflect.Descriptor instead.
+func (*ReserveAIUsageResponse) Descriptor() ([]byte, []int) {
+	return file_proto_recruitment_proto_rawDescGZIP(), []int{463}
+}
+
+func (x *ReserveAIUsageResponse) GetCode() int32 {
+	if x != nil {
+		return x.Code
+	}
+	return 0
+}
+
+func (x *ReserveAIUsageResponse) GetMsg() string {
+	if x != nil {
+		return x.Msg
+	}
+	return ""
+}
+
+func (x *ReserveAIUsageResponse) GetAllowed() bool {
+	if x != nil {
+		return x.Allowed
+	}
+	return false
+}
+
+func (x *ReserveAIUsageResponse) GetReason() string {
+	if x != nil {
+		return x.Reason
+	}
+	return ""
+}
+
+func (x *ReserveAIUsageResponse) GetReservationNo() string {
+	if x != nil {
+		return x.ReservationNo
+	}
+	return ""
+}
+
+func (x *ReserveAIUsageResponse) GetReservedCredits() int64 {
+	if x != nil {
+		return x.ReservedCredits
+	}
+	return 0
+}
+
+func (x *ReserveAIUsageResponse) GetAvailableCredits() int64 {
+	if x != nil {
+		return x.AvailableCredits
+	}
+	return 0
+}
+
+func (x *ReserveAIUsageResponse) GetExpiresAtUnixMs() int64 {
+	if x != nil {
+		return x.ExpiresAtUnixMs
+	}
+	return 0
+}
+
+func (x *ReserveAIUsageResponse) GetEnforcementMode() BillingEnforcementMode {
+	if x != nil {
+		return x.EnforcementMode
+	}
+	return BillingEnforcementMode_BILLING_ENFORCEMENT_MODE_UNSPECIFIED
+}
+
+type AIProviderUsage struct {
+	state             protoimpl.MessageState `protogen:"open.v1"`
+	ProviderCallSeq   int32                  `protobuf:"varint,1,opt,name=provider_call_seq,json=providerCallSeq,proto3" json:"provider_call_seq,omitempty"`
+	ProviderKey       string                 `protobuf:"bytes,2,opt,name=provider_key,json=providerKey,proto3" json:"provider_key,omitempty"`
+	ModelKey          string                 `protobuf:"bytes,3,opt,name=model_key,json=modelKey,proto3" json:"model_key,omitempty"`
+	InputTokens       int64                  `protobuf:"varint,4,opt,name=input_tokens,json=inputTokens,proto3" json:"input_tokens,omitempty"`
+	OutputTokens      int64                  `protobuf:"varint,5,opt,name=output_tokens,json=outputTokens,proto3" json:"output_tokens,omitempty"`
+	CachedInputTokens int64                  `protobuf:"varint,6,opt,name=cached_input_tokens,json=cachedInputTokens,proto3" json:"cached_input_tokens,omitempty"`
+	ProviderRequestId string                 `protobuf:"bytes,7,opt,name=provider_request_id,json=providerRequestId,proto3" json:"provider_request_id,omitempty"`
+	Estimated         bool                   `protobuf:"varint,8,opt,name=estimated,proto3" json:"estimated,omitempty"`
+	OccurredAtUnixMs  int64                  `protobuf:"varint,9,opt,name=occurred_at_unix_ms,json=occurredAtUnixMs,proto3" json:"occurred_at_unix_ms,omitempty"`
+	MetadataJson      string                 `protobuf:"bytes,10,opt,name=metadata_json,json=metadataJson,proto3" json:"metadata_json,omitempty"`
+	unknownFields     protoimpl.UnknownFields
+	sizeCache         protoimpl.SizeCache
+}
+
+func (x *AIProviderUsage) Reset() {
+	*x = AIProviderUsage{}
+	mi := &file_proto_recruitment_proto_msgTypes[464]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *AIProviderUsage) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*AIProviderUsage) ProtoMessage() {}
+
+func (x *AIProviderUsage) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_recruitment_proto_msgTypes[464]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use AIProviderUsage.ProtoReflect.Descriptor instead.
+func (*AIProviderUsage) Descriptor() ([]byte, []int) {
+	return file_proto_recruitment_proto_rawDescGZIP(), []int{464}
+}
+
+func (x *AIProviderUsage) GetProviderCallSeq() int32 {
+	if x != nil {
+		return x.ProviderCallSeq
+	}
+	return 0
+}
+
+func (x *AIProviderUsage) GetProviderKey() string {
+	if x != nil {
+		return x.ProviderKey
+	}
+	return ""
+}
+
+func (x *AIProviderUsage) GetModelKey() string {
+	if x != nil {
+		return x.ModelKey
+	}
+	return ""
+}
+
+func (x *AIProviderUsage) GetInputTokens() int64 {
+	if x != nil {
+		return x.InputTokens
+	}
+	return 0
+}
+
+func (x *AIProviderUsage) GetOutputTokens() int64 {
+	if x != nil {
+		return x.OutputTokens
+	}
+	return 0
+}
+
+func (x *AIProviderUsage) GetCachedInputTokens() int64 {
+	if x != nil {
+		return x.CachedInputTokens
+	}
+	return 0
+}
+
+func (x *AIProviderUsage) GetProviderRequestId() string {
+	if x != nil {
+		return x.ProviderRequestId
+	}
+	return ""
+}
+
+func (x *AIProviderUsage) GetEstimated() bool {
+	if x != nil {
+		return x.Estimated
+	}
+	return false
+}
+
+func (x *AIProviderUsage) GetOccurredAtUnixMs() int64 {
+	if x != nil {
+		return x.OccurredAtUnixMs
+	}
+	return 0
+}
+
+func (x *AIProviderUsage) GetMetadataJson() string {
+	if x != nil {
+		return x.MetadataJson
+	}
+	return ""
+}
+
+type SettleAIUsageRequest struct {
+	state          protoimpl.MessageState `protogen:"open.v1"`
+	ReservationNo  string                 `protobuf:"bytes,1,opt,name=reservation_no,json=reservationNo,proto3" json:"reservation_no,omitempty"`
+	ProviderUsages []*AIProviderUsage     `protobuf:"bytes,2,rep,name=provider_usages,json=providerUsages,proto3" json:"provider_usages,omitempty"`
+	IdempotencyKey string                 `protobuf:"bytes,3,opt,name=idempotency_key,json=idempotencyKey,proto3" json:"idempotency_key,omitempty"`
+	unknownFields  protoimpl.UnknownFields
+	sizeCache      protoimpl.SizeCache
+}
+
+func (x *SettleAIUsageRequest) Reset() {
+	*x = SettleAIUsageRequest{}
+	mi := &file_proto_recruitment_proto_msgTypes[465]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *SettleAIUsageRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*SettleAIUsageRequest) ProtoMessage() {}
+
+func (x *SettleAIUsageRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_recruitment_proto_msgTypes[465]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use SettleAIUsageRequest.ProtoReflect.Descriptor instead.
+func (*SettleAIUsageRequest) Descriptor() ([]byte, []int) {
+	return file_proto_recruitment_proto_rawDescGZIP(), []int{465}
+}
+
+func (x *SettleAIUsageRequest) GetReservationNo() string {
+	if x != nil {
+		return x.ReservationNo
+	}
+	return ""
+}
+
+func (x *SettleAIUsageRequest) GetProviderUsages() []*AIProviderUsage {
+	if x != nil {
+		return x.ProviderUsages
+	}
+	return nil
+}
+
+func (x *SettleAIUsageRequest) GetIdempotencyKey() string {
+	if x != nil {
+		return x.IdempotencyKey
+	}
+	return ""
+}
+
+type SettleAIUsageResponse struct {
+	state              protoimpl.MessageState `protogen:"open.v1"`
+	Code               int32                  `protobuf:"varint,1,opt,name=code,proto3" json:"code,omitempty"`
+	Msg                string                 `protobuf:"bytes,2,opt,name=msg,proto3" json:"msg,omitempty"`
+	ChargedCredits     int64                  `protobuf:"varint,3,opt,name=charged_credits,json=chargedCredits,proto3" json:"charged_credits,omitempty"`
+	SupplierCostMicros int64                  `protobuf:"varint,4,opt,name=supplier_cost_micros,json=supplierCostMicros,proto3" json:"supplier_cost_micros,omitempty"`
+	AvailableCredits   int64                  `protobuf:"varint,5,opt,name=available_credits,json=availableCredits,proto3" json:"available_credits,omitempty"`
+	AlreadySettled     bool                   `protobuf:"varint,6,opt,name=already_settled,json=alreadySettled,proto3" json:"already_settled,omitempty"`
+	unknownFields      protoimpl.UnknownFields
+	sizeCache          protoimpl.SizeCache
+}
+
+func (x *SettleAIUsageResponse) Reset() {
+	*x = SettleAIUsageResponse{}
+	mi := &file_proto_recruitment_proto_msgTypes[466]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *SettleAIUsageResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*SettleAIUsageResponse) ProtoMessage() {}
+
+func (x *SettleAIUsageResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_recruitment_proto_msgTypes[466]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use SettleAIUsageResponse.ProtoReflect.Descriptor instead.
+func (*SettleAIUsageResponse) Descriptor() ([]byte, []int) {
+	return file_proto_recruitment_proto_rawDescGZIP(), []int{466}
+}
+
+func (x *SettleAIUsageResponse) GetCode() int32 {
+	if x != nil {
+		return x.Code
+	}
+	return 0
+}
+
+func (x *SettleAIUsageResponse) GetMsg() string {
+	if x != nil {
+		return x.Msg
+	}
+	return ""
+}
+
+func (x *SettleAIUsageResponse) GetChargedCredits() int64 {
+	if x != nil {
+		return x.ChargedCredits
+	}
+	return 0
+}
+
+func (x *SettleAIUsageResponse) GetSupplierCostMicros() int64 {
+	if x != nil {
+		return x.SupplierCostMicros
+	}
+	return 0
+}
+
+func (x *SettleAIUsageResponse) GetAvailableCredits() int64 {
+	if x != nil {
+		return x.AvailableCredits
+	}
+	return 0
+}
+
+func (x *SettleAIUsageResponse) GetAlreadySettled() bool {
+	if x != nil {
+		return x.AlreadySettled
+	}
+	return false
+}
+
+type CancelAIUsageRequest struct {
+	state          protoimpl.MessageState `protogen:"open.v1"`
+	ReservationNo  string                 `protobuf:"bytes,1,opt,name=reservation_no,json=reservationNo,proto3" json:"reservation_no,omitempty"`
+	Reason         string                 `protobuf:"bytes,2,opt,name=reason,proto3" json:"reason,omitempty"`
+	IdempotencyKey string                 `protobuf:"bytes,3,opt,name=idempotency_key,json=idempotencyKey,proto3" json:"idempotency_key,omitempty"`
+	unknownFields  protoimpl.UnknownFields
+	sizeCache      protoimpl.SizeCache
+}
+
+func (x *CancelAIUsageRequest) Reset() {
+	*x = CancelAIUsageRequest{}
+	mi := &file_proto_recruitment_proto_msgTypes[467]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *CancelAIUsageRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*CancelAIUsageRequest) ProtoMessage() {}
+
+func (x *CancelAIUsageRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_recruitment_proto_msgTypes[467]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use CancelAIUsageRequest.ProtoReflect.Descriptor instead.
+func (*CancelAIUsageRequest) Descriptor() ([]byte, []int) {
+	return file_proto_recruitment_proto_rawDescGZIP(), []int{467}
+}
+
+func (x *CancelAIUsageRequest) GetReservationNo() string {
+	if x != nil {
+		return x.ReservationNo
+	}
+	return ""
+}
+
+func (x *CancelAIUsageRequest) GetReason() string {
+	if x != nil {
+		return x.Reason
+	}
+	return ""
+}
+
+func (x *CancelAIUsageRequest) GetIdempotencyKey() string {
+	if x != nil {
+		return x.IdempotencyKey
+	}
+	return ""
+}
+
+type CancelAIUsageResponse struct {
+	state            protoimpl.MessageState `protogen:"open.v1"`
+	Code             int32                  `protobuf:"varint,1,opt,name=code,proto3" json:"code,omitempty"`
+	Msg              string                 `protobuf:"bytes,2,opt,name=msg,proto3" json:"msg,omitempty"`
+	ReleasedCredits  int64                  `protobuf:"varint,3,opt,name=released_credits,json=releasedCredits,proto3" json:"released_credits,omitempty"`
+	AvailableCredits int64                  `protobuf:"varint,4,opt,name=available_credits,json=availableCredits,proto3" json:"available_credits,omitempty"`
+	AlreadyCancelled bool                   `protobuf:"varint,5,opt,name=already_cancelled,json=alreadyCancelled,proto3" json:"already_cancelled,omitempty"`
+	unknownFields    protoimpl.UnknownFields
+	sizeCache        protoimpl.SizeCache
+}
+
+func (x *CancelAIUsageResponse) Reset() {
+	*x = CancelAIUsageResponse{}
+	mi := &file_proto_recruitment_proto_msgTypes[468]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *CancelAIUsageResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*CancelAIUsageResponse) ProtoMessage() {}
+
+func (x *CancelAIUsageResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_recruitment_proto_msgTypes[468]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use CancelAIUsageResponse.ProtoReflect.Descriptor instead.
+func (*CancelAIUsageResponse) Descriptor() ([]byte, []int) {
+	return file_proto_recruitment_proto_rawDescGZIP(), []int{468}
+}
+
+func (x *CancelAIUsageResponse) GetCode() int32 {
+	if x != nil {
+		return x.Code
+	}
+	return 0
+}
+
+func (x *CancelAIUsageResponse) GetMsg() string {
+	if x != nil {
+		return x.Msg
+	}
+	return ""
+}
+
+func (x *CancelAIUsageResponse) GetReleasedCredits() int64 {
+	if x != nil {
+		return x.ReleasedCredits
+	}
+	return 0
+}
+
+func (x *CancelAIUsageResponse) GetAvailableCredits() int64 {
+	if x != nil {
+		return x.AvailableCredits
+	}
+	return 0
+}
+
+func (x *CancelAIUsageResponse) GetAlreadyCancelled() bool {
+	if x != nil {
+		return x.AlreadyCancelled
+	}
+	return false
+}
+
+type GetAICreditBalanceRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Owner         *BillingOwner          `protobuf:"bytes,1,opt,name=owner,proto3" json:"owner,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GetAICreditBalanceRequest) Reset() {
+	*x = GetAICreditBalanceRequest{}
+	mi := &file_proto_recruitment_proto_msgTypes[469]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetAICreditBalanceRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetAICreditBalanceRequest) ProtoMessage() {}
+
+func (x *GetAICreditBalanceRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_recruitment_proto_msgTypes[469]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetAICreditBalanceRequest.ProtoReflect.Descriptor instead.
+func (*GetAICreditBalanceRequest) Descriptor() ([]byte, []int) {
+	return file_proto_recruitment_proto_rawDescGZIP(), []int{469}
+}
+
+func (x *GetAICreditBalanceRequest) GetOwner() *BillingOwner {
+	if x != nil {
+		return x.Owner
+	}
+	return nil
+}
+
+type GetAICreditBalanceResponse struct {
+	state              protoimpl.MessageState `protogen:"open.v1"`
+	Code               int32                  `protobuf:"varint,1,opt,name=code,proto3" json:"code,omitempty"`
+	Msg                string                 `protobuf:"bytes,2,opt,name=msg,proto3" json:"msg,omitempty"`
+	AvailableCredits   int64                  `protobuf:"varint,3,opt,name=available_credits,json=availableCredits,proto3" json:"available_credits,omitempty"`
+	ReservedCredits    int64                  `protobuf:"varint,4,opt,name=reserved_credits,json=reservedCredits,proto3" json:"reserved_credits,omitempty"`
+	NextExpiryAtUnixMs int64                  `protobuf:"varint,5,opt,name=next_expiry_at_unix_ms,json=nextExpiryAtUnixMs,proto3" json:"next_expiry_at_unix_ms,omitempty"`
+	EnforcementMode    BillingEnforcementMode `protobuf:"varint,6,opt,name=enforcement_mode,json=enforcementMode,proto3,enum=recruitment.BillingEnforcementMode" json:"enforcement_mode,omitempty"`
+	unknownFields      protoimpl.UnknownFields
+	sizeCache          protoimpl.SizeCache
+}
+
+func (x *GetAICreditBalanceResponse) Reset() {
+	*x = GetAICreditBalanceResponse{}
+	mi := &file_proto_recruitment_proto_msgTypes[470]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetAICreditBalanceResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetAICreditBalanceResponse) ProtoMessage() {}
+
+func (x *GetAICreditBalanceResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_recruitment_proto_msgTypes[470]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetAICreditBalanceResponse.ProtoReflect.Descriptor instead.
+func (*GetAICreditBalanceResponse) Descriptor() ([]byte, []int) {
+	return file_proto_recruitment_proto_rawDescGZIP(), []int{470}
+}
+
+func (x *GetAICreditBalanceResponse) GetCode() int32 {
+	if x != nil {
+		return x.Code
+	}
+	return 0
+}
+
+func (x *GetAICreditBalanceResponse) GetMsg() string {
+	if x != nil {
+		return x.Msg
+	}
+	return ""
+}
+
+func (x *GetAICreditBalanceResponse) GetAvailableCredits() int64 {
+	if x != nil {
+		return x.AvailableCredits
+	}
+	return 0
+}
+
+func (x *GetAICreditBalanceResponse) GetReservedCredits() int64 {
+	if x != nil {
+		return x.ReservedCredits
+	}
+	return 0
+}
+
+func (x *GetAICreditBalanceResponse) GetNextExpiryAtUnixMs() int64 {
+	if x != nil {
+		return x.NextExpiryAtUnixMs
+	}
+	return 0
+}
+
+func (x *GetAICreditBalanceResponse) GetEnforcementMode() BillingEnforcementMode {
+	if x != nil {
+		return x.EnforcementMode
+	}
+	return BillingEnforcementMode_BILLING_ENFORCEMENT_MODE_UNSPECIFIED
+}
+
+type BillingPriceInfo struct {
+	state                   protoimpl.MessageState `protogen:"open.v1"`
+	Id                      int64                  `protobuf:"varint,1,opt,name=id,proto3" json:"id,omitempty"`
+	Version                 int32                  `protobuf:"varint,2,opt,name=version,proto3" json:"version,omitempty"`
+	BillingTerm             string                 `protobuf:"bytes,3,opt,name=billing_term,json=billingTerm,proto3" json:"billing_term,omitempty"`
+	AmountFen               int64                  `protobuf:"varint,4,opt,name=amount_fen,json=amountFen,proto3" json:"amount_fen,omitempty"`
+	Currency                string                 `protobuf:"bytes,5,opt,name=currency,proto3" json:"currency,omitempty"`
+	IncludedCredits         int64                  `protobuf:"varint,6,opt,name=included_credits,json=includedCredits,proto3" json:"included_credits,omitempty"`
+	EntitlementSnapshotJson string                 `protobuf:"bytes,7,opt,name=entitlement_snapshot_json,json=entitlementSnapshotJson,proto3" json:"entitlement_snapshot_json,omitempty"`
+	unknownFields           protoimpl.UnknownFields
+	sizeCache               protoimpl.SizeCache
+}
+
+func (x *BillingPriceInfo) Reset() {
+	*x = BillingPriceInfo{}
+	mi := &file_proto_recruitment_proto_msgTypes[471]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *BillingPriceInfo) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*BillingPriceInfo) ProtoMessage() {}
+
+func (x *BillingPriceInfo) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_recruitment_proto_msgTypes[471]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use BillingPriceInfo.ProtoReflect.Descriptor instead.
+func (*BillingPriceInfo) Descriptor() ([]byte, []int) {
+	return file_proto_recruitment_proto_rawDescGZIP(), []int{471}
+}
+
+func (x *BillingPriceInfo) GetId() int64 {
+	if x != nil {
+		return x.Id
+	}
+	return 0
+}
+
+func (x *BillingPriceInfo) GetVersion() int32 {
+	if x != nil {
+		return x.Version
+	}
+	return 0
+}
+
+func (x *BillingPriceInfo) GetBillingTerm() string {
+	if x != nil {
+		return x.BillingTerm
+	}
+	return ""
+}
+
+func (x *BillingPriceInfo) GetAmountFen() int64 {
+	if x != nil {
+		return x.AmountFen
+	}
+	return 0
+}
+
+func (x *BillingPriceInfo) GetCurrency() string {
+	if x != nil {
+		return x.Currency
+	}
+	return ""
+}
+
+func (x *BillingPriceInfo) GetIncludedCredits() int64 {
+	if x != nil {
+		return x.IncludedCredits
+	}
+	return 0
+}
+
+func (x *BillingPriceInfo) GetEntitlementSnapshotJson() string {
+	if x != nil {
+		return x.EntitlementSnapshotJson
+	}
+	return ""
+}
+
+type BillingProductInfo struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Id            int64                  `protobuf:"varint,1,opt,name=id,proto3" json:"id,omitempty"`
+	ProductKey    string                 `protobuf:"bytes,2,opt,name=product_key,json=productKey,proto3" json:"product_key,omitempty"`
+	Name          string                 `protobuf:"bytes,3,opt,name=name,proto3" json:"name,omitempty"`
+	Description   string                 `protobuf:"bytes,4,opt,name=description,proto3" json:"description,omitempty"`
+	ProductType   string                 `protobuf:"bytes,5,opt,name=product_type,json=productType,proto3" json:"product_type,omitempty"`
+	Prices        []*BillingPriceInfo    `protobuf:"bytes,6,rep,name=prices,proto3" json:"prices,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *BillingProductInfo) Reset() {
+	*x = BillingProductInfo{}
+	mi := &file_proto_recruitment_proto_msgTypes[472]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *BillingProductInfo) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*BillingProductInfo) ProtoMessage() {}
+
+func (x *BillingProductInfo) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_recruitment_proto_msgTypes[472]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use BillingProductInfo.ProtoReflect.Descriptor instead.
+func (*BillingProductInfo) Descriptor() ([]byte, []int) {
+	return file_proto_recruitment_proto_rawDescGZIP(), []int{472}
+}
+
+func (x *BillingProductInfo) GetId() int64 {
+	if x != nil {
+		return x.Id
+	}
+	return 0
+}
+
+func (x *BillingProductInfo) GetProductKey() string {
+	if x != nil {
+		return x.ProductKey
+	}
+	return ""
+}
+
+func (x *BillingProductInfo) GetName() string {
+	if x != nil {
+		return x.Name
+	}
+	return ""
+}
+
+func (x *BillingProductInfo) GetDescription() string {
+	if x != nil {
+		return x.Description
+	}
+	return ""
+}
+
+func (x *BillingProductInfo) GetProductType() string {
+	if x != nil {
+		return x.ProductType
+	}
+	return ""
+}
+
+func (x *BillingProductInfo) GetPrices() []*BillingPriceInfo {
+	if x != nil {
+		return x.Prices
+	}
+	return nil
+}
+
+type ListBillingCatalogRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Owner         *BillingOwner          `protobuf:"bytes,1,opt,name=owner,proto3" json:"owner,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ListBillingCatalogRequest) Reset() {
+	*x = ListBillingCatalogRequest{}
+	mi := &file_proto_recruitment_proto_msgTypes[473]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ListBillingCatalogRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ListBillingCatalogRequest) ProtoMessage() {}
+
+func (x *ListBillingCatalogRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_recruitment_proto_msgTypes[473]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ListBillingCatalogRequest.ProtoReflect.Descriptor instead.
+func (*ListBillingCatalogRequest) Descriptor() ([]byte, []int) {
+	return file_proto_recruitment_proto_rawDescGZIP(), []int{473}
+}
+
+func (x *ListBillingCatalogRequest) GetOwner() *BillingOwner {
+	if x != nil {
+		return x.Owner
+	}
+	return nil
+}
+
+type ListBillingCatalogResponse struct {
+	state              protoimpl.MessageState `protogen:"open.v1"`
+	Code               int32                  `protobuf:"varint,1,opt,name=code,proto3" json:"code,omitempty"`
+	Msg                string                 `protobuf:"bytes,2,opt,name=msg,proto3" json:"msg,omitempty"`
+	Products           []*BillingProductInfo  `protobuf:"bytes,3,rep,name=products,proto3" json:"products,omitempty"`
+	PaymentEnvironment string                 `protobuf:"bytes,4,opt,name=payment_environment,json=paymentEnvironment,proto3" json:"payment_environment,omitempty"`
+	unknownFields      protoimpl.UnknownFields
+	sizeCache          protoimpl.SizeCache
+}
+
+func (x *ListBillingCatalogResponse) Reset() {
+	*x = ListBillingCatalogResponse{}
+	mi := &file_proto_recruitment_proto_msgTypes[474]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ListBillingCatalogResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ListBillingCatalogResponse) ProtoMessage() {}
+
+func (x *ListBillingCatalogResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_recruitment_proto_msgTypes[474]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ListBillingCatalogResponse.ProtoReflect.Descriptor instead.
+func (*ListBillingCatalogResponse) Descriptor() ([]byte, []int) {
+	return file_proto_recruitment_proto_rawDescGZIP(), []int{474}
+}
+
+func (x *ListBillingCatalogResponse) GetCode() int32 {
+	if x != nil {
+		return x.Code
+	}
+	return 0
+}
+
+func (x *ListBillingCatalogResponse) GetMsg() string {
+	if x != nil {
+		return x.Msg
+	}
+	return ""
+}
+
+func (x *ListBillingCatalogResponse) GetProducts() []*BillingProductInfo {
+	if x != nil {
+		return x.Products
+	}
+	return nil
+}
+
+func (x *ListBillingCatalogResponse) GetPaymentEnvironment() string {
+	if x != nil {
+		return x.PaymentEnvironment
+	}
+	return ""
+}
+
+type BillingSubscriptionInfo struct {
+	state                    protoimpl.MessageState `protogen:"open.v1"`
+	Id                       int64                  `protobuf:"varint,1,opt,name=id,proto3" json:"id,omitempty"`
+	ProductKey               string                 `protobuf:"bytes,2,opt,name=product_key,json=productKey,proto3" json:"product_key,omitempty"`
+	ProductName              string                 `protobuf:"bytes,3,opt,name=product_name,json=productName,proto3" json:"product_name,omitempty"`
+	Status                   string                 `protobuf:"bytes,4,opt,name=status,proto3" json:"status,omitempty"`
+	Term                     string                 `protobuf:"bytes,5,opt,name=term,proto3" json:"term,omitempty"`
+	CurrentPeriodStartUnixMs int64                  `protobuf:"varint,6,opt,name=current_period_start_unix_ms,json=currentPeriodStartUnixMs,proto3" json:"current_period_start_unix_ms,omitempty"`
+	CurrentPeriodEndUnixMs   int64                  `protobuf:"varint,7,opt,name=current_period_end_unix_ms,json=currentPeriodEndUnixMs,proto3" json:"current_period_end_unix_ms,omitempty"`
+	CancelAtPeriodEnd        bool                   `protobuf:"varint,8,opt,name=cancel_at_period_end,json=cancelAtPeriodEnd,proto3" json:"cancel_at_period_end,omitempty"`
+	unknownFields            protoimpl.UnknownFields
+	sizeCache                protoimpl.SizeCache
+}
+
+func (x *BillingSubscriptionInfo) Reset() {
+	*x = BillingSubscriptionInfo{}
+	mi := &file_proto_recruitment_proto_msgTypes[475]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *BillingSubscriptionInfo) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*BillingSubscriptionInfo) ProtoMessage() {}
+
+func (x *BillingSubscriptionInfo) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_recruitment_proto_msgTypes[475]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use BillingSubscriptionInfo.ProtoReflect.Descriptor instead.
+func (*BillingSubscriptionInfo) Descriptor() ([]byte, []int) {
+	return file_proto_recruitment_proto_rawDescGZIP(), []int{475}
+}
+
+func (x *BillingSubscriptionInfo) GetId() int64 {
+	if x != nil {
+		return x.Id
+	}
+	return 0
+}
+
+func (x *BillingSubscriptionInfo) GetProductKey() string {
+	if x != nil {
+		return x.ProductKey
+	}
+	return ""
+}
+
+func (x *BillingSubscriptionInfo) GetProductName() string {
+	if x != nil {
+		return x.ProductName
+	}
+	return ""
+}
+
+func (x *BillingSubscriptionInfo) GetStatus() string {
+	if x != nil {
+		return x.Status
+	}
+	return ""
+}
+
+func (x *BillingSubscriptionInfo) GetTerm() string {
+	if x != nil {
+		return x.Term
+	}
+	return ""
+}
+
+func (x *BillingSubscriptionInfo) GetCurrentPeriodStartUnixMs() int64 {
+	if x != nil {
+		return x.CurrentPeriodStartUnixMs
+	}
+	return 0
+}
+
+func (x *BillingSubscriptionInfo) GetCurrentPeriodEndUnixMs() int64 {
+	if x != nil {
+		return x.CurrentPeriodEndUnixMs
+	}
+	return 0
+}
+
+func (x *BillingSubscriptionInfo) GetCancelAtPeriodEnd() bool {
+	if x != nil {
+		return x.CancelAtPeriodEnd
+	}
+	return false
+}
+
+type GetBillingAccountRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Owner         *BillingOwner          `protobuf:"bytes,1,opt,name=owner,proto3" json:"owner,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GetBillingAccountRequest) Reset() {
+	*x = GetBillingAccountRequest{}
+	mi := &file_proto_recruitment_proto_msgTypes[476]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetBillingAccountRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetBillingAccountRequest) ProtoMessage() {}
+
+func (x *GetBillingAccountRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_recruitment_proto_msgTypes[476]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetBillingAccountRequest.ProtoReflect.Descriptor instead.
+func (*GetBillingAccountRequest) Descriptor() ([]byte, []int) {
+	return file_proto_recruitment_proto_rawDescGZIP(), []int{476}
+}
+
+func (x *GetBillingAccountRequest) GetOwner() *BillingOwner {
+	if x != nil {
+		return x.Owner
+	}
+	return nil
+}
+
+type GetBillingAccountResponse struct {
+	state              protoimpl.MessageState   `protogen:"open.v1"`
+	Code               int32                    `protobuf:"varint,1,opt,name=code,proto3" json:"code,omitempty"`
+	Msg                string                   `protobuf:"bytes,2,opt,name=msg,proto3" json:"msg,omitempty"`
+	Subscription       *BillingSubscriptionInfo `protobuf:"bytes,3,opt,name=subscription,proto3" json:"subscription,omitempty"`
+	AvailableCredits   int64                    `protobuf:"varint,4,opt,name=available_credits,json=availableCredits,proto3" json:"available_credits,omitempty"`
+	ReservedCredits    int64                    `protobuf:"varint,5,opt,name=reserved_credits,json=reservedCredits,proto3" json:"reserved_credits,omitempty"`
+	NextExpiryAtUnixMs int64                    `protobuf:"varint,6,opt,name=next_expiry_at_unix_ms,json=nextExpiryAtUnixMs,proto3" json:"next_expiry_at_unix_ms,omitempty"`
+	PaymentEnvironment string                   `protobuf:"bytes,7,opt,name=payment_environment,json=paymentEnvironment,proto3" json:"payment_environment,omitempty"`
+	unknownFields      protoimpl.UnknownFields
+	sizeCache          protoimpl.SizeCache
+}
+
+func (x *GetBillingAccountResponse) Reset() {
+	*x = GetBillingAccountResponse{}
+	mi := &file_proto_recruitment_proto_msgTypes[477]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetBillingAccountResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetBillingAccountResponse) ProtoMessage() {}
+
+func (x *GetBillingAccountResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_recruitment_proto_msgTypes[477]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetBillingAccountResponse.ProtoReflect.Descriptor instead.
+func (*GetBillingAccountResponse) Descriptor() ([]byte, []int) {
+	return file_proto_recruitment_proto_rawDescGZIP(), []int{477}
+}
+
+func (x *GetBillingAccountResponse) GetCode() int32 {
+	if x != nil {
+		return x.Code
+	}
+	return 0
+}
+
+func (x *GetBillingAccountResponse) GetMsg() string {
+	if x != nil {
+		return x.Msg
+	}
+	return ""
+}
+
+func (x *GetBillingAccountResponse) GetSubscription() *BillingSubscriptionInfo {
+	if x != nil {
+		return x.Subscription
+	}
+	return nil
+}
+
+func (x *GetBillingAccountResponse) GetAvailableCredits() int64 {
+	if x != nil {
+		return x.AvailableCredits
+	}
+	return 0
+}
+
+func (x *GetBillingAccountResponse) GetReservedCredits() int64 {
+	if x != nil {
+		return x.ReservedCredits
+	}
+	return 0
+}
+
+func (x *GetBillingAccountResponse) GetNextExpiryAtUnixMs() int64 {
+	if x != nil {
+		return x.NextExpiryAtUnixMs
+	}
+	return 0
+}
+
+func (x *GetBillingAccountResponse) GetPaymentEnvironment() string {
+	if x != nil {
+		return x.PaymentEnvironment
+	}
+	return ""
+}
+
+type BillingOrderInfo struct {
+	state              protoimpl.MessageState `protogen:"open.v1"`
+	OrderNo            string                 `protobuf:"bytes,1,opt,name=order_no,json=orderNo,proto3" json:"order_no,omitempty"`
+	OrderType          string                 `protobuf:"bytes,2,opt,name=order_type,json=orderType,proto3" json:"order_type,omitempty"`
+	ProductKey         string                 `protobuf:"bytes,3,opt,name=product_key,json=productKey,proto3" json:"product_key,omitempty"`
+	ProductName        string                 `protobuf:"bytes,4,opt,name=product_name,json=productName,proto3" json:"product_name,omitempty"`
+	PriceVersionId     int64                  `protobuf:"varint,5,opt,name=price_version_id,json=priceVersionId,proto3" json:"price_version_id,omitempty"`
+	AmountFen          int64                  `protobuf:"varint,6,opt,name=amount_fen,json=amountFen,proto3" json:"amount_fen,omitempty"`
+	Currency           string                 `protobuf:"bytes,7,opt,name=currency,proto3" json:"currency,omitempty"`
+	Status             string                 `protobuf:"bytes,8,opt,name=status,proto3" json:"status,omitempty"`
+	PaymentEnvironment string                 `protobuf:"bytes,9,opt,name=payment_environment,json=paymentEnvironment,proto3" json:"payment_environment,omitempty"`
+	ExpiresAtUnixMs    int64                  `protobuf:"varint,10,opt,name=expires_at_unix_ms,json=expiresAtUnixMs,proto3" json:"expires_at_unix_ms,omitempty"`
+	PaidAtUnixMs       int64                  `protobuf:"varint,11,opt,name=paid_at_unix_ms,json=paidAtUnixMs,proto3" json:"paid_at_unix_ms,omitempty"`
+	CreatedAtUnixMs    int64                  `protobuf:"varint,12,opt,name=created_at_unix_ms,json=createdAtUnixMs,proto3" json:"created_at_unix_ms,omitempty"`
+	unknownFields      protoimpl.UnknownFields
+	sizeCache          protoimpl.SizeCache
+}
+
+func (x *BillingOrderInfo) Reset() {
+	*x = BillingOrderInfo{}
+	mi := &file_proto_recruitment_proto_msgTypes[478]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *BillingOrderInfo) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*BillingOrderInfo) ProtoMessage() {}
+
+func (x *BillingOrderInfo) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_recruitment_proto_msgTypes[478]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use BillingOrderInfo.ProtoReflect.Descriptor instead.
+func (*BillingOrderInfo) Descriptor() ([]byte, []int) {
+	return file_proto_recruitment_proto_rawDescGZIP(), []int{478}
+}
+
+func (x *BillingOrderInfo) GetOrderNo() string {
+	if x != nil {
+		return x.OrderNo
+	}
+	return ""
+}
+
+func (x *BillingOrderInfo) GetOrderType() string {
+	if x != nil {
+		return x.OrderType
+	}
+	return ""
+}
+
+func (x *BillingOrderInfo) GetProductKey() string {
+	if x != nil {
+		return x.ProductKey
+	}
+	return ""
+}
+
+func (x *BillingOrderInfo) GetProductName() string {
+	if x != nil {
+		return x.ProductName
+	}
+	return ""
+}
+
+func (x *BillingOrderInfo) GetPriceVersionId() int64 {
+	if x != nil {
+		return x.PriceVersionId
+	}
+	return 0
+}
+
+func (x *BillingOrderInfo) GetAmountFen() int64 {
+	if x != nil {
+		return x.AmountFen
+	}
+	return 0
+}
+
+func (x *BillingOrderInfo) GetCurrency() string {
+	if x != nil {
+		return x.Currency
+	}
+	return ""
+}
+
+func (x *BillingOrderInfo) GetStatus() string {
+	if x != nil {
+		return x.Status
+	}
+	return ""
+}
+
+func (x *BillingOrderInfo) GetPaymentEnvironment() string {
+	if x != nil {
+		return x.PaymentEnvironment
+	}
+	return ""
+}
+
+func (x *BillingOrderInfo) GetExpiresAtUnixMs() int64 {
+	if x != nil {
+		return x.ExpiresAtUnixMs
+	}
+	return 0
+}
+
+func (x *BillingOrderInfo) GetPaidAtUnixMs() int64 {
+	if x != nil {
+		return x.PaidAtUnixMs
+	}
+	return 0
+}
+
+func (x *BillingOrderInfo) GetCreatedAtUnixMs() int64 {
+	if x != nil {
+		return x.CreatedAtUnixMs
+	}
+	return 0
+}
+
+type ListBillingOrdersRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Owner         *BillingOwner          `protobuf:"bytes,1,opt,name=owner,proto3" json:"owner,omitempty"`
+	Page          int32                  `protobuf:"varint,2,opt,name=page,proto3" json:"page,omitempty"`
+	PageSize      int32                  `protobuf:"varint,3,opt,name=page_size,json=pageSize,proto3" json:"page_size,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ListBillingOrdersRequest) Reset() {
+	*x = ListBillingOrdersRequest{}
+	mi := &file_proto_recruitment_proto_msgTypes[479]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ListBillingOrdersRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ListBillingOrdersRequest) ProtoMessage() {}
+
+func (x *ListBillingOrdersRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_recruitment_proto_msgTypes[479]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ListBillingOrdersRequest.ProtoReflect.Descriptor instead.
+func (*ListBillingOrdersRequest) Descriptor() ([]byte, []int) {
+	return file_proto_recruitment_proto_rawDescGZIP(), []int{479}
+}
+
+func (x *ListBillingOrdersRequest) GetOwner() *BillingOwner {
+	if x != nil {
+		return x.Owner
+	}
+	return nil
+}
+
+func (x *ListBillingOrdersRequest) GetPage() int32 {
+	if x != nil {
+		return x.Page
+	}
+	return 0
+}
+
+func (x *ListBillingOrdersRequest) GetPageSize() int32 {
+	if x != nil {
+		return x.PageSize
+	}
+	return 0
+}
+
+type ListBillingOrdersResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Code          int32                  `protobuf:"varint,1,opt,name=code,proto3" json:"code,omitempty"`
+	Msg           string                 `protobuf:"bytes,2,opt,name=msg,proto3" json:"msg,omitempty"`
+	Orders        []*BillingOrderInfo    `protobuf:"bytes,3,rep,name=orders,proto3" json:"orders,omitempty"`
+	Total         int64                  `protobuf:"varint,4,opt,name=total,proto3" json:"total,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ListBillingOrdersResponse) Reset() {
+	*x = ListBillingOrdersResponse{}
+	mi := &file_proto_recruitment_proto_msgTypes[480]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ListBillingOrdersResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ListBillingOrdersResponse) ProtoMessage() {}
+
+func (x *ListBillingOrdersResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_recruitment_proto_msgTypes[480]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ListBillingOrdersResponse.ProtoReflect.Descriptor instead.
+func (*ListBillingOrdersResponse) Descriptor() ([]byte, []int) {
+	return file_proto_recruitment_proto_rawDescGZIP(), []int{480}
+}
+
+func (x *ListBillingOrdersResponse) GetCode() int32 {
+	if x != nil {
+		return x.Code
+	}
+	return 0
+}
+
+func (x *ListBillingOrdersResponse) GetMsg() string {
+	if x != nil {
+		return x.Msg
+	}
+	return ""
+}
+
+func (x *ListBillingOrdersResponse) GetOrders() []*BillingOrderInfo {
+	if x != nil {
+		return x.Orders
+	}
+	return nil
+}
+
+func (x *ListBillingOrdersResponse) GetTotal() int64 {
+	if x != nil {
+		return x.Total
+	}
+	return 0
+}
+
+type CreateBillingOrderRequest struct {
+	state          protoimpl.MessageState `protogen:"open.v1"`
+	Owner          *BillingOwner          `protobuf:"bytes,1,opt,name=owner,proto3" json:"owner,omitempty"`
+	ActorUserId    int64                  `protobuf:"varint,2,opt,name=actor_user_id,json=actorUserId,proto3" json:"actor_user_id,omitempty"`
+	PriceVersionId int64                  `protobuf:"varint,3,opt,name=price_version_id,json=priceVersionId,proto3" json:"price_version_id,omitempty"`
+	OrderType      string                 `protobuf:"bytes,4,opt,name=order_type,json=orderType,proto3" json:"order_type,omitempty"`
+	IdempotencyKey string                 `protobuf:"bytes,5,opt,name=idempotency_key,json=idempotencyKey,proto3" json:"idempotency_key,omitempty"`
+	unknownFields  protoimpl.UnknownFields
+	sizeCache      protoimpl.SizeCache
+}
+
+func (x *CreateBillingOrderRequest) Reset() {
+	*x = CreateBillingOrderRequest{}
+	mi := &file_proto_recruitment_proto_msgTypes[481]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *CreateBillingOrderRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*CreateBillingOrderRequest) ProtoMessage() {}
+
+func (x *CreateBillingOrderRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_recruitment_proto_msgTypes[481]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use CreateBillingOrderRequest.ProtoReflect.Descriptor instead.
+func (*CreateBillingOrderRequest) Descriptor() ([]byte, []int) {
+	return file_proto_recruitment_proto_rawDescGZIP(), []int{481}
+}
+
+func (x *CreateBillingOrderRequest) GetOwner() *BillingOwner {
+	if x != nil {
+		return x.Owner
+	}
+	return nil
+}
+
+func (x *CreateBillingOrderRequest) GetActorUserId() int64 {
+	if x != nil {
+		return x.ActorUserId
+	}
+	return 0
+}
+
+func (x *CreateBillingOrderRequest) GetPriceVersionId() int64 {
+	if x != nil {
+		return x.PriceVersionId
+	}
+	return 0
+}
+
+func (x *CreateBillingOrderRequest) GetOrderType() string {
+	if x != nil {
+		return x.OrderType
+	}
+	return ""
+}
+
+func (x *CreateBillingOrderRequest) GetIdempotencyKey() string {
+	if x != nil {
+		return x.IdempotencyKey
+	}
+	return ""
+}
+
+type BillingOrderResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Code          int32                  `protobuf:"varint,1,opt,name=code,proto3" json:"code,omitempty"`
+	Msg           string                 `protobuf:"bytes,2,opt,name=msg,proto3" json:"msg,omitempty"`
+	Order         *BillingOrderInfo      `protobuf:"bytes,3,opt,name=order,proto3" json:"order,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *BillingOrderResponse) Reset() {
+	*x = BillingOrderResponse{}
+	mi := &file_proto_recruitment_proto_msgTypes[482]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *BillingOrderResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*BillingOrderResponse) ProtoMessage() {}
+
+func (x *BillingOrderResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_recruitment_proto_msgTypes[482]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use BillingOrderResponse.ProtoReflect.Descriptor instead.
+func (*BillingOrderResponse) Descriptor() ([]byte, []int) {
+	return file_proto_recruitment_proto_rawDescGZIP(), []int{482}
+}
+
+func (x *BillingOrderResponse) GetCode() int32 {
+	if x != nil {
+		return x.Code
+	}
+	return 0
+}
+
+func (x *BillingOrderResponse) GetMsg() string {
+	if x != nil {
+		return x.Msg
+	}
+	return ""
+}
+
+func (x *BillingOrderResponse) GetOrder() *BillingOrderInfo {
+	if x != nil {
+		return x.Order
+	}
+	return nil
+}
+
+type CreateAlipayPaymentRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Owner         *BillingOwner          `protobuf:"bytes,1,opt,name=owner,proto3" json:"owner,omitempty"`
+	ActorUserId   int64                  `protobuf:"varint,2,opt,name=actor_user_id,json=actorUserId,proto3" json:"actor_user_id,omitempty"`
+	OrderNo       string                 `protobuf:"bytes,3,opt,name=order_no,json=orderNo,proto3" json:"order_no,omitempty"`
+	Scene         string                 `protobuf:"bytes,4,opt,name=scene,proto3" json:"scene,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *CreateAlipayPaymentRequest) Reset() {
+	*x = CreateAlipayPaymentRequest{}
+	mi := &file_proto_recruitment_proto_msgTypes[483]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *CreateAlipayPaymentRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*CreateAlipayPaymentRequest) ProtoMessage() {}
+
+func (x *CreateAlipayPaymentRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_recruitment_proto_msgTypes[483]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use CreateAlipayPaymentRequest.ProtoReflect.Descriptor instead.
+func (*CreateAlipayPaymentRequest) Descriptor() ([]byte, []int) {
+	return file_proto_recruitment_proto_rawDescGZIP(), []int{483}
+}
+
+func (x *CreateAlipayPaymentRequest) GetOwner() *BillingOwner {
+	if x != nil {
+		return x.Owner
+	}
+	return nil
+}
+
+func (x *CreateAlipayPaymentRequest) GetActorUserId() int64 {
+	if x != nil {
+		return x.ActorUserId
+	}
+	return 0
+}
+
+func (x *CreateAlipayPaymentRequest) GetOrderNo() string {
+	if x != nil {
+		return x.OrderNo
+	}
+	return ""
+}
+
+func (x *CreateAlipayPaymentRequest) GetScene() string {
+	if x != nil {
+		return x.Scene
+	}
+	return ""
+}
+
+type CreateAlipayPaymentResponse struct {
+	state              protoimpl.MessageState `protogen:"open.v1"`
+	Code               int32                  `protobuf:"varint,1,opt,name=code,proto3" json:"code,omitempty"`
+	Msg                string                 `protobuf:"bytes,2,opt,name=msg,proto3" json:"msg,omitempty"`
+	PaymentNo          string                 `protobuf:"bytes,3,opt,name=payment_no,json=paymentNo,proto3" json:"payment_no,omitempty"`
+	RedirectUrl        string                 `protobuf:"bytes,4,opt,name=redirect_url,json=redirectUrl,proto3" json:"redirect_url,omitempty"`
+	PaymentEnvironment string                 `protobuf:"bytes,5,opt,name=payment_environment,json=paymentEnvironment,proto3" json:"payment_environment,omitempty"`
+	unknownFields      protoimpl.UnknownFields
+	sizeCache          protoimpl.SizeCache
+}
+
+func (x *CreateAlipayPaymentResponse) Reset() {
+	*x = CreateAlipayPaymentResponse{}
+	mi := &file_proto_recruitment_proto_msgTypes[484]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *CreateAlipayPaymentResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*CreateAlipayPaymentResponse) ProtoMessage() {}
+
+func (x *CreateAlipayPaymentResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_recruitment_proto_msgTypes[484]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use CreateAlipayPaymentResponse.ProtoReflect.Descriptor instead.
+func (*CreateAlipayPaymentResponse) Descriptor() ([]byte, []int) {
+	return file_proto_recruitment_proto_rawDescGZIP(), []int{484}
+}
+
+func (x *CreateAlipayPaymentResponse) GetCode() int32 {
+	if x != nil {
+		return x.Code
+	}
+	return 0
+}
+
+func (x *CreateAlipayPaymentResponse) GetMsg() string {
+	if x != nil {
+		return x.Msg
+	}
+	return ""
+}
+
+func (x *CreateAlipayPaymentResponse) GetPaymentNo() string {
+	if x != nil {
+		return x.PaymentNo
+	}
+	return ""
+}
+
+func (x *CreateAlipayPaymentResponse) GetRedirectUrl() string {
+	if x != nil {
+		return x.RedirectUrl
+	}
+	return ""
+}
+
+func (x *CreateAlipayPaymentResponse) GetPaymentEnvironment() string {
+	if x != nil {
+		return x.PaymentEnvironment
+	}
+	return ""
+}
+
+type RequestBillingRefundRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Owner         *BillingOwner          `protobuf:"bytes,1,opt,name=owner,proto3" json:"owner,omitempty"`
+	ActorUserId   int64                  `protobuf:"varint,2,opt,name=actor_user_id,json=actorUserId,proto3" json:"actor_user_id,omitempty"`
+	OrderNo       string                 `protobuf:"bytes,3,opt,name=order_no,json=orderNo,proto3" json:"order_no,omitempty"`
+	Reason        string                 `protobuf:"bytes,4,opt,name=reason,proto3" json:"reason,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *RequestBillingRefundRequest) Reset() {
+	*x = RequestBillingRefundRequest{}
+	mi := &file_proto_recruitment_proto_msgTypes[485]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *RequestBillingRefundRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*RequestBillingRefundRequest) ProtoMessage() {}
+
+func (x *RequestBillingRefundRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_recruitment_proto_msgTypes[485]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use RequestBillingRefundRequest.ProtoReflect.Descriptor instead.
+func (*RequestBillingRefundRequest) Descriptor() ([]byte, []int) {
+	return file_proto_recruitment_proto_rawDescGZIP(), []int{485}
+}
+
+func (x *RequestBillingRefundRequest) GetOwner() *BillingOwner {
+	if x != nil {
+		return x.Owner
+	}
+	return nil
+}
+
+func (x *RequestBillingRefundRequest) GetActorUserId() int64 {
+	if x != nil {
+		return x.ActorUserId
+	}
+	return 0
+}
+
+func (x *RequestBillingRefundRequest) GetOrderNo() string {
+	if x != nil {
+		return x.OrderNo
+	}
+	return ""
+}
+
+func (x *RequestBillingRefundRequest) GetReason() string {
+	if x != nil {
+		return x.Reason
+	}
+	return ""
+}
+
+type BillingRefundResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Code          int32                  `protobuf:"varint,1,opt,name=code,proto3" json:"code,omitempty"`
+	Msg           string                 `protobuf:"bytes,2,opt,name=msg,proto3" json:"msg,omitempty"`
+	RefundNo      string                 `protobuf:"bytes,3,opt,name=refund_no,json=refundNo,proto3" json:"refund_no,omitempty"`
+	Status        string                 `protobuf:"bytes,4,opt,name=status,proto3" json:"status,omitempty"`
+	ReviewMode    string                 `protobuf:"bytes,5,opt,name=review_mode,json=reviewMode,proto3" json:"review_mode,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *BillingRefundResponse) Reset() {
+	*x = BillingRefundResponse{}
+	mi := &file_proto_recruitment_proto_msgTypes[486]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *BillingRefundResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*BillingRefundResponse) ProtoMessage() {}
+
+func (x *BillingRefundResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_recruitment_proto_msgTypes[486]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use BillingRefundResponse.ProtoReflect.Descriptor instead.
+func (*BillingRefundResponse) Descriptor() ([]byte, []int) {
+	return file_proto_recruitment_proto_rawDescGZIP(), []int{486}
+}
+
+func (x *BillingRefundResponse) GetCode() int32 {
+	if x != nil {
+		return x.Code
+	}
+	return 0
+}
+
+func (x *BillingRefundResponse) GetMsg() string {
+	if x != nil {
+		return x.Msg
+	}
+	return ""
+}
+
+func (x *BillingRefundResponse) GetRefundNo() string {
+	if x != nil {
+		return x.RefundNo
+	}
+	return ""
+}
+
+func (x *BillingRefundResponse) GetStatus() string {
+	if x != nil {
+		return x.Status
+	}
+	return ""
+}
+
+func (x *BillingRefundResponse) GetReviewMode() string {
+	if x != nil {
+		return x.ReviewMode
+	}
+	return ""
+}
+
+type AlipayNotificationField struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Key           string                 `protobuf:"bytes,1,opt,name=key,proto3" json:"key,omitempty"`
+	Value         string                 `protobuf:"bytes,2,opt,name=value,proto3" json:"value,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *AlipayNotificationField) Reset() {
+	*x = AlipayNotificationField{}
+	mi := &file_proto_recruitment_proto_msgTypes[487]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *AlipayNotificationField) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*AlipayNotificationField) ProtoMessage() {}
+
+func (x *AlipayNotificationField) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_recruitment_proto_msgTypes[487]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use AlipayNotificationField.ProtoReflect.Descriptor instead.
+func (*AlipayNotificationField) Descriptor() ([]byte, []int) {
+	return file_proto_recruitment_proto_rawDescGZIP(), []int{487}
+}
+
+func (x *AlipayNotificationField) GetKey() string {
+	if x != nil {
+		return x.Key
+	}
+	return ""
+}
+
+func (x *AlipayNotificationField) GetValue() string {
+	if x != nil {
+		return x.Value
+	}
+	return ""
+}
+
+type ProcessAlipayNotificationRequest struct {
+	state         protoimpl.MessageState     `protogen:"open.v1"`
+	Fields        []*AlipayNotificationField `protobuf:"bytes,1,rep,name=fields,proto3" json:"fields,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ProcessAlipayNotificationRequest) Reset() {
+	*x = ProcessAlipayNotificationRequest{}
+	mi := &file_proto_recruitment_proto_msgTypes[488]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ProcessAlipayNotificationRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ProcessAlipayNotificationRequest) ProtoMessage() {}
+
+func (x *ProcessAlipayNotificationRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_recruitment_proto_msgTypes[488]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ProcessAlipayNotificationRequest.ProtoReflect.Descriptor instead.
+func (*ProcessAlipayNotificationRequest) Descriptor() ([]byte, []int) {
+	return file_proto_recruitment_proto_rawDescGZIP(), []int{488}
+}
+
+func (x *ProcessAlipayNotificationRequest) GetFields() []*AlipayNotificationField {
+	if x != nil {
+		return x.Fields
+	}
+	return nil
+}
+
+type ProcessAlipayNotificationResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Code          int32                  `protobuf:"varint,1,opt,name=code,proto3" json:"code,omitempty"`
+	Msg           string                 `protobuf:"bytes,2,opt,name=msg,proto3" json:"msg,omitempty"`
+	Accepted      bool                   `protobuf:"varint,3,opt,name=accepted,proto3" json:"accepted,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ProcessAlipayNotificationResponse) Reset() {
+	*x = ProcessAlipayNotificationResponse{}
+	mi := &file_proto_recruitment_proto_msgTypes[489]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ProcessAlipayNotificationResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ProcessAlipayNotificationResponse) ProtoMessage() {}
+
+func (x *ProcessAlipayNotificationResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_recruitment_proto_msgTypes[489]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ProcessAlipayNotificationResponse.ProtoReflect.Descriptor instead.
+func (*ProcessAlipayNotificationResponse) Descriptor() ([]byte, []int) {
+	return file_proto_recruitment_proto_rawDescGZIP(), []int{489}
+}
+
+func (x *ProcessAlipayNotificationResponse) GetCode() int32 {
+	if x != nil {
+		return x.Code
+	}
+	return 0
+}
+
+func (x *ProcessAlipayNotificationResponse) GetMsg() string {
+	if x != nil {
+		return x.Msg
+	}
+	return ""
+}
+
+func (x *ProcessAlipayNotificationResponse) GetAccepted() bool {
+	if x != nil {
+		return x.Accepted
+	}
+	return false
+}
+
+type ListBillingAdminCatalogRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ListBillingAdminCatalogRequest) Reset() {
+	*x = ListBillingAdminCatalogRequest{}
+	mi := &file_proto_recruitment_proto_msgTypes[490]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ListBillingAdminCatalogRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ListBillingAdminCatalogRequest) ProtoMessage() {}
+
+func (x *ListBillingAdminCatalogRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_recruitment_proto_msgTypes[490]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ListBillingAdminCatalogRequest.ProtoReflect.Descriptor instead.
+func (*ListBillingAdminCatalogRequest) Descriptor() ([]byte, []int) {
+	return file_proto_recruitment_proto_rawDescGZIP(), []int{490}
+}
+
+type SaveBillingPriceVersionRequest struct {
+	state                   protoimpl.MessageState `protogen:"open.v1"`
+	ProductId               int64                  `protobuf:"varint,1,opt,name=product_id,json=productId,proto3" json:"product_id,omitempty"`
+	PriceVersionId          int64                  `protobuf:"varint,2,opt,name=price_version_id,json=priceVersionId,proto3" json:"price_version_id,omitempty"`
+	BillingTerm             string                 `protobuf:"bytes,3,opt,name=billing_term,json=billingTerm,proto3" json:"billing_term,omitempty"`
+	AmountFen               int64                  `protobuf:"varint,4,opt,name=amount_fen,json=amountFen,proto3" json:"amount_fen,omitempty"`
+	IncludedCredits         int64                  `protobuf:"varint,5,opt,name=included_credits,json=includedCredits,proto3" json:"included_credits,omitempty"`
+	EntitlementSnapshotJson string                 `protobuf:"bytes,6,opt,name=entitlement_snapshot_json,json=entitlementSnapshotJson,proto3" json:"entitlement_snapshot_json,omitempty"`
+	Publish                 bool                   `protobuf:"varint,7,opt,name=publish,proto3" json:"publish,omitempty"`
+	unknownFields           protoimpl.UnknownFields
+	sizeCache               protoimpl.SizeCache
+}
+
+func (x *SaveBillingPriceVersionRequest) Reset() {
+	*x = SaveBillingPriceVersionRequest{}
+	mi := &file_proto_recruitment_proto_msgTypes[491]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *SaveBillingPriceVersionRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*SaveBillingPriceVersionRequest) ProtoMessage() {}
+
+func (x *SaveBillingPriceVersionRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_recruitment_proto_msgTypes[491]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use SaveBillingPriceVersionRequest.ProtoReflect.Descriptor instead.
+func (*SaveBillingPriceVersionRequest) Descriptor() ([]byte, []int) {
+	return file_proto_recruitment_proto_rawDescGZIP(), []int{491}
+}
+
+func (x *SaveBillingPriceVersionRequest) GetProductId() int64 {
+	if x != nil {
+		return x.ProductId
+	}
+	return 0
+}
+
+func (x *SaveBillingPriceVersionRequest) GetPriceVersionId() int64 {
+	if x != nil {
+		return x.PriceVersionId
+	}
+	return 0
+}
+
+func (x *SaveBillingPriceVersionRequest) GetBillingTerm() string {
+	if x != nil {
+		return x.BillingTerm
+	}
+	return ""
+}
+
+func (x *SaveBillingPriceVersionRequest) GetAmountFen() int64 {
+	if x != nil {
+		return x.AmountFen
+	}
+	return 0
+}
+
+func (x *SaveBillingPriceVersionRequest) GetIncludedCredits() int64 {
+	if x != nil {
+		return x.IncludedCredits
+	}
+	return 0
+}
+
+func (x *SaveBillingPriceVersionRequest) GetEntitlementSnapshotJson() string {
+	if x != nil {
+		return x.EntitlementSnapshotJson
+	}
+	return ""
+}
+
+func (x *SaveBillingPriceVersionRequest) GetPublish() bool {
+	if x != nil {
+		return x.Publish
+	}
+	return false
+}
+
+type AIRateCardInfo struct {
+	state                         protoimpl.MessageState `protogen:"open.v1"`
+	Id                            int64                  `protobuf:"varint,1,opt,name=id,proto3" json:"id,omitempty"`
+	ProviderKey                   string                 `protobuf:"bytes,2,opt,name=provider_key,json=providerKey,proto3" json:"provider_key,omitempty"`
+	ModelKey                      string                 `protobuf:"bytes,3,opt,name=model_key,json=modelKey,proto3" json:"model_key,omitempty"`
+	Version                       int32                  `protobuf:"varint,4,opt,name=version,proto3" json:"version,omitempty"`
+	Currency                      string                 `protobuf:"bytes,5,opt,name=currency,proto3" json:"currency,omitempty"`
+	InputMicrosPer_1KTokens       int64                  `protobuf:"varint,6,opt,name=input_micros_per_1k_tokens,json=inputMicrosPer1kTokens,proto3" json:"input_micros_per_1k_tokens,omitempty"`
+	OutputMicrosPer_1KTokens      int64                  `protobuf:"varint,7,opt,name=output_micros_per_1k_tokens,json=outputMicrosPer1kTokens,proto3" json:"output_micros_per_1k_tokens,omitempty"`
+	CachedInputMicrosPer_1KTokens int64                  `protobuf:"varint,8,opt,name=cached_input_micros_per_1k_tokens,json=cachedInputMicrosPer1kTokens,proto3" json:"cached_input_micros_per_1k_tokens,omitempty"`
+	CreditMicros                  int64                  `protobuf:"varint,9,opt,name=credit_micros,json=creditMicros,proto3" json:"credit_micros,omitempty"`
+	Status                        string                 `protobuf:"bytes,10,opt,name=status,proto3" json:"status,omitempty"`
+	EffectiveAtUnixMs             int64                  `protobuf:"varint,11,opt,name=effective_at_unix_ms,json=effectiveAtUnixMs,proto3" json:"effective_at_unix_ms,omitempty"`
+	unknownFields                 protoimpl.UnknownFields
+	sizeCache                     protoimpl.SizeCache
+}
+
+func (x *AIRateCardInfo) Reset() {
+	*x = AIRateCardInfo{}
+	mi := &file_proto_recruitment_proto_msgTypes[492]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *AIRateCardInfo) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*AIRateCardInfo) ProtoMessage() {}
+
+func (x *AIRateCardInfo) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_recruitment_proto_msgTypes[492]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use AIRateCardInfo.ProtoReflect.Descriptor instead.
+func (*AIRateCardInfo) Descriptor() ([]byte, []int) {
+	return file_proto_recruitment_proto_rawDescGZIP(), []int{492}
+}
+
+func (x *AIRateCardInfo) GetId() int64 {
+	if x != nil {
+		return x.Id
+	}
+	return 0
+}
+
+func (x *AIRateCardInfo) GetProviderKey() string {
+	if x != nil {
+		return x.ProviderKey
+	}
+	return ""
+}
+
+func (x *AIRateCardInfo) GetModelKey() string {
+	if x != nil {
+		return x.ModelKey
+	}
+	return ""
+}
+
+func (x *AIRateCardInfo) GetVersion() int32 {
+	if x != nil {
+		return x.Version
+	}
+	return 0
+}
+
+func (x *AIRateCardInfo) GetCurrency() string {
+	if x != nil {
+		return x.Currency
+	}
+	return ""
+}
+
+func (x *AIRateCardInfo) GetInputMicrosPer_1KTokens() int64 {
+	if x != nil {
+		return x.InputMicrosPer_1KTokens
+	}
+	return 0
+}
+
+func (x *AIRateCardInfo) GetOutputMicrosPer_1KTokens() int64 {
+	if x != nil {
+		return x.OutputMicrosPer_1KTokens
+	}
+	return 0
+}
+
+func (x *AIRateCardInfo) GetCachedInputMicrosPer_1KTokens() int64 {
+	if x != nil {
+		return x.CachedInputMicrosPer_1KTokens
+	}
+	return 0
+}
+
+func (x *AIRateCardInfo) GetCreditMicros() int64 {
+	if x != nil {
+		return x.CreditMicros
+	}
+	return 0
+}
+
+func (x *AIRateCardInfo) GetStatus() string {
+	if x != nil {
+		return x.Status
+	}
+	return ""
+}
+
+func (x *AIRateCardInfo) GetEffectiveAtUnixMs() int64 {
+	if x != nil {
+		return x.EffectiveAtUnixMs
+	}
+	return 0
+}
+
+type ListAIRateCardsRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ListAIRateCardsRequest) Reset() {
+	*x = ListAIRateCardsRequest{}
+	mi := &file_proto_recruitment_proto_msgTypes[493]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ListAIRateCardsRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ListAIRateCardsRequest) ProtoMessage() {}
+
+func (x *ListAIRateCardsRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_recruitment_proto_msgTypes[493]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ListAIRateCardsRequest.ProtoReflect.Descriptor instead.
+func (*ListAIRateCardsRequest) Descriptor() ([]byte, []int) {
+	return file_proto_recruitment_proto_rawDescGZIP(), []int{493}
+}
+
+type ListAIRateCardsResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Code          int32                  `protobuf:"varint,1,opt,name=code,proto3" json:"code,omitempty"`
+	Msg           string                 `protobuf:"bytes,2,opt,name=msg,proto3" json:"msg,omitempty"`
+	Rates         []*AIRateCardInfo      `protobuf:"bytes,3,rep,name=rates,proto3" json:"rates,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ListAIRateCardsResponse) Reset() {
+	*x = ListAIRateCardsResponse{}
+	mi := &file_proto_recruitment_proto_msgTypes[494]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ListAIRateCardsResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ListAIRateCardsResponse) ProtoMessage() {}
+
+func (x *ListAIRateCardsResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_recruitment_proto_msgTypes[494]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ListAIRateCardsResponse.ProtoReflect.Descriptor instead.
+func (*ListAIRateCardsResponse) Descriptor() ([]byte, []int) {
+	return file_proto_recruitment_proto_rawDescGZIP(), []int{494}
+}
+
+func (x *ListAIRateCardsResponse) GetCode() int32 {
+	if x != nil {
+		return x.Code
+	}
+	return 0
+}
+
+func (x *ListAIRateCardsResponse) GetMsg() string {
+	if x != nil {
+		return x.Msg
+	}
+	return ""
+}
+
+func (x *ListAIRateCardsResponse) GetRates() []*AIRateCardInfo {
+	if x != nil {
+		return x.Rates
+	}
+	return nil
+}
+
+type SaveAIRateCardRequest struct {
+	state                         protoimpl.MessageState `protogen:"open.v1"`
+	ProviderKey                   string                 `protobuf:"bytes,1,opt,name=provider_key,json=providerKey,proto3" json:"provider_key,omitempty"`
+	ModelKey                      string                 `protobuf:"bytes,2,opt,name=model_key,json=modelKey,proto3" json:"model_key,omitempty"`
+	InputMicrosPer_1KTokens       int64                  `protobuf:"varint,3,opt,name=input_micros_per_1k_tokens,json=inputMicrosPer1kTokens,proto3" json:"input_micros_per_1k_tokens,omitempty"`
+	OutputMicrosPer_1KTokens      int64                  `protobuf:"varint,4,opt,name=output_micros_per_1k_tokens,json=outputMicrosPer1kTokens,proto3" json:"output_micros_per_1k_tokens,omitempty"`
+	CachedInputMicrosPer_1KTokens int64                  `protobuf:"varint,5,opt,name=cached_input_micros_per_1k_tokens,json=cachedInputMicrosPer1kTokens,proto3" json:"cached_input_micros_per_1k_tokens,omitempty"`
+	CreditMicros                  int64                  `protobuf:"varint,6,opt,name=credit_micros,json=creditMicros,proto3" json:"credit_micros,omitempty"`
+	Publish                       bool                   `protobuf:"varint,7,opt,name=publish,proto3" json:"publish,omitempty"`
+	unknownFields                 protoimpl.UnknownFields
+	sizeCache                     protoimpl.SizeCache
+}
+
+func (x *SaveAIRateCardRequest) Reset() {
+	*x = SaveAIRateCardRequest{}
+	mi := &file_proto_recruitment_proto_msgTypes[495]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *SaveAIRateCardRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*SaveAIRateCardRequest) ProtoMessage() {}
+
+func (x *SaveAIRateCardRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_recruitment_proto_msgTypes[495]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use SaveAIRateCardRequest.ProtoReflect.Descriptor instead.
+func (*SaveAIRateCardRequest) Descriptor() ([]byte, []int) {
+	return file_proto_recruitment_proto_rawDescGZIP(), []int{495}
+}
+
+func (x *SaveAIRateCardRequest) GetProviderKey() string {
+	if x != nil {
+		return x.ProviderKey
+	}
+	return ""
+}
+
+func (x *SaveAIRateCardRequest) GetModelKey() string {
+	if x != nil {
+		return x.ModelKey
+	}
+	return ""
+}
+
+func (x *SaveAIRateCardRequest) GetInputMicrosPer_1KTokens() int64 {
+	if x != nil {
+		return x.InputMicrosPer_1KTokens
+	}
+	return 0
+}
+
+func (x *SaveAIRateCardRequest) GetOutputMicrosPer_1KTokens() int64 {
+	if x != nil {
+		return x.OutputMicrosPer_1KTokens
+	}
+	return 0
+}
+
+func (x *SaveAIRateCardRequest) GetCachedInputMicrosPer_1KTokens() int64 {
+	if x != nil {
+		return x.CachedInputMicrosPer_1KTokens
+	}
+	return 0
+}
+
+func (x *SaveAIRateCardRequest) GetCreditMicros() int64 {
+	if x != nil {
+		return x.CreditMicros
+	}
+	return 0
+}
+
+func (x *SaveAIRateCardRequest) GetPublish() bool {
+	if x != nil {
+		return x.Publish
+	}
+	return false
+}
+
 var File_proto_recruitment_proto protoreflect.FileDescriptor
 
 const file_proto_recruitment_proto_rawDesc = "" +
@@ -40824,7 +43670,248 @@ const file_proto_recruitment_proto_rawDesc = "" +
 	"\x04code\x18\x01 \x01(\x05R\x04code\x12\x10\n" +
 	"\x03msg\x18\x02 \x01(\tR\x03msg\x12*\n" +
 	"\x11selected_model_id\x18\x03 \x01(\x03R\x0fselectedModelId\x12B\n" +
-	"\rcontext_usage\x18\x04 \x01(\v2\x1d.recruitment.ContextUsageInfoR\fcontextUsage2\xec\x05\n" +
+	"\rcontext_usage\x18\x04 \x01(\v2\x1d.recruitment.ContextUsageInfoR\fcontextUsage\"Q\n" +
+	"\fBillingOwner\x121\n" +
+	"\x04type\x18\x01 \x01(\x0e2\x1d.recruitment.BillingOwnerTypeR\x04type\x12\x0e\n" +
+	"\x02id\x18\x02 \x01(\x03R\x02id\"\xad\x01\n" +
+	"\x14CheckAIAccessRequest\x12/\n" +
+	"\x05owner\x18\x01 \x01(\v2\x19.recruitment.BillingOwnerR\x05owner\x12\x17\n" +
+	"\auser_id\x18\x02 \x01(\x03R\x06userId\x12\x1e\n" +
+	"\n" +
+	"capability\x18\x03 \x01(\tR\n" +
+	"capability\x12+\n" +
+	"\x11estimated_credits\x18\x04 \x01(\x03R\x10estimatedCredits\"\xec\x01\n" +
+	"\x15CheckAIAccessResponse\x12\x12\n" +
+	"\x04code\x18\x01 \x01(\x05R\x04code\x12\x10\n" +
+	"\x03msg\x18\x02 \x01(\tR\x03msg\x12\x18\n" +
+	"\aallowed\x18\x03 \x01(\bR\aallowed\x12\x16\n" +
+	"\x06reason\x18\x04 \x01(\tR\x06reason\x12+\n" +
+	"\x11available_credits\x18\x05 \x01(\x03R\x10availableCredits\x12N\n" +
+	"\x10enforcement_mode\x18\x06 \x01(\x0e2#.recruitment.BillingEnforcementModeR\x0fenforcementMode\"\xd6\x02\n" +
+	"\x15ReserveAIUsageRequest\x12/\n" +
+	"\x05owner\x18\x01 \x01(\v2\x19.recruitment.BillingOwnerR\x05owner\x12\x17\n" +
+	"\auser_id\x18\x02 \x01(\x03R\x06userId\x12\x1e\n" +
+	"\n" +
+	"capability\x18\x03 \x01(\tR\n" +
+	"capability\x12\x1c\n" +
+	"\toperation\x18\x04 \x01(\tR\toperation\x12!\n" +
+	"\fprovider_key\x18\x05 \x01(\tR\vproviderKey\x12\x1b\n" +
+	"\tmodel_key\x18\x06 \x01(\tR\bmodelKey\x12+\n" +
+	"\x11estimated_credits\x18\a \x01(\x03R\x10estimatedCredits\x12'\n" +
+	"\x0fidempotency_key\x18\b \x01(\tR\x0eidempotencyKey\x12\x1f\n" +
+	"\vttl_seconds\x18\t \x01(\x03R\n" +
+	"ttlSeconds\"\xec\x02\n" +
+	"\x16ReserveAIUsageResponse\x12\x12\n" +
+	"\x04code\x18\x01 \x01(\x05R\x04code\x12\x10\n" +
+	"\x03msg\x18\x02 \x01(\tR\x03msg\x12\x18\n" +
+	"\aallowed\x18\x03 \x01(\bR\aallowed\x12\x16\n" +
+	"\x06reason\x18\x04 \x01(\tR\x06reason\x12%\n" +
+	"\x0ereservation_no\x18\x05 \x01(\tR\rreservationNo\x12)\n" +
+	"\x10reserved_credits\x18\x06 \x01(\x03R\x0freservedCredits\x12+\n" +
+	"\x11available_credits\x18\a \x01(\x03R\x10availableCredits\x12+\n" +
+	"\x12expires_at_unix_ms\x18\b \x01(\x03R\x0fexpiresAtUnixMs\x12N\n" +
+	"\x10enforcement_mode\x18\t \x01(\x0e2#.recruitment.BillingEnforcementModeR\x0fenforcementMode\"\x97\x03\n" +
+	"\x0fAIProviderUsage\x12*\n" +
+	"\x11provider_call_seq\x18\x01 \x01(\x05R\x0fproviderCallSeq\x12!\n" +
+	"\fprovider_key\x18\x02 \x01(\tR\vproviderKey\x12\x1b\n" +
+	"\tmodel_key\x18\x03 \x01(\tR\bmodelKey\x12!\n" +
+	"\finput_tokens\x18\x04 \x01(\x03R\vinputTokens\x12#\n" +
+	"\routput_tokens\x18\x05 \x01(\x03R\foutputTokens\x12.\n" +
+	"\x13cached_input_tokens\x18\x06 \x01(\x03R\x11cachedInputTokens\x12.\n" +
+	"\x13provider_request_id\x18\a \x01(\tR\x11providerRequestId\x12\x1c\n" +
+	"\testimated\x18\b \x01(\bR\testimated\x12-\n" +
+	"\x13occurred_at_unix_ms\x18\t \x01(\x03R\x10occurredAtUnixMs\x12#\n" +
+	"\rmetadata_json\x18\n" +
+	" \x01(\tR\fmetadataJson\"\xad\x01\n" +
+	"\x14SettleAIUsageRequest\x12%\n" +
+	"\x0ereservation_no\x18\x01 \x01(\tR\rreservationNo\x12E\n" +
+	"\x0fprovider_usages\x18\x02 \x03(\v2\x1c.recruitment.AIProviderUsageR\x0eproviderUsages\x12'\n" +
+	"\x0fidempotency_key\x18\x03 \x01(\tR\x0eidempotencyKey\"\xee\x01\n" +
+	"\x15SettleAIUsageResponse\x12\x12\n" +
+	"\x04code\x18\x01 \x01(\x05R\x04code\x12\x10\n" +
+	"\x03msg\x18\x02 \x01(\tR\x03msg\x12'\n" +
+	"\x0fcharged_credits\x18\x03 \x01(\x03R\x0echargedCredits\x120\n" +
+	"\x14supplier_cost_micros\x18\x04 \x01(\x03R\x12supplierCostMicros\x12+\n" +
+	"\x11available_credits\x18\x05 \x01(\x03R\x10availableCredits\x12'\n" +
+	"\x0falready_settled\x18\x06 \x01(\bR\x0ealreadySettled\"~\n" +
+	"\x14CancelAIUsageRequest\x12%\n" +
+	"\x0ereservation_no\x18\x01 \x01(\tR\rreservationNo\x12\x16\n" +
+	"\x06reason\x18\x02 \x01(\tR\x06reason\x12'\n" +
+	"\x0fidempotency_key\x18\x03 \x01(\tR\x0eidempotencyKey\"\xc2\x01\n" +
+	"\x15CancelAIUsageResponse\x12\x12\n" +
+	"\x04code\x18\x01 \x01(\x05R\x04code\x12\x10\n" +
+	"\x03msg\x18\x02 \x01(\tR\x03msg\x12)\n" +
+	"\x10released_credits\x18\x03 \x01(\x03R\x0freleasedCredits\x12+\n" +
+	"\x11available_credits\x18\x04 \x01(\x03R\x10availableCredits\x12+\n" +
+	"\x11already_cancelled\x18\x05 \x01(\bR\x10alreadyCancelled\"L\n" +
+	"\x19GetAICreditBalanceRequest\x12/\n" +
+	"\x05owner\x18\x01 \x01(\v2\x19.recruitment.BillingOwnerR\x05owner\"\x9e\x02\n" +
+	"\x1aGetAICreditBalanceResponse\x12\x12\n" +
+	"\x04code\x18\x01 \x01(\x05R\x04code\x12\x10\n" +
+	"\x03msg\x18\x02 \x01(\tR\x03msg\x12+\n" +
+	"\x11available_credits\x18\x03 \x01(\x03R\x10availableCredits\x12)\n" +
+	"\x10reserved_credits\x18\x04 \x01(\x03R\x0freservedCredits\x122\n" +
+	"\x16next_expiry_at_unix_ms\x18\x05 \x01(\x03R\x12nextExpiryAtUnixMs\x12N\n" +
+	"\x10enforcement_mode\x18\x06 \x01(\x0e2#.recruitment.BillingEnforcementModeR\x0fenforcementMode\"\x81\x02\n" +
+	"\x10BillingPriceInfo\x12\x0e\n" +
+	"\x02id\x18\x01 \x01(\x03R\x02id\x12\x18\n" +
+	"\aversion\x18\x02 \x01(\x05R\aversion\x12!\n" +
+	"\fbilling_term\x18\x03 \x01(\tR\vbillingTerm\x12\x1d\n" +
+	"\n" +
+	"amount_fen\x18\x04 \x01(\x03R\tamountFen\x12\x1a\n" +
+	"\bcurrency\x18\x05 \x01(\tR\bcurrency\x12)\n" +
+	"\x10included_credits\x18\x06 \x01(\x03R\x0fincludedCredits\x12:\n" +
+	"\x19entitlement_snapshot_json\x18\a \x01(\tR\x17entitlementSnapshotJson\"\xd5\x01\n" +
+	"\x12BillingProductInfo\x12\x0e\n" +
+	"\x02id\x18\x01 \x01(\x03R\x02id\x12\x1f\n" +
+	"\vproduct_key\x18\x02 \x01(\tR\n" +
+	"productKey\x12\x12\n" +
+	"\x04name\x18\x03 \x01(\tR\x04name\x12 \n" +
+	"\vdescription\x18\x04 \x01(\tR\vdescription\x12!\n" +
+	"\fproduct_type\x18\x05 \x01(\tR\vproductType\x125\n" +
+	"\x06prices\x18\x06 \x03(\v2\x1d.recruitment.BillingPriceInfoR\x06prices\"L\n" +
+	"\x19ListBillingCatalogRequest\x12/\n" +
+	"\x05owner\x18\x01 \x01(\v2\x19.recruitment.BillingOwnerR\x05owner\"\xb0\x01\n" +
+	"\x1aListBillingCatalogResponse\x12\x12\n" +
+	"\x04code\x18\x01 \x01(\x05R\x04code\x12\x10\n" +
+	"\x03msg\x18\x02 \x01(\tR\x03msg\x12;\n" +
+	"\bproducts\x18\x03 \x03(\v2\x1f.recruitment.BillingProductInfoR\bproducts\x12/\n" +
+	"\x13payment_environment\x18\x04 \x01(\tR\x12paymentEnvironment\"\xc6\x02\n" +
+	"\x17BillingSubscriptionInfo\x12\x0e\n" +
+	"\x02id\x18\x01 \x01(\x03R\x02id\x12\x1f\n" +
+	"\vproduct_key\x18\x02 \x01(\tR\n" +
+	"productKey\x12!\n" +
+	"\fproduct_name\x18\x03 \x01(\tR\vproductName\x12\x16\n" +
+	"\x06status\x18\x04 \x01(\tR\x06status\x12\x12\n" +
+	"\x04term\x18\x05 \x01(\tR\x04term\x12>\n" +
+	"\x1ccurrent_period_start_unix_ms\x18\x06 \x01(\x03R\x18currentPeriodStartUnixMs\x12:\n" +
+	"\x1acurrent_period_end_unix_ms\x18\a \x01(\x03R\x16currentPeriodEndUnixMs\x12/\n" +
+	"\x14cancel_at_period_end\x18\b \x01(\bR\x11cancelAtPeriodEnd\"K\n" +
+	"\x18GetBillingAccountRequest\x12/\n" +
+	"\x05owner\x18\x01 \x01(\v2\x19.recruitment.BillingOwnerR\x05owner\"\xc8\x02\n" +
+	"\x19GetBillingAccountResponse\x12\x12\n" +
+	"\x04code\x18\x01 \x01(\x05R\x04code\x12\x10\n" +
+	"\x03msg\x18\x02 \x01(\tR\x03msg\x12H\n" +
+	"\fsubscription\x18\x03 \x01(\v2$.recruitment.BillingSubscriptionInfoR\fsubscription\x12+\n" +
+	"\x11available_credits\x18\x04 \x01(\x03R\x10availableCredits\x12)\n" +
+	"\x10reserved_credits\x18\x05 \x01(\x03R\x0freservedCredits\x122\n" +
+	"\x16next_expiry_at_unix_ms\x18\x06 \x01(\x03R\x12nextExpiryAtUnixMs\x12/\n" +
+	"\x13payment_environment\x18\a \x01(\tR\x12paymentEnvironment\"\xbf\x03\n" +
+	"\x10BillingOrderInfo\x12\x19\n" +
+	"\border_no\x18\x01 \x01(\tR\aorderNo\x12\x1d\n" +
+	"\n" +
+	"order_type\x18\x02 \x01(\tR\torderType\x12\x1f\n" +
+	"\vproduct_key\x18\x03 \x01(\tR\n" +
+	"productKey\x12!\n" +
+	"\fproduct_name\x18\x04 \x01(\tR\vproductName\x12(\n" +
+	"\x10price_version_id\x18\x05 \x01(\x03R\x0epriceVersionId\x12\x1d\n" +
+	"\n" +
+	"amount_fen\x18\x06 \x01(\x03R\tamountFen\x12\x1a\n" +
+	"\bcurrency\x18\a \x01(\tR\bcurrency\x12\x16\n" +
+	"\x06status\x18\b \x01(\tR\x06status\x12/\n" +
+	"\x13payment_environment\x18\t \x01(\tR\x12paymentEnvironment\x12+\n" +
+	"\x12expires_at_unix_ms\x18\n" +
+	" \x01(\x03R\x0fexpiresAtUnixMs\x12%\n" +
+	"\x0fpaid_at_unix_ms\x18\v \x01(\x03R\fpaidAtUnixMs\x12+\n" +
+	"\x12created_at_unix_ms\x18\f \x01(\x03R\x0fcreatedAtUnixMs\"|\n" +
+	"\x18ListBillingOrdersRequest\x12/\n" +
+	"\x05owner\x18\x01 \x01(\v2\x19.recruitment.BillingOwnerR\x05owner\x12\x12\n" +
+	"\x04page\x18\x02 \x01(\x05R\x04page\x12\x1b\n" +
+	"\tpage_size\x18\x03 \x01(\x05R\bpageSize\"\x8e\x01\n" +
+	"\x19ListBillingOrdersResponse\x12\x12\n" +
+	"\x04code\x18\x01 \x01(\x05R\x04code\x12\x10\n" +
+	"\x03msg\x18\x02 \x01(\tR\x03msg\x125\n" +
+	"\x06orders\x18\x03 \x03(\v2\x1d.recruitment.BillingOrderInfoR\x06orders\x12\x14\n" +
+	"\x05total\x18\x04 \x01(\x03R\x05total\"\xe2\x01\n" +
+	"\x19CreateBillingOrderRequest\x12/\n" +
+	"\x05owner\x18\x01 \x01(\v2\x19.recruitment.BillingOwnerR\x05owner\x12\"\n" +
+	"\ractor_user_id\x18\x02 \x01(\x03R\vactorUserId\x12(\n" +
+	"\x10price_version_id\x18\x03 \x01(\x03R\x0epriceVersionId\x12\x1d\n" +
+	"\n" +
+	"order_type\x18\x04 \x01(\tR\torderType\x12'\n" +
+	"\x0fidempotency_key\x18\x05 \x01(\tR\x0eidempotencyKey\"q\n" +
+	"\x14BillingOrderResponse\x12\x12\n" +
+	"\x04code\x18\x01 \x01(\x05R\x04code\x12\x10\n" +
+	"\x03msg\x18\x02 \x01(\tR\x03msg\x123\n" +
+	"\x05order\x18\x03 \x01(\v2\x1d.recruitment.BillingOrderInfoR\x05order\"\xa2\x01\n" +
+	"\x1aCreateAlipayPaymentRequest\x12/\n" +
+	"\x05owner\x18\x01 \x01(\v2\x19.recruitment.BillingOwnerR\x05owner\x12\"\n" +
+	"\ractor_user_id\x18\x02 \x01(\x03R\vactorUserId\x12\x19\n" +
+	"\border_no\x18\x03 \x01(\tR\aorderNo\x12\x14\n" +
+	"\x05scene\x18\x04 \x01(\tR\x05scene\"\xb6\x01\n" +
+	"\x1bCreateAlipayPaymentResponse\x12\x12\n" +
+	"\x04code\x18\x01 \x01(\x05R\x04code\x12\x10\n" +
+	"\x03msg\x18\x02 \x01(\tR\x03msg\x12\x1d\n" +
+	"\n" +
+	"payment_no\x18\x03 \x01(\tR\tpaymentNo\x12!\n" +
+	"\fredirect_url\x18\x04 \x01(\tR\vredirectUrl\x12/\n" +
+	"\x13payment_environment\x18\x05 \x01(\tR\x12paymentEnvironment\"\xa5\x01\n" +
+	"\x1bRequestBillingRefundRequest\x12/\n" +
+	"\x05owner\x18\x01 \x01(\v2\x19.recruitment.BillingOwnerR\x05owner\x12\"\n" +
+	"\ractor_user_id\x18\x02 \x01(\x03R\vactorUserId\x12\x19\n" +
+	"\border_no\x18\x03 \x01(\tR\aorderNo\x12\x16\n" +
+	"\x06reason\x18\x04 \x01(\tR\x06reason\"\x93\x01\n" +
+	"\x15BillingRefundResponse\x12\x12\n" +
+	"\x04code\x18\x01 \x01(\x05R\x04code\x12\x10\n" +
+	"\x03msg\x18\x02 \x01(\tR\x03msg\x12\x1b\n" +
+	"\trefund_no\x18\x03 \x01(\tR\brefundNo\x12\x16\n" +
+	"\x06status\x18\x04 \x01(\tR\x06status\x12\x1f\n" +
+	"\vreview_mode\x18\x05 \x01(\tR\n" +
+	"reviewMode\"A\n" +
+	"\x17AlipayNotificationField\x12\x10\n" +
+	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
+	"\x05value\x18\x02 \x01(\tR\x05value\"`\n" +
+	" ProcessAlipayNotificationRequest\x12<\n" +
+	"\x06fields\x18\x01 \x03(\v2$.recruitment.AlipayNotificationFieldR\x06fields\"e\n" +
+	"!ProcessAlipayNotificationResponse\x12\x12\n" +
+	"\x04code\x18\x01 \x01(\x05R\x04code\x12\x10\n" +
+	"\x03msg\x18\x02 \x01(\tR\x03msg\x12\x1a\n" +
+	"\baccepted\x18\x03 \x01(\bR\baccepted\" \n" +
+	"\x1eListBillingAdminCatalogRequest\"\xac\x02\n" +
+	"\x1eSaveBillingPriceVersionRequest\x12\x1d\n" +
+	"\n" +
+	"product_id\x18\x01 \x01(\x03R\tproductId\x12(\n" +
+	"\x10price_version_id\x18\x02 \x01(\x03R\x0epriceVersionId\x12!\n" +
+	"\fbilling_term\x18\x03 \x01(\tR\vbillingTerm\x12\x1d\n" +
+	"\n" +
+	"amount_fen\x18\x04 \x01(\x03R\tamountFen\x12)\n" +
+	"\x10included_credits\x18\x05 \x01(\x03R\x0fincludedCredits\x12:\n" +
+	"\x19entitlement_snapshot_json\x18\x06 \x01(\tR\x17entitlementSnapshotJson\x12\x18\n" +
+	"\apublish\x18\a \x01(\bR\apublish\"\xc7\x03\n" +
+	"\x0eAIRateCardInfo\x12\x0e\n" +
+	"\x02id\x18\x01 \x01(\x03R\x02id\x12!\n" +
+	"\fprovider_key\x18\x02 \x01(\tR\vproviderKey\x12\x1b\n" +
+	"\tmodel_key\x18\x03 \x01(\tR\bmodelKey\x12\x18\n" +
+	"\aversion\x18\x04 \x01(\x05R\aversion\x12\x1a\n" +
+	"\bcurrency\x18\x05 \x01(\tR\bcurrency\x12:\n" +
+	"\x1ainput_micros_per_1k_tokens\x18\x06 \x01(\x03R\x16inputMicrosPer1kTokens\x12<\n" +
+	"\x1boutput_micros_per_1k_tokens\x18\a \x01(\x03R\x17outputMicrosPer1kTokens\x12G\n" +
+	"!cached_input_micros_per_1k_tokens\x18\b \x01(\x03R\x1ccachedInputMicrosPer1kTokens\x12#\n" +
+	"\rcredit_micros\x18\t \x01(\x03R\fcreditMicros\x12\x16\n" +
+	"\x06status\x18\n" +
+	" \x01(\tR\x06status\x12/\n" +
+	"\x14effective_at_unix_ms\x18\v \x01(\x03R\x11effectiveAtUnixMs\"\x18\n" +
+	"\x16ListAIRateCardsRequest\"r\n" +
+	"\x17ListAIRateCardsResponse\x12\x12\n" +
+	"\x04code\x18\x01 \x01(\x05R\x04code\x12\x10\n" +
+	"\x03msg\x18\x02 \x01(\tR\x03msg\x121\n" +
+	"\x05rates\x18\x03 \x03(\v2\x1b.recruitment.AIRateCardInfoR\x05rates\"\xd9\x02\n" +
+	"\x15SaveAIRateCardRequest\x12!\n" +
+	"\fprovider_key\x18\x01 \x01(\tR\vproviderKey\x12\x1b\n" +
+	"\tmodel_key\x18\x02 \x01(\tR\bmodelKey\x12:\n" +
+	"\x1ainput_micros_per_1k_tokens\x18\x03 \x01(\x03R\x16inputMicrosPer1kTokens\x12<\n" +
+	"\x1boutput_micros_per_1k_tokens\x18\x04 \x01(\x03R\x17outputMicrosPer1kTokens\x12G\n" +
+	"!cached_input_micros_per_1k_tokens\x18\x05 \x01(\x03R\x1ccachedInputMicrosPer1kTokens\x12#\n" +
+	"\rcredit_micros\x18\x06 \x01(\x03R\fcreditMicros\x12\x18\n" +
+	"\apublish\x18\a \x01(\bR\apublish*r\n" +
+	"\x10BillingOwnerType\x12\"\n" +
+	"\x1eBILLING_OWNER_TYPE_UNSPECIFIED\x10\x00\x12\x1d\n" +
+	"\x19BILLING_OWNER_TYPE_TENANT\x10\x01\x12\x1b\n" +
+	"\x17BILLING_OWNER_TYPE_USER\x10\x02*\x8d\x01\n" +
+	"\x16BillingEnforcementMode\x12(\n" +
+	"$BILLING_ENFORCEMENT_MODE_UNSPECIFIED\x10\x00\x12#\n" +
+	"\x1fBILLING_ENFORCEMENT_MODE_SHADOW\x10\x01\x12$\n" +
+	" BILLING_ENFORCEMENT_MODE_ENFORCE\x10\x022\xec\x05\n" +
 	"\vAuthService\x12G\n" +
 	"\bRegister\x12\x1c.recruitment.RegisterRequest\x1a\x1d.recruitment.RegisterResponse\x12>\n" +
 	"\x05Login\x12\x19.recruitment.LoginRequest\x1a\x1a.recruitment.LoginResponse\x12S\n" +
@@ -40926,7 +44013,24 @@ const file_proto_recruitment_proto_rawDesc = "" +
 	"\x11GetActiveAgentRun\x12%.recruitment.GetActiveAgentRunRequest\x1a&.recruitment.GetActiveAgentRunResponse\x12d\n" +
 	"\x17SubscribeAgentRunEvents\x12+.recruitment.SubscribeAgentRunEventsRequest\x1a\x1a.recruitment.AgentRunEvent0\x01\x12Y\n" +
 	"\x0eCancelAgentRun\x12\".recruitment.CancelAgentRunRequest\x1a#.recruitment.CancelAgentRunResponse\x12\\\n" +
-	"\x0fConfirmAgentRun\x12#.recruitment.ConfirmAgentRunRequest\x1a$.recruitment.ConfirmAgentRunResponse2\xd3\x06\n" +
+	"\x0fConfirmAgentRun\x12#.recruitment.ConfirmAgentRunRequest\x1a$.recruitment.ConfirmAgentRunResponse2\xbf\f\n" +
+	"\x0eBillingService\x12V\n" +
+	"\rCheckAIAccess\x12!.recruitment.CheckAIAccessRequest\x1a\".recruitment.CheckAIAccessResponse\x12Y\n" +
+	"\x0eReserveAIUsage\x12\".recruitment.ReserveAIUsageRequest\x1a#.recruitment.ReserveAIUsageResponse\x12V\n" +
+	"\rSettleAIUsage\x12!.recruitment.SettleAIUsageRequest\x1a\".recruitment.SettleAIUsageResponse\x12V\n" +
+	"\rCancelAIUsage\x12!.recruitment.CancelAIUsageRequest\x1a\".recruitment.CancelAIUsageResponse\x12e\n" +
+	"\x12GetAICreditBalance\x12&.recruitment.GetAICreditBalanceRequest\x1a'.recruitment.GetAICreditBalanceResponse\x12e\n" +
+	"\x12ListBillingCatalog\x12&.recruitment.ListBillingCatalogRequest\x1a'.recruitment.ListBillingCatalogResponse\x12b\n" +
+	"\x11GetBillingAccount\x12%.recruitment.GetBillingAccountRequest\x1a&.recruitment.GetBillingAccountResponse\x12b\n" +
+	"\x11ListBillingOrders\x12%.recruitment.ListBillingOrdersRequest\x1a&.recruitment.ListBillingOrdersResponse\x12_\n" +
+	"\x12CreateBillingOrder\x12&.recruitment.CreateBillingOrderRequest\x1a!.recruitment.BillingOrderResponse\x12h\n" +
+	"\x13CreateAlipayPayment\x12'.recruitment.CreateAlipayPaymentRequest\x1a(.recruitment.CreateAlipayPaymentResponse\x12d\n" +
+	"\x14RequestBillingRefund\x12(.recruitment.RequestBillingRefundRequest\x1a\".recruitment.BillingRefundResponse\x12z\n" +
+	"\x19ProcessAlipayNotification\x12-.recruitment.ProcessAlipayNotificationRequest\x1a..recruitment.ProcessAlipayNotificationResponse\x12o\n" +
+	"\x17ListBillingAdminCatalog\x12+.recruitment.ListBillingAdminCatalogRequest\x1a'.recruitment.ListBillingCatalogResponse\x12e\n" +
+	"\x17SaveBillingPriceVersion\x12+.recruitment.SaveBillingPriceVersionRequest\x1a\x1d.recruitment.BillingPriceInfo\x12\\\n" +
+	"\x0fListAIRateCards\x12#.recruitment.ListAIRateCardsRequest\x1a$.recruitment.ListAIRateCardsResponse\x12Q\n" +
+	"\x0eSaveAIRateCard\x12\".recruitment.SaveAIRateCardRequest\x1a\x1b.recruitment.AIRateCardInfo2\xd3\x06\n" +
 	"\fOfferService\x12P\n" +
 	"\vCreateOffer\x12\x1f.recruitment.CreateOfferRequest\x1a .recruitment.CreateOfferResponse\x12K\n" +
 	"\vUpdateOffer\x12\x1f.recruitment.UpdateOfferRequest\x1a\x1b.recruitment.CommonResponse\x12G\n" +
@@ -41090,1081 +44194,1174 @@ func file_proto_recruitment_proto_rawDescGZIP() []byte {
 	return file_proto_recruitment_proto_rawDescData
 }
 
-var file_proto_recruitment_proto_msgTypes = make([]protoimpl.MessageInfo, 460)
+var file_proto_recruitment_proto_enumTypes = make([]protoimpl.EnumInfo, 2)
+var file_proto_recruitment_proto_msgTypes = make([]protoimpl.MessageInfo, 497)
 var file_proto_recruitment_proto_goTypes = []any{
-	(*CommonResponse)(nil),                              // 0: recruitment.CommonResponse
-	(*RegisterRequest)(nil),                             // 1: recruitment.RegisterRequest
-	(*RegisterResponse)(nil),                            // 2: recruitment.RegisterResponse
-	(*LoginRequest)(nil),                                // 3: recruitment.LoginRequest
-	(*TenantMembershipInfo)(nil),                        // 4: recruitment.TenantMembershipInfo
-	(*TenantInfo)(nil),                                  // 5: recruitment.TenantInfo
-	(*CreateTenantRequest)(nil),                         // 6: recruitment.CreateTenantRequest
-	(*ListTenantsRequest)(nil),                          // 7: recruitment.ListTenantsRequest
-	(*TenantResponse)(nil),                              // 8: recruitment.TenantResponse
-	(*ListTenantsResponse)(nil),                         // 9: recruitment.ListTenantsResponse
-	(*GetTenantRequest)(nil),                            // 10: recruitment.GetTenantRequest
-	(*UpdateTenantStatusRequest)(nil),                   // 11: recruitment.UpdateTenantStatusRequest
-	(*ListTenantMembershipsRequest)(nil),                // 12: recruitment.ListTenantMembershipsRequest
-	(*ListTenantMembershipsResponse)(nil),               // 13: recruitment.ListTenantMembershipsResponse
-	(*UpdateTenantMembershipStatusRequest)(nil),         // 14: recruitment.UpdateTenantMembershipStatusRequest
-	(*TenantMembershipResponse)(nil),                    // 15: recruitment.TenantMembershipResponse
-	(*GetPlatformDashboardRequest)(nil),                 // 16: recruitment.GetPlatformDashboardRequest
-	(*PlatformTenantStatusCount)(nil),                   // 17: recruitment.PlatformTenantStatusCount
-	(*GetPlatformDashboardResponse)(nil),                // 18: recruitment.GetPlatformDashboardResponse
-	(*QueryPlatformAuditLogsRequest)(nil),               // 19: recruitment.QueryPlatformAuditLogsRequest
-	(*PlatformAuditLogItem)(nil),                        // 20: recruitment.PlatformAuditLogItem
-	(*QueryPlatformAuditLogsResponse)(nil),              // 21: recruitment.QueryPlatformAuditLogsResponse
-	(*PlatformEntitlementItem)(nil),                     // 22: recruitment.PlatformEntitlementItem
-	(*PlatformPlanVersionInfo)(nil),                     // 23: recruitment.PlatformPlanVersionInfo
-	(*PlatformPlanInfo)(nil),                            // 24: recruitment.PlatformPlanInfo
-	(*ListPlatformPlansRequest)(nil),                    // 25: recruitment.ListPlatformPlansRequest
-	(*ListPlatformPlansResponse)(nil),                   // 26: recruitment.ListPlatformPlansResponse
-	(*SavePlatformPlanVersionRequest)(nil),              // 27: recruitment.SavePlatformPlanVersionRequest
-	(*PublishPlatformPlanVersionRequest)(nil),           // 28: recruitment.PublishPlatformPlanVersionRequest
-	(*PlatformPlanVersionResponse)(nil),                 // 29: recruitment.PlatformPlanVersionResponse
-	(*TenantSubscriptionInfo)(nil),                      // 30: recruitment.TenantSubscriptionInfo
-	(*GetTenantSubscriptionRequest)(nil),                // 31: recruitment.GetTenantSubscriptionRequest
-	(*UpdateTenantSubscriptionRequest)(nil),             // 32: recruitment.UpdateTenantSubscriptionRequest
-	(*TenantSubscriptionResponse)(nil),                  // 33: recruitment.TenantSubscriptionResponse
-	(*UpdateTenantEntitlementOverrideRequest)(nil),      // 34: recruitment.UpdateTenantEntitlementOverrideRequest
-	(*TenantUsageMetric)(nil),                           // 35: recruitment.TenantUsageMetric
-	(*GetTenantUsageRequest)(nil),                       // 36: recruitment.GetTenantUsageRequest
-	(*GetTenantUsageResponse)(nil),                      // 37: recruitment.GetTenantUsageResponse
-	(*QuotaAlertInfo)(nil),                              // 38: recruitment.QuotaAlertInfo
-	(*ListQuotaAlertsRequest)(nil),                      // 39: recruitment.ListQuotaAlertsRequest
-	(*ListQuotaAlertsResponse)(nil),                     // 40: recruitment.ListQuotaAlertsResponse
-	(*UpdateQuotaAlertRequest)(nil),                     // 41: recruitment.UpdateQuotaAlertRequest
-	(*QuotaAlertResponse)(nil),                          // 42: recruitment.QuotaAlertResponse
-	(*LoginResponse)(nil),                               // 43: recruitment.LoginResponse
-	(*RefreshTokenRequest)(nil),                         // 44: recruitment.RefreshTokenRequest
-	(*RefreshTokenResponse)(nil),                        // 45: recruitment.RefreshTokenResponse
-	(*SwitchTenantRequest)(nil),                         // 46: recruitment.SwitchTenantRequest
-	(*RevokeRefreshTokenRequest)(nil),                   // 47: recruitment.RevokeRefreshTokenRequest
-	(*AuthAuditRequest)(nil),                            // 48: recruitment.AuthAuditRequest
-	(*GetPrincipalRequest)(nil),                         // 49: recruitment.GetPrincipalRequest
-	(*GetPrincipalResponse)(nil),                        // 50: recruitment.GetPrincipalResponse
-	(*AuthorizeInternalRequest)(nil),                    // 51: recruitment.AuthorizeInternalRequest
-	(*AuthorizeInternalResponse)(nil),                   // 52: recruitment.AuthorizeInternalResponse
-	(*UpdateEmailRequest)(nil),                          // 53: recruitment.UpdateEmailRequest
-	(*ScopeAssignment)(nil),                             // 54: recruitment.ScopeAssignment
-	(*CreateJobRequest)(nil),                            // 55: recruitment.CreateJobRequest
-	(*CreateJobResponse)(nil),                           // 56: recruitment.CreateJobResponse
-	(*UpdateJobRequest)(nil),                            // 57: recruitment.UpdateJobRequest
-	(*OfflineJobRequest)(nil),                           // 58: recruitment.OfflineJobRequest
-	(*ListHRJobsRequest)(nil),                           // 59: recruitment.ListHRJobsRequest
-	(*ListPublicJobsRequest)(nil),                       // 60: recruitment.ListPublicJobsRequest
-	(*GetJobDetailRequest)(nil),                         // 61: recruitment.GetJobDetailRequest
-	(*Job)(nil),                                         // 62: recruitment.Job
-	(*ListJobsResponse)(nil),                            // 63: recruitment.ListJobsResponse
-	(*GetJobDetailResponse)(nil),                        // 64: recruitment.GetJobDetailResponse
-	(*GetProfileRequest)(nil),                           // 65: recruitment.GetProfileRequest
-	(*UpdateProfileRequest)(nil),                        // 66: recruitment.UpdateProfileRequest
-	(*CandidateProfile)(nil),                            // 67: recruitment.CandidateProfile
-	(*GetProfileResponse)(nil),                          // 68: recruitment.GetProfileResponse
-	(*GetResumeRequest)(nil),                            // 69: recruitment.GetResumeRequest
-	(*CandidateResume)(nil),                             // 70: recruitment.CandidateResume
-	(*GetResumeResponse)(nil),                           // 71: recruitment.GetResumeResponse
-	(*PresignResumeUploadRequest)(nil),                  // 72: recruitment.PresignResumeUploadRequest
-	(*PresignResumeUploadResponse)(nil),                 // 73: recruitment.PresignResumeUploadResponse
-	(*ConfirmResumeUploadRequest)(nil),                  // 74: recruitment.ConfirmResumeUploadRequest
-	(*ConfirmResumeUploadResponse)(nil),                 // 75: recruitment.ConfirmResumeUploadResponse
-	(*ApplyJobRequest)(nil),                             // 76: recruitment.ApplyJobRequest
-	(*ListMyApplicationsRequest)(nil),                   // 77: recruitment.ListMyApplicationsRequest
-	(*MyApplication)(nil),                               // 78: recruitment.MyApplication
-	(*ListMyApplicationsResponse)(nil),                  // 79: recruitment.ListMyApplicationsResponse
-	(*ListJobApplicationsRequest)(nil),                  // 80: recruitment.ListJobApplicationsRequest
-	(*JobApplication)(nil),                              // 81: recruitment.JobApplication
-	(*ListJobApplicationsResponse)(nil),                 // 82: recruitment.ListJobApplicationsResponse
-	(*UpdateApplicationStatusRequest)(nil),              // 83: recruitment.UpdateApplicationStatusRequest
-	(*ListApplicationStatusTransitionsRequest)(nil),     // 84: recruitment.ListApplicationStatusTransitionsRequest
-	(*ApplicationStatusTransition)(nil),                 // 85: recruitment.ApplicationStatusTransition
-	(*ListApplicationStatusTransitionsResponse)(nil),    // 86: recruitment.ListApplicationStatusTransitionsResponse
-	(*GetApplicationSnapshotRequest)(nil),               // 87: recruitment.GetApplicationSnapshotRequest
-	(*GetApplicationSnapshotResponse)(nil),              // 88: recruitment.GetApplicationSnapshotResponse
-	(*ApplyApplicationLifecycleTransitionRequest)(nil),  // 89: recruitment.ApplyApplicationLifecycleTransitionRequest
-	(*ApplyApplicationLifecycleTransitionResponse)(nil), // 90: recruitment.ApplyApplicationLifecycleTransitionResponse
-	(*ChatRequest)(nil),                                 // 91: recruitment.ChatRequest
-	(*ContextUsageBreakdown)(nil),                       // 92: recruitment.ContextUsageBreakdown
-	(*ContextUsageInfo)(nil),                            // 93: recruitment.ContextUsageInfo
-	(*ChatResponse)(nil),                                // 94: recruitment.ChatResponse
-	(*AgentSkillSelectionCandidate)(nil),                // 95: recruitment.AgentSkillSelectionCandidate
-	(*AgentSkillSelection)(nil),                         // 96: recruitment.AgentSkillSelection
-	(*ChatStreamResponse)(nil),                          // 97: recruitment.ChatStreamResponse
-	(*ChatHistoryRequest)(nil),                          // 98: recruitment.ChatHistoryRequest
-	(*ChatMessage)(nil),                                 // 99: recruitment.ChatMessage
-	(*ChatHistoryResponse)(nil),                         // 100: recruitment.ChatHistoryResponse
-	(*AnalyzeApplicationRequest)(nil),                   // 101: recruitment.AnalyzeApplicationRequest
-	(*AnalyzeApplicationResponse)(nil),                  // 102: recruitment.AnalyzeApplicationResponse
-	(*ChatSessionListRequest)(nil),                      // 103: recruitment.ChatSessionListRequest
-	(*ChatSession)(nil),                                 // 104: recruitment.ChatSession
-	(*ChatSessionListResponse)(nil),                     // 105: recruitment.ChatSessionListResponse
-	(*CreateChatSessionRequest)(nil),                    // 106: recruitment.CreateChatSessionRequest
-	(*CreateChatSessionResponse)(nil),                   // 107: recruitment.CreateChatSessionResponse
-	(*SessionMessagesRequest)(nil),                      // 108: recruitment.SessionMessagesRequest
-	(*CreateApplicationAnalysisSessionRequest)(nil),     // 109: recruitment.CreateApplicationAnalysisSessionRequest
-	(*CreateApplicationAnalysisSessionResponse)(nil),    // 110: recruitment.CreateApplicationAnalysisSessionResponse
-	(*UpdateSessionRequest)(nil),                        // 111: recruitment.UpdateSessionRequest
-	(*DeleteSessionRequest)(nil),                        // 112: recruitment.DeleteSessionRequest
-	(*CandidateChatRequest)(nil),                        // 113: recruitment.CandidateChatRequest
-	(*CandidateSessionListRequest)(nil),                 // 114: recruitment.CandidateSessionListRequest
-	(*CandidateCreateSessionRequest)(nil),               // 115: recruitment.CandidateCreateSessionRequest
-	(*CandidateSessionMessagesRequest)(nil),             // 116: recruitment.CandidateSessionMessagesRequest
-	(*CandidateUpdateSessionRequest)(nil),               // 117: recruitment.CandidateUpdateSessionRequest
-	(*CandidateDeleteSessionRequest)(nil),               // 118: recruitment.CandidateDeleteSessionRequest
-	(*GetToolTracesRequest)(nil),                        // 119: recruitment.GetToolTracesRequest
-	(*ToolTraceItem)(nil),                               // 120: recruitment.ToolTraceItem
-	(*GetToolTracesResponse)(nil),                       // 121: recruitment.GetToolTracesResponse
-	(*GetAgentRunsRequest)(nil),                         // 122: recruitment.GetAgentRunsRequest
-	(*AgentRunStepItem)(nil),                            // 123: recruitment.AgentRunStepItem
-	(*AgentRunItem)(nil),                                // 124: recruitment.AgentRunItem
-	(*GetAgentRunsResponse)(nil),                        // 125: recruitment.GetAgentRunsResponse
-	(*AgentRunResultMetadata)(nil),                      // 126: recruitment.AgentRunResultMetadata
-	(*AgentRunConfirmationPayload)(nil),                 // 127: recruitment.AgentRunConfirmationPayload
-	(*AgentRunSnapshot)(nil),                            // 128: recruitment.AgentRunSnapshot
-	(*AgentRunEvent)(nil),                               // 129: recruitment.AgentRunEvent
-	(*CreateAgentRunRequest)(nil),                       // 130: recruitment.CreateAgentRunRequest
-	(*CreateAgentRunResponse)(nil),                      // 131: recruitment.CreateAgentRunResponse
-	(*GetAgentRunRequest)(nil),                          // 132: recruitment.GetAgentRunRequest
-	(*GetAgentRunResponse)(nil),                         // 133: recruitment.GetAgentRunResponse
-	(*GetActiveAgentRunRequest)(nil),                    // 134: recruitment.GetActiveAgentRunRequest
-	(*GetActiveAgentRunResponse)(nil),                   // 135: recruitment.GetActiveAgentRunResponse
-	(*SubscribeAgentRunEventsRequest)(nil),              // 136: recruitment.SubscribeAgentRunEventsRequest
-	(*CancelAgentRunRequest)(nil),                       // 137: recruitment.CancelAgentRunRequest
-	(*CancelAgentRunResponse)(nil),                      // 138: recruitment.CancelAgentRunResponse
-	(*ConfirmAgentRunRequest)(nil),                      // 139: recruitment.ConfirmAgentRunRequest
-	(*ConfirmAgentRunResponse)(nil),                     // 140: recruitment.ConfirmAgentRunResponse
-	(*InterviewSchedule)(nil),                           // 141: recruitment.InterviewSchedule
-	(*ScheduleInterviewRequest)(nil),                    // 142: recruitment.ScheduleInterviewRequest
-	(*ScheduleInterviewResponse)(nil),                   // 143: recruitment.ScheduleInterviewResponse
-	(*UpdateInterviewRequest)(nil),                      // 144: recruitment.UpdateInterviewRequest
-	(*CancelInterviewRequest)(nil),                      // 145: recruitment.CancelInterviewRequest
-	(*GetInterviewRequest)(nil),                         // 146: recruitment.GetInterviewRequest
-	(*GetInterviewResponse)(nil),                        // 147: recruitment.GetInterviewResponse
-	(*ListInterviewersRequest)(nil),                     // 148: recruitment.ListInterviewersRequest
-	(*ListInterviewersResponse)(nil),                    // 149: recruitment.ListInterviewersResponse
-	(*ListApplicationInterviewsRequest)(nil),            // 150: recruitment.ListApplicationInterviewsRequest
-	(*ListApplicationInterviewsResponse)(nil),           // 151: recruitment.ListApplicationInterviewsResponse
-	(*ListMyInterviewsRequest)(nil),                     // 152: recruitment.ListMyInterviewsRequest
-	(*ListMyInterviewsResponse)(nil),                    // 153: recruitment.ListMyInterviewsResponse
-	(*ListCandidateInterviewsRequest)(nil),              // 154: recruitment.ListCandidateInterviewsRequest
-	(*ListCandidateInterviewsResponse)(nil),             // 155: recruitment.ListCandidateInterviewsResponse
-	(*InterviewFeedback)(nil),                           // 156: recruitment.InterviewFeedback
-	(*SubmitFeedbackRequest)(nil),                       // 157: recruitment.SubmitFeedbackRequest
-	(*GetFeedbackRequest)(nil),                          // 158: recruitment.GetFeedbackRequest
-	(*GetFeedbackResponse)(nil),                         // 159: recruitment.GetFeedbackResponse
-	(*BatchCancelInterviewsRequest)(nil),                // 160: recruitment.BatchCancelInterviewsRequest
-	(*BatchCancelInterviewsResponse)(nil),               // 161: recruitment.BatchCancelInterviewsResponse
-	(*Notification)(nil),                                // 162: recruitment.Notification
-	(*ListNotificationsRequest)(nil),                    // 163: recruitment.ListNotificationsRequest
-	(*ListNotificationsResponse)(nil),                   // 164: recruitment.ListNotificationsResponse
-	(*UnreadNotificationCountRequest)(nil),              // 165: recruitment.UnreadNotificationCountRequest
-	(*UnreadNotificationCountResponse)(nil),             // 166: recruitment.UnreadNotificationCountResponse
-	(*NotificationSummaryRequest)(nil),                  // 167: recruitment.NotificationSummaryRequest
-	(*NotificationSummaryResponse)(nil),                 // 168: recruitment.NotificationSummaryResponse
-	(*MarkNotificationReadRequest)(nil),                 // 169: recruitment.MarkNotificationReadRequest
-	(*MarkAllNotificationsReadRequest)(nil),             // 170: recruitment.MarkAllNotificationsReadRequest
-	(*InviteCodeInfo)(nil),                              // 171: recruitment.InviteCodeInfo
-	(*CreateInviteCodeRequest)(nil),                     // 172: recruitment.CreateInviteCodeRequest
-	(*CreateInviteCodeResponse)(nil),                    // 173: recruitment.CreateInviteCodeResponse
-	(*ListInviteCodesRequest)(nil),                      // 174: recruitment.ListInviteCodesRequest
-	(*ListInviteCodesResponse)(nil),                     // 175: recruitment.ListInviteCodesResponse
-	(*ExtendInviteCodeRequest)(nil),                     // 176: recruitment.ExtendInviteCodeRequest
-	(*RevokeInviteCodeRequest)(nil),                     // 177: recruitment.RevokeInviteCodeRequest
-	(*ReactivateInviteCodeRequest)(nil),                 // 178: recruitment.ReactivateInviteCodeRequest
-	(*ValidateInviteCodeRequest)(nil),                   // 179: recruitment.ValidateInviteCodeRequest
-	(*ValidateInviteCodeResponse)(nil),                  // 180: recruitment.ValidateInviteCodeResponse
-	(*ListJobOptionsRequest)(nil),                       // 181: recruitment.ListJobOptionsRequest
-	(*ListJobOptionsResponse)(nil),                      // 182: recruitment.ListJobOptionsResponse
-	(*DepartmentNode)(nil),                              // 183: recruitment.DepartmentNode
-	(*LocationOption)(nil),                              // 184: recruitment.LocationOption
-	(*ListDepartmentsRequest)(nil),                      // 185: recruitment.ListDepartmentsRequest
-	(*ListDepartmentsResponse)(nil),                     // 186: recruitment.ListDepartmentsResponse
-	(*CreateDepartmentRequest)(nil),                     // 187: recruitment.CreateDepartmentRequest
-	(*UpdateDepartmentRequest)(nil),                     // 188: recruitment.UpdateDepartmentRequest
-	(*UpdateDepartmentStatusRequest)(nil),               // 189: recruitment.UpdateDepartmentStatusRequest
-	(*DeleteDepartmentRequest)(nil),                     // 190: recruitment.DeleteDepartmentRequest
-	(*DepartmentResponse)(nil),                          // 191: recruitment.DepartmentResponse
-	(*ListJobLocationsRequest)(nil),                     // 192: recruitment.ListJobLocationsRequest
-	(*ListJobLocationsResponse)(nil),                    // 193: recruitment.ListJobLocationsResponse
-	(*CreateJobLocationRequest)(nil),                    // 194: recruitment.CreateJobLocationRequest
-	(*UpdateJobLocationRequest)(nil),                    // 195: recruitment.UpdateJobLocationRequest
-	(*UpdateJobLocationStatusRequest)(nil),              // 196: recruitment.UpdateJobLocationStatusRequest
-	(*DeleteJobLocationRequest)(nil),                    // 197: recruitment.DeleteJobLocationRequest
-	(*JobLocationResponse)(nil),                         // 198: recruitment.JobLocationResponse
-	(*DepartmentLocationMap)(nil),                       // 199: recruitment.DepartmentLocationMap
-	(*ListDepartmentsLocationMapRequest)(nil),           // 200: recruitment.ListDepartmentsLocationMapRequest
-	(*ListDepartmentsLocationMapResponse)(nil),          // 201: recruitment.ListDepartmentsLocationMapResponse
-	(*ListDepartmentLocationsRequest)(nil),              // 202: recruitment.ListDepartmentLocationsRequest
-	(*ListDepartmentLocationsResponse)(nil),             // 203: recruitment.ListDepartmentLocationsResponse
-	(*GetDepartmentLocationConfigRequest)(nil),          // 204: recruitment.GetDepartmentLocationConfigRequest
-	(*UpdateDepartmentLocationConfigRequest)(nil),       // 205: recruitment.UpdateDepartmentLocationConfigRequest
-	(*DepartmentLocationConfigResponse)(nil),            // 206: recruitment.DepartmentLocationConfigResponse
-	(*UsageLogItem)(nil),                                // 207: recruitment.UsageLogItem
-	(*QueryUsageLogsRequest)(nil),                       // 208: recruitment.QueryUsageLogsRequest
-	(*QueryUsageLogsResponse)(nil),                      // 209: recruitment.QueryUsageLogsResponse
-	(*Offer)(nil),                                       // 210: recruitment.Offer
-	(*CreateOfferRequest)(nil),                          // 211: recruitment.CreateOfferRequest
-	(*CreateOfferResponse)(nil),                         // 212: recruitment.CreateOfferResponse
-	(*UpdateOfferRequest)(nil),                          // 213: recruitment.UpdateOfferRequest
-	(*GetOfferRequest)(nil),                             // 214: recruitment.GetOfferRequest
-	(*GetOfferResponse)(nil),                            // 215: recruitment.GetOfferResponse
-	(*ListOffersByApplicationRequest)(nil),              // 216: recruitment.ListOffersByApplicationRequest
-	(*ListOffersByApplicationResponse)(nil),             // 217: recruitment.ListOffersByApplicationResponse
-	(*SendOfferRequest)(nil),                            // 218: recruitment.SendOfferRequest
-	(*WithdrawOfferRequest)(nil),                        // 219: recruitment.WithdrawOfferRequest
-	(*AcceptOfferRequest)(nil),                          // 220: recruitment.AcceptOfferRequest
-	(*RejectOfferRequest)(nil),                          // 221: recruitment.RejectOfferRequest
-	(*ListMyOffersRequest)(nil),                         // 222: recruitment.ListMyOffersRequest
-	(*ListMyOffersResponse)(nil),                        // 223: recruitment.ListMyOffersResponse
-	(*OfferEventInfo)(nil),                              // 224: recruitment.OfferEventInfo
-	(*ListOfferEventsRequest)(nil),                      // 225: recruitment.ListOfferEventsRequest
-	(*ListOfferEventsResponse)(nil),                     // 226: recruitment.ListOfferEventsResponse
-	(*ListRolesRequest)(nil),                            // 227: recruitment.ListRolesRequest
-	(*ListRolesResponse)(nil),                           // 228: recruitment.ListRolesResponse
-	(*RoleInfo)(nil),                                    // 229: recruitment.RoleInfo
-	(*ListPermissionsRequest)(nil),                      // 230: recruitment.ListPermissionsRequest
-	(*ListPermissionsResponse)(nil),                     // 231: recruitment.ListPermissionsResponse
-	(*PermissionInfo)(nil),                              // 232: recruitment.PermissionInfo
-	(*GetUserRolesRequest)(nil),                         // 233: recruitment.GetUserRolesRequest
-	(*GetUserRolesResponse)(nil),                        // 234: recruitment.GetUserRolesResponse
-	(*DataScopeInfo)(nil),                               // 235: recruitment.DataScopeInfo
-	(*AssignUserRoleRequest)(nil),                       // 236: recruitment.AssignUserRoleRequest
-	(*RevokeUserRoleRequest)(nil),                       // 237: recruitment.RevokeUserRoleRequest
-	(*AssignDataScopeRequest)(nil),                      // 238: recruitment.AssignDataScopeRequest
-	(*RevokeDataScopeRequest)(nil),                      // 239: recruitment.RevokeDataScopeRequest
-	(*ListStaffUsersRequest)(nil),                       // 240: recruitment.ListStaffUsersRequest
-	(*ListStaffUsersResponse)(nil),                      // 241: recruitment.ListStaffUsersResponse
-	(*StaffUserInfo)(nil),                               // 242: recruitment.StaffUserInfo
-	(*CreateStaffUserRequest)(nil),                      // 243: recruitment.CreateStaffUserRequest
-	(*CreateStaffUserResponse)(nil),                     // 244: recruitment.CreateStaffUserResponse
-	(*PlatformUserInfo)(nil),                            // 245: recruitment.PlatformUserInfo
-	(*ListPlatformUsersRequest)(nil),                    // 246: recruitment.ListPlatformUsersRequest
-	(*ListPlatformUsersResponse)(nil),                   // 247: recruitment.ListPlatformUsersResponse
-	(*CreatePlatformUserRequest)(nil),                   // 248: recruitment.CreatePlatformUserRequest
-	(*CreatePlatformUserResponse)(nil),                  // 249: recruitment.CreatePlatformUserResponse
-	(*UpdatePlatformUserRequest)(nil),                   // 250: recruitment.UpdatePlatformUserRequest
-	(*PlatformUserResponse)(nil),                        // 251: recruitment.PlatformUserResponse
-	(*GetCandidateWorkspaceRequest)(nil),                // 252: recruitment.GetCandidateWorkspaceRequest
-	(*CandidateWorkspace)(nil),                          // 253: recruitment.CandidateWorkspace
-	(*CandidateWorkspaceInterview)(nil),                 // 254: recruitment.CandidateWorkspaceInterview
-	(*CandidateWorkspaceOffer)(nil),                     // 255: recruitment.CandidateWorkspaceOffer
-	(*CandidateWorkspaceApplication)(nil),               // 256: recruitment.CandidateWorkspaceApplication
-	(*GetCandidateWorkspaceResponse)(nil),               // 257: recruitment.GetCandidateWorkspaceResponse
-	(*CandidateNoteInfo)(nil),                           // 258: recruitment.CandidateNoteInfo
-	(*CreateNoteRequest)(nil),                           // 259: recruitment.CreateNoteRequest
-	(*CreateNoteResponse)(nil),                          // 260: recruitment.CreateNoteResponse
-	(*ListNotesRequest)(nil),                            // 261: recruitment.ListNotesRequest
-	(*ListNotesResponse)(nil),                           // 262: recruitment.ListNotesResponse
-	(*CandidateTagInfo)(nil),                            // 263: recruitment.CandidateTagInfo
-	(*CreateTagRequest)(nil),                            // 264: recruitment.CreateTagRequest
-	(*CreateTagResponse)(nil),                           // 265: recruitment.CreateTagResponse
-	(*ListTagsRequest)(nil),                             // 266: recruitment.ListTagsRequest
-	(*ListTagsResponse)(nil),                            // 267: recruitment.ListTagsResponse
-	(*AssignTagRequest)(nil),                            // 268: recruitment.AssignTagRequest
-	(*UnassignTagRequest)(nil),                          // 269: recruitment.UnassignTagRequest
-	(*ListCandidateTagsRequest)(nil),                    // 270: recruitment.ListCandidateTagsRequest
-	(*ListCandidateTagsResponse)(nil),                   // 271: recruitment.ListCandidateTagsResponse
-	(*FollowUpTaskInfo)(nil),                            // 272: recruitment.FollowUpTaskInfo
-	(*CreateFollowUpTaskRequest)(nil),                   // 273: recruitment.CreateFollowUpTaskRequest
-	(*CreateFollowUpTaskResponse)(nil),                  // 274: recruitment.CreateFollowUpTaskResponse
-	(*ListFollowUpTasksRequest)(nil),                    // 275: recruitment.ListFollowUpTasksRequest
-	(*ListFollowUpTasksResponse)(nil),                   // 276: recruitment.ListFollowUpTasksResponse
-	(*CompleteFollowUpTaskRequest)(nil),                 // 277: recruitment.CompleteFollowUpTaskRequest
-	(*GetFollowUpTaskRequest)(nil),                      // 278: recruitment.GetFollowUpTaskRequest
-	(*GetFollowUpTaskResponse)(nil),                     // 279: recruitment.GetFollowUpTaskResponse
-	(*TimelineEventInfo)(nil),                           // 280: recruitment.TimelineEventInfo
-	(*ListTimelineEventsRequest)(nil),                   // 281: recruitment.ListTimelineEventsRequest
-	(*ListTimelineEventsResponse)(nil),                  // 282: recruitment.ListTimelineEventsResponse
-	(*QueryAuthAuditLogsRequest)(nil),                   // 283: recruitment.QueryAuthAuditLogsRequest
-	(*AuthAuditLogItem)(nil),                            // 284: recruitment.AuthAuditLogItem
-	(*QueryAuthAuditLogsResponse)(nil),                  // 285: recruitment.QueryAuthAuditLogsResponse
-	(*GetDashboardReportRequest)(nil),                   // 286: recruitment.GetDashboardReportRequest
-	(*DashboardReportItem)(nil),                         // 287: recruitment.DashboardReportItem
-	(*DashboardTrendPoint)(nil),                         // 288: recruitment.DashboardTrendPoint
-	(*GetDashboardReportResponse)(nil),                  // 289: recruitment.GetDashboardReportResponse
-	(*GetFunnelReportRequest)(nil),                      // 290: recruitment.GetFunnelReportRequest
-	(*FunnelStage)(nil),                                 // 291: recruitment.FunnelStage
-	(*GetFunnelReportResponse)(nil),                     // 292: recruitment.GetFunnelReportResponse
-	(*GetTimeInStageReportRequest)(nil),                 // 293: recruitment.GetTimeInStageReportRequest
-	(*StageDuration)(nil),                               // 294: recruitment.StageDuration
-	(*GetTimeInStageReportResponse)(nil),                // 295: recruitment.GetTimeInStageReportResponse
-	(*GetInterviewOfferMetricsRequest)(nil),             // 296: recruitment.GetInterviewOfferMetricsRequest
-	(*GetInterviewOfferMetricsResponse)(nil),            // 297: recruitment.GetInterviewOfferMetricsResponse
-	(*GetUsageStatsRequest)(nil),                        // 298: recruitment.GetUsageStatsRequest
-	(*UsageStatsItem)(nil),                              // 299: recruitment.UsageStatsItem
-	(*UsageStatsSummary)(nil),                           // 300: recruitment.UsageStatsSummary
-	(*GetUsageStatsResponse)(nil),                       // 301: recruitment.GetUsageStatsResponse
-	(*GetUsageTrendRequest)(nil),                        // 302: recruitment.GetUsageTrendRequest
-	(*UsageTrendPoint)(nil),                             // 303: recruitment.UsageTrendPoint
-	(*GetUsageTrendResponse)(nil),                       // 304: recruitment.GetUsageTrendResponse
-	(*MCPServerInfo)(nil),                               // 305: recruitment.MCPServerInfo
-	(*ListMCPServersRequest)(nil),                       // 306: recruitment.ListMCPServersRequest
-	(*ListMCPServersResponse)(nil),                      // 307: recruitment.ListMCPServersResponse
-	(*CreateMCPServerRequest)(nil),                      // 308: recruitment.CreateMCPServerRequest
-	(*UpdateMCPServerRequest)(nil),                      // 309: recruitment.UpdateMCPServerRequest
-	(*DeleteMCPServerRequest)(nil),                      // 310: recruitment.DeleteMCPServerRequest
-	(*MCPServerResponse)(nil),                           // 311: recruitment.MCPServerResponse
-	(*MCPToolPolicyInfo)(nil),                           // 312: recruitment.MCPToolPolicyInfo
-	(*ListMCPToolPoliciesRequest)(nil),                  // 313: recruitment.ListMCPToolPoliciesRequest
-	(*ListMCPToolPoliciesResponse)(nil),                 // 314: recruitment.ListMCPToolPoliciesResponse
-	(*CreateMCPToolPolicyRequest)(nil),                  // 315: recruitment.CreateMCPToolPolicyRequest
-	(*UpdateMCPToolPolicyRequest)(nil),                  // 316: recruitment.UpdateMCPToolPolicyRequest
-	(*DeleteMCPToolPolicyRequest)(nil),                  // 317: recruitment.DeleteMCPToolPolicyRequest
-	(*MCPToolPolicyResponse)(nil),                       // 318: recruitment.MCPToolPolicyResponse
-	(*MCPToolLogInfo)(nil),                              // 319: recruitment.MCPToolLogInfo
-	(*ListMCPToolLogsRequest)(nil),                      // 320: recruitment.ListMCPToolLogsRequest
-	(*ListMCPToolLogsResponse)(nil),                     // 321: recruitment.ListMCPToolLogsResponse
-	(*TestMCPConnectionRequest)(nil),                    // 322: recruitment.TestMCPConnectionRequest
-	(*TestMCPConnectionResponse)(nil),                   // 323: recruitment.TestMCPConnectionResponse
-	(*ListMCPToolsRequest)(nil),                         // 324: recruitment.ListMCPToolsRequest
-	(*MCPToolInfo)(nil),                                 // 325: recruitment.MCPToolInfo
-	(*ListMCPToolsResponse)(nil),                        // 326: recruitment.ListMCPToolsResponse
-	(*CallMCPToolRequest)(nil),                          // 327: recruitment.CallMCPToolRequest
-	(*CallMCPToolResponse)(nil),                         // 328: recruitment.CallMCPToolResponse
-	(*LlmProviderInfo)(nil),                             // 329: recruitment.LlmProviderInfo
-	(*ListProvidersRequest)(nil),                        // 330: recruitment.ListProvidersRequest
-	(*ListProvidersResponse)(nil),                       // 331: recruitment.ListProvidersResponse
-	(*CreateProviderRequest)(nil),                       // 332: recruitment.CreateProviderRequest
-	(*UpdateProviderRequest)(nil),                       // 333: recruitment.UpdateProviderRequest
-	(*ProviderResponse)(nil),                            // 334: recruitment.ProviderResponse
-	(*DeleteProviderRequest)(nil),                       // 335: recruitment.DeleteProviderRequest
-	(*TestProviderConnectionRequest)(nil),               // 336: recruitment.TestProviderConnectionRequest
-	(*TestProviderConnectionResponse)(nil),              // 337: recruitment.TestProviderConnectionResponse
-	(*TestModelConnectionRequest)(nil),                  // 338: recruitment.TestModelConnectionRequest
-	(*DiscoverProviderModelsRequest)(nil),               // 339: recruitment.DiscoverProviderModelsRequest
-	(*ModelMetadataFieldSource)(nil),                    // 340: recruitment.ModelMetadataFieldSource
-	(*DiscoveredLlmModel)(nil),                          // 341: recruitment.DiscoveredLlmModel
-	(*DiscoverProviderModelsResponse)(nil),              // 342: recruitment.DiscoverProviderModelsResponse
-	(*GetProviderModelPresetRequest)(nil),               // 343: recruitment.GetProviderModelPresetRequest
-	(*GetProviderModelPresetResponse)(nil),              // 344: recruitment.GetProviderModelPresetResponse
-	(*LlmModelInfo)(nil),                                // 345: recruitment.LlmModelInfo
-	(*ListModelsRequest)(nil),                           // 346: recruitment.ListModelsRequest
-	(*ListModelsResponse)(nil),                          // 347: recruitment.ListModelsResponse
-	(*CreateModelRequest)(nil),                          // 348: recruitment.CreateModelRequest
-	(*UpdateModelRequest)(nil),                          // 349: recruitment.UpdateModelRequest
-	(*ModelResponse)(nil),                               // 350: recruitment.ModelResponse
-	(*DeleteModelRequest)(nil),                          // 351: recruitment.DeleteModelRequest
-	(*PromptTemplateInfo)(nil),                          // 352: recruitment.PromptTemplateInfo
-	(*ListPromptTemplatesRequest)(nil),                  // 353: recruitment.ListPromptTemplatesRequest
-	(*ListPromptTemplatesResponse)(nil),                 // 354: recruitment.ListPromptTemplatesResponse
-	(*CreatePromptTemplateRequest)(nil),                 // 355: recruitment.CreatePromptTemplateRequest
-	(*UpdatePromptTemplateRequest)(nil),                 // 356: recruitment.UpdatePromptTemplateRequest
-	(*PromptTemplateResponse)(nil),                      // 357: recruitment.PromptTemplateResponse
-	(*DeletePromptTemplateRequest)(nil),                 // 358: recruitment.DeletePromptTemplateRequest
-	(*PromptVersionInfo)(nil),                           // 359: recruitment.PromptVersionInfo
-	(*GetPromptVersionHistoryRequest)(nil),              // 360: recruitment.GetPromptVersionHistoryRequest
-	(*GetPromptVersionHistoryResponse)(nil),             // 361: recruitment.GetPromptVersionHistoryResponse
-	(*RollbackPromptVersionRequest)(nil),                // 362: recruitment.RollbackPromptVersionRequest
-	(*RenderPromptRequest)(nil),                         // 363: recruitment.RenderPromptRequest
-	(*RenderPromptResponse)(nil),                        // 364: recruitment.RenderPromptResponse
-	(*GetActivePromptByAgentTypeRequest)(nil),           // 365: recruitment.GetActivePromptByAgentTypeRequest
-	(*GetActivePromptByAgentTypeResponse)(nil),          // 366: recruitment.GetActivePromptByAgentTypeResponse
-	(*AgentConfigInfo)(nil),                             // 367: recruitment.AgentConfigInfo
-	(*AgentToolBindingInfo)(nil),                        // 368: recruitment.AgentToolBindingInfo
-	(*AgentCapabilityBindingInfo)(nil),                  // 369: recruitment.AgentCapabilityBindingInfo
-	(*CapabilityInfo)(nil),                              // 370: recruitment.CapabilityInfo
-	(*ListCapabilitiesRequest)(nil),                     // 371: recruitment.ListCapabilitiesRequest
-	(*ListCapabilitiesResponse)(nil),                    // 372: recruitment.ListCapabilitiesResponse
-	(*ListAgentsRequest)(nil),                           // 373: recruitment.ListAgentsRequest
-	(*ListAgentsResponse)(nil),                          // 374: recruitment.ListAgentsResponse
-	(*CreateAgentRequest)(nil),                          // 375: recruitment.CreateAgentRequest
-	(*UpdateAgentRequest)(nil),                          // 376: recruitment.UpdateAgentRequest
-	(*AgentConfigResponse)(nil),                         // 377: recruitment.AgentConfigResponse
-	(*DeleteAgentRequest)(nil),                          // 378: recruitment.DeleteAgentRequest
-	(*GetAgentConfigRequest)(nil),                       // 379: recruitment.GetAgentConfigRequest
-	(*GetAgentConfigResponse)(nil),                      // 380: recruitment.GetAgentConfigResponse
-	(*SkillInfo)(nil),                                   // 381: recruitment.SkillInfo
-	(*SkillVersionInfo)(nil),                            // 382: recruitment.SkillVersionInfo
-	(*SkillToolInfo)(nil),                               // 383: recruitment.SkillToolInfo
-	(*ListSkillsRequest)(nil),                           // 384: recruitment.ListSkillsRequest
-	(*ListSkillsResponse)(nil),                          // 385: recruitment.ListSkillsResponse
-	(*CreateSkillRequest)(nil),                          // 386: recruitment.CreateSkillRequest
-	(*UpdateSkillRequest)(nil),                          // 387: recruitment.UpdateSkillRequest
-	(*SkillResponse)(nil),                               // 388: recruitment.SkillResponse
-	(*CreateSkillVersionRequest)(nil),                   // 389: recruitment.CreateSkillVersionRequest
-	(*SkillVersionResponse)(nil),                        // 390: recruitment.SkillVersionResponse
-	(*ListSkillVersionsRequest)(nil),                    // 391: recruitment.ListSkillVersionsRequest
-	(*ListSkillVersionsResponse)(nil),                   // 392: recruitment.ListSkillVersionsResponse
-	(*ActivateSkillVersionRequest)(nil),                 // 393: recruitment.ActivateSkillVersionRequest
-	(*ListSkillToolsRequest)(nil),                       // 394: recruitment.ListSkillToolsRequest
-	(*ListSkillToolsResponse)(nil),                      // 395: recruitment.ListSkillToolsResponse
-	(*UpdateSkillToolRequest)(nil),                      // 396: recruitment.UpdateSkillToolRequest
-	(*SkillToolResponse)(nil),                           // 397: recruitment.SkillToolResponse
-	(*AgentSkillInfo)(nil),                              // 398: recruitment.AgentSkillInfo
-	(*AgentSkillVersionInfo)(nil),                       // 399: recruitment.AgentSkillVersionInfo
-	(*ListAgentSkillsRequest)(nil),                      // 400: recruitment.ListAgentSkillsRequest
-	(*ListAvailableAgentSkillsRequest)(nil),             // 401: recruitment.ListAvailableAgentSkillsRequest
-	(*ListAgentSkillsResponse)(nil),                     // 402: recruitment.ListAgentSkillsResponse
-	(*GetAgentSkillRequest)(nil),                        // 403: recruitment.GetAgentSkillRequest
-	(*CreateAgentSkillRequest)(nil),                     // 404: recruitment.CreateAgentSkillRequest
-	(*UpdateAgentSkillRequest)(nil),                     // 405: recruitment.UpdateAgentSkillRequest
-	(*AgentSkillResponse)(nil),                          // 406: recruitment.AgentSkillResponse
-	(*CreateAgentSkillVersionRequest)(nil),              // 407: recruitment.CreateAgentSkillVersionRequest
-	(*AgentSkillVersionResponse)(nil),                   // 408: recruitment.AgentSkillVersionResponse
-	(*ListAgentSkillVersionsRequest)(nil),               // 409: recruitment.ListAgentSkillVersionsRequest
-	(*ListAgentSkillVersionsResponse)(nil),              // 410: recruitment.ListAgentSkillVersionsResponse
-	(*ActivateAgentSkillVersionRequest)(nil),            // 411: recruitment.ActivateAgentSkillVersionRequest
-	(*UpdateAgentSkillStatusRequest)(nil),               // 412: recruitment.UpdateAgentSkillStatusRequest
-	(*PreviewAgentSkillRequest)(nil),                    // 413: recruitment.PreviewAgentSkillRequest
-	(*PreviewAgentSkillResponse)(nil),                   // 414: recruitment.PreviewAgentSkillResponse
-	(*DebugSemanticRetrievalRequest)(nil),               // 415: recruitment.DebugSemanticRetrievalRequest
-	(*SemanticSkillDebugItem)(nil),                      // 416: recruitment.SemanticSkillDebugItem
-	(*SemanticMemoryDebugItem)(nil),                     // 417: recruitment.SemanticMemoryDebugItem
-	(*DebugSemanticRetrievalResponse)(nil),              // 418: recruitment.DebugSemanticRetrievalResponse
-	(*GetResumeProfileRequest)(nil),                     // 419: recruitment.GetResumeProfileRequest
-	(*ParseResumeProfileRequest)(nil),                   // 420: recruitment.ParseResumeProfileRequest
-	(*ResumeParseRunInfo)(nil),                          // 421: recruitment.ResumeParseRunInfo
-	(*ResumeProfileInfo)(nil),                           // 422: recruitment.ResumeProfileInfo
-	(*ResumeEducationInfo)(nil),                         // 423: recruitment.ResumeEducationInfo
-	(*ResumeExperienceInfo)(nil),                        // 424: recruitment.ResumeExperienceInfo
-	(*ResumeProjectInfo)(nil),                           // 425: recruitment.ResumeProjectInfo
-	(*ResumeSkillInfo)(nil),                             // 426: recruitment.ResumeSkillInfo
-	(*ResumeProfileSnapshotInfo)(nil),                   // 427: recruitment.ResumeProfileSnapshotInfo
-	(*GetResumeProfileResponse)(nil),                    // 428: recruitment.GetResumeProfileResponse
-	(*EvaluateCandidateMatchRequest)(nil),               // 429: recruitment.EvaluateCandidateMatchRequest
-	(*GetCandidateMatchEvaluationRequest)(nil),          // 430: recruitment.GetCandidateMatchEvaluationRequest
-	(*CandidateMatchEvaluationInfo)(nil),                // 431: recruitment.CandidateMatchEvaluationInfo
-	(*CandidateMatchEvidenceInfo)(nil),                  // 432: recruitment.CandidateMatchEvidenceInfo
-	(*CandidateMatchEvaluationSnapshotInfo)(nil),        // 433: recruitment.CandidateMatchEvaluationSnapshotInfo
-	(*GetCandidateMatchEvaluationResponse)(nil),         // 434: recruitment.GetCandidateMatchEvaluationResponse
-	(*CompareCandidatesForJobRequest)(nil),              // 435: recruitment.CompareCandidatesForJobRequest
-	(*CandidateComparisonItem)(nil),                     // 436: recruitment.CandidateComparisonItem
-	(*CompareCandidatesForJobResponse)(nil),             // 437: recruitment.CompareCandidatesForJobResponse
-	(*EmbeddingProviderInfo)(nil),                       // 438: recruitment.EmbeddingProviderInfo
-	(*ListEmbeddingProvidersRequest)(nil),               // 439: recruitment.ListEmbeddingProvidersRequest
-	(*ListEmbeddingProvidersResponse)(nil),              // 440: recruitment.ListEmbeddingProvidersResponse
-	(*CreateEmbeddingProviderRequest)(nil),              // 441: recruitment.CreateEmbeddingProviderRequest
-	(*UpdateEmbeddingProviderRequest)(nil),              // 442: recruitment.UpdateEmbeddingProviderRequest
-	(*EmbeddingProviderResponse)(nil),                   // 443: recruitment.EmbeddingProviderResponse
-	(*DeleteEmbeddingProviderRequest)(nil),              // 444: recruitment.DeleteEmbeddingProviderRequest
-	(*EmbeddingModelInfo)(nil),                          // 445: recruitment.EmbeddingModelInfo
-	(*ListEmbeddingModelsRequest)(nil),                  // 446: recruitment.ListEmbeddingModelsRequest
-	(*ListEmbeddingModelsResponse)(nil),                 // 447: recruitment.ListEmbeddingModelsResponse
-	(*CreateEmbeddingModelRequest)(nil),                 // 448: recruitment.CreateEmbeddingModelRequest
-	(*UpdateEmbeddingModelRequest)(nil),                 // 449: recruitment.UpdateEmbeddingModelRequest
-	(*EmbeddingModelResponse)(nil),                      // 450: recruitment.EmbeddingModelResponse
-	(*DeleteEmbeddingModelRequest)(nil),                 // 451: recruitment.DeleteEmbeddingModelRequest
-	(*SetDefaultEmbeddingModelRequest)(nil),             // 452: recruitment.SetDefaultEmbeddingModelRequest
-	(*TestEmbeddingModelRequest)(nil),                   // 453: recruitment.TestEmbeddingModelRequest
-	(*TestEmbeddingModelResponse)(nil),                  // 454: recruitment.TestEmbeddingModelResponse
-	(*BackfillEmbeddingsRequest)(nil),                   // 455: recruitment.BackfillEmbeddingsRequest
-	(*BackfillEmbeddingsResponse)(nil),                  // 456: recruitment.BackfillEmbeddingsResponse
-	(*PreviewChatContextRequest)(nil),                   // 457: recruitment.PreviewChatContextRequest
-	(*PreviewChatContextResponse)(nil),                  // 458: recruitment.PreviewChatContextResponse
-	nil,                                                 // 459: recruitment.RenderPromptRequest.VariablesEntry
+	(BillingOwnerType)(0),                               // 0: recruitment.BillingOwnerType
+	(BillingEnforcementMode)(0),                         // 1: recruitment.BillingEnforcementMode
+	(*CommonResponse)(nil),                              // 2: recruitment.CommonResponse
+	(*RegisterRequest)(nil),                             // 3: recruitment.RegisterRequest
+	(*RegisterResponse)(nil),                            // 4: recruitment.RegisterResponse
+	(*LoginRequest)(nil),                                // 5: recruitment.LoginRequest
+	(*TenantMembershipInfo)(nil),                        // 6: recruitment.TenantMembershipInfo
+	(*TenantInfo)(nil),                                  // 7: recruitment.TenantInfo
+	(*CreateTenantRequest)(nil),                         // 8: recruitment.CreateTenantRequest
+	(*ListTenantsRequest)(nil),                          // 9: recruitment.ListTenantsRequest
+	(*TenantResponse)(nil),                              // 10: recruitment.TenantResponse
+	(*ListTenantsResponse)(nil),                         // 11: recruitment.ListTenantsResponse
+	(*GetTenantRequest)(nil),                            // 12: recruitment.GetTenantRequest
+	(*UpdateTenantStatusRequest)(nil),                   // 13: recruitment.UpdateTenantStatusRequest
+	(*ListTenantMembershipsRequest)(nil),                // 14: recruitment.ListTenantMembershipsRequest
+	(*ListTenantMembershipsResponse)(nil),               // 15: recruitment.ListTenantMembershipsResponse
+	(*UpdateTenantMembershipStatusRequest)(nil),         // 16: recruitment.UpdateTenantMembershipStatusRequest
+	(*TenantMembershipResponse)(nil),                    // 17: recruitment.TenantMembershipResponse
+	(*GetPlatformDashboardRequest)(nil),                 // 18: recruitment.GetPlatformDashboardRequest
+	(*PlatformTenantStatusCount)(nil),                   // 19: recruitment.PlatformTenantStatusCount
+	(*GetPlatformDashboardResponse)(nil),                // 20: recruitment.GetPlatformDashboardResponse
+	(*QueryPlatformAuditLogsRequest)(nil),               // 21: recruitment.QueryPlatformAuditLogsRequest
+	(*PlatformAuditLogItem)(nil),                        // 22: recruitment.PlatformAuditLogItem
+	(*QueryPlatformAuditLogsResponse)(nil),              // 23: recruitment.QueryPlatformAuditLogsResponse
+	(*PlatformEntitlementItem)(nil),                     // 24: recruitment.PlatformEntitlementItem
+	(*PlatformPlanVersionInfo)(nil),                     // 25: recruitment.PlatformPlanVersionInfo
+	(*PlatformPlanInfo)(nil),                            // 26: recruitment.PlatformPlanInfo
+	(*ListPlatformPlansRequest)(nil),                    // 27: recruitment.ListPlatformPlansRequest
+	(*ListPlatformPlansResponse)(nil),                   // 28: recruitment.ListPlatformPlansResponse
+	(*SavePlatformPlanVersionRequest)(nil),              // 29: recruitment.SavePlatformPlanVersionRequest
+	(*PublishPlatformPlanVersionRequest)(nil),           // 30: recruitment.PublishPlatformPlanVersionRequest
+	(*PlatformPlanVersionResponse)(nil),                 // 31: recruitment.PlatformPlanVersionResponse
+	(*TenantSubscriptionInfo)(nil),                      // 32: recruitment.TenantSubscriptionInfo
+	(*GetTenantSubscriptionRequest)(nil),                // 33: recruitment.GetTenantSubscriptionRequest
+	(*UpdateTenantSubscriptionRequest)(nil),             // 34: recruitment.UpdateTenantSubscriptionRequest
+	(*TenantSubscriptionResponse)(nil),                  // 35: recruitment.TenantSubscriptionResponse
+	(*UpdateTenantEntitlementOverrideRequest)(nil),      // 36: recruitment.UpdateTenantEntitlementOverrideRequest
+	(*TenantUsageMetric)(nil),                           // 37: recruitment.TenantUsageMetric
+	(*GetTenantUsageRequest)(nil),                       // 38: recruitment.GetTenantUsageRequest
+	(*GetTenantUsageResponse)(nil),                      // 39: recruitment.GetTenantUsageResponse
+	(*QuotaAlertInfo)(nil),                              // 40: recruitment.QuotaAlertInfo
+	(*ListQuotaAlertsRequest)(nil),                      // 41: recruitment.ListQuotaAlertsRequest
+	(*ListQuotaAlertsResponse)(nil),                     // 42: recruitment.ListQuotaAlertsResponse
+	(*UpdateQuotaAlertRequest)(nil),                     // 43: recruitment.UpdateQuotaAlertRequest
+	(*QuotaAlertResponse)(nil),                          // 44: recruitment.QuotaAlertResponse
+	(*LoginResponse)(nil),                               // 45: recruitment.LoginResponse
+	(*RefreshTokenRequest)(nil),                         // 46: recruitment.RefreshTokenRequest
+	(*RefreshTokenResponse)(nil),                        // 47: recruitment.RefreshTokenResponse
+	(*SwitchTenantRequest)(nil),                         // 48: recruitment.SwitchTenantRequest
+	(*RevokeRefreshTokenRequest)(nil),                   // 49: recruitment.RevokeRefreshTokenRequest
+	(*AuthAuditRequest)(nil),                            // 50: recruitment.AuthAuditRequest
+	(*GetPrincipalRequest)(nil),                         // 51: recruitment.GetPrincipalRequest
+	(*GetPrincipalResponse)(nil),                        // 52: recruitment.GetPrincipalResponse
+	(*AuthorizeInternalRequest)(nil),                    // 53: recruitment.AuthorizeInternalRequest
+	(*AuthorizeInternalResponse)(nil),                   // 54: recruitment.AuthorizeInternalResponse
+	(*UpdateEmailRequest)(nil),                          // 55: recruitment.UpdateEmailRequest
+	(*ScopeAssignment)(nil),                             // 56: recruitment.ScopeAssignment
+	(*CreateJobRequest)(nil),                            // 57: recruitment.CreateJobRequest
+	(*CreateJobResponse)(nil),                           // 58: recruitment.CreateJobResponse
+	(*UpdateJobRequest)(nil),                            // 59: recruitment.UpdateJobRequest
+	(*OfflineJobRequest)(nil),                           // 60: recruitment.OfflineJobRequest
+	(*ListHRJobsRequest)(nil),                           // 61: recruitment.ListHRJobsRequest
+	(*ListPublicJobsRequest)(nil),                       // 62: recruitment.ListPublicJobsRequest
+	(*GetJobDetailRequest)(nil),                         // 63: recruitment.GetJobDetailRequest
+	(*Job)(nil),                                         // 64: recruitment.Job
+	(*ListJobsResponse)(nil),                            // 65: recruitment.ListJobsResponse
+	(*GetJobDetailResponse)(nil),                        // 66: recruitment.GetJobDetailResponse
+	(*GetProfileRequest)(nil),                           // 67: recruitment.GetProfileRequest
+	(*UpdateProfileRequest)(nil),                        // 68: recruitment.UpdateProfileRequest
+	(*CandidateProfile)(nil),                            // 69: recruitment.CandidateProfile
+	(*GetProfileResponse)(nil),                          // 70: recruitment.GetProfileResponse
+	(*GetResumeRequest)(nil),                            // 71: recruitment.GetResumeRequest
+	(*CandidateResume)(nil),                             // 72: recruitment.CandidateResume
+	(*GetResumeResponse)(nil),                           // 73: recruitment.GetResumeResponse
+	(*PresignResumeUploadRequest)(nil),                  // 74: recruitment.PresignResumeUploadRequest
+	(*PresignResumeUploadResponse)(nil),                 // 75: recruitment.PresignResumeUploadResponse
+	(*ConfirmResumeUploadRequest)(nil),                  // 76: recruitment.ConfirmResumeUploadRequest
+	(*ConfirmResumeUploadResponse)(nil),                 // 77: recruitment.ConfirmResumeUploadResponse
+	(*ApplyJobRequest)(nil),                             // 78: recruitment.ApplyJobRequest
+	(*ListMyApplicationsRequest)(nil),                   // 79: recruitment.ListMyApplicationsRequest
+	(*MyApplication)(nil),                               // 80: recruitment.MyApplication
+	(*ListMyApplicationsResponse)(nil),                  // 81: recruitment.ListMyApplicationsResponse
+	(*ListJobApplicationsRequest)(nil),                  // 82: recruitment.ListJobApplicationsRequest
+	(*JobApplication)(nil),                              // 83: recruitment.JobApplication
+	(*ListJobApplicationsResponse)(nil),                 // 84: recruitment.ListJobApplicationsResponse
+	(*UpdateApplicationStatusRequest)(nil),              // 85: recruitment.UpdateApplicationStatusRequest
+	(*ListApplicationStatusTransitionsRequest)(nil),     // 86: recruitment.ListApplicationStatusTransitionsRequest
+	(*ApplicationStatusTransition)(nil),                 // 87: recruitment.ApplicationStatusTransition
+	(*ListApplicationStatusTransitionsResponse)(nil),    // 88: recruitment.ListApplicationStatusTransitionsResponse
+	(*GetApplicationSnapshotRequest)(nil),               // 89: recruitment.GetApplicationSnapshotRequest
+	(*GetApplicationSnapshotResponse)(nil),              // 90: recruitment.GetApplicationSnapshotResponse
+	(*ApplyApplicationLifecycleTransitionRequest)(nil),  // 91: recruitment.ApplyApplicationLifecycleTransitionRequest
+	(*ApplyApplicationLifecycleTransitionResponse)(nil), // 92: recruitment.ApplyApplicationLifecycleTransitionResponse
+	(*ChatRequest)(nil),                                 // 93: recruitment.ChatRequest
+	(*ContextUsageBreakdown)(nil),                       // 94: recruitment.ContextUsageBreakdown
+	(*ContextUsageInfo)(nil),                            // 95: recruitment.ContextUsageInfo
+	(*ChatResponse)(nil),                                // 96: recruitment.ChatResponse
+	(*AgentSkillSelectionCandidate)(nil),                // 97: recruitment.AgentSkillSelectionCandidate
+	(*AgentSkillSelection)(nil),                         // 98: recruitment.AgentSkillSelection
+	(*ChatStreamResponse)(nil),                          // 99: recruitment.ChatStreamResponse
+	(*ChatHistoryRequest)(nil),                          // 100: recruitment.ChatHistoryRequest
+	(*ChatMessage)(nil),                                 // 101: recruitment.ChatMessage
+	(*ChatHistoryResponse)(nil),                         // 102: recruitment.ChatHistoryResponse
+	(*AnalyzeApplicationRequest)(nil),                   // 103: recruitment.AnalyzeApplicationRequest
+	(*AnalyzeApplicationResponse)(nil),                  // 104: recruitment.AnalyzeApplicationResponse
+	(*ChatSessionListRequest)(nil),                      // 105: recruitment.ChatSessionListRequest
+	(*ChatSession)(nil),                                 // 106: recruitment.ChatSession
+	(*ChatSessionListResponse)(nil),                     // 107: recruitment.ChatSessionListResponse
+	(*CreateChatSessionRequest)(nil),                    // 108: recruitment.CreateChatSessionRequest
+	(*CreateChatSessionResponse)(nil),                   // 109: recruitment.CreateChatSessionResponse
+	(*SessionMessagesRequest)(nil),                      // 110: recruitment.SessionMessagesRequest
+	(*CreateApplicationAnalysisSessionRequest)(nil),     // 111: recruitment.CreateApplicationAnalysisSessionRequest
+	(*CreateApplicationAnalysisSessionResponse)(nil),    // 112: recruitment.CreateApplicationAnalysisSessionResponse
+	(*UpdateSessionRequest)(nil),                        // 113: recruitment.UpdateSessionRequest
+	(*DeleteSessionRequest)(nil),                        // 114: recruitment.DeleteSessionRequest
+	(*CandidateChatRequest)(nil),                        // 115: recruitment.CandidateChatRequest
+	(*CandidateSessionListRequest)(nil),                 // 116: recruitment.CandidateSessionListRequest
+	(*CandidateCreateSessionRequest)(nil),               // 117: recruitment.CandidateCreateSessionRequest
+	(*CandidateSessionMessagesRequest)(nil),             // 118: recruitment.CandidateSessionMessagesRequest
+	(*CandidateUpdateSessionRequest)(nil),               // 119: recruitment.CandidateUpdateSessionRequest
+	(*CandidateDeleteSessionRequest)(nil),               // 120: recruitment.CandidateDeleteSessionRequest
+	(*GetToolTracesRequest)(nil),                        // 121: recruitment.GetToolTracesRequest
+	(*ToolTraceItem)(nil),                               // 122: recruitment.ToolTraceItem
+	(*GetToolTracesResponse)(nil),                       // 123: recruitment.GetToolTracesResponse
+	(*GetAgentRunsRequest)(nil),                         // 124: recruitment.GetAgentRunsRequest
+	(*AgentRunStepItem)(nil),                            // 125: recruitment.AgentRunStepItem
+	(*AgentRunItem)(nil),                                // 126: recruitment.AgentRunItem
+	(*GetAgentRunsResponse)(nil),                        // 127: recruitment.GetAgentRunsResponse
+	(*AgentRunResultMetadata)(nil),                      // 128: recruitment.AgentRunResultMetadata
+	(*AgentRunConfirmationPayload)(nil),                 // 129: recruitment.AgentRunConfirmationPayload
+	(*AgentRunSnapshot)(nil),                            // 130: recruitment.AgentRunSnapshot
+	(*AgentRunEvent)(nil),                               // 131: recruitment.AgentRunEvent
+	(*CreateAgentRunRequest)(nil),                       // 132: recruitment.CreateAgentRunRequest
+	(*CreateAgentRunResponse)(nil),                      // 133: recruitment.CreateAgentRunResponse
+	(*GetAgentRunRequest)(nil),                          // 134: recruitment.GetAgentRunRequest
+	(*GetAgentRunResponse)(nil),                         // 135: recruitment.GetAgentRunResponse
+	(*GetActiveAgentRunRequest)(nil),                    // 136: recruitment.GetActiveAgentRunRequest
+	(*GetActiveAgentRunResponse)(nil),                   // 137: recruitment.GetActiveAgentRunResponse
+	(*SubscribeAgentRunEventsRequest)(nil),              // 138: recruitment.SubscribeAgentRunEventsRequest
+	(*CancelAgentRunRequest)(nil),                       // 139: recruitment.CancelAgentRunRequest
+	(*CancelAgentRunResponse)(nil),                      // 140: recruitment.CancelAgentRunResponse
+	(*ConfirmAgentRunRequest)(nil),                      // 141: recruitment.ConfirmAgentRunRequest
+	(*ConfirmAgentRunResponse)(nil),                     // 142: recruitment.ConfirmAgentRunResponse
+	(*InterviewSchedule)(nil),                           // 143: recruitment.InterviewSchedule
+	(*ScheduleInterviewRequest)(nil),                    // 144: recruitment.ScheduleInterviewRequest
+	(*ScheduleInterviewResponse)(nil),                   // 145: recruitment.ScheduleInterviewResponse
+	(*UpdateInterviewRequest)(nil),                      // 146: recruitment.UpdateInterviewRequest
+	(*CancelInterviewRequest)(nil),                      // 147: recruitment.CancelInterviewRequest
+	(*GetInterviewRequest)(nil),                         // 148: recruitment.GetInterviewRequest
+	(*GetInterviewResponse)(nil),                        // 149: recruitment.GetInterviewResponse
+	(*ListInterviewersRequest)(nil),                     // 150: recruitment.ListInterviewersRequest
+	(*ListInterviewersResponse)(nil),                    // 151: recruitment.ListInterviewersResponse
+	(*ListApplicationInterviewsRequest)(nil),            // 152: recruitment.ListApplicationInterviewsRequest
+	(*ListApplicationInterviewsResponse)(nil),           // 153: recruitment.ListApplicationInterviewsResponse
+	(*ListMyInterviewsRequest)(nil),                     // 154: recruitment.ListMyInterviewsRequest
+	(*ListMyInterviewsResponse)(nil),                    // 155: recruitment.ListMyInterviewsResponse
+	(*ListCandidateInterviewsRequest)(nil),              // 156: recruitment.ListCandidateInterviewsRequest
+	(*ListCandidateInterviewsResponse)(nil),             // 157: recruitment.ListCandidateInterviewsResponse
+	(*InterviewFeedback)(nil),                           // 158: recruitment.InterviewFeedback
+	(*SubmitFeedbackRequest)(nil),                       // 159: recruitment.SubmitFeedbackRequest
+	(*GetFeedbackRequest)(nil),                          // 160: recruitment.GetFeedbackRequest
+	(*GetFeedbackResponse)(nil),                         // 161: recruitment.GetFeedbackResponse
+	(*BatchCancelInterviewsRequest)(nil),                // 162: recruitment.BatchCancelInterviewsRequest
+	(*BatchCancelInterviewsResponse)(nil),               // 163: recruitment.BatchCancelInterviewsResponse
+	(*Notification)(nil),                                // 164: recruitment.Notification
+	(*ListNotificationsRequest)(nil),                    // 165: recruitment.ListNotificationsRequest
+	(*ListNotificationsResponse)(nil),                   // 166: recruitment.ListNotificationsResponse
+	(*UnreadNotificationCountRequest)(nil),              // 167: recruitment.UnreadNotificationCountRequest
+	(*UnreadNotificationCountResponse)(nil),             // 168: recruitment.UnreadNotificationCountResponse
+	(*NotificationSummaryRequest)(nil),                  // 169: recruitment.NotificationSummaryRequest
+	(*NotificationSummaryResponse)(nil),                 // 170: recruitment.NotificationSummaryResponse
+	(*MarkNotificationReadRequest)(nil),                 // 171: recruitment.MarkNotificationReadRequest
+	(*MarkAllNotificationsReadRequest)(nil),             // 172: recruitment.MarkAllNotificationsReadRequest
+	(*InviteCodeInfo)(nil),                              // 173: recruitment.InviteCodeInfo
+	(*CreateInviteCodeRequest)(nil),                     // 174: recruitment.CreateInviteCodeRequest
+	(*CreateInviteCodeResponse)(nil),                    // 175: recruitment.CreateInviteCodeResponse
+	(*ListInviteCodesRequest)(nil),                      // 176: recruitment.ListInviteCodesRequest
+	(*ListInviteCodesResponse)(nil),                     // 177: recruitment.ListInviteCodesResponse
+	(*ExtendInviteCodeRequest)(nil),                     // 178: recruitment.ExtendInviteCodeRequest
+	(*RevokeInviteCodeRequest)(nil),                     // 179: recruitment.RevokeInviteCodeRequest
+	(*ReactivateInviteCodeRequest)(nil),                 // 180: recruitment.ReactivateInviteCodeRequest
+	(*ValidateInviteCodeRequest)(nil),                   // 181: recruitment.ValidateInviteCodeRequest
+	(*ValidateInviteCodeResponse)(nil),                  // 182: recruitment.ValidateInviteCodeResponse
+	(*ListJobOptionsRequest)(nil),                       // 183: recruitment.ListJobOptionsRequest
+	(*ListJobOptionsResponse)(nil),                      // 184: recruitment.ListJobOptionsResponse
+	(*DepartmentNode)(nil),                              // 185: recruitment.DepartmentNode
+	(*LocationOption)(nil),                              // 186: recruitment.LocationOption
+	(*ListDepartmentsRequest)(nil),                      // 187: recruitment.ListDepartmentsRequest
+	(*ListDepartmentsResponse)(nil),                     // 188: recruitment.ListDepartmentsResponse
+	(*CreateDepartmentRequest)(nil),                     // 189: recruitment.CreateDepartmentRequest
+	(*UpdateDepartmentRequest)(nil),                     // 190: recruitment.UpdateDepartmentRequest
+	(*UpdateDepartmentStatusRequest)(nil),               // 191: recruitment.UpdateDepartmentStatusRequest
+	(*DeleteDepartmentRequest)(nil),                     // 192: recruitment.DeleteDepartmentRequest
+	(*DepartmentResponse)(nil),                          // 193: recruitment.DepartmentResponse
+	(*ListJobLocationsRequest)(nil),                     // 194: recruitment.ListJobLocationsRequest
+	(*ListJobLocationsResponse)(nil),                    // 195: recruitment.ListJobLocationsResponse
+	(*CreateJobLocationRequest)(nil),                    // 196: recruitment.CreateJobLocationRequest
+	(*UpdateJobLocationRequest)(nil),                    // 197: recruitment.UpdateJobLocationRequest
+	(*UpdateJobLocationStatusRequest)(nil),              // 198: recruitment.UpdateJobLocationStatusRequest
+	(*DeleteJobLocationRequest)(nil),                    // 199: recruitment.DeleteJobLocationRequest
+	(*JobLocationResponse)(nil),                         // 200: recruitment.JobLocationResponse
+	(*DepartmentLocationMap)(nil),                       // 201: recruitment.DepartmentLocationMap
+	(*ListDepartmentsLocationMapRequest)(nil),           // 202: recruitment.ListDepartmentsLocationMapRequest
+	(*ListDepartmentsLocationMapResponse)(nil),          // 203: recruitment.ListDepartmentsLocationMapResponse
+	(*ListDepartmentLocationsRequest)(nil),              // 204: recruitment.ListDepartmentLocationsRequest
+	(*ListDepartmentLocationsResponse)(nil),             // 205: recruitment.ListDepartmentLocationsResponse
+	(*GetDepartmentLocationConfigRequest)(nil),          // 206: recruitment.GetDepartmentLocationConfigRequest
+	(*UpdateDepartmentLocationConfigRequest)(nil),       // 207: recruitment.UpdateDepartmentLocationConfigRequest
+	(*DepartmentLocationConfigResponse)(nil),            // 208: recruitment.DepartmentLocationConfigResponse
+	(*UsageLogItem)(nil),                                // 209: recruitment.UsageLogItem
+	(*QueryUsageLogsRequest)(nil),                       // 210: recruitment.QueryUsageLogsRequest
+	(*QueryUsageLogsResponse)(nil),                      // 211: recruitment.QueryUsageLogsResponse
+	(*Offer)(nil),                                       // 212: recruitment.Offer
+	(*CreateOfferRequest)(nil),                          // 213: recruitment.CreateOfferRequest
+	(*CreateOfferResponse)(nil),                         // 214: recruitment.CreateOfferResponse
+	(*UpdateOfferRequest)(nil),                          // 215: recruitment.UpdateOfferRequest
+	(*GetOfferRequest)(nil),                             // 216: recruitment.GetOfferRequest
+	(*GetOfferResponse)(nil),                            // 217: recruitment.GetOfferResponse
+	(*ListOffersByApplicationRequest)(nil),              // 218: recruitment.ListOffersByApplicationRequest
+	(*ListOffersByApplicationResponse)(nil),             // 219: recruitment.ListOffersByApplicationResponse
+	(*SendOfferRequest)(nil),                            // 220: recruitment.SendOfferRequest
+	(*WithdrawOfferRequest)(nil),                        // 221: recruitment.WithdrawOfferRequest
+	(*AcceptOfferRequest)(nil),                          // 222: recruitment.AcceptOfferRequest
+	(*RejectOfferRequest)(nil),                          // 223: recruitment.RejectOfferRequest
+	(*ListMyOffersRequest)(nil),                         // 224: recruitment.ListMyOffersRequest
+	(*ListMyOffersResponse)(nil),                        // 225: recruitment.ListMyOffersResponse
+	(*OfferEventInfo)(nil),                              // 226: recruitment.OfferEventInfo
+	(*ListOfferEventsRequest)(nil),                      // 227: recruitment.ListOfferEventsRequest
+	(*ListOfferEventsResponse)(nil),                     // 228: recruitment.ListOfferEventsResponse
+	(*ListRolesRequest)(nil),                            // 229: recruitment.ListRolesRequest
+	(*ListRolesResponse)(nil),                           // 230: recruitment.ListRolesResponse
+	(*RoleInfo)(nil),                                    // 231: recruitment.RoleInfo
+	(*ListPermissionsRequest)(nil),                      // 232: recruitment.ListPermissionsRequest
+	(*ListPermissionsResponse)(nil),                     // 233: recruitment.ListPermissionsResponse
+	(*PermissionInfo)(nil),                              // 234: recruitment.PermissionInfo
+	(*GetUserRolesRequest)(nil),                         // 235: recruitment.GetUserRolesRequest
+	(*GetUserRolesResponse)(nil),                        // 236: recruitment.GetUserRolesResponse
+	(*DataScopeInfo)(nil),                               // 237: recruitment.DataScopeInfo
+	(*AssignUserRoleRequest)(nil),                       // 238: recruitment.AssignUserRoleRequest
+	(*RevokeUserRoleRequest)(nil),                       // 239: recruitment.RevokeUserRoleRequest
+	(*AssignDataScopeRequest)(nil),                      // 240: recruitment.AssignDataScopeRequest
+	(*RevokeDataScopeRequest)(nil),                      // 241: recruitment.RevokeDataScopeRequest
+	(*ListStaffUsersRequest)(nil),                       // 242: recruitment.ListStaffUsersRequest
+	(*ListStaffUsersResponse)(nil),                      // 243: recruitment.ListStaffUsersResponse
+	(*StaffUserInfo)(nil),                               // 244: recruitment.StaffUserInfo
+	(*CreateStaffUserRequest)(nil),                      // 245: recruitment.CreateStaffUserRequest
+	(*CreateStaffUserResponse)(nil),                     // 246: recruitment.CreateStaffUserResponse
+	(*PlatformUserInfo)(nil),                            // 247: recruitment.PlatformUserInfo
+	(*ListPlatformUsersRequest)(nil),                    // 248: recruitment.ListPlatformUsersRequest
+	(*ListPlatformUsersResponse)(nil),                   // 249: recruitment.ListPlatformUsersResponse
+	(*CreatePlatformUserRequest)(nil),                   // 250: recruitment.CreatePlatformUserRequest
+	(*CreatePlatformUserResponse)(nil),                  // 251: recruitment.CreatePlatformUserResponse
+	(*UpdatePlatformUserRequest)(nil),                   // 252: recruitment.UpdatePlatformUserRequest
+	(*PlatformUserResponse)(nil),                        // 253: recruitment.PlatformUserResponse
+	(*GetCandidateWorkspaceRequest)(nil),                // 254: recruitment.GetCandidateWorkspaceRequest
+	(*CandidateWorkspace)(nil),                          // 255: recruitment.CandidateWorkspace
+	(*CandidateWorkspaceInterview)(nil),                 // 256: recruitment.CandidateWorkspaceInterview
+	(*CandidateWorkspaceOffer)(nil),                     // 257: recruitment.CandidateWorkspaceOffer
+	(*CandidateWorkspaceApplication)(nil),               // 258: recruitment.CandidateWorkspaceApplication
+	(*GetCandidateWorkspaceResponse)(nil),               // 259: recruitment.GetCandidateWorkspaceResponse
+	(*CandidateNoteInfo)(nil),                           // 260: recruitment.CandidateNoteInfo
+	(*CreateNoteRequest)(nil),                           // 261: recruitment.CreateNoteRequest
+	(*CreateNoteResponse)(nil),                          // 262: recruitment.CreateNoteResponse
+	(*ListNotesRequest)(nil),                            // 263: recruitment.ListNotesRequest
+	(*ListNotesResponse)(nil),                           // 264: recruitment.ListNotesResponse
+	(*CandidateTagInfo)(nil),                            // 265: recruitment.CandidateTagInfo
+	(*CreateTagRequest)(nil),                            // 266: recruitment.CreateTagRequest
+	(*CreateTagResponse)(nil),                           // 267: recruitment.CreateTagResponse
+	(*ListTagsRequest)(nil),                             // 268: recruitment.ListTagsRequest
+	(*ListTagsResponse)(nil),                            // 269: recruitment.ListTagsResponse
+	(*AssignTagRequest)(nil),                            // 270: recruitment.AssignTagRequest
+	(*UnassignTagRequest)(nil),                          // 271: recruitment.UnassignTagRequest
+	(*ListCandidateTagsRequest)(nil),                    // 272: recruitment.ListCandidateTagsRequest
+	(*ListCandidateTagsResponse)(nil),                   // 273: recruitment.ListCandidateTagsResponse
+	(*FollowUpTaskInfo)(nil),                            // 274: recruitment.FollowUpTaskInfo
+	(*CreateFollowUpTaskRequest)(nil),                   // 275: recruitment.CreateFollowUpTaskRequest
+	(*CreateFollowUpTaskResponse)(nil),                  // 276: recruitment.CreateFollowUpTaskResponse
+	(*ListFollowUpTasksRequest)(nil),                    // 277: recruitment.ListFollowUpTasksRequest
+	(*ListFollowUpTasksResponse)(nil),                   // 278: recruitment.ListFollowUpTasksResponse
+	(*CompleteFollowUpTaskRequest)(nil),                 // 279: recruitment.CompleteFollowUpTaskRequest
+	(*GetFollowUpTaskRequest)(nil),                      // 280: recruitment.GetFollowUpTaskRequest
+	(*GetFollowUpTaskResponse)(nil),                     // 281: recruitment.GetFollowUpTaskResponse
+	(*TimelineEventInfo)(nil),                           // 282: recruitment.TimelineEventInfo
+	(*ListTimelineEventsRequest)(nil),                   // 283: recruitment.ListTimelineEventsRequest
+	(*ListTimelineEventsResponse)(nil),                  // 284: recruitment.ListTimelineEventsResponse
+	(*QueryAuthAuditLogsRequest)(nil),                   // 285: recruitment.QueryAuthAuditLogsRequest
+	(*AuthAuditLogItem)(nil),                            // 286: recruitment.AuthAuditLogItem
+	(*QueryAuthAuditLogsResponse)(nil),                  // 287: recruitment.QueryAuthAuditLogsResponse
+	(*GetDashboardReportRequest)(nil),                   // 288: recruitment.GetDashboardReportRequest
+	(*DashboardReportItem)(nil),                         // 289: recruitment.DashboardReportItem
+	(*DashboardTrendPoint)(nil),                         // 290: recruitment.DashboardTrendPoint
+	(*GetDashboardReportResponse)(nil),                  // 291: recruitment.GetDashboardReportResponse
+	(*GetFunnelReportRequest)(nil),                      // 292: recruitment.GetFunnelReportRequest
+	(*FunnelStage)(nil),                                 // 293: recruitment.FunnelStage
+	(*GetFunnelReportResponse)(nil),                     // 294: recruitment.GetFunnelReportResponse
+	(*GetTimeInStageReportRequest)(nil),                 // 295: recruitment.GetTimeInStageReportRequest
+	(*StageDuration)(nil),                               // 296: recruitment.StageDuration
+	(*GetTimeInStageReportResponse)(nil),                // 297: recruitment.GetTimeInStageReportResponse
+	(*GetInterviewOfferMetricsRequest)(nil),             // 298: recruitment.GetInterviewOfferMetricsRequest
+	(*GetInterviewOfferMetricsResponse)(nil),            // 299: recruitment.GetInterviewOfferMetricsResponse
+	(*GetUsageStatsRequest)(nil),                        // 300: recruitment.GetUsageStatsRequest
+	(*UsageStatsItem)(nil),                              // 301: recruitment.UsageStatsItem
+	(*UsageStatsSummary)(nil),                           // 302: recruitment.UsageStatsSummary
+	(*GetUsageStatsResponse)(nil),                       // 303: recruitment.GetUsageStatsResponse
+	(*GetUsageTrendRequest)(nil),                        // 304: recruitment.GetUsageTrendRequest
+	(*UsageTrendPoint)(nil),                             // 305: recruitment.UsageTrendPoint
+	(*GetUsageTrendResponse)(nil),                       // 306: recruitment.GetUsageTrendResponse
+	(*MCPServerInfo)(nil),                               // 307: recruitment.MCPServerInfo
+	(*ListMCPServersRequest)(nil),                       // 308: recruitment.ListMCPServersRequest
+	(*ListMCPServersResponse)(nil),                      // 309: recruitment.ListMCPServersResponse
+	(*CreateMCPServerRequest)(nil),                      // 310: recruitment.CreateMCPServerRequest
+	(*UpdateMCPServerRequest)(nil),                      // 311: recruitment.UpdateMCPServerRequest
+	(*DeleteMCPServerRequest)(nil),                      // 312: recruitment.DeleteMCPServerRequest
+	(*MCPServerResponse)(nil),                           // 313: recruitment.MCPServerResponse
+	(*MCPToolPolicyInfo)(nil),                           // 314: recruitment.MCPToolPolicyInfo
+	(*ListMCPToolPoliciesRequest)(nil),                  // 315: recruitment.ListMCPToolPoliciesRequest
+	(*ListMCPToolPoliciesResponse)(nil),                 // 316: recruitment.ListMCPToolPoliciesResponse
+	(*CreateMCPToolPolicyRequest)(nil),                  // 317: recruitment.CreateMCPToolPolicyRequest
+	(*UpdateMCPToolPolicyRequest)(nil),                  // 318: recruitment.UpdateMCPToolPolicyRequest
+	(*DeleteMCPToolPolicyRequest)(nil),                  // 319: recruitment.DeleteMCPToolPolicyRequest
+	(*MCPToolPolicyResponse)(nil),                       // 320: recruitment.MCPToolPolicyResponse
+	(*MCPToolLogInfo)(nil),                              // 321: recruitment.MCPToolLogInfo
+	(*ListMCPToolLogsRequest)(nil),                      // 322: recruitment.ListMCPToolLogsRequest
+	(*ListMCPToolLogsResponse)(nil),                     // 323: recruitment.ListMCPToolLogsResponse
+	(*TestMCPConnectionRequest)(nil),                    // 324: recruitment.TestMCPConnectionRequest
+	(*TestMCPConnectionResponse)(nil),                   // 325: recruitment.TestMCPConnectionResponse
+	(*ListMCPToolsRequest)(nil),                         // 326: recruitment.ListMCPToolsRequest
+	(*MCPToolInfo)(nil),                                 // 327: recruitment.MCPToolInfo
+	(*ListMCPToolsResponse)(nil),                        // 328: recruitment.ListMCPToolsResponse
+	(*CallMCPToolRequest)(nil),                          // 329: recruitment.CallMCPToolRequest
+	(*CallMCPToolResponse)(nil),                         // 330: recruitment.CallMCPToolResponse
+	(*LlmProviderInfo)(nil),                             // 331: recruitment.LlmProviderInfo
+	(*ListProvidersRequest)(nil),                        // 332: recruitment.ListProvidersRequest
+	(*ListProvidersResponse)(nil),                       // 333: recruitment.ListProvidersResponse
+	(*CreateProviderRequest)(nil),                       // 334: recruitment.CreateProviderRequest
+	(*UpdateProviderRequest)(nil),                       // 335: recruitment.UpdateProviderRequest
+	(*ProviderResponse)(nil),                            // 336: recruitment.ProviderResponse
+	(*DeleteProviderRequest)(nil),                       // 337: recruitment.DeleteProviderRequest
+	(*TestProviderConnectionRequest)(nil),               // 338: recruitment.TestProviderConnectionRequest
+	(*TestProviderConnectionResponse)(nil),              // 339: recruitment.TestProviderConnectionResponse
+	(*TestModelConnectionRequest)(nil),                  // 340: recruitment.TestModelConnectionRequest
+	(*DiscoverProviderModelsRequest)(nil),               // 341: recruitment.DiscoverProviderModelsRequest
+	(*ModelMetadataFieldSource)(nil),                    // 342: recruitment.ModelMetadataFieldSource
+	(*DiscoveredLlmModel)(nil),                          // 343: recruitment.DiscoveredLlmModel
+	(*DiscoverProviderModelsResponse)(nil),              // 344: recruitment.DiscoverProviderModelsResponse
+	(*GetProviderModelPresetRequest)(nil),               // 345: recruitment.GetProviderModelPresetRequest
+	(*GetProviderModelPresetResponse)(nil),              // 346: recruitment.GetProviderModelPresetResponse
+	(*LlmModelInfo)(nil),                                // 347: recruitment.LlmModelInfo
+	(*ListModelsRequest)(nil),                           // 348: recruitment.ListModelsRequest
+	(*ListModelsResponse)(nil),                          // 349: recruitment.ListModelsResponse
+	(*CreateModelRequest)(nil),                          // 350: recruitment.CreateModelRequest
+	(*UpdateModelRequest)(nil),                          // 351: recruitment.UpdateModelRequest
+	(*ModelResponse)(nil),                               // 352: recruitment.ModelResponse
+	(*DeleteModelRequest)(nil),                          // 353: recruitment.DeleteModelRequest
+	(*PromptTemplateInfo)(nil),                          // 354: recruitment.PromptTemplateInfo
+	(*ListPromptTemplatesRequest)(nil),                  // 355: recruitment.ListPromptTemplatesRequest
+	(*ListPromptTemplatesResponse)(nil),                 // 356: recruitment.ListPromptTemplatesResponse
+	(*CreatePromptTemplateRequest)(nil),                 // 357: recruitment.CreatePromptTemplateRequest
+	(*UpdatePromptTemplateRequest)(nil),                 // 358: recruitment.UpdatePromptTemplateRequest
+	(*PromptTemplateResponse)(nil),                      // 359: recruitment.PromptTemplateResponse
+	(*DeletePromptTemplateRequest)(nil),                 // 360: recruitment.DeletePromptTemplateRequest
+	(*PromptVersionInfo)(nil),                           // 361: recruitment.PromptVersionInfo
+	(*GetPromptVersionHistoryRequest)(nil),              // 362: recruitment.GetPromptVersionHistoryRequest
+	(*GetPromptVersionHistoryResponse)(nil),             // 363: recruitment.GetPromptVersionHistoryResponse
+	(*RollbackPromptVersionRequest)(nil),                // 364: recruitment.RollbackPromptVersionRequest
+	(*RenderPromptRequest)(nil),                         // 365: recruitment.RenderPromptRequest
+	(*RenderPromptResponse)(nil),                        // 366: recruitment.RenderPromptResponse
+	(*GetActivePromptByAgentTypeRequest)(nil),           // 367: recruitment.GetActivePromptByAgentTypeRequest
+	(*GetActivePromptByAgentTypeResponse)(nil),          // 368: recruitment.GetActivePromptByAgentTypeResponse
+	(*AgentConfigInfo)(nil),                             // 369: recruitment.AgentConfigInfo
+	(*AgentToolBindingInfo)(nil),                        // 370: recruitment.AgentToolBindingInfo
+	(*AgentCapabilityBindingInfo)(nil),                  // 371: recruitment.AgentCapabilityBindingInfo
+	(*CapabilityInfo)(nil),                              // 372: recruitment.CapabilityInfo
+	(*ListCapabilitiesRequest)(nil),                     // 373: recruitment.ListCapabilitiesRequest
+	(*ListCapabilitiesResponse)(nil),                    // 374: recruitment.ListCapabilitiesResponse
+	(*ListAgentsRequest)(nil),                           // 375: recruitment.ListAgentsRequest
+	(*ListAgentsResponse)(nil),                          // 376: recruitment.ListAgentsResponse
+	(*CreateAgentRequest)(nil),                          // 377: recruitment.CreateAgentRequest
+	(*UpdateAgentRequest)(nil),                          // 378: recruitment.UpdateAgentRequest
+	(*AgentConfigResponse)(nil),                         // 379: recruitment.AgentConfigResponse
+	(*DeleteAgentRequest)(nil),                          // 380: recruitment.DeleteAgentRequest
+	(*GetAgentConfigRequest)(nil),                       // 381: recruitment.GetAgentConfigRequest
+	(*GetAgentConfigResponse)(nil),                      // 382: recruitment.GetAgentConfigResponse
+	(*SkillInfo)(nil),                                   // 383: recruitment.SkillInfo
+	(*SkillVersionInfo)(nil),                            // 384: recruitment.SkillVersionInfo
+	(*SkillToolInfo)(nil),                               // 385: recruitment.SkillToolInfo
+	(*ListSkillsRequest)(nil),                           // 386: recruitment.ListSkillsRequest
+	(*ListSkillsResponse)(nil),                          // 387: recruitment.ListSkillsResponse
+	(*CreateSkillRequest)(nil),                          // 388: recruitment.CreateSkillRequest
+	(*UpdateSkillRequest)(nil),                          // 389: recruitment.UpdateSkillRequest
+	(*SkillResponse)(nil),                               // 390: recruitment.SkillResponse
+	(*CreateSkillVersionRequest)(nil),                   // 391: recruitment.CreateSkillVersionRequest
+	(*SkillVersionResponse)(nil),                        // 392: recruitment.SkillVersionResponse
+	(*ListSkillVersionsRequest)(nil),                    // 393: recruitment.ListSkillVersionsRequest
+	(*ListSkillVersionsResponse)(nil),                   // 394: recruitment.ListSkillVersionsResponse
+	(*ActivateSkillVersionRequest)(nil),                 // 395: recruitment.ActivateSkillVersionRequest
+	(*ListSkillToolsRequest)(nil),                       // 396: recruitment.ListSkillToolsRequest
+	(*ListSkillToolsResponse)(nil),                      // 397: recruitment.ListSkillToolsResponse
+	(*UpdateSkillToolRequest)(nil),                      // 398: recruitment.UpdateSkillToolRequest
+	(*SkillToolResponse)(nil),                           // 399: recruitment.SkillToolResponse
+	(*AgentSkillInfo)(nil),                              // 400: recruitment.AgentSkillInfo
+	(*AgentSkillVersionInfo)(nil),                       // 401: recruitment.AgentSkillVersionInfo
+	(*ListAgentSkillsRequest)(nil),                      // 402: recruitment.ListAgentSkillsRequest
+	(*ListAvailableAgentSkillsRequest)(nil),             // 403: recruitment.ListAvailableAgentSkillsRequest
+	(*ListAgentSkillsResponse)(nil),                     // 404: recruitment.ListAgentSkillsResponse
+	(*GetAgentSkillRequest)(nil),                        // 405: recruitment.GetAgentSkillRequest
+	(*CreateAgentSkillRequest)(nil),                     // 406: recruitment.CreateAgentSkillRequest
+	(*UpdateAgentSkillRequest)(nil),                     // 407: recruitment.UpdateAgentSkillRequest
+	(*AgentSkillResponse)(nil),                          // 408: recruitment.AgentSkillResponse
+	(*CreateAgentSkillVersionRequest)(nil),              // 409: recruitment.CreateAgentSkillVersionRequest
+	(*AgentSkillVersionResponse)(nil),                   // 410: recruitment.AgentSkillVersionResponse
+	(*ListAgentSkillVersionsRequest)(nil),               // 411: recruitment.ListAgentSkillVersionsRequest
+	(*ListAgentSkillVersionsResponse)(nil),              // 412: recruitment.ListAgentSkillVersionsResponse
+	(*ActivateAgentSkillVersionRequest)(nil),            // 413: recruitment.ActivateAgentSkillVersionRequest
+	(*UpdateAgentSkillStatusRequest)(nil),               // 414: recruitment.UpdateAgentSkillStatusRequest
+	(*PreviewAgentSkillRequest)(nil),                    // 415: recruitment.PreviewAgentSkillRequest
+	(*PreviewAgentSkillResponse)(nil),                   // 416: recruitment.PreviewAgentSkillResponse
+	(*DebugSemanticRetrievalRequest)(nil),               // 417: recruitment.DebugSemanticRetrievalRequest
+	(*SemanticSkillDebugItem)(nil),                      // 418: recruitment.SemanticSkillDebugItem
+	(*SemanticMemoryDebugItem)(nil),                     // 419: recruitment.SemanticMemoryDebugItem
+	(*DebugSemanticRetrievalResponse)(nil),              // 420: recruitment.DebugSemanticRetrievalResponse
+	(*GetResumeProfileRequest)(nil),                     // 421: recruitment.GetResumeProfileRequest
+	(*ParseResumeProfileRequest)(nil),                   // 422: recruitment.ParseResumeProfileRequest
+	(*ResumeParseRunInfo)(nil),                          // 423: recruitment.ResumeParseRunInfo
+	(*ResumeProfileInfo)(nil),                           // 424: recruitment.ResumeProfileInfo
+	(*ResumeEducationInfo)(nil),                         // 425: recruitment.ResumeEducationInfo
+	(*ResumeExperienceInfo)(nil),                        // 426: recruitment.ResumeExperienceInfo
+	(*ResumeProjectInfo)(nil),                           // 427: recruitment.ResumeProjectInfo
+	(*ResumeSkillInfo)(nil),                             // 428: recruitment.ResumeSkillInfo
+	(*ResumeProfileSnapshotInfo)(nil),                   // 429: recruitment.ResumeProfileSnapshotInfo
+	(*GetResumeProfileResponse)(nil),                    // 430: recruitment.GetResumeProfileResponse
+	(*EvaluateCandidateMatchRequest)(nil),               // 431: recruitment.EvaluateCandidateMatchRequest
+	(*GetCandidateMatchEvaluationRequest)(nil),          // 432: recruitment.GetCandidateMatchEvaluationRequest
+	(*CandidateMatchEvaluationInfo)(nil),                // 433: recruitment.CandidateMatchEvaluationInfo
+	(*CandidateMatchEvidenceInfo)(nil),                  // 434: recruitment.CandidateMatchEvidenceInfo
+	(*CandidateMatchEvaluationSnapshotInfo)(nil),        // 435: recruitment.CandidateMatchEvaluationSnapshotInfo
+	(*GetCandidateMatchEvaluationResponse)(nil),         // 436: recruitment.GetCandidateMatchEvaluationResponse
+	(*CompareCandidatesForJobRequest)(nil),              // 437: recruitment.CompareCandidatesForJobRequest
+	(*CandidateComparisonItem)(nil),                     // 438: recruitment.CandidateComparisonItem
+	(*CompareCandidatesForJobResponse)(nil),             // 439: recruitment.CompareCandidatesForJobResponse
+	(*EmbeddingProviderInfo)(nil),                       // 440: recruitment.EmbeddingProviderInfo
+	(*ListEmbeddingProvidersRequest)(nil),               // 441: recruitment.ListEmbeddingProvidersRequest
+	(*ListEmbeddingProvidersResponse)(nil),              // 442: recruitment.ListEmbeddingProvidersResponse
+	(*CreateEmbeddingProviderRequest)(nil),              // 443: recruitment.CreateEmbeddingProviderRequest
+	(*UpdateEmbeddingProviderRequest)(nil),              // 444: recruitment.UpdateEmbeddingProviderRequest
+	(*EmbeddingProviderResponse)(nil),                   // 445: recruitment.EmbeddingProviderResponse
+	(*DeleteEmbeddingProviderRequest)(nil),              // 446: recruitment.DeleteEmbeddingProviderRequest
+	(*EmbeddingModelInfo)(nil),                          // 447: recruitment.EmbeddingModelInfo
+	(*ListEmbeddingModelsRequest)(nil),                  // 448: recruitment.ListEmbeddingModelsRequest
+	(*ListEmbeddingModelsResponse)(nil),                 // 449: recruitment.ListEmbeddingModelsResponse
+	(*CreateEmbeddingModelRequest)(nil),                 // 450: recruitment.CreateEmbeddingModelRequest
+	(*UpdateEmbeddingModelRequest)(nil),                 // 451: recruitment.UpdateEmbeddingModelRequest
+	(*EmbeddingModelResponse)(nil),                      // 452: recruitment.EmbeddingModelResponse
+	(*DeleteEmbeddingModelRequest)(nil),                 // 453: recruitment.DeleteEmbeddingModelRequest
+	(*SetDefaultEmbeddingModelRequest)(nil),             // 454: recruitment.SetDefaultEmbeddingModelRequest
+	(*TestEmbeddingModelRequest)(nil),                   // 455: recruitment.TestEmbeddingModelRequest
+	(*TestEmbeddingModelResponse)(nil),                  // 456: recruitment.TestEmbeddingModelResponse
+	(*BackfillEmbeddingsRequest)(nil),                   // 457: recruitment.BackfillEmbeddingsRequest
+	(*BackfillEmbeddingsResponse)(nil),                  // 458: recruitment.BackfillEmbeddingsResponse
+	(*PreviewChatContextRequest)(nil),                   // 459: recruitment.PreviewChatContextRequest
+	(*PreviewChatContextResponse)(nil),                  // 460: recruitment.PreviewChatContextResponse
+	(*BillingOwner)(nil),                                // 461: recruitment.BillingOwner
+	(*CheckAIAccessRequest)(nil),                        // 462: recruitment.CheckAIAccessRequest
+	(*CheckAIAccessResponse)(nil),                       // 463: recruitment.CheckAIAccessResponse
+	(*ReserveAIUsageRequest)(nil),                       // 464: recruitment.ReserveAIUsageRequest
+	(*ReserveAIUsageResponse)(nil),                      // 465: recruitment.ReserveAIUsageResponse
+	(*AIProviderUsage)(nil),                             // 466: recruitment.AIProviderUsage
+	(*SettleAIUsageRequest)(nil),                        // 467: recruitment.SettleAIUsageRequest
+	(*SettleAIUsageResponse)(nil),                       // 468: recruitment.SettleAIUsageResponse
+	(*CancelAIUsageRequest)(nil),                        // 469: recruitment.CancelAIUsageRequest
+	(*CancelAIUsageResponse)(nil),                       // 470: recruitment.CancelAIUsageResponse
+	(*GetAICreditBalanceRequest)(nil),                   // 471: recruitment.GetAICreditBalanceRequest
+	(*GetAICreditBalanceResponse)(nil),                  // 472: recruitment.GetAICreditBalanceResponse
+	(*BillingPriceInfo)(nil),                            // 473: recruitment.BillingPriceInfo
+	(*BillingProductInfo)(nil),                          // 474: recruitment.BillingProductInfo
+	(*ListBillingCatalogRequest)(nil),                   // 475: recruitment.ListBillingCatalogRequest
+	(*ListBillingCatalogResponse)(nil),                  // 476: recruitment.ListBillingCatalogResponse
+	(*BillingSubscriptionInfo)(nil),                     // 477: recruitment.BillingSubscriptionInfo
+	(*GetBillingAccountRequest)(nil),                    // 478: recruitment.GetBillingAccountRequest
+	(*GetBillingAccountResponse)(nil),                   // 479: recruitment.GetBillingAccountResponse
+	(*BillingOrderInfo)(nil),                            // 480: recruitment.BillingOrderInfo
+	(*ListBillingOrdersRequest)(nil),                    // 481: recruitment.ListBillingOrdersRequest
+	(*ListBillingOrdersResponse)(nil),                   // 482: recruitment.ListBillingOrdersResponse
+	(*CreateBillingOrderRequest)(nil),                   // 483: recruitment.CreateBillingOrderRequest
+	(*BillingOrderResponse)(nil),                        // 484: recruitment.BillingOrderResponse
+	(*CreateAlipayPaymentRequest)(nil),                  // 485: recruitment.CreateAlipayPaymentRequest
+	(*CreateAlipayPaymentResponse)(nil),                 // 486: recruitment.CreateAlipayPaymentResponse
+	(*RequestBillingRefundRequest)(nil),                 // 487: recruitment.RequestBillingRefundRequest
+	(*BillingRefundResponse)(nil),                       // 488: recruitment.BillingRefundResponse
+	(*AlipayNotificationField)(nil),                     // 489: recruitment.AlipayNotificationField
+	(*ProcessAlipayNotificationRequest)(nil),            // 490: recruitment.ProcessAlipayNotificationRequest
+	(*ProcessAlipayNotificationResponse)(nil),           // 491: recruitment.ProcessAlipayNotificationResponse
+	(*ListBillingAdminCatalogRequest)(nil),              // 492: recruitment.ListBillingAdminCatalogRequest
+	(*SaveBillingPriceVersionRequest)(nil),              // 493: recruitment.SaveBillingPriceVersionRequest
+	(*AIRateCardInfo)(nil),                              // 494: recruitment.AIRateCardInfo
+	(*ListAIRateCardsRequest)(nil),                      // 495: recruitment.ListAIRateCardsRequest
+	(*ListAIRateCardsResponse)(nil),                     // 496: recruitment.ListAIRateCardsResponse
+	(*SaveAIRateCardRequest)(nil),                       // 497: recruitment.SaveAIRateCardRequest
+	nil,                                                 // 498: recruitment.RenderPromptRequest.VariablesEntry
 }
 var file_proto_recruitment_proto_depIdxs = []int32{
-	5,   // 0: recruitment.TenantResponse.tenant:type_name -> recruitment.TenantInfo
-	5,   // 1: recruitment.ListTenantsResponse.list:type_name -> recruitment.TenantInfo
-	4,   // 2: recruitment.ListTenantMembershipsResponse.list:type_name -> recruitment.TenantMembershipInfo
-	4,   // 3: recruitment.TenantMembershipResponse.membership:type_name -> recruitment.TenantMembershipInfo
-	17,  // 4: recruitment.GetPlatformDashboardResponse.status_distribution:type_name -> recruitment.PlatformTenantStatusCount
-	20,  // 5: recruitment.QueryPlatformAuditLogsResponse.list:type_name -> recruitment.PlatformAuditLogItem
-	22,  // 6: recruitment.PlatformPlanVersionInfo.entitlements:type_name -> recruitment.PlatformEntitlementItem
-	23,  // 7: recruitment.PlatformPlanInfo.versions:type_name -> recruitment.PlatformPlanVersionInfo
-	24,  // 8: recruitment.ListPlatformPlansResponse.list:type_name -> recruitment.PlatformPlanInfo
-	22,  // 9: recruitment.SavePlatformPlanVersionRequest.entitlements:type_name -> recruitment.PlatformEntitlementItem
-	23,  // 10: recruitment.PlatformPlanVersionResponse.version:type_name -> recruitment.PlatformPlanVersionInfo
-	22,  // 11: recruitment.TenantSubscriptionInfo.effective_entitlements:type_name -> recruitment.PlatformEntitlementItem
-	30,  // 12: recruitment.TenantSubscriptionResponse.subscription:type_name -> recruitment.TenantSubscriptionInfo
-	35,  // 13: recruitment.GetTenantUsageResponse.metrics:type_name -> recruitment.TenantUsageMetric
-	38,  // 14: recruitment.ListQuotaAlertsResponse.list:type_name -> recruitment.QuotaAlertInfo
-	38,  // 15: recruitment.QuotaAlertResponse.alert:type_name -> recruitment.QuotaAlertInfo
-	4,   // 16: recruitment.LoginResponse.memberships:type_name -> recruitment.TenantMembershipInfo
-	54,  // 17: recruitment.GetPrincipalResponse.data_scopes:type_name -> recruitment.ScopeAssignment
-	4,   // 18: recruitment.GetPrincipalResponse.memberships:type_name -> recruitment.TenantMembershipInfo
-	50,  // 19: recruitment.AuthorizeInternalResponse.principal:type_name -> recruitment.GetPrincipalResponse
-	54,  // 20: recruitment.AuthorizeInternalResponse.matched_scopes:type_name -> recruitment.ScopeAssignment
-	62,  // 21: recruitment.ListJobsResponse.list:type_name -> recruitment.Job
-	62,  // 22: recruitment.GetJobDetailResponse.job:type_name -> recruitment.Job
-	67,  // 23: recruitment.GetProfileResponse.profile:type_name -> recruitment.CandidateProfile
-	70,  // 24: recruitment.GetResumeResponse.resume:type_name -> recruitment.CandidateResume
-	78,  // 25: recruitment.ListMyApplicationsResponse.list:type_name -> recruitment.MyApplication
-	81,  // 26: recruitment.ListJobApplicationsResponse.list:type_name -> recruitment.JobApplication
-	85,  // 27: recruitment.ListApplicationStatusTransitionsResponse.list:type_name -> recruitment.ApplicationStatusTransition
-	92,  // 28: recruitment.ContextUsageInfo.breakdown:type_name -> recruitment.ContextUsageBreakdown
-	93,  // 29: recruitment.ChatResponse.context_usage:type_name -> recruitment.ContextUsageInfo
-	95,  // 30: recruitment.AgentSkillSelection.candidates:type_name -> recruitment.AgentSkillSelectionCandidate
-	93,  // 31: recruitment.ChatStreamResponse.context_usage:type_name -> recruitment.ContextUsageInfo
-	96,  // 32: recruitment.ChatStreamResponse.agent_skill_selection:type_name -> recruitment.AgentSkillSelection
-	93,  // 33: recruitment.ChatMessage.context_usage:type_name -> recruitment.ContextUsageInfo
-	99,  // 34: recruitment.ChatHistoryResponse.list:type_name -> recruitment.ChatMessage
-	93,  // 35: recruitment.ChatSession.latest_context_usage:type_name -> recruitment.ContextUsageInfo
-	104, // 36: recruitment.ChatSessionListResponse.list:type_name -> recruitment.ChatSession
-	104, // 37: recruitment.CreateChatSessionResponse.session:type_name -> recruitment.ChatSession
-	104, // 38: recruitment.CreateApplicationAnalysisSessionResponse.session:type_name -> recruitment.ChatSession
-	99,  // 39: recruitment.CreateApplicationAnalysisSessionResponse.messages:type_name -> recruitment.ChatMessage
-	120, // 40: recruitment.GetToolTracesResponse.list:type_name -> recruitment.ToolTraceItem
-	123, // 41: recruitment.AgentRunItem.steps:type_name -> recruitment.AgentRunStepItem
-	124, // 42: recruitment.GetAgentRunsResponse.list:type_name -> recruitment.AgentRunItem
-	93,  // 43: recruitment.AgentRunResultMetadata.context_usage:type_name -> recruitment.ContextUsageInfo
-	95,  // 44: recruitment.AgentRunConfirmationPayload.candidates:type_name -> recruitment.AgentSkillSelectionCandidate
-	126, // 45: recruitment.AgentRunSnapshot.result_metadata:type_name -> recruitment.AgentRunResultMetadata
-	127, // 46: recruitment.AgentRunSnapshot.confirmation_request:type_name -> recruitment.AgentRunConfirmationPayload
-	126, // 47: recruitment.AgentRunEvent.result_metadata:type_name -> recruitment.AgentRunResultMetadata
-	127, // 48: recruitment.AgentRunEvent.confirmation:type_name -> recruitment.AgentRunConfirmationPayload
-	128, // 49: recruitment.CreateAgentRunResponse.run:type_name -> recruitment.AgentRunSnapshot
-	128, // 50: recruitment.GetAgentRunResponse.run:type_name -> recruitment.AgentRunSnapshot
-	128, // 51: recruitment.GetActiveAgentRunResponse.run:type_name -> recruitment.AgentRunSnapshot
-	128, // 52: recruitment.CancelAgentRunResponse.run:type_name -> recruitment.AgentRunSnapshot
-	128, // 53: recruitment.ConfirmAgentRunResponse.run:type_name -> recruitment.AgentRunSnapshot
-	141, // 54: recruitment.GetInterviewResponse.interview:type_name -> recruitment.InterviewSchedule
-	242, // 55: recruitment.ListInterviewersResponse.list:type_name -> recruitment.StaffUserInfo
-	141, // 56: recruitment.ListApplicationInterviewsResponse.list:type_name -> recruitment.InterviewSchedule
-	141, // 57: recruitment.ListMyInterviewsResponse.list:type_name -> recruitment.InterviewSchedule
-	141, // 58: recruitment.ListCandidateInterviewsResponse.list:type_name -> recruitment.InterviewSchedule
-	156, // 59: recruitment.GetFeedbackResponse.feedback:type_name -> recruitment.InterviewFeedback
-	162, // 60: recruitment.ListNotificationsResponse.list:type_name -> recruitment.Notification
-	171, // 61: recruitment.CreateInviteCodeResponse.invite_code:type_name -> recruitment.InviteCodeInfo
-	171, // 62: recruitment.ListInviteCodesResponse.list:type_name -> recruitment.InviteCodeInfo
-	183, // 63: recruitment.ListJobOptionsResponse.department_tree:type_name -> recruitment.DepartmentNode
-	184, // 64: recruitment.ListJobOptionsResponse.locations:type_name -> recruitment.LocationOption
-	199, // 65: recruitment.ListJobOptionsResponse.department_location_map:type_name -> recruitment.DepartmentLocationMap
-	183, // 66: recruitment.DepartmentNode.children:type_name -> recruitment.DepartmentNode
-	183, // 67: recruitment.ListDepartmentsResponse.list:type_name -> recruitment.DepartmentNode
-	183, // 68: recruitment.DepartmentResponse.department:type_name -> recruitment.DepartmentNode
-	184, // 69: recruitment.ListJobLocationsResponse.list:type_name -> recruitment.LocationOption
-	184, // 70: recruitment.JobLocationResponse.location:type_name -> recruitment.LocationOption
-	199, // 71: recruitment.ListDepartmentsLocationMapResponse.items:type_name -> recruitment.DepartmentLocationMap
-	184, // 72: recruitment.ListDepartmentLocationsResponse.locations:type_name -> recruitment.LocationOption
-	184, // 73: recruitment.DepartmentLocationConfigResponse.locations:type_name -> recruitment.LocationOption
-	207, // 74: recruitment.QueryUsageLogsResponse.list:type_name -> recruitment.UsageLogItem
-	210, // 75: recruitment.GetOfferResponse.offer:type_name -> recruitment.Offer
-	210, // 76: recruitment.ListOffersByApplicationResponse.list:type_name -> recruitment.Offer
-	210, // 77: recruitment.ListMyOffersResponse.list:type_name -> recruitment.Offer
-	224, // 78: recruitment.ListOfferEventsResponse.list:type_name -> recruitment.OfferEventInfo
-	229, // 79: recruitment.ListRolesResponse.list:type_name -> recruitment.RoleInfo
-	232, // 80: recruitment.ListPermissionsResponse.list:type_name -> recruitment.PermissionInfo
-	235, // 81: recruitment.GetUserRolesResponse.data_scopes:type_name -> recruitment.DataScopeInfo
-	242, // 82: recruitment.ListStaffUsersResponse.list:type_name -> recruitment.StaffUserInfo
-	245, // 83: recruitment.ListPlatformUsersResponse.list:type_name -> recruitment.PlatformUserInfo
-	245, // 84: recruitment.PlatformUserResponse.user:type_name -> recruitment.PlatformUserInfo
-	256, // 85: recruitment.CandidateWorkspace.applications:type_name -> recruitment.CandidateWorkspaceApplication
-	263, // 86: recruitment.CandidateWorkspace.tags:type_name -> recruitment.CandidateTagInfo
-	254, // 87: recruitment.CandidateWorkspace.interviews:type_name -> recruitment.CandidateWorkspaceInterview
-	255, // 88: recruitment.CandidateWorkspace.offers:type_name -> recruitment.CandidateWorkspaceOffer
-	253, // 89: recruitment.GetCandidateWorkspaceResponse.workspace:type_name -> recruitment.CandidateWorkspace
-	258, // 90: recruitment.CreateNoteResponse.note:type_name -> recruitment.CandidateNoteInfo
-	258, // 91: recruitment.ListNotesResponse.list:type_name -> recruitment.CandidateNoteInfo
-	263, // 92: recruitment.CreateTagResponse.tag:type_name -> recruitment.CandidateTagInfo
-	263, // 93: recruitment.ListTagsResponse.list:type_name -> recruitment.CandidateTagInfo
-	263, // 94: recruitment.ListCandidateTagsResponse.list:type_name -> recruitment.CandidateTagInfo
-	272, // 95: recruitment.CreateFollowUpTaskResponse.task:type_name -> recruitment.FollowUpTaskInfo
-	272, // 96: recruitment.ListFollowUpTasksResponse.list:type_name -> recruitment.FollowUpTaskInfo
-	272, // 97: recruitment.GetFollowUpTaskResponse.task:type_name -> recruitment.FollowUpTaskInfo
-	280, // 98: recruitment.ListTimelineEventsResponse.events:type_name -> recruitment.TimelineEventInfo
-	284, // 99: recruitment.QueryAuthAuditLogsResponse.list:type_name -> recruitment.AuthAuditLogItem
-	288, // 100: recruitment.GetDashboardReportResponse.trend:type_name -> recruitment.DashboardTrendPoint
-	287, // 101: recruitment.GetDashboardReportResponse.stage_distribution:type_name -> recruitment.DashboardReportItem
-	291, // 102: recruitment.GetFunnelReportResponse.stages:type_name -> recruitment.FunnelStage
-	294, // 103: recruitment.GetTimeInStageReportResponse.durations:type_name -> recruitment.StageDuration
-	299, // 104: recruitment.GetUsageStatsResponse.list:type_name -> recruitment.UsageStatsItem
-	300, // 105: recruitment.GetUsageStatsResponse.summary:type_name -> recruitment.UsageStatsSummary
-	303, // 106: recruitment.GetUsageTrendResponse.list:type_name -> recruitment.UsageTrendPoint
-	305, // 107: recruitment.ListMCPServersResponse.list:type_name -> recruitment.MCPServerInfo
-	305, // 108: recruitment.MCPServerResponse.server:type_name -> recruitment.MCPServerInfo
-	312, // 109: recruitment.ListMCPToolPoliciesResponse.list:type_name -> recruitment.MCPToolPolicyInfo
-	312, // 110: recruitment.MCPToolPolicyResponse.policy:type_name -> recruitment.MCPToolPolicyInfo
-	319, // 111: recruitment.ListMCPToolLogsResponse.list:type_name -> recruitment.MCPToolLogInfo
-	325, // 112: recruitment.ListMCPToolsResponse.list:type_name -> recruitment.MCPToolInfo
-	329, // 113: recruitment.ListProvidersResponse.list:type_name -> recruitment.LlmProviderInfo
-	329, // 114: recruitment.ProviderResponse.provider:type_name -> recruitment.LlmProviderInfo
-	340, // 115: recruitment.DiscoveredLlmModel.field_sources:type_name -> recruitment.ModelMetadataFieldSource
-	341, // 116: recruitment.DiscoverProviderModelsResponse.list:type_name -> recruitment.DiscoveredLlmModel
-	341, // 117: recruitment.GetProviderModelPresetResponse.model:type_name -> recruitment.DiscoveredLlmModel
-	345, // 118: recruitment.ListModelsResponse.list:type_name -> recruitment.LlmModelInfo
-	345, // 119: recruitment.ModelResponse.model:type_name -> recruitment.LlmModelInfo
-	352, // 120: recruitment.ListPromptTemplatesResponse.list:type_name -> recruitment.PromptTemplateInfo
-	352, // 121: recruitment.PromptTemplateResponse.template:type_name -> recruitment.PromptTemplateInfo
-	359, // 122: recruitment.GetPromptVersionHistoryResponse.list:type_name -> recruitment.PromptVersionInfo
-	459, // 123: recruitment.RenderPromptRequest.variables:type_name -> recruitment.RenderPromptRequest.VariablesEntry
-	352, // 124: recruitment.GetActivePromptByAgentTypeResponse.template:type_name -> recruitment.PromptTemplateInfo
-	368, // 125: recruitment.AgentConfigInfo.tool_bindings:type_name -> recruitment.AgentToolBindingInfo
-	369, // 126: recruitment.AgentConfigInfo.capability_bindings:type_name -> recruitment.AgentCapabilityBindingInfo
-	370, // 127: recruitment.ListCapabilitiesResponse.list:type_name -> recruitment.CapabilityInfo
-	367, // 128: recruitment.ListAgentsResponse.list:type_name -> recruitment.AgentConfigInfo
-	369, // 129: recruitment.CreateAgentRequest.capability_bindings:type_name -> recruitment.AgentCapabilityBindingInfo
-	369, // 130: recruitment.UpdateAgentRequest.capability_bindings:type_name -> recruitment.AgentCapabilityBindingInfo
-	367, // 131: recruitment.AgentConfigResponse.agent:type_name -> recruitment.AgentConfigInfo
-	367, // 132: recruitment.GetAgentConfigResponse.agent:type_name -> recruitment.AgentConfigInfo
-	381, // 133: recruitment.ListSkillsResponse.list:type_name -> recruitment.SkillInfo
-	381, // 134: recruitment.SkillResponse.skill:type_name -> recruitment.SkillInfo
-	382, // 135: recruitment.SkillVersionResponse.version:type_name -> recruitment.SkillVersionInfo
-	383, // 136: recruitment.SkillVersionResponse.tools:type_name -> recruitment.SkillToolInfo
-	382, // 137: recruitment.ListSkillVersionsResponse.list:type_name -> recruitment.SkillVersionInfo
-	383, // 138: recruitment.ListSkillToolsResponse.list:type_name -> recruitment.SkillToolInfo
-	383, // 139: recruitment.SkillToolResponse.tool:type_name -> recruitment.SkillToolInfo
-	398, // 140: recruitment.ListAgentSkillsResponse.list:type_name -> recruitment.AgentSkillInfo
-	398, // 141: recruitment.AgentSkillResponse.skill:type_name -> recruitment.AgentSkillInfo
-	399, // 142: recruitment.AgentSkillVersionResponse.version:type_name -> recruitment.AgentSkillVersionInfo
-	399, // 143: recruitment.ListAgentSkillVersionsResponse.list:type_name -> recruitment.AgentSkillVersionInfo
-	416, // 144: recruitment.DebugSemanticRetrievalResponse.skills:type_name -> recruitment.SemanticSkillDebugItem
-	417, // 145: recruitment.DebugSemanticRetrievalResponse.memories:type_name -> recruitment.SemanticMemoryDebugItem
-	421, // 146: recruitment.ResumeProfileSnapshotInfo.parse_run:type_name -> recruitment.ResumeParseRunInfo
-	422, // 147: recruitment.ResumeProfileSnapshotInfo.profile:type_name -> recruitment.ResumeProfileInfo
-	423, // 148: recruitment.ResumeProfileSnapshotInfo.educations:type_name -> recruitment.ResumeEducationInfo
-	424, // 149: recruitment.ResumeProfileSnapshotInfo.experiences:type_name -> recruitment.ResumeExperienceInfo
-	425, // 150: recruitment.ResumeProfileSnapshotInfo.projects:type_name -> recruitment.ResumeProjectInfo
-	426, // 151: recruitment.ResumeProfileSnapshotInfo.skills:type_name -> recruitment.ResumeSkillInfo
-	427, // 152: recruitment.GetResumeProfileResponse.profile:type_name -> recruitment.ResumeProfileSnapshotInfo
-	431, // 153: recruitment.CandidateMatchEvaluationSnapshotInfo.evaluation:type_name -> recruitment.CandidateMatchEvaluationInfo
-	432, // 154: recruitment.CandidateMatchEvaluationSnapshotInfo.evidence:type_name -> recruitment.CandidateMatchEvidenceInfo
-	433, // 155: recruitment.GetCandidateMatchEvaluationResponse.evaluation:type_name -> recruitment.CandidateMatchEvaluationSnapshotInfo
-	436, // 156: recruitment.CompareCandidatesForJobResponse.candidates:type_name -> recruitment.CandidateComparisonItem
-	438, // 157: recruitment.ListEmbeddingProvidersResponse.list:type_name -> recruitment.EmbeddingProviderInfo
-	438, // 158: recruitment.EmbeddingProviderResponse.provider:type_name -> recruitment.EmbeddingProviderInfo
-	445, // 159: recruitment.ListEmbeddingModelsResponse.list:type_name -> recruitment.EmbeddingModelInfo
-	445, // 160: recruitment.EmbeddingModelResponse.model:type_name -> recruitment.EmbeddingModelInfo
-	93,  // 161: recruitment.PreviewChatContextResponse.context_usage:type_name -> recruitment.ContextUsageInfo
-	1,   // 162: recruitment.AuthService.Register:input_type -> recruitment.RegisterRequest
-	3,   // 163: recruitment.AuthService.Login:input_type -> recruitment.LoginRequest
-	44,  // 164: recruitment.AuthService.RefreshToken:input_type -> recruitment.RefreshTokenRequest
-	46,  // 165: recruitment.AuthService.SwitchTenant:input_type -> recruitment.SwitchTenantRequest
-	47,  // 166: recruitment.AuthService.RevokeRefreshToken:input_type -> recruitment.RevokeRefreshTokenRequest
-	48,  // 167: recruitment.AuthService.RecordAuthDecision:input_type -> recruitment.AuthAuditRequest
-	49,  // 168: recruitment.AuthService.GetPrincipal:input_type -> recruitment.GetPrincipalRequest
-	51,  // 169: recruitment.AuthService.AuthorizeInternal:input_type -> recruitment.AuthorizeInternalRequest
-	53,  // 170: recruitment.AuthService.UpdateEmail:input_type -> recruitment.UpdateEmailRequest
-	6,   // 171: recruitment.PlatformTenantService.CreateTenant:input_type -> recruitment.CreateTenantRequest
-	7,   // 172: recruitment.PlatformTenantService.ListTenants:input_type -> recruitment.ListTenantsRequest
-	10,  // 173: recruitment.PlatformTenantService.GetTenant:input_type -> recruitment.GetTenantRequest
-	11,  // 174: recruitment.PlatformTenantService.UpdateTenantStatus:input_type -> recruitment.UpdateTenantStatusRequest
-	12,  // 175: recruitment.PlatformTenantService.ListTenantMemberships:input_type -> recruitment.ListTenantMembershipsRequest
-	14,  // 176: recruitment.PlatformTenantService.UpdateTenantMembershipStatus:input_type -> recruitment.UpdateTenantMembershipStatusRequest
-	16,  // 177: recruitment.PlatformTenantService.GetPlatformDashboard:input_type -> recruitment.GetPlatformDashboardRequest
-	19,  // 178: recruitment.PlatformTenantService.QueryPlatformAuditLogs:input_type -> recruitment.QueryPlatformAuditLogsRequest
-	25,  // 179: recruitment.PlatformTenantService.ListPlatformPlans:input_type -> recruitment.ListPlatformPlansRequest
-	27,  // 180: recruitment.PlatformTenantService.SavePlatformPlanVersion:input_type -> recruitment.SavePlatformPlanVersionRequest
-	28,  // 181: recruitment.PlatformTenantService.PublishPlatformPlanVersion:input_type -> recruitment.PublishPlatformPlanVersionRequest
-	31,  // 182: recruitment.PlatformTenantService.GetTenantSubscription:input_type -> recruitment.GetTenantSubscriptionRequest
-	32,  // 183: recruitment.PlatformTenantService.UpdateTenantSubscription:input_type -> recruitment.UpdateTenantSubscriptionRequest
-	34,  // 184: recruitment.PlatformTenantService.UpdateTenantEntitlementOverride:input_type -> recruitment.UpdateTenantEntitlementOverrideRequest
-	36,  // 185: recruitment.PlatformTenantService.GetTenantUsage:input_type -> recruitment.GetTenantUsageRequest
-	39,  // 186: recruitment.PlatformTenantService.ListQuotaAlerts:input_type -> recruitment.ListQuotaAlertsRequest
-	41,  // 187: recruitment.PlatformTenantService.UpdateQuotaAlert:input_type -> recruitment.UpdateQuotaAlertRequest
-	55,  // 188: recruitment.JobService.CreateJob:input_type -> recruitment.CreateJobRequest
-	57,  // 189: recruitment.JobService.UpdateJob:input_type -> recruitment.UpdateJobRequest
-	58,  // 190: recruitment.JobService.OfflineJob:input_type -> recruitment.OfflineJobRequest
-	58,  // 191: recruitment.JobService.OnlineJob:input_type -> recruitment.OfflineJobRequest
-	59,  // 192: recruitment.JobService.ListHRJobs:input_type -> recruitment.ListHRJobsRequest
-	60,  // 193: recruitment.JobService.ListPublicJobs:input_type -> recruitment.ListPublicJobsRequest
-	61,  // 194: recruitment.JobService.GetJobDetail:input_type -> recruitment.GetJobDetailRequest
-	181, // 195: recruitment.JobService.ListJobOptions:input_type -> recruitment.ListJobOptionsRequest
-	202, // 196: recruitment.JobService.ListDepartmentLocations:input_type -> recruitment.ListDepartmentLocationsRequest
-	65,  // 197: recruitment.CandidateService.GetProfile:input_type -> recruitment.GetProfileRequest
-	66,  // 198: recruitment.CandidateService.UpdateProfile:input_type -> recruitment.UpdateProfileRequest
-	69,  // 199: recruitment.CandidateService.GetResume:input_type -> recruitment.GetResumeRequest
-	72,  // 200: recruitment.CandidateService.PresignResumeUpload:input_type -> recruitment.PresignResumeUploadRequest
-	74,  // 201: recruitment.CandidateService.ConfirmResumeUpload:input_type -> recruitment.ConfirmResumeUploadRequest
-	76,  // 202: recruitment.ApplicationService.ApplyJob:input_type -> recruitment.ApplyJobRequest
-	77,  // 203: recruitment.ApplicationService.ListMyApplications:input_type -> recruitment.ListMyApplicationsRequest
-	80,  // 204: recruitment.ApplicationService.ListJobApplications:input_type -> recruitment.ListJobApplicationsRequest
-	83,  // 205: recruitment.ApplicationService.UpdateApplicationStatus:input_type -> recruitment.UpdateApplicationStatusRequest
-	84,  // 206: recruitment.ApplicationService.ListApplicationStatusTransitions:input_type -> recruitment.ListApplicationStatusTransitionsRequest
-	87,  // 207: recruitment.ApplicationOwnerService.GetApplicationSnapshot:input_type -> recruitment.GetApplicationSnapshotRequest
-	89,  // 208: recruitment.ApplicationOwnerService.ApplyApplicationLifecycleTransition:input_type -> recruitment.ApplyApplicationLifecycleTransitionRequest
-	142, // 209: recruitment.InterviewService.ScheduleInterview:input_type -> recruitment.ScheduleInterviewRequest
-	144, // 210: recruitment.InterviewService.UpdateInterview:input_type -> recruitment.UpdateInterviewRequest
-	145, // 211: recruitment.InterviewService.CancelInterview:input_type -> recruitment.CancelInterviewRequest
-	146, // 212: recruitment.InterviewService.GetInterview:input_type -> recruitment.GetInterviewRequest
-	148, // 213: recruitment.InterviewService.ListInterviewers:input_type -> recruitment.ListInterviewersRequest
-	150, // 214: recruitment.InterviewService.ListApplicationInterviews:input_type -> recruitment.ListApplicationInterviewsRequest
-	152, // 215: recruitment.InterviewService.ListMyInterviews:input_type -> recruitment.ListMyInterviewsRequest
-	154, // 216: recruitment.InterviewService.ListCandidateInterviews:input_type -> recruitment.ListCandidateInterviewsRequest
-	157, // 217: recruitment.InterviewService.SubmitFeedback:input_type -> recruitment.SubmitFeedbackRequest
-	158, // 218: recruitment.InterviewService.GetFeedback:input_type -> recruitment.GetFeedbackRequest
-	160, // 219: recruitment.InterviewService.BatchCancelInterviews:input_type -> recruitment.BatchCancelInterviewsRequest
-	163, // 220: recruitment.NotificationService.ListNotifications:input_type -> recruitment.ListNotificationsRequest
-	165, // 221: recruitment.NotificationService.UnreadNotificationCount:input_type -> recruitment.UnreadNotificationCountRequest
-	167, // 222: recruitment.NotificationService.NotificationSummary:input_type -> recruitment.NotificationSummaryRequest
-	169, // 223: recruitment.NotificationService.MarkNotificationRead:input_type -> recruitment.MarkNotificationReadRequest
-	170, // 224: recruitment.NotificationService.MarkAllNotificationsRead:input_type -> recruitment.MarkAllNotificationsReadRequest
-	91,  // 225: recruitment.AIService.Chat:input_type -> recruitment.ChatRequest
-	91,  // 226: recruitment.AIService.ChatStream:input_type -> recruitment.ChatRequest
-	98,  // 227: recruitment.AIService.History:input_type -> recruitment.ChatHistoryRequest
-	101, // 228: recruitment.AIService.AnalyzeApplication:input_type -> recruitment.AnalyzeApplicationRequest
-	103, // 229: recruitment.AIService.ListChatSessions:input_type -> recruitment.ChatSessionListRequest
-	106, // 230: recruitment.AIService.CreateChatSession:input_type -> recruitment.CreateChatSessionRequest
-	108, // 231: recruitment.AIService.SessionMessages:input_type -> recruitment.SessionMessagesRequest
-	109, // 232: recruitment.AIService.CreateApplicationAnalysisSession:input_type -> recruitment.CreateApplicationAnalysisSessionRequest
-	457, // 233: recruitment.AIService.PreviewChatContext:input_type -> recruitment.PreviewChatContextRequest
-	111, // 234: recruitment.AIService.UpdateSession:input_type -> recruitment.UpdateSessionRequest
-	112, // 235: recruitment.AIService.DeleteSession:input_type -> recruitment.DeleteSessionRequest
-	113, // 236: recruitment.AIService.CandidateChatStream:input_type -> recruitment.CandidateChatRequest
-	114, // 237: recruitment.AIService.CandidateListSessions:input_type -> recruitment.CandidateSessionListRequest
-	115, // 238: recruitment.AIService.CandidateCreateSession:input_type -> recruitment.CandidateCreateSessionRequest
-	116, // 239: recruitment.AIService.CandidateSessionMessages:input_type -> recruitment.CandidateSessionMessagesRequest
-	117, // 240: recruitment.AIService.CandidateUpdateSession:input_type -> recruitment.CandidateUpdateSessionRequest
-	118, // 241: recruitment.AIService.CandidateDeleteSession:input_type -> recruitment.CandidateDeleteSessionRequest
-	119, // 242: recruitment.AIService.GetToolTraces:input_type -> recruitment.GetToolTracesRequest
-	122, // 243: recruitment.AIService.GetAgentRuns:input_type -> recruitment.GetAgentRunsRequest
-	130, // 244: recruitment.AIService.CreateAgentRun:input_type -> recruitment.CreateAgentRunRequest
-	132, // 245: recruitment.AIService.GetAgentRun:input_type -> recruitment.GetAgentRunRequest
-	134, // 246: recruitment.AIService.GetActiveAgentRun:input_type -> recruitment.GetActiveAgentRunRequest
-	136, // 247: recruitment.AIService.SubscribeAgentRunEvents:input_type -> recruitment.SubscribeAgentRunEventsRequest
-	137, // 248: recruitment.AIService.CancelAgentRun:input_type -> recruitment.CancelAgentRunRequest
-	139, // 249: recruitment.AIService.ConfirmAgentRun:input_type -> recruitment.ConfirmAgentRunRequest
-	211, // 250: recruitment.OfferService.CreateOffer:input_type -> recruitment.CreateOfferRequest
-	213, // 251: recruitment.OfferService.UpdateOffer:input_type -> recruitment.UpdateOfferRequest
-	214, // 252: recruitment.OfferService.GetOffer:input_type -> recruitment.GetOfferRequest
-	216, // 253: recruitment.OfferService.ListOffersByApplication:input_type -> recruitment.ListOffersByApplicationRequest
-	218, // 254: recruitment.OfferService.SendOffer:input_type -> recruitment.SendOfferRequest
-	219, // 255: recruitment.OfferService.WithdrawOffer:input_type -> recruitment.WithdrawOfferRequest
-	220, // 256: recruitment.OfferService.AcceptOffer:input_type -> recruitment.AcceptOfferRequest
-	221, // 257: recruitment.OfferService.RejectOffer:input_type -> recruitment.RejectOfferRequest
-	222, // 258: recruitment.OfferService.ListMyOffers:input_type -> recruitment.ListMyOffersRequest
-	225, // 259: recruitment.OfferService.ListOfferEvents:input_type -> recruitment.ListOfferEventsRequest
-	172, // 260: recruitment.AdminService.CreateInviteCode:input_type -> recruitment.CreateInviteCodeRequest
-	174, // 261: recruitment.AdminService.ListInviteCodes:input_type -> recruitment.ListInviteCodesRequest
-	176, // 262: recruitment.AdminService.ExtendInviteCode:input_type -> recruitment.ExtendInviteCodeRequest
-	177, // 263: recruitment.AdminService.RevokeInviteCode:input_type -> recruitment.RevokeInviteCodeRequest
-	178, // 264: recruitment.AdminService.ReactivateInviteCode:input_type -> recruitment.ReactivateInviteCodeRequest
-	179, // 265: recruitment.AdminService.ValidateInviteCode:input_type -> recruitment.ValidateInviteCodeRequest
-	185, // 266: recruitment.AdminService.ListDepartments:input_type -> recruitment.ListDepartmentsRequest
-	187, // 267: recruitment.AdminService.CreateDepartment:input_type -> recruitment.CreateDepartmentRequest
-	188, // 268: recruitment.AdminService.UpdateDepartment:input_type -> recruitment.UpdateDepartmentRequest
-	189, // 269: recruitment.AdminService.UpdateDepartmentStatus:input_type -> recruitment.UpdateDepartmentStatusRequest
-	190, // 270: recruitment.AdminService.DeleteDepartment:input_type -> recruitment.DeleteDepartmentRequest
-	192, // 271: recruitment.AdminService.ListJobLocations:input_type -> recruitment.ListJobLocationsRequest
-	194, // 272: recruitment.AdminService.CreateJobLocation:input_type -> recruitment.CreateJobLocationRequest
-	195, // 273: recruitment.AdminService.UpdateJobLocation:input_type -> recruitment.UpdateJobLocationRequest
-	196, // 274: recruitment.AdminService.UpdateJobLocationStatus:input_type -> recruitment.UpdateJobLocationStatusRequest
-	197, // 275: recruitment.AdminService.DeleteJobLocation:input_type -> recruitment.DeleteJobLocationRequest
-	204, // 276: recruitment.AdminService.GetDepartmentLocationConfig:input_type -> recruitment.GetDepartmentLocationConfigRequest
-	205, // 277: recruitment.AdminService.UpdateDepartmentLocationConfig:input_type -> recruitment.UpdateDepartmentLocationConfigRequest
-	200, // 278: recruitment.AdminService.ListDepartmentsLocationMap:input_type -> recruitment.ListDepartmentsLocationMapRequest
-	208, // 279: recruitment.AdminService.QueryUsageLogs:input_type -> recruitment.QueryUsageLogsRequest
-	227, // 280: recruitment.AdminService.ListRoles:input_type -> recruitment.ListRolesRequest
-	230, // 281: recruitment.AdminService.ListPermissions:input_type -> recruitment.ListPermissionsRequest
-	233, // 282: recruitment.AdminService.GetUserRoles:input_type -> recruitment.GetUserRolesRequest
-	236, // 283: recruitment.AdminService.AssignUserRole:input_type -> recruitment.AssignUserRoleRequest
-	237, // 284: recruitment.AdminService.RevokeUserRole:input_type -> recruitment.RevokeUserRoleRequest
-	238, // 285: recruitment.AdminService.AssignDataScope:input_type -> recruitment.AssignDataScopeRequest
-	239, // 286: recruitment.AdminService.RevokeDataScope:input_type -> recruitment.RevokeDataScopeRequest
-	240, // 287: recruitment.AdminService.ListStaffUsers:input_type -> recruitment.ListStaffUsersRequest
-	243, // 288: recruitment.AdminService.CreateStaffUser:input_type -> recruitment.CreateStaffUserRequest
-	246, // 289: recruitment.AdminService.ListPlatformUsers:input_type -> recruitment.ListPlatformUsersRequest
-	248, // 290: recruitment.AdminService.CreatePlatformUser:input_type -> recruitment.CreatePlatformUserRequest
-	250, // 291: recruitment.AdminService.UpdatePlatformUser:input_type -> recruitment.UpdatePlatformUserRequest
-	283, // 292: recruitment.AdminService.QueryAuthAuditLogs:input_type -> recruitment.QueryAuthAuditLogsRequest
-	286, // 293: recruitment.AdminService.GetDashboardReport:input_type -> recruitment.GetDashboardReportRequest
-	290, // 294: recruitment.AdminService.GetFunnelReport:input_type -> recruitment.GetFunnelReportRequest
-	293, // 295: recruitment.AdminService.GetTimeInStageReport:input_type -> recruitment.GetTimeInStageReportRequest
-	296, // 296: recruitment.AdminService.GetInterviewOfferMetrics:input_type -> recruitment.GetInterviewOfferMetricsRequest
-	298, // 297: recruitment.AdminService.GetUsageStats:input_type -> recruitment.GetUsageStatsRequest
-	302, // 298: recruitment.AdminService.GetUsageTrend:input_type -> recruitment.GetUsageTrendRequest
-	252, // 299: recruitment.CollaborationService.GetCandidateWorkspace:input_type -> recruitment.GetCandidateWorkspaceRequest
-	259, // 300: recruitment.CollaborationService.CreateNote:input_type -> recruitment.CreateNoteRequest
-	261, // 301: recruitment.CollaborationService.ListNotes:input_type -> recruitment.ListNotesRequest
-	264, // 302: recruitment.CollaborationService.CreateTag:input_type -> recruitment.CreateTagRequest
-	266, // 303: recruitment.CollaborationService.ListTags:input_type -> recruitment.ListTagsRequest
-	268, // 304: recruitment.CollaborationService.AssignTag:input_type -> recruitment.AssignTagRequest
-	269, // 305: recruitment.CollaborationService.UnassignTag:input_type -> recruitment.UnassignTagRequest
-	270, // 306: recruitment.CollaborationService.ListCandidateTags:input_type -> recruitment.ListCandidateTagsRequest
-	273, // 307: recruitment.CollaborationService.CreateFollowUpTask:input_type -> recruitment.CreateFollowUpTaskRequest
-	275, // 308: recruitment.CollaborationService.ListFollowUpTasks:input_type -> recruitment.ListFollowUpTasksRequest
-	277, // 309: recruitment.CollaborationService.CompleteFollowUpTask:input_type -> recruitment.CompleteFollowUpTaskRequest
-	278, // 310: recruitment.CollaborationService.GetFollowUpTask:input_type -> recruitment.GetFollowUpTaskRequest
-	281, // 311: recruitment.CollaborationService.ListTimelineEvents:input_type -> recruitment.ListTimelineEventsRequest
-	419, // 312: recruitment.RecruitingIntelligenceService.GetResumeProfile:input_type -> recruitment.GetResumeProfileRequest
-	420, // 313: recruitment.RecruitingIntelligenceService.ParseResumeProfile:input_type -> recruitment.ParseResumeProfileRequest
-	429, // 314: recruitment.RecruitingIntelligenceService.EvaluateCandidateMatch:input_type -> recruitment.EvaluateCandidateMatchRequest
-	430, // 315: recruitment.RecruitingIntelligenceService.GetCandidateMatchEvaluation:input_type -> recruitment.GetCandidateMatchEvaluationRequest
-	435, // 316: recruitment.RecruitingIntelligenceService.CompareCandidatesForJob:input_type -> recruitment.CompareCandidatesForJobRequest
-	306, // 317: recruitment.MCPService.ListMCPServers:input_type -> recruitment.ListMCPServersRequest
-	308, // 318: recruitment.MCPService.CreateMCPServer:input_type -> recruitment.CreateMCPServerRequest
-	309, // 319: recruitment.MCPService.UpdateMCPServer:input_type -> recruitment.UpdateMCPServerRequest
-	310, // 320: recruitment.MCPService.DeleteMCPServer:input_type -> recruitment.DeleteMCPServerRequest
-	313, // 321: recruitment.MCPService.ListMCPToolPolicies:input_type -> recruitment.ListMCPToolPoliciesRequest
-	315, // 322: recruitment.MCPService.CreateMCPToolPolicy:input_type -> recruitment.CreateMCPToolPolicyRequest
-	316, // 323: recruitment.MCPService.UpdateMCPToolPolicy:input_type -> recruitment.UpdateMCPToolPolicyRequest
-	317, // 324: recruitment.MCPService.DeleteMCPToolPolicy:input_type -> recruitment.DeleteMCPToolPolicyRequest
-	320, // 325: recruitment.MCPService.ListMCPToolLogs:input_type -> recruitment.ListMCPToolLogsRequest
-	322, // 326: recruitment.MCPService.TestMCPConnection:input_type -> recruitment.TestMCPConnectionRequest
-	324, // 327: recruitment.MCPService.ListMCPTools:input_type -> recruitment.ListMCPToolsRequest
-	327, // 328: recruitment.MCPService.CallMCPTool:input_type -> recruitment.CallMCPToolRequest
-	330, // 329: recruitment.LlmConfigService.ListProviders:input_type -> recruitment.ListProvidersRequest
-	332, // 330: recruitment.LlmConfigService.CreateProvider:input_type -> recruitment.CreateProviderRequest
-	333, // 331: recruitment.LlmConfigService.UpdateProvider:input_type -> recruitment.UpdateProviderRequest
-	335, // 332: recruitment.LlmConfigService.DeleteProvider:input_type -> recruitment.DeleteProviderRequest
-	336, // 333: recruitment.LlmConfigService.TestProviderConnection:input_type -> recruitment.TestProviderConnectionRequest
-	339, // 334: recruitment.LlmConfigService.DiscoverProviderModels:input_type -> recruitment.DiscoverProviderModelsRequest
-	343, // 335: recruitment.LlmConfigService.GetProviderModelPreset:input_type -> recruitment.GetProviderModelPresetRequest
-	346, // 336: recruitment.LlmConfigService.ListModels:input_type -> recruitment.ListModelsRequest
-	348, // 337: recruitment.LlmConfigService.CreateModel:input_type -> recruitment.CreateModelRequest
-	349, // 338: recruitment.LlmConfigService.UpdateModel:input_type -> recruitment.UpdateModelRequest
-	351, // 339: recruitment.LlmConfigService.DeleteModel:input_type -> recruitment.DeleteModelRequest
-	338, // 340: recruitment.LlmConfigService.TestModelConnection:input_type -> recruitment.TestModelConnectionRequest
-	353, // 341: recruitment.PromptService.ListPromptTemplates:input_type -> recruitment.ListPromptTemplatesRequest
-	355, // 342: recruitment.PromptService.CreatePromptTemplate:input_type -> recruitment.CreatePromptTemplateRequest
-	356, // 343: recruitment.PromptService.UpdatePromptTemplate:input_type -> recruitment.UpdatePromptTemplateRequest
-	358, // 344: recruitment.PromptService.DeletePromptTemplate:input_type -> recruitment.DeletePromptTemplateRequest
-	360, // 345: recruitment.PromptService.GetPromptVersionHistory:input_type -> recruitment.GetPromptVersionHistoryRequest
-	362, // 346: recruitment.PromptService.RollbackPromptVersion:input_type -> recruitment.RollbackPromptVersionRequest
-	363, // 347: recruitment.PromptService.RenderPrompt:input_type -> recruitment.RenderPromptRequest
-	365, // 348: recruitment.PromptService.GetActivePromptByAgentType:input_type -> recruitment.GetActivePromptByAgentTypeRequest
-	373, // 349: recruitment.AgentConfigService.ListAgents:input_type -> recruitment.ListAgentsRequest
-	371, // 350: recruitment.AgentConfigService.ListCapabilities:input_type -> recruitment.ListCapabilitiesRequest
-	375, // 351: recruitment.AgentConfigService.CreateAgent:input_type -> recruitment.CreateAgentRequest
-	376, // 352: recruitment.AgentConfigService.UpdateAgent:input_type -> recruitment.UpdateAgentRequest
-	378, // 353: recruitment.AgentConfigService.DeleteAgent:input_type -> recruitment.DeleteAgentRequest
-	379, // 354: recruitment.AgentConfigService.GetAgentConfig:input_type -> recruitment.GetAgentConfigRequest
-	384, // 355: recruitment.SkillService.ListSkills:input_type -> recruitment.ListSkillsRequest
-	386, // 356: recruitment.SkillService.CreateSkill:input_type -> recruitment.CreateSkillRequest
-	387, // 357: recruitment.SkillService.UpdateSkill:input_type -> recruitment.UpdateSkillRequest
-	389, // 358: recruitment.SkillService.CreateSkillVersion:input_type -> recruitment.CreateSkillVersionRequest
-	391, // 359: recruitment.SkillService.ListSkillVersions:input_type -> recruitment.ListSkillVersionsRequest
-	393, // 360: recruitment.SkillService.ActivateSkillVersion:input_type -> recruitment.ActivateSkillVersionRequest
-	394, // 361: recruitment.SkillService.ListSkillTools:input_type -> recruitment.ListSkillToolsRequest
-	396, // 362: recruitment.SkillService.UpdateSkillTool:input_type -> recruitment.UpdateSkillToolRequest
-	400, // 363: recruitment.AgentSkillService.ListAgentSkills:input_type -> recruitment.ListAgentSkillsRequest
-	403, // 364: recruitment.AgentSkillService.GetAgentSkill:input_type -> recruitment.GetAgentSkillRequest
-	404, // 365: recruitment.AgentSkillService.CreateAgentSkill:input_type -> recruitment.CreateAgentSkillRequest
-	405, // 366: recruitment.AgentSkillService.UpdateAgentSkill:input_type -> recruitment.UpdateAgentSkillRequest
-	407, // 367: recruitment.AgentSkillService.CreateAgentSkillVersion:input_type -> recruitment.CreateAgentSkillVersionRequest
-	409, // 368: recruitment.AgentSkillService.ListAgentSkillVersions:input_type -> recruitment.ListAgentSkillVersionsRequest
-	411, // 369: recruitment.AgentSkillService.ActivateAgentSkillVersion:input_type -> recruitment.ActivateAgentSkillVersionRequest
-	412, // 370: recruitment.AgentSkillService.UpdateAgentSkillStatus:input_type -> recruitment.UpdateAgentSkillStatusRequest
-	413, // 371: recruitment.AgentSkillService.PreviewAgentSkill:input_type -> recruitment.PreviewAgentSkillRequest
-	401, // 372: recruitment.AgentSkillService.ListAvailableAgentSkills:input_type -> recruitment.ListAvailableAgentSkillsRequest
-	415, // 373: recruitment.AgentSkillService.DebugSemanticRetrieval:input_type -> recruitment.DebugSemanticRetrievalRequest
-	439, // 374: recruitment.EmbeddingConfigService.ListEmbeddingProviders:input_type -> recruitment.ListEmbeddingProvidersRequest
-	441, // 375: recruitment.EmbeddingConfigService.CreateEmbeddingProvider:input_type -> recruitment.CreateEmbeddingProviderRequest
-	442, // 376: recruitment.EmbeddingConfigService.UpdateEmbeddingProvider:input_type -> recruitment.UpdateEmbeddingProviderRequest
-	444, // 377: recruitment.EmbeddingConfigService.DeleteEmbeddingProvider:input_type -> recruitment.DeleteEmbeddingProviderRequest
-	446, // 378: recruitment.EmbeddingConfigService.ListEmbeddingModels:input_type -> recruitment.ListEmbeddingModelsRequest
-	448, // 379: recruitment.EmbeddingConfigService.CreateEmbeddingModel:input_type -> recruitment.CreateEmbeddingModelRequest
-	449, // 380: recruitment.EmbeddingConfigService.UpdateEmbeddingModel:input_type -> recruitment.UpdateEmbeddingModelRequest
-	452, // 381: recruitment.EmbeddingConfigService.SetDefaultEmbeddingModel:input_type -> recruitment.SetDefaultEmbeddingModelRequest
-	453, // 382: recruitment.EmbeddingConfigService.TestEmbeddingModel:input_type -> recruitment.TestEmbeddingModelRequest
-	455, // 383: recruitment.EmbeddingConfigService.BackfillEmbeddings:input_type -> recruitment.BackfillEmbeddingsRequest
-	2,   // 384: recruitment.AuthService.Register:output_type -> recruitment.RegisterResponse
-	43,  // 385: recruitment.AuthService.Login:output_type -> recruitment.LoginResponse
-	45,  // 386: recruitment.AuthService.RefreshToken:output_type -> recruitment.RefreshTokenResponse
-	43,  // 387: recruitment.AuthService.SwitchTenant:output_type -> recruitment.LoginResponse
-	0,   // 388: recruitment.AuthService.RevokeRefreshToken:output_type -> recruitment.CommonResponse
-	0,   // 389: recruitment.AuthService.RecordAuthDecision:output_type -> recruitment.CommonResponse
-	50,  // 390: recruitment.AuthService.GetPrincipal:output_type -> recruitment.GetPrincipalResponse
-	52,  // 391: recruitment.AuthService.AuthorizeInternal:output_type -> recruitment.AuthorizeInternalResponse
-	0,   // 392: recruitment.AuthService.UpdateEmail:output_type -> recruitment.CommonResponse
-	8,   // 393: recruitment.PlatformTenantService.CreateTenant:output_type -> recruitment.TenantResponse
-	9,   // 394: recruitment.PlatformTenantService.ListTenants:output_type -> recruitment.ListTenantsResponse
-	8,   // 395: recruitment.PlatformTenantService.GetTenant:output_type -> recruitment.TenantResponse
-	8,   // 396: recruitment.PlatformTenantService.UpdateTenantStatus:output_type -> recruitment.TenantResponse
-	13,  // 397: recruitment.PlatformTenantService.ListTenantMemberships:output_type -> recruitment.ListTenantMembershipsResponse
-	15,  // 398: recruitment.PlatformTenantService.UpdateTenantMembershipStatus:output_type -> recruitment.TenantMembershipResponse
-	18,  // 399: recruitment.PlatformTenantService.GetPlatformDashboard:output_type -> recruitment.GetPlatformDashboardResponse
-	21,  // 400: recruitment.PlatformTenantService.QueryPlatformAuditLogs:output_type -> recruitment.QueryPlatformAuditLogsResponse
-	26,  // 401: recruitment.PlatformTenantService.ListPlatformPlans:output_type -> recruitment.ListPlatformPlansResponse
-	29,  // 402: recruitment.PlatformTenantService.SavePlatformPlanVersion:output_type -> recruitment.PlatformPlanVersionResponse
-	29,  // 403: recruitment.PlatformTenantService.PublishPlatformPlanVersion:output_type -> recruitment.PlatformPlanVersionResponse
-	33,  // 404: recruitment.PlatformTenantService.GetTenantSubscription:output_type -> recruitment.TenantSubscriptionResponse
-	33,  // 405: recruitment.PlatformTenantService.UpdateTenantSubscription:output_type -> recruitment.TenantSubscriptionResponse
-	33,  // 406: recruitment.PlatformTenantService.UpdateTenantEntitlementOverride:output_type -> recruitment.TenantSubscriptionResponse
-	37,  // 407: recruitment.PlatformTenantService.GetTenantUsage:output_type -> recruitment.GetTenantUsageResponse
-	40,  // 408: recruitment.PlatformTenantService.ListQuotaAlerts:output_type -> recruitment.ListQuotaAlertsResponse
-	42,  // 409: recruitment.PlatformTenantService.UpdateQuotaAlert:output_type -> recruitment.QuotaAlertResponse
-	56,  // 410: recruitment.JobService.CreateJob:output_type -> recruitment.CreateJobResponse
-	0,   // 411: recruitment.JobService.UpdateJob:output_type -> recruitment.CommonResponse
-	0,   // 412: recruitment.JobService.OfflineJob:output_type -> recruitment.CommonResponse
-	0,   // 413: recruitment.JobService.OnlineJob:output_type -> recruitment.CommonResponse
-	63,  // 414: recruitment.JobService.ListHRJobs:output_type -> recruitment.ListJobsResponse
-	63,  // 415: recruitment.JobService.ListPublicJobs:output_type -> recruitment.ListJobsResponse
-	64,  // 416: recruitment.JobService.GetJobDetail:output_type -> recruitment.GetJobDetailResponse
-	182, // 417: recruitment.JobService.ListJobOptions:output_type -> recruitment.ListJobOptionsResponse
-	203, // 418: recruitment.JobService.ListDepartmentLocations:output_type -> recruitment.ListDepartmentLocationsResponse
-	68,  // 419: recruitment.CandidateService.GetProfile:output_type -> recruitment.GetProfileResponse
-	68,  // 420: recruitment.CandidateService.UpdateProfile:output_type -> recruitment.GetProfileResponse
-	71,  // 421: recruitment.CandidateService.GetResume:output_type -> recruitment.GetResumeResponse
-	73,  // 422: recruitment.CandidateService.PresignResumeUpload:output_type -> recruitment.PresignResumeUploadResponse
-	75,  // 423: recruitment.CandidateService.ConfirmResumeUpload:output_type -> recruitment.ConfirmResumeUploadResponse
-	0,   // 424: recruitment.ApplicationService.ApplyJob:output_type -> recruitment.CommonResponse
-	79,  // 425: recruitment.ApplicationService.ListMyApplications:output_type -> recruitment.ListMyApplicationsResponse
-	82,  // 426: recruitment.ApplicationService.ListJobApplications:output_type -> recruitment.ListJobApplicationsResponse
-	0,   // 427: recruitment.ApplicationService.UpdateApplicationStatus:output_type -> recruitment.CommonResponse
-	86,  // 428: recruitment.ApplicationService.ListApplicationStatusTransitions:output_type -> recruitment.ListApplicationStatusTransitionsResponse
-	88,  // 429: recruitment.ApplicationOwnerService.GetApplicationSnapshot:output_type -> recruitment.GetApplicationSnapshotResponse
-	90,  // 430: recruitment.ApplicationOwnerService.ApplyApplicationLifecycleTransition:output_type -> recruitment.ApplyApplicationLifecycleTransitionResponse
-	143, // 431: recruitment.InterviewService.ScheduleInterview:output_type -> recruitment.ScheduleInterviewResponse
-	0,   // 432: recruitment.InterviewService.UpdateInterview:output_type -> recruitment.CommonResponse
-	0,   // 433: recruitment.InterviewService.CancelInterview:output_type -> recruitment.CommonResponse
-	147, // 434: recruitment.InterviewService.GetInterview:output_type -> recruitment.GetInterviewResponse
-	149, // 435: recruitment.InterviewService.ListInterviewers:output_type -> recruitment.ListInterviewersResponse
-	151, // 436: recruitment.InterviewService.ListApplicationInterviews:output_type -> recruitment.ListApplicationInterviewsResponse
-	153, // 437: recruitment.InterviewService.ListMyInterviews:output_type -> recruitment.ListMyInterviewsResponse
-	155, // 438: recruitment.InterviewService.ListCandidateInterviews:output_type -> recruitment.ListCandidateInterviewsResponse
-	0,   // 439: recruitment.InterviewService.SubmitFeedback:output_type -> recruitment.CommonResponse
-	159, // 440: recruitment.InterviewService.GetFeedback:output_type -> recruitment.GetFeedbackResponse
-	161, // 441: recruitment.InterviewService.BatchCancelInterviews:output_type -> recruitment.BatchCancelInterviewsResponse
-	164, // 442: recruitment.NotificationService.ListNotifications:output_type -> recruitment.ListNotificationsResponse
-	166, // 443: recruitment.NotificationService.UnreadNotificationCount:output_type -> recruitment.UnreadNotificationCountResponse
-	168, // 444: recruitment.NotificationService.NotificationSummary:output_type -> recruitment.NotificationSummaryResponse
-	0,   // 445: recruitment.NotificationService.MarkNotificationRead:output_type -> recruitment.CommonResponse
-	0,   // 446: recruitment.NotificationService.MarkAllNotificationsRead:output_type -> recruitment.CommonResponse
-	94,  // 447: recruitment.AIService.Chat:output_type -> recruitment.ChatResponse
-	97,  // 448: recruitment.AIService.ChatStream:output_type -> recruitment.ChatStreamResponse
-	100, // 449: recruitment.AIService.History:output_type -> recruitment.ChatHistoryResponse
-	102, // 450: recruitment.AIService.AnalyzeApplication:output_type -> recruitment.AnalyzeApplicationResponse
-	105, // 451: recruitment.AIService.ListChatSessions:output_type -> recruitment.ChatSessionListResponse
-	107, // 452: recruitment.AIService.CreateChatSession:output_type -> recruitment.CreateChatSessionResponse
-	100, // 453: recruitment.AIService.SessionMessages:output_type -> recruitment.ChatHistoryResponse
-	110, // 454: recruitment.AIService.CreateApplicationAnalysisSession:output_type -> recruitment.CreateApplicationAnalysisSessionResponse
-	458, // 455: recruitment.AIService.PreviewChatContext:output_type -> recruitment.PreviewChatContextResponse
-	0,   // 456: recruitment.AIService.UpdateSession:output_type -> recruitment.CommonResponse
-	0,   // 457: recruitment.AIService.DeleteSession:output_type -> recruitment.CommonResponse
-	97,  // 458: recruitment.AIService.CandidateChatStream:output_type -> recruitment.ChatStreamResponse
-	105, // 459: recruitment.AIService.CandidateListSessions:output_type -> recruitment.ChatSessionListResponse
-	107, // 460: recruitment.AIService.CandidateCreateSession:output_type -> recruitment.CreateChatSessionResponse
-	100, // 461: recruitment.AIService.CandidateSessionMessages:output_type -> recruitment.ChatHistoryResponse
-	0,   // 462: recruitment.AIService.CandidateUpdateSession:output_type -> recruitment.CommonResponse
-	0,   // 463: recruitment.AIService.CandidateDeleteSession:output_type -> recruitment.CommonResponse
-	121, // 464: recruitment.AIService.GetToolTraces:output_type -> recruitment.GetToolTracesResponse
-	125, // 465: recruitment.AIService.GetAgentRuns:output_type -> recruitment.GetAgentRunsResponse
-	131, // 466: recruitment.AIService.CreateAgentRun:output_type -> recruitment.CreateAgentRunResponse
-	133, // 467: recruitment.AIService.GetAgentRun:output_type -> recruitment.GetAgentRunResponse
-	135, // 468: recruitment.AIService.GetActiveAgentRun:output_type -> recruitment.GetActiveAgentRunResponse
-	129, // 469: recruitment.AIService.SubscribeAgentRunEvents:output_type -> recruitment.AgentRunEvent
-	138, // 470: recruitment.AIService.CancelAgentRun:output_type -> recruitment.CancelAgentRunResponse
-	140, // 471: recruitment.AIService.ConfirmAgentRun:output_type -> recruitment.ConfirmAgentRunResponse
-	212, // 472: recruitment.OfferService.CreateOffer:output_type -> recruitment.CreateOfferResponse
-	0,   // 473: recruitment.OfferService.UpdateOffer:output_type -> recruitment.CommonResponse
-	215, // 474: recruitment.OfferService.GetOffer:output_type -> recruitment.GetOfferResponse
-	217, // 475: recruitment.OfferService.ListOffersByApplication:output_type -> recruitment.ListOffersByApplicationResponse
-	0,   // 476: recruitment.OfferService.SendOffer:output_type -> recruitment.CommonResponse
-	0,   // 477: recruitment.OfferService.WithdrawOffer:output_type -> recruitment.CommonResponse
-	0,   // 478: recruitment.OfferService.AcceptOffer:output_type -> recruitment.CommonResponse
-	0,   // 479: recruitment.OfferService.RejectOffer:output_type -> recruitment.CommonResponse
-	223, // 480: recruitment.OfferService.ListMyOffers:output_type -> recruitment.ListMyOffersResponse
-	226, // 481: recruitment.OfferService.ListOfferEvents:output_type -> recruitment.ListOfferEventsResponse
-	173, // 482: recruitment.AdminService.CreateInviteCode:output_type -> recruitment.CreateInviteCodeResponse
-	175, // 483: recruitment.AdminService.ListInviteCodes:output_type -> recruitment.ListInviteCodesResponse
-	0,   // 484: recruitment.AdminService.ExtendInviteCode:output_type -> recruitment.CommonResponse
-	0,   // 485: recruitment.AdminService.RevokeInviteCode:output_type -> recruitment.CommonResponse
-	0,   // 486: recruitment.AdminService.ReactivateInviteCode:output_type -> recruitment.CommonResponse
-	180, // 487: recruitment.AdminService.ValidateInviteCode:output_type -> recruitment.ValidateInviteCodeResponse
-	186, // 488: recruitment.AdminService.ListDepartments:output_type -> recruitment.ListDepartmentsResponse
-	191, // 489: recruitment.AdminService.CreateDepartment:output_type -> recruitment.DepartmentResponse
-	191, // 490: recruitment.AdminService.UpdateDepartment:output_type -> recruitment.DepartmentResponse
-	0,   // 491: recruitment.AdminService.UpdateDepartmentStatus:output_type -> recruitment.CommonResponse
-	0,   // 492: recruitment.AdminService.DeleteDepartment:output_type -> recruitment.CommonResponse
-	193, // 493: recruitment.AdminService.ListJobLocations:output_type -> recruitment.ListJobLocationsResponse
-	198, // 494: recruitment.AdminService.CreateJobLocation:output_type -> recruitment.JobLocationResponse
-	198, // 495: recruitment.AdminService.UpdateJobLocation:output_type -> recruitment.JobLocationResponse
-	0,   // 496: recruitment.AdminService.UpdateJobLocationStatus:output_type -> recruitment.CommonResponse
-	0,   // 497: recruitment.AdminService.DeleteJobLocation:output_type -> recruitment.CommonResponse
-	206, // 498: recruitment.AdminService.GetDepartmentLocationConfig:output_type -> recruitment.DepartmentLocationConfigResponse
-	206, // 499: recruitment.AdminService.UpdateDepartmentLocationConfig:output_type -> recruitment.DepartmentLocationConfigResponse
-	201, // 500: recruitment.AdminService.ListDepartmentsLocationMap:output_type -> recruitment.ListDepartmentsLocationMapResponse
-	209, // 501: recruitment.AdminService.QueryUsageLogs:output_type -> recruitment.QueryUsageLogsResponse
-	228, // 502: recruitment.AdminService.ListRoles:output_type -> recruitment.ListRolesResponse
-	231, // 503: recruitment.AdminService.ListPermissions:output_type -> recruitment.ListPermissionsResponse
-	234, // 504: recruitment.AdminService.GetUserRoles:output_type -> recruitment.GetUserRolesResponse
-	0,   // 505: recruitment.AdminService.AssignUserRole:output_type -> recruitment.CommonResponse
-	0,   // 506: recruitment.AdminService.RevokeUserRole:output_type -> recruitment.CommonResponse
-	0,   // 507: recruitment.AdminService.AssignDataScope:output_type -> recruitment.CommonResponse
-	0,   // 508: recruitment.AdminService.RevokeDataScope:output_type -> recruitment.CommonResponse
-	241, // 509: recruitment.AdminService.ListStaffUsers:output_type -> recruitment.ListStaffUsersResponse
-	244, // 510: recruitment.AdminService.CreateStaffUser:output_type -> recruitment.CreateStaffUserResponse
-	247, // 511: recruitment.AdminService.ListPlatformUsers:output_type -> recruitment.ListPlatformUsersResponse
-	249, // 512: recruitment.AdminService.CreatePlatformUser:output_type -> recruitment.CreatePlatformUserResponse
-	251, // 513: recruitment.AdminService.UpdatePlatformUser:output_type -> recruitment.PlatformUserResponse
-	285, // 514: recruitment.AdminService.QueryAuthAuditLogs:output_type -> recruitment.QueryAuthAuditLogsResponse
-	289, // 515: recruitment.AdminService.GetDashboardReport:output_type -> recruitment.GetDashboardReportResponse
-	292, // 516: recruitment.AdminService.GetFunnelReport:output_type -> recruitment.GetFunnelReportResponse
-	295, // 517: recruitment.AdminService.GetTimeInStageReport:output_type -> recruitment.GetTimeInStageReportResponse
-	297, // 518: recruitment.AdminService.GetInterviewOfferMetrics:output_type -> recruitment.GetInterviewOfferMetricsResponse
-	301, // 519: recruitment.AdminService.GetUsageStats:output_type -> recruitment.GetUsageStatsResponse
-	304, // 520: recruitment.AdminService.GetUsageTrend:output_type -> recruitment.GetUsageTrendResponse
-	257, // 521: recruitment.CollaborationService.GetCandidateWorkspace:output_type -> recruitment.GetCandidateWorkspaceResponse
-	260, // 522: recruitment.CollaborationService.CreateNote:output_type -> recruitment.CreateNoteResponse
-	262, // 523: recruitment.CollaborationService.ListNotes:output_type -> recruitment.ListNotesResponse
-	265, // 524: recruitment.CollaborationService.CreateTag:output_type -> recruitment.CreateTagResponse
-	267, // 525: recruitment.CollaborationService.ListTags:output_type -> recruitment.ListTagsResponse
-	0,   // 526: recruitment.CollaborationService.AssignTag:output_type -> recruitment.CommonResponse
-	0,   // 527: recruitment.CollaborationService.UnassignTag:output_type -> recruitment.CommonResponse
-	271, // 528: recruitment.CollaborationService.ListCandidateTags:output_type -> recruitment.ListCandidateTagsResponse
-	274, // 529: recruitment.CollaborationService.CreateFollowUpTask:output_type -> recruitment.CreateFollowUpTaskResponse
-	276, // 530: recruitment.CollaborationService.ListFollowUpTasks:output_type -> recruitment.ListFollowUpTasksResponse
-	0,   // 531: recruitment.CollaborationService.CompleteFollowUpTask:output_type -> recruitment.CommonResponse
-	279, // 532: recruitment.CollaborationService.GetFollowUpTask:output_type -> recruitment.GetFollowUpTaskResponse
-	282, // 533: recruitment.CollaborationService.ListTimelineEvents:output_type -> recruitment.ListTimelineEventsResponse
-	428, // 534: recruitment.RecruitingIntelligenceService.GetResumeProfile:output_type -> recruitment.GetResumeProfileResponse
-	428, // 535: recruitment.RecruitingIntelligenceService.ParseResumeProfile:output_type -> recruitment.GetResumeProfileResponse
-	434, // 536: recruitment.RecruitingIntelligenceService.EvaluateCandidateMatch:output_type -> recruitment.GetCandidateMatchEvaluationResponse
-	434, // 537: recruitment.RecruitingIntelligenceService.GetCandidateMatchEvaluation:output_type -> recruitment.GetCandidateMatchEvaluationResponse
-	437, // 538: recruitment.RecruitingIntelligenceService.CompareCandidatesForJob:output_type -> recruitment.CompareCandidatesForJobResponse
-	307, // 539: recruitment.MCPService.ListMCPServers:output_type -> recruitment.ListMCPServersResponse
-	311, // 540: recruitment.MCPService.CreateMCPServer:output_type -> recruitment.MCPServerResponse
-	311, // 541: recruitment.MCPService.UpdateMCPServer:output_type -> recruitment.MCPServerResponse
-	0,   // 542: recruitment.MCPService.DeleteMCPServer:output_type -> recruitment.CommonResponse
-	314, // 543: recruitment.MCPService.ListMCPToolPolicies:output_type -> recruitment.ListMCPToolPoliciesResponse
-	318, // 544: recruitment.MCPService.CreateMCPToolPolicy:output_type -> recruitment.MCPToolPolicyResponse
-	318, // 545: recruitment.MCPService.UpdateMCPToolPolicy:output_type -> recruitment.MCPToolPolicyResponse
-	0,   // 546: recruitment.MCPService.DeleteMCPToolPolicy:output_type -> recruitment.CommonResponse
-	321, // 547: recruitment.MCPService.ListMCPToolLogs:output_type -> recruitment.ListMCPToolLogsResponse
-	323, // 548: recruitment.MCPService.TestMCPConnection:output_type -> recruitment.TestMCPConnectionResponse
-	326, // 549: recruitment.MCPService.ListMCPTools:output_type -> recruitment.ListMCPToolsResponse
-	328, // 550: recruitment.MCPService.CallMCPTool:output_type -> recruitment.CallMCPToolResponse
-	331, // 551: recruitment.LlmConfigService.ListProviders:output_type -> recruitment.ListProvidersResponse
-	334, // 552: recruitment.LlmConfigService.CreateProvider:output_type -> recruitment.ProviderResponse
-	334, // 553: recruitment.LlmConfigService.UpdateProvider:output_type -> recruitment.ProviderResponse
-	0,   // 554: recruitment.LlmConfigService.DeleteProvider:output_type -> recruitment.CommonResponse
-	337, // 555: recruitment.LlmConfigService.TestProviderConnection:output_type -> recruitment.TestProviderConnectionResponse
-	342, // 556: recruitment.LlmConfigService.DiscoverProviderModels:output_type -> recruitment.DiscoverProviderModelsResponse
-	344, // 557: recruitment.LlmConfigService.GetProviderModelPreset:output_type -> recruitment.GetProviderModelPresetResponse
-	347, // 558: recruitment.LlmConfigService.ListModels:output_type -> recruitment.ListModelsResponse
-	350, // 559: recruitment.LlmConfigService.CreateModel:output_type -> recruitment.ModelResponse
-	350, // 560: recruitment.LlmConfigService.UpdateModel:output_type -> recruitment.ModelResponse
-	0,   // 561: recruitment.LlmConfigService.DeleteModel:output_type -> recruitment.CommonResponse
-	337, // 562: recruitment.LlmConfigService.TestModelConnection:output_type -> recruitment.TestProviderConnectionResponse
-	354, // 563: recruitment.PromptService.ListPromptTemplates:output_type -> recruitment.ListPromptTemplatesResponse
-	357, // 564: recruitment.PromptService.CreatePromptTemplate:output_type -> recruitment.PromptTemplateResponse
-	357, // 565: recruitment.PromptService.UpdatePromptTemplate:output_type -> recruitment.PromptTemplateResponse
-	0,   // 566: recruitment.PromptService.DeletePromptTemplate:output_type -> recruitment.CommonResponse
-	361, // 567: recruitment.PromptService.GetPromptVersionHistory:output_type -> recruitment.GetPromptVersionHistoryResponse
-	357, // 568: recruitment.PromptService.RollbackPromptVersion:output_type -> recruitment.PromptTemplateResponse
-	364, // 569: recruitment.PromptService.RenderPrompt:output_type -> recruitment.RenderPromptResponse
-	366, // 570: recruitment.PromptService.GetActivePromptByAgentType:output_type -> recruitment.GetActivePromptByAgentTypeResponse
-	374, // 571: recruitment.AgentConfigService.ListAgents:output_type -> recruitment.ListAgentsResponse
-	372, // 572: recruitment.AgentConfigService.ListCapabilities:output_type -> recruitment.ListCapabilitiesResponse
-	377, // 573: recruitment.AgentConfigService.CreateAgent:output_type -> recruitment.AgentConfigResponse
-	377, // 574: recruitment.AgentConfigService.UpdateAgent:output_type -> recruitment.AgentConfigResponse
-	0,   // 575: recruitment.AgentConfigService.DeleteAgent:output_type -> recruitment.CommonResponse
-	380, // 576: recruitment.AgentConfigService.GetAgentConfig:output_type -> recruitment.GetAgentConfigResponse
-	385, // 577: recruitment.SkillService.ListSkills:output_type -> recruitment.ListSkillsResponse
-	388, // 578: recruitment.SkillService.CreateSkill:output_type -> recruitment.SkillResponse
-	388, // 579: recruitment.SkillService.UpdateSkill:output_type -> recruitment.SkillResponse
-	390, // 580: recruitment.SkillService.CreateSkillVersion:output_type -> recruitment.SkillVersionResponse
-	392, // 581: recruitment.SkillService.ListSkillVersions:output_type -> recruitment.ListSkillVersionsResponse
-	388, // 582: recruitment.SkillService.ActivateSkillVersion:output_type -> recruitment.SkillResponse
-	395, // 583: recruitment.SkillService.ListSkillTools:output_type -> recruitment.ListSkillToolsResponse
-	397, // 584: recruitment.SkillService.UpdateSkillTool:output_type -> recruitment.SkillToolResponse
-	402, // 585: recruitment.AgentSkillService.ListAgentSkills:output_type -> recruitment.ListAgentSkillsResponse
-	406, // 586: recruitment.AgentSkillService.GetAgentSkill:output_type -> recruitment.AgentSkillResponse
-	406, // 587: recruitment.AgentSkillService.CreateAgentSkill:output_type -> recruitment.AgentSkillResponse
-	406, // 588: recruitment.AgentSkillService.UpdateAgentSkill:output_type -> recruitment.AgentSkillResponse
-	408, // 589: recruitment.AgentSkillService.CreateAgentSkillVersion:output_type -> recruitment.AgentSkillVersionResponse
-	410, // 590: recruitment.AgentSkillService.ListAgentSkillVersions:output_type -> recruitment.ListAgentSkillVersionsResponse
-	406, // 591: recruitment.AgentSkillService.ActivateAgentSkillVersion:output_type -> recruitment.AgentSkillResponse
-	406, // 592: recruitment.AgentSkillService.UpdateAgentSkillStatus:output_type -> recruitment.AgentSkillResponse
-	414, // 593: recruitment.AgentSkillService.PreviewAgentSkill:output_type -> recruitment.PreviewAgentSkillResponse
-	402, // 594: recruitment.AgentSkillService.ListAvailableAgentSkills:output_type -> recruitment.ListAgentSkillsResponse
-	418, // 595: recruitment.AgentSkillService.DebugSemanticRetrieval:output_type -> recruitment.DebugSemanticRetrievalResponse
-	440, // 596: recruitment.EmbeddingConfigService.ListEmbeddingProviders:output_type -> recruitment.ListEmbeddingProvidersResponse
-	443, // 597: recruitment.EmbeddingConfigService.CreateEmbeddingProvider:output_type -> recruitment.EmbeddingProviderResponse
-	443, // 598: recruitment.EmbeddingConfigService.UpdateEmbeddingProvider:output_type -> recruitment.EmbeddingProviderResponse
-	0,   // 599: recruitment.EmbeddingConfigService.DeleteEmbeddingProvider:output_type -> recruitment.CommonResponse
-	447, // 600: recruitment.EmbeddingConfigService.ListEmbeddingModels:output_type -> recruitment.ListEmbeddingModelsResponse
-	450, // 601: recruitment.EmbeddingConfigService.CreateEmbeddingModel:output_type -> recruitment.EmbeddingModelResponse
-	450, // 602: recruitment.EmbeddingConfigService.UpdateEmbeddingModel:output_type -> recruitment.EmbeddingModelResponse
-	0,   // 603: recruitment.EmbeddingConfigService.SetDefaultEmbeddingModel:output_type -> recruitment.CommonResponse
-	454, // 604: recruitment.EmbeddingConfigService.TestEmbeddingModel:output_type -> recruitment.TestEmbeddingModelResponse
-	456, // 605: recruitment.EmbeddingConfigService.BackfillEmbeddings:output_type -> recruitment.BackfillEmbeddingsResponse
-	384, // [384:606] is the sub-list for method output_type
-	162, // [162:384] is the sub-list for method input_type
-	162, // [162:162] is the sub-list for extension type_name
-	162, // [162:162] is the sub-list for extension extendee
-	0,   // [0:162] is the sub-list for field type_name
+	7,   // 0: recruitment.TenantResponse.tenant:type_name -> recruitment.TenantInfo
+	7,   // 1: recruitment.ListTenantsResponse.list:type_name -> recruitment.TenantInfo
+	6,   // 2: recruitment.ListTenantMembershipsResponse.list:type_name -> recruitment.TenantMembershipInfo
+	6,   // 3: recruitment.TenantMembershipResponse.membership:type_name -> recruitment.TenantMembershipInfo
+	19,  // 4: recruitment.GetPlatformDashboardResponse.status_distribution:type_name -> recruitment.PlatformTenantStatusCount
+	22,  // 5: recruitment.QueryPlatformAuditLogsResponse.list:type_name -> recruitment.PlatformAuditLogItem
+	24,  // 6: recruitment.PlatformPlanVersionInfo.entitlements:type_name -> recruitment.PlatformEntitlementItem
+	25,  // 7: recruitment.PlatformPlanInfo.versions:type_name -> recruitment.PlatformPlanVersionInfo
+	26,  // 8: recruitment.ListPlatformPlansResponse.list:type_name -> recruitment.PlatformPlanInfo
+	24,  // 9: recruitment.SavePlatformPlanVersionRequest.entitlements:type_name -> recruitment.PlatformEntitlementItem
+	25,  // 10: recruitment.PlatformPlanVersionResponse.version:type_name -> recruitment.PlatformPlanVersionInfo
+	24,  // 11: recruitment.TenantSubscriptionInfo.effective_entitlements:type_name -> recruitment.PlatformEntitlementItem
+	32,  // 12: recruitment.TenantSubscriptionResponse.subscription:type_name -> recruitment.TenantSubscriptionInfo
+	37,  // 13: recruitment.GetTenantUsageResponse.metrics:type_name -> recruitment.TenantUsageMetric
+	40,  // 14: recruitment.ListQuotaAlertsResponse.list:type_name -> recruitment.QuotaAlertInfo
+	40,  // 15: recruitment.QuotaAlertResponse.alert:type_name -> recruitment.QuotaAlertInfo
+	6,   // 16: recruitment.LoginResponse.memberships:type_name -> recruitment.TenantMembershipInfo
+	56,  // 17: recruitment.GetPrincipalResponse.data_scopes:type_name -> recruitment.ScopeAssignment
+	6,   // 18: recruitment.GetPrincipalResponse.memberships:type_name -> recruitment.TenantMembershipInfo
+	52,  // 19: recruitment.AuthorizeInternalResponse.principal:type_name -> recruitment.GetPrincipalResponse
+	56,  // 20: recruitment.AuthorizeInternalResponse.matched_scopes:type_name -> recruitment.ScopeAssignment
+	64,  // 21: recruitment.ListJobsResponse.list:type_name -> recruitment.Job
+	64,  // 22: recruitment.GetJobDetailResponse.job:type_name -> recruitment.Job
+	69,  // 23: recruitment.GetProfileResponse.profile:type_name -> recruitment.CandidateProfile
+	72,  // 24: recruitment.GetResumeResponse.resume:type_name -> recruitment.CandidateResume
+	80,  // 25: recruitment.ListMyApplicationsResponse.list:type_name -> recruitment.MyApplication
+	83,  // 26: recruitment.ListJobApplicationsResponse.list:type_name -> recruitment.JobApplication
+	87,  // 27: recruitment.ListApplicationStatusTransitionsResponse.list:type_name -> recruitment.ApplicationStatusTransition
+	94,  // 28: recruitment.ContextUsageInfo.breakdown:type_name -> recruitment.ContextUsageBreakdown
+	95,  // 29: recruitment.ChatResponse.context_usage:type_name -> recruitment.ContextUsageInfo
+	97,  // 30: recruitment.AgentSkillSelection.candidates:type_name -> recruitment.AgentSkillSelectionCandidate
+	95,  // 31: recruitment.ChatStreamResponse.context_usage:type_name -> recruitment.ContextUsageInfo
+	98,  // 32: recruitment.ChatStreamResponse.agent_skill_selection:type_name -> recruitment.AgentSkillSelection
+	95,  // 33: recruitment.ChatMessage.context_usage:type_name -> recruitment.ContextUsageInfo
+	101, // 34: recruitment.ChatHistoryResponse.list:type_name -> recruitment.ChatMessage
+	95,  // 35: recruitment.ChatSession.latest_context_usage:type_name -> recruitment.ContextUsageInfo
+	106, // 36: recruitment.ChatSessionListResponse.list:type_name -> recruitment.ChatSession
+	106, // 37: recruitment.CreateChatSessionResponse.session:type_name -> recruitment.ChatSession
+	106, // 38: recruitment.CreateApplicationAnalysisSessionResponse.session:type_name -> recruitment.ChatSession
+	101, // 39: recruitment.CreateApplicationAnalysisSessionResponse.messages:type_name -> recruitment.ChatMessage
+	122, // 40: recruitment.GetToolTracesResponse.list:type_name -> recruitment.ToolTraceItem
+	125, // 41: recruitment.AgentRunItem.steps:type_name -> recruitment.AgentRunStepItem
+	126, // 42: recruitment.GetAgentRunsResponse.list:type_name -> recruitment.AgentRunItem
+	95,  // 43: recruitment.AgentRunResultMetadata.context_usage:type_name -> recruitment.ContextUsageInfo
+	97,  // 44: recruitment.AgentRunConfirmationPayload.candidates:type_name -> recruitment.AgentSkillSelectionCandidate
+	128, // 45: recruitment.AgentRunSnapshot.result_metadata:type_name -> recruitment.AgentRunResultMetadata
+	129, // 46: recruitment.AgentRunSnapshot.confirmation_request:type_name -> recruitment.AgentRunConfirmationPayload
+	128, // 47: recruitment.AgentRunEvent.result_metadata:type_name -> recruitment.AgentRunResultMetadata
+	129, // 48: recruitment.AgentRunEvent.confirmation:type_name -> recruitment.AgentRunConfirmationPayload
+	130, // 49: recruitment.CreateAgentRunResponse.run:type_name -> recruitment.AgentRunSnapshot
+	130, // 50: recruitment.GetAgentRunResponse.run:type_name -> recruitment.AgentRunSnapshot
+	130, // 51: recruitment.GetActiveAgentRunResponse.run:type_name -> recruitment.AgentRunSnapshot
+	130, // 52: recruitment.CancelAgentRunResponse.run:type_name -> recruitment.AgentRunSnapshot
+	130, // 53: recruitment.ConfirmAgentRunResponse.run:type_name -> recruitment.AgentRunSnapshot
+	143, // 54: recruitment.GetInterviewResponse.interview:type_name -> recruitment.InterviewSchedule
+	244, // 55: recruitment.ListInterviewersResponse.list:type_name -> recruitment.StaffUserInfo
+	143, // 56: recruitment.ListApplicationInterviewsResponse.list:type_name -> recruitment.InterviewSchedule
+	143, // 57: recruitment.ListMyInterviewsResponse.list:type_name -> recruitment.InterviewSchedule
+	143, // 58: recruitment.ListCandidateInterviewsResponse.list:type_name -> recruitment.InterviewSchedule
+	158, // 59: recruitment.GetFeedbackResponse.feedback:type_name -> recruitment.InterviewFeedback
+	164, // 60: recruitment.ListNotificationsResponse.list:type_name -> recruitment.Notification
+	173, // 61: recruitment.CreateInviteCodeResponse.invite_code:type_name -> recruitment.InviteCodeInfo
+	173, // 62: recruitment.ListInviteCodesResponse.list:type_name -> recruitment.InviteCodeInfo
+	185, // 63: recruitment.ListJobOptionsResponse.department_tree:type_name -> recruitment.DepartmentNode
+	186, // 64: recruitment.ListJobOptionsResponse.locations:type_name -> recruitment.LocationOption
+	201, // 65: recruitment.ListJobOptionsResponse.department_location_map:type_name -> recruitment.DepartmentLocationMap
+	185, // 66: recruitment.DepartmentNode.children:type_name -> recruitment.DepartmentNode
+	185, // 67: recruitment.ListDepartmentsResponse.list:type_name -> recruitment.DepartmentNode
+	185, // 68: recruitment.DepartmentResponse.department:type_name -> recruitment.DepartmentNode
+	186, // 69: recruitment.ListJobLocationsResponse.list:type_name -> recruitment.LocationOption
+	186, // 70: recruitment.JobLocationResponse.location:type_name -> recruitment.LocationOption
+	201, // 71: recruitment.ListDepartmentsLocationMapResponse.items:type_name -> recruitment.DepartmentLocationMap
+	186, // 72: recruitment.ListDepartmentLocationsResponse.locations:type_name -> recruitment.LocationOption
+	186, // 73: recruitment.DepartmentLocationConfigResponse.locations:type_name -> recruitment.LocationOption
+	209, // 74: recruitment.QueryUsageLogsResponse.list:type_name -> recruitment.UsageLogItem
+	212, // 75: recruitment.GetOfferResponse.offer:type_name -> recruitment.Offer
+	212, // 76: recruitment.ListOffersByApplicationResponse.list:type_name -> recruitment.Offer
+	212, // 77: recruitment.ListMyOffersResponse.list:type_name -> recruitment.Offer
+	226, // 78: recruitment.ListOfferEventsResponse.list:type_name -> recruitment.OfferEventInfo
+	231, // 79: recruitment.ListRolesResponse.list:type_name -> recruitment.RoleInfo
+	234, // 80: recruitment.ListPermissionsResponse.list:type_name -> recruitment.PermissionInfo
+	237, // 81: recruitment.GetUserRolesResponse.data_scopes:type_name -> recruitment.DataScopeInfo
+	244, // 82: recruitment.ListStaffUsersResponse.list:type_name -> recruitment.StaffUserInfo
+	247, // 83: recruitment.ListPlatformUsersResponse.list:type_name -> recruitment.PlatformUserInfo
+	247, // 84: recruitment.PlatformUserResponse.user:type_name -> recruitment.PlatformUserInfo
+	258, // 85: recruitment.CandidateWorkspace.applications:type_name -> recruitment.CandidateWorkspaceApplication
+	265, // 86: recruitment.CandidateWorkspace.tags:type_name -> recruitment.CandidateTagInfo
+	256, // 87: recruitment.CandidateWorkspace.interviews:type_name -> recruitment.CandidateWorkspaceInterview
+	257, // 88: recruitment.CandidateWorkspace.offers:type_name -> recruitment.CandidateWorkspaceOffer
+	255, // 89: recruitment.GetCandidateWorkspaceResponse.workspace:type_name -> recruitment.CandidateWorkspace
+	260, // 90: recruitment.CreateNoteResponse.note:type_name -> recruitment.CandidateNoteInfo
+	260, // 91: recruitment.ListNotesResponse.list:type_name -> recruitment.CandidateNoteInfo
+	265, // 92: recruitment.CreateTagResponse.tag:type_name -> recruitment.CandidateTagInfo
+	265, // 93: recruitment.ListTagsResponse.list:type_name -> recruitment.CandidateTagInfo
+	265, // 94: recruitment.ListCandidateTagsResponse.list:type_name -> recruitment.CandidateTagInfo
+	274, // 95: recruitment.CreateFollowUpTaskResponse.task:type_name -> recruitment.FollowUpTaskInfo
+	274, // 96: recruitment.ListFollowUpTasksResponse.list:type_name -> recruitment.FollowUpTaskInfo
+	274, // 97: recruitment.GetFollowUpTaskResponse.task:type_name -> recruitment.FollowUpTaskInfo
+	282, // 98: recruitment.ListTimelineEventsResponse.events:type_name -> recruitment.TimelineEventInfo
+	286, // 99: recruitment.QueryAuthAuditLogsResponse.list:type_name -> recruitment.AuthAuditLogItem
+	290, // 100: recruitment.GetDashboardReportResponse.trend:type_name -> recruitment.DashboardTrendPoint
+	289, // 101: recruitment.GetDashboardReportResponse.stage_distribution:type_name -> recruitment.DashboardReportItem
+	293, // 102: recruitment.GetFunnelReportResponse.stages:type_name -> recruitment.FunnelStage
+	296, // 103: recruitment.GetTimeInStageReportResponse.durations:type_name -> recruitment.StageDuration
+	301, // 104: recruitment.GetUsageStatsResponse.list:type_name -> recruitment.UsageStatsItem
+	302, // 105: recruitment.GetUsageStatsResponse.summary:type_name -> recruitment.UsageStatsSummary
+	305, // 106: recruitment.GetUsageTrendResponse.list:type_name -> recruitment.UsageTrendPoint
+	307, // 107: recruitment.ListMCPServersResponse.list:type_name -> recruitment.MCPServerInfo
+	307, // 108: recruitment.MCPServerResponse.server:type_name -> recruitment.MCPServerInfo
+	314, // 109: recruitment.ListMCPToolPoliciesResponse.list:type_name -> recruitment.MCPToolPolicyInfo
+	314, // 110: recruitment.MCPToolPolicyResponse.policy:type_name -> recruitment.MCPToolPolicyInfo
+	321, // 111: recruitment.ListMCPToolLogsResponse.list:type_name -> recruitment.MCPToolLogInfo
+	327, // 112: recruitment.ListMCPToolsResponse.list:type_name -> recruitment.MCPToolInfo
+	331, // 113: recruitment.ListProvidersResponse.list:type_name -> recruitment.LlmProviderInfo
+	331, // 114: recruitment.ProviderResponse.provider:type_name -> recruitment.LlmProviderInfo
+	342, // 115: recruitment.DiscoveredLlmModel.field_sources:type_name -> recruitment.ModelMetadataFieldSource
+	343, // 116: recruitment.DiscoverProviderModelsResponse.list:type_name -> recruitment.DiscoveredLlmModel
+	343, // 117: recruitment.GetProviderModelPresetResponse.model:type_name -> recruitment.DiscoveredLlmModel
+	347, // 118: recruitment.ListModelsResponse.list:type_name -> recruitment.LlmModelInfo
+	347, // 119: recruitment.ModelResponse.model:type_name -> recruitment.LlmModelInfo
+	354, // 120: recruitment.ListPromptTemplatesResponse.list:type_name -> recruitment.PromptTemplateInfo
+	354, // 121: recruitment.PromptTemplateResponse.template:type_name -> recruitment.PromptTemplateInfo
+	361, // 122: recruitment.GetPromptVersionHistoryResponse.list:type_name -> recruitment.PromptVersionInfo
+	498, // 123: recruitment.RenderPromptRequest.variables:type_name -> recruitment.RenderPromptRequest.VariablesEntry
+	354, // 124: recruitment.GetActivePromptByAgentTypeResponse.template:type_name -> recruitment.PromptTemplateInfo
+	370, // 125: recruitment.AgentConfigInfo.tool_bindings:type_name -> recruitment.AgentToolBindingInfo
+	371, // 126: recruitment.AgentConfigInfo.capability_bindings:type_name -> recruitment.AgentCapabilityBindingInfo
+	372, // 127: recruitment.ListCapabilitiesResponse.list:type_name -> recruitment.CapabilityInfo
+	369, // 128: recruitment.ListAgentsResponse.list:type_name -> recruitment.AgentConfigInfo
+	371, // 129: recruitment.CreateAgentRequest.capability_bindings:type_name -> recruitment.AgentCapabilityBindingInfo
+	371, // 130: recruitment.UpdateAgentRequest.capability_bindings:type_name -> recruitment.AgentCapabilityBindingInfo
+	369, // 131: recruitment.AgentConfigResponse.agent:type_name -> recruitment.AgentConfigInfo
+	369, // 132: recruitment.GetAgentConfigResponse.agent:type_name -> recruitment.AgentConfigInfo
+	383, // 133: recruitment.ListSkillsResponse.list:type_name -> recruitment.SkillInfo
+	383, // 134: recruitment.SkillResponse.skill:type_name -> recruitment.SkillInfo
+	384, // 135: recruitment.SkillVersionResponse.version:type_name -> recruitment.SkillVersionInfo
+	385, // 136: recruitment.SkillVersionResponse.tools:type_name -> recruitment.SkillToolInfo
+	384, // 137: recruitment.ListSkillVersionsResponse.list:type_name -> recruitment.SkillVersionInfo
+	385, // 138: recruitment.ListSkillToolsResponse.list:type_name -> recruitment.SkillToolInfo
+	385, // 139: recruitment.SkillToolResponse.tool:type_name -> recruitment.SkillToolInfo
+	400, // 140: recruitment.ListAgentSkillsResponse.list:type_name -> recruitment.AgentSkillInfo
+	400, // 141: recruitment.AgentSkillResponse.skill:type_name -> recruitment.AgentSkillInfo
+	401, // 142: recruitment.AgentSkillVersionResponse.version:type_name -> recruitment.AgentSkillVersionInfo
+	401, // 143: recruitment.ListAgentSkillVersionsResponse.list:type_name -> recruitment.AgentSkillVersionInfo
+	418, // 144: recruitment.DebugSemanticRetrievalResponse.skills:type_name -> recruitment.SemanticSkillDebugItem
+	419, // 145: recruitment.DebugSemanticRetrievalResponse.memories:type_name -> recruitment.SemanticMemoryDebugItem
+	423, // 146: recruitment.ResumeProfileSnapshotInfo.parse_run:type_name -> recruitment.ResumeParseRunInfo
+	424, // 147: recruitment.ResumeProfileSnapshotInfo.profile:type_name -> recruitment.ResumeProfileInfo
+	425, // 148: recruitment.ResumeProfileSnapshotInfo.educations:type_name -> recruitment.ResumeEducationInfo
+	426, // 149: recruitment.ResumeProfileSnapshotInfo.experiences:type_name -> recruitment.ResumeExperienceInfo
+	427, // 150: recruitment.ResumeProfileSnapshotInfo.projects:type_name -> recruitment.ResumeProjectInfo
+	428, // 151: recruitment.ResumeProfileSnapshotInfo.skills:type_name -> recruitment.ResumeSkillInfo
+	429, // 152: recruitment.GetResumeProfileResponse.profile:type_name -> recruitment.ResumeProfileSnapshotInfo
+	433, // 153: recruitment.CandidateMatchEvaluationSnapshotInfo.evaluation:type_name -> recruitment.CandidateMatchEvaluationInfo
+	434, // 154: recruitment.CandidateMatchEvaluationSnapshotInfo.evidence:type_name -> recruitment.CandidateMatchEvidenceInfo
+	435, // 155: recruitment.GetCandidateMatchEvaluationResponse.evaluation:type_name -> recruitment.CandidateMatchEvaluationSnapshotInfo
+	438, // 156: recruitment.CompareCandidatesForJobResponse.candidates:type_name -> recruitment.CandidateComparisonItem
+	440, // 157: recruitment.ListEmbeddingProvidersResponse.list:type_name -> recruitment.EmbeddingProviderInfo
+	440, // 158: recruitment.EmbeddingProviderResponse.provider:type_name -> recruitment.EmbeddingProviderInfo
+	447, // 159: recruitment.ListEmbeddingModelsResponse.list:type_name -> recruitment.EmbeddingModelInfo
+	447, // 160: recruitment.EmbeddingModelResponse.model:type_name -> recruitment.EmbeddingModelInfo
+	95,  // 161: recruitment.PreviewChatContextResponse.context_usage:type_name -> recruitment.ContextUsageInfo
+	0,   // 162: recruitment.BillingOwner.type:type_name -> recruitment.BillingOwnerType
+	461, // 163: recruitment.CheckAIAccessRequest.owner:type_name -> recruitment.BillingOwner
+	1,   // 164: recruitment.CheckAIAccessResponse.enforcement_mode:type_name -> recruitment.BillingEnforcementMode
+	461, // 165: recruitment.ReserveAIUsageRequest.owner:type_name -> recruitment.BillingOwner
+	1,   // 166: recruitment.ReserveAIUsageResponse.enforcement_mode:type_name -> recruitment.BillingEnforcementMode
+	466, // 167: recruitment.SettleAIUsageRequest.provider_usages:type_name -> recruitment.AIProviderUsage
+	461, // 168: recruitment.GetAICreditBalanceRequest.owner:type_name -> recruitment.BillingOwner
+	1,   // 169: recruitment.GetAICreditBalanceResponse.enforcement_mode:type_name -> recruitment.BillingEnforcementMode
+	473, // 170: recruitment.BillingProductInfo.prices:type_name -> recruitment.BillingPriceInfo
+	461, // 171: recruitment.ListBillingCatalogRequest.owner:type_name -> recruitment.BillingOwner
+	474, // 172: recruitment.ListBillingCatalogResponse.products:type_name -> recruitment.BillingProductInfo
+	461, // 173: recruitment.GetBillingAccountRequest.owner:type_name -> recruitment.BillingOwner
+	477, // 174: recruitment.GetBillingAccountResponse.subscription:type_name -> recruitment.BillingSubscriptionInfo
+	461, // 175: recruitment.ListBillingOrdersRequest.owner:type_name -> recruitment.BillingOwner
+	480, // 176: recruitment.ListBillingOrdersResponse.orders:type_name -> recruitment.BillingOrderInfo
+	461, // 177: recruitment.CreateBillingOrderRequest.owner:type_name -> recruitment.BillingOwner
+	480, // 178: recruitment.BillingOrderResponse.order:type_name -> recruitment.BillingOrderInfo
+	461, // 179: recruitment.CreateAlipayPaymentRequest.owner:type_name -> recruitment.BillingOwner
+	461, // 180: recruitment.RequestBillingRefundRequest.owner:type_name -> recruitment.BillingOwner
+	489, // 181: recruitment.ProcessAlipayNotificationRequest.fields:type_name -> recruitment.AlipayNotificationField
+	494, // 182: recruitment.ListAIRateCardsResponse.rates:type_name -> recruitment.AIRateCardInfo
+	3,   // 183: recruitment.AuthService.Register:input_type -> recruitment.RegisterRequest
+	5,   // 184: recruitment.AuthService.Login:input_type -> recruitment.LoginRequest
+	46,  // 185: recruitment.AuthService.RefreshToken:input_type -> recruitment.RefreshTokenRequest
+	48,  // 186: recruitment.AuthService.SwitchTenant:input_type -> recruitment.SwitchTenantRequest
+	49,  // 187: recruitment.AuthService.RevokeRefreshToken:input_type -> recruitment.RevokeRefreshTokenRequest
+	50,  // 188: recruitment.AuthService.RecordAuthDecision:input_type -> recruitment.AuthAuditRequest
+	51,  // 189: recruitment.AuthService.GetPrincipal:input_type -> recruitment.GetPrincipalRequest
+	53,  // 190: recruitment.AuthService.AuthorizeInternal:input_type -> recruitment.AuthorizeInternalRequest
+	55,  // 191: recruitment.AuthService.UpdateEmail:input_type -> recruitment.UpdateEmailRequest
+	8,   // 192: recruitment.PlatformTenantService.CreateTenant:input_type -> recruitment.CreateTenantRequest
+	9,   // 193: recruitment.PlatformTenantService.ListTenants:input_type -> recruitment.ListTenantsRequest
+	12,  // 194: recruitment.PlatformTenantService.GetTenant:input_type -> recruitment.GetTenantRequest
+	13,  // 195: recruitment.PlatformTenantService.UpdateTenantStatus:input_type -> recruitment.UpdateTenantStatusRequest
+	14,  // 196: recruitment.PlatformTenantService.ListTenantMemberships:input_type -> recruitment.ListTenantMembershipsRequest
+	16,  // 197: recruitment.PlatformTenantService.UpdateTenantMembershipStatus:input_type -> recruitment.UpdateTenantMembershipStatusRequest
+	18,  // 198: recruitment.PlatformTenantService.GetPlatformDashboard:input_type -> recruitment.GetPlatformDashboardRequest
+	21,  // 199: recruitment.PlatformTenantService.QueryPlatformAuditLogs:input_type -> recruitment.QueryPlatformAuditLogsRequest
+	27,  // 200: recruitment.PlatformTenantService.ListPlatformPlans:input_type -> recruitment.ListPlatformPlansRequest
+	29,  // 201: recruitment.PlatformTenantService.SavePlatformPlanVersion:input_type -> recruitment.SavePlatformPlanVersionRequest
+	30,  // 202: recruitment.PlatformTenantService.PublishPlatformPlanVersion:input_type -> recruitment.PublishPlatformPlanVersionRequest
+	33,  // 203: recruitment.PlatformTenantService.GetTenantSubscription:input_type -> recruitment.GetTenantSubscriptionRequest
+	34,  // 204: recruitment.PlatformTenantService.UpdateTenantSubscription:input_type -> recruitment.UpdateTenantSubscriptionRequest
+	36,  // 205: recruitment.PlatformTenantService.UpdateTenantEntitlementOverride:input_type -> recruitment.UpdateTenantEntitlementOverrideRequest
+	38,  // 206: recruitment.PlatformTenantService.GetTenantUsage:input_type -> recruitment.GetTenantUsageRequest
+	41,  // 207: recruitment.PlatformTenantService.ListQuotaAlerts:input_type -> recruitment.ListQuotaAlertsRequest
+	43,  // 208: recruitment.PlatformTenantService.UpdateQuotaAlert:input_type -> recruitment.UpdateQuotaAlertRequest
+	57,  // 209: recruitment.JobService.CreateJob:input_type -> recruitment.CreateJobRequest
+	59,  // 210: recruitment.JobService.UpdateJob:input_type -> recruitment.UpdateJobRequest
+	60,  // 211: recruitment.JobService.OfflineJob:input_type -> recruitment.OfflineJobRequest
+	60,  // 212: recruitment.JobService.OnlineJob:input_type -> recruitment.OfflineJobRequest
+	61,  // 213: recruitment.JobService.ListHRJobs:input_type -> recruitment.ListHRJobsRequest
+	62,  // 214: recruitment.JobService.ListPublicJobs:input_type -> recruitment.ListPublicJobsRequest
+	63,  // 215: recruitment.JobService.GetJobDetail:input_type -> recruitment.GetJobDetailRequest
+	183, // 216: recruitment.JobService.ListJobOptions:input_type -> recruitment.ListJobOptionsRequest
+	204, // 217: recruitment.JobService.ListDepartmentLocations:input_type -> recruitment.ListDepartmentLocationsRequest
+	67,  // 218: recruitment.CandidateService.GetProfile:input_type -> recruitment.GetProfileRequest
+	68,  // 219: recruitment.CandidateService.UpdateProfile:input_type -> recruitment.UpdateProfileRequest
+	71,  // 220: recruitment.CandidateService.GetResume:input_type -> recruitment.GetResumeRequest
+	74,  // 221: recruitment.CandidateService.PresignResumeUpload:input_type -> recruitment.PresignResumeUploadRequest
+	76,  // 222: recruitment.CandidateService.ConfirmResumeUpload:input_type -> recruitment.ConfirmResumeUploadRequest
+	78,  // 223: recruitment.ApplicationService.ApplyJob:input_type -> recruitment.ApplyJobRequest
+	79,  // 224: recruitment.ApplicationService.ListMyApplications:input_type -> recruitment.ListMyApplicationsRequest
+	82,  // 225: recruitment.ApplicationService.ListJobApplications:input_type -> recruitment.ListJobApplicationsRequest
+	85,  // 226: recruitment.ApplicationService.UpdateApplicationStatus:input_type -> recruitment.UpdateApplicationStatusRequest
+	86,  // 227: recruitment.ApplicationService.ListApplicationStatusTransitions:input_type -> recruitment.ListApplicationStatusTransitionsRequest
+	89,  // 228: recruitment.ApplicationOwnerService.GetApplicationSnapshot:input_type -> recruitment.GetApplicationSnapshotRequest
+	91,  // 229: recruitment.ApplicationOwnerService.ApplyApplicationLifecycleTransition:input_type -> recruitment.ApplyApplicationLifecycleTransitionRequest
+	144, // 230: recruitment.InterviewService.ScheduleInterview:input_type -> recruitment.ScheduleInterviewRequest
+	146, // 231: recruitment.InterviewService.UpdateInterview:input_type -> recruitment.UpdateInterviewRequest
+	147, // 232: recruitment.InterviewService.CancelInterview:input_type -> recruitment.CancelInterviewRequest
+	148, // 233: recruitment.InterviewService.GetInterview:input_type -> recruitment.GetInterviewRequest
+	150, // 234: recruitment.InterviewService.ListInterviewers:input_type -> recruitment.ListInterviewersRequest
+	152, // 235: recruitment.InterviewService.ListApplicationInterviews:input_type -> recruitment.ListApplicationInterviewsRequest
+	154, // 236: recruitment.InterviewService.ListMyInterviews:input_type -> recruitment.ListMyInterviewsRequest
+	156, // 237: recruitment.InterviewService.ListCandidateInterviews:input_type -> recruitment.ListCandidateInterviewsRequest
+	159, // 238: recruitment.InterviewService.SubmitFeedback:input_type -> recruitment.SubmitFeedbackRequest
+	160, // 239: recruitment.InterviewService.GetFeedback:input_type -> recruitment.GetFeedbackRequest
+	162, // 240: recruitment.InterviewService.BatchCancelInterviews:input_type -> recruitment.BatchCancelInterviewsRequest
+	165, // 241: recruitment.NotificationService.ListNotifications:input_type -> recruitment.ListNotificationsRequest
+	167, // 242: recruitment.NotificationService.UnreadNotificationCount:input_type -> recruitment.UnreadNotificationCountRequest
+	169, // 243: recruitment.NotificationService.NotificationSummary:input_type -> recruitment.NotificationSummaryRequest
+	171, // 244: recruitment.NotificationService.MarkNotificationRead:input_type -> recruitment.MarkNotificationReadRequest
+	172, // 245: recruitment.NotificationService.MarkAllNotificationsRead:input_type -> recruitment.MarkAllNotificationsReadRequest
+	93,  // 246: recruitment.AIService.Chat:input_type -> recruitment.ChatRequest
+	93,  // 247: recruitment.AIService.ChatStream:input_type -> recruitment.ChatRequest
+	100, // 248: recruitment.AIService.History:input_type -> recruitment.ChatHistoryRequest
+	103, // 249: recruitment.AIService.AnalyzeApplication:input_type -> recruitment.AnalyzeApplicationRequest
+	105, // 250: recruitment.AIService.ListChatSessions:input_type -> recruitment.ChatSessionListRequest
+	108, // 251: recruitment.AIService.CreateChatSession:input_type -> recruitment.CreateChatSessionRequest
+	110, // 252: recruitment.AIService.SessionMessages:input_type -> recruitment.SessionMessagesRequest
+	111, // 253: recruitment.AIService.CreateApplicationAnalysisSession:input_type -> recruitment.CreateApplicationAnalysisSessionRequest
+	459, // 254: recruitment.AIService.PreviewChatContext:input_type -> recruitment.PreviewChatContextRequest
+	113, // 255: recruitment.AIService.UpdateSession:input_type -> recruitment.UpdateSessionRequest
+	114, // 256: recruitment.AIService.DeleteSession:input_type -> recruitment.DeleteSessionRequest
+	115, // 257: recruitment.AIService.CandidateChatStream:input_type -> recruitment.CandidateChatRequest
+	116, // 258: recruitment.AIService.CandidateListSessions:input_type -> recruitment.CandidateSessionListRequest
+	117, // 259: recruitment.AIService.CandidateCreateSession:input_type -> recruitment.CandidateCreateSessionRequest
+	118, // 260: recruitment.AIService.CandidateSessionMessages:input_type -> recruitment.CandidateSessionMessagesRequest
+	119, // 261: recruitment.AIService.CandidateUpdateSession:input_type -> recruitment.CandidateUpdateSessionRequest
+	120, // 262: recruitment.AIService.CandidateDeleteSession:input_type -> recruitment.CandidateDeleteSessionRequest
+	121, // 263: recruitment.AIService.GetToolTraces:input_type -> recruitment.GetToolTracesRequest
+	124, // 264: recruitment.AIService.GetAgentRuns:input_type -> recruitment.GetAgentRunsRequest
+	132, // 265: recruitment.AIService.CreateAgentRun:input_type -> recruitment.CreateAgentRunRequest
+	134, // 266: recruitment.AIService.GetAgentRun:input_type -> recruitment.GetAgentRunRequest
+	136, // 267: recruitment.AIService.GetActiveAgentRun:input_type -> recruitment.GetActiveAgentRunRequest
+	138, // 268: recruitment.AIService.SubscribeAgentRunEvents:input_type -> recruitment.SubscribeAgentRunEventsRequest
+	139, // 269: recruitment.AIService.CancelAgentRun:input_type -> recruitment.CancelAgentRunRequest
+	141, // 270: recruitment.AIService.ConfirmAgentRun:input_type -> recruitment.ConfirmAgentRunRequest
+	462, // 271: recruitment.BillingService.CheckAIAccess:input_type -> recruitment.CheckAIAccessRequest
+	464, // 272: recruitment.BillingService.ReserveAIUsage:input_type -> recruitment.ReserveAIUsageRequest
+	467, // 273: recruitment.BillingService.SettleAIUsage:input_type -> recruitment.SettleAIUsageRequest
+	469, // 274: recruitment.BillingService.CancelAIUsage:input_type -> recruitment.CancelAIUsageRequest
+	471, // 275: recruitment.BillingService.GetAICreditBalance:input_type -> recruitment.GetAICreditBalanceRequest
+	475, // 276: recruitment.BillingService.ListBillingCatalog:input_type -> recruitment.ListBillingCatalogRequest
+	478, // 277: recruitment.BillingService.GetBillingAccount:input_type -> recruitment.GetBillingAccountRequest
+	481, // 278: recruitment.BillingService.ListBillingOrders:input_type -> recruitment.ListBillingOrdersRequest
+	483, // 279: recruitment.BillingService.CreateBillingOrder:input_type -> recruitment.CreateBillingOrderRequest
+	485, // 280: recruitment.BillingService.CreateAlipayPayment:input_type -> recruitment.CreateAlipayPaymentRequest
+	487, // 281: recruitment.BillingService.RequestBillingRefund:input_type -> recruitment.RequestBillingRefundRequest
+	490, // 282: recruitment.BillingService.ProcessAlipayNotification:input_type -> recruitment.ProcessAlipayNotificationRequest
+	492, // 283: recruitment.BillingService.ListBillingAdminCatalog:input_type -> recruitment.ListBillingAdminCatalogRequest
+	493, // 284: recruitment.BillingService.SaveBillingPriceVersion:input_type -> recruitment.SaveBillingPriceVersionRequest
+	495, // 285: recruitment.BillingService.ListAIRateCards:input_type -> recruitment.ListAIRateCardsRequest
+	497, // 286: recruitment.BillingService.SaveAIRateCard:input_type -> recruitment.SaveAIRateCardRequest
+	213, // 287: recruitment.OfferService.CreateOffer:input_type -> recruitment.CreateOfferRequest
+	215, // 288: recruitment.OfferService.UpdateOffer:input_type -> recruitment.UpdateOfferRequest
+	216, // 289: recruitment.OfferService.GetOffer:input_type -> recruitment.GetOfferRequest
+	218, // 290: recruitment.OfferService.ListOffersByApplication:input_type -> recruitment.ListOffersByApplicationRequest
+	220, // 291: recruitment.OfferService.SendOffer:input_type -> recruitment.SendOfferRequest
+	221, // 292: recruitment.OfferService.WithdrawOffer:input_type -> recruitment.WithdrawOfferRequest
+	222, // 293: recruitment.OfferService.AcceptOffer:input_type -> recruitment.AcceptOfferRequest
+	223, // 294: recruitment.OfferService.RejectOffer:input_type -> recruitment.RejectOfferRequest
+	224, // 295: recruitment.OfferService.ListMyOffers:input_type -> recruitment.ListMyOffersRequest
+	227, // 296: recruitment.OfferService.ListOfferEvents:input_type -> recruitment.ListOfferEventsRequest
+	174, // 297: recruitment.AdminService.CreateInviteCode:input_type -> recruitment.CreateInviteCodeRequest
+	176, // 298: recruitment.AdminService.ListInviteCodes:input_type -> recruitment.ListInviteCodesRequest
+	178, // 299: recruitment.AdminService.ExtendInviteCode:input_type -> recruitment.ExtendInviteCodeRequest
+	179, // 300: recruitment.AdminService.RevokeInviteCode:input_type -> recruitment.RevokeInviteCodeRequest
+	180, // 301: recruitment.AdminService.ReactivateInviteCode:input_type -> recruitment.ReactivateInviteCodeRequest
+	181, // 302: recruitment.AdminService.ValidateInviteCode:input_type -> recruitment.ValidateInviteCodeRequest
+	187, // 303: recruitment.AdminService.ListDepartments:input_type -> recruitment.ListDepartmentsRequest
+	189, // 304: recruitment.AdminService.CreateDepartment:input_type -> recruitment.CreateDepartmentRequest
+	190, // 305: recruitment.AdminService.UpdateDepartment:input_type -> recruitment.UpdateDepartmentRequest
+	191, // 306: recruitment.AdminService.UpdateDepartmentStatus:input_type -> recruitment.UpdateDepartmentStatusRequest
+	192, // 307: recruitment.AdminService.DeleteDepartment:input_type -> recruitment.DeleteDepartmentRequest
+	194, // 308: recruitment.AdminService.ListJobLocations:input_type -> recruitment.ListJobLocationsRequest
+	196, // 309: recruitment.AdminService.CreateJobLocation:input_type -> recruitment.CreateJobLocationRequest
+	197, // 310: recruitment.AdminService.UpdateJobLocation:input_type -> recruitment.UpdateJobLocationRequest
+	198, // 311: recruitment.AdminService.UpdateJobLocationStatus:input_type -> recruitment.UpdateJobLocationStatusRequest
+	199, // 312: recruitment.AdminService.DeleteJobLocation:input_type -> recruitment.DeleteJobLocationRequest
+	206, // 313: recruitment.AdminService.GetDepartmentLocationConfig:input_type -> recruitment.GetDepartmentLocationConfigRequest
+	207, // 314: recruitment.AdminService.UpdateDepartmentLocationConfig:input_type -> recruitment.UpdateDepartmentLocationConfigRequest
+	202, // 315: recruitment.AdminService.ListDepartmentsLocationMap:input_type -> recruitment.ListDepartmentsLocationMapRequest
+	210, // 316: recruitment.AdminService.QueryUsageLogs:input_type -> recruitment.QueryUsageLogsRequest
+	229, // 317: recruitment.AdminService.ListRoles:input_type -> recruitment.ListRolesRequest
+	232, // 318: recruitment.AdminService.ListPermissions:input_type -> recruitment.ListPermissionsRequest
+	235, // 319: recruitment.AdminService.GetUserRoles:input_type -> recruitment.GetUserRolesRequest
+	238, // 320: recruitment.AdminService.AssignUserRole:input_type -> recruitment.AssignUserRoleRequest
+	239, // 321: recruitment.AdminService.RevokeUserRole:input_type -> recruitment.RevokeUserRoleRequest
+	240, // 322: recruitment.AdminService.AssignDataScope:input_type -> recruitment.AssignDataScopeRequest
+	241, // 323: recruitment.AdminService.RevokeDataScope:input_type -> recruitment.RevokeDataScopeRequest
+	242, // 324: recruitment.AdminService.ListStaffUsers:input_type -> recruitment.ListStaffUsersRequest
+	245, // 325: recruitment.AdminService.CreateStaffUser:input_type -> recruitment.CreateStaffUserRequest
+	248, // 326: recruitment.AdminService.ListPlatformUsers:input_type -> recruitment.ListPlatformUsersRequest
+	250, // 327: recruitment.AdminService.CreatePlatformUser:input_type -> recruitment.CreatePlatformUserRequest
+	252, // 328: recruitment.AdminService.UpdatePlatformUser:input_type -> recruitment.UpdatePlatformUserRequest
+	285, // 329: recruitment.AdminService.QueryAuthAuditLogs:input_type -> recruitment.QueryAuthAuditLogsRequest
+	288, // 330: recruitment.AdminService.GetDashboardReport:input_type -> recruitment.GetDashboardReportRequest
+	292, // 331: recruitment.AdminService.GetFunnelReport:input_type -> recruitment.GetFunnelReportRequest
+	295, // 332: recruitment.AdminService.GetTimeInStageReport:input_type -> recruitment.GetTimeInStageReportRequest
+	298, // 333: recruitment.AdminService.GetInterviewOfferMetrics:input_type -> recruitment.GetInterviewOfferMetricsRequest
+	300, // 334: recruitment.AdminService.GetUsageStats:input_type -> recruitment.GetUsageStatsRequest
+	304, // 335: recruitment.AdminService.GetUsageTrend:input_type -> recruitment.GetUsageTrendRequest
+	254, // 336: recruitment.CollaborationService.GetCandidateWorkspace:input_type -> recruitment.GetCandidateWorkspaceRequest
+	261, // 337: recruitment.CollaborationService.CreateNote:input_type -> recruitment.CreateNoteRequest
+	263, // 338: recruitment.CollaborationService.ListNotes:input_type -> recruitment.ListNotesRequest
+	266, // 339: recruitment.CollaborationService.CreateTag:input_type -> recruitment.CreateTagRequest
+	268, // 340: recruitment.CollaborationService.ListTags:input_type -> recruitment.ListTagsRequest
+	270, // 341: recruitment.CollaborationService.AssignTag:input_type -> recruitment.AssignTagRequest
+	271, // 342: recruitment.CollaborationService.UnassignTag:input_type -> recruitment.UnassignTagRequest
+	272, // 343: recruitment.CollaborationService.ListCandidateTags:input_type -> recruitment.ListCandidateTagsRequest
+	275, // 344: recruitment.CollaborationService.CreateFollowUpTask:input_type -> recruitment.CreateFollowUpTaskRequest
+	277, // 345: recruitment.CollaborationService.ListFollowUpTasks:input_type -> recruitment.ListFollowUpTasksRequest
+	279, // 346: recruitment.CollaborationService.CompleteFollowUpTask:input_type -> recruitment.CompleteFollowUpTaskRequest
+	280, // 347: recruitment.CollaborationService.GetFollowUpTask:input_type -> recruitment.GetFollowUpTaskRequest
+	283, // 348: recruitment.CollaborationService.ListTimelineEvents:input_type -> recruitment.ListTimelineEventsRequest
+	421, // 349: recruitment.RecruitingIntelligenceService.GetResumeProfile:input_type -> recruitment.GetResumeProfileRequest
+	422, // 350: recruitment.RecruitingIntelligenceService.ParseResumeProfile:input_type -> recruitment.ParseResumeProfileRequest
+	431, // 351: recruitment.RecruitingIntelligenceService.EvaluateCandidateMatch:input_type -> recruitment.EvaluateCandidateMatchRequest
+	432, // 352: recruitment.RecruitingIntelligenceService.GetCandidateMatchEvaluation:input_type -> recruitment.GetCandidateMatchEvaluationRequest
+	437, // 353: recruitment.RecruitingIntelligenceService.CompareCandidatesForJob:input_type -> recruitment.CompareCandidatesForJobRequest
+	308, // 354: recruitment.MCPService.ListMCPServers:input_type -> recruitment.ListMCPServersRequest
+	310, // 355: recruitment.MCPService.CreateMCPServer:input_type -> recruitment.CreateMCPServerRequest
+	311, // 356: recruitment.MCPService.UpdateMCPServer:input_type -> recruitment.UpdateMCPServerRequest
+	312, // 357: recruitment.MCPService.DeleteMCPServer:input_type -> recruitment.DeleteMCPServerRequest
+	315, // 358: recruitment.MCPService.ListMCPToolPolicies:input_type -> recruitment.ListMCPToolPoliciesRequest
+	317, // 359: recruitment.MCPService.CreateMCPToolPolicy:input_type -> recruitment.CreateMCPToolPolicyRequest
+	318, // 360: recruitment.MCPService.UpdateMCPToolPolicy:input_type -> recruitment.UpdateMCPToolPolicyRequest
+	319, // 361: recruitment.MCPService.DeleteMCPToolPolicy:input_type -> recruitment.DeleteMCPToolPolicyRequest
+	322, // 362: recruitment.MCPService.ListMCPToolLogs:input_type -> recruitment.ListMCPToolLogsRequest
+	324, // 363: recruitment.MCPService.TestMCPConnection:input_type -> recruitment.TestMCPConnectionRequest
+	326, // 364: recruitment.MCPService.ListMCPTools:input_type -> recruitment.ListMCPToolsRequest
+	329, // 365: recruitment.MCPService.CallMCPTool:input_type -> recruitment.CallMCPToolRequest
+	332, // 366: recruitment.LlmConfigService.ListProviders:input_type -> recruitment.ListProvidersRequest
+	334, // 367: recruitment.LlmConfigService.CreateProvider:input_type -> recruitment.CreateProviderRequest
+	335, // 368: recruitment.LlmConfigService.UpdateProvider:input_type -> recruitment.UpdateProviderRequest
+	337, // 369: recruitment.LlmConfigService.DeleteProvider:input_type -> recruitment.DeleteProviderRequest
+	338, // 370: recruitment.LlmConfigService.TestProviderConnection:input_type -> recruitment.TestProviderConnectionRequest
+	341, // 371: recruitment.LlmConfigService.DiscoverProviderModels:input_type -> recruitment.DiscoverProviderModelsRequest
+	345, // 372: recruitment.LlmConfigService.GetProviderModelPreset:input_type -> recruitment.GetProviderModelPresetRequest
+	348, // 373: recruitment.LlmConfigService.ListModels:input_type -> recruitment.ListModelsRequest
+	350, // 374: recruitment.LlmConfigService.CreateModel:input_type -> recruitment.CreateModelRequest
+	351, // 375: recruitment.LlmConfigService.UpdateModel:input_type -> recruitment.UpdateModelRequest
+	353, // 376: recruitment.LlmConfigService.DeleteModel:input_type -> recruitment.DeleteModelRequest
+	340, // 377: recruitment.LlmConfigService.TestModelConnection:input_type -> recruitment.TestModelConnectionRequest
+	355, // 378: recruitment.PromptService.ListPromptTemplates:input_type -> recruitment.ListPromptTemplatesRequest
+	357, // 379: recruitment.PromptService.CreatePromptTemplate:input_type -> recruitment.CreatePromptTemplateRequest
+	358, // 380: recruitment.PromptService.UpdatePromptTemplate:input_type -> recruitment.UpdatePromptTemplateRequest
+	360, // 381: recruitment.PromptService.DeletePromptTemplate:input_type -> recruitment.DeletePromptTemplateRequest
+	362, // 382: recruitment.PromptService.GetPromptVersionHistory:input_type -> recruitment.GetPromptVersionHistoryRequest
+	364, // 383: recruitment.PromptService.RollbackPromptVersion:input_type -> recruitment.RollbackPromptVersionRequest
+	365, // 384: recruitment.PromptService.RenderPrompt:input_type -> recruitment.RenderPromptRequest
+	367, // 385: recruitment.PromptService.GetActivePromptByAgentType:input_type -> recruitment.GetActivePromptByAgentTypeRequest
+	375, // 386: recruitment.AgentConfigService.ListAgents:input_type -> recruitment.ListAgentsRequest
+	373, // 387: recruitment.AgentConfigService.ListCapabilities:input_type -> recruitment.ListCapabilitiesRequest
+	377, // 388: recruitment.AgentConfigService.CreateAgent:input_type -> recruitment.CreateAgentRequest
+	378, // 389: recruitment.AgentConfigService.UpdateAgent:input_type -> recruitment.UpdateAgentRequest
+	380, // 390: recruitment.AgentConfigService.DeleteAgent:input_type -> recruitment.DeleteAgentRequest
+	381, // 391: recruitment.AgentConfigService.GetAgentConfig:input_type -> recruitment.GetAgentConfigRequest
+	386, // 392: recruitment.SkillService.ListSkills:input_type -> recruitment.ListSkillsRequest
+	388, // 393: recruitment.SkillService.CreateSkill:input_type -> recruitment.CreateSkillRequest
+	389, // 394: recruitment.SkillService.UpdateSkill:input_type -> recruitment.UpdateSkillRequest
+	391, // 395: recruitment.SkillService.CreateSkillVersion:input_type -> recruitment.CreateSkillVersionRequest
+	393, // 396: recruitment.SkillService.ListSkillVersions:input_type -> recruitment.ListSkillVersionsRequest
+	395, // 397: recruitment.SkillService.ActivateSkillVersion:input_type -> recruitment.ActivateSkillVersionRequest
+	396, // 398: recruitment.SkillService.ListSkillTools:input_type -> recruitment.ListSkillToolsRequest
+	398, // 399: recruitment.SkillService.UpdateSkillTool:input_type -> recruitment.UpdateSkillToolRequest
+	402, // 400: recruitment.AgentSkillService.ListAgentSkills:input_type -> recruitment.ListAgentSkillsRequest
+	405, // 401: recruitment.AgentSkillService.GetAgentSkill:input_type -> recruitment.GetAgentSkillRequest
+	406, // 402: recruitment.AgentSkillService.CreateAgentSkill:input_type -> recruitment.CreateAgentSkillRequest
+	407, // 403: recruitment.AgentSkillService.UpdateAgentSkill:input_type -> recruitment.UpdateAgentSkillRequest
+	409, // 404: recruitment.AgentSkillService.CreateAgentSkillVersion:input_type -> recruitment.CreateAgentSkillVersionRequest
+	411, // 405: recruitment.AgentSkillService.ListAgentSkillVersions:input_type -> recruitment.ListAgentSkillVersionsRequest
+	413, // 406: recruitment.AgentSkillService.ActivateAgentSkillVersion:input_type -> recruitment.ActivateAgentSkillVersionRequest
+	414, // 407: recruitment.AgentSkillService.UpdateAgentSkillStatus:input_type -> recruitment.UpdateAgentSkillStatusRequest
+	415, // 408: recruitment.AgentSkillService.PreviewAgentSkill:input_type -> recruitment.PreviewAgentSkillRequest
+	403, // 409: recruitment.AgentSkillService.ListAvailableAgentSkills:input_type -> recruitment.ListAvailableAgentSkillsRequest
+	417, // 410: recruitment.AgentSkillService.DebugSemanticRetrieval:input_type -> recruitment.DebugSemanticRetrievalRequest
+	441, // 411: recruitment.EmbeddingConfigService.ListEmbeddingProviders:input_type -> recruitment.ListEmbeddingProvidersRequest
+	443, // 412: recruitment.EmbeddingConfigService.CreateEmbeddingProvider:input_type -> recruitment.CreateEmbeddingProviderRequest
+	444, // 413: recruitment.EmbeddingConfigService.UpdateEmbeddingProvider:input_type -> recruitment.UpdateEmbeddingProviderRequest
+	446, // 414: recruitment.EmbeddingConfigService.DeleteEmbeddingProvider:input_type -> recruitment.DeleteEmbeddingProviderRequest
+	448, // 415: recruitment.EmbeddingConfigService.ListEmbeddingModels:input_type -> recruitment.ListEmbeddingModelsRequest
+	450, // 416: recruitment.EmbeddingConfigService.CreateEmbeddingModel:input_type -> recruitment.CreateEmbeddingModelRequest
+	451, // 417: recruitment.EmbeddingConfigService.UpdateEmbeddingModel:input_type -> recruitment.UpdateEmbeddingModelRequest
+	454, // 418: recruitment.EmbeddingConfigService.SetDefaultEmbeddingModel:input_type -> recruitment.SetDefaultEmbeddingModelRequest
+	455, // 419: recruitment.EmbeddingConfigService.TestEmbeddingModel:input_type -> recruitment.TestEmbeddingModelRequest
+	457, // 420: recruitment.EmbeddingConfigService.BackfillEmbeddings:input_type -> recruitment.BackfillEmbeddingsRequest
+	4,   // 421: recruitment.AuthService.Register:output_type -> recruitment.RegisterResponse
+	45,  // 422: recruitment.AuthService.Login:output_type -> recruitment.LoginResponse
+	47,  // 423: recruitment.AuthService.RefreshToken:output_type -> recruitment.RefreshTokenResponse
+	45,  // 424: recruitment.AuthService.SwitchTenant:output_type -> recruitment.LoginResponse
+	2,   // 425: recruitment.AuthService.RevokeRefreshToken:output_type -> recruitment.CommonResponse
+	2,   // 426: recruitment.AuthService.RecordAuthDecision:output_type -> recruitment.CommonResponse
+	52,  // 427: recruitment.AuthService.GetPrincipal:output_type -> recruitment.GetPrincipalResponse
+	54,  // 428: recruitment.AuthService.AuthorizeInternal:output_type -> recruitment.AuthorizeInternalResponse
+	2,   // 429: recruitment.AuthService.UpdateEmail:output_type -> recruitment.CommonResponse
+	10,  // 430: recruitment.PlatformTenantService.CreateTenant:output_type -> recruitment.TenantResponse
+	11,  // 431: recruitment.PlatformTenantService.ListTenants:output_type -> recruitment.ListTenantsResponse
+	10,  // 432: recruitment.PlatformTenantService.GetTenant:output_type -> recruitment.TenantResponse
+	10,  // 433: recruitment.PlatformTenantService.UpdateTenantStatus:output_type -> recruitment.TenantResponse
+	15,  // 434: recruitment.PlatformTenantService.ListTenantMemberships:output_type -> recruitment.ListTenantMembershipsResponse
+	17,  // 435: recruitment.PlatformTenantService.UpdateTenantMembershipStatus:output_type -> recruitment.TenantMembershipResponse
+	20,  // 436: recruitment.PlatformTenantService.GetPlatformDashboard:output_type -> recruitment.GetPlatformDashboardResponse
+	23,  // 437: recruitment.PlatformTenantService.QueryPlatformAuditLogs:output_type -> recruitment.QueryPlatformAuditLogsResponse
+	28,  // 438: recruitment.PlatformTenantService.ListPlatformPlans:output_type -> recruitment.ListPlatformPlansResponse
+	31,  // 439: recruitment.PlatformTenantService.SavePlatformPlanVersion:output_type -> recruitment.PlatformPlanVersionResponse
+	31,  // 440: recruitment.PlatformTenantService.PublishPlatformPlanVersion:output_type -> recruitment.PlatformPlanVersionResponse
+	35,  // 441: recruitment.PlatformTenantService.GetTenantSubscription:output_type -> recruitment.TenantSubscriptionResponse
+	35,  // 442: recruitment.PlatformTenantService.UpdateTenantSubscription:output_type -> recruitment.TenantSubscriptionResponse
+	35,  // 443: recruitment.PlatformTenantService.UpdateTenantEntitlementOverride:output_type -> recruitment.TenantSubscriptionResponse
+	39,  // 444: recruitment.PlatformTenantService.GetTenantUsage:output_type -> recruitment.GetTenantUsageResponse
+	42,  // 445: recruitment.PlatformTenantService.ListQuotaAlerts:output_type -> recruitment.ListQuotaAlertsResponse
+	44,  // 446: recruitment.PlatformTenantService.UpdateQuotaAlert:output_type -> recruitment.QuotaAlertResponse
+	58,  // 447: recruitment.JobService.CreateJob:output_type -> recruitment.CreateJobResponse
+	2,   // 448: recruitment.JobService.UpdateJob:output_type -> recruitment.CommonResponse
+	2,   // 449: recruitment.JobService.OfflineJob:output_type -> recruitment.CommonResponse
+	2,   // 450: recruitment.JobService.OnlineJob:output_type -> recruitment.CommonResponse
+	65,  // 451: recruitment.JobService.ListHRJobs:output_type -> recruitment.ListJobsResponse
+	65,  // 452: recruitment.JobService.ListPublicJobs:output_type -> recruitment.ListJobsResponse
+	66,  // 453: recruitment.JobService.GetJobDetail:output_type -> recruitment.GetJobDetailResponse
+	184, // 454: recruitment.JobService.ListJobOptions:output_type -> recruitment.ListJobOptionsResponse
+	205, // 455: recruitment.JobService.ListDepartmentLocations:output_type -> recruitment.ListDepartmentLocationsResponse
+	70,  // 456: recruitment.CandidateService.GetProfile:output_type -> recruitment.GetProfileResponse
+	70,  // 457: recruitment.CandidateService.UpdateProfile:output_type -> recruitment.GetProfileResponse
+	73,  // 458: recruitment.CandidateService.GetResume:output_type -> recruitment.GetResumeResponse
+	75,  // 459: recruitment.CandidateService.PresignResumeUpload:output_type -> recruitment.PresignResumeUploadResponse
+	77,  // 460: recruitment.CandidateService.ConfirmResumeUpload:output_type -> recruitment.ConfirmResumeUploadResponse
+	2,   // 461: recruitment.ApplicationService.ApplyJob:output_type -> recruitment.CommonResponse
+	81,  // 462: recruitment.ApplicationService.ListMyApplications:output_type -> recruitment.ListMyApplicationsResponse
+	84,  // 463: recruitment.ApplicationService.ListJobApplications:output_type -> recruitment.ListJobApplicationsResponse
+	2,   // 464: recruitment.ApplicationService.UpdateApplicationStatus:output_type -> recruitment.CommonResponse
+	88,  // 465: recruitment.ApplicationService.ListApplicationStatusTransitions:output_type -> recruitment.ListApplicationStatusTransitionsResponse
+	90,  // 466: recruitment.ApplicationOwnerService.GetApplicationSnapshot:output_type -> recruitment.GetApplicationSnapshotResponse
+	92,  // 467: recruitment.ApplicationOwnerService.ApplyApplicationLifecycleTransition:output_type -> recruitment.ApplyApplicationLifecycleTransitionResponse
+	145, // 468: recruitment.InterviewService.ScheduleInterview:output_type -> recruitment.ScheduleInterviewResponse
+	2,   // 469: recruitment.InterviewService.UpdateInterview:output_type -> recruitment.CommonResponse
+	2,   // 470: recruitment.InterviewService.CancelInterview:output_type -> recruitment.CommonResponse
+	149, // 471: recruitment.InterviewService.GetInterview:output_type -> recruitment.GetInterviewResponse
+	151, // 472: recruitment.InterviewService.ListInterviewers:output_type -> recruitment.ListInterviewersResponse
+	153, // 473: recruitment.InterviewService.ListApplicationInterviews:output_type -> recruitment.ListApplicationInterviewsResponse
+	155, // 474: recruitment.InterviewService.ListMyInterviews:output_type -> recruitment.ListMyInterviewsResponse
+	157, // 475: recruitment.InterviewService.ListCandidateInterviews:output_type -> recruitment.ListCandidateInterviewsResponse
+	2,   // 476: recruitment.InterviewService.SubmitFeedback:output_type -> recruitment.CommonResponse
+	161, // 477: recruitment.InterviewService.GetFeedback:output_type -> recruitment.GetFeedbackResponse
+	163, // 478: recruitment.InterviewService.BatchCancelInterviews:output_type -> recruitment.BatchCancelInterviewsResponse
+	166, // 479: recruitment.NotificationService.ListNotifications:output_type -> recruitment.ListNotificationsResponse
+	168, // 480: recruitment.NotificationService.UnreadNotificationCount:output_type -> recruitment.UnreadNotificationCountResponse
+	170, // 481: recruitment.NotificationService.NotificationSummary:output_type -> recruitment.NotificationSummaryResponse
+	2,   // 482: recruitment.NotificationService.MarkNotificationRead:output_type -> recruitment.CommonResponse
+	2,   // 483: recruitment.NotificationService.MarkAllNotificationsRead:output_type -> recruitment.CommonResponse
+	96,  // 484: recruitment.AIService.Chat:output_type -> recruitment.ChatResponse
+	99,  // 485: recruitment.AIService.ChatStream:output_type -> recruitment.ChatStreamResponse
+	102, // 486: recruitment.AIService.History:output_type -> recruitment.ChatHistoryResponse
+	104, // 487: recruitment.AIService.AnalyzeApplication:output_type -> recruitment.AnalyzeApplicationResponse
+	107, // 488: recruitment.AIService.ListChatSessions:output_type -> recruitment.ChatSessionListResponse
+	109, // 489: recruitment.AIService.CreateChatSession:output_type -> recruitment.CreateChatSessionResponse
+	102, // 490: recruitment.AIService.SessionMessages:output_type -> recruitment.ChatHistoryResponse
+	112, // 491: recruitment.AIService.CreateApplicationAnalysisSession:output_type -> recruitment.CreateApplicationAnalysisSessionResponse
+	460, // 492: recruitment.AIService.PreviewChatContext:output_type -> recruitment.PreviewChatContextResponse
+	2,   // 493: recruitment.AIService.UpdateSession:output_type -> recruitment.CommonResponse
+	2,   // 494: recruitment.AIService.DeleteSession:output_type -> recruitment.CommonResponse
+	99,  // 495: recruitment.AIService.CandidateChatStream:output_type -> recruitment.ChatStreamResponse
+	107, // 496: recruitment.AIService.CandidateListSessions:output_type -> recruitment.ChatSessionListResponse
+	109, // 497: recruitment.AIService.CandidateCreateSession:output_type -> recruitment.CreateChatSessionResponse
+	102, // 498: recruitment.AIService.CandidateSessionMessages:output_type -> recruitment.ChatHistoryResponse
+	2,   // 499: recruitment.AIService.CandidateUpdateSession:output_type -> recruitment.CommonResponse
+	2,   // 500: recruitment.AIService.CandidateDeleteSession:output_type -> recruitment.CommonResponse
+	123, // 501: recruitment.AIService.GetToolTraces:output_type -> recruitment.GetToolTracesResponse
+	127, // 502: recruitment.AIService.GetAgentRuns:output_type -> recruitment.GetAgentRunsResponse
+	133, // 503: recruitment.AIService.CreateAgentRun:output_type -> recruitment.CreateAgentRunResponse
+	135, // 504: recruitment.AIService.GetAgentRun:output_type -> recruitment.GetAgentRunResponse
+	137, // 505: recruitment.AIService.GetActiveAgentRun:output_type -> recruitment.GetActiveAgentRunResponse
+	131, // 506: recruitment.AIService.SubscribeAgentRunEvents:output_type -> recruitment.AgentRunEvent
+	140, // 507: recruitment.AIService.CancelAgentRun:output_type -> recruitment.CancelAgentRunResponse
+	142, // 508: recruitment.AIService.ConfirmAgentRun:output_type -> recruitment.ConfirmAgentRunResponse
+	463, // 509: recruitment.BillingService.CheckAIAccess:output_type -> recruitment.CheckAIAccessResponse
+	465, // 510: recruitment.BillingService.ReserveAIUsage:output_type -> recruitment.ReserveAIUsageResponse
+	468, // 511: recruitment.BillingService.SettleAIUsage:output_type -> recruitment.SettleAIUsageResponse
+	470, // 512: recruitment.BillingService.CancelAIUsage:output_type -> recruitment.CancelAIUsageResponse
+	472, // 513: recruitment.BillingService.GetAICreditBalance:output_type -> recruitment.GetAICreditBalanceResponse
+	476, // 514: recruitment.BillingService.ListBillingCatalog:output_type -> recruitment.ListBillingCatalogResponse
+	479, // 515: recruitment.BillingService.GetBillingAccount:output_type -> recruitment.GetBillingAccountResponse
+	482, // 516: recruitment.BillingService.ListBillingOrders:output_type -> recruitment.ListBillingOrdersResponse
+	484, // 517: recruitment.BillingService.CreateBillingOrder:output_type -> recruitment.BillingOrderResponse
+	486, // 518: recruitment.BillingService.CreateAlipayPayment:output_type -> recruitment.CreateAlipayPaymentResponse
+	488, // 519: recruitment.BillingService.RequestBillingRefund:output_type -> recruitment.BillingRefundResponse
+	491, // 520: recruitment.BillingService.ProcessAlipayNotification:output_type -> recruitment.ProcessAlipayNotificationResponse
+	476, // 521: recruitment.BillingService.ListBillingAdminCatalog:output_type -> recruitment.ListBillingCatalogResponse
+	473, // 522: recruitment.BillingService.SaveBillingPriceVersion:output_type -> recruitment.BillingPriceInfo
+	496, // 523: recruitment.BillingService.ListAIRateCards:output_type -> recruitment.ListAIRateCardsResponse
+	494, // 524: recruitment.BillingService.SaveAIRateCard:output_type -> recruitment.AIRateCardInfo
+	214, // 525: recruitment.OfferService.CreateOffer:output_type -> recruitment.CreateOfferResponse
+	2,   // 526: recruitment.OfferService.UpdateOffer:output_type -> recruitment.CommonResponse
+	217, // 527: recruitment.OfferService.GetOffer:output_type -> recruitment.GetOfferResponse
+	219, // 528: recruitment.OfferService.ListOffersByApplication:output_type -> recruitment.ListOffersByApplicationResponse
+	2,   // 529: recruitment.OfferService.SendOffer:output_type -> recruitment.CommonResponse
+	2,   // 530: recruitment.OfferService.WithdrawOffer:output_type -> recruitment.CommonResponse
+	2,   // 531: recruitment.OfferService.AcceptOffer:output_type -> recruitment.CommonResponse
+	2,   // 532: recruitment.OfferService.RejectOffer:output_type -> recruitment.CommonResponse
+	225, // 533: recruitment.OfferService.ListMyOffers:output_type -> recruitment.ListMyOffersResponse
+	228, // 534: recruitment.OfferService.ListOfferEvents:output_type -> recruitment.ListOfferEventsResponse
+	175, // 535: recruitment.AdminService.CreateInviteCode:output_type -> recruitment.CreateInviteCodeResponse
+	177, // 536: recruitment.AdminService.ListInviteCodes:output_type -> recruitment.ListInviteCodesResponse
+	2,   // 537: recruitment.AdminService.ExtendInviteCode:output_type -> recruitment.CommonResponse
+	2,   // 538: recruitment.AdminService.RevokeInviteCode:output_type -> recruitment.CommonResponse
+	2,   // 539: recruitment.AdminService.ReactivateInviteCode:output_type -> recruitment.CommonResponse
+	182, // 540: recruitment.AdminService.ValidateInviteCode:output_type -> recruitment.ValidateInviteCodeResponse
+	188, // 541: recruitment.AdminService.ListDepartments:output_type -> recruitment.ListDepartmentsResponse
+	193, // 542: recruitment.AdminService.CreateDepartment:output_type -> recruitment.DepartmentResponse
+	193, // 543: recruitment.AdminService.UpdateDepartment:output_type -> recruitment.DepartmentResponse
+	2,   // 544: recruitment.AdminService.UpdateDepartmentStatus:output_type -> recruitment.CommonResponse
+	2,   // 545: recruitment.AdminService.DeleteDepartment:output_type -> recruitment.CommonResponse
+	195, // 546: recruitment.AdminService.ListJobLocations:output_type -> recruitment.ListJobLocationsResponse
+	200, // 547: recruitment.AdminService.CreateJobLocation:output_type -> recruitment.JobLocationResponse
+	200, // 548: recruitment.AdminService.UpdateJobLocation:output_type -> recruitment.JobLocationResponse
+	2,   // 549: recruitment.AdminService.UpdateJobLocationStatus:output_type -> recruitment.CommonResponse
+	2,   // 550: recruitment.AdminService.DeleteJobLocation:output_type -> recruitment.CommonResponse
+	208, // 551: recruitment.AdminService.GetDepartmentLocationConfig:output_type -> recruitment.DepartmentLocationConfigResponse
+	208, // 552: recruitment.AdminService.UpdateDepartmentLocationConfig:output_type -> recruitment.DepartmentLocationConfigResponse
+	203, // 553: recruitment.AdminService.ListDepartmentsLocationMap:output_type -> recruitment.ListDepartmentsLocationMapResponse
+	211, // 554: recruitment.AdminService.QueryUsageLogs:output_type -> recruitment.QueryUsageLogsResponse
+	230, // 555: recruitment.AdminService.ListRoles:output_type -> recruitment.ListRolesResponse
+	233, // 556: recruitment.AdminService.ListPermissions:output_type -> recruitment.ListPermissionsResponse
+	236, // 557: recruitment.AdminService.GetUserRoles:output_type -> recruitment.GetUserRolesResponse
+	2,   // 558: recruitment.AdminService.AssignUserRole:output_type -> recruitment.CommonResponse
+	2,   // 559: recruitment.AdminService.RevokeUserRole:output_type -> recruitment.CommonResponse
+	2,   // 560: recruitment.AdminService.AssignDataScope:output_type -> recruitment.CommonResponse
+	2,   // 561: recruitment.AdminService.RevokeDataScope:output_type -> recruitment.CommonResponse
+	243, // 562: recruitment.AdminService.ListStaffUsers:output_type -> recruitment.ListStaffUsersResponse
+	246, // 563: recruitment.AdminService.CreateStaffUser:output_type -> recruitment.CreateStaffUserResponse
+	249, // 564: recruitment.AdminService.ListPlatformUsers:output_type -> recruitment.ListPlatformUsersResponse
+	251, // 565: recruitment.AdminService.CreatePlatformUser:output_type -> recruitment.CreatePlatformUserResponse
+	253, // 566: recruitment.AdminService.UpdatePlatformUser:output_type -> recruitment.PlatformUserResponse
+	287, // 567: recruitment.AdminService.QueryAuthAuditLogs:output_type -> recruitment.QueryAuthAuditLogsResponse
+	291, // 568: recruitment.AdminService.GetDashboardReport:output_type -> recruitment.GetDashboardReportResponse
+	294, // 569: recruitment.AdminService.GetFunnelReport:output_type -> recruitment.GetFunnelReportResponse
+	297, // 570: recruitment.AdminService.GetTimeInStageReport:output_type -> recruitment.GetTimeInStageReportResponse
+	299, // 571: recruitment.AdminService.GetInterviewOfferMetrics:output_type -> recruitment.GetInterviewOfferMetricsResponse
+	303, // 572: recruitment.AdminService.GetUsageStats:output_type -> recruitment.GetUsageStatsResponse
+	306, // 573: recruitment.AdminService.GetUsageTrend:output_type -> recruitment.GetUsageTrendResponse
+	259, // 574: recruitment.CollaborationService.GetCandidateWorkspace:output_type -> recruitment.GetCandidateWorkspaceResponse
+	262, // 575: recruitment.CollaborationService.CreateNote:output_type -> recruitment.CreateNoteResponse
+	264, // 576: recruitment.CollaborationService.ListNotes:output_type -> recruitment.ListNotesResponse
+	267, // 577: recruitment.CollaborationService.CreateTag:output_type -> recruitment.CreateTagResponse
+	269, // 578: recruitment.CollaborationService.ListTags:output_type -> recruitment.ListTagsResponse
+	2,   // 579: recruitment.CollaborationService.AssignTag:output_type -> recruitment.CommonResponse
+	2,   // 580: recruitment.CollaborationService.UnassignTag:output_type -> recruitment.CommonResponse
+	273, // 581: recruitment.CollaborationService.ListCandidateTags:output_type -> recruitment.ListCandidateTagsResponse
+	276, // 582: recruitment.CollaborationService.CreateFollowUpTask:output_type -> recruitment.CreateFollowUpTaskResponse
+	278, // 583: recruitment.CollaborationService.ListFollowUpTasks:output_type -> recruitment.ListFollowUpTasksResponse
+	2,   // 584: recruitment.CollaborationService.CompleteFollowUpTask:output_type -> recruitment.CommonResponse
+	281, // 585: recruitment.CollaborationService.GetFollowUpTask:output_type -> recruitment.GetFollowUpTaskResponse
+	284, // 586: recruitment.CollaborationService.ListTimelineEvents:output_type -> recruitment.ListTimelineEventsResponse
+	430, // 587: recruitment.RecruitingIntelligenceService.GetResumeProfile:output_type -> recruitment.GetResumeProfileResponse
+	430, // 588: recruitment.RecruitingIntelligenceService.ParseResumeProfile:output_type -> recruitment.GetResumeProfileResponse
+	436, // 589: recruitment.RecruitingIntelligenceService.EvaluateCandidateMatch:output_type -> recruitment.GetCandidateMatchEvaluationResponse
+	436, // 590: recruitment.RecruitingIntelligenceService.GetCandidateMatchEvaluation:output_type -> recruitment.GetCandidateMatchEvaluationResponse
+	439, // 591: recruitment.RecruitingIntelligenceService.CompareCandidatesForJob:output_type -> recruitment.CompareCandidatesForJobResponse
+	309, // 592: recruitment.MCPService.ListMCPServers:output_type -> recruitment.ListMCPServersResponse
+	313, // 593: recruitment.MCPService.CreateMCPServer:output_type -> recruitment.MCPServerResponse
+	313, // 594: recruitment.MCPService.UpdateMCPServer:output_type -> recruitment.MCPServerResponse
+	2,   // 595: recruitment.MCPService.DeleteMCPServer:output_type -> recruitment.CommonResponse
+	316, // 596: recruitment.MCPService.ListMCPToolPolicies:output_type -> recruitment.ListMCPToolPoliciesResponse
+	320, // 597: recruitment.MCPService.CreateMCPToolPolicy:output_type -> recruitment.MCPToolPolicyResponse
+	320, // 598: recruitment.MCPService.UpdateMCPToolPolicy:output_type -> recruitment.MCPToolPolicyResponse
+	2,   // 599: recruitment.MCPService.DeleteMCPToolPolicy:output_type -> recruitment.CommonResponse
+	323, // 600: recruitment.MCPService.ListMCPToolLogs:output_type -> recruitment.ListMCPToolLogsResponse
+	325, // 601: recruitment.MCPService.TestMCPConnection:output_type -> recruitment.TestMCPConnectionResponse
+	328, // 602: recruitment.MCPService.ListMCPTools:output_type -> recruitment.ListMCPToolsResponse
+	330, // 603: recruitment.MCPService.CallMCPTool:output_type -> recruitment.CallMCPToolResponse
+	333, // 604: recruitment.LlmConfigService.ListProviders:output_type -> recruitment.ListProvidersResponse
+	336, // 605: recruitment.LlmConfigService.CreateProvider:output_type -> recruitment.ProviderResponse
+	336, // 606: recruitment.LlmConfigService.UpdateProvider:output_type -> recruitment.ProviderResponse
+	2,   // 607: recruitment.LlmConfigService.DeleteProvider:output_type -> recruitment.CommonResponse
+	339, // 608: recruitment.LlmConfigService.TestProviderConnection:output_type -> recruitment.TestProviderConnectionResponse
+	344, // 609: recruitment.LlmConfigService.DiscoverProviderModels:output_type -> recruitment.DiscoverProviderModelsResponse
+	346, // 610: recruitment.LlmConfigService.GetProviderModelPreset:output_type -> recruitment.GetProviderModelPresetResponse
+	349, // 611: recruitment.LlmConfigService.ListModels:output_type -> recruitment.ListModelsResponse
+	352, // 612: recruitment.LlmConfigService.CreateModel:output_type -> recruitment.ModelResponse
+	352, // 613: recruitment.LlmConfigService.UpdateModel:output_type -> recruitment.ModelResponse
+	2,   // 614: recruitment.LlmConfigService.DeleteModel:output_type -> recruitment.CommonResponse
+	339, // 615: recruitment.LlmConfigService.TestModelConnection:output_type -> recruitment.TestProviderConnectionResponse
+	356, // 616: recruitment.PromptService.ListPromptTemplates:output_type -> recruitment.ListPromptTemplatesResponse
+	359, // 617: recruitment.PromptService.CreatePromptTemplate:output_type -> recruitment.PromptTemplateResponse
+	359, // 618: recruitment.PromptService.UpdatePromptTemplate:output_type -> recruitment.PromptTemplateResponse
+	2,   // 619: recruitment.PromptService.DeletePromptTemplate:output_type -> recruitment.CommonResponse
+	363, // 620: recruitment.PromptService.GetPromptVersionHistory:output_type -> recruitment.GetPromptVersionHistoryResponse
+	359, // 621: recruitment.PromptService.RollbackPromptVersion:output_type -> recruitment.PromptTemplateResponse
+	366, // 622: recruitment.PromptService.RenderPrompt:output_type -> recruitment.RenderPromptResponse
+	368, // 623: recruitment.PromptService.GetActivePromptByAgentType:output_type -> recruitment.GetActivePromptByAgentTypeResponse
+	376, // 624: recruitment.AgentConfigService.ListAgents:output_type -> recruitment.ListAgentsResponse
+	374, // 625: recruitment.AgentConfigService.ListCapabilities:output_type -> recruitment.ListCapabilitiesResponse
+	379, // 626: recruitment.AgentConfigService.CreateAgent:output_type -> recruitment.AgentConfigResponse
+	379, // 627: recruitment.AgentConfigService.UpdateAgent:output_type -> recruitment.AgentConfigResponse
+	2,   // 628: recruitment.AgentConfigService.DeleteAgent:output_type -> recruitment.CommonResponse
+	382, // 629: recruitment.AgentConfigService.GetAgentConfig:output_type -> recruitment.GetAgentConfigResponse
+	387, // 630: recruitment.SkillService.ListSkills:output_type -> recruitment.ListSkillsResponse
+	390, // 631: recruitment.SkillService.CreateSkill:output_type -> recruitment.SkillResponse
+	390, // 632: recruitment.SkillService.UpdateSkill:output_type -> recruitment.SkillResponse
+	392, // 633: recruitment.SkillService.CreateSkillVersion:output_type -> recruitment.SkillVersionResponse
+	394, // 634: recruitment.SkillService.ListSkillVersions:output_type -> recruitment.ListSkillVersionsResponse
+	390, // 635: recruitment.SkillService.ActivateSkillVersion:output_type -> recruitment.SkillResponse
+	397, // 636: recruitment.SkillService.ListSkillTools:output_type -> recruitment.ListSkillToolsResponse
+	399, // 637: recruitment.SkillService.UpdateSkillTool:output_type -> recruitment.SkillToolResponse
+	404, // 638: recruitment.AgentSkillService.ListAgentSkills:output_type -> recruitment.ListAgentSkillsResponse
+	408, // 639: recruitment.AgentSkillService.GetAgentSkill:output_type -> recruitment.AgentSkillResponse
+	408, // 640: recruitment.AgentSkillService.CreateAgentSkill:output_type -> recruitment.AgentSkillResponse
+	408, // 641: recruitment.AgentSkillService.UpdateAgentSkill:output_type -> recruitment.AgentSkillResponse
+	410, // 642: recruitment.AgentSkillService.CreateAgentSkillVersion:output_type -> recruitment.AgentSkillVersionResponse
+	412, // 643: recruitment.AgentSkillService.ListAgentSkillVersions:output_type -> recruitment.ListAgentSkillVersionsResponse
+	408, // 644: recruitment.AgentSkillService.ActivateAgentSkillVersion:output_type -> recruitment.AgentSkillResponse
+	408, // 645: recruitment.AgentSkillService.UpdateAgentSkillStatus:output_type -> recruitment.AgentSkillResponse
+	416, // 646: recruitment.AgentSkillService.PreviewAgentSkill:output_type -> recruitment.PreviewAgentSkillResponse
+	404, // 647: recruitment.AgentSkillService.ListAvailableAgentSkills:output_type -> recruitment.ListAgentSkillsResponse
+	420, // 648: recruitment.AgentSkillService.DebugSemanticRetrieval:output_type -> recruitment.DebugSemanticRetrievalResponse
+	442, // 649: recruitment.EmbeddingConfigService.ListEmbeddingProviders:output_type -> recruitment.ListEmbeddingProvidersResponse
+	445, // 650: recruitment.EmbeddingConfigService.CreateEmbeddingProvider:output_type -> recruitment.EmbeddingProviderResponse
+	445, // 651: recruitment.EmbeddingConfigService.UpdateEmbeddingProvider:output_type -> recruitment.EmbeddingProviderResponse
+	2,   // 652: recruitment.EmbeddingConfigService.DeleteEmbeddingProvider:output_type -> recruitment.CommonResponse
+	449, // 653: recruitment.EmbeddingConfigService.ListEmbeddingModels:output_type -> recruitment.ListEmbeddingModelsResponse
+	452, // 654: recruitment.EmbeddingConfigService.CreateEmbeddingModel:output_type -> recruitment.EmbeddingModelResponse
+	452, // 655: recruitment.EmbeddingConfigService.UpdateEmbeddingModel:output_type -> recruitment.EmbeddingModelResponse
+	2,   // 656: recruitment.EmbeddingConfigService.SetDefaultEmbeddingModel:output_type -> recruitment.CommonResponse
+	456, // 657: recruitment.EmbeddingConfigService.TestEmbeddingModel:output_type -> recruitment.TestEmbeddingModelResponse
+	458, // 658: recruitment.EmbeddingConfigService.BackfillEmbeddings:output_type -> recruitment.BackfillEmbeddingsResponse
+	421, // [421:659] is the sub-list for method output_type
+	183, // [183:421] is the sub-list for method input_type
+	183, // [183:183] is the sub-list for extension type_name
+	183, // [183:183] is the sub-list for extension extendee
+	0,   // [0:183] is the sub-list for field type_name
 }
 
 func init() { file_proto_recruitment_proto_init() }
@@ -42177,13 +45374,14 @@ func file_proto_recruitment_proto_init() {
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_proto_recruitment_proto_rawDesc), len(file_proto_recruitment_proto_rawDesc)),
-			NumEnums:      0,
-			NumMessages:   460,
+			NumEnums:      2,
+			NumMessages:   497,
 			NumExtensions: 0,
-			NumServices:   20,
+			NumServices:   21,
 		},
 		GoTypes:           file_proto_recruitment_proto_goTypes,
 		DependencyIndexes: file_proto_recruitment_proto_depIdxs,
+		EnumInfos:         file_proto_recruitment_proto_enumTypes,
 		MessageInfos:      file_proto_recruitment_proto_msgTypes,
 	}.Build()
 	File_proto_recruitment_proto = out.File
