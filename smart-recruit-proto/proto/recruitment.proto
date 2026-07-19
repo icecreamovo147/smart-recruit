@@ -22,8 +22,21 @@ service AuthService {
 service PlatformTenantService {
   rpc CreateTenant(CreateTenantRequest) returns (TenantResponse);
   rpc ListTenants(ListTenantsRequest) returns (ListTenantsResponse);
+  rpc GetTenant(GetTenantRequest) returns (TenantResponse);
   rpc UpdateTenantStatus(UpdateTenantStatusRequest) returns (TenantResponse);
   rpc ListTenantMemberships(ListTenantMembershipsRequest) returns (ListTenantMembershipsResponse);
+  rpc UpdateTenantMembershipStatus(UpdateTenantMembershipStatusRequest) returns (TenantMembershipResponse);
+  rpc GetPlatformDashboard(GetPlatformDashboardRequest) returns (GetPlatformDashboardResponse);
+  rpc QueryPlatformAuditLogs(QueryPlatformAuditLogsRequest) returns (QueryPlatformAuditLogsResponse);
+  rpc ListPlatformPlans(ListPlatformPlansRequest) returns (ListPlatformPlansResponse);
+  rpc SavePlatformPlanVersion(SavePlatformPlanVersionRequest) returns (PlatformPlanVersionResponse);
+  rpc PublishPlatformPlanVersion(PublishPlatformPlanVersionRequest) returns (PlatformPlanVersionResponse);
+  rpc GetTenantSubscription(GetTenantSubscriptionRequest) returns (TenantSubscriptionResponse);
+  rpc UpdateTenantSubscription(UpdateTenantSubscriptionRequest) returns (TenantSubscriptionResponse);
+  rpc UpdateTenantEntitlementOverride(UpdateTenantEntitlementOverrideRequest) returns (TenantSubscriptionResponse);
+  rpc GetTenantUsage(GetTenantUsageRequest) returns (GetTenantUsageResponse);
+  rpc ListQuotaAlerts(ListQuotaAlertsRequest) returns (ListQuotaAlertsResponse);
+  rpc UpdateQuotaAlert(UpdateQuotaAlertRequest) returns (QuotaAlertResponse);
 }
 
 service JobService {
@@ -167,6 +180,9 @@ service AdminService {
   // Staff user management
   rpc ListStaffUsers(ListStaffUsersRequest) returns (ListStaffUsersResponse);
   rpc CreateStaffUser(CreateStaffUserRequest) returns (CreateStaffUserResponse);
+  rpc ListPlatformUsers(ListPlatformUsersRequest) returns (ListPlatformUsersResponse);
+  rpc CreatePlatformUser(CreatePlatformUserRequest) returns (CreatePlatformUserResponse);
+  rpc UpdatePlatformUser(UpdatePlatformUserRequest) returns (PlatformUserResponse);
 
   // ── Phase 6: Analytics & AI Audit ─────────────────────────────────────
   rpc QueryAuthAuditLogs(QueryAuthAuditLogsRequest) returns (QueryAuthAuditLogsResponse);
@@ -255,6 +271,8 @@ message TenantMembershipInfo {
   bool is_default = 9;
   int64 user_id = 10;
   string username = 11;
+  string email = 12;
+  string joined_at = 13;
 }
 
 message TenantInfo {
@@ -267,6 +285,8 @@ message TenantInfo {
   string locale = 7;
   bool is_default = 8;
   int64 membership_count = 9;
+  string created_at = 10;
+  string updated_at = 11;
 }
 
 message CreateTenantRequest {
@@ -296,9 +316,14 @@ message ListTenantsResponse {
   repeated TenantInfo list = 4;
 }
 
+message GetTenantRequest {
+  int64 tenant_id = 1;
+}
+
 message UpdateTenantStatusRequest {
   int64 tenant_id = 1;
   string status = 2;
+  string reason = 3;
 }
 
 message ListTenantMembershipsRequest {
@@ -312,6 +337,242 @@ message ListTenantMembershipsResponse {
   string msg = 2;
   int64 total = 3;
   repeated TenantMembershipInfo list = 4;
+}
+
+message UpdateTenantMembershipStatusRequest {
+  int64 tenant_id = 1;
+  int64 membership_id = 2;
+  string status = 3;
+  string reason = 4;
+}
+
+message TenantMembershipResponse {
+  int32 code = 1;
+  string msg = 2;
+  TenantMembershipInfo membership = 3;
+}
+
+message GetPlatformDashboardRequest {}
+
+message PlatformTenantStatusCount {
+  string status = 1;
+  int64 count = 2;
+}
+
+message GetPlatformDashboardResponse {
+  int32 code = 1;
+  string msg = 2;
+  int64 total_tenants = 3;
+  int64 active_tenants = 4;
+  int64 suspended_tenants = 5;
+  int64 disabled_tenants = 6;
+  int64 new_tenants_30d = 7;
+  int64 total_memberships = 8;
+  int64 active_memberships = 9;
+  int64 tenants_without_admin = 10;
+  repeated PlatformTenantStatusCount status_distribution = 11;
+}
+
+message QueryPlatformAuditLogsRequest {
+  int64 tenant_id = 1;
+  int64 actor_user_id = 2;
+  string action = 3;
+  string request_id = 4;
+  string start_time = 5;
+  string end_time = 6;
+  int32 page = 7;
+  int32 page_size = 8;
+}
+
+message PlatformAuditLogItem {
+  uint64 id = 1;
+  int64 actor_user_id = 2;
+  string actor_username = 3;
+  string action = 4;
+  string resource_type = 5;
+  int64 resource_id = 6;
+  int64 target_tenant_id = 7;
+  string target_tenant_name = 8;
+  string before_json = 9;
+  string after_json = 10;
+  string request_id = 11;
+  string client_ip = 12;
+  string created_at = 13;
+}
+
+message QueryPlatformAuditLogsResponse {
+  int32 code = 1;
+  string msg = 2;
+  int64 total = 3;
+  repeated PlatformAuditLogItem list = 4;
+}
+
+message PlatformEntitlementItem {
+  string key = 1;
+  string value_type = 2;
+  string value_json = 3;
+  string enforcement_mode = 4;
+  string source = 5;
+}
+
+message PlatformPlanVersionInfo {
+  int64 id = 1;
+  int64 plan_id = 2;
+  int32 version = 3;
+  string status = 4;
+  string effective_at = 5;
+  string retired_at = 6;
+  string change_note = 7;
+  repeated PlatformEntitlementItem entitlements = 8;
+  string created_at = 9;
+  string updated_at = 10;
+}
+
+message PlatformPlanInfo {
+  int64 id = 1;
+  string plan_key = 2;
+  string name = 3;
+  string description = 4;
+  string status = 5;
+  repeated PlatformPlanVersionInfo versions = 6;
+  string created_at = 7;
+  string updated_at = 8;
+}
+
+message ListPlatformPlansRequest {
+  string status = 1;
+}
+
+message ListPlatformPlansResponse {
+  int32 code = 1;
+  string msg = 2;
+  repeated PlatformPlanInfo list = 3;
+}
+
+message SavePlatformPlanVersionRequest {
+  int64 plan_id = 1;
+  int64 version_id = 2;
+  string change_note = 3;
+  repeated PlatformEntitlementItem entitlements = 4;
+}
+
+message PublishPlatformPlanVersionRequest {
+  int64 plan_id = 1;
+  int64 version_id = 2;
+  string effective_at = 3;
+  string reason = 4;
+}
+
+message PlatformPlanVersionResponse {
+  int32 code = 1;
+  string msg = 2;
+  PlatformPlanVersionInfo version = 3;
+}
+
+message TenantSubscriptionInfo {
+  int64 id = 1;
+  int64 tenant_id = 2;
+  int64 plan_version_id = 3;
+  string plan_key = 4;
+  string plan_name = 5;
+  int32 plan_version = 6;
+  string status = 7;
+  string starts_at = 8;
+  string ends_at = 9;
+  string reason = 10;
+  repeated PlatformEntitlementItem effective_entitlements = 11;
+}
+
+message GetTenantSubscriptionRequest {
+  int64 tenant_id = 1;
+}
+
+message UpdateTenantSubscriptionRequest {
+  int64 tenant_id = 1;
+  int64 plan_version_id = 2;
+  string starts_at = 3;
+  string ends_at = 4;
+  string reason = 5;
+}
+
+message TenantSubscriptionResponse {
+  int32 code = 1;
+  string msg = 2;
+  TenantSubscriptionInfo subscription = 3;
+}
+
+message UpdateTenantEntitlementOverrideRequest {
+  int64 tenant_id = 1;
+  string entitlement_key = 2;
+  string value_type = 3;
+  string value_json = 4;
+  string expires_at = 5;
+  string reason = 6;
+}
+
+message TenantUsageMetric {
+  string key = 1;
+  int64 usage_value = 2;
+  int64 quota_value = 3;
+  int32 usage_percent = 4;
+  string enforcement_mode = 5;
+  string measured_at = 6;
+}
+
+message GetTenantUsageRequest {
+  int64 tenant_id = 1;
+}
+
+message GetTenantUsageResponse {
+  int32 code = 1;
+  string msg = 2;
+  int64 tenant_id = 3;
+  repeated TenantUsageMetric metrics = 4;
+}
+
+message QuotaAlertInfo {
+  int64 id = 1;
+  int64 tenant_id = 2;
+  string tenant_name = 3;
+  string metric_key = 4;
+  int32 threshold_percent = 5;
+  int64 usage_value = 6;
+  int64 quota_value = 7;
+  string status = 8;
+  int64 assignee_user_id = 9;
+  string acknowledged_at = 10;
+  string resolved_at = 11;
+  string resolution_note = 12;
+  string first_triggered_at = 13;
+  string last_triggered_at = 14;
+}
+
+message ListQuotaAlertsRequest {
+  int64 tenant_id = 1;
+  string status = 2;
+  string metric_key = 3;
+  int32 page = 4;
+  int32 page_size = 5;
+}
+
+message ListQuotaAlertsResponse {
+  int32 code = 1;
+  string msg = 2;
+  int64 total = 3;
+  repeated QuotaAlertInfo list = 4;
+}
+
+message UpdateQuotaAlertRequest {
+  int64 alert_id = 1;
+  string status = 2;
+  int64 assignee_user_id = 3;
+  string resolution_note = 4;
+}
+
+message QuotaAlertResponse {
+  int32 code = 1;
+  string msg = 2;
+  QuotaAlertInfo alert = 3;
 }
 
 message LoginResponse {
@@ -2025,6 +2286,57 @@ message CreateStaffUserResponse {
   int32 code = 1;
   string msg = 2;
   int64 user_id = 3;
+}
+
+message PlatformUserInfo {
+  int64 user_id = 1;
+  string username = 2;
+  string email = 3;
+  string status = 4;
+  repeated string roles = 5;
+  int32 token_version = 6;
+  string created_at = 7;
+}
+
+message ListPlatformUsersRequest {
+  int32 page = 1;
+  int32 page_size = 2;
+  string status = 3;
+}
+
+message ListPlatformUsersResponse {
+  int32 code = 1;
+  string msg = 2;
+  int64 total = 3;
+  repeated PlatformUserInfo list = 4;
+}
+
+message CreatePlatformUserRequest {
+  int64 admin_id = 1;
+  string username = 2;
+  string email = 3;
+  string password = 4;
+  string role_key = 5;
+}
+
+message CreatePlatformUserResponse {
+  int32 code = 1;
+  string msg = 2;
+  int64 user_id = 3;
+}
+
+message UpdatePlatformUserRequest {
+  int64 admin_id = 1;
+  int64 user_id = 2;
+  string role_key = 3;
+  string status = 4;
+  string reason = 5;
+}
+
+message PlatformUserResponse {
+  int32 code = 1;
+  string msg = 2;
+  PlatformUserInfo user = 3;
 }
 
 // ── Phase 4: Candidate Collaboration ───────────────────────────────────

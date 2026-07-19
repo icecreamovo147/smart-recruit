@@ -428,10 +428,23 @@ var AuthService_ServiceDesc = grpc.ServiceDesc{
 }
 
 const (
-	PlatformTenantService_CreateTenant_FullMethodName          = "/recruitment.PlatformTenantService/CreateTenant"
-	PlatformTenantService_ListTenants_FullMethodName           = "/recruitment.PlatformTenantService/ListTenants"
-	PlatformTenantService_UpdateTenantStatus_FullMethodName    = "/recruitment.PlatformTenantService/UpdateTenantStatus"
-	PlatformTenantService_ListTenantMemberships_FullMethodName = "/recruitment.PlatformTenantService/ListTenantMemberships"
+	PlatformTenantService_CreateTenant_FullMethodName                    = "/recruitment.PlatformTenantService/CreateTenant"
+	PlatformTenantService_ListTenants_FullMethodName                     = "/recruitment.PlatformTenantService/ListTenants"
+	PlatformTenantService_GetTenant_FullMethodName                       = "/recruitment.PlatformTenantService/GetTenant"
+	PlatformTenantService_UpdateTenantStatus_FullMethodName              = "/recruitment.PlatformTenantService/UpdateTenantStatus"
+	PlatformTenantService_ListTenantMemberships_FullMethodName           = "/recruitment.PlatformTenantService/ListTenantMemberships"
+	PlatformTenantService_UpdateTenantMembershipStatus_FullMethodName    = "/recruitment.PlatformTenantService/UpdateTenantMembershipStatus"
+	PlatformTenantService_GetPlatformDashboard_FullMethodName            = "/recruitment.PlatformTenantService/GetPlatformDashboard"
+	PlatformTenantService_QueryPlatformAuditLogs_FullMethodName          = "/recruitment.PlatformTenantService/QueryPlatformAuditLogs"
+	PlatformTenantService_ListPlatformPlans_FullMethodName               = "/recruitment.PlatformTenantService/ListPlatformPlans"
+	PlatformTenantService_SavePlatformPlanVersion_FullMethodName         = "/recruitment.PlatformTenantService/SavePlatformPlanVersion"
+	PlatformTenantService_PublishPlatformPlanVersion_FullMethodName      = "/recruitment.PlatformTenantService/PublishPlatformPlanVersion"
+	PlatformTenantService_GetTenantSubscription_FullMethodName           = "/recruitment.PlatformTenantService/GetTenantSubscription"
+	PlatformTenantService_UpdateTenantSubscription_FullMethodName        = "/recruitment.PlatformTenantService/UpdateTenantSubscription"
+	PlatformTenantService_UpdateTenantEntitlementOverride_FullMethodName = "/recruitment.PlatformTenantService/UpdateTenantEntitlementOverride"
+	PlatformTenantService_GetTenantUsage_FullMethodName                  = "/recruitment.PlatformTenantService/GetTenantUsage"
+	PlatformTenantService_ListQuotaAlerts_FullMethodName                 = "/recruitment.PlatformTenantService/ListQuotaAlerts"
+	PlatformTenantService_UpdateQuotaAlert_FullMethodName                = "/recruitment.PlatformTenantService/UpdateQuotaAlert"
 )
 
 // PlatformTenantServiceClient is the client API for PlatformTenantService service.
@@ -440,8 +453,21 @@ const (
 type PlatformTenantServiceClient interface {
 	CreateTenant(ctx context.Context, in *CreateTenantRequest, opts ...grpc.CallOption) (*TenantResponse, error)
 	ListTenants(ctx context.Context, in *ListTenantsRequest, opts ...grpc.CallOption) (*ListTenantsResponse, error)
+	GetTenant(ctx context.Context, in *GetTenantRequest, opts ...grpc.CallOption) (*TenantResponse, error)
 	UpdateTenantStatus(ctx context.Context, in *UpdateTenantStatusRequest, opts ...grpc.CallOption) (*TenantResponse, error)
 	ListTenantMemberships(ctx context.Context, in *ListTenantMembershipsRequest, opts ...grpc.CallOption) (*ListTenantMembershipsResponse, error)
+	UpdateTenantMembershipStatus(ctx context.Context, in *UpdateTenantMembershipStatusRequest, opts ...grpc.CallOption) (*TenantMembershipResponse, error)
+	GetPlatformDashboard(ctx context.Context, in *GetPlatformDashboardRequest, opts ...grpc.CallOption) (*GetPlatformDashboardResponse, error)
+	QueryPlatformAuditLogs(ctx context.Context, in *QueryPlatformAuditLogsRequest, opts ...grpc.CallOption) (*QueryPlatformAuditLogsResponse, error)
+	ListPlatformPlans(ctx context.Context, in *ListPlatformPlansRequest, opts ...grpc.CallOption) (*ListPlatformPlansResponse, error)
+	SavePlatformPlanVersion(ctx context.Context, in *SavePlatformPlanVersionRequest, opts ...grpc.CallOption) (*PlatformPlanVersionResponse, error)
+	PublishPlatformPlanVersion(ctx context.Context, in *PublishPlatformPlanVersionRequest, opts ...grpc.CallOption) (*PlatformPlanVersionResponse, error)
+	GetTenantSubscription(ctx context.Context, in *GetTenantSubscriptionRequest, opts ...grpc.CallOption) (*TenantSubscriptionResponse, error)
+	UpdateTenantSubscription(ctx context.Context, in *UpdateTenantSubscriptionRequest, opts ...grpc.CallOption) (*TenantSubscriptionResponse, error)
+	UpdateTenantEntitlementOverride(ctx context.Context, in *UpdateTenantEntitlementOverrideRequest, opts ...grpc.CallOption) (*TenantSubscriptionResponse, error)
+	GetTenantUsage(ctx context.Context, in *GetTenantUsageRequest, opts ...grpc.CallOption) (*GetTenantUsageResponse, error)
+	ListQuotaAlerts(ctx context.Context, in *ListQuotaAlertsRequest, opts ...grpc.CallOption) (*ListQuotaAlertsResponse, error)
+	UpdateQuotaAlert(ctx context.Context, in *UpdateQuotaAlertRequest, opts ...grpc.CallOption) (*QuotaAlertResponse, error)
 }
 
 type platformTenantServiceClient struct {
@@ -472,6 +498,16 @@ func (c *platformTenantServiceClient) ListTenants(ctx context.Context, in *ListT
 	return out, nil
 }
 
+func (c *platformTenantServiceClient) GetTenant(ctx context.Context, in *GetTenantRequest, opts ...grpc.CallOption) (*TenantResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(TenantResponse)
+	err := c.cc.Invoke(ctx, PlatformTenantService_GetTenant_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 func (c *platformTenantServiceClient) UpdateTenantStatus(ctx context.Context, in *UpdateTenantStatusRequest, opts ...grpc.CallOption) (*TenantResponse, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(TenantResponse)
@@ -492,14 +528,147 @@ func (c *platformTenantServiceClient) ListTenantMemberships(ctx context.Context,
 	return out, nil
 }
 
+func (c *platformTenantServiceClient) UpdateTenantMembershipStatus(ctx context.Context, in *UpdateTenantMembershipStatusRequest, opts ...grpc.CallOption) (*TenantMembershipResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(TenantMembershipResponse)
+	err := c.cc.Invoke(ctx, PlatformTenantService_UpdateTenantMembershipStatus_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *platformTenantServiceClient) GetPlatformDashboard(ctx context.Context, in *GetPlatformDashboardRequest, opts ...grpc.CallOption) (*GetPlatformDashboardResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(GetPlatformDashboardResponse)
+	err := c.cc.Invoke(ctx, PlatformTenantService_GetPlatformDashboard_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *platformTenantServiceClient) QueryPlatformAuditLogs(ctx context.Context, in *QueryPlatformAuditLogsRequest, opts ...grpc.CallOption) (*QueryPlatformAuditLogsResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(QueryPlatformAuditLogsResponse)
+	err := c.cc.Invoke(ctx, PlatformTenantService_QueryPlatformAuditLogs_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *platformTenantServiceClient) ListPlatformPlans(ctx context.Context, in *ListPlatformPlansRequest, opts ...grpc.CallOption) (*ListPlatformPlansResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ListPlatformPlansResponse)
+	err := c.cc.Invoke(ctx, PlatformTenantService_ListPlatformPlans_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *platformTenantServiceClient) SavePlatformPlanVersion(ctx context.Context, in *SavePlatformPlanVersionRequest, opts ...grpc.CallOption) (*PlatformPlanVersionResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(PlatformPlanVersionResponse)
+	err := c.cc.Invoke(ctx, PlatformTenantService_SavePlatformPlanVersion_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *platformTenantServiceClient) PublishPlatformPlanVersion(ctx context.Context, in *PublishPlatformPlanVersionRequest, opts ...grpc.CallOption) (*PlatformPlanVersionResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(PlatformPlanVersionResponse)
+	err := c.cc.Invoke(ctx, PlatformTenantService_PublishPlatformPlanVersion_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *platformTenantServiceClient) GetTenantSubscription(ctx context.Context, in *GetTenantSubscriptionRequest, opts ...grpc.CallOption) (*TenantSubscriptionResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(TenantSubscriptionResponse)
+	err := c.cc.Invoke(ctx, PlatformTenantService_GetTenantSubscription_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *platformTenantServiceClient) UpdateTenantSubscription(ctx context.Context, in *UpdateTenantSubscriptionRequest, opts ...grpc.CallOption) (*TenantSubscriptionResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(TenantSubscriptionResponse)
+	err := c.cc.Invoke(ctx, PlatformTenantService_UpdateTenantSubscription_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *platformTenantServiceClient) UpdateTenantEntitlementOverride(ctx context.Context, in *UpdateTenantEntitlementOverrideRequest, opts ...grpc.CallOption) (*TenantSubscriptionResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(TenantSubscriptionResponse)
+	err := c.cc.Invoke(ctx, PlatformTenantService_UpdateTenantEntitlementOverride_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *platformTenantServiceClient) GetTenantUsage(ctx context.Context, in *GetTenantUsageRequest, opts ...grpc.CallOption) (*GetTenantUsageResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(GetTenantUsageResponse)
+	err := c.cc.Invoke(ctx, PlatformTenantService_GetTenantUsage_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *platformTenantServiceClient) ListQuotaAlerts(ctx context.Context, in *ListQuotaAlertsRequest, opts ...grpc.CallOption) (*ListQuotaAlertsResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ListQuotaAlertsResponse)
+	err := c.cc.Invoke(ctx, PlatformTenantService_ListQuotaAlerts_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *platformTenantServiceClient) UpdateQuotaAlert(ctx context.Context, in *UpdateQuotaAlertRequest, opts ...grpc.CallOption) (*QuotaAlertResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(QuotaAlertResponse)
+	err := c.cc.Invoke(ctx, PlatformTenantService_UpdateQuotaAlert_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // PlatformTenantServiceServer is the server API for PlatformTenantService service.
 // All implementations must embed UnimplementedPlatformTenantServiceServer
 // for forward compatibility.
 type PlatformTenantServiceServer interface {
 	CreateTenant(context.Context, *CreateTenantRequest) (*TenantResponse, error)
 	ListTenants(context.Context, *ListTenantsRequest) (*ListTenantsResponse, error)
+	GetTenant(context.Context, *GetTenantRequest) (*TenantResponse, error)
 	UpdateTenantStatus(context.Context, *UpdateTenantStatusRequest) (*TenantResponse, error)
 	ListTenantMemberships(context.Context, *ListTenantMembershipsRequest) (*ListTenantMembershipsResponse, error)
+	UpdateTenantMembershipStatus(context.Context, *UpdateTenantMembershipStatusRequest) (*TenantMembershipResponse, error)
+	GetPlatformDashboard(context.Context, *GetPlatformDashboardRequest) (*GetPlatformDashboardResponse, error)
+	QueryPlatformAuditLogs(context.Context, *QueryPlatformAuditLogsRequest) (*QueryPlatformAuditLogsResponse, error)
+	ListPlatformPlans(context.Context, *ListPlatformPlansRequest) (*ListPlatformPlansResponse, error)
+	SavePlatformPlanVersion(context.Context, *SavePlatformPlanVersionRequest) (*PlatformPlanVersionResponse, error)
+	PublishPlatformPlanVersion(context.Context, *PublishPlatformPlanVersionRequest) (*PlatformPlanVersionResponse, error)
+	GetTenantSubscription(context.Context, *GetTenantSubscriptionRequest) (*TenantSubscriptionResponse, error)
+	UpdateTenantSubscription(context.Context, *UpdateTenantSubscriptionRequest) (*TenantSubscriptionResponse, error)
+	UpdateTenantEntitlementOverride(context.Context, *UpdateTenantEntitlementOverrideRequest) (*TenantSubscriptionResponse, error)
+	GetTenantUsage(context.Context, *GetTenantUsageRequest) (*GetTenantUsageResponse, error)
+	ListQuotaAlerts(context.Context, *ListQuotaAlertsRequest) (*ListQuotaAlertsResponse, error)
+	UpdateQuotaAlert(context.Context, *UpdateQuotaAlertRequest) (*QuotaAlertResponse, error)
 	mustEmbedUnimplementedPlatformTenantServiceServer()
 }
 
@@ -516,11 +685,50 @@ func (UnimplementedPlatformTenantServiceServer) CreateTenant(context.Context, *C
 func (UnimplementedPlatformTenantServiceServer) ListTenants(context.Context, *ListTenantsRequest) (*ListTenantsResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method ListTenants not implemented")
 }
+func (UnimplementedPlatformTenantServiceServer) GetTenant(context.Context, *GetTenantRequest) (*TenantResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method GetTenant not implemented")
+}
 func (UnimplementedPlatformTenantServiceServer) UpdateTenantStatus(context.Context, *UpdateTenantStatusRequest) (*TenantResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method UpdateTenantStatus not implemented")
 }
 func (UnimplementedPlatformTenantServiceServer) ListTenantMemberships(context.Context, *ListTenantMembershipsRequest) (*ListTenantMembershipsResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method ListTenantMemberships not implemented")
+}
+func (UnimplementedPlatformTenantServiceServer) UpdateTenantMembershipStatus(context.Context, *UpdateTenantMembershipStatusRequest) (*TenantMembershipResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method UpdateTenantMembershipStatus not implemented")
+}
+func (UnimplementedPlatformTenantServiceServer) GetPlatformDashboard(context.Context, *GetPlatformDashboardRequest) (*GetPlatformDashboardResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method GetPlatformDashboard not implemented")
+}
+func (UnimplementedPlatformTenantServiceServer) QueryPlatformAuditLogs(context.Context, *QueryPlatformAuditLogsRequest) (*QueryPlatformAuditLogsResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method QueryPlatformAuditLogs not implemented")
+}
+func (UnimplementedPlatformTenantServiceServer) ListPlatformPlans(context.Context, *ListPlatformPlansRequest) (*ListPlatformPlansResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method ListPlatformPlans not implemented")
+}
+func (UnimplementedPlatformTenantServiceServer) SavePlatformPlanVersion(context.Context, *SavePlatformPlanVersionRequest) (*PlatformPlanVersionResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method SavePlatformPlanVersion not implemented")
+}
+func (UnimplementedPlatformTenantServiceServer) PublishPlatformPlanVersion(context.Context, *PublishPlatformPlanVersionRequest) (*PlatformPlanVersionResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method PublishPlatformPlanVersion not implemented")
+}
+func (UnimplementedPlatformTenantServiceServer) GetTenantSubscription(context.Context, *GetTenantSubscriptionRequest) (*TenantSubscriptionResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method GetTenantSubscription not implemented")
+}
+func (UnimplementedPlatformTenantServiceServer) UpdateTenantSubscription(context.Context, *UpdateTenantSubscriptionRequest) (*TenantSubscriptionResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method UpdateTenantSubscription not implemented")
+}
+func (UnimplementedPlatformTenantServiceServer) UpdateTenantEntitlementOverride(context.Context, *UpdateTenantEntitlementOverrideRequest) (*TenantSubscriptionResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method UpdateTenantEntitlementOverride not implemented")
+}
+func (UnimplementedPlatformTenantServiceServer) GetTenantUsage(context.Context, *GetTenantUsageRequest) (*GetTenantUsageResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method GetTenantUsage not implemented")
+}
+func (UnimplementedPlatformTenantServiceServer) ListQuotaAlerts(context.Context, *ListQuotaAlertsRequest) (*ListQuotaAlertsResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method ListQuotaAlerts not implemented")
+}
+func (UnimplementedPlatformTenantServiceServer) UpdateQuotaAlert(context.Context, *UpdateQuotaAlertRequest) (*QuotaAlertResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method UpdateQuotaAlert not implemented")
 }
 func (UnimplementedPlatformTenantServiceServer) mustEmbedUnimplementedPlatformTenantServiceServer() {}
 func (UnimplementedPlatformTenantServiceServer) testEmbeddedByValue()                               {}
@@ -579,6 +787,24 @@ func _PlatformTenantService_ListTenants_Handler(srv interface{}, ctx context.Con
 	return interceptor(ctx, in, info, handler)
 }
 
+func _PlatformTenantService_GetTenant_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetTenantRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(PlatformTenantServiceServer).GetTenant(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: PlatformTenantService_GetTenant_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(PlatformTenantServiceServer).GetTenant(ctx, req.(*GetTenantRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 func _PlatformTenantService_UpdateTenantStatus_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(UpdateTenantStatusRequest)
 	if err := dec(in); err != nil {
@@ -615,6 +841,222 @@ func _PlatformTenantService_ListTenantMemberships_Handler(srv interface{}, ctx c
 	return interceptor(ctx, in, info, handler)
 }
 
+func _PlatformTenantService_UpdateTenantMembershipStatus_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(UpdateTenantMembershipStatusRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(PlatformTenantServiceServer).UpdateTenantMembershipStatus(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: PlatformTenantService_UpdateTenantMembershipStatus_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(PlatformTenantServiceServer).UpdateTenantMembershipStatus(ctx, req.(*UpdateTenantMembershipStatusRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _PlatformTenantService_GetPlatformDashboard_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetPlatformDashboardRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(PlatformTenantServiceServer).GetPlatformDashboard(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: PlatformTenantService_GetPlatformDashboard_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(PlatformTenantServiceServer).GetPlatformDashboard(ctx, req.(*GetPlatformDashboardRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _PlatformTenantService_QueryPlatformAuditLogs_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(QueryPlatformAuditLogsRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(PlatformTenantServiceServer).QueryPlatformAuditLogs(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: PlatformTenantService_QueryPlatformAuditLogs_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(PlatformTenantServiceServer).QueryPlatformAuditLogs(ctx, req.(*QueryPlatformAuditLogsRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _PlatformTenantService_ListPlatformPlans_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ListPlatformPlansRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(PlatformTenantServiceServer).ListPlatformPlans(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: PlatformTenantService_ListPlatformPlans_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(PlatformTenantServiceServer).ListPlatformPlans(ctx, req.(*ListPlatformPlansRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _PlatformTenantService_SavePlatformPlanVersion_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(SavePlatformPlanVersionRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(PlatformTenantServiceServer).SavePlatformPlanVersion(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: PlatformTenantService_SavePlatformPlanVersion_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(PlatformTenantServiceServer).SavePlatformPlanVersion(ctx, req.(*SavePlatformPlanVersionRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _PlatformTenantService_PublishPlatformPlanVersion_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(PublishPlatformPlanVersionRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(PlatformTenantServiceServer).PublishPlatformPlanVersion(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: PlatformTenantService_PublishPlatformPlanVersion_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(PlatformTenantServiceServer).PublishPlatformPlanVersion(ctx, req.(*PublishPlatformPlanVersionRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _PlatformTenantService_GetTenantSubscription_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetTenantSubscriptionRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(PlatformTenantServiceServer).GetTenantSubscription(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: PlatformTenantService_GetTenantSubscription_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(PlatformTenantServiceServer).GetTenantSubscription(ctx, req.(*GetTenantSubscriptionRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _PlatformTenantService_UpdateTenantSubscription_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(UpdateTenantSubscriptionRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(PlatformTenantServiceServer).UpdateTenantSubscription(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: PlatformTenantService_UpdateTenantSubscription_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(PlatformTenantServiceServer).UpdateTenantSubscription(ctx, req.(*UpdateTenantSubscriptionRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _PlatformTenantService_UpdateTenantEntitlementOverride_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(UpdateTenantEntitlementOverrideRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(PlatformTenantServiceServer).UpdateTenantEntitlementOverride(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: PlatformTenantService_UpdateTenantEntitlementOverride_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(PlatformTenantServiceServer).UpdateTenantEntitlementOverride(ctx, req.(*UpdateTenantEntitlementOverrideRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _PlatformTenantService_GetTenantUsage_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetTenantUsageRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(PlatformTenantServiceServer).GetTenantUsage(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: PlatformTenantService_GetTenantUsage_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(PlatformTenantServiceServer).GetTenantUsage(ctx, req.(*GetTenantUsageRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _PlatformTenantService_ListQuotaAlerts_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ListQuotaAlertsRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(PlatformTenantServiceServer).ListQuotaAlerts(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: PlatformTenantService_ListQuotaAlerts_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(PlatformTenantServiceServer).ListQuotaAlerts(ctx, req.(*ListQuotaAlertsRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _PlatformTenantService_UpdateQuotaAlert_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(UpdateQuotaAlertRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(PlatformTenantServiceServer).UpdateQuotaAlert(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: PlatformTenantService_UpdateQuotaAlert_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(PlatformTenantServiceServer).UpdateQuotaAlert(ctx, req.(*UpdateQuotaAlertRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // PlatformTenantService_ServiceDesc is the grpc.ServiceDesc for PlatformTenantService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -631,12 +1073,64 @@ var PlatformTenantService_ServiceDesc = grpc.ServiceDesc{
 			Handler:    _PlatformTenantService_ListTenants_Handler,
 		},
 		{
+			MethodName: "GetTenant",
+			Handler:    _PlatformTenantService_GetTenant_Handler,
+		},
+		{
 			MethodName: "UpdateTenantStatus",
 			Handler:    _PlatformTenantService_UpdateTenantStatus_Handler,
 		},
 		{
 			MethodName: "ListTenantMemberships",
 			Handler:    _PlatformTenantService_ListTenantMemberships_Handler,
+		},
+		{
+			MethodName: "UpdateTenantMembershipStatus",
+			Handler:    _PlatformTenantService_UpdateTenantMembershipStatus_Handler,
+		},
+		{
+			MethodName: "GetPlatformDashboard",
+			Handler:    _PlatformTenantService_GetPlatformDashboard_Handler,
+		},
+		{
+			MethodName: "QueryPlatformAuditLogs",
+			Handler:    _PlatformTenantService_QueryPlatformAuditLogs_Handler,
+		},
+		{
+			MethodName: "ListPlatformPlans",
+			Handler:    _PlatformTenantService_ListPlatformPlans_Handler,
+		},
+		{
+			MethodName: "SavePlatformPlanVersion",
+			Handler:    _PlatformTenantService_SavePlatformPlanVersion_Handler,
+		},
+		{
+			MethodName: "PublishPlatformPlanVersion",
+			Handler:    _PlatformTenantService_PublishPlatformPlanVersion_Handler,
+		},
+		{
+			MethodName: "GetTenantSubscription",
+			Handler:    _PlatformTenantService_GetTenantSubscription_Handler,
+		},
+		{
+			MethodName: "UpdateTenantSubscription",
+			Handler:    _PlatformTenantService_UpdateTenantSubscription_Handler,
+		},
+		{
+			MethodName: "UpdateTenantEntitlementOverride",
+			Handler:    _PlatformTenantService_UpdateTenantEntitlementOverride_Handler,
+		},
+		{
+			MethodName: "GetTenantUsage",
+			Handler:    _PlatformTenantService_GetTenantUsage_Handler,
+		},
+		{
+			MethodName: "ListQuotaAlerts",
+			Handler:    _PlatformTenantService_ListQuotaAlerts_Handler,
+		},
+		{
+			MethodName: "UpdateQuotaAlert",
+			Handler:    _PlatformTenantService_UpdateQuotaAlert_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},
@@ -3940,6 +4434,9 @@ const (
 	AdminService_RevokeDataScope_FullMethodName                = "/recruitment.AdminService/RevokeDataScope"
 	AdminService_ListStaffUsers_FullMethodName                 = "/recruitment.AdminService/ListStaffUsers"
 	AdminService_CreateStaffUser_FullMethodName                = "/recruitment.AdminService/CreateStaffUser"
+	AdminService_ListPlatformUsers_FullMethodName              = "/recruitment.AdminService/ListPlatformUsers"
+	AdminService_CreatePlatformUser_FullMethodName             = "/recruitment.AdminService/CreatePlatformUser"
+	AdminService_UpdatePlatformUser_FullMethodName             = "/recruitment.AdminService/UpdatePlatformUser"
 	AdminService_QueryAuthAuditLogs_FullMethodName             = "/recruitment.AdminService/QueryAuthAuditLogs"
 	AdminService_GetDashboardReport_FullMethodName             = "/recruitment.AdminService/GetDashboardReport"
 	AdminService_GetFunnelReport_FullMethodName                = "/recruitment.AdminService/GetFunnelReport"
@@ -3984,6 +4481,9 @@ type AdminServiceClient interface {
 	// Staff user management
 	ListStaffUsers(ctx context.Context, in *ListStaffUsersRequest, opts ...grpc.CallOption) (*ListStaffUsersResponse, error)
 	CreateStaffUser(ctx context.Context, in *CreateStaffUserRequest, opts ...grpc.CallOption) (*CreateStaffUserResponse, error)
+	ListPlatformUsers(ctx context.Context, in *ListPlatformUsersRequest, opts ...grpc.CallOption) (*ListPlatformUsersResponse, error)
+	CreatePlatformUser(ctx context.Context, in *CreatePlatformUserRequest, opts ...grpc.CallOption) (*CreatePlatformUserResponse, error)
+	UpdatePlatformUser(ctx context.Context, in *UpdatePlatformUserRequest, opts ...grpc.CallOption) (*PlatformUserResponse, error)
 	// ── Phase 6: Analytics & AI Audit ─────────────────────────────────────
 	QueryAuthAuditLogs(ctx context.Context, in *QueryAuthAuditLogsRequest, opts ...grpc.CallOption) (*QueryAuthAuditLogsResponse, error)
 	GetDashboardReport(ctx context.Context, in *GetDashboardReportRequest, opts ...grpc.CallOption) (*GetDashboardReportResponse, error)
@@ -4293,6 +4793,36 @@ func (c *adminServiceClient) CreateStaffUser(ctx context.Context, in *CreateStaf
 	return out, nil
 }
 
+func (c *adminServiceClient) ListPlatformUsers(ctx context.Context, in *ListPlatformUsersRequest, opts ...grpc.CallOption) (*ListPlatformUsersResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ListPlatformUsersResponse)
+	err := c.cc.Invoke(ctx, AdminService_ListPlatformUsers_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *adminServiceClient) CreatePlatformUser(ctx context.Context, in *CreatePlatformUserRequest, opts ...grpc.CallOption) (*CreatePlatformUserResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(CreatePlatformUserResponse)
+	err := c.cc.Invoke(ctx, AdminService_CreatePlatformUser_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *adminServiceClient) UpdatePlatformUser(ctx context.Context, in *UpdatePlatformUserRequest, opts ...grpc.CallOption) (*PlatformUserResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(PlatformUserResponse)
+	err := c.cc.Invoke(ctx, AdminService_UpdatePlatformUser_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 func (c *adminServiceClient) QueryAuthAuditLogs(ctx context.Context, in *QueryAuthAuditLogsRequest, opts ...grpc.CallOption) (*QueryAuthAuditLogsResponse, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(QueryAuthAuditLogsResponse)
@@ -4398,6 +4928,9 @@ type AdminServiceServer interface {
 	// Staff user management
 	ListStaffUsers(context.Context, *ListStaffUsersRequest) (*ListStaffUsersResponse, error)
 	CreateStaffUser(context.Context, *CreateStaffUserRequest) (*CreateStaffUserResponse, error)
+	ListPlatformUsers(context.Context, *ListPlatformUsersRequest) (*ListPlatformUsersResponse, error)
+	CreatePlatformUser(context.Context, *CreatePlatformUserRequest) (*CreatePlatformUserResponse, error)
+	UpdatePlatformUser(context.Context, *UpdatePlatformUserRequest) (*PlatformUserResponse, error)
 	// ── Phase 6: Analytics & AI Audit ─────────────────────────────────────
 	QueryAuthAuditLogs(context.Context, *QueryAuthAuditLogsRequest) (*QueryAuthAuditLogsResponse, error)
 	GetDashboardReport(context.Context, *GetDashboardReportRequest) (*GetDashboardReportResponse, error)
@@ -4503,6 +5036,15 @@ func (UnimplementedAdminServiceServer) ListStaffUsers(context.Context, *ListStaf
 }
 func (UnimplementedAdminServiceServer) CreateStaffUser(context.Context, *CreateStaffUserRequest) (*CreateStaffUserResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method CreateStaffUser not implemented")
+}
+func (UnimplementedAdminServiceServer) ListPlatformUsers(context.Context, *ListPlatformUsersRequest) (*ListPlatformUsersResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method ListPlatformUsers not implemented")
+}
+func (UnimplementedAdminServiceServer) CreatePlatformUser(context.Context, *CreatePlatformUserRequest) (*CreatePlatformUserResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method CreatePlatformUser not implemented")
+}
+func (UnimplementedAdminServiceServer) UpdatePlatformUser(context.Context, *UpdatePlatformUserRequest) (*PlatformUserResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method UpdatePlatformUser not implemented")
 }
 func (UnimplementedAdminServiceServer) QueryAuthAuditLogs(context.Context, *QueryAuthAuditLogsRequest) (*QueryAuthAuditLogsResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method QueryAuthAuditLogs not implemented")
@@ -5068,6 +5610,60 @@ func _AdminService_CreateStaffUser_Handler(srv interface{}, ctx context.Context,
 	return interceptor(ctx, in, info, handler)
 }
 
+func _AdminService_ListPlatformUsers_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ListPlatformUsersRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(AdminServiceServer).ListPlatformUsers(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: AdminService_ListPlatformUsers_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(AdminServiceServer).ListPlatformUsers(ctx, req.(*ListPlatformUsersRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _AdminService_CreatePlatformUser_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(CreatePlatformUserRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(AdminServiceServer).CreatePlatformUser(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: AdminService_CreatePlatformUser_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(AdminServiceServer).CreatePlatformUser(ctx, req.(*CreatePlatformUserRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _AdminService_UpdatePlatformUser_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(UpdatePlatformUserRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(AdminServiceServer).UpdatePlatformUser(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: AdminService_UpdatePlatformUser_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(AdminServiceServer).UpdatePlatformUser(ctx, req.(*UpdatePlatformUserRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 func _AdminService_QueryAuthAuditLogs_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(QueryAuthAuditLogsRequest)
 	if err := dec(in); err != nil {
@@ -5316,6 +5912,18 @@ var AdminService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "CreateStaffUser",
 			Handler:    _AdminService_CreateStaffUser_Handler,
+		},
+		{
+			MethodName: "ListPlatformUsers",
+			Handler:    _AdminService_ListPlatformUsers_Handler,
+		},
+		{
+			MethodName: "CreatePlatformUser",
+			Handler:    _AdminService_CreatePlatformUser_Handler,
+		},
+		{
+			MethodName: "UpdatePlatformUser",
+			Handler:    _AdminService_UpdatePlatformUser_Handler,
 		},
 		{
 			MethodName: "QueryAuthAuditLogs",
