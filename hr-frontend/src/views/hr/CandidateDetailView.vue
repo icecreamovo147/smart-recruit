@@ -760,9 +760,8 @@ watch(activeSection, (section) => {
   box-sizing: border-box;
   overflow-y: auto;
   overflow-x: hidden;
-  padding: 18px 20px 28px;
-  max-width: 1440px;
-  margin: 0 auto;
+  padding: 0;
+  margin: 0;
   color: #1f2937;
 }
 
@@ -1388,10 +1387,6 @@ watch(activeSection, (section) => {
 }
 
 @media (max-width: 760px) {
-  .candidate-detail {
-    padding: 12px;
-  }
-
   .candidate-hero {
     padding: 14px;
   }
