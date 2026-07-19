@@ -16,21 +16,26 @@ applies_to:
   - hr-frontend/src/**
   - user-frontend/src/**
   - interviewer-frontend/src/**
+  - platform-frontend/src/**
   - packages/shared/src/**
 source_refs:
   - pnpm-workspace.yaml
   - hr-frontend/tsconfig.json
   - user-frontend/tsconfig.json
   - interviewer-frontend/tsconfig.json
+  - platform-frontend/tsconfig.json
   - hr-frontend/src/router/index.ts
   - user-frontend/src/router/index.ts
   - interviewer-frontend/src/router/index.ts
+  - platform-frontend/src/router/index.ts
   - hr-frontend/src/stores/auth.ts
   - user-frontend/src/stores/auth.ts
   - interviewer-frontend/src/stores/auth.ts
+  - platform-frontend/src/stores/auth.ts
   - hr-frontend/src/api/request.ts
   - user-frontend/src/api/request.ts
   - interviewer-frontend/src/api/request.ts
+  - platform-frontend/src/api/http.ts
   - hr-frontend/src/components/NotificationBell.vue
   - user-frontend/src/components/NotificationBell.vue
   - interviewer-frontend/src/components/NotificationBell.vue
@@ -45,11 +50,12 @@ review_after: 2026-10-08
 
 # Frontend App Architecture
 
-The repository has three Vue 3 + Vite apps with shared patterns but different user contracts:
+The repository has four Vue 3 + Vite apps with shared patterns but different user contracts:
 
 - `hr-frontend` serves staff, recruiting, admin, AI, analytics, and collaboration workflows.
 - `user-frontend` serves candidates, public job browsing, profile, resume upload, applications, interviews, offers, and candidate AI.
 - `interviewer-frontend` serves staff interviewers with assigned interviews, feedback, notifications, and profile.
+- `platform-frontend` serves platform administrators, operators, and auditors with tenant governance, platform-account RBAC, audit, plan/version, subscription, entitlement, usage, and quota-alert workflows.
 
 Each app keeps its own `src/router`, `src/stores`, `src/api`, `src/types`, `src/components`, `src/views`, `src/utils`, and app-level styles. Deliberately shared components, types, utilities, and brand assets live under `packages/shared/src/` and are imported through the configured `@shared/*` alias. Do not import source directly from another frontend app; keep behavior- or permission-specific wiring local even when a lower-level primitive is shared.
 
@@ -58,7 +64,8 @@ Each app keeps its own `src/router`, `src/stores`, `src/api`, `src/types`, `src/
 - HR routing is permission-based. Routes use `meta.requiresAuth` and `meta.requiresPermission`, and the auth store exposes roles and permissions from `/auth/me`.
 - Candidate routing uses candidate-role checks for authenticated candidate surfaces and keeps public job list/detail routes open.
 - Interviewer routing restores session, sets document titles, and rejects non-interviewer staff by logging out and redirecting.
-- All three apps rely on httpOnly auth cookies and local cached user metadata for route decisions. Route guards can restore session before redirecting to login.
+- Platform routing is permission-based, isolates the `platform` account type and client app, and selects the first allowed control-plane route for restricted operator or auditor roles.
+- All four apps rely on httpOnly auth cookies and local cached user metadata for route decisions. Route guards can restore session before redirecting to login.
 
 ## Request Wrappers
 
@@ -93,8 +100,9 @@ HR admin and AI configuration pages use the `admin-console` component family for
 - API helper/type changes that affect gateway contracts.
 - Notification polling/SSE/link behavior.
 - HR admin menu, route, or admin-console layout changes.
+- Platform console navigation, platform permission alignment, tenant governance, plan/subscription, or quota operations changes.
 - Shared package changes, which require checking every consuming app rather than only the file's nearest frontend.
 
 ## Verification
 
-Verified against the pnpm workspace, shared-package aliases and consumers, current routers, auth stores, request wrappers, notification bells, admin-console components, and representative HR/candidate/interviewer views on 2026-07-19.
+Verified against the pnpm workspace, shared-package aliases and consumers, current routers, auth stores, request wrappers, notification bells, admin-console components, and representative HR/candidate/interviewer/platform views on 2026-07-19.

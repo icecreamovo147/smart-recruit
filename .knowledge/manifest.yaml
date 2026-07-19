@@ -57,6 +57,7 @@ routes:
       - hr-frontend/**
       - user-frontend/**
       - interviewer-frontend/**
+      - platform-frontend/**
       - packages/shared/**
       - smart-recruit-gateway/**
       - smart-recruit-*-service/**

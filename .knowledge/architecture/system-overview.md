@@ -16,6 +16,7 @@ applies_to:
   - hr-frontend/**
   - user-frontend/**
   - interviewer-frontend/**
+  - platform-frontend/**
   - packages/shared/**
   - smart-recruit-gateway/**
   - smart-recruit-*-service/**
@@ -29,6 +30,7 @@ source_refs:
   - README.md
   - pnpm-workspace.yaml
   - hr-frontend/tsconfig.json
+  - platform-frontend/tsconfig.json
   - packages/shared/src/components/EmailSetupDialog.vue
   - packages/shared/src/types/domain.ts
   - dev-log-viewer/README.md
@@ -53,7 +55,7 @@ review_after: 2026-10-14
 
 # Smart Recruit System Overview
 
-Smart Recruit has three Vue frontends, an explicit `packages/shared/` frontend package, a Gin gateway, independent Go services, shared protobuf contracts, shared platform utilities, and shared Commons packages. The gateway owns HTTP routing, middleware, auth/RBAC enforcement, quotas, request limits, SSE endpoints, and generated gRPC clients.
+Smart Recruit has four Vue frontends, an explicit `packages/shared/` frontend package, a Gin gateway, independent Go services, shared protobuf contracts, shared platform utilities, and shared Commons packages. The gateway owns HTTP routing, middleware, auth/RBAC enforcement, request limits, SSE endpoints, and generated gRPC clients. Tenant quota definitions are owned by Identity, while enforcement is shared through Commons and invoked at each owning service's write boundary.
 
 Backend responsibilities are split across Identity, Recruitment, Interview, Offer, Notification, AI Agent, Analytics, and Worker services. Shared protocol definitions live in `smart-recruit-proto/`; shared config, Nacos, gRPC, health, trace, metrics, metadata, and service binary conventions live in `smart-recruit-platform-go/`; shared migrations, MQ, OSS, email, authz/JWT helpers, resume parser, event envelope, and AI support live in `smart-recruit-commons/`.
 

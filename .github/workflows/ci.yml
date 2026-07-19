@@ -79,7 +79,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        app: [hr-frontend, user-frontend, interviewer-frontend]
+        app: [hr-frontend, user-frontend, interviewer-frontend, platform-frontend]
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
