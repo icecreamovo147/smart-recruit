@@ -140,7 +140,7 @@ func (r *OfferRepository) Transaction(ctx context.Context, fn func(ctx context.C
 
 func (r *OfferRepository) baseJoins(ctx context.Context) *gorm.DB {
 	return r.db.WithContext(ctx).Table("offers").
-		Select(`offers.id, offers.application_id, offers.candidate_user_id, offers.job_id,
+		Select(`offers.id, offers.tenant_id, offers.application_id, offers.candidate_user_id, offers.job_id,
 			offers.status, offers.title, offers.salary_range, offers.level, offers.work_location,
 			offers.start_date, offers.expires_at, offers.terms_json, offers.sent_snapshot_json,
 			offers.created_by, offers.sent_by, offers.decided_at, offers.created_at, offers.updated_at,
@@ -149,8 +149,8 @@ func (r *OfferRepository) baseJoins(ctx context.Context) *gorm.DB {
 			a.status_key AS application_status_key,
 			cu.username AS created_by_name,
 			COALESCE(su.username, '') AS sent_by_name`).
-		Joins("JOIN jobs j ON j.id = offers.job_id").
-		Joins("JOIN applications a ON a.id = offers.application_id").
+		Joins("JOIN jobs j ON j.id = offers.job_id AND j.tenant_id = offers.tenant_id").
+		Joins("JOIN applications a ON a.id = offers.application_id AND a.tenant_id = offers.tenant_id").
 		Joins("LEFT JOIN candidate_profiles cp ON cp.user_id = offers.candidate_user_id").
 		Joins("LEFT JOIN users cu ON cu.id = offers.created_by").
 		Joins("LEFT JOIN users su ON su.id = offers.sent_by")
@@ -179,6 +179,7 @@ func (w txWriter) AddEvent(ctx context.Context, event domainevent.OfferEvent) er
 
 type offerRecord struct {
 	ID               int64      `gorm:"primaryKey"`
+	TenantID         int64      `gorm:"column:tenant_id"`
 	ApplicationID    int64      `gorm:"column:application_id"`
 	CandidateUserID  int64      `gorm:"column:candidate_user_id"`
 	JobID            int64      `gorm:"column:job_id"`
@@ -202,6 +203,7 @@ func (offerRecord) TableName() string { return "offers" }
 
 type offerEventRecord struct {
 	ID               uint64    `gorm:"primaryKey"`
+	TenantID         int64     `gorm:"column:tenant_id"`
 	OfferID          int64     `gorm:"column:offer_id"`
 	EventType        string    `gorm:"column:event_type"`
 	ActorUserID      int64     `gorm:"column:actor_user_id"`
@@ -215,6 +217,7 @@ func (offerEventRecord) TableName() string { return "offer_events" }
 
 type offerDetailsRow struct {
 	ID                   int64
+	TenantID             int64
 	ApplicationID        int64
 	CandidateUserID      int64
 	JobID                int64
@@ -245,6 +248,7 @@ func toOfferRecord(offer *model.Offer) *offerRecord {
 	}
 	return &offerRecord{
 		ID:               offer.ID,
+		TenantID:         offer.TenantID,
 		ApplicationID:    offer.ApplicationID,
 		CandidateUserID:  offer.CandidateUserID,
 		JobID:            offer.JobID,
@@ -267,6 +271,7 @@ func toOfferRecord(offer *model.Offer) *offerRecord {
 
 func copyOfferRecord(offer *model.Offer, record *offerRecord) {
 	offer.ID = record.ID
+	offer.TenantID = record.TenantID
 	offer.CreatedAt = record.CreatedAt
 	offer.UpdatedAt = record.UpdatedAt
 }
@@ -276,6 +281,7 @@ func fromOfferRecord(record *offerRecord) *model.Offer {
 		return nil
 	}
 	return &model.Offer{
+		TenantID:         record.TenantID,
 		ID:               record.ID,
 		ApplicationID:    record.ApplicationID,
 		CandidateUserID:  record.CandidateUserID,
@@ -322,6 +328,7 @@ func fromOfferDetailsRows(rows []offerDetailsRow) []repository.OfferDetails {
 func offerFromDetailsRow(row *offerDetailsRow) *model.Offer {
 	return &model.Offer{
 		ID:               row.ID,
+		TenantID:         row.TenantID,
 		ApplicationID:    row.ApplicationID,
 		CandidateUserID:  row.CandidateUserID,
 		JobID:            row.JobID,
@@ -345,6 +352,7 @@ func offerFromDetailsRow(row *offerDetailsRow) *model.Offer {
 func toOfferEventRecord(event domainevent.OfferEvent) *offerEventRecord {
 	return &offerEventRecord{
 		ID:               event.ID,
+		TenantID:         event.TenantID,
 		OfferID:          event.OfferID,
 		EventType:        string(event.EventType),
 		ActorUserID:      event.ActorUserID,
@@ -358,6 +366,7 @@ func toOfferEventRecord(event domainevent.OfferEvent) *offerEventRecord {
 func fromOfferEventRecord(event offerEventRecord) domainevent.OfferEvent {
 	return domainevent.OfferEvent{
 		ID:               event.ID,
+		TenantID:         event.TenantID,
 		OfferID:          event.OfferID,
 		EventType:        domainevent.Type(event.EventType),
 		ActorUserID:      event.ActorUserID,

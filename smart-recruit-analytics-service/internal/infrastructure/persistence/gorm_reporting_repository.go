@@ -9,6 +9,7 @@ import (
 	"gorm.io/gorm"
 
 	"smart-recruit-analytics-service/internal/domain/model"
+	platformmetadata "smart-recruit-platform-go/metadata"
 )
 
 type ReportingRepository struct {
@@ -141,19 +142,23 @@ func (r *ReportingRepository) GetTimeInStage(ctx context.Context, filter model.R
 	baseSQL := `
 	WITH numbered AS (
 	    SELECT *, ROW_NUMBER() OVER (PARTITION BY application_id ORDER BY created_at) AS rn
-	    FROM application_status_transitions
+	    FROM application_status_transitions WHERE tenant_id = ?
 	)
 	SELECT t.from_status, t.to_status,
 	       AVG(TIMESTAMPDIFF(SECOND, t_prev.created_at, t.created_at)) AS avg_duration_secs,
 	       COUNT(*) AS transition_count
 	FROM numbered t
-	JOIN applications a ON a.id = t.application_id
-	JOIN jobs j ON j.id = a.job_id
+	JOIN applications a ON a.id = t.application_id AND a.tenant_id = t.tenant_id
+	JOIN jobs j ON j.id = a.job_id AND j.tenant_id = t.tenant_id
 	LEFT JOIN numbered t_prev ON t_prev.application_id = t.application_id AND t_prev.rn = t.rn - 1
 	WHERE t_prev.id IS NOT NULL`
 
 	var conditions []string
-	var args []interface{}
+	tenantID := platformmetadata.GetAuthTenantID(ctx)
+	if tenantID <= 0 {
+		return nil, fmt.Errorf("tenant context is required")
+	}
+	args := []interface{}{tenantID}
 	if where, scopeArgs := scopeFilter(jobIDs, "a"); where != "" {
 		conditions = append(conditions, where)
 		args = append(args, scopeArgs...)

@@ -36,6 +36,7 @@ import (
 	platformobs "smart-recruit-platform-go/observability"
 	"smart-recruit-platform-go/server"
 	logicconfig "smart-recruit-platform-go/serviceconfig"
+	"smart-recruit-platform-go/tenantgorm"
 	"smart-recruit-proto/recruitment/pb"
 )
 
@@ -138,6 +139,9 @@ func serveOffer(addr string) error {
 
 	offerServer, err := buildOfferServer(db)
 	if err != nil {
+		return err
+	}
+	if err := db.Use(tenantgorm.NewWithMixed([]string{"offers", "offer_events"}, []string{"event_outbox"})); err != nil {
 		return err
 	}
 	runtime, err := offerruntime.New(offerruntime.Deps{Offer: offerServer})

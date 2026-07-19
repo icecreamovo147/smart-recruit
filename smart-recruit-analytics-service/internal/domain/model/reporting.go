@@ -102,6 +102,7 @@ type InterviewOfferMetrics struct {
 }
 
 type ProjectionEvent struct {
+	TenantID      *int64
 	EventID       string
 	EventType     string
 	AggregateType string

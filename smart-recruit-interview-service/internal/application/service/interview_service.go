@@ -598,6 +598,7 @@ func candidateEmail(interview *model.Interview, snapshot *port.ApplicationSnapsh
 
 func baseMessage(interview *model.Interview, snapshot *port.ApplicationSnapshot, routingKey string, receiverID int64, receiverRole int32, accountType string, typ string, title string, content string, link string) port.OutboxMessage {
 	return port.OutboxMessage{
+		TenantID:            interview.TenantID,
 		EventType:           eventTypeForRouting(routingKey),
 		AggregateType:       "interview",
 		AggregateID:         interview.ID,

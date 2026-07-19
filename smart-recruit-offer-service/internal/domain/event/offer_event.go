@@ -15,6 +15,7 @@ const (
 
 type OfferEvent struct {
 	ID               uint64
+	TenantID         int64
 	OfferID          int64
 	EventType        Type
 	ActorUserID      int64
@@ -24,8 +25,9 @@ type OfferEvent struct {
 	CreatedAt        time.Time
 }
 
-func NewOfferEvent(offerID int64, eventType Type, actorUserID int64, actorAccountType string, reason string, createdAt time.Time) OfferEvent {
+func NewOfferEvent(tenantID int64, offerID int64, eventType Type, actorUserID int64, actorAccountType string, reason string, createdAt time.Time) OfferEvent {
 	return OfferEvent{
+		TenantID:         tenantID,
 		OfferID:          offerID,
 		EventType:        eventType,
 		ActorUserID:      actorUserID,

@@ -96,6 +96,7 @@ func createSingularInterviewFeedbackTable(db *gorm.DB) error {
 	return db.Exec(`
 CREATE TABLE interview_feedback (
 	id INTEGER PRIMARY KEY AUTOINCREMENT,
+	tenant_id INTEGER NOT NULL DEFAULT 0,
 	interview_id INTEGER NOT NULL,
 	application_id INTEGER NOT NULL,
 	interviewer_id INTEGER NOT NULL,

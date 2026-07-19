@@ -254,6 +254,10 @@ func (f *fakeAuthClient) RefreshToken(context.Context, *pb.RefreshTokenRequest, 
 	panic("unexpected RefreshToken call")
 }
 
+func (f *fakeAuthClient) SwitchTenant(context.Context, *pb.SwitchTenantRequest, ...gogrpc.CallOption) (*pb.LoginResponse, error) {
+	panic("unexpected SwitchTenant call")
+}
+
 func (f *fakeAuthClient) RevokeRefreshToken(context.Context, *pb.RevokeRefreshTokenRequest, ...gogrpc.CallOption) (*pb.CommonResponse, error) {
 	panic("unexpected RevokeRefreshToken call")
 }

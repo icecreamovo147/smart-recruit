@@ -18,6 +18,7 @@ var (
 
 type Offer struct {
 	ID               int64
+	TenantID         int64
 	ApplicationID    int64
 	CandidateUserID  int64
 	JobID            int64

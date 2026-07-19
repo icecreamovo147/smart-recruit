@@ -39,6 +39,7 @@ import (
 	platformobs "smart-recruit-platform-go/observability"
 	"smart-recruit-platform-go/server"
 	logicconfig "smart-recruit-platform-go/serviceconfig"
+	"smart-recruit-platform-go/tenantgorm"
 	"smart-recruit-proto/recruitment/pb"
 )
 
@@ -116,6 +117,9 @@ func serveNotification(addr string) error {
 	})
 	if err != nil {
 		return fmt.Errorf("connect mysql: %w", err)
+	}
+	if err := db.Use(tenantgorm.NewWithMixed(nil, []string{"notifications", "email_logs", "event_inbox", "event_outbox"})); err != nil {
+		return err
 	}
 	sqlDB, err := db.DB()
 	if err != nil {

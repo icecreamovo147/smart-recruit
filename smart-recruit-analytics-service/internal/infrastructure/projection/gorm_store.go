@@ -24,6 +24,7 @@ func (s *Store) SaveProjectionEvent(ctx context.Context, event model.ProjectionE
 		payload = "{}"
 	}
 	row := projectionEventRow{
+		TenantID:       event.TenantID,
 		ProjectionName: "analytics-reporting",
 		Source:         "domain_event",
 		EventID:        event.EventID,
@@ -61,6 +62,7 @@ func (s *Store) SaveCheckpoint(ctx context.Context, checkpoint model.ProjectionC
 
 type projectionEventRow struct {
 	ID             uint64    `gorm:"primaryKey"`
+	TenantID       *int64    `gorm:"column:tenant_id"`
 	ProjectionName string    `gorm:"column:projection_name"`
 	Source         string    `gorm:"column:source"`
 	EventID        string    `gorm:"column:event_id;uniqueIndex:uk_analytics_projection_event"`

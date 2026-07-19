@@ -74,6 +74,7 @@ type ApplicationLifecycle interface {
 }
 
 type OutboxMessage struct {
+	TenantID            int64
 	EventType           string
 	AggregateType       string
 	AggregateID         int64

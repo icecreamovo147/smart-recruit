@@ -27,6 +27,7 @@ const (
 
 type llmModelRecord struct {
 	ID                      int64          `gorm:"primaryKey"`
+	TenantID                *int64         `gorm:"column:tenant_id"`
 	ProviderID              int64          `gorm:"column:provider_id"`
 	ModelName               string         `gorm:"column:model_name"`
 	CatalogModelName        sql.NullString `gorm:"column:catalog_model_name"`
@@ -55,6 +56,7 @@ func (llmModelRecord) TableName() string { return "llm_models" }
 
 type promptVersionRecord struct {
 	ID         int64          `gorm:"primaryKey"`
+	TenantID   *int64         `gorm:"column:tenant_id"`
 	TemplateID int64          `gorm:"column:template_id"`
 	Version    int            `gorm:"column:version"`
 	Content    string         `gorm:"column:content"`
@@ -67,6 +69,7 @@ func (promptVersionRecord) TableName() string { return "prompt_versions" }
 
 type agentConfigRecord struct {
 	ID                  int64           `gorm:"primaryKey"`
+	TenantID            *int64          `gorm:"column:tenant_id"`
 	Name                string          `gorm:"column:name"`
 	DisplayName         string          `gorm:"column:display_name"`
 	Description         sql.NullString  `gorm:"column:description"`
@@ -85,6 +88,7 @@ func (agentConfigRecord) TableName() string { return "agent_configs" }
 
 type agentToolBindingRecord struct {
 	ID        int64     `gorm:"primaryKey"`
+	TenantID  *int64    `gorm:"column:tenant_id"`
 	AgentID   int64     `gorm:"column:agent_id"`
 	ToolName  string    `gorm:"column:tool_name"`
 	IsEnabled bool      `gorm:"column:is_enabled"`
@@ -95,6 +99,7 @@ func (agentToolBindingRecord) TableName() string { return "agent_tool_bindings" 
 
 type agentCapabilityBindingRecord struct {
 	ID               int64          `gorm:"primaryKey"`
+	TenantID         *int64         `gorm:"column:tenant_id"`
 	AgentID          int64          `gorm:"column:agent_id"`
 	CapabilitySource string         `gorm:"column:capability_source"`
 	CapabilityKey    string         `gorm:"column:capability_key"`
@@ -109,6 +114,7 @@ func (agentCapabilityBindingRecord) TableName() string { return "agent_capabilit
 
 type embeddingModelRecord struct {
 	ID              int64          `gorm:"primaryKey"`
+	TenantID        *int64         `gorm:"column:tenant_id"`
 	ProviderID      int64          `gorm:"column:provider_id"`
 	ModelName       string         `gorm:"column:model_name"`
 	DisplayName     string         `gorm:"column:display_name"`
@@ -130,6 +136,7 @@ func (embeddingModelRecord) TableName() string { return "embedding_models" }
 
 type aiEmbeddingRecord struct {
 	ID             int64          `gorm:"primaryKey"`
+	TenantID       *int64         `gorm:"column:tenant_id"`
 	ObjectType     string         `gorm:"column:object_type"`
 	ObjectID       int64          `gorm:"column:object_id"`
 	ScopeType      string         `gorm:"column:scope_type"`

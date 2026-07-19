@@ -250,6 +250,7 @@ func (r *UserDirectory) GetEmailRecipient(ctx context.Context, userID int64) (*m
 
 type notificationRow struct {
 	ID                  int64      `gorm:"primaryKey"`
+	TenantID            *int64     `gorm:"column:tenant_id"`
 	EventID             *string    `gorm:"column:event_id;uniqueIndex:uk_notification_event_id"`
 	ReceiverID          int64      `gorm:"column:receiver_id;uniqueIndex:uk_notification_once,priority:1"`
 	ReceiverAccountType string     `gorm:"column:receiver_account_type;uniqueIndex:uk_notification_once,priority:2"`
@@ -269,6 +270,7 @@ func (notificationRow) TableName() string { return "notifications" }
 
 type emailLogRow struct {
 	ID        int64     `gorm:"primaryKey"`
+	TenantID  *int64    `gorm:"column:tenant_id"`
 	EventID   string    `gorm:"column:event_id;uniqueIndex:uk_email_event_id"`
 	UserID    int64     `gorm:"column:user_id"`
 	Email     string    `gorm:"column:email"`
@@ -284,6 +286,7 @@ func (emailLogRow) TableName() string { return "email_logs" }
 
 type inboxRow struct {
 	ID             uint64     `gorm:"primaryKey"`
+	TenantID       *int64     `gorm:"column:tenant_id"`
 	EventID        string     `gorm:"column:event_id;size:128;uniqueIndex:uk_event_inbox_consumer_event,priority:2"`
 	EventType      string     `gorm:"column:event_type;size:128"`
 	ConsumerName   string     `gorm:"column:consumer_name;size:128;uniqueIndex:uk_event_inbox_consumer_event,priority:1;index:idx_event_inbox_consumer_status,priority:1"`

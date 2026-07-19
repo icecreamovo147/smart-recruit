@@ -27,6 +27,7 @@ import (
 	platformobs "smart-recruit-platform-go/observability"
 	"smart-recruit-platform-go/server"
 	logicconfig "smart-recruit-platform-go/serviceconfig"
+	"smart-recruit-platform-go/tenantgorm"
 	"smart-recruit-proto/recruitment/pb"
 	recruitmentpersistence "smart-recruit-recruitment-service/internal/infrastructure/persistence"
 	recruitmentruntime "smart-recruit-recruitment-service/internal/runtime"
@@ -110,6 +111,12 @@ func serveRecruitment(addr string) error {
 
 	db, err := gorm.Open(mysql.Open(cfg.MySQL.DSN), &gorm.Config{})
 	if err != nil {
+		return err
+	}
+	if err := db.Use(tenantgorm.NewWithMixed(
+		[]string{"jobs", "applications", "application_status_transitions", "invite_codes", "departments", "job_locations", "department_locations", "candidate_notes", "candidate_tags", "candidate_tag_assignments", "follow_up_tasks", "interview_schedules", "interview_feedback", "offers", "offer_events"},
+		[]string{"event_outbox", "third_party_usage_logs"},
+	)); err != nil {
 		return err
 	}
 	sqlDB, err := db.DB()

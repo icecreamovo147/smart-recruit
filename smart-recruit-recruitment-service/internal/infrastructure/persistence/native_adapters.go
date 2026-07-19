@@ -178,6 +178,7 @@ var (
 
 type jobRecord struct {
 	ID           int64 `gorm:"primaryKey"`
+	TenantID     int64
 	HrID         int64 `gorm:"column:hr_id"`
 	Title        string
 	Department   string
@@ -196,6 +197,7 @@ func (jobRecord) TableName() string { return "jobs" }
 
 type departmentRecord struct {
 	ID               int64 `gorm:"primaryKey"`
+	TenantID         int64
 	ParentID         int64
 	Name             string
 	FullName         string
@@ -216,6 +218,7 @@ func (departmentRecord) TableName() string { return "departments" }
 
 type jobLocationRecord struct {
 	ID        int64 `gorm:"primaryKey"`
+	TenantID  int64
 	Name      string
 	Code      *string
 	SortOrder int
@@ -263,6 +266,7 @@ func (resumeRecord) TableName() string { return "resumes" }
 
 type applicationRecord struct {
 	ID        int64 `gorm:"primaryKey"`
+	TenantID  int64
 	UserID    int64
 	JobID     int64
 	ResumeID  int64
@@ -278,6 +282,7 @@ func (applicationRecord) TableName() string { return "applications" }
 
 type applicationDetailRow struct {
 	ApplicationID int64
+	TenantID      int64
 	UserID        int64
 	JobID         int64
 	JobTitle      string
@@ -302,6 +307,7 @@ type applicationDetailRow struct {
 
 type applicationTransitionRecord struct {
 	ID               uint64 `gorm:"primaryKey"`
+	TenantID         int64
 	ApplicationID    int64
 	FromStatus       string
 	ToStatus         string
@@ -350,6 +356,7 @@ type candidateWorkspaceOfferRow struct {
 
 type inviteCodeRecord struct {
 	ID        int64 `gorm:"primaryKey"`
+	TenantID  int64
 	Code      string
 	CreatedBy int64
 	ExpiresAt *time.Time
@@ -361,6 +368,7 @@ func (inviteCodeRecord) TableName() string { return "invite_codes" }
 
 type usageLogRecord struct {
 	ID              int64 `gorm:"primaryKey"`
+	TenantID        *int64
 	UserID          int64
 	Role            int32
 	ServiceType     string
@@ -384,6 +392,7 @@ func (usageLogRecord) TableName() string { return "third_party_usage_logs" }
 
 type departmentLocationRecord struct {
 	ID           int64 `gorm:"primaryKey"`
+	TenantID     int64
 	DepartmentID int64
 	LocationID   int64
 	IsActive     int32
@@ -399,6 +408,7 @@ func (departmentLocationRecord) TableName() string { return "department_location
 
 type candidateNoteRecord struct {
 	ID              uint64 `gorm:"primaryKey"`
+	TenantID        int64
 	CandidateUserID uint64
 	ApplicationID   *uint64
 	AuthorUserID    uint64
@@ -412,6 +422,7 @@ func (candidateNoteRecord) TableName() string { return "candidate_notes" }
 
 type candidateTagRecord struct {
 	ID        uint64 `gorm:"primaryKey"`
+	TenantID  int64
 	Name      string
 	Color     string
 	CreatedBy *uint64
@@ -422,6 +433,7 @@ func (candidateTagRecord) TableName() string { return "candidate_tags" }
 
 type candidateTagAssignmentRecord struct {
 	ID              uint64 `gorm:"primaryKey"`
+	TenantID        int64
 	TagID           uint64
 	CandidateUserID uint64
 	CreatedBy       *uint64
@@ -432,6 +444,7 @@ func (candidateTagAssignmentRecord) TableName() string { return "candidate_tag_a
 
 type followUpTaskRecord struct {
 	ID              uint64 `gorm:"primaryKey"`
+	TenantID        int64
 	CandidateUserID uint64
 	ApplicationID   *uint64
 	AssigneeUserID  uint64
@@ -449,6 +462,7 @@ func (followUpTaskRecord) TableName() string { return "follow_up_tasks" }
 
 type eventOutboxRecord struct {
 	ID             uint64 `gorm:"primaryKey"`
+	TenantID       *int64
 	EventID        string
 	SchemaVersion  string
 	EventType      string
@@ -849,7 +863,7 @@ func (a *applicationAdapter) ApplyJob(ctx context.Context, req *pb.ApplyJobReque
 		return &pb.CommonResponse{Code: errs.ErrJobNotAvailable, Msg: "该岗位已下架或不存在，无法投递"}, nil
 	}
 	now := a.now()
-	app := &applicationRecord{UserID: req.UserId, JobID: req.JobId, ResumeID: resume.ID, Status: 0, StatusKey: domainmodel.StatusKeyApplied, RoundNo: 1, IsCurrent: 1, AppliedAt: now, UpdatedAt: now}
+	app := &applicationRecord{TenantID: job.TenantID, UserID: req.UserId, JobID: req.JobId, ResumeID: resume.ID, Status: 0, StatusKey: domainmodel.StatusKeyApplied, RoundNo: 1, IsCurrent: 1, AppliedAt: now, UpdatedAt: now}
 	err := a.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		if err := tx.Create(app).Error; err != nil {
 			return err
@@ -937,6 +951,7 @@ func (a *applicationAdapter) UpdateApplicationStatus(ctx context.Context, req *p
 type applicationStatusChangeCommand struct {
 	actorUserID        int64
 	actorAccountType   string
+	trustedOwnerCall   bool
 	applicationID      int64
 	targetStatusKey    string
 	legacyTargetStatus int32
@@ -966,7 +981,8 @@ func (a *applicationAdapter) applyApplicationStatusChange(ctx context.Context, c
 		return applicationStatusChangeResult{}, &pb.CommonResponse{Code: errs.ErrForbidden, Msg: "该投递记录不存在或无权限访问"}, nil
 	}
 	var staffScope recruitmentScope
-	if actorAccountType == "staff" {
+	enforceStaffScope := actorAccountType == "staff" && !cmd.trustedOwnerCall
+	if enforceStaffScope {
 		staffScope, err = a.checkRecruitmentJobScope(ctx, cmd.actorUserID, detail.JobID)
 		if err != nil {
 			return applicationStatusChangeResult{}, nil, err
@@ -1001,7 +1017,7 @@ func (a *applicationAdapter) applyApplicationStatusChange(ctx context.Context, c
 			updates["is_current"] = 0
 		}
 		query := tx.Model(&applicationRecord{}).Where("id = ?", cmd.applicationID)
-		if actorAccountType == "staff" {
+		if enforceStaffScope {
 			query = applyRecruitmentScopeToApplicationMutationQuery(query, staffScope)
 		}
 		if detail.StatusKey == "" {
@@ -1022,11 +1038,12 @@ func (a *applicationAdapter) applyApplicationStatusChange(ctx context.Context, c
 			if cancelReason == "" {
 				cancelReason = "投递状态变更为" + domainmodel.HRStatusLabels[targetKey]
 			}
-			if err := a.cancelActiveInterviewsTx(tx, cmd.applicationID, cancelReason); err != nil {
+			if err := a.cancelActiveInterviewsTx(tx, detail.TenantID, cmd.applicationID, cancelReason); err != nil {
 				return err
 			}
 		}
 		transition := &applicationTransitionRecord{
+			TenantID:         detail.TenantID,
 			ApplicationID:    cmd.applicationID,
 			FromStatus:       currentKey,
 			ToStatus:         targetKey,
@@ -1096,9 +1113,9 @@ func normalizeActorAccountType(value string) (string, error) {
 	}
 }
 
-func (a *nativeStore) cancelActiveInterviewsTx(tx *gorm.DB, applicationID int64, reason string) error {
+func (a *nativeStore) cancelActiveInterviewsTx(tx *gorm.DB, tenantID, applicationID int64, reason string) error {
 	return tx.Table("interview_schedules").
-		Where("application_id = ? AND status IN ? AND deleted_at IS NULL", applicationID, []string{"pending", "scheduled"}).
+		Where("tenant_id = ? AND application_id = ? AND status IN ? AND deleted_at IS NULL", tenantID, applicationID, []string{"pending", "scheduled"}).
 		Updates(map[string]any{
 			"status":        "cancelled",
 			"cancel_reason": reason,
@@ -1181,6 +1198,7 @@ func (a *applicationOwnerAdapter) ApplyApplicationLifecycleTransition(ctx contex
 	result, resp, err := a.applyApplicationStatusChange(ctx, applicationStatusChangeCommand{
 		actorUserID:        req.ActorUserId,
 		actorAccountType:   actorAccountType,
+		trustedOwnerCall:   isTrustedLifecycleOwner(ctx),
 		applicationID:      req.ApplicationId,
 		targetStatusKey:    req.TargetStatusKey,
 		legacyTargetStatus: req.LegacyTargetStatus,
@@ -1196,9 +1214,14 @@ func (a *applicationOwnerAdapter) ApplyApplicationLifecycleTransition(ctx contex
 	return &pb.ApplyApplicationLifecycleTransitionResponse{Code: errs.OK, Msg: "success", Changed: true, FromStatusKey: result.FromStatusKey, CurrentStatusKey: result.CurrentStatusKey}, nil
 }
 
+func isTrustedLifecycleOwner(ctx context.Context) bool {
+	return metadata.GetAuthAccountType(ctx) == "service" &&
+		metadata.GetAuthClientApp(ctx) == "interview-service"
+}
+
 func (a *nativeStore) applicationDetails() *gorm.DB {
 	return a.db.Table("applications a").
-		Select(`a.id AS application_id, a.user_id, a.job_id, j.title AS job_title, COALESCE(j.department, '') AS department, COALESCE(j.location, '') AS location, COALESCE(cp.real_name, CONCAT('候选人', a.user_id)) AS real_name,
+		Select(`a.id AS application_id, a.tenant_id, a.user_id, a.job_id, j.title AS job_title, COALESCE(j.department, '') AS department, COALESCE(j.location, '') AS location, COALESCE(cp.real_name, CONCAT('候选人', a.user_id)) AS real_name,
 			COALESCE(cp.phone, '') AS phone, COALESCE(cp.education, '') AS education, COALESCE(cp.school, '') AS school, COALESCE(cp.skills, '') AS skills,
 			a.resume_id, COALESCE(r.oss_key, '') AS oss_key, COALESCE(r.file_name, '') AS file_name, COALESCE(r.file_type, '') AS file_type,
 			a.status, a.status_key, a.round_no, a.is_current, a.applied_at, a.updated_at`).
@@ -2076,30 +2099,34 @@ func (a *collaborationAdapter) latestCandidateCollaborationActivity(ctx context.
 	}
 	query := `
 		SELECT MAX(activity_at) AS activity_at FROM (
-			SELECT applied_at AS activity_at FROM applications WHERE user_id = ?
+			SELECT applied_at AS activity_at FROM applications WHERE tenant_id = @tenant_id AND user_id = @candidate_id
 			UNION ALL
-			SELECT updated_at AS activity_at FROM applications WHERE user_id = ?
+			SELECT updated_at AS activity_at FROM applications WHERE tenant_id = @tenant_id AND user_id = @candidate_id
 			UNION ALL
-			SELECT i.created_at AS activity_at FROM interview_schedules i JOIN applications a ON a.id = i.application_id WHERE a.user_id = ? AND i.deleted_at IS NULL
+			SELECT i.created_at AS activity_at FROM interview_schedules i JOIN applications a ON a.id = i.application_id AND a.tenant_id = i.tenant_id WHERE i.tenant_id = @tenant_id AND a.user_id = @candidate_id AND i.deleted_at IS NULL
 			UNION ALL
-			SELECT i.updated_at AS activity_at FROM interview_schedules i JOIN applications a ON a.id = i.application_id WHERE a.user_id = ? AND i.deleted_at IS NULL
+			SELECT i.updated_at AS activity_at FROM interview_schedules i JOIN applications a ON a.id = i.application_id AND a.tenant_id = i.tenant_id WHERE i.tenant_id = @tenant_id AND a.user_id = @candidate_id AND i.deleted_at IS NULL
 			UNION ALL
-			SELECT f.submitted_at AS activity_at FROM interview_feedback f JOIN applications a ON a.id = f.application_id WHERE a.user_id = ?
+			SELECT f.submitted_at AS activity_at FROM interview_feedback f JOIN applications a ON a.id = f.application_id AND a.tenant_id = f.tenant_id WHERE f.tenant_id = @tenant_id AND a.user_id = @candidate_id
 			UNION ALL
-			SELECT f.updated_at AS activity_at FROM interview_feedback f JOIN applications a ON a.id = f.application_id WHERE a.user_id = ?
+			SELECT f.updated_at AS activity_at FROM interview_feedback f JOIN applications a ON a.id = f.application_id AND a.tenant_id = f.tenant_id WHERE f.tenant_id = @tenant_id AND a.user_id = @candidate_id
 			UNION ALL
-			SELECT o.created_at AS activity_at FROM offers o WHERE o.candidate_user_id = ?
+			SELECT o.created_at AS activity_at FROM offers o WHERE o.tenant_id = @tenant_id AND o.candidate_user_id = @candidate_id
 			UNION ALL
-			SELECT o.updated_at AS activity_at FROM offers o WHERE o.candidate_user_id = ?
+			SELECT o.updated_at AS activity_at FROM offers o WHERE o.tenant_id = @tenant_id AND o.candidate_user_id = @candidate_id
 			UNION ALL
-			SELECT o.decided_at AS activity_at FROM offers o WHERE o.candidate_user_id = ? AND o.decided_at IS NOT NULL
+			SELECT o.decided_at AS activity_at FROM offers o WHERE o.tenant_id = @tenant_id AND o.candidate_user_id = @candidate_id AND o.decided_at IS NOT NULL
 			UNION ALL
-			SELECT cn.created_at AS activity_at FROM candidate_notes cn WHERE cn.candidate_user_id = ?
+			SELECT cn.created_at AS activity_at FROM candidate_notes cn WHERE cn.tenant_id = @tenant_id AND cn.candidate_user_id = @candidate_id
 			UNION ALL
-			SELECT ast.created_at AS activity_at FROM application_status_transitions ast JOIN applications a ON a.id = ast.application_id WHERE a.user_id = ?
+			SELECT ast.created_at AS activity_at FROM application_status_transitions ast JOIN applications a ON a.id = ast.application_id AND a.tenant_id = ast.tenant_id WHERE ast.tenant_id = @tenant_id AND a.user_id = @candidate_id
 		) candidate_activity
 	`
-	err := a.db.WithContext(ctx).Raw(query, candidateUserID, candidateUserID, candidateUserID, candidateUserID, candidateUserID, candidateUserID, candidateUserID, candidateUserID, candidateUserID, candidateUserID, candidateUserID).Scan(&latest).Error
+	tenantID := metadata.GetAuthTenantID(ctx)
+	if tenantID <= 0 {
+		return nil, fmt.Errorf("tenant context is required")
+	}
+	err := a.db.WithContext(ctx).Raw(query, sql.Named("tenant_id", tenantID), sql.Named("candidate_id", candidateUserID)).Scan(&latest).Error
 	if err != nil {
 		return nil, err
 	}
@@ -2410,6 +2437,13 @@ func (a *nativeStore) writeOutboxTx(tx *gorm.DB, eventType, aggregateType string
 	payloadMap["event_id"] = eventID
 	payloadMap["event_type"] = eventType
 	payloadMap["idempotency_key"] = idempotencyKey
+	tenantID := metadata.GetAuthTenantID(tx.Statement.Context)
+	if tenantID <= 0 && aggregateType == "application" {
+		_ = tx.Model(&applicationRecord{}).Select("tenant_id").Where("id = ?", aggregateID).Scan(&tenantID).Error
+	}
+	if tenantID > 0 {
+		payloadMap["tenant_id"] = tenantID
+	}
 	data, err := json.Marshal(payloadMap)
 	if err != nil {
 		return err
@@ -2418,6 +2452,9 @@ func (a *nativeStore) writeOutboxTx(tx *gorm.DB, eventType, aggregateType string
 		EventID: eventID, SchemaVersion: "1.0", EventType: eventType, AggregateType: aggregateType, AggregateID: aggregateID,
 		RoutingKey: routingKey, Producer: "recruitment-service", IdempotencyKey: idempotencyKey,
 		Payload: string(data), Metadata: "{}", Status: 0, CreatedAt: a.now(), UpdatedAt: a.now(),
+	}
+	if tenantID > 0 {
+		row.TenantID = &tenantID
 	}
 	return tx.Create(row).Error
 }

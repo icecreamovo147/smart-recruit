@@ -4,6 +4,8 @@ import (
 	"context"
 	"fmt"
 
+	grpcmetadata "google.golang.org/grpc/metadata"
+
 	"smart-recruit-interview-service/internal/application/port"
 	"smart-recruit-interview-service/internal/domain/model"
 	"smart-recruit-platform-go/errs"
@@ -49,7 +51,7 @@ func NewApplicationLifecycleAdapter(applications pb.ApplicationOwnerServiceClien
 }
 
 func (a *ApplicationLifecycleAdapter) ApplyTransition(ctx context.Context, command port.LifecycleTransitionCommand) (bool, error) {
-	resp, err := a.applications.ApplyApplicationLifecycleTransition(ctx, &pb.ApplyApplicationLifecycleTransitionRequest{
+	resp, err := a.applications.ApplyApplicationLifecycleTransition(withLifecycleServiceAuthorization(ctx), &pb.ApplyApplicationLifecycleTransitionRequest{
 		ActorUserId:       command.ActorUserID,
 		ActorAccountType:  command.ActorAccountType,
 		ApplicationId:     command.ApplicationID,
@@ -64,6 +66,20 @@ func (a *ApplicationLifecycleAdapter) ApplyTransition(ctx context.Context, comma
 		return false, fmt.Errorf("apply application lifecycle transition: %s", resp.Msg)
 	}
 	return resp.Changed, nil
+}
+
+// withLifecycleServiceAuthorization separates the trusted internal caller from
+// the business actor recorded in the request. The recruitment owner contract
+// authorizes Interview Service as the caller, while ActorUserId and
+// ActorAccountType continue to identify the interviewer in lifecycle audit rows.
+func withLifecycleServiceAuthorization(ctx context.Context) context.Context {
+	incoming, _ := grpcmetadata.FromIncomingContext(ctx)
+	forwarded := incoming.Copy()
+	forwarded.Delete("x-authenticated-user-id")
+	forwarded.Delete("x-authenticated-membership-id")
+	forwarded.Set("x-authenticated-account-type", "service")
+	forwarded.Set("x-authenticated-client-app", "interview-service")
+	return grpcmetadata.NewIncomingContext(ctx, forwarded)
 }
 
 func zeroAsNil(value int64) *int64 {

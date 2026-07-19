@@ -13,6 +13,7 @@ import (
 	appservice "smart-recruit-notification-service/internal/application/service"
 	"smart-recruit-notification-service/internal/domain/repository"
 	"smart-recruit-platform-go/logger"
+	platformmetadata "smart-recruit-platform-go/metadata"
 )
 
 const (
@@ -47,6 +48,7 @@ func (c *NotificationConsumer) Start(ctx context.Context, mqConn *sharedmq.Conn)
 			logger.L().Error("notification consumer: invalid payload", zap.Error(err))
 			return fmt.Errorf("invalid payload: %w", err)
 		}
+		ctx = tenantContextFromPayload(ctx, normalized)
 		return appservice.RunWithInbox(ctx, c.inbox, notificationConsumerName, normalized, func() error {
 			return c.handleNormalized(ctx, normalized)
 		})
@@ -90,6 +92,7 @@ func (c *EmailConsumer) Start(ctx context.Context, mqConn *sharedmq.Conn) error 
 			logger.L().Error("email consumer: invalid payload", zap.Error(err))
 			return fmt.Errorf("invalid payload: %w", err)
 		}
+		ctx = tenantContextFromPayload(ctx, normalized)
 		return appservice.RunWithInbox(ctx, c.inbox, emailConsumerName, normalized, func() error {
 			return c.handleNormalized(ctx, normalized)
 		})
@@ -126,6 +129,7 @@ func normalizeMessagePayload(body []byte) ([]byte, error) {
 		promoteRootField(root, payload, "event_id")
 		promoteRootField(root, payload, "idempotency_key")
 		promoteRootField(root, payload, "event_type")
+		promoteRootField(root, payload, "tenant_id")
 		if _, ok := payload["event_type"]; !ok {
 			if rawType, ok := root["type"]; ok {
 				payload["event_type"] = rawType
@@ -134,6 +138,16 @@ func normalizeMessagePayload(body []byte) ([]byte, error) {
 	}
 	applyLegacyAliases(payload)
 	return json.Marshal(payload)
+}
+
+func tenantContextFromPayload(ctx context.Context, body []byte) context.Context {
+	var envelope struct {
+		TenantID int64 `json:"tenant_id"`
+	}
+	if json.Unmarshal(body, &envelope) == nil && envelope.TenantID > 0 {
+		return platformmetadata.WithTenantActor(ctx, platformmetadata.TenantContext{TenantID: envelope.TenantID, AccountType: "service", ClientApp: "service"})
+	}
+	return ctx
 }
 
 func payloadObject(body []byte) (map[string]json.RawMessage, map[string]json.RawMessage, bool, error) {

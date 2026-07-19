@@ -15,6 +15,7 @@ import (
 
 type candidateEvaluationTestRow struct {
 	ID                 uint64          `gorm:"primaryKey"`
+	TenantID           int64           `gorm:"column:tenant_id"`
 	ApplicationID      int64           `gorm:"column:application_id"`
 	JobID              int64           `gorm:"column:job_id"`
 	CandidateUserID    int64           `gorm:"column:candidate_user_id"`
@@ -38,6 +39,7 @@ func (candidateEvaluationTestRow) TableName() string { return "candidate_match_e
 
 type candidateEvidenceTestRow struct {
 	ID           uint64          `gorm:"primaryKey"`
+	TenantID     int64           `gorm:"column:tenant_id"`
 	EvaluationID uint64          `gorm:"column:evaluation_id"`
 	EvidenceType string          `gorm:"column:evidence_type"`
 	Dimension    sql.NullString  `gorm:"column:dimension"`

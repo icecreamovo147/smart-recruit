@@ -37,6 +37,7 @@ import (
 	platformobs "smart-recruit-platform-go/observability"
 	"smart-recruit-platform-go/server"
 	logicconfig "smart-recruit-platform-go/serviceconfig"
+	"smart-recruit-platform-go/tenantgorm"
 	"smart-recruit-proto/recruitment/pb"
 )
 
@@ -139,6 +140,12 @@ func serveInterview(addr string) error {
 
 	interviewServer, err := buildInterviewServer(db, cfg)
 	if err != nil {
+		return err
+	}
+	if err := db.Use(tenantgorm.NewWithMixed(
+		[]string{"interview_schedules", "interview_feedback"},
+		[]string{"event_outbox"},
+	)); err != nil {
 		return err
 	}
 	runtime, err := interviewruntime.New(interviewruntime.Deps{Interview: interviewServer})

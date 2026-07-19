@@ -1,6 +1,7 @@
 package command
 
 type CreateNotification struct {
+	TenantID            int64  `json:"tenant_id,omitempty"`
 	EventID             string `json:"event_id,omitempty"`
 	IdempotencyKey      string `json:"idempotency_key,omitempty"`
 	ReceiverID          int64  `json:"receiver_id,omitempty"`
@@ -28,6 +29,7 @@ type MarkAllRead struct {
 }
 
 type EmailMessage struct {
+	TenantID            int64  `json:"tenant_id,omitempty"`
 	EventID             string `json:"event_id,omitempty"`
 	IdempotencyKey      string `json:"idempotency_key,omitempty"`
 	ReceiverID          int64  `json:"receiver_id,omitempty"`

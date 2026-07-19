@@ -463,6 +463,7 @@ func (f *lifecycleFixture) assertCount(t *testing.T, model any, want int64) {
 
 type lifecycleInterviewScheduleRecord struct {
 	ID            int64 `gorm:"primaryKey"`
+	TenantID      int64
 	ApplicationID int64
 	InterviewerID int64
 	RoundNo       int32

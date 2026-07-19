@@ -25,6 +25,7 @@ func NewStore(db *gorm.DB) *Store {
 
 type inboxRow struct {
 	ID             uint64     `gorm:"primaryKey"`
+	TenantID       *int64     `gorm:"column:tenant_id"`
 	EventID        string     `gorm:"column:event_id;size:128"`
 	EventType      string     `gorm:"column:event_type;size:128"`
 	ConsumerName   string     `gorm:"column:consumer_name;size:128"`

@@ -119,7 +119,7 @@ func (s *OfferService) CreateOffer(ctx context.Context, cmd command.CreateOffer)
 				return err
 			}
 		}
-		if err := writer.AddEvent(txCtx, domainevent.NewOfferEvent(offer.ID, domainevent.TypeCreated, cmd.HRID, "staff", "", now)); err != nil {
+		if err := writer.AddEvent(txCtx, domainevent.NewOfferEvent(offer.TenantID, offer.ID, domainevent.TypeCreated, cmd.HRID, "staff", "", now)); err != nil {
 			return err
 		}
 		return s.outbox.Publish(txCtx, candidateNotification(offer, snapshot.JobTitle, "offer_created", "Offer 已生成",
@@ -162,7 +162,7 @@ func (s *OfferService) UpdateOffer(ctx context.Context, cmd command.UpdateOffer)
 		if err := writer.Save(txCtx, offer); err != nil {
 			return err
 		}
-		return writer.AddEvent(txCtx, domainevent.NewOfferEvent(offer.ID, domainevent.TypeUpdated, cmd.HRID, "staff", "", now))
+		return writer.AddEvent(txCtx, domainevent.NewOfferEvent(offer.TenantID, offer.ID, domainevent.TypeUpdated, cmd.HRID, "staff", "", now))
 	})
 }
 
@@ -205,7 +205,7 @@ func (s *OfferService) SendOffer(ctx context.Context, cmd command.SendOffer) err
 		}); err != nil {
 			return err
 		}
-		if err := writer.AddEvent(txCtx, domainevent.NewOfferEvent(offer.ID, domainevent.TypeSent, cmd.HRID, "staff", "", now)); err != nil {
+		if err := writer.AddEvent(txCtx, domainevent.NewOfferEvent(offer.TenantID, offer.ID, domainevent.TypeSent, cmd.HRID, "staff", "", now)); err != nil {
 			return err
 		}
 		content := fmt.Sprintf("您投递的「%s」岗位的 Offer 已发送，请及时查看并做出决定。", snapshot.JobTitle)
@@ -267,7 +267,7 @@ func (s *OfferService) WithdrawOffer(ctx context.Context, cmd command.WithdrawOf
 				return err
 			}
 		}
-		if err := writer.AddEvent(txCtx, domainevent.NewOfferEvent(offer.ID, domainevent.TypeWithdrawn, cmd.HRID, "staff", cmd.Reason, now)); err != nil {
+		if err := writer.AddEvent(txCtx, domainevent.NewOfferEvent(offer.TenantID, offer.ID, domainevent.TypeWithdrawn, cmd.HRID, "staff", cmd.Reason, now)); err != nil {
 			return err
 		}
 		reason := cmd.Reason
@@ -323,7 +323,7 @@ func (s *OfferService) AcceptOffer(ctx context.Context, cmd command.AcceptOffer)
 		}); err != nil {
 			return err
 		}
-		if err := writer.AddEvent(txCtx, domainevent.NewOfferEvent(offer.ID, domainevent.TypeAccepted, cmd.UserID, "candidate", "", now)); err != nil {
+		if err := writer.AddEvent(txCtx, domainevent.NewOfferEvent(offer.TenantID, offer.ID, domainevent.TypeAccepted, cmd.UserID, "candidate", "", now)); err != nil {
 			return err
 		}
 		if offer.SentBy == nil {
@@ -377,7 +377,7 @@ func (s *OfferService) RejectOffer(ctx context.Context, cmd command.RejectOffer)
 		}); err != nil {
 			return err
 		}
-		if err := writer.AddEvent(txCtx, domainevent.NewOfferEvent(offer.ID, domainevent.TypeRejected, cmd.UserID, "candidate", cmd.Reason, now)); err != nil {
+		if err := writer.AddEvent(txCtx, domainevent.NewOfferEvent(offer.TenantID, offer.ID, domainevent.TypeRejected, cmd.UserID, "candidate", cmd.Reason, now)); err != nil {
 			return err
 		}
 		if offer.SentBy == nil {
@@ -498,6 +498,7 @@ func (s *OfferService) applyLifecycle(ctx context.Context, command port.Lifecycl
 
 func candidateNotification(offer *model.Offer, jobTitle string, typ string, title string, content string) port.OutboxMessage {
 	return port.OutboxMessage{
+		TenantID:            offer.TenantID,
 		EventType:           "offer.notification_requested",
 		AggregateType:       "offer",
 		AggregateID:         offer.ID,
@@ -524,6 +525,7 @@ func candidateEmail(offer *model.Offer, jobTitle string, typ string, title strin
 
 func staffNotification(offer *model.Offer, receiverID int64, jobTitle string, typ string, title string, content string) port.OutboxMessage {
 	return port.OutboxMessage{
+		TenantID:            offer.TenantID,
 		EventType:           "offer.notification_requested",
 		AggregateType:       "offer",
 		AggregateID:         offer.ID,

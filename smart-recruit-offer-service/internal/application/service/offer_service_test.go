@@ -158,7 +158,7 @@ func TestRejectOfferClosesCurrentRound(t *testing.T) {
 func TestListOfferEventsChecksReadScope(t *testing.T) {
 	fixture := newOfferFixture(t)
 	offer := fixture.seedOffer(model.OfferStatusSent)
-	fixture.repo.events = append(fixture.repo.events, domainevent.NewOfferEvent(offer.ID, domainevent.TypeSent, 100, "staff", "", fixture.service.clock.Now()))
+	fixture.repo.events = append(fixture.repo.events, domainevent.NewOfferEvent(offer.TenantID, offer.ID, domainevent.TypeSent, 100, "staff", "", fixture.service.clock.Now()))
 
 	events, err := fixture.service.ListOfferEvents(context.Background(), query.ListOfferEvents{HRID: 100, OfferID: offer.ID})
 	if err != nil {

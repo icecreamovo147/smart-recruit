@@ -79,7 +79,7 @@ func (r *InterviewRepository) FindByID(ctx context.Context, interviewID int64) (
 
 func (r *InterviewRepository) FindDetailsByID(ctx context.Context, interviewID int64) (*repository.InterviewDetails, error) {
 	var row interviewWithDetailsRow
-	err := r.baseJoins().
+	err := r.baseJoins(ctx).
 		Where("interview_schedules.id = ? AND interview_schedules.deleted_at IS NULL", interviewID).
 		Scan(&row).Error
 	if err != nil {
@@ -109,7 +109,7 @@ func (r *InterviewRepository) MaxRoundNo(ctx context.Context, applicationID int6
 
 func (r *InterviewRepository) ListByApplication(ctx context.Context, applicationID int64) ([]repository.InterviewDetails, error) {
 	var rows []interviewWithDetailsRow
-	err := r.baseJoins().
+	err := r.baseJoins(ctx).
 		Where("interview_schedules.application_id = ? AND interview_schedules.deleted_at IS NULL", applicationID).
 		Order("interview_schedules.round_no ASC, interview_schedules.created_at ASC").
 		Scan(&rows).Error
@@ -118,7 +118,7 @@ func (r *InterviewRepository) ListByApplication(ctx context.Context, application
 
 func (r *InterviewRepository) ListByInterviewer(ctx context.Context, interviewerID int64, status model.InterviewStatus) ([]repository.InterviewDetails, error) {
 	var rows []interviewWithDetailsRow
-	query := r.baseJoins().
+	query := r.baseJoins(ctx).
 		Where("interview_schedules.interviewer_id = ? AND interview_schedules.deleted_at IS NULL", interviewerID)
 	if status != "" {
 		query = query.Where("interview_schedules.status = ?", string(status))
@@ -130,7 +130,7 @@ func (r *InterviewRepository) ListByInterviewer(ctx context.Context, interviewer
 
 func (r *InterviewRepository) ListByCandidate(ctx context.Context, candidateUserID int64) ([]repository.InterviewDetails, error) {
 	var rows []interviewWithDetailsRow
-	err := r.baseJoins().
+	err := r.baseJoins(ctx).
 		Where("a.user_id = ? AND interview_schedules.deleted_at IS NULL", candidateUserID).
 		Where("interview_schedules.status NOT IN (?)", []string{string(model.InterviewStatusCancelled)}).
 		Order("interview_schedules.scheduled_at DESC, interview_schedules.created_at DESC").
@@ -185,12 +185,12 @@ func (r *InterviewRepository) Transaction(ctx context.Context, fn func(context.C
 	})
 }
 
-func (r *InterviewRepository) baseJoins() *gorm.DB {
-	return r.db.Table("interview_schedules").
+func (r *InterviewRepository) baseJoins(ctx context.Context) *gorm.DB {
+	return r.db.WithContext(ctx).Table("interview_schedules").
 		Select(baseInterviewSelect()).
 		Joins("JOIN users u ON u.id = interview_schedules.interviewer_id").
-		Joins("JOIN applications a ON a.id = interview_schedules.application_id").
-		Joins("JOIN jobs j ON j.id = a.job_id").
+		Joins("JOIN applications a ON a.id = interview_schedules.application_id AND a.tenant_id = interview_schedules.tenant_id").
+		Joins("JOIN jobs j ON j.id = a.job_id AND j.tenant_id = interview_schedules.tenant_id").
 		Joins("LEFT JOIN candidate_profiles cp ON cp.user_id = a.user_id").
 		Joins("LEFT JOIN resumes res ON res.user_id = a.user_id AND res.id = (SELECT MAX(r2.id) FROM resumes r2 WHERE r2.user_id = a.user_id)")
 }
@@ -237,7 +237,7 @@ func cancelActiveByApplication(ctx context.Context, tx *gorm.DB, applicationID i
 }
 
 func baseInterviewSelect() string {
-	return `interview_schedules.id, interview_schedules.application_id, interview_schedules.interviewer_id,
+	return `interview_schedules.id, interview_schedules.tenant_id, interview_schedules.application_id, interview_schedules.interviewer_id,
 		interview_schedules.round_no, interview_schedules.title, interview_schedules.mode,
 		interview_schedules.meeting_url, interview_schedules.location, interview_schedules.duration_minutes,
 		interview_schedules.candidate_note, interview_schedules.internal_note, interview_schedules.cancel_reason,
@@ -254,6 +254,7 @@ func baseInterviewSelect() string {
 
 type interviewScheduleRecord struct {
 	ID              int64      `gorm:"primaryKey"`
+	TenantID        int64      `gorm:"column:tenant_id"`
 	ApplicationID   int64      `gorm:"column:application_id;not null"`
 	InterviewerID   int64      `gorm:"column:interviewer_id;not null"`
 	RoundNo         int32      `gorm:"column:round_no;default:1"`
@@ -277,6 +278,7 @@ func (interviewScheduleRecord) TableName() string { return "interview_schedules"
 
 type interviewFeedbackRecord struct {
 	ID                  int64     `gorm:"primaryKey"`
+	TenantID            int64     `gorm:"column:tenant_id"`
 	InterviewID         int64     `gorm:"column:interview_id"`
 	ApplicationID       int64     `gorm:"column:application_id"`
 	InterviewerID       int64     `gorm:"column:interviewer_id"`
@@ -292,6 +294,7 @@ func (interviewFeedbackRecord) TableName() string { return "interview_feedback" 
 
 type interviewWithDetailsRow struct {
 	ID              int64
+	TenantID        int64
 	ApplicationID   int64
 	InterviewerID   int64
 	RoundNo         int32
@@ -324,6 +327,7 @@ func toInterviewRecord(interview *model.Interview) *interviewScheduleRecord {
 	}
 	return &interviewScheduleRecord{
 		ID:              interview.ID,
+		TenantID:        interview.TenantID,
 		ApplicationID:   interview.ApplicationID,
 		InterviewerID:   interview.InterviewerID,
 		RoundNo:         interview.RoundNo,
@@ -349,6 +353,7 @@ func fromInterviewRecord(interview *interviewScheduleRecord) *model.Interview {
 	}
 	return &model.Interview{
 		ID:              interview.ID,
+		TenantID:        interview.TenantID,
 		ApplicationID:   interview.ApplicationID,
 		InterviewerID:   interview.InterviewerID,
 		RoundNo:         interview.RoundNo,
@@ -370,6 +375,7 @@ func fromInterviewRecord(interview *interviewScheduleRecord) *model.Interview {
 
 func copyInterviewFields(target *model.Interview, source *interviewScheduleRecord) {
 	target.ID = source.ID
+	target.TenantID = source.TenantID
 	target.CreatedAt = source.CreatedAt
 	target.UpdatedAt = source.UpdatedAt
 }
@@ -402,6 +408,7 @@ func fromDetailsRows(rows []interviewWithDetailsRow) []repository.InterviewDetai
 func (row interviewWithDetailsRow) toInterviewRecord() *interviewScheduleRecord {
 	return &interviewScheduleRecord{
 		ID:              row.ID,
+		TenantID:        row.TenantID,
 		ApplicationID:   row.ApplicationID,
 		InterviewerID:   row.InterviewerID,
 		RoundNo:         row.RoundNo,

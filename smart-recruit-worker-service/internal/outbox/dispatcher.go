@@ -41,6 +41,7 @@ var (
 
 type Event struct {
 	ID             uint64     `gorm:"primaryKey"`
+	TenantID       *int64     `gorm:"column:tenant_id"`
 	EventID        string     `gorm:"column:event_id"`
 	RoutingKey     string     `gorm:"column:routing_key"`
 	Payload        string     `gorm:"column:payload;type:json"`

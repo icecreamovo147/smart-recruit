@@ -26,6 +26,7 @@ const (
 
 type mcpToolPolicyRecord struct {
 	ID                     int64          `gorm:"primaryKey"`
+	TenantID               *int64         `gorm:"column:tenant_id"`
 	ServerID               int64          `gorm:"column:server_id"`
 	ToolName               string         `gorm:"column:tool_name"`
 	Effect                 string         `gorm:"column:effect"`
@@ -50,6 +51,7 @@ func (mcpToolPolicyRecord) TableName() string { return "mcp_tool_policies" }
 
 type mcpToolLogRecord struct {
 	ID             int64          `gorm:"primaryKey"`
+	TenantID       *int64         `gorm:"column:tenant_id"`
 	ServerID       int64          `gorm:"column:server_id"`
 	ToolName       string         `gorm:"column:tool_name"`
 	ArgsJSON       sql.NullString `gorm:"column:args_json"`
@@ -68,6 +70,7 @@ func (mcpToolLogRecord) TableName() string { return "mcp_tool_logs" }
 
 type aiSkillRecord struct {
 	ID               int64          `gorm:"primaryKey"`
+	TenantID         *int64         `gorm:"column:tenant_id"`
 	Name             string         `gorm:"column:name"`
 	DisplayName      string         `gorm:"column:display_name"`
 	Description      sql.NullString `gorm:"column:description"`
@@ -83,6 +86,7 @@ func (aiSkillRecord) TableName() string { return "ai_skills" }
 
 type aiSkillVersionRecord struct {
 	ID               int64          `gorm:"primaryKey"`
+	TenantID         *int64         `gorm:"column:tenant_id"`
 	SkillID          int64          `gorm:"column:skill_id"`
 	Version          string         `gorm:"column:version"`
 	ManifestJSON     string         `gorm:"column:manifest_json"`
@@ -97,6 +101,7 @@ func (aiSkillVersionRecord) TableName() string { return "ai_skill_versions" }
 
 type aiSkillToolRecord struct {
 	ID                int64          `gorm:"primaryKey"`
+	TenantID          *int64         `gorm:"column:tenant_id"`
 	SkillVersionID    int64          `gorm:"column:skill_version_id"`
 	ToolName          string         `gorm:"column:tool_name"`
 	Description       sql.NullString `gorm:"column:description"`
@@ -111,6 +116,7 @@ func (aiSkillToolRecord) TableName() string { return "ai_skill_tools" }
 
 type agentSkillVersionRecord struct {
 	ID              int64          `gorm:"primaryKey"`
+	TenantID        *int64         `gorm:"column:tenant_id"`
 	SkillID         int64          `gorm:"column:skill_id"`
 	Version         string         `gorm:"column:version"`
 	FlowJSON        sql.NullString `gorm:"column:flow_json"`

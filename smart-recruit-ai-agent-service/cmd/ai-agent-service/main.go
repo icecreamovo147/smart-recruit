@@ -36,6 +36,7 @@ import (
 	platformobs "smart-recruit-platform-go/observability"
 	"smart-recruit-platform-go/server"
 	logicconfig "smart-recruit-platform-go/serviceconfig"
+	"smart-recruit-platform-go/tenantgorm"
 	"smart-recruit-proto/recruitment/pb"
 )
 
@@ -123,6 +124,12 @@ func serveAIAgent(addr string) error {
 	})
 	if err != nil {
 		return fmt.Errorf("connect mysql: %w", err)
+	}
+	if err := db.Use(tenantgorm.NewWithMixed(
+		[]string{"candidate_match_evaluations", "candidate_match_evidence", "jobs", "applications", "application_status_transitions", "interview_schedules", "interview_feedback", "offers", "offer_events"},
+		[]string{"ai_chat_sessions", "ai_chat_history", "ai_session_summaries", "ai_tool_traces", "agent_runs", "agent_run_events", "agent_run_steps", "ai_memories", "ai_embeddings", "third_party_usage_logs", "ai_usage_auth_contexts", "llm_providers", "llm_models", "embedding_providers", "embedding_models", "prompt_templates", "prompt_versions", "agent_configs", "agent_tool_bindings", "mcp_servers", "mcp_tool_logs", "mcp_tool_policies", "agent_capability_bindings", "ai_skills", "ai_skill_versions", "ai_skill_tools", "agent_skills", "agent_skill_versions"},
+	)); err != nil {
+		return err
 	}
 	sqlDB, err := db.DB()
 	if err != nil {

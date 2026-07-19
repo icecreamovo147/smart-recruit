@@ -10,6 +10,7 @@ import (
 
 type aiSessionSummaryRecord struct {
 	ID               uint64    `gorm:"primaryKey"`
+	TenantID         *int64    `gorm:"column:tenant_id"`
 	SessionID        uint64    `gorm:"column:session_id;uniqueIndex:uk_session_id"`
 	HrID             uint64    `gorm:"column:hr_id"` // owner id (HR or candidate user)
 	Summary          string    `gorm:"column:summary"`

@@ -12,6 +12,7 @@ var (
 
 type Interview struct {
 	ID              int64
+	TenantID        int64
 	ApplicationID   int64
 	InterviewerID   int64
 	RoundNo         int32

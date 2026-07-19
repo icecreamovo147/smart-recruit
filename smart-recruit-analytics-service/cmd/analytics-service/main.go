@@ -33,6 +33,7 @@ import (
 	platformobs "smart-recruit-platform-go/observability"
 	"smart-recruit-platform-go/server"
 	logicconfig "smart-recruit-platform-go/serviceconfig"
+	"smart-recruit-platform-go/tenantgorm"
 	"smart-recruit-proto/recruitment/pb"
 )
 
@@ -137,6 +138,12 @@ func serveAnalytics(addr string) error {
 
 	reporting, err := buildReportingService(db)
 	if err != nil {
+		return err
+	}
+	if err := db.Use(tenantgorm.NewWithMixed(
+		[]string{"jobs", "applications", "application_status_transitions", "interview_schedules", "interview_feedback", "offers", "offer_events", "candidate_match_evaluations"},
+		[]string{"analytics_projection_events"},
+	)); err != nil {
 		return err
 	}
 	runtime, err := analyticsruntime.New(analyticsruntime.Deps{

@@ -69,6 +69,7 @@ func (p *OutboxPublisher) buildEvent(message port.OutboxMessage) (*EventOutboxRe
 		return nil, err
 	}
 	payload := notificationEmailPayload{
+		TenantID:            message.TenantID,
 		EventID:             eventID,
 		ReceiverID:          message.ReceiverID,
 		ReceiverRole:        message.ReceiverRole,
@@ -111,7 +112,7 @@ func (p *OutboxPublisher) buildEvent(message port.OutboxMessage) (*EventOutboxRe
 	if err != nil {
 		return nil, err
 	}
-	return &EventOutboxRecord{
+	record := &EventOutboxRecord{
 		EventID:        eventID,
 		SchemaVersion:  envelope.SchemaVersion,
 		EventType:      message.EventType,
@@ -123,13 +124,18 @@ func (p *OutboxPublisher) buildEvent(message port.OutboxMessage) (*EventOutboxRe
 		Payload:        string(outboxPayloadJSON),
 		Metadata:       string(metadataJSON),
 		Status:         EventOutboxStatusPending,
-	}, nil
+	}
+	if message.TenantID > 0 {
+		record.TenantID = &message.TenantID
+	}
+	return record, nil
 }
 
 const EventOutboxStatusPending int32 = 0
 
 type EventOutboxRecord struct {
 	ID             uint64     `gorm:"primaryKey"`
+	TenantID       *int64     `gorm:"column:tenant_id"`
 	EventID        string     `gorm:"column:event_id"`
 	SchemaVersion  string     `gorm:"column:schema_version"`
 	EventType      string     `gorm:"column:event_type"`
@@ -291,6 +297,7 @@ func cloneMetadata(metadata map[string]string) map[string]string {
 }
 
 type notificationEmailPayload struct {
+	TenantID            int64  `json:"tenant_id,omitempty"`
 	EventID             string `json:"event_id"`
 	ReceiverID          int64  `json:"receiver_id"`
 	ReceiverRole        int32  `json:"receiver_role,omitempty"`

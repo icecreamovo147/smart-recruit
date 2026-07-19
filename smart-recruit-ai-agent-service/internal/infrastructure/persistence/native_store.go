@@ -1830,6 +1830,7 @@ func (recruitingResumeSkillRecord) TableName() string { return "resume_skills" }
 
 type recruitingCandidateMatchEvaluationRecord struct {
 	ID                 uint64          `gorm:"primaryKey"`
+	TenantID           int64           `gorm:"column:tenant_id"`
 	ApplicationID      int64           `gorm:"column:application_id"`
 	JobID              int64           `gorm:"column:job_id"`
 	CandidateUserID    int64           `gorm:"column:candidate_user_id"`
@@ -1855,6 +1856,7 @@ func (recruitingCandidateMatchEvaluationRecord) TableName() string {
 
 type recruitingCandidateMatchEvidenceRecord struct {
 	ID           uint64          `gorm:"primaryKey"`
+	TenantID     int64           `gorm:"column:tenant_id"`
 	EvaluationID uint64          `gorm:"column:evaluation_id"`
 	EvidenceType string          `gorm:"column:evidence_type"`
 	Dimension    sql.NullString  `gorm:"column:dimension"`
@@ -1873,6 +1875,7 @@ func (recruitingCandidateMatchEvidenceRecord) TableName() string {
 
 type aiChatSessionRecord struct {
 	ID                     int64      `gorm:"primaryKey"`
+	TenantID               *int64     `gorm:"column:tenant_id"`
 	HRID                   int64      `gorm:"column:hr_id"`
 	OwnerRole              int32      `gorm:"column:owner_role"`
 	OwnerID                int64      `gorm:"column:owner_id"`
@@ -1897,6 +1900,7 @@ func (aiChatSessionRecord) TableName() string { return "ai_chat_sessions" }
 
 type aiChatHistoryRecord struct {
 	ID               int64     `gorm:"primaryKey"`
+	TenantID         *int64    `gorm:"column:tenant_id"`
 	HRID             int64     `gorm:"column:hr_id"`
 	OwnerRole        int32     `gorm:"column:owner_role"`
 	OwnerID          int64     `gorm:"column:owner_id"`
@@ -1917,6 +1921,7 @@ func (aiChatHistoryRecord) TableName() string { return "ai_chat_history" }
 
 type aiToolTraceRecord struct {
 	ID             int64     `gorm:"primaryKey"`
+	TenantID       *int64    `gorm:"column:tenant_id"`
 	HRID           int64     `gorm:"column:hr_id"`
 	SessionID      int64     `gorm:"column:session_id"`
 	AgentRunID     *int64    `gorm:"column:agent_run_id"`
@@ -1935,6 +1940,7 @@ func (aiToolTraceRecord) TableName() string { return "ai_tool_traces" }
 
 type agentRunStepRecord struct {
 	ID               int64      `gorm:"primaryKey"`
+	TenantID         *int64     `gorm:"column:tenant_id"`
 	RunID            int64      `gorm:"column:run_id"`
 	StepIndex        int32      `gorm:"column:step_index"`
 	StepType         string     `gorm:"column:step_type"`
@@ -1956,6 +1962,7 @@ func (agentRunStepRecord) TableName() string { return "agent_run_steps" }
 
 type thirdPartyUsageLogRecord struct {
 	ID              int64     `gorm:"primaryKey"`
+	TenantID        *int64    `gorm:"column:tenant_id"`
 	UserID          int64     `gorm:"column:user_id"`
 	Role            int32     `gorm:"column:role"`
 	ServiceType     string    `gorm:"column:service_type"`
@@ -1977,6 +1984,7 @@ func (thirdPartyUsageLogRecord) TableName() string { return "third_party_usage_l
 
 type aiUsageAuthContextRecord struct {
 	ID            int64     `gorm:"primaryKey"`
+	TenantID      *int64    `gorm:"column:tenant_id"`
 	UsageLogID    int64     `gorm:"column:usage_log_id"`
 	ActorUserID   int64     `gorm:"column:actor_user_id"`
 	AccountType   string    `gorm:"column:account_type"`
@@ -1994,6 +2002,7 @@ func (aiUsageAuthContextRecord) TableName() string { return "ai_usage_auth_conte
 
 type agentRunRecord struct {
 	ID                int64      `gorm:"primaryKey"`
+	TenantID          *int64     `gorm:"column:tenant_id"`
 	SessionID         int64      `gorm:"column:session_id"`
 	MessageID         int64      `gorm:"column:message_id"`
 	HistoryID         int64      `gorm:"column:history_id"`
@@ -2024,6 +2033,7 @@ func (agentRunRecord) TableName() string { return "agent_runs" }
 
 type agentRunEventRecord struct {
 	ID          int64     `gorm:"primaryKey"`
+	TenantID    *int64    `gorm:"column:tenant_id"`
 	RunID       int64     `gorm:"column:run_id"`
 	Seq         int64     `gorm:"column:seq"`
 	EventType   string    `gorm:"column:event_type"`
@@ -2035,6 +2045,7 @@ func (agentRunEventRecord) TableName() string { return "agent_run_events" }
 
 type llmProviderRecord struct {
 	ID              int64          `gorm:"primaryKey"`
+	TenantID        *int64         `gorm:"column:tenant_id"`
 	Name            string         `gorm:"column:name"`
 	BaseURL         string         `gorm:"column:base_url"`
 	APIKeyEncrypted string         `gorm:"column:api_key_encrypted"`
@@ -2080,6 +2091,7 @@ type llmModelListRow struct {
 
 type promptTemplateRecord struct {
 	ID         int64          `gorm:"primaryKey"`
+	TenantID   *int64         `gorm:"column:tenant_id"`
 	Name       string         `gorm:"column:name"`
 	Content    string         `gorm:"column:content"`
 	Variables  sql.NullString `gorm:"column:variables"`
@@ -2114,6 +2126,7 @@ type agentConfigListRow struct {
 
 type mcpServerRecord struct {
 	ID             int64          `gorm:"primaryKey"`
+	TenantID       *int64         `gorm:"column:tenant_id"`
 	Name           string         `gorm:"column:name"`
 	Description    sql.NullString `gorm:"column:description"`
 	Transport      string         `gorm:"column:transport"`
@@ -2133,6 +2146,7 @@ func (mcpServerRecord) TableName() string { return "mcp_servers" }
 
 type agentSkillRecord struct {
 	ID                   int64          `gorm:"primaryKey"`
+	TenantID             *int64         `gorm:"column:tenant_id"`
 	Name                 string         `gorm:"column:name"`
 	DisplayName          string         `gorm:"column:display_name"`
 	Description          sql.NullString `gorm:"column:description"`
@@ -2157,6 +2171,7 @@ func (agentSkillRecord) TableName() string { return "agent_skills" }
 
 type embeddingProviderRecord struct {
 	ID              int64          `gorm:"primaryKey"`
+	TenantID        *int64         `gorm:"column:tenant_id"`
 	Name            string         `gorm:"column:name"`
 	ProviderType    string         `gorm:"column:provider_type"`
 	Endpoint        string         `gorm:"column:endpoint"`

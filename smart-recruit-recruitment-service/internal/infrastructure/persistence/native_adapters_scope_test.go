@@ -201,6 +201,49 @@ func TestNativeRecruitmentScopeApplicationLifecycleActors(t *testing.T) {
 	}
 	fixture.assertApplicationStatus(t, staffDeniedAppID, domainmodel.StatusKeyApplied)
 
+	serviceAuthorizedStaffAppID := fixture.seedApplication(t, 1002, 3004, domainmodel.StatusKeyApplied)
+	serviceCtx := metadata.WithTenantActor(ctx, metadata.TenantContext{TenantID: 1, AccountType: "service", ClientApp: "interview-service"})
+	serviceAuthorizedStaffTransition, err := fixture.owner.ApplyApplicationLifecycleTransition(serviceCtx, &pb.ApplyApplicationLifecycleTransitionRequest{
+		ActorUserId:       101,
+		ActorAccountType:  "staff",
+		ApplicationId:     serviceAuthorizedStaffAppID,
+		ExpectedStatusKey: domainmodel.StatusKeyApplied,
+		TargetStatusKey:   domainmodel.StatusKeyScreenPassed,
+		Reason:            "interviewer submitted feedback",
+	})
+	if err != nil {
+		t.Fatalf("ApplyApplicationLifecycleTransition(service authorized staff actor) error = %v", err)
+	}
+	if serviceAuthorizedStaffTransition.Code != errs.OK || !serviceAuthorizedStaffTransition.Changed {
+		t.Fatalf("ApplyApplicationLifecycleTransition(service authorized staff actor) = %+v, want OK changed", serviceAuthorizedStaffTransition)
+	}
+	fixture.assertApplicationStatus(t, serviceAuthorizedStaffAppID, domainmodel.StatusKeyScreenPassed)
+	var serviceAuthorizedTransition applicationTransitionRecord
+	if err := fixture.db.Where("application_id = ?", serviceAuthorizedStaffAppID).First(&serviceAuthorizedTransition).Error; err != nil {
+		t.Fatalf("load service-authorized transition: %v", err)
+	}
+	if serviceAuthorizedTransition.ActorUserID != 101 || serviceAuthorizedTransition.ActorAccountType != "staff" {
+		t.Fatalf("service-authorized audit actor = %d/%s, want 101/staff", serviceAuthorizedTransition.ActorUserID, serviceAuthorizedTransition.ActorAccountType)
+	}
+
+	untrustedServiceAppID := fixture.seedApplication(t, 1002, 3005, domainmodel.StatusKeyApplied)
+	untrustedServiceCtx := metadata.WithTenantActor(ctx, metadata.TenantContext{TenantID: 1, AccountType: "service", ClientApp: "unknown-service"})
+	untrustedServiceTransition, err := fixture.owner.ApplyApplicationLifecycleTransition(untrustedServiceCtx, &pb.ApplyApplicationLifecycleTransitionRequest{
+		ActorUserId:       101,
+		ActorAccountType:  "staff",
+		ApplicationId:     untrustedServiceAppID,
+		ExpectedStatusKey: domainmodel.StatusKeyApplied,
+		TargetStatusKey:   domainmodel.StatusKeyScreenPassed,
+		Reason:            "untrusted service attempt",
+	})
+	if err != nil {
+		t.Fatalf("ApplyApplicationLifecycleTransition(untrusted service) error = %v", err)
+	}
+	if untrustedServiceTransition.Code != errs.ErrForbidden || untrustedServiceTransition.Changed {
+		t.Fatalf("ApplyApplicationLifecycleTransition(untrusted service) = %+v, want forbidden unchanged", untrustedServiceTransition)
+	}
+	fixture.assertApplicationStatus(t, untrustedServiceAppID, domainmodel.StatusKeyApplied)
+
 	serviceAppID := fixture.seedApplication(t, 1002, 3002, domainmodel.StatusKeyApplied)
 	serviceTransition, err := fixture.owner.ApplyApplicationLifecycleTransition(ctx, &pb.ApplyApplicationLifecycleTransitionRequest{
 		ActorUserId:       9001,
@@ -346,7 +389,7 @@ func TestNativeCollaborationScopeDeniedAcrossCandidate(t *testing.T) {
 }
 
 func TestNativeCollaborationScopeAllowsOwnedCandidateWithPermissions(t *testing.T) {
-	ctx := context.Background()
+	ctx := metadata.WithTenantActor(context.Background(), metadata.TenantContext{TenantID: 1, MembershipID: 1, UserID: 101, AccountType: "staff", ClientApp: "staff"})
 	fixture := newScopeFixture(t)
 	fixture.seedScope(t, 101, sharedauthz.ScopeOwnJobs, "", 0)
 	fixture.seedPermissions(t, 101, collaborationPermissionSet()...)
@@ -568,6 +611,7 @@ func (scopeUserRoleRecord) TableName() string { return "user_roles" }
 
 type scopeInterviewScheduleRecord struct {
 	ID            int64 `gorm:"primaryKey"`
+	TenantID      int64
 	ApplicationID int64
 	InterviewerID int64
 	RoundNo       int32
@@ -584,7 +628,8 @@ type scopeInterviewScheduleRecord struct {
 func (scopeInterviewScheduleRecord) TableName() string { return "interview_schedules" }
 
 type scopeInterviewFeedbackRecord struct {
-	ID                  int64  `gorm:"primaryKey"`
+	ID                  int64 `gorm:"primaryKey"`
+	TenantID            int64
 	InterviewID         int64  `gorm:"column:interview_id"`
 	ApplicationID       int64  `gorm:"column:application_id"`
 	InterviewerID       int64  `gorm:"column:interviewer_id"`
@@ -600,6 +645,7 @@ func (scopeInterviewFeedbackRecord) TableName() string { return "interview_feedb
 
 type scopeOfferRecord struct {
 	ID              int64 `gorm:"primaryKey"`
+	TenantID        int64
 	ApplicationID   int64
 	CandidateUserID int64
 	JobID           int64
@@ -630,6 +676,7 @@ func (f *scopeFixture) seedJob(t *testing.T, jobID, hrID, departmentID, location
 	t.Helper()
 	row := &jobRecord{
 		ID:           jobID,
+		TenantID:     1,
 		HrID:         hrID,
 		Title:        "Job " + strconv.FormatInt(jobID, 10),
 		Department:   "Department",
@@ -658,6 +705,7 @@ func (f *scopeFixture) seedApplication(t *testing.T, jobID, userID int64, status
 	f.nextAppID++
 	row := &applicationRecord{
 		ID:        appID,
+		TenantID:  1,
 		UserID:    userID,
 		JobID:     jobID,
 		ResumeID:  resumeID,
@@ -676,7 +724,7 @@ func (f *scopeFixture) seedApplication(t *testing.T, jobID, userID int64, status
 
 func (f *scopeFixture) seedTransition(t *testing.T, applicationID int64, from, to string, actorID int64) {
 	t.Helper()
-	row := &applicationTransitionRecord{ApplicationID: applicationID, FromStatus: from, ToStatus: to, ActorUserID: actorID, ActorAccountType: "staff", CreatedAt: f.now}
+	row := &applicationTransitionRecord{TenantID: 1, ApplicationID: applicationID, FromStatus: from, ToStatus: to, ActorUserID: actorID, ActorAccountType: "staff", CreatedAt: f.now}
 	if err := f.db.Create(row).Error; err != nil {
 		t.Fatalf("seed transition: %v", err)
 	}
@@ -687,6 +735,7 @@ func (f *scopeFixture) seedInterview(t *testing.T, applicationID, interviewerID 
 	scheduledAt := createdAt.Add(2 * time.Hour)
 	creatorID := int64(101)
 	row := &scopeInterviewScheduleRecord{
+		TenantID:      1,
 		ApplicationID: applicationID,
 		InterviewerID: interviewerID,
 		RoundNo:       2,
@@ -707,6 +756,7 @@ func (f *scopeFixture) seedInterview(t *testing.T, applicationID, interviewerID 
 func (f *scopeFixture) seedInterviewFeedback(t *testing.T, interviewID, applicationID, interviewerID int64) {
 	t.Helper()
 	row := &scopeInterviewFeedbackRecord{
+		TenantID:            1,
 		InterviewID:         interviewID,
 		ApplicationID:       applicationID,
 		InterviewerID:       interviewerID,
@@ -725,6 +775,7 @@ func (f *scopeFixture) seedInterviewFeedback(t *testing.T, interviewID, applicat
 func (f *scopeFixture) seedOffer(t *testing.T, applicationID, candidateUserID, jobID int64, status string, createdAt time.Time) int64 {
 	t.Helper()
 	row := &scopeOfferRecord{
+		TenantID:        1,
 		ApplicationID:   applicationID,
 		CandidateUserID: candidateUserID,
 		JobID:           jobID,
