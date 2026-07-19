@@ -111,6 +111,7 @@ func Setup(cfg config.Config, clients *rpc.Clients, rdb *redis.Client) (*gin.Eng
 
 	authHandler := handler.NewAuthHandler(clients, cfg.AuthCookieName, cfg.CandidateCookie, cfg.HRCookie, cfg.InterviewerCookie, cfg.AuthCookieSecure, cfg.JWTSecret, rdb)
 	platformTenantHandler := handler.NewPlatformTenantHandler(clients)
+	platformUserHandler := handler.NewPlatformUserHandler(clients)
 	publicHandler := handler.NewPublicHandler(clients)
 	hrJobHandler := hr.NewJobHandler(clients)
 	hrApplicationHandler := hr.NewApplicationHandler(clients)
@@ -203,11 +204,27 @@ func Setup(cfg config.Config, clients *rpc.Clients, rdb *redis.Client) (*gin.Eng
 		}, nil
 	})
 
-	platformGroup := v1.Group("/platform", jwtAuth, currentPrincipal, middleware.RequirePlatformApp(), middleware.RequireAnyRole(authz.RolePlatformAdmin))
-	platformGroup.GET("/tenants", normalTimeout, platformTenantHandler.List)
-	platformGroup.POST("/tenants", normalTimeout, bodyAdmin, platformTenantHandler.Create)
-	platformGroup.PATCH("/tenants/:tenant_id/status", normalTimeout, bodyAuth, platformTenantHandler.UpdateStatus)
-	platformGroup.GET("/tenants/:tenant_id/memberships", normalTimeout, platformTenantHandler.ListMemberships)
+	platformGroup := v1.Group("/platform", jwtAuth, currentPrincipal, middleware.RequirePlatformApp())
+	platformGroup.GET("/dashboard", normalTimeout, middleware.RequirePermission(authz.PermPlatformDashboardRead), platformTenantHandler.Dashboard)
+	platformGroup.GET("/tenants", normalTimeout, middleware.RequirePermission(authz.PermPlatformTenantRead), platformTenantHandler.List)
+	platformGroup.POST("/tenants", normalTimeout, bodyAdmin, middleware.RequirePermission(authz.PermPlatformTenantManage), platformTenantHandler.Create)
+	platformGroup.GET("/tenants/:tenant_id", normalTimeout, middleware.RequirePermission(authz.PermPlatformTenantRead), platformTenantHandler.Get)
+	platformGroup.PATCH("/tenants/:tenant_id/status", normalTimeout, bodyAuth, middleware.RequirePermission(authz.PermPlatformTenantManage), platformTenantHandler.UpdateStatus)
+	platformGroup.GET("/tenants/:tenant_id/memberships", normalTimeout, middleware.RequirePermission(authz.PermPlatformTenantRead), platformTenantHandler.ListMemberships)
+	platformGroup.PATCH("/tenants/:tenant_id/memberships/:membership_id/status", normalTimeout, bodyAuth, middleware.RequirePermission(authz.PermPlatformMemberManage), platformTenantHandler.UpdateMembershipStatus)
+	platformGroup.GET("/audit-logs", normalTimeout, middleware.RequirePermission(authz.PermPlatformAuditRead), platformTenantHandler.AuditLogs)
+	platformGroup.GET("/plans", normalTimeout, middleware.RequirePermission(authz.PermPlatformPlanRead), platformTenantHandler.ListPlans)
+	platformGroup.POST("/plans/:plan_id/versions", normalTimeout, bodyAdmin, middleware.RequirePermission(authz.PermPlatformPlanManage), platformTenantHandler.SavePlanVersion)
+	platformGroup.POST("/plans/:plan_id/versions/:version_id/publish", normalTimeout, bodyAdmin, middleware.RequirePermission(authz.PermPlatformPlanPublish), platformTenantHandler.PublishPlanVersion)
+	platformGroup.GET("/tenants/:tenant_id/subscription", normalTimeout, middleware.RequirePermission(authz.PermPlatformTenantRead), platformTenantHandler.GetSubscription)
+	platformGroup.PUT("/tenants/:tenant_id/subscription", normalTimeout, bodyAdmin, middleware.RequirePermission(authz.PermPlatformSubscriptionManage), platformTenantHandler.UpdateSubscription)
+	platformGroup.PUT("/tenants/:tenant_id/entitlement-override", normalTimeout, bodyAdmin, middleware.RequirePermission(authz.PermPlatformPlanManage), platformTenantHandler.UpdateEntitlementOverride)
+	platformGroup.GET("/tenants/:tenant_id/usage", normalTimeout, middleware.RequirePermission(authz.PermPlatformUsageRead), platformTenantHandler.GetUsage)
+	platformGroup.GET("/quota-alerts", normalTimeout, middleware.RequirePermission(authz.PermPlatformAlertRead), platformTenantHandler.ListAlerts)
+	platformGroup.PATCH("/quota-alerts/:alert_id", normalTimeout, bodyAuth, middleware.RequirePermission(authz.PermPlatformAlertManage), platformTenantHandler.UpdateAlert)
+	platformGroup.GET("/users", normalTimeout, middleware.RequirePermission(authz.PermPlatformUserManage), platformUserHandler.List)
+	platformGroup.POST("/users", normalTimeout, bodyAdmin, middleware.RequirePermission(authz.PermPlatformUserManage), platformUserHandler.Create)
+	platformGroup.PATCH("/users/:user_id", normalTimeout, bodyAdmin, middleware.RequirePermission(authz.PermPlatformUserManage), platformUserHandler.Update)
 
 	// ── Candidate routes ───────────────────────────────────────────────
 	// Each candidate route declares the required permission explicitly.

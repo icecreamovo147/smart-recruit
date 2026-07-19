@@ -52,6 +52,21 @@ const (
 	// System
 	PermSystemConfigManage = "system.config.manage"
 
+	// Platform control plane
+	PermPlatformDashboardRead      = "platform.dashboard.read"
+	PermPlatformTenantRead         = "platform.tenant.read"
+	PermPlatformTenantManage       = "platform.tenant.manage"
+	PermPlatformMemberManage       = "platform.member.manage"
+	PermPlatformPlanRead           = "platform.plan.read"
+	PermPlatformPlanManage         = "platform.plan.manage"
+	PermPlatformPlanPublish        = "platform.plan.publish"
+	PermPlatformSubscriptionManage = "platform.subscription.manage"
+	PermPlatformUsageRead          = "platform.usage.read"
+	PermPlatformAlertRead          = "platform.alert.read"
+	PermPlatformAlertManage        = "platform.alert.manage"
+	PermPlatformAuditRead          = "platform.audit.read"
+	PermPlatformUserManage         = "platform.user.manage"
+
 	// Offer management
 	PermOfferRead           = "offer.read"
 	PermOfferManage         = "offer.manage"

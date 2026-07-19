@@ -59,6 +59,18 @@ func (c *identityAdminClient) CreateStaffUser(ctx context.Context, in *pb.Create
 	return c.identity.CreateStaffUser(ctx, in, opts...)
 }
 
+func (c *identityAdminClient) ListPlatformUsers(ctx context.Context, in *pb.ListPlatformUsersRequest, opts ...grpc.CallOption) (*pb.ListPlatformUsersResponse, error) {
+	return c.identity.ListPlatformUsers(ctx, in, opts...)
+}
+
+func (c *identityAdminClient) CreatePlatformUser(ctx context.Context, in *pb.CreatePlatformUserRequest, opts ...grpc.CallOption) (*pb.CreatePlatformUserResponse, error) {
+	return c.identity.CreatePlatformUser(ctx, in, opts...)
+}
+
+func (c *identityAdminClient) UpdatePlatformUser(ctx context.Context, in *pb.UpdatePlatformUserRequest, opts ...grpc.CallOption) (*pb.PlatformUserResponse, error) {
+	return c.identity.UpdatePlatformUser(ctx, in, opts...)
+}
+
 func (c *identityAdminClient) QueryAuthAuditLogs(ctx context.Context, in *pb.QueryAuthAuditLogsRequest, opts ...grpc.CallOption) (*pb.QueryAuthAuditLogsResponse, error) {
 	return c.identity.QueryAuthAuditLogs(ctx, in, opts...)
 }
