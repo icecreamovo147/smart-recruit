@@ -1055,6 +1055,8 @@ INSERT INTO `roles` (`role_key`, `name`, `description`, `scope_type`, `is_system
   ('recruiting_admin', '招聘管理员', '管理招聘配置、邀请码、部门、地点、用户角色分配', 'tenant', 1),
   ('system_admin',     '系统管理员', '平台管理员兼容角色，后续使用 platform_admin', 'platform', 1),
   ('platform_admin',   '平台管理员', '管理租户、平台安全、全局目录与跨租户运营', 'platform', 1),
+  ('platform_operator','平台运营管理员', '管理租户运营、订阅、用量和告警，不管理平台账号或发布套餐', 'platform', 1),
+  ('platform_auditor', '平台审计员', '只读查看平台运营、租户、用量和审计数据', 'platform', 1),
   ('interviewer',      '面试官',     '查看被分配的面试并提交反馈', 'tenant', 1)
 ON DUPLICATE KEY UPDATE
   `name` = VALUES(`name`),
@@ -1091,6 +1093,19 @@ INSERT INTO `permissions` (`permission_key`, `resource`, `action`, `description`
   ('audit.usage.read',               'audit',       'read',   '查看第三方/AI使用日志'),
   ('audit.security.read',            'audit',       'read',   '查看授权和安全审计事件'),
   ('system.config.manage',           'system',      'manage', '管理平台安全配置'),
+  ('platform.dashboard.read',        'platform_dashboard', 'read', '查看平台运营总览'),
+  ('platform.tenant.read',           'platform_tenant', 'read', '查看平台租户和聚合诊断信息'),
+  ('platform.tenant.manage',         'platform_tenant', 'manage', '创建和变更平台租户生命周期'),
+  ('platform.member.manage',         'platform_member', 'manage', '管理租户成员状态和主管理员'),
+  ('platform.plan.read',             'platform_plan', 'read', '查看平台套餐和权益'),
+  ('platform.plan.manage',           'platform_plan', 'manage', '维护套餐草稿和租户覆盖'),
+  ('platform.plan.publish',          'platform_plan', 'publish', '发布或退役套餐版本'),
+  ('platform.subscription.manage',   'platform_subscription', 'manage', '管理租户套餐订阅'),
+  ('platform.usage.read',            'platform_usage', 'read', '查看跨租户用量和配额'),
+  ('platform.alert.read',            'platform_alert', 'read', '查看平台运营告警'),
+  ('platform.alert.manage',          'platform_alert', 'manage', '认领和处理平台运营告警'),
+  ('platform.audit.read',            'platform_audit', 'read', '查看平台控制面操作审计'),
+  ('platform.user.manage',           'platform_user', 'manage', '管理平台账号和平台角色'),
   ('offer.read',                     'offer',       'read',   '查看Offer'),
   ('offer.manage',                   'offer',       'manage', '创建/编辑/撤回Offer'),
   ('offer.send',                     'offer',       'send',   '发送Offer（快照条款）'),
@@ -1161,6 +1176,26 @@ INSERT IGNORE INTO `role_permissions` (`role_id`, `permission_id`)
   JOIN `roles` legacy_role ON legacy_role.role_key = 'system_admin'
   JOIN `role_permissions` rp ON rp.role_id = legacy_role.id
   WHERE platform_role.role_key = 'platform_admin';
+
+INSERT IGNORE INTO `role_permissions` (`role_id`, `permission_id`)
+  SELECT r.id, p.id FROM `roles` r, `permissions` p
+  WHERE r.role_key = 'platform_admin' AND p.permission_key LIKE 'platform.%';
+
+INSERT IGNORE INTO `role_permissions` (`role_id`, `permission_id`)
+  SELECT r.id, p.id FROM `roles` r, `permissions` p
+  WHERE r.role_key = 'platform_operator' AND p.permission_key IN (
+    'platform.dashboard.read', 'platform.tenant.read', 'platform.tenant.manage',
+    'platform.member.manage', 'platform.plan.read', 'platform.plan.manage',
+    'platform.subscription.manage', 'platform.usage.read', 'platform.alert.read',
+    'platform.alert.manage', 'platform.audit.read'
+  );
+
+INSERT IGNORE INTO `role_permissions` (`role_id`, `permission_id`)
+  SELECT r.id, p.id FROM `roles` r, `permissions` p
+  WHERE r.role_key = 'platform_auditor' AND p.permission_key IN (
+    'platform.dashboard.read', 'platform.tenant.read', 'platform.plan.read',
+    'platform.usage.read', 'platform.alert.read', 'platform.audit.read'
+  );
 
 -- ── 默认管理员账号 (admin / 123456) ────────────────────────────────────
 -- account_type=staff, role=3（兼容旧逻辑）, 分配 recruiting_admin + recruiter 角色
@@ -1930,3 +1965,157 @@ CREATE TABLE IF NOT EXISTS `platform_audit_logs` (
   CONSTRAINT `fk_platform_audit_actor` FOREIGN KEY (`actor_user_id`) REFERENCES `users` (`id`),
   CONSTRAINT `fk_platform_audit_target_tenant` FOREIGN KEY (`target_tenant_id`) REFERENCES `tenants` (`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='Immutable platform control-plane audit trail';
+
+CREATE TABLE IF NOT EXISTS `platform_plans` (
+  `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+  `plan_key` VARCHAR(64) NOT NULL,
+  `name` VARCHAR(128) NOT NULL,
+  `description` VARCHAR(500) DEFAULT NULL,
+  `status` VARCHAR(32) NOT NULL DEFAULT 'active',
+  `created_by` BIGINT UNSIGNED DEFAULT NULL,
+  `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_platform_plans_key` (`plan_key`),
+  KEY `idx_platform_plans_status` (`status`),
+  CONSTRAINT `chk_platform_plans_status` CHECK (`status` IN ('active', 'retired'))
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='Platform plan catalogue';
+
+CREATE TABLE IF NOT EXISTS `platform_plan_versions` (
+  `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+  `plan_id` BIGINT UNSIGNED NOT NULL,
+  `version` INT UNSIGNED NOT NULL,
+  `status` VARCHAR(32) NOT NULL DEFAULT 'draft',
+  `effective_at` DATETIME DEFAULT NULL,
+  `retired_at` DATETIME DEFAULT NULL,
+  `change_note` VARCHAR(500) DEFAULT NULL,
+  `created_by` BIGINT UNSIGNED DEFAULT NULL,
+  `published_by` BIGINT UNSIGNED DEFAULT NULL,
+  `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_platform_plan_versions_plan_version` (`plan_id`, `version`),
+  KEY `idx_platform_plan_versions_status_effective` (`status`, `effective_at`),
+  CONSTRAINT `fk_platform_plan_versions_plan` FOREIGN KEY (`plan_id`) REFERENCES `platform_plans` (`id`),
+  CONSTRAINT `chk_platform_plan_versions_status` CHECK (`status` IN ('draft', 'published', 'retired'))
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='Immutable published plan versions';
+
+CREATE TABLE IF NOT EXISTS `platform_plan_entitlements` (
+  `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+  `plan_version_id` BIGINT UNSIGNED NOT NULL,
+  `entitlement_key` VARCHAR(96) NOT NULL,
+  `value_type` VARCHAR(16) NOT NULL DEFAULT 'integer',
+  `value_json` JSON NOT NULL,
+  `enforcement_mode` VARCHAR(16) NOT NULL DEFAULT 'hard',
+  `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_platform_plan_entitlements_version_key` (`plan_version_id`, `entitlement_key`),
+  CONSTRAINT `fk_platform_plan_entitlements_version` FOREIGN KEY (`plan_version_id`) REFERENCES `platform_plan_versions` (`id`) ON DELETE CASCADE,
+  CONSTRAINT `chk_platform_plan_entitlements_type` CHECK (`value_type` IN ('integer', 'boolean', 'string')),
+  CONSTRAINT `chk_platform_plan_entitlements_mode` CHECK (`enforcement_mode` IN ('hard', 'soft', 'observe'))
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='Entitlements attached to a plan version';
+
+CREATE TABLE IF NOT EXISTS `tenant_subscriptions` (
+  `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+  `tenant_id` BIGINT UNSIGNED NOT NULL,
+  `plan_version_id` BIGINT UNSIGNED NOT NULL,
+  `status` VARCHAR(32) NOT NULL DEFAULT 'active',
+  `starts_at` DATETIME NOT NULL,
+  `ends_at` DATETIME DEFAULT NULL,
+  `reason` VARCHAR(500) NOT NULL,
+  `created_by` BIGINT UNSIGNED DEFAULT NULL,
+  `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  KEY `idx_tenant_subscriptions_tenant_status` (`tenant_id`, `status`, `starts_at`),
+  KEY `idx_tenant_subscriptions_plan_version` (`plan_version_id`),
+  CONSTRAINT `fk_tenant_subscriptions_tenant` FOREIGN KEY (`tenant_id`) REFERENCES `tenants` (`id`),
+  CONSTRAINT `fk_tenant_subscriptions_plan_version` FOREIGN KEY (`plan_version_id`) REFERENCES `platform_plan_versions` (`id`),
+  CONSTRAINT `chk_tenant_subscriptions_status` CHECK (`status` IN ('scheduled', 'active', 'expired', 'cancelled'))
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='Tenant plan subscription history';
+
+CREATE TABLE IF NOT EXISTS `tenant_entitlement_overrides` (
+  `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+  `tenant_id` BIGINT UNSIGNED NOT NULL,
+  `entitlement_key` VARCHAR(96) NOT NULL,
+  `value_type` VARCHAR(16) NOT NULL DEFAULT 'integer',
+  `value_json` JSON NOT NULL,
+  `reason` VARCHAR(500) NOT NULL,
+  `expires_at` DATETIME DEFAULT NULL,
+  `created_by` BIGINT UNSIGNED DEFAULT NULL,
+  `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_tenant_entitlement_overrides_key` (`tenant_id`, `entitlement_key`),
+  KEY `idx_tenant_entitlement_overrides_expiry` (`expires_at`),
+  CONSTRAINT `fk_tenant_entitlement_overrides_tenant` FOREIGN KEY (`tenant_id`) REFERENCES `tenants` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='Temporary tenant-specific entitlement overrides';
+
+CREATE TABLE IF NOT EXISTS `tenant_usage_snapshots` (
+  `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+  `tenant_id` BIGINT UNSIGNED NOT NULL,
+  `metric_key` VARCHAR(96) NOT NULL,
+  `metric_value` BIGINT NOT NULL DEFAULT 0,
+  `window_start` DATETIME NOT NULL,
+  `window_end` DATETIME NOT NULL,
+  `measured_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_tenant_usage_snapshots_window` (`tenant_id`, `metric_key`, `window_start`, `window_end`),
+  KEY `idx_tenant_usage_snapshots_metric_measured` (`metric_key`, `measured_at`),
+  CONSTRAINT `fk_tenant_usage_snapshots_tenant` FOREIGN KEY (`tenant_id`) REFERENCES `tenants` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='Auditable tenant usage snapshots';
+
+CREATE TABLE IF NOT EXISTS `platform_quota_alerts` (
+  `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+  `tenant_id` BIGINT UNSIGNED NOT NULL,
+  `metric_key` VARCHAR(96) NOT NULL,
+  `threshold_percent` INT NOT NULL,
+  `usage_value` BIGINT NOT NULL,
+  `quota_value` BIGINT NOT NULL,
+  `status` VARCHAR(32) NOT NULL DEFAULT 'open',
+  `assignee_user_id` BIGINT UNSIGNED DEFAULT NULL,
+  `acknowledged_at` DATETIME DEFAULT NULL,
+  `resolved_at` DATETIME DEFAULT NULL,
+  `resolution_note` VARCHAR(500) DEFAULT NULL,
+  `first_triggered_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `last_triggered_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  KEY `idx_platform_quota_alerts_tenant_metric_status` (`tenant_id`, `metric_key`, `status`),
+  KEY `idx_platform_quota_alerts_status_triggered` (`status`, `last_triggered_at`),
+  CONSTRAINT `fk_platform_quota_alerts_tenant` FOREIGN KEY (`tenant_id`) REFERENCES `tenants` (`id`) ON DELETE CASCADE,
+  CONSTRAINT `chk_platform_quota_alerts_threshold` CHECK (`threshold_percent` IN (80, 90, 100)),
+  CONSTRAINT `chk_platform_quota_alerts_status` CHECK (`status` IN ('open', 'acknowledged', 'resolved'))
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='Quota threshold operational alerts';
+
+INSERT INTO `platform_plans` (`plan_key`, `name`, `description`, `status`) VALUES
+  ('starter', '基础版', '适合小型招聘团队的基础套餐', 'active'),
+  ('growth', '成长版', '适合持续招聘和协作的成长套餐', 'active'),
+  ('enterprise', '企业版', '适合大型组织的企业治理套餐', 'active')
+ON DUPLICATE KEY UPDATE `name` = VALUES(`name`), `description` = VALUES(`description`);
+
+INSERT INTO `platform_plan_versions` (`plan_id`, `version`, `status`, `effective_at`, `change_note`)
+SELECT `id`, 1, 'published', NOW(), 'initial catalogue' FROM `platform_plans`
+ON DUPLICATE KEY UPDATE `plan_id` = VALUES(`plan_id`);
+
+INSERT INTO `platform_plan_entitlements` (`plan_version_id`, `entitlement_key`, `value_type`, `value_json`, `enforcement_mode`)
+SELECT version.id, entitlement.entitlement_key, 'integer', entitlement.value_json, 'hard'
+FROM `platform_plan_versions` version
+JOIN `platform_plans` plan ON plan.id = version.plan_id AND version.version = 1
+JOIN (
+  SELECT 'starter' plan_key, 'members.max' entitlement_key, CAST(10 AS JSON) value_json UNION ALL
+  SELECT 'starter', 'jobs.published.max', CAST(20 AS JSON) UNION ALL
+  SELECT 'starter', 'applications.monthly.max', CAST(500 AS JSON) UNION ALL
+  SELECT 'starter', 'resumes.storage.max', CAST(1000 AS JSON) UNION ALL
+  SELECT 'growth', 'members.max', CAST(50 AS JSON) UNION ALL
+  SELECT 'growth', 'jobs.published.max', CAST(100 AS JSON) UNION ALL
+  SELECT 'growth', 'applications.monthly.max', CAST(5000 AS JSON) UNION ALL
+  SELECT 'growth', 'resumes.storage.max', CAST(10000 AS JSON) UNION ALL
+  SELECT 'enterprise', 'members.max', CAST(500 AS JSON) UNION ALL
+  SELECT 'enterprise', 'jobs.published.max', CAST(1000 AS JSON) UNION ALL
+  SELECT 'enterprise', 'applications.monthly.max', CAST(100000 AS JSON) UNION ALL
+  SELECT 'enterprise', 'resumes.storage.max', CAST(500000 AS JSON)
+) entitlement ON entitlement.plan_key = plan.plan_key
+ON DUPLICATE KEY UPDATE `value_json` = VALUES(`value_json`), `enforcement_mode` = VALUES(`enforcement_mode`);

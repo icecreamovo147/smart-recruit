@@ -18,6 +18,7 @@ import (
 	"gorm.io/gorm/clause"
 
 	"smart-recruit-commons/oss"
+	commonsquota "smart-recruit-commons/quota"
 	"smart-recruit-platform-go/errs"
 	"smart-recruit-platform-go/metadata"
 	"smart-recruit-proto/recruitment/pb"
@@ -118,7 +119,7 @@ func NewNativeBundle(options NativeOptions) (*NativeBundle, error) {
 	if now == nil {
 		now = time.Now
 	}
-	store := &nativeStore{db: options.DB, storage: options.OSS, redis: options.Redis, now: now}
+	store := &nativeStore{db: options.DB, storage: options.OSS, redis: options.Redis, now: now, quota: commonsquota.NewChecker(options.DB)}
 	application := &applicationAdapter{nativeStore: store}
 	return &NativeBundle{
 		Job:                      &jobAdapter{nativeStore: store},
@@ -138,6 +139,7 @@ type nativeStore struct {
 	storage oss.Storage
 	redis   *redis.Client
 	now     func() time.Time
+	quota   *commonsquota.Checker
 }
 
 type jobAdapter struct{ *nativeStore }
@@ -484,6 +486,12 @@ func (a *jobAdapter) CreateJob(ctx context.Context, req *pb.CreateJobRequest) (*
 	if req.HrId == 0 || strings.TrimSpace(req.Title) == "" {
 		return &pb.CreateJobResponse{Code: errs.ErrBadRequest, Msg: "岗位名称不能为空"}, nil
 	}
+	if _, err := a.quota.Check(ctx, metadata.GetAuthTenantID(ctx), "jobs.published.max", 1); err != nil {
+		if errors.Is(err, commonsquota.ErrLimitExceeded) {
+			return &pb.CreateJobResponse{Code: errs.ErrForbidden, Msg: "已达到当前套餐的在线岗位上限"}, nil
+		}
+		return nil, err
+	}
 	department, location := strings.TrimSpace(req.Department), strings.TrimSpace(req.Location)
 	if req.DepartmentId > 0 {
 		dep, _ := a.lookupDepartment(ctx, req.DepartmentId)
@@ -587,6 +595,25 @@ func (a *jobAdapter) setJobStatus(ctx context.Context, hrID, jobID int64, status
 	}
 	if !scope.allowed() {
 		return &pb.CommonResponse{Code: errs.ErrForbidden, Msg: "无权限操作该岗位"}, nil
+	}
+	if status == 1 && a.quota != nil {
+		var job jobRecord
+		query := applyRecruitmentScopeToJobsQuery(a.db.WithContext(ctx).Model(&jobRecord{}).Where("id = ?", jobID), scope)
+		if err := query.First(&job).Error; err != nil {
+			if errors.Is(err, gorm.ErrRecordNotFound) {
+				return &pb.CommonResponse{Code: errs.ErrForbidden, Msg: "无权限操作该岗位"}, nil
+			}
+			return nil, err
+		}
+		if job.Status == 1 {
+			return &pb.CommonResponse{Code: errs.OK, Msg: msg}, nil
+		}
+		if _, err := a.quota.Check(ctx, job.TenantID, "jobs.published.max", 1); err != nil {
+			if errors.Is(err, commonsquota.ErrLimitExceeded) {
+				return &pb.CommonResponse{Code: errs.ErrForbidden, Msg: "已达到当前套餐的在线岗位上限"}, nil
+			}
+			return nil, err
+		}
 	}
 	query := a.db.WithContext(ctx).Model(&jobRecord{}).Where("id = ?", jobID)
 	query = applyRecruitmentScopeToJobMutationQuery(query, scope)
@@ -861,6 +888,24 @@ func (a *applicationAdapter) ApplyJob(ctx context.Context, req *pb.ApplyJobReque
 	var job jobRecord
 	if err := a.db.WithContext(ctx).Where("id = ? AND status = ?", req.JobId, 1).First(&job).Error; err != nil {
 		return &pb.CommonResponse{Code: errs.ErrJobNotAvailable, Msg: "该岗位已下架或不存在，无法投递"}, nil
+	}
+	if _, err := a.quota.Check(ctx, job.TenantID, "applications.monthly.max", 1); err != nil {
+		if errors.Is(err, commonsquota.ErrLimitExceeded) {
+			return &pb.CommonResponse{Code: errs.ErrForbidden, Msg: "该企业已达到当前套餐的月投递上限"}, nil
+		}
+		return nil, err
+	}
+	var resumeAlreadyCounted int64
+	if err := a.db.WithContext(ctx).Table("applications").Where("tenant_id = ? AND resume_id = ?", job.TenantID, resume.ID).Count(&resumeAlreadyCounted).Error; err != nil {
+		return nil, err
+	}
+	if resumeAlreadyCounted == 0 {
+		if _, err := a.quota.Check(ctx, job.TenantID, "resumes.storage.max", 1); err != nil {
+			if errors.Is(err, commonsquota.ErrLimitExceeded) {
+				return &pb.CommonResponse{Code: errs.ErrForbidden, Msg: "该企业已达到当前套餐的简历存储上限"}, nil
+			}
+			return nil, err
+		}
 	}
 	now := a.now()
 	app := &applicationRecord{TenantID: job.TenantID, UserID: req.UserId, JobID: req.JobId, ResumeID: resume.ID, Status: 0, StatusKey: domainmodel.StatusKeyApplied, RoundNo: 1, IsCurrent: 1, AppliedAt: now, UpdatedAt: now}
