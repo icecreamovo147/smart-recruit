@@ -299,43 +299,65 @@ onMounted(async () => {
 
 <template>
   <section class="job-progress">
-    <div class="progress-layout">
-      <!-- Left Sidebar -->
-      <aside class="progress-sidebar">
-        <el-scrollbar class="progress-sidebar__scroll">
-          <div class="progress-sidebar__inner">
-            <div class="sidebar-heading">
-              <span class="progress-eyebrow">CANDIDATE JOURNEY</span>
-              <h1 class="page-title">求职进展</h1>
-              <p class="page-subtitle">集中查看你的投递状态、面试安排与录用通知。</p>
-            </div>
-            <div class="sidebar-summary" aria-label="求职进展概览">
-              <button class="summary-item" :class="{ active: activeTab === 'applications' }" @click="activeTab = 'applications'">
-                <span class="summary-value">{{ appTotal }}</span>
-                <span class="summary-label">全部投递</span>
-                <small>{{ activeApplicationCount }} 个进行中</small>
-              </button>
-              <button class="summary-item" :class="{ active: activeTab === 'interviews' }" @click="activeTab = 'interviews'">
-                <span class="summary-value">{{ upcomingInterviewCount }}</span>
-                <span class="summary-label">待参加面试</span>
-                <small>共 {{ interviews.length }} 场记录</small>
-              </button>
-              <button class="summary-item summary-item--offer" :class="{ active: activeTab === 'offers' }" @click="activeTab = 'offers'">
-                <span class="summary-value">{{ pendingOfferCount }}</span>
-                <span class="summary-label">待处理录用</span>
-                <small>请留意有效期限</small>
-              </button>
-            </div>
-          </div>
-        </el-scrollbar>
-      </aside>
+    <div class="progress-workspace">
+      <header class="progress-header">
+        <div>
+          <span class="progress-eyebrow">CANDIDATE JOURNEY</span>
+          <h1 class="page-title">求职进展</h1>
+          <p class="page-subtitle">集中查看你的投递状态、面试安排与录用通知。</p>
+        </div>
+        <el-button type="primary" @click="router.push('/jobs')">发现更多岗位</el-button>
+      </header>
 
-      <!-- Right Main -->
-      <main class="progress-main">
-        <div class="progress-panel">
-      <el-tabs v-model="activeTab" class="progress-tabs">
+      <div class="progress-body">
+        <nav class="progress-summary" aria-label="求职进展概览">
+        <button
+          type="button"
+          class="summary-item"
+          :class="{ active: activeTab === 'applications' }"
+          :aria-pressed="activeTab === 'applications'"
+          @click="activeTab = 'applications'"
+        >
+          <span class="summary-icon" aria-hidden="true">投</span>
+          <span class="summary-copy">
+            <span class="summary-label">全部投递</span>
+            <small>{{ activeApplicationCount }} 个进行中</small>
+          </span>
+          <strong class="summary-value">{{ appTotal }}</strong>
+        </button>
+        <button
+          type="button"
+          class="summary-item"
+          :class="{ active: activeTab === 'interviews' }"
+          :aria-pressed="activeTab === 'interviews'"
+          @click="activeTab = 'interviews'"
+        >
+          <span class="summary-icon" aria-hidden="true">面</span>
+          <span class="summary-copy">
+            <span class="summary-label">待参加面试</span>
+            <small>共 {{ interviews.length }} 场记录</small>
+          </span>
+          <strong class="summary-value">{{ upcomingInterviewCount }}</strong>
+        </button>
+        <button
+          type="button"
+          class="summary-item summary-item--offer"
+          :class="{ active: activeTab === 'offers' }"
+          :aria-pressed="activeTab === 'offers'"
+          @click="activeTab = 'offers'"
+        >
+          <span class="summary-icon" aria-hidden="true">录</span>
+          <span class="summary-copy">
+            <span class="summary-label">待处理录用</span>
+            <small>请留意有效期限</small>
+          </span>
+          <strong class="summary-value">{{ pendingOfferCount }}</strong>
+        </button>
+        </nav>
+
+        <main class="progress-content">
         <!-- ─── Tab 1: 我的投递 ─── -->
-        <el-tab-pane label="我的投递" name="applications">
+        <section v-if="activeTab === 'applications'" class="progress-section">
           <el-alert v-if="appError" :title="appError" type="error" show-icon :closable="false">
             <template #default>
               <el-button size="small" type="danger" plain @click="loadApplications">重试</el-button>
@@ -412,10 +434,10 @@ onMounted(async () => {
               />
             </div>
           </div>
-        </el-tab-pane>
+        </section>
 
         <!-- ─── Tab 2: 面试安排 ─── -->
-        <el-tab-pane label="面试安排" name="interviews">
+        <section v-if="activeTab === 'interviews'" class="progress-section">
           <el-alert v-if="intError" :title="intError" type="error" show-icon closable class="mb-4" />
           <div v-loading="intLoading" class="tab-content">
             <div class="section-heading">
@@ -486,20 +508,10 @@ onMounted(async () => {
               </div>
             </el-scrollbar>
           </div>
-        </el-tab-pane>
+        </section>
 
         <!-- ─── Tab 3: 录用通知 ─── -->
-        <el-tab-pane
-          label="录用通知"
-          name="offers"
-        >
-          <template #label>
-            <span>
-              录用通知
-              <el-badge v-if="pendingOfferCount > 0" :value="pendingOfferCount" class="offer-badge" />
-            </span>
-          </template>
-
+        <section v-if="activeTab === 'offers'" class="progress-section">
           <div v-loading="offerLoading" class="tab-content">
             <div class="section-heading">
               <div>
@@ -579,10 +591,9 @@ onMounted(async () => {
               </div>
             </el-scrollbar>
           </div>
-        </el-tab-pane>
-      </el-tabs>
-        </div>
-      </main>
+        </section>
+        </main>
+      </div>
     </div>
   </section>
 </template>
@@ -594,36 +605,24 @@ onMounted(async () => {
   height: calc(100dvh - 120px);
   overflow: hidden;
 }
-.progress-layout {
-  display: grid;
-  grid-template-columns: 260px 1fr;
-  gap: 24px;
-  height: 100%;
-  overflow: hidden;
-}
-.progress-sidebar {
+.progress-workspace {
   display: flex;
   flex-direction: column;
+  height: 100%;
   min-height: 0;
+  overflow: hidden;
   border: 1px solid var(--border);
   border-radius: 18px;
-  background: linear-gradient(135deg, var(--surface) 0%, var(--surface) 60%, var(--brand-soft) 140%);
-  box-shadow: 0 12px 30px rgba(15, 23, 42, 0.06);
-  overflow: hidden;
+  background: var(--surface);
+  box-shadow: 0 12px 32px rgba(15, 23, 42, 0.08);
 }
-.progress-sidebar__scroll {
-  flex: 1 1 auto;
-  min-height: 0;
-  height: 100%;
-}
-.progress-sidebar__scroll :deep(.el-scrollbar__wrap) {
-  overflow-x: hidden;
-}
-.progress-sidebar__inner {
+.progress-header {
   display: flex;
-  flex-direction: column;
-  gap: 20px;
-  padding: 24px 22px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+  padding: 24px 28px 20px;
+  border-bottom: 1px solid var(--border);
 }
 .progress-eyebrow {
   display: block;
@@ -633,30 +632,46 @@ onMounted(async () => {
   font-weight: 800;
   letter-spacing: 0.14em;
 }
-.sidebar-heading .page-title {
+.progress-header .page-title {
   margin-bottom: 8px;
   font-size: 28px;
   line-height: 1.2;
 }
-.sidebar-heading .page-subtitle {
-  margin: 0 0 4px;
+.progress-header .page-subtitle {
+  margin: 0;
   color: var(--text-muted);
   font-size: 13px;
   line-height: 1.6;
 }
-.sidebar-summary {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
+.progress-body {
+  display: grid;
+  grid-template-columns: 250px minmax(0, 1fr);
+  flex: 1 1 0;
+  min-height: 0;
+  overflow: hidden;
+}
+.progress-summary {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  align-content: start;
+  gap: 12px;
+  min-height: 0;
+  padding: 20px 16px;
+  overflow-y: auto;
+  background: color-mix(in srgb, var(--surface-muted) 72%, var(--surface));
+  border-right: 1px solid var(--border);
 }
 .summary-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
   min-width: 0;
-  padding: 15px 16px;
+  padding: 12px 14px;
   text-align: left;
   color: var(--text-primary);
-  border: 1px solid var(--border);
+  border: 1px solid transparent;
   border-radius: 12px;
-  background: color-mix(in srgb, var(--surface) 88%, transparent);
+  background: transparent;
   cursor: pointer;
   transition: border-color var(--motion-normal), transform var(--motion-normal), box-shadow var(--motion-normal);
 }
@@ -664,23 +679,40 @@ onMounted(async () => {
 .summary-item.active {
   border-color: color-mix(in srgb, var(--brand) 55%, var(--border));
   box-shadow: 0 8px 22px rgba(37, 99, 235, 0.1);
-  transform: translateY(-2px);
+  transform: translateX(2px);
 }
-.summary-value,
-.summary-label,
-.summary-item small {
+.summary-item.active {
+  background: var(--surface);
+}
+.summary-icon {
+  display: grid;
+  flex: 0 0 34px;
+  width: 34px;
+  height: 34px;
+  place-items: center;
+  border-radius: 10px;
+  color: var(--brand-strong);
+  background: var(--brand-soft);
+  font-size: 13px;
+  font-weight: 800;
+}
+.summary-copy {
   display: block;
+  flex: 1 1 auto;
+  min-width: 0;
 }
 .summary-value {
-  margin-bottom: 3px;
-  font-size: 24px;
+  flex: 0 0 auto;
+  font-size: 22px;
   font-weight: 800;
 }
 .summary-label {
+  display: block;
   font-size: 13px;
   font-weight: 700;
 }
 .summary-item small {
+  display: block;
   margin-top: 5px;
   overflow: hidden;
   color: var(--text-muted);
@@ -691,55 +723,21 @@ onMounted(async () => {
 .summary-item--offer .summary-value {
   color: #dc2626;
 }
-.progress-main {
+.progress-content {
+  flex: 1 1 0;
+  min-width: 0;
   min-height: 0;
   overflow: hidden;
   display: flex;
   flex-direction: column;
 }
-.progress-panel {
-  flex: 1;
-  min-height: 0;
-  overflow: hidden;
-  display: flex;
-  flex-direction: column;
-  border: 1px solid var(--border);
-  border-radius: 16px;
-  background: var(--surface);
-}
-.progress-tabs {
-  flex: 1;
-  min-height: 0;
-  display: flex;
-  flex-direction: column;
-  --el-tabs-header-height: 54px;
-}
-.progress-tabs :deep(.el-tabs__header) {
-  margin: 0;
-  padding: 0 24px;
-  background: var(--surface-muted);
-  flex-shrink: 0;
-}
-.progress-tabs :deep(.el-tabs__nav-wrap::after) {
-  height: 1px;
-  background: var(--border);
-}
-.progress-tabs :deep(.el-tabs__item) {
-  padding: 0 24px;
-  color: var(--text-secondary);
-  font-weight: 650;
-}
-.progress-tabs :deep(.el-tabs__item.is-active) {
-  color: var(--brand-strong);
-}
-.progress-tabs :deep(.el-tabs__content) {
+.progress-section {
   flex: 1 1 0;
   min-height: 0;
-  overflow: hidden;
-  padding: 0;
-}
-.progress-tabs :deep(.el-tab-pane) {
+  display: flex;
+  flex-direction: column;
   height: 100%;
+  overflow: hidden;
 }
 .tab-content {
   height: 100%;
@@ -794,9 +792,6 @@ onMounted(async () => {
 }
 .mt-2 {
   margin-top: 8px;
-}
-.offer-badge {
-  margin-left: 4px;
 }
 .offer-card {
   margin-bottom: 16px;
@@ -1086,25 +1081,20 @@ onMounted(async () => {
 }
 
 @media (max-width: 960px) {
-  .progress-layout {
-    grid-template-columns: 1fr;
-    height: auto;
-    overflow: visible;
-  }
   .job-progress {
     height: auto;
     overflow: visible;
   }
-  .progress-sidebar,
-  .progress-main {
+  .progress-workspace,
+  .progress-body,
+  .progress-content {
+    height: auto;
     overflow: visible;
   }
-  .progress-sidebar__scroll,
   .tab-scroll {
     height: auto;
   }
-  .progress-tabs :deep(.el-tabs__content),
-  .progress-tabs :deep(.el-tab-pane),
+  .progress-section,
   .tab-content {
     height: auto;
     overflow: visible;
@@ -1112,36 +1102,35 @@ onMounted(async () => {
 }
 
 @media (max-width: 768px) {
-  .progress-sidebar {
-    padding: 20px 18px;
+  .progress-workspace {
     border-radius: 14px;
   }
-  .sidebar-heading .page-title {
+  .progress-header {
+    align-items: flex-start;
+    padding: 20px 18px 18px;
+  }
+  .progress-header .page-title {
     font-size: 26px;
   }
-  .sidebar-summary {
-    flex-direction: row;
+  .progress-summary {
+    grid-template-columns: minmax(0, 1fr);
     gap: 8px;
+    padding: 12px 14px;
+    border-right: none;
+    border-bottom: 1px solid var(--border);
+  }
+  .progress-body {
+    grid-template-columns: minmax(0, 1fr);
   }
   .summary-item {
     padding: 12px 10px;
-    flex: 1;
   }
   .summary-value {
     font-size: 21px;
   }
-  .summary-item small {
-    display: none;
-  }
-  .progress-tabs :deep(.el-tabs__header) {
-    padding: 0 10px;
-  }
   .tab-content {
     flex: none;
     display: block;
-  }
-  .progress-tabs :deep(.el-tabs__item) {
-    padding: 0 12px;
   }
   .tab-content {
     padding: 18px 14px;
@@ -1231,6 +1220,9 @@ onMounted(async () => {
 }
 
 @media (max-width: 480px) {
+  .progress-header .el-button {
+    display: none;
+  }
   .section-heading .el-button {
     display: none;
   }
