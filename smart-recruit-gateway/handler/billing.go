@@ -17,6 +17,16 @@ type BillingHandler struct {
 	ownerType pb.BillingOwnerType
 }
 
+type saveBillingPriceRequest struct {
+	ProductID               FlexInt64 `json:"product_id" binding:"required"`
+	PriceVersionID          FlexInt64 `json:"price_version_id"`
+	BillingTerm             string    `json:"billing_term" binding:"required"`
+	AmountFen               FlexInt64 `json:"amount_fen" binding:"required"`
+	IncludedCredits         FlexInt64 `json:"included_credits" binding:"required"`
+	EntitlementSnapshotJSON string    `json:"entitlement_snapshot_json"`
+	Publish                 bool      `json:"publish"`
+}
+
 func NewBillingHandler(clients *rpc.Clients, ownerType pb.BillingOwnerType) *BillingHandler {
 	return &BillingHandler{clients: clients, ownerType: ownerType}
 }
@@ -114,20 +124,12 @@ func (h *BillingHandler) AdminCatalog(c *gin.Context) {
 }
 
 func (h *BillingHandler) SavePrice(c *gin.Context) {
-	var request struct {
-		ProductID               int64  `json:"product_id" binding:"required"`
-		PriceVersionID          int64  `json:"price_version_id"`
-		BillingTerm             string `json:"billing_term" binding:"required"`
-		AmountFen               int64  `json:"amount_fen" binding:"required"`
-		IncludedCredits         int64  `json:"included_credits" binding:"required"`
-		EntitlementSnapshotJSON string `json:"entitlement_snapshot_json"`
-		Publish                 bool   `json:"publish"`
-	}
+	var request saveBillingPriceRequest
 	if err := c.ShouldBindJSON(&request); err != nil {
 		BadRequest(c, "商品、计费周期、金额和额度不能为空")
 		return
 	}
-	response, err := h.clients.Billing.SaveBillingPriceVersion(c.Request.Context(), &pb.SaveBillingPriceVersionRequest{ProductId: request.ProductID, PriceVersionId: request.PriceVersionID, BillingTerm: request.BillingTerm, AmountFen: request.AmountFen, IncludedCredits: request.IncludedCredits, EntitlementSnapshotJson: request.EntitlementSnapshotJSON, Publish: request.Publish})
+	response, err := h.clients.Billing.SaveBillingPriceVersion(c.Request.Context(), &pb.SaveBillingPriceVersionRequest{ProductId: int64(request.ProductID), PriceVersionId: int64(request.PriceVersionID), BillingTerm: request.BillingTerm, AmountFen: int64(request.AmountFen), IncludedCredits: int64(request.IncludedCredits), EntitlementSnapshotJson: request.EntitlementSnapshotJSON, Publish: request.Publish})
 	if err != nil {
 		Internal(c, err)
 		return

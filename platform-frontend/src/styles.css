@@ -94,8 +94,8 @@ body { margin: 0; min-width: 320px; color: var(--text); background: var(--shell-
 button, input, textarea { font: inherit; }
 button { color: inherit; }
 
-.console-shell { min-height: 100vh; display: flex; gap: 0; padding: 16px; background: var(--shell-bg); }
-.sidebar { position: sticky; top: 16px; width: 264px; height: calc(100vh - 32px); flex: 0 0 264px; display: grid; grid-template-columns: 42px 1fr; grid-template-rows: auto 1fr auto; column-gap: 12px; padding: 24px 18px 20px; overflow: hidden; color: #eef5ff; border: 1px solid rgba(255, 255, 255, .22); border-right-color: rgba(255, 255, 255, .12); border-radius: 20px 0 0 20px; background: var(--sidebar-bg); box-shadow: inset 0 1px 0 rgba(255, 255, 255, .22), inset 0 -1px 0 rgba(4, 28, 60, .2), 0 18px 44px rgba(19, 55, 98, .26); -webkit-backdrop-filter: blur(30px) saturate(135%); backdrop-filter: blur(30px) saturate(135%); transition: width 260ms cubic-bezier(.4, 0, .2, 1), flex-basis 260ms cubic-bezier(.4, 0, .2, 1), padding 260ms cubic-bezier(.4, 0, .2, 1); }
+.console-shell { --shell-inset: 16px; height: 100vh; height: 100dvh; display: flex; gap: 0; overflow: hidden; padding: var(--shell-inset); background: var(--shell-bg); }
+.sidebar { width: 264px; height: 100%; flex: 0 0 264px; display: grid; grid-template-columns: 42px 1fr; grid-template-rows: auto 1fr auto; column-gap: 12px; padding: 24px 18px 20px; overflow: hidden; color: #eef5ff; border: 1px solid rgba(255, 255, 255, .22); border-right-color: rgba(255, 255, 255, .12); border-radius: 20px 0 0 20px; background: var(--sidebar-bg); box-shadow: inset 0 1px 0 rgba(255, 255, 255, .22), inset 0 -1px 0 rgba(4, 28, 60, .2), 0 18px 44px rgba(19, 55, 98, .26); -webkit-backdrop-filter: blur(30px) saturate(135%); backdrop-filter: blur(30px) saturate(135%); transition: width 260ms cubic-bezier(.4, 0, .2, 1), flex-basis 260ms cubic-bezier(.4, 0, .2, 1), padding 260ms cubic-bezier(.4, 0, .2, 1); }
 .brand-mark { width: 42px; height: 42px; display: grid; place-items: center; border: 1px solid rgba(255, 255, 255, .35); border-radius: 12px; background: rgba(47, 125, 255, .88); box-shadow: inset 0 1px 0 rgba(255, 255, 255, .42), 0 8px 20px rgba(2, 36, 85, .24); font-weight: 800; color: #fff; }
 .brand-copy { display: flex; min-width: 0; flex-direction: column; justify-content: center; }
 .brand-copy strong { font-size: 15px; color: #fff; text-shadow: 0 1px 2px rgba(4, 24, 50, .22); }
@@ -126,8 +126,8 @@ button { color: inherit; }
 .sidebar--collapsed .sidebar-foot-action { width: 40px; max-width: 40px; flex: 0 0 40px; padding: 0; }
 .sidebar--collapsed .sidebar-foot-action span { display: none; }
 
-.workspace { min-width: 0; min-height: calc(100vh - 32px); flex: 1; display: flex; flex-direction: column; background: var(--workspace-bg); }
-.topbar { position: sticky; top: 16px; z-index: 20; height: 86px; flex: 0 0 86px; display: flex; align-items: center; justify-content: space-between; padding: 0 38px; border: 1px solid var(--glass-border); border-left: 0; border-radius: 0 20px 0 0; background: var(--topbar-bg); box-shadow: var(--glass-highlight), 0 6px 18px rgba(45, 73, 113, .07); -webkit-backdrop-filter: blur(28px) saturate(145%); backdrop-filter: blur(28px) saturate(145%); }
+.workspace { min-width: 0; min-height: 0; height: 100%; flex: 1; display: flex; flex-direction: column; overflow: hidden; background: var(--workspace-bg); }
+.topbar { position: relative; z-index: 20; height: 86px; flex: 0 0 86px; display: flex; align-items: center; justify-content: space-between; padding: 0 38px; border: 1px solid var(--glass-border); border-left: 0; border-radius: 0 20px 0 0; background: var(--topbar-bg); box-shadow: var(--glass-highlight), 0 6px 18px rgba(45, 73, 113, .07); -webkit-backdrop-filter: blur(28px) saturate(145%); backdrop-filter: blur(28px) saturate(145%); }
 .topbar > div { display: flex; align-items: center; gap: 12px; }
 .topbar-title { font-size: 15px; font-weight: 700; }
 .topbar-page { color: var(--brand); font-size: 13px; font-weight: 600; }
@@ -147,7 +147,7 @@ button { color: inherit; }
 .account-dropdown .el-dropdown-menu { padding: 6px; background: transparent; }
 .account-dropdown .el-dropdown-menu__item { min-height: 40px; border-radius: 8px; color: var(--text-secondary); font-size: 13px; }
 .account-dropdown .el-dropdown-menu__item:not(.is-disabled):focus, .account-dropdown .el-dropdown-menu__item:not(.is-disabled):hover { color: var(--brand); background: var(--control-hover-bg); }
-.workspace main { min-height: 0; flex: 1; padding: 24px 24px 16px; border-radius: 0 0 20px 0; background: var(--workspace-bg); }
+.workspace main { min-height: 0; flex: 1; overflow-y: auto; padding: 24px 24px 16px; border-radius: 0 0 20px 0; background: var(--workspace-bg); }
 
 .console-page { width: min(1540px, 100%); margin: 0 auto; display: flex; flex-direction: column; gap: 0; }
 .detail-hero { display: flex; align-items: center; justify-content: space-between; gap: 24px; padding: 0 16px 34px; border: 0; border-radius: 0; background: transparent; box-shadow: none; }
@@ -459,17 +459,16 @@ button { color: inherit; }
 }
 
 @media (max-width: 760px) {
-  .console-shell { gap: 0; padding: 8px; }
-  .sidebar { top: 8px; width: 68px; height: calc(100vh - 16px); flex-basis: 68px; grid-template-columns: 1fr; padding: 18px 9px; border-radius: 17px 0 0 17px; }
+  .console-shell { --shell-inset: 8px; gap: 0; }
+  .sidebar { width: 68px; flex-basis: 68px; grid-template-columns: 1fr; padding: 18px 9px; border-radius: 17px 0 0 17px; }
   .brand-mark { margin: 0 auto; }
   .brand-copy, .sidebar-nav a span { display: none; }
   .sidebar-nav a { justify-content: center; padding: 0; }
   .sidebar-foot { flex-direction: column; padding-top: 12px; }
   .sidebar-foot .el-tooltip__trigger, .sidebar-foot-action { width: 40px; max-width: 40px; flex: 0 0 40px; padding: 0; }
   .sidebar-foot-action span { display: none; }
-  .workspace { min-height: calc(100vh - 16px); }
   .workspace main { padding: 20px 6px 8px; border-radius: 0 0 17px 0; }
-  .topbar { top: 8px; height: 66px; flex-basis: 66px; padding: 0 16px; border-radius: 0 17px 0 0; }
+  .topbar { height: 66px; flex-basis: 66px; padding: 0 16px; border-radius: 0 17px 0 0; }
   .topbar-title, .topbar-separator, .account-copy small { display: none; }
   .account-trigger { min-width: 0; min-height: 46px; gap: 8px; padding: 5px 7px; }
   .account-avatar { width: 32px; height: 32px; flex-basis: 32px; }

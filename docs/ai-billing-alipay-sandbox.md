@@ -7,12 +7,12 @@
 复制示例文件并填写支付宝沙箱参数：
 
 ```bash
-cp smart-recruit-billing-service/config.example.yaml smart-recruit-billing-service/config.yaml
+cp smart-recruit-billing-service/internal/config/config.example.yaml smart-recruit-billing-service/internal/config/config.yaml
 ```
 
 `config.yaml` 已被 Git 忽略。`start-dev.sh` 启动 Billing Service 时会显式读取该文件；如果文件不存在会直接给出错误，不会使用示例值启动。RSA2 密钥推荐通过相对于 `config.yaml` 的 `private_key_file` 和 `public_key_file` 配置。
 
-如需使用其他路径，可以在启动脚本前设置 `BILLING_CONFIG_PATH`。完整字段与注释以 `smart-recruit-billing-service/config.example.yaml` 为准。
+如需使用其他路径，可以在启动脚本前设置 `BILLING_CONFIG_PATH`。完整字段与注释以 `smart-recruit-billing-service/internal/config/config.example.yaml` 为准。
 
 ## Docker/兼容环境变量
 

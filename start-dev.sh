@@ -430,9 +430,9 @@ start_service() {
 }
 
 parse_targets "$@"
-BILLING_CONFIG_PATH="${BILLING_CONFIG_PATH:-${ROOT}/smart-recruit-billing-service/config.yaml}"
+BILLING_CONFIG_PATH="${BILLING_CONFIG_PATH:-${ROOT}/smart-recruit-billing-service/internal/config/config.yaml}"
 if target_selected billing-service && [ ! -f "${BILLING_CONFIG_PATH}" ]; then
-    die "Billing config not found at ${BILLING_CONFIG_PATH}. Copy smart-recruit-billing-service/config.example.yaml to smart-recruit-billing-service/config.yaml and fill in the Alipay sandbox values."
+    die "Billing config not found at ${BILLING_CONFIG_PATH}. Copy smart-recruit-billing-service/internal/config/config.example.yaml to smart-recruit-billing-service/internal/config/config.yaml and fill in the Alipay sandbox values."
 fi
 
 ensure_system_dependencies
