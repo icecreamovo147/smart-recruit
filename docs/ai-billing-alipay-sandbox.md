@@ -10,7 +10,7 @@
 cp smart-recruit-billing-service/internal/config/config.example.yaml smart-recruit-billing-service/internal/config/config.yaml
 ```
 
-`config.yaml` 已被 Git 忽略。`start-dev.sh` 启动 Billing Service 时会显式读取该文件；如果文件不存在会直接给出错误，不会使用示例值启动。RSA2 密钥推荐通过相对于 `config.yaml` 的 `private_key_file` 和 `public_key_file` 配置。
+`config.yaml` 已被 Git 忽略。`start-dev.sh` 启动 Billing Service 时会显式读取该文件；如果文件不存在会直接给出错误，不会使用示例值启动。RSA2 密钥推荐通过相对于 `config.yaml` 的 `private_key_file` 和 `verify_public_key_file` 配置。应用私钥文件必须为 `0600`；验签公钥必须是沙箱控制台提供的“支付宝公钥”，不能是由应用私钥派生的应用公钥，服务启动时会主动检测并拒绝这种误配。
 
 如需使用其他路径，可以在启动脚本前设置 `BILLING_CONFIG_PATH`。完整字段与注释以 `smart-recruit-billing-service/internal/config/config.example.yaml` 为准。
 
@@ -26,10 +26,12 @@ ALIPAY_REQUIRED=true
 ALIPAY_GATEWAY_URL=https://openapi-sandbox.dl.alipaydev.com/gateway.do
 ALIPAY_APP_ID=<沙箱应用 ID>
 ALIPAY_PRIVATE_KEY=<应用 RSA2 私钥，PKCS#8 或 PKCS#1 PEM>
-ALIPAY_PUBLIC_KEY=<支付宝 RSA2 公钥 PEM>
+ALIPAY_VERIFY_PUBLIC_KEY=<支付宝 RSA2 公钥 PEM>
 ALIPAY_SELLER_ID=<沙箱卖家 PID>
 ALIPAY_NOTIFY_URL=https://<公网联调域名>/api/v1/public/billing/webhooks/alipay
-ALIPAY_RETURN_URL=http://localhost:5174/billing
+ALIPAY_RETURN_URL=http://localhost:8080/api/v1/public/billing/returns/alipay
+BILLING_HR_RETURN_URL=http://localhost:5173/hr/billing
+BILLING_CANDIDATE_RETURN_URL=http://localhost:5174/candidate/billing
 ALIPAY_DESKTOP_ENABLED=true
 ALIPAY_WAP_ENABLED=true
 ```
@@ -44,9 +46,9 @@ ALIPAY_WAP_ENABLED=true
 2. 在平台管理端“套餐与配额”页面发布与 AI 运行时 `provider_key/model_key` 一致的模型费率卡，再为候选人 Pro、企业套餐或加量包创建价格版本并发布。
 3. 在候选人端“AI 套餐”或 HR 端“AI 套餐与额度”创建订单。
 4. 使用支付宝沙箱买家账号完成桌面网页或 WAP 支付。
-5. 等待异步通知。同步 `return_url` 只负责把浏览器带回业务页；前端落地后会调用 `scene=sync` 主动查单并刷新套餐/订单。本地开发请使用 `http://localhost:...`（不要用 `127.0.0.1`，Vite 可能只监听 IPv6 `[::1]`）。
+5. 等待异步通知。同步 `return_url` 固定进入 Gateway，Gateway 验签后根据支付尝试的 `source_app` 跳回 HR 或候选人端，并签发一次性返回令牌。前端使用登录态和该令牌主动查单；同步返回本身不能直接结算订单。
 6. 验证订单为 `paid`、订阅或额度已生效、`ai_credit_ledger` 存在发放流水、`billing_webhook_events.signature_verified=1`（或主动查单写入的 `active_query` / return 同步入账）。
-7. 对完全未消费订单申请退款，应自动调用沙箱退款；存在已结算额度、续费或升级订单应进入人工审核。
+7. 对完全未消费订单申请退款，应自动调用沙箱退款；存在已结算额度、续费或升级订单进入平台“套餐与商业化 → 退款审批”。退款请求必须携带幂等键，超时后使用原 `refund_no/out_request_no` 查询，禁止换号重试。
 
 ## 阶段开关
 
@@ -61,7 +63,10 @@ ALIPAY_WAP_ENABLED=true
 - 只接受 RSA2 验签通过且 `app_id`、`seller_id`、商户订单号、人民币金额、交易状态和沙箱环境完全匹配的异步通知。
 - 回调通过 `notify_id` 与沙箱环境联合幂等；重复通知不会重复发放订阅或额度。
 - 只有 `TRADE_SUCCESS` 或 `TRADE_FINISHED` 进入成功处理。
-- 未收到异步通知时，Billing Service 每五分钟通过 `alipay.trade.query` 主动查询支付中订单；生产启用前还需接入失败率、积压量和超时订单告警。
+- 查询、关单、退款及退款查询响应也必须通过支付宝公钥验签；不能只验证异步通知。
+- 未收到异步通知时，Billing Service 使用数据库租约和 `SKIP LOCKED` 领取支付/退款对账任务，按指数退避持续核对；未知状态不会创建新的支付或退款编号。
+- 同一所有者最多一个开放订单，同一订单最多一个活跃支付，同一支付最多一个活跃退款，均由数据库唯一约束保证。
+- 回调只有在验签并完成数据库事务后才返回精确的 `200 success`；签名错误返回 4xx，内部失败返回 5xx。
 - 已发布价格、用量事件和额度流水不可原地修改；纠错使用新价格版本和补偿流水。
 
 参考：[支付宝沙箱使用说明](https://developer.alibaba.com/docs/doc.htm?articleId=105311&docType=1&treeId=292)、[支付宝异步通知与主动查询要求](https://aipay.alipay.com/docs/ai-web-app-payment-qianyi/api-list/async-notify-verify.html)。

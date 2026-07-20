@@ -16,7 +16,8 @@ export const payBillingOrder = (
   orderNo: string,
   scene: 'desktop' | 'wap' | 'sync',
   options?: { silentError?: boolean },
-): Promise<{ redirect_url: string; payment_environment: string; payment_no?: string }> => (
+): Promise<{ redirect_url: string; payment_environment: string; payment_no?: string; reused: boolean; status: string; expires_at_unix_ms: number }> => (
   request.post(`/api/v1/hr/billing/orders/${orderNo}/pay`, { scene }, { silentError: options?.silentError })
 )
-export const refundBillingOrder = (orderNo: string, reason: string) => request.post(`/api/v1/hr/billing/orders/${orderNo}/refund`, { reason })
+export const syncBillingPaymentReturn = (returnToken: string): Promise<{ status: string; payment_no?: string }> => request.post(`/api/v1/hr/billing/payment-returns/${encodeURIComponent(returnToken)}/sync`, {})
+export const refundBillingOrder = (orderNo: string, reason: string) => request.post(`/api/v1/hr/billing/orders/${orderNo}/refund`, { reason, idempotency_key: crypto.randomUUID() })

@@ -1,12 +1,60 @@
 package handler
 
 import (
+	"context"
+	"net/http"
 	"net/http/httptest"
 	"strings"
 	"testing"
 
 	"github.com/gin-gonic/gin"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
+
+	"smart-recruit-gateway/rpc"
+	"smart-recruit-proto/recruitment/pb"
 )
+
+type webhookBillingClient struct {
+	pb.BillingServiceClient
+	response *pb.ProcessAlipayNotificationResponse
+	err      error
+}
+
+func (f webhookBillingClient) ProcessAlipayNotification(context.Context, *pb.ProcessAlipayNotificationRequest, ...grpc.CallOption) (*pb.ProcessAlipayNotificationResponse, error) {
+	return f.response, f.err
+}
+
+func TestAlipayWebhookAcknowledgesOnlyDurablyAcceptedNotifications(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	tests := []struct {
+		name       string
+		response   *pb.ProcessAlipayNotificationResponse
+		err        error
+		wantStatus int
+		wantBody   string
+	}{
+		{name: "accepted", response: &pb.ProcessAlipayNotificationResponse{Accepted: true}, wantStatus: http.StatusOK, wantBody: "success"},
+		{name: "invalid", err: status.Error(codes.InvalidArgument, "bad signature"), wantStatus: http.StatusBadRequest, wantBody: "failure"},
+		{name: "transient", err: status.Error(codes.Internal, "database unavailable"), wantStatus: http.StatusServiceUnavailable, wantBody: "failure"},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			clients := &rpc.Clients{Billing: webhookBillingClient{response: test.response, err: test.err}}
+			handler := NewAlipayWebhookHandler(clients, "http://localhost:5173/hr/billing", "http://localhost:5174/candidate/billing")
+			router := gin.New()
+			router.POST("/notify", handler.Notify)
+			recorder := httptest.NewRecorder()
+			request := httptest.NewRequest(http.MethodPost, "/notify", strings.NewReader("out_trade_no=P1&trade_status=TRADE_SUCCESS"))
+			request.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+			router.ServeHTTP(recorder, request)
+			if recorder.Code != test.wantStatus || recorder.Body.String() != test.wantBody {
+				t.Fatalf("response = %d %q, want %d %q", recorder.Code, recorder.Body.String(), test.wantStatus, test.wantBody)
+			}
+		})
+	}
+}
 
 func TestSaveBillingPriceRequestAcceptsProtoJSONIDs(t *testing.T) {
 	t.Parallel()

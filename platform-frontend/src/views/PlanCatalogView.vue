@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref } from 'vue'
-import { ElMessage } from 'element-plus'
-import { listAIRateCards, listBillingProducts, listPlans, publishPlanVersion, saveAIRateCard, saveBillingPrice, savePlanVersion, type AIRateCardAdmin, type BillingProductAdmin } from '@/api/control'
+import { ElMessage, ElMessageBox } from 'element-plus'
+import { listAIRateCards, listBillingProducts, listBillingRefunds, listPlans, publishPlanVersion, reviewBillingRefund, saveAIRateCard, saveBillingPrice, savePlanVersion, type AIRateCardAdmin, type BillingProductAdmin, type BillingRefundAdmin } from '@/api/control'
 import { listPlatformAICapabilities, type PlatformAICapability } from '@/api/platformAI'
 import { PLATFORM_PERMISSIONS } from '@/permissions'
 import { useAuthStore } from '@/stores/auth'
@@ -9,15 +9,17 @@ import type { PlatformEntitlement, PlatformPlan, PlatformPlanVersion } from '@/t
 
 const auth = useAuthStore()
 const loading = ref(false)
-type CatalogSection = 'plans' | 'products' | 'rates'
+type CatalogSection = 'plans' | 'products' | 'rates' | 'refunds'
 const activeSection = ref<CatalogSection>('plans')
 const plans = ref<PlatformPlan[]>([])
 const billingProducts = ref<BillingProductAdmin[]>([])
 const rateCards = ref<AIRateCardAdmin[]>([])
+const refunds = ref<BillingRefundAdmin[]>([])
 const aiCapabilities = ref<PlatformAICapability[]>([])
 const paymentEnvironment = ref('sandbox')
 const canManage = computed(() => auth.can(PLATFORM_PERMISSIONS.PLAN_MANAGE))
 const canPublish = computed(() => auth.can(PLATFORM_PERMISSIONS.PLAN_PUBLISH))
+const canReviewRefund = computed(() => auth.can(PLATFORM_PERMISSIONS.BILLING_REFUND_REVIEW))
 const editorVisible = ref(false)
 const publishVisible = ref(false)
 const selectedPlan = ref<PlatformPlan | null>(null)
@@ -61,11 +63,27 @@ const load = async (section: CatalogSection = activeSection.value) => {
       const billingResult = await listBillingProducts()
       billingProducts.value = billingResult.products || []
       paymentEnvironment.value = billingResult.payment_environment || 'sandbox'
-    } else {
+    } else if (section === 'rates') {
       const rateResult = await listAIRateCards()
       rateCards.value = rateResult.rates || []
+    } else {
+      const refundResult = await listBillingRefunds()
+      refunds.value = refundResult.refunds || []
     }
   } finally { loading.value = false }
+}
+
+const reviewRefund = async (refund: BillingRefundAdmin, action: 'approve' | 'reject') => {
+  let reason = ''
+  if (action === 'reject') {
+    const result = await ElMessageBox.prompt('请填写拒绝退款的原因', '拒绝退款', { inputPattern: /\S+/, inputErrorMessage: '拒绝原因不能为空' })
+    reason = result.value
+  } else {
+    await ElMessageBox.confirm(`确认批准订单 ${refund.order_no} 退款 ¥${(refund.amount_fen / 100).toFixed(2)}？`, '批准退款', { type: 'warning' })
+  }
+  await reviewBillingRefund(refund.refund_no, action, reason)
+  ElMessage.success(action === 'approve' ? '退款已批准并提交支付宝' : '退款已拒绝')
+  await load('refunds')
 }
 
 const switchSection = (value: string | number) => {
@@ -205,6 +223,7 @@ onMounted(load)
       <el-tab-pane label="套餐版本与权益" name="plans" />
       <el-tab-pane label="商品与价格" name="products" />
       <el-tab-pane label="AI 模型费率" name="rates" />
+      <el-tab-pane v-if="canReviewRefund" label="退款审批" name="refunds" />
     </el-tabs>
 
     <div v-if="activeSection === 'plans'" class="plan-grid">
@@ -224,6 +243,8 @@ onMounted(load)
     <section v-if="activeSection === 'products'" class="surface-card billing-catalog"><header><div><h2>AI 计费商品与价格</h2><p>发布后会进入 HR 或候选人购买页；已发布价格不可修改，只能创建新版本。</p></div><el-tag type="warning">{{ paymentEnvironment === 'sandbox' ? '支付宝沙箱' : paymentEnvironment }}</el-tag></header><div class="billing-product-grid"><article v-for="product in billingProducts" :key="product.id"><div><strong>{{ product.name }}</strong><small>{{ product.product_key }} · {{ product.product_type }}</small></div><div v-if="product.prices[0]"><strong>¥{{ (product.prices[0].amount_fen / 100).toFixed(2) }}</strong><small>{{ product.prices[0].included_credits.toLocaleString() }} 额度 · V{{ product.prices[0].version }}</small></div><span v-else>尚未配置价格</span><el-button v-if="canManage && product.product_key !== 'candidate_free'" link type="primary" @click="openPriceEditor(product)">配置价格</el-button></article><el-empty v-if="!billingProducts.length" description="尚未创建计费商品" /></div></section>
 
     <section v-if="activeSection === 'rates'" class="surface-card billing-catalog"><header><div><h2>AI 模型费率卡</h2><p>供应商成本按每千 Token 配置；额度换算决定用户消耗，发布新版本后旧版本自动退役。</p></div><el-button v-if="canManage" type="primary" plain @click="openRateEditor()">新增费率卡</el-button></header><div class="billing-product-grid"><article v-for="rate in rateCards" :key="rate.id"><div><strong>{{ rate.provider_key }} / {{ rate.model_key }}</strong><small>V{{ rate.version }} · {{ rate.status }}</small></div><div><strong>输入 ¥{{ (rate.input_micros_per_1k_tokens / 1_000_000).toFixed(6) }}</strong><small>输出 ¥{{ (rate.output_micros_per_1k_tokens / 1_000_000).toFixed(6) }} / 千 Token</small></div><span>1 额度 = ¥{{ (rate.credit_micros / 1_000_000).toFixed(6) }}</span><el-button v-if="canManage" link type="primary" @click="openRateEditor(rate)">创建新版本</el-button></article><el-empty v-if="!rateCards.length" description="尚未配置模型费率，强制计费模式将拒绝未知模型" /></div></section>
+
+    <section v-if="activeSection === 'refunds'" class="surface-card billing-catalog"><header><div><h2>退款审批与核对</h2><p>人工退款由平台资金责任人审批；未知状态由后台使用原退款号持续核对。</p></div></header><el-table :data="refunds" style="margin-top:20px"><el-table-column prop="refund_no" label="退款号" min-width="190"/><el-table-column prop="order_no" label="订单号" min-width="180"/><el-table-column label="金额" width="110"><template #default="{ row }">¥{{ (row.amount_fen / 100).toFixed(2) }}</template></el-table-column><el-table-column prop="reason" label="原因" min-width="180" show-overflow-tooltip/><el-table-column prop="status" label="状态" width="110"/><el-table-column label="操作" width="150"><template #default="{ row }"><template v-if="row.status === 'reviewing'"><el-button link type="success" @click="reviewRefund(row, 'approve')">批准</el-button><el-button link type="danger" @click="reviewRefund(row, 'reject')">拒绝</el-button></template><span v-else>{{ row.last_error || '—' }}</span></template></el-table-column></el-table><el-empty v-if="!refunds.length" description="暂无退款记录"/></section>
 
     <el-dialog v-model="editorVisible" :title="`${selectedPlan?.name || ''} · ${form.version_id ? '编辑草稿' : '新建版本'}`" width="680px">
       <el-alert title="已发布版本不可修改；保存新草稿不会立即影响任何租户。" type="info" :closable="false" show-icon />

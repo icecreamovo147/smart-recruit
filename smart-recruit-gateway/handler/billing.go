@@ -1,12 +1,17 @@
 package handler
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"fmt"
 	"net/http"
+	"net/url"
 	"strings"
 
 	"github.com/gin-gonic/gin"
 	"go.uber.org/zap"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 
 	"smart-recruit-gateway/middleware"
 	"smart-recruit-gateway/pkg/logger"
@@ -103,15 +108,30 @@ func (h *BillingHandler) Pay(c *gin.Context) {
 	ProtoResponse(c, response)
 }
 
-func (h *BillingHandler) Refund(c *gin.Context) {
-	var request struct {
-		Reason string `json:"reason" binding:"required"`
-	}
-	if err := c.ShouldBindJSON(&request); err != nil || strings.TrimSpace(request.Reason) == "" {
-		BadRequest(c, "退款原因不能为空")
+func (h *BillingHandler) SyncReturn(c *gin.Context) {
+	token := strings.TrimSpace(c.Param("return_token"))
+	if token == "" {
+		BadRequest(c, "支付返回令牌不能为空")
 		return
 	}
-	response, err := h.clients.Billing.RequestBillingRefund(c.Request.Context(), &pb.RequestBillingRefundRequest{Owner: h.owner(c), ActorUserId: middleware.UserID(c), OrderNo: c.Param("order_no"), Reason: strings.TrimSpace(request.Reason)})
+	response, err := h.clients.Billing.SyncAlipayReturn(c.Request.Context(), &pb.SyncAlipayReturnRequest{Owner: h.owner(c), ActorUserId: middleware.UserID(c), ReturnToken: token})
+	if err != nil {
+		Internal(c, err)
+		return
+	}
+	ProtoResponse(c, response)
+}
+
+func (h *BillingHandler) Refund(c *gin.Context) {
+	var request struct {
+		Reason         string `json:"reason" binding:"required"`
+		IdempotencyKey string `json:"idempotency_key" binding:"required"`
+	}
+	if err := c.ShouldBindJSON(&request); err != nil || strings.TrimSpace(request.Reason) == "" || strings.TrimSpace(request.IdempotencyKey) == "" {
+		BadRequest(c, "退款原因和幂等键不能为空")
+		return
+	}
+	response, err := h.clients.Billing.RequestBillingRefund(c.Request.Context(), &pb.RequestBillingRefundRequest{Owner: h.owner(c), ActorUserId: middleware.UserID(c), OrderNo: c.Param("order_no"), Reason: strings.TrimSpace(request.Reason), IdempotencyKey: strings.TrimSpace(request.IdempotencyKey)})
 	if err != nil {
 		Internal(c, err)
 		return
@@ -121,6 +141,32 @@ func (h *BillingHandler) Refund(c *gin.Context) {
 
 func (h *BillingHandler) AdminCatalog(c *gin.Context) {
 	response, err := h.clients.Billing.ListBillingAdminCatalog(c.Request.Context(), &pb.ListBillingAdminCatalogRequest{})
+	if err != nil {
+		Internal(c, err)
+		return
+	}
+	ProtoResponse(c, response)
+}
+
+func (h *BillingHandler) AdminRefunds(c *gin.Context) {
+	response, err := h.clients.Billing.ListBillingRefunds(c.Request.Context(), &pb.ListBillingRefundsRequest{Status: strings.TrimSpace(c.Query("status")), Page: queryInt32(c, "page", 1), PageSize: queryInt32(c, "page_size", 50)})
+	if err != nil {
+		Internal(c, err)
+		return
+	}
+	ProtoResponse(c, response)
+}
+
+func (h *BillingHandler) ReviewRefund(c *gin.Context) {
+	var request struct {
+		Action string `json:"action" binding:"required"`
+		Reason string `json:"reason"`
+	}
+	if err := c.ShouldBindJSON(&request); err != nil || (request.Action != "approve" && request.Action != "reject") {
+		BadRequest(c, "退款审批动作必须是 approve 或 reject")
+		return
+	}
+	response, err := h.clients.Billing.ReviewBillingRefund(c.Request.Context(), &pb.ReviewBillingRefundRequest{RefundNo: c.Param("refund_no"), ActorUserId: middleware.UserID(c), Action: request.Action, Reason: strings.TrimSpace(request.Reason)})
 	if err != nil {
 		Internal(c, err)
 		return
@@ -179,10 +225,13 @@ func (h *BillingHandler) SaveRateCard(c *gin.Context) {
 	OK(c, "保存成功", response)
 }
 
-type AlipayWebhookHandler struct{ clients *rpc.Clients }
+type AlipayWebhookHandler struct {
+	clients    *rpc.Clients
+	returnURLs map[string]string
+}
 
-func NewAlipayWebhookHandler(clients *rpc.Clients) *AlipayWebhookHandler {
-	return &AlipayWebhookHandler{clients: clients}
+func NewAlipayWebhookHandler(clients *rpc.Clients, hrReturnURL, candidateReturnURL string) *AlipayWebhookHandler {
+	return &AlipayWebhookHandler{clients: clients, returnURLs: map[string]string{"hr": hrReturnURL, "candidate": candidateReturnURL}}
 }
 func (h *AlipayWebhookHandler) Notify(c *gin.Context) {
 	if err := c.Request.ParseForm(); err != nil {
@@ -199,15 +248,53 @@ func (h *AlipayWebhookHandler) Notify(c *gin.Context) {
 	if err != nil || response == nil || !response.GetAccepted() {
 		logger.L().Error("alipay sandbox notify rejected",
 			zap.Error(err),
-			zap.String("out_trade_no", c.Request.PostForm.Get("out_trade_no")),
-			zap.String("trade_no", c.Request.PostForm.Get("trade_no")),
+			zap.String("out_trade_no_hash", billingLogID(c.Request.PostForm.Get("out_trade_no"))),
+			zap.String("trade_no_hash", billingLogID(c.Request.PostForm.Get("trade_no"))),
 			zap.String("trade_status", c.Request.PostForm.Get("trade_status")),
 			zap.Bool("accepted", response != nil && response.GetAccepted()),
 		)
-		c.String(http.StatusOK, "failure")
+		statusCode := http.StatusServiceUnavailable
+		if status.Code(err) == codes.InvalidArgument || (err == nil && response != nil) {
+			statusCode = http.StatusBadRequest
+		}
+		c.String(statusCode, "failure")
 		return
 	}
 	c.String(http.StatusOK, "success")
+}
+
+func billingLogID(value string) string {
+	if strings.TrimSpace(value) == "" {
+		return ""
+	}
+	digest := sha256.Sum256([]byte(value))
+	return hex.EncodeToString(digest[:6])
+}
+
+func (h *AlipayWebhookHandler) Return(c *gin.Context) {
+	fields := make([]*pb.AlipayNotificationField, 0, len(c.Request.URL.Query()))
+	for key, values := range c.Request.URL.Query() {
+		if len(values) > 0 {
+			fields = append(fields, &pb.AlipayNotificationField{Key: key, Value: values[0]})
+		}
+	}
+	response, err := h.clients.Billing.ResolveAlipayReturn(c.Request.Context(), &pb.ResolveAlipayReturnRequest{Fields: fields})
+	if err != nil || response == nil {
+		logger.L().Warn("alipay browser return rejected", zap.Error(err))
+		c.String(http.StatusBadRequest, "invalid Alipay return")
+		return
+	}
+	target, ok := h.returnURLs[response.GetSourceApp()]
+	parsed, parseErr := url.Parse(target)
+	if !ok || parseErr != nil || (parsed.Scheme != "http" && parsed.Scheme != "https") || parsed.Host == "" || parsed.User != nil {
+		logger.L().Error("billing return target is invalid", zap.String("source_app", response.GetSourceApp()))
+		c.String(http.StatusServiceUnavailable, "billing return is unavailable")
+		return
+	}
+	query := parsed.Query()
+	query.Set("payment_return", response.GetReturnToken())
+	parsed.RawQuery = query.Encode()
+	c.Redirect(http.StatusSeeOther, parsed.String())
 }
 
 func queryInt32(c *gin.Context, key string, fallback int32) int32 {

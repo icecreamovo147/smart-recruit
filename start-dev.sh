@@ -456,6 +456,8 @@ export GRPC_INTERNAL_TLS="${GRPC_INTERNAL_TLS:-optional}"
 export ALLOW_INSECURE_DEV_CONFIG="${ALLOW_INSECURE_DEV_CONFIG:-true}"
 export STATIC_FALLBACK="${STATIC_FALLBACK:-false}"
 export SERVICE_ENV="${SERVICE_ENV:-local}"
+export BILLING_HR_RETURN_URL="${BILLING_HR_RETURN_URL:-http://localhost:5173/hr/billing}"
+export BILLING_CANDIDATE_RETURN_URL="${BILLING_CANDIDATE_RETURN_URL:-http://localhost:5174/candidate/billing}"
 
 if has_any_backend_target; then
     info "Applying database migrations..."
@@ -498,7 +500,7 @@ target_selected dev-log-viewer && start_service "dev-log-viewer" "${ROOT}/dev-lo
 cat <<EOF
 
 Done. Selected dev services are starting in the background.
-  Gateway API: http://127.0.0.1:8080
+  Gateway API: http://localhost:8080
   Identity:    127.0.0.1:50061
   Recruitment: 127.0.0.1:50062
   Interview:   127.0.0.1:50063
@@ -508,10 +510,10 @@ Done. Selected dev services are starting in the background.
   Analytics:   127.0.0.1:50067
   Worker:      127.0.0.1:50068
   Billing:     127.0.0.1:50069 (Alipay sandbox)
-  Staff:       http://127.0.0.1:5173
-  Candidate:   http://127.0.0.1:5174
-  Platform:    http://127.0.0.1:5175
-  Log Viewer:  http://127.0.0.1:8090
+  Staff:       http://localhost:5173
+  Candidate:   http://localhost:5174
+  Platform:    http://localhost:5175
+  Log Viewer:  http://localhost:8090
 
 Logs:
   ${LOG_DIR}

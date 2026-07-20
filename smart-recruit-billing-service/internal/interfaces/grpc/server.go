@@ -143,12 +143,16 @@ func (s *Server) GetBillingAccount(ctx context.Context, req *pb.GetBillingAccoun
 	if err != nil {
 		return nil, status.Error(codes.Internal, err.Error())
 	}
+	scheduledSubscription, err := s.commerce.ScheduledSubscription(ctx, owner)
+	if err != nil {
+		return nil, status.Error(codes.Internal, err.Error())
+	}
 	totalCredits, usedCredits, err := s.commerce.CurrentCreditSummary(ctx, owner)
 	if err != nil {
 		return nil, status.Error(codes.Internal, err.Error())
 	}
 	response := &pb.GetBillingAccountResponse{
-		Code: 0, Msg: "ok", Subscription: subscription,
+		Code: 0, Msg: "ok", Subscription: subscription, ScheduledSubscription: scheduledSubscription,
 		AvailableCredits: int64(balance.AvailableCredits), ReservedCredits: int64(balance.ReservedCredits),
 		PaymentEnvironment: s.commerce.Environment(), TotalCredits: totalCredits, UsedCredits: usedCredits,
 		NextRefreshAtUnixMs: s.commerce.NextRefreshAt(subscription),
@@ -181,18 +185,24 @@ func (s *Server) CreateBillingOrder(ctx context.Context, req *pb.CreateBillingOr
 	}
 	order, err := s.commerce.CreateOrder(ctx, owner, uint64(req.GetActorUserId()), uint64(req.GetPriceVersionId()), req.GetOrderType(), req.GetIdempotencyKey(), req.GetReplacePendingOrder())
 	if err != nil {
-		if errors.Is(err, service.ErrPendingBillingOrder) {
-			return nil, status.Error(codes.AlreadyExists, "存在尚未支付的订单，请选择继续支付或创建新订单")
-		}
-		if errors.Is(err, service.ErrBillingPaymentCompleted) {
-			return nil, status.Error(codes.FailedPrecondition, "原订单已经支付成功，请刷新套餐与订单状态")
-		}
-		if errors.Is(err, service.ErrBillingOrderNotPayable) {
-			return nil, status.Error(codes.FailedPrecondition, "原订单状态已经变化，请刷新后重试")
-		}
-		return nil, status.Error(codes.InvalidArgument, err.Error())
+		return nil, createBillingOrderError(err)
 	}
 	return &pb.BillingOrderResponse{Code: 0, Msg: "ok", Order: order}, nil
+}
+
+func createBillingOrderError(err error) error {
+	switch {
+	case errors.Is(err, service.ErrPendingBillingOrder):
+		return status.Error(codes.AlreadyExists, "存在尚未支付的订单，请选择继续支付或创建新订单")
+	case errors.Is(err, service.ErrSubscriptionRenewalScheduled):
+		return status.Error(codes.FailedPrecondition, "当前套餐已完成续费，下一周期套餐将在生效日自动启用，无需重复购买")
+	case errors.Is(err, service.ErrBillingPaymentCompleted):
+		return status.Error(codes.FailedPrecondition, "原订单已经支付成功，请刷新套餐与订单状态")
+	case errors.Is(err, service.ErrBillingOrderNotPayable):
+		return status.Error(codes.FailedPrecondition, "原订单状态已经变化，请刷新后重试")
+	default:
+		return status.Error(codes.InvalidArgument, err.Error())
+	}
 }
 
 func (s *Server) CreateAlipayPayment(ctx context.Context, req *pb.CreateAlipayPaymentRequest) (*pb.CreateAlipayPaymentResponse, error) {
@@ -214,7 +224,7 @@ func (s *Server) CreateAlipayPayment(ctx context.Context, req *pb.CreateAlipayPa
 		}
 		return &pb.CreateAlipayPaymentResponse{Code: 0, Msg: "ok", PaymentNo: paymentNo, RedirectUrl: "", PaymentEnvironment: s.commerce.Environment()}, nil
 	}
-	paymentNo, redirectURL, err := s.commerce.CreatePayment(ctx, owner, req.GetOrderNo(), req.GetScene())
+	paymentNo, redirectURL, reused, expiresAt, err := s.commerce.CreatePayment(ctx, owner, req.GetOrderNo(), req.GetScene())
 	if err != nil {
 		switch {
 		case errors.Is(err, service.ErrBillingOrderExpired):
@@ -227,7 +237,7 @@ func (s *Server) CreateAlipayPayment(ctx context.Context, req *pb.CreateAlipayPa
 			return nil, status.Error(codes.FailedPrecondition, "支付宝沙箱支付暂不可用，请检查沙箱配置或稍后重试")
 		}
 	}
-	return &pb.CreateAlipayPaymentResponse{Code: 0, Msg: "ok", PaymentNo: paymentNo, RedirectUrl: redirectURL, PaymentEnvironment: s.commerce.Environment()}, nil
+	return &pb.CreateAlipayPaymentResponse{Code: 0, Msg: "ok", PaymentNo: paymentNo, RedirectUrl: redirectURL, PaymentEnvironment: s.commerce.Environment(), Reused: reused, Status: "pending", ExpiresAtUnixMs: expiresAt.UnixMilli()}, nil
 }
 
 func (s *Server) RequestBillingRefund(ctx context.Context, req *pb.RequestBillingRefundRequest) (*pb.BillingRefundResponse, error) {
@@ -238,7 +248,7 @@ func (s *Server) RequestBillingRefund(ctx context.Context, req *pb.RequestBillin
 	if req.GetActorUserId() <= 0 {
 		return nil, status.Error(codes.InvalidArgument, "refund actor is required")
 	}
-	refundNo, statusValue, reviewMode, err := s.commerce.RequestRefund(ctx, owner, uint64(req.GetActorUserId()), req.GetOrderNo(), req.GetReason())
+	refundNo, statusValue, reviewMode, err := s.commerce.RequestRefund(ctx, owner, uint64(req.GetActorUserId()), req.GetOrderNo(), req.GetReason(), req.GetIdempotencyKey())
 	if err != nil {
 		return nil, status.Error(codes.Internal, err.Error())
 	}
@@ -253,9 +263,60 @@ func (s *Server) ProcessAlipayNotification(ctx context.Context, req *pb.ProcessA
 		}
 	}
 	if err := s.commerce.ProcessAlipayNotification(ctx, fields); err != nil {
-		return nil, status.Error(codes.InvalidArgument, err.Error())
+		if errors.Is(err, service.ErrInvalidAlipayNotification) {
+			return nil, status.Error(codes.InvalidArgument, err.Error())
+		}
+		return nil, status.Error(codes.Internal, err.Error())
 	}
 	return &pb.ProcessAlipayNotificationResponse{Code: 0, Msg: "ok", Accepted: true}, nil
+}
+
+func (s *Server) ResolveAlipayReturn(ctx context.Context, req *pb.ResolveAlipayReturnRequest) (*pb.ResolveAlipayReturnResponse, error) {
+	fields := make(map[string]string, len(req.GetFields()))
+	for _, field := range req.GetFields() {
+		if field.GetKey() != "" {
+			fields[field.GetKey()] = field.GetValue()
+		}
+	}
+	sourceApp, returnToken, err := s.commerce.ResolveAlipayReturn(ctx, fields)
+	if err != nil {
+		if errors.Is(err, service.ErrInvalidAlipayNotification) {
+			return nil, status.Error(codes.InvalidArgument, err.Error())
+		}
+		return nil, status.Error(codes.Internal, err.Error())
+	}
+	return &pb.ResolveAlipayReturnResponse{Code: 0, Msg: "ok", SourceApp: sourceApp, ReturnToken: returnToken}, nil
+}
+
+func (s *Server) SyncAlipayReturn(ctx context.Context, req *pb.SyncAlipayReturnRequest) (*pb.CreateAlipayPaymentResponse, error) {
+	owner, err := ownerFromProto(req.GetOwner())
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, err.Error())
+	}
+	paymentNo, err := s.commerce.SyncPaymentReturn(ctx, owner, req.GetReturnToken())
+	if err != nil {
+		if errors.Is(err, service.ErrBillingPaymentPending) {
+			return nil, status.Error(codes.FailedPrecondition, "支付结果确认中，请稍候")
+		}
+		return nil, status.Error(codes.FailedPrecondition, "当前支付返回无法确认，请刷新订单状态")
+	}
+	return &pb.CreateAlipayPaymentResponse{Code: 0, Msg: "ok", PaymentNo: paymentNo, PaymentEnvironment: s.commerce.Environment(), Status: "succeeded"}, nil
+}
+
+func (s *Server) ListBillingRefunds(ctx context.Context, req *pb.ListBillingRefundsRequest) (*pb.ListBillingRefundsResponse, error) {
+	refunds, total, err := s.commerce.ListRefunds(ctx, req.GetStatus(), req.GetPage(), req.GetPageSize())
+	if err != nil {
+		return nil, status.Error(codes.Internal, err.Error())
+	}
+	return &pb.ListBillingRefundsResponse{Code: 0, Msg: "ok", Refunds: refunds, Total: total}, nil
+}
+
+func (s *Server) ReviewBillingRefund(ctx context.Context, req *pb.ReviewBillingRefundRequest) (*pb.BillingRefundResponse, error) {
+	refundNo, statusValue, err := s.commerce.ReviewRefund(ctx, req.GetRefundNo(), uint64(req.GetActorUserId()), req.GetAction(), req.GetReason())
+	if err != nil {
+		return nil, status.Error(codes.FailedPrecondition, err.Error())
+	}
+	return &pb.BillingRefundResponse{Code: 0, Msg: "ok", RefundNo: refundNo, Status: statusValue, ReviewMode: "manual"}, nil
 }
 
 func (s *Server) ListBillingAdminCatalog(ctx context.Context, _ *pb.ListBillingAdminCatalogRequest) (*pb.ListBillingCatalogResponse, error) {

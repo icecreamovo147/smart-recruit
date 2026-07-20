@@ -8,6 +8,7 @@ export const PLATFORM_PERMISSIONS = {
   PLAN_READ: 'platform.plan.read',
   PLAN_MANAGE: 'platform.plan.manage',
   PLAN_PUBLISH: 'platform.plan.publish',
+  BILLING_REFUND_REVIEW: 'platform.billing.refund.review',
   SUBSCRIPTION_MANAGE: 'platform.subscription.manage',
   USAGE_READ: 'platform.usage.read',
   ALERT_READ: 'platform.alert.read',

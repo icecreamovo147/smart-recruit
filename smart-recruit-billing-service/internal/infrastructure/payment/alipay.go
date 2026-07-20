@@ -18,6 +18,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 )
 
@@ -26,16 +27,16 @@ const DefaultSandboxGateway = "https://openapi-sandbox.dl.alipaydev.com/gateway.
 const alipayStatusRequestTimeout = 4 * time.Second
 
 type AlipayConfig struct {
-	Environment    string
-	GatewayURL     string
-	AppID          string
-	PrivateKey     string
-	PublicKey      string
-	SellerID       string
-	NotifyURL      string
-	ReturnURL      string
-	DesktopEnabled bool
-	WAPEnabled     bool
+	Environment     string
+	GatewayURL      string
+	AppID           string
+	PrivateKey      string
+	VerifyPublicKey string
+	SellerID        string
+	NotifyURL       string
+	ReturnURL       string
+	DesktopEnabled  bool
+	WAPEnabled      bool
 }
 
 func (c AlipayConfig) Validate() error {
@@ -49,20 +50,31 @@ func (c AlipayConfig) Validate() error {
 	if err != nil || parsed.Scheme != "https" || !strings.HasSuffix(parsed.Hostname(), "alipaydev.com") {
 		return errors.New("sandbox Alipay gateway must be an HTTPS alipaydev.com endpoint")
 	}
-	if strings.TrimSpace(c.AppID) == "" || strings.TrimSpace(c.PrivateKey) == "" || strings.TrimSpace(c.PublicKey) == "" || strings.TrimSpace(c.SellerID) == "" {
+	if strings.TrimSpace(c.AppID) == "" || strings.TrimSpace(c.PrivateKey) == "" || strings.TrimSpace(c.VerifyPublicKey) == "" || strings.TrimSpace(c.SellerID) == "" {
 		return errors.New("Alipay sandbox app, seller and RSA2 keys are required")
 	}
 	if strings.TrimSpace(c.NotifyURL) == "" {
 		return errors.New("Alipay notify URL is required")
 	}
+	notifyURL, err := url.Parse(c.NotifyURL)
+	if err != nil || notifyURL.Scheme != "https" || notifyURL.Host == "" || notifyURL.User != nil {
+		return errors.New("Alipay notify URL must be an absolute HTTPS URL")
+	}
+	returnURL, err := url.Parse(c.ReturnURL)
+	if err != nil || (returnURL.Scheme != "http" && returnURL.Scheme != "https") || returnURL.Host == "" || returnURL.User != nil {
+		return errors.New("Alipay return URL must be an absolute HTTP(S) URL")
+	}
 	return nil
 }
 
 type Alipay struct {
-	config     AlipayConfig
-	privateKey *rsa.PrivateKey
-	publicKey  *rsa.PublicKey
-	httpClient *http.Client
+	config           AlipayConfig
+	privateKey       *rsa.PrivateKey
+	publicKey        *rsa.PublicKey
+	httpClient       *http.Client
+	breakerMu        sync.Mutex
+	breakerFailures  int
+	breakerOpenUntil time.Time
 }
 
 type UnavailableAlipay struct{ reason error }
@@ -76,8 +88,12 @@ func NewUnavailableAlipay(reason error) *UnavailableAlipay {
 func (*UnavailableAlipay) Environment() string                            { return "sandbox" }
 func (a *UnavailableAlipay) PayURL(PayRequest, time.Time) (string, error) { return "", a.reason }
 func (a *UnavailableAlipay) VerifyNotification(map[string]string) error   { return a.reason }
+func (a *UnavailableAlipay) VerifyReturn(map[string]string) error         { return a.reason }
 func (a *UnavailableAlipay) Refund(context.Context, string, string, string, uint64, time.Time) (string, error) {
 	return "", a.reason
+}
+func (a *UnavailableAlipay) QueryRefund(context.Context, string, string, time.Time) (RefundQueryResult, error) {
+	return RefundQueryResult{}, a.reason
 }
 func (a *UnavailableAlipay) Query(context.Context, string, time.Time) (QueryResult, error) {
 	return QueryResult{}, a.reason
@@ -95,9 +111,18 @@ func NewAlipay(config AlipayConfig) (*Alipay, error) {
 	if err != nil {
 		return nil, fmt.Errorf("parse Alipay application private key: %w", err)
 	}
-	publicKey, err := parsePublicKey(config.PublicKey)
+	publicKey, err := parsePublicKey(config.VerifyPublicKey)
 	if err != nil {
 		return nil, fmt.Errorf("parse Alipay public key: %w", err)
+	}
+	if privateKey.PublicKey.E == publicKey.E && privateKey.PublicKey.N.Cmp(publicKey.N) == 0 {
+		return nil, errors.New("Alipay verify public key is the application public key; configure the Alipay public key")
+	}
+	if privateKey.N.BitLen() < 2048 || publicKey.N.BitLen() < 2048 {
+		return nil, errors.New("Alipay RSA2 keys must be at least 2048 bits")
+	}
+	if err := privateKey.Validate(); err != nil {
+		return nil, fmt.Errorf("validate Alipay application private key: %w", err)
 	}
 	return &Alipay{
 		config:     config,
@@ -117,6 +142,7 @@ func (a *Alipay) Environment() string { return a.config.Environment }
 
 type PayRequest struct {
 	OrderNo, Subject, Scene string
+	ReturnToken             string
 	AmountFen               uint64
 	ExpiresAt               time.Time
 }
@@ -160,7 +186,18 @@ func (a *Alipay) PayURL(request PayRequest, now time.Time) (string, error) {
 		"notify_url": a.config.NotifyURL, "biz_content": string(biz),
 	}
 	if a.config.ReturnURL != "" {
-		params["return_url"] = a.config.ReturnURL
+		returnURL := a.config.ReturnURL
+		if request.ReturnToken != "" {
+			parsed, err := url.Parse(returnURL)
+			if err != nil {
+				return "", errors.New("Alipay return URL is invalid")
+			}
+			query := parsed.Query()
+			query.Set("return_token", request.ReturnToken)
+			parsed.RawQuery = query.Encode()
+			returnURL = parsed.String()
+		}
+		params["return_url"] = returnURL
 	}
 	signature, err := a.sign(canonical(params))
 	if err != nil {
@@ -202,6 +239,31 @@ func (a *Alipay) VerifyNotification(fields map[string]string) error {
 	return nil
 }
 
+func (a *Alipay) VerifyReturn(fields map[string]string) error {
+	if fields["app_id"] != a.config.AppID {
+		return errors.New("Alipay return app_id mismatch")
+	}
+	signature := fields["sign"]
+	if signature == "" || fields["sign_type"] != "RSA2" {
+		return errors.New("Alipay return RSA2 signature is required")
+	}
+	copyFields := make(map[string]string, len(fields))
+	for key, value := range fields {
+		if key != "sign" && key != "sign_type" && key != "return_token" && value != "" {
+			copyFields[key] = value
+		}
+	}
+	decoded, err := base64.StdEncoding.DecodeString(signature)
+	if err != nil {
+		return errors.New("Alipay return signature is not valid base64")
+	}
+	digest := sha256.Sum256([]byte(canonical(copyFields)))
+	if err := rsa.VerifyPKCS1v15(a.publicKey, crypto.SHA256, digest[:], decoded); err != nil {
+		return errors.New("Alipay return signature verification failed")
+	}
+	return nil
+}
+
 func (a *Alipay) Refund(ctx context.Context, orderNo, refundNo, reason string, amountFen uint64, now time.Time) (string, error) {
 	if orderNo == "" || refundNo == "" || amountFen == 0 {
 		return "", errors.New("Alipay refund identifiers and amount are required")
@@ -226,7 +288,7 @@ func (a *Alipay) Refund(ctx context.Context, orderNo, refundNo, reason string, a
 		return "", err
 	}
 	request.Header.Set("Content-Type", "application/x-www-form-urlencoded;charset=utf-8")
-	response, err := a.httpClient.Do(request)
+	response, err := a.do(request)
 	if err != nil {
 		return "", err
 	}
@@ -235,12 +297,17 @@ func (a *Alipay) Refund(ctx context.Context, orderNo, refundNo, reason string, a
 	if err != nil {
 		return "", err
 	}
+	if err := a.verifyAPIResponseHTTP("refund", response, body, "alipay_trade_refund_response"); err != nil {
+		return "", err
+	}
 	var envelope struct {
 		Response struct {
-			Code    string `json:"code"`
-			Msg     string `json:"msg"`
-			SubMsg  string `json:"sub_msg"`
-			TradeNo string `json:"trade_no"`
+			Code       string `json:"code"`
+			Msg        string `json:"msg"`
+			SubMsg     string `json:"sub_msg"`
+			TradeNo    string `json:"trade_no"`
+			OutTradeNo string `json:"out_trade_no"`
+			RefundFee  string `json:"refund_fee"`
 		} `json:"alipay_trade_refund_response"`
 	}
 	if err := json.Unmarshal(body, &envelope); err != nil {
@@ -249,12 +316,24 @@ func (a *Alipay) Refund(ctx context.Context, orderNo, refundNo, reason string, a
 	if envelope.Response.Code != "10000" {
 		return "", fmt.Errorf("Alipay refund rejected: %s %s", envelope.Response.Msg, envelope.Response.SubMsg)
 	}
+	if envelope.Response.OutTradeNo != orderNo {
+		return "", errors.New("Alipay refund response order mismatch")
+	}
+	refundAmount, err := parseFen(envelope.Response.RefundFee)
+	if err != nil || refundAmount != amountFen {
+		return "", errors.New("Alipay refund response amount mismatch")
+	}
 	return envelope.Response.TradeNo, nil
 }
 
 type QueryResult struct {
-	TradeNo, TradeStatus string
-	AmountFen            uint64
+	MerchantOrderNo, TradeNo, TradeStatus string
+	AmountFen                             uint64
+}
+
+type RefundQueryResult struct {
+	TradeNo, RefundNo, RefundStatus string
+	AmountFen                       uint64
 }
 
 type APIError struct {
@@ -268,6 +347,11 @@ func (e *APIError) Error() string {
 func IsTradeNotExist(err error) bool {
 	var apiErr *APIError
 	return errors.As(err, &apiErr) && (apiErr.SubCode == "ACQ.TRADE_NOT_EXIST" || strings.Contains(apiErr.SubMessage, "交易不存在"))
+}
+
+func IsAPIRejected(err error) bool {
+	var apiErr *APIError
+	return errors.As(err, &apiErr)
 }
 
 func (a *Alipay) Query(ctx context.Context, orderNo string, now time.Time) (QueryResult, error) {
@@ -293,13 +377,16 @@ func (a *Alipay) Query(ctx context.Context, orderNo string, now time.Time) (Quer
 		return QueryResult{}, err
 	}
 	request.Header.Set("Content-Type", "application/x-www-form-urlencoded;charset=utf-8")
-	response, err := a.httpClient.Do(request)
+	response, err := a.do(request)
 	if err != nil {
 		return QueryResult{}, err
 	}
 	defer response.Body.Close()
 	body, err := io.ReadAll(io.LimitReader(response.Body, 1<<20))
 	if err != nil {
+		return QueryResult{}, err
+	}
+	if err := a.verifyAPIResponseHTTP("query", response, body, "alipay_trade_query_response"); err != nil {
 		return QueryResult{}, err
 	}
 	var envelope struct {
@@ -309,6 +396,7 @@ func (a *Alipay) Query(ctx context.Context, orderNo string, now time.Time) (Quer
 			SubCode     string `json:"sub_code"`
 			SubMsg      string `json:"sub_msg"`
 			TradeNo     string `json:"trade_no"`
+			OutTradeNo  string `json:"out_trade_no"`
 			TradeStatus string `json:"trade_status"`
 			TotalAmount string `json:"total_amount"`
 		} `json:"alipay_trade_query_response"`
@@ -319,6 +407,9 @@ func (a *Alipay) Query(ctx context.Context, orderNo string, now time.Time) (Quer
 	if envelope.Response.Code != "10000" {
 		return QueryResult{}, &APIError{Operation: "query", Code: envelope.Response.Code, SubCode: envelope.Response.SubCode, Message: envelope.Response.Msg, SubMessage: envelope.Response.SubMsg}
 	}
+	if envelope.Response.OutTradeNo != orderNo {
+		return QueryResult{}, errors.New("Alipay query response order mismatch")
+	}
 	var amount uint64
 	if envelope.Response.TotalAmount != "" {
 		amount, err = parseFen(envelope.Response.TotalAmount)
@@ -328,7 +419,7 @@ func (a *Alipay) Query(ctx context.Context, orderNo string, now time.Time) (Quer
 	} else if envelope.Response.TradeStatus == "TRADE_SUCCESS" || envelope.Response.TradeStatus == "TRADE_FINISHED" {
 		return QueryResult{}, errors.New("Alipay successful trade query omitted total amount")
 	}
-	return QueryResult{TradeNo: envelope.Response.TradeNo, TradeStatus: envelope.Response.TradeStatus, AmountFen: amount}, nil
+	return QueryResult{MerchantOrderNo: envelope.Response.OutTradeNo, TradeNo: envelope.Response.TradeNo, TradeStatus: envelope.Response.TradeStatus, AmountFen: amount}, nil
 }
 
 func (a *Alipay) Close(ctx context.Context, merchantOrderNo string, now time.Time) error {
@@ -354,13 +445,16 @@ func (a *Alipay) Close(ctx context.Context, merchantOrderNo string, now time.Tim
 		return err
 	}
 	request.Header.Set("Content-Type", "application/x-www-form-urlencoded;charset=utf-8")
-	response, err := a.httpClient.Do(request)
+	response, err := a.do(request)
 	if err != nil {
 		return err
 	}
 	defer response.Body.Close()
 	body, err := io.ReadAll(io.LimitReader(response.Body, 1<<20))
 	if err != nil {
+		return err
+	}
+	if err := a.verifyAPIResponseHTTP("close", response, body, "alipay_trade_close_response"); err != nil {
 		return err
 	}
 	var envelope struct {
@@ -378,6 +472,125 @@ func (a *Alipay) Close(ctx context.Context, merchantOrderNo string, now time.Tim
 		return nil
 	}
 	return &APIError{Operation: "close", Code: envelope.Response.Code, SubCode: envelope.Response.SubCode, Message: envelope.Response.Msg, SubMessage: envelope.Response.SubMsg}
+}
+
+func (a *Alipay) QueryRefund(ctx context.Context, merchantOrderNo, refundNo string, now time.Time) (RefundQueryResult, error) {
+	if strings.TrimSpace(merchantOrderNo) == "" || strings.TrimSpace(refundNo) == "" {
+		return RefundQueryResult{}, errors.New("Alipay refund query identifiers are required")
+	}
+	biz, _ := json.Marshal(map[string]string{"out_trade_no": merchantOrderNo, "out_request_no": refundNo})
+	location, _ := time.LoadLocation("Asia/Shanghai")
+	params := map[string]string{"app_id": a.config.AppID, "method": "alipay.trade.fastpay.refund.query", "format": "JSON", "charset": "utf-8", "sign_type": "RSA2", "timestamp": now.In(location).Format("2006-01-02 15:04:05"), "version": "1.0", "biz_content": string(biz)}
+	signature, err := a.sign(canonical(params))
+	if err != nil {
+		return RefundQueryResult{}, err
+	}
+	values := url.Values{}
+	for key, value := range params {
+		values.Set(key, value)
+	}
+	values.Set("sign", signature)
+	requestCtx, cancel := boundedStatusContext(ctx)
+	defer cancel()
+	request, err := http.NewRequestWithContext(requestCtx, http.MethodPost, a.config.GatewayURL, strings.NewReader(values.Encode()))
+	if err != nil {
+		return RefundQueryResult{}, err
+	}
+	request.Header.Set("Content-Type", "application/x-www-form-urlencoded;charset=utf-8")
+	response, err := a.do(request)
+	if err != nil {
+		return RefundQueryResult{}, err
+	}
+	defer response.Body.Close()
+	body, err := io.ReadAll(io.LimitReader(response.Body, 1<<20))
+	if err != nil {
+		return RefundQueryResult{}, err
+	}
+	if err := a.verifyAPIResponseHTTP("refund query", response, body, "alipay_trade_fastpay_refund_query_response"); err != nil {
+		return RefundQueryResult{}, err
+	}
+	var envelope struct {
+		Response struct {
+			Code         string `json:"code"`
+			Msg          string `json:"msg"`
+			SubCode      string `json:"sub_code"`
+			SubMsg       string `json:"sub_msg"`
+			TradeNo      string `json:"trade_no"`
+			RefundNo     string `json:"out_request_no"`
+			RefundStatus string `json:"refund_status"`
+			RefundAmount string `json:"refund_amount"`
+		} `json:"alipay_trade_fastpay_refund_query_response"`
+	}
+	if err := json.Unmarshal(body, &envelope); err != nil {
+		return RefundQueryResult{}, nonJSONResponseError("refund query", response, err)
+	}
+	if envelope.Response.Code != "10000" {
+		return RefundQueryResult{}, &APIError{Operation: "refund query", Code: envelope.Response.Code, SubCode: envelope.Response.SubCode, Message: envelope.Response.Msg, SubMessage: envelope.Response.SubMsg}
+	}
+	amount, err := parseFen(envelope.Response.RefundAmount)
+	if err != nil {
+		return RefundQueryResult{}, fmt.Errorf("parse Alipay refund amount: %w", err)
+	}
+	return RefundQueryResult{TradeNo: envelope.Response.TradeNo, RefundNo: envelope.Response.RefundNo, RefundStatus: envelope.Response.RefundStatus, AmountFen: amount}, nil
+}
+
+func (a *Alipay) verifyAPIResponse(body []byte, responseField string) error {
+	var envelope map[string]json.RawMessage
+	if err := json.Unmarshal(body, &envelope); err != nil {
+		return fmt.Errorf("decode Alipay response envelope: %w", err)
+	}
+	raw, ok := envelope[responseField]
+	if !ok || len(raw) == 0 {
+		return fmt.Errorf("Alipay response omitted %s", responseField)
+	}
+	var signature string
+	if value, ok := envelope["sign"]; ok {
+		_ = json.Unmarshal(value, &signature)
+	}
+	if signature == "" {
+		return errors.New("Alipay API response signature is required")
+	}
+	decoded, err := base64.StdEncoding.DecodeString(signature)
+	if err != nil {
+		return errors.New("Alipay API response signature is not valid base64")
+	}
+	digest := sha256.Sum256(raw)
+	if err := rsa.VerifyPKCS1v15(a.publicKey, crypto.SHA256, digest[:], decoded); err != nil {
+		return errors.New("Alipay API response signature verification failed")
+	}
+	return nil
+}
+
+func (a *Alipay) verifyAPIResponseHTTP(operation string, response *http.Response, body []byte, responseField string) error {
+	err := a.verifyAPIResponse(body, responseField)
+	if err != nil && !json.Valid(body) {
+		return nonJSONResponseError(operation, response, err)
+	}
+	return err
+}
+
+func (a *Alipay) do(request *http.Request) (*http.Response, error) {
+	now := time.Now()
+	a.breakerMu.Lock()
+	if now.Before(a.breakerOpenUntil) {
+		a.breakerMu.Unlock()
+		return nil, errors.New("Alipay API circuit is open after repeated gateway failures")
+	}
+	a.breakerMu.Unlock()
+	response, err := a.httpClient.Do(request)
+	a.breakerMu.Lock()
+	defer a.breakerMu.Unlock()
+	if err != nil || (response != nil && response.StatusCode >= http.StatusInternalServerError) {
+		a.breakerFailures++
+		if a.breakerFailures >= 5 {
+			a.breakerOpenUntil = now.Add(30 * time.Second)
+			a.breakerFailures = 0
+		}
+	} else {
+		a.breakerFailures = 0
+		a.breakerOpenUntil = time.Time{}
+	}
+	return response, err
 }
 
 func boundedStatusContext(ctx context.Context) (context.Context, context.CancelFunc) {

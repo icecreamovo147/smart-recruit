@@ -2,6 +2,7 @@ package config
 
 import (
 	"fmt"
+	"net/url"
 	"os"
 	"strconv"
 	"strings"
@@ -9,32 +10,34 @@ import (
 )
 
 type Config struct {
-	HTTPPort              string
-	GRPCAddr              string
-	NotificationGRPCAddr  string
-	NotificationRouteMode string
-	AIAgentGRPCAddr       string
-	AIAgentRouteMode      string
-	IdentityGRPCAddr      string
-	IdentityRouteMode     string
-	RecruitmentGRPCAddr   string
-	RecruitmentRouteMode  string
-	InterviewGRPCAddr     string
-	InterviewRouteMode    string
-	OfferGRPCAddr         string
-	OfferRouteMode        string
-	GRPCInternalTLS       string
-	GRPCTLSCAFile         string
-	GRPCTLSServerName     string
-	JWTSecret             string
-	AuthCookieName        string
-	CandidateCookie       string
-	HRCookie              string
-	InterviewerCookie     string
-	AuthCookieSecure      bool
-	ShutdownTimeout       time.Duration
-	Redis                 RedisConfig
-	RateLimit             RateLimitConfig
+	HTTPPort                  string
+	GRPCAddr                  string
+	NotificationGRPCAddr      string
+	NotificationRouteMode     string
+	AIAgentGRPCAddr           string
+	AIAgentRouteMode          string
+	IdentityGRPCAddr          string
+	IdentityRouteMode         string
+	RecruitmentGRPCAddr       string
+	RecruitmentRouteMode      string
+	InterviewGRPCAddr         string
+	InterviewRouteMode        string
+	OfferGRPCAddr             string
+	OfferRouteMode            string
+	GRPCInternalTLS           string
+	GRPCTLSCAFile             string
+	GRPCTLSServerName         string
+	JWTSecret                 string
+	AuthCookieName            string
+	CandidateCookie           string
+	HRCookie                  string
+	InterviewerCookie         string
+	AuthCookieSecure          bool
+	BillingHRReturnURL        string
+	BillingCandidateReturnURL string
+	ShutdownTimeout           time.Duration
+	Redis                     RedisConfig
+	RateLimit                 RateLimitConfig
 	// Ranking keeps the gateway-side env contract for skill and memory scoring knobs.
 	Ranking Ranking
 }
@@ -123,31 +126,41 @@ func Load() (Config, error) {
 	if err := validateInternalTLSConfig(grpcInternalTLS, grpcTLSCAFile); err != nil {
 		return Config{}, err
 	}
+	billingHRReturnURL := env("BILLING_HR_RETURN_URL", "http://localhost:5173/hr/billing")
+	billingCandidateReturnURL := env("BILLING_CANDIDATE_RETURN_URL", "http://localhost:5174/candidate/billing")
+	if err := validateBillingReturnURL("BILLING_HR_RETURN_URL", billingHRReturnURL); err != nil {
+		return Config{}, err
+	}
+	if err := validateBillingReturnURL("BILLING_CANDIDATE_RETURN_URL", billingCandidateReturnURL); err != nil {
+		return Config{}, err
+	}
 	return Config{
-		HTTPPort:              env("HTTP_PORT", "8080"),
-		GRPCAddr:              env("GRPC_ADDR", "127.0.0.1:50062"),
-		NotificationGRPCAddr:  notificationGRPCAddr,
-		NotificationRouteMode: notificationRouteMode,
-		AIAgentGRPCAddr:       aiAgentGRPCAddr,
-		AIAgentRouteMode:      aiAgentRouteMode,
-		IdentityGRPCAddr:      identityGRPCAddr,
-		IdentityRouteMode:     identityRouteMode,
-		RecruitmentGRPCAddr:   recruitmentGRPCAddr,
-		RecruitmentRouteMode:  recruitmentRouteMode,
-		InterviewGRPCAddr:     interviewGRPCAddr,
-		InterviewRouteMode:    interviewRouteMode,
-		OfferGRPCAddr:         offerGRPCAddr,
-		OfferRouteMode:        offerRouteMode,
-		GRPCInternalTLS:       grpcInternalTLS,
-		GRPCTLSCAFile:         grpcTLSCAFile,
-		GRPCTLSServerName:     env("GRPC_TLS_SERVER_NAME", ""),
-		JWTSecret:             secret,
-		AuthCookieName:        env("AUTH_COOKIE_NAME", "recruitment_token"),
-		CandidateCookie:       env("CANDIDATE_AUTH_COOKIE_NAME", "recruitment_candidate_token"),
-		HRCookie:              env("HR_AUTH_COOKIE_NAME", "recruitment_hr_token"),
-		InterviewerCookie:     env("INTERVIEWER_AUTH_COOKIE_NAME", "recruitment_interviewer_token"),
-		AuthCookieSecure:      envBool("AUTH_COOKIE_SECURE", false),
-		ShutdownTimeout:       envDuration("SHUTDOWN_TIMEOUT", 15*time.Second),
+		HTTPPort:                  env("HTTP_PORT", "8080"),
+		GRPCAddr:                  env("GRPC_ADDR", "127.0.0.1:50062"),
+		NotificationGRPCAddr:      notificationGRPCAddr,
+		NotificationRouteMode:     notificationRouteMode,
+		AIAgentGRPCAddr:           aiAgentGRPCAddr,
+		AIAgentRouteMode:          aiAgentRouteMode,
+		IdentityGRPCAddr:          identityGRPCAddr,
+		IdentityRouteMode:         identityRouteMode,
+		RecruitmentGRPCAddr:       recruitmentGRPCAddr,
+		RecruitmentRouteMode:      recruitmentRouteMode,
+		InterviewGRPCAddr:         interviewGRPCAddr,
+		InterviewRouteMode:        interviewRouteMode,
+		OfferGRPCAddr:             offerGRPCAddr,
+		OfferRouteMode:            offerRouteMode,
+		GRPCInternalTLS:           grpcInternalTLS,
+		GRPCTLSCAFile:             grpcTLSCAFile,
+		GRPCTLSServerName:         env("GRPC_TLS_SERVER_NAME", ""),
+		JWTSecret:                 secret,
+		AuthCookieName:            env("AUTH_COOKIE_NAME", "recruitment_token"),
+		CandidateCookie:           env("CANDIDATE_AUTH_COOKIE_NAME", "recruitment_candidate_token"),
+		HRCookie:                  env("HR_AUTH_COOKIE_NAME", "recruitment_hr_token"),
+		InterviewerCookie:         env("INTERVIEWER_AUTH_COOKIE_NAME", "recruitment_interviewer_token"),
+		AuthCookieSecure:          envBool("AUTH_COOKIE_SECURE", false),
+		BillingHRReturnURL:        billingHRReturnURL,
+		BillingCandidateReturnURL: billingCandidateReturnURL,
+		ShutdownTimeout:           envDuration("SHUTDOWN_TIMEOUT", 15*time.Second),
 		Redis: RedisConfig{
 			Addr:         env("REDIS_ADDR", "127.0.0.1:6379"),
 			Password:     env("REDIS_PASSWORD", ""),
@@ -186,6 +199,14 @@ func Load() (Config, error) {
 			GapMedium:        envFloat64("RANKING_GAP_MEDIUM"),
 		},
 	}, nil
+}
+
+func validateBillingReturnURL(name, value string) error {
+	parsed, err := url.Parse(value)
+	if err != nil || (parsed.Scheme != "http" && parsed.Scheme != "https") || parsed.Host == "" || parsed.User != nil || parsed.Fragment != "" {
+		return fmt.Errorf("%s must be an absolute HTTP(S) URL without credentials or fragment", name)
+	}
+	return nil
 }
 
 func validateOfferRoute(mode, addr string) error {

@@ -168,16 +168,16 @@ cat <<EOF
 Done.
 
 Entry points:
-  Gateway:      http://127.0.0.1:8080
-  Staff:        http://127.0.0.1:5173
-  Candidate:    http://127.0.0.1:5174
-  Platform:     http://127.0.0.1:5175
-  Nacos:        http://127.0.0.1:8848
-  RabbitMQ:     http://127.0.0.1:15672
-  Prometheus:   http://127.0.0.1:9090
-  Grafana:      http://127.0.0.1:3000
-  Jaeger:       http://127.0.0.1:16686
-  Loki:         http://127.0.0.1:3100
+  Gateway:      http://localhost:8080
+  Staff:        http://localhost:5173
+  Candidate:    http://localhost:5174
+  Platform:     http://localhost:5175
+  Nacos:        http://localhost:8848
+  RabbitMQ:     http://localhost:15672
+  Prometheus:   http://localhost:9090
+  Grafana:      http://localhost:3000
+  Jaeger:       http://localhost:16686
+  Loki:         http://localhost:3100
 
 Logs:
   docker-compose -p ${PROJECT_NAME} -f smart-recruit-deploy/docker-compose.microservices.yml logs -f

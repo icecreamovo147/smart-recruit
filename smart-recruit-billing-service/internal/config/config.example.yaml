@@ -17,14 +17,14 @@ alipay:
   # Recommended: keep RSA2 keys in local PEM files. Relative paths are resolved
   # from the directory containing this config.yaml file.
   private_key_file: ./secrets/alipay-app-private.pem
-  public_key_file: ./secrets/alipay-public.pem
+  verify_public_key_file: ./secrets/alipay-public.pem
 
   # Alternatively, remove the *_file values above and paste complete PEM values:
   # private_key: |-
   #   -----BEGIN PRIVATE KEY-----
   #   ...
   #   -----END PRIVATE KEY-----
-  # public_key: |-
+  # verify_public_key: |-
   #   -----BEGIN PUBLIC KEY-----
   #   ...
   #   -----END PUBLIC KEY-----
@@ -34,7 +34,7 @@ alipay:
   # 127.0.0.1 can refuse connections while localhost works.
   # Candidate: http://localhost:5174/billing
   # HR:        http://localhost:5173/hr/billing
-  return_url: http://localhost:5174/billing
+  return_url: http://localhost:8080/api/v1/public/billing/returns/alipay
 
   desktop_enabled: true
   wap_enabled: true

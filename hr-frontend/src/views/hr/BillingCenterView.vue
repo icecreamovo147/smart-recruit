@@ -5,10 +5,13 @@ import { Refresh } from '@element-plus/icons-vue'
 import { formatUnixDateTime, parseUnixTimestamp } from '@shared/utils/format'
 import {
   isAlipayReturnSearch,
+  getPaymentReturnToken,
+  detectAlipayScene,
   isBillingAlreadyPaidMessage,
   rememberBillingPendingOrder,
   sleep,
   stripAlipayReturnQuery,
+  submitAlipayPayment,
   takeBillingPendingOrder,
 } from '@shared/utils/billingReturn'
 import { billingOrderRemainingLabel, effectiveBillingOrderStatus, isBillingOrderPayable } from '@/utils/billingOrder'
@@ -19,6 +22,7 @@ import {
   listBillingOrders,
   payBillingOrder,
   refundBillingOrder,
+  syncBillingPaymentReturn,
   type BillingAccount,
   type BillingOrder,
   type BillingProduct,
@@ -41,6 +45,7 @@ let syncAborted = false
 
 const subscriptionProducts = computed(() => products.value.filter((item) => item.product_type === 'subscription'))
 const creditPacks = computed(() => products.value.filter((item) => item.product_type === 'credit_pack'))
+const scheduledSubscription = computed(() => account.value?.scheduled_subscription)
 const usagePercent = computed(() => {
   const total = account.value?.total_credits || 0
   return total ? Math.min(100, Math.round(((account.value?.used_credits || 0) / total) * 100)) : 0
@@ -52,6 +57,12 @@ const planSourceLabel = computed(() => {
   if (source === 'paid_subscription') return '付费订阅'
   return '未配置'
 })
+
+const subscriptionPurchaseLabel = (productKey: string) => {
+  const scheduled = scheduledSubscription.value
+  if (!scheduled) return '支付宝沙箱支付'
+  return scheduled.product_key === productKey ? '已完成续费' : '已有待生效套餐'
+}
 
 const load = async () => {
   loading.value = true
@@ -126,7 +137,33 @@ const finalizeAlipayReturn = async (orderNo: string) => {
   }
 }
 
+const finalizePaymentReturnToken = async (token: string) => {
+  if (!token || syncAborted) return
+  syncingPayment.value = true
+  activeSection.value = 'orders'
+  clearAlipayReturnUrl()
+  try {
+    for (let attempt = 0; attempt < 20 && !syncAborted; attempt += 1) {
+      try {
+        await syncBillingPaymentReturn(token)
+        await load()
+        ElMessage.success('支付成功，套餐与订单状态已更新')
+        return
+      } catch (error) {
+        if (!errorMessage(error).includes('支付结果确认中')) break
+      }
+      await sleep(1500)
+    }
+    await load()
+    ElMessage.warning('支付结果仍在确认中，请稍后点击刷新')
+  } finally { syncingPayment.value = false }
+}
+
 const purchase = async (product: BillingProduct, priceId: number, amountFen: number) => {
+  if (product.product_type === 'subscription' && scheduledSubscription.value) {
+    ElMessage.info('当前已有待生效套餐，无需重复购买')
+    return
+  }
   purchasingPriceId.value = priceId
   try {
     const history = await listBillingOrders()
@@ -181,11 +218,11 @@ const continuePayment = async (order: BillingOrder) => {
   }
   payingOrderNo.value = order.order_no
   try {
-    const scene = window.matchMedia('(max-width: 768px)').matches ? 'wap' : 'desktop'
+    const scene = detectAlipayScene()
     const payment = await payBillingOrder(order.order_no, scene)
     if (payment.payment_environment !== 'sandbox') throw new Error('当前开发版本只允许支付宝沙箱支付')
     rememberBillingPendingOrder(order.order_no)
-    window.location.assign(payment.redirect_url)
+    submitAlipayPayment(payment.redirect_url)
   } catch (error) {
     await load()
     if (isBillingAlreadyPaidMessage(errorMessage(error))) {
@@ -231,9 +268,12 @@ const showSection = async (section: 'plans' | 'packs' | 'orders') => {
 onMounted(async () => {
   clockTimer = window.setInterval(() => { currentTimeMs.value = Date.now() }, 1000)
   const returnedFromAlipay = isAlipayReturnSearch(window.location.search)
+  const returnToken = getPaymentReturnToken(window.location.search)
   const pendingOrderNo = takeBillingPendingOrder()
   await load()
-  if (returnedFromAlipay || pendingOrderNo) {
+  if (returnToken) {
+    await finalizePaymentReturnToken(returnToken)
+  } else if (returnedFromAlipay || pendingOrderNo) {
     const orderNo = pendingOrderNo
       || orders.value.find((item) => item.status === 'paying' || item.status === 'pending')?.order_no
       || ''
@@ -276,6 +316,14 @@ onBeforeUnmount(() => {
             v-if="environment === 'sandbox'"
             title="当前为支付宝沙箱环境，交易仅用于联调，不会产生真实扣款。"
             type="warning"
+            :closable="false"
+            show-icon
+          />
+          <el-alert
+            v-if="scheduledSubscription"
+            :title="`续费已完成：${scheduledSubscription.product_name} 将于 ${formatTime(scheduledSubscription.current_period_start_unix_ms)} 自动生效`"
+            :description="`有效期至 ${formatTime(scheduledSubscription.current_period_end_unix_ms)}，无需重复购买。`"
+            type="success"
             :closable="false"
             show-icon
           />
@@ -337,7 +385,7 @@ onBeforeUnmount(() => {
                     <div class="product-card__head"><div><span class="product-card__type">周期订阅</span><h3>{{ product.name }}</h3></div><p>{{ product.description }}</p></div>
                     <div v-for="price in product.prices" :key="price.id" class="price-row">
                       <div><strong>{{ price.amount_fen ? `¥${(price.amount_fen / 100).toFixed(2)}` : '免费' }}</strong><span>/ {{ formatTerm(price.billing_term) }}</span><small>{{ price.included_credits.toLocaleString() }} AI 额度</small></div>
-                      <el-button v-if="price.amount_fen > 0" type="primary" :loading="purchasingPriceId === price.id" @click="purchase(product, price.id, price.amount_fen)">支付宝沙箱支付</el-button>
+                      <el-button v-if="price.amount_fen > 0" type="primary" :disabled="Boolean(scheduledSubscription)" :loading="purchasingPriceId === price.id" @click="purchase(product, price.id, price.amount_fen)">{{ subscriptionPurchaseLabel(product.product_key) }}</el-button>
                     </div>
                   </article>
                 </div>

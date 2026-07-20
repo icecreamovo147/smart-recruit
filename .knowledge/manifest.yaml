@@ -19,6 +19,26 @@ policies:
 
 routes:
   - match:
+      - smart-recruit-billing-service/**
+      - smart-recruit-gateway/handler/billing.go
+      - smart-recruit-commons/migrations/000076_harden_alipay_payment_lifecycle.sql
+      - smart-recruit-commons/migrations/000077_add_billing_refund_review_permission.sql
+      - hr-frontend/src/views/hr/BillingCenterView.vue
+      - user-frontend/src/views/candidate/BillingCenterView.vue
+      - platform-frontend/src/views/PlanCatalogView.vue
+      - docs/ai-billing-alipay-sandbox.md
+    documents:
+      - alipay-payment-operations
+      - service-boundaries
+      - persistence-and-migrations
+      - api-contracts-and-gateway
+    triggers:
+      - covered-path-changed
+      - public-api-changed
+      - database-schema-changed
+      - sensitive-data-flow-changed
+
+  - match:
       - .knowledge/**
     documents:
       - knowledge-coverage-audit

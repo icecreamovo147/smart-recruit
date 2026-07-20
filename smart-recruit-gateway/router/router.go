@@ -136,7 +136,7 @@ func Setup(cfg config.Config, clients *rpc.Clients, rdb *redis.Client) (*gin.Eng
 	recruitingIntelligenceHandler := hr.NewRecruitingIntelligenceHandler(clients)
 	candidateBillingHandler := handler.NewBillingHandler(clients, pb.BillingOwnerType_BILLING_OWNER_TYPE_USER)
 	tenantBillingHandler := handler.NewBillingHandler(clients, pb.BillingOwnerType_BILLING_OWNER_TYPE_TENANT)
-	alipayWebhookHandler := handler.NewAlipayWebhookHandler(clients)
+	alipayWebhookHandler := handler.NewAlipayWebhookHandler(clients, cfg.BillingHRReturnURL, cfg.BillingCandidateReturnURL)
 
 	normalTimeout := middleware.Timeout(10 * time.Second)
 	uploadTimeout := middleware.Timeout(20 * time.Second)
@@ -179,6 +179,7 @@ func Setup(cfg config.Config, clients *rpc.Clients, rdb *redis.Client) (*gin.Eng
 	// Public taxonomy for candidate job-board filters (active departments/locations).
 	v1.GET("/job-options", normalTimeout, publicHandler.JobOptions)
 	v1.POST("/public/billing/webhooks/alipay", normalTimeout, middleware.MaxBodyBytes(64<<10), alipayWebhookHandler.Notify)
+	v1.GET("/public/billing/returns/alipay", normalTimeout, alipayWebhookHandler.Return)
 
 	// ── Authenticated middleware (with token_version validation via Redis) ─
 	jwtAuth := middleware.JWTAuthByClient(cfg.JWTSecret, cfg.CandidateCookie, cfg.HRCookie, cfg.InterviewerCookie, cfg.AuthCookieName, rdb)
@@ -225,6 +226,8 @@ func Setup(cfg config.Config, clients *rpc.Clients, rdb *redis.Client) (*gin.Eng
 	platformGroup.POST("/billing/prices", normalTimeout, bodyAdmin, middleware.RequirePermission(authz.PermPlatformPlanManage), tenantBillingHandler.SavePrice)
 	platformGroup.GET("/billing/rates", normalTimeout, middleware.RequirePermission(authz.PermPlatformPlanRead), tenantBillingHandler.AdminRateCards)
 	platformGroup.POST("/billing/rates", normalTimeout, bodyAdmin, middleware.RequirePermission(authz.PermPlatformPlanManage), tenantBillingHandler.SaveRateCard)
+	platformGroup.GET("/billing/refunds", normalTimeout, middleware.RequirePermission(authz.PermPlatformBillingRefundReview), tenantBillingHandler.AdminRefunds)
+	platformGroup.POST("/billing/refunds/:refund_no/review", normalTimeout, bodyAuth, middleware.RequirePermission(authz.PermPlatformBillingRefundReview), tenantBillingHandler.ReviewRefund)
 	platformGroup.GET("/tenants/:tenant_id/subscription", normalTimeout, middleware.RequirePermission(authz.PermPlatformTenantRead), platformTenantHandler.GetSubscription)
 	platformGroup.PUT("/tenants/:tenant_id/subscription", normalTimeout, bodyAdmin, middleware.RequirePermission(authz.PermPlatformSubscriptionManage), platformTenantHandler.UpdateSubscription)
 	platformGroup.PUT("/tenants/:tenant_id/entitlement-override", normalTimeout, bodyAdmin, middleware.RequirePermission(authz.PermPlatformPlanManage), platformTenantHandler.UpdateEntitlementOverride)
@@ -277,6 +280,7 @@ func Setup(cfg config.Config, clients *rpc.Clients, rdb *redis.Client) (*gin.Eng
 	candidateGroup.GET("/billing/orders", normalTimeout, candidateBillingHandler.Orders)
 	candidateGroup.POST("/billing/orders", normalTimeout, bodyAuth, candidateBillingHandler.CreateOrder)
 	candidateGroup.POST("/billing/orders/:order_no/pay", normalTimeout, bodyAuth, candidateBillingHandler.Pay)
+	candidateGroup.POST("/billing/payment-returns/:return_token/sync", normalTimeout, bodyAuth, candidateBillingHandler.SyncReturn)
 	candidateGroup.POST("/billing/orders/:order_no/refund", normalTimeout, bodyAuth, candidateBillingHandler.Refund)
 
 	// ── Staff routes (formerly /hr) ────────────────────────────────────
@@ -288,6 +292,7 @@ func Setup(cfg config.Config, clients *rpc.Clients, rdb *redis.Client) (*gin.Eng
 	staffGroup.GET("/billing/orders", normalTimeout, middleware.RequirePermission(authz.PermBillingManage), tenantBillingHandler.Orders)
 	staffGroup.POST("/billing/orders", normalTimeout, bodyAuth, middleware.RequirePermission(authz.PermBillingManage), tenantBillingHandler.CreateOrder)
 	staffGroup.POST("/billing/orders/:order_no/pay", normalTimeout, bodyAuth, middleware.RequirePermission(authz.PermBillingManage), tenantBillingHandler.Pay)
+	staffGroup.POST("/billing/payment-returns/:return_token/sync", normalTimeout, bodyAuth, middleware.RequirePermission(authz.PermBillingManage), tenantBillingHandler.SyncReturn)
 	staffGroup.POST("/billing/orders/:order_no/refund", normalTimeout, bodyAuth, middleware.RequirePermission(authz.PermBillingManage), tenantBillingHandler.Refund)
 
 	// Job management — requires explicit job permissions

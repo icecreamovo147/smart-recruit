@@ -80,6 +80,11 @@ func serveBilling(addr, configPath string) error {
 		return err
 	}
 	defer sqlDB.Close()
+	metricsServer, err := platformserver.StartMetricsServer(envOrDefault("METRICS_ADDR", ""))
+	if err != nil {
+		return err
+	}
+	defer platformserver.ShutdownMetricsServer(context.Background(), metricsServer)
 	repo, err := persistence.NewGormRepository(db)
 	if err != nil {
 		return err
@@ -97,7 +102,7 @@ func serveBilling(addr, configPath string) error {
 		return err
 	}
 	var alipay service.AlipayGateway
-	configured := strings.TrimSpace(alipayConfig.AppID) != "" || strings.TrimSpace(alipayConfig.PrivateKey) != "" || strings.TrimSpace(alipayConfig.PublicKey) != "" || strings.TrimSpace(alipayConfig.SellerID) != ""
+	configured := strings.TrimSpace(alipayConfig.AppID) != "" || strings.TrimSpace(alipayConfig.PrivateKey) != "" || strings.TrimSpace(alipayConfig.VerifyPublicKey) != "" || strings.TrimSpace(alipayConfig.SellerID) != ""
 	if configured || alipayRequired {
 		alipay, err = payment.NewAlipay(alipayConfig)
 		if err != nil {
@@ -132,7 +137,7 @@ func serveBilling(addr, configPath string) error {
 	if err := runtime.RegisterGRPC(server); err != nil {
 		return err
 	}
-	healthpb.RegisterHealthServer(server, platformserver.NewHealthServer(sqlDB, nil, nil))
+	healthpb.RegisterHealthServer(server, &billingHealthServer{base: platformserver.NewHealthServer(sqlDB, nil, nil), paymentReady: configured})
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGTERM, syscall.SIGINT)
 	defer stop()
 	go maintainBilling(ctx, repo, commerce)
@@ -153,7 +158,12 @@ func maintainBilling(ctx context.Context, repo *persistence.GormRepository, comm
 		case <-ctx.Done():
 			return
 		case now := <-ticker.C:
-			_ = repo.RunMaintenance(ctx, now.UTC())
+			if err := repo.RunMaintenance(ctx, now.UTC()); err != nil {
+				fmt.Fprintf(os.Stderr, "billing maintenance: %v\n", err)
+			}
+			if err := commerce.UpdateOperationalMetrics(ctx); err != nil {
+				fmt.Fprintf(os.Stderr, "update billing operational metrics: %v\n", err)
+			}
 			cycles++
 			if cycles%5 == 0 {
 				if err := commerce.ReconcilePendingPayments(ctx, 100); err != nil {
@@ -166,6 +176,23 @@ func maintainBilling(ctx context.Context, repo *persistence.GormRepository, comm
 
 type noopBillingServer struct {
 	pb.UnimplementedBillingServiceServer
+}
+
+type billingHealthServer struct {
+	healthpb.UnimplementedHealthServer
+	base         *platformserver.HealthServer
+	paymentReady bool
+}
+
+func (s *billingHealthServer) Check(ctx context.Context, req *healthpb.HealthCheckRequest) (*healthpb.HealthCheckResponse, error) {
+	response, err := s.base.Check(ctx, req)
+	if err != nil {
+		return response, err
+	}
+	if !s.paymentReady {
+		response.Status = healthpb.HealthCheckResponse_NOT_SERVING
+	}
+	return response, nil
 }
 
 func envOrDefault(key, fallback string) string {
@@ -185,7 +212,7 @@ func loadBillingConfiguration(path string) (model.EnforcementMode, payment.Alipa
 	}
 	return model.EnforcementMode(envOrDefault("AI_BILLING_MODE", string(model.ModeShadow))), payment.AlipayConfig{
 		Environment: envOrDefault("ALIPAY_ENV", "sandbox"), GatewayURL: envOrDefault("ALIPAY_GATEWAY_URL", payment.DefaultSandboxGateway),
-		AppID: os.Getenv("ALIPAY_APP_ID"), PrivateKey: os.Getenv("ALIPAY_PRIVATE_KEY"), PublicKey: os.Getenv("ALIPAY_PUBLIC_KEY"),
+		AppID: os.Getenv("ALIPAY_APP_ID"), PrivateKey: os.Getenv("ALIPAY_PRIVATE_KEY"), VerifyPublicKey: os.Getenv("ALIPAY_VERIFY_PUBLIC_KEY"),
 		SellerID: os.Getenv("ALIPAY_SELLER_ID"), NotifyURL: os.Getenv("ALIPAY_NOTIFY_URL"), ReturnURL: os.Getenv("ALIPAY_RETURN_URL"),
 		DesktopEnabled: envBool("ALIPAY_DESKTOP_ENABLED", true), WAPEnabled: envBool("ALIPAY_WAP_ENABLED", true),
 	}, strings.EqualFold(strings.TrimSpace(os.Getenv("ALIPAY_REQUIRED")), "true"), nil

@@ -3973,6 +3973,10 @@ const (
 	BillingService_CreateAlipayPayment_FullMethodName       = "/recruitment.BillingService/CreateAlipayPayment"
 	BillingService_RequestBillingRefund_FullMethodName      = "/recruitment.BillingService/RequestBillingRefund"
 	BillingService_ProcessAlipayNotification_FullMethodName = "/recruitment.BillingService/ProcessAlipayNotification"
+	BillingService_ResolveAlipayReturn_FullMethodName       = "/recruitment.BillingService/ResolveAlipayReturn"
+	BillingService_SyncAlipayReturn_FullMethodName          = "/recruitment.BillingService/SyncAlipayReturn"
+	BillingService_ListBillingRefunds_FullMethodName        = "/recruitment.BillingService/ListBillingRefunds"
+	BillingService_ReviewBillingRefund_FullMethodName       = "/recruitment.BillingService/ReviewBillingRefund"
 	BillingService_ListBillingAdminCatalog_FullMethodName   = "/recruitment.BillingService/ListBillingAdminCatalog"
 	BillingService_SaveBillingPriceVersion_FullMethodName   = "/recruitment.BillingService/SaveBillingPriceVersion"
 	BillingService_ListAIRateCards_FullMethodName           = "/recruitment.BillingService/ListAIRateCards"
@@ -3999,6 +4003,10 @@ type BillingServiceClient interface {
 	CreateAlipayPayment(ctx context.Context, in *CreateAlipayPaymentRequest, opts ...grpc.CallOption) (*CreateAlipayPaymentResponse, error)
 	RequestBillingRefund(ctx context.Context, in *RequestBillingRefundRequest, opts ...grpc.CallOption) (*BillingRefundResponse, error)
 	ProcessAlipayNotification(ctx context.Context, in *ProcessAlipayNotificationRequest, opts ...grpc.CallOption) (*ProcessAlipayNotificationResponse, error)
+	ResolveAlipayReturn(ctx context.Context, in *ResolveAlipayReturnRequest, opts ...grpc.CallOption) (*ResolveAlipayReturnResponse, error)
+	SyncAlipayReturn(ctx context.Context, in *SyncAlipayReturnRequest, opts ...grpc.CallOption) (*CreateAlipayPaymentResponse, error)
+	ListBillingRefunds(ctx context.Context, in *ListBillingRefundsRequest, opts ...grpc.CallOption) (*ListBillingRefundsResponse, error)
+	ReviewBillingRefund(ctx context.Context, in *ReviewBillingRefundRequest, opts ...grpc.CallOption) (*BillingRefundResponse, error)
 	ListBillingAdminCatalog(ctx context.Context, in *ListBillingAdminCatalogRequest, opts ...grpc.CallOption) (*ListBillingCatalogResponse, error)
 	SaveBillingPriceVersion(ctx context.Context, in *SaveBillingPriceVersionRequest, opts ...grpc.CallOption) (*BillingPriceInfo, error)
 	ListAIRateCards(ctx context.Context, in *ListAIRateCardsRequest, opts ...grpc.CallOption) (*ListAIRateCardsResponse, error)
@@ -4133,6 +4141,46 @@ func (c *billingServiceClient) ProcessAlipayNotification(ctx context.Context, in
 	return out, nil
 }
 
+func (c *billingServiceClient) ResolveAlipayReturn(ctx context.Context, in *ResolveAlipayReturnRequest, opts ...grpc.CallOption) (*ResolveAlipayReturnResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ResolveAlipayReturnResponse)
+	err := c.cc.Invoke(ctx, BillingService_ResolveAlipayReturn_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *billingServiceClient) SyncAlipayReturn(ctx context.Context, in *SyncAlipayReturnRequest, opts ...grpc.CallOption) (*CreateAlipayPaymentResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(CreateAlipayPaymentResponse)
+	err := c.cc.Invoke(ctx, BillingService_SyncAlipayReturn_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *billingServiceClient) ListBillingRefunds(ctx context.Context, in *ListBillingRefundsRequest, opts ...grpc.CallOption) (*ListBillingRefundsResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ListBillingRefundsResponse)
+	err := c.cc.Invoke(ctx, BillingService_ListBillingRefunds_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *billingServiceClient) ReviewBillingRefund(ctx context.Context, in *ReviewBillingRefundRequest, opts ...grpc.CallOption) (*BillingRefundResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(BillingRefundResponse)
+	err := c.cc.Invoke(ctx, BillingService_ReviewBillingRefund_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 func (c *billingServiceClient) ListBillingAdminCatalog(ctx context.Context, in *ListBillingAdminCatalogRequest, opts ...grpc.CallOption) (*ListBillingCatalogResponse, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(ListBillingCatalogResponse)
@@ -4193,6 +4241,10 @@ type BillingServiceServer interface {
 	CreateAlipayPayment(context.Context, *CreateAlipayPaymentRequest) (*CreateAlipayPaymentResponse, error)
 	RequestBillingRefund(context.Context, *RequestBillingRefundRequest) (*BillingRefundResponse, error)
 	ProcessAlipayNotification(context.Context, *ProcessAlipayNotificationRequest) (*ProcessAlipayNotificationResponse, error)
+	ResolveAlipayReturn(context.Context, *ResolveAlipayReturnRequest) (*ResolveAlipayReturnResponse, error)
+	SyncAlipayReturn(context.Context, *SyncAlipayReturnRequest) (*CreateAlipayPaymentResponse, error)
+	ListBillingRefunds(context.Context, *ListBillingRefundsRequest) (*ListBillingRefundsResponse, error)
+	ReviewBillingRefund(context.Context, *ReviewBillingRefundRequest) (*BillingRefundResponse, error)
 	ListBillingAdminCatalog(context.Context, *ListBillingAdminCatalogRequest) (*ListBillingCatalogResponse, error)
 	SaveBillingPriceVersion(context.Context, *SaveBillingPriceVersionRequest) (*BillingPriceInfo, error)
 	ListAIRateCards(context.Context, *ListAIRateCardsRequest) (*ListAIRateCardsResponse, error)
@@ -4242,6 +4294,18 @@ func (UnimplementedBillingServiceServer) RequestBillingRefund(context.Context, *
 }
 func (UnimplementedBillingServiceServer) ProcessAlipayNotification(context.Context, *ProcessAlipayNotificationRequest) (*ProcessAlipayNotificationResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method ProcessAlipayNotification not implemented")
+}
+func (UnimplementedBillingServiceServer) ResolveAlipayReturn(context.Context, *ResolveAlipayReturnRequest) (*ResolveAlipayReturnResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method ResolveAlipayReturn not implemented")
+}
+func (UnimplementedBillingServiceServer) SyncAlipayReturn(context.Context, *SyncAlipayReturnRequest) (*CreateAlipayPaymentResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method SyncAlipayReturn not implemented")
+}
+func (UnimplementedBillingServiceServer) ListBillingRefunds(context.Context, *ListBillingRefundsRequest) (*ListBillingRefundsResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method ListBillingRefunds not implemented")
+}
+func (UnimplementedBillingServiceServer) ReviewBillingRefund(context.Context, *ReviewBillingRefundRequest) (*BillingRefundResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method ReviewBillingRefund not implemented")
 }
 func (UnimplementedBillingServiceServer) ListBillingAdminCatalog(context.Context, *ListBillingAdminCatalogRequest) (*ListBillingCatalogResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method ListBillingAdminCatalog not implemented")
@@ -4492,6 +4556,78 @@ func _BillingService_ProcessAlipayNotification_Handler(srv interface{}, ctx cont
 	return interceptor(ctx, in, info, handler)
 }
 
+func _BillingService_ResolveAlipayReturn_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ResolveAlipayReturnRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(BillingServiceServer).ResolveAlipayReturn(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: BillingService_ResolveAlipayReturn_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(BillingServiceServer).ResolveAlipayReturn(ctx, req.(*ResolveAlipayReturnRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _BillingService_SyncAlipayReturn_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(SyncAlipayReturnRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(BillingServiceServer).SyncAlipayReturn(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: BillingService_SyncAlipayReturn_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(BillingServiceServer).SyncAlipayReturn(ctx, req.(*SyncAlipayReturnRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _BillingService_ListBillingRefunds_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ListBillingRefundsRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(BillingServiceServer).ListBillingRefunds(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: BillingService_ListBillingRefunds_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(BillingServiceServer).ListBillingRefunds(ctx, req.(*ListBillingRefundsRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _BillingService_ReviewBillingRefund_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ReviewBillingRefundRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(BillingServiceServer).ReviewBillingRefund(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: BillingService_ReviewBillingRefund_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(BillingServiceServer).ReviewBillingRefund(ctx, req.(*ReviewBillingRefundRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 func _BillingService_ListBillingAdminCatalog_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(ListBillingAdminCatalogRequest)
 	if err := dec(in); err != nil {
@@ -4618,6 +4754,22 @@ var BillingService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "ProcessAlipayNotification",
 			Handler:    _BillingService_ProcessAlipayNotification_Handler,
+		},
+		{
+			MethodName: "ResolveAlipayReturn",
+			Handler:    _BillingService_ResolveAlipayReturn_Handler,
+		},
+		{
+			MethodName: "SyncAlipayReturn",
+			Handler:    _BillingService_SyncAlipayReturn_Handler,
+		},
+		{
+			MethodName: "ListBillingRefunds",
+			Handler:    _BillingService_ListBillingRefunds_Handler,
+		},
+		{
+			MethodName: "ReviewBillingRefund",
+			Handler:    _BillingService_ReviewBillingRefund_Handler,
 		},
 		{
 			MethodName: "ListBillingAdminCatalog",

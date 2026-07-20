@@ -35,6 +35,7 @@ export interface BillingSubscription {
 
 export interface BillingAccount {
   subscription?: BillingSubscription
+  scheduled_subscription?: BillingSubscription
   available_credits: number
   reserved_credits: number
   next_expiry_at_unix_ms: number

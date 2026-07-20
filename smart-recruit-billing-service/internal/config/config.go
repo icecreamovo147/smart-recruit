@@ -24,19 +24,19 @@ type BillingConfig struct {
 }
 
 type AlipayConfig struct {
-	Environment    string `yaml:"environment"`
-	Required       bool   `yaml:"required"`
-	GatewayURL     string `yaml:"gateway_url"`
-	AppID          string `yaml:"app_id"`
-	SellerID       string `yaml:"seller_id"`
-	PrivateKey     string `yaml:"private_key"`
-	PrivateKeyFile string `yaml:"private_key_file"`
-	PublicKey      string `yaml:"public_key"`
-	PublicKeyFile  string `yaml:"public_key_file"`
-	NotifyURL      string `yaml:"notify_url"`
-	ReturnURL      string `yaml:"return_url"`
-	DesktopEnabled bool   `yaml:"desktop_enabled"`
-	WAPEnabled     bool   `yaml:"wap_enabled"`
+	Environment         string `yaml:"environment"`
+	Required            bool   `yaml:"required"`
+	GatewayURL          string `yaml:"gateway_url"`
+	AppID               string `yaml:"app_id"`
+	SellerID            string `yaml:"seller_id"`
+	PrivateKey          string `yaml:"private_key"`
+	PrivateKeyFile      string `yaml:"private_key_file"`
+	VerifyPublicKey     string `yaml:"verify_public_key"`
+	VerifyPublicKeyFile string `yaml:"verify_public_key_file"`
+	NotifyURL           string `yaml:"notify_url"`
+	ReturnURL           string `yaml:"return_url"`
+	DesktopEnabled      bool   `yaml:"desktop_enabled"`
+	WAPEnabled          bool   `yaml:"wap_enabled"`
 }
 
 func Load(path string) (Config, error) {
@@ -78,7 +78,7 @@ func Load(path string) (Config, error) {
 	if cfg.Alipay.PrivateKey, err = loadSecret(baseDir, "alipay.private_key", cfg.Alipay.PrivateKey, cfg.Alipay.PrivateKeyFile); err != nil {
 		return Config{}, err
 	}
-	if cfg.Alipay.PublicKey, err = loadSecret(baseDir, "alipay.public_key", cfg.Alipay.PublicKey, cfg.Alipay.PublicKeyFile); err != nil {
+	if cfg.Alipay.VerifyPublicKey, err = loadSecret(baseDir, "alipay.verify_public_key", cfg.Alipay.VerifyPublicKey, cfg.Alipay.VerifyPublicKeyFile); err != nil {
 		return Config{}, err
 	}
 	cfg.Alipay.Environment = strings.TrimSpace(cfg.Alipay.Environment)
@@ -93,7 +93,7 @@ func Load(path string) (Config, error) {
 func (c Config) PaymentConfig() payment.AlipayConfig {
 	return payment.AlipayConfig{
 		Environment: c.Alipay.Environment, GatewayURL: c.Alipay.GatewayURL,
-		AppID: c.Alipay.AppID, PrivateKey: c.Alipay.PrivateKey, PublicKey: c.Alipay.PublicKey,
+		AppID: c.Alipay.AppID, PrivateKey: c.Alipay.PrivateKey, VerifyPublicKey: c.Alipay.VerifyPublicKey,
 		SellerID: c.Alipay.SellerID, NotifyURL: c.Alipay.NotifyURL, ReturnURL: c.Alipay.ReturnURL,
 		DesktopEnabled: c.Alipay.DesktopEnabled, WAPEnabled: c.Alipay.WAPEnabled,
 	}
@@ -114,6 +114,15 @@ func loadSecret(baseDir, field, inlineValue, fileName string) (string, error) {
 	data, err := os.ReadFile(filepath.Clean(fileName))
 	if err != nil {
 		return "", fmt.Errorf("read %s file %q: %w", field, fileName, err)
+	}
+	if field == "alipay.private_key" {
+		info, statErr := os.Stat(filepath.Clean(fileName))
+		if statErr != nil {
+			return "", fmt.Errorf("stat %s file %q: %w", field, fileName, statErr)
+		}
+		if info.Mode().Perm()&0o077 != 0 {
+			return "", fmt.Errorf("%s file %q must not be group/world accessible (use mode 0600)", field, fileName)
+		}
 	}
 	return strings.TrimSpace(string(data)), nil
 }

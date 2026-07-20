@@ -4,6 +4,7 @@ import type { PageResult, PlatformEntitlement, PlatformPlan, PlatformPlanVersion
 export interface BillingPriceAdmin { id: number; version: number; billing_term: 'monthly' | 'yearly' | 'one_time'; amount_fen: number; included_credits: number; entitlement_snapshot_json: string }
 export interface BillingProductAdmin { id: number; product_key: string; name: string; description: string; product_type: 'subscription' | 'credit_pack'; prices: BillingPriceAdmin[] }
 export interface AIRateCardAdmin { id: number; provider_key: string; model_key: string; version: number; currency: string; input_micros_per_1k_tokens: number; output_micros_per_1k_tokens: number; cached_input_micros_per_1k_tokens: number; credit_micros: number; status: string; effective_at_unix_ms: number }
+export interface BillingRefundAdmin { refund_no: string; order_no: string; owner_type: string; owner_id: number; amount_fen: number; status: string; review_mode: string; reason: string; requested_by: number; reviewed_by: number; created_at_unix_ms: number; last_error: string }
 
 export const listPlans = (status = '') => http.get<never, { list: PlatformPlan[] }>('/api/v1/platform/plans', { params: { status } })
 
@@ -17,6 +18,8 @@ export const listBillingProducts = () => http.get<never, { products: BillingProd
 export const saveBillingPrice = (payload: { product_id: number; price_version_id?: number; billing_term: string; amount_fen: number; included_credits: number; publish: boolean }) => http.post('/api/v1/platform/billing/prices', payload)
 export const listAIRateCards = () => http.get<never, { rates: AIRateCardAdmin[] }>('/api/v1/platform/billing/rates')
 export const saveAIRateCard = (payload: Omit<AIRateCardAdmin, 'id' | 'version' | 'currency' | 'status' | 'effective_at_unix_ms'> & { publish: boolean }) => http.post('/api/v1/platform/billing/rates', payload)
+export const listBillingRefunds = () => http.get<never, { refunds: BillingRefundAdmin[]; total: number }>('/api/v1/platform/billing/refunds?page_size=100')
+export const reviewBillingRefund = (refundNo: string, action: 'approve' | 'reject', reason = '') => http.post(`/api/v1/platform/billing/refunds/${refundNo}/review`, { action, reason })
 
 export const getTenantSubscription = (tenantId: number) =>
   http.get<never, { subscription?: TenantSubscription }>(`/api/v1/platform/tenants/${tenantId}/subscription`)
