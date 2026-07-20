@@ -58,12 +58,50 @@ type UsageAwareRuntimeOptionsChatProvider interface {
 }
 
 type RuntimeModelInfo struct {
-	ID                  int64
-	Name                string
-	ProviderName        string
-	ContextWindowTokens int32
-	MaxOutputTokens     int32
+	ID                     int64
+	Name                   string
+	ProviderName           string
+	ContextWindowTokens    int32
+	MaxOutputTokens        int32
+	RequestedModelID       int64
+	FallbackReason         string
+	CapabilityVersionID    int64
+	CapabilitySnapshotHash string
+	ConfigurationRefs      CapabilityConfigurationRefs
 }
+
+// CapabilityConfigurationRefs is the immutable resource allowlist captured by
+// a published platform capability release. Runtime code must not silently
+// replace these IDs with whatever happens to be current in the control plane.
+type CapabilityConfigurationRefs struct {
+	AgentIDs             []int64
+	PromptTemplateIDs    []int64
+	AgentSkillVersionIDs []int64
+	AISkillVersionIDs    []int64
+	MCPPolicyIDs         []int64
+}
+
+type CapabilityRuntimeModelResolution struct {
+	EffectiveModelID       int64
+	ModelName              string
+	ProviderName           string
+	RequestedModelID       int64
+	FallbackReason         string
+	CapabilityVersionID    int64
+	CapabilitySnapshotHash string
+	ContextWindowTokens    int32
+	MaxOutputTokens        int32
+	ConfigurationRefs      CapabilityConfigurationRefs
+}
+
+type capabilityRuntimeModelResolver interface {
+	ResolveCapabilityRuntimeModel(context.Context, string, string, int64, int64) (CapabilityRuntimeModelResolution, error)
+}
+
+const (
+	platformAIAudienceTenantHR  = "tenant_hr"
+	platformAIAudienceCandidate = "candidate"
+)
 
 type llmRuntimeModelResolver interface {
 	ResolveLLMRuntimeModel(ctx context.Context, modelID int64) (int64, string, string, bool, error)
@@ -146,6 +184,10 @@ type chatSessionContextModelStore interface {
 	UpdateChatSessionContextModel(ctx context.Context, ownerRole int32, ownerID, sessionID, selectedModelID int64, usage *pb.ContextUsageInfo) error
 }
 
+type agentRunRuntimeGovernanceStore interface {
+	UpdateAgentRunRuntimeGovernance(ctx context.Context, ownerID, runID int64, model RuntimeModelInfo) error
+}
+
 type ChatSessionListFilter struct {
 	Keyword     string
 	SessionType string
@@ -193,6 +235,7 @@ type RuntimeDeps struct {
 	AgentRunWorker   bool
 	RuntimeName      string
 	EmbeddingConfigs pb.EmbeddingConfigServiceServer
+	PlatformAI       pb.PlatformAIControlPlaneServiceServer
 	Auth             pb.AuthServiceClient
 	Billing          pb.BillingServiceClient
 	BillingRequired  bool
@@ -489,18 +532,23 @@ type RecruitingCandidateProfileRow struct {
 }
 
 type RecruitingResumeParseRunRow struct {
-	ID            uint64
-	ResumeID      int64
-	UserID        int64
-	AgentRunID    *uint64
-	Status        string
-	ParserVersion string
-	InputHash     string
-	ErrorMessage  string
-	StartedAt     time.Time
-	CompletedAt   *time.Time
-	CreatedAt     time.Time
-	UpdatedAt     time.Time
+	ID                     uint64
+	ResumeID               int64
+	UserID                 int64
+	AgentRunID             *uint64
+	RequestedModelID       int64
+	EffectiveModelID       int64
+	ModelFallbackReason    string
+	CapabilityVersionID    int64
+	CapabilitySnapshotHash string
+	Status                 string
+	ParserVersion          string
+	InputHash              string
+	ErrorMessage           string
+	StartedAt              time.Time
+	CompletedAt            *time.Time
+	CreatedAt              time.Time
+	UpdatedAt              time.Time
 }
 
 type RecruitingResumeProfileRow struct {
@@ -579,24 +627,29 @@ type RecruitingResumeProfileSnapshot struct {
 }
 
 type RecruitingCandidateMatchEvaluationRow struct {
-	ID                 uint64
-	ApplicationID      int64
-	JobID              int64
-	CandidateUserID    int64
-	ResumeProfileID    uint64
-	AgentRunID         *uint64
-	EvaluationVersion  int32
-	IsLatest           int32
-	OverallScore       float64
-	Recommendation     string
-	Summary            string
-	StrengthsJSON      string
-	RisksJSON          string
-	ScoreBreakdownJSON string
-	ModelName          string
-	EvaluatedAt        time.Time
-	CreatedAt          time.Time
-	UpdatedAt          time.Time
+	ID                     uint64
+	ApplicationID          int64
+	JobID                  int64
+	CandidateUserID        int64
+	ResumeProfileID        uint64
+	AgentRunID             *uint64
+	RequestedModelID       int64
+	EffectiveModelID       int64
+	ModelFallbackReason    string
+	CapabilityVersionID    int64
+	CapabilitySnapshotHash string
+	EvaluationVersion      int32
+	IsLatest               int32
+	OverallScore           float64
+	Recommendation         string
+	Summary                string
+	StrengthsJSON          string
+	RisksJSON              string
+	ScoreBreakdownJSON     string
+	ModelName              string
+	EvaluatedAt            time.Time
+	CreatedAt              time.Time
+	UpdatedAt              time.Time
 }
 
 type RecruitingCandidateMatchEvidenceRow struct {
@@ -625,23 +678,28 @@ type RecruitingResumeSource struct {
 }
 
 type RecruitingResumeProfileDraft struct {
-	ResumeID             int64
-	UserID               int64
-	ParserVersion        string
-	InputHash            string
-	RawJSON              string
-	FullName             string
-	Email                string
-	Phone                string
-	Location             string
-	Headline             string
-	Summary              string
-	TotalExperienceYears float64
-	HighestDegree        string
-	Educations           []RecruitingResumeEducationRow
-	Experiences          []RecruitingResumeExperienceRow
-	Projects             []RecruitingResumeProjectRow
-	Skills               []RecruitingResumeSkillRow
+	ResumeID               int64
+	UserID                 int64
+	ParserVersion          string
+	InputHash              string
+	RawJSON                string
+	FullName               string
+	Email                  string
+	Phone                  string
+	Location               string
+	Headline               string
+	Summary                string
+	TotalExperienceYears   float64
+	HighestDegree          string
+	RequestedModelID       int64
+	EffectiveModelID       int64
+	ModelFallbackReason    string
+	CapabilityVersionID    int64
+	CapabilitySnapshotHash string
+	Educations             []RecruitingResumeEducationRow
+	Experiences            []RecruitingResumeExperienceRow
+	Projects               []RecruitingResumeProjectRow
+	Skills                 []RecruitingResumeSkillRow
 }
 
 type RecruitingJobContext struct {
@@ -663,22 +721,27 @@ type RecruitingMatchSource struct {
 }
 
 type RecruitingCandidateMatchDraft struct {
-	ApplicationID      int64
-	JobID              int64
-	CandidateUserID    int64
-	ResumeProfileID    uint64
-	AgentRunID         *uint64
-	OverallScore       float64
-	Recommendation     string
-	Summary            string
-	StrengthsJSON      string
-	RisksJSON          string
-	ScoreBreakdownJSON string
-	ModelName          string
-	Evidence           []RecruitingCandidateMatchEvidenceRow
-	ScorerVersion      string
-	RequirementCount   int
-	FallbackUsed       bool
+	ApplicationID          int64
+	JobID                  int64
+	CandidateUserID        int64
+	ResumeProfileID        uint64
+	AgentRunID             *uint64
+	RequestedModelID       int64
+	EffectiveModelID       int64
+	ModelFallbackReason    string
+	CapabilityVersionID    int64
+	CapabilitySnapshotHash string
+	OverallScore           float64
+	Recommendation         string
+	Summary                string
+	StrengthsJSON          string
+	RisksJSON              string
+	ScoreBreakdownJSON     string
+	ModelName              string
+	Evidence               []RecruitingCandidateMatchEvidenceRow
+	ScorerVersion          string
+	RequirementCount       int
+	FallbackUsed           bool
 }
 
 var (
@@ -764,6 +827,7 @@ func NewNativeRuntimeDeps(deps RuntimeDeps) aiagentruntime.Deps {
 		AgentSkill:             nativeAgentSkillService{store: deps.Store, embedding: embeddingService},
 		RecruitingIntelligence: nativeRecruitingIntelligenceService{store: recruitingStore, provider: deps.Provider, structured: newRecruitingStructuredRuntime(deps.Store, deps.Provider, deps.RecruitingPolicy), policy: deps.RecruitingPolicy, auth: deps.Auth, applications: deps.Applications, jobs: deps.Jobs},
 		EmbeddingConfig:        embedding,
+		PlatformAIControlPlane: deps.PlatformAI,
 		LongTasks: aiagentruntime.LongTaskControls{
 			RabbitMQRequired: true,
 			EmbeddingWorker:  deps.EmbeddingWorker,
@@ -985,6 +1049,7 @@ type hrRuntimeGovernanceContext struct {
 	AgentSkillSelectionConfirmed bool
 	AgentSkillSelectionMessageID int64
 	GovernanceErrors             []hrRuntimeGovernanceError
+	ReleaseRefs                  CapabilityConfigurationRefs
 }
 
 type hrRuntimeAgentSkill struct {
@@ -1054,6 +1119,10 @@ type hrRuntimePromptTemplateStore interface {
 	GetRuntimePromptTemplateByID(ctx context.Context, id int64) (*pb.PromptTemplateInfo, bool, error)
 }
 
+type releasedMCPToolResolver interface {
+	ResolveReleasedMCPToolKeys(context.Context, []int64) (map[string]bool, error)
+}
+
 func (s *nativeAIService) runHRChatRuntime(ctx context.Context, req *pb.ChatRequest, emit hrChatStreamEmitter) (hrChatRuntimeResult, error) {
 	return s.runHRChatRuntimeWithOptions(ctx, req, emit, hrChatRuntimeOptions{})
 }
@@ -1067,23 +1136,27 @@ func (s *nativeAIService) runHRChatRuntimeWithOptions(ctx context.Context, req *
 	if req.GetSessionId() == 0 {
 		req.SessionId = session.ID
 	}
-	result.runtimeModel = s.resolveRuntimeModelInfo(ctx, req.GetModelId())
+	capability := "ai.chat"
+	operation := "hr_chat"
+	if opts.agentRunID > 0 {
+		capability = "ai.agent_run"
+		operation = "agent_run"
+	}
+	result.runtimeModel, err = s.resolveCapabilityRuntimeModel(ctx, billingOwnerTenant, req.GetHrId(), capability, platformAIAudienceTenantHR, req.GetModelId())
+	if err != nil {
+		return result, err
+	}
 	result.modelID = result.runtimeModel.ID
 	result.modelName = result.runtimeModel.Name
 	result.providerName = result.runtimeModel.ProviderName
-	capability := "ai.chat.enabled"
-	operation := "hr_chat"
-	if opts.agentRunID > 0 {
-		capability = "ai.agent_run.enabled"
-		operation = "agent_run"
-	}
-	ctx, err = s.reserveAIBilling(ctx, billingOwnerTenant, req.GetHrId(), capability, operation, result.providerName, result.modelName, len([]rune(req.GetMessage())))
+	req.ModelId = result.modelID
+	ctx, err = s.reserveAIBilling(ctx, billingOwnerTenant, req.GetHrId(), capability, operation, result.providerName, result.modelName, len([]rune(req.GetMessage())), result.runtimeModel)
 	if err != nil {
 		return result, err
 	}
 	defer s.cancelUnsettledBilling(ctx, "runtime_completed_without_usage")
 	if sessionStore, ok := s.store.(chatSessionContextModelStore); ok {
-		if err := sessionStore.UpdateChatSessionContextModel(ctx, ownerRoleHR, req.GetHrId(), session.ID, req.GetModelId(), nil); err != nil {
+		if err := sessionStore.UpdateChatSessionContextModel(ctx, ownerRoleHR, req.GetHrId(), session.ID, result.modelID, nil); err != nil {
 			return result, err
 		}
 	}
@@ -1127,9 +1200,12 @@ func (s *nativeAIService) runHRChatRuntimeWithOptions(ctx context.Context, req *
 	if err := send(&pb.ChatStreamResponse{Code: 0, Msg: "success", EventType: "thinking", EventMessage: "planning HR recruiting context", CreatedAt: formatTime(time.Now())}); err != nil {
 		return result, err
 	}
-	governance, err := s.loadHRRuntimeGovernanceForAgent(ctx, req, opts.effectiveAgentID, opts.effectiveAgentPinned)
+	governance, err := s.loadHRRuntimeGovernanceForAgentWithRelease(ctx, req, opts.effectiveAgentID, opts.effectiveAgentPinned, result.runtimeModel.ConfigurationRefs)
 	if err != nil {
 		return result, err
+	}
+	if result.runtimeModel.CapabilityVersionID > 0 && (governance.Agent == nil || governance.Prompt == nil || len(governance.GovernanceErrors) > 0) {
+		return result, status.Error(codes.FailedPrecondition, "Agent or Prompt is unavailable in the capability release")
 	}
 	result.governance = governance
 
@@ -2182,14 +2258,23 @@ type hrRuntimeAgentByIDStore interface {
 }
 
 func (s *nativeAIService) loadHRRuntimeGovernanceForAgent(ctx context.Context, req *pb.ChatRequest, effectiveAgentID int64, effectiveAgentPinned bool) (hrRuntimeGovernanceContext, error) {
+	return s.loadHRRuntimeGovernanceForAgentCore(ctx, req, effectiveAgentID, effectiveAgentPinned, CapabilityConfigurationRefs{}, false)
+}
+
+func (s *nativeAIService) loadHRRuntimeGovernanceForAgentWithRelease(ctx context.Context, req *pb.ChatRequest, effectiveAgentID int64, effectiveAgentPinned bool, refs CapabilityConfigurationRefs) (hrRuntimeGovernanceContext, error) {
+	return s.loadHRRuntimeGovernanceForAgentCore(ctx, req, effectiveAgentID, effectiveAgentPinned, refs, true)
+}
+
+func (s *nativeAIService) loadHRRuntimeGovernanceForAgentCore(ctx context.Context, req *pb.ChatRequest, effectiveAgentID int64, effectiveAgentPinned bool, refs CapabilityConfigurationRefs, enforceRelease bool) (hrRuntimeGovernanceContext, error) {
 	var runtime hrRuntimeGovernanceContext
+	runtime.ReleaseRefs = refs
 	if s == nil || s.store == nil {
 		return runtime, nil
 	}
 	var agent *pb.AgentConfigInfo
 	var err error
 	if !effectiveAgentPinned || effectiveAgentID > 0 {
-		agent, err = s.loadHRAgentConfig(ctx, effectiveAgentID)
+		agent, err = s.loadHRAgentConfigForRelease(ctx, effectiveAgentID, refs.AgentIDs)
 	}
 	if err != nil {
 		return runtime, err
@@ -2197,14 +2282,35 @@ func (s *nativeAIService) loadHRRuntimeGovernanceForAgent(ctx context.Context, r
 	runtime.Agent = agent
 	runtime.CapabilityKeys = hrRuntimeCapabilityKeys(agent)
 	runtime.ToolNames = hrRuntimeToolNames(agent)
+	if enforceRelease {
+		allowed := make(map[string]bool)
+		if len(refs.MCPPolicyIDs) > 0 {
+			resolver, ok := s.store.(releasedMCPToolResolver)
+			if !ok {
+				return runtime, errors.New("released MCP policy resolver is unavailable")
+			}
+			var resolveErr error
+			allowed, resolveErr = resolver.ResolveReleasedMCPToolKeys(ctx, refs.MCPPolicyIDs)
+			if resolveErr != nil {
+				return runtime, resolveErr
+			}
+		}
+		filtered := runtime.ToolNames[:0]
+		for _, toolName := range runtime.ToolNames {
+			if _, _, isMCP := parseHRMCPBindingKey(toolName); !isMCP || allowed[toolName] {
+				filtered = append(filtered, toolName)
+			}
+		}
+		runtime.ToolNames = filtered
+	}
 	runtime.ExecutableToolNames = hr_tools.ResolveBuiltinToolNames(runtime.ToolNames, runtime.CapabilityKeys)
 	// Keep the full explicit binding list for platform-owned context tools such
 	// as get_application_snapshot. ExecutableToolNames is the separate model /
 	// builtin-runner allowlist and must not erase those bindings.
-	runtime.Prompt, runtime.PromptContent, runtime.GovernanceErrors = s.loadHRRuntimePrompt(ctx, req, agent)
+	runtime.Prompt, runtime.PromptContent, runtime.GovernanceErrors = s.loadHRRuntimePromptForRelease(ctx, req, agent, refs.PromptTemplateIDs)
 	runtime.AgentSkillSelectionConfirmed = req.GetAgentSkillSelectionConfirmed()
 	runtime.AgentSkillSelectionMessageID = req.GetAgentSkillSelectionMessageId()
-	runtime.SelectedAgentSkills = s.selectHRRuntimeAgentSkills(ctx, req, runtime.CapabilityKeys)
+	runtime.SelectedAgentSkills = s.selectHRRuntimeAgentSkillsForRelease(ctx, req, runtime.CapabilityKeys, refs.AgentSkillVersionIDs)
 	s.enrichHRRuntimeAgentSkillBodies(ctx, &runtime)
 	switch {
 	case len(req.GetAgentSkillIds()) > 0:
@@ -2217,6 +2323,25 @@ func (s *nativeAIService) loadHRRuntimeGovernanceForAgent(ctx context.Context, r
 		runtime.AgentSkillSelectionMode = "none"
 	}
 	return runtime, nil
+}
+
+func (s *nativeAIService) loadHRAgentConfigForRelease(ctx context.Context, effectiveAgentID int64, allowedIDs []int64) (*pb.AgentConfigInfo, error) {
+	if len(allowedIDs) == 0 {
+		return s.loadHRAgentConfig(ctx, effectiveAgentID)
+	}
+	if effectiveAgentID > 0 {
+		if !containsRuntimeID(allowedIDs, effectiveAgentID) {
+			return nil, fmt.Errorf("effective HR Agent %d is outside the capability release", effectiveAgentID)
+		}
+		return s.loadHRAgentConfig(ctx, effectiveAgentID)
+	}
+	for _, id := range allowedIDs {
+		agent, loadErr := s.loadHRAgentConfig(ctx, id)
+		if loadErr == nil && agent != nil {
+			return agent, nil
+		}
+	}
+	return nil, errors.New("capability release has no available HR Agent")
 }
 
 func (s *nativeAIService) loadHRAgentConfig(ctx context.Context, effectiveAgentID int64) (*pb.AgentConfigInfo, error) {
@@ -2279,11 +2404,18 @@ func (s *nativeAIService) loadDefaultHRAgentConfig(ctx context.Context) (*pb.Age
 }
 
 func (s *nativeAIService) loadHRRuntimePrompt(ctx context.Context, req *pb.ChatRequest, agent *pb.AgentConfigInfo) (*pb.PromptTemplateInfo, string, []hrRuntimeGovernanceError) {
+	return s.loadHRRuntimePromptForRelease(ctx, req, agent, nil)
+}
+
+func (s *nativeAIService) loadHRRuntimePromptForRelease(ctx context.Context, req *pb.ChatRequest, agent *pb.AgentConfigInfo, allowedIDs []int64) (*pb.PromptTemplateInfo, string, []hrRuntimeGovernanceError) {
 	if s == nil || s.store == nil {
 		return nil, "", nil
 	}
 	if agent != nil && agent.GetPromptTemplateId() > 0 {
 		promptID := agent.GetPromptTemplateId()
+		if len(allowedIDs) > 0 && !containsRuntimeID(allowedIDs, promptID) {
+			return nil, "", []hrRuntimeGovernanceError{{Source: "prompt", Code: "outside_capability_release", ResourceID: promptID}}
+		}
 		if promptStore, ok := s.store.(hrRuntimePromptTemplateStore); ok {
 			template, found, err := promptStore.GetRuntimePromptTemplateByID(ctx, promptID)
 			if err != nil {
@@ -2303,6 +2435,20 @@ func (s *nativeAIService) loadHRRuntimePrompt(ctx context.Context, req *pb.ChatR
 		}
 		return nil, "", []hrRuntimeGovernanceError{{Source: "prompt", Code: "store_unavailable", ResourceID: promptID}}
 	}
+	if len(allowedIDs) > 0 {
+		if promptStore, ok := s.store.(hrRuntimePromptTemplateStore); ok {
+			for _, promptID := range allowedIDs {
+				template, found, lookupErr := promptStore.GetRuntimePromptTemplateByID(ctx, promptID)
+				if lookupErr == nil && found && hrPromptTemplateUsable(template) {
+					content, renderErr := renderHRRuntimePrompt(template.GetContent(), hrRuntimePromptVariables(req))
+					if renderErr == nil {
+						return template, content, nil
+					}
+				}
+			}
+		}
+		return nil, "", []hrRuntimeGovernanceError{{Source: "prompt", Code: "release_prompt_unavailable"}}
+	}
 	if promptStore, ok := s.store.(activePromptStore); ok {
 		for _, agentType := range []string{hrRecruitingAgentType, "hr_agent"} {
 			resp, err := promptStore.GetActivePromptByAgentType(ctx, &pb.GetActivePromptByAgentTypeRequest{AgentType: agentType, PromptRole: hrRuntimePromptRoleSystem})
@@ -2317,6 +2463,15 @@ func (s *nativeAIService) loadHRRuntimePrompt(ctx context.Context, req *pb.ChatR
 		}
 	}
 	return nil, "", nil
+}
+
+func containsRuntimeID(ids []int64, target int64) bool {
+	for _, id := range ids {
+		if id == target {
+			return true
+		}
+	}
+	return false
 }
 
 func hrPromptTemplateUsable(template *pb.PromptTemplateInfo) bool {
@@ -2415,15 +2570,18 @@ func (s *nativeAIService) enrichHRRuntimeAgentSkillBodies(ctx context.Context, r
 			continue
 		}
 		detail := resp.GetSkill()
-		currentVersionID := detail.GetCurrentVersionId()
-		if !detail.GetIsEnabled() || currentVersionID <= 0 {
+		versionID := skill.VersionID
+		if versionID <= 0 {
+			versionID = detail.GetCurrentVersionId()
+		}
+		if !detail.GetIsEnabled() || versionID <= 0 {
 			runtime.GovernanceErrors = append(runtime.GovernanceErrors, hrRuntimeGovernanceError{Source: "agent_skill", Code: "current_version_missing", ResourceID: skill.ID})
 			continue
 		}
 		var current *pb.AgentSkillVersionInfo
 		if versions, vErr := detailStore.ListAgentSkillVersions(ctx, &pb.ListAgentSkillVersionsRequest{SkillId: skill.ID}); vErr == nil && versions != nil && versions.GetCode() == 0 {
 			for _, version := range versions.GetList() {
-				if version != nil && version.GetId() == currentVersionID && version.GetSkillId() == skill.ID {
+				if version != nil && version.GetId() == versionID && version.GetSkillId() == skill.ID {
 					current = version
 					break
 				}
@@ -2433,7 +2591,7 @@ func (s *nativeAIService) enrichHRRuntimeAgentSkillBodies(ctx context.Context, r
 			runtime.GovernanceErrors = append(runtime.GovernanceErrors, hrRuntimeGovernanceError{Source: "agent_skill", Code: "current_version_invalid", ResourceID: skill.ID})
 			continue
 		}
-		skill.VersionID = currentVersionID
+		skill.VersionID = versionID
 		skill.SkillMD = strings.TrimSpace(current.GetSkillMd())
 		if strings.TrimSpace(skill.Description) == "" {
 			skill.Description = strings.TrimSpace(detail.GetDescription())
@@ -2444,6 +2602,10 @@ func (s *nativeAIService) enrichHRRuntimeAgentSkillBodies(ctx context.Context, r
 }
 
 func (s *nativeAIService) selectHRRuntimeAgentSkills(ctx context.Context, req *pb.ChatRequest, capabilityKeys []string) []hrRuntimeAgentSkill {
+	return s.selectHRRuntimeAgentSkillsForRelease(ctx, req, capabilityKeys, nil)
+}
+
+func (s *nativeAIService) selectHRRuntimeAgentSkillsForRelease(ctx context.Context, req *pb.ChatRequest, capabilityKeys []string, releasedVersionIDs []int64) []hrRuntimeAgentSkill {
 	if s == nil || s.store == nil || req.GetAgentSkillSelectionConfirmed() && len(req.GetAgentSkillIds()) == 0 {
 		return nil
 	}
@@ -2474,10 +2636,34 @@ func (s *nativeAIService) selectHRRuntimeAgentSkills(ctx context.Context, req *p
 			}
 		}
 	}
+	allowedVersionIDs := int64RuntimeSet(releasedVersionIDs)
+	versionBySkillID := make(map[int64]int64)
+	if len(allowedVersionIDs) > 0 {
+		if detailStore, ok := s.store.(agentSkillDetailStore); ok {
+			for _, row := range rows {
+				if row == nil {
+					continue
+				}
+				versions, versionErr := detailStore.ListAgentSkillVersions(ctx, &pb.ListAgentSkillVersionsRequest{SkillId: row.GetId()})
+				if versionErr != nil || versions == nil || versions.GetCode() != 0 {
+					continue
+				}
+				for _, version := range versions.GetList() {
+					if version != nil && allowedVersionIDs[version.GetId()] && version.GetSkillId() == row.GetId() {
+						versionBySkillID[row.GetId()] = version.GetId()
+						break
+					}
+				}
+			}
+		}
+	}
 	candidates := make([]model.AgentSkill, 0, len(rows))
 	byID := make(map[uint64]*pb.AgentSkillInfo, len(rows))
 	for _, row := range rows {
 		if row == nil {
+			continue
+		}
+		if len(allowedVersionIDs) > 0 && versionBySkillID[row.GetId()] == 0 {
 			continue
 		}
 		id := uint64(row.GetId())
@@ -2531,7 +2717,18 @@ func (s *nativeAIService) selectHRRuntimeAgentSkills(ctx context.Context, req *p
 			Reason:               skill.Reason,
 			RiskLevel:            skill.RiskLevel,
 			RequiredCapabilities: row.GetRequiredCapabilities(),
+			VersionID:            versionBySkillID[row.GetId()],
 		})
+	}
+	return result
+}
+
+func int64RuntimeSet(ids []int64) map[int64]bool {
+	result := make(map[int64]bool, len(ids))
+	for _, id := range ids {
+		if id > 0 {
+			result[id] = true
+		}
 	}
 	return result
 }
@@ -3186,11 +3383,16 @@ func estimateToolSchemaTokens(tools []*schema.ToolInfo) int {
 
 func newHRContextUsageEnvelope(model RuntimeModelInfo, promptTokens int32) *pb.ContextUsageInfo {
 	usage := &pb.ContextUsageInfo{
-		ModelId:             model.ID,
-		ModelName:           model.Name,
-		ContextWindowTokens: model.ContextWindowTokens,
-		MaxOutputTokens:     model.MaxOutputTokens,
-		BudgetStatus:        "unknown_config",
+		ModelId:                model.ID,
+		ModelName:              model.Name,
+		ContextWindowTokens:    model.ContextWindowTokens,
+		MaxOutputTokens:        model.MaxOutputTokens,
+		BudgetStatus:           "unknown_config",
+		RequestedModelId:       model.RequestedModelID,
+		EffectiveModelId:       model.ID,
+		ModelFallbackReason:    model.FallbackReason,
+		CapabilityVersionId:    model.CapabilityVersionID,
+		CapabilitySnapshotHash: model.CapabilitySnapshotHash,
 	}
 	window := int64(model.ContextWindowTokens)
 	maxOutput := int64(model.MaxOutputTokens)
@@ -3548,14 +3750,36 @@ func (s *nativeAIService) History(ctx context.Context, req *pb.ChatHistoryReques
 }
 
 func (s *nativeAIService) AnalyzeApplication(ctx context.Context, req *pb.AnalyzeApplicationRequest) (*pb.AnalyzeApplicationResponse, error) {
-	reply, err := s.complete(ctx, fmt.Sprintf("Analyze application %d", req.GetApplicationId()), 0)
+	modelID := req.GetModelId()
+	var runtimeModel RuntimeModelInfo
+	if req.GetCapabilityVersionId() > 0 {
+		resolver, ok := s.store.(capabilityRuntimeModelResolver)
+		if !ok {
+			return &pb.AnalyzeApplicationResponse{Code: configCodeUnavailable, Msg: "platform AI capability resolver is unavailable"}, nil
+		}
+		resolved, resolveErr := resolver.ResolveCapabilityRuntimeModel(ctx, "ai.application_analysis", platformAIAudienceTenantHR, req.GetCapabilityVersionId(), modelID)
+		if resolveErr != nil {
+			return &pb.AnalyzeApplicationResponse{Code: configCodeUnavailable, Msg: resolveErr.Error()}, nil
+		}
+		modelID = resolved.EffectiveModelID
+		runtimeModel = RuntimeModelInfo{ID: resolved.EffectiveModelID, Name: resolved.ModelName, ProviderName: resolved.ProviderName, ContextWindowTokens: resolved.ContextWindowTokens, MaxOutputTokens: resolved.MaxOutputTokens, RequestedModelID: resolved.RequestedModelID, FallbackReason: resolved.FallbackReason, CapabilityVersionID: resolved.CapabilityVersionID, CapabilitySnapshotHash: resolved.CapabilitySnapshotHash, ConfigurationRefs: resolved.ConfigurationRefs}
+		ctx, resolveErr = s.reserveAIBilling(ctx, billingOwnerTenant, req.GetHrId(), "ai.application_analysis", "application_analysis", runtimeModel.ProviderName, runtimeModel.Name, len([]rune(fmt.Sprintf("Analyze application %d", req.GetApplicationId()))), runtimeModel)
+		if resolveErr != nil {
+			return nil, resolveErr
+		}
+		defer s.cancelUnsettledBilling(ctx, "runtime_completed_without_usage")
+	}
+	reply, err := s.complete(ctx, fmt.Sprintf("Analyze application %d", req.GetApplicationId()), modelID)
 	if err != nil {
 		if errors.Is(err, errAIProviderRequired) {
 			return &pb.AnalyzeApplicationResponse{Code: configCodeUnavailable, Msg: err.Error()}, nil
 		}
 		return nil, err
 	}
-	return &pb.AnalyzeApplicationResponse{Code: 0, Msg: "success", Reply: reply}, nil
+	if runtimeModel.ID > 0 {
+		s.bestEffortMeterUsage(ctx, UsageAuditRow{Provider: runtimeModel.ProviderName, Model: runtimeModel.Name, EstimatedTokens: estimateTokens(fmt.Sprintf("Analyze application %d%s", req.GetApplicationId(), reply))})
+	}
+	return &pb.AnalyzeApplicationResponse{Code: 0, Msg: "success", Reply: reply, ContextUsage: newHRContextUsageEnvelope(runtimeModel, 0)}, nil
 }
 
 func (s *nativeAIService) ListChatSessions(ctx context.Context, req *pb.ChatSessionListRequest) (*pb.ChatSessionListResponse, error) {
@@ -4845,6 +5069,11 @@ func (s *nativeAIService) finishAgentRunSucceeded(ctx context.Context, run Agent
 	if _, err := s.appendAgentRunEvent(storeCtx, run.ID, "run.result", agentRunResultPayload(result, s.hrRuntimeLabel())); err != nil {
 		return err
 	}
+	if governanceStore, ok := s.store.(agentRunRuntimeGovernanceStore); ok {
+		if err := governanceStore.UpdateAgentRunRuntimeGovernance(storeCtx, run.OwnerID, run.ID, result.runtimeModel); err != nil {
+			return err
+		}
+	}
 	if _, _, err := s.store.CompleteAgentRun(storeCtx, run.OwnerID, run.ID, reply, agentRunStatusSucceeded, "", ""); err != nil {
 		return err
 	}
@@ -5691,6 +5920,21 @@ type nativeRecruitingIntelligenceService struct {
 	observer     recruitingruntime.Observer
 }
 
+func (s nativeRecruitingIntelligenceService) capabilityRuntimeContext(ctx context.Context, capability string, versionID, requestedModelID int64) (context.Context, error) {
+	if versionID <= 0 {
+		return ctx, nil
+	}
+	resolver, ok := s.store.(capabilityRuntimeModelResolver)
+	if !ok {
+		return ctx, errors.New("platform AI capability resolver is unavailable")
+	}
+	resolved, err := resolver.ResolveCapabilityRuntimeModel(ctx, capability, platformAIAudienceTenantHR, versionID, requestedModelID)
+	if err != nil {
+		return ctx, err
+	}
+	return recruitingruntime.WithCapabilityRuntime(ctx, resolved.RequestedModelID, resolved.EffectiveModelID, resolved.CapabilityVersionID, resolved.FallbackReason, resolved.CapabilitySnapshotHash, resolved.ConfigurationRefs.PromptTemplateIDs), nil
+}
+
 func (s nativeRecruitingIntelligenceService) recruitingObserver() recruitingruntime.Observer {
 	if s.observer != nil {
 		return s.observer
@@ -6027,6 +6271,12 @@ func (s nativeRecruitingIntelligenceService) ParseResumeProfile(ctx context.Cont
 			finalizer.classify(recruitingTerminalCategoryForAuthError(authErr), "error")
 			return &pb.GetResumeProfileResponse{Code: authErr.code, Msg: authErr.message}, nil
 		}
+		var runtimeErr error
+		ctx, runtimeErr = s.capabilityRuntimeContext(ctx, "ai.resume_parse", req.GetCapabilityVersionId(), req.GetModelId())
+		if runtimeErr != nil {
+			finalizer.classify("configuration_failure", "error")
+			return &pb.GetResumeProfileResponse{Code: configCodeUnavailable, Msg: runtimeErr.Error()}, nil
+		}
 		sourceStarted := time.Now()
 		source, found, err := generationStore.GetRecruitingResumeSource(ctx, resumeID)
 		if err != nil {
@@ -6131,6 +6381,12 @@ func (s nativeRecruitingIntelligenceService) EvaluateCandidateMatch(ctx context.
 		if authErr := s.authorizeRecruitingAIPermission(ctx, req.GetStaffUserId(), "application", req.GetApplicationId()); authErr != nil {
 			finalizer.classify(recruitingTerminalCategoryForAuthError(authErr), "error")
 			return recruitingMatchAuthResponse(authErr), nil
+		}
+		var runtimeErr error
+		ctx, runtimeErr = s.capabilityRuntimeContext(ctx, "ai.match_evaluation", req.GetCapabilityVersionId(), req.GetModelId())
+		if runtimeErr != nil {
+			finalizer.classify("configuration_failure", "error")
+			return &pb.GetCandidateMatchEvaluationResponse{Code: configCodeUnavailable, Msg: runtimeErr.Error()}, nil
 		}
 		totalCtx, generationCtx, cancel := s.policy.CandidateMatchExecutionContexts(ctx)
 		defer cancel()
@@ -6242,6 +6498,7 @@ func (s nativeRecruitingIntelligenceService) generateResumeProfileDraft(ctx cont
 		return RecruitingResumeProfileDraft{}, err
 	}
 	profile := result.Profile
+	requestedModelID, effectiveModelID, capabilityVersionID, fallbackReason, snapshotHash := recruitingruntime.CapabilityRuntimeTrace(ctx)
 	draft := RecruitingResumeProfileDraft{
 		ResumeID:             source.ResumeID,
 		UserID:               source.UserID,
@@ -6256,10 +6513,13 @@ func (s nativeRecruitingIntelligenceService) generateResumeProfileDraft(ctx cont
 		Summary:              profile.Summary,
 		TotalExperienceYears: profile.TotalExperienceYears,
 		HighestDegree:        profile.HighestDegree,
-		Educations:           make([]RecruitingResumeEducationRow, 0, len(profile.Educations)),
-		Experiences:          make([]RecruitingResumeExperienceRow, 0, len(profile.Experiences)),
-		Projects:             make([]RecruitingResumeProjectRow, 0, len(profile.Projects)),
-		Skills:               make([]RecruitingResumeSkillRow, 0, len(profile.Skills)),
+		RequestedModelID:     requestedModelID, EffectiveModelID: effectiveModelID,
+		ModelFallbackReason: fallbackReason, CapabilityVersionID: capabilityVersionID,
+		CapabilitySnapshotHash: snapshotHash,
+		Educations:             make([]RecruitingResumeEducationRow, 0, len(profile.Educations)),
+		Experiences:            make([]RecruitingResumeExperienceRow, 0, len(profile.Experiences)),
+		Projects:               make([]RecruitingResumeProjectRow, 0, len(profile.Projects)),
+		Skills:                 make([]RecruitingResumeSkillRow, 0, len(profile.Skills)),
 	}
 	for index, row := range profile.Educations {
 		draft.Educations = append(draft.Educations, RecruitingResumeEducationRow{
@@ -6319,6 +6579,9 @@ func (s nativeRecruitingIntelligenceService) generateCandidateMatchDraft(ctx con
 		return RecruitingCandidateMatchDraft{}, recruitingruntime.ErrCandidateMatchPolicy
 	}
 	draft, _, err := s.generateCandidateMatchDraftWithShadow(ctx, source, agentRunID)
+	if err == nil {
+		draft.RequestedModelID, draft.EffectiveModelID, draft.CapabilityVersionID, draft.ModelFallbackReason, draft.CapabilitySnapshotHash = recruitingruntime.CapabilityRuntimeTrace(ctx)
+	}
 	return draft, err
 }
 
@@ -6818,17 +7081,22 @@ func recruitingResumeProfileSnapshotPB(snapshot RecruitingResumeProfileSnapshot)
 
 func recruitingResumeParseRunPB(row RecruitingResumeParseRunRow) *pb.ResumeParseRunInfo {
 	out := &pb.ResumeParseRunInfo{
-		Id:            row.ID,
-		ResumeId:      row.ResumeID,
-		UserId:        row.UserID,
-		Status:        row.Status,
-		ParserVersion: row.ParserVersion,
-		InputHash:     row.InputHash,
-		ErrorMessage:  row.ErrorMessage,
-		StartedAt:     formatTime(row.StartedAt),
-		CompletedAt:   formatTimePtr(row.CompletedAt),
-		CreatedAt:     formatTime(row.CreatedAt),
-		UpdatedAt:     formatTime(row.UpdatedAt),
+		Id:                     row.ID,
+		ResumeId:               row.ResumeID,
+		UserId:                 row.UserID,
+		Status:                 row.Status,
+		ParserVersion:          row.ParserVersion,
+		InputHash:              row.InputHash,
+		ErrorMessage:           row.ErrorMessage,
+		StartedAt:              formatTime(row.StartedAt),
+		CompletedAt:            formatTimePtr(row.CompletedAt),
+		CreatedAt:              formatTime(row.CreatedAt),
+		UpdatedAt:              formatTime(row.UpdatedAt),
+		RequestedModelId:       row.RequestedModelID,
+		EffectiveModelId:       row.EffectiveModelID,
+		ModelFallbackReason:    row.ModelFallbackReason,
+		CapabilityVersionId:    row.CapabilityVersionID,
+		CapabilitySnapshotHash: row.CapabilitySnapshotHash,
 	}
 	if row.AgentRunID != nil {
 		out.AgentRunId = *row.AgentRunID
@@ -6906,6 +7174,11 @@ func recruitingCandidateMatchEvaluationPB(row RecruitingCandidateMatchEvaluation
 		CreatedAt:               formatTime(row.CreatedAt),
 		UpdatedAt:               formatTime(row.UpdatedAt),
 		DimensionsJson:          recruitingDimensionsJSON(row.ScoreBreakdownJSON),
+		RequestedModelId:        row.RequestedModelID,
+		EffectiveModelId:        row.EffectiveModelID,
+		ModelFallbackReason:     row.ModelFallbackReason,
+		CapabilityVersionId:     row.CapabilityVersionID,
+		CapabilitySnapshotHash:  row.CapabilitySnapshotHash,
 	}
 	if row.AgentRunID != nil {
 		out.AgentRunId = *row.AgentRunID

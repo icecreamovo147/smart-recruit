@@ -27,7 +27,6 @@ const (
 
 type llmModelRecord struct {
 	ID                      int64          `gorm:"primaryKey"`
-	TenantID                *int64         `gorm:"column:tenant_id"`
 	ProviderID              int64          `gorm:"column:provider_id"`
 	ModelName               string         `gorm:"column:model_name"`
 	CatalogModelName        sql.NullString `gorm:"column:catalog_model_name"`
@@ -56,7 +55,6 @@ func (llmModelRecord) TableName() string { return "llm_models" }
 
 type promptVersionRecord struct {
 	ID         int64          `gorm:"primaryKey"`
-	TenantID   *int64         `gorm:"column:tenant_id"`
 	TemplateID int64          `gorm:"column:template_id"`
 	Version    int            `gorm:"column:version"`
 	Content    string         `gorm:"column:content"`
@@ -69,7 +67,6 @@ func (promptVersionRecord) TableName() string { return "prompt_versions" }
 
 type agentConfigRecord struct {
 	ID                  int64           `gorm:"primaryKey"`
-	TenantID            *int64          `gorm:"column:tenant_id"`
 	Name                string          `gorm:"column:name"`
 	DisplayName         string          `gorm:"column:display_name"`
 	Description         sql.NullString  `gorm:"column:description"`
@@ -88,7 +85,6 @@ func (agentConfigRecord) TableName() string { return "agent_configs" }
 
 type agentToolBindingRecord struct {
 	ID        int64     `gorm:"primaryKey"`
-	TenantID  *int64    `gorm:"column:tenant_id"`
 	AgentID   int64     `gorm:"column:agent_id"`
 	ToolName  string    `gorm:"column:tool_name"`
 	IsEnabled bool      `gorm:"column:is_enabled"`
@@ -99,7 +95,6 @@ func (agentToolBindingRecord) TableName() string { return "agent_tool_bindings" 
 
 type agentCapabilityBindingRecord struct {
 	ID               int64          `gorm:"primaryKey"`
-	TenantID         *int64         `gorm:"column:tenant_id"`
 	AgentID          int64          `gorm:"column:agent_id"`
 	CapabilitySource string         `gorm:"column:capability_source"`
 	CapabilityKey    string         `gorm:"column:capability_key"`
@@ -114,7 +109,6 @@ func (agentCapabilityBindingRecord) TableName() string { return "agent_capabilit
 
 type embeddingModelRecord struct {
 	ID              int64          `gorm:"primaryKey"`
-	TenantID        *int64         `gorm:"column:tenant_id"`
 	ProviderID      int64          `gorm:"column:provider_id"`
 	ModelName       string         `gorm:"column:model_name"`
 	DisplayName     string         `gorm:"column:display_name"`
@@ -480,6 +474,9 @@ func (s *NativeStore) CreatePromptTemplate(ctx context.Context, req *pb.CreatePr
 }
 
 func (s *NativeStore) UpdatePromptTemplate(ctx context.Context, req *pb.UpdatePromptTemplateRequest) (*pb.PromptTemplateResponse, error) {
+	if err := s.assertNotReleasedConfiguration(ctx, "prompt", req.GetId()); err != nil {
+		return &pb.PromptTemplateResponse{Code: configBadRequest, Msg: err.Error()}, nil
+	}
 	var row promptTemplateRecord
 	if err := s.db.WithContext(ctx).First(&row, req.GetId()).Error; err != nil {
 		if err == gorm.ErrRecordNotFound {
@@ -563,6 +560,9 @@ func promptAgentTypeScope(agentType string) []string {
 }
 
 func (s *NativeStore) DeletePromptTemplate(ctx context.Context, req *pb.DeletePromptTemplateRequest) (*pb.CommonResponse, error) {
+	if err := s.assertNotReleasedConfiguration(ctx, "prompt", req.GetId()); err != nil {
+		return &pb.CommonResponse{Code: configBadRequest, Msg: err.Error()}, nil
+	}
 	return rowsCommon(s.db.WithContext(ctx).Delete(&promptTemplateRecord{}, req.GetId()), "success", "prompt template not found")
 }
 
@@ -662,6 +662,9 @@ func (s *NativeStore) CreateAgent(ctx context.Context, req *pb.CreateAgentReques
 }
 
 func (s *NativeStore) UpdateAgent(ctx context.Context, req *pb.UpdateAgentRequest) (*pb.AgentConfigResponse, error) {
+	if err := s.assertNotReleasedConfiguration(ctx, "agent", req.GetId()); err != nil {
+		return &pb.AgentConfigResponse{Code: configBadRequest, Msg: err.Error()}, nil
+	}
 	updates := map[string]any{}
 	putString(updates, "name", req.GetName())
 	putString(updates, "display_name", req.GetDisplayName())
@@ -747,6 +750,9 @@ func agentPromptTypesCompatible(agentType, promptAgentType string) bool {
 }
 
 func (s *NativeStore) DeleteAgent(ctx context.Context, req *pb.DeleteAgentRequest) (*pb.CommonResponse, error) {
+	if err := s.assertNotReleasedConfiguration(ctx, "agent", req.GetId()); err != nil {
+		return &pb.CommonResponse{Code: configBadRequest, Msg: err.Error()}, nil
+	}
 	return rowsCommon(s.db.WithContext(ctx).Delete(&agentConfigRecord{}, req.GetId()), "success", "agent not found")
 }
 

@@ -78,6 +78,7 @@ func checkRuntime() error {
 		AgentSkill:             noopAgentSkillService{},
 		RecruitingIntelligence: noopRecruitingIntelligenceService{},
 		EmbeddingConfig:        noopEmbeddingConfigService{},
+		PlatformAIControlPlane: noopPlatformAIControlPlaneService{},
 	})
 	if err != nil {
 		return err
@@ -127,7 +128,7 @@ func serveAIAgent(addr string) error {
 	}
 	if err := db.Use(tenantgorm.NewWithMixed(
 		[]string{"candidate_match_evaluations", "candidate_match_evidence", "jobs", "applications", "application_status_transitions", "interview_schedules", "interview_feedback", "offers", "offer_events"},
-		[]string{"ai_chat_sessions", "ai_chat_history", "ai_session_summaries", "ai_tool_traces", "agent_runs", "agent_run_events", "agent_run_steps", "ai_memories", "ai_embeddings", "third_party_usage_logs", "ai_usage_auth_contexts", "llm_providers", "llm_models", "embedding_providers", "embedding_models", "prompt_templates", "prompt_versions", "agent_configs", "agent_tool_bindings", "mcp_servers", "mcp_tool_logs", "mcp_tool_policies", "agent_capability_bindings", "ai_skills", "ai_skill_versions", "ai_skill_tools", "agent_skills", "agent_skill_versions"},
+		[]string{"ai_chat_sessions", "ai_chat_history", "ai_session_summaries", "ai_tool_traces", "agent_runs", "agent_run_events", "agent_run_steps", "ai_memories", "ai_embeddings", "third_party_usage_logs", "ai_usage_auth_contexts", "mcp_tool_logs"},
 	)); err != nil {
 		return err
 	}
@@ -205,6 +206,7 @@ func serveAIAgent(addr string) error {
 	runtime, err := aiagentruntime.New(aiagentgrpc.NewNativeRuntimeDeps(aiagentgrpc.RuntimeDeps{
 		Store:            nativeStore,
 		Provider:         nativeStore,
+		PlatformAI:       aiagentpersistence.NewPlatformAIControlPlaneServer(nativeStore),
 		RecruitingPolicy: recruitingRuntimePolicy(cfg),
 		EmbeddingWorker:  true,
 		AgentRunWorker:   true,
@@ -458,4 +460,7 @@ type noopRecruitingIntelligenceService struct {
 }
 type noopEmbeddingConfigService struct {
 	pb.UnimplementedEmbeddingConfigServiceServer
+}
+type noopPlatformAIControlPlaneService struct {
+	pb.UnimplementedPlatformAIControlPlaneServiceServer
 }

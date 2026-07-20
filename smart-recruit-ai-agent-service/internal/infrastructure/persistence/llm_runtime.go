@@ -219,7 +219,7 @@ func (s *NativeStore) ChatWithRecruitingADK(
 }
 
 func (s *NativeStore) CompleteStructured(ctx context.Context, systemPrompt, userPrompt string) (recruitingruntime.StructuredCompletionResult, error) {
-	cfg, err := s.selectLLMRuntimeConfig(ctx, 0, 0)
+	cfg, err := s.selectLLMRuntimeConfig(ctx, recruitingruntime.CapabilityRuntimeModelID(ctx), 0)
 	if err != nil {
 		return recruitingruntime.StructuredCompletionResult{}, err
 	}
@@ -276,10 +276,13 @@ func structuredRuntimeConfigFingerprint(selected selectedLLMConfig, defaults Run
 
 func (s *NativeStore) LoadActiveRecruitingPrompt(ctx context.Context, agentType, role string) (recruitingruntime.PromptDescriptor, error) {
 	var row promptTemplateRecord
-	err := s.db.WithContext(ctx).
+	query := s.db.WithContext(ctx).
 		Where("agent_type = ? AND prompt_role = ? AND is_active = ?", agentType, role, true).
-		Order("updated_at DESC, id DESC").
-		First(&row).Error
+		Order("updated_at DESC, id DESC")
+	if allowed := recruitingruntime.CapabilityRuntimePromptTemplateIDs(ctx); len(allowed) > 0 {
+		query = query.Where("id IN ?", allowed)
+	}
+	err := query.First(&row).Error
 	if err == gorm.ErrRecordNotFound {
 		return recruitingruntime.PromptDescriptor{}, recruitingruntime.ErrPromptNotFound
 	}

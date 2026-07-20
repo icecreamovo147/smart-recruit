@@ -29,6 +29,7 @@ func TestRuntimeRegistersAIAgentGRPCServices(t *testing.T) {
 		pb.AgentSkillService_ServiceDesc.ServiceName,
 		pb.RecruitingIntelligenceService_ServiceDesc.ServiceName,
 		pb.EmbeddingConfigService_ServiceDesc.ServiceName,
+		pb.PlatformAIControlPlaneService_ServiceDesc.ServiceName,
 	} {
 		if _, ok := services[serviceName]; !ok {
 			t.Fatalf("missing registered service %s", serviceName)
@@ -78,6 +79,7 @@ func fakeDeps() Deps {
 		AgentSkill:             fakeAgentSkillService{},
 		RecruitingIntelligence: fakeRecruitingIntelligenceService{},
 		EmbeddingConfig:        fakeEmbeddingConfigService{},
+		PlatformAIControlPlane: fakePlatformAIControlPlaneService{},
 	}
 }
 
@@ -107,4 +109,7 @@ type fakeRecruitingIntelligenceService struct {
 }
 type fakeEmbeddingConfigService struct {
 	pb.UnimplementedEmbeddingConfigServiceServer
+}
+type fakePlatformAIControlPlaneService struct {
+	pb.UnimplementedPlatformAIControlPlaneServiceServer
 }

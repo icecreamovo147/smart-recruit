@@ -20,6 +20,7 @@ type Deps struct {
 	AgentSkill             pb.AgentSkillServiceServer
 	RecruitingIntelligence pb.RecruitingIntelligenceServiceServer
 	EmbeddingConfig        pb.EmbeddingConfigServiceServer
+	PlatformAIControlPlane pb.PlatformAIControlPlaneServiceServer
 	LongTasks              LongTaskControls
 }
 
@@ -33,6 +34,7 @@ type Runtime struct {
 	AgentSkill             pb.AgentSkillServiceServer
 	RecruitingIntelligence pb.RecruitingIntelligenceServiceServer
 	EmbeddingConfig        pb.EmbeddingConfigServiceServer
+	PlatformAIControlPlane pb.PlatformAIControlPlaneServiceServer
 	LongTasks              LongTaskControls
 }
 
@@ -71,6 +73,9 @@ func New(deps Deps) (*Runtime, error) {
 	if deps.EmbeddingConfig == nil {
 		return nil, fmt.Errorf("embedding config service is required")
 	}
+	if deps.PlatformAIControlPlane == nil {
+		return nil, fmt.Errorf("platform AI control plane service is required")
+	}
 	longTasks := deps.LongTasks
 	if !longTasks.Configured() {
 		longTasks = LongTaskControls{RabbitMQRequired: true}
@@ -89,6 +94,7 @@ func New(deps Deps) (*Runtime, error) {
 		AgentSkill:             deps.AgentSkill,
 		RecruitingIntelligence: deps.RecruitingIntelligence,
 		EmbeddingConfig:        deps.EmbeddingConfig,
+		PlatformAIControlPlane: deps.PlatformAIControlPlane,
 		LongTasks:              longTasks,
 	}, nil
 }
@@ -126,5 +132,6 @@ func (r *Runtime) RegisterGRPC(registrar grpc.ServiceRegistrar) error {
 	pb.RegisterAgentSkillServiceServer(registrar, r.AgentSkill)
 	pb.RegisterRecruitingIntelligenceServiceServer(registrar, r.RecruitingIntelligence)
 	pb.RegisterEmbeddingConfigServiceServer(registrar, r.EmbeddingConfig)
+	pb.RegisterPlatformAIControlPlaneServiceServer(registrar, r.PlatformAIControlPlane)
 	return nil
 }

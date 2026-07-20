@@ -113,9 +113,14 @@ func (s *nativeAIService) runCandidateChatRuntime(req *pb.CandidateChatRequest, 
 
 	startedAt := time.Now()
 	inputChars := len([]rune(req.GetMessage()))
-	modelID, modelName, providerName := s.resolveRuntimeModelDisplay(ctx, req.GetModelId())
+	runtimeModel, err := s.resolveCapabilityRuntimeModel(ctx, billingOwnerUser, req.GetUserId(), "ai.chat", platformAIAudienceCandidate, req.GetModelId())
+	if err != nil {
+		return err
+	}
+	modelID, modelName, providerName := runtimeModel.ID, runtimeModel.Name, runtimeModel.ProviderName
+	req.ModelId = modelID
 	auditOpts := candidateUsageAuditOptions{Provider: providerName, Model: modelName}
-	ctx, err := s.reserveAIBilling(ctx, billingOwnerUser, req.GetUserId(), "ai.chat.enabled", "candidate_chat", providerName, modelName, inputChars)
+	ctx, err = s.reserveAIBilling(ctx, billingOwnerUser, req.GetUserId(), "ai.chat", "candidate_chat", providerName, modelName, inputChars, runtimeModel)
 	if err != nil {
 		return err
 	}
@@ -137,11 +142,18 @@ func (s *nativeAIService) runCandidateChatRuntime(req *pb.CandidateChatRequest, 
 	}
 
 	modelInfoUsage := &pb.ContextUsageInfo{
-		ModelId:   modelID,
-		ModelName: modelName,
-		Estimated: true,
-		Source:    "candidate-agent-runtime",
-		Stage:     "model_selected",
+		ModelId:                modelID,
+		ModelName:              modelName,
+		ContextWindowTokens:    runtimeModel.ContextWindowTokens,
+		MaxOutputTokens:        runtimeModel.MaxOutputTokens,
+		RequestedModelId:       runtimeModel.RequestedModelID,
+		EffectiveModelId:       modelID,
+		ModelFallbackReason:    runtimeModel.FallbackReason,
+		CapabilityVersionId:    runtimeModel.CapabilityVersionID,
+		CapabilitySnapshotHash: runtimeModel.CapabilitySnapshotHash,
+		Estimated:              true,
+		Source:                 "candidate-agent-runtime",
+		Stage:                  "model_selected",
 	}
 	if err := stream.Send(&pb.ChatStreamResponse{
 		Code: 0, Msg: "success", EventType: "model_info", ContextUsage: modelInfoUsage,
@@ -166,8 +178,11 @@ func (s *nativeAIService) runCandidateChatRuntime(req *pb.CandidateChatRequest, 
 		})
 	}
 
-	runtimeCfg := s.getCandidateAgentRuntimeConfig(ctx)
-	systemPrompt := s.resolveCandidateAgentSystemPrompt(ctx, runtimeCfg)
+	runtimeCfg := s.getCandidateAgentRuntimeConfigForRelease(ctx, runtimeModel.ConfigurationRefs)
+	if runtimeModel.CapabilityVersionID > 0 && (!runtimeCfg.HasConfig || strings.TrimSpace(runtimeCfg.SystemPrompt) == "") {
+		return status.Error(codes.FailedPrecondition, "candidate Agent or Prompt is unavailable in the capability release")
+	}
+	systemPrompt := s.resolveCandidateAgentSystemPromptForRelease(ctx, runtimeCfg, runtimeModel.ConfigurationRefs)
 	availablePlanTools := append([]string(nil), runtimeCfg.ToolNames...)
 	if len(availablePlanTools) == 0 {
 		availablePlanTools = commonsai.CandidateToolNames()
@@ -360,20 +375,32 @@ func (s *nativeAIService) runCandidateChatRuntime(req *pb.CandidateChatRequest, 
 }
 
 func (s *nativeAIService) getCandidateAgentRuntimeConfig(ctx context.Context) candidateAgentRuntimeConfig {
+	return s.getCandidateAgentRuntimeConfigForRelease(ctx, CapabilityConfigurationRefs{})
+}
+
+func (s *nativeAIService) getCandidateAgentRuntimeConfigForRelease(ctx context.Context, refs CapabilityConfigurationRefs) candidateAgentRuntimeConfig {
 	cfg := candidateAgentRuntimeConfig{}
 	if s == nil || s.store == nil {
 		return cfg
 	}
-	store, ok := s.store.(agentConfigStore)
-	if !ok {
-		return cfg
+	var agent *pb.AgentConfigInfo
+	if len(refs.AgentIDs) > 0 {
+		if store, ok := s.store.(hrRuntimeAgentByIDStore); ok {
+			for _, id := range refs.AgentIDs {
+				row, found, err := store.GetRuntimeAgentConfigByID(ctx, id)
+				if err == nil && found && row != nil && row.GetIsEnabled() && strings.EqualFold(strings.TrimSpace(row.GetAgentType()), candidateAssistantAgentType) {
+					agent = row
+					break
+				}
+			}
+		}
+	} else if store, ok := s.store.(agentConfigStore); ok {
+		resp, err := store.GetAgentConfig(ctx, &pb.GetAgentConfigRequest{AgentType: candidateAssistantAgentType})
+		if err == nil && resp != nil && resp.GetCode() == 0 {
+			agent = resp.GetAgent()
+		}
 	}
-	resp, err := store.GetAgentConfig(ctx, &pb.GetAgentConfigRequest{AgentType: candidateAssistantAgentType})
-	if err != nil || resp == nil || resp.GetCode() != 0 || resp.GetAgent() == nil {
-		return cfg
-	}
-	agent := resp.GetAgent()
-	if !agent.GetIsEnabled() {
+	if agent == nil || !agent.GetIsEnabled() {
 		return cfg
 	}
 	cfg.HasConfig = true
@@ -389,6 +416,9 @@ func (s *nativeAIService) getCandidateAgentRuntimeConfig(ctx context.Context) ca
 		}
 	}
 	if agent.GetPromptTemplateId() > 0 {
+		if len(refs.PromptTemplateIDs) > 0 && !containsRuntimeID(refs.PromptTemplateIDs, agent.GetPromptTemplateId()) {
+			return cfg
+		}
 		if promptStore, ok := s.store.(interface {
 			GetRuntimePromptTemplateByID(context.Context, int64) (*pb.PromptTemplateInfo, bool, error)
 		}); ok {
@@ -404,16 +434,22 @@ func (s *nativeAIService) getCandidateAgentRuntimeConfig(ctx context.Context) ca
 }
 
 func (s *nativeAIService) resolveCandidateAgentSystemPrompt(ctx context.Context, runtimeCfg candidateAgentRuntimeConfig) string {
+	return s.resolveCandidateAgentSystemPromptForRelease(ctx, runtimeCfg, CapabilityConfigurationRefs{})
+}
+
+func (s *nativeAIService) resolveCandidateAgentSystemPromptForRelease(ctx context.Context, runtimeCfg candidateAgentRuntimeConfig, refs CapabilityConfigurationRefs) string {
 	if strings.TrimSpace(runtimeCfg.SystemPrompt) != "" {
 		return runtimeCfg.SystemPrompt
 	}
-	if prompt, err := s.resolveCandidateSystemPrompt(ctx); err == nil && strings.TrimSpace(prompt) != "" {
-		// Prefer DEV ADK prompt over the short legacy stuffing prompt when only the
-		// hardcoded fallback is available.
-		if prompt == candidateSystemPrompt {
-			return candidateADKSystemPrompt
+	if len(refs.PromptTemplateIDs) == 0 {
+		if prompt, err := s.resolveCandidateSystemPrompt(ctx); err == nil && strings.TrimSpace(prompt) != "" {
+			// Prefer DEV ADK prompt over the short legacy stuffing prompt when only the
+			// hardcoded fallback is available.
+			if prompt == candidateSystemPrompt {
+				return candidateADKSystemPrompt
+			}
+			return prompt
 		}
-		return prompt
 	}
 	return candidateADKSystemPrompt
 }

@@ -26,7 +26,6 @@ const (
 
 type mcpToolPolicyRecord struct {
 	ID                     int64          `gorm:"primaryKey"`
-	TenantID               *int64         `gorm:"column:tenant_id"`
 	ServerID               int64          `gorm:"column:server_id"`
 	ToolName               string         `gorm:"column:tool_name"`
 	Effect                 string         `gorm:"column:effect"`
@@ -70,7 +69,6 @@ func (mcpToolLogRecord) TableName() string { return "mcp_tool_logs" }
 
 type aiSkillRecord struct {
 	ID               int64          `gorm:"primaryKey"`
-	TenantID         *int64         `gorm:"column:tenant_id"`
 	Name             string         `gorm:"column:name"`
 	DisplayName      string         `gorm:"column:display_name"`
 	Description      sql.NullString `gorm:"column:description"`
@@ -86,7 +84,6 @@ func (aiSkillRecord) TableName() string { return "ai_skills" }
 
 type aiSkillVersionRecord struct {
 	ID               int64          `gorm:"primaryKey"`
-	TenantID         *int64         `gorm:"column:tenant_id"`
 	SkillID          int64          `gorm:"column:skill_id"`
 	Version          string         `gorm:"column:version"`
 	ManifestJSON     string         `gorm:"column:manifest_json"`
@@ -101,7 +98,6 @@ func (aiSkillVersionRecord) TableName() string { return "ai_skill_versions" }
 
 type aiSkillToolRecord struct {
 	ID                int64          `gorm:"primaryKey"`
-	TenantID          *int64         `gorm:"column:tenant_id"`
 	SkillVersionID    int64          `gorm:"column:skill_version_id"`
 	ToolName          string         `gorm:"column:tool_name"`
 	Description       sql.NullString `gorm:"column:description"`
@@ -116,7 +112,6 @@ func (aiSkillToolRecord) TableName() string { return "ai_skill_tools" }
 
 type agentSkillVersionRecord struct {
 	ID              int64          `gorm:"primaryKey"`
-	TenantID        *int64         `gorm:"column:tenant_id"`
 	SkillID         int64          `gorm:"column:skill_id"`
 	Version         string         `gorm:"column:version"`
 	FlowJSON        sql.NullString `gorm:"column:flow_json"`
@@ -146,6 +141,9 @@ func (s *NativeStore) CreateMCPServer(ctx context.Context, req *pb.CreateMCPServ
 }
 
 func (s *NativeStore) UpdateMCPServer(ctx context.Context, req *pb.UpdateMCPServerRequest) (*pb.MCPServerResponse, error) {
+	if err := s.assertMCPServerNotReleased(ctx, req.GetId()); err != nil {
+		return &pb.MCPServerResponse{Code: governanceBadRequest, Msg: err.Error()}, nil
+	}
 	updates := map[string]any{}
 	putString(updates, "name", req.GetName())
 	putString(updates, "description", req.GetDescription())
@@ -182,6 +180,9 @@ func (s *NativeStore) UpdateMCPServer(ctx context.Context, req *pb.UpdateMCPServ
 }
 
 func (s *NativeStore) DeleteMCPServer(ctx context.Context, req *pb.DeleteMCPServerRequest) (*pb.CommonResponse, error) {
+	if err := s.assertMCPServerNotReleased(ctx, req.GetId()); err != nil {
+		return &pb.CommonResponse{Code: governanceBadRequest, Msg: err.Error()}, nil
+	}
 	return rowsCommon(s.db.WithContext(ctx).Delete(&mcpServerRecord{}, req.GetId()), "success", "mcp server not found")
 }
 
@@ -221,6 +222,9 @@ func (s *NativeStore) CreateMCPToolPolicy(ctx context.Context, req *pb.CreateMCP
 }
 
 func (s *NativeStore) UpdateMCPToolPolicy(ctx context.Context, req *pb.UpdateMCPToolPolicyRequest) (*pb.MCPToolPolicyResponse, error) {
+	if err := s.assertNotReleasedConfiguration(ctx, "mcp_policy", req.GetId()); err != nil {
+		return &pb.MCPToolPolicyResponse{Code: governanceBadRequest, Msg: err.Error()}, nil
+	}
 	updates := map[string]any{"updated_by_hr_id": nullInt64From(req.GetOperatorHrId())}
 	if req.GetServerId() > 0 {
 		updates["server_id"] = req.GetServerId()
@@ -257,6 +261,9 @@ func (s *NativeStore) UpdateMCPToolPolicy(ctx context.Context, req *pb.UpdateMCP
 }
 
 func (s *NativeStore) DeleteMCPToolPolicy(ctx context.Context, req *pb.DeleteMCPToolPolicyRequest) (*pb.CommonResponse, error) {
+	if err := s.assertNotReleasedConfiguration(ctx, "mcp_policy", req.GetId()); err != nil {
+		return &pb.CommonResponse{Code: governanceBadRequest, Msg: err.Error()}, nil
+	}
 	return rowsCommon(s.db.WithContext(ctx).Delete(&mcpToolPolicyRecord{}, req.GetId()), "success", "mcp tool policy not found")
 }
 
@@ -413,6 +420,9 @@ func (s *NativeStore) CreateSkill(ctx context.Context, req *pb.CreateSkillReques
 }
 
 func (s *NativeStore) UpdateSkill(ctx context.Context, req *pb.UpdateSkillRequest) (*pb.SkillResponse, error) {
+	if err := s.assertAISkillNotReleased(ctx, req.GetId()); err != nil {
+		return &pb.SkillResponse{Code: governanceBadRequest, Msg: err.Error()}, nil
+	}
 	updates := map[string]any{}
 	putString(updates, "display_name", req.GetDisplayName())
 	putString(updates, "description", req.GetDescription())
@@ -567,6 +577,9 @@ func (s *NativeStore) CreateAgentSkill(ctx context.Context, req *pb.CreateAgentS
 }
 
 func (s *NativeStore) UpdateAgentSkill(ctx context.Context, req *pb.UpdateAgentSkillRequest) (*pb.AgentSkillResponse, error) {
+	if err := s.assertAgentSkillNotReleased(ctx, req.GetId()); err != nil {
+		return &pb.AgentSkillResponse{Code: governanceBadRequest, Msg: err.Error()}, nil
+	}
 	updates := map[string]any{"updated_by": nullInt64From(req.GetActorUserId())}
 	if req.GetDisplayNameSet() {
 		updates["display_name"] = strings.TrimSpace(req.GetDisplayName())
@@ -661,6 +674,9 @@ func (s *NativeStore) ActivateAgentSkillVersion(ctx context.Context, req *pb.Act
 }
 
 func (s *NativeStore) UpdateAgentSkillStatus(ctx context.Context, req *pb.UpdateAgentSkillStatusRequest) (*pb.AgentSkillResponse, error) {
+	if err := s.assertAgentSkillNotReleased(ctx, req.GetId()); err != nil {
+		return &pb.AgentSkillResponse{Code: governanceBadRequest, Msg: err.Error()}, nil
+	}
 	result := s.db.WithContext(ctx).Model(&agentSkillRecord{}).Where("id = ?", req.GetId()).Updates(map[string]any{"is_enabled": req.GetIsEnabled(), "updated_by": nullInt64From(req.GetActorUserId())})
 	if result.Error != nil {
 		return nil, result.Error
