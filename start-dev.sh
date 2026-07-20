@@ -430,6 +430,11 @@ start_service() {
 }
 
 parse_targets "$@"
+BILLING_CONFIG_PATH="${BILLING_CONFIG_PATH:-${ROOT}/smart-recruit-billing-service/config.yaml}"
+if target_selected billing-service && [ ! -f "${BILLING_CONFIG_PATH}" ]; then
+    die "Billing config not found at ${BILLING_CONFIG_PATH}. Copy smart-recruit-billing-service/config.example.yaml to smart-recruit-billing-service/config.yaml and fill in the Alipay sandbox values."
+fi
+
 ensure_system_dependencies
 if has_any_backend_target; then
     ensure_runtime_services
@@ -468,7 +473,7 @@ target_selected notification-service && start_service "notification-service" "${
 target_selected ai-agent-service && start_service "ai-agent-service" "${ROOT}/smart-recruit-ai-agent-service" 50066 "${BIN_DIR}/ai-agent-service" --serve --addr :50066
 target_selected analytics-service && start_service "analytics-service" "${ROOT}/smart-recruit-analytics-service" 50067 "${BIN_DIR}/analytics-service" --serve --addr :50067
 target_selected worker-service && start_service "worker-service" "${ROOT}/smart-recruit-worker-service" 50068 "${BIN_DIR}/worker-service" --serve --health-addr :50068
-target_selected billing-service && start_service "billing-service" "${ROOT}/smart-recruit-billing-service" 50069 "${BIN_DIR}/billing-service" --serve --addr :50069
+target_selected billing-service && start_service "billing-service" "${ROOT}/smart-recruit-billing-service" 50069 "${BIN_DIR}/billing-service" --serve --addr :50069 --config "${BILLING_CONFIG_PATH}"
 
 target_selected smart-recruit-gateway && start_service "smart-recruit-gateway" "${ROOT}/smart-recruit-gateway" 8080 \
     env HTTP_PORT=8080 \

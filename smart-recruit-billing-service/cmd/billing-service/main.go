@@ -21,6 +21,7 @@ import (
 	"smart-recruit-proto/recruitment/pb"
 
 	"smart-recruit-billing-service/internal/application/service"
+	billingconfig "smart-recruit-billing-service/internal/config"
 	"smart-recruit-billing-service/internal/domain/model"
 	"smart-recruit-billing-service/internal/infrastructure/payment"
 	"smart-recruit-billing-service/internal/infrastructure/persistence"
@@ -32,6 +33,7 @@ func main() {
 	check := flag.Bool("check", false, "validate Billing service runtime wiring and exit")
 	serve := flag.Bool("serve", false, "start Billing gRPC runtime")
 	addr := flag.String("addr", envOrDefault("GRPC_ADDR", ":50069"), "Billing gRPC listen address")
+	configPath := flag.String("config", "", "Billing YAML config path; when omitted, legacy environment variables are used")
 	flag.Parse()
 	if *check {
 		if err := checkRuntime(); err != nil {
@@ -45,7 +47,7 @@ func main() {
 		fmt.Fprintln(os.Stderr, "billing-service requires --check or --serve")
 		os.Exit(2)
 	}
-	if err := serveBilling(*addr); err != nil {
+	if err := serveBilling(*addr, *configPath); err != nil {
 		fmt.Fprintf(os.Stderr, "billing-service failed: %v\n", err)
 		os.Exit(1)
 	}
@@ -61,7 +63,7 @@ func checkRuntime() error {
 	return runtime.RegisterGRPC(server)
 }
 
-func serveBilling(addr string) error {
+func serveBilling(addr, configPath string) error {
 	if err := platformserver.ValidateInternalToken(); err != nil {
 		return fmt.Errorf("gRPC internal token validation: %w", err)
 	}
@@ -86,20 +88,17 @@ func serveBilling(addr string) error {
 	if err != nil {
 		return err
 	}
-	mode := model.EnforcementMode(envOrDefault("AI_BILLING_MODE", string(model.ModeShadow)))
+	mode, alipayConfig, alipayRequired, err := loadBillingConfiguration(configPath)
+	if err != nil {
+		return err
+	}
 	billing, err := service.NewBilling(repo, policy, mode)
 	if err != nil {
 		return err
 	}
-	alipayConfig := payment.AlipayConfig{
-		Environment: envOrDefault("ALIPAY_ENV", "sandbox"), GatewayURL: envOrDefault("ALIPAY_GATEWAY_URL", payment.DefaultSandboxGateway),
-		AppID: os.Getenv("ALIPAY_APP_ID"), PrivateKey: os.Getenv("ALIPAY_PRIVATE_KEY"), PublicKey: os.Getenv("ALIPAY_PUBLIC_KEY"),
-		SellerID: os.Getenv("ALIPAY_SELLER_ID"), NotifyURL: os.Getenv("ALIPAY_NOTIFY_URL"), ReturnURL: os.Getenv("ALIPAY_RETURN_URL"),
-		DesktopEnabled: envBool("ALIPAY_DESKTOP_ENABLED", true), WAPEnabled: envBool("ALIPAY_WAP_ENABLED", true),
-	}
 	var alipay service.AlipayGateway
 	configured := strings.TrimSpace(alipayConfig.AppID) != "" || strings.TrimSpace(alipayConfig.PrivateKey) != "" || strings.TrimSpace(alipayConfig.PublicKey) != "" || strings.TrimSpace(alipayConfig.SellerID) != ""
-	if configured || envBool("ALIPAY_REQUIRED", false) {
+	if configured || alipayRequired {
 		alipay, err = payment.NewAlipay(alipayConfig)
 		if err != nil {
 			return fmt.Errorf("initialize Alipay sandbox: %w", err)
@@ -172,6 +171,22 @@ func envOrDefault(key, fallback string) string {
 		return value
 	}
 	return fallback
+}
+
+func loadBillingConfiguration(path string) (model.EnforcementMode, payment.AlipayConfig, bool, error) {
+	if strings.TrimSpace(path) != "" {
+		cfg, err := billingconfig.Load(path)
+		if err != nil {
+			return "", payment.AlipayConfig{}, false, err
+		}
+		return model.EnforcementMode(cfg.Billing.Mode), cfg.PaymentConfig(), cfg.Alipay.Required, nil
+	}
+	return model.EnforcementMode(envOrDefault("AI_BILLING_MODE", string(model.ModeShadow))), payment.AlipayConfig{
+		Environment: envOrDefault("ALIPAY_ENV", "sandbox"), GatewayURL: envOrDefault("ALIPAY_GATEWAY_URL", payment.DefaultSandboxGateway),
+		AppID: os.Getenv("ALIPAY_APP_ID"), PrivateKey: os.Getenv("ALIPAY_PRIVATE_KEY"), PublicKey: os.Getenv("ALIPAY_PUBLIC_KEY"),
+		SellerID: os.Getenv("ALIPAY_SELLER_ID"), NotifyURL: os.Getenv("ALIPAY_NOTIFY_URL"), ReturnURL: os.Getenv("ALIPAY_RETURN_URL"),
+		DesktopEnabled: envBool("ALIPAY_DESKTOP_ENABLED", true), WAPEnabled: envBool("ALIPAY_WAP_ENABLED", true),
+	}, strings.EqualFold(strings.TrimSpace(os.Getenv("ALIPAY_REQUIRED")), "true"), nil
 }
 
 func envBool(key string, fallback bool) bool {

@@ -1,8 +1,22 @@
 # AI 付费能力与支付宝沙箱联调
 
-当前开发版本只允许支付宝沙箱，支付服务会拒绝 `ALIPAY_ENV` 不是 `sandbox` 的启动配置。沙箱订单、支付、回调均写入 `payment_environment=sandbox`，前端持续显示沙箱提示，经营统计必须排除这些记录。
+当前开发版本只允许支付宝沙箱，支付服务会拒绝 `alipay.environment` 不是 `sandbox` 的启动配置。沙箱订单、支付、回调均写入 `payment_environment=sandbox`，前端持续显示沙箱提示，经营统计必须排除这些记录。
 
-## 必需配置
+## start-dev.sh 本地配置
+
+复制示例文件并填写支付宝沙箱参数：
+
+```bash
+cp smart-recruit-billing-service/config.example.yaml smart-recruit-billing-service/config.yaml
+```
+
+`config.yaml` 已被 Git 忽略。`start-dev.sh` 启动 Billing Service 时会显式读取该文件；如果文件不存在会直接给出错误，不会使用示例值启动。RSA2 密钥推荐通过相对于 `config.yaml` 的 `private_key_file` 和 `public_key_file` 配置。
+
+如需使用其他路径，可以在启动脚本前设置 `BILLING_CONFIG_PATH`。完整字段与注释以 `smart-recruit-billing-service/config.example.yaml` 为准。
+
+## Docker/兼容环境变量
+
+未传递 `--config` 的容器部署仍可使用以下环境变量：
 
 ```dotenv
 AI_BILLING_MODE=shadow
@@ -36,8 +50,9 @@ ALIPAY_WAP_ENABLED=true
 
 ## 阶段开关
 
-- `AI_BILLING_MODE=shadow`：记录真实用量和供应商成本；无额度或 Billing 短暂不可用不阻断 AI。
-- `AI_BILLING_MODE=enforce`：调用模型前必须成功预占额度；权益关闭、余额不足或 Billing 不可用均拒绝调用。
+- 本地配置 `billing.mode: shadow`：Billing Service 记录真实用量和供应商成本，但不因额度不足拒绝预占。
+- 本地配置 `billing.mode: enforce`：Billing Service 在调用模型前强制预占额度；权益关闭或余额不足时拒绝调用。
+- AI Agent Service 的故障关闭策略仍由进程变量 `AI_BILLING_MODE` 控制。切换到强制模式时，应使用 `AI_BILLING_MODE=enforce ./start-dev.sh ...`，确保 Billing Service 不可用时 AI 也会拒绝调用。
 
 从 `shadow` 切换到 `enforce` 前，应至少完成一个完整自然月的成本数据校准，发布正式费率卡和价格版本，并确认所有存量试点租户已有 AI 权益与月度额度。当前阶段不包含生产支付宝密钥、自动续费、后付费、发票或生产营收统计。
 

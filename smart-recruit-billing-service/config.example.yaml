@@ -1,0 +1,39 @@
+# Copy this file to config.yaml and fill in the Alipay sandbox values.
+# config.yaml is ignored by Git and must never be committed.
+
+billing:
+  # shadow records usage without blocking AI; enforce requires prepaid credits.
+  mode: shadow
+
+alipay:
+  environment: sandbox
+  # Keep this true during payment integration so missing credentials fail fast.
+  required: true
+  gateway_url: https://openapi-sandbox.dl.alipaydev.com/gateway.do
+
+  app_id: ""
+  seller_id: ""
+
+  # Recommended: keep RSA2 keys in local PEM files. Relative paths are resolved
+  # from the directory containing this config.yaml file.
+  private_key_file: ./secrets/alipay-app-private.pem
+  public_key_file: ./secrets/alipay-public.pem
+
+  # Alternatively, remove the *_file values above and paste complete PEM values:
+  # private_key: |-
+  #   -----BEGIN PRIVATE KEY-----
+  #   ...
+  #   -----END PRIVATE KEY-----
+  # public_key: |-
+  #   -----BEGIN PUBLIC KEY-----
+  #   ...
+  #   -----END PUBLIC KEY-----
+
+  notify_url: https://your-public-dev-domain.example/api/v1/public/billing/webhooks/alipay
+  # Choose the page matching the frontend currently used for sandbox testing.
+  # Candidate: http://127.0.0.1:5174/billing
+  # HR:        http://127.0.0.1:5173/hr/billing
+  return_url: http://127.0.0.1:5174/billing
+
+  desktop_enabled: true
+  wap_enabled: true
