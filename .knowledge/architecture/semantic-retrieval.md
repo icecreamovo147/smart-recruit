@@ -14,15 +14,15 @@ tags:
 applies_to:
   - smart-recruit-ai-agent-service/internal/application/service/capability_service.go
   - smart-recruit-ai-agent-service/internal/infrastructure/persistence/native_store.go
-  - hr-frontend/src/views/hr/admin/SemanticRetrievalDebugView.vue
+  - platform-frontend/src/views/ai/SemanticRetrievalDebugView.vue
 source_refs:
   - smart-recruit-ai-agent-service/internal/domain/policy/capability.go
   - smart-recruit-ai-agent-service/internal/application/service/capability_service.go
   - smart-recruit-ai-agent-service/internal/interfaces/grpc/native_servers.go
   - smart-recruit-ai-agent-service/internal/infrastructure/provider/doc.go
   - smart-recruit-ai-agent-service/internal/infrastructure/persistence/native_store.go
-  - hr-frontend/src/views/hr/admin/SemanticRetrievalDebugView.vue
-last_verified: 2026-07-14
+  - platform-frontend/src/views/ai/SemanticRetrievalDebugView.vue
+last_verified: 2026-07-20
 review_after: 2026-10-14
 ---
 

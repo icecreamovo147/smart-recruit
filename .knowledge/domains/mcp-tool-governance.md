@@ -15,7 +15,7 @@ tags:
 applies_to:
   - smart-recruit-ai-agent-service/**
   - smart-recruit-gateway/handler/hr/mcp.go
-  - hr-frontend/src/views/hr/admin/McpManageView.vue
+  - platform-frontend/src/views/ai/McpManageView.vue
 source_refs:
   - smart-recruit-ai-agent-service/internal/domain/model/capability.go
   - smart-recruit-ai-agent-service/internal/domain/policy/capability.go
@@ -25,14 +25,15 @@ source_refs:
   - smart-recruit-ai-agent-service/internal/infrastructure/mcp/doc.go
   - smart-recruit-gateway/handler/hr/mcp.go
   - smart-recruit-gateway/router/router.go
-  - hr-frontend/src/views/hr/admin/McpManageView.vue
-last_verified: 2026-07-16
+  - platform-frontend/src/views/ai/McpManageView.vue
+  - smart-recruit-commons/migrations/000070_add_platform_ai_control_plane.sql
+last_verified: 2026-07-20
 review_after: 2026-10-14
 ---
 
 # MCP Tool Governance
 
-MCP governance covers server configuration, tool policy evaluation, policy APIs, logs, and admin surfaces. Keep deny/rate-limit/confirmation order, private-network blocking, stdio command allowlists, URL host constraints, argument redaction, and audit persistence aligned.
+MCP governance covers platform-global server configuration, tool policy evaluation, policy APIs, tenant-scoped runtime logs, and platform admin surfaces. Enterprises consume MCP capability through published platform AI releases and do not maintain server or policy configuration. Keep deny/rate-limit/confirmation order, private-network blocking, stdio command allowlists, URL host constraints, argument redaction, and audit persistence aligned.
 
 Native MCP governance persists server CRUD, tool policy CRUD/list, and tool log list responses through the AI Agent database tables. Server env vars, MCP args, runtime config, log result payloads, policy details, and error strings must stay redacted or truncated on read paths.
 
@@ -40,4 +41,4 @@ When a safe MCP runner is bound, live connection tests, discovery, and policy-go
 
 ## Verification
 
-Verified against cumulative MCP runtime integration, explicit/empty selection, policy failure, audit, and HR Agent runtime tests on 2026-07-16.
+Verified against the platform ownership migration and routes plus cumulative MCP runtime integration, explicit/empty selection, policy failure, audit, and HR Agent runtime tests on 2026-07-20.

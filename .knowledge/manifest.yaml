@@ -138,21 +138,17 @@ routes:
       - smart-recruit-gateway/handler/hr/mcp.go
       - smart-recruit-gateway/handler/hr/skill.go
       - smart-recruit-gateway/handler/hr/agent_skill.go
+      - smart-recruit-gateway/handler/platform_ai.go
       - smart-recruit-gateway/router/router.go
-      - hr-frontend/src/api/llm.ts
-      - hr-frontend/src/api/embedding.ts
-      - hr-frontend/src/api/prompt.ts
-      - hr-frontend/src/api/agent.ts
-      - hr-frontend/src/api/mcp.ts
-      - hr-frontend/src/api/skill.ts
-      - hr-frontend/src/api/agentSkill.ts
-      - hr-frontend/src/views/hr/LlmConfigView.vue
-      - hr-frontend/src/views/hr/EmbeddingConfigView.vue
-      - hr-frontend/src/views/hr/PromptManageView.vue
-      - hr-frontend/src/views/hr/admin/AgentManageView.vue
-      - hr-frontend/src/views/hr/admin/McpManageView.vue
-      - hr-frontend/src/views/hr/admin/SkillManageView.vue
-      - hr-frontend/src/views/hr/admin/AgentSkillManageView.vue
+      - platform-frontend/src/api/llm.ts
+      - platform-frontend/src/api/embedding.ts
+      - platform-frontend/src/api/prompt.ts
+      - platform-frontend/src/api/agent.ts
+      - platform-frontend/src/api/mcp.ts
+      - platform-frontend/src/api/skill.ts
+      - platform-frontend/src/api/agentSkill.ts
+      - platform-frontend/src/api/platformAI.ts
+      - platform-frontend/src/views/ai/**
     documents:
       - ai-configuration-governance
       - mcp-tool-governance

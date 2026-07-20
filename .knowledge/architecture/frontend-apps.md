@@ -39,12 +39,12 @@ source_refs:
   - hr-frontend/src/components/NotificationBell.vue
   - user-frontend/src/components/NotificationBell.vue
   - interviewer-frontend/src/components/NotificationBell.vue
-  - hr-frontend/src/components/admin-console/PageHeader.vue
-  - hr-frontend/src/components/admin-console/DataTableCard.vue
+  - platform-frontend/src/components/admin-console/PageHeader.vue
+  - platform-frontend/src/components/admin-console/DataTableCard.vue
   - packages/shared/src/components/EmailSetupDialog.vue
   - packages/shared/src/types/domain.ts
   - packages/shared/src/utils/token.ts
-last_verified: 2026-07-19
+last_verified: 2026-07-20
 review_after: 2026-10-08
 ---
 
@@ -55,7 +55,7 @@ The repository has four Vue 3 + Vite apps with shared patterns but different use
 - `hr-frontend` serves staff, recruiting, admin, AI, analytics, and collaboration workflows.
 - `user-frontend` serves candidates, public job browsing, profile, resume upload, applications, interviews, offers, and candidate AI.
 - `interviewer-frontend` serves staff interviewers with assigned interviews, feedback, notifications, and profile.
-- `platform-frontend` serves platform administrators, operators, and auditors with tenant governance, platform-account RBAC, audit, plan/version, subscription, entitlement, usage, and quota-alert workflows.
+- `platform-frontend` serves platform administrators, operators, and auditors with tenant governance, platform-account RBAC, audit, plan/version, subscription, entitlement, usage, quota-alert, and global AI configuration/release workflows.
 
 Each app keeps its own `src/router`, `src/stores`, `src/api`, `src/types`, `src/components`, `src/views`, `src/utils`, and app-level styles. Deliberately shared components, types, utilities, and brand assets live under `packages/shared/src/` and are imported through the configured `@shared/*` alias. Do not import source directly from another frontend app; keep behavior- or permission-specific wiring local even when a lower-level primitive is shared.
 
@@ -89,9 +89,9 @@ HR and candidate notification bells combine REST summary/list calls with SSE str
 
 If notification event shape, link routing, or unread-count semantics changes, review all three app surfaces rather than assuming the components are identical.
 
-## HR Admin Console
+## Operational Admin Consoles
 
-HR admin and AI configuration pages use the `admin-console` component family for headers, filter toolbars, table cards, stats, row actions, empty states, and status tags. New HR left-menu admin pages should preserve existing page-header spacing, title/description treatment, and primary/secondary action placement before adding page-specific variants.
+Platform AI configuration pages use the `admin-console` component family for headers, filter toolbars, table cards, stats, row actions, empty states, and status tags. HR retains tenant business administration pages, but technical AI configuration is not an HR concern. New operational pages should preserve existing page-header spacing, title/description treatment, and primary/secondary action placement before adding page-specific variants.
 
 ## Review Triggers
 
@@ -99,10 +99,10 @@ HR admin and AI configuration pages use the `admin-console` component family for
 - Request wrapper response shape, refresh queue, error mapping, or timeout behavior.
 - API helper/type changes that affect gateway contracts.
 - Notification polling/SSE/link behavior.
-- HR admin menu, route, or admin-console layout changes.
+- HR business-admin or platform AI admin menu, route, or admin-console layout changes.
 - Platform console navigation, platform permission alignment, tenant governance, plan/subscription, or quota operations changes.
 - Shared package changes, which require checking every consuming app rather than only the file's nearest frontend.
 
 ## Verification
 
-Verified against the pnpm workspace, shared-package aliases and consumers, current routers, auth stores, request wrappers, notification bells, admin-console components, and representative HR/candidate/interviewer/platform views on 2026-07-19.
+Verified against the pnpm workspace, shared-package aliases and consumers, current routers, auth stores, request wrappers, notification bells, migrated platform admin-console components, and representative HR/candidate/interviewer/platform views on 2026-07-20.
