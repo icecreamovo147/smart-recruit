@@ -10,4 +10,4 @@ export { default as StatusTag } from './StatusTag.vue'
 export { default as RowActions } from './RowActions.vue'
 export type { RowActionItem } from './RowActions.vue'
 
-export type { ConsoleAction, ConsoleStatus } from '@/types/ui'
+export type { ConsoleAction, ConsoleStatus } from '@shared/types/ui'

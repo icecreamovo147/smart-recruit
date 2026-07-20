@@ -4,9 +4,11 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 import { ArrowDown, CircleCheck, Document, Edit, MoreFilled, Plus, Refresh, Search, Tickets, TurnOff, WarningFilled, View } from '@element-plus/icons-vue'
 import * as agentSkillApi from '@/api/agentSkill'
 import { listAgentCapabilities } from '@/api/agent'
+import { useAuthStore } from '@/stores/auth'
+import { PLATFORM_PERMISSIONS } from '@/permissions'
 import { DataTableCard, EmptyGuide, FilterToolbar, PageHeader } from '@/components/admin-console'
 import AgentSkillCanvasEditor from '@/components/agent-skill/AgentSkillCanvasEditor.vue'
-import type { CapabilityInfo } from '@/types/agent'
+import type { CapabilityInfo } from '@shared/types/agent'
 import type {
   AgentSkillCanvasEdge,
   AgentSkillCanvasFlow,
@@ -19,10 +21,11 @@ import type {
   CreateAgentSkillVersionPayload,
   CreateAgentSkillPayload,
   UpdateAgentSkillPayload,
-} from '@/types/agentSkill'
-import { debugLog } from '@/utils/debugLog'
+} from '@shared/types/agentSkill'
+import { debugLog } from '@shared/utils/debugLog'
 
 const api = agentSkillApi
+const canManage = computed(() => useAuthStore().can(PLATFORM_PERMISSIONS.AI_CONFIG_MANAGE))
 
 const NODE_TYPES: { type: AgentSkillNodeType; label: string; description: string; placeholder: string }[] = [
   { type: 'trigger', label: '触发场景', description: '定义何时适合使用这个 Agent Skill', placeholder: '例如：当 HR 要求比较候选人与岗位 JD 的匹配度时使用。' },
@@ -1070,7 +1073,7 @@ onMounted(() => {
         </div>
         <div class="workspace-surface__header-actions">
           <el-button :icon="Refresh" @click="loadList">刷新列表</el-button>
-          <el-button type="primary" :icon="Plus" @click="openCreate">新建 Skill</el-button>
+          <el-button v-if="canManage" type="primary" :icon="Plus" @click="openCreate">新建 Skill</el-button>
         </div>
       </div>
 
@@ -1139,7 +1142,7 @@ onMounted(() => {
             </el-table-column>
             <el-table-column label="操作" width="200" fixed="right">
               <template #default="{ row }">
-                <el-button size="small" :icon="Edit" @click="openEdit(row)">编辑</el-button>
+                <el-button v-if="canManage" size="small" :icon="Edit" @click="openEdit(row)">编辑</el-button>
                 <el-dropdown trigger="click" @command="(cmd: string) => { if (cmd === 'preview') openSavedPreview(row); if (cmd === 'versions') openVersions(row); if (cmd === 'embedding') regenerateEmbedding(row); if (cmd === 'toggle') toggleStatus(row) }">
                   <el-button size="small" :loading="regeneratingEmbeddingId === row.id">更多<el-icon class="el-icon--right"><ArrowDown /></el-icon></el-button>
                   <template #dropdown>
@@ -1517,7 +1520,7 @@ onMounted(() => {
                   </div>
                 </div>
                 <el-button
-                  v-if="selectedVersion.id !== versionSkill?.current_version_id && !selectedVersion.is_current"
+                  v-if="canManage && selectedVersion.id !== versionSkill?.current_version_id && !selectedVersion.is_current"
                   type="primary"
                   :loading="activatingVersionId === selectedVersion.id"
                   @click="activateVersion(selectedVersion)"

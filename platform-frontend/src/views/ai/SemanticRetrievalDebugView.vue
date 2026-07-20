@@ -7,7 +7,7 @@ import type {
   SemanticMemoryDebugItem,
   SemanticRetrievalDebugResult,
   SemanticSkillDebugItem,
-} from '@/types/agentSkill'
+} from '@shared/types/agentSkill'
 
 const AGENT_TYPE_OPTIONS = [
   { value: 'hr_recruiting_agent', label: 'HR 招聘助手' },

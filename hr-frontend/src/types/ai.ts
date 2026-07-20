@@ -72,6 +72,11 @@ export interface ContextUsageBreakdown {
 export interface ContextUsageInfo {
   model_id: number
   model_name: string
+  requested_model_id?: number
+  effective_model_id?: number
+  model_fallback_reason?: string
+  capability_version_id?: number
+  capability_snapshot_hash?: string
   context_window_tokens: number
   max_output_tokens: number
   prompt_tokens_estimated: number

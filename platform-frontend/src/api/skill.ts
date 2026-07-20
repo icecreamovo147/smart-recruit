@@ -1,5 +1,5 @@
-import request from './request'
-import type { PaginatedList } from '@/types/domain'
+import request from './http'
+import type { PaginatedList } from '@shared/types/pagination'
 import type {
   CreateSkillPayload,
   CreateSkillVersionPayload,
@@ -8,45 +8,45 @@ import type {
   SkillVersionInfo,
   UpdateSkillToolPayload,
   UpdateSkillPayload,
-} from '@/types/skill'
+} from '@shared/types/skill'
 
 export const listSkills = (
   page = 1,
   pageSize = 20,
 ): Promise<PaginatedList<SkillInfo>> =>
-  request.get('/api/v1/hr/admin/skills', { params: { page, page_size: pageSize } })
+  request.get('/api/v1/platform/ai/skills', { params: { page, page_size: pageSize } })
 
 export const createSkill = (data: CreateSkillPayload): Promise<{ skill: SkillInfo }> =>
-  request.post('/api/v1/hr/admin/skills', data)
+  request.post('/api/v1/platform/ai/skills', data)
 
 export const updateSkill = (
   id: number,
   data: UpdateSkillPayload,
 ): Promise<{ skill: SkillInfo }> =>
-  request.put(`/api/v1/hr/admin/skills/${id}`, data)
+  request.put(`/api/v1/platform/ai/skills/${id}`, data)
 
 export const createSkillVersion = (
   skillId: number,
   data: CreateSkillVersionPayload,
 ): Promise<{ version: SkillVersionInfo; tools: SkillToolInfo[] }> =>
-  request.post(`/api/v1/hr/admin/skills/${skillId}/versions`, data)
+  request.post(`/api/v1/platform/ai/skills/${skillId}/versions`, data)
 
 export const listSkillVersions = (
   skillId: number,
 ): Promise<{ list: SkillVersionInfo[] }> =>
-  request.get(`/api/v1/hr/admin/skills/${skillId}/versions`)
+  request.get(`/api/v1/platform/ai/skills/${skillId}/versions`)
 
 export const activateSkillVersion = (
   skillId: number,
   versionId: number,
 ): Promise<{ skill: SkillInfo }> =>
-  request.post(`/api/v1/hr/admin/skills/${skillId}/versions/${versionId}/activate`)
+  request.post(`/api/v1/platform/ai/skills/${skillId}/versions/${versionId}/activate`)
 
 export const listSkillTools = (
   skillId: number,
   enabledOnly = false,
 ): Promise<{ list: SkillToolInfo[] }> =>
-  request.get(`/api/v1/hr/admin/skills/${skillId}/tools`, {
+  request.get(`/api/v1/platform/ai/skills/${skillId}/tools`, {
     params: { enabled_only: enabledOnly ? 'true' : 'false' },
   })
 
@@ -55,4 +55,4 @@ export const updateSkillTool = (
   toolId: number,
   data: UpdateSkillToolPayload,
 ): Promise<{ tool: SkillToolInfo }> =>
-  request.put(`/api/v1/hr/admin/skills/${skillId}/tools/${toolId}`, data)
+  request.put(`/api/v1/platform/ai/skills/${skillId}/tools/${toolId}`, data)

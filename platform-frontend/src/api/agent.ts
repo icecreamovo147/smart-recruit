@@ -1,11 +1,11 @@
-import request from './request'
+import request from './http'
 import type {
   AgentConfigInfo,
   CapabilityInfo,
   CreateAgentPayload,
   UpdateAgentPayload,
-} from '@/types/agent'
-import type { PaginatedList } from '@/types/domain'
+} from '@shared/types/agent'
+import type { PaginatedList } from '@shared/types/pagination'
 
 // ── Agent Config CRUD ──────────────────────────────────────────────────
 
@@ -16,7 +16,7 @@ export const listAgentConfigs = (
 ): Promise<PaginatedList<AgentConfigInfo>> => {
   const params: Record<string, string | number> = { page, page_size: pageSize }
   if (agentType) params.agent_type = agentType
-  return request.get('/api/v1/hr/admin/agent-configs', { params })
+  return request.get('/api/v1/platform/ai/agent-configs', { params })
 }
 
 export const listAgentCapabilities = (
@@ -24,19 +24,19 @@ export const listAgentCapabilities = (
 ): Promise<{ list: CapabilityInfo[] }> => {
   const params: Record<string, string> = {}
   if (agentType) params.agent_type = agentType
-  return request.get('/api/v1/hr/admin/agent-configs/capabilities', { params })
+  return request.get('/api/v1/platform/ai/agent-configs/capabilities', { params })
 }
 
 export const createAgentConfig = (
   data: CreateAgentPayload,
 ): Promise<{ agent: AgentConfigInfo }> =>
-  request.post('/api/v1/hr/admin/agent-configs', data)
+  request.post('/api/v1/platform/ai/agent-configs', data)
 
 export const updateAgentConfig = (
   id: number,
   data: UpdateAgentPayload,
 ): Promise<{ agent: AgentConfigInfo }> =>
-  request.put(`/api/v1/hr/admin/agent-configs/${id}`, data)
+  request.put(`/api/v1/platform/ai/agent-configs/${id}`, data)
 
 export const deleteAgentConfig = (id: number): Promise<void> =>
-  request.delete(`/api/v1/hr/admin/agent-configs/${id}`)
+  request.delete(`/api/v1/platform/ai/agent-configs/${id}`)

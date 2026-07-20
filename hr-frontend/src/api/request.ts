@@ -6,7 +6,7 @@ import { useAuthStore } from '@/stores/auth'
 import { clearLocalAuthCache } from '@/utils/token'
 import { BusinessError } from '@/types/api'
 import { silentRefresh } from './authRefresh'
-import { debugLog } from '@/utils/debugLog'
+import { debugLog } from '@shared/utils/debugLog'
 import { contextGuardCodeFrom, contextGuardMessage } from '@/utils/contextUsage'
 
 interface RequestConfig extends AxiosRequestConfig {

@@ -12,6 +12,8 @@ import {
   updateSkill,
   updateSkillTool,
 } from '@/api/skill'
+import { useAuthStore } from '@/stores/auth'
+import { PLATFORM_PERMISSIONS } from '@/permissions'
 import type {
   CreateSkillPayload,
   SkillInfo,
@@ -19,7 +21,9 @@ import type {
   SkillVersionInfo,
   UpdateSkillPayload,
   UpdateSkillToolPayload,
-} from '@/types/skill'
+} from '@shared/types/skill'
+
+const canManage = computed(() => useAuthStore().can(PLATFORM_PERMISSIONS.AI_CONFIG_MANAGE))
 
 type ActiveView = 'list' | 'versions' | 'tools'
 type TagType = 'success' | 'info' | 'warning' | 'danger' | 'primary'
@@ -486,7 +490,7 @@ onMounted(() => {
           <el-button v-if="activeView !== 'list'" text :icon="Sort" @click="goBackToList">
             返回列表
           </el-button>
-          <el-button v-if="activeView === 'list'" type="primary" :icon="Plus" @click="openCreate">
+          <el-button v-if="canManage && activeView === 'list'" type="primary" :icon="Plus" @click="openCreate">
             新增底层 SKILL
           </el-button>
         </div>
@@ -501,8 +505,8 @@ onMounted(() => {
               当前还没有系统级 Skill Registry 条目。请由系统管理员添加底层 SKILL，并通过 Manifest 版本声明 Runtime Config、Tool 暴露与运行时绑定。
             </div>
             <div class="empty-actions">
-              <el-button type="primary" :icon="Plus" @click="openCreate">新增底层 SKILL</el-button>
-              <el-button @click="openCreateWithSource('git')">从 Git 导入</el-button>
+              <el-button v-if="canManage" type="primary" :icon="Plus" @click="openCreate">新增底层 SKILL</el-button>
+              <el-button v-if="canManage" @click="openCreateWithSource('git')">从 Git 导入</el-button>
               <el-button text :icon="Document" @click="exampleVisible = true">查看示例</el-button>
             </div>
           </el-empty>
@@ -580,6 +584,7 @@ onMounted(() => {
                   <el-switch
                     :model-value="row.is_enabled"
                     size="small"
+                    :disabled="!canManage"
                     @click.stop="handleToggleEnabled(row)"
                   />
                 </template>
@@ -592,7 +597,7 @@ onMounted(() => {
               <el-table-column label="操作" width="150" fixed="right">
                 <template #default="{ row }: { row: SkillInfo }">
                   <el-button size="small" :icon="View" @click.stop="openDetail(row)">详情</el-button>
-                  <el-button size="small" :icon="Edit" @click.stop="openEdit(row)">编辑</el-button>
+                  <el-button v-if="canManage" size="small" :icon="Edit" @click.stop="openEdit(row)">编辑</el-button>
                 </template>
               </el-table-column>
             </el-table>
@@ -615,7 +620,7 @@ onMounted(() => {
       <template v-else-if="activeView === 'versions'">
         <el-card class="table-card" shadow="never">
           <div class="filter-toolbar">
-            <el-button type="primary" :icon="Plus" @click="openCreateVersion">创建版本</el-button>
+            <el-button v-if="canManage" type="primary" :icon="Plus" @click="openCreateVersion">创建版本</el-button>
             <div class="filter-actions">
               <el-button :icon="Refresh" @click="loadVersions">刷新</el-button>
             </div>
@@ -714,7 +719,7 @@ onMounted(() => {
           </el-table-column>
           <el-table-column label="操作" width="90" fixed="right">
             <template #default="{ row }: { row: SkillToolInfo }">
-              <el-button size="small" :icon="Edit" @click="openEditTool(row)">编辑</el-button>
+              <el-button v-if="canManage" size="small" :icon="Edit" @click="openEditTool(row)">编辑</el-button>
             </template>
           </el-table-column>
         </el-table>

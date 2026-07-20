@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed } from 'vue'
-import type { ConsoleStatus } from '@/types/ui'
+import type { ConsoleStatus } from '@shared/types/ui'
 
 const props = withDefaults(defineProps<{
   status?: ConsoleStatus

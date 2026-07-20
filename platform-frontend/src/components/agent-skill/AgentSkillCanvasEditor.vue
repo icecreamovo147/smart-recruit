@@ -10,7 +10,7 @@ import type {
   AgentSkillCanvasNode,
   AgentSkillNodeType,
   AgentSkillNodeTypeOption,
-} from '@/types/agentSkill'
+} from '@shared/types/agentSkill'
 
 const NODE_WIDTH = 184
 const NODE_HEIGHT = 104

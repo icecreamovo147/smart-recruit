@@ -2,9 +2,9 @@
 import { computed } from 'vue'
 import { Close, Position } from '@element-plus/icons-vue'
 import type { Session, ContextUsageInfo } from '@/types/ai'
-import type { LlmModel } from '@/types/llm'
-import type { CapabilityInfo } from '@/types/agent'
-import type { AvailableAgentSkill } from '@/types/agentSkill'
+import type { LlmModel } from '@shared/types/llm'
+import type { CapabilityInfo } from '@shared/types/agent'
+import type { AvailableAgentSkill } from '@shared/types/agentSkill'
 import {
   contextBudgetRatio,
   contextBudgetSeverity,

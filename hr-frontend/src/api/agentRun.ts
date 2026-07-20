@@ -9,7 +9,7 @@ import type {
   CreateAgentRunResponse,
   GetActiveAgentRunResponse,
   GetAgentRunResponse,
-} from '@/types/agentRun'
+} from '@shared/types/agentRun'
 import { BusinessError } from '@/types/api'
 import { clearLocalAuthCache } from '@/utils/token'
 import { useAuthStore } from '@/stores/auth'

@@ -1,5 +1,5 @@
 <script lang="ts">
-import type { PromptTemplate } from '@/types/prompt'
+import type { PromptTemplate } from '@shared/types/prompt'
 
 export const isCompatibleAgentPrompt = (
   prompt: Pick<PromptTemplate, 'is_active' | 'prompt_role' | 'agent_type'>,
@@ -25,6 +25,8 @@ import {
   deleteAgentConfig,
 } from '@/api/agent'
 import { listPromptTemplates } from '@/api/prompt'
+import { useAuthStore } from '@/stores/auth'
+import { PLATFORM_PERMISSIONS } from '@/permissions'
 import type {
   AgentConfigInfo,
   AgentCapabilityBindingInfo,
@@ -32,7 +34,9 @@ import type {
   AgentToolBindingInfo,
   CreateAgentPayload,
   UpdateAgentPayload,
-} from '@/types/agent'
+} from '@shared/types/agent'
+
+const canManage = computed(() => useAuthStore().can(PLATFORM_PERMISSIONS.AI_CONFIG_MANAGE))
 // ====== Agent types dropdown options ======
 
 const AGENT_TYPE_OPTIONS = [
@@ -445,7 +449,7 @@ onMounted(() => {
         </div>
         <div class="workspace-surface__header-actions">
           <el-button :icon="Refresh" @click="loadList">刷新</el-button>
-          <el-button type="primary" :icon="Plus" @click="openCreate">新增 Agent</el-button>
+          <el-button v-if="canManage" type="primary" :icon="Plus" @click="openCreate">新增 Agent</el-button>
         </div>
       </div>
 
@@ -549,9 +553,9 @@ onMounted(() => {
           </el-table-column>
           <el-table-column label="操作" width="168" fixed="right">
             <template #default="{ row }: { row: AgentConfigInfo }">
-              <el-button size="small" :icon="Edit" @click.stop="openEdit(row)">编辑</el-button>
+              <el-button v-if="canManage" size="small" :icon="Edit" @click.stop="openEdit(row)">编辑</el-button>
               <el-button size="small" :icon="View" @click.stop="openDetail(row)">详情</el-button>
-              <el-dropdown trigger="click" @click.stop>
+              <el-dropdown v-if="canManage" trigger="click" @click.stop>
                 <el-button size="small">更多<el-icon class="el-icon--right"><ArrowDown /></el-icon></el-button>
                 <template #dropdown>
                   <el-dropdown-menu>

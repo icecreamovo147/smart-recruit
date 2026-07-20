@@ -7,7 +7,7 @@ import {
   promptAgentTypeKindLabel,
   promptAgentTypeLabel,
   structuredTaskPromptAgentTypes,
-} from './promptAgentTypes'
+} from '@shared/constants/promptAgentTypes'
 
 describe('promptAgentTypes catalog', () => {
   it('includes conversation and structured task roles', () => {

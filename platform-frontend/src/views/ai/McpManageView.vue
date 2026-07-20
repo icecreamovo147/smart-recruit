@@ -29,6 +29,8 @@ import {
   updateMcpToolPolicy,
   deleteMcpToolPolicy,
 } from '@/api/mcp'
+import { useAuthStore } from '@/stores/auth'
+import { PLATFORM_PERMISSIONS } from '@/permissions'
 import type {
   McpServerInfo,
   McpToolInfo,
@@ -40,8 +42,10 @@ import type {
   McpPolicyEffect,
   McpPolicyRiskLevel,
   McpTransportType,
-} from '@/types/mcp'
-import { debugLog } from '@/utils/debugLog'
+} from '@shared/types/mcp'
+
+const canManage = computed(() => useAuthStore().can(PLATFORM_PERMISSIONS.AI_CONFIG_MANAGE))
+import { debugLog } from '@shared/utils/debugLog'
 
 // ====== Transport type options ======
 
@@ -762,9 +766,9 @@ onMounted(() => {
           </el-button>
           <el-button v-if="activeView === 'list'" :icon="Refresh" @click="loadList">刷新</el-button>
           <el-button v-if="activeView === 'list'" :icon="Lock" @click="navigateToPolicies()">策略</el-button>
-          <el-button v-if="activeView === 'list'" type="primary" :icon="Plus" @click="openCreate">新增 Server</el-button>
+          <el-button v-if="canManage && activeView === 'list'" type="primary" :icon="Plus" @click="openCreate">新增 Server</el-button>
           <el-button v-if="activeView === 'policies'" :icon="Refresh" @click="loadPolicies">刷新</el-button>
-          <el-button v-if="activeView === 'policies'" type="primary" :icon="Plus" @click="openCreatePolicy(selectedServer || undefined)">新增策略</el-button>
+          <el-button v-if="canManage && activeView === 'policies'" type="primary" :icon="Plus" @click="openCreatePolicy(selectedServer || undefined)">新增策略</el-button>
         </div>
       </div>
 
@@ -827,6 +831,7 @@ onMounted(() => {
             <el-switch
               :model-value="row.is_enabled"
               size="small"
+              :disabled="!canManage"
               @click="handleToggleEnabled(row)"
             />
           </template>
@@ -841,7 +846,7 @@ onMounted(() => {
             <el-button size="small" :icon="Connection" @click="handleTestConnection(row)" :loading="testingId === row.id">
               测试
             </el-button>
-            <el-button size="small" :icon="Edit" @click="openEdit(row)">
+            <el-button v-if="canManage" size="small" :icon="Edit" @click="openEdit(row)">
               编辑
             </el-button>
             <el-dropdown trigger="click" @command="(cmd: string) => { if (cmd === 'tools') navigateToTools(row); if (cmd === 'logs') navigateToLogs(row); if (cmd === 'policies') navigateToPolicies(row); if (cmd === 'toggle') handleToggleEnabled(row); if (cmd === 'delete') handleDelete(row) }">
@@ -1016,13 +1021,13 @@ onMounted(() => {
           </el-table-column>
           <el-table-column label="启用" width="80">
             <template #default="{ row }: { row: McpToolPolicy }">
-              <el-switch :model-value="row.is_enabled" size="small" @click="togglePolicyEnabled(row)" />
+              <el-switch :model-value="row.is_enabled" size="small" :disabled="!canManage" @click="togglePolicyEnabled(row)" />
             </template>
           </el-table-column>
           <el-table-column label="操作" width="140" fixed="right">
             <template #default="{ row }: { row: McpToolPolicy }">
-              <el-button size="small" text :icon="Edit" @click="openEditPolicy(row)">编辑</el-button>
-              <el-button size="small" text type="danger" :icon="Delete" @click="deletePolicy(row)">删除</el-button>
+              <el-button v-if="canManage" size="small" text :icon="Edit" @click="openEditPolicy(row)">编辑</el-button>
+              <el-button v-if="canManage" size="small" text type="danger" :icon="Delete" @click="deletePolicy(row)">删除</el-button>
             </template>
           </el-table-column>
         </el-table>

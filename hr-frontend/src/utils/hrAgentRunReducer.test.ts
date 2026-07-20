@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import type { AgentRunEvent, AgentRunSnapshot } from '@/types/agentRun'
+import type { AgentRunEvent, AgentRunSnapshot } from '@shared/types/agentRun'
 import {
   applyAgentRunEvents,
   createInitialHrAgentRunState,

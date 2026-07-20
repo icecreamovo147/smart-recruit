@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { defineComponent, nextTick, shallowRef } from 'vue'
 import { mount } from '@vue/test-utils'
-import type { AgentRunEvent, AgentRunSnapshot } from '@/types/agentRun'
+import type { AgentRunEvent, AgentRunSnapshot } from '@shared/types/agentRun'
 import { createInitialHrAgentRunState, reduceAgentRunEvent } from '@/utils/hrAgentRunReducer'
 import { useHrAgentRun } from '@/composables/useHrAgentRun'
 import {

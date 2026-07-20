@@ -42,6 +42,20 @@ const router = createRouter({
       component: () => import('@/views/PlatformUserView.vue'),
       meta: { requiresAuth: true, requiresPermission: PLATFORM_PERMISSIONS.USER_MANAGE, title: '平台账号' },
     },
+    { path: '/ai', redirect: '/ai/capabilities' },
+    { path: '/ai/capabilities', component: () => import('@/views/ai/AICapabilityReleaseView.vue'), meta: { requiresAuth: true, requiresPermission: PLATFORM_PERMISSIONS.AI_RELEASE_READ, title: 'AI 能力发布' } },
+    { path: '/ai/llm', redirect: '/ai/llm/providers' },
+    { path: '/ai/llm/providers', component: () => import('@/views/ai/LlmProviderConfigView.vue'), meta: { requiresAuth: true, requiresPermission: PLATFORM_PERMISSIONS.AI_CONFIG_READ, title: 'LLM Provider' } },
+    { path: '/ai/llm/models', component: () => import('@/views/ai/LlmModelConfigView.vue'), meta: { requiresAuth: true, requiresPermission: PLATFORM_PERMISSIONS.AI_CONFIG_READ, title: 'LLM Model' } },
+    { path: '/ai/embedding', redirect: '/ai/embedding/providers' },
+    { path: '/ai/embedding/providers', component: () => import('@/views/ai/EmbeddingProviderConfigView.vue'), meta: { requiresAuth: true, requiresPermission: PLATFORM_PERMISSIONS.AI_CONFIG_READ, title: 'Embedding Provider' } },
+    { path: '/ai/embedding/models', component: () => import('@/views/ai/EmbeddingModelConfigView.vue'), meta: { requiresAuth: true, requiresPermission: PLATFORM_PERMISSIONS.AI_CONFIG_READ, title: 'Embedding Model' } },
+    { path: '/ai/prompts', component: () => import('@/views/ai/PromptManageView.vue'), meta: { requiresAuth: true, requiresPermission: PLATFORM_PERMISSIONS.AI_CONFIG_READ, title: 'Prompt 管理' } },
+    { path: '/ai/agents', component: () => import('@/views/ai/AgentManageView.vue'), meta: { requiresAuth: true, requiresPermission: PLATFORM_PERMISSIONS.AI_CONFIG_READ, title: 'Agent 管理' } },
+    { path: '/ai/skills', component: () => import('@/views/ai/SkillManageView.vue'), meta: { requiresAuth: true, requiresPermission: PLATFORM_PERMISSIONS.AI_CONFIG_READ, title: '高级 Skill' } },
+    { path: '/ai/agent-skills', component: () => import('@/views/ai/AgentSkillManageView.vue'), meta: { requiresAuth: true, requiresPermission: PLATFORM_PERMISSIONS.AI_CONFIG_READ, title: 'Agent Skill' } },
+    { path: '/ai/mcp', component: () => import('@/views/ai/McpManageView.vue'), meta: { requiresAuth: true, requiresPermission: PLATFORM_PERMISSIONS.AI_CONFIG_READ, title: 'MCP 工具治理' } },
+    { path: '/ai/semantic-retrieval', component: () => import('@/views/ai/SemanticRetrievalDebugView.vue'), meta: { requiresAuth: true, requiresPermission: PLATFORM_PERMISSIONS.AI_DIAGNOSTICS_READ, title: '语义召回诊断' } },
     { path: '/forbidden', component: () => import('@/views/ForbiddenView.vue'), meta: { requiresAuth: true, title: '无访问权限' } },
     { path: '/:pathMatch(.*)*', redirect: '/' },
   ],
@@ -53,6 +67,8 @@ const firstAllowedPath = (auth: ReturnType<typeof useAuthStore>) => {
   if (auth.can(PLATFORM_PERMISSIONS.PLAN_READ)) return '/plans'
   if (auth.can(PLATFORM_PERMISSIONS.ALERT_READ)) return '/quota-alerts'
   if (auth.can(PLATFORM_PERMISSIONS.USER_MANAGE)) return '/platform-users'
+  if (auth.can(PLATFORM_PERMISSIONS.AI_RELEASE_READ)) return '/ai/capabilities'
+  if (auth.can(PLATFORM_PERMISSIONS.AI_CONFIG_READ)) return '/ai/llm/providers'
   if (auth.can(PLATFORM_PERMISSIONS.AUDIT_READ)) return '/audit-logs'
   return '/forbidden'
 }

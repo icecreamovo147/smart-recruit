@@ -23,6 +23,8 @@ import {
   updateEmbeddingModel,
   setDefaultEmbeddingModel,
 } from '@/api/embedding'
+import { useAuthStore } from '@/stores/auth'
+import { PLATFORM_PERMISSIONS } from '@/permissions'
 import type {
   EmbeddingProvider,
   EmbeddingModel,
@@ -30,7 +32,9 @@ import type {
   UpdateEmbeddingProviderPayload,
   CreateEmbeddingModelPayload,
   UpdateEmbeddingModelPayload,
-} from '@/types/embedding'
+} from '@shared/types/embedding'
+
+const canManage = computed(() => useAuthStore().can(PLATFORM_PERMISSIONS.AI_CONFIG_MANAGE))
 
 const props = defineProps<{
   section?: 'providers' | 'models'
@@ -474,8 +478,8 @@ onMounted(() => {
         </div>
         <div class="workspace-surface__header-actions">
           <el-button :icon="Refresh" @click="currentSection === 'providers' ? loadProviders() : loadModels()">刷新</el-button>
-          <el-button v-if="currentSection === 'providers'" type="primary" :icon="Plus" @click="openCreateProvider">新增 Provider</el-button>
-          <el-button v-else type="primary" :icon="Plus" @click="openCreateModel">新增 Model</el-button>
+          <el-button v-if="canManage && currentSection === 'providers'" type="primary" :icon="Plus" @click="openCreateProvider">新增 Provider</el-button>
+          <el-button v-else-if="canManage" type="primary" :icon="Plus" @click="openCreateModel">新增 Model</el-button>
         </div>
       </div>
 
@@ -555,7 +559,7 @@ onMounted(() => {
             <el-table-column label="操作" width="190" fixed="right">
               <template #default="{ row }: { row: EmbeddingProvider }">
                 <div class="row-actions">
-                  <el-button size="small" :icon="Edit" @click="openEditProvider(row)">编辑</el-button>
+                  <el-button v-if="canManage" size="small" :icon="Edit" @click="openEditProvider(row)">编辑</el-button>
                   <el-dropdown trigger="click">
                     <el-button size="small">更多<el-icon class="el-icon--right"><ArrowDown /></el-icon></el-button>
                     <template #dropdown>
@@ -669,7 +673,7 @@ onMounted(() => {
               <template #default="{ row }: { row: EmbeddingModel }">
                 <div class="row-actions">
                   <el-button size="small" :icon="Connection" :loading="isTestingModel(row.id)" @click="handleTestModel(row)">测试</el-button>
-                  <el-button size="small" :icon="Edit" @click="openEditModel(row)">编辑</el-button>
+                  <el-button v-if="canManage" size="small" :icon="Edit" @click="openEditModel(row)">编辑</el-button>
                   <el-dropdown trigger="click">
                     <el-button size="small">更多<el-icon class="el-icon--right"><ArrowDown /></el-icon></el-button>
                     <template #dropdown>

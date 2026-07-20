@@ -26,16 +26,6 @@ const UsageStatsView = () => import('@/views/hr/UsageStatsView.vue')
 const SecurityAuditView = () => import('@/views/hr/SecurityAuditView.vue')
 const AnalyticsView = () => import('@/views/hr/AnalyticsView.vue')
 const StaffUserManageView = () => import('@/views/hr/StaffUserManageView.vue')
-const LlmProviderConfigView = () => import('@/views/hr/LlmProviderConfigView.vue')
-const LlmModelConfigView = () => import('@/views/hr/LlmModelConfigView.vue')
-const EmbeddingProviderConfigView = () => import('@/views/hr/EmbeddingProviderConfigView.vue')
-const EmbeddingModelConfigView = () => import('@/views/hr/EmbeddingModelConfigView.vue')
-const PromptManageView = () => import('@/views/hr/PromptManageView.vue')
-const AgentManageView = () => import('@/views/hr/admin/AgentManageView.vue')
-const McpManageView = () => import('@/views/hr/admin/McpManageView.vue')
-const SkillManageView = () => import('@/views/hr/admin/SkillManageView.vue')
-const AgentSkillManageView = () => import('@/views/hr/admin/AgentSkillManageView.vue')
-const SemanticRetrievalDebugView = () => import('@/views/hr/admin/SemanticRetrievalDebugView.vue')
 const ForbiddenView = () => import('@/views/ForbiddenView.vue')
 const NotFoundView = () => import('@/views/NotFoundView.vue')
 const CandidateDetailView = () => import('@/views/hr/CandidateDetailView.vue')
@@ -168,58 +158,16 @@ const routes: RouteRecordRaw[] = [
     component: StaffUserManageView,
     meta: { requiresAuth: true, requiresPermission: PERM.ADMIN_USER_MANAGE, title: '员工账号管理' },
   },
-  { path: '/hr/admin/llm-config', redirect: '/hr/admin/llm-config/providers' },
-  {
-    path: '/hr/admin/llm-config/providers',
-    component: LlmProviderConfigView,
-    meta: { requiresAuth: true, requiresPermission: PERM.SYSTEM_CONFIG_MANAGE, title: 'Provider 配置' },
-  },
-  {
-    path: '/hr/admin/llm-config/models',
-    component: LlmModelConfigView,
-    meta: { requiresAuth: true, requiresPermission: PERM.SYSTEM_CONFIG_MANAGE, title: 'Model 配置' },
-  },
-  { path: '/hr/admin/embedding-config', redirect: '/hr/admin/embedding-config/providers' },
-  {
-    path: '/hr/admin/embedding-config/providers',
-    component: EmbeddingProviderConfigView,
-    meta: { requiresAuth: true, requiresPermission: PERM.SYSTEM_CONFIG_MANAGE, title: 'Embedding Provider 配置' },
-  },
-  {
-    path: '/hr/admin/embedding-config/models',
-    component: EmbeddingModelConfigView,
-    meta: { requiresAuth: true, requiresPermission: PERM.SYSTEM_CONFIG_MANAGE, title: 'Embedding Model 配置' },
-  },
-  {
-    path: '/hr/admin/prompts',
-    component: PromptManageView,
-    meta: { requiresAuth: true, requiresPermission: PERM.AI_PROMPT_MANAGE, title: 'Prompt 管理' },
-  },
-  {
-    path: '/hr/admin/agents',
-    component: AgentManageView,
-    meta: { requiresAuth: true, requiresPermission: PERM.AI_AGENT_MANAGE, title: 'Agent 管理' },
-  },
-  {
-    path: '/hr/admin/skills',
-    component: SkillManageView,
-    meta: { requiresAuth: true, requiresPermission: PERM.SYSTEM_CONFIG_MANAGE, title: '高级 SKILL 配置' },
-  },
-  {
-    path: '/hr/admin/agent-skills',
-    component: AgentSkillManageView,
-    meta: { requiresAuth: true, requiresPermission: PERM.AI_AGENT_SKILL_MANAGE, title: 'Agent Skill 管理' },
-  },
-  {
-    path: '/hr/admin/semantic-retrieval',
-    component: SemanticRetrievalDebugView,
-    meta: { requiresAuth: true, requiresPermission: PERM.AI_AGENT_SKILL_MANAGE, title: '语义召回调试' },
-  },
-  {
-    path: '/hr/admin/mcp-tools',
-    component: McpManageView,
-    meta: { requiresAuth: true, requiresPermission: PERM.SYSTEM_CONFIG_MANAGE, title: '工具中心' },
-  },
+  // Technical AI configuration is platform-owned after the one-time cutover.
+  // Bookmarked enterprise URLs land on the purchase/entitlement surface.
+  { path: '/hr/admin/llm-config/:pathMatch(.*)*', redirect: '/hr/billing' },
+  { path: '/hr/admin/embedding-config/:pathMatch(.*)*', redirect: '/hr/billing' },
+  { path: '/hr/admin/prompts', redirect: '/hr/billing' },
+  { path: '/hr/admin/agents', redirect: '/hr/billing' },
+  { path: '/hr/admin/skills', redirect: '/hr/billing' },
+  { path: '/hr/admin/agent-skills', redirect: '/hr/billing' },
+  { path: '/hr/admin/semantic-retrieval', redirect: '/hr/billing' },
+  { path: '/hr/admin/mcp-tools', redirect: '/hr/billing' },
   { path: '/:pathMatch(.*)*', component: NotFoundView },
 ]
 

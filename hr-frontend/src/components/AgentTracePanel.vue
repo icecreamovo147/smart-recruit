@@ -5,7 +5,7 @@ import DOMPurify from 'dompurify'
 import MarkdownIt from 'markdown-it'
 import { getAgentRuns, getToolTraces } from '@/api/ai'
 import { getActiveAgentRun, subscribeAgentRunEvents } from '@/api/agentRun'
-import { isTerminalAgentRunStatus, type AgentRunEvent } from '@/types/agentRun'
+import { isTerminalAgentRunStatus, type AgentRunEvent } from '@shared/types/agentRun'
 import type {
   AgentRunItem,
   AgentRunPlanJSON,
@@ -13,7 +13,7 @@ import type {
   AgentRunStepItem,
   ToolTraceItem,
 } from '@/types/ai'
-import { debugLog } from '@/utils/debugLog'
+import { debugLog } from '@shared/utils/debugLog'
 import TraceOverview from '@/components/agent-trace/TraceOverview.vue'
 import TraceFilterBar from '@/components/agent-trace/TraceFilterBar.vue'
 import TraceRunSection from '@/components/agent-trace/TraceRunSection.vue'

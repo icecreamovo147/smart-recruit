@@ -9,6 +9,14 @@ export interface PlatformRequestConfig extends AxiosRequestConfig {
   silentError?: boolean
 }
 
+interface PlatformRequestInstance {
+  get<T = unknown, R = T>(url: string, config?: PlatformRequestConfig): Promise<R>
+  post<T = unknown, R = T>(url: string, data?: unknown, config?: PlatformRequestConfig): Promise<R>
+  put<T = unknown, R = T>(url: string, data?: unknown, config?: PlatformRequestConfig): Promise<R>
+  patch<T = unknown, R = T>(url: string, data?: unknown, config?: PlatformRequestConfig): Promise<R>
+  delete<T = unknown, R = T>(url: string, config?: PlatformRequestConfig): Promise<R>
+}
+
 http.interceptors.request.use((config) => {
   config.headers.set('X-Client-App', 'platform')
   return config
@@ -42,4 +50,4 @@ http.interceptors.response.use(
   },
 )
 
-export default http
+export default http as unknown as PlatformRequestInstance

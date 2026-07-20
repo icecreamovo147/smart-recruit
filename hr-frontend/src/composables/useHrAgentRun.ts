@@ -12,7 +12,7 @@ import type {
   CancelAgentRunRequest,
   ConfirmAgentRunRequest,
   CreateAgentRunRequest,
-} from '@/types/agentRun'
+} from '@shared/types/agentRun'
 import {
   applyAgentRunEvents,
   createInitialHrAgentRunState,

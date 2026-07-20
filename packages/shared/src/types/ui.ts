@@ -1,5 +1,3 @@
-import type { Component } from 'vue'
-
 export type ConsoleStatus =
   | 'enabled'
   | 'disabled'
@@ -15,7 +13,7 @@ export type ConsoleStatus =
 export interface ConsoleAction {
   key: string
   label: string
-  icon?: Component
+  icon?: object
   danger?: boolean
   disabled?: boolean
   divided?: boolean

@@ -11,7 +11,7 @@ import type {
   AgentRunSkillCandidate,
   ConfirmAgentRunRequest,
   CreateAgentRunRequest,
-} from '@/types/agentRun'
+} from '@shared/types/agentRun'
 import type { AgentSkillSelectionCandidate, AgentSkillSelectionPayload, CandidateOption, ContextUsageInfo } from '@/types/ai'
 import type { HrAgentRunState } from '@/utils/hrAgentRunReducer'
 

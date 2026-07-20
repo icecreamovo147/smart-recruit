@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import StatusTag from './StatusTag.vue'
-import type { ConsoleStatus } from '@/types/ui'
+import type { ConsoleStatus } from '@shared/types/ui'
 
 const props = withDefaults(defineProps<{
   status?: Extract<ConsoleStatus, 'healthy' | 'error' | 'untested' | 'warning'>

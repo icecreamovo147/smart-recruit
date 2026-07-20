@@ -19,7 +19,7 @@ import type {
   ResumeExperienceInfo,
   ResumeProfileSnapshotInfo,
 } from '@/types/recruitingIntelligence'
-import { debugLog } from '@/utils/debugLog'
+import { debugLog } from '@shared/utils/debugLog'
 
 type JsonRecord = Record<string, unknown>
 type JsonListItem = string | number | JsonRecord

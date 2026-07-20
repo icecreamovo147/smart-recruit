@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed } from 'vue'
-import type { AgentSkillCanvasFlow } from '@/types/agentSkill'
+import type { AgentSkillCanvasFlow } from '@shared/types/agentSkill'
 
 const props = defineProps<{
   flow: AgentSkillCanvasFlow

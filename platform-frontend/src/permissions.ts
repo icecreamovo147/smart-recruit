@@ -12,6 +12,13 @@ export const PLATFORM_PERMISSIONS = {
   USAGE_READ: 'platform.usage.read',
   ALERT_READ: 'platform.alert.read',
   ALERT_MANAGE: 'platform.alert.manage',
+  AI_CONFIG_READ: 'platform.ai.config.read',
+  AI_CONFIG_MANAGE: 'platform.ai.config.manage',
+  AI_RELEASE_READ: 'platform.ai.release.read',
+  AI_RELEASE_MANAGE: 'platform.ai.release.manage',
+  AI_RELEASE_PUBLISH: 'platform.ai.release.publish',
+  AI_DIAGNOSTICS_READ: 'platform.ai.diagnostics.read',
+  AI_DIAGNOSTICS_EXECUTE: 'platform.ai.diagnostics.execute',
 } as const
 
 export type PlatformPermission = typeof PLATFORM_PERMISSIONS[keyof typeof PLATFORM_PERMISSIONS]

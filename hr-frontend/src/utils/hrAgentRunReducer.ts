@@ -9,8 +9,8 @@ import type {
   AgentRunResultMetadata,
   AgentRunSnapshot,
   AgentRunStatus,
-} from '@/types/agentRun'
-import { isTerminalAgentRunStatus } from '@/types/agentRun'
+} from '@shared/types/agentRun'
+import { isTerminalAgentRunStatus } from '@shared/types/agentRun'
 
 export interface HrAgentRunState {
   runId: number | null

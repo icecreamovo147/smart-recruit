@@ -14,7 +14,7 @@ export const publishPlanVersion = (planId: number, versionId: number, payload: {
   http.post<never, { version: PlatformPlanVersion }>(`/api/v1/platform/plans/${planId}/versions/${versionId}/publish`, payload)
 
 export const listBillingProducts = () => http.get<never, { products: BillingProductAdmin[]; payment_environment: string }>('/api/v1/platform/billing/products')
-export const saveBillingPrice = (payload: { product_id: number; price_version_id?: number; billing_term: string; amount_fen: number; included_credits: number; entitlement_snapshot_json: string; publish: boolean }) => http.post('/api/v1/platform/billing/prices', payload)
+export const saveBillingPrice = (payload: { product_id: number; price_version_id?: number; billing_term: string; amount_fen: number; included_credits: number; publish: boolean }) => http.post('/api/v1/platform/billing/prices', payload)
 export const listAIRateCards = () => http.get<never, { rates: AIRateCardAdmin[] }>('/api/v1/platform/billing/rates')
 export const saveAIRateCard = (payload: Omit<AIRateCardAdmin, 'id' | 'version' | 'currency' | 'status' | 'effective_at_unix_ms'> & { publish: boolean }) => http.post('/api/v1/platform/billing/rates', payload)
 

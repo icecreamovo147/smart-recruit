@@ -28,6 +28,8 @@ import {
   discoverProviderModels,
   getProviderModelPreset,
 } from '@/api/llm'
+import { useAuthStore } from '@/stores/auth'
+import { PLATFORM_PERMISSIONS } from '@/permissions'
 import type {
   LlmProvider,
   LlmModel,
@@ -37,7 +39,9 @@ import type {
   UpdateModelPayload,
   DiscoveredLlmModel,
   ModelMetadataFieldSource,
-} from '@/types/llm'
+} from '@shared/types/llm'
+
+const canManage = computed(() => useAuthStore().can(PLATFORM_PERMISSIONS.AI_CONFIG_MANAGE))
 
 const props = defineProps<{
   section?: 'providers' | 'models'
@@ -806,8 +810,8 @@ onMounted(() => {
         </div>
         <div class="workspace-surface__header-actions">
           <el-button :icon="Refresh" @click="currentSection === 'providers' ? loadProviders() : loadModels()">刷新</el-button>
-          <el-button v-if="currentSection === 'providers'" type="primary" :icon="Plus" @click="openCreateProvider">新增 Provider</el-button>
-          <el-button v-else type="primary" :icon="Plus" @click="openCreateModel">新增 Model</el-button>
+          <el-button v-if="canManage && currentSection === 'providers'" type="primary" :icon="Plus" @click="openCreateProvider">新增 Provider</el-button>
+          <el-button v-else-if="canManage" type="primary" :icon="Plus" @click="openCreateModel">新增 Model</el-button>
         </div>
       </div>
 
@@ -887,9 +891,9 @@ onMounted(() => {
             <el-table-column label="操作" width="130" fixed="right">
               <template #default="{ row }: { row: LlmProvider }">
                 <div class="row-actions">
-                  <el-button size="small" :icon="Edit" @click="openEditProvider(row)">编辑</el-button>
+                  <el-button v-if="canManage" size="small" :icon="Edit" @click="openEditProvider(row)">编辑</el-button>
                   <el-dropdown trigger="click">
-                    <el-button size="small">更多<el-icon class="el-icon--right"><ArrowDown /></el-icon></el-button>
+                    <el-button v-if="canManage" size="small">更多<el-icon class="el-icon--right"><ArrowDown /></el-icon></el-button>
                     <template #dropdown>
                       <el-dropdown-menu>
                         <el-dropdown-item :icon="Delete" @click="handleDeleteProvider(row)">删除</el-dropdown-item>
@@ -1025,7 +1029,7 @@ onMounted(() => {
               <template #default="{ row }: { row: LlmModel }">
                 <div class="row-actions">
                   <el-button size="small" :icon="Connection" :loading="isTestingModel(row.id)" @click="handleTestModel(row)">测试</el-button>
-                  <el-button size="small" :icon="Edit" @click="openEditModel(row)">编辑</el-button>
+                  <el-button v-if="canManage" size="small" :icon="Edit" @click="openEditModel(row)">编辑</el-button>
                   <el-dropdown trigger="click">
                     <el-button size="small">更多<el-icon class="el-icon--right"><ArrowDown /></el-icon></el-button>
                     <template #dropdown>

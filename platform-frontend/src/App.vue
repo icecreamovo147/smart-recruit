@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
-import { ArrowDown, Bell, DataAnalysis, DocumentChecked, Expand, Fold, Goods, Moon, OfficeBuilding, Sunny, SwitchButton, UserFilled } from '@element-plus/icons-vue'
+import { ArrowDown, Bell, Connection, Cpu, DataAnalysis, DocumentChecked, Expand, Fold, Goods, MagicStick, Moon, OfficeBuilding, SetUp, Sunny, SwitchButton, Tools, UserFilled } from '@element-plus/icons-vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { useRoute, useRouter } from 'vue-router'
 import { useTheme } from '@/composables/useTheme'
@@ -31,6 +31,41 @@ const navigation = computed(() => [
   { path: '/platform-users', label: '平台账号', icon: UserFilled, permission: PLATFORM_PERMISSIONS.USER_MANAGE },
   { path: '/audit-logs', label: '审计日志', icon: DocumentChecked, permission: PLATFORM_PERMISSIONS.AUDIT_READ },
 ].filter((item) => auth.can(item.permission)))
+
+const aiSections = computed(() => [
+  {
+    label: '能力发布', icon: MagicStick,
+    children: [{ path: '/ai/capabilities', label: '能力目录与版本', permission: PLATFORM_PERMISSIONS.AI_RELEASE_READ }],
+  },
+  {
+    label: '模型资源', icon: Cpu,
+    children: [
+      { path: '/ai/llm/providers', label: 'LLM 供应商', permission: PLATFORM_PERMISSIONS.AI_CONFIG_READ },
+      { path: '/ai/llm/models', label: 'LLM 模型', permission: PLATFORM_PERMISSIONS.AI_CONFIG_READ },
+      { path: '/ai/embedding/providers', label: 'Embedding 供应商', permission: PLATFORM_PERMISSIONS.AI_CONFIG_READ },
+      { path: '/ai/embedding/models', label: 'Embedding 模型', permission: PLATFORM_PERMISSIONS.AI_CONFIG_READ },
+    ],
+  },
+  {
+    label: 'Agent 资产', icon: SetUp,
+    children: [
+      { path: '/ai/agents', label: 'Agent', permission: PLATFORM_PERMISSIONS.AI_CONFIG_READ },
+      { path: '/ai/prompts', label: 'Prompt', permission: PLATFORM_PERMISSIONS.AI_CONFIG_READ },
+      { path: '/ai/skills', label: 'Skill', permission: PLATFORM_PERMISSIONS.AI_CONFIG_READ },
+      { path: '/ai/agent-skills', label: 'Agent Skill', permission: PLATFORM_PERMISSIONS.AI_CONFIG_READ },
+    ],
+  },
+  {
+    label: '工具与诊断', icon: Tools,
+    children: [
+      { path: '/ai/mcp', label: 'MCP 工具治理', permission: PLATFORM_PERMISSIONS.AI_CONFIG_READ },
+      { path: '/ai/semantic-retrieval', label: '语义召回诊断', permission: PLATFORM_PERMISSIONS.AI_DIAGNOSTICS_READ },
+    ],
+  },
+].map((section) => ({ ...section, children: section.children.filter((item) => auth.can(item.permission)) }))
+  .filter((section) => section.children.length))
+
+const activeAiSection = computed(() => aiSections.value.find((section) => section.children.some((item) => route.path.startsWith(item.path))))
 
 const signOut = async () => {
   if (signingOut.value) return
@@ -76,11 +111,26 @@ const toggleSidebar = () => {
     <aside class="sidebar" :class="{ 'sidebar--collapsed': sidebarCollapsed }">
       <div class="brand-mark"><span>SR</span></div>
       <div class="brand-copy"><strong>Smart Recruit</strong><small>PLATFORM CONSOLE</small></div>
-      <nav class="sidebar-nav" aria-label="平台控制台导航">
-        <RouterLink v-for="item in navigation" :key="item.path" :to="item.path" :aria-label="item.label" :title="sidebarCollapsed ? item.label : undefined">
-          <el-icon><component :is="item.icon" /></el-icon><span>{{ item.label }}</span>
-        </RouterLink>
-      </nav>
+      <el-scrollbar class="sidebar-nav-scroll" wrap-class="sidebar-nav-scroll__wrap">
+        <nav class="sidebar-nav" aria-label="平台控制台导航">
+          <RouterLink v-for="item in navigation" :key="item.path" :to="item.path" :aria-label="item.label" :title="sidebarCollapsed ? item.label : undefined">
+            <el-icon><component :is="item.icon" /></el-icon><span>{{ item.label }}</span>
+          </RouterLink>
+          <section v-if="aiSections.length" class="sidebar-nav-group">
+            <div class="sidebar-nav-group__title"><el-icon><Connection /></el-icon><span>AI 能力中心</span></div>
+            <RouterLink
+              v-for="section in aiSections"
+              :key="section.label"
+              :to="section.children[0].path"
+              :aria-label="section.label"
+              :title="sidebarCollapsed ? section.label : undefined"
+              :class="{ 'router-link-active': section.children.some((item) => route.path.startsWith(item.path)) }"
+            >
+              <el-icon><component :is="section.icon" /></el-icon><span>{{ section.label }}</span>
+            </RouterLink>
+          </section>
+        </nav>
+      </el-scrollbar>
       <div class="sidebar-foot">
         <el-tooltip :content="sidebarCollapsed ? '展开菜单' : '收起菜单'" placement="right">
           <button class="sidebar-foot-action sidebar-foot-action--collapse" type="button" :aria-label="sidebarCollapsed ? '展开菜单' : '收起菜单'" :aria-expanded="!sidebarCollapsed" @click="toggleSidebar">
@@ -122,6 +172,10 @@ const toggleSidebar = () => {
           </template>
         </el-dropdown>
       </header>
+      <nav v-if="activeAiSection && activeAiSection.children.length > 1" class="ai-subnav" :aria-label="`${activeAiSection.label}导航`">
+        <span>{{ activeAiSection.label }}</span>
+        <RouterLink v-for="item in activeAiSection.children" :key="item.path" :to="item.path">{{ item.label }}</RouterLink>
+      </nav>
       <main><RouterView /></main>
     </section>
   </div>

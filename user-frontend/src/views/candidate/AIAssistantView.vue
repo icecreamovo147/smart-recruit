@@ -78,6 +78,7 @@ const modelList = ref<LlmModel[]>([])
 const selectedModelId = ref<number | null>(null)
 const sourceContext = ref<CandidateAISessionSource>({})
 const sourceHint = ref('')
+const lastFallbackSignature = ref('')
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const messageListRef = ref<any>(null)
 
@@ -369,6 +370,14 @@ const send = async (text?: string, type = 'general') => {
           if (!msg) return
           const modelName = modelNameFromPayload(payload)
           messages.value[assistantIndex] = { ...msg, waitingText: eventMessage, ...(modelName ? { model_name: modelName } : {}) }
+          const usage = payload.context_usage
+          if (usage?.model_fallback_reason && usage.effective_model_id) {
+            const signature = `${usage.capability_version_id || 0}:${usage.requested_model_id || 0}:${usage.effective_model_id}`
+            if (signature !== lastFallbackSignature.value) {
+              lastFallbackSignature.value = signature
+              ElMessage.warning(`所选模型当前不可用，已按平台能力版本切换为 ${modelName || '默认模型'}`)
+            }
+          }
         },
         onDone: (payload) => {
           result.payload = payload

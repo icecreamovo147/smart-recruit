@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { isCompatibleAgentPrompt } from './AgentManageView.vue'
-import type { PromptTemplate } from '@/types/prompt'
+import type { PromptTemplate } from '@shared/types/prompt'
 
 const prompt = (overrides: Partial<PromptTemplate> = {}): PromptTemplate => ({
   id: 1,

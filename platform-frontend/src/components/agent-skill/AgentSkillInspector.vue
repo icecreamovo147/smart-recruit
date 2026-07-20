@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed } from 'vue'
-import type { AgentSkillCanvasNode, AgentSkillNodeType, AgentSkillNodeTypeOption } from '@/types/agentSkill'
+import type { AgentSkillCanvasNode, AgentSkillNodeType, AgentSkillNodeTypeOption } from '@shared/types/agentSkill'
 
 const props = defineProps<{
   node: AgentSkillCanvasNode | null

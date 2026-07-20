@@ -1,5 +1,5 @@
 <script lang="ts">
-import type { CreateAgentRunRequest } from '@/types/agentRun'
+import type { CreateAgentRunRequest } from '@shared/types/agentRun'
 
 export const buildApplicationAnalysisMessage = (candidateName?: string, jobTitle?: string): string => {
   const candidate = candidateName?.trim() || '该候选人'
@@ -62,11 +62,11 @@ import ConversationHeader from '@/components/chat/ConversationHeader.vue'
 import ChatMessageList from '@/components/chat/ChatMessageList.vue'
 import ChatComposer from '@/components/chat/ChatComposer.vue'
 import { useHrAgentRun } from '@/composables/useHrAgentRun'
-import type { AgentRunResultMetadata } from '@/types/agentRun'
+import type { AgentRunResultMetadata } from '@shared/types/agentRun'
 import type { AgentSkillSelectionPayload, ChatMessageSkill, ChatSessionListItem, Session, CandidateOption, StreamPayload, ContextUsageInfo } from '@/types/ai'
-import type { CapabilityInfo } from '@/types/agent'
-import type { LlmModel } from '@/types/llm'
-import type { AvailableAgentSkill } from '@/types/agentSkill'
+import type { CapabilityInfo } from '@shared/types/agent'
+import type { LlmModel } from '@shared/types/llm'
+import type { AvailableAgentSkill } from '@shared/types/agentSkill'
 import { sanitizeAssistantProcessText } from '@/utils/hrAssistantProcess'
 import {
   contextGuardCodeFrom,
@@ -200,6 +200,7 @@ const selectedAgentSkillIds = ref<number[]>([])
 const skillCapabilities = ref<CapabilityInfo[]>([])
 const selectedSkillKeys = ref<string[]>([])
 const contextUsage = ref<ContextUsageInfo | null>(null)
+const lastModelFallbackSignature = ref('')
 const contextPreviewing = ref(false)
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const listRef = ref<any>(null)
@@ -1513,6 +1514,13 @@ const handleContextUsage = (payload: StreamPayload) => {
     if (!contextUsageBelongsToSession(sessionId, currentSession.value?.id)) return
     const nextUsage = resolveLiveContextUsage(contextUsage.value, payload.context_usage)
     contextUsage.value = nextUsage
+    if (nextUsage.model_fallback_reason && nextUsage.effective_model_id) {
+      const signature = `${nextUsage.capability_version_id || 0}:${nextUsage.requested_model_id || 0}:${nextUsage.effective_model_id}`
+      if (signature !== lastModelFallbackSignature.value) {
+        lastModelFallbackSignature.value = signature
+        ElMessage.warning(`所选模型当前不可用，已按平台能力版本切换为 ${nextUsage.model_name || '默认模型'}`)
+      }
+    }
     if (sessionId > 0) {
       rememberContextUsage(sessionId, nextUsage)
     }

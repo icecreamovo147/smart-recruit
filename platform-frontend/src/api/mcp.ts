@@ -1,5 +1,5 @@
-import request from './request'
-import type { PaginatedList } from '@/types/domain'
+import request from './http'
+import type { PaginatedList } from '@shared/types/pagination'
 import type {
   McpServerInfo,
   McpToolInfo,
@@ -12,8 +12,8 @@ import type {
   McpLogQuery,
   McpPolicyQuery,
   McpTestResult,
-} from '@/types/mcp'
-import { debugLog } from '@/utils/debugLog'
+} from '@shared/types/mcp'
+import { debugLog } from '@shared/utils/debugLog'
 
 // ── Response transformer ─────────────────────────────────────────────────
 
@@ -142,7 +142,7 @@ export const listMcpServers = async (
   pageSize = 20,
 ): Promise<PaginatedList<McpServerInfo>> => {
   debugLog.mcp.info('listMcpServers_started', { page, page_size: pageSize })
-  const res: any = await request.get('/api/v1/hr/admin/mcp-servers', {
+  const res: any = await request.get('/api/v1/platform/ai/mcp-servers', {
     params: { page, page_size: pageSize },
   })
   const list = (res.list || []).map(transformServer)
@@ -166,7 +166,7 @@ export const createMcpServer = async (
   }
   if (data.args?.length) body.args = JSON.stringify(data.args)
   if (data.env && Object.keys(data.env).length) body.env_vars = JSON.stringify(data.env)
-  const res: any = await request.post('/api/v1/hr/admin/mcp-servers', body)
+  const res: any = await request.post('/api/v1/platform/ai/mcp-servers', body)
   const server = transformServer(res.server || res)
   debugLog.mcp.info('createMcpServer_succeeded', { server_id: server.id, name: server.name })
   return { server }
@@ -190,7 +190,7 @@ export const updateMcpServer = async (
   if (data.env !== undefined) body.env_vars = JSON.stringify(data.env)
   if (data.timeout_seconds !== undefined) body.timeout_seconds = data.timeout_seconds
   if (data.is_enabled !== undefined) body.is_enabled = data.is_enabled
-  const res: any = await request.put(`/api/v1/hr/admin/mcp-servers/${id}`, body)
+  const res: any = await request.put(`/api/v1/platform/ai/mcp-servers/${id}`, body)
   const server = transformServer(res.server || res)
   debugLog.mcp.info('updateMcpServer_succeeded', { server_id: id })
   return { server }
@@ -198,7 +198,7 @@ export const updateMcpServer = async (
 
 export const deleteMcpServer = async (id: number): Promise<void> => {
   debugLog.mcp.info('deleteMcpServer_started', { server_id: id })
-  await request.delete(`/api/v1/hr/admin/mcp-servers/${id}`)
+  await request.delete(`/api/v1/platform/ai/mcp-servers/${id}`)
   debugLog.mcp.info('deleteMcpServer_succeeded', { server_id: id })
 }
 
@@ -208,7 +208,7 @@ export const testMcpServerConnection = async (
   id: number,
 ): Promise<McpTestResult> => {
   debugLog.mcp.info('testMcpServerConnection_started', { server_id: id })
-  const result: McpTestResult = await request.post(`/api/v1/hr/admin/mcp-servers/${id}/test`)
+  const result: McpTestResult = await request.post(`/api/v1/platform/ai/mcp-servers/${id}/test`)
   debugLog.mcp.info('testMcpServerConnection_succeeded', { server_id: id, success: result.success, tools_found: result.tools_found, duration_ms: result.duration_ms })
   return result
 }
@@ -220,7 +220,7 @@ export const listMcpServerTools = async (
 ): Promise<{ tools: McpToolInfo[] }> => {
   debugLog.mcp.info('listMcpServerTools_started', { server_id: serverId })
   const res = await request
-    .get<{ list?: Record<string, unknown>[]; tools?: Record<string, unknown>[] }>(`/api/v1/hr/admin/mcp-servers/${serverId}/tools`)
+    .get<{ list?: Record<string, unknown>[]; tools?: Record<string, unknown>[] }>(`/api/v1/platform/ai/mcp-servers/${serverId}/tools`)
   const tools = (res.tools || res.list || []).map(transformTool)
   debugLog.mcp.info('listMcpServerTools_succeeded', { server_id: serverId, tool_count: tools.length })
   return { tools }
@@ -238,7 +238,7 @@ export const callMcpTool = async (
   policy_id: number
 }> => {
   debugLog.mcp.info('callMcpTool_started', { server_id: serverId, tool_name: data.tool_name })
-  const result: any = await request.post(`/api/v1/hr/admin/mcp-servers/${serverId}/call-tool`, {
+  const result: any = await request.post(`/api/v1/platform/ai/mcp-servers/${serverId}/call-tool`, {
     tool_name: data.tool_name,
     args_json: JSON.stringify(data.args ?? {}),
   })
@@ -295,7 +295,7 @@ export const listMcpToolPolicies = async (
   if (query?.page) params.page = query.page
   if (query?.page_size) params.page_size = query.page_size
   if (query?.server_id) params.server_id = query.server_id
-  const res: any = await request.get('/api/v1/hr/admin/mcp-tool-policies', { params })
+  const res: any = await request.get('/api/v1/platform/ai/mcp-tool-policies', { params })
   const list = (res.list || []).map(transformPolicy)
   debugLog.mcp.info('listMcpToolPolicies_succeeded', { total: res.total || 0, returned: list.length })
   return {
@@ -308,7 +308,7 @@ export const createMcpToolPolicy = async (
   data: CreateMcpToolPolicyPayload,
 ): Promise<{ policy: McpToolPolicy }> => {
   debugLog.mcp.info('createMcpToolPolicy_started', { server_id: data.server_id, tool_name: data.tool_name, effect: data.effect })
-  const res: any = await request.post('/api/v1/hr/admin/mcp-tool-policies', policyBody(data))
+  const res: any = await request.post('/api/v1/platform/ai/mcp-tool-policies', policyBody(data))
   const policy = transformPolicy(res.policy || res)
   debugLog.mcp.info('createMcpToolPolicy_succeeded', { policy_id: policy.id, tool_name: policy.tool_name })
   return { policy }
@@ -319,7 +319,7 @@ export const updateMcpToolPolicy = async (
   data: UpdateMcpToolPolicyPayload,
 ): Promise<{ policy: McpToolPolicy }> => {
   debugLog.mcp.info('updateMcpToolPolicy_started', { policy_id: id })
-  const res: any = await request.put(`/api/v1/hr/admin/mcp-tool-policies/${id}`, policyBody(data))
+  const res: any = await request.put(`/api/v1/platform/ai/mcp-tool-policies/${id}`, policyBody(data))
   const policy = transformPolicy(res.policy || res)
   debugLog.mcp.info('updateMcpToolPolicy_succeeded', { policy_id: id })
   return { policy }
@@ -327,7 +327,7 @@ export const updateMcpToolPolicy = async (
 
 export const deleteMcpToolPolicy = async (id: number): Promise<void> => {
   debugLog.mcp.info('deleteMcpToolPolicy_started', { policy_id: id })
-  await request.delete(`/api/v1/hr/admin/mcp-tool-policies/${id}`)
+  await request.delete(`/api/v1/platform/ai/mcp-tool-policies/${id}`)
   debugLog.mcp.info('deleteMcpToolPolicy_succeeded', { policy_id: id })
 }
 
@@ -347,7 +347,7 @@ export const listMcpServerLogs = async (
     if (query.end_time) params.end_time = query.end_time
   }
   const res = await request
-    .get<{ total?: number; list?: Record<string, unknown>[] }>(`/api/v1/hr/admin/mcp-servers/${serverId}/logs`, { params })
+    .get<{ total?: number; list?: Record<string, unknown>[] }>(`/api/v1/platform/ai/mcp-servers/${serverId}/logs`, { params })
   const list = (res.list || []).map(transformLog)
   debugLog.mcp.info('listMcpServerLogs_succeeded', { server_id: serverId, total: res.total || 0, returned: list.length })
   return { total: res.total || 0, list }

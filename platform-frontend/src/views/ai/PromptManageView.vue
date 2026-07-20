@@ -3,6 +3,7 @@ import { onMounted, reactive, ref, computed } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { ArrowDown, Delete, Edit, MoreFilled, Plus, Refresh, Search, View, Back } from '@element-plus/icons-vue'
 import { useAuthStore } from '@/stores/auth'
+import { PLATFORM_PERMISSIONS } from '@/permissions'
 import {
   listPromptTemplates,
   createPromptTemplate,
@@ -16,7 +17,7 @@ import type {
   CreatePromptPayload,
   UpdatePromptPayload,
   PromptVersion,
-} from '@/types/prompt'
+} from '@shared/types/prompt'
 import {
   PROMPT_AGENT_TYPE_GROUP_LABEL,
   conversationPromptAgentTypes,
@@ -26,12 +27,13 @@ import {
   promptAgentTypeKindLabel,
   promptAgentTypeLabel,
   structuredTaskPromptAgentTypes,
-} from '@/constants/promptAgentTypes'
+} from '@shared/constants/promptAgentTypes'
 
 // ====== Auth state ======
 
 const auth = useAuthStore()
 const currentUserId = computed(() => auth.user?.user_id || 0)
+const canManage = computed(() => auth.can(PLATFORM_PERMISSIONS.AI_CONFIG_MANAGE))
 
 // ====== List State ======
 
@@ -384,7 +386,7 @@ onMounted(() => {
         </div>
         <div class="workspace-surface__header-actions">
           <el-button :icon="Refresh" @click="loadList">刷新</el-button>
-          <el-button type="primary" :icon="Plus" @click="openCreate">新增模板</el-button>
+          <el-button v-if="canManage" type="primary" :icon="Plus" @click="openCreate">新增模板</el-button>
         </div>
       </div>
 
@@ -480,13 +482,13 @@ onMounted(() => {
           </el-table-column>
           <el-table-column label="操作" width="220" fixed="right">
             <template #default="{ row }: { row: PromptTemplate }">
-              <el-button size="small" :icon="Edit" @click="openEdit(row)">
+              <el-button v-if="canManage" size="small" :icon="Edit" @click="openEdit(row)">
                 编辑
               </el-button>
               <el-button size="small" :icon="View" @click="openVersionHistory(row)">
                 版本历史
               </el-button>
-              <el-dropdown trigger="click" @command="(cmd: string) => { if (cmd === 'toggle') handleToggleActive(row); if (cmd === 'delete') handleDelete(row) }">
+              <el-dropdown v-if="canManage" trigger="click" @command="(cmd: string) => { if (cmd === 'toggle') handleToggleActive(row); if (cmd === 'delete') handleDelete(row) }">
                 <el-button size="small">更多<el-icon class="el-icon--right"><ArrowDown /></el-icon></el-button>
                 <template #dropdown>
                   <el-dropdown-menu>
@@ -652,7 +654,7 @@ onMounted(() => {
             <el-button size="small" :icon="View" @click="viewVersionContent(row)">
               查看
             </el-button>
-            <el-button
+            <el-button v-if="canManage"
               size="small"
               type="danger"
               :icon="Back"

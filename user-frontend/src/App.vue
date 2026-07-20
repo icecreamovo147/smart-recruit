@@ -143,6 +143,7 @@ const handleEmailSaved = async (email: string) => {
           route.path === '/progress' ||
           route.path === '/profile' ||
           route.path === '/resume' ||
+          route.path === '/billing' ||
           route.path === '/ai-assistant',
         'container--jobs': route.path === '/jobs',
         'container--ai': route.path === '/ai-assistant',

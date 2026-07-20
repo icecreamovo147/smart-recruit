@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { AgentSkillNodeType, AgentSkillNodeTypeOption } from '@/types/agentSkill'
+import type { AgentSkillNodeType, AgentSkillNodeTypeOption } from '@shared/types/agentSkill'
 
 defineProps<{
   nodeTypes: AgentSkillNodeTypeOption[]

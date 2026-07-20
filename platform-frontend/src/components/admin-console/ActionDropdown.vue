@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { MoreFilled } from '@element-plus/icons-vue'
-import type { ConsoleAction } from '@/types/ui'
+import type { ConsoleAction } from '@shared/types/ui'
 
 withDefaults(defineProps<{
   actions: ConsoleAction[]
