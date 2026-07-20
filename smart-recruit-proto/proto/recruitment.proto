@@ -1071,6 +1071,11 @@ message ContextUsageInfo {
   int32 included_message_count = 19;
   int32 omitted_message_count = 20;
   bool summary_applied = 21;
+  int64 requested_model_id = 22;
+  int64 effective_model_id = 23;
+  string model_fallback_reason = 24;
+  int64 capability_version_id = 25;
+  string capability_snapshot_hash = 26;
 }
 
 message ChatResponse {
@@ -1175,6 +1180,7 @@ message AnalyzeApplicationRequest {
   int64 hr_id = 1;
   int64 application_id = 2;
   int64 model_id = 3;
+  int64 capability_version_id = 4;
 }
 
 message AnalyzeApplicationResponse {
@@ -1185,6 +1191,7 @@ message AnalyzeApplicationResponse {
   string job_title = 5;
   int32 status = 6;
   int32 round_no = 7;
+  ContextUsageInfo context_usage = 8;
 }
 
 message ChatSessionListRequest {
@@ -2832,6 +2839,164 @@ message GetUsageTrendResponse {
 // P1-006: MCP Tool Center
 // ══════════════════════════════════════════════════════════════════════
 
+// Platform-owned AI capability releases and runtime model pools. Technical
+// configuration CRUD remains in the existing focused services; this service
+// governs immutable release snapshots and the safe model list exposed to HR
+// and candidate assistants.
+service PlatformAIControlPlaneService {
+  rpc ListPlatformAICapabilities(ListPlatformAICapabilitiesRequest) returns (ListPlatformAICapabilitiesResponse);
+  rpc ListPlatformAICapabilityVersions(ListPlatformAICapabilityVersionsRequest) returns (ListPlatformAICapabilityVersionsResponse);
+  rpc CreatePlatformAICapabilityDraft(CreatePlatformAICapabilityDraftRequest) returns (PlatformAICapabilityVersionResponse);
+  rpc UpdatePlatformAICapabilityDraft(UpdatePlatformAICapabilityDraftRequest) returns (PlatformAICapabilityVersionResponse);
+  rpc PublishPlatformAICapabilityVersion(PublishPlatformAICapabilityVersionRequest) returns (PlatformAICapabilityVersionResponse);
+  rpc ListPlatformAIRuntimeModels(ListPlatformAIRuntimeModelsRequest) returns (ListPlatformAIRuntimeModelsResponse);
+  rpc ResolvePlatformAIRuntimeModel(ResolvePlatformAIRuntimeModelRequest) returns (ResolvePlatformAIRuntimeModelResponse);
+  rpc QueryPlatformAIConfigAuditLogs(QueryPlatformAIConfigAuditLogsRequest) returns (QueryPlatformAIConfigAuditLogsResponse);
+}
+
+message PlatformAICapabilityInfo {
+  int64 id = 1;
+  string capability_key = 2;
+  string audience = 3;
+  string name = 4;
+  string description = 5;
+  string status = 6;
+  int64 current_published_version_id = 7;
+}
+
+message PlatformAICapabilityVersionInfo {
+  int64 id = 1;
+  int64 capability_id = 2;
+  int32 version = 3;
+  string status = 4;
+  string snapshot_json = 5;
+  string snapshot_hash = 6;
+  string change_note = 7;
+  string published_at = 8;
+}
+
+message ListPlatformAICapabilitiesRequest {}
+
+message ListPlatformAICapabilitiesResponse {
+  int32 code = 1;
+  string msg = 2;
+  repeated PlatformAICapabilityInfo list = 3;
+}
+
+message ListPlatformAICapabilityVersionsRequest {
+  int64 capability_id = 1;
+}
+
+message ListPlatformAICapabilityVersionsResponse {
+  int32 code = 1;
+  string msg = 2;
+  repeated PlatformAICapabilityVersionInfo list = 3;
+}
+
+message CreatePlatformAICapabilityDraftRequest {
+  int64 capability_id = 1;
+  string snapshot_json = 2;
+  string change_note = 3;
+  int64 actor_user_id = 4;
+  string request_id = 5;
+}
+
+message UpdatePlatformAICapabilityDraftRequest {
+  int64 version_id = 1;
+  string snapshot_json = 2;
+  string change_note = 3;
+  int64 actor_user_id = 4;
+  string request_id = 5;
+}
+
+message PublishPlatformAICapabilityVersionRequest {
+  int64 version_id = 1;
+  int64 actor_user_id = 2;
+  string request_id = 3;
+}
+
+message PlatformAICapabilityVersionResponse {
+  int32 code = 1;
+  string msg = 2;
+  PlatformAICapabilityVersionInfo version = 3;
+}
+
+message PlatformAIRuntimeModelInfo {
+  int64 id = 1;
+  string model_name = 2;
+  string display_name = 3;
+  int64 provider_id = 4;
+  string provider_name = 5;
+  bool is_default = 6;
+  int32 max_tokens = 7;
+  int32 context_window_tokens = 8;
+}
+
+message ListPlatformAIRuntimeModelsRequest {
+  string capability_key = 1;
+  string audience = 2;
+  int64 capability_version_id = 3;
+}
+
+message ListPlatformAIRuntimeModelsResponse {
+  int32 code = 1;
+  string msg = 2;
+  int64 capability_version_id = 3;
+  string snapshot_hash = 4;
+  repeated PlatformAIRuntimeModelInfo list = 5;
+}
+
+message ResolvePlatformAIRuntimeModelRequest {
+  string capability_key = 1;
+  string audience = 2;
+  int64 capability_version_id = 3;
+  int64 requested_model_id = 4;
+}
+
+message ResolvePlatformAIRuntimeModelResponse {
+  int32 code = 1;
+  string msg = 2;
+  string capability_key = 3;
+  string audience = 4;
+  int64 capability_version_id = 5;
+  string snapshot_hash = 6;
+  int64 requested_model_id = 7;
+  int64 effective_model_id = 8;
+  string model_fallback_reason = 9;
+  string model_name = 10;
+  string display_name = 11;
+  int64 provider_id = 12;
+  string provider_name = 13;
+}
+
+message QueryPlatformAIConfigAuditLogsRequest {
+  int32 page = 1;
+  int32 page_size = 2;
+  string resource_type = 3;
+  int64 capability_id = 4;
+}
+
+message PlatformAIConfigAuditLogInfo {
+  int64 id = 1;
+  int64 actor_user_id = 2;
+  string action = 3;
+  string resource_type = 4;
+  int64 resource_id = 5;
+  int64 capability_id = 6;
+  int64 capability_version_id = 7;
+  string before_snapshot = 8;
+  string after_snapshot = 9;
+  string request_id = 10;
+  string created_at = 11;
+}
+
+message QueryPlatformAIConfigAuditLogsResponse {
+  int32 code = 1;
+  string msg = 2;
+  int64 total = 3;
+  repeated PlatformAIConfigAuditLogInfo list = 4;
+}
+
 service MCPService {
   rpc ListMCPServers(ListMCPServersRequest) returns (ListMCPServersResponse);
   rpc CreateMCPServer(CreateMCPServerRequest) returns (MCPServerResponse);
@@ -4057,6 +4222,8 @@ message ParseResumeProfileRequest {
   int64 staff_user_id = 1;
   int64 resume_id = 2;
   int64 application_id = 3;
+  int64 capability_version_id = 4;
+  int64 model_id = 5;
 }
 
 message ResumeParseRunInfo {
@@ -4072,6 +4239,11 @@ message ResumeParseRunInfo {
   string completed_at = 10;
   string created_at = 11;
   string updated_at = 12;
+  int64 requested_model_id = 13;
+  int64 effective_model_id = 14;
+  string model_fallback_reason = 15;
+  int64 capability_version_id = 16;
+  string capability_snapshot_hash = 17;
 }
 
 message ResumeProfileInfo {
@@ -4159,6 +4331,8 @@ message EvaluateCandidateMatchRequest {
   int64 staff_user_id = 1;
   int64 application_id = 2;
   uint64 agent_run_id = 3;
+  int64 capability_version_id = 4;
+  int64 model_id = 5;
 }
 
 message GetCandidateMatchEvaluationRequest {
@@ -4189,6 +4363,11 @@ message CandidateMatchEvaluationInfo {
   string created_at = 18;
   string updated_at = 19;
   string dimensions_json = 20;
+  int64 requested_model_id = 21;
+  int64 effective_model_id = 22;
+  string model_fallback_reason = 23;
+  int64 capability_version_id = 24;
+  string capability_snapshot_hash = 25;
 }
 
 message CandidateMatchEvidenceInfo {
@@ -4478,6 +4657,7 @@ message CheckAIAccessResponse {
   string reason = 4;
   int64 available_credits = 5;
   BillingEnforcementMode enforcement_mode = 6;
+  int64 capability_version_id = 7;
 }
 
 message ReserveAIUsageRequest {
@@ -4502,6 +4682,7 @@ message ReserveAIUsageResponse {
   int64 available_credits = 7;
   int64 expires_at_unix_ms = 8;
   BillingEnforcementMode enforcement_mode = 9;
+  int64 capability_version_id = 10;
 }
 
 message AIProviderUsage {
@@ -4595,6 +4776,11 @@ message BillingSubscriptionInfo {
   int64 current_period_start_unix_ms = 6;
   int64 current_period_end_unix_ms = 7;
   bool cancel_at_period_end = 8;
+  // Identifies how the current plan was granted. Existing paid subscriptions
+  // use "paid_subscription"; platform-assigned tenant plans use
+  // "platform_plan"; candidate baseline access uses "free_tier".
+  string source = 9;
+  int64 included_credits = 10;
 }
 
 message GetBillingAccountRequest { BillingOwner owner = 1; }
@@ -4606,6 +4792,12 @@ message GetBillingAccountResponse {
   int64 reserved_credits = 5;
   int64 next_expiry_at_unix_ms = 6;
   string payment_environment = 7;
+  // Credits granted in the current active buckets before consumption.
+  int64 total_credits = 8;
+  // Credits already settled against the current active buckets.
+  int64 used_credits = 9;
+  // The next monthly entitlement refresh boundary, when applicable.
+  int64 next_refresh_at_unix_ms = 10;
 }
 
 message BillingOrderInfo {
@@ -4641,6 +4833,9 @@ message CreateBillingOrderRequest {
   int64 price_version_id = 3;
   string order_type = 4;
   string idempotency_key = 5;
+  // When true, the service closes the owner's current unpaid order before
+  // creating this order. Browsers must only set this after explicit user choice.
+  bool replace_pending_order = 6;
 }
 message BillingOrderResponse {
   int32 code = 1;

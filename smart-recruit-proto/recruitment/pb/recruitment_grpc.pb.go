@@ -7462,6 +7462,385 @@ var RecruitingIntelligenceService_ServiceDesc = grpc.ServiceDesc{
 }
 
 const (
+	PlatformAIControlPlaneService_ListPlatformAICapabilities_FullMethodName         = "/recruitment.PlatformAIControlPlaneService/ListPlatformAICapabilities"
+	PlatformAIControlPlaneService_ListPlatformAICapabilityVersions_FullMethodName   = "/recruitment.PlatformAIControlPlaneService/ListPlatformAICapabilityVersions"
+	PlatformAIControlPlaneService_CreatePlatformAICapabilityDraft_FullMethodName    = "/recruitment.PlatformAIControlPlaneService/CreatePlatformAICapabilityDraft"
+	PlatformAIControlPlaneService_UpdatePlatformAICapabilityDraft_FullMethodName    = "/recruitment.PlatformAIControlPlaneService/UpdatePlatformAICapabilityDraft"
+	PlatformAIControlPlaneService_PublishPlatformAICapabilityVersion_FullMethodName = "/recruitment.PlatformAIControlPlaneService/PublishPlatformAICapabilityVersion"
+	PlatformAIControlPlaneService_ListPlatformAIRuntimeModels_FullMethodName        = "/recruitment.PlatformAIControlPlaneService/ListPlatformAIRuntimeModels"
+	PlatformAIControlPlaneService_ResolvePlatformAIRuntimeModel_FullMethodName      = "/recruitment.PlatformAIControlPlaneService/ResolvePlatformAIRuntimeModel"
+	PlatformAIControlPlaneService_QueryPlatformAIConfigAuditLogs_FullMethodName     = "/recruitment.PlatformAIControlPlaneService/QueryPlatformAIConfigAuditLogs"
+)
+
+// PlatformAIControlPlaneServiceClient is the client API for PlatformAIControlPlaneService service.
+//
+// For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
+//
+// Platform-owned AI capability releases and runtime model pools. Technical
+// configuration CRUD remains in the existing focused services; this service
+// governs immutable release snapshots and the safe model list exposed to HR
+// and candidate assistants.
+type PlatformAIControlPlaneServiceClient interface {
+	ListPlatformAICapabilities(ctx context.Context, in *ListPlatformAICapabilitiesRequest, opts ...grpc.CallOption) (*ListPlatformAICapabilitiesResponse, error)
+	ListPlatformAICapabilityVersions(ctx context.Context, in *ListPlatformAICapabilityVersionsRequest, opts ...grpc.CallOption) (*ListPlatformAICapabilityVersionsResponse, error)
+	CreatePlatformAICapabilityDraft(ctx context.Context, in *CreatePlatformAICapabilityDraftRequest, opts ...grpc.CallOption) (*PlatformAICapabilityVersionResponse, error)
+	UpdatePlatformAICapabilityDraft(ctx context.Context, in *UpdatePlatformAICapabilityDraftRequest, opts ...grpc.CallOption) (*PlatformAICapabilityVersionResponse, error)
+	PublishPlatformAICapabilityVersion(ctx context.Context, in *PublishPlatformAICapabilityVersionRequest, opts ...grpc.CallOption) (*PlatformAICapabilityVersionResponse, error)
+	ListPlatformAIRuntimeModels(ctx context.Context, in *ListPlatformAIRuntimeModelsRequest, opts ...grpc.CallOption) (*ListPlatformAIRuntimeModelsResponse, error)
+	ResolvePlatformAIRuntimeModel(ctx context.Context, in *ResolvePlatformAIRuntimeModelRequest, opts ...grpc.CallOption) (*ResolvePlatformAIRuntimeModelResponse, error)
+	QueryPlatformAIConfigAuditLogs(ctx context.Context, in *QueryPlatformAIConfigAuditLogsRequest, opts ...grpc.CallOption) (*QueryPlatformAIConfigAuditLogsResponse, error)
+}
+
+type platformAIControlPlaneServiceClient struct {
+	cc grpc.ClientConnInterface
+}
+
+func NewPlatformAIControlPlaneServiceClient(cc grpc.ClientConnInterface) PlatformAIControlPlaneServiceClient {
+	return &platformAIControlPlaneServiceClient{cc}
+}
+
+func (c *platformAIControlPlaneServiceClient) ListPlatformAICapabilities(ctx context.Context, in *ListPlatformAICapabilitiesRequest, opts ...grpc.CallOption) (*ListPlatformAICapabilitiesResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ListPlatformAICapabilitiesResponse)
+	err := c.cc.Invoke(ctx, PlatformAIControlPlaneService_ListPlatformAICapabilities_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *platformAIControlPlaneServiceClient) ListPlatformAICapabilityVersions(ctx context.Context, in *ListPlatformAICapabilityVersionsRequest, opts ...grpc.CallOption) (*ListPlatformAICapabilityVersionsResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ListPlatformAICapabilityVersionsResponse)
+	err := c.cc.Invoke(ctx, PlatformAIControlPlaneService_ListPlatformAICapabilityVersions_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *platformAIControlPlaneServiceClient) CreatePlatformAICapabilityDraft(ctx context.Context, in *CreatePlatformAICapabilityDraftRequest, opts ...grpc.CallOption) (*PlatformAICapabilityVersionResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(PlatformAICapabilityVersionResponse)
+	err := c.cc.Invoke(ctx, PlatformAIControlPlaneService_CreatePlatformAICapabilityDraft_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *platformAIControlPlaneServiceClient) UpdatePlatformAICapabilityDraft(ctx context.Context, in *UpdatePlatformAICapabilityDraftRequest, opts ...grpc.CallOption) (*PlatformAICapabilityVersionResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(PlatformAICapabilityVersionResponse)
+	err := c.cc.Invoke(ctx, PlatformAIControlPlaneService_UpdatePlatformAICapabilityDraft_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *platformAIControlPlaneServiceClient) PublishPlatformAICapabilityVersion(ctx context.Context, in *PublishPlatformAICapabilityVersionRequest, opts ...grpc.CallOption) (*PlatformAICapabilityVersionResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(PlatformAICapabilityVersionResponse)
+	err := c.cc.Invoke(ctx, PlatformAIControlPlaneService_PublishPlatformAICapabilityVersion_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *platformAIControlPlaneServiceClient) ListPlatformAIRuntimeModels(ctx context.Context, in *ListPlatformAIRuntimeModelsRequest, opts ...grpc.CallOption) (*ListPlatformAIRuntimeModelsResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ListPlatformAIRuntimeModelsResponse)
+	err := c.cc.Invoke(ctx, PlatformAIControlPlaneService_ListPlatformAIRuntimeModels_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *platformAIControlPlaneServiceClient) ResolvePlatformAIRuntimeModel(ctx context.Context, in *ResolvePlatformAIRuntimeModelRequest, opts ...grpc.CallOption) (*ResolvePlatformAIRuntimeModelResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ResolvePlatformAIRuntimeModelResponse)
+	err := c.cc.Invoke(ctx, PlatformAIControlPlaneService_ResolvePlatformAIRuntimeModel_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *platformAIControlPlaneServiceClient) QueryPlatformAIConfigAuditLogs(ctx context.Context, in *QueryPlatformAIConfigAuditLogsRequest, opts ...grpc.CallOption) (*QueryPlatformAIConfigAuditLogsResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(QueryPlatformAIConfigAuditLogsResponse)
+	err := c.cc.Invoke(ctx, PlatformAIControlPlaneService_QueryPlatformAIConfigAuditLogs_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+// PlatformAIControlPlaneServiceServer is the server API for PlatformAIControlPlaneService service.
+// All implementations must embed UnimplementedPlatformAIControlPlaneServiceServer
+// for forward compatibility.
+//
+// Platform-owned AI capability releases and runtime model pools. Technical
+// configuration CRUD remains in the existing focused services; this service
+// governs immutable release snapshots and the safe model list exposed to HR
+// and candidate assistants.
+type PlatformAIControlPlaneServiceServer interface {
+	ListPlatformAICapabilities(context.Context, *ListPlatformAICapabilitiesRequest) (*ListPlatformAICapabilitiesResponse, error)
+	ListPlatformAICapabilityVersions(context.Context, *ListPlatformAICapabilityVersionsRequest) (*ListPlatformAICapabilityVersionsResponse, error)
+	CreatePlatformAICapabilityDraft(context.Context, *CreatePlatformAICapabilityDraftRequest) (*PlatformAICapabilityVersionResponse, error)
+	UpdatePlatformAICapabilityDraft(context.Context, *UpdatePlatformAICapabilityDraftRequest) (*PlatformAICapabilityVersionResponse, error)
+	PublishPlatformAICapabilityVersion(context.Context, *PublishPlatformAICapabilityVersionRequest) (*PlatformAICapabilityVersionResponse, error)
+	ListPlatformAIRuntimeModels(context.Context, *ListPlatformAIRuntimeModelsRequest) (*ListPlatformAIRuntimeModelsResponse, error)
+	ResolvePlatformAIRuntimeModel(context.Context, *ResolvePlatformAIRuntimeModelRequest) (*ResolvePlatformAIRuntimeModelResponse, error)
+	QueryPlatformAIConfigAuditLogs(context.Context, *QueryPlatformAIConfigAuditLogsRequest) (*QueryPlatformAIConfigAuditLogsResponse, error)
+	mustEmbedUnimplementedPlatformAIControlPlaneServiceServer()
+}
+
+// UnimplementedPlatformAIControlPlaneServiceServer must be embedded to have
+// forward compatible implementations.
+//
+// NOTE: this should be embedded by value instead of pointer to avoid a nil
+// pointer dereference when methods are called.
+type UnimplementedPlatformAIControlPlaneServiceServer struct{}
+
+func (UnimplementedPlatformAIControlPlaneServiceServer) ListPlatformAICapabilities(context.Context, *ListPlatformAICapabilitiesRequest) (*ListPlatformAICapabilitiesResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method ListPlatformAICapabilities not implemented")
+}
+func (UnimplementedPlatformAIControlPlaneServiceServer) ListPlatformAICapabilityVersions(context.Context, *ListPlatformAICapabilityVersionsRequest) (*ListPlatformAICapabilityVersionsResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method ListPlatformAICapabilityVersions not implemented")
+}
+func (UnimplementedPlatformAIControlPlaneServiceServer) CreatePlatformAICapabilityDraft(context.Context, *CreatePlatformAICapabilityDraftRequest) (*PlatformAICapabilityVersionResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method CreatePlatformAICapabilityDraft not implemented")
+}
+func (UnimplementedPlatformAIControlPlaneServiceServer) UpdatePlatformAICapabilityDraft(context.Context, *UpdatePlatformAICapabilityDraftRequest) (*PlatformAICapabilityVersionResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method UpdatePlatformAICapabilityDraft not implemented")
+}
+func (UnimplementedPlatformAIControlPlaneServiceServer) PublishPlatformAICapabilityVersion(context.Context, *PublishPlatformAICapabilityVersionRequest) (*PlatformAICapabilityVersionResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method PublishPlatformAICapabilityVersion not implemented")
+}
+func (UnimplementedPlatformAIControlPlaneServiceServer) ListPlatformAIRuntimeModels(context.Context, *ListPlatformAIRuntimeModelsRequest) (*ListPlatformAIRuntimeModelsResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method ListPlatformAIRuntimeModels not implemented")
+}
+func (UnimplementedPlatformAIControlPlaneServiceServer) ResolvePlatformAIRuntimeModel(context.Context, *ResolvePlatformAIRuntimeModelRequest) (*ResolvePlatformAIRuntimeModelResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method ResolvePlatformAIRuntimeModel not implemented")
+}
+func (UnimplementedPlatformAIControlPlaneServiceServer) QueryPlatformAIConfigAuditLogs(context.Context, *QueryPlatformAIConfigAuditLogsRequest) (*QueryPlatformAIConfigAuditLogsResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method QueryPlatformAIConfigAuditLogs not implemented")
+}
+func (UnimplementedPlatformAIControlPlaneServiceServer) mustEmbedUnimplementedPlatformAIControlPlaneServiceServer() {
+}
+func (UnimplementedPlatformAIControlPlaneServiceServer) testEmbeddedByValue() {}
+
+// UnsafePlatformAIControlPlaneServiceServer may be embedded to opt out of forward compatibility for this service.
+// Use of this interface is not recommended, as added methods to PlatformAIControlPlaneServiceServer will
+// result in compilation errors.
+type UnsafePlatformAIControlPlaneServiceServer interface {
+	mustEmbedUnimplementedPlatformAIControlPlaneServiceServer()
+}
+
+func RegisterPlatformAIControlPlaneServiceServer(s grpc.ServiceRegistrar, srv PlatformAIControlPlaneServiceServer) {
+	// If the following call panics, it indicates UnimplementedPlatformAIControlPlaneServiceServer was
+	// embedded by pointer and is nil.  This will cause panics if an
+	// unimplemented method is ever invoked, so we test this at initialization
+	// time to prevent it from happening at runtime later due to I/O.
+	if t, ok := srv.(interface{ testEmbeddedByValue() }); ok {
+		t.testEmbeddedByValue()
+	}
+	s.RegisterService(&PlatformAIControlPlaneService_ServiceDesc, srv)
+}
+
+func _PlatformAIControlPlaneService_ListPlatformAICapabilities_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ListPlatformAICapabilitiesRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(PlatformAIControlPlaneServiceServer).ListPlatformAICapabilities(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: PlatformAIControlPlaneService_ListPlatformAICapabilities_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(PlatformAIControlPlaneServiceServer).ListPlatformAICapabilities(ctx, req.(*ListPlatformAICapabilitiesRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _PlatformAIControlPlaneService_ListPlatformAICapabilityVersions_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ListPlatformAICapabilityVersionsRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(PlatformAIControlPlaneServiceServer).ListPlatformAICapabilityVersions(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: PlatformAIControlPlaneService_ListPlatformAICapabilityVersions_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(PlatformAIControlPlaneServiceServer).ListPlatformAICapabilityVersions(ctx, req.(*ListPlatformAICapabilityVersionsRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _PlatformAIControlPlaneService_CreatePlatformAICapabilityDraft_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(CreatePlatformAICapabilityDraftRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(PlatformAIControlPlaneServiceServer).CreatePlatformAICapabilityDraft(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: PlatformAIControlPlaneService_CreatePlatformAICapabilityDraft_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(PlatformAIControlPlaneServiceServer).CreatePlatformAICapabilityDraft(ctx, req.(*CreatePlatformAICapabilityDraftRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _PlatformAIControlPlaneService_UpdatePlatformAICapabilityDraft_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(UpdatePlatformAICapabilityDraftRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(PlatformAIControlPlaneServiceServer).UpdatePlatformAICapabilityDraft(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: PlatformAIControlPlaneService_UpdatePlatformAICapabilityDraft_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(PlatformAIControlPlaneServiceServer).UpdatePlatformAICapabilityDraft(ctx, req.(*UpdatePlatformAICapabilityDraftRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _PlatformAIControlPlaneService_PublishPlatformAICapabilityVersion_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(PublishPlatformAICapabilityVersionRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(PlatformAIControlPlaneServiceServer).PublishPlatformAICapabilityVersion(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: PlatformAIControlPlaneService_PublishPlatformAICapabilityVersion_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(PlatformAIControlPlaneServiceServer).PublishPlatformAICapabilityVersion(ctx, req.(*PublishPlatformAICapabilityVersionRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _PlatformAIControlPlaneService_ListPlatformAIRuntimeModels_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ListPlatformAIRuntimeModelsRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(PlatformAIControlPlaneServiceServer).ListPlatformAIRuntimeModels(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: PlatformAIControlPlaneService_ListPlatformAIRuntimeModels_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(PlatformAIControlPlaneServiceServer).ListPlatformAIRuntimeModels(ctx, req.(*ListPlatformAIRuntimeModelsRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _PlatformAIControlPlaneService_ResolvePlatformAIRuntimeModel_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ResolvePlatformAIRuntimeModelRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(PlatformAIControlPlaneServiceServer).ResolvePlatformAIRuntimeModel(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: PlatformAIControlPlaneService_ResolvePlatformAIRuntimeModel_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(PlatformAIControlPlaneServiceServer).ResolvePlatformAIRuntimeModel(ctx, req.(*ResolvePlatformAIRuntimeModelRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _PlatformAIControlPlaneService_QueryPlatformAIConfigAuditLogs_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(QueryPlatformAIConfigAuditLogsRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(PlatformAIControlPlaneServiceServer).QueryPlatformAIConfigAuditLogs(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: PlatformAIControlPlaneService_QueryPlatformAIConfigAuditLogs_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(PlatformAIControlPlaneServiceServer).QueryPlatformAIConfigAuditLogs(ctx, req.(*QueryPlatformAIConfigAuditLogsRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+// PlatformAIControlPlaneService_ServiceDesc is the grpc.ServiceDesc for PlatformAIControlPlaneService service.
+// It's only intended for direct use with grpc.RegisterService,
+// and not to be introspected or modified (even as a copy)
+var PlatformAIControlPlaneService_ServiceDesc = grpc.ServiceDesc{
+	ServiceName: "recruitment.PlatformAIControlPlaneService",
+	HandlerType: (*PlatformAIControlPlaneServiceServer)(nil),
+	Methods: []grpc.MethodDesc{
+		{
+			MethodName: "ListPlatformAICapabilities",
+			Handler:    _PlatformAIControlPlaneService_ListPlatformAICapabilities_Handler,
+		},
+		{
+			MethodName: "ListPlatformAICapabilityVersions",
+			Handler:    _PlatformAIControlPlaneService_ListPlatformAICapabilityVersions_Handler,
+		},
+		{
+			MethodName: "CreatePlatformAICapabilityDraft",
+			Handler:    _PlatformAIControlPlaneService_CreatePlatformAICapabilityDraft_Handler,
+		},
+		{
+			MethodName: "UpdatePlatformAICapabilityDraft",
+			Handler:    _PlatformAIControlPlaneService_UpdatePlatformAICapabilityDraft_Handler,
+		},
+		{
+			MethodName: "PublishPlatformAICapabilityVersion",
+			Handler:    _PlatformAIControlPlaneService_PublishPlatformAICapabilityVersion_Handler,
+		},
+		{
+			MethodName: "ListPlatformAIRuntimeModels",
+			Handler:    _PlatformAIControlPlaneService_ListPlatformAIRuntimeModels_Handler,
+		},
+		{
+			MethodName: "ResolvePlatformAIRuntimeModel",
+			Handler:    _PlatformAIControlPlaneService_ResolvePlatformAIRuntimeModel_Handler,
+		},
+		{
+			MethodName: "QueryPlatformAIConfigAuditLogs",
+			Handler:    _PlatformAIControlPlaneService_QueryPlatformAIConfigAuditLogs_Handler,
+		},
+	},
+	Streams:  []grpc.StreamDesc{},
+	Metadata: "proto/recruitment.proto",
+}
+
+const (
 	MCPService_ListMCPServers_FullMethodName      = "/recruitment.MCPService/ListMCPServers"
 	MCPService_CreateMCPServer_FullMethodName     = "/recruitment.MCPService/CreateMCPServer"
 	MCPService_UpdateMCPServer_FullMethodName     = "/recruitment.MCPService/UpdateMCPServer"
