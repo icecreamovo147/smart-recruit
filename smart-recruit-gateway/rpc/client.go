@@ -100,6 +100,7 @@ type Clients struct {
 	AgentSkill             pb.AgentSkillServiceClient
 	RecruitingIntelligence pb.RecruitingIntelligenceServiceClient
 	EmbeddingConfig        pb.EmbeddingConfigServiceClient
+	PlatformAI             pb.PlatformAIControlPlaneServiceClient
 	Billing                pb.BillingServiceClient
 	Health                 healthpb.HealthClient
 	NotificationHealth     healthpb.HealthClient
@@ -483,6 +484,7 @@ func NewClientsWithOptions(addr string, options ClientOptions) (*Clients, error)
 		AgentSkill:             pb.NewAgentSkillServiceClient(aiAgentConn),
 		RecruitingIntelligence: pb.NewRecruitingIntelligenceServiceClient(aiAgentConn),
 		EmbeddingConfig:        pb.NewEmbeddingConfigServiceClient(aiAgentConn),
+		PlatformAI:             pb.NewPlatformAIControlPlaneServiceClient(aiAgentConn),
 		Billing:                pb.NewBillingServiceClient(billingConn),
 		Health:                 healthpb.NewHealthClient(conn),
 		NotificationHealth:     healthpb.NewHealthClient(notificationConn),

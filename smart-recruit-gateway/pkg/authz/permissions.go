@@ -67,6 +67,13 @@ const (
 	PermPlatformAlertManage        = "platform.alert.manage"
 	PermPlatformAuditRead          = "platform.audit.read"
 	PermPlatformUserManage         = "platform.user.manage"
+	PermPlatformAIConfigRead       = "platform.ai.config.read"
+	PermPlatformAIConfigManage     = "platform.ai.config.manage"
+	PermPlatformAIReleaseRead      = "platform.ai.release.read"
+	PermPlatformAIReleaseManage    = "platform.ai.release.manage"
+	PermPlatformAIReleasePublish   = "platform.ai.release.publish"
+	PermPlatformAIDiagnosticsRead  = "platform.ai.diagnostics.read"
+	PermPlatformAIDiagnosticsExec  = "platform.ai.diagnostics.execute"
 
 	// Offer management
 	PermOfferRead           = "offer.read"

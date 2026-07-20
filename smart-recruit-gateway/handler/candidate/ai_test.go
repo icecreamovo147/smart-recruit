@@ -178,26 +178,33 @@ func TestCandidateChatStreamIncludesContextUsage(t *testing.T) {
 	}
 }
 
-type candidateLlmConfigClient struct {
-	pb.LlmConfigServiceClient
+type candidateBillingClient struct {
+	pb.BillingServiceClient
 }
 
-func (c *candidateLlmConfigClient) ListModels(_ context.Context, _ *pb.ListModelsRequest, _ ...grpc.CallOption) (*pb.ListModelsResponse, error) {
-	return &pb.ListModelsResponse{
-		Code: 0,
-		Msg:  "success",
-		List: []*pb.LlmModelInfo{
-			{Id: 1, ModelName: "enabled-model", DisplayName: "Enabled", IsEnabled: true, IsDefault: true},
-			{Id: 2, ModelName: "disabled-model", DisplayName: "Disabled", IsEnabled: false},
-		},
+func (c *candidateBillingClient) CheckAIAccess(_ context.Context, _ *pb.CheckAIAccessRequest, _ ...grpc.CallOption) (*pb.CheckAIAccessResponse, error) {
+	return &pb.CheckAIAccessResponse{Code: 0, Msg: "success", Allowed: true, CapabilityVersionId: 77}, nil
+}
+
+type candidatePlatformAIClient struct {
+	pb.PlatformAIControlPlaneServiceClient
+}
+
+func (c *candidatePlatformAIClient) ListPlatformAIRuntimeModels(_ context.Context, req *pb.ListPlatformAIRuntimeModelsRequest, _ ...grpc.CallOption) (*pb.ListPlatformAIRuntimeModelsResponse, error) {
+	return &pb.ListPlatformAIRuntimeModelsResponse{
+		Code: 0, Msg: "success", CapabilityVersionId: req.GetCapabilityVersionId(), SnapshotHash: "snapshot-77",
+		List: []*pb.PlatformAIRuntimeModelInfo{{Id: 1, ModelName: "candidate-model", DisplayName: "Candidate", IsDefault: true}},
 	}, nil
 }
 
-func TestCandidateListAvailableModelsFiltersDisabled(t *testing.T) {
+func TestCandidateListAvailableModelsUsesPublishedCandidatePool(t *testing.T) {
 	gin.SetMode(gin.TestMode)
-	handler := NewAIHandler(&rpc.Clients{LlmConfig: &candidateLlmConfigClient{}})
+	handler := NewAIHandler(&rpc.Clients{Billing: &candidateBillingClient{}, PlatformAI: &candidatePlatformAIClient{}})
 	router := gin.New()
-	router.GET("/api/v1/candidate/ai/models", handler.ListAvailableModels)
+	router.GET("/api/v1/candidate/ai/models", func(c *gin.Context) {
+		c.Set("user_id", int64(55))
+		handler.ListAvailableModels(c)
+	})
 
 	req := httptest.NewRequest(http.MethodGet, "/api/v1/candidate/ai/models", nil)
 	rec := httptest.NewRecorder()
@@ -209,8 +216,9 @@ func TestCandidateListAvailableModelsFiltersDisabled(t *testing.T) {
 	var envelope struct {
 		Code int32 `json:"code"`
 		Data struct {
-			Total int64 `json:"total"`
-			List  []struct {
+			Total               int64 `json:"total"`
+			CapabilityVersionID int64 `json:"capability_version_id"`
+			List                []struct {
 				ID        int64  `json:"id"`
 				ModelName string `json:"model_name"`
 			} `json:"list"`
@@ -219,7 +227,7 @@ func TestCandidateListAvailableModelsFiltersDisabled(t *testing.T) {
 	if err := json.Unmarshal(rec.Body.Bytes(), &envelope); err != nil {
 		t.Fatalf("decode response: %v", err)
 	}
-	if envelope.Data.Total != 1 || len(envelope.Data.List) != 1 || envelope.Data.List[0].ID != 1 {
+	if envelope.Data.Total != 1 || len(envelope.Data.List) != 1 || envelope.Data.List[0].ID != 1 || envelope.Data.CapabilityVersionID != 77 {
 		t.Fatalf("response envelope = %#v", envelope)
 	}
 }

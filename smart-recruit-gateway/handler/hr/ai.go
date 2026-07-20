@@ -314,6 +314,10 @@ func (h *AIHandler) CreateApplicationAnalysisSession(c *gin.Context) {
 		base.BadRequest(c, "投递记录 ID 不能为空")
 		return
 	}
+	releaseVersionID := resolveTenantAICapabilityVersion(c, h.clients, "ai.application_analysis")
+	if releaseVersionID <= 0 {
+		return
+	}
 	resp, err := h.clients.AI.CreateApplicationAnalysisSession(c.Request.Context(), &pb.CreateApplicationAnalysisSessionRequest{HrId: middleware.UserID(c), ApplicationId: int64(req.ApplicationID), ModelId: int64(req.ModelID)})
 	if err != nil {
 		base.Internal(c, err)
@@ -331,7 +335,11 @@ func (h *AIHandler) AnalyzeApplication(c *gin.Context) {
 		base.BadRequest(c, "投递记录 ID 不能为空")
 		return
 	}
-	resp, err := h.clients.AI.AnalyzeApplication(c.Request.Context(), &pb.AnalyzeApplicationRequest{HrId: middleware.UserID(c), ApplicationId: int64(req.ApplicationID), ModelId: int64(req.ModelID)})
+	releaseVersionID := resolveTenantAICapabilityVersion(c, h.clients, "ai.application_analysis")
+	if releaseVersionID <= 0 {
+		return
+	}
+	resp, err := h.clients.AI.AnalyzeApplication(c.Request.Context(), &pb.AnalyzeApplicationRequest{HrId: middleware.UserID(c), ApplicationId: int64(req.ApplicationID), ModelId: int64(req.ModelID), CapabilityVersionId: releaseVersionID})
 	if err != nil {
 		base.Internal(c, err)
 		return
@@ -342,6 +350,7 @@ func (h *AIHandler) AnalyzeApplication(c *gin.Context) {
 		"job_title":      resp.JobTitle,
 		"status":         resp.Status,
 		"round_no":       resp.RoundNo,
+		"context_usage":  resp.ContextUsage,
 	})
 }
 
@@ -778,6 +787,11 @@ func mapHRContextUsage(cu *pb.ContextUsageInfo) map[string]any {
 	return gin.H{
 		"model_id":                   cu.GetModelId(),
 		"model_name":                 cu.GetModelName(),
+		"requested_model_id":         cu.GetRequestedModelId(),
+		"effective_model_id":         cu.GetEffectiveModelId(),
+		"model_fallback_reason":      cu.GetModelFallbackReason(),
+		"capability_version_id":      cu.GetCapabilityVersionId(),
+		"capability_snapshot_hash":   cu.GetCapabilitySnapshotHash(),
 		"context_window_tokens":      cu.GetContextWindowTokens(),
 		"max_output_tokens":          cu.GetMaxOutputTokens(),
 		"prompt_tokens_estimated":    cu.GetPromptTokensEstimated(),

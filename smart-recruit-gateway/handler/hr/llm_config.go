@@ -7,6 +7,7 @@ import (
 	"go.uber.org/zap"
 
 	base "smart-recruit-gateway/handler"
+	"smart-recruit-gateway/middleware"
 	"smart-recruit-gateway/pkg/logger"
 	"smart-recruit-gateway/rpc"
 	pb "smart-recruit-proto/recruitment/pb"
@@ -209,32 +210,44 @@ func (h *LlmConfigHandler) ListModels(c *gin.Context) {
 }
 
 func (h *LlmConfigHandler) ListAvailableModels(c *gin.Context) {
-	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
-	pageSize, _ := strconv.Atoi(c.DefaultQuery("page_size", "200"))
-	if pageSize <= 0 || pageSize > 200 {
-		pageSize = 200
+	access, err := h.clients.Billing.CheckAIAccess(c.Request.Context(), &pb.CheckAIAccessRequest{
+		Owner:            &pb.BillingOwner{Type: pb.BillingOwnerType_BILLING_OWNER_TYPE_TENANT, Id: middleware.TenantID(c)},
+		UserId:           middleware.UserID(c),
+		Capability:       "ai.chat",
+		EstimatedCredits: 0,
+	})
+	if err != nil {
+		logger.L().Error("resolve HR AI model entitlement failed", zap.Error(err))
+		base.Internal(c, err)
+		return
 	}
-
-	resp, err := h.clients.LlmConfig.ListModels(c.Request.Context(), &pb.ListModelsRequest{
-		Page:     int32(page),
-		PageSize: int32(pageSize),
+	if access.GetCode() != 0 || !access.GetAllowed() {
+		base.From(c, 403, access.GetReason(), nil)
+		return
+	}
+	if access.GetCapabilityVersionId() <= 0 {
+		base.From(c, 503, "AI capability release is unavailable", nil)
+		return
+	}
+	resp, err := h.clients.PlatformAI.ListPlatformAIRuntimeModels(c.Request.Context(), &pb.ListPlatformAIRuntimeModelsRequest{
+		CapabilityKey:       "ai.chat",
+		Audience:            "tenant_hr",
+		CapabilityVersionId: access.GetCapabilityVersionId(),
 	})
 	if err != nil {
 		logger.L().Error("ListAvailableModels failed", zap.Error(err))
 		base.Internal(c, err)
 		return
 	}
-
-	list := make([]gin.H, 0, len(resp.List))
-	for _, model := range resp.List {
-		if model == nil || !model.GetIsEnabled() {
-			continue
-		}
+	list := make([]gin.H, 0, len(resp.GetList()))
+	for _, model := range resp.GetList() {
 		list = append(list, gin.H{
 			"id":                    model.GetId(),
 			"model_name":            model.GetModelName(),
 			"display_name":          model.GetDisplayName(),
-			"is_enabled":            model.GetIsEnabled(),
+			"provider_id":           model.GetProviderId(),
+			"provider_name":         model.GetProviderName(),
+			"is_enabled":            true,
 			"is_default":            model.GetIsDefault(),
 			"max_tokens":            model.GetMaxTokens(),
 			"context_window_tokens": model.GetContextWindowTokens(),
@@ -242,8 +255,10 @@ func (h *LlmConfigHandler) ListAvailableModels(c *gin.Context) {
 	}
 
 	base.From(c, resp.Code, resp.Msg, gin.H{
-		"total": int64(len(list)),
-		"list":  list,
+		"total":                 int64(len(list)),
+		"list":                  list,
+		"capability_version_id": resp.GetCapabilityVersionId(),
+		"snapshot_hash":         resp.GetSnapshotHash(),
 	})
 }
 

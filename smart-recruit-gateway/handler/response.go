@@ -99,6 +99,8 @@ func PublicError(err error) ErrorInfo {
 			return ErrorInfo{Code: 404, Msg: "请求的资源不存在或已失效"}
 		case codes.AlreadyExists:
 			return ErrorInfo{Code: 409, Msg: st.Message()}
+		case codes.FailedPrecondition:
+			return ErrorInfo{Code: 409, Msg: st.Message()}
 		case codes.Internal:
 			msg := st.Message()
 			if info, ok := classifyAIError(msg); ok {
