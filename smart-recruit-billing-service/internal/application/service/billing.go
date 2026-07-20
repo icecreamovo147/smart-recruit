@@ -38,10 +38,15 @@ func NewBilling(repo repository.BillingRepository, policy AccessPolicy, mode mod
 }
 
 type AccessDecision struct {
-	Allowed bool
-	Reason  string
-	Balance model.Balance
-	Mode    model.EnforcementMode
+	Allowed             bool
+	Reason              string
+	Balance             model.Balance
+	Mode                model.EnforcementMode
+	CapabilityVersionID uint64
+}
+
+type capabilityVersionPolicy interface {
+	ReleaseVersionID(context.Context, model.Owner, string) (uint64, error)
 }
 
 func (b *Billing) CheckAccess(ctx context.Context, owner model.Owner, capability string, estimated uint64) (AccessDecision, error) {
@@ -63,6 +68,12 @@ func (b *Billing) CheckAccess(ctx context.Context, owner model.Owner, capability
 		return AccessDecision{}, fmt.Errorf("load AI credit balance: %w", err)
 	}
 	decision := AccessDecision{Allowed: true, Balance: balance, Mode: b.mode}
+	if versionPolicy, ok := b.policy.(capabilityVersionPolicy); ok {
+		decision.CapabilityVersionID, err = versionPolicy.ReleaseVersionID(ctx, owner, capability)
+		if err != nil {
+			return AccessDecision{}, fmt.Errorf("resolve AI capability release: %w", err)
+		}
+	}
 	if !enabled {
 		decision.Allowed = b.mode == model.ModeShadow
 		decision.Reason = "ai_capability_disabled"
@@ -86,11 +97,12 @@ type ReserveCommand struct {
 }
 
 type ReserveResult struct {
-	Reservation model.Reservation
-	Balance     model.Balance
-	Allowed     bool
-	Reason      string
-	Existing    bool
+	Reservation         model.Reservation
+	Balance             model.Balance
+	Allowed             bool
+	Reason              string
+	Existing            bool
+	CapabilityVersionID uint64
 }
 
 func (b *Billing) Reserve(ctx context.Context, command ReserveCommand) (ReserveResult, error) {
@@ -105,7 +117,7 @@ func (b *Billing) Reserve(ctx context.Context, command ReserveCommand) (ReserveR
 		return ReserveResult{}, err
 	}
 	if !decision.Allowed {
-		return ReserveResult{Allowed: false, Reason: decision.Reason, Balance: decision.Balance}, nil
+		return ReserveResult{Allowed: false, Reason: decision.Reason, Balance: decision.Balance, CapabilityVersionID: decision.CapabilityVersionID}, nil
 	}
 	now := b.now().UTC()
 	reservation := model.Reservation{
@@ -133,7 +145,7 @@ func (b *Billing) Reserve(ctx context.Context, command ReserveCommand) (ReserveR
 	if err != nil {
 		return ReserveResult{}, fmt.Errorf("reserve AI credits: %w", err)
 	}
-	return ReserveResult{Reservation: created, Balance: balance, Allowed: true, Existing: existing}, nil
+	return ReserveResult{Reservation: created, Balance: balance, Allowed: true, Existing: existing, CapabilityVersionID: decision.CapabilityVersionID}, nil
 }
 
 func (b *Billing) Settle(ctx context.Context, reservationNo string, usages []model.ProviderUsage, idempotencyKey string) (model.Settlement, error) {

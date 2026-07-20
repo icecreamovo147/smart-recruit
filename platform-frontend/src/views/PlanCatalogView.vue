@@ -2,15 +2,19 @@
 import { computed, onMounted, reactive, ref } from 'vue'
 import { ElMessage } from 'element-plus'
 import { listAIRateCards, listBillingProducts, listPlans, publishPlanVersion, saveAIRateCard, saveBillingPrice, savePlanVersion, type AIRateCardAdmin, type BillingProductAdmin } from '@/api/control'
+import { listPlatformAICapabilities, type PlatformAICapability } from '@/api/platformAI'
 import { PLATFORM_PERMISSIONS } from '@/permissions'
 import { useAuthStore } from '@/stores/auth'
 import type { PlatformEntitlement, PlatformPlan, PlatformPlanVersion } from '@/types'
 
 const auth = useAuthStore()
 const loading = ref(false)
+type CatalogSection = 'plans' | 'products' | 'rates'
+const activeSection = ref<CatalogSection>('plans')
 const plans = ref<PlatformPlan[]>([])
 const billingProducts = ref<BillingProductAdmin[]>([])
 const rateCards = ref<AIRateCardAdmin[]>([])
+const aiCapabilities = ref<PlatformAICapability[]>([])
 const paymentEnvironment = ref('sandbox')
 const canManage = computed(() => auth.can(PLATFORM_PERMISSIONS.PLAN_MANAGE))
 const canPublish = computed(() => auth.can(PLATFORM_PERMISSIONS.PLAN_PUBLISH))
@@ -37,19 +41,36 @@ const entitlementLabels: Record<string, string> = {
   'ai.hr.enabled': 'HR AI 总开关', 'ai.chat.enabled': 'AI 对话',
   'ai.resume_parse.enabled': '简历解析', 'ai.match_evaluation.enabled': '匹配评估',
   'ai.application_analysis.enabled': '申请分析', 'ai.agent_run.enabled': 'Agent 任务',
+  'ai.chat.release_version_id': 'AI 对话能力版本',
+  'ai.resume_parse.release_version_id': '简历解析能力版本',
+  'ai.match_evaluation.release_version_id': '匹配评估能力版本',
+  'ai.application_analysis.release_version_id': '申请分析能力版本',
+  'ai.agent_run.release_version_id': 'Agent 能力版本',
   'ai.credits.monthly': '每月 AI 额度', 'ai.concurrent_runs.max': 'AI 并发任务',
   'ai.single_run.max_credits': '单次任务额度上限',
 }
 
-const load = async () => {
+const load = async (section: CatalogSection = activeSection.value) => {
   loading.value = true
   try {
-    const [planResult, billingResult, rateResult] = await Promise.all([listPlans(), listBillingProducts(), listAIRateCards()])
-    plans.value = planResult.list || []
-    billingProducts.value = billingResult.products || []
-    paymentEnvironment.value = billingResult.payment_environment || 'sandbox'
-    rateCards.value = rateResult.rates || []
+    if (section === 'plans') {
+      const [planResult, capabilityResult] = await Promise.all([listPlans(), listPlatformAICapabilities()])
+      plans.value = planResult.list || []
+      aiCapabilities.value = (capabilityResult.list || []).filter((item) => item.audience === 'tenant_hr')
+    } else if (section === 'products') {
+      const billingResult = await listBillingProducts()
+      billingProducts.value = billingResult.products || []
+      paymentEnvironment.value = billingResult.payment_environment || 'sandbox'
+    } else {
+      const rateResult = await listAIRateCards()
+      rateCards.value = rateResult.rates || []
+    }
   } finally { loading.value = false }
+}
+
+const switchSection = (value: string | number) => {
+  activeSection.value = String(value) as CatalogSection
+  void load(activeSection.value)
 }
 
 const openRateEditor = (rate?: AIRateCardAdmin) => {
@@ -91,13 +112,7 @@ const openPriceEditor = (product: BillingProductAdmin) => {
 
 const submitPrice = async () => {
   if (!selectedBillingProduct.value || priceForm.amount_yuan <= 0 || priceForm.included_credits <= 0) return
-  const isPack = selectedBillingProduct.value.product_type === 'credit_pack'
-  const snapshot = isPack ? {} : {
-    'ai.hr.enabled': true, 'ai.chat.enabled': true, 'ai.resume_parse.enabled': true,
-    'ai.match_evaluation.enabled': true, 'ai.application_analysis.enabled': true,
-    'ai.agent_run.enabled': true, 'ai.credits.monthly': priceForm.included_credits,
-  }
-  await saveBillingPrice({ product_id: selectedBillingProduct.value.id, price_version_id: priceForm.price_version_id || undefined, billing_term: priceForm.billing_term, amount_fen: Math.round(priceForm.amount_yuan * 100), included_credits: priceForm.included_credits, entitlement_snapshot_json: JSON.stringify(snapshot), publish: priceForm.publish })
+  await saveBillingPrice({ product_id: selectedBillingProduct.value.id, price_version_id: priceForm.price_version_id || undefined, billing_term: priceForm.billing_term, amount_fen: Math.round(priceForm.amount_yuan * 100), included_credits: priceForm.included_credits, publish: priceForm.publish })
   priceVisible.value = false
   ElMessage.success(priceForm.publish ? '沙箱价格已发布' : '价格草稿已保存')
   await load()
@@ -141,9 +156,13 @@ const entitlements = (): PlatformEntitlement[] => {
     ['ai.resume_parse.enabled', form.aiResumeParse], ['ai.match_evaluation.enabled', form.aiMatchEvaluation],
     ['ai.application_analysis.enabled', form.aiApplicationAnalysis], ['ai.agent_run.enabled', form.aiAgentRun],
   ]
+  const releases: Array<[string, number]> = aiCapabilities.value
+    .filter((item) => item.current_published_version_id > 0)
+    .map((item) => [`${item.capability_key}.release_version_id`, item.current_published_version_id])
   return [
     ...integers.map(([key, value]) => ({ key, value_type: 'integer' as const, value_json: String(value), enforcement_mode: 'hard' as const })),
     ...booleans.map(([key, value]) => ({ key, value_type: 'boolean' as const, value_json: String(value), enforcement_mode: 'hard' as const })),
+    ...releases.map(([key, value]) => ({ key, value_type: 'integer' as const, value_json: String(value), enforcement_mode: 'hard' as const })),
   ]
 }
 
@@ -181,7 +200,14 @@ onMounted(load)
 
 <template>
   <section class="console-page" v-loading="loading">
-    <div class="plan-grid">
+    <header class="catalog-heading"><div><span>COMMERCIAL CONTROL PLANE</span><h1>套餐与商业化</h1><p>分别维护平台权益、对外商品价格和模型成本换算，避免不同生命周期的配置混在同一工作区。</p></div></header>
+    <el-tabs :model-value="activeSection" class="catalog-tabs" @tab-change="switchSection">
+      <el-tab-pane label="套餐版本与权益" name="plans" />
+      <el-tab-pane label="商品与价格" name="products" />
+      <el-tab-pane label="AI 模型费率" name="rates" />
+    </el-tabs>
+
+    <div v-if="activeSection === 'plans'" class="plan-grid">
       <article v-for="plan in plans" :key="plan.id" class="surface-card plan-card">
         <header><div><span class="plan-key">{{ plan.plan_key }}</span><h2>{{ plan.name }}</h2><p>{{ plan.description }}</p></div><el-tag :type="plan.status === 'active' ? 'success' : 'info'">{{ plan.status === 'active' ? '启用' : '已退役' }}</el-tag></header>
         <div class="plan-version-list">
@@ -195,9 +221,9 @@ onMounted(load)
       </article>
     </div>
 
-    <section class="surface-card billing-catalog"><header><div><h2>AI 计费商品与沙箱价格</h2><p>金额使用人民币元配置；发布后会进入 HR 或候选人购买页。已发布价格不可修改，请创建新版本。</p></div><el-tag type="warning">{{ paymentEnvironment === 'sandbox' ? '支付宝沙箱' : paymentEnvironment }}</el-tag></header><div class="billing-product-grid"><article v-for="product in billingProducts" :key="product.id"><div><strong>{{ product.name }}</strong><small>{{ product.product_key }} · {{ product.product_type }}</small></div><div v-if="product.prices[0]"><strong>¥{{ (product.prices[0].amount_fen / 100).toFixed(2) }}</strong><small>{{ product.prices[0].included_credits.toLocaleString() }} 额度 · V{{ product.prices[0].version }}</small></div><span v-else>尚未配置价格</span><el-button v-if="canManage && product.product_key !== 'candidate_free'" link type="primary" @click="openPriceEditor(product)">配置价格</el-button></article></div></section>
+    <section v-if="activeSection === 'products'" class="surface-card billing-catalog"><header><div><h2>AI 计费商品与价格</h2><p>发布后会进入 HR 或候选人购买页；已发布价格不可修改，只能创建新版本。</p></div><el-tag type="warning">{{ paymentEnvironment === 'sandbox' ? '支付宝沙箱' : paymentEnvironment }}</el-tag></header><div class="billing-product-grid"><article v-for="product in billingProducts" :key="product.id"><div><strong>{{ product.name }}</strong><small>{{ product.product_key }} · {{ product.product_type }}</small></div><div v-if="product.prices[0]"><strong>¥{{ (product.prices[0].amount_fen / 100).toFixed(2) }}</strong><small>{{ product.prices[0].included_credits.toLocaleString() }} 额度 · V{{ product.prices[0].version }}</small></div><span v-else>尚未配置价格</span><el-button v-if="canManage && product.product_key !== 'candidate_free'" link type="primary" @click="openPriceEditor(product)">配置价格</el-button></article><el-empty v-if="!billingProducts.length" description="尚未创建计费商品" /></div></section>
 
-    <section class="surface-card billing-catalog"><header><div><h2>AI 模型费率卡</h2><p>供应商成本按每千 Token 的人民币金额配置；额度换算决定用户消耗，发布新版本后旧版本自动退役。</p></div><el-button v-if="canManage" type="primary" plain @click="openRateEditor()">新增费率卡</el-button></header><div class="billing-product-grid"><article v-for="rate in rateCards" :key="rate.id"><div><strong>{{ rate.provider_key }} / {{ rate.model_key }}</strong><small>V{{ rate.version }} · {{ rate.status }}</small></div><div><strong>输入 ¥{{ (rate.input_micros_per_1k_tokens / 1_000_000).toFixed(6) }}</strong><small>输出 ¥{{ (rate.output_micros_per_1k_tokens / 1_000_000).toFixed(6) }} / 千 Token</small></div><span>1 额度 = ¥{{ (rate.credit_micros / 1_000_000).toFixed(6) }}</span><el-button v-if="canManage" link type="primary" @click="openRateEditor(rate)">创建新版本</el-button></article><el-empty v-if="!rateCards.length" description="尚未配置模型费率，强制计费模式将拒绝未知模型" /></div></section>
+    <section v-if="activeSection === 'rates'" class="surface-card billing-catalog"><header><div><h2>AI 模型费率卡</h2><p>供应商成本按每千 Token 配置；额度换算决定用户消耗，发布新版本后旧版本自动退役。</p></div><el-button v-if="canManage" type="primary" plain @click="openRateEditor()">新增费率卡</el-button></header><div class="billing-product-grid"><article v-for="rate in rateCards" :key="rate.id"><div><strong>{{ rate.provider_key }} / {{ rate.model_key }}</strong><small>V{{ rate.version }} · {{ rate.status }}</small></div><div><strong>输入 ¥{{ (rate.input_micros_per_1k_tokens / 1_000_000).toFixed(6) }}</strong><small>输出 ¥{{ (rate.output_micros_per_1k_tokens / 1_000_000).toFixed(6) }} / 千 Token</small></div><span>1 额度 = ¥{{ (rate.credit_micros / 1_000_000).toFixed(6) }}</span><el-button v-if="canManage" link type="primary" @click="openRateEditor(rate)">创建新版本</el-button></article><el-empty v-if="!rateCards.length" description="尚未配置模型费率，强制计费模式将拒绝未知模型" /></div></section>
 
     <el-dialog v-model="editorVisible" :title="`${selectedPlan?.name || ''} · ${form.version_id ? '编辑草稿' : '新建版本'}`" width="680px">
       <el-alert title="已发布版本不可修改；保存新草稿不会立即影响任何租户。" type="info" :closable="false" show-icon />
@@ -217,4 +243,4 @@ onMounted(load)
 </template>
 
 <style scoped>
-.billing-catalog{margin-top:24px;padding:24px}.billing-catalog>header{display:flex;justify-content:space-between;gap:20px;align-items:flex-start}.billing-catalog h2{margin:0 0 6px}.billing-catalog p{margin:0;color:var(--el-text-color-secondary)}.billing-product-grid{display:grid;gap:10px;margin-top:20px}.billing-product-grid article{display:grid;grid-template-columns:minmax(180px,1fr) minmax(160px,.7fr) minmax(110px,.5fr) auto;gap:16px;align-items:center;padding:14px 16px;border:1px solid var(--el-border-color-lighter);border-radius:12px}.billing-product-grid article>div{display:grid;gap:3px}.billing-product-grid small,.billing-product-grid span{color:var(--el-text-color-secondary)}@media(max-width:760px){.billing-product-grid article{grid-template-columns:1fr}.billing-catalog>header{flex-direction:column}}</style>
+.catalog-heading{margin-bottom:6px}.catalog-heading span{color:var(--el-color-primary);font-size:12px;letter-spacing:.12em}.catalog-heading h1{margin:6px 0;font-size:30px}.catalog-heading p{margin:0;color:var(--el-text-color-secondary)}.catalog-tabs{margin-bottom:18px}.billing-catalog{padding:24px}.billing-catalog>header{display:flex;justify-content:space-between;gap:20px;align-items:flex-start}.billing-catalog h2{margin:0 0 6px}.billing-catalog p{margin:0;color:var(--el-text-color-secondary)}.billing-product-grid{display:grid;gap:10px;margin-top:20px}.billing-product-grid article{display:grid;grid-template-columns:minmax(180px,1fr) minmax(160px,.7fr) minmax(110px,.5fr) auto;gap:16px;align-items:center;padding:14px 16px;border:1px solid var(--el-border-color-lighter);border-radius:12px}.billing-product-grid article>div{display:grid;gap:3px}.billing-product-grid small,.billing-product-grid span{color:var(--el-text-color-secondary)}@media(max-width:760px){.billing-product-grid article{grid-template-columns:1fr}.billing-catalog>header{flex-direction:column}}</style>

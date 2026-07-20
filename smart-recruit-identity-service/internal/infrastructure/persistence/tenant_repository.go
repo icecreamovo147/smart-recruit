@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -259,6 +260,23 @@ func (r *TenantRepository) SavePlatformPlanVersion(ctx context.Context, planID, 
 			}
 		}
 		for _, entitlement := range entitlements {
+			if strings.HasSuffix(entitlement.Key, ".release_version_id") {
+				releaseID, err := strconv.ParseInt(entitlement.ValueJSON, 10, 64)
+				if err != nil || releaseID <= 0 {
+					return errors.New("AI capability release entitlement is invalid")
+				}
+				capabilityKey := strings.TrimSuffix(entitlement.Key, ".release_version_id")
+				var count int64
+				if err := tx.Table("platform_ai_capability_versions version").
+					Joins("JOIN platform_ai_capabilities capability ON capability.id = version.capability_id").
+					Where("version.id = ? AND version.status = 'published' AND capability.status = 'active' AND capability.audience = 'tenant_hr' AND capability.capability_key = ?", releaseID, capabilityKey).
+					Count(&count).Error; err != nil {
+					return err
+				}
+				if count != 1 {
+					return errors.New("AI capability release entitlement must reference a published tenant release")
+				}
+			}
 			row := platformEntitlementRow{PlanVersionID: version.ID, EntitlementKey: entitlement.Key, ValueType: entitlement.ValueType, ValueJSON: entitlement.ValueJSON, EnforcementMode: entitlement.EnforcementMode}
 			if err := tx.Create(&row).Error; err != nil {
 				return err

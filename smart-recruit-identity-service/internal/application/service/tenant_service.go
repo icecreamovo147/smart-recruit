@@ -292,7 +292,7 @@ func (s *TenantService) UpdateEntitlementOverride(ctx context.Context, tenantID 
 	allowedKeys := platformEntitlementTypes()
 	var value int64
 	expectedType, allowed := allowedKeys[entitlement.Key]
-	if tenantID <= 0 || !allowed || expectedType != "integer" || entitlement.ValueType != "integer" || json.Unmarshal([]byte(entitlement.ValueJSON), &value) != nil || value <= 0 || (expiresAt != nil && !expiresAt.After(time.Now())) || reason == "" || len(reason) > 500 {
+	if tenantID <= 0 || !allowed || strings.HasSuffix(entitlement.Key, ".release_version_id") || expectedType != "integer" || entitlement.ValueType != "integer" || json.Unmarshal([]byte(entitlement.ValueJSON), &value) != nil || value <= 0 || (expiresAt != nil && !expiresAt.After(time.Now())) || reason == "" || len(reason) > 500 {
 		return nil, ErrTenantInvalid
 	}
 	entitlement.Source = "override"
@@ -301,19 +301,24 @@ func (s *TenantService) UpdateEntitlementOverride(ctx context.Context, tenantID 
 
 func platformEntitlementTypes() map[string]string {
 	return map[string]string{
-		"members.max":                     "integer",
-		"jobs.published.max":              "integer",
-		"applications.monthly.max":        "integer",
-		"resumes.storage.max":             "integer",
-		"ai.hr.enabled":                   "boolean",
-		"ai.chat.enabled":                 "boolean",
-		"ai.resume_parse.enabled":         "boolean",
-		"ai.match_evaluation.enabled":     "boolean",
-		"ai.application_analysis.enabled": "boolean",
-		"ai.agent_run.enabled":            "boolean",
-		"ai.credits.monthly":              "integer",
-		"ai.concurrent_runs.max":          "integer",
-		"ai.single_run.max_credits":       "integer",
+		"members.max":                                "integer",
+		"jobs.published.max":                         "integer",
+		"applications.monthly.max":                   "integer",
+		"resumes.storage.max":                        "integer",
+		"ai.hr.enabled":                              "boolean",
+		"ai.chat.enabled":                            "boolean",
+		"ai.resume_parse.enabled":                    "boolean",
+		"ai.match_evaluation.enabled":                "boolean",
+		"ai.application_analysis.enabled":            "boolean",
+		"ai.agent_run.enabled":                       "boolean",
+		"ai.chat.release_version_id":                 "integer",
+		"ai.resume_parse.release_version_id":         "integer",
+		"ai.match_evaluation.release_version_id":     "integer",
+		"ai.application_analysis.release_version_id": "integer",
+		"ai.agent_run.release_version_id":            "integer",
+		"ai.credits.monthly":                         "integer",
+		"ai.concurrent_runs.max":                     "integer",
+		"ai.single_run.max_credits":                  "integer",
 	}
 }
 
