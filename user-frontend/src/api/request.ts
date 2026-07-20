@@ -7,6 +7,10 @@ import { clearLocalAuthCache } from '@/utils/token'
 import { BusinessError } from '@/types/api'
 import { silentRefresh } from './authRefresh'
 
+interface RequestConfig extends AxiosRequestConfig {
+  silentError?: boolean
+}
+
 const http = axios.create({
   baseURL: import.meta.env.VITE_API_BASE_URL || '',
   timeout: 60000,
@@ -34,13 +38,15 @@ http.interceptors.response.use(
       const error = new BusinessError(code, friendlyBusinessMessage(code, msg), requestId)
       const resetAt = response.data?.data?.reset_at as string || ''
       const displayMsg = resetAt ? `${error.message}（${formatResetTime(resetAt)}恢复）` : error.message
-      ElMessage.error(requestId ? `${displayMsg} [${requestId.slice(0, 8)}]` : displayMsg)
+      if (!(response.config as RequestConfig).silentError) {
+        ElMessage.error(requestId ? `${displayMsg} [${requestId.slice(0, 8)}]` : displayMsg)
+      }
       return Promise.reject(error)
     }
     return data
   },
   async (error: AxiosError) => {
-    const originalRequest = error.config as AxiosRequestConfig & { _retry?: boolean }
+    const originalRequest = error.config as RequestConfig & { _retry?: boolean }
 
     // Attempt silent refresh on 401 for non-refresh requests.
     if (error.response?.status === 401 && originalRequest && !originalRequest._retry) {
@@ -77,7 +83,9 @@ http.interceptors.response.use(
     const requestId = (data?.request_id as string) || ''
     const resetAt = (data?.data as Record<string, unknown>)?.reset_at as string || ''
     const displayMsg = resetAt ? `${friendlyMessage}（${formatResetTime(resetAt)}恢复）` : friendlyMessage
-    ElMessage.error(requestId ? `${displayMsg} [${requestId.slice(0, 8)}]` : displayMsg)
+    if (!originalRequest?.silentError) {
+      ElMessage.error(requestId ? `${displayMsg} [${requestId.slice(0, 8)}]` : displayMsg)
+    }
     if (data?.code && typeof data.code === 'number') {
       return Promise.reject(new BusinessError(data.code as number, friendlyMessage, requestId))
     }
@@ -124,11 +132,11 @@ const friendlyNetworkMessage = (error: AxiosError): string => {
 // Typed request interface — the interceptor unwraps response.data,
 // so callers get T directly instead of AxiosResponse<T>.
 interface RequestInstance {
-  get<T = unknown>(url: string, config?: AxiosRequestConfig): Promise<T>
-  post<T = unknown>(url: string, data?: unknown, config?: AxiosRequestConfig): Promise<T>
-  put<T = unknown>(url: string, data?: unknown, config?: AxiosRequestConfig): Promise<T>
-  patch<T = unknown>(url: string, data?: unknown, config?: AxiosRequestConfig): Promise<T>
-  delete<T = unknown>(url: string, config?: AxiosRequestConfig): Promise<T>
+  get<T = unknown>(url: string, config?: RequestConfig): Promise<T>
+  post<T = unknown>(url: string, data?: unknown, config?: RequestConfig): Promise<T>
+  put<T = unknown>(url: string, data?: unknown, config?: RequestConfig): Promise<T>
+  patch<T = unknown>(url: string, data?: unknown, config?: RequestConfig): Promise<T>
+  delete<T = unknown>(url: string, config?: RequestConfig): Promise<T>
 }
 
 const formatResetTime = (resetAt: string): string => {

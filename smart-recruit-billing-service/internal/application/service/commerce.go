@@ -27,55 +27,96 @@ type AlipayGateway interface {
 	VerifyNotification(map[string]string) error
 	Refund(context.Context, string, string, string, uint64, time.Time) (string, error)
 	Query(context.Context, string, time.Time) (payment.QueryResult, error)
+	Close(context.Context, string, time.Time) error
+}
+
+const billingOrderPaymentWindow = 30 * time.Minute
+
+var (
+	ErrPendingBillingOrder     = errors.New("an unpaid billing order already exists")
+	ErrBillingOrderExpired     = errors.New("billing order has expired")
+	ErrBillingOrderNotPayable  = errors.New("billing order cannot be paid")
+	ErrBillingPaymentCompleted = errors.New("billing payment already completed")
+	ErrBillingPaymentPending   = errors.New("billing payment is still pending")
+)
+
+type alipayCloseResolution uint8
+
+const (
+	alipayTradeClosed alipayCloseResolution = iota
+	alipayTradePaid
+)
+
+// resolveAlipayCloseFailure handles the sandbox's inconsistent close surface.
+// A missing trade means the generated cashier URL never created a channel
+// trade, so the local attempt is safe to close and replace.
+func resolveAlipayCloseFailure(closeErr error, result payment.QueryResult, queryErr error) (alipayCloseResolution, error) {
+	if payment.IsTradeNotExist(queryErr) {
+		return alipayTradeClosed, nil
+	}
+	if queryErr != nil {
+		return alipayTradeClosed, fmt.Errorf("close Alipay trade: %v; verify status: %w", closeErr, queryErr)
+	}
+	switch result.TradeStatus {
+	case "TRADE_SUCCESS", "TRADE_FINISHED":
+		return alipayTradePaid, nil
+	case "TRADE_CLOSED":
+		return alipayTradeClosed, nil
+	default:
+		return alipayTradeClosed, fmt.Errorf("close Alipay trade: %w (status %s)", closeErr, result.TradeStatus)
+	}
 }
 
 func (s *Commerce) ReconcilePendingPayments(ctx context.Context, limit int) error {
 	if limit <= 0 || limit > 500 {
 		limit = 100
 	}
-	var orders []commerceOrderRow
-	if err := s.db.WithContext(ctx).Table("billing_orders").Where("status = 'paying' AND payment_environment = ?", s.Environment()).Order("created_at").Limit(limit).Find(&orders).Error; err != nil {
+	type attemptRow struct {
+		PaymentID, OrderID         uint64
+		MerchantOrderNo, PaymentNo string
+		AmountFen                  uint64
+		ExpiresAt                  time.Time
+	}
+	var attempts []attemptRow
+	if err := s.db.WithContext(ctx).Raw(`SELECT payment.id payment_id, payment.order_id, payment.merchant_order_no, payment.payment_no, payment.amount_fen, orders.expires_at
+		FROM billing_payments payment JOIN billing_orders orders ON orders.id = payment.order_id
+		WHERE payment.status = 'pending' AND payment.payment_environment = ? AND orders.status = 'paying'
+		ORDER BY payment.created_at LIMIT ?`, s.Environment(), limit).Scan(&attempts).Error; err != nil {
 		return err
 	}
-	for _, order := range orders {
-		result, err := s.alipay.Query(ctx, order.OrderNo, s.now())
+	for _, attempt := range attempts {
+		result, err := s.alipay.Query(ctx, attempt.MerchantOrderNo, s.now())
 		if err != nil {
 			continue
 		}
 		if result.TradeStatus != "TRADE_SUCCESS" && result.TradeStatus != "TRADE_FINISHED" {
+			if !attempt.ExpiresAt.After(s.now().UTC()) {
+				_ = s.alipay.Close(ctx, attempt.MerchantOrderNo, s.now())
+			}
 			continue
 		}
-		if result.AmountFen != order.AmountFen {
+		if result.AmountFen != attempt.AmountFen {
 			continue
 		}
 		now := s.now().UTC()
 		payload, _ := json.Marshal(result)
 		digest := sha256.Sum256(payload)
 		eventKey := "query:" + result.TradeNo + ":" + result.TradeStatus
-		_ = s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-			var locked commerceOrderRow
-			if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).Table("billing_orders").Where("id = ?", order.ID).Scan(&locked).Error; err != nil {
+		if err := s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+			// MySQL requires conflict target columns; bare DoNothing emits invalid
+			// `ON DUPLICATE KEY UPDATE` with an empty assignment list.
+			if err := tx.Table("billing_webhook_events").Clauses(clause.OnConflict{
+				Columns:   []clause.Column{{Name: "channel"}, {Name: "payment_environment"}, {Name: "event_key"}},
+				DoNothing: true,
+			}).Create(map[string]any{"channel": "alipay", "payment_environment": s.Environment(), "event_key": eventKey, "event_type": "active_query", "signature_verified": false, "payload_sha256": hex.EncodeToString(digest[:]), "payload": string(payload), "status": "processed", "processed_at": now, "created_at": now}).Error; err != nil {
 				return err
 			}
-			if locked.Status == "paid" {
-				return nil
-			}
-			if locked.Status != "paying" {
-				return nil
-			}
-			if err := tx.Table("billing_webhook_events").Clauses(clause.OnConflict{DoNothing: true}).Create(map[string]any{"channel": "alipay", "payment_environment": s.Environment(), "event_key": eventKey, "event_type": "active_query", "signature_verified": false, "payload_sha256": hex.EncodeToString(digest[:]), "payload": string(payload), "status": "processed", "processed_at": now, "created_at": now}).Error; err != nil {
-				return err
-			}
-			if err := tx.Table("billing_payments").Where("order_id = ? AND payment_environment = ?", locked.ID, s.Environment()).Updates(map[string]any{"status": "succeeded", "channel_trade_no": result.TradeNo, "paid_at": now, "updated_at": now}).Error; err != nil {
-				return err
-			}
-			if err := tx.Table("billing_orders").Where("id = ?", locked.ID).Updates(map[string]any{"status": "paid", "paid_at": now, "updated_at": now}).Error; err != nil {
-				return err
-			}
-			return s.activateOrder(ctx, tx, locked, now)
-		})
+			return s.settlePaymentTx(ctx, tx, attempt.PaymentID, result.TradeNo, result.AmountFen, now)
+		}); err != nil {
+			return fmt.Errorf("reconcile Alipay payment %s: %w", attempt.MerchantOrderNo, err)
+		}
 	}
-	return s.db.WithContext(ctx).Table("billing_orders").Where("status IN ('pending','paying') AND expires_at <= ?", s.now().UTC()).Updates(map[string]any{"status": "closed", "closed_at": s.now().UTC(), "updated_at": s.now().UTC()}).Error
+	return s.closeExpiredOrders(ctx, nil)
 }
 
 type Commerce struct {
@@ -194,18 +235,31 @@ func (s *Commerce) SavePriceVersion(ctx context.Context, productID, priceVersion
 	now := s.now().UTC()
 	var result pb.BillingPriceInfo
 	err := s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-		var productType string
-		if err := tx.Table("billing_products").Where("id = ?", productID).Select("product_type").Scan(&productType).Error; err != nil {
+		var product struct {
+			ProductKey  string
+			OwnerType   string
+			ProductType string
+		}
+		if err := tx.Table("billing_products").Where("id = ?", productID).Select("product_key, owner_type, product_type").Scan(&product).Error; err != nil {
 			return err
 		}
-		if productType == "" {
+		if product.ProductType == "" {
 			return gorm.ErrRecordNotFound
 		}
-		if productType == "credit_pack" && term != "one_time" {
+		if product.ProductType == "credit_pack" && term != "one_time" {
 			return errors.New("credit packs must use one_time billing")
 		}
-		if productType == "subscription" && term == "one_time" {
+		if product.ProductType == "subscription" && term == "one_time" {
 			return errors.New("subscriptions must use monthly or yearly billing")
+		}
+		if product.ProductType == "subscription" {
+			generated, err := buildPublishedSubscriptionSnapshot(tx, product.ProductKey, product.OwnerType, credits)
+			if err != nil {
+				return err
+			}
+			snapshot = generated
+		} else {
+			snapshot = `{}`
 		}
 		statusValue := "draft"
 		var effectiveAt any = nil
@@ -261,6 +315,64 @@ func (s *Commerce) SavePriceVersion(ctx context.Context, productID, priceVersion
 		return nil
 	})
 	return &result, err
+}
+
+// buildPublishedSubscriptionSnapshot makes the server the only authority that
+// binds a sellable subscription price to immutable AI capability releases.
+// The admin UI therefore cannot accidentally publish stale or arbitrary JSON.
+func buildPublishedSubscriptionSnapshot(tx *gorm.DB, productKey, ownerType string, credits uint64) (string, error) {
+	snapshot := map[string]json.RawMessage{}
+	if ownerType == "tenant" {
+		planKey := strings.TrimPrefix(productKey, "tenant_")
+		type entitlementRow struct {
+			EntitlementKey string
+			ValueJSON      string
+		}
+		var rows []entitlementRow
+		err := tx.Raw(`
+			SELECT entitlement.entitlement_key, CAST(entitlement.value_json AS CHAR) value_json
+			FROM platform_plan_versions version
+			JOIN platform_plans plan ON plan.id = version.plan_id
+			JOIN platform_plan_entitlements entitlement ON entitlement.plan_version_id = version.id
+			WHERE plan.plan_key = ? AND version.status = 'published'
+			  AND version.version = (
+			    SELECT MAX(latest.version)
+			    FROM platform_plan_versions latest
+			    WHERE latest.plan_id = version.plan_id AND latest.status = 'published'
+			  )`, planKey).Scan(&rows).Error
+		if err != nil {
+			return "", err
+		}
+		if len(rows) == 0 {
+			return "", fmt.Errorf("no published platform plan found for product %s", productKey)
+		}
+		for _, row := range rows {
+			if !json.Valid([]byte(row.ValueJSON)) {
+				return "", fmt.Errorf("invalid entitlement %s in published platform plan", row.EntitlementKey)
+			}
+			snapshot[row.EntitlementKey] = json.RawMessage(row.ValueJSON)
+		}
+	} else if ownerType == "user" {
+		var releaseID uint64
+		err := tx.Raw(`
+			SELECT current_published_version_id
+			FROM platform_ai_capabilities
+			WHERE capability_key = 'ai.chat' AND audience = 'candidate' AND status = 'active'
+			LIMIT 1`).Scan(&releaseID).Error
+		if err != nil {
+			return "", err
+		}
+		if releaseID == 0 {
+			return "", errors.New("candidate AI capability has no published release")
+		}
+		snapshot["ai.chat.enabled"] = json.RawMessage("true")
+		snapshot["ai.chat.release_version_id"] = json.RawMessage(strconv.FormatUint(releaseID, 10))
+	} else {
+		return "", fmt.Errorf("unsupported subscription owner type %s", ownerType)
+	}
+	snapshot["ai.credits.monthly"] = json.RawMessage(strconv.FormatUint(credits, 10))
+	encoded, err := json.Marshal(snapshot)
+	return string(encoded), err
 }
 
 func (s *Commerce) ListRateCards(ctx context.Context) ([]*pb.AIRateCardInfo, error) {
@@ -335,25 +447,229 @@ func (s *Commerce) CurrentSubscription(ctx context.Context, owner model.Owner) (
 	type row struct {
 		ID                                    int64
 		ProductKey, ProductName, Status, Term string
+		IncludedCredits                       int64
 		Start, End                            time.Time
 		Cancel                                bool
 	}
 	var value row
 	err := s.db.WithContext(ctx).Raw(`SELECT subscription.id, product.product_key, product.name product_name, subscription.status, subscription.term,
+		price.included_credits,
 		subscription.current_period_start start, subscription.current_period_end end, subscription.cancel_at_period_end cancel
-		FROM billing_subscriptions subscription JOIN billing_products product ON product.id = subscription.product_id
+		FROM billing_subscriptions subscription
+		JOIN billing_products product ON product.id = subscription.product_id
+		JOIN billing_price_versions price ON price.id = subscription.price_version_id
 		WHERE subscription.owner_type = ? AND subscription.owner_id = ? AND subscription.status = 'active'
 		ORDER BY subscription.current_period_end DESC, subscription.id DESC LIMIT 1`, owner.Type, owner.ID).Scan(&value).Error
 	if err != nil {
 		return nil, err
 	}
-	if value.ID == 0 {
+	if value.ID > 0 {
+		return &pb.BillingSubscriptionInfo{
+			Id: value.ID, ProductKey: value.ProductKey, ProductName: value.ProductName,
+			Status: value.Status, Term: value.Term, CurrentPeriodStartUnixMs: value.Start.UnixMilli(),
+			CurrentPeriodEndUnixMs: value.End.UnixMilli(), CancelAtPeriodEnd: value.Cancel,
+			Source: "paid_subscription", IncludedCredits: value.IncludedCredits,
+		}, nil
+	}
+
+	if owner.Type == model.OwnerTenant {
+		type tenantPlanRow struct {
+			ID                      int64
+			ProductKey, ProductName string
+			Status                  string
+			IncludedCredits         int64
+			Start                   time.Time
+			End                     *time.Time
+		}
+		var plan tenantPlanRow
+		err = s.db.WithContext(ctx).Raw(`SELECT subscription.id, plan.plan_key product_key, plan.name product_name,
+			subscription.status, subscription.starts_at start, subscription.ends_at end,
+			COALESCE(CAST(JSON_UNQUOTE(entitlement.value_json) AS SIGNED), 0) included_credits
+			FROM tenant_subscriptions subscription
+			JOIN platform_plan_versions version ON version.id = subscription.plan_version_id
+			JOIN platform_plans plan ON plan.id = version.plan_id
+			LEFT JOIN platform_plan_entitlements entitlement
+			  ON entitlement.plan_version_id = version.id AND entitlement.entitlement_key = 'ai.credits.monthly'
+			WHERE subscription.tenant_id = ? AND subscription.status = 'active'
+			  AND subscription.starts_at <= UTC_TIMESTAMP(3)
+			  AND (subscription.ends_at IS NULL OR subscription.ends_at > UTC_TIMESTAMP(3))
+			ORDER BY subscription.starts_at DESC, subscription.id DESC LIMIT 1`, owner.ID).Scan(&plan).Error
+		if err != nil {
+			return nil, err
+		}
+		if plan.ID == 0 {
+			return nil, nil
+		}
+		result := &pb.BillingSubscriptionInfo{
+			Id: plan.ID, ProductKey: plan.ProductKey, ProductName: plan.ProductName,
+			Status: plan.Status, Term: "monthly", CurrentPeriodStartUnixMs: plan.Start.UnixMilli(),
+			Source: "platform_plan", IncludedCredits: plan.IncludedCredits,
+		}
+		if plan.End != nil {
+			result.CurrentPeriodEndUnixMs = plan.End.UnixMilli()
+		}
+		return result, nil
+	}
+
+	type freeTierRow struct {
+		ID                                    int64
+		ProductKey, ProductName, Status, Term string
+		IncludedCredits                       int64
+	}
+	var freeTier freeTierRow
+	err = s.db.WithContext(ctx).Raw(`SELECT price.id, product.product_key, product.name product_name,
+		'active' status, price.billing_term term, price.included_credits
+		FROM billing_products product
+		JOIN billing_price_versions price ON price.product_id = product.id
+		WHERE product.product_key = 'candidate_free' AND product.owner_type = 'user'
+		  AND product.status = 'active' AND price.status = 'published'
+		  AND price.effective_at <= UTC_TIMESTAMP(3)
+		  AND (price.retired_at IS NULL OR price.retired_at > UTC_TIMESTAMP(3))
+		ORDER BY price.version DESC LIMIT 1`).Scan(&freeTier).Error
+	if err != nil {
+		return nil, err
+	}
+	if freeTier.ID == 0 {
 		return nil, nil
 	}
-	return &pb.BillingSubscriptionInfo{Id: value.ID, ProductKey: value.ProductKey, ProductName: value.ProductName, Status: value.Status, Term: value.Term, CurrentPeriodStartUnixMs: value.Start.UnixMilli(), CurrentPeriodEndUnixMs: value.End.UnixMilli(), CancelAtPeriodEnd: value.Cancel}, nil
+	start, end := shanghaiBillingMonth(s.now())
+	return &pb.BillingSubscriptionInfo{
+		Id: freeTier.ID, ProductKey: freeTier.ProductKey, ProductName: freeTier.ProductName,
+		Status: freeTier.Status, Term: freeTier.Term, CurrentPeriodStartUnixMs: start.UnixMilli(),
+		CurrentPeriodEndUnixMs: end.UnixMilli(), Source: "free_tier", IncludedCredits: freeTier.IncludedCredits,
+	}, nil
+}
+
+// CurrentCreditSummary returns gross and consumed credits for the currently
+// active grant buckets. Reservations are deliberately excluded from consumed
+// credits because they have not been settled yet.
+func (s *Commerce) CurrentCreditSummary(ctx context.Context, owner model.Owner) (total, used int64, err error) {
+	type row struct {
+		Total     int64
+		Remaining int64
+	}
+	var value row
+	err = s.db.WithContext(ctx).Raw(`SELECT
+		COALESCE(SUM(total_credits), 0) total,
+		COALESCE(SUM(remaining_credits), 0) remaining
+		FROM ai_credit_grants
+		WHERE owner_type = ? AND owner_id = ? AND status = 'active'
+		  AND valid_from <= UTC_TIMESTAMP(3)
+		  AND (expires_at IS NULL OR expires_at > UTC_TIMESTAMP(3))`, owner.Type, owner.ID).Scan(&value).Error
+	if err != nil {
+		return 0, 0, err
+	}
+	used = value.Total - value.Remaining
+	if used < 0 {
+		used = 0
+	}
+	return value.Total, used, nil
+}
+
+func (s *Commerce) NextRefreshAt(subscription *pb.BillingSubscriptionInfo) int64 {
+	if subscription == nil {
+		return 0
+	}
+	_, end := shanghaiBillingMonth(s.now())
+	if subscription.CurrentPeriodEndUnixMs > 0 && subscription.CurrentPeriodEndUnixMs < end.UnixMilli() {
+		return subscription.CurrentPeriodEndUnixMs
+	}
+	return end.UnixMilli()
+}
+
+func shanghaiBillingMonth(now time.Time) (time.Time, time.Time) {
+	location, err := time.LoadLocation("Asia/Shanghai")
+	if err != nil {
+		location = time.FixedZone("Asia/Shanghai", 8*60*60)
+	}
+	local := now.In(location)
+	start := time.Date(local.Year(), local.Month(), 1, 0, 0, 0, 0, location)
+	return start.UTC(), start.AddDate(0, 1, 0).UTC()
+}
+
+// closeExpiredOrders synchronously projects the time-based order state before
+// reads and payment attempts. The maintenance loop remains the safety net, but
+// callers never have to wait for its next cycle to observe a closed order.
+func (s *Commerce) closeExpiredOrders(ctx context.Context, owner *model.Owner) error {
+	now := s.now().UTC()
+	return s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		query := tx.Table("billing_orders").Where("status IN ('pending','paying') AND expires_at <= ?", now)
+		if owner != nil {
+			query = query.Where("owner_type = ? AND owner_id = ?", owner.Type, owner.ID)
+		}
+		var orderIDs []uint64
+		if err := query.Pluck("id", &orderIDs).Error; err != nil {
+			return err
+		}
+		if len(orderIDs) == 0 {
+			return nil
+		}
+		if err := tx.Table("billing_payments").Where("order_id IN ? AND status IN ('created','pending')", orderIDs).
+			Updates(map[string]any{"status": "closed", "closed_at": now, "updated_at": now}).Error; err != nil {
+			return err
+		}
+		return tx.Table("billing_orders").Where("id IN ? AND status IN ('pending','paying')", orderIDs).
+			Updates(map[string]any{"status": "closed", "closed_at": now, "updated_at": now}).Error
+	})
+}
+
+// closePendingOrder replaces one unpaid order only after its live Alipay
+// attempts have been closed. If Alipay reports that an attempt already paid,
+// settlement wins and replacement is rejected to avoid duplicate entitlement.
+func (s *Commerce) closePendingOrder(ctx context.Context, owner model.Owner, orderID uint64) error {
+	type attemptRow struct {
+		ID              uint64
+		MerchantOrderNo string
+	}
+	var attempts []attemptRow
+	if err := s.db.WithContext(ctx).Table("billing_payments").Select("id, merchant_order_no").
+		Where("order_id = ? AND payment_environment = ? AND status IN ('created','pending')", orderID, s.Environment()).
+		Order("created_at DESC").Find(&attempts).Error; err != nil {
+		return err
+	}
+	for _, attempt := range attempts {
+		if strings.TrimSpace(attempt.MerchantOrderNo) == "" {
+			continue
+		}
+		if err := s.alipay.Close(ctx, attempt.MerchantOrderNo, s.now()); err != nil {
+			result, queryErr := s.alipay.Query(ctx, attempt.MerchantOrderNo, s.now())
+			resolution, resolveErr := resolveAlipayCloseFailure(err, result, queryErr)
+			if resolveErr != nil {
+				return fmt.Errorf("close Alipay trade before replacing order: %w", resolveErr)
+			}
+			if resolution == alipayTradePaid {
+				now := s.now().UTC()
+				if settleErr := s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+					return s.settlePaymentTx(ctx, tx, attempt.ID, result.TradeNo, result.AmountFen, now)
+				}); settleErr != nil {
+					return settleErr
+				}
+				return ErrBillingPaymentCompleted
+			}
+		}
+	}
+	now := s.now().UTC()
+	return s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		if err := tx.Table("billing_payments").Where("order_id = ? AND status IN ('created','pending')", orderID).
+			Updates(map[string]any{"status": "closed", "closed_at": now, "updated_at": now}).Error; err != nil {
+			return err
+		}
+		closed := tx.Table("billing_orders").Where("id = ? AND owner_type = ? AND owner_id = ? AND status IN ('pending','paying')", orderID, owner.Type, owner.ID).
+			Updates(map[string]any{"status": "closed", "closed_at": now, "updated_at": now})
+		if closed.Error != nil {
+			return closed.Error
+		}
+		if closed.RowsAffected != 1 {
+			return ErrBillingOrderNotPayable
+		}
+		return nil
+	})
 }
 
 func (s *Commerce) ListOrders(ctx context.Context, owner model.Owner, page, pageSize int32) ([]*pb.BillingOrderInfo, int64, error) {
+	if err := s.closeExpiredOrders(ctx, &owner); err != nil {
+		return nil, 0, err
+	}
 	if page < 1 {
 		page = 1
 	}
@@ -388,7 +704,7 @@ func (s *Commerce) ListOrders(ctx context.Context, owner model.Owner, page, page
 	return result, total, nil
 }
 
-func (s *Commerce) CreateOrder(ctx context.Context, owner model.Owner, actorUserID, priceVersionID uint64, orderType, idempotencyKey string) (*pb.BillingOrderInfo, error) {
+func (s *Commerce) CreateOrder(ctx context.Context, owner model.Owner, actorUserID, priceVersionID uint64, orderType, idempotencyKey string, replacePendingOrder bool) (*pb.BillingOrderInfo, error) {
 	if err := owner.Validate(); err != nil {
 		return nil, err
 	}
@@ -397,6 +713,18 @@ func (s *Commerce) CreateOrder(ctx context.Context, owner model.Owner, actorUser
 	}
 	if orderType != "subscribe" && orderType != "renew" && orderType != "upgrade" && orderType != "credit_pack" {
 		return nil, errors.New("invalid billing order type")
+	}
+	now := s.now().UTC()
+	if err := s.closeExpiredOrders(ctx, &owner); err != nil {
+		return nil, err
+	}
+	if existing, err := s.getOrderByIdempotency(ctx, owner, idempotencyKey); err == nil {
+		if existing.PriceVersionId != int64(priceVersionID) || existing.OrderType != orderType {
+			return nil, errors.New("idempotency key was already used for another billing order")
+		}
+		return existing, nil
+	} else if !errors.Is(err, gorm.ErrRecordNotFound) {
+		return nil, err
 	}
 	type priceRow struct {
 		ProductID                                                              uint64
@@ -419,14 +747,24 @@ func (s *Commerce) CreateOrder(ctx context.Context, owner model.Owner, actorUser
 	if (orderType == "credit_pack") != (price.ProductType == "credit_pack") {
 		return nil, errors.New("order type does not match product")
 	}
-	now := s.now().UTC()
-	if price.ProductType == "subscription" {
-		var openOrderCount int64
-		if err := s.db.WithContext(ctx).Table("billing_orders").Where("owner_type = ? AND owner_id = ? AND order_type IN ('subscribe','renew','upgrade') AND status IN ('pending','paying') AND expires_at > ?", owner.Type, owner.ID, now).Count(&openOrderCount).Error; err != nil {
-			return nil, err
-		}
-		if openOrderCount > 0 {
-			return nil, errors.New("an unpaid subscription order already exists")
+	type openOrderRow struct {
+		ID                                                                         uint64
+		OrderNo, OrderType, ProductKey, ProductName, Currency, Status, Environment string
+		PriceVersionID, AmountFen                                                  int64
+		ExpiresAt, CreatedAt                                                       time.Time
+	}
+	var openOrder openOrderRow
+	if err := s.db.WithContext(ctx).Raw(`SELECT orders.id, orders.order_no, orders.order_type, product.product_key, product.name product_name,
+		orders.price_version_id, orders.amount_fen, orders.currency, orders.status, orders.payment_environment environment,
+		orders.expires_at, orders.created_at
+		FROM billing_orders orders JOIN billing_products product ON product.id = orders.product_id
+		WHERE orders.owner_type = ? AND orders.owner_id = ? AND orders.status IN ('pending','paying') AND orders.expires_at > ?
+		ORDER BY orders.created_at DESC LIMIT 1`, owner.Type, owner.ID, now).Scan(&openOrder).Error; err != nil {
+		return nil, err
+	}
+	if openOrder.ID > 0 {
+		if !replacePendingOrder {
+			return nil, ErrPendingBillingOrder
 		}
 	}
 	amountFen := price.AmountFen
@@ -479,8 +817,14 @@ func (s *Commerce) CreateOrder(ctx context.Context, owner model.Owner, actorUser
 			}
 		}
 	}
+	if openOrder.ID > 0 {
+		if err := s.closePendingOrder(ctx, owner, openOrder.ID); err != nil {
+			return nil, err
+		}
+	}
 	orderNo := "B" + now.Format("20060102150405") + strings.ToUpper(strings.ReplaceAll(uuid.NewString(), "-", "")[:12])
-	row := map[string]any{"order_no": orderNo, "owner_type": owner.Type, "owner_id": owner.ID, "order_type": orderType, "product_id": price.ProductID, "price_version_id": priceVersionID, "amount_fen": amountFen, "currency": price.Currency, "status": "pending", "payment_environment": s.Environment(), "idempotency_key": idempotencyKey, "expires_at": now.Add(30 * time.Minute), "created_at": now, "updated_at": now}
+	expiresAt := now.Add(billingOrderPaymentWindow)
+	row := map[string]any{"order_no": orderNo, "owner_type": owner.Type, "owner_id": owner.ID, "order_type": orderType, "product_id": price.ProductID, "price_version_id": priceVersionID, "amount_fen": amountFen, "currency": price.Currency, "status": "pending", "payment_environment": s.Environment(), "idempotency_key": idempotencyKey, "expires_at": expiresAt, "created_at": now, "updated_at": now}
 	err := s.db.WithContext(ctx).Table("billing_orders").Create(row).Error
 	if errors.Is(err, gorm.ErrDuplicatedKey) {
 		return s.getOrderByIdempotency(ctx, owner, idempotencyKey)
@@ -488,7 +832,7 @@ func (s *Commerce) CreateOrder(ctx context.Context, owner model.Owner, actorUser
 	if err != nil {
 		return nil, err
 	}
-	return orderProto(orderNo, orderType, price.ProductKey, price.ProductName, price.Currency, "pending", s.Environment(), int64(priceVersionID), int64(amountFen), now.Add(30*time.Minute), nil, now), nil
+	return orderProto(orderNo, orderType, price.ProductKey, price.ProductName, price.Currency, "pending", s.Environment(), int64(priceVersionID), int64(amountFen), expiresAt, nil, now), nil
 }
 
 func (s *Commerce) CreatePayment(ctx context.Context, owner model.Owner, orderNo, scene string) (string, string, error) {
@@ -504,24 +848,185 @@ func (s *Commerce) CreatePayment(ctx context.Context, owner model.Owner, orderNo
 		WHERE orders.order_no = ? AND orders.owner_type = ? AND orders.owner_id = ?`, orderNo, owner.Type, owner.ID).Scan(&order).Error; err != nil {
 		return "", "", err
 	}
-	if order.ID == 0 || order.Status != "pending" || !order.ExpiresAt.After(s.now().UTC()) || order.Environment != s.Environment() {
-		return "", "", errors.New("billing order cannot be paid")
+	if order.ID == 0 || (order.Status != "pending" && order.Status != "paying") || order.Environment != s.Environment() {
+		return "", "", ErrBillingOrderNotPayable
 	}
+	if !order.ExpiresAt.After(s.now().UTC()) {
+		if err := s.closeExpiredOrders(ctx, &owner); err != nil {
+			return "", "", err
+		}
+		return "", "", ErrBillingOrderExpired
+	}
+	type existingAttemptRow struct {
+		ID              uint64
+		PaymentNo       string
+		MerchantOrderNo string
+		CreatedAt       time.Time
+	}
+	var existing existingAttemptRow
+	if order.Status == "paying" {
+		if err := s.db.WithContext(ctx).Table("billing_payments").Select("id, payment_no, merchant_order_no, created_at").
+			Where("order_id = ? AND payment_environment = ? AND status = 'pending'", order.ID, s.Environment()).
+			Order("created_at DESC").Limit(1).Scan(&existing).Error; err != nil {
+			return "", "", err
+		}
+		if existing.ID == 0 || strings.TrimSpace(existing.MerchantOrderNo) == "" {
+			return "", "", errors.New("billing payment cannot be resumed")
+		}
+		if existing.CreatedAt.Add(30 * time.Minute).After(s.now().UTC()) {
+			closeErr := s.alipay.Close(ctx, existing.MerchantOrderNo, s.now())
+			if closeErr != nil {
+				result, queryErr := s.alipay.Query(ctx, existing.MerchantOrderNo, s.now())
+				resolution, resolveErr := resolveAlipayCloseFailure(closeErr, result, queryErr)
+				if resolveErr != nil {
+					return "", "", fmt.Errorf("close previous Alipay trade: %w", resolveErr)
+				}
+				if resolution == alipayTradePaid {
+					now := s.now().UTC()
+					if err := s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+						return s.settlePaymentTx(ctx, tx, existing.ID, result.TradeNo, result.AmountFen, now)
+					}); err != nil {
+						return "", "", err
+					}
+					return "", "", ErrBillingPaymentCompleted
+				}
+			}
+		}
+	}
+	now := s.now().UTC()
 	paymentNo := "P" + strings.ToUpper(strings.ReplaceAll(uuid.NewString(), "-", ""))[:24]
-	redirectURL, err := s.alipay.PayURL(payment.PayRequest{OrderNo: order.OrderNo, Subject: order.ProductName, Scene: scene, AmountFen: order.AmountFen}, s.now())
+	redirectURL, err := s.alipay.PayURL(payment.PayRequest{OrderNo: paymentNo, Subject: order.ProductName, Scene: scene, AmountFen: order.AmountFen, ExpiresAt: order.ExpiresAt}, now)
 	if err != nil {
 		return "", "", err
 	}
-	create := map[string]any{"order_id": order.ID, "payment_no": paymentNo, "channel": "alipay", "scene": scene, "payment_environment": s.Environment(), "amount_fen": order.AmountFen, "currency": "CNY", "status": "pending", "pay_payload": redirectURL, "created_at": s.now().UTC(), "updated_at": s.now().UTC()}
+	create := map[string]any{"order_id": order.ID, "payment_no": paymentNo, "merchant_order_no": paymentNo, "channel": "alipay", "scene": scene, "payment_environment": s.Environment(), "amount_fen": order.AmountFen, "currency": "CNY", "status": "pending", "pay_payload": redirectURL, "created_at": now, "updated_at": now}
 	if err := s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		if existing.ID > 0 {
+			closed := tx.Table("billing_payments").Where("id = ? AND status = 'pending'", existing.ID).
+				Updates(map[string]any{"status": "closed", "closed_at": now, "updated_at": now})
+			if closed.Error != nil {
+				return closed.Error
+			}
+			if closed.RowsAffected != 1 {
+				return errors.New("previous billing payment changed while retrying")
+			}
+		}
 		if err := tx.Table("billing_payments").Create(create).Error; err != nil {
 			return err
 		}
-		return tx.Table("billing_orders").Where("id = ? AND status = 'pending'", order.ID).Update("status", "paying").Error
+		updated := tx.Table("billing_orders").Where("id = ? AND status IN ('pending','paying') AND expires_at > ?", order.ID, now).
+			Updates(map[string]any{"status": "paying", "updated_at": now})
+		if updated.Error != nil {
+			return updated.Error
+		}
+		if updated.RowsAffected != 1 {
+			return errors.New("billing order changed while creating payment")
+		}
+		return nil
 	}); err != nil {
 		return "", "", err
 	}
 	return paymentNo, redirectURL, nil
+}
+
+// SyncPayment confirms an Alipay sandbox payment for return_url / resume flows.
+// It queries the channel trade and settles locally when TRADE_SUCCESS/FINISHED.
+func (s *Commerce) SyncPayment(ctx context.Context, owner model.Owner, orderNo string) (string, error) {
+	type orderRow struct {
+		ID          uint64
+		Status      string
+		Environment string `gorm:"column:payment_environment"`
+		AmountFen   uint64
+	}
+	var order orderRow
+	if err := s.db.WithContext(ctx).Raw(`SELECT id, status, payment_environment, amount_fen
+		FROM billing_orders WHERE order_no = ? AND owner_type = ? AND owner_id = ?`, orderNo, owner.Type, owner.ID).Scan(&order).Error; err != nil {
+		return "", err
+	}
+	if order.ID == 0 || order.Environment != s.Environment() {
+		return "", ErrBillingOrderNotPayable
+	}
+	type paymentRow struct {
+		ID              uint64
+		PaymentNo       string
+		MerchantOrderNo string
+		Status          string
+		AmountFen       uint64
+	}
+	var attempt paymentRow
+	if err := s.db.WithContext(ctx).Table("billing_payments").Select("id, payment_no, merchant_order_no, status, amount_fen").
+		Where("order_id = ? AND payment_environment = ?", order.ID, s.Environment()).
+		Order("created_at DESC").Limit(1).Scan(&attempt).Error; err != nil {
+		return "", err
+	}
+	if order.Status == "paid" || attempt.Status == "succeeded" {
+		if strings.TrimSpace(attempt.PaymentNo) != "" {
+			return attempt.PaymentNo, nil
+		}
+		return "", nil
+	}
+	if (order.Status != "pending" && order.Status != "paying") || attempt.ID == 0 || strings.TrimSpace(attempt.MerchantOrderNo) == "" {
+		return "", ErrBillingOrderNotPayable
+	}
+	result, err := s.alipay.Query(ctx, attempt.MerchantOrderNo, s.now())
+	if err != nil {
+		return "", err
+	}
+	if result.TradeStatus != "TRADE_SUCCESS" && result.TradeStatus != "TRADE_FINISHED" {
+		return "", ErrBillingPaymentPending
+	}
+	if result.AmountFen != attempt.AmountFen || result.AmountFen != order.AmountFen {
+		return "", errors.New("Alipay payment amount mismatch")
+	}
+	now := s.now().UTC()
+	if err := s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		return s.settlePaymentTx(ctx, tx, attempt.ID, result.TradeNo, result.AmountFen, now)
+	}); err != nil {
+		return "", err
+	}
+	return attempt.PaymentNo, nil
+}
+
+func (s *Commerce) settlePaymentTx(ctx context.Context, tx *gorm.DB, paymentID uint64, tradeNo string, paidAmountFen uint64, now time.Time) error {
+	type paymentRow struct {
+		ID, OrderID, AmountFen uint64
+		Status, Currency       string
+		Environment            string `gorm:"column:payment_environment"`
+	}
+	var paid paymentRow
+	if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).Table("billing_payments").Where("id = ?", paymentID).Scan(&paid).Error; err != nil {
+		return err
+	}
+	if paid.ID == 0 || paid.AmountFen != paidAmountFen || paid.Currency != "CNY" || paid.Environment != s.Environment() {
+		return errors.New("Alipay payment amount, currency or environment mismatch")
+	}
+	var order commerceOrderRow
+	if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).Table("billing_orders").Where("id = ?", paid.OrderID).Scan(&order).Error; err != nil {
+		return err
+	}
+	if order.ID == 0 || order.AmountFen != paidAmountFen || order.Currency != "CNY" || order.Environment != s.Environment() {
+		return errors.New("Alipay order amount, currency or environment mismatch")
+	}
+	if paid.Status != "pending" && paid.Status != "closed" && paid.Status != "succeeded" {
+		return errors.New("billing payment is not payable")
+	}
+	if err := tx.Table("billing_payments").Where("id = ?", paid.ID).Updates(map[string]any{"status": "succeeded", "channel_trade_no": tradeNo, "paid_at": now, "updated_at": now}).Error; err != nil {
+		return err
+	}
+	if err := tx.Table("billing_payments").Where("order_id = ? AND id <> ? AND status = 'pending'", order.ID, paid.ID).
+		Updates(map[string]any{"status": "closed", "closed_at": now, "updated_at": now}).Error; err != nil {
+		return err
+	}
+	if order.Status == "paid" {
+		return nil
+	}
+	if order.Status != "pending" && order.Status != "paying" && order.Status != "closed" {
+		return errors.New("billing order is not payable")
+	}
+	if err := tx.Table("billing_orders").Where("id = ?", order.ID).Updates(map[string]any{"status": "paid", "paid_at": now, "closed_at": nil, "updated_at": now}).Error; err != nil {
+		return err
+	}
+	return s.activateOrder(ctx, tx, order, now)
 }
 
 func (s *Commerce) ProcessAlipayNotification(ctx context.Context, fields map[string]string) error {
@@ -545,27 +1050,15 @@ func (s *Commerce) ProcessAlipayNotification(ctx context.Context, fields map[str
 		} else if err != nil {
 			return err
 		}
-		var order commerceOrderRow
-		if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).Table("billing_orders").Where("order_no = ?", fields["out_trade_no"]).Scan(&order).Error; err != nil {
+		var paymentID uint64
+		if err := tx.Table("billing_payments").Where("merchant_order_no = ? AND payment_environment = ?", fields["out_trade_no"], s.Environment()).Select("id").Scan(&paymentID).Error; err != nil {
 			return err
 		}
 		amountFen, err := parseAmountFen(fields["total_amount"])
-		if order.ID == 0 || err != nil || amountFen != order.AmountFen || order.Currency != "CNY" || order.Environment != s.Environment() {
-			return errors.New("Alipay notification order, amount, currency or environment mismatch")
+		if paymentID == 0 || err != nil {
+			return errors.New("Alipay notification payment is unknown or amount is invalid")
 		}
-		if order.Status == "paid" {
-			return tx.Table("billing_webhook_events").Where("event_key = ? AND payment_environment = ?", eventKey, s.Environment()).Updates(map[string]any{"status": "processed", "processed_at": now}).Error
-		}
-		if order.Status != "paying" && order.Status != "pending" {
-			return errors.New("billing order is not payable")
-		}
-		if err := tx.Table("billing_payments").Where("order_id = ? AND payment_environment = ?", order.ID, s.Environment()).Updates(map[string]any{"status": "succeeded", "channel_trade_no": fields["trade_no"], "paid_at": now, "updated_at": now}).Error; err != nil {
-			return err
-		}
-		if err := tx.Table("billing_orders").Where("id = ?", order.ID).Updates(map[string]any{"status": "paid", "paid_at": now, "updated_at": now}).Error; err != nil {
-			return err
-		}
-		if err := s.activateOrder(ctx, tx, order, now); err != nil {
+		if err := s.settlePaymentTx(ctx, tx, paymentID, fields["trade_no"], amountFen, now); err != nil {
 			return err
 		}
 		return tx.Table("billing_webhook_events").Where("event_key = ? AND payment_environment = ?", eventKey, s.Environment()).Updates(map[string]any{"status": "processed", "processed_at": now}).Error
@@ -661,10 +1154,12 @@ func (s *Commerce) RequestRefund(ctx context.Context, owner model.Owner, actorUs
 	type row struct {
 		ID, PaymentID, AmountFen uint64
 		OrderType, Status        string
+		MerchantOrderNo          string
 		PaidAt                   time.Time
 	}
 	var order row
-	if err := s.db.WithContext(ctx).Raw(`SELECT orders.id, orders.order_type, orders.status, orders.amount_fen, orders.paid_at, payment.id payment_id
+	if err := s.db.WithContext(ctx).Raw(`SELECT orders.id, orders.order_type, orders.status, orders.amount_fen, orders.paid_at,
+		payment.id payment_id, payment.merchant_order_no
 		FROM billing_orders orders JOIN billing_payments payment ON payment.order_id = orders.id AND payment.status = 'succeeded'
 		WHERE orders.order_no = ? AND orders.owner_type = ? AND orders.owner_id = ?`, orderNo, owner.Type, owner.ID).Scan(&order).Error; err != nil {
 		return "", "", "", err
@@ -690,7 +1185,7 @@ func (s *Commerce) RequestRefund(ctx context.Context, owner model.Owner, actorUs
 	if reviewMode == "manual" {
 		return refundNo, statusValue, reviewMode, nil
 	}
-	channelNo, err := s.alipay.Refund(ctx, orderNo, refundNo, reason, order.AmountFen, now)
+	channelNo, err := s.alipay.Refund(ctx, order.MerchantOrderNo, refundNo, reason, order.AmountFen, now)
 	if err != nil {
 		_ = s.db.WithContext(ctx).Table("billing_refunds").Where("refund_no = ?", refundNo).Updates(map[string]any{"status": "failed", "updated_at": now}).Error
 		return refundNo, "failed", reviewMode, err
@@ -761,20 +1256,26 @@ func createCreditGrant(tx *gorm.DB, owner model.Owner, sourceType string, source
 }
 
 func (s *Commerce) getOrderByIdempotency(ctx context.Context, owner model.Owner, key string) (*pb.BillingOrderInfo, error) {
-	orders, _, err := s.ListOrders(ctx, owner, 1, 100)
-	if err != nil {
+	type row struct {
+		OrderNo, OrderType, ProductKey, ProductName, Currency, Status, Environment string
+		PriceVersionID, AmountFen                                                  int64
+		ExpiresAt                                                                  time.Time
+		PaidAt                                                                     *time.Time
+		CreatedAt                                                                  time.Time
+	}
+	var existing row
+	if err := s.db.WithContext(ctx).Raw(`SELECT orders.order_no, orders.order_type, product.product_key, product.name product_name,
+		orders.price_version_id, orders.amount_fen, orders.currency, orders.status, orders.payment_environment environment,
+		orders.expires_at, orders.paid_at, orders.created_at
+		FROM billing_orders orders JOIN billing_products product ON product.id = orders.product_id
+		WHERE orders.owner_type = ? AND orders.owner_id = ? AND orders.idempotency_key = ? LIMIT 1`, owner.Type, owner.ID, key).Scan(&existing).Error; err != nil {
 		return nil, err
 	}
-	var orderNo string
-	if err := s.db.WithContext(ctx).Table("billing_orders").Where("owner_type = ? AND owner_id = ? AND idempotency_key = ?", owner.Type, owner.ID, key).Select("order_no").Scan(&orderNo).Error; err != nil {
-		return nil, err
+	if existing.OrderNo == "" {
+		return nil, gorm.ErrRecordNotFound
 	}
-	for _, order := range orders {
-		if order.OrderNo == orderNo {
-			return order, nil
-		}
-	}
-	return nil, gorm.ErrRecordNotFound
+	return orderProto(existing.OrderNo, existing.OrderType, existing.ProductKey, existing.ProductName, existing.Currency,
+		existing.Status, existing.Environment, existing.PriceVersionID, existing.AmountFen, existing.ExpiresAt, existing.PaidAt, existing.CreatedAt), nil
 }
 
 func orderProto(orderNo, orderType, productKey, productName, currency, statusValue, environment string, priceVersionID, amountFen int64, expiresAt time.Time, paidAt *time.Time, createdAt time.Time) *pb.BillingOrderInfo {

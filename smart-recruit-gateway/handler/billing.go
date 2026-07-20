@@ -6,8 +6,10 @@ import (
 	"strings"
 
 	"github.com/gin-gonic/gin"
+	"go.uber.org/zap"
 
 	"smart-recruit-gateway/middleware"
+	"smart-recruit-gateway/pkg/logger"
 	"smart-recruit-gateway/rpc"
 	"smart-recruit-proto/recruitment/pb"
 )
@@ -25,6 +27,13 @@ type saveBillingPriceRequest struct {
 	IncludedCredits         FlexInt64 `json:"included_credits" binding:"required"`
 	EntitlementSnapshotJSON string    `json:"entitlement_snapshot_json"`
 	Publish                 bool      `json:"publish"`
+}
+
+type createBillingOrderRequest struct {
+	PriceVersionID      FlexInt64 `json:"price_version_id" binding:"required"`
+	OrderType           string    `json:"order_type" binding:"required"`
+	IdempotencyKey      string    `json:"idempotency_key" binding:"required"`
+	ReplacePendingOrder bool      `json:"replace_pending_order"`
 }
 
 func NewBillingHandler(clients *rpc.Clients, ownerType pb.BillingOwnerType) *BillingHandler {
@@ -65,16 +74,12 @@ func (h *BillingHandler) Orders(c *gin.Context) {
 }
 
 func (h *BillingHandler) CreateOrder(c *gin.Context) {
-	var request struct {
-		PriceVersionID int64  `json:"price_version_id" binding:"required"`
-		OrderType      string `json:"order_type" binding:"required"`
-		IdempotencyKey string `json:"idempotency_key" binding:"required"`
-	}
+	var request createBillingOrderRequest
 	if err := c.ShouldBindJSON(&request); err != nil {
 		BadRequest(c, "价格版本、订单类型和幂等键不能为空")
 		return
 	}
-	response, err := h.clients.Billing.CreateBillingOrder(c.Request.Context(), &pb.CreateBillingOrderRequest{Owner: h.owner(c), ActorUserId: middleware.UserID(c), PriceVersionId: request.PriceVersionID, OrderType: request.OrderType, IdempotencyKey: request.IdempotencyKey})
+	response, err := h.clients.Billing.CreateBillingOrder(c.Request.Context(), &pb.CreateBillingOrderRequest{Owner: h.owner(c), ActorUserId: middleware.UserID(c), PriceVersionId: int64(request.PriceVersionID), OrderType: request.OrderType, IdempotencyKey: request.IdempotencyKey, ReplacePendingOrder: request.ReplacePendingOrder})
 	if err != nil {
 		Internal(c, err)
 		return
@@ -86,8 +91,8 @@ func (h *BillingHandler) Pay(c *gin.Context) {
 	var request struct {
 		Scene string `json:"scene" binding:"required"`
 	}
-	if err := c.ShouldBindJSON(&request); err != nil || (request.Scene != "desktop" && request.Scene != "wap") {
-		BadRequest(c, "支付场景必须是 desktop 或 wap")
+	if err := c.ShouldBindJSON(&request); err != nil || (request.Scene != "desktop" && request.Scene != "wap" && request.Scene != "sync") {
+		BadRequest(c, "支付场景必须是 desktop、wap 或 sync")
 		return
 	}
 	response, err := h.clients.Billing.CreateAlipayPayment(c.Request.Context(), &pb.CreateAlipayPaymentRequest{Owner: h.owner(c), ActorUserId: middleware.UserID(c), OrderNo: c.Param("order_no"), Scene: request.Scene})
@@ -191,7 +196,14 @@ func (h *AlipayWebhookHandler) Notify(c *gin.Context) {
 		}
 	}
 	response, err := h.clients.Billing.ProcessAlipayNotification(c.Request.Context(), &pb.ProcessAlipayNotificationRequest{Fields: fields})
-	if err != nil || !response.GetAccepted() {
+	if err != nil || response == nil || !response.GetAccepted() {
+		logger.L().Error("alipay sandbox notify rejected",
+			zap.Error(err),
+			zap.String("out_trade_no", c.Request.PostForm.Get("out_trade_no")),
+			zap.String("trade_no", c.Request.PostForm.Get("trade_no")),
+			zap.String("trade_status", c.Request.PostForm.Get("trade_status")),
+			zap.Bool("accepted", response != nil && response.GetAccepted()),
+		)
 		c.String(http.StatusOK, "failure")
 		return
 	}

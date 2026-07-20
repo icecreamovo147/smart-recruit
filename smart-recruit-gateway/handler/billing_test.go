@@ -47,3 +47,66 @@ func TestSaveBillingPriceRequestAcceptsProtoJSONIDs(t *testing.T) {
 		})
 	}
 }
+
+func TestCreateBillingOrderRequestAcceptsProtoJSONPriceVersionID(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name string
+		body string
+	}{
+		{name: "protojson string ID", body: `{"price_version_id":"5","order_type":"subscribe","idempotency_key":"order-1","replace_pending_order":true}`},
+		{name: "numeric ID", body: `{"price_version_id":5,"order_type":"subscribe","idempotency_key":"order-2"}`},
+	}
+
+	for _, test := range tests {
+		test := test
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+			response := httptest.NewRecorder()
+			context, _ := gin.CreateTestContext(response)
+			context.Request = httptest.NewRequest("POST", "/api/v1/hr/billing/orders", strings.NewReader(test.body))
+			context.Request.Header.Set("Content-Type", "application/json")
+
+			var request createBillingOrderRequest
+			if err := context.ShouldBindJSON(&request); err != nil {
+				t.Fatalf("bind request: %v", err)
+			}
+			if request.PriceVersionID != 5 || request.OrderType != "subscribe" || request.IdempotencyKey == "" {
+				t.Fatalf("unexpected request: %+v", request)
+			}
+			if test.name == "protojson string ID" && !request.ReplacePendingOrder {
+				t.Fatal("replace_pending_order was not bound")
+			}
+		})
+	}
+}
+
+func TestCreateBillingOrderRequestRejectsMissingRequiredFields(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name string
+		body string
+	}{
+		{name: "missing price version", body: `{"order_type":"subscribe","idempotency_key":"order-1"}`},
+		{name: "missing order type", body: `{"price_version_id":"5","idempotency_key":"order-1"}`},
+		{name: "missing idempotency key", body: `{"price_version_id":"5","order_type":"subscribe"}`},
+	}
+
+	for _, test := range tests {
+		test := test
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+			response := httptest.NewRecorder()
+			context, _ := gin.CreateTestContext(response)
+			context.Request = httptest.NewRequest("POST", "/api/v1/hr/billing/orders", strings.NewReader(test.body))
+			context.Request.Header.Set("Content-Type", "application/json")
+
+			var request createBillingOrderRequest
+			if err := context.ShouldBindJSON(&request); err == nil {
+				t.Fatal("expected missing required field to fail validation")
+			}
+		})
+	}
+}

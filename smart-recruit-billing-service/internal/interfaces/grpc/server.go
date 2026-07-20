@@ -41,7 +41,7 @@ func (s *Server) CheckAIAccess(ctx context.Context, req *pb.CheckAIAccessRequest
 	if err != nil {
 		return nil, status.Error(codes.Internal, err.Error())
 	}
-	return &pb.CheckAIAccessResponse{Code: 0, Msg: "ok", Allowed: decision.Allowed, Reason: decision.Reason, AvailableCredits: int64(decision.Balance.AvailableCredits), EnforcementMode: modeToProto(decision.Mode)}, nil
+	return &pb.CheckAIAccessResponse{Code: 0, Msg: "ok", Allowed: decision.Allowed, Reason: decision.Reason, AvailableCredits: int64(decision.Balance.AvailableCredits), EnforcementMode: modeToProto(decision.Mode), CapabilityVersionId: int64(decision.CapabilityVersionID)}, nil
 }
 
 func (s *Server) ReserveAIUsage(ctx context.Context, req *pb.ReserveAIUsageRequest) (*pb.ReserveAIUsageResponse, error) {
@@ -60,7 +60,7 @@ func (s *Server) ReserveAIUsage(ctx context.Context, req *pb.ReserveAIUsageReque
 	if err != nil {
 		return nil, status.Error(codes.Internal, err.Error())
 	}
-	response := &pb.ReserveAIUsageResponse{Code: 0, Msg: "ok", Allowed: result.Allowed, Reason: result.Reason, AvailableCredits: int64(result.Balance.AvailableCredits), EnforcementMode: modeToProto(s.billing.Mode())}
+	response := &pb.ReserveAIUsageResponse{Code: 0, Msg: "ok", Allowed: result.Allowed, Reason: result.Reason, AvailableCredits: int64(result.Balance.AvailableCredits), EnforcementMode: modeToProto(s.billing.Mode()), CapabilityVersionId: int64(result.CapabilityVersionID)}
 	if result.Allowed {
 		response.ReservationNo = result.Reservation.No
 		response.ReservedCredits = int64(result.Reservation.ReservedCredits)
@@ -133,15 +133,26 @@ func (s *Server) GetBillingAccount(ctx context.Context, req *pb.GetBillingAccoun
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, err.Error())
 	}
-	subscription, err := s.commerce.CurrentSubscription(ctx, owner)
-	if err != nil {
-		return nil, status.Error(codes.Internal, err.Error())
-	}
+	// Balance provisions the owner's recurring grant before the aggregate read,
+	// so the account response is internally consistent on first visit.
 	balance, err := s.billing.Balance(ctx, owner)
 	if err != nil {
 		return nil, status.Error(codes.Internal, err.Error())
 	}
-	response := &pb.GetBillingAccountResponse{Code: 0, Msg: "ok", Subscription: subscription, AvailableCredits: int64(balance.AvailableCredits), ReservedCredits: int64(balance.ReservedCredits), PaymentEnvironment: s.commerce.Environment()}
+	subscription, err := s.commerce.CurrentSubscription(ctx, owner)
+	if err != nil {
+		return nil, status.Error(codes.Internal, err.Error())
+	}
+	totalCredits, usedCredits, err := s.commerce.CurrentCreditSummary(ctx, owner)
+	if err != nil {
+		return nil, status.Error(codes.Internal, err.Error())
+	}
+	response := &pb.GetBillingAccountResponse{
+		Code: 0, Msg: "ok", Subscription: subscription,
+		AvailableCredits: int64(balance.AvailableCredits), ReservedCredits: int64(balance.ReservedCredits),
+		PaymentEnvironment: s.commerce.Environment(), TotalCredits: totalCredits, UsedCredits: usedCredits,
+		NextRefreshAtUnixMs: s.commerce.NextRefreshAt(subscription),
+	}
 	if balance.NextExpiryAt != nil {
 		response.NextExpiryAtUnixMs = balance.NextExpiryAt.UnixMilli()
 	}
@@ -168,8 +179,17 @@ func (s *Server) CreateBillingOrder(ctx context.Context, req *pb.CreateBillingOr
 	if req.GetActorUserId() <= 0 || req.GetPriceVersionId() <= 0 {
 		return nil, status.Error(codes.InvalidArgument, "actor and price are required")
 	}
-	order, err := s.commerce.CreateOrder(ctx, owner, uint64(req.GetActorUserId()), uint64(req.GetPriceVersionId()), req.GetOrderType(), req.GetIdempotencyKey())
+	order, err := s.commerce.CreateOrder(ctx, owner, uint64(req.GetActorUserId()), uint64(req.GetPriceVersionId()), req.GetOrderType(), req.GetIdempotencyKey(), req.GetReplacePendingOrder())
 	if err != nil {
+		if errors.Is(err, service.ErrPendingBillingOrder) {
+			return nil, status.Error(codes.AlreadyExists, "存在尚未支付的订单，请选择继续支付或创建新订单")
+		}
+		if errors.Is(err, service.ErrBillingPaymentCompleted) {
+			return nil, status.Error(codes.FailedPrecondition, "原订单已经支付成功，请刷新套餐与订单状态")
+		}
+		if errors.Is(err, service.ErrBillingOrderNotPayable) {
+			return nil, status.Error(codes.FailedPrecondition, "原订单状态已经变化，请刷新后重试")
+		}
 		return nil, status.Error(codes.InvalidArgument, err.Error())
 	}
 	return &pb.BillingOrderResponse{Code: 0, Msg: "ok", Order: order}, nil
@@ -180,9 +200,32 @@ func (s *Server) CreateAlipayPayment(ctx context.Context, req *pb.CreateAlipayPa
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, err.Error())
 	}
+	if req.GetScene() == "sync" {
+		paymentNo, syncErr := s.commerce.SyncPayment(ctx, owner, req.GetOrderNo())
+		if syncErr != nil {
+			switch {
+			case errors.Is(syncErr, service.ErrBillingPaymentPending):
+				return nil, status.Error(codes.FailedPrecondition, "支付结果确认中，请稍候")
+			case errors.Is(syncErr, service.ErrBillingOrderNotPayable):
+				return nil, status.Error(codes.FailedPrecondition, "当前订单无法继续支付，请刷新订单状态")
+			default:
+				return nil, status.Error(codes.FailedPrecondition, "支付宝沙箱支付暂不可用，请检查沙箱配置或稍后重试")
+			}
+		}
+		return &pb.CreateAlipayPaymentResponse{Code: 0, Msg: "ok", PaymentNo: paymentNo, RedirectUrl: "", PaymentEnvironment: s.commerce.Environment()}, nil
+	}
 	paymentNo, redirectURL, err := s.commerce.CreatePayment(ctx, owner, req.GetOrderNo(), req.GetScene())
 	if err != nil {
-		return nil, status.Error(codes.InvalidArgument, err.Error())
+		switch {
+		case errors.Is(err, service.ErrBillingOrderExpired):
+			return nil, status.Error(codes.FailedPrecondition, "订单已超过支付时限并关闭，请重新创建订单")
+		case errors.Is(err, service.ErrBillingOrderNotPayable):
+			return nil, status.Error(codes.FailedPrecondition, "当前订单无法继续支付，请刷新订单状态")
+		case errors.Is(err, service.ErrBillingPaymentCompleted):
+			return nil, status.Error(codes.FailedPrecondition, "订单已经支付成功，请刷新套餐与订单状态")
+		default:
+			return nil, status.Error(codes.FailedPrecondition, "支付宝沙箱支付暂不可用，请检查沙箱配置或稍后重试")
+		}
 	}
 	return &pb.CreateAlipayPaymentResponse{Code: 0, Msg: "ok", PaymentNo: paymentNo, RedirectUrl: redirectURL, PaymentEnvironment: s.commerce.Environment()}, nil
 }

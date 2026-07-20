@@ -156,7 +156,9 @@ func maintainBilling(ctx context.Context, repo *persistence.GormRepository, comm
 			_ = repo.RunMaintenance(ctx, now.UTC())
 			cycles++
 			if cycles%5 == 0 {
-				_ = commerce.ReconcilePendingPayments(ctx, 100)
+				if err := commerce.ReconcilePendingPayments(ctx, 100); err != nil {
+					fmt.Fprintf(os.Stderr, "reconcile pending Alipay payments: %v\n", err)
+				}
 			}
 		}
 	}

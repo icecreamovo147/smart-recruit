@@ -29,7 +29,7 @@ ALIPAY_PRIVATE_KEY=<应用 RSA2 私钥，PKCS#8 或 PKCS#1 PEM>
 ALIPAY_PUBLIC_KEY=<支付宝 RSA2 公钥 PEM>
 ALIPAY_SELLER_ID=<沙箱卖家 PID>
 ALIPAY_NOTIFY_URL=https://<公网联调域名>/api/v1/public/billing/webhooks/alipay
-ALIPAY_RETURN_URL=http://127.0.0.1:5174/billing
+ALIPAY_RETURN_URL=http://localhost:5174/billing
 ALIPAY_DESKTOP_ENABLED=true
 ALIPAY_WAP_ENABLED=true
 ```
@@ -44,8 +44,8 @@ ALIPAY_WAP_ENABLED=true
 2. 在平台管理端“套餐与配额”页面发布与 AI 运行时 `provider_key/model_key` 一致的模型费率卡，再为候选人 Pro、企业套餐或加量包创建价格版本并发布。
 3. 在候选人端“AI 套餐”或 HR 端“AI 套餐与额度”创建订单。
 4. 使用支付宝沙箱买家账号完成桌面网页或 WAP 支付。
-5. 等待异步通知。同步 `return_url` 只负责返回页面，不会将订单改为已支付。
-6. 验证订单为 `paid`、订阅或额度已生效、`ai_credit_ledger` 存在发放流水、`billing_webhook_events.signature_verified=1`。
+5. 等待异步通知。同步 `return_url` 只负责把浏览器带回业务页；前端落地后会调用 `scene=sync` 主动查单并刷新套餐/订单。本地开发请使用 `http://localhost:...`（不要用 `127.0.0.1`，Vite 可能只监听 IPv6 `[::1]`）。
+6. 验证订单为 `paid`、订阅或额度已生效、`ai_credit_ledger` 存在发放流水、`billing_webhook_events.signature_verified=1`（或主动查单写入的 `active_query` / return 同步入账）。
 7. 对完全未消费订单申请退款，应自动调用沙箱退款；存在已结算额度、续费或升级订单应进入人工审核。
 
 ## 阶段开关

@@ -145,6 +145,11 @@ CREATE TABLE IF NOT EXISTS `resume_parse_runs` (
   `resume_id` BIGINT UNSIGNED NOT NULL COMMENT 'Source resumes.id',
   `user_id` BIGINT UNSIGNED NOT NULL COMMENT 'Candidate users.id',
   `agent_run_id` BIGINT NULL COMMENT 'Optional agent_runs.id that produced this parse',
+  `requested_model_id` BIGINT NULL,
+  `effective_model_id` BIGINT NULL,
+  `model_fallback_reason` VARCHAR(64) NULL,
+  `capability_version_id` BIGINT NULL,
+  `capability_snapshot_hash` CHAR(64) NULL,
   `status` VARCHAR(32) NOT NULL DEFAULT 'running' COMMENT 'running / succeeded / failed',
   `parser_version` VARCHAR(64) NULL COMMENT 'Parser or prompt version used',
   `input_hash` VARCHAR(128) NULL COMMENT 'Hash of parse input for idempotency/audit',
@@ -157,6 +162,7 @@ CREATE TABLE IF NOT EXISTS `resume_parse_runs` (
   KEY `idx_resume_parse_runs_resume` (`resume_id`),
   KEY `idx_resume_parse_runs_user` (`user_id`),
   KEY `idx_resume_parse_runs_agent_run` (`agent_run_id`),
+  KEY `idx_resume_parse_capability_version` (`capability_version_id`),
   KEY `idx_resume_parse_runs_status` (`status`),
   CONSTRAINT `fk_resume_parse_runs_resume` FOREIGN KEY (`resume_id`) REFERENCES `resumes` (`id`) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='Resume structured parse run audit';
@@ -420,6 +426,11 @@ CREATE TABLE IF NOT EXISTS `agent_runs` (
   `agent_name` VARCHAR(128) NOT NULL,
   `model_id` BIGINT NULL,
   `model_name` VARCHAR(128) NOT NULL,
+  `requested_model_id` BIGINT NULL,
+  `effective_model_id` BIGINT NULL,
+  `model_fallback_reason` VARCHAR(64) NULL,
+  `capability_version_id` BIGINT UNSIGNED NULL,
+  `capability_snapshot_hash` CHAR(64) NULL,
   `status` VARCHAR(32) NOT NULL DEFAULT 'planning',
   `plan_json` JSON NULL,
   `final_answer` MEDIUMTEXT NULL,
@@ -442,7 +453,8 @@ CREATE TABLE IF NOT EXISTS `agent_runs` (
   KEY `idx_agent_runs_session_created` (`hr_id`, `session_id`, `created_at`),
   KEY `idx_agent_runs_status` (`status`),
   KEY `idx_agent_runs_message` (`message_id`),
-  KEY `idx_agent_runs_session_status` (`session_id`, `status`)
+  KEY `idx_agent_runs_session_status` (`session_id`, `status`),
+  KEY `idx_agent_runs_capability_version` (`capability_version_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='One observable run per HR AI user message';
 
 CREATE TABLE IF NOT EXISTS `agent_run_events` (
@@ -494,6 +506,11 @@ CREATE TABLE IF NOT EXISTS `candidate_match_evaluations` (
   `candidate_user_id` BIGINT UNSIGNED NOT NULL COMMENT 'users.id for candidate',
   `resume_profile_id` BIGINT UNSIGNED NOT NULL COMMENT 'resume_profiles.id used for matching',
   `agent_run_id` BIGINT NULL COMMENT 'Optional agent_runs.id that produced this evaluation',
+  `requested_model_id` BIGINT NULL,
+  `effective_model_id` BIGINT NULL,
+  `model_fallback_reason` VARCHAR(64) NULL,
+  `capability_version_id` BIGINT NULL,
+  `capability_snapshot_hash` CHAR(64) NULL,
   `evaluation_version` INT NOT NULL DEFAULT 1 COMMENT 'Monotonic version per application',
   `is_latest` TINYINT NOT NULL DEFAULT 1 COMMENT 'Whether this is the latest match evaluation for the application',
   `latest_key` TINYINT GENERATED ALWAYS AS (
@@ -518,6 +535,7 @@ CREATE TABLE IF NOT EXISTS `candidate_match_evaluations` (
   KEY `idx_candidate_match_candidate` (`candidate_user_id`),
   KEY `idx_candidate_match_resume_profile` (`resume_profile_id`),
   KEY `idx_candidate_match_agent_run` (`agent_run_id`),
+  KEY `idx_candidate_match_capability_version` (`capability_version_id`),
   KEY `idx_candidate_match_latest` (`is_latest`),
   CONSTRAINT `fk_candidate_match_application` FOREIGN KEY (`application_id`) REFERENCES `applications` (`id`) ON DELETE CASCADE,
   CONSTRAINT `fk_candidate_match_resume_profile` FOREIGN KEY (`resume_profile_id`) REFERENCES `resume_profiles` (`id`) ON DELETE RESTRICT,
@@ -1106,6 +1124,13 @@ INSERT INTO `permissions` (`permission_key`, `resource`, `action`, `description`
   ('platform.alert.manage',          'platform_alert', 'manage', '认领和处理平台运营告警'),
   ('platform.audit.read',            'platform_audit', 'read', '查看平台控制面操作审计'),
   ('platform.user.manage',           'platform_user', 'manage', '管理平台账号和平台角色'),
+  ('platform.ai.config.read',        'platform_ai_config', 'read', '查看平台 AI 技术配置'),
+  ('platform.ai.config.manage',      'platform_ai_config', 'manage', '维护平台 AI 技术配置'),
+  ('platform.ai.release.read',       'platform_ai_release', 'read', '查看平台 AI 能力版本'),
+  ('platform.ai.release.manage',     'platform_ai_release', 'manage', '维护平台 AI 能力草稿'),
+  ('platform.ai.release.publish',    'platform_ai_release', 'publish', '发布或退役平台 AI 能力版本'),
+  ('platform.ai.diagnostics.read',   'platform_ai_diagnostics', 'read', '查看平台 AI 诊断信息'),
+  ('platform.ai.diagnostics.execute','platform_ai_diagnostics', 'execute', '执行平台 AI 诊断'),
   ('offer.read',                     'offer',       'read',   '查看Offer'),
   ('offer.manage',                   'offer',       'manage', '创建/编辑/撤回Offer'),
   ('offer.send',                     'offer',       'send',   '发送Offer（快照条款）'),
@@ -1187,14 +1212,17 @@ INSERT IGNORE INTO `role_permissions` (`role_id`, `permission_id`)
     'platform.dashboard.read', 'platform.tenant.read', 'platform.tenant.manage',
     'platform.member.manage', 'platform.plan.read', 'platform.plan.manage',
     'platform.subscription.manage', 'platform.usage.read', 'platform.alert.read',
-    'platform.alert.manage', 'platform.audit.read'
+    'platform.alert.manage', 'platform.audit.read',
+    'platform.ai.config.read', 'platform.ai.release.read',
+    'platform.ai.diagnostics.read', 'platform.ai.diagnostics.execute'
   );
 
 INSERT IGNORE INTO `role_permissions` (`role_id`, `permission_id`)
   SELECT r.id, p.id FROM `roles` r, `permissions` p
   WHERE r.role_key = 'platform_auditor' AND p.permission_key IN (
     'platform.dashboard.read', 'platform.tenant.read', 'platform.plan.read',
-    'platform.usage.read', 'platform.alert.read', 'platform.audit.read'
+    'platform.usage.read', 'platform.alert.read', 'platform.audit.read',
+    'platform.ai.config.read', 'platform.ai.release.read', 'platform.ai.diagnostics.read'
   );
 
 -- ── 默认管理员账号 (admin / 123456) ────────────────────────────────────
@@ -1906,12 +1934,77 @@ CREATE TABLE IF NOT EXISTS `agent_skill_versions` (
   CONSTRAINT `fk_agent_skill_versions_skill` FOREIGN KEY (`skill_id`) REFERENCES `agent_skills` (`id`) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='Immutable Agent SKILL.md versions';
 
+CREATE TABLE IF NOT EXISTS `platform_ai_capabilities` (
+  `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+  `capability_key` VARCHAR(96) NOT NULL,
+  `audience` VARCHAR(32) NOT NULL,
+  `name` VARCHAR(128) NOT NULL,
+  `description` VARCHAR(500) DEFAULT NULL,
+  `status` VARCHAR(16) NOT NULL DEFAULT 'active',
+  `current_published_version_id` BIGINT UNSIGNED DEFAULT NULL,
+  `created_by` BIGINT UNSIGNED DEFAULT NULL,
+  `updated_by` BIGINT UNSIGNED DEFAULT NULL,
+  `created_at` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+  `updated_at` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3),
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_platform_ai_capability_audience_key` (`audience`, `capability_key`),
+  KEY `idx_platform_ai_capabilities_status` (`status`, `audience`),
+  CONSTRAINT `chk_platform_ai_capabilities_audience` CHECK (`audience` IN ('tenant_hr', 'candidate')),
+  CONSTRAINT `chk_platform_ai_capabilities_status` CHECK (`status` IN ('active', 'retired'))
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='Platform-owned AI capability catalogue';
+
+CREATE TABLE IF NOT EXISTS `platform_ai_capability_versions` (
+  `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+  `capability_id` BIGINT UNSIGNED NOT NULL,
+  `version` INT UNSIGNED NOT NULL,
+  `status` VARCHAR(16) NOT NULL DEFAULT 'draft',
+  `snapshot_json` JSON NOT NULL,
+  `snapshot_hash` CHAR(64) NOT NULL,
+  `change_note` VARCHAR(500) DEFAULT NULL,
+  `created_by` BIGINT UNSIGNED DEFAULT NULL,
+  `published_by` BIGINT UNSIGNED DEFAULT NULL,
+  `published_at` DATETIME(3) DEFAULT NULL,
+  `retired_at` DATETIME(3) DEFAULT NULL,
+  `created_at` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+  `updated_at` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3),
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_platform_ai_capability_versions_number` (`capability_id`, `version`),
+  UNIQUE KEY `uk_platform_ai_capability_versions_hash` (`capability_id`, `snapshot_hash`),
+  KEY `idx_platform_ai_capability_versions_status` (`status`, `published_at`),
+  CONSTRAINT `fk_platform_ai_capability_versions_capability` FOREIGN KEY (`capability_id`) REFERENCES `platform_ai_capabilities` (`id`),
+  CONSTRAINT `chk_platform_ai_capability_versions_status` CHECK (`status` IN ('draft', 'published', 'retired'))
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='Immutable snapshots for published AI capability releases';
+
+ALTER TABLE `platform_ai_capabilities`
+  ADD CONSTRAINT `fk_platform_ai_capabilities_current_version`
+  FOREIGN KEY (`current_published_version_id`) REFERENCES `platform_ai_capability_versions` (`id`);
+
+CREATE TABLE IF NOT EXISTS `platform_ai_config_audit_logs` (
+  `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+  `actor_user_id` BIGINT UNSIGNED DEFAULT NULL,
+  `action` VARCHAR(64) NOT NULL,
+  `resource_type` VARCHAR(64) NOT NULL,
+  `resource_id` BIGINT UNSIGNED DEFAULT NULL,
+  `capability_id` BIGINT UNSIGNED DEFAULT NULL,
+  `capability_version_id` BIGINT UNSIGNED DEFAULT NULL,
+  `before_snapshot` JSON DEFAULT NULL,
+  `after_snapshot` JSON DEFAULT NULL,
+  `request_id` VARCHAR(128) DEFAULT NULL,
+  `created_at` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+  PRIMARY KEY (`id`),
+  KEY `idx_platform_ai_config_audit_actor` (`actor_user_id`, `created_at`),
+  KEY `idx_platform_ai_config_audit_resource` (`resource_type`, `resource_id`, `created_at`),
+  KEY `idx_platform_ai_config_audit_capability` (`capability_id`, `capability_version_id`, `created_at`),
+  CONSTRAINT `fk_platform_ai_config_audit_capability` FOREIGN KEY (`capability_id`) REFERENCES `platform_ai_capabilities` (`id`),
+  CONSTRAINT `fk_platform_ai_config_audit_version` FOREIGN KEY (`capability_version_id`) REFERENCES `platform_ai_capability_versions` (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='Atomic audit trail for platform AI configuration and releases';
+
 ALTER TABLE `ai_skills`
   ADD CONSTRAINT `fk_ai_skills_current_version`
   FOREIGN KEY (`current_version_id`) REFERENCES `ai_skill_versions` (`id`) ON DELETE SET NULL;
 
--- Mixed-scope resources: NULL tenant_id means a platform/candidate global
--- resource; non-NULL rows are private to the referenced enterprise tenant.
+-- Runtime and business evidence remains tenant-scoped. Technical AI
+-- configuration tables are platform-global and intentionally have no tenant_id.
 ALTER TABLE ai_chat_sessions ADD COLUMN tenant_id BIGINT UNSIGNED NULL AFTER id, ADD KEY idx_ai_chat_sessions_tenant_owner (tenant_id, owner_role, owner_id, updated_at), ADD CONSTRAINT fk_ai_chat_sessions_tenant FOREIGN KEY (tenant_id) REFERENCES tenants(id);
 ALTER TABLE ai_chat_history ADD COLUMN tenant_id BIGINT UNSIGNED NULL AFTER id, ADD KEY idx_ai_chat_history_tenant_session (tenant_id, session_id, created_at), ADD CONSTRAINT fk_ai_chat_history_tenant FOREIGN KEY (tenant_id) REFERENCES tenants(id);
 ALTER TABLE ai_session_summaries ADD COLUMN tenant_id BIGINT UNSIGNED NULL AFTER id, ADD KEY idx_ai_session_summaries_tenant_session (tenant_id, session_id), ADD CONSTRAINT fk_ai_session_summaries_tenant FOREIGN KEY (tenant_id) REFERENCES tenants(id);
@@ -1928,23 +2021,7 @@ ALTER TABLE event_inbox ADD COLUMN tenant_id BIGINT UNSIGNED NULL AFTER id, ADD 
 ALTER TABLE analytics_projection_events ADD COLUMN tenant_id BIGINT UNSIGNED NULL AFTER id, ADD KEY idx_projection_events_tenant_projection (tenant_id, projection_name, created_at), ADD CONSTRAINT fk_projection_events_tenant FOREIGN KEY (tenant_id) REFERENCES tenants(id);
 ALTER TABLE third_party_usage_logs ADD COLUMN tenant_id BIGINT UNSIGNED NULL AFTER id, ADD KEY idx_usage_logs_tenant_created (tenant_id, created_at), ADD CONSTRAINT fk_usage_logs_tenant FOREIGN KEY (tenant_id) REFERENCES tenants(id);
 ALTER TABLE ai_usage_auth_contexts ADD COLUMN tenant_id BIGINT UNSIGNED NULL AFTER id, ADD KEY idx_ai_usage_auth_tenant_actor (tenant_id, actor_user_id, created_at), ADD CONSTRAINT fk_ai_usage_auth_tenant FOREIGN KEY (tenant_id) REFERENCES tenants(id);
-ALTER TABLE llm_providers ADD COLUMN tenant_id BIGINT UNSIGNED NULL AFTER id, ADD KEY idx_llm_providers_tenant_enabled (tenant_id, is_enabled), ADD CONSTRAINT fk_llm_providers_tenant FOREIGN KEY (tenant_id) REFERENCES tenants(id);
-ALTER TABLE llm_models ADD COLUMN tenant_id BIGINT UNSIGNED NULL AFTER id, ADD KEY idx_llm_models_tenant_provider (tenant_id, provider_id), ADD CONSTRAINT fk_llm_models_tenant FOREIGN KEY (tenant_id) REFERENCES tenants(id);
-ALTER TABLE embedding_providers ADD COLUMN tenant_id BIGINT UNSIGNED NULL AFTER id, ADD KEY idx_embedding_providers_tenant_enabled (tenant_id, is_enabled), ADD CONSTRAINT fk_embedding_providers_tenant FOREIGN KEY (tenant_id) REFERENCES tenants(id);
-ALTER TABLE embedding_models ADD COLUMN tenant_id BIGINT UNSIGNED NULL AFTER id, ADD KEY idx_embedding_models_tenant_provider (tenant_id, provider_id), ADD CONSTRAINT fk_embedding_models_tenant FOREIGN KEY (tenant_id) REFERENCES tenants(id);
-ALTER TABLE prompt_templates ADD COLUMN tenant_id BIGINT UNSIGNED NULL AFTER id, ADD KEY idx_prompt_templates_tenant_agent (tenant_id, agent_type, is_active), ADD CONSTRAINT fk_prompt_templates_tenant FOREIGN KEY (tenant_id) REFERENCES tenants(id);
-ALTER TABLE prompt_versions ADD COLUMN tenant_id BIGINT UNSIGNED NULL AFTER id, ADD KEY idx_prompt_versions_tenant_template (tenant_id, template_id, version), ADD CONSTRAINT fk_prompt_versions_tenant FOREIGN KEY (tenant_id) REFERENCES tenants(id);
-ALTER TABLE agent_configs ADD COLUMN tenant_id BIGINT UNSIGNED NULL AFTER id, ADD KEY idx_agent_configs_tenant_type (tenant_id, agent_type, is_enabled), ADD CONSTRAINT fk_agent_configs_tenant FOREIGN KEY (tenant_id) REFERENCES tenants(id);
-ALTER TABLE agent_tool_bindings ADD COLUMN tenant_id BIGINT UNSIGNED NULL AFTER id, ADD KEY idx_agent_tool_bindings_tenant_agent (tenant_id, agent_id), ADD CONSTRAINT fk_agent_tool_bindings_tenant FOREIGN KEY (tenant_id) REFERENCES tenants(id);
-ALTER TABLE mcp_servers ADD COLUMN tenant_id BIGINT UNSIGNED NULL AFTER id, ADD KEY idx_mcp_servers_tenant_enabled (tenant_id, is_enabled), ADD CONSTRAINT fk_mcp_servers_tenant FOREIGN KEY (tenant_id) REFERENCES tenants(id);
 ALTER TABLE mcp_tool_logs ADD COLUMN tenant_id BIGINT UNSIGNED NULL AFTER id, ADD KEY idx_mcp_tool_logs_tenant_created (tenant_id, created_at), ADD CONSTRAINT fk_mcp_tool_logs_tenant FOREIGN KEY (tenant_id) REFERENCES tenants(id);
-ALTER TABLE mcp_tool_policies ADD COLUMN tenant_id BIGINT UNSIGNED NULL AFTER id, ADD KEY idx_mcp_policies_tenant_server (tenant_id, server_id, tool_name), ADD CONSTRAINT fk_mcp_policies_tenant FOREIGN KEY (tenant_id) REFERENCES tenants(id);
-ALTER TABLE agent_capability_bindings ADD COLUMN tenant_id BIGINT UNSIGNED NULL AFTER id, ADD KEY idx_agent_capabilities_tenant_agent (tenant_id, agent_id), ADD CONSTRAINT fk_agent_capabilities_tenant FOREIGN KEY (tenant_id) REFERENCES tenants(id);
-ALTER TABLE ai_skills ADD COLUMN tenant_id BIGINT UNSIGNED NULL AFTER id, ADD KEY idx_ai_skills_tenant_enabled (tenant_id, is_enabled), ADD CONSTRAINT fk_ai_skills_tenant FOREIGN KEY (tenant_id) REFERENCES tenants(id);
-ALTER TABLE ai_skill_versions ADD COLUMN tenant_id BIGINT UNSIGNED NULL AFTER id, ADD KEY idx_ai_skill_versions_tenant_skill (tenant_id, skill_id), ADD CONSTRAINT fk_ai_skill_versions_tenant FOREIGN KEY (tenant_id) REFERENCES tenants(id);
-ALTER TABLE ai_skill_tools ADD COLUMN tenant_id BIGINT UNSIGNED NULL AFTER id, ADD KEY idx_ai_skill_tools_tenant_version (tenant_id, skill_version_id), ADD CONSTRAINT fk_ai_skill_tools_tenant FOREIGN KEY (tenant_id) REFERENCES tenants(id);
-ALTER TABLE agent_skills ADD COLUMN tenant_id BIGINT UNSIGNED NULL AFTER id, ADD KEY idx_agent_skills_tenant_enabled (tenant_id, is_enabled), ADD CONSTRAINT fk_agent_skills_tenant FOREIGN KEY (tenant_id) REFERENCES tenants(id);
-ALTER TABLE agent_skill_versions ADD COLUMN tenant_id BIGINT UNSIGNED NULL AFTER id, ADD KEY idx_agent_skill_versions_tenant_skill (tenant_id, skill_id), ADD CONSTRAINT fk_agent_skill_versions_tenant FOREIGN KEY (tenant_id) REFERENCES tenants(id);
 
 CREATE TABLE IF NOT EXISTS `platform_audit_logs` (
   `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
@@ -2239,6 +2316,7 @@ CREATE TABLE IF NOT EXISTS `billing_payments` (
   `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
   `order_id` BIGINT UNSIGNED NOT NULL,
   `payment_no` VARCHAR(64) NOT NULL,
+  `merchant_order_no` VARCHAR(64) NOT NULL,
   `channel` VARCHAR(24) NOT NULL DEFAULT 'alipay',
   `scene` VARCHAR(16) NOT NULL,
   `payment_environment` VARCHAR(16) NOT NULL DEFAULT 'sandbox',
@@ -2253,6 +2331,7 @@ CREATE TABLE IF NOT EXISTS `billing_payments` (
   `updated_at` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3),
   PRIMARY KEY (`id`),
   UNIQUE KEY `uk_billing_payments_no` (`payment_no`),
+  UNIQUE KEY `uk_billing_payments_merchant_order` (`payment_environment`, `merchant_order_no`),
   UNIQUE KEY `uk_billing_payments_channel_trade` (`channel`, `payment_environment`, `channel_trade_no`),
   KEY `idx_billing_payments_order_status` (`order_id`, `status`),
   CONSTRAINT `fk_billing_payments_order` FOREIGN KEY (`order_id`) REFERENCES `billing_orders` (`id`),
@@ -2519,3 +2598,201 @@ SELECT role.id, permission.id, NOW()
 FROM `roles` role
 JOIN `permissions` permission ON permission.permission_key = 'billing.manage'
 WHERE role.role_key IN ('recruiting_admin', 'system_admin');
+
+-- Migration 000070: platform AI control plane baseline and immutable releases.
+INSERT INTO `platform_ai_capabilities` (`capability_key`, `audience`, `name`, `description`, `status`) VALUES
+  ('ai.chat', 'tenant_hr', '企业招聘 AI 助手', '企业招聘工作台中的对话与工具调用能力', 'active'),
+  ('ai.chat', 'candidate', '候选人 AI 助手', '候选人门户中的对话辅助能力', 'active'),
+  ('ai.agent_run', 'tenant_hr', '企业 Agent Run', '企业招聘 Agent 的异步执行能力', 'active'),
+  ('ai.application_analysis', 'tenant_hr', '申请分析', '对职位申请进行结构化 AI 分析', 'active'),
+  ('ai.resume_parse', 'tenant_hr', '简历解析', '将候选人简历解析为结构化资料', 'active'),
+  ('ai.match_evaluation', 'tenant_hr', '人岗匹配评估', '基于职位与候选人资料进行匹配评估', 'active')
+ON DUPLICATE KEY UPDATE
+  `name` = VALUES(`name`),
+  `description` = VALUES(`description`),
+  `status` = 'active';
+
+INSERT INTO `platform_ai_capability_versions`
+  (`capability_id`, `version`, `status`, `snapshot_json`, `snapshot_hash`, `change_note`, `published_at`)
+SELECT
+  capability.id,
+  1,
+  'published',
+  snapshot.snapshot_json,
+  SHA2(CAST(snapshot.snapshot_json AS CHAR), 256),
+  '默认企业配置提升为平台全局基线',
+  NOW(3)
+FROM `platform_ai_capabilities` capability
+JOIN LATERAL (
+  SELECT JSON_OBJECT(
+    'schema_version', 1,
+    'capability_key', capability.capability_key,
+    'audience', capability.audience,
+    'model_policy', JSON_OBJECT(
+      'allowed_llm_model_ids', COALESCE((SELECT JSON_ARRAYAGG(model.id) FROM llm_models model WHERE model.is_enabled = 1), JSON_ARRAY()),
+      'default_llm_model_id', (SELECT model.id FROM llm_models model WHERE model.is_enabled = 1 AND model.is_default = 1 ORDER BY model.id DESC LIMIT 1),
+      'allowed_embedding_model_ids', CASE WHEN capability.capability_key = 'ai.match_evaluation' THEN COALESCE((SELECT JSON_ARRAYAGG(model.id) FROM embedding_models model WHERE model.is_enabled = 1), JSON_ARRAY()) ELSE JSON_ARRAY() END,
+      'default_embedding_model_id', CASE WHEN capability.capability_key = 'ai.match_evaluation' THEN (SELECT model.id FROM embedding_models model WHERE model.is_enabled = 1 AND model.is_default = 1 ORDER BY model.id DESC LIMIT 1) ELSE NULL END
+    ),
+    'configuration_refs', JSON_OBJECT(
+      'agent_ids', COALESCE((SELECT JSON_ARRAYAGG(agent.id) FROM agent_configs agent WHERE agent.is_enabled = 1 AND agent.agent_type = CASE WHEN capability.audience = 'candidate' THEN 'candidate_assistant' ELSE 'hr_recruiting_agent' END), JSON_ARRAY()),
+      'prompt_template_ids', COALESCE((SELECT JSON_ARRAYAGG(prompt.id) FROM prompt_templates prompt WHERE prompt.is_active = 1 AND (
+        (capability.capability_key IN ('ai.chat', 'ai.agent_run') AND prompt.agent_type = CASE WHEN capability.audience = 'candidate' THEN 'candidate_assistant' ELSE 'hr_recruiting_agent' END)
+        OR (capability.capability_key = 'ai.resume_parse' AND prompt.agent_type = 'resume_profile_extractor')
+        OR (capability.capability_key = 'ai.match_evaluation' AND prompt.agent_type IN ('job_requirement_extractor', 'candidate_match_evaluator'))
+      )), JSON_ARRAY()),
+      'agent_skill_version_ids', CASE WHEN capability.audience = 'tenant_hr' AND capability.capability_key IN ('ai.chat', 'ai.agent_run') THEN COALESCE((SELECT JSON_ARRAYAGG(skill.current_version_id) FROM agent_skills skill WHERE skill.is_enabled = 1 AND skill.current_version_id IS NOT NULL), JSON_ARRAY()) ELSE JSON_ARRAY() END,
+      'ai_skill_version_ids', CASE WHEN capability.audience = 'tenant_hr' AND capability.capability_key IN ('ai.chat', 'ai.agent_run') THEN COALESCE((SELECT JSON_ARRAYAGG(skill.current_version_id) FROM ai_skills skill WHERE skill.is_enabled = 1 AND skill.current_version_id IS NOT NULL), JSON_ARRAY()) ELSE JSON_ARRAY() END,
+      'mcp_policy_ids', CASE WHEN capability.audience = 'tenant_hr' AND capability.capability_key IN ('ai.chat', 'ai.agent_run') THEN COALESCE((SELECT JSON_ARRAYAGG(policy.id) FROM mcp_tool_policies policy WHERE policy.is_enabled = 1), JSON_ARRAY()) ELSE JSON_ARRAY() END
+    )
+  ) AS snapshot_json
+) snapshot ON TRUE
+ON DUPLICATE KEY UPDATE `capability_id` = VALUES(`capability_id`);
+
+UPDATE `platform_ai_capabilities` capability
+JOIN `platform_ai_capability_versions` version
+  ON version.capability_id = capability.id AND version.version = 1 AND version.status = 'published'
+SET capability.current_published_version_id = version.id;
+
+INSERT INTO `platform_plan_entitlements`
+  (`plan_version_id`, `entitlement_key`, `value_type`, `value_json`, `enforcement_mode`)
+SELECT
+  plan_version.id,
+  CONCAT(capability.capability_key, '.release_version_id'),
+  'integer',
+  CAST(capability_version.id AS JSON),
+  'hard'
+FROM `platform_plan_versions` plan_version
+JOIN `platform_plan_entitlements` enabled ON enabled.plan_version_id = plan_version.id
+JOIN `platform_ai_capabilities` capability
+  ON capability.audience = 'tenant_hr'
+ AND enabled.entitlement_key = CONCAT(capability.capability_key, '.enabled')
+JOIN `platform_ai_capability_versions` capability_version
+  ON capability_version.id = capability.current_published_version_id
+WHERE plan_version.version = 2
+ON DUPLICATE KEY UPDATE
+  `value_type` = VALUES(`value_type`),
+  `value_json` = VALUES(`value_json`),
+  `enforcement_mode` = VALUES(`enforcement_mode`);
+
+UPDATE `billing_price_versions` price
+JOIN `billing_products` product ON product.id = price.product_id AND product.owner_type = 'user'
+JOIN `platform_ai_capabilities` capability ON capability.capability_key = 'ai.chat' AND capability.audience = 'candidate'
+SET price.entitlement_snapshot = JSON_SET(
+  COALESCE(price.entitlement_snapshot, JSON_OBJECT()),
+  '$."ai.chat.release_version_id"',
+  capability.current_published_version_id
+)
+WHERE product.product_type = 'subscription';
+
+-- Migration 000072: give legacy active tenants without any subscription
+-- history a published Starter v2 plan, which pins their AI capability releases.
+INSERT INTO `tenant_subscriptions`
+  (`tenant_id`, `plan_version_id`, `status`, `starts_at`, `ends_at`, `reason`, `created_by`)
+SELECT
+  tenant.id,
+  version.id,
+  'active',
+  NOW(3),
+  NULL,
+  'legacy tenant starter plan bootstrap',
+  NULL
+FROM `tenants` tenant
+JOIN `platform_plans` plan
+  ON plan.plan_key = 'starter'
+ AND plan.status = 'active'
+JOIN `platform_plan_versions` version
+  ON version.plan_id = plan.id
+ AND version.version = 2
+ AND version.status = 'published'
+ AND version.effective_at <= NOW(3)
+WHERE tenant.status = 'active'
+  AND NOT EXISTS (
+    SELECT 1
+    FROM `tenant_subscriptions` existing
+    WHERE existing.tenant_id = tenant.id
+  );
+
+-- Migration 000073: normalize immediately-effective AI entitlement seed data
+-- to the UTC clock used by runtime entitlement queries.
+UPDATE `platform_plan_versions`
+SET `effective_at` = UTC_TIMESTAMP(3)
+WHERE `version` = 2
+  AND `change_note` = 'AI billing shadow defaults; review before enforcement'
+  AND `effective_at` > UTC_TIMESTAMP(3);
+
+UPDATE `billing_price_versions` price
+JOIN `billing_products` product
+  ON product.id = price.product_id
+ AND product.product_key = 'candidate_free'
+SET price.effective_at = UTC_TIMESTAMP(3)
+WHERE price.version = 1
+  AND price.status = 'published'
+  AND price.effective_at > UTC_TIMESTAMP(3);
+
+UPDATE `tenant_subscriptions`
+SET `starts_at` = UTC_TIMESTAMP(3)
+WHERE `reason` = 'legacy tenant starter plan bootstrap'
+  AND `created_by` IS NULL
+  AND `starts_at` > UTC_TIMESTAMP(3);
+
+-- Migration 000074: publish the candidate Pro offer for Alipay sandbox checkout.
+INSERT IGNORE INTO `billing_price_versions`
+  (`product_id`, `version`, `billing_term`, `amount_fen`, `currency`, `included_credits`,
+   `entitlement_snapshot`, `status`, `effective_at`, `created_at`, `updated_at`)
+SELECT
+  product.id,
+  1,
+  'monthly',
+  990,
+  'CNY',
+  200,
+  JSON_OBJECT(
+    'ai.chat.enabled', true,
+    'ai.chat.release_version_id', capability.current_published_version_id,
+    'ai.credits.monthly', 200
+  ),
+  'draft',
+  NULL,
+  UTC_TIMESTAMP(3),
+  UTC_TIMESTAMP(3)
+FROM `billing_products` product
+JOIN `platform_ai_capabilities` capability
+  ON capability.capability_key = 'ai.chat'
+ AND capability.audience = 'candidate'
+ AND capability.current_published_version_id IS NOT NULL
+WHERE product.product_key = 'candidate_pro'
+  AND product.owner_type = 'user'
+  AND product.product_type = 'subscription';
+
+UPDATE `billing_price_versions` price
+JOIN `billing_products` product
+  ON product.id = price.product_id
+ AND product.product_key = 'candidate_pro'
+ AND product.owner_type = 'user'
+JOIN `platform_ai_capabilities` capability
+  ON capability.capability_key = 'ai.chat'
+ AND capability.audience = 'candidate'
+ AND capability.current_published_version_id IS NOT NULL
+SET price.entitlement_snapshot = JSON_SET(
+      COALESCE(price.entitlement_snapshot, JSON_OBJECT()),
+      '$."ai.chat.enabled"',
+      true,
+      '$."ai.chat.release_version_id"',
+      capability.current_published_version_id,
+      '$."ai.credits.monthly"',
+      price.included_credits
+    ),
+    price.effective_at = UTC_TIMESTAMP(3),
+    price.status = 'published',
+    price.updated_at = UTC_TIMESTAMP(3)
+WHERE price.version = 1
+  AND price.status = 'draft';
+
+UPDATE `billing_products`
+SET `status` = 'active',
+    `updated_at` = UTC_TIMESTAMP(3)
+WHERE `product_key` = 'candidate_pro'
+  AND `owner_type` = 'user'
+  AND `product_type` = 'subscription'
+  AND `status` = 'draft';

@@ -23,6 +23,8 @@ import (
 
 const DefaultSandboxGateway = "https://openapi-sandbox.dl.alipaydev.com/gateway.do"
 
+const alipayStatusRequestTimeout = 4 * time.Second
+
 type AlipayConfig struct {
 	Environment    string
 	GatewayURL     string
@@ -80,6 +82,7 @@ func (a *UnavailableAlipay) Refund(context.Context, string, string, string, uint
 func (a *UnavailableAlipay) Query(context.Context, string, time.Time) (QueryResult, error) {
 	return QueryResult{}, a.reason
 }
+func (a *UnavailableAlipay) Close(context.Context, string, time.Time) error { return a.reason }
 
 func NewAlipay(config AlipayConfig) (*Alipay, error) {
 	if config.GatewayURL == "" {
@@ -96,7 +99,18 @@ func NewAlipay(config AlipayConfig) (*Alipay, error) {
 	if err != nil {
 		return nil, fmt.Errorf("parse Alipay public key: %w", err)
 	}
-	return &Alipay{config: config, privateKey: privateKey, publicKey: publicKey, httpClient: &http.Client{Timeout: 15 * time.Second}}, nil
+	return &Alipay{
+		config:     config,
+		privateKey: privateKey,
+		publicKey:  publicKey,
+		httpClient: &http.Client{
+			Timeout: 15 * time.Second,
+			// OpenAPI query/close/refund calls must return protocol JSON. Following
+			// a sandbox redirect hides the original response behind an HTML error
+			// page and can consume the gateway's entire request deadline.
+			CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse },
+		},
+	}, nil
 }
 
 func (a *Alipay) Environment() string { return a.config.Environment }
@@ -104,11 +118,15 @@ func (a *Alipay) Environment() string { return a.config.Environment }
 type PayRequest struct {
 	OrderNo, Subject, Scene string
 	AmountFen               uint64
+	ExpiresAt               time.Time
 }
 
 func (a *Alipay) PayURL(request PayRequest, now time.Time) (string, error) {
-	if request.OrderNo == "" || request.Subject == "" || request.AmountFen == 0 {
-		return "", errors.New("Alipay order number, subject and positive amount are required")
+	if request.OrderNo == "" || request.Subject == "" || request.AmountFen == 0 || request.ExpiresAt.IsZero() {
+		return "", errors.New("Alipay order number, subject, positive amount and expiry are required")
+	}
+	if !request.ExpiresAt.After(now) {
+		return "", errors.New("Alipay order has expired")
 	}
 	method := "alipay.trade.page.pay"
 	productCode := "FAST_INSTANT_TRADE_PAY"
@@ -125,11 +143,17 @@ func (a *Alipay) PayURL(request PayRequest, now time.Time) (string, error) {
 	} else {
 		return "", errors.New("Alipay scene must be desktop or wap")
 	}
-	biz, err := json.Marshal(map[string]any{"out_trade_no": request.OrderNo, "total_amount": formatFen(request.AmountFen), "subject": request.Subject, "product_code": productCode, "timeout_express": "30m"})
+	location, _ := time.LoadLocation("Asia/Shanghai")
+	biz, err := json.Marshal(map[string]any{
+		"out_trade_no": request.OrderNo,
+		"total_amount": formatFen(request.AmountFen),
+		"subject":      request.Subject,
+		"product_code": productCode,
+		"time_expire":  request.ExpiresAt.In(location).Format("2006-01-02 15:04:05"),
+	})
 	if err != nil {
 		return "", err
 	}
-	location, _ := time.LoadLocation("Asia/Shanghai")
 	params := map[string]string{
 		"app_id": a.config.AppID, "method": method, "format": "JSON", "charset": "utf-8",
 		"sign_type": "RSA2", "timestamp": now.In(location).Format("2006-01-02 15:04:05"), "version": "1.0",
@@ -233,6 +257,19 @@ type QueryResult struct {
 	AmountFen            uint64
 }
 
+type APIError struct {
+	Operation, Code, SubCode, Message, SubMessage string
+}
+
+func (e *APIError) Error() string {
+	return fmt.Sprintf("Alipay %s rejected: %s %s (%s)", e.Operation, e.Message, e.SubMessage, e.SubCode)
+}
+
+func IsTradeNotExist(err error) bool {
+	var apiErr *APIError
+	return errors.As(err, &apiErr) && (apiErr.SubCode == "ACQ.TRADE_NOT_EXIST" || strings.Contains(apiErr.SubMessage, "交易不存在"))
+}
+
 func (a *Alipay) Query(ctx context.Context, orderNo string, now time.Time) (QueryResult, error) {
 	if strings.TrimSpace(orderNo) == "" {
 		return QueryResult{}, errors.New("Alipay order number is required")
@@ -249,7 +286,9 @@ func (a *Alipay) Query(ctx context.Context, orderNo string, now time.Time) (Quer
 		values.Set(key, value)
 	}
 	values.Set("sign", signature)
-	request, err := http.NewRequestWithContext(ctx, http.MethodPost, a.config.GatewayURL, strings.NewReader(values.Encode()))
+	requestCtx, cancel := boundedStatusContext(ctx)
+	defer cancel()
+	request, err := http.NewRequestWithContext(requestCtx, http.MethodPost, a.config.GatewayURL, strings.NewReader(values.Encode()))
 	if err != nil {
 		return QueryResult{}, err
 	}
@@ -264,19 +303,93 @@ func (a *Alipay) Query(ctx context.Context, orderNo string, now time.Time) (Quer
 		return QueryResult{}, err
 	}
 	var envelope struct {
-		Response struct{ Code, Msg, SubMsg, TradeNo, TradeStatus, TotalAmount string } `json:"alipay_trade_query_response"`
+		Response struct {
+			Code        string `json:"code"`
+			Msg         string `json:"msg"`
+			SubCode     string `json:"sub_code"`
+			SubMsg      string `json:"sub_msg"`
+			TradeNo     string `json:"trade_no"`
+			TradeStatus string `json:"trade_status"`
+			TotalAmount string `json:"total_amount"`
+		} `json:"alipay_trade_query_response"`
 	}
 	if err := json.Unmarshal(body, &envelope); err != nil {
-		return QueryResult{}, fmt.Errorf("decode Alipay query response: %w", err)
+		return QueryResult{}, nonJSONResponseError("query", response, err)
 	}
 	if envelope.Response.Code != "10000" {
-		return QueryResult{}, fmt.Errorf("Alipay query rejected: %s %s", envelope.Response.Msg, envelope.Response.SubMsg)
+		return QueryResult{}, &APIError{Operation: "query", Code: envelope.Response.Code, SubCode: envelope.Response.SubCode, Message: envelope.Response.Msg, SubMessage: envelope.Response.SubMsg}
 	}
-	amount, err := parseFen(envelope.Response.TotalAmount)
-	if err != nil {
-		return QueryResult{}, err
+	var amount uint64
+	if envelope.Response.TotalAmount != "" {
+		amount, err = parseFen(envelope.Response.TotalAmount)
+		if err != nil {
+			return QueryResult{}, err
+		}
+	} else if envelope.Response.TradeStatus == "TRADE_SUCCESS" || envelope.Response.TradeStatus == "TRADE_FINISHED" {
+		return QueryResult{}, errors.New("Alipay successful trade query omitted total amount")
 	}
 	return QueryResult{TradeNo: envelope.Response.TradeNo, TradeStatus: envelope.Response.TradeStatus, AmountFen: amount}, nil
+}
+
+func (a *Alipay) Close(ctx context.Context, merchantOrderNo string, now time.Time) error {
+	if strings.TrimSpace(merchantOrderNo) == "" {
+		return errors.New("Alipay merchant order number is required")
+	}
+	biz, _ := json.Marshal(map[string]string{"out_trade_no": merchantOrderNo})
+	location, _ := time.LoadLocation("Asia/Shanghai")
+	params := map[string]string{"app_id": a.config.AppID, "method": "alipay.trade.close", "format": "JSON", "charset": "utf-8", "sign_type": "RSA2", "timestamp": now.In(location).Format("2006-01-02 15:04:05"), "version": "1.0", "biz_content": string(biz)}
+	signature, err := a.sign(canonical(params))
+	if err != nil {
+		return err
+	}
+	values := url.Values{}
+	for key, value := range params {
+		values.Set(key, value)
+	}
+	values.Set("sign", signature)
+	requestCtx, cancel := boundedStatusContext(ctx)
+	defer cancel()
+	request, err := http.NewRequestWithContext(requestCtx, http.MethodPost, a.config.GatewayURL, strings.NewReader(values.Encode()))
+	if err != nil {
+		return err
+	}
+	request.Header.Set("Content-Type", "application/x-www-form-urlencoded;charset=utf-8")
+	response, err := a.httpClient.Do(request)
+	if err != nil {
+		return err
+	}
+	defer response.Body.Close()
+	body, err := io.ReadAll(io.LimitReader(response.Body, 1<<20))
+	if err != nil {
+		return err
+	}
+	var envelope struct {
+		Response struct {
+			Code    string `json:"code"`
+			Msg     string `json:"msg"`
+			SubCode string `json:"sub_code"`
+			SubMsg  string `json:"sub_msg"`
+		} `json:"alipay_trade_close_response"`
+	}
+	if err := json.Unmarshal(body, &envelope); err != nil {
+		return nonJSONResponseError("close", response, err)
+	}
+	if envelope.Response.Code == "10000" || envelope.Response.SubCode == "ACQ.TRADE_NOT_EXIST" {
+		return nil
+	}
+	return &APIError{Operation: "close", Code: envelope.Response.Code, SubCode: envelope.Response.SubCode, Message: envelope.Response.Msg, SubMessage: envelope.Response.SubMsg}
+}
+
+func boundedStatusContext(ctx context.Context) (context.Context, context.CancelFunc) {
+	if deadline, ok := ctx.Deadline(); ok && time.Until(deadline) <= alipayStatusRequestTimeout {
+		return context.WithCancel(ctx)
+	}
+	return context.WithTimeout(ctx, alipayStatusRequestTimeout)
+}
+
+func nonJSONResponseError(operation string, response *http.Response, decodeErr error) error {
+	contentType := strings.TrimSpace(response.Header.Get("Content-Type"))
+	return fmt.Errorf("Alipay %s returned non-JSON response (HTTP %d, content-type %q): %w", operation, response.StatusCode, contentType, decodeErr)
 }
 
 func (a *Alipay) sign(content string) (string, error) {

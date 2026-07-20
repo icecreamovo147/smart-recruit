@@ -30,10 +30,11 @@ alipay:
   #   -----END PUBLIC KEY-----
 
   notify_url: https://your-public-dev-domain.example/api/v1/public/billing/webhooks/alipay
-  # Choose the page matching the frontend currently used for sandbox testing.
-  # Candidate: http://127.0.0.1:5174/billing
-  # HR:        http://127.0.0.1:5173/hr/billing
-  return_url: http://127.0.0.1:5174/billing
+  # Prefer localhost over 127.0.0.1: Vite may listen on IPv6 [::1] only, so
+  # 127.0.0.1 can refuse connections while localhost works.
+  # Candidate: http://localhost:5174/billing
+  # HR:        http://localhost:5173/hr/billing
+  return_url: http://localhost:5174/billing
 
   desktop_enabled: true
   wap_enabled: true
