@@ -178,6 +178,14 @@ func (s *nativeAIService) reserveAIBilling(ctx context.Context, kind billingOwne
 		}
 		if persistErr := outbox.CreateBillingOutboxReservation(persistCtx, record); persistErr != nil {
 			platformobservability.DefaultMetrics.RecordBillingEvent("reservation_outbox", "error")
+			platformlogger.L().Error("persist AI billing reservation outbox failed",
+				zap.String("reservation_no", response.GetReservationNo()),
+				zap.String("owner_type", record.OwnerType),
+				zap.Int64("owner_id", record.OwnerID),
+				zap.String("capability", record.Capability),
+				zap.String("operation", record.Operation),
+				zap.Error(persistErr),
+			)
 			_, _ = s.billing.CancelAIUsage(persistCtx, &pb.CancelAIUsageRequest{ReservationNo: response.GetReservationNo(), Reason: "reservation_outbox_failed", IdempotencyKey: response.GetReservationNo() + ":outbox-failed"})
 			return ctx, status.Error(codes.Unavailable, "AI billing reservation persistence failed")
 		} else {

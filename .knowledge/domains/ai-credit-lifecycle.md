@@ -38,9 +38,21 @@ Billing owns entitlements, price snapshots, credit grants, reservations, rate ca
 
 `AI_BILLING_MODE` is the process-wide rollout switch. Billing applies it as an explicit override even when a YAML configuration file is supplied; AI Agent uses the same value to decide whether Billing failures must fail closed. In `enforce`, Billing refuses startup without a published effective rate card and a credit source, and AI Agent rejects a Billing response that reports a different enforcement mode.
 
+Rate-card provider/model keys are selected from enabled `llm_providers` and `llm_models` records. Billing validates the pair again on write and persists the catalog's canonical spelling, so a disabled, renamed, or manually forged runtime target cannot be published through a direct API call.
+
+Platform commercial-control saves for product prices and AI rate cards publish the new immutable version immediately; the previous published version for the same product term or provider/model is retired in the same transaction. Immediate `effective_at` and retirement timestamps use MySQL's UTC clock rather than a Go `time.Time` passed through a `loc=Local` connection, because storefront queries compare these `DATETIME` columns with `UTC_TIMESTAMP(3)`.
+
+JSON entitlement booleans are decoded as their JSON text (`true`/`false`) rather than numerically cast by MySQL. Candidate subscription snapshots must bind `ai.chat.release_version_id` to the published `candidate` capability release; an HR release ID is not interchangeable even when the entitlement key is the same.
+
 Before a provider call, AI Agent checks the capability and requests a reservation with an estimated value of zero. Billing resolves the effective `ai.single_run.max_credits` entitlement, falling back to 20 credits only for legacy price snapshots without that key. In enforce mode it reserves the lesser of that ceiling and the available prepaid balance, rejects zero balance, and verifies that the exact provider/model has an effective rate card before allowing the call.
 
 After reservation, AI Agent durably creates an `ai_billing_settlement_outbox` row before calling the provider. Provider token usage is retained for chat, Agent runs, application analysis, resume parsing, and match evaluation. Deterministic paths that do not invoke a provider cancel the reservation and do not consume credits.
+
+The settlement outbox is owner-polymorphic (`owner_type` plus `owner_id`) and intentionally does not participate in the GORM `tenant_id` boundary plugin. Tenant and candidate isolation is carried by the reservation foreign key and owner identity; background settlement must be able to process both owner types without a request tenant context.
+
+Candidate chat persists the User turn before billing admission and persists a structured failed Assistant turn when model resolution or credit reservation fails. The failure metadata lives in `process_content` (`delivery_status`, `error_code`, and `retryable`), so refreshing a session preserves the actionable failure state without treating it as model output. Exhausted grants remain part of the current-period gross/used summary until expiry even though they no longer contribute available balance.
+
+Credit-pack purchases add independent, expiring grant buckets and do not replace the owner's base monthly subscription. Account summaries evaluate grant validity with the same bound application clock used by reservation and balance queries, which keeps locally parsed MySQL `DATETIME` values consistent across available, total, and used credit fields. Candidate UI presents an additional-credit marker beside the base plan when current grant totals exceed the plan's included monthly credits.
 
 Settlement first persists the complete Billing request in the outbox, then calls Billing synchronously. Failures remain pending and are retried with bounded exponential backoff; stale processing leases are recovered. Billing settlement and cancellation are idempotent. Rows that exhaust retry attempts become `dead` for alerting and manual repair. Billing maintenance does not expire reservations that still have reserved, pending, processing, or dead delivery evidence; an old `reserved` row may represent a crash around provider invocation and requires explicit reconciliation.
 

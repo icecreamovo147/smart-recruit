@@ -443,7 +443,6 @@ func (s *Commerce) SavePriceVersion(ctx context.Context, productID, priceVersion
 	if !json.Valid([]byte(snapshot)) {
 		return nil, errors.New("entitlement snapshot must be valid JSON")
 	}
-	now := s.now().UTC()
 	var result pb.BillingPriceInfo
 	err := s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		var product struct {
@@ -476,7 +475,10 @@ func (s *Commerce) SavePriceVersion(ctx context.Context, productID, priceVersion
 		var effectiveAt any = nil
 		if publish {
 			statusValue = "published"
-			effectiveAt = now
+			// DATETIME values are compared with UTC_TIMESTAMP throughout Billing.
+			// Use the database UTC clock so loc=Local cannot shift an immediate
+			// publication eight hours into the future.
+			effectiveAt = gorm.Expr("UTC_TIMESTAMP(3)")
 		}
 		if priceVersionID > 0 {
 			var existing struct {
@@ -489,7 +491,7 @@ func (s *Commerce) SavePriceVersion(ctx context.Context, productID, priceVersion
 			if existing.Status != "draft" {
 				return errors.New("published price versions are immutable")
 			}
-			if err := tx.Table("billing_price_versions").Where("id = ?", priceVersionID).Updates(map[string]any{"billing_term": term, "amount_fen": amountFen, "included_credits": credits, "entitlement_snapshot": snapshot, "status": statusValue, "effective_at": effectiveAt, "updated_at": now}).Error; err != nil {
+			if err := tx.Table("billing_price_versions").Where("id = ?", priceVersionID).Updates(map[string]any{"billing_term": term, "amount_fen": amountFen, "included_credits": credits, "entitlement_snapshot": snapshot, "status": statusValue, "effective_at": effectiveAt, "updated_at": gorm.Expr("UTC_TIMESTAMP(3)")}).Error; err != nil {
 				return err
 			}
 			result.Id = int64(priceVersionID)
@@ -499,7 +501,7 @@ func (s *Commerce) SavePriceVersion(ctx context.Context, productID, priceVersion
 			if err := tx.Table("billing_price_versions").Where("product_id = ?", productID).Select("COALESCE(MAX(version), 0) + 1").Scan(&version).Error; err != nil {
 				return err
 			}
-			row := map[string]any{"product_id": productID, "version": version, "billing_term": term, "amount_fen": amountFen, "currency": "CNY", "included_credits": credits, "entitlement_snapshot": snapshot, "status": statusValue, "effective_at": effectiveAt, "created_at": now, "updated_at": now}
+			row := map[string]any{"product_id": productID, "version": version, "billing_term": term, "amount_fen": amountFen, "currency": "CNY", "included_credits": credits, "entitlement_snapshot": snapshot, "status": statusValue, "effective_at": effectiveAt, "created_at": gorm.Expr("UTC_TIMESTAMP(3)"), "updated_at": gorm.Expr("UTC_TIMESTAMP(3)")}
 			if err := tx.Table("billing_price_versions").Create(row).Error; err != nil {
 				return err
 			}
@@ -511,10 +513,10 @@ func (s *Commerce) SavePriceVersion(ctx context.Context, productID, priceVersion
 			result.Version = version
 		}
 		if publish {
-			if err := tx.Table("billing_price_versions").Where("product_id = ? AND billing_term = ? AND id <> ? AND status = 'published'", productID, term, result.Id).Updates(map[string]any{"status": "retired", "retired_at": now, "updated_at": now}).Error; err != nil {
+			if err := tx.Table("billing_price_versions").Where("product_id = ? AND billing_term = ? AND id <> ? AND status = 'published'", productID, term, result.Id).Updates(map[string]any{"status": "retired", "retired_at": gorm.Expr("UTC_TIMESTAMP(3)"), "updated_at": gorm.Expr("UTC_TIMESTAMP(3)")}).Error; err != nil {
 				return err
 			}
-			if err := tx.Table("billing_products").Where("id = ?", productID).Updates(map[string]any{"status": "active", "updated_at": now}).Error; err != nil {
+			if err := tx.Table("billing_products").Where("id = ?", productID).Updates(map[string]any{"status": "active", "updated_at": gorm.Expr("UTC_TIMESTAMP(3)")}).Error; err != nil {
 				return err
 			}
 		}
@@ -624,15 +626,32 @@ func (s *Commerce) SaveRateCard(ctx context.Context, providerKey, modelKey strin
 	var effectiveAt any = nil
 	if publish {
 		statusValue = "published"
-		effectiveAt = now
+		effectiveAt = gorm.Expr("UTC_TIMESTAMP(3)")
 	}
 	var result pb.AIRateCardInfo
 	err := s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		var target struct {
+			ProviderKey string
+			ModelKey    string
+		}
+		if err := tx.Table("llm_models model").
+			Joins("JOIN llm_providers provider ON provider.id = model.provider_id").
+			Where("provider.name = ? AND model.model_name = ? AND provider.is_enabled = ? AND model.is_enabled = ?", providerKey, modelKey, true, true).
+			Select("provider.name provider_key, model.model_name model_key").Take(&target).Error; err != nil {
+			if errors.Is(err, gorm.ErrRecordNotFound) {
+				return errors.New("provider and model must match an enabled platform LLM configuration")
+			}
+			return fmt.Errorf("validate maintained AI model: %w", err)
+		}
+		// Persist the catalog's canonical spelling even on case-insensitive MySQL
+		// collations so Billing keys remain byte-for-byte equal to runtime audit keys.
+		providerKey = target.ProviderKey
+		modelKey = target.ModelKey
 		var version int32
 		if err := tx.Table("ai_rate_cards").Where("provider_key = ? AND model_key = ?", providerKey, modelKey).Select("COALESCE(MAX(version), 0) + 1").Scan(&version).Error; err != nil {
 			return err
 		}
-		row := map[string]any{"provider_key": providerKey, "model_key": modelKey, "version": version, "currency": "CNY", "input_micros_per_1k_tokens": input, "output_micros_per_1k_tokens": output, "cached_input_micros_per_1k_tokens": cached, "credit_micros": credit, "status": statusValue, "effective_at": effectiveAt, "created_at": now}
+		row := map[string]any{"provider_key": providerKey, "model_key": modelKey, "version": version, "currency": "CNY", "input_micros_per_1k_tokens": input, "output_micros_per_1k_tokens": output, "cached_input_micros_per_1k_tokens": cached, "credit_micros": credit, "status": statusValue, "effective_at": effectiveAt, "created_at": gorm.Expr("UTC_TIMESTAMP(3)")}
 		if err := tx.Table("ai_rate_cards").Create(row).Error; err != nil {
 			return err
 		}
@@ -641,7 +660,7 @@ func (s *Commerce) SaveRateCard(ctx context.Context, providerKey, modelKey strin
 			return err
 		}
 		if publish {
-			if err := tx.Table("ai_rate_cards").Where("provider_key = ? AND model_key = ? AND id <> ? AND status = 'published'", providerKey, modelKey, id).Updates(map[string]any{"status": "retired", "retired_at": now}).Error; err != nil {
+			if err := tx.Table("ai_rate_cards").Where("provider_key = ? AND model_key = ? AND id <> ? AND status = 'published'", providerKey, modelKey, id).Updates(map[string]any{"status": "retired", "retired_at": gorm.Expr("UTC_TIMESTAMP(3)")}).Error; err != nil {
 				return err
 			}
 		}
@@ -785,22 +804,25 @@ func (s *Commerce) ScheduledSubscription(ctx context.Context, owner model.Owner)
 	}, nil
 }
 
-// CurrentCreditSummary returns gross and consumed credits for the currently
-// active grant buckets. Reservations are deliberately excluded from consumed
-// credits because they have not been settled yet.
+// CurrentCreditSummary returns gross and consumed credits for current grant
+// buckets, including exhausted buckets so a fully consumed package remains
+// visible as 100% used. Reservations are excluded because they are unsettled.
+const currentCreditSummarySQL = `SELECT
+		COALESCE(SUM(total_credits), 0) total,
+		COALESCE(SUM(remaining_credits), 0) remaining
+		FROM ai_credit_grants
+		WHERE owner_type = ? AND owner_id = ? AND status IN ('active', 'exhausted')
+		  AND valid_from <= ?
+		  AND (expires_at IS NULL OR expires_at > ?)`
+
 func (s *Commerce) CurrentCreditSummary(ctx context.Context, owner model.Owner) (total, used int64, err error) {
 	type row struct {
 		Total     int64
 		Remaining int64
 	}
 	var value row
-	err = s.db.WithContext(ctx).Raw(`SELECT
-		COALESCE(SUM(total_credits), 0) total,
-		COALESCE(SUM(remaining_credits), 0) remaining
-		FROM ai_credit_grants
-		WHERE owner_type = ? AND owner_id = ? AND status = 'active'
-		  AND valid_from <= UTC_TIMESTAMP(3)
-		  AND (expires_at IS NULL OR expires_at > UTC_TIMESTAMP(3))`, owner.Type, owner.ID).Scan(&value).Error
+	now := s.now().UTC()
+	err = s.db.WithContext(ctx).Raw(currentCreditSummarySQL, owner.Type, owner.ID, now, now).Scan(&value).Error
 	if err != nil {
 		return 0, 0, err
 	}

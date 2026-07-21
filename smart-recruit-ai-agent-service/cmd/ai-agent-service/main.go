@@ -42,6 +42,11 @@ import (
 
 const nacosServiceName = "ai-agent"
 
+var (
+	aiAgentTenantOwnedTables = []string{"candidate_match_evaluations", "candidate_match_evidence", "jobs", "applications", "application_status_transitions", "interview_schedules", "interview_feedback", "offers", "offer_events"}
+	aiAgentMixedScopeTables  = []string{"ai_chat_sessions", "ai_chat_history", "ai_session_summaries", "ai_tool_traces", "agent_runs", "agent_run_events", "agent_run_steps", "ai_memories", "ai_embeddings", "third_party_usage_logs", "ai_usage_auth_contexts", "mcp_tool_logs"}
+)
+
 func main() {
 	check := flag.Bool("check", false, "validate AI Agent service runtime wiring and exit")
 	serve := flag.Bool("serve", false, "start AI Agent gRPC runtime")
@@ -126,10 +131,7 @@ func serveAIAgent(addr string) error {
 	if err != nil {
 		return fmt.Errorf("connect mysql: %w", err)
 	}
-	if err := db.Use(tenantgorm.NewWithMixed(
-		[]string{"candidate_match_evaluations", "candidate_match_evidence", "jobs", "applications", "application_status_transitions", "interview_schedules", "interview_feedback", "offers", "offer_events"},
-		[]string{"ai_chat_sessions", "ai_chat_history", "ai_session_summaries", "ai_tool_traces", "agent_runs", "agent_run_events", "agent_run_steps", "ai_memories", "ai_embeddings", "third_party_usage_logs", "ai_usage_auth_contexts", "mcp_tool_logs", "ai_billing_settlement_outbox"},
-	)); err != nil {
+	if err := db.Use(tenantgorm.NewWithMixed(aiAgentTenantOwnedTables, aiAgentMixedScopeTables)); err != nil {
 		return err
 	}
 	sqlDB, err := db.DB()

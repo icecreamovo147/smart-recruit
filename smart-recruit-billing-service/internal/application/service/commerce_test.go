@@ -132,3 +132,12 @@ func TestNoOpConflictProducesValidMySQLAssignmentForMapCreate(t *testing.T) {
 		t.Fatalf("generated SQL lacks deterministic no-op assignment: %s", sql)
 	}
 }
+
+func TestCurrentCreditSummaryUsesTheBalanceApplicationClock(t *testing.T) {
+	if strings.Contains(currentCreditSummarySQL, "UTC_TIMESTAMP") {
+		t.Fatal("credit summary must not use a different database clock from balance queries")
+	}
+	if strings.Count(currentCreditSummarySQL, "?") != 4 {
+		t.Fatalf("credit summary placeholders = %d, want owner pair plus validity clock pair", strings.Count(currentCreditSummarySQL, "?"))
+	}
+}

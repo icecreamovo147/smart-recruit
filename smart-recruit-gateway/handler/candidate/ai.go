@@ -52,6 +52,7 @@ func (h *AIHandler) Chat(c *gin.Context) {
 		SourceTitle: req.SourceTitle,
 	})
 	if err != nil {
+		middleware.MarkAIQuotaFailed(c)
 		base.Internal(c, err)
 		return
 	}
@@ -63,14 +64,25 @@ func (h *AIHandler) Chat(c *gin.Context) {
 	var suggestedQuestions []string
 	code := int32(0)
 	msg := "success"
+	streamStarted := false
 	for {
 		chunk, err := stream.Recv()
 		if err == io.EOF {
+			if !streamStarted {
+				middleware.MarkAIQuotaFailed(c)
+			}
 			break
 		}
 		if err != nil {
+			if !streamStarted {
+				middleware.MarkAIQuotaFailed(c)
+			}
 			base.Internal(c, err)
 			return
+		}
+		if !streamStarted {
+			streamStarted = true
+			middleware.MarkAIQuotaConsumed(c)
 		}
 		if chunk.GetCode() != 0 {
 			base.From(c, chunk.GetCode(), chunk.GetMsg(), nil)
@@ -135,6 +147,7 @@ func (h *AIHandler) ChatStream(c *gin.Context) {
 		SourceTitle: req.SourceTitle,
 	})
 	if err != nil {
+		middleware.MarkAIQuotaFailed(c)
 		base.Internal(c, err)
 		return
 	}
@@ -149,6 +162,7 @@ func (h *AIHandler) ChatStream(c *gin.Context) {
 		err   error
 	}
 	recvCh := make(chan recvResult, 1)
+	streamStarted := false
 	ctx := c.Request.Context()
 	go func() {
 		defer close(recvCh)
@@ -174,11 +188,17 @@ func (h *AIHandler) ChatStream(c *gin.Context) {
 				return
 			}
 			if result.err == io.EOF {
+				if !streamStarted {
+					middleware.MarkAIQuotaFailed(c)
+				}
 				return
 			}
 			if result.err != nil {
 				if c.Request.Context().Err() != nil {
 					return
+				}
+				if !streamStarted {
+					middleware.MarkAIQuotaFailed(c)
 				}
 				info := base.PublicError(result.err)
 				payload := fmt.Sprintf("event: message\ndata: %s\n\n", mustMarshal(gin.H{
@@ -194,6 +214,10 @@ func (h *AIHandler) ChatStream(c *gin.Context) {
 					return
 				}
 				return
+			}
+			if !streamStarted {
+				streamStarted = true
+				middleware.MarkAIQuotaConsumed(c)
 			}
 			payload := gin.H{
 				"code":                result.chunk.Code,

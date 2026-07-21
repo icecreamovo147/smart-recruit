@@ -1,0 +1,2 @@
+-- Data repair only. Restoring timezone-shifted publication timestamps would
+-- make active prices and rate cards unavailable again, so rollback is a no-op.

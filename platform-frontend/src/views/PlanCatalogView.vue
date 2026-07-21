@@ -2,10 +2,13 @@
 import { computed, onMounted, reactive, ref } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { listAIRateCards, listBillingProducts, listBillingRefunds, listPlans, publishPlanVersion, reviewBillingRefund, saveAIRateCard, saveBillingPrice, savePlanVersion, type AIRateCardAdmin, type BillingProductAdmin, type BillingRefundAdmin } from '@/api/control'
+import { listModels, listProviders } from '@/api/llm'
 import { listPlatformAICapabilities, type PlatformAICapability } from '@/api/platformAI'
 import { PLATFORM_PERMISSIONS } from '@/permissions'
 import { useAuthStore } from '@/stores/auth'
 import type { PlatformEntitlement, PlatformPlan, PlatformPlanVersion } from '@/types'
+import type { LlmModel, LlmProvider } from '@shared/types/llm'
+import { enabledRateModelsForProvider, enabledRateProviders, isEnabledRateTarget } from './rateCardCatalog'
 
 const auth = useAuthStore()
 const loading = ref(false)
@@ -14,6 +17,9 @@ const activeSection = ref<CatalogSection>('plans')
 const plans = ref<PlatformPlan[]>([])
 const billingProducts = ref<BillingProductAdmin[]>([])
 const rateCards = ref<AIRateCardAdmin[]>([])
+const rateProviders = ref<LlmProvider[]>([])
+const rateModels = ref<LlmModel[]>([])
+const rateTargetsLoaded = ref(false)
 const refunds = ref<BillingRefundAdmin[]>([])
 const aiCapabilities = ref<PlatformAICapability[]>([])
 const paymentEnvironment = ref('sandbox')
@@ -33,9 +39,20 @@ const form = reactive({
 const publishForm = reactive({ effective_at: '', reason: '' })
 const priceVisible = ref(false)
 const selectedBillingProduct = ref<BillingProductAdmin | null>(null)
-const priceForm = reactive({ price_version_id: 0, billing_term: 'monthly', amount_yuan: 1, included_credits: 100, publish: false })
+const priceForm = reactive({ price_version_id: 0, billing_term: 'monthly', amount_yuan: 1, included_credits: 100 })
 const rateVisible = ref(false)
-const rateForm = reactive({ provider_key: '', model_key: '', input_yuan: 0, output_yuan: 0, cached_yuan: 0, credit_yuan: 0.01, publish: false })
+const editingRateTarget = ref(false)
+const rateForm = reactive({ provider_key: '', model_key: '', input_yuan: 0, output_yuan: 0, cached_yuan: 0, credit_yuan: 0.01 })
+const rateProviderOptions = computed(() => enabledRateProviders(rateProviders.value))
+const rateModelOptions = computed(() => enabledRateModelsForProvider(rateProviders.value, rateModels.value, rateForm.provider_key))
+
+const loadRateTargets = async () => {
+  if (rateTargetsLoaded.value) return
+  const [providerResult, modelResult] = await Promise.all([listProviders(1, 500), listModels(1, 500)])
+  rateProviders.value = providerResult.list || []
+  rateModels.value = modelResult.list || []
+  rateTargetsLoaded.value = true
+}
 
 const entitlementLabels: Record<string, string> = {
   'members.max': '有效成员上限', 'jobs.published.max': '在线岗位上限',
@@ -64,7 +81,7 @@ const load = async (section: CatalogSection = activeSection.value) => {
       billingProducts.value = billingResult.products || []
       paymentEnvironment.value = billingResult.payment_environment || 'sandbox'
     } else if (section === 'rates') {
-      const rateResult = await listAIRateCards()
+      const [rateResult] = await Promise.all([listAIRateCards(), loadRateTargets()])
       rateCards.value = rateResult.rates || []
     } else {
       const refundResult = await listBillingRefunds()
@@ -91,28 +108,44 @@ const switchSection = (value: string | number) => {
   void load(activeSection.value)
 }
 
-const openRateEditor = (rate?: AIRateCardAdmin) => {
+const openRateEditor = async (rate?: AIRateCardAdmin) => {
+  await loadRateTargets()
+  if (rate && !isEnabledRateTarget(rateProviders.value, rateModels.value, rate.provider_key, rate.model_key)) {
+    ElMessage.error('该费率卡对应的供应商或模型已停用，请先在 LLM 配置中启用后再创建新版本')
+    return
+  }
+  editingRateTarget.value = Boolean(rate)
   rateForm.provider_key = rate?.provider_key || ''
   rateForm.model_key = rate?.model_key || ''
   rateForm.input_yuan = (rate?.input_micros_per_1k_tokens || 0) / 1_000_000
   rateForm.output_yuan = (rate?.output_micros_per_1k_tokens || 0) / 1_000_000
   rateForm.cached_yuan = (rate?.cached_input_micros_per_1k_tokens || 0) / 1_000_000
   rateForm.credit_yuan = (rate?.credit_micros || 10_000) / 1_000_000
-  rateForm.publish = false
   rateVisible.value = true
 }
 
+const changeRateProvider = () => {
+  if (!editingRateTarget.value) rateForm.model_key = ''
+}
+
 const submitRate = async () => {
-  if (!rateForm.provider_key.trim() || !rateForm.model_key.trim() || rateForm.credit_yuan <= 0 || (rateForm.input_yuan <= 0 && rateForm.output_yuan <= 0)) return
+  if (!isEnabledRateTarget(rateProviders.value, rateModels.value, rateForm.provider_key, rateForm.model_key)) {
+    ElMessage.error('请选择当前已启用且相互匹配的供应商和模型')
+    return
+  }
+  if (rateForm.credit_yuan <= 0 || (rateForm.input_yuan <= 0 && rateForm.output_yuan <= 0)) {
+    ElMessage.error('请填写有效的供应商成本和额度换算价格')
+    return
+  }
   await saveAIRateCard({
     provider_key: rateForm.provider_key.trim(), model_key: rateForm.model_key.trim(),
     input_micros_per_1k_tokens: Math.round(rateForm.input_yuan * 1_000_000),
     output_micros_per_1k_tokens: Math.round(rateForm.output_yuan * 1_000_000),
     cached_input_micros_per_1k_tokens: Math.round(rateForm.cached_yuan * 1_000_000),
-    credit_micros: Math.round(rateForm.credit_yuan * 1_000_000), publish: rateForm.publish,
+    credit_micros: Math.round(rateForm.credit_yuan * 1_000_000),
   })
   rateVisible.value = false
-  ElMessage.success(rateForm.publish ? '费率卡已发布' : '费率卡草稿已保存')
+  ElMessage.success('费率卡已保存并发布')
   await load()
 }
 
@@ -124,15 +157,14 @@ const openPriceEditor = (product: BillingProductAdmin) => {
   priceForm.billing_term = latest?.billing_term || (product.product_type === 'credit_pack' ? 'one_time' : 'monthly')
   priceForm.amount_yuan = latest ? latest.amount_fen / 100 : 1
   priceForm.included_credits = latest?.included_credits || 100
-  priceForm.publish = false
   priceVisible.value = true
 }
 
 const submitPrice = async () => {
   if (!selectedBillingProduct.value || priceForm.amount_yuan <= 0 || priceForm.included_credits <= 0) return
-  await saveBillingPrice({ product_id: selectedBillingProduct.value.id, price_version_id: priceForm.price_version_id || undefined, billing_term: priceForm.billing_term, amount_fen: Math.round(priceForm.amount_yuan * 100), included_credits: priceForm.included_credits, publish: priceForm.publish })
+  await saveBillingPrice({ product_id: selectedBillingProduct.value.id, price_version_id: priceForm.price_version_id || undefined, billing_term: priceForm.billing_term, amount_fen: Math.round(priceForm.amount_yuan * 100), included_credits: priceForm.included_credits })
   priceVisible.value = false
-  ElMessage.success(priceForm.publish ? '沙箱价格已发布' : '价格草稿已保存')
+  ElMessage.success('价格与额度已保存并发布')
   await load()
 }
 
@@ -258,10 +290,10 @@ onMounted(load)
       <template #footer><el-button @click="publishVisible = false">取消</el-button><el-button type="primary" @click="submitPublish">确认发布</el-button></template>
     </el-dialog>
 
-    <el-dialog v-model="priceVisible" :title="`${selectedBillingProduct?.name || ''} · 沙箱价格`" width="580px"><el-alert title="当前只对接支付宝沙箱。发布价格会立即出现在购买页，但不会计入真实营收。" type="warning" :closable="false" show-icon/><el-form class="dialog-form" label-position="top"><el-form-item label="计费周期"><el-select v-model="priceForm.billing_term" :disabled="selectedBillingProduct?.product_type === 'credit_pack'"><el-option label="按月" value="monthly"/><el-option label="按年" value="yearly"/><el-option label="一次性" value="one_time"/></el-select></el-form-item><div class="two-columns"><el-form-item label="沙箱价格（元）"><el-input-number v-model="priceForm.amount_yuan" :min="0.01" :precision="2" :step="1"/></el-form-item><el-form-item label="包含 AI 额度"><el-input-number v-model="priceForm.included_credits" :min="1" :step="100"/></el-form-item></div><el-form-item><el-checkbox v-model="priceForm.publish">保存后立即发布</el-checkbox></el-form-item></el-form><template #footer><el-button @click="priceVisible=false">取消</el-button><el-button type="primary" @click="submitPrice">保存价格版本</el-button></template></el-dialog>
-    <el-dialog v-model="rateVisible" title="AI 模型费率卡新版本" width="620px"><el-alert title="费率卡用于记录供应商成本并换算用户额度；已发布版本不可修改。" type="info" :closable="false" show-icon/><el-form class="dialog-form" label-position="top"><div class="two-columns"><el-form-item label="供应商标识" required><el-input v-model="rateForm.provider_key" placeholder="例如 openai"/></el-form-item><el-form-item label="模型标识" required><el-input v-model="rateForm.model_key" placeholder="必须与运行时上报一致"/></el-form-item><el-form-item label="输入成本（元/千 Token）"><el-input-number v-model="rateForm.input_yuan" :min="0" :precision="6" :step="0.001"/></el-form-item><el-form-item label="输出成本（元/千 Token）"><el-input-number v-model="rateForm.output_yuan" :min="0" :precision="6" :step="0.001"/></el-form-item><el-form-item label="缓存输入成本（元/千 Token）"><el-input-number v-model="rateForm.cached_yuan" :min="0" :precision="6" :step="0.001"/></el-form-item><el-form-item label="每额度价值（元）" required><el-input-number v-model="rateForm.credit_yuan" :min="0.000001" :precision="6" :step="0.001"/></el-form-item></div><el-form-item><el-checkbox v-model="rateForm.publish">保存后立即发布</el-checkbox></el-form-item></el-form><template #footer><el-button @click="rateVisible=false">取消</el-button><el-button type="primary" @click="submitRate">保存费率版本</el-button></template></el-dialog>
+    <el-dialog v-model="priceVisible" :title="`${selectedBillingProduct?.name || ''} · 沙箱价格`" width="580px"><el-alert title="保存后会立即发布到对应购买页；当前只对接支付宝沙箱，不会计入真实营收。" type="warning" :closable="false" show-icon/><el-form class="dialog-form" label-position="top"><el-form-item label="计费周期"><el-select v-model="priceForm.billing_term" :disabled="selectedBillingProduct?.product_type === 'credit_pack'"><el-option label="按月" value="monthly"/><el-option label="按年" value="yearly"/><el-option label="一次性" value="one_time"/></el-select></el-form-item><div class="two-columns"><el-form-item label="沙箱价格（元）"><el-input-number v-model="priceForm.amount_yuan" :min="0.01" :precision="2" :step="1"/></el-form-item><el-form-item label="包含 AI 额度"><el-input-number v-model="priceForm.included_credits" :min="1" :step="100"/></el-form-item></div></el-form><template #footer><el-button @click="priceVisible=false">取消</el-button><el-button type="primary" @click="submitPrice">保存并发布</el-button></template></el-dialog>
+    <el-dialog v-model="rateVisible" title="AI 模型费率卡新版本" width="620px"><el-alert title="供应商与模型来自已启用的 LLM 配置；保存后立即发布，旧版本自动退役。" type="info" :closable="false" show-icon/><el-form class="dialog-form" label-position="top"><div class="two-columns"><el-form-item label="供应商" required><el-select v-model="rateForm.provider_key" filterable placeholder="选择已启用供应商" :disabled="editingRateTarget" style="width:100%" @change="changeRateProvider"><el-option v-for="provider in rateProviderOptions" :key="provider.id" :label="provider.name" :value="provider.name"><span>{{ provider.name }}</span><small class="rate-option-meta">{{ provider.provider_type }}</small></el-option></el-select></el-form-item><el-form-item label="模型" required><el-select v-model="rateForm.model_key" filterable placeholder="选择该供应商下的已启用模型" :disabled="editingRateTarget || !rateForm.provider_key" style="width:100%"><el-option v-for="model in rateModelOptions" :key="model.id" :label="model.display_name || model.model_name" :value="model.model_name"><span>{{ model.display_name || model.model_name }}</span><small class="rate-option-meta">{{ model.model_name }}</small></el-option></el-select></el-form-item><el-form-item label="输入成本（元/千 Token）"><el-input-number v-model="rateForm.input_yuan" :min="0" :precision="6" :step="0.001"/></el-form-item><el-form-item label="输出成本（元/千 Token）"><el-input-number v-model="rateForm.output_yuan" :min="0" :precision="6" :step="0.001"/></el-form-item><el-form-item label="缓存输入成本（元/千 Token）"><el-input-number v-model="rateForm.cached_yuan" :min="0" :precision="6" :step="0.001"/></el-form-item><el-form-item label="每额度价值（元）" required><el-input-number v-model="rateForm.credit_yuan" :min="0.000001" :precision="6" :step="0.001"/></el-form-item></div></el-form><template #footer><el-button @click="rateVisible=false">取消</el-button><el-button type="primary" @click="submitRate">保存并发布</el-button></template></el-dialog>
   </section>
 </template>
 
 <style scoped>
-.catalog-heading{margin-bottom:6px}.catalog-heading span{color:var(--el-color-primary);font-size:12px;letter-spacing:.12em}.catalog-heading h1{margin:6px 0;font-size:30px}.catalog-heading p{margin:0;color:var(--el-text-color-secondary)}.catalog-tabs{margin-bottom:18px}.billing-catalog{padding:24px}.billing-catalog>header{display:flex;justify-content:space-between;gap:20px;align-items:flex-start}.billing-catalog h2{margin:0 0 6px}.billing-catalog p{margin:0;color:var(--el-text-color-secondary)}.billing-product-grid{display:grid;gap:10px;margin-top:20px}.billing-product-grid article{display:grid;grid-template-columns:minmax(180px,1fr) minmax(160px,.7fr) minmax(110px,.5fr) auto;gap:16px;align-items:center;padding:14px 16px;border:1px solid var(--el-border-color-lighter);border-radius:12px}.billing-product-grid article>div{display:grid;gap:3px}.billing-product-grid small,.billing-product-grid span{color:var(--el-text-color-secondary)}@media(max-width:760px){.billing-product-grid article{grid-template-columns:1fr}.billing-catalog>header{flex-direction:column}}</style>
+.catalog-heading{margin-bottom:6px}.catalog-heading span{color:var(--el-color-primary);font-size:12px;letter-spacing:.12em}.catalog-heading h1{margin:6px 0;font-size:30px}.catalog-heading p{margin:0;color:var(--el-text-color-secondary)}.catalog-tabs{margin-bottom:18px}.billing-catalog{padding:24px}.billing-catalog>header{display:flex;justify-content:space-between;gap:20px;align-items:flex-start}.billing-catalog h2{margin:0 0 6px}.billing-catalog p{margin:0;color:var(--el-text-color-secondary)}.billing-product-grid{display:grid;gap:10px;margin-top:20px}.billing-product-grid article{display:grid;grid-template-columns:minmax(180px,1fr) minmax(160px,.7fr) minmax(110px,.5fr) auto;gap:16px;align-items:center;padding:14px 16px;border:1px solid var(--el-border-color-lighter);border-radius:12px}.billing-product-grid article>div{display:grid;gap:3px}.billing-product-grid small,.billing-product-grid span{color:var(--el-text-color-secondary)}.rate-option-meta{float:right;margin-left:16px;color:var(--el-text-color-secondary)}@media(max-width:760px){.billing-product-grid article{grid-template-columns:1fr}.billing-catalog>header{flex-direction:column}}</style>

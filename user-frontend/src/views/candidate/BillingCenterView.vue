@@ -25,6 +25,7 @@ import {
   type BillingOrder,
   type BillingProduct,
 } from '@/api/billing'
+import { calculateBillingUsagePercent } from '@/utils/billingUsage'
 
 const loading = ref(false)
 const syncingPayment = ref(false)
@@ -42,9 +43,11 @@ let syncAborted = false
 const subscriptionProducts = computed(() => products.value.filter((item) => item.product_type === 'subscription'))
 const creditPacks = computed(() => products.value.filter((item) => item.product_type === 'credit_pack'))
 const scheduledSubscription = computed(() => account.value?.scheduled_subscription)
-const usagePercent = computed(() => {
-  const total = account.value?.total_credits || 0
-  return total ? Math.min(100, Math.round(((account.value?.used_credits || 0) / total) * 100)) : 0
+const usagePercent = computed(() => calculateBillingUsagePercent(account.value))
+const hasAdditionalCredits = computed(() => {
+  const total = Number(account.value?.total_credits || 0)
+  const included = Number(account.value?.subscription?.included_credits || 0)
+  return total > included
 })
 
 const subscriptionPurchaseLabel = (productKey: string) => {
@@ -262,6 +265,7 @@ onBeforeUnmount(() => {
         <div class="current-plan-line">
           <el-tag effect="dark" round>{{ account?.subscription?.source === 'free_tier' ? '免费权益' : '当前套餐' }}</el-tag>
           <strong>{{ account?.subscription?.product_name || '尚未开通' }}</strong>
+          <el-tag v-if="hasAdditionalCredits" class="additional-credit-tag" type="success" effect="plain" round>+ 加量额度</el-tag>
           <span v-if="account?.next_refresh_at_unix_ms">{{ formatTime(account.next_refresh_at_unix_ms) }} 刷新</span>
         </div>
         <div class="hero-actions"><el-button class="hero-pay-button" size="small" @click="showSection('plans')">购买套餐</el-button><el-button class="hero-pay-button" size="small" plain @click="showSection('packs')">购买加量包</el-button></div>
@@ -269,8 +273,19 @@ onBeforeUnmount(() => {
       <div class="credit-card">
         <small>可用 AI 额度</small>
         <strong>{{ (account?.available_credits || 0).toLocaleString() }}</strong>
-        <el-progress :percentage="usagePercent" :stroke-width="7" :show-text="false" color="#fff" />
-        <div><span>已使用 {{ (account?.used_credits || 0).toLocaleString() }}</span><span>已预占 {{ (account?.reserved_credits || 0).toLocaleString() }}</span></div>
+        <div class="credit-progress-heading">
+          <span>额度消耗进度</span>
+          <strong>{{ usagePercent }}%</strong>
+        </div>
+        <el-progress
+          class="credit-progress"
+          :percentage="usagePercent"
+          :stroke-width="10"
+          :show-text="false"
+          color="#7de3ff"
+          :aria-label="`AI 额度已消耗 ${usagePercent}%`"
+        />
+        <div class="credit-breakdown"><span>总额度 {{ (account?.total_credits || 0).toLocaleString() }}</span><span>已使用 {{ (account?.used_credits || 0).toLocaleString() }}</span><span>已预占 {{ (account?.reserved_credits || 0).toLocaleString() }}</span></div>
       </div>
     </header>
 
@@ -323,5 +338,5 @@ onBeforeUnmount(() => {
 </template>
 
 <style scoped>
-.billing-page{min-width:0;display:grid;gap:14px;padding:0 0 24px}.billing-hero{display:grid;grid-template-columns:minmax(0,1fr) 210px;gap:20px;padding:19px 26px;border-radius:16px;background:linear-gradient(135deg,#14213d,#2457d6);color:#fff;box-shadow:0 10px 28px rgba(23,55,122,.14)}.hero-copy>span{font-size:11px;letter-spacing:.1em;opacity:.76}.billing-hero h1{margin:3px 0;font-size:26px;line-height:1.25}.billing-hero p{margin:0;color:#dbe6ff;font-size:13px}.current-plan-line{display:flex;align-items:center;gap:8px;margin-top:11px}.current-plan-line span{color:#dbe6ff;font-size:11px}.hero-actions{display:flex;gap:8px;margin-top:10px}.hero-pay-button{border-color:#ffffff55;background:#ffffff18;color:#fff}.hero-pay-button:hover{border-color:#fff;background:#fff;color:#2457d6}.credit-card{align-self:stretch;padding:13px 15px;border:1px solid #ffffff38;border-radius:12px;background:#ffffff14;display:grid;gap:5px}.credit-card>small{font-size:11px}.credit-card>strong{font-size:30px;line-height:1}.credit-card>div{display:flex;justify-content:space-between;gap:10px;color:#e7eeff;font-size:10px}.billing-workspace{min-width:0;padding:22px 26px 24px;border:1px solid var(--el-border-color-lighter);border-radius:16px;background:var(--el-bg-color)}.workspace-heading{display:flex;justify-content:space-between;align-items:flex-start;gap:20px}.workspace-heading h2{margin:0 0 4px;font-size:21px}.workspace-heading p,.product-head>span{margin:0;color:var(--el-text-color-secondary);font-size:13px}.billing-tabs{min-width:0;margin-top:8px}.billing-tabs :deep(.el-tabs__header){margin-bottom:18px}.billing-tabs :deep(.el-tabs__content),.billing-tabs :deep(.el-tab-pane){min-width:0;max-width:100%}.product-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}.product-card{display:flex;min-height:190px;min-width:0;flex-direction:column;justify-content:space-between;padding:18px;border:1px solid var(--el-border-color-lighter);border-radius:12px;background:var(--el-bg-color)}.product-card--current{border-color:#80aaff;box-shadow:0 8px 20px rgba(64,112,214,.08)}.product-card--pack{min-height:175px}.product-title{display:flex;align-items:center;justify-content:space-between;gap:10px}.product-head h3{margin:0 0 7px;font-size:19px}.price-row{display:flex;justify-content:space-between;align-items:end;gap:14px;padding-top:15px;border-top:1px solid var(--el-border-color-lighter)}.price-row>div{display:grid;grid-template-columns:auto auto;align-items:end;gap:2px 5px}.price-row strong{font-size:23px}.price-row span,.price-row small,.order-product span,.order-action-hint{color:var(--el-text-color-secondary)}.price-row small{grid-column:1/-1;font-size:12px}.order-action-hint{font-size:12px}.order-table{width:100%;max-width:100%;border:1px solid var(--el-border-color-lighter);border-radius:9px}.order-product{display:grid;gap:3px}.order-product span{font-size:12px}@media(max-width:900px){.product-grid{grid-template-columns:1fr}}@media(max-width:800px){.billing-page{padding-bottom:16px}.billing-hero{grid-template-columns:1fr;padding:20px}.current-plan-line{align-items:flex-start;flex-direction:column}.hero-actions{flex-wrap:wrap}.billing-workspace{padding:20px}.workspace-heading{align-items:stretch;flex-direction:column}.price-row{align-items:stretch;flex-direction:column}.credit-card{min-width:0}}
+.billing-page{min-width:0;display:grid;gap:14px;padding:0 0 24px}.billing-hero{display:grid;grid-template-columns:minmax(0,1fr) 230px;gap:20px;padding:19px 26px;border-radius:16px;background:linear-gradient(135deg,#14213d,#2457d6);color:#fff;box-shadow:0 10px 28px rgba(23,55,122,.14)}.hero-copy>span{font-size:11px;letter-spacing:.1em;opacity:.76}.billing-hero h1{margin:3px 0;font-size:26px;line-height:1.25}.billing-hero p{margin:0;color:#dbe6ff;font-size:13px}.current-plan-line{display:flex;align-items:center;gap:8px;margin-top:11px}.current-plan-line span{color:#dbe6ff;font-size:11px}.current-plan-line .additional-credit-tag{border-color:#8de4bc;background:#e8fff4;color:#166b46}.hero-actions{display:flex;gap:8px;margin-top:10px}.hero-pay-button{border-color:#ffffff55;background:#ffffff18;color:#fff}.hero-pay-button:hover{border-color:#fff;background:#fff;color:#2457d6}.credit-card{align-self:stretch;padding:13px 15px;border:1px solid #ffffff38;border-radius:12px;background:#ffffff14;display:grid;gap:6px}.credit-card>small{font-size:11px}.credit-card>strong{font-size:30px;line-height:1}.credit-progress-heading,.credit-breakdown{display:flex;justify-content:space-between;gap:8px;color:#e7eeff;font-size:10px}.credit-progress-heading{align-items:center;margin-top:3px;color:#fff}.credit-progress-heading strong{font-size:11px;font-variant-numeric:tabular-nums}.credit-progress :deep(.el-progress-bar__outer){background:rgba(5,17,48,.58);box-shadow:inset 0 0 0 1px rgba(255,255,255,.18)}.credit-progress :deep(.el-progress-bar__inner){background:linear-gradient(90deg,#38c8f2,#a5f3fc)!important;box-shadow:0 0 8px rgba(125,227,255,.5)}.billing-workspace{min-width:0;padding:22px 26px 24px;border:1px solid var(--el-border-color-lighter);border-radius:16px;background:var(--el-bg-color)}.workspace-heading{display:flex;justify-content:space-between;align-items:flex-start;gap:20px}.workspace-heading h2{margin:0 0 4px;font-size:21px}.workspace-heading p,.product-head>span{margin:0;color:var(--el-text-color-secondary);font-size:13px}.billing-tabs{min-width:0;margin-top:8px}.billing-tabs :deep(.el-tabs__header){margin-bottom:18px}.billing-tabs :deep(.el-tabs__content),.billing-tabs :deep(.el-tab-pane){min-width:0;max-width:100%}.product-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}.product-card{display:flex;min-height:190px;min-width:0;flex-direction:column;justify-content:space-between;padding:18px;border:1px solid var(--el-border-color-lighter);border-radius:12px;background:var(--el-bg-color)}.product-card--current{border-color:#80aaff;box-shadow:0 8px 20px rgba(64,112,214,.08)}.product-card--pack{min-height:175px}.product-title{display:flex;align-items:center;justify-content:space-between;gap:10px}.product-head h3{margin:0 0 7px;font-size:19px}.price-row{display:flex;justify-content:space-between;align-items:end;gap:14px;padding-top:15px;border-top:1px solid var(--el-border-color-lighter)}.price-row>div{display:grid;grid-template-columns:auto auto;align-items:end;gap:2px 5px}.price-row strong{font-size:23px}.price-row span,.price-row small,.order-product span,.order-action-hint{color:var(--el-text-color-secondary)}.price-row small{grid-column:1/-1;font-size:12px}.order-action-hint{font-size:12px}.order-table{width:100%;max-width:100%;border:1px solid var(--el-border-color-lighter);border-radius:9px}.order-product{display:grid;gap:3px}.order-product span{font-size:12px}@media(max-width:900px){.product-grid{grid-template-columns:1fr}}@media(max-width:800px){.billing-page{padding-bottom:16px}.billing-hero{grid-template-columns:1fr;padding:20px}.current-plan-line{align-items:flex-start;flex-direction:column}.hero-actions{flex-wrap:wrap}.billing-workspace{padding:20px}.workspace-heading{align-items:stretch;flex-direction:column}.price-row{align-items:stretch;flex-direction:column}.credit-card{min-width:0}}
 </style>

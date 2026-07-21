@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"slices"
 	"testing"
 	"time"
 
@@ -9,6 +10,13 @@ import (
 	platformconfig "smart-recruit-platform-go/config"
 	logicconfig "smart-recruit-platform-go/serviceconfig"
 )
+
+func TestTenantBoundaryExcludesOwnerScopedBillingOutbox(t *testing.T) {
+	const table = "ai_billing_settlement_outbox"
+	if slices.Contains(aiAgentTenantOwnedTables, table) || slices.Contains(aiAgentMixedScopeTables, table) {
+		t.Fatalf("%s must not use tenant_id scoping; ownership is represented by owner_type and owner_id", table)
+	}
+}
 
 func TestInstanceFromAddrUsesAIAgentDiscoveryName(t *testing.T) {
 	instance, err := instanceFromAddr("127.0.0.1:50066", platformconfig.Bootstrap{

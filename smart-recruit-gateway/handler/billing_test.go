@@ -22,6 +22,22 @@ type webhookBillingClient struct {
 	err      error
 }
 
+type publishingBillingClient struct {
+	pb.BillingServiceClient
+	priceRequest *pb.SaveBillingPriceVersionRequest
+	rateRequest  *pb.SaveAIRateCardRequest
+}
+
+func (f *publishingBillingClient) SaveBillingPriceVersion(_ context.Context, request *pb.SaveBillingPriceVersionRequest, _ ...grpc.CallOption) (*pb.BillingPriceInfo, error) {
+	f.priceRequest = request
+	return &pb.BillingPriceInfo{Id: 1}, nil
+}
+
+func (f *publishingBillingClient) SaveAIRateCard(_ context.Context, request *pb.SaveAIRateCardRequest, _ ...grpc.CallOption) (*pb.AIRateCardInfo, error) {
+	f.rateRequest = request
+	return &pb.AIRateCardInfo{Id: 1}, nil
+}
+
 func (f webhookBillingClient) ProcessAlipayNotification(context.Context, *pb.ProcessAlipayNotificationRequest, ...grpc.CallOption) (*pb.ProcessAlipayNotificationResponse, error) {
 	return f.response, f.err
 }
@@ -89,11 +105,49 @@ func TestSaveBillingPriceRequestAcceptsProtoJSONIDs(t *testing.T) {
 			if request.ProductID != 42 || request.PriceVersionID != 7 {
 				t.Fatalf("ids = (%d, %d), want (42, 7)", request.ProductID, request.PriceVersionID)
 			}
-			if request.BillingTerm != "monthly" || request.AmountFen != 3900 || request.IncludedCredits != 100 || !request.Publish {
+			if request.BillingTerm != "monthly" || request.AmountFen != 3900 || request.IncludedCredits != 100 {
 				t.Fatalf("unexpected request: %+v", request)
 			}
 		})
 	}
+}
+
+func TestPlatformBillingSavesAlwaysPublish(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	client := &publishingBillingClient{}
+	handler := &BillingHandler{clients: &rpc.Clients{Billing: client}}
+
+	t.Run("price", func(t *testing.T) {
+		recorder := httptest.NewRecorder()
+		context, _ := gin.CreateTestContext(recorder)
+		context.Request = httptest.NewRequest(http.MethodPost, "/api/v1/platform/billing/prices", strings.NewReader(`{"product_id":5,"billing_term":"monthly","amount_fen":2990,"included_credits":100,"publish":false}`))
+		context.Request.Header.Set("Content-Type", "application/json")
+
+		handler.SavePrice(context)
+
+		if recorder.Code != http.StatusOK {
+			t.Fatalf("status = %d, body = %s", recorder.Code, recorder.Body.String())
+		}
+		if client.priceRequest == nil || !client.priceRequest.GetPublish() {
+			t.Fatalf("price publish = %v, want true", client.priceRequest)
+		}
+	})
+
+	t.Run("rate card", func(t *testing.T) {
+		recorder := httptest.NewRecorder()
+		context, _ := gin.CreateTestContext(recorder)
+		context.Request = httptest.NewRequest(http.MethodPost, "/api/v1/platform/billing/rates", strings.NewReader(`{"provider_key":"DeepSeek","model_key":"deepseek-v4-flash","input_micros_per_1k_tokens":1000,"output_micros_per_1k_tokens":2000,"credit_micros":10000,"publish":false}`))
+		context.Request.Header.Set("Content-Type", "application/json")
+
+		handler.SaveRateCard(context)
+
+		if recorder.Code != http.StatusOK {
+			t.Fatalf("status = %d, body = %s", recorder.Code, recorder.Body.String())
+		}
+		if client.rateRequest == nil || !client.rateRequest.GetPublish() {
+			t.Fatalf("rate-card publish = %v, want true", client.rateRequest)
+		}
+	})
 }
 
 func TestCreateBillingOrderRequestAcceptsProtoJSONPriceVersionID(t *testing.T) {

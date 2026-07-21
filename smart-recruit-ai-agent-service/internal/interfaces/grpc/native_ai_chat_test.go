@@ -311,6 +311,85 @@ func TestCandidateChatStreamPersistsMessagesWithCandidateOwnerRole(t *testing.T)
 	}
 }
 
+type insufficientCandidateBillingClient struct {
+	pb.BillingServiceClient
+}
+
+func (insufficientCandidateBillingClient) CheckAIAccess(context.Context, *pb.CheckAIAccessRequest, ...gogrpc.CallOption) (*pb.CheckAIAccessResponse, error) {
+	return &pb.CheckAIAccessResponse{
+		Allowed: true, CapabilityVersionId: 1,
+		EnforcementMode: pb.BillingEnforcementMode_BILLING_ENFORCEMENT_MODE_ENFORCE,
+	}, nil
+}
+
+func (insufficientCandidateBillingClient) ReserveAIUsage(context.Context, *pb.ReserveAIUsageRequest, ...gogrpc.CallOption) (*pb.ReserveAIUsageResponse, error) {
+	return &pb.ReserveAIUsageResponse{
+		Allowed: false, Reason: "insufficient_credits",
+		EnforcementMode: pb.BillingEnforcementMode_BILLING_ENFORCEMENT_MODE_ENFORCE,
+	}, nil
+}
+
+func TestCandidateChatStreamPersistsInsufficientCreditFailure(t *testing.T) {
+	store := newFakeAIStore()
+	provider := &fakeCandidateADKProvider{reply: "must not run"}
+	service := newCandidateAITestService(store, provider)
+	service.billing = insufficientCandidateBillingClient{}
+	service.billingRequired = true
+	stream := &captureChatStream{ctx: context.Background()}
+
+	err := service.CandidateChatStream(&pb.CandidateChatRequest{UserId: 55, Message: "candidate asks"}, stream)
+	if status.Code(err) != codes.ResourceExhausted {
+		t.Fatalf("CandidateChatStream error = %v, want ResourceExhausted", err)
+	}
+	if provider.adkCalls != 0 {
+		t.Fatalf("provider calls = %d, want 0", provider.adkCalls)
+	}
+	if len(store.messages) != 2 {
+		t.Fatalf("messages = %#v, want durable user and failure messages", store.messages)
+	}
+	if store.messages[0].Role != "user" || store.messages[0].Content != "candidate asks" {
+		t.Fatalf("user message = %#v", store.messages[0])
+	}
+	failure := store.messages[1]
+	if failure.Role != "assistant" || !strings.Contains(failure.Content, "额度已用完") ||
+		!strings.Contains(failure.ProcessContent, `"delivery_status":"failed"`) ||
+		!strings.Contains(failure.ProcessContent, `"error_code":"insufficient_credits"`) {
+		t.Fatalf("failure message = %#v", failure)
+	}
+}
+
+func TestCandidateContextExcludesPersistedFailureMessages(t *testing.T) {
+	store := newFakeAIStore()
+	store.seedChatSession(ownerRoleCandidate, 55, 901, "failed turn")
+	store.seedChatMessage(ChatMessageRow{OwnerRole: ownerRoleCandidate, OwnerID: 55, SessionID: 901, Role: "user", Content: "first question"})
+	store.seedChatMessage(ChatMessageRow{OwnerRole: ownerRoleCandidate, OwnerID: 55, SessionID: 901, Role: "assistant", Content: "quota failure", ProcessContent: `{"delivery_status":"failed","error_code":"insufficient_credits"}`})
+	store.seedChatMessage(ChatMessageRow{OwnerRole: ownerRoleCandidate, OwnerID: 55, SessionID: 901, Role: "user", Content: "current question"})
+	service := newCandidateAITestService(store, &fakeCandidateADKProvider{reply: "reply"})
+
+	messages, err := service.buildCandidateAgentMessages(context.Background(), 55, 901, "current question", "system")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, message := range messages {
+		if message.Content == "quota failure" {
+			t.Fatalf("failed assistant message leaked into provider context: %#v", messages)
+		}
+	}
+	if got := countMessageContent(messages, "current question"); got != 1 {
+		t.Fatalf("current question count = %d, want 1", got)
+	}
+}
+
+func countMessageContent(messages []*schema.Message, content string) int {
+	count := 0
+	for _, message := range messages {
+		if message != nil && message.Content == content {
+			count++
+		}
+	}
+	return count
+}
+
 func TestCandidateChatStreamEmitsModelInfoAndForwardsModelID(t *testing.T) {
 	store := newFakeAIStore()
 	store.llmModels = []*pb.LlmModelInfo{{

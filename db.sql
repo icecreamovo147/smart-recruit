@@ -2861,3 +2861,41 @@ WHERE `product_key` = 'candidate_pro'
   AND `owner_type` = 'user'
   AND `product_type` = 'subscription'
   AND `status` = 'draft';
+
+-- Migration 000080: keep candidate subscriptions bound to candidate releases.
+UPDATE `billing_price_versions` price
+JOIN `billing_products` product
+  ON product.id = price.product_id
+ AND product.owner_type = 'user'
+ AND product.product_type = 'subscription'
+JOIN `platform_ai_capabilities` capability
+  ON capability.capability_key = 'ai.chat'
+ AND capability.audience = 'candidate'
+ AND capability.status = 'active'
+ AND capability.current_published_version_id IS NOT NULL
+SET price.entitlement_snapshot = JSON_SET(
+      COALESCE(price.entitlement_snapshot, JSON_OBJECT()),
+      '$."ai.chat.release_version_id"',
+      capability.current_published_version_id
+    ),
+    price.updated_at = UTC_TIMESTAMP(3)
+WHERE JSON_CONTAINS_PATH(
+  COALESCE(price.entitlement_snapshot, JSON_OBJECT()),
+  'one',
+  '$."ai.chat.enabled"'
+);
+
+-- Migration 000081: repair immediately published Billing versions written
+-- with the local timezone into DATETIME fields consumed as UTC.
+UPDATE `billing_price_versions`
+SET `effective_at` = UTC_TIMESTAMP(3),
+    `updated_at` = UTC_TIMESTAMP(3)
+WHERE `status` = 'published'
+  AND `effective_at` > UTC_TIMESTAMP(3)
+  AND ABS(TIMESTAMPDIFF(SECOND, `created_at`, `effective_at`)) <= 5;
+
+UPDATE `ai_rate_cards`
+SET `effective_at` = UTC_TIMESTAMP(3)
+WHERE `status` = 'published'
+  AND `effective_at` > UTC_TIMESTAMP(3)
+  AND ABS(TIMESTAMPDIFF(SECOND, `created_at`, `effective_at`)) <= 5;

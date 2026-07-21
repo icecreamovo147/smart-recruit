@@ -30,6 +30,7 @@ bin/
 .codex/
 .codegraph/
 .code-review-sdd/
+.security-review/
 .reasonix/
 
 # OS/editor noise.

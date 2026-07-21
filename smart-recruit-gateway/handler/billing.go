@@ -31,7 +31,6 @@ type saveBillingPriceRequest struct {
 	AmountFen               FlexInt64 `json:"amount_fen" binding:"required"`
 	IncludedCredits         FlexInt64 `json:"included_credits" binding:"required"`
 	EntitlementSnapshotJSON string    `json:"entitlement_snapshot_json"`
-	Publish                 bool      `json:"publish"`
 }
 
 type createBillingOrderRequest struct {
@@ -180,7 +179,7 @@ func (h *BillingHandler) SavePrice(c *gin.Context) {
 		BadRequest(c, "商品、计费周期、金额和额度不能为空")
 		return
 	}
-	response, err := h.clients.Billing.SaveBillingPriceVersion(c.Request.Context(), &pb.SaveBillingPriceVersionRequest{ProductId: int64(request.ProductID), PriceVersionId: int64(request.PriceVersionID), BillingTerm: request.BillingTerm, AmountFen: int64(request.AmountFen), IncludedCredits: int64(request.IncludedCredits), EntitlementSnapshotJson: request.EntitlementSnapshotJSON, Publish: request.Publish})
+	response, err := h.clients.Billing.SaveBillingPriceVersion(c.Request.Context(), &pb.SaveBillingPriceVersionRequest{ProductId: int64(request.ProductID), PriceVersionId: int64(request.PriceVersionID), BillingTerm: request.BillingTerm, AmountFen: int64(request.AmountFen), IncludedCredits: int64(request.IncludedCredits), EntitlementSnapshotJson: request.EntitlementSnapshotJSON, Publish: true})
 	if err != nil {
 		Internal(c, err)
 		return
@@ -205,7 +204,6 @@ func (h *BillingHandler) SaveRateCard(c *gin.Context) {
 		OutputMicrosPer1KTokens      int64  `json:"output_micros_per_1k_tokens"`
 		CachedInputMicrosPer1KTokens int64  `json:"cached_input_micros_per_1k_tokens"`
 		CreditMicros                 int64  `json:"credit_micros" binding:"required"`
-		Publish                      bool   `json:"publish"`
 	}
 	if err := c.ShouldBindJSON(&request); err != nil || request.InputMicrosPer1KTokens < 0 || request.OutputMicrosPer1KTokens < 0 || request.CachedInputMicrosPer1KTokens < 0 || request.CreditMicros <= 0 {
 		BadRequest(c, "模型、供应商成本和额度换算不能为空")
@@ -216,7 +214,7 @@ func (h *BillingHandler) SaveRateCard(c *gin.Context) {
 		InputMicrosPer_1KTokens:       request.InputMicrosPer1KTokens,
 		OutputMicrosPer_1KTokens:      request.OutputMicrosPer1KTokens,
 		CachedInputMicrosPer_1KTokens: request.CachedInputMicrosPer1KTokens,
-		CreditMicros:                  request.CreditMicros, Publish: request.Publish,
+		CreditMicros:                  request.CreditMicros, Publish: true,
 	})
 	if err != nil {
 		Internal(c, err)

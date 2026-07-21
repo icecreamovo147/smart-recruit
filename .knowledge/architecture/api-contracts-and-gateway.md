@@ -37,6 +37,8 @@ review_after: 2026-10-14
 
 The gateway exposes `/api/v1`, applies timeout/body/rate/quota/risk/auth middleware, and calls generated gRPC clients. `smart-recruit-gateway/rpc/client.go` defaults route modes to independent service targets and forwards internal auth, request, and trace metadata.
 
+AI daily and burst quota accounting distinguishes admission from an attempted HTTP request. Candidate streaming handlers mark the quota consumed only after the AI service emits its first runtime event; capability, configuration, and billing failures before that event refund the provisional daily count and do not contribute to the burst risk block. Once runtime admission occurs, later provider/stream failures remain counted because upstream work may already have happened.
+
 The HR durable Agent Run endpoint requires a positive session ID and a non-empty trimmed message. It rejects blank input before invoking the AI gRPC client, while the AI service repeats the validation as a defense-in-depth boundary. Application-analysis session responses use the existing repeated `messages` field; no wire-shape change is needed to return the canonical seeded analysis message.
 
 Changing HTTP routes normally requires route registration, handler mapping, permission metadata, frontend API/types, and a matching protobuf or service contract. Changing protobuf wire shape is rooted in `smart-recruit-proto/proto/recruitment.proto`; public-facing service extensions can force gateway and handler test clients to implement new methods, so internal owner contracts should prefer separate internal gRPC services when they are not part of frontend/gateway behavior.

@@ -149,9 +149,9 @@ func releaseVersionEntitlementKey(capability string) string {
 
 func (p *EntitlementPolicy) tenantEnabled(ctx context.Context, tenantID uint64, capability string) (bool, error) {
 	jsonPath := fmt.Sprintf(`$."%s"`, strings.ReplaceAll(capability, `"`, ``))
-	var paidEnabled *bool
+	var paidEnabled *string
 	if err := p.db.WithContext(ctx).Raw(`
-		SELECT CAST(JSON_UNQUOTE(JSON_EXTRACT(price.entitlement_snapshot, ?)) AS UNSIGNED)
+		SELECT JSON_UNQUOTE(JSON_EXTRACT(price.entitlement_snapshot, ?))
 		FROM billing_subscriptions subscription
 		JOIN billing_price_versions price ON price.id = subscription.price_version_id
 		WHERE subscription.owner_type = 'tenant' AND subscription.owner_id = ? AND subscription.status = 'active'
@@ -160,7 +160,7 @@ func (p *EntitlementPolicy) tenantEnabled(ctx context.Context, tenantID uint64, 
 		return false, err
 	}
 	if paidEnabled != nil {
-		return *paidEnabled, nil
+		return entitlementBoolean(*paidEnabled), nil
 	}
 	var value string
 	err := p.db.WithContext(ctx).Raw(`
@@ -185,9 +185,9 @@ func (p *EntitlementPolicy) tenantEnabled(ctx context.Context, tenantID uint64, 
 
 func (p *EntitlementPolicy) userEnabled(ctx context.Context, userID uint64, capability string) (bool, error) {
 	jsonPath := fmt.Sprintf(`$."%s"`, strings.ReplaceAll(capability, `"`, ``))
-	var enabled *bool
+	var enabled *string
 	err := p.db.WithContext(ctx).Raw(`
-		SELECT CAST(JSON_UNQUOTE(JSON_EXTRACT(price.entitlement_snapshot, ?)) AS UNSIGNED)
+		SELECT JSON_UNQUOTE(JSON_EXTRACT(price.entitlement_snapshot, ?))
 		FROM billing_subscriptions subscription
 		JOIN billing_price_versions price ON price.id = subscription.price_version_id
 		WHERE subscription.owner_type = 'user' AND subscription.owner_id = ? AND subscription.status = 'active'
@@ -197,12 +197,12 @@ func (p *EntitlementPolicy) userEnabled(ctx context.Context, userID uint64, capa
 		return false, err
 	}
 	if enabled != nil {
-		return *enabled, nil
+		return entitlementBoolean(*enabled), nil
 	}
 	// Candidate Free is evergreen and lazily provisioned; it is intentionally limited
 	// to capabilities explicitly present in its published entitlement snapshot.
 	err = p.db.WithContext(ctx).Raw(`
-		SELECT CAST(JSON_UNQUOTE(JSON_EXTRACT(price.entitlement_snapshot, ?)) AS UNSIGNED)
+		SELECT JSON_UNQUOTE(JSON_EXTRACT(price.entitlement_snapshot, ?))
 		FROM billing_products product
 		JOIN billing_price_versions price ON price.product_id = product.id
 		WHERE product.product_key = 'candidate_free' AND product.status = 'active' AND price.status = 'published'
@@ -211,7 +211,12 @@ func (p *EntitlementPolicy) userEnabled(ctx context.Context, userID uint64, capa
 	if err != nil {
 		return false, err
 	}
-	return enabled != nil && *enabled, nil
+	return enabled != nil && entitlementBoolean(*enabled), nil
+}
+
+func entitlementBoolean(value string) bool {
+	value = strings.TrimSpace(value)
+	return value == "1" || strings.EqualFold(value, "true")
 }
 
 func (p *EntitlementPolicy) tenantReleaseVersionID(ctx context.Context, tenantID uint64, entitlementKey string) (uint64, error) {

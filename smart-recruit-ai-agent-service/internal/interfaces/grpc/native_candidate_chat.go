@@ -113,18 +113,6 @@ func (s *nativeAIService) runCandidateChatRuntime(req *pb.CandidateChatRequest, 
 
 	startedAt := time.Now()
 	inputChars := len([]rune(req.GetMessage()))
-	runtimeModel, err := s.resolveCapabilityRuntimeModel(ctx, billingOwnerUser, req.GetUserId(), "ai.chat", platformAIAudienceCandidate, req.GetModelId())
-	if err != nil {
-		return err
-	}
-	modelID, modelName, providerName := runtimeModel.ID, runtimeModel.Name, runtimeModel.ProviderName
-	req.ModelId = modelID
-	auditOpts := candidateUsageAuditOptions{Provider: providerName, Model: modelName}
-	ctx, err = s.reserveAIBilling(ctx, billingOwnerUser, req.GetUserId(), "ai.chat", "candidate_chat", providerName, modelName, inputChars, runtimeModel)
-	if err != nil {
-		return err
-	}
-	defer s.cancelUnsettledBilling(ctx, "runtime_completed_without_usage")
 	session, err := s.ensureSessionWithOptions(ctx, ownerRoleCandidate, req.GetUserId(), req.GetSessionId(), 0, req.GetMessage(), ChatSessionCreateOptions{
 		SessionType: req.GetSessionType(),
 		SourceType:  req.GetSourceType(),
@@ -140,6 +128,21 @@ func (s *nativeAIService) runCandidateChatRuntime(req *pb.CandidateChatRequest, 
 	}); err != nil {
 		return err
 	}
+
+	runtimeModel, err := s.resolveCapabilityRuntimeModel(ctx, billingOwnerUser, req.GetUserId(), "ai.chat", platformAIAudienceCandidate, req.GetModelId())
+	if err != nil {
+		s.persistCandidateChatFailure(ctx, req.GetUserId(), session.ID, err)
+		return err
+	}
+	modelID, modelName, providerName := runtimeModel.ID, runtimeModel.Name, runtimeModel.ProviderName
+	req.ModelId = modelID
+	auditOpts := candidateUsageAuditOptions{Provider: providerName, Model: modelName}
+	ctx, err = s.reserveAIBilling(ctx, billingOwnerUser, req.GetUserId(), "ai.chat", "candidate_chat", providerName, modelName, inputChars, runtimeModel)
+	if err != nil {
+		s.persistCandidateChatFailure(ctx, req.GetUserId(), session.ID, err)
+		return err
+	}
+	defer s.cancelUnsettledBilling(ctx, "runtime_completed_without_usage")
 
 	modelInfoUsage := &pb.ContextUsageInfo{
 		ModelId:                modelID,
@@ -374,6 +377,37 @@ func (s *nativeAIService) runCandidateChatRuntime(req *pb.CandidateChatRequest, 
 	})
 }
 
+func (s *nativeAIService) persistCandidateChatFailure(ctx context.Context, userID, sessionID int64, cause error) {
+	if s == nil || s.store == nil || userID <= 0 || sessionID <= 0 || cause == nil {
+		return
+	}
+	content, errorCode, retryable := candidateChatFailurePresentation(cause)
+	payload, _ := json.Marshal(map[string]any{
+		"delivery_status": "failed",
+		"error_code":      errorCode,
+		"retryable":       retryable,
+	})
+	_, _ = s.store.AppendChatMessage(ctx, ChatMessageRow{
+		OwnerRole: ownerRoleCandidate, OwnerID: userID, SessionID: sessionID,
+		Role: "assistant", Content: content, ProcessContent: string(payload), CreatedAt: time.Now(),
+	})
+}
+
+func candidateChatFailurePresentation(cause error) (content, errorCode string, retryable bool) {
+	message := strings.ToLower(status.Convert(cause).Message())
+	if status.Code(cause) == codes.ResourceExhausted && strings.Contains(message, "insufficient_credits") {
+		return "AI 套餐额度已用完，请购买套餐或加量包后继续使用。", "insufficient_credits", false
+	}
+	switch status.Code(cause) {
+	case codes.Unavailable, codes.DeadlineExceeded:
+		return "AI 服务暂时不可用，请稍后重试。", "service_unavailable", true
+	case codes.FailedPrecondition:
+		return "AI 助手当前配置不可用，请稍后再试。", "capability_unavailable", true
+	default:
+		return "本次消息发送失败，请稍后重试。", "request_failed", true
+	}
+}
+
 func (s *nativeAIService) getCandidateAgentRuntimeConfig(ctx context.Context) candidateAgentRuntimeConfig {
 	return s.getCandidateAgentRuntimeConfigForRelease(ctx, CapabilityConfigurationRefs{})
 }
@@ -469,6 +503,13 @@ func (s *nativeAIService) buildCandidateAgentMessages(
 	if err != nil {
 		return nil, err
 	}
+	contextHistory := history[:0]
+	for _, item := range history {
+		if !candidateChatMessageFailed(item.ProcessContent) {
+			contextHistory = append(contextHistory, item)
+		}
+	}
+	history = contextHistory
 	currentMsgTrimmed := strings.TrimSpace(currentMessage)
 	skipLastMatch := false
 	if len(history) > 0 {
@@ -495,6 +536,16 @@ func (s *nativeAIService) buildCandidateAgentMessages(
 		messages = append(messages, schema.UserMessage(currentMessage))
 	}
 	return messages, nil
+}
+
+func candidateChatMessageFailed(processContent string) bool {
+	if strings.TrimSpace(processContent) == "" {
+		return false
+	}
+	var payload struct {
+		DeliveryStatus string `json:"delivery_status"`
+	}
+	return json.Unmarshal([]byte(processContent), &payload) == nil && payload.DeliveryStatus == "failed"
 }
 
 func (s *nativeAIService) listRecentCandidateMessages(ctx context.Context, userID, sessionID int64, limit int32) ([]ChatMessageRow, error) {
