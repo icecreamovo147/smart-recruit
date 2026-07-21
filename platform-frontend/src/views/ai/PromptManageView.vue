@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { onMounted, reactive, ref, computed } from 'vue'
+import { formatShanghaiDateTime } from '@shared/utils/format'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { ArrowDown, Delete, Edit, MoreFilled, Plus, Refresh, Search, View, Back } from '@element-plus/icons-vue'
 import { useAuthStore } from '@/stores/auth'
@@ -78,8 +79,7 @@ const promptRoleLabel = (r: string): string => {
 }
 
 const formatTime = (s?: string): string => {
-  if (!s) return '-'
-  return new Date(s).toLocaleString('zh-CN')
+  return formatShanghaiDateTime(s)
 }
 
 // Extract {{variable}} placeholders from content text.

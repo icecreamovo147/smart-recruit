@@ -4,6 +4,7 @@ import { Document, Download, UploadFilled } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
 import { confirmResume, getResume, presignResume, putResumeFile } from '@/api/resume'
 import type { ResumeInfo } from '@/types/domain'
+import { formatUploadedAt as formatBusinessUploadedAt } from '@shared/utils/format'
 
 const file = ref<File | null>(null)
 const loading = ref(false)
@@ -115,10 +116,7 @@ const formatFileSize = (value: number): string => {
 }
 
 const formatUploadedAt = (value: string): string => {
-  if (!value) return ''
-  const date = new Date(value)
-  if (Number.isNaN(date.getTime())) return value
-  return date.toLocaleString('zh-CN', { hour12: false })
+  return formatBusinessUploadedAt(value)
 }
 
 onMounted(loadResume)

@@ -8,6 +8,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/redis/go-redis/v9"
+	"smart-recruit-platform-go/businessclock"
 )
 
 const resumeQuotaScript = `
@@ -48,7 +49,7 @@ func resumeQuota(rdb *redis.Client, scope string, code int, msg string, hourlyLi
 			c.Next()
 			return
 		}
-		now := time.Now()
+		now := businessclock.Now()
 		ctx, cancel := context.WithTimeout(c.Request.Context(), time.Second)
 		defer cancel()
 
@@ -56,7 +57,7 @@ func resumeQuota(rdb *redis.Client, scope string, code int, msg string, hourlyLi
 			hourKey := fmt.Sprintf("quota:%s:hour:%d:%s", scope, userID, now.Format("2006010215"))
 			hourTTL := secondsUntilNextHour(now)
 			if !checkQuota(ctx, script, rdb, hourKey, hourlyLimit, hourTTL) {
-				resetAt := nextHour(now).Format(time.RFC3339)
+				resetAt := businessclock.FormatRFC3339(nextHour(now))
 				c.AbortWithStatusJSON(http.StatusTooManyRequests, gin.H{
 					"code": code,
 					"msg":  msg,
@@ -74,7 +75,7 @@ func resumeQuota(rdb *redis.Client, scope string, code int, msg string, hourlyLi
 			dayKey := fmt.Sprintf("quota:%s:day:%d:%s", scope, userID, now.Format("20060102"))
 			dayTTL := secondsUntilMidnight(now)
 			if !checkQuota(ctx, script, rdb, dayKey, dailyLimit, dayTTL) {
-				resetAt := midnight(now).Format(time.RFC3339)
+				resetAt := businessclock.FormatRFC3339(midnight(now))
 				c.AbortWithStatusJSON(http.StatusTooManyRequests, gin.H{
 					"code": code,
 					"msg":  msg,
@@ -124,6 +125,7 @@ func secondsUntilNextHour(now time.Time) int {
 }
 
 func nextHour(now time.Time) time.Time {
-	y, m, d := now.Date()
-	return time.Date(y, m, d, now.Hour()+1, 0, 0, 0, now.Location())
+	local := now.In(businessclock.Location)
+	y, m, d := local.Date()
+	return time.Date(y, m, d, local.Hour()+1, 0, 0, 0, businessclock.Location)
 }

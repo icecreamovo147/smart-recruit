@@ -366,7 +366,7 @@ func (r *GormRepository) SettleReservation(ctx context.Context, reservationNo st
 				ProviderKey: usage.ProviderKey, ModelKey: usage.ModelKey, ProviderCallSequence: usage.CallSequence,
 				InputTokens: usage.InputTokens, OutputTokens: usage.OutputTokens, CachedInputTokens: usage.CachedInputTokens,
 				SupplierCostMicros: usage.SupplierCostMicros, CreditsCharged: usageCharge, UsageSource: "provider",
-				OccurredAt: usage.OccurredAt.UTC(), CreatedAt: now,
+				OccurredAt: usage.OccurredAt.In(now.Location()), CreatedAt: now,
 			}
 			if owner.Type == model.OwnerTenant {
 				tenantID := owner.ID

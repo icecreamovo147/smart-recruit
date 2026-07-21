@@ -40,7 +40,7 @@ Billing owns entitlements, price snapshots, credit grants, reservations, rate ca
 
 Rate-card provider/model keys are selected from enabled `llm_providers` and `llm_models` records. Billing validates the pair again on write and persists the catalog's canonical spelling, so a disabled, renamed, or manually forged runtime target cannot be published through a direct API call.
 
-Platform commercial-control saves for product prices and AI rate cards publish the new immutable version immediately; the previous published version for the same product term or provider/model is retired in the same transaction. Immediate `effective_at` and retirement timestamps use MySQL's UTC clock rather than a Go `time.Time` passed through a `loc=Local` connection, because storefront queries compare these `DATETIME` columns with `UTC_TIMESTAMP(3)`.
+Platform commercial-control saves for product prices and AI rate cards publish the new immutable version immediately; the previous published version for the same product term or provider/model is retired in the same transaction. Billing binds one `Asia/Shanghai` application clock value for publication and retirement mutations, while entitlement/storefront queries run through a verified MySQL `+08:00` session. Billing `DATETIME` values are therefore UTC+8 wall-clock values; month boundaries retain the Shanghai location instead of being converted to UTC wall time.
 
 JSON entitlement booleans are decoded as their JSON text (`true`/`false`) rather than numerically cast by MySQL. Candidate subscription snapshots must bind `ai.chat.release_version_id` to the published `candidate` capability release; an HR release ID is not interchangeable even when the entitlement key is the same.
 

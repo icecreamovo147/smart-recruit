@@ -2778,28 +2778,28 @@ WHERE tenant.status = 'active'
     WHERE existing.tenant_id = tenant.id
   );
 
--- Migration 000073: normalize immediately-effective AI entitlement seed data
--- to the UTC clock used by runtime entitlement queries.
+-- Migration 000073 final state: immediate entitlement seed data uses the
+-- platform's Asia/Shanghai database session clock.
 UPDATE `platform_plan_versions`
-SET `effective_at` = UTC_TIMESTAMP(3)
+SET `effective_at` = NOW(3)
 WHERE `version` = 2
   AND `change_note` = 'AI billing shadow defaults; review before enforcement'
-  AND `effective_at` > UTC_TIMESTAMP(3);
+  AND `effective_at` > NOW(3);
 
 UPDATE `billing_price_versions` price
 JOIN `billing_products` product
   ON product.id = price.product_id
  AND product.product_key = 'candidate_free'
-SET price.effective_at = UTC_TIMESTAMP(3)
+SET price.effective_at = NOW(3)
 WHERE price.version = 1
   AND price.status = 'published'
-  AND price.effective_at > UTC_TIMESTAMP(3);
+  AND price.effective_at > NOW(3);
 
 UPDATE `tenant_subscriptions`
-SET `starts_at` = UTC_TIMESTAMP(3)
+SET `starts_at` = NOW(3)
 WHERE `reason` = 'legacy tenant starter plan bootstrap'
   AND `created_by` IS NULL
-  AND `starts_at` > UTC_TIMESTAMP(3);
+  AND `starts_at` > NOW(3);
 
 -- Migration 000074: publish the candidate Pro offer for Alipay sandbox checkout.
 INSERT IGNORE INTO `billing_price_versions`
@@ -2819,8 +2819,8 @@ SELECT
   ),
   'draft',
   NULL,
-  UTC_TIMESTAMP(3),
-  UTC_TIMESTAMP(3)
+  NOW(3),
+  NOW(3)
 FROM `billing_products` product
 JOIN `platform_ai_capabilities` capability
   ON capability.capability_key = 'ai.chat'
@@ -2848,15 +2848,15 @@ SET price.entitlement_snapshot = JSON_SET(
       '$."ai.credits.monthly"',
       price.included_credits
     ),
-    price.effective_at = UTC_TIMESTAMP(3),
+    price.effective_at = NOW(3),
     price.status = 'published',
-    price.updated_at = UTC_TIMESTAMP(3)
+    price.updated_at = NOW(3)
 WHERE price.version = 1
   AND price.status = 'draft';
 
 UPDATE `billing_products`
 SET `status` = 'active',
-    `updated_at` = UTC_TIMESTAMP(3)
+    `updated_at` = NOW(3)
 WHERE `product_key` = 'candidate_pro'
   AND `owner_type` = 'user'
   AND `product_type` = 'subscription'
@@ -2878,24 +2878,40 @@ SET price.entitlement_snapshot = JSON_SET(
       '$."ai.chat.release_version_id"',
       capability.current_published_version_id
     ),
-    price.updated_at = UTC_TIMESTAMP(3)
+    price.updated_at = NOW(3)
 WHERE JSON_CONTAINS_PATH(
   COALESCE(price.entitlement_snapshot, JSON_OBJECT()),
   'one',
   '$."ai.chat.enabled"'
 );
 
--- Migration 000081: repair immediately published Billing versions written
--- with the local timezone into DATETIME fields consumed as UTC.
+-- Migration 000081 final state under the UTC+8 connection contract.
 UPDATE `billing_price_versions`
-SET `effective_at` = UTC_TIMESTAMP(3),
-    `updated_at` = UTC_TIMESTAMP(3)
+SET `effective_at` = NOW(3),
+    `updated_at` = NOW(3)
 WHERE `status` = 'published'
-  AND `effective_at` > UTC_TIMESTAMP(3)
+  AND `effective_at` > NOW(3)
   AND ABS(TIMESTAMPDIFF(SECOND, `created_at`, `effective_at`)) <= 5;
 
 UPDATE `ai_rate_cards`
-SET `effective_at` = UTC_TIMESTAMP(3)
+SET `effective_at` = NOW(3)
 WHERE `status` = 'published'
-  AND `effective_at` > UTC_TIMESTAMP(3)
+  AND `effective_at` > NOW(3)
   AND ABS(TIMESTAMPDIFF(SECOND, `created_at`, `effective_at`)) <= 5;
+
+-- Migration 000082: retain cell-level evidence for production conversions.
+-- A cold-start database is already UTC+8-native and therefore has no rows.
+CREATE TABLE IF NOT EXISTS `utc8_time_conversion_audit` (
+  `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+  `batch_id` VARCHAR(96) NOT NULL,
+  `table_name` VARCHAR(96) NOT NULL,
+  `row_pk` VARCHAR(191) NOT NULL,
+  `column_name` VARCHAR(96) NOT NULL,
+  `old_value` DATETIME(6) NOT NULL,
+  `new_value` DATETIME(6) NOT NULL,
+  `reason` VARCHAR(500) NOT NULL,
+  `created_at` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_utc8_time_conversion_cell` (`batch_id`, `table_name`, `row_pk`, `column_name`),
+  KEY `idx_utc8_time_conversion_lookup` (`table_name`, `row_pk`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='Auditable UTC wall-clock to Asia/Shanghai conversions';

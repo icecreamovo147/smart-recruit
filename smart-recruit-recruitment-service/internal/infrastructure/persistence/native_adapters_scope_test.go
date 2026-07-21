@@ -12,6 +12,7 @@ import (
 	"smart-recruit-commons/oss"
 	sharedauthz "smart-recruit-commons/pkg/authz"
 	commonsquota "smart-recruit-commons/quota"
+	"smart-recruit-platform-go/businessclock"
 	"smart-recruit-platform-go/errs"
 	"smart-recruit-platform-go/metadata"
 	"smart-recruit-proto/recruitment/pb"
@@ -459,7 +460,7 @@ func TestNativeCollaborationScopeAllowsOwnedCandidateWithPermissions(t *testing.
 	if gotOffer.ApplicationId != appID || gotOffer.Title != "Senior Engineer Offer" || gotOffer.Status != "sent" || gotOffer.SalaryRange != "30k-40k" || gotOffer.Level != "P6" || gotOffer.WorkLocation != "Shanghai" || gotOffer.StartDate != "2026-08-01" || gotOffer.JobTitle != "Job 1001" {
 		t.Fatalf("workspace offer = %+v, want seeded offer", gotOffer)
 	}
-	if workspace.Workspace.LatestActivityAt != fixture.now.Add(5*time.Hour).Format(time.RFC3339) {
+	if workspace.Workspace.LatestActivityAt != businessclock.FormatRFC3339(fixture.now.Add(5*time.Hour)) {
 		t.Fatalf("LatestActivityAt = %q, want feedback updated_at", workspace.Workspace.LatestActivityAt)
 	}
 	note, err := fixture.collaboration.CreateNote(ctx, &pb.CreateNoteRequest{StaffUserId: 101, CandidateUserId: 3001, Content: "strong"})

@@ -9,9 +9,11 @@ import (
 	"time"
 
 	"smart-recruit-commons/resumeparser"
+	"smart-recruit-platform-go/businessclock"
 )
 
 func main() {
+	businessclock.Configure()
 	if len(os.Args) != 2 {
 		fmt.Fprintf(os.Stderr, "usage: go run ./cmd/parse-resume /path/to/resume.{pdf,docx}\n")
 		os.Exit(2)

@@ -10,15 +10,26 @@ import (
 	"gorm.io/gorm"
 
 	"smart-recruit-billing-service/internal/domain/model"
+	"smart-recruit-platform-go/businessclock"
 )
 
-type EntitlementPolicy struct{ db *gorm.DB }
+type EntitlementPolicy struct {
+	db  *gorm.DB
+	now func() time.Time
+}
 
 func NewEntitlementPolicy(db *gorm.DB) (*EntitlementPolicy, error) {
+	return NewEntitlementPolicyWithClock(db, businessclock.Now)
+}
+
+func NewEntitlementPolicyWithClock(db *gorm.DB, now func() time.Time) (*EntitlementPolicy, error) {
 	if db == nil {
 		return nil, errors.New("entitlement database is required")
 	}
-	return &EntitlementPolicy{db: db}, nil
+	if now == nil {
+		return nil, errors.New("entitlement clock is required")
+	}
+	return &EntitlementPolicy{db: db, now: now}, nil
 }
 
 func (p *EntitlementPolicy) Enabled(ctx context.Context, owner model.Owner, capability string) (bool, error) {
@@ -30,10 +41,11 @@ func (p *EntitlementPolicy) Enabled(ctx context.Context, owner model.Owner, capa
 		return false, errors.New("AI capability is required")
 	}
 	capability = enabledEntitlementKey(capability)
+	now := p.now().In(businessclock.Location)
 	if owner.Type == model.OwnerTenant {
-		return p.tenantEnabled(ctx, owner.ID, capability)
+		return p.tenantEnabled(ctx, owner.ID, capability, now)
 	}
-	return p.userEnabled(ctx, owner.ID, capability)
+	return p.userEnabled(ctx, owner.ID, capability, now)
 }
 
 // ReleaseVersionID resolves the immutable platform AI capability release from
@@ -49,10 +61,11 @@ func (p *EntitlementPolicy) ReleaseVersionID(ctx context.Context, owner model.Ow
 		return 0, errors.New("AI capability is required")
 	}
 	key := releaseVersionEntitlementKey(capability)
+	now := p.now().In(businessclock.Location)
 	if owner.Type == model.OwnerTenant {
-		return p.tenantReleaseVersionID(ctx, owner.ID, key)
+		return p.tenantReleaseVersionID(ctx, owner.ID, key, now)
 	}
-	return p.userReleaseVersionID(ctx, owner.ID, key)
+	return p.userReleaseVersionID(ctx, owner.ID, key, now)
 }
 
 // ReservationCreditLimit resolves the commercial single-run ceiling from the
@@ -64,13 +77,14 @@ func (p *EntitlementPolicy) ReservationCreditLimit(ctx context.Context, owner mo
 		return 0, err
 	}
 	const key = "ai.single_run.max_credits"
+	now := p.now().In(businessclock.Location)
 	if owner.Type == model.OwnerTenant {
-		return p.tenantInteger(ctx, owner.ID, key)
+		return p.tenantInteger(ctx, owner.ID, key, now)
 	}
-	return p.userInteger(ctx, owner.ID, key)
+	return p.userInteger(ctx, owner.ID, key, now)
 }
 
-func (p *EntitlementPolicy) tenantInteger(ctx context.Context, tenantID uint64, key string) (uint64, error) {
+func (p *EntitlementPolicy) tenantInteger(ctx context.Context, tenantID uint64, key string, now time.Time) (uint64, error) {
 	jsonPath := fmt.Sprintf(`$."%s"`, strings.ReplaceAll(key, `"`, ``))
 	var paid *uint64
 	if err := p.db.WithContext(ctx).Raw(`
@@ -78,8 +92,8 @@ func (p *EntitlementPolicy) tenantInteger(ctx context.Context, tenantID uint64, 
 		FROM billing_subscriptions subscription
 		JOIN billing_price_versions price ON price.id = subscription.price_version_id
 		WHERE subscription.owner_type = 'tenant' AND subscription.owner_id = ? AND subscription.status = 'active'
-		  AND subscription.current_period_start <= UTC_TIMESTAMP(3) AND subscription.current_period_end > UTC_TIMESTAMP(3)
-		ORDER BY subscription.current_period_end DESC, subscription.id DESC LIMIT 1`, jsonPath, tenantID).Scan(&paid).Error; err != nil {
+		  AND subscription.current_period_start <= ? AND subscription.current_period_end > ?
+		ORDER BY subscription.current_period_end DESC, subscription.id DESC LIMIT 1`, jsonPath, tenantID, now, now).Scan(&paid).Error; err != nil {
 		return 0, err
 	}
 	if paid != nil {
@@ -95,18 +109,18 @@ func (p *EntitlementPolicy) tenantInteger(ctx context.Context, tenantID uint64, 
 		LEFT JOIN tenant_entitlement_overrides override_entitlement
 		  ON override_entitlement.tenant_id = subscription.tenant_id
 		 AND override_entitlement.entitlement_key = plan_entitlement.entitlement_key
-		 AND (override_entitlement.expires_at IS NULL OR override_entitlement.expires_at > UTC_TIMESTAMP(3))
+		 AND (override_entitlement.expires_at IS NULL OR override_entitlement.expires_at > ?)
 		WHERE subscription.tenant_id = ? AND subscription.status = 'active'
-		  AND subscription.starts_at <= UTC_TIMESTAMP(3)
-		  AND (subscription.ends_at IS NULL OR subscription.ends_at > UTC_TIMESTAMP(3))
-		ORDER BY subscription.starts_at DESC, subscription.id DESC LIMIT 1`, key, tenantID).Scan(&plan).Error
+		  AND subscription.starts_at <= ?
+		  AND (subscription.ends_at IS NULL OR subscription.ends_at > ?)
+		ORDER BY subscription.starts_at DESC, subscription.id DESC LIMIT 1`, key, now, tenantID, now, now).Scan(&plan).Error
 	if err != nil || plan == nil {
 		return 0, err
 	}
 	return *plan, nil
 }
 
-func (p *EntitlementPolicy) userInteger(ctx context.Context, userID uint64, key string) (uint64, error) {
+func (p *EntitlementPolicy) userInteger(ctx context.Context, userID uint64, key string, now time.Time) (uint64, error) {
 	jsonPath := fmt.Sprintf(`$."%s"`, strings.ReplaceAll(key, `"`, ``))
 	var value *uint64
 	if err := p.db.WithContext(ctx).Raw(`
@@ -114,8 +128,8 @@ func (p *EntitlementPolicy) userInteger(ctx context.Context, userID uint64, key 
 		FROM billing_subscriptions subscription
 		JOIN billing_price_versions price ON price.id = subscription.price_version_id
 		WHERE subscription.owner_type = 'user' AND subscription.owner_id = ? AND subscription.status = 'active'
-		  AND subscription.current_period_start <= UTC_TIMESTAMP(3) AND subscription.current_period_end > UTC_TIMESTAMP(3)
-		ORDER BY subscription.current_period_end DESC, subscription.id DESC LIMIT 1`, jsonPath, userID).Scan(&value).Error; err != nil {
+		  AND subscription.current_period_start <= ? AND subscription.current_period_end > ?
+		ORDER BY subscription.current_period_end DESC, subscription.id DESC LIMIT 1`, jsonPath, userID, now, now).Scan(&value).Error; err != nil {
 		return 0, err
 	}
 	if value != nil {
@@ -126,8 +140,8 @@ func (p *EntitlementPolicy) userInteger(ctx context.Context, userID uint64, key 
 		FROM billing_products product
 		JOIN billing_price_versions price ON price.product_id = product.id
 		WHERE product.product_key = 'candidate_free' AND product.status = 'active' AND price.status = 'published'
-		  AND price.effective_at <= UTC_TIMESTAMP(3)
-		ORDER BY price.version DESC LIMIT 1`, jsonPath).Scan(&value).Error
+		  AND price.effective_at <= ?
+		ORDER BY price.version DESC LIMIT 1`, jsonPath, now).Scan(&value).Error
 	if err != nil || value == nil {
 		return 0, err
 	}
@@ -147,7 +161,7 @@ func releaseVersionEntitlementKey(capability string) string {
 	return capability + ".release_version_id"
 }
 
-func (p *EntitlementPolicy) tenantEnabled(ctx context.Context, tenantID uint64, capability string) (bool, error) {
+func (p *EntitlementPolicy) tenantEnabled(ctx context.Context, tenantID uint64, capability string, now time.Time) (bool, error) {
 	jsonPath := fmt.Sprintf(`$."%s"`, strings.ReplaceAll(capability, `"`, ``))
 	var paidEnabled *string
 	if err := p.db.WithContext(ctx).Raw(`
@@ -155,8 +169,8 @@ func (p *EntitlementPolicy) tenantEnabled(ctx context.Context, tenantID uint64, 
 		FROM billing_subscriptions subscription
 		JOIN billing_price_versions price ON price.id = subscription.price_version_id
 		WHERE subscription.owner_type = 'tenant' AND subscription.owner_id = ? AND subscription.status = 'active'
-		  AND subscription.current_period_start <= UTC_TIMESTAMP(3) AND subscription.current_period_end > UTC_TIMESTAMP(3)
-		ORDER BY subscription.current_period_end DESC, subscription.id DESC LIMIT 1`, jsonPath, tenantID).Scan(&paidEnabled).Error; err != nil {
+		  AND subscription.current_period_start <= ? AND subscription.current_period_end > ?
+		ORDER BY subscription.current_period_end DESC, subscription.id DESC LIMIT 1`, jsonPath, tenantID, now, now).Scan(&paidEnabled).Error; err != nil {
 		return false, err
 	}
 	if paidEnabled != nil {
@@ -172,18 +186,18 @@ func (p *EntitlementPolicy) tenantEnabled(ctx context.Context, tenantID uint64, 
 		LEFT JOIN tenant_entitlement_overrides override_entitlement
 		  ON override_entitlement.tenant_id = subscription.tenant_id
 		 AND override_entitlement.entitlement_key = plan_entitlement.entitlement_key
-		 AND (override_entitlement.expires_at IS NULL OR override_entitlement.expires_at > UTC_TIMESTAMP(3))
+		 AND (override_entitlement.expires_at IS NULL OR override_entitlement.expires_at > ?)
 		WHERE subscription.tenant_id = ? AND subscription.status = 'active'
-		  AND subscription.starts_at <= UTC_TIMESTAMP(3)
-		  AND (subscription.ends_at IS NULL OR subscription.ends_at > UTC_TIMESTAMP(3))
-		ORDER BY subscription.starts_at DESC, subscription.id DESC LIMIT 1`, capability, tenantID).Scan(&value).Error
+		  AND subscription.starts_at <= ?
+		  AND (subscription.ends_at IS NULL OR subscription.ends_at > ?)
+		ORDER BY subscription.starts_at DESC, subscription.id DESC LIMIT 1`, capability, now, tenantID, now, now).Scan(&value).Error
 	if err != nil {
 		return false, err
 	}
 	return value == "true" || value == "1", nil
 }
 
-func (p *EntitlementPolicy) userEnabled(ctx context.Context, userID uint64, capability string) (bool, error) {
+func (p *EntitlementPolicy) userEnabled(ctx context.Context, userID uint64, capability string, now time.Time) (bool, error) {
 	jsonPath := fmt.Sprintf(`$."%s"`, strings.ReplaceAll(capability, `"`, ``))
 	var enabled *string
 	err := p.db.WithContext(ctx).Raw(`
@@ -191,8 +205,8 @@ func (p *EntitlementPolicy) userEnabled(ctx context.Context, userID uint64, capa
 		FROM billing_subscriptions subscription
 		JOIN billing_price_versions price ON price.id = subscription.price_version_id
 		WHERE subscription.owner_type = 'user' AND subscription.owner_id = ? AND subscription.status = 'active'
-		  AND subscription.current_period_start <= UTC_TIMESTAMP(3) AND subscription.current_period_end > UTC_TIMESTAMP(3)
-		ORDER BY subscription.current_period_end DESC, subscription.id DESC LIMIT 1`, jsonPath, userID).Scan(&enabled).Error
+		  AND subscription.current_period_start <= ? AND subscription.current_period_end > ?
+		ORDER BY subscription.current_period_end DESC, subscription.id DESC LIMIT 1`, jsonPath, userID, now, now).Scan(&enabled).Error
 	if err != nil {
 		return false, err
 	}
@@ -206,8 +220,8 @@ func (p *EntitlementPolicy) userEnabled(ctx context.Context, userID uint64, capa
 		FROM billing_products product
 		JOIN billing_price_versions price ON price.product_id = product.id
 		WHERE product.product_key = 'candidate_free' AND product.status = 'active' AND price.status = 'published'
-		  AND price.effective_at <= UTC_TIMESTAMP(3)
-		ORDER BY price.version DESC LIMIT 1`, jsonPath).Scan(&enabled).Error
+		  AND price.effective_at <= ?
+		ORDER BY price.version DESC LIMIT 1`, jsonPath, now).Scan(&enabled).Error
 	if err != nil {
 		return false, err
 	}
@@ -219,7 +233,7 @@ func entitlementBoolean(value string) bool {
 	return value == "1" || strings.EqualFold(value, "true")
 }
 
-func (p *EntitlementPolicy) tenantReleaseVersionID(ctx context.Context, tenantID uint64, entitlementKey string) (uint64, error) {
+func (p *EntitlementPolicy) tenantReleaseVersionID(ctx context.Context, tenantID uint64, entitlementKey string, now time.Time) (uint64, error) {
 	jsonPath := fmt.Sprintf(`$."%s"`, strings.ReplaceAll(entitlementKey, `"`, ``))
 	var paidVersion *uint64
 	if err := p.db.WithContext(ctx).Raw(`
@@ -227,8 +241,8 @@ func (p *EntitlementPolicy) tenantReleaseVersionID(ctx context.Context, tenantID
 		FROM billing_subscriptions subscription
 		JOIN billing_price_versions price ON price.id = subscription.price_version_id
 		WHERE subscription.owner_type = 'tenant' AND subscription.owner_id = ? AND subscription.status = 'active'
-		  AND subscription.current_period_start <= UTC_TIMESTAMP(3) AND subscription.current_period_end > UTC_TIMESTAMP(3)
-		ORDER BY subscription.current_period_end DESC, subscription.id DESC LIMIT 1`, jsonPath, tenantID).Scan(&paidVersion).Error; err != nil {
+		  AND subscription.current_period_start <= ? AND subscription.current_period_end > ?
+		ORDER BY subscription.current_period_end DESC, subscription.id DESC LIMIT 1`, jsonPath, tenantID, now, now).Scan(&paidVersion).Error; err != nil {
 		return 0, err
 	}
 	if paidVersion != nil {
@@ -244,18 +258,18 @@ func (p *EntitlementPolicy) tenantReleaseVersionID(ctx context.Context, tenantID
 		LEFT JOIN tenant_entitlement_overrides override_entitlement
 		  ON override_entitlement.tenant_id = subscription.tenant_id
 		 AND override_entitlement.entitlement_key = plan_entitlement.entitlement_key
-		 AND (override_entitlement.expires_at IS NULL OR override_entitlement.expires_at > UTC_TIMESTAMP(3))
+		 AND (override_entitlement.expires_at IS NULL OR override_entitlement.expires_at > ?)
 		WHERE subscription.tenant_id = ? AND subscription.status = 'active'
-		  AND subscription.starts_at <= UTC_TIMESTAMP(3)
-		  AND (subscription.ends_at IS NULL OR subscription.ends_at > UTC_TIMESTAMP(3))
-		ORDER BY subscription.starts_at DESC, subscription.id DESC LIMIT 1`, entitlementKey, tenantID).Scan(&planVersion).Error
+		  AND subscription.starts_at <= ?
+		  AND (subscription.ends_at IS NULL OR subscription.ends_at > ?)
+		ORDER BY subscription.starts_at DESC, subscription.id DESC LIMIT 1`, entitlementKey, now, tenantID, now, now).Scan(&planVersion).Error
 	if err != nil || planVersion == nil {
 		return 0, err
 	}
 	return *planVersion, nil
 }
 
-func (p *EntitlementPolicy) userReleaseVersionID(ctx context.Context, userID uint64, entitlementKey string) (uint64, error) {
+func (p *EntitlementPolicy) userReleaseVersionID(ctx context.Context, userID uint64, entitlementKey string, now time.Time) (uint64, error) {
 	jsonPath := fmt.Sprintf(`$."%s"`, strings.ReplaceAll(entitlementKey, `"`, ``))
 	var version *uint64
 	if err := p.db.WithContext(ctx).Raw(`
@@ -263,8 +277,8 @@ func (p *EntitlementPolicy) userReleaseVersionID(ctx context.Context, userID uin
 		FROM billing_subscriptions subscription
 		JOIN billing_price_versions price ON price.id = subscription.price_version_id
 		WHERE subscription.owner_type = 'user' AND subscription.owner_id = ? AND subscription.status = 'active'
-		  AND subscription.current_period_start <= UTC_TIMESTAMP(3) AND subscription.current_period_end > UTC_TIMESTAMP(3)
-		ORDER BY subscription.current_period_end DESC, subscription.id DESC LIMIT 1`, jsonPath, userID).Scan(&version).Error; err != nil {
+		  AND subscription.current_period_start <= ? AND subscription.current_period_end > ?
+		ORDER BY subscription.current_period_end DESC, subscription.id DESC LIMIT 1`, jsonPath, userID, now, now).Scan(&version).Error; err != nil {
 		return 0, err
 	}
 	if version != nil {
@@ -275,8 +289,8 @@ func (p *EntitlementPolicy) userReleaseVersionID(ctx context.Context, userID uin
 		FROM billing_products product
 		JOIN billing_price_versions price ON price.product_id = product.id
 		WHERE product.product_key = 'candidate_free' AND product.status = 'active' AND price.status = 'published'
-		  AND price.effective_at <= UTC_TIMESTAMP(3)
-		ORDER BY price.version DESC LIMIT 1`, jsonPath).Scan(&version).Error
+		  AND price.effective_at <= ?
+		ORDER BY price.version DESC LIMIT 1`, jsonPath, now).Scan(&version).Error
 	if err != nil || version == nil {
 		return 0, err
 	}
@@ -289,11 +303,5 @@ var _ interface {
 } = (*EntitlementPolicy)(nil)
 
 func shanghaiMonth(now time.Time) (time.Time, time.Time) {
-	location, err := time.LoadLocation("Asia/Shanghai")
-	if err != nil {
-		location = time.FixedZone("Asia/Shanghai", 8*60*60)
-	}
-	local := now.In(location)
-	start := time.Date(local.Year(), local.Month(), 1, 0, 0, 0, 0, location)
-	return start.UTC(), start.AddDate(0, 1, 0).UTC()
+	return businessclock.MonthBounds(now)
 }

@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { onMounted, reactive, ref, computed } from 'vue'
+import { formatShanghaiDateTime } from '@shared/utils/format'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import {
   Delete,
@@ -736,8 +737,7 @@ const formatDuration = (ms: number): string => {
 // ====== Helpers ======
 
 const formatTime = (s?: string): string => {
-  if (!s) return '-'
-  return new Date(s).toLocaleString('zh-CN')
+  return formatShanghaiDateTime(s)
 }
 
 // ====== Init ======

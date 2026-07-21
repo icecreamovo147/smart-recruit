@@ -272,7 +272,7 @@ func TestInsecureDevConfigBypassesProductionSecretChecks(t *testing.T) {
 
 func productionReadyConfig() Config {
 	var cfg Config
-	cfg.MySQL.DSN = "smart_recruit:strong-password@tcp(mysql:3306)/recruitment?charset=utf8mb4&parseTime=True&loc=Local"
+	cfg.MySQL.DSN = "smart_recruit:strong-password@tcp(mysql:3306)/recruitment?charset=utf8mb4&parseTime=true&loc=Asia%2FShanghai&time_zone=%27%2B08%3A00%27"
 	cfg.RabbitMQ.URL = "amqp://recruitment:strong-password@rabbitmq:5672/"
 	cfg.OSS.AccessKeyID = "AKIDEXTERNAL123456"
 	cfg.OSS.AccessKeySecret = "external-oss-secret-value"

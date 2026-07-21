@@ -5,17 +5,18 @@ import (
 
 	"smart-recruit-offer-service/internal/domain/event"
 	"smart-recruit-offer-service/internal/domain/repository"
+	"smart-recruit-platform-go/businessclock"
 	"smart-recruit-proto/recruitment/pb"
 )
 
 func ToPBOffer(details repository.OfferDetails) *pb.Offer {
 	var expiresAt string
 	if details.ExpiresAt != nil {
-		expiresAt = details.ExpiresAt.Format(time.RFC3339)
+		expiresAt = businessclock.FormatRFC3339(*details.ExpiresAt)
 	}
 	var decidedAt string
 	if details.DecidedAt != nil {
-		decidedAt = details.DecidedAt.Format(time.RFC3339)
+		decidedAt = businessclock.FormatRFC3339(*details.DecidedAt)
 	}
 	var sentBy int64
 	if details.SentBy != nil {
@@ -81,14 +82,14 @@ func FormatTime(value time.Time) string {
 	if value.IsZero() {
 		return ""
 	}
-	return value.Format(time.RFC3339)
+	return businessclock.FormatRFC3339(value)
 }
 
 func ParseOptionalRFC3339(value string) (*time.Time, error) {
 	if value == "" {
 		return nil, nil
 	}
-	parsed, err := time.Parse(time.RFC3339, value)
+	parsed, err := businessclock.Parse(value)
 	if err != nil {
 		return nil, err
 	}

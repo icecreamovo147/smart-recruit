@@ -4,6 +4,7 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 import { ArrowDown, MoreFilled, Plus, Refresh, Search } from '@element-plus/icons-vue'
 import { createInviteCode, extendInviteCode, listInviteCodes, reactivateInviteCode, revokeInviteCode } from '@/api/admin'
 import type { InviteCodeInfo } from '@/types/domain'
+import { formatShanghaiDateTime, toShanghaiRFC3339 } from '@shared/utils/format'
 
 const list = ref<InviteCodeInfo[]>([])
 const total = ref(0)
@@ -64,7 +65,7 @@ const saveExtend = async () => {
   }
   saving.value = true
   try {
-    await extendInviteCode(extendingId.value, new Date(extendForm.new_expires_at).toISOString())
+    await extendInviteCode(extendingId.value, toShanghaiRFC3339(extendForm.new_expires_at))
     ElMessage.success('有效期已延长')
     extendingVisible.value = false
     await load()
@@ -109,8 +110,8 @@ const statusTag = (row: InviteCodeInfo) => {
 }
 
 const formatTime = (s?: string) => {
-  if (!s) return '永不过期'
-  return new Date(s).toLocaleString('zh-CN')
+	if (!s) return '永不过期'
+	return formatShanghaiDateTime(s)
 }
 
 const copyLink = async (row: InviteCodeInfo) => {

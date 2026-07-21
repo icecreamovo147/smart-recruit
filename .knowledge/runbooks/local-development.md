@@ -31,6 +31,9 @@ source_refs:
   - start-dev.sh
   - stop-dev.sh
   - smart-recruit-commons/cmd/migrate/main.go
+  - smart-recruit-commons/cmd/time-preflight/main.go
+  - smart-recruit-platform-go/businessclock/clock.go
+  - smart-recruit-platform-go/mysqltime/mysql.go
   - smart-recruit-commons/migration/runner.go
   - dev-log-viewer/README.md
   - dev-log-viewer/package.json
@@ -48,7 +51,7 @@ source_refs:
   - .spec/backend-ddd-microservices-evolution/docs/backend-ddd-microservices-evolution-final-readiness-audit.json
   - scripts/backend-load-test.mjs
   - scripts/backend-final-readiness-audit.mjs
-last_verified: 2026-07-19
+last_verified: 2026-07-21
 review_after: 2026-10-08
 ---
 
@@ -66,6 +69,7 @@ Use this runbook to orient local startup and validation. Always prefer checked-i
 - Backend load-test dry-run evidence is generated with `node scripts/backend-load-test.mjs --dry-run --output .spec/backend-ddd-microservices-evolution/docs/backend-ddd-microservices-evolution-load-test-initial-evidence.json`; live 200 QPS/50 QPS/AI concurrency runs require a running isolated stack and authenticated test fixtures.
 - Final readiness audit evidence is generated with `node scripts/backend-final-readiness-audit.mjs --feature-dir .spec/backend-ddd-microservices-evolution --allow-current-task TASK-BDME-052 --output .spec/backend-ddd-microservices-evolution/docs/backend-ddd-microservices-evolution-final-readiness-audit.json` during the closing TASK.
 - MySQL, Redis, and RabbitMQ available through Docker Compose or an equivalent local stack.
+- Set `TZ=Asia/Shanghai`. MySQL DSNs must use `parseTime=true`, `loc=Asia%2FShanghai`, and `time_zone=%27%2B08%3A00%27`; service startup validates the resulting `+08:00` session rather than trusting the host timezone.
 
 ## Standard Flow
 
@@ -85,6 +89,8 @@ Use this runbook to orient local startup and validation. Always prefer checked-i
 - Service binary convention tests: run `go test ./servicebinary` from `smart-recruit-platform-go/`.
 - Gateway tests: run `go test ./...` from `smart-recruit-gateway/`.
 - Migration runner checks: run `go test ./migration` from `smart-recruit-commons/`; MySQL consistency checks additionally require the repository's configured MySQL test environment.
+- UTC+8 data gate: before migration in a maintenance window, run `go run ./cmd/time-preflight --dsn "$MYSQL_DSN"` from `smart-recruit-commons/`; any ambiguous or invalid row returns nonzero and must be resolved before applying migration 000082.
+- Static timezone gate: run `node scripts/check-timezone-contract.mjs` from the repository root.
 - Observability smoke check: after starting the gateway, request `/metrics` and verify Prometheus text output contains `smart_recruit_http_requests_total`.
 - Worker health smoke check: start `smart-recruit-worker-service` with its worker health address configured, then request the configured `/readyz` endpoint.
 - Load-test harness dry run: `node scripts/backend-load-test.mjs --dry-run --output .spec/backend-ddd-microservices-evolution/docs/backend-ddd-microservices-evolution-load-test-initial-evidence.json`.

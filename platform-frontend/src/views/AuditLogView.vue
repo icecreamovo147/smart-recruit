@@ -5,6 +5,7 @@ import { ElMessage } from 'element-plus'
 import { useRoute } from 'vue-router'
 import { listPlatformAuditLogs } from '@/api/audit'
 import type { PlatformAuditLog } from '@/types'
+import { formatShanghaiDateTime, toShanghaiRFC3339 } from '@shared/utils/format'
 
 const route = useRoute()
 const loading = ref(false)
@@ -29,8 +30,8 @@ const load = async () => {
       actor_user_id: query.actor_user_id || undefined,
       action: query.action || undefined,
       request_id: query.request_id.trim() || undefined,
-      start_time: dateRange.value?.[0].toISOString(),
-      end_time: dateRange.value?.[1].toISOString(),
+      start_time: dateRange.value ? toShanghaiRFC3339(dateRange.value[0]) : undefined,
+      end_time: dateRange.value ? toShanghaiRFC3339(dateRange.value[1]) : undefined,
     })
     logs.value = response.list || []
     total.value = Number(response.total) || 0
@@ -45,7 +46,7 @@ const reset = () => {
 }
 
 const openDetail = (row: PlatformAuditLog) => { selected.value = row; detailVisible.value = true }
-const formatTime = (value: string) => value ? new Date(value).toLocaleString('zh-CN', { hour12: false }) : '-'
+const formatTime = (value: string) => formatShanghaiDateTime(value)
 const actionLabels: Record<string, string> = {
   'tenant.create': '创建租户',
   'tenant.status.update': '租户状态变更',

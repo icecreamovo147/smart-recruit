@@ -9,15 +9,17 @@ import (
 	"gorm.io/gorm"
 
 	"smart-recruit-analytics-service/internal/domain/model"
+	"smart-recruit-platform-go/businessclock"
 	platformmetadata "smart-recruit-platform-go/metadata"
 )
 
 type ReportingRepository struct {
-	db *gorm.DB
+	db  *gorm.DB
+	now func() time.Time
 }
 
 func NewReportingRepository(db *gorm.DB) *ReportingRepository {
-	return &ReportingRepository{db: db}
+	return &ReportingRepository{db: db, now: businessclock.Now}
 }
 
 func (r *ReportingRepository) GetDashboardKPI(ctx context.Context, filter model.ReportFilter) (model.DashboardKPI, error) {
@@ -47,7 +49,7 @@ func (r *ReportingRepository) GetDashboardKPI(ctx context.Context, filter model.
 		return model.DashboardKPI{}, err
 	}
 
-	todayStart := time.Now().Truncate(24 * time.Hour)
+	todayStart := businessclock.StartOfDay(r.now())
 	if err := appQuery.Where("applications.applied_at >= ?", todayStart).Count(&kpi.TodayApplications).Error; err != nil {
 		return model.DashboardKPI{}, err
 	}
@@ -78,7 +80,7 @@ func (r *ReportingRepository) GetTrend(ctx context.Context, filter model.ReportF
 	if err != nil {
 		return nil, err
 	}
-	start := time.Now().AddDate(0, 0, -days+1).Truncate(24 * time.Hour)
+	start := businessclock.StartOfDay(r.now()).AddDate(0, 0, -days+1)
 
 	query := r.db.WithContext(ctx).Table("applications").
 		Select("DATE_FORMAT(applications.applied_at, '%Y-%m-%d') AS date, COUNT(*) AS applications").

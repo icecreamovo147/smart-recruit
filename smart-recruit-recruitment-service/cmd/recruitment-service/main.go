@@ -21,7 +21,9 @@ import (
 	"gorm.io/gorm"
 
 	"smart-recruit-commons/oss"
+	"smart-recruit-platform-go/businessclock"
 	"smart-recruit-platform-go/config"
+	"smart-recruit-platform-go/mysqltime"
 	"smart-recruit-platform-go/nacos"
 	logicobservability "smart-recruit-platform-go/observability"
 	platformobs "smart-recruit-platform-go/observability"
@@ -36,6 +38,7 @@ import (
 const nacosServiceName = "recruitment"
 
 func main() {
+	businessclock.Configure()
 	check := flag.Bool("check", false, "validate Recruitment service runtime wiring and exit")
 	serve := flag.Bool("serve", false, "start Recruitment gRPC runtime")
 	addr := flag.String("addr", envOrDefault("GRPC_ADDR", ":50062"), "Recruitment gRPC listen address")
@@ -109,7 +112,11 @@ func serveRecruitment(addr string) error {
 	}
 	logicobservability.DefaultMetrics = logicobservability.NewRegistry(recruitmentruntime.ServiceName)
 
-	db, err := gorm.Open(mysql.Open(cfg.MySQL.DSN), &gorm.Config{})
+	dsn, err := mysqltime.NormalizeDSN(cfg.MySQL.DSN)
+	if err != nil {
+		return err
+	}
+	db, err := gorm.Open(mysql.Open(dsn), &gorm.Config{})
 	if err != nil {
 		return err
 	}
@@ -124,6 +131,9 @@ func serveRecruitment(addr string) error {
 		return err
 	}
 	defer sqlDB.Close()
+	if err := mysqltime.ValidateSession(context.Background(), sqlDB); err != nil {
+		return err
+	}
 	redisClient, err := newRecruitmentRedisClient(cfg)
 	if err != nil {
 		return err

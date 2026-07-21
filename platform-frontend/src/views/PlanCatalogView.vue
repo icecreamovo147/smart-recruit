@@ -8,6 +8,7 @@ import { PLATFORM_PERMISSIONS } from '@/permissions'
 import { useAuthStore } from '@/stores/auth'
 import type { PlatformEntitlement, PlatformPlan, PlatformPlanVersion } from '@/types'
 import type { LlmModel, LlmProvider } from '@shared/types/llm'
+import { formatShanghaiDateTime, toShanghaiRFC3339 } from '@shared/utils/format'
 import { enabledRateModelsForProvider, enabledRateProviders, isEnabledRateTarget } from './rateCardCatalog'
 
 const auth = useAuthStore()
@@ -231,20 +232,20 @@ const submitDraft = async () => {
 const openPublish = (plan: PlatformPlan, version: PlatformPlanVersion) => {
   selectedPlan.value = plan
   selectedVersion.value = version
-  publishForm.effective_at = new Date().toISOString()
+  publishForm.effective_at = toShanghaiRFC3339(new Date())
   publishForm.reason = ''
   publishVisible.value = true
 }
 
 const submitPublish = async () => {
   if (!selectedPlan.value || !selectedVersion.value || !publishForm.reason.trim()) { ElMessage.warning('请填写发布原因'); return }
-  await publishPlanVersion(selectedPlan.value.id, selectedVersion.value.id, { effective_at: new Date(publishForm.effective_at).toISOString(), reason: publishForm.reason.trim() })
+  await publishPlanVersion(selectedPlan.value.id, selectedVersion.value.id, { effective_at: toShanghaiRFC3339(publishForm.effective_at), reason: publishForm.reason.trim() })
   publishVisible.value = false
   ElMessage.success('套餐版本已发布')
   await load()
 }
 
-const formatTime = (value?: string) => value ? new Date(value).toLocaleString('zh-CN', { hour12: false }) : '-'
+const formatTime = (value?: string) => formatShanghaiDateTime(value)
 onMounted(load)
 </script>
 

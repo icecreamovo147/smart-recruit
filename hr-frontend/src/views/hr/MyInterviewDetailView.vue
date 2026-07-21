@@ -16,6 +16,7 @@ import {
   type InterviewFeedback,
   type InterviewSchedule,
 } from '@/types/domain'
+import { formatShanghaiDateTime } from '@shared/utils/format'
 
 const route = useRoute()
 const router = useRouter()
@@ -38,7 +39,7 @@ const canSubmit = computed(() => Boolean(
   && !feedback.value
   && auth.hasPermission(PERM.INTERVIEW_FEEDBACK_SUBMIT),
 ))
-const formatDate = (value: string) => value ? new Date(value).toLocaleString('zh-CN', { hour12: false }) : '-'
+const formatDate = (value: string) => formatShanghaiDateTime(value)
 const dimensionScores = computed(() => {
   if (!feedback.value?.dimension_scores_json) return []
   try {

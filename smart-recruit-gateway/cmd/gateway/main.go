@@ -18,9 +18,11 @@ import (
 	"smart-recruit-gateway/pkg/redisclient"
 	"smart-recruit-gateway/router"
 	"smart-recruit-gateway/rpc"
+	"smart-recruit-platform-go/businessclock"
 )
 
 func main() {
+	businessclock.Configure()
 	logger.Set(logger.NewConsole())
 	log := logger.L()
 

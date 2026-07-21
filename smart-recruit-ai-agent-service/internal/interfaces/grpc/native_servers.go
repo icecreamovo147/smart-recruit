@@ -31,6 +31,7 @@ import (
 	embeddinginfra "smart-recruit-ai-agent-service/internal/infrastructure/provider"
 	aiagentruntime "smart-recruit-ai-agent-service/internal/runtime"
 	commonsai "smart-recruit-commons/ai"
+	"smart-recruit-platform-go/businessclock"
 	"smart-recruit-platform-go/errs"
 	"smart-recruit-platform-go/logger"
 	platformmetadata "smart-recruit-platform-go/metadata"
@@ -7679,7 +7680,7 @@ func formatTime(t time.Time) string {
 	if t.IsZero() {
 		return ""
 	}
-	return t.Format(time.RFC3339)
+	return businessclock.FormatRFC3339(t)
 }
 
 func formatTimePtr(t *time.Time) string {

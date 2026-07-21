@@ -13,6 +13,7 @@ import (
 
 	"smart-recruit-interview-service/internal/application/port"
 	"smart-recruit-interview-service/internal/infrastructure/persistence"
+	"smart-recruit-platform-go/businessclock"
 )
 
 const (
@@ -96,7 +97,7 @@ func (p *OutboxPublisher) buildEvent(message port.OutboxMessage) (*EventOutboxRe
 		EventType:     message.EventType,
 		AggregateType: message.AggregateType,
 		AggregateID:   strconv.FormatInt(message.AggregateID, 10),
-		OccurredAt:    time.Now().UTC(),
+		OccurredAt:    businessclock.Now(),
 		Producer:      legacyOutboxProducer,
 		Payload:       payloadJSON,
 		Metadata:      map[string]string{"routing_key": message.RoutingKey},

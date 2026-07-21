@@ -23,6 +23,7 @@ import type {
   UpdateAgentSkillPayload,
 } from '@shared/types/agentSkill'
 import { debugLog } from '@shared/utils/debugLog'
+import { formatShanghaiDateTime } from '@shared/utils/format'
 
 const api = agentSkillApi
 const canManage = computed(() => useAuthStore().can(PLATFORM_PERMISSIONS.AI_CONFIG_MANAGE))
@@ -1031,8 +1032,7 @@ const activateVersion = async (version: AgentSkillVersionInfo) => {
 }
 
 const formatTime = (value?: string) => {
-  if (!value) return '-'
-  return new Date(value).toLocaleString('zh-CN')
+  return formatShanghaiDateTime(value)
 }
 
 watch([

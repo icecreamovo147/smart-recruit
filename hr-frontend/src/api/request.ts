@@ -8,6 +8,7 @@ import { BusinessError } from '@/types/api'
 import { silentRefresh } from './authRefresh'
 import { debugLog } from '@shared/utils/debugLog'
 import { contextGuardCodeFrom, contextGuardMessage } from '@/utils/contextUsage'
+import { formatShanghaiTime } from '@shared/utils/format'
 
 interface RequestConfig extends AxiosRequestConfig {
   silentError?: boolean
@@ -198,9 +199,7 @@ interface RequestInstance {
 
 const formatResetTime = (resetAt: string): string => {
   try {
-    const d = new Date(resetAt)
-    if (Number.isNaN(d.getTime())) return ''
-    return d.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' })
+    return formatShanghaiTime(resetAt)
   } catch { return '' }
 }
 

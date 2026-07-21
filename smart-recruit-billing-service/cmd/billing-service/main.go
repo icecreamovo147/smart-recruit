@@ -17,6 +17,8 @@ import (
 	healthpb "google.golang.org/grpc/health/grpc_health_v1"
 	"gorm.io/driver/mysql"
 	"gorm.io/gorm"
+	"smart-recruit-platform-go/businessclock"
+	"smart-recruit-platform-go/mysqltime"
 	platformserver "smart-recruit-platform-go/server"
 	"smart-recruit-proto/recruitment/pb"
 
@@ -30,6 +32,7 @@ import (
 )
 
 func main() {
+	businessclock.Configure()
 	check := flag.Bool("check", false, "validate Billing service runtime wiring and exit")
 	serve := flag.Bool("serve", false, "start Billing gRPC runtime")
 	addr := flag.String("addr", envOrDefault("GRPC_ADDR", ":50069"), "Billing gRPC listen address")
@@ -71,6 +74,10 @@ func serveBilling(addr, configPath string) error {
 	if dsn == "" {
 		return errors.New("MYSQL_DSN is required")
 	}
+	dsn, err := mysqltime.NormalizeDSN(dsn)
+	if err != nil {
+		return err
+	}
 	db, err := gorm.Open(mysql.Open(dsn), &gorm.Config{TranslateError: true})
 	if err != nil {
 		return fmt.Errorf("connect mysql: %w", err)
@@ -80,6 +87,9 @@ func serveBilling(addr, configPath string) error {
 		return err
 	}
 	defer sqlDB.Close()
+	if err := mysqltime.ValidateSession(context.Background(), sqlDB); err != nil {
+		return err
+	}
 	metricsServer, err := platformserver.StartMetricsServer(envOrDefault("METRICS_ADDR", ""))
 	if err != nil {
 		return err
@@ -104,7 +114,7 @@ func serveBilling(addr, configPath string) error {
 	if mode == model.ModeEnforce {
 		readinessCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 		defer cancel()
-		if err := repo.ValidateEnforcementReadiness(readinessCtx, time.Now().UTC()); err != nil {
+		if err := repo.ValidateEnforcementReadiness(readinessCtx, businessclock.Now()); err != nil {
 			return fmt.Errorf("AI billing enforcement readiness: %w", err)
 		}
 	}
@@ -171,7 +181,7 @@ func maintainBilling(ctx context.Context, repo *persistence.GormRepository, comm
 		case <-ctx.Done():
 			return
 		case now := <-ticker.C:
-			if err := repo.RunMaintenance(ctx, now.UTC()); err != nil {
+			if err := repo.RunMaintenance(ctx, now.In(businessclock.Location)); err != nil {
 				fmt.Fprintf(os.Stderr, "billing maintenance: %v\n", err)
 			}
 			if err := commerce.UpdateOperationalMetrics(ctx); err != nil {

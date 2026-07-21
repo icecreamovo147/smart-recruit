@@ -61,6 +61,7 @@
     "analytics_projection_events": {"owner": "analytics", "access": {"analytics": ["read", "write"]}},
     "analytics_projection_checkpoints": {"owner": "analytics", "access": {"analytics": ["read", "write"]}},
     "third_party_usage_logs": {"owner": "platform", "access": {"platform": ["read", "write"], "ai-agent": ["write"]}},
+    "utc8_time_conversion_audit": {"owner": "platform", "access": {"platform": ["read", "write"]}},
 
     "billing_products": {"owner": "billing", "access": {"billing": ["read", "write"], "identity": ["read"], "platform": ["read"]}},
     "billing_price_versions": {"owner": "billing", "access": {"billing": ["read", "write"], "identity": ["read"], "platform": ["read"]}},

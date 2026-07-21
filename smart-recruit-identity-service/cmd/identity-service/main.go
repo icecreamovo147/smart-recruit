@@ -31,8 +31,10 @@ import (
 	identitypersistence "smart-recruit-identity-service/internal/infrastructure/persistence"
 	identitygrpc "smart-recruit-identity-service/internal/interfaces/grpc"
 	identityruntime "smart-recruit-identity-service/internal/runtime"
+	"smart-recruit-platform-go/businessclock"
 	"smart-recruit-platform-go/errs"
 	"smart-recruit-platform-go/logger"
+	"smart-recruit-platform-go/mysqltime"
 	logicobservability "smart-recruit-platform-go/observability"
 	"smart-recruit-platform-go/server"
 	logicconfig "smart-recruit-platform-go/serviceconfig"
@@ -42,6 +44,7 @@ import (
 const nacosServiceName = "identity"
 
 func main() {
+	businessclock.Configure()
 	check := flag.Bool("check", false, "validate the Identity service runtime wiring and exit")
 	serve := flag.Bool("serve", false, "start the Identity gRPC API runtime")
 	addr := flag.String("addr", envOrDefault("GRPC_ADDR", ":50061"), "Identity gRPC listen address")
@@ -113,7 +116,11 @@ func serveIdentity(addr string) error {
 	log := logger.L()
 	logicobservability.DefaultMetrics = logicobservability.NewRegistry(identityruntime.ServiceName)
 
-	db, err := gorm.Open(mysql.Open(cfg.MySQL.DSN), &gorm.Config{
+	dsn, err := mysqltime.NormalizeDSN(cfg.MySQL.DSN)
+	if err != nil {
+		return err
+	}
+	db, err := gorm.Open(mysql.Open(dsn), &gorm.Config{
 		TranslateError: true,
 		Logger:         logger.NewGormLogger(&cfg.Logging.Gorm),
 	})
@@ -129,6 +136,9 @@ func serveIdentity(addr string) error {
 	sqlDB.SetMaxIdleConns(cfg.MySQL.MaxIdleConns)
 	sqlDB.SetConnMaxLifetime(cfg.MySQL.ConnMaxLifetime.Duration)
 	sqlDB.SetConnMaxIdleTime(cfg.MySQL.ConnMaxIdleTime.Duration)
+	if err := mysqltime.ValidateSession(context.Background(), sqlDB); err != nil {
+		return err
+	}
 
 	var redisClient *redis.Client
 	if cfg.Redis.Addr != "" {

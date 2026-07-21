@@ -7,6 +7,7 @@ import (
 	"smart-recruit-interview-service/internal/application/port"
 	"smart-recruit-interview-service/internal/domain/model"
 	"smart-recruit-interview-service/internal/domain/repository"
+	"smart-recruit-platform-go/businessclock"
 	"smart-recruit-proto/recruitment/pb"
 )
 
@@ -15,7 +16,7 @@ func ParseOptionalRFC3339(value string) (*time.Time, error) {
 	if value == "" {
 		return nil, nil
 	}
-	parsed, err := time.Parse(time.RFC3339, value)
+	parsed, err := businessclock.Parse(value)
 	if err != nil {
 		return nil, err
 	}
@@ -26,7 +27,7 @@ func ToPBInterview(details repository.InterviewDetails) *pb.InterviewSchedule {
 	interview := details.Interview
 	var scheduledAt string
 	if interview.ScheduledAt != nil {
-		scheduledAt = interview.ScheduledAt.Format(time.RFC3339)
+		scheduledAt = businessclock.FormatRFC3339(*interview.ScheduledAt)
 	}
 	return &pb.InterviewSchedule{
 		InterviewId:          interview.ID,
@@ -110,5 +111,5 @@ func formatTime(value time.Time) string {
 	if value.IsZero() {
 		return ""
 	}
-	return value.Format(time.RFC3339)
+	return businessclock.FormatRFC3339(value)
 }

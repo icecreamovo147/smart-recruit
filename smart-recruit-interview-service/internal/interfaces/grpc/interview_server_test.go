@@ -12,6 +12,7 @@ import (
 	appservice "smart-recruit-interview-service/internal/application/service"
 	"smart-recruit-interview-service/internal/domain/model"
 	"smart-recruit-interview-service/internal/domain/repository"
+	"smart-recruit-platform-go/businessclock"
 	"smart-recruit-platform-go/errs"
 	"smart-recruit-proto/recruitment/pb"
 )
@@ -138,7 +139,7 @@ func TestListInterviewersMapsStaffPage(t *testing.T) {
 	if resp.Code != errs.OK || resp.Total != 1 || len(resp.List) != 1 {
 		t.Fatalf("response=%+v, want one interviewer", resp)
 	}
-	if got := resp.List[0]; got.UserId != 200 || got.TokenVersion != 3 || got.CreatedAt != createdAt.Format(time.RFC3339) {
+	if got := resp.List[0]; got.UserId != 200 || got.TokenVersion != 3 || got.CreatedAt != businessclock.FormatRFC3339(createdAt) {
 		t.Fatalf("staff=%+v, want mapped staff user", got)
 	}
 }

@@ -26,8 +26,10 @@ import (
 	"smart-recruit-analytics-service/internal/infrastructure/persistence"
 	analyticsgrpc "smart-recruit-analytics-service/internal/interfaces/grpc"
 	analyticsruntime "smart-recruit-analytics-service/internal/runtime"
+	"smart-recruit-platform-go/businessclock"
 	platformconfig "smart-recruit-platform-go/config"
 	"smart-recruit-platform-go/logger"
+	"smart-recruit-platform-go/mysqltime"
 	"smart-recruit-platform-go/nacos"
 	logicobservability "smart-recruit-platform-go/observability"
 	platformobs "smart-recruit-platform-go/observability"
@@ -40,6 +42,7 @@ import (
 const nacosServiceName = "analytics"
 
 func main() {
+	businessclock.Configure()
 	check := flag.Bool("check", false, "validate Analytics service runtime wiring and exit")
 	serve := flag.Bool("serve", false, "start Analytics gRPC runtime")
 	addr := flag.String("addr", envOrDefault("GRPC_ADDR", ":50067"), "Analytics gRPC listen address")
@@ -107,7 +110,11 @@ func serveAnalytics(addr string) error {
 	log := logger.L()
 	logicobservability.DefaultMetrics = logicobservability.NewRegistry(analyticsruntime.ServiceName)
 
-	db, err := gorm.Open(mysql.Open(cfg.MySQL.DSN), &gorm.Config{
+	dsn, err := mysqltime.NormalizeDSN(cfg.MySQL.DSN)
+	if err != nil {
+		return err
+	}
+	db, err := gorm.Open(mysql.Open(dsn), &gorm.Config{
 		TranslateError: true,
 		Logger:         logger.NewGormLogger(&cfg.Logging.Gorm),
 	})
@@ -123,6 +130,9 @@ func serveAnalytics(addr string) error {
 	sqlDB.SetMaxIdleConns(cfg.MySQL.MaxIdleConns)
 	sqlDB.SetConnMaxLifetime(cfg.MySQL.ConnMaxLifetime.Duration)
 	sqlDB.SetConnMaxIdleTime(cfg.MySQL.ConnMaxIdleTime.Duration)
+	if err := mysqltime.ValidateSession(context.Background(), sqlDB); err != nil {
+		return err
+	}
 
 	var redisClient *redis.Client
 	if cfg.Redis.Addr != "" {

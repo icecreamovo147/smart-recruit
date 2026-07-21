@@ -19,6 +19,7 @@ import (
 
 	"smart-recruit-commons/oss"
 	commonsquota "smart-recruit-commons/quota"
+	"smart-recruit-platform-go/businessclock"
 	"smart-recruit-platform-go/errs"
 	"smart-recruit-platform-go/metadata"
 	"smart-recruit-proto/recruitment/pb"
@@ -2707,7 +2708,7 @@ func formatTime(t time.Time) string {
 	if t.IsZero() {
 		return ""
 	}
-	return t.Format(time.RFC3339)
+	return businessclock.FormatRFC3339(t)
 }
 
 func formatOptionalTime(t *time.Time) string {
@@ -2722,14 +2723,11 @@ func parseOptionalTime(value string) (*time.Time, error) {
 	if value == "" {
 		return nil, nil
 	}
-	// Accept browser ISO strings with fractional seconds (toISOString) and local forms.
-	for _, layout := range []string{time.RFC3339Nano, time.RFC3339, "2006-01-02 15:04:05", "2006-01-02"} {
-		if parsed, err := time.Parse(layout, value); err == nil {
-			return &parsed, nil
-		}
-		if parsed, err := time.ParseInLocation(layout, value, time.Local); err == nil {
-			return &parsed, nil
-		}
+	if parsed, err := businessclock.Parse(value); err == nil {
+		return &parsed, nil
+	}
+	if parsed, err := time.ParseInLocation("2006-01-02", value, businessclock.Location); err == nil {
+		return &parsed, nil
 	}
 	return nil, fmt.Errorf("invalid time: %s", value)
 }

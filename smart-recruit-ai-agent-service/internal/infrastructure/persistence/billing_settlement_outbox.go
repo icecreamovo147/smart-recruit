@@ -12,6 +12,7 @@ import (
 	"gorm.io/gorm/clause"
 
 	aiagentgrpc "smart-recruit-ai-agent-service/internal/interfaces/grpc"
+	"smart-recruit-platform-go/businessclock"
 	platformlogger "smart-recruit-platform-go/logger"
 	platformobservability "smart-recruit-platform-go/observability"
 	"smart-recruit-proto/recruitment/pb"
@@ -62,7 +63,7 @@ func (s *NativeStore) CreateBillingOutboxReservation(ctx context.Context, record
 		ReservationNo: strings.TrimSpace(record.ReservationNo), OwnerType: record.OwnerType,
 		OwnerID: uint64(record.OwnerID), UserID: uint64(record.UserID), Capability: record.Capability,
 		Operation: record.Operation, ProviderKey: record.ProviderKey, ModelKey: record.ModelKey,
-		Status: billingOutboxReserved, CreatedAt: time.Now().UTC(), UpdatedAt: time.Now().UTC(),
+		Status: billingOutboxReserved, CreatedAt: businessclock.Now(), UpdatedAt: businessclock.Now(),
 	}
 	now := row.CreatedAt
 	row.LockedAt = &now
@@ -127,7 +128,7 @@ func (s *NativeStore) queueBillingOutbox(ctx context.Context, reservationNo, ide
 		allowedStatuses = []string{billingOutboxReserved, billingOutboxPendingCancel, billingOutboxProcessingCancel}
 		completedStatus = billingOutboxCancelled
 	}
-	now := time.Now().UTC()
+	now := businessclock.Now()
 	result := s.db.WithContext(ctx).Model(&billingSettlementOutboxRow{}).
 		Where("reservation_no = ? AND status IN ?", reservationNo, allowedStatuses).
 		Updates(map[string]any{
@@ -162,7 +163,7 @@ func (s *NativeStore) completeBillingOutbox(ctx context.Context, reservationNo, 
 	if s == nil || s.db == nil {
 		return errors.New("AI billing settlement outbox database is unavailable")
 	}
-	now := time.Now().UTC()
+	now := businessclock.Now()
 	return s.db.WithContext(ctx).Model(&billingSettlementOutboxRow{}).Where("reservation_no = ?", reservationNo).Updates(map[string]any{
 		"status": status, "completed_at": now, "next_attempt_at": nil, "locked_at": nil,
 		"last_error": nil, "updated_at": now,
@@ -197,7 +198,7 @@ func (s *NativeStore) processBillingSettlementOutbox(ctx context.Context, billin
 	if limit <= 0 || limit > 500 {
 		limit = 100
 	}
-	now := time.Now().UTC()
+	now := businessclock.Now()
 	stale := now.Add(-2 * time.Minute)
 	if err := s.db.WithContext(ctx).Model(&billingSettlementOutboxRow{}).
 		Where("status = ? AND locked_at < ?", billingOutboxProcessingSettle, stale).

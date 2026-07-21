@@ -9,6 +9,7 @@ import { updateEmail } from '@/api/auth'
 import { useAuthStore } from '@/stores/auth'
 import RichTextEditor from '@/components/RichTextEditor.vue'
 import type { Profile, ResumeInfo } from '@/types/domain'
+import { formatUploadedAt as formatBusinessUploadedAt } from '@shared/utils/format'
 
 interface ProfileForm {
   real_name: string
@@ -145,10 +146,7 @@ const formatFileSize = (value: number): string => {
 }
 
 const formatUploadedAt = (value: string): string => {
-  if (!value) return ''
-  const date = new Date(value)
-  if (Number.isNaN(date.getTime())) return value
-  return date.toLocaleString('zh-CN', { hour12: false })
+  return formatBusinessUploadedAt(value)
 }
 
 onMounted(() => {

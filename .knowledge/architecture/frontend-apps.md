@@ -44,7 +44,8 @@ source_refs:
   - packages/shared/src/components/EmailSetupDialog.vue
   - packages/shared/src/types/domain.ts
   - packages/shared/src/utils/token.ts
-last_verified: 2026-07-20
+  - packages/shared/src/utils/format.ts
+last_verified: 2026-07-21
 review_after: 2026-10-08
 ---
 
@@ -58,6 +59,8 @@ The repository has four Vue 3 + Vite apps with shared patterns but different use
 - `platform-frontend` serves platform administrators, operators, and auditors with tenant governance, platform-account RBAC, audit, plan/version, subscription, entitlement, usage, quota-alert, and global AI configuration/release workflows.
 
 Each app keeps its own `src/router`, `src/stores`, `src/api`, `src/types`, `src/components`, `src/views`, `src/utils`, and app-level styles. Deliberately shared components, types, utilities, and brand assets live under `packages/shared/src/` and are imported through the configured `@shared/*` alias. Do not import source directly from another frontend app; keep behavior- or permission-specific wiring local even when a lower-level primitive is shared.
+
+User-visible instants use `packages/shared/src/utils/format.ts`: formatting is pinned to `Asia/Shanghai`, datetime-local wall clocks serialize with `+08:00`, Unix seconds/milliseconds remain absolute instants, and pure calendar dates are not timezone-shifted. Frontend code must not rely on the browser's local timezone for plan, interview, order, audit, or quota-reset displays.
 
 ## Routing and Auth
 

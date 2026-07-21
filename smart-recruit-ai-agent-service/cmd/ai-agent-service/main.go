@@ -29,8 +29,10 @@ import (
 	aiagentruntime "smart-recruit-ai-agent-service/internal/runtime"
 	"smart-recruit-commons/mq"
 	"smart-recruit-commons/pkg/crypto"
+	"smart-recruit-platform-go/businessclock"
 	platformconfig "smart-recruit-platform-go/config"
 	"smart-recruit-platform-go/logger"
+	"smart-recruit-platform-go/mysqltime"
 	"smart-recruit-platform-go/nacos"
 	logicobservability "smart-recruit-platform-go/observability"
 	platformobs "smart-recruit-platform-go/observability"
@@ -48,6 +50,7 @@ var (
 )
 
 func main() {
+	businessclock.Configure()
 	check := flag.Bool("check", false, "validate AI Agent service runtime wiring and exit")
 	serve := flag.Bool("serve", false, "start AI Agent gRPC runtime")
 	addr := flag.String("addr", envOrDefault("GRPC_ADDR", ":50066"), "AI Agent gRPC listen address")
@@ -124,7 +127,11 @@ func serveAIAgent(addr string) error {
 	log := logger.L()
 	logicobservability.DefaultMetrics = logicobservability.NewRegistry(aiagentruntime.ServiceName)
 
-	db, err := gorm.Open(mysql.Open(cfg.MySQL.DSN), &gorm.Config{
+	dsn, err := mysqltime.NormalizeDSN(cfg.MySQL.DSN)
+	if err != nil {
+		return err
+	}
+	db, err := gorm.Open(mysql.Open(dsn), &gorm.Config{
 		TranslateError: true,
 		Logger:         logger.NewGormLogger(&cfg.Logging.Gorm),
 	})
@@ -143,6 +150,9 @@ func serveAIAgent(addr string) error {
 	sqlDB.SetMaxIdleConns(cfg.MySQL.MaxIdleConns)
 	sqlDB.SetConnMaxLifetime(cfg.MySQL.ConnMaxLifetime.Duration)
 	sqlDB.SetConnMaxIdleTime(cfg.MySQL.ConnMaxIdleTime.Duration)
+	if err := mysqltime.ValidateSession(context.Background(), sqlDB); err != nil {
+		return err
+	}
 
 	var redisClient *redis.Client
 	if cfg.Redis.Addr != "" {

@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref } from 'vue'
+import { formatShanghaiDateTime } from '@shared/utils/format'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Check, Document, Edit, Plus, Refresh, Search, Sort, Tools, View } from '@element-plus/icons-vue'
 import {
@@ -76,8 +77,7 @@ const loadList = async () => {
 }
 
 const formatTime = (s?: string): string => {
-  if (!s) return '-'
-  return new Date(s).toLocaleString('zh-CN')
+  return formatShanghaiDateTime(s)
 }
 
 const formatJson = (json?: string): string => {

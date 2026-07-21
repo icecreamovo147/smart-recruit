@@ -21,6 +21,7 @@ import (
 	"go.uber.org/zap"
 	"gorm.io/gorm"
 
+	"smart-recruit-platform-go/businessclock"
 	"smart-recruit-platform-go/logger"
 )
 
@@ -861,7 +862,7 @@ func PrintStatus(entries []StatusEntry) {
 			status = "applied"
 			dirty = fmt.Sprintf("%v", e.Dirty)
 			if e.AppliedAt != nil {
-				appliedAt = e.AppliedAt.Format(time.RFC3339)
+				appliedAt = businessclock.FormatRFC3339(*e.AppliedAt)
 			}
 		}
 		fmt.Printf("%-8d %-50s %-12s %-8s %s\n", e.Version, e.Name, status, dirty, appliedAt)

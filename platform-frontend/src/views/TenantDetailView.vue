@@ -9,6 +9,7 @@ import { getTenant, listMemberships, updateMembershipStatus, updateTenantStatus 
 import { PLATFORM_PERMISSIONS, roleLabel } from '@/permissions'
 import { useAuthStore } from '@/stores/auth'
 import type { Membership, PlatformAuditLog, PlatformPlan, Tenant, TenantSubscription, TenantUsageMetric } from '@/types'
+import { formatShanghaiDateTime, toShanghaiRFC3339 } from '@shared/utils/format'
 
 const route = useRoute()
 const router = useRouter()
@@ -107,11 +108,11 @@ const actionLabel = (action: string) => ({
   'quota_alert.status.update': '更新配额告警',
 }[action] || action)
 
-const formatTime = (value?: string) => value ? new Date(value).toLocaleString('zh-CN', { hour12: false }) : '-'
+const formatTime = (value?: string) => formatShanghaiDateTime(value)
 
 const openSubscription = () => {
   subscriptionForm.plan_version_id = subscription.value?.plan_version_id || 0
-  subscriptionForm.starts_at = new Date().toISOString()
+  subscriptionForm.starts_at = toShanghaiRFC3339(new Date())
   subscriptionForm.ends_at = ''
   subscriptionForm.reason = ''
   subscriptionVisible.value = true
@@ -120,7 +121,7 @@ const openSubscription = () => {
 const submitSubscription = async () => {
   if (!subscriptionForm.plan_version_id || !subscriptionForm.reason.trim()) { ElMessage.warning('请选择套餐版本并填写变更原因'); return }
   if (new Date(subscriptionForm.starts_at).getTime() > Date.now()) { ElMessage.warning('第一、二阶段仅支持立即生效或回溯生效，请勿选择未来时间'); return }
-  await updateTenantSubscription(tenantId, { plan_version_id: subscriptionForm.plan_version_id, starts_at: new Date(subscriptionForm.starts_at).toISOString(), ends_at: subscriptionForm.ends_at ? new Date(subscriptionForm.ends_at).toISOString() : undefined, reason: subscriptionForm.reason.trim() })
+  await updateTenantSubscription(tenantId, { plan_version_id: subscriptionForm.plan_version_id, starts_at: toShanghaiRFC3339(subscriptionForm.starts_at), ends_at: subscriptionForm.ends_at ? toShanghaiRFC3339(subscriptionForm.ends_at) : undefined, reason: subscriptionForm.reason.trim() })
   subscriptionVisible.value = false
   ElMessage.success('租户订阅已更新')
   await Promise.all([loadCommercial(), loadAudit()])
@@ -143,7 +144,7 @@ const submitOverride = async () => {
     entitlement_key: overrideForm.entitlement_key,
     value_type: 'integer',
     value_json: String(overrideForm.quota_value),
-    expires_at: overrideForm.expires_at ? new Date(overrideForm.expires_at).toISOString() : undefined,
+    expires_at: overrideForm.expires_at ? toShanghaiRFC3339(overrideForm.expires_at) : undefined,
     reason: overrideForm.reason.trim(),
   })
   overrideVisible.value = false

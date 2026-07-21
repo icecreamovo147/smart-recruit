@@ -163,11 +163,11 @@ FOR UPDATE;
 
 UPDATE event_outbox
 SET status = 0,
-    next_retry_at = UTC_TIMESTAMP(),
+    next_retry_at = NOW(),
     locked_at = NULL,
     locked_by = '',
     dead_lettered_at = NULL,
-    updated_at = UTC_TIMESTAMP()
+    updated_at = NOW()
 WHERE event_id IN ($ids)
   AND status = 2;
 
@@ -189,10 +189,10 @@ FOR UPDATE;
 
 UPDATE event_outbox
 SET status = 0,
-    next_retry_at = UTC_TIMESTAMP(),
+    next_retry_at = NOW(),
     locked_at = NULL,
     locked_by = '',
-    updated_at = UTC_TIMESTAMP()
+    updated_at = NOW()
 WHERE event_id IN ($ids)
   AND status = 3;
 
@@ -218,7 +218,7 @@ UPDATE event_inbox
 SET status = 2,
     processing_at = NULL,
     dead_lettered_at = NULL,
-    updated_at = UTC_TIMESTAMP()
+    updated_at = NOW()
 WHERE consumer_name = $consumer
   AND event_id IN ($ids)
   AND status = 3;
@@ -235,12 +235,12 @@ SELECT COUNT(*) AS outbox_published_expired
 FROM event_outbox
 WHERE status = 1
   AND published_at IS NOT NULL
-  AND published_at < DATE_SUB(UTC_TIMESTAMP(), INTERVAL $PUBLISHED_DAYS DAY);
+  AND published_at < DATE_SUB(NOW(), INTERVAL $PUBLISHED_DAYS DAY);
 
 DELETE FROM event_outbox
 WHERE status = 1
   AND published_at IS NOT NULL
-  AND published_at < DATE_SUB(UTC_TIMESTAMP(), INTERVAL $PUBLISHED_DAYS DAY)
+  AND published_at < DATE_SUB(NOW(), INTERVAL $PUBLISHED_DAYS DAY)
 ORDER BY published_at ASC, id ASC
 LIMIT $BATCH_SIZE;
 
@@ -248,12 +248,12 @@ SELECT COUNT(*) AS inbox_processed_expired
 FROM event_inbox
 WHERE status = 1
   AND processed_at IS NOT NULL
-  AND processed_at < DATE_SUB(UTC_TIMESTAMP(), INTERVAL $PROCESSED_DAYS DAY);
+  AND processed_at < DATE_SUB(NOW(), INTERVAL $PROCESSED_DAYS DAY);
 
 DELETE FROM event_inbox
 WHERE status = 1
   AND processed_at IS NOT NULL
-  AND processed_at < DATE_SUB(UTC_TIMESTAMP(), INTERVAL $PROCESSED_DAYS DAY)
+  AND processed_at < DATE_SUB(NOW(), INTERVAL $PROCESSED_DAYS DAY)
 ORDER BY processed_at ASC, id ASC
 LIMIT $BATCH_SIZE;
 
@@ -261,12 +261,12 @@ SELECT COUNT(*) AS outbox_dead_expired
 FROM event_outbox
 WHERE status = 2
   AND dead_lettered_at IS NOT NULL
-  AND dead_lettered_at < DATE_SUB(UTC_TIMESTAMP(), INTERVAL $DEAD_DAYS DAY);
+  AND dead_lettered_at < DATE_SUB(NOW(), INTERVAL $DEAD_DAYS DAY);
 
 DELETE FROM event_outbox
 WHERE status = 2
   AND dead_lettered_at IS NOT NULL
-  AND dead_lettered_at < DATE_SUB(UTC_TIMESTAMP(), INTERVAL $DEAD_DAYS DAY)
+  AND dead_lettered_at < DATE_SUB(NOW(), INTERVAL $DEAD_DAYS DAY)
 ORDER BY dead_lettered_at ASC, id ASC
 LIMIT $BATCH_SIZE;
 
@@ -274,12 +274,12 @@ SELECT COUNT(*) AS inbox_dead_expired
 FROM event_inbox
 WHERE status = 3
   AND dead_lettered_at IS NOT NULL
-  AND dead_lettered_at < DATE_SUB(UTC_TIMESTAMP(), INTERVAL $DEAD_DAYS DAY);
+  AND dead_lettered_at < DATE_SUB(NOW(), INTERVAL $DEAD_DAYS DAY);
 
 DELETE FROM event_inbox
 WHERE status = 3
   AND dead_lettered_at IS NOT NULL
-  AND dead_lettered_at < DATE_SUB(UTC_TIMESTAMP(), INTERVAL $DEAD_DAYS DAY)
+  AND dead_lettered_at < DATE_SUB(NOW(), INTERVAL $DEAD_DAYS DAY)
 ORDER BY dead_lettered_at ASC, id ASC
 LIMIT $BATCH_SIZE;
 SQL

@@ -8,6 +8,7 @@ import { listMyInterviews } from '@/api/interview'
 import { listMyOffers as fetchMyOffers, acceptOffer, rejectOffer } from '@/api/offer'
 import { getCandidateStatusLabel, getStatusType } from '@/types/domain'
 import type { Application, InterviewSchedule, JobQuery, Offer } from '@/types/domain'
+import { formatShanghaiDateTime } from '@shared/utils/format'
 
 const { pendingOfferCount, refreshPendingOfferCount } = useOfferBadge()
 
@@ -38,13 +39,7 @@ const applications = ref<any[]>([])
 const appTotal = ref(0)
 const appQuery = reactive<JobQuery>({ page: 1, page_size: 10 })
 
-const fmtDT = (value: string): string => {
-  if (!value) return '-'
-  const d = new Date(value)
-  if (Number.isNaN(d.getTime())) return value
-  const pad = (n: number) => String(n).padStart(2, '0')
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`
-}
+const fmtDT = (value: string): string => formatShanghaiDateTime(value, '-', false)
 
 const appStatusLabel = (row: Application): string => {
   if (row.status_key) return getCandidateStatusLabel(row.status_key)

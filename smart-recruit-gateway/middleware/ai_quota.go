@@ -8,6 +8,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/redis/go-redis/v9"
+	"smart-recruit-platform-go/businessclock"
 )
 
 const aiDailyQuotaScript = `
@@ -74,7 +75,7 @@ func AIDailyQuota(rdb *redis.Client, scope string, dailyLimit int) gin.HandlerFu
 			c.Next()
 			return
 		}
-		now := time.Now()
+		now := businessclock.Now()
 		dateKey := now.Format("20060102")
 		key := fmt.Sprintf("quota:ai:daily:%s:%d:%s", scope, userID, dateKey)
 		ttl := secondsUntilMidnight(now)
@@ -90,7 +91,7 @@ func AIDailyQuota(rdb *redis.Client, scope string, dailyLimit int) gin.HandlerFu
 		used := int(result[1].(int64))
 		limit := int(result[2].(int64))
 		if allowed != 1 {
-			resetAt := midnight(now).Format(time.RFC3339)
+			resetAt := businessclock.FormatRFC3339(midnight(now))
 			c.AbortWithStatusJSON(http.StatusTooManyRequests, gin.H{
 				"code": 42901,
 				"msg":  "今日 AI 使用次数已达上限，请明天再试",
@@ -133,11 +134,10 @@ func AIDailyQuota(rdb *redis.Client, scope string, dailyLimit int) gin.HandlerFu
 }
 
 func secondsUntilMidnight(now time.Time) int {
-	tomorrow := midnight(now).Add(24 * time.Hour)
+	tomorrow := midnight(now).AddDate(0, 0, 1)
 	return int(tomorrow.Sub(now).Seconds()) + 1
 }
 
 func midnight(now time.Time) time.Time {
-	y, m, d := now.Date()
-	return time.Date(y, m, d, 0, 0, 0, 0, now.Location())
+	return businessclock.StartOfDay(now)
 }

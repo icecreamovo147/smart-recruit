@@ -12,6 +12,7 @@ import (
 	"smart-recruit-interview-service/internal/domain/model"
 	"smart-recruit-interview-service/internal/domain/repository"
 	domainservice "smart-recruit-interview-service/internal/domain/service"
+	"smart-recruit-platform-go/businessclock"
 )
 
 var (
@@ -635,7 +636,7 @@ func formatInterviewDate(t *time.Time) string {
 	if t == nil {
 		return ""
 	}
-	return t.Format(time.RFC3339)
+	return businessclock.FormatRFC3339(*t)
 }
 
 func formatInterviewMode(mode string) string {

@@ -11,6 +11,7 @@ import (
 
 	"smart-recruit-billing-service/internal/domain/model"
 	"smart-recruit-billing-service/internal/domain/repository"
+	"smart-recruit-platform-go/businessclock"
 )
 
 type AccessPolicy interface {
@@ -34,8 +35,10 @@ func NewBilling(repo repository.BillingRepository, policy AccessPolicy, mode mod
 	if mode != model.ModeShadow && mode != model.ModeEnforce {
 		return nil, errors.New("billing mode must be shadow or enforce")
 	}
-	return &Billing{repository: repo, policy: policy, mode: mode, now: time.Now}, nil
+	return &Billing{repository: repo, policy: policy, mode: mode, now: businessclock.Now}, nil
 }
+
+func (b *Billing) businessNow() time.Time { return b.now().In(businessclock.Location) }
 
 type AccessDecision struct {
 	Allowed             bool
@@ -62,14 +65,14 @@ func (b *Billing) CheckAccess(ctx context.Context, owner model.Owner, capability
 	if strings.TrimSpace(capability) == "" {
 		return AccessDecision{}, errors.New("AI capability is required")
 	}
-	if err := b.repository.EnsureMonthlyGrant(ctx, owner, b.now().UTC()); err != nil {
+	if err := b.repository.EnsureMonthlyGrant(ctx, owner, b.businessNow()); err != nil {
 		return AccessDecision{}, fmt.Errorf("provision monthly AI credits: %w", err)
 	}
 	enabled, err := b.policy.Enabled(ctx, owner, capability)
 	if err != nil {
 		return AccessDecision{}, fmt.Errorf("resolve AI entitlement: %w", err)
 	}
-	balance, err := b.repository.Balance(ctx, owner, b.now().UTC())
+	balance, err := b.repository.Balance(ctx, owner, b.businessNow())
 	if err != nil {
 		return AccessDecision{}, fmt.Errorf("load AI credit balance: %w", err)
 	}
@@ -140,7 +143,7 @@ func (b *Billing) Reserve(ctx context.Context, command ReserveCommand) (ReserveR
 	if b.mode == model.ModeEnforce {
 		// Fail before invoking the provider when the exact provider/model cannot
 		// be priced. Otherwise usage could succeed but remain impossible to bill.
-		if _, rateErr := b.repository.CurrentRate(ctx, strings.TrimSpace(command.ProviderKey), strings.TrimSpace(command.ModelKey), b.now().UTC()); rateErr != nil {
+		if _, rateErr := b.repository.CurrentRate(ctx, strings.TrimSpace(command.ProviderKey), strings.TrimSpace(command.ModelKey), b.businessNow()); rateErr != nil {
 			return ReserveResult{}, fmt.Errorf("load AI rate card for %s/%s: %w", command.ProviderKey, command.ModelKey, rateErr)
 		}
 		if decision.Balance.AvailableCredits == 0 {
@@ -152,7 +155,7 @@ func (b *Billing) Reserve(ctx context.Context, command ReserveCommand) (ReserveR
 			command.EstimatedCredits = decision.Balance.AvailableCredits
 		}
 	}
-	now := b.now().UTC()
+	now := b.businessNow()
 	reservation := model.Reservation{
 		No:              uuid.NewString(),
 		Owner:           command.Owner,
@@ -188,7 +191,7 @@ func (b *Billing) Settle(ctx context.Context, reservationNo string, usages []mod
 	if len(usages) == 0 {
 		return model.Settlement{}, errors.New("at least one provider usage item is required")
 	}
-	now := b.now().UTC()
+	now := b.businessNow()
 	for index := range usages {
 		if usages[index].CallSequence == 0 {
 			return model.Settlement{}, errors.New("provider call sequence must start at one")
@@ -223,7 +226,7 @@ func (b *Billing) Cancel(ctx context.Context, reservationNo, reason, idempotency
 	if strings.TrimSpace(reservationNo) == "" || strings.TrimSpace(reason) == "" || strings.TrimSpace(idempotencyKey) == "" {
 		return model.Cancellation{}, errors.New("reservation, reason and cancellation idempotency keys are required")
 	}
-	result, err := b.repository.CancelReservation(ctx, reservationNo, reason, idempotencyKey, b.now().UTC())
+	result, err := b.repository.CancelReservation(ctx, reservationNo, reason, idempotencyKey, b.businessNow())
 	if err != nil {
 		return model.Cancellation{}, fmt.Errorf("cancel AI usage: %w", err)
 	}
@@ -234,7 +237,7 @@ func (b *Billing) Balance(ctx context.Context, owner model.Owner) (model.Balance
 	if err := owner.Validate(); err != nil {
 		return model.Balance{}, err
 	}
-	now := b.now().UTC()
+	now := b.businessNow()
 	if err := b.repository.EnsureMonthlyGrant(ctx, owner, now); err != nil {
 		return model.Balance{}, fmt.Errorf("provision monthly AI credits: %w", err)
 	}

@@ -29,6 +29,9 @@ source_refs:
   - smart-recruit-commons/migrations/000071_add_structured_ai_release_trace.sql
   - smart-recruit-commons/migrations/000078_repair_hr_capability_prompt_releases.sql
   - smart-recruit-commons/migrations/000079_add_ai_billing_settlement_outbox.sql
+  - smart-recruit-commons/migrations/000082_standardize_utc8_time_semantics.sql
+  - smart-recruit-commons/cmd/time-preflight/main.go
+  - smart-recruit-platform-go/mysqltime/mysql.go
   - smart-recruit-deploy/mysql-table-ownership.json
   - db.sql
   - smart-recruit-notification-service/internal/infrastructure/persistence/notification_repository.go
@@ -54,6 +57,8 @@ The pre-launch platform AI cutover is migration `000070`; it promotes only the d
 Migration `000078` repairs HR Agent-backed capability releases whose initial immutable snapshot omitted the Agent-bound Prompt. It appends corrected published versions, advances capability and entitlement pointers, preserves the original release rows for audit, and keeps `db.sql` cold-start data aligned without rewriting the historical `000070` migration.
 
 Migration `000079` adds AI Agent's durable Billing settlement outbox. Its reservation number is unique and references Billing's reservation, while ownership remains with AI Agent. Billing's only declared access is read-only maintenance protection for unresolved settlement, cancellation, and dead-letter states. The migration and `db.sql` must retain matching status checks and indexes.
+
+Migration `000082` establishes the platform UTC+8 persistence contract without rewriting historical migrations. It records each provable UTC-wall-clock conversion in `utc8_time_conversion_audit`, converts only migration-owned publications, 000081 immediate Billing publications, compatibility tenant subscriptions, and 000076 reconciliation fields, and restores exact old values on rollback. `cmd/time-preflight` is the required read-only deployment gate: it inventories `DATETIME`/`TIMESTAMP` columns and fails on ambiguous publications, invalid lifecycle ordering, future open orders, or negative payment age. Runtime MySQL DSNs are normalized to `parseTime=true`, `loc=Asia%2FShanghai`, and per-connection `time_zone='+08:00'`; startup rejects a mismatched session.
 
 LLM model metadata uses `llm_model_catalog` for reviewed reusable facts, `llm_model_metadata_observations` for deduplicated field-level evidence, and `llm_models` for the user-confirmed runtime snapshot. Changing catalog data belongs in the versioned catalog import rather than migration seed SQL; migrations define only the durable schema.
 

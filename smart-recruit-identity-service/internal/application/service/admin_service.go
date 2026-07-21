@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"strings"
-	"time"
 
 	commonsquota "smart-recruit-commons/quota"
 	"smart-recruit-identity-service/internal/application/command"
@@ -15,6 +14,7 @@ import (
 	"smart-recruit-identity-service/internal/domain/model"
 	"smart-recruit-identity-service/internal/domain/policy"
 	"smart-recruit-identity-service/internal/domain/repository"
+	"smart-recruit-platform-go/businessclock"
 	platformmetadata "smart-recruit-platform-go/metadata"
 )
 
@@ -291,7 +291,7 @@ func (s *AdminService) ListStaffUsers(ctx context.Context, req query.ListStaffUs
 			if err != nil || user == nil || (req.Status != "" && user.Status != req.Status) {
 				continue
 			}
-			list = append(list, dto.StaffUser{UserID: user.ID, Username: user.Username, Email: user.Email, Status: user.Status, AccountType: user.AccountType, Roles: membership.Roles, TokenVersion: user.TokenVersion, CreatedAt: user.CreatedAt.Format(time.RFC3339)})
+			list = append(list, dto.StaffUser{UserID: user.ID, Username: user.Username, Email: user.Email, Status: user.Status, AccountType: user.AccountType, Roles: membership.Roles, TokenVersion: user.TokenVersion, CreatedAt: businessclock.FormatRFC3339(user.CreatedAt)})
 		}
 		return dto.StaffUsersResult{Total: total, List: list}, nil
 	}
@@ -313,7 +313,7 @@ func (s *AdminService) ListStaffUsers(ctx context.Context, req query.ListStaffUs
 			AccountType:  user.AccountType,
 			Roles:        roleKeys,
 			TokenVersion: user.TokenVersion,
-			CreatedAt:    user.CreatedAt.Format(time.RFC3339),
+			CreatedAt:    businessclock.FormatRFC3339(user.CreatedAt),
 		}
 	}
 	return dto.StaffUsersResult{Total: total, List: list}, nil

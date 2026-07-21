@@ -4,6 +4,7 @@ import (
 	"context"
 	"os"
 	"testing"
+	"time"
 
 	"gorm.io/driver/mysql"
 	"gorm.io/gorm"
@@ -30,6 +31,16 @@ func TestEntitlementBoolean(t *testing.T) {
 				t.Fatalf("entitlementBoolean(%q) = %v, want %v", tt.value, got, tt.want)
 			}
 		})
+	}
+}
+
+func TestShanghaiMonthRetainsBusinessLocation(t *testing.T) {
+	start, end := shanghaiMonth(time.Date(2026, 7, 31, 16, 30, 0, 0, time.UTC))
+	if got := start.Format(time.RFC3339); got != "2026-08-01T00:00:00+08:00" {
+		t.Fatalf("start = %s", got)
+	}
+	if got := end.Format(time.RFC3339); got != "2026-09-01T00:00:00+08:00" {
+		t.Fatalf("end = %s", got)
 	}
 }
 

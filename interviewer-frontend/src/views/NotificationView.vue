@@ -5,6 +5,7 @@ import { Check } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
 import { listNotifications, markNotificationRead, markAllNotificationsRead } from '@/api/notification'
 import type { NotificationItem } from '@/types/domain'
+import { formatShanghaiDateTime } from '@shared/utils/format'
 
 const router = useRouter()
 const loading = ref(false)
@@ -74,7 +75,7 @@ const formatTime = (iso: string): string => {
   if (diffHour < 24) return `${diffHour} 小时前`
   const diffDay = Math.floor(diffHour / 24)
   if (diffDay < 7) return `${diffDay} 天前`
-  return `${d.getMonth() + 1}/${d.getDate()}`
+  return formatShanghaiDateTime(d, '', false).slice(5, 10).replace('-', '/')
 }
 
 const handlePageChange = (p: number) => {

@@ -139,7 +139,7 @@ func TestListOfferEventsMapsDomainEvents(t *testing.T) {
 	if err != nil {
 		t.Fatalf("ListOfferEvents returned grpc error: %v", err)
 	}
-	if resp.Code != errs.OK || len(resp.List) != 1 || resp.List[0].CreatedAt != "2026-07-13T10:00:00Z" {
+	if resp.Code != errs.OK || len(resp.List) != 1 || resp.List[0].CreatedAt != "2026-07-13T18:00:00+08:00" {
 		t.Fatalf("unexpected response: %+v", resp)
 	}
 }

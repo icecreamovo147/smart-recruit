@@ -7,6 +7,7 @@ import { listQuotaAlerts, updateQuotaAlert } from '@/api/control'
 import { PLATFORM_PERMISSIONS } from '@/permissions'
 import { useAuthStore } from '@/stores/auth'
 import type { QuotaAlert } from '@/types'
+import { formatShanghaiDateTime } from '@shared/utils/format'
 
 const router = useRouter()
 const auth = useAuthStore()
@@ -35,7 +36,7 @@ const submit = async () => {
   ElMessage.success(action.status === 'resolved' ? '告警已解决' : '告警已认领')
   await load()
 }
-const formatTime = (value?: string) => value ? new Date(value).toLocaleString('zh-CN', { hour12: false }) : '-'
+const formatTime = (value?: string) => formatShanghaiDateTime(value)
 onMounted(load)
 </script>
 

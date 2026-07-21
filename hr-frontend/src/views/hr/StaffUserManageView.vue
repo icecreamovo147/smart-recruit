@@ -20,6 +20,7 @@ import type {
   RoleInfo,
   StaffUserInfo,
 } from '@/types/domain'
+import { formatShanghaiDateTime } from '@shared/utils/format'
 
 // ── Staff user list ──────────────────────────────────────────────────────
 
@@ -251,8 +252,7 @@ const removeScope = async (scope: DataScopeInfo) => {
 // ── Helpers ──────────────────────────────────────────────────────────────
 
 const formatTime = (s?: string) => {
-  if (!s) return '-'
-  return new Date(s).toLocaleString('zh-CN')
+  return formatShanghaiDateTime(s)
 }
 
 const statusTag = (user: StaffUserInfo) => {

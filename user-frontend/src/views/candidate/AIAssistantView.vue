@@ -18,6 +18,7 @@ import {
   User,
   WarningFilled,
 } from '@element-plus/icons-vue'
+import { formatShanghaiDateTime } from '@shared/utils/format'
 import DOMPurify from 'dompurify'
 import MarkdownIt from 'markdown-it'
 import {
@@ -120,10 +121,9 @@ const renderMarkdown = (content: string): string => {
 const formatSessionTitle = (title: string, createdAt?: string): string => {
   if (title && title !== '新对话' && title !== 'New chat') return title
   if (!createdAt) return '新对话'
-  const d = new Date(createdAt)
-  if (Number.isNaN(d.getTime())) return '新对话'
-  const pad = (n: number) => String(n).padStart(2, '0')
-  return `对话 ${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`
+  const formatted = formatShanghaiDateTime(createdAt, '', false)
+  if (!formatted) return '新对话'
+  return `对话 ${formatted.slice(5, 10)} ${formatted.slice(11)}`
 }
 
 const normalizedSessions = computed(() =>

@@ -111,7 +111,7 @@ func TestPaymentSettlementAcceptsRecoveryStates(t *testing.T) {
 
 func TestNoOpConflictProducesValidMySQLAssignmentForMapCreate(t *testing.T) {
 	db, err := gorm.Open(mysql.New(mysql.Config{
-		DSN:                       "gorm:gorm@tcp(localhost:9910)/gorm?charset=utf8mb4&parseTime=True&loc=Local",
+		DSN:                       "gorm:gorm@tcp(localhost:9910)/gorm?charset=utf8mb4&parseTime=true&loc=Asia%2FShanghai&time_zone=%27%2B08%3A00%27",
 		SkipInitializeWithVersion: true,
 	}), &gorm.Config{DryRun: true, DisableAutomaticPing: true, SkipDefaultTransaction: true})
 	if err != nil {

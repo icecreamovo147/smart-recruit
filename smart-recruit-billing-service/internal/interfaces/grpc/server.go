@@ -10,6 +10,7 @@ import (
 
 	"smart-recruit-billing-service/internal/application/service"
 	"smart-recruit-billing-service/internal/domain/model"
+	"smart-recruit-platform-go/businessclock"
 	"smart-recruit-proto/recruitment/pb"
 )
 
@@ -77,7 +78,7 @@ func (s *Server) SettleAIUsage(ctx context.Context, req *pb.SettleAIUsageRequest
 		}
 		occurredAt := time.Time{}
 		if item.GetOccurredAtUnixMs() > 0 {
-			occurredAt = time.UnixMilli(item.GetOccurredAtUnixMs()).UTC()
+			occurredAt = time.UnixMilli(item.GetOccurredAtUnixMs()).In(businessclock.Location)
 		}
 		usages = append(usages, model.ProviderUsage{
 			CallSequence: uint32(item.GetProviderCallSeq()), ProviderKey: item.GetProviderKey(), ModelKey: item.GetModelKey(),

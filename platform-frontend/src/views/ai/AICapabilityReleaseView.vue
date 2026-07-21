@@ -19,6 +19,7 @@ import { listPromptTemplates } from '@/api/prompt'
 import { listSkills, listSkillVersions } from '@/api/skill'
 import { listAgentSkills, listAgentSkillVersions } from '@/api/agentSkill'
 import { listMcpToolPolicies } from '@/api/mcp'
+import { formatShanghaiDateTime } from '@shared/utils/format'
 
 const auth = useAuthStore()
 const loading = ref(false)
@@ -36,7 +37,7 @@ const options = reactive({ llm: [] as SelectOption[], embedding: [] as SelectOpt
 const form = reactive({ change_note: '', allowed_llm_model_ids: [] as number[], default_llm_model_id: 0, allowed_embedding_model_ids: [] as number[], default_embedding_model_id: 0, agent_ids: [] as number[], prompt_template_ids: [] as number[], agent_skill_version_ids: [] as number[], ai_skill_version_ids: [] as number[], mcp_policy_ids: [] as number[] })
 
 const audienceLabel = (value: string) => value === 'candidate' ? '候选人端' : '企业招聘端'
-const formatTime = (value?: string) => value ? new Date(value).toLocaleString('zh-CN', { hour12: false }) : '-'
+const formatTime = (value?: string) => formatShanghaiDateTime(value)
 type CapabilitySnapshot = {
   model_policy?: { allowed_llm_model_ids?: number[]; default_llm_model_id?: number; allowed_embedding_model_ids?: number[]; default_embedding_model_id?: number }
   configuration_refs?: { agent_ids?: number[]; prompt_template_ids?: number[]; agent_skill_version_ids?: number[]; ai_skill_version_ids?: number[]; mcp_policy_ids?: number[] }

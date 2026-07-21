@@ -3,8 +3,8 @@ package persistence
 import (
 	"context"
 	"errors"
-	"time"
 
+	"smart-recruit-platform-go/businessclock"
 	"smart-recruit-proto/recruitment/pb"
 )
 
@@ -136,7 +136,7 @@ func (s *platformAIControlPlaneServer) QueryPlatformAIConfigAuditLogs(ctx contex
 			BeforeSnapshot:      row.BeforeSnapshot,
 			AfterSnapshot:       row.AfterSnapshot,
 			RequestId:           row.RequestID,
-			CreatedAt:           row.CreatedAt.Format(time.RFC3339Nano),
+			CreatedAt:           businessclock.FormatRFC3339(row.CreatedAt),
 		})
 	}
 	return &pb.QueryPlatformAIConfigAuditLogsResponse{Code: 0, Msg: "ok", Total: total, List: result}, nil
@@ -145,7 +145,7 @@ func (s *platformAIControlPlaneServer) QueryPlatformAIConfigAuditLogs(ctx contex
 func platformAICapabilityVersionProto(row PlatformAICapabilityVersion) *pb.PlatformAICapabilityVersionInfo {
 	publishedAt := ""
 	if row.PublishedAt != nil {
-		publishedAt = row.PublishedAt.Format(time.RFC3339Nano)
+		publishedAt = businessclock.FormatRFC3339(*row.PublishedAt)
 	}
 	return &pb.PlatformAICapabilityVersionInfo{
 		Id:           row.ID,

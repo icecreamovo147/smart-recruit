@@ -9,6 +9,7 @@ import type { CandidateWorkspace, CandidateNoteInfo, CandidateTagInfo, FollowUpT
 import { renderRichText } from '@/utils/richText'
 import TimelineView from '@/components/business/TimelineView.vue'
 import InterviewerPickerDialog from '@/components/business/InterviewerPickerDialog.vue'
+import { formatShanghaiDateTime } from '@shared/utils/format'
 
 const route = useRoute()
 const router = useRouter()
@@ -47,13 +48,7 @@ const newTask = ref({
   due_at: '',
 })
 
-const formatDateTime = (value: string): string => {
-  if (!value) return '-'
-  const date = new Date(value)
-  if (Number.isNaN(date.getTime())) return value
-  const pad = (num: number): string => String(num).padStart(2, '0')
-  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())} ${pad(date.getHours())}:${pad(date.getMinutes())}`
-}
+const formatDateTime = (value: string): string => formatShanghaiDateTime(value, '-', false)
 
 const parseDimensionScores = (json: string): Array<{ key: string; label: string; score: number }> => {
   if (!json) return []

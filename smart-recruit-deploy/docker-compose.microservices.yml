@@ -10,7 +10,7 @@ x-runtime-env-file: &runtime-env-file
 x-service-env: &service-env
   TZ: ${TZ:-Asia/Shanghai}
   CONFIG_PATH: /app/config/config.example.yaml
-  MYSQL_DSN: root:${MYSQL_ROOT_PASSWORD:-smart_recruit_local_root}@tcp(mysql:3306)/${MYSQL_DATABASE:-recruitment}?charset=utf8mb4&parseTime=True&loc=Local
+  MYSQL_DSN: root:${MYSQL_ROOT_PASSWORD:-smart_recruit_local_root}@tcp(mysql:3306)/${MYSQL_DATABASE:-recruitment}?charset=utf8mb4&parseTime=true&loc=Asia%2FShanghai&time_zone=%27%2B08%3A00%27
   REDIS_ADDR: redis:6379
   RABBITMQ_URL: amqp://${RABBITMQ_DEFAULT_USER:-guest}:${RABBITMQ_DEFAULT_PASS:-guest}@rabbitmq:5672/
   NACOS_ADDR: http://nacos:8848
@@ -42,7 +42,7 @@ services:
     image: mysql:8.0
     container_name: smart-recruit-mysql
     profiles: ["infra"]
-    command: --default-authentication-plugin=mysql_native_password
+    command: --default-authentication-plugin=mysql_native_password --default-time-zone=+08:00
     environment:
       MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-smart_recruit_local_root}
       MYSQL_DATABASE: ${MYSQL_DATABASE:-recruitment}

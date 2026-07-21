@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, nextTick, onMounted, reactive, ref, watch } from 'vue'
+import { formatShanghaiDateTime } from '@shared/utils/format'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import {
   ArrowDown,
@@ -739,8 +740,7 @@ const providerTypeLabel = (t: string): string => {
 }
 
 const formatTime = (s?: string): string => {
-  if (!s) return '-'
-  return new Date(s).toLocaleString('zh-CN')
+  return formatShanghaiDateTime(s)
 }
 
 const maskApiKey = (key: string): string => {

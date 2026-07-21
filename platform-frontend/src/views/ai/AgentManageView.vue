@@ -15,6 +15,7 @@ export const isCompatibleAgentPrompt = (
 
 <script setup lang="ts">
 import { onMounted, reactive, ref, computed } from 'vue'
+import { formatShanghaiDateTime } from '@shared/utils/format'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { ArrowDown, Delete, Edit, MoreFilled, Plus, Refresh, Search, View } from '@element-plus/icons-vue'
 import {
@@ -147,8 +148,7 @@ const loadCapabilities = async (agentType = dialogForm.agent_type) => {
 // ====== Helpers ======
 
 const formatTime = (s?: string): string => {
-  if (!s) return '-'
-  return new Date(s).toLocaleString('zh-CN')
+  return formatShanghaiDateTime(s)
 }
 
 const agentTypeLabel = (type: string) => AGENT_TYPE_LABEL[type] || type || '-'

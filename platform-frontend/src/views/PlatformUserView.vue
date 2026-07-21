@@ -5,6 +5,7 @@ import { ElMessage } from 'element-plus'
 import { createPlatformUser, listPlatformUsers, updatePlatformUser } from '@/api/platform-user'
 import { roleLabel } from '@/permissions'
 import type { PlatformAccount } from '@/types'
+import { formatShanghaiDateTime } from '@shared/utils/format'
 
 const loading = ref(false)
 const rows = ref<PlatformAccount[]>([])
@@ -28,7 +29,7 @@ const submitEdit = async () => {
   if (!selected.value || !editForm.reason.trim()) { ElMessage.warning('请填写变更原因'); return }
   await updatePlatformUser(selected.value.user_id, { ...editForm, reason: editForm.reason.trim() }); editVisible.value = false; ElMessage.success('平台账号已更新'); await load()
 }
-const formatTime = (value?: string) => value ? new Date(value).toLocaleString('zh-CN', { hour12: false }) : '-'
+const formatTime = (value?: string) => formatShanghaiDateTime(value)
 onMounted(load)
 </script>
 

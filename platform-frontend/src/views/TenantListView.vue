@@ -7,6 +7,7 @@ import { createTenant, listTenants, updateTenantStatus } from '@/api/tenant'
 import { PLATFORM_PERMISSIONS } from '@/permissions'
 import { useAuthStore } from '@/stores/auth'
 import type { Tenant } from '@/types'
+import { formatShanghaiDateTime } from '@shared/utils/format'
 
 const route = useRoute()
 const router = useRouter()
@@ -95,7 +96,7 @@ onMounted(load)
         <el-table-column prop="membership_count" label="成员数" width="100" align="right" />
         <el-table-column prop="timezone" label="时区" min-width="150" />
         <el-table-column prop="locale" label="语言" width="100" />
-        <el-table-column label="创建时间" width="180"><template #default="{ row }">{{ row.created_at ? new Date(row.created_at).toLocaleString('zh-CN', { hour12: false }) : '-' }}</template></el-table-column>
+        <el-table-column label="创建时间" width="180"><template #default="{ row }">{{ formatShanghaiDateTime(row.created_at) }}</template></el-table-column>
         <el-table-column label="操作" width="90" fixed="right" align="center"><template #default="{ row }"><el-dropdown trigger="click" @command="(command: string) => handleCommand(row, command)" @click.stop><el-button link :icon="MoreFilled" @click.stop /><template #dropdown><el-dropdown-menu><el-dropdown-item command="detail">查看详情</el-dropdown-item><template v-if="canManage && !row.is_default"><el-dropdown-item v-if="row.status !== 'suspended'" command="suspend" divided>暂停租户</el-dropdown-item><el-dropdown-item v-if="row.status !== 'active'" command="activate">恢复租户</el-dropdown-item><el-dropdown-item v-if="row.status !== 'disabled'" command="disable">停用租户</el-dropdown-item></template></el-dropdown-menu></template></el-dropdown></template></el-table-column>
       </el-table>
       <footer class="table-footer"><span>共 {{ total }} 家企业</span><el-pagination v-model:current-page="query.page" v-model:page-size="query.page_size" :total="total" layout="prev, pager, next, sizes" :page-sizes="[10, 20, 50, 100]" @current-change="load" @size-change="search" /></footer>

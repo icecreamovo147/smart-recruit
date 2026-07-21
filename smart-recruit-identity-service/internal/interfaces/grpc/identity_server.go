@@ -12,6 +12,7 @@ import (
 	securitymodel "smart-recruit-identity-service/internal/domain/model"
 	"smart-recruit-identity-service/internal/domain/policy"
 	"smart-recruit-identity-service/internal/domain/repository"
+	"smart-recruit-platform-go/businessclock"
 	"smart-recruit-platform-go/errs"
 	"smart-recruit-proto/recruitment/pb"
 )
@@ -439,7 +440,7 @@ func (s *Server) QueryPlatformAuditLogs(ctx context.Context, req *pb.QueryPlatfo
 			Action: row.Action, ResourceType: row.ResourceType, ResourceId: row.ResourceID,
 			TargetTenantId: row.TargetTenantID, TargetTenantName: row.TargetTenantName,
 			BeforeJson: row.BeforeJSON, AfterJson: row.AfterJSON, RequestId: row.RequestID,
-			ClientIp: row.ClientIP, CreatedAt: row.CreatedAt.Format(time.RFC3339),
+			ClientIp: row.ClientIP, CreatedAt: businessclock.FormatRFC3339(row.CreatedAt),
 		}
 	}
 	return &pb.QueryPlatformAuditLogsResponse{Code: errs.OK, Msg: "success", Total: total, List: list}, nil
@@ -466,7 +467,7 @@ func (s *Server) SavePlatformPlanVersion(ctx context.Context, req *pb.SavePlatfo
 }
 
 func (s *Server) PublishPlatformPlanVersion(ctx context.Context, req *pb.PublishPlatformPlanVersionRequest) (*pb.PlatformPlanVersionResponse, error) {
-	effectiveAt, err := time.Parse(time.RFC3339, req.EffectiveAt)
+	effectiveAt, err := businessclock.Parse(req.EffectiveAt)
 	if err != nil {
 		return &pb.PlatformPlanVersionResponse{Code: errs.ErrBadRequest, Msg: "生效时间格式无效"}, nil
 	}
@@ -486,7 +487,7 @@ func (s *Server) GetTenantSubscription(ctx context.Context, req *pb.GetTenantSub
 }
 
 func (s *Server) UpdateTenantSubscription(ctx context.Context, req *pb.UpdateTenantSubscriptionRequest) (*pb.TenantSubscriptionResponse, error) {
-	startsAt, err := time.Parse(time.RFC3339, req.StartsAt)
+	startsAt, err := businessclock.Parse(req.StartsAt)
 	if err != nil {
 		return &pb.TenantSubscriptionResponse{Code: errs.ErrBadRequest, Msg: "开始时间格式无效"}, nil
 	}
@@ -608,14 +609,14 @@ func formatOptionalTime(value *time.Time) string {
 	if value == nil {
 		return ""
 	}
-	return value.Format(time.RFC3339)
+	return businessclock.FormatRFC3339(*value)
 }
 
 func formatTime(value time.Time) string {
 	if value.IsZero() {
 		return ""
 	}
-	return value.Format(time.RFC3339)
+	return businessclock.FormatRFC3339(value)
 }
 
 func parseOptionalTime(value string) (*time.Time, error) {
@@ -623,7 +624,7 @@ func parseOptionalTime(value string) (*time.Time, error) {
 	if value == "" {
 		return nil, nil
 	}
-	parsed, err := time.Parse(time.RFC3339, value)
+	parsed, err := businessclock.Parse(value)
 	if err != nil {
 		return nil, err
 	}
@@ -680,8 +681,8 @@ func (s *Server) ListRoles(ctx context.Context, req *pb.ListRolesRequest) (*pb.L
 			Name:        role.Name,
 			Description: role.Description,
 			IsSystem:    role.IsSystem,
-			CreatedAt:   role.CreatedAt.Format(time.RFC3339),
-			UpdatedAt:   role.UpdatedAt.Format(time.RFC3339),
+			CreatedAt:   businessclock.FormatRFC3339(role.CreatedAt),
+			UpdatedAt:   businessclock.FormatRFC3339(role.UpdatedAt),
 		}
 	}
 	return &pb.ListRolesResponse{Code: errs.OK, Msg: "success", List: list}, nil
@@ -717,7 +718,7 @@ func (s *Server) GetUserRoles(ctx context.Context, req *pb.GetUserRolesRequest) 
 			ScopeKey:     scope.ScopeKey,
 			ResourceType: scope.ResourceType,
 			ResourceId:   scope.ResourceID,
-			AssignedAt:   scope.AssignedAt.Format(time.RFC3339),
+			AssignedAt:   businessclock.FormatRFC3339(scope.AssignedAt),
 		})
 	}
 	return &pb.GetUserRolesResponse{Code: errs.OK, Msg: "success", RoleKeys: result.RoleKeys, PermissionKeys: result.PermissionKeys, DataScopes: scopes}, nil
@@ -907,7 +908,7 @@ func (s *Server) QueryAuthAuditLogs(ctx context.Context, req *pb.QueryAuthAuditL
 			Reason:        log.Reason,
 			RequestId:     log.RequestID,
 			ClientIp:      log.ClientIP,
-			CreatedAt:     log.CreatedAt.Format(time.RFC3339),
+			CreatedAt:     businessclock.FormatRFC3339(log.CreatedAt),
 		}
 	}
 	return &pb.QueryAuthAuditLogsResponse{Code: errs.OK, Msg: "success", Total: result.Total, List: list}, nil

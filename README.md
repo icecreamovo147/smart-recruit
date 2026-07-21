@@ -126,7 +126,8 @@ cd docker && docker compose up -d mysql redis rabbitmq && cd ..
 # 也可以使用本机已安装的 MySQL / Redis / RabbitMQ
 
 # 2. 启动新微服务后端和前端
-export MYSQL_DSN='root:password@tcp(127.0.0.1:3306)/recruitment?charset=utf8mb4&parseTime=True&loc=Local'
+export TZ='Asia/Shanghai'
+export MYSQL_DSN='root:password@tcp(127.0.0.1:3306)/recruitment?charset=utf8mb4&parseTime=true&loc=Asia%2FShanghai&time_zone=%27%2B08%3A00%27'
 export JWT_SECRET='dev-jwt-secret-at-least-32-chars-long!!'
 export GRPC_INTERNAL_TOKEN='local-dev-internal-token-at-least-32!!'
 ./start-dev.sh

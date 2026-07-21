@@ -19,6 +19,8 @@ jobs:
         run: node scripts/check-mysql-table-ownership.mjs
       - name: Verify tenant data classification
         run: node scripts/check-tenant-classification.mjs
+      - name: Verify UTC+8 timezone contract
+        run: node scripts/check-timezone-contract.mjs
 
   # ── Go Backend Tests ──────────────────────────────────────────────
   go-test:

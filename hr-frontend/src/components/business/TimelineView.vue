@@ -3,6 +3,7 @@ import { onMounted, ref } from 'vue'
 import { listTimelineEvents } from '@/api/collaboration'
 import { getHRStatusLabel } from '@/types/domain'
 import type { TimelineEventInfo } from '@/types/domain'
+import { formatShanghaiDateTime } from '@shared/utils/format'
 
 const props = defineProps<{
   candidateUserId: number
@@ -23,13 +24,7 @@ const loading = ref(false)
 const errorMessage = ref('')
 const events = ref<TimelineDisplayEvent[]>([])
 
-const formatDateTime = (value: string): string => {
-  if (!value) return '-'
-  const date = new Date(value)
-  if (Number.isNaN(date.getTime())) return value
-  const pad = (num: number): string => String(num).padStart(2, '0')
-  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())} ${pad(date.getHours())}:${pad(date.getMinutes())}`
-}
+const formatDateTime = (value: string): string => formatShanghaiDateTime(value, '-', false)
 
 const statusKeyPattern = /\b(applied|viewed|screening|screen_passed|interview_pending|interviewing|interview_passed|offer_pending|offer_sent|offer_accepted|offer_rejected|hired|rejected|withdrawn)\b/g
 

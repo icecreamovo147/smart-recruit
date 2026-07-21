@@ -4,6 +4,7 @@ import { ElMessage } from 'element-plus'
 import { scheduleInterview } from '@/api/interview'
 import type { StaffUserInfo } from '@/types/domain'
 import InterviewerPickerDialog from '@/components/business/InterviewerPickerDialog.vue'
+import { toShanghaiRFC3339 } from '@shared/utils/format'
 
 const props = defineProps<{
   visible: boolean
@@ -77,7 +78,7 @@ const handleSubmit = async () => {
       duration_minutes: Number(form.duration_minutes),
       candidate_note: form.candidate_note || undefined,
       internal_note: form.internal_note || undefined,
-      scheduled_at: form.scheduled_at ? new Date(form.scheduled_at).toISOString() : undefined,
+      scheduled_at: form.scheduled_at ? toShanghaiRFC3339(form.scheduled_at) : undefined,
     })
     ElMessage.success('面试安排成功')
     emit('success')

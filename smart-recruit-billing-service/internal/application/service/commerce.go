@@ -18,6 +18,7 @@ import (
 
 	"smart-recruit-billing-service/internal/domain/model"
 	"smart-recruit-billing-service/internal/infrastructure/payment"
+	"smart-recruit-platform-go/businessclock"
 	platformobservability "smart-recruit-platform-go/observability"
 	"smart-recruit-proto/recruitment/pb"
 )
@@ -85,7 +86,7 @@ func (s *Commerce) ReconcilePendingPayments(ctx context.Context, limit int) erro
 		ReconcileAttempts          uint32
 	}
 	var attempts []attemptRow
-	now := s.now().UTC()
+	now := s.businessNow()
 	if err := s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		if err := tx.Raw(`SELECT payment.id payment_id, payment.order_id, payment.merchant_order_no, payment.payment_no, payment.status, payment.amount_fen,
 			COALESCE(payment.expires_at, orders.expires_at) expires_at, payment.reconcile_attempts
@@ -162,7 +163,7 @@ func (s *Commerce) ReconcilePendingPayments(ctx context.Context, limit int) erro
 
 func (s *Commerce) recordPaymentReconcileFailure(ctx context.Context, paymentID uint64, attempts uint32, cause error) {
 	delay := time.Minute * time.Duration(1<<minInt(int(attempts), 6))
-	now := s.now().UTC()
+	now := s.businessNow()
 	_ = s.db.WithContext(ctx).Table("billing_payments").Where("id = ?", paymentID).Updates(map[string]any{"status": "unknown", "reconcile_attempts": gorm.Expr("reconcile_attempts + 1"), "last_reconcile_error": truncateError(cause), "last_queried_at": now, "next_reconcile_at": now.Add(delay), "updated_at": now}).Error
 }
 
@@ -189,7 +190,7 @@ func (s *Commerce) ReconcilePendingRefunds(ctx context.Context, limit int) error
 		Attempts                          uint32 `gorm:"column:reconcile_attempts"`
 	}
 	var refunds []refundRow
-	now := s.now().UTC()
+	now := s.businessNow()
 	if err := s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		if err := tx.Raw(`SELECT refund.refund_no, payment.merchant_order_no, refund.reason, refund.amount_fen, refund.reconcile_attempts
 			FROM billing_refunds refund JOIN billing_payments payment ON payment.id = refund.payment_id
@@ -360,10 +361,12 @@ func NewCommerce(db *gorm.DB, alipay AlipayGateway) (*Commerce, error) {
 	if alipay.Environment() != "sandbox" {
 		return nil, errors.New("development commerce requires Alipay sandbox")
 	}
-	return &Commerce{db: db, alipay: alipay, now: time.Now}, nil
+	return &Commerce{db: db, alipay: alipay, now: businessclock.Now}, nil
 }
 
 func (s *Commerce) Environment() string { return s.alipay.Environment() }
+
+func (s *Commerce) businessNow() time.Time { return s.now().In(businessclock.Location) }
 
 func (s *Commerce) ListCatalog(ctx context.Context, owner model.Owner) ([]*pb.BillingProductInfo, error) {
 	type row struct {
@@ -380,7 +383,7 @@ func (s *Commerce) ListCatalog(ctx context.Context, owner model.Owner) ([]*pb.Bi
 		price.id price_id, price.version, price.billing_term, price.amount_fen, price.currency, price.included_credits, COALESCE(CAST(price.entitlement_snapshot AS CHAR), '') snapshot
 		FROM billing_products product JOIN billing_price_versions price ON price.product_id = product.id
 		WHERE product.owner_type = ? AND product.status = 'active' AND price.status = 'published'
-		  AND price.effective_at <= UTC_TIMESTAMP(3) AND (price.retired_at IS NULL OR price.retired_at > UTC_TIMESTAMP(3))
+		  AND price.effective_at <= NOW(3) AND (price.retired_at IS NULL OR price.retired_at > NOW(3))
 		ORDER BY product.id, price.amount_fen, price.version DESC`, owner.Type).Scan(&rows).Error
 	if err != nil {
 		return nil, err
@@ -443,6 +446,7 @@ func (s *Commerce) SavePriceVersion(ctx context.Context, productID, priceVersion
 	if !json.Valid([]byte(snapshot)) {
 		return nil, errors.New("entitlement snapshot must be valid JSON")
 	}
+	now := s.businessNow()
 	var result pb.BillingPriceInfo
 	err := s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		var product struct {
@@ -475,10 +479,7 @@ func (s *Commerce) SavePriceVersion(ctx context.Context, productID, priceVersion
 		var effectiveAt any = nil
 		if publish {
 			statusValue = "published"
-			// DATETIME values are compared with UTC_TIMESTAMP throughout Billing.
-			// Use the database UTC clock so loc=Local cannot shift an immediate
-			// publication eight hours into the future.
-			effectiveAt = gorm.Expr("UTC_TIMESTAMP(3)")
+			effectiveAt = now
 		}
 		if priceVersionID > 0 {
 			var existing struct {
@@ -491,7 +492,7 @@ func (s *Commerce) SavePriceVersion(ctx context.Context, productID, priceVersion
 			if existing.Status != "draft" {
 				return errors.New("published price versions are immutable")
 			}
-			if err := tx.Table("billing_price_versions").Where("id = ?", priceVersionID).Updates(map[string]any{"billing_term": term, "amount_fen": amountFen, "included_credits": credits, "entitlement_snapshot": snapshot, "status": statusValue, "effective_at": effectiveAt, "updated_at": gorm.Expr("UTC_TIMESTAMP(3)")}).Error; err != nil {
+			if err := tx.Table("billing_price_versions").Where("id = ?", priceVersionID).Updates(map[string]any{"billing_term": term, "amount_fen": amountFen, "included_credits": credits, "entitlement_snapshot": snapshot, "status": statusValue, "effective_at": effectiveAt, "updated_at": now}).Error; err != nil {
 				return err
 			}
 			result.Id = int64(priceVersionID)
@@ -501,7 +502,7 @@ func (s *Commerce) SavePriceVersion(ctx context.Context, productID, priceVersion
 			if err := tx.Table("billing_price_versions").Where("product_id = ?", productID).Select("COALESCE(MAX(version), 0) + 1").Scan(&version).Error; err != nil {
 				return err
 			}
-			row := map[string]any{"product_id": productID, "version": version, "billing_term": term, "amount_fen": amountFen, "currency": "CNY", "included_credits": credits, "entitlement_snapshot": snapshot, "status": statusValue, "effective_at": effectiveAt, "created_at": gorm.Expr("UTC_TIMESTAMP(3)"), "updated_at": gorm.Expr("UTC_TIMESTAMP(3)")}
+			row := map[string]any{"product_id": productID, "version": version, "billing_term": term, "amount_fen": amountFen, "currency": "CNY", "included_credits": credits, "entitlement_snapshot": snapshot, "status": statusValue, "effective_at": effectiveAt, "created_at": now, "updated_at": now}
 			if err := tx.Table("billing_price_versions").Create(row).Error; err != nil {
 				return err
 			}
@@ -513,10 +514,10 @@ func (s *Commerce) SavePriceVersion(ctx context.Context, productID, priceVersion
 			result.Version = version
 		}
 		if publish {
-			if err := tx.Table("billing_price_versions").Where("product_id = ? AND billing_term = ? AND id <> ? AND status = 'published'", productID, term, result.Id).Updates(map[string]any{"status": "retired", "retired_at": gorm.Expr("UTC_TIMESTAMP(3)"), "updated_at": gorm.Expr("UTC_TIMESTAMP(3)")}).Error; err != nil {
+			if err := tx.Table("billing_price_versions").Where("product_id = ? AND billing_term = ? AND id <> ? AND status = 'published'", productID, term, result.Id).Updates(map[string]any{"status": "retired", "retired_at": now, "updated_at": now}).Error; err != nil {
 				return err
 			}
-			if err := tx.Table("billing_products").Where("id = ?", productID).Updates(map[string]any{"status": "active", "updated_at": gorm.Expr("UTC_TIMESTAMP(3)")}).Error; err != nil {
+			if err := tx.Table("billing_products").Where("id = ?", productID).Updates(map[string]any{"status": "active", "updated_at": now}).Error; err != nil {
 				return err
 			}
 		}
@@ -621,12 +622,12 @@ func (s *Commerce) SaveRateCard(ctx context.Context, providerKey, modelKey strin
 	if providerKey == "" || modelKey == "" || credit == 0 || (input == 0 && output == 0) {
 		return nil, errors.New("provider, model, supplier rates and positive credit conversion are required")
 	}
-	now := s.now().UTC()
+	now := s.businessNow()
 	statusValue := "draft"
 	var effectiveAt any = nil
 	if publish {
 		statusValue = "published"
-		effectiveAt = gorm.Expr("UTC_TIMESTAMP(3)")
+		effectiveAt = now
 	}
 	var result pb.AIRateCardInfo
 	err := s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
@@ -651,7 +652,7 @@ func (s *Commerce) SaveRateCard(ctx context.Context, providerKey, modelKey strin
 		if err := tx.Table("ai_rate_cards").Where("provider_key = ? AND model_key = ?", providerKey, modelKey).Select("COALESCE(MAX(version), 0) + 1").Scan(&version).Error; err != nil {
 			return err
 		}
-		row := map[string]any{"provider_key": providerKey, "model_key": modelKey, "version": version, "currency": "CNY", "input_micros_per_1k_tokens": input, "output_micros_per_1k_tokens": output, "cached_input_micros_per_1k_tokens": cached, "credit_micros": credit, "status": statusValue, "effective_at": effectiveAt, "created_at": gorm.Expr("UTC_TIMESTAMP(3)")}
+		row := map[string]any{"provider_key": providerKey, "model_key": modelKey, "version": version, "currency": "CNY", "input_micros_per_1k_tokens": input, "output_micros_per_1k_tokens": output, "cached_input_micros_per_1k_tokens": cached, "credit_micros": credit, "status": statusValue, "effective_at": effectiveAt, "created_at": now}
 		if err := tx.Table("ai_rate_cards").Create(row).Error; err != nil {
 			return err
 		}
@@ -660,7 +661,7 @@ func (s *Commerce) SaveRateCard(ctx context.Context, providerKey, modelKey strin
 			return err
 		}
 		if publish {
-			if err := tx.Table("ai_rate_cards").Where("provider_key = ? AND model_key = ? AND id <> ? AND status = 'published'", providerKey, modelKey, id).Updates(map[string]any{"status": "retired", "retired_at": gorm.Expr("UTC_TIMESTAMP(3)")}).Error; err != nil {
+			if err := tx.Table("ai_rate_cards").Where("provider_key = ? AND model_key = ? AND id <> ? AND status = 'published'", providerKey, modelKey, id).Updates(map[string]any{"status": "retired", "retired_at": now}).Error; err != nil {
 				return err
 			}
 		}
@@ -721,8 +722,8 @@ func (s *Commerce) CurrentSubscription(ctx context.Context, owner model.Owner) (
 			LEFT JOIN platform_plan_entitlements entitlement
 			  ON entitlement.plan_version_id = version.id AND entitlement.entitlement_key = 'ai.credits.monthly'
 			WHERE subscription.tenant_id = ? AND subscription.status = 'active'
-			  AND subscription.starts_at <= UTC_TIMESTAMP(3)
-			  AND (subscription.ends_at IS NULL OR subscription.ends_at > UTC_TIMESTAMP(3))
+			  AND subscription.starts_at <= NOW(3)
+			  AND (subscription.ends_at IS NULL OR subscription.ends_at > NOW(3))
 			ORDER BY subscription.starts_at DESC, subscription.id DESC LIMIT 1`, owner.ID).Scan(&plan).Error
 		if err != nil {
 			return nil, err
@@ -753,8 +754,8 @@ func (s *Commerce) CurrentSubscription(ctx context.Context, owner model.Owner) (
 		JOIN billing_price_versions price ON price.product_id = product.id
 		WHERE product.product_key = 'candidate_free' AND product.owner_type = 'user'
 		  AND product.status = 'active' AND price.status = 'published'
-		  AND price.effective_at <= UTC_TIMESTAMP(3)
-		  AND (price.retired_at IS NULL OR price.retired_at > UTC_TIMESTAMP(3))
+		  AND price.effective_at <= NOW(3)
+		  AND (price.retired_at IS NULL OR price.retired_at > NOW(3))
 		ORDER BY price.version DESC LIMIT 1`).Scan(&freeTier).Error
 	if err != nil {
 		return nil, err
@@ -789,7 +790,7 @@ func (s *Commerce) ScheduledSubscription(ctx context.Context, owner model.Owner)
 		JOIN billing_price_versions price ON price.id = subscription.price_version_id
 		WHERE subscription.owner_type = ? AND subscription.owner_id = ? AND subscription.status = 'pending'
 		  AND subscription.current_period_end > ?
-		ORDER BY subscription.current_period_start, subscription.id LIMIT 1`, owner.Type, owner.ID, s.now().UTC()).Scan(&value).Error
+		ORDER BY subscription.current_period_start, subscription.id LIMIT 1`, owner.Type, owner.ID, s.businessNow()).Scan(&value).Error
 	if err != nil {
 		return nil, err
 	}
@@ -821,7 +822,7 @@ func (s *Commerce) CurrentCreditSummary(ctx context.Context, owner model.Owner) 
 		Remaining int64
 	}
 	var value row
-	now := s.now().UTC()
+	now := s.businessNow()
 	err = s.db.WithContext(ctx).Raw(currentCreditSummarySQL, owner.Type, owner.ID, now, now).Scan(&value).Error
 	if err != nil {
 		return 0, 0, err
@@ -845,20 +846,14 @@ func (s *Commerce) NextRefreshAt(subscription *pb.BillingSubscriptionInfo) int64
 }
 
 func shanghaiBillingMonth(now time.Time) (time.Time, time.Time) {
-	location, err := time.LoadLocation("Asia/Shanghai")
-	if err != nil {
-		location = time.FixedZone("Asia/Shanghai", 8*60*60)
-	}
-	local := now.In(location)
-	start := time.Date(local.Year(), local.Month(), 1, 0, 0, 0, 0, location)
-	return start.UTC(), start.AddDate(0, 1, 0).UTC()
+	return businessclock.MonthBounds(now)
 }
 
 // closeExpiredOrders synchronously projects the time-based order state before
 // reads and payment attempts. The maintenance loop remains the safety net, but
 // callers never have to wait for its next cycle to observe a closed order.
 func (s *Commerce) closeExpiredOrders(ctx context.Context, owner *model.Owner) error {
-	now := s.now().UTC()
+	now := s.businessNow()
 	return s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		query := tx.Table("billing_orders").Where("status IN ('pending','paying') AND expires_at <= ?", now)
 		if owner != nil {
@@ -915,7 +910,7 @@ func (s *Commerce) closePendingOrder(ctx context.Context, owner model.Owner, ord
 				return fmt.Errorf("close Alipay trade before replacing order: %w", resolveErr)
 			}
 			if resolution == alipayTradePaid {
-				now := s.now().UTC()
+				now := s.businessNow()
 				if settleErr := s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 					return s.settlePaymentTx(ctx, tx, attempt.ID, result.TradeNo, result.AmountFen, now)
 				}); settleErr != nil {
@@ -925,7 +920,7 @@ func (s *Commerce) closePendingOrder(ctx context.Context, owner model.Owner, ord
 			}
 		}
 	}
-	now := s.now().UTC()
+	now := s.businessNow()
 	return s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		if err := tx.Table("billing_payments").Where("order_id = ? AND status IN ('created','pending')", orderID).
 			Updates(map[string]any{"status": "closed", "active_slot": nil, "closed_at": now, "updated_at": now}).Error; err != nil {
@@ -991,7 +986,7 @@ func (s *Commerce) CreateOrder(ctx context.Context, owner model.Owner, actorUser
 	if orderType != "subscribe" && orderType != "renew" && orderType != "upgrade" && orderType != "credit_pack" {
 		return nil, errors.New("invalid billing order type")
 	}
-	now := s.now().UTC()
+	now := s.businessNow()
 	if err := s.closeExpiredOrders(ctx, &owner); err != nil {
 		return nil, err
 	}
@@ -1011,8 +1006,8 @@ func (s *Commerce) CreateOrder(ctx context.Context, owner model.Owner, actorUser
 	var price priceRow
 	if err := s.db.WithContext(ctx).Raw(`SELECT product.id product_id, product.product_key, product.name product_name, product.product_type, product.owner_type,
 		price.billing_term, price.amount_fen, price.currency FROM billing_price_versions price JOIN billing_products product ON product.id = price.product_id
-		WHERE price.id = ? AND price.status = 'published' AND product.status = 'active' AND price.effective_at <= UTC_TIMESTAMP(3)
-		  AND (price.retired_at IS NULL OR price.retired_at > UTC_TIMESTAMP(3))`, priceVersionID).Scan(&price).Error; err != nil {
+		WHERE price.id = ? AND price.status = 'published' AND product.status = 'active' AND price.effective_at <= NOW(3)
+		  AND (price.retired_at IS NULL OR price.retired_at > NOW(3))`, priceVersionID).Scan(&price).Error; err != nil {
 		return nil, err
 	}
 	if price.ProductID == 0 || price.OwnerType != string(owner.Type) {
@@ -1131,7 +1126,7 @@ func (s *Commerce) CreatePayment(ctx context.Context, owner model.Owner, orderNo
 	if order.ID == 0 || (order.Status != "pending" && order.Status != "paying") || order.Environment != s.Environment() {
 		return "", "", false, time.Time{}, ErrBillingOrderNotPayable
 	}
-	if !order.ExpiresAt.After(s.now().UTC()) {
+	if !order.ExpiresAt.After(s.businessNow()) {
 		if err := s.closeExpiredOrders(ctx, &owner); err != nil {
 			return "", "", false, time.Time{}, err
 		}
@@ -1143,7 +1138,7 @@ func (s *Commerce) CreatePayment(ctx context.Context, owner model.Owner, orderNo
 		MerchantOrderNo string
 		Scene           string
 	}
-	now := s.now().UTC()
+	now := s.businessNow()
 	paymentNo := "P" + strings.ToUpper(strings.ReplaceAll(uuid.NewString(), "-", ""))[:24]
 	sourceApp := "hr"
 	if owner.Type == model.OwnerUser {
@@ -1237,7 +1232,7 @@ func (s *Commerce) SyncPayment(ctx context.Context, owner model.Owner, orderNo s
 	if result.AmountFen != attempt.AmountFen || result.AmountFen != order.AmountFen {
 		return "", errors.New("Alipay payment amount mismatch")
 	}
-	now := s.now().UTC()
+	now := s.businessNow()
 	if err := s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		return s.settlePaymentTx(ctx, tx, attempt.ID, result.TradeNo, result.AmountFen, now)
 	}); err != nil {
@@ -1262,7 +1257,7 @@ func (s *Commerce) ResolveAlipayReturn(ctx context.Context, fields map[string]st
 	}
 	token := strings.ReplaceAll(uuid.NewString(), "-", "") + strings.ReplaceAll(uuid.NewString(), "-", "")
 	digest := sha256.Sum256([]byte(token))
-	if err := s.db.WithContext(ctx).Table("billing_payments").Where("id = ?", payment.ID).Updates(map[string]any{"return_token_hash": hex.EncodeToString(digest[:]), "updated_at": s.now().UTC()}).Error; err != nil {
+	if err := s.db.WithContext(ctx).Table("billing_payments").Where("id = ?", payment.ID).Updates(map[string]any{"return_token_hash": hex.EncodeToString(digest[:]), "updated_at": s.businessNow()}).Error; err != nil {
 		return "", "", err
 	}
 	return payment.SourceApp, token, nil
@@ -1283,7 +1278,7 @@ func (s *Commerce) SyncPaymentReturn(ctx context.Context, owner model.Owner, tok
 	}
 	paymentNo, err := s.SyncPayment(ctx, owner, resolved.OrderNo)
 	if err == nil {
-		_ = s.db.WithContext(ctx).Table("billing_payments").Where("id = ?", resolved.PaymentID).Updates(map[string]any{"return_token_hash": nil, "updated_at": s.now().UTC()}).Error
+		_ = s.db.WithContext(ctx).Table("billing_payments").Where("id = ?", resolved.PaymentID).Updates(map[string]any{"return_token_hash": nil, "updated_at": s.businessNow()}).Error
 	}
 	return paymentNo, err
 }
@@ -1367,7 +1362,7 @@ func (s *Commerce) ProcessAlipayNotification(ctx context.Context, fields map[str
 	if eventKey == "" {
 		eventKey = "digest:" + hex.EncodeToString(digest[:])
 	}
-	now := s.now().UTC()
+	now := s.businessNow()
 	event := map[string]any{"channel": "alipay", "payment_environment": s.Environment(), "event_key": eventKey, "event_type": fields["notify_type"], "signature_verified": false, "payload_sha256": hex.EncodeToString(digest[:]), "payload": string(payload), "status": "received", "created_at": now}
 	if err := s.db.WithContext(ctx).Table("billing_webhook_events").Create(event).Error; errors.Is(err, gorm.ErrDuplicatedKey) {
 		var existing struct{ PayloadSHA256, Status string }
@@ -1439,7 +1434,7 @@ func (s *Commerce) markWebhookFailed(ctx context.Context, eventKey string, cause
 	if len(reason) > 500 {
 		reason = reason[:500]
 	}
-	return s.db.WithContext(ctx).Table("billing_webhook_events").Where("channel = 'alipay' AND payment_environment = ? AND event_key = ?", s.Environment(), eventKey).Updates(map[string]any{"status": "failed", "failure_reason": reason, "retry_count": gorm.Expr("retry_count + 1"), "last_attempt_at": s.now().UTC()}).Error
+	return s.db.WithContext(ctx).Table("billing_webhook_events").Where("channel = 'alipay' AND payment_environment = ? AND event_key = ?", s.Environment(), eventKey).Updates(map[string]any{"status": "failed", "failure_reason": reason, "retry_count": gorm.Expr("retry_count + 1"), "last_attempt_at": s.businessNow()}).Error
 }
 
 func sanitizedAlipayNotification(fields map[string]string) map[string]string {
@@ -1576,7 +1571,7 @@ func (s *Commerce) RequestRefund(ctx context.Context, owner model.Owner, actorUs
 		statusValue = "reviewing"
 	}
 	refundNo := "R" + strings.ToUpper(strings.ReplaceAll(uuid.NewString(), "-", ""))[:24]
-	now := s.now().UTC()
+	now := s.businessNow()
 	if err := s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		if err := tx.Table("billing_refunds").Create(map[string]any{"refund_no": refundNo, "idempotency_key": idempotencyKey, "order_id": order.ID, "payment_id": order.PaymentID, "amount_fen": order.AmountFen, "reason": reason, "status": statusValue, "active_slot": 1, "review_mode": reviewMode, "requested_by": actorUserID, "next_reconcile_at": func() any {
 			if statusValue == "processing" {
@@ -1684,7 +1679,7 @@ func (s *Commerce) UpdateOperationalMetrics(ctx context.Context) error {
 		platformobservability.DefaultMetrics.SetBillingGauge("refund", item.Status, float64(item.Count))
 	}
 	var oldestSeconds float64
-	if err := s.db.WithContext(ctx).Raw(`SELECT COALESCE(TIMESTAMPDIFF(SECOND, MIN(created_at), UTC_TIMESTAMP(3)), 0) FROM billing_payments WHERE status IN ('pending','closing','unknown')`).Scan(&oldestSeconds).Error; err != nil {
+	if err := s.db.WithContext(ctx).Raw(`SELECT COALESCE(TIMESTAMPDIFF(SECOND, MIN(created_at), NOW(3)), 0) FROM billing_payments WHERE status IN ('pending','closing','unknown')`).Scan(&oldestSeconds).Error; err != nil {
 		return err
 	}
 	platformobservability.DefaultMetrics.SetBillingGauge("payment", "oldest_age_seconds", oldestSeconds)
@@ -1757,7 +1752,7 @@ func (s *Commerce) ReviewRefund(ctx context.Context, refundNo string, actorUserI
 	if refund.OrderID == 0 || refund.Status != "reviewing" {
 		return "", "", errors.New("refund is not awaiting review")
 	}
-	now := s.now().UTC()
+	now := s.businessNow()
 	if action == "reject" {
 		if strings.TrimSpace(reason) == "" {
 			return "", "", errors.New("rejection reason is required")
@@ -1813,7 +1808,7 @@ func createCreditGrant(tx *gorm.DB, owner model.Owner, sourceType string, source
 	if credits == 0 {
 		return nil
 	}
-	now := time.Now().UTC()
+	now := businessclock.Now()
 	if err := tx.Table("ai_credit_grants").Create(map[string]any{"owner_type": owner.Type, "owner_id": owner.ID, "grant_type": grantType, "source_type": sourceType, "source_id": sourceID, "total_credits": credits, "remaining_credits": credits, "valid_from": validFrom, "expires_at": expiresAt, "status": "active", "created_at": now, "updated_at": now}).Error; err != nil {
 		return err
 	}
@@ -1886,13 +1881,7 @@ func parseAmountFen(value string) (uint64, error) {
 }
 
 func billingMonth(now time.Time) (time.Time, time.Time) {
-	location, err := time.LoadLocation("Asia/Shanghai")
-	if err != nil {
-		location = time.FixedZone("Asia/Shanghai", 8*60*60)
-	}
-	local := now.In(location)
-	start := time.Date(local.Year(), local.Month(), 1, 0, 0, 0, 0, location)
-	return start.UTC(), start.AddDate(0, 1, 0).UTC()
+	return businessclock.MonthBounds(now)
 }
 
 func proratedCeil(value uint64, periodStart, periodEnd, now time.Time) uint64 {

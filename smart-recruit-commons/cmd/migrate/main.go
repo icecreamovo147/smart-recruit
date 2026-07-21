@@ -14,11 +14,14 @@ import (
 	"gorm.io/gorm"
 
 	"smart-recruit-commons/migration"
+	"smart-recruit-platform-go/businessclock"
+	"smart-recruit-platform-go/mysqltime"
 )
 
-const defaultMySQLDSN = "root:Aa123456@tcp(127.0.0.1:3306)/recruitment?charset=utf8mb4&parseTime=True&loc=Local"
+const defaultMySQLDSN = "root:Aa123456@tcp(127.0.0.1:3306)/recruitment?charset=utf8mb4&parseTime=true&loc=Asia%2FShanghai&time_zone=%27%2B08%3A00%27"
 
 func main() {
+	businessclock.Configure()
 	statusFlag := flag.Bool("status", false, "show migration status and exit")
 	downFlag := flag.Int("down", -1, "rollback migrations to specified version and exit")
 	baselineFlag := flag.Int("baseline", -1, "mark v1-N as applied without executing and exit")
@@ -36,6 +39,10 @@ func main() {
 	if dsn == "" {
 		dsn = defaultMySQLDSN
 	}
+	dsn, err := mysqltime.NormalizeDSN(dsn)
+	if err != nil {
+		exitf("normalize mysql dsn: %v", err)
+	}
 
 	db, err := gorm.Open(mysql.Open(dsn), &gorm.Config{TranslateError: true})
 	if err != nil {
@@ -46,6 +53,9 @@ func main() {
 		exitf("get sql db: %v", err)
 	}
 	defer sqlDB.Close()
+	if err := mysqltime.ValidateSession(ctx, sqlDB); err != nil {
+		exitf("validate mysql timezone: %v", err)
+	}
 
 	migrationsFS, subDir, err := resolveMigrationsFS(*migrationsDirFlag)
 	if err != nil {

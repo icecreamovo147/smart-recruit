@@ -27,9 +27,10 @@ source_refs:
   - smart-recruit-gateway/middleware/observability.go
   - smart-recruit-gateway/handler/hr/ai.go
   - smart-recruit-gateway/cmd/gateway/main.go
+  - smart-recruit-platform-go/businessclock/clock.go
   - smart-recruit-proto/proto/recruitment.proto
   - smart-recruit-proto/recruitment/pb/recruitment.pb.go
-last_verified: 2026-07-16
+last_verified: 2026-07-21
 review_after: 2026-10-14
 ---
 
@@ -44,6 +45,8 @@ The HR durable Agent Run endpoint requires a positive session ID and a non-empty
 Changing HTTP routes normally requires route registration, handler mapping, permission metadata, frontend API/types, and a matching protobuf or service contract. Changing protobuf wire shape is rooted in `smart-recruit-proto/proto/recruitment.proto`; public-facing service extensions can force gateway and handler test clients to implement new methods, so internal owner contracts should prefer separate internal gRPC services when they are not part of frontend/gateway behavior.
 
 The legacydomain retirement contract adds internal `ApplicationOwnerService` and `AuthService.AuthorizeInternal` without adding new HTTP routes or frontend entry points. `rpc.Clients` may expose generated internal clients, but gateway route behavior remains unchanged unless handlers are explicitly modified.
+
+The platform business timezone is fixed at `Asia/Shanghai`. RFC3339 response strings are normalized to `+08:00`; RFC3339 inputs with `Z` or another legal offset retain their instant and are converted at the business boundary. Unix seconds/milliseconds, JWT claims, TTLs, and durations remain absolute and are never adjusted by eight hours. Daily quota keys and reset timestamps use Beijing civil-day boundaries.
 
 ## Verification
 

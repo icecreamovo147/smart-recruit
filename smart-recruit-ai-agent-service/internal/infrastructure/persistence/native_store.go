@@ -17,6 +17,7 @@ import (
 
 	aiagentgrpc "smart-recruit-ai-agent-service/internal/interfaces/grpc"
 	"smart-recruit-commons/pkg/crypto"
+	"smart-recruit-platform-go/businessclock"
 	platformlogger "smart-recruit-platform-go/logger"
 	"smart-recruit-proto/recruitment/pb"
 )
@@ -2748,7 +2749,7 @@ func formatTime(value time.Time) string {
 	if value.IsZero() {
 		return ""
 	}
-	return value.Format(time.RFC3339)
+	return businessclock.FormatRFC3339(value)
 }
 
 func formatTimePtr(value *time.Time) string {
