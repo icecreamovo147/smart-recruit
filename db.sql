@@ -2666,7 +2666,13 @@ JOIN LATERAL (
     'configuration_refs', JSON_OBJECT(
       'agent_ids', COALESCE((SELECT JSON_ARRAYAGG(agent.id) FROM agent_configs agent WHERE agent.is_enabled = 1 AND agent.agent_type = CASE WHEN capability.audience = 'candidate' THEN 'candidate_assistant' ELSE 'hr_recruiting_agent' END), JSON_ARRAY()),
       'prompt_template_ids', COALESCE((SELECT JSON_ARRAYAGG(prompt.id) FROM prompt_templates prompt WHERE prompt.is_active = 1 AND (
-        (capability.capability_key IN ('ai.chat', 'ai.agent_run') AND prompt.agent_type = CASE WHEN capability.audience = 'candidate' THEN 'candidate_assistant' ELSE 'hr_recruiting_agent' END)
+        (capability.capability_key IN ('ai.chat', 'ai.agent_run', 'ai.application_analysis') AND prompt.id IN (
+          SELECT agent.prompt_template_id
+          FROM agent_configs agent
+          WHERE agent.is_enabled = 1
+            AND agent.prompt_template_id IS NOT NULL
+            AND agent.agent_type = CASE WHEN capability.audience = 'candidate' THEN 'candidate_assistant' ELSE 'hr_recruiting_agent' END
+        ))
         OR (capability.capability_key = 'ai.resume_parse' AND prompt.agent_type = 'resume_profile_extractor')
         OR (capability.capability_key = 'ai.match_evaluation' AND prompt.agent_type IN ('job_requirement_extractor', 'candidate_match_evaluator'))
       )), JSON_ARRAY()),

@@ -150,6 +150,12 @@ func serveBilling(addr, configPath string) error {
 }
 
 func maintainBilling(ctx context.Context, repo *persistence.GormRepository, commerce *service.Commerce) {
+	// Recover payments that became due while the service was stopped before
+	// entering the periodic cadence. This keeps restart recovery bounded by the
+	// Alipay query latency instead of adding another five-minute delay.
+	if err := commerce.ReconcilePendingPayments(ctx, 100); err != nil {
+		fmt.Fprintf(os.Stderr, "reconcile pending Alipay payments on startup: %v\n", err)
+	}
 	ticker := time.NewTicker(time.Minute)
 	defer ticker.Stop()
 	cycles := 0

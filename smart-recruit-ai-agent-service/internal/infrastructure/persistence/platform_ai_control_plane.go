@@ -602,9 +602,9 @@ func validatePublishedModelPolicy(tx *gorm.DB, policy PlatformAIModelPolicy) err
 
 func validatePublishedConfigurationRefs(tx *gorm.DB, snapshot PlatformAICapabilitySnapshot) error {
 	refs := snapshot.ConfigurationRef
-	if snapshot.CapabilityKey == "ai.chat" || snapshot.CapabilityKey == "ai.agent_run" {
+	if capabilityRequiresAgentPrompt(snapshot.CapabilityKey) {
 		if len(refs.AgentIDs) == 0 || len(refs.PromptTemplateIDs) == 0 {
-			return errors.New("chat and agent-run releases require at least one Agent and Prompt template")
+			return errors.New("Agent-backed releases require at least one Agent and Prompt template")
 		}
 	}
 	if snapshot.CapabilityKey == "ai.resume_parse" || snapshot.CapabilityKey == "ai.match_evaluation" {
@@ -646,7 +646,37 @@ func validatePublishedConfigurationRefs(tx *gorm.DB, snapshot PlatformAICapabili
 			return fmt.Errorf("all released %s must exist and be enabled", check.label)
 		}
 	}
+	if capabilityRequiresAgentPrompt(snapshot.CapabilityKey) && tx.Migrator().HasTable("agent_configs") && tx.Migrator().HasTable("prompt_templates") {
+		var invalidBindings int64
+		if err := tx.Table("agent_configs agent").
+			Joins("LEFT JOIN prompt_templates prompt ON prompt.id = agent.prompt_template_id").
+			Where("agent.id IN ?", refs.AgentIDs).
+			Where(`agent.prompt_template_id IS NULL
+				OR agent.prompt_template_id NOT IN ?
+				OR prompt.id IS NULL
+				OR prompt.is_active <> 1
+				OR LOWER(TRIM(prompt.prompt_role)) <> 'system'
+				OR NOT (
+					LOWER(TRIM(prompt.agent_type)) = LOWER(TRIM(agent.agent_type))
+					OR (LOWER(TRIM(agent.agent_type)) = 'hr_recruiting_agent' AND LOWER(TRIM(prompt.agent_type)) = 'hr_agent')
+				)`, refs.PromptTemplateIDs).
+			Count(&invalidBindings).Error; err != nil {
+			return err
+		}
+		if invalidBindings > 0 {
+			return errors.New("every released Agent must reference an active compatible Prompt included in the same capability release")
+		}
+	}
 	return nil
+}
+
+func capabilityRequiresAgentPrompt(capabilityKey string) bool {
+	switch strings.TrimSpace(capabilityKey) {
+	case "ai.chat", "ai.agent_run", "ai.application_analysis":
+		return true
+	default:
+		return false
+	}
 }
 
 func (s *NativeStore) loadAvailableRuntimeModel(ctx context.Context, modelID int64) (runtimeModelRow, bool, error) {

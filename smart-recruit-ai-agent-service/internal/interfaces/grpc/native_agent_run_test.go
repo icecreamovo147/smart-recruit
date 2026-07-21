@@ -162,12 +162,14 @@ func TestCreateAgentRunDispatchesDetachedAndCompletes(t *testing.T) {
 	}
 }
 
-func TestCreateAgentRunPreservesAuthActorForDetachedExecution(t *testing.T) {
+func TestCreateAgentRunPreservesTenantActorForDetachedExecution(t *testing.T) {
 	store := newAgentRunTestStore()
 	store.seedChatSession(ownerRoleHR, 77, 101, "hr run session")
 	provider := &authCapturingAgentRunProvider{reply: "assistant reply", done: make(chan struct{})}
 	service := &nativeAIService{store: store, provider: provider}
-	ctx := platformmetadata.WithAuthActor(context.Background(), 77, "staff")
+	ctx := platformmetadata.WithTenantActor(context.Background(), platformmetadata.TenantContext{
+		TenantID: 12, MembershipID: 34, UserID: 77, AccountType: "staff", ClientApp: "hr",
+	})
 
 	resp, err := service.CreateAgentRun(ctx, &pb.CreateAgentRunRequest{
 		HrId:            77,
@@ -187,6 +189,9 @@ func TestCreateAgentRunPreservesAuthActorForDetachedExecution(t *testing.T) {
 	if provider.authUserID != 77 || provider.accountType != "staff" {
 		t.Fatalf("provider auth = (%d, %q), want (77, staff)", provider.authUserID, provider.accountType)
 	}
+	if provider.tenantID != 12 || provider.membershipID != 34 || provider.clientApp != "hr" {
+		t.Fatalf("provider tenant actor = (%d, %d, %q), want (12, 34, hr)", provider.tenantID, provider.membershipID, provider.clientApp)
+	}
 	createdRun, found := store.runSnapshot(resp.GetRun().GetRunId())
 	if !found {
 		t.Fatalf("created run %d not found in store", resp.GetRun().GetRunId())
@@ -199,6 +204,69 @@ func TestCreateAgentRunPreservesAuthActorForDetachedExecution(t *testing.T) {
 	}
 	if durable.DurableRequest.AuthUserID != 77 || durable.DurableRequest.AuthAccountType != "staff" {
 		t.Fatalf("durable auth = (%d, %q), want (77, staff)", durable.DurableRequest.AuthUserID, durable.DurableRequest.AuthAccountType)
+	}
+	if durable.DurableRequest.AuthTenantID != 12 || durable.DurableRequest.AuthMembershipID != 34 || durable.DurableRequest.AuthClientApp != "hr" {
+		t.Fatalf("durable tenant actor = (%d, %d, %q), want (12, 34, hr)", durable.DurableRequest.AuthTenantID, durable.DurableRequest.AuthMembershipID, durable.DurableRequest.AuthClientApp)
+	}
+	if createdRun.TenantID != 12 {
+		t.Fatalf("created run tenant = %d, want 12", createdRun.TenantID)
+	}
+}
+
+func TestAgentRunExecutionContextFallsBackToPersistedTenant(t *testing.T) {
+	ctx := agentRunExecutionContext(context.Background(), AgentRunRow{TenantID: 12, OwnerID: 77}, agentRunDurablePayload{
+		AuthUserID: 77, AuthAccountType: "staff",
+	})
+	if got := platformmetadata.GetAuthTenantID(ctx); got != 12 {
+		t.Fatalf("tenant id = %d, want 12", got)
+	}
+}
+
+func TestDispatchAgentRunTimesOutAndCompletesFailed(t *testing.T) {
+	store := newAgentRunTestStore()
+	store.seedChatSession(ownerRoleHR, 77, 101, "hr run session")
+	service := &nativeAIService{
+		store: store, provider: deadlineAgentRunProvider{}, agentRunTimeout: 20 * time.Millisecond,
+	}
+	resp, err := service.CreateAgentRun(context.Background(), &pb.CreateAgentRunRequest{
+		HrId: 77, SessionId: 101, ClientRequestId: "timeout-run", Message: "wait forever",
+	})
+	if err != nil {
+		t.Fatalf("CreateAgentRun returned error: %v", err)
+	}
+	waitUntilAgentRunTest(t, time.Second, func() bool {
+		run, found := store.runSnapshot(resp.GetRun().GetRunId())
+		return found && run.Status == agentRunStatusFailed
+	})
+	run, _ := store.runSnapshot(resp.GetRun().GetRunId())
+	if run.ErrorType != "timeout" || run.CompletedAt == nil {
+		t.Fatalf("timed out run = %#v, want failed timeout with completed_at", run)
+	}
+	if !containsString(store.eventTypes(run.ID), "run.completed") {
+		t.Fatalf("event types = %v, want run.completed", store.eventTypes(run.ID))
+	}
+}
+
+func TestGetActiveAgentRunExpiresOrphanedRun(t *testing.T) {
+	store := newAgentRunTestStore()
+	started := time.Now().Add(-time.Minute)
+	run, _, err := store.CreateAgentRun(context.Background(), AgentRunRow{
+		OwnerID: 77, SessionID: 101, Status: agentRunStatusRunning, StartedAt: started,
+	})
+	if err != nil {
+		t.Fatalf("CreateAgentRun seed returned error: %v", err)
+	}
+	service := &nativeAIService{store: store, agentRunTimeout: 10 * time.Second}
+	resp, err := service.GetActiveAgentRun(context.Background(), &pb.GetActiveAgentRunRequest{HrId: 77, SessionId: 101})
+	if err != nil {
+		t.Fatalf("GetActiveAgentRun returned error: %v", err)
+	}
+	if resp.GetHasActiveRun() {
+		t.Fatalf("HasActiveRun = true, want false after orphan expiry")
+	}
+	terminal, found := store.runSnapshot(run.ID)
+	if !found || terminal.Status != agentRunStatusFailed || terminal.ErrorType != "timeout" {
+		t.Fatalf("expired run = %#v, want failed timeout", terminal)
 	}
 }
 
@@ -780,17 +848,31 @@ func (p *blockingAgentRunProvider) promptsSnapshot() []string {
 }
 
 type authCapturingAgentRunProvider struct {
-	reply       string
-	done        chan struct{}
-	authUserID  int64
-	accountType string
+	reply        string
+	done         chan struct{}
+	authUserID   int64
+	accountType  string
+	tenantID     int64
+	membershipID int64
+	clientApp    string
 }
 
 func (p *authCapturingAgentRunProvider) Complete(ctx context.Context, _ string) (string, error) {
 	p.authUserID = platformmetadata.GetAuthUserID(ctx)
 	p.accountType = platformmetadata.GetAuthAccountType(ctx)
+	tenant := platformmetadata.GetTenantContext(ctx)
+	p.tenantID = tenant.TenantID
+	p.membershipID = tenant.MembershipID
+	p.clientApp = tenant.ClientApp
 	close(p.done)
 	return p.reply, nil
+}
+
+type deadlineAgentRunProvider struct{}
+
+func (deadlineAgentRunProvider) Complete(ctx context.Context, _ string) (string, error) {
+	<-ctx.Done()
+	return "", ctx.Err()
 }
 
 type agentRunTestStore struct {

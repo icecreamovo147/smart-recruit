@@ -21,7 +21,7 @@ import {
   type HrAgentRunState,
 } from '@/utils/hrAgentRunReducer'
 
-export type HrAgentRunSettlement = 'terminal' | 'waiting_confirmation' | 'aborted'
+export type HrAgentRunSettlement = 'terminal' | 'waiting_confirmation' | 'timed_out' | 'aborted'
 
 export interface WaitUntilSettledOptions {
   /** Prefer matching this run id when provided. */
@@ -30,6 +30,8 @@ export interface WaitUntilSettledOptions {
   shouldAbort?: () => boolean
   /** Poll interval for shouldAbort when state is idle (ms). */
   pollMs?: number
+  /** Maximum wait before one final snapshot refresh and timed_out (default 180s). */
+  timeoutMs?: number
 }
 
 export interface UseHrAgentRunOptions {
@@ -404,10 +406,12 @@ export function useHrAgentRun(options: UseHrAgentRunOptions = {}): UseHrAgentRun
 
   const waitUntilSettled = (options: WaitUntilSettledOptions = {}): Promise<HrAgentRunSettlement> => {
     const pollMs = options.pollMs && options.pollMs > 0 ? options.pollMs : 50
+    const timeoutMs = options.timeoutMs && options.timeoutMs > 0 ? options.timeoutMs : 180_000
 
     return new Promise((resolve) => {
       let settled = false
       let pollTimer: ReturnType<typeof setInterval> | null = null
+      let timeoutTimer: ReturnType<typeof setTimeout> | null = null
       // Assigned after watch registration; finish may run on immediate evaluate.
       let stopWatch: (() => void) | null = null
 
@@ -420,6 +424,10 @@ export function useHrAgentRun(options: UseHrAgentRunOptions = {}): UseHrAgentRun
         if (pollTimer) {
           clearInterval(pollTimer)
           pollTimer = null
+        }
+        if (timeoutTimer) {
+          clearTimeout(timeoutTimer)
+          timeoutTimer = null
         }
         resolve(outcome)
       }
@@ -470,6 +478,27 @@ export function useHrAgentRun(options: UseHrAgentRunOptions = {}): UseHrAgentRun
         pollTimer = setInterval(() => {
           evaluate()
         }, pollMs)
+        timeoutTimer = setTimeout(async () => {
+          if (settled) return
+          const targetRunId = options.runId || state.value.runId
+          if (targetRunId && targetRunId > 0) {
+            try {
+              const response = await getAgentRun(targetRunId)
+              const next = hydrateFromSnapshot(response.run)
+              setState({
+                ...next,
+                assistantText: next.assistantText || state.value.assistantText,
+                processText: next.processText || state.value.processText,
+                lastEventSeq: Math.max(next.lastEventSeq, state.value.lastEventSeq),
+                resultMetadata: next.resultMetadata ?? state.value.resultMetadata,
+              })
+              if (evaluate()) return
+            } catch {
+              // The timeout result remains authoritative when the final refresh is unavailable.
+            }
+          }
+          finish('timed_out')
+        }, timeoutMs)
       }
     })
   }

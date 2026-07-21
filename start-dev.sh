@@ -457,7 +457,7 @@ export ALLOW_INSECURE_DEV_CONFIG="${ALLOW_INSECURE_DEV_CONFIG:-true}"
 export STATIC_FALLBACK="${STATIC_FALLBACK:-false}"
 export SERVICE_ENV="${SERVICE_ENV:-local}"
 export BILLING_HR_RETURN_URL="${BILLING_HR_RETURN_URL:-http://localhost:5173/hr/billing}"
-export BILLING_CANDIDATE_RETURN_URL="${BILLING_CANDIDATE_RETURN_URL:-http://localhost:5174/candidate/billing}"
+export BILLING_CANDIDATE_RETURN_URL="${BILLING_CANDIDATE_RETURN_URL:-http://localhost:5174/billing}"
 
 if has_any_backend_target; then
     info "Applying database migrations..."

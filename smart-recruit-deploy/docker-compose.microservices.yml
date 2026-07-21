@@ -173,7 +173,7 @@ services:
       ANALYTICS_GRPC_ADDR: smart-recruit-analytics-service:50067
       BILLING_GRPC_ADDR: smart-recruit-billing-service:50069
       BILLING_HR_RETURN_URL: ${BILLING_HR_RETURN_URL:-http://localhost:5173/hr/billing}
-      BILLING_CANDIDATE_RETURN_URL: ${BILLING_CANDIDATE_RETURN_URL:-http://localhost:5174/candidate/billing}
+      BILLING_CANDIDATE_RETURN_URL: ${BILLING_CANDIDATE_RETURN_URL:-http://localhost:5174/billing}
     depends_on:
       redis:
         condition: service_healthy

@@ -2,10 +2,13 @@ package service
 
 import (
 	"errors"
+	"strings"
 	"sync"
 	"testing"
 	"time"
 
+	"gorm.io/driver/mysql"
+	"gorm.io/gorm"
 	"gorm.io/gorm/schema"
 
 	"smart-recruit-billing-service/internal/infrastructure/payment"
@@ -90,5 +93,42 @@ func TestResolveAlipayCloseFailureRejectsLiveUnclosedTrade(t *testing.T) {
 
 	if _, err := resolveAlipayCloseFailure(errors.New("close rejected"), result, nil); err == nil {
 		t.Fatal("expected a live unclosed trade to block replacement")
+	}
+}
+
+func TestPaymentSettlementAcceptsRecoveryStates(t *testing.T) {
+	for _, status := range []string{"created", "pending", "closing", "unknown", "closed", "succeeded"} {
+		if !isPaymentSettleable(status) {
+			t.Fatalf("status %q must remain settleable after Alipay confirms payment", status)
+		}
+	}
+	for _, status := range []string{"failed", "refunded", ""} {
+		if isPaymentSettleable(status) {
+			t.Fatalf("status %q must not be settleable", status)
+		}
+	}
+}
+
+func TestNoOpConflictProducesValidMySQLAssignmentForMapCreate(t *testing.T) {
+	db, err := gorm.Open(mysql.New(mysql.Config{
+		DSN:                       "gorm:gorm@tcp(localhost:9910)/gorm?charset=utf8mb4&parseTime=True&loc=Local",
+		SkipInitializeWithVersion: true,
+	}), &gorm.Config{DryRun: true, DisableAutomaticPing: true, SkipDefaultTransaction: true})
+	if err != nil {
+		t.Fatalf("open dry-run database: %v", err)
+	}
+
+	statement := db.Table("billing_webhook_events").
+		Clauses(noOpConflict("event_key", "channel", "payment_environment", "event_key")).
+		Create(map[string]any{"channel": "alipay", "payment_environment": "sandbox", "event_key": "query:1"})
+	if statement.Error != nil {
+		t.Fatalf("build insert: %v", statement.Error)
+	}
+	sql := statement.Statement.SQL.String()
+	if strings.HasSuffix(strings.TrimSpace(sql), "UPDATE") {
+		t.Fatalf("generated invalid dangling duplicate-key update: %s", sql)
+	}
+	if !strings.Contains(sql, "`event_key`=VALUES(`event_key`)") {
+		t.Fatalf("generated SQL lacks deterministic no-op assignment: %s", sql)
 	}
 }

@@ -214,6 +214,7 @@ func serveAIAgent(addr string) error {
 		Auth:             pb.NewAuthServiceClient(identityConn),
 		Billing:          pb.NewBillingServiceClient(billingConn),
 		BillingRequired:  strings.EqualFold(envOrDefault("AI_BILLING_MODE", "shadow"), "enforce"),
+		AgentRunTimeout:  cfg.AI.TotalTimeout.Duration,
 		Applications:     pb.NewApplicationOwnerServiceClient(recruitmentConn),
 		AppList:          pb.NewApplicationServiceClient(recruitmentConn),
 		Jobs:             pb.NewJobServiceClient(recruitmentConn),

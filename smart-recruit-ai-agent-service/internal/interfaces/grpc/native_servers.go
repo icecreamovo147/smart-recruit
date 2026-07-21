@@ -15,6 +15,7 @@ import (
 
 	"github.com/cloudwego/eino/components/tool"
 	"github.com/cloudwego/eino/schema"
+	"go.uber.org/zap"
 	gogrpc "google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -31,6 +32,7 @@ import (
 	aiagentruntime "smart-recruit-ai-agent-service/internal/runtime"
 	commonsai "smart-recruit-commons/ai"
 	"smart-recruit-platform-go/errs"
+	"smart-recruit-platform-go/logger"
 	platformmetadata "smart-recruit-platform-go/metadata"
 	"smart-recruit-proto/recruitment/pb"
 )
@@ -239,6 +241,7 @@ type RuntimeDeps struct {
 	Auth             pb.AuthServiceClient
 	Billing          pb.BillingServiceClient
 	BillingRequired  bool
+	AgentRunTimeout  time.Duration
 	Applications     pb.ApplicationOwnerServiceClient
 	AppList          pb.ApplicationServiceClient
 	Jobs             pb.JobServiceClient
@@ -459,6 +462,7 @@ func candidateUsageAuditToUsageAudit(row CandidateUsageAuditRow) UsageAuditRow {
 
 type AgentRunRow struct {
 	ID                int64
+	TenantID          int64
 	SessionID         int64
 	MessageID         int64
 	HistoryID         int64
@@ -501,6 +505,9 @@ type agentRunDurablePayload struct {
 	ModelID                      int64    `json:"model_id,omitempty"`
 	AuthUserID                   int64    `json:"auth_user_id,omitempty"`
 	AuthAccountType              string   `json:"auth_account_type,omitempty"`
+	AuthTenantID                 int64    `json:"auth_tenant_id,omitempty"`
+	AuthMembershipID             int64    `json:"auth_membership_id,omitempty"`
+	AuthClientApp                string   `json:"auth_client_app,omitempty"`
 	EffectiveAgentID             int64    `json:"effective_agent_id,omitempty"`
 	EffectiveAgentPinned         bool     `json:"effective_agent_pinned,omitempty"`
 	SkillCapabilityKeys          []string `json:"skill_capability_keys,omitempty"`
@@ -799,6 +806,7 @@ func NewNativeRuntimeDeps(deps RuntimeDeps) aiagentruntime.Deps {
 	ai.auth = deps.Auth
 	ai.billing = deps.Billing
 	ai.billingRequired = deps.BillingRequired
+	ai.agentRunTimeout = deps.AgentRunTimeout
 	ai.agentRuntime = normalizeAgentRuntime(deps.RuntimeName)
 	if store, ok := deps.Store.(candidatetools.DataStore); ok {
 		ai.candidateTools = candidatetools.NewExecutor(store)
@@ -881,6 +889,7 @@ type nativeAIService struct {
 	auth                    pb.AuthServiceClient
 	billing                 pb.BillingServiceClient
 	billingRequired         bool
+	agentRunTimeout         time.Duration
 	applications            applicationSnapshotClient
 	jobs                    hr_tools.JobClient
 	appList                 hr_tools.ApplicationListClient
@@ -2495,11 +2504,18 @@ func hrPromptTemplateUsable(template *pb.PromptTemplateInfo) bool {
 var hrRuntimePromptVariableName = regexp.MustCompile(`^[A-Za-z_][A-Za-z0-9_]*$`)
 
 func hrRuntimePromptVariables(req *pb.ChatRequest) map[string]string {
+	contextLine := "当前未指定投递上下文"
+	if req.GetApplicationId() > 0 {
+		contextLine = "当前投递 ID: " + strconv.FormatInt(req.GetApplicationId(), 10)
+	}
 	return map[string]string{
-		"hr_id":          strconv.FormatInt(req.GetHrId(), 10),
-		"session_id":     strconv.FormatInt(req.GetSessionId(), 10),
-		"application_id": strconv.FormatInt(req.GetApplicationId(), 10),
-		"current_date":   time.Now().Format("2006-01-02"),
+		"hr_id":           strconv.FormatInt(req.GetHrId(), 10),
+		"session_id":      strconv.FormatInt(req.GetSessionId(), 10),
+		"application_id":  strconv.FormatInt(req.GetApplicationId(), 10),
+		"current_date":    time.Now().Format("2006-01-02"),
+		"context_line":    contextLine,
+		"summary_section": "会话历史由运行时上下文预算器统一提供。",
+		"memory_section":  "当前没有额外注入的长期记忆。",
 	}
 }
 
@@ -4564,6 +4580,10 @@ func (s *nativeAIService) CreateAgentRun(ctx context.Context, req *pb.CreateAgen
 	payload := agentRunPayloadFromCreateRequest(req)
 	payload.AuthUserID = platformmetadata.GetAuthUserID(ctx)
 	payload.AuthAccountType = platformmetadata.GetAuthAccountType(ctx)
+	tenantActor := platformmetadata.GetTenantContext(ctx)
+	payload.AuthTenantID = tenantActor.TenantID
+	payload.AuthMembershipID = tenantActor.MembershipID
+	payload.AuthClientApp = tenantActor.ClientApp
 	if payload.AuthUserID <= 0 {
 		payload.AuthUserID = req.GetHrId()
 	}
@@ -4587,6 +4607,7 @@ func (s *nativeAIService) CreateAgentRun(ctx context.Context, req *pb.CreateAgen
 	payload.EffectiveAgentID = agentConfigID(governance.Agent)
 	payload.EffectiveAgentPinned = true
 	initialRun := fallbackAgentRun(req.GetHrId(), req.GetSessionId(), req.GetClientRequestId(), payload)
+	initialRun.TenantID = tenantActor.TenantID
 	applyHRGovernanceToAgentRun(&initialRun, governance)
 	run, idempotent, err := s.store.CreateAgentRun(ctx, initialRun)
 	if err != nil {
@@ -4624,6 +4645,19 @@ func (s *nativeAIService) GetActiveAgentRun(ctx context.Context, req *pb.GetActi
 	run, found, err := s.store.GetActiveAgentRun(ctx, req.GetHrId(), req.GetSessionId())
 	if err != nil {
 		return nil, err
+	}
+	if found && s.agentRunExceededDeadline(run, time.Now()) {
+		if err := s.ensureAgentRunTerminal(run, context.DeadlineExceeded); err != nil {
+			return nil, err
+		}
+		terminal, terminalFound, err := s.getRun(ctx, run.OwnerID, run.ID)
+		if err != nil {
+			return nil, err
+		}
+		if terminalFound {
+			run = terminal
+		}
+		found = false
 	}
 	return &pb.GetActiveAgentRunResponse{Code: 0, Msg: "success", Run: mapAgentRunSnapshot(run), HasActiveRun: found}, nil
 }
@@ -4943,11 +4977,39 @@ func (s *nativeAIService) completeWithUsage(ctx context.Context, prompt string, 
 }
 
 func (s *nativeAIService) dispatchAgentRun(run AgentRunRow) {
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithTimeout(context.Background(), s.effectiveAgentRunTimeout())
 	s.storeAgentRunCancel(run.ID, cancel)
 	go func() {
-		_ = s.executeAgentRun(ctx, run)
+		if err := s.executeAgentRun(ctx, run); err != nil {
+			logger.L().Error("agent run execution failed",
+				zap.Int64("run_id", run.ID),
+				zap.String("status", run.Status),
+				zap.Error(err),
+			)
+			if terminalErr := s.ensureAgentRunTerminal(run, err); terminalErr != nil {
+				logger.L().Error("agent run terminal fallback failed",
+					zap.Int64("run_id", run.ID),
+					zap.Error(terminalErr),
+				)
+			}
+		}
 	}()
+}
+
+const defaultAgentRunTimeout = 3 * time.Minute
+
+func (s *nativeAIService) effectiveAgentRunTimeout() time.Duration {
+	if s != nil && s.agentRunTimeout > 0 {
+		return s.agentRunTimeout
+	}
+	return defaultAgentRunTimeout
+}
+
+func (s *nativeAIService) agentRunExceededDeadline(run AgentRunRow, now time.Time) bool {
+	if isTerminalAgentRunStatus(run.Status) || run.StartedAt.IsZero() || now.Before(run.StartedAt) {
+		return false
+	}
+	return now.Sub(run.StartedAt) >= s.effectiveAgentRunTimeout()
 }
 
 func (s *nativeAIService) executeAgentRun(ctx context.Context, run AgentRunRow) error {
@@ -4977,10 +5039,16 @@ func (s *nativeAIService) executeAgentRun(ctx context.Context, run AgentRunRow) 
 		durablePayload:           payload,
 	})
 	if err != nil {
+		if agentRunExecutionTimedOut(ctx, err) {
+			return s.finishAgentRunFailed(ctx, current, context.DeadlineExceeded)
+		}
 		if agentRunExecutionCanceled(ctx, err) {
 			return s.finishAgentRunCanceled(ctx, current)
 		}
 		return s.finishAgentRunFailed(ctx, current, err)
+	}
+	if agentRunExecutionTimedOut(ctx, nil) {
+		return s.finishAgentRunFailed(ctx, current, context.DeadlineExceeded)
 	}
 	if agentRunExecutionCanceled(ctx, nil) {
 		return s.finishAgentRunCanceled(ctx, current)
@@ -5098,7 +5166,10 @@ func (s *nativeAIService) finishAgentRunFailed(ctx context.Context, run AgentRun
 	}
 	errorType := "provider"
 	errorMessage := runErr.Error()
-	if contextCode := hrContextErrorCode(runErr); contextCode != "" {
+	if errors.Is(runErr, context.DeadlineExceeded) {
+		errorType = "timeout"
+		errorMessage = "agent run execution timed out"
+	} else if contextCode := hrContextErrorCode(runErr); contextCode != "" {
 		errorType = contextCode
 		errorMessage = contextCode
 	}
@@ -5148,6 +5219,39 @@ func agentRunExecutionCanceled(ctx context.Context, err error) bool {
 		return true
 	}
 	return errors.Is(err, context.Canceled)
+}
+
+func agentRunExecutionTimedOut(ctx context.Context, err error) bool {
+	return errors.Is(err, context.DeadlineExceeded) || (ctx != nil && errors.Is(ctx.Err(), context.DeadlineExceeded))
+}
+
+func (s *nativeAIService) ensureAgentRunTerminal(run AgentRunRow, runErr error) error {
+	if s == nil || s.store == nil || run.ID <= 0 {
+		return runErr
+	}
+	storeCtx := context.Background()
+	current, found, err := s.getRun(storeCtx, run.OwnerID, run.ID)
+	if err != nil || !found || isTerminalAgentRunStatus(current.Status) {
+		return err
+	}
+	errorType := "runtime"
+	errorMessage := "agent run execution failed"
+	if runErr != nil {
+		errorMessage = runErr.Error()
+	}
+	if errors.Is(runErr, context.DeadlineExceeded) {
+		errorType = "timeout"
+		errorMessage = "agent run execution timed out"
+	}
+	completed, found, err := s.store.CompleteAgentRun(storeCtx, current.OwnerID, current.ID, current.AssistantText, agentRunStatusFailed, errorType, errorMessage)
+	if err != nil {
+		return err
+	}
+	if !found {
+		return fmt.Errorf("agent run %d not found while applying terminal fallback", current.ID)
+	}
+	_, err = s.appendAgentRunEvent(storeCtx, completed.ID, "run.completed", fmt.Sprintf(`{"status":%q,"error_type":%q,"error_message":%q}`, agentRunStatusFailed, errorType, errorMessage))
+	return err
 }
 
 func (s *nativeAIService) agentRunChatEmitter(runID int64) hrChatStreamEmitter {
@@ -5668,7 +5772,17 @@ func agentRunExecutionContext(ctx context.Context, run AgentRunRow, payload agen
 	if accountType == "" {
 		accountType = "staff"
 	}
-	return platformmetadata.WithAuthActor(ctx, authUserID, accountType)
+	tenantID := payload.AuthTenantID
+	if tenantID <= 0 {
+		tenantID = run.TenantID
+	}
+	return platformmetadata.WithTenantActor(ctx, platformmetadata.TenantContext{
+		TenantID:     tenantID,
+		MembershipID: payload.AuthMembershipID,
+		UserID:       authUserID,
+		AccountType:  accountType,
+		ClientApp:    payload.AuthClientApp,
+	})
 }
 
 func isCancelableAgentRunStatus(status string) bool {

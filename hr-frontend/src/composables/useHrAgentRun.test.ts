@@ -406,6 +406,31 @@ describe('useHrAgentRun', () => {
     expect(cancelAgentRun).not.toHaveBeenCalled()
   })
 
+  it('refreshes the snapshot once and resolves timed_out when a run never settles', async () => {
+    vi.useFakeTimers()
+    try {
+      getAgentRun.mockResolvedValue({
+        run: snapshot({ run_id: 45, status: 'running', last_event_seq: 2 }),
+      })
+      const { api, wrapper } = mountComposable()
+      api.state.value = {
+        ...api.state.value,
+        runId: 45,
+        status: 'running',
+        isTerminal: false,
+      }
+
+      const settled = api.waitUntilSettled({ runId: 45, timeoutMs: 100 })
+      await vi.advanceTimersByTimeAsync(100)
+
+      await expect(settled).resolves.toBe('timed_out')
+      expect(getAgentRun).toHaveBeenCalledWith(45)
+      wrapper.unmount()
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
   it('hydrateFromActive then cancel uses same run id (post-refresh cancel path)', async () => {
     getActiveAgentRun.mockResolvedValue({
       has_active_run: true,

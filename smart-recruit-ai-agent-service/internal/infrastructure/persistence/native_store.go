@@ -476,6 +476,7 @@ func (s *NativeStore) CreateAgentRun(ctx context.Context, run aiagentgrpc.AgentR
 	}
 	now := time.Now()
 	row := agentRunRecord{
+		TenantID:        positiveInt64Pointer(run.TenantID),
 		SessionID:       run.SessionID,
 		HRID:            run.OwnerID,
 		ClientRequestID: run.ClientRequestID,
@@ -2621,7 +2622,21 @@ func chatCompatibilityHRID(ownerRole int32, ownerID int64) int64 {
 }
 
 func mapRunRecord(row agentRunRecord) aiagentgrpc.AgentRunRow {
-	return aiagentgrpc.AgentRunRow{ID: row.ID, SessionID: row.SessionID, MessageID: row.MessageID, HistoryID: row.HistoryID, OwnerID: row.HRID, ClientRequestID: row.ClientRequestID, Status: row.Status, AssistantText: row.AssistantText, ProcessText: row.ProcessText, PlanJSON: stringValue(row.PlanJSON), OptionContextJSON: stringValue(row.OptionContext), LastEventSeq: row.LastEventSeq, ErrorType: row.ErrorType, ErrorMessage: row.ErrorMessage, ModelID: row.ModelID, ModelName: row.ModelName, AgentType: row.AgentType, AgentID: row.AgentID, AgentName: row.AgentName, StartedAt: row.StartedAt, CompletedAt: row.CompletedAt, CancelRequestedAt: row.CancelRequestedAt, CanceledAt: row.CanceledAt, CreatedAt: row.CreatedAt, UpdatedAt: row.UpdatedAt}
+	return aiagentgrpc.AgentRunRow{ID: row.ID, TenantID: int64FromPointer(row.TenantID), SessionID: row.SessionID, MessageID: row.MessageID, HistoryID: row.HistoryID, OwnerID: row.HRID, ClientRequestID: row.ClientRequestID, Status: row.Status, AssistantText: row.AssistantText, ProcessText: row.ProcessText, PlanJSON: stringValue(row.PlanJSON), OptionContextJSON: stringValue(row.OptionContext), LastEventSeq: row.LastEventSeq, ErrorType: row.ErrorType, ErrorMessage: row.ErrorMessage, ModelID: row.ModelID, ModelName: row.ModelName, AgentType: row.AgentType, AgentID: row.AgentID, AgentName: row.AgentName, StartedAt: row.StartedAt, CompletedAt: row.CompletedAt, CancelRequestedAt: row.CancelRequestedAt, CanceledAt: row.CanceledAt, CreatedAt: row.CreatedAt, UpdatedAt: row.UpdatedAt}
+}
+
+func positiveInt64Pointer(value int64) *int64 {
+	if value <= 0 {
+		return nil
+	}
+	return &value
+}
+
+func int64FromPointer(value *int64) int64 {
+	if value == nil {
+		return 0
+	}
+	return *value
 }
 
 func offset(page, pageSize int32) int {

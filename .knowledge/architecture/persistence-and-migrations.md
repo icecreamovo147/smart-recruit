@@ -27,6 +27,7 @@ source_refs:
   - smart-recruit-commons/migrations/000060_add_llm_model_catalog.sql
   - smart-recruit-commons/migrations/000070_add_platform_ai_control_plane.sql
   - smart-recruit-commons/migrations/000071_add_structured_ai_release_trace.sql
+  - smart-recruit-commons/migrations/000078_repair_hr_capability_prompt_releases.sql
   - smart-recruit-deploy/mysql-table-ownership.json
   - db.sql
   - smart-recruit-notification-service/internal/infrastructure/persistence/notification_repository.go
@@ -48,6 +49,8 @@ Shared SQL migrations and the migration runner live in `smart-recruit-commons/`.
 Schema changes must keep migrations, `db.sql`, service persistence code, table ownership, and focused tests aligned.
 
 The pre-launch platform AI cutover is migration `000070`; it promotes only the default tenant's technical AI configuration after a fail-closed conflict check. Migration `000071` adds fixed capability-release/model trace columns to structured resume-parse and candidate-match evidence. Both must remain reversible independently and match the cold-start schema.
+
+Migration `000078` repairs HR Agent-backed capability releases whose initial immutable snapshot omitted the Agent-bound Prompt. It appends corrected published versions, advances capability and entitlement pointers, preserves the original release rows for audit, and keeps `db.sql` cold-start data aligned without rewriting the historical `000070` migration.
 
 LLM model metadata uses `llm_model_catalog` for reviewed reusable facts, `llm_model_metadata_observations` for deduplicated field-level evidence, and `llm_models` for the user-confirmed runtime snapshot. Changing catalog data belongs in the versioned catalog import rather than migration seed SQL; migrations define only the durable schema.
 

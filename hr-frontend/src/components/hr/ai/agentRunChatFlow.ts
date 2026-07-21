@@ -248,7 +248,7 @@ export function bindRunStateToChatUi(
 }
 
 function mapSettlement(
-  settlement: 'terminal' | 'waiting_confirmation' | 'aborted',
+  settlement: 'terminal' | 'waiting_confirmation' | 'timed_out' | 'aborted',
   state: HrAgentRunState,
 ): DurableChatFlowResult {
   if (settlement === 'aborted') {
@@ -256,6 +256,13 @@ function mapSettlement(
   }
   if (settlement === 'waiting_confirmation') {
     return { outcome: 'waiting_confirmation', state }
+  }
+  if (settlement === 'timed_out') {
+    return {
+      outcome: 'failed',
+      state,
+      error: new Error('AI 服务响应超时，请稍后重试'),
+    }
   }
   if (state.status === 'failed' && (state.errorMessage || state.errorType)) {
     return {

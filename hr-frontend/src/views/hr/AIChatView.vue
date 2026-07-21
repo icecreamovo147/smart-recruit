@@ -752,6 +752,11 @@ const restoreActiveRunForSession = async (session: Session) => {
       return
     }
 
+    if (settlement === 'timed_out') {
+      markAssistantError(assistantIndex, new Error('AI 服务响应超时，请稍后重试'), 'timeout')
+      return
+    }
+
     await waitForAssistantTextQueue(assistantIndex)
     const finalPayload = resultMetaToStreamPayload(
       agentRun.state.value.resultMetadata,

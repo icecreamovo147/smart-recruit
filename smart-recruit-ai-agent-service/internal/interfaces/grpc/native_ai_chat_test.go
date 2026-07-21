@@ -1002,13 +1002,16 @@ func TestHRRuntimePromptVariablesAreAllowlistedAndFailClosed(t *testing.T) {
 		}}
 		store.promptByID[902] = &pb.PromptTemplateInfo{
 			Id: 902, Version: 7, AgentType: hrRecruitingAgentType, PromptRole: hrRuntimePromptRoleSystem, IsActive: true,
-			Content: "hr={{hr_id}} session={{ session_id }} application={{application_id}} date={{current_date}}",
+			Content: "hr={{hr_id}} session={{ session_id }} application={{application_id}} date={{current_date}} context={{context_line}} summary={{summary_section}} memory={{memory_section}}",
 		}
 		provider := &fakeChatProvider{reply: "rendered", onComplete: func(prompt string) {
 			assertPromptContains(t, prompt, "hr=77")
 			assertPromptContains(t, prompt, "session=101")
 			assertPromptContains(t, prompt, "application=99")
 			assertPromptContains(t, prompt, "date="+time.Now().Format("2006-01-02"))
+			assertPromptContains(t, prompt, "context=当前投递 ID: 99")
+			assertPromptContains(t, prompt, "summary=会话历史由运行时上下文预算器统一提供。")
+			assertPromptContains(t, prompt, "memory=当前没有额外注入的长期记忆。")
 			assertPromptNotContains(t, prompt, "{{")
 		}}
 		service := newNativeAIService(store, provider, nil, nil, nil)

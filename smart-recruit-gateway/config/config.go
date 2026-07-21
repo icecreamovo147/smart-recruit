@@ -127,7 +127,7 @@ func Load() (Config, error) {
 		return Config{}, err
 	}
 	billingHRReturnURL := env("BILLING_HR_RETURN_URL", "http://localhost:5173/hr/billing")
-	billingCandidateReturnURL := env("BILLING_CANDIDATE_RETURN_URL", "http://localhost:5174/candidate/billing")
+	billingCandidateReturnURL := env("BILLING_CANDIDATE_RETURN_URL", "http://localhost:5174/billing")
 	if err := validateBillingReturnURL("BILLING_HR_RETURN_URL", billingHRReturnURL); err != nil {
 		return Config{}, err
 	}

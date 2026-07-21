@@ -31,7 +31,7 @@ ALIPAY_SELLER_ID=<沙箱卖家 PID>
 ALIPAY_NOTIFY_URL=https://<公网联调域名>/api/v1/public/billing/webhooks/alipay
 ALIPAY_RETURN_URL=http://localhost:8080/api/v1/public/billing/returns/alipay
 BILLING_HR_RETURN_URL=http://localhost:5173/hr/billing
-BILLING_CANDIDATE_RETURN_URL=http://localhost:5174/candidate/billing
+BILLING_CANDIDATE_RETURN_URL=http://localhost:5174/billing
 ALIPAY_DESKTOP_ENABLED=true
 ALIPAY_WAP_ENABLED=true
 ```

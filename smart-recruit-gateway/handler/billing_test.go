@@ -42,7 +42,7 @@ func TestAlipayWebhookAcknowledgesOnlyDurablyAcceptedNotifications(t *testing.T)
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			clients := &rpc.Clients{Billing: webhookBillingClient{response: test.response, err: test.err}}
-			handler := NewAlipayWebhookHandler(clients, "http://localhost:5173/hr/billing", "http://localhost:5174/candidate/billing")
+			handler := NewAlipayWebhookHandler(clients, "http://localhost:5173/hr/billing", "http://localhost:5174/billing")
 			router := gin.New()
 			router.POST("/notify", handler.Notify)
 			recorder := httptest.NewRecorder()

@@ -124,6 +124,25 @@ export const sendMessageStream = async (
 
   // Track whether the abort came from the user's signal vs the timeout controller.
   let wasUserAbort = false
+  let streamCompleted = false
+  let streamErrored = false
+  let failureReported = false
+  const trackedHandlers: StreamHandlers = {
+    ...handlers,
+    onDone: (payload) => {
+      streamCompleted = true
+      handlers.onDone?.(payload)
+    },
+    onError: (errorType, errorMessage, payload) => {
+      streamErrored = true
+      handlers.onError?.(errorType, errorMessage, payload)
+    },
+  }
+  const reportFailure = (code: number, message: string, payload?: StreamPayload): void => {
+    failureReported = true
+    trackedHandlers.onError?.(String(code), message, payload || { code, msg: message })
+    streamError(code, message)
+  }
 
   // Merge external signal with timeout controller: when external fires, timeout cancels too.
   let signal: AbortSignal = timeoutController.signal
@@ -162,8 +181,7 @@ export const sendMessageStream = async (
         await silentRefresh('candidate')
         response = await fetchStream()
       } catch {
-        handlers.onError?.('401', '登录状态已失效，请重新登录', { code: 401, msg: '登录状态已失效，请重新登录' })
-        streamError(401, '登录状态已失效，请重新登录')
+        reportFailure(401, '登录状态已失效，请重新登录')
         return
       }
     }
@@ -173,13 +191,12 @@ export const sendMessageStream = async (
         const errorText = await response.text()
         const errorJson: StreamPayload = JSON.parse(errorText)
         if (errorJson.code) {
-          handlers.onError?.(String(errorJson.code), errorJson.msg || '', errorJson)
-          streamError(errorJson.code, errorJson.msg || 'AI 服务请求失败，请稍后重试')
+          reportFailure(errorJson.code, errorJson.msg || 'AI 服务请求失败，请稍后重试', errorJson)
         } else {
-          streamError(response.status, 'AI 服务请求失败，请稍后重试')
+          reportFailure(response.status, 'AI 服务请求失败，请稍后重试')
         }
       } catch {
-        streamError(response.status, 'AI 服务请求失败，请稍后重试')
+        reportFailure(response.status, 'AI 服务请求失败，请稍后重试')
       }
       return
     }
@@ -188,16 +205,16 @@ export const sendMessageStream = async (
       const text = await response.text()
       try {
         const json: StreamPayload = JSON.parse(text)
-        streamError(json.code || 500, json.msg || '响应数据格式异常')
+        reportFailure(json.code || 500, json.msg || '响应数据格式异常', json)
       } catch {
-        streamError(500, '响应数据格式异常')
+        reportFailure(500, '响应数据格式异常')
       }
       return
     }
 
     const reader = response.body?.getReader()
     if (!reader) {
-      streamError(500, '流式响应不可用')
+      reportFailure(500, '流式响应不可用')
       return
     }
 
@@ -214,7 +231,7 @@ export const sendMessageStream = async (
       buffer = blocks.pop() || ''
 
       for (const block of blocks) {
-        if (handleStreamPayload(parseSSEBlock(block), handlers)) {
+        if (handleStreamPayload(parseSSEBlock(block), trackedHandlers)) {
           shouldStop = true
           break
         }
@@ -223,18 +240,25 @@ export const sendMessageStream = async (
     }
 
     if (!shouldStop && buffer.trim()) {
-      handleStreamPayload(parseSSEBlock(buffer), handlers)
+      handleStreamPayload(parseSSEBlock(buffer), trackedHandlers)
+    }
+
+    if (!streamCompleted && !streamErrored && !wasUserAbort) {
+      const message = 'AI 服务连接已中断，请稍后重试'
+      reportFailure(502, message)
+      throw new BusinessError(502, message)
     }
   } catch (error: unknown) {
+    if (failureReported) throw error
     if (error instanceof Error && error.name === 'AbortError') {
       if (wasUserAbort) return // user-initiated abort, silent
-      streamError(504, 'AI 服务响应超时，请稍后重试')
+      reportFailure(504, 'AI 服务响应超时，请稍后重试')
       throw new BusinessError(504, 'AI 服务响应超时，请稍后重试')
     } else if (error instanceof Error) {
-      streamError(500, error.message || '流式请求失败')
+      reportFailure(500, error.message || '流式请求失败')
       throw error
     } else {
-      streamError(500, '流式请求失败')
+      reportFailure(500, '流式请求失败')
       throw new Error('流式请求失败')
     }
   } finally {

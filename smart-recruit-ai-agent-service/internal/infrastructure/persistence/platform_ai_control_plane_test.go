@@ -2,8 +2,10 @@ package persistence
 
 import (
 	"context"
+	"database/sql"
 	"encoding/json"
 	"errors"
+	"strings"
 	"testing"
 
 	"gorm.io/driver/sqlite"
@@ -15,6 +17,7 @@ func TestPlatformAICapabilityPublishIsImmutableAndAudited(t *testing.T) {
 	store := NewNativeStore(db)
 	providerID, defaultModelID, _ := seedPlatformAIModels(t, db)
 	_ = providerID
+	seedPlatformAIAgentPrompt(t, db, 10, 20, "hr_recruiting_agent", "hr_agent")
 	capability := seedPlatformAICapability(t, db, "ai.chat", PlatformAIAudienceTenantHR)
 
 	snapshot := mustCapabilitySnapshotJSON(t, capability, []int64{defaultModelID}, defaultModelID)
@@ -45,6 +48,39 @@ func TestPlatformAICapabilityPublishIsImmutableAndAudited(t *testing.T) {
 	}
 	if auditCount != 2 {
 		t.Fatalf("audit count = %d, want 2", auditCount)
+	}
+}
+
+func TestPlatformAICapabilityPublishRequiresAgentPromptClosure(t *testing.T) {
+	for _, capabilityKey := range []string{"ai.chat", "ai.agent_run", "ai.application_analysis"} {
+		t.Run(capabilityKey, func(t *testing.T) {
+			db := newPlatformAIControlPlaneTestDB(t)
+			store := NewNativeStore(db)
+			_, defaultModelID, _ := seedPlatformAIModels(t, db)
+			seedPlatformAIAgentPrompt(t, db, 10, 20, "hr_recruiting_agent", "hr_agent")
+			seedPlatformAIAgentPrompt(t, db, 11, 21, "custom", "custom")
+			capability := seedPlatformAICapability(t, db, capabilityKey, PlatformAIAudienceTenantHR)
+
+			snapshot := mustCapabilitySnapshotJSON(t, capability, []int64{defaultModelID}, defaultModelID)
+			var decoded PlatformAICapabilitySnapshot
+			if err := json.Unmarshal(snapshot, &decoded); err != nil {
+				t.Fatalf("decode snapshot: %v", err)
+			}
+			decoded.ConfigurationRef.PromptTemplateIDs = []int64{21}
+			snapshot, err := json.Marshal(decoded)
+			if err != nil {
+				t.Fatalf("encode snapshot: %v", err)
+			}
+			draft, err := store.CreatePlatformAICapabilityDraft(context.Background(), capability.ID, 91, snapshot, "invalid closure", "req-draft")
+			if err != nil {
+				t.Fatalf("create draft: %v", err)
+			}
+
+			_, err = store.PublishPlatformAICapabilityVersion(context.Background(), draft.ID, 91, "req-publish")
+			if err == nil || !strings.Contains(err.Error(), "every released Agent") {
+				t.Fatalf("publish error = %v, want Agent/Prompt closure rejection", err)
+			}
+		})
 	}
 }
 
@@ -125,10 +161,30 @@ func newPlatformAIControlPlaneTestDB(t *testing.T) *gorm.DB {
 		&platformAIConfigAuditRecord{},
 		&llmProviderRecord{},
 		&llmModelRecord{},
+		&agentConfigRecord{},
+		&promptTemplateRecord{},
 	); err != nil {
 		t.Fatalf("auto migrate: %v", err)
 	}
 	return db
+}
+
+func seedPlatformAIAgentPrompt(t *testing.T, db *gorm.DB, agentID, promptID int64, agentType, promptAgentType string) {
+	t.Helper()
+	prompt := promptTemplateRecord{
+		ID: promptID, Name: "prompt", Content: "system", Version: 1, IsActive: true,
+		AgentType: promptAgentType, PromptRole: "system",
+	}
+	if err := db.Create(&prompt).Error; err != nil {
+		t.Fatalf("create prompt: %v", err)
+	}
+	agent := agentConfigRecord{
+		ID: agentID, Name: "agent", DisplayName: "Agent", AgentType: agentType,
+		PromptTemplateID: sql.NullInt64{Int64: promptID, Valid: true}, MaxIterations: 5, IsEnabled: true,
+	}
+	if err := db.Create(&agent).Error; err != nil {
+		t.Fatalf("create agent: %v", err)
+	}
 }
 
 func seedPlatformAIModels(t *testing.T, db *gorm.DB) (int64, int64, int64) {

@@ -127,7 +127,7 @@ func (s *Commerce) ReconcilePendingPayments(ctx context.Context, limit int) erro
 			digest := sha256.Sum256(payload)
 			eventKey := "query:" + result.TradeNo + ":" + result.TradeStatus
 			if err := s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-				if err := tx.Table("billing_webhook_events").Clauses(clause.OnConflict{Columns: []clause.Column{{Name: "channel"}, {Name: "payment_environment"}, {Name: "event_key"}}, DoNothing: true}).Create(map[string]any{"channel": "alipay", "payment_environment": s.Environment(), "event_key": eventKey, "event_type": "active_query", "signature_verified": true, "payload_sha256": hex.EncodeToString(digest[:]), "payload": string(payload), "status": "processed", "processed_at": now, "created_at": now}).Error; err != nil {
+				if err := tx.Table("billing_webhook_events").Clauses(noOpConflict("event_key", "channel", "payment_environment", "event_key")).Create(map[string]any{"channel": "alipay", "payment_environment": s.Environment(), "event_key": eventKey, "event_type": "active_query", "signature_verified": true, "payload_sha256": hex.EncodeToString(digest[:]), "payload": string(payload), "status": "processed", "processed_at": now, "created_at": now}).Error; err != nil {
 					return err
 				}
 				return s.settlePaymentTx(ctx, tx, attempt.PaymentID, result.TradeNo, result.AmountFen, now)
@@ -1286,7 +1286,7 @@ func (s *Commerce) settlePaymentTx(ctx context.Context, tx *gorm.DB, paymentID u
 	if order.ID == 0 || order.AmountFen != paidAmountFen || order.Currency != "CNY" || order.Environment != s.Environment() {
 		return errors.New("Alipay order amount, currency or environment mismatch")
 	}
-	if paid.Status != "pending" && paid.Status != "closed" && paid.Status != "succeeded" {
+	if !isPaymentSettleable(paid.Status) {
 		return errors.New("billing payment is not payable")
 	}
 	if err := tx.Table("billing_payments").Where("id = ?", paid.ID).Updates(map[string]any{"status": "succeeded", "active_slot": nil, "channel_trade_no": tradeNo, "paid_at": now, "next_reconcile_at": nil, "updated_at": now}).Error; err != nil {
@@ -1300,7 +1300,7 @@ func (s *Commerce) settlePaymentTx(ctx context.Context, tx *gorm.DB, paymentID u
 		if paid.Status != "succeeded" {
 			platformobservability.DefaultMetrics.RecordBillingEvent("payment", "duplicate_success")
 			payload, _ := json.Marshal(map[string]any{"order_id": order.ID, "payment_id": paid.ID, "trade_no": tradeNo, "payment_environment": s.Environment()})
-			return tx.Table("event_outbox").Clauses(clause.OnConflict{Columns: []clause.Column{{Name: "idempotency_key"}}, DoNothing: true}).Create(map[string]any{"event_id": uuid.NewString(), "event_type": "billing.payment.duplicate_success", "aggregate_type": "billing_order", "aggregate_id": order.ID, "routing_key": "billing.payment.duplicate_success", "producer": "billing-service", "idempotency_key": fmt.Sprintf("billing-order:%d:duplicate-payment:%d", order.ID, paid.ID), "payload": string(payload), "status": 0, "created_at": now, "updated_at": now}).Error
+			return tx.Table("event_outbox").Clauses(noOpConflict("idempotency_key", "idempotency_key")).Create(map[string]any{"event_id": uuid.NewString(), "event_type": "billing.payment.duplicate_success", "aggregate_type": "billing_order", "aggregate_id": order.ID, "routing_key": "billing.payment.duplicate_success", "producer": "billing-service", "idempotency_key": fmt.Sprintf("billing-order:%d:duplicate-payment:%d", order.ID, paid.ID), "payload": string(payload), "status": 0, "created_at": now, "updated_at": now}).Error
 		}
 		return nil
 	}
@@ -1311,6 +1311,30 @@ func (s *Commerce) settlePaymentTx(ctx context.Context, tx *gorm.DB, paymentID u
 		return err
 	}
 	return s.activateOrder(ctx, tx, order, now)
+}
+
+// MySQL requires at least one assignment after ON DUPLICATE KEY UPDATE. GORM
+// cannot infer a primary column when Create receives a map, so DoNothing would
+// otherwise emit a dangling UPDATE clause. Reassigning the conflict key is a
+// deterministic no-op and keeps the surrounding settlement transaction safe.
+func noOpConflict(noOpColumn string, conflictColumns ...string) clause.OnConflict {
+	columns := make([]clause.Column, 0, len(conflictColumns))
+	for _, column := range conflictColumns {
+		columns = append(columns, clause.Column{Name: column})
+	}
+	return clause.OnConflict{
+		Columns:   columns,
+		DoUpdates: clause.AssignmentColumns([]string{noOpColumn}),
+	}
+}
+
+func isPaymentSettleable(status string) bool {
+	switch status {
+	case "created", "pending", "closing", "unknown", "closed", "succeeded":
+		return true
+	default:
+		return false
+	}
 }
 
 func (s *Commerce) ProcessAlipayNotification(ctx context.Context, fields map[string]string) error {
