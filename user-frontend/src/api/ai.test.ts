@@ -57,4 +57,14 @@ describe('candidate sendMessageStream', () => {
     expect(onDone).toHaveBeenCalledWith(expect.objectContaining({ done: true }))
     expect(onError).not.toHaveBeenCalled()
   })
+
+  it('shows purchase guidance when AI credits are exhausted', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(sseResponse([
+      JSON.stringify({ code: 40201, msg: '' }),
+    ])))
+
+    await expect(sendMessageStream({ message: 'hello' })).resolves.toBeUndefined()
+
+    expect(messageError).toHaveBeenCalledWith('AI 套餐额度不足，请购买套餐或加量包后重试')
+  })
 })

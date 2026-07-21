@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"errors"
 	"testing"
 	"time"
 
@@ -9,10 +10,17 @@ import (
 	"smart-recruit-billing-service/internal/domain/repository"
 )
 
-type fakePolicy struct{ enabled bool }
+type fakePolicy struct {
+	enabled bool
+	limit   uint64
+}
 
 func (p fakePolicy) Enabled(context.Context, model.Owner, string) (bool, error) {
 	return p.enabled, nil
+}
+
+func (p fakePolicy) ReservationCreditLimit(context.Context, model.Owner) (uint64, error) {
+	return p.limit, nil
 }
 
 type fakeRepository struct {
@@ -21,6 +29,7 @@ type fakeRepository struct {
 	reservation  model.Reservation
 	createCalls  int
 	settleUsages []model.ProviderUsage
+	rateErr      error
 }
 
 func (r *fakeRepository) EnsureMonthlyGrant(context.Context, model.Owner, time.Time) error {
@@ -31,7 +40,7 @@ func (r *fakeRepository) Balance(context.Context, model.Owner, time.Time) (model
 	return r.balance, nil
 }
 func (r *fakeRepository) CurrentRate(context.Context, string, string, time.Time) (model.RateCard, error) {
-	return r.rate, nil
+	return r.rate, r.rateErr
 }
 func (r *fakeRepository) CreateReservation(_ context.Context, value model.Reservation) (model.Reservation, model.Balance, bool, error) {
 	r.createCalls++
@@ -79,9 +88,9 @@ func TestShadowModeRecordsReservationWhenBalanceIsEmpty(t *testing.T) {
 	}
 }
 
-func TestEnforceModeRejectsBeforeRepositoryWrite(t *testing.T) {
+func TestEnforceModeUsesRemainingBalanceBelowSingleRunCeiling(t *testing.T) {
 	repo := &fakeRepository{balance: model.Balance{AvailableCredits: 2}}
-	billing, err := NewBilling(repo, fakePolicy{enabled: true}, model.ModeEnforce)
+	billing, err := NewBilling(repo, fakePolicy{enabled: true, limit: 10}, model.ModeEnforce)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -92,11 +101,62 @@ func TestEnforceModeRejectsBeforeRepositoryWrite(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if result.Allowed || result.Reason != "insufficient_credits" {
+	if !result.Allowed || result.Reservation.ReservedCredits != 2 {
 		t.Fatalf("result = %+v", result)
 	}
-	if repo.createCalls != 0 {
+	if repo.createCalls != 1 {
 		t.Fatalf("create calls = %d", repo.createCalls)
+	}
+}
+
+func TestEnforceModeRejectsZeroBalanceBeforeRepositoryWrite(t *testing.T) {
+	repo := &fakeRepository{}
+	billing, err := NewBilling(repo, fakePolicy{enabled: true, limit: 10}, model.ModeEnforce)
+	if err != nil {
+		t.Fatal(err)
+	}
+	result, err := billing.Reserve(context.Background(), ReserveCommand{
+		Owner: model.Owner{Type: model.OwnerUser, ID: 3}, UserID: 3, Capability: "ai.chat.enabled",
+		Operation: "chat", IdempotencyKey: "request-zero",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if result.Allowed || result.Reason != "insufficient_credits" || repo.createCalls != 0 {
+		t.Fatalf("result = %+v, create calls = %d", result, repo.createCalls)
+	}
+}
+
+func TestReserveUsesPlanSingleRunLimit(t *testing.T) {
+	repo := &fakeRepository{balance: model.Balance{AvailableCredits: 500}}
+	billing, err := NewBilling(repo, fakePolicy{enabled: true, limit: 75}, model.ModeEnforce)
+	if err != nil {
+		t.Fatal(err)
+	}
+	result, err := billing.Reserve(context.Background(), ReserveCommand{
+		Owner: model.Owner{Type: model.OwnerTenant, ID: 9}, UserID: 7, Capability: "ai.chat",
+		Operation: "hr_chat", IdempotencyKey: "request-limit",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !result.Allowed || result.Reservation.ReservedCredits != 75 {
+		t.Fatalf("result = %+v", result)
+	}
+}
+
+func TestEnforceModeRejectsUnpricedModelBeforeReservation(t *testing.T) {
+	repo := &fakeRepository{balance: model.Balance{AvailableCredits: 100}, rateErr: errors.New("rate not found")}
+	billing, err := NewBilling(repo, fakePolicy{enabled: true, limit: 10}, model.ModeEnforce)
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, err = billing.Reserve(context.Background(), ReserveCommand{
+		Owner: model.Owner{Type: model.OwnerTenant, ID: 9}, UserID: 7, Capability: "ai.chat",
+		Operation: "hr_chat", ProviderKey: "openai", ModelKey: "unpriced", IdempotencyKey: "request-unpriced",
+	})
+	if err == nil || repo.createCalls != 0 {
+		t.Fatalf("err = %v, create calls = %d", err, repo.createCalls)
 	}
 }
 

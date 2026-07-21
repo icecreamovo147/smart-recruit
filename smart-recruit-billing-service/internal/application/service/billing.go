@@ -49,6 +49,12 @@ type capabilityVersionPolicy interface {
 	ReleaseVersionID(context.Context, model.Owner, string) (uint64, error)
 }
 
+type reservationLimitPolicy interface {
+	ReservationCreditLimit(context.Context, model.Owner) (uint64, error)
+}
+
+const defaultReservationCreditLimit uint64 = 20
+
 func (b *Billing) CheckAccess(ctx context.Context, owner model.Owner, capability string, estimated uint64) (AccessDecision, error) {
 	if err := owner.Validate(); err != nil {
 		return AccessDecision{}, err
@@ -112,12 +118,39 @@ func (b *Billing) Reserve(ctx context.Context, command ReserveCommand) (ReserveR
 	if command.TTL > 2*time.Hour {
 		return ReserveResult{}, errors.New("reservation TTL exceeds two hours")
 	}
-	decision, err := b.CheckAccess(ctx, command.Owner, command.Capability, command.EstimatedCredits)
+	if command.EstimatedCredits == 0 {
+		command.EstimatedCredits = defaultReservationCreditLimit
+		if policy, ok := b.policy.(reservationLimitPolicy); ok {
+			limit, limitErr := policy.ReservationCreditLimit(ctx, command.Owner)
+			if limitErr != nil {
+				return ReserveResult{}, fmt.Errorf("resolve AI single-run credit limit: %w", limitErr)
+			}
+			if limit > 0 {
+				command.EstimatedCredits = limit
+			}
+		}
+	}
+	decision, err := b.CheckAccess(ctx, command.Owner, command.Capability, 0)
 	if err != nil {
 		return ReserveResult{}, err
 	}
 	if !decision.Allowed {
 		return ReserveResult{Allowed: false, Reason: decision.Reason, Balance: decision.Balance, CapabilityVersionID: decision.CapabilityVersionID}, nil
+	}
+	if b.mode == model.ModeEnforce {
+		// Fail before invoking the provider when the exact provider/model cannot
+		// be priced. Otherwise usage could succeed but remain impossible to bill.
+		if _, rateErr := b.repository.CurrentRate(ctx, strings.TrimSpace(command.ProviderKey), strings.TrimSpace(command.ModelKey), b.now().UTC()); rateErr != nil {
+			return ReserveResult{}, fmt.Errorf("load AI rate card for %s/%s: %w", command.ProviderKey, command.ModelKey, rateErr)
+		}
+		if decision.Balance.AvailableCredits == 0 {
+			return ReserveResult{Allowed: false, Reason: "insufficient_credits", Balance: decision.Balance, CapabilityVersionID: decision.CapabilityVersionID}, nil
+		}
+		// A low balance may still fund a small run. Reserve the lower of the
+		// commercial single-run ceiling and the remaining prepaid balance.
+		if command.EstimatedCredits > decision.Balance.AvailableCredits {
+			command.EstimatedCredits = decision.Balance.AvailableCredits
+		}
 	}
 	now := b.now().UTC()
 	reservation := model.Reservation{

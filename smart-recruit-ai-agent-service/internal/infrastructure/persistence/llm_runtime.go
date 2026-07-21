@@ -238,7 +238,10 @@ func (s *NativeStore) CompleteStructured(ctx context.Context, systemPrompt, user
 	if err != nil {
 		return recruitingruntime.StructuredCompletionResult{}, err
 	}
-	return recruitingruntime.StructuredCompletionResult{Content: result.Content, ModelName: result.ModelName}, nil
+	return recruitingruntime.StructuredCompletionResult{
+		Content: result.Content, ProviderKey: auditProviderName(cfg.ProviderName, cfg.ProviderType),
+		ModelName: result.ModelName, TokenUsage: result.TokenUsage,
+	}, nil
 }
 
 func (s *NativeStore) structuredRuntimeClient(ctx context.Context, cfg selectedLLMConfig) (*commonsai.Client, error) {

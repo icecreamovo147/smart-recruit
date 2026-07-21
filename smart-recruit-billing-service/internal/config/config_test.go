@@ -8,6 +8,7 @@ import (
 )
 
 func TestLoadUsesRelativeKeyFilesAndDefaults(t *testing.T) {
+	t.Setenv("AI_BILLING_MODE", "")
 	dir := t.TempDir()
 	if err := os.WriteFile(filepath.Join(dir, "private.pem"), []byte("private-value\n"), 0o600); err != nil {
 		t.Fatal(err)
@@ -37,6 +38,21 @@ alipay:
 	}
 	if cfg.Alipay.PrivateKey != "private-value" || cfg.Alipay.VerifyPublicKey != "public-value" {
 		t.Fatalf("key files not loaded: private=%q public=%q", cfg.Alipay.PrivateKey, cfg.Alipay.VerifyPublicKey)
+	}
+}
+
+func TestLoadEnvironmentOverridesBillingMode(t *testing.T) {
+	t.Setenv("AI_BILLING_MODE", "enforce")
+	path := filepath.Join(t.TempDir(), "config.yaml")
+	if err := os.WriteFile(path, []byte("billing:\n  mode: shadow\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	cfg, err := Load(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cfg.Billing.Mode != "enforce" {
+		t.Fatalf("billing mode = %q, want enforce", cfg.Billing.Mode)
 	}
 }
 

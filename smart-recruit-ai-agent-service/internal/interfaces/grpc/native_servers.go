@@ -833,7 +833,7 @@ func NewNativeRuntimeDeps(deps RuntimeDeps) aiagentruntime.Deps {
 		MCP:                    nativeMCPService{store: deps.Store, runner: mcpRunner},
 		Skill:                  nativeSkillService{store: deps.Store},
 		AgentSkill:             nativeAgentSkillService{store: deps.Store, embedding: embeddingService},
-		RecruitingIntelligence: nativeRecruitingIntelligenceService{store: recruitingStore, provider: deps.Provider, structured: newRecruitingStructuredRuntime(deps.Store, deps.Provider, deps.RecruitingPolicy), policy: deps.RecruitingPolicy, auth: deps.Auth, applications: deps.Applications, jobs: deps.Jobs},
+		RecruitingIntelligence: nativeRecruitingIntelligenceService{store: recruitingStore, provider: deps.Provider, structured: newRecruitingStructuredRuntime(deps.Store, deps.Provider, deps.RecruitingPolicy), policy: deps.RecruitingPolicy, auth: deps.Auth, applications: deps.Applications, jobs: deps.Jobs, meter: ai},
 		EmbeddingConfig:        embedding,
 		PlatformAIControlPlane: deps.PlatformAI,
 		LongTasks: aiagentruntime.LongTaskControls{
@@ -1042,6 +1042,7 @@ type hrChatRuntimeResult struct {
 	jobTitle            string
 	status              int32
 	providerUnavailable bool
+	providerInvoked     bool
 	fallbackUsed        bool
 	runtimeWarnings     []string
 }
@@ -1382,6 +1383,7 @@ func (s *nativeAIService) runHRChatRuntimeWithOptions(ctx context.Context, req *
 				adkCtx = commonsai.WithAgentRunState(adkCtx, state)
 				completionOptions := hrRuntimeCompletionOptions(governance)
 				completionOptions.PrepareMessages = budgetController.prepare
+				result.providerInvoked = true
 				toolReply, toolMetadata, toolErr = adkProvider.ChatWithRecruitingADK(
 					adkCtx,
 					result.modelID,
@@ -1410,6 +1412,7 @@ func (s *nativeAIService) runHRChatRuntimeWithOptions(ctx context.Context, req *
 			}
 			completionOptions := hrRuntimeCompletionOptions(governance)
 			completionOptions.PrepareMessages = budgetController.prepare
+			result.providerInvoked = true
 			toolReply, toolMetadata, toolErr = toolProvider.ChatWithRecruitingTools(
 				ctx,
 				result.modelID,
@@ -1508,6 +1511,7 @@ func (s *nativeAIService) runHRChatRuntimeWithOptions(ctx context.Context, req *
 			return result, err
 		}
 		var completionResult commonsai.GenerateResult
+		result.providerInvoked = true
 		completionResult, err = s.completeWithUsage(ctx, contextPrompt, result.modelID, hrRuntimeCompletionOptions(governance))
 		reply = completionResult.Content
 		result.billingTokenUsage = cloneTokenUsage(completionResult.TokenUsage)
@@ -4113,7 +4117,11 @@ func (s *nativeAIService) recordHRUsageAudit(ctx context.Context, req *pb.ChatRe
 		row.CompletionTokens = result.billingTokenUsage.CompletionTokens
 	}
 	_, err := auditStore.RecordUsageAudit(ctx, row)
-	s.bestEffortMeterUsage(ctx, row)
+	if result.providerInvoked {
+		s.bestEffortMeterUsage(ctx, row)
+	} else {
+		s.cancelUnsettledBilling(ctx, "hr_runtime_completed_without_provider_call")
+	}
 	return err
 }
 
@@ -5776,13 +5784,17 @@ func agentRunExecutionContext(ctx context.Context, run AgentRunRow, payload agen
 	if tenantID <= 0 {
 		tenantID = run.TenantID
 	}
-	return platformmetadata.WithTenantActor(ctx, platformmetadata.TenantContext{
+	ctx = platformmetadata.WithTenantActor(ctx, platformmetadata.TenantContext{
 		TenantID:     tenantID,
 		MembershipID: payload.AuthMembershipID,
 		UserID:       authUserID,
 		AccountType:  accountType,
 		ClientApp:    payload.AuthClientApp,
 	})
+	// Durable execution has no inbound HTTP request after dispatch. Pin a stable
+	// request identity so Billing reservation retries reuse the same idempotency
+	// key instead of creating a second reservation for the same Agent Run.
+	return context.WithValue(ctx, platformmetadata.KeyRequestID, fmt.Sprintf("agent-run:%d", run.ID))
 }
 
 func isCancelableAgentRunStatus(status string) bool {
@@ -6032,21 +6044,36 @@ type nativeRecruitingIntelligenceService struct {
 	applications applicationSnapshotClient
 	jobs         hr_tools.JobClient
 	observer     recruitingruntime.Observer
+	meter        *nativeAIService
 }
 
-func (s nativeRecruitingIntelligenceService) capabilityRuntimeContext(ctx context.Context, capability string, versionID, requestedModelID int64) (context.Context, error) {
+func (s nativeRecruitingIntelligenceService) capabilityRuntimeContext(ctx context.Context, capability string, versionID, requestedModelID int64) (context.Context, RuntimeModelInfo, error) {
 	if versionID <= 0 {
-		return ctx, nil
+		return ctx, RuntimeModelInfo{}, nil
 	}
 	resolver, ok := s.store.(capabilityRuntimeModelResolver)
 	if !ok {
-		return ctx, errors.New("platform AI capability resolver is unavailable")
+		return ctx, RuntimeModelInfo{}, errors.New("platform AI capability resolver is unavailable")
 	}
 	resolved, err := resolver.ResolveCapabilityRuntimeModel(ctx, capability, platformAIAudienceTenantHR, versionID, requestedModelID)
 	if err != nil {
-		return ctx, err
+		return ctx, RuntimeModelInfo{}, err
 	}
-	return recruitingruntime.WithCapabilityRuntime(ctx, resolved.RequestedModelID, resolved.EffectiveModelID, resolved.CapabilityVersionID, resolved.FallbackReason, resolved.CapabilitySnapshotHash, resolved.ConfigurationRefs.PromptTemplateIDs), nil
+	runtimeModel := RuntimeModelInfo{
+		ID: resolved.EffectiveModelID, Name: resolved.ModelName, ProviderName: resolved.ProviderName,
+		RequestedModelID: resolved.RequestedModelID, FallbackReason: resolved.FallbackReason,
+		CapabilityVersionID: resolved.CapabilityVersionID, CapabilitySnapshotHash: resolved.CapabilitySnapshotHash,
+		ContextWindowTokens: resolved.ContextWindowTokens, MaxOutputTokens: resolved.MaxOutputTokens,
+		ConfigurationRefs: resolved.ConfigurationRefs,
+	}
+	return withRecruitingCapabilityRuntime(ctx, runtimeModel), runtimeModel, nil
+}
+
+func withRecruitingCapabilityRuntime(ctx context.Context, model RuntimeModelInfo) context.Context {
+	return recruitingruntime.WithCapabilityRuntime(
+		ctx, model.RequestedModelID, model.ID, model.CapabilityVersionID,
+		model.FallbackReason, model.CapabilitySnapshotHash, model.ConfigurationRefs.PromptTemplateIDs,
+	)
 }
 
 func (s nativeRecruitingIntelligenceService) recruitingObserver() recruitingruntime.Observer {
@@ -6386,7 +6413,15 @@ func (s nativeRecruitingIntelligenceService) ParseResumeProfile(ctx context.Cont
 			return &pb.GetResumeProfileResponse{Code: authErr.code, Msg: authErr.message}, nil
 		}
 		var runtimeErr error
-		ctx, runtimeErr = s.capabilityRuntimeContext(ctx, "ai.resume_parse", req.GetCapabilityVersionId(), req.GetModelId())
+		var runtimeModel RuntimeModelInfo
+		if s.meter != nil {
+			runtimeModel, runtimeErr = s.meter.resolveCapabilityRuntimeModel(ctx, billingOwnerTenant, req.GetStaffUserId(), "ai.resume_parse", platformAIAudienceTenantHR, req.GetModelId())
+			if runtimeErr == nil {
+				ctx = withRecruitingCapabilityRuntime(ctx, runtimeModel)
+			}
+		} else {
+			ctx, runtimeModel, runtimeErr = s.capabilityRuntimeContext(ctx, "ai.resume_parse", req.GetCapabilityVersionId(), req.GetModelId())
+		}
 		if runtimeErr != nil {
 			finalizer.classify("configuration_failure", "error")
 			return &pb.GetResumeProfileResponse{Code: configCodeUnavailable, Msg: runtimeErr.Error()}, nil
@@ -6406,12 +6441,24 @@ func (s nativeRecruitingIntelligenceService) ParseResumeProfile(ctx context.Cont
 			finalizer.classify("domain_validation_failure", "error")
 			return &pb.GetResumeProfileResponse{Code: errs.ErrBadRequest, Msg: "resume parsed_text is empty"}, nil
 		}
+		if s.meter != nil {
+			ctx, runtimeErr = s.meter.reserveAIBilling(ctx, billingOwnerTenant, req.GetStaffUserId(), "ai.resume_parse", "resume_parse", runtimeModel.ProviderName, runtimeModel.Name, len([]rune(source.ParsedText)), runtimeModel)
+			if runtimeErr != nil {
+				finalizer.classify("billing_failure", "error")
+				return nil, runtimeErr
+			}
+			defer s.meter.cancelUnsettledBilling(ctx, "resume_parse_completed_without_provider_usage")
+		}
 		sourceEvent := recruitingOperationEvent(ctx, "resume_profile", "resume", resumeID, "source", "success", "success", false, sourceStarted)
 		sourceEvent.InputCount = 1
 		s.observeRecruiting(ctx, sourceEvent)
 		totalCtx, parseCtx, cancel := s.policy.ResumeExecutionContexts(ctx)
 		defer cancel()
 		parseCtx = recruitingruntime.WithObservationMetadata(parseCtx, platformmetadata.GetRequestID(ctx), "resume", resumeID)
+		parseCtx, billingUsage := recruitingruntime.WithBillingUsageCollector(parseCtx)
+		if s.meter != nil {
+			defer s.meter.finalizeStructuredBilling(ctx, runtimeModel, billingUsage)
+		}
 		generationStarted := time.Now()
 		draft, err := s.generateResumeProfileDraft(parseCtx, source)
 		if err != nil {
@@ -6497,14 +6544,34 @@ func (s nativeRecruitingIntelligenceService) EvaluateCandidateMatch(ctx context.
 			return recruitingMatchAuthResponse(authErr), nil
 		}
 		var runtimeErr error
-		ctx, runtimeErr = s.capabilityRuntimeContext(ctx, "ai.match_evaluation", req.GetCapabilityVersionId(), req.GetModelId())
+		var runtimeModel RuntimeModelInfo
+		if s.meter != nil {
+			runtimeModel, runtimeErr = s.meter.resolveCapabilityRuntimeModel(ctx, billingOwnerTenant, req.GetStaffUserId(), "ai.match_evaluation", platformAIAudienceTenantHR, req.GetModelId())
+			if runtimeErr == nil {
+				ctx = withRecruitingCapabilityRuntime(ctx, runtimeModel)
+			}
+		} else {
+			ctx, runtimeModel, runtimeErr = s.capabilityRuntimeContext(ctx, "ai.match_evaluation", req.GetCapabilityVersionId(), req.GetModelId())
+		}
 		if runtimeErr != nil {
 			finalizer.classify("configuration_failure", "error")
 			return &pb.GetCandidateMatchEvaluationResponse{Code: configCodeUnavailable, Msg: runtimeErr.Error()}, nil
 		}
+		if s.meter != nil {
+			ctx, runtimeErr = s.meter.reserveAIBilling(ctx, billingOwnerTenant, req.GetStaffUserId(), "ai.match_evaluation", "match_evaluation", runtimeModel.ProviderName, runtimeModel.Name, 0, runtimeModel)
+			if runtimeErr != nil {
+				finalizer.classify("billing_failure", "error")
+				return nil, runtimeErr
+			}
+			defer s.meter.cancelUnsettledBilling(ctx, "match_evaluation_completed_without_provider_usage")
+		}
 		totalCtx, generationCtx, cancel := s.policy.CandidateMatchExecutionContexts(ctx)
 		defer cancel()
 		generationCtx = recruitingruntime.WithObservationMetadata(generationCtx, platformmetadata.GetRequestID(ctx), "application", req.GetApplicationId())
+		generationCtx, billingUsage := recruitingruntime.WithBillingUsageCollector(generationCtx)
+		if s.meter != nil {
+			defer s.meter.finalizeStructuredBilling(ctx, runtimeModel, billingUsage)
+		}
 		sourceStarted := time.Now()
 		source, found, err := generationStore.GetRecruitingMatchSource(generationCtx, req.GetApplicationId())
 		if err != nil {

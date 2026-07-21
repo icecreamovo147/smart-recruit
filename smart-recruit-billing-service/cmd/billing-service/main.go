@@ -101,6 +101,13 @@ func serveBilling(addr, configPath string) error {
 	if err != nil {
 		return err
 	}
+	if mode == model.ModeEnforce {
+		readinessCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		defer cancel()
+		if err := repo.ValidateEnforcementReadiness(readinessCtx, time.Now().UTC()); err != nil {
+			return fmt.Errorf("AI billing enforcement readiness: %w", err)
+		}
+	}
 	var alipay service.AlipayGateway
 	configured := strings.TrimSpace(alipayConfig.AppID) != "" || strings.TrimSpace(alipayConfig.PrivateKey) != "" || strings.TrimSpace(alipayConfig.VerifyPublicKey) != "" || strings.TrimSpace(alipayConfig.SellerID) != ""
 	if configured || alipayRequired {

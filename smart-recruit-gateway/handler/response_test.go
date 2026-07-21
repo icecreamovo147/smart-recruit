@@ -16,3 +16,12 @@ func TestPublicErrorPreservesFailedPreconditionMessage(t *testing.T) {
 		t.Fatalf("PublicError() = %#v, want code 409 and payment guidance", info)
 	}
 }
+
+func TestPublicErrorMapsInsufficientAICredits(t *testing.T) {
+	t.Parallel()
+
+	info := PublicError(status.Error(codes.ResourceExhausted, "insufficient_credits"))
+	if info.Code != 40201 || info.Msg != "AI 套餐额度不足，请购买套餐或加量包后重试" {
+		t.Fatalf("PublicError() = %#v, want AI credit purchase guidance", info)
+	}
+}

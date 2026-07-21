@@ -2654,32 +2654,69 @@ type aiStoreWithoutRecent struct {
 }
 
 type fakeAIStore struct {
-	runSteps            map[int64][]AgentRunStepRow
-	nextSessionID       int64
-	nextMessageID       int64
-	ensureCalls         []ensureChatSessionCall
-	lookupCalls         []lookupChatSessionCall
-	listMessageCalls    []listChatMessagesCall
-	activePromptCalls   []activePromptCall
-	sessionOwners       map[int64]fakeChatSessionOwner
-	sessions            []ChatSessionRow
-	messages            []ChatMessageRow
-	activePrompt        *pb.PromptTemplateInfo
-	activePromptErr     error
-	promptTemplates     []*pb.PromptTemplateInfo
-	promptByID          map[int64]*pb.PromptTemplateInfo
-	agentConfigs        []*pb.AgentConfigInfo
-	agentSkills         []*pb.AgentSkillInfo
-	agentSkillVersions  map[int64][]*pb.AgentSkillVersionInfo
-	llmModels           []*pb.LlmModelInfo
-	toolTraces          []ToolTraceRow
-	candidateContext    CandidateRuntimeContext
-	usageAudits         []UsageAuditRow
-	candidateAudits     []CandidateUsageAuditRow
-	matchSnapshot       RecruitingCandidateMatchSnapshot
-	matchFound          bool
-	matchErr            error
-	contextModelUpdates []contextModelUpdate
+	runSteps             map[int64][]AgentRunStepRow
+	nextSessionID        int64
+	nextMessageID        int64
+	ensureCalls          []ensureChatSessionCall
+	lookupCalls          []lookupChatSessionCall
+	listMessageCalls     []listChatMessagesCall
+	activePromptCalls    []activePromptCall
+	sessionOwners        map[int64]fakeChatSessionOwner
+	sessions             []ChatSessionRow
+	messages             []ChatMessageRow
+	activePrompt         *pb.PromptTemplateInfo
+	activePromptErr      error
+	promptTemplates      []*pb.PromptTemplateInfo
+	promptByID           map[int64]*pb.PromptTemplateInfo
+	agentConfigs         []*pb.AgentConfigInfo
+	agentSkills          []*pb.AgentSkillInfo
+	agentSkillVersions   map[int64][]*pb.AgentSkillVersionInfo
+	llmModels            []*pb.LlmModelInfo
+	toolTraces           []ToolTraceRow
+	candidateContext     CandidateRuntimeContext
+	usageAudits          []UsageAuditRow
+	candidateAudits      []CandidateUsageAuditRow
+	matchSnapshot        RecruitingCandidateMatchSnapshot
+	matchFound           bool
+	matchErr             error
+	contextModelUpdates  []contextModelUpdate
+	billingOutboxRecord  *BillingOutboxReservation
+	billingSettlement    *pb.SettleAIUsageRequest
+	billingCancellation  *pb.CancelAIUsageRequest
+	billingOutboxStatus  string
+	billingSettlementErr error
+}
+
+func (s *fakeAIStore) CreateBillingOutboxReservation(_ context.Context, record BillingOutboxReservation) error {
+	copyRecord := record
+	s.billingOutboxRecord = &copyRecord
+	s.billingOutboxStatus = "reserved"
+	return nil
+}
+
+func (s *fakeAIStore) QueueBillingOutboxSettlement(_ context.Context, request *pb.SettleAIUsageRequest) error {
+	if s.billingSettlementErr != nil {
+		return s.billingSettlementErr
+	}
+	s.billingSettlement = request
+	s.billingOutboxStatus = "pending_settle"
+	return nil
+}
+
+func (s *fakeAIStore) QueueBillingOutboxCancellation(_ context.Context, request *pb.CancelAIUsageRequest) error {
+	s.billingCancellation = request
+	s.billingOutboxStatus = "pending_cancel"
+	return nil
+}
+
+func (s *fakeAIStore) MarkBillingOutboxSettled(context.Context, string) error {
+	s.billingOutboxStatus = "settled"
+	return nil
+}
+
+func (s *fakeAIStore) MarkBillingOutboxCancelled(context.Context, string) error {
+	s.billingOutboxStatus = "cancelled"
+	return nil
 }
 
 type contextModelUpdate struct {

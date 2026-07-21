@@ -16,7 +16,7 @@ cp smart-recruit-billing-service/internal/config/config.example.yaml smart-recru
 
 ## Docker/兼容环境变量
 
-未传递 `--config` 的容器部署仍可使用以下环境变量：
+容器部署可使用以下环境变量。`AI_BILLING_MODE` 始终显式覆盖 YAML 中的 `billing.mode`，因此本地脚本和容器使用同一个开关：
 
 ```dotenv
 AI_BILLING_MODE=shadow
@@ -54,9 +54,46 @@ ALIPAY_WAP_ENABLED=true
 
 - 本地配置 `billing.mode: shadow`：Billing Service 记录真实用量和供应商成本，但不因额度不足拒绝预占。
 - 本地配置 `billing.mode: enforce`：Billing Service 在调用模型前强制预占额度；权益关闭或余额不足时拒绝调用。
-- AI Agent Service 的故障关闭策略仍由进程变量 `AI_BILLING_MODE` 控制。切换到强制模式时，应使用 `AI_BILLING_MODE=enforce ./start-dev.sh ...`，确保 Billing Service 不可用时 AI 也会拒绝调用。
+- AI Agent Service 的故障关闭策略也由 `AI_BILLING_MODE` 控制。切换到强制模式时，使用 `AI_BILLING_MODE=enforce ./start-dev.sh ...`；Billing 与 AI Agent 会同时进入 enforce，且 AI Agent 会拒绝模式不一致的 Billing 响应。
+- enforce 启动前置检查要求至少存在一张当前有效的已发布费率卡和一个额度来源；每次预占还会检查本次实际 `provider_key/model_key` 的精确费率，未定价模型不会被调用。
 
 从 `shadow` 切换到 `enforce` 前，应至少完成一个完整自然月的成本数据校准，发布正式费率卡和价格版本，并确认所有存量试点租户已有 AI 权益与月度额度。当前阶段不包含生产支付宝密钥、自动续费、后付费、发票或生产营收统计。
+
+## AI 额度结算与对账
+
+所有会调用大模型的候选人端与招聘管理端能力，都在调用前创建额度预占。单次预占上限从生效套餐的 `ai.single_run.max_credits` 解析；旧价格快照缺少该字段时兼容使用 20。聊天、Agent Run、应用分析、简历解析和匹配评估均以上游返回的实际 token 结算；纯确定性、未调用模型的路径取消预占，不扣额度。
+
+AI Agent 会先把完整结算或取消请求写入 `ai_billing_settlement_outbox`，再同步调用 Billing。同步失败由后台指数退避重试，进程重启后继续处理；达到最大次数的记录进入 `dead`，必须告警并人工修复。Billing 不会把仍有待投递或 dead 证据的预占按超时自动释放。
+
+常用对账查询：
+
+```sql
+-- 待重试、处理中和死信结算
+SELECT reservation_no, owner_type, owner_id, operation, status,
+       retry_count, next_attempt_at, last_error, updated_at
+FROM ai_billing_settlement_outbox
+WHERE status IN ('reserved', 'pending_settle', 'processing_settle',
+                 'pending_cancel', 'processing_cancel', 'dead')
+ORDER BY updated_at;
+
+-- 已结算预占与实际用量
+SELECT r.reservation_no, r.owner_type, r.owner_id, r.operation,
+       r.reserved_credits, r.settled_credits, r.status,
+       COUNT(u.id) AS provider_calls,
+       COALESCE(SUM(u.credits_charged), 0) AS usage_credits
+FROM ai_credit_reservations r
+LEFT JOIN ai_usage_events u ON u.reservation_id = r.id
+GROUP BY r.id
+HAVING r.settled_credits <> usage_credits OR r.status = 'active';
+
+-- enforce 账本按所有者核对；reserve + release + consume 应可解释余额变化
+SELECT owner_type, owner_id, entry_type, SUM(credits_delta) AS credits_delta
+FROM ai_credit_ledger
+GROUP BY owner_type, owner_id, entry_type
+ORDER BY owner_type, owner_id, entry_type;
+```
+
+死信修复前先核对 Billing 中的预占和用量事件。原结算请求保存在 outbox 的 `request_payload`，必须沿用其中的 `idempotency_key` 重放，禁止生成新键或直接修改额度余额。余额不足统一返回业务码 `40201`，HR 与候选人端提示前往套餐/加量包购买。
 
 ## 支付安全约束
 

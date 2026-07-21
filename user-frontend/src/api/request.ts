@@ -101,6 +101,7 @@ const friendlyBusinessMessage = (code: number, msg: string): string => {
   if (code === 4003) return msg || '你已经投递过这个岗位'
   if (code === 4004) return msg || '该岗位已下架，无法投递'
   if (code === 404) return msg || '请求的资源不存在或已失效'
+  if (code === 40201) return msg || 'AI 套餐额度不足，请购买套餐或加量包后重试'
   if (code === 429) return msg || '请求过于频繁，请稍后再试'
   if (code === 42901) return msg || '今日 AI 使用次数已达上限，请明天再试'
   if (code === 42902) return msg || 'AI 请求太频繁，请稍后再试'

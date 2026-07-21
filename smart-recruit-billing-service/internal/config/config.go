@@ -68,6 +68,13 @@ func Load(path string) (Config, error) {
 		return Config{}, fmt.Errorf("decode billing config %q: %w", path, err)
 	}
 	cfg.Billing.Mode = strings.TrimSpace(cfg.Billing.Mode)
+	// Runtime environment is the deployment control plane. A checked-in or
+	// machine-local YAML file may provide a safe default, but an explicit mode
+	// must override it so Billing and AI Agent cannot silently run in different
+	// enforcement modes.
+	if mode := strings.TrimSpace(os.Getenv("AI_BILLING_MODE")); mode != "" {
+		cfg.Billing.Mode = mode
+	}
 	if cfg.Billing.Mode != "shadow" && cfg.Billing.Mode != "enforce" {
 		return Config{}, errors.New("billing.mode must be shadow or enforce")
 	}

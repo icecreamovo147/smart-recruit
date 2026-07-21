@@ -24,6 +24,31 @@ func NewGormRepository(db *gorm.DB) (*GormRepository, error) {
 	return &GormRepository{db: db}, nil
 }
 
+// ValidateEnforcementReadiness prevents an enforce-mode process from serving
+// when it cannot price model usage or provision any prepaid credit source.
+func (r *GormRepository) ValidateEnforcementReadiness(ctx context.Context, now time.Time) error {
+	var publishedRates int64
+	if err := r.db.WithContext(ctx).Table("ai_rate_cards").
+		Where("status = 'published' AND effective_at <= ? AND (retired_at IS NULL OR retired_at > ?)", now, now).
+		Count(&publishedRates).Error; err != nil {
+		return fmt.Errorf("count published AI rate cards: %w", err)
+	}
+	if publishedRates == 0 {
+		return errors.New("enforce mode requires at least one effective published AI rate card")
+	}
+	var creditSources int64
+	if err := r.db.WithContext(ctx).Raw(`SELECT
+		(SELECT COUNT(*) FROM billing_price_versions WHERE status = 'published' AND included_credits > 0 AND effective_at <= ?) +
+		(SELECT COUNT(*) FROM platform_plan_entitlements WHERE entitlement_key = 'ai.credits.monthly'
+		 AND CAST(JSON_UNQUOTE(value_json) AS UNSIGNED) > 0)`, now).Scan(&creditSources).Error; err != nil {
+		return fmt.Errorf("count AI credit sources: %w", err)
+	}
+	if creditSources == 0 {
+		return errors.New("enforce mode requires at least one published AI credit source")
+	}
+	return nil
+}
+
 type creditGrantRow struct {
 	ID               uint64     `gorm:"column:id"`
 	RemainingCredits uint64     `gorm:"column:remaining_credits"`
@@ -364,6 +389,20 @@ func (r *GormRepository) SettleReservation(ctx context.Context, reservationNo st
 			remainingCharge -= usageCharge
 		}
 		if reservation.EnforcementMode == string(model.ModeEnforce) {
+			if reservation.ReservedCredits > 0 {
+				gross, err := grossGrantBalance(ctx, tx, owner, now, false)
+				if err != nil {
+					return err
+				}
+				if err := tx.Create(&ledgerRow{
+					EntryID: uuid.NewString(), OwnerType: reservation.OwnerType, OwnerID: reservation.OwnerID,
+					ReservationID: &reservation.ID, EntryType: "release", CreditsDelta: int64(reservation.ReservedCredits),
+					BalanceAfter: int64(gross), IdempotencyKey: "settle-release:" + idempotencyKey,
+					Description: "release AI usage reservation before actual charge", CreatedAt: now,
+				}).Error; err != nil {
+					return err
+				}
+			}
 			if err := consumeGrants(ctx, tx, reservation, chargedCredits, idempotencyKey, now); err != nil {
 				return err
 			}
@@ -532,7 +571,14 @@ func (r *GormRepository) RunMaintenance(ctx context.Context, now time.Time) erro
 			}
 		}
 		var reservations []reservationRow
-		if err := tx.Clauses(clause.Locking{Strength: "UPDATE", Options: "SKIP LOCKED"}).Where("status = 'active' AND expires_at <= ?", now).Limit(500).Find(&reservations).Error; err != nil {
+		if err := tx.Clauses(clause.Locking{Strength: "UPDATE", Options: "SKIP LOCKED"}).
+			Where("status = 'active' AND expires_at <= ?", now).
+			Where(`NOT EXISTS (
+				SELECT 1 FROM ai_billing_settlement_outbox delivery
+				WHERE delivery.reservation_no = ai_credit_reservations.reservation_no
+				  AND delivery.status IN ('reserved','pending_settle','processing_settle','pending_cancel','processing_cancel','dead')
+			)`).
+			Limit(500).Find(&reservations).Error; err != nil {
 			return err
 		}
 		for _, reservation := range reservations {

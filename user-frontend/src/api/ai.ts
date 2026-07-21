@@ -59,6 +59,7 @@ export const deleteSession = (sessionId: number): Promise<void> =>
   request.delete(`/api/v1/candidate/ai/sessions/${sessionId}`)
 
 const friendlyStreamMsg = (code: number, msg: string): string => {
+  if (code === 40201) return msg || 'AI 套餐额度不足，请购买套餐或加量包后重试'
   if (code === 42901) return msg || '今日 AI 使用次数已达上限，请明天再试'
   if (code === 42902) return msg || 'AI 请求太频繁，请稍后再试'
   if (code === 429) return msg || '请求过于频繁，请稍后再试'
@@ -87,7 +88,7 @@ const handleStreamPayload = (text: string, handlers: StreamHandlers): boolean =>
     const payload: StreamPayload = JSON.parse(text)
     if (payload.code && payload.code !== 0) {
       handlers.onError?.(String(payload.code), payload.msg || 'AI 服务响应错误', payload)
-      streamError(payload.code, payload.msg || 'AI 服务响应错误')
+      streamError(payload.code, payload.msg || '')
       return true
     }
     // Phase 4: status/error events

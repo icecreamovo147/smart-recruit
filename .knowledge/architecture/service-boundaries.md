@@ -38,6 +38,8 @@ source_refs:
   - smart-recruit-ai-agent-service/internal/interfaces/grpc/native_servers.go
   - smart-recruit-ai-agent-service/internal/infrastructure/persistence/native_store.go
   - smart-recruit-ai-agent-service/internal/application/recruiting_intelligence/structured_runtime.go
+  - smart-recruit-ai-agent-service/internal/infrastructure/persistence/billing_settlement_outbox.go
+  - smart-recruit-billing-service/internal/application/service/billing.go
   - smart-recruit-analytics-service/internal/runtime/runtime.go
   - smart-recruit-worker-service/internal/runtime/runtime.go
   - smart-recruit-interview-service/internal/infrastructure/client/application_adapter.go
@@ -49,7 +51,7 @@ source_refs:
   - smart-recruit-offer-service/internal/infrastructure/persistence/offer_repository.go
   - smart-recruit-offer-service/internal/infrastructure/mq/outbox_publisher.go
   - smart-recruit-commons/internal/platform/events/envelope.go
-last_verified: 2026-07-19
+last_verified: 2026-07-21
 review_after: 2026-10-14
 ---
 
@@ -65,6 +67,8 @@ Recruitment has retired its service-local `internal/legacydomain/` copy. Its act
 
 AI Agent has retired and deleted its service-local `internal/legacydomain/` copy; `cmd/ai-agent-service` wires `internal/interfaces/grpc/native_servers.go` with `internal/infrastructure/persistence/native_store.go` for chat, sessions, tool traces, and durable agent runs. Interview and Offer services have retired their service-local `internal/legacydomain/` copies. Their active runtimes now use local persistence and outbox adapters under `internal/infrastructure/**`, while application snapshots, lifecycle transitions, and authorization are reached through explicit Recruitment and Identity owner adapters. Interviewer assignment checks are Interview-owned local reads over `interview_schedules`. Backend boundary and MySQL table-ownership checks now fail if any targeted service reintroduces `internal/legacydomain`.
 
+Billing owns AI commercial entitlements, grants, reservations, rate cards, usage events, and ledger mutations. AI Agent owns provider execution and `ai_billing_settlement_outbox`, which durably delivers actual token usage or cancellation to Billing. Billing has read-only access to that outbox solely to prevent maintenance from expiring reservations with unresolved delivery evidence.
+
 Recruitment continues to own applications, resumes, candidate profiles, and resume-profile source rows. AI Agent reads those authorized sources for scoped recruiting intelligence and owns structured generation, deterministic matching/aggregation, `candidate_match_evaluations`, `candidate_match_evidence`, Prompt/model runtime access, and durable Agent-run association. This flow does not introduce a cross-service write, new table, or public contract.
 
 For HR-wide application/candidate reads, AI Agent composes the existing HR job inventory and per-job application RPCs rather than reading Recruitment tables or adding a new public aggregate RPC. The composition is bounded to 100 jobs, ten pages per job, four concurrent fetches, and 5,000 returned rows; partial failures are explicit and all-job failure remains non-success.
@@ -73,4 +77,4 @@ For HR-wide application/candidate reads, AI Agent composes the existing HR job i
 
 ## Verification
 
-Verified against current service adapters, bounded HR aggregation, persistence mappings, table ownership, and generated contracts on 2026-07-19.
+Verified against current service adapters, bounded HR aggregation, AI credit delivery, persistence mappings, table ownership, and generated contracts on 2026-07-21.

@@ -23,6 +23,9 @@ routes:
       - smart-recruit-gateway/handler/billing.go
       - smart-recruit-commons/migrations/000076_harden_alipay_payment_lifecycle.sql
       - smart-recruit-commons/migrations/000077_add_billing_refund_review_permission.sql
+      - smart-recruit-commons/migrations/000079_add_ai_billing_settlement_outbox.sql
+      - smart-recruit-ai-agent-service/internal/interfaces/grpc/billing_meter.go
+      - smart-recruit-ai-agent-service/internal/infrastructure/persistence/billing_settlement_outbox.go
       - hr-frontend/src/views/hr/BillingCenterView.vue
       - user-frontend/src/views/candidate/BillingCenterView.vue
       - platform-frontend/src/views/PlanCatalogView.vue
@@ -32,6 +35,7 @@ routes:
       - service-boundaries
       - persistence-and-migrations
       - api-contracts-and-gateway
+      - ai-credit-lifecycle
     triggers:
       - covered-path-changed
       - public-api-changed
@@ -142,6 +146,7 @@ routes:
       - mcp-policy-audit
       - resume-intelligence
       - resume-sensitive-data
+      - ai-credit-lifecycle
     triggers:
       - covered-path-changed
       - retrieval-behavior-changed
