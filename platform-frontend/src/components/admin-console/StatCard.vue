@@ -25,10 +25,10 @@ defineProps<{
 .admin-stat-card {
   min-width: 0;
   padding: 18px;
-  border: 1px solid var(--admin-console-border, var(--border));
-  border-radius: 8px;
-  background: var(--admin-console-surface, var(--surface));
-  box-shadow: var(--admin-console-card-shadow, 0 10px 28px rgba(15, 23, 42, 0.06));
+  border: 1px solid var(--admin-console-border);
+  border-radius: var(--surface-soft-radius, 12px);
+  background: var(--admin-console-surface);
+  box-shadow: var(--admin-console-card-shadow);
 }
 
 .admin-stat-card__top {

@@ -106,6 +106,7 @@ const toggleSidebar = () => {
 </script>
 
 <template>
+  <div class="platform-app">
   <RouterView v-if="isLogin" />
   <div v-else class="console-shell" :class="{ 'console-shell--sidebar-collapsed': sidebarCollapsed }">
     <aside class="sidebar" :class="{ 'sidebar--collapsed': sidebarCollapsed }">
@@ -178,5 +179,6 @@ const toggleSidebar = () => {
       </nav>
       <main><RouterView /></main>
     </section>
+  </div>
   </div>
 </template>

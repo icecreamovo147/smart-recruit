@@ -20,6 +20,7 @@ import { listSkills, listSkillVersions } from '@/api/skill'
 import { listAgentSkills, listAgentSkillVersions } from '@/api/agentSkill'
 import { listMcpToolPolicies } from '@/api/mcp'
 import { formatShanghaiDateTime } from '@shared/utils/format'
+import { PageHeader, PagePanel } from '@/components/admin-console'
 
 const auth = useAuthStore()
 const loading = ref(false)
@@ -177,36 +178,43 @@ onMounted(load)
 
 <template>
   <section class="console-page ai-control-page" v-loading="loading">
-    <header class="page-heading">
-      <div><span class="eyebrow">CAPABILITY RELEASE</span><h1>AI 能力发布</h1><p>编排已治理的模型和 Agent 资产，发布不可变能力版本，再由套餐固定引用。</p></div>
-      <el-button v-if="canManage && selected" type="primary" :loading="configurationLoading" @click="openEditor()">创建版本草稿</el-button>
-    </header>
+    <PagePanel>
+      <PageHeader
+        kicker="CAPABILITY RELEASE"
+        title="AI 能力发布"
+        description="编排已治理的模型和 Agent 资产，发布不可变能力版本，再由套餐固定引用。"
+      >
+        <template #primary>
+          <el-button v-if="canManage && selected" type="primary" :loading="configurationLoading" @click="openEditor()">创建版本草稿</el-button>
+        </template>
+      </PageHeader>
 
-    <div class="release-layout">
-      <aside class="surface-card capability-list">
-        <button v-for="item in capabilities" :key="item.id" type="button" :class="{ active: selected?.id === item.id }" @click="loadVersions(item)">
-          <span><strong>{{ item.name }}</strong><small>{{ item.capability_key }}</small></span>
-          <el-tag size="small" :type="item.audience === 'candidate' ? 'success' : 'primary'">{{ audienceLabel(item.audience) }}</el-tag>
-        </button>
-      </aside>
+      <div class="release-layout">
+        <aside class="surface-card capability-list">
+          <button v-for="item in capabilities" :key="item.id" type="button" :class="{ active: selected?.id === item.id }" @click="loadVersions(item)">
+            <span><strong>{{ item.name }}</strong><small>{{ item.capability_key }}</small></span>
+            <el-tag size="small" :type="item.audience === 'candidate' ? 'success' : 'primary'">{{ audienceLabel(item.audience) }}</el-tag>
+          </button>
+        </aside>
 
-      <main class="surface-card version-panel">
-        <header v-if="selected"><div><h2>{{ selected.name }}</h2><p>{{ selected.description || '暂无能力说明' }} · {{ audienceLabel(selected.audience) }}</p></div><el-tag>{{ selected.status }}</el-tag></header>
-        <section v-for="version in versions" :key="version.id" class="version-card">
-          <div class="version-title"><div><strong>V{{ version.version }}</strong><small>{{ version.change_note || '暂无变更说明' }}</small></div><el-tag :type="version.status === 'published' ? 'success' : version.status === 'draft' ? 'warning' : 'info'">{{ version.status }}</el-tag></div>
-          <div class="snapshot-summary">
-            <div><span>LLM 模型池</span><strong>{{ snapshotStats(version.snapshot_json).llm }}</strong><small>默认 #{{ snapshotStats(version.snapshot_json).defaultLlm || '-' }}</small></div>
-            <div><span>Embedding</span><strong>{{ snapshotStats(version.snapshot_json).embedding }}</strong><small>允许模型</small></div>
-            <div><span>Agent / Prompt</span><strong>{{ snapshotStats(version.snapshot_json).agents }} / {{ snapshotStats(version.snapshot_json).prompts }}</strong><small>固定资产</small></div>
-            <div><span>Skill / MCP</span><strong>{{ snapshotStats(version.snapshot_json).skills }} / {{ snapshotStats(version.snapshot_json).mcp }}</strong><small>固定版本与策略</small></div>
-          </div>
-          <el-alert v-if="validateSnapshot(version.snapshot_json).errors.length" :title="validateSnapshot(version.snapshot_json).errors.join('；')" type="error" :closable="false" show-icon />
-          <details><summary>查看原始发布快照</summary><pre>{{ prettySnapshot(version.snapshot_json) }}</pre></details>
-          <footer><span>快照 {{ version.snapshot_hash ? version.snapshot_hash.slice(0, 12) : '-' }} · 发布 {{ formatTime(version.published_at) }}</span><div><el-button v-if="canManage && version.status === 'draft'" link type="primary" @click="openEditor(version)">编辑草稿</el-button><el-button v-if="canPublish && version.status === 'draft'" link type="success" @click="publish(version)">发布并冻结</el-button></div></footer>
-        </section>
-        <el-empty v-if="selected && !versions.length" description="尚未创建能力版本" />
-      </main>
-    </div>
+        <main class="surface-card version-panel">
+          <header v-if="selected"><div><h2>{{ selected.name }}</h2><p>{{ selected.description || '暂无能力说明' }} · {{ audienceLabel(selected.audience) }}</p></div><el-tag>{{ selected.status }}</el-tag></header>
+          <section v-for="version in versions" :key="version.id" class="version-card">
+            <div class="version-title"><div><strong>V{{ version.version }}</strong><small>{{ version.change_note || '暂无变更说明' }}</small></div><el-tag :type="version.status === 'published' ? 'success' : version.status === 'draft' ? 'warning' : 'info'">{{ version.status }}</el-tag></div>
+            <div class="snapshot-summary">
+              <div><span>LLM 模型池</span><strong>{{ snapshotStats(version.snapshot_json).llm }}</strong><small>默认 #{{ snapshotStats(version.snapshot_json).defaultLlm || '-' }}</small></div>
+              <div><span>Embedding</span><strong>{{ snapshotStats(version.snapshot_json).embedding }}</strong><small>允许模型</small></div>
+              <div><span>Agent / Prompt</span><strong>{{ snapshotStats(version.snapshot_json).agents }} / {{ snapshotStats(version.snapshot_json).prompts }}</strong><small>固定资产</small></div>
+              <div><span>Skill / MCP</span><strong>{{ snapshotStats(version.snapshot_json).skills }} / {{ snapshotStats(version.snapshot_json).mcp }}</strong><small>固定版本与策略</small></div>
+            </div>
+            <el-alert v-if="validateSnapshot(version.snapshot_json).errors.length" :title="validateSnapshot(version.snapshot_json).errors.join('；')" type="error" :closable="false" show-icon />
+            <details><summary>查看原始发布快照</summary><pre>{{ prettySnapshot(version.snapshot_json) }}</pre></details>
+            <footer><span>快照 {{ version.snapshot_hash ? version.snapshot_hash.slice(0, 12) : '-' }} · 发布 {{ formatTime(version.published_at) }}</span><div><el-button v-if="canManage && version.status === 'draft'" link type="primary" @click="openEditor(version)">编辑草稿</el-button><el-button v-if="canPublish && version.status === 'draft'" link type="success" @click="publish(version)">发布并冻结</el-button></div></footer>
+          </section>
+          <el-empty v-if="selected && !versions.length" description="尚未创建能力版本" />
+        </main>
+      </div>
+    </PagePanel>
 
     <el-dialog v-model="editorVisible" :title="`${selected?.name || ''} · ${editingVersion ? `编辑 V${editingVersion.version}` : '新建版本'}`" width="760px">
       <el-alert title="模型池只应引用平台已启用的模型；发布后版本不可修改，企业与候选人的选择范围以该快照为准。" type="info" :closable="false" show-icon />
@@ -229,6 +237,171 @@ onMounted(load)
 </template>
 
 <style scoped>
-.full-width{width:100%}
-.ai-control-page{display:grid;gap:20px}.page-heading,.version-panel>header,.version-title,.version-card footer{display:flex;justify-content:space-between;align-items:flex-start;gap:20px}.page-heading h1,.version-panel h2{margin:0}.page-heading p,.version-panel header p{margin:7px 0 0;color:var(--el-text-color-secondary)}.eyebrow{font-size:12px;letter-spacing:.12em;color:var(--el-color-primary)}.release-layout{display:grid;grid-template-columns:300px minmax(0,1fr);gap:20px}.capability-list{padding:10px;height:max-content}.capability-list button{width:100%;display:flex;justify-content:space-between;align-items:center;gap:10px;padding:14px;border:0;border-radius:10px;background:transparent;text-align:left;color:inherit;cursor:pointer}.capability-list button:hover,.capability-list button.active{background:var(--el-fill-color-light)}.capability-list span,.version-title>div{display:grid;gap:4px}.capability-list small,.version-title small,.version-card footer{color:var(--el-text-color-secondary)}.version-panel{padding:22px}.version-card{display:grid;gap:14px;margin-top:16px;padding:18px;border:1px solid var(--el-border-color-lighter);border-radius:12px}.snapshot-summary{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px}.snapshot-summary>div{display:grid;gap:4px;padding:13px;border-radius:10px;background:var(--el-fill-color-lighter)}.snapshot-summary span,.snapshot-summary small{color:var(--el-text-color-secondary);font-size:12px}.snapshot-summary strong{font-size:20px}.version-card details summary{cursor:pointer;color:var(--el-color-primary);font-size:13px}.version-card pre{max-height:330px;overflow:auto;padding:14px;border-radius:9px;background:var(--el-fill-color-lighter);font-size:12px;line-height:1.55;white-space:pre-wrap;word-break:break-word}.version-card footer{font-size:12px;align-items:center}.editor-form{margin-top:18px}.editor-form :deep(textarea){font-family:ui-monospace,SFMono-Regular,Menlo,monospace}@media(max-width:1100px){.snapshot-summary{grid-template-columns:repeat(2,1fr)}}@media(max-width:900px){.release-layout{grid-template-columns:1fr}.page-heading{flex-direction:column}}@media(max-width:600px){.snapshot-summary{grid-template-columns:1fr}}
+.full-width { width: 100%; }
+
+.ai-control-page {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.ai-control-page > .page-panel {
+  flex: 1;
+  min-height: 0;
+}
+
+.version-panel > header,
+.version-title,
+.version-card footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 20px;
+}
+
+.version-panel h2 {
+  margin: 0;
+}
+
+.version-panel header p {
+  margin: 7px 0 0;
+  color: var(--el-text-color-secondary);
+}
+
+.release-layout {
+  display: grid;
+  grid-template-columns: 300px minmax(0, 1fr);
+  gap: 20px;
+}
+
+.capability-list {
+  padding: 10px;
+  height: max-content;
+  border: 1px solid var(--surface-soft-border);
+  border-radius: var(--surface-soft-radius, 12px);
+  background: var(--surface-soft-bg);
+  box-shadow: var(--surface-soft-shadow);
+}
+
+.capability-list button {
+  width: 100%;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+  padding: 14px;
+  border: 0;
+  border-radius: 10px;
+  background: transparent;
+  text-align: left;
+  color: inherit;
+  cursor: pointer;
+}
+
+.capability-list button:hover,
+.capability-list button.active {
+  background: var(--el-fill-color-light);
+}
+
+.capability-list span,
+.version-title > div {
+  display: grid;
+  gap: 4px;
+}
+
+.capability-list small,
+.version-title small,
+.version-card footer {
+  color: var(--el-text-color-secondary);
+}
+
+.version-panel {
+  padding: 22px;
+  border: 1px solid var(--surface-soft-border);
+  border-radius: var(--surface-soft-radius, 12px);
+  background: var(--surface-soft-bg);
+  box-shadow: var(--surface-soft-shadow);
+}
+
+.version-card {
+  display: grid;
+  gap: 14px;
+  margin-top: 16px;
+  padding: 18px;
+  border: 1px solid var(--surface-soft-border);
+  border-radius: var(--surface-soft-radius, 12px);
+}
+
+.snapshot-summary {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.snapshot-summary > div {
+  display: grid;
+  gap: 4px;
+  padding: 13px;
+  border-radius: 10px;
+  background: var(--el-fill-color-lighter);
+}
+
+.snapshot-summary span,
+.snapshot-summary small {
+  color: var(--el-text-color-secondary);
+  font-size: 12px;
+}
+
+.snapshot-summary strong {
+  font-size: 20px;
+}
+
+.version-card details summary {
+  cursor: pointer;
+  color: var(--el-color-primary);
+  font-size: 13px;
+}
+
+.version-card pre {
+  max-height: 330px;
+  overflow: auto;
+  padding: 14px;
+  border-radius: 9px;
+  background: var(--el-fill-color-lighter);
+  font-size: 12px;
+  line-height: 1.55;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.version-card footer {
+  font-size: 12px;
+  align-items: center;
+}
+
+.editor-form {
+  margin-top: 18px;
+}
+
+.editor-form :deep(textarea) {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+
+@media (max-width: 1100px) {
+  .snapshot-summary {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 900px) {
+  .release-layout {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 600px) {
+  .snapshot-summary {
+    grid-template-columns: 1fr;
+  }
+}
 </style>

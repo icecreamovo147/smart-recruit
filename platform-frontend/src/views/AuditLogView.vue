@@ -4,6 +4,7 @@ import { DocumentCopy, Search } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
 import { useRoute } from 'vue-router'
 import { listPlatformAuditLogs } from '@/api/audit'
+import { DataTableCard, FilterToolbar, PageHeader, PagePanel } from '@/components/admin-console'
 import type { PlatformAuditLog } from '@/types'
 import { formatShanghaiDateTime, toShanghaiRFC3339 } from '@shared/utils/format'
 
@@ -77,8 +78,10 @@ onMounted(load)
 
 <template>
   <section class="console-page">
-    <article class="surface-card table-surface">
-      <div class="filter-toolbar filter-toolbar--wrap">
+    <PagePanel>
+      <PageHeader title="审计日志" kicker="AUDIT LOGS" description="查询平台侧关键操作记录与变更前后内容" />
+
+      <FilterToolbar>
         <div class="filter-fields filter-fields--wrap">
           <el-input v-model.number="query.tenant_id" placeholder="租户 ID" clearable />
           <el-input v-model.number="query.actor_user_id" placeholder="操作人 ID" clearable />
@@ -86,19 +89,26 @@ onMounted(load)
           <el-input v-model="query.request_id" placeholder="Request ID" clearable />
           <el-date-picker v-model="dateRange" class="audit-date-range" type="datetimerange" range-separator="至" start-placeholder="开始时间" end-placeholder="结束时间" />
         </div>
-        <div class="filter-actions"><el-button type="primary" :icon="Search" @click="search">查询</el-button><el-button @click="reset">重置</el-button></div>
-      </div>
-      <el-table v-loading="loading" :data="logs" stripe class="console-table" @row-click="openDetail">
-        <el-table-column label="时间" width="180"><template #default="{ row }">{{ formatTime(row.created_at) }}</template></el-table-column>
-        <el-table-column label="操作" min-width="170"><template #default="{ row }"><strong>{{ actionLabel(row.action) }}</strong><small class="cell-secondary">{{ row.resource_type }} #{{ row.resource_id }}</small></template></el-table-column>
-        <el-table-column label="目标企业" min-width="180"><template #default="{ row }">{{ row.target_tenant_name || '-' }}<small class="cell-secondary">Tenant ID {{ row.target_tenant_id || '-' }}</small></template></el-table-column>
-        <el-table-column label="操作人" min-width="150"><template #default="{ row }">{{ row.actor_username || '-' }}<small class="cell-secondary">用户 ID {{ row.actor_user_id }}</small></template></el-table-column>
-        <el-table-column prop="client_ip" label="客户端 IP" width="150" />
-        <el-table-column label="Request ID" min-width="190"><template #default="{ row }"><button v-if="row.request_id" class="request-id" type="button" @click.stop="copyRequestId(row.request_id)">{{ row.request_id }}<el-icon><DocumentCopy /></el-icon></button><span v-else>-</span></template></el-table-column>
-        <el-table-column label="详情" width="80" fixed="right"><template #default="{ row }"><el-button link type="primary" @click.stop="openDetail(row)">查看</el-button></template></el-table-column>
-      </el-table>
-      <footer class="table-footer"><span>共 {{ total }} 条操作记录</span><el-pagination v-model:current-page="query.page" v-model:page-size="query.page_size" :total="total" layout="prev, pager, next, sizes" :page-sizes="[10, 20, 50, 100]" @current-change="load" @size-change="search" /></footer>
-    </article>
+        <template #actions>
+          <div class="filter-actions"><el-button type="primary" :icon="Search" @click="search">查询</el-button><el-button @click="reset">重置</el-button></div>
+        </template>
+      </FilterToolbar>
+
+      <DataTableCard :result-count="total" :result-label="`共 ${total} 条操作记录`">
+        <el-table v-loading="loading" :data="logs" stripe class="console-table" @row-click="openDetail">
+          <el-table-column label="时间" width="180"><template #default="{ row }">{{ formatTime(row.created_at) }}</template></el-table-column>
+          <el-table-column label="操作" min-width="170"><template #default="{ row }"><strong>{{ actionLabel(row.action) }}</strong><small class="cell-secondary">{{ row.resource_type }} #{{ row.resource_id }}</small></template></el-table-column>
+          <el-table-column label="目标企业" min-width="180"><template #default="{ row }">{{ row.target_tenant_name || '-' }}<small class="cell-secondary">Tenant ID {{ row.target_tenant_id || '-' }}</small></template></el-table-column>
+          <el-table-column label="操作人" min-width="150"><template #default="{ row }">{{ row.actor_username || '-' }}<small class="cell-secondary">用户 ID {{ row.actor_user_id }}</small></template></el-table-column>
+          <el-table-column prop="client_ip" label="客户端 IP" width="150" />
+          <el-table-column label="Request ID" min-width="190"><template #default="{ row }"><button v-if="row.request_id" class="request-id" type="button" @click.stop="copyRequestId(row.request_id)">{{ row.request_id }}<el-icon><DocumentCopy /></el-icon></button><span v-else>-</span></template></el-table-column>
+          <el-table-column label="详情" width="80" fixed="right"><template #default="{ row }"><el-button link type="primary" @click.stop="openDetail(row)">查看</el-button></template></el-table-column>
+        </el-table>
+        <template #footer>
+          <el-pagination v-model:current-page="query.page" v-model:page-size="query.page_size" :total="total" layout="prev, pager, next, sizes" :page-sizes="[10, 20, 50, 100]" @current-change="load" @size-change="search" />
+        </template>
+      </DataTableCard>
+    </PagePanel>
 
     <el-drawer v-model="detailVisible" title="操作审计详情" size="680px">
       <div v-if="selected" class="audit-detail">

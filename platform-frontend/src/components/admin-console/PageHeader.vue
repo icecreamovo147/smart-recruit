@@ -34,10 +34,13 @@ defineProps<{
   align-items: flex-start;
   justify-content: space-between;
   gap: 20px;
-  padding: 22px 24px;
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  background: var(--admin-console-header-bg);
+  margin: 0;
+  padding: var(--page-inset);
+  border: 0;
+  border-bottom: 1px solid var(--admin-console-border);
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
   flex-shrink: 0;
 }
 
@@ -69,6 +72,10 @@ defineProps<{
   line-height: 1;
   letter-spacing: 0;
   text-transform: uppercase;
+}
+
+:root[data-theme='dark'] .admin-page-header__kicker {
+  color: var(--brand-soft, var(--brand));
 }
 
 .admin-page-header__description {

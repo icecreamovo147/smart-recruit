@@ -31,6 +31,7 @@ import {
 } from '@/api/llm'
 import { useAuthStore } from '@/stores/auth'
 import { PLATFORM_PERMISSIONS } from '@/permissions'
+import { PagePanel } from '@/components/admin-console'
 import type {
   LlmProvider,
   LlmModel,
@@ -664,16 +665,6 @@ const handleTestModel = async (row: LlmModel) => {
 const activeTab = ref<'providers' | 'models'>(props.section || 'providers')
 const isSingleSection = computed(() => Boolean(props.section))
 const currentSection = computed<'providers' | 'models'>(() => props.section || activeTab.value)
-const pageTitle = computed(() => {
-  if (props.section === 'providers') return 'Provider 配置'
-  if (props.section === 'models') return 'Model 配置'
-  return '模型配置'
-})
-const pageDescription = computed(() => {
-  if (props.section === 'providers') return '统一管理大模型服务商、API 入口、密钥和启用状态。'
-  if (props.section === 'models') return '统一管理模型参数、默认路由、连通性测试、并发和可用状态，支撑 HR AI 对话、分析与自动化能力。'
-  return '统一管理大模型服务商、模型参数和默认路由，支撑 HR AI 对话、分析与自动化能力。'
-})
 
 const onTabChange = (tab: string | number) => {
   if (tab === 'providers') {
@@ -801,26 +792,14 @@ onMounted(() => {
 
 <template>
   <div class="llm-config-view">
-    <div class="workspace-surface">
-      <div class="workspace-surface__header">
-        <div class="workspace-surface__header-copy">
-          <p class="page-kicker">AI Platform Console</p>
-          <h2 class="page-title">{{ pageTitle }}</h2>
-          <p class="page-description">{{ pageDescription }}</p>
-        </div>
-        <div class="workspace-surface__header-actions">
-          <el-button :icon="Refresh" @click="currentSection === 'providers' ? loadProviders() : loadModels()">刷新</el-button>
-          <el-button v-if="canManage && currentSection === 'providers'" type="primary" :icon="Plus" @click="openCreateProvider">新增 Provider</el-button>
-          <el-button v-else-if="canManage" type="primary" :icon="Plus" @click="openCreateModel">新增 Model</el-button>
-        </div>
-      </div>
-
+    <PagePanel>
+      <div class="workspace-surface">
       <el-tabs v-if="!isSingleSection" v-model="activeTab" class="console-tabs" @tab-change="onTabChange">
         <el-tab-pane label="Provider" name="providers" />
         <el-tab-pane label="Model" name="models" />
       </el-tabs>
 
-      <div class="workspace-surface__divider"></div>
+      <div v-if="!isSingleSection" class="workspace-surface__divider"></div>
 
       <template v-if="currentSection === 'providers'">
          <div class="workspace-surface__toolbar">
@@ -836,6 +815,7 @@ onMounted(() => {
           </div>
           <div class="workspace-surface__actions">
             <el-button @click="resetProviderFilters">重置</el-button>
+            <el-button v-if="canManage" type="primary" :icon="Plus" @click="openCreateProvider">新增 Provider</el-button>
           </div>
         </div>
 
@@ -949,6 +929,7 @@ onMounted(() => {
           </div>
           <div class="workspace-surface__actions">
             <el-button @click="resetModelFilters">重置</el-button>
+            <el-button v-if="canManage" type="primary" :icon="Plus" @click="openCreateModel">新增 Model</el-button>
           </div>
         </div>
 
@@ -1057,6 +1038,7 @@ onMounted(() => {
           </div>
     </template>
     </div>
+    </PagePanel>
 
     <el-drawer
       v-model="providerDrawerVisible"
@@ -1276,71 +1258,9 @@ onMounted(() => {
   color: var(--el-text-color-primary);
 }
 
-.page-header {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 20px;
-  padding: 22px 24px;
-  margin-bottom: 18px;
-  border: 1px solid var(--el-border-color-light);
-  border-radius: 8px;
-  background: var(--admin-console-header-bg);
-}
-
-.page-kicker {
-  margin: 0 0 6px;
-  font-size: 12px;
-  font-weight: 700;
-  line-height: 1;
-  color: var(--el-color-primary);
-  text-transform: uppercase;
-  letter-spacing: .08em;
-}
-
-.page-title {
-  margin: 0;
-  font-size: 24px;
-  font-weight: 700;
-  line-height: 1.25;
-}
-
-.page-description {
-  max-width: 720px;
-  margin: 8px 0 0;
-  color: var(--el-text-color-secondary);
-  line-height: 1.6;
-}
-
-.page-actions {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  flex-shrink: 0;
-}
-
-.console-tabs :deep(.el-tabs__header) {
-  padding: 0 16px;
-  margin-bottom: 16px;
-  border: 1px solid var(--el-border-color-light);
-  border-radius: 8px;
-  background: var(--el-bg-color);
-}
-
-.console-tabs :deep(.el-tabs__nav-wrap::after) {
-  display: none;
-}
-
-.console-tabs :deep(.el-tabs__item) {
-  height: 46px;
-  font-weight: 600;
-}
-
-.panel-card {
-  padding: 18px;
-  border: 1px solid var(--el-border-color-light);
-  border-radius: 8px;
-  background: var(--el-bg-color);
+.llm-config-view > .page-panel {
+  flex: 1;
+  min-height: 0;
 }
 
 .panel-head {
@@ -1368,9 +1288,10 @@ onMounted(() => {
   gap: 10px;
   padding: 12px;
   margin-bottom: 14px;
-  border: 1px solid var(--el-border-color-lighter);
-  border-radius: 8px;
-  background: var(--el-fill-color-extra-light);
+  border: 1px solid var(--surface-soft-border);
+  border-radius: var(--surface-soft-radius, 12px);
+  background: var(--surface-soft-bg);
+  box-shadow: var(--surface-soft-shadow);
 }
 
 .model-filter-bar {
@@ -1378,13 +1299,13 @@ onMounted(() => {
 }
 
 .console-table {
-  border: 1px solid var(--el-border-color-lighter);
-  border-radius: 8px;
+  border: 0;
+  border-radius: 0;
 }
 
 .console-table :deep(.el-table__header th) {
-  background: var(--el-fill-color-light);
-  color: var(--el-text-color-secondary);
+  background: var(--table-header-solid);
+  color: var(--text-secondary);
   font-weight: 700;
 }
 
@@ -1399,12 +1320,13 @@ onMounted(() => {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 34px;
-  height: 34px;
+  width: 28px;
+  height: 28px;
   color: var(--el-color-primary);
-  border-radius: 8px;
+  border-radius: 7px;
   background: var(--el-color-primary-light-9);
   flex: 0 0 auto;
+  font-size: 14px;
 }
 
 .entity-icon.model {
@@ -1538,9 +1460,10 @@ onMounted(() => {
   width: 100%;
   padding: 10px;
   margin-top: 10px;
-  border: 1px solid var(--el-border-color-light);
-  border-radius: 8px;
-  background: var(--el-fill-color-extra-light);
+  border: 1px solid var(--surface-soft-border);
+  border-radius: var(--surface-soft-radius, 12px);
+  background: var(--surface-soft-bg);
+  box-shadow: var(--surface-soft-shadow);
   transition: padding-bottom 240ms ease;
 }
 
@@ -1624,14 +1547,8 @@ onMounted(() => {
 }
 
 @media (max-width: 720px) {
-  .page-header,
   .panel-head {
     flex-direction: column;
-  }
-
-  .page-actions {
-    width: 100%;
-    flex-wrap: wrap;
   }
 
   .filter-bar,

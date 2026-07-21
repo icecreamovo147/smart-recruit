@@ -16,10 +16,13 @@
   align-items: center;
   justify-content: space-between;
   gap: 14px;
-  padding: 14px;
-  border: 1px solid var(--admin-console-border, var(--border));
-  border-radius: 8px;
-  background: var(--admin-console-surface, var(--surface));
+  margin: 0;
+  padding: 12px var(--page-inset);
+  border: 0;
+  border-bottom: 1px solid var(--admin-console-border);
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
 }
 
 .admin-filter-toolbar__filters,

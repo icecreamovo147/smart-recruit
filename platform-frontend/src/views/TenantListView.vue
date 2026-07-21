@@ -4,6 +4,7 @@ import { MoreFilled, Plus, Search } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
 import { useRoute, useRouter } from 'vue-router'
 import { createTenant, listTenants, updateTenantStatus } from '@/api/tenant'
+import { DataTableCard, FilterToolbar, PageHeader, PagePanel } from '@/components/admin-console'
 import { PLATFORM_PERMISSIONS } from '@/permissions'
 import { useAuthStore } from '@/stores/auth'
 import type { Tenant } from '@/types'
@@ -82,25 +83,34 @@ onMounted(load)
 
 <template>
   <section class="console-page">
-    <article class="surface-card table-surface">
-      <div class="filter-toolbar">
+    <PagePanel>
+      <PageHeader title="租户管理" kicker="TENANT CONTROL" description="管理企业租户生命周期、检索与状态变更" />
+
+      <FilterToolbar>
         <div class="filter-fields">
           <el-input v-model="query.keyword" :prefix-icon="Search" clearable placeholder="搜索企业名称、标识或 Tenant Key" @keyup.enter="search" />
           <el-select v-model="query.status" clearable placeholder="全部状态"><el-option label="正常" value="active" /><el-option label="已暂停" value="suspended" /><el-option label="已停用" value="disabled" /></el-select>
         </div>
-        <div class="filter-actions"><el-button type="primary" @click="search">查询</el-button><el-button @click="reset">重置</el-button><el-button v-if="canManage" type="primary" :icon="Plus" @click="createVisible = true">创建企业</el-button></div>
-      </div>
-      <el-table v-loading="loading" :data="tenants" class="console-table" stripe @row-click="(row: Tenant) => router.push(`/tenants/${row.id}`)">
-        <el-table-column label="企业" min-width="250"><template #default="{ row }"><div class="tenant-cell"><span class="tenant-avatar">{{ row.name.slice(0, 1) }}</span><div><strong>{{ row.name }}</strong><small>{{ row.slug }} · {{ row.tenant_key }}</small></div></div></template></el-table-column>
-        <el-table-column label="状态" width="110"><template #default="{ row }"><el-tag :type="statusMeta(row.status).type">{{ statusMeta(row.status).label }}</el-tag></template></el-table-column>
-        <el-table-column prop="membership_count" label="成员数" width="100" align="right" />
-        <el-table-column prop="timezone" label="时区" min-width="150" />
-        <el-table-column prop="locale" label="语言" width="100" />
-        <el-table-column label="创建时间" width="180"><template #default="{ row }">{{ formatShanghaiDateTime(row.created_at) }}</template></el-table-column>
-        <el-table-column label="操作" width="90" fixed="right" align="center"><template #default="{ row }"><el-dropdown trigger="click" @command="(command: string) => handleCommand(row, command)" @click.stop><el-button link :icon="MoreFilled" @click.stop /><template #dropdown><el-dropdown-menu><el-dropdown-item command="detail">查看详情</el-dropdown-item><template v-if="canManage && !row.is_default"><el-dropdown-item v-if="row.status !== 'suspended'" command="suspend" divided>暂停租户</el-dropdown-item><el-dropdown-item v-if="row.status !== 'active'" command="activate">恢复租户</el-dropdown-item><el-dropdown-item v-if="row.status !== 'disabled'" command="disable">停用租户</el-dropdown-item></template></el-dropdown-menu></template></el-dropdown></template></el-table-column>
-      </el-table>
-      <footer class="table-footer"><span>共 {{ total }} 家企业</span><el-pagination v-model:current-page="query.page" v-model:page-size="query.page_size" :total="total" layout="prev, pager, next, sizes" :page-sizes="[10, 20, 50, 100]" @current-change="load" @size-change="search" /></footer>
-    </article>
+        <template #actions>
+          <div class="filter-actions"><el-button type="primary" @click="search">查询</el-button><el-button @click="reset">重置</el-button><el-button v-if="canManage" type="primary" :icon="Plus" @click="createVisible = true">创建企业</el-button></div>
+        </template>
+      </FilterToolbar>
+
+      <DataTableCard :result-count="total" :result-label="`共 ${total} 家企业`">
+        <el-table v-loading="loading" :data="tenants" class="console-table" stripe @row-click="(row: Tenant) => router.push(`/tenants/${row.id}`)">
+          <el-table-column label="企业" min-width="250"><template #default="{ row }"><div class="tenant-cell"><span class="tenant-avatar">{{ row.name.slice(0, 1) }}</span><div><strong>{{ row.name }}</strong><small>{{ row.slug }} · {{ row.tenant_key }}</small></div></div></template></el-table-column>
+          <el-table-column label="状态" width="110"><template #default="{ row }"><el-tag :type="statusMeta(row.status).type">{{ statusMeta(row.status).label }}</el-tag></template></el-table-column>
+          <el-table-column prop="membership_count" label="成员数" width="100" align="right" />
+          <el-table-column prop="timezone" label="时区" min-width="150" />
+          <el-table-column prop="locale" label="语言" width="100" />
+          <el-table-column label="创建时间" width="180"><template #default="{ row }">{{ formatShanghaiDateTime(row.created_at) }}</template></el-table-column>
+          <el-table-column label="操作" width="90" fixed="right" align="center"><template #default="{ row }"><el-dropdown trigger="click" @command="(command: string) => handleCommand(row, command)" @click.stop><el-button link :icon="MoreFilled" @click.stop /><template #dropdown><el-dropdown-menu><el-dropdown-item command="detail">查看详情</el-dropdown-item><template v-if="canManage && !row.is_default"><el-dropdown-item v-if="row.status !== 'suspended'" command="suspend" divided>暂停租户</el-dropdown-item><el-dropdown-item v-if="row.status !== 'active'" command="activate">恢复租户</el-dropdown-item><el-dropdown-item v-if="row.status !== 'disabled'" command="disable">停用租户</el-dropdown-item></template></el-dropdown-menu></template></el-dropdown></template></el-table-column>
+        </el-table>
+        <template #footer>
+          <el-pagination v-model:current-page="query.page" v-model:page-size="query.page_size" :total="total" layout="prev, pager, next, sizes" :page-sizes="[10, 20, 50, 100]" @current-change="load" @size-change="search" />
+        </template>
+      </DataTableCard>
+    </PagePanel>
 
     <el-dialog v-model="createVisible" title="创建企业租户" width="560px" destroy-on-close>
       <el-alert type="info" title="创建后将生成不可变的 Tenant Key；企业标识用于运营检索和路由识别。" :closable="false" show-icon />

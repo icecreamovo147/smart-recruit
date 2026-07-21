@@ -3,6 +3,7 @@ import { computed, reactive, ref } from 'vue'
 import { Refresh, Search } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
 import { debugSemanticRetrieval } from '@/api/agentSkill'
+import { PagePanel } from '@/components/admin-console'
 import type {
   SemanticMemoryDebugItem,
   SemanticRetrievalDebugResult,
@@ -181,21 +182,17 @@ const reset = () => {
 
 <template>
   <div class="console-page console-page--fill semantic-debug-view">
-    <div class="workspace-surface" v-loading="loading">
-      <div class="workspace-surface__header">
-        <div class="workspace-surface__header-copy">
-          <p class="console-eyebrow">SEMANTIC RETRIEVAL</p>
-          <h2 class="console-title">语义召回调试</h2>
-          <p class="console-description">用真实业务问题验证 Agent Skill 与 AI Memory 的召回效果</p>
+    <PagePanel>
+      <div class="workspace-surface" v-loading="loading">
+      <div class="workspace-surface__toolbar">
+        <div class="workspace-surface__filters">
+          <span class="workspace-surface__context">用真实业务问题验证 Agent Skill 与 AI Memory 的召回效果</span>
         </div>
-        <div class="workspace-surface__header-actions">
+        <div class="workspace-surface__actions">
           <el-button :icon="Refresh" @click="reset">重置</el-button>
           <el-button type="primary" :icon="Search" :loading="loading" @click="runDebug">运行测试</el-button>
         </div>
       </div>
-
-      <div class="workspace-surface__divider"></div>
-
       <div class="workspace-surface__body">
         <section class="debug-config" aria-label="测试配置区">
           <div class="console-card debug-query-card">
@@ -546,15 +543,21 @@ const reset = () => {
         </div>
       </div>
     </div>
+    </PagePanel>
   </div>
 </template>
 
 <style scoped>
+.console-page--fill .page-panel {
+  flex: 1;
+  min-height: 0;
+}
+
 .debug-config {
   display: grid;
   grid-template-columns: minmax(0, 1.5fr) minmax(280px, 1fr);
   gap: 16px;
-  padding: 16px 0;
+  padding: var(--page-inset);
 }
 
 .debug-card-hint {
@@ -620,7 +623,7 @@ const reset = () => {
 }
 
 .debug-stats {
-  padding: 0;
+  padding: 0 var(--page-inset) var(--page-inset);
 }
 
 .debug-stats .console-stat__value {
@@ -631,7 +634,7 @@ const reset = () => {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 16px;
-  padding: 16px 0;
+  padding: 0 var(--page-inset) var(--page-inset);
 }
 
 .debug-result-card {
@@ -650,8 +653,8 @@ const reset = () => {
   flex-direction: column;
   gap: 10px;
   padding: 12px;
-  border: 1px solid var(--border);
-  border-radius: 8px;
+  border: 1px solid var(--surface-soft-border);
+  border-radius: var(--surface-soft-radius, 12px);
   background: var(--surface-muted);
 }
 
@@ -738,8 +741,8 @@ const reset = () => {
   grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
   gap: 8px;
   padding: 10px;
-  border-radius: 8px;
-  background: var(--surface);
+  border-radius: var(--surface-soft-radius, 12px);
+  background: var(--surface-soft-bg);
 }
 
 .debug-detail-block > div {
@@ -801,8 +804,8 @@ const reset = () => {
   flex-direction: column;
   gap: 6px;
   padding: 10px 12px;
-  border: 1px dashed var(--border);
-  border-radius: 8px;
+  border: 1px dashed var(--surface-soft-border);
+  border-radius: var(--surface-soft-radius, 12px);
   background: var(--surface-muted);
 }
 
@@ -844,9 +847,9 @@ const reset = () => {
   flex-direction: column;
   gap: 6px;
   padding: 24px;
-  border: 1px dashed var(--border);
-  border-radius: 8px;
-  background: var(--surface);
+  border: 1px dashed var(--surface-soft-border);
+  border-radius: var(--surface-soft-radius, 12px);
+  background: var(--surface-soft-bg);
 }
 
 .debug-empty h4 {

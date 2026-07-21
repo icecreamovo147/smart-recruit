@@ -4,6 +4,7 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 import { listAIRateCards, listBillingProducts, listBillingRefunds, listPlans, publishPlanVersion, reviewBillingRefund, saveAIRateCard, saveBillingPrice, savePlanVersion, type AIRateCardAdmin, type BillingProductAdmin, type BillingRefundAdmin } from '@/api/control'
 import { listModels, listProviders } from '@/api/llm'
 import { listPlatformAICapabilities, type PlatformAICapability } from '@/api/platformAI'
+import { PageHeader, PagePanel } from '@/components/admin-console'
 import { PLATFORM_PERMISSIONS } from '@/permissions'
 import { useAuthStore } from '@/stores/auth'
 import type { PlatformEntitlement, PlatformPlan, PlatformPlanVersion } from '@/types'
@@ -27,6 +28,15 @@ const paymentEnvironment = ref('sandbox')
 const canManage = computed(() => auth.can(PLATFORM_PERMISSIONS.PLAN_MANAGE))
 const canPublish = computed(() => auth.can(PLATFORM_PERMISSIONS.PLAN_PUBLISH))
 const canReviewRefund = computed(() => auth.can(PLATFORM_PERMISSIONS.BILLING_REFUND_REVIEW))
+const catalogSections = computed(() => {
+  const items: Array<{ name: CatalogSection; label: string }> = [
+    { name: 'plans', label: '套餐版本与权益' },
+    { name: 'products', label: '商品与价格' },
+    { name: 'rates', label: 'AI 模型费率' },
+  ]
+  if (canReviewRefund.value) items.push({ name: 'refunds', label: '退款审批' })
+  return items
+})
 const editorVisible = ref(false)
 const publishVisible = ref(false)
 const selectedPlan = ref<PlatformPlan | null>(null)
@@ -251,33 +261,45 @@ onMounted(load)
 
 <template>
   <section class="console-page" v-loading="loading">
-    <header class="catalog-heading"><div><span>COMMERCIAL CONTROL PLANE</span><h1>套餐与商业化</h1><p>分别维护平台权益、对外商品价格和模型成本换算，避免不同生命周期的配置混在同一工作区。</p></div></header>
-    <el-tabs :model-value="activeSection" class="catalog-tabs" @tab-change="switchSection">
-      <el-tab-pane label="套餐版本与权益" name="plans" />
-      <el-tab-pane label="商品与价格" name="products" />
-      <el-tab-pane label="AI 模型费率" name="rates" />
-      <el-tab-pane v-if="canReviewRefund" label="退款审批" name="refunds" />
-    </el-tabs>
+    <PagePanel>
+      <PageHeader
+        kicker="COMMERCIAL CONTROL PLANE"
+        title="套餐与商业化"
+        description="分别维护平台权益、对外商品价格和模型成本换算，避免不同生命周期的配置混在同一工作区。"
+      />
+      <nav class="ai-subnav catalog-subnav" aria-label="套餐与商业化导航">
+        <span>商业化</span>
+        <button
+          v-for="item in catalogSections"
+          :key="item.name"
+          type="button"
+          :class="{ 'is-active': activeSection === item.name }"
+          @click="switchSection(item.name)"
+        >
+          {{ item.label }}
+        </button>
+      </nav>
 
-    <div v-if="activeSection === 'plans'" class="plan-grid">
-      <article v-for="plan in plans" :key="plan.id" class="surface-card plan-card">
-        <header><div><span class="plan-key">{{ plan.plan_key }}</span><h2>{{ plan.name }}</h2><p>{{ plan.description }}</p></div><el-tag :type="plan.status === 'active' ? 'success' : 'info'">{{ plan.status === 'active' ? '启用' : '已退役' }}</el-tag></header>
-        <div class="plan-version-list">
-          <section v-for="version in plan.versions" :key="version.id" class="plan-version">
-            <div class="plan-version__heading"><div><strong>版本 V{{ version.version }}</strong><small>{{ version.change_note || '暂无版本说明' }}</small></div><el-tag :type="version.status === 'published' ? 'success' : version.status === 'draft' ? 'warning' : 'info'" size="small">{{ version.status }}</el-tag></div>
-            <div class="entitlement-grid"><div v-for="item in version.entitlements" :key="item.key"><span>{{ entitlementLabels[item.key] || item.key }}</span><strong>{{ displayValue(item) }}</strong><small>{{ item.enforcement_mode === 'hard' ? '硬限制' : item.enforcement_mode }}</small></div></div>
-            <footer><span>{{ version.status === 'published' ? `生效：${formatTime(version.effective_at)}` : `更新：${formatTime(version.updated_at)}` }}</span><div><el-button v-if="canManage && version.status === 'draft'" link type="primary" @click="openEditor(plan, version)">编辑草稿</el-button><el-button v-if="canPublish && version.status === 'draft'" link type="success" @click="openPublish(plan, version)">发布</el-button></div></footer>
-          </section>
-        </div>
-        <el-button v-if="canManage" class="plan-new-version" plain @click="openEditor(plan)">创建新版本草稿</el-button>
-      </article>
-    </div>
+      <div v-if="activeSection === 'plans'" class="plan-grid catalog-panel__body">
+        <article v-for="plan in plans" :key="plan.id" class="surface-card plan-card">
+          <header><div><span class="plan-key">{{ plan.plan_key }}</span><h2>{{ plan.name }}</h2><p>{{ plan.description }}</p></div><el-tag :type="plan.status === 'active' ? 'success' : 'info'">{{ plan.status === 'active' ? '启用' : '已退役' }}</el-tag></header>
+          <div class="plan-version-list">
+            <section v-for="version in plan.versions" :key="version.id" class="plan-version">
+              <div class="plan-version__heading"><div><strong>版本 V{{ version.version }}</strong><small>{{ version.change_note || '暂无版本说明' }}</small></div><el-tag :type="version.status === 'published' ? 'success' : version.status === 'draft' ? 'warning' : 'info'" size="small">{{ version.status }}</el-tag></div>
+              <div class="entitlement-grid"><div v-for="item in version.entitlements" :key="item.key"><span>{{ entitlementLabels[item.key] || item.key }}</span><strong>{{ displayValue(item) }}</strong><small>{{ item.enforcement_mode === 'hard' ? '硬限制' : item.enforcement_mode }}</small></div></div>
+              <footer><span>{{ version.status === 'published' ? `生效：${formatTime(version.effective_at)}` : `更新：${formatTime(version.updated_at)}` }}</span><div><el-button v-if="canManage && version.status === 'draft'" link type="primary" @click="openEditor(plan, version)">编辑草稿</el-button><el-button v-if="canPublish && version.status === 'draft'" link type="success" @click="openPublish(plan, version)">发布</el-button></div></footer>
+            </section>
+          </div>
+          <el-button v-if="canManage" class="plan-new-version" plain @click="openEditor(plan)">创建新版本草稿</el-button>
+        </article>
+      </div>
 
-    <section v-if="activeSection === 'products'" class="surface-card billing-catalog"><header><div><h2>AI 计费商品与价格</h2><p>发布后会进入 HR 或候选人购买页；已发布价格不可修改，只能创建新版本。</p></div><el-tag type="warning">{{ paymentEnvironment === 'sandbox' ? '支付宝沙箱' : paymentEnvironment }}</el-tag></header><div class="billing-product-grid"><article v-for="product in billingProducts" :key="product.id"><div><strong>{{ product.name }}</strong><small>{{ product.product_key }} · {{ product.product_type }}</small></div><div v-if="product.prices[0]"><strong>¥{{ (product.prices[0].amount_fen / 100).toFixed(2) }}</strong><small>{{ product.prices[0].included_credits.toLocaleString() }} 额度 · V{{ product.prices[0].version }}</small></div><span v-else>尚未配置价格</span><el-button v-if="canManage && product.product_key !== 'candidate_free'" link type="primary" @click="openPriceEditor(product)">配置价格</el-button></article><el-empty v-if="!billingProducts.length" description="尚未创建计费商品" /></div></section>
+      <section v-if="activeSection === 'products'" class="surface-card billing-catalog catalog-panel__body"><header><div><h2>AI 计费商品与价格</h2><p>发布后会进入 HR 或候选人购买页；已发布价格不可修改，只能创建新版本。</p></div><el-tag type="warning">{{ paymentEnvironment === 'sandbox' ? '支付宝沙箱' : paymentEnvironment }}</el-tag></header><div class="billing-product-grid"><article v-for="product in billingProducts" :key="product.id"><div><strong>{{ product.name }}</strong><small>{{ product.product_key }} · {{ product.product_type }}</small></div><div v-if="product.prices[0]"><strong>¥{{ (product.prices[0].amount_fen / 100).toFixed(2) }}</strong><small>{{ product.prices[0].included_credits.toLocaleString() }} 额度 · V{{ product.prices[0].version }}</small></div><span v-else>尚未配置价格</span><el-button v-if="canManage && product.product_key !== 'candidate_free'" link type="primary" @click="openPriceEditor(product)">配置价格</el-button></article><el-empty v-if="!billingProducts.length" description="尚未创建计费商品" /></div></section>
 
-    <section v-if="activeSection === 'rates'" class="surface-card billing-catalog"><header><div><h2>AI 模型费率卡</h2><p>供应商成本按每千 Token 配置；额度换算决定用户消耗，发布新版本后旧版本自动退役。</p></div><el-button v-if="canManage" type="primary" plain @click="openRateEditor()">新增费率卡</el-button></header><div class="billing-product-grid"><article v-for="rate in rateCards" :key="rate.id"><div><strong>{{ rate.provider_key }} / {{ rate.model_key }}</strong><small>V{{ rate.version }} · {{ rate.status }}</small></div><div><strong>输入 ¥{{ (rate.input_micros_per_1k_tokens / 1_000_000).toFixed(6) }}</strong><small>输出 ¥{{ (rate.output_micros_per_1k_tokens / 1_000_000).toFixed(6) }} / 千 Token</small></div><span>1 额度 = ¥{{ (rate.credit_micros / 1_000_000).toFixed(6) }}</span><el-button v-if="canManage" link type="primary" @click="openRateEditor(rate)">创建新版本</el-button></article><el-empty v-if="!rateCards.length" description="尚未配置模型费率，强制计费模式将拒绝未知模型" /></div></section>
+      <section v-if="activeSection === 'rates'" class="surface-card billing-catalog catalog-panel__body"><header><div><h2>AI 模型费率卡</h2><p>供应商成本按每千 Token 配置；额度换算决定用户消耗，发布新版本后旧版本自动退役。</p></div><el-button v-if="canManage" type="primary" plain @click="openRateEditor()">新增费率卡</el-button></header><div class="billing-product-grid"><article v-for="rate in rateCards" :key="rate.id"><div><strong>{{ rate.provider_key }} / {{ rate.model_key }}</strong><small>V{{ rate.version }} · {{ rate.status }}</small></div><div><strong>输入 ¥{{ (rate.input_micros_per_1k_tokens / 1_000_000).toFixed(6) }}</strong><small>输出 ¥{{ (rate.output_micros_per_1k_tokens / 1_000_000).toFixed(6) }} / 千 Token</small></div><span>1 额度 = ¥{{ (rate.credit_micros / 1_000_000).toFixed(6) }}</span><el-button v-if="canManage" link type="primary" @click="openRateEditor(rate)">创建新版本</el-button></article><el-empty v-if="!rateCards.length" description="尚未配置模型费率，强制计费模式将拒绝未知模型" /></div></section>
 
-    <section v-if="activeSection === 'refunds'" class="surface-card billing-catalog"><header><div><h2>退款审批与核对</h2><p>人工退款由平台资金责任人审批；未知状态由后台使用原退款号持续核对。</p></div></header><el-table :data="refunds" style="margin-top:20px"><el-table-column prop="refund_no" label="退款号" min-width="190"/><el-table-column prop="order_no" label="订单号" min-width="180"/><el-table-column label="金额" width="110"><template #default="{ row }">¥{{ (row.amount_fen / 100).toFixed(2) }}</template></el-table-column><el-table-column prop="reason" label="原因" min-width="180" show-overflow-tooltip/><el-table-column prop="status" label="状态" width="110"/><el-table-column label="操作" width="150"><template #default="{ row }"><template v-if="row.status === 'reviewing'"><el-button link type="success" @click="reviewRefund(row, 'approve')">批准</el-button><el-button link type="danger" @click="reviewRefund(row, 'reject')">拒绝</el-button></template><span v-else>{{ row.last_error || '—' }}</span></template></el-table-column></el-table><el-empty v-if="!refunds.length" description="暂无退款记录"/></section>
+      <section v-if="activeSection === 'refunds'" class="surface-card billing-catalog catalog-panel__body"><header><div><h2>退款审批与核对</h2><p>人工退款由平台资金责任人审批；未知状态由后台使用原退款号持续核对。</p></div></header><el-table :data="refunds" style="margin-top:20px"><el-table-column prop="refund_no" label="退款号" min-width="190"/><el-table-column prop="order_no" label="订单号" min-width="180"/><el-table-column label="金额" width="110"><template #default="{ row }">¥{{ (row.amount_fen / 100).toFixed(2) }}</template></el-table-column><el-table-column prop="reason" label="原因" min-width="180" show-overflow-tooltip/><el-table-column prop="status" label="状态" width="110"/><el-table-column label="操作" width="150"><template #default="{ row }"><template v-if="row.status === 'reviewing'"><el-button link type="success" @click="reviewRefund(row, 'approve')">批准</el-button><el-button link type="danger" @click="reviewRefund(row, 'reject')">拒绝</el-button></template><span v-else>{{ row.last_error || '—' }}</span></template></el-table-column></el-table><el-empty v-if="!refunds.length" description="暂无退款记录"/></section>
+    </PagePanel>
 
     <el-dialog v-model="editorVisible" :title="`${selectedPlan?.name || ''} · ${form.version_id ? '编辑草稿' : '新建版本'}`" width="680px">
       <el-alert title="已发布版本不可修改；保存新草稿不会立即影响任何租户。" type="info" :closable="false" show-icon />
@@ -297,4 +319,55 @@ onMounted(load)
 </template>
 
 <style scoped>
-.catalog-heading{margin-bottom:6px}.catalog-heading span{color:var(--el-color-primary);font-size:12px;letter-spacing:.12em}.catalog-heading h1{margin:6px 0;font-size:30px}.catalog-heading p{margin:0;color:var(--el-text-color-secondary)}.catalog-tabs{margin-bottom:18px}.billing-catalog{padding:24px}.billing-catalog>header{display:flex;justify-content:space-between;gap:20px;align-items:flex-start}.billing-catalog h2{margin:0 0 6px}.billing-catalog p{margin:0;color:var(--el-text-color-secondary)}.billing-product-grid{display:grid;gap:10px;margin-top:20px}.billing-product-grid article{display:grid;grid-template-columns:minmax(180px,1fr) minmax(160px,.7fr) minmax(110px,.5fr) auto;gap:16px;align-items:center;padding:14px 16px;border:1px solid var(--el-border-color-lighter);border-radius:12px}.billing-product-grid article>div{display:grid;gap:3px}.billing-product-grid small,.billing-product-grid span{color:var(--el-text-color-secondary)}.rate-option-meta{float:right;margin-left:16px;color:var(--el-text-color-secondary)}@media(max-width:760px){.billing-product-grid article{grid-template-columns:1fr}.billing-catalog>header{flex-direction:column}}</style>
+.catalog-subnav {
+  margin: 0;
+  padding: 10px var(--page-inset);
+  border: 0;
+  border-bottom: 1px solid var(--surface-soft-border);
+  border-radius: 0;
+  box-shadow: none;
+  overflow-x: auto;
+}
+.catalog-panel__body.plan-grid {
+  border-top: 0;
+  border-bottom: 0;
+  padding: 0;
+}
+.catalog-panel__body :deep(.plan-card) {
+  padding: var(--page-inset);
+}
+.catalog-panel__body :deep(.plan-card:first-child),
+.catalog-panel__body :deep(.plan-card:last-child) {
+  padding-left: var(--page-inset);
+  padding-right: var(--page-inset);
+}
+.billing-catalog {
+  padding: var(--page-inset);
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+.billing-catalog > header { display: flex; justify-content: space-between; gap: 20px; align-items: flex-start; }
+.billing-catalog h2 { margin: 0 0 6px; }
+.billing-catalog p { margin: 0; color: var(--text-muted); }
+.billing-product-grid { display: grid; gap: 10px; margin-top: 20px; }
+.billing-product-grid article {
+  display: grid;
+  grid-template-columns: minmax(180px, 1fr) minmax(160px, .7fr) minmax(110px, .5fr) auto;
+  gap: 16px;
+  align-items: center;
+  padding: 14px 16px;
+  border: 1px solid var(--surface-soft-border);
+  border-radius: var(--surface-soft-radius, 12px);
+  background: var(--surface-solid-bg);
+}
+.billing-product-grid article > div { display: grid; gap: 3px; }
+.billing-product-grid small,
+.billing-product-grid span { color: var(--text-muted); }
+.rate-option-meta { float: right; margin-left: 16px; color: var(--text-muted); }
+@media (max-width: 760px) {
+  .billing-product-grid article { grid-template-columns: 1fr; }
+  .billing-catalog > header { flex-direction: column; }
+}
+</style>

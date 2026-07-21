@@ -17,7 +17,7 @@ export const isCompatibleAgentPrompt = (
 import { onMounted, reactive, ref, computed } from 'vue'
 import { formatShanghaiDateTime } from '@shared/utils/format'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { ArrowDown, Delete, Edit, MoreFilled, Plus, Refresh, Search, View } from '@element-plus/icons-vue'
+import { ArrowDown, Delete, Edit, MoreFilled, Plus, Search, View } from '@element-plus/icons-vue'
 import {
   listAgentConfigs,
   listAgentCapabilities,
@@ -28,6 +28,7 @@ import {
 import { listPromptTemplates } from '@/api/prompt'
 import { useAuthStore } from '@/stores/auth'
 import { PLATFORM_PERMISSIONS } from '@/permissions'
+import { PagePanel } from '@/components/admin-console'
 import type {
   AgentConfigInfo,
   AgentCapabilityBindingInfo,
@@ -440,20 +441,8 @@ onMounted(() => {
 
 <template>
   <div class="agent-manage-view">
-    <div class="workspace-surface">
-      <div class="workspace-surface__header">
-        <div class="workspace-surface__header-copy">
-          <p class="page-kicker">AI Agent Console</p>
-          <h2 class="page-title">Agent 管理</h2>
-          <p class="page-desc">配置 HR 后台可调用的 AI Agent、Prompt 绑定、工具能力和运行参数。</p>
-        </div>
-        <div class="workspace-surface__header-actions">
-          <el-button :icon="Refresh" @click="loadList">刷新</el-button>
-          <el-button v-if="canManage" type="primary" :icon="Plus" @click="openCreate">新增 Agent</el-button>
-        </div>
-      </div>
-
-      <div class="workspace-surface__divider"></div>
+    <PagePanel>
+      <div class="workspace-surface">
 
       <div class="workspace-surface__toolbar">
         <div class="workspace-surface__filters">
@@ -490,7 +479,7 @@ onMounted(() => {
         </div>
         <div class="workspace-surface__actions">
           <el-button @click="resetFilters">重置</el-button>
-          <el-button :icon="Refresh" @click="loadList">刷新</el-button>
+          <el-button v-if="canManage" type="primary" :icon="Plus" @click="openCreate">新增 Agent</el-button>
         </div>
       </div>
 
@@ -498,6 +487,7 @@ onMounted(() => {
         <el-table
           v-loading="loading"
           :data="filteredList"
+          class="console-table"
           stripe
           style="width: 100%"
           :empty-text="error || '暂无 Agent 配置'"
@@ -580,6 +570,7 @@ onMounted(() => {
         />
       </div>
     </div>
+    </PagePanel>
 
     <el-drawer
       v-model="dialogVisible"
@@ -766,52 +757,20 @@ onMounted(() => {
   overflow: hidden;
 }
 
-.page-header,
+.agent-manage-view > .page-panel {
+  flex: 1;
+  min-height: 0;
+}
+
 .filter-toolbar,
 .filter-actions,
-.page-actions,
 .toolbar-left {
   display: flex;
   align-items: center;
 }
 
-.page-header {
-  justify-content: space-between;
-  align-items: flex-start;
-  gap: 20px;
-  margin-bottom: 18px;
-  padding: 22px 24px;
-  border: 1px solid var(--el-border-color-light);
-  border-radius: 8px;
-  background: var(--admin-console-header-bg);
-  flex-shrink: 0;
-}
-
-.page-title {
-  font-size: 24px;
-  font-weight: 700;
-  margin: 0;
-  line-height: 1.25;
-}
-
-.page-kicker {
-  margin: 0 0 6px;
-  font-size: 12px;
-  font-weight: 700;
-  line-height: 1;
-  color: var(--el-color-primary);
-  text-transform: uppercase;
-  letter-spacing: 0;
-}
-
-.page-desc {
-  margin: 6px 0 0;
-  color: var(--el-text-color-secondary);
-  line-height: 1.5;
-}
-
 .table-card {
-  border-radius: 8px;
+  border-radius: var(--surface-soft-radius, 12px);
   flex: 1;
   min-height: 0;
   display: flex;
@@ -951,7 +910,6 @@ onMounted(() => {
 }
 
 @media (max-width: 900px) {
-  .page-header,
   .filter-actions {
     align-items: stretch;
     flex-direction: column;

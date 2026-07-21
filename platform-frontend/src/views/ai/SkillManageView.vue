@@ -2,7 +2,7 @@
 import { computed, onMounted, reactive, ref } from 'vue'
 import { formatShanghaiDateTime } from '@shared/utils/format'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { Check, Document, Edit, Plus, Refresh, Search, Sort, Tools, View } from '@element-plus/icons-vue'
+import { Check, Document, Edit, Plus, Search, Sort, Tools, View } from '@element-plus/icons-vue'
 import {
   activateSkillVersion,
   createSkill,
@@ -15,6 +15,7 @@ import {
 } from '@/api/skill'
 import { useAuthStore } from '@/stores/auth'
 import { PLATFORM_PERMISSIONS } from '@/permissions'
+import { PagePanel } from '@/components/admin-console'
 import type {
   CreateSkillPayload,
   SkillInfo,
@@ -41,16 +42,6 @@ const SOURCE_OPTIONS = [
 
 const activeView = ref<ActiveView>('list')
 const selectedSkill = ref<SkillInfo | null>(null)
-
-const viewTitle = computed(() => {
-  if (activeView.value === 'versions' && selectedSkill.value) {
-    return `Manifest 版本管理 - ${selectedSkill.value.display_name || selectedSkill.value.name}`
-  }
-  if (activeView.value === 'tools' && selectedSkill.value) {
-    return `运行时 Tool 管理 - ${selectedSkill.value.display_name || selectedSkill.value.name}`
-  }
-  return '高级 SKILL 配置'
-})
 
 const list = ref<SkillInfo[]>([])
 const total = ref(0)
@@ -477,26 +468,8 @@ onMounted(() => {
 
 <template>
   <div class="skill-manage-view">
-    <div class="workspace-surface">
-      <div class="workspace-surface__header">
-        <div class="workspace-surface__header-copy">
-          <p class="page-kicker">System Admin · Skill Registry</p>
-          <h2 class="page-title">{{ viewTitle }}</h2>
-          <p class="page-desc">
-            用于系统管理员维护底层 Skill Registry、Manifest 版本与运行时 Tool，不作为普通 HR 的业务能力入口。
-          </p>
-        </div>
-        <div class="workspace-surface__header-actions">
-          <el-button v-if="activeView !== 'list'" text :icon="Sort" @click="goBackToList">
-            返回列表
-          </el-button>
-          <el-button v-if="canManage && activeView === 'list'" type="primary" :icon="Plus" @click="openCreate">
-            新增底层 SKILL
-          </el-button>
-        </div>
-      </div>
-
-      <div class="workspace-surface__divider"></div>
+    <PagePanel>
+      <div class="workspace-surface">
 
       <template v-if="activeView === 'list'">
         <el-card v-if="list.length === 0 && !loading" class="empty-card" shadow="never">
@@ -537,7 +510,7 @@ onMounted(() => {
             </div>
             <div class="workspace-surface__actions">
               <el-button @click="resetListFilters">重置</el-button>
-              <el-button :icon="Refresh" @click="loadList">刷新</el-button>
+              <el-button v-if="canManage" type="primary" :icon="Plus" @click="openCreate">新增底层 SKILL</el-button>
             </div>
           </div>
 
@@ -545,6 +518,7 @@ onMounted(() => {
             <el-table
               v-loading="loading"
               :data="filteredSkills"
+              class="console-table"
               stripe
               style="width: 100%"
               :empty-text="error || '暂无匹配的底层 SKILL 配置'"
@@ -620,10 +594,8 @@ onMounted(() => {
       <template v-else-if="activeView === 'versions'">
         <el-card class="table-card" shadow="never">
           <div class="filter-toolbar">
+            <el-button :icon="Sort" @click="goBackToList">返回列表</el-button>
             <el-button v-if="canManage" type="primary" :icon="Plus" @click="openCreateVersion">创建版本</el-button>
-            <div class="filter-actions">
-              <el-button :icon="Refresh" @click="loadVersions">刷新</el-button>
-            </div>
           </div>
 
           <el-table
@@ -672,6 +644,7 @@ onMounted(() => {
       <template v-else>
       <el-card class="table-card" shadow="never">
         <div class="filter-toolbar">
+          <el-button :icon="Sort" @click="goBackToList">返回列表</el-button>
           <el-select v-model="toolVersionId" style="width: 180px">
             <el-option
               v-for="opt in toolVersionOptions"
@@ -680,9 +653,6 @@ onMounted(() => {
               :label="opt.label"
             />
           </el-select>
-          <div class="filter-actions">
-            <el-button :icon="Refresh" @click="loadTools">刷新</el-button>
-          </div>
         </div>
 
         <el-table
@@ -726,6 +696,7 @@ onMounted(() => {
       </el-card>
     </template>
     </div>
+    </PagePanel>
 
     <el-dialog
       v-model="dialogVisible"
@@ -920,8 +891,11 @@ onMounted(() => {
   overflow: hidden;
 }
 
-.page-header,
-.page-actions,
+.skill-manage-view > .page-panel {
+  flex: 1;
+  min-height: 0;
+}
+
 .filter-toolbar,
 .filter-actions,
 .empty-actions,
@@ -932,44 +906,9 @@ onMounted(() => {
   align-items: center;
 }
 
-.page-header {
-  justify-content: space-between;
-  align-items: flex-start;
-  gap: 20px;
-  margin-bottom: 18px;
-  padding: 22px 24px;
-  border: 1px solid var(--el-border-color-light);
-  border-radius: 8px;
-  background: var(--admin-console-header-bg);
-  flex-shrink: 0;
-}
-
-.page-title {
-  font-size: 24px;
-  font-weight: 700;
-  margin: 0;
-  line-height: 1.25;
-}
-
-.page-kicker {
-  margin: 0 0 6px;
-  font-size: 12px;
-  font-weight: 700;
-  line-height: 1;
-  color: var(--el-color-primary);
-  text-transform: uppercase;
-  letter-spacing: 0;
-}
-
-.page-desc {
-  margin: 6px 0 0;
-  color: var(--el-text-color-secondary);
-  line-height: 1.5;
-}
-
 .table-card,
 .empty-card {
-  border-radius: 8px;
+  border-radius: var(--surface-soft-radius, 12px);
 }
 
 .table-card {
@@ -1113,7 +1052,6 @@ code {
 }
 
 @media (max-width: 900px) {
-  .page-header,
   .filter-actions {
     align-items: stretch;
     flex-direction: column;

@@ -36,8 +36,8 @@ defineProps<{
   justify-content: center;
   width: 48px;
   height: 48px;
-  border: 1px solid var(--admin-console-border, var(--border));
-  border-radius: 8px;
+  border: 1px solid var(--admin-console-border);
+  border-radius: var(--surface-soft-radius, 12px);
   background: var(--surface-muted);
   color: var(--brand);
   font-size: 22px;

@@ -1,0 +1,430 @@
+/* Element Plus component skins for platform console.
+ * Workspace controls: soft, no blur.
+ * Dense content: solid.
+ * Dialog/Drawer: soft shell + solid body.
+ * Scoped under .platform-app and teleported overlays.
+ */
+
+/* ---- Buttons (soft, no blur) ---- */
+.platform-app .el-button:not(.is-link):not(.is-text),
+.el-overlay-dialog .el-button:not(.is-link):not(.is-text),
+.el-message-box .el-button:not(.is-link):not(.is-text),
+.el-popper .el-button:not(.is-link):not(.is-text) {
+  min-height: var(--control-height);
+  padding-inline: 14px;
+  border-color: var(--control-border);
+  border-radius: var(--control-radius);
+  color: var(--text-secondary);
+  background-color: var(--control-bg);
+  background-image: none;
+  box-shadow: none;
+  font-size: var(--el-font-size-base);
+  transition:
+    color .15s ease,
+    background-color .15s ease,
+    border-color .15s ease,
+    box-shadow .15s ease;
+}
+
+.platform-app .el-button--small:not(.is-link):not(.is-text),
+.el-overlay-dialog .el-button--small:not(.is-link):not(.is-text),
+.el-message-box .el-button--small:not(.is-link):not(.is-text),
+.el-popper .el-button--small:not(.is-link):not(.is-text) {
+  min-height: var(--control-height-sm);
+  padding-inline: 10px;
+  border-radius: 6px;
+  font-size: 12px;
+}
+
+/* Default / plain buttons only — never fight typed variants on hover. */
+.platform-app .el-button:not(.is-link):not(.is-text):not(.el-button--primary):not(.el-button--success):not(.el-button--warning):not(.el-button--danger):not(.el-button--info):hover,
+.platform-app .el-button:not(.is-link):not(.is-text):not(.el-button--primary):not(.el-button--success):not(.el-button--warning):not(.el-button--danger):not(.el-button--info):focus,
+.platform-app .el-button:not(.is-link):not(.is-text):not(.el-button--primary):not(.el-button--success):not(.el-button--warning):not(.el-button--danger):not(.el-button--info):focus-visible,
+.el-overlay-dialog .el-button:not(.is-link):not(.is-text):not(.el-button--primary):not(.el-button--success):not(.el-button--warning):not(.el-button--danger):not(.el-button--info):hover,
+.el-overlay-dialog .el-button:not(.is-link):not(.is-text):not(.el-button--primary):not(.el-button--success):not(.el-button--warning):not(.el-button--danger):not(.el-button--info):focus,
+.el-message-box .el-button:not(.is-link):not(.is-text):not(.el-button--primary):not(.el-button--success):not(.el-button--warning):not(.el-button--danger):not(.el-button--info):hover,
+.el-message-box .el-button:not(.is-link):not(.is-text):not(.el-button--primary):not(.el-button--success):not(.el-button--warning):not(.el-button--danger):not(.el-button--info):focus {
+  color: var(--brand);
+  border-color: color-mix(in srgb, var(--brand) 45%, var(--control-border));
+  background-color: var(--control-hover-bg);
+  background-image: none;
+}
+
+.platform-app .el-button--primary:not(.is-link):not(.is-text),
+.el-overlay-dialog .el-button--primary:not(.is-link):not(.is-text),
+.el-message-box .el-button--primary:not(.is-link):not(.is-text) {
+  color: #fff;
+  border-color: color-mix(in srgb, var(--brand) 70%, #fff);
+  background-color: var(--brand);
+  background-image: none;
+  text-shadow: none;
+}
+
+.platform-app .el-button--primary:not(.is-link):not(.is-text):hover,
+.platform-app .el-button--primary:not(.is-link):not(.is-text):focus,
+.platform-app .el-button--primary:not(.is-link):not(.is-text):focus-visible,
+.el-overlay-dialog .el-button--primary:not(.is-link):not(.is-text):hover,
+.el-overlay-dialog .el-button--primary:not(.is-link):not(.is-text):focus,
+.el-message-box .el-button--primary:not(.is-link):not(.is-text):hover,
+.el-message-box .el-button--primary:not(.is-link):not(.is-text):focus {
+  color: #fff;
+  border-color: var(--brand-deep);
+  background-color: var(--brand-deep);
+  background-image: none;
+}
+
+:root[data-theme='dark'] .platform-app .el-button:not(.is-link):not(.is-text):not(.el-button--primary):not(.el-button--success):not(.el-button--warning):not(.el-button--danger):not(.el-button--info),
+:root[data-theme='dark'] .el-overlay-dialog .el-button:not(.is-link):not(.is-text):not(.el-button--primary):not(.el-button--success):not(.el-button--warning):not(.el-button--danger):not(.el-button--info),
+:root[data-theme='dark'] .el-message-box .el-button:not(.is-link):not(.is-text):not(.el-button--primary):not(.el-button--success):not(.el-button--warning):not(.el-button--danger):not(.el-button--info) {
+  color: var(--text-secondary);
+  border-color: rgba(137, 158, 190, .28);
+  background-color: #1a2a3d;
+  background-image: none;
+}
+
+:root[data-theme='dark'] .platform-app .el-button:not(.is-link):not(.is-text):not(.el-button--primary):not(.el-button--success):not(.el-button--warning):not(.el-button--danger):not(.el-button--info):hover,
+:root[data-theme='dark'] .platform-app .el-button:not(.is-link):not(.is-text):not(.el-button--primary):not(.el-button--success):not(.el-button--warning):not(.el-button--danger):not(.el-button--info):focus,
+:root[data-theme='dark'] .platform-app .el-button:not(.is-link):not(.is-text):not(.el-button--primary):not(.el-button--success):not(.el-button--warning):not(.el-button--danger):not(.el-button--info):focus-visible,
+:root[data-theme='dark'] .el-overlay-dialog .el-button:not(.is-link):not(.is-text):not(.el-button--primary):not(.el-button--success):not(.el-button--warning):not(.el-button--danger):not(.el-button--info):hover,
+:root[data-theme='dark'] .el-overlay-dialog .el-button:not(.is-link):not(.is-text):not(.el-button--primary):not(.el-button--success):not(.el-button--warning):not(.el-button--danger):not(.el-button--info):focus,
+:root[data-theme='dark'] .el-message-box .el-button:not(.is-link):not(.is-text):not(.el-button--primary):not(.el-button--success):not(.el-button--warning):not(.el-button--danger):not(.el-button--info):hover,
+:root[data-theme='dark'] .el-message-box .el-button:not(.is-link):not(.is-text):not(.el-button--primary):not(.el-button--success):not(.el-button--warning):not(.el-button--danger):not(.el-button--info):focus {
+  color: var(--brand-soft, var(--brand));
+  border-color: color-mix(in srgb, var(--brand) 42%, var(--control-border));
+  background-color: #22364f;
+  background-image: none;
+}
+
+:root[data-theme='dark'] .platform-app .el-button--primary:not(.is-link):not(.is-text),
+:root[data-theme='dark'] .el-overlay-dialog .el-button--primary:not(.is-link):not(.is-text),
+:root[data-theme='dark'] .el-message-box .el-button--primary:not(.is-link):not(.is-text) {
+  color: #edf3fb;
+  border-color: color-mix(in srgb, var(--brand) 55%, #152033);
+  background-color: var(--brand);
+  background-image: none;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .06);
+}
+
+:root[data-theme='dark'] .platform-app .el-button--primary:not(.is-link):not(.is-text):hover,
+:root[data-theme='dark'] .platform-app .el-button--primary:not(.is-link):not(.is-text):focus,
+:root[data-theme='dark'] .platform-app .el-button--primary:not(.is-link):not(.is-text):focus-visible,
+:root[data-theme='dark'] .el-overlay-dialog .el-button--primary:not(.is-link):not(.is-text):hover,
+:root[data-theme='dark'] .el-overlay-dialog .el-button--primary:not(.is-link):not(.is-text):focus,
+:root[data-theme='dark'] .el-message-box .el-button--primary:not(.is-link):not(.is-text):hover,
+:root[data-theme='dark'] .el-message-box .el-button--primary:not(.is-link):not(.is-text):focus {
+  color: #f4f8fd;
+  border-color: var(--brand-deep);
+  background-color: var(--brand-deep);
+  background-image: none;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .04);
+}
+
+:root[data-theme='dark'] .platform-app .el-button--primary:not(.is-link):not(.is-text):active,
+:root[data-theme='dark'] .el-overlay-dialog .el-button--primary:not(.is-link):not(.is-text):active,
+:root[data-theme='dark'] .el-message-box .el-button--primary:not(.is-link):not(.is-text):active {
+  background-color: color-mix(in srgb, var(--brand-deep) 88%, #0a1220);
+  background-image: none;
+}
+
+.platform-app .filter-toolbar .el-button:not(.is-link):not(.is-text),
+.platform-app .admin-filter-toolbar .el-button:not(.is-link):not(.is-text),
+.platform-app .workspace-surface__toolbar .el-button:not(.is-link):not(.is-text) {
+  min-height: var(--control-height-sm);
+  padding-inline: 12px;
+  border-radius: 6px;
+}
+
+/* ---- Inputs / selects / textarea (soft, no blur) ---- */
+.platform-app .el-input__wrapper,
+.platform-app .el-select__wrapper,
+.platform-app .el-textarea__inner,
+.platform-app .el-input-number .el-input__wrapper,
+.el-overlay-dialog .el-input__wrapper,
+.el-overlay-dialog .el-select__wrapper,
+.el-overlay-dialog .el-textarea__inner,
+.el-overlay-dialog .el-input-number .el-input__wrapper,
+.el-drawer .el-input__wrapper,
+.el-drawer .el-select__wrapper,
+.el-drawer .el-textarea__inner {
+  min-height: var(--control-height);
+  border-radius: var(--control-radius);
+  background: var(--control-bg);
+  box-shadow: var(--control-shadow);
+  font-size: var(--el-font-size-base);
+}
+
+.platform-app .el-input--small .el-input__wrapper,
+.platform-app .el-select--small .el-select__wrapper,
+.platform-app .el-input-number--small .el-input__wrapper,
+.el-overlay-dialog .el-input--small .el-input__wrapper,
+.el-overlay-dialog .el-select--small .el-select__wrapper,
+.el-drawer .el-input--small .el-input__wrapper,
+.el-drawer .el-select--small .el-select__wrapper {
+  min-height: var(--control-height-sm);
+  border-radius: 6px;
+}
+
+.platform-app .el-input__wrapper:hover,
+.platform-app .el-select__wrapper:hover,
+.el-overlay-dialog .el-input__wrapper:hover,
+.el-overlay-dialog .el-select__wrapper:hover,
+.el-drawer .el-input__wrapper:hover,
+.el-drawer .el-select__wrapper:hover {
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--brand) 40%, var(--control-border));
+}
+
+.platform-app .el-input__wrapper.is-focus,
+.platform-app .el-select__wrapper.is-focused,
+.el-overlay-dialog .el-input__wrapper.is-focus,
+.el-overlay-dialog .el-select__wrapper.is-focused,
+.el-drawer .el-input__wrapper.is-focus,
+.el-drawer .el-select__wrapper.is-focused {
+  box-shadow:
+    inset 0 0 0 1px color-mix(in srgb, var(--brand) 72%, transparent),
+    0 0 0 2px color-mix(in srgb, var(--brand) 12%, transparent);
+}
+
+.platform-app .filter-toolbar .el-input__wrapper,
+.platform-app .filter-toolbar .el-select__wrapper,
+.platform-app .filter-toolbar .el-input-number .el-input__wrapper,
+.platform-app .admin-filter-toolbar .el-input__wrapper,
+.platform-app .admin-filter-toolbar .el-select__wrapper,
+.platform-app .workspace-surface__toolbar .el-input__wrapper,
+.platform-app .workspace-surface__toolbar .el-select__wrapper,
+.platform-app .workspace-surface__toolbar .el-input-number .el-input__wrapper {
+  min-height: var(--control-height-sm);
+  border-radius: 6px;
+}
+
+/* ---- Tags ---- */
+.platform-app .el-tag {
+  border-color: var(--surface-soft-border);
+  border-radius: 8px;
+  background: var(--surface-muted);
+  box-shadow: none;
+}
+
+.platform-app .el-tag--success {
+  color: #199547;
+  border-color: rgba(25, 149, 71, .22);
+  background: rgba(223, 248, 228, .92);
+}
+
+:root[data-theme='dark'] .platform-app .el-tag--success {
+  color: #85d98d;
+  border-color: rgba(103, 194, 58, .24);
+  background: rgba(103, 194, 58, .14);
+}
+
+/* ---- Table (solid dense) ---- */
+.platform-app .console-table,
+.platform-app .admin-table-card .el-table {
+  --el-table-bg-color: var(--surface-solid-bg);
+  --el-table-tr-bg-color: var(--surface-solid-bg);
+  --el-table-header-bg-color: var(--table-header-solid);
+  --el-table-row-hover-bg-color: var(--table-hover-bg);
+  --el-table-border-color: var(--border);
+  overflow: hidden;
+  border-top: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+  background: var(--surface-solid-bg);
+}
+
+.platform-app .console-table::before,
+.platform-app .console-table .el-table__inner-wrapper::before {
+  display: none;
+}
+
+.platform-app .console-table .el-table__header th {
+  height: 44px;
+  color: var(--text);
+  font-weight: 700;
+  font-size: 12px;
+}
+
+.platform-app .console-table .el-table__header-wrapper {
+  border-bottom: 1px solid rgba(110, 135, 170, .22);
+}
+
+.platform-app .console-table .el-table__row {
+  cursor: pointer;
+}
+
+.platform-app .console-table .el-table__body tr.el-table__row--striped td.el-table__cell {
+  background: var(--table-striped-bg);
+}
+
+.platform-app .console-table .el-table__cell {
+  padding: 10px 0;
+  font-size: 13px;
+}
+
+.platform-app .console-table .el-table__fixed-right {
+  background: var(--table-fixed-bg);
+}
+
+.platform-app .console-table .el-table__header .el-table-fixed-column--right {
+  background: var(--table-header-solid) !important;
+}
+
+.platform-app .console-table .el-table__body .el-table-fixed-column--right {
+  background: var(--table-fixed-bg) !important;
+}
+
+.platform-app .console-table .el-table__body tr.el-table__row--striped .el-table-fixed-column--right {
+  background: var(--table-fixed-striped-bg) !important;
+}
+
+.platform-app .console-table .el-table__body tr:hover > .el-table-fixed-column--right {
+  background: var(--table-hover-bg) !important;
+}
+
+.platform-app .console-table .el-dropdown .el-button.is-link {
+  width: 36px;
+  height: 34px;
+  border: 1px solid var(--control-border);
+  border-radius: 9px;
+  color: var(--brand-deep);
+  background: var(--control-bg);
+  box-shadow: none;
+}
+
+/* ---- Pagination ---- */
+.platform-app .table-footer .el-pagination button,
+.platform-app .table-footer .el-pagination .el-pager li,
+.platform-app .admin-table-card__footer .el-pagination button,
+.platform-app .admin-table-card__footer .el-pagination .el-pager li,
+.platform-app .workspace-surface__pagination .el-pagination button,
+.platform-app .workspace-surface__pagination .el-pagination .el-pager li {
+  min-width: 28px;
+  height: 28px;
+  margin: 0 2px;
+  border: 1px solid var(--control-border);
+  border-radius: 6px;
+  background: var(--control-bg);
+  box-shadow: none;
+  font-size: 12px;
+}
+
+.platform-app .table-footer .el-pagination .el-pager li.is-active,
+.platform-app .admin-table-card__footer .el-pagination .el-pager li.is-active,
+.platform-app .workspace-surface__pagination .el-pagination .el-pager li.is-active {
+  color: #fff;
+  border-color: var(--brand);
+  background: var(--brand);
+}
+
+.platform-app .table-footer .el-pagination .el-select,
+.platform-app .admin-table-card__footer .el-pagination .el-select,
+.platform-app .workspace-surface__pagination .el-pagination .el-select {
+  margin-left: 10px;
+}
+
+.platform-app .workspace-surface__pagination .el-pagination .el-select .el-select__wrapper {
+  min-height: var(--control-height-sm);
+}
+
+/* ---- Dialog / Drawer: soft shell + solid body ---- */
+.el-overlay-dialog .el-dialog,
+.el-dialog {
+  border: 1px solid var(--surface-soft-border);
+  border-radius: 14px;
+  background: var(--dialog-shell-bg);
+  box-shadow: var(--surface-soft-shadow), 0 18px 48px rgba(16, 26, 48, .12);
+  overflow: hidden;
+}
+
+.el-dialog__header {
+  margin-right: 0;
+  padding: 18px 20px 12px;
+  border-bottom: 1px solid var(--surface-soft-border);
+  background: var(--dialog-shell-bg);
+}
+
+.el-dialog__body {
+  padding: 18px 20px;
+  background: var(--dialog-body-bg);
+  color: var(--text);
+}
+
+.el-dialog__footer {
+  padding: 12px 20px 18px;
+  border-top: 1px solid var(--surface-soft-border);
+  background: var(--dialog-body-bg);
+}
+
+.el-drawer {
+  background: var(--dialog-body-bg);
+}
+
+.el-drawer__header {
+  margin-bottom: 0;
+  padding: 18px 20px;
+  border-bottom: 1px solid var(--surface-soft-border);
+  background: var(--dialog-shell-bg);
+  color: var(--text);
+}
+
+.el-drawer__body {
+  background: var(--dialog-body-bg);
+  color: var(--text);
+}
+
+.el-drawer__footer {
+  border-top: 1px solid var(--surface-soft-border);
+  background: var(--dialog-body-bg);
+}
+
+/* ---- Poppers / dropdowns / select menus (soft; optional weak blur on chrome only) ---- */
+.el-popper.is-light,
+.el-select__popper.el-popper,
+.el-dropdown__popper.el-popper,
+.el-picker__popper.el-popper,
+.el-autocomplete__popper.el-popper {
+  border: 1px solid var(--surface-soft-border) !important;
+  border-radius: 12px !important;
+  background: var(--surface-soft-bg) !important;
+  box-shadow: var(--surface-soft-shadow) !important;
+}
+
+.el-dropdown-menu,
+.el-select-dropdown,
+.el-picker-panel {
+  background: transparent;
+  border: none;
+}
+
+.el-dropdown-menu__item:not(.is-disabled):focus,
+.el-dropdown-menu__item:not(.is-disabled):hover,
+.el-select-dropdown__item.is-hovering {
+  color: var(--brand);
+  background: var(--control-hover-bg);
+}
+
+/* ---- Message / MessageBox / Notification (solid readable) ---- */
+.el-message-box {
+  border: 1px solid var(--surface-soft-border);
+  border-radius: 14px;
+  background: var(--surface-solid-bg);
+  box-shadow: var(--surface-soft-shadow);
+}
+
+.el-message {
+  border: 1px solid var(--surface-soft-border);
+  border-radius: 10px;
+  background: var(--surface-solid-bg);
+  box-shadow: var(--surface-soft-shadow);
+}
+
+.el-notification {
+  border: 1px solid var(--surface-soft-border);
+  border-radius: 12px;
+  background: var(--surface-solid-bg);
+}
+
+/* ---- Filter toolbar controls (section chrome owned by PagePanel) ---- */
+.platform-app .filter-toolbar,
+.platform-app .admin-filter-toolbar {
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+}

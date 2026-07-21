@@ -1,12 +1,12 @@
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref, watch } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { ArrowDown, CircleCheck, Document, Edit, MoreFilled, Plus, Refresh, Search, Tickets, TurnOff, WarningFilled, View } from '@element-plus/icons-vue'
+import { ArrowDown, CircleCheck, Document, Edit, MoreFilled, Plus, Search, Tickets, TurnOff, WarningFilled, View } from '@element-plus/icons-vue'
 import * as agentSkillApi from '@/api/agentSkill'
 import { listAgentCapabilities } from '@/api/agent'
 import { useAuthStore } from '@/stores/auth'
 import { PLATFORM_PERMISSIONS } from '@/permissions'
-import { DataTableCard, EmptyGuide, FilterToolbar, PageHeader } from '@/components/admin-console'
+import { EmptyGuide, PagePanel } from '@/components/admin-console'
 import AgentSkillCanvasEditor from '@/components/agent-skill/AgentSkillCanvasEditor.vue'
 import type { CapabilityInfo } from '@shared/types/agent'
 import type {
@@ -1064,21 +1064,8 @@ onMounted(() => {
 
 <template>
   <section class="agent-skill-page">
-    <div class="workspace-surface">
-      <div class="workspace-surface__header">
-        <div class="workspace-surface__header-copy">
-          <p class="console-eyebrow">Agent Skill</p>
-          <h1 class="console-title">Agent Skill 管理</h1>
-          <p class="console-description">用流程节点编排生成数据库版 SKILL.md，供 AI 助手手动选择使用。</p>
-        </div>
-        <div class="workspace-surface__header-actions">
-          <el-button :icon="Refresh" @click="loadList">刷新列表</el-button>
-          <el-button v-if="canManage" type="primary" :icon="Plus" @click="openCreate">新建 Skill</el-button>
-        </div>
-      </div>
-
-      <div class="workspace-surface__divider"></div>
-
+    <PagePanel>
+      <div class="workspace-surface">
       <div class="workspace-surface__toolbar">
         <div class="workspace-surface__filters">
           <el-input
@@ -1095,13 +1082,14 @@ onMounted(() => {
           </el-select>
         </div>
         <div class="workspace-surface__actions">
-          <el-button :icon="Search" type="primary" @click="loadList">查询</el-button>
+          <el-button :icon="Search" @click="loadList">查询</el-button>
+          <el-button v-if="canManage" type="primary" :icon="Plus" @click="openCreate">新建 Skill</el-button>
         </div>
       </div>
 
       <div class="workspace-surface__body">
         <div class="agent-skill-table-wrap">
-          <el-table v-loading="loading" class="agent-skill-table" :data="list" row-key="id" height="100%">
+          <el-table v-loading="loading" class="console-table agent-skill-table" :data="list" row-key="id" height="100%">
             <el-table-column prop="display_name" label="名称" min-width="180">
               <template #default="{ row }">
                 <div class="skill-name">{{ row.display_name || row.name }}</div>
@@ -1176,6 +1164,7 @@ onMounted(() => {
         />
       </div>
     </div>
+    </PagePanel>
 
     <el-dialog
       v-model="builderDialogVisible"
@@ -1565,6 +1554,11 @@ onMounted(() => {
   padding-bottom: 24px;
 }
 
+.agent-skill-page > .page-panel {
+  flex: 1;
+  min-height: 0;
+}
+
 .list-shell {
   display: flex;
   flex: 1 1 auto;
@@ -1588,9 +1582,9 @@ onMounted(() => {
 }
 
 .canvas-workbench {
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  background: var(--surface);
+  border: 1px solid var(--surface-soft-border);
+  border-radius: var(--surface-soft-radius, 12px);
+  background: var(--surface-soft-bg);
   box-shadow: var(--admin-console-card-shadow);
 }
 
@@ -1822,10 +1816,6 @@ onMounted(() => {
   min-height: 0;
   display: flex;
   flex-direction: column;
-}
-
-.list-table-card :deep(.admin-table-card__header) {
-  flex: 0 0 auto;
 }
 
 .list-table-card :deep(.admin-table-card__body) {

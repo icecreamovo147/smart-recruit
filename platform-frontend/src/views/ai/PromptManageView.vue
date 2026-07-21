@@ -2,9 +2,10 @@
 import { onMounted, reactive, ref, computed } from 'vue'
 import { formatShanghaiDateTime } from '@shared/utils/format'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { ArrowDown, Delete, Edit, MoreFilled, Plus, Refresh, Search, View, Back } from '@element-plus/icons-vue'
+import { ArrowDown, Delete, Edit, MoreFilled, Plus, Search, View, Back } from '@element-plus/icons-vue'
 import { useAuthStore } from '@/stores/auth'
 import { PLATFORM_PERMISSIONS } from '@/permissions'
+import { PagePanel } from '@/components/admin-console'
 import {
   listPromptTemplates,
   createPromptTemplate,
@@ -375,22 +376,8 @@ onMounted(() => {
 
 <template>
   <div class="console-page console-page--fill prompt-manage-view">
-    <div class="workspace-surface">
-      <div class="workspace-surface__header">
-        <div class="workspace-surface__header-copy">
-          <p class="console-eyebrow">PROMPT OPS</p>
-          <h2 class="console-title">Prompt 管理</h2>
-          <p class="console-description">
-            管理提示词模板：「对话助手」用于 HR/候选人聊天；「系统内置任务」用于系统自动处理简历、JD、匹配评估。后一类只需在这里改提示词，不用去 Agent 管理建 Agent。
-          </p>
-        </div>
-        <div class="workspace-surface__header-actions">
-          <el-button :icon="Refresh" @click="loadList">刷新</el-button>
-          <el-button v-if="canManage" type="primary" :icon="Plus" @click="openCreate">新增模板</el-button>
-        </div>
-      </div>
-
-      <div class="workspace-surface__divider"></div>
+    <PagePanel>
+      <div class="workspace-surface">
 
       <div class="workspace-surface__toolbar">
         <div class="workspace-surface__filters">
@@ -424,6 +411,9 @@ onMounted(() => {
             <el-option value="active" label="启用" />
             <el-option value="inactive" label="禁用" />
           </el-select>
+        </div>
+        <div class="workspace-surface__actions">
+          <el-button v-if="canManage" type="primary" :icon="Plus" @click="openCreate">新增模板</el-button>
         </div>
       </div>
 
@@ -514,6 +504,7 @@ onMounted(() => {
         />
       </div>
     </div>
+    </PagePanel>
 
     <!-- ── Edit / Create Dialog ────────────────────────────────────── -->
     <el-drawer
@@ -698,6 +689,11 @@ onMounted(() => {
   padding-bottom: 24px;
 }
 
+.console-page--fill .page-panel {
+  flex: 1;
+  min-height: 0;
+}
+
 .prompt-type-cell {
   display: flex;
   flex-direction: column;
@@ -721,12 +717,6 @@ onMounted(() => {
 
 .field-hint--task {
   color: var(--el-color-warning-dark-2, #b88230);
-}
-
-.page-title {
-  font-size: 20px;
-  font-weight: 600;
-  margin: 0 0 16px;
 }
 
 .toolbar {

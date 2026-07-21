@@ -6,7 +6,6 @@ import {
   Delete,
   Edit,
   Plus,
-  Refresh,
   Connection,
   MoreFilled,
   Search,
@@ -32,6 +31,7 @@ import {
 } from '@/api/mcp'
 import { useAuthStore } from '@/stores/auth'
 import { PLATFORM_PERMISSIONS } from '@/permissions'
+import { PagePanel } from '@/components/admin-console'
 import type {
   McpServerInfo,
   McpToolInfo,
@@ -101,19 +101,6 @@ type ActiveView = 'list' | 'tools' | 'logs' | 'policies'
 
 const activeView = ref<ActiveView>('list')
 const selectedServer = ref<McpServerInfo | null>(null)
-
-const viewTitle = computed(() => {
-  if (activeView.value === 'tools' && selectedServer.value) {
-    return `工具列表 - ${selectedServer.value.name}`
-  }
-  if (activeView.value === 'logs' && selectedServer.value) {
-    return `调用日志 - ${selectedServer.value.name}`
-  }
-  if (activeView.value === 'policies') {
-    return selectedServer.value ? `工具策略 - ${selectedServer.value.name}` : 'MCP 工具策略'
-  }
-  return 'MCP Server 管理'
-})
 
 const navigateToTools = (row: McpServerInfo) => {
   debugLog.mcp.info('navigateToTools', { server_id: row.id, server_name: row.name })
@@ -749,34 +736,12 @@ onMounted(() => {
 
 <template>
   <div class="console-page console-page--fill mcp-manage-view">
-    <div class="workspace-surface">
-      <div class="workspace-surface__header">
-        <div class="workspace-surface__header-copy">
-          <p class="console-eyebrow">TOOL CENTER</p>
-          <h2 class="console-title">{{ viewTitle }}</h2>
-          <p class="console-description">接入和管理 MCP Server，统一查看工具能力、连接状态和调用审计，作为 Agent 工具层的控制台。</p>
-        </div>
-        <div class="workspace-surface__header-actions">
-          <el-button
-            v-if="activeView !== 'list'"
-            :icon="Sort"
-            @click="goBackToList"
-          >
-            返回列表
-          </el-button>
-          <el-button v-if="activeView === 'list'" :icon="Refresh" @click="loadList">刷新</el-button>
-          <el-button v-if="activeView === 'list'" :icon="Lock" @click="navigateToPolicies()">策略</el-button>
-          <el-button v-if="canManage && activeView === 'list'" type="primary" :icon="Plus" @click="openCreate">新增 Server</el-button>
-          <el-button v-if="activeView === 'policies'" :icon="Refresh" @click="loadPolicies">刷新</el-button>
-          <el-button v-if="canManage && activeView === 'policies'" type="primary" :icon="Plus" @click="openCreatePolicy(selectedServer || undefined)">新增策略</el-button>
-        </div>
-      </div>
-
+    <PagePanel>
+      <div class="workspace-surface">
       <!-- ════════════════════════════════════════════════════════════════════════
            View 1: MCP Server List (Main)
            ════════════════════════════════════════════════════════════════════════ -->
       <template v-if="activeView === 'list'">
-        <div class="workspace-surface__divider"></div>
         <div class="workspace-surface__toolbar">
           <div class="workspace-surface__filters">
             <el-input v-model="keywordFilter" :prefix-icon="Search" clearable placeholder="搜索名称 / 命令 / URL" style="width: 260px" />
@@ -788,6 +753,10 @@ onMounted(() => {
               <el-option label="未连接" value="disconnected" />
               <el-option label="错误" value="error" />
             </el-select>
+          </div>
+          <div class="workspace-surface__actions">
+            <el-button :icon="Lock" @click="navigateToPolicies()">策略</el-button>
+            <el-button v-if="canManage" type="primary" :icon="Plus" @click="openCreate">新增 Server</el-button>
           </div>
         </div>
       <div class="workspace-surface__body">
@@ -883,6 +852,14 @@ onMounted(() => {
          View 2: Tool List (sub-view)
          ════════════════════════════════════════════════════════════════════════ -->
     <template v-if="activeView === 'tools'">
+      <div class="workspace-surface__toolbar">
+        <div class="workspace-surface__filters">
+          <span class="workspace-surface__context">{{ selectedServer?.name }} · 工具列表</span>
+        </div>
+        <div class="workspace-surface__actions">
+          <el-button :icon="Sort" @click="goBackToList">返回列表</el-button>
+        </div>
+      </div>
       <div class="workspace-surface__body">
       <el-table
         v-loading="toolsLoading"
@@ -951,6 +928,10 @@ onMounted(() => {
             />
           </el-select>
           <el-button type="primary" @click="policyPage = 1; loadPolicies()">查询</el-button>
+        </div>
+        <div class="workspace-surface__actions">
+          <el-button :icon="Sort" @click="goBackToList">返回列表</el-button>
+          <el-button v-if="canManage" type="primary" :icon="Plus" @click="openCreatePolicy(selectedServer || undefined)">新增策略</el-button>
         </div>
       </div>
 
@@ -1078,7 +1059,7 @@ onMounted(() => {
           <el-button type="primary" @click="logPage = 1; loadLogs()">查询</el-button>
         </div>
         <div class="workspace-surface__actions">
-        <el-button :icon="Refresh" @click="logPage = 1; loadLogs()">刷新</el-button>
+          <el-button :icon="Sort" @click="goBackToList">返回列表</el-button>
         </div>
       </div>
 
@@ -1152,6 +1133,9 @@ onMounted(() => {
         />
       </div>
     </template>
+
+    </div>
+    </PagePanel>
 
     <!-- ════════════════════════════════════════════════════════════════════════
          Create / Edit Dialog
@@ -1390,7 +1374,6 @@ onMounted(() => {
         <el-button @click="logDetailVisible = false">关闭</el-button>
       </template>
     </el-dialog>
-    </div>
   </div>
 </template>
 
@@ -1399,17 +1382,9 @@ onMounted(() => {
   padding-bottom: 24px;
 }
 
-.page-head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: 16px;
-}
-
-.page-title {
-  font-size: 20px;
-  font-weight: 600;
-  margin: 0;
+.console-page--fill .page-panel {
+  flex: 1;
+  min-height: 0;
 }
 
 .toolbar {
