@@ -7,7 +7,10 @@ import { describe, expect, it } from 'vitest'
 import {
   buildApplicationAnalysisMessage,
   buildApplicationAnalysisRunRequest,
+  isInsufficientCreditsFailure,
+  normalizeSuggestedQuestions,
   resolveApplicationAnalysisMessage,
+  suggestedQuestionsFromProcessContent,
 } from './AIChatView.vue'
 import { sanitizeAssistantProcessText } from '@/utils/hrAssistantProcess'
 
@@ -134,6 +137,15 @@ describe('AIChatView assistant process formatting', () => {
     expect(text).not.toContain('"runtime"')
     expect(text).not.toContain('tool_results')
   })
+
+  it('restores suggested questions from persisted process content', () => {
+    const questions = suggestedQuestionsFromProcessContent(JSON.stringify({
+      runtime: 'adk',
+      suggested_questions: ['查看岗位详情', '分析投递趋势', '比较候选人差异'],
+    }))
+    expect(questions).toEqual(['查看岗位详情', '分析投递趋势', '比较候选人差异'])
+    expect(normalizeSuggestedQuestions(['重复问题', '重复问题', '下一步'])).toEqual(['重复问题', '下一步'])
+  })
 })
 
 describe('AIChatView application analysis message', () => {
@@ -187,5 +199,14 @@ describe('AIChatView application analysis message', () => {
     expect(payload.message ?? '').toContain('匹配度')
     expect((payload.message ?? '').trim()).not.toBe('')
     expect(payload.action_type).toBe('analyze_application')
+  })
+})
+
+describe('AIChatView quota guard', () => {
+  it('recognizes synchronous and asynchronous insufficient-credit errors', () => {
+    expect(isInsufficientCreditsFailure('40201')).toBe(true)
+    expect(isInsufficientCreditsFailure('insufficient_credits')).toBe(true)
+    expect(isInsufficientCreditsFailure('AI 套餐额度不足，请购买套餐后重试')).toBe(true)
+    expect(isInsufficientCreditsFailure('timeout')).toBe(false)
   })
 })

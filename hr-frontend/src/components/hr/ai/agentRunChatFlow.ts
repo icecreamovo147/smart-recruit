@@ -35,6 +35,16 @@ export interface DurableChatUiBinder {
   onRunError?: (errorType: string, errorMessage: string) => void
 }
 
+export const insufficientCreditsMessage = 'AI 套餐额度不足，请购买套餐或加量包后重试'
+
+export function friendlyDurableRunErrorMessage(errorType = '', errorMessage = ''): string {
+  const combined = `${errorType} ${errorMessage}`.toLowerCase()
+  if (combined.includes('insufficient_credits')) {
+    return insufficientCreditsMessage
+  }
+  return errorMessage || errorType || '运行失败'
+}
+
 export function createClientRequestId(): string {
   if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
     return crypto.randomUUID()
@@ -268,7 +278,7 @@ function mapSettlement(
     return {
       outcome: 'failed',
       state,
-      error: new Error(state.errorMessage || state.errorType || '运行失败'),
+      error: new Error(friendlyDurableRunErrorMessage(state.errorType, state.errorMessage)),
     }
   }
   return { outcome: 'terminal', state }

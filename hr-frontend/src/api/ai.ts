@@ -31,6 +31,7 @@ export const sendMessage = (data: ChatRequestPayload): Promise<{
   status?: number
   session_id?: number
   context_usage?: ContextUsageInfo | null
+  suggested_questions?: string[]
 }> => request.post('/api/v1/hr/ai/chat', data)
 
 export const getHistory = (params: { page: number; page_size: number }): Promise<{

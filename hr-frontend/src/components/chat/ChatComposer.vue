@@ -46,6 +46,7 @@ const props = defineProps<{
   selectedSkillKeys: string[]
   agentSkills: AvailableAgentSkill[]
   selectedAgentSkillIds: number[]
+  disabled?: boolean
 }>()
 
 const emit = defineEmits<{
@@ -81,7 +82,7 @@ const slashQuery = computed(() => {
 })
 
 const skillMenuVisible = computed(() =>
-  !props.streaming && activeSlashIndex.value >= 0,
+  !props.disabled && !props.streaming && activeSlashIndex.value >= 0,
 )
 
 const filteredSkillCapabilities = computed(() => {
@@ -137,6 +138,7 @@ const clearSlashToken = () => {
 }
 
 const selectSkill = (cap: CapabilityInfo) => {
+  if (props.disabled) return
   if (!props.selectedSkillKeys.includes(cap.key)) {
     emit('update:selectedSkillKeys', [...props.selectedSkillKeys, cap.key])
   }
@@ -144,6 +146,7 @@ const selectSkill = (cap: CapabilityInfo) => {
 }
 
 const selectAgentSkill = (skill: AvailableAgentSkill) => {
+  if (props.disabled) return
   if (!props.selectedAgentSkillIds.includes(skill.id)) {
     emit('update:selectedAgentSkillIds', [...props.selectedAgentSkillIds, skill.id])
   }
@@ -151,10 +154,12 @@ const selectAgentSkill = (skill: AvailableAgentSkill) => {
 }
 
 const removeSkill = (key: string) => {
+  if (props.disabled) return
   emit('update:selectedSkillKeys', props.selectedSkillKeys.filter((item) => item !== key))
 }
 
 const removeAgentSkill = (id: number) => {
+  if (props.disabled) return
   emit('update:selectedAgentSkillIds', props.selectedAgentSkillIds.filter((item) => item !== id))
 }
 
@@ -211,7 +216,7 @@ const positive = (value: number | undefined): boolean => Number.isFinite(value) 
 </script>
 
 <template>
-  <div class="chat-composer">
+  <div class="chat-composer" :class="{ 'chat-composer--disabled': disabled }">
     <Transition name="chat-composer-skill-menu">
       <div v-if="skillMenuVisible" class="chat-composer__skill-menu">
         <template v-if="skillCapabilities.length > 0">
@@ -255,6 +260,7 @@ const positive = (value: number | undefined): boolean => Number.isFinite(value) 
         :key="skill.key"
         type="button"
         class="chat-composer__skill-badge"
+        :disabled="disabled"
         @click="removeSkill(skill.key)"
       >
         <span>/{{ skillLabel(skill) }}</span>
@@ -265,6 +271,7 @@ const positive = (value: number | undefined): boolean => Number.isFinite(value) 
         :key="skill.id"
         type="button"
         class="chat-composer__skill-badge"
+        :disabled="disabled"
         @click="removeAgentSkill(skill.id)"
       >
         <span>/{{ agentSkillLabel(skill) }}</span>
@@ -274,13 +281,13 @@ const positive = (value: number | undefined): boolean => Number.isFinite(value) 
     <div class="chat-composer__input-area">
       <el-input
         :model-value="input"
-        :disabled="streaming"
+        :disabled="streaming || disabled"
         :placeholder="placeholderText"
         type="textarea"
         :autosize="{ minRows: 2, maxRows: 6 }"
         resize="none"
         class="chat-composer__text-input"
-        @keydown.enter.exact.prevent="streaming || contextPreviewing ? undefined : emit('submit')"
+        @keydown.enter.exact.prevent="streaming || contextPreviewing || disabled ? undefined : emit('submit')"
         @update:model-value="(val: string) => emit('update:input', val)"
       />
     </div>
@@ -294,7 +301,7 @@ const positive = (value: number | undefined): boolean => Number.isFinite(value) 
           placeholder="默认模型"
           class="chat-composer__model-select"
           clearable
-          :disabled="streaming || contextPreviewing"
+          :disabled="streaming || contextPreviewing || disabled"
           @update:model-value="(val: number | null) => emit('update:selectedModelId', val)"
         >
           <el-option
@@ -441,7 +448,7 @@ const positive = (value: number | undefined): boolean => Number.isFinite(value) 
         type="primary"
         :icon="Position"
         :loading="loading"
-        :disabled="!input.trim() || contextPreviewing"
+        :disabled="!input.trim() || contextPreviewing || disabled"
         class="chat-composer__send-btn"
         @click="emit('submit')"
       >
@@ -469,6 +476,12 @@ const positive = (value: number | undefined): boolean => Number.isFinite(value) 
 .chat-composer:focus-within {
   border-color: var(--el-color-primary-light-7);
   box-shadow: 0 10px 28px rgba(37, 99, 235, 0.08);
+}
+
+.chat-composer--disabled:hover,
+.chat-composer--disabled:focus-within {
+  border-color: var(--border);
+  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.05);
 }
 
 .chat-composer__skill-menu {

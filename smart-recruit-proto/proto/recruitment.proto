@@ -1187,6 +1187,7 @@ message ChatResponse {
   int32 status = 10;
   int64 session_id = 11;
   ContextUsageInfo context_usage = 12;
+  repeated string suggested_questions = 13;
 }
 
 message AgentSkillSelectionCandidate {

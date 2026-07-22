@@ -9,6 +9,7 @@ const props = defineProps<{
   currentSession: Session | null
   menuSessionId: number
   sessionSidebarOpen: boolean
+  chatDisabled?: boolean
 }>()
 
 const emit = defineEmits<{
@@ -135,7 +136,7 @@ const formatSessionTime = (dateStr?: string): string => {
         >
           管理
         </el-button>
-        <el-button size="small" type="primary" class="chat-sidebar__new-btn" @click="emit('create-session')">
+        <el-button size="small" type="primary" class="chat-sidebar__new-btn" :disabled="chatDisabled" @click="chatDisabled ? undefined : emit('create-session')">
           新建对话
         </el-button>
       </div>

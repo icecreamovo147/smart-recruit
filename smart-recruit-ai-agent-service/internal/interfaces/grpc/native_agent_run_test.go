@@ -155,10 +155,31 @@ func TestCreateAgentRunDispatchesDetachedAndCompletes(t *testing.T) {
 		t.Fatalf("assistant message = %#v", message)
 	}
 	eventTypes := store.eventTypes(resp.GetRun().GetRunId())
-	for _, want := range []string{"run.created", "run.status_changed", "process.delta", "assistant.delta", "run.result", "run.completed"} {
+	for _, want := range []string{"run.created", "run.status_changed", "process.delta", "assistant.delta", "process.snapshot", "run.result", "run.completed"} {
 		if !containsString(eventTypes, want) {
 			t.Fatalf("event types = %v, want %s", eventTypes, want)
 		}
+	}
+	processEvent := store.lastEvent(resp.GetRun().GetRunId(), "process.snapshot")
+	var processPayload struct {
+		SnapshotText string `json:"snapshot_text"`
+	}
+	if err := json.Unmarshal([]byte(processEvent.PayloadJSON), &processPayload); err != nil {
+		t.Fatalf("decode process snapshot: %v", err)
+	}
+	var persistedProcess struct {
+		DisplaySummary []string `json:"display_summary"`
+	}
+	if err := json.Unmarshal([]byte(message.ProcessContent), &persistedProcess); err != nil {
+		t.Fatalf("decode persisted process content: %v", err)
+	}
+	if got := strings.Join(persistedProcess.DisplaySummary, "\n"); got != processPayload.SnapshotText {
+		t.Fatalf("persisted process = %q, live final snapshot = %q", got, processPayload.SnapshotText)
+	}
+	if strings.Contains(processPayload.SnapshotText, "上下文容量") ||
+		!strings.Contains(processPayload.SnapshotText, "已分析问题并确定所需招聘数据。") ||
+		!strings.Contains(processPayload.SnapshotText, "已整理查询结果并生成回复。") {
+		t.Fatalf("process snapshot = %q, want concise business process without context internals", processPayload.SnapshotText)
 	}
 }
 
@@ -219,6 +240,16 @@ func TestAgentRunExecutionContextFallsBackToPersistedTenant(t *testing.T) {
 	})
 	if got := platformmetadata.GetAuthTenantID(ctx); got != 12 {
 		t.Fatalf("tenant id = %d, want 12", got)
+	}
+}
+
+func TestAgentRunFailureDetailsMapsInsufficientCreditsToUserMessage(t *testing.T) {
+	errorType, errorMessage := agentRunFailureDetails(
+		status.Error(codes.ResourceExhausted, "insufficient_credits"),
+		"provider",
+	)
+	if errorType != "insufficient_credits" || errorMessage != insufficientCreditsUserMessage {
+		t.Fatalf("failure details = (%q, %q)", errorType, errorMessage)
 	}
 }
 
@@ -293,8 +324,73 @@ func TestAgentRunEmitterPersistsPlannerDisplayMessage(t *testing.T) {
 	}
 	event := store.lastEvent(created.ID, "tool.started")
 	if !strings.Contains(event.PayloadJSON, `"display_message":"我正在读取当前投递和候选人上下文。"`) ||
-		!strings.Contains(event.PayloadJSON, `"step_key":"candidate_identity"`) {
+		!strings.Contains(event.PayloadJSON, `"step_key":"candidate_identity"`) ||
+		!strings.Contains(event.PayloadJSON, `"snapshot_text":"已分析问题并确定所需招聘数据。\n我正在读取当前投递和候选人上下文。"`) {
 		t.Fatalf("event payload = %s, want planner display message and step metadata", event.PayloadJSON)
+	}
+	runSnapshot, found := store.runSnapshot(created.ID)
+	if !found || runSnapshot.ProcessText != "已分析问题并确定所需招聘数据。\n我正在读取当前投递和候选人上下文。" {
+		t.Fatalf("run process snapshot = %q", runSnapshot.ProcessText)
+	}
+	if err := emit(&pb.ChatStreamResponse{EventType: "tool_done", EventMessage: "get_candidate_detail finished", ToolName: "get_candidate_detail", Msg: "success"}, display); err != nil {
+		t.Fatalf("emit tool_done returned error: %v", err)
+	}
+	finished := store.lastEvent(created.ID, "tool.finished")
+	var finishedPayload struct {
+		SnapshotText string `json:"snapshot_text"`
+	}
+	if err := json.Unmarshal([]byte(finished.PayloadJSON), &finishedPayload); err != nil {
+		t.Fatalf("decode finished process snapshot: %v", err)
+	}
+	wantFinished := "已分析问题并确定所需招聘数据。\n已完成：读取当前投递和候选人上下文。"
+	if finishedPayload.SnapshotText != wantFinished {
+		t.Fatalf("finished process snapshot = %q, want %q", finishedPayload.SnapshotText, wantFinished)
+	}
+}
+
+func TestAgentRunEmitterSerializesConcurrentProcessSnapshots(t *testing.T) {
+	store := newAgentRunTestStore()
+	service := &nativeAIService{store: store}
+	run := fallbackAgentRun(77, 101, "concurrent-display-message", agentRunDurablePayload{Message: "user asks"})
+	run.Status = agentRunStatusRunning
+	created, _, err := store.CreateAgentRun(context.Background(), run)
+	if err != nil {
+		t.Fatalf("CreateAgentRun seed returned error: %v", err)
+	}
+
+	emit := service.agentRunChatEmitter(created.ID)
+	const eventCount = 64
+	errCh := make(chan error, eventCount)
+	var wg sync.WaitGroup
+	for i := 0; i < eventCount; i++ {
+		i := i
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			purpose := fmt.Sprintf("读取第 %d 组招聘数据", i)
+			errCh <- emit(
+				&pb.ChatStreamResponse{EventType: "tool_calling", ToolName: "get_job_list", Msg: "success"},
+				&agentRunDisplayContext{StepKey: fmt.Sprintf("step-%d", i), StepPurpose: purpose},
+			)
+		}()
+	}
+	wg.Wait()
+	close(errCh)
+	for emitErr := range errCh {
+		if emitErr != nil {
+			t.Fatalf("concurrent emit returned error: %v", emitErr)
+		}
+	}
+
+	snapshot, found := store.runSnapshot(created.ID)
+	if !found {
+		t.Fatal("run snapshot not found")
+	}
+	for i := 0; i < eventCount; i++ {
+		want := fmt.Sprintf("我正在读取第 %d 组招聘数据。", i)
+		if !strings.Contains(snapshot.ProcessText, want) {
+			t.Fatalf("final process snapshot is missing %q: %q", want, snapshot.ProcessText)
+		}
 	}
 }
 
@@ -1026,6 +1122,12 @@ func (s *agentRunTestStore) AppendAgentRunEvent(_ context.Context, runID int64, 
 	if run, ok := s.runs[runID]; ok {
 		run.LastEventSeq = row.Seq
 		run.UpdatedAt = row.CreatedAt
+		var snapshotPayload struct {
+			SnapshotText *string `json:"snapshot_text"`
+		}
+		if json.Unmarshal([]byte(payload), &snapshotPayload) == nil && snapshotPayload.SnapshotText != nil {
+			run.ProcessText = *snapshotPayload.SnapshotText
+		}
 		s.runs[runID] = run
 	}
 	return row, nil

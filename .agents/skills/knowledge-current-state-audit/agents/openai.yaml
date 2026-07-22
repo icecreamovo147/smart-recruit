@@ -1,0 +1,4 @@
+interface:
+  display_name: "Knowledge Current-State Audit"
+  short_description: "Audit project knowledge drift and create three reports"
+  default_prompt: "Use $knowledge-current-state-audit to audit this project knowledge against the current repository and generate the Markdown/HTML report plus an agent-ready remediation plan."

@@ -15,6 +15,7 @@ applies_to:
   - README.md
   - start-dev.sh
   - stop-dev.sh
+  - scripts/dev-build-fingerprint.go
   - dev-log-viewer/**
   - docker/**
   - deploy/**
@@ -30,6 +31,7 @@ source_refs:
   - README.md
   - start-dev.sh
   - stop-dev.sh
+  - scripts/dev-build-fingerprint.go
   - smart-recruit-commons/cmd/migrate/main.go
   - smart-recruit-commons/cmd/time-preflight/main.go
   - smart-recruit-platform-go/businessclock/clock.go
@@ -51,7 +53,7 @@ source_refs:
   - .spec/backend-ddd-microservices-evolution/docs/backend-ddd-microservices-evolution-final-readiness-audit.json
   - scripts/backend-load-test.mjs
   - scripts/backend-final-readiness-audit.mjs
-last_verified: 2026-07-21
+last_verified: 2026-07-22
 review_after: 2026-10-08
 ---
 
@@ -74,7 +76,7 @@ Use this runbook to orient local startup and validation. Always prefer checked-i
 ## Standard Flow
 
 1. Start infrastructure from `docker/` or use `./start-dev.sh` when the script matches the task.
-2. When any backend target is selected, `start-dev.sh` builds `smart-recruit-commons/cmd/migrate`, verifies MySQL/Redis/RabbitMQ availability, and applies `smart-recruit-commons/migrations/` before starting services. Migration failure stops startup.
+2. When any backend target is selected, `start-dev.sh` prepares `smart-recruit-commons/cmd/migrate`, verifies MySQL/Redis/RabbitMQ availability, and applies `smart-recruit-commons/migrations/` before starting services. Migration failure stops startup.
 3. Start the independent backend services before `smart-recruit-gateway` because the gateway depends on generated gRPC clients. The full `./start-dev.sh` target performs this ordering automatically.
 4. Start only the frontend package needed for the task:
    - HR app: `pnpm --filter hr-frontend dev`
@@ -82,6 +84,14 @@ Use this runbook to orient local startup and validation. Always prefer checked-i
    - interviewer app: `pnpm --filter interviewer-frontend dev`
 5. Start the local log viewer only when explicitly needed with `./start-dev.sh logs` or `./start-dev.sh log-viewer`; it uses `127.0.0.1:8090`, `.dev/pids/dev-log-viewer.pid`, and `.dev/logs/dev-log-viewer.log`.
 6. Run targeted checks for touched services or apps before broad checks.
+
+## Incremental Backend Builds
+
+`start-dev.sh` stores development binaries under `.dev/bin/` and dependency-aware build fingerprints under `.dev/build-cache/`. A selected Go command is rebuilt only when its binary is missing, its command or local workspace dependency inputs changed, its Go toolchain or build environment changed, or a forced rebuild was requested. Runtime configuration files and migration SQL are not compiled inputs and therefore do not invalidate unrelated binaries.
+
+Dirty binaries are built concurrently. The default concurrency is the smallest of four, the detected logical CPU count, and the number of selected build tasks; Go package-level parallelism is divided across those jobs to avoid multiplying CPU pressure. Override the binary concurrency for a particular machine with `DEV_BUILD_JOBS=<positive-integer>`. Use `DEV_FORCE_REBUILD=1` to bypass all saved fingerprints for the selected targets. Per-binary build logs are retained under `.dev/build-logs/`.
+
+The production-tagged `dev-log-viewer` binary has a separate web-input fingerprint. Its React/Vite assets are rebuilt when the workspace lockfile, package/build configuration, or `dev-log-viewer/web/` sources change; the resulting `web/dist` files remain part of the Go binary fingerprint through `go:embed`.
 
 ## Validation Commands
 
@@ -116,4 +126,4 @@ Mark this document stale if startup scripts, frontend package commands, Docker s
 
 ## Verification
 
-Verified against `start-dev.sh`, the Commons migration command and runner, current workspace commands, Docker Compose assets, and dev-log-viewer scripts on 2026-07-19.
+Verified against `start-dev.sh`, the incremental fingerprint helper, the Commons migration command and runner, current workspace commands, Docker Compose assets, and dev-log-viewer scripts on 2026-07-22.

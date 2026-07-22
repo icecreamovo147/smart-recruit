@@ -45,16 +45,17 @@ func (h *AIHandler) Chat(c *gin.Context) {
 	}
 	contextUsage := mapHRContextUsage(resp.GetContextUsage())
 	base.From(c, resp.Code, resp.Msg, gin.H{
-		"reply":          resp.Reply,
-		"created_at":     resp.CreatedAt,
-		"action":         resp.Action,
-		"application_id": resp.ApplicationId,
-		"action_status":  resp.ActionStatus,
-		"candidate_name": resp.CandidateName,
-		"job_title":      resp.JobTitle,
-		"status":         resp.Status,
-		"session_id":     resp.SessionId,
-		"context_usage":  contextUsage,
+		"reply":               resp.Reply,
+		"created_at":          resp.CreatedAt,
+		"action":              resp.Action,
+		"application_id":      resp.ApplicationId,
+		"action_status":       resp.ActionStatus,
+		"candidate_name":      resp.CandidateName,
+		"job_title":           resp.JobTitle,
+		"status":              resp.Status,
+		"session_id":          resp.SessionId,
+		"context_usage":       contextUsage,
+		"suggested_questions": resp.GetSuggestedQuestions(),
 	})
 }
 
@@ -146,6 +147,7 @@ func (h *AIHandler) ChatStream(c *gin.Context) {
 				"session_id":            result.chunk.SessionId,
 				"created_at":            result.chunk.CreatedAt,
 				"candidate_options":     result.chunk.CandidateOptions,
+				"suggested_questions":   result.chunk.GetSuggestedQuestions(),
 				"event_type":            result.chunk.EventType,
 				"event_message":         result.chunk.EventMessage,
 				"error_type":            result.chunk.ErrorType,

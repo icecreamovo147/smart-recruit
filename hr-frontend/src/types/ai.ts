@@ -29,6 +29,8 @@ export interface ChatMessage {
   waitingText?: string
   process_content?: string
   processContent?: string
+  suggested_questions?: string[] | string
+  suggestedQuestions?: string[] | string
   context_usage?: ContextUsageInfo
   contextUsage?: ContextUsageInfo
   candidateOptions?: CandidateOption[]
@@ -123,6 +125,7 @@ export interface StreamPayload {
   agent_skill_ids?: number[]
   agent_skill_selection?: AgentSkillSelectionPayload
   context_usage?: ContextUsageInfo
+  suggested_questions?: string[]
 }
 
 export interface AgentSkillSelectionCandidate {

@@ -15,8 +15,8 @@ import (
 
 	"smart-recruit-proto/recruitment/pb"
 
-	commonsai "smart-recruit-commons/ai"
 	"smart-recruit-ai-agent-service/internal/application/contextbudget"
+	commonsai "smart-recruit-commons/ai"
 )
 
 func TestSessionMessagesPreservesAgentSkillMetadata(t *testing.T) {
@@ -865,6 +865,9 @@ func TestHRChatPersistsMessagesWithHROwnerRole(t *testing.T) {
 	if store.messages[1].Role != "assistant" || store.messages[1].Content != "hr reply" {
 		t.Fatalf("hr assistant message = %#v", store.messages[1])
 	}
+	if len(resp.GetSuggestedQuestions()) != 3 || !strings.Contains(store.messages[1].ProcessContent, `"suggested_questions"`) {
+		t.Fatalf("suggested questions response=%v process=%q, want persisted fallback", resp.GetSuggestedQuestions(), store.messages[1].ProcessContent)
+	}
 	if len(store.usageAudits) != 1 {
 		t.Fatalf("usage audits = %d, want 1", len(store.usageAudits))
 	}
@@ -873,6 +876,56 @@ func TestHRChatPersistsMessagesWithHROwnerRole(t *testing.T) {
 		audit.Endpoint != "/hr/ai/chat" || audit.PermissionKey != "ai.hr.use" || audit.Status != "ok" ||
 		audit.ResourceID != 99 || audit.RequestChars != len([]rune("hr asks")) || audit.ResponseChars != len([]rune("hr reply")) {
 		t.Fatalf("hr usage audit = %#v", audit)
+	}
+}
+
+func TestHRChatStripsAndPersistsGeneratedSuggestedQuestions(t *testing.T) {
+	store := newFakeAIStore()
+	provider := &fakeChatProvider{reply: "招聘数据结论\n" + commonsai.HRSuggestedQuestionsStartMarker + "\n[\"查看岗位详情\",\"分析投递趋势\",\"比较候选人差异\"]\n" + commonsai.HRSuggestedQuestionsEndMarker}
+	service := &nativeAIService{store: store, provider: provider}
+
+	resp, err := service.Chat(context.Background(), &pb.ChatRequest{HrId: 77, Message: "请给我一些招聘建议"})
+	if err != nil {
+		t.Fatalf("Chat returned error: %v", err)
+	}
+	if resp.GetReply() != "招聘数据结论" || strings.Contains(resp.GetReply(), "SUGGESTED_QUESTIONS") {
+		t.Fatalf("reply = %q, want clean assistant content", resp.GetReply())
+	}
+	want := []string{"查看岗位详情", "分析投递趋势", "比较候选人差异"}
+	if got := resp.GetSuggestedQuestions(); len(got) != 3 || got[0] != want[0] || got[2] != want[2] {
+		t.Fatalf("suggested questions = %v, want %v", got, want)
+	}
+	if len(store.messages) != 2 || store.messages[1].Content != "招聘数据结论" || !strings.Contains(store.messages[1].ProcessContent, `"suggested_questions":["查看岗位详情"`) {
+		t.Fatalf("persisted assistant = %#v", store.messages)
+	}
+}
+
+func TestHRSuggestedQuestionFilterHandlesSplitMarkerAndUnsafeFallback(t *testing.T) {
+	var visible strings.Builder
+	filter := newHRSuggestionStreamFilter(func(delta string) error {
+		visible.WriteString(delta)
+		return nil
+	})
+	for _, chunk := range []string{"可见回答\n<<<HR_SUG", "GESTED_QUESTIONS_JSON>>>\n[\"Q1\",\"Q2\",\"Q3\"]"} {
+		if err := filter.Write(chunk); err != nil {
+			t.Fatalf("filter.Write error: %v", err)
+		}
+	}
+	if err := filter.Finish(); err != nil {
+		t.Fatalf("filter.Finish error: %v", err)
+	}
+	if got := strings.TrimSpace(visible.String()); got != "可见回答" {
+		t.Fatalf("visible stream = %q, want clean answer", got)
+	}
+
+	fallback := []string{"安全问题一", "安全问题二", "安全问题三"}
+	unsafe := []string{"联系 13800138000", "问题二", "问题三"}
+	if got := normalizeHRSuggestedQuestions(unsafe, fallback); len(got) != 3 || got[0] != fallback[0] {
+		t.Fatalf("unsafe normalization = %v, want fallback %v", got, fallback)
+	}
+	duplicate := []string{"问题一", "问题一", "问题三"}
+	if got := normalizeHRSuggestedQuestions(duplicate, fallback); got[0] != fallback[0] {
+		t.Fatalf("duplicate normalization = %v, want fallback %v", got, fallback)
 	}
 }
 
@@ -2798,7 +2851,7 @@ type fakeAIStore struct {
 	billingCancellation  *pb.CancelAIUsageRequest
 	billingOutboxStatus  string
 	billingSettlementErr error
-	sessionSummaryByKey map[string]fakeSessionSummaryState
+	sessionSummaryByKey  map[string]fakeSessionSummaryState
 }
 
 type fakeSessionSummaryState struct {
@@ -2859,8 +2912,8 @@ func (s *fakeAIStore) GetLatestRecruitingCandidateMatchEvaluationSnapshotByAppli
 func newFakeAIStore() *fakeAIStore {
 	return &fakeAIStore{
 		nextSessionID: 100, nextMessageID: 200,
-		sessionOwners: make(map[int64]fakeChatSessionOwner),
-		promptByID:    make(map[int64]*pb.PromptTemplateInfo),
+		sessionOwners:       make(map[int64]fakeChatSessionOwner),
+		promptByID:          make(map[int64]*pb.PromptTemplateInfo),
 		sessionSummaryByKey: make(map[string]fakeSessionSummaryState),
 	}
 }
@@ -3413,6 +3466,7 @@ func TestAgentRunResultPayloadKeepsGovernanceEvidencePrivacySafe(t *testing.T) {
 		toolTraces: []ToolTraceRow{{
 			ToolName: "search_candidates", Status: "success", ResultContent: `{"candidate_name":"PRIVATE_PERSON"}`,
 		}},
+		suggestedQuestions: []string{"查看该候选人的匹配证据", "比较关键能力差异", "生成下一步面试建议"},
 	}
 	payload := agentRunResultPayload(result, "adk")
 	for _, forbidden := range []string{"PRIVATE_PROMPT_BODY", "PRIVATE_SKILL_BODY", "PRIVATE_PERSON", "PRIVATE_CANDIDATE_NAME", "PRIVATE_JOB_TITLE", "990099", "application_id", "candidate_name", "job_title"} {
@@ -3424,6 +3478,9 @@ func TestAgentRunResultPayloadKeepsGovernanceEvidencePrivacySafe(t *testing.T) {
 		if !strings.Contains(payload, required) {
 			t.Fatalf("run result payload = %s, want %s", payload, required)
 		}
+	}
+	if !strings.Contains(payload, `\"suggested_questions\":[\"查看该候选人的匹配证据\"`) {
+		t.Fatalf("run result payload = %s, want suggested questions", payload)
 	}
 }
 

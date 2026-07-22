@@ -1320,6 +1320,8 @@ onMounted(async () => {
 }
 
 .ai-suggested {
+  --ai-suggested-accent: color-mix(in srgb, var(--brand) 76%, var(--text-primary));
+  --ai-suggested-hover-accent: color-mix(in srgb, var(--brand) 64%, var(--text-primary));
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
@@ -1334,11 +1336,42 @@ onMounted(async () => {
   border: 1px solid var(--border);
   border-radius: 8px;
   background: var(--surface);
-  color: var(--brand-strong);
+  color: var(--ai-suggested-accent);
   padding: 6px 10px;
   cursor: pointer;
   font-size: 13px;
   line-height: 1.4;
+  transition:
+    transform var(--motion-fast) var(--motion-ease),
+    border-color var(--motion-fast) var(--motion-ease),
+    background-color var(--motion-fast) var(--motion-ease),
+    color var(--motion-fast) var(--motion-ease),
+    box-shadow var(--motion-fast) var(--motion-ease);
+}
+
+.ai-suggested button:hover:not(:disabled),
+.ai-suggested button:focus-visible {
+  border-color: color-mix(in srgb, var(--brand) 58%, var(--border));
+  background: color-mix(in srgb, var(--brand-soft) 72%, var(--surface));
+  color: var(--ai-suggested-hover-accent);
+  box-shadow: 0 5px 14px color-mix(in srgb, var(--brand) 16%, transparent);
+  transform: translateY(-1px);
+  outline: none;
+}
+
+.ai-suggested button:focus-visible {
+  box-shadow:
+    0 0 0 2px color-mix(in srgb, var(--brand) 24%, transparent),
+    0 5px 14px color-mix(in srgb, var(--brand) 16%, transparent);
+}
+
+.ai-suggested button:active:not(:disabled) {
+  transform: translateY(0);
+}
+
+.ai-suggested button:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
 }
 
 .ai-composer {

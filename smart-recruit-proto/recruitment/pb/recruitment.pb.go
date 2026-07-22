@@ -8584,21 +8584,22 @@ func (x *ContextUsageInfo) GetMemoryApplied() bool {
 }
 
 type ChatResponse struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Code          int32                  `protobuf:"varint,1,opt,name=code,proto3" json:"code,omitempty"`
-	Msg           string                 `protobuf:"bytes,2,opt,name=msg,proto3" json:"msg,omitempty"`
-	Reply         string                 `protobuf:"bytes,3,opt,name=reply,proto3" json:"reply,omitempty"`
-	CreatedAt     string                 `protobuf:"bytes,4,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
-	Action        string                 `protobuf:"bytes,5,opt,name=action,proto3" json:"action,omitempty"`
-	ApplicationId int64                  `protobuf:"varint,6,opt,name=application_id,json=applicationId,proto3" json:"application_id,omitempty"`
-	ActionStatus  int32                  `protobuf:"varint,7,opt,name=action_status,json=actionStatus,proto3" json:"action_status,omitempty"`
-	CandidateName string                 `protobuf:"bytes,8,opt,name=candidate_name,json=candidateName,proto3" json:"candidate_name,omitempty"`
-	JobTitle      string                 `protobuf:"bytes,9,opt,name=job_title,json=jobTitle,proto3" json:"job_title,omitempty"`
-	Status        int32                  `protobuf:"varint,10,opt,name=status,proto3" json:"status,omitempty"`
-	SessionId     int64                  `protobuf:"varint,11,opt,name=session_id,json=sessionId,proto3" json:"session_id,omitempty"`
-	ContextUsage  *ContextUsageInfo      `protobuf:"bytes,12,opt,name=context_usage,json=contextUsage,proto3" json:"context_usage,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	state              protoimpl.MessageState `protogen:"open.v1"`
+	Code               int32                  `protobuf:"varint,1,opt,name=code,proto3" json:"code,omitempty"`
+	Msg                string                 `protobuf:"bytes,2,opt,name=msg,proto3" json:"msg,omitempty"`
+	Reply              string                 `protobuf:"bytes,3,opt,name=reply,proto3" json:"reply,omitempty"`
+	CreatedAt          string                 `protobuf:"bytes,4,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
+	Action             string                 `protobuf:"bytes,5,opt,name=action,proto3" json:"action,omitempty"`
+	ApplicationId      int64                  `protobuf:"varint,6,opt,name=application_id,json=applicationId,proto3" json:"application_id,omitempty"`
+	ActionStatus       int32                  `protobuf:"varint,7,opt,name=action_status,json=actionStatus,proto3" json:"action_status,omitempty"`
+	CandidateName      string                 `protobuf:"bytes,8,opt,name=candidate_name,json=candidateName,proto3" json:"candidate_name,omitempty"`
+	JobTitle           string                 `protobuf:"bytes,9,opt,name=job_title,json=jobTitle,proto3" json:"job_title,omitempty"`
+	Status             int32                  `protobuf:"varint,10,opt,name=status,proto3" json:"status,omitempty"`
+	SessionId          int64                  `protobuf:"varint,11,opt,name=session_id,json=sessionId,proto3" json:"session_id,omitempty"`
+	ContextUsage       *ContextUsageInfo      `protobuf:"bytes,12,opt,name=context_usage,json=contextUsage,proto3" json:"context_usage,omitempty"`
+	SuggestedQuestions []string               `protobuf:"bytes,13,rep,name=suggested_questions,json=suggestedQuestions,proto3" json:"suggested_questions,omitempty"`
+	unknownFields      protoimpl.UnknownFields
+	sizeCache          protoimpl.SizeCache
 }
 
 func (x *ChatResponse) Reset() {
@@ -8711,6 +8712,13 @@ func (x *ChatResponse) GetSessionId() int64 {
 func (x *ChatResponse) GetContextUsage() *ContextUsageInfo {
 	if x != nil {
 		return x.ContextUsage
+	}
+	return nil
+}
+
+func (x *ChatResponse) GetSuggestedQuestions() []string {
+	if x != nil {
+		return x.SuggestedQuestions
 	}
 	return nil
 }
@@ -45120,7 +45128,7 @@ const file_proto_recruitment_proto_rawDesc = "" +
 	"\x15model_fallback_reason\x18\x18 \x01(\tR\x13modelFallbackReason\x122\n" +
 	"\x15capability_version_id\x18\x19 \x01(\x03R\x13capabilityVersionId\x128\n" +
 	"\x18capability_snapshot_hash\x18\x1a \x01(\tR\x16capabilitySnapshotHash\x12%\n" +
-	"\x0ememory_applied\x18\x1b \x01(\bR\rmemoryApplied\"\x8c\x03\n" +
+	"\x0ememory_applied\x18\x1b \x01(\bR\rmemoryApplied\"\xbd\x03\n" +
 	"\fChatResponse\x12\x12\n" +
 	"\x04code\x18\x01 \x01(\x05R\x04code\x12\x10\n" +
 	"\x03msg\x18\x02 \x01(\tR\x03msg\x12\x14\n" +
@@ -45136,7 +45144,8 @@ const file_proto_recruitment_proto_rawDesc = "" +
 	" \x01(\x05R\x06status\x12\x1d\n" +
 	"\n" +
 	"session_id\x18\v \x01(\x03R\tsessionId\x12B\n" +
-	"\rcontext_usage\x18\f \x01(\v2\x1d.recruitment.ContextUsageInfoR\fcontextUsage\"\x84\x05\n" +
+	"\rcontext_usage\x18\f \x01(\v2\x1d.recruitment.ContextUsageInfoR\fcontextUsage\x12/\n" +
+	"\x13suggested_questions\x18\r \x03(\tR\x12suggestedQuestions\"\x84\x05\n" +
 	"\x1cAgentSkillSelectionCandidate\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\x03R\x02id\x12\x12\n" +
 	"\x04name\x18\x02 \x01(\tR\x04name\x12!\n" +

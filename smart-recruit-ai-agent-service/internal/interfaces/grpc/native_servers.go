@@ -23,10 +23,11 @@ import (
 	"google.golang.org/protobuf/proto"
 
 	candidatetools "smart-recruit-ai-agent-service/internal/application/candidate_tools"
-	appmemory "smart-recruit-ai-agent-service/internal/application/memory"
 	"smart-recruit-ai-agent-service/internal/application/contextbudget"
 	"smart-recruit-ai-agent-service/internal/application/hr_tools"
+	appmemory "smart-recruit-ai-agent-service/internal/application/memory"
 	recruitingruntime "smart-recruit-ai-agent-service/internal/application/recruiting_intelligence"
+	domainmemory "smart-recruit-ai-agent-service/internal/domain/memory"
 	"smart-recruit-ai-agent-service/internal/domain/model"
 	"smart-recruit-ai-agent-service/internal/domain/policy"
 	mcpinfra "smart-recruit-ai-agent-service/internal/infrastructure/mcp"
@@ -990,7 +991,7 @@ func (s *nativeAIService) Chat(ctx context.Context, req *pb.ChatRequest) (*pb.Ch
 	if result.providerUnavailable && !result.fallbackUsed {
 		return &pb.ChatResponse{Code: configCodeUnavailable, Msg: errAIProviderRequired.Error(), CreatedAt: formatTime(time.Now()), SessionId: result.session.ID, ApplicationId: req.GetApplicationId(), ContextUsage: result.contextUsage}, nil
 	}
-	return &pb.ChatResponse{Code: 0, Msg: "success", Reply: result.reply, CreatedAt: formatTime(time.Now()), SessionId: result.session.ID, ApplicationId: req.GetApplicationId(), CandidateName: result.candidateName, JobTitle: result.jobTitle, Status: result.status, ContextUsage: result.contextUsage}, nil
+	return &pb.ChatResponse{Code: 0, Msg: "success", Reply: result.reply, CreatedAt: formatTime(time.Now()), SessionId: result.session.ID, ApplicationId: req.GetApplicationId(), CandidateName: result.candidateName, JobTitle: result.jobTitle, Status: result.status, ContextUsage: result.contextUsage, SuggestedQuestions: result.suggestedQuestions}, nil
 }
 
 func (s *nativeAIService) ChatStream(req *pb.ChatRequest, stream gogrpc.ServerStreamingServer[pb.ChatStreamResponse]) error {
@@ -1014,7 +1015,7 @@ func (s *nativeAIService) ChatStream(req *pb.ChatRequest, stream gogrpc.ServerSt
 	if result.providerUnavailable && !result.fallbackUsed {
 		return stream.Send(&pb.ChatStreamResponse{Code: configCodeUnavailable, Msg: errAIProviderRequired.Error(), Done: true, SessionId: result.session.ID, ApplicationId: req.GetApplicationId(), CreatedAt: formatTime(time.Now()), EventType: "error", EventMessage: errAIProviderRequired.Error(), ErrorType: "AI_PROVIDER_UNAVAILABLE", ContextUsage: result.contextUsage})
 	}
-	return stream.Send(&pb.ChatStreamResponse{Code: 0, Msg: "success", Delta: result.reply, Done: true, SessionId: result.session.ID, ApplicationId: req.GetApplicationId(), CandidateName: result.candidateName, JobTitle: result.jobTitle, Status: result.status, CreatedAt: formatTime(time.Now()), EventType: "done", EventMessage: "completed", ContextUsage: result.contextUsage})
+	return stream.Send(&pb.ChatStreamResponse{Code: 0, Msg: "success", Delta: result.reply, Done: true, SessionId: result.session.ID, ApplicationId: req.GetApplicationId(), CandidateName: result.candidateName, JobTitle: result.jobTitle, Status: result.status, CreatedAt: formatTime(time.Now()), EventType: "done", EventMessage: "completed", ContextUsage: result.contextUsage, SuggestedQuestions: result.suggestedQuestions})
 }
 
 type hrChatStreamEmitter func(*pb.ChatStreamResponse, *agentRunDisplayContext) error
@@ -1054,6 +1055,7 @@ type hrChatRuntimeResult struct {
 	providerInvoked     bool
 	fallbackUsed        bool
 	runtimeWarnings     []string
+	suggestedQuestions  []string
 }
 
 type hrRuntimeGovernanceContext struct {
@@ -1375,13 +1377,14 @@ func (s *nativeAIService) runHRChatRuntimeWithOptions(ctx context.Context, req *
 			traces = append(traces, trace)
 		}
 		var deltaBuilder strings.Builder
-		onDelta := func(delta string) error {
+		streamFilter := newHRSuggestionStreamFilter(func(delta string) error {
 			deltaBuilder.WriteString(delta)
 			if delta != "" {
 				result.streamedTextDelta = true
 			}
 			return sendWithDisplay(&pb.ChatStreamResponse{Code: 0, Msg: "success", Delta: delta, EventType: "generating", EventMessage: "streaming answer", CreatedAt: formatTime(time.Now())}, displayContextForPlanStep(plan, "compose_answer"))
-		}
+		})
+		onDelta := streamFilter.Write
 
 		var toolReply string
 		var toolMetadata commonsai.ToolMetadata
@@ -1443,6 +1446,9 @@ func (s *nativeAIService) runHRChatRuntimeWithOptions(ctx context.Context, req *
 				onTool,
 				onStatus,
 			)
+		}
+		if finishErr := streamFilter.Finish(); finishErr != nil {
+			return result, finishErr
 		}
 		result.billingTokenUsage = cloneTokenUsage(toolMetadata.BillingTokenUsage)
 		if applyToolMetadataContextUsage(result.contextUsage, toolMetadata) {
@@ -1562,6 +1568,11 @@ func (s *nativeAIService) runHRChatRuntimeWithOptions(ctx context.Context, req *
 			}
 		}
 	}
+	cleanReply, generatedQuestions := extractHRSuggestedQuestions(reply)
+	reply = cleanReply
+	if !plan.ConfirmationRequirement.Required {
+		result.suggestedQuestions = normalizeHRSuggestedQuestions(generatedQuestions, plan.SuggestedQuestions, result.candidateName, result.jobTitle)
+	}
 	result.reply = reply
 	result.toolTraces = append([]ToolTraceRow(nil), traces...)
 	result.contextUsage = s.estimateHRPostTurnContextUsage(
@@ -1576,7 +1587,7 @@ func (s *nativeAIService) runHRChatRuntimeWithOptions(ctx context.Context, req *
 		plan,
 		toolSchemas,
 	)
-	processContent := buildHRProcessContent(traces, result.contextUsage, result.fallbackUsed, governance, plan, s.hrRuntimeLabel())
+	processContent := buildHRProcessContent(traces, result.contextUsage, result.fallbackUsed, governance, plan, s.hrRuntimeLabel(), result.suggestedQuestions)
 	if s.store != nil {
 		if _, err := s.store.AppendChatMessage(ctx, ChatMessageRow{OwnerRole: ownerRoleHR, OwnerID: req.GetHrId(), SessionID: session.ID, Role: "assistant", Content: reply, ProcessContent: processContent, ModelID: result.modelID, ModelName: result.modelName, ContextUsage: result.contextUsage, AgentSkillIDs: hrRuntimeAgentSkillIDs(governance), AgentSkillNames: hrRuntimeAgentSkillNames(governance), CreatedAt: time.Now()}); err != nil {
 			return result, err
@@ -3621,7 +3632,7 @@ func extractApplicationTraceMetadata(raw string) (candidateName, jobTitle string
 	return candidateName, jobTitle, status
 }
 
-func buildHRProcessContent(traces []ToolTraceRow, usage *pb.ContextUsageInfo, fallbackUsed bool, governance hrRuntimeGovernanceContext, plan commonsai.RecruitingPlan, runtimeLabel string) string {
+func buildHRProcessContent(traces []ToolTraceRow, usage *pb.ContextUsageInfo, fallbackUsed bool, governance hrRuntimeGovernanceContext, plan commonsai.RecruitingPlan, runtimeLabel string, suggestedQuestions []string) string {
 	if strings.TrimSpace(runtimeLabel) == "" {
 		runtimeLabel = agentRuntimeADK
 	}
@@ -3635,6 +3646,9 @@ func buildHRProcessContent(traces []ToolTraceRow, usage *pb.ContextUsageInfo, fa
 	}
 	if usage != nil {
 		payload["context_usage"] = contextUsagePayload(usage)
+	}
+	if len(suggestedQuestions) > 0 {
+		payload["suggested_questions"] = append([]string(nil), suggestedQuestions...)
 	}
 	if governance.Agent != nil || governance.Prompt != nil || len(governance.SelectedAgentSkills) > 0 || governance.AgentSkillSelectionMode != "" || len(governance.GovernanceErrors) > 0 || governance.MemoryEvidence.Count > 0 {
 		governancePayload := map[string]any{
@@ -3669,8 +3683,21 @@ func buildHRProcessContent(traces []ToolTraceRow, usage *pb.ContextUsageInfo, fa
 	return marshalJSONString(payload)
 }
 
-func buildAgentRunDisplaySummary(plan commonsai.RecruitingPlan, traces []ToolTraceRow, usage *pb.ContextUsageInfo, fallbackUsed bool) []string {
+func buildAgentRunDisplaySummary(plan commonsai.RecruitingPlan, traces []ToolTraceRow, _ *pb.ContextUsageInfo, fallbackUsed bool) []string {
 	lines := make([]string, 0, len(plan.DisplaySteps)+2)
+	seenLines := make(map[string]struct{}, len(plan.DisplaySteps)+2)
+	appendLine := func(line string) {
+		line = strings.TrimSpace(line)
+		if line == "" {
+			return
+		}
+		if _, exists := seenLines[line]; exists {
+			return
+		}
+		seenLines[line] = struct{}{}
+		lines = append(lines, line)
+	}
+	appendLine("已分析问题并确定所需招聘数据。")
 	traceByTool := make(map[string]ToolTraceRow, len(traces))
 	for _, trace := range traces {
 		if strings.TrimSpace(trace.ToolName) != "" {
@@ -3700,23 +3727,25 @@ func buildAgentRunDisplaySummary(plan commonsai.RecruitingPlan, traces []ToolTra
 		}
 		switch {
 		case success:
-			lines = append(lines, "已完成："+step.Purpose+"。")
+			appendLine("已完成：" + step.Purpose + "。")
 		case failed:
-			lines = append(lines, step.Purpose+"暂时没有完全完成，我已继续使用其他可用数据推进。")
+			appendLine(step.Purpose + "暂时没有完全完成，已继续使用其他可用数据推进。")
 		case attempted:
-			lines = append(lines, "已尝试："+step.Purpose+"。")
+			appendLine("已尝试：" + step.Purpose + "。")
 		}
 	}
-	if usage != nil {
-		lines = append(lines, "我已确认上下文容量，准备整理工具结果并生成回复。")
-	}
 	if fallbackUsed {
-		lines = append(lines, "模型调用异常时，我已使用保守兜底逻辑避免编造数据。")
+		appendLine("部分数据暂时不足，已使用可用信息保守作答。")
 	}
-	if len(lines) == 0 && len(traces) > 0 {
-		lines = append(lines, "我已读取实时招聘数据，并基于工具结果生成回复。")
+	if len(lines) == 1 && len(traces) > 0 {
+		appendLine("已查询实时招聘数据并获取回答所需信息。")
 	}
+	appendLine("已整理查询结果并生成回复。")
 	return lines
+}
+
+func buildAgentRunProcessSnapshot(plan commonsai.RecruitingPlan, traces []ToolTraceRow, usage *pb.ContextUsageInfo, fallbackUsed bool) string {
+	return strings.Join(buildAgentRunDisplaySummary(plan, traces, usage, fallbackUsed), "\n")
 }
 
 func hrRuntimeAgentSkillEvidence(skills []hrRuntimeAgentSkill) []map[string]any {
@@ -4308,6 +4337,112 @@ func extractCandidateSuggestedQuestions(reply string) (string, []string) {
 		}
 	}
 	return cleanReply, parseCandidateSuggestedQuestionsJSON(jsonText)
+}
+
+func extractHRSuggestedQuestions(reply string) (string, []string) {
+	raw := strings.TrimSpace(reply)
+	start := strings.Index(raw, commonsai.HRSuggestedQuestionsStartMarker)
+	if start < 0 {
+		return raw, nil
+	}
+	cleanReply := strings.TrimSpace(raw[:start])
+	rest := raw[start+len(commonsai.HRSuggestedQuestionsStartMarker):]
+	jsonText := rest
+	if end := strings.Index(rest, commonsai.HRSuggestedQuestionsEndMarker); end >= 0 {
+		jsonText = rest[:end]
+		after := strings.TrimSpace(rest[end+len(commonsai.HRSuggestedQuestionsEndMarker):])
+		if after != "" {
+			cleanReply = strings.TrimSpace(cleanReply + "\n\n" + after)
+		}
+	}
+	return cleanReply, parseHRSuggestedQuestionsJSON(jsonText)
+}
+
+func parseHRSuggestedQuestionsJSON(content string) []string {
+	var values []string
+	if err := json.Unmarshal([]byte(strings.TrimSpace(content)), &values); err != nil {
+		return nil
+	}
+	if len(values) != 3 {
+		return nil
+	}
+	return values
+}
+
+func normalizeHRSuggestedQuestions(values, fallback []string, forbidden ...string) []string {
+	normalized := make([]string, 0, 3)
+	seen := make(map[string]struct{}, 3)
+	for _, value := range values {
+		question := strings.TrimSpace(value)
+		key := strings.ToLower(question)
+		if question == "" || len([]rune(question)) > 60 {
+			return append([]string(nil), fallback...)
+		}
+		if _, ok := seen[key]; ok {
+			return append([]string(nil), fallback...)
+		}
+		if domainmemory.ClassifyPIILevel(question) == domainmemory.PIILevelHigh {
+			return append([]string(nil), fallback...)
+		}
+		for _, blocked := range forbidden {
+			blocked = strings.TrimSpace(blocked)
+			if blocked != "" && strings.Contains(strings.ToLower(question), strings.ToLower(blocked)) {
+				return append([]string(nil), fallback...)
+			}
+		}
+		seen[key] = struct{}{}
+		normalized = append(normalized, question)
+	}
+	if len(normalized) != 3 {
+		return append([]string(nil), fallback...)
+	}
+	return normalized
+}
+
+// hrSuggestionStreamFilter suppresses the model-only suggested-question block
+// from user-visible streaming deltas, including when a marker spans chunks.
+type hrSuggestionStreamFilter struct {
+	onDelta     func(string) error
+	buffer      string
+	suppressing bool
+}
+
+func newHRSuggestionStreamFilter(onDelta func(string) error) *hrSuggestionStreamFilter {
+	return &hrSuggestionStreamFilter{onDelta: onDelta}
+}
+
+func (f *hrSuggestionStreamFilter) Write(delta string) error {
+	if delta == "" || f.onDelta == nil || f.suppressing {
+		return nil
+	}
+	f.buffer += delta
+	if markerIndex := strings.Index(f.buffer, commonsai.HRSuggestedQuestionsStartMarker); markerIndex >= 0 {
+		visible := f.buffer[:markerIndex]
+		f.buffer = ""
+		f.suppressing = true
+		if visible != "" {
+			return f.onDelta(visible)
+		}
+		return nil
+	}
+	keep := longestSuffixMatchingPrefix(f.buffer, commonsai.HRSuggestedQuestionsStartMarker)
+	flushLen := len(f.buffer) - keep
+	if flushLen <= 0 {
+		return nil
+	}
+	visible := f.buffer[:flushLen]
+	f.buffer = f.buffer[flushLen:]
+	return f.onDelta(visible)
+}
+
+func (f *hrSuggestionStreamFilter) Finish() error {
+	if f.onDelta == nil || f.suppressing || f.buffer == "" {
+		f.buffer = ""
+		return nil
+	}
+	visible := f.buffer
+	f.buffer = ""
+	return f.onDelta(visible)
 }
 
 func parseCandidateSuggestedQuestionsJSON(content string) []string {
@@ -5175,6 +5310,13 @@ func (s *nativeAIService) finishAgentRunSucceeded(ctx context.Context, run Agent
 			return err
 		}
 	}
+	processSnapshot := buildAgentRunProcessSnapshot(result.plan, result.toolTraces, result.contextUsage, result.fallbackUsed)
+	if _, err := s.appendAgentRunEvent(storeCtx, run.ID, "process.snapshot", marshalJSONString(map[string]any{
+		"status":        agentRunStatusRunning,
+		"snapshot_text": processSnapshot,
+	})); err != nil {
+		return err
+	}
 	if _, err := s.appendAgentRunEvent(storeCtx, run.ID, "run.result", agentRunResultPayload(result, s.hrRuntimeLabel())); err != nil {
 		return err
 	}
@@ -5205,15 +5347,7 @@ func (s *nativeAIService) finishAgentRunFailed(ctx context.Context, run AgentRun
 	if isTerminalAgentRunStatus(current.Status) {
 		return nil
 	}
-	errorType := "provider"
-	errorMessage := runErr.Error()
-	if errors.Is(runErr, context.DeadlineExceeded) {
-		errorType = "timeout"
-		errorMessage = "agent run execution timed out"
-	} else if contextCode := hrContextErrorCode(runErr); contextCode != "" {
-		errorType = contextCode
-		errorMessage = contextCode
-	}
+	errorType, errorMessage := agentRunFailureDetails(runErr, "provider")
 	if _, eventErr := s.appendAgentRunEvent(storeCtx, run.ID, "run.error", fmt.Sprintf(`{"status":%q,"error_type":%q,"error_message":%q}`, agentRunStatusFailed, errorType, errorMessage)); eventErr != nil {
 		return eventErr
 	}
@@ -5266,6 +5400,27 @@ func agentRunExecutionTimedOut(ctx context.Context, err error) bool {
 	return errors.Is(err, context.DeadlineExceeded) || (ctx != nil && errors.Is(ctx.Err(), context.DeadlineExceeded))
 }
 
+const insufficientCreditsUserMessage = "AI 套餐额度不足，请购买套餐或加量包后重试"
+
+func agentRunFailureDetails(runErr error, defaultType string) (string, string) {
+	if strings.TrimSpace(defaultType) == "" {
+		defaultType = "runtime"
+	}
+	if runErr == nil {
+		return defaultType, "agent run execution failed"
+	}
+	if errors.Is(runErr, context.DeadlineExceeded) {
+		return "timeout", "agent run execution timed out"
+	}
+	if contextCode := hrContextErrorCode(runErr); contextCode != "" {
+		return contextCode, contextCode
+	}
+	if strings.Contains(strings.ToLower(runErr.Error()), "insufficient_credits") {
+		return "insufficient_credits", insufficientCreditsUserMessage
+	}
+	return defaultType, runErr.Error()
+}
+
 func (s *nativeAIService) ensureAgentRunTerminal(run AgentRunRow, runErr error) error {
 	if s == nil || s.store == nil || run.ID <= 0 {
 		return runErr
@@ -5275,15 +5430,7 @@ func (s *nativeAIService) ensureAgentRunTerminal(run AgentRunRow, runErr error) 
 	if err != nil || !found || isTerminalAgentRunStatus(current.Status) {
 		return err
 	}
-	errorType := "runtime"
-	errorMessage := "agent run execution failed"
-	if runErr != nil {
-		errorMessage = runErr.Error()
-	}
-	if errors.Is(runErr, context.DeadlineExceeded) {
-		errorType = "timeout"
-		errorMessage = "agent run execution timed out"
-	}
+	errorType, errorMessage := agentRunFailureDetails(runErr, "runtime")
 	completed, found, err := s.store.CompleteAgentRun(storeCtx, current.OwnerID, current.ID, current.AssistantText, agentRunStatusFailed, errorType, errorMessage)
 	if err != nil {
 		return err
@@ -5296,15 +5443,26 @@ func (s *nativeAIService) ensureAgentRunTerminal(run AgentRunRow, runErr error) 
 }
 
 func (s *nativeAIService) agentRunChatEmitter(runID int64) hrChatStreamEmitter {
+	processDisplay := newAgentRunProcessDisplayState()
+	var emitMu sync.Mutex
 	return func(event *pb.ChatStreamResponse, display *agentRunDisplayContext) error {
+		// Runtime callbacks may arrive concurrently. Keep snapshot mutation and the
+		// corresponding durable event append in one critical section so a stale
+		// snapshot cannot be persisted after a newer one.
+		emitMu.Lock()
+		defer emitMu.Unlock()
 		if event == nil {
 			return nil
 		}
 		eventType := agentRunEventTypeFromChatEvent(event)
+		eventMessage := event.GetEventMessage()
+		if event.GetEventType() == "process_delta" || event.GetEventType() == "process_clear" {
+			eventMessage = ""
+		}
 		payload := map[string]any{
 			"status":        agentRunStatusRunning,
 			"source_event":  event.GetEventType(),
-			"event_message": event.GetEventMessage(),
+			"event_message": eventMessage,
 		}
 		if display != nil {
 			if display.StepKey != "" {
@@ -5323,8 +5481,15 @@ func (s *nativeAIService) agentRunChatEmitter(runID int64) hrChatStreamEmitter {
 			if display == nil || display.StepPurpose == "" {
 				payload["display_source"] = "runtime_fallback"
 			}
+			if key := agentRunProcessDisplayKey(eventType, event, display); key != "" {
+				if eventType == "tool.started" || eventType == "tool.finished" {
+					processDisplay.upsert("planning", "已分析问题并确定所需招聘数据。")
+				}
+				processDisplay.upsert(key, displayMessage)
+				payload["snapshot_text"] = processDisplay.snapshot()
+			}
 		}
-		if event.GetDelta() != "" {
+		if event.GetDelta() != "" && eventType == "assistant.delta" {
 			payload["delta"] = event.GetDelta()
 		}
 		if event.GetToolName() != "" {
@@ -5408,25 +5573,84 @@ func agentRunDisplayMessage(eventType string, event *pb.ChatStreamResponse, disp
 	case "process.delta":
 		switch event.GetEventType() {
 		case "context_usage":
-			if purpose != "" {
-				return "我已确认上下文容量，准备" + purpose + "。"
-			}
-			return "我已确认上下文容量，准备整理工具结果。"
+			return ""
 		case "thinking":
-			return "我正在判断问题意图，并规划需要读取哪些招聘数据。"
+			return "正在分析问题并确定所需招聘数据。"
 		case "fallback":
-			return "实时证据不足以可靠回答，我会避免编造数据。"
+			return "部分数据暂时不足，正在使用可用信息保守作答。"
 		case "generating":
-			if purpose != "" {
-				return "我正在" + purpose + "。"
-			}
-			return "我正在整理已获取的数据。"
+			return "正在整理查询结果并生成回复。"
 		}
 	case "run.error":
 		if purpose != "" {
 			return purpose + "过程中出现异常。"
 		}
 		return "执行过程中出现异常。"
+	}
+	return ""
+}
+
+type agentRunProcessDisplayState struct {
+	mu    sync.RWMutex
+	order []string
+	lines map[string]string
+}
+
+func newAgentRunProcessDisplayState() *agentRunProcessDisplayState {
+	return &agentRunProcessDisplayState{lines: make(map[string]string)}
+}
+
+func (s *agentRunProcessDisplayState) upsert(key, line string) {
+	if s == nil {
+		return
+	}
+	key = strings.TrimSpace(key)
+	line = strings.TrimSpace(line)
+	if key == "" || line == "" {
+		return
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if _, exists := s.lines[key]; !exists {
+		s.order = append(s.order, key)
+	}
+	s.lines[key] = line
+}
+
+func (s *agentRunProcessDisplayState) snapshot() string {
+	if s == nil {
+		return ""
+	}
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	lines := make([]string, 0, len(s.order))
+	seen := make(map[string]struct{}, len(s.order))
+	for _, key := range s.order {
+		if line := strings.TrimSpace(s.lines[key]); line != "" {
+			if _, exists := seen[line]; exists {
+				continue
+			}
+			seen[line] = struct{}{}
+			lines = append(lines, line)
+		}
+	}
+	return strings.Join(lines, "\n")
+}
+
+func agentRunProcessDisplayKey(eventType string, event *pb.ChatStreamResponse, display *agentRunDisplayContext) string {
+	if display != nil && strings.TrimSpace(display.StepKey) != "" && (eventType == "tool.started" || eventType == "tool.finished") {
+		return "step:" + strings.TrimSpace(display.StepKey)
+	}
+	switch event.GetEventType() {
+	case "thinking":
+		return "planning"
+	case "generating":
+		return "compose"
+	case "fallback":
+		return "fallback"
+	}
+	if toolName := strings.TrimSpace(event.GetToolName()); toolName != "" && (eventType == "tool.started" || eventType == "tool.finished") {
+		return "tool:" + hr_tools.NormalizeToolName(toolName)
 	}
 	return ""
 }
@@ -5456,9 +5680,10 @@ func agentRunResultPayload(result hrChatRuntimeResult, runtimeLabel string) stri
 	payload := map[string]any{
 		"status": agentRunStatusSucceeded,
 		"result_metadata": map[string]any{
-			"status":        result.status,
-			"context_usage": contextUsagePayload(result.contextUsage),
-			"raw_json":      buildHRProcessContent(result.toolTraces, result.contextUsage, result.fallbackUsed, result.governance, result.plan, runtimeLabel),
+			"status":              result.status,
+			"suggested_questions": append([]string(nil), result.suggestedQuestions...),
+			"context_usage":       contextUsagePayload(result.contextUsage),
+			"raw_json":            buildHRProcessContent(result.toolTraces, result.contextUsage, result.fallbackUsed, result.governance, result.plan, runtimeLabel, result.suggestedQuestions),
 		},
 	}
 	return marshalJSONString(payload)

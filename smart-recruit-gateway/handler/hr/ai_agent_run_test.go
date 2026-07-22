@@ -617,8 +617,14 @@ func TestHRContextUsageMappingCoversBudgetFieldsForAllTransports(t *testing.T) {
 	if !ok || breakdown["tool_schema_tokens"] != int32(33) || breakdown["protocol_overhead_tokens"] != int32(38) {
 		t.Fatalf("breakdown mapping incomplete: %#v", mapped["breakdown"])
 	}
-	metadata := agentRunResultMetadataPayload(&pb.AgentRunResultMetadata{ContextUsage: usage})
+	metadata := agentRunResultMetadataPayload(&pb.AgentRunResultMetadata{
+		ContextUsage:       usage,
+		SuggestedQuestions: []string{"查看岗位详情", "分析投递趋势", "比较候选人差异"},
+	})
 	if got, ok := metadata["context_usage"].(map[string]any); !ok || got["input_budget_tokens"] != int32(6758) {
 		t.Fatalf("agent-run metadata context mapping incomplete: %#v", metadata)
+	}
+	if got, ok := metadata["suggested_questions"].([]string); !ok || len(got) != 3 || got[0] != "查看岗位详情" {
+		t.Fatalf("agent-run suggested questions mapping incomplete: %#v", metadata)
 	}
 }

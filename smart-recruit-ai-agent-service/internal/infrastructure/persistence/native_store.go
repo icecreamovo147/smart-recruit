@@ -644,7 +644,14 @@ func (s *NativeStore) AppendAgentRunEvent(ctx context.Context, runID int64, even
 		if err := tx.Create(&event).Error; err != nil {
 			return err
 		}
-		return tx.Model(&agentRunRecord{}).Where("id = ?", runID).Updates(map[string]any{"last_event_seq": event.Seq, "updated_at": time.Now()}).Error
+		updates := map[string]any{"last_event_seq": event.Seq, "updated_at": time.Now()}
+		var snapshotPayload struct {
+			SnapshotText *string `json:"snapshot_text"`
+		}
+		if json.Unmarshal([]byte(event.PayloadJSON), &snapshotPayload) == nil && snapshotPayload.SnapshotText != nil {
+			updates["process_text"] = *snapshotPayload.SnapshotText
+		}
+		return tx.Model(&agentRunRecord{}).Where("id = ?", runID).Updates(updates).Error
 	})
 	if err != nil {
 		return aiagentgrpc.AgentRunEventRow{}, err

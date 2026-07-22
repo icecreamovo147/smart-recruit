@@ -360,6 +360,44 @@ func TestRecruitingPlannerUnknownWithNoToolsFallsBackSafely(t *testing.T) {
 	}
 }
 
+func TestRecruitingPlannerProvidesSafeSuggestedQuestionFallbacks(t *testing.T) {
+	intents := []string{
+		IntentGeneralChat,
+		IntentCandidateMatchEvaluation,
+		IntentCandidateComparison,
+		IntentCandidateLookup,
+		IntentApplicationListing,
+		IntentAnalytics,
+		IntentJobListing,
+		IntentJobDetail,
+		IntentInterviewPrep,
+		IntentGreeting,
+		IntentUnknown,
+	}
+	for _, intent := range intents {
+		questions := recruitingSuggestedQuestions(intent)
+		if len(questions) != 3 {
+			t.Fatalf("intent %s suggested questions = %v, want exactly 3", intent, questions)
+		}
+		seen := map[string]bool{}
+		for _, question := range questions {
+			if strings.TrimSpace(question) == "" || seen[question] {
+				t.Fatalf("intent %s suggested questions = %v, want unique non-empty values", intent, questions)
+			}
+			seen[question] = true
+		}
+	}
+
+	plan := NewRecruitingPlanner().Plan(RecruitingPlannerInput{Message: "你好"})
+	if len(plan.SuggestedQuestions) != 3 || !strings.Contains(plan.InstructionBlock(), HRSuggestedQuestionsStartMarker) {
+		t.Fatalf("greeting plan = %#v, want suggestions and marker instruction", plan)
+	}
+	confirmationPlan := NewRecruitingPlanner().Plan(RecruitingPlannerInput{Message: "通过这个候选人"})
+	if !confirmationPlan.ConfirmationRequirement.Required || len(confirmationPlan.SuggestedQuestions) != 0 || strings.Contains(confirmationPlan.InstructionBlock(), HRSuggestedQuestionsStartMarker) {
+		t.Fatalf("confirmation plan = %#v, want no suggested questions", confirmationPlan)
+	}
+}
+
 func assertPlanJSON(t *testing.T, plan RecruitingPlan) {
 	t.Helper()
 	var decoded RecruitingPlan
